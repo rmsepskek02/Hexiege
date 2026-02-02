@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:assetstore.unity.com)",
+      "WebFetch(domain:itch.io)",
+      "WebFetch(domain:pzuh.itch.io)",
+      "WebFetch(domain:aviala.itch.io)",
+      "WebFetch(domain:opengameart.org)",
+      "WebFetch(domain:craftpix.net)",
+      "WebFetch(domain:free-game-assets.itch.io)",
+      "WebFetch(domain:kenney.nl)",
+      "Bash(powershell -Command:*)"
+    ]
+  }
+}
