@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d04408b20c4301f49a05f10cdd129d50, type: 3}
+  m_Name: PitsoleerAnimData
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.UnitAnimationData
+  IdleNE:
+  - {fileID: 21300000, guid: e784d6a4b42a807449a86571be24a4ed, type: 3}
+  IdleE:
+  - {fileID: 21300000, guid: fee2f15e2fe8bde4bbe46bb2819588ea, type: 3}
+  IdleSE:
+  - {fileID: 21300000, guid: 0d00f3d87603fc144a89c59c3d6cc59a, type: 3}
+  WalkNE:
+  - {fileID: 21300000, guid: e784d6a4b42a807449a86571be24a4ed, type: 3}
+  - {fileID: 21300000, guid: b94319b3d46eec04f9cef7b6aa02faab, type: 3}
+  WalkE:
+  - {fileID: 21300000, guid: 9f34e043595848c4ebc7b533785785da, type: 3}
+  - {fileID: 21300000, guid: 50928665c8b1e074393b9cfe44ac1163, type: 3}
+  WalkSE:
+  - {fileID: 21300000, guid: 0d00f3d87603fc144a89c59c3d6cc59a, type: 3}
+  - {fileID: 21300000, guid: b403c4e4167f5364aae3a2b05d519660, type: 3}
+  AttackNE:
+  - {fileID: 21300000, guid: ca7a62b79f96f1448a6cdfff8f01c2ed, type: 3}
+  - {fileID: 21300000, guid: b8e6205c9247f0544b7c0da9bc0ea121, type: 3}
+  AttackE:
+  - {fileID: 21300000, guid: c5109beef14938642bcf2e6fbc7c19f2, type: 3}
+  - {fileID: 21300000, guid: 3f023ff021ccffa43ad2bc9af24b24c3, type: 3}
+  AttackSE:
+  - {fileID: 21300000, guid: 1521ccd3aaae59f45ab25d2ced9e275e, type: 3}
+  - {fileID: 21300000, guid: 0491022f011dde04e9e1626a4cc3d603, type: 3}

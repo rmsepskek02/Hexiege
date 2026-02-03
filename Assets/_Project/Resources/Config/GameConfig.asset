@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b189fb9f5b07ffe4ca638fe720529b99, type: 3}
+  m_Name: GameConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.GameConfig
+  GridWidth: 7
+  GridHeight: 30
+  TileWidth: 0.866
+  TileHeight: 0.4
+  NeutralColor: {r: 0.69803923, g: 0.69803923, b: 0.69803923, a: 1}
+  BlueTeamColor: {r: 0.3019608, g: 0.5019608, b: 0.9019608, a: 1}
+  RedTeamColor: {r: 0.9019608, g: 0.3019608, b: 0.3019608, a: 1}
+  SelectedTint: {r: 1, g: 1, b: 0.5019608, a: 1}
+  UnitMoveSeconds: 0.3
+  UnitYOffset: 0.15
+  AnimationFps: 6
+  CameraZoomMin: 2
+  CameraZoomMax: 7
+  CameraZoomDefault: 5
+  CameraZoomSpeed: 2
+  CameraPanSpeed: 1

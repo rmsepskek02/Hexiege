@@ -9,7 +9,9 @@
       "WebFetch(domain:craftpix.net)",
       "WebFetch(domain:free-game-assets.itch.io)",
       "WebFetch(domain:kenney.nl)",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(dir:*)",
+      "Bash(python -c:*)"
     ]
   }
 }

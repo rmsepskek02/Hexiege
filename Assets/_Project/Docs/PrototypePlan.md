@@ -1,7 +1,7 @@
 # Hexiege - 클라이언트 프로토타입 구현 계획서
 
-**버전:** 0.1.0
-**최종 수정일:** 2026-02-01
+**버전:** 0.2.0
+**최종 수정일:** 2026-02-02
 **작성자:** HANYONGHEE
 
 ---
@@ -186,24 +186,30 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 
 ### 에셋 파일
 
+스프라이트는 Gemini AI로 생성 완료됨. 상세 목록은 `AssetProductionGuide.md` 참고.
+
 | 경로 | 용도 |
 |------|------|
-| `Sprites/Placeholder/` | 플레이스홀더 헥스 타일 + 유닛 스프라이트 |
-| `Sprites/AI_Generated/Pistoleer/` | DeeVid AI 생성 스프라이트 저장소 |
+| `Sprites/Tiles/tile_hex.png` | 헥스 타일 스프라이트 (3/4뷰) |
+| `Sprites/Units/Pistoleer/` | 권총병 스프라이트 (Idle/Walk/Attack, 3방향) |
+| `Sprites/Buildings/` | 건물 + 맵 오브젝트 스프라이트 |
+| `Sprites/UI/` | UI 스프라이트 (Buttons/Panels/Bars/Icons/Slots) |
 | `Prefabs/HexTile.prefab` | 타일 프리팹 (SpriteRenderer + Collider + HexTileView) |
 | `Prefabs/Unit_Pistoleer.prefab` | 유닛 프리팹 (SpriteRenderer + UnitView + FrameAnimator) |
 | `Resources/Config/GameConfig.asset` | 전역 설정 인스턴스 |
 | `Resources/Config/PistoleerAnimData.asset` | 권총병 애니메이션 데이터 인스턴스 |
 
-**총 파일 수:** 스크립트 26개 + 에셋 6개
+**총 파일 수:** 스크립트 26개 + 프리팹/SO 4개 + 스프라이트 31개 (제작 완료)
 
 ---
 
 ## 📐 구현 순서
 
-### Phase 1: 프로젝트 정리
-- `NewMonoBehaviourScript.cs` 삭제
-- 위 폴더 구조 생성
+### Phase 1: 프로젝트 정리 ✅ 완료
+- [x] 스크립트 폴더 구조 생성 (Domain, Application, Infrastructure, Presentation, Bootstrap)
+- [x] 스프라이트 폴더 구조 생성 및 에셋 정리 (AssetProductionGuide.md 참고)
+- [x] 에셋 명명 규칙 확정 및 전체 파일 리네임 완료
+- [ ] `NewMonoBehaviourScript.cs` 삭제 (Phase 2 시작 시 처리)
 
 ### Phase 2: Domain 레이어
 1. `TeamId.cs` - 팀 열거형
@@ -247,10 +253,12 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 1. `GameBootstrapper.cs` - 진입점
 2. `DebugUI.cs` - 디버그
 
-### Phase 10: 플레이스홀더 에셋
-- 헥스 타일 스프라이트 (128×96px 흰색 육각형)
-- 유닛 스프라이트 (64×96px 방향 표시 캡슐)
-- 프리팹 생성 + ScriptableObject 인스턴스 생성
+### Phase 10: 프리팹 + ScriptableObject 생성
+- Gemini 스프라이트가 이미 제작 완료되어 플레이스홀더 불필요
+- `Prefabs/HexTile.prefab` 생성 (SpriteRenderer + PolygonCollider2D + HexTileView)
+- `Prefabs/Unit_Pistoleer.prefab` 생성 (SpriteRenderer + UnitView + FrameAnimator)
+- `Resources/Config/GameConfig.asset` 생성 (전역 설정)
+- `Resources/Config/PistoleerAnimData.asset` 생성 (실제 스프라이트 연결)
 
 ### Phase 11: 통합 테스트
 - 3가지 목표 검증 (아래 검증 계획 참고)
@@ -259,19 +267,20 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 
 ## 🎨 에셋 전략
 
-### 플레이스홀더 에셋
+### 스프라이트 현황
 
-기술 검증용 임시 에셋. AI 스프라이트 완성 전까지 사용.
+Google Gemini로 프로토타입용 스프라이트 전체 제작 완료. 플레이스홀더 불필요.
+상세 목록 및 명명 규칙은 `AssetProductionGuide.md` 참고.
 
-**헥스 타일:**
-- 128×96px PNG (가로가 넓은 3/4뷰 육각형)
-- 흰색 채우기 → `SpriteRenderer.color`로 팀 색상 적용
-- PPU(Pixels Per Unit): 128
+**헥스 타일:** `Sprites/Tiles/tile_hex.png`
+- 3/4뷰 육각형, `SpriteRenderer.color`로 팀 색상 적용
+- PPU(Pixels Per Unit): 스프라이트 해상도에 맞춰 조정
 
-**유닛 스프라이트:**
-- 64×96px PNG, 방향별 3장 (NE, E, SE)
-- 화살표로 방향 표시된 캡슐 형태
-- PPU: 64
+**유닛 스프라이트:** `Sprites/Units/Pistoleer/`
+- 3방향 (NE, E, SE) × 3상태 (Idle, Walk, Attack)
+- Idle: 방향당 1프레임, Walk E: 2프레임, 나머지 Walk: 1프레임, Attack: 방향당 2프레임
+- NW/W/SW는 flipX 반전으로 처리
+- 파일명: `pistoleer_{동작}_{방향}_{프레임번호}.png`
 
 ### 팀 색상
 
@@ -284,60 +293,46 @@ Selected: 기존 색상 × RGB(255, 255, 128) - 노란 틴트
 
 ---
 
-## 🔄 AI 스프라이트 통합 방법
+## 🔄 스프라이트 통합 방법
 
-DeeVid AI로 생성한 스프라이트를 프로젝트에 적용하는 절차:
+Gemini AI로 생성한 스프라이트는 이미 프로젝트에 배치 완료. 코드 작성 후 ScriptableObject에 연결만 하면 됨.
 
-### Step 1: 스프라이트 파일 배치
+### 현재 스프라이트 구조
 
 ```
-Sprites/AI_Generated/Pistoleer/
-├── idle_NE_01.png
-├── idle_E_01.png
-├── idle_SE_01.png
-├── walk_NE_01.png
-├── walk_NE_02.png
-├── walk_E_01.png
-├── walk_E_02.png
-├── walk_SE_01.png
-├── walk_SE_02.png
-├── attack_NE_01.png
-├── attack_NE_02.png
-├── attack_E_01.png
-├── attack_E_02.png
-├── attack_SE_01.png
-├── attack_SE_02.png
-├── death_NE_01.png
-├── death_E_01.png
-└── death_SE_01.png
+Sprites/Units/Pistoleer/
+├── Idle/
+│   ├── pistoleer_idle_ne_01.png
+│   ├── pistoleer_idle_e_01.png
+│   └── pistoleer_idle_se_01.png
+├── Walk/
+│   ├── pistoleer_walk_ne_01.png
+│   ├── pistoleer_walk_e_01.png
+│   ├── pistoleer_walk_e_02.png
+│   └── pistoleer_walk_se_01.png
+├── Attack/
+│   ├── pistoleer_attack_ne_01.png
+│   ├── pistoleer_attack_ne_02.png
+│   ├── pistoleer_attack_e_01.png
+│   ├── pistoleer_attack_e_02.png
+│   ├── pistoleer_attack_se_01.png
+│   └── pistoleer_attack_se_02.png
+└── pistoleer_portrait.png
 ```
 
-**파일명 규칙:** `{동작}_{방향}_{프레임번호}.png`
+**파일명 규칙:** `pistoleer_{동작}_{방향}_{프레임번호}.png` (snake_case, 소문자)
 
-### Step 2: Unity Import 설정
+### Unity Import 설정
 - Texture Type: Sprite (2D and UI)
 - Sprite Mode: Single
-- Pixels Per Unit: 아트 해상도에 맞춰 조정 (128 또는 256)
+- Pixels Per Unit: 스프라이트 해상도에 맞춰 조정
 - Filter Mode: Bilinear (카툰 스타일)
 - Compression: None (프로토타입)
 
-### Step 3: ScriptableObject에 연결
+### ScriptableObject 연결 (Phase 10에서 수행)
 1. `PistoleerAnimData` ScriptableObject를 Inspector에서 열기
-2. 각 방향/상태 배열에 스프라이트 드래그 앤 드롭
+2. 각 방향/상태 배열에 위 스프라이트 드래그 앤 드롭
 3. 코드 변경 불필요
-
-### Step 4: 검증
-- Play 모드 진입
-- 유닛이 새 스프라이트로 표시되는지 확인
-- 타일 클릭하여 이동 시 방향 전환 확인
-- flipX 반전이 자연스러운지 확인
-
-### 기존 DeeVid 생성물 매핑
-
-| DeeVid 결과물 | 방향 매핑 |
-|-------------|----------|
-| 뒷모습 (첫 번째 생성) | NE (↗ 오른쪽 위) |
-| 앞모습 (세 번째 생성) | SE (↘ 오른쪽 아래) → flipX하면 SW |
 
 ---
 
@@ -348,7 +343,7 @@ Sprites/AI_Generated/Pistoleer/
 | 항목 | 내용 |
 |------|------|
 | 헥스 그리드 | 11×17 타일 생성 + 색상 + 선택 |
-| 유닛 | 권총병 1종, idle/walk/attack/death 애니메이션 |
+| 유닛 | 권총병 1종, idle/walk/attack 애니메이션 (death는 프로토타입 범위 외) |
 | 이동 | A* 경로탐색, 타일별 이동, 방향 전환 |
 | 타일 점령 | 유닛 이동 시 타일 색상 변경 |
 | 카메라 | 팬(드래그) + 줌(스크롤/핀치) |
@@ -379,12 +374,12 @@ Sprites/AI_Generated/Pistoleer/
 - [ ] 상태 전환 (idle → walk → idle)이 즉시 반영
 - [ ] flipX 반전 시 피벗 포인트가 정확 (중심 기준)
 - [ ] AI 생성 스프라이트가 헥스 타일 대비 적절한 크기
-- [ ] 24개 조합 확인 (6방향 × 4상태)
+- [ ] 18개 조합 확인 (6방향 × 3상태: idle/walk/attack)
 
 **통과 기준:**
-- 플레이스홀더 애니메이션이 시각적으로 정상 동작
-- AI 스프라이트를 ScriptableObject에 넣으면 즉시 반영
-- walk 2프레임이 "걷는 느낌"을 전달
+- Gemini 스프라이트 애니메이션이 시각적으로 정상 동작
+- ScriptableObject 스프라이트 교체 시 즉시 반영
+- walk 2프레임이 "걷는 느낌"을 전달 (E방향 기준)
 
 ### 목표 2: 헥사 타일 시스템
 
@@ -470,6 +465,7 @@ SampleScene
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.2.0 | 2026-02-02 | Gemini 스프라이트 완료 반영, 에셋 경로/명명 규칙 현행화, 플레이스홀더 전략 제거, death 애니메이션 프로토타입 범위 외 처리 |
 | 0.1.0 | 2026-02-01 | 초기 문서 작성 |
 
 ---
