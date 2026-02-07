@@ -683,7 +683,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8aca55ca17ebab04c8aacc3e916527b8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.HexGridRenderer
-  _tilePrefab: {fileID: 4461762085389953123, guid: 185bf49f465442843bb4ce1f1ef56c78, type: 3}
+  _pointyTopTilePrefab: {fileID: 4461762085389953123, guid: 185bf49f465442843bb4ce1f1ef56c78, type: 3}
+  _flatTopTilePrefab: {fileID: 4461762085389953123, guid: cd49887b94f3c5144a2e3547e67e956c, type: 3}
   _config: {fileID: 11400000, guid: 7cca7135ba1fd4b4cb646e723c248995, type: 2}
 --- !u!1 &1708566850
 GameObject:

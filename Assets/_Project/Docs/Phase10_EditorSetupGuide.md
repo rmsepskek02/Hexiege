@@ -1,7 +1,7 @@
 # Phase 10: Unity 에디터 작업 가이드
 
-**버전:** 0.5.0
-**최종 수정일:** 2026-02-03
+**버전:** 0.7.0
+**최종 수정일:** 2026-02-08
 **작성자:** HANYONGHEE
 
 ---
@@ -133,12 +133,28 @@ Project 창에서 `Sprites/Units/Pistoleer/` 하위의 **모든 .png 파일을 �
 3. 이름 그대로 **"GameConfig"**
 4. 선택 후 Inspector에서 값 확인:
 
+#### PointyTop Grid (접이식 그룹)
+
 | 항목 | 값 | 비고 |
 |------|-----|------|
 | Grid Width | **7** | 모바일 9:16 포트레이트 기준 |
-| Grid Height | **30** | 세로로 긴 전장 |
+| Grid Height | **17** | 세로 타일 수 |
 | Tile Width | **0.866** | pointy-top hex 이론값 (√3/2) |
 | Tile Height | **0.82** | 약간 기울어진 시점 (탑다운 입체감) |
+
+#### FlatTop Grid (접이식 그룹)
+
+| 항목 | 값 | 비고 |
+|------|-----|------|
+| Grid Width | **10** | flat-top 가로 타일 수 |
+| Grid Height | **29** | flat-top 세로 타일 수 |
+| Tile Width | **1.0** | flat-top hex 폭 |
+| Tile Height | **0.36** | 프리팹 Y Scale=0.4 기준 아이소메트릭 높이 |
+
+#### 공통 설정
+
+| 항목 | 값 | 비고 |
+|------|-----|------|
 | Neutral Color | RGB(178,178,178) | 기본값 그대로 |
 | Blue Team Color | RGB(77,128,230) | 기본값 그대로 |
 | Red Team Color | RGB(230,77,77) | 기본값 그대로 |
@@ -147,13 +163,13 @@ Project 창에서 `Sprites/Units/Pistoleer/` 하위의 **모든 .png 파일을 �
 | Unit Y Offset | **0.15** | 유닛이 타일 위에 서있는 느낌 |
 | Animation Fps | 6 | 기본값 그대로 |
 | Camera Zoom Min | **2** | 모바일 세로 기준 |
-| Camera Zoom Max | **7** | 7열 맵에 맞게 축소 |
+| Camera Zoom Max | **7** | 맵에 맞게 축소 |
 | Camera Zoom Default | **5** | 전체 맵 너비가 딱 보이는 줌 레벨 |
 | Camera Zoom Speed | 2 | 기본값 그대로 |
 | Camera Pan Speed | 1 | 기본값 그대로 |
 
-> **중요:** 이미 GameConfig.asset이 생성되어 있으면 코드 기본값이 아닌 Inspector 값이 우선합니다.
-> 위 표의 값을 Inspector에서 직접 입력해야 합니다.
+> **중요:** ScriptableObject 필드 구조가 변경되면 기존 Inspector 값이 초기화될 수 있습니다.
+> 위 표의 값을 Inspector에서 직접 확인/입력해야 합니다.
 
 ### 2-2. PistoleerAnimData.asset
 
@@ -194,23 +210,35 @@ Project 창에서 `Sprites/Units/Pistoleer/` 하위의 **모든 .png 파일을 �
 
 ## Step 3: 프리팹 생성
 
-### 3-1. HexTile.prefab
+### 3-1. HexTile_PointyTop.prefab
 
-1. **Hierarchy** 빈 곳 우클릭 → Create Empty → 이름 **"HexTile"**
+1. **Hierarchy** 빈 곳 우클릭 → Create Empty → 이름 **"HexTile_PointyTop"**
 2. **Add Component** → **Sprite Renderer**
    - Sprite: Project 창에서 `tile_hex.png` 드래그
    - Color: **흰색** (런타임에 HexTileView가 변경)
    - Sorting Layer: Default
    - Order in Layer: **0**
-3. **Transform → Scale Y**: **0.82** (타일을 약간 눌러서 기울어진 시점 표현)
+3. **Transform → Scale Y**: **0.4** (아이소메트릭 효과)
 4. **Add Component** → **Polygon Collider 2D**
    - 자동으로 헥스 모양에 맞는 콜라이더 생성됨
-   - Is Trigger: 체크 안 함 (기본값)
 5. **Add Component** → 스크립트 검색 → **Hex Tile View**
-   - Inspector에 별도 필드 없음 (런타임 초기화)
-6. Hierarchy의 "HexTile"을 Project 창의 **`Prefabs/`** 폴더로 **드래그**
+6. Hierarchy에서 Project 창의 **`Prefabs/`** 폴더로 **드래그**
    - "Original Prefab" 선택
-7. Hierarchy에서 "HexTile" 인스턴스 **삭제** (Delete)
+7. Hierarchy에서 인스턴스 **삭제** (Delete)
+
+### 3-1b. HexTile_FlatTop.prefab
+
+1. **Hierarchy** 빈 곳 우클릭 → Create Empty → 이름 **"HexTile_FlatTop"**
+2. **Add Component** → **Sprite Renderer**
+   - Sprite: Project 창에서 `tile_hex_flat.png` 드래그
+   - Color: **흰색**
+   - Sorting Layer: Default
+   - Order in Layer: **0**
+3. **Transform → Scale Y**: **0.4** (아이소메트릭 효과, PointyTop과 동일)
+4. **Add Component** → **Polygon Collider 2D**
+5. **Add Component** → 스크립트 검색 → **Hex Tile View**
+6. Hierarchy에서 Project 창의 **`Prefabs/`** 폴더로 **드래그**
+7. Hierarchy에서 인스턴스 **삭제**
 
 ### 3-2. Unit_Pistoleer.prefab
 
@@ -330,7 +358,8 @@ Background 색상 설정:
 
 | 필드 | 드래그 대상 |
 |------|------------|
-| Tile Prefab | `Prefabs/HexTile` (Project 창에서) |
+| Pointy Top Tile Prefab | `Prefabs/HexTile_PointyTop` (Project 창에서) |
+| Flat Top Tile Prefab | `Prefabs/HexTile_FlatTop` (Project 창에서) |
 | Config | `Resources/Config/GameConfig` (Project 창에서) |
 
 ### 7-3. UnitFactory → UnitFactory
@@ -373,12 +402,14 @@ Background 색상 설정:
 
 | # | 항목 | 기대 결과 |
 |---|------|----------|
-| 1 | 타일 그리드 | 7×30 육각형이 빈틈/겹침 없이 회색으로 표시 |
-| 2 | 유닛 표시 | 맵 하단(Blue, row=27)과 상단(Red, row=2)에 권총병 표시 |
+| 1 | 타일 그리드 | FlatTop 10×29 육각형이 빈틈/겹침 없이 회색으로 표시 (기본 맵) |
+| 2 | 유닛 표시 | 맵 하단(Blue)과 상단(Red)에 권총병 표시 |
 | 3 | 타일 클릭 | 클릭 시 노란 하이라이트, 재클릭 시 해제 |
 | 4 | 유닛 클릭→타일 클릭 | 유닛이 경로를 따라 이동 + 지나간 타일 팀 색상 변경 |
 | 5 | 이동 방향 전환 | 이동 방향에 따라 스프라이트가 전환 (flipX 포함) |
 | 6 | Walk 애니메이션 | E방향 이동 시 2프레임 걷기 애니메이션 재생 |
+| 6-1 | 전투 (자동 공격) | 이동 완료 후 인접 적 유닛을 자동 공격, Attack 애니메이션 재생 |
+| 6-2 | 사망 처리 | 적 HP가 0 이하가 되면 화면에서 제거됨 |
 | 7 | 카메라 드래그 | 마우스 드래그로 맵 이동 |
 | 8 | 마우스 스크롤 | 줌 인/아웃 (Size 2~7 범위) |
 | 9 | 디버그 UI | 좌상단에 FPS, 마우스 좌표, 타일 정보 표시 |
@@ -389,13 +420,13 @@ Background 색상 설정:
 
 ### 타일이 너무 크거나 작음
 
-→ `tile_hex.png`의 **PPU** 조정 또는 GameConfig의 **TileWidth/TileHeight** 변경.
+→ 타일 스프라이트의 **PPU** 조정 또는 GameConfig의 **OrientationConfig.TileWidth/TileHeight** 변경.
 
 | 증상 | 해결 |
 |------|------|
-| 타일이 너무 큼 | PPU를 높이거나 (예: 2048) TileWidth/Height를 낮춤 (예: 0.5) |
-| 타일이 너무 작음 | PPU를 낮추거나 (예: 512) TileWidth/Height를 높임 (예: 2.0) |
-| 타일 사이에 빈틈 | tile_hex.png가 캔버스를 꽉 채우는지 확인. 기본값: TileWidth=0.866 / TileHeight=0.82 |
+| 타일이 너무 큼 | PPU를 높이거나 TileWidth/Height를 낮춤 |
+| 타일이 너무 작음 | PPU를 낮추거나 TileWidth/Height를 높임 |
+| 타일 사이에 빈틈 | 스프라이트가 캔버스를 꽉 채우는지 확인. PointyTop: 0.866/0.82, FlatTop: 1.0/0.36 |
 
 ### 유닛이 타일보다 크거나 작음
 
@@ -415,6 +446,7 @@ Background 색상 설정:
 
 → Unit_Pistoleer 프리팹의 **Order in Layer**가 타일보다 높은지 확인 (100 권장).
 → SpriteRenderer에 스프라이트가 연결되어 있는지 확인.
+→ FlatTop 타일의 sortingOrder 범위는 약 0~30이므로 유닛 100과 충돌 없음.
 
 ### Input 관련 에러 (InvalidOperationException)
 
@@ -445,6 +477,8 @@ Background 색상 설정:
 | 0.2.0 | 2026-02-03 | New Input System 대응: Step 0 추가, 트러블슈팅 항목 추가 |
 | 0.3.0 | 2026-02-03 | 타일 간격 수정(TileWidth=0.866), 유닛 Y오프셋, 카메라 기본값 조정, 모바일 세로 가이드 추가 |
 | 0.4.0 | 2026-02-03 | 타일 빈틈 수정: Python으로 hex 스프라이트 재생성 (패딩 제거) |
+| 0.7.0 | 2026-02-08 | 듀얼 Orientation: GameConfig OrientationConfig 그룹화, HexTile_PointyTop/FlatTop 프리팹 분리, HexGridRenderer 듀얼 프리팹 슬롯, FlatTop 기본 맵 |
+| 0.6.0 | 2026-02-07 | 전투 시스템 반영: 실행 테스트 체크리스트에 자동 공격/사망 처리 항목 추가 |
 | 0.5.0 | 2026-02-03 | 모바일 9:16 대응: GridWidth 11→7, GridHeight 17→30, TileWidth=0.866, TileHeight=0.82, UnitYOffset=0.15, CameraZoomMax=7, 타일 Scale Y=0.82 |
 
 ---

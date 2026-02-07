@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.1.0  
-**최종 수정일:** 2026-01-27  
+**버전:** 0.3.0
+**최종 수정일:** 2026-02-08
 **작성자:** HANYONGHEE
 
 ---
@@ -396,48 +396,65 @@ public class HumanRaceStrategy : IRaceStrategy {
    (0,-1) (1,-1)
 ```
 
+### 듀얼 Orientation 지원
+
+두 가지 타일 방향을 런타임에서 전환 가능:
+
+| 항목 | PointyTop | FlatTop |
+|------|-----------|---------|
+| 타일 모양 | 꼭지점 12시 | 변 12시 |
+| 그리드 크기 | 7×17 | 10×29 |
+| TileWidth | 0.866 | 1.0 |
+| TileHeight | 0.82 | 0.36 |
+| Offset 방식 | even-r (홀수 행 시프트) | even-q (홀수 열 시프트) |
+| 아트 방향 수 | 3 (NE, E, SE) | 4 (N, NE, SE, S) |
+
+```csharp
+// OrientationConfig: Orientation별 그리드 설정
+[System.Serializable]
+public class OrientationConfig {
+    public int GridWidth;
+    public int GridHeight;
+    public float TileWidth;
+    public float TileHeight;
+}
+
+// GameConfig에서 PointyTop/FlatTop 인스턴스로 관리
+public OrientationConfig PointyTop = new OrientationConfig { ... };
+public OrientationConfig FlatTop = new OrientationConfig { ... };
+
+// 런타임 맵 전환
+public void LoadMap(HexOrientation orientation) {
+    OrientationConfig oc = (orientation == HexOrientation.FlatTop)
+        ? _config.FlatTop : _config.PointyTop;
+    // 설정 적용 → 그리드 생성 → UseCase → 렌더링 → 카메라 → 유닛
+}
+```
+
 ### HexCoord 구조체
 ```csharp
 public struct HexCoord {
-    public int q, r;
-    
-    public (int x, int y, int z) ToCube() {
-        int x = q;
-        int z = r;
-        int y = -x - z;
-        return (x, y, z);
-    }
-    
-    public static float Distance(HexCoord a, HexCoord b) {
-        var (ax, ay, az) = a.ToCube();
-        var (bx, by, bz) = b.ToCube();
-        return (Mathf.Abs(ax - bx) + Mathf.Abs(ay - by) + Mathf.Abs(az - bz)) / 2f;
-    }
-    
-    public Vector3 ToWorldPosition() {
-        float x = q * Mathf.Sqrt(3) * tileSize;
-        float z = r * 1.5f * tileSize;
-        return new Vector3(x, 0, z);
+    public int Q, R;
+    public int S => -Q - R;
+
+    public static int Distance(HexCoord a, HexCoord b) {
+        return (Mathf.Abs(a.Q - b.Q) + Mathf.Abs(a.R - b.R) + Mathf.Abs(a.S - b.S)) / 2;
     }
 }
 ```
 
-### A* 경로찾기 통합
+### A* 경로찾기 (커스텀 구현)
 ```csharp
-// A* Pathfinding Project 설정
-GridGraph hexGrid = AstarPath.active.data.gridGraph;
-hexGrid.neighbours = NumNeighbours.Six;  // 6방향
-hexGrid.aspectRatio = 0.866f;  // 육각형 비율
-
-// 경로 찾기
-seeker.StartPath(startPos, endPos, OnPathComplete);
+// HexPathfinder: 커스텀 A* 경로탐색
+// 헥스 그리드 특화, 6방향 이웃 탐색, 이동 불가 타일 우회
+List<HexCoord> path = HexPathfinder.FindPath(grid, start, goal);
 ```
 
 ---
 
 ## 🤖 AI 시스템
 
-### 유닛 AI 상태머신
+### 유닛 AI 상태머신 (MVP 목표)
 ```
 Idle State
    ↓
@@ -454,22 +471,68 @@ Move State (랠리 포인트)
 Idle State
 ```
 
-### AI 스크립트 구조
+### AI 스크립트 구조 (MVP 목표)
 ```csharp
 public class UnitAI : MonoBehaviour {
     IUnitState currentState;
     Unit unit;
-    
+
     void Update() {
         currentState?.Update(unit);
     }
-    
+
     public void ChangeState(IUnitState newState) {
         currentState?.Exit(unit);
         currentState = newState;
         currentState.Enter(unit);
     }
 }
+```
+
+### 현재 구현: 전투 시스템 (프로토타입)
+
+프로토타입에서는 State 패턴 대신 코루틴 기반으로 이동→공격 흐름 구현.
+
+#### 유닛 전투 스탯
+```csharp
+public class UnitData {
+    public int MaxHp { get; }          // 최대 체력 (기본: 10)
+    public int Hp { get; set; }        // 현재 체력
+    public int AttackPower { get; }    // 공격력 (기본: 3)
+    public int AttackRange { get; }    // 사거리 (기본: 1, 인접 타일)
+    public bool IsAlive => Hp > 0;
+}
+```
+
+#### 전투 흐름
+```
+유닛 이동 명령 (InputHandler)
+  ↓
+A* 경로 이동 (UnitView 코루틴)
+  ↓
+이동 완료
+  ↓
+인접 6타일에서 적 탐색 (UnitCombatUseCase.TryAttack)
+  ↓ 적 발견
+공격 방향 계산 → 데미지 적용 (target.Hp -= AttackPower)
+  ↓
+공격 이벤트 발행 → Attack 애니메이션 재생
+  ↓
+적 HP ≤ 0? → 사망 이벤트 발행 → GameObject 파괴
+  ↓
+사거리 내 적이 남아있으면 반복 공격
+  ↓
+적 없음 → Idle 상태 복귀
+```
+
+#### 이벤트 기반 전투 통신
+```csharp
+// 공격 이벤트 (UnitCombatUseCase → UnitView)
+GameEvents.OnUnitAttack.OnNext(new UnitAttackEvent(
+    attackerId, targetId, damage, direction));
+
+// 사망 이벤트 (UnitCombatUseCase → UnitView)
+GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(unitId));
 ```
 
 ---
@@ -594,6 +657,8 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.3.0 | 2026-02-08 | 듀얼 Orientation: OrientationConfig, PointyTop(7×17)/FlatTop(10×29), 런타임 맵 전환(LoadMap), HexCoord/A* 코드 현행화 |
+| 0.2.0 | 2026-02-07 | 전투 시스템 추가: UnitData 전투 스탯, UnitCombatUseCase 전투 흐름, 이벤트 기반 통신 (Attack/Died) |
 | 0.1.0 | 2026-01-27 | 초기 문서 작성 |
 
 ---

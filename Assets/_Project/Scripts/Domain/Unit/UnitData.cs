@@ -43,6 +43,25 @@ namespace Hexiege.Domain
         /// </summary>
         public HexDirection Facing { get; set; }
 
+        // ====================================================================
+        // 전투 스탯
+        // ====================================================================
+
+        /// <summary> 최대 체력. </summary>
+        public int MaxHp { get; }
+
+        /// <summary> 현재 체력. 0 이하면 사망. </summary>
+        public int Hp { get; set; }
+
+        /// <summary> 공격력. </summary>
+        public int AttackPower { get; }
+
+        /// <summary> 공격 사거리 (타일 단위). 권총병 = 1. </summary>
+        public int AttackRange { get; }
+
+        /// <summary> 유닛이 살아있는지 여부. </summary>
+        public bool IsAlive => Hp > 0;
+
         // 유닛 Id 자동 발급용 정적 카운터.
         // 첫 유닛은 Id=0, 다음은 Id=1, ...
         private static int _nextId;
@@ -53,13 +72,22 @@ namespace Hexiege.Domain
         /// <param name="type">유닛 종류</param>
         /// <param name="team">소속 팀</param>
         /// <param name="position">초기 위치 (헥스 좌표)</param>
+        /// <param name="hp">최대 체력</param>
+        /// <param name="attackPower">공격력</param>
+        /// <param name="attackRange">공격 사거리</param>
         /// <param name="facing">초기 바라보는 방향 (기본: 동쪽)</param>
-        public UnitData(UnitType type, TeamId team, HexCoord position, HexDirection facing = HexDirection.E)
+        public UnitData(UnitType type, TeamId team, HexCoord position,
+            int hp = 10, int attackPower = 3, int attackRange = 1,
+            HexDirection facing = HexDirection.E)
         {
             Id = _nextId++;
             Type = type;
             Team = team;
             Position = position;
+            MaxHp = hp;
+            Hp = hp;
+            AttackPower = attackPower;
+            AttackRange = attackRange;
             Facing = facing;
         }
     }

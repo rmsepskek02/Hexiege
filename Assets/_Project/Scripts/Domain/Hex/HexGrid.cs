@@ -38,6 +38,9 @@ namespace Hexiege.Domain
         /// <summary> 그리드 세로 타일 수 (프로토타입: 17) </summary>
         public int Height { get; }
 
+        /// <summary> 이 그리드의 헥스 방향 (PointyTop 또는 FlatTop). </summary>
+        private readonly HexOrientation _orientation;
+
         // 모든 타일을 큐브 좌표로 인덱싱하여 저장.
         // Dictionary를 쓰는 이유: 큐브 좌표는 음수 값이 있어 2D 배열로 매핑이 불편.
         private readonly Dictionary<HexCoord, HexTile> _tiles = new Dictionary<HexCoord, HexTile>();
@@ -47,18 +50,26 @@ namespace Hexiege.Domain
 
         /// <summary>
         /// 생성자. width×height 크기의 그리드를 즉시 생성.
-        /// 프로토타입 기준: new HexGrid(11, 17) → 187개 타일
+        /// 기존 호환용: PointyTop (even-r offset) 기본값.
         /// </summary>
-        public HexGrid(int width, int height)
+        public HexGrid(int width, int height) : this(width, height, HexOrientation.PointyTop) { }
+
+        /// <summary>
+        /// orientation 지정 생성자.
+        /// PointyTop이면 even-r offset, FlatTop이면 even-q offset으로 생성.
+        /// </summary>
+        public HexGrid(int width, int height, HexOrientation orientation)
         {
             Width = width;
             Height = height;
+            _orientation = orientation;
             Generate();
         }
 
         /// <summary>
-        /// 그리드 생성. even-r offset 좌표 (col, row)를 순회하며
+        /// 그리드 생성. offset 좌표 (col, row)를 순회하며
         /// 각각을 큐브 좌표로 변환하여 HexTile 생성.
+        /// PointyTop이면 even-r, FlatTop이면 even-q offset 사용.
         /// </summary>
         private void Generate()
         {
@@ -66,7 +77,7 @@ namespace Hexiege.Domain
             {
                 for (int col = 0; col < Width; col++)
                 {
-                    HexCoord coord = OffsetToCube(col, r);
+                    HexCoord coord = OffsetToCube(col, r, _orientation);
                     _tiles[coord] = new HexTile(coord);
                 }
             }
@@ -92,6 +103,29 @@ namespace Hexiege.Domain
             int q = col - (row - (row & 1)) / 2;
             int r = row;
             return new HexCoord(q, r);
+        }
+
+        /// <summary>
+        /// orientation 지정 offset → cube 변환.
+        /// PointyTop: even-r offset (기존과 동일).
+        /// FlatTop: even-q offset.
+        ///
+        /// even-q 변환 공식:
+        ///   q = col
+        ///   r = row - (col - (col & 1)) / 2
+        ///
+        /// (col & 1)은 col이 홀수이면 1, 짝수이면 0.
+        /// 홀수 열의 반 칸 시프트를 큐브 좌표로 보정.
+        /// </summary>
+        public static HexCoord OffsetToCube(int col, int row, HexOrientation orientation)
+        {
+            if (orientation == HexOrientation.FlatTop)
+            {
+                int q = col;
+                int r = row - (col - (col & 1)) / 2;
+                return new HexCoord(q, r);
+            }
+            return OffsetToCube(col, row);
         }
 
         /// <summary>

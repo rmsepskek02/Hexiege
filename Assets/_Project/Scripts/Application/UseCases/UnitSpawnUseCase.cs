@@ -104,5 +104,14 @@ namespace Hexiege.Application
             }
             return null;
         }
+
+        /// <summary>
+        /// 유닛을 목록에서 제거 (사망 처리 시).
+        /// UnitCombatUseCase에서 HP가 0 이하가 된 유닛에 대해 호출.
+        /// </summary>
+        public bool RemoveUnit(int unitId)
+        {
+            return _units.Remove(unitId);
+        }
     }
 }

@@ -1,7 +1,7 @@
 # Hexiege - 클라이언트 프로토타입 구현 계획서
 
-**버전:** 0.2.0
-**최종 수정일:** 2026-02-02
+**버전:** 0.4.0
+**최종 수정일:** 2026-02-08
 **작성자:** HANYONGHEE
 
 ---
@@ -28,7 +28,7 @@ AI 에셋 유료 투자 전에 3가지 기술 검증:
 | # | 검증 항목 | 핵심 질문 |
 |---|----------|----------|
 | 1 | AI 스프라이트 애니메이션 | AI로 생성한 프레임별 스프라이트가 Unity에서 자연스러운 애니메이션으로 동작하는가? |
-| 2 | 헥사 타일 시스템 | 11×17 헥스 그리드 생성, 타일 색상 변경, 클릭 선택이 정확하게 작동하는가? |
+| 2 | 헥사 타일 시스템 | 헥스 그리드 생성(PointyTop 7×17 / FlatTop 10×29), 타일 색상 변경, 클릭 선택이 정확하게 작동하는가? |
 | 3 | 유닛 이동 + 방향 전환 | 유닛이 헥스 타일 위에서 A* 경로를 따라 이동하며 방향별 스프라이트가 정확히 전환되는가? |
 
 ---
@@ -40,7 +40,7 @@ AI 에셋 유료 투자 전에 3가지 기술 검증:
 **이유:**
 - 3/4뷰(세미 아이소메트릭) 아트 스타일과 Unity Tilemap의 정육각형 제약이 충돌
 - 타일당 개별 SpriteRenderer로 색상/선택/오버레이 처리가 용이
-- 187개 타일(11×17)로 성능 문제 없음
+- PointyTop 7×17(119개) / FlatTop 10×29(290개) 타일로 성능 문제 없음
 - 향후 타일별 파티클, 애니메이션 추가에 유연
 
 ### 2. 커스텀 FrameAnimator (Unity Animator 사용 안 함)
@@ -51,7 +51,9 @@ AI 에셋 유료 투자 전에 3가지 기술 검증:
 - 드래그 앤 드롭으로 AI 생성 스프라이트 즉시 교체 가능
 - ~50줄 코드로 전체 애니메이션 처리
 
-### 3. 3방향 + flipX = 6방향 시스템
+### 3. 방향 시스템 (Orientation별 분리)
+
+#### PointyTop: 3방향 + flipX = 6방향
 
 ```
 제작 방향          flipX 반전 커버
@@ -61,8 +63,6 @@ E  (→ 오른쪽)     → W  (← 왼쪽)
 SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 ```
 
-헥스 6방향과 아트 방향 매핑:
-
 | 이동 방향 | 아트 방향 | flipX |
 |----------|----------|-------|
 | NE (q+1, r-1) | NE | false |
@@ -71,6 +71,17 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 | SW (q-1, r+1) | SE | true  |
 | W  (q-1, r+0) | E  | true  |
 | NW (q+0, r-1) | NE | true  |
+
+#### FlatTop: 4방향 + flipX = 6방향
+
+```
+제작 방향          flipX 반전 커버
+──────────────────────────────────
+N  (↑ 위)         → S  (↓ 아래)
+NE (↗ 오른쪽 위)  → NW (↖ 왼쪽 위) [flipX]
+SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래) [flipX]
+S  (↓ 아래)       (N의 flipX=false 별도)
+```
 
 ---
 
@@ -95,7 +106,8 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 │  ├─ GameEvents               (이벤트 허브)                │
 │  ├─ GridInteractionUseCase   (타일 선택)                  │
 │  ├─ UnitMovementUseCase      (이동 + 타일 점령)           │
-│  └─ UnitSpawnUseCase         (유닛 생성)                  │
+│  ├─ UnitSpawnUseCase         (유닛 생성 + 조회 + 제거)    │
+│  └─ UnitCombatUseCase        (전투: 공격/피격/사망)       │
 ├──────────────────────────────────────────────────────────┤
 │  Domain Layer (순수 C#, Unity 독립)                       │
 │  ├─ HexCoord             (큐브 좌표 값 객체)              │
@@ -104,11 +116,12 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 │  ├─ HexTile              (타일 상태)                     │
 │  ├─ HexPathfinder        (A* 경로탐색)                   │
 │  ├─ FacingDirection      (방향 매핑)                     │
-│  ├─ UnitData             (유닛 상태)                     │
+│  ├─ UnitData             (유닛 상태 + 전투 스탯)         │
 │  ├─ UnitType             (유닛 타입)                     │
 │  └─ TeamId               (팀 열거형)                     │
 ├──────────────────────────────────────────────────────────┤
 │  Infrastructure Layer                                     │
+│  ├─ OrientationConfig    (Orientation별 그리드 설정 클래스) │
 │  ├─ GameConfig           (ScriptableObject 전역 설정)     │
 │  ├─ UnitAnimationData    (ScriptableObject 스프라이트)    │
 │  └─ UnitFactory          (유닛 프리팹 팩토리)             │
@@ -118,7 +131,7 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 │  └─ SingletonMonoBehaviour (싱글톤 베이스)                 │
 ├──────────────────────────────────────────────────────────┤
 │  Bootstrap                                                │
-│  └─ GameBootstrapper     (씬 진입점, 전체 와이어링)        │
+│  └─ GameBootstrapper     (씬 진입점, LoadMap 런타임 전환)   │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -136,35 +149,37 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 | `Scripts/Domain/Hex/HexCoord.cs` | 큐브 좌표 값 객체 (q, r, s=-q-r) |
 | `Scripts/Domain/Hex/HexDirection.cs` | 6방향 열거형 + 이웃 좌표 오프셋 |
 | `Scripts/Domain/Hex/HexTile.cs` | 타일 상태 (소유자, 이동가능 여부) |
-| `Scripts/Domain/Hex/HexGrid.cs` | 그리드 데이터 구조 (Dictionary) |
+| `Scripts/Domain/Hex/HexOrientation.cs` | HexOrientation 열거형 + HexOrientationContext 정적 홀더 |
+| `Scripts/Domain/Hex/HexGrid.cs` | 그리드 데이터 구조 (Dictionary, orientation 지원) |
 | `Scripts/Domain/Hex/HexPathfinder.cs` | 헥스 그리드 A* 경로탐색 |
 | `Scripts/Domain/Unit/FacingDirection.cs` | 6방향 → 3아트방향 + flipX 매핑 |
 | `Scripts/Domain/Unit/UnitType.cs` | 유닛 타입 열거형 |
-| `Scripts/Domain/Unit/UnitData.cs` | 유닛 상태 (위치, 타입, 팀, 방향) |
+| `Scripts/Domain/Unit/UnitData.cs` | 유닛 상태 (위치, 타입, 팀, 방향, HP, 공격력, 사거리) |
 
-### Core Layer - 2개
+### Core Layer - 2개 (+1 enum)
 
 | 파일 경로 | 역할 |
 |----------|------|
 | `Scripts/Core/HexMetrics.cs` | 헥스 좌표 ↔ 월드 좌표 변환, 사이징 상수 |
 | `Scripts/Core/SingletonMonoBehaviour.cs` | 제네릭 싱글톤 베이스 클래스 |
 
-### Application Layer - 4개
+### Application Layer - 5개
 
 | 파일 경로 | 역할 |
 |----------|------|
-| `Scripts/Application/Events/GameEvents.cs` | UniRx Subject 이벤트 허브 |
+| `Scripts/Application/Events/GameEvents.cs` | UniRx Subject 이벤트 허브 (타일/유닛/전투 이벤트) |
 | `Scripts/Application/UseCases/GridInteractionUseCase.cs` | 타일 선택 처리 |
 | `Scripts/Application/UseCases/UnitMovementUseCase.cs` | 경로탐색 + 이동 + 타일 점령 |
-| `Scripts/Application/UseCases/UnitSpawnUseCase.cs` | 유닛 생성 관리 |
+| `Scripts/Application/UseCases/UnitSpawnUseCase.cs` | 유닛 생성 + 좌표별 조회 + 사망 제거 |
+| `Scripts/Application/UseCases/UnitCombatUseCase.cs` | 전투 처리 (인접 적 탐색, 공격, 사망 판정) |
 
 ### Infrastructure Layer - 3개
 
 | 파일 경로 | 역할 |
 |----------|------|
-| `Scripts/Infrastructure/Config/GameConfig.cs` | 전역 설정 ScriptableObject |
+| `Scripts/Infrastructure/Config/GameConfig.cs` | 전역 설정 ScriptableObject (OrientationConfig 중첩 클래스 포함) |
 | `Scripts/Infrastructure/Config/UnitAnimationData.cs` | 방향별 스프라이트 배열 ScriptableObject |
-| `Scripts/Infrastructure/Factories/UnitFactory.cs` | 유닛 프리팹 인스턴스 생성 |
+| `Scripts/Infrastructure/Factories/UnitFactory.cs` | 유닛 프리팹 인스턴스 생성 + 전체 제거 (맵 전환용) |
 
 ### Presentation Layer - 7개
 
@@ -173,7 +188,7 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 | `Scripts/Presentation/Grid/HexTileView.cs` | 타일 비주얼 + 색상 변경 + 선택 |
 | `Scripts/Presentation/Grid/HexGridRenderer.cs` | HexGrid → GameObject 렌더링 |
 | `Scripts/Presentation/Unit/FrameAnimator.cs` | 스프라이트 프레임 순환 엔진 |
-| `Scripts/Presentation/Unit/UnitView.cs` | 유닛 비주얼 + 이동 코루틴 + 방향 전환 |
+| `Scripts/Presentation/Unit/UnitView.cs` | 유닛 비주얼 + 이동 코루틴 + 방향 전환 + 자동 공격 + 사망 처리 |
 | `Scripts/Presentation/Camera/CameraController.cs` | 카메라 팬/줌 + 경계 제한 |
 | `Scripts/Presentation/Input/InputHandler.cs` | 마우스/터치 입력 → UseCase 연결 |
 | `Scripts/Presentation/Debug/DebugUI.cs` | 화면 디버그 정보 표시 |
@@ -182,7 +197,7 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 
 | 파일 경로 | 역할 |
 |----------|------|
-| `Scripts/Bootstrap/GameBootstrapper.cs` | 씬 진입점, 의존성 와이어링, 테스트 유닛 스폰 |
+| `Scripts/Bootstrap/GameBootstrapper.cs` | 씬 진입점, LoadMap() 런타임 맵 전환, 의존성 와이어링 |
 
 ### 에셋 파일
 
@@ -190,16 +205,18 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 
 | 경로 | 용도 |
 |------|------|
-| `Sprites/Tiles/tile_hex.png` | 헥스 타일 스프라이트 (3/4뷰) |
+| `Sprites/Tiles/tile_hex.png` | PointyTop 헥스 타일 스프라이트 (3/4뷰) |
+| `Sprites/Tiles/tile_hex_flat.png` | FlatTop 헥스 타일 스프라이트 |
 | `Sprites/Units/Pistoleer/` | 권총병 스프라이트 (Idle/Walk/Attack, 3방향) |
 | `Sprites/Buildings/` | 건물 + 맵 오브젝트 스프라이트 |
 | `Sprites/UI/` | UI 스프라이트 (Buttons/Panels/Bars/Icons/Slots) |
-| `Prefabs/HexTile.prefab` | 타일 프리팹 (SpriteRenderer + Collider + HexTileView) |
+| `Prefabs/HexTile_PointyTop.prefab` | PointyTop 타일 프리팹 (SpriteRenderer + Collider + HexTileView) |
+| `Prefabs/HexTile_FlatTop.prefab` | FlatTop 타일 프리팹 (SpriteRenderer + Collider + HexTileView) |
 | `Prefabs/Unit_Pistoleer.prefab` | 유닛 프리팹 (SpriteRenderer + UnitView + FrameAnimator) |
 | `Resources/Config/GameConfig.asset` | 전역 설정 인스턴스 |
 | `Resources/Config/PistoleerAnimData.asset` | 권총병 애니메이션 데이터 인스턴스 |
 
-**총 파일 수:** 스크립트 26개 + 프리팹/SO 4개 + 스프라이트 31개 (제작 완료)
+**총 파일 수:** 스크립트 28개 + 프리팹/SO 5개 + 스프라이트 32개 (제작 완료)
 
 ---
 
@@ -216,7 +233,7 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 2. `HexCoord.cs` - 큐브 좌표 (모든 것의 기반)
 3. `HexDirection.cs` - 6방향 + 이웃 오프셋
 4. `HexTile.cs` - 타일 상태
-5. `HexGrid.cs` - 11×17 그리드 생성 (even-r offset → cube 변환)
+5. `HexGrid.cs` - 그리드 생성 (orientation별 even-r/even-q offset → cube 변환)
 6. `HexPathfinder.cs` - A* 경로탐색
 7. `FacingDirection.cs` - 방향 매핑
 8. `UnitType.cs` - 유닛 타입
@@ -272,9 +289,11 @@ SE (↘ 오른쪽 아래) → SW (↙ 왼쪽 아래)
 Google Gemini로 프로토타입용 스프라이트 전체 제작 완료. 플레이스홀더 불필요.
 상세 목록 및 명명 규칙은 `AssetProductionGuide.md` 참고.
 
-**헥스 타일:** `Sprites/Tiles/tile_hex.png`
-- 3/4뷰 육각형, `SpriteRenderer.color`로 팀 색상 적용
-- PPU(Pixels Per Unit): 스프라이트 해상도에 맞춰 조정
+**헥스 타일:**
+- `Sprites/Tiles/tile_hex.png` — PointyTop 3/4뷰 육각형
+- `Sprites/Tiles/tile_hex_flat.png` — FlatTop 3/4뷰 육각형
+- `SpriteRenderer.color`로 팀 색상 적용
+- PPU(Pixels Per Unit): 1024
 
 **유닛 스프라이트:** `Sprites/Units/Pistoleer/`
 - 3방향 (NE, E, SE) × 3상태 (Idle, Walk, Attack)
@@ -342,12 +361,13 @@ Sprites/Units/Pistoleer/
 
 | 항목 | 내용 |
 |------|------|
-| 헥스 그리드 | 11×17 타일 생성 + 색상 + 선택 |
+| 헥스 그리드 | PointyTop 7×17 / FlatTop 10×29 타일 생성 + 색상 + 선택 |
 | 유닛 | 권총병 1종, idle/walk/attack 애니메이션 (death는 프로토타입 범위 외) |
 | 이동 | A* 경로탐색, 타일별 이동, 방향 전환 |
 | 타일 점령 | 유닛 이동 시 타일 색상 변경 |
+| 전투 | 이동 완료 후 인접 적 자동 공격 (HP/공격력/사거리), 사망 시 GameObject 파괴 |
 | 카메라 | 팬(드래그) + 줌(스크롤/핀치) |
-| 입력 | 타일 클릭 선택, 유닛 이동 명령 |
+| 입력 | 타일 클릭 선택, 유닛 이동 명령 (공격은 이동 후 자동) |
 
 ### 제외
 
@@ -355,7 +375,6 @@ Sprites/Units/Pistoleer/
 |------|-------|
 | 건물 시스템 (배럭, 자원, 타워 등) | MVP |
 | 자원/생산 시스템 | MVP |
-| 전투 (데미지/HP/사망) | MVP |
 | 승리/패배 조건 | MVP |
 | 네트워크/멀티플레이어 | Phase 2 |
 | UI (디버그 외) | Phase 3 |
@@ -384,8 +403,8 @@ Sprites/Units/Pistoleer/
 ### 목표 2: 헥사 타일 시스템
 
 **검증 항목:**
-- [ ] 11×17 그리드 정상 생성 (187개 타일, 빈틈/겹침 없음)
-- [ ] 홀수 행이 반 칸 오프셋
+- [ ] PointyTop 7×17 / FlatTop 10×29 그리드 정상 생성 (빈틈/겹침 없음)
+- [ ] PointyTop: 홀수 행이 반 칸 오프셋 / FlatTop: 홀수 열이 반 칸 오프셋
 - [ ] 타일 클릭 시 정확한 타일 선택 (모서리/경계 포함)
 - [ ] 색상 변경 (Neutral → Blue → Red) 시각적 구분
 - [ ] `HexCoord.Distance()` 정확도 (인접=1, 2칸=2)
@@ -459,12 +478,30 @@ SampleScene
 - Background (order 0): 헥스 타일
 - Units (order 1): 유닛 스프라이트 (Y축 기준 자동 정렬)
 
+### 목표 4: 전투 시스템 (인접 자동 공격)
+
+**검증 항목:**
+- [ ] 이동 완료 후 인접 6타일에서 적 유닛 탐색 정상 동작
+- [ ] 적 발견 시 공격 방향 스프라이트 전환 (flipX 포함)
+- [ ] Attack 애니메이션 재생 (2프레임 사이클)
+- [ ] 데미지 적용 정확도 (AttackPower=3, HP 감소 확인)
+- [ ] 사거리 내 적이 있는 동안 반복 공격
+- [ ] 적 HP ≤ 0 시 사망 이벤트 발행 + GameObject 파괴
+- [ ] 사망한 유닛이 UnitSpawnUseCase 목록에서 제거됨
+
+**통과 기준:**
+- 유닛이 이동 후 인접 적을 자동으로 공격
+- 공격 애니메이션이 올바른 방향으로 재생
+- 적 사망 시 화면에서 제거되고 데이터 정합성 유지
+
 ---
 
 ## 📝 변경 이력
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.4.0 | 2026-02-08 | 듀얼 Orientation 지원: OrientationConfig 중첩 클래스, PointyTop(7×17)/FlatTop(10×29) 그리드, 프리팹 분리(HexTile_PointyTop/HexTile_FlatTop), GameBootstrapper.LoadMap() 런타임 맵 전환, UnitFactory.DestroyAllUnits() |
+| 0.3.0 | 2026-02-07 | 전투 시스템 추가 반영: UnitCombatUseCase 신규, UnitData 전투 스탯(HP/공격력/사거리), 전투 이벤트(Attack/Died), 이동 후 인접 적 자동 공격, 프로토타입 범위에 전투 포함, 그리드 크기 7×30 현행화 |
 | 0.2.0 | 2026-02-02 | Gemini 스프라이트 완료 반영, 에셋 경로/명명 규칙 현행화, 플레이스홀더 전략 제거, death 애니메이션 프로토타입 범위 외 처리 |
 | 0.1.0 | 2026-02-01 | 초기 문서 작성 |
 

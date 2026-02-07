@@ -32,6 +32,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
 using Hexiege.Infrastructure;
@@ -68,8 +69,14 @@ namespace Hexiege.Presentation
         /// </summary>
         private UnitMovementUseCase _movementUseCase;
 
+        /// <summary> 전투 UseCase 참조. 이동 완료 후 자동 공격용. </summary>
+        private UnitCombatUseCase _combatUseCase;
+
         /// <summary> 현재 이동 코루틴. null이면 정지 상태. </summary>
         private Coroutine _moveCoroutine;
+
+        /// <summary> 현재 공격 코루틴. </summary>
+        private Coroutine _attackCoroutine;
 
         /// <summary> 현재 이동 중인지 여부. InputHandler에서 이동 명령 중복 방지에 사용. </summary>
         public bool IsMoving => _moveCoroutine != null;
@@ -99,14 +106,35 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 외부 의존성 주입. GameBootstrapper에서 모든 컴포넌트 생성 후 호출.
         /// </summary>
-        /// <param name="animData">스프라이트 데이터 ScriptableObject</param>
-        /// <param name="config">전역 설정 ScriptableObject</param>
-        /// <param name="movementUseCase">이동 UseCase (ProcessStep 호출용)</param>
-        public void SetDependencies(UnitAnimationData animData, GameConfig config, UnitMovementUseCase movementUseCase)
+        public void SetDependencies(UnitAnimationData animData, GameConfig config,
+            UnitMovementUseCase movementUseCase, UnitCombatUseCase combatUseCase)
         {
             _animData = animData;
             _config = config;
             _movementUseCase = movementUseCase;
+            _combatUseCase = combatUseCase;
+
+            // 공격 이벤트 구독 — 이 유닛이 공격자일 때 공격 애니메이션 재생
+            GameEvents.OnUnitAttack
+                .Subscribe(e =>
+                {
+                    if (_unitData != null && e.AttackerId == _unitData.Id)
+                    {
+                        _attackCoroutine = StartCoroutine(PlayAttackAnimation(e.Direction));
+                    }
+                })
+                .AddTo(this);
+
+            // 사망 이벤트 구독 — 이 유닛이 사망하면 GameObject 파괴
+            GameEvents.OnUnitDied
+                .Subscribe(e =>
+                {
+                    if (_unitData != null && e.UnitId == _unitData.Id)
+                    {
+                        Destroy(gameObject);
+                    }
+                })
+                .AddTo(this);
 
             // 의존성 설정 후 스프라이트 재설정 (animData가 필요하므로)
             UpdateSprite(UnitAnimState.Idle);
@@ -195,38 +223,37 @@ namespace Hexiege.Presentation
                 }
             }
 
-            // 이동 완료 → Idle 상태 복귀
+            // 이동 완료 → 사거리 내 적이 있는 동안 반복 공격
+            while (_combatUseCase != null && _unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
+            {
+                // 공격 애니메이션 코루틴 완료 대기
+                while (_attackCoroutine != null)
+                    yield return null;
+            }
+
+            // Idle 상태 복귀
             UpdateSprite(UnitAnimState.Idle);
             _moveCoroutine = null;
         }
 
         // ====================================================================
-        // 스프라이트 갱신
-        // ====================================================================
-
-        // ====================================================================
-        // Attack 애니메이션 (테스트용)
+        // 공격 애니메이션
         // ====================================================================
 
         /// <summary>
-        /// Attack 애니메이션을 재생. 프로토타입 테스트용.
-        /// A 키를 누르면 InputHandler에서 호출.
+        /// 공격 애니메이션을 재생하고 일정 시간 후 Idle로 복귀하는 코루틴.
         /// </summary>
-        public void PlayAttack()
+        private IEnumerator PlayAttackAnimation(HexDirection direction)
         {
-            FacingInfo info = FacingDirection.FromHexDirection(_unitData.Facing);
+            FacingInfo info = FacingDirection.FromHexDirection(direction);
             _spriteRenderer.flipX = info.FlipX;
             UpdateSprite(UnitAnimState.Attack, info.Art);
-        }
 
-        /// <summary>
-        /// Idle 애니메이션으로 복귀. 프로토타입 테스트용.
-        /// </summary>
-        public void PlayIdle()
-        {
-            FacingInfo info = FacingDirection.FromHexDirection(_unitData.Facing);
-            _spriteRenderer.flipX = info.FlipX;
-            UpdateSprite(UnitAnimState.Idle, info.Art);
+            // 공격 애니메이션 재생 시간 (2프레임 × FPS 기반)
+            float attackDuration = _config != null ? 2f / _config.AnimationFps : 0.33f;
+            yield return new WaitForSeconds(attackDuration);
+
+            _attackCoroutine = null;
         }
 
         // ====================================================================

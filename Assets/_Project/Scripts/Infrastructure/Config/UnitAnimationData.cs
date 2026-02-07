@@ -3,7 +3,8 @@
 // 유닛의 방향별/상태별 스프라이트 배열을 저장하는 ScriptableObject.
 //
 // 구조:
-//   3방향(NE, E, SE) × 3상태(Idle, Walk, Attack) = 9개 Sprite[] 배열.
+//   PointyTop: 3방향(NE, E, SE) × 3상태(Idle, Walk, Attack) = 9개 Sprite[] 배열.
+//   FlatTop:   5방향(NE, E, SE, N, S) × 3상태 = 15개 배열 (N/S 6개 추가).
 //   각 배열에 해당 방향/상태의 프레임 스프라이트를 Inspector에서 드래그 앤 드롭.
 //
 // 권총병 스프라이트 현황 (AssetProductionGuide.md 기준):
@@ -90,22 +91,50 @@ namespace Hexiege.Infrastructure
         public Sprite[] AttackSE;
 
         // ====================================================================
-        // 9개 배열을 2D로 접근하기 위한 조회 메서드
+        // N/S 방향 스프라이트 (flat-top 전용)
+        // flat-top에서는 순수 상하(N/S) 방향이 존재하므로 별도 스프라이트 필요.
+        // pointy-top에서는 사용하지 않으며, 비어있어도 무방.
+        // ====================================================================
+
+        [Header("Idle - N/S 방향 (flat-top 전용)")]
+        [Tooltip("Idle N 방향 (위를 바라봄)")]
+        public Sprite[] IdleN;
+
+        [Tooltip("Idle S 방향 (아래를 바라봄)")]
+        public Sprite[] IdleS;
+
+        [Header("Walk - N/S 방향 (flat-top 전용)")]
+        [Tooltip("Walk N 방향")]
+        public Sprite[] WalkN;
+
+        [Tooltip("Walk S 방향")]
+        public Sprite[] WalkS;
+
+        [Header("Attack - N/S 방향 (flat-top 전용)")]
+        [Tooltip("Attack N 방향")]
+        public Sprite[] AttackN;
+
+        [Tooltip("Attack S 방향")]
+        public Sprite[] AttackS;
+
+        // ====================================================================
+        // 배열을 2D로 접근하기 위한 조회 메서드
         // ====================================================================
 
         /// <summary>
         /// 애니메이션 상태 + 아트 방향으로 해당 스프라이트 배열을 반환.
         ///
         /// 조합 매트릭스:
-        ///          NE       E        SE
-        /// Idle   [ IdleNE,  IdleE,   IdleSE   ]
-        /// Walk   [ WalkNE,  WalkE,   WalkSE   ]
-        /// Attack [ AttackNE, AttackE, AttackSE ]
+        ///          NE       E        SE       N        S
+        /// Idle   [ IdleNE,  IdleE,   IdleSE,  IdleN,   IdleS   ]
+        /// Walk   [ WalkNE,  WalkE,   WalkSE,  WalkN,   WalkS   ]
+        /// Attack [ AttackNE, AttackE, AttackSE, AttackN, AttackS ]
         ///
+        /// N/S는 flat-top 전용. pointy-top에서는 사용되지 않음.
         /// 반환된 배열이 null이거나 길이가 0이면 빈 상태 (스프라이트 미설정).
         /// </summary>
         /// <param name="state">현재 애니메이션 상태</param>
-        /// <param name="artDir">아트 방향 (NE/E/SE)</param>
+        /// <param name="artDir">아트 방향 (NE/E/SE/N/S)</param>
         /// <returns>해당 조합의 스프라이트 배열</returns>
         public Sprite[] GetSprites(UnitAnimState state, Domain.ArtDirection artDir)
         {
@@ -117,6 +146,8 @@ namespace Hexiege.Infrastructure
                         case Domain.ArtDirection.NE: return IdleNE;
                         case Domain.ArtDirection.E:  return IdleE;
                         case Domain.ArtDirection.SE: return IdleSE;
+                        case Domain.ArtDirection.N:  return IdleN;
+                        case Domain.ArtDirection.S:  return IdleS;
                     }
                     break;
                 case UnitAnimState.Walk:
@@ -125,6 +156,8 @@ namespace Hexiege.Infrastructure
                         case Domain.ArtDirection.NE: return WalkNE;
                         case Domain.ArtDirection.E:  return WalkE;
                         case Domain.ArtDirection.SE: return WalkSE;
+                        case Domain.ArtDirection.N:  return WalkN;
+                        case Domain.ArtDirection.S:  return WalkS;
                     }
                     break;
                 case UnitAnimState.Attack:
@@ -133,6 +166,8 @@ namespace Hexiege.Infrastructure
                         case Domain.ArtDirection.NE: return AttackNE;
                         case Domain.ArtDirection.E:  return AttackE;
                         case Domain.ArtDirection.SE: return AttackSE;
+                        case Domain.ArtDirection.N:  return AttackN;
+                        case Domain.ArtDirection.S:  return AttackS;
                     }
                     break;
             }

@@ -39,13 +39,14 @@ namespace Hexiege.Presentation
         // Inspector에서 설정할 필드
         // ====================================================================
 
-        [Header("Prefab")]
-        /// <summary>
-        /// 타일 프리팹 참조.
-        /// SpriteRenderer + PolygonCollider2D + HexTileView가 부착되어 있어야 함.
-        /// </summary>
-        [Tooltip("타일 프리팹 (SpriteRenderer + Collider + HexTileView)")]
-        [SerializeField] private GameObject _tilePrefab;
+        [Header("Prefabs")]
+        /// <summary> PointyTop 타일 프리팹. </summary>
+        [Tooltip("PointyTop 타일 프리팹 (SpriteRenderer + Collider + HexTileView)")]
+        [SerializeField] private GameObject _pointyTopTilePrefab;
+
+        /// <summary> FlatTop 타일 프리팹. </summary>
+        [Tooltip("FlatTop 타일 프리팹 (SpriteRenderer + Collider + HexTileView)")]
+        [SerializeField] private GameObject _flatTopTilePrefab;
 
         [Header("Config")]
         /// <summary> 전역 설정. 각 타일의 HexTileView에 전달. </summary>
@@ -80,7 +81,11 @@ namespace Hexiege.Presentation
         /// <param name="grid">렌더링할 헥스 그리드 데이터</param>
         public void RenderGrid(HexGrid grid)
         {
-            if (_tilePrefab == null)
+            // 현재 orientation에 맞는 프리팹 선택
+            GameObject prefab = (HexMetrics.Orientation == HexOrientation.FlatTop)
+                ? _flatTopTilePrefab : _pointyTopTilePrefab;
+
+            if (prefab == null)
             {
                 Debug.LogError("[HexGridRenderer] TilePrefab이 설정되지 않았습니다.");
                 return;
@@ -99,20 +104,26 @@ namespace Hexiege.Presentation
                 Vector3 worldPos = HexMetrics.HexToWorld(coord);
 
                 // 프리팹 인스턴스 생성. 이 오브젝트(HexGrid)의 자식으로 배치.
-                GameObject tileObj = Instantiate(_tilePrefab, worldPos, Quaternion.identity, transform);
+                GameObject tileObj = Instantiate(prefab, worldPos, Quaternion.identity, transform);
 
                 // 오브젝트 이름을 좌표로 설정 (에디터 Hierarchy에서 식별 용이)
                 tileObj.name = $"Tile_{coord}";
 
                 // --------------------------------------------------------
                 // Sorting 설정
-                // row가 큰 타일(화면 아래)이 나중에 그려져 위에 표시.
+                // 화면 아래쪽 타일이 나중에 그려져 위에 표시.
                 // 탑다운 2D에서 아래쪽 오브젝트가 앞에 보여야 자연스러움.
+                //
+                // PointyTop: coord.R (행 인덱스)로 정렬 — R이 화면 Y와 직접 대응.
+                // FlatTop: 월드 Y 좌표 기반 정렬 — 홀수 열 시프트로 R만으로는 부정확.
                 // --------------------------------------------------------
                 var sr = tileObj.GetComponent<SpriteRenderer>();
                 if (sr != null)
                 {
-                    sr.sortingOrder = coord.R;
+                    if (HexMetrics.Orientation == Domain.HexOrientation.FlatTop)
+                        sr.sortingOrder = Mathf.RoundToInt(-worldPos.y * 3);
+                    else
+                        sr.sortingOrder = coord.R;
                 }
 
                 // HexTileView 초기화 (좌표, 설정 전달)

@@ -20,53 +20,66 @@
 //
 // 사용 예시:
 //   var config = Resources.Load<GameConfig>("Config/GameConfig");
-//   int width = config.GridWidth;  // 11
+//   OrientationConfig oc = config.PointyTop;  // 또는 config.FlatTop
+//   int width = oc.GridWidth;
 //
 // Infrastructure 레이어 — Unity 의존 (ScriptableObject, Color).
 // ============================================================================
 
 using UnityEngine;
+using Hexiege.Domain;
 
 namespace Hexiege.Infrastructure
 {
-    /// <summary>
-    /// CreateAssetMenu: Unity 에디터의 Create 메뉴에 이 ScriptableObject 생성 항목을 추가.
-    /// Assets 폴더 우클릭 → Create → Hexiege → GameConfig 으로 생성 가능.
-    /// </summary>
+    // ========================================================================
+    // OrientationConfig
+    // 각 Orientation(PointyTop/FlatTop)별 그리드 설정을 묶는 중첩 클래스.
+    // GameConfig 내부에서 PointyTop / FlatTop 인스턴스로 사용.
+    // ========================================================================
+
+    [System.Serializable]
+    public class OrientationConfig
+    {
+        [Tooltip("그리드 가로 타일 수")]
+        public int GridWidth;
+
+        [Tooltip("그리드 세로 타일 수")]
+        public int GridHeight;
+
+        [Tooltip("타일 간 가로 간격 (월드 단위)")]
+        public float TileWidth;
+
+        [Tooltip("타일 간 세로 간격 (월드 단위)")]
+        public float TileHeight;
+    }
+
     [CreateAssetMenu(fileName = "GameConfig", menuName = "Hexiege/GameConfig")]
     public class GameConfig : ScriptableObject
     {
         // ====================================================================
-        // 그리드 설정
+        // 그리드 설정 — Orientation별 분리
+        // 런타임에서 LoadMap(orientation)으로 전환 시 해당 config 사용.
         // ====================================================================
 
-        [Header("Grid")]
+        [Header("PointyTop Grid")]
+        [Tooltip("PointyTop 방향 그리드 설정 (꼭지점 12시)")]
+        public OrientationConfig PointyTop = new OrientationConfig
+        {
+            GridWidth = 7,
+            GridHeight = 17,
+            TileWidth = 0.866f,
+            TileHeight = 0.82f
+        };
 
-        /// <summary> 그리드 가로 타일 수. 모바일 9:16 기준 7. </summary>
-        [Tooltip("그리드 가로 타일 수 (모바일 9:16 기준: 7)")]
-        public int GridWidth = 7;
-
-        /// <summary> 그리드 세로 타일 수. GDD 기준 17. </summary>
-        [Tooltip("그리드 세로 타일 수 (프로토타입: 17)")]
-        public int GridHeight = 17;
-
-        /// <summary>
-        /// 타일 간 가로 간격 (Unity 월드 단위).
-        /// pointy-top 정육각형의 폭 = 높이 × sqrt(3)/2 ≈ 0.866.
-        /// 1024×1024 스프라이트(PPU=1024)에서 높이=1.0 기준이므로 폭=0.866.
-        /// 이 값이 틀리면 타일 사이에 빈틈이 생기거나 겹침.
-        /// HexMetrics.TileWidth에 복사됨.
-        /// </summary>
-        [Tooltip("타일 간 가로 간격 (월드 단위). pointy-top 기준 ≈ 0.866")]
-        public float TileWidth = 0.866f;
-
-        /// <summary>
-        /// 타일 간 세로 간격 (Unity 월드 단위).
-        /// 실제 배치 시 0.75를 곱하여 사용 (육각형 겹침 보정).
-        /// HexMetrics.TileHeight에 복사됨.
-        /// </summary>
-        [Tooltip("타일 간 세로 간격 (월드 단위). 실제 배치 시 ×0.75. 0.82=약간 기울어진 시점")]
-        public float TileHeight = 0.82f;
+        [Header("FlatTop Grid")]
+        [Tooltip("FlatTop 방향 그리드 설정 (변 12시)")]
+        public OrientationConfig FlatTop = new OrientationConfig
+        {
+            GridWidth = 10,
+            GridHeight = 29,
+            TileWidth = 1.0f,
+            TileHeight = 0.36f
+        };
 
         // ====================================================================
         // 팀 색상 설정

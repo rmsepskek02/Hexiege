@@ -134,5 +134,18 @@ namespace Hexiege.Infrastructure
             _unitObjects.TryGetValue(unitId, out GameObject obj);
             return obj;
         }
+
+        /// <summary>
+        /// 모든 유닛 GameObject를 파괴. 맵 전환 시 호출.
+        /// </summary>
+        public void DestroyAllUnits()
+        {
+            foreach (var kvp in _unitObjects)
+            {
+                if (kvp.Value != null)
+                    Destroy(kvp.Value);
+            }
+            _unitObjects.Clear();
+        }
     }
 }

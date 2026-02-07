@@ -12,10 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b189fb9f5b07ffe4ca638fe720529b99, type: 3}
   m_Name: GameConfig
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.GameConfig
-  GridWidth: 7
-  GridHeight: 30
-  TileWidth: 0.866
-  TileHeight: 0.4
+  PointyTop:
+    GridWidth: 7
+    GridHeight: 17
+    TileWidth: 0.866
+    TileHeight: 0.82
+  FlatTop:
+    GridWidth: 10
+    GridHeight: 29
+    TileWidth: 1
+    TileHeight: 0.36
   NeutralColor: {r: 0.69803923, g: 0.69803923, b: 0.69803923, a: 1}
   BlueTeamColor: {r: 0.3019608, g: 0.5019608, b: 0.9019608, a: 1}
   RedTeamColor: {r: 0.9019608, g: 0.3019608, b: 0.3019608, a: 1}

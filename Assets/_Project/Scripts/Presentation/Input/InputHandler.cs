@@ -101,9 +101,6 @@ namespace Hexiege.Presentation
             // 의존성 미주입 상태면 무시
             if (_mainCamera == null) return;
 
-            // 테스트용 키보드 단축키 처리
-            HandleDebugKeys();
-
             // 마우스가 연결되어 있지 않으면 무시
             var mouse = Mouse.current;
             if (mouse == null) return;
@@ -127,74 +124,6 @@ namespace Hexiege.Presentation
                 }
                 // 초과하면 드래그 → CameraController가 처리하므로 여기서는 무시
             }
-        }
-
-        // ====================================================================
-        // 테스트용 키보드 단축키
-        // ====================================================================
-
-        /// <summary>
-        /// 프로토타입 테스트용 키보드 단축키 처리.
-        ///
-        /// A 키: 선택된 유닛의 Attack 애니메이션 재생
-        /// I 키: 선택된 유닛의 Idle 애니메이션 복귀
-        ///
-        /// New Input System API:
-        ///   Keyboard.current — 현재 키보드 디바이스
-        ///   .aKey.wasPressedThisFrame — A 키가 이번 프레임에 눌렸는지
-        /// </summary>
-        private void HandleDebugKeys()
-        {
-            var keyboard = Keyboard.current;
-            if (keyboard == null) return;
-
-            // A 키나 I 키가 눌렸을 때 디버그 출력
-            if (keyboard.aKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame)
-            {
-                string key = keyboard.aKey.wasPressedThisFrame ? "A" : "I";
-
-                if (_selectedUnit == null)
-                {
-                    Debug.Log($"[InputHandler] {key} 키 입력 - 유닛 미선택 상태. 먼저 유닛을 클릭하세요.");
-                    return;
-                }
-
-                UnitView selectedView = FindSelectedUnitView();
-                if (selectedView == null)
-                {
-                    Debug.LogWarning($"[InputHandler] {key} 키 입력 - UnitView를 찾을 수 없음.");
-                    return;
-                }
-
-                if (keyboard.aKey.wasPressedThisFrame)
-                {
-                    Debug.Log($"[InputHandler] A 키 → Attack 애니메이션 재생");
-                    selectedView.PlayAttack();
-                }
-                else if (keyboard.iKey.wasPressedThisFrame)
-                {
-                    Debug.Log($"[InputHandler] I 키 → Idle 애니메이션 복귀");
-                    selectedView.PlayIdle();
-                }
-            }
-        }
-
-        /// <summary>
-        /// 현재 선택된 유닛의 UnitView를 찾아 반환.
-        /// </summary>
-        private UnitView FindSelectedUnitView()
-        {
-            if (_selectedUnit == null) return null;
-
-            var unitViews = FindObjectsByType<UnitView>(FindObjectsSortMode.None);
-            foreach (var view in unitViews)
-            {
-                if (view.Data != null && view.Data.Id == _selectedUnit.Id)
-                {
-                    return view;
-                }
-            }
-            return null;
         }
 
         // ====================================================================

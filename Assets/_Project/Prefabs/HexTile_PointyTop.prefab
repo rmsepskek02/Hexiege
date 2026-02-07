@@ -10,10 +10,10 @@ GameObject:
   m_Component:
   - component: {fileID: 571014368615484392}
   - component: {fileID: 2095252181300616560}
-  - component: {fileID: 2302232924506592184}
   - component: {fileID: 2619668128712217902}
+  - component: {fileID: 2302232924506592184}
   m_Layer: 0
-  m_Name: HexTile
+  m_Name: HexTile_PointyTop
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -93,6 +93,18 @@ SpriteRenderer:
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
+--- !u!114 &2619668128712217902
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4461762085389953123}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01b9d997b35895149b920e5722514bde, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.HexTileView
 --- !u!60 &2302232924506592184
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -216,15 +228,3 @@ PolygonCollider2D:
       - {x: 0.17578125, y: -0.30078125}
       - {x: 0.1875, y: -0.29492188}
   m_UseDelaunayMesh: 1
---- !u!114 &2619668128712217902
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4461762085389953123}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 01b9d997b35895149b920e5722514bde, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.HexTileView

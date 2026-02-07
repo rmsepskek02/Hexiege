@@ -1,7 +1,7 @@
 # Hexiege - 에셋 제작 현황 및 가이드
 
-**버전:** 0.4.0
-**최종 수정일:** 2026-02-02
+**버전:** 0.5.0
+**최종 수정일:** 2026-02-08
 **작성자:** HANYONGHEE
 
 ---
@@ -168,7 +168,8 @@ Sprites/
 
 | 파일명 | 폴더 | 설명 | 비고 |
 |--------|------|------|------|
-| `tile_hex.png` | Tiles/ | 3/4뷰 육각형 타일 | SpriteRenderer.color로 팀 색상 적용 |
+| `tile_hex.png` | Tiles/ | PointyTop 3/4뷰 육각형 타일 | SpriteRenderer.color로 팀 색상 적용 |
+| `tile_hex_flat.png` | Tiles/ | FlatTop 3/4뷰 육각형 타일 | SpriteRenderer.color로 팀 색상 적용 |
 
 ---
 
@@ -221,6 +222,7 @@ Sprites/
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.5.0 | 2026-02-08 | FlatTop 타일 스프라이트(tile_hex_flat.png) 추가 |
 | 0.4.0 | 2026-02-02 | 실제 파일 현황 반영, 채굴소/금광 분리(bld_/obj_), Idle/Walk 프레임 수 정정, pistoleer_icon 제거, ui_bar_alt_frame 추가 |
 | 0.3.0 | 2026-02-02 | 폴더 구조 및 명명 규칙 추가, 전체 파일명 매핑 테이블 작성 |
 | 0.2.0 | 2026-02-02 | 프로토타입 에셋 제작 완료, 타이머 아이콘 추가, 제작 예정 목록 정리 |

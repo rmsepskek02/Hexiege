@@ -111,6 +111,48 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// 유닛 공격 이벤트 데이터.
+    /// UnitCombatUseCase에서 공격 시 발행 → UnitView가 공격 애니메이션 재생.
+    /// </summary>
+    public struct UnitAttackEvent
+    {
+        /// <summary> 공격하는 유닛 Id. </summary>
+        public int AttackerId;
+
+        /// <summary> 피격당하는 유닛 Id. </summary>
+        public int TargetId;
+
+        /// <summary> 가한 데미지. </summary>
+        public int Damage;
+
+        /// <summary> 공격 방향 (공격자 → 타겟). </summary>
+        public HexDirection Direction;
+
+        public UnitAttackEvent(int attackerId, int targetId, int damage, HexDirection direction)
+        {
+            AttackerId = attackerId;
+            TargetId = targetId;
+            Damage = damage;
+            Direction = direction;
+        }
+    }
+
+    /// <summary>
+    /// 유닛 사망 이벤트 데이터.
+    /// UnitCombatUseCase에서 HP가 0 이하가 되면 발행.
+    /// </summary>
+    public struct UnitDiedEvent
+    {
+        /// <summary> 사망한 유닛 Id. </summary>
+        public int UnitId;
+
+        public UnitDiedEvent(int unitId)
+        {
+            UnitId = unitId;
+        }
+    }
+
+    /// <summary>
     /// 게임 전역 이벤트 허브.
     /// 모든 이벤트는 static Subject로, 어디서든 발행/구독 가능.
     /// </summary>
@@ -151,5 +193,23 @@ namespace Hexiege.Application
         /// 구독: UnitFactory (프리팹 인스턴스 생성)
         /// </summary>
         public static readonly Subject<UnitSpawnedEvent> OnUnitSpawned = new Subject<UnitSpawnedEvent>();
+
+        // ====================================================================
+        // 전투 관련 이벤트
+        // ====================================================================
+
+        /// <summary>
+        /// 유닛이 공격했을 때 발행.
+        /// 발행: UnitCombatUseCase
+        /// 구독: UnitView (공격 애니메이션 재생)
+        /// </summary>
+        public static readonly Subject<UnitAttackEvent> OnUnitAttack = new Subject<UnitAttackEvent>();
+
+        /// <summary>
+        /// 유닛이 사망했을 때 발행.
+        /// 발행: UnitCombatUseCase
+        /// 구독: UnitView (사망 처리, GameObject 파괴)
+        /// </summary>
+        public static readonly Subject<UnitDiedEvent> OnUnitDied = new Subject<UnitDiedEvent>();
     }
 }
