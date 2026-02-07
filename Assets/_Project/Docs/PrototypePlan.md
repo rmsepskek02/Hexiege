@@ -1,6 +1,6 @@
 # Hexiege - 클라이언트 프로토타입 구현 계획서
 
-**버전:** 0.4.0
+**버전:** 0.5.0
 **최종 수정일:** 2026-02-08
 **작성자:** HANYONGHEE
 
@@ -228,7 +228,7 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 - [x] 에셋 명명 규칙 확정 및 전체 파일 리네임 완료
 - [ ] `NewMonoBehaviourScript.cs` 삭제 (Phase 2 시작 시 처리)
 
-### Phase 2: Domain 레이어
+### Phase 2: Domain 레이어 ✅ 완료
 1. `TeamId.cs` - 팀 열거형
 2. `HexCoord.cs` - 큐브 좌표 (모든 것의 기반)
 3. `HexDirection.cs` - 6방향 + 이웃 오프셋
@@ -239,46 +239,48 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 8. `UnitType.cs` - 유닛 타입
 9. `UnitData.cs` - 유닛 상태
 
-### Phase 3: Core
+### Phase 3: Core ✅ 완료
 1. `HexMetrics.cs` - 좌표 변환
 2. `SingletonMonoBehaviour.cs` - 싱글톤
 
-### Phase 4: Application
+### Phase 4: Application ✅ 완료
 1. `GameEvents.cs` - 이벤트 허브
 2. `GridInteractionUseCase.cs` - 타일 선택
 3. `UnitMovementUseCase.cs` - 이동 + 점령
 4. `UnitSpawnUseCase.cs` - 유닛 생성
+5. `UnitCombatUseCase.cs` - 전투 (공격/피격/사망)
 
-### Phase 5: Infrastructure
-1. `GameConfig.cs` - 설정 SO
+### Phase 5: Infrastructure ✅ 완료
+1. `GameConfig.cs` - 설정 SO (OrientationConfig 중첩 클래스 포함)
 2. `UnitAnimationData.cs` - 애니메이션 SO
-3. `UnitFactory.cs` - 팩토리
+3. `UnitFactory.cs` - 팩토리 (DestroyAllUnits 포함)
 
-### Phase 6: Presentation - Grid
-1. `HexTileView.cs` - 타일 뷰
-2. `HexGridRenderer.cs` - 그리드 렌더러
+### Phase 6: Presentation - Grid ✅ 완료
+1. `HexTileView.cs` - 타일 뷰 (선택 하이라이트 버그 수정 완료)
+2. `HexGridRenderer.cs` - 그리드 렌더러 (듀얼 프리팹 지원)
 
-### Phase 7: Presentation - Unit
+### Phase 7: Presentation - Unit ✅ 완료
 1. `FrameAnimator.cs` - 프레임 애니메이터
-2. `UnitView.cs` - 유닛 뷰
+2. `UnitView.cs` - 유닛 뷰 (이동 + 자동 공격 + 사망 처리)
 
-### Phase 8: Presentation - Camera/Input
+### Phase 8: Presentation - Camera/Input ✅ 완료
 1. `CameraController.cs` - 카메라 제어
 2. `InputHandler.cs` - 입력 처리
 
-### Phase 9: Bootstrap + Debug
-1. `GameBootstrapper.cs` - 진입점
+### Phase 9: Bootstrap + Debug ✅ 완료
+1. `GameBootstrapper.cs` - 진입점 (LoadMap 런타임 전환)
 2. `DebugUI.cs` - 디버그
 
-### Phase 10: 프리팹 + ScriptableObject 생성
+### Phase 10: 프리팹 + ScriptableObject 생성 ✅ 완료
 - Gemini 스프라이트가 이미 제작 완료되어 플레이스홀더 불필요
-- `Prefabs/HexTile.prefab` 생성 (SpriteRenderer + PolygonCollider2D + HexTileView)
+- `Prefabs/HexTile_PointyTop.prefab` 생성 (SpriteRenderer + PolygonCollider2D + HexTileView)
+- `Prefabs/HexTile_FlatTop.prefab` 생성 (SpriteRenderer + PolygonCollider2D + HexTileView)
 - `Prefabs/Unit_Pistoleer.prefab` 생성 (SpriteRenderer + UnitView + FrameAnimator)
 - `Resources/Config/GameConfig.asset` 생성 (전역 설정)
 - `Resources/Config/PistoleerAnimData.asset` 생성 (실제 스프라이트 연결)
 
-### Phase 11: 통합 테스트
-- 3가지 목표 검증 (아래 검증 계획 참고)
+### Phase 11: 통합 테스트 ✅ 완료
+- 4가지 목표 검증 완료 (아래 검증 계획 참고)
 
 ---
 
@@ -386,43 +388,37 @@ Sprites/Units/Pistoleer/
 
 ## ✅ 검증 계획
 
-### 목표 1: AI 스프라이트 애니메이션
+### 목표 1: AI 스프라이트 애니메이션 ✅ 통과
 
 **검증 항목:**
-- [ ] 스프라이트 프레임이 설정된 FPS로 정확히 순환
-- [ ] 상태 전환 (idle → walk → idle)이 즉시 반영
-- [ ] flipX 반전 시 피벗 포인트가 정확 (중심 기준)
-- [ ] AI 생성 스프라이트가 헥스 타일 대비 적절한 크기
-- [ ] 18개 조합 확인 (6방향 × 3상태: idle/walk/attack)
+- [x] 스프라이트 프레임이 설정된 FPS로 정확히 순환
+- [x] 상태 전환 (idle → walk → idle)이 즉시 반영
+- [x] flipX 반전 시 피벗 포인트가 정확 (중심 기준)
+- [x] AI 생성 스프라이트가 헥스 타일 대비 적절한 크기
+- [x] 18개 조합 확인 (6방향 × 3상태: idle/walk/attack)
 
-**통과 기준:**
-- Gemini 스프라이트 애니메이션이 시각적으로 정상 동작
-- ScriptableObject 스프라이트 교체 시 즉시 반영
-- walk 2프레임이 "걷는 느낌"을 전달 (E방향 기준)
+**결과:** 에셋 부족 (FlatTop 4방향 스프라이트 미제작)을 제외하면 정상 동작 확인됨.
 
-### 목표 2: 헥사 타일 시스템
+### 목표 2: 헥사 타일 시스템 ✅ 통과
 
 **검증 항목:**
-- [ ] PointyTop 7×17 / FlatTop 10×29 그리드 정상 생성 (빈틈/겹침 없음)
-- [ ] PointyTop: 홀수 행이 반 칸 오프셋 / FlatTop: 홀수 열이 반 칸 오프셋
-- [ ] 타일 클릭 시 정확한 타일 선택 (모서리/경계 포함)
-- [ ] 색상 변경 (Neutral → Blue → Red) 시각적 구분
-- [ ] `HexCoord.Distance()` 정확도 (인접=1, 2칸=2)
+- [x] PointyTop 7×17 / FlatTop 10×29 그리드 정상 생성 (빈틈/겹침 없음)
+- [x] PointyTop: 홀수 행이 반 칸 오프셋 / FlatTop: 홀수 열이 반 칸 오프셋
+- [x] 타일 클릭 시 정확한 타일 선택 (모서리/경계 포함)
+- [x] 색상 변경 (Neutral → Blue → Red) 시각적 구분
+- [x] `HexCoord.Distance()` 정확도 (인접=1, 2칸=2)
 
-**통과 기준:**
-- 그리드가 시각적으로 정합한 육각형 맵으로 보임
-- 어떤 타일을 클릭해도 정확한 타일이 선택됨
-- 팀 색상이 명확히 구분됨
+**결과:** 타일 선택 하이라이트 잔존 버그 발견 → 수정 완료 (HexTileView.cs 선택 토글 로직 수정).
 
-### 목표 3: 유닛 이동 + 방향 전환
+### 목표 3: 유닛 이동 + 방향 전환 ✅ 통과
 
 **검증 항목:**
-- [ ] A* 경로탐색이 유효한 경로 반환
-- [ ] 유닛이 타일→타일 시각적으로 부드럽게 이동 (Lerp)
-- [ ] 이동 방향에 따라 정확한 스프라이트로 전환
-- [ ] flipX 좌우 반전 정확도 (SW/W/NW 방향)
-- [ ] 이동 시 타일 점령 (색상 변경)
-- [ ] 6방향 매핑 정확성:
+- [x] A* 경로탐색이 유효한 경로 반환
+- [x] 유닛이 타일→타일 시각적으로 부드럽게 이동 (Lerp)
+- [x] 이동 방향에 따라 정확한 스프라이트로 전환
+- [x] flipX 좌우 반전 정확도 (SW/W/NW 방향)
+- [x] 이동 시 타일 점령 (색상 변경)
+- [x] 6방향 매핑 정확성:
   - NE 이동: NE 스프라이트, flipX=false
   - E 이동: E 스프라이트, flipX=false
   - SE 이동: SE 스프라이트, flipX=false
@@ -430,10 +426,7 @@ Sprites/Units/Pistoleer/
   - W 이동: E 스프라이트, flipX=true
   - NW 이동: NE 스프라이트, flipX=true
 
-**통과 기준:**
-- 경로탐색이 인접 타일만 거치는 유효한 경로 반환
-- 유닛 이동 시 방향 전환이 자연스러움
-- 모든 6방향에서 스프라이트+flipX 조합이 정확
+**결과:** 모든 방향에서 정상 동작 확인.
 
 ---
 
@@ -478,21 +471,18 @@ SampleScene
 - Background (order 0): 헥스 타일
 - Units (order 1): 유닛 스프라이트 (Y축 기준 자동 정렬)
 
-### 목표 4: 전투 시스템 (인접 자동 공격)
+### 목표 4: 전투 시스템 (인접 자동 공격) ✅ 통과
 
 **검증 항목:**
-- [ ] 이동 완료 후 인접 6타일에서 적 유닛 탐색 정상 동작
-- [ ] 적 발견 시 공격 방향 스프라이트 전환 (flipX 포함)
-- [ ] Attack 애니메이션 재생 (2프레임 사이클)
-- [ ] 데미지 적용 정확도 (AttackPower=3, HP 감소 확인)
-- [ ] 사거리 내 적이 있는 동안 반복 공격
-- [ ] 적 HP ≤ 0 시 사망 이벤트 발행 + GameObject 파괴
-- [ ] 사망한 유닛이 UnitSpawnUseCase 목록에서 제거됨
+- [x] 이동 완료 후 인접 6타일에서 적 유닛 탐색 정상 동작
+- [x] 적 발견 시 공격 방향 스프라이트 전환 (flipX 포함)
+- [x] Attack 애니메이션 재생 (2프레임 사이클)
+- [x] 데미지 적용 정확도 (AttackPower=3, HP 감소 확인)
+- [x] 사거리 내 적이 있는 동안 반복 공격
+- [x] 적 HP ≤ 0 시 사망 이벤트 발행 + GameObject 파괴
+- [x] 사망한 유닛이 UnitSpawnUseCase 목록에서 제거됨
 
-**통과 기준:**
-- 유닛이 이동 후 인접 적을 자동으로 공격
-- 공격 애니메이션이 올바른 방향으로 재생
-- 적 사망 시 화면에서 제거되고 데이터 정합성 유지
+**결과:** 인접 적 공격, 애니메이션, 사망 시 삭제 모두 정상 동작 확인.
 
 ---
 
@@ -500,6 +490,7 @@ SampleScene
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.5.0 | 2026-02-08 | 프로토타입 완료: Phase 2-11 전체 완료 표시, 검증 4가지 목표 모두 통과, 타일 선택 하이라이트 버그 수정 반영 |
 | 0.4.0 | 2026-02-08 | 듀얼 Orientation 지원: OrientationConfig 중첩 클래스, PointyTop(7×17)/FlatTop(10×29) 그리드, 프리팹 분리(HexTile_PointyTop/HexTile_FlatTop), GameBootstrapper.LoadMap() 런타임 맵 전환, UnitFactory.DestroyAllUnits() |
 | 0.3.0 | 2026-02-07 | 전투 시스템 추가 반영: UnitCombatUseCase 신규, UnitData 전투 스탯(HP/공격력/사거리), 전투 이벤트(Attack/Died), 이동 후 인접 적 자동 공격, 프로토타입 범위에 전투 포함, 그리드 크기 7×30 현행화 |
 | 0.2.0 | 2026-02-02 | Gemini 스프라이트 완료 반영, 에셋 경로/명명 규칙 현행화, 플레이스홀더 전략 제거, death 애니메이션 프로토타입 범위 외 처리 |

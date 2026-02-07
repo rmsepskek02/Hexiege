@@ -1,6 +1,6 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.3.0
+**버전:** 0.4.0
 **최종 수정일:** 2026-02-08
 **작성자:** HANYONGHEE
 
@@ -525,6 +525,24 @@ A* 경로 이동 (UnitView 코루틴)
 적 없음 → Idle 상태 복귀
 ```
 
+#### 타일 선택 하이라이트 처리
+
+```csharp
+// HexTileView의 OnTileSelected 이벤트 핸들러
+// Coord == PreviousCoord일 때 = 선택 해제 이벤트 (Deselect)
+// Coord != PreviousCoord일 때 = 새 타일 선택
+if (e.Coord == _coord)
+{
+    _isSelected = !(e.PreviousCoord.HasValue
+                    && e.PreviousCoord.Value == e.Coord);
+    UpdateColor();
+}
+```
+
+> **버그 수정 이력:** 초기 구현에서 `_isSelected = !_isSelected` (토글)을 사용했으나,
+> Deselect() 이벤트(Coord == PreviousCoord)에서 Check1(해제)과 Check2(토글)가 동일 타일에서
+> 연속 실행되어 하이라이트가 잔존하는 버그 발생. 결정적(deterministic) 할당으로 수정.
+
 #### 이벤트 기반 전투 통신
 ```csharp
 // 공격 이벤트 (UnitCombatUseCase → UnitView)
@@ -657,6 +675,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.4.0 | 2026-02-08 | 타일 선택 하이라이트 버그 수정 문서화: HexTileView 토글→결정적 할당, 선택 해제 이벤트 처리 설명 추가 |
 | 0.3.0 | 2026-02-08 | 듀얼 Orientation: OrientationConfig, PointyTop(7×17)/FlatTop(10×29), 런타임 맵 전환(LoadMap), HexCoord/A* 코드 현행화 |
 | 0.2.0 | 2026-02-07 | 전투 시스템 추가: UnitData 전투 스탯, UnitCombatUseCase 전투 흐름, 이벤트 기반 통신 (Attack/Died) |
 | 0.1.0 | 2026-01-27 | 초기 문서 작성 |

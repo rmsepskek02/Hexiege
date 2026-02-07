@@ -14,7 +14,10 @@
       "Bash(python -c:*)",
       "Bash(git -C \"d:\\\\Dmain\\\\dev\\\\Portfolio\\\\Hexiege\\\\Hexiege\" log --oneline -10)",
       "Bash(ren \"D:\\\\Dmain\\\\dev\\\\Portfolio\\\\Hexiege\\\\Hexiege\\\\Assets\\\\_Project\\\\Sprites\\\\Tiles\\\\tile_hex2.png\" \"tile_hex_flat.png\")",
-      "Bash(ren \"D:\\\\Dmain\\\\dev\\\\Portfolio\\\\Hexiege\\\\Hexiege\\\\Assets\\\\_Project\\\\Sprites\\\\Tiles\\\\tile_hex2.png.meta\" \"tile_hex_flat.png.meta\")"
+      "Bash(ren \"D:\\\\Dmain\\\\dev\\\\Portfolio\\\\Hexiege\\\\Hexiege\\\\Assets\\\\_Project\\\\Sprites\\\\Tiles\\\\tile_hex2.png.meta\" \"tile_hex_flat.png.meta\")",
+      "Bash(xargs:*)",
+      "Bash(done)",
+      "Bash(wc -l:*)"
     ]
   }
 }

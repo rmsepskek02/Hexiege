@@ -117,9 +117,10 @@ namespace Hexiege.Presentation
                     }
 
                     // 새 선택 하이라이트 (내가 새 선택이면)
+                    // Coord == PreviousCoord일 때는 해제 이벤트이므로 선택하지 않음
                     if (e.Coord == _coord)
                     {
-                        _isSelected = !_isSelected; // 토글 지원
+                        _isSelected = !(e.PreviousCoord.HasValue && e.PreviousCoord.Value == e.Coord);
                         UpdateColor();
                     }
                 })
