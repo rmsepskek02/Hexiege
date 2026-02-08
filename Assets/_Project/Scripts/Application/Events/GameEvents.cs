@@ -153,6 +153,21 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// 건물 배치 이벤트 데이터.
+    /// BuildingPlacementUseCase에서 건물 배치 시 발행 → BuildingFactory가 프리팹 생성.
+    /// </summary>
+    public struct BuildingPlacedEvent
+    {
+        /// <summary> 배치된 건물의 데이터. </summary>
+        public BuildingData Building;
+
+        public BuildingPlacedEvent(BuildingData building)
+        {
+            Building = building;
+        }
+    }
+
+    /// <summary>
     /// 게임 전역 이벤트 허브.
     /// 모든 이벤트는 static Subject로, 어디서든 발행/구독 가능.
     /// </summary>
@@ -211,5 +226,16 @@ namespace Hexiege.Application
         /// 구독: UnitView (사망 처리, GameObject 파괴)
         /// </summary>
         public static readonly Subject<UnitDiedEvent> OnUnitDied = new Subject<UnitDiedEvent>();
+
+        // ====================================================================
+        // 건물 관련 이벤트
+        // ====================================================================
+
+        /// <summary>
+        /// 건물이 배치되었을 때 발행.
+        /// 발행: BuildingPlacementUseCase
+        /// 구독: BuildingFactory (프리팹 인스턴스 생성)
+        /// </summary>
+        public static readonly Subject<BuildingPlacedEvent> OnBuildingPlaced = new Subject<BuildingPlacedEvent>();
     }
 }

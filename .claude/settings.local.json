@@ -17,7 +17,23 @@
       "Bash(ren \"D:\\\\Dmain\\\\dev\\\\Portfolio\\\\Hexiege\\\\Hexiege\\\\Assets\\\\_Project\\\\Sprites\\\\Tiles\\\\tile_hex2.png.meta\" \"tile_hex_flat.png.meta\")",
       "Bash(xargs:*)",
       "Bash(done)",
-      "Bash(wc -l:*)"
+      "Bash(wc -l:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(claude mcp add:*)",
+      "mcp__mcp-unity__get_scene_info",
+      "mcp__mcp-unity__get_gameobject",
+      "mcp__mcp-unity__update_gameobject",
+      "mcp__mcp-unity__execute_menu_item",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "mcp__mcp-unity__create_prefab",
+      "Bash(move \"D:\\\\Dmain\\\\dev\\\\Portfolio\\\\Hexiege\\\\Hexiege\\\\Building_Castle.prefab\" \"D:\\\\Dmain\\\\dev\\\\Portfolio\\\\Hexiege\\\\Hexiege\\\\Assets\\\\_Project\\\\Prefabs\\\\Building_Castle.prefab\")",
+      "mcp__mcp-unity__add_asset_to_scene",
+      "mcp__mcp-unity__delete_gameobject",
+      "mcp__mcp-unity__save_scene",
+      "mcp__mcp-unity__recompile_scripts",
+      "mcp__mcp-unity__get_console_logs",
+      "mcp__mcp-unity__reparent_gameobject"
     ]
   }
 }

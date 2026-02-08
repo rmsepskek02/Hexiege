@@ -1,6 +1,6 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.4.0
+**버전:** 0.5.0
 **최종 수정일:** 2026-02-08
 **작성자:** HANYONGHEE
 
@@ -553,6 +553,65 @@ GameEvents.OnUnitAttack.OnNext(new UnitAttackEvent(
 GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(unitId));
 ```
 
+### 건물 배치 시스템 (MVP Phase 1)
+
+프로토타입 완료 후 첫 MVP 기능. 건물 배치 + 시각화만 구현 (자원/생산 시스템 미포함).
+
+#### 건물 타입
+```csharp
+public enum BuildingType {
+    Castle,      // 본기지 — 게임 시작 시 자동 배치
+    Barracks,    // 배럭 — MVP에서 유닛 생산 기능 추가
+    MiningPost   // 채굴소 — MVP에서 자원 수집 기능 추가
+}
+```
+
+#### 건물 데이터 (UnitData 패턴)
+```csharp
+public class BuildingData {
+    public int Id { get; }              // 자동 발급
+    public BuildingType Type { get; }   // 불변
+    public TeamId Team { get; }         // 불변
+    public HexCoord Position { get; }   // 불변
+}
+```
+
+#### 건물 배치 흐름
+```
+[자동 배치] GameBootstrapper.PlaceCastles()
+  → Blue Castle: 하단 중앙, Red Castle: 상단 중앙
+
+[수동 배치] 자기 팀 빈 타일 탭
+  ↓
+InputHandler: CanPlaceBuilding 검증
+  ↓
+BuildingPlacementUI.Show() — 건물 선택 팝업 (배럭, 채굴소)
+  ↓
+플레이어 선택
+  ↓
+BuildingPlacementUseCase.PlaceBuilding()
+  ├─ 검증: 타일 존재, IsWalkable, 팀 소유
+  ├─ BuildingData 생성 (Id 자동 발급)
+  ├─ 타일 상태: IsWalkable = false
+  └─ 이벤트 발행: OnBuildingPlaced, OnTileOwnerChanged
+  ↓
+BuildingFactory (이벤트 구독)
+  → 프리팹 Instantiate + BuildingView 초기화
+```
+
+#### 정렬 순서 (Sorting Order)
+```
+타일:  0 ~ 30 (행 기반)
+건물:  50      (타일 위, 유닛 아래)
+유닛:  100     (최상위)
+```
+
+#### 건물 관련 이벤트
+```csharp
+// 건물 배치 (BuildingPlacementUseCase → BuildingFactory)
+GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
+```
+
 ---
 
 ## ⚡ 성능 최적화
@@ -675,6 +734,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.5.0 | 2026-02-08 | 건물 배치 시스템(MVP Phase 1) 추가: BuildingType/BuildingData, 배치 흐름(자동/수동), 정렬 순서(건물 50), BuildingPlacedEvent |
 | 0.4.0 | 2026-02-08 | 타일 선택 하이라이트 버그 수정 문서화: HexTileView 토글→결정적 할당, 선택 해제 이벤트 처리 설명 추가 |
 | 0.3.0 | 2026-02-08 | 듀얼 Orientation: OrientationConfig, PointyTop(7×17)/FlatTop(10×29), 런타임 맵 전환(LoadMap), HexCoord/A* 코드 현행화 |
 | 0.2.0 | 2026-02-07 | 전투 시스템 추가: UnitData 전투 스탯, UnitCombatUseCase 전투 흐름, 이벤트 기반 통신 (Attack/Died) |

@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "mcp__mcp-unity__update_component",
+      "Bash(npx:*)"
     ]
   }
 }

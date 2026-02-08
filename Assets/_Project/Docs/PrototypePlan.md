@@ -1,6 +1,6 @@
 # Hexiege - 클라이언트 프로토타입 구현 계획서
 
-**버전:** 0.5.0
+**버전:** 0.6.0
 **최종 수정일:** 2026-02-08
 **작성자:** HANYONGHEE
 
@@ -97,17 +97,20 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 │  ├─ HexGridRenderer      (그리드 전체 렌더링)             │
 │  ├─ UnitView             (유닛 스프라이트 + 이동 비주얼)    │
 │  ├─ FrameAnimator        (스프라이트 프레임 순환)           │
+│  ├─ BuildingView         (건물 비주얼) [MVP]              │
+│  ├─ BuildingPlacementUI  (건물 선택 팝업 UI) [MVP]        │
 │  ├─ CameraController     (팬/줌)                         │
-│  ├─ InputHandler         (입력 처리)                      │
+│  ├─ InputHandler         (입력 처리 + 건물 배치 흐름)      │
 │  └─ DebugUI              (디버그 정보)                    │
 ├──────────────────────────────────────────────────────────┤
 │  Application Layer                                        │
 │  UseCase + UniRx 이벤트                                   │
-│  ├─ GameEvents               (이벤트 허브)                │
+│  ├─ GameEvents               (이벤트 허브 + 건물 이벤트)  │
 │  ├─ GridInteractionUseCase   (타일 선택)                  │
 │  ├─ UnitMovementUseCase      (이동 + 타일 점령)           │
 │  ├─ UnitSpawnUseCase         (유닛 생성 + 조회 + 제거)    │
-│  └─ UnitCombatUseCase        (전투: 공격/피격/사망)       │
+│  ├─ UnitCombatUseCase        (전투: 공격/피격/사망)       │
+│  └─ BuildingPlacementUseCase (건물 배치 + 검증) [MVP]     │
 ├──────────────────────────────────────────────────────────┤
 │  Domain Layer (순수 C#, Unity 독립)                       │
 │  ├─ HexCoord             (큐브 좌표 값 객체)              │
@@ -118,20 +121,23 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 │  ├─ FacingDirection      (방향 매핑)                     │
 │  ├─ UnitData             (유닛 상태 + 전투 스탯)         │
 │  ├─ UnitType             (유닛 타입)                     │
-│  └─ TeamId               (팀 열거형)                     │
+│  ├─ TeamId               (팀 열거형)                     │
+│  ├─ BuildingType         (건물 타입 열거형) [MVP]         │
+│  └─ BuildingData         (건물 상태 데이터) [MVP]         │
 ├──────────────────────────────────────────────────────────┤
 │  Infrastructure Layer                                     │
 │  ├─ OrientationConfig    (Orientation별 그리드 설정 클래스) │
 │  ├─ GameConfig           (ScriptableObject 전역 설정)     │
 │  ├─ UnitAnimationData    (ScriptableObject 스프라이트)    │
-│  └─ UnitFactory          (유닛 프리팹 팩토리)             │
+│  ├─ UnitFactory          (유닛 프리팹 팩토리)             │
+│  └─ BuildingFactory      (건물 프리팹 팩토리) [MVP]       │
 ├──────────────────────────────────────────────────────────┤
 │  Core Layer (공유 유틸리티)                                │
 │  ├─ HexMetrics           (헥스 ↔ 월드 좌표 변환)          │
 │  └─ SingletonMonoBehaviour (싱글톤 베이스)                 │
 ├──────────────────────────────────────────────────────────┤
 │  Bootstrap                                                │
-│  └─ GameBootstrapper     (씬 진입점, LoadMap 런타임 전환)   │
+│  └─ GameBootstrapper     (씬 진입점, LoadMap, Castle 자동 배치) │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -141,20 +147,22 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 
 모든 경로는 `Assets/_Project/` 기준.
 
-### Domain Layer (순수 C#) - 9개
+### Domain Layer (순수 C#) - 11개
 
-| 파일 경로 | 역할 |
-|----------|------|
-| `Scripts/Domain/Common/TeamId.cs` | 팀 열거형 (Neutral, Blue, Red) |
-| `Scripts/Domain/Hex/HexCoord.cs` | 큐브 좌표 값 객체 (q, r, s=-q-r) |
-| `Scripts/Domain/Hex/HexDirection.cs` | 6방향 열거형 + 이웃 좌표 오프셋 |
-| `Scripts/Domain/Hex/HexTile.cs` | 타일 상태 (소유자, 이동가능 여부) |
-| `Scripts/Domain/Hex/HexOrientation.cs` | HexOrientation 열거형 + HexOrientationContext 정적 홀더 |
-| `Scripts/Domain/Hex/HexGrid.cs` | 그리드 데이터 구조 (Dictionary, orientation 지원) |
-| `Scripts/Domain/Hex/HexPathfinder.cs` | 헥스 그리드 A* 경로탐색 |
-| `Scripts/Domain/Unit/FacingDirection.cs` | 6방향 → 3아트방향 + flipX 매핑 |
-| `Scripts/Domain/Unit/UnitType.cs` | 유닛 타입 열거형 |
-| `Scripts/Domain/Unit/UnitData.cs` | 유닛 상태 (위치, 타입, 팀, 방향, HP, 공격력, 사거리) |
+| 파일 경로 | 역할 | 단계 |
+|----------|------|------|
+| `Scripts/Domain/Common/TeamId.cs` | 팀 열거형 (Neutral, Blue, Red) | 프로토타입 |
+| `Scripts/Domain/Hex/HexCoord.cs` | 큐브 좌표 값 객체 (q, r, s=-q-r) | 프로토타입 |
+| `Scripts/Domain/Hex/HexDirection.cs` | 6방향 열거형 + 이웃 좌표 오프셋 | 프로토타입 |
+| `Scripts/Domain/Hex/HexTile.cs` | 타일 상태 (소유자, 이동가능 여부) | 프로토타입 |
+| `Scripts/Domain/Hex/HexOrientation.cs` | HexOrientation 열거형 + HexOrientationContext 정적 홀더 | 프로토타입 |
+| `Scripts/Domain/Hex/HexGrid.cs` | 그리드 데이터 구조 (Dictionary, orientation 지원) | 프로토타입 |
+| `Scripts/Domain/Hex/HexPathfinder.cs` | 헥스 그리드 A* 경로탐색 | 프로토타입 |
+| `Scripts/Domain/Unit/FacingDirection.cs` | 6방향 → 3아트방향 + flipX 매핑 | 프로토타입 |
+| `Scripts/Domain/Unit/UnitType.cs` | 유닛 타입 열거형 | 프로토타입 |
+| `Scripts/Domain/Unit/UnitData.cs` | 유닛 상태 (위치, 타입, 팀, 방향, HP, 공격력, 사거리) | 프로토타입 |
+| `Scripts/Domain/Building/BuildingType.cs` | 건물 타입 열거형 (Castle, Barracks, MiningPost) | **MVP** |
+| `Scripts/Domain/Building/BuildingData.cs` | 건물 상태 데이터 (Id, Type, Team, Position) | **MVP** |
 
 ### Core Layer - 2개 (+1 enum)
 
@@ -163,41 +171,45 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Scripts/Core/HexMetrics.cs` | 헥스 좌표 ↔ 월드 좌표 변환, 사이징 상수 |
 | `Scripts/Core/SingletonMonoBehaviour.cs` | 제네릭 싱글톤 베이스 클래스 |
 
-### Application Layer - 5개
+### Application Layer - 6개
 
-| 파일 경로 | 역할 |
-|----------|------|
-| `Scripts/Application/Events/GameEvents.cs` | UniRx Subject 이벤트 허브 (타일/유닛/전투 이벤트) |
-| `Scripts/Application/UseCases/GridInteractionUseCase.cs` | 타일 선택 처리 |
-| `Scripts/Application/UseCases/UnitMovementUseCase.cs` | 경로탐색 + 이동 + 타일 점령 |
-| `Scripts/Application/UseCases/UnitSpawnUseCase.cs` | 유닛 생성 + 좌표별 조회 + 사망 제거 |
-| `Scripts/Application/UseCases/UnitCombatUseCase.cs` | 전투 처리 (인접 적 탐색, 공격, 사망 판정) |
+| 파일 경로 | 역할 | 단계 |
+|----------|------|------|
+| `Scripts/Application/Events/GameEvents.cs` | UniRx Subject 이벤트 허브 (타일/유닛/전투/건물 이벤트) | 프로토타입 + **MVP 수정** |
+| `Scripts/Application/UseCases/GridInteractionUseCase.cs` | 타일 선택 처리 | 프로토타입 |
+| `Scripts/Application/UseCases/UnitMovementUseCase.cs` | 경로탐색 + 이동 + 타일 점령 | 프로토타입 |
+| `Scripts/Application/UseCases/UnitSpawnUseCase.cs` | 유닛 생성 + 좌표별 조회 + 사망 제거 | 프로토타입 |
+| `Scripts/Application/UseCases/UnitCombatUseCase.cs` | 전투 처리 (인접 적 탐색, 공격, 사망 판정) | 프로토타입 |
+| `Scripts/Application/UseCases/BuildingPlacementUseCase.cs` | 건물 배치 검증 + 타일 상태 변경 + 이벤트 발행 | **MVP** |
 
-### Infrastructure Layer - 3개
+### Infrastructure Layer - 4개
 
-| 파일 경로 | 역할 |
-|----------|------|
-| `Scripts/Infrastructure/Config/GameConfig.cs` | 전역 설정 ScriptableObject (OrientationConfig 중첩 클래스 포함) |
-| `Scripts/Infrastructure/Config/UnitAnimationData.cs` | 방향별 스프라이트 배열 ScriptableObject |
-| `Scripts/Infrastructure/Factories/UnitFactory.cs` | 유닛 프리팹 인스턴스 생성 + 전체 제거 (맵 전환용) |
+| 파일 경로 | 역할 | 단계 |
+|----------|------|------|
+| `Scripts/Infrastructure/Config/GameConfig.cs` | 전역 설정 ScriptableObject (OrientationConfig + BuildingYOffset) | 프로토타입 + **MVP 수정** |
+| `Scripts/Infrastructure/Config/UnitAnimationData.cs` | 방향별 스프라이트 배열 ScriptableObject | 프로토타입 |
+| `Scripts/Infrastructure/Factories/UnitFactory.cs` | 유닛 프리팹 인스턴스 생성 + 전체 제거 (맵 전환용) | 프로토타입 |
+| `Scripts/Infrastructure/Factories/BuildingFactory.cs` | 건물 프리팹 인스턴스 생성 + 전체 제거 (맵 전환용) | **MVP** |
 
-### Presentation Layer - 7개
+### Presentation Layer - 9개
 
-| 파일 경로 | 역할 |
-|----------|------|
-| `Scripts/Presentation/Grid/HexTileView.cs` | 타일 비주얼 + 색상 변경 + 선택 |
-| `Scripts/Presentation/Grid/HexGridRenderer.cs` | HexGrid → GameObject 렌더링 |
-| `Scripts/Presentation/Unit/FrameAnimator.cs` | 스프라이트 프레임 순환 엔진 |
-| `Scripts/Presentation/Unit/UnitView.cs` | 유닛 비주얼 + 이동 코루틴 + 방향 전환 + 자동 공격 + 사망 처리 |
-| `Scripts/Presentation/Camera/CameraController.cs` | 카메라 팬/줌 + 경계 제한 |
-| `Scripts/Presentation/Input/InputHandler.cs` | 마우스/터치 입력 → UseCase 연결 |
-| `Scripts/Presentation/Debug/DebugUI.cs` | 화면 디버그 정보 표시 |
+| 파일 경로 | 역할 | 단계 |
+|----------|------|------|
+| `Scripts/Presentation/Grid/HexTileView.cs` | 타일 비주얼 + 색상 변경 + 선택 | 프로토타입 |
+| `Scripts/Presentation/Grid/HexGridRenderer.cs` | HexGrid → GameObject 렌더링 | 프로토타입 |
+| `Scripts/Presentation/Unit/FrameAnimator.cs` | 스프라이트 프레임 순환 엔진 | 프로토타입 |
+| `Scripts/Presentation/Unit/UnitView.cs` | 유닛 비주얼 + 이동 코루틴 + 방향 전환 + 자동 공격 + 사망 처리 | 프로토타입 |
+| `Scripts/Presentation/Camera/CameraController.cs` | 카메라 팬/줌 + 경계 제한 | 프로토타입 |
+| `Scripts/Presentation/Input/InputHandler.cs` | 마우스/터치 입력 → UseCase 연결 (건물 배치 흐름 포함) | 프로토타입 + **MVP 수정** |
+| `Scripts/Presentation/Debug/DebugUI.cs` | 화면 디버그 정보 표시 | 프로토타입 |
+| `Scripts/Presentation/Building/BuildingView.cs` | 건물 비주얼 컴포넌트 (BuildingData 참조) | **MVP** |
+| `Scripts/Presentation/UI/BuildingPlacementUI.cs` | 건물 선택 팝업 UI (배럭/채굴소 버튼) | **MVP** |
 
 ### Bootstrap - 1개
 
-| 파일 경로 | 역할 |
-|----------|------|
-| `Scripts/Bootstrap/GameBootstrapper.cs` | 씬 진입점, LoadMap() 런타임 맵 전환, 의존성 와이어링 |
+| 파일 경로 | 역할 | 단계 |
+|----------|------|------|
+| `Scripts/Bootstrap/GameBootstrapper.cs` | 씬 진입점, LoadMap() 런타임 맵 전환, 의존성 와이어링, Castle 자동 배치 | 프로토타입 + **MVP 수정** |
 
 ### 에셋 파일
 
@@ -215,8 +227,11 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Prefabs/Unit_Pistoleer.prefab` | 유닛 프리팹 (SpriteRenderer + UnitView + FrameAnimator) |
 | `Resources/Config/GameConfig.asset` | 전역 설정 인스턴스 |
 | `Resources/Config/PistoleerAnimData.asset` | 권총병 애니메이션 데이터 인스턴스 |
+| `Prefabs/Building_Castle.prefab` | 본기지 프리팹 (SpriteRenderer + BuildingView) | **MVP** |
+| `Prefabs/Building_Barracks.prefab` | 배럭 프리팹 (SpriteRenderer + BuildingView) | **MVP** |
+| `Prefabs/Building_MiningPost.prefab` | 채굴소 프리팹 (SpriteRenderer + BuildingView) | **MVP** |
 
-**총 파일 수:** 스크립트 28개 + 프리팹/SO 5개 + 스프라이트 32개 (제작 완료)
+**총 파일 수:** 스크립트 35개 (프로토타입 28 + MVP 7) + 프리팹/SO 8개 + 스프라이트 32개
 
 ---
 
@@ -375,7 +390,7 @@ Sprites/Units/Pistoleer/
 
 | 항목 | Phase |
 |------|-------|
-| 건물 시스템 (배럭, 자원, 타워 등) | MVP |
+| ~~건물 시스템 (배럭, 자원, 타워 등)~~ | ~~MVP~~ → **건물 배치 구현 완료 (코드)** |
 | 자원/생산 시스템 | MVP |
 | 승리/패배 조건 | MVP |
 | 네트워크/멀티플레이어 | Phase 2 |
@@ -444,17 +459,26 @@ SampleScene
 ├── [Managers]
 │   ├── GameBootstrapper
 │   │   컴포넌트: GameBootstrapper
-│   │   참조: HexGrid, CameraController, InputHandler, UnitFactory, GameConfig
+│   │   참조: HexGrid, CameraController, InputHandler, UnitFactory,
+│   │          BuildingFactory, BuildingPlacementUI, GameConfig
+│   ├── UnitFactory
+│   ├── BuildingFactory [MVP]
 │   └── EventSystem (Input System용)
 │
 ├── [World]
 │   ├── HexGrid (빈 오브젝트, 타일 부모)
 │   │   컴포넌트: HexGridRenderer
-│   └── Units (빈 오브젝트, 유닛 부모)
+│   ├── Units (빈 오브젝트, 유닛 부모)
+│   └── Buildings (빈 오브젝트, 건물 부모) [MVP]
 │
 ├── [Input]
 │   └── InputHandler
 │       컴포넌트: InputHandler
+│
+├── [UI] (Canvas, Screen Space - Overlay) [MVP]
+│   └── BuildingPanel (비활성 상태)
+│       컴포넌트: BuildingPlacementUI
+│       하위: BarracksButton, MiningPostButton, CancelButton
 │
 └── [Debug]
     └── DebugUI
@@ -490,6 +514,7 @@ SampleScene
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.6.0 | 2026-02-08 | MVP 건물 배치 시스템 코드 완료 반영: 파일 목록에 건물 7개 파일 추가(Domain 2, Application 1, Infrastructure 1, Presentation 2, Bootstrap 수정), 아키텍처 다이어그램 업데이트, 씬 구성에 Buildings/BuildingFactory/[UI] 추가 |
 | 0.5.0 | 2026-02-08 | 프로토타입 완료: Phase 2-11 전체 완료 표시, 검증 4가지 목표 모두 통과, 타일 선택 하이라이트 버그 수정 반영 |
 | 0.4.0 | 2026-02-08 | 듀얼 Orientation 지원: OrientationConfig 중첩 클래스, PointyTop(7×17)/FlatTop(10×29) 그리드, 프리팹 분리(HexTile_PointyTop/HexTile_FlatTop), GameBootstrapper.LoadMap() 런타임 맵 전환, UnitFactory.DestroyAllUnits() |
 | 0.3.0 | 2026-02-07 | 전투 시스템 추가 반영: UnitCombatUseCase 신규, UnitData 전투 스탯(HP/공격력/사거리), 전투 이벤트(Attack/Died), 이동 후 인접 적 자동 공격, 프로토타입 범위에 전투 포함, 그리드 크기 7×30 현행화 |

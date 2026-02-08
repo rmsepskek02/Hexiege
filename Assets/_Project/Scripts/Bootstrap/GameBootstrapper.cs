@@ -59,6 +59,12 @@ namespace Hexiege.Bootstrap
         [Tooltip("UnitFactory 컴포넌트")]
         [SerializeField] private UnitFactory _unitFactory;
 
+        [Tooltip("BuildingFactory 컴포넌트")]
+        [SerializeField] private BuildingFactory _buildingFactory;
+
+        [Tooltip("건물 선택 팝업 UI")]
+        [SerializeField] private BuildingPlacementUI _buildingUI;
+
         [Tooltip("메인 카메라")]
         [SerializeField] private Camera _mainCamera;
 
@@ -71,6 +77,7 @@ namespace Hexiege.Bootstrap
         private UnitMovementUseCase _unitMovement;
         private UnitSpawnUseCase _unitSpawn;
         private UnitCombatUseCase _unitCombat;
+        private BuildingPlacementUseCase _buildingPlacement;
 
         // ====================================================================
         // 초기화
@@ -105,8 +112,8 @@ namespace Hexiege.Bootstrap
             OrientationConfig oc = (orientation == HexOrientation.FlatTop)
                 ? _config.FlatTop : _config.PointyTop;
 
-            // 1. 기존 유닛 제거
-            ClearUnits();
+            // 1. 기존 유닛/건물 제거
+            ClearAll();
 
             // 2. 설정 적용
             ApplyConfig(orientation, oc);
@@ -127,7 +134,13 @@ namespace Hexiege.Bootstrap
             // 7. 입력 연결
             SetupInput();
 
-            // 8. 테스트 유닛 스폰
+            // 8. 건물 시스템 초기화
+            SetupBuildings();
+
+            // 9. Castle 자동 배치
+            PlaceCastles(orientation, oc);
+
+            // 10. 테스트 유닛 스폰
             SpawnTestUnits(orientation, oc);
         }
 
@@ -161,6 +174,7 @@ namespace Hexiege.Bootstrap
             _unitMovement = new UnitMovementUseCase(_grid);
             _unitSpawn = new UnitSpawnUseCase(_grid);
             _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn);
+            _buildingPlacement = new BuildingPlacementUseCase(_grid);
         }
 
         // ====================================================================
@@ -210,7 +224,9 @@ namespace Hexiege.Bootstrap
         {
             if (_inputHandler != null)
             {
-                _inputHandler.Initialize(_gridInteraction, _unitMovement, _unitSpawn, _mainCamera);
+                _inputHandler.Initialize(
+                    _gridInteraction, _unitMovement, _unitSpawn, _mainCamera,
+                    _buildingPlacement, _buildingUI);
             }
         }
 
@@ -219,12 +235,52 @@ namespace Hexiege.Bootstrap
         // ====================================================================
 
         /// <summary>
-        /// 기존 유닛 전체 제거. 맵 전환 시 호출.
+        /// 기존 유닛/건물 전체 제거. 맵 전환 시 호출.
         /// </summary>
-        private void ClearUnits()
+        private void ClearAll()
         {
             if (_unitFactory != null)
                 _unitFactory.DestroyAllUnits();
+
+            if (_buildingFactory != null)
+                _buildingFactory.DestroyAllBuildings();
+
+            _buildingPlacement?.Clear();
+        }
+
+        // ====================================================================
+        // 건물 시스템
+        // ====================================================================
+
+        /// <summary>
+        /// 건물 시스템 초기화. BuildingFactory에 설정 전달, BuildingPlacementUI 초기화.
+        /// </summary>
+        private void SetupBuildings()
+        {
+            if (_buildingFactory != null)
+                _buildingFactory.SetBuildingYOffset(_config.BuildingYOffset);
+
+            if (_buildingUI != null)
+                _buildingUI.Initialize(_buildingPlacement);
+        }
+
+        /// <summary>
+        /// 양 팀 Castle 자동 배치. 게임 시작 시 호출.
+        /// Blue: 맵 하단 중앙, Red: 맵 상단 중앙.
+        /// </summary>
+        private void PlaceCastles(HexOrientation orientation, OrientationConfig oc)
+        {
+            if (_buildingPlacement == null) return;
+
+            // Blue Castle: 하단 중앙
+            HexCoord bluePos = HexGrid.OffsetToCube(
+                oc.GridWidth / 2, oc.GridHeight - 2, orientation);
+            _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Blue, bluePos);
+
+            // Red Castle: 상단 중앙
+            HexCoord redPos = HexGrid.OffsetToCube(
+                oc.GridWidth / 2, 1, orientation);
+            _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Red, redPos);
         }
 
         /// <summary>

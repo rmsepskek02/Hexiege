@@ -9,10 +9,13 @@
 //   - 마우스를 누른 채 일정 거리 이상 움직이면 → 드래그 (카메라 팬)
 //   - 마우스를 짧게 누르고 떼면 → 클릭 (타일 선택 / 유닛 이동)
 //
-// 클릭 시 동작 (프로토타입):
-//   1. 클릭 위치에 유닛이 있으면 → 유닛 선택
-//   2. 유닛이 선택된 상태에서 빈 타일 클릭 → 이동 명령
-//   3. 유닛이 없고 선택도 안 된 상태 → 타일 선택 (하이라이트)
+// 클릭 시 동작:
+//   1. 건물 UI가 열려있으면 → 닫기
+//   2. 클릭 위치에 유닛이 있으면 → 유닛 선택
+//   3. 유닛이 선택된 상태에서 빈 타일 클릭 → 이동 명령
+//   4. 건물이 있는 타일 → 타일 선택
+//   5. 자기 팀 빈 타일 → 건물 배치 팝업
+//   6. 기타 → 타일 선택 (하이라이트)
 //
 // New Input System 사용:
 //   UnityEngine.InputSystem 패키지의 Mouse, Touchscreen 클래스 사용.
@@ -23,6 +26,7 @@
 
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using Hexiege.Domain;
 using Hexiege.Application;
@@ -43,6 +47,12 @@ namespace Hexiege.Presentation
 
         /// <summary> 유닛 생성/조회 UseCase. </summary>
         private UnitSpawnUseCase _unitSpawn;
+
+        /// <summary> 건물 배치 UseCase. </summary>
+        private BuildingPlacementUseCase _buildingPlacement;
+
+        /// <summary> 건물 선택 팝업 UI. </summary>
+        private BuildingPlacementUI _buildingUI;
 
         /// <summary> 메인 카메라 참조 (ScreenToWorldPoint 변환용). </summary>
         private Camera _mainCamera;
@@ -74,12 +84,16 @@ namespace Hexiege.Presentation
             GridInteractionUseCase gridInteraction,
             UnitMovementUseCase unitMovement,
             UnitSpawnUseCase unitSpawn,
-            Camera mainCamera)
+            Camera mainCamera,
+            BuildingPlacementUseCase buildingPlacement,
+            BuildingPlacementUI buildingUI)
         {
             _gridInteraction = gridInteraction;
             _unitMovement = unitMovement;
             _unitSpawn = unitSpawn;
             _mainCamera = mainCamera;
+            _buildingPlacement = buildingPlacement;
+            _buildingUI = buildingUI;
         }
 
         // ====================================================================
@@ -134,17 +148,33 @@ namespace Hexiege.Presentation
         /// 클릭된 스크린 좌표를 처리.
         ///
         /// 판정 순서:
-        ///   1. 클릭 위치에 유닛이 있는가?
-        ///      → 있으면 해당 유닛 선택 (기존 선택 해제)
-        ///   2. 유닛이 선택된 상태에서 빈 타일 클릭?
-        ///      → 이동 명령 (A* 경로 계산 → 이동 시작)
-        ///   3. 유닛 미선택 + 빈 타일?
-        ///      → 타일 선택 (하이라이트)
+        ///   1. 건물 UI가 열려있으면 → 닫기 (팝업 외부 탭)
+        ///   2. 클릭 위치에 유닛이 있는가? → 유닛 선택
+        ///   3. 유닛이 선택된 상태에서 빈 타일 클릭? → 이동 명령
+        ///   4. 건물이 있는 타일 → 타일 선택
+        ///   5. 자기 팀 빈 타일 → 건물 배치 팝업
+        ///   6. 기타 → 타일 선택 (하이라이트)
         /// </summary>
         private void HandleClick(Vector2 screenPos)
         {
+            // --------------------------------------------------------
+            // 0. UI 위 클릭이면 게임 입력 무시 (UI EventSystem이 처리)
+            //    New Input System에서는 IsPointerOverGameObject()가
+            //    불안정하므로 RaycastAll로 직접 판정.
+            // --------------------------------------------------------
+            if (IsPointerOverUI(screenPos))
+                return;
+
+            // --------------------------------------------------------
+            // 1. 건물 UI가 열려있으면 닫기 (팝업 외부 탭)
+            // --------------------------------------------------------
+            if (_buildingUI != null && _buildingUI.IsOpen)
+            {
+                _buildingUI.Close();
+                return;
+            }
+
             // 스크린 좌표 → 월드 좌표 변환
-            // ScreenToWorldPoint에 Vector3 필요. z는 카메라와의 거리.
             Vector3 worldPos = _mainCamera.ScreenToWorldPoint(
                 new Vector3(screenPos.x, screenPos.y, 0f));
             worldPos.z = 0f; // 2D이므로 z=0
@@ -153,7 +183,7 @@ namespace Hexiege.Presentation
             HexCoord clickedCoord = Core.HexMetrics.WorldToHex(worldPos);
 
             // --------------------------------------------------------
-            // 1. 클릭 위치에 유닛이 있는지 확인
+            // 2. 클릭 위치에 유닛이 있는지 확인
             // --------------------------------------------------------
             UnitData unitAtPos = _unitSpawn?.GetUnitAt(clickedCoord);
 
@@ -166,7 +196,7 @@ namespace Hexiege.Presentation
             }
 
             // --------------------------------------------------------
-            // 2. 유닛이 선택된 상태에서 빈 타일 클릭 → 이동 명령
+            // 3. 유닛이 선택된 상태에서 빈 타일 클릭 → 이동 명령
             // --------------------------------------------------------
             if (_selectedUnit != null)
             {
@@ -200,9 +230,62 @@ namespace Hexiege.Presentation
             }
 
             // --------------------------------------------------------
-            // 3. 유닛 미선택 → 타일 선택 (하이라이트)
+            // 4. 건물이 있는 타일 → 타일 선택
+            // --------------------------------------------------------
+            if (_buildingPlacement != null)
+            {
+                BuildingData buildingAtPos = _buildingPlacement.GetBuildingAt(clickedCoord);
+                if (buildingAtPos != null)
+                {
+                    _gridInteraction?.SelectTileAt(worldPos);
+                    return;
+                }
+            }
+
+            // --------------------------------------------------------
+            // 5. 자기 팀 빈 타일 → 건물 배치 팝업
+            // --------------------------------------------------------
+            if (_buildingPlacement != null &&
+                _buildingPlacement.CanPlaceBuilding(clickedCoord, TeamId.Blue))
+            {
+                _buildingUI?.Show(clickedCoord, TeamId.Blue);
+                _gridInteraction?.SelectTileAt(worldPos);
+                return;
+            }
+
+            // --------------------------------------------------------
+            // 6. 기타 → 타일 선택 (하이라이트)
             // --------------------------------------------------------
             _gridInteraction?.SelectTileAt(worldPos);
+        }
+
+        // ====================================================================
+        // UI 히트 판정
+        // ====================================================================
+
+        /// <summary>
+        /// 스크린 좌표가 UI 요소 위에 있는지 판정.
+        /// New Input System에서 IsPointerOverGameObject()가 불안정하므로
+        /// EventSystem.RaycastAll을 사용하여 직접 판정.
+        /// </summary>
+        private bool IsPointerOverUI(Vector2 screenPos)
+        {
+            if (EventSystem.current == null)
+            {
+                Debug.Log("[InputHandler] EventSystem.current == null");
+                return false;
+            }
+
+            var eventData = new PointerEventData(EventSystem.current)
+            {
+                position = screenPos
+            };
+            var results = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(eventData, results);
+            Debug.Log($"[InputHandler] IsPointerOverUI pos={screenPos}, hits={results.Count}");
+            for (int i = 0; i < results.Count; i++)
+                Debug.Log($"  hit[{i}]: {results[i].gameObject.name}");
+            return results.Count > 0;
         }
     }
 }

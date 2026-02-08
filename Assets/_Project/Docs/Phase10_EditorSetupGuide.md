@@ -1,6 +1,6 @@
 # Phase 10: Unity 에디터 작업 가이드
 
-**버전:** 0.7.0
+**버전:** 0.8.0
 **최종 수정일:** 2026-02-08
 **작성자:** HANYONGHEE
 
@@ -256,6 +256,30 @@ Project 창에서 `Sprites/Units/Pistoleer/` 하위의 **모든 .png 파일을 �
 > Order in Layer를 100으로 설정하는 이유:
 > 타일은 sortingOrder = row (0~29). 유닛은 100 이상으로 하면 항상 타일 위에 표시.
 
+### 3-3. 건물 프리팹 3종 [MVP]
+
+3종 모두 동일한 절차. 스프라이트만 다름.
+
+| 프리팹 이름 | 스프라이트 |
+|------------|-----------|
+| `Building_Castle` | `bld_castle` |
+| `Building_Barracks` | `bld_barracks` |
+| `Building_MiningPost` | `bld_mining_post` |
+
+각 프리팹 생성 절차:
+1. Hierarchy 빈 곳 우클릭 → Create Empty → 이름 입력
+2. **Add Component** → **Sprite Renderer**
+   - Sprite: Project 창에서 해당 스프라이트 드래그
+   - **Order in Layer: 50** (타일 위, 유닛 아래)
+   - Color: White
+3. **Add Component** → 스크립트 검색 → **Building View**
+4. Hierarchy에서 Project 창의 **`Prefabs/`** 폴더로 드래그 → "Original Prefab"
+5. Hierarchy에서 인스턴스 **삭제**
+
+> Order in Layer 50: 타일(0~30) 위, 유닛(100) 아래. 건물이 타일 위에 표시되되 유닛보다는 아래.
+
+> 건물이 타일에 비해 너무 크거나 작으면 프리팹의 Transform Scale을 조정 (0.5~0.8 권장).
+
 ---
 
 ## Step 4: 씬 오브젝트 구성
@@ -275,11 +299,13 @@ Hierarchy에서:
 
 1. **[World]** 우클릭 → Create Empty → 이름 **"HexGrid"**
 2. **[World]** 우클릭 → Create Empty → 이름 **"Units"**
+3. **[World]** 우클릭 → Create Empty → 이름 **"Buildings"** [MVP]
 
 ### 4-3. [Managers] 하위 오브젝트
 
 1. **[Managers]** 우클릭 → Create Empty → 이름 **"GameBootstrapper"**
 2. **[Managers]** 우클릭 → Create Empty → 이름 **"UnitFactory"**
+3. **[Managers]** 우클릭 → Create Empty → 이름 **"BuildingFactory"** [MVP]
 
 ### 4-4. [Input] 하위 오브젝트
 
@@ -289,6 +315,17 @@ Hierarchy에서:
 
 1. **[Debug]** 우클릭 → Create Empty → 이름 **"DebugUI"**
 
+### 4-6. [UI] Canvas 생성 [MVP]
+
+1. Hierarchy 최상위에서 우클릭 → **UI → Canvas** → 이름 **`[UI]`**
+   - Render Mode: **Screen Space - Overlay**
+   - Canvas Scaler → UI Scale Mode: **Scale With Screen Size**
+   - Reference Resolution: **540 x 960** (9:16 모바일)
+   - Match: **0.5**
+2. `[UI]` 선택 → 우클릭 → Create Empty → 이름 **"BuildingPanel"**
+   - BuildingPanel을 **비활성** 상태로 설정 (Inspector 체크박스 해제)
+3. BuildingPanel 하위에 버튼 3개 생성 (상세 가이드는 `BuildingEditorSetupGuide.md` 참고)
+
 ### 최종 Hierarchy 구조
 
 ```
@@ -296,12 +333,19 @@ SampleScene
 ├── Main Camera          ← 기존 카메라 (수정만)
 ├── [Managers]
 │   ├── GameBootstrapper
-│   └── UnitFactory
+│   ├── UnitFactory
+│   └── BuildingFactory  [MVP]
 ├── [World]
 │   ├── HexGrid
-│   └── Units
+│   ├── Units
+│   └── Buildings        [MVP]
 ├── [Input]
 │   └── InputHandler
+├── [UI] (Canvas)        [MVP]
+│   └── BuildingPanel
+│       ├── BarracksButton
+│       ├── MiningPostButton
+│       └── CancelButton
 └── [Debug]
     └── DebugUI
 ```
@@ -317,6 +361,8 @@ SampleScene
 | **Main Camera** | Camera Controller |
 | **HexGrid** | Hex Grid Renderer |
 | **GameBootstrapper** | Game Bootstrapper |
+| **BuildingFactory** | Building Factory [MVP] |
+| **BuildingPanel** | Building Placement UI [MVP] |
 | **UnitFactory** | Unit Factory |
 | **InputHandler** | Input Handler |
 | **DebugUI** | Debug UI |
@@ -369,7 +415,7 @@ Background 색상 설정:
 | Unit Prefab | `Prefabs/Unit_Pistoleer` (Project 창에서) |
 | Unit Parent | **Units** (Hierarchy의 [World]/Units) |
 
-### 7-4. GameBootstrapper → GameBootstrapper (슬롯 7개)
+### 7-4. GameBootstrapper → GameBootstrapper (슬롯 9개)
 
 | 필드 | 드래그 대상 |
 |------|------------|
@@ -379,7 +425,27 @@ Background 색상 설정:
 | Camera Controller | **Main Camera** (Hierarchy) |
 | Input Handler | **InputHandler** (Hierarchy의 [Input]/InputHandler) |
 | Unit Factory | **UnitFactory** (Hierarchy의 [Managers]/UnitFactory) |
+| Building Factory | **BuildingFactory** (Hierarchy의 [Managers]/BuildingFactory) [MVP] |
+| Building UI | **BuildingPanel** (Hierarchy의 [UI]/BuildingPanel) [MVP] |
 | Main Camera | **Main Camera** (Hierarchy) |
+
+### 7-5. BuildingFactory → BuildingFactory [MVP]
+
+| 필드 | 드래그 대상 |
+|------|------------|
+| Castle Prefab | `Prefabs/Building_Castle` (Project 창) |
+| Barracks Prefab | `Prefabs/Building_Barracks` (Project 창) |
+| Mining Post Prefab | `Prefabs/Building_MiningPost` (Project 창) |
+| Building Parent | **Buildings** (Hierarchy의 [World]/Buildings) |
+
+### 7-6. BuildingPlacementUI → BuildingPlacementUI [MVP]
+
+| 필드 | 드래그 대상 |
+|------|------------|
+| Panel | **BuildingPanel** (자기 자신, Hierarchy의 [UI]/BuildingPanel) |
+| Barracks Button | **BarracksButton** (Hierarchy의 [UI]/BuildingPanel/BarracksButton) |
+| Mining Post Button | **MiningPostButton** (Hierarchy의 [UI]/BuildingPanel/MiningPostButton) |
+| Cancel Button | **CancelButton** (Hierarchy의 [UI]/BuildingPanel/CancelButton) |
 
 > Hierarchy에서 드래그할 때는 오브젝트를 Inspector의 해당 슬롯으로 직접 드래그.
 > Project 창에서 드래그할 때는 .asset 또는 .prefab 파일을 드래그.
@@ -410,6 +476,10 @@ Background 색상 설정:
 | 6 | Walk 애니메이션 | E방향 이동 시 2프레임 걷기 애니메이션 재생 |
 | 6-1 | 전투 (자동 공격) | 이동 완료 후 인접 적 유닛을 자동 공격, Attack 애니메이션 재생 |
 | 6-2 | 사망 처리 | 적 HP가 0 이하가 되면 화면에서 제거됨 |
+| 6-3 | Castle 자동 배치 [MVP] | 맵 하단 Blue Castle, 상단 Red Castle 자동 표시 |
+| 6-4 | 건물 배치 팝업 [MVP] | Blue 소유 빈 타일 탭 → 건물 선택 패널 표시 |
+| 6-5 | 배럭 배치 [MVP] | "배럭" 버튼 탭 → 해당 타일에 배럭 스프라이트 표시 |
+| 6-6 | 건물 이동 차단 [MVP] | 건물 있는 타일로 유닛 이동 불가 (A* 우회) |
 | 7 | 카메라 드래그 | 마우스 드래그로 맵 이동 |
 | 8 | 마우스 스크롤 | 줌 인/아웃 (Size 2~7 범위) |
 | 9 | 디버그 UI | 좌상단에 FPS, 마우스 좌표, 타일 정보 표시 |
@@ -473,6 +543,7 @@ Background 색상 설정:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.8.0 | 2026-02-08 | 건물 배치 시스템(MVP): 건물 프리팹 3종, BuildingFactory/BuildingPanel 씬 오브젝트, [UI] Canvas, Inspector 연결 (7-5, 7-6), 실행 테스트 항목 추가 |
 | 0.7.0 | 2026-02-08 | 듀얼 Orientation: GameConfig OrientationConfig 그룹화, HexTile_PointyTop/FlatTop 프리팹 분리, HexGridRenderer 듀얼 프리팹 슬롯, FlatTop 기본 맵 |
 | 0.6.0 | 2026-02-07 | 전투 시스템 반영: 실행 테스트 체크리스트에 자동 공격/사망 처리 항목 추가 |
 | 0.5.0 | 2026-02-03 | 모바일 9:16 대응: GridWidth 11→7, GridHeight 17→30, TileWidth=0.866, TileHeight=0.82, UnitYOffset=0.15, CameraZoomMax=7, 타일 Scale Y=0.82 |

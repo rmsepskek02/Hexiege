@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "mcp-unity": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "D:/Dmain/dev/Portfolio/Hexiege/Hexiege/Library/PackageCache/com.gamelovers.mcp-unity@64324a54490e/Server~/build/index.js"
+      ],
+      "env": {}
+    }
+  }
+}
