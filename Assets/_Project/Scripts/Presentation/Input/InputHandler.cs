@@ -165,15 +165,6 @@ namespace Hexiege.Presentation
             if (IsPointerOverUI(screenPos))
                 return;
 
-            // --------------------------------------------------------
-            // 1. 건물 UI가 열려있으면 닫기 (팝업 외부 탭)
-            // --------------------------------------------------------
-            if (_buildingUI != null && _buildingUI.IsOpen)
-            {
-                _buildingUI.Close();
-                return;
-            }
-
             // 스크린 좌표 → 월드 좌표 변환
             Vector3 worldPos = _mainCamera.ScreenToWorldPoint(
                 new Vector3(screenPos.x, screenPos.y, 0f));

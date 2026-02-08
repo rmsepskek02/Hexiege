@@ -1,0 +1,16 @@
+# 유니티 자동 생성 및 라이브러리 (반드시 제외)
+/Library/
+/Temp/
+/Logs/
+/UserSettings/
+/obj/
+/bin/
+
+# 에셋 중에서도 용량이 큰 바이너리 파일
+/*.unitypackage
+/*.zip
+/*.mp4
+
+# 빌드 결과물
+/Build/
+/Builds/
