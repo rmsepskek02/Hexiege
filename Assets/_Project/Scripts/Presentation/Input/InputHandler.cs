@@ -73,6 +73,12 @@ namespace Hexiege.Presentation
         /// </summary>
         private const float ClickThreshold = 10f;
 
+        /// <summary> 자동 이동 모드 여부. T키로 토글. </summary>
+        private bool _autoMoveMode;
+
+        /// <summary> 자동 이동이 이미 실행되었는지 (중복 실행 방지). </summary>
+        private bool _autoMoveStarted;
+
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -114,6 +120,25 @@ namespace Hexiege.Presentation
         {
             // 의존성 미주입 상태면 무시
             if (_mainCamera == null) return;
+
+            // T키: 자동/수동 이동 모드 토글
+            var keyboard = Keyboard.current;
+            if (keyboard != null && keyboard.tKey.wasPressedThisFrame)
+            {
+                _autoMoveMode = !_autoMoveMode;
+                _autoMoveStarted = false;
+                Debug.Log($"[InputHandler] 이동 모드 변경: {(_autoMoveMode ? "자동 (Auto)" : "수동 (Manual)")}");
+            }
+
+            // 자동 이동 모드: 모든 Blue 유닛을 적 Castle 방향으로 자동 이동
+            if (_autoMoveMode && !_autoMoveStarted)
+            {
+                StartAutoMove();
+                _autoMoveStarted = true;
+            }
+
+            // 수동 모드에서만 마우스 입력 처리
+            if (_autoMoveMode) return;
 
             // 마우스가 연결되어 있지 않으면 무시
             var mouse = Mouse.current;
@@ -248,6 +273,76 @@ namespace Hexiege.Presentation
             // 6. 기타 → 타일 선택 (하이라이트)
             // --------------------------------------------------------
             _gridInteraction?.SelectTileAt(worldPos);
+        }
+
+        // ====================================================================
+        // 자동 이동
+        // ====================================================================
+
+        /// <summary>
+        /// 양 팀 모든 유닛을 상대 Castle 방향으로 자동 이동시킴.
+        /// 건물 타일은 이동 불가이므로 Castle 인접 타일까지 이동.
+        /// </summary>
+        private void StartAutoMove()
+        {
+            if (_unitSpawn == null || _unitMovement == null || _buildingPlacement == null)
+                return;
+
+            // 각 팀의 Castle 위치 찾기
+            HexCoord? blueCastlePos = null;
+            HexCoord? redCastlePos = null;
+            foreach (var building in _buildingPlacement.Buildings.Values)
+            {
+                if (building.Type != BuildingType.Castle || !building.IsAlive) continue;
+                if (building.Team == TeamId.Blue) blueCastlePos = building.Position;
+                else if (building.Team == TeamId.Red) redCastlePos = building.Position;
+            }
+
+            // 모든 유닛에게 상대 Castle 방향으로 이동 명령
+            var unitViews = FindObjectsByType<UnitView>(FindObjectsSortMode.None);
+            foreach (var view in unitViews)
+            {
+                if (view.Data == null || !view.Data.IsAlive) continue;
+                if (view.IsMoving) continue;
+
+                // 이 유닛의 상대 Castle 위치 결정
+                HexCoord? targetCastle = (view.Data.Team == TeamId.Blue) ? redCastlePos : blueCastlePos;
+                if (!targetCastle.HasValue) continue;
+
+                // Castle 인접 타일 중 가장 가까운 곳을 목표로 설정
+                HexCoord target = FindClosestWalkableNeighbor(view.Data.Position, targetCastle.Value);
+                if (target == view.Data.Position) continue; // 이미 인접
+
+                List<HexCoord> path = _unitMovement.RequestMove(view.Data, target);
+                if (path != null)
+                {
+                    view.MoveTo(path);
+                    Debug.Log($"[AutoMove] {view.Data.Team} Unit {view.Data.Id} → {target}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 목표 좌표의 인접 6타일 중 출발지에서 가장 가까운 이동 가능 타일 반환.
+        /// 건물 타일은 이동 불가이므로 인접 타일을 목표로 사용.
+        /// </summary>
+        private HexCoord FindClosestWalkableNeighbor(HexCoord from, HexCoord target)
+        {
+            HexCoord best = target;
+            int bestDist = int.MaxValue;
+
+            for (int i = 0; i < HexDirectionExtensions.Count; i++)
+            {
+                HexCoord neighbor = ((HexDirection)i).Neighbor(target);
+                int dist = HexCoord.Distance(from, neighbor);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    best = neighbor;
+                }
+            }
+
+            return best;
         }
 
         // ====================================================================

@@ -33,14 +33,19 @@ namespace Hexiege.Domain
         /// <param name="grid">탐색할 헥스 그리드</param>
         /// <param name="start">출발 좌표</param>
         /// <param name="goal">도착 좌표</param>
+        /// <param name="blockedCoords">추가로 이동 불가 처리할 좌표 (적 유닛 위치 등). null 허용.</param>
         /// <returns>경로 좌표 리스트 (시작~목표 포함). 경로 없으면 null.</returns>
-        public static List<HexCoord> FindPath(HexGrid grid, HexCoord start, HexCoord goal)
+        public static List<HexCoord> FindPath(HexGrid grid, HexCoord start, HexCoord goal,
+            HashSet<HexCoord> blockedCoords = null)
         {
             // 출발 = 도착이면 즉시 반환
             if (start == goal) return new List<HexCoord> { start };
 
             // 도착 타일이 없거나 이동 불가면 경로 없음
             if (grid.GetTile(goal) == null || !grid.GetTile(goal).IsWalkable) return null;
+
+            // 도착지가 차단 좌표에 포함되면 경로 없음
+            if (blockedCoords != null && blockedCoords.Contains(goal)) return null;
 
             // ----------------------------------------------------------------
             // A* 자료구조 초기화
@@ -82,6 +87,9 @@ namespace Hexiege.Domain
 
                     // 이미 탐색 완료된 노드는 건너뜀
                     if (inClosedSet.Contains(neighbor)) continue;
+
+                    // 차단 좌표에 포함된 타일은 건너뜀 (적 유닛 위치 등)
+                    if (blockedCoords != null && blockedCoords.Contains(neighbor)) continue;
 
                     // 이웃까지의 G값 = 현재 G + 1 (타일 간 이동 비용은 항상 1)
                     int tentativeG = gScore[current.Coord] + 1;

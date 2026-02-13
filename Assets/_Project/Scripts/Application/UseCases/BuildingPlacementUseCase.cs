@@ -57,8 +57,9 @@ namespace Hexiege.Application
             if (type != BuildingType.Castle && tile.Owner != team)
                 return null;
 
-            // BuildingData 생성
-            var building = new BuildingData(type, team, position);
+            // BuildingData 생성 (타입별 기본 HP는 BuildingStats에서 결정)
+            int maxHp = BuildingStats.GetMaxHp(type);
+            var building = new BuildingData(type, team, position, maxHp);
             _buildings[building.Id] = building;
 
             // 타일 상태 변경: 이동 불가 + 소유권 설정
@@ -94,6 +95,24 @@ namespace Hexiege.Application
                     return kvp.Value;
             }
             return null;
+        }
+
+        /// <summary>
+        /// 건물을 목록에서 제거하고 타일을 이동 가능 상태로 복구.
+        /// UnitCombatUseCase에서 건물 HP가 0 이하가 되었을 때 호출.
+        /// </summary>
+        public bool RemoveBuilding(int buildingId)
+        {
+            if (_buildings.TryGetValue(buildingId, out var building))
+            {
+                // 타일을 다시 이동 가능 상태로 복구
+                HexTile tile = _grid.GetTile(building.Position);
+                if (tile != null)
+                    tile.IsWalkable = true;
+
+                return _buildings.Remove(buildingId);
+            }
+            return false;
         }
 
         /// <summary>

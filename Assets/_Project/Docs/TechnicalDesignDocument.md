@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.5.0
-**최종 수정일:** 2026-02-08
+**버전:** 0.6.0
+**최종 수정일:** 2026-02-13
 **작성자:** HANYONGHEE
 
 ---
@@ -33,7 +33,7 @@
 | **NAT 관통** | Unity Relay | - |
 | **매칭** | Unity Lobby | - |
 | **인증** | Unity Authentication | - |
-| **경로찾기** | A* Pathfinding Project | Free/Pro |
+| **경로찾기** | 커스텀 A* (HexPathfinder) | 자체 구현 |
 | **백엔드** | PlayFab | - |
 | **이벤트 시스템** | UniRx | 7.1.0 |
 | **애니메이션** | DOTween | 1.2.765 |
@@ -378,6 +378,35 @@ public class HumanRaceStrategy : IRaceStrategy {
 }
 ```
 
+### 8. UI 팝업 구현 패턴
+
+팝업 UI 구현 시 배경 클릭으로 창을 닫는 기능을 구현할 때 발생하는 문제를 방지하기 위해 다음 패턴을 권장합니다.
+
+#### 문제 상황
+
+- 팝업 패널(`BuildingPanel`)이 콘텐츠 영역보다 큰 투명한 배경을 가질 경우, 이 투명한 영역이 화면 전체를 덮는 닫기 버튼(`Background`)으로의 클릭을 가로막습니다.
+- 패널의 `Raycast Target`을 끄면 패널 내부의 버튼까지 클릭이 통과해버리는 문제가 발생합니다.
+
+#### 해결 구조
+
+역할에 따라 게임 오브젝트를 명확히 분리합니다.
+
+```
+PopupCanvas
+  ├─ Background (전체 화면, Raycast Target ON, 팝업 닫기 Button 컴포넌트)
+  └─ BuildingPanel (레이아웃 그룹 역할, Image 컴포넌트 없음, Raycast Target 없음)
+      ├─ PanelVisuals (실제 패널 배경 이미지, Raycast Target OFF, 순수 시각적 요소)
+      └─ Buttons (버튼들, Raycast Target ON, 실제 상호작용 요소)
+```
+
+#### 핵심 원리
+
+1.  **클릭 통과용 시각 요소**: `PanelVisuals`는 `Raycast Target`을 꺼서 시각적으로만 존재하고 모든 클릭을 통과시킵니다.
+2.  **클릭 가로채기용 상호작용 요소**: `Buttons`는 `Raycast Target`을 켜서 클릭을 받고 자신의 기능을 수행합니다.
+3.  **최후의 클릭 수신자**: 패널의 빈 공간이나 버튼이 아닌 곳을 클릭하면, 모든 클릭은 최하단에 깔린 `Background`에 도달하여 팝업을 닫는 `onClick` 이벤트를 실행합니다.
+
+이 구조는 UI의 시각적 표현과 상호작용 로직을 분리하여 예측 가능하고 안정적인 동작을 보장합니다.
+
 ---
 
 ## 🔷 육각형 그리드 시스템
@@ -447,8 +476,14 @@ public struct HexCoord {
 ```csharp
 // HexPathfinder: 커스텀 A* 경로탐색
 // 헥스 그리드 특화, 6방향 이웃 탐색, 이동 불가 타일 우회
-List<HexCoord> path = HexPathfinder.FindPath(grid, start, goal);
+// blockedCoords: 적 유닛 좌표 등 추가로 이동 불가 처리할 좌표 집합
+List<HexCoord> path = HexPathfinder.FindPath(grid, start, goal, blockedCoords);
 ```
+
+**경로 차단 (blockedCoords)**:
+- 적 유닛이 점유 중인 타일을 이동 불가로 처리하여 우회 경로 계산
+- UnitMovementUseCase가 RequestMove() 시 적 유닛 좌표를 HashSet으로 구성하여 전달
+- 목표 타일이 차단 좌표에 포함되면 경로 없음(null) 반환
 
 ---
 
@@ -493,36 +528,100 @@ public class UnitAI : MonoBehaviour {
 
 프로토타입에서는 State 패턴 대신 코루틴 기반으로 이동→공격 흐름 구현.
 
-#### 유닛 전투 스탯
+#### IDamageable 인터페이스
+
+유닛과 건물의 전투 대상을 통합하는 인터페이스:
 ```csharp
-public class UnitData {
-    public int MaxHp { get; }          // 최대 체력 (기본: 10)
-    public int Hp { get; set; }        // 현재 체력
-    public int AttackPower { get; }    // 공격력 (기본: 3)
-    public int AttackRange { get; }    // 사거리 (기본: 1, 인접 타일)
+public interface IDamageable {
+    int Id { get; }
+    TeamId Team { get; }
+    HexCoord Position { get; }
+    int Hp { get; }
+    int MaxHp { get; }
+    bool IsAlive { get; }
+    void TakeDamage(int damage);
+}
+```
+UnitData와 BuildingData 모두 IDamageable을 구현하여 UnitCombatUseCase가 동일한 로직으로 공격 가능.
+
+#### 중앙 집중 스탯 관리
+
+타입별 기본 스탯을 정적 클래스에서 관리:
+```csharp
+// UnitStats: 유닛 타입별 기본 스탯
+public static class UnitStats {
+    public static int GetMaxHp(UnitType type) => type switch {
+        UnitType.Pistoleer => 10, _ => 10
+    };
+    public static int GetAttackPower(UnitType type) => type switch {
+        UnitType.Pistoleer => 3, _ => 1
+    };
+    public static int GetAttackRange(UnitType type) => type switch {
+        UnitType.Pistoleer => 1, _ => 1
+    };
+}
+
+// BuildingStats: 건물 타입별 기본 HP
+public static class BuildingStats {
+    public static int GetMaxHp(BuildingType type) => type switch {
+        BuildingType.Castle => 50, BuildingType.Barracks => 30,
+        BuildingType.MiningPost => 20, _ => 10
+    };
+}
+```
+
+#### 전투 스탯
+
+**유닛 (UnitData)**:
+```csharp
+public class UnitData : IDamageable {
+    public int MaxHp { get; }          // UnitStats에서 결정
+    public int Hp { get; private set; }
+    public int AttackPower { get; }    // UnitStats에서 결정
+    public int AttackRange { get; }    // UnitStats에서 결정
     public bool IsAlive => Hp > 0;
 }
 ```
 
-#### 전투 흐름
+**건물 (BuildingData)**:
+```csharp
+public class BuildingData : IDamageable {
+    public int MaxHp { get; }          // BuildingStats에서 결정
+    public int Hp { get; private set; }
+    public bool IsAlive => Hp > 0;
+}
 ```
-유닛 이동 명령 (InputHandler)
+
+#### 전투 흐름 (이동 중 공격 포함)
+```
+유닛 이동 명령 (InputHandler / AutoMove)
   ↓
-A* 경로 이동 (UnitView 코루틴)
+A* 경로 계산 (적 유닛 타일 우회)
   ↓
-이동 완료
-  ↓
-인접 6타일에서 적 탐색 (UnitCombatUseCase.TryAttack)
+타일→타일 Lerp 이동 (UnitView 코루틴)
+  ↓ 각 타일 도착 시
+사거리 내 적(유닛/건물) 탐색 (UnitCombatUseCase.TryAttack)
   ↓ 적 발견
-공격 방향 계산 → 데미지 적용 (target.Hp -= AttackPower)
+공격 방향 계산 → IDamageable.TakeDamage() → 이벤트 발행
   ↓
-공격 이벤트 발행 → Attack 애니메이션 재생
-  ↓
-적 HP ≤ 0? → 사망 이벤트 발행 → GameObject 파괴
+적 HP ≤ 0? → EntityDied 이벤트 → View 파괴 + Dictionary 제거
   ↓
 사거리 내 적이 남아있으면 반복 공격
   ↓
-적 없음 → Idle 상태 복귀
+적 없음 → 남은 경로 계속 이동
+  ↓
+모든 경로 이동 완료 → Idle 상태 복귀
+```
+
+#### 사망 처리 (Dead Entity Cleanup)
+```
+UnitCombatUseCase.ExecuteAttack()
+  ↓ target.IsAlive == false
+GameEvents.OnEntityDied 이벤트 발행
+  ↓
+1. UnitView/BuildingView가 구독 → GameObject.Destroy()
+2. UnitSpawnUseCase.RemoveUnit() 또는 BuildingPlacementUseCase.RemoveBuilding()
+   → Dictionary에서 제거 + 건물은 타일 IsWalkable 복구
 ```
 
 #### 타일 선택 하이라이트 처리
@@ -544,13 +643,25 @@ if (e.Coord == _coord)
 > 연속 실행되어 하이라이트가 잔존하는 버그 발생. 결정적(deterministic) 할당으로 수정.
 
 #### 이벤트 기반 전투 통신
-```csharp
-// 공격 이벤트 (UnitCombatUseCase → UnitView)
-GameEvents.OnUnitAttack.OnNext(new UnitAttackEvent(
-    attackerId, targetId, damage, direction));
 
-// 사망 이벤트 (UnitCombatUseCase → UnitView)
-GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(unitId));
+IDamageable 기반 이벤트로 유닛/건물 모두 동일하게 처리:
+
+```csharp
+// 공격 이벤트 (UnitCombatUseCase → UnitView/BuildingView)
+GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
+// attacker: IDamageable (공격자), target: IDamageable (피격 대상)
+
+// 사망 이벤트 (UnitCombatUseCase → UnitView/BuildingView)
+GameEvents.OnEntityDied.OnNext(new EntityDiedEvent(entity));
+// entity: IDamageable (사망한 유닛 또는 건물)
+```
+
+**이벤트 매칭**: View에서 자신의 엔티티를 식별할 때 **참조 비교** 사용:
+```csharp
+// UnitView에서
+if (e.Attacker == (IDamageable)_unitData) { /* 이 유닛이 공격자 */ }
+// BuildingView에서
+if (e.Entity == (IDamageable)Data) { /* 이 건물이 파괴됨 */ }
 ```
 
 ### 건물 배치 시스템 (MVP Phase 1)
@@ -566,38 +677,51 @@ public enum BuildingType {
 }
 ```
 
-#### 건물 데이터 (UnitData 패턴)
+#### 건물 데이터 (IDamageable 패턴)
 ```csharp
-public class BuildingData {
+public class BuildingData : IDamageable {
     public int Id { get; }              // 자동 발급
     public BuildingType Type { get; }   // 불변
     public TeamId Team { get; }         // 불변
     public HexCoord Position { get; }   // 불변
+    public int MaxHp { get; }           // BuildingStats에서 결정
+    public int Hp { get; private set; } // 피격 시 감소
+    public bool IsAlive => Hp > 0;
+    public void TakeDamage(int damage); // 데미지 적용
 }
 ```
 
-#### 건물 배치 흐름
-```
-[자동 배치] GameBootstrapper.PlaceCastles()
-  → Blue Castle: 하단 중앙, Red Castle: 상단 중앙
+#### 건물 배치 흐름 (상세)
 
-[수동 배치] 자기 팀 빈 타일 탭
-  ↓
-InputHandler: CanPlaceBuilding 검증
-  ↓
-BuildingPlacementUI.Show() — 건물 선택 팝업 (배럭, 채굴소)
-  ↓
-플레이어 선택
-  ↓
-BuildingPlacementUseCase.PlaceBuilding()
-  ├─ 검증: 타일 존재, IsWalkable, 팀 소유
-  ├─ BuildingData 생성 (Id 자동 발급)
-  ├─ 타일 상태: IsWalkable = false
-  └─ 이벤트 발행: OnBuildingPlaced, OnTileOwnerChanged
-  ↓
-BuildingFactory (이벤트 구독)
-  → 프리팹 Instantiate + BuildingView 초기화
-```
+건물 배치 흐름은 `InputHandler`에서 시작하여 `UI`, `UseCase`, `Factory`를 거치는 단방향 데이터 흐름을 따릅니다.
+
+1.  **입력 감지 (InputHandler)**
+    -   플레이어가 UI가 아닌 지역을 클릭하면 `InputHandler.HandleClick`이 호출됩니다.
+    -   클릭된 좌표의 타일이 현재 플레이어 소유의 비어있는 타일인지 `BuildingPlacementUseCase.CanPlaceBuilding`을 통해 검증합니다.
+    -   조건이 맞으면, `BuildingPlacementUI.Show(coord, team)`를 호출하여 건물 선택 팝업을 띄웁니다.
+
+2.  **UI 상호작용 (BuildingPlacementUI)**
+    -   `Show()`가 호출되면 팝업 UI가 활성화됩니다.
+    -   플레이어가 `BarracksButton` 또는 `MiningPostButton`을 클릭합니다.
+    -   각 버튼의 `onClick` 이벤트는 `PlaceAndClose(BuildingType)` 메서드를 호출합니다.
+    -   `PlaceAndClose`는 `BuildingPlacementUseCase.PlaceBuilding`을 호출하여 실제 배치 로직을 요청하고, 스스로 `Close()`를 호출하여 팝업을 닫습니다.
+    -   (참고: 배경 클릭 시 팝업 닫기는 'UI 팝업 구현 패턴'을 따릅니다.)
+
+3.  **로직 실행 (BuildingPlacementUseCase)**
+    -   `PlaceBuilding(type, team, coord)`가 호출되면, 다시 한번 배치 가능 여부를 최종 검증합니다.
+    -   `BuildingStats.GetMaxHp(type)`으로 타입별 기본 HP를 조회합니다.
+    -   `BuildingData` 인스턴스를 생성합니다 (HP 포함).
+    -   해당 타일의 상태를 '건설됨'으로 변경합니다 (`HexTile.IsWalkable = false`).
+    -   `GameEvents.OnBuildingPlaced` 이벤트를 발행(OnNext)하여 시스템의 다른 부분에 건물 배치가 완료되었음을 알립니다.
+    -   건물 파괴 시: `RemoveBuilding(id)` → Dictionary 제거 + `HexTile.IsWalkable = true` 복구.
+
+4.  **객체 생성 (BuildingFactory)**
+    -   `BuildingFactory`는 `OnBuildingPlaced` 이벤트를 구독(Subscribe)하고 있습니다.
+    -   이벤트를 수신하면, 전달받은 `BuildingData`에 맞는 건물 프리팹(`Building_Barracks.prefab` 등)을 `Instantiate`하여 월드에 생성합니다.
+    -   생성된 게임 오브젝트의 `BuildingView` 컴포넌트에 `BuildingData`를 전달하여 초기화합니다.
+
+5.  **자동 배치 (GameBootstrapper)**
+    -   게임 시작 시 `GameBootstrapper.PlaceCastles` 메서드가 양 팀의 `Castle`을 지정된 위치에 자동으로 배치하며, 이는 `BuildingPlacementUseCase`를 통해 위와 유사한 로직을 실행합니다.
 
 #### 정렬 순서 (Sorting Order)
 ```
@@ -610,6 +734,30 @@ BuildingFactory (이벤트 구독)
 ```csharp
 // 건물 배치 (BuildingPlacementUseCase → BuildingFactory)
 GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
+
+// 건물 피격/사망은 전투 이벤트(OnEntityAttacked/OnEntityDied)를 통해 처리
+// BuildingView가 OnEntityDied를 구독하여 파괴 시 GameObject 제거
+```
+
+#### 자동 이동 시스템 (T키 토글)
+
+수동 모드와 자동 모드를 T키로 전환:
+```
+수동 모드 (기본): 유닛 선택 → 타일 클릭 → 이동 명령
+자동 모드 (T키): 양 팀 모든 유닛이 상대 Castle 방향으로 자동 이동
+```
+
+자동 이동 흐름:
+```
+T키 입력 → _autoMoveMode 토글
+  ↓ 자동 모드 활성
+양 팀 Castle 위치 탐색
+  ↓
+모든 유닛에게 상대 Castle 인접 타일로 이동 명령
+  ↓ (Castle 타일은 IsWalkable=false이므로)
+FindClosestWalkableNeighbor()로 Castle 인접 이동 가능 타일 계산
+  ↓
+UnitMovementUseCase.RequestMove() → UnitView.MoveTo()
 ```
 
 ---
@@ -734,6 +882,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.6.0 | 2026-02-13 | 전투 시스템 고도화: IDamageable 인터페이스 도입(유닛/건물 통합 전투), BuildingStats/UnitStats 중앙 스탯 관리, 이벤트 일반화(EntityAttacked/EntityDied), 경로탐색 적 유닛 우회(blockedCoords), 이동 중 전투(매 타일 공격 체크 + 전투 후 이동 계속), 사망 엔티티 데이터 정리(Dictionary 제거 + 타일 복구), T키 자동/수동 이동 토글(양팀 Castle 방향 자동 이동) |
 | 0.5.0 | 2026-02-08 | 건물 배치 시스템(MVP Phase 1) 추가: BuildingType/BuildingData, 배치 흐름(자동/수동), 정렬 순서(건물 50), BuildingPlacedEvent |
 | 0.4.0 | 2026-02-08 | 타일 선택 하이라이트 버그 수정 문서화: HexTileView 토글→결정적 할당, 선택 해제 이벤트 처리 설명 추가 |
 | 0.3.0 | 2026-02-08 | 듀얼 Orientation: OrientationConfig, PointyTop(7×17)/FlatTop(10×29), 런타임 맵 전환(LoadMap), HexCoord/A* 코드 현행화 |

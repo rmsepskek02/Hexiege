@@ -22,7 +22,8 @@
 
 namespace Hexiege.Domain
 {
-    public class UnitData
+    // IDamageable 인터페이스 구현
+    public class UnitData : IDamageable
     {
         /// <summary> 유닛 고유 식별자. 생성 시 자동 발급, 변경 불가. </summary>
         public int Id { get; }
@@ -51,7 +52,7 @@ namespace Hexiege.Domain
         public int MaxHp { get; }
 
         /// <summary> 현재 체력. 0 이하면 사망. </summary>
-        public int Hp { get; set; }
+        public int Hp { get; private set; }
 
         /// <summary> 공격력. </summary>
         public int AttackPower { get; }
@@ -72,23 +73,31 @@ namespace Hexiege.Domain
         /// <param name="type">유닛 종류</param>
         /// <param name="team">소속 팀</param>
         /// <param name="position">초기 위치 (헥스 좌표)</param>
-        /// <param name="hp">최대 체력</param>
+        /// <param name="maxHp">최대 체력</param>
         /// <param name="attackPower">공격력</param>
         /// <param name="attackRange">공격 사거리</param>
         /// <param name="facing">초기 바라보는 방향 (기본: 동쪽)</param>
         public UnitData(UnitType type, TeamId team, HexCoord position,
-            int hp = 10, int attackPower = 3, int attackRange = 1,
+            int maxHp, int attackPower, int attackRange,
             HexDirection facing = HexDirection.E)
         {
             Id = _nextId++;
             Type = type;
             Team = team;
             Position = position;
-            MaxHp = hp;
-            Hp = hp;
+            MaxHp = maxHp;
+            Hp = maxHp;
             AttackPower = attackPower;
             AttackRange = attackRange;
             Facing = facing;
+        }
+        
+        // IDamageable 인터페이스 메서드 구현
+        public void TakeDamage(int damage)
+        {
+            if (!IsAlive) return;
+            Hp -= damage;
+            if (Hp < 0) Hp = 0;
         }
     }
 }

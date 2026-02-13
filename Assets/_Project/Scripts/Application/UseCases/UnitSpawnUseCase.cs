@@ -64,8 +64,12 @@ namespace Hexiege.Application
             if (tile == null || !tile.IsWalkable)
                 return null;
 
-            // UnitData 생성 (Id는 내부에서 자동 발급)
-            var unit = new UnitData(type, team, position);
+            // UnitData 생성 (타입별 기본 스탯은 UnitStats에서 결정)
+            var unit = new UnitData(
+                type, team, position,
+                UnitStats.GetMaxHp(type),
+                UnitStats.GetAttackPower(type),
+                UnitStats.GetAttackRange(type));
 
             // 내부 목록에 등록
             _units[unit.Id] = unit;

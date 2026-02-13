@@ -115,21 +115,24 @@ namespace Hexiege.Presentation
             _combatUseCase = combatUseCase;
 
             // 공격 이벤트 구독 — 이 유닛이 공격자일 때 공격 애니메이션 재생
-            GameEvents.OnUnitAttack
+            GameEvents.OnEntityAttacked
                 .Subscribe(e =>
                 {
-                    if (_unitData != null && e.AttackerId == _unitData.Id)
+                    // 이벤트의 공격자가 이 유닛인지 확인 (참조 비교)
+                    if (_unitData != null && e.Attacker == (IDamageable)_unitData)
                     {
-                        _attackCoroutine = StartCoroutine(PlayAttackAnimation(e.Direction));
+                        // 공격자의 Facing 방향을 사용해 애니메이션 재생
+                        _attackCoroutine = StartCoroutine(PlayAttackAnimation(_unitData.Facing));
                     }
                 })
                 .AddTo(this);
 
-            // 사망 이벤트 구독 — 이 유닛이 사망하면 GameObject 파괴
-            GameEvents.OnUnitDied
+            // 사망 이벤트 구독 — 이 유닛 또는 다른 엔티티가 사망하면 처리
+            GameEvents.OnEntityDied
                 .Subscribe(e =>
                 {
-                    if (_unitData != null && e.UnitId == _unitData.Id)
+                    // 사망한 엔티티가 이 유닛일 경우 GameObject 파괴
+                    if (_unitData != null && e.Entity == (IDamageable)_unitData)
                     {
                         Destroy(gameObject);
                     }
@@ -221,14 +224,23 @@ namespace Hexiege.Presentation
                 {
                     _movementUseCase.ProcessStep(_unitData, from, to);
                 }
-            }
 
-            // 이동 완료 → 사거리 내 적이 있는 동안 반복 공격
-            while (_combatUseCase != null && _unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
-            {
-                // 공격 애니메이션 코루틴 완료 대기
-                while (_attackCoroutine != null)
-                    yield return null;
+                // 매 타일 도착 후 사거리 내 적 체크 → 발견 시 공격 후 남은 경로 계속 이동
+                if (_combatUseCase != null && _unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
+                {
+                    while (_attackCoroutine != null)
+                        yield return null;
+
+                    // 적이 남아있는 동안 반복 공격
+                    while (_unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
+                    {
+                        while (_attackCoroutine != null)
+                            yield return null;
+                    }
+
+                    // 전투 중 사망했으면 이동 중단
+                    if (!_unitData.IsAlive) break;
+                }
             }
 
             // Idle 상태 복귀

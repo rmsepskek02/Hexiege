@@ -1,7 +1,7 @@
 # Hexiege - 클라이언트 프로토타입 구현 계획서
 
-**버전:** 0.6.0
-**최종 수정일:** 2026-02-08
+**버전:** 0.7.0
+**최종 수정일:** 2026-02-13
 **작성자:** HANYONGHEE
 
 ---
@@ -95,35 +95,38 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 │  MonoBehaviour: 렌더링, Unity 이벤트 처리                  │
 │  ├─ HexTileView          (타일 비주얼 + 클릭)             │
 │  ├─ HexGridRenderer      (그리드 전체 렌더링)             │
-│  ├─ UnitView             (유닛 스프라이트 + 이동 비주얼)    │
+│  ├─ UnitView             (유닛 이동 + 이동 중 전투 + 사망) │
 │  ├─ FrameAnimator        (스프라이트 프레임 순환)           │
-│  ├─ BuildingView         (건물 비주얼) [MVP]              │
+│  ├─ BuildingView         (건물 비주얼 + 사망 처리) [MVP]   │
 │  ├─ BuildingPlacementUI  (건물 선택 팝업 UI) [MVP]        │
 │  ├─ CameraController     (팬/줌)                         │
-│  ├─ InputHandler         (입력 처리 + 건물 배치 흐름)      │
+│  ├─ InputHandler         (입력 + 건물 배치 + 자동이동)     │
 │  └─ DebugUI              (디버그 정보)                    │
 ├──────────────────────────────────────────────────────────┤
 │  Application Layer                                        │
 │  UseCase + UniRx 이벤트                                   │
-│  ├─ GameEvents               (이벤트 허브 + 건물 이벤트)  │
+│  ├─ GameEvents               (이벤트 허브 + Entity이벤트) │
 │  ├─ GridInteractionUseCase   (타일 선택)                  │
-│  ├─ UnitMovementUseCase      (이동 + 타일 점령)           │
+│  ├─ UnitMovementUseCase      (이동 + 타일 점령 + 적 우회) │
 │  ├─ UnitSpawnUseCase         (유닛 생성 + 조회 + 제거)    │
-│  ├─ UnitCombatUseCase        (전투: 공격/피격/사망)       │
-│  └─ BuildingPlacementUseCase (건물 배치 + 검증) [MVP]     │
+│  ├─ UnitCombatUseCase        (전투: IDamageable 대상)     │
+│  └─ BuildingPlacementUseCase (건물 배치 + 제거) [MVP]     │
 ├──────────────────────────────────────────────────────────┤
 │  Domain Layer (순수 C#, Unity 독립)                       │
 │  ├─ HexCoord             (큐브 좌표 값 객체)              │
 │  ├─ HexDirection         (6방향 + 이웃 오프셋)            │
 │  ├─ HexGrid              (그리드 데이터)                  │
 │  ├─ HexTile              (타일 상태)                     │
-│  ├─ HexPathfinder        (A* 경로탐색)                   │
+│  ├─ HexPathfinder        (A* 경로탐색 + 차단 좌표)       │
 │  ├─ FacingDirection      (방향 매핑)                     │
-│  ├─ UnitData             (유닛 상태 + 전투 스탯)         │
+│  ├─ IDamageable          (전투 대상 인터페이스)           │
+│  ├─ UnitData             (유닛 상태, IDamageable)        │
+│  ├─ UnitStats            (유닛 타입별 기본 스탯)          │
 │  ├─ UnitType             (유닛 타입)                     │
 │  ├─ TeamId               (팀 열거형)                     │
 │  ├─ BuildingType         (건물 타입 열거형) [MVP]         │
-│  └─ BuildingData         (건물 상태 데이터) [MVP]         │
+│  ├─ BuildingData         (건물 상태, IDamageable) [MVP]   │
+│  └─ BuildingStats        (건물 타입별 기본 HP) [MVP]      │
 ├──────────────────────────────────────────────────────────┤
 │  Infrastructure Layer                                     │
 │  ├─ OrientationConfig    (Orientation별 그리드 설정 클래스) │
@@ -147,22 +150,25 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 
 모든 경로는 `Assets/_Project/` 기준.
 
-### Domain Layer (순수 C#) - 11개
+### Domain Layer (순수 C#) - 14개
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
 | `Scripts/Domain/Common/TeamId.cs` | 팀 열거형 (Neutral, Blue, Red) | 프로토타입 |
+| `Scripts/Domain/Common/IDamageable.cs` | 전투 대상 인터페이스 (Id, Team, Position, Hp, TakeDamage) | 프로토타입 |
 | `Scripts/Domain/Hex/HexCoord.cs` | 큐브 좌표 값 객체 (q, r, s=-q-r) | 프로토타입 |
 | `Scripts/Domain/Hex/HexDirection.cs` | 6방향 열거형 + 이웃 좌표 오프셋 | 프로토타입 |
 | `Scripts/Domain/Hex/HexTile.cs` | 타일 상태 (소유자, 이동가능 여부) | 프로토타입 |
 | `Scripts/Domain/Hex/HexOrientation.cs` | HexOrientation 열거형 + HexOrientationContext 정적 홀더 | 프로토타입 |
 | `Scripts/Domain/Hex/HexGrid.cs` | 그리드 데이터 구조 (Dictionary, orientation 지원) | 프로토타입 |
-| `Scripts/Domain/Hex/HexPathfinder.cs` | 헥스 그리드 A* 경로탐색 | 프로토타입 |
+| `Scripts/Domain/Hex/HexPathfinder.cs` | 헥스 그리드 A* 경로탐색 (blockedCoords 지원) | 프로토타입 |
 | `Scripts/Domain/Unit/FacingDirection.cs` | 6방향 → 3아트방향 + flipX 매핑 | 프로토타입 |
 | `Scripts/Domain/Unit/UnitType.cs` | 유닛 타입 열거형 | 프로토타입 |
-| `Scripts/Domain/Unit/UnitData.cs` | 유닛 상태 (위치, 타입, 팀, 방향, HP, 공격력, 사거리) | 프로토타입 |
+| `Scripts/Domain/Unit/UnitData.cs` | 유닛 상태 (IDamageable 구현, 위치/타입/팀/방향/HP/공격력/사거리) | 프로토타입 |
+| `Scripts/Domain/Unit/UnitStats.cs` | 유닛 타입별 기본 스탯 (MaxHp, AttackPower, AttackRange) | 프로토타입 |
 | `Scripts/Domain/Building/BuildingType.cs` | 건물 타입 열거형 (Castle, Barracks, MiningPost) | **MVP** |
-| `Scripts/Domain/Building/BuildingData.cs` | 건물 상태 데이터 (Id, Type, Team, Position) | **MVP** |
+| `Scripts/Domain/Building/BuildingData.cs` | 건물 상태 (IDamageable 구현, Id/Type/Team/Position/HP) | **MVP** |
+| `Scripts/Domain/Building/BuildingStats.cs` | 건물 타입별 기본 HP (Castle:50, Barracks:30, MiningPost:20) | **MVP** |
 
 ### Core Layer - 2개 (+1 enum)
 
@@ -175,12 +181,12 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
-| `Scripts/Application/Events/GameEvents.cs` | UniRx Subject 이벤트 허브 (타일/유닛/전투/건물 이벤트) | 프로토타입 + **MVP 수정** |
+| `Scripts/Application/Events/GameEvents.cs` | UniRx Subject 이벤트 허브 (Entity 기반 전투 이벤트 포함) | 프로토타입 + **수정** |
 | `Scripts/Application/UseCases/GridInteractionUseCase.cs` | 타일 선택 처리 | 프로토타입 |
-| `Scripts/Application/UseCases/UnitMovementUseCase.cs` | 경로탐색 + 이동 + 타일 점령 | 프로토타입 |
-| `Scripts/Application/UseCases/UnitSpawnUseCase.cs` | 유닛 생성 + 좌표별 조회 + 사망 제거 | 프로토타입 |
-| `Scripts/Application/UseCases/UnitCombatUseCase.cs` | 전투 처리 (인접 적 탐색, 공격, 사망 판정) | 프로토타입 |
-| `Scripts/Application/UseCases/BuildingPlacementUseCase.cs` | 건물 배치 검증 + 타일 상태 변경 + 이벤트 발행 | **MVP** |
+| `Scripts/Application/UseCases/UnitMovementUseCase.cs` | 경로탐색(적 우회) + 이동 + 타일 점령 | 프로토타입 + **수정** |
+| `Scripts/Application/UseCases/UnitSpawnUseCase.cs` | 유닛 생성(UnitStats 사용) + 조회 + 제거 | 프로토타입 + **수정** |
+| `Scripts/Application/UseCases/UnitCombatUseCase.cs` | IDamageable 기반 전투 (유닛+건물 공격, 사망 데이터 정리) | 프로토타입 + **수정** |
+| `Scripts/Application/UseCases/BuildingPlacementUseCase.cs` | 건물 배치(BuildingStats 사용) + 제거(타일 복구) + 검증 | **MVP** + **수정** |
 
 ### Infrastructure Layer - 4개
 
@@ -198,18 +204,18 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Scripts/Presentation/Grid/HexTileView.cs` | 타일 비주얼 + 색상 변경 + 선택 | 프로토타입 |
 | `Scripts/Presentation/Grid/HexGridRenderer.cs` | HexGrid → GameObject 렌더링 | 프로토타입 |
 | `Scripts/Presentation/Unit/FrameAnimator.cs` | 스프라이트 프레임 순환 엔진 | 프로토타입 |
-| `Scripts/Presentation/Unit/UnitView.cs` | 유닛 비주얼 + 이동 코루틴 + 방향 전환 + 자동 공격 + 사망 처리 | 프로토타입 |
+| `Scripts/Presentation/Unit/UnitView.cs` | 유닛 이동 코루틴 + 이동 중 전투 + 방향 전환 + 사망 처리 (참조 비교) | 프로토타입 + **수정** |
 | `Scripts/Presentation/Camera/CameraController.cs` | 카메라 팬/줌 + 경계 제한 | 프로토타입 |
-| `Scripts/Presentation/Input/InputHandler.cs` | 마우스/터치 입력 → UseCase 연결 (건물 배치 흐름 포함) | 프로토타입 + **MVP 수정** |
+| `Scripts/Presentation/Input/InputHandler.cs` | 입력 처리 + 건물 배치 + T키 자동/수동 이동 토글 | 프로토타입 + **수정** |
 | `Scripts/Presentation/Debug/DebugUI.cs` | 화면 디버그 정보 표시 | 프로토타입 |
-| `Scripts/Presentation/Building/BuildingView.cs` | 건물 비주얼 컴포넌트 (BuildingData 참조) | **MVP** |
+| `Scripts/Presentation/Building/BuildingView.cs` | 건물 비주얼 + OnEntityDied 구독으로 파괴 처리 | **MVP** + **수정** |
 | `Scripts/Presentation/UI/BuildingPlacementUI.cs` | 건물 선택 팝업 UI (배럭/채굴소 버튼) | **MVP** |
 
 ### Bootstrap - 1개
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
-| `Scripts/Bootstrap/GameBootstrapper.cs` | 씬 진입점, LoadMap() 런타임 맵 전환, 의존성 와이어링, Castle 자동 배치 | 프로토타입 + **MVP 수정** |
+| `Scripts/Bootstrap/GameBootstrapper.cs` | 씬 진입점, LoadMap(), 의존성 와이어링(생성 순서 조정), Castle 배치 | 프로토타입 + **수정** |
 
 ### 에셋 파일
 
@@ -231,7 +237,7 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Prefabs/Building_Barracks.prefab` | 배럭 프리팹 (SpriteRenderer + BuildingView) | **MVP** |
 | `Prefabs/Building_MiningPost.prefab` | 채굴소 프리팹 (SpriteRenderer + BuildingView) | **MVP** |
 
-**총 파일 수:** 스크립트 35개 (프로토타입 28 + MVP 7) + 프리팹/SO 8개 + 스프라이트 32개
+**총 파일 수:** 스크립트 38개 (프로토타입 30 + MVP 8) + 프리팹/SO 8개 + 스프라이트 32개
 
 ---
 
@@ -382,9 +388,9 @@ Sprites/Units/Pistoleer/
 | 유닛 | 권총병 1종, idle/walk/attack 애니메이션 (death는 프로토타입 범위 외) |
 | 이동 | A* 경로탐색, 타일별 이동, 방향 전환 |
 | 타일 점령 | 유닛 이동 시 타일 색상 변경 |
-| 전투 | 이동 완료 후 인접 적 자동 공격 (HP/공격력/사거리), 사망 시 GameObject 파괴 |
+| 전투 | 이동 중 매 타일 인접 적(유닛/건물) 자동 공격 (IDamageable), 전투 후 이동 계속, 사망 시 데이터 정리 + GameObject 파괴 |
 | 카메라 | 팬(드래그) + 줌(스크롤/핀치) |
-| 입력 | 타일 클릭 선택, 유닛 이동 명령 (공격은 이동 후 자동) |
+| 입력 | 타일 클릭 선택, 유닛 이동 명령, T키 자동/수동 이동 토글 (양팀 Castle 방향 자동 이동) |
 
 ### 제외
 
@@ -514,6 +520,7 @@ SampleScene
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.7.0 | 2026-02-13 | 전투 시스템 고도화 반영: IDamageable/UnitStats/BuildingStats 3개 파일 추가(Domain 14→), Entity 기반 이벤트(Attacked/Died), 경로탐색 적 우회, 이동 중 전투, 사망 데이터 정리, T키 자동이동 토글, 파일 수 35→38, 아키텍처 다이어그램 업데이트 |
 | 0.6.0 | 2026-02-08 | MVP 건물 배치 시스템 코드 완료 반영: 파일 목록에 건물 7개 파일 추가(Domain 2, Application 1, Infrastructure 1, Presentation 2, Bootstrap 수정), 아키텍처 다이어그램 업데이트, 씬 구성에 Buildings/BuildingFactory/[UI] 추가 |
 | 0.5.0 | 2026-02-08 | 프로토타입 완료: Phase 2-11 전체 완료 표시, 검증 4가지 목표 모두 통과, 타일 선택 하이라이트 버그 수정 반영 |
 | 0.4.0 | 2026-02-08 | 듀얼 Orientation 지원: OrientationConfig 중첩 클래스, PointyTop(7×17)/FlatTop(10×29) 그리드, 프리팹 분리(HexTile_PointyTop/HexTile_FlatTop), GameBootstrapper.LoadMap() 런타임 맵 전환, UnitFactory.DestroyAllUnits() |

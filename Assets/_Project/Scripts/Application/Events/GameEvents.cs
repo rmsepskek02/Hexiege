@@ -111,44 +111,31 @@ namespace Hexiege.Application
     }
 
     /// <summary>
-    /// 유닛 공격 이벤트 데이터.
-    /// UnitCombatUseCase에서 공격 시 발행 → UnitView가 공격 애니메이션 재생.
+    /// 공격 이벤트 데이터. 유닛/건물 모두 포함.
     /// </summary>
-    public struct UnitAttackEvent
+    public struct EntityAttackedEvent
     {
-        /// <summary> 공격하는 유닛 Id. </summary>
-        public int AttackerId;
+        public readonly IDamageable Attacker;
+        public readonly IDamageable Target;
 
-        /// <summary> 피격당하는 유닛 Id. </summary>
-        public int TargetId;
-
-        /// <summary> 가한 데미지. </summary>
-        public int Damage;
-
-        /// <summary> 공격 방향 (공격자 → 타겟). </summary>
-        public HexDirection Direction;
-
-        public UnitAttackEvent(int attackerId, int targetId, int damage, HexDirection direction)
+        public EntityAttackedEvent(IDamageable attacker, IDamageable target)
         {
-            AttackerId = attackerId;
-            TargetId = targetId;
-            Damage = damage;
-            Direction = direction;
+            Attacker = attacker;
+            Target = target;
         }
     }
 
     /// <summary>
-    /// 유닛 사망 이벤트 데이터.
-    /// UnitCombatUseCase에서 HP가 0 이하가 되면 발행.
+    /// 사망 이벤트 데이터. 유닛/건물 모두 포함.
     /// </summary>
-    public struct UnitDiedEvent
+    public struct EntityDiedEvent
     {
-        /// <summary> 사망한 유닛 Id. </summary>
-        public int UnitId;
+        /// <summary> 사망한 엔티티. </summary>
+        public readonly IDamageable Entity;
 
-        public UnitDiedEvent(int unitId)
+        public EntityDiedEvent(IDamageable entity)
         {
-            UnitId = unitId;
+            Entity = entity;
         }
     }
 
@@ -214,18 +201,18 @@ namespace Hexiege.Application
         // ====================================================================
 
         /// <summary>
-        /// 유닛이 공격했을 때 발행.
+        /// 엔티티(유닛/건물)가 공격했을 때 발행.
         /// 발행: UnitCombatUseCase
         /// 구독: UnitView (공격 애니메이션 재생)
         /// </summary>
-        public static readonly Subject<UnitAttackEvent> OnUnitAttack = new Subject<UnitAttackEvent>();
+        public static readonly Subject<EntityAttackedEvent> OnEntityAttacked = new Subject<EntityAttackedEvent>();
 
         /// <summary>
-        /// 유닛이 사망했을 때 발행.
+        /// 엔티티(유닛/건물)가 사망했을 때 발행.
         /// 발행: UnitCombatUseCase
-        /// 구독: UnitView (사망 처리, GameObject 파괴)
+        /// 구독: UnitView, BuildingView (사망 처리, GameObject 파괴)
         /// </summary>
-        public static readonly Subject<UnitDiedEvent> OnUnitDied = new Subject<UnitDiedEvent>();
+        public static readonly Subject<EntityDiedEvent> OnEntityDied = new Subject<EntityDiedEvent>();
 
         // ====================================================================
         // 건물 관련 이벤트

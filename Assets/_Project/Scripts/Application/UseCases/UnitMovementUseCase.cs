@@ -29,9 +29,13 @@ namespace Hexiege.Application
         // 경로 계산 및 타일 점령에 사용할 그리드 참조
         private readonly HexGrid _grid;
 
-        public UnitMovementUseCase(HexGrid grid)
+        // 적 유닛 좌표를 차단 목록에 추가하기 위한 참조
+        private readonly UnitSpawnUseCase _unitSpawn;
+
+        public UnitMovementUseCase(HexGrid grid, UnitSpawnUseCase unitSpawn)
         {
             _grid = grid;
+            _unitSpawn = unitSpawn;
         }
 
         /// <summary>
@@ -39,14 +43,24 @@ namespace Hexiege.Application
         ///
         /// 반환값: 이동 경로 (시작점 포함). 이동 불가 시 null.
         /// Presentation 레이어에서 이 경로를 받아 시각적 이동 처리.
+        ///
+        /// 경로 탐색 시 적 유닛이 점유 중인 타일은 이동 불가로 처리하여 우회.
         /// </summary>
         /// <param name="unit">이동할 유닛 데이터</param>
         /// <param name="target">목표 타일 좌표</param>
         /// <returns>A* 경로 리스트. 이동 불가 시 null.</returns>
         public List<HexCoord> RequestMove(UnitData unit, HexCoord target)
         {
-            // A* 경로 계산
-            List<HexCoord> path = HexPathfinder.FindPath(_grid, unit.Position, target);
+            // 적 유닛 좌표를 차단 목록으로 구성
+            var blocked = new HashSet<HexCoord>();
+            foreach (var other in _unitSpawn.Units.Values)
+            {
+                if (other.Team != unit.Team && other.IsAlive)
+                    blocked.Add(other.Position);
+            }
+
+            // A* 경로 계산 (적 유닛 타일 우회)
+            List<HexCoord> path = HexPathfinder.FindPath(_grid, unit.Position, target, blocked);
 
             // 경로 없음 (목표가 이동 불가이거나 막혀있음)
             if (path == null || path.Count < 2)

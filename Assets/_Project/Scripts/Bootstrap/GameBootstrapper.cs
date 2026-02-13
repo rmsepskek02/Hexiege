@@ -171,10 +171,10 @@ namespace Hexiege.Bootstrap
         private void CreateUseCases()
         {
             _gridInteraction = new GridInteractionUseCase(_grid);
-            _unitMovement = new UnitMovementUseCase(_grid);
             _unitSpawn = new UnitSpawnUseCase(_grid);
-            _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn);
+            _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn);
             _buildingPlacement = new BuildingPlacementUseCase(_grid);
+            _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement);
         }
 
         // ====================================================================

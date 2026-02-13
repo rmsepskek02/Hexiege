@@ -22,7 +22,9 @@
 // ============================================================================
 
 using UnityEngine;
+using UniRx;
 using Hexiege.Domain;
+using Hexiege.Application;
 
 namespace Hexiege.Presentation
 {
@@ -33,11 +35,20 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// BuildingFactory에서 프리팹 Instantiate 후 호출.
-        /// 건물 데이터 참조를 설정.
+        /// 건물 데이터 참조를 설정하고 이벤트 구독.
         /// </summary>
         public void Initialize(BuildingData data)
         {
             Data = data;
+
+            // 사망 이벤트 구독 — 이 건물이 파괴되면 GameObject 제거
+            GameEvents.OnEntityDied
+                .Subscribe(e =>
+                {
+                    if (Data != null && e.Entity == (IDamageable)Data)
+                        Destroy(gameObject);
+                })
+                .AddTo(this);
         }
     }
 }
