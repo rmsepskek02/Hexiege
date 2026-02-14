@@ -30,6 +30,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Hexiege.Domain;
 using Hexiege.Application;
+using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
@@ -62,6 +63,12 @@ namespace Hexiege.Presentation
         /// <summary> 건물 배치 UseCase 참조. </summary>
         private BuildingPlacementUseCase _buildingPlacement;
 
+        /// <summary> 자원 UseCase 참조 (골드 차감). </summary>
+        private ResourceUseCase _resource;
+
+        /// <summary> 건물 비용 참조. </summary>
+        private GameConfig _config;
+
         /// <summary> 현재 선택된 타일 좌표 (팝업 표시 중). </summary>
         private HexCoord _targetCoord;
 
@@ -78,9 +85,12 @@ namespace Hexiege.Presentation
         /// <summary>
         /// GameBootstrapper에서 호출. UseCase 참조 설정 및 버튼 이벤트 연결.
         /// </summary>
-        public void Initialize(BuildingPlacementUseCase buildingPlacement)
+        public void Initialize(BuildingPlacementUseCase buildingPlacement,
+            ResourceUseCase resource, GameConfig config)
         {
             _buildingPlacement = buildingPlacement;
+            _resource = resource;
+            _config = config;
 
             // 시작 시 팝업 비활성
             if (_popup != null)
@@ -137,8 +147,32 @@ namespace Hexiege.Presentation
         /// </summary>
         private void PlaceAndClose(BuildingType type)
         {
+            // 골드 비용 확인 및 차감
+            if (_resource != null && _config != null)
+            {
+                int cost = GetBuildingCost(type);
+                if (!_resource.CanAfford(_currentTeam, cost))
+                {
+                    Debug.Log($"[BuildingUI] 골드 부족: {type} 건설 비용 {cost}");
+                    return; // 골드 부족 → 배치하지 않음
+                }
+                _resource.SpendGold(_currentTeam, cost);
+            }
+
             _buildingPlacement?.PlaceBuilding(type, _currentTeam, _targetCoord);
             Close();
+        }
+
+        /// <summary> 건물 타입별 비용. </summary>
+        private int GetBuildingCost(BuildingType type)
+        {
+            if (_config == null) return 0;
+            switch (type)
+            {
+                case BuildingType.Barracks: return _config.BarracksCost;
+                case BuildingType.MiningPost: return _config.MiningPostCost;
+                default: return 0; // Castle은 자동 배치이므로 비용 없음
+            }
         }
     }
 }

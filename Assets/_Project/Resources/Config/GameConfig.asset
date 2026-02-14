@@ -26,8 +26,14 @@ MonoBehaviour:
   BlueTeamColor: {r: 0.3019608, g: 0.5019608, b: 0.9019608, a: 1}
   RedTeamColor: {r: 0.9019608, g: 0.3019608, b: 0.3019608, a: 1}
   SelectedTint: {r: 1, g: 1, b: 0.5019608, a: 1}
+  _startingGold: 5000000
+  _miningGoldPerSecond: 10
+  _barracksCost: 100
+  _miningPostCost: 50
   UnitMoveSeconds: 0.3
   UnitYOffset: 0.15
+  BuildingYOffset: 0.1
+  _rallyPointPrefab: {fileID: 8937367647330354896, guid: a42372604120c8d47a6358eb620b4cbb, type: 3}
   AnimationFps: 6
   CameraZoomMin: 2
   CameraZoomMax: 7

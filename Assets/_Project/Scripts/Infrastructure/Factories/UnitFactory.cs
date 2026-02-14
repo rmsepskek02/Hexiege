@@ -30,11 +30,37 @@ using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
 using Hexiege.Application;
+using Hexiege.Presentation;
 
 namespace Hexiege.Infrastructure
 {
     public class UnitFactory : MonoBehaviour
     {
+        // ====================================================================
+        // 런타임 의존성 주입 — 생산된 유닛에 자동 적용
+        // ====================================================================
+
+        private UnitAnimationData _depAnimData;
+        private GameConfig _depConfig;
+        private UnitMovementUseCase _depMovement;
+        private UnitCombatUseCase _depCombat;
+        private bool _hasDependencies;
+
+        /// <summary>
+        /// GameBootstrapper에서 UseCase 생성 후 한 번 호출.
+        /// 이후 생성되는 모든 유닛에 자동으로 SetDependencies() 적용.
+        /// </summary>
+        public void SetDependencyReferences(
+            UnitAnimationData animData, GameConfig config,
+            UnitMovementUseCase movement, UnitCombatUseCase combat)
+        {
+            _depAnimData = animData;
+            _depConfig = config;
+            _depMovement = movement;
+            _depCombat = combat;
+            _hasDependencies = true;
+        }
+
         // ====================================================================
         // Inspector에서 설정할 필드
         // ====================================================================
@@ -116,10 +142,14 @@ namespace Hexiege.Infrastructure
 
             // UnitView 컴포넌트 가져와서 UnitData 전달
             // UnitView는 Presentation 레이어 — Phase 7에서 구현
-            var unitView = unitObj.GetComponent<Presentation.UnitView>();
+            var unitView = unitObj.GetComponent<UnitView>();
             if (unitView != null)
             {
                 unitView.Initialize(unitData);
+
+                // 런타임 의존성 자동 주입 (생산된 유닛도 즉시 동작 가능)
+                if (_hasDependencies)
+                    unitView.SetDependencies(_depAnimData, _depConfig, _depMovement, _depCombat);
             }
 
             // 내부 딕셔너리에 등록 (나중에 삭제 시 사용)

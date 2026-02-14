@@ -1,7 +1,7 @@
 # Hexiege - 클라이언트 프로토타입 구현 계획서
 
-**버전:** 0.7.0
-**최종 수정일:** 2026-02-13
+**버전:** 1.0.0
+**최종 수정일:** 2026-02-14
 **작성자:** HANYONGHEE
 
 ---
@@ -95,22 +95,27 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 │  MonoBehaviour: 렌더링, Unity 이벤트 처리                  │
 │  ├─ HexTileView          (타일 비주얼 + 클릭)             │
 │  ├─ HexGridRenderer      (그리드 전체 렌더링)             │
-│  ├─ UnitView             (유닛 이동 + 이동 중 전투 + 사망) │
+│  ├─ UnitView             (유닛 이동 + per-step 체크 + ClaimedTile + 전투 + 사망) │
 │  ├─ FrameAnimator        (스프라이트 프레임 순환)           │
 │  ├─ BuildingView         (건물 비주얼 + 사망 처리) [MVP]   │
 │  ├─ BuildingPlacementUI  (건물 선택 팝업 UI) [MVP]        │
+│  ├─ ProductionPanelUI    (배럭 생산 패널 UI + 마커 연동) [MVP2] │
+│  ├─ ProductionTicker     (생산 타이머 + 랠리 자동이동 + 마커 관리) [MVP2] │
 │  ├─ CameraController     (팬/줌)                         │
-│  ├─ InputHandler         (입력 + 건물 배치 + 자동이동)     │
+│  ├─ InputHandler         (입력 + 건물 배치 + 생산UI + 자동이동) │
 │  └─ DebugUI              (디버그 정보)                    │
 ├──────────────────────────────────────────────────────────┤
 │  Application Layer                                        │
 │  UseCase + UniRx 이벤트                                   │
-│  ├─ GameEvents               (이벤트 허브 + Entity이벤트) │
+│  ├─ GameEvents               (이벤트 허브 + Entity+생산 이벤트) │
 │  ├─ GridInteractionUseCase   (타일 선택)                  │
-│  ├─ UnitMovementUseCase      (이동 + 타일 점령 + 적 우회) │
-│  ├─ UnitSpawnUseCase         (유닛 생성 + 조회 + 제거)    │
+│  ├─ UnitMovementUseCase      (이동 + 타일 점령 + 유닛 우회 + ClaimedTile 차단 + per-step 체크) │
+│  ├─ UnitSpawnUseCase         (유닛 생성 + 점유 검증 + 제거) │
 │  ├─ UnitCombatUseCase        (전투: IDamageable 대상)     │
-│  └─ BuildingPlacementUseCase (건물 배치 + 제거) [MVP]     │
+│  ├─ BuildingPlacementUseCase (건물 배치 + 영토 확장 + 제거) [MVP] │
+│  ├─ ResourceUseCase          (팀별 골드 관리) [MVP2]      │
+│  ├─ PopulationUseCase        (인구수 계산) [MVP2]         │
+│  └─ UnitProductionUseCase    (생산 큐/타이머/자동-수동) [MVP2] │
 ├──────────────────────────────────────────────────────────┤
 │  Domain Layer (순수 C#, Unity 독립)                       │
 │  ├─ HexCoord             (큐브 좌표 값 객체)              │
@@ -150,7 +155,7 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 
 모든 경로는 `Assets/_Project/` 기준.
 
-### Domain Layer (순수 C#) - 14개
+### Domain Layer (순수 C#) - 16개
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
@@ -164,11 +169,13 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Scripts/Domain/Hex/HexPathfinder.cs` | 헥스 그리드 A* 경로탐색 (blockedCoords 지원) | 프로토타입 |
 | `Scripts/Domain/Unit/FacingDirection.cs` | 6방향 → 3아트방향 + flipX 매핑 | 프로토타입 |
 | `Scripts/Domain/Unit/UnitType.cs` | 유닛 타입 열거형 | 프로토타입 |
-| `Scripts/Domain/Unit/UnitData.cs` | 유닛 상태 (IDamageable 구현, 위치/타입/팀/방향/HP/공격력/사거리) | 프로토타입 |
+| `Scripts/Domain/Unit/UnitData.cs` | 유닛 상태 (IDamageable 구현, 위치/타입/팀/방향/HP/공격력/사거리/ClaimedTile) | 프로토타입 + **수정** |
 | `Scripts/Domain/Unit/UnitStats.cs` | 유닛 타입별 기본 스탯 (MaxHp, AttackPower, AttackRange) | 프로토타입 |
 | `Scripts/Domain/Building/BuildingType.cs` | 건물 타입 열거형 (Castle, Barracks, MiningPost) | **MVP** |
 | `Scripts/Domain/Building/BuildingData.cs` | 건물 상태 (IDamageable 구현, Id/Type/Team/Position/HP) | **MVP** |
 | `Scripts/Domain/Building/BuildingStats.cs` | 건물 타입별 기본 HP (Castle:50, Barracks:30, MiningPost:20) | **MVP** |
+| `Scripts/Domain/Building/ProductionState.cs` | 배럭별 생산 상태 (큐, 타이머, 자동/수동, 랠리포인트) | **MVP2** |
+| `Scripts/Domain/Unit/UnitProductionStats.cs` | 유닛 타입별 생산 시간/비용/인구 | **MVP2** |
 
 ### Core Layer - 2개 (+1 enum)
 
@@ -177,45 +184,50 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Scripts/Core/HexMetrics.cs` | 헥스 좌표 ↔ 월드 좌표 변환, 사이징 상수 |
 | `Scripts/Core/SingletonMonoBehaviour.cs` | 제네릭 싱글톤 베이스 클래스 |
 
-### Application Layer - 6개
+### Application Layer - 9개
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
 | `Scripts/Application/Events/GameEvents.cs` | UniRx Subject 이벤트 허브 (Entity 기반 전투 이벤트 포함) | 프로토타입 + **수정** |
 | `Scripts/Application/UseCases/GridInteractionUseCase.cs` | 타일 선택 처리 | 프로토타입 |
-| `Scripts/Application/UseCases/UnitMovementUseCase.cs` | 경로탐색(적 우회) + 이동 + 타일 점령 | 프로토타입 + **수정** |
-| `Scripts/Application/UseCases/UnitSpawnUseCase.cs` | 유닛 생성(UnitStats 사용) + 조회 + 제거 | 프로토타입 + **수정** |
+| `Scripts/Application/UseCases/UnitMovementUseCase.cs` | 경로탐색(유닛 Position 우회 + 같은 팀 ClaimedTile 차단) + per-step 가용성 체크(IsTileBlockedBySameTeam) + 이동 + 타일 점령 | 프로토타입 + **수정** |
+| `Scripts/Application/UseCases/UnitSpawnUseCase.cs` | 유닛 생성(UnitStats 사용, 점유 검증) + 조회 + 제거 | 프로토타입 + **수정** |
 | `Scripts/Application/UseCases/UnitCombatUseCase.cs` | IDamageable 기반 전투 (유닛+건물 공격, 사망 데이터 정리) | 프로토타입 + **수정** |
-| `Scripts/Application/UseCases/BuildingPlacementUseCase.cs` | 건물 배치(BuildingStats 사용) + 제거(타일 복구) + 검증 | **MVP** + **수정** |
+| `Scripts/Application/UseCases/BuildingPlacementUseCase.cs` | 건물 배치(BuildingStats 사용) + 영토 확장 + 제거(타일 복구) + 검증 | **MVP** + **수정** |
+| `Scripts/Application/UseCases/ResourceUseCase.cs` | 팀별 골드 관리 (시작 500, 차감/추가/수입) | **MVP2** |
+| `Scripts/Application/UseCases/PopulationUseCase.cs` | 인구수 계산 (최대=타일, 사용=건물+유닛) | **MVP2** |
+| `Scripts/Application/UseCases/UnitProductionUseCase.cs` | 배럭 생산 핵심 로직 (큐/타이머/자동-수동/랠리포인트) | **MVP2** |
 
 ### Infrastructure Layer - 4개
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
-| `Scripts/Infrastructure/Config/GameConfig.cs` | 전역 설정 ScriptableObject (OrientationConfig + BuildingYOffset) | 프로토타입 + **MVP 수정** |
+| `Scripts/Infrastructure/Config/GameConfig.cs` | 전역 설정 ScriptableObject (OrientationConfig + BuildingYOffset + Economy) | 프로토타입 + **MVP 수정** + **MVP2 수정** |
 | `Scripts/Infrastructure/Config/UnitAnimationData.cs` | 방향별 스프라이트 배열 ScriptableObject | 프로토타입 |
-| `Scripts/Infrastructure/Factories/UnitFactory.cs` | 유닛 프리팹 인스턴스 생성 + 전체 제거 (맵 전환용) | 프로토타입 |
+| `Scripts/Infrastructure/Factories/UnitFactory.cs` | 유닛 프리팹 인스턴스 생성 + 런타임 의존성 주입 + 전체 제거 | 프로토타입 + **수정** |
 | `Scripts/Infrastructure/Factories/BuildingFactory.cs` | 건물 프리팹 인스턴스 생성 + 전체 제거 (맵 전환용) | **MVP** |
 
-### Presentation Layer - 9개
+### Presentation Layer - 11개
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
 | `Scripts/Presentation/Grid/HexTileView.cs` | 타일 비주얼 + 색상 변경 + 선택 | 프로토타입 |
 | `Scripts/Presentation/Grid/HexGridRenderer.cs` | HexGrid → GameObject 렌더링 | 프로토타입 |
 | `Scripts/Presentation/Unit/FrameAnimator.cs` | 스프라이트 프레임 순환 엔진 | 프로토타입 |
-| `Scripts/Presentation/Unit/UnitView.cs` | 유닛 이동 코루틴 + 이동 중 전투 + 방향 전환 + 사망 처리 (참조 비교) | 프로토타입 + **수정** |
+| `Scripts/Presentation/Unit/UnitView.cs` | 유닛 이동 코루틴 + per-step 가용성 체크/재탐색 + ClaimedTile 선점/해제 + Lerp 중 전투 + 사망 처리 | 프로토타입 + **수정** |
 | `Scripts/Presentation/Camera/CameraController.cs` | 카메라 팬/줌 + 경계 제한 | 프로토타입 |
 | `Scripts/Presentation/Input/InputHandler.cs` | 입력 처리 + 건물 배치 + T키 자동/수동 이동 토글 | 프로토타입 + **수정** |
 | `Scripts/Presentation/Debug/DebugUI.cs` | 화면 디버그 정보 표시 | 프로토타입 |
 | `Scripts/Presentation/Building/BuildingView.cs` | 건물 비주얼 + OnEntityDied 구독으로 파괴 처리 | **MVP** + **수정** |
-| `Scripts/Presentation/UI/BuildingPlacementUI.cs` | 건물 선택 팝업 UI (배럭/채굴소 버튼) | **MVP** |
+| `Scripts/Presentation/UI/BuildingPlacementUI.cs` | 건물 선택 팝업 UI (배럭/채굴소 버튼, 골드 검증) | **MVP** + **수정** |
+| `Scripts/Presentation/UI/ProductionPanelUI.cs` | 배럭 생산 패널 UI (수동 탭/자동 롱프레스, 큐/프로그레스, 마커 표시/숨김 연동) | **MVP2** |
+| `Scripts/Presentation/Production/ProductionTicker.cs` | 생산 타이머 브릿지 + 랠리포인트 자동 이동(BFS) + 마커 관리(생성/이동/숨김/파괴) | **MVP2** |
 
 ### Bootstrap - 1개
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
-| `Scripts/Bootstrap/GameBootstrapper.cs` | 씬 진입점, LoadMap(), 의존성 와이어링(생성 순서 조정), Castle 배치 | 프로토타입 + **수정** |
+| `Scripts/Bootstrap/GameBootstrapper.cs` | 씬 진입점, LoadMap(), 의존성 와이어링(Resource/Population/Production 포함), Castle 배치 | 프로토타입 + **수정** |
 
 ### 에셋 파일
 
@@ -237,7 +249,7 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Prefabs/Building_Barracks.prefab` | 배럭 프리팹 (SpriteRenderer + BuildingView) | **MVP** |
 | `Prefabs/Building_MiningPost.prefab` | 채굴소 프리팹 (SpriteRenderer + BuildingView) | **MVP** |
 
-**총 파일 수:** 스크립트 38개 (프로토타입 30 + MVP 8) + 프리팹/SO 8개 + 스프라이트 32개
+**총 파일 수:** 스크립트 45개 (프로토타입 30 + MVP 8 + MVP2 7) + 프리팹/SO 8개 + 스프라이트 32개
 
 ---
 
@@ -397,7 +409,7 @@ Sprites/Units/Pistoleer/
 | 항목 | Phase |
 |------|-------|
 | ~~건물 시스템 (배럭, 자원, 타워 등)~~ | ~~MVP~~ → **건물 배치 구현 완료 (코드)** |
-| 자원/생산 시스템 | MVP |
+| ~~자원/생산 시스템~~ | ~~MVP~~ → **생산 시스템 구현 완료 (코드)** |
 | 승리/패배 조건 | MVP |
 | 네트워크/멀티플레이어 | Phase 2 |
 | UI (디버그 외) | Phase 3 |
@@ -469,6 +481,7 @@ SampleScene
 │   │          BuildingFactory, BuildingPlacementUI, GameConfig
 │   ├── UnitFactory
 │   ├── BuildingFactory [MVP]
+│   ├── ProductionTicker [MVP2]
 │   └── EventSystem (Input System용)
 │
 ├── [World]
@@ -482,9 +495,12 @@ SampleScene
 │       컴포넌트: InputHandler
 │
 ├── [UI] (Canvas, Screen Space - Overlay) [MVP]
-│   └── BuildingPanel (비활성 상태)
-│       컴포넌트: BuildingPlacementUI
-│       하위: BarracksButton, MiningPostButton, CancelButton
+│   ├── BuildingPanel (비활성 상태)
+│   │   컴포넌트: BuildingPlacementUI
+│   │   하위: BarracksButton, MiningPostButton, CancelButton
+│   └── ProductionPopup (비활성 상태) [MVP2]
+│       컴포넌트: ProductionPanelUI
+│       하위: Background, ProductionPanel (UnitButtons, QueueSlots, ProgressBar, InfoBar, RallyPointButton)
 │
 └── [Debug]
     └── DebugUI
@@ -520,6 +536,10 @@ SampleScene
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 1.0.0 | 2026-02-15 | 랠리포인트 시스템 개선: RallyPointChangedEvent 이벤트, ProductionTicker 마커 관리(생성/이동/숨김/파괴, 3초 자동 숨김), ProductionPanelUI 마커 연동(Show→표시, Close→숨김), BFS 빈 타일 탐색(FindPathToNearestEmptyTile, maxRange=3), SetRallyPoint 배럭 타일→해제, GameConfig.RallyPointPrefab 추가, 팝업 설정 후 자동 닫힘 |
+| 0.9.1 | 2026-02-14 | Per-step 타일 가용성 체크 추가: UnitMovementUseCase.IsTileBlockedBySameTeam() 메서드, MoveAlongPath 각 스텝 전 같은 팀 차단 검증 + 차단 시 재탐색, 아키텍처 다이어그램/파일 역할 업데이트 |
+| 0.9.0 | 2026-02-14 | 유닛 이동/전투 시스템 개선: UnitData.ClaimedTile(이동 중 선점, 같은 팀만 차단), UnitMovementUseCase 차단 목록에 같은 팀 ClaimedTile 추가, UnitView.MoveAlongPath Lerp 중 거리 기반 전투 체크로 변경, 타일 중앙 도착=전투 승리=점령 규칙 |
+| 0.8.0 | 2026-02-14 | 생산 시스템 구현 반영: Domain 2개(ProductionState, UnitProductionStats), Application 3개(ResourceUseCase, PopulationUseCase, UnitProductionUseCase), Presentation 2개(ProductionPanelUI, ProductionTicker) 추가. 파일 수 38→45. 영토 확장(건물 인접 점령), 경로탐색 전체 유닛 차단, 유닛 스폰 점유 검증, UnitFactory 런타임 의존성 주입, GameConfig 경제 설정, 생산 이벤트 4종, 씬에 ProductionTicker/ProductionPopup 추가 |
 | 0.7.0 | 2026-02-13 | 전투 시스템 고도화 반영: IDamageable/UnitStats/BuildingStats 3개 파일 추가(Domain 14→), Entity 기반 이벤트(Attacked/Died), 경로탐색 적 우회, 이동 중 전투, 사망 데이터 정리, T키 자동이동 토글, 파일 수 35→38, 아키텍처 다이어그램 업데이트 |
 | 0.6.0 | 2026-02-08 | MVP 건물 배치 시스템 코드 완료 반영: 파일 목록에 건물 7개 파일 추가(Domain 2, Application 1, Infrastructure 1, Presentation 2, Bootstrap 수정), 아키텍처 다이어그램 업데이트, 씬 구성에 Buildings/BuildingFactory/[UI] 추가 |
 | 0.5.0 | 2026-02-08 | 프로토타입 완료: Phase 2-11 전체 완료 표시, 검증 4가지 목표 모두 통과, 타일 선택 하이라이트 버그 수정 반영 |

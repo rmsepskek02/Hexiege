@@ -54,6 +54,9 @@ namespace Hexiege.Presentation
         /// <summary> 건물 선택 팝업 UI. </summary>
         private BuildingPlacementUI _buildingUI;
 
+        /// <summary> 생산 패널 UI. </summary>
+        private ProductionPanelUI _productionUI;
+
         /// <summary> 메인 카메라 참조 (ScreenToWorldPoint 변환용). </summary>
         private Camera _mainCamera;
 
@@ -92,7 +95,8 @@ namespace Hexiege.Presentation
             UnitSpawnUseCase unitSpawn,
             Camera mainCamera,
             BuildingPlacementUseCase buildingPlacement,
-            BuildingPlacementUI buildingUI)
+            BuildingPlacementUI buildingUI,
+            ProductionPanelUI productionUI)
         {
             _gridInteraction = gridInteraction;
             _unitMovement = unitMovement;
@@ -100,6 +104,7 @@ namespace Hexiege.Presentation
             _mainCamera = mainCamera;
             _buildingPlacement = buildingPlacement;
             _buildingUI = buildingUI;
+            _productionUI = productionUI;
         }
 
         // ====================================================================
@@ -136,9 +141,6 @@ namespace Hexiege.Presentation
                 StartAutoMove();
                 _autoMoveStarted = true;
             }
-
-            // 수동 모드에서만 마우스 입력 처리
-            if (_autoMoveMode) return;
 
             // 마우스가 연결되어 있지 않으면 무시
             var mouse = Mouse.current;
@@ -183,6 +185,24 @@ namespace Hexiege.Presentation
         private void HandleClick(Vector2 screenPos)
         {
             // --------------------------------------------------------
+            // 0.5. 랠리포인트 설정 모드 (UI 체크보다 우선)
+            //    팝업이 닫힌 상태에서 타일을 선택해야 하므로
+            //    IsPointerOverUI보다 먼저 처리해야 함.
+            // --------------------------------------------------------
+            if (_productionUI != null && _productionUI.IsSettingRallyPoint
+                && Time.frameCount != _productionUI.RallyPointSetFrame)
+            {
+                Vector3 rallyWorldPos = _mainCamera.ScreenToWorldPoint(
+                    new Vector3(screenPos.x, screenPos.y, 0f));
+                rallyWorldPos.z = 0f;
+                HexCoord rallyCoord = Core.HexMetrics.WorldToHex(rallyWorldPos);
+
+                _productionUI.CompleteRallyPointSetting(rallyCoord);
+                _gridInteraction?.SelectTileAt(rallyWorldPos);
+                return;
+            }
+
+            // --------------------------------------------------------
             // 0. UI 위 클릭이면 게임 입력 무시 (UI EventSystem이 처리)
             //    New Input System에서는 IsPointerOverGameObject()가
             //    불안정하므로 RaycastAll로 직접 판정.
@@ -199,22 +219,25 @@ namespace Hexiege.Presentation
             HexCoord clickedCoord = Core.HexMetrics.WorldToHex(worldPos);
 
             // --------------------------------------------------------
-            // 2. 클릭 위치에 유닛이 있는지 확인
+            // 2. 클릭 위치에 유닛이 있는지 확인 (자동이동 모드에서는 건너뜀)
             // --------------------------------------------------------
-            UnitData unitAtPos = _unitSpawn?.GetUnitAt(clickedCoord);
-
-            if (unitAtPos != null)
+            if (!_autoMoveMode)
             {
-                // 유닛 선택 (이전 선택 해제)
-                _selectedUnit = unitAtPos;
-                _gridInteraction?.SelectTileAt(worldPos);
-                return;
+                UnitData unitAtPos = _unitSpawn?.GetUnitAt(clickedCoord);
+
+                if (unitAtPos != null)
+                {
+                    // 유닛 선택 (이전 선택 해제)
+                    _selectedUnit = unitAtPos;
+                    _gridInteraction?.SelectTileAt(worldPos);
+                    return;
+                }
             }
 
             // --------------------------------------------------------
-            // 3. 유닛이 선택된 상태에서 빈 타일 클릭 → 이동 명령
+            // 3. 유닛이 선택된 상태에서 빈 타일 클릭 → 이동 명령 (자동이동 모드에서는 건너뜀)
             // --------------------------------------------------------
-            if (_selectedUnit != null)
+            if (!_autoMoveMode && _selectedUnit != null)
             {
                 // 선택된 유닛의 UnitView 찾기
                 var unitObj = FindObjectsByType<UnitView>(FindObjectsSortMode.None);
@@ -246,13 +269,22 @@ namespace Hexiege.Presentation
             }
 
             // --------------------------------------------------------
-            // 4. 건물이 있는 타일 → 타일 선택
+            // 4. 건물이 있는 타일 → 배럭이면 생산 UI, 아니면 타일 선택
             // --------------------------------------------------------
             if (_buildingPlacement != null)
             {
                 BuildingData buildingAtPos = _buildingPlacement.GetBuildingAt(clickedCoord);
                 if (buildingAtPos != null)
                 {
+                    // 자기 팀 배럭 클릭 → 생산 패널 표시
+                    if (buildingAtPos.Type == BuildingType.Barracks
+                        && buildingAtPos.Team == TeamId.Blue
+                        && buildingAtPos.IsAlive
+                        && _productionUI != null)
+                    {
+                        _productionUI.Show(buildingAtPos);
+                    }
+
                     _gridInteraction?.SelectTileAt(worldPos);
                     return;
                 }

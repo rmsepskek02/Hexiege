@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.6.0
-**최종 수정일:** 2026-02-13
+**버전:** 0.9.0
+**최종 수정일:** 2026-02-14
 **작성자:** HANYONGHEE
 
 ---
@@ -481,9 +481,27 @@ List<HexCoord> path = HexPathfinder.FindPath(grid, start, goal, blockedCoords);
 ```
 
 **경로 차단 (blockedCoords)**:
-- 적 유닛이 점유 중인 타일을 이동 불가로 처리하여 우회 경로 계산
-- UnitMovementUseCase가 RequestMove() 시 적 유닛 좌표를 HashSet으로 구성하여 전달
+- 모든 다른 유닛(아군/적군 무관)의 현재 Position을 이동 불가로 처리
+- **같은 팀** 유닛의 ClaimedTile(이동 중 선점 타일)도 차단 목록에 포함 → 아군끼리 겹침 방지
+- **적 팀**의 ClaimedTile은 차단하지 않음 → 적과의 타일 경합은 전투로 해결
+- UnitMovementUseCase가 RequestMove() 시 자기 자신을 제외한 모든 살아있는 유닛 좌표 + 같은 팀 ClaimedTile을 HashSet으로 구성하여 전달
 - 목표 타일이 차단 좌표에 포함되면 경로 없음(null) 반환
+
+**ClaimedTile (이동 중 타일 선점)**:
+- UnitData.ClaimedTile (HexCoord?) — Lerp 시작 전 설정, Lerp 완료 후 해제
+- 같은 팀 유닛만 이 타일을 이동 불가로 인식 (경로탐색 시 우회)
+- 적 팀에게는 투과 → 같은 타일에 적이 진입 시 전투 발생
+
+**Per-step 타일 가용성 체크 (이동 중 실시간 검증)**:
+- MoveAlongPath에서 각 스텝 시작 전 `IsTileBlockedBySameTeam()` 호출
+- 같은 팀 유닛의 Position 또는 ClaimedTile이 다음 타일과 겹치면 차단 판정
+- 차단 시 현재 위치에서 최종 목적지까지 재탐색 (RequestMove) → 새 경로로 교체
+- 재탐색 실패 시 이동 중단 (Idle 복귀)
+- 적 팀은 체크하지 않음 — 전투로 해결
+
+**유닛 스폰 검증**:
+- UnitSpawnUseCase.SpawnUnit()에서 타일 IsWalkable 검증 + 유닛 점유 검증 (GetUnitAt)
+- 건물이 있거나 다른 유닛이 이미 있는 타일에는 유닛 생성 불가
 
 ---
 
@@ -580,6 +598,7 @@ public class UnitData : IDamageable {
     public int AttackPower { get; }    // UnitStats에서 결정
     public int AttackRange { get; }    // UnitStats에서 결정
     public bool IsAlive => Hp > 0;
+    public HexCoord? ClaimedTile { get; set; } // 이동 중 선점 타일 (같은 팀만 차단)
 }
 ```
 
@@ -592,26 +611,41 @@ public class BuildingData : IDamageable {
 }
 ```
 
-#### 전투 흐름 (이동 중 공격 포함)
+#### 전투 흐름 (이동 중 거리 기반 전투)
 ```
 유닛 이동 명령 (InputHandler / AutoMove)
   ↓
-A* 경로 계산 (적 유닛 타일 우회)
+A* 경로 계산 (아군/적군 Position 우회 + 같은 팀 ClaimedTile 우회)
+  ↓
+각 스텝마다:
+  ↓
+다음 타일 가용성 체크 (IsTileBlockedBySameTeam)
+  ↓ 차단됨
+현재 위치 → 최종 목적지 재탐색 (RequestMove) → 새 경로로 교체
+  ↓ 통과
+ClaimedTile = 다음 타일 (같은 팀 겹침 방지)
   ↓
 타일→타일 Lerp 이동 (UnitView 코루틴)
-  ↓ 각 타일 도착 시
+  ↓ Lerp 중 매 프레임
 사거리 내 적(유닛/건물) 탐색 (UnitCombatUseCase.TryAttack)
   ↓ 적 발견
-공격 방향 계산 → IDamageable.TakeDamage() → 이벤트 발행
+이동 중단 → 공격 방향 계산 → IDamageable.TakeDamage() → 이벤트 발행
   ↓
 적 HP ≤ 0? → EntityDied 이벤트 → View 파괴 + Dictionary 제거
   ↓
 사거리 내 적이 남아있으면 반복 공격
   ↓
-적 없음 → 남은 경로 계속 이동
+전투 승리 → 남은 Lerp 계속 → 타일 중앙 도착 = 점령
+  ↓
+ClaimedTile 해제, ProcessStep(Position 갱신 + SetOwner)
   ↓
 모든 경로 이동 완료 → Idle 상태 복귀
 ```
+
+**핵심 규칙: 타일 중앙 도착 = 전투 승리 = 점령**
+- 전투는 Lerp 이동 중에 거리 기반으로 발동 (타일 중앙 도착 전)
+- 패배한 유닛은 타일 중앙에 도달하지 못하므로 점령 불가
+- SetOwner는 Lerp 완료 후 ProcessStep에서만 호출 (변경 없음)
 
 #### 사망 처리 (Dead Entity Cleanup)
 ```
@@ -737,6 +771,172 @@ GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
 
 // 건물 피격/사망은 전투 이벤트(OnEntityAttacked/OnEntityDied)를 통해 처리
 // BuildingView가 OnEntityDied를 구독하여 파괴 시 GameObject 제거
+```
+
+#### 영토 확장 (건물 건설 시)
+
+건물 배치 시 배럭 인접 6타일을 건물 팀으로 자동 점령:
+```csharp
+// BuildingPlacementUseCase.PlaceBuilding() 내부
+var neighbors = _grid.GetNeighbors(position);
+foreach (var neighbor in neighbors)
+{
+    if (neighbor.Owner != team)
+    {
+        _grid.SetOwner(neighbor.Coord, team);
+        GameEvents.OnTileOwnerChanged.OnNext(
+            new TileOwnerChangedEvent(neighbor.Coord, team));
+    }
+}
+```
+
+### 유닛 생산 시스템 (MVP Phase 2)
+
+배럭에서 유닛을 생산하는 핵심 게임플레이 루프.
+
+#### 생산 관련 Domain 클래스
+
+```csharp
+// UnitProductionStats: 유닛 타입별 생산 시간/비용
+public static class UnitProductionStats {
+    public static float GetProductionTime(UnitType type) => type switch {
+        UnitType.Pistoleer => 5f, _ => 5f
+    };
+    public static int GetGoldCost(UnitType type) => type switch {
+        UnitType.Pistoleer => 50, _ => 50
+    };
+    public static int GetPopulationCost(UnitType type) => 1;
+}
+
+// ProductionState: 배럭 하나의 생산 상태
+public class ProductionState {
+    public int BarracksId;
+    public List<UnitType> ManualQueue;      // 수동 큐 (최대 3 = 생산 중 1 + 대기 2)
+    public List<UnitType> AutoTypes;        // 자동 생산 타입 목록
+    public bool IsAutoMode;
+    public int AutoIndex;                   // 자동 순환 인덱스
+    public UnitType? CurrentProducing;      // 현재 생산 중인 유닛
+    public float ElapsedTime, RequiredTime;
+    public HexCoord? RallyPoint;
+    public float Progress => RequiredTime > 0 ? ElapsedTime / RequiredTime : 0f;
+}
+```
+
+#### UseCase 구조
+
+| UseCase | 역할 |
+|---------|------|
+| `ResourceUseCase` | 팀별 골드 관리 (시작 500, 차감/추가/조회) |
+| `PopulationUseCase` | 인구수 계산 (최대=보유 타일, 사용=건물+유닛) |
+| `UnitProductionUseCase` | 생산 큐/타이머/자동-수동 모드/랠리포인트 |
+
+#### 생산 흐름 (상세)
+```
+배럭 배치 → RegisterBarracks(BuildingData)
+  ↓
+플레이어 탭 → EnqueueUnit(barracksId, type)
+  → 자동 모드 해제, 현재 자동 생산 취소 (골드 환불 없음)
+  → ManualQueue에 추가
+  → OnProductionQueueChanged 이벤트
+  ↓
+Tick(dt) — ProductionTicker가 매 프레임 호출
+  → TryStartNext: ManualQueue[0] 또는 AutoTypes[AutoIndex]
+  → 골드/인구 부족 시 대기
+  → 충족 시: 골드 차감 → CurrentProducing 설정 → OnProductionStarted
+  ↓
+TickProduction(state, dt)
+  → ElapsedTime += dt (RequiredTime 초과 방지 캡 처리)
+  → Progress >= 1.0 → CompleteProduction()
+  ↓
+CompleteProduction(state)
+  → FindSpawnTile(barracksPos) — 인접 이동 가능 + 유닛 없는 타일
+  → 스폰 불가: 대기 (매 프레임 재시도, Progress 1.0 유지)
+  → 스폰 가능: UnitSpawnUseCase.SpawnUnit()
+  → 자동 모드: AutoIndex 순환
+  → OnUnitProduced 이벤트 (랠리포인트 정보 포함)
+```
+
+#### 런타임 유닛 의존성 주입
+
+UnitFactory에 의존성 참조를 저장하여 생산된 유닛에 자동 주입:
+```csharp
+// GameBootstrapper에서 한 번 호출
+_unitFactory.SetDependencyReferences(animData, config, movement, combat);
+
+// UnitFactory.CreateUnitObject() 내부에서 자동 적용
+unitView.Initialize(unitData);
+if (_hasDependencies)
+    unitView.SetDependencies(animData, config, movement, combat);
+```
+
+#### 생산 이벤트
+```csharp
+// 자원 변경 (ResourceUseCase → UI)
+GameEvents.OnResourceChanged.OnNext(new ResourceChangedEvent(team, gold));
+
+// 생산 시작 (UnitProductionUseCase → UI)
+GameEvents.OnProductionStarted.OnNext(new ProductionStartedEvent(barracksId, type));
+
+// 유닛 생산 완료 (UnitProductionUseCase → ProductionTicker)
+GameEvents.OnUnitProduced.OnNext(new UnitProducedEvent(unit, rallyPoint));
+
+// 큐 변경 (UnitProductionUseCase → UI)
+GameEvents.OnProductionQueueChanged.OnNext(new ProductionQueueChangedEvent(barracksId));
+
+// 랠리포인트 변경 (UnitProductionUseCase → ProductionTicker 마커 관리)
+GameEvents.OnRallyPointChanged.OnNext(new RallyPointChangedEvent(barracksId, coord));
+```
+
+#### ProductionTicker (Presentation 브릿지)
+
+순수 C# UseCase를 Unity Update 루프에 연결하는 MonoBehaviour:
+```csharp
+public class ProductionTicker : MonoBehaviour {
+    void Update() {
+        _productionUseCase?.Tick(Time.deltaTime);
+        _resourceUseCase?.TickIncome(Time.deltaTime, ...);
+    }
+    // OnUnitProduced 구독 → 랠리포인트 자동 이동 처리 (BFS 빈 타일 탐색)
+    // OnRallyPointChanged 구독 → 마커 생성/이동/제거
+    // OnEntityDied 구독 → 배럭 파괴 시 마커 Destroy
+    // ShowRallyMarker/HideAllRallyMarkers — 팝업 연동
+}
+```
+
+#### 랠리포인트 마커 표시 규칙
+- **설정 직후**: 마커 생성 + 3초간 표시 → 자동 숨김
+- **배럭 선택(팝업 열림)**: 마커 표시 (ProductionPanelUI → ShowRallyMarker)
+- **팝업 닫힘/다른 오브젝트 클릭**: 마커 숨김 (ProductionPanelUI → HideAllRallyMarkers)
+- **배럭 타일에 랠리포인트 설정**: 랠리포인트 해제 + 마커 Destroy
+- **배럭 파괴**: 마커 Destroy
+- **마커 sortingOrder**: 75 (타일 위, 유닛 아래)
+- **마커 프리팹**: GameConfig.RallyPointPrefab (Inspector에서 할당)
+
+#### 랠리포인트 BFS 빈 타일 탐색
+랠리포인트 타일이 점유 중일 때 유닛이 멈추는 문제를 방지하기 위해 BFS로 가장 가까운 빈 타일을 탐색:
+```
+Ring 0: 랠리포인트 자체 (1타일)
+Ring 1: 인접 6타일
+Ring 2: 그 바깥 12타일
+Ring 3: 그 바깥 18타일 (최대 제한, maxRange=3)
+```
+- 각 타일에 대해 RequestMove 시도 → 성공하면 즉시 반환
+- BFS 특성상 랠리포인트에 가장 가까운 빈 타일이 자동 선택
+- 범위 내 빈 타일 없으면 이동 안 함
+
+#### 생산 UI (ProductionPanelUI)
+
+배럭 클릭 시 표시. 기존 UI 에셋(ui_panel_dark, ui_slot_queue, ui_bar_progress_frame 등) 활용.
+
+**탭**: 수동 큐 추가 / **롱프레스(0.5초)**: 자동 생산 토글
+
+#### GameConfig 경제 설정
+```csharp
+[Header("Economy")]
+int StartingGold = 500;           // 게임 시작 골드
+float MiningGoldPerSecond = 10f;  // 채굴소 초당 수입
+int BarracksCost = 100;           // 배럭 건설 비용
+int MiningPostCost = 50;          // 채굴소 건설 비용
 ```
 
 #### 자동 이동 시스템 (T키 토글)
@@ -882,6 +1082,10 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.9.0 | 2026-02-15 | 랠리포인트 시스템 개선: 마커 표시(3초 자동 숨김 + 팝업 연동), RallyPointChangedEvent 이벤트 추가, BFS 빈 타일 탐색(maxRange=3), 배럭 타일 설정→해제, ProductionTicker 마커 관리, ProductionPanelUI 마커 표시/숨김 연동, GameConfig.RallyPointPrefab 추가, 팝업 설정 후 자동 닫힘 |
+| 0.8.1 | 2026-02-14 | Per-step 타일 가용성 체크 추가: UnitMovementUseCase.IsTileBlockedBySameTeam() 메서드 추가, MoveAlongPath 각 스텝 시작 전 같은 팀 차단 검증, 차단 시 현재 위치→최종 목적지 재탐색(RequestMove), 재탐색 실패 시 이동 중단. 전투 흐름 다이어그램에 per-step 체크 단계 추가 |
+| 0.8.0 | 2026-02-14 | 유닛 이동/전투 시스템 개선: ClaimedTile(같은 팀 이동 중 타일 선점, 적 팀 투과), 이동 중 거리 기반 전투(Lerp 중 매 프레임 사거리 체크), 타일 중앙 도착=전투 승리=점령 규칙 확립, UnitData.ClaimedTile 필드 추가, UnitMovementUseCase 차단 목록에 같은 팀 ClaimedTile 포함, UnitView.MoveAlongPath Claim 설정/해제 및 Lerp 중 전투 |
+| 0.7.0 | 2026-02-14 | 유닛 생산 시스템: UnitProductionUseCase/ResourceUseCase/PopulationUseCase 추가, ProductionState/UnitProductionStats(Domain), ProductionTicker/ProductionPanelUI(Presentation), GameConfig 경제 설정, UnitFactory 런타임 의존성 주입(SetDependencyReferences), 영토 확장(건물 건설 시 인접 타일 점령), 경로탐색 아군/적군 무관 차단, 유닛 스폰 점유 검증, 생산 이벤트 4종 추가 |
 | 0.6.0 | 2026-02-13 | 전투 시스템 고도화: IDamageable 인터페이스 도입(유닛/건물 통합 전투), BuildingStats/UnitStats 중앙 스탯 관리, 이벤트 일반화(EntityAttacked/EntityDied), 경로탐색 적 유닛 우회(blockedCoords), 이동 중 전투(매 타일 공격 체크 + 전투 후 이동 계속), 사망 엔티티 데이터 정리(Dictionary 제거 + 타일 복구), T키 자동/수동 이동 토글(양팀 Castle 방향 자동 이동) |
 | 0.5.0 | 2026-02-08 | 건물 배치 시스템(MVP Phase 1) 추가: BuildingType/BuildingData, 배치 흐름(자동/수동), 정렬 순서(건물 50), BuildingPlacedEvent |
 | 0.4.0 | 2026-02-08 | 타일 선택 하이라이트 버그 수정 문서화: HexTileView 토글→결정적 할당, 선택 해제 이벤트 처리 설명 추가 |

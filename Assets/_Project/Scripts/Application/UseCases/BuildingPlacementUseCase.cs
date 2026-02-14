@@ -66,6 +66,18 @@ namespace Hexiege.Application
             tile.IsWalkable = false;
             _grid.SetOwner(position, team);
 
+            // 인접 타일 소유권 설정 (건물 건설 시 주변 영토 확장)
+            var neighbors = _grid.GetNeighbors(position);
+            foreach (var neighbor in neighbors)
+            {
+                if (neighbor.Owner != team)
+                {
+                    _grid.SetOwner(neighbor.Coord, team);
+                    GameEvents.OnTileOwnerChanged.OnNext(
+                        new TileOwnerChangedEvent(neighbor.Coord, team));
+                }
+            }
+
             // 이벤트 발행 → BuildingFactory가 프리팹 생성, HexTileView가 색상 변경
             GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
             GameEvents.OnTileOwnerChanged.OnNext(new TileOwnerChangedEvent(position, team));

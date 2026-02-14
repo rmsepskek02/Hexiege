@@ -112,6 +112,32 @@ namespace Hexiege.Infrastructure
         public Color SelectedTint = new Color(1f, 1f, 128f / 255f, 1f);
 
         // ====================================================================
+        // 경제 설정
+        // ====================================================================
+
+        [Header("Economy")]
+
+        /// <summary> 게임 시작 시 각 팀의 초기 골드. </summary>
+        [Tooltip("게임 시작 골드")]
+        [SerializeField] private int _startingGold = 500;
+        public int StartingGold => _startingGold;
+
+        /// <summary> 채굴소 1개당 초당 골드 수입. </summary>
+        [Tooltip("채굴소 초당 골드 수입")]
+        [SerializeField] private float _miningGoldPerSecond = 10f;
+        public float MiningGoldPerSecond => _miningGoldPerSecond;
+
+        /// <summary> 배럭 건설 비용. </summary>
+        [Tooltip("배럭 건설 비용")]
+        [SerializeField] private int _barracksCost = 100;
+        public int BarracksCost => _barracksCost;
+
+        /// <summary> 채굴소 건설 비용. </summary>
+        [Tooltip("채굴소 건설 비용")]
+        [SerializeField] private int _miningPostCost = 50;
+        public int MiningPostCost => _miningPostCost;
+
+        // ====================================================================
         // 유닛 설정
         // ====================================================================
 
@@ -145,6 +171,17 @@ namespace Hexiege.Infrastructure
         /// </summary>
         [Tooltip("건물 Y 오프셋 (양수=위). 타일 위에 건물이 서있는 느낌을 줌")]
         public float BuildingYOffset = 0.1f;
+
+        // ====================================================================
+        // 랠리포인트 설정
+        // ====================================================================
+
+        [Header("Rally Point")]
+
+        /// <summary> 랠리포인트 마커 프리팹. 타일 위에 표시되는 아이콘. </summary>
+        [Tooltip("랠리포인트 마커 프리팹")]
+        [SerializeField] private GameObject _rallyPointPrefab;
+        public GameObject RallyPointPrefab => _rallyPointPrefab;
 
         // ====================================================================
         // 애니메이션 설정

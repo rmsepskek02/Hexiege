@@ -65,6 +65,12 @@ namespace Hexiege.Bootstrap
         [Tooltip("건물 선택 팝업 UI")]
         [SerializeField] private BuildingPlacementUI _buildingUI;
 
+        [Tooltip("생산 패널 UI")]
+        [SerializeField] private ProductionPanelUI _productionUI;
+
+        [Tooltip("생산 티커")]
+        [SerializeField] private ProductionTicker _productionTicker;
+
         [Tooltip("메인 카메라")]
         [SerializeField] private Camera _mainCamera;
 
@@ -78,6 +84,9 @@ namespace Hexiege.Bootstrap
         private UnitSpawnUseCase _unitSpawn;
         private UnitCombatUseCase _unitCombat;
         private BuildingPlacementUseCase _buildingPlacement;
+        private ResourceUseCase _resource;
+        private PopulationUseCase _population;
+        private UnitProductionUseCase _unitProduction;
 
         // ====================================================================
         // 초기화
@@ -137,10 +146,13 @@ namespace Hexiege.Bootstrap
             // 8. 건물 시스템 초기화
             SetupBuildings();
 
-            // 9. Castle 자동 배치
+            // 9. 생산 시스템 초기화
+            SetupProduction();
+
+            // 10. Castle 자동 배치
             PlaceCastles(orientation, oc);
 
-            // 10. 테스트 유닛 스폰
+            // 11. 테스트 유닛 스폰
             SpawnTestUnits(orientation, oc);
         }
 
@@ -175,6 +187,12 @@ namespace Hexiege.Bootstrap
             _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn);
             _buildingPlacement = new BuildingPlacementUseCase(_grid);
             _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement);
+
+            // 생산 시스템
+            _resource = new ResourceUseCase(_config.StartingGold);
+            _population = new PopulationUseCase(_grid, _unitSpawn, _buildingPlacement);
+            _unitProduction = new UnitProductionUseCase(
+                _grid, _unitSpawn, _resource, _population, _buildingPlacement);
         }
 
         // ====================================================================
@@ -226,7 +244,7 @@ namespace Hexiege.Bootstrap
             {
                 _inputHandler.Initialize(
                     _gridInteraction, _unitMovement, _unitSpawn, _mainCamera,
-                    _buildingPlacement, _buildingUI);
+                    _buildingPlacement, _buildingUI, _productionUI);
             }
         }
 
@@ -261,7 +279,31 @@ namespace Hexiege.Bootstrap
                 _buildingFactory.SetBuildingYOffset(_config.BuildingYOffset);
 
             if (_buildingUI != null)
-                _buildingUI.Initialize(_buildingPlacement);
+                _buildingUI.Initialize(_buildingPlacement, _resource, _config);
+        }
+
+        // ====================================================================
+        // 생산 시스템
+        // ====================================================================
+
+        /// <summary>
+        /// 생산 시스템 초기화. UnitFactory 의존성 주입, 생산 UI, 생산 티커.
+        /// </summary>
+        private void SetupProduction()
+        {
+            // UnitFactory에 런타임 의존성 주입 (생산된 유닛에 자동 적용)
+            if (_unitFactory != null)
+                _unitFactory.SetDependencyReferences(_pistoleerAnimData, _config, _unitMovement, _unitCombat);
+
+            // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요)
+            if (_productionTicker != null)
+                _productionTicker.Initialize(
+                    _unitProduction, _resource, _unitMovement,
+                    _buildingPlacement, _unitFactory, _config);
+
+            // 생산 패널 UI 초기화
+            if (_productionUI != null)
+                _productionUI.Initialize(_unitProduction, _resource, _population, _productionTicker);
         }
 
         /// <summary>
@@ -299,20 +341,7 @@ namespace Hexiege.Bootstrap
             HexCoord redPos = HexGrid.OffsetToCube(3, 2, orientation);
             _unitSpawn.SpawnUnit(UnitType.Pistoleer, TeamId.Red, redPos);
 
-            // 생성된 유닛의 UnitView에 의존성 주입
-            InjectUnitViewDependencies();
-        }
-
-        /// <summary>
-        /// 씬에 존재하는 모든 UnitView에 의존성을 주입.
-        /// </summary>
-        private void InjectUnitViewDependencies()
-        {
-            var unitViews = FindObjectsByType<UnitView>(FindObjectsSortMode.None);
-            foreach (var view in unitViews)
-            {
-                view.SetDependencies(_pistoleerAnimData, _config, _unitMovement, _unitCombat);
-            }
+            // UnitFactory.SetDependencyReferences()에 의해 자동 주입됨
         }
     }
 }

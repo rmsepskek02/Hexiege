@@ -154,6 +154,89 @@ namespace Hexiege.Application
         }
     }
 
+    // ====================================================================
+    // 생산 시스템 이벤트 데이터
+    // ====================================================================
+
+    /// <summary>
+    /// 자원(골드) 변경 이벤트.
+    /// ResourceUseCase에서 골드 변동 시 발행 → UI 갱신.
+    /// </summary>
+    public struct ResourceChangedEvent
+    {
+        public readonly TeamId Team;
+        public readonly int Gold;
+
+        public ResourceChangedEvent(TeamId team, int gold)
+        {
+            Team = team;
+            Gold = gold;
+        }
+    }
+
+    /// <summary>
+    /// 생산 시작 이벤트.
+    /// UnitProductionUseCase에서 새 유닛 생산 시작 시 발행.
+    /// </summary>
+    public struct ProductionStartedEvent
+    {
+        public readonly int BarracksId;
+        public readonly UnitType Type;
+
+        public ProductionStartedEvent(int barracksId, UnitType type)
+        {
+            BarracksId = barracksId;
+            Type = type;
+        }
+    }
+
+    /// <summary>
+    /// 유닛 생산 완료 이벤트.
+    /// 생산된 유닛 + 랠리포인트 정보. ProductionTicker가 자동 이동 처리.
+    /// </summary>
+    public struct UnitProducedEvent
+    {
+        public readonly UnitData Unit;
+        public readonly HexCoord? RallyPoint;
+
+        public UnitProducedEvent(UnitData unit, HexCoord? rallyPoint)
+        {
+            Unit = unit;
+            RallyPoint = rallyPoint;
+        }
+    }
+
+    /// <summary>
+    /// 생산 큐 변경 이벤트.
+    /// 큐 추가/제거, 생산 완료 등에서 발행 → ProductionPanelUI 갱신.
+    /// </summary>
+    public struct ProductionQueueChangedEvent
+    {
+        public readonly int BarracksId;
+
+        public ProductionQueueChangedEvent(int barracksId)
+        {
+            BarracksId = barracksId;
+        }
+    }
+
+    /// <summary>
+    /// 랠리포인트 변경 이벤트.
+    /// UnitProductionUseCase에서 랠리포인트 설정/해제 시 발행.
+    /// </summary>
+    public readonly struct RallyPointChangedEvent
+    {
+        public readonly int BarracksId;
+        /// <summary> 설정된 좌표. null이면 해제. </summary>
+        public readonly HexCoord? Coord;
+
+        public RallyPointChangedEvent(int barracksId, HexCoord? coord)
+        {
+            BarracksId = barracksId;
+            Coord = coord;
+        }
+    }
+
     /// <summary>
     /// 게임 전역 이벤트 허브.
     /// 모든 이벤트는 static Subject로, 어디서든 발행/구독 가능.
@@ -224,5 +307,44 @@ namespace Hexiege.Application
         /// 구독: BuildingFactory (프리팹 인스턴스 생성)
         /// </summary>
         public static readonly Subject<BuildingPlacedEvent> OnBuildingPlaced = new Subject<BuildingPlacedEvent>();
+
+        // ====================================================================
+        // 생산 시스템 이벤트
+        // ====================================================================
+
+        /// <summary>
+        /// 자원(골드) 변경 시 발행.
+        /// 발행: ResourceUseCase
+        /// 구독: ProductionPanelUI (골드 표시 갱신)
+        /// </summary>
+        public static readonly Subject<ResourceChangedEvent> OnResourceChanged = new Subject<ResourceChangedEvent>();
+
+        /// <summary>
+        /// 생산 시작 시 발행.
+        /// 발행: UnitProductionUseCase
+        /// 구독: ProductionPanelUI (프로그레스 바 시작)
+        /// </summary>
+        public static readonly Subject<ProductionStartedEvent> OnProductionStarted = new Subject<ProductionStartedEvent>();
+
+        /// <summary>
+        /// 유닛 생산 완료 시 발행.
+        /// 발행: UnitProductionUseCase
+        /// 구독: ProductionTicker (랠리포인트 자동 이동)
+        /// </summary>
+        public static readonly Subject<UnitProducedEvent> OnUnitProduced = new Subject<UnitProducedEvent>();
+
+        /// <summary>
+        /// 생산 큐 변경 시 발행.
+        /// 발행: UnitProductionUseCase
+        /// 구독: ProductionPanelUI (큐 슬롯 갱신)
+        /// </summary>
+        public static readonly Subject<ProductionQueueChangedEvent> OnProductionQueueChanged = new Subject<ProductionQueueChangedEvent>();
+
+        /// <summary>
+        /// 랠리포인트 변경 시 발행.
+        /// 발행: UnitProductionUseCase
+        /// 구독: ProductionTicker (마커 생성/이동/제거)
+        /// </summary>
+        public static readonly Subject<RallyPointChangedEvent> OnRallyPointChanged = new Subject<RallyPointChangedEvent>();
     }
 }

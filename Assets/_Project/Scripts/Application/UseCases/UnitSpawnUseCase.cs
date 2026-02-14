@@ -64,6 +64,10 @@ namespace Hexiege.Application
             if (tile == null || !tile.IsWalkable)
                 return null;
 
+            // 이미 유닛이 있는 타일에는 생성 불가
+            if (GetUnitAt(position) != null)
+                return null;
+
             // UnitData 생성 (타입별 기본 스탯은 UnitStats에서 결정)
             var unit = new UnitData(
                 type, team, position,

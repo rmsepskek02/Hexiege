@@ -177,6 +177,20 @@ namespace Hexiege.Domain
         }
 
         /// <summary>
+        /// 특정 팀이 소유한 타일 수를 반환.
+        /// 인구수 계산에 사용: 총 인구 = 보유 타일 수.
+        /// </summary>
+        public int CountTilesOwnedBy(TeamId team)
+        {
+            int count = 0;
+            foreach (var tile in _tiles.Values)
+            {
+                if (tile.Owner == team) count++;
+            }
+            return count;
+        }
+
+        /// <summary>
         /// 인접한 6방향 중 이동 가능(IsWalkable)한 타일의 좌표만 반환.
         /// HexPathfinder의 A* 알고리즘에서 이웃 노드 탐색에 사용.
         /// </summary>

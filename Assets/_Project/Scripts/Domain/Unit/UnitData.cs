@@ -63,6 +63,13 @@ namespace Hexiege.Domain
         /// <summary> 유닛이 살아있는지 여부. </summary>
         public bool IsAlive => Hp > 0;
 
+        /// <summary>
+        /// 이동 중 선점한 타일 좌표. Lerp 시작 전에 설정, 완료 후 해제.
+        /// 같은 팀 유닛의 경로탐색 시 이동 불가 타일로 사용.
+        /// 적 팀에게는 영향 없음 (전투로 해결).
+        /// </summary>
+        public HexCoord? ClaimedTile { get; set; }
+
         // 유닛 Id 자동 발급용 정적 카운터.
         // 첫 유닛은 Id=0, 다음은 Id=1, ...
         private static int _nextId;

@@ -181,12 +181,40 @@ namespace Hexiege.Presentation
         private IEnumerator MoveAlongPath(List<HexCoord> path)
         {
             float moveSeconds = _config != null ? _config.UnitMoveSeconds : 0.3f;
+            HexCoord finalTarget = path[path.Count - 1]; // 최종 목적지 저장
 
             // 경로의 각 구간을 순회 (0=시작은 건너뜀)
             for (int i = 1; i < path.Count; i++)
             {
                 HexCoord from = path[i - 1];
                 HexCoord to = path[i];
+
+                // --------------------------------------------------------
+                // Per-step 체크: 다음 타일이 같은 팀에 의해 차단되었는지 확인.
+                // 경로 계산 이후 다른 유닛이 해당 타일로 이동/선점했을 수 있으므로
+                // 각 스텝마다 실시간 검증 → 차단 시 재탐색.
+                // --------------------------------------------------------
+                if (_movementUseCase != null && _movementUseCase.IsTileBlockedBySameTeam(_unitData, to))
+                {
+                    // 현재 위치에서 최종 목적지까지 재탐색
+                    List<HexCoord> newPath = _movementUseCase.RequestMove(_unitData, finalTarget);
+                    if (newPath != null)
+                    {
+                        path = newPath;
+                        i = 0; // for 루프 시작 시 i++로 1이 됨 → 새 경로의 첫 스텝부터
+                        continue;
+                    }
+                    else
+                    {
+                        break; // 경로 없음 → 이동 중단
+                    }
+                }
+
+                // --------------------------------------------------------
+                // ClaimedTile 선점 (같은 팀 유닛 겹침 방지)
+                // 적 팀에게는 영향 없음 — 전투로 해결.
+                // --------------------------------------------------------
+                _unitData.ClaimedTile = to;
 
                 // 이동 방향 계산 → 스프라이트 방향 전환
                 HexDirection dir = FacingDirection.FromCoords(from, to);
@@ -206,15 +234,43 @@ namespace Hexiege.Presentation
                 Vector3 fromPos = HexMetrics.HexToWorldUnit(from);
                 Vector3 toPos = HexMetrics.HexToWorldUnit(to);
 
-                // Lerp로 부드럽게 이동
+                // --------------------------------------------------------
+                // Lerp 이동 + 이동 중 거리 기반 전투 체크
+                // 매 프레임 사거리 내 적을 감지하면 즉시 전투 발동.
+                // 전투 승리 후 Lerp를 계속하여 타일 중앙 도착 = 점령.
+                // --------------------------------------------------------
                 float elapsed = 0f;
                 while (elapsed < moveSeconds)
                 {
                     elapsed += Time.deltaTime;
                     float t = Mathf.Clamp01(elapsed / moveSeconds);
                     transform.position = Vector3.Lerp(fromPos, toPos, t);
+
+                    // 이동 중 전투 체크 (매 프레임)
+                    if (_combatUseCase != null && _unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
+                    {
+                        // 공격 애니메이션 완료 대기
+                        while (_attackCoroutine != null)
+                            yield return null;
+
+                        // 사거리 내 적이 남아있으면 반복 공격
+                        while (_unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
+                        {
+                            while (_attackCoroutine != null)
+                                yield return null;
+                        }
+
+                        // 전투 중 사망했으면 이동 중단
+                        if (!_unitData.IsAlive) break;
+
+                        // 전투 승리 후 남은 Lerp 계속 진행
+                    }
+
                     yield return null; // 다음 프레임까지 대기
                 }
+
+                // 전투 중 사망했으면 루프 탈출
+                if (!_unitData.IsAlive) break;
 
                 // 정확한 최종 위치 보정 (Lerp 오차 방지)
                 transform.position = toPos;
@@ -225,23 +281,12 @@ namespace Hexiege.Presentation
                     _movementUseCase.ProcessStep(_unitData, from, to);
                 }
 
-                // 매 타일 도착 후 사거리 내 적 체크 → 발견 시 공격 후 남은 경로 계속 이동
-                if (_combatUseCase != null && _unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
-                {
-                    while (_attackCoroutine != null)
-                        yield return null;
-
-                    // 적이 남아있는 동안 반복 공격
-                    while (_unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
-                    {
-                        while (_attackCoroutine != null)
-                            yield return null;
-                    }
-
-                    // 전투 중 사망했으면 이동 중단
-                    if (!_unitData.IsAlive) break;
-                }
+                // ClaimedTile 해제 (Position이 갱신되었으므로 더 이상 불필요)
+                _unitData.ClaimedTile = null;
             }
+
+            // 이동 완료 또는 사망 시 ClaimedTile 정리
+            _unitData.ClaimedTile = null;
 
             // Idle 상태 복귀
             UpdateSprite(UnitAnimState.Idle);
