@@ -9,6 +9,16 @@
 //   4. OnBuildingPlaced 이벤트 수신 → 배럭 등록
 //   5. OnEntityDied 이벤트 수신 → 배럭 파괴 시 해제 + 마커 제거
 //   6. OnRallyPointChanged 이벤트 수신 → 마커 생성/이동/제거
+//   7. Siege 시스템: 랠리→Castle 자동 이동 + 지속 접근 탐색
+//
+// Siege 시스템 흐름:
+//   1. 유닛 생산 완료 → 랠리포인트로 이동
+//   2. 랠리 도착 → OnMoveComplete 콜백 → 적 Castle 방향 BFS 이동
+//   3. Castle 근처 도착 → siege 목록에 등록
+//   4. Update에서 주기적으로(1초) siege 유닛 검사:
+//      - 이동 중이 아니고, 현재보다 Castle에 더 가까운 빈 타일이 있으면 이동
+//      - Castle 인접 타일 도착 시 목록에서 제거
+//   5. 유닛 사망 시 siege 목록에서 제거
 //
 // 랠리포인트 마커 표시 규칙:
 //   - 랠리포인트 설정 직후 → 3초간 표시 → 자동 숨김
@@ -61,6 +71,29 @@ namespace Hexiege.Presentation
 
         /// <summary> 랠리포인트 설정 후 자동 숨김까지 표시 시간. </summary>
         private const float RallyMarkerShowDuration = 3f;
+
+        // ====================================================================
+        // Siege 시스템 (Castle 접근 지속 탐색)
+        // ====================================================================
+
+        /// <summary>
+        /// Siege 유닛 정보. Castle 근처에서 더 가까운 빈 타일을 지속 탐색.
+        /// </summary>
+        private class SiegeEntry
+        {
+            public int UnitId;
+            public TeamId Team;
+            public HexCoord CastlePos;
+        }
+
+        /// <summary> siege 대상 유닛 목록. unitId → SiegeEntry. </summary>
+        private readonly Dictionary<int, SiegeEntry> _siegeUnits = new Dictionary<int, SiegeEntry>();
+
+        /// <summary> siege 탐색 주기 (초). </summary>
+        private const float SiegeCheckInterval = 1f;
+
+        /// <summary> siege 탐색 타이머. </summary>
+        private float _siegeTimer;
 
         // ====================================================================
         // 초기화
@@ -129,6 +162,9 @@ namespace Hexiege.Presentation
             {
                 _resourceUseCase.TickIncome(dt, _buildingPlacement, _config.MiningGoldPerSecond);
             }
+
+            // Siege 유닛 주기적 탐색
+            TickSiege(dt);
         }
 
         // ====================================================================
@@ -137,33 +173,40 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 유닛 생산 완료 시 랠리포인트가 있으면 자동 이동.
-        /// 랠리포인트 타일이 점유 중이면 인접 이동 가능 타일을 탐색.
+        /// 랠리 도착 후 적 Castle 방향으로 자동 이동 (siege 체인).
+        /// 랠리포인트가 없으면 바로 적 Castle 방향으로 이동.
         /// </summary>
         private void OnUnitProduced(UnitProducedEvent e)
         {
-            if (!e.RallyPoint.HasValue) return;
             if (_unitFactory == null || _unitMovement == null) return;
 
-            // UnitFactory에서 생성된 GameObject의 UnitView 찾기
             var unitObj = _unitFactory.GetUnitObject(e.Unit.Id);
             if (unitObj == null) return;
 
             var unitView = unitObj.GetComponent<UnitView>();
             if (unitView == null || unitView.IsMoving) return;
 
-            // 랠리포인트로 경로 시도
-            HexCoord rallyTarget = e.RallyPoint.Value;
-            List<HexCoord> path = _unitMovement.RequestMove(e.Unit, rallyTarget);
-
-            // 랠리포인트 타일이 점유 중이면 BFS로 가장 가까운 빈 타일 탐색
-            if (path == null)
+            if (e.RallyPoint.HasValue)
             {
-                path = FindPathToNearestEmptyTile(e.Unit, rallyTarget);
+                // 랠리포인트로 경로 시도
+                HexCoord rallyTarget = e.RallyPoint.Value;
+                List<HexCoord> path = _unitMovement.RequestMove(e.Unit, rallyTarget);
+
+                // 랠리포인트 타일이 점유 중이면 BFS로 가장 가까운 빈 타일 탐색
+                if (path == null)
+                    path = FindPathToNearestEmptyTile(e.Unit, rallyTarget);
+
+                if (path != null)
+                {
+                    // 랠리 도착 후 → 적 Castle 방향 이동 콜백 등록
+                    unitView.OnMoveComplete = () => MoveTowardEnemyCastle(e.Unit, unitView);
+                    unitView.MoveTo(path);
+                }
             }
-
-            if (path != null)
+            else
             {
-                unitView.MoveTo(path);
+                // 랠리포인트 없으면 바로 적 Castle 방향 이동
+                MoveTowardEnemyCastle(e.Unit, unitView);
             }
         }
 
@@ -202,16 +245,23 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 엔티티 사망 시 배럭이면 ProductionState 해제 + 마커 제거.
+        /// 유닛 사망이면 siege 목록에서 제거.
         /// </summary>
         private void OnEntityDied(EntityDiedEvent e)
         {
             if (_productionUseCase == null) return;
 
-            // IDamageable이 BuildingData인지 확인
+            // 배럭 파괴 시 해제 + 마커 제거
             if (e.Entity is BuildingData building && building.Type == BuildingType.Barracks)
             {
                 _productionUseCase.UnregisterBarracks(building.Id);
                 DestroyMarker(building.Id);
+            }
+
+            // 유닛 사망 시 siege 목록에서 제거
+            if (e.Entity is UnitData unit)
+            {
+                _siegeUnits.Remove(unit.Id);
             }
         }
 
@@ -317,6 +367,138 @@ namespace Hexiege.Presentation
                 if (marker != null)
                     marker.SetActive(false);
             }
+        }
+
+        // ====================================================================
+        // Siege 시스템
+        // ====================================================================
+
+        /// <summary>
+        /// 유닛을 적 Castle 방향으로 BFS 이동시키고 siege 목록에 등록.
+        /// 랠리포인트 도착 콜백 또는 랠리 미설정 시 직접 호출.
+        /// </summary>
+        private void MoveTowardEnemyCastle(UnitData unit, UnitView unitView)
+        {
+            if (!unit.IsAlive || _buildingPlacement == null) return;
+
+            // 적 Castle 위치 찾기
+            HexCoord? enemyCastle = FindEnemyCastlePos(unit.Team);
+            if (!enemyCastle.HasValue) return;
+
+            // Castle 방향 BFS 이동
+            List<HexCoord> path = FindPathToNearestEmptyTile(unit, enemyCastle.Value);
+            if (path != null)
+            {
+                // 이동 완료 후 siege 등록 콜백
+                unitView.OnMoveComplete = () => RegisterSiege(unit, enemyCastle.Value);
+                unitView.MoveTo(path);
+            }
+            else
+            {
+                // 경로 없어도 siege 등록 (추후 빈 타일 생기면 이동)
+                RegisterSiege(unit, enemyCastle.Value);
+            }
+        }
+
+        /// <summary>
+        /// siege 목록에 유닛 등록.
+        /// </summary>
+        private void RegisterSiege(UnitData unit, HexCoord castlePos)
+        {
+            if (!unit.IsAlive) return;
+
+            // Castle 인접 타일에 이미 도착했으면 등록하지 않음
+            if (HexCoord.Distance(unit.Position, castlePos) <= 1)
+                return;
+
+            _siegeUnits[unit.Id] = new SiegeEntry
+            {
+                UnitId = unit.Id,
+                Team = unit.Team,
+                CastlePos = castlePos
+            };
+        }
+
+        /// <summary>
+        /// 주기적으로 siege 유닛들이 Castle에 더 가까운 빈 타일로 이동할 수 있는지 확인.
+        /// </summary>
+        private void TickSiege(float dt)
+        {
+            if (_siegeUnits.Count == 0 || _unitFactory == null || _unitMovement == null) return;
+
+            _siegeTimer += dt;
+            if (_siegeTimer < SiegeCheckInterval) return;
+            _siegeTimer = 0f;
+
+            // 순회 중 제거를 위해 키 복사
+            var keys = new List<int>(_siegeUnits.Keys);
+
+            foreach (int unitId in keys)
+            {
+                if (!_siegeUnits.TryGetValue(unitId, out var entry)) continue;
+
+                var unitObj = _unitFactory.GetUnitObject(unitId);
+                if (unitObj == null)
+                {
+                    _siegeUnits.Remove(unitId);
+                    continue;
+                }
+
+                var unitView = unitObj.GetComponent<UnitView>();
+                if (unitView == null || unitView.Data == null || !unitView.Data.IsAlive)
+                {
+                    _siegeUnits.Remove(unitId);
+                    continue;
+                }
+
+                // 이동 중이면 스킵
+                if (unitView.IsMoving) continue;
+
+                UnitData unit = unitView.Data;
+                int currentDist = HexCoord.Distance(unit.Position, entry.CastlePos);
+
+                // Castle 인접 도착 → siege 완료
+                if (currentDist <= 1)
+                {
+                    _siegeUnits.Remove(unitId);
+                    continue;
+                }
+
+                // Castle 방향 BFS로 더 가까운 빈 타일 탐색
+                List<HexCoord> path = FindPathToNearestEmptyTile(unit, entry.CastlePos);
+                if (path != null)
+                {
+                    // 새 경로의 도착점이 현재보다 Castle에 더 가까운지 확인
+                    HexCoord destination = path[path.Count - 1];
+                    int newDist = HexCoord.Distance(destination, entry.CastlePos);
+
+                    if (newDist < currentDist)
+                    {
+                        unitView.OnMoveComplete = () =>
+                        {
+                            // 도착 후 Castle 인접이면 siege 해제
+                            if (unit.IsAlive && HexCoord.Distance(unit.Position, entry.CastlePos) <= 1)
+                                _siegeUnits.Remove(unitId);
+                        };
+                        unitView.MoveTo(path);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 유닛 팀의 적 Castle 위치를 찾아 반환.
+        /// </summary>
+        private HexCoord? FindEnemyCastlePos(TeamId team)
+        {
+            if (_buildingPlacement == null) return null;
+
+            foreach (var building in _buildingPlacement.Buildings.Values)
+            {
+                if (building.Type == BuildingType.Castle && building.IsAlive && building.Team != team)
+                    return building.Position;
+            }
+            return null;
         }
 
         // ====================================================================

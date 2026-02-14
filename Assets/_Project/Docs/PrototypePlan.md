@@ -1,7 +1,7 @@
 # Hexiege - 클라이언트 프로토타입 구현 계획서
 
-**버전:** 1.0.0
-**최종 수정일:** 2026-02-14
+**버전:** 1.1.0
+**최종 수정일:** 2026-02-15
 **작성자:** HANYONGHEE
 
 ---
@@ -95,12 +95,12 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 │  MonoBehaviour: 렌더링, Unity 이벤트 처리                  │
 │  ├─ HexTileView          (타일 비주얼 + 클릭)             │
 │  ├─ HexGridRenderer      (그리드 전체 렌더링)             │
-│  ├─ UnitView             (유닛 이동 + per-step 체크 + ClaimedTile + 전투 + 사망) │
+│  ├─ UnitView             (유닛 이동 + per-step 체크 + ClaimedTile + 전투 + 사망 + OnMoveComplete) │
 │  ├─ FrameAnimator        (스프라이트 프레임 순환)           │
 │  ├─ BuildingView         (건물 비주얼 + 사망 처리) [MVP]   │
 │  ├─ BuildingPlacementUI  (건물 선택 팝업 UI) [MVP]        │
 │  ├─ ProductionPanelUI    (배럭 생산 패널 UI + 마커 연동) [MVP2] │
-│  ├─ ProductionTicker     (생산 타이머 + 랠리 자동이동 + 마커 관리) [MVP2] │
+│  ├─ ProductionTicker     (생산 타이머 + 랠리 자동이동 + 마커 관리 + 공성 시스템) [MVP2] │
 │  ├─ CameraController     (팬/줌)                         │
 │  ├─ InputHandler         (입력 + 건물 배치 + 생산UI + 자동이동) │
 │  └─ DebugUI              (디버그 정보)                    │
@@ -214,14 +214,14 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Scripts/Presentation/Grid/HexTileView.cs` | 타일 비주얼 + 색상 변경 + 선택 | 프로토타입 |
 | `Scripts/Presentation/Grid/HexGridRenderer.cs` | HexGrid → GameObject 렌더링 | 프로토타입 |
 | `Scripts/Presentation/Unit/FrameAnimator.cs` | 스프라이트 프레임 순환 엔진 | 프로토타입 |
-| `Scripts/Presentation/Unit/UnitView.cs` | 유닛 이동 코루틴 + per-step 가용성 체크/재탐색 + ClaimedTile 선점/해제 + Lerp 중 전투 + 사망 처리 | 프로토타입 + **수정** |
+| `Scripts/Presentation/Unit/UnitView.cs` | 유닛 이동 코루틴 + per-step 가용성 체크/재탐색 + ClaimedTile 선점/해제 + Lerp 중 전투 + 사망 처리 + OnMoveComplete 콜백 | 프로토타입 + **수정** |
 | `Scripts/Presentation/Camera/CameraController.cs` | 카메라 팬/줌 + 경계 제한 | 프로토타입 |
 | `Scripts/Presentation/Input/InputHandler.cs` | 입력 처리 + 건물 배치 + T키 자동/수동 이동 토글 | 프로토타입 + **수정** |
 | `Scripts/Presentation/Debug/DebugUI.cs` | 화면 디버그 정보 표시 | 프로토타입 |
 | `Scripts/Presentation/Building/BuildingView.cs` | 건물 비주얼 + OnEntityDied 구독으로 파괴 처리 | **MVP** + **수정** |
 | `Scripts/Presentation/UI/BuildingPlacementUI.cs` | 건물 선택 팝업 UI (배럭/채굴소 버튼, 골드 검증) | **MVP** + **수정** |
 | `Scripts/Presentation/UI/ProductionPanelUI.cs` | 배럭 생산 패널 UI (수동 탭/자동 롱프레스, 큐/프로그레스, 마커 표시/숨김 연동) | **MVP2** |
-| `Scripts/Presentation/Production/ProductionTicker.cs` | 생산 타이머 브릿지 + 랠리포인트 자동 이동(BFS) + 마커 관리(생성/이동/숨김/파괴) | **MVP2** |
+| `Scripts/Presentation/Production/ProductionTicker.cs` | 생산 타이머 브릿지 + 랠리포인트 자동 이동(BFS) + 마커 관리(생성/이동/숨김/파괴) + 공성 시스템(Castle 방향 자동 진군 + 1초 간격 전진) | **MVP2** |
 
 ### Bootstrap - 1개
 
@@ -536,6 +536,7 @@ SampleScene
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 1.1.0 | 2026-02-15 | 공성 시스템: ProductionTicker 공성 흐름(랠리→Castle→siege 전진, TickSiege 1초 간격), UnitView.OnMoveComplete 콜백 추가, 공성 목록 관리(등록/사망 제거/Castle 인접 제거), ProductionTicker/UnitView 파일 역할 업데이트, PopupClosedFrame(BuildingPlacementUI/ProductionPanelUI) |
 | 1.0.0 | 2026-02-15 | 랠리포인트 시스템 개선: RallyPointChangedEvent 이벤트, ProductionTicker 마커 관리(생성/이동/숨김/파괴, 3초 자동 숨김), ProductionPanelUI 마커 연동(Show→표시, Close→숨김), BFS 빈 타일 탐색(FindPathToNearestEmptyTile, maxRange=3), SetRallyPoint 배럭 타일→해제, GameConfig.RallyPointPrefab 추가, 팝업 설정 후 자동 닫힘 |
 | 0.9.1 | 2026-02-14 | Per-step 타일 가용성 체크 추가: UnitMovementUseCase.IsTileBlockedBySameTeam() 메서드, MoveAlongPath 각 스텝 전 같은 팀 차단 검증 + 차단 시 재탐색, 아키텍처 다이어그램/파일 역할 업데이트 |
 | 0.9.0 | 2026-02-14 | 유닛 이동/전투 시스템 개선: UnitData.ClaimedTile(이동 중 선점, 같은 팀만 차단), UnitMovementUseCase 차단 목록에 같은 팀 ClaimedTile 추가, UnitView.MoveAlongPath Lerp 중 거리 기반 전투 체크로 변경, 타일 중앙 도착=전투 승리=점령 규칙 |

@@ -206,8 +206,14 @@ namespace Hexiege.Presentation
             // 0. UI 위 클릭이면 게임 입력 무시 (UI EventSystem이 처리)
             //    New Input System에서는 IsPointerOverGameObject()가
             //    불안정하므로 RaycastAll로 직접 판정.
+            //    팝업이 같은 프레임에 닫힌 경우에도 클릭 통과 방지.
             // --------------------------------------------------------
             if (IsPointerOverUI(screenPos))
+                return;
+
+            int frame = Time.frameCount;
+            if ((_buildingUI != null && _buildingUI.ClosedFrame == frame)
+                || (_productionUI != null && _productionUI.ClosedFrame == frame))
                 return;
 
             // 스크린 좌표 → 월드 좌표 변환

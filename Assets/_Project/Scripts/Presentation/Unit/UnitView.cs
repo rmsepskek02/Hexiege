@@ -29,6 +29,7 @@
 // Presentation 레이어 — Unity 의존 (MonoBehaviour, Coroutine).
 // ============================================================================
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -83,6 +84,12 @@ namespace Hexiege.Presentation
 
         /// <summary> 이 유닛의 Domain 데이터. 외부에서 읽기 전용. </summary>
         public UnitData Data => _unitData;
+
+        /// <summary>
+        /// 이동 완료 시 호출되는 콜백. 1회성 — 호출 후 자동 null 리셋.
+        /// ProductionTicker에서 랠리→Castle 자동 이동 체인에 사용.
+        /// </summary>
+        public Action OnMoveComplete { get; set; }
 
         // ====================================================================
         // 초기화
@@ -291,6 +298,11 @@ namespace Hexiege.Presentation
             // Idle 상태 복귀
             UpdateSprite(UnitAnimState.Idle);
             _moveCoroutine = null;
+
+            // 이동 완료 콜백 실행 (1회성)
+            var callback = OnMoveComplete;
+            OnMoveComplete = null;
+            callback?.Invoke();
         }
 
         // ====================================================================

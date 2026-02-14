@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.9.0
-**최종 수정일:** 2026-02-14
+**버전:** 0.10.0
+**최종 수정일:** 2026-02-15
 **작성자:** HANYONGHEE
 
 ---
@@ -406,6 +406,35 @@ PopupCanvas
 3.  **최후의 클릭 수신자**: 패널의 빈 공간이나 버튼이 아닌 곳을 클릭하면, 모든 클릭은 최하단에 깔린 `Background`에 도달하여 팝업을 닫는 `onClick` 이벤트를 실행합니다.
 
 이 구조는 UI의 시각적 표현과 상호작용 로직을 분리하여 예측 가능하고 안정적인 동작을 보장합니다.
+
+### 9. PopupClosedFrame (팝업 닫힘 프레임 보호)
+
+팝업이 닫힌 직후 같은 프레임에서 배경 클릭이 통과하는 문제를 방지하는 패턴.
+
+#### 문제 상황
+
+- 팝업 Background 버튼 클릭 → `Close()` 호출 → 같은 프레임에서 `InputHandler.HandleClick`이 실행
+- 결과: 팝업 뒤의 타일이 의도치 않게 클릭됨
+
+#### 해결 방법
+
+```csharp
+// BuildingPlacementUI / ProductionPanelUI
+public static int ClosedFrame { get; private set; } = -1;
+
+void Close() {
+    ClosedFrame = Time.frameCount;
+    gameObject.SetActive(false);
+}
+```
+
+```csharp
+// InputHandler에서 체크
+if (Time.frameCount == BuildingPlacementUI.ClosedFrame) return;
+if (Time.frameCount == ProductionPanelUI.ClosedFrame) return;
+```
+
+각 팝업 UI가 `ClosedFrame`에 닫힌 프레임 번호를 기록하고, `InputHandler`가 같은 프레임의 클릭을 무시합니다.
 
 ---
 
@@ -895,12 +924,52 @@ public class ProductionTicker : MonoBehaviour {
     void Update() {
         _productionUseCase?.Tick(Time.deltaTime);
         _resourceUseCase?.TickIncome(Time.deltaTime, ...);
+        TickSiege(); // 1초 간격으로 공성 유닛 전진 체크
     }
     // OnUnitProduced 구독 → 랠리포인트 자동 이동 처리 (BFS 빈 타일 탐색)
     // OnRallyPointChanged 구독 → 마커 생성/이동/제거
-    // OnEntityDied 구독 → 배럭 파괴 시 마커 Destroy
+    // OnEntityDied 구독 → 배럭 파괴 시 마커 Destroy + 공성 목록에서 제거
     // ShowRallyMarker/HideAllRallyMarkers — 팝업 연동
 }
+```
+
+#### 공성 시스템 (Siege System)
+
+생산된 유닛이 자동으로 적 Castle을 향해 진군하는 시스템. ProductionTicker에서 관리.
+
+**진군 흐름:**
+```
+유닛 생산 완료 (OnUnitProduced)
+  ↓
+랠리포인트 설정됨?
+  ├─ 예 → BFS 빈 타일 탐색 → 랠리포인트 근처로 이동
+  │        ↓ OnMoveComplete 콜백
+  │        적 Castle 방향 BFS 경로 탐색 → 이동
+  └─ 아니오 → 적 Castle 방향 BFS 경로 탐색 → 직접 이동
+  ↓
+Castle 인접 도착 (또는 경로 상 정지)
+  ↓
+공성 목록(siegeUnits)에 등록
+  ↓
+매 1초 TickSiege()
+  → Castle까지 BFS 거리 계산
+  → 현재보다 가까운 빈 타일이 있으면 이동
+  → Castle 인접(거리 1) 도달 시 공성 목록에서 제거 (더 이상 전진 불필요)
+```
+
+**공성 목록 관리:**
+- 등록: Castle 방향 이동 완료 시 (OnMoveComplete 콜백)
+- 제거 조건:
+  1. Castle 인접 타일(거리 1) 도달
+  2. 유닛 사망 (OnEntityDied 이벤트)
+  3. GameObject 파괴 (null 체크)
+
+**UnitView.OnMoveComplete 콜백:**
+```csharp
+// 이동 완료 시 1회 실행되는 콜백 (System.Action)
+public System.Action OnMoveComplete { get; set; }
+// MoveAlongPath 코루틴 종료 시 호출 → null로 초기화
+// 용도: 랠리→Castle 체인 이동, 공성 목록 등록
 ```
 
 #### 랠리포인트 마커 표시 규칙
@@ -1082,6 +1151,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.10.0 | 2026-02-15 | 공성 시스템: ProductionTicker 공성 흐름(랠리→Castle→siege 전진), UnitView.OnMoveComplete 콜백, 공성 목록 관리(등록/제거), TickSiege 1초 간격 전진 체크. PopupClosedFrame 패턴: BuildingPlacementUI/ProductionPanelUI ClosedFrame으로 팝업 닫힘 같은 프레임 클릭 통과 방지 |
 | 0.9.0 | 2026-02-15 | 랠리포인트 시스템 개선: 마커 표시(3초 자동 숨김 + 팝업 연동), RallyPointChangedEvent 이벤트 추가, BFS 빈 타일 탐색(maxRange=3), 배럭 타일 설정→해제, ProductionTicker 마커 관리, ProductionPanelUI 마커 표시/숨김 연동, GameConfig.RallyPointPrefab 추가, 팝업 설정 후 자동 닫힘 |
 | 0.8.1 | 2026-02-14 | Per-step 타일 가용성 체크 추가: UnitMovementUseCase.IsTileBlockedBySameTeam() 메서드 추가, MoveAlongPath 각 스텝 시작 전 같은 팀 차단 검증, 차단 시 현재 위치→최종 목적지 재탐색(RequestMove), 재탐색 실패 시 이동 중단. 전투 흐름 다이어그램에 per-step 체크 단계 추가 |
 | 0.8.0 | 2026-02-14 | 유닛 이동/전투 시스템 개선: ClaimedTile(같은 팀 이동 중 타일 선점, 적 팀 투과), 이동 중 거리 기반 전투(Lerp 중 매 프레임 사거리 체크), 타일 중앙 도착=전투 승리=점령 규칙 확립, UnitData.ClaimedTile 필드 추가, UnitMovementUseCase 차단 목록에 같은 팀 ClaimedTile 포함, UnitView.MoveAlongPath Claim 설정/해제 및 Lerp 중 전투 |

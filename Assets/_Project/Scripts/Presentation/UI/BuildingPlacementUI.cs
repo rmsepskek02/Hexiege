@@ -78,6 +78,9 @@ namespace Hexiege.Presentation
         /// <summary> 팝업이 열려있는지 여부. InputHandler에서 확인. </summary>
         public bool IsOpen => _popup != null && _popup.activeSelf;
 
+        /// <summary> 팝업이 닫힌 프레임. 같은 프레임 클릭 통과 방지용. </summary>
+        public int ClosedFrame { get; private set; } = -1;
+
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -133,7 +136,7 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Close()
         {
-            Debug.Log($"[BuildingUI] Close() 호출됨\n{System.Environment.StackTrace}");
+            ClosedFrame = Time.frameCount;
             if (_popup != null)
                 _popup.SetActive(false);
         }

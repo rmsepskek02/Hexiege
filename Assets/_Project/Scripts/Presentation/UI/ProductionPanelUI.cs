@@ -112,6 +112,9 @@ namespace Hexiege.Presentation
         /// <summary> 팝업이 열려있는지 여부. </summary>
         public bool IsOpen => _popup != null && _popup.activeSelf;
 
+        /// <summary> 팝업이 닫힌 프레임. 같은 프레임 클릭 통과 방지용. </summary>
+        public int ClosedFrame { get; private set; } = -1;
+
         /// <summary> 랠리포인트 설정 모드 여부. InputHandler에서 확인. </summary>
         public bool IsSettingRallyPoint { get; private set; }
 
@@ -200,6 +203,7 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Close()
         {
+            ClosedFrame = Time.frameCount;
             IsSettingRallyPoint = false;
 
             // 팝업 닫힐 때 랠리포인트 마커 숨김
