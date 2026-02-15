@@ -33,7 +33,8 @@
       "mcp__mcp-unity__save_scene",
       "mcp__mcp-unity__recompile_scripts",
       "mcp__mcp-unity__get_console_logs",
-      "mcp__mcp-unity__reparent_gameobject"
+      "mcp__mcp-unity__reparent_gameobject",
+      "mcp__mcp-unity__select_gameobject"
     ]
   }
 }

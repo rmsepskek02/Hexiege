@@ -160,7 +160,8 @@ namespace Hexiege.Presentation
             // 채굴소 수입 처리
             if (_resourceUseCase != null && _buildingPlacement != null && _config != null)
             {
-                _resourceUseCase.TickIncome(dt, _buildingPlacement, _config.MiningGoldPerSecond);
+                _resourceUseCase.TickIncome(dt, _buildingPlacement,
+                    _config.MiningGoldPerSecond, _config.BaseGoldPerSecond);
             }
 
             // Siege 유닛 주기적 탐색

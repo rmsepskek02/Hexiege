@@ -220,6 +220,24 @@ namespace Hexiege.Application
         }
     }
 
+    // ====================================================================
+    // 게임 종료 이벤트 데이터
+    // ====================================================================
+
+    /// <summary>
+    /// 게임 종료 이벤트. Castle 파괴 시 발행.
+    /// </summary>
+    public readonly struct GameEndEvent
+    {
+        /// <summary> 승리한 팀. </summary>
+        public readonly TeamId Winner;
+
+        public GameEndEvent(TeamId winner)
+        {
+            Winner = winner;
+        }
+    }
+
     /// <summary>
     /// 랠리포인트 변경 이벤트.
     /// UnitProductionUseCase에서 랠리포인트 설정/해제 시 발행.
@@ -346,5 +364,16 @@ namespace Hexiege.Application
         /// 구독: ProductionTicker (마커 생성/이동/제거)
         /// </summary>
         public static readonly Subject<RallyPointChangedEvent> OnRallyPointChanged = new Subject<RallyPointChangedEvent>();
+
+        // ====================================================================
+        // 게임 종료 이벤트
+        // ====================================================================
+
+        /// <summary>
+        /// 게임 종료 시 발행. Castle 파괴로 승패 결정.
+        /// 발행: GameEndUseCase
+        /// 구독: GameEndUI (승리/패배 팝업 표시)
+        /// </summary>
+        public static readonly Subject<GameEndEvent> OnGameEnd = new Subject<GameEndEvent>();
     }
 }

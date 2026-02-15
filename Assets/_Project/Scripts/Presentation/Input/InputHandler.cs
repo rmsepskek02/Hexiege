@@ -297,7 +297,18 @@ namespace Hexiege.Presentation
             }
 
             // --------------------------------------------------------
-            // 5. 자기 팀 빈 타일 → 건물 배치 팝업
+            // 5. 금광 타일 (건물 없음) → 채굴소 건설 팝업
+            // --------------------------------------------------------
+            if (_buildingPlacement != null &&
+                _buildingPlacement.CanPlaceMiningPost(clickedCoord, TeamId.Blue))
+            {
+                _buildingUI?.Show(clickedCoord, TeamId.Blue);
+                _gridInteraction?.SelectTileAt(worldPos);
+                return;
+            }
+
+            // --------------------------------------------------------
+            // 6. 자기 팀 빈 타일 → 건물 배치 팝업
             // --------------------------------------------------------
             if (_buildingPlacement != null &&
                 _buildingPlacement.CanPlaceBuilding(clickedCoord, TeamId.Blue))

@@ -33,6 +33,13 @@ namespace Hexiege.Domain
         /// </summary>
         public bool IsWalkable { get; set; }
 
+        /// <summary>
+        /// 이 타일에 금광이 있는지 여부.
+        /// 금광 타일에만 채굴소(MiningPost) 건설 가능.
+        /// GameBootstrapper에서 맵 초기화 시 설정.
+        /// </summary>
+        public bool HasGoldMine { get; set; }
+
         public HexTile(HexCoord coord, TeamId owner = TeamId.Neutral, bool isWalkable = true)
         {
             Coord = coord;

@@ -74,6 +74,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("메인 카메라")]
         [SerializeField] private Camera _mainCamera;
 
+        [Tooltip("게임 종료 UI")]
+        [SerializeField] private GameEndUI _gameEndUI;
+
         // ====================================================================
         // UseCase 인스턴스 (런타임 생성)
         // ====================================================================
@@ -87,6 +90,7 @@ namespace Hexiege.Bootstrap
         private ResourceUseCase _resource;
         private PopulationUseCase _population;
         private UnitProductionUseCase _unitProduction;
+        private GameEndUseCase _gameEnd;
 
         // ====================================================================
         // 초기화
@@ -112,6 +116,9 @@ namespace Hexiege.Bootstrap
         /// </summary>
         public void LoadMap(HexOrientation orientation)
         {
+            // 게임 오버 상태에서 재시작 시 시간 복원
+            Time.timeScale = 1f;
+
             if (_config == null)
             {
                 Debug.LogError("[GameBootstrapper] GameConfig가 설정되지 않았습니다.");
@@ -152,7 +159,14 @@ namespace Hexiege.Bootstrap
             // 10. Castle 자동 배치
             PlaceCastles(orientation, oc);
 
-            // 11. 테스트 유닛 스폰
+            // 11. 금광 배치
+            PlaceGoldMines(orientation, oc);
+
+            // 12. 금광 렌더링
+            if (_gridRenderer != null)
+                _gridRenderer.RenderGoldMines(_grid);
+
+            // 13. 테스트 유닛 스폰
             SpawnTestUnits(orientation, oc);
         }
 
@@ -193,6 +207,9 @@ namespace Hexiege.Bootstrap
             _population = new PopulationUseCase(_grid, _unitSpawn, _buildingPlacement);
             _unitProduction = new UnitProductionUseCase(
                 _grid, _unitSpawn, _resource, _population, _buildingPlacement);
+
+            // 게임 종료 판정
+            _gameEnd = new GameEndUseCase();
         }
 
         // ====================================================================
@@ -264,6 +281,14 @@ namespace Hexiege.Bootstrap
                 _buildingFactory.DestroyAllBuildings();
 
             _buildingPlacement?.Clear();
+
+            // 이전 게임 종료 UseCase 정리
+            _gameEnd?.Dispose();
+            _gameEnd = null;
+
+            // 게임 종료 UI 숨김
+            if (_gameEndUI != null)
+                _gameEndUI.Hide();
         }
 
         // ====================================================================
@@ -323,6 +348,65 @@ namespace Hexiege.Bootstrap
             HexCoord redPos = HexGrid.OffsetToCube(
                 oc.GridWidth / 2, 1, orientation);
             _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Red, redPos);
+        }
+
+        /// <summary>
+        /// 맵에 금광 배치 + 시작 채굴소 건설.
+        /// 금광은 중립 오브젝트: IsWalkable=false, Owner=Neutral.
+        /// 각 팀 Castle 횡 2칸 위치에 금광+채굴소 자동 건설.
+        /// 맵 중앙에 중립 금광 2개 배치.
+        /// </summary>
+        private void PlaceGoldMines(HexOrientation orientation, OrientationConfig oc)
+        {
+            if (_grid == null) return;
+
+            int centerCol = oc.GridWidth / 2; // 5
+            int blueRow = oc.GridHeight - 2;  // 27 (Blue Castle row)
+            int redRow = 1;                    // Red Castle row
+            int midRow = oc.GridHeight / 2;   // 14 (중앙)
+
+            // 시작 금광 (각 팀 Castle 횡 2칸, 채굴소 자동 건설)
+            int[][] startingMines = new int[][]
+            {
+                new int[] { centerCol - 2, blueRow }, // Blue 시작 금광
+                new int[] { centerCol - 2, redRow },  // Red 시작 금광
+            };
+
+            // 중립 금광 (맵 중앙 부근 2개)
+            int[][] neutralMines = new int[][]
+            {
+                new int[] { 3, midRow },
+                new int[] { 7, midRow },
+            };
+
+            // 모든 금광 타일 설정 (HasGoldMine + IsWalkable=false)
+            void SetGoldMine(int col, int row)
+            {
+                HexCoord coord = HexGrid.OffsetToCube(col, row, orientation);
+                HexTile tile = _grid.GetTile(coord);
+                if (tile != null)
+                {
+                    tile.HasGoldMine = true;
+                    tile.IsWalkable = false;
+                }
+            }
+
+            foreach (var m in startingMines) SetGoldMine(m[0], m[1]);
+            foreach (var m in neutralMines) SetGoldMine(m[0], m[1]);
+
+            // 시작 채굴소 자동 건설 (금광 타일 위에 직접 배치)
+            if (_buildingPlacement != null)
+            {
+                // Blue 시작 채굴소
+                HexCoord blueMinePos = HexGrid.OffsetToCube(
+                    startingMines[0][0], startingMines[0][1], orientation);
+                _buildingPlacement.PlaceMiningPostDirect(TeamId.Blue, blueMinePos);
+
+                // Red 시작 채굴소
+                HexCoord redMinePos = HexGrid.OffsetToCube(
+                    startingMines[1][0], startingMines[1][1], orientation);
+                _buildingPlacement.PlaceMiningPostDirect(TeamId.Red, redMinePos);
+            }
         }
 
         /// <summary>

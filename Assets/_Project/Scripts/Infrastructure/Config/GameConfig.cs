@@ -122,6 +122,11 @@ namespace Hexiege.Infrastructure
         [SerializeField] private int _startingGold = 500;
         public int StartingGold => _startingGold;
 
+        /// <summary> 매 초 자동으로 수급되는 기본 골드 수입. </summary>
+        [Tooltip("기본 초당 골드 수입 (채굴소 없이)")]
+        [SerializeField] private float _baseGoldPerSecond = 0f;
+        public float BaseGoldPerSecond => _baseGoldPerSecond;
+
         /// <summary> 채굴소 1개당 초당 골드 수입. </summary>
         [Tooltip("채굴소 초당 골드 수입")]
         [SerializeField] private float _miningGoldPerSecond = 10f;

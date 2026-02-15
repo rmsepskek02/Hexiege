@@ -127,6 +127,21 @@ namespace Hexiege.Presentation
             _targetCoord = coord;
             _currentTeam = team;
 
+            if (_buildingPlacement != null)
+            {
+                // 금광 타일: MiningPost만 활성, Barracks 비활성
+                // 일반 타일: Barracks만 활성, MiningPost 비활성
+                bool canMine = _buildingPlacement.CanPlaceBuildingType(
+                    BuildingType.MiningPost, coord, team);
+                bool canBarracks = _buildingPlacement.CanPlaceBuildingType(
+                    BuildingType.Barracks, coord, team);
+
+                if (_miningPostButton != null)
+                    _miningPostButton.interactable = canMine;
+                if (_barracksButton != null)
+                    _barracksButton.interactable = canBarracks;
+            }
+
             if (_popup != null)
                 _popup.SetActive(true);
         }

@@ -78,6 +78,7 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 수동 생산: 큐에 유닛 추가.
+        /// 골드/인구 즉시 검증 → 골드 즉시 차감 → 큐에 추가.
         /// 자동 모드 해제 + 현재 자동 생산 취소.
         /// 큐가 가득 차면 false 반환.
         /// </summary>
@@ -89,6 +90,16 @@ namespace Hexiege.Application
             int totalCount = state.ManualQueue.Count + (state.CurrentProducing.HasValue ? 1 : 0);
             if (totalCount >= ProductionState.MaxQueueSize) return false;
 
+            // 골드 확인 + 즉시 차감
+            int cost = UnitProductionStats.GetGoldCost(type);
+            if (!_resource.CanAfford(state.Team, cost)) return false;
+
+            // 인구 확인
+            int popCost = UnitProductionStats.GetPopulationCost(type);
+            if (!_population.HasPopulation(state.Team, popCost)) return false;
+
+            _resource.SpendGold(state.Team, cost);
+
             // 자동 모드 해제
             if (state.IsAutoMode)
             {
@@ -96,9 +107,12 @@ namespace Hexiege.Application
                 state.AutoTypes.Clear();
                 state.AutoIndex = 0;
 
-                // 현재 자동 생산 중이면 취소 (골드는 환불하지 않음 — GDD 미명시)
+                // 현재 자동 생산 중이면 취소 + 골드 환불
                 if (state.CurrentProducing.HasValue)
                 {
+                    int refund = UnitProductionStats.GetGoldCost(state.CurrentProducing.Value);
+                    _resource.AddGold(state.Team, refund);
+
                     state.CurrentProducing = null;
                     state.ElapsedTime = 0f;
                     state.RequiredTime = 0f;
@@ -147,6 +161,48 @@ namespace Hexiege.Application
                 // 미등록 → 추가
                 state.AutoTypes.Add(type);
                 state.IsAutoMode = true;
+            }
+
+            GameEvents.OnProductionQueueChanged.OnNext(
+                new ProductionQueueChangedEvent(barracksId));
+            return true;
+        }
+
+        /// <summary>
+        /// 생산 큐에서 슬롯 취소. 골드 100% 환불.
+        /// slotIndex 0 = 현재 생산 중, 1~2 = 대기 큐.
+        /// </summary>
+        public bool CancelQueueAt(int barracksId, int slotIndex)
+        {
+            if (!_states.TryGetValue(barracksId, out var state)) return false;
+
+            UnitType? cancelledType = null;
+
+            if (slotIndex == 0)
+            {
+                // 현재 생산 중인 유닛 취소
+                if (!state.CurrentProducing.HasValue) return false;
+
+                cancelledType = state.CurrentProducing.Value;
+                state.CurrentProducing = null;
+                state.ElapsedTime = 0f;
+                state.RequiredTime = 0f;
+            }
+            else
+            {
+                // 대기 큐에서 제거 (slotIndex 1 → ManualQueue[0], 2 → ManualQueue[1])
+                int queueIndex = slotIndex - 1;
+                if (queueIndex < 0 || queueIndex >= state.ManualQueue.Count) return false;
+
+                cancelledType = state.ManualQueue[queueIndex];
+                state.ManualQueue.RemoveAt(queueIndex);
+            }
+
+            // 골드 100% 환불
+            if (cancelledType.HasValue)
+            {
+                int refund = UnitProductionStats.GetGoldCost(cancelledType.Value);
+                _resource.AddGold(state.Team, refund);
             }
 
             GameEvents.OnProductionQueueChanged.OnNext(
@@ -219,18 +275,20 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 다음 생산 대상을 결정하고 시작.
-        /// 수동 큐 우선 → 자동 순환.
-        /// 골드/인구 부족 시 대기.
+        /// 수동 큐: 골드는 EnqueueUnit 시점에 이미 차감됨 → 즉시 시작.
+        /// 자동 모드: 여기서 골드/인구 검증 + 차감.
         /// 스폰 타일은 여기서 확인하지 않음 (생산 완료 시 확인).
         /// </summary>
         private void TryStartNext(ProductionState state)
         {
             UnitType? nextType = null;
+            bool isManual = false;
 
             // 1. 수동 큐 우선
             if (state.ManualQueue.Count > 0)
             {
                 nextType = state.ManualQueue[0];
+                isManual = true;
             }
             // 2. 자동 모드
             else if (state.IsAutoMode && state.AutoTypes.Count > 0)
@@ -242,19 +300,20 @@ namespace Hexiege.Application
 
             UnitType type = nextType.Value;
 
-            // 골드 확인
-            int cost = UnitProductionStats.GetGoldCost(type);
-            if (!_resource.CanAfford(state.Team, cost)) return;
+            // 자동 모드일 때만 골드/인구 검증 + 차감 (수동은 EnqueueUnit에서 이미 처리)
+            if (!isManual)
+            {
+                int cost = UnitProductionStats.GetGoldCost(type);
+                if (!_resource.CanAfford(state.Team, cost)) return;
 
-            // 인구 확인
-            int popCost = UnitProductionStats.GetPopulationCost(type);
-            if (!_population.HasPopulation(state.Team, popCost)) return;
+                int popCost = UnitProductionStats.GetPopulationCost(type);
+                if (!_population.HasPopulation(state.Team, popCost)) return;
 
-            // 골드 차감
-            _resource.SpendGold(state.Team, cost);
+                _resource.SpendGold(state.Team, cost);
+            }
 
             // 수동 큐에서 제거 (자동은 순환이므로 제거하지 않음)
-            if (state.ManualQueue.Count > 0)
+            if (isManual)
                 state.ManualQueue.RemoveAt(0);
 
             // 생산 시작

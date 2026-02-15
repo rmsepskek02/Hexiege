@@ -48,6 +48,11 @@ namespace Hexiege.Presentation
         [Tooltip("FlatTop 타일 프리팹 (SpriteRenderer + Collider + HexTileView)")]
         [SerializeField] private GameObject _flatTopTilePrefab;
 
+        [Header("Gold Mine")]
+        /// <summary> 금광 오버레이 스프라이트. </summary>
+        [Tooltip("금광 스프라이트 (obj_goldmine.png)")]
+        [SerializeField] private Sprite _goldMineSprite;
+
         [Header("Config")]
         /// <summary> 전역 설정. 각 타일의 HexTileView에 전달. </summary>
         [Tooltip("GameConfig ScriptableObject 참조")]
@@ -60,6 +65,9 @@ namespace Hexiege.Presentation
         // 생성된 모든 타일 View를 좌표로 인덱싱.
         // 외부에서 특정 타일의 View에 접근할 때 사용.
         private readonly Dictionary<HexCoord, HexTileView> _tileViews = new Dictionary<HexCoord, HexTileView>();
+
+        // 생성된 금광 오버레이 오브젝트들. ClearGrid 시 함께 정리.
+        private readonly List<GameObject> _goldMineObjects = new List<GameObject>();
 
         /// <summary> 생성된 타일 View 딕셔너리 (읽기 전용). </summary>
         public IReadOnlyDictionary<HexCoord, HexTileView> TileViews => _tileViews;
@@ -147,6 +155,44 @@ namespace Hexiege.Presentation
                 Destroy(transform.GetChild(i).gameObject);
             }
             _tileViews.Clear();
+            _goldMineObjects.Clear();
+        }
+
+        // ====================================================================
+        // 금광 오버레이 렌더링
+        // ====================================================================
+
+        /// <summary>
+        /// 금광이 있는 타일 위에 스프라이트 오버레이를 생성.
+        /// GameBootstrapper에서 PlaceGoldMines() 후 호출.
+        /// </summary>
+        public void RenderGoldMines(HexGrid grid)
+        {
+            if (_goldMineSprite == null || grid == null) return;
+
+            foreach (var kvp in grid.Tiles)
+            {
+                if (!kvp.Value.HasGoldMine) continue;
+
+                Vector3 worldPos = HexMetrics.HexToWorld(kvp.Key);
+
+                // 금광 오버레이 오브젝트 생성 (타일 자식)
+                var mineObj = new GameObject($"GoldMine_{kvp.Key}");
+                mineObj.transform.position = worldPos + new Vector3(0f, 0.05f, 0f);
+                mineObj.transform.SetParent(transform);
+
+                var sr = mineObj.AddComponent<SpriteRenderer>();
+                sr.sprite = _goldMineSprite;
+                sr.sortingLayerName = "Background";
+
+                // sortingOrder: 타일보다 높게, 유닛(100)보다 낮게
+                if (HexMetrics.Orientation == HexOrientation.FlatTop)
+                    sr.sortingOrder = Mathf.RoundToInt(-worldPos.y * 3) + 1;
+                else
+                    sr.sortingOrder = kvp.Key.R + 1;
+
+                _goldMineObjects.Add(mineObj);
+            }
         }
 
         /// <summary>

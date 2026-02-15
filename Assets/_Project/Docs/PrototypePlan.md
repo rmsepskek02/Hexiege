@@ -1,6 +1,6 @@
 # Hexiege - 클라이언트 프로토타입 구현 계획서
 
-**버전:** 1.1.0
+**버전:** 1.2.0
 **최종 수정일:** 2026-02-15
 **작성자:** HANYONGHEE
 
@@ -102,7 +102,8 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 │  ├─ ProductionPanelUI    (배럭 생산 패널 UI + 마커 연동) [MVP2] │
 │  ├─ ProductionTicker     (생산 타이머 + 랠리 자동이동 + 마커 관리 + 공성 시스템) [MVP2] │
 │  ├─ CameraController     (팬/줌)                         │
-│  ├─ InputHandler         (입력 + 건물 배치 + 생산UI + 자동이동) │
+│  ├─ InputHandler         (입력 + 건물 배치 + 금광 클릭 + 생산UI + 자동이동) │
+│  ├─ GameEndUI            (승리/패배 팝업 + 다시하기) [MVP3] │
 │  └─ DebugUI              (디버그 정보)                    │
 ├──────────────────────────────────────────────────────────┤
 │  Application Layer                                        │
@@ -113,9 +114,10 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 │  ├─ UnitSpawnUseCase         (유닛 생성 + 점유 검증 + 제거) │
 │  ├─ UnitCombatUseCase        (전투: IDamageable 대상)     │
 │  ├─ BuildingPlacementUseCase (건물 배치 + 영토 확장 + 제거) [MVP] │
-│  ├─ ResourceUseCase          (팀별 골드 관리) [MVP2]      │
+│  ├─ ResourceUseCase          (팀별 골드 관리 + 기본/채굴소 수입) [MVP2] │
 │  ├─ PopulationUseCase        (인구수 계산) [MVP2]         │
-│  └─ UnitProductionUseCase    (생산 큐/타이머/자동-수동) [MVP2] │
+│  ├─ UnitProductionUseCase    (생산 큐/타이머/자동-수동) [MVP2] │
+│  └─ GameEndUseCase           (Castle 파괴 → 승패 판정) [MVP3] │
 ├──────────────────────────────────────────────────────────┤
 │  Domain Layer (순수 C#, Unity 독립)                       │
 │  ├─ HexCoord             (큐브 좌표 값 객체)              │
@@ -145,7 +147,7 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 │  └─ SingletonMonoBehaviour (싱글톤 베이스)                 │
 ├──────────────────────────────────────────────────────────┤
 │  Bootstrap                                                │
-│  └─ GameBootstrapper     (씬 진입점, LoadMap, Castle 자동 배치) │
+│  └─ GameBootstrapper     (씬 진입점, LoadMap, Castle/금광/채굴소 자동 배치) │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -163,7 +165,7 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Scripts/Domain/Common/IDamageable.cs` | 전투 대상 인터페이스 (Id, Team, Position, Hp, TakeDamage) | 프로토타입 |
 | `Scripts/Domain/Hex/HexCoord.cs` | 큐브 좌표 값 객체 (q, r, s=-q-r) | 프로토타입 |
 | `Scripts/Domain/Hex/HexDirection.cs` | 6방향 열거형 + 이웃 좌표 오프셋 | 프로토타입 |
-| `Scripts/Domain/Hex/HexTile.cs` | 타일 상태 (소유자, 이동가능 여부) | 프로토타입 |
+| `Scripts/Domain/Hex/HexTile.cs` | 타일 상태 (소유자, 이동가능 여부, HasGoldMine) | 프로토타입 + **수정** |
 | `Scripts/Domain/Hex/HexOrientation.cs` | HexOrientation 열거형 + HexOrientationContext 정적 홀더 | 프로토타입 |
 | `Scripts/Domain/Hex/HexGrid.cs` | 그리드 데이터 구조 (Dictionary, orientation 지원) | 프로토타입 |
 | `Scripts/Domain/Hex/HexPathfinder.cs` | 헥스 그리드 A* 경로탐색 (blockedCoords 지원) | 프로토타입 |
@@ -184,19 +186,20 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Scripts/Core/HexMetrics.cs` | 헥스 좌표 ↔ 월드 좌표 변환, 사이징 상수 |
 | `Scripts/Core/SingletonMonoBehaviour.cs` | 제네릭 싱글톤 베이스 클래스 |
 
-### Application Layer - 9개
+### Application Layer - 10개
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
-| `Scripts/Application/Events/GameEvents.cs` | UniRx Subject 이벤트 허브 (Entity 기반 전투 이벤트 포함) | 프로토타입 + **수정** |
+| `Scripts/Application/Events/GameEvents.cs` | UniRx Subject 이벤트 허브 (Entity 전투 + GameEnd 이벤트 포함) | 프로토타입 + **수정** |
 | `Scripts/Application/UseCases/GridInteractionUseCase.cs` | 타일 선택 처리 | 프로토타입 |
 | `Scripts/Application/UseCases/UnitMovementUseCase.cs` | 경로탐색(유닛 Position 우회 + 같은 팀 ClaimedTile 차단) + per-step 가용성 체크(IsTileBlockedBySameTeam) + 이동 + 타일 점령 | 프로토타입 + **수정** |
 | `Scripts/Application/UseCases/UnitSpawnUseCase.cs` | 유닛 생성(UnitStats 사용, 점유 검증) + 조회 + 제거 | 프로토타입 + **수정** |
 | `Scripts/Application/UseCases/UnitCombatUseCase.cs` | IDamageable 기반 전투 (유닛+건물 공격, 사망 데이터 정리) | 프로토타입 + **수정** |
-| `Scripts/Application/UseCases/BuildingPlacementUseCase.cs` | 건물 배치(BuildingStats 사용) + 영토 확장 + 제거(타일 복구) + 검증 | **MVP** + **수정** |
-| `Scripts/Application/UseCases/ResourceUseCase.cs` | 팀별 골드 관리 (시작 500, 차감/추가/수입) | **MVP2** |
+| `Scripts/Application/UseCases/BuildingPlacementUseCase.cs` | 건물 배치 + 영토 확장 + MiningPost 금광 전용(인접 팀 조건) + PlaceMiningPostDirect + 제거(금광 이동불가 유지) | **MVP** + **수정** |
+| `Scripts/Application/UseCases/ResourceUseCase.cs` | 팀별 골드 관리 (시작 500, 차감/추가/기본+채굴소 수입) | **MVP2** + **수정** |
 | `Scripts/Application/UseCases/PopulationUseCase.cs` | 인구수 계산 (최대=타일, 사용=건물+유닛) | **MVP2** |
 | `Scripts/Application/UseCases/UnitProductionUseCase.cs` | 배럭 생산 핵심 로직 (큐/타이머/자동-수동/랠리포인트) | **MVP2** |
+| `Scripts/Application/UseCases/GameEndUseCase.cs` | Castle 파괴 감지 → 승패 판정 → OnGameEnd 이벤트 | **MVP3** |
 
 ### Infrastructure Layer - 4개
 
@@ -207,19 +210,20 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Scripts/Infrastructure/Factories/UnitFactory.cs` | 유닛 프리팹 인스턴스 생성 + 런타임 의존성 주입 + 전체 제거 | 프로토타입 + **수정** |
 | `Scripts/Infrastructure/Factories/BuildingFactory.cs` | 건물 프리팹 인스턴스 생성 + 전체 제거 (맵 전환용) | **MVP** |
 
-### Presentation Layer - 11개
+### Presentation Layer - 12개
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
 | `Scripts/Presentation/Grid/HexTileView.cs` | 타일 비주얼 + 색상 변경 + 선택 | 프로토타입 |
-| `Scripts/Presentation/Grid/HexGridRenderer.cs` | HexGrid → GameObject 렌더링 | 프로토타입 |
+| `Scripts/Presentation/Grid/HexGridRenderer.cs` | HexGrid → GameObject 렌더링 + 금광 오버레이 렌더링 | 프로토타입 + **수정** |
 | `Scripts/Presentation/Unit/FrameAnimator.cs` | 스프라이트 프레임 순환 엔진 | 프로토타입 |
 | `Scripts/Presentation/Unit/UnitView.cs` | 유닛 이동 코루틴 + per-step 가용성 체크/재탐색 + ClaimedTile 선점/해제 + Lerp 중 전투 + 사망 처리 + OnMoveComplete 콜백 | 프로토타입 + **수정** |
 | `Scripts/Presentation/Camera/CameraController.cs` | 카메라 팬/줌 + 경계 제한 | 프로토타입 |
-| `Scripts/Presentation/Input/InputHandler.cs` | 입력 처리 + 건물 배치 + T키 자동/수동 이동 토글 | 프로토타입 + **수정** |
+| `Scripts/Presentation/Input/InputHandler.cs` | 입력 처리 + 건물 배치 + 금광 클릭(채굴소 팝업) + T키 자동/수동 이동 토글 | 프로토타입 + **수정** |
 | `Scripts/Presentation/Debug/DebugUI.cs` | 화면 디버그 정보 표시 | 프로토타입 |
 | `Scripts/Presentation/Building/BuildingView.cs` | 건물 비주얼 + OnEntityDied 구독으로 파괴 처리 | **MVP** + **수정** |
-| `Scripts/Presentation/UI/BuildingPlacementUI.cs` | 건물 선택 팝업 UI (배럭/채굴소 버튼, 골드 검증) | **MVP** + **수정** |
+| `Scripts/Presentation/UI/BuildingPlacementUI.cs` | 건물 선택 팝업 UI (배럭/채굴소 조건부 활성, 골드 검증) | **MVP** + **수정** |
+| `Scripts/Presentation/UI/GameEndUI.cs` | 승리/패배 팝업 + 다시하기 버튼 (Time.timeScale 제어) | **MVP3** |
 | `Scripts/Presentation/UI/ProductionPanelUI.cs` | 배럭 생산 패널 UI (수동 탭/자동 롱프레스, 큐/프로그레스, 마커 표시/숨김 연동) | **MVP2** |
 | `Scripts/Presentation/Production/ProductionTicker.cs` | 생산 타이머 브릿지 + 랠리포인트 자동 이동(BFS) + 마커 관리(생성/이동/숨김/파괴) + 공성 시스템(Castle 방향 자동 진군 + 1초 간격 전진) | **MVP2** |
 
@@ -227,7 +231,7 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 
 | 파일 경로 | 역할 | 단계 |
 |----------|------|------|
-| `Scripts/Bootstrap/GameBootstrapper.cs` | 씬 진입점, LoadMap(), 의존성 와이어링(Resource/Population/Production 포함), Castle 배치 | 프로토타입 + **수정** |
+| `Scripts/Bootstrap/GameBootstrapper.cs` | 씬 진입점, LoadMap(), 의존성 와이어링, Castle/금광/채굴소 자동 배치, GameEndUseCase 생성 | 프로토타입 + **수정** |
 
 ### 에셋 파일
 
@@ -249,7 +253,7 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Prefabs/Building_Barracks.prefab` | 배럭 프리팹 (SpriteRenderer + BuildingView) | **MVP** |
 | `Prefabs/Building_MiningPost.prefab` | 채굴소 프리팹 (SpriteRenderer + BuildingView) | **MVP** |
 
-**총 파일 수:** 스크립트 45개 (프로토타입 30 + MVP 8 + MVP2 7) + 프리팹/SO 8개 + 스프라이트 32개
+**총 파일 수:** 스크립트 47개 (프로토타입 30 + MVP 8 + MVP2 7 + MVP3 2) + 프리팹/SO 8개 + 스프라이트 32개
 
 ---
 
@@ -410,7 +414,7 @@ Sprites/Units/Pistoleer/
 |------|-------|
 | ~~건물 시스템 (배럭, 자원, 타워 등)~~ | ~~MVP~~ → **건물 배치 구현 완료 (코드)** |
 | ~~자원/생산 시스템~~ | ~~MVP~~ → **생산 시스템 구현 완료 (코드)** |
-| 승리/패배 조건 | MVP |
+| ~~승리/패배 조건~~ | ~~MVP~~ → **Castle 파괴 승패 구현 완료 (코드)** |
 | 네트워크/멀티플레이어 | Phase 2 |
 | UI (디버그 외) | Phase 3 |
 | 사운드/BGM | Phase 3 |
@@ -498,9 +502,12 @@ SampleScene
 │   ├── BuildingPanel (비활성 상태)
 │   │   컴포넌트: BuildingPlacementUI
 │   │   하위: BarracksButton, MiningPostButton, CancelButton
-│   └── ProductionPopup (비활성 상태) [MVP2]
-│       컴포넌트: ProductionPanelUI
-│       하위: Background, ProductionPanel (UnitButtons, QueueSlots, ProgressBar, InfoBar, RallyPointButton)
+│   ├── ProductionPopup (비활성 상태) [MVP2]
+│   │   컴포넌트: ProductionPanelUI
+│   │   하위: Background, ProductionPanel (UnitButtons, QueueSlots, ProgressBar, InfoBar, RallyPointButton)
+│   └── GameEndPanel (비활성 상태) [MVP3]
+│       컴포넌트: GameEndUI
+│       하위: Background, ResultText(TMP), RestartButton
 │
 └── [Debug]
     └── DebugUI
@@ -536,6 +543,7 @@ SampleScene
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 1.2.0 | 2026-02-15 | 금광+자원 시스템: HexTile.HasGoldMine(금광 타일, 이동 불가), BuildingPlacementUseCase MiningPost 금광 전용(인접 팀 조건, PlaceMiningPostDirect 초기용, 파괴 시 금광 이동불가 유지), GameBootstrapper PlaceGoldMines(시작 채굴소 자동 건설, 중립 금광 2개), HexGridRenderer 금광 오버레이, InputHandler 금광 클릭→팝업, ResourceUseCase 기본 수입(0)/채굴소 수입, GameConfig BaseGoldPerSecond. 승리/패배: GameEndUseCase(Castle 파괴 감지→OnGameEnd), GameEndUI(팝업+일시정지+다시하기), GameEvents.OnGameEnd 이벤트 추가 |
 | 1.1.0 | 2026-02-15 | 공성 시스템: ProductionTicker 공성 흐름(랠리→Castle→siege 전진, TickSiege 1초 간격), UnitView.OnMoveComplete 콜백 추가, 공성 목록 관리(등록/사망 제거/Castle 인접 제거), ProductionTicker/UnitView 파일 역할 업데이트, PopupClosedFrame(BuildingPlacementUI/ProductionPanelUI) |
 | 1.0.0 | 2026-02-15 | 랠리포인트 시스템 개선: RallyPointChangedEvent 이벤트, ProductionTicker 마커 관리(생성/이동/숨김/파괴, 3초 자동 숨김), ProductionPanelUI 마커 연동(Show→표시, Close→숨김), BFS 빈 타일 탐색(FindPathToNearestEmptyTile, maxRange=3), SetRallyPoint 배럭 타일→해제, GameConfig.RallyPointPrefab 추가, 팝업 설정 후 자동 닫힘 |
 | 0.9.1 | 2026-02-14 | Per-step 타일 가용성 체크 추가: UnitMovementUseCase.IsTileBlockedBySameTeam() 메서드, MoveAlongPath 각 스텝 전 같은 팀 차단 검증 + 차단 시 재탐색, 아키텍처 다이어그램/파일 역할 업데이트 |

@@ -165,6 +165,9 @@ namespace Hexiege.Presentation
             // 권총병 버튼: 롱프레스/탭 구분을 위해 EventTrigger 사용
             SetupPistoleerButton();
 
+            // 큐 슬롯 클릭 → 생산 취소
+            SetupQueueSlotButtons();
+
             // 생산 큐 변경 이벤트 구독 → UI 갱신
             GameEvents.OnProductionQueueChanged
                 .Subscribe(_ => UpdateUI())
@@ -285,6 +288,39 @@ namespace Hexiege.Presentation
         // ====================================================================
         // 생산 액션
         // ====================================================================
+
+        /// <summary>
+        /// 큐 슬롯의 부모 Button을 찾아 클릭 이벤트 연결.
+        /// _queueSlotImages의 부모 또는 자기 자신에서 Button 컴포넌트를 탐색.
+        /// </summary>
+        private void SetupQueueSlotButtons()
+        {
+            if (_queueSlotImages == null) return;
+
+            for (int i = 0; i < _queueSlotImages.Length; i++)
+            {
+                if (_queueSlotImages[i] == null) continue;
+
+                // 슬롯 이미지의 부모(Slot1~3)에서 Button 컴포넌트 탐색
+                // GetComponentInParent는 비활성 계층에서 실패하므로 transform.parent 직접 접근
+                var button = _queueSlotImages[i].GetComponent<Button>();
+                if (button == null && _queueSlotImages[i].transform.parent != null)
+                    button = _queueSlotImages[i].transform.parent.GetComponent<Button>();
+
+                if (button != null)
+                {
+                    int slotIndex = i; // 클로저 캡처용
+                    button.onClick.AddListener(() => OnQueueSlotClicked(slotIndex));
+                }
+            }
+        }
+
+        /// <summary> 큐 슬롯 클릭 → 해당 슬롯 생산 취소. </summary>
+        private void OnQueueSlotClicked(int slotIndex)
+        {
+            if (_currentBarracks == null || _production == null) return;
+            _production.CancelQueueAt(_currentBarracks.Id, slotIndex);
+        }
 
         /// <summary> 탭 → 수동 큐에 권총병 추가. </summary>
         private void OnPistoleerTap()

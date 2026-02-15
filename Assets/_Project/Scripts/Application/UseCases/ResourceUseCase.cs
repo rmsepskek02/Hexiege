@@ -28,6 +28,9 @@ namespace Hexiege.Application
         // 채굴소 수입 누적용 (float → int 변환 시 소수점 누적)
         private readonly Dictionary<TeamId, float> _incomeAccumulator;
 
+        // 기본 수입 누적용 (채굴소와 별도 관리)
+        private readonly Dictionary<TeamId, float> _baseIncomeAccumulator;
+
         public ResourceUseCase(int startingGold)
         {
             _gold = new Dictionary<TeamId, int>
@@ -36,6 +39,11 @@ namespace Hexiege.Application
                 { TeamId.Red, startingGold }
             };
             _incomeAccumulator = new Dictionary<TeamId, float>
+            {
+                { TeamId.Blue, 0f },
+                { TeamId.Red, 0f }
+            };
+            _baseIncomeAccumulator = new Dictionary<TeamId, float>
             {
                 { TeamId.Blue, 0f },
                 { TeamId.Red, 0f }
@@ -79,20 +87,37 @@ namespace Hexiege.Application
         }
 
         /// <summary>
-        /// 채굴소 수입 처리. 매 프레임 ProductionTicker에서 호출.
-        /// 팀별 채굴소 수 × goldPerSecond × deltaTime 만큼 골드 누적.
+        /// 수입 처리. 매 프레임 ProductionTicker에서 호출.
+        /// 1) 기본 수입: 매 팀 baseGoldPerSecond × deltaTime 누적.
+        /// 2) 채굴소 수입: 팀별 채굴소 수 × miningGoldPerSecond × deltaTime 누적.
         /// float 누적 후 정수 단위가 되면 골드에 반영.
         /// </summary>
-        /// <param name="deltaTime">프레임 경과 시간</param>
-        /// <param name="buildingPlacement">채굴소 수 조회용</param>
-        /// <param name="goldPerSecond">채굴소 1개당 초당 골드 수입</param>
-        public void TickIncome(float deltaTime, BuildingPlacementUseCase buildingPlacement, float goldPerSecond)
+        public void TickIncome(float deltaTime, BuildingPlacementUseCase buildingPlacement,
+            float miningGoldPerSecond, float baseGoldPerSecond)
         {
+            // 기본 수입 처리 (채굴소 없이도 매 초 수급)
+            TickBaseIncome(TeamId.Blue, deltaTime, baseGoldPerSecond);
+            TickBaseIncome(TeamId.Red, deltaTime, baseGoldPerSecond);
+
             if (buildingPlacement == null) return;
 
             // 각 팀별 채굴소 수입 처리
-            TickTeamIncome(TeamId.Blue, deltaTime, buildingPlacement, goldPerSecond);
-            TickTeamIncome(TeamId.Red, deltaTime, buildingPlacement, goldPerSecond);
+            TickTeamIncome(TeamId.Blue, deltaTime, buildingPlacement, miningGoldPerSecond);
+            TickTeamIncome(TeamId.Red, deltaTime, buildingPlacement, miningGoldPerSecond);
+        }
+
+        private void TickBaseIncome(TeamId team, float deltaTime, float baseGoldPerSecond)
+        {
+            if (baseGoldPerSecond <= 0f) return;
+
+            _baseIncomeAccumulator[team] += baseGoldPerSecond * deltaTime;
+
+            int wholeGold = (int)_baseIncomeAccumulator[team];
+            if (wholeGold > 0)
+            {
+                _baseIncomeAccumulator[team] -= wholeGold;
+                AddGold(team, wholeGold);
+            }
         }
 
         private void TickTeamIncome(TeamId team, float deltaTime,

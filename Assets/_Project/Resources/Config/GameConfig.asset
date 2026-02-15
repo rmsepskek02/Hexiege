@@ -27,6 +27,7 @@ MonoBehaviour:
   RedTeamColor: {r: 0.9019608, g: 0.3019608, b: 0.3019608, a: 1}
   SelectedTint: {r: 1, g: 1, b: 0.5019608, a: 1}
   _startingGold: 5000000
+  _baseGoldPerSecond: 0
   _miningGoldPerSecond: 10
   _barracksCost: 100
   _miningPostCost: 50

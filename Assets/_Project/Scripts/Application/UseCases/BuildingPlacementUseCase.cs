@@ -49,6 +49,10 @@ namespace Hexiege.Application
         /// </summary>
         public BuildingData PlaceBuilding(BuildingType type, TeamId team, HexCoord position)
         {
+            // MiningPost는 전용 메서드로 처리 (금광 타일 = 비이동 + 중립)
+            if (type == BuildingType.MiningPost)
+                return PlaceMiningPost(team, position);
+
             HexTile tile = _grid.GetTile(position);
             if (tile == null) return null;
             if (!tile.IsWalkable) return null; // 이미 건물이 있거나 이동 불가 타일
@@ -57,7 +61,45 @@ namespace Hexiege.Application
             if (type != BuildingType.Castle && tile.Owner != team)
                 return null;
 
-            // BuildingData 생성 (타입별 기본 HP는 BuildingStats에서 결정)
+            return PlaceBuildingInternal(type, team, position, tile);
+        }
+
+        /// <summary>
+        /// MiningPost 배치. 금광 타일 전용.
+        /// 조건: HasGoldMine + 건물 없음 + 인접 타일 중 하나 이상 팀 소유.
+        /// </summary>
+        private BuildingData PlaceMiningPost(TeamId team, HexCoord position)
+        {
+            HexTile tile = _grid.GetTile(position);
+            if (tile == null) return null;
+            if (!tile.HasGoldMine) return null;
+            if (GetBuildingAt(position) != null) return null; // 이미 건물 있음
+
+            // 인접 타일 중 하나 이상 팀 소유 필요
+            if (!HasAdjacentTeamTile(position, team)) return null;
+
+            return PlaceBuildingInternal(BuildingType.MiningPost, team, position, tile);
+        }
+
+        /// <summary>
+        /// 시작 시 채굴소 직접 배치 (인접 타일 조건 무시).
+        /// GameBootstrapper에서 초기 채굴소 설치에 사용.
+        /// </summary>
+        public BuildingData PlaceMiningPostDirect(TeamId team, HexCoord position)
+        {
+            HexTile tile = _grid.GetTile(position);
+            if (tile == null) return null;
+            if (!tile.HasGoldMine) return null;
+
+            return PlaceBuildingInternal(BuildingType.MiningPost, team, position, tile);
+        }
+
+        /// <summary>
+        /// 건물 배치 공통 로직. 검증 통과 후 호출.
+        /// </summary>
+        private BuildingData PlaceBuildingInternal(BuildingType type, TeamId team,
+            HexCoord position, HexTile tile)
+        {
             int maxHp = BuildingStats.GetMaxHp(type);
             var building = new BuildingData(type, team, position, maxHp);
             _buildings[building.Id] = building;
@@ -96,6 +138,49 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// 특정 건물 타입을 해당 좌표에 배치 가능한지 확인.
+        /// MiningPost: 금광 + 건물 없음 + 인접 팀 타일.
+        /// 일반 건물: IsWalkable + 팀 소유.
+        /// </summary>
+        public bool CanPlaceBuildingType(BuildingType type, HexCoord position, TeamId team)
+        {
+            HexTile tile = _grid.GetTile(position);
+            if (tile == null) return false;
+
+            if (type == BuildingType.MiningPost)
+            {
+                return tile.HasGoldMine
+                    && GetBuildingAt(position) == null
+                    && HasAdjacentTeamTile(position, team);
+            }
+
+            return tile.IsWalkable && tile.Owner == team;
+        }
+
+        /// <summary>
+        /// 금광 타일에 채굴소 건설 가능한지 확인.
+        /// InputHandler에서 금광 클릭 시 팝업 표시 여부 판단에 사용.
+        /// </summary>
+        public bool CanPlaceMiningPost(HexCoord position, TeamId team)
+        {
+            return CanPlaceBuildingType(BuildingType.MiningPost, position, team);
+        }
+
+        /// <summary>
+        /// 인접 타일 중 하나 이상 해당 팀 소유인지 확인.
+        /// </summary>
+        private bool HasAdjacentTeamTile(HexCoord position, TeamId team)
+        {
+            var neighbors = _grid.GetNeighbors(position);
+            foreach (var neighbor in neighbors)
+            {
+                if (neighbor.Owner == team)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// 좌표에 있는 건물 조회.
         /// O(n) 탐색이지만 건물 수가 적어 문제 없음.
         /// </summary>
@@ -117,10 +202,13 @@ namespace Hexiege.Application
         {
             if (_buildings.TryGetValue(buildingId, out var building))
             {
-                // 타일을 다시 이동 가능 상태로 복구
                 HexTile tile = _grid.GetTile(building.Position);
                 if (tile != null)
-                    tile.IsWalkable = true;
+                {
+                    // 금광 타일은 이동 불가 유지 (금광 오브젝트가 남아있음)
+                    if (!tile.HasGoldMine)
+                        tile.IsWalkable = true;
+                }
 
                 return _buildings.Remove(buildingId);
             }
