@@ -77,6 +77,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("게임 종료 UI")]
         [SerializeField] private GameEndUI _gameEndUI;
 
+        [Tooltip("골드/인구 HUD")]
+        [SerializeField] private GameHudUI _gameHudUI;
+
         // ====================================================================
         // UseCase 인스턴스 (런타임 생성)
         // ====================================================================
@@ -156,17 +159,21 @@ namespace Hexiege.Bootstrap
             // 9. 생산 시스템 초기화
             SetupProduction();
 
-            // 10. Castle 자동 배치
+            // 10. HUD 초기화
+            if (_gameHudUI != null)
+                _gameHudUI.Initialize(_resource, _population);
+
+            // 11. Castle 자동 배치
             PlaceCastles(orientation, oc);
 
-            // 11. 금광 배치
+            // 12. 금광 배치
             PlaceGoldMines(orientation, oc);
 
-            // 12. 금광 렌더링
+            // 13. 금광 렌더링
             if (_gridRenderer != null)
                 _gridRenderer.RenderGoldMines(_grid);
 
-            // 13. 테스트 유닛 스폰
+            // 14. 테스트 유닛 스폰
             SpawnTestUnits(orientation, oc);
         }
 

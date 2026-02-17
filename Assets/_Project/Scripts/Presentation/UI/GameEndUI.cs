@@ -61,12 +61,8 @@ namespace Hexiege.Presentation
         // 초기화
         // ====================================================================
 
-        private void Start()
+        private void Awake()
         {
-            // 시작 시 패널 비활성화
-            if (_panel != null)
-                _panel.SetActive(false);
-
             // 게임 종료 이벤트 구독
             GameEvents.OnGameEnd
                 .Subscribe(OnGameEnd)
@@ -75,6 +71,13 @@ namespace Hexiege.Presentation
             // 다시하기 버튼 이벤트
             if (_restartButton != null)
                 _restartButton.onClick.AddListener(OnRestartClicked);
+        }
+
+        private void Start()
+        {
+            // 시작 시 패널 비활성화 (GameBootstrapper가 Hide를 호출하므로 실행되지 않을 수 있지만 안전장치로 둠)
+            if (_panel != null)
+                _panel.SetActive(false);
         }
 
         // ====================================================================
@@ -87,7 +90,6 @@ namespace Hexiege.Presentation
         private void OnGameEnd(GameEndEvent e)
         {
             if (_panel == null) return;
-
             // 플레이어 = Blue 고정
             bool isWin = (e.Winner == TeamId.Blue);
 
@@ -98,7 +100,6 @@ namespace Hexiege.Presentation
             }
 
             _panel.SetActive(true);
-
             // 게임 일시정지
             Time.timeScale = 0f;
         }

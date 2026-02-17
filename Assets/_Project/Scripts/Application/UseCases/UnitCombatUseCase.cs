@@ -55,8 +55,6 @@ namespace Hexiege.Application
         /// </summary>
         private IDamageable FindFirstEnemyTarget(UnitData attacker)
         {
-            UnityEngine.Debug.Log($"[AI] '{attacker.Type} (Id:{attacker.Id})' at {attacker.Position} is searching for targets. AttackRange: {attacker.AttackRange}");
-
             IDamageable closestTarget = null;
             int minDistance = int.MaxValue;
 
@@ -66,13 +64,11 @@ namespace Hexiege.Application
                 if (unit.Team == attacker.Team || !unit.IsAlive) continue;
 
                 int distance = HexCoord.Distance(attacker.Position, unit.Position);
-                UnityEngine.Debug.Log($"[AI] Found potential enemy unit '{unit.Type} (Id:{unit.Id})' at {unit.Position}. Distance: {distance}");
 
                 if (distance <= attacker.AttackRange && distance < minDistance)
                 {
                     minDistance = distance;
                     closestTarget = unit;
-                    UnityEngine.Debug.Log($"[AI] New closest target found: Unit {unit.Type} (Id:{unit.Id}).");
                 }
             }
 
@@ -82,23 +78,12 @@ namespace Hexiege.Application
                 if (building.Team == attacker.Team || !building.IsAlive) continue;
 
                 int distance = HexCoord.Distance(attacker.Position, building.Position);
-                UnityEngine.Debug.Log($"[AI] Found potential enemy building '{building.Type} (Id:{building.Id})' at {building.Position}. Distance: {distance}");
 
                 if (distance <= attacker.AttackRange && distance < minDistance)
                 {
                     minDistance = distance;
                     closestTarget = building;
-                    UnityEngine.Debug.Log($"[AI] New closest target found: Building {building.Type} (Id:{building.Id}).");
                 }
-            }
-
-            if (closestTarget != null)
-            {
-                UnityEngine.Debug.Log($"[AI] Final target for '{attacker.Type} (Id:{attacker.Id})' is '{closestTarget.GetType().Name} (Id:{closestTarget.Id})' at {closestTarget.Position}.");
-            }
-            else
-            {
-                UnityEngine.Debug.Log($"[AI] No targets found for '{attacker.Type} (Id:{attacker.Id})'.");
             }
 
             return closestTarget;

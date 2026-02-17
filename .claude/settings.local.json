@@ -36,5 +36,10 @@
       "mcp__mcp-unity__reparent_gameobject",
       "mcp__mcp-unity__select_gameobject"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "context7",
+    "mcp-unity"
+  ],
+  "enableAllProjectMcpServers": true
 }

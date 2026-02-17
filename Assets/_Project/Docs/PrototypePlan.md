@@ -198,7 +198,7 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Scripts/Application/UseCases/BuildingPlacementUseCase.cs` | 건물 배치 + 영토 확장 + MiningPost 금광 전용(인접 팀 조건) + PlaceMiningPostDirect + 제거(금광 이동불가 유지) | **MVP** + **수정** |
 | `Scripts/Application/UseCases/ResourceUseCase.cs` | 팀별 골드 관리 (시작 500, 차감/추가/기본+채굴소 수입) | **MVP2** + **수정** |
 | `Scripts/Application/UseCases/PopulationUseCase.cs` | 인구수 계산 (최대=타일, 사용=건물+유닛) | **MVP2** |
-| `Scripts/Application/UseCases/UnitProductionUseCase.cs` | 배럭 생산 핵심 로직 (큐/타이머/자동-수동/랠리포인트) | **MVP2** |
+| `Scripts/Application/UseCases/UnitProductionUseCase.cs` | 배럭 생산 핵심 로직 (큐/타이머/자동-수동/랠리포인트/큐 취소+환불) | **MVP2** + **수정** |
 | `Scripts/Application/UseCases/GameEndUseCase.cs` | Castle 파괴 감지 → 승패 판정 → OnGameEnd 이벤트 | **MVP3** |
 
 ### Infrastructure Layer - 4개
@@ -543,7 +543,7 @@ SampleScene
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
-| 1.2.0 | 2026-02-15 | 금광+자원 시스템: HexTile.HasGoldMine(금광 타일, 이동 불가), BuildingPlacementUseCase MiningPost 금광 전용(인접 팀 조건, PlaceMiningPostDirect 초기용, 파괴 시 금광 이동불가 유지), GameBootstrapper PlaceGoldMines(시작 채굴소 자동 건설, 중립 금광 2개), HexGridRenderer 금광 오버레이, InputHandler 금광 클릭→팝업, ResourceUseCase 기본 수입(0)/채굴소 수입, GameConfig BaseGoldPerSecond. 승리/패배: GameEndUseCase(Castle 파괴 감지→OnGameEnd), GameEndUI(팝업+일시정지+다시하기), GameEvents.OnGameEnd 이벤트 추가 |
+| 1.2.0 | 2026-02-15 | 금광+자원 시스템: HexTile.HasGoldMine(금광 타일, 이동 불가), BuildingPlacementUseCase MiningPost 금광 전용(인접 팀 조건, PlaceMiningPostDirect 초기용, 파괴 시 금광 이동불가 유지), GameBootstrapper PlaceGoldMines(시작 채굴소 자동 건설, 중립 금광 2개), HexGridRenderer 금광 오버레이, InputHandler 금광 클릭→팝업, ResourceUseCase 기본 수입(0)/채굴소 수입, GameConfig BaseGoldPerSecond. 승리/패배: GameEndUseCase(Castle 파괴 감지→OnGameEnd), GameEndUI(팝업+일시정지+다시하기), GameEvents.OnGameEnd 이벤트 추가. 생산 큐 취소: CancelQueueAt(슬롯 클릭→취소+골드 100% 환불), ProductionPanelUI 슬롯 클릭 연동 |
 | 1.1.0 | 2026-02-15 | 공성 시스템: ProductionTicker 공성 흐름(랠리→Castle→siege 전진, TickSiege 1초 간격), UnitView.OnMoveComplete 콜백 추가, 공성 목록 관리(등록/사망 제거/Castle 인접 제거), ProductionTicker/UnitView 파일 역할 업데이트, PopupClosedFrame(BuildingPlacementUI/ProductionPanelUI) |
 | 1.0.0 | 2026-02-15 | 랠리포인트 시스템 개선: RallyPointChangedEvent 이벤트, ProductionTicker 마커 관리(생성/이동/숨김/파괴, 3초 자동 숨김), ProductionPanelUI 마커 연동(Show→표시, Close→숨김), BFS 빈 타일 탐색(FindPathToNearestEmptyTile, maxRange=3), SetRallyPoint 배럭 타일→해제, GameConfig.RallyPointPrefab 추가, 팝업 설정 후 자동 닫힘 |
 | 0.9.1 | 2026-02-14 | Per-step 타일 가용성 체크 추가: UnitMovementUseCase.IsTileBlockedBySameTeam() 메서드, MoveAlongPath 각 스텝 전 같은 팀 차단 검증 + 차단 시 재탐색, 아키텍처 다이어그램/파일 역할 업데이트 |

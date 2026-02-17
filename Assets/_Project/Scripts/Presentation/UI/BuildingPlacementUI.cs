@@ -171,7 +171,6 @@ namespace Hexiege.Presentation
                 int cost = GetBuildingCost(type);
                 if (!_resource.CanAfford(_currentTeam, cost))
                 {
-                    Debug.Log($"[BuildingUI] 골드 부족: {type} 건설 비용 {cost}");
                     return; // 골드 부족 → 배치하지 않음
                 }
                 _resource.SpendGold(_currentTeam, cost);

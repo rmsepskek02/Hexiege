@@ -48,8 +48,8 @@
    - 결과가 너무 디테일하면 `simplified` 키워드 추가
 
 3. **유닛 스프라이트 생성 시**
-   - 방향 명시: NE(오른쪽 위), E(오른쪽), SE(오른쪽 아래) 3방향만 제작
-   - 나머지 3방향(NW, W, SW)은 flipX 반전으로 처리
+   - **PointyTop:** NE(오른쪽 위), E(오른쪽), SE(오른쪽 아래) 3방향 제작 (나머지 flipX)
+   - **FlatTop:** 위 3방향 + **N(북쪽/후면), S(남쪽/정면)** 추가 제작 필요
    - 파일명 규칙: `{동작}_{방향}_{프레임번호}.png`
    - 동일한 캐릭터 참고 이미지를 매번 첨부
 
@@ -63,6 +63,23 @@
    - **내부가 어두운 에셋은 흰색 배경으로 생성** (핑크 배경 시 내부 색상도 같이 제거될 수 있음)
    - 밝은 에셋은 핑크 배경 사용 가능
    - 또는 `transparent background, PNG` 키워드 시도
+
+6. **필수 제약 사항 (Negative Constraints)**
+   - 프롬프트 마지막에 다음 제약 조건을 반드시 포함하여 불필요한 요소 생성을 방지
+   - **NO TEXT:** 이미지 내에 설명 텍스트나 라벨 금지
+   - **NO EFFECTS:** 공격 시 총구 화염(Muzzle flash), 연기, 마법 효과 등 이펙트 금지 (코드로 처리함)
+   - **SEPARATE FRAMES:** 여러 동작이 한 덩어리로 뭉치지 않게 분리
+   - **NO OVERLAP:** 캐릭터가 겹치지 않도록 배치
+
+7. **생성 실패 시 대처법 (분할 생성)**
+   - 한 번에 여러 동작(Idle, Walk, Attack)을 요청했을 때 결과물이 뭉개지거나 텍스트가 포함된다면, **동작별로 나누어 요청**한다.
+   - 예: "Idle frames only" → 생성 → "Walk frames only" → 생성
+   - "Sprite Sheet"라는 단어 대신 **"3 frames side-by-side"** (3프레임을 나란히)라고 요청하면 더 깔끔하게 분리된 이미지를 얻을 수 있다.
+
+8. **자주 발생하는 문제 해결 (Troubleshooting)**
+   - **총을 2개 들고 나오는 경우:** 프롬프트에 `holding ONLY ONE pistol`, `single weapon`, `left hand empty`를 추가하고, 제약 사항에 `NO dual wield`, `NO two guns`를 명시.
+   - **참고 이미지와 방향이 다르게 나오는 경우:** 측면(E) 이미지를 넣고 정면(S)을 요청하면 AI가 참고 이미지의 포즈를 따라하려는 경향이 있음.
+     - 해결: 프롬프트에 `Ignore reference pose`, `Use reference for character design only`, `Change view to Front`를 강력하게 명시해야 함.
 
 ### Claude Code에 프롬프트 작성 요청 시 규칙
 
@@ -125,6 +142,7 @@ Sprites/
 | `ui_slot_queue.png` | UI/Slots/ | 정사각형, 갈색 테두리 + 어두운 내부 | 생산 대기열 슬롯 |
 | `ui_bar_progress_frame.png` | UI/Bars/ | 갈색 나무 테두리 가로형 바 | fill 이미지와 조합 |
 | `ui_bar_hp_frame.png` | UI/Bars/ | 다크레드 단색 가로형 바 | fill 이미지와 조합 |
+| `ui_bar_fill.png` | UI/Bars/ | 테두리 없는 단색(녹색/골드) 둥근 막대 | 프로그레스 바 내부 채움용 |
 | `ui_bar_alt_frame.png` | UI/Bars/ | 바 프레임 변형 | 다용도 바 프레임 |
 | `ui_icon_gold.png` | UI/Icons/ | 골드 코인 아이콘 | HUD 자원 표시 |
 | `ui_icon_population.png` | UI/Icons/ | 인구수 표시 아이콘 | HUD 사용 |
@@ -162,6 +180,12 @@ Sprites/
 | `pistoleer_attack_e_02.png` | Units/Pistoleer/Attack/ | E | 공격 프레임 2 |
 | `pistoleer_attack_se_01.png` | Units/Pistoleer/Attack/ | SE | 공격 (SW는 flipX) |
 | `pistoleer_attack_se_02.png` | Units/Pistoleer/Attack/ | SE | 공격 프레임 2 |
+| `pistoleer_idle_n_01.png` | Units/Pistoleer/Idle/ | N | 대기 (FlatTop용) |
+| `pistoleer_idle_s_01.png` | Units/Pistoleer/Idle/ | S | 대기 (FlatTop용) |
+| `pistoleer_walk_n_01.png` | Units/Pistoleer/Walk/ | N | 이동 (FlatTop용) |
+| `pistoleer_walk_s_01.png` | Units/Pistoleer/Walk/ | S | 이동 (FlatTop용) |
+| `pistoleer_attack_s_01.png` | Units/Pistoleer/Attack/ | S | 공격 (FlatTop용) |
+| `pistoleer_attack_n_01.png` | Units/Pistoleer/Attack/ | N | 공격 (FlatTop용) |
 | `pistoleer_portrait.png` | Units/Pistoleer/ | - | 초상화 (UI 아이콘용) |
 
 ### 타일 스프라이트

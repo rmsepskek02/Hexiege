@@ -1,7 +1,10 @@
 fileFormatVersion: 2
-guid: 552509959f45897468f07ee5a751afb6
+guid: 654f4b23b6b88a647944786394d68f3f
 TextureImporter:
-  internalIDToNameTable: []
+  internalIDToNameTable:
+  - first:
+      213: -78550670714980500
+    second: ui_slot_bar_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -34,12 +37,12 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 0
+    filterMode: 1
     aniso: 1
     mipBias: 0
     wrapU: 1
     wrapV: 1
-    wrapW: 0
+    wrapW: 1
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
@@ -97,12 +100,12 @@ TextureImporter:
     buildTarget: Android
     maxTextureSize: 2048
     resizeAlgorithm: 0
-    textureFormat: 4
+    textureFormat: -1
     textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
-    overridden: 1
+    overridden: 0
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
@@ -110,23 +113,67 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: ui_panel_dark_0
+      name: ui_slot_bar_0
       rect:
         serializedVersion: 2
-        x: 66
-        y: 300
-        width: 890
-        height: 425
+        x: 216
+        y: 407
+        width: 591
+        height: 211
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 85, y: 70, z: 85, w: 70}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: c673a27c49ee8eef0800000000000000
+      internalID: -78550670714980500
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ui_slot_bar_1
+      rect:
+        serializedVersion: 2
+        x: 834
+        y: 432
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: 0
       bones: []
-      spriteID: 12aa3632e68084f41aeefba969e28802
-      internalID: -2082878440
+      spriteID: f4e7b09de65f58e488072cc8b57dd2d2
+      internalID: 899507926
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ui_slot_bar_2
+      rect:
+        serializedVersion: 2
+        x: 804
+        y: 408
+        width: 6
+        height: 6
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 56d0e206317708e4dbf0709edc12bb9d
+      internalID: 1357928710
       vertices: []
       indices: 
       edges: []
@@ -135,7 +182,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: 74934ee8db724af4b86e4c9362c60bad
     internalID: 0
     vertices: []
     indices: 
@@ -147,7 +194,9 @@ TextureImporter:
       - key: SpriteEditor.SliceSettings
         value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
     nameFileIdTable:
-      ui_panel_dark_0: -2082878440
+      ui_slot_bar_0: -78550670714980500
+      ui_slot_bar_1: 899507926
+      ui_slot_bar_2: 1357928710
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

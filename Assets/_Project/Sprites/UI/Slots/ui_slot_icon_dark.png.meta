@@ -1,7 +1,10 @@
 fileFormatVersion: 2
-guid: 552509959f45897468f07ee5a751afb6
+guid: 704bb204bdd807f4abaa769a332ca9e4
 TextureImporter:
-  internalIDToNameTable: []
+  internalIDToNameTable:
+  - first:
+      213: 6456982634829983816
+    second: Gemini_Generated_Image_i190eii190eii190-Photoroom_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -39,7 +42,7 @@ TextureImporter:
     mipBias: 0
     wrapU: 1
     wrapV: 1
-    wrapW: 0
+    wrapW: 1
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
@@ -110,23 +113,23 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: ui_panel_dark_0
+      name: Gemini_Generated_Image_i190eii190eii190-Photoroom_0
       rect:
         serializedVersion: 2
-        x: 66
-        y: 300
-        width: 890
-        height: 425
+        x: 227
+        y: 227
+        width: 570
+        height: 566
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
-      border: {x: 85, y: 70, z: 85, w: 70}
+      border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
-      tessellationDetail: 0
+      tessellationDetail: -1
       bones: []
-      spriteID: 12aa3632e68084f41aeefba969e28802
-      internalID: -2082878440
+      spriteID: 84038edee7fcb9950800000000000000
+      internalID: 6456982634829983816
       vertices: []
       indices: 
       edges: []
@@ -135,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 5e97eb03825dee720800000000000000
+    spriteID: c12df6cfa4d7ce24eb99967828983c71
     internalID: 0
     vertices: []
     indices: 
@@ -143,11 +146,9 @@ TextureImporter:
     weights: []
     secondaryTextures: []
     spriteCustomMetadata:
-      entries:
-      - key: SpriteEditor.SliceSettings
-        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+      entries: []
     nameFileIdTable:
-      ui_panel_dark_0: -2082878440
+      Gemini_Generated_Image_i190eii190eii190-Photoroom_0: 6456982634829983816
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

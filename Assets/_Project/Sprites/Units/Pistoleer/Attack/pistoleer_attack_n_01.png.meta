@@ -1,7 +1,10 @@
 fileFormatVersion: 2
-guid: 552509959f45897468f07ee5a751afb6
+guid: 27ac90e5fe00f154cbe4d4bd7da3cb89
 TextureImporter:
-  internalIDToNameTable: []
+  internalIDToNameTable:
+  - first:
+      213: -6944184986165051446
+    second: pistoleer_attack_n_01_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -39,16 +42,16 @@ TextureImporter:
     mipBias: 0
     wrapU: 1
     wrapV: 1
-    wrapW: 0
+    wrapW: 1
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 100
+  spritePixelsToUnits: 1536
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -110,23 +113,23 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: ui_panel_dark_0
+      name: pistoleer_attack_n_01_0
       rect:
         serializedVersion: 2
-        x: 66
-        y: 300
-        width: 890
-        height: 425
+        x: 0
+        y: 160
+        width: 803
+        height: 864
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
-      border: {x: 85, y: 70, z: 85, w: 70}
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
-      tessellationDetail: 0
+      tessellationDetail: -1
       bones: []
-      spriteID: 12aa3632e68084f41aeefba969e28802
-      internalID: -2082878440
+      spriteID: acff7050c8c41af90800000000000000
+      internalID: -6944184986165051446
       vertices: []
       indices: 
       edges: []
@@ -143,11 +146,9 @@ TextureImporter:
     weights: []
     secondaryTextures: []
     spriteCustomMetadata:
-      entries:
-      - key: SpriteEditor.SliceSettings
-        value: '{"sliceOnImport":false,"gridCellCount":{"x":1.0,"y":1.0},"gridSpriteSize":{"x":64.0,"y":64.0},"gridSpriteOffset":{"x":0.0,"y":0.0},"gridSpritePadding":{"x":0.0,"y":0.0},"pivot":{"x":0.5,"y":0.5},"pivotPixels":{"x":0.0,"y":0.0},"autoSlicingMethod":0,"spriteAlignment":0,"pivotUnitMode":0,"slicingType":0,"keepEmptyRects":false,"isAlternate":false}'
+      entries: []
     nameFileIdTable:
-      ui_panel_dark_0: -2082878440
+      pistoleer_attack_n_01_0: -6944184986165051446
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
