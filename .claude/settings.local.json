@@ -34,12 +34,13 @@
       "mcp__mcp-unity__recompile_scripts",
       "mcp__mcp-unity__get_console_logs",
       "mcp__mcp-unity__reparent_gameobject",
-      "mcp__mcp-unity__select_gameobject"
+      "mcp__mcp-unity__select_gameobject",
+      "mcp__mcp-unity__add_package"
     ]
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "context7",
     "mcp-unity"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
