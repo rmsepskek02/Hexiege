@@ -36,6 +36,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UniRx;
+using Unity.Netcode;
 using Hexiege.Domain;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
@@ -153,6 +154,22 @@ namespace Hexiege.Presentation
         private void Update()
         {
             float dt = Time.deltaTime;
+
+            // 멀티플레이 모드에서는 서버만 생산 Tick과 수입 처리를 실행.
+            // 클라이언트는 생산 타이머를 진행하면 서버와 상태가 어긋나므로 스킵.
+            // 싱글플레이(NetworkManager 없음) 또는 서버이면 기존 로직 실행.
+            bool isNetworkListening = NetworkManager.Singleton != null &&
+                                      NetworkManager.Singleton.IsListening;
+
+            if (isNetworkListening && !NetworkManager.Singleton.IsServer)
+            {
+                // 멀티플레이 클라이언트: 생산/수입 Tick 생략 (서버가 처리 후 이벤트로 통지)
+                // Siege 시스템은 클라이언트에서도 유닛 시각 이동을 처리해야 하므로 실행 유지
+                TickSiege(dt);
+                return;
+            }
+
+            // 싱글플레이 또는 서버: 기존 로직 그대로 실행
 
             // 생산 타이머 진행
             _productionUseCase?.Tick(dt);
@@ -275,7 +292,8 @@ namespace Hexiege.Presentation
         /// </summary>
         private void CreateOrMoveMarker(int barracksId, HexCoord coord)
         {
-            Vector3 worldPos = HexMetrics.HexToWorld(coord) + RallyMarkerOffset;
+            // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 반전)
+            Vector3 worldPos = ViewConverter.ToView(HexMetrics.HexToWorld(coord)) + RallyMarkerOffset;
 
             if (_rallyMarkers.TryGetValue(barracksId, out var existing))
             {

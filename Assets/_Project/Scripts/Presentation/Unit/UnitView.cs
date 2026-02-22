@@ -121,18 +121,25 @@ namespace Hexiege.Presentation
             _movementUseCase = movementUseCase;
             _combatUseCase = combatUseCase;
 
-            // 공격 이벤트 구독 — 이 유닛이 공격자일 때 공격 애니메이션 재생
-            GameEvents.OnEntityAttacked
-                .Subscribe(e =>
-                {
-                    // 이벤트의 공격자가 이 유닛인지 확인 (참조 비교)
-                    if (_unitData != null && e.Attacker == (IDamageable)_unitData)
+            // 공격 이벤트 구독 — 싱글플레이 전용.
+            // 멀티플레이에서는 NetworkCombatController가 ClientRpc로 직접 TriggerAttackAnimation() 호출.
+            // 싱글플레이: UnitCombatUseCase.ExecuteAttack() → OnEntityAttacked 발행 → 이 구독이 처리.
+            // 멀티플레이: OnEntityAttacked는 서버에서만 발행되므로 이 구독은 서버 UnitView만 수신.
+            //            대신 NetworkCombatController의 ClientRpc가 모든 클라이언트(서버 포함)에서 처리.
+            if (!NetworkContext.IsNetworkActive)
+            {
+                GameEvents.OnEntityAttacked
+                    .Subscribe(e =>
                     {
-                        // 공격자의 Facing 방향을 사용해 애니메이션 재생
-                        _attackCoroutine = StartCoroutine(PlayAttackAnimation(_unitData.Facing));
-                    }
-                })
-                .AddTo(this);
+                        // 이벤트의 공격자가 이 유닛인지 확인 (참조 비교)
+                        if (_unitData != null && e.Attacker == (IDamageable)_unitData)
+                        {
+                            // 공격자의 Facing 방향을 사용해 애니메이션 재생
+                            _attackCoroutine = StartCoroutine(PlayAttackAnimation(_unitData.Facing));
+                        }
+                    })
+                    .AddTo(this);
+            }
 
             // 사망 이벤트 구독 — 이 유닛 또는 다른 엔티티가 사망하면 처리
             GameEvents.OnEntityDied
@@ -153,6 +160,21 @@ namespace Hexiege.Presentation
         // ====================================================================
         // 이동
         // ====================================================================
+
+        /// <summary>
+        /// 현재 이동을 즉시 중단. 현재 위치에서 정지.
+        /// 외부(네트워크 전투 등)에서 이동 중단이 필요할 때 호출.
+        /// </summary>
+        public void StopMovement()
+        {
+            if (_moveCoroutine != null)
+            {
+                StopCoroutine(_moveCoroutine);
+                _moveCoroutine = null;
+            }
+            _unitData.ClaimedTile = null;
+            UpdateSprite(UnitAnimState.Idle);
+        }
 
         /// <summary>
         /// 경로를 따라 유닛을 시각적으로 이동시킴.
@@ -187,7 +209,8 @@ namespace Hexiege.Presentation
         /// </summary>
         private IEnumerator MoveAlongPath(List<HexCoord> path)
         {
-            float moveSeconds = _config != null ? _config.UnitMoveSeconds : 0.3f;
+            // 유닛별 개별 이동속도 사용 (UnitData.MoveSeconds). 0 이하면 안전 기본값 적용.
+            float moveSeconds = _unitData.MoveSeconds > 0f ? _unitData.MoveSeconds : 0.3f;
             HexCoord finalTarget = path[path.Count - 1]; // 최종 목적지 저장
 
             // 경로의 각 구간을 순회 (0=시작은 건너뜀)
@@ -223,8 +246,9 @@ namespace Hexiege.Presentation
                 // --------------------------------------------------------
                 _unitData.ClaimedTile = to;
 
-                // 이동 방향 계산 → 스프라이트 방향 전환
+                // 이동 방향 계산 → 뷰 관점에 맞게 반전 → 스프라이트 방향 전환
                 HexDirection dir = FacingDirection.FromCoords(from, to);
+                dir = ViewConverter.FlipDirection(dir);
                 FacingInfo facing = FacingDirection.FromHexDirection(dir);
 
                 // UnitData.Facing 업데이트 (Attack 등 다른 애니메이션에서 방향 참조용)
@@ -236,15 +260,19 @@ namespace Hexiege.Presentation
                 // Walk 애니메이션으로 전환
                 UpdateSprite(UnitAnimState.Walk, facing.Art);
 
-                // 출발/도착의 월드 좌표 계산 (유닛 Y 오프셋 포함)
-                // HexToWorldUnit: 타일 위에 서있는 위치로 변환
-                Vector3 fromPos = HexMetrics.HexToWorldUnit(from);
-                Vector3 toPos = HexMetrics.HexToWorldUnit(to);
+                // 출발/도착의 도메인 좌표 계산 → 뷰 좌표로 변환 (Red팀이면 반전)
+                // ToView 이후에 UnitYOffset 적용 — 이전에 적용하면 Red팀에서 오프셋 방향 반전
+                Vector3 fromPos = ViewConverter.ToView(HexMetrics.HexToWorld(from));
+                fromPos.y += HexMetrics.UnitYOffset;
+                Vector3 toPos = ViewConverter.ToView(HexMetrics.HexToWorld(to));
+                toPos.y += HexMetrics.UnitYOffset;
 
                 // --------------------------------------------------------
                 // Lerp 이동 + 이동 중 거리 기반 전투 체크
-                // 매 프레임 사거리 내 적을 감지하면 즉시 전투 발동.
-                // 전투 승리 후 Lerp를 계속하여 타일 중앙 도착 = 점령.
+                // 싱글플레이/서버: TryAttack()으로 직접 전투 실행.
+                // 클라이언트: HasEnemyInRange()로 적 감지 시 Lerp 일시정지.
+                //   서버가 전투를 처리하고 EntityDiedClientRpc로 결과 전파.
+                //   적이 제거되면 HasEnemyInRange가 false → Lerp 재개.
                 // --------------------------------------------------------
                 float elapsed = 0f;
                 while (elapsed < moveSeconds)
@@ -254,23 +282,59 @@ namespace Hexiege.Presentation
                     transform.position = Vector3.Lerp(fromPos, toPos, t);
 
                     // 이동 중 전투 체크 (매 프레임)
-                    if (_combatUseCase != null && _unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
+                    if (_combatUseCase != null && _unitData.IsAlive)
                     {
-                        // 공격 애니메이션 완료 대기
-                        while (_attackCoroutine != null)
-                            yield return null;
-
-                        // 사거리 내 적이 남아있으면 반복 공격
-                        while (_unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
+                        if (NetworkContext.IsNetworkActive)
                         {
-                            while (_attackCoroutine != null)
-                                yield return null;
+                            // ========================================================
+                            // 멀티플레이 모드: 전투 판정은 NetworkCombatController에 위임.
+                            // 여기서는 HasEnemyInRange()로 적 존재 여부만 확인하여
+                            // Lerp 이동을 일시정지. 공격 애니메이션은 ClientRpc로 트리거.
+                            // ========================================================
+                            if (_combatUseCase.HasEnemyInRange(_unitData))
+                            {
+                                // 적이 사거리에서 사라지거나 자신이 사망할 때까지 대기.
+                                // Idle 전환 없이 현재 상태 유지 — Attack 애니메이션은 ClientRpc가 담당.
+                                while (_unitData.IsAlive && _combatUseCase.HasEnemyInRange(_unitData))
+                                {
+                                    // 공격 애니메이션 재생 중이면 완료 대기
+                                    while (_attackCoroutine != null)
+                                        yield return null;
+                                    yield return null;
+                                }
+
+                                if (!_unitData.IsAlive) break;
+
+                                // 적이 제거되면 Walk 애니메이션 복귀 후 Lerp 재개
+                                FacingInfo resumeFacing = FacingDirection.FromHexDirection(_unitData.Facing);
+                                UpdateSprite(UnitAnimState.Walk, resumeFacing.Art);
+                            }
                         }
+                        else
+                        {
+                            // ========================================================
+                            // 싱글플레이 모드: 기존 로직 유지.
+                            // TryAttack()으로 직접 전투 실행 + 이벤트 기반 애니메이션.
+                            // ========================================================
+                            if (_combatUseCase.TryAttack(_unitData))
+                            {
+                                // 공격 애니메이션 완료 대기
+                                while (_attackCoroutine != null)
+                                    yield return null;
 
-                        // 전투 중 사망했으면 이동 중단
-                        if (!_unitData.IsAlive) break;
+                                // 사거리 내 적이 남아있으면 반복 공격
+                                while (_unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
+                                {
+                                    while (_attackCoroutine != null)
+                                        yield return null;
+                                }
 
-                        // 전투 승리 후 남은 Lerp 계속 진행
+                                // 전투 중 사망했으면 이동 중단
+                                if (!_unitData.IsAlive) break;
+
+                                // 전투 승리 후 남은 Lerp 계속 진행
+                            }
+                        }
                     }
 
                     yield return null; // 다음 프레임까지 대기
@@ -308,6 +372,25 @@ namespace Hexiege.Presentation
         // ====================================================================
         // 공격 애니메이션
         // ====================================================================
+
+        /// <summary>
+        /// 외부에서 공격 애니메이션을 트리거. NetworkCombatController의 ClientRpc에서 호출.
+        /// 서버가 공격 판정 후 모든 클라이언트에 애니메이션을 동기화할 때 사용.
+        /// </summary>
+        /// <param name="direction">공격 방향 (스프라이트 방향 결정에 사용)</param>
+        public void TriggerAttackAnimation(HexDirection direction)
+        {
+            if (_unitData == null || !_unitData.IsAlive) return;
+
+            // 진행 중인 공격 애니메이션이 있으면 중단 후 새로 시작
+            if (_attackCoroutine != null)
+                StopCoroutine(_attackCoroutine);
+
+            // Red팀(ViewConverter.IsFlipped)이면 방향 반전 적용.
+            // 서버에서 전달된 도메인 방향을 뷰 방향으로 변환 — MoveAlongPath의 패턴과 동일.
+            HexDirection viewDir = ViewConverter.FlipDirection(direction);
+            _attackCoroutine = StartCoroutine(PlayAttackAnimation(viewDir));
+        }
 
         /// <summary>
         /// 공격 애니메이션을 재생하고 일정 시간 후 Idle로 복귀하는 코루틴.

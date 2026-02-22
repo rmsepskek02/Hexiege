@@ -95,6 +95,51 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// 네트워크 클라이언트 측 건물 재생성 (ID 동기화 전용).
+        /// 서버에서 이미 검증·배치 완료된 건물을 클라이언트에서 도메인 상태에 반영.
+        /// 검증 없이 직접 등록하고 타일 상태를 변경하며 이벤트를 발행.
+        /// 서버가 전달한 buildingId로 BuildingData를 생성하여 양측 ID를 일치시킴.
+        /// </summary>
+        /// <param name="buildingId">서버에서 발급한 건물 Id</param>
+        /// <param name="type">건물 종류</param>
+        /// <param name="team">소속 팀</param>
+        /// <param name="position">건물 배치 좌표</param>
+        /// <returns>생성된 BuildingData. 타일이 없으면 null.</returns>
+        public BuildingData PlaceBuildingWithId(int buildingId, BuildingType type,
+            TeamId team, HexCoord position)
+        {
+            HexTile tile = _grid.GetTile(position);
+            if (tile == null) return null;
+
+            int maxHp = BuildingStats.GetMaxHp(type);
+            // ID 지정 생성자 사용 — 서버와 동일한 Id로 BuildingData 생성
+            var building = new BuildingData(buildingId, type, team, position, maxHp);
+            _buildings[building.Id] = building;
+
+            // 타일 상태 변경
+            tile.IsWalkable = false;
+            _grid.SetOwner(position, team);
+
+            // 인접 타일 소유권 설정
+            var neighbors = _grid.GetNeighbors(position);
+            foreach (var neighbor in neighbors)
+            {
+                if (neighbor.Owner != team)
+                {
+                    _grid.SetOwner(neighbor.Coord, team);
+                    GameEvents.OnTileOwnerChanged.OnNext(
+                        new TileOwnerChangedEvent(neighbor.Coord, team));
+                }
+            }
+
+            // 이벤트 발행 → BuildingFactory가 프리팹 생성
+            GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
+            GameEvents.OnTileOwnerChanged.OnNext(new TileOwnerChangedEvent(position, team));
+
+            return building;
+        }
+
+        /// <summary>
         /// 건물 배치 공통 로직. 검증 통과 후 호출.
         /// </summary>
         private BuildingData PlaceBuildingInternal(BuildingType type, TeamId team,
@@ -178,6 +223,16 @@ namespace Hexiege.Application
                     return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// Id로 건물 조회.
+        /// NetworkHealthSync에서 클라이언트 측 HP 동기화 시 사용.
+        /// </summary>
+        public BuildingData GetBuilding(int buildingId)
+        {
+            _buildings.TryGetValue(buildingId, out BuildingData building);
+            return building;
         }
 
         /// <summary>

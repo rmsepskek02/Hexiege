@@ -15,7 +15,7 @@ namespace Hexiege.Domain
         /// <summary> 유닛 타입별 기본 최대 체력. </summary>
         public static int GetMaxHp(UnitType type) => type switch
         {
-            UnitType.Pistoleer => 10,
+            UnitType.Pistoleer => 50,
             _                  => 10
         };
 
@@ -31,6 +31,13 @@ namespace Hexiege.Domain
         {
             UnitType.Pistoleer => 1,
             _                  => 1
+        };
+
+        /// <summary> 유닛 타입별 타일 1칸 이동 소요 시간(초). 작을수록 빠름. </summary>
+        public static float GetMoveSeconds(UnitType type) => type switch
+        {
+            UnitType.Pistoleer => 0.8f,
+            _                  => 0.3f
         };
     }
 }

@@ -26,6 +26,7 @@
 // Presentation 레이어 — Unity 의존 (MonoBehaviour, UI).
 // ============================================================================
 
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 using Hexiege.Domain;
@@ -69,6 +70,13 @@ namespace Hexiege.Presentation
         /// <summary> 건물 비용 참조. </summary>
         private GameConfig _config;
 
+        /// <summary>
+        /// 네트워크 건물 배치 컨트롤러 참조.
+        /// 멀티플레이 시 UseCase 직접 호출 대신 ServerRpc를 통해 배치 요청을 서버에 전달.
+        /// 싱글플레이 시 null이어도 무방.
+        /// </summary>
+        private NetworkBuildingController _networkBuildingController;
+
         /// <summary> 현재 선택된 타일 좌표 (팝업 표시 중). </summary>
         private HexCoord _targetCoord;
 
@@ -87,13 +95,16 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// GameBootstrapper에서 호출. UseCase 참조 설정 및 버튼 이벤트 연결.
+        /// NetworkBuildingController는 멀티플레이 시에만 주입. 싱글플레이 시 null.
         /// </summary>
         public void Initialize(BuildingPlacementUseCase buildingPlacement,
-            ResourceUseCase resource, GameConfig config)
+            ResourceUseCase resource, GameConfig config,
+            NetworkBuildingController networkBuildingController = null)
         {
             _buildingPlacement = buildingPlacement;
             _resource = resource;
             _config = config;
+            _networkBuildingController = networkBuildingController;
 
             // 시작 시 팝업 비활성
             if (_popup != null)
@@ -162,10 +173,42 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 선택된 건물 타입을 배치하고 팝업 닫기.
+        /// 싱글플레이: UseCase 직접 호출 (기존 흐름 유지).
+        /// 멀티플레이: NetworkBuildingController.RequestBuildServerRpc를 통해
+        ///             서버에 배치 요청을 위임. 골드 차감과 실제 배치는 서버에서 처리.
         /// </summary>
         private void PlaceAndClose(BuildingType type)
         {
-            // 골드 비용 확인 및 차감
+            bool isNetworkMode = NetworkManager.Singleton != null &&
+                                 (NetworkManager.Singleton.IsHost || NetworkManager.Singleton.IsClient);
+
+            if (isNetworkMode && _networkBuildingController != null)
+            {
+                // 멀티플레이: 로컬에서는 골드 확인만 하고, 실제 배치/차감은 서버에 위임
+                if (_resource != null && _config != null)
+                {
+                    int cost = GetBuildingCost(type);
+                    if (!_resource.CanAfford(_currentTeam, cost))
+                    {
+                        // 골드 부족 → 요청 자체를 보내지 않음 (서버에서도 검증하지만 불필요한 RPC 방지)
+                        Debug.Log($"[Network] 건물 배치 클라이언트 사전 검증 실패: 골드 부족. 타입={type}, 팀={_currentTeam}");
+                        Close();
+                        return;
+                    }
+                }
+
+                // 서버에 배치 요청 전송
+                _networkBuildingController.RequestBuildServerRpc(
+                    (int)type,
+                    (int)_currentTeam,
+                    _targetCoord.Q,
+                    _targetCoord.R);
+
+                Close();
+                return;
+            }
+
+            // 싱글플레이: 기존 흐름 그대로 유지 (UseCase 직접 호출)
             if (_resource != null && _config != null)
             {
                 int cost = GetBuildingCost(type);

@@ -16,6 +16,11 @@ using Hexiege.Domain;
 
 namespace Hexiege.Application
 {
+    /// <summary>
+    /// 유닛 전투(공격/피격/사망)를 처리하는 UseCase.
+    /// NetworkManager에 직접 의존하지 않고 NetworkContext 정적 홀더를 통해
+    /// 멀티플레이 서버 전용 분기를 처리 (Application → Infrastructure 역방향 의존 방지).
+    /// </summary>
     public class UnitCombatUseCase
     {
         private readonly HexGrid _grid;
@@ -35,11 +40,19 @@ namespace Hexiege.Application
         /// <summary>
         /// 유닛의 사거리 내에 적이 있으면 공격을 실행.
         /// 이동 완료 후 UnitView에서 호출.
+        ///
+        /// 멀티플레이 모드에서는 서버만 전투를 처리하여 권위 있는 판정 보장.
+        /// 클라이언트는 UnitView 애니메이션(시각 효과)만 처리하고 데미지는 서버에 위임.
         /// </summary>
         /// <returns>공격이 발생했으면 true</returns>
         public bool TryAttack(UnitData attacker)
         {
             if (attacker == null || !attacker.IsAlive) return false;
+
+            // 멀티플레이 모드에서는 서버만 전투 처리.
+            // NetworkManager에 직접 의존하는 대신 NetworkContext 정적 홀더를 사용.
+            // NetworkCombatController.OnNetworkSpawn()에서 NetworkContext.Set()을 호출하여 값 주입.
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return false;
 
             // IDamageable을 구현하는 모든 적을 찾도록 로직 변경
             IDamageable target = FindFirstEnemyTarget(attacker);
@@ -47,6 +60,17 @@ namespace Hexiege.Application
 
             ExecuteAttack(attacker, target);
             return true;
+        }
+
+        /// <summary>
+        /// 사거리 내에 적이 존재하는지 판정만 수행 (데미지 없음, 네트워크 권한 체크 없음).
+        /// 클라이언트 측 UnitView Lerp에서 시각적 전투 대기에 사용.
+        /// 서버 권위 전투와 무관하게 적 존재 여부만 반환.
+        /// </summary>
+        public bool HasEnemyInRange(UnitData attacker)
+        {
+            if (attacker == null || !attacker.IsAlive) return false;
+            return FindFirstEnemyTarget(attacker) != null;
         }
 
         /// <summary>
@@ -103,6 +127,11 @@ namespace Hexiege.Application
 
             // 일반화된 공격 이벤트 발행
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
+
+            // 피격 이벤트 발행 — NetworkHealthSync가 구독하여 HP를 모든 클라이언트에 동기화
+            bool targetIsUnit = target is UnitData;
+            GameEvents.OnEntityDamaged.OnNext(
+                new EntityDamagedEvent(target, target.Hp, targetIsUnit));
 
             // 타겟 사망 처리
             if (!target.IsAlive)

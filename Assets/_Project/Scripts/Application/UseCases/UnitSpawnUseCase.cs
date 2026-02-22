@@ -73,7 +73,8 @@ namespace Hexiege.Application
                 type, team, position,
                 UnitStats.GetMaxHp(type),
                 UnitStats.GetAttackPower(type),
-                UnitStats.GetAttackRange(type));
+                UnitStats.GetAttackRange(type),
+                UnitStats.GetMoveSeconds(type));
 
             // 내부 목록에 등록
             _units[unit.Id] = unit;
@@ -120,6 +121,47 @@ namespace Hexiege.Application
         public bool RemoveUnit(int unitId)
         {
             return _units.Remove(unitId);
+        }
+
+        /// <summary>
+        /// 네트워크 클라이언트 측 재생성 전용.
+        /// 서버에서 발급된 unitId를 그대로 사용하여 UnitData를 생성하고
+        /// GameEvents.OnUnitSpawned를 발행한다.
+        /// 검증(IsWalkable, 중복 유닛)은 서버에서 이미 통과했으므로 생략.
+        /// </summary>
+        /// <param name="unitId">서버에서 발급된 유닛 Id</param>
+        /// <param name="type">유닛 종류</param>
+        /// <param name="team">소속 팀</param>
+        /// <param name="position">생성 위치 (헥스 좌표)</param>
+        /// <returns>생성된 UnitData. 타일이 그리드에 없으면 null.</returns>
+        public UnitData SpawnUnitWithId(int unitId, UnitType type, TeamId team, HexCoord position)
+        {
+            // 타일 존재 여부만 확인 (서버에서 이미 검증 완료)
+            HexTile tile = _grid.GetTile(position);
+            if (tile == null)
+            {
+                UnityEngine.Debug.LogWarning($"[Network] SpawnUnitWithId: 타일 없음. coord={position}");
+                return null;
+            }
+
+            // 서버 발급 Id로 UnitData 재생성
+            var unit = new UnitData(
+                unitId, type, team, position,
+                UnitStats.GetMaxHp(type),
+                UnitStats.GetAttackPower(type),
+                UnitStats.GetAttackRange(type),
+                UnitStats.GetMoveSeconds(type));
+
+            _units[unit.Id] = unit;
+
+            // 타일 소유권 설정
+            _grid.SetOwner(position, team);
+
+            // 이벤트 발행 → UnitFactory 프리팹 생성, HexTileView 색상 갱신
+            GameEvents.OnUnitSpawned.OnNext(new UnitSpawnedEvent(unit));
+            GameEvents.OnTileOwnerChanged.OnNext(new TileOwnerChangedEvent(position, team));
+
+            return unit;
         }
     }
 }

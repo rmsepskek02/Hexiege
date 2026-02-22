@@ -126,6 +126,29 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// 피격 이벤트 데이터. 데미지 적용 후 현재 HP 포함.
+    /// NetworkHealthSync에서 HP를 모든 클라이언트에 동기화할 때 사용.
+    /// </summary>
+    public readonly struct EntityDamagedEvent
+    {
+        /// <summary> 피격당한 엔티티. </summary>
+        public readonly IDamageable Entity;
+
+        /// <summary> 데미지 적용 후 현재 HP. </summary>
+        public readonly int CurrentHp;
+
+        /// <summary> 피격 엔티티가 유닛인지 여부. false면 건물. </summary>
+        public readonly bool IsUnit;
+
+        public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit)
+        {
+            Entity = entity;
+            CurrentHp = currentHp;
+            IsUnit = isUnit;
+        }
+    }
+
+    /// <summary>
     /// 사망 이벤트 데이터. 유닛/건물 모두 포함.
     /// </summary>
     public struct EntityDiedEvent
@@ -307,6 +330,13 @@ namespace Hexiege.Application
         /// 구독: UnitView (공격 애니메이션 재생)
         /// </summary>
         public static readonly Subject<EntityAttackedEvent> OnEntityAttacked = new Subject<EntityAttackedEvent>();
+
+        /// <summary>
+        /// 엔티티(유닛/건물)가 피격당하여 HP가 변경되었을 때 발행.
+        /// 발행: UnitCombatUseCase (데미지 적용 직후)
+        /// 구독: NetworkHealthSync (HP를 모든 클라이언트에 동기화)
+        /// </summary>
+        public static readonly Subject<EntityDamagedEvent> OnEntityDamaged = new();
 
         /// <summary>
         /// 엔티티(유닛/건물)가 사망했을 때 발행.

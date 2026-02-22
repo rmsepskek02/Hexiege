@@ -108,11 +108,14 @@ namespace Hexiege.Presentation
                 HexCoord coord = kvp.Key;
                 HexTile tileData = kvp.Value;
 
-                // 헥스 좌표 → 월드 좌표 변환
+                // 헥스 좌표 → 도메인 월드 좌표 변환
                 Vector3 worldPos = HexMetrics.HexToWorld(coord);
 
-                // 프리팹 인스턴스 생성. 이 오브젝트(HexGrid)의 자식으로 배치.
-                GameObject tileObj = Instantiate(prefab, worldPos, Quaternion.identity, transform);
+                // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 반전)
+                Vector3 viewPos = ViewConverter.ToView(worldPos);
+
+                // 프리팹 인스턴스 생성. 뷰 좌표에 배치.
+                GameObject tileObj = Instantiate(prefab, viewPos, Quaternion.identity, transform);
 
                 // 오브젝트 이름을 좌표로 설정 (에디터 Hierarchy에서 식별 용이)
                 tileObj.name = $"Tile_{coord}";
@@ -121,15 +124,16 @@ namespace Hexiege.Presentation
                 // Sorting 설정
                 // 화면 아래쪽 타일이 나중에 그려져 위에 표시.
                 // 탑다운 2D에서 아래쪽 오브젝트가 앞에 보여야 자연스러움.
+                // 뷰 좌표 기반으로 계산하여 반전된 화면에서도 올바른 순서 보장.
                 //
                 // PointyTop: coord.R (행 인덱스)로 정렬 — R이 화면 Y와 직접 대응.
-                // FlatTop: 월드 Y 좌표 기반 정렬 — 홀수 열 시프트로 R만으로는 부정확.
+                // FlatTop: 뷰 Y 좌표 기반 정렬 — 반전 시에도 올바른 렌더링 순서.
                 // --------------------------------------------------------
                 var sr = tileObj.GetComponent<SpriteRenderer>();
                 if (sr != null)
                 {
                     if (HexMetrics.Orientation == Domain.HexOrientation.FlatTop)
-                        sr.sortingOrder = Mathf.RoundToInt(-worldPos.y * 3);
+                        sr.sortingOrder = ViewConverter.FlatTopSortingOrder(viewPos);
                     else
                         sr.sortingOrder = coord.R;
                 }
@@ -176,18 +180,21 @@ namespace Hexiege.Presentation
 
                 Vector3 worldPos = HexMetrics.HexToWorld(kvp.Key);
 
+                // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 반전)
+                Vector3 viewPos = ViewConverter.ToView(worldPos);
+
                 // 금광 오버레이 오브젝트 생성 (타일 자식)
                 var mineObj = new GameObject($"GoldMine_{kvp.Key}");
-                mineObj.transform.position = worldPos + new Vector3(0f, 0.05f, 0f);
+                mineObj.transform.position = viewPos + new Vector3(0f, 0.05f, 0f);
                 mineObj.transform.SetParent(transform);
 
                 var sr = mineObj.AddComponent<SpriteRenderer>();
                 sr.sprite = _goldMineSprite;
                 sr.sortingLayerName = "Background";
 
-                // sortingOrder: 타일보다 높게, 유닛(100)보다 낮게
+                // sortingOrder: 타일보다 높게, 유닛(100)보다 낮게 (뷰 좌표 기반)
                 if (HexMetrics.Orientation == HexOrientation.FlatTop)
-                    sr.sortingOrder = Mathf.RoundToInt(-worldPos.y * 3) + 1;
+                    sr.sortingOrder = ViewConverter.FlatTopSortingOrder(viewPos) + 1;
                 else
                     sr.sortingOrder = kvp.Key.R + 1;
 

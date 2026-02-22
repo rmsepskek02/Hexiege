@@ -130,12 +130,17 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            // 유닛의 헥스 좌표 → Unity 월드 좌표 변환 (Y 오프셋 포함)
-            // HexToWorldUnit: 타일 중심보다 위에 배치하여 "타일 위에 서있는" 느낌
-            Vector3 worldPos = HexMetrics.HexToWorldUnit(unitData.Position);
+            // 유닛의 헥스 좌표 → 도메인 월드 좌표 변환 (Y 오프셋 미포함)
+            Vector3 worldPos = HexMetrics.HexToWorld(unitData.Position);
 
-            // 프리팹 인스턴스 생성. _unitParent 하위에 배치.
-            GameObject unitObj = Instantiate(_unitPrefab, worldPos, Quaternion.identity, _unitParent);
+            // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 Y 반전)
+            Vector3 viewPos = ViewConverter.ToView(worldPos);
+
+            // ToView 이후에 Y 오프셋 적용 — ToView 이전에 적용하면 Red팀에서 오프셋 방향이 반전됨
+            viewPos.y += HexMetrics.UnitYOffset;
+
+            // 프리팹 인스턴스 생성. 뷰 좌표에 배치.
+            GameObject unitObj = Instantiate(_unitPrefab, viewPos, Quaternion.identity, _unitParent);
 
             // 오브젝트 이름을 유닛 정보로 설정 (에디터 디버깅용)
             unitObj.name = $"Unit_{unitData.Type}_{unitData.Team}_{unitData.Id}";

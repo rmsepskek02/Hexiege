@@ -186,27 +186,31 @@ namespace Hexiege.Presentation
         /// 마우스/터치 드래그로 카메라 팬.
         ///
         /// 원리:
-        ///   1. 드래그 시작 시 마우스의 월드 좌표를 기록 (dragOrigin)
-        ///   2. 매 프레임 현재 마우스의 월드 좌표와의 차이 계산
+        ///   1. 드래그 시작 시 마우스/터치의 월드 좌표를 기록 (dragOrigin)
+        ///   2. 매 프레임 현재 마우스/터치의 월드 좌표와의 차이 계산
         ///   3. 차이만큼 카메라를 이동 (드래그 방향의 반대)
-        ///   → 마우스 아래의 맵 위치가 고정되어 "맵을 끌고 다니는" 느낌
+        ///   → 마우스/손가락 아래의 맵 위치가 고정되어 "맵을 끌고 다니는" 느낌
         ///
         /// 2터치(핀치) 중에는 팬을 비활성화하여 줌과 충돌 방지.
+        ///
+        /// InputHandler와의 충돌 방지:
+        ///   - InputHandler는 터치 release 시 drag 거리 &lt; 10px이면 클릭 처리
+        ///   - CameraController는 터치 시작부터 드래그를 추적하여 카메라 이동
+        ///   - 드래그하면 → CameraController가 팬, InputHandler는 거리 >= 10px이므로 클릭 무시
+        ///   - 탭하면 → CameraController 미세 이동(무시 수준), InputHandler가 클릭 처리
         ///
         /// New Input System API:
         ///   mouse.leftButton.wasPressedThisFrame  — 드래그 시작 감지
         ///   mouse.leftButton.isPressed            — 드래그 중 감지
         ///   mouse.leftButton.wasReleasedThisFrame — 드래그 종료 감지
         ///   mouse.position.ReadValue()            — 현재 마우스 스크린 좌표
+        ///   EnhancedTouch.Touch.activeTouches     — 모바일 터치 (1터치 팬, 2터치 핀치)
         /// </summary>
         private void HandlePan()
         {
-            var mouse = Mouse.current;
-            if (mouse == null) return;
-
-            // 2터치(핀치 줌) 중에는 팬 비활성화
-            var touchscreen = Touchscreen.current;
-            if (touchscreen != null && UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches.Count >= 2)
+            // 2터치(핀치 줌) 중에는 팬 비활성화 (마우스/터치 공통 가드)
+            var activeTouches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
+            if (activeTouches.Count >= 2)
             {
                 _isDragging = false;
                 return;
@@ -214,30 +218,67 @@ namespace Hexiege.Presentation
 
             float panSpeed = _config != null ? _config.CameraPanSpeed : 1f;
 
-            // 드래그 시작 (마우스 왼쪽 버튼)
-            if (mouse.leftButton.wasPressedThisFrame)
+            // --- 마우스 팬 (에디터 및 데스크톱) ---
+            // activeTouches.Count == 0: 모바일에서 Mouse.current가 null이 아닐 수 있으므로
+            // 터치가 없을 때만 마우스 팬 처리 (터치 팬과 충돌 방지)
+            var mouse = Mouse.current;
+            if (mouse != null && activeTouches.Count == 0)
             {
-                Vector2 mousePos = mouse.position.ReadValue();
-                _dragOrigin = _cam.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, 0f));
-                _isDragging = true;
+                // 드래그 시작 (마우스 왼쪽 버튼)
+                if (mouse.leftButton.wasPressedThisFrame)
+                {
+                    Vector2 mousePos = mouse.position.ReadValue();
+                    _dragOrigin = _cam.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, 0f));
+                    _isDragging = true;
+                }
+
+                // 드래그 중
+                if (mouse.leftButton.isPressed && _isDragging)
+                {
+                    Vector2 mousePos = mouse.position.ReadValue();
+                    Vector3 currentPos = _cam.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, 0f));
+                    Vector3 diff = _dragOrigin - currentPos;
+                    transform.position += diff * panSpeed;
+                    ClampPosition();
+                }
+
+                // 드래그 종료
+                if (mouse.leftButton.wasReleasedThisFrame)
+                    _isDragging = false;
             }
 
-            // 드래그 중
-            if (mouse.leftButton.isPressed && _isDragging)
+            // --- 터치 팬 (실제 모바일 디바이스) ---
+            // Touchscreen.current != null: 실제 터치스크린 기기에서만 처리
+            // (mouse == null 조건은 Android에서 가상 마우스 때문에 항상 false가 될 수 있음)
+            if (Touchscreen.current != null && activeTouches.Count == 1)
             {
-                Vector2 mousePos = mouse.position.ReadValue();
-                Vector3 currentPos = _cam.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, 0f));
-                Vector3 diff = _dragOrigin - currentPos;
-                transform.position += diff * panSpeed;
+                var touch = activeTouches[0];
 
-                // 맵 경계 제한
-                ClampPosition();
-            }
+                // 터치 시작 — 드래그 원점 기록
+                if (touch.phase == UnityEngine.InputSystem.TouchPhase.Began)
+                {
+                    _dragOrigin = _cam.ScreenToWorldPoint(
+                        new Vector3(touch.screenPosition.x, touch.screenPosition.y, 0f));
+                    _isDragging = true;
+                }
 
-            // 드래그 종료
-            if (mouse.leftButton.wasReleasedThisFrame)
-            {
-                _isDragging = false;
+                // 터치 이동 — 월드 좌표 차이만큼 카메라 이동
+                if (_isDragging && (touch.phase == UnityEngine.InputSystem.TouchPhase.Moved
+                    || touch.phase == UnityEngine.InputSystem.TouchPhase.Stationary))
+                {
+                    Vector3 currentPos = _cam.ScreenToWorldPoint(
+                        new Vector3(touch.screenPosition.x, touch.screenPosition.y, 0f));
+                    Vector3 diff = _dragOrigin - currentPos;
+                    transform.position += diff * panSpeed;
+                    ClampPosition();
+                }
+
+                // 터치 종료
+                if (touch.phase == UnityEngine.InputSystem.TouchPhase.Ended
+                    || touch.phase == UnityEngine.InputSystem.TouchPhase.Canceled)
+                {
+                    _isDragging = false;
+                }
             }
         }
 

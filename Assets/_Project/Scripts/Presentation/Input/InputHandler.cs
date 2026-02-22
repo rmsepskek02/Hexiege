@@ -30,6 +30,8 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using Hexiege.Domain;
 using Hexiege.Application;
+using Hexiege.Core;
+using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
@@ -76,12 +78,6 @@ namespace Hexiege.Presentation
         /// </summary>
         private const float ClickThreshold = 10f;
 
-        /// <summary> 자동 이동 모드 여부. T키로 토글. </summary>
-        private bool _autoMoveMode;
-
-        /// <summary> 자동 이동이 이미 실행되었는지 (중복 실행 방지). </summary>
-        private bool _autoMoveStarted;
-
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -126,44 +122,44 @@ namespace Hexiege.Presentation
             // 의존성 미주입 상태면 무시
             if (_mainCamera == null) return;
 
-            // T키: 자동/수동 이동 모드 토글
-            var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.tKey.wasPressedThisFrame)
-            {
-                _autoMoveMode = !_autoMoveMode;
-                _autoMoveStarted = false;
-                Debug.Log($"[InputHandler] 이동 모드 변경: {(_autoMoveMode ? "자동 (Auto)" : "수동 (Manual)")}");
-            }
-
-            // 자동 이동 모드: 모든 Blue 유닛을 적 Castle 방향으로 자동 이동
-            if (_autoMoveMode && !_autoMoveStarted)
-            {
-                StartAutoMove();
-                _autoMoveStarted = true;
-            }
-
-            // 마우스가 연결되어 있지 않으면 무시
+            // 마우스 입력 처리 (에디터/PC)
             var mouse = Mouse.current;
-            if (mouse == null) return;
-
-            // 마우스 버튼 누름 → 위치 기록
-            if (mouse.leftButton.wasPressedThisFrame)
+            if (mouse != null)
             {
-                _pointerDownPos = mouse.position.ReadValue();
+                if (mouse.leftButton.wasPressedThisFrame)
+                {
+                    _pointerDownPos = mouse.position.ReadValue();
+                }
+
+                if (mouse.leftButton.wasReleasedThisFrame)
+                {
+                    Vector2 currentPos = mouse.position.ReadValue();
+                    float dragDist = Vector2.Distance(_pointerDownPos, currentPos);
+                    if (dragDist < ClickThreshold)
+                        HandleClick(currentPos);
+                }
             }
 
-            // 마우스 버튼 뗌 → 클릭인지 드래그인지 판정
-            if (mouse.leftButton.wasReleasedThisFrame)
+            // 터치 입력 처리 (모바일)
+            var touchscreen = Touchscreen.current;
+            if (touchscreen != null)
             {
-                Vector2 currentPos = mouse.position.ReadValue();
-                float dragDist = Vector2.Distance(_pointerDownPos, currentPos);
+                var primaryTouch = touchscreen.primaryTouch;
 
-                // 이동 거리가 임계값 이하면 클릭으로 처리
-                if (dragDist < ClickThreshold)
+                // 터치 시작 → 위치 기록
+                if (primaryTouch.press.wasPressedThisFrame)
                 {
-                    HandleClick(currentPos);
+                    _pointerDownPos = primaryTouch.position.ReadValue();
                 }
-                // 초과하면 드래그 → CameraController가 처리하므로 여기서는 무시
+
+                // 터치 끝 → 클릭인지 드래그인지 판정
+                if (primaryTouch.press.wasReleasedThisFrame)
+                {
+                    Vector2 currentPos = primaryTouch.position.ReadValue();
+                    float dragDist = Vector2.Distance(_pointerDownPos, currentPos);
+                    if (dragDist < ClickThreshold)
+                        HandleClick(currentPos);
+                }
             }
         }
 
@@ -192,10 +188,12 @@ namespace Hexiege.Presentation
             if (_productionUI != null && _productionUI.IsSettingRallyPoint
                 && Time.frameCount != _productionUI.RallyPointSetFrame)
             {
-                Vector3 rallyWorldPos = _mainCamera.ScreenToWorldPoint(
+                // ScreenToWorldPoint → 뷰 좌표 → 도메인 좌표로 역변환
+                Vector3 rallyViewPos = _mainCamera.ScreenToWorldPoint(
                     new Vector3(screenPos.x, screenPos.y, 0f));
-                rallyWorldPos.z = 0f;
-                HexCoord rallyCoord = Core.HexMetrics.WorldToHex(rallyWorldPos);
+                rallyViewPos.z = 0f;
+                Vector3 rallyWorldPos = ViewConverter.FromView(rallyViewPos);
+                HexCoord rallyCoord = HexMetrics.WorldToHex(rallyWorldPos);
 
                 _productionUI.CompleteRallyPointSetting(rallyCoord);
                 _gridInteraction?.SelectTileAt(rallyWorldPos);
@@ -216,22 +214,22 @@ namespace Hexiege.Presentation
                 || (_productionUI != null && _productionUI.ClosedFrame == frame))
                 return;
 
-            // 스크린 좌표 → 월드 좌표 변환
-            Vector3 worldPos = _mainCamera.ScreenToWorldPoint(
+            // 스크린 좌표 → 뷰 좌표 → 도메인 월드 좌표로 역변환
+            Vector3 viewPos = _mainCamera.ScreenToWorldPoint(
                 new Vector3(screenPos.x, screenPos.y, 0f));
-            worldPos.z = 0f; // 2D이므로 z=0
+            viewPos.z = 0f;
+            Vector3 worldPos = ViewConverter.FromView(viewPos);
 
-            // 월드 좌표 → 헥스 좌표
-            HexCoord clickedCoord = Core.HexMetrics.WorldToHex(worldPos);
+            // 도메인 월드 좌표 → 헥스 좌표
+            HexCoord clickedCoord = HexMetrics.WorldToHex(worldPos);
 
             // --------------------------------------------------------
-            // 2. 클릭 위치에 유닛이 있는지 확인 (자동이동 모드에서는 건너뜀)
+            // 2. 클릭 위치에 유닛이 있는지 확인
             // --------------------------------------------------------
-            if (!_autoMoveMode)
             {
                 UnitData unitAtPos = _unitSpawn?.GetUnitAt(clickedCoord);
 
-                if (unitAtPos != null)
+                if (unitAtPos != null && unitAtPos.Team == LocalPlayerTeam.Current)
                 {
                     // 유닛 선택 (이전 선택 해제)
                     _selectedUnit = unitAtPos;
@@ -241,9 +239,9 @@ namespace Hexiege.Presentation
             }
 
             // --------------------------------------------------------
-            // 3. 유닛이 선택된 상태에서 빈 타일 클릭 → 이동 명령 (자동이동 모드에서는 건너뜀)
+            // 3. 유닛이 선택된 상태에서 빈 타일 클릭 → 이동 명령
             // --------------------------------------------------------
-            if (!_autoMoveMode && _selectedUnit != null)
+            if (_selectedUnit != null)
             {
                 // 선택된 유닛의 UnitView 찾기
                 var unitObj = FindObjectsByType<UnitView>(FindObjectsSortMode.None);
@@ -284,7 +282,7 @@ namespace Hexiege.Presentation
                 {
                     // 자기 팀 배럭 클릭 → 생산 패널 표시
                     if (buildingAtPos.Type == BuildingType.Barracks
-                        && buildingAtPos.Team == TeamId.Blue
+                        && buildingAtPos.Team == LocalPlayerTeam.Current
                         && buildingAtPos.IsAlive
                         && _productionUI != null)
                     {
@@ -300,9 +298,9 @@ namespace Hexiege.Presentation
             // 5. 금광 타일 (건물 없음) → 채굴소 건설 팝업
             // --------------------------------------------------------
             if (_buildingPlacement != null &&
-                _buildingPlacement.CanPlaceMiningPost(clickedCoord, TeamId.Blue))
+                _buildingPlacement.CanPlaceMiningPost(clickedCoord, LocalPlayerTeam.Current))
             {
-                _buildingUI?.Show(clickedCoord, TeamId.Blue);
+                _buildingUI?.Show(clickedCoord, LocalPlayerTeam.Current);
                 _gridInteraction?.SelectTileAt(worldPos);
                 return;
             }
@@ -311,9 +309,9 @@ namespace Hexiege.Presentation
             // 6. 자기 팀 빈 타일 → 건물 배치 팝업
             // --------------------------------------------------------
             if (_buildingPlacement != null &&
-                _buildingPlacement.CanPlaceBuilding(clickedCoord, TeamId.Blue))
+                _buildingPlacement.CanPlaceBuilding(clickedCoord, LocalPlayerTeam.Current))
             {
-                _buildingUI?.Show(clickedCoord, TeamId.Blue);
+                _buildingUI?.Show(clickedCoord, LocalPlayerTeam.Current);
                 _gridInteraction?.SelectTileAt(worldPos);
                 return;
             }
@@ -322,76 +320,6 @@ namespace Hexiege.Presentation
             // 6. 기타 → 타일 선택 (하이라이트)
             // --------------------------------------------------------
             _gridInteraction?.SelectTileAt(worldPos);
-        }
-
-        // ====================================================================
-        // 자동 이동
-        // ====================================================================
-
-        /// <summary>
-        /// 양 팀 모든 유닛을 상대 Castle 방향으로 자동 이동시킴.
-        /// 건물 타일은 이동 불가이므로 Castle 인접 타일까지 이동.
-        /// </summary>
-        private void StartAutoMove()
-        {
-            if (_unitSpawn == null || _unitMovement == null || _buildingPlacement == null)
-                return;
-
-            // 각 팀의 Castle 위치 찾기
-            HexCoord? blueCastlePos = null;
-            HexCoord? redCastlePos = null;
-            foreach (var building in _buildingPlacement.Buildings.Values)
-            {
-                if (building.Type != BuildingType.Castle || !building.IsAlive) continue;
-                if (building.Team == TeamId.Blue) blueCastlePos = building.Position;
-                else if (building.Team == TeamId.Red) redCastlePos = building.Position;
-            }
-
-            // 모든 유닛에게 상대 Castle 방향으로 이동 명령
-            var unitViews = FindObjectsByType<UnitView>(FindObjectsSortMode.None);
-            foreach (var view in unitViews)
-            {
-                if (view.Data == null || !view.Data.IsAlive) continue;
-                if (view.IsMoving) continue;
-
-                // 이 유닛의 상대 Castle 위치 결정
-                HexCoord? targetCastle = (view.Data.Team == TeamId.Blue) ? redCastlePos : blueCastlePos;
-                if (!targetCastle.HasValue) continue;
-
-                // Castle 인접 타일 중 가장 가까운 곳을 목표로 설정
-                HexCoord target = FindClosestWalkableNeighbor(view.Data.Position, targetCastle.Value);
-                if (target == view.Data.Position) continue; // 이미 인접
-
-                List<HexCoord> path = _unitMovement.RequestMove(view.Data, target);
-                if (path != null)
-                {
-                    view.MoveTo(path);
-                    Debug.Log($"[AutoMove] {view.Data.Team} Unit {view.Data.Id} → {target}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// 목표 좌표의 인접 6타일 중 출발지에서 가장 가까운 이동 가능 타일 반환.
-        /// 건물 타일은 이동 불가이므로 인접 타일을 목표로 사용.
-        /// </summary>
-        private HexCoord FindClosestWalkableNeighbor(HexCoord from, HexCoord target)
-        {
-            HexCoord best = target;
-            int bestDist = int.MaxValue;
-
-            for (int i = 0; i < HexDirectionExtensions.Count; i++)
-            {
-                HexCoord neighbor = ((HexDirection)i).Neighbor(target);
-                int dist = HexCoord.Distance(from, neighbor);
-                if (dist < bestDist)
-                {
-                    bestDist = dist;
-                    best = neighbor;
-                }
-            }
-
-            return best;
         }
 
         // ====================================================================
@@ -417,9 +345,6 @@ namespace Hexiege.Presentation
             };
             var results = new List<RaycastResult>();
             EventSystem.current.RaycastAll(eventData, results);
-            Debug.Log($"[InputHandler] IsPointerOverUI pos={screenPos}, hits={results.Count}");
-            for (int i = 0; i < results.Count; i++)
-                Debug.Log($"  hit[{i}]: {results[i].gameObject.name}");
             return results.Count > 0;
         }
     }

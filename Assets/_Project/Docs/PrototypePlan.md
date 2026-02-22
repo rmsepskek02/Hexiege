@@ -103,7 +103,8 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 │  ├─ ProductionTicker     (생산 타이머 + 랠리 자동이동 + 마커 관리 + 공성 시스템) [MVP2] │
 │  ├─ CameraController     (팬/줌)                         │
 │  ├─ InputHandler         (입력 + 건물 배치 + 금광 클릭 + 생산UI + 자동이동) │
-│  ├─ GameEndUI            (승리/패배 팝업 + 다시하기) [MVP3] │
+│  ├─ GameEndUI            (승리/패배 팝업 + 다시하기, Initialize 패턴) [MVP3] │
+│  ├─ GameHudUI            (골드/인구/타일 카운트 HUD) [MVP3] │
 │  └─ DebugUI              (디버그 정보)                    │
 ├──────────────────────────────────────────────────────────┤
 │  Application Layer                                        │
@@ -223,7 +224,7 @@ S  (↓ 아래)       (N의 flipX=false 별도)
 | `Scripts/Presentation/Debug/DebugUI.cs` | 화면 디버그 정보 표시 | 프로토타입 |
 | `Scripts/Presentation/Building/BuildingView.cs` | 건물 비주얼 + OnEntityDied 구독으로 파괴 처리 | **MVP** + **수정** |
 | `Scripts/Presentation/UI/BuildingPlacementUI.cs` | 건물 선택 팝업 UI (배럭/채굴소 조건부 활성, 골드 검증) | **MVP** + **수정** |
-| `Scripts/Presentation/UI/GameEndUI.cs` | 승리/패배 팝업 + 다시하기 버튼 (Time.timeScale 제어) | **MVP3** |
+| `Scripts/Presentation/UI/GameEndUI.cs` | 승리/패배 팝업 + 다시하기 버튼 (Time.timeScale 제어, Initialize 패턴) | **MVP3** + **수정** |
 | `Scripts/Presentation/UI/ProductionPanelUI.cs` | 배럭 생산 패널 UI (수동 탭/자동 롱프레스, 큐/프로그레스, 마커 표시/숨김 연동) | **MVP2** |
 | `Scripts/Presentation/Production/ProductionTicker.cs` | 생산 타이머 브릿지 + 랠리포인트 자동 이동(BFS) + 마커 관리(생성/이동/숨김/파괴) + 공성 시스템(Castle 방향 자동 진군 + 1초 간격 전진) | **MVP2** |
 

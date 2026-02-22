@@ -66,6 +66,9 @@ sysinfo.txt
 # Mono auto generated files
 mono_crash.*
 
+# Unity IL2CPP build backup (빌드 시 자동 생성, 커밋 불필요)
+Build_BackUpThisFolder_ButDontShipItWithYourGame/
+
 # Builds
 *.apk
 *.aab

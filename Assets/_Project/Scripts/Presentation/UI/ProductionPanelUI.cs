@@ -44,9 +44,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using Unity.Netcode;
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
+using Hexiege.Infrastructure;
 using TMPro;
 
 namespace Hexiege.Presentation
@@ -106,6 +108,11 @@ namespace Hexiege.Presentation
         private PopulationUseCase _population;
         private ProductionTicker _ticker;
 
+        /// <summary>
+        /// 네트워크 생산 컨트롤러. null이면 싱글플레이 모드(UseCase 직접 호출).
+        /// </summary>
+        private NetworkProductionController _networkProductionController;
+
         /// <summary> 현재 표시 중인 배럭 데이터. </summary>
         private BuildingData _currentBarracks;
 
@@ -136,15 +143,18 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// GameBootstrapper에서 호출. UseCase 참조 설정 및 이벤트 연결.
+        /// networkProductionController가 null이면 싱글플레이 모드.
         /// </summary>
         public void Initialize(UnitProductionUseCase production,
             ResourceUseCase resource, PopulationUseCase population,
-            ProductionTicker ticker)
+            ProductionTicker ticker,
+            NetworkProductionController networkProductionController = null)
         {
             _production = production;
             _resource = resource;
             _population = population;
             _ticker = ticker;
+            _networkProductionController = networkProductionController;
 
             // 시작 시 팝업 비활성
             if (_popup != null)
@@ -322,17 +332,57 @@ namespace Hexiege.Presentation
             _production.CancelQueueAt(_currentBarracks.Id, slotIndex);
         }
 
-        /// <summary> 탭 → 수동 큐에 권총병 추가. </summary>
+        /// <summary>
+        /// 탭 → 수동 큐에 권총병 추가.
+        /// 멀티플레이 모드이면 NetworkProductionController를 통해 서버에 요청.
+        /// 싱글플레이이면 UseCase를 직접 호출.
+        /// </summary>
         private void OnPistoleerTap()
         {
             if (_currentBarracks == null || _production == null) return;
-            _production.EnqueueUnit(_currentBarracks.Id, UnitType.Pistoleer);
+
+            if (_networkProductionController != null &&
+                NetworkManager.Singleton != null &&
+                NetworkManager.Singleton.IsListening)
+            {
+                // 멀티플레이: 서버에 생산 큐 추가 요청 전송
+                _networkProductionController.RequestEnqueueServerRpc(
+                    _currentBarracks.Id,
+                    (int)UnitType.Pistoleer,
+                    (int)_currentBarracks.Team);
+
+                Debug.Log($"[Network] 생산 큐 요청 전송. BarracksId={_currentBarracks.Id}, UnitType=Pistoleer");
+            }
+            else
+            {
+                // 싱글플레이: UseCase 직접 호출 (기존 흐름)
+                _production.EnqueueUnit(_currentBarracks.Id, UnitType.Pistoleer);
+            }
         }
 
-        /// <summary> 롱프레스 → 자동 생산 토글. </summary>
+        /// <summary>
+        /// 롱프레스 → 자동 생산 토글.
+        /// 자동 생산은 서버·클라이언트 분리가 복잡하므로 현재는 싱글플레이 전용.
+        /// 멀티플레이에서는 자동 생산을 사용할 수 없도록 로그 경고.
+        /// </summary>
         private void OnPistoleerLongPress()
         {
             if (_currentBarracks == null || _production == null) return;
+
+            if (_networkProductionController != null &&
+                NetworkManager.Singleton != null &&
+                NetworkManager.Singleton.IsListening)
+            {
+                // 멀티플레이: 서버에 자동 생산 토글 요청
+                _networkProductionController.ToggleAutoServerRpc(
+                    _currentBarracks.Id,
+                    (int)_currentBarracks.Team);
+
+                Debug.Log($"[Network] 자동 생산 토글 요청. BarracksId={_currentBarracks.Id}");
+                return;
+            }
+
+            // 싱글플레이: UseCase 직접 호출 (기존 흐름)
             _production.ToggleAutoProduction(_currentBarracks.Id, UnitType.Pistoleer);
         }
 

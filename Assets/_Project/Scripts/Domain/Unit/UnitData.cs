@@ -60,6 +60,9 @@ namespace Hexiege.Domain
         /// <summary> 공격 사거리 (타일 단위). 권총병 = 1. </summary>
         public int AttackRange { get; }
 
+        /// <summary> 타일 1칸 이동 소요 시간(초). 작을수록 빠름. </summary>
+        public float MoveSeconds { get; }
+
         /// <summary> 유닛이 살아있는지 여부. </summary>
         public bool IsAlive => Hp > 0;
 
@@ -83,9 +86,11 @@ namespace Hexiege.Domain
         /// <param name="maxHp">최대 체력</param>
         /// <param name="attackPower">공격력</param>
         /// <param name="attackRange">공격 사거리</param>
+        /// <param name="moveSeconds">타일 1칸 이동 소요 시간(초)</param>
         /// <param name="facing">초기 바라보는 방향 (기본: 동쪽)</param>
         public UnitData(UnitType type, TeamId team, HexCoord position,
             int maxHp, int attackPower, int attackRange,
+            float moveSeconds = 0.3f,
             HexDirection facing = HexDirection.E)
         {
             Id = _nextId++;
@@ -96,7 +101,43 @@ namespace Hexiege.Domain
             Hp = maxHp;
             AttackPower = attackPower;
             AttackRange = attackRange;
+            MoveSeconds = moveSeconds;
             Facing = facing;
+        }
+
+        /// <summary>
+        /// 네트워크 클라이언트 측 재생성 전용 생성자.
+        /// 서버에서 발급된 Id를 그대로 사용하여 양쪽 Id가 동일하게 유지됨.
+        /// _nextId를 id+1 이상으로 갱신하여 이후 자동 발급 Id와의 충돌을 방지.
+        /// </summary>
+        /// <param name="id">서버에서 발급된 유닛 Id</param>
+        /// <param name="type">유닛 종류</param>
+        /// <param name="team">소속 팀</param>
+        /// <param name="position">초기 위치 (헥스 좌표)</param>
+        /// <param name="maxHp">최대 체력</param>
+        /// <param name="attackPower">공격력</param>
+        /// <param name="attackRange">공격 사거리</param>
+        /// <param name="moveSeconds">타일 1칸 이동 소요 시간(초)</param>
+        /// <param name="facing">초기 바라보는 방향 (기본: 동쪽)</param>
+        public UnitData(int id, UnitType type, TeamId team, HexCoord position,
+            int maxHp, int attackPower, int attackRange,
+            float moveSeconds = 0.3f,
+            HexDirection facing = HexDirection.E)
+        {
+            Id = id;
+            Type = type;
+            Team = team;
+            Position = position;
+            MaxHp = maxHp;
+            Hp = maxHp;
+            AttackPower = attackPower;
+            AttackRange = attackRange;
+            MoveSeconds = moveSeconds;
+            Facing = facing;
+
+            // 지정 Id 이후로 자동 발급 카운터를 앞당겨 충돌 방지
+            if (_nextId <= id)
+                _nextId = id + 1;
         }
         
         // IDamageable 인터페이스 메서드 구현
