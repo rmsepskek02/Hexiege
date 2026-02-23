@@ -269,6 +269,23 @@ namespace Hexiege.Application
             }
         }
 
+        /// <summary>
+        /// 멀티플레이 클라이언트 전용: ElapsedTime만 진행.
+        /// 생산 로직(CompleteProduction, TryStartNext)은 실행하지 않음.
+        /// 프로그레스 바 시각 갱신 목적. RequiredTime 도달 시 캡 처리.
+        /// </summary>
+        public void TickProgressOnly(float deltaTime)
+        {
+            foreach (var state in _states.Values)
+            {
+                if (state.CurrentProducing == null) continue;
+
+                state.ElapsedTime += deltaTime;
+                if (state.ElapsedTime > state.RequiredTime)
+                    state.ElapsedTime = state.RequiredTime;
+            }
+        }
+
         // ====================================================================
         // 내부 로직
         // ====================================================================

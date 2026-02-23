@@ -239,8 +239,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkGameFlow
   ShowTopMostFoldoutHeaderGroup: 1
-  _readyTimeout: 30
-  _teamAssignPollInterval: 0.5
 --- !u!4 &102157244
 Transform:
   m_ObjectHideFlags: 0

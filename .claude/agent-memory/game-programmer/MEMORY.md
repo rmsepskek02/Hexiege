@@ -81,14 +81,19 @@
   - 클라이언트 UI → RequestEnqueueServerRpc(barracksId, unitTypeInt, teamIndex)
   - 서버: 팀 소유권·골드·인구·배럭 존재 검증 + EnqueueUnit() 실행 (골드 즉시 차감)
   - 서버: OnUnitProduced 구독 → SpawnUnitClientRpc(unitId, type, team, q, r, rallyQ, rallyR, hasRally)
+  - 서버: OnProductionStarted 구독 → ProductionStartedClientRpc(barracksId, type, requiredTime)
+  - 서버: OnProductionQueueChanged 구독 → SyncQueueStateClientRpc(barracksId, current, q0, q1, isAuto, progress)
   - 클라이언트: SpawnUnitWithId(id, ...) → OnUnitSpawned + OnUnitProduced 발행 → UnitFactory 프리팹 + ProductionTicker 랠리 이동
+  - 클라이언트: ProductionStartedClientRpc → ProductionState에 타이머 설정 → 프로그레스 바 시뮬레이션
+  - 클라이언트: SyncQueueStateClientRpc → ManualQueue + CurrentProducing 스냅샷 동기화
   - 실패 시: EnqueueFailedClientRpc로 요청자에게만 피드백
 - `UnitData` — ID 지정 생성자 오버로드 추가 (int id 선두 파라미터, BuildingData와 동일 패턴)
 - `UnitSpawnUseCase` — SpawnUnitWithId(id, type, team, coord) 추가
   - 클라이언트 측 재생성 전용: IsWalkable/중복 검증 생략, 이벤트 발행 포함
-- `ProductionTicker.Update()` — 서버 전용 분기 추가
-  - NetworkManager.Singleton.IsListening && !IsServer → Tick/TickIncome 생략, TickSiege만 실행
-  - Siege 시스템은 클라이언트에서도 유닛 시각 이동이 필요하므로 분기 없이 실행
+- `ProductionTicker.Update()` — 서버/클라이언트 분기
+  - 서버: Tick(생산 로직) + TickIncome + TickSiege 실행
+  - 클라이언트: TickProgressOnly(프로그레스 바 시각용) + TickSiege만 실행
+- `UnitProductionUseCase.TickProgressOnly(dt)` — 클라이언트 전용: ElapsedTime만 진행, 생산 로직 없음
 - `ProductionPanelUI` — Initialize에 NetworkProductionController 파라미터 추가 (기본값 null)
   - OnPistoleerTap: 멀티플레이 시 RequestEnqueueServerRpc 호출, 싱글플레이 시 기존 흐름
   - OnPistoleerLongPress: 멀티플레이에서는 자동 생산 미지원 (로그 경고 후 return)

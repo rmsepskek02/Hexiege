@@ -163,7 +163,10 @@ namespace Hexiege.Presentation
 
             if (isNetworkListening && !NetworkManager.Singleton.IsServer)
             {
-                // 멀티플레이 클라이언트: 생산/수입 Tick 생략 (서버가 처리 후 이벤트로 통지)
+                // 멀티플레이 클라이언트: UseCase Tick(생산 로직) 및 수입 Tick 생략
+                // 단, 프로그레스 바 시각 갱신을 위해 클라이언트 로컬 ElapsedTime만 진행
+                TickClientProgress(dt);
+
                 // Siege 시스템은 클라이언트에서도 유닛 시각 이동을 처리해야 하므로 실행 유지
                 TickSiege(dt);
                 return;
@@ -386,6 +389,26 @@ namespace Hexiege.Presentation
                 if (marker != null)
                     marker.SetActive(false);
             }
+        }
+
+        // ====================================================================
+        // 클라이언트 프로그레스 바 시뮬레이션
+        // ====================================================================
+
+        /// <summary>
+        /// 멀티플레이 클라이언트 전용: ProductionState의 ElapsedTime만 진행.
+        /// 실제 생산 로직(스폰, 큐 처리)은 서버가 담당하고,
+        /// 클라이언트는 프로그레스 바 시각 갱신 목적으로만 타이머를 진행.
+        /// RequiredTime 도달 시 캡 처리 (서버 SpawnUnitClientRpc가 리셋함).
+        /// </summary>
+        private void TickClientProgress(float dt)
+        {
+            if (_productionUseCase == null) return;
+
+            // 전체 ProductionState를 순회하여 CurrentProducing이 있는 상태의 타이머 진행
+            // GetAllStates가 없으므로 UnitProductionUseCase에 접근자 추가 필요
+            // → 대안: _productionUseCase.TickProgressOnly(dt) 메서드 추가
+            _productionUseCase.TickProgressOnly(dt);
         }
 
         // ====================================================================

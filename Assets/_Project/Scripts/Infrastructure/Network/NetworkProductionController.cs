@@ -48,6 +48,12 @@ namespace Hexiege.Infrastructure
         /// <summary> OnUnitProduced 구독 해제용 Disposable. </summary>
         private System.IDisposable _unitProducedSubscription;
 
+        /// <summary> OnProductionStarted 구독 해제용 Disposable. </summary>
+        private System.IDisposable _productionStartedSubscription;
+
+        /// <summary> OnProductionQueueChanged 구독 해제용 Disposable (큐 취소 동기화). </summary>
+        private System.IDisposable _queueChangedSubscription;
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -83,6 +89,10 @@ namespace Hexiege.Infrastructure
             base.OnNetworkDespawn();
             _unitProducedSubscription?.Dispose();
             _unitProducedSubscription = null;
+            _productionStartedSubscription?.Dispose();
+            _productionStartedSubscription = null;
+            _queueChangedSubscription?.Dispose();
+            _queueChangedSubscription = null;
         }
 
         // ====================================================================
@@ -100,7 +110,66 @@ namespace Hexiege.Infrastructure
             _unitProducedSubscription = GameEvents.OnUnitProduced
                 .Subscribe(OnUnitProduced);
 
-            Debug.Log("[Network] NetworkProductionController: 서버 측 OnUnitProduced 구독 완료.");
+            // 생산 시작 이벤트 → 클라이언트에 타이머 시작 알림 (프로그레스 바 동기화)
+            _productionStartedSubscription = GameEvents.OnProductionStarted
+                .Subscribe(OnProductionStarted);
+
+            // 큐 변경 이벤트 → 클라이언트에 전체 큐 상태 동기화 (취소 등 대응)
+            _queueChangedSubscription = GameEvents.OnProductionQueueChanged
+                .Subscribe(OnProductionQueueChanged);
+
+            Debug.Log("[Network] NetworkProductionController: 서버 측 생산 이벤트 구독 완료.");
+        }
+
+        /// <summary>
+        /// 생산 시작 이벤트 핸들러 (서버 전용).
+        /// 클라이언트에 생산 시작 정보를 전파하여 프로그레스 바를 동기화.
+        /// </summary>
+        private void OnProductionStarted(ProductionStartedEvent e)
+        {
+            if (!IsServer) return;
+
+            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            if (production == null) return;
+
+            var state = production.GetState(e.BarracksId);
+            if (state == null) return;
+
+            ProductionStartedClientRpc(
+                e.BarracksId,
+                (int)e.Type,
+                state.RequiredTime);
+        }
+
+        /// <summary>
+        /// 큐 변경 이벤트 핸들러 (서버 전용).
+        /// 클라이언트에 전체 큐 상태를 스냅샷으로 전파.
+        /// ManualQueue 최대 2개 + CurrentProducing 여부를 전송.
+        /// </summary>
+        private void OnProductionQueueChanged(ProductionQueueChangedEvent e)
+        {
+            if (!IsServer) return;
+
+            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            if (production == null) return;
+
+            var state = production.GetState(e.BarracksId);
+            if (state == null) return;
+
+            // CurrentProducing: -1이면 없음
+            int currentType = state.CurrentProducing.HasValue ? (int)state.CurrentProducing.Value : -1;
+
+            // ManualQueue: 최대 2개, 없는 슬롯은 -1
+            int q0 = state.ManualQueue.Count > 0 ? (int)state.ManualQueue[0] : -1;
+            int q1 = state.ManualQueue.Count > 1 ? (int)state.ManualQueue[1] : -1;
+
+            SyncQueueStateClientRpc(
+                e.BarracksId,
+                currentType,
+                q0,
+                q1,
+                state.IsAutoMode,
+                state.Progress);
         }
 
         /// <summary>
@@ -321,6 +390,96 @@ namespace Hexiege.Infrastructure
             GameEvents.OnUnitProduced.OnNext(new UnitProducedEvent(unit, rallyPoint));
 
             Debug.Log($"[Network] 클라이언트: 유닛 재생성 완료. UnitId={unit.Id}, Type={unitType}, Team={team}");
+        }
+
+        // ====================================================================
+        // ClientRpc — 생산 UI 동기화 (큐/프로그레스)
+        // ====================================================================
+
+        /// <summary>
+        /// 서버에서 생산 시작 시 클라이언트에 전파.
+        /// 클라이언트 측 ProductionState에 타이머 정보를 설정하여
+        /// Update()에서 프로그레스 바를 로컬 시뮬레이션 가능하게 함.
+        /// </summary>
+        [ClientRpc]
+        private void ProductionStartedClientRpc(
+            int barracksId,
+            int unitTypeInt,
+            float requiredTime)
+        {
+            if (IsServer) return;
+
+            if (_bootstrapper == null)
+                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+
+            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            if (production == null) return;
+
+            var state = production.GetState(barracksId);
+            if (state == null) return;
+
+            // 클라이언트 측 ProductionState에 생산 중 정보 설정 (프로그레스 바 시뮬레이션용)
+            state.CurrentProducing = (UnitType)unitTypeInt;
+            state.ElapsedTime = 0f;
+            state.RequiredTime = requiredTime;
+
+            // UI 갱신 이벤트 발행
+            GameEvents.OnProductionStarted.OnNext(
+                new ProductionStartedEvent(barracksId, (UnitType)unitTypeInt));
+            GameEvents.OnProductionQueueChanged.OnNext(
+                new ProductionQueueChangedEvent(barracksId));
+
+            Debug.Log($"[Network] 클라이언트: 생산 시작 동기화. BarracksId={barracksId}, Type={unitTypeInt}, Time={requiredTime}s");
+        }
+
+        /// <summary>
+        /// 서버에서 큐 상태 변경 시 전체 스냅샷을 클라이언트에 전파.
+        /// 큐 추가, 취소, 생산 완료 등 모든 큐 변경에 대응.
+        /// </summary>
+        [ClientRpc]
+        private void SyncQueueStateClientRpc(
+            int barracksId,
+            int currentTypeInt,
+            int queue0TypeInt,
+            int queue1TypeInt,
+            bool isAutoMode,
+            float progress)
+        {
+            if (IsServer) return;
+
+            if (_bootstrapper == null)
+                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+
+            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            if (production == null) return;
+
+            var state = production.GetState(barracksId);
+            if (state == null) return;
+
+            // 큐 상태 동기화 (서버 스냅샷으로 덮어쓰기)
+            state.ManualQueue.Clear();
+            if (queue0TypeInt >= 0) state.ManualQueue.Add((UnitType)queue0TypeInt);
+            if (queue1TypeInt >= 0) state.ManualQueue.Add((UnitType)queue1TypeInt);
+
+            // CurrentProducing 동기화 (ProductionStartedClientRpc가 아직 안 왔을 경우 대비)
+            if (currentTypeInt >= 0)
+            {
+                // 이미 ProductionStartedClientRpc에서 설정된 경우 RequiredTime 보존
+                if (!state.CurrentProducing.HasValue)
+                    state.CurrentProducing = (UnitType)currentTypeInt;
+            }
+            else
+            {
+                state.CurrentProducing = null;
+                state.ElapsedTime = 0f;
+                state.RequiredTime = 0f;
+            }
+
+            state.IsAutoMode = isAutoMode;
+
+            // UI 갱신 이벤트 발행
+            GameEvents.OnProductionQueueChanged.OnNext(
+                new ProductionQueueChangedEvent(barracksId));
         }
 
         // ====================================================================
