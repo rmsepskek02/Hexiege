@@ -9,6 +9,11 @@
 //   4. Instantiate → BuildingView 컴포넌트 초기화
 //   5. 생성된 GameObject를 Buildings 부모 오브젝트 하위에 배치
 //
+// [Phase 2] 3D 전환:
+//   - SpriteRenderer + sortingOrder 코드 완전 제거
+//   - 3D MeshRenderer 기반 프리팹 사용 (프리팹 교체는 에디터 작업)
+//   - 렌더 순서는 3D 깊이(Z-buffer)로 자동 처리
+//
 // Inspector 설정:
 //   - 프리팹 3종: Castle, Barracks, MiningPost
 //   - BuildingParent: [World]/Buildings Transform
@@ -32,13 +37,13 @@ namespace Hexiege.Infrastructure
         // ====================================================================
 
         [Header("Prefabs")]
-        [Tooltip("본기지 프리팹 (SpriteRenderer + BuildingView)")]
+        [Tooltip("본기지 프리팹 (Renderer + BuildingView)")]
         [SerializeField] private GameObject _castlePrefab;
 
-        [Tooltip("배럭 프리팹 (SpriteRenderer + BuildingView)")]
+        [Tooltip("배럭 프리팹 (Renderer + BuildingView)")]
         [SerializeField] private GameObject _barracksPrefab;
 
-        [Tooltip("채굴소 프리팹 (SpriteRenderer + BuildingView)")]
+        [Tooltip("채굴소 프리팹 (Renderer + BuildingView)")]
         [SerializeField] private GameObject _miningPostPrefab;
 
         [Header("Hierarchy")]
@@ -110,20 +115,7 @@ namespace Hexiege.Infrastructure
             GameObject obj = Instantiate(prefab, viewPos, Quaternion.identity, _buildingParent);
             obj.name = $"Building_{data.Type}_{data.Team}_{data.Id}";
 
-            // SortingOrder 동적 설정.
-            // 건물이 아래쪽 타일(더 높은 sortingOrder)에 가려지지 않도록
-            // 뷰 좌표 기반으로 타일과 동일한 방식으로 계산 후 +50 오프셋 적용.
-            // HexGridRenderer의 타일 sortingOrder 계산 방식과 동일.
-            //   FlatTop: ViewConverter.FlatTopSortingOrder(viewPos) + 50
-            //   PointyTop: coord.R + 50
-            var sr = obj.GetComponent<SpriteRenderer>();
-            if (sr != null)
-            {
-                if (HexMetrics.Orientation == Domain.HexOrientation.FlatTop)
-                    sr.sortingOrder = ViewConverter.FlatTopSortingOrder(viewPos) + 50;
-                else
-                    sr.sortingOrder = data.Position.R + 50;
-            }
+            // [Phase 2] 3D 전환: sortingOrder 제거 — 렌더 순서는 Z-buffer로 자동 처리
 
             // BuildingView 컴포넌트 초기화
             var view = obj.GetComponent<Presentation.BuildingView>();

@@ -43,8 +43,7 @@ namespace Hexiege.Bootstrap
         [Tooltip("전역 설정 ScriptableObject")]
         [SerializeField] private GameConfig _config;
 
-        [Tooltip("권총병 애니메이션 데이터")]
-        [SerializeField] private UnitAnimationData _pistoleerAnimData;
+        // [Phase 2] UnitAnimationData 제거 — Animator(Mecanim)가 대체
 
         [Header("Scene References")]
         [Tooltip("[World]/HexGrid 오브젝트의 HexGridRenderer")]
@@ -386,6 +385,7 @@ namespace Hexiege.Bootstrap
         /// 로컬 플레이어 팀에 맞춰 카메라 초기 위치를 설정.
         /// Blue 팀: 맵 하단(자신의 Castle 근처), Red 팀: 반전된 뷰 기준 하단.
         /// ViewConverter가 설정된 후 호출되어야 함.
+        /// XZ 평면 기반: X, Z로 맵 위치, Y는 카메라 높이(CameraController가 유지).
         /// </summary>
         private void SetCameraStartPositionForTeam(TeamId localTeam, OrientationConfig oc)
         {
@@ -410,7 +410,17 @@ namespace Hexiege.Bootstrap
             Vector3 startPos = HexMetrics.HexToWorld(cameraTargetCoord);
             // 카메라 위치도 뷰 좌표계로 변환 (Red팀이면 반전)
             startPos = ViewConverter.ToView(startPos);
-            startPos.z = 0f;
+
+            // 틸트 보정: 카메라가 틸트되어 있으면 목표 지점이 화면 중앙에 오도록 Z 오프셋 적용
+            float tiltAngle = _cameraController.TiltAngle;
+            if (tiltAngle > 0f && tiltAngle < 90f)
+            {
+                float cameraHeight = _mainCamera != null ? _mainCamera.transform.position.y : 15f;
+                float zOffset = cameraHeight / Mathf.Tan(tiltAngle * Mathf.Deg2Rad);
+                startPos.z -= zOffset;
+            }
+
+            // Y는 카메라 높이 — CameraController.SetPosition()이 기존 Y를 유지
             _cameraController.SetPosition(startPos);
 
             Debug.Log($"[Network] 카메라 시작 위치 설정. 팀={localTeam}, 행={cameraRow}, " +
@@ -465,16 +475,33 @@ namespace Hexiege.Bootstrap
 
         /// <summary>
         /// 카메라 초기 위치를 맵 중심으로 설정하고, 이동 경계를 지정.
+        /// XZ 평면 기반: X, Z를 맵 이동축으로 사용.
+        /// 틸트 각도를 적용하고, 틸트로 인한 Z 오프셋을 보정.
         /// </summary>
         private void SetupCamera(HexOrientation orientation, OrientationConfig oc)
         {
             if (_cameraController == null || _config == null) return;
 
-            // 맵 중심 계산
-            Vector3 center = HexMetrics.GridCenter(oc.GridWidth, oc.GridHeight);
-            _cameraController.SetPosition(center);
+            // 틸트 적용 (CameraController.Start()에서도 호출되지만, SetupCamera가 먼저 실행될 수 있음)
+            _cameraController.ApplyTilt();
 
-            // 맵 경계 설정 (여유분 포함)
+            // 맵 중심 계산 (XZ 평면)
+            Vector3 center = HexMetrics.GridCenter(oc.GridWidth, oc.GridHeight);
+
+            // 틸트 보정: 틸트된 카메라가 정면을 바라보도록 Z 오프셋 적용.
+            // 카메라가 X축으로 틸트되면, 화면 중앙이 카메라 직하가 아닌 앞쪽을 가리킴.
+            // zOffset = height / tan(tiltAngle) — 카메라 높이에서 XZ 평면까지의 수평 거리.
+            Vector3 cameraPos = center;
+            float tiltAngle = _cameraController.TiltAngle;
+            if (tiltAngle > 0f && tiltAngle < 90f)
+            {
+                float cameraHeight = _mainCamera != null ? _mainCamera.transform.position.y : 15f;
+                float zOffset = cameraHeight / Mathf.Tan(tiltAngle * Mathf.Deg2Rad);
+                cameraPos.z -= zOffset;
+            }
+            _cameraController.SetPosition(cameraPos);
+
+            // 맵 경계 설정 (여유분 포함, XZ 평면)
             Vector3 topLeft = HexMetrics.HexToWorld(
                 HexGrid.OffsetToCube(0, 0, orientation));
             Vector3 bottomRight = HexMetrics.HexToWorld(
@@ -483,8 +510,8 @@ namespace Hexiege.Bootstrap
             float margin = 2f;
             Vector3 size = new Vector3(
                 Mathf.Abs(bottomRight.x - topLeft.x) + margin * 2,
-                Mathf.Abs(topLeft.y - bottomRight.y) + margin * 2,
-                0f);
+                0f, // Y축은 높이 — 경계 불필요
+                Mathf.Abs(topLeft.z - bottomRight.z) + margin * 2);
 
             _cameraController.SetBounds(center, size);
 
@@ -577,7 +604,7 @@ namespace Hexiege.Bootstrap
         {
             // UnitFactory에 런타임 의존성 주입 (생산된 유닛에 자동 적용)
             if (_unitFactory != null)
-                _unitFactory.SetDependencyReferences(_pistoleerAnimData, _config, _unitMovement, _unitCombat);
+                _unitFactory.SetDependencyReferences(_config, _unitMovement, _unitCombat);
 
             // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요)
             if (_productionTicker != null)

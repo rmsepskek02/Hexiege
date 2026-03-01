@@ -57,8 +57,8 @@ namespace Hexiege.Infrastructure
         [SerializeField] private GameEndUI _gameEndUI;
 
         [Header("멀티플레이 재시작 설정")]
-        [Tooltip("재시작 시 로드할 씬 이름. 로비/메인 메뉴 씬 이름을 입력.")]
-        [SerializeField] private string _lobbySceneName = "SampleScene";
+        [Tooltip("재시작 시 로드할 씬 이름. 로비/메인 메뉴 씬 이름을 입력. (예: 2D, 3D)")]
+        [SerializeField] private string _lobbySceneName = "2D";
 
         // ====================================================================
         // 내부 상태

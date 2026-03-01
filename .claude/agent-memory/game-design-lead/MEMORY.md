@@ -3,7 +3,7 @@
 ## 게임 컨셉
 - 장르: 헥스 그리드 기반 1v1 실시간 전략 (RTS)
 - 플랫폼: 모바일 세로 화면 (9:16, Android/iOS)
-- 테마: 3/4뷰 세미 아이소메트릭 픽셀/스프라이트 아트
+- 테마: Clash of Clans 스타일 Orthographic 이소메트릭 (55도 틸트), 3D 메시
 - 매칭: P2P Host-Client (Unity Relay NAT 관통)
 
 ## 핵심 게임플레이 루프
@@ -25,7 +25,9 @@
 - 현재 구현: 권총병(Pistoleer) 1종
   - HP: 10, 공격력: 3, 사거리: 1
   - 생산 시간: 5초, 비용: 50골드, 인구: 1
-- 스프라이트: 3방향(NE/E/SE) × 3상태(Idle/Walk/Attack) + flipX
+- **3D 모델**: Meshy.ai 제작, Mixamo 애니메이션 (Idle/Walk/Run/Dead/Attack)
+- **Animator 파라미터**: IsWalking(bool), IsDead(bool), Attack(trigger)
+- **방향 표현**: Y축 회전 (E=0°, NE=60°, NW=120°, W=180°, SW=240°, SE=300°) — flipX 폐지
 - 미래 계획: 3종족, 다양한 유닛 타입 (TDD Phase 3)
 
 ### 건물
@@ -34,6 +36,8 @@
 | Castle | 50 | 자동 배치 | 본기지, 파괴 시 패배 |
 | Barracks | 30 | 100골드 | 유닛 생산 |
 | MiningPost | 20 | 50골드 | 채굴소, 금광 타일 전용 |
+
+**3D 모델**: Meshy.ai로 제작 예정 (Castle/Barracks/MiningPost)
 
 ### 자원 시스템
 - 시작 골드: 500
@@ -63,10 +67,10 @@
 ## 팀별 관점 (확정)
 - Blue팀: 자기 Castle 맵 하단 → 화면 하단에 보여야 함 (그대로)
 - Red팀: 자기 Castle 맵 상단 → 화면 하단에 보여야 함 (반전 필요)
-- 채택 방식: **ViewConverter** (좌표 변환, 스프라이트 뒤집기 없음)
+- 채택 방식: **ViewConverter** (좌표 변환, 메시 뒤집기 없음)
   - `ToView(pos) = 2*mapCenter - pos` (Red팀만, Blue팀은 항등)
   - 유닛 이동 방향도 FlipDirection() 적용
-  - 카메라 Z축 180° 회전 방식은 폐기 (스프라이트 뒤집힘 문제)
+  - 카메라 Z축 180° 회전 방식은 폐기 (메시 뒤집힘 문제)
 
 ## 멀티플레이 기획
 - Host = Blue팀, Client = Red팀
@@ -78,7 +82,7 @@
 ## 구현 완료 기능
 - 헥스 그리드 (PointyTop/FlatTop 듀얼 지원)
 - 유닛 이동 + A* 경로탐색
-- 유닛 스프라이트 애니메이션 (FrameAnimator)
+- 유닛 3D Animator 기반 애니메이션 (IsWalking/IsDead/Attack)
 - 전투 시스템 (IDamageable, 이동 중 자동 공격)
 - 건물 배치 (Castle/Barracks/MiningPost)
 - 자원 시스템 (골드 수입/지출)
@@ -88,19 +92,26 @@
 - HUD (골드/인구/타일 카운트)
 - 멀티플레이 인프라 (Lobby/Relay/NGO Phase 1~8)
 - ViewConverter (팀별 관점 반전, 구현 완료)
+- **2D→3D 전환 완료 (2026-02-27)**
+  - XZ 평면 좌표계, Orthographic 55도 틸트 카메라
+  - Animator 기반 유닛, sortingOrder 폐기
 
 ## 미구현/미결 기획 항목
+- 건물 3D 모델 (Castle/Barracks/MiningPost — Meshy.ai 제작 예정)
+- 헥스 타일 3D 모델 (Meshy.ai 제작 예정)
+- 카메라 각도 최적화 (현재 55도 적용, 테스트 후 조정 가능)
 - 3종족 시스템 (TDD Phase 3)
 - 다양한 유닛 타입 (현재 Pistoleer 1종)
 - AI 상태머신 (현재는 공성 시스템으로 임시 대체)
+- Mixamo 사격 애니메이션 선정 (Attack 클립)
 - 사운드/BGM
 - 튜토리얼
 - 밸런싱 (골드/생산시간/HP)
 - PlayFab 백엔드 연동 (계정/랭킹/인앱결제)
 - 멀티플레이 로비 UI 완성
 
-## 정렬 순서 규칙
-- 타일: 0~30 (행 기반)
-- 건물: 50
-- 유닛: 100
-- 랠리마커: 75
+## 비주얼 목표
+- 레퍼런스: Clash of Clans, Clash Royale
+- 스타일: 카툰/스타일라이즈드, 밝고 선명한 색상
+- 뷰: Orthographic 55도 탑다운 이소메트릭
+- 모바일 최적화: 로우~미드폴리 3D 모델

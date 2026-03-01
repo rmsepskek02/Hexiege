@@ -4,19 +4,20 @@
 //
 // 현재 범위 (건물 배치만):
 //   - BuildingData 참조 유지
-//   - 스프라이트는 프리팹에 미리 설정 (SpriteRenderer)
+//   - 메시/렌더러는 프리팹에 미리 설정
 //
 // 향후 확장 (MVP):
 //   - HP 바 표시
 //   - 생산 진행률 표시
 //   - 파괴 애니메이션
 //
-// 프리팹 구조:
+// 프리팹 구조 (3D 전환 후):
 //   Building_{Type} (GameObject)
-//     ├─ SpriteRenderer (bld_{type}.png, Order in Layer: 50)
+//     ├─ MeshFilter + MeshRenderer (3D 건물 메시)
+//     ├─ Collider (3D 클릭 판정)
 //     └─ BuildingView (이 스크립트)
 //
-// sortingOrder = 50: 타일(0~30) 위, 유닛(100) 아래.
+// [Phase 2] 3D 전환: sortingOrder 제거 — Z-buffer로 렌더 순서 자동 처리.
 //
 // Presentation 레이어 — Unity 의존 (MonoBehaviour).
 // ============================================================================

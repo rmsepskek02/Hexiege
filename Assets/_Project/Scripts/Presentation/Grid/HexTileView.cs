@@ -2,26 +2,24 @@
 // HexTileView.cs
 // 타일 하나의 비주얼(색상, 선택 하이라이트)을 담당하는 Presentation 컴포넌트.
 //
-// 이 스크립트가 부착되는 프리팹 구조 (Phase 10에서 생성):
+// [Phase 2] 3D 전환 완료:
+//   - SpriteRenderer → Renderer (MeshRenderer/SpriteRenderer 모두 호환)
+//   - PolygonCollider2D → Collider (BoxCollider/MeshCollider 등 3D 콜라이더)
+//   - sortingOrder 관련 코드 제거
+//   - 색상 변경: renderer.material.color 사용
+//
+// 프리팹 구조 (3D 전환 후):
 //   HexTile (GameObject)
-//     ├─ SpriteRenderer  (tile_hex.png 스프라이트)
-//     ├─ PolygonCollider2D (클릭 판정용)
+//     ├─ MeshFilter + MeshRenderer (3D 타일 메시)
+//     ├─ BoxCollider (3D 클릭 판정)
 //     └─ HexTileView (이 스크립트)
 //
 // 역할:
-//   1. 타일 팀 색상 표시 — SpriteRenderer.color를 팀별 색상으로 설정
+//   1. 타일 팀 색상 표시 — Renderer.material.color를 팀별 색상으로 설정
 //   2. 선택 하이라이트 — 선택된 타일에 노란 틴트 적용
 //   3. 이벤트 구독 — GameEvents를 구독하여 자동 갱신
 //
-// 색상 변경 흐름:
-//   유닛이 이동 → UnitMovementUseCase가 SetOwner + OnTileOwnerChanged 발행
-//   → 이 컴포넌트가 이벤트 수신 → 자신의 좌표와 일치하면 색상 변경
-//
-// 선택 하이라이트 흐름:
-//   InputHandler가 클릭 → GridInteractionUseCase → OnTileSelected 발행
-//   → 이 컴포넌트가 이벤트 수신 → 이전 선택 해제 + 새 선택 하이라이트
-//
-// Presentation 레이어 — Unity 의존 (MonoBehaviour, SpriteRenderer).
+// Presentation 레이어 — Unity 의존 (MonoBehaviour, Renderer).
 // ============================================================================
 
 using UnityEngine;
@@ -32,7 +30,6 @@ using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
-    [RequireComponent(typeof(SpriteRenderer))]
     public class HexTileView : MonoBehaviour
     {
         // ====================================================================
@@ -48,8 +45,14 @@ namespace Hexiege.Presentation
         /// <summary> 이 타일이 현재 선택 상태인지 여부. </summary>
         private bool _isSelected;
 
-        /// <summary> 이 타일의 SpriteRenderer. 색상 변경에 사용. </summary>
-        private SpriteRenderer _spriteRenderer;
+        /// <summary>
+        /// 이 타일의 Renderer. 색상 변경에 사용.
+        /// [Phase 2] Renderer 타입으로 선언하여 MeshRenderer/SpriteRenderer 모두 호환.
+        /// </summary>
+        private Renderer _renderer;
+
+        /// <summary> 머티리얼 인스턴스 캐시. material 접근 시 복제되므로 캐시하여 GC 방지. </summary>
+        private Material _materialInstance;
 
         /// <summary> 전역 설정 참조. 팀 색상, 선택 틴트 값을 읽어옴. </summary>
         private GameConfig _config;
@@ -68,7 +71,13 @@ namespace Hexiege.Presentation
         {
             _coord = coord;
             _config = config;
-            _spriteRenderer = GetComponent<SpriteRenderer>();
+
+            // [Phase 2] Renderer 타입으로 가져와서 MeshRenderer/SpriteRenderer 모두 대응
+            _renderer = GetComponent<Renderer>();
+
+            // 머티리얼 인스턴스 캐시 (material 프로퍼티는 첫 접근 시 복제본 생성)
+            if (_renderer != null)
+                _materialInstance = _renderer.material;
 
             // 초기 색상 설정 (Neutral = 회색)
             UpdateColor();
@@ -87,12 +96,10 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 게임 이벤트를 구독.
         /// .AddTo(this): 이 MonoBehaviour가 Destroy되면 자동으로 구독 해제.
-        /// 메모리 누수 방지.
         /// </summary>
         private void SubscribeEvents()
         {
             // 타일 소유자 변경 이벤트 구독
-            // → 자신의 좌표와 일치할 때만 색상 갱신
             GameEvents.OnTileOwnerChanged
                 .Subscribe(e =>
                 {
@@ -105,7 +112,6 @@ namespace Hexiege.Presentation
                 .AddTo(this);
 
             // 타일 선택 이벤트 구독
-            // → 이전 선택 타일 해제 + 새 선택 타일 하이라이트
             GameEvents.OnTileSelected
                 .Subscribe(e =>
                 {
@@ -117,7 +123,6 @@ namespace Hexiege.Presentation
                     }
 
                     // 새 선택 하이라이트 (내가 새 선택이면)
-                    // Coord == PreviousCoord일 때는 해제 이벤트이므로 선택하지 않음
                     if (e.Coord == _coord)
                     {
                         _isSelected = !(e.PreviousCoord.HasValue && e.PreviousCoord.Value == e.Coord);
@@ -132,17 +137,12 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 현재 소유 팀과 선택 상태에 따라 SpriteRenderer.color를 갱신.
-        ///
-        /// 색상 = 팀 색상 × (선택 시 노란 틴트)
-        ///
-        /// 예:
-        ///   Blue 팀 + 선택 안 됨 → RGB(77,128,230)
-        ///   Blue 팀 + 선택 됨   → RGB(77,128,230) × RGB(255,255,128) = 밝은 노란 파랑
+        /// 현재 소유 팀과 선택 상태에 따라 머티리얼 색상을 갱신.
+        /// [Phase 2] SpriteRenderer.color → material.color 로 변경.
         /// </summary>
         private void UpdateColor()
         {
-            if (_config == null || _spriteRenderer == null) return;
+            if (_config == null || _materialInstance == null) return;
 
             Color baseColor = _config.GetTeamColor(_currentOwner);
 
@@ -152,7 +152,7 @@ namespace Hexiege.Presentation
                 baseColor *= _config.SelectedTint;
             }
 
-            _spriteRenderer.color = baseColor;
+            _materialInstance.color = baseColor;
         }
     }
 }

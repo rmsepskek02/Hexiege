@@ -27,9 +27,10 @@
 //       [1]  [1] [1]  [1]
 //       [2] [2] [2] [2]
 //
-// Y축 방향:
-//   row가 증가할수록 y가 감소 (화면 아래쪽).
-//   2D 탑다운 뷰에서 위쪽이 row=0.
+// Z축 방향 (XZ 평면):
+//   row가 증가할수록 z가 감소 (맵 아래쪽).
+//   3D 탑다운 뷰에서 +Z 방향이 row=0.
+//   Y축은 높이(수직)로 사용, 타일은 Y=0 평면에 배치.
 //
 // Core 레이어 — Unity 의존 (Vector3, Mathf 사용).
 // ============================================================================
@@ -55,7 +56,7 @@ namespace Hexiege.Core
 
         /// <summary>
         /// 유닛을 타일 중심보다 위로 올리는 Y 오프셋.
-        /// 유닛이 타일 "위에 서 있는" 시각적 효과를 위한 값.
+        /// XZ 평면에서 Y축은 높이이므로, 유닛이 타일 "위에 떠 있는" 효과.
         /// GameBootstrapper에서 GameConfig.UnitYOffset 값을 복사.
         /// </summary>
         public static float UnitYOffset = 0.15f;
@@ -90,9 +91,9 @@ namespace Hexiege.Core
         ///    col = Q + (R - (R & 1)) / 2
         ///    row = R
         ///
-        /// 2. offset 좌표 → 월드 위치 계산
+        /// 2. offset 좌표 → 월드 위치 계산 (XZ 평면)
         ///    x = col * TileWidth + (홀수행이면 TileWidth * 0.5)
-        ///    y = -row * TileHeight * 0.75 (아래로 갈수록 y 감소)
+        ///    z = -row * TileHeight * 0.75 (아래로 갈수록 z 감소)
         ///
         /// 0.75를 곱하는 이유:
         ///   pointy-top 육각형은 위아래가 겹치므로 세로 간격이 타일 높이의 3/4.
@@ -103,14 +104,14 @@ namespace Hexiege.Core
             int col = coord.Q + (coord.R - (coord.R & 1)) / 2;
             int row = coord.R;
 
-            // offset 좌표 → 월드 위치
+            // offset 좌표 → 월드 위치 (XZ 평면, Y=0)
             float x = col * TileWidth;
             if (row % 2 != 0)
                 x += TileWidth * 0.5f;  // 홀수 행: 반 칸 오른쪽 시프트
 
-            float y = -row * TileHeight * 0.75f; // row↑ → y↓ (탑다운 2D)
+            float z = -row * TileHeight * 0.75f; // row↑ → z↓ (탑다운 3D)
 
-            return new Vector3(x, y, 0f);
+            return new Vector3(x, 0f, z);
         }
 
         /// <summary>
@@ -121,9 +122,9 @@ namespace Hexiege.Core
         ///    col = Q
         ///    row = R + (Q - (Q & 1)) / 2
         ///
-        /// 2. offset 좌표 → 월드 위치 계산
+        /// 2. offset 좌표 → 월드 위치 계산 (XZ 평면)
         ///    x = col * TileWidth * 0.75 (flat-top은 가로에 겹침)
-        ///    y = -row * TileHeight + (홀수열이면 -TileHeight * 0.5)
+        ///    z = -row * TileHeight + (홀수열이면 -TileHeight * 0.5)
         ///
         /// 0.75를 곱하는 이유:
         ///   flat-top 육각형은 좌우가 겹치므로 가로 간격이 타일 폭의 3/4.
@@ -134,13 +135,13 @@ namespace Hexiege.Core
             int col = coord.Q;
             int row = coord.R + (coord.Q - (coord.Q & 1)) / 2;
 
-            // offset 좌표 → 월드 위치
+            // offset 좌표 → 월드 위치 (XZ 평면, Y=0)
             float x = col * TileWidth * 0.75f;    // 가로 3/4 겹침
-            float y = -row * TileHeight;           // 세로 겹침 없음
+            float z = -row * TileHeight;           // 세로 겹침 없음
             if (col % 2 != 0)
-                y -= TileHeight * 0.5f;            // 홀수 열: 반 칸 아래 시프트
+                z -= TileHeight * 0.5f;            // 홀수 열: 반 칸 아래 시프트
 
-            return new Vector3(x, y, 0f);
+            return new Vector3(x, 0f, z);
         }
 
         // ====================================================================
@@ -170,11 +171,12 @@ namespace Hexiege.Core
 
         /// <summary>
         /// PointyTop (even-r offset) 역변환.
+        /// XZ 평면 기반: Z좌표로 row 역산.
         /// </summary>
         private static HexCoord WorldToHexPointyTop(Vector3 worldPos)
         {
-            // 대략적인 row 추정 (y로부터 역산)
-            int approxRow = Mathf.RoundToInt(-worldPos.y / (TileHeight * 0.75f));
+            // 대략적인 row 추정 (z로부터 역산)
+            int approxRow = Mathf.RoundToInt(-worldPos.z / (TileHeight * 0.75f));
 
             // 해당 row의 x 오프셋 보정 후 col 추정
             float xOffset = (approxRow % 2 != 0) ? TileWidth * 0.5f : 0f;
@@ -205,6 +207,7 @@ namespace Hexiege.Core
 
         /// <summary>
         /// FlatTop (even-q offset) 역변환.
+        /// XZ 평면 기반: Z좌표로 row 역산.
         /// PointyTop과 동일한 9-neighbor 탐색 알고리즘, 다른 역산 공식.
         /// </summary>
         private static HexCoord WorldToHexFlatTop(Vector3 worldPos)
@@ -212,9 +215,9 @@ namespace Hexiege.Core
             // 대략적인 col 추정 (x로부터 역산)
             int approxCol = Mathf.RoundToInt(worldPos.x / (TileWidth * 0.75f));
 
-            // 해당 col의 y 오프셋 보정 후 row 추정
-            float yOffset = (approxCol % 2 != 0) ? TileHeight * 0.5f : 0f;
-            int approxRow = Mathf.RoundToInt((-worldPos.y - yOffset) / TileHeight);
+            // 해당 col의 z 오프셋 보정 후 row 추정
+            float zOffset = (approxCol % 2 != 0) ? TileHeight * 0.5f : 0f;
+            int approxRow = Mathf.RoundToInt((-worldPos.z - zOffset) / TileHeight);
 
             // 추정 좌표를 기준으로 주변 9개 후보 중 가장 가까운 타일 선택
             HexCoord best = HexGrid.OffsetToCube(approxCol, approxRow, HexOrientation.FlatTop);
@@ -246,12 +249,13 @@ namespace Hexiege.Core
         /// <summary>
         /// 헥스 좌표 → 유닛이 서 있을 월드 좌표 변환.
         /// HexToWorld()에 UnitYOffset을 더해 타일 위에 서 있는 위치를 반환.
+        /// XZ 평면에서 Y축이 높이이므로, Y에 오프셋 추가.
         /// UnitFactory, UnitView 등 유닛 위치 설정 시 사용.
         /// </summary>
         public static Vector3 HexToWorldUnit(HexCoord coord)
         {
             Vector3 pos = HexToWorld(coord);
-            pos.y += UnitYOffset;
+            pos.y += UnitYOffset; // Y축 = 높이 (XZ 평면에서 위로 올림)
             return pos;
         }
 

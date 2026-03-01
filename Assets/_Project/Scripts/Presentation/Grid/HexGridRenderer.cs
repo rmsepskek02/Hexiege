@@ -6,21 +6,16 @@
 //   [World]/HexGrid (빈 GameObject) — 모든 타일의 부모
 //
 // 역할:
-//   1. HexGrid의 187개 타일을 순회
+//   1. HexGrid의 타일을 순회
 //   2. 각 HexCoord → HexMetrics.HexToWorld()로 월드 좌표 계산
-//   3. 타일 프리팹을 Instantiate하여 해당 위치에 배치
+//   3. 타일 프리팹을 Instantiate하여 XZ 평면에 배치
 //   4. HexTileView 컴포넌트를 Initialize()로 초기화
 //
-// 렌더링 순서 (Sorting):
-//   타일은 모두 같은 Sorting Layer("Background")에 배치.
-//   row가 큰(화면 아래쪽) 타일이 위에 그려지도록 sortingOrder = row로 설정.
-//   (탑다운 2D에서 아래쪽 타일이 위에 겹쳐 보여야 자연스러움)
-//
-// 타일 프리팹 구조 (Phase 10에서 생성):
-//   HexTile
-//     ├─ SpriteRenderer (tile_hex.png, Sorting Layer: Background)
-//     ├─ PolygonCollider2D (클릭 판정)
-//     └─ HexTileView (색상/선택 관리)
+// [Phase 2] 3D 전환 완료:
+//   - SpriteRenderer 참조 및 sortingOrder 로직 완전 제거됨
+//   - 3D MeshRenderer 기반 타일 프리팹 사용 (프리팹 교체는 에디터 작업)
+//   - XZ 평면 배치 (Phase 1에서 HexMetrics가 XZ 반환)
+//   - 금광: 3D 프리팹으로 교체 (_goldMinePrefab에 3D 메시 설정)
 //
 // Presentation 레이어 — Unity 의존.
 // ============================================================================
@@ -41,17 +36,17 @@ namespace Hexiege.Presentation
 
         [Header("Prefabs")]
         /// <summary> PointyTop 타일 프리팹. </summary>
-        [Tooltip("PointyTop 타일 프리팹 (SpriteRenderer + Collider + HexTileView)")]
+        [Tooltip("PointyTop 타일 프리팹 (Renderer + Collider + HexTileView)")]
         [SerializeField] private GameObject _pointyTopTilePrefab;
 
         /// <summary> FlatTop 타일 프리팹. </summary>
-        [Tooltip("FlatTop 타일 프리팹 (SpriteRenderer + Collider + HexTileView)")]
+        [Tooltip("FlatTop 타일 프리팹 (Renderer + Collider + HexTileView)")]
         [SerializeField] private GameObject _flatTopTilePrefab;
 
         [Header("Gold Mine")]
-        /// <summary> 금광 오버레이 스프라이트. </summary>
-        [Tooltip("금광 스프라이트 (obj_goldmine.png)")]
-        [SerializeField] private Sprite _goldMineSprite;
+        /// <summary> 금광 프리팹. 3D 전환 후 메시 기반 오브젝트로 교체 예정. </summary>
+        [Tooltip("금광 프리팹 (3D 메시 또는 임시 스프라이트)")]
+        [SerializeField] private GameObject _goldMinePrefab;
 
         [Header("Config")]
         /// <summary> 전역 설정. 각 타일의 HexTileView에 전달. </summary>
@@ -63,7 +58,6 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         // 생성된 모든 타일 View를 좌표로 인덱싱.
-        // 외부에서 특정 타일의 View에 접근할 때 사용.
         private readonly Dictionary<HexCoord, HexTileView> _tileViews = new Dictionary<HexCoord, HexTileView>();
 
         // 생성된 금광 오버레이 오브젝트들. ClearGrid 시 함께 정리.
@@ -80,11 +74,7 @@ namespace Hexiege.Presentation
         /// HexGrid 데이터를 받아 화면에 타일을 배치.
         /// GameBootstrapper에서 그리드 생성 직후 호출.
         ///
-        /// 처리 순서:
-        ///   1. 기존 타일 제거 (중복 호출 방지)
-        ///   2. HexGrid의 모든 타일 순회
-        ///   3. 각 타일마다: 월드 좌표 계산 → 프리팹 생성 → HexTileView 초기화
-        ///   4. Sorting 설정 (row 기반)
+        /// [Phase 2] 3D 전환 완료: sortingOrder 제거됨, XZ 평면 배치.
         /// </summary>
         /// <param name="grid">렌더링할 헥스 그리드 데이터</param>
         public void RenderGrid(HexGrid grid)
@@ -106,9 +96,8 @@ namespace Hexiege.Presentation
             foreach (var kvp in grid.Tiles)
             {
                 HexCoord coord = kvp.Key;
-                HexTile tileData = kvp.Value;
 
-                // 헥스 좌표 → 도메인 월드 좌표 변환
+                // 헥스 좌표 → 도메인 월드 좌표 변환 (XZ 평면)
                 Vector3 worldPos = HexMetrics.HexToWorld(coord);
 
                 // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 반전)
@@ -119,24 +108,6 @@ namespace Hexiege.Presentation
 
                 // 오브젝트 이름을 좌표로 설정 (에디터 Hierarchy에서 식별 용이)
                 tileObj.name = $"Tile_{coord}";
-
-                // --------------------------------------------------------
-                // Sorting 설정
-                // 화면 아래쪽 타일이 나중에 그려져 위에 표시.
-                // 탑다운 2D에서 아래쪽 오브젝트가 앞에 보여야 자연스러움.
-                // 뷰 좌표 기반으로 계산하여 반전된 화면에서도 올바른 순서 보장.
-                //
-                // PointyTop: coord.R (행 인덱스)로 정렬 — R이 화면 Y와 직접 대응.
-                // FlatTop: 뷰 Y 좌표 기반 정렬 — 반전 시에도 올바른 렌더링 순서.
-                // --------------------------------------------------------
-                var sr = tileObj.GetComponent<SpriteRenderer>();
-                if (sr != null)
-                {
-                    if (HexMetrics.Orientation == Domain.HexOrientation.FlatTop)
-                        sr.sortingOrder = ViewConverter.FlatTopSortingOrder(viewPos);
-                    else
-                        sr.sortingOrder = coord.R;
-                }
 
                 // HexTileView 초기화 (좌표, 설정 전달)
                 var tileView = tileObj.GetComponent<HexTileView>();
@@ -167,12 +138,15 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 금광이 있는 타일 위에 스프라이트 오버레이를 생성.
+        /// 금광이 있는 타일 위에 금광 오브젝트를 생성.
         /// GameBootstrapper에서 PlaceGoldMines() 후 호출.
+        ///
+        /// [Phase 2] 3D 전환 완료: 3D 금광 프리팹 사용.
+        /// _goldMinePrefab이 null이면 금광 비주얼 생략 (프리팹 미설정 상태).
         /// </summary>
         public void RenderGoldMines(HexGrid grid)
         {
-            if (_goldMineSprite == null || grid == null) return;
+            if (_goldMinePrefab == null || grid == null) return;
 
             foreach (var kvp in grid.Tiles)
             {
@@ -183,20 +157,14 @@ namespace Hexiege.Presentation
                 // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 반전)
                 Vector3 viewPos = ViewConverter.ToView(worldPos);
 
-                // 금광 오버레이 오브젝트 생성 (타일 자식)
-                var mineObj = new GameObject($"GoldMine_{kvp.Key}");
-                mineObj.transform.position = viewPos + new Vector3(0f, 0.05f, 0f);
-                mineObj.transform.SetParent(transform);
-
-                var sr = mineObj.AddComponent<SpriteRenderer>();
-                sr.sprite = _goldMineSprite;
-                sr.sortingLayerName = "Background";
-
-                // sortingOrder: 타일보다 높게, 유닛(100)보다 낮게 (뷰 좌표 기반)
-                if (HexMetrics.Orientation == HexOrientation.FlatTop)
-                    sr.sortingOrder = ViewConverter.FlatTopSortingOrder(viewPos) + 1;
-                else
-                    sr.sortingOrder = kvp.Key.R + 1;
+                // 금광 프리팹 인스턴스 생성 (약간 위에 배치하여 타일과 겹침 방지)
+                GameObject mineObj = Instantiate(
+                    _goldMinePrefab,
+                    viewPos + new Vector3(0f, 0.05f, 0f),
+                    Quaternion.identity,
+                    transform
+                );
+                mineObj.name = $"GoldMine_{kvp.Key}";
 
                 _goldMineObjects.Add(mineObj);
             }

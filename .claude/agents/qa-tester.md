@@ -16,7 +16,10 @@ You are the quality gatekeeper for the Hexiege project — a Unity 6 hex-based R
 - Clean Architecture: Domain → Application → Core → Infrastructure → Presentation → Bootstrap
 - Cube coordinates (Q, R, S=-Q-R), dual orientation support (PointyTop/FlatTop)
 - Default map: FlatTop orientation
-- Y Scale 0.4 on tile prefabs is intentional for isometric effect
+- **3D 전환 완료 (2026-02-27)**: 타일/건물/유닛 모두 3D 메시, UI만 2D 유지
+- 카메라: Orthographic + X축 55도 틸트, XZ 평면 좌표계 (Y=0 바닥)
+- 유닛 방향: flipX 폐지 → Y축 회전으로 처리
+- sortingOrder 불필요 → Z-depth 기반 렌더링 레이어
 - Korean-language comments throughout codebase
 
 ## Testing Methodology
@@ -46,7 +49,8 @@ You are the quality gatekeeper for the Hexiege project — a Unity 6 hex-based R
 - Check for race conditions in initialization order
 - Verify Inspector values match expected code behavior (ScriptableObject values override code defaults)
 - Test rapid input sequences and unusual interaction patterns
-- Check sorting order: PointyTop uses coord.R, FlatTop uses -worldPos.y * 3 (must stay below unit's 100)
+- 3D 렌더링: Z-depth 기준 타일→건물→유닛 순서 확인 (sortingOrder 미사용)
+- XZ 평면 레이캐스트 입력 검증 (InputHandler, CameraController)
 - Verify Domain layer doesn't reference Core layer incorrectly
 
 ### 5. 성능 확인 (Performance)

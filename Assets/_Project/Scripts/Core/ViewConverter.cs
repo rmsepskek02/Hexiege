@@ -10,7 +10,7 @@
 // 해결:
 //   도메인 좌표(Blue 기준)는 그대로 유지하고,
 //   Red 클라이언트에서 렌더링 위치만 맵 중심 기준으로 반전(Flip).
-//   Flip(pos) = 2 * mapCenter - pos (X, Y 모두 반전, 역함수도 동일)
+//   Flip(pos) = 2 * mapCenter - pos (X, Z 반전, Y는 높이로 통과, 역함수도 동일)
 //
 // 사용처:
 //   - HexGridRenderer: 타일/금광 렌더링 위치
@@ -76,9 +76,10 @@ namespace Hexiege.Core
 
         /// <summary>
         /// 도메인 월드 좌표 → 뷰(렌더링) 좌표 변환.
-        /// Red팀이면 맵 중심 기준으로 X, Y를 반전.
+        /// Red팀이면 맵 중심 기준으로 X, Z를 반전 (XZ 평면).
+        /// Y축은 높이이므로 그대로 통과.
         /// Blue팀이면 변환 없이 그대로 반환.
-        /// 공식: viewPos = 2 * mapCenter - domainPos
+        /// 공식: viewPos = 2 * mapCenter - domainPos (X, Z만 적용)
         /// </summary>
         /// <param name="domainPos">도메인 기준 월드 좌표 (HexMetrics.HexToWorld 결과).</param>
         /// <returns>화면에 배치할 뷰 좌표.</returns>
@@ -88,8 +89,8 @@ namespace Hexiege.Core
 
             return new Vector3(
                 2f * _mapCenter.x - domainPos.x,
-                2f * _mapCenter.y - domainPos.y,
-                domainPos.z
+                domainPos.y, // Y축은 높이 — 반전하지 않음
+                2f * _mapCenter.z - domainPos.z
             );
         }
 
@@ -126,19 +127,6 @@ namespace Hexiege.Core
             return (Hexiege.Domain.HexDirection)(((int)dir + 3) % 6);
         }
 
-        // ====================================================================
-        // 유틸리티
-        // ====================================================================
-
-        /// <summary>
-        /// FlatTop 모드의 sortingOrder 계산.
-        /// 뷰 좌표 기반으로 계산하여 반전된 화면에서도 올바른 렌더링 순서 보장.
-        /// </summary>
-        /// <param name="viewPos">뷰(렌더링) 좌표.</param>
-        /// <returns>SpriteRenderer.sortingOrder에 사용할 값.</returns>
-        public static int FlatTopSortingOrder(Vector3 viewPos)
-        {
-            return Mathf.RoundToInt(-viewPos.y * 3);
-        }
+        // [Phase 2] FlatTopSortingOrder() 제거 — 3D Z-buffer로 렌더 순서 자동 처리
     }
 }

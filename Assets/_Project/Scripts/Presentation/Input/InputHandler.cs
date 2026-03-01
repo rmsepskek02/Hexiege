@@ -78,6 +78,9 @@ namespace Hexiege.Presentation
         /// </summary>
         private const float ClickThreshold = 10f;
 
+        /// <summary> XZ 평면 (Y=0). 스크린 좌표 → 월드 좌표 변환에 사용. </summary>
+        private static readonly Plane _xzPlane = new Plane(Vector3.up, Vector3.zero);
+
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -188,10 +191,8 @@ namespace Hexiege.Presentation
             if (_productionUI != null && _productionUI.IsSettingRallyPoint
                 && Time.frameCount != _productionUI.RallyPointSetFrame)
             {
-                // ScreenToWorldPoint → 뷰 좌표 → 도메인 좌표로 역변환
-                Vector3 rallyViewPos = _mainCamera.ScreenToWorldPoint(
-                    new Vector3(screenPos.x, screenPos.y, 0f));
-                rallyViewPos.z = 0f;
+                // XZ 평면 레이캐스트 → 뷰 좌표 → 도메인 좌표로 역변환
+                Vector3 rallyViewPos = ScreenToXZPlane(screenPos);
                 Vector3 rallyWorldPos = ViewConverter.FromView(rallyViewPos);
                 HexCoord rallyCoord = HexMetrics.WorldToHex(rallyWorldPos);
 
@@ -214,10 +215,8 @@ namespace Hexiege.Presentation
                 || (_productionUI != null && _productionUI.ClosedFrame == frame))
                 return;
 
-            // 스크린 좌표 → 뷰 좌표 → 도메인 월드 좌표로 역변환
-            Vector3 viewPos = _mainCamera.ScreenToWorldPoint(
-                new Vector3(screenPos.x, screenPos.y, 0f));
-            viewPos.z = 0f;
+            // 스크린 좌표 → XZ 평면 레이캐스트 → 뷰 좌표 → 도메인 월드 좌표로 역변환
+            Vector3 viewPos = ScreenToXZPlane(screenPos);
             Vector3 worldPos = ViewConverter.FromView(viewPos);
 
             // 도메인 월드 좌표 → 헥스 좌표
@@ -346,6 +345,26 @@ namespace Hexiege.Presentation
             var results = new List<RaycastResult>();
             EventSystem.current.RaycastAll(eventData, results);
             return results.Count > 0;
+        }
+
+        // ====================================================================
+        // XZ 평면 레이캐스트
+        // ====================================================================
+
+        /// <summary>
+        /// 스크린 좌표 → XZ 평면(Y=0) 위의 월드 좌표로 변환.
+        /// 카메라 레이를 XZ 평면에 교차시켜 정확한 월드 위치를 얻음.
+        /// 기존 ScreenToWorldPoint 방식을 대체 (3D 카메라 대응).
+        /// </summary>
+        private Vector3 ScreenToXZPlane(Vector2 screenPos)
+        {
+            Ray ray = _mainCamera.ScreenPointToRay(new Vector3(screenPos.x, screenPos.y, 0f));
+            if (_xzPlane.Raycast(ray, out float distance))
+            {
+                return ray.GetPoint(distance);
+            }
+            // 레이캐스트 실패 시 폴백 (극단적 카메라 각도)
+            return Vector3.zero;
         }
     }
 }

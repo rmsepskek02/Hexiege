@@ -5,16 +5,16 @@
 // 부착 위치: Main Camera
 //
 // GDD 카메라 사양:
-//   - 기본 뷰: 고정 각도 탑다운 (Orthographic)
-//   - 화면 이동: 한 손가락 드래그 (Pan)
+//   - 기본 뷰: 고정 각도 탑다운 (Perspective 또는 Orthographic)
+//   - 화면 이동: 한 손가락 드래그 (Pan) — XZ 평면
 //   - 확대/축소: 두 손가락 핀치 또는 마우스 스크롤 (Zoom)
 //   - 줌 범위: GameConfig에서 설정 (기본 3 ~ 12)
-//   - 이동 제한: 맵 경계 내
+//   - 이동 제한: 맵 경계 내 (XZ 평면)
 //
-// 팬 구현:
-//   마우스/터치 드래그 시 이전 프레임과 현재 프레임의
-//   월드 좌표 차이만큼 카메라를 반대 방향으로 이동.
-//   (드래그한 만큼 맵이 따라옴 = 카메라가 반대로 이동)
+// XZ 평면 기반:
+//   카메라는 XZ 평면(Y=고정 높이) 위를 이동.
+//   팬 시 스크린 좌표 → XZ 평면 레이캐스트로 월드 좌표 계산.
+//   Y축은 카메라 높이로 고정.
 //
 // 줌 구현:
 //   마우스 스크롤 → Camera.orthographicSize 변경
@@ -44,6 +44,10 @@ namespace Hexiege.Presentation
         [Tooltip("GameConfig ScriptableObject (줌 범위, 속도 등)")]
         [SerializeField] private GameConfig _config;
 
+        [Header("3D 카메라 설정")]
+        [Tooltip("카메라 X축 틸트 각도 (45~60도 권장). 0이면 수직 탑다운.")]
+        [SerializeField] private float _tiltAngle = 55f;
+
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -51,17 +55,20 @@ namespace Hexiege.Presentation
         /// <summary> 이 오브젝트의 Camera 컴포넌트. </summary>
         private Camera _cam;
 
-        /// <summary> 드래그 시작 시 마우스/터치의 월드 좌표. </summary>
+        /// <summary> 드래그 시작 시 마우스/터치의 XZ 평면상 월드 좌표. </summary>
         private Vector3 _dragOrigin;
 
         /// <summary> 현재 드래그 중인지 여부. </summary>
         private bool _isDragging;
 
-        /// <summary> 맵 경계 (카메라 이동 제한용). SetBounds()로 설정. </summary>
+        /// <summary> 맵 경계 (카메라 이동 제한용, XZ 평면). SetBounds()로 설정. </summary>
         private Bounds _mapBounds;
 
         /// <summary> 맵 경계가 설정되었는지 여부. </summary>
         private bool _hasBounds;
+
+        /// <summary> XZ 평면 (Y=0). 스크린 좌표 → 월드 좌표 변환에 사용. </summary>
+        private static readonly Plane _xzPlane = new Plane(Vector3.up, Vector3.zero);
 
         // ====================================================================
         // 초기화
@@ -71,6 +78,29 @@ namespace Hexiege.Presentation
         {
             _cam = GetComponent<Camera>();
         }
+
+        /// <summary>
+        /// 카메라 X축 틸트 적용.
+        /// Awake 이후 실행되어 Camera 캐시 완료 보장.
+        /// </summary>
+        private void Start()
+        {
+            ApplyTilt();
+        }
+
+        /// <summary>
+        /// Inspector에서 설정한 틸트 각도를 카메라 X축 회전으로 적용.
+        /// Y, Z 회전은 0으로 유지 (팬 시 방향 왜곡 방지).
+        /// </summary>
+        public void ApplyTilt()
+        {
+            transform.rotation = Quaternion.Euler(_tiltAngle, 0f, 0f);
+        }
+
+        /// <summary>
+        /// 현재 설정된 틸트 각도 반환. 외부에서 Z 오프셋 계산 시 사용.
+        /// </summary>
+        public float TiltAngle => _tiltAngle;
 
         /// <summary>
         /// 맵 경계를 설정. GameBootstrapper에서 그리드 생성 후 호출.
@@ -85,12 +115,12 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 카메라를 특정 위치로 즉시 이동. 초기 카메라 위치 설정에 사용.
-        /// z는 카메라 깊이를 유지.
+        /// 카메라를 특정 XZ 위치로 즉시 이동. 초기 카메라 위치 설정에 사용.
+        /// Y(높이)는 카메라의 현재 높이를 유지.
         /// </summary>
         public void SetPosition(Vector3 pos)
         {
-            transform.position = new Vector3(pos.x, pos.y, transform.position.z);
+            transform.position = new Vector3(pos.x, transform.position.y, pos.z);
         }
 
         // ====================================================================
@@ -228,7 +258,7 @@ namespace Hexiege.Presentation
                 if (mouse.leftButton.wasPressedThisFrame)
                 {
                     Vector2 mousePos = mouse.position.ReadValue();
-                    _dragOrigin = _cam.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, 0f));
+                    _dragOrigin = ScreenToXZPlane(mousePos);
                     _isDragging = true;
                 }
 
@@ -236,9 +266,10 @@ namespace Hexiege.Presentation
                 if (mouse.leftButton.isPressed && _isDragging)
                 {
                     Vector2 mousePos = mouse.position.ReadValue();
-                    Vector3 currentPos = _cam.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, 0f));
+                    Vector3 currentPos = ScreenToXZPlane(mousePos);
                     Vector3 diff = _dragOrigin - currentPos;
-                    transform.position += diff * panSpeed;
+                    // XZ 평면에서의 차이만 적용 (Y 높이는 유지)
+                    transform.position += new Vector3(diff.x, 0f, diff.z) * panSpeed;
                     ClampPosition();
                 }
 
@@ -257,19 +288,17 @@ namespace Hexiege.Presentation
                 // 터치 시작 — 드래그 원점 기록
                 if (touch.phase == UnityEngine.InputSystem.TouchPhase.Began)
                 {
-                    _dragOrigin = _cam.ScreenToWorldPoint(
-                        new Vector3(touch.screenPosition.x, touch.screenPosition.y, 0f));
+                    _dragOrigin = ScreenToXZPlane(touch.screenPosition);
                     _isDragging = true;
                 }
 
-                // 터치 이동 — 월드 좌표 차이만큼 카메라 이동
+                // 터치 이동 — XZ 평면상 월드 좌표 차이만큼 카메라 이동
                 if (_isDragging && (touch.phase == UnityEngine.InputSystem.TouchPhase.Moved
                     || touch.phase == UnityEngine.InputSystem.TouchPhase.Stationary))
                 {
-                    Vector3 currentPos = _cam.ScreenToWorldPoint(
-                        new Vector3(touch.screenPosition.x, touch.screenPosition.y, 0f));
+                    Vector3 currentPos = ScreenToXZPlane(touch.screenPosition);
                     Vector3 diff = _dragOrigin - currentPos;
-                    transform.position += diff * panSpeed;
+                    transform.position += new Vector3(diff.x, 0f, diff.z) * panSpeed;
                     ClampPosition();
                 }
 
@@ -283,8 +312,8 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 카메라 위치를 맵 경계 내로 제한.
-        /// 경계가 설정되지 않았으면 무시.
+        /// 카메라 위치를 맵 경계 내로 제한 (XZ 평면).
+        /// Y(높이)는 변경하지 않음. 경계가 설정되지 않았으면 무시.
         /// </summary>
         private void ClampPosition()
         {
@@ -292,8 +321,27 @@ namespace Hexiege.Presentation
 
             Vector3 pos = transform.position;
             pos.x = Mathf.Clamp(pos.x, _mapBounds.min.x, _mapBounds.max.x);
-            pos.y = Mathf.Clamp(pos.y, _mapBounds.min.y, _mapBounds.max.y);
+            pos.z = Mathf.Clamp(pos.z, _mapBounds.min.z, _mapBounds.max.z);
             transform.position = pos;
+        }
+
+        // ====================================================================
+        // XZ 평면 레이캐스트
+        // ====================================================================
+
+        /// <summary>
+        /// 스크린 좌표 → XZ 평면(Y=0) 위의 월드 좌표로 변환.
+        /// 카메라 레이를 XZ 평면에 교차시켜 정확한 월드 위치를 얻음.
+        /// </summary>
+        private Vector3 ScreenToXZPlane(Vector2 screenPos)
+        {
+            Ray ray = _cam.ScreenPointToRay(new Vector3(screenPos.x, screenPos.y, 0f));
+            if (_xzPlane.Raycast(ray, out float distance))
+            {
+                return ray.GetPoint(distance);
+            }
+            // 레이캐스트 실패 시 (카메라가 평면과 평행한 극단적 경우) 폴백
+            return transform.position;
         }
 
         // ====================================================================

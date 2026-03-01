@@ -54,7 +54,8 @@ namespace Hexiege.Domain
 
     /// <summary>
     /// 아트 방향 + flipX 여부를 묶은 값 객체.
-    /// Presentation 레이어에서 SpriteRenderer.flipX에 직접 적용.
+    /// [Phase 2] 3D 전환 후 flipX 대신 Y축 회전으로 방향 표현.
+    /// 레거시 스프라이트 시스템 호환용으로 유지.
     /// </summary>
     public readonly struct FacingInfo
     {

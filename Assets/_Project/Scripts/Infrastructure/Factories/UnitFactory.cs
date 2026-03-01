@@ -14,8 +14,13 @@
 //   4. Instantiate → UnitView 컴포넌트 초기화
 //   5. 생성된 GameObject를 Units 부모 오브젝트 하위에 배치
 //
+// [Phase 2] 3D 전환:
+//   - UnitAnimationData(Sprite[] 기반) 의존성 완전 제거
+//   - Animator(Mecanim) 기반 애니메이션으로 교체 (프리팹에 Animator 설정)
+//   - sortingOrder 불필요 (3D Z-buffer로 렌더 순서 자동 처리)
+//
 // Inspector 설정:
-//   - UnitPrefab: 유닛 프리팹 참조 (SpriteRenderer + UnitView + FrameAnimator)
+//   - UnitPrefab: 유닛 프리팹 참조 (Renderer + UnitView + Animator)
 //   - UnitParent: 생성된 유닛들의 부모 Transform ([World]/Units)
 //
 // 프로토타입에서는 프리팹이 1종(권총병)뿐이라 단순 구조.
@@ -40,7 +45,6 @@ namespace Hexiege.Infrastructure
         // 런타임 의존성 주입 — 생산된 유닛에 자동 적용
         // ====================================================================
 
-        private UnitAnimationData _depAnimData;
         private GameConfig _depConfig;
         private UnitMovementUseCase _depMovement;
         private UnitCombatUseCase _depCombat;
@@ -49,12 +53,12 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// GameBootstrapper에서 UseCase 생성 후 한 번 호출.
         /// 이후 생성되는 모든 유닛에 자동으로 SetDependencies() 적용.
+        /// [Phase 2] UnitAnimationData 파라미터 제거 — Animator가 대체.
         /// </summary>
         public void SetDependencyReferences(
-            UnitAnimationData animData, GameConfig config,
+            GameConfig config,
             UnitMovementUseCase movement, UnitCombatUseCase combat)
         {
-            _depAnimData = animData;
             _depConfig = config;
             _depMovement = movement;
             _depCombat = combat;
@@ -68,10 +72,9 @@ namespace Hexiege.Infrastructure
         [Header("Prefab")]
         /// <summary>
         /// 유닛 프리팹 참조.
-        /// 프리팹 구성: SpriteRenderer + UnitView + FrameAnimator.
-        /// Phase 10에서 생성 예정.
+        /// [Phase 2] 프리팹 구성: Renderer + UnitView + Animator.
         /// </summary>
-        [Tooltip("유닛 프리팹 (SpriteRenderer + UnitView + FrameAnimator)")]
+        [Tooltip("유닛 프리팹 (Renderer + UnitView + Animator)")]
         [SerializeField] private GameObject _unitPrefab;
 
         [Header("Hierarchy")]
@@ -154,7 +157,7 @@ namespace Hexiege.Infrastructure
 
                 // 런타임 의존성 자동 주입 (생산된 유닛도 즉시 동작 가능)
                 if (_hasDependencies)
-                    unitView.SetDependencies(_depAnimData, _depConfig, _depMovement, _depCombat);
+                    unitView.SetDependencies(_depConfig, _depMovement, _depCombat);
             }
 
             // 내부 딕셔너리에 등록 (나중에 삭제 시 사용)

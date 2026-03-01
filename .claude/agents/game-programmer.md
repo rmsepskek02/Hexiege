@@ -20,7 +20,12 @@ You are working on **Hexiege**, a Unity 6 hex-based RTS game for mobile (portrai
 - When Domain needs Core data (e.g., orientation), use a Domain-level static holder (like `HexOrientationContext`)
 - `GameBootstrapper` is the composition root
 - Hex system uses cube coordinates (Q, R, S=-Q-R), supports both PointyTop and FlatTop orientations
-- Y Scale 0.4 on tile prefabs is INTENTIONAL for isometric effect — never change it
+- **3D 전환 완료 (2026-02-27)**: 타일/건물/유닛 모두 3D 메시, UI만 2D 유지
+- 카메라: Orthographic + X축 55도 틸트, XZ 평면 기준 (Y=0이 바닥, Y=높이)
+- 유닛 애니메이션: Animator(Mecanim) 기반 — IsWalking(bool), IsDead(bool), Attack(trigger)
+- 방향 표현: flipX 폐지 → Y축 회전 (E=0°, NE=60°, NW=120°, W=180°, SW=240°, SE=300°)
+- sortingOrder 불필요 → Z-depth로 렌더링 레이어 처리
+- FrameAnimator.cs 폐기됨, UnitAnimationData.cs 삭제됨
 - Always check Inspector/ScriptableObject values, not just code defaults
 
 ## Your Responsibilities

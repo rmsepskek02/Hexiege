@@ -263,5 +263,64 @@
 - 교훈: ViewConverter.ToView() 이후에 적용해야 하는 시각적 오프셋은 반드시 ToView 호출 뒤에 가산
 - 동일 패턴 수정: UnitFactory.cs(HexToWorldUnit→HexToWorld+ToView후오프셋), UnitView.cs(MoveAlongPath의 from/toPos)
 
-- sortingOrder 계층 (FlatTop 기준):
-  - 타일: 0~29 | 금광: 1~30 | 건물: 51~79 | 유닛: 100(고정)
+- [삭제됨] sortingOrder 계층 — Phase 2에서 3D Z-buffer로 대체
+
+## 헥스 타일 (3D ProBuilder + Shader Graph)
+
+### ProBuilder 타일 생성
+- Shape: Cylinder, Sides=6, Height Cuts=0, Smooth=true
+- Size: X=1.0, Y=0.1, Z=1.0
+- 두 개의 Submesh 분리 필요: ProBuilder Face 모드에서 각 face에 Material Preset 적용해야 실제 Submesh가 생성됨
+  - MeshRenderer Materials 배열에만 추가하면 런타임에 1개만 적용됨 (Submesh가 1개이면)
+- 프리팹 경로: `Assets/_Project/Prefabs/Tiles/`
+- mat_tile_top: SG_HexTile 셰이더, 밝은색 #BCBCBC, 테두리 #3A3A3A, 두께 0.02
+- mat_tile_side: #3A3A3A 단색
+
+### Shader Graph (SG_HexTile) — 타일 상단 테두리 효과
+- 파일: `Assets/_Project/Materials/SG_HexTile` (URP Lit Shader Graph)
+- **UV 기반 SDF 불가** — ProBuilder Cylinder cap의 UV 매핑이 예상과 달라 잘못된 패턴 생성
+- **Object Space Position 기반 SDF 사용** (신뢰할 수 있는 방식)
+- Custom Function 노드 (HexBorder):
+  - Input: Position (Vector3), BorderSize (Float)
+  - Output: Border (Float)
+  - HLSL Body:
+    ```hlsl
+    float2 p = abs(float2(Position.x, Position.z));
+    float d = max(p.y, p.x * 0.866 + p.y * 0.5);
+    Border = step(0.433 - BorderSize, d);
+    ```
+  - d_max (FlatTop hex boundary, circumradius=0.5) = 0.433
+  - BorderSize = 0.02 (실제 적용값)
+- 노드 연결: Position(Object) → Custom Function → Lerp(T) / Color(밝은) → Lerp(A) / Color(어두운) → Lerp(B) / Lerp → Base Color
+- ProBuilder Face 모드 진입: Scene View 왼쪽 상단 ≡(오버레이 메뉴) → ProBuilder 활성화 → ■(Face) 버튼
+
+## 3D 전환 — 상세 내용은 [3d-transition.md](3d-transition.md) 참조
+
+## XZ 좌표계 전환 (Phase 1 완료, 2026-02-27)
+- 모든 헥스 좌표가 XZ 평면(Y=0)에 배치됨 (이전: XY 평면, Z=0)
+- HexMetrics.HexToWorld(): `new Vector3(x, 0f, z)` 반환
+- HexMetrics.WorldToHex(): X, Z 좌표 기반으로 역산
+- ViewConverter.ToView(): X, Z 반전 (Y는 높이로 통과)
+- CameraController: XZ 평면 레이캐스트 기반 팬
+- InputHandler: ScreenToXZPlane() 헬퍼로 XZ 평면 레이캐스트
+
+## 렌더링 전환 (Phase 2 완료, 2026-02-27)
+- SpriteRenderer → Renderer/MeshRenderer 기반
+- FrameAnimator 삭제 → Animator(Mecanim) 기반
+- sortingOrder 완전 제거 → 3D Z-buffer
+- ViewConverter.FlatTopSortingOrder() 제거
+- UnitAnimationData 의존성 체인 제거 (UnitFactory/UnitView/GameBootstrapper)
+- UnitView: flipX → Y축 회전 (DirectionAngles: NE=30, E=90, SE=150, SW=210, W=270, NW=330)
+- Animator 파라미터: IsWalking(bool), IsDead(bool), Attack(trigger)
+- SetDependencies 시그니처: `(GameConfig, UnitMovementUseCase, UnitCombatUseCase)` — animData 제거
+
+## 카메라 틸트 + UnitView Animator 확인 (Phase 3 완료, 2026-02-27)
+- CameraController: `_tiltAngle=55f` SerializeField 추가, Start()→ApplyTilt(), TiltAngle 프로퍼티
+- ScreenToXZPlane(): Plane.Raycast 기반이라 틸트 후에도 정확히 작동
+- 팬 시 Y 고정: `new Vector3(diff.x, 0f, diff.z)` 패턴 유지
+- GameBootstrapper: SetupCamera()/SetCameraStartPositionForTeam()에 틸트 Z 오프셋 보정 추가
+  - `zOffset = cameraHeight / tan(tiltAngle)`, `pos.z -= zOffset`
+- UnitView: Phase 2에서 Animator 연동 이미 완성 — 추가 수정 없음
+
+## 네트워크 미완성 항목
+- 상세 목록: [network-todo.md](network-todo.md) 참조

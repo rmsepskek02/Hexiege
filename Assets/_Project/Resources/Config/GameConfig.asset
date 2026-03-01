@@ -16,12 +16,12 @@ MonoBehaviour:
     GridWidth: 7
     GridHeight: 17
     TileWidth: 0.866
-    TileHeight: 0.82
+    TileHeight: 0.866
   FlatTop:
     GridWidth: 10
     GridHeight: 29
     TileWidth: 1
-    TileHeight: 0.36
+    TileHeight: 0.866
   NeutralColor: {r: 0.69803923, g: 0.69803923, b: 0.69803923, a: 1}
   BlueTeamColor: {r: 0.3019608, g: 0.5019608, b: 0.9019608, a: 1}
   RedTeamColor: {r: 0.9019608, g: 0.3019608, b: 0.3019608, a: 1}

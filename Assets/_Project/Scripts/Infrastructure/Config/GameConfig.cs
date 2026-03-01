@@ -195,10 +195,10 @@ namespace Hexiege.Infrastructure
         [Header("Animation")]
 
         /// <summary>
-        /// 스프라이트 애니메이션 프레임 속도.
-        /// FrameAnimator에서 1/fps 초마다 다음 프레임으로 전환.
+        /// 애니메이션 프레임 속도.
+        /// [Phase 2] 3D 전환 후 공격 애니메이션 duration 계산에 사용.
         /// </summary>
-        [Tooltip("스프라이트 애니메이션 FPS")]
+        [Tooltip("애니메이션 FPS (공격 duration 계산용)")]
         public float AnimationFps = 6f;
 
         // ====================================================================
