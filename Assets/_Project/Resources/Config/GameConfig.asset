@@ -19,7 +19,7 @@ MonoBehaviour:
     TileHeight: 0.866
   FlatTop:
     GridWidth: 10
-    GridHeight: 29
+    GridHeight: 20
     TileWidth: 1
     TileHeight: 0.866
   NeutralColor: {r: 0.69803923, g: 0.69803923, b: 0.69803923, a: 1}
@@ -34,10 +34,12 @@ MonoBehaviour:
   UnitMoveSeconds: 0.3
   UnitYOffset: 0.15
   BuildingYOffset: 0.1
-  _rallyPointPrefab: {fileID: 8937367647330354896, guid: a42372604120c8d47a6358eb620b4cbb, type: 3}
+  _rallyPointPrefab: {fileID: 221429504860326395, guid: 9a7970d384ace6747b4f5ecd884b69e8, type: 3}
+  RallyMarkerOffset: {x: 0.05, y: 0.18, z: 0}
+  RallyMarkerEuler: {x: -90, y: 180, z: 0}
   AnimationFps: 6
   CameraZoomMin: 2
   CameraZoomMax: 7
-  CameraZoomDefault: 5
+  CameraZoomDefault: 7
   CameraZoomSpeed: 2
   CameraPanSpeed: 1

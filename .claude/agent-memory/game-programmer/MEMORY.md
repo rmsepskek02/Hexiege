@@ -1,5 +1,32 @@
 # Game Programmer Agent Memory
 
+## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음)
+- **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
+- 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 attack direction 작업 전체 삭제 (복구 불가)
+- 코드 상태 확인 필요 시 Read/Grep 도구만 사용
+
+## 전투 버그 수정 — 자세한 내용: [combat-fixes.md](combat-fixes.md)
+- UnitCombatUseCase: `ClaimedTile ?? Position` 으로 사거리/방향 계산 (Lerp 중 위치 보정)
+- UnitView: 부드러운 회전 (ApplyDirection → _targetYRotation, Update에서 MoveTowardsAngle 보간, 540도/초)
+
+## [버그 수정] 2타일 시각적 공격 거리 버그 (Option C-Clean, 2026-03-02 완료)
+- **증상**: AttackRange=1인데 시각적으로 2타일 거리에서 공격
+- **근본 원인**: `FindFirstEnemyTarget`에서 공격자는 `ClaimedTile ?? Position`(다음 타일), 대상은 `unit.Position`(완료 타일) → 최대 2타일 갭
+- **해결**: 월드좌표 기반 거리 체크 (IEntityPositionProvider 인터페이스 패턴)
+  - FlatTop 인접 타일 거리 = 0.866f (TileHeight = √3/2), maxDist = AttackRange × 0.866 + 0.1f
+  - provider 미등록 시 헥스 좌표 fallback 유지
+  - 건물은 이동하지 않으므로 계속 헥스 좌표 기반 사용
+- **신규 파일**:
+  - `Assets/_Project/Scripts/Application/Interfaces/IEntityPositionProvider.cs` — Application 레이어 인터페이스
+  - `Assets/_Project/Scripts/Infrastructure/UnitWorldPositionProvider.cs` — Dictionary<int, Transform> 구현체
+- **수정 파일**:
+  - `UnitCombatUseCase.cs`: 생성자에 `IEntityPositionProvider positionProvider=null, float tileWorldDist=0.866f` 추가, `FindFirstEnemyTarget` 월드좌표 판정으로 교체
+  - `UnitView.cs`: `SetDependencies`에 `IEntityPositionProvider positionProvider=null` 추가 + `_positionProvider.Register()` 호출, `OnDestroy()` 추가 + `Unregister()` 호출
+  - `UnitFactory.cs`: `SetDependencyReferences`에 `IEntityPositionProvider positionProvider=null` 추가, `CreateUnitObject`에서 `unitView.SetDependencies` 호출 시 전달
+  - `GameBootstrapper.cs`: `_positionProvider` 필드 추가, `CreateUseCases()`에서 `new UnitWorldPositionProvider()` 생성 후 공유, `SetupProduction()`에서 `UnitFactory.SetDependencyReferences`에 전달
+- **C# 주의**: `out` 변수를 `&&` 단락 평가 안에 인라인 선언하면 CS0170 발생 → 반드시 미리 `Vector3 v = Vector3.zero;`로 초기화 후 `TryGetWorldPosition(id, out v)` 패턴 사용
+- **공유 인스턴스 패턴**: `_positionProvider`를 `UnitCombatUseCase`와 `UnitFactory` 모두에 전달 → 동일 Dictionary 참조 → `UnitView.SetDependencies()`가 등록한 Transform을 `UnitCombatUseCase`가 즉시 조회 가능
+
 ## 네트워크 인프라 (Phase 1)
 - 패키지: `com.unity.netcode.gameobjects` 2.8.1, `com.unity.services.multiplayer` 2.0.0 (Lobby/Relay/Auth 통합) 이미 설치됨
 - 파일 위치: `Assets/_Project/Scripts/Infrastructure/Network/`
@@ -117,7 +144,9 @@
 - `NetworkCombatController.cs` — NetworkBehaviour, 씬에 NetworkObject 배치
   - OnNetworkSpawn: NetworkContext.Set(IsServer, isActive=true) 호출 (Application 레이어 분기용)
   - OnNetworkDespawn: NetworkContext.Reset() 호출
-  - 서버 Update: _attackInterval마다 모든 유닛 TryAttack() 일괄 처리
+  - 서버 Update: 유닛별 개별 쿨다운(AttackDuration) 기반 전투 처리 (_unitAttackTimers Dictionary)
+  - 쿨다운 = UnitData.AttackDuration = 공격 애니메이션 클립 길이 (Pistoleer=2.0초)
+  - 이전 방식(_attackInterval=0.2f 전역 타이머) 제거 → 애니메이션 반복 재시작 버그 해결
   - 서버: OnEntityDied 구독 → EntityDiedClientRpc(entityId, isUnit) 전파
   - 클라이언트: HandleUnitDied / HandleBuildingDied → TakeDamage(HP 소진) → RemoveUnit/Building → OnEntityDied 재발행
 - `NetworkHealthSync.cs` — NetworkBehaviour, 씬에 NetworkObject 배치 (Phase 6에 구현 완료)
@@ -128,7 +157,7 @@
 - 파일: `Assets/_Project/Scripts/Application/NetworkContext.cs`
 - 목적: Application 레이어가 Unity.Netcode(NetworkManager)에 직접 의존하는 것을 방지
 - 사용 패턴: NetworkCombatController.OnNetworkSpawn() → NetworkContext.Set(IsServer, true)
-- UnitCombatUseCase.TryAttack(): `if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return false;`
+- UnitCombatUseCase.TryAttack(): `if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return null;` (IDamageable 반환)
 - HexOrientationContext, LocalPlayerTeam과 동일한 정적 홀더 패턴
 
 ## 네트워크 인프라 (Phase 7) — 승패 판정 동기화
@@ -168,7 +197,7 @@
 - UnitData.MoveSeconds (float, readonly) — 타일 1칸 이동 소요 시간
 - UnitStats.GetMoveSeconds(UnitType) — 타입별 기본값 (Pistoleer=0.8, default=0.3)
 - UnitView.MoveAlongPath: _unitData.MoveSeconds 참조 (GameConfig.UnitMoveSeconds 대신)
-- Pistoleer 스탯: HP=50, Attack=3, Range=1, MoveSeconds=0.8
+- Pistoleer 스탯: HP=50, Attack=3, Range=1, MoveSeconds=0.8, AttackDuration=2.0
 
 ## 중요 교훈
 - `com.unity.services.multiplayer` 2.0.0 은 Lobby + Relay + Auth 를 모두 포함하는 통합 패키지
@@ -265,6 +294,18 @@
 
 - [삭제됨] sortingOrder 계층 — Phase 2에서 3D Z-buffer로 대체
 
+## HexTileView 팀 색상 시스템 (2026-03-01 수정 완료)
+- 파일: `Assets/_Project/Scripts/Presentation/Grid/HexTileView.cs`
+- **핵심 수정 1**: `material.color = X` → `material.SetColor("_BaseColor", X)` 로 변경
+  - `material.color`는 `_Color` 프로퍼티를 변경 → 커스텀 Shader Graph에서 동작 안 함
+  - SG_HexTile은 Blackboard에 `_BaseColor` (Reference: `_BaseColor`) 사용 → SetColor 필요
+- **핵심 수정 2**: 재질 탐색을 셰이더 이름 기반으로 변경
+  - ProBuilder 타일: materials[0]=mat_tile_side(Lit), materials[1]=mat_tile_top(SG_HexTile)
+  - `renderer.material`(인덱스 0)은 side를 반환 → top 색상 변화 없음
+  - Initialize()에서 `shader.name.Contains("SG_HexTile")` 루프로 정확한 재질 인스턴스 캐시
+- **주의**: 새 3D 타일 프리팹(ProBuilder)에 `HexTileView` 컴포넌트 수동 추가 필요
+  - ProBuilder는 MeshRenderer/MeshFilter만 자동 생성, HexTileView는 직접 Add Component
+
 ## 헥스 타일 (3D ProBuilder + Shader Graph)
 
 ### ProBuilder 타일 생성
@@ -311,8 +352,23 @@
 - ViewConverter.FlatTopSortingOrder() 제거
 - UnitAnimationData 의존성 체인 제거 (UnitFactory/UnitView/GameBootstrapper)
 - UnitView: flipX → Y축 회전 (DirectionAngles: NE=30, E=90, SE=150, SW=210, W=270, NW=330)
-- Animator 파라미터: IsWalking(bool), IsDead(bool), Attack(trigger)
 - SetDependencies 시그니처: `(GameConfig, UnitMovementUseCase, UnitCombatUseCase)` — animData 제거
+
+## UnitView 애니메이션 시스템 (2026-03-01 확정)
+- **Animator Controller 파라미터**: `IsDead`(bool) 1개만 사용
+- **스테이트**: Walk(기본/루프), Attack, Dead — 이름 반드시 정확히 일치 필요
+- **트랜지션**: `Any State → Dead (IsDead=true)` 만 유지. 나머지 트랜지션 없음
+- **Animator.Play() 직접 호출 방식** (트랜지션 우회):
+  - Walk 시작: `SetAnimatorSpeed(1f)` (클립 진행)
+  - Walk 정지: `SetAnimatorSpeed(0f)` (현재 프레임 고정)
+  - 공격: `_animator.Play(StateAttack, 0, 0f)` → 1프레임 대기 → `GetCurrentAnimatorStateInfo(0).length` → 완료 후 `_animator.Play(StateWalk, 0, 0f)`
+  - 사망: `SetAnimatorSpeed(1f)` → `SetAnimatorBool(AnimIsDead, true)`
+- **연속 공격 시 Walk 플래시 없음**: Trigger + Exit Time 방식 대신 Play() 직접 호출로 해결
+- **클립 길이 자동 대응**: `GetCurrentAnimatorStateInfo(0).length` — 유닛별 애니메이션 길이 달라도 자동 처리
+- **스테이트 해시 상수**: `StateAttack`, `StateWalk` (Animator.StringToHash) — 문자열 오타 방지
+- **정지 중 공격**: prevSpeed 저장 → speed=1 → Play(Attack) → 완료 후 prevSpeed 복구
+- **모든 유닛 공통 컨벤션**: Walk/Attack/Dead 스테이트 이름 통일 → UnitView 코드 변경 없이 유닛 추가 가능
+- **Idle 애니메이션 없음**: 게임 특성상 Walk speed=0으로 정지 표현 (Idle 클립 불필요)
 
 ## 카메라 틸트 + UnitView Animator 확인 (Phase 3 완료, 2026-02-27)
 - CameraController: `_tiltAngle=55f` SerializeField 추가, Start()→ApplyTilt(), TiltAngle 프로퍼티
@@ -321,6 +377,15 @@
 - GameBootstrapper: SetupCamera()/SetCameraStartPositionForTeam()에 틸트 Z 오프셋 보정 추가
   - `zOffset = cameraHeight / tan(tiltAngle)`, `pos.z -= zOffset`
 - UnitView: Phase 2에서 Animator 연동 이미 완성 — 추가 수정 없음
+
+## 공격 방향 리팩터링 (2026-03-02) — 자세한 내용: [attack-direction-refactor.md](attack-direction-refactor.md)
+- FacingDirection.cs: ArtDirection/FacingInfo/FromHexDirection 제거 (2D 레거시)
+- UnitCombatUseCase: CalcViewDirection/WorldDeltaToHexDirection 제거, TryAttack → IDamageable 반환
+- UnitView: ApplyAttackRotation(HexCoord) 추가 — 타겟 월드벡터 → Atan2 → Y 회전 직접 계산
+- UnitView._meshYOffset: 메시 자식 로컬 Y 보정 (SerializeField, 프리팹별 설정)
+- TriggerAttackAnimationClientRpc: targetQ, targetR 파라미터 추가
+- UnitData.Facing = 항상 도메인 좌표 (싱글/멀티 동일)
+- Unit_Pistoleer 프리팹: UnitView._meshYOffset = 30 (Inspector 설정, 코드 기본값 0f)
 
 ## 네트워크 미완성 항목
 - 상세 목록: [network-todo.md](network-todo.md) 참조

@@ -607,7 +607,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkGameEndController
   ShowTopMostFoldoutHeaderGroup: 1
   _gameEndUI: {fileID: 1309749081}
-  _lobbySceneName: SampleScene
+  _lobbySceneName: Game
 --- !u!4 &174271744
 Transform:
   m_ObjectHideFlags: 0
@@ -2457,9 +2457,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40138d8226f49e94da8bdb031a2eddf0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.BuildingFactory
-  _castlePrefab: {fileID: 1808627247637944260, guid: 6ac593b9900a32646b5df5be05c66ab5, type: 3}
-  _barracksPrefab: {fileID: 7955766408758154779, guid: ecdaf6c3b488bc340a402e369367f6ef, type: 3}
-  _miningPostPrefab: {fileID: 4206186723115584212, guid: e3bb9f8f323973d4d89ef024f2f04739, type: 3}
+  _castlePrefab: {fileID: 765432376476959553, guid: 3dec187b2b9e0154189535d89624d5d7, type: 3}
+  _barracksPrefab: {fileID: 6463912587188652229, guid: 304df71b81c043049bdd3f62d7a2ab56, type: 3}
+  _miningPostPrefab: {fileID: 351406288662950317, guid: 5d1c18201eb5091469fe2c436c00fc4c, type: 3}
   _buildingParent: {fileID: 701964378}
 --- !u!1 &365692186
 GameObject:
@@ -3248,7 +3248,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &502751741
 RectTransform:
   m_ObjectHideFlags: 0
@@ -10024,7 +10024,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.HexGridRenderer
   _pointyTopTilePrefab: {fileID: 4461762085389953123, guid: 185bf49f465442843bb4ce1f1ef56c78, type: 3}
   _flatTopTilePrefab: {fileID: 1365630466316853550, guid: ebdae33e1133e744697ea79add92517e, type: 3}
-  _goldMinePrefab: {fileID: 0}
+  _goldMinePrefab: {fileID: 2041052343442008847, guid: 1861220f311bc0f4f936c42b60acdcc6, type: 3}
   _config: {fileID: 11400000, guid: 7cca7135ba1fd4b4cb646e723c248995, type: 2}
 --- !u!1 &1536187601
 GameObject:
@@ -10886,7 +10886,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ffbee3fe087401948ae349db70b1d746, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.UnitFactory
-  _unitPrefab: {fileID: 2824999196936846496, guid: e61337a5c7fff824cb183ed48d8f22f8, type: 3}
+  _unitPrefab: {fileID: 3775139385689606299, guid: 7bb22226c2f892a4b861224ca882519a, type: 3}
   _unitParent: {fileID: 1885953708}
 --- !u!1 &1717399260
 GameObject:
@@ -12245,7 +12245,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkCombatController
   ShowTopMostFoldoutHeaderGroup: 1
-  _attackInterval: 0.2
 --- !u!4 &1902951527
 Transform:
   m_ObjectHideFlags: 0

@@ -1,6 +1,12 @@
 # Project Orchestrator Memory — Hexiege
 
-## 프로젝트 현재 상태 (2026-02-27)
+## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음, 모든 서브에이전트 포함)
+- **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
+- 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 attack direction 작업 전체 삭제 (복구 불가)
+- 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
+- 코드 상태 확인 필요 시 Read/Grep 도구만 사용
+
+## 프로젝트 현재 상태 (2026-03-02)
 - 싱글플레이 코어 루프 완성 (헥스 그리드, 전투, 건물, 생산, 승패)
 - 멀티플레이 Phase 1~8 완성 (Lobby/Relay/NGO, 건물/생산/이동/전투/HUD/재접속)
 - **2D→3D 전환 완료 (Phase 0~3)**
@@ -11,7 +17,20 @@
   - Phase 4: 3D 헥스 타일 제작 완료 (ProBuilder + Shader Graph)
     - mat_tile_top: SG_HexTile (Object Space Position 기반 HexBorder, #BCBCBC/#3A3A3A, 두께 0.02)
     - mat_tile_side: #3A3A3A 단색
-  - Phase 5: 건물/추가 유닛 Meshy.ai 에셋 연동 (예정)
+  - Phase 4 추가 확인: Pistoleer 프리팹 `Assets/_Project/Prefabs/Units/Unit_Pistoleer.prefab` 완성 (애니메이션 작동 확인)
+  - Phase 5: 건물 3D 모델 제작 완료 (2026-03-01)
+  - **버그 수정: 2타일 시각적 공격 거리 버그 해결 (2026-03-02, Option C-Clean)**
+    - IEntityPositionProvider (Application) + UnitWorldPositionProvider (Infrastructure) 신규 추가
+    - UnitCombatUseCase: 월드좌표 기반 거리 판정, provider 미등록 시 헥스 좌표 fallback
+    - UnitView/UnitFactory/GameBootstrapper: positionProvider 주입 체인 연결
+    - Castle, Barracks, MiningPost, GoldMineTile 프리팹 완성 (Meshy.ai Image-to-3D)
+    - 프리팹 구조: 빈 루트(0,0,0) + 자식 FBX 메시(Scale/Rotation/Y 보정)
+    - HexGridRenderer 금광 타일 3D 전환 완료
+    - HexTileView 팀 색상 시스템 수정 완료
+      - SG_HexTile Shader Graph에 `_BaseColor` Blackboard 프로퍼티 추가
+      - HexTileView 컴포넌트를 새 3D 타일 프리팹에 수동 추가 필요 (ProBuilder 자동 추가 안됨)
+      - `material.color` → `material.SetColor("_BaseColor", ...)` 로 변경
+      - SG_HexTile이 materials[1](top), Lit이 materials[0](side) 순서 — 셰이더 이름으로 자동 탐색
 
 ## 에셋 폴더 구조 확정
 ```
@@ -70,8 +89,7 @@ Assets/_Project/
 
 ## 사용자 워크플로우 선호사항
 - 사용자는 총괄(project-orchestrator)에게 요청 → 총괄이 각 에이전트에게 분배
-- 복잡한 작업(2개 이상 파일, 새 기능, 설계 결정)은 먼저 계획 제시 후 실행
-- **작업 시작 전 반드시 사용자에게 계획 확인받을 것** (바로 작업 금지)
+- **규모/복잡도 관계없이 모든 작업은 시작 전 반드시 계획을 사용자에게 검토받을 것 — 승인 없이 바로 작업 절대 금지**
 - 한국어로 소통
 - 에이전트 완료 후 반드시 메모리 업데이트
 

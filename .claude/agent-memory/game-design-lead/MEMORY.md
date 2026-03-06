@@ -1,5 +1,9 @@
 # Game Design Lead Memory — Hexiege
 
+## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음)
+- **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
+- 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
+
 ## 게임 컨셉
 - 장르: 헥스 그리드 기반 1v1 실시간 전략 (RTS)
 - 플랫폼: 모바일 세로 화면 (9:16, Android/iOS)
@@ -84,6 +88,8 @@
 - 유닛 이동 + A* 경로탐색
 - 유닛 3D Animator 기반 애니메이션 (IsWalking/IsDead/Attack)
 - 전투 시스템 (IDamageable, 이동 중 자동 공격)
+  - **전투 거리 정밀도 개선 (2026-03-02)**: 월드좌표 기반 거리 체크 (IEntityPositionProvider)
+  - FlatTop 인접 타일 거리 = 0.866 world units 균일 → 단일 임계값으로 정밀 판정
 - 건물 배치 (Castle/Barracks/MiningPost)
 - 자원 시스템 (골드 수입/지출)
 - 인구 시스템
@@ -92,13 +98,15 @@
 - HUD (골드/인구/타일 카운트)
 - 멀티플레이 인프라 (Lobby/Relay/NGO Phase 1~8)
 - ViewConverter (팀별 관점 반전, 구현 완료)
-- **2D→3D 전환 완료 (2026-02-27)**
+- **2D→3D 전환 완료 (2026-02-27~2026-03-01)**
   - XZ 평면 좌표계, Orthographic 55도 틸트 카메라
   - Animator 기반 유닛, sortingOrder 폐기
+  - **건물 3D 모델 완료** (Castle/Barracks/MiningPost — Meshy.ai Image-to-3D)
+  - **헥스 타일 3D 모델 완료** (ProBuilder Cylinder + SG_HexTile Shader Graph)
+  - **금광 타일 3D 오브젝트 완료** (크리스탈 바위 더미, GoldMineTile.prefab)
+  - **랠리포인트 마커 완료** (RallyPointMarker.prefab)
 
 ## 미구현/미결 기획 항목
-- 건물 3D 모델 (Castle/Barracks/MiningPost — Meshy.ai 제작 예정)
-- 헥스 타일 3D 모델 (Meshy.ai 제작 예정)
 - 카메라 각도 최적화 (현재 55도 적용, 테스트 후 조정 가능)
 - 3종족 시스템 (TDD Phase 3)
 - 다양한 유닛 타입 (현재 Pistoleer 1종)
