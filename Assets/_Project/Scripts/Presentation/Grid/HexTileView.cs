@@ -75,9 +75,21 @@ namespace Hexiege.Presentation
             // [Phase 2] Renderer 타입으로 가져와서 MeshRenderer/SpriteRenderer 모두 대응
             _renderer = GetComponent<Renderer>();
 
-            // 머티리얼 인스턴스 캐시 (material 프로퍼티는 첫 접근 시 복제본 생성)
+            // 머티리얼 인스턴스 캐시 — SG_HexTile 셰이더(윗면)를 우선 탐색
             if (_renderer != null)
-                _materialInstance = _renderer.material;
+            {
+                foreach (var mat in _renderer.materials)
+                {
+                    if (mat.shader.name.Contains("SG_HexTile"))
+                    {
+                        _materialInstance = mat;
+                        break;
+                    }
+                }
+                // SG_HexTile 셰이더를 찾지 못한 경우 fallback (index 0)
+                if (_materialInstance == null)
+                    _materialInstance = _renderer.material;
+            }
 
             // 초기 색상 설정 (Neutral = 회색)
             UpdateColor();
@@ -152,7 +164,7 @@ namespace Hexiege.Presentation
                 baseColor *= _config.SelectedTint;
             }
 
-            _materialInstance.color = baseColor;
+            _materialInstance.SetColor("_BaseColor", baseColor);
         }
     }
 }

@@ -604,7 +604,8 @@ namespace Hexiege.Bootstrap
         {
             // UnitFactory에 런타임 의존성 주입 (생산된 유닛에 자동 적용)
             if (_unitFactory != null)
-                _unitFactory.SetDependencyReferences(_config, _unitMovement, _unitCombat);
+                _unitFactory.SetDependencyReferences(_config, _unitMovement, _unitCombat,
+                    _unitFactory, _buildingFactory);
 
             // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요)
             if (_productionTicker != null)

@@ -128,6 +128,15 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
+        /// Id로 건물 GameObject 조회. 외부에서 접근 필요 시 사용.
+        /// </summary>
+        public GameObject GetBuildingObject(int buildingId)
+        {
+            _buildingObjects.TryGetValue(buildingId, out GameObject obj);
+            return obj;
+        }
+
+        /// <summary>
         /// 모든 건물 GameObject를 파괴. 맵 전환 시 호출.
         /// </summary>
         public void DestroyAllBuildings()

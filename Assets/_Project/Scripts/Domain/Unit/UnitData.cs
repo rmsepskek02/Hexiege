@@ -63,6 +63,12 @@ namespace Hexiege.Domain
         /// <summary> 타일 1칸 이동 소요 시간(초). 작을수록 빠름. </summary>
         public float MoveSeconds { get; }
 
+        /// <summary> 공격 1회 쿨다운(초). UnitFactory에서 Attack 클립 길이로 설정. </summary>
+        public float AttackCooldown { get; set; }
+
+        /// <summary> 남은 공격 쿨다운(초). 0 이하이면 공격 가능. 0으로 시작(즉시 공격 가능). </summary>
+        public float AttackCooldownRemaining { get; set; }
+
         /// <summary> 유닛이 살아있는지 여부. </summary>
         public bool IsAlive => Hp > 0;
 
@@ -102,6 +108,8 @@ namespace Hexiege.Domain
             AttackPower = attackPower;
             AttackRange = attackRange;
             MoveSeconds = moveSeconds;
+            AttackCooldown = UnitStats.GetAttackCooldown(type);
+            AttackCooldownRemaining = 0f;
             Facing = facing;
         }
 
@@ -133,6 +141,8 @@ namespace Hexiege.Domain
             AttackPower = attackPower;
             AttackRange = attackRange;
             MoveSeconds = moveSeconds;
+            AttackCooldown = UnitStats.GetAttackCooldown(type);
+            AttackCooldownRemaining = 0f;
             Facing = facing;
 
             // 지정 Id 이후로 자동 발급 카운터를 앞당겨 충돌 방지

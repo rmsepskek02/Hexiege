@@ -44,22 +44,29 @@ namespace Hexiege.Application
         /// 멀티플레이 모드에서는 서버만 전투를 처리하여 권위 있는 판정 보장.
         /// 클라이언트는 UnitView 애니메이션(시각 효과)만 처리하고 데미지는 서버에 위임.
         /// </summary>
-        /// <returns>공격이 발생했으면 true</returns>
-        public bool TryAttack(UnitData attacker)
+        /// <returns>공격 성공 시 (타겟 Id, 타겟이 유닛인지 여부) 튜플, 실패 시 null</returns>
+        public (int id, bool isUnit)? TryAttack(UnitData attacker)
         {
-            if (attacker == null || !attacker.IsAlive) return false;
+            if (attacker == null || !attacker.IsAlive) return null;
 
             // 멀티플레이 모드에서는 서버만 전투 처리.
             // NetworkManager에 직접 의존하는 대신 NetworkContext 정적 홀더를 사용.
             // NetworkCombatController.OnNetworkSpawn()에서 NetworkContext.Set()을 호출하여 값 주입.
-            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return false;
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return null;
+
+            // 쿨다운 중이면 공격 불가
+            if (attacker.AttackCooldownRemaining > 0f) return null;
 
             // IDamageable을 구현하는 모든 적을 찾도록 로직 변경
             IDamageable target = FindFirstEnemyTarget(attacker);
-            if (target == null) return false;
+            if (target == null) return null;
 
             ExecuteAttack(attacker, target);
-            return true;
+
+            // 공격 성공 → 쿨다운 시작
+            attacker.AttackCooldownRemaining = attacker.AttackCooldown;
+
+            return (target.Id, target is UnitData);
         }
 
         /// <summary>

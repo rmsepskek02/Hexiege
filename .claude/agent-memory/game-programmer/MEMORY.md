@@ -378,14 +378,29 @@
   - `zOffset = cameraHeight / tan(tiltAngle)`, `pos.z -= zOffset`
 - UnitView: Phase 2에서 Animator 연동 이미 완성 — 추가 수정 없음
 
-## 공격 방향 리팩터링 (2026-03-02) — 자세한 내용: [attack-direction-refactor.md](attack-direction-refactor.md)
-- FacingDirection.cs: ArtDirection/FacingInfo/FromHexDirection 제거 (2D 레거시)
-- UnitCombatUseCase: CalcViewDirection/WorldDeltaToHexDirection 제거, TryAttack → IDamageable 반환
-- UnitView: ApplyAttackRotation(HexCoord) 추가 — 타겟 월드벡터 → Atan2 → Y 회전 직접 계산
-- UnitView._meshYOffset: 메시 자식 로컬 Y 보정 (SerializeField, 프리팹별 설정)
-- TriggerAttackAnimationClientRpc: targetQ, targetR 파라미터 추가
-- UnitData.Facing = 항상 도메인 좌표 (싱글/멀티 동일)
-- Unit_Pistoleer 프리팹: UnitView._meshYOffset = 30 (Inspector 설정, 코드 기본값 0f)
+## 공격 방향 실제 Transform 기반 (2026-03-07 최종 확정)
+- **TryAttack 반환 타입**: `(int id, bool isUnit)?` 튜플 (공격 성공 시 targetId + 타겟 종류 반환)
+- **UnitView.CalculateAttackAngle(Vector3 targetWorldPos)**: 타겟 실제 transform.position → Atan2 → _meshYOffset 보정
+  - HexCoord 기반이 아닌 실제 transform → Lerp 이동 중에도 정확한 방향
+- **UnitView.GetTargetWorldPos(int targetId, bool targetIsUnit)**: _unitFactory / _buildingFactory로 실제 GameObject 조회
+  - fallback: 이미 파괴된 경우 transform.forward 방향 유지
+- **UnitView._meshYOffset**: [SerializeField] float, 기본값 30f (Unit_Pistoleer_Mesh의 localEulerAngles.y 보정)
+- **TriggerAttackAnimation(int targetId, bool targetIsUnit)**: targetId로 실제 transform 조회 후 CalculateAttackAngle 호출
+- **UnitView.SetDependencies**: `UnitFactory unitFactory = null, BuildingFactory buildingFactory = null` 파라미터 추가
+- **싱글플레이 이벤트 구독**: `TriggerAttackAnimation(e.Target.Id, e.Target is UnitData)` 호출
+- **TriggerAttackAnimationClientRpc**: `(unitId, targetQ, targetR)` → `(unitId, targetId, targetIsUnit)` — 클라이언트 직접 조회
+- **BuildingFactory.GetBuildingObject(int buildingId)**: 신규 추가 (UnitFactory.GetUnitObject 동일 패턴)
+- **GameBootstrapper**: SetDependencies 호출에 `_unitFactory, _buildingFactory` 추가
+- **이동 방향은 변경 없음**: MoveAlongPath의 ApplyDirection(dir) 호출은 기존 HexDirection 기반 유지
+
+## 유닛별 AttackCooldown 시스템 (2026-03-06 구현)
+- **UnitData.AttackCooldown** (float, get/set): 공격 쿨다운(초). UnitFactory에서 Attack 클립 길이로 덮어씀
+- **UnitData.AttackCooldownRemaining** (float, get/set): 남은 쿨다운. 0이면 즉시 공격 가능
+- **UnitStats.GetAttackCooldown(UnitType)**: 기본값 반환 (Pistoleer=1.0f) — UnitFactory가 클립 길이로 덮어씀
+- **UnitFactory.GetAttackClipLength(Animator)**: runtimeAnimatorController.animationClips에서 "Attack" 포함 클립 길이 반환
+- **NetworkCombatController**: `_attackInterval=0.1f` (폴링 빈도), 매 Tick `AttackCooldownRemaining -= _attackInterval`
+- **UnitView.Update()**: 싱글플레이에서만 `AttackCooldownRemaining -= Time.deltaTime` (멀티플레이는 서버 Tick)
+- **MoveAlongPath 이동 차단**: `HasEnemyInRange()` 기반 (쿨다운 무관한 적 존재 여부만 판정)
 
 ## 네트워크 미완성 항목
 - 상세 목록: [network-todo.md](network-todo.md) 참조

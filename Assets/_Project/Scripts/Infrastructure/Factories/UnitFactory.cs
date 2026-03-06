@@ -48,20 +48,25 @@ namespace Hexiege.Infrastructure
         private GameConfig _depConfig;
         private UnitMovementUseCase _depMovement;
         private UnitCombatUseCase _depCombat;
+        private UnitFactory _depUnitFactory;
+        private BuildingFactory _depBuildingFactory;
         private bool _hasDependencies;
 
         /// <summary>
         /// GameBootstrapper에서 UseCase 생성 후 한 번 호출.
         /// 이후 생성되는 모든 유닛에 자동으로 SetDependencies() 적용.
-        /// [Phase 2] UnitAnimationData 파라미터 제거 — Animator가 대체.
+        /// UnitFactory/BuildingFactory는 공격 방향 계산 시 타겟 transform 조회에 사용.
         /// </summary>
         public void SetDependencyReferences(
             GameConfig config,
-            UnitMovementUseCase movement, UnitCombatUseCase combat)
+            UnitMovementUseCase movement, UnitCombatUseCase combat,
+            UnitFactory unitFactory = null, BuildingFactory buildingFactory = null)
         {
             _depConfig = config;
             _depMovement = movement;
             _depCombat = combat;
+            _depUnitFactory = unitFactory;
+            _depBuildingFactory = buildingFactory;
             _hasDependencies = true;
         }
 
@@ -155,9 +160,16 @@ namespace Hexiege.Infrastructure
             {
                 unitView.Initialize(unitData);
 
+                // Attack 클립 길이를 읽어 쿨다운 설정
+                var animator = unitObj.GetComponentInChildren<Animator>();
+                float attackClipLength = GetAttackClipLength(animator);
+                if (attackClipLength > 0f)
+                    unitData.AttackCooldown = attackClipLength;
+
                 // 런타임 의존성 자동 주입 (생산된 유닛도 즉시 동작 가능)
                 if (_hasDependencies)
-                    unitView.SetDependencies(_depConfig, _depMovement, _depCombat);
+                    unitView.SetDependencies(_depConfig, _depMovement, _depCombat,
+                        _depUnitFactory, _depBuildingFactory);
             }
 
             // 내부 딕셔너리에 등록 (나중에 삭제 시 사용)
@@ -171,6 +183,19 @@ namespace Hexiege.Infrastructure
         {
             _unitObjects.TryGetValue(unitId, out GameObject obj);
             return obj;
+        }
+
+        /// <summary>
+        /// Animator에서 "Attack"이 포함된 첫 번째 클립의 길이를 반환.
+        /// 클립이 없거나 Animator가 null이면 0 반환.
+        /// </summary>
+        private float GetAttackClipLength(Animator animator)
+        {
+            if (animator == null || animator.runtimeAnimatorController == null) return 0f;
+            foreach (var clip in animator.runtimeAnimatorController.animationClips)
+                if (clip.name.Contains("Attack"))
+                    return clip.length;
+            return 0f;
         }
 
         /// <summary>

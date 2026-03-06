@@ -8,7 +8,8 @@
 
 ```
 _Tasks/
-└── YYYY-MM-DD_[작업명]/
+└── YYYY-MM-DD
+  └── HH_MM_[작업명]/
     ├── research.md    ← 코드 파악, 영향 범위, 현재 상태
     └── plan.md        ← 구현 접근법, 파일별 변경 내용, 위험 요소
 ```
@@ -16,7 +17,11 @@ _Tasks/
 예시:
 ```
 _Tasks/
-└── 2026-03-05_network-input-fix/
+└── 2026-03-05
+  └── 18_05_network-input-fix/
+    ├── research.md
+    └── plan.md  
+  └── 19_05_attack-direction/
     ├── research.md
     └── plan.md
 ```

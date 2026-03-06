@@ -45,7 +45,7 @@ namespace Hexiege.Infrastructure
 
         [Header("전투 설정")]
         [Tooltip("전투 처리 간격 (초). 0.2 = 초당 5회 전투 판정.")]
-        [SerializeField] private float _attackInterval = 0.2f;
+        [SerializeField] private float _attackInterval = 0.1f;
 
         // ====================================================================
         // 내부 상태
@@ -158,11 +158,16 @@ namespace Hexiege.Infrastructure
                 if (!unitSpawn.Units.TryGetValue(id, out UnitData unit)) continue;
                 if (!unit.IsAlive) continue;
 
-                if (combat.TryAttack(unit))
+                // 쿨다운 감소 (서버 Tick 간격만큼)
+                if (unit.AttackCooldownRemaining > 0f)
+                    unit.AttackCooldownRemaining -= _attackInterval;
+
+                var attackResult = combat.TryAttack(unit);
+                if (attackResult.HasValue)
                 {
-                    // 공격 성공 → 모든 클라이언트에 공격 애니메이션 전파.
-                    // TryAttack 내부에서 attacker.Facing이 공격 방향으로 갱신됨.
-                    TriggerAttackAnimationClientRpc(unit.Id, (int)unit.Facing);
+                    // 공격 성공 → 모든 클라이언트에 타겟 Id + 타입 전파.
+                    // 클라이언트에서 타겟 GameObject의 실제 transform.position으로 정밀 방향 계산.
+                    TriggerAttackAnimationClientRpc(unit.Id, attackResult.Value.id, attackResult.Value.isUnit);
                 }
             }
         }
@@ -251,15 +256,14 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 서버에서 공격 발생 후 모든 클라이언트에 공격 애니메이션 트리거 전송.
-        /// UnitView.TriggerAttackAnimation()을 호출하여 공격 스프라이트 재생.
+        /// 타겟 Id와 타입을 전달하여 클라이언트에서 실제 transform.position 기반 정밀 방향 계산.
         /// 서버(Host)도 이 ClientRpc를 수신하여 동일한 애니메이션 처리.
-        /// (싱글플레이의 OnEntityAttacked 이벤트 구독을 멀티플레이에서는 비활성화하고
-        ///  이 ClientRpc로 대체하여 타이밍 일관성 보장.)
         /// </summary>
         /// <param name="unitId">공격한 유닛의 Id</param>
-        /// <param name="facingInt">공격 방향 (HexDirection enum의 정수값)</param>
+        /// <param name="targetId">타겟 엔티티의 Id</param>
+        /// <param name="targetIsUnit">true=유닛, false=건물</param>
         [ClientRpc]
-        private void TriggerAttackAnimationClientRpc(int unitId, int facingInt)
+        private void TriggerAttackAnimationClientRpc(int unitId, int targetId, bool targetIsUnit)
         {
             if (_bootstrapper == null)
                 _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
@@ -276,8 +280,7 @@ namespace Hexiege.Infrastructure
             UnitView unitView = unitObj.GetComponent<UnitView>();
             if (unitView == null) return;
 
-            HexDirection facing = (HexDirection)facingInt;
-            unitView.TriggerAttackAnimation(facing);
+            unitView.TriggerAttackAnimation(targetId, targetIsUnit);
         }
 
         // ====================================================================

@@ -61,6 +61,16 @@ namespace Hexiege.Presentation
         private static readonly float[] DirectionAngles = { 30f, 90f, 150f, 210f, 270f, 330f };
 
         // ====================================================================
+        // Inspector 설정
+        // ====================================================================
+
+        /// <summary>
+        /// 프리팹 메시 자식 오브젝트의 localEulerAngles.y 보정값.
+        /// Unit_Pistoleer_Mesh가 30도 회전되어 있으므로 Atan2 결과에서 빼줌.
+        /// </summary>
+        [SerializeField] private float _meshYOffset = 30f;
+
+        // ====================================================================
         // 내부 참조
         // ====================================================================
 
@@ -81,6 +91,12 @@ namespace Hexiege.Presentation
 
         /// <summary> 전투 UseCase 참조. 이동 완료 후 자동 공격용. </summary>
         private UnitCombatUseCase _combatUseCase;
+
+        /// <summary> 유닛 팩토리. 타겟 유닛의 실제 transform 조회용. </summary>
+        private UnitFactory _unitFactory;
+
+        /// <summary> 건물 팩토리. 타겟 건물의 실제 transform 조회용. </summary>
+        private BuildingFactory _buildingFactory;
 
         /// <summary> 현재 이동 코루틴. null이면 정지 상태. </summary>
         private Coroutine _moveCoroutine;
@@ -125,11 +141,14 @@ namespace Hexiege.Presentation
         /// [Phase 2] UnitAnimationData 파라미터 제거 — Animator(Mecanim)가 대체.
         /// </summary>
         public void SetDependencies(GameConfig config,
-            UnitMovementUseCase movementUseCase, UnitCombatUseCase combatUseCase)
+            UnitMovementUseCase movementUseCase, UnitCombatUseCase combatUseCase,
+            UnitFactory unitFactory = null, BuildingFactory buildingFactory = null)
         {
             _config = config;
             _movementUseCase = movementUseCase;
             _combatUseCase = combatUseCase;
+            _unitFactory = unitFactory;
+            _buildingFactory = buildingFactory;
 
             // 공격 이벤트 구독 — 싱글플레이 전용.
             // 멀티플레이에서는 NetworkCombatController가 ClientRpc로 직접 TriggerAttackAnimation() 호출.
@@ -140,7 +159,7 @@ namespace Hexiege.Presentation
                     {
                         if (_unitData != null && e.Attacker == (IDamageable)_unitData)
                         {
-                            _attackCoroutine = StartCoroutine(PlayAttackAnimation(_unitData.Facing));
+                            TriggerAttackAnimation(e.Target.Id, e.Target is UnitData);
                         }
                     })
                     .AddTo(this);
@@ -161,6 +180,20 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
+        // Update — 싱글플레이 쿨다운 감소
+        // ====================================================================
+
+        private void Update()
+        {
+            // 싱글플레이에서만 매 프레임 쿨다운 감소
+            // 멀티플레이에서는 NetworkCombatController가 서버 Tick에서 감소 처리
+            if (!NetworkContext.IsNetworkActive && _unitData != null && _unitData.AttackCooldownRemaining > 0f)
+            {
+                _unitData.AttackCooldownRemaining = Mathf.Max(0f, _unitData.AttackCooldownRemaining - Time.deltaTime);
+            }
+        }
+
+        // ====================================================================
         // 방향 처리 — Y축 회전 기반
         // ====================================================================
 
@@ -176,6 +209,38 @@ namespace Hexiege.Presentation
             {
                 transform.rotation = Quaternion.Euler(0f, DirectionAngles[index], 0f);
             }
+        }
+
+        /// <summary>
+        /// 타겟의 실제 월드 위치를 기반으로 Atan2 정밀 공격 각도를 계산.
+        /// HexCoord 기반이 아닌 transform.position 기반이므로 Lerp 이동 중에도 정확한 방향.
+        /// _meshYOffset을 빼서 프리팹 메시의 기본 회전을 보정.
+        /// </summary>
+        /// <param name="targetWorldPos">타겟의 실제 월드 좌표 (transform.position).</param>
+        /// <returns>Y축 회전 각도 (도 단위).</returns>
+        private float CalculateAttackAngle(Vector3 targetWorldPos)
+        {
+            Vector3 dir = targetWorldPos - transform.position;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.001f)
+                return transform.eulerAngles.y;
+            return Mathf.Atan2(dir.x, dir.z) * Mathf.Rad2Deg - _meshYOffset;
+        }
+
+        /// <summary>
+        /// targetId와 타입으로 실제 GameObject의 world position 조회.
+        /// 이미 파괴된 경우 현재 forward 방향 fallback.
+        /// </summary>
+        private Vector3 GetTargetWorldPos(int targetId, bool targetIsUnit)
+        {
+            GameObject obj = targetIsUnit
+                ? _unitFactory?.GetUnitObject(targetId)
+                : _buildingFactory?.GetBuildingObject(targetId);
+
+            if (obj != null) return obj.transform.position;
+
+            // fallback: 팩토리 미등록 또는 이미 파괴된 경우 현재 forward 방향
+            return transform.position + transform.forward;
         }
 
         // ====================================================================
@@ -318,19 +383,26 @@ namespace Hexiege.Presentation
                         }
                         else
                         {
-                            // 싱글플레이: TryAttack으로 직접 전투
-                            if (_combatUseCase.TryAttack(_unitData))
+                            // 싱글플레이: HasEnemyInRange로 이동 차단, TryAttack은 쿨다운 기반으로 자동 실행
+                            if (_combatUseCase.HasEnemyInRange(_unitData))
                             {
-                                while (_attackCoroutine != null)
-                                    yield return null;
+                                // 이동 중단 → Idle 전환
+                                SetAnimatorBool(AnimIsWalking, false);
 
-                                while (_unitData.IsAlive && _combatUseCase.TryAttack(_unitData))
+                                while (_unitData.IsAlive && _combatUseCase.HasEnemyInRange(_unitData))
                                 {
+                                    // 쿨다운이 끝나면 공격 시도
+                                    _combatUseCase.TryAttack(_unitData);
+
                                     while (_attackCoroutine != null)
                                         yield return null;
+                                    yield return null;
                                 }
 
                                 if (!_unitData.IsAlive) break;
+
+                                // 적 제거 후 Walk 복귀
+                                SetAnimatorBool(AnimIsWalking, true);
                             }
                         }
                     }
@@ -371,27 +443,30 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 외부에서 공격 애니메이션을 트리거. NetworkCombatController의 ClientRpc에서 호출.
+        /// 타겟의 실제 transform.position 기반 Atan2 정밀 각도로 회전.
         /// </summary>
-        /// <param name="direction">공격 방향 (도메인 기준, 뷰 반전 적용 전).</param>
-        public void TriggerAttackAnimation(HexDirection direction)
+        /// <param name="targetId">타겟 엔티티의 Id.</param>
+        /// <param name="targetIsUnit">true=유닛, false=건물.</param>
+        public void TriggerAttackAnimation(int targetId, bool targetIsUnit)
         {
             if (_unitData == null || !_unitData.IsAlive) return;
 
             if (_attackCoroutine != null)
                 StopCoroutine(_attackCoroutine);
 
-            HexDirection viewDir = ViewConverter.FlipDirection(direction);
-            _attackCoroutine = StartCoroutine(PlayAttackAnimation(viewDir));
+            float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
+            _attackCoroutine = StartCoroutine(PlayAttackAnimation(angle));
         }
 
         /// <summary>
         /// 공격 애니메이션을 재생하고 일정 시간 후 복귀하는 코루틴.
+        /// Atan2 기반 정밀 Y축 회전 각도를 사용.
         /// [Phase 2] Animator.SetTrigger("Attack") 사용.
         /// </summary>
-        private IEnumerator PlayAttackAnimation(HexDirection direction)
+        private IEnumerator PlayAttackAnimation(float yAngle)
         {
-            // 공격 방향으로 Y축 회전
-            ApplyDirection(direction);
+            // Atan2 기반 정밀 공격 각도로 Y축 회전
+            transform.rotation = Quaternion.Euler(0f, yAngle, 0f);
 
             // [Phase 2] Animator 트리거로 공격 애니메이션 재생
             SetAnimatorTrigger(AnimAttack);

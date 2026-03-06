@@ -39,5 +39,12 @@ namespace Hexiege.Domain
             UnitType.Pistoleer => 0.8f,
             _                  => 0.3f
         };
+
+        /// <summary> 유닛 타입별 기본 공격 쿨다운 (초). UnitFactory에서 클립 길이로 덮어씀. </summary>
+        public static float GetAttackCooldown(UnitType type) => type switch
+        {
+            UnitType.Pistoleer => 1.0f,
+            _                  => 1.0f
+        };
     }
 }
