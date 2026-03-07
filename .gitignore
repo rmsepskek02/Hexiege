@@ -69,6 +69,12 @@ mono_crash.*
 # Unity IL2CPP build backup (빌드 시 자동 생성, 커밋 불필요)
 Build_BackUpThisFolder_ButDontShipItWithYourGame/
 
+# Unity Performance Test 자동 생성 파일
+Assets/Resources/PerformanceTestRunInfo.json
+Assets/Resources/PerformanceTestRunInfo.json.meta
+Assets/Resources/PerformanceTestRunSettings.json
+Assets/Resources/PerformanceTestRunSettings.json.meta
+
 # Builds
 *.apk
 *.aab
