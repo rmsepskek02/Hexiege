@@ -9,23 +9,16 @@
 - UnitCombatUseCase: `ClaimedTile ?? Position` 으로 사거리/방향 계산 (Lerp 중 위치 보정)
 - UnitView: 부드러운 회전 (ApplyDirection → _targetYRotation, Update에서 MoveTowardsAngle 보간, 540도/초)
 
-## [버그 수정] 2타일 시각적 공격 거리 버그 (Option C-Clean, 2026-03-02 완료)
-- **증상**: AttackRange=1인데 시각적으로 2타일 거리에서 공격
-- **근본 원인**: `FindFirstEnemyTarget`에서 공격자는 `ClaimedTile ?? Position`(다음 타일), 대상은 `unit.Position`(완료 타일) → 최대 2타일 갭
-- **해결**: 월드좌표 기반 거리 체크 (IEntityPositionProvider 인터페이스 패턴)
-  - FlatTop 인접 타일 거리 = 0.866f (TileHeight = √3/2), maxDist = AttackRange × 0.866 + 0.1f
-  - provider 미등록 시 헥스 좌표 fallback 유지
-  - 건물은 이동하지 않으므로 계속 헥스 좌표 기반 사용
+## IEntityPositionProvider — 월드좌표 기반 사거리 판정 (2026-03-07 재구현)
+- **문제**: HexCoord.Distance는 Lerp 완료 후에만 갱신 → 이동 중 최대 0.8초 공격 딜레이
+- **해결**: UnitFactory/BuildingFactory.GetObject()로 실시간 Transform.position 조회
 - **신규 파일**:
-  - `Assets/_Project/Scripts/Application/Interfaces/IEntityPositionProvider.cs` — Application 레이어 인터페이스
-  - `Assets/_Project/Scripts/Infrastructure/UnitWorldPositionProvider.cs` — Dictionary<int, Transform> 구현체
+  - `Application/Interfaces/IEntityPositionProvider.cs` — GetUnitWorldPosition(id), GetBuildingWorldPosition(id)
+  - `Infrastructure/UnitWorldPositionProvider.cs` — UnitFactory+BuildingFactory 주입, GetObject().transform.position 반환
 - **수정 파일**:
-  - `UnitCombatUseCase.cs`: 생성자에 `IEntityPositionProvider positionProvider=null, float tileWorldDist=0.866f` 추가, `FindFirstEnemyTarget` 월드좌표 판정으로 교체
-  - `UnitView.cs`: `SetDependencies`에 `IEntityPositionProvider positionProvider=null` 추가 + `_positionProvider.Register()` 호출, `OnDestroy()` 추가 + `Unregister()` 호출
-  - `UnitFactory.cs`: `SetDependencyReferences`에 `IEntityPositionProvider positionProvider=null` 추가, `CreateUnitObject`에서 `unitView.SetDependencies` 호출 시 전달
-  - `GameBootstrapper.cs`: `_positionProvider` 필드 추가, `CreateUseCases()`에서 `new UnitWorldPositionProvider()` 생성 후 공유, `SetupProduction()`에서 `UnitFactory.SetDependencyReferences`에 전달
-- **C# 주의**: `out` 변수를 `&&` 단락 평가 안에 인라인 선언하면 CS0170 발생 → 반드시 미리 `Vector3 v = Vector3.zero;`로 초기화 후 `TryGetWorldPosition(id, out v)` 패턴 사용
-- **공유 인스턴스 패턴**: `_positionProvider`를 `UnitCombatUseCase`와 `UnitFactory` 모두에 전달 → 동일 Dictionary 참조 → `UnitView.SetDependencies()`가 등록한 Transform을 `UnitCombatUseCase`가 즉시 조회 가능
+  - `UnitCombatUseCase.cs`: 생성자에 `IEntityPositionProvider positionProvider=null` 추가, FindFirstEnemyTarget→월드좌표 Vector3.Distance 판정, null/zero시 HexCoord 폴백
+  - `GameBootstrapper.cs`: CreateUseCases()에서 `new UnitWorldPositionProvider(_unitFactory, _buildingFactory)` 생성 후 전달
+- **임계값**: `attacker.AttackRange * HexMetrics.TileHeight + 0.1f` (FlatTop 인접=0.866, epsilon=0.1)
 
 ## 네트워크 인프라 (Phase 1)
 - 패키지: `com.unity.netcode.gameobjects` 2.8.1, `com.unity.services.multiplayer` 2.0.0 (Lobby/Relay/Auth 통합) 이미 설치됨
@@ -354,19 +347,19 @@
 - UnitView: flipX → Y축 회전 (DirectionAngles: NE=30, E=90, SE=150, SW=210, W=270, NW=330)
 - SetDependencies 시그니처: `(GameConfig, UnitMovementUseCase, UnitCombatUseCase)` — animData 제거
 
-## UnitView 애니메이션 시스템 (2026-03-01 확정)
-- **Animator Controller 파라미터**: `IsDead`(bool) 1개만 사용
+## UnitView 애니메이션 시스템 (2026-03-07 Animator.Play() 방식 확정)
+- **Animator Controller 파라미터**: `IsDead`(bool) 1개만 사용 — IsWalking/Attack trigger 제거됨
 - **스테이트**: Walk(기본/루프), Attack, Dead — 이름 반드시 정확히 일치 필요
 - **트랜지션**: `Any State → Dead (IsDead=true)` 만 유지. 나머지 트랜지션 없음
+- **스테이트 해시 상수**: `StateAttack`, `StateWalk` (Animator.StringToHash) — AnimIsWalking/AnimAttack 제거됨
 - **Animator.Play() 직접 호출 방식** (트랜지션 우회):
-  - Walk 시작: `SetAnimatorSpeed(1f)` (클립 진행)
-  - Walk 정지: `SetAnimatorSpeed(0f)` (현재 프레임 고정)
-  - 공격: `_animator.Play(StateAttack, 0, 0f)` → 1프레임 대기 → `GetCurrentAnimatorStateInfo(0).length` → 완료 후 `_animator.Play(StateWalk, 0, 0f)`
-  - 사망: `SetAnimatorSpeed(1f)` → `SetAnimatorBool(AnimIsDead, true)`
-- **연속 공격 시 Walk 플래시 없음**: Trigger + Exit Time 방식 대신 Play() 직접 호출로 해결
-- **클립 길이 자동 대응**: `GetCurrentAnimatorStateInfo(0).length` — 유닛별 애니메이션 길이 달라도 자동 처리
-- **스테이트 해시 상수**: `StateAttack`, `StateWalk` (Animator.StringToHash) — 문자열 오타 방지
-- **정지 중 공격**: prevSpeed 저장 → speed=1 → Play(Attack) → 완료 후 prevSpeed 복구
+  - Walk 시작: `_animator.Play(StateWalk, 0, 0f)` + `_animator.speed = 1f`
+  - Walk 정지(Idle): `_animator.speed = 0f` (현재 프레임 고정, Walk 상태 유지)
+  - 공격: `_animator.Play(StateAttack, 0, 0f)` → `yield return null` → `clipLen = GetCurrentAnimatorStateInfo(0).length` → `WaitForSeconds(clipLen)` → Walk 복귀 없음(전투 루프 탈출 시에만)
+  - 사망: `_animator.speed = 1f` + `_animator.SetBool(AnimIsDead, true)` (인라인, SetAnimatorBool 래퍼 미사용)
+- **clipLen 안전 폴백**: clipLen <= 0f 시 0.5f 사용
+- **연속 공격 시 Walk 플래시 없음**: Play(Attack) 직접 호출 → 공격 완료 후 Walk 복귀 안 함 → 루프 탈출 시에만 speed=1f
+- **SetAnimatorTrigger 래퍼 제거됨** — SetAnimatorBool은 IsDead 전용으로만 잔류(미사용 상태)
 - **모든 유닛 공통 컨벤션**: Walk/Attack/Dead 스테이트 이름 통일 → UnitView 코드 변경 없이 유닛 추가 가능
 - **Idle 애니메이션 없음**: 게임 특성상 Walk speed=0으로 정지 표현 (Idle 클립 불필요)
 

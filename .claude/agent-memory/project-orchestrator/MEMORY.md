@@ -6,10 +6,10 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
-## 프로젝트 현재 상태 (2026-03-02)
+## 프로젝트 현재 상태 (2026-03-07)
 - 싱글플레이 코어 루프 완성 (헥스 그리드, 전투, 건물, 생산, 승패)
 - 멀티플레이 Phase 1~8 완성 (Lobby/Relay/NGO, 건물/생산/이동/전투/HUD/재접속)
-- **2D→3D 전환 완료 (Phase 0~3)**
+- **2D→3D 전환 완료 (Phase 0~5)**
   - Phase 0: NetworkGameEndController 씬명 하드코딩 수정 ("SampleScene" → "Game")
   - Phase 1: XY→XZ 좌표계 전환 (HexMetrics, ViewConverter, CameraController, GameBootstrapper, InputHandler)
   - Phase 2: Sprite→Mesh 렌더링 전환 (BuildingFactory sortingOrder 제거, UnitFactory/UnitView AnimationData 제거, FrameAnimator.cs 삭제)
@@ -19,18 +19,23 @@
     - mat_tile_side: #3A3A3A 단색
   - Phase 4 추가 확인: Pistoleer 프리팹 `Assets/_Project/Prefabs/Units/Unit_Pistoleer.prefab` 완성 (애니메이션 작동 확인)
   - Phase 5: 건물 3D 모델 제작 완료 (2026-03-01)
-  - **버그 수정: 2타일 시각적 공격 거리 버그 해결 (2026-03-02, Option C-Clean)**
-    - IEntityPositionProvider (Application) + UnitWorldPositionProvider (Infrastructure) 신규 추가
-    - UnitCombatUseCase: 월드좌표 기반 거리 판정, provider 미등록 시 헥스 좌표 fallback
-    - UnitView/UnitFactory/GameBootstrapper: positionProvider 주입 체인 연결
     - Castle, Barracks, MiningPost, GoldMineTile 프리팹 완성 (Meshy.ai Image-to-3D)
     - 프리팹 구조: 빈 루트(0,0,0) + 자식 FBX 메시(Scale/Rotation/Y 보정)
     - HexGridRenderer 금광 타일 3D 전환 완료
-    - HexTileView 팀 색상 시스템 수정 완료
-      - SG_HexTile Shader Graph에 `_BaseColor` Blackboard 프로퍼티 추가
-      - HexTileView 컴포넌트를 새 3D 타일 프리팹에 수동 추가 필요 (ProBuilder 자동 추가 안됨)
-      - `material.color` → `material.SetColor("_BaseColor", ...)` 로 변경
-      - SG_HexTile이 materials[1](top), Lit이 materials[0](side) 순서 — 셰이더 이름으로 자동 탐색
+
+- **2026-03-07 복구/버그 수정 작업 (git restore 사고로 소실된 작업 복원)**
+  - **공격 방향 transform 기반 복구**: UnitView.CalculateAttackAngle — transform.position Atan2, _meshYOffset=30f 보정
+  - **AttackCooldown 시스템 복구**: UnitData.AttackCooldown/AttackCooldownRemaining, UnitFactory 클립 길이 자동 설정
+  - **IEntityPositionProvider 재구현**: git restore로 소실 → 재구현 완료
+    - `Application/Interfaces/IEntityPositionProvider.cs` (신규)
+    - `Infrastructure/UnitWorldPositionProvider.cs` (신규) — UnitFactory/BuildingFactory.GetObject().transform.position
+    - `UnitCombatUseCase`: 월드좌표 Vector3.Distance 기반 사거리 판정, null/zero 시 HexCoord 폴백
+    - `GameBootstrapper.CreateUseCases()`: UnitWorldPositionProvider 생성 후 UnitCombatUseCase에 주입
+    - 임계값: `AttackRange * HexMetrics.TileHeight + 0.1f`
+  - **HexTileView 타일 색상 버그 수정**: 옆면 → 윗면 색상 변경
+    - `renderer.material`(index 0=side) → materials 배열 순회, SG_HexTile 셰이더 탐색 후 캐시
+    - `material.color` → `material.SetColor("_BaseColor", ...)` (SG_HexTile Shader Graph 프로퍼티)
+  - **_Tasks 폴더 구조 변경**: `YYYY-MM-DD_작업명/` → `YYYY-MM-DD/HH_MM_작업명/` (날짜별 분류)
 
 ## 에셋 폴더 구조 확정
 ```

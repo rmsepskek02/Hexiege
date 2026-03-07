@@ -12,7 +12,9 @@
 // ============================================================================
 
 using System.Collections.Generic;
+using UnityEngine;
 using Hexiege.Domain;
+using Hexiege.Core;
 
 namespace Hexiege.Application
 {
@@ -26,15 +28,18 @@ namespace Hexiege.Application
         private readonly HexGrid _grid;
         private readonly UnitSpawnUseCase _unitSpawn;
         private readonly BuildingPlacementUseCase _buildingPlacement;
+        private readonly IEntityPositionProvider _positionProvider;
 
         public UnitCombatUseCase(
-            HexGrid grid, 
-            UnitSpawnUseCase unitSpawn, 
-            BuildingPlacementUseCase buildingPlacement)
+            HexGrid grid,
+            UnitSpawnUseCase unitSpawn,
+            BuildingPlacementUseCase buildingPlacement,
+            IEntityPositionProvider positionProvider = null)
         {
             _grid = grid;
             _unitSpawn = unitSpawn;
             _buildingPlacement = buildingPlacement;
+            _positionProvider = positionProvider;
         }
 
         /// <summary>
@@ -82,14 +87,83 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 공격자의 사거리 내에서 가장 가까운 적(유닛 또는 건물)을 탐색.
-        /// 모든 적 유닛과 건물을 대상으로 거리를 계산하여 가장 가까운 대상을 반환.
+        ///
+        /// _positionProvider가 있으면 월드 좌표(Vector3.Distance) 기반으로 판정.
+        /// Lerp 중에도 실시간 Transform.position을 사용하므로 HexCoord 갱신 지연 문제 해결.
+        /// _positionProvider가 null이면 기존 HexCoord.Distance 폴백.
         /// </summary>
         private IDamageable FindFirstEnemyTarget(UnitData attacker)
+        {
+            // _positionProvider가 없으면 기존 HexCoord 기반 판정으로 폴백
+            if (_positionProvider == null)
+                return FindFirstEnemyTargetByHexCoord(attacker);
+
+            // 공격자 월드 좌표 취득
+            Vector3 attackerWorldPos = _positionProvider.GetUnitWorldPosition(attacker.Id);
+
+            // Vector3.zero는 GameObject 미등록 상태 → HexCoord 폴백
+            if (attackerWorldPos == Vector3.zero)
+                return FindFirstEnemyTargetByHexCoord(attacker);
+
+            // FlatTop 인접 타일 월드 거리 = TileHeight(0.866f)
+            // AttackRange × TileHeight + epsilon(0.1f)으로 임계값 산출
+            float maxDist = attacker.AttackRange * HexMetrics.TileHeight + 0.1f;
+
+            IDamageable closestTarget = null;
+            float minWorldDist = float.MaxValue;
+
+            // 1. 모든 적 유닛 탐색 (월드 좌표 기반)
+            foreach (var unit in _unitSpawn.Units.Values)
+            {
+                if (unit.Team == attacker.Team || !unit.IsAlive) continue;
+
+                Vector3 targetPos = _positionProvider.GetUnitWorldPosition(unit.Id);
+
+                // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
+                if (targetPos == Vector3.zero)
+                    targetPos = HexMetrics.HexToWorld(unit.Position);
+
+                float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                if (dist <= maxDist && dist < minWorldDist)
+                {
+                    minWorldDist = dist;
+                    closestTarget = unit;
+                }
+            }
+
+            // 2. 모든 적 건물 탐색 (건물은 이동하지 않으므로 월드 좌표 사용 가능)
+            foreach (var building in _buildingPlacement.Buildings.Values)
+            {
+                if (building.Team == attacker.Team || !building.IsAlive) continue;
+
+                Vector3 targetPos = _positionProvider.GetBuildingWorldPosition(building.Id);
+
+                // 미등록 건물은 HexCoord → 월드 좌표 변환으로 폴백
+                if (targetPos == Vector3.zero)
+                    targetPos = HexMetrics.HexToWorld(building.Position);
+
+                float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                if (dist <= maxDist && dist < minWorldDist)
+                {
+                    minWorldDist = dist;
+                    closestTarget = building;
+                }
+            }
+
+            return closestTarget;
+        }
+
+        /// <summary>
+        /// HexCoord.Distance 기반 폴백 판정.
+        /// _positionProvider가 null이거나 공격자 월드 좌표를 얻을 수 없을 때 사용.
+        /// </summary>
+        private IDamageable FindFirstEnemyTargetByHexCoord(UnitData attacker)
         {
             IDamageable closestTarget = null;
             int minDistance = int.MaxValue;
 
-            // 1. 모든 적 유닛 탐색
             foreach (var unit in _unitSpawn.Units.Values)
             {
                 if (unit.Team == attacker.Team || !unit.IsAlive) continue;
@@ -103,7 +177,6 @@ namespace Hexiege.Application
                 }
             }
 
-            // 2. 모든 적 건물 탐색
             foreach (var building in _buildingPlacement.Buildings.Values)
             {
                 if (building.Team == attacker.Team || !building.IsAlive) continue;

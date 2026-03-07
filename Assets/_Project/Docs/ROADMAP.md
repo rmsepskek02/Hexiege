@@ -132,9 +132,9 @@
 
 새 작업 시작 전 반드시:
 
-1. `Assets/_Project/Docs/_Tasks/YYYY-MM-DD_[작업명]/research.md` 작성
+1. `Assets/_Project/Docs/_Tasks/YYYY-MM-DD/HH_MM_[작업명]/research.md` 작성
    - 관련 코드 파악, 영향 범위, 현재 상태 정리
-2. `Assets/_Project/Docs/_Tasks/YYYY-MM-DD_[작업명]/plan.md` 작성
+2. `Assets/_Project/Docs/_Tasks/YYYY-MM-DD/HH_MM_[작업명]/plan.md` 작성
    - 구현 접근법, 파일별 변경 내용, 위험 요소
 3. 사용자 승인 후 구현 시작
 

@@ -15,10 +15,10 @@
 //     ├─ Animator (AnimatorController 설정)
 //     └─ UnitView (이 스크립트)
 //
-// Animator 파라미터:
-//   - IsWalking (bool): 이동 중 여부
-//   - IsDead (bool): 사망 여부
-//   - Attack (trigger): 공격 트리거
+// Animator 제어 방식:
+//   - Walk: Animator.Play(StateWalk) + speed 제어 (1=재생, 0=정지)
+//   - Attack: Animator.Play(StateAttack) — 클립 length 만큼 대기
+//   - IsDead (bool): 사망 여부 (Animator 트랜지션 조건)
 //   - 방향: transform.rotation Y축으로 표현 (Animator 파라미터 불필요)
 //
 // HexDirection → Y축 회전 각도 (FlatTop 기준):
@@ -48,9 +48,12 @@ namespace Hexiege.Presentation
         // Animator 파라미터 해시 (문자열 비교 방지)
         // ====================================================================
 
-        private static readonly int AnimIsWalking = Animator.StringToHash("IsWalking");
+        // Animator.Play()에 사용할 스테이트 이름 해시
+        private static readonly int StateWalk = Animator.StringToHash("Walk");
+        private static readonly int StateAttack = Animator.StringToHash("Attack");
+
+        // 사망은 bool 파라미터로 유지 (Animator 트랜지션 조건)
         private static readonly int AnimIsDead = Animator.StringToHash("IsDead");
-        private static readonly int AnimAttack = Animator.StringToHash("Attack");
 
         // ====================================================================
         // HexDirection → Y축 회전 각도 매핑
@@ -171,8 +174,12 @@ namespace Hexiege.Presentation
                 {
                     if (_unitData != null && e.Entity == (IDamageable)_unitData)
                     {
-                        // [Phase 2] 사망 애니메이션 트리거 (Animator가 있으면)
-                        SetAnimatorBool(AnimIsDead, true);
+                        // 사망 시 speed 복원 후 IsDead bool 설정 (Animator 트랜지션)
+                        if (_animator != null)
+                        {
+                            _animator.speed = 1f;
+                            _animator.SetBool(AnimIsDead, true);
+                        }
                         Destroy(gameObject);
                     }
                 })
@@ -247,18 +254,11 @@ namespace Hexiege.Presentation
         // Animator 안전 래퍼
         // ====================================================================
 
-        /// <summary> Animator null 체크 후 bool 파라미터 설정. </summary>
+        /// <summary> Animator null 체크 후 bool 파라미터 설정. IsDead 전용. </summary>
         private void SetAnimatorBool(int paramHash, bool value)
         {
             if (_animator != null)
                 _animator.SetBool(paramHash, value);
-        }
-
-        /// <summary> Animator null 체크 후 trigger 파라미터 설정. </summary>
-        private void SetAnimatorTrigger(int paramHash)
-        {
-            if (_animator != null)
-                _animator.SetTrigger(paramHash);
         }
 
         // ====================================================================
@@ -277,8 +277,8 @@ namespace Hexiege.Presentation
             }
             _unitData.ClaimedTile = null;
 
-            // [Phase 2] Idle 상태 전환
-            SetAnimatorBool(AnimIsWalking, false);
+            // Walk 정지 — speed=0으로 프레임 고정
+            if (_animator != null) _animator.speed = 0f;
         }
 
         /// <summary>
@@ -341,8 +341,12 @@ namespace Hexiege.Presentation
                 // [Phase 2] Y축 회전으로 방향 표현 (flipX 대신)
                 ApplyDirection(dir);
 
-                // Walk 애니메이션 시작
-                SetAnimatorBool(AnimIsWalking, true);
+                // Walk 애니메이션 시작 — 매 스텝마다 Play 호출하여 방향 전환 후 확실히 재생
+                if (_animator != null)
+                {
+                    _animator.Play(StateWalk, 0, 0f);
+                    _animator.speed = 1f;
+                }
 
                 // 출발/도착의 도메인 좌표 계산 → 뷰 좌표로 변환
                 Vector3 fromPos = ViewConverter.ToView(HexMetrics.HexToWorld(from));
@@ -378,7 +382,7 @@ namespace Hexiege.Presentation
                                 if (!_unitData.IsAlive) break;
 
                                 // 적 제거 후 Walk 복귀
-                                SetAnimatorBool(AnimIsWalking, true);
+                                if (_animator != null) _animator.speed = 1f;
                             }
                         }
                         else
@@ -386,8 +390,8 @@ namespace Hexiege.Presentation
                             // 싱글플레이: HasEnemyInRange로 이동 차단, TryAttack은 쿨다운 기반으로 자동 실행
                             if (_combatUseCase.HasEnemyInRange(_unitData))
                             {
-                                // 이동 중단 → Idle 전환
-                                SetAnimatorBool(AnimIsWalking, false);
+                                // 이동 중단 → Walk 정지
+                                if (_animator != null) _animator.speed = 0f;
 
                                 while (_unitData.IsAlive && _combatUseCase.HasEnemyInRange(_unitData))
                                 {
@@ -402,7 +406,7 @@ namespace Hexiege.Presentation
                                 if (!_unitData.IsAlive) break;
 
                                 // 적 제거 후 Walk 복귀
-                                SetAnimatorBool(AnimIsWalking, true);
+                                if (_animator != null) _animator.speed = 1f;
                             }
                         }
                     }
@@ -427,8 +431,8 @@ namespace Hexiege.Presentation
             // 이동 완료 정리
             _unitData.ClaimedTile = null;
 
-            // [Phase 2] Idle 상태 전환
-            SetAnimatorBool(AnimIsWalking, false);
+            // Walk 정지 — speed=0으로 프레임 고정
+            if (_animator != null) _animator.speed = 0f;
             _moveCoroutine = null;
 
             // 이동 완료 콜백 실행 (1회성)
@@ -459,21 +463,28 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 공격 애니메이션을 재생하고 일정 시간 후 복귀하는 코루틴.
+        /// 공격 애니메이션을 Animator.Play()로 직접 재생하고 클립 길이만큼 대기.
         /// Atan2 기반 정밀 Y축 회전 각도를 사용.
-        /// [Phase 2] Animator.SetTrigger("Attack") 사용.
+        /// Walk 복귀 없음 — 전투 루프 탈출 시에만 Walk로 복귀.
         /// </summary>
         private IEnumerator PlayAttackAnimation(float yAngle)
         {
             // Atan2 기반 정밀 공격 각도로 Y축 회전
             transform.rotation = Quaternion.Euler(0f, yAngle, 0f);
 
-            // [Phase 2] Animator 트리거로 공격 애니메이션 재생
-            SetAnimatorTrigger(AnimAttack);
+            if (_animator != null)
+            {
+                _animator.speed = 1f;
+                _animator.Play(StateAttack, 0, 0f);
 
-            // 공격 애니메이션 재생 시간 (기본값 0.33초, config에서 조정 가능)
-            float attackDuration = _config != null ? 2f / _config.AnimationFps : 0.33f;
-            yield return new WaitForSeconds(attackDuration);
+                // 1프레임 대기 — Animator 상태 반영 후 clip length 읽기
+                yield return null;
+
+                float clipLen = _animator.GetCurrentAnimatorStateInfo(0).length;
+                // clipLen이 0이면 안전 폴백
+                if (clipLen <= 0f) clipLen = 0.5f;
+                yield return new WaitForSeconds(clipLen);
+            }
 
             _attackCoroutine = null;
         }

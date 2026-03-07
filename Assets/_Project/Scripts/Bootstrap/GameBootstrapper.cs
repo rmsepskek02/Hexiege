@@ -457,7 +457,8 @@ namespace Hexiege.Bootstrap
             _unitSpawn = new UnitSpawnUseCase(_grid);
             _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn);
             _buildingPlacement = new BuildingPlacementUseCase(_grid);
-            _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement);
+            var positionProvider = new UnitWorldPositionProvider(_unitFactory, _buildingFactory);
+            _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement, positionProvider);
 
             // 생산 시스템
             _resource = new ResourceUseCase(_config.StartingGold);
