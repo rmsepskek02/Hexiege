@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-03-02
-**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 → 다음 단계 진입
+**최종 수정일:** 2026-03-07
+**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 공격 방향 및 AttackCooldown 시스템 완료 → 다음 단계 진입
 
 ---
 
@@ -149,3 +149,5 @@
 | 2026-02-27~03-01 | 2D→3D 전환 완료 (XZ 좌표계, 55도 카메라, 3D 모델) |
 | 2026-03-02 | 전투 거리 정밀도 버그 수정 (IEntityPositionProvider) |
 | 2026-03-02 | GameConfig 정리 (AnimationFps 제거, TileHeight 수정) |
+| 2026-03-07 | 공격 방향 Transform 기반 구현 완료 (UnitView._meshYOffset=30f, Atan2 기반 방향 계산) |
+| 2026-03-07 | 유닛별 AttackCooldown 시스템 완료 (UnitData.AttackCooldown/AttackCooldownRemaining) |

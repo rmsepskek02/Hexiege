@@ -188,6 +188,16 @@ namespace Hexiege.Infrastructure
         [SerializeField] private GameObject _rallyPointPrefab;
         public GameObject RallyPointPrefab => _rallyPointPrefab;
 
+        /// <summary> 랠리포인트 마커 위치 오프셋 (타일 월드 좌표 기준). </summary>
+        [Tooltip("랠리포인트 마커 위치 오프셋 (타일 월드 좌표 기준)")]
+        [SerializeField] private Vector3 _rallyMarkerOffset = new Vector3(0.05f, 0.15f, 0f);
+        public Vector3 RallyMarkerOffset => _rallyMarkerOffset;
+
+        /// <summary> 랠리포인트 마커 회전 (Euler 각도). </summary>
+        [Tooltip("랠리포인트 마커 회전 (Euler 각도)")]
+        [SerializeField] private Vector3 _rallyMarkerEuler = Vector3.zero;
+        public Vector3 RallyMarkerEuler => _rallyMarkerEuler;
+
         // ====================================================================
         // 애니메이션 설정
         // ====================================================================

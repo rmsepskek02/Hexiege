@@ -25,7 +25,7 @@
 | 자원 시스템 (골드) | ✅ 완료 | 채굴소 수입, 건물/유닛 비용 |
 | 인구 시스템 | ✅ 완료 | 타일 수 = 최대 인구 |
 | 유닛 생산 (수동/자동) | ✅ 완료 | 큐 최대 3, 롱프레스 자동 |
-| 랠리포인트 | ✅ 완료 | 마커 표시, BFS 빈 타일 탐색 |
+| 랠리포인트 | ✅ 완료 | 마커 표시, BFS 빈 타일 탐색, 위치/회전 Inspector 조정 (GameConfig.RallyMarkerOffset/Euler) |
 | 공성 시스템 | ✅ 완료 | 랠리→Castle 방향 자동 진군 |
 | 승패 판정 (Castle 파괴) | ✅ 완료 | GameEndUseCase, UI 표시 |
 
@@ -34,6 +34,7 @@
 |------|------|
 | XY→XZ 좌표계 전환 | ✅ 완료 |
 | Orthographic 55도 틸트 카메라 | ✅ 완료 |
+| 카메라 이동 경계(ClampPosition) 줌 연동 | ✅ 완료 |
 | 2D Sprite → 3D Mesh 렌더링 | ✅ 완료 |
 | sortingOrder 폐기 → Z-buffer | ✅ 완료 |
 | Animator (IsDead/Walk/Attack) | ✅ 완료 |

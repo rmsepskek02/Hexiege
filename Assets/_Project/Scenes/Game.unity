@@ -12245,6 +12245,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkCombatController
   ShowTopMostFoldoutHeaderGroup: 1
+  _attackInterval: 0.1
 --- !u!4 &1902951527
 Transform:
   m_ObjectHideFlags: 0

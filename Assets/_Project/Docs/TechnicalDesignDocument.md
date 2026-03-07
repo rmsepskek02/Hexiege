@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.10.0
-**최종 수정일:** 2026-02-15
+**버전:** 0.12.0
+**최종 수정일:** 2026-03-07
 **작성자:** HANYONGHEE
 
 ---
@@ -28,7 +28,7 @@
 |------|------|------|
 | **게임 엔진** | Unity | 6000.0.x (Unity 6 LTS) |
 | **렌더 파이프라인** | URP | Universal Render Pipeline |
-| **네트워크** | Netcode for GameObjects | 2.1.0+ |
+| **네트워크** | Netcode for GameObjects | 2.9.2 |
 | **전송 레이어** | Unity Transport (UTP) | - |
 | **NAT 관통** | Unity Relay | - |
 | **매칭** | Unity Lobby | - |
@@ -36,7 +36,7 @@
 | **경로찾기** | 커스텀 A* (HexPathfinder) | 자체 구현 |
 | **백엔드** | PlayFab | - |
 | **이벤트 시스템** | UniRx | 7.1.0 |
-| **애니메이션** | DOTween | 1.2.765 |
+| **애니메이션** | Animator (Mecanim) | Walk/Attack/Dead 상태 기반 |
 | **모바일 입력** | Lean Touch+ / Unity Input System | - |
 
 ### 개발 언어
@@ -92,6 +92,18 @@ Assets/
     ├── Scenes/
     └── Resources/
 ```
+
+### ViewConverter 시스템 (Core 레이어)
+
+멀티플레이 팀별 관점 처리를 위한 좌표 변환 시스템.
+
+- **위치**: `Scripts/Core/ViewConverter.cs`
+- **역할**: 서버/도메인 좌표계(Blue 기준 단일)를 Red 클라이언트 뷰 좌표로 반전
+- **반전 공식**: `Flip(pos) = 2 * mapCenter - pos` (맵 중심 기준 180° 반전)
+- **제공 API**: `IsFlipped`, `ToView()`, `FromView()`, `FlipDirection()`
+- **특징**: 스프라이트/메시 자체는 뒤집히지 않음 — 위치(Position)만 반전
+- **입력 역변환**: `ScreenToWorldPoint` 결과도 `FromView()`로 역변환 필요
+- **방향 반전**: 유닛 FacingDirection도 Red팀에서 FlipDirection() 적용 (NE↔SW, E↔W, SE↔NW)
 
 ---
 
@@ -463,7 +475,7 @@ if (Time.frameCount == ProductionPanelUI.ClosedFrame) return;
 | 타일 모양 | 꼭지점 12시 | 변 12시 |
 | 그리드 크기 | 7×17 | 10×29 |
 | TileWidth | 0.866 | 1.0 |
-| TileHeight | 0.82 | 0.36 |
+| TileHeight | 0.866 | 0.866 |
 | Offset 방식 | even-r (홀수 행 시프트) | even-q (홀수 열 시프트) |
 | 아트 방향 수 | 3 (NE, E, SE) | 4 (N, NE, SE, S) |
 
@@ -786,12 +798,8 @@ public class BuildingData : IDamageable {
 5.  **자동 배치 (GameBootstrapper)**
     -   게임 시작 시 `GameBootstrapper.PlaceCastles` 메서드가 양 팀의 `Castle`을 지정된 위치에 자동으로 배치하며, 이는 `BuildingPlacementUseCase`를 통해 위와 유사한 로직을 실행합니다.
 
-#### 정렬 순서 (Sorting Order)
-```
-타일:  0 ~ 30 (행 기반)
-건물:  50      (타일 위, 유닛 아래)
-유닛:  100     (최상위)
-```
+#### 렌더링 순서
+3D 전환 이후 sortingOrder는 완전 폐기. Orthographic 55도 틸트 카메라의 Z-buffer(깊이 버퍼) 기반으로 타일/건물/유닛의 렌더링 순서가 자동 결정됨. XZ 평면 사용, Y축이 높이 방향.
 
 #### 건물 관련 이벤트
 ```csharp
@@ -1151,6 +1159,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.12.0 | 2026-03-07 | 3D 전환 반영: Netcode 버전 2.9.2, 애니메이션 Animator(Mecanim) 기반(Walk/Attack/Dead), sortingOrder 폐기→Z-buffer 렌더링, TileHeight 0.866 통일, ViewConverter 시스템 문서화, 비주얼/카메라 스타일 3D 이소메트릭 반영 |
 | 0.11.0 | 2026-02-20 | HUD 타일 카운트: GameHudUI에 블루/레드 팀 보유 타일 수 표시 추가(_blueTileCountText/_redTileCountText), PopulationUseCase.GetMaxPopulation() 활용. 게임 종료 UI 버그 수정: GameEndUI를 Awake() 자체 구독→Initialize() 패턴으로 변경(비활성 패널에서 Awake 미호출 문제 해결), GameBootstrapper.LoadMap()에서 Initialize() 호출, 재시작 시 구독 정리/재구독 처리 |
 | 0.10.0 | 2026-02-15 | 공성 시스템: ProductionTicker 공성 흐름(랠리→Castle→siege 전진), UnitView.OnMoveComplete 콜백, 공성 목록 관리(등록/제거), TickSiege 1초 간격 전진 체크. PopupClosedFrame 패턴: BuildingPlacementUI/ProductionPanelUI ClosedFrame으로 팝업 닫힘 같은 프레임 클릭 통과 방지 |
 | 0.9.0 | 2026-02-15 | 랠리포인트 시스템 개선: 마커 표시(3초 자동 숨김 + 팝업 연동), RallyPointChangedEvent 이벤트 추가, BFS 빈 타일 탐색(maxRange=3), 배럭 타일 설정→해제, ProductionTicker 마커 관리, ProductionPanelUI 마커 표시/숨김 연동, GameConfig.RallyPointPrefab 추가, 팝업 설정 후 자동 닫힘 |

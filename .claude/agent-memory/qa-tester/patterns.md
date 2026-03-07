@@ -18,7 +18,7 @@
 | ID | 심각도 | 파일 | 라인 | 설명 | 상태 |
 |----|--------|------|------|------|------|
 | B001 | Major | CameraController.cs | 265 | 에디터 터치 팬 차단 (mouse==null 조건) | OPEN |
-| B002 | Major | InputHandler.cs | 363,375 | StartAutoMove 팀 일반화 범위 확인 필요 | 기획 확인 대기 |
+| B002 | Major | InputHandler.cs | 363,375 | StartAutoMove 팀 일반화 범위 확인 필요 | CLOSED — StartAutoMove가 LocalPlayerTeam.Current 기반으로 팀 일반화 완료 |
 | B003 | Minor | InputHandler.cs | 437-439 | Debug.Log 프로덕션 노이즈 | OPEN |
 | B004 | Minor | CameraController.cs | 302-308 | Red팀 카메라 위치/경계 실기기 확인 필요 | 테스트 대기 |
 | B005 | Minor | InputHandler.cs | 395-410 | FindClosestWalkableNeighbor IsWalkable 미검증 | OPEN |

@@ -67,8 +67,7 @@ namespace Hexiege.Presentation
         /// <summary> 3초 자동 숨김 코루틴 참조. </summary>
         private Coroutine _autoHideCoroutine;
 
-        /// <summary> 마커 위치 오프셋. 스프라이트가 타일 위에 자연스럽게 보이도록 조정. </summary>
-        private static readonly Vector3 RallyMarkerOffset = new Vector3(0.05f, 0.15f, 0f);
+        /// <summary> 마커 위치 오프셋. GameConfig.RallyMarkerOffset으로 Inspector에서 조정. </summary>
 
         /// <summary> 랠리포인트 설정 후 자동 숨김까지 표시 시간. </summary>
         private const float RallyMarkerShowDuration = 3f;
@@ -296,19 +295,21 @@ namespace Hexiege.Presentation
         private void CreateOrMoveMarker(int barracksId, HexCoord coord)
         {
             // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 반전)
-            Vector3 worldPos = ViewConverter.ToView(HexMetrics.HexToWorld(coord)) + RallyMarkerOffset;
+            Vector3 worldPos = ViewConverter.ToView(HexMetrics.HexToWorld(coord)) + _config.RallyMarkerOffset;
+            Quaternion rotation = Quaternion.Euler(_config.RallyMarkerEuler);
 
             if (_rallyMarkers.TryGetValue(barracksId, out var existing))
             {
-                // 기존 마커 위치 이동
+                // 기존 마커 위치/회전 갱신
                 existing.transform.position = worldPos;
+                existing.transform.rotation = rotation;
                 return;
             }
 
             // 새 마커 생성
             if (_config == null || _config.RallyPointPrefab == null) return;
 
-            GameObject marker = Instantiate(_config.RallyPointPrefab, worldPos, Quaternion.identity);
+            GameObject marker = Instantiate(_config.RallyPointPrefab, worldPos, rotation);
 
             // 기본 숨김 상태 (ShowMarkerTemporary로 일시 표시)
             marker.SetActive(false);

@@ -131,6 +131,7 @@ namespace Hexiege.Presentation
         {
             HandleZoom();
             HandlePan();
+            ClampPosition(); // 줌/팬 후 항상 즉시 보정 — 순간이동 방지
         }
 
         // ====================================================================
@@ -270,7 +271,6 @@ namespace Hexiege.Presentation
                     Vector3 diff = _dragOrigin - currentPos;
                     // XZ 평면에서의 차이만 적용 (Y 높이는 유지)
                     transform.position += new Vector3(diff.x, 0f, diff.z) * panSpeed;
-                    ClampPosition();
                 }
 
                 // 드래그 종료
@@ -299,7 +299,6 @@ namespace Hexiege.Presentation
                     Vector3 currentPos = ScreenToXZPlane(touch.screenPosition);
                     Vector3 diff = _dragOrigin - currentPos;
                     transform.position += new Vector3(diff.x, 0f, diff.z) * panSpeed;
-                    ClampPosition();
                 }
 
                 // 터치 종료
@@ -313,15 +312,47 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 카메라 위치를 맵 경계 내로 제한 (XZ 평면).
-        /// Y(높이)는 변경하지 않음. 경계가 설정되지 않았으면 무시.
+        ///
+        /// 핵심 원리:
+        ///   55도 틸트 카메라는 transform.position.z ≠ 화면 중심이 바라보는 지면 Z.
+        ///   카메라 높이 H에서 tiltAngle로 기울어지면,
+        ///   화면 중심 지면 좌표 = camera.z + H / tan(tiltAngle).
+        ///   → 카메라 위치를 직접 클램프하면 지면 기준으로는 오프셋이 생겨 엣지 타일을 볼 수 없음.
+        ///
+        /// 해결:
+        ///   1. 카메라 위치 → 지면 look-at 좌표로 변환
+        ///   2. look-at 좌표를 타일 경계 내로 클램프 (줌 레벨 반영)
+        ///   3. 다시 카메라 위치로 역변환
+        ///
+        /// 줌 레벨(orthographicSize)에 따라 화면이 표시하는 영역이 달라지므로
+        /// halfW/halfH만큼 여유를 두어 타일 끝까지 볼 수 있도록 허용 범위를 동적으로 계산.
+        /// → 줌인 시 더 넓은 범위로 이동 가능, 줌아웃 시 맵 중앙 고정.
         /// </summary>
         private void ClampPosition()
         {
             if (!_hasBounds) return;
 
+            // 화면이 표시하는 절반 너비/높이 (월드 단위, 지면 기준)
+            float halfW = _cam.orthographicSize * _cam.aspect;
+            float sinTilt = Mathf.Sin(_tiltAngle * Mathf.Deg2Rad);
+            float halfH = sinTilt > 0.001f ? _cam.orthographicSize / sinTilt : _cam.orthographicSize;
+
+            // 카메라 위치 → 화면 중심이 바라보는 지면 좌표(look-at)로 변환
+            float cameraHeight = transform.position.y;
+            float tanTilt = Mathf.Tan(_tiltAngle * Mathf.Deg2Rad);
+            float zOffset = tanTilt > 0.001f ? cameraHeight / tanTilt : 0f;
+
             Vector3 pos = transform.position;
-            pos.x = Mathf.Clamp(pos.x, _mapBounds.min.x, _mapBounds.max.x);
-            pos.z = Mathf.Clamp(pos.z, _mapBounds.min.z, _mapBounds.max.z);
+            float lookAtX = pos.x;
+            float lookAtZ = pos.z + zOffset;
+
+            // 지면 좌표를 타일 경계 내로 클램프
+            lookAtX = Mathf.Clamp(lookAtX, _mapBounds.min.x + halfW, _mapBounds.max.x - halfW);
+            lookAtZ = Mathf.Clamp(lookAtZ, _mapBounds.min.z + halfH, _mapBounds.max.z - halfH);
+
+            // 다시 카메라 위치로 역변환
+            pos.x = lookAtX;
+            pos.z = lookAtZ - zOffset;
             transform.position = pos;
         }
 

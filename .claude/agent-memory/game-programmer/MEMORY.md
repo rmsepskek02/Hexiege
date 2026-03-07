@@ -371,6 +371,20 @@
   - `zOffset = cameraHeight / tan(tiltAngle)`, `pos.z -= zOffset`
 - UnitView: Phase 2에서 Animator 연동 이미 완성 — 추가 수정 없음
 
+## 카메라 경계(ClampPosition) 개선 (2026-03-07)
+- **배경**: 줌 레벨 무관 전 타일 영역 접근 가능하게 하되 경계 벗어남 방지
+- **halfW/halfH 동적 계산**: 줌 레벨(orthographicSize) 반영
+  - `halfW = orthographicSize * aspect`
+  - `halfH = orthographicSize / sin(tiltAngle)` (55도 틸트에서 수직 가시 범위)
+- **look-at point 변환 패턴** (55도 틸트 핵심):
+  - camera.position.z ≠ 지면 look-at Z — `zOffset = cameraHeight / tan(tiltAngle)` 차이 존재
+  - 클램프는 look-at 좌표 기준: `lookAtZ = pos.z + zOffset`
+  - 클램프 후 역변환: `pos.z = lookAtZ - zOffset`
+  - X축은 변환 불필요 (tilt가 Z축 방향만 영향)
+- **매 프레임 호출**: `Update()`에서 `ClampPosition()` 직접 호출 — 줌 변경/초기 위치에서도 즉시 보정
+  - HandlePan 내부 중복 호출 제거 (Update에서 통합 처리)
+- **효과**: 줌인 외곽 → 줌아웃 시 순간이동 현상 방지, 초기 카메라 위치 오버런 방지
+
 ## 공격 방향 실제 Transform 기반 (2026-03-07 최종 확정)
 - **TryAttack 반환 타입**: `(int id, bool isUnit)?` 튜플 (공격 성공 시 targetId + 타겟 종류 반환)
 - **UnitView.CalculateAttackAngle(Vector3 targetWorldPos)**: 타겟 실제 transform.position → Atan2 → _meshYOffset 보정
@@ -394,6 +408,12 @@
 - **NetworkCombatController**: `_attackInterval=0.1f` (폴링 빈도), 매 Tick `AttackCooldownRemaining -= _attackInterval`
 - **UnitView.Update()**: 싱글플레이에서만 `AttackCooldownRemaining -= Time.deltaTime` (멀티플레이는 서버 Tick)
 - **MoveAlongPath 이동 차단**: `HasEnemyInRange()` 기반 (쿨다운 무관한 적 존재 여부만 판정)
+
+## 랠리포인트 마커 Transform Inspector 조정 (2026-03-07)
+- **GameConfig.RallyMarkerOffset** (Vector3, default: 0.05/0.15/0): 마커 위치 오프셋 — Inspector에서 조정
+- **GameConfig.RallyMarkerEuler** (Vector3, default: 0/0/0): 마커 회전 Euler 각도 — Inspector에서 조정
+- **ProductionTicker.CreateOrMoveMarker()**: 하드코딩 `RallyMarkerOffset` 상수 제거 → `_config.RallyMarkerOffset/RallyMarkerEuler` 참조
+- 기존 마커 이동 시에도 rotation 갱신 적용
 
 ## 네트워크 미완성 항목
 - 상세 목록: [network-todo.md](network-todo.md) 참조

@@ -35,8 +35,8 @@ MonoBehaviour:
   UnitYOffset: 0.15
   BuildingYOffset: 0.1
   _rallyPointPrefab: {fileID: 221429504860326395, guid: 9a7970d384ace6747b4f5ecd884b69e8, type: 3}
-  RallyMarkerOffset: {x: 0.05, y: 0.18, z: 0}
-  RallyMarkerEuler: {x: -90, y: 180, z: 0}
+  _rallyMarkerOffset: {x: 0.1, y: 0.28, z: 0}
+  _rallyMarkerEuler: {x: -90, y: 180, z: 0}
   AnimationFps: 6
   CameraZoomMin: 2
   CameraZoomMax: 7
