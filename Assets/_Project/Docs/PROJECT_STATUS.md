@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-03-07
-**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 공격 방향 Transform 기반 복구 완료 / 유닛별 AttackCooldown 완료
+**최종 수정일:** 2026-03-09
+**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 공격 방향 Transform 기반 복구 완료 / 유닛별 AttackCooldown 완료 / Walk 애니메이션 연속 재생 수정 완료
 
 ---
 
@@ -21,6 +21,7 @@
 | 전투 거리 정밀도 | ✅ 완료 (2026-03-02) | 월드좌표 기반 (IEntityPositionProvider) |
 | 공격 방향 정밀도 | ✅ 완료 (2026-03-07) | 타겟 실제 transform.position 기반 Atan2, 2D 레거시 제거 |
 | 공격 쿨다운 시스템 | ✅ 완료 (2026-03-07) | 유닛별 AttackCooldown, Attack 클립 길이 자동 설정 |
+| Walk 애니메이션 연속 재생 | ✅ 완료 (2026-03-09) | 매 스텝 0f 리셋 제거 → 이미 Walk 상태이면 클립 유지 |
 | 건물 배치 (Castle/Barracks/MiningPost) | ✅ 완료 | 건설 검증, 영토 확장 |
 | 자원 시스템 (골드) | ✅ 완료 | 채굴소 수입, 건물/유닛 비용 |
 | 인구 시스템 | ✅ 완료 | 타일 수 = 최대 인구 |
@@ -80,7 +81,7 @@
 | 멀티플레이 로비 UI 미완성 | LobbyUI | 기본 기능만 |
 
 #### GameConfig 코드 기본값 vs Inspector 값
-- AnimationFps 필드 제거됨 (2026-03-02)
+- AnimationFps 필드 제거 완료 (2026-03-09 — 미사용 필드)
 - TileHeight 코드 기본값 수정 완료: PointyTop=0.866, FlatTop=0.866
 - FlatTop GridHeight 코드 기본값 수정 완료: 20
 - CameraZoomDefault 수정 완료: 7

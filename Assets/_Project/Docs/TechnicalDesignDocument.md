@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.12.0
-**최종 수정일:** 2026-03-07
+**버전:** 0.13.0
+**최종 수정일:** 2026-03-09
 **작성자:** HANYONGHEE
 
 ---
@@ -610,13 +610,19 @@ UnitData와 BuildingData 모두 IDamageable을 구현하여 UnitCombatUseCase가
 // UnitStats: 유닛 타입별 기본 스탯
 public static class UnitStats {
     public static int GetMaxHp(UnitType type) => type switch {
-        UnitType.Pistoleer => 10, _ => 10
+        UnitType.Pistoleer => 50, _ => 10
     };
     public static int GetAttackPower(UnitType type) => type switch {
         UnitType.Pistoleer => 3, _ => 1
     };
     public static int GetAttackRange(UnitType type) => type switch {
         UnitType.Pistoleer => 1, _ => 1
+    };
+    public static float GetMoveSeconds(UnitType type) => type switch {
+        UnitType.Pistoleer => 0.8f, _ => 0.3f
+    };
+    public static float GetAttackCooldown(UnitType type) => type switch {
+        UnitType.Pistoleer => 1.0f, _ => 1.0f  // UnitFactory에서 Attack 클립 길이로 덮어씀
     };
 }
 
@@ -898,12 +904,12 @@ CompleteProduction(state)
 UnitFactory에 의존성 참조를 저장하여 생산된 유닛에 자동 주입:
 ```csharp
 // GameBootstrapper에서 한 번 호출
-_unitFactory.SetDependencyReferences(animData, config, movement, combat);
+_unitFactory.SetDependencyReferences(config, movement, combat, unitFactory, buildingFactory);
 
 // UnitFactory.CreateUnitObject() 내부에서 자동 적용
 unitView.Initialize(unitData);
 if (_hasDependencies)
-    unitView.SetDependencies(animData, config, movement, combat);
+    unitView.SetDependencies(config, movement, combat, unitFactory, buildingFactory);
 ```
 
 #### 생산 이벤트
@@ -986,8 +992,8 @@ public System.Action OnMoveComplete { get; set; }
 - **팝업 닫힘/다른 오브젝트 클릭**: 마커 숨김 (ProductionPanelUI → HideAllRallyMarkers)
 - **배럭 타일에 랠리포인트 설정**: 랠리포인트 해제 + 마커 Destroy
 - **배럭 파괴**: 마커 Destroy
-- **마커 sortingOrder**: 75 (타일 위, 유닛 아래)
 - **마커 프리팹**: GameConfig.RallyPointPrefab (Inspector에서 할당)
+- **마커 위치/회전**: GameConfig.RallyMarkerOffset / RallyMarkerEuler (Inspector 조정)
 
 #### 랠리포인트 BFS 빈 타일 탐색
 랠리포인트 타일이 점유 중일 때 유닛이 멈추는 문제를 방지하기 위해 BFS로 가장 가까운 빈 타일을 탐색:
@@ -1014,27 +1020,6 @@ int StartingGold = 500;           // 게임 시작 골드
 float MiningGoldPerSecond = 10f;  // 채굴소 초당 수입
 int BarracksCost = 100;           // 배럭 건설 비용
 int MiningPostCost = 50;          // 채굴소 건설 비용
-```
-
-#### 자동 이동 시스템 (T키 토글)
-
-수동 모드와 자동 모드를 T키로 전환:
-```
-수동 모드 (기본): 유닛 선택 → 타일 클릭 → 이동 명령
-자동 모드 (T키): 양 팀 모든 유닛이 상대 Castle 방향으로 자동 이동
-```
-
-자동 이동 흐름:
-```
-T키 입력 → _autoMoveMode 토글
-  ↓ 자동 모드 활성
-양 팀 Castle 위치 탐색
-  ↓
-모든 유닛에게 상대 Castle 인접 타일로 이동 명령
-  ↓ (Castle 타일은 IsWalkable=false이므로)
-FindClosestWalkableNeighbor()로 Castle 인접 이동 가능 타일 계산
-  ↓
-UnitMovementUseCase.RequestMove() → UnitView.MoveTo()
 ```
 
 ---
@@ -1159,6 +1144,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.13.0 | 2026-03-09 | GameConfig AnimationFps 필드 제거 (미사용), Walk 애니메이션 연속 재생 수정 (매 스텝 0f 리셋 → 이미 Walk 상태이면 리셋 안 함), UnitStats HP 50으로 현행화, SetDependencyReferences 시그니처 현행화 (animData 제거, unitFactory/buildingFactory 추가), T키 자동이동 섹션 제거 (기능 삭제됨), 랠리마커 sortingOrder 제거 (3D Z-buffer 전환 완료) |
 | 0.12.0 | 2026-03-07 | 3D 전환 반영: Netcode 버전 2.9.2, 애니메이션 Animator(Mecanim) 기반(Walk/Attack/Dead), sortingOrder 폐기→Z-buffer 렌더링, TileHeight 0.866 통일, ViewConverter 시스템 문서화, 비주얼/카메라 스타일 3D 이소메트릭 반영 |
 | 0.11.0 | 2026-02-20 | HUD 타일 카운트: GameHudUI에 블루/레드 팀 보유 타일 수 표시 추가(_blueTileCountText/_redTileCountText), PopulationUseCase.GetMaxPopulation() 활용. 게임 종료 UI 버그 수정: GameEndUI를 Awake() 자체 구독→Initialize() 패턴으로 변경(비활성 패널에서 Awake 미호출 문제 해결), GameBootstrapper.LoadMap()에서 Initialize() 호출, 재시작 시 구독 정리/재구독 처리 |
 | 0.10.0 | 2026-02-15 | 공성 시스템: ProductionTicker 공성 흐름(랠리→Castle→siege 전진), UnitView.OnMoveComplete 콜백, 공성 목록 관리(등록/제거), TickSiege 1초 간격 전진 체크. PopupClosedFrame 패턴: BuildingPlacementUI/ProductionPanelUI ClosedFrame으로 팝업 닫힘 같은 프레임 클릭 통과 방지 |

@@ -199,6 +199,16 @@
   → 서버 EntityDiedClientRpc로 적 제거 시 HasEnemyInRange가 false → Lerp 재개
 - UnitView.StopMovement() public 메서드 추가 (외부 이동 중단용)
 
+## Walk 애니메이션 연속 재생 (2026-03-09 수정)
+- **문제**: MoveAlongPath 매 스텝 시작 시 `_animator.Play(StateWalk, 0, 0f)` → normalizedTime=0f 리셋 → 클립이 끝까지 재생 안 되고 반복
+- **수정**: Walk 상태 여부 체크 후 조건부 Play
+  ```csharp
+  if (!_animator.GetCurrentAnimatorStateInfo(0).shortNameHash.Equals(StateWalk))
+      _animator.Play(StateWalk, 0, 0f);
+  _animator.speed = 1f;
+  ```
+- **효과**: 이미 Walk 재생 중이면 클립 유지 → 자연스러운 연속 걷기 애니메이션
+
 ## 유닛별 개별 이동속도
 - UnitData.MoveSeconds (float, readonly) — 타일 1칸 이동 소요 시간
 - UnitStats.GetMoveSeconds(UnitType) — 타입별 기본값 (Pistoleer=0.8, default=0.3)
