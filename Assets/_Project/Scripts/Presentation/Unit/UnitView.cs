@@ -341,10 +341,11 @@ namespace Hexiege.Presentation
                 // [Phase 2] Y축 회전으로 방향 표현 (flipX 대신)
                 ApplyDirection(dir);
 
-                // Walk 애니메이션 시작 — 매 스텝마다 Play 호출하여 방향 전환 후 확실히 재생
+                // Walk 애니메이션 시작 — 이미 Walk 재생 중이면 리셋하지 않음
                 if (_animator != null)
                 {
-                    _animator.Play(StateWalk, 0, 0f);
+                    if (!_animator.GetCurrentAnimatorStateInfo(0).shortNameHash.Equals(StateWalk))
+                        _animator.Play(StateWalk, 0, 0f);
                     _animator.speed = 1f;
                 }
 
