@@ -535,7 +535,7 @@ namespace Hexiege.Bootstrap
             if (_inputHandler != null)
             {
                 _inputHandler.Initialize(
-                    _gridInteraction, _unitMovement, _unitSpawn, _mainCamera,
+                    _gridInteraction, _mainCamera,
                     _buildingPlacement, _buildingUI, _productionUI);
             }
         }

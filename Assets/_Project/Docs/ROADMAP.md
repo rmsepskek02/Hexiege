@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-03-07
-**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 공격 방향 및 AttackCooldown 시스템 완료 → 다음 단계 진입
+**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 공격 방향 및 AttackCooldown 시스템 완료 / 자동생산 멀티플레이 완료 → UI 기획 후 피드백 구현 예정
 
 ---
 
@@ -9,10 +9,7 @@
 
 | 우선순위 | 작업 | 카테고리 | 예상 규모 |
 |---------|------|---------|---------|
-| 🔴 긴급 | InputHandler 유닛 이동 네트워크 분기 | 버그 | 소 |
-| 🔴 긴급 | 생산 큐 클라이언트 UI 동기화 | 버그 | 소~중 |
-| 🟠 높음 | BuildFailed/EnqueueFailed UI 피드백 | 미완성 | 소 |
-| 🟠 높음 | 자동생산 멀티플레이 지원 | 미완성 | 중 |
+| 🟡 중간 | BuildFailed/EnqueueFailed UI 피드백 | UI 기획 후 진행 | 소 |
 | 🟡 중간 | TechnicalDesignDocument.md 3D 업데이트 | 문서 | 소 |
 | 🟡 중간 | 게임 내 밸런싱 (골드/HP/생산시간) | 기획 | 중 |
 | 🟡 중간 | 추가 유닛 타입 | 기능 | 대 |
@@ -30,31 +27,15 @@
 
 현재 멀티플레이에서 발생하는 알려진 버그/미완성 항목들.
 
-### A-1. InputHandler 유닛 이동 네트워크 분기 누락
-- **파일**: `Assets/_Project/Scripts/Presentation/Input/InputHandler.cs` (L261 부근)
-- **증상**: 멀티플레이에서 탭으로 유닛 이동 시 내 화면에만 반영, 상대방 화면에 미동기화
-- **원인**: `InputHandler`가 `UnitMovementUseCase`를 직접 호출하고 있음 (싱글플레이 경로 잔재)
-- **해결**: `NetworkContext.IsNetworkGame` 분기 후 `NetworkUnitMovementController.RequestMoveServerRpc()` 경유
-
-### A-2. 생산 큐 클라이언트 UI 동기화 지연
-- **파일**: `Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.cs`
-- **증상**: 클라이언트에서 생산 큐 추가 시 서버 승인(SyncQueueStateClientRpc) 오기 전까지 UI 업데이트 없음
-- **원인**: 생산 큐 상태가 클라이언트에 즉시 전파되지 않음
-- **해결**: 클라이언트 Optimistic Update(낙관적 갱신) 또는 SyncQueueState 호출 시점 조정
-
-### A-3. BuildFailed/EnqueueFailed UI 피드백 누락
+### A-1. BuildFailed/EnqueueFailed UI 피드백 누락
 - **파일**: `NetworkBuildingController.cs`, `NetworkProductionController.cs`
 - **증상**: 건물 배치/생산 큐 실패 시 사용자에게 아무 피드백 없음 (서버 로그만 출력)
-- **해결**: 실패 ClientRpc 수신 시 토스트 메시지 또는 텍스트 피드백 UI 표시
+- **현황**: `BuildFailedClientRpc` / `EnqueueFailedClientRpc` RPC 구조는 완성. 함수 내부에 UI 호출만 추가하면 됨
+- **대기 이유**: 전반적인 UI 기획(토스트/팝업 디자인 등)을 먼저 진행한 후 구현 예정
 
 ---
 
 ## Phase B — 네트워크 미완성 기능
-
-### B-1. 자동생산 멀티플레이 지원
-- **파일**: `NetworkProductionController.cs`, `Assets/_Project/Scripts/Presentation/Production/ProductionPanelUI.cs`
-- **현황**: 롱프레스(0.5초) 시 로그 경고만 출력, 서버 전파 없음
-- **구현 필요**: `ToggleAutoServerRpc` + `AutoProductionChangedClientRpc` 로직 완성
 
 ### B-2. 멀티플레이 로비 UI 완성
 - **파일**: `Assets/_Project/Scripts/Presentation/UI/LobbyUI.cs`
@@ -151,3 +132,6 @@
 | 2026-03-02 | GameConfig 정리 (AnimationFps 제거, TileHeight 수정) |
 | 2026-03-07 | 공격 방향 Transform 기반 구현 완료 (UnitView._meshYOffset=30f, Atan2 기반 방향 계산) |
 | 2026-03-07 | 유닛별 AttackCooldown 시스템 완료 (UnitData.AttackCooldown/AttackCooldownRemaining) |
+| 2026-03-01 | 생산 큐 클라이언트 UI 즉시 갱신 수정 (OnProductionQueueChanged → SyncQueueStateClientRpc) |
+| 2026-03-07 | 자동생산 멀티플레이 지원 완료 (ToggleAutoServerRpc + AutoProductionChangedClientRpc) |
+| 2026-03-07 | Siege/AI 이동 서버 권위 동기화 완료 (BroadcastServerMove + BroadcastMoveClientRpc, 클라이언트 화면 불일치 수정) |

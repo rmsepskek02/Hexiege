@@ -11,11 +11,11 @@
 //
 // 클릭 시 동작:
 //   1. 건물 UI가 열려있으면 → 닫기
-//   2. 클릭 위치에 유닛이 있으면 → 유닛 선택
-//   3. 유닛이 선택된 상태에서 빈 타일 클릭 → 이동 명령
-//   4. 건물이 있는 타일 → 타일 선택
-//   5. 자기 팀 빈 타일 → 건물 배치 팝업
-//   6. 기타 → 타일 선택 (하이라이트)
+//   2. 건물이 있는 타일 → 타일 선택
+//   3. 자기 팀 빈 타일 → 건물 배치 팝업
+//   4. 기타 → 타일 선택 (하이라이트)
+//
+// 유닛 이동은 AI 전용 — 플레이어 직접 이동 없음.
 //
 // New Input System 사용:
 //   UnityEngine.InputSystem 패키지의 Mouse, Touchscreen 클래스 사용.
@@ -44,12 +44,6 @@ namespace Hexiege.Presentation
         /// <summary> 타일 선택 처리 UseCase. </summary>
         private GridInteractionUseCase _gridInteraction;
 
-        /// <summary> 유닛 이동 처리 UseCase. </summary>
-        private UnitMovementUseCase _unitMovement;
-
-        /// <summary> 유닛 생성/조회 UseCase. </summary>
-        private UnitSpawnUseCase _unitSpawn;
-
         /// <summary> 건물 배치 UseCase. </summary>
         private BuildingPlacementUseCase _buildingPlacement;
 
@@ -65,9 +59,6 @@ namespace Hexiege.Presentation
         // ====================================================================
         // 내부 상태
         // ====================================================================
-
-        /// <summary> 현재 선택된 유닛. null이면 유닛 미선택 상태. </summary>
-        private UnitData _selectedUnit;
 
         /// <summary> 마우스 버튼을 누른 시점의 스크린 좌표. 클릭/드래그 판정용. </summary>
         private Vector2 _pointerDownPos;
@@ -90,16 +81,12 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Initialize(
             GridInteractionUseCase gridInteraction,
-            UnitMovementUseCase unitMovement,
-            UnitSpawnUseCase unitSpawn,
             Camera mainCamera,
             BuildingPlacementUseCase buildingPlacement,
             BuildingPlacementUI buildingUI,
             ProductionPanelUI productionUI)
         {
             _gridInteraction = gridInteraction;
-            _unitMovement = unitMovement;
-            _unitSpawn = unitSpawn;
             _mainCamera = mainCamera;
             _buildingPlacement = buildingPlacement;
             _buildingUI = buildingUI;
@@ -175,11 +162,9 @@ namespace Hexiege.Presentation
         ///
         /// 판정 순서:
         ///   1. 건물 UI가 열려있으면 → 닫기 (팝업 외부 탭)
-        ///   2. 클릭 위치에 유닛이 있는가? → 유닛 선택
-        ///   3. 유닛이 선택된 상태에서 빈 타일 클릭? → 이동 명령
-        ///   4. 건물이 있는 타일 → 타일 선택
-        ///   5. 자기 팀 빈 타일 → 건물 배치 팝업
-        ///   6. 기타 → 타일 선택 (하이라이트)
+        ///   2. 건물이 있는 타일 → 타일 선택
+        ///   3. 자기 팀 빈 타일 → 건물 배치 팝업
+        ///   4. 기타 → 타일 선택 (하이라이트)
         /// </summary>
         private void HandleClick(Vector2 screenPos)
         {
@@ -223,56 +208,7 @@ namespace Hexiege.Presentation
             HexCoord clickedCoord = HexMetrics.WorldToHex(worldPos);
 
             // --------------------------------------------------------
-            // 2. 클릭 위치에 유닛이 있는지 확인
-            // --------------------------------------------------------
-            {
-                UnitData unitAtPos = _unitSpawn?.GetUnitAt(clickedCoord);
-
-                if (unitAtPos != null && unitAtPos.Team == LocalPlayerTeam.Current)
-                {
-                    // 유닛 선택 (이전 선택 해제)
-                    _selectedUnit = unitAtPos;
-                    _gridInteraction?.SelectTileAt(worldPos);
-                    return;
-                }
-            }
-
-            // --------------------------------------------------------
-            // 3. 유닛이 선택된 상태에서 빈 타일 클릭 → 이동 명령
-            // --------------------------------------------------------
-            if (_selectedUnit != null)
-            {
-                // 선택된 유닛의 UnitView 찾기
-                var unitObj = FindObjectsByType<UnitView>(FindObjectsSortMode.None);
-                UnitView selectedView = null;
-                foreach (var view in unitObj)
-                {
-                    if (view.Data != null && view.Data.Id == _selectedUnit.Id)
-                    {
-                        selectedView = view;
-                        break;
-                    }
-                }
-
-                // UnitView가 있고, 이동 중이 아닐 때만 이동 명령
-                if (selectedView != null && !selectedView.IsMoving)
-                {
-                    List<HexCoord> path = _unitMovement?.RequestMove(_selectedUnit, clickedCoord);
-                    if (path != null)
-                    {
-                        selectedView.MoveTo(path);
-                        _selectedUnit = null; // 이동 시작 후 선택 해제
-                        _gridInteraction?.Deselect();
-                        return;
-                    }
-                }
-
-                // 이동 불가 (경로 없음) → 선택 해제하고 타일 선택으로 전환
-                _selectedUnit = null;
-            }
-
-            // --------------------------------------------------------
-            // 4. 건물이 있는 타일 → 배럭이면 생산 UI, 아니면 타일 선택
+            // 2. 건물이 있는 타일 → 배럭이면 생산 UI, 아니면 타일 선택
             // --------------------------------------------------------
             if (_buildingPlacement != null)
             {
@@ -294,7 +230,7 @@ namespace Hexiege.Presentation
             }
 
             // --------------------------------------------------------
-            // 5. 금광 타일 (건물 없음) → 채굴소 건설 팝업
+            // 3. 금광 타일 (건물 없음) → 채굴소 건설 팝업
             // --------------------------------------------------------
             if (_buildingPlacement != null &&
                 _buildingPlacement.CanPlaceMiningPost(clickedCoord, LocalPlayerTeam.Current))
@@ -305,7 +241,7 @@ namespace Hexiege.Presentation
             }
 
             // --------------------------------------------------------
-            // 6. 자기 팀 빈 타일 → 건물 배치 팝업
+            // 4. 자기 팀 빈 타일 → 건물 배치 팝업
             // --------------------------------------------------------
             if (_buildingPlacement != null &&
                 _buildingPlacement.CanPlaceBuilding(clickedCoord, LocalPlayerTeam.Current))
@@ -316,7 +252,7 @@ namespace Hexiege.Presentation
             }
 
             // --------------------------------------------------------
-            // 6. 기타 → 타일 선택 (하이라이트)
+            // 5. 기타 → 타일 선택 (하이라이트)
             // --------------------------------------------------------
             _gridInteraction?.SelectTileAt(worldPos);
         }

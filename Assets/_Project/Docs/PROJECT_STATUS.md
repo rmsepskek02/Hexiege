@@ -52,8 +52,9 @@
 | Phase 2 | 팀 할당 + 게임 시작 흐름 | ✅ 완료 |
 | Phase 3 | 타일/자원 동기화 (NetworkTileSync, NetworkResourceSync) | ✅ 완료 |
 | Phase 4 | 건물 배치 동기화 (NetworkBuildingController) | ✅ 완료 |
-| Phase 5 | 유닛 생산 동기화 (NetworkProductionController) | ✅ 완료 |
+| Phase 5 | 유닛 생산 동기화 (NetworkProductionController, 자동생산 포함) | ✅ 완료 |
 | Phase 6 | 유닛 이동 + 전투 동기화 (NetworkUnitMovementController, NetworkCombatController) | ✅ 완료 |
+| Phase 6+ | AI 이동(Siege/랠리) 서버 권위 동기화 (BroadcastServerMove) | ✅ 완료 (2026-03-07) |
 | Phase 7 | 승패 판정 동기화 (NetworkGameEndController) | ✅ 완료 |
 | Phase 8 | UI/UX 네트워크 대응 (LobbyUI, NetworkStatusUI, ReconnectionHandler) | ✅ 완료 |
 
@@ -73,11 +74,8 @@
 #### 멀티플레이 기능 미구현
 | 항목 | 파일 | 비고 |
 |------|------|------|
-| BuildFailedClientRpc UI 피드백 없음 | NetworkBuildingController | 현재 로그만 출력 |
-| EnqueueFailedClientRpc UI 피드백 없음 | NetworkProductionController | 현재 로그만 출력 |
-| InputHandler 이동 네트워크 분기 누락 | InputHandler.cs L261 부근 | 탭 이동이 상대방 화면에 미동기화 |
-| 자동생산 멀티플레이 미지원 | ProductionPanelUI | 롱프레스 시 로그 경고만 |
-| 생산 큐 클라이언트 UI 지연 | NetworkProductionController | 큐 추가 즉시 전파 안됨 |
+| BuildFailedClientRpc UI 피드백 없음 | NetworkBuildingController | RPC 구조 완성, UI 기획 후 구현 예정 |
+| EnqueueFailedClientRpc UI 피드백 없음 | NetworkProductionController | RPC 구조 완성, UI 기획 후 구현 예정 |
 | 재접속 실제 구현 없음 | ReconnectionHandler | 30초 대기 후 ForceWin만 |
 | 멀티플레이 로비 UI 미완성 | LobbyUI | 기본 기능만 |
 

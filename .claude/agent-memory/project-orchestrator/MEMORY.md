@@ -8,7 +8,7 @@
 
 ## 프로젝트 현재 상태 (2026-03-07)
 - 싱글플레이 코어 루프 완성 (헥스 그리드, 전투, 건물, 생산, 승패)
-- 멀티플레이 Phase 1~8 완성 (Lobby/Relay/NGO, 건물/생산/이동/전투/HUD/재접속)
+- 멀티플레이 Phase 1~8 완성 + 자동생산 멀티플레이 완료 (ToggleAutoServerRpc + AutoProductionChangedClientRpc)
 - **2D→3D 전환 완료 (Phase 0~5)**
   - Phase 0: NetworkGameEndController 씬명 하드코딩 수정 ("SampleScene" → "Game")
   - Phase 1: XY→XZ 좌표계 전환 (HexMetrics, ViewConverter, CameraController, GameBootstrapper, InputHandler)
@@ -111,12 +111,15 @@ Assets/_Project/
 - **3D 전환 후 sortingOrder 불필요 → Z-depth로 대체**
 
 ## 네트워크 알려진 미완성/점검 필요 항목
-- BuildFailedClientRpc/EnqueueFailedClientRpc: UI 피드백 미구현 (TODO 로그만)
-- InputHandler 이동: NetworkUnitMovementController 경유가 아닌 직접 UseCase 호출 (싱글플레이 경로 잔재)
-  - `Assets/_Project/Scripts/Presentation/Input/InputHandler.cs` L261 부근
-- NetworkProductionController 자동생산 토글: ProductionPanelUI 멀티플레이 롱프레스 미지원
-- 생산 UI 클라이언트 큐 동기화: SyncQueueStateClientRpc가 큐 추가 시 즉시 전파 안됨
+- BuildFailedClientRpc/EnqueueFailedClientRpc: UI 피드백 미구현 (RPC 구조 완성, 함수 내부에 UI 호출만 추가하면 됨) → UI 기획 후 구현 예정
 - 재접속 기능: 실제 재접속 흐름 없음 (30초 대기 후 ForceWin만 구현)
+- 멀티플레이 로비 UI: 기본 Host/Join만 구현 (방 목록/대기 화면 미완성)
+
+## 네트워크 완료된 항목 (2026-03-07 확인)
+- ~~InputHandler 유닛 이동~~ → 유닛 이동은 AI 전용, 플레이어 직접 이동 기능 자체 삭제됨
+- ~~자동생산 멀티플레이 미지원~~ → 완료: ToggleAutoServerRpc + AutoProductionChangedClientRpc 구현됨
+- ~~생산 큐 클라이언트 UI 동기화~~ → 완료 (2026-03-01): SyncQueueStateClientRpc로 즉시 갱신
+- ~~Siege/AI 이동 서버·클라이언트 독립 실행 (화면 불일치)~~ → 완료 (2026-03-07): BroadcastServerMove + BroadcastMoveClientRpc로 서버 권위 동기화
 
 ## 3D 전환 시 수정된 파일 (참고)
 - Phase 1: `HexMetrics.cs`, `ViewConverter.cs`, `CameraController.cs`, `GameBootstrapper.cs`, `InputHandler.cs`

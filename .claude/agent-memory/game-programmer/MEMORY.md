@@ -146,6 +146,19 @@
   - 서버: OnEntityDamaged 구독 → SyncHealthClientRpc(entityId, isUnit, serverHp)
   - 클라이언트: 현재 HP와 서버 HP 차이만큼 TakeDamage로 맞춤
 
+## AI 이동(Siege/랠리) 서버 권한 동기화 패턴
+- **문제**: ProductionTicker의 Siege/랠리 이동이 서버·클라이언트 양쪽 독립 실행 → 각자 다른 경로 → 화면 불일치
+- **해결**: 서버만 이동 경로 결정, 클라이언트는 BroadcastMoveClientRpc로 수신
+- `NetworkUnitMovementController`: BroadcastServerMove(unitId, path) + BroadcastMoveClientRpc (AI 이동 전용, 모든 클라이언트 전파)
+  - 기존 RequestMove/SyncMovement (플레이어 수동 이동)와 별도 — 양쪽 공존
+- `ProductionTicker`: _networkMovement 필드 추가 (Initialize에서 주입, 싱글플레이 시 null)
+  - IsNetworkClient 프로퍼티: 멀티플레이 클라이언트 판별
+  - BroadcastMoveIfServer(unitId, path): 서버일 때만 _networkMovement.BroadcastServerMove() 호출
+  - OnUnitProduced: 클라이언트이면 이동 명령 전체 건너뜀 (return)
+  - MoveTowardEnemyCastle: MoveTo 후 BroadcastMoveIfServer 추가
+  - TickSiege: 클라이언트이면 상태 정리만 수행(dead unit 제거 등), 이동 명령 스킵
+- `GameBootstrapper.SetupProduction()`: isNetworkMode 시 _networkUnitMovement를 ProductionTicker에 주입
+
 ## NetworkContext 패턴 (Application 레이어용 네트워크 상태 홀더)
 - 파일: `Assets/_Project/Scripts/Application/NetworkContext.cs`
 - 목적: Application 레이어가 Unity.Netcode(NetworkManager)에 직접 의존하는 것을 방지

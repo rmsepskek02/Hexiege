@@ -315,8 +315,7 @@ namespace Hexiege.Infrastructure
             Debug.Log($"[Network] 서버: 유닛 생산 큐 추가 성공. BarracksId={barracksId}, UnitType={unitType}, Team={team}");
 
             // 큐 변경 이벤트는 EnqueueUnit 내부에서 이미 발행됨
-            // 클라이언트 UI 갱신은 OnProductionQueueChanged를 별도 ClientRpc로 동기화하지 않음
-            // (클라이언트는 서버가 발행한 이벤트를 직접 받지 못하므로 UI는 스폰 완료 시 갱신됨)
+            // → OnProductionQueueChanged 구독(서버) → SyncQueueStateClientRpc → 클라이언트 UI 즉시 갱신
         }
 
         // ====================================================================
