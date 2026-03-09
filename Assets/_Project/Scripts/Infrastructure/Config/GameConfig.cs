@@ -15,12 +15,11 @@
 //   - 그리드: 가로/세로 타일 수, 타일 크기
 //   - 팀 색상: Neutral, Blue, Red, 선택 하이라이트
 //   - 유닛: 이동 속도
-//   - 애니메이션: 프레임 속도
 //   - 카메라: 줌 범위
 //
 // 사용 예시:
 //   var config = Resources.Load<GameConfig>("Config/GameConfig");
-//   OrientationConfig oc = config.PointyTop;  // 또는 config.FlatTop
+//   OrientationConfig oc = config.FlatTop;
 //   int width = oc.GridWidth;
 //
 // Infrastructure 레이어 — Unity 의존 (ScriptableObject, Color).
@@ -197,19 +196,6 @@ namespace Hexiege.Infrastructure
         [Tooltip("랠리포인트 마커 회전 (Euler 각도)")]
         [SerializeField] private Vector3 _rallyMarkerEuler = Vector3.zero;
         public Vector3 RallyMarkerEuler => _rallyMarkerEuler;
-
-        // ====================================================================
-        // 애니메이션 설정
-        // ====================================================================
-
-        [Header("Animation")]
-
-        /// <summary>
-        /// 애니메이션 프레임 속도.
-        /// [Phase 2] 3D 전환 후 공격 애니메이션 duration 계산에 사용.
-        /// </summary>
-        [Tooltip("애니메이션 FPS (공격 duration 계산용)")]
-        public float AnimationFps = 6f;
 
         // ====================================================================
         // 카메라 설정
