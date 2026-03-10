@@ -37,7 +37,8 @@
       "mcp__mcp-unity__select_gameobject",
       "mcp__mcp-unity__add_package",
       "mcp__mcp-unity__send_console_log",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Read(//m_Name: UnitImage|m_Name: BuildingImage/ { name=$0; linenum=NR }\n/m_Component/ && linenum>0 { collecting=1; components=\"\"\"\"\"\"\"\" }\ncollecting && /component:/ { components=components\"\"\"\" \"\"\"\"$0 }\n/m_IsActive/**)"
     ]
   },
   "enableAllProjectMcpServers": true,
