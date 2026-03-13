@@ -22,6 +22,8 @@ namespace Hexiege.Domain
         public static float GetProductionTime(UnitType type) => type switch
         {
             UnitType.Pistoleer => 5f,
+            UnitType.Assault   => 10f,
+            UnitType.Sniper    => 15f,
             _ => 5f
         };
 
@@ -29,6 +31,8 @@ namespace Hexiege.Domain
         public static int GetGoldCost(UnitType type) => type switch
         {
             UnitType.Pistoleer => 50,
+            UnitType.Assault   => 100,
+            UnitType.Sniper    => 200,
             _ => 50
         };
 

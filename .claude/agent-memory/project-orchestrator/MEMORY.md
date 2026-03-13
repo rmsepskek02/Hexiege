@@ -6,7 +6,7 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
-## 프로젝트 현재 상태 (2026-03-07)
+## 프로젝트 현재 상태 (2026-03-14)
 - 싱글플레이 코어 루프 완성 (헥스 그리드, 전투, 건물, 생산, 승패)
 - 멀티플레이 Phase 1~8 완성 + 자동생산 멀티플레이 완료 (ToggleAutoServerRpc + AutoProductionChangedClientRpc)
 - **2D→3D 전환 완료 (Phase 0~5)**
@@ -31,7 +31,7 @@
     - `Infrastructure/UnitWorldPositionProvider.cs` (신규) — UnitFactory/BuildingFactory.GetObject().transform.position
     - `UnitCombatUseCase`: 월드좌표 Vector3.Distance 기반 사거리 판정, null/zero 시 HexCoord 폴백
     - `GameBootstrapper.CreateUseCases()`: UnitWorldPositionProvider 생성 후 UnitCombatUseCase에 주입
-    - 임계값: `AttackRange * HexMetrics.TileHeight + 0.1f`
+    - 임계값: `AttackRange * HexMetrics.TileHeight` (2026-03-14 epsilon 제거 — 조기 공격으로 타일 점령 안 되는 버그 수정)
   - **HexTileView 타일 색상 버그 수정**: 옆면 → 윗면 색상 변경
     - `renderer.material`(index 0=side) → materials 배열 순회, SG_HexTile 셰이더 탐색 후 캐시
     - `material.color` → `material.SetColor("_BaseColor", ...)` (SG_HexTile Shader Graph 프로퍼티)
@@ -52,7 +52,7 @@ Assets/_Project/
 ## 3D 렌더링 핵심 사항
 - 카메라: Orthographic + X축 55도 틸트 (Clash of Clans 스타일)
 - 좌표계: XZ 평면 (Y=0 바닥, Y=높이)
-- 유닛 Animator 파라미터: IsWalking(bool), IsDead(bool), Attack(trigger)
+- 유닛 Animator 파라미터: `IsDead`(bool) 1개만 사용 — IsWalking/Attack trigger 제거됨 (Animator.Play() 직접 호출 방식)
 - 방향 표현: Y축 회전 (E=0°, NE=60°, NW=120°, W=180°, SW=240°, SE=300°)
 - sortingOrder 완전 폐기 → Z-depth 기반 자연스러운 렌더링
 - FrameAnimator.cs, UnitAnimationData.cs, PistoleerAnimData.asset 삭제됨
@@ -80,10 +80,11 @@ Assets/_Project/
 
 ## 위임 시 필수 컨텍스트 항목
 모든 위임 시 반드시 포함:
-1. 관련 파일 경로 (절대 경로, `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/Assets/...`)
+1. 관련 파일 경로 (절대 경로, `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/Assets/...`) — 탐색 비용 절감
 2. Clean Architecture 레이어 규칙 (Domain이 Core 참조 불가 등)
-3. 현재 프로젝트 상태 요약
-4. 해당 에이전트 MEMORY.md 경로
+3. NGO API 제약 명시 (ServerRpc/ClientRpc 이름 규칙, NetworkBehaviour=Infrastructure만, RPC 파라미터 직렬화 타입)
+4. 현재 프로젝트 상태 요약
+5. 해당 에이전트 MEMORY.md 경로
 
 ## 작업 완료 후 메모리 업데이트 체크리스트
 - [ ] game-programmer MEMORY.md: 새 파일/클래스/API 매핑 추가
@@ -95,6 +96,7 @@ Assets/_Project/
 ## 사용자 워크플로우 선호사항
 - 사용자는 총괄(project-orchestrator)에게 요청 → 총괄이 각 에이전트에게 분배
 - **규모/복잡도 관계없이 모든 작업은 시작 전 반드시 계획을 사용자에게 검토받을 것 — 승인 없이 바로 작업 절대 금지**
+- **단순 작업(1개 파일, 명확한 로직 변경)에서 project-orchestrator 생략 여부는 반드시 사용자에게 먼저 물어볼 것 — 임의 판단 금지**
 - 한국어로 소통
 - 에이전트 완료 후 반드시 메모리 업데이트
 
@@ -115,11 +117,22 @@ Assets/_Project/
 - 재접속 기능: 실제 재접속 흐름 없음 (30초 대기 후 ForceWin만 구현)
 - 멀티플레이 로비 UI: 기본 Host/Join만 구현 (방 목록/대기 화면 미완성)
 
-## 네트워크 완료된 항목 (2026-03-07 확인)
+## 네트워크 완료된 항목
 - ~~InputHandler 유닛 이동~~ → 유닛 이동은 AI 전용, 플레이어 직접 이동 기능 자체 삭제됨
 - ~~자동생산 멀티플레이 미지원~~ → 완료: ToggleAutoServerRpc + AutoProductionChangedClientRpc 구현됨
 - ~~생산 큐 클라이언트 UI 동기화~~ → 완료 (2026-03-01): SyncQueueStateClientRpc로 즉시 갱신
 - ~~Siege/AI 이동 서버·클라이언트 독립 실행 (화면 불일치)~~ → 완료 (2026-03-07): BroadcastServerMove + BroadcastMoveClientRpc로 서버 권위 동기화
+
+## 2026-03-14 완료 작업 (비-네트워크)
+- **팀별 피아식별 + Assault/Sniper 코드 연동 완료**:
+  - `UnitType.cs`: Pistoleer=0, Assault=1, Sniper=2
+  - `UnitFactory.cs`: `UnitTeamPrefabSet` struct, `_bluePrefabs`/`_redPrefabs` 팀+타입별 분기
+  - `BuildingFactory.cs`: `BuildingTeamPrefabSet` struct, `_bluePrefabs`/`_redPrefabs` 팀별 분기
+  - `ProductionPanelUI.cs`: Assault/Sniper 버튼+초상화+생산 로직
+  - `UnitStats.cs`: Pistoleer HP=30/ATK=3/Range=1.0, Assault HP=50/ATK=6/Range=2.0, Sniper HP=30/ATK=20/Range=5.0
+  - `UnitProductionStats.cs`: Pistoleer 5초/50골드, Assault 10초/100골드, Sniper 15초/200골드
+- **팀별 초상화 동적 업데이트**: ProductionPanelUI/BuildingPlacementUI — Show() 시 팀별 스프라이트 교체
+- **전투 범위 epsilon 제거**: `UnitCombatUseCase` +0.1f 제거 → `AttackRange * HexMetrics.TileHeight` (타일 점령 버그 수정)
 
 ## 3D 전환 시 수정된 파일 (참고)
 - Phase 1: `HexMetrics.cs`, `ViewConverter.cs`, `CameraController.cs`, `GameBootstrapper.cs`, `InputHandler.cs`

@@ -74,13 +74,20 @@ namespace Hexiege.Infrastructure
         // Inspector에서 설정할 필드
         // ====================================================================
 
-        [Header("Prefab")]
         /// <summary>
-        /// 유닛 프리팹 참조.
-        /// [Phase 2] 프리팹 구성: Renderer + UnitView + Animator.
+        /// 팀별 유닛 프리팹 세트. Inspector에서 Blue/Red 각각 설정.
         /// </summary>
-        [Tooltip("유닛 프리팹 (Renderer + UnitView + Animator)")]
-        [SerializeField] private GameObject _unitPrefab;
+        [System.Serializable]
+        public struct UnitTeamPrefabSet
+        {
+            public GameObject pistoleer;
+            public GameObject assault;
+            public GameObject sniper;
+        }
+
+        [Header("Prefabs")]
+        [SerializeField] private UnitTeamPrefabSet _bluePrefabs;
+        [SerializeField] private UnitTeamPrefabSet _redPrefabs;
 
         [Header("Hierarchy")]
         /// <summary>
@@ -132,9 +139,19 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void CreateUnitObject(UnitData unitData)
         {
-            if (_unitPrefab == null)
+            // 팀·유닛타입에 맞는 프리팹 선택
+            var set = unitData.Team == TeamId.Blue ? _bluePrefabs : _redPrefabs;
+            GameObject prefab = unitData.Type switch
             {
-                Debug.LogError("[UnitFactory] UnitPrefab이 설정되지 않았습니다.");
+                UnitType.Pistoleer => set.pistoleer,
+                UnitType.Assault   => set.assault,
+                UnitType.Sniper    => set.sniper,
+                _ => null
+            };
+
+            if (prefab == null)
+            {
+                Debug.LogError($"[UnitFactory] {unitData.Team}/{unitData.Type} 프리팹이 설정되지 않았습니다.");
                 return;
             }
 
@@ -148,7 +165,7 @@ namespace Hexiege.Infrastructure
             viewPos.y += HexMetrics.UnitYOffset;
 
             // 프리팹 인스턴스 생성. 뷰 좌표에 배치.
-            GameObject unitObj = Instantiate(_unitPrefab, viewPos, Quaternion.identity, _unitParent);
+            GameObject unitObj = Instantiate(prefab, viewPos, Quaternion.identity, _unitParent);
 
             // 오브젝트 이름을 유닛 정보로 설정 (에디터 디버깅용)
             unitObj.name = $"Unit_{unitData.Type}_{unitData.Team}_{unitData.Id}";

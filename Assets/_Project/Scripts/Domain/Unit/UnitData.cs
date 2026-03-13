@@ -57,11 +57,11 @@ namespace Hexiege.Domain
         /// <summary> 공격력. </summary>
         public int AttackPower { get; }
 
-        /// <summary> 공격 사거리 (타일 단위). 권총병 = 1. </summary>
-        public int AttackRange { get; }
+        /// <summary> 공격 사거리 (월드 단위). </summary>
+        public float AttackRange { get; }
 
-        /// <summary> 타일 1칸 이동 소요 시간(초). 작을수록 빠름. </summary>
-        public float MoveSeconds { get; }
+        /// <summary> 타일 이동 속도 (칸/초). 높을수록 빠름. </summary>
+        public float MoveSpeed { get; }
 
         /// <summary> 공격 1회 쿨다운(초). UnitFactory에서 Attack 클립 길이로 설정. </summary>
         public float AttackCooldown { get; set; }
@@ -91,12 +91,12 @@ namespace Hexiege.Domain
         /// <param name="position">초기 위치 (헥스 좌표)</param>
         /// <param name="maxHp">최대 체력</param>
         /// <param name="attackPower">공격력</param>
-        /// <param name="attackRange">공격 사거리</param>
-        /// <param name="moveSeconds">타일 1칸 이동 소요 시간(초)</param>
+        /// <param name="attackRange">공격 사거리 (월드 단위)</param>
+        /// <param name="moveSpeed">타일 이동 속도 (칸/초). 높을수록 빠름.</param>
         /// <param name="facing">초기 바라보는 방향 (기본: 동쪽)</param>
         public UnitData(UnitType type, TeamId team, HexCoord position,
-            int maxHp, int attackPower, int attackRange,
-            float moveSeconds = 0.3f,
+            int maxHp, int attackPower, float attackRange,
+            float moveSpeed = 1.0f,
             HexDirection facing = HexDirection.E)
         {
             Id = _nextId++;
@@ -107,7 +107,7 @@ namespace Hexiege.Domain
             Hp = maxHp;
             AttackPower = attackPower;
             AttackRange = attackRange;
-            MoveSeconds = moveSeconds;
+            MoveSpeed = moveSpeed;
             AttackCooldown = UnitStats.GetAttackCooldown(type);
             AttackCooldownRemaining = 0f;
             Facing = facing;
@@ -124,12 +124,12 @@ namespace Hexiege.Domain
         /// <param name="position">초기 위치 (헥스 좌표)</param>
         /// <param name="maxHp">최대 체력</param>
         /// <param name="attackPower">공격력</param>
-        /// <param name="attackRange">공격 사거리</param>
-        /// <param name="moveSeconds">타일 1칸 이동 소요 시간(초)</param>
+        /// <param name="attackRange">공격 사거리 (월드 단위)</param>
+        /// <param name="moveSpeed">타일 이동 속도 (칸/초). 높을수록 빠름.</param>
         /// <param name="facing">초기 바라보는 방향 (기본: 동쪽)</param>
         public UnitData(int id, UnitType type, TeamId team, HexCoord position,
-            int maxHp, int attackPower, int attackRange,
-            float moveSeconds = 0.3f,
+            int maxHp, int attackPower, float attackRange,
+            float moveSpeed = 1.0f,
             HexDirection facing = HexDirection.E)
         {
             Id = id;
@@ -140,7 +140,7 @@ namespace Hexiege.Domain
             Hp = maxHp;
             AttackPower = attackPower;
             AttackRange = attackRange;
-            MoveSeconds = moveSeconds;
+            MoveSpeed = moveSpeed;
             AttackCooldown = UnitStats.GetAttackCooldown(type);
             AttackCooldownRemaining = 0f;
             Facing = facing;

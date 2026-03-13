@@ -5,6 +5,23 @@
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 attack direction 작업 전체 삭제 (복구 불가)
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
+## ⚠️ 구현 시 필수 확인 제약 (컴파일 에러 예방 — 매 작업 시작 전 확인)
+
+### 레이어 제약
+- Domain 레이어: `using Hexiege.Core` 절대 금지 → HexOrientationContext 등 정적 홀더 패턴 사용
+- NetworkBehaviour: Infrastructure 레이어에만 배치 (Presentation/Application 금지)
+- Application 레이어: Unity.Netcode 직접 참조 금지 → NetworkContext 정적 홀더 패턴 사용
+- GameBootstrapper = 유일한 의존성 조합 루트 → 새 UseCase/Controller 추가 시 반드시 여기서 와이어링
+- 새 파일 추가 시 반드시 레이어별 네임스페이스 확인 (Assembly Definition 없음 — 네임스페이스 규약만)
+
+### NGO API 제약
+- ServerRpc 메서드명: 반드시 `ServerRpc` 로 끝나야 함
+- ClientRpc 메서드명: 반드시 `ClientRpc` 로 끝나야 함
+- NGO 2.9.2, Enable Scene Management = ON 필수
+- NetworkBehaviour 는 씬에 NetworkObject로 배치해야 RPC 작동 (별도 Spawn 코드 불필요)
+- RPC 파라미터: 직렬화 가능 타입만 허용 (INetworkSerializable 또는 기본 타입/enum)
+- 클라이언트 전용 로직 분기: `NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer` 패턴 사용
+
 ## 전투 버그 수정 — 자세한 내용: [combat-fixes.md](combat-fixes.md)
 - UnitCombatUseCase: `ClaimedTile ?? Position` 으로 사거리/방향 계산 (Lerp 중 위치 보정)
 - UnitView: 부드러운 회전 (ApplyDirection → _targetYRotation, Update에서 MoveTowardsAngle 보간, 540도/초)
@@ -18,7 +35,7 @@
 - **수정 파일**:
   - `UnitCombatUseCase.cs`: 생성자에 `IEntityPositionProvider positionProvider=null` 추가, FindFirstEnemyTarget→월드좌표 Vector3.Distance 판정, null/zero시 HexCoord 폴백
   - `GameBootstrapper.cs`: CreateUseCases()에서 `new UnitWorldPositionProvider(_unitFactory, _buildingFactory)` 생성 후 전달
-- **임계값**: `attacker.AttackRange * HexMetrics.TileHeight + 0.1f` (FlatTop 인접=0.866, epsilon=0.1)
+- **임계값**: `attacker.AttackRange * HexMetrics.TileHeight` (epsilon 없음 — 2026-03-14 수정. 타일 중심 간 정확한 거리 기준. +0.1f 제거 이유: Lerp 완료 전 조기 공격 발동 → ProcessStep 미호출 → 타일 점령 안 됨)
 
 ## 네트워크 인프라 (Phase 1)
 - 패키지: `com.unity.netcode.gameobjects` 2.8.1, `com.unity.services.multiplayer` 2.0.0 (Lobby/Relay/Auth 통합) 이미 설치됨
@@ -209,11 +226,26 @@
   ```
 - **효과**: 이미 Walk 재생 중이면 클립 유지 → 자연스러운 연속 걷기 애니메이션
 
+## 유닛 확정 스탯 (2026-03-14 최종 확정)
+| 항목 | Pistoleer | Assault | Sniper |
+|------|-----------|---------|--------|
+| HP | 30 | 50 | 30 |
+| AttackPower | 3 | 6 | 20 |
+| AttackRange (float) | 1.0 | 2.0 | 5.0 |
+| MoveSeconds | 1.0 | 1.0 | 4.0 |
+| ProductionTime | 5s | 10s | 15s |
+| GoldCost | 50 | 100 | 200 |
+| AttackCooldown | 1.0 (클립 길이 덮어씀) | 1.0 | 1.0 |
+
+- **AttackRange 타입 변경**: `UnitData.AttackRange` int → float, `UnitStats.GetAttackRange` int → float
+  - 영향 파일: `UnitData.cs`, `UnitStats.cs`, `UnitSpawnUseCase.cs`(생성자 파라미터)
+  - 주 경로(IEntityPositionProvider): `attacker.AttackRange * HexMetrics.TileHeight` → float 자동 호환
+  - 폴백 경로(HexCoord): `distance <= attacker.AttackRange(float)` C# 암시적 변환으로 컴파일 OK
+
 ## 유닛별 개별 이동속도
 - UnitData.MoveSeconds (float, readonly) — 타일 1칸 이동 소요 시간
-- UnitStats.GetMoveSeconds(UnitType) — 타입별 기본값 (Pistoleer=0.8, default=0.3)
+- UnitStats.GetMoveSeconds(UnitType) — 타입별 기본값 (Pistoleer=1.0, Assault=1.0, Sniper=0.5)
 - UnitView.MoveAlongPath: _unitData.MoveSeconds 참조 (GameConfig.UnitMoveSeconds 대신)
-- Pistoleer 스탯: HP=50, Attack=3, Range=1, MoveSeconds=0.8, AttackDuration=2.0
 
 ## 중요 교훈
 - `com.unity.services.multiplayer` 2.0.0 은 Lobby + Relay + Auth 를 모두 포함하는 통합 패키지
@@ -437,6 +469,27 @@
 - **GameConfig.RallyMarkerEuler** (Vector3, default: 0/0/0): 마커 회전 Euler 각도 — Inspector에서 조정
 - **ProductionTicker.CreateOrMoveMarker()**: 하드코딩 `RallyMarkerOffset` 상수 제거 → `_config.RallyMarkerOffset/RallyMarkerEuler` 참조
 - 기존 마커 이동 시에도 rotation 갱신 적용
+
+## 팀별 피아식별 프리팹 시스템 (2026-03-14 에셋+코드 연동 완료)
+- **에셋 위치**:
+  - 유닛: `Assets/_Project/Prefabs/Units/Unit_{Type}_{Blue|Red}.prefab` (Pistoleer/Assault/Sniper × 2)
+  - 건물: `Assets/_Project/Prefabs/Buildings/Building_{Type}_{Blue|Red}.prefab` (Castle/Barracks × 2)
+  - 초상화: `Assets/_Project/Sprites/Units/{Type}/{type}_portrait_{blue|red}.png`
+- **완료된 코드 연동**:
+  - `UnitType.cs`: `Pistoleer=0`, `Assault=1`, `Sniper=2` ✅
+  - `UnitFactory.cs`: `UnitTeamPrefabSet` struct (`_bluePrefabs`/`_redPrefabs`) — 팀+타입별 프리팹 선택 ✅
+  - `BuildingFactory.cs`: `BuildingTeamPrefabSet` struct (`_bluePrefabs`/`_redPrefabs`) — 팀별 분기 ✅
+  - `ProductionPanelUI.cs`: Assault/Sniper 버튼+초상화+생산 로직 완료 ✅
+  - `UnitStats.cs`: 3종 유닛 스탯 정의 완료 ✅
+  - `UnitProductionStats.cs`: 3종 유닛 생산시간/비용 정의 완료 ✅
+
+## 팀별 초상화 동적 업데이트 (2026-03-14 완료)
+- `ProductionPanelUI.cs`: `UpdateButtonPortraits(TeamId team)` — Show(barracks) 호출 시 팀 스프라이트 교체
+  - `UnitPortraitSet` struct: `pistoleer`, `assault`, `sniper` 필드
+  - `_bluePortraits` / `_redPortraits` Inspector 연결 필요
+- `BuildingPlacementUI.cs`: `UpdateButtonPortraits(TeamId team)` — Show(coord, team) 호출 시 배럭 초상화 교체
+  - `BuildingPortraitSet` struct: `barracks` 필드만 (miningPost 제외)
+  - `_miningPostPortrait` Sprite (팀 무관 고정)
 
 ## 네트워크 미완성 항목
 - 상세 목록: [network-todo.md](network-todo.md) 참조

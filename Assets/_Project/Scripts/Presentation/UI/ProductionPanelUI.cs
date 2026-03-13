@@ -69,6 +69,18 @@ namespace Hexiege.Presentation
         [Header("Unit Buttons")]
         [Tooltip("권총병 생산 버튼")]
         [SerializeField] private Button _pistoleerButton;
+        [Tooltip("돌격병 생산 버튼")]
+        [SerializeField] private Button _assaultButton;
+        [Tooltip("저격수 생산 버튼")]
+        [SerializeField] private Button _sniperButton;
+
+        [Header("Button Portrait Images")]
+        [Tooltip("권총병 버튼 초상화 Image 컴포넌트")]
+        [SerializeField] private Image _pistoleerButtonPortrait;
+        [Tooltip("돌격병 버튼 초상화 Image 컴포넌트")]
+        [SerializeField] private Image _assaultButtonPortrait;
+        [Tooltip("저격수 버튼 초상화 Image 컴포넌트")]
+        [SerializeField] private Image _sniperButtonPortrait;
 
         [Tooltip("자동 생산 표시 오브젝트 (활성 시 표시)")]
         [SerializeField] private GameObject _autoIndicator;
@@ -77,8 +89,20 @@ namespace Hexiege.Presentation
         [Tooltip("큐 슬롯 이미지 3개 (순서대로)")]
         [SerializeField] private Image[] _queueSlotImages;
 
-        [Tooltip("큐 슬롯에 표시할 유닛 초상화 스프라이트")]
-        [SerializeField] private Sprite _pistoleerPortrait;
+        [Header("Unit Portraits")]
+        [SerializeField] private UnitPortraitSet _bluePortraits;
+        [SerializeField] private UnitPortraitSet _redPortraits;
+
+        /// <summary>
+        /// 팀별 유닛 초상화 스프라이트 세트.
+        /// </summary>
+        [System.Serializable]
+        public struct UnitPortraitSet
+        {
+            public Sprite pistoleer;
+            public Sprite assault;
+            public Sprite sniper;
+        }
 
         [Header("Progress")]
         [Tooltip("생산 진행률 바 fill Image")]
@@ -136,6 +160,7 @@ namespace Hexiege.Presentation
         private bool _isPointerDown;
         private const float LongPressThreshold = 0.5f;
         private bool _longPressTriggered;
+        private UnitType _activeUnitType; // 현재 눌린 버튼의 유닛 타입
 
         // ====================================================================
         // 초기화
@@ -172,8 +197,10 @@ namespace Hexiege.Presentation
             if (_rallyPointButton != null)
                 _rallyPointButton.onClick.AddListener(OnRallyPointClick);
 
-            // 권총병 버튼: 롱프레스/탭 구분을 위해 EventTrigger 사용
-            SetupPistoleerButton();
+            // 유닛 버튼: 롱프레스/탭 구분을 위해 EventTrigger 사용
+            SetupUnitButton(_pistoleerButton, UnitType.Pistoleer);
+            SetupUnitButton(_assaultButton,   UnitType.Assault);
+            SetupUnitButton(_sniperButton,    UnitType.Sniper);
 
             // 큐 슬롯 클릭 → 생산 취소
             SetupQueueSlotButtons();
@@ -208,6 +235,7 @@ namespace Hexiege.Presentation
             if (_ticker != null)
                 _ticker.ShowRallyMarker(barracks.Id);
 
+            UpdateButtonPortraits(barracks.Team);
             UpdateUI();
         }
 
@@ -234,46 +262,43 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 권총병 버튼에 PointerDown/Up 이벤트를 연결하여 탭/롱프레스 구분.
+        /// 유닛 버튼에 PointerDown/Up 이벤트를 연결하여 탭/롱프레스 구분.
         /// </summary>
-        private void SetupPistoleerButton()
+        private void SetupUnitButton(Button button, UnitType type)
         {
-            if (_pistoleerButton == null) return;
+            if (button == null) return;
 
-            var trigger = _pistoleerButton.gameObject.GetComponent<EventTrigger>();
+            var trigger = button.gameObject.GetComponent<EventTrigger>();
             if (trigger == null)
-                trigger = _pistoleerButton.gameObject.AddComponent<EventTrigger>();
+                trigger = button.gameObject.AddComponent<EventTrigger>();
 
-            // PointerDown
             var downEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
-            downEntry.callback.AddListener(_ => OnPistoleerPointerDown());
+            downEntry.callback.AddListener(_ => OnUnitPointerDown(type));
             trigger.triggers.Add(downEntry);
 
-            // PointerUp
             var upEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
-            upEntry.callback.AddListener(_ => OnPistoleerPointerUp());
+            upEntry.callback.AddListener(_ => OnUnitPointerUp());
             trigger.triggers.Add(upEntry);
 
-            // 기본 onClick 제거 (EventTrigger로 대체)
-            _pistoleerButton.onClick.RemoveAllListeners();
+            button.onClick.RemoveAllListeners();
         }
 
-        private void OnPistoleerPointerDown()
+        private void OnUnitPointerDown(UnitType type)
         {
+            _activeUnitType = type;
             _pointerDownTime = Time.unscaledTime;
             _isPointerDown = true;
             _longPressTriggered = false;
         }
 
-        private void OnPistoleerPointerUp()
+        private void OnUnitPointerUp()
         {
             if (!_isPointerDown) return;
             _isPointerDown = false;
 
-            if (_longPressTriggered) return; // 롱프레스가 이미 처리됨
+            if (_longPressTriggered) return;
 
-            // 탭 → 수동 큐 추가
-            OnPistoleerTap();
+            OnUnitTap(_activeUnitType);
         }
 
         private void Update()
@@ -284,7 +309,7 @@ namespace Hexiege.Presentation
                 if (Time.unscaledTime - _pointerDownTime >= LongPressThreshold)
                 {
                     _longPressTriggered = true;
-                    OnPistoleerLongPress();
+                    OnUnitLongPress(_activeUnitType);
                 }
             }
 
@@ -333,11 +358,11 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 탭 → 수동 큐에 권총병 추가.
+        /// 탭 → 수동 큐에 유닛 추가.
         /// 멀티플레이 모드이면 NetworkProductionController를 통해 서버에 요청.
         /// 싱글플레이이면 UseCase를 직접 호출.
         /// </summary>
-        private void OnPistoleerTap()
+        private void OnUnitTap(UnitType type)
         {
             if (_currentBarracks == null || _production == null) return;
 
@@ -345,27 +370,24 @@ namespace Hexiege.Presentation
                 NetworkManager.Singleton != null &&
                 NetworkManager.Singleton.IsListening)
             {
-                // 멀티플레이: 서버에 생산 큐 추가 요청 전송
                 _networkProductionController.RequestEnqueueServerRpc(
                     _currentBarracks.Id,
-                    (int)UnitType.Pistoleer,
+                    (int)type,
                     (int)_currentBarracks.Team);
 
-                Debug.Log($"[Network] 생산 큐 요청 전송. BarracksId={_currentBarracks.Id}, UnitType=Pistoleer");
+                Debug.Log($"[Network] 생산 큐 요청 전송. BarracksId={_currentBarracks.Id}, UnitType={type}");
             }
             else
             {
-                // 싱글플레이: UseCase 직접 호출 (기존 흐름)
-                _production.EnqueueUnit(_currentBarracks.Id, UnitType.Pistoleer);
+                _production.EnqueueUnit(_currentBarracks.Id, type);
             }
         }
 
         /// <summary>
         /// 롱프레스 → 자동 생산 토글.
-        /// 자동 생산은 서버·클라이언트 분리가 복잡하므로 현재는 싱글플레이 전용.
-        /// 멀티플레이에서는 자동 생산을 사용할 수 없도록 로그 경고.
+        /// 멀티플레이이면 서버에 토글 요청, 싱글플레이이면 UseCase 직접 호출.
         /// </summary>
-        private void OnPistoleerLongPress()
+        private void OnUnitLongPress(UnitType type)
         {
             if (_currentBarracks == null || _production == null) return;
 
@@ -373,7 +395,6 @@ namespace Hexiege.Presentation
                 NetworkManager.Singleton != null &&
                 NetworkManager.Singleton.IsListening)
             {
-                // 멀티플레이: 서버에 자동 생산 토글 요청
                 _networkProductionController.ToggleAutoServerRpc(
                     _currentBarracks.Id,
                     (int)_currentBarracks.Team);
@@ -382,8 +403,7 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            // 싱글플레이: UseCase 직접 호출 (기존 흐름)
-            _production.ToggleAutoProduction(_currentBarracks.Id, UnitType.Pistoleer);
+            _production.ToggleAutoProduction(_currentBarracks.Id, type);
         }
 
         /// <summary> 랠리포인트 설정 모드 진입. </summary>
@@ -505,14 +525,26 @@ namespace Hexiege.Presentation
             }
         }
 
-        /// <summary> 유닛 타입에 해당하는 초상화 스프라이트. </summary>
+        /// <summary> 팀에 맞는 초상화 스프라이트를 버튼 Image에 적용. Show() 시 호출. </summary>
+        private void UpdateButtonPortraits(TeamId team)
+        {
+            var set = team == TeamId.Blue ? _bluePortraits : _redPortraits;
+            if (_pistoleerButtonPortrait != null) _pistoleerButtonPortrait.sprite = set.pistoleer;
+            if (_assaultButtonPortrait   != null) _assaultButtonPortrait.sprite   = set.assault;
+            if (_sniperButtonPortrait    != null) _sniperButtonPortrait.sprite     = set.sniper;
+        }
+
+        /// <summary> 유닛 타입에 해당하는 초상화 스프라이트. 현재 배럭 팀 기준으로 세트 선택. </summary>
         private Sprite GetPortrait(UnitType type)
         {
-            switch (type)
+            var set = _currentBarracks?.Team == TeamId.Blue ? _bluePortraits : _redPortraits;
+            return type switch
             {
-                case UnitType.Pistoleer: return _pistoleerPortrait;
-                default: return _pistoleerPortrait;
-            }
+                UnitType.Pistoleer => set.pistoleer,
+                UnitType.Assault   => set.assault,
+                UnitType.Sniper    => set.sniper,
+                _                  => set.pistoleer
+            };
         }
     }
 }

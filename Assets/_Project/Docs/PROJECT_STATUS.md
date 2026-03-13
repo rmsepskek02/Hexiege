@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-03-09
-**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 공격 방향 Transform 기반 복구 완료 / 유닛별 AttackCooldown 완료 / Walk 애니메이션 연속 재생 수정 완료
+**최종 수정일:** 2026-03-14
+**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / UnitFactory/BuildingFactory 팀별 분기 완료
 
 ---
 
@@ -18,7 +18,7 @@
 | A* 경로탐색 | ✅ 완료 | ClaimedTile 기반 아군 차단, 적군 투과 |
 | 유닛 이동 (Lerp) | ✅ 완료 | Per-step 가용성 체크, 재탐색 |
 | 전투 시스템 | ✅ 완료 | IDamageable, 이동 중 자동 공격 |
-| 전투 거리 정밀도 | ✅ 완료 (2026-03-02) | 월드좌표 기반 (IEntityPositionProvider) |
+| 전투 거리 정밀도 | ✅ 완료 (2026-03-14 갱신) | 월드좌표 기반, epsilon 제거 → 타일 중심 간 정확한 거리 기준 |
 | 공격 방향 정밀도 | ✅ 완료 (2026-03-07) | 타겟 실제 transform.position 기반 Atan2, 2D 레거시 제거 |
 | 공격 쿨다운 시스템 | ✅ 완료 (2026-03-07) | 유닛별 AttackCooldown, Attack 클립 길이 자동 설정 |
 | Walk 애니메이션 연속 재생 | ✅ 완료 (2026-03-09) | 매 스텝 0f 리셋 제거 → 이미 Walk 상태이면 클립 유지 |
@@ -29,6 +29,17 @@
 | 랠리포인트 | ✅ 완료 | 마커 표시, BFS 빈 타일 탐색, 위치/회전 Inspector 조정 (GameConfig.RallyMarkerOffset/Euler) |
 | 공성 시스템 | ✅ 완료 | 랠리→Castle 방향 자동 진군 |
 | 승패 판정 (Castle 파괴) | ✅ 완료 | GameEndUseCase, UI 표시 |
+
+#### 팀별 피아식별 + 신규 유닛 에셋 (2026-03-13)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 건물 Blue/Red 프리팹 (Castle, Barracks) | ✅ 완료 (2026-03-14) | BuildingFactory 팀별 분기 |
+| 유닛 Pistoleer Blue/Red 프리팹 | ✅ 완료 (2026-03-14) | UnitFactory 팀+타입별 분기 |
+| 유닛 Assault(돌격소총병) Blue/Red 프리팹 | ✅ 완료 (2026-03-14) | UnitFactory 팀+타입별 분기, UnitStats/ProductionStats 정의 |
+| 유닛 Sniper(저격총병) Blue/Red 프리팹 | ✅ 완료 (2026-03-14) | UnitFactory 팀+타입별 분기, UnitStats/ProductionStats 정의 |
+| 초상화 스프라이트 Blue/Red (전 유닛) | ✅ 완료 | UI용 |
+| 반응형 팝업 UI (ProductionPopup/BuildingPopup) | ✅ 완료 | 앵커 기반 배치, ResponsivePopupUISetup.cs |
+| 팀별 초상화 동적 업데이트 (ProductionPanelUI/BuildingPlacementUI) | ✅ 완료 (2026-03-14) | Show() 호출 시 팀에 맞는 스프라이트 교체 |
 
 #### 3D 전환 (2026-02-27 ~ 2026-03-01)
 | 항목 | 상태 |
@@ -93,7 +104,6 @@
 | 기능 | 우선순위 | 관련 Phase |
 |------|---------|-----------|
 | 3종족 시스템 | 중간 | Phase 3 |
-| 추가 유닛 타입 (현재 Pistoleer 1종) | 중간 | Phase 3 |
 | 방어 타워 (Defense Tower) | 낮음 | Phase 3 |
 | 마법 타워 (Magic Tower) | 낮음 | Phase 3 |
 | 연구소 (Research Lab) | 낮음 | Phase 3 |
@@ -165,11 +175,13 @@ Presentation
 ### 3D 모델 (Meshy.ai)
 | 에셋 | 경로 | 상태 |
 |------|------|------|
-| Pistoleer 유닛 | Models/Units/Pistoleer/ | ✅ 완료 (Walk/Attack/Dead 애니메이션) |
-| Castle | Models/Buildings/Castle/ | ✅ 완료 |
-| Barracks | Models/Buildings/Barracks/ | ✅ 완료 |
-| MiningPost | Models/Buildings/MiningPost/ | ✅ 완료 |
-| GoldMineTile | Prefabs/Misc/GoldMineTile.prefab | ✅ 완료 |
+| Pistoleer 유닛 (Blue/Red) | Prefabs/Units/Unit_Pistoleer_Blue/Red.prefab | ✅ 완료 |
+| Assault 유닛 (Blue/Red) | Prefabs/Units/Unit_Assault_Blue/Red.prefab | ✅ 완료 |
+| Sniper 유닛 (Blue/Red) | Prefabs/Units/Unit_Sniper_Blue/Red.prefab | ✅ 완료 |
+| Castle (Blue/Red) | Prefabs/Buildings/Building_Castle_Blue/Red.prefab | ✅ 완료 |
+| Barracks (Blue/Red) | Prefabs/Buildings/Building_Barracks_Blue/Red.prefab | ✅ 완료 |
+| MiningPost | Prefabs/Buildings/Building_MiningPost.prefab | ✅ 완료 |
+| GoldMineTile | Prefabs/Buildings/GoldMineTile.prefab | ✅ 완료 |
 | RallyPointMarker | Prefabs/Misc/RallyPointMarker.prefab | ✅ 완료 |
 
 ### 타일
@@ -180,5 +192,4 @@ Presentation
 ### 미제작 에셋
 | 에셋 | 용도 |
 |------|------|
-| 추가 유닛 모델 | 3종족/다양한 유닛 타입 |
 | 방어타워/마법타워/연구소 3D | 미구현 건물 타입 |

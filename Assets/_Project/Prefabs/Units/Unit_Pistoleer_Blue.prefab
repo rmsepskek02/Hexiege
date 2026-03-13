@@ -378,7 +378,7 @@ GameObject:
   - component: {fileID: 8631499292396423734}
   - component: {fileID: 5631706721517492159}
   m_Layer: 0
-  m_Name: Unit_Pistoleer_Mesh
+  m_Name: Unit_Pistoleer_Blue_Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

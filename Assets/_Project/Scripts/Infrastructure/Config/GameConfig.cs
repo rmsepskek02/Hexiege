@@ -148,12 +148,11 @@ namespace Hexiege.Infrastructure
         [Header("Unit")]
 
         /// <summary>
-        /// 유닛이 타일 하나를 이동하는 데 걸리는 시간(초).
-        /// 값이 작을수록 빠르게 이동.
-        /// UnitView의 Lerp 코루틴에서 사용.
+        /// 유닛 이동 속도 기본값 (칸/초). 높을수록 빠름.
+        /// UnitStats.GetMoveSpeed()가 우선 적용되며, 이 값은 fallback용.
         /// </summary>
-        [Tooltip("타일 1칸 이동 소요 시간(초). 작을수록 빠름")]
-        public float UnitMoveSeconds = 0.3f;
+        [Tooltip("타일 이동 속도 (칸/초). 높을수록 빠름")]
+        public float UnitMoveSpeed = 1.0f;
 
         /// <summary>
         /// 유닛을 타일 중심보다 위로 올리는 Y 오프셋 (월드 단위).

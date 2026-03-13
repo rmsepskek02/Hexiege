@@ -57,6 +57,29 @@ namespace Hexiege.Presentation
         [Tooltip("취소 버튼")]
         [SerializeField] private Button _cancelButton;
 
+        [Header("Button Portrait Images")]
+        [Tooltip("배럭 버튼 초상화 Image 컴포넌트")]
+        [SerializeField] private Image _barracksButtonPortrait;
+
+        [Tooltip("채굴소 버튼 초상화 Image 컴포넌트 (팀 무관 고정)")]
+        [SerializeField] private Image _miningPostButtonPortrait;
+
+        [Header("Building Portraits")]
+        [SerializeField] private BuildingPortraitSet _bluePortraits;
+        [SerializeField] private BuildingPortraitSet _redPortraits;
+
+        [Tooltip("채굴소 초상화 (팀 구분 없음)")]
+        [SerializeField] private Sprite _miningPostPortrait;
+
+        /// <summary>
+        /// 팀별 건물 초상화 스프라이트 세트 (배럭만 팀 구분).
+        /// </summary>
+        [System.Serializable]
+        public struct BuildingPortraitSet
+        {
+            public Sprite barracks;
+        }
+
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -138,6 +161,8 @@ namespace Hexiege.Presentation
             _targetCoord = coord;
             _currentTeam = team;
 
+            UpdateButtonPortraits(team);
+
             if (_buildingPlacement != null)
             {
                 // 금광 타일: MiningPost만 활성, Barracks 비활성
@@ -155,6 +180,14 @@ namespace Hexiege.Presentation
 
             if (_popup != null)
                 _popup.SetActive(true);
+        }
+
+        /// <summary> 팀에 맞는 초상화 스프라이트를 버튼 Image에 적용. Show() 시 호출. </summary>
+        private void UpdateButtonPortraits(TeamId team)
+        {
+            var set = team == TeamId.Blue ? _bluePortraits : _redPortraits;
+            if (_barracksButtonPortrait   != null) _barracksButtonPortrait.sprite   = set.barracks;
+            if (_miningPostButtonPortrait != null) _miningPostButtonPortrait.sprite  = _miningPostPortrait;
         }
 
         /// <summary>

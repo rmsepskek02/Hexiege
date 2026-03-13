@@ -303,8 +303,8 @@ namespace Hexiege.Presentation
         /// </summary>
         private IEnumerator MoveAlongPath(List<HexCoord> path)
         {
-            // 유닛별 개별 이동속도 사용 (UnitData.MoveSeconds)
-            float moveSeconds = _unitData.MoveSeconds > 0f ? _unitData.MoveSeconds : 0.3f;
+            // 유닛별 개별 이동속도 사용 (MoveSpeed 칸/초 → lerp duration 초 변환)
+            float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
             HexCoord finalTarget = path[path.Count - 1];
 
             // 경로의 각 구간을 순회 (0=시작은 건너뜀)

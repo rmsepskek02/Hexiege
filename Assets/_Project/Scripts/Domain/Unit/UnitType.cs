@@ -17,6 +17,8 @@ namespace Hexiege.Domain
 {
     public enum UnitType
     {
-        Pistoleer = 0   // 권총병: 빠른 생산(5초), 낮은 스탯 (GDD 기준)
+        Pistoleer = 0,  // 권총병: 빠른 생산(5초), 낮은 스탯 (GDD 기준)
+        Assault  = 1,   // 돌격병: 근접 탱커, 높은 HP·공격력
+        Sniper   = 2    // 저격병: 장거리 딜러, 높은 사거리·공격력
     }
 }

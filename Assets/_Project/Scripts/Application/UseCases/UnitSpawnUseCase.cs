@@ -74,7 +74,7 @@ namespace Hexiege.Application
                 UnitStats.GetMaxHp(type),
                 UnitStats.GetAttackPower(type),
                 UnitStats.GetAttackRange(type),
-                UnitStats.GetMoveSeconds(type));
+                UnitStats.GetMoveSpeed(type));
 
             // 내부 목록에 등록
             _units[unit.Id] = unit;
@@ -150,7 +150,7 @@ namespace Hexiege.Application
                 UnitStats.GetMaxHp(type),
                 UnitStats.GetAttackPower(type),
                 UnitStats.GetAttackRange(type),
-                UnitStats.GetMoveSeconds(type));
+                UnitStats.GetMoveSpeed(type));
 
             _units[unit.Id] = unit;
 

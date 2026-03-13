@@ -36,14 +36,21 @@ namespace Hexiege.Infrastructure
         // Inspector에서 설정할 필드
         // ====================================================================
 
+        /// <summary>
+        /// 팀별 건물 프리팹 세트. Inspector에서 Blue/Red 각각 설정.
+        /// </summary>
+        [System.Serializable]
+        public struct BuildingTeamPrefabSet
+        {
+            public GameObject castle;
+            public GameObject barracks;
+        }
+
         [Header("Prefabs")]
-        [Tooltip("본기지 프리팹 (Renderer + BuildingView)")]
-        [SerializeField] private GameObject _castlePrefab;
+        [SerializeField] private BuildingTeamPrefabSet _bluePrefabs;
+        [SerializeField] private BuildingTeamPrefabSet _redPrefabs;
 
-        [Tooltip("배럭 프리팹 (Renderer + BuildingView)")]
-        [SerializeField] private GameObject _barracksPrefab;
-
-        [Tooltip("채굴소 프리팹 (Renderer + BuildingView)")]
+        [Tooltip("채굴소 프리팹 — 팀 무관")]
         [SerializeField] private GameObject _miningPostPrefab;
 
         [Header("Hierarchy")]
@@ -89,10 +96,12 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void CreateBuildingObject(BuildingData data)
         {
+            // 팀·건물타입에 맞는 프리팹 선택 (MiningPost는 팀 무관)
+            var set = data.Team == TeamId.Blue ? _bluePrefabs : _redPrefabs;
             GameObject prefab = data.Type switch
             {
-                BuildingType.Castle => _castlePrefab,
-                BuildingType.Barracks => _barracksPrefab,
+                BuildingType.Castle     => set.castle,
+                BuildingType.Barracks   => set.barracks,
                 BuildingType.MiningPost => _miningPostPrefab,
                 _ => null
             };

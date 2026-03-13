@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-03-09
-**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / Walk 애니메이션 수정 완료 / TechnicalDesignDocument 현행화 완료 → 밸런싱 및 추가 유닛 작업 예정
+**최종 수정일:** 2026-03-14
+**현재 단계:** 팀별 피아식별 프리팹 에셋+코드 연동 완료 / Assault+Sniper 유닛 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 전투 범위 epsilon 수정 완료 → BuildFailed/EnqueueFailed UI 피드백 또는 게임 밸런싱 예정
 
 ---
 
@@ -9,10 +9,12 @@
 
 | 우선순위 | 작업 | 카테고리 | 예상 규모 |
 |---------|------|---------|---------|
+| ~~🔴 높음~~ | ~~팀별 프리팹 코드 연동 (UnitFactory/BuildingFactory 팀별 분기)~~ | ✅ 완료 (2026-03-14) | - |
+| ~~🔴 높음~~ | ~~UnitType Assault/Sniper 추가 + 생산 UI 연동~~ | ✅ 완료 (2026-03-14) | - |
 | 🟡 중간 | BuildFailed/EnqueueFailed UI 피드백 | UI 기획 후 진행 | 소 |
 | ~~🟡 중간~~ | ~~TechnicalDesignDocument.md 3D 업데이트~~ | ✅ 완료 (2026-03-09) | - |
 | 🟡 중간 | 게임 내 밸런싱 (골드/HP/생산시간) | 기획 | 중 |
-| 🟡 중간 | 추가 유닛 타입 | 기능 | 대 |
+| ~~🟡 중간~~ | ~~추가 유닛 타입 에셋 제작~~ | ✅ 에셋 완료 (2026-03-13) | - |
 | 🟢 낮음 | 멀티플레이 로비 UI 완성 | 기능 | 중 |
 | 🟢 낮음 | 재접속 실제 구현 | 기능 | 중 |
 | ⬜ 백로그 | 3종족 시스템 | 기능 | 대 |
@@ -58,16 +60,19 @@
 |------|--------|---------|
 | 시작 골드 | 500 | 테스트 후 결정 |
 | 채굴소 수입 | 10골드/초 | 타일 경제 밸런스 체크 |
-| Pistoleer HP | 10 | 전투 지속시간 조정 |
-| Pistoleer 공격력 | 3 | DPS vs Castle HP 비율 |
-| Pistoleer 생산 시간 | 5초 | 생산량 vs 수입 균형 |
+| Pistoleer HP/공격/사거리 | 30 / 3 / 0.5 | 2026-03-13 확정 |
+| Assault HP/공격/사거리 | 50 / 6 / 1.0 | 2026-03-13 확정 |
+| Sniper HP/공격/사거리 | 30 / 20 / 3.0 | 2026-03-13 확정 |
 | Castle HP | 50 | 게임 시간 조정 |
 
-### C-2. 추가 유닛 타입
-- 현재 Pistoleer(권총병) 1종만 존재
-- 최소 2종 추가 권장 (근접, 원거리 혹은 방어/공격 역할 구분)
-- 에셋 파이프라인: Meshy.ai Image-to-3D → Mixamo Rig → Unity Animator
-- 구현 순서: game-design-lead(설계) → asset-prompt-crafter(모델) → game-programmer(코드)
+### C-2. 추가 유닛 타입 코드 연동
+- **에셋 완료 (2026-03-13)**: Assault(돌격소총병), Sniper(저격총병) Blue/Red 프리팹 제작 완료
+- **남은 코드 작업**:
+  1. `UnitType.cs`: `Assault = 1`, `Sniper = 2` enum 추가
+  2. `UnitFactory.cs`: `_unitPrefab` 단일 필드 → `Dictionary<(UnitType, TeamId), GameObject>` 또는 팀+타입별 Inspector 필드로 확장
+  3. `BuildingFactory.cs`: `_castlePrefab` / `_barracksPrefab` → Blue/Red 팀별 분기 추가
+  4. `ProductionPanelUI.cs`: Assault/Sniper 생산 버튼 추가 (팀별 초상화 동적 업데이트는 2026-03-14 완료)
+  5. Assault/Sniper UnitStats 정의 (HP/공격력/사거리/생산시간/비용)
 
 ---
 
@@ -135,3 +140,9 @@
 | 2026-03-01 | 생산 큐 클라이언트 UI 즉시 갱신 수정 (OnProductionQueueChanged → SyncQueueStateClientRpc) |
 | 2026-03-07 | 자동생산 멀티플레이 지원 완료 (ToggleAutoServerRpc + AutoProductionChangedClientRpc) |
 | 2026-03-07 | Siege/AI 이동 서버 권위 동기화 완료 (BroadcastServerMove + BroadcastMoveClientRpc, 클라이언트 화면 불일치 수정) |
+| 2026-03-13 | 팀별 피아식별 프리팹 에셋 완료 (Castle/Barracks/Pistoleer/Assault/Sniper Blue+Red) |
+| 2026-03-13 | 반응형 팝업 UI 완료 (ProductionPopup/BuildingPopup 앵커 기반 배치) |
+| 2026-03-14 | 팀별 초상화 동적 업데이트 완료 (ProductionPanelUI/BuildingPlacementUI — Show() 시 팀별 스프라이트 교체) |
+| 2026-03-14 | 전투 범위 임계값 수정 (UnitCombatUseCase epsilon 제거 → 타일 중심 간 정확한 거리 기준) |
+| 2026-03-14 | 팀별 프리팹 코드 연동 완료 (UnitFactory 팀+타입별, BuildingFactory 팀별 분기) |
+| 2026-03-14 | Assault/Sniper 코드 연동 완료 (UnitType enum, UnitStats, UnitProductionStats, ProductionPanelUI 생산 버튼) |

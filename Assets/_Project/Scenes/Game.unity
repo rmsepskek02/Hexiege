@@ -963,6 +963,13 @@ MonoBehaviour:
   _barracksButton: {fileID: 261378706}
   _miningPostButton: {fileID: 1169409528}
   _cancelButton: {fileID: 1195566246}
+  _barracksButtonPortrait: {fileID: 1363746487}
+  _miningPostButtonPortrait: {fileID: 2100775478}
+  _bluePortraits:
+    barracks: {fileID: 21300000, guid: e8f9e6348cb03994c975b24ee013a435, type: 3}
+  _redPortraits:
+    barracks: {fileID: 21300000, guid: a6b81200f0c31494cb869cff99862581, type: 3}
+  _miningPostPortrait: {fileID: 21300000, guid: 9266774e2b3975747bb4e93e46c1df75, type: 3}
 --- !u!1 &228554541
 GameObject:
   m_ObjectHideFlags: 0
@@ -1047,7 +1054,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 18
+  m_fontSize: 20
   m_fontSizeBase: 18
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -1599,7 +1606,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 18
+  m_fontSize: 20
   m_fontSizeBase: 18
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -2562,8 +2569,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40138d8226f49e94da8bdb031a2eddf0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.BuildingFactory
-  _castlePrefab: {fileID: 765432376476959553, guid: 3dec187b2b9e0154189535d89624d5d7, type: 3}
-  _barracksPrefab: {fileID: 6463912587188652229, guid: 304df71b81c043049bdd3f62d7a2ab56, type: 3}
+  _bluePrefabs:
+    castle: {fileID: 765432376476959553, guid: a4a75fb66c9bcee40a669ab8717ab768, type: 3}
+    barracks: {fileID: 6463912587188652229, guid: 304df71b81c043049bdd3f62d7a2ab56, type: 3}
+  _redPrefabs:
+    castle: {fileID: 765432376476959553, guid: 3dec187b2b9e0154189535d89624d5d7, type: 3}
+    barracks: {fileID: 6463912587188652229, guid: 1b71ba24baa8b3c42ac076e1e7061f84, type: 3}
   _miningPostPrefab: {fileID: 351406288662950317, guid: 5d1c18201eb5091469fe2c436c00fc4c, type: 3}
   _buildingParent: {fileID: 701964378}
 --- !u!1 &365692186
@@ -3368,7 +3379,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &502751741
 RectTransform:
   m_ObjectHideFlags: 0
@@ -9546,7 +9557,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 18
+  m_fontSize: 20
   m_fontSizeBase: 18
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -10091,7 +10102,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 18
+  m_fontSize: 20
   m_fontSizeBase: 18
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -11246,7 +11257,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ffbee3fe087401948ae349db70b1d746, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.UnitFactory
-  _unitPrefab: {fileID: 3775139385689606299, guid: 7bb22226c2f892a4b861224ca882519a, type: 3}
+  _bluePrefabs:
+    pistoleer: {fileID: 3775139385689606299, guid: 7bb22226c2f892a4b861224ca882519a, type: 3}
+    assault: {fileID: 3614917809869233749, guid: 5234299cf2ee6e94e959c38f91c336a6, type: 3}
+    sniper: {fileID: 1177749537038205201, guid: ae58b031070a6c04f8f6cb4f20363118, type: 3}
+  _redPrefabs:
+    pistoleer: {fileID: 3775139385689606299, guid: 0fb1fc8960816a449a56977bd4ca2c78, type: 3}
+    assault: {fileID: 318326584771880502, guid: 43bf1e1b432927d4ca1f9f9cbeff5884, type: 3}
+    sniper: {fileID: 6630118796036342330, guid: 25de86da518b1574b9f19dce36ceddd1, type: 3}
   _unitParent: {fileID: 1885953708}
 --- !u!1 &1717399260
 GameObject:
@@ -13027,12 +13045,24 @@ MonoBehaviour:
   _popup: {fileID: 1959302708}
   _backgroundButton: {fileID: 904784758}
   _pistoleerButton: {fileID: 2016188247}
+  _assaultButton: {fileID: 1492405312}
+  _sniperButton: {fileID: 433698336}
+  _pistoleerButtonPortrait: {fileID: 1662500641}
+  _assaultButtonPortrait: {fileID: 552684238}
+  _sniperButtonPortrait: {fileID: 1408117682}
   _autoIndicator: {fileID: 216228453}
   _queueSlotImages:
   - {fileID: 977558808}
   - {fileID: 1436301839}
   - {fileID: 102240673}
-  _pistoleerPortrait: {fileID: 7968803128098716551, guid: 7a7ccc4d8964a394394447c57afed362, type: 3}
+  _bluePortraits:
+    pistoleer: {fileID: 9131090658839770904, guid: 5c88367c9517bbc4f81c33ac2e21e27f, type: 3}
+    assault: {fileID: -8900940657331140977, guid: 7d2baad69fc6fd04493b7b78ef7df91b, type: 3}
+    sniper: {fileID: -7208874421070970473, guid: a1e339d39db0f2e4c9f56bb18e0ff3d3, type: 3}
+  _redPortraits:
+    pistoleer: {fileID: 7968803128098716551, guid: 7a7ccc4d8964a394394447c57afed362, type: 3}
+    assault: {fileID: -4801683537869166604, guid: d601df278dd444844a3ef10334ed8ac0, type: 3}
+    sniper: {fileID: 7802184514867898871, guid: b70d2b06e4b805043adb30ab9fb218c2, type: 3}
   _progressFill: {fileID: 1043901890}
   _goldText: {fileID: 275063331}
   _populationText: {fileID: 257469112}
@@ -13385,7 +13415,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 18
+  m_fontSize: 20
   m_fontSizeBase: 18
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -13646,7 +13676,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 18
+  m_fontSize: 20
   m_fontSizeBase: 18
   m_fontWeight: 400
   m_enableAutoSizing: 1

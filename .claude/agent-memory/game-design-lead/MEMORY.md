@@ -25,14 +25,28 @@
 - 보조 맵: PointyTop 7×17 (지원)
 - 타일 색상: Neutral=회색, Blue=파랑, Red=빨강, Selected=노란 틴트
 
-### 유닛
-- 현재 구현: 권총병(Pistoleer) 1종
-  - HP: 10, 공격력: 3, 사거리: 1
-  - 생산 시간: 5초, 비용: 50골드, 인구: 1
-- **3D 모델**: Meshy.ai 제작, Mixamo 애니메이션 (Idle/Walk/Run/Dead/Attack)
-- **Animator 파라미터**: IsWalking(bool), IsDead(bool), Attack(trigger)
-- **방향 표현**: Y축 회전 (E=0°, NE=60°, NW=120°, W=180°, SW=240°, SE=300°) — flipX 폐지
-- 미래 계획: 3종족, 다양한 유닛 타입 (TDD Phase 3)
+### 유닛 스탯 (2026-03-14 최종 확정)
+
+| 항목 | Pistoleer(권총병) | Assault(돌격소총병) | Sniper(저격총병) |
+|------|-----------------|-------------------|----------------|
+| HP | 30 | 50 | 30 |
+| 공격력 | 3 | 6 | 20 |
+| 사거리(float) | 1.0 | 2.0 | 5.0 |
+| 이동속도(초/칸) | 1.0 | 1.0 | 4.0 |
+| 생산시간 | 5초 | 10초 | 15초 |
+| 골드비용 | 50 | 100 | 200 |
+| 인구 | 1 | 1 | 1 |
+| UnitType enum | Pistoleer=0 | Assault=1 | Sniper=2 |
+
+- **사거리 설계 의도**:
+  - Pistoleer 1.0: 인접 타일(0.866 world units) 범위
+  - Assault 2.0: 2타일 범위 (약 1.73 world units)
+  - Sniper 5.0: 5타일 원거리 (약 4.33 world units)
+- **팀별 피아식별**: Blue/Red 각각 별도 프리팹 사용, 에셋+코드 연동 완료 (2026-03-14)
+- **3D 모델**: Meshy.ai 제작, Mixamo 애니메이션 (Walk/Attack/Dead)
+- **Animator**: Walk/Attack/Dead 스테이트, IsDead bool 파라미터 (Animator.Play() 직접 호출)
+- **방향 표현**: Y축 회전 (NE=30°, E=90°, SE=150°, SW=210°, W=270°, NW=330°)
+- 미래 계획: 3종족, 추가 유닛 타입 (TDD Phase 3)
 
 ### 건물
 | 타입 | HP | 건설 비용 | 역할 |
@@ -101,20 +115,25 @@
 - **2D→3D 전환 완료 (2026-02-27~2026-03-01)**
   - XZ 평면 좌표계, Orthographic 55도 틸트 카메라
   - Animator 기반 유닛, sortingOrder 폐기
-  - **건물 3D 모델 완료** (Castle/Barracks/MiningPost — Meshy.ai Image-to-3D)
+  - **건물 3D 모델 완료** (Castle/Barracks/MiningPost — Meshy.ai Image-to-3D, Blue/Red 팀별 프리팹)
   - **헥스 타일 3D 모델 완료** (ProBuilder Cylinder + SG_HexTile Shader Graph)
   - **금광 타일 3D 오브젝트 완료** (크리스탈 바위 더미, GoldMineTile.prefab)
   - **랠리포인트 마커 완료** (RallyPointMarker.prefab)
+- **팀별 피아식별 에셋+코드 연동 완료 (2026-03-14)**
+  - 유닛 Blue/Red 프리팹: Pistoleer, Assault(돌격소총병), Sniper(저격총병)
+  - 건물 Blue/Red 프리팹: Castle, Barracks
+  - 반응형 팝업 UI: ProductionPopup/BuildingPopup 앵커 기반 배치 전환
+  - 팀별 초상화 동적 업데이트: ProductionPanelUI/BuildingPlacementUI Show() 시 팀별 스프라이트 교체
+  - Assault/Sniper 생산 버튼 추가 (ProductionPanelUI) ✅
+- **전투 범위 수정 (2026-03-14)**: epsilon +0.1f 제거 → 타일 점령 타이밍 정상화
 
 ## 미구현/미결 기획 항목
 - 카메라 각도 최적화 (현재 55도 적용, 테스트 후 조정 가능)
 - 3종족 시스템 (TDD Phase 3)
-- 다양한 유닛 타입 (현재 Pistoleer 1종)
 - AI 상태머신 (현재는 공성 시스템으로 임시 대체)
-- Mixamo 사격 애니메이션 선정 (Attack 클립)
 - 사운드/BGM
 - 튜토리얼
-- 밸런싱 (골드/생산시간/HP)
+- 밸런싱 (골드/생산시간/HP — 유닛 기본 스탯은 2026-03-13 확정, 건물 HP/수입 등 추가 조정 가능)
 - PlayFab 백엔드 연동 (계정/랭킹/인앱결제)
 - 멀티플레이 로비 UI 완성
 
