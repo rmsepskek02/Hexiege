@@ -58,7 +58,7 @@ namespace Hexiege.Infrastructure
 
         [Header("멀티플레이 재시작 설정")]
         [Tooltip("재시작 시 로드할 씬 이름. 로비/메인 메뉴 씬 이름을 입력. (예: 2D, 3D)")]
-        [SerializeField] private string _lobbySceneName = "2D";
+        [SerializeField] private string _lobbySceneName = "Lobby";
 
         // ====================================================================
         // 내부 상태
@@ -194,6 +194,60 @@ namespace Hexiege.Infrastructure
 
             // 기존 AnnounceWinnerClientRpc로 동일하게 전파
             AnnounceWinnerClientRpc(winnerTeamIndex);
+        }
+
+        // ====================================================================
+        // 로비 복귀 처리
+        // ====================================================================
+
+        /// <summary>
+        /// 로비로 돌아가기 요청. GameEndUI에서 호출.
+        /// 서버만 NGO SceneManager로 Lobby 씬을 로드하여 전체 동기화.
+        /// </summary>
+        public void RequestBackToLobby()
+        {
+            if (NetworkManager.Singleton == null) return;
+
+            if (NetworkManager.Singleton.IsServer)
+            {
+                // 서버: 직접 BackToLobbyClientRpc 호출
+                BackToLobbyClientRpc();
+            }
+            else
+            {
+                // 클라이언트: 서버에게 요청 (ServerRpc)
+                RequestBackToLobbyServerRpc();
+            }
+        }
+
+        /// <summary>
+        /// 클라이언트가 서버에게 로비 복귀를 요청.
+        /// </summary>
+        [ServerRpc(RequireOwnership = false)]
+        private void RequestBackToLobbyServerRpc()
+        {
+            Debug.Log("[Network] RequestBackToLobbyServerRpc 수신. 로비 복귀 처리.");
+            BackToLobbyClientRpc();
+        }
+
+        /// <summary>
+        /// 서버가 모든 클라이언트에게 로비 복귀 지시.
+        /// 서버에서 NGO SceneManager로 Lobby 씬을 로드.
+        /// </summary>
+        [ClientRpc]
+        private void BackToLobbyClientRpc()
+        {
+            Debug.Log("[Network] BackToLobbyClientRpc 수신. 로비 씬 전환.");
+
+            // 시간 복원
+            Time.timeScale = 1f;
+
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+            {
+                // 서버: NGO SceneManager로 Lobby 씬 로드 (전체 동기화)
+                NetworkManager.Singleton.SceneManager
+                    .LoadScene(_lobbySceneName, LoadSceneMode.Single);
+            }
         }
 
         // ====================================================================

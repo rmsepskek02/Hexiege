@@ -23,6 +23,7 @@ using System;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Hexiege.Infrastructure
 {
@@ -260,6 +261,27 @@ namespace Hexiege.Infrastructure
 
         /// <summary>현재 자신이 Host 인지 여부.</summary>
         public bool IsHost => _lobbyManager?.IsHost ?? false;
+
+        // ====================================================================
+        // 씬 전환
+        // ====================================================================
+
+        /// <summary>
+        /// 서버에서 Game 씬을 로드. NGO SceneManager가 모든 클라이언트에 자동 동기화.
+        /// 2명 연결 완료 시 BattleViewModel에서 호출.
+        /// </summary>
+        public void LoadGameScene()
+        {
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+            {
+                Debug.LogWarning("[Network] LoadGameScene: 서버가 아니므로 무시.");
+                return;
+            }
+
+            Debug.Log("[Network] LoadGameScene: Game 씬 로드 시작.");
+            NetworkManager.Singleton.SceneManager
+                .LoadScene("Game", LoadSceneMode.Single);
+        }
 
         // ====================================================================
         // NetworkManager 헬퍼

@@ -3379,7 +3379,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &502751741
 RectTransform:
   m_ObjectHideFlags: 0
@@ -8838,6 +8838,8 @@ MonoBehaviour:
   _resultText: {fileID: 2104385912}
   _restartButton: {fileID: 1978228656}
   _bootstrapper: {fileID: 1093233943}
+  _networkGameEndController: {fileID: 0}
+  _backToLobbyButton: {fileID: 0}
 --- !u!1 &1310222878
 GameObject:
   m_ObjectHideFlags: 0

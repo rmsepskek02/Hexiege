@@ -27,11 +27,13 @@
 
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
 using Hexiege.Bootstrap;
+using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
@@ -54,6 +56,13 @@ namespace Hexiege.Presentation
         [Header("Dependencies")]
         [Tooltip("GameBootstrapper (재시작용)")]
         [SerializeField] private GameBootstrapper _bootstrapper;
+
+        [Tooltip("NetworkGameEndController (멀티플레이 로비 복귀용). 비워두면 자동 탐색.")]
+        [SerializeField] private NetworkGameEndController _networkGameEndController;
+
+        [Header("로비 복귀")]
+        [Tooltip("로비로 돌아가기 버튼")]
+        [SerializeField] private Button _backToLobbyButton;
 
         // ====================================================================
         // 색상 설정
@@ -88,6 +97,17 @@ namespace Hexiege.Presentation
                 _restartButton.onClick.RemoveListener(OnRestartClicked);
                 _restartButton.onClick.AddListener(OnRestartClicked);
             }
+
+            // 로비 복귀 버튼 이벤트 (중복 등록 방지)
+            if (_backToLobbyButton != null)
+            {
+                _backToLobbyButton.onClick.RemoveListener(OnBackToLobbyClicked);
+                _backToLobbyButton.onClick.AddListener(OnBackToLobbyClicked);
+            }
+
+            // NetworkGameEndController 자동 탐색
+            if (_networkGameEndController == null)
+                _networkGameEndController = FindFirstObjectByType<NetworkGameEndController>();
 
             // 패널 숨김
             Hide();
@@ -136,6 +156,31 @@ namespace Hexiege.Presentation
             // 맵 재로드 (전체 재초기화)
             if (_bootstrapper != null)
                 _bootstrapper.LoadMap(HexOrientation.FlatTop);
+        }
+
+        /// <summary>
+        /// "로비로 돌아가기" 버튼 클릭 처리.
+        /// 멀티플레이: NetworkGameEndController.RequestBackToLobby() → 서버가 NGO로 씬 전환.
+        /// 싱글플레이: 직접 Lobby 씬 로드.
+        /// </summary>
+        private void OnBackToLobbyClicked()
+        {
+            // 시간 복원 (게임 종료 시 timeScale=0)
+            Time.timeScale = 1f;
+
+            if (NetworkContext.IsNetworkActive)
+            {
+                // 멀티플레이: 서버에게 로비 복귀 요청
+                if (_networkGameEndController != null)
+                    _networkGameEndController.RequestBackToLobby();
+                else
+                    Debug.LogWarning("[GameEndUI] NetworkGameEndController가 없습니다. 직접 Lobby 씬 로드.");
+            }
+            else
+            {
+                // 싱글플레이: 직접 Lobby 씬 로드
+                SceneManager.LoadScene("Lobby");
+            }
         }
 
         // ====================================================================
