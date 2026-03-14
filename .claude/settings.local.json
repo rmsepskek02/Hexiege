@@ -39,7 +39,13 @@
       "mcp__mcp-unity__send_console_log",
       "Bash(grep:*)",
       "Read(//m_Name: UnitImage|m_Name: BuildingImage/ { name=$0; linenum=NR }\n/m_Component/ && linenum>0 { collecting=1; components=\"\"\"\"\"\"\"\" }\ncollecting && /component:/ { components=components\"\"\"\" \"\"\"\"$0 }\n/m_IsActive/**)",
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "Bash(python3 -c \"import uuid; print\\(uuid.uuid4\\(\\).hex\\)\")",
+      "Read(//proc/sys/kernel/random/**)",
+      "Bash(openssl rand:*)"
+    ],
+    "additionalDirectories": [
+      "d:\\Dmain\\dev\\Portfolio\\Hexiege\\Hexiege\\Assets\\_Project\\Docs\\_Tasks\\2026-03-14"
     ]
   },
   "enableAllProjectMcpServers": true,

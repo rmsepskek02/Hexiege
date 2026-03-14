@@ -377,6 +377,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8631499292396423734}
   - component: {fileID: 5631706721517492159}
+  - component: {fileID: 1000000000000000001}
   m_Layer: 0
   m_Name: Unit_Pistoleer_Blue_Mesh
   m_TagString: Untagged
@@ -423,6 +424,18 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &1000000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4202090568935300506}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b74fadfb97679cff2665b8c6c2481eae, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!1 &4323575329413803162
 GameObject:
   m_ObjectHideFlags: 0

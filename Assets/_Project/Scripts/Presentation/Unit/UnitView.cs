@@ -37,6 +37,7 @@ using UnityEngine;
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
+using DG.Tweening;
 using Hexiege.Infrastructure;
 using Hexiege.Application;
 
@@ -72,6 +73,8 @@ namespace Hexiege.Presentation
         /// Unit_Pistoleer_Mesh가 30도 회전되어 있으므로 Atan2 결과에서 빼줌.
         /// </summary>
         [SerializeField] private float _meshYOffset = 30f;
+
+        [SerializeField] private float _rotationDuration = 0.15f;
 
         // ====================================================================
         // 내부 참조
@@ -212,10 +215,10 @@ namespace Hexiege.Presentation
         private void ApplyDirection(HexDirection dir)
         {
             int index = (int)dir;
-            if (index >= 0 && index < DirectionAngles.Length)
-            {
-                transform.rotation = Quaternion.Euler(0f, DirectionAngles[index], 0f);
-            }
+            if (index < 0 || index >= DirectionAngles.Length) return;
+            transform.DOKill();
+            transform.DORotate(new Vector3(0f, DirectionAngles[index], 0f), _rotationDuration)
+                     .SetEase(Ease.OutQuad);
         }
 
         /// <summary>
@@ -383,7 +386,11 @@ namespace Hexiege.Presentation
                                 if (!_unitData.IsAlive) break;
 
                                 // 적 제거 후 Walk 복귀
-                                if (_animator != null) _animator.speed = 1f;
+                                if (_animator != null)
+                                {
+                                    _animator.Play(StateWalk, 0, 0f);
+                                    _animator.speed = 1f;
+                                }
                             }
                         }
                         else
@@ -407,7 +414,11 @@ namespace Hexiege.Presentation
                                 if (!_unitData.IsAlive) break;
 
                                 // 적 제거 후 Walk 복귀
-                                if (_animator != null) _animator.speed = 1f;
+                                if (_animator != null)
+                                {
+                                    _animator.Play(StateWalk, 0, 0f);
+                                    _animator.speed = 1f;
+                                }
                             }
                         }
                     }
@@ -443,6 +454,34 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
+        // 타격 반응 (Animation Event → HitReaction)
+        // ====================================================================
+
+        /// <summary>
+        /// Animation Event에서 AnimationEventRelay를 통해 호출.
+        /// 공격 애니메이션의 타격 프레임에 맞춰 피격 대상에게 시각적 반응(스케일 펀치)을 적용.
+        /// 실제 데미지 로직과는 무관 — 순수 비주얼 피드백.
+        /// </summary>
+        public void OnAttackHit()
+        {
+            if (_unitData == null || !_unitData.IsAlive) return;
+
+            StartCoroutine(HitReactionCoroutine());
+        }
+
+        /// <summary>
+        /// 스케일 펀치로 타격감을 표현하는 코루틴.
+        /// 0.85배 축소 → 0.05초 후 원래 크기 복원.
+        /// </summary>
+        private IEnumerator HitReactionCoroutine()
+        {
+            Vector3 originalScale = transform.localScale;
+            transform.localScale = originalScale * 0.85f;
+            yield return new WaitForSeconds(0.05f);
+            transform.localScale = originalScale;
+        }
+
+        // ====================================================================
         // 공격 애니메이션
         // ====================================================================
 
@@ -470,8 +509,10 @@ namespace Hexiege.Presentation
         /// </summary>
         private IEnumerator PlayAttackAnimation(float yAngle)
         {
-            // Atan2 기반 정밀 공격 각도로 Y축 회전
-            transform.rotation = Quaternion.Euler(0f, yAngle, 0f);
+            // Atan2 기반 정밀 공격 각도로 Y축 회전 (DOTween 보간)
+            transform.DOKill();
+            transform.DORotate(new Vector3(0f, yAngle, 0f), _rotationDuration)
+                     .SetEase(Ease.OutQuad);
 
             if (_animator != null)
             {

@@ -24,9 +24,9 @@ namespace Hexiege.Domain
         /// <summary> 유닛 타입별 기본 공격력. </summary>
         public static int GetAttackPower(UnitType type) => type switch
         {
-            UnitType.Pistoleer => 3,
-            UnitType.Assault   => 6,
-            UnitType.Sniper    => 20,
+            UnitType.Pistoleer => 6,
+            UnitType.Assault   => 1,
+            UnitType.Sniper    => 10,
             _                  => 1
         };
 

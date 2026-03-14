@@ -129,10 +129,22 @@ Assets/_Project/
   - `UnitFactory.cs`: `UnitTeamPrefabSet` struct, `_bluePrefabs`/`_redPrefabs` 팀+타입별 분기
   - `BuildingFactory.cs`: `BuildingTeamPrefabSet` struct, `_bluePrefabs`/`_redPrefabs` 팀별 분기
   - `ProductionPanelUI.cs`: Assault/Sniper 버튼+초상화+생산 로직
-  - `UnitStats.cs`: Pistoleer HP=30/ATK=3/Range=1.0, Assault HP=50/ATK=6/Range=2.0, Sniper HP=30/ATK=20/Range=5.0
+  - `UnitStats.cs`: Pistoleer HP=30/ATK=6, Assault HP=50/ATK=1, Sniper HP=30/ATK=10
   - `UnitProductionStats.cs`: Pistoleer 5초/50골드, Assault 10초/100골드, Sniper 15초/200골드
 - **팀별 초상화 동적 업데이트**: ProductionPanelUI/BuildingPlacementUI — Show() 시 팀별 스프라이트 교체
 - **전투 범위 epsilon 제거**: `UnitCombatUseCase` +0.1f 제거 → `AttackRange * HexMetrics.TileHeight` (타일 점령 버그 수정)
+- **공격 애니메이션-타격 동기화 (Animation Event 방식)**:
+  - `AnimationEventRelay.cs` 신규 생성 (Animator 자식에 부착, OnAttackHit 릴레이)
+  - `UnitView.cs`: OnAttackHit() + HitReactionCoroutine() 추가 (scale punch, 순수 비주얼)
+  - Attack.anim 3개에 Animation Event 추가 (타격 프레임에 OnAttackHit)
+  - 프리팹 6개에 AnimationEventRelay 부착, Root Motion OFF 확인
+- **유닛 스탯 재조정** (ATK 값 변경):
+  - Pistoleer ATK 3→6 (DPS=3, cooldown≈2.0s)
+  - Assault ATK 6→1 (DPS=5, cooldown≈0.2s)
+  - Sniper ATK 20→10 (DPS≈3.3, cooldown≈3.0s)
+- **유닛 메시 방향 보정**:
+  - Assault/Sniper 하위 Mesh 오브젝트 Y 회전 30° 설정 (이동 방향 보정)
+  - _meshYOffset: 공격 방향 보정 전용 (CalculateAttackAngle만 영향, 추후 테스트 조정 예정)
 
 ## 3D 전환 시 수정된 파일 (참고)
 - Phase 1: `HexMetrics.cs`, `ViewConverter.cs`, `CameraController.cs`, `GameBootstrapper.cs`, `InputHandler.cs`

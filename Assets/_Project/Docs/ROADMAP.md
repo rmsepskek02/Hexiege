@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-03-14
-**현재 단계:** 팀별 피아식별 프리팹 에셋+코드 연동 완료 / Assault+Sniper 유닛 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 전투 범위 epsilon 수정 완료 → BuildFailed/EnqueueFailed UI 피드백 또는 게임 밸런싱 예정
+**현재 단계:** 팀별 피아식별 프리팹 에셋+코드 연동 완료 / Assault+Sniper 유닛 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 스탯 재조정 완료 / 메시 방향 보정 완료 → BuildFailed/EnqueueFailed UI 피드백 또는 추가 밸런싱 예정
 
 ---
 
@@ -60,9 +60,9 @@
 |------|--------|---------|
 | 시작 골드 | 500 | 테스트 후 결정 |
 | 채굴소 수입 | 10골드/초 | 타일 경제 밸런스 체크 |
-| Pistoleer HP/공격/사거리 | 30 / 3 / 0.5 | 2026-03-13 확정 |
-| Assault HP/공격/사거리 | 50 / 6 / 1.0 | 2026-03-13 확정 |
-| Sniper HP/공격/사거리 | 30 / 20 / 3.0 | 2026-03-13 확정 |
+| Pistoleer HP/공격/사거리 | 30 / 6 / 1.0 | 2026-03-14 재확정 (DPS=3, cooldown≈2.0s) |
+| Assault HP/공격/사거리 | 50 / 1 / 2.0 | 2026-03-14 재확정 (DPS=5, cooldown≈0.2s) |
+| Sniper HP/공격/사거리 | 30 / 10 / 5.0 | 2026-03-14 재확정 (DPS≈3.3, cooldown≈3.0s) |
 | Castle HP | 50 | 게임 시간 조정 |
 
 ### C-2. 추가 유닛 타입 코드 연동
@@ -146,3 +146,8 @@
 | 2026-03-14 | 전투 범위 임계값 수정 (UnitCombatUseCase epsilon 제거 → 타일 중심 간 정확한 거리 기준) |
 | 2026-03-14 | 팀별 프리팹 코드 연동 완료 (UnitFactory 팀+타입별, BuildingFactory 팀별 분기) |
 | 2026-03-14 | Assault/Sniper 코드 연동 완료 (UnitType enum, UnitStats, UnitProductionStats, ProductionPanelUI 생산 버튼) |
+| 2026-03-14 | 공격 애니메이션-타격 시각 동기화 완료 (AnimationEventRelay + Animation Event + scale punch) |
+| 2026-03-14 | 유닛 스탯 재조정 (ATK: Pistoleer=6, Assault=1, Sniper=10 / cooldown=클립 길이 기준 DPS 산출) |
+| 2026-03-14 | 유닛 메시 방향 보정 완료 (하위 Mesh Y=30°, Root Motion OFF, _meshYOffset=공격 전용) |
+| 2026-03-14 | 유닛 회전 DOTween 보간 완료 (이동/공격 모두 DORotate + Ease.OutQuad, _rotationDuration SerializeField) |
+| 2026-03-14 | 공격 후 Walk 복귀 버그 수정 (타겟 소멸 시 Play(StateWalk) 명시 호출, 멀티/싱글 공통) |

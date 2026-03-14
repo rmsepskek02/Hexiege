@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-03-14
-**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / UnitFactory/BuildingFactory 팀별 분기 완료
+**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / UnitFactory/BuildingFactory 팀별 분기 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 스탯+방향 보정 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료
 
 ---
 
@@ -22,6 +22,10 @@
 | 공격 방향 정밀도 | ✅ 완료 (2026-03-07) | 타겟 실제 transform.position 기반 Atan2, 2D 레거시 제거 |
 | 공격 쿨다운 시스템 | ✅ 완료 (2026-03-07) | 유닛별 AttackCooldown, Attack 클립 길이 자동 설정 |
 | Walk 애니메이션 연속 재생 | ✅ 완료 (2026-03-09) | 매 스텝 0f 리셋 제거 → 이미 Walk 상태이면 클립 유지 |
+| 공격 애니메이션-타격 시각 동기화 | ✅ 완료 (2026-03-14) | Animation Event + AnimationEventRelay → scale punch (데미지 타이밍 무변경) |
+| 유닛 메시 방향 보정 | ✅ 완료 (2026-03-14) | 하위 Mesh 오브젝트 Y 회전 30° / _meshYOffset 공격 방향 전용 / Root Motion OFF |
+| 유닛 회전 보간 (DOTween) | ✅ 완료 (2026-03-14) | ApplyDirection + PlayAttackAnimation 모두 DORotate(_rotationDuration).SetEase(Ease.OutQuad) |
+| 공격 후 Walk 복귀 버그 수정 | ✅ 완료 (2026-03-14) | 타겟 소멸 후 이동 재개 시 Play(StateWalk) 명시 호출 (멀티/싱글 공통) |
 | 건물 배치 (Castle/Barracks/MiningPost) | ✅ 완료 | 건설 검증, 영토 확장 |
 | 자원 시스템 (골드) | ✅ 완료 | 채굴소 수입, 건물/유닛 비용 |
 | 인구 시스템 | ✅ 완료 | 타일 수 = 최대 인구 |

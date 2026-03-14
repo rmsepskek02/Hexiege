@@ -230,12 +230,17 @@
 | 항목 | Pistoleer | Assault | Sniper |
 |------|-----------|---------|--------|
 | HP | 30 | 50 | 30 |
-| AttackPower | 3 | 6 | 20 |
+| AttackPower | 6 | 1 | 10 |
 | AttackRange (float) | 1.0 | 2.0 | 5.0 |
 | MoveSeconds | 1.0 | 1.0 | 4.0 |
 | ProductionTime | 5s | 10s | 15s |
 | GoldCost | 50 | 100 | 200 |
-| AttackCooldown | 1.0 (클립 길이 덮어씀) | 1.0 | 1.0 |
+| AttackCooldown | ~2.0s (클립 길이) | ~0.2s (클립 길이) | ~3.0s (클립 길이) |
+| DPS | 3 | 5 | ~3.3 |
+
+- **AttackCooldown**: `UnitFactory.GetAttackClipLength()`로 Attack 애니메이션 클립 길이로 자동 덮어씀
+- **UnitStats.cs의 코드 기본값은 무관** — UnitFactory에서 런타임에 덮어씀
+- **클립 길이 설정**: Pistoleer_Attack=2:00, Assault_Attack=0:06, Sniper_Attack=3:00 (Unity Animation 창 기준)
 
 - **AttackRange 타입 변경**: `UnitData.AttackRange` int → float, `UnitStats.GetAttackRange` int → float
   - 영향 파일: `UnitData.cs`, `UnitStats.cs`, `UnitSpawnUseCase.cs`(생성자 파라미터)
@@ -482,6 +487,30 @@
   - `ProductionPanelUI.cs`: Assault/Sniper 버튼+초상화+생산 로직 완료 ✅
   - `UnitStats.cs`: 3종 유닛 스탯 정의 완료 ✅
   - `UnitProductionStats.cs`: 3종 유닛 생산시간/비용 정의 완료 ✅
+
+## Animation Event 타격 반응 시스템 (2026-03-14 구현 완료)
+- **목표**: 실제 데미지/사망 타이밍 무변경, 타격 프레임에 맞는 시각 반응(scale punch)만 추가
+- **신규 파일**: `Assets/_Project/Scripts/Presentation/Unit/AnimationEventRelay.cs`
+  - Animator 자식 GameObject(Unit_{Type}_Mesh)에 부착
+  - Animation Event `OnAttackHit` 수신 → `GetComponentInParent<UnitView>().OnAttackHit()` 전달
+- **UnitView.cs 추가**:
+  - `OnAttackHit()`: AnimationEventRelay에서 호출, HitReactionCoroutine 시작
+  - `HitReactionCoroutine()`: scale × 0.85 → 0.05초 대기 → 원복 (순수 비주얼)
+- **Animation Event 위치** (Unity Animation 창에서 클립에 직접 추가):
+  - Pistoleer_Attack.anim: 0.833s, functionName: OnAttackHit
+  - Assault_Attack.anim: 0.1s, functionName: OnAttackHit
+  - Sniper_Attack.anim: 2.0s, functionName: OnAttackHit
+- **프리팹 6개**: AnimationEventRelay 컴포넌트 부착 완료 (Unit_{Type}_{Blue|Red}_Mesh 오브젝트에)
+- **Root Motion**: Assault/Sniper 프리팹 `m_ApplyRootMotion: 0` 으로 변경 필수 (기존 1=ON → 경로/방향 버그)
+
+## 유닛 메시 방향 보정 패턴 (2026-03-14 확정)
+- **이동 방향 보정**: 유닛 프리팹에서 Animator가 있는 하위 오브젝트(Unit_{Type}_Mesh)의 Y 회전값을 30°로 설정
+  - ApplyDirection()이 루트 오브젝트를 회전할 때 하위 오브젝트의 local rotation이 함께 적용됨
+  - Pistoleer/Assault/Sniper 모두 동일하게 30° 적용
+- **공격 방향 보정**: `_meshYOffset` (SerializeField, float) — CalculateAttackAngle()에서 Atan2 결과에서 차감
+  - 이동 방향과 무관 — ApplyDirection()에는 영향 없음
+  - 값은 추후 테스트 후 유닛별로 조정 예정
+- **Root Motion**: 반드시 OFF(0) — ON이면 Animator가 코드 제어 이동을 덮어써 경로/방향 버그 발생
 
 ## 팀별 초상화 동적 업데이트 (2026-03-14 완료)
 - `ProductionPanelUI.cs`: `UpdateButtonPortraits(TeamId team)` — Show(barracks) 호출 시 팀 스프라이트 교체
