@@ -42,10 +42,12 @@
       "Bash(python3 -c \":*)",
       "Bash(python3 -c \"import uuid; print\\(uuid.uuid4\\(\\).hex\\)\")",
       "Read(//proc/sys/kernel/random/**)",
-      "Bash(openssl rand:*)"
+      "Bash(openssl rand:*)",
+      "mcp__mcp-unity__load_scene"
     ],
     "additionalDirectories": [
-      "d:\\Dmain\\dev\\Portfolio\\Hexiege\\Hexiege\\Assets\\_Project\\Docs\\_Tasks\\2026-03-14"
+      "d:\\Dmain\\dev\\Portfolio\\Hexiege\\Hexiege\\Assets\\_Project\\Docs\\_Tasks\\2026-03-14",
+      "d:\\Dmain\\dev\\Portfolio\\Hexiege\\Hexiege\\Assets\\_Project\\Scripts\\Editor"
     ]
   },
   "enableAllProjectMcpServers": true,
