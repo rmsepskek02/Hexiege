@@ -35,9 +35,6 @@ namespace Hexiege.Presentation
         [Tooltip("매칭 취소 버튼")]
         [SerializeField] private Button _cancelButton;
 
-        [Tooltip("뒤로가기 버튼")]
-        [SerializeField] private Button _backButton;
-
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -62,12 +59,27 @@ namespace Hexiege.Presentation
                 .Subscribe(visible => gameObject.SetActive(visible))
                 .AddTo(_disposables);
 
-            // 매칭 상태 표시
+            // 대기 시간 타이머 표시
+            vm.MatchWaitSeconds
+                .Subscribe(sec =>
+                {
+                    if (_statusText != null)
+                    {
+                        int min = sec / 60;
+                        int s = sec % 60;
+                        _statusText.text = $"매칭 중... {min:00}:{s:00}";
+                    }
+                })
+                .AddTo(_disposables);
+
+            // 매칭 상태에 따라 취소 버튼 활성화
             vm.IsMatchmaking
                 .Subscribe(matching =>
                 {
-                    if (_statusText != null)
-                        _statusText.text = matching ? "매칭 중..." : "랜덤 매칭 (추후 구현 예정)";
+                    if (_cancelButton != null) _cancelButton.gameObject.SetActive(matching);
+                    // 매칭 대기 전 초기 텍스트
+                    if (!matching && _statusText != null)
+                        _statusText.text = "랜덤 매칭";
                 })
                 .AddTo(_disposables);
 
@@ -75,11 +87,6 @@ namespace Hexiege.Presentation
             if (_cancelButton != null)
                 _cancelButton.onClick.AddListener(
                     () => vm.CmdCancelMatchmaking.OnNext(Unit.Default));
-
-            // 뒤로 버튼
-            if (_backButton != null)
-                _backButton.onClick.AddListener(
-                    () => vm.CmdBack.OnNext(Unit.Default));
         }
 
         /// <summary>
@@ -90,7 +97,6 @@ namespace Hexiege.Presentation
             _disposables.Clear();
 
             if (_cancelButton != null) _cancelButton.onClick.RemoveAllListeners();
-            if (_backButton != null) _backButton.onClick.RemoveAllListeners();
         }
     }
 }

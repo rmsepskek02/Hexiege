@@ -20,6 +20,7 @@
 // ============================================================================
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
@@ -59,9 +60,14 @@ namespace Hexiege.Infrastructure
         private UnityServicesInitializer _servicesInitializer;
         private LobbyManager _lobbyManager;
         private RelayManager _relayManager;
+        private MatchmakerManager _matchmakerManager;
 
         // Heartbeat 코루틴 추적용
         private Coroutine _heartbeatCoroutine;
+
+        // 매칭 상태 관리
+        private string _currentTicketId;
+        private CancellationTokenSource _matchmakingCts;
 
         // ====================================================================
         // Unity 생명주기
@@ -76,6 +82,7 @@ namespace Hexiege.Infrastructure
             _servicesInitializer = new UnityServicesInitializer();
             _lobbyManager = new LobbyManager();
             _relayManager = new RelayManager();
+            _matchmakerManager = new MatchmakerManager();
         }
 
         private void OnDestroy()
@@ -85,6 +92,7 @@ namespace Hexiege.Infrastructure
                 NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
 
             StopHeartbeat();
+            _matchmakingCts?.Dispose();
         }
 
         // ====================================================================
@@ -119,7 +127,7 @@ namespace Hexiege.Infrastructure
         /// 완료 시 OnHostStarted 이벤트에 Lobby Code 전달.
         /// </summary>
         /// <param name="lobbyName">만들 방 이름.</param>
-        public async Task HostGameAsync(string lobbyName = "Hexiege Room")
+        public async Task HostGameAsync(string lobbyName = "Hexiege Room", string matchId = null)
         {
             try
             {
@@ -136,7 +144,7 @@ namespace Hexiege.Infrastructure
                 }
 
                 // 2. Lobby 생성 (Relay Join Code 를 Data 에 포함)
-                var lobby = await _lobbyManager.CreateLobbyAsync(lobbyName, maxPlayers: 2, relayJoinCode);
+                var lobby = await _lobbyManager.CreateLobbyAsync(lobbyName, maxPlayers: 2, relayJoinCode, matchId);
                 if (lobby == null)
                 {
                     const string errorMsg = "Lobby 생성 실패. Unity Lobby 서비스를 확인하세요.";
@@ -258,6 +266,114 @@ namespace Hexiege.Infrastructure
 
             Debug.Log("[Network] Disconnect 완료.");
             OnDisconnected?.Invoke();
+        }
+
+        // ====================================================================
+        // 랜덤 매칭 API
+        // ====================================================================
+
+        /// <summary>
+        /// 랜덤 매칭 시작.
+        /// 순서: 티켓 생성 → 폴링 → 매칭 완료 → Host/Client 역할 결정 → 게임 시작.
+        /// </summary>
+        /// <param name="onWaitSecond">대기 시간(초) 콜백. UI 타이머용.</param>
+        public async Task StartMatchmakingAsync(Action<int> onWaitSecond = null)
+        {
+            _matchmakingCts = new CancellationTokenSource();
+            _currentTicketId = await _matchmakerManager.CreateTicketAsync();
+            Debug.Log($"[Matchmaker] 티켓 생성: {_currentTicketId}");
+
+            var matchId = await _matchmakerManager.PollUntilMatchedAsync(
+                _currentTicketId, _matchmakingCts.Token, onWaitSecond);
+
+            Debug.Log($"[Matchmaker] 매칭 완료. MatchId: {matchId}");
+
+            bool isHost = await _matchmakerManager.DetermineIsHostAsync(matchId);
+            Debug.Log($"[Matchmaker] 역할 결정: {(isHost ? "Host" : "Client")}");
+
+            if (isHost)
+            {
+                // Host: Relay + Lobby 생성 (Lobby 이름에 matchId 포함하여 Client 가 검색 가능)
+                await HostGameAsync($"match_{matchId}", matchId);
+            }
+            else
+            {
+                // Client: Host 가 생성한 Lobby 를 matchId 로 검색하여 참가
+                await JoinByMatchIdAsync(matchId);
+            }
+        }
+
+        /// <summary>
+        /// 매칭된 MatchId 로 Host 가 만든 Lobby 를 검색하여 참가.
+        /// Host 의 Lobby 생성에 시간이 걸릴 수 있으므로 재시도 폴링.
+        /// </summary>
+        /// <param name="matchId">매칭된 Match ID.</param>
+        private async Task JoinByMatchIdAsync(string matchId)
+        {
+            const int maxRetries = 10;
+            for (int i = 0; i < maxRetries; i++)
+            {
+                await Task.Delay(1000);
+
+                string lobbyId = await _lobbyManager.FindLobbyByMatchIdAsync(matchId);
+                if (!string.IsNullOrEmpty(lobbyId))
+                {
+                    await JoinGameByIdAsync(lobbyId);
+                    return;
+                }
+
+                Debug.Log($"[Matchmaker] Lobby 대기 중... ({i + 1}/{maxRetries})");
+            }
+
+            OnError?.Invoke("매칭된 방을 찾을 수 없습니다. 다시 시도해주세요.");
+        }
+
+        private async Task JoinGameByIdAsync(string lobbyId)
+        {
+            try
+            {
+                Debug.Log($"[Network] JoinGameById 시작. Lobby Id: {lobbyId}");
+
+                var lobby = await _lobbyManager.JoinLobbyByIdAsync(lobbyId);
+                if (lobby == null) { OnError?.Invoke("Lobby 참가 실패."); return; }
+
+                string relayJoinCode = _lobbyManager.GetRelayJoinCode();
+                if (string.IsNullOrEmpty(relayJoinCode)) { OnError?.Invoke("Relay Join Code 없음."); return; }
+
+                bool relayJoined = await _relayManager.JoinRelayAsync(relayJoinCode);
+                if (!relayJoined) { OnError?.Invoke("Relay 참가 실패."); return; }
+
+                if (!StartNetworkClient()) { OnError?.Invoke("StartClient() 실패."); return; }
+
+                Debug.Log("[Network] Client 게임 참가 완료 (매칭).");
+                OnClientConnected?.Invoke();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Network] JoinGameById 예외: {e.Message}");
+                OnError?.Invoke($"참가 오류: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 진행 중인 매칭을 취소.
+        /// 폴링 루프를 중단하고 티켓을 삭제.
+        /// </summary>
+        public async Task CancelMatchmakingAsync()
+        {
+            _matchmakingCts?.Cancel();
+
+            try
+            {
+                await _matchmakerManager.CancelTicketAsync(_currentTicketId);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[Matchmaker] 티켓 삭제 중 오류 (무시): {e.Message}");
+            }
+
+            _currentTicketId = null;
+            Debug.Log("[Matchmaker] 매칭 취소 완료.");
         }
 
         // ====================================================================

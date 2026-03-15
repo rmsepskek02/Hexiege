@@ -61,6 +61,9 @@ namespace Hexiege.Presentation
         /// <summary>랜덤 매칭 진행 중 여부.</summary>
         public ReactiveProperty<bool> IsMatchmaking = new(false);
 
+        /// <summary>매칭 대기 시간 (초).</summary>
+        public ReactiveProperty<int> MatchWaitSeconds = new(0);
+
         // ====================================================================
         // 커맨드 (View → ViewModel)
         // ====================================================================
@@ -133,6 +136,43 @@ namespace Hexiege.Presentation
 
             CmdCancelHosting
                 .Subscribe(_ => CancelHosting())
+                .AddTo(_disposables);
+
+            CmdStartMatchmaking
+                .Subscribe(async _ =>
+                {
+                    try
+                    {
+                        CurrentScreen.Value = BattleScreen.RandomMatch;
+                        IsMatchmaking.Value = true;
+                        MatchWaitSeconds.Value = 0;
+                        ErrorMessage.Value = "";
+
+                        await _networkManager.StartMatchmakingAsync(
+                            onWaitSecond: sec => MatchWaitSeconds.Value = sec);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        // 사용자가 취소한 경우
+                        IsMatchmaking.Value = false;
+                        CurrentScreen.Value = BattleScreen.Main;
+                    }
+                    catch (Exception e)
+                    {
+                        ErrorMessage.Value = e.Message;
+                        IsMatchmaking.Value = false;
+                    }
+                })
+                .AddTo(_disposables);
+
+            CmdCancelMatchmaking
+                .Subscribe(async _ =>
+                {
+                    try { await _networkManager.CancelMatchmakingAsync(); }
+                    catch { /* 취소 실패는 무시 — 이미 매칭 완료됐을 수 있음 */ }
+                    IsMatchmaking.Value = false;
+                    CurrentScreen.Value = BattleScreen.Main;
+                })
                 .AddTo(_disposables);
 
             CmdBack

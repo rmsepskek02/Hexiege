@@ -71,7 +71,7 @@ namespace Hexiege.Presentation
 
             if (_randomMatchButton != null)
                 _randomMatchButton.onClick.AddListener(
-                    () => vm.CurrentScreen.Value = BattleViewModel.BattleScreen.RandomMatch);
+                    () => vm.CmdStartMatchmaking.OnNext(Unit.Default));
         }
 
         /// <summary>

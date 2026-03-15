@@ -43,7 +43,10 @@
       "Bash(python3 -c \"import uuid; print\\(uuid.uuid4\\(\\).hex\\)\")",
       "Read(//proc/sys/kernel/random/**)",
       "Bash(openssl rand:*)",
-      "mcp__mcp-unity__load_scene"
+      "mcp__mcp-unity__load_scene",
+      "WebSearch",
+      "WebFetch(domain:support.unity.com)",
+      "WebFetch(domain:docs.unity3d.com)"
     ],
     "additionalDirectories": [
       "d:\\Dmain\\dev\\Portfolio\\Hexiege\\Hexiege\\Assets\\_Project\\Docs\\_Tasks\\2026-03-14",

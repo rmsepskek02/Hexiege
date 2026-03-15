@@ -18,6 +18,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
@@ -38,6 +39,9 @@ namespace Hexiege.Infrastructure
 
         /// <summary>Lobby Data 에서 Relay Join Code 를 저장하는 키 이름.</summary>
         public const string RelayJoinCodeKey = "RelayJoinCode";
+
+        /// <summary>Lobby Data 에서 MatchId 를 저장하는 키. S1 인덱스 필드로 검색 가능.</summary>
+        public const string MatchIdKey = "MatchId";
 
         /// <summary>Heartbeat 전송 간격 (초). Lobby 활성 상태를 서버에 알림.</summary>
         private const float HeartbeatIntervalSeconds = 25f;
@@ -67,7 +71,7 @@ namespace Hexiege.Infrastructure
         /// <param name="relayJoinCode">Relay Join Code. null 이면 나중에 별도 업데이트.</param>
         /// <returns>생성된 Lobby 객체. 실패 시 null.</returns>
         public async Task<Lobby> CreateLobbyAsync(
-            string lobbyName, int maxPlayers = 2, string relayJoinCode = null)
+            string lobbyName, int maxPlayers = 2, string relayJoinCode = null, string matchId = null)
         {
             try
             {
@@ -81,6 +85,17 @@ namespace Hexiege.Infrastructure
                         [RelayJoinCodeKey] = new DataObject(
                             DataObject.VisibilityOptions.Public, relayJoinCode)
                     };
+                }
+
+                // MatchId 가 있으면 S1 인덱스 필드로 저장 (매칭 검색용)
+                if (!string.IsNullOrEmpty(matchId))
+                {
+                    if (options.Data == null)
+                        options.Data = new Dictionary<string, DataObject>();
+                    options.Data[MatchIdKey] = new DataObject(
+                        DataObject.VisibilityOptions.Public,
+                        matchId,
+                        DataObject.IndexOptions.S1);
                 }
 
                 CurrentLobby = await LobbyService.Instance.CreateLobbyAsync(
@@ -137,8 +152,86 @@ namespace Hexiege.Infrastructure
         }
 
         // ====================================================================
+        // Lobby 검색 (매칭용)
+        // ====================================================================
+
+        /// <summary>
+        /// MatchId 로 매칭 전용 Lobby 를 검색.
+        /// S1 인덱스 필드에 저장된 MatchId 로 쿼리.
+        /// </summary>
+        /// <param name="matchId">Matchmaker 에서 발급한 Match ID.</param>
+        /// <returns>Lobby 참가 코드. 못 찾으면 null.</returns>
+        public async Task<string> FindLobbyByMatchIdAsync(string matchId)
+        {
+            try
+            {
+                // 빈 슬롯이 있는 공개 로비 전체 조회 후 클라이언트에서 matchId 필터링
+                // S1 인덱스 쿼리 대신 전체 조회 사용 (S1 인덱스 전파 지연 문제 우회)
+                var queryOptions = new QueryLobbiesOptions
+                {
+                    Count = 25,
+                    Filters = new List<QueryFilter>
+                    {
+                        new QueryFilter(
+                            QueryFilter.FieldOptions.AvailableSlots,
+                            "0",
+                            QueryFilter.OpOptions.GT)
+                    }
+                };
+
+                var results = await LobbyService.Instance.QueryLobbiesAsync(queryOptions);
+                Debug.Log($"[Matchmaker] Lobby 전체 조회: {results.Results.Count}개. 검색 matchId={matchId}");
+
+                foreach (var l in results.Results)
+                {
+                    string storedMatchId = l.Data != null && l.Data.ContainsKey(MatchIdKey)
+                        ? l.Data[MatchIdKey].Value : "없음";
+                    Debug.Log($"[Matchmaker] - 로비: {l.Name}, matchId={storedMatchId}");
+                }
+
+                var lobby = results.Results.FirstOrDefault(l =>
+                    l.Data != null &&
+                    l.Data.ContainsKey(MatchIdKey) &&
+                    string.Equals(l.Data[MatchIdKey].Value.Trim(), matchId.Trim(),
+                        StringComparison.OrdinalIgnoreCase));
+
+                if (lobby != null)
+                    Debug.Log($"[Matchmaker] 매칭 Lobby 발견! Name={lobby.Name}, Id={lobby.Id}");
+                else
+                    Debug.Log($"[Matchmaker] FirstOrDefault null — 비교 실패");
+
+                return lobby?.Id;
+            }
+            catch (LobbyServiceException e)
+            {
+                Debug.LogWarning($"[Network] Lobby 검색 실패 (matchId={matchId}): {e.Message}");
+                return null;
+            }
+        }
+
+        // ====================================================================
         // Lobby 참가
         // ====================================================================
+
+        /// <summary>
+        /// Lobby ID 로 방에 참가. QueryLobbiesAsync 결과의 Id 를 사용.
+        /// </summary>
+        /// <param name="lobbyId">로비 고유 ID.</param>
+        /// <returns>참가한 Lobby 객체. 실패 시 null.</returns>
+        public async Task<Lobby> JoinLobbyByIdAsync(string lobbyId)
+        {
+            try
+            {
+                CurrentLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId);
+                Debug.Log($"[Network] Lobby 참가 완료 (ID). 이름: {CurrentLobby.Name}");
+                return CurrentLobby;
+            }
+            catch (LobbyServiceException e)
+            {
+                Debug.LogError($"[Network] Lobby 참가 실패 (ID): {e.Message}");
+                return null;
+            }
+        }
 
         /// <summary>
         /// Lobby 코드로 방에 참가.
