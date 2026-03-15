@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-03-15
-**현재 단계:** 로비 씬 분리 MVVM 코드 완료 (씬 빌드 대기) / 유닛 회전 DOTween 보간 완료 → LobbySceneBuilder 실행 후 씬 빌드 / UI 에셋 제작 후 로비 비주얼 폴리싱 예정
+**현재 단계:** 로비 씬 분리 MVVM 완료 (씬 빌드 완료, 테스트 가능) / 유닛 회전 DOTween 보간 완료 / UI 에셋 제작 후 로비 비주얼 폴리싱 예정
 
 ---
 
@@ -15,7 +15,7 @@
 | ~~🟡 중간~~ | ~~TechnicalDesignDocument.md 3D 업데이트~~ | ✅ 완료 (2026-03-09) | - |
 | 🟡 중간 | 게임 내 밸런싱 (골드/HP/생산시간) | 기획 | 중 |
 | ~~🟡 중간~~ | ~~추가 유닛 타입 에셋 제작~~ | ✅ 에셋 완료 (2026-03-13) | - |
-| 🟡 중간 | 로비 씬 빌드 (LobbySceneBuilder 실행) | 기능 | 소 |
+| ~~🟡 중간~~ | ~~로비 씬 빌드 (LobbySceneBuilder 실행)~~ | ✅ 완료 (2026-03-15) | - |
 | 🟡 중간 | 로비 UI 에셋 제작 + 비주얼 폴리싱 | 에셋+UI | 중 |
 | ~~🟢 낮음~~ | ~~멀티플레이 로비 UI 완성~~ | ✅ MVVM 코드 완료 (2026-03-15) | - |
 | 🟢 낮음 | 재접속 실제 구현 | 기능 | 중 |
@@ -41,14 +41,12 @@
 
 ## Phase B — 네트워크 미완성 기능
 
-### B-2. 로비 씬 분리 + MVVM UI ✅ 코드 완료 (2026-03-15)
-- **구조**: Lobby.unity(신규) + Game.unity(기존) 씬 분리
+### B-2. 로비 씬 분리 + MVVM UI ✅ 완료 (2026-03-15)
+- **구조**: Lobby.unity(신규) + Game.unity(기존) 씬 분리 완료
 - **MVVM 아키텍처**: LobbyViewModel(탭), BattleViewModel(게임모드) + UniRx ReactiveProperty
 - **구현된 View**: LobbyRootView, TabBarView, BattleRootView, BattleMainView, CustomGameView, CustomHostView, CustomJoinView, RandomMatchView, ShopView(플레이스홀더), ProfileView(플레이스홀더), RankingView(플레이스홀더)
 - **게임 모드**: 싱글플레이 / 커스텀게임(코드 방 만들기/참가) / 랜덤매칭(추후 구현)
-- **남은 작업**:
-  1. `Hexiege/UI/Build Lobby Scene` 메뉴 실행으로 씬 빌드
-  2. UI 에셋(버튼/패널 스프라이트) 제작 후 비주얼 폴리싱
+- **남은 작업**: UI 에셋(버튼/패널 스프라이트) 제작 후 비주얼 폴리싱
 
 ### B-3. 재접속 실제 구현
 - **파일**: `Assets/_Project/Scripts/Infrastructure/Network/ReconnectionHandler.cs`
@@ -157,5 +155,5 @@
 | 2026-03-14 | 유닛 메시 방향 보정 완료 (하위 Mesh Y=30°, Root Motion OFF, _meshYOffset=공격 전용) |
 | 2026-03-14 | 유닛 회전 DOTween 보간 완료 (이동/공격 모두 DORotate + Ease.OutQuad, _rotationDuration SerializeField) |
 | 2026-03-14 | 공격 후 Walk 복귀 버그 수정 (타겟 소멸 시 Play(StateWalk) 명시 호출, 멀티/싱글 공통) |
-| 2026-03-15 | 유닛 회전 DOTween 보간 완료 (이동/공격 모두 DORotate + Ease.OutQuad, _rotationDuration SerializeField) |
-| 2026-03-15 | 로비 씬 분리 MVVM 코드 완료 (Lobby/Game 씬 분리, UniRx 기반 MVVM, 탭 4개 + 전투 서브화면 5개) |
+| 2026-03-15 | 로비 씬 분리 MVVM 완료 (Lobby/Game 씬 분리, UniRx 기반 MVVM, 탭 4개 + 전투 서브화면 5개, 씬 빌드 완료) |
+| 2026-03-15 | 멀티플레이 게임 시작 버그 수정 (Host OnClientConnectedCallback 누락 → HandleClientConnected 추가) |

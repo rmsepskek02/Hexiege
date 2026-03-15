@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-03-15
-**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 코드 완료 (씬 빌드 대기)
+**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 멀티플레이 게임 시작 버그 수정 완료
 
 ---
 
@@ -93,7 +93,6 @@
 | BuildFailedClientRpc UI 피드백 없음 | NetworkBuildingController | RPC 구조 완성, UI 기획 후 구현 예정 |
 | EnqueueFailedClientRpc UI 피드백 없음 | NetworkProductionController | RPC 구조 완성, UI 기획 후 구현 예정 |
 | 재접속 실제 구현 없음 | ReconnectionHandler | 30초 대기 후 ForceWin만 |
-| 로비 씬 씬 빌드 미완료 | LobbySceneBuilder.cs | 코드 완료, LobbySceneBuilder 실행 필요 |
 | 로비 UI 비주얼 폴리싱 | Lobby Views | UI 에셋 제작 후 진행 예정 |
 
 #### GameConfig 코드 기본값 vs Inspector 값

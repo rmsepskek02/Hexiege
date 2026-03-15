@@ -80,6 +80,10 @@ namespace Hexiege.Infrastructure
 
         private void OnDestroy()
         {
+            // Client 접속 콜백 구독 해제 (누수 방지)
+            if (NetworkManager.Singleton != null)
+                NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
+
             StopHeartbeat();
         }
 
@@ -147,6 +151,9 @@ namespace Hexiege.Infrastructure
                     OnError?.Invoke("NetworkManager.StartHost() 실패.");
                     return;
                 }
+
+                // 3-1. Client 접속 감지 콜백 구독 (Host 전용)
+                NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
 
                 // 4. Host Heartbeat 시작 (Lobby 활성 유지)
                 StartHeartbeat();
@@ -239,6 +246,10 @@ namespace Hexiege.Infrastructure
             // Heartbeat 중단
             StopHeartbeat();
 
+            // Client 접속 콜백 구독 해제 (Host 였을 경우 대비)
+            if (NetworkManager.Singleton != null)
+                NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
+
             // NetworkManager 종료
             ShutdownNetworkManager();
 
@@ -286,6 +297,19 @@ namespace Hexiege.Infrastructure
         // ====================================================================
         // NetworkManager 헬퍼
         // ====================================================================
+
+        /// <summary>
+        /// NGO Client 접속 콜백. HOST 전용.
+        /// Host 자신(LocalClientId)을 제외한 실제 Client 접속 시 OnClientConnected 발행.
+        /// </summary>
+        private void HandleClientConnected(ulong clientId)
+        {
+            if (NetworkManager.Singleton == null) return;
+            if (clientId == NetworkManager.Singleton.LocalClientId) return;
+
+            Debug.Log($"[Network] Client 접속 감지 (clientId={clientId}). OnClientConnected 발행.");
+            OnClientConnected?.Invoke();
+        }
 
         /// <summary>
         /// NetworkManager.StartHost() 호출.
