@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python:*)",
       "mcp__mcp-unity__update_component",
-      "Bash(npx:*)"
+      "Bash(npx:*)",
+      "Bash(git rm:*)"
     ],
     "additionalDirectories": [
       "d:\\Dmain\\dev\\Portfolio\\Hexiege\\Hexiege\\Assets\\_Project\\Docs\\_Tasks"
