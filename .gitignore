@@ -69,6 +69,10 @@ mono_crash.*
 # Unity IL2CPP build backup (빌드 시 자동 생성, 커밋 불필요)
 Build_BackUpThisFolder_ButDontShipItWithYourGame/
 
+# 로컬 개발환경 전용 파일
+.vsconfig
+.claude/settings.local.json
+
 # Unity Performance Test 자동 생성 파일
 Assets/Resources/PerformanceTestRunInfo.json
 Assets/Resources/PerformanceTestRunInfo.json.meta
