@@ -4,10 +4,17 @@
       "Bash(python:*)",
       "mcp__mcp-unity__update_component",
       "Bash(npx:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(where claude:*)",
+      "Read(//c/Users/rmsep/**)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in d.items\\(\\) if ''''mcp'''' in k.lower\\(\\) or ''''server'''' in k.lower\\(\\)}, indent=2\\)\\)\")",
+      "Bash(\"D:/dev/Node/npm.cmd\" install:*)",
+      "Bash(\"D:/dev/Node/npm.cmd\" run:*)",
+      "Bash(PATH=\"/d/dev/Node:$PATH\" \"D:/dev/Node/npm.cmd\" run build)"
     ],
     "additionalDirectories": [
-      "d:\\Dmain\\dev\\Portfolio\\Hexiege\\Hexiege\\Assets\\_Project\\Docs\\_Tasks"
+      "d:\\Dmain\\dev\\Portfolio\\Hexiege\\Hexiege\\Assets\\_Project\\Docs\\_Tasks",
+      "C:\\Users\\rmsep"
     ]
   }
 }

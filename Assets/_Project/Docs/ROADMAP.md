@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-03-15
-**현재 단계:** 로비 씬 분리 MVVM 완료 (씬 빌드 완료, 테스트 가능) / 유닛 회전 DOTween 보간 완료 / UI 에셋 제작 후 로비 비주얼 폴리싱 예정
+**최종 수정일:** 2026-03-16
+**현재 단계:** 로비 씬 분리 MVVM 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 구현 보류 중
 
 ---
 
@@ -157,3 +157,4 @@
 | 2026-03-14 | 공격 후 Walk 복귀 버그 수정 (타겟 소멸 시 Play(StateWalk) 명시 호출, 멀티/싱글 공통) |
 | 2026-03-15 | 로비 씬 분리 MVVM 완료 (Lobby/Game 씬 분리, UniRx 기반 MVVM, 탭 4개 + 전투 서브화면 5개, 씬 빌드 완료) |
 | 2026-03-15 | 멀티플레이 게임 시작 버그 수정 (Host OnClientConnectedCallback 누락 → HandleClientConnected 추가) |
+| 2026-03-16 | 랜덤 매칭 게임 씬 전환 버그 수정 (GetHashCode 크로스-프로세스 비결정성 → GetStableHash polynomial hash 교체, OnClientConnectedCallback 등록 순서 수정) |

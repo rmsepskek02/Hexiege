@@ -4,6 +4,24 @@
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
 
+## 랜덤 매칭 QA 항목 (2026-03-16 버그 수정)
+
+### 수정 내용
+- `MatchmakerManager.DetermineIsHostAsync`: `GetHashCode()` 크로스-프로세스 비결정성 → `GetStableHash()` polynomial hash로 교체
+- `NetworkGameManager.HostGameAsync`: `OnClientConnectedCallback` 등록 순서 수정 (StartNetworkHost 이전으로)
+
+### 테스트 체크리스트
+- [x] 두 기기에서 동시에 랜덤 매칭 → 한 쪽 Host, 다른 쪽 Client로 역할 분리 확인
+- [x] Game 씬으로 양쪽 정상 전환 확인
+- [ ] **반복 매칭 테스트** — Host/Client 역할이 번갈아 바뀌는지 확인 (무작위성 검증, 미완료)
+- [ ] **취소 후 재매칭** — 정상 동작 확인 (미완료)
+
+### 알려진 취약 지점
+- `GetStableHash()`는 polynomial hash (seed=17, multiplier=31) — 극히 드물게 두 MatchId가 동일 hostIndex 산출 가능하지만 무시 가능 수준 (UUID 공간)
+- `OnClientConnectedCallback` 등록 전 Client가 순간적으로 접속하는 레이스 컨디션은 현실적으로 발생 불가 (Client는 Relay 참가 + NGO 핸드셰이크에 수 초 소요)
+
+---
+
 ## 아키텍처 패턴 (확인된 사항)
 - Presentation이 Infrastructure(LocalPlayerTeam) 직접 참조: 정적 홀더 패턴으로 허용 범위
 - Assembly Definition 없음 — 물리적 경계 없음, 네임스페이스 규약으로만 관리
