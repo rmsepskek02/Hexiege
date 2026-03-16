@@ -153,15 +153,17 @@ namespace Hexiege.Infrastructure
                     return;
                 }
 
+                // 3-1. Client 접속 감지 콜백 구독 — StartHost() 이전에 등록 (레이스 컨디션 방지)
+                NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
+
                 // 3. NetworkManager Host 시작
                 if (!StartNetworkHost())
                 {
+                    // 실패 시 등록한 콜백 해제 후 에러 반환
+                    NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
                     OnError?.Invoke("NetworkManager.StartHost() 실패.");
                     return;
                 }
-
-                // 3-1. Client 접속 감지 콜백 구독 (Host 전용)
-                NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
 
                 // 4. Host Heartbeat 시작 (Lobby 활성 유지)
                 StartHeartbeat();

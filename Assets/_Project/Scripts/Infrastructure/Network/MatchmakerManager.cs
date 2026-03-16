@@ -184,11 +184,28 @@ namespace Hexiege.Infrastructure
                 .OrderBy(p => p.Id, StringComparer.Ordinal)
                 .ToList();
 
-            // matchId 해시로 Host 인덱스 결정 → 두 클라이언트 모두 동일한 인덱스 산출
-            int hash = matchId.GetHashCode();
-            int hostIndex = Math.Abs(hash) % sortedPlayers.Count;
+            if (sortedPlayers.Count == 0) return false;
 
+            // MatchId(UGS 발급 UUID) 안정 해시로 Host 인덱스 결정
+            // → 매 매치마다 다른 UUID → 50/50 무작위 분배 보장
+            // → 크로스-플랫폼/프로세스에서 동일한 결과 보장
+            int hostIndex = GetStableHash(matchId) % sortedPlayers.Count;
             return sortedPlayers[hostIndex].Id == playerId;
+        }
+
+        /// <summary>
+        /// 크로스-플랫폼/크로스-프로세스 결정론적 해시.
+        /// .NET string.GetHashCode()는 프로세스마다 다른 시드를 사용하므로 직접 구현.
+        /// </summary>
+        private static int GetStableHash(string s)
+        {
+            unchecked
+            {
+                int hash = 17;
+                foreach (char c in s)
+                    hash = hash * 31 + c;
+                return Math.Abs(hash);
+            }
         }
     }
 }
