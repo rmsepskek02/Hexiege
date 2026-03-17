@@ -23,10 +23,29 @@
 
 ## 최근 작업
 
+### 커스텀게임 재경기(Rematch) 시스템 (2026-03-17) ✅ 테스트 완료
+- **NetworkGameManager.cs**: `_isRandomMatchmaking` bool 필드 + `IsRandomMatchmaking` 속성 추가
+  - StartMatchmakingAsync → true, CancelMatchmakingAsync/DisconnectAsync → false
+- **NetworkGameEndController.cs**: 재경기 RPC 시스템 전면 교체
+  - `AnnounceWinnerClientRpc(int, bool isRandomMatch)` — 파라미터 2개로 변경
+  - `_rematchRequesterId` (ulong.MaxValue=없음) — 첫 요청자 추적, 양측 요청 시 즉시 재경기
+  - RPC: RequestRematchServerRpc, AcceptRematchServerRpc, DeclineRematchServerRpc
+  - ClientRpc: NotifyRematchRequestedClientRpc(targeted), NotifyRematchDeclinedClientRpc(targeted)
+  - `StartRematch()`: NGO SceneManager.LoadScene("Game") — 네트워크 유지 상태 씬 재로드
+  - `_lobbySceneName` 제거, `OnMultiplayerRestart()` 제거
+  - `_rematchRequestPopup` SerializeField 추가 (Inspector 연결 필요)
+- **GameEndUI.cs**: `OverrideRestartForMultiplayer()` → `SetupRematchButton(bool, Action)` + `RestoreRematchButton()` 교체
+  - `_restartButtonText` SerializeField 추가 (Inspector 연결 필요)
+  - 랜덤매칭: 다시하기 버튼 숨김, 커스텀게임: 요청/대기/복원 UI 상태 관리
+- **RematchRequestPopup.cs** (신규): `Presentation/UI/Common/` — `_overlay`+수락/거절 팝업+거절 알림 팝업
+  - Inspector 연결 필요: _overlay, _requestPanel, _acceptButton, _declineButton, _declinedPanel, _declinedConfirmButton
+  - **루트 오브젝트는 Active 유지 필수** — FindFirstObjectByType은 비활성 오브젝트 탐색 불가
+  - Hide()/Show*()에서 _overlay도 함께 제어 (overlay 별도 필드로 관리)
+- **FindFirstObjectByType 교훈**: 비활성 오브젝트 포함 탐색 시 `FindObjectsInactive.Include` 인자 필요
+
 ### 멀티플레이 로비 복귀 버그 수정 (2026-03-17)
 - **근본 원인**: `NetworkGameEndController._lobbySceneName` Inspector="Game" → 게임 씬 재로드
-- **NetworkGameEndController.cs**: RPC 로비 복귀 메서드 4개 전부 제거 (`RequestBackToLobby`, `ServerRpc`, `ClientRpc`, `Deferred`)
-- **GameEndUI.cs**: `ReturnToLobby()` 추가 (NGM.Shutdown + LoadScene("Lobby")), `CountdownCoroutine()` 추가 (WaitForSecondsRealtime 기반 30초), `OnBackToLobbyClicked()` 단순화
+- **GameEndUI.cs**: `ReturnToLobby()` (NGM.Shutdown + LoadScene("Lobby")), `CountdownCoroutine()` (WaitForSecondsRealtime 기반 30초)
 - Inspector 연결 필요: `_countdownText` (TextMeshProUGUI), `_autoReturnSeconds` (default=30f)
 
 ### 전역 로딩 스크린 구현 (2026-03-17)

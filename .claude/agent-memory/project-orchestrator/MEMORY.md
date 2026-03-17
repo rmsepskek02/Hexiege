@@ -9,6 +9,13 @@
 ## 프로젝트 현재 상태 (2026-03-17)
 
 ### 2026-03-17 완료
+- **커스텀게임 재경기 시스템**
+  - 싱글=즉시 재시작(변경 없음), 랜덤=버튼 숨김, 커스텀=양측 동의 재경기
+  - `NetworkGameManager.IsRandomMatchmaking` 속성 추가
+  - `NetworkGameEndController` RPC 재경기 시스템 (Request/Accept/Decline, targeted ClientRpc)
+  - `RematchRequestPopup.cs` 신규 (`Presentation/UI/Common/`), `RematchPopupBuilder.cs` 에디터 스크립트
+  - 레이스 컨디션 처리: 서버 `_rematchRequesterId` 상태값
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-17/18_45_custom-game-rematch/`
 - **멀티플레이 로비 복귀 버그 수정**
   - 근본 원인: `NetworkGameEndController._lobbySceneName` Inspector="Game" (코드 기본값 아님)
   - RPC 로비 복귀 메서드 4개 제거 → 각 클라이언트 독립 로컬 처리로 설계 변경

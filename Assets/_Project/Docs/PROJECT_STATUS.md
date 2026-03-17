@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-03-17
-**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료 / 멀티플레이 로비 복귀 버그 수정 완료
+**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료 / 멀티플레이 로비 복귀 버그 수정 완료 / 커스텀게임 재경기 시스템 완료
 
 ---
 
@@ -70,6 +70,18 @@
 | 커스텀 호스트/참가 씬 전환 시 로딩 스크린 | ✅ 완료 | `LoadGameScene()` 직전 Show() |
 | 랜덤 매칭 완료 시 로딩 스크린 | ✅ 완료 | `onMatchFound` 콜백 |
 | sceneLoaded 이벤트 자동 Hide() | ✅ 완료 | NGO 씬 전환에도 정상 발동 확인 |
+
+#### 커스텀게임 재경기 시스템 (2026-03-17)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| `NetworkGameManager.IsRandomMatchmaking` 속성 추가 | ✅ 완료 | 게임 모드 판별용 |
+| `NetworkGameEndController` 재경기 RPC 시스템 | ✅ 완료 | Request/Accept/Decline ServerRpc + Notify ClientRpc(targeted) |
+| `GameEndUI.SetupRematchButton()` / `RestoreRematchButton()` | ✅ 완료 | 모드별 버튼 분기, 요청 중 상태 관리 |
+| `RematchRequestPopup.cs` 신규 생성 | ✅ 완료 | `Presentation/UI/Common/` — 수락/거절/거절알림 팝업 |
+| `RematchPopupBuilder.cs` 에디터 스크립트 | ✅ 완료 | `Hexiege/UI/Build Rematch Popup` 메뉴 |
+| 레이스 컨디션 처리 (`_rematchRequesterId`) | ✅ 완료 | 양측 동시 요청 → 즉시 재경기 |
+| 랜덤매칭 다시하기 버튼 숨김 | ✅ 완료 | `isRandomMatch=true` 시 버튼 비활성화 |
+| 싱글플레이 다시하기 동작 유지 | ✅ 완료 | 변경 없음 |
 
 #### 멀티플레이 로비 복귀 버그 수정 (2026-03-17)
 | 항목 | 상태 | 비고 |

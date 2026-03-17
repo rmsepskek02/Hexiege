@@ -72,6 +72,10 @@ namespace Hexiege.Presentation
         [Tooltip("자동 복귀까지 대기 시간 (초). 기본 30초.")]
         [SerializeField] private float _autoReturnSeconds = 30f;
 
+        [Header("다시하기 버튼 텍스트")]
+        [Tooltip("다시하기 버튼의 텍스트 컴포넌트. 요청 중 상태 표시용.")]
+        [SerializeField] private TextMeshProUGUI _restartButtonText;
+
         // ====================================================================
         // 색상 설정
         // ====================================================================
@@ -275,19 +279,54 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 멀티플레이 재시작 동작으로 버튼 클릭 콜백을 교체.
-        /// 기존 싱글플레이 OnRestartClicked 대신 멀티플레이 종료 흐름(callback)을 연결.
-        /// Initialize() 이후에 호출해야 AddListener 중복 등록을 방지할 수 있음.
+        /// 멀티플레이 재경기 버튼 설정. 게임 모드에 따라 버튼 동작 분기.
+        /// 랜덤매칭: 다시하기 버튼 숨김 (로비 복귀만 가능).
+        /// 커스텀게임: 재경기 요청 콜백 연결 + 요청 중 상태 표시.
         /// </summary>
-        /// <param name="multiplayerRestartCallback">멀티플레이 재시작 시 호출할 콜백.</param>
-        public void OverrideRestartForMultiplayer(System.Action multiplayerRestartCallback)
+        /// <param name="isRandomMatch">랜덤 매칭 여부. true이면 다시하기 버튼 숨김.</param>
+        /// <param name="onRequestRematch">커스텀게임 재경기 요청 콜백.</param>
+        public void SetupRematchButton(bool isRandomMatch, System.Action onRequestRematch)
         {
             if (_restartButton == null) return;
 
-            // 싱글플레이 콜백 제거 후 멀티플레이 콜백 등록
-            _restartButton.onClick.RemoveListener(OnRestartClicked);
+            if (isRandomMatch)
+            {
+                // 랜덤매칭: 다시하기 버튼 숨김 — 로비 복귀만 가능
+                _restartButton.gameObject.SetActive(false);
+                return;
+            }
+
+            // 커스텀게임: 재경기 요청 콜백 연결
             _restartButton.onClick.RemoveAllListeners();
-            _restartButton.onClick.AddListener(() => multiplayerRestartCallback?.Invoke());
+            _restartButton.onClick.AddListener(() =>
+            {
+                // 버튼 텍스트 → "요청 중..." + 비활성화
+                if (_restartButtonText != null)
+                    _restartButtonText.text = "요청 중...";
+                _restartButton.interactable = false;
+
+                // 로비 복귀 버튼도 비활성화 (재경기 응답 대기 중)
+                if (_backToLobbyButton != null)
+                    _backToLobbyButton.interactable = false;
+
+                onRequestRematch?.Invoke();
+            });
+        }
+
+        /// <summary>
+        /// 재경기 거절 시 버튼 원복. 다시 요청 가능하도록 상태 복원.
+        /// </summary>
+        public void RestoreRematchButton()
+        {
+            if (_restartButton != null)
+            {
+                if (_restartButtonText != null)
+                    _restartButtonText.text = "다시하기";
+                _restartButton.interactable = true;
+            }
+
+            if (_backToLobbyButton != null)
+                _backToLobbyButton.interactable = true;
         }
     }
 }

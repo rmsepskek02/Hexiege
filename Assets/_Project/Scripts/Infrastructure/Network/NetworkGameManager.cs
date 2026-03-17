@@ -69,6 +69,9 @@ namespace Hexiege.Infrastructure
         private string _currentTicketId;
         private CancellationTokenSource _matchmakingCts;
 
+        // 랜덤 매칭 여부 (커스텀게임 재경기 분기용)
+        private bool _isRandomMatchmaking;
+
         // ====================================================================
         // Unity 생명주기
         // ====================================================================
@@ -263,6 +266,9 @@ namespace Hexiege.Infrastructure
             // NetworkManager 종료
             ShutdownNetworkManager();
 
+            // 랜덤 매칭 상태 초기화
+            _isRandomMatchmaking = false;
+
             // Lobby 나가기
             await _lobbyManager.LeaveLobbyAsync();
 
@@ -282,6 +288,7 @@ namespace Hexiege.Infrastructure
         /// <param name="onMatchFound">매칭 성사 직후 콜백. 로딩 스크린 표시 등에 활용.</param>
         public async Task StartMatchmakingAsync(Action<int> onWaitSecond = null, Action onMatchFound = null)
         {
+            _isRandomMatchmaking = true;
             _matchmakingCts = new CancellationTokenSource();
             _currentTicketId = await _matchmakerManager.CreateTicketAsync();
             Debug.Log($"[Matchmaker] 티켓 생성: {_currentTicketId}");
@@ -379,6 +386,7 @@ namespace Hexiege.Infrastructure
             }
 
             _currentTicketId = null;
+            _isRandomMatchmaking = false;
             Debug.Log("[Matchmaker] 매칭 취소 완료.");
         }
 
@@ -394,6 +402,9 @@ namespace Hexiege.Infrastructure
 
         /// <summary>현재 자신이 Host 인지 여부.</summary>
         public bool IsHost => _lobbyManager?.IsHost ?? false;
+
+        /// <summary>현재 세션이 랜덤 매칭으로 시작되었는지 여부.</summary>
+        public bool IsRandomMatchmaking => _isRandomMatchmaking;
 
         // ====================================================================
         // 씬 전환
