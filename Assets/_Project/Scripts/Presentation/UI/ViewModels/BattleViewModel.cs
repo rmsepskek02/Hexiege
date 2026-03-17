@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 using UniRx;
 using UnityEngine.SceneManagement;
 using Hexiege.Infrastructure;
+using Hexiege.Presentation.UI;
 
 namespace Hexiege.Presentation
 {
@@ -122,7 +123,7 @@ namespace Hexiege.Presentation
                 .Subscribe(async _ =>
                 {
                     try { await StartHosting(); }
-                    catch (Exception e) { ErrorMessage.Value = e.Message; IsConnecting.Value = false; }
+                    catch (Exception e) { ErrorMessage.Value = e.Message; IsConnecting.Value = false; LoadingScreen.Instance?.Hide(); }
                 })
                 .AddTo(_disposables);
 
@@ -130,7 +131,7 @@ namespace Hexiege.Presentation
                 .Subscribe(async code =>
                 {
                     try { await JoinGame(code); }
-                    catch (Exception e) { ErrorMessage.Value = e.Message; IsConnecting.Value = false; }
+                    catch (Exception e) { ErrorMessage.Value = e.Message; IsConnecting.Value = false; LoadingScreen.Instance?.Hide(); }
                 })
                 .AddTo(_disposables);
 
@@ -149,18 +150,21 @@ namespace Hexiege.Presentation
                         ErrorMessage.Value = "";
 
                         await _networkManager.StartMatchmakingAsync(
-                            onWaitSecond: sec => MatchWaitSeconds.Value = sec);
+                            onWaitSecond: sec => MatchWaitSeconds.Value = sec,
+                            onMatchFound: () => LoadingScreen.Instance?.Show("게임에 접속하는 중..."));
                     }
                     catch (OperationCanceledException)
                     {
                         // 사용자가 취소한 경우
                         IsMatchmaking.Value = false;
                         CurrentScreen.Value = BattleScreen.Main;
+                        LoadingScreen.Instance?.Hide();
                     }
                     catch (Exception e)
                     {
                         ErrorMessage.Value = e.Message;
                         IsMatchmaking.Value = false;
+                        LoadingScreen.Instance?.Hide();
                     }
                 })
                 .AddTo(_disposables);
@@ -185,15 +189,17 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 싱글플레이 씬 로드. Game 씬으로 즉시 전환.
+        /// 싱글플레이 씬 로드. 로딩 스크린 표시 후 Game 씬으로 전환.
         /// </summary>
-        private void LoadSingleplayScene()
+        private async void LoadSingleplayScene()
         {
+            LoadingScreen.Instance?.Show("게임 로딩 중...");
+            await Task.Delay(2000);
             SceneManager.LoadScene("Game");
         }
 
         /// <summary>
-        /// 호스트 게임 시작. Relay + Lobby 생성 후 대기 화면 전환.
+        /// 호스트 게임 시작. 로딩 스크린 표시 후 Relay + Lobby 생성, 대기 화면 전환.
         /// </summary>
         private async Task StartHosting()
         {
@@ -204,12 +210,13 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 코드로 게임 참가. Lobby 참가 → Relay 연결.
+        /// 코드로 게임 참가. 로딩 스크린 표시 후 Lobby 참가 → Relay 연결.
         /// </summary>
         private async Task JoinGame(string code)
         {
             IsConnecting.Value = true;
             ErrorMessage.Value = "";
+            LoadingScreen.Instance?.Show("게임에 참가하는 중...");
             await _networkManager.JoinGameAsync(code);
         }
 
@@ -260,7 +267,10 @@ namespace Hexiege.Presentation
         {
             ConnectedPlayers.Value++;
             if (ConnectedPlayers.Value >= 2)
+            {
+                LoadingScreen.Instance?.Show("게임에 접속하는 중...");
                 _networkManager.LoadGameScene();
+            }
         }
 
         /// <summary>

@@ -4,6 +4,27 @@
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
 
+## 전역 로딩 스크린 QA 항목 (2026-03-17 구현 완료)
+
+### 구현 내용
+- `LoadingScreen.cs`: 싱글턴, DontDestroyOnLoad, CanvasGroup 페이드 인/아웃
+- `BattleViewModel.LoadSingleplayScene()`: async void + `await Task.Delay(2000)` + Show/Hide
+- 커스텀/랜덤매칭: `LoadGameScene()` 직전 Show(), `sceneLoaded` 이벤트 자동 Hide()
+- Lobby 씬 LoadingScreen 오브젝트에 SerializeField 3개 Inspector 연결 필요: `_canvasGroup`, `_spinner`, `_statusText`
+
+### 테스트 결과 (2026-03-17)
+- [x] 싱글플레이 — 로딩 스크린 2초 표시 후 씬 전환 확인
+- [x] 커스텀 호스트/참가 — 로딩 스크린 표시 확인
+- [x] 랜덤 매칭 완료 시 로딩 스크린 표시 확인
+- [x] 게임 씬 진입 후 자동 Hide() 확인 (NGO sceneLoaded 정상 발동)
+- [ ] 에러 발생 시 로딩 스크린 숨김 확인 (미완료)
+- [ ] 매칭 취소 시 미표시 확인 (미완료)
+- [ ] 반복 매칭 시 중복 인스턴스 없음 확인 (미완료)
+
+### 알려진 취약 지점
+- LoadingScreen Inspector SerializeField 연결 안 된 경우 null 참조 방어 필요 (`?.` 연산자 사용 중)
+- 싱글플레이 `await Task.Delay(2000)` 중 앱 종료/씬 전환 취소 시나리오 미검증
+
 ## 랜덤 매칭 QA 항목 (2026-03-16 버그 수정)
 
 ### 수정 내용

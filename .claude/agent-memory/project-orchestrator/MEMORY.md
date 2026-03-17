@@ -6,15 +6,22 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
-## 프로젝트 현재 상태 (2026-03-16)
+## 프로젝트 현재 상태 (2026-03-17)
+
+### 2026-03-17 완료
+- **전역 로딩 스크린 구현 완료**
+  - `LoadingScreen.cs` (`Presentation/UI/Common/`): 싱글턴, DontDestroyOnLoad, CanvasGroup DOFade
+  - Lobby 씬 Canvas(SO:100) 배치 — Background/Spinner/StatusText 구조
+  - 싱글플레이: `await Task.Delay(2000)` 후 씬 전환 (최소 2초 표시)
+  - 커스텀/랜덤매칭: `LoadGameScene()` 직전 Show(), `sceneLoaded` 자동 Hide()
+  - `NetworkGameManager.StartMatchmakingAsync`에 `onMatchFound` 콜백 추가
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-16/loading-screen/`
 
 ### 2026-03-16 완료
 - **랜덤 매칭 후 게임 씬 전환 버그 수정**
   - `MatchmakerManager.DetermineIsHostAsync`: `string.GetHashCode()` → `GetStableHash()` (polynomial hash) 교체
   - `NetworkGameManager.HostGameAsync`: `OnClientConnectedCallback` 등록을 `StartNetworkHost()` 이전으로 이동
   - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-16/random-matchmaking-game-start-bug/`
-- **보류 중**: 전역 로딩 스크린 구현 (task 문서 작성 완료, 구현 미착수)
-  - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-16/loading-screen/`
 
 ### 이전 상태 (2026-03-14)
 - 싱글플레이 코어 루프 완성 (헥스 그리드, 전투, 건물, 생산, 승패)

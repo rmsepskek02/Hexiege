@@ -279,7 +279,8 @@ namespace Hexiege.Infrastructure
         /// 순서: 티켓 생성 → 폴링 → 매칭 완료 → Host/Client 역할 결정 → 게임 시작.
         /// </summary>
         /// <param name="onWaitSecond">대기 시간(초) 콜백. UI 타이머용.</param>
-        public async Task StartMatchmakingAsync(Action<int> onWaitSecond = null)
+        /// <param name="onMatchFound">매칭 성사 직후 콜백. 로딩 스크린 표시 등에 활용.</param>
+        public async Task StartMatchmakingAsync(Action<int> onWaitSecond = null, Action onMatchFound = null)
         {
             _matchmakingCts = new CancellationTokenSource();
             _currentTicketId = await _matchmakerManager.CreateTicketAsync();
@@ -289,6 +290,9 @@ namespace Hexiege.Infrastructure
                 _currentTicketId, _matchmakingCts.Token, onWaitSecond);
 
             Debug.Log($"[Matchmaker] 매칭 완료. MatchId: {matchId}");
+
+            // 매칭 성사 콜백 — UI에서 로딩 스크린 표시 등에 활용
+            onMatchFound?.Invoke();
 
             bool isHost = await _matchmakerManager.DetermineIsHostAsync(matchId);
             Debug.Log($"[Matchmaker] 역할 결정: {(isHost ? "Host" : "Client")}");

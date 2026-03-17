@@ -23,6 +23,13 @@
 
 ## 최근 작업
 
+### 전역 로딩 스크린 구현 (2026-03-17)
+- `LoadingScreen.cs` (`Presentation/UI/Common/`): 싱글턴, DontDestroyOnLoad, CanvasGroup DOFade 페이드 인/아웃
+- `BattleViewModel.cs`: 싱글플레이 `LoadSingleplayScene()` → async void + `await Task.Delay(2000)` + Show/Hide
+- 커스텀 호스트/참가: `LoadGameScene()` 직전 `LoadingScreen.Instance?.Show()`
+- 랜덤매칭: `NetworkGameManager.StartMatchmakingAsync`에 `onMatchFound` 콜백 추가 → matchId 확보 직후 Show()
+- sceneLoaded 이벤트로 모든 케이스 자동 Hide() (NGO 씬 전환 포함)
+
 ### 랜덤 매칭 버그 수정 (2026-03-16) — [random-matching-bugfix.md](random-matching-bugfix.md)
 - string.GetHashCode() 크로스-프로세스 비결정성 → GetStableHash() 대체
 - NetworkGameManager: OnClientConnectedCallback 등록을 StartNetworkHost() 이전으로 이동

@@ -65,8 +65,18 @@
 [4] plan.md 작성 → 공유 → 승인 후에만 구현
 [5] 에이전트 위임 → 구현
 [6] 사용자 테스트
-[7] "문서/메모리 업데이트를 진행할까요?" 반드시 확인
-[8~10] MEMORY 업데이트 → PROJECT_STATUS / ROADMAP 반영
+[7] "문서/메모리 업데이트를 진행할까요?" 반드시 확인  ← 사용자가 다음 작업으로 넘어가려 해도 이 확인 먼저
+[8] plan.md 테스트 체크리스트 업데이트
+[9] 사용자 MEMORY.md 업데이트 (C:\Users\rmsep\.claude\projects\...\memory\)
+[10] PROJECT_STATUS.md 업데이트
+[11] ROADMAP.md 업데이트
+[12] 에이전트 메모리 업데이트 ← 자주 누락 주의
+    - game-programmer: .claude/agent-memory/game-programmer/MEMORY.md
+    - project-orchestrator: .claude/agent-memory/project-orchestrator/MEMORY.md
+    - qa-tester: .claude/agent-memory/qa-tester/MEMORY.md
+    - game-design-lead: .claude/agent-memory/game-design-lead/MEMORY.md
 ```
+
+**[7]~[12] 중 하나라도 빠지면 사이클 미완료. 순서대로 모두 수행.**
 
 상세 규칙: `Assets/_Project/Docs/_Tasks/README.md` 참조.
