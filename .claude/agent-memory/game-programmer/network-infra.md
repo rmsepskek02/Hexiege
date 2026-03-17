@@ -83,6 +83,11 @@ type: project
   - 싱글: GameEndUseCase → OnGameEnd → GameEndUI.OnGameEnd
   - 멀티: 서버 OnGameEnd → NetworkGameEndController → AnnounceWinnerClientRpc → ShowResult(localTeam 기준)
   - 클라이언트 GameEndUseCase는 OnGameEnd 발행 안 함
+- **로비 복귀 설계 (2026-03-17 변경)**:
+  - RPC 기반 로비 복귀 제거됨 — 각 클라이언트가 독립 로컬 처리
+  - `GameEndUI.ReturnToLobby()`: NetworkManager.Shutdown() → SceneManager.LoadScene("Lobby")
+  - `GameEndUI.CountdownCoroutine()`: 30초 자동 복귀, WaitForSecondsRealtime(1f) (timeScale=0 대응)
+  - `_countdownText` SerializeField: Inspector 연결 필요 (null 체크 있음)
 
 ## Phase 8 — UI/UX 네트워크 대응
 - `GameHudUI.cs` — 적팀 골드 표시, LocalPlayerTeam.Current 기준

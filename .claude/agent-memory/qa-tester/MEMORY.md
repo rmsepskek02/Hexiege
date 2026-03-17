@@ -4,6 +4,24 @@
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
 
+## 멀티플레이 로비 복귀 QA 항목 (2026-03-17 구현 완료)
+
+### 구현 내용
+- `NetworkGameEndController.cs`: RPC 로비 복귀 메서드 4개 제거 (로컬 처리로 변경)
+- `GameEndUI.cs`: `ReturnToLobby()` (Shutdown+LoadScene("Lobby")), `CountdownCoroutine()` (30초 WaitForSecondsRealtime)
+- Inspector 연결 필요: `_countdownText` (TextMeshProUGUI)
+
+### 테스트 체크리스트
+- [x] "로비로" 버튼 클릭 시 클릭한 플레이어만 Lobby로 이동 (상대방은 독립 처리)
+- [x] 30초 카운트다운 텍스트가 매 초 업데이트됨
+- [x] 30초 후 자동으로 Lobby로 이동
+- [x] "다시하기" 클릭 시 카운트다운 중지
+- [x] 싱글플레이 로비 복귀 정상 동작
+
+### 알려진 취약 지점
+- `_countdownText` Inspector 미연결 시 카운트다운 텍스트 미표시 (null 체크로 안전 처리 — 복귀 동작은 정상)
+- `Time.timeScale`이 0인 상태에서도 `WaitForSecondsRealtime` 사용으로 정상 동작
+
 ## 전역 로딩 스크린 QA 항목 (2026-03-17 구현 완료)
 
 ### 구현 내용

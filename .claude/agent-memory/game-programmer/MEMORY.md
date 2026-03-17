@@ -23,6 +23,12 @@
 
 ## 최근 작업
 
+### 멀티플레이 로비 복귀 버그 수정 (2026-03-17)
+- **근본 원인**: `NetworkGameEndController._lobbySceneName` Inspector="Game" → 게임 씬 재로드
+- **NetworkGameEndController.cs**: RPC 로비 복귀 메서드 4개 전부 제거 (`RequestBackToLobby`, `ServerRpc`, `ClientRpc`, `Deferred`)
+- **GameEndUI.cs**: `ReturnToLobby()` 추가 (NGM.Shutdown + LoadScene("Lobby")), `CountdownCoroutine()` 추가 (WaitForSecondsRealtime 기반 30초), `OnBackToLobbyClicked()` 단순화
+- Inspector 연결 필요: `_countdownText` (TextMeshProUGUI), `_autoReturnSeconds` (default=30f)
+
 ### 전역 로딩 스크린 구현 (2026-03-17)
 - `LoadingScreen.cs` (`Presentation/UI/Common/`): 싱글턴, DontDestroyOnLoad, CanvasGroup DOFade 페이드 인/아웃
 - `BattleViewModel.cs`: 싱글플레이 `LoadSingleplayScene()` → async void + `await Task.Delay(2000)` + Show/Hide

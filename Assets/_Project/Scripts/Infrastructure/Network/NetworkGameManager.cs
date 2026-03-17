@@ -488,6 +488,38 @@ namespace Hexiege.Infrastructure
         }
 
         // ====================================================================
+        // 로비 복귀
+        // ====================================================================
+
+        /// <summary>
+        /// 게임 종료 후 로비로 안전하게 복귀.
+        /// NetworkGameEndController에서 호출. NGO 구독 해제 → Shutdown → 씬 전환.
+        /// NetworkBehaviour 내부에서 Shutdown() 직접 호출 시 Despawn 타이밍 문제가 있으므로
+        /// DontDestroyOnLoad인 이 매니저에 위임하여 안전하게 처리.
+        /// </summary>
+        /// <param name="lobbySceneName">전환할 로비 씬 이름.</param>
+        public void BackToLobby(string lobbySceneName = "Lobby")
+        {
+            // 1. OnClientConnectedCallback 구독 해제 (HandleClientConnected가 LoadGameScene 재트리거 방지)
+            if (NetworkManager.Singleton != null)
+            {
+                NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
+            }
+
+            // 2. Heartbeat 중지
+            StopHeartbeat();
+
+            // 3. Lobby 퇴장 (fire-and-forget)
+            _ = _lobbyManager?.LeaveLobbyAsync();
+
+            // 4. NGO 연결 해제
+            ShutdownNetworkManager();
+
+            // 5. 씬 전환
+            SceneManager.LoadScene(lobbySceneName);
+        }
+
+        // ====================================================================
         // Heartbeat 관리
         // ====================================================================
 

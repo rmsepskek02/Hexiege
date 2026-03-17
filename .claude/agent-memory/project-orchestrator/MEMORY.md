@@ -9,6 +9,12 @@
 ## 프로젝트 현재 상태 (2026-03-17)
 
 ### 2026-03-17 완료
+- **멀티플레이 로비 복귀 버그 수정**
+  - 근본 원인: `NetworkGameEndController._lobbySceneName` Inspector="Game" (코드 기본값 아님)
+  - RPC 로비 복귀 메서드 4개 제거 → 각 클라이언트 독립 로컬 처리로 설계 변경
+  - `GameEndUI.cs`: `ReturnToLobby()` + `CountdownCoroutine()` (30초 자동 복귀) 추가
+  - Inspector 연결 필요: `_countdownText` (TextMeshProUGUI)
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-17/16_20_back-to-lobby-bug/`
 - **전역 로딩 스크린 구현 완료**
   - `LoadingScreen.cs` (`Presentation/UI/Common/`): 싱글턴, DontDestroyOnLoad, CanvasGroup DOFade
   - Lobby 씬 Canvas(SO:100) 배치 — Background/Spinner/StatusText 구조

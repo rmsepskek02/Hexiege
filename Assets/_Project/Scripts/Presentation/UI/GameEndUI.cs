@@ -25,9 +25,11 @@
 // Presentation 레이어 — Unity 의존 (MonoBehaviour).
 // ============================================================================
 
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using Unity.Netcode;
 using TMPro;
 using UniRx;
 using Hexiege.Domain;
@@ -64,6 +66,12 @@ namespace Hexiege.Presentation
         [Tooltip("로비로 돌아가기 버튼")]
         [SerializeField] private Button _backToLobbyButton;
 
+        [Tooltip("자동 복귀 카운트다운 텍스트 (예: '30초 후 로비로 돌아갑니다.')")]
+        [SerializeField] private TextMeshProUGUI _countdownText;
+
+        [Tooltip("자동 복귀까지 대기 시간 (초). 기본 30초.")]
+        [SerializeField] private float _autoReturnSeconds = 30f;
+
         // ====================================================================
         // 색상 설정
         // ====================================================================
@@ -73,6 +81,9 @@ namespace Hexiege.Presentation
 
         /// <summary> 현재 이벤트 구독. 재초기화 시 이전 구독 정리용. </summary>
         private System.IDisposable _gameEndSubscription;
+
+        /// <summary> 자동 로비 복귀 카운트다운 코루틴. </summary>
+        private Coroutine _countdownCoroutine;
 
         // ====================================================================
         // 초기화
@@ -115,6 +126,7 @@ namespace Hexiege.Presentation
 
         private void OnDestroy()
         {
+            StopCountdown();
             _gameEndSubscription?.Dispose();
         }
 
@@ -140,6 +152,9 @@ namespace Hexiege.Presentation
             _panel.SetActive(true);
             // 게임 일시정지
             Time.timeScale = 0f;
+
+            // 자동 로비 복귀 카운트다운 시작
+            _countdownCoroutine = StartCoroutine(CountdownCoroutine());
         }
 
         /// <summary>
@@ -147,6 +162,8 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnRestartClicked()
         {
+            StopCountdown();
+
             // 시간 복원
             Time.timeScale = 1f;
 
@@ -160,27 +177,11 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// "로비로 돌아가기" 버튼 클릭 처리.
-        /// 멀티플레이: NetworkGameEndController.RequestBackToLobby() → 서버가 NGO로 씬 전환.
-        /// 싱글플레이: 직접 Lobby 씬 로드.
+        /// 네트워크 활성 여부와 무관하게 로컬에서 독립 처리.
         /// </summary>
         private void OnBackToLobbyClicked()
         {
-            // 시간 복원 (게임 종료 시 timeScale=0)
-            Time.timeScale = 1f;
-
-            if (NetworkContext.IsNetworkActive)
-            {
-                // 멀티플레이: 서버에게 로비 복귀 요청
-                if (_networkGameEndController != null)
-                    _networkGameEndController.RequestBackToLobby();
-                else
-                    Debug.LogWarning("[GameEndUI] NetworkGameEndController가 없습니다. 직접 Lobby 씬 로드.");
-            }
-            else
-            {
-                // 싱글플레이: 직접 Lobby 씬 로드
-                SceneManager.LoadScene("Lobby");
-            }
+            ReturnToLobby();
         }
 
         // ====================================================================
@@ -192,6 +193,7 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
+            StopCountdown();
             if (_panel != null)
                 _panel.SetActive(false);
         }
@@ -218,6 +220,58 @@ namespace Hexiege.Presentation
             _panel.SetActive(true);
             // 게임 일시정지
             Time.timeScale = 0f;
+
+            // 자동 로비 복귀 카운트다운 시작
+            _countdownCoroutine = StartCoroutine(CountdownCoroutine());
+        }
+
+        // ====================================================================
+        // 로비 복귀 + 카운트다운
+        // ====================================================================
+
+        /// <summary>
+        /// 로비로 즉시 복귀. 네트워크 활성 여부와 무관하게 로컬 독립 처리.
+        /// </summary>
+        private void ReturnToLobby()
+        {
+            StopCountdown();
+            Time.timeScale = 1f;
+            Hide();
+
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+                NetworkManager.Singleton.Shutdown();
+
+            SceneManager.LoadScene("Lobby");
+        }
+
+        /// <summary>
+        /// 진행 중인 카운트다운 코루틴 정지 및 텍스트 초기화.
+        /// </summary>
+        private void StopCountdown()
+        {
+            if (_countdownCoroutine != null)
+            {
+                StopCoroutine(_countdownCoroutine);
+                _countdownCoroutine = null;
+            }
+            if (_countdownText != null)
+                _countdownText.text = "";
+        }
+
+        /// <summary>
+        /// 자동 로비 복귀 카운트다운. WaitForSecondsRealtime 사용 (timeScale=0 대응).
+        /// </summary>
+        private IEnumerator CountdownCoroutine()
+        {
+            float remaining = _autoReturnSeconds;
+            while (remaining > 0f)
+            {
+                if (_countdownText != null)
+                    _countdownText.text = $"{Mathf.CeilToInt(remaining)}초 후 로비로 돌아갑니다.";
+                yield return new WaitForSecondsRealtime(1f);
+                remaining -= 1f;
+            }
+            ReturnToLobby();
         }
 
         /// <summary>
