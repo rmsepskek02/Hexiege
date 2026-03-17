@@ -4,19 +4,31 @@
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
 
-## 커스텀게임 재경기 QA 항목 (2026-03-17 구현 완료)
+## 재경기 시스템 QA 항목
 
-### 구현 내용
+### 구현 내용 (2026-03-17 커스텀 / 2026-03-18 랜덤 통합)
 - `NetworkGameManager.IsRandomMatchmaking` (bool) — 모드 판별
 - `NetworkGameEndController`: RequestRematchServerRpc, AcceptRematchServerRpc, DeclineRematchServerRpc + targeted ClientRpc 2개
 - `RematchRequestPopup.cs`: `_overlay`(항상 Active 루트) + `_requestPanel` + `_declinedPanel`
 - `GameEndUI.SetupRematchButton()` / `RestoreRematchButton()`
+- 2026-03-18: isRandomMatch 분기 제거 → 랜덤/커스텀 모두 동일 재경기 흐름
 
-### 테스트 결과 (2026-03-17)
+### 테스트 결과
 - [x] 커스텀게임 — 다시하기 버튼 표시, 요청 중 상태, 상대 팝업, 수락/재경기, 거절/알림+버튼원복
-- [x] 랜덤매칭 — 다시하기 버튼 숨김, 로비로 버튼만 표시
+- [x] 랜덤매칭 — 다시하기 버튼 표시, 재경기 흐름 정상 동작 ✅
 - [x] 싱글플레이 — 다시하기 동작 변경 없음
 - [ ] 동시 클릭 레이스 컨디션 미테스트
+
+## 건물 인근 이동/공격 불가 버그 QA (2026-03-18 수정 완료)
+
+### 수정 내용
+- `HexPathfinder.FindPath()`: goal blocked 체크 제거
+- `UnitCombatUseCase.FindFirstEnemyTarget()`: maxDist Epsilon=0.05f 추가
+
+### 테스트 체크리스트
+- [x] 싱글플레이: 유닛 다수 생산 후 Castle 인근 집결 ✅
+- [x] 싱글플레이: Pistoleer/Assault/Sniper Castle 공격 ✅
+- [ ] 멀티플레이: Castle 공격 + 서버/클라이언트 동기화 미테스트
 
 ### 알려진 취약 지점
 - **RematchRequestPopup 루트 Active 필수**: FindFirstObjectByType은 비활성 오브젝트 탐색 불가 → 루트가 비활성이면 팝업 표시 안 됨 (2026-03-17 버그로 확인)

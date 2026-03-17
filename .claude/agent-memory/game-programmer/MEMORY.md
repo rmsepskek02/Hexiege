@@ -23,6 +23,18 @@
 
 ## 최근 작업
 
+### 건물 인근 이동/공격 불가 버그 수정 (2026-03-18) ✅ 테스트 완료
+- **HexPathfinder.cs**: `FindPath()` goal blocked 체크 제거 — 목표 타일이 ClaimedTile에 선점되어도 경로 탐색 가능
+  - 이전: `if (blockedCoords.Contains(goal)) return null;` → 인근 타일 모두 선점 시 교착 상태
+  - 이후: blocked는 경로 중간 타일에만 적용, 목표 도착 충돌은 ProcessStep에서 처리
+- **UnitCombatUseCase.cs**: maxDist에 `Epsilon=0.05f` 추가
+  - Pistoleer maxDist(0.866) = FlatTop 인접 거리(0.866) 경계 케이스 → 부동소수점 오차로 공격 실패
+  - `float maxDist = attacker.AttackRange * HexMetrics.TileHeight + Epsilon;`
+
+### 랜덤매칭 재경기 지원 (2026-03-18) ✅
+- **GameEndUI.cs**: `SetupRematchButton()`에서 `isRandomMatch==true`일 때 버튼 숨기는 분기 제거
+  - 랜덤매칭도 커스텀게임과 동일 흐름: 양측 동의 재경기 팝업 + NGO SceneManager.LoadScene("Game")
+
 ### 커스텀게임 재경기(Rematch) 시스템 (2026-03-17) ✅ 테스트 완료
 - **NetworkGameManager.cs**: `_isRandomMatchmaking` bool 필드 + `IsRandomMatchmaking` 속성 추가
   - StartMatchmakingAsync → true, CancelMatchmakingAsync/DisconnectAsync → false
@@ -36,7 +48,8 @@
   - `_rematchRequestPopup` SerializeField 추가 (Inspector 연결 필요)
 - **GameEndUI.cs**: `OverrideRestartForMultiplayer()` → `SetupRematchButton(bool, Action)` + `RestoreRematchButton()` 교체
   - `_restartButtonText` SerializeField 추가 (Inspector 연결 필요)
-  - 랜덤매칭: 다시하기 버튼 숨김, 커스텀게임: 요청/대기/복원 UI 상태 관리
+  - ~~랜덤매칭: 다시하기 버튼 숨김~~ → 2026-03-18 제거, 랜덤매칭도 재경기 지원
+  - 커스텀게임: 요청/대기/복원 UI 상태 관리
 - **RematchRequestPopup.cs** (신규): `Presentation/UI/Common/` — `_overlay`+수락/거절 팝업+거절 알림 팝업
   - Inspector 연결 필요: _overlay, _requestPanel, _acceptButton, _declineButton, _declinedPanel, _declinedConfirmButton
   - **루트 오브젝트는 Active 유지 필수** — FindFirstObjectByType은 비활성 오브젝트 탐색 불가

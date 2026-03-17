@@ -283,20 +283,13 @@ namespace Hexiege.Presentation
         /// 랜덤매칭: 다시하기 버튼 숨김 (로비 복귀만 가능).
         /// 커스텀게임: 재경기 요청 콜백 연결 + 요청 중 상태 표시.
         /// </summary>
-        /// <param name="isRandomMatch">랜덤 매칭 여부. true이면 다시하기 버튼 숨김.</param>
-        /// <param name="onRequestRematch">커스텀게임 재경기 요청 콜백.</param>
+        /// <param name="isRandomMatch">랜덤 매칭 여부. 현재 미사용 — 랜덤/커스텀 모두 동일 동작.</param>
+        /// <param name="onRequestRematch">재경기 요청 콜백.</param>
         public void SetupRematchButton(bool isRandomMatch, System.Action onRequestRematch)
         {
             if (_restartButton == null) return;
 
-            if (isRandomMatch)
-            {
-                // 랜덤매칭: 다시하기 버튼 숨김 — 로비 복귀만 가능
-                _restartButton.gameObject.SetActive(false);
-                return;
-            }
-
-            // 커스텀게임: 재경기 요청 콜백 연결
+            // 멀티플레이: 재경기 요청 콜백 연결 (랜덤/커스텀 동일)
             _restartButton.onClick.RemoveAllListeners();
             _restartButton.onClick.AddListener(() =>
             {

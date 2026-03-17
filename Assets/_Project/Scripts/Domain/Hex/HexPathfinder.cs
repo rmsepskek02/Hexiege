@@ -44,8 +44,8 @@ namespace Hexiege.Domain
             // 도착 타일이 없거나 이동 불가면 경로 없음
             if (grid.GetTile(goal) == null || !grid.GetTile(goal).IsWalkable) return null;
 
-            // 도착지가 차단 좌표에 포함되면 경로 없음
-            if (blockedCoords != null && blockedCoords.Contains(goal)) return null;
+            // blocked는 경로 중간 타일에만 적용. 목표 타일은 체크하지 않음.
+            // (다른 유닛이 ClaimedTile로 선점 중이어도 목표까지 경로를 찾을 수 있어야 함)
 
             // ----------------------------------------------------------------
             // A* 자료구조 초기화

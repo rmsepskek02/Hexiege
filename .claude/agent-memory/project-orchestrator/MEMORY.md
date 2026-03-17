@@ -6,11 +6,20 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
-## 프로젝트 현재 상태 (2026-03-17)
+## 프로젝트 현재 상태 (2026-03-18)
+
+### 2026-03-18 완료
+- **랜덤매칭 재경기 지원**
+  - `GameEndUI.SetupRematchButton()`에서 `isRandomMatch==true` 버튼 숨김 분기 제거
+  - 랜덤매칭도 커스텀게임과 동일한 양측 동의 재경기 흐름 (추가 RPC 불필요)
+- **건물 인근 타일 이동/공격 불가 버그 수정**
+  - `HexPathfinder.FindPath()`: goal blocked 체크 제거 — ClaimedTile 교착 상태 해소
+  - `UnitCombatUseCase.FindFirstEnemyTarget()`: maxDist에 Epsilon=0.05f 추가 — 인접 경계 부동소수점 오차 방지
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-17/building-adjacent-movement-fix/`
 
 ### 2026-03-17 완료
 - **커스텀게임 재경기 시스템**
-  - 싱글=즉시 재시작(변경 없음), 랜덤=버튼 숨김, 커스텀=양측 동의 재경기
+  - 싱글=즉시 재시작(변경 없음), 랜덤/커스텀=양측 동의 재경기 (2026-03-18 랜덤 통합)
   - `NetworkGameManager.IsRandomMatchmaking` 속성 추가
   - `NetworkGameEndController` RPC 재경기 시스템 (Request/Accept/Decline, targeted ClientRpc)
   - `RematchRequestPopup.cs` 신규 (`Presentation/UI/Common/`), `RematchPopupBuilder.cs` 에디터 스크립트

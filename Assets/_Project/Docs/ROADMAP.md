@@ -160,4 +160,6 @@
 | 2026-03-16 | 랜덤 매칭 게임 씬 전환 버그 수정 (GetHashCode 크로스-프로세스 비결정성 → GetStableHash polynomial hash 교체, OnClientConnectedCallback 등록 순서 수정) |
 | 2026-03-17 | 전역 로딩 스크린 완료 (LoadingScreen.cs 싱글턴, Lobby 씬 UI, 싱글플레이 2초 딜레이, 커스텀/랜덤매칭 sceneLoaded 자동 Hide) |
 | 2026-03-17 | 멀티플레이 로비 복귀 버그 수정 (Inspector _lobbySceneName 값 오류 발견, 로컬 독립 처리로 설계 변경, 30초 자동 복귀 타이머 추가) |
-| 2026-03-17 | 커스텀게임 재경기 시스템 완료 (양측 동의 재경기, RematchRequestPopup 신규, NGO SceneManager.LoadScene 재로드, 레이스 컨디션 처리, 랜덤매칭 다시하기 버튼 숨김) |
+| 2026-03-17 | 커스텀게임 재경기 시스템 완료 (양측 동의 재경기, RematchRequestPopup 신규, NGO SceneManager.LoadScene 재로드, 레이스 컨디션 처리) |
+| 2026-03-18 | 랜덤매칭 재경기 지원 완료 (GameEndUI.SetupRematchButton 랜덤매칭 버튼 숨김 제거 → 커스텀게임과 동일 흐름) |
+| 2026-03-18 | 건물 인근 타일 이동/공격 불가 버그 수정 (HexPathfinder goal blocked 체크 제거, UnitCombatUseCase maxDist Epsilon=0.05f 추가) |

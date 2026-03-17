@@ -106,8 +106,10 @@ namespace Hexiege.Application
                 return FindFirstEnemyTargetByHexCoord(attacker);
 
             // FlatTop 인접 타일 월드 거리 = TileHeight(0.866f)
-            // AttackRange × TileHeight: 타일 중심 간 정확한 거리 기준 (epsilon 없음)
-            float maxDist = attacker.AttackRange * HexMetrics.TileHeight;
+            // AttackRange × TileHeight: 타일 중심 간 정확한 거리 기준
+            // Epsilon: 인접 타일 거리(0.866) = Pistoleer maxDist(0.866) 경계 케이스 부동소수점 오차 방지
+            const float Epsilon = 0.05f;
+            float maxDist = attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
 
             IDamageable closestTarget = null;
             float minWorldDist = float.MaxValue;
