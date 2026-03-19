@@ -23,6 +23,17 @@
 
 ## 최근 작업
 
+### 카메라 줌 DOTween 보간 (2026-03-19) ✅ 테스트 완료
+- **CameraController.cs**: HandleZoom() 즉시 적용 → DOTween 보간으로 교체
+  - `_targetZoom` (float): 입력 시 Clamp된 목표값 누적
+  - `_zoomTween` (Tweener): Kill() 후 새 Tween 시작 — 연속 스크롤 시 부드럽게 목표 갱신
+  - `DOTween.To(() => _cam.orthographicSize, x => _cam.orthographicSize = x, _targetZoom, _zoomDuration).SetEase(Ease.OutCubic)`
+  - `_zoomDuration` (SerializeField, default=0.25f): Inspector 조정 가능
+  - `Awake()`에서 `_targetZoom = _cam.orthographicSize` 초기화
+  - `OnDestroy()`에서 `_zoomTween?.Kill()` 정리
+  - `using DG.Tweening` 추가
+- ClampPosition()은 매 프레임 orthographicSize 읽으므로 수정 불필요
+
 ### 건물 인근 이동/공격 불가 버그 수정 (2026-03-18) ✅ 테스트 완료
 - **HexPathfinder.cs**: `FindPath()` goal blocked 체크 제거 — 목표 타일이 ClaimedTile에 선점되어도 경로 탐색 가능
   - 이전: `if (blockedCoords.Contains(goal)) return null;` → 인근 타일 모두 선점 시 교착 상태

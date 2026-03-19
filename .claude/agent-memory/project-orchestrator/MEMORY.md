@@ -6,7 +6,14 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
-## 프로젝트 현재 상태 (2026-03-18)
+## 프로젝트 현재 상태 (2026-03-19)
+
+### 2026-03-19 완료
+- **카메라 줌 DOTween 보간**
+  - `CameraController.cs`: HandleZoom() 즉시 적용 → DOTween.To + Ease.OutCubic 보간
+  - `_targetZoom` 누적 방식 — 연속 스크롤 시 자연스러운 목표값 갱신
+  - `_zoomDuration` (SerializeField, default=0.25f) Inspector 조정 가능
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-19/camera-zoom-smooth/`
 
 ### 2026-03-18 완료
 - **랜덤매칭 재경기 지원**

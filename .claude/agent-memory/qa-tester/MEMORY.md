@@ -4,6 +4,19 @@
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
 
+## 카메라 줌 보간 QA (2026-03-19 완료)
+
+### 수정 내용
+- `CameraController.HandleZoom()`: 즉시 orthographicSize 적용 → DOTween.To Ease.OutCubic 보간
+
+### 테스트 결과
+- [x] 마우스 스크롤 줌인/줌아웃 부드럽게 보간 ✅
+- [x] 연속 스크롤 목표값 누적 후 자연스러운 이동 ✅
+- [x] 줌 경계(min/max) 정상 작동 ✅
+- [x] ClampPosition 줌 중 경계 정상 동작 ✅
+- [x] 팬과 동시 사용 충돌 없음 ✅
+- [ ] 핀치 줌 실제 모바일 디바이스 미테스트
+
 ## 재경기 시스템 QA 항목
 
 ### 구현 내용 (2026-03-17 커스텀 / 2026-03-18 랜덤 통합)

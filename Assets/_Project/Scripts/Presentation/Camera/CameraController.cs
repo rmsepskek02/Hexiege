@@ -29,6 +29,7 @@
 
 using UnityEngine;
 using UnityEngine.InputSystem;
+using DG.Tweening;
 using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
@@ -47,6 +48,10 @@ namespace Hexiege.Presentation
         [Header("3D 카메라 설정")]
         [Tooltip("카메라 X축 틸트 각도 (45~60도 권장). 0이면 수직 탑다운.")]
         [SerializeField] private float _tiltAngle = 55f;
+
+        [Header("줌 보간")]
+        [Tooltip("DOTween 줌 보간 지속시간 (초). 낮을수록 빠름.")]
+        [SerializeField] private float _zoomDuration = 0.25f;
 
         // ====================================================================
         // 내부 상태
@@ -67,6 +72,12 @@ namespace Hexiege.Presentation
         /// <summary> 맵 경계가 설정되었는지 여부. </summary>
         private bool _hasBounds;
 
+        /// <summary> DOTween 줌 목표값. 입력 시 갱신, Tween이 이 값으로 보간. </summary>
+        private float _targetZoom;
+
+        /// <summary> 현재 실행 중인 줌 Tween. 새 입력 시 Kill 후 교체. </summary>
+        private Tweener _zoomTween;
+
         /// <summary> XZ 평면 (Y=0). 스크린 좌표 → 월드 좌표 변환에 사용. </summary>
         private static readonly Plane _xzPlane = new Plane(Vector3.up, Vector3.zero);
 
@@ -77,6 +88,7 @@ namespace Hexiege.Presentation
         private void Awake()
         {
             _cam = GetComponent<Camera>();
+            _targetZoom = _cam.orthographicSize;
         }
 
         /// <summary>
@@ -203,9 +215,14 @@ namespace Hexiege.Presentation
 
             if (Mathf.Abs(zoomDelta) > 0.001f)
             {
-                _cam.orthographicSize = Mathf.Clamp(
-                    _cam.orthographicSize + zoomDelta,
-                    zoomMin, zoomMax);
+                _targetZoom = Mathf.Clamp(_targetZoom + zoomDelta, zoomMin, zoomMax);
+                _zoomTween?.Kill();
+                _zoomTween = DOTween.To(
+                    () => _cam.orthographicSize,
+                    x => _cam.orthographicSize = x,
+                    _targetZoom,
+                    _zoomDuration
+                ).SetEase(Ease.OutCubic);
             }
         }
 
@@ -392,6 +409,11 @@ namespace Hexiege.Presentation
         private void OnDisable()
         {
             UnityEngine.InputSystem.EnhancedTouch.EnhancedTouchSupport.Disable();
+        }
+
+        private void OnDestroy()
+        {
+            _zoomTween?.Kill();
         }
     }
 }
