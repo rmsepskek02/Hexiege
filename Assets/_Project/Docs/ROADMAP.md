@@ -164,3 +164,4 @@
 | 2026-03-18 | 랜덤매칭 재경기 지원 완료 (GameEndUI.SetupRematchButton 랜덤매칭 버튼 숨김 제거 → 커스텀게임과 동일 흐름) |
 | 2026-03-18 | 건물 인근 타일 이동/공격 불가 버그 수정 (HexPathfinder goal blocked 체크 제거, UnitCombatUseCase maxDist Epsilon=0.05f 추가) |
 | 2026-03-19 | 카메라 줌 DOTween 보간 완료 (CameraController _targetZoom + DOTween.To Ease.OutCubic, _zoomDuration SerializeField) |
+| 2026-03-19 | UI DOTween 애니메이션 프레임워크 완료 (UIAnimator static 헬퍼 + AnimatedPanel 컴포넌트 / GameEndPanel=SlideFromTop, ProductionPopup/BuildingPopup=SlideFromBottom / RematchRequestPopup blocksRaycasts 버그 수정) |

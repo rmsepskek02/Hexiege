@@ -60,8 +60,8 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         [Header("Popup")]
-        [Tooltip("팝업 래퍼 (활성/비활성 토글)")]
-        [SerializeField] private GameObject _popup;
+        [Tooltip("팝업 래퍼 (AnimatedPanel 부착, Show()/Hide()로 토글)")]
+        [SerializeField] private AnimatedPanel _popup;
 
         [Tooltip("배경 버튼 (터치 시 팝업 닫기)")]
         [SerializeField] private Button _backgroundButton;
@@ -141,7 +141,7 @@ namespace Hexiege.Presentation
         private BuildingData _currentBarracks;
 
         /// <summary> 팝업이 열려있는지 여부. </summary>
-        public bool IsOpen => _popup != null && _popup.activeSelf;
+        public bool IsOpen => _popup != null && _popup.IsVisible;
 
         /// <summary> 팝업이 닫힌 프레임. 같은 프레임 클릭 통과 방지용. </summary>
         public int ClosedFrame { get; private set; } = -1;
@@ -181,9 +181,7 @@ namespace Hexiege.Presentation
             _ticker = ticker;
             _networkProductionController = networkProductionController;
 
-            // 시작 시 팝업 비활성
-            if (_popup != null)
-                _popup.SetActive(false);
+            // 시작 시 팝업 비활성 (AnimatedPanel.Awake()에서 이미 비활성화되지만 명시적 보장)
 
             // 배경 버튼 → 닫기
             if (_backgroundButton != null)
@@ -228,8 +226,7 @@ namespace Hexiege.Presentation
             _currentBarracks = barracks;
             IsSettingRallyPoint = false;
 
-            if (_popup != null)
-                _popup.SetActive(true);
+            _popup?.Show();
 
             // 배럭 선택 시 랠리포인트 마커 표시
             if (_ticker != null)
@@ -251,8 +248,7 @@ namespace Hexiege.Presentation
             if (_ticker != null)
                 _ticker.HideAllRallyMarkers();
 
-            if (_popup != null)
-                _popup.SetActive(false);
+            _popup?.Hide();
 
             _currentBarracks = null;
         }
@@ -415,8 +411,7 @@ namespace Hexiege.Presentation
             // 팝업을 닫아서 타일 클릭이 가능하도록 함
             // Close()를 호출하면 IsSettingRallyPoint와 _currentBarracks가 리셋되므로
             // 직접 팝업만 비활성화
-            if (_popup != null)
-                _popup.SetActive(false);
+            _popup?.Hide();
         }
 
         /// <summary>

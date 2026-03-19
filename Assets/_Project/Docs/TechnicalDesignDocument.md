@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.13.0
-**최종 수정일:** 2026-03-09
+**버전:** 0.17.0
+**최종 수정일:** 2026-03-19
 **작성자:** HANYONGHEE
 
 ---
@@ -390,7 +390,48 @@ public class HumanRaceStrategy : IRaceStrategy {
 }
 ```
 
-### 8. UI 팝업 구현 패턴
+### 8. UI DOTween 애니메이션 패턴 (2026-03-19)
+
+인게임 UI 패널의 등장/퇴장 애니메이션을 일관되게 처리하기 위한 프레임워크.
+
+#### UIAnimator (static 헬퍼)
+
+`Assets/_Project/Scripts/Presentation/UI/Common/UIAnimator.cs` — DOTween Sequence를 반환하는 정적 메서드 모음.
+
+```csharp
+// 사용 가능한 메서드
+UIAnimator.PopupShow(CanvasGroup cg, Transform tf, float duration);
+UIAnimator.PopupHide(CanvasGroup cg, Transform tf, Action onComplete, float duration);
+UIAnimator.SlideInFromBottom(RectTransform rt, CanvasGroup cg, float offset, float duration);
+UIAnimator.SlideOutToBottom(RectTransform rt, CanvasGroup cg, Action onComplete, float offset, float duration);
+UIAnimator.SlideInFromTop(RectTransform rt, CanvasGroup cg, float offset, float duration);
+UIAnimator.SlideOutToTop(RectTransform rt, CanvasGroup cg, Action onComplete, float offset, float duration);
+```
+
+#### AnimatedPanel 컴포넌트
+
+`Assets/_Project/Scripts/Presentation/UI/Common/AnimatedPanel.cs` — 패널 GameObject에 부착하여 Show()/Hide() 호출만으로 애니메이션 자동 처리.
+
+```csharp
+// Inspector 설정
+AnimationType: PopupFade | SlideFromBottom | SlideFromTop
+ShowDuration: 0.25f (인게임 컨텍스트/게임 상태 패널 기준)
+HideDuration: 0.2f
+SlideOffset: 300f (px)
+BackgroundOverlay: CanvasGroup (선택적 — 슬라이드 패널 배경용)
+
+// 코드에서 호출
+_panel.Show();
+_panel.Hide(onComplete: () => { /* 퇴장 완료 후 실행 */ });
+```
+
+**배경 오버레이 규칙**: `_backgroundOverlay`가 연결된 경우 Show() 시 즉시 SetActive(true), Hide() 완료 후 SetActive(false). 패널 슬라이드 애니메이션과 독립적으로 즉시 처리.
+
+**분류별 애니메이션 기준** → `Assets/_Project/Docs/UIGuidelines.md` 참조.
+
+---
+
+### 9. UI 팝업 구현 패턴
 
 팝업 UI 구현 시 배경 클릭으로 창을 닫는 기능을 구현할 때 발생하는 문제를 방지하기 위해 다음 패턴을 권장합니다.
 
@@ -526,7 +567,7 @@ List<HexCoord> path = HexPathfinder.FindPath(grid, start, goal, blockedCoords);
 - **같은 팀** 유닛의 ClaimedTile(이동 중 선점 타일)도 차단 목록에 포함 → 아군끼리 겹침 방지
 - **적 팀**의 ClaimedTile은 차단하지 않음 → 적과의 타일 경합은 전투로 해결
 - UnitMovementUseCase가 RequestMove() 시 자기 자신을 제외한 모든 살아있는 유닛 좌표 + 같은 팀 ClaimedTile을 HashSet으로 구성하여 전달
-- 목표 타일이 차단 좌표에 포함되면 경로 없음(null) 반환
+- **목표 타일은 차단 체크 제외** (2026-03-18 수정): 경로 중간 타일에만 blocked 적용. 목표 타일도 blocked 체크 시, 인접 타일이 모두 선점되면 Castle에 도달 불가한 교착 상태 발생 가능
 
 **ClaimedTile (이동 중 타일 선점)**:
 - UnitData.ClaimedTile (HexCoord?) — Lerp 시작 전 설정, Lerp 완료 후 해제
@@ -607,19 +648,21 @@ UnitData와 BuildingData 모두 IDamageable을 구현하여 UnitCombatUseCase가
 
 타입별 기본 스탯을 정적 클래스에서 관리:
 ```csharp
-// UnitStats: 유닛 타입별 기본 스탯
+// UnitStats: 유닛 타입별 기본 스탯 (2026-03-14 재확정)
 public static class UnitStats {
     public static int GetMaxHp(UnitType type) => type switch {
-        UnitType.Pistoleer => 50, _ => 10
+        UnitType.Pistoleer => 30, UnitType.Assault => 50, UnitType.Sniper => 30, _ => 10
     };
     public static int GetAttackPower(UnitType type) => type switch {
-        UnitType.Pistoleer => 3, _ => 1
+        UnitType.Pistoleer => 6, UnitType.Assault => 1, UnitType.Sniper => 10, _ => 1
     };
-    public static int GetAttackRange(UnitType type) => type switch {
-        UnitType.Pistoleer => 1, _ => 1
+    public static float GetAttackRange(UnitType type) => type switch {
+        UnitType.Pistoleer => 1.0f, UnitType.Assault => 2.0f, UnitType.Sniper => 5.0f, _ => 1.0f
     };
+    // 사거리 임계값(world units) = AttackRange * TileHeight(0.866) + 0.05f (Epsilon)
+    // Pistoleer: 0.916, Assault: 1.782, Sniper: 4.38
     public static float GetMoveSeconds(UnitType type) => type switch {
-        UnitType.Pistoleer => 0.8f, _ => 0.3f
+        UnitType.Pistoleer => 1.0f, UnitType.Assault => 1.0f, UnitType.Sniper => 0.25f, _ => 1.0f
     };
     public static float GetAttackCooldown(UnitType type) => type switch {
         UnitType.Pistoleer => 1.0f, _ => 1.0f  // UnitFactory에서 Attack 클립 길이로 덮어씀
@@ -629,7 +672,7 @@ public static class UnitStats {
 // BuildingStats: 건물 타입별 기본 HP
 public static class BuildingStats {
     public static int GetMaxHp(BuildingType type) => type switch {
-        BuildingType.Castle => 50, BuildingType.Barracks => 30,
+        BuildingType.Castle => 100, BuildingType.Barracks => 30,
         BuildingType.MiningPost => 20, _ => 10
     };
 }
@@ -1104,46 +1147,17 @@ Build Settings:
 
 ---
 
-## 📊 개발 로드맵
 
-### Phase 1: 코어 메커니즘 (3~4주)
-- 육각형 그리드 생성
-- 타일 점령 시스템
-- 기본 생산 시스템
-
-### Phase 2: 네트워크 (2~3주)
-- Netcode 통합
-- Relay 연결
-- 동기화 테스트
-
-### Phase 3: 게임플레이 (3~4주)
-- 5가지 건물
-- 3종족 유닛
-- AI 시스템
-
-### Phase 4: 백엔드 (2~3주)
-- PlayFab 연동
-- 계정 시스템
-- 인앱 결제
-
-### Phase 5: 컨텐츠 (3~4주)
-- UI/UX
-- 튜토리얼
-- 밸런싱
-
-### Phase 6: 출시 (2주)
-- QA 테스트
-- 최적화
-- 스토어 등록
-
-**총 개발 기간**: 약 4개월
-
----
+> 개발 진행 현황 및 로드맵은 `ROADMAP.md`, `PROJECT_STATUS.md` 참조.
 
 ## 📝 변경 이력
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.17.0 | 2026-03-19 | 유닛 스탯 코드 예시 재확정 (ATK: Pistoleer=6, Assault=1, Sniper=10 / 사거리: 1.0/2.0/5.0 / epsilon 0.05f 명시 / Sniper MoveSpeed=0.25). Castle HP 50→100. A* 목표 타일 blocked 체크 제거 반영. UIAnimator/AnimatedPanel 패턴 섹션 추가. 개발 로드맵 섹션 삭제 (ROADMAP.md 참조로 대체). |
+| 0.16.0 | 2026-03-19 | 카메라 줌 DOTween 보간 완료 (CameraController _targetZoom + DOTween.To Ease.OutCubic, _zoomDuration SerializeField). |
+| 0.15.0 | 2026-03-17~18 | 전역 로딩 스크린 (LoadingScreen.cs 싱글턴, Show/Hide DOFade, sceneLoaded 자동 Hide). 재경기 시스템 (RematchRequestPopup, RequestRematchServerRpc, NGO LoadScene 재로드). 멀티플레이 로비 복귀 버그 수정 (로컬 독립 처리, WaitForSecondsRealtime 기반 30초 카운트다운). |
+| 0.14.0 | 2026-03-14~16 | 팀별 프리팹 코드 연동 (UnitFactory/BuildingFactory 팀+타입별 분기). Assault/Sniper UnitType enum + UnitStats + UnitProductionStats. 공격 애니메이션-타격 동기화 (AnimationEventRelay + Animation Event + scale punch). 유닛 메시 방향 보정 (하위 Mesh Y=30°). 유닛 회전 DOTween 보간 (ApplyDirection/PlayAttackAnimation). 랜덤매칭 씬 전환 버그 수정 (GetStableHash polynomial hash). |
 | 0.13.0 | 2026-03-09 | GameConfig AnimationFps 필드 제거 (미사용), Walk 애니메이션 연속 재생 수정 (매 스텝 0f 리셋 → 이미 Walk 상태이면 리셋 안 함), UnitStats HP 50으로 현행화, SetDependencyReferences 시그니처 현행화 (animData 제거, unitFactory/buildingFactory 추가), T키 자동이동 섹션 제거 (기능 삭제됨), 랠리마커 sortingOrder 제거 (3D Z-buffer 전환 완료) |
 | 0.12.0 | 2026-03-07 | 3D 전환 반영: Netcode 버전 2.9.2, 애니메이션 Animator(Mecanim) 기반(Walk/Attack/Dead), sortingOrder 폐기→Z-buffer 렌더링, TileHeight 0.866 통일, ViewConverter 시스템 문서화, 비주얼/카메라 스타일 3D 이소메트릭 반영 |
 | 0.11.0 | 2026-02-20 | HUD 타일 카운트: GameHudUI에 블루/레드 팀 보유 타일 수 표시 추가(_blueTileCountText/_redTileCountText), PopulationUseCase.GetMaxPopulation() 활용. 게임 종료 UI 버그 수정: GameEndUI를 Awake() 자체 구독→Initialize() 패턴으로 변경(비활성 패널에서 Awake 미호출 문제 해결), GameBootstrapper.LoadMap()에서 Initialize() 호출, 재시작 시 구독 정리/재구독 처리 |

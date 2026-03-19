@@ -17,7 +17,7 @@ namespace Hexiege.Domain
         /// </summary>
         public static int GetMaxHp(BuildingType type) => type switch
         {
-            BuildingType.Castle     => 50,
+            BuildingType.Castle     => 100,
             BuildingType.Barracks   => 30,
             BuildingType.MiningPost => 20,
             _                       => 10

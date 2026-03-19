@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-03-19
-**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료 / 멀티플레이 로비 복귀 버그 수정 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료
+**현재 단계:** 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료 / 멀티플레이 로비 복귀 버그 수정 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료
 
 ---
 
@@ -61,6 +61,17 @@
 | 금광 타일 3D 오브젝트 (GoldMineTile) | ✅ 완료 |
 | 랠리포인트 마커 3D | ✅ 완료 |
 | HexTileView 팀 색상 (_BaseColor, Shader Graph) | ✅ 완료 |
+
+#### UI DOTween 애니메이션 프레임워크 (2026-03-19)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| `UIAnimator.cs` — static 헬퍼 | ✅ 완료 | PopupShow/Hide, SlideFromBottom/Top, ButtonPunch, CountTo, FlashText, FillTo |
+| `AnimatedPanel.cs` — 팝업 컴포넌트 | ✅ 완료 | AnimationType(PopupFade/SlideFromBottom/SlideFromTop), IsVisible, SetUpdate(true), `_backgroundOverlay`(즉시 SetActive) |
+| `AnimatedPanelSetup.cs` — Inspector 자동화 에디터 스크립트 | ✅ 완료 | `Hexiege/Setup/Apply AnimatedPanel Setup` 메뉴 |
+| GameEndPanel → SlideFromTop | ✅ 완료 | 위에서 아래로 슬라이드 인 |
+| ProductionPopup → SlideFromBottom | ✅ 완료 | 하단 슬라이드 업 |
+| BuildingPopup → SlideFromBottom | ✅ 완료 | 기존 PopupFade → 변경 (ProductionPanelUI와 일관성 통일) |
+| RematchRequestPopup DOFade 수정 | ✅ 완료 | _currentFade 공유 → 3개 별도 Tween / blocksRaycasts 해제 버그 수정 |
 
 #### 전역 로딩 스크린 (2026-03-17)
 | 항목 | 상태 | 비고 |

@@ -1,8 +1,58 @@
 # QA Tester Memory — Hexiege
 
+## ⚠️ 코드 리뷰 필수 범위 규칙 (CRITICAL)
+
+타입 변경/신규 파일이 포함된 작업은 아래 순서로 반드시 진행:
+
+1. **plan.md "수정 파일 전체 목록"을 기준**으로 변경된 모든 파일 읽기
+2. **변경된 타입을 참조하는 상위/주변 파일도 함께 읽기**
+   - 예: `GameObject _popup → AnimatedPanel _popup` 변경 시 → `_popup`을 사용하는 모든 코드 경로 추적
+   - `SetActive()` 같은 구버전 API 호출 잔존 여부 확인
+3. **각 파일의 namespace, using 선언 확인**
+   - 신규 타입 사용 시 필요한 `using` 추가됐는지
+   - namespace 충돌 여부
+4. **타입 불일치 직접 추적**
+   - SerializedField 타입과 Inspector 연결 타입 일치 여부
+   - 반환 타입, 파라미터 타입 변경으로 인한 연쇄 영향
+5. **타입 변경이 있는 경우 파일 읽기 전에 Grep 전수 검색 먼저 수행**
+   - 변경 전 타입/API 패턴을 프로젝트 전체 .cs 파일에서 검색
+   - 예: `GameObject _popup` → `AnimatedPanel _popup` 변경 시:
+     - `_popup\.SetActive` 검색
+     - `_popup\.activeSelf` 검색
+     - `_popup\.gameObject` 검색
+     - `GameObject.*_popup` 검색
+   - 검색 결과가 있으면 해당 파일/라인 즉시 FAIL 기록
+   - Grep으로 찾은 뒤 해당 파일을 읽어 맥락 파악
+6. **컴파일 에러 수준 문제 발견 시** → testcase.md에 FAIL 기록 후 **나머지 TC도 계속 진행** — 모든 TC 결과를 빠짐없이 기록
+
+범위가 좁으면 컴파일 에러도 놓칠 수 있음 — 연관 파일 누락 절대 금지.
+
+---
+
 ## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음)
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
+
+## UI DOTween 애니메이션 QA (Phase 1+2 완료 + 실기 테스트 완료, 2026-03-19)
+
+### 최종 판정: PASS (전 TC 통과 — 정적 분석 + 실기 테스트 모두)
+
+### Phase 1 발견 버그 → Phase 2 수정 완료
+1. **[수정됨] RematchRequestPopup `_currentFade` 공유** → `_overlayFade`/`_requestFade`/`_declinedFade` 3개 변수 + `ref Tween` 패턴
+2. **[수정됨] Hide() blocksRaycasts 미해제** → FadeOut OnComplete에서 `cg.blocksRaycasts = false` 명시
+
+### 잔존 Minor
+- AnimatedPanel EnsureInitialized(): SetActive(false) 미호출 — 씬 배치 시 비활성 설정하면 무해
+- AnimatedPanelSetup.cs L37/L75 주석: 구버전 "PopupFade" 기재 — 실제 코드는 SlideFromTop/SlideFromBottom으로 올바름
+
+### 확인된 UIAnimator 패턴 (표준)
+- SlideInFromTop: `pos.y = +offsetY` 시작 → `DOAnchorPosY(0f)`. SetUpdate(true) 적용
+- SlideOutToTop: `DOAnchorPosY(+offsetY)` 후 SetActive(false). SetUpdate(true) 적용
+- RematchRequestPopup: `ref Tween` 패턴으로 패널별 독립 Tween 관리
+- `_currentSeq?.Kill()` — Show/Hide 전환 전 진행 중 Tween 정리
+- `ClosedFrame = Time.frameCount` — 같은 프레임 클릭 통과 방지
+
+---
 
 ## 카메라 줌 보간 QA (2026-03-19 완료)
 

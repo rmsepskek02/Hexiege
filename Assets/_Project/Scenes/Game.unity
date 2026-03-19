@@ -1133,6 +1133,7 @@ GameObject:
   m_Component:
   - component: {fileID: 227464723}
   - component: {fileID: 227464724}
+  - component: {fileID: 227464725}
   m_Layer: 0
   m_Name: BuildingPopup
   m_TagString: Untagged
@@ -1173,7 +1174,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 33be472d4bff46a4cb35cf151289ff3c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.BuildingPlacementUI
-  _popup: {fileID: 227464722}
+  _popup: {fileID: 227464725}
   _backgroundButton: {fileID: 543183964}
   _barracksButton: {fileID: 261378706}
   _miningPostButton: {fileID: 1169409528}
@@ -1185,6 +1186,22 @@ MonoBehaviour:
   _redPortraits:
     barracks: {fileID: 21300000, guid: a6b81200f0c31494cb869cff99862581, type: 3}
   _miningPostPortrait: {fileID: 21300000, guid: 9266774e2b3975747bb4e93e46c1df75, type: 3}
+--- !u!114 &227464725
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 227464722}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b97e76d0453d56e4b961752cd52c6eb6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.AnimatedPanel
+  _animationType: 1
+  _showDuration: 0.2
+  _hideDuration: 0.15
+  _slideOffset: 300
 --- !u!1 &228554541
 GameObject:
   m_ObjectHideFlags: 0
@@ -2939,6 +2956,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.CameraController
   _config: {fileID: 11400000, guid: 7cca7135ba1fd4b4cb646e723c248995, type: 2}
   _tiltAngle: 55
+  _zoomDuration: 0.25
 --- !u!1 &332291528
 GameObject:
   m_ObjectHideFlags: 0
@@ -8930,6 +8948,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1309749080}
   - component: {fileID: 1309749081}
+  - component: {fileID: 1309749082}
   m_Layer: 0
   m_Name: GameEndPanel
   m_TagString: Untagged
@@ -8973,15 +8992,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 938888c449796d043829a0a1b8c3be0d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.GameEndUI
-  _panel: {fileID: 1309749079}
+  _panel: {fileID: 1309749082}
   _resultText: {fileID: 2104385912}
   _restartButton: {fileID: 1978228656}
   _bootstrapper: {fileID: 1093233943}
-  _networkGameEndController: {fileID: 0}
   _backToLobbyButton: {fileID: 1555752452}
   _countdownText: {fileID: 194798721}
   _autoReturnSeconds: 30
-  _restartButtonText: {fileID: 0}
+  _restartButtonText: {fileID: 365692188}
+--- !u!114 &1309749082
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1309749079}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b97e76d0453d56e4b961752cd52c6eb6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.AnimatedPanel
+  _animationType: 2
+  _showDuration: 0.2
+  _hideDuration: 0.15
+  _slideOffset: 300
 --- !u!1 &1310222878
 GameObject:
   m_ObjectHideFlags: 0
@@ -13625,6 +13659,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1959302709}
   - component: {fileID: 1959302710}
+  - component: {fileID: 1959302711}
   m_Layer: 0
   m_Name: ProductionPopup
   m_TagString: Untagged
@@ -13665,7 +13700,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9d4bcb97ff5bade45b8d5a5ab070de45, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.ProductionPanelUI
-  _popup: {fileID: 1959302708}
+  _popup: {fileID: 1959302711}
   _backgroundButton: {fileID: 904784758}
   _pistoleerButton: {fileID: 2016188247}
   _assaultButton: {fileID: 1492405312}
@@ -13691,6 +13726,22 @@ MonoBehaviour:
   _populationText: {fileID: 257469112}
   _cancelButton: {fileID: 450248397}
   _rallyPointButton: {fileID: 2040808656}
+--- !u!114 &1959302711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1959302708}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b97e76d0453d56e4b961752cd52c6eb6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.AnimatedPanel
+  _animationType: 1
+  _showDuration: 0.2
+  _hideDuration: 0.15
+  _slideOffset: 300
 --- !u!1 &1978228654
 GameObject:
   m_ObjectHideFlags: 0

@@ -56,10 +56,7 @@
 - 이 원칙은 UI, 아키텍처, 알고리즘 등 모든 개발 영역에 적용
 
 ## 8. 주석은 상세하게 작성
-- 유니티 초급 개발자도 쉽게 이해할 수 있는 주석 작성.
-
-## 9. 코드 작업 완료 후 TestCase 문서로 작성
-- _Task 폴더 내 해당 작업 폴더에 research/plan.md 와 같이 testcase 문서도 작성
+- 유니티 초급 개발자도 쉽게 이해할 수 있는 주석 작성
 
 ---
 
@@ -68,22 +65,19 @@
 ```
 [1] 사용자 요청 → 계획 설명 (파일 수정 없음)
 [2] 승인 → "task 문서 작성할까요?" 질문 먼저
-[3] research.md 작성 (요청 시에만)
-[4] plan.md 작성 → 공유 → 승인 후에만 구현
+[3] research.md 작성
+[4] plan.md 작성 → 공유 → 명시적 승인 후에만 구현 시작
 [5] 에이전트 위임 → 구현
 [6] 사용자 테스트
-[7] "문서/메모리 업데이트를 진행할까요?" 반드시 확인  ← 사용자가 다음 작업으로 넘어가려 해도 이 확인 먼저
-[8] plan.md 테스트 체크리스트 업데이트
-[9] 사용자 MEMORY.md 업데이트 (C:\Users\rmsep\.claude\projects\...\memory\)
-[10] PROJECT_STATUS.md 업데이트
-[11] ROADMAP.md 업데이트
-[12] 에이전트 메모리 업데이트 ← 자주 누락 주의
-    - game-programmer: .claude/agent-memory/game-programmer/MEMORY.md
-    - project-orchestrator: .claude/agent-memory/project-orchestrator/MEMORY.md
-    - qa-tester: .claude/agent-memory/qa-tester/MEMORY.md
-    - game-design-lead: .claude/agent-memory/game-design-lead/MEMORY.md
+[7] "문서/메모리 업데이트를 진행할까요?" 반드시 확인  ← 다음 작업으로 넘어가려 해도 이 확인 먼저
+[8] testcase.md 결과 업데이트
+[9] 에이전트 MEMORY.md 업데이트
+[10] 사용자 MEMORY.md 업데이트 (C:\Users\rmsep\.claude\projects\...\memory\)
+[11] 업데이트 내용 검토
+[12] PROJECT_STATUS.md / ROADMAP.md 업데이트
 ```
 
 **[7]~[12] 중 하나라도 빠지면 사이클 미완료. 순서대로 모두 수행.**
 
-상세 규칙: `Assets/_Project/Docs/_Tasks/README.md` 참조.
+상세 운영 규칙 (TestCase 문서, Inspector 에디터 스크립트, 에이전트 위임 기준 등):
+→ `Assets/_Project/Docs/_Tasks/README.md` 참조

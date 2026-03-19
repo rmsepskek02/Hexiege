@@ -35,7 +35,6 @@ using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
 using Hexiege.Bootstrap;
-using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
@@ -46,8 +45,8 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         [Header("UI References")]
-        [Tooltip("게임 종료 패널 (전체 래퍼, SetActive로 토글)")]
-        [SerializeField] private GameObject _panel;
+        [Tooltip("게임 종료 패널 (AnimatedPanel 부착, Show()/Hide()로 토글)")]
+        [SerializeField] private AnimatedPanel _panel;
 
         [Tooltip("승리/패배 결과 텍스트")]
         [SerializeField] private TextMeshProUGUI _resultText;
@@ -58,9 +57,6 @@ namespace Hexiege.Presentation
         [Header("Dependencies")]
         [Tooltip("GameBootstrapper (재시작용)")]
         [SerializeField] private GameBootstrapper _bootstrapper;
-
-        [Tooltip("NetworkGameEndController (멀티플레이 로비 복귀용). 비워두면 자동 탐색.")]
-        [SerializeField] private NetworkGameEndController _networkGameEndController;
 
         [Header("로비 복귀")]
         [Tooltip("로비로 돌아가기 버튼")]
@@ -120,10 +116,6 @@ namespace Hexiege.Presentation
                 _backToLobbyButton.onClick.AddListener(OnBackToLobbyClicked);
             }
 
-            // NetworkGameEndController 자동 탐색
-            if (_networkGameEndController == null)
-                _networkGameEndController = FindFirstObjectByType<NetworkGameEndController>();
-
             // 패널 숨김
             Hide();
         }
@@ -153,7 +145,7 @@ namespace Hexiege.Presentation
                 _resultText.color = isWin ? WinColor : LoseColor;
             }
 
-            _panel.SetActive(true);
+            _panel?.Show();
             // 게임 일시정지
             Time.timeScale = 0f;
 
@@ -198,8 +190,7 @@ namespace Hexiege.Presentation
         public void Hide()
         {
             StopCountdown();
-            if (_panel != null)
-                _panel.SetActive(false);
+            _panel?.Hide();
         }
 
         /// <summary>
@@ -221,7 +212,7 @@ namespace Hexiege.Presentation
                 _resultText.color = isWin ? WinColor : LoseColor;
             }
 
-            _panel.SetActive(true);
+            _panel?.Show();
             // 게임 일시정지
             Time.timeScale = 0f;
 

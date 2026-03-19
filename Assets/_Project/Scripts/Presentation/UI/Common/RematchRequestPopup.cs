@@ -9,6 +9,7 @@
 // Presentation 레이어 — MonoBehaviour.
 // ============================================================================
 
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -55,12 +56,35 @@ namespace Hexiege.Presentation
         /// <summary>거절 콜백.</summary>
         private System.Action _onDecline;
 
+        /// <summary>오버레이 CanvasGroup. DOFade 페이드 애니메이션에 사용.</summary>
+        private CanvasGroup _overlayCg;
+
+        /// <summary>요청 패널 CanvasGroup. DOFade 페이드 애니메이션에 사용.</summary>
+        private CanvasGroup _requestPanelCg;
+
+        /// <summary>거절 알림 패널 CanvasGroup. DOFade 페이드 애니메이션에 사용.</summary>
+        private CanvasGroup _declinedPanelCg;
+
+        /// <summary>오버레이 페이드 Tween. 패널별 독립 관리하여 동시 페이드 시 서로 Kill하지 않도록 분리.</summary>
+        private Tween _overlayFade;
+
+        /// <summary>요청 패널 페이드 Tween. 오버레이와 독립적으로 페이드 애니메이션 실행.</summary>
+        private Tween _requestFade;
+
+        /// <summary>거절 알림 패널 페이드 Tween. 오버레이와 독립적으로 페이드 애니메이션 실행.</summary>
+        private Tween _declinedFade;
+
         // ====================================================================
         // Unity 생명주기
         // ====================================================================
 
         private void Awake()
         {
+            // CanvasGroup 캐시: 없으면 자동 추가 — DOFade 애니메이션에 필수
+            _overlayCg = EnsureCanvasGroup(_overlay);
+            _requestPanelCg = EnsureCanvasGroup(_requestPanel);
+            _declinedPanelCg = EnsureCanvasGroup(_declinedPanel);
+
             // 버튼 이벤트 바인딩
             if (_acceptButton != null)
                 _acceptButton.onClick.AddListener(OnAcceptClicked);
@@ -69,8 +93,78 @@ namespace Hexiege.Presentation
             if (_declinedConfirmButton != null)
                 _declinedConfirmButton.onClick.AddListener(Hide);
 
-            // 초기 상태: 숨김
-            Hide();
+            // 초기 상태: 즉시 숨김 (애니메이션 없이 — Awake에서 페이드하면 시각적 깜빡임 발생)
+            if (_overlay != null)      _overlay.SetActive(false);
+            if (_requestPanel != null) _requestPanel.SetActive(false);
+            if (_declinedPanel != null) _declinedPanel.SetActive(false);
+        }
+
+        private void OnDestroy()
+        {
+            // 패널별 페이드 Tween을 모두 정리 — 씬 전환 시 남은 Tween 에러 방지
+            _overlayFade?.Kill();
+            _requestFade?.Kill();
+            _declinedFade?.Kill();
+        }
+
+        // ====================================================================
+        // 내부 헬퍼
+        // ====================================================================
+
+        /// <summary>
+        /// 지정된 GameObject에서 CanvasGroup을 가져오거나 없으면 추가.
+        /// DOFade 애니메이션에 CanvasGroup이 필수이므로 안전하게 보장.
+        /// </summary>
+        /// <param name="go">CanvasGroup을 확보할 대상 GameObject.</param>
+        /// <returns>확보된 CanvasGroup. go가 null이면 null 반환.</returns>
+        private CanvasGroup EnsureCanvasGroup(GameObject go)
+        {
+            if (go == null) return null;
+            var cg = go.GetComponent<CanvasGroup>();
+            if (cg == null)
+                cg = go.AddComponent<CanvasGroup>();
+            return cg;
+        }
+
+        /// <summary>
+        /// 대상 패널을 SetActive(true) 후 DOFade 0→1 페이드인 실행.
+        /// 이전 페이드가 진행 중이면 Kill()로 정리 후 새 페이드 시작.
+        /// ref로 Tween을 전달받아 패널별 독립적으로 관리 — 다른 패널의 Tween을 덮어쓰지 않음.
+        /// </summary>
+        /// <param name="go">활성화할 GameObject.</param>
+        /// <param name="cg">페이드 대상 CanvasGroup.</param>
+        /// <param name="fadeTween">해당 패널의 Tween 참조. Kill/재할당용.</param>
+        private void FadeIn(GameObject go, CanvasGroup cg, ref Tween fadeTween)
+        {
+            if (go == null || cg == null) return;
+            go.SetActive(true);
+            cg.alpha = 0f;
+            cg.blocksRaycasts = true; // 페이드인 시 레이캐스트 활성화
+            fadeTween?.Kill();
+            fadeTween = cg.DOFade(1f, 0.2f).SetUpdate(true);
+        }
+
+        /// <summary>
+        /// 대상 패널을 DOFade 1→0 페이드아웃 후 SetActive(false) + blocksRaycasts=false 처리.
+        /// ref로 Tween을 전달받아 패널별 독립적으로 관리.
+        /// </summary>
+        /// <param name="go">비활성화할 GameObject.</param>
+        /// <param name="cg">페이드 대상 CanvasGroup.</param>
+        /// <param name="fadeTween">해당 패널의 Tween 참조. Kill/재할당용.</param>
+        private void FadeOut(GameObject go, CanvasGroup cg, ref Tween fadeTween)
+        {
+            if (go == null || cg == null) return;
+            if (!go.activeSelf) return; // 이미 비활성이면 무시
+            fadeTween?.Kill();
+            fadeTween = cg.DOFade(0f, 0.15f).SetUpdate(true)
+                .OnComplete(() =>
+                {
+                    // 페이드아웃 완료 후 비활성화 + 레이캐스트 차단
+                    // blocksRaycasts=false가 누락되면 보이지 않는 CanvasGroup이 터치를 차단하여
+                    // 게임 UI 전체가 클릭 불가능해지는 버그 발생
+                    cg.blocksRaycasts = false;
+                    go.SetActive(false);
+                });
         }
 
         // ====================================================================
@@ -88,9 +182,12 @@ namespace Hexiege.Presentation
             _onAccept = onAccept;
             _onDecline = onDecline;
 
-            if (_overlay != null)      _overlay.SetActive(true);
-            if (_requestPanel != null) _requestPanel.SetActive(true);
+            // 거절 패널은 즉시 비활성 (페이드 불필요 — 보이지 않는 상태)
             if (_declinedPanel != null) _declinedPanel.SetActive(false);
+
+            // 오버레이 + 요청 패널 페이드인 (각각 독립 Tween으로 관리)
+            FadeIn(_overlay, _overlayCg, ref _overlayFade);
+            FadeIn(_requestPanel, _requestPanelCg, ref _requestFade);
         }
 
         /// <summary>
@@ -99,19 +196,22 @@ namespace Hexiege.Presentation
         /// </summary>
         public void ShowDeclined()
         {
-            if (_overlay != null)      _overlay.SetActive(true);
+            // 요청 패널은 즉시 비활성 (페이드 불필요 — 보이지 않는 상태)
             if (_requestPanel != null) _requestPanel.SetActive(false);
-            if (_declinedPanel != null) _declinedPanel.SetActive(true);
+
+            // 오버레이 + 거절 알림 패널 페이드인 (각각 독립 Tween으로 관리)
+            FadeIn(_overlay, _overlayCg, ref _overlayFade);
+            FadeIn(_declinedPanel, _declinedPanelCg, ref _declinedFade);
         }
 
         /// <summary>
-        /// 팝업 전체 숨김. 오버레이 + 요청/거절 알림 패널 모두 비활성화.
+        /// 팝업 전체 숨김. 오버레이 + 요청/거절 알림 패널 모두 페이드아웃 후 비활성화.
         /// </summary>
         public void Hide()
         {
-            if (_overlay != null)      _overlay.SetActive(false);
-            if (_requestPanel != null) _requestPanel.SetActive(false);
-            if (_declinedPanel != null) _declinedPanel.SetActive(false);
+            FadeOut(_overlay, _overlayCg, ref _overlayFade);
+            FadeOut(_requestPanel, _requestPanelCg, ref _requestFade);
+            FadeOut(_declinedPanel, _declinedPanelCg, ref _declinedFade);
         }
 
         // ====================================================================

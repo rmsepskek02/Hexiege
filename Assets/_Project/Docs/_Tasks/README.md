@@ -11,7 +11,8 @@ _Tasks/
 └── YYYY-MM-DD
   └── HH_MM_[작업명]/
     ├── research.md    ← 코드 파악, 영향 범위, 현재 상태
-    └── plan.md        ← 구현 접근법, 파일별 변경 내용, 위험 요소
+    ├── plan.md        ← 구현 접근법, 파일별 변경 내용, 위험 요소
+    └── testcase.md    ← 테스트 시나리오 + qa 에이전트 결과 기록
 ```
 
 예시:
@@ -20,10 +21,12 @@ _Tasks/
 └── 2026-03-05
   └── 18_05_network-input-fix/
     ├── research.md
-    └── plan.md  
+    ├── plan.md
+    └── testcase.md
   └── 19_05_attack-direction/
     ├── research.md
-    └── plan.md
+    ├── plan.md
+    └── testcase.md
 ```
 
 ---
@@ -41,17 +44,25 @@ _Tasks/
       ↓
 [5] 에이전트 위임 결정 → 컨텍스트 공유 → 구현
       ↓
+[5-1] Inspector 작업이 필요한 경우: Editor 1회성 스크립트 작성 → 사용자에게 안내
+      ↓
+[5-2] testcase.md 작성 → qa-tester 에이전트에게 테스트 요청 및 테스트 진행하여 문서에 반영
+      ↓
 [6] 구현 내용을 사용자가 테스트하여 작업 완료 여부 확인
 (버그 발견 또는 부족한 구현의 경우 재작업)
       ↓
 [7] 테스트 완료 확인 즉시 → "문서/메모리 업데이트를 진행할까요?" 반드시 확인
 (사용자가 다음 작업으로 넘어가려 해도 이 확인 단계를 생략하지 않음)
       ↓
-[8] 에이전트 MEMORY.md 업데이트
+[8] testcase.md 결과 업데이트
       ↓
-[9] 업데이트 내용 검토
+[9] 에이전트 MEMORY.md 업데이트
       ↓
-[10] PROJECT_STATUS.md / ROADMAP.md 반영
+[10] 사용자 MEMORY.md 업데이트 (C:\Users\rmsep\.claude\projects\...\memory\)
+      ↓
+[11] 업데이트 내용 검토
+      ↓
+[12] PROJECT_STATUS.md / ROADMAP.md 반영
 ```
 
 ### ⚠️ 절대 금지 사항
@@ -81,6 +92,16 @@ _Tasks/
 ### [5] 에이전트 위임 및 구현
 아래 **에이전트 위임 기준** 참조.
 
+### [5-1] Inspector 에디터 스크립트 (Inspector 작업이 있는 경우)
+- Inspector에서 수동으로 해야 하는 작업이 있을 경우 Editor에서 실행 가능한 1회성 스크립트 작성
+- 메뉴 경로(`Hexiege/...`) 형태로 작성, 완료 후 사용자에게 안내
+- 스크립트 실행 완료 후 해당 파일 삭제해도 무방 (1회성)
+
+### [5-2] testcase.md 작성 및 QA 요청
+- 구현 완료 후 `testcase.md`를 작업 폴더에 작성
+- qa-tester 에이전트에게 testcase.md와 함께 테스트 요청
+- 테스트 결과(PASS/FAIL, 발견 버그)를 testcase.md에 기록
+
 ### [6] 사용자 테스트
 - 구현 내용을 사용자가 직접 테스트하여 완료 여부 확인
 - 버그 발견 또는 부족한 구현의 경우 재작업
@@ -89,14 +110,21 @@ _Tasks/
 - 테스트 완료 확인 즉시 → **"문서/메모리 업데이트를 진행할까요?"** 반드시 질문
 - 사용자가 다음 작업을 언급해도 이 확인을 먼저 한 뒤 넘어감
 
-### [8] 에이전트 MEMORY.md 업데이트
+### [8] testcase.md 업데이트
+- 사용자 테스트 최종 결과를 `testcase.md`에 반영 (PASS/FAIL)
+- plan.md 별도 체크리스트 불필요 — testcase.md로 통합
+
+### [9] 에이전트 MEMORY.md 업데이트
 아래 **완료 후 업데이트 체크리스트** 참조.
 
-### [9] 업데이트 내용 검토
+### [10] 사용자 MEMORY.md 업데이트
+- `C:/Users/rmsep/.claude/projects/.../memory/MEMORY.md`: 아키텍처 결정, 중요 교훈, 핵심 제약 반영
+
+### [11] 업데이트 내용 검토
 - 각 에이전트가 작성한 MEMORY.md 변경 내용을 확인
 - 잘못 기록된 내용, 누락된 항목 수정
 
-### [10] 문서 반영
+### [12] 문서 반영
 - `PROJECT_STATUS.md`: 완료된 시스템/버그 수정 항목 갱신
 - `ROADMAP.md`: 완료 마일스톤 추가, 다음 우선순위 조정
 

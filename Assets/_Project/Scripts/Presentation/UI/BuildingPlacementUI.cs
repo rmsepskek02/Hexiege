@@ -42,8 +42,8 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         [Header("UI References")]
-        [Tooltip("팝업 래퍼 (Background + BuildingPanel 포함, 활성/비활성 토글)")]
-        [SerializeField] private GameObject _popup;
+        [Tooltip("팝업 래퍼 (AnimatedPanel 부착, Show()/Hide()로 토글)")]
+        [SerializeField] private AnimatedPanel _popup;
 
         [Tooltip("배경 버튼 (터치 시 팝업 닫기)")]
         [SerializeField] private Button _backgroundButton;
@@ -107,7 +107,7 @@ namespace Hexiege.Presentation
         private TeamId _currentTeam;
 
         /// <summary> 팝업이 열려있는지 여부. InputHandler에서 확인. </summary>
-        public bool IsOpen => _popup != null && _popup.activeSelf;
+        public bool IsOpen => _popup != null && _popup.IsVisible;
 
         /// <summary> 팝업이 닫힌 프레임. 같은 프레임 클릭 통과 방지용. </summary>
         public int ClosedFrame { get; private set; } = -1;
@@ -129,9 +129,7 @@ namespace Hexiege.Presentation
             _config = config;
             _networkBuildingController = networkBuildingController;
 
-            // 시작 시 팝업 비활성
-            if (_popup != null)
-                _popup.SetActive(false);
+            // 시작 시 팝업 비활성 (AnimatedPanel.Awake()에서 이미 비활성화되지만 명시적 보장)
 
             // 버튼 이벤트 연결
             if (_backgroundButton != null)
@@ -178,8 +176,7 @@ namespace Hexiege.Presentation
                     _barracksButton.interactable = canBarracks;
             }
 
-            if (_popup != null)
-                _popup.SetActive(true);
+            _popup?.Show();
         }
 
         /// <summary> 팀에 맞는 초상화 스프라이트를 버튼 Image에 적용. Show() 시 호출. </summary>
@@ -196,8 +193,7 @@ namespace Hexiege.Presentation
         public void Close()
         {
             ClosedFrame = Time.frameCount;
-            if (_popup != null)
-                _popup.SetActive(false);
+            _popup?.Hide();
         }
 
         // ====================================================================
