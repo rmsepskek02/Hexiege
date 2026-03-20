@@ -1,57 +1,74 @@
-# Hexiege 프로젝트 메인 메모리
+# 에이전트 공용 컨텍스트
 
-**최종 갱신:** 2026-03-16
+> **모든 에이전트는 작업 시작 전 이 파일을 반드시 읽을 것.**
+
+---
 
 ## 프로젝트 개요
-- **장르**: 모바일 1v1 실시간 전략 (RTS), 육각형 타일맵 기반 공성전
-- **엔진**: Unity 6000.0.x (URP), C# 9.0
-- **네트워크**: Netcode for GameObjects 2.9.2 + Unity Multiplayer Services 2.0.0
-- **이벤트**: UniRx 7.1.0
-- **3D 모델**: Meshy.ai Image-to-3D → Mixamo 애니메이션
+- 장르: 모바일 1v1 RTS, 헥스 타일맵 기반 공성전 (9:16 세로)
+- 엔진: Unity 6000.0.x (URP), C# 9.0, NGO 2.9.2
+- 씬: Lobby.unity (Build Index 0), Game.unity (Build Index 1)
+- 레이어: Domain → Application → Core → Infrastructure → Presentation → Bootstrap
 
-## 현재 상태 (2026-03-16 기준)
-- 싱글플레이 코어 루프 완성
-- 멀티플레이 Phase 1~8 완성
-- 로비 씬 분리 MVVM 완료 (Lobby.unity + Game.unity)
-- **완료**: 랜덤 매칭 후 게임 씬 전환 안 되는 버그 수정 (2026-03-16)
-  - `MatchmakerManager.DetermineIsHostAsync` — `GetHashCode()` 제거 → `GetStableHash()` (polynomial hash) 로 교체
-  - `NetworkGameManager.HostGameAsync` — `OnClientConnectedCallback` 등록을 `StartNetworkHost()` 이전으로 이동
-- **보류**: 전역 로딩 스크린 구현 (task 문서 작성 완료, 구현 미착수)
-- 다음 우선순위: 로딩 스크린 구현, 랜덤 매칭 추가 테스트 (반복 매칭 무작위성 검증)
+---
 
-## 절대 규칙 (CLAUDE.md 핵심)
-1. 사용자가 명시적으로 요청한 파일만 생성/수정
-2. 승인 후 즉시 구현 금지 → "task 문서 작성할까요?" 먼저 질문
-3. 코드/설계 → 전문 에이전트 위임 (game-programmer / game-design-lead)
-4. 테스트 완료 후 → "문서/메모리 업데이트를 진행할까요?" 확인
-5. git 명령 절대 금지 (git restore 사고로 작업 전체 삭제된 전례 있음)
+## 아키텍처 핵심 제약 (위반 시 컴파일 오류 또는 런타임 버그)
 
-## 아키텍처 핵심
-- **레이어**: Domain ← Application ← Infrastructure / Presentation ← Application
-- **Domain → Core 참조 금지** (HexOrientationContext 정적 홀더 패턴 사용)
-- **GameBootstrapper** = 유일한 의존성 조합 루트
-- **NetworkBehaviour** = Infrastructure 레이어에만 배치
-- **Application 레이어**: Unity.Netcode 직접 참조 금지 → NetworkContext 정적 홀더 사용
-- No Assembly Definitions — 네임스페이스 규약으로만 레이어 경계 관리
+| 제약 | 내용 |
+|------|------|
+| Domain → Core 참조 금지 | `using Hexiege.Core` in Domain 파일 불가 → HexOrientationContext 정적 홀더 사용 |
+| GameBootstrapper | 유일한 의존성 조합 루트 — 다른 곳에서 직접 의존성 주입 금지 |
+| NetworkBehaviour 위치 | Infrastructure 레이어에만 (Presentation/Application 금지) |
+| Application → Netcode | Unity.Netcode 직접 참조 금지 → NetworkContext 정적 홀더 사용 |
+| Assembly Definitions | 없음 — 네임스페이스 규약으로만 레이어 경계 관리 |
+| NGO RPC 메서드명 | 반드시 `ServerRpc`/`ClientRpc`로 끝나야 함 |
+| NGO 설정 | Enable Scene Management = ON 필수 |
 
-## 좌표계
+---
+
+## 절대 규칙 참조
+→ `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/CLAUDE.md`
+
+## 작업 사이클 상세 참조
+→ `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/README.md`
+
+---
+
+## 에이전트별 MEMORY.md 경로
+
+| 에이전트 | MEMORY.md 경로 |
+|---------|---------------|
+| game-programmer | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/game-programmer/MEMORY.md` |
+| game-design-lead | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/game-design-lead/MEMORY.md` |
+| qa-tester | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/qa-tester/MEMORY.md` |
+| asset-prompt-crafter | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/asset-prompt-crafter/MEMORY.md` |
+| project-orchestrator | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/project-orchestrator/MEMORY.md` |
+
+---
+
+## 주요 문서 경로
+
+| 문서 | 경로 |
+|------|------|
+| 프로젝트 현황 | `Assets/_Project/Docs/PROJECT_STATUS.md` |
+| 로드맵 | `Assets/_Project/Docs/ROADMAP.md` |
+| 기획서 | `Assets/_Project/Docs/GameDesignDocument.md` |
+| 기술설계 | `Assets/_Project/Docs/TechnicalDesignDocument.md` |
+| 작업 사이클 규칙 | `Assets/_Project/Docs/_Tasks/README.md` |
+
+---
+
+## 좌표계 핵심
 - XZ 평면 (Y=0 바닥, Y=높이)
 - HexMetrics.HexToWorld() → Vector3(x, 0f, z)
 - ViewConverter: Red팀 좌표 반전 `2*center - pos` (X, Z만 반전, Y 보존)
-- 올바른 초기화 순서: ViewConverter.Setup() → LoadMap() (순서 바꾸면 건물 위치 버그)
+- ViewConverter.Setup()은 LoadMap() 내 렌더링 전에 호출 (ApplyConfig() 직후)
 
-## 에이전트 메모리 경로
-```
-.claude/agent-memory/game-programmer/MEMORY.md
-.claude/agent-memory/game-design-lead/MEMORY.md
-.claude/agent-memory/qa-tester/MEMORY.md
-.claude/agent-memory/asset-prompt-crafter/MEMORY.md
-.claude/agent-memory/project-orchestrator/MEMORY.md
-```
+---
 
-## 주요 문서 경로
-- 기획서: `Assets/_Project/Docs/GameDesignDocument.md`
-- 기술설계: `Assets/_Project/Docs/TechnicalDesignDocument.md`
-- 진행현황: `Assets/_Project/Docs/PROJECT_STATUS.md`
-- 로드맵: `Assets/_Project/Docs/ROADMAP.md`
-- 작업규칙: `Assets/_Project/Docs/_Tasks/README.md`
+## 공통 중요 교훈
+- Y Scale 0.4 on tile prefabs is INTENTIONAL (등각 효과) — 절대 변경 금지
+- Inspector 값이 코드 기본값보다 우선 (ScriptableObject overrides code)
+- QA 에이전트 제안 → 반드시 컴파일 확인 후 적용
+- Scene NetworkObjects → Despawn/Respawn 시 리셋 → GameBootstrapper flag 사용
+- TeamAssigner 삭제됨 (2026-03-20) — NetworkGameFlow.WaitForTeamAndSendReady()에서 팀 직접 할당

@@ -23,6 +23,27 @@
 
 ## 최근 작업
 
+### 코드 정리 (2026-03-20) ✅ 테스트 완료
+- **TeamAssigner.cs 삭제**: Player Prefab=None으로 스폰 안 됨, NetworkGameFlow로 완전 대체 확인 후 삭제
+- **LocalPlayerTeam.cs 주석 정리**: "TeamAssigner에서 호출" → "NetworkGameFlow에서 호출" (5곳)
+- **NetworkGameFlow.cs 주석 정리**: L12 "TeamAssigner 준비 대기" → "IsHost 기반으로 팀 직접 결정"
+- **GameBootstrapper.cs IsNetworkMode() 헬퍼 추출**: `NetworkManager.Singleton != null && (IsHost || IsClient)` 4곳 중복 → private 메서드 통합
+
+### 싱글플레이 ViewConverter 초기화 버그 수정 (2026-03-20) ✅ 테스트 완료
+- **증상**: Red팀 싱글플레이에서 내 진영이 화면 하단이 아닌 상단에 표시
+- **원인**: `ViewConverter.Reset()`이 LocalPlayerTeam.Current 무시하고 항상 Blue 관점 고정
+- **수정**: `GameBootstrapper.LoadMap()` — `ViewConverter.Reset()` 제거, `ApplyConfig()` 직후 LocalPlayerTeam 기반 Setup:
+  ```csharp
+  if (!isNetworkMode)
+  {
+      Vector3 mapCenter = HexMetrics.GridCenter(oc.GridWidth, oc.GridHeight);
+      bool isRed = (LocalPlayerTeam.Current == TeamId.Red);
+      ViewConverter.Setup(isRed, mapCenter);
+  }
+  ```
+- **주의**: `ApplyConfig()` 이후에 호출해야 HexMetrics 준비 완료 후 GridCenter 계산 가능
+- **카메라 초기 위치는 변경 없음** — 맵 중앙 유지 (SetCameraStartPositionForTeam 호출 금지)
+
 ### 카메라 줌 DOTween 보간 (2026-03-19) ✅ 테스트 완료
 - **CameraController.cs**: HandleZoom() 즉시 적용 → DOTween 보간으로 교체
   - `_targetZoom` (float): 입력 시 Clamp된 목표값 누적
@@ -125,7 +146,7 @@
 ### 팀 매핑
 - TeamId: Neutral=0, Blue=1, Red=2
 - Host→Blue, Client→Red
-- TeamAssigner._assignedTeamIndex: 0=Blue, 1=Red (TeamId와 다름!)
+- TeamAssigner는 삭제됨 (2026-03-20) — NetworkGameFlow.WaitForTeamAndSendReady()에서 IsHost?Blue:Red로 직접 할당
 
 ### 동기화 타이밍
 - NetworkSync 스폰 시 HexGrid/ResourceUseCase null 가능 → null 방어 필수

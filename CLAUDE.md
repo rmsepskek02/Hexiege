@@ -60,24 +60,21 @@
 
 ---
 
-## 전체 작업 사이클 요약
+## 문서 시스템 구조
 
-```
-[1] 사용자 요청 → 계획 설명 (파일 수정 없음)
-[2] 승인 → "task 문서 작성할까요?" 질문 먼저
-[3] research.md 작성
-[4] plan.md 작성 → 공유 → 명시적 승인 후에만 구현 시작
-[5] 에이전트 위임 → 구현
-[6] 사용자 테스트
-[7] "문서/메모리 업데이트를 진행할까요?" 반드시 확인  ← 다음 작업으로 넘어가려 해도 이 확인 먼저
-[8] testcase.md 결과 업데이트
-[9] 에이전트 MEMORY.md 업데이트
-[10] 사용자 MEMORY.md 업데이트 (C:\Users\rmsep\.claude\projects\...\memory\)
-[11] 업데이트 내용 검토
-[12] PROJECT_STATUS.md / ROADMAP.md 업데이트
-```
+| 파일 | 역할 | 자동 로드 |
+|------|------|----------|
+| `CLAUDE.md` (이 파일) | 절대 규칙 | ✅ 항상 |
+| `Assets/_Project/Docs/_Tasks/README.md` | 작업 사이클 상세 운영 규칙 — **단일 권위 소스** | ❌ 수동 |
+| `.claude/MEMORY.md` | 에이전트 공용 컨텍스트 인덱스 | ❌ 수동 |
+| `C:\Users\rmsep\.claude\projects\...\memory\` | 프로젝트 상태/학습 메모리 | ✅ 항상 |
 
-**[7]~[12] 중 하나라도 빠지면 사이클 미완료. 순서대로 모두 수행.**
+## 작업 사이클
 
-상세 운영 규칙 (TestCase 문서, Inspector 에디터 스크립트, 에이전트 위임 기준 등):
-→ `Assets/_Project/Docs/_Tasks/README.md` 참조
+**작업 시작 전 `Assets/_Project/Docs/_Tasks/README.md`를 반드시 읽고 사이클을 확인할 것.**
+
+**[7]~[12] 중 하나라도 빠지면 사이클 미완료.**
+
+## 에이전트 위임 시 필수
+
+에이전트 호출 전 **`.claude/MEMORY.md`를 반드시 먼저 읽고** 에이전트에게 공통 컨텍스트로 전달.

@@ -224,9 +224,7 @@ namespace Hexiege.Bootstrap
         private void Start()
         {
             // 네트워크 모드 확인: NetworkManager가 활성화되어 있으면 네트워크 게임
-            bool isNetworkMode = NetworkManager.Singleton != null &&
-                                 (NetworkManager.Singleton.IsHost ||
-                                  NetworkManager.Singleton.IsClient);
+            bool isNetworkMode = IsNetworkMode();
 
             if (isNetworkMode)
             {
@@ -255,16 +253,7 @@ namespace Hexiege.Bootstrap
             // 게임 오버 상태에서 재시작 시 시간 복원
             Time.timeScale = 1f;
 
-            // ViewConverter 리셋 — 싱글플레이 전용.
-            // 네트워크 모드에서는 StartNetworkGame()이 LoadMap() 호출 전에
-            // ViewConverter.Setup()을 완료하므로 여기서 리셋하지 않음.
-            bool isNetworkMode = NetworkManager.Singleton != null &&
-                                 (NetworkManager.Singleton.IsHost ||
-                                  NetworkManager.Singleton.IsClient);
-            if (!isNetworkMode)
-            {
-                ViewConverter.Reset();
-            }
+            bool isNetworkMode = IsNetworkMode();
 
             if (_config == null)
             {
@@ -280,6 +269,16 @@ namespace Hexiege.Bootstrap
 
             // 2. 설정 적용
             ApplyConfig(orientation, oc);
+
+            // 싱글플레이: LocalPlayerTeam 기반으로 ViewConverter 초기화.
+            // ApplyConfig() 이후에 호출해야 HexMetrics가 준비되어 GridCenter 계산이 정확함.
+            // 멀티플레이는 StartNetworkGame()에서 LoadMap() 전에 이미 설정하므로 여기서는 건너뜀.
+            if (!isNetworkMode)
+            {
+                Vector3 mapCenter = HexMetrics.GridCenter(oc.GridWidth, oc.GridHeight);
+                bool isRed = (LocalPlayerTeam.Current == TeamId.Red);
+                ViewConverter.Setup(isRed, mapCenter);
+            }
 
             // 3. 그리드 생성
             _grid = new HexGrid(oc.GridWidth, oc.GridHeight, orientation);
@@ -582,9 +581,7 @@ namespace Hexiege.Bootstrap
             if (_buildingUI != null)
             {
                 // 네트워크 모드 여부에 따라 컨트롤러를 주입 (싱글플레이 시 null 전달)
-                bool isNetworkMode = Unity.Netcode.NetworkManager.Singleton != null &&
-                                     (Unity.Netcode.NetworkManager.Singleton.IsHost ||
-                                      Unity.Netcode.NetworkManager.Singleton.IsClient);
+                bool isNetworkMode = IsNetworkMode();
 
                 Hexiege.Infrastructure.NetworkBuildingController controller =
                     isNetworkMode ? _networkBuildingController : null;
@@ -615,9 +612,7 @@ namespace Hexiege.Bootstrap
                     _buildingPlacement, _unitFactory, _config);
 
             // 네트워크 모드 여부에 따라 NetworkProductionController 주입 (싱글플레이 시 null)
-            bool isNetworkMode = Unity.Netcode.NetworkManager.Singleton != null &&
-                                 (Unity.Netcode.NetworkManager.Singleton.IsHost ||
-                                  Unity.Netcode.NetworkManager.Singleton.IsClient);
+            bool isNetworkMode = IsNetworkMode();
 
             Hexiege.Infrastructure.NetworkProductionController productionController =
                 isNetworkMode ? _networkProductionController : null;
@@ -703,6 +698,20 @@ namespace Hexiege.Bootstrap
                     startingMines[1][0], startingMines[1][1], orientation);
                 _buildingPlacement.PlaceMiningPostDirect(TeamId.Red, redMinePos);
             }
+        }
+
+        // ====================================================================
+        // 유틸리티
+        // ====================================================================
+
+        /// <summary>
+        /// 현재 네트워크 모드(멀티플레이)로 실행 중인지 확인합니다.
+        /// Host 또는 Client로 연결된 경우 true를 반환합니다.
+        /// </summary>
+        private bool IsNetworkMode()
+        {
+            return NetworkManager.Singleton != null &&
+                (NetworkManager.Singleton.IsHost || NetworkManager.Singleton.IsClient);
         }
 
     }

@@ -1,6 +1,6 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-03-17
+**최종 수정일:** 2026-03-20
 **현재 단계:** 로비 씬 분리 MVVM 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료
 
 ---
@@ -165,3 +165,5 @@
 | 2026-03-18 | 건물 인근 타일 이동/공격 불가 버그 수정 (HexPathfinder goal blocked 체크 제거, UnitCombatUseCase maxDist Epsilon=0.05f 추가) |
 | 2026-03-19 | 카메라 줌 DOTween 보간 완료 (CameraController _targetZoom + DOTween.To Ease.OutCubic, _zoomDuration SerializeField) |
 | 2026-03-19 | UI DOTween 애니메이션 프레임워크 완료 (UIAnimator static 헬퍼 + AnimatedPanel 컴포넌트 / GameEndPanel=SlideFromTop, ProductionPopup/BuildingPopup=SlideFromBottom / RematchRequestPopup blocksRaycasts 버그 수정) |
+| 2026-03-20 | 코드 정리 완료 (TeamAssigner.cs 삭제, LocalPlayerTeam/NetworkGameFlow 주석 정리, GameBootstrapper IsNetworkMode() 헬퍼 추출) |
+| 2026-03-20 | 싱글플레이 ViewConverter 초기화 버그 수정 (ViewConverter.Reset() → LocalPlayerTeam 기반 Setup(isRed, mapCenter), ApplyConfig() 직후 호출) |

@@ -9,7 +9,7 @@
 //
 // 흐름:
 //   1. OnNetworkSpawn() 호출 (Host/Client 모두)
-//   2. 각 클라이언트: TeamAssigner 준비 대기 후 RequestReadyServerRpc() 호출
+//   2. 각 클라이언트: IsHost 기반으로 팀 직접 결정 후 RequestReadyServerRpc() 호출
 //   3. 서버: 2명 준비 완료 시 StartGameClientRpc() 호출
 //   4. 모든 클라이언트: GameBootstrapper에서 맵 로드 + 팀별 초기화
 //
