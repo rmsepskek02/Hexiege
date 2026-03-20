@@ -370,14 +370,9 @@ namespace Hexiege.Bootstrap
             }
 
             // 맵 로드 (FlatTop 고정) — ViewConverter 설정 완료 후 실행
+            // LoadMap() 내부의 SetupCamera()가 카메라를 맵 중심에 배치함.
+            // 싱글플레이와 동일하게 맵 중심에서 시작하도록 팀별 카메라 이동은 수행하지 않음.
             LoadMap(HexOrientation.FlatTop);
-
-            // 팀에 따른 카메라 시작 위치 조정
-            if (_cameraController != null && _config != null)
-            {
-                OrientationConfig oc = _config.FlatTop;
-                SetCameraStartPositionForTeam(localTeam, oc);
-            }
         }
 
         /// <summary>
