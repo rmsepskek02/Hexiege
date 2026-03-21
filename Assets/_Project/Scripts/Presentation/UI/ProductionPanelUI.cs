@@ -82,8 +82,13 @@ namespace Hexiege.Presentation
         [Tooltip("저격수 버튼 초상화 Image 컴포넌트")]
         [SerializeField] private Image _sniperButtonPortrait;
 
-        [Tooltip("자동 생산 표시 오브젝트 (활성 시 표시)")]
-        [SerializeField] private GameObject _autoIndicator;
+        [Header("Auto Indicators")]
+        [Tooltip("권총병 자동 생산 인디케이터 (해당 유닛이 AutoTypes에 등록되면 활성)")]
+        [SerializeField] private GameObject _pistoleerAutoIndicator;
+        [Tooltip("돌격병 자동 생산 인디케이터")]
+        [SerializeField] private GameObject _assaultAutoIndicator;
+        [Tooltip("저격수 자동 생산 인디케이터")]
+        [SerializeField] private GameObject _sniperAutoIndicator;
 
         [Header("Queue Slots")]
         [Tooltip("큐 슬롯 이미지 3개 (순서대로)")]
@@ -340,6 +345,9 @@ namespace Hexiege.Presentation
 
                 if (button != null)
                 {
+                    // 중복 등록 방지: 기존 리스너 모두 제거 후 새로 등록
+                    // (Initialize가 여러 번 호출되거나 씬 재로드 시 이중 호출 방지)
+                    button.onClick.RemoveAllListeners();
                     int slotIndex = i; // 클로저 캡처용
                     button.onClick.AddListener(() => OnQueueSlotClicked(slotIndex));
                 }
@@ -354,7 +362,9 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 탭 → 수동 큐에 유닛 추가.
+        /// 탭 → 수동 큐에 유닛 추가 또는 자동 생산 취소.
+        /// 자동 모드 ON 상태에서 이미 등록된 타입을 탭하면 자동 생산 목록에서 제거(취소).
+        /// 그 외에는 수동 큐에 추가.
         /// 멀티플레이 모드이면 NetworkProductionController를 통해 서버에 요청.
         /// 싱글플레이이면 UseCase를 직접 호출.
         /// </summary>
@@ -362,44 +372,81 @@ namespace Hexiege.Presentation
         {
             if (_currentBarracks == null || _production == null) return;
 
-            if (_networkProductionController != null &&
-                NetworkManager.Singleton != null &&
-                NetworkManager.Singleton.IsListening)
-            {
-                _networkProductionController.RequestEnqueueServerRpc(
-                    _currentBarracks.Id,
-                    (int)type,
-                    (int)_currentBarracks.Team);
+            var state = _production.GetState(_currentBarracks.Id);
+            bool isAutoForType = state != null && state.IsAutoMode && state.AutoTypes.Contains(type);
 
-                Debug.Log($"[Network] 생산 큐 요청 전송. BarracksId={_currentBarracks.Id}, UnitType={type}");
+            if (isAutoForType)
+            {
+                // 자동 모드 ON 상태에서 등록된 타입 탭 → 자동 생산 취소 (ToggleAutoProduction)
+                // ToggleAutoProduction 내부에서 슬롯 0/1/2 여부에 따라 환불 분기 처리
+                HandleToggleAuto(type);
             }
             else
             {
-                _production.EnqueueUnit(_currentBarracks.Id, type);
+                // 자동 모드 OFF 또는 해당 타입 미등록 → 수동 큐 추가
+                if (_networkProductionController != null &&
+                    NetworkManager.Singleton != null &&
+                    NetworkManager.Singleton.IsListening)
+                {
+                    _networkProductionController.RequestEnqueueServerRpc(
+                        _currentBarracks.Id,
+                        (int)type,
+                        (int)_currentBarracks.Team);
+
+                    Debug.Log($"[Network] 생산 큐 요청 전송. BarracksId={_currentBarracks.Id}, UnitType={type}");
+                }
+                else
+                {
+                    _production.EnqueueUnit(_currentBarracks.Id, type);
+                }
             }
         }
 
         /// <summary>
         /// 롱프레스 → 자동 생산 토글.
+        /// 자동 모드 ON 상태에서 이미 등록된 타입 롱프레스 → 탭과 동일하게 취소 처리.
+        /// 자동 모드 OFF 또는 미등록 타입 → 자동 생산 등록.
         /// 멀티플레이이면 서버에 토글 요청, 싱글플레이이면 UseCase 직접 호출.
         /// </summary>
         private void OnUnitLongPress(UnitType type)
         {
             if (_currentBarracks == null || _production == null) return;
 
+            var state = _production.GetState(_currentBarracks.Id);
+            bool isAutoForType = state != null && state.IsAutoMode && state.AutoTypes.Contains(type);
+
+            if (isAutoForType)
+            {
+                // 자동 모드 ON 상태에서 이미 등록된 타입 롱프레스 → 탭과 동일한 취소 처리
+                HandleToggleAuto(type);
+                return;
+            }
+
+            // 자동 모드 OFF 또는 미등록 타입 → 자동 생산 등록
+            HandleToggleAuto(type);
+        }
+
+        /// <summary>
+        /// 자동 생산 토글 공통 로직.
+        /// 네트워크/싱글플레이 분기 처리. OnUnitTap과 OnUnitLongPress에서 공통 호출.
+        /// </summary>
+        private void HandleToggleAuto(UnitType type)
+        {
             if (_networkProductionController != null &&
                 NetworkManager.Singleton != null &&
                 NetworkManager.Singleton.IsListening)
             {
                 _networkProductionController.ToggleAutoServerRpc(
                     _currentBarracks.Id,
+                    (int)type,
                     (int)_currentBarracks.Team);
 
-                Debug.Log($"[Network] 자동 생산 토글 요청. BarracksId={_currentBarracks.Id}");
-                return;
+                Debug.Log($"[Network] 자동 생산 토글 요청. BarracksId={_currentBarracks.Id}, UnitType={type}");
             }
-
-            _production.ToggleAutoProduction(_currentBarracks.Id, type);
+            else
+            {
+                _production.ToggleAutoProduction(_currentBarracks.Id, type);
+            }
         }
 
         /// <summary> 랠리포인트 설정 모드 진입. </summary>
@@ -440,9 +487,14 @@ namespace Hexiege.Presentation
             var state = _production.GetState(_currentBarracks.Id);
             if (state == null) return;
 
-            // 자동 생산 표시
-            if (_autoIndicator != null)
-                _autoIndicator.SetActive(state.IsAutoMode);
+            // 버튼별 자동 생산 인디케이터 업데이트
+            // 해당 유닛 타입이 AutoTypes에 등록되어 있으면 인디케이터 활성화
+            if (_pistoleerAutoIndicator != null)
+                _pistoleerAutoIndicator.SetActive(state.IsAutoMode && state.AutoTypes.Contains(UnitType.Pistoleer));
+            if (_assaultAutoIndicator != null)
+                _assaultAutoIndicator.SetActive(state.IsAutoMode && state.AutoTypes.Contains(UnitType.Assault));
+            if (_sniperAutoIndicator != null)
+                _sniperAutoIndicator.SetActive(state.IsAutoMode && state.AutoTypes.Contains(UnitType.Sniper));
 
             // 큐 슬롯 갱신
             UpdateQueueSlots(state);
@@ -455,42 +507,91 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 큐 슬롯 표시. 슬롯0=현재 생산 중, 슬롯1~2=대기 큐.
+        /// 큐 슬롯 표시.
+        /// 자동 모드: 슬롯0=현재 생산 중, 슬롯1=AutoTypes[(AutoIndex+1)%count], 슬롯2=AutoTypes[(AutoIndex+2)%count]
+        /// 수동 모드: 슬롯0=현재 생산 중, 슬롯1~2=ManualQueue[0~1]
         /// </summary>
         private void UpdateQueueSlots(ProductionState state)
         {
             if (_queueSlotImages == null) return;
 
-            for (int i = 0; i < _queueSlotImages.Length; i++)
+            if (state.IsAutoMode)
             {
-                if (_queueSlotImages[i] == null) continue;
+                // ── 자동 모드: AutoTypes 기반 큐 표시 ──
+                int count = state.AutoTypes.Count;
 
-                UnitType? slotType = null;
+                for (int i = 0; i < _queueSlotImages.Length; i++)
+                {
+                    if (_queueSlotImages[i] == null) continue;
 
-                if (i == 0)
-                {
-                    // 슬롯 0: 현재 생산 중인 유닛
-                    slotType = state.CurrentProducing;
-                }
-                else
-                {
-                    // 슬롯 1~2: 대기 큐 (ManualQueue[0], ManualQueue[1])
-                    int queueIndex = i - 1;
-                    if (queueIndex < state.ManualQueue.Count)
-                        slotType = state.ManualQueue[queueIndex];
-                }
+                    UnitType? slotType = null;
 
-                if (slotType.HasValue)
-                {
-                    _queueSlotImages[i].sprite = GetPortrait(slotType.Value);
-                    _queueSlotImages[i].color = Color.white;
+                    if (i == 0)
+                    {
+                        // 슬롯 0: 현재 생산 중인 유닛
+                        slotType = state.CurrentProducing;
+                    }
+                    else if (count >= 2 && i == 1)
+                    {
+                        // 슬롯 1: AutoIndex+1 위치의 다음 생산 예정 유닛
+                        // AutoIndex는 현재 생산 중인 타입을 가리키므로 +1이 다음 대기 슬롯
+                        slotType = state.AutoTypes[(state.AutoIndex + 1) % count];
+                    }
+                    else if (count >= 3 && i == 2)
+                    {
+                        // 슬롯 2: AutoIndex+2 위치의 그 다음 생산 예정 유닛
+                        slotType = state.AutoTypes[(state.AutoIndex + 2) % count];
+                    }
+
+                    ApplySlotImage(i, slotType);
                 }
-                else
+            }
+            else
+            {
+                // ── 수동 모드: ManualQueue 기반 큐 표시 (기존 로직) ──
+                for (int i = 0; i < _queueSlotImages.Length; i++)
                 {
-                    // 빈 슬롯 → UnitImage 숨김
-                    _queueSlotImages[i].sprite = null;
-                    _queueSlotImages[i].color = new Color(1f, 1f, 1f, 0f);
+                    if (_queueSlotImages[i] == null) continue;
+
+                    UnitType? slotType = null;
+
+                    if (i == 0)
+                    {
+                        // 슬롯 0: 현재 생산 중인 유닛
+                        slotType = state.CurrentProducing;
+                    }
+                    else
+                    {
+                        // 슬롯 1~2: 대기 큐 (ManualQueue[0], ManualQueue[1])
+                        int queueIndex = i - 1;
+                        if (queueIndex < state.ManualQueue.Count)
+                            slotType = state.ManualQueue[queueIndex];
+                    }
+
+                    ApplySlotImage(i, slotType);
                 }
+            }
+        }
+
+        /// <summary>
+        /// 큐 슬롯 이미지 적용 헬퍼.
+        /// 유닛 타입이 있으면 초상화 표시, 없으면 투명 처리.
+        /// </summary>
+        private void ApplySlotImage(int slotIndex, UnitType? slotType)
+        {
+            if (slotIndex < 0 || slotIndex >= _queueSlotImages.Length) return;
+            if (_queueSlotImages[slotIndex] == null) return;
+
+            if (slotType.HasValue)
+            {
+                _queueSlotImages[slotIndex].sprite = GetPortrait(slotType.Value);
+                _queueSlotImages[slotIndex].color = Color.white;
+            }
+            else
+            {
+                // 빈 슬롯 → UnitImage 숨김
+                _queueSlotImages[slotIndex].sprite = null;
+                _queueSlotImages[slotIndex].color = new Color(1f, 1f, 1f, 0f);
             }
         }
 

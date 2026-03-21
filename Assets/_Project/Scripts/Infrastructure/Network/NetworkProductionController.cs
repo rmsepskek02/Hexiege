@@ -144,7 +144,7 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 큐 변경 이벤트 핸들러 (서버 전용).
         /// 클라이언트에 전체 큐 상태를 스냅샷으로 전파.
-        /// ManualQueue 최대 2개 + CurrentProducing 여부를 전송.
+        /// ManualQueue 최대 2개 + CurrentProducing + AutoTypes 최대 3개를 전송.
         /// </summary>
         private void OnProductionQueueChanged(ProductionQueueChangedEvent e)
         {
@@ -163,13 +163,22 @@ namespace Hexiege.Infrastructure
             int q0 = state.ManualQueue.Count > 0 ? (int)state.ManualQueue[0] : -1;
             int q1 = state.ManualQueue.Count > 1 ? (int)state.ManualQueue[1] : -1;
 
+            // AutoTypes: 최대 3개, 없는 슬롯은 -1
+            int auto0 = state.AutoTypes.Count > 0 ? (int)state.AutoTypes[0] : -1;
+            int auto1 = state.AutoTypes.Count > 1 ? (int)state.AutoTypes[1] : -1;
+            int auto2 = state.AutoTypes.Count > 2 ? (int)state.AutoTypes[2] : -1;
+
             SyncQueueStateClientRpc(
                 e.BarracksId,
                 currentType,
                 q0,
                 q1,
                 state.IsAutoMode,
-                state.Progress);
+                state.Progress,
+                state.AutoIndex,
+                auto0,
+                auto1,
+                auto2);
         }
 
         /// <summary>
@@ -434,7 +443,18 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 서버에서 큐 상태 변경 시 전체 스냅샷을 클라이언트에 전파.
         /// 큐 추가, 취소, 생산 완료 등 모든 큐 변경에 대응.
+        /// AutoTypes와 AutoIndex도 함께 동기화하여 자동 생산 큐 슬롯 표시를 지원.
         /// </summary>
+        /// <param name="barracksId">배럭 Id</param>
+        /// <param name="currentTypeInt">현재 생산 중 유닛 타입 (-1=없음)</param>
+        /// <param name="queue0TypeInt">수동 큐 슬롯 0 (-1=없음)</param>
+        /// <param name="queue1TypeInt">수동 큐 슬롯 1 (-1=없음)</param>
+        /// <param name="isAutoMode">자동 모드 활성 여부</param>
+        /// <param name="progress">현재 생산 진행률</param>
+        /// <param name="autoIndex">자동 순환 인덱스</param>
+        /// <param name="auto0TypeInt">AutoTypes[0] (-1=없음)</param>
+        /// <param name="auto1TypeInt">AutoTypes[1] (-1=없음)</param>
+        /// <param name="auto2TypeInt">AutoTypes[2] (-1=없음)</param>
         [ClientRpc]
         private void SyncQueueStateClientRpc(
             int barracksId,
@@ -442,7 +462,11 @@ namespace Hexiege.Infrastructure
             int queue0TypeInt,
             int queue1TypeInt,
             bool isAutoMode,
-            float progress)
+            float progress,
+            int autoIndex,
+            int auto0TypeInt,
+            int auto1TypeInt,
+            int auto2TypeInt)
         {
             if (IsServer) return;
 
@@ -455,10 +479,17 @@ namespace Hexiege.Infrastructure
             var state = production.GetState(barracksId);
             if (state == null) return;
 
-            // 큐 상태 동기화 (서버 스냅샷으로 덮어쓰기)
+            // 수동 큐 상태 동기화 (서버 스냅샷으로 덮어쓰기)
             state.ManualQueue.Clear();
             if (queue0TypeInt >= 0) state.ManualQueue.Add((UnitType)queue0TypeInt);
             if (queue1TypeInt >= 0) state.ManualQueue.Add((UnitType)queue1TypeInt);
+
+            // AutoTypes 동기화 (서버 스냅샷으로 덮어쓰기)
+            state.AutoTypes.Clear();
+            if (auto0TypeInt >= 0) state.AutoTypes.Add((UnitType)auto0TypeInt);
+            if (auto1TypeInt >= 0) state.AutoTypes.Add((UnitType)auto1TypeInt);
+            if (auto2TypeInt >= 0) state.AutoTypes.Add((UnitType)auto2TypeInt);
+            state.AutoIndex = autoIndex;
 
             // CurrentProducing 동기화 (ProductionStartedClientRpc가 아직 안 왔을 경우 대비)
             if (currentTypeInt >= 0)
@@ -486,12 +517,18 @@ namespace Hexiege.Infrastructure
         // ====================================================================
 
         /// <summary>
-        /// 자동 생산 토글 요청. 클라이언트 UI 롱프레스에서 호출.
+        /// 자동 생산 토글 요청. 클라이언트 UI에서 호출.
         /// 서버에서 검증 후 ToggleAutoProduction 실행, 결과를 전체 클라이언트에 동기화.
+        /// unitTypeInt 파라미터로 토글 대상 유닛 타입을 지정.
         /// </summary>
+        /// <param name="barracksId">배럭 BuildingData Id</param>
+        /// <param name="unitTypeInt">토글 대상 유닛 타입 (UnitType 정수값)</param>
+        /// <param name="teamIndex">TeamId 정수값</param>
+        /// <param name="rpcParams">서버 RPC 파라미터</param>
         [ServerRpc(RequireOwnership = false)]
         public void ToggleAutoServerRpc(
             int barracksId,
+            int unitTypeInt,
             int teamIndex,
             ServerRpcParams rpcParams = default)
         {
@@ -515,26 +552,32 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            bool success = production.ToggleAutoProduction(barracksId, UnitType.Pistoleer);
+            // unitTypeInt를 UnitType으로 변환하여 토글
+            UnitType unitType = (UnitType)unitTypeInt;
+            bool success = production.ToggleAutoProduction(barracksId, unitType);
             if (!success)
             {
-                Debug.LogWarning($"[Network] ToggleAutoServerRpc: ToggleAutoProduction 실패. BarracksId={barracksId}");
+                Debug.LogWarning($"[Network] ToggleAutoServerRpc: ToggleAutoProduction 실패. BarracksId={barracksId}, UnitType={unitType}");
                 return;
             }
 
             var state = production.GetState(barracksId);
             bool isAuto = state?.IsAutoMode ?? false;
 
-            Debug.Log($"[Network] 자동 생산 토글 완료. BarracksId={barracksId}, IsAuto={isAuto}");
-            AutoProductionChangedClientRpc(barracksId, isAuto);
+            Debug.Log($"[Network] 자동 생산 토글 완료. BarracksId={barracksId}, UnitType={unitType}, IsAuto={isAuto}");
+            AutoProductionChangedClientRpc(barracksId, isAuto, unitTypeInt);
         }
 
         /// <summary>
         /// 자동 생산 상태 변경을 모든 클라이언트에 전파.
         /// 클라이언트 측 ProductionState를 직접 동기화하여 UI가 올바른 값을 표시하도록 함.
+        /// unitTypeInt로 토글된 유닛 타입을 전달하여 AutoTypes를 정확히 동기화.
         /// </summary>
+        /// <param name="barracksId">배럭 Id</param>
+        /// <param name="isAuto">토글 후 자동 모드 활성 여부</param>
+        /// <param name="unitTypeInt">토글 대상 유닛 타입 정수값</param>
         [ClientRpc]
-        private void AutoProductionChangedClientRpc(int barracksId, bool isAuto)
+        private void AutoProductionChangedClientRpc(int barracksId, bool isAuto, int unitTypeInt)
         {
             // 서버는 ToggleAutoServerRpc에서 이미 처리 완료
             if (IsServer) return;
@@ -548,17 +591,32 @@ namespace Hexiege.Infrastructure
             var state = production.GetState(barracksId);
             if (state == null) return;
 
+            UnitType unitType = (UnitType)unitTypeInt;
+
             // 클라이언트 측 상태 동기화 (서버와 일치시킴)
             state.IsAutoMode = isAuto;
-            if (isAuto && !state.AutoTypes.Contains(UnitType.Pistoleer))
-                state.AutoTypes.Add(UnitType.Pistoleer);
-            else if (!isAuto)
-                state.AutoTypes.Clear();
+
+            if (isAuto)
+            {
+                // 자동 모드 ON: 해당 타입이 AutoTypes에 없으면 추가
+                if (!state.AutoTypes.Contains(unitType))
+                    state.AutoTypes.Add(unitType);
+            }
+            else
+            {
+                // 자동 모드 OFF: 해당 타입 제거, AutoTypes가 비면 전체 초기화
+                state.AutoTypes.Remove(unitType);
+                if (state.AutoTypes.Count == 0)
+                {
+                    state.AutoTypes.Clear();
+                    state.AutoIndex = 0;
+                }
+            }
 
             // 기존 구독을 통해 ProductionPanelUI가 자동으로 갱신
             GameEvents.OnProductionQueueChanged.OnNext(new ProductionQueueChangedEvent(barracksId));
 
-            Debug.Log($"[Network] 클라이언트: 자동 생산 상태 동기화. BarracksId={barracksId}, IsAuto={isAuto}");
+            Debug.Log($"[Network] 클라이언트: 자동 생산 상태 동기화. BarracksId={barracksId}, UnitType={unitType}, IsAuto={isAuto}");
         }
 
         // ====================================================================

@@ -40,6 +40,13 @@ namespace Hexiege.Domain
         /// <summary> 자동 순환 인덱스 (AutoTypes 내). </summary>
         public int AutoIndex { get; set; }
 
+        /// <summary>
+        /// 자동 생산 슬롯 1, 2에 선불 차감된 골드 수.
+        /// 슬롯이 추가될 때마다 1 증가, 해당 슬롯이 실제 생산을 시작하면 1 감소.
+        /// 취소 시에도 환불과 함께 1 감소.
+        /// </summary>
+        public int AutoPreChargedCount { get; set; } = 0;
+
         /// <summary> 현재 생산 중인 유닛 타입. null이면 대기 상태. </summary>
         public UnitType? CurrentProducing { get; set; }
 

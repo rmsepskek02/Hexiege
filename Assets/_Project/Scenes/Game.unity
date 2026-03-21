@@ -1202,6 +1202,7 @@ MonoBehaviour:
   _showDuration: 0.2
   _hideDuration: 0.15
   _slideOffset: 300
+  _backgroundOverlay: {fileID: 0}
 --- !u!1 &228554541
 GameObject:
   m_ObjectHideFlags: 0
@@ -9016,6 +9017,7 @@ MonoBehaviour:
   _showDuration: 0.2
   _hideDuration: 0.15
   _slideOffset: 300
+  _backgroundOverlay: {fileID: 0}
 --- !u!1 &1310222878
 GameObject:
   m_ObjectHideFlags: 0
@@ -13708,7 +13710,9 @@ MonoBehaviour:
   _pistoleerButtonPortrait: {fileID: 1662500641}
   _assaultButtonPortrait: {fileID: 552684238}
   _sniperButtonPortrait: {fileID: 1408117682}
-  _autoIndicator: {fileID: 216228453}
+  _pistoleerAutoIndicator: {fileID: 216228453}
+  _assaultAutoIndicator: {fileID: 1933666177}
+  _sniperAutoIndicator: {fileID: 736899643}
   _queueSlotImages:
   - {fileID: 977558808}
   - {fileID: 1436301839}
@@ -13742,6 +13746,7 @@ MonoBehaviour:
   _showDuration: 0.2
   _hideDuration: 0.15
   _slideOffset: 300
+  _backgroundOverlay: {fileID: 0}
 --- !u!1 &1978228654
 GameObject:
   m_ObjectHideFlags: 0
