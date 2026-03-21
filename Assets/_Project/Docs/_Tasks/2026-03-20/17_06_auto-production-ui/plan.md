@@ -341,3 +341,249 @@ if (state.CurrentProducing.HasValue)
 [1] UnitProductionUseCase.cs — ToggleAutoProduction, EnqueueUnit, CancelQueueAt 수정
 [2] ProductionPanelUI.cs — SetupQueueSlotButtons 리스너 방어 확인
 ```
+
+---
+
+## 3차 버그 수정 및 설계 변경 (2026-03-22 실기 테스트 후)
+
+### 전역 규칙 확정 (5가지)
+
+> 이하 모든 수정은 이 규칙을 기준으로 판단한다.
+
+1. **생산이 취소되면 항상 전액 환불** — 예외 없음
+2. **자동생산이 취소되어도 생산큐에 등록된 것은 그대로 생산** — 자동 모드 해제 시 큐 항목 유지, 환불 없음
+3. **수동생산을 시행한 경우 모든 자동생산은 취소** — 인디케이터 OFF, AutoTypes 클리어. 단 큐 항목은 Rule 2에 따라 유지
+4. **생산큐는 최대 3개까지 등록가능** — CurrentProducing + ManualQueue 합산 기준 (자동 대기는 별도)
+5. **비용 차감은 생산큐에 추가될 때 차감** — 자동 등록 시점 X, 생산 시작(TryStartNext) 시점 O
+
+---
+
+### DESIGN-04. 수동 추가 시 자동 큐 유지 (Rule 2+3 통합)
+
+**변경 전 (DESIGN-03)**: 수동 추가 시 선불 환불 + AutoTypes 클리어 → 슬롯1+ 항목 제거
+**변경 후**: 선불 환불 없이 선불된 AutoTypes 항목을 ManualQueue로 이전 후 AutoTypes 클리어
+
+**수정 위치**: `UnitProductionUseCase.EnqueueUnit` — 자동 모드 해제 분기
+
+```
+// 수정 전: 선불 환불 후 AutoTypes 클리어
+for (int i = 0; i < AutoPreChargedCount; i++) { AddGold(refund); }
+AutoTypes.Clear(); IsAutoMode=false;
+
+// 수정 후: 선불 항목을 ManualQueue 앞에 삽입 (환불 없음), AutoTypes 클리어
+// 선불 순서대로 ManualQueue에 Insert(0, ...) → 기존 순서 유지 후 새 수동 항목 뒤에 추가
+for (int i = 0; i < AutoPreChargedCount; i++) {
+    int slotIdx = (AutoIndex + 1 + i) % AutoTypes.Count;
+    ManualQueue.Insert(i, AutoTypes[slotIdx]);   // 큐 앞쪽에 순서대로 삽입
+}
+AutoPreChargedCount = 0; IsAutoMode = false; AutoTypes.Clear();
+// 이후 새 수동 항목 ManualQueue.Add(type) 기존대로
+```
+
+**영향**: 슬롯1 항목이 ManualQueue로 이전되므로, 이후 표시는 수동 모드 큐 표시 로직으로 처리
+
+---
+
+### BUG-07. 슬롯1 표시 오류 — count < 2 시 미표시 (B-2, F-3, 신규)
+
+**현상**: 자동 등록된 타입이 1개만 남을 때 슬롯1이 빈칸으로 표시됨
+**원인**: `UpdateQueueSlots` — `count >= 2`일 때만 슬롯1 표시
+**영향 케이스**:
+- B-2: Assault 버튼 탭 후 Sniper(슬롯1) 사라짐
+- F-3 4단계: Assault 버튼 탭 후 Sniper(슬롯1) 사라짐
+- 수동+자동 혼용: ManualQueue 있을 때 auto 슬롯 미표시
+
+**수정 위치**: `ProductionPanelUI.UpdateQueueSlots`
+
+```csharp
+// 수정 전
+else if (count >= 2 && i == 1) { slotType = AutoTypes[(AutoIndex+1) % count]; }
+else if (count >= 3 && i == 2) { slotType = AutoTypes[(AutoIndex+2) % count]; }
+
+// 수정 후: 자동 모드 + ManualQueue 혼용 표시
+// slot 1: ManualQueue 우선, 없으면 AutoTypes 다음 항목
+// slot 2: ManualQueue[1] 우선, 없으면 AutoTypes 그 다음 항목
+if (i == 1) {
+    if (ManualQueue.Count > 0) slotType = ManualQueue[0];
+    else if (count >= 1) slotType = AutoTypes[(AutoIndex + 1) % count];
+}
+else if (i == 2) {
+    if (ManualQueue.Count > 1) slotType = ManualQueue[1];
+    else if (ManualQueue.Count == 1 && count >= 1) slotType = AutoTypes[(AutoIndex + 1) % count];
+    else if (count >= 2) slotType = AutoTypes[(AutoIndex + 2) % count];
+}
+```
+
+> ⚠️ `TryStartNext`의 ManualQueue 우선 순서와 일치시킬 것
+
+---
+
+### BUG-08. 자동 재등록 차단 — ManualQueue 존재 시 (F-2)
+
+**현상**: 수동 추가 후 자동 생산을 등록하려 하면 등록 불가. 슬롯0 생산 완료 후에야 등록 가능
+**원인**: `ToggleAutoProduction` L154 — `if (state.ManualQueue.Count > 0) return false;`
+**수정 방향**: 해당 조건 제거. ManualQueue가 있어도 자동 등록 허용
+- `needPreCharge` 조건은 `CurrentProducing.HasValue`로 유지 (기존대로)
+- 슬롯 표시는 BUG-07 수정(UpdateQueueSlots 혼용 로직)으로 처리
+
+**주의**: ManualQueue + AutoTypes 동시 존재 시 TryStartNext는 ManualQueue 우선으로 동작 (기존 코드 유지)
+
+---
+
+### 수정 대상 파일 및 범위 (3차)
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `UnitProductionUseCase.cs` | `EnqueueUnit`: 선불 환불 제거 + ManualQueue 이전 (DESIGN-04) |
+| `UnitProductionUseCase.cs` | `ToggleAutoProduction`: ManualQueue.Count > 0 차단 조건 제거 (BUG-08) |
+| `ProductionPanelUI.cs` | `UpdateQueueSlots`: 슬롯1 count>=1 표시 + 혼용 모드 처리 (BUG-07) |
+
+> ⚠️ **game-programmer에게**: 3가지 수정은 상호 연관됨. 반드시 순서대로 수정하고 각 수정 후 AutoIndex/AutoTypes/ManualQueue/AutoPreChargedCount 4개 상태값 정합성을 전 경로에서 검증할 것.
+
+---
+
+## 구현 순서 (3차)
+
+```
+[1] UnitProductionUseCase.cs — EnqueueUnit 선불 환불 → ManualQueue 이전으로 변경
+[2] UnitProductionUseCase.cs — ToggleAutoProduction ManualQueue 차단 조건 제거
+[3] ProductionPanelUI.cs — UpdateQueueSlots 혼용 모드 표시 수정
+```
+
+---
+
+## 4차 설계 변경 (2026-03-22 규칙 추가)
+
+### 전역 규칙 변경 사항
+
+**Rule 4 범위 변경**: 생산큐 최대 3개 = CurrentProducing + ManualQueue 기준
+- 자동 등록(AutoTypes)은 큐 상한과 무관하게 항상 허용
+- 자동 대기 중인 항목은 빈 슬롯이 생길 때 비로소 큐에 진입
+
+**Rule 5 신규**: 비용 차감은 생산큐에 추가될 때
+- `ToggleAutoProduction` 등록 시 골드 차감 없음
+- `EnqueueUnit` 호출 시 골드 즉시 차감 (수동, 기존 유지)
+- `TryStartNext`에서 자동 유닛 생산 시작 시 골드 차감 (기존 비선불 경로)
+
+---
+
+### DESIGN-05. AutoPreChargedCount 시스템 전면 제거 (Rule 5)
+
+**배경**: Rule 5로 인해 자동 등록 시 선불 개념이 사라짐 → `AutoPreChargedCount` 불필요
+
+**제거 대상**:
+- `ProductionState.AutoPreChargedCount` 필드
+- `ToggleAutoProduction` — needPreCharge 분기 전체 제거
+- `EnqueueUnit` — AutoPreChargedCount 환불 루프 및 ManualQueue 이전 로직 전체 제거 (AutoTypes.Clear + IsAutoMode=false만 유지)
+- `CancelQueueAt` 자동 슬롯1~2 — AutoPreChargedCount 환불 분기 제거 (Rule 5: 미차감 → 환불 없음)
+- `CompleteProduction` — 선불 보충 루프 전체 제거
+
+**변경 후 자동 슬롯1~2 취소 시**: AutoTypes에서 제거만, 환불 없음
+
+---
+
+### DESIGN-06. 자동 등록 큐 상한 제거 (Rule 4 변경)
+
+**배경**: Rule 4가 자동 대기를 포함하지 않으므로 ToggleAutoProduction의 큐 풀 차단 제거
+
+**제거 대상**:
+- `ToggleAutoProduction` — `totalCount + 1 > MaxQueueSize` 체크 제거
+- `AutoTypes.Count >= 3` 상한은 유지 (최대 3종류 자동 등록 제한)
+
+**자동 대기 → 큐 진입 로직**:
+- `TryStartNext`에서 ManualQueue 소진 후 IsAutoMode=true이면 AutoTypes[AutoIndex] 생산 시작
+- Rule 4(최대 3개)는 ManualQueue.Count + (CurrentProducing ? 1 : 0) 기준으로만 체크
+
+---
+
+### 수정 대상 파일 및 범위 (4차)
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `ProductionState.cs` | `AutoPreChargedCount` 필드 제거 |
+| `UnitProductionUseCase.cs` | `ToggleAutoProduction`: needPreCharge 분기 제거, totalCount 큐 상한 제거 |
+| `UnitProductionUseCase.cs` | `EnqueueUnit`: AutoPreChargedCount 환불 루프 제거, ManualQueue 이전 로직 제거 |
+| `UnitProductionUseCase.cs` | `CancelQueueAt` 자동 슬롯1~2: AutoPreChargedCount 환불 분기 제거 |
+| `UnitProductionUseCase.cs` | `CompleteProduction`: 선불 보충 루프 제거 |
+
+> ⚠️ **game-programmer에게**: AutoPreChargedCount 참조 전체 제거 후 컴파일 오류 없는지 확인할 것.
+> `CancelQueueAt` 자동 슬롯1~2는 환불 없이 AutoTypes에서 제거만 수행.
+> `TryStartNext` 자동 경로는 기존 비선불 경로(골드 검증 후 차감)가 그대로 유지됨.
+
+---
+
+## 구현 순서 (4차)
+
+```
+[1] ProductionState.cs — AutoPreChargedCount 제거
+[2] UnitProductionUseCase.cs — ToggleAutoProduction, EnqueueUnit, CancelQueueAt, CompleteProduction 수정
+[3] 컴파일 확인 (AutoPreChargedCount 참조 잔재 없는지)
+```
+
+---
+
+## 5차 규칙 재해석 및 코드 수정 (2026-03-22 실기 테스트 후)
+
+### 전역 규칙 재해석 (최종 확정)
+
+4차에서 Rule 5를 잘못 해석하여 코드가 규칙에 맞지 않게 구현됨.
+
+| 규칙 | 4차 해석 (오류) | 5차 해석 (확정) |
+|------|----------------|----------------|
+| Rule 5 | 자동 등록 시 골드 미차감, TryStartNext 시 차감 | "생산큐에 추가" = 슬롯에 표시되는 시점 → 그 시점에 차감 |
+| Rule 2+3 | 수동 추가 시 AutoTypes.Clear → 슬롯1 유닛 소멸 | 자동 모드 취소(Rule 3) + 슬롯에 표시된 유닛은 수동 큐 이관(Rule 2) |
+
+---
+
+### DESIGN-07. Rule 5 최종 해석 — 슬롯 표시 시점에 차감
+
+**케이스별 골드 차감 시점:**
+- 자동 등록 시 해당 유닛이 슬롯1 또는 슬롯2에 즉시 표시 가능한 경우 → `ToggleAutoProduction` 시 즉시 차감
+- 큐 풀 상태에서 자동 등록 시 슬롯에 표시 안 됨 → 빈 슬롯 생겨 큐에 진입할 때(`TryStartNext`) 차감
+
+**슬롯에 즉시 표시 가능한 조건:**
+- `CurrentProducing.HasValue` && 등록 후 AutoTypes가 슬롯1 또는 슬롯2에 해당하는 경우
+- 큐 풀 상태(CurrentProducing + ManualQueue.Count >= MaxQueueSize)이면 슬롯 진입 불가 → 미차감
+
+**취소 시 환불 여부:**
+- 골드가 차감된 유닛 취소 → 환불 (Rule 1)
+- 골드 미차감 유닛(큐 풀 대기) 취소 → 환불 없음
+
+---
+
+### DESIGN-08. Rule 2+3 최종 해석 — 수동 추가 시 자동 유닛 수동 큐 이관
+
+**수정 전 (4차)**: 수동 추가 시 AutoTypes.Clear → 슬롯에 표시된 자동 유닛 소멸
+
+**수정 후:**
+- Rule 3: 자동 모드 취소 (인디케이터 OFF, IsAutoMode=false)
+- Rule 2: 슬롯에 이미 표시된 자동 유닛들(골드 차감 완료) → ManualQueue 앞에 순서대로 이관
+- 큐 풀 대기 유닛(골드 미차감)은 이관 없이 소멸 (슬롯에 없었으므로 Rule 2 해당 없음)
+- 새 수동 유닛은 ManualQueue 맨 뒤에 추가
+
+**수정 위치**: `UnitProductionUseCase.EnqueueUnit` — 자동 모드 해제 분기
+
+---
+
+### 수정 대상 파일 및 범위 (5차)
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `UnitProductionUseCase.cs` | `ToggleAutoProduction`: 슬롯 표시 가능한 경우 즉시 골드 차감 |
+| `UnitProductionUseCase.cs` | `CancelQueueAt` 자동 슬롯1~2: 골드 차감된 경우 환불 복원 |
+| `UnitProductionUseCase.cs` | `EnqueueUnit`: 슬롯에 표시된 자동 유닛 ManualQueue 이관 후 AutoTypes.Clear |
+| `UnitProductionUseCase.cs` | `TryStartNext`: 큐 풀 대기 유닛만 이 시점에 골드 차감 (이미 차감된 유닛 중복 차감 방지) |
+
+> ⚠️ **game-programmer에게**: 4차에서 제거한 선불 개념이 부분적으로 복원됨.
+> 단, AutoPreChargedCount 카운터 방식이 아닌, "슬롯 표시 가능 여부" 기반으로 설계할 것.
+> 각 자동 유닛의 골드 차감 여부를 추적하는 방법을 직접 설계하되,
+> AutoTypes와 연동하여 취소/이관 시 정합성을 유지할 것.
+
+---
+
+## 구현 순서 (5차)
+
+```
+[1] UnitProductionUseCase.cs — ToggleAutoProduction, EnqueueUnit, CancelQueueAt, TryStartNext 수정
+[2] 컴파일 확인
+```

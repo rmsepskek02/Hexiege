@@ -144,7 +144,7 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 큐 변경 이벤트 핸들러 (서버 전용).
         /// 클라이언트에 전체 큐 상태를 스냅샷으로 전파.
-        /// ManualQueue 최대 2개 + CurrentProducing + AutoTypes 최대 3개를 전송.
+        /// ManualQueue 최대 2개 + CurrentProducing + AutoEntries 최대 3개를 전송.
         /// </summary>
         private void OnProductionQueueChanged(ProductionQueueChangedEvent e)
         {
@@ -163,10 +163,10 @@ namespace Hexiege.Infrastructure
             int q0 = state.ManualQueue.Count > 0 ? (int)state.ManualQueue[0] : -1;
             int q1 = state.ManualQueue.Count > 1 ? (int)state.ManualQueue[1] : -1;
 
-            // AutoTypes: 최대 3개, 없는 슬롯은 -1
-            int auto0 = state.AutoTypes.Count > 0 ? (int)state.AutoTypes[0] : -1;
-            int auto1 = state.AutoTypes.Count > 1 ? (int)state.AutoTypes[1] : -1;
-            int auto2 = state.AutoTypes.Count > 2 ? (int)state.AutoTypes[2] : -1;
+            // AutoEntries: 최대 3개, 없는 슬롯은 -1 (Type만 전송, IsCharged는 서버만 관리)
+            int auto0 = state.AutoCount > 0 ? (int)state.AutoTypeAt(0) : -1;
+            int auto1 = state.AutoCount > 1 ? (int)state.AutoTypeAt(1) : -1;
+            int auto2 = state.AutoCount > 2 ? (int)state.AutoTypeAt(2) : -1;
 
             SyncQueueStateClientRpc(
                 e.BarracksId,
@@ -443,7 +443,7 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 서버에서 큐 상태 변경 시 전체 스냅샷을 클라이언트에 전파.
         /// 큐 추가, 취소, 생산 완료 등 모든 큐 변경에 대응.
-        /// AutoTypes와 AutoIndex도 함께 동기화하여 자동 생산 큐 슬롯 표시를 지원.
+        /// AutoEntries와 AutoIndex도 함께 동기화하여 자동 생산 큐 슬롯 표시를 지원.
         /// </summary>
         /// <param name="barracksId">배럭 Id</param>
         /// <param name="currentTypeInt">현재 생산 중 유닛 타입 (-1=없음)</param>
@@ -452,9 +452,9 @@ namespace Hexiege.Infrastructure
         /// <param name="isAutoMode">자동 모드 활성 여부</param>
         /// <param name="progress">현재 생산 진행률</param>
         /// <param name="autoIndex">자동 순환 인덱스</param>
-        /// <param name="auto0TypeInt">AutoTypes[0] (-1=없음)</param>
-        /// <param name="auto1TypeInt">AutoTypes[1] (-1=없음)</param>
-        /// <param name="auto2TypeInt">AutoTypes[2] (-1=없음)</param>
+        /// <param name="auto0TypeInt">AutoEntries[0].Type (-1=없음)</param>
+        /// <param name="auto1TypeInt">AutoEntries[1].Type (-1=없음)</param>
+        /// <param name="auto2TypeInt">AutoEntries[2].Type (-1=없음)</param>
         [ClientRpc]
         private void SyncQueueStateClientRpc(
             int barracksId,
@@ -484,11 +484,12 @@ namespace Hexiege.Infrastructure
             if (queue0TypeInt >= 0) state.ManualQueue.Add((UnitType)queue0TypeInt);
             if (queue1TypeInt >= 0) state.ManualQueue.Add((UnitType)queue1TypeInt);
 
-            // AutoTypes 동기화 (서버 스냅샷으로 덮어쓰기)
-            state.AutoTypes.Clear();
-            if (auto0TypeInt >= 0) state.AutoTypes.Add((UnitType)auto0TypeInt);
-            if (auto1TypeInt >= 0) state.AutoTypes.Add((UnitType)auto1TypeInt);
-            if (auto2TypeInt >= 0) state.AutoTypes.Add((UnitType)auto2TypeInt);
+            // AutoEntries 동기화 (서버 스냅샷으로 덮어쓰기)
+            // 클라이언트는 표시 목적이므로 IsCharged=false로 설정 (골드 추적은 서버만 수행)
+            state.AutoEntries.Clear();
+            if (auto0TypeInt >= 0) state.AutoEntries.Add(new AutoEntry((UnitType)auto0TypeInt, false));
+            if (auto1TypeInt >= 0) state.AutoEntries.Add(new AutoEntry((UnitType)auto1TypeInt, false));
+            if (auto2TypeInt >= 0) state.AutoEntries.Add(new AutoEntry((UnitType)auto2TypeInt, false));
             state.AutoIndex = autoIndex;
 
             // CurrentProducing 동기화 (ProductionStartedClientRpc가 아직 안 왔을 경우 대비)
@@ -571,7 +572,7 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 자동 생산 상태 변경을 모든 클라이언트에 전파.
         /// 클라이언트 측 ProductionState를 직접 동기화하여 UI가 올바른 값을 표시하도록 함.
-        /// unitTypeInt로 토글된 유닛 타입을 전달하여 AutoTypes를 정확히 동기화.
+        /// unitTypeInt로 토글된 유닛 타입을 전달하여 AutoEntries를 정확히 동기화.
         /// </summary>
         /// <param name="barracksId">배럭 Id</param>
         /// <param name="isAuto">토글 후 자동 모드 활성 여부</param>
@@ -598,17 +599,21 @@ namespace Hexiege.Infrastructure
 
             if (isAuto)
             {
-                // 자동 모드 ON: 해당 타입이 AutoTypes에 없으면 추가
-                if (!state.AutoTypes.Contains(unitType))
-                    state.AutoTypes.Add(unitType);
+                // 자동 모드 ON: 해당 타입이 AutoEntries에 없으면 추가
+                // 클라이언트는 표시 목적이므로 IsCharged=false (골드 추적은 서버만 수행)
+                if (!state.AutoContains(unitType))
+                    state.AutoEntries.Add(new AutoEntry(unitType, false));
             }
             else
             {
-                // 자동 모드 OFF: 해당 타입 제거, AutoTypes가 비면 전체 초기화
-                state.AutoTypes.Remove(unitType);
-                if (state.AutoTypes.Count == 0)
+                // 자동 모드 OFF: 해당 타입 제거, AutoEntries가 비면 전체 초기화
+                int removeIdx = state.AutoIndexOf(unitType);
+                if (removeIdx >= 0)
+                    state.AutoEntries.RemoveAt(removeIdx);
+
+                if (state.AutoEntries.Count == 0)
                 {
-                    state.AutoTypes.Clear();
+                    state.AutoEntries.Clear();
                     state.AutoIndex = 0;
                 }
             }
