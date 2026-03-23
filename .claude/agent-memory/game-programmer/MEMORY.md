@@ -23,6 +23,32 @@
 
 ## 최근 작업
 
+### 자동/수동 생산 하이브리드 시스템 완성 (2026-03-23) ✅ 실기 테스트 완료
+
+**핵심 설계**: AutoEntry(UnitType + IsCharged) 기반 골드 차감 시점 추적
+
+**수정 파일**:
+- `Domain/Building/ProductionState.cs` — AutoEntry 구조체, AutoEntries(List<AutoEntry>), AutoContains/AutoIndexOf 등 편의 접근자
+- `Application/UseCases/UnitProductionUseCase.cs` — ToggleAutoProduction, EnqueueUnit, TryStartNext, CancelQueueAt, CanAutoEntryShowInSlot, TryPreChargeAutoEntries
+- `Presentation/UI/ProductionPanelUI.cs` — UpdateQueueSlots 혼용 표시, 버튼 탭/롱프레스 분기
+- `Infrastructure/NetworkProductionController.cs` — AutoEntries 참조 갱신
+
+**핵심 패턴**:
+- `CanAutoEntryShowInSlot`: AutoIndex 위치(슬롯0) 항목을 shownCount에서 **반드시 제외** (BUG-12)
+  ```csharp
+  for (int i = 0; i < state.AutoEntries.Count; i++)
+  {
+      if (i == state.AutoIndex) continue; // 슬롯0 제외
+      if (state.AutoEntries[i].IsCharged) shownCount++;
+  }
+  ```
+- `UpdateQueueSlots` 슬롯2: manualCount==1 && isNormalAutoState일 때 autoCount >= 2 필수 (BUG-13)
+  - autoCount==1이면 그 항목이 슬롯0과 동일 → 슬롯2=null
+- `ToggleAutoProduction` 취소 경로: 환불 없음, IsCharged=true && 슬롯1~2면 ManualQueue.Add (Rule 2)
+- `TryStartNext` 자동 경로: IsCharged=false면 이 시점에 골드 차감 후 IsCharged=true 갱신
+
+**전역 규칙 참조**: `GameDesignDocument.md` → "생산 패널 운영 규칙" 섹션
+
 ### 코드 정리 (2026-03-20) ✅ 테스트 완료
 - **TeamAssigner.cs 삭제**: Player Prefab=None으로 스폰 안 됨, NetworkGameFlow로 완전 대체 확인 후 삭제
 - **LocalPlayerTeam.cs 주석 정리**: "TeamAssigner에서 호출" → "NetworkGameFlow에서 호출" (5곳)

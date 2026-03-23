@@ -623,11 +623,16 @@ namespace Hexiege.Presentation
                                 // ManualQueue에 2개 이상 → ManualQueue[1]
                                 slotType = state.ManualQueue[1];
                             }
-                            else if (manualCount == 1 && autoCount >= 1)
+                            else if (manualCount == 1 && isNormalAutoState && autoCount >= 2)
                             {
-                                // ManualQueue 1개(슬롯1에 표시됨) + AutoEntries 다음 항목
-                                // 정상 상태면 +1, 취소 상태면 +0 (AutoIndex가 이미 "다음"을 가리킴)
-                                slotType = state.AutoTypeAt((state.AutoIndex + (isNormalAutoState ? 1 : 0)) % autoCount);
+                                // 정상 상태: AutoEntries가 2개 이상일 때만 슬롯2에 다음 자동 항목 표시
+                                // autoCount == 1이면 그 1개는 슬롯0(생산 중)과 동일 → 슬롯2는 비워야 함
+                                slotType = state.AutoTypeAt((state.AutoIndex + 1) % autoCount);
+                            }
+                            else if (manualCount == 1 && !isNormalAutoState && autoCount >= 1)
+                            {
+                                // 취소 상태: AutoEntries[AutoIndex]가 다음 생산 예정 항목 → 슬롯2에 표시
+                                slotType = state.AutoTypeAt(state.AutoIndex % autoCount);
                             }
                             else if (isNormalAutoState && autoCount >= 3)
                             {

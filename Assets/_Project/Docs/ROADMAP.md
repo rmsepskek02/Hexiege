@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-03-20
-**현재 단계:** 로비 씬 분리 MVVM 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료
+**최종 수정일:** 2026-03-23
+**현재 단계:** 자동/수동 생산 하이브리드 시스템 완성 (전역 규칙 5가지 구현, BUG-01~13 수정, 실기 테스트 PASS)
 
 ---
 
@@ -167,3 +167,4 @@
 | 2026-03-19 | UI DOTween 애니메이션 프레임워크 완료 (UIAnimator static 헬퍼 + AnimatedPanel 컴포넌트 / GameEndPanel=SlideFromTop, ProductionPopup/BuildingPopup=SlideFromBottom / RematchRequestPopup blocksRaycasts 버그 수정) |
 | 2026-03-20 | 코드 정리 완료 (TeamAssigner.cs 삭제, LocalPlayerTeam/NetworkGameFlow 주석 정리, GameBootstrapper IsNetworkMode() 헬퍼 추출) |
 | 2026-03-20 | 싱글플레이 ViewConverter 초기화 버그 수정 (ViewConverter.Reset() → LocalPlayerTeam 기반 Setup(isRed, mapCenter), ApplyConfig() 직후 호출) |
+| 2026-03-23 | 자동/수동 생산 하이브리드 시스템 완성 (전역 규칙 5가지 구현, IsCharged 기반 골드 차감 추적, BUG-01~13 수정, 실기 테스트 전 케이스 PASS) |

@@ -172,15 +172,32 @@ namespace Hexiege.Application
             if (idx >= 0)
             {
                 // ── 이미 등록된 타입 → 제거 (취소) ──
-                AutoEntry removedEntry = state.AutoEntries[idx];
+                // 버튼 탭 취소는 자동 순환 목록에서 제거하는 것이지 생산 취소가 아님.
+                // 현재 생산 중인 유닛(슬롯0)은 계속 유지됨 → Rule 1 환불 조건 미해당.
+                // 슬롯 직접 클릭 취소(CancelQueueAt)만 환불 대상.
 
-                // Rule 1: IsCharged=true(골드 차감됨)이면 환불
-                if (removedEntry.IsCharged)
+                // ── Rule 2: 슬롯에 표시된(IsCharged=true) 항목은 ManualQueue로 이관 ──
+                // 자동 모드만 취소하고, 이미 골드 차감되어 슬롯에 보이는 항목은 수동 큐로 넘겨서
+                // 생산이 계속 진행되도록 한다.
+                //
+                // 판단 기준:
+                //   - idx == state.AutoIndex → 슬롯0(현재 생산 중) = CurrentProducing과 동일 타입
+                //     → 이미 생산 중이므로 이관 불필요 (생산은 CurrentProducing으로 계속됨)
+                //   - idx != state.AutoIndex && IsCharged=true → 슬롯1~2에 표시 중
+                //     → ManualQueue로 이관하여 생산 유지 (Rule 2)
+                //   - IsCharged=false → 큐 풀 대기 상태, 골드 미차감
+                //     → 이관 불필요, 단순 제거
+                AutoEntry removedEntry = state.AutoEntries[idx];
+                bool isSlot0 = (idx == state.AutoIndex);
+
+                if (!isSlot0 && removedEntry.IsCharged)
                 {
-                    int refund = UnitProductionStats.GetGoldCost(removedEntry.Type);
-                    _resource.AddGold(state.Team, refund);
+                    // Rule 2 적용: 슬롯1~2에 표시된 항목 → ManualQueue 맨 뒤에 추가
+                    // 골드는 이미 차감되었으므로 환불하지 않고 수동 큐로 이관하여 생산 계속
+                    state.ManualQueue.Add(removedEntry.Type);
                 }
 
+                // AutoEntries에서 제거 (자동 순환 목록에서만 빠짐)
                 state.AutoEntries.RemoveAt(idx);
 
                 // AutoEntries가 비면 자동 모드 해제
@@ -621,9 +638,11 @@ namespace Hexiege.Application
 
             // 슬롯1~2에 이미 표시된 항목 수 계산
             // ManualQueue는 항상 슬롯1~2 우선, 나머지를 IsCharged=true 자동 항목이 채움
+            // AutoEntries[AutoIndex]는 슬롯0(현재 생산 중)에 해당하므로 슬롯1~2 집계에서 제외
             int shownCount = state.ManualQueue.Count;
             for (int i = 0; i < state.AutoEntries.Count; i++)
             {
+                if (i == state.AutoIndex) continue; // 슬롯0 항목은 슬롯1~2 집계 대상이 아님
                 if (state.AutoEntries[i].IsCharged)
                     shownCount++;
             }

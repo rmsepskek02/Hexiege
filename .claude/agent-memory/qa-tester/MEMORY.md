@@ -33,6 +33,29 @@
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
 
+## 자동/수동 생산 시스템 QA (2026-03-23 완료)
+
+### 최종 판정: PASS (FIX-1~7, FIX-9~10 실기 통과. FIX-8 FAIL → FIX-10으로 재테스트 후 PASS)
+
+### 핵심 검증 포인트 (생산 시스템 작업 시 재사용)
+- **버튼 탭 취소**: 환불 없음 확인 (ToggleAutoProduction 취소 경로에 AddGold 없어야 함)
+- **슬롯1 탭 취소 후 슬롯2**: null이어야 함 (autoCount==1 + manualCount==1 케이스)
+- **자동 3개 등록**: 슬롯2 즉시 골드 차감 확인 (CanAutoEntryShowInSlot AutoIndex 제외 여부)
+- **수동 추가 시 슬롯 이관**: IsCharged=true 자동 항목이 ManualQueue에 이관되는지
+- **슬롯 직접 취소(X 버튼)**: IsCharged=true이면 환불, false이면 환불 없음
+
+### 생산 시스템 정적 분석 시 필수 확인 파일
+1. `UnitProductionUseCase.cs` — ToggleAutoProduction (등록/취소 분기), CanAutoEntryShowInSlot
+2. `ProductionPanelUI.cs` — UpdateQueueSlots (슬롯2 로직 집중), isNormalAutoState 판단
+3. `ProductionState.cs` — AutoEntry, AutoEntries
+
+### 알려진 취약 지점
+- `isNormalAutoState` 판단 조건: `AutoTypeAt(AutoIndex % autoCount) == CurrentProducing` — autoCount=0이면 접근 오류 가능
+- 혼용 상태(ManualQueue + AutoEntries 동시)에서 슬롯 렌더링이 복잡 — 경계 케이스 테스트 필수
+- TC 작성 시 자연어/동작 결과 위주로 작성 (코드 변수명 노출 최소화)
+
+---
+
 ## UI DOTween 애니메이션 QA (Phase 1+2 완료 + 실기 테스트 완료, 2026-03-19)
 
 ### 최종 판정: PASS (전 TC 통과 — 정적 분석 + 실기 테스트 모두)

@@ -522,6 +522,264 @@ else if (i == 2) {
 
 ---
 
+## 5차 설계 변경 (2026-03-23 실기 테스트 후 규칙 재해석)
+
+### 규칙 재해석 확정
+
+**Rule 5 재해석**: "비용 차감은 생산큐에 추가될 때" = 슬롯에 표시되는 시점
+- 자동 등록 시 슬롯 여유 있으면 즉시 골드 차감 (IsCharged=true)
+- 자동 등록 시 슬롯 풀이면 미차감 (IsCharged=false), 슬롯 진입 시 차감
+
+**Rule 2 재해석**: "생산큐에 등록된 것" = 슬롯에 표시된 모든 항목 (IsCharged=true)
+- 수동 추가로 자동 모드 취소 시, 슬롯에 표시된 자동 항목(IsCharged=true)은 ManualQueue로 이관
+
+---
+
+### DESIGN-07. AutoEntry 구조체 도입 (IsCharged 상태 추적)
+
+**배경**: Rule 5 슬롯 표시 시점 차감을 구현하려면 각 자동 항목의 차감 여부 추적 필요
+
+**변경 내용**:
+- `ProductionState.cs`: `List<UnitType> AutoTypes` → `List<AutoEntry> AutoEntries`
+- `AutoEntry` 구조체 추가: 유닛 타입 + 골드 차감 여부(IsCharged)
+
+---
+
+### DESIGN-08. ToggleAutoProduction — 슬롯 여유 확인 후 즉시/지연 차감
+
+**등록 시**:
+- 슬롯에 표시 중인 항목 수 < 3이면 즉시 골드 차감 (IsCharged=true)
+- 슬롯 풀이면 미차감 (IsCharged=false)
+
+**취소 시**:
+- 환불 없음 — 버튼 탭은 자동 순환 목록 제거이며 생산 취소가 아님 (Rule 1 미해당)
+
+---
+
+### DESIGN-09. EnqueueUnit — IsCharged=true 항목 ManualQueue 이관 (Rule 2+3)
+
+**변경 전**: 수동 추가 시 자동 항목 전부 소멸
+**변경 후**: 수동 추가 시 슬롯에 표시된 자동 항목(IsCharged=true)을 순서대로 ManualQueue 앞에 삽입 후 자동 목록 클리어. 새 수동 항목은 맨 뒤에 추가.
+
+---
+
+### DESIGN-10. TryStartNext — IsCharged=false 항목은 슬롯 진입 시 차감
+
+- 자동 항목이 IsCharged=false이면 이 시점에 골드/인구 검증 + 차감 + IsCharged=true 갱신
+- IsCharged=true이면 이미 차감됨 → 즉시 생산 시작
+
+---
+
+### BUG-09. ToggleAutoProduction 취소 시 환불 발생 (R2-2 실기 FAIL)
+
+**현상**: 자동 등록 유닛 버튼 탭 취소 시 골드 환불됨
+**원인**: 취소 경로에 환불 로직 존재
+**수정**: 버튼 탭 취소는 생산 취소 아님 → 환불 로직 제거 (Rule 1 미해당)
+
+---
+
+### BUG-10. 수동 추가 시 자동 슬롯 항목 이관 안 됨 (R3-2 실기 FAIL)
+
+**현상**: 자동 슬롯1에 Sniper 있을 때 수동 추가 → Sniper 소멸
+**원인**: 수동 추가 시 자동 목록만 클리어, ManualQueue 이관 없음
+**수정**: DESIGN-09 구현으로 해결
+
+---
+
+### 수정 대상 파일 및 범위 (5차)
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `ProductionState.cs` | AutoEntry 구조체 추가, AutoTypes → AutoEntries 교체 |
+| `UnitProductionUseCase.cs` | ToggleAutoProduction: 슬롯 여유 확인 + IsCharged 설정, 취소 시 환불 제거 |
+| `UnitProductionUseCase.cs` | EnqueueUnit: IsCharged=true 항목 ManualQueue 이관 (DESIGN-09) |
+| `UnitProductionUseCase.cs` | TryStartNext: IsCharged=false 항목 슬롯 진입 시 차감 (DESIGN-10) |
+| `UnitProductionUseCase.cs` | CancelQueueAt: AutoEntries 기준 처리, IsCharged=true면 환불 |
+| `ProductionPanelUI.cs` | AutoTypes → AutoEntries.Type 참조 전체 교체 |
+| `NetworkProductionController.cs` | AutoTypes → AutoEntries 참조 교체 |
+
+> ⚠️ **game-programmer에게**: 전역 규칙 5가지를 반드시 숙지하고 모든 경로에서 일관되게 적용할 것. 코드 변수명 없이 동작 흐름으로 각 경로를 추적하며 검증할 것.
+
+---
+
+## 구현 순서 (5차)
+
+```
+[1] ProductionState.cs — AutoEntry 구조체 + AutoEntries 필드 추가, AutoTypes 제거
+[2] UnitProductionUseCase.cs — ToggleAutoProduction, EnqueueUnit, TryStartNext, CancelQueueAt 수정
+[3] ProductionPanelUI.cs — AutoEntries 참조 교체
+[4] NetworkProductionController.cs — AutoEntries 참조 교체
+[5] 컴파일 확인
+```
+
+---
+
+## 6차 버그 수정 (2026-03-23 실기 테스트 후)
+
+### BUG-11. 자동 버튼 탭 취소 시 슬롯1 유닛 사라짐
+
+**현상**: Assault 자동(슬롯0) + Sniper 자동(슬롯1) 상태에서 Sniper 버튼 탭 → 슬롯1 Sniper 사라짐
+**기댓값**: Sniper 자동 모드만 취소되고, 슬롯1 Sniper는 생산 계속
+**원인**: 버튼 탭으로 자동 취소 시 슬롯1~2에 표시된 항목이 사라짐 (Rule 2 미적용)
+**수정 방향**: 버튼 탭으로 자동 취소 시 슬롯1~2에 표시된 항목은 수동 큐로 이관하여 유지
+
+---
+
+### 수정 대상 파일 및 범위 (6차)
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `UnitProductionUseCase.cs` | `ToggleAutoProduction` 취소 경로: 슬롯1~2 위치 항목 수동 큐로 이관 후 제거 |
+
+---
+
+## 구현 순서 (6차)
+
+```
+[1] UnitProductionUseCase.cs — ToggleAutoProduction 취소 경로 수정
+```
+
+---
+
+## 7차 버그 수정 (2026-03-23 실기 테스트 후)
+
+### BUG-12. 자동 3개 등록 시 슬롯2 골드 미차감
+
+**현상**: Assault(자동) + Pistoleer(자동) + Sniper(자동) 등록 시, 슬롯2 Sniper에 골드 차감이 안 됨
+**기댓값**: 슬롯2에 표시되는 Sniper도 등록 시점에 골드 차감되어야 함
+**원인**: `CanAutoEntryShowInSlot`에서 슬롯0(AutoIndex) 위치의 IsCharged=true 항목을 슬롯1~2 집계에 포함 → shownCount 과대 산정 → 슬롯 풀 판정
+**수정 방향**: IsCharged 카운트 루프에서 `i == state.AutoIndex` 항목 제외
+
+### BUG-13. 자동 슬롯1 탭 취소 후 슬롯2에 슬롯0 타입 중복 표시
+
+**현상**: Assault(자동) + Sniper(자동) → Sniper 탭 취소 → 슬롯2에 Assault 표시 (슬롯0과 중복)
+**기댓값**: 슬롯2 비어야 함 (ManualQueue 1개 + AutoEntries 1개 = 슬롯0,1만 사용)
+**원인**: `UpdateQueueSlots` 슬롯2에서 `(AutoIndex+1) % autoCount` = `1 % 1` = 0 → 슬롯0과 동일 타입 표시
+**수정 방향**: manualCount==1 분기에서 isNormalAutoState 기준으로 분리, 정상 상태는 autoCount>=2 필수
+
+---
+
+### 수정 대상 파일 및 범위 (7차)
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `UnitProductionUseCase.cs` | `CanAutoEntryShowInSlot` — IsCharged 루프에서 AutoIndex 위치 제외 |
+| `ProductionPanelUI.cs` | `UpdateQueueSlots` 슬롯2 — manualCount==1 분기를 정상/취소 상태 분리, autoCount 조건 강화 |
+
+---
+
+## 구현 순서 (7차)
+
+```
+[1] UnitProductionUseCase.cs — CanAutoEntryShowInSlot 수정
+[2] ProductionPanelUI.cs — UpdateQueueSlots 슬롯2 분기 수정
+```
+
+---
+
+## 5차 설계 변경 (2026-03-22 규칙 재해석)
+
+### 전역 규칙 최종 확정
+
+1. **Rule 1** — 생산이 취소되면 항상 전액 환불 (슬롯 클릭으로 생산 중단 시)
+2. **Rule 2** — 자동 취소 시 슬롯에 표시(IsCharged=true)된 항목은 ManualQueue로 이관, 생산 계속
+3. **Rule 3** — 수동 추가 시 자동 모드 취소 (인디케이터 OFF). 단 Rule 2 이관 우선 수행
+4. **Rule 4** — 생산큐 최대 3개 = CurrentProducing + ManualQueue 기준 (자동 대기 별도)
+5. **Rule 5** — 비용 차감은 슬롯에 표시되는 시점. 슬롯 여유 있으면 자동 등록 즉시 차감(IsCharged=true), 큐 풀이면 미차감(IsCharged=false)이다가 슬롯 진입 시 차감
+
+---
+
+### DESIGN-07. AutoEntry 구조체 도입 (Rule 5 재구현)
+
+**배경**: 4차에서 Rule 5를 "TryStartNext 시 차감"으로 잘못 구현. 올바른 해석은 "슬롯에 표시되는 시점 차감". 자동 등록 항목이 슬롯에 표시 가능한 상태면 즉시 차감해야 하므로 IsCharged 플래그 필요.
+
+**변경 내용**:
+- `List<UnitType> AutoTypes` → `List<AutoEntry> AutoEntries`로 교체
+- `AutoEntry` 구조체: `UnitType Type`, `bool IsCharged`
+
+```
+// 슬롯 여유 확인 공식 (CanAutoEntryShowInSlot)
+shownCount = (CurrentProducing ? 1 : 0) + ManualQueue.Count + AutoEntries.Count(e => e.IsCharged)
+슬롯 여유 있음 = shownCount < MaxQueueSize(3)
+```
+
+---
+
+### DESIGN-08. ToggleAutoProduction 수정 (Rule 5 + 환불 규칙 명확화)
+
+**등록 시**:
+- CanAutoEntryShowInSlot = true → 골드/인구 즉시 차감, IsCharged=true
+- CanAutoEntryShowInSlot = false → 골드 미차감, IsCharged=false
+
+**제거(취소) 시**:
+- 슬롯0 타입 제거(생산 중 타입): AutoEntries에서 제거, CurrentProducing 유지, **환불 없음** (생산 취소 아님 — Rule 1 미해당)
+- 슬롯1~2 타입 제거(대기 타입, IsCharged=true): AutoEntries에서 제거, **환불 없음** (버튼 탭은 자동 순환 목록 제거일 뿐, 생산 취소 아님)
+- 대기 타입 제거(IsCharged=false): AutoEntries에서 제거, 환불 없음 (미차감)
+
+> ⚠️ CancelQueueAt(슬롯1~2 클릭)과 구분: 슬롯 직접 클릭은 생산 취소 → 환불(Rule 1). 버튼 탭은 자동 순환 제거 → 환불 없음.
+
+---
+
+### DESIGN-09. EnqueueUnit 수정 (Rule 2+3 조합)
+
+**수동 추가 시 처리 순서**:
+1. IsAutoMode=true이면 CollectChargedEntries 실행:
+   - AutoEntries 중 IsCharged=true 항목을 슬롯 순서대로 수집
+   - ManualQueue 앞에 삽입 (이관, 환불 없음 — Rule 2)
+2. AutoEntries 클리어, IsAutoMode=false, AutoIndex=0 (Rule 3)
+3. currentCount 재계산 (이관 후 ManualQueue 포함) → MaxQueueSize 초과 시 return false
+4. 새 수동 항목 골드/인구 차감 후 ManualQueue.Add
+
+---
+
+### DESIGN-10. TryStartNext 수정 (Rule 5 — 미차감 항목 진입 시 차감)
+
+**자동 경로**:
+- AutoEntries[AutoIndex].IsCharged=true → 골드 이미 차감됨, 즉시 생산 시작
+- AutoEntries[AutoIndex].IsCharged=false → 골드/인구 검증 후 차감, IsCharged=true로 갱신, 생산 시작
+- 골드/인구 부족 시 return (생산 대기)
+
+---
+
+### DESIGN-11. CancelQueueAt 수정 (Rule 1 환불 조건 명확화)
+
+**자동 모드 슬롯0 취소**: CurrentProducing 중단 + 골드 환불 (IsCharged=true이므로 Rule 1)
+**자동 모드 슬롯1~2 취소**: AutoEntries 해당 항목 제거
+- IsCharged=true → 환불 (Rule 1: 슬롯 클릭 = 생산 취소)
+- IsCharged=false → 환불 없음 (미차감)
+
+---
+
+### 수정 대상 파일 및 범위 (5차)
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `ProductionState.cs` | `AutoEntry` 구조체 추가, `AutoTypes` → `AutoEntries` 교체 |
+| `UnitProductionUseCase.cs` | `ToggleAutoProduction`: IsCharged 기반 등록/제거 로직 |
+| `UnitProductionUseCase.cs` | `EnqueueUnit`: CollectChargedEntries → ManualQueue 이관 후 AutoEntries 클리어 |
+| `UnitProductionUseCase.cs` | `TryStartNext`: IsCharged 여부에 따라 차감 분기 |
+| `UnitProductionUseCase.cs` | `CancelQueueAt`: IsCharged=true 슬롯1~2 취소 시 환불 |
+| `ProductionPanelUI.cs` | `UpdateQueueSlots`: AutoTypes → AutoEntries 참조 변경 |
+
+> ⚠️ **game-programmer에게**:
+> - AutoTypes → AutoEntries 전체 참조 변경 후 컴파일 오류 없는지 확인
+> - ToggleAutoProduction 제거 경로는 어떤 경우도 환불 없음 (R2-1, R2-2 확인됨)
+> - CancelQueueAt 슬롯1~2는 IsCharged=true일 때만 환불 (R1-4 기준)
+> - EnqueueUnit의 currentCount 체크는 이관 완료 후 수행 (R4-2 기준)
+
+---
+
+## 구현 순서 (5차)
+
+```
+[1] ProductionState.cs — AutoEntry 구조체 추가, AutoTypes → AutoEntries 교체
+[2] UnitProductionUseCase.cs — ToggleAutoProduction, EnqueueUnit, TryStartNext, CancelQueueAt 수정
+[3] ProductionPanelUI.cs — AutoEntries 참조 변경
+[4] 컴파일 확인
+```
+
+---
+
 ## 5차 규칙 재해석 및 코드 수정 (2026-03-22 실기 테스트 후)
 
 ### 전역 규칙 재해석 (최종 확정)
@@ -587,3 +845,26 @@ else if (i == 2) {
 [1] UnitProductionUseCase.cs — ToggleAutoProduction, EnqueueUnit, CancelQueueAt, TryStartNext 수정
 [2] 컴파일 확인
 ```
+
+---
+
+## 작업 완료 (2026-03-23)
+
+### 최종 상태
+
+- 자동/수동 생산 하이브리드 시스템 전역 규칙 5가지 완전 구현
+- 실기 테스트 전 케이스(FIX-1 ~ FIX-7, FIX-9, FIX-10) PASS
+- 수정된 버그 목록: BUG-01 ~ BUG-13
+
+### 수정된 파일
+
+| 파일 | 변경 내용 요약 |
+|------|---------------|
+| `ProductionState.cs` | AutoEntry 구조체 추가, AutoTypes → AutoEntries 교체 |
+| `UnitProductionUseCase.cs` | 전역 규칙 5가지 완전 적용 (IsCharged 기반 차감/환불/이관) |
+| `ProductionPanelUI.cs` | 혼용 슬롯 표시, 슬롯2 중복 방지, 버튼 탭/롱프레스 분기 |
+| `NetworkProductionController.cs` | AutoEntries 참조 갱신, 유닛 타입 파라미터 추가 |
+
+### 참고
+
+전역 규칙 5가지 및 용어 정의는 `Assets/_Project/Docs/GameDesignDocument.md` → "생산 패널 운영 규칙" 섹션에 기록됨.

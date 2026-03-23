@@ -38,7 +38,7 @@
   - CurrentProducing=null, ElapsedTime=0
   - Assault 골드 환불 (Rule 1: 수동 추가 시 차감됐으므로)
   - 큐 비어 있음
-- **결과**:
+- **결과**: PASS
 
 ### R1-2. 대기 중인 수동 항목 슬롯1 취소 → 환불
 
@@ -47,7 +47,7 @@
 - **기댓값**:
   - ManualQueue=[], Assault 생산 계속
   - Sniper 골드 환불 (Rule 1: 수동 추가 시 차감됨)
-- **결과**:
+- **결과**: PASS
 
 ### R1-3. 자동 등록 → 슬롯 진입 후 취소 → 환불
 
@@ -57,7 +57,7 @@
   - CurrentProducing=null, AutoEntries에서 Pistoleer 제거
   - AutoEntries 비어 있으면 IsAutoMode=false
   - Pistoleer 골드 환불 (Rule 1: 슬롯 진입 시 차감됐으므로)
-- **결과**:
+- **결과**: PASS
 
 ### R1-4. 자동 등록 → 슬롯에 표시된 대기 항목 취소 → 환불
 
@@ -67,7 +67,7 @@
   - AutoEntries에서 슬롯1 항목(Sniper) 제거
   - Sniper 골드 환불 (Rule 1: IsCharged=true이므로)
   - Assault 생산 계속
-- **결과**:
+- **결과**: PASS
 
 ---
 
@@ -82,9 +82,9 @@
   - AutoEntries=[], IsAutoMode=false, Pistoleer 인디케이터 OFF
   - [슬롯0] Pistoleer 생산 유지 (CurrentProducing은 건드리지 않음)
   - 빈 슬롯1~2 (ManualQueue 없음, AutoEntries 없음)
-  - Pistoleer 골드 환불 (Rule 1: IsCharged=true이므로 취소 시 환불)
+  - **환불 없음** — 생산이 취소된 게 아니라 자동 순환 목록에서만 제거됨 (Rule 1 미해당)
 - **비고**: 슬롯0 Pistoleer는 AutoEntries에서 제거되므로 CompleteProduction 후 자동 순환 없음
-- **결과**:
+- **결과**: [슬롯0] Pistoleer 생산 유지, 빈 슬롯1~2, 자동생산취소 인디케이터OFF. PASS
 
 ### R2-2. 자동 2개 → 슬롯0 타입 인디케이터 OFF, 슬롯1 항목은 ManualQueue 이관 없이 자동 유지
 
@@ -96,9 +96,9 @@
   - Assault 인디케이터 OFF, Sniper 인디케이터 ON
   - [슬롯0] Assault 생산 유지 (CurrentProducing 건드리지 않음)
   - [슬롯1] Sniper 표시 유지 (IsCharged=true 항목이 슬롯1에 남음)
-  - Assault 골드 환불 (Rule 1: AutoEntries에서 IsCharged=true Assault 제거 시 환불)
+  - **환불 없음** — 생산이 취소된 게 아니라 자동 순환 목록에서만 제거됨 (Rule 1 미해당)
 - **비고**: 수동 추가가 아님, AutoEntries에서 타입만 제거하는 ToggleAutoProduction 경로
-- **결과**:
+- **결과**: Assault 자동생산 인디케이터가 OFF, 생산큐는 그대로 유지되지만 Assault 생산금액 환불되었음 버그 발견
 
 ### R2-3. 수동 추가 → 슬롯 표시 자동 항목이 ManualQueue로 이관됨 (Rule 2+3 연계)
 
@@ -111,24 +111,7 @@
   - [슬롯0] Assault 생산 유지
   - [슬롯1] Sniper, [슬롯2] Pistoleer
   - 환불 없음 — Sniper는 이미 차감됐고 ManualQueue로 이관되어 생산 계속, Assault는 슬롯0 생산 중
-- **결과**:
-
-### R2-4. 수동 추가 시 큐 풀 대기 자동 항목(IsCharged=false)은 소멸, 환불 없음
-
-- **전제**: Assault(슬롯0) + Sniper(슬롯1 자동 IsCharged=true) + Pistoleer(슬롯2 자동 IsCharged=true) + Sniper2번째(대기 IsCharged=false) — 자동 항목 3개
-  - AutoEntries=[Assault(true), Sniper(true), Pistoleer(true)] → 이 경우 큐 풀, 대기 자동 항목 없음
-  - 단순화: AutoEntries=[Assault(IsCharged=true), Sniper(IsCharged=false)] — Assault만 슬롯 진입, Sniper는 미차감
-    - 큐=[슬롯0]Assault, 슬롯1=빈칸(ManualQueue없음), Sniper는 표시 안 됨
-- **전제 재정의**: Assault 자동(슬롯0 생산중) + Pistoleer 수동(슬롯1) + Sniper 자동 등록(큐 풀, IsCharged=false)
-  - AutoEntries=[Assault(IsCharged=true), Sniper(IsCharged=false)], ManualQueue=[Pistoleer]
-- **동작**: Assault 탭 (수동 추가 시도: EnqueueUnit(Assault))
-- **기댓값**:
-  - CollectChargedSlotEntries: Pistoleer는 ManualQueue에 있고, AutoEntries에서 offset=1→Sniper IsCharged=false → 이관 대상 없음 → chargedEntries=[]
-  - IsAutoMode=false, AutoEntries 클리어, Sniper 소멸, 환불 없음 (IsCharged=false이므로)
-  - currentCount = 1(Assault) + 1(Pistoleer) = 2 → 2+1=3 ≤ 3 → 추가 허용
-  - ManualQueue=[Pistoleer, Assault]
-  - [슬롯0] Assault 생산 유지, [슬롯1] Pistoleer, [슬롯2] Assault(수동 대기)
-- **결과**:
+- **결과**: [슬롯0] Assault 생산 유지 [슬롯1] Sniper, [슬롯2] Pistoleer, 모든 자동생산 취소되었음, 별도 환불없었음. PASS
 
 ---
 
@@ -145,7 +128,7 @@
   - ManualQueue=[Assault] (수동 항목만)
   - [슬롯0] Pistoleer 생산 유지, [슬롯1] Assault
   - 환불 없음 — Pistoleer는 생산 중(슬롯0, 차감됨), Assault는 방금 차감됨
-- **결과**:
+- **결과**: PASS
 
 ### R3-2. 자동 2개 중 수동 추가 → Sniper 이관 + Pistoleer 추가, 큐 구성 확인
 
@@ -158,7 +141,7 @@
   - ManualQueue=[Sniper, Pistoleer] (Sniper 앞에 이관, Pistoleer 뒤에 추가)
   - [슬롯0] Assault 생산 유지, [슬롯1] Sniper, [슬롯2] Pistoleer
   - 환불 없음 (Sniper는 ManualQueue로 이관되어 생산 계속)
-- **결과**:
+- **결과**: FAIL — 슬롯0 Assault 유지, 슬롯1 Pistoleer, 인디케이터 OFF. Sniper가 생산큐에서 사라짐. 수동 추가 시 자동 항목 이관 로직 미구현으로 발생 (5차 코드 수정 필요)
 
 ### R3-3. 큐 풀 상태에서 수동 추가 시도 → 거부 (Rule 4)
 
@@ -169,7 +152,7 @@
   - IsAutoMode=false이므로 이관 없음 (자동 모드 블록 스킵)
   - currentCount = 1 + 2 = 3 → 3+1=4 > 3 → return false (수동 추가 거부)
   - 큐 변화 없음
-- **결과**:
+- **결과**: PASS
 
 ### R3-4. 자동 해제 후 수동으로 전환된 큐의 생산 순서
 
@@ -180,7 +163,7 @@
   - [슬롯0] Sniper, [슬롯1] Pistoleer
   - Sniper 완료 → Pistoleer 생산 시작, ManualQueue=[]
   - Pistoleer 완료 → 생산 종료 (IsAutoMode=false, ManualQueue 없음)
-- **결과**:
+- **결과**: PASS
 
 ---
 
@@ -195,7 +178,7 @@
   - IsAutoMode=true, Assault 인디케이터 ON
   - ManualQueue=[Sniper, Pistoleer] 변화 없음, [슬롯0]Assault 생산 유지
   - 큐는 3개 그대로 (자동 대기는 큐 상한 무관)
-- **결과**:
+- **결과**: PASS
 
 ### R4-2. 이관 후 총 큐가 3개 초과 → 수동 추가 거부 (Rule 2+3+4 연계)
 
@@ -209,7 +192,7 @@
   - IsAutoMode은 이관 처리 전에 변경되지 않음 — **단, EnqueueUnit이 false를 반환하는 시점이 이관 후이므로 IsAutoMode=false, AutoEntries 클리어가 이미 수행된 상태**
   - 실제: AutoEntries 클리어 + ManualQueue=[Sniper, Pistoleer] 이관은 완료, Assault 미추가로 최종 ManualQueue=[Sniper, Pistoleer]
   - [슬롯0]Assault 생산 유지, [슬롯1]Sniper, [슬롯2]Pistoleer
-- **결과**:
+- **결과**: FAIL [슬롯0]Assault 생산 유지 [슬롯1]Pistoleer [슬롯2]Assault 상태로 변경되고 자동생산은 모두 취소되었음
 
 ---
 
@@ -225,7 +208,7 @@
   - Sniper 골드/인구 즉시 검증 + 차감 (슬롯1 표시 가능)
   - AutoEntries=[Assault(IsCharged=true), Sniper(IsCharged=true)]
   - [슬롯0]Assault, [슬롯1]Sniper 표시
-- **결과**:
+- **결과**: PASS
 
 ### R5-2. 자동 등록 → 큐 풀이면 미차감
 
@@ -245,7 +228,7 @@
   - Assault 골드 미차감 (큐 풀 상태)
   - AutoEntries=[Assault(IsCharged=false)], IsAutoMode=true
   - 큐 변화 없음 ([슬롯0]Assault, [슬롯1]Sniper, [슬롯2]Pistoleer)
-- **결과**:
+- **결과**: Testcase 다시 정리해서 작성할 것. 무슨말인지 이해 못하겠음. 전제는 무엇이며 전제 재정의는 무엇인지 혼란스러움
 
 ### R5-3. 자동 대기 미차감 항목 → 슬롯 진입 시 골드 차감
 
@@ -258,7 +241,7 @@
   - ManualQueue=[]
   - Pistoleer 완료 → TryStartNext: ManualQueue 없음, IsAutoMode=true → AutoEntries[AutoIndex=0]=Assault(IsCharged=false) → 골드/인구 검증 + **이 시점에 골드 차감**, IsCharged=true로 갱신 → Assault 생산 시작
   - 이후 Assault 자동 순환
-- **결과**:
+- **결과**: R5-2의 연장선으로 R5-2 재작성부터 진행
 
 ### R5-4. 자동 대기 취소 → 환불 없음 (미차감이었으므로)
 
@@ -268,7 +251,7 @@
   - AutoEntries에서 Assault 제거, AutoEntries=[] → IsAutoMode=false
   - 환불 없음 (IsCharged=false → Rule 1 환불 조건 미충족)
   - ManualQueue=[Sniper, Pistoleer] 변화 없음
-- **결과**:
+- **결과**: R5-2의 연장선으로 R5-2 재작성부터 진행
 
 ---
 
@@ -282,8 +265,8 @@
 | R1-2 | PASS | CancelQueueAt(1, 수동): ManualQueue.RemoveAt(0), 골드 환불 정상 |
 | R1-3 | PASS | CancelQueueAt(0, 자동): AutoEntries에서 제거, 빈 경우 IsAutoMode=false, 환불(Rule 1) 정상 |
 | R1-4 | PASS | CancelQueueAt(1, 자동): AutoEntries 슬롯1 항목 제거, IsCharged=true이면 환불(Rule 1) 정상 |
-| R2-1 | PASS | ToggleAutoProduction(Pistoleer): IsCharged=true → 환불, AutoEntries=[] → IsAutoMode=false, CurrentProducing 유지 |
-| R2-2 | PASS | ToggleAutoProduction(Assault): Assault(IsCharged=true) 제거+환불, AutoEntries=[Sniper] 남음, IsAutoMode=true 유지, AutoIndex 보정 정상 |
+| R2-1 | PASS | ToggleAutoProduction(Pistoleer): AutoEntries=[] → IsAutoMode=false, CurrentProducing 유지, 환불 없음 (생산 취소 아님) |
+| R2-2 | PASS | ToggleAutoProduction(Assault): Assault 제거, AutoEntries=[Sniper] 남음, IsAutoMode=true 유지, AutoIndex 보정 정상, 환불 없음 (생산 취소 아님) |
 | R2-3 | PASS | EnqueueUnit(Pistoleer): CollectChargedSlotEntries → Sniper(IsCharged=true) 이관, ManualQueue=[Sniper, Pistoleer], AutoEntries 클리어 (Rule 3) |
 | R2-4 | PASS | EnqueueUnit: CollectChargedSlotEntries에서 IsCharged=false 항목 제외, IsAutoMode=false+AutoEntries 클리어, 환불 없음 |
 | R3-1 | PASS | EnqueueUnit: IsAutoMode=true, CollectChargedSlotEntries count=1→offset=1 루프 미실행, chargedEntries=[], ManualQueue=[Assault], AutoEntries 클리어 |
