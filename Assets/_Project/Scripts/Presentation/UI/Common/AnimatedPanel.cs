@@ -81,7 +81,7 @@ namespace Hexiege.Presentation
 
         [Header("배경 오버레이 (선택적)")]
         [Tooltip("슬라이드 패널 뒤에 깔리는 반투명 배경 CanvasGroup. " +
-                 "연결 시 Show()에서 즉시 SetActive(true), Hide() 완료 후 SetActive(false). " +
+                 "연결 시 Show()에서 즉시 SetActive(true), Hide() 호출 즉시 SetActive(false). " +
                  "연결하지 않으면 무시됨 — 기존 동작에 영향 없음.")]
         [SerializeField] private CanvasGroup _backgroundOverlay;
 
@@ -221,17 +221,16 @@ namespace Hexiege.Presentation
             _currentSeq?.Kill();
 
             // 배경 오버레이가 Inspector에 연결된 경우:
-            // 패널 퇴장 애니메이션이 "완전히 끝난 후"에 배경을 비활성화하도록
-            // 기존 onComplete 콜백을 래핑(wrapping)하여 오버레이 비활성화 로직을 앞에 삽입.
-            // onComplete가 null이어도 ?.Invoke()로 안전하게 처리.
-            // _backgroundOverlay == null이면 wrappedComplete = onComplete 그대로 → 기존 동작 동일.
-            System.Action wrappedComplete = _backgroundOverlay != null
-                ? () =>
-                {
-                    _backgroundOverlay.gameObject.SetActive(false);
-                    onComplete?.Invoke();
-                }
-                : onComplete;
+            // Hide() 호출 즉시 배경을 비활성화하여, 패널 퇴장 슬라이드 애니메이션이
+            // 시작되는 순간부터 뒤쪽 UI가 보이도록 함.
+            // (이전에는 애니메이션 완료 후에 비활성화하여 배경이 너무 오래 남아있었음)
+            // _backgroundOverlay == null이면 이 블록은 건너뛰어 기존 동작과 동일.
+            if (_backgroundOverlay != null)
+                _backgroundOverlay.gameObject.SetActive(false);
+
+            // wrappedComplete: switch 문에 전달할 완료 콜백.
+            // 배경 비활성화는 이미 위에서 즉시 처리했으므로 onComplete만 그대로 전달.
+            System.Action wrappedComplete = onComplete;
 
             switch (_animationType)
             {

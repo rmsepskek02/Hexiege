@@ -94,10 +94,15 @@
 ### 씬 계층 예시
 ```
 [UI] Canvas
-  └─ ProductionPopup          ← AnimatedPanel 부착, BackgroundOverlay 연결
-      ├─ Overlay              ← CanvasGroup 부착, alpha=0.5, 초기 비활성
-      └─ ContentPanel         ← 실제 콘텐츠
+  ├─ Background               ← 공유 배경. CanvasGroup + Button + SharedBackgroundButton 부착, 초기 비활성
+  ├─ ProductionPopup          ← AnimatedPanel 부착, _backgroundOverlay = 공유 Background
+  │   └─ ContentPanel         ← 실제 콘텐츠 (자식 Background 없음)
+  └─ BuildingPopup            ← AnimatedPanel 부착, _backgroundOverlay = 공유 Background
+      └─ ContentPanel
 ```
+
+> 공유 Background 하나를 모든 패널이 공유 — 한 번에 하나의 패널만 열리는 구조이므로 충분.
+> 패널 Show() 시 `SharedBackgroundButton.Register(Close)`, Close() 시 `Unregister()` 호출.
 
 ---
 

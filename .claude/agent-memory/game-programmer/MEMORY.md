@@ -23,6 +23,19 @@
 
 ## 최근 작업
 
+### 반투명 배경 오버레이 구조 개선 (2026-03-23) ✅ 실기 테스트 완료
+
+**변경 내용**:
+- `AnimatedPanel.cs`: Hide() 내 `_backgroundOverlay.SetActive(false)` 타이밍 변경 — OnComplete 콜백 → Hide() 호출 즉시
+- `SharedBackgroundButton.cs` (신규, `Presentation/UI/Common/`): Canvas 직속 공유 Background에 부착
+  - `Register(Action onClose)` / `Unregister()` / `OnClick()` 3개 메서드
+- `BuildingPlacementUI.cs` / `ProductionPanelUI.cs`: `_backgroundButton(Button)` 제거 → `_sharedBackground(SharedBackgroundButton)` 교체
+  - Show()에서 `_sharedBackground?.Register(Close)`, Close()에서 `_sharedBackground?.Unregister()`
+
+**씬 구조 변경 (Game.unity)**:
+- `[UI]/Background` 하나를 ProductionPopup/BuildingPopup/GameEndPanel이 공유
+- 각 팝업 자식 Background 삭제됨
+
 ### 자동/수동 생산 하이브리드 시스템 완성 (2026-03-23) ✅ 실기 테스트 완료
 
 **핵심 설계**: AutoEntry(UnitType + IsCharged) 기반 골드 차감 시점 추적

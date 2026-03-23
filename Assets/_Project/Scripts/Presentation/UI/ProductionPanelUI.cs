@@ -63,8 +63,8 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 래퍼 (AnimatedPanel 부착, Show()/Hide()로 토글)")]
         [SerializeField] private AnimatedPanel _popup;
 
-        [Tooltip("배경 버튼 (터치 시 팝업 닫기)")]
-        [SerializeField] private Button _backgroundButton;
+        [Tooltip("Canvas 직속 공유 Background (터치 시 팝업 닫기)")]
+        [SerializeField] private SharedBackgroundButton _sharedBackground;
 
         [Header("Unit Buttons")]
         [Tooltip("권총병 생산 버튼")]
@@ -188,9 +188,7 @@ namespace Hexiege.Presentation
 
             // 시작 시 팝업 비활성 (AnimatedPanel.Awake()에서 이미 비활성화되지만 명시적 보장)
 
-            // 배경 버튼 → 닫기
-            if (_backgroundButton != null)
-                _backgroundButton.onClick.AddListener(Close);
+            // 공유 Background 닫기는 Show()/Close()에서 Register/Unregister로 처리
 
             // 취소 버튼 → 닫기
             if (_cancelButton != null)
@@ -233,6 +231,10 @@ namespace Hexiege.Presentation
 
             _popup?.Show();
 
+            // 공유 Background에 이 패널의 Close 콜백 등록
+            // Background 터치 시 Close()가 호출되어 팝업이 닫힌다
+            _sharedBackground?.Register(Close);
+
             // 배럭 선택 시 랠리포인트 마커 표시
             if (_ticker != null)
                 _ticker.ShowRallyMarker(barracks.Id);
@@ -248,6 +250,9 @@ namespace Hexiege.Presentation
         {
             ClosedFrame = Time.frameCount;
             IsSettingRallyPoint = false;
+
+            // 공유 Background 콜백 해제 (Hide 애니메이션 중 추가 터치 방지)
+            _sharedBackground?.Unregister();
 
             // 팝업 닫힐 때 랠리포인트 마커 숨김
             if (_ticker != null)

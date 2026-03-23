@@ -45,8 +45,9 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 래퍼 (AnimatedPanel 부착, Show()/Hide()로 토글)")]
         [SerializeField] private AnimatedPanel _popup;
 
-        [Tooltip("배경 버튼 (터치 시 팝업 닫기)")]
-        [SerializeField] private Button _backgroundButton;
+        [Header("Shared Background")]
+        [Tooltip("Canvas 직속 공유 Background (터치 시 팝업 닫기)")]
+        [SerializeField] private SharedBackgroundButton _sharedBackground;
 
         [Tooltip("배럭 건설 버튼")]
         [SerializeField] private Button _barracksButton;
@@ -132,8 +133,7 @@ namespace Hexiege.Presentation
             // 시작 시 팝업 비활성 (AnimatedPanel.Awake()에서 이미 비활성화되지만 명시적 보장)
 
             // 버튼 이벤트 연결
-            if (_backgroundButton != null)
-                _backgroundButton.onClick.AddListener(Close);
+            // 공유 Background 닫기는 Show()/Close()에서 Register/Unregister로 처리
 
             if (_barracksButton != null)
                 _barracksButton.onClick.AddListener(() => PlaceAndClose(BuildingType.Barracks));
@@ -177,6 +177,10 @@ namespace Hexiege.Presentation
             }
 
             _popup?.Show();
+
+            // 공유 Background에 이 패널의 Close 콜백 등록
+            // Background 터치 시 Close()가 호출되어 팝업이 닫힌다
+            _sharedBackground?.Register(Close);
         }
 
         /// <summary> 팀에 맞는 초상화 스프라이트를 버튼 Image에 적용. Show() 시 호출. </summary>
@@ -193,6 +197,10 @@ namespace Hexiege.Presentation
         public void Close()
         {
             ClosedFrame = Time.frameCount;
+
+            // 공유 Background 콜백 해제 (Hide 애니메이션 중 추가 터치 방지)
+            _sharedBackground?.Unregister();
+
             _popup?.Hide();
         }
 
