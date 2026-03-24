@@ -1,4 +1,4 @@
-# Plan: 자동생산 UI 개선
+# Plan: 자동생산 UI 개선 ✅ 완료 (2026-03-24)
 
 ## 작업 목표
 
@@ -868,3 +868,79 @@ shownCount = (CurrentProducing ? 1 : 0) + ManualQueue.Count + AutoEntries.Count(
 ### 참고
 
 전역 규칙 5가지 및 용어 정의는 `Assets/_Project/Docs/GameDesignDocument.md` → "생산 패널 운영 규칙" 섹션에 기록됨.
+
+---
+
+## 멀티플레이 추가 버그 수정 (2026-03-24, 실기 테스트 발견)
+
+---
+
+### BUG-14 수정: Client 슬롯 취소가 서버에 반영되지 않음
+
+**발견 경위:** MULTI-4 정적 분석 (qa-tester, 2026-03-24)
+
+**원인:**
+Client가 슬롯을 탭하여 취소할 때 서버에 취소 요청을 전달하는 RPC가 없었다.
+Client가 로컬에서 직접 취소 처리 → 서버 상태에 반영 안 됨 → 서버 동기화 시 취소 무효화.
+
+**수정 내용:**
+
+| 파일 | 수정 내용 |
+|------|----------|
+| `NetworkProductionController.cs` | `CancelSlotServerRpc` 추가 (RequireOwnership=false, 팀 소유권 검증) |
+| `ProductionPanelUI.cs` | `OnQueueSlotClicked`: 네트워크 모드 시 `CancelSlotServerRpc` 호출 후 return |
+
+**수정 완료:** 2026-03-24 실기 PASS (MULTI-4)
+
+---
+
+### BUG-15 수정: 자동생산 등록 → 취소 → 재등록 시 골드 중복 차감
+
+**발견 경위:** MULTI-8 실기 테스트 (2026-03-24), Host/Client 모두 발생
+
+**재현 절차:**
+1. Assault 롱프레스 → 자동생산 등록 (IsCharged=false로 추가)
+2. TryStartNext 실행 → CurrentProducing=Assault, 골드 차감됨
+3. Assault 버튼 탭 → 자동생산 취소 (AutoEntries 빔, 환불 없음 — 정상)
+4. Assault 롱프레스 → 재등록 시 `CanAutoEntryShowInSlot=true` → 또 골드 차감 발생
+
+**기대 동작:**
+재등록 시 슬롯0(생산중) + 자동 인디케이터 ON 재활성화만 되어야 함.
+슬롯1에 중복 예약 불필요, 추가 골드 차감 없어야 함.
+
+**수정 방향:**
+`ToggleAutoProduction` 추가 경로에서 `type == state.CurrentProducing` 인 경우
+`CanAutoEntryShowInSlot` 결과를 무시하고 `canShowInSlot = false` 강제 처리.
+슬롯0에서 이미 같은 타입을 생산 중이므로 즉시 슬롯1 예약 불필요.
+
+**수정 대상 파일:**
+
+| 파일 | 수정 위치 |
+|------|----------|
+| `UnitProductionUseCase.cs` | `ToggleAutoProduction` — `CanAutoEntryShowInSlot` 호출 전 CurrentProducing 동일 타입 예외 처리 |
+
+---
+
+### BUG-16 수정: 이미 자동생산 중인 유닛 롱프레스 시 취소 대신 슬롯2에 추가됨
+
+**발견 경위:** TC에 없는 시나리오에서 발견 (2026-03-24 실기), Client만 발생
+
+**재현 절차:**
+1. Assault 롱프레스 → 자동생산 등록 (슬롯0 Assault)
+2. Sniper 롱프레스 → 자동생산 등록 (슬롯0 Assault, 슬롯1 Sniper)
+3. Assault 또는 Sniper 롱프레스 → 취소가 아닌 슬롯2에 추가됨
+
+**원인:**
+`OnUnitLongPress`에서 `isAutoForType`을 클라이언트 로컬 UseCase 상태로 판단.
+서버 동기화(SyncClientRpc)가 아직 도착하지 않았거나 불일치 시 `isAutoForType=false` 오판
+→ 취소 대신 추가 경로로 진입.
+
+**수정 방향:**
+네트워크 모드에서 `OnUnitLongPress`의 `isAutoForType` 로컬 체크를 건너뜀.
+항상 `HandleToggleAuto(type)` 호출 → 서버의 `ToggleAutoProduction`이 현재 등록 여부를 정확히 판단.
+
+**수정 대상 파일:**
+
+| 파일 | 수정 위치 |
+|------|----------|
+| `ProductionPanelUI.cs` | `OnUnitLongPress` — 네트워크 모드 시 `isAutoForType` 로컬 체크 생략, 바로 `HandleToggleAuto` 호출 |

@@ -514,6 +514,61 @@ namespace Hexiege.Infrastructure
         }
 
         // ====================================================================
+        // 큐 슬롯 취소 — ServerRpc (BUG-14 수정)
+        // ====================================================================
+
+        /// <summary>
+        /// 큐 슬롯 취소 요청. 클라이언트 UI에서 호출.
+        /// 서버에서 팀 소유권을 검증한 뒤 UnitProductionUseCase.CancelQueueAt()을 실행.
+        /// CancelQueueAt 내부에서 골드 환불 + OnProductionQueueChanged 이벤트 발행
+        /// → OnProductionQueueChanged 구독(서버) → SyncQueueStateClientRpc로 전체 클라이언트에 자동 전파.
+        /// </summary>
+        /// <param name="barracksId">취소 대상 배럭의 BuildingData Id</param>
+        /// <param name="slotIndex">취소할 큐 슬롯 인덱스 (0=생산 중, 1~2=대기 큐)</param>
+        /// <param name="teamIndex">TeamId 정수값 (Blue=1, Red=2)</param>
+        /// <param name="rpcParams">서버 RPC 파라미터 (발신자 ClientId 포함)</param>
+        [ServerRpc(RequireOwnership = false)]
+        public void CancelSlotServerRpc(
+            int barracksId,
+            int slotIndex,
+            int teamIndex,
+            ServerRpcParams rpcParams = default)
+        {
+            ulong senderClientId = rpcParams.Receive.SenderClientId;
+
+            // 팀 소유권 검증: Host(ClientId=0)=Blue, 그 외=Red
+            TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
+            if ((TeamId)teamIndex != expectedTeam)
+            {
+                Debug.LogWarning($"[Network] CancelSlotServerRpc: 팀 불일치. ClientId={senderClientId}, 요청팀={teamIndex}, 기대팀={expectedTeam}");
+                return;
+            }
+
+            // 부트스트래퍼 및 UseCase 확인
+            if (_bootstrapper == null)
+                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+
+            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            if (production == null)
+            {
+                Debug.LogWarning("[Network] CancelSlotServerRpc: UnitProductionUseCase가 null.");
+                return;
+            }
+
+            // 서버에서 CancelQueueAt 실행
+            // 내부에서 골드 환불 + OnProductionQueueChanged 이벤트 발행
+            // → OnProductionQueueChanged 구독 → SyncQueueStateClientRpc 자동 전파
+            bool success = production.CancelQueueAt(barracksId, slotIndex);
+            if (!success)
+            {
+                Debug.LogWarning($"[Network] CancelSlotServerRpc: CancelQueueAt 실패. BarracksId={barracksId}, SlotIndex={slotIndex}");
+                return;
+            }
+
+            Debug.Log($"[Network] 서버: 큐 슬롯 취소 성공. BarracksId={barracksId}, SlotIndex={slotIndex}");
+        }
+
+        // ====================================================================
         // 자동 생산 토글 — ServerRpc + ClientRpc
         // ====================================================================
 
@@ -594,29 +649,10 @@ namespace Hexiege.Infrastructure
 
             UnitType unitType = (UnitType)unitTypeInt;
 
-            // 클라이언트 측 상태 동기화 (서버와 일치시킴)
+            // AutoEntries는 SyncQueueStateClientRpc에서 이미 완전히 동기화됨.
+            // 여기서는 IsAutoMode만 서버 기준으로 반영한다.
+            // (AutoEntries를 여기서 수정하면 SyncQueueStateClientRpc의 올바른 동기화 결과를 덮어쓰게 됨)
             state.IsAutoMode = isAuto;
-
-            if (isAuto)
-            {
-                // 자동 모드 ON: 해당 타입이 AutoEntries에 없으면 추가
-                // 클라이언트는 표시 목적이므로 IsCharged=false (골드 추적은 서버만 수행)
-                if (!state.AutoContains(unitType))
-                    state.AutoEntries.Add(new AutoEntry(unitType, false));
-            }
-            else
-            {
-                // 자동 모드 OFF: 해당 타입 제거, AutoEntries가 비면 전체 초기화
-                int removeIdx = state.AutoIndexOf(unitType);
-                if (removeIdx >= 0)
-                    state.AutoEntries.RemoveAt(removeIdx);
-
-                if (state.AutoEntries.Count == 0)
-                {
-                    state.AutoEntries.Clear();
-                    state.AutoIndex = 0;
-                }
-            }
 
             // 기존 구독을 통해 ProductionPanelUI가 자동으로 갱신
             GameEvents.OnProductionQueueChanged.OnNext(new ProductionQueueChangedEvent(barracksId));
