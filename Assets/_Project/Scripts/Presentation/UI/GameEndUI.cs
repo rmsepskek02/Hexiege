@@ -38,7 +38,7 @@ using Hexiege.Bootstrap;
 
 namespace Hexiege.Presentation
 {
-    public class GameEndUI : MonoBehaviour
+    public class GameEndUI : MonoBehaviour, IGameUI
     {
         // ====================================================================
         // Inspector 참조
@@ -125,6 +125,24 @@ namespace Hexiege.Presentation
             StopCountdown();
             _gameEndSubscription?.Dispose();
         }
+
+        // ====================================================================
+        // IGameUI 구현
+        // ====================================================================
+
+        /// <summary>
+        /// 게임 시작/재시작 시 호출.
+        /// 재경기(Rematch) 시 이전 게임의 결과 패널이 남아있는 것을 숨김.
+        /// </summary>
+        public void OnGameStarted()
+        {
+            Hide();
+        }
+
+        // OnGameEnded(): GameUIManager에서 호출 제외 대상.
+        // GameEndUI는 게임 종료 시 "표시"되어야 하는 UI이므로 닫기 동작이 아닌
+        // 자체 OnGameEnd 이벤트 구독으로 결과 패널을 표시함.
+        // IGameUI의 default 빈 구현을 그대로 사용.
 
         // ====================================================================
         // 이벤트 핸들러

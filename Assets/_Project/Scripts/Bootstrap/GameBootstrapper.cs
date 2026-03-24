@@ -25,6 +25,7 @@
 
 using Unity.Netcode;
 using UnityEngine;
+using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
 using Hexiege.Application;
@@ -106,6 +107,10 @@ namespace Hexiege.Bootstrap
 
         [Tooltip("재접속 대기 + 강제 승리 판정 컨트롤러 (씬에 ReconnectionHandler NetworkObject 배치 후 연결)")]
         [SerializeField] private Hexiege.Infrastructure.ReconnectionHandler _reconnectionHandler;
+
+        [Header("UI Manager")]
+        [Tooltip("게임 UI 생명주기 매니저. 게임 시작/종료 시 등록된 모든 UI에 콜백 호출.")]
+        [SerializeField] private GameUIManager _uiManager;
 
         // ====================================================================
         // UseCase 인스턴스 (런타임 생성)
@@ -250,6 +255,18 @@ namespace Hexiege.Bootstrap
         /// </summary>
         public void LoadMap(HexOrientation orientation)
         {
+            // UI 매니저에 모든 게임 UI 등록 + 이벤트 구독 초기화.
+            // 중복 등록 방지는 GameUIManager.Register() 내부에서 처리하므로 매번 호출해도 안전.
+            // Initialize()는 기존 구독을 Dispose 후 재구독하므로 중복 구독도 방지됨.
+            if (_uiManager != null)
+            {
+                _uiManager.Register(_gameHudUI);
+                _uiManager.Register(_productionUI);
+                _uiManager.Register(_buildingUI);
+                _uiManager.Register(_gameEndUI);
+                _uiManager.Initialize();
+            }
+
             // 게임 오버 상태에서 재시작 시 시간 복원
             Time.timeScale = 1f;
 
@@ -319,6 +336,11 @@ namespace Hexiege.Bootstrap
             // 13. 금광 렌더링
             if (_gridRenderer != null)
                 _gridRenderer.RenderGoldMines(_grid);
+
+            // 14. 게임 시작 이벤트 발행 — 모든 UI에 초기화 완료 알림.
+            // 맵 로드의 맨 마지막에 발행하여, 모든 시스템이 준비된 상태에서
+            // UI가 OnGameStarted() 콜백을 안전하게 처리할 수 있도록 보장.
+            GameEvents.OnGameStarted.OnNext(Unit.Default);
 
         }
 

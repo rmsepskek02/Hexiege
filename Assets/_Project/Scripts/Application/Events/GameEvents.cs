@@ -402,8 +402,32 @@ namespace Hexiege.Application
         /// <summary>
         /// 게임 종료 시 발행. Castle 파괴로 승패 결정.
         /// 발행: GameEndUseCase
-        /// 구독: GameEndUI (승리/패배 팝업 표시)
+        /// 구독: GameEndUI (승리/패배 팝업 표시), GameUIManager (열린 UI 일괄 닫기)
         /// </summary>
         public static readonly Subject<GameEndEvent> OnGameEnd = new Subject<GameEndEvent>();
+
+        // ====================================================================
+        // 게임 생명주기 이벤트
+        // ====================================================================
+
+        /// <summary>
+        /// 게임 시작(또는 재시작) 시 발행. LoadMap() 완료 후 발행.
+        /// 모든 시스템 초기화가 끝난 상태이므로, UI가 안전하게 초기 상태를 설정할 수 있음.
+        /// 발행: GameBootstrapper.LoadMap() 맨 마지막
+        /// 구독: GameUIManager (등록된 모든 UI에 OnGameStarted() 호출)
+        /// </summary>
+        public static readonly Subject<Unit> OnGameStarted = new Subject<Unit>();
+
+        /// <summary>
+        /// 게임 일시정지 시 발행 (확장용, 현재는 선언만).
+        /// 추후 일시정지 기능 구현 시 활용.
+        /// </summary>
+        public static readonly Subject<Unit> OnGamePaused = new Subject<Unit>();
+
+        /// <summary>
+        /// 게임 재개 시 발행 (확장용, 현재는 선언만).
+        /// 추후 일시정지 해제 시 활용.
+        /// </summary>
+        public static readonly Subject<Unit> OnGameResumed = new Subject<Unit>();
     }
 }

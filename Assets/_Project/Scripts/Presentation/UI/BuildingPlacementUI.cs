@@ -35,7 +35,7 @@ using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
-    public class BuildingPlacementUI : MonoBehaviour
+    public class BuildingPlacementUI : MonoBehaviour, IGameUI
     {
         // ====================================================================
         // Inspector에서 설정할 UI 참조
@@ -202,6 +202,30 @@ namespace Hexiege.Presentation
             _sharedBackground?.Unregister();
 
             _popup?.Hide();
+        }
+
+        // ====================================================================
+        // IGameUI 구현
+        // ====================================================================
+
+        /// <summary>
+        /// 게임 종료 시 호출.
+        /// 건물 배치 팝업이 열려있다면 닫아서 게임 종료 화면이 깨끗하게 표시되도록 함.
+        /// Close() 내부에서 SharedBackgroundButton.Unregister()도 호출하므로 안전.
+        /// </summary>
+        public void OnGameEnded()
+        {
+            Close();
+        }
+
+        /// <summary>
+        /// 게임 시작/재시작 시 호출.
+        /// 혹시 열려있을 수 있는 팝업을 닫아서 초기 상태 보장.
+        /// 재경기(Rematch) 시 이전 게임에서 열린 팝업이 남아있는 것을 방지.
+        /// </summary>
+        public void OnGameStarted()
+        {
+            Close();
         }
 
         // ====================================================================

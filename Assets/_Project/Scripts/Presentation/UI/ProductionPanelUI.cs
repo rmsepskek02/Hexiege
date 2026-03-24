@@ -53,7 +53,7 @@ using TMPro;
 
 namespace Hexiege.Presentation
 {
-    public class ProductionPanelUI : MonoBehaviour
+    public class ProductionPanelUI : MonoBehaviour, IGameUI
     {
         // ====================================================================
         // Inspector UI 참조
@@ -261,6 +261,30 @@ namespace Hexiege.Presentation
             _popup?.Hide();
 
             _currentBarracks = null;
+        }
+
+        // ====================================================================
+        // IGameUI 구현
+        // ====================================================================
+
+        /// <summary>
+        /// 게임 종료 시 호출.
+        /// 생산 패널이 열려있다면 닫아서 게임 종료 화면이 깨끗하게 표시되도록 함.
+        /// Close() 내부에서 SharedBackgroundButton.Unregister()도 호출하므로 안전.
+        /// </summary>
+        public void OnGameEnded()
+        {
+            Close();
+        }
+
+        /// <summary>
+        /// 게임 시작/재시작 시 호출.
+        /// 혹시 열려있을 수 있는 패널을 닫아서 초기 상태 보장.
+        /// 재경기(Rematch) 시 이전 게임에서 열린 패널이 남아있는 것을 방지.
+        /// </summary>
+        public void OnGameStarted()
+        {
+            Close();
         }
 
         // ====================================================================

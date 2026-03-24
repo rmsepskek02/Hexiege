@@ -23,6 +23,29 @@
 
 ## 최근 작업
 
+### Game UI Lifecycle Framework (2026-03-24) ✅ 실기 테스트 완료
+
+**신규 파일**:
+- `Presentation/UI/Core/IGameUI.cs` — UI 생명주기 인터페이스 (OnGameStarted/OnGameEnded/OnGamePaused/OnGameResumed, 모두 default 빈 구현)
+- `Presentation/UI/GameUIManager.cs` — 등록/디스패치 매니저 (MonoBehaviour, [Managers] 하위 배치)
+
+**수정 파일**:
+- `Application/Events/GameEvents.cs` — OnGameStarted, OnGamePaused, OnGameResumed Subject<Unit> 추가
+- `GameHudUI.cs` / `ProductionPanelUI.cs` / `BuildingPlacementUI.cs` / `GameEndUI.cs` — IGameUI 구현
+- `GameBootstrapper.cs` — `_uiManager` SerializeField + LoadMap() 맨 앞에 Register/Initialize, 맨 끝에 OnGameStarted 발행
+- `NetworkGameEndController.cs` — `_uiManager` 필드 추가, AnnounceWinnerClientRpc에서 `_uiManager?.NotifyGameEnded()` 호출 추가
+
+**핵심 패턴**:
+- `GameUIManager.Register()` — 중복 등록 방지 포함, LoadMap() 재호출 시 안전
+- `GameUIManager.Initialize()` — CompositeDisposable로 중복 구독 방지
+- `GameEndUI`는 OnGameEnded() 호출 제외 (ReferenceEquals 비교)
+- **BUG-1 (멀티플레이 클라이언트 팝업 미닫힘)**: 클라이언트는 GameEvents.OnGameEnd 미발행 설계 → AnnounceWinnerClientRpc에서 직접 NotifyGameEnded() 호출로 수정
+
+**새 UI 추가 시 체크리스트**:
+1. `IGameUI` 인터페이스 구현 (필요한 메서드만 override)
+2. `GameBootstrapper.LoadMap()` 앞부분에 `_uiManager.Register(새UI)` 1줄 추가
+3. Inspector 참조 연결
+
 ### 반투명 배경 오버레이 구조 개선 (2026-03-23) ✅ 실기 테스트 완료
 
 **변경 내용**:

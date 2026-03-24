@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-03-23
-**현재 단계:** 반투명 배경 오버레이 구조 개선 완료 (공유 Background 통합, Hide 즉시 비활성화) / 자동/수동 생산 하이브리드 시스템 완성 (전역 규칙 5가지 구현 완료, BUG-01~13 수정, 실기 테스트 PASS) / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료 / 멀티플레이 로비 복귀 버그 수정 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료 / 코드 정리 완료 / 싱글플레이 ViewConverter 버그 수정 완료
+**최종 수정일:** 2026-03-24
+**현재 단계:** Game UI Lifecycle Framework 완료 (IGameUI 인터페이스 + GameUIManager, 게임 종료/재시작 UI 일괄 제어, 멀티플레이 클라이언트 팝업 미닫힘 BUG-1 수정) / 반투명 배경 오버레이 구조 개선 완료 (공유 Background 통합, Hide 즉시 비활성화) / 자동/수동 생산 하이브리드 시스템 완성 (전역 규칙 5가지 구현 완료, BUG-01~13 수정, 실기 테스트 PASS) / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료 / 멀티플레이 로비 복귀 버그 수정 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료 / 코드 정리 완료 / 싱글플레이 ViewConverter 버그 수정 완료
 
 ---
 
@@ -61,6 +61,15 @@
 | 금광 타일 3D 오브젝트 (GoldMineTile) | ✅ 완료 |
 | 랠리포인트 마커 3D | ✅ 완료 |
 | HexTileView 팀 색상 (_BaseColor, Shader Graph) | ✅ 완료 |
+
+#### Game UI Lifecycle Framework (2026-03-24)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| `IGameUI.cs` 인터페이스 | ✅ 완료 | OnGameStarted/OnGameEnded/OnGamePaused/OnGameResumed, default 빈 구현 |
+| `GameUIManager.cs` 매니저 | ✅ 완료 | Register/Initialize, CompositeDisposable 중복 구독 방지, GameEndUI 제외 로직 |
+| GameEvents — OnGameStarted/Paused/Resumed 추가 | ✅ 완료 | Subject<Unit> 3개 추가 |
+| 기존 UI 4종 IGameUI 구현 | ✅ 완료 | GameHudUI/ProductionPanelUI/BuildingPlacementUI/GameEndUI |
+| 멀티플레이 클라이언트 팝업 미닫힘 버그 수정 | ✅ 완료 | NetworkGameEndController.AnnounceWinnerClientRpc에서 NotifyGameEnded() 직접 호출 |
 
 #### UI DOTween 애니메이션 프레임워크 (2026-03-19)
 | 항목 | 상태 | 비고 |

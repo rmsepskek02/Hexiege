@@ -32,7 +32,7 @@ using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
-    public class GameHudUI : MonoBehaviour
+    public class GameHudUI : MonoBehaviour, IGameUI
     {
         // ====================================================================
         // Inspector 참조
@@ -105,6 +105,22 @@ namespace Hexiege.Presentation
             _lastBlueTiles = -1;
             _lastRedTiles = -1;
         }
+
+        // ====================================================================
+        // IGameUI 구현
+        // ====================================================================
+
+        /// <summary>
+        /// 게임 시작/재시작 시 호출.
+        /// 캐시된 표시값을 초기화하여 다음 프레임에서 강제 갱신되도록 함.
+        /// 재경기(Rematch) 시 이전 게임의 골드/인구 값이 잔류하는 것을 방지.
+        /// </summary>
+        public void OnGameStarted()
+        {
+            ResetCachedValues();
+        }
+
+        // OnGameEnded(): HUD는 게임 종료 시에도 계속 표시되므로 처리 없음 (default 빈 구현 사용).
 
         // ====================================================================
         // 매 프레임 갱신

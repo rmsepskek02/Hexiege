@@ -62,6 +62,9 @@ namespace Hexiege.Infrastructure
         [Tooltip("재경기 요청 팝업. Inspector 미연결 시 자동 탐색.")]
         [SerializeField] private RematchRequestPopup _rematchRequestPopup;
 
+        [Tooltip("게임 UI 매니저. 게임 종료 시 클라이언트 측 열린 팝업(생산 패널, 건물 배치 등)을 일괄 닫기 위해 사용. Inspector 미연결 시 자동 탐색.")]
+        [SerializeField] private GameUIManager _uiManager;
+
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -100,6 +103,11 @@ namespace Hexiege.Infrastructure
             // RematchRequestPopup 자동 탐색 (비활성 오브젝트 포함)
             if (_rematchRequestPopup == null)
                 _rematchRequestPopup = FindFirstObjectByType<RematchRequestPopup>(FindObjectsInactive.Include);
+
+            // GameUIManager 탐색 — 게임 종료 시 클라이언트 측 열린 팝업을 닫기 위해 필요
+            // (Inspector 미연결 시 자동 탐색)
+            if (_uiManager == null)
+                _uiManager = FindFirstObjectByType<GameUIManager>();
 
             Debug.Log($"[Network] NetworkGameEndController 스폰. IsServer={IsServer}");
 
@@ -178,6 +186,12 @@ namespace Hexiege.Infrastructure
                     return;
                 }
             }
+
+            // 클라이언트에서는 GameEvents.OnGameEnd가 발행되지 않으므로
+            // GameUIManager에 직접 게임 종료를 알려 열린 팝업들(생산 패널, 건물 배치 등)을 닫는다.
+            // Host에서는 이미 OnGameEnd 구독으로 1회 호출됐으나, 중복 호출해도 안전
+            // (이미 닫힌 UI에 OnGameEnded()를 다시 호출해도 부작용 없음).
+            _uiManager?.NotifyGameEnded();
 
             // 게임 모드에 따라 재경기 버튼 설정
             _gameEndUI.SetupRematchButton(isRandomMatch, RequestRematch);
