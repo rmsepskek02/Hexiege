@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-03-24
-**현재 단계:** Game UI Lifecycle Framework 완료 (IGameUI 인터페이스 + GameUIManager, 게임 종료/재시작 UI 일괄 제어, 멀티플레이 클라이언트 팝업 미닫힘 BUG-1 수정) / 반투명 배경 오버레이 구조 개선 완료 (공유 Background 통합, Hide 즉시 비활성화) / 자동/수동 생산 하이브리드 시스템 완성 (전역 규칙 5가지 구현 완료, BUG-01~13 수정, 실기 테스트 PASS) / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료 / 멀티플레이 로비 복귀 버그 수정 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료 / 코드 정리 완료 / 싱글플레이 ViewConverter 버그 수정 완료
+**최종 수정일:** 2026-03-26
+**현재 단계:** 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 완료 (NetworkUnit.cs 신규, NetworkTransform 위치 동기화, Walk/공격/사망 ClientRpc, Red 클라이언트 좌표 보정) — 이동 전 회전 타이밍 보류 / Game UI Lifecycle Framework 완료 / 반투명 배경 오버레이 구조 개선 완료 / 자동/수동 생산 하이브리드 시스템 완성 / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료 / 멀티플레이 로비 복귀 버그 수정 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료 / 코드 정리 완료 / 싱글플레이 ViewConverter 버그 수정 완료
 
 ---
 
@@ -122,6 +122,7 @@
 | Phase 5 | 유닛 생산 동기화 (NetworkProductionController, 자동생산 포함) | ✅ 완료 |
 | Phase 6 | 유닛 이동 + 전투 동기화 (NetworkUnitMovementController, NetworkCombatController) | ✅ 완료 |
 | Phase 6+ | AI 이동(Siege/랠리) 서버 권위 동기화 (BroadcastServerMove) | ✅ 완료 (2026-03-07) |
+| Phase 6++ | 유닛 NGO NetworkObject 전환 (NetworkTransform 위치 동기화, 클라이언트 예측 제거) | ✅ 완료 (2026-03-26) |
 | Phase 7 | 승패 판정 동기화 (NetworkGameEndController) | ✅ 완료 |
 | Phase 8 | UI/UX 네트워크 대응 (LobbyUI, NetworkStatusUI, ReconnectionHandler) | ✅ 완료 |
 
@@ -146,6 +147,7 @@
 | EnqueueFailedClientRpc UI 피드백 없음 | NetworkProductionController | RPC 구조 완성, UI 기획 후 구현 예정 |
 | 재접속 실제 구현 없음 | ReconnectionHandler | 30초 대기 후 ForceWin만 |
 | 로비 UI 비주얼 폴리싱 | Lobby Views | UI 에셋 제작 후 진행 예정 |
+| 이동 전 회전 타이밍 (Rotate-then-Move) | UnitView, NetworkCombatController | 클라이언트에서 이동보다 회전이 늦게 느껴짐 — RPC 지연+NetworkTransform 보간 복합 원인. _rotationDuration=0.3f, RotationDuration 이벤트 전달 구현됨. 보류 (Plan.md 보류 섹션 참고) |
 
 #### GameConfig 코드 기본값 vs Inspector 값
 - AnimationFps 필드 제거 완료 (2026-03-09 — 미사용 필드)

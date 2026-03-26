@@ -244,6 +244,41 @@ namespace Hexiege.Application
     }
 
     // ====================================================================
+    // 유닛 방향 전환 이벤트 데이터
+    // ====================================================================
+
+    /// <summary>
+    /// 유닛 방향 전환 이벤트 데이터.
+    /// 서버에서 이동 시작 직전 방향을 클라이언트에 전달하여
+    /// 이동 전 회전이 선행되도록 함.
+    /// </summary>
+    public struct UnitFacingChangedEvent
+    {
+        /// <summary> 방향이 바뀐 유닛의 Id. </summary>
+        public int UnitId;
+
+        /// <summary>
+        /// 목표 Y축 회전 각도 (도 단위).
+        /// Atan2 기반 월드 각도 — 클라이언트에서 그대로 DORotate에 사용.
+        /// </summary>
+        public float YAngle;
+
+        /// <summary>
+        /// DORotate 지속 시간 (초).
+        /// UnitView._rotationDuration 값을 그대로 전달하여
+        /// 서버 대기 시간과 클라이언트 회전 시간을 일치시킴.
+        /// </summary>
+        public float RotationDuration;
+
+        public UnitFacingChangedEvent(int unitId, float yAngle, float rotationDuration)
+        {
+            UnitId = unitId;
+            YAngle = yAngle;
+            RotationDuration = rotationDuration;
+        }
+    }
+
+    // ====================================================================
     // 게임 종료 이벤트 데이터
     // ====================================================================
 
@@ -394,6 +429,34 @@ namespace Hexiege.Application
         /// 구독: ProductionTicker (마커 생성/이동/제거)
         /// </summary>
         public static readonly Subject<RallyPointChangedEvent> OnRallyPointChanged = new Subject<RallyPointChangedEvent>();
+
+        // ====================================================================
+        // 유닛 이동(Walk) 네트워크 동기화 이벤트
+        // ====================================================================
+
+        /// <summary>
+        /// 유닛이 이동(Walk)을 시작했을 때 발행. 유닛 Id를 전달.
+        /// 멀티플레이 서버 전용 — 싱글플레이에서는 발행하지 않음.
+        /// 발행: UnitView.MoveAlongPath (서버에서 이동 코루틴 시작/재개 시)
+        /// 구독: NetworkCombatController (StartWalkAnimationClientRpc로 클라이언트에 Walk 시작 전파)
+        /// </summary>
+        public static readonly Subject<int> OnUnitWalkStarted = new Subject<int>();
+
+        /// <summary>
+        /// 유닛이 이동(Walk)을 정지했을 때 발행. 유닛 Id를 전달.
+        /// 멀티플레이 서버 전용 — 싱글플레이에서는 발행하지 않음.
+        /// 발행: UnitView.MoveAlongPath (적 감지 시 정지), UnitView.StopMovement (이동 강제 중단)
+        /// 구독: NetworkCombatController (StopWalkAnimationClientRpc로 클라이언트에 Walk 정지 전파)
+        /// </summary>
+        public static readonly Subject<int> OnUnitWalkStopped = new Subject<int>();
+
+        /// <summary>
+        /// 유닛이 이동 방향을 전환할 때 발행. 이동 시작 직전 방향 정보 전달.
+        /// 멀티플레이 서버 전용 — 싱글플레이에서는 발행하지 않음.
+        /// 발행: UnitView.MoveAlongPath (첫 스텝 ApplyDirection 직후)
+        /// 구독: NetworkCombatController (TurnToFaceClientRpc로 클라이언트에 방향 전파)
+        /// </summary>
+        public static readonly Subject<UnitFacingChangedEvent> OnUnitFacingChanged = new Subject<UnitFacingChangedEvent>();
 
         // ====================================================================
         // 게임 종료 이벤트

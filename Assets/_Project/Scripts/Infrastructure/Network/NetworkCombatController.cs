@@ -24,9 +24,11 @@
 // Infrastructure 레이어 — NetworkBehaviour 사용 허용.
 // ============================================================================
 
+using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UniRx;
+using DG.Tweening;
 using Hexiege.Domain;
 using Hexiege.Application;
 using Hexiege.Presentation;
@@ -44,8 +46,8 @@ namespace Hexiege.Infrastructure
         // ====================================================================
 
         [Header("전투 설정")]
-        [Tooltip("전투 처리 간격 (초). 0.2 = 초당 5회 전투 판정.")]
-        [SerializeField] private float _attackInterval = 0.1f;
+        [Tooltip("전투 처리 간격 (초). 0.05 = 초당 20회 전투 판정. 첫 공격까지의 최대 지연을 줄이기 위해 낮게 설정.")]
+        [SerializeField] private float _attackInterval = 0.05f;
 
         // ====================================================================
         // 내부 상태
@@ -56,6 +58,15 @@ namespace Hexiege.Infrastructure
 
         /// <summary>OnEntityDied 구독 해제용 Disposable.</summary>
         private System.IDisposable _diedSubscription;
+
+        /// <summary>OnUnitWalkStarted 구독 해제용 Disposable. 서버 전용.</summary>
+        private System.IDisposable _walkStartedSubscription;
+
+        /// <summary>OnUnitWalkStopped 구독 해제용 Disposable. 서버 전용.</summary>
+        private System.IDisposable _walkStoppedSubscription;
+
+        /// <summary>OnUnitFacingChanged 구독 해제용. 서버 전용. 이동 시작 직전 방향을 클라이언트에 전파.</summary>
+        private System.IDisposable _facingChangedSubscription;
 
         /// <summary>다음 전투 판정까지 남은 시간.</summary>
         private float _attackTimer = 0f;
@@ -84,13 +95,27 @@ namespace Hexiege.Infrastructure
             NetworkContext.Set(isServer: IsServer, isActive: true);
             Debug.Log($"[Network] NetworkCombatController 스폰. IsServer={IsServer}. NetworkContext 설정 완료.");
 
-            // 서버만 사망 이벤트를 구독하여 클라이언트에 동기화
+            // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
             {
                 _diedSubscription = GameEvents.OnEntityDied
                     .Subscribe(OnEntityDied);
 
-                Debug.Log("[Network] NetworkCombatController: 서버 측 OnEntityDied 구독 완료.");
+                // 서버 UnitView의 Walk 시작/정지 이벤트를 수신하여 클라이언트에 전파.
+                // UnitView.MoveAlongPath()는 서버에서만 실행되므로,
+                // Walk 애니메이션 상태를 ClientRpc로 클라이언트에 동기화.
+                _walkStartedSubscription = GameEvents.OnUnitWalkStarted
+                    .Subscribe(unitId => StartWalkAnimationClientRpc(unitId));
+
+                _walkStoppedSubscription = GameEvents.OnUnitWalkStopped
+                    .Subscribe(unitId => StopWalkAnimationClientRpc(unitId));
+
+                // 유닛 방향 전환 이벤트: 이동 시작 직전 방향을 클라이언트에 전달하여
+                // 이동보다 회전이 먼저 시작되도록 함
+                _facingChangedSubscription = GameEvents.OnUnitFacingChanged
+                    .Subscribe(e => TurnToFaceClientRpc(e.UnitId, e.YAngle, e.RotationDuration));
+
+                Debug.Log("[Network] NetworkCombatController: 서버 측 OnEntityDied, Walk, Facing 이벤트 구독 완료.");
             }
         }
 
@@ -102,6 +127,14 @@ namespace Hexiege.Infrastructure
             base.OnNetworkDespawn();
             _diedSubscription?.Dispose();
             _diedSubscription = null;
+
+            // Walk 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
+            _walkStartedSubscription?.Dispose();
+            _walkStartedSubscription = null;
+            _walkStoppedSubscription?.Dispose();
+            _walkStoppedSubscription = null;
+            _facingChangedSubscription?.Dispose();
+            _facingChangedSubscription = null;
 
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
@@ -280,7 +313,121 @@ namespace Hexiege.Infrastructure
             UnitView unitView = unitObj.GetComponent<UnitView>();
             if (unitView == null) return;
 
+            // 공격 애니메이션 시작 전에 Walk 애니메이션을 먼저 정지.
+            // StopWalkAnimationClientRpc가 별도 RPC로 전송되지만,
+            // TriggerAttackAnimationClientRpc보다 늦게 도착할 수 있으므로
+            // 여기서 명시적으로 Walk를 정지하여 Walk/Attack 동시 재생을 방지.
+            unitView.StopWalkAnimation();
             unitView.TriggerAttackAnimation(targetId, targetIsUnit);
+        }
+
+        /// <summary>
+        /// 서버가 유닛 Walk 시작을 감지하여 모든 클라이언트에 Walk 애니메이션 재생 명령 전송.
+        /// 서버(HOST)는 MoveAlongPath에서 이미 Animator를 직접 제어하므로 스킵.
+        /// 클라이언트는 NetworkTransform으로 위치만 동기화받고,
+        /// Walk 애니메이션은 이 RPC를 통해 별도로 동기화.
+        ///
+        /// 유닛 생성 직후 Walk RPC가 도착하면 아직 UnitFactory에 미등록일 수 있으므로,
+        /// 코루틴으로 최대 1초간 재시도하여 등록 완료를 대기.
+        /// </summary>
+        /// <param name="unitId">Walk를 시작한 유닛의 Id</param>
+        [ClientRpc]
+        private void StartWalkAnimationClientRpc(int unitId)
+        {
+            // 서버(HOST)는 MoveAlongPath에서 이미 Walk 애니메이션을 직접 제어함 → 중복 방지
+            if (IsServer) return;
+
+            StartCoroutine(ApplyStartWalkWithRetry(unitId));
+        }
+
+        /// <summary>
+        /// Walk 애니메이션 적용 코루틴.
+        /// 유닛이 UnitFactory에 등록될 때까지 최대 1초 대기 후 Walk 시작.
+        /// 생성 직후 RPC가 도착하면 NetworkUnit의 RegisterToFactory()가 아직 완료되지 않아
+        /// GetUnitObject()가 null을 반환할 수 있으므로 재시도가 필요.
+        /// </summary>
+        private IEnumerator ApplyStartWalkWithRetry(int unitId)
+        {
+            var unitFactory = _bootstrapper?.GetUnitFactory();
+            if (unitFactory == null) yield break;
+
+            // 유닛이 등록될 때까지 최대 1초 대기 (생성 직후 RPC 도착 타이밍 대응)
+            float timeout = 1f;
+            GameObject unitObj = null;
+            while (unitObj == null && timeout > 0f)
+            {
+                unitObj = unitFactory.GetUnitObject(unitId);
+                if (unitObj == null)
+                {
+                    yield return null;
+                    timeout -= Time.deltaTime;
+                }
+            }
+
+            if (unitObj == null) yield break;
+
+            // Walk 재시작 전 이동 방향 추적 리셋.
+            // 공격 중 _prevPosition이 정지 위치로 고정되어 있다가 Walk 재개 시
+            // 첫 프레임 델타가 실제 이동 방향과 다를 수 있으므로 리셋해서 올바른 방향 계산 보장.
+            NetworkUnit networkUnit = unitObj.GetComponent<NetworkUnit>();
+            networkUnit?.ResetMovementTracking();
+
+            UnitView unitView = unitObj.GetComponent<UnitView>();
+            unitView?.StartWalkAnimation();
+        }
+
+        /// <summary>
+        /// 서버가 유닛 Walk 정지를 감지하여 모든 클라이언트에 Walk 애니메이션 정지 명령 전송.
+        /// 서버(HOST)는 MoveAlongPath에서 이미 Animator를 직접 제어하므로 스킵.
+        /// Walk 정지 = speed=0 → 현재 Walk 프레임 고정 (Idle 역할).
+        /// </summary>
+        /// <param name="unitId">Walk를 정지한 유닛의 Id</param>
+        [ClientRpc]
+        private void StopWalkAnimationClientRpc(int unitId)
+        {
+            // 서버(HOST)는 MoveAlongPath에서 이미 Walk 정지를 직접 제어함 → 중복 방지
+            if (IsServer) return;
+
+            var unitFactory = _bootstrapper?.GetUnitFactory();
+            if (unitFactory == null) return;
+
+            GameObject unitObj = unitFactory.GetUnitObject(unitId);
+            if (unitObj == null) return;
+
+            UnitView unitView = unitObj.GetComponent<UnitView>();
+            unitView?.StopWalkAnimation();
+        }
+
+        /// <summary>
+        /// 이동 시작 직전 유닛의 목표 방향을 클라이언트에 전달.
+        /// 클라이언트에서 이동보다 회전이 먼저 시작되도록 DORotate 적용.
+        /// 서버는 MoveAlongPath에서 ApplyDirection으로 직접 처리하므로 스킵.
+        /// </summary>
+        /// <param name="unitId">방향이 바뀐 유닛의 Id</param>
+        /// <param name="yAngle">목표 Y축 회전 각도 (도 단위)</param>
+        /// <param name="rotationDuration">회전 지속 시간 (초) — UnitView._rotationDuration과 동일값</param>
+        [ClientRpc]
+        private void TurnToFaceClientRpc(int unitId, float yAngle, float rotationDuration)
+        {
+            // 서버(HOST)는 MoveAlongPath에서 ApplyDirection으로 이미 회전 처리 완료 → 중복 방지
+            if (IsServer) return;
+
+            var unitFactory = _bootstrapper?.GetUnitFactory();
+            if (unitFactory == null) return;
+
+            GameObject unitObj = unitFactory.GetUnitObject(unitId);
+            if (unitObj == null) return;
+
+            // 이동 방향 추적 리셋 — 회전 대기 중 delta=0이 _prevPosition에 영향 없도록.
+            // 회전만 진행되는 동안 LateUpdate의 delta 기반 회전이 간섭하지 않도록 함.
+            NetworkUnit networkUnit = unitObj.GetComponent<NetworkUnit>();
+            networkUnit?.ResetMovementTracking();
+
+            // 목표 방향으로 부드럽게 회전.
+            // rotationDuration은 서버 WaitForSeconds와 동일값 → 서버 이동 시작 시점과 클라이언트 회전 완료 시점 일치.
+            unitObj.transform.DOKill();
+            unitObj.transform.DORotate(new Vector3(0f, yAngle, 0f), rotationDuration)
+                             .SetEase(Ease.OutQuad);
         }
 
         // ====================================================================

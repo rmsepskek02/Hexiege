@@ -32,6 +32,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UniRx;
+using Unity.Netcode;
 using Hexiege.Domain;
 using Hexiege.Core;
 using Hexiege.Application;
@@ -131,14 +132,31 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// UnitData를 기반으로 유닛 프리팹 인스턴스를 생성하고 초기화.
         ///
-        /// 처리:
+        /// 분기:
+        ///   - 싱글플레이: 기존 Instantiate 방식 유지
+        ///   - 멀티플레이 서버: Instantiate → NetworkObject.Spawn() → NetworkUnit.SetUnitId()
+        ///     → NGO가 클라이언트에 자동으로 프리팹 전달
+        ///   - 멀티플레이 클라이언트: 아무것도 하지 않음 (NGO가 자동 생성)
+        ///     → NetworkUnit.OnNetworkSpawn()에서 RegisterUnitObject로 딕셔너리에 등록
+        ///     → SpawnUnitClientRpc에서 InitializeUnitView()로 UnitView 초기화
+        ///
+        /// 처리 (서버/싱글):
         ///   1. HexCoord → 월드 위치 변환
         ///   2. 프리팹 Instantiate
-        ///   3. UnitView 컴포넌트에 UnitData 전달하여 초기화
-        ///   4. 내부 딕셔너리에 등록
+        ///   3. (멀티) NetworkObject.Spawn() + SetParent + SetUnitId
+        ///   4. UnitView 컴포넌트에 UnitData 전달하여 초기화
+        ///   5. 내부 딕셔너리에 등록
         /// </summary>
         private void CreateUnitObject(UnitData unitData)
         {
+            // ================================================================
+            // 멀티플레이 클라이언트: NGO가 자동 생성하므로 아무것도 하지 않음
+            // NetworkUnit.OnNetworkSpawn() → RegisterUnitObject()로 딕셔너리에 등록됨
+            // SpawnUnitClientRpc → InitializeUnitView()로 UnitView 초기화됨
+            // ================================================================
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer)
+                return;
+
             // 팀·유닛타입에 맞는 프리팹 선택
             var set = unitData.Team == TeamId.Blue ? _bluePrefabs : _redPrefabs;
             GameObject prefab = unitData.Type switch
@@ -164,14 +182,58 @@ namespace Hexiege.Infrastructure
             // ToView 이후에 Y 오프셋 적용 — ToView 이전에 적용하면 Red팀에서 오프셋 방향이 반전됨
             viewPos.y += HexMetrics.UnitYOffset;
 
-            // 프리팹 인스턴스 생성. 뷰 좌표에 배치.
-            GameObject unitObj = Instantiate(prefab, viewPos, Quaternion.identity, _unitParent);
+            // 프리팹 인스턴스 생성.
+            // 멀티플레이 서버: 부모 없이 월드 루트에 생성 (NGO Spawn 후 SetParent 필요)
+            // 싱글플레이: 직접 _unitParent 아래에 생성
+            GameObject unitObj;
+            if (NetworkContext.IsNetworkActive)
+            {
+                // 서버: 월드 루트에 Instantiate (NGO는 루트 오브젝트만 Spawn 가능)
+                unitObj = Instantiate(prefab, viewPos, Quaternion.identity);
+            }
+            else
+            {
+                // 싱글플레이: 기존 방식 — 부모 아래에 직접 생성
+                unitObj = Instantiate(prefab, viewPos, Quaternion.identity, _unitParent);
+            }
 
             // 오브젝트 이름을 유닛 정보로 설정 (에디터 디버깅용)
             unitObj.name = $"Unit_{unitData.Type}_{unitData.Team}_{unitData.Id}";
 
+            // ================================================================
+            // 멀티플레이 서버: NetworkObject.Spawn() → NGO가 클라이언트에 자동 전달
+            // ================================================================
+            if (NetworkContext.IsNetworkActive)
+            {
+                NetworkObject networkObject = unitObj.GetComponent<NetworkObject>();
+                if (networkObject == null)
+                {
+                    Debug.LogError($"[UnitFactory] NetworkObject 컴포넌트가 없습니다. 프리팹에 추가 필요: {unitData.Type}_{unitData.Team}");
+                    Destroy(unitObj);
+                    return;
+                }
+
+                // NGO에 이 오브젝트를 네트워크 스폰으로 등록
+                // → 모든 클라이언트에 자동으로 프리팹 Instantiate됨
+                networkObject.Spawn();
+
+                // 씬 계층 정리 생략: NGO에서 NetworkObject의 부모는 반드시 NetworkObject이거나
+                // 씬 루트여야 함. [World]/Units는 일반 GameObject이므로 SetParent 불가.
+                // 멀티플레이에서는 씬 루트에 그대로 두고, 에디터 계층 정리는 싱글에서만 적용.
+
+                // NetworkUnit 컴포넌트에 unitId 설정 → 클라이언트가 읽어서 딕셔너리 등록
+                NetworkUnit networkUnit = unitObj.GetComponent<NetworkUnit>();
+                if (networkUnit != null)
+                {
+                    networkUnit.SetUnitId(unitData.Id);
+                }
+                else
+                {
+                    Debug.LogWarning($"[UnitFactory] NetworkUnit 컴포넌트가 없습니다. 프리팹에 추가 필요: {unitData.Type}_{unitData.Team}");
+                }
+            }
+
             // UnitView 컴포넌트 가져와서 UnitData 전달
-            // UnitView는 Presentation 레이어 — Phase 7에서 구현
             var unitView = unitObj.GetComponent<UnitView>();
             if (unitView != null)
             {
@@ -203,6 +265,85 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
+        /// 클라이언트 전용: NGO가 자동 생성한 유닛 GameObject를 딕셔너리에 등록.
+        /// NetworkUnit.OnNetworkSpawn()에서 호출.
+        /// 이후 SpawnUnitClientRpc에서 GetUnitObject(unitId)로 조회 가능.
+        /// </summary>
+        /// <param name="unitId">서버에서 발급된 유닛 Id</param>
+        /// <param name="unitObj">NGO가 자동 생성한 유닛 GameObject</param>
+        public void RegisterUnitObject(int unitId, GameObject unitObj)
+        {
+            _unitObjects[unitId] = unitObj;
+        }
+
+        /// <summary>
+        /// 클라이언트 전용: NGO가 자동 생성한 유닛 GameObject에 UnitView를 초기화.
+        /// SpawnUnitClientRpc에서 UnitData 생성 후 호출.
+        ///
+        /// 처리:
+        ///   1. 딕셔너리에서 해당 unitId의 GameObject 조회
+        ///   2. UnitView.Initialize(unitData) 호출
+        ///   3. Attack 클립 길이 → 쿨다운 설정
+        ///   4. 런타임 의존성 주입
+        ///   5. 씬 계층 정리 (_unitParent 아래로 배치)
+        ///   6. 오브젝트 이름 설정 (디버깅용)
+        ///
+        /// 반환값: 초기화 성공 여부 (GameObject를 찾지 못하면 false)
+        /// </summary>
+        /// <param name="unitData">서버와 동일한 Id로 재생성된 UnitData</param>
+        /// <returns>초기화 성공 여부</returns>
+        public bool InitializeUnitView(UnitData unitData)
+        {
+            if (!_unitObjects.TryGetValue(unitData.Id, out GameObject unitObj) || unitObj == null)
+            {
+                Debug.LogWarning($"[UnitFactory] InitializeUnitView: UnitId={unitData.Id}에 해당하는 GameObject 없음. " +
+                                 "NetworkUnit.OnNetworkSpawn()이 아직 호출되지 않았을 수 있습니다.");
+                return false;
+            }
+
+            // 오브젝트 이름 설정 (에디터 디버깅용)
+            unitObj.name = $"Unit_{unitData.Type}_{unitData.Team}_{unitData.Id}";
+
+            // 씬 계층 정리: [World]/Units 하위로 배치
+            // NetworkObject는 서버만 부모를 변경할 수 있으므로 클라이언트에서는 건너뜀.
+            // 서버에서 Spawn 후 SetParent를 수행하므로 클라이언트에서는 불필요.
+            if (_unitParent != null && unitObj.transform.parent != _unitParent
+                && (!NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer))
+                unitObj.transform.SetParent(_unitParent);
+
+            // 위치는 NetworkTransform이 서버에서 자동 동기화하므로 수동 설정하지 않음.
+            // NGO Spawn 시점에 서버 위치가 이미 동기화되어 있어야 함.
+            // 만약 초기 1~2프레임 동안 원점에 나타나는 문제가 있다면
+            // 여기에 viewPos 설정을 추가할 수 있음.
+
+            // UnitView 컴포넌트 초기화
+            var unitView = unitObj.GetComponent<UnitView>();
+            if (unitView != null)
+            {
+                unitView.Initialize(unitData);
+
+                // Attack 클립 길이를 읽어 쿨다운 설정
+                var animator = unitObj.GetComponentInChildren<Animator>();
+                float attackClipLength = GetAttackClipLength(animator);
+                if (attackClipLength > 0f)
+                    unitData.AttackCooldown = attackClipLength;
+
+                // 런타임 의존성 자동 주입
+                if (_hasDependencies)
+                    unitView.SetDependencies(_depConfig, _depMovement, _depCombat,
+                        _depUnitFactory, _depBuildingFactory);
+            }
+
+            // NetworkUnit에 초기화 완료 플래그 설정
+            var networkUnit = unitObj.GetComponent<NetworkUnit>();
+            if (networkUnit != null)
+                networkUnit.MarkInitialized();
+
+            Debug.Log($"[UnitFactory] 클라이언트: UnitView 초기화 완료. UnitId={unitData.Id}, Type={unitData.Type}, Team={unitData.Team}");
+            return true;
+        }
+
+        /// <summary>
         /// Animator에서 "Attack"이 포함된 첫 번째 클립의 길이를 반환.
         /// 클립이 없거나 Animator가 null이면 0 반환.
         /// </summary>
@@ -217,14 +358,38 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 모든 유닛 GameObject를 파괴. 맵 전환 시 호출.
+        /// 멀티플레이 서버: NetworkObject.Despawn()으로 클라이언트에서도 자동 제거.
+        /// 싱글플레이: 기존 Destroy 방식.
+        /// 멀티플레이 클라이언트: 딕셔너리만 초기화 (NGO Despawn은 서버에서 처리).
         /// </summary>
         public void DestroyAllUnits()
         {
-            foreach (var kvp in _unitObjects)
+            if (NetworkContext.IsNetworkActive && NetworkContext.IsNetworkServer)
             {
-                if (kvp.Value != null)
-                    Destroy(kvp.Value);
+                // 서버: NetworkObject.Despawn()으로 네트워크 제거 (클라이언트 자동 동기화)
+                foreach (var kvp in _unitObjects)
+                {
+                    if (kvp.Value != null)
+                    {
+                        var networkObject = kvp.Value.GetComponent<NetworkObject>();
+                        if (networkObject != null && networkObject.IsSpawned)
+                            networkObject.Despawn(); // Despawn이 Destroy도 같이 처리
+                        else
+                            Destroy(kvp.Value);
+                    }
+                }
             }
+            else if (!NetworkContext.IsNetworkActive)
+            {
+                // 싱글플레이: 기존 Destroy 방식
+                foreach (var kvp in _unitObjects)
+                {
+                    if (kvp.Value != null)
+                        Destroy(kvp.Value);
+                }
+            }
+            // 클라이언트: NGO가 서버 Despawn 시 자동으로 GameObject를 제거하므로 수동 파괴 불필요
+
             _unitObjects.Clear();
         }
     }

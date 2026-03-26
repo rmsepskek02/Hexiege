@@ -1,19 +1,19 @@
 // ============================================================================
 // NetworkUnitMovementController.cs
-// 네트워크 모드에서 유닛 이동 명령을 서버로 중계하고 상대방 클라이언트에 동기화.
+// 네트워크 모드에서 유닛 이동 명령을 서버로 중계.
 //
-// 클라이언트 예측(Client Prediction) 방식:
-//   - 로컬에서 즉시 이동 시작 (응답성 확보)
-//   - 서버에 이동 요청 전송
-//   - 서버 검증 통과 시 → 요청자를 제외한 나머지 클라이언트에 동기화
-//   - 서버 검증 거절 시 → 롤백 생략 (Phase 9에서 개선 예정)
+// NGO NetworkTransform 기반 동기화:
+//   [이전] 클라이언트 예측(Client Prediction) + SyncMovementClientRpc
+//   [이후] 서버 권위(Server Authority) — 서버만 이동 실행, NetworkTransform이 자동 동기화
 //
-// 흐름:
-//   1. InputHandler → RequestMove(unit, target) 호출
-//   2. 로컬: UnitMovementUseCase.RequestMove() + UnitView.MoveTo() (예측)
-//   3. 서버 Rpc 전송: RequestMoveServerRpc(unitId, targetQ, targetR)
-//   4. 서버: 팀 소유권 검증 + 경로 계산 → SyncMovementClientRpc (요청자 제외 전송)
-//   5. 상대 클라이언트: UnitView.MoveTo(path) 호출 → 시각적 이동 반영
+//   클라이언트가 이동 명령을 입력하면:
+//   1. RequestMoveServerRpc만 전송 (로컬 예측 없음)
+//   2. 서버에서 팀 소유권 검증 + 경로 계산 → UnitView.MoveTo() 실행
+//   3. NetworkTransform이 서버 transform.position을 모든 클라이언트에 자동 보간·동기화
+//   4. Walk 애니메이션은 NetworkCombatController의 ClientRpc로 별도 동기화
+//
+//   클라이언트 예측 제거로 이동 명령 후 약간의 지연(네트워크 RTT)이 발생하지만,
+//   RTS 장르에서 수백ms 반응성은 일반적이며 허용 가능한 수준.
 //
 // 배치:
 //   씬에 빈 GameObject "NetworkUnitMovementController" 생성.
@@ -33,7 +33,7 @@ namespace Hexiege.Infrastructure
 {
     /// <summary>
     /// 유닛 이동 명령 네트워크 컨트롤러.
-    /// 클라이언트 예측으로 로컬 즉시 이동 + 서버 검증 후 상대방 동기화.
+    /// 클라이언트 입력 → 서버 검증/실행 → NetworkTransform 자동 동기화.
     /// </summary>
     public class NetworkUnitMovementController : NetworkBehaviour
     {
@@ -69,49 +69,31 @@ namespace Hexiege.Infrastructure
         // ====================================================================
 
         /// <summary>
-        /// 유닛 이동 명령. 클라이언트 예측 방식으로 처리.
-        /// 1) 로컬에서 즉시 이동 시작 (UnitView.MoveTo)
-        /// 2) 서버에 이동 요청 전송 (RequestMoveServerRpc)
+        /// 유닛 이동 명령. 서버 권위 방식으로 처리.
+        ///
+        /// [이전] 로컬 예측 이동 + 서버 검증 + SyncMovementClientRpc
+        /// [이후] 서버에 이동 요청만 전송 — 로컬 예측 없음.
+        ///        서버가 경로 계산 + MoveTo() 실행 → NetworkTransform이 위치 자동 동기화.
+        ///
         /// 싱글플레이라면 이 메서드를 거치지 않고 기존 흐름 사용.
         /// </summary>
         /// <param name="unit">이동할 유닛 데이터</param>
         /// <param name="target">목표 타일 좌표</param>
-        /// <param name="unitFactory">UnitView 조회에 사용할 팩토리</param>
-        /// <param name="movementUseCase">경로 계산에 사용할 UseCase</param>
+        /// <param name="unitFactory">사용하지 않음 (기존 API 호환성 유지)</param>
+        /// <param name="movementUseCase">사용하지 않음 (기존 API 호환성 유지)</param>
         public void RequestMove(
             UnitData unit,
             HexCoord target,
             UnitFactory unitFactory,
             UnitMovementUseCase movementUseCase)
         {
-            if (unit == null || unitFactory == null || movementUseCase == null) return;
+            if (unit == null) return;
 
-            // ----------------------------------------------------------------
-            // 1. 로컬 예측: 경로 계산 후 즉시 이동 시작
-            // ----------------------------------------------------------------
-            List<HexCoord> path = movementUseCase.RequestMove(unit, target);
-            if (path == null)
-            {
-                Debug.Log($"[Network] 유닛 이동 경로 없음. UnitId={unit.Id}, Target={target}");
-                return;
-            }
-
-            // UnitFactory에서 UnitView를 가져와 로컬 이동 즉시 시작
-            GameObject unitObj = unitFactory.GetUnitObject(unit.Id);
-            if (unitObj != null)
-            {
-                var unitView = unitObj.GetComponent<Hexiege.Presentation.UnitView>();
-                if (unitView != null)
-                {
-                    unitView.MoveTo(path);
-                    Debug.Log($"[Network] 로컬 예측 이동 시작. UnitId={unit.Id}, Target={target}");
-                }
-            }
-
-            // ----------------------------------------------------------------
-            // 2. 서버에 이동 요청 전송 (서버 검증 + 상대방 동기화)
-            // ----------------------------------------------------------------
+            // 서버에 이동 요청만 전송 (로컬 예측 없음)
+            // 서버가 경로 계산 + MoveTo() 실행 → NetworkTransform이 위치 자동 동기화
             RequestMoveServerRpc(unit.Id, target.Q, target.R);
+
+            Debug.Log($"[Network] 이동 요청 전송. UnitId={unit.Id}, Target={target}");
         }
 
         // ====================================================================
@@ -120,7 +102,8 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 유닛 이동 요청. 클라이언트에서 호출.
-        /// 서버에서 팀 소유권 검증 후 경로 계산 → 상대방 클라이언트에 동기화.
+        /// 서버에서 팀 소유권 검증 후 경로 계산 → UnitView.MoveTo() 실행.
+        /// NetworkTransform이 서버 위치를 모든 클라이언트에 자동 동기화.
         /// RequireOwnership=false: 모든 클라이언트에서 호출 가능.
         /// </summary>
         /// <param name="unitId">이동할 유닛 Id</param>
@@ -193,8 +176,10 @@ namespace Hexiege.Infrastructure
             Debug.Log($"[Network] 서버: 이동 경로 계산 완료. UnitId={unitId}, 경로 길이={path.Count}");
 
             // ----------------------------------------------------------------
-            // 5. 서버 자신도 UnitView 이동 시작
-            //    (서버 측 UnitFactory가 있다면 시각 처리)
+            // 5. 서버에서 UnitView.MoveTo() 실행
+            //    → MoveAlongPath()가 transform.position을 매 프레임 갱신
+            //    → NetworkTransform이 위치를 모든 클라이언트에 자동 동기화
+            //    → Walk 시작/정지는 GameEvents → NetworkCombatController → ClientRpc로 전파
             // ----------------------------------------------------------------
             if (unitFactory != null)
             {
@@ -205,120 +190,6 @@ namespace Hexiege.Infrastructure
                     serverView?.MoveTo(path);
                 }
             }
-
-            // ----------------------------------------------------------------
-            // 6. 경로를 int 배열로 직렬화하여 상대방 클라이언트에 전송
-            //    요청자(senderClientId)는 이미 예측 이동 중이므로 제외
-            // ----------------------------------------------------------------
-            int[] pathQ = new int[path.Count];
-            int[] pathR = new int[path.Count];
-            for (int i = 0; i < path.Count; i++)
-            {
-                pathQ[i] = path[i].Q;
-                pathR[i] = path[i].R;
-            }
-
-            // 요청자를 제외한 모든 클라이언트에게 전송
-            ClientRpcParams excludeSender = new ClientRpcParams
-            {
-                Send = new ClientRpcSendParams
-                {
-                    // 요청자를 제외: ConnectedClientsIds에서 senderClientId 제거
-                    TargetClientIds = GetOtherClientIds(senderClientId)
-                }
-            };
-
-            SyncMovementClientRpc(unitId, pathQ, pathR, excludeSender);
-        }
-
-        // ====================================================================
-        // ClientRpc — 서버 → 요청자 제외 클라이언트
-        // ====================================================================
-
-        /// <summary>
-        /// 서버에서 검증된 이동 경로를 요청자 제외 클라이언트에 전파.
-        /// 수신한 클라이언트는 해당 유닛의 UnitView를 찾아 이동 시작.
-        /// </summary>
-        /// <param name="unitId">이동할 유닛 Id</param>
-        /// <param name="pathQ">경로 좌표 Q 배열</param>
-        /// <param name="pathR">경로 좌표 R 배열</param>
-        /// <param name="clientRpcParams">대상 클라이언트 파라미터 (요청자 제외)</param>
-        [ClientRpc]
-        private void SyncMovementClientRpc(
-            int unitId,
-            int[] pathQ,
-            int[] pathR,
-            ClientRpcParams clientRpcParams = default)
-        {
-            // 서버는 RequestMoveServerRpc에서 이미 처리 → 중복 방지
-            if (IsServer) return;
-
-            Debug.Log($"[Network] SyncMovementClientRpc 수신. UnitId={unitId}, 경로 길이={pathQ.Length}");
-
-            // UseCase / 팩토리 접근
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
-            if (_bootstrapper == null)
-            {
-                Debug.LogError("[Network] SyncMovementClientRpc: GameBootstrapper를 찾을 수 없습니다.");
-                return;
-            }
-
-            UnitFactory unitFactory = _bootstrapper.GetUnitFactory();
-            if (unitFactory == null)
-            {
-                Debug.LogError("[Network] SyncMovementClientRpc: UnitFactory가 null입니다.");
-                return;
-            }
-
-            // 경로 복원
-            List<HexCoord> path = new List<HexCoord>(pathQ.Length);
-            for (int i = 0; i < pathQ.Length; i++)
-            {
-                path.Add(new HexCoord(pathQ[i], pathR[i]));
-            }
-
-            // UnitView 조회 후 이동 시작
-            GameObject unitObj = unitFactory.GetUnitObject(unitId);
-            if (unitObj == null)
-            {
-                Debug.LogWarning($"[Network] SyncMovementClientRpc: UnitId={unitId}에 해당하는 GameObject 없음.");
-                return;
-            }
-
-            var unitView = unitObj.GetComponent<Hexiege.Presentation.UnitView>();
-            if (unitView == null)
-            {
-                Debug.LogWarning($"[Network] SyncMovementClientRpc: UnitId={unitId}에 UnitView 컴포넌트 없음.");
-                return;
-            }
-
-            // 이미 이동 중이어도 새 경로로 덮어씀 (MoveTo 내부에서 기존 코루틴 중단)
-            unitView.MoveTo(path);
-            Debug.Log($"[Network] 상대방 클라이언트: 유닛 이동 동기화. UnitId={unitId}");
-        }
-
-        // ====================================================================
-        // 유틸리티
-        // ====================================================================
-
-        /// <summary>
-        /// 현재 연결된 클라이언트 중 excludeId를 제외한 Id 목록 반환.
-        /// SyncMovementClientRpc에서 요청자 제외 전송에 사용.
-        /// </summary>
-        private ulong[] GetOtherClientIds(ulong excludeId)
-        {
-            if (NetworkManager.Singleton == null) return new ulong[0];
-
-            var connectedIds = NetworkManager.Singleton.ConnectedClientsIds;
-            var result = new System.Collections.Generic.List<ulong>();
-            foreach (ulong id in connectedIds)
-            {
-                if (id != excludeId)
-                    result.Add(id);
-            }
-            return result.ToArray();
         }
     }
 }

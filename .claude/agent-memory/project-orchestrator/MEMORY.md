@@ -6,7 +6,22 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
-## 프로젝트 현재 상태 (2026-03-19)
+## 프로젝트 현재 상태 (2026-03-26)
+
+### 2026-03-26 완료 (핵심 동작), 보류 1건
+- **유닛 NGO NetworkObject 전환 + 이동/전투 동기화**
+  - `NetworkUnit.cs` (신규): 유닛 프리팹 루트 NetworkBehaviour — unitId NetworkVariable, Red 클라이언트 좌표 보정(LateUpdate), 위치 델타 기반 회전
+  - `UnitFactory.cs`: 멀티+서버 → NetworkObject.Spawn() (SetParent 없음 — NGO 제약)
+  - `NetworkCombatController.cs`: TurnToFaceClientRpc 추가, StartWalkWithRetry 1초 재시도
+  - `NetworkUnitMovementController.cs`: 클라이언트 예측 제거, SyncMovementClientRpc 제거
+  - `UnitView.cs`: _isWalkPending 패턴, AttackWait 탈출 후 공격 완료 대기, 첫 스텝 회전 대기
+  - `GameEvents.cs`: UnitFacingChangedEvent(UnitId, YAngle, RotationDuration) 추가
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-26/15_08_network-unit-combat-sync/`
+  - **보류**: 이동 전 회전 타이밍 — 클라이언트에서 이동이 회전보다 빠르게 느껴짐 (RPC 지연 + NetworkTransform 보간 복합 원인) / Plan.md 보류 섹션 참고
+
+---
+
+## 이전 상태 (2026-03-19)
 
 ### 2026-03-19 완료
 - **카메라 줌 DOTween 보간**

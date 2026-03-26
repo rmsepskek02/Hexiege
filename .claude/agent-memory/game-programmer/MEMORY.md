@@ -23,6 +23,59 @@
 
 ## 최근 작업
 
+### 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 (2026-03-26) ✅ 핵심 동작 완료, 회전 타이밍 보류
+
+**신규 파일**:
+- `Infrastructure/Network/NetworkUnit.cs` — 유닛 프리팹 루트 NetworkBehaviour
+  - `_unitId` (NetworkVariable<int>, -1=미설정): 서버→클라이언트 unitId 동기화
+  - `OnNetworkSpawn()`: 클라이언트에서 unitId 확인 후 `RegisterToFactory()` 또는 `WaitForUnitId()` 코루틴 폴링 (3초 타임아웃)
+  - `LateUpdate()`: ① Red 클라이언트 위치 보정 (`ViewConverter.ToView`), ② 위치 델타 기반 Y축 회전 (720°/s RotateTowards)
+  - `ResetMovementTracking()`: Walk 재시작 시 이전 공격 위치 기준 델타 계산 방지
+  - `MarkInitialized()`: 중복 UnitView 초기화 방지 플래그
+
+**수정 파일**:
+- `Infrastructure/Factories/UnitFactory.cs`:
+  - 멀티+서버: `Instantiate → NetworkObject.Spawn() → SetUnitId()` (SetParent 없음 — NGO 제약)
+  - 멀티+클라이언트: early return (NGO가 자동 spawn)
+  - 싱글: 기존 Instantiate 유지
+  - `RegisterUnitObject(int, GameObject)`: 클라이언트 _unitObjects 딕셔너리 등록용
+  - `InitializeUnitView(UnitData)`: 클라이언트 UnitView 초기화 (멀티+클라이언트 SetParent 스킵)
+- `Infrastructure/Network/NetworkCombatController.cs`:
+  - `_facingChangedSubscription` 추가: `GameEvents.OnUnitFacingChanged` 구독 → `TurnToFaceClientRpc`
+  - `TurnToFaceClientRpc(int unitId, float yAngle, float rotationDuration)`: 클라이언트 회전 DORotate
+  - `StartWalkAnimationClientRpc` → `ApplyStartWalkWithRetry` 코루틴: 최대 1초 재시도 (등록 대기)
+  - `using DG.Tweening` 추가
+- `Infrastructure/Network/NetworkUnitMovementController.cs`:
+  - 클라이언트 예측 `MoveTo()` 제거
+  - `SyncMovementClientRpc` 제거 (NetworkTransform이 자동 전달)
+- `Application/Events/GameEvents.cs`:
+  - `UnitFacingChangedEvent { int UnitId, float YAngle, float RotationDuration }` struct 추가
+  - `OnUnitFacingChanged = new Subject<UnitFacingChangedEvent>()` 추가
+- `Presentation/Unit/UnitView.cs`:
+  - `_isWalkPending` 패턴: 공격 중 Walk 요청을 대기, 공격 완료 시 자동 시작
+  - `MoveAlongPath` 첫 스텝(i==1): 멀티플레이 시 `OnUnitFacingChanged` 발행 + `WaitForSeconds(_rotationDuration)` 대기
+  - AttackWait 탈출 후 `while (_attackCoroutine != null) yield return null` (공격 완료 대기)
+  - `PlayAttackAnimation()` 끝: `if (_isWalkPending) StartWalkAnimation()` 호출
+  - `_rotationDuration = 0.3f` (SerializeField, 이전 0.15f에서 변경)
+- `Editor/AddNetworkTransformToPrefabs.cs`:
+  - 메뉴: `Hexiege > Add NetworkTransform To Unit Prefabs`
+  - NetworkObject + NetworkTransform + NetworkUnit 일괄 추가
+  - SyncRotAngle X/Y/Z = false (회전 동기화 비활성 — 공격 DOTween 충돌 방지)
+
+**핵심 설계 결정**:
+- 유닛 위치 동기화: NGO NetworkTransform (서버 position → 클라이언트 자동 보간)
+- Walk/공격/사망 동기화: ClientRpc (이벤트 기반)
+- NetworkTransform rotation 동기화 비활성: 공격 DOTween과 충돌 방지
+- 클라이언트 회전: LateUpdate 위치 델타 기반 Atan2 계산 + 720°/s RotateTowards
+- Red 클라이언트 좌표 보정: NetworkUnit.LateUpdate() — NetworkTransform이 Update에서 설정 후 LateUpdate에서 덮어씌움
+- NGO NetworkObject 부모 제약: 일반 GameObject(씬 계층 [World]/Units) 하위 배치 불가 → 씬 루트에 생성
+- 클라이언트 등록 타이밍: WaitForUnitId 폴링 + ApplyStartWalkWithRetry로 등록 지연 대응
+
+**보류 항목**:
+- 이동 전 회전 타이밍 (Rotate-then-Move): `_rotationDuration=0.3f`, `RotationDuration` 이벤트 전달 구현됨
+  - 현상: 클라이언트에서 여전히 이동이 회전보다 빠르게 느껴짐 (RPC 지연 + NetworkTransform 보간 복합 원인)
+  - 다음 작업 시 `Plan.md` 보류 섹션 참고 (`Assets/_Project/Docs/_Tasks/2026-03-26/15_08_network-unit-combat-sync/Plan.md`)
+
 ### Game UI Lifecycle Framework (2026-03-24) ✅ 실기 테스트 완료
 
 **신규 파일**:

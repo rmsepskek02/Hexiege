@@ -332,9 +332,17 @@ namespace Hexiege.Infrastructure
         // ====================================================================
 
         /// <summary>
-        /// 서버에서 유닛 생산 완료 후 모든 클라이언트에 유닛 스폰 명령 전송.
+        /// 서버에서 유닛 생산 완료 후 모든 클라이언트에 UnitData 초기화 정보 전송.
+        ///
+        /// NGO 전환 후 변경:
+        ///   [이전] 클라이언트가 Instantiate(prefab) 직접 실행
+        ///   [이후] NGO가 NetworkObject.Spawn()으로 프리팹을 자동 생성.
+        ///          이 RPC는 UnitData 생성 + UnitView 초기화만 수행.
+        ///          GameObject는 NetworkUnit.OnNetworkSpawn()에서 이미 딕셔너리에 등록됨.
+        ///
         /// 서버는 UseCase에서 이미 처리 완료되었으므로 스킵.
-        /// 클라이언트는 SpawnUnitWithId로 동일 Id의 UnitData를 재생성하고
+        /// 클라이언트는 SpawnUnitWithId로 동일 Id의 UnitData를 재생성하고,
+        /// UnitFactory.InitializeUnitView()로 NGO가 생성한 GameObject에 UnitView를 초기화.
         /// GameEvents.OnUnitProduced를 발행하여 ProductionTicker가 랠리 이동을 처리하도록 함.
         /// </summary>
         /// <param name="unitId">서버에서 발급된 유닛 Id</param>
@@ -372,6 +380,8 @@ namespace Hexiege.Infrastructure
             }
 
             UnitSpawnUseCase unitSpawn = _bootstrapper.GetUnitSpawn();
+            UnitFactory unitFactory = _bootstrapper.GetUnitFactory();
+
             if (unitSpawn == null)
             {
                 Debug.LogError("[Network] SpawnUnitClientRpc: UnitSpawnUseCase가 null입니다.");
@@ -383,12 +393,30 @@ namespace Hexiege.Infrastructure
             TeamId team = (TeamId)teamIndex;
             HexCoord spawnCoord = new HexCoord(q, r);
 
-            // 서버와 동일한 Id로 UnitData 재생성 + OnUnitSpawned 이벤트 발행
+            // UnitData 재생성 (도메인 데이터만 생성, GameObject Instantiate는 하지 않음)
+            // SpawnUnitWithId는 내부에서 GameEvents.OnUnitSpawned를 발행하지만,
+            // 클라이언트의 UnitFactory.CreateUnitObject()는 NetworkContext 분기에 의해
+            // 아무것도 하지 않음 (NGO가 이미 GameObject를 생성했으므로)
             UnitData unit = unitSpawn.SpawnUnitWithId(unitId, unitType, team, spawnCoord);
             if (unit == null)
             {
                 Debug.LogWarning($"[Network] SpawnUnitClientRpc: SpawnUnitWithId 실패. UnitId={unitId}");
                 return;
+            }
+
+            // NGO가 생성한 GameObject에 UnitView 초기화
+            // NetworkUnit.OnNetworkSpawn()에서 RegisterUnitObject()로 이미 딕셔너리에 등록됨
+            if (unitFactory != null)
+            {
+                bool initialized = unitFactory.InitializeUnitView(unit);
+                if (!initialized)
+                {
+                    // NetworkUnit.OnNetworkSpawn()이 아직 호출되지 않은 경우
+                    // (NGO 프리팹 전달이 SpawnUnitClientRpc보다 늦게 도착)
+                    // → 재시도 코루틴으로 대기
+                    Debug.LogWarning($"[Network] SpawnUnitClientRpc: UnitView 초기화 지연. UnitId={unitId}. 재시도 대기 중...");
+                    StartCoroutine(RetryInitializeUnitView(unitFactory, unit));
+                }
             }
 
             // 랠리포인트 재구성
@@ -397,7 +425,36 @@ namespace Hexiege.Infrastructure
             // OnUnitProduced 발행 → ProductionTicker가 랠리포인트 자동 이동 처리
             GameEvents.OnUnitProduced.OnNext(new UnitProducedEvent(unit, rallyPoint));
 
-            Debug.Log($"[Network] 클라이언트: 유닛 재생성 완료. UnitId={unit.Id}, Type={unitType}, Team={team}");
+            Debug.Log($"[Network] 클라이언트: 유닛 데이터 재생성 완료. UnitId={unit.Id}, Type={unitType}, Team={team}");
+        }
+
+        /// <summary>
+        /// UnitView 초기화 재시도 코루틴.
+        /// NGO가 프리팹을 아직 전달하지 않은 경우 (SpawnUnitClientRpc가 먼저 도착),
+        /// NetworkUnit.OnNetworkSpawn()에서 RegisterUnitObject()가 호출될 때까지 대기.
+        /// 최대 3초 대기 후 실패 로그 출력.
+        /// </summary>
+        /// <param name="unitFactory">UnitFactory 참조</param>
+        /// <param name="unitData">초기화할 UnitData</param>
+        private System.Collections.IEnumerator RetryInitializeUnitView(UnitFactory unitFactory, UnitData unitData)
+        {
+            float elapsed = 0f;
+            float maxWait = 3f; // 최대 3초 대기
+
+            while (elapsed < maxWait)
+            {
+                yield return null;
+                elapsed += UnityEngine.Time.deltaTime;
+
+                if (unitFactory.InitializeUnitView(unitData))
+                {
+                    Debug.Log($"[Network] RetryInitializeUnitView: 초기화 성공. UnitId={unitData.Id}, 대기 시간={elapsed:F2}초");
+                    yield break;
+                }
+            }
+
+            Debug.LogError($"[Network] RetryInitializeUnitView: {maxWait}초 초과. UnitId={unitData.Id} 초기화 실패. " +
+                           "NetworkManager의 Network Prefabs List에 유닛 프리팹이 등록되어 있는지 확인하세요.");
         }
 
         // ====================================================================

@@ -74,7 +74,7 @@ namespace Hexiege.Presentation
         /// </summary>
         [SerializeField] private float _meshYOffset = 30f;
 
-        [SerializeField] private float _rotationDuration = 0.15f;
+        [SerializeField] private float _rotationDuration = 0.3f;
 
         // ====================================================================
         // 내부 참조
@@ -109,6 +109,13 @@ namespace Hexiege.Presentation
 
         /// <summary> 현재 공격 코루틴. </summary>
         private Coroutine _attackCoroutine;
+
+        /// <summary>
+        /// 공격 코루틴 진행 중 StartWalkAnimation() 요청이 왔을 때 대기 플래그.
+        /// 공격 코루틴 종료 후 자동으로 Walk를 시작하기 위해 사용.
+        /// 클라이언트 전용 상태 — 서버는 MoveAlongPath에서 직접 Animator를 제어.
+        /// </summary>
+        private bool _isWalkPending;
 
         /// <summary> 현재 이동 중인지 여부. InputHandler에서 이동 명령 중복 방지에 사용. </summary>
         public bool IsMoving => _moveCoroutine != null;
@@ -270,6 +277,8 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 현재 이동을 즉시 중단. 현재 위치에서 정지.
+        /// 멀티플레이 서버에서 호출 시 OnUnitWalkStopped 이벤트를 발행하여
+        /// NetworkCombatController가 클라이언트에 Walk 정지를 전파.
         /// </summary>
         public void StopMovement()
         {
@@ -282,14 +291,25 @@ namespace Hexiege.Presentation
 
             // Walk 정지 — speed=0으로 프레임 고정
             if (_animator != null) _animator.speed = 0f;
+
+            // 멀티플레이 서버: 이동 강제 중단 시 클라이언트에 Walk 정지 이벤트 발행
+            // NetworkCombatController가 이를 수신하여 StopWalkAnimationClientRpc 전송
+            if (NetworkContext.IsNetworkActive && NetworkContext.IsNetworkServer)
+                GameEvents.OnUnitWalkStopped.OnNext(_unitData.Id);
         }
 
         /// <summary>
         /// 경로를 따라 유닛을 시각적으로 이동시킴.
+        /// 멀티플레이에서는 서버만 실행 — 클라이언트는 NetworkTransform이
+        /// 서버 위치를 자동으로 보간·동기화하므로 이동 로직을 실행하지 않음.
         /// </summary>
         /// <param name="path">A* 경로 (시작점 포함)</param>
         public void MoveTo(List<HexCoord> path)
         {
+            // 멀티플레이에서는 서버만 이동 로직을 실행.
+            // 클라이언트는 NetworkTransform이 서버 위치를 자동으로 보간·동기화.
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+
             if (_moveCoroutine != null)
             {
                 StopCoroutine(_moveCoroutine);
@@ -306,6 +326,11 @@ namespace Hexiege.Presentation
         /// </summary>
         private IEnumerator MoveAlongPath(List<HexCoord> path)
         {
+            // 멀티플레이 서버: 이동 시작 이벤트 발행
+            // → NetworkCombatController가 수신하여 StartWalkAnimationClientRpc로 클라이언트에 Walk 시작 전파
+            if (NetworkContext.IsNetworkActive)
+                GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
+
             // 유닛별 개별 이동속도 사용 (MoveSpeed 칸/초 → lerp duration 초 변환)
             float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
             HexCoord finalTarget = path[path.Count - 1];
@@ -344,6 +369,28 @@ namespace Hexiege.Presentation
                 // [Phase 2] Y축 회전으로 방향 표현 (flipX 대신)
                 ApplyDirection(dir);
 
+                // 이동 시작(첫 스텝)일 때만 회전 선행 대기.
+                // 매 스텝마다 대기하면 이동이 너무 느려지므로 첫 번째 타일 이동에만 적용.
+                // 멀티플레이: 클라이언트에 방향 이벤트를 전파하여 회전이 이동보다 먼저 시작되도록 함.
+                // 싱글플레이: 서버 이벤트 불필요, ApplyDirection의 DORotate 완료까지만 대기.
+                if (i == 1)
+                {
+                    if (NetworkContext.IsNetworkActive)
+                    {
+                        // 방향 각도 계산 — ApplyDirection에서 사용한 값과 동일한 DirectionAngles 참조
+                        int dirIndex = (int)dir;
+                        float yAngle = dirIndex >= 0 && dirIndex < DirectionAngles.Length
+                            ? DirectionAngles[dirIndex]
+                            : transform.eulerAngles.y;
+
+                        // 클라이언트에 방향 이벤트 전달 (NetworkCombatController가 수신하여 RPC 전송)
+                        GameEvents.OnUnitFacingChanged.OnNext(new UnitFacingChangedEvent(_unitData.Id, yAngle, _rotationDuration));
+                    }
+
+                    // 회전 완료까지 대기 — 이동은 회전 후 시작
+                    yield return new WaitForSeconds(_rotationDuration);
+                }
+
                 // Walk 애니메이션 시작 — 이미 Walk 재생 중이면 리셋하지 않음
                 if (_animator != null)
                 {
@@ -373,9 +420,13 @@ namespace Hexiege.Presentation
                     {
                         if (NetworkContext.IsNetworkActive)
                         {
-                            // 멀티플레이: HasEnemyInRange로 Lerp 일시정지
+                            // 멀티플레이 서버: 사거리 내 적 감지 → Walk 정지 후 서버 TickCombat이 공격 처리
                             if (_combatUseCase.HasEnemyInRange(_unitData))
                             {
+                                // Walk 정지 (서버 로컬 Animator) + 클라이언트에 Walk 정지 이벤트 발행
+                                if (_animator != null) _animator.speed = 0f;
+                                GameEvents.OnUnitWalkStopped.OnNext(_unitData.Id);
+
                                 while (_unitData.IsAlive && _combatUseCase.HasEnemyInRange(_unitData))
                                 {
                                     while (_attackCoroutine != null)
@@ -383,14 +434,21 @@ namespace Hexiege.Presentation
                                     yield return null;
                                 }
 
+                                // 적이 사거리를 벗어났어도 현재 공격 애니메이션이 진행 중이면 완료까지 대기.
+                                // 공격 포즈 중에 이동을 재개하면 NetworkTransform이 위치를 즉시 동기화하여
+                                // 클라이언트에서 공격 포즈로 슬라이딩하는 현상 발생.
+                                while (_attackCoroutine != null)
+                                    yield return null;
+
                                 if (!_unitData.IsAlive) break;
 
-                                // 적 제거 후 Walk 복귀
+                                // 이동 재개: Walk 복귀 (서버 로컬 Animator) + 클라이언트에 Walk 시작 이벤트 발행
                                 if (_animator != null)
                                 {
                                     _animator.Play(StateWalk, 0, 0f);
                                     _animator.speed = 1f;
                                 }
+                                GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
                             }
                         }
                         else
@@ -447,6 +505,11 @@ namespace Hexiege.Presentation
             if (_animator != null) _animator.speed = 0f;
             _moveCoroutine = null;
 
+            // 멀티플레이 서버: 이동 종료 이벤트 발행
+            // → NetworkCombatController가 수신하여 StopWalkAnimationClientRpc로 클라이언트에 Walk 정지 전파
+            if (NetworkContext.IsNetworkActive)
+                GameEvents.OnUnitWalkStopped.OnNext(_unitData.Id);
+
             // 이동 완료 콜백 실행 (1회성)
             var callback = OnMoveComplete;
             OnMoveComplete = null;
@@ -479,6 +542,62 @@ namespace Hexiege.Presentation
             transform.localScale = originalScale * 0.85f;
             yield return new WaitForSeconds(0.05f);
             transform.localScale = originalScale;
+        }
+
+        // ====================================================================
+        // Walk 애니메이션 — 클라이언트 전용 (NetworkCombatController의 ClientRpc에서 호출)
+        // ====================================================================
+
+        /// <summary>
+        /// Walk 애니메이션 시작. NetworkCombatController의 StartWalkAnimationClientRpc에서 호출.
+        /// 클라이언트 전용 — 서버는 MoveAlongPath에서 직접 Animator를 제어.
+        /// 이미 Walk 상태면 리셋하지 않고 speed만 복원.
+        /// </summary>
+        public void StartWalkAnimation()
+        {
+            // _animator가 null이면 lazy-init 시도 (Initialize() 전에 RPC가 도착한 경우 대응)
+            if (_animator == null)
+                _animator = GetComponentInChildren<Animator>();
+            if (_animator == null) return;
+
+            // 공격 애니메이션 진행 중이면 즉시 Walk 시작 불가.
+            // 공격 종료 후 Walk를 시작하도록 대기 플래그만 설정하고 리턴.
+            // 이 가드가 없으면 StartWalkAnimationClientRpc가 공격 중에 도착하여
+            // Walk/Attack 애니메이션이 동시에 재생되는 문제 발생.
+            if (_attackCoroutine != null)
+            {
+                _isWalkPending = true;
+                return;
+            }
+
+            // 대기 플래그 리셋 — 지금 바로 Walk를 시작하므로 대기할 필요 없음
+            _isWalkPending = false;
+
+            // 이미 Walk 재생 중이 아니면 Walk 상태로 전환
+            if (!_animator.GetCurrentAnimatorStateInfo(0).shortNameHash.Equals(StateWalk))
+                _animator.Play(StateWalk, 0, 0f);
+
+            // speed=1로 Walk 애니메이션 재생 (정지 상태에서 복원)
+            _animator.speed = 1f;
+        }
+
+        /// <summary>
+        /// Walk 애니메이션 정지. NetworkCombatController의 StopWalkAnimationClientRpc에서 호출.
+        /// 클라이언트 전용 — 서버는 MoveAlongPath에서 직접 Animator를 제어.
+        /// speed=0으로 현재 Walk 프레임 고정 (별도 Idle 상태 없이 Walk speed=0이 Idle 역할).
+        /// </summary>
+        public void StopWalkAnimation()
+        {
+            // _animator가 null이면 lazy-init 시도 (Initialize() 전에 RPC가 도착한 경우 대응)
+            if (_animator == null)
+                _animator = GetComponentInChildren<Animator>();
+            if (_animator == null) return;
+
+            // Walk 대기 플래그 해제 — StopWalk 요청이 오면 Walk 복귀 의도도 취소
+            _isWalkPending = false;
+
+            // speed=0으로 현재 프레임 고정 → 사실상 Idle 상태
+            _animator.speed = 0f;
         }
 
         // ====================================================================
@@ -529,6 +648,15 @@ namespace Hexiege.Presentation
             }
 
             _attackCoroutine = null;
+
+            // 공격 종료 후 Walk 대기 중이었으면 즉시 Walk 시작.
+            // 공격 코루틴 진행 중 StartWalkAnimation() 요청이 왔을 때
+            // _isWalkPending=true로 예약된 상태를 여기서 소비.
+            if (_isWalkPending)
+            {
+                _isWalkPending = false;
+                StartWalkAnimation();
+            }
         }
     }
 }
