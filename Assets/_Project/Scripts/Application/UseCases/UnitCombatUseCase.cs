@@ -109,12 +109,12 @@ namespace Hexiege.Application
         /// 실제 데미지를 적용하는 메서드.
         /// TryFindTarget() 성공 후, hitFrameTime(타격 프레임) 딜레이 뒤에 호출.
         ///
-        /// 딜레이 동안 공격자/타겟 상태가 변할 수 있으므로 모든 조건을 재확인:
-        ///   1. 공격자 생존 여부
-        ///   2. 타겟 재탐색 (사망/제거 가능)
-        ///   3. 사거리 재확인 (이동으로 범위 이탈 가능)
-        ///
-        /// 재확인 통과 시 ExecuteAttack()으로 데미지 적용 + 쿨다운 리셋.
+        /// 타겟 고정(Target Lock) 설계:
+        ///   공격 모션을 시작한 순간 타겟이 확정됨.
+        ///   딜레이 중 타겟이 사거리를 벗어나도 데미지 적용.
+        ///   단, 아래 두 경우에만 취소:
+        ///   1. 공격자가 딜레이 중 사망
+        ///   2. 타겟이 딜레이 중 사망 (다른 유닛에게 먼저 처치됨)
         /// </summary>
         /// <param name="attacker">공격하는 유닛</param>
         /// <param name="targetId">타겟 엔티티의 Id</param>
@@ -124,19 +124,17 @@ namespace Hexiege.Application
             // 딜레이 동안 공격자가 사망했을 수 있으므로 재확인
             if (attacker == null || !attacker.IsAlive) return;
 
-            // 타겟을 Id로 재탐색 — 딜레이 동안 사망/제거되었을 수 있음
+            // 타겟을 Id로 재탐색 — 딜레이 동안 다른 유닛에게 먼저 처치되었을 수 있음
             IDamageable target = FindTargetById(targetId, targetIsUnit);
             if (target == null || !target.IsAlive) return;
 
-            // 사거리 재확인 — 딜레이 동안 공격자 또는 타겟이 이동하여 범위 이탈 가능.
-            // FindFirstEnemyTarget()이 사용하는 것과 동일한 거리 판정 로직 사용.
-            if (!IsTargetInRange(attacker, target)) return;
+            // 사거리 체크 없음 — 타겟 고정 설계.
+            // 공격 모션 시작 시 타겟이 확정되므로, 이후 이탈해도 데미지 적용.
 
-            // 모든 재확인 통과 → 데미지 적용 + 이벤트 발행
+            // 데미지 적용 + 이벤트 발행
             ExecuteAttack(attacker, target);
 
             // 쿨다운 리셋 — TryFindTarget()에서 하지 않으므로 여기서 처리.
-            // 딜레이 데미지가 실제로 적용된 후에만 쿨다운이 리셋됨.
             attacker.AttackCooldownRemaining = attacker.AttackCooldown;
         }
 

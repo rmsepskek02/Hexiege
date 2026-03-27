@@ -71,6 +71,35 @@
 - NGO NetworkObject 부모 제약: 일반 GameObject(씬 계층 [World]/Units) 하위 배치 불가 → 씬 루트에 생성
 - 클라이언트 등록 타이밍: WaitForUnitId 폴링 + ApplyStartWalkWithRetry로 등록 지연 대응
 
+### 공격 타이밍 정밀화 (2026-03-27) ✅ 실기 테스트 완료
+
+**구현 내용**:
+- **타격 프레임 데미지**: 서버가 애니메이션 RPC 즉시 전송 → HitFrameTime 후 데미지 적용
+- **타겟 고정(Target Lock)**: ApplyAttackDamage에서 IsInRange 체크 제거 — 공격 모션 시작 시 타겟 확정
+- **쿨다운 통일**: UnitView.Update() 쿨다운 제거 → GameBootstrapper.Update() → TickCooldowns()
+
+**신규 메서드 (UnitCombatUseCase)**:
+- `TryFindTarget(UnitData)`: 타겟 탐색만, 데미지/쿨다운 없음 (멀티플레이 서버용)
+- `ApplyAttackDamage(UnitData, int, bool)`: 딜레이 후 호출, IsAlive만 재확인 (IsInRange 없음)
+- `TickCooldowns(float dt)`: 싱글플레이 전용 일괄 쿨다운 감소
+- `FindTargetById(int, bool)`: Id로 Units/Buildings Dictionary 탐색
+
+**HitFrameTime 값 (UnitStats.GetHitFrameTime)**:
+- Assault: 0.133f (0:04, 4프레임/30fps)
+- Pistoleer: 0.833f (0:25, 25프레임/30fps)
+- Sniper: 2.000f (2:00)
+
+**NetworkCombatController.TickCombat() 변경**:
+- TryAttack() → TryFindTarget() 교체
+- 성공 시: RPC 즉시 전송 + 쿨다운 리셋 + DelayedAttackDamage 코루틴 시작
+
+**DelayedAttackDamage 코루틴**:
+- HitFrameTime > 0: WaitForSeconds(delay)
+- HitFrameTime = 0: yield return null (최소 1프레임 안전망)
+- 이후 ApplyAttackDamage() 호출
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-03-27/11_00_attack-timing-precision/`
+
 ### 이동 전 회전 타이밍 수정 (2026-03-27) ✅ 실기 테스트 완료
 
 **문제**: DOTween(Update) vs NetworkUnit.LateUpdate 충돌 — LateUpdate가 매 프레임 DOTween rotation을 덮어씌워 프리-회전 무효화

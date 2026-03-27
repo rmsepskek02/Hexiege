@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-03-27
-**현재 단계:** 이동 전 회전 타이밍 수정 완료 (Rotate-then-Move, _isPreRotating 플래그로 DOTween-LateUpdate 충돌 해소) / 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 완료 / Game UI Lifecycle Framework 완료 / 반투명 배경 오버레이 구조 개선 완료 / 자동/수동 생산 하이브리드 시스템 완성 / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료 / 멀티플레이 로비 복귀 버그 수정 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료 / 코드 정리 완료 / 싱글플레이 ViewConverter 버그 수정 완료
+**현재 단계:** 공격 타이밍 정밀화 완료 (타격 프레임 데미지, 타겟 고정, 쿨다운 통일) / 이동 전 회전 타이밍 수정 완료 / 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 완료 / Game UI Lifecycle Framework 완료 / 반투명 배경 오버레이 구조 개선 완료 / 자동/수동 생산 하이브리드 시스템 완성 / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 유닛 회전 DOTween 보간 완료 / 공격 후 Walk 복귀 버그 수정 완료 / 로비 씬 분리 MVVM 구조 완료 / 랜덤 매칭 게임 씬 전환 버그 수정 완료 / 전역 로딩 스크린 완료 / 멀티플레이 로비 복귀 버그 수정 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료 / 코드 정리 완료 / 싱글플레이 ViewConverter 버그 수정 완료
 
 ---
 
@@ -124,6 +124,7 @@
 | Phase 6+ | AI 이동(Siege/랠리) 서버 권위 동기화 (BroadcastServerMove) | ✅ 완료 (2026-03-07) |
 | Phase 6++ | 유닛 NGO NetworkObject 전환 (NetworkTransform 위치 동기화, 클라이언트 예측 제거) | ✅ 완료 (2026-03-26) |
 | Phase 6+++ | 이동 전 회전 선행 (Rotate-then-Move, _isPreRotating 플래그로 DOTween-LateUpdate 충돌 해소) | ✅ 완료 (2026-03-27) |
+| Phase 6++++ | 공격 타이밍 정밀화 (타격 프레임 데미지, 타겟 고정, 쿨다운 통일) | ✅ 완료 (2026-03-27) |
 | Phase 7 | 승패 판정 동기화 (NetworkGameEndController) | ✅ 완료 |
 | Phase 8 | UI/UX 네트워크 대응 (LobbyUI, NetworkStatusUI, ReconnectionHandler) | ✅ 완료 |
 

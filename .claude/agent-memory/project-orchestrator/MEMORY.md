@@ -9,6 +9,11 @@
 ## 프로젝트 현재 상태 (2026-03-26)
 
 ### 2026-03-27 완료
+- **공격 타이밍 정밀화**
+  - 타격 프레임 데미지: HitFrameTime 딜레이 후 ApplyAttackDamage (Assault=0.133s, Pistoleer=0.833s, Sniper=2.0s)
+  - 타겟 고정(Target Lock): IsInRange 체크 제거 — 공격 모션 시작 시 타겟 확정
+  - 쿨다운 통일: UnitView.Update() 제거 → GameBootstrapper.Update() → TickCooldowns()
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-27/11_00_attack-timing-precision/`
 - **이동 전 회전 타이밍 수정 (Rotate-then-Move 완성)**
   - 원인: DOTween(Update) vs NetworkUnit.LateUpdate 충돌 — LateUpdate가 DOTween rotation 덮어씌움
   - `NetworkUnit.cs`: `_isPreRotating` 플래그 + `SetPreRotating()` + LateUpdate `!_isPreRotating` 조건
