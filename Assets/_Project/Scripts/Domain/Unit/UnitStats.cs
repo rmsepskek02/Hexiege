@@ -56,5 +56,22 @@ namespace Hexiege.Domain
             UnitType.Sniper    => 1.0f,
             _                  => 1.0f
         };
+
+        /// <summary>
+        /// 공격 애니메이션에서 타격 프레임(Animation Event OnAttackHit)까지의 시간 (초).
+        /// 서버가 애니메이션 RPC를 전송한 뒤, 이 시간만큼 대기 후 실제 데미지를 적용.
+        /// Attack.anim 타임라인에서 OnAttackHit 이벤트 위치(초)와 일치시켜야 함.
+        ///
+        /// 기본값은 0.2초. 각 유닛 ScriptableObject의 Inspector에서 실측값으로 덮어씀.
+        /// Inspector 미설정 시(0f) 최소 1프레임 대기 후 데미지 적용 (안전망).
+        /// </summary>
+        public static float GetHitFrameTime(UnitType type) => type switch
+        {
+            // Animation Event(OnAttackHit) 위치 실측값 (초:프레임 → 초 변환, 30fps 기준)
+            UnitType.Assault   => 0.133f, // 0:04 → 4/30
+            UnitType.Pistoleer => 0.833f, // 0:25 → 25/30
+            UnitType.Sniper    => 2.000f, // 2:00 → 2초
+            _                  => 0.2f
+        };
     }
 }

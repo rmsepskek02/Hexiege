@@ -71,10 +71,22 @@
 - NGO NetworkObject 부모 제약: 일반 GameObject(씬 계층 [World]/Units) 하위 배치 불가 → 씬 루트에 생성
 - 클라이언트 등록 타이밍: WaitForUnitId 폴링 + ApplyStartWalkWithRetry로 등록 지연 대응
 
-**보류 항목**:
-- 이동 전 회전 타이밍 (Rotate-then-Move): `_rotationDuration=0.3f`, `RotationDuration` 이벤트 전달 구현됨
-  - 현상: 클라이언트에서 여전히 이동이 회전보다 빠르게 느껴짐 (RPC 지연 + NetworkTransform 보간 복합 원인)
-  - 다음 작업 시 `Plan.md` 보류 섹션 참고 (`Assets/_Project/Docs/_Tasks/2026-03-26/15_08_network-unit-combat-sync/Plan.md`)
+### 이동 전 회전 타이밍 수정 (2026-03-27) ✅ 실기 테스트 완료
+
+**문제**: DOTween(Update) vs NetworkUnit.LateUpdate 충돌 — LateUpdate가 매 프레임 DOTween rotation을 덮어씌워 프리-회전 무효화
+**해결**: `_isPreRotating` 플래그로 DORotate 실행 중 LateUpdate 델타 회전 차단
+
+**수정 파일**:
+- `Infrastructure/Network/NetworkUnit.cs`:
+  - `_isPreRotating` (bool) 필드 추가
+  - `SetPreRotating(bool)` public 메서드 추가
+  - `ResetMovementTracking()`에 `_isPreRotating = false` 안전망 추가 (DOKill 중단 시 플래그 고착 방지)
+  - LateUpdate 델타 회전 조건: `if (!_isPreRotating && _hasInitialPosition)`
+- `Infrastructure/Network/NetworkCombatController.cs`:
+  - `TurnToFaceClientRpc`에 `networkUnit?.SetPreRotating(true)` 추가
+  - DORotate에 `.OnComplete(() => networkUnit?.SetPreRotating(false))` 추가
+
+**핵심 패턴**: DOTween이 활성 중일 때 LateUpdate rotation 차단이 필요하면 `_isPreRotating` 패턴 사용
 
 ### Game UI Lifecycle Framework (2026-03-24) ✅ 실기 테스트 완료
 

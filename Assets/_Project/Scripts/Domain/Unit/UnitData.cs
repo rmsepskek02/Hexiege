@@ -69,6 +69,13 @@ namespace Hexiege.Domain
         /// <summary> 남은 공격 쿨다운(초). 0 이하이면 공격 가능. 0으로 시작(즉시 공격 가능). </summary>
         public float AttackCooldownRemaining { get; set; }
 
+        /// <summary>
+        /// 공격 애니메이션에서 타격 프레임(OnAttackHit)까지의 시간 (초).
+        /// 서버가 애니메이션 RPC 전송 후 이 시간만큼 대기한 뒤 데미지를 적용하는 기준값.
+        /// UnitStats.GetHitFrameTime()에서 타입별 기본값을 복사.
+        /// </summary>
+        public float HitFrameTime { get; set; }
+
         /// <summary> 유닛이 살아있는지 여부. </summary>
         public bool IsAlive => Hp > 0;
 
@@ -110,6 +117,7 @@ namespace Hexiege.Domain
             MoveSpeed = moveSpeed;
             AttackCooldown = UnitStats.GetAttackCooldown(type);
             AttackCooldownRemaining = 0f;
+            HitFrameTime = UnitStats.GetHitFrameTime(type);
             Facing = facing;
         }
 
@@ -143,6 +151,7 @@ namespace Hexiege.Domain
             MoveSpeed = moveSpeed;
             AttackCooldown = UnitStats.GetAttackCooldown(type);
             AttackCooldownRemaining = 0f;
+            HitFrameTime = UnitStats.GetHitFrameTime(type);
             Facing = facing;
 
             // 지정 Id 이후로 자동 발급 카운터를 앞당겨 충돌 방지

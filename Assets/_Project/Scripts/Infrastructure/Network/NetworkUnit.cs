@@ -196,11 +196,22 @@ namespace Hexiege.Infrastructure
         /// 이동 방향 추적 상태를 리셋.
         /// Walk 재시작 시 이전 공격 위치 기준의 잘못된 델타 계산 방지.
         /// NetworkCombatController.StartWalkAnimationClientRpc에서 Walk 시작 직전 호출.
+        /// 안전망: DOKill 등으로 DORotate가 중단되어 OnComplete가 미호출된 경우에도
+        /// 다음 Walk 시작 시 _isPreRotating을 해제하여 LateUpdate 회전이 재개되도록 보장.
         /// </summary>
         public void ResetMovementTracking()
         {
             _hasInitialPosition = false;
+            _isPreRotating = false;
         }
+
+        /// <summary>
+        /// TurnToFaceClientRpc의 DORotate 실행 중 플래그를 설정/해제.
+        /// true: LateUpdate의 델타 기반 회전을 차단 → DOTween 프리-회전 보호.
+        /// false: LateUpdate 델타 회전 재개 → 이동 중 자연스러운 방향 추적.
+        /// NetworkCombatController에서 DORotate 시작 시 true, OnComplete 시 false로 호출.
+        /// </summary>
+        public void SetPreRotating(bool value) { _isPreRotating = value; }
 
         // ====================================================================
         // 클라이언트 이동 방향 회전 계산용
@@ -217,6 +228,13 @@ namespace Hexiege.Infrastructure
         /// 첫 프레임의 잘못된 델타 계산 방지.
         /// </summary>
         private bool _hasInitialPosition;
+
+        /// <summary>
+        /// TurnToFaceClientRpc의 DORotate 실행 중 여부.
+        /// true이면 LateUpdate 델타 기반 회전을 차단하여 DOTween 프리-회전을 보호.
+        /// DORotate OnComplete 또는 ResetMovementTracking에서 false로 해제.
+        /// </summary>
+        private bool _isPreRotating;
 
         /// <summary>
         /// 유닛 메시의 기본 Y축 회전 오프셋.
@@ -256,7 +274,10 @@ namespace Hexiege.Infrastructure
             //    이전 프레임과 현재 프레임의 위치 델타에서 이동 방향을 계산하여 회전에 적용.
             //    - 이동 중(delta 임계값 이상): 이동 방향으로 회전 업데이트
             //    - 정지 중(delta 임계값 미만): 회전 유지 (공격 애니메이션 회전 보존)
-            if (_hasInitialPosition)
+            // _isPreRotating=true이면 TurnToFaceClientRpc의 DORotate 실행 중.
+            // DOTween(Update)이 rotation을 설정한 뒤 LateUpdate가 덮어씌우는 충돌을 방지.
+            // DORotate OnComplete 또는 ResetMovementTracking에서 false로 해제되면 재개.
+            if (!_isPreRotating && _hasInitialPosition)
             {
                 Vector3 delta = transform.position - _prevPosition;
                 delta.y = 0f; // Y축(높이) 성분 제거 — XZ 평면 이동 방향만 사용

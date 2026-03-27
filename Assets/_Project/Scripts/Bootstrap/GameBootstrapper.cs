@@ -217,6 +217,26 @@ namespace Hexiege.Bootstrap
         public bool IsNetworkGameStarted => _networkGameStarted;
 
         // ====================================================================
+        // Update — 싱글플레이 쿨다운 관리
+        // ====================================================================
+
+        /// <summary>
+        /// 싱글플레이 전용: 매 프레임 모든 유닛의 공격 쿨다운을 감소시킴.
+        /// 이전에는 각 UnitView.Update()에서 개별적으로 처리했으나,
+        /// 쿨다운 관리를 한 곳에서 통일하기 위해 GameBootstrapper로 이동.
+        ///
+        /// 멀티플레이에서는 NetworkCombatController.TickCombat()이
+        /// 서버 Tick 주기(_attackInterval)로 쿨다운을 감소시키므로,
+        /// 이 Update()에서는 호출하지 않음 (이중 감소 방지).
+        /// </summary>
+        private void Update()
+        {
+            // 싱글플레이에서만 쿨다운 감소
+            if (!IsNetworkMode() && _unitCombat != null)
+                _unitCombat.TickCooldowns(Time.deltaTime);
+        }
+
+        // ====================================================================
         // 초기화
         // ====================================================================
 

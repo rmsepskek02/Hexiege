@@ -197,20 +197,6 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
-        // Update — 싱글플레이 쿨다운 감소
-        // ====================================================================
-
-        private void Update()
-        {
-            // 싱글플레이에서만 매 프레임 쿨다운 감소
-            // 멀티플레이에서는 NetworkCombatController가 서버 Tick에서 감소 처리
-            if (!NetworkContext.IsNetworkActive && _unitData != null && _unitData.AttackCooldownRemaining > 0f)
-            {
-                _unitData.AttackCooldownRemaining = Mathf.Max(0f, _unitData.AttackCooldownRemaining - Time.deltaTime);
-            }
-        }
-
-        // ====================================================================
         // 방향 처리 — Y축 회전 기반
         // ====================================================================
 

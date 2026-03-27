@@ -8,7 +8,14 @@
 
 ## 프로젝트 현재 상태 (2026-03-26)
 
-### 2026-03-26 완료 (핵심 동작), 보류 1건
+### 2026-03-27 완료
+- **이동 전 회전 타이밍 수정 (Rotate-then-Move 완성)**
+  - 원인: DOTween(Update) vs NetworkUnit.LateUpdate 충돌 — LateUpdate가 DOTween rotation 덮어씌움
+  - `NetworkUnit.cs`: `_isPreRotating` 플래그 + `SetPreRotating()` + LateUpdate `!_isPreRotating` 조건
+  - `NetworkCombatController.cs`: `SetPreRotating(true)` + DORotate `.OnComplete(() => SetPreRotating(false))`
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-27/10_00_rotation-timing-fix/`
+
+### 2026-03-26 완료
 - **유닛 NGO NetworkObject 전환 + 이동/전투 동기화**
   - `NetworkUnit.cs` (신규): 유닛 프리팹 루트 NetworkBehaviour — unitId NetworkVariable, Red 클라이언트 좌표 보정(LateUpdate), 위치 델타 기반 회전
   - `UnitFactory.cs`: 멀티+서버 → NetworkObject.Spawn() (SetParent 없음 — NGO 제약)
@@ -17,7 +24,6 @@
   - `UnitView.cs`: _isWalkPending 패턴, AttackWait 탈출 후 공격 완료 대기, 첫 스텝 회전 대기
   - `GameEvents.cs`: UnitFacingChangedEvent(UnitId, YAngle, RotationDuration) 추가
   - task 문서: `Assets/_Project/Docs/_Tasks/2026-03-26/15_08_network-unit-combat-sync/`
-  - **보류**: 이동 전 회전 타이밍 — 클라이언트에서 이동이 회전보다 빠르게 느껴짐 (RPC 지연 + NetworkTransform 보간 복합 원인) / Plan.md 보류 섹션 참고
 
 ---
 

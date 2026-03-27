@@ -166,9 +166,16 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
-        /// 살아있는 모든 유닛에 대해 TryAttack 호출.
-        /// 공격 성공 시 모든 클라이언트에 공격 애니메이션 ClientRpc 전송.
-        /// UseCase가 null이면 맵 로드 전이므로 건너뜀.
+        /// 살아있는 모든 유닛에 대해 타겟 탐색 + 딜레이 데미지 처리.
+        ///
+        /// 기존 TryAttack()은 타겟 탐색과 데미지 적용을 동시에 수행했으나,
+        /// 이제 TryFindTarget()으로 타겟만 먼저 탐색하고:
+        ///   1. 애니메이션 RPC를 즉시 전송 (클라이언트가 공격 모션 시작)
+        ///   2. 쿨다운 즉시 리셋 (다음 공격까지의 타이머 시작)
+        ///   3. hitFrameTime만큼 대기 후 데미지 적용 (타격 프레임과 데미지 동기화)
+        ///
+        /// 이렇게 하면 클라이언트에서 공격 애니메이션의 타격 프레임 시점에
+        /// 서버 데미지(HP 감소)가 도착하여 시각적으로 자연스러운 전투가 됨.
         /// </summary>
         private void TickCombat()
         {
@@ -182,7 +189,7 @@ namespace Hexiege.Infrastructure
 
             if (unitSpawn == null || combat == null) return;
 
-            // Dictionary를 순회하면서 TryAttack
+            // Dictionary를 순회하면서 타겟 탐색
             // 전투 중 RemoveUnit이 호출될 수 있으므로 키를 미리 복사
             var unitIds = new System.Collections.Generic.List<int>(unitSpawn.Units.Keys);
             foreach (int id in unitIds)
@@ -195,14 +202,54 @@ namespace Hexiege.Infrastructure
                 if (unit.AttackCooldownRemaining > 0f)
                     unit.AttackCooldownRemaining -= _attackInterval;
 
-                var attackResult = combat.TryAttack(unit);
+                // 타겟 탐색만 수행 (데미지 없음, 쿨다운 리셋 없음)
+                var attackResult = combat.TryFindTarget(unit);
                 if (attackResult.HasValue)
                 {
-                    // 공격 성공 → 모든 클라이언트에 타겟 Id + 타입 전파.
-                    // 클라이언트에서 타겟 GameObject의 실제 transform.position으로 정밀 방향 계산.
+                    // 1. 애니메이션 RPC 즉시 전송 — 클라이언트가 공격 모션을 바로 시작
                     TriggerAttackAnimationClientRpc(unit.Id, attackResult.Value.id, attackResult.Value.isUnit);
+
+                    // 2. 쿨다운 즉시 리셋 — TryFindTarget()은 쿨다운을 건드리지 않으므로 여기서 처리
+                    unit.AttackCooldownRemaining = unit.AttackCooldown;
+
+                    // 3. hitFrameTime 후 데미지 적용 — 타격 프레임과 데미지 타이밍 동기화
+                    StartCoroutine(DelayedAttackDamage(unit, attackResult.Value.id, attackResult.Value.isUnit, unit.HitFrameTime));
                 }
             }
+        }
+
+        /// <summary>
+        /// hitFrameTime만큼 대기 후 실제 데미지를 적용하는 코루틴.
+        ///
+        /// 서버가 애니메이션 RPC를 전송한 직후 시작되며,
+        /// 클라이언트에서 공격 애니메이션의 타격 프레임(OnAttackHit)에 도달할 시점에
+        /// 서버에서 데미지를 적용 → HP NetworkVariable 업데이트 → 클라이언트에 HP 감소 전달.
+        ///
+        /// 딜레이 동안 공격자/타겟 상태가 변할 수 있으므로
+        /// ApplyAttackDamage() 내부에서 모든 조건(생존, 사거리)을 재확인.
+        ///
+        /// delay가 0이면 최소 1프레임 대기 (Inspector 미설정 시 안전망).
+        /// </summary>
+        /// <param name="attacker">공격하는 유닛의 데이터</param>
+        /// <param name="targetId">타겟 엔티티의 Id</param>
+        /// <param name="targetIsUnit">true=유닛, false=건물</param>
+        /// <param name="delay">데미지 적용까지의 대기 시간 (초). Attack.anim의 타격 프레임 시간.</param>
+        private IEnumerator DelayedAttackDamage(UnitData attacker, int targetId, bool targetIsUnit, float delay)
+        {
+            // hitFrameTime > 0이면 해당 시간만큼 대기
+            // hitFrameTime == 0이면 최소 1프레임 대기 (Inspector 미설정 시 즉시 적용 방지)
+            if (delay > 0f)
+                yield return new WaitForSeconds(delay);
+            else
+                yield return null;
+
+            // 딜레이 후 UseCase를 다시 가져와서 데미지 적용
+            // _bootstrapper가 파괴되었을 수 있으므로 null 체크
+            UnitCombatUseCase combat = _bootstrapper?.GetCombatUseCase();
+            if (combat == null) yield break;
+
+            // ApplyAttackDamage 내부에서 공격자 생존, 타겟 생존, 사거리를 모두 재확인
+            combat.ApplyAttackDamage(attacker, targetId, targetIsUnit);
         }
 
         // ====================================================================
@@ -419,15 +466,21 @@ namespace Hexiege.Infrastructure
             if (unitObj == null) return;
 
             // 이동 방향 추적 리셋 — 회전 대기 중 delta=0이 _prevPosition에 영향 없도록.
-            // 회전만 진행되는 동안 LateUpdate의 delta 기반 회전이 간섭하지 않도록 함.
+            // ResetMovementTracking은 _isPreRotating도 false로 초기화하는 안전망 역할도 수행.
             NetworkUnit networkUnit = unitObj.GetComponent<NetworkUnit>();
             networkUnit?.ResetMovementTracking();
 
+            // 프리-회전 시작: LateUpdate 델타 기반 회전을 차단하여 DOTween이 보호되도록 설정.
+            // DORotate가 실행되는 동안 LateUpdate(Update 이후 실행)가 rotation을 덮어씌우는 충돌 방지.
+            networkUnit?.SetPreRotating(true);
+
             // 목표 방향으로 부드럽게 회전.
             // rotationDuration은 서버 WaitForSeconds와 동일값 → 서버 이동 시작 시점과 클라이언트 회전 완료 시점 일치.
+            // OnComplete: 프리-회전 완료 후 LateUpdate 델타 회전 재개.
             unitObj.transform.DOKill();
             unitObj.transform.DORotate(new Vector3(0f, yAngle, 0f), rotationDuration)
-                             .SetEase(Ease.OutQuad);
+                             .SetEase(Ease.OutQuad)
+                             .OnComplete(() => networkUnit?.SetPreRotating(false));
         }
 
         // ====================================================================

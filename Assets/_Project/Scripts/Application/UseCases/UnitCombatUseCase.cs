@@ -75,6 +75,91 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// 타겟 탐색만 수행. 데미지 없음, 쿨다운 리셋 없음.
+        /// 멀티플레이 서버(NetworkCombatController)가 애니메이션 RPC를 전송하기 전에
+        /// 타겟 유효성을 확인하는 용도.
+        /// 타겟이 발견되면 (타겟 Id, 타겟이 유닛인지 여부) 튜플을 반환.
+        ///
+        /// Guard 조건은 TryAttack()과 동일:
+        ///   - 공격자가 null이거나 사망 → null
+        ///   - 멀티플레이 클라이언트(서버가 아닌 쪽) → null (서버 권위 보장)
+        ///   - 공격 쿨다운 중 → null
+        /// </summary>
+        /// <param name="attacker">공격을 시도하는 유닛</param>
+        /// <returns>공격 가능한 타겟이 있으면 (타겟 Id, 타겟이 유닛인지), 없으면 null</returns>
+        public (int id, bool isUnit)? TryFindTarget(UnitData attacker)
+        {
+            if (attacker == null || !attacker.IsAlive) return null;
+
+            // 멀티플레이 모드에서는 서버만 전투 처리.
+            // NetworkContext 정적 홀더로 Application → Infrastructure 역방향 의존 방지.
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return null;
+
+            // 쿨다운 중이면 공격 불가
+            if (attacker.AttackCooldownRemaining > 0f) return null;
+
+            // 사거리 내 가장 가까운 적 탐색 (데미지 미적용)
+            IDamageable target = FindFirstEnemyTarget(attacker);
+            if (target == null) return null;
+
+            return (target.Id, target is UnitData);
+        }
+
+        /// <summary>
+        /// 실제 데미지를 적용하는 메서드.
+        /// TryFindTarget() 성공 후, hitFrameTime(타격 프레임) 딜레이 뒤에 호출.
+        ///
+        /// 딜레이 동안 공격자/타겟 상태가 변할 수 있으므로 모든 조건을 재확인:
+        ///   1. 공격자 생존 여부
+        ///   2. 타겟 재탐색 (사망/제거 가능)
+        ///   3. 사거리 재확인 (이동으로 범위 이탈 가능)
+        ///
+        /// 재확인 통과 시 ExecuteAttack()으로 데미지 적용 + 쿨다운 리셋.
+        /// </summary>
+        /// <param name="attacker">공격하는 유닛</param>
+        /// <param name="targetId">타겟 엔티티의 Id</param>
+        /// <param name="targetIsUnit">true=유닛, false=건물</param>
+        public void ApplyAttackDamage(UnitData attacker, int targetId, bool targetIsUnit)
+        {
+            // 딜레이 동안 공격자가 사망했을 수 있으므로 재확인
+            if (attacker == null || !attacker.IsAlive) return;
+
+            // 타겟을 Id로 재탐색 — 딜레이 동안 사망/제거되었을 수 있음
+            IDamageable target = FindTargetById(targetId, targetIsUnit);
+            if (target == null || !target.IsAlive) return;
+
+            // 사거리 재확인 — 딜레이 동안 공격자 또는 타겟이 이동하여 범위 이탈 가능.
+            // FindFirstEnemyTarget()이 사용하는 것과 동일한 거리 판정 로직 사용.
+            if (!IsTargetInRange(attacker, target)) return;
+
+            // 모든 재확인 통과 → 데미지 적용 + 이벤트 발행
+            ExecuteAttack(attacker, target);
+
+            // 쿨다운 리셋 — TryFindTarget()에서 하지 않으므로 여기서 처리.
+            // 딜레이 데미지가 실제로 적용된 후에만 쿨다운이 리셋됨.
+            attacker.AttackCooldownRemaining = attacker.AttackCooldown;
+        }
+
+        /// <summary>
+        /// 싱글플레이 전용 쿨다운 감소.
+        /// GameBootstrapper.Update()에서 매 프레임 호출하여 모든 살아있는 유닛의 쿨다운을 감소.
+        ///
+        /// 멀티플레이에서는 NetworkCombatController.TickCombat()이 서버 Tick 주기로
+        /// 직접 쿨다운을 감소시키므로, 이 메서드를 호출하면 안 됨 (이중 감소 발생).
+        ///
+        /// 기존 UnitView.Update()에 분산되어 있던 쿨다운 감소를 한 곳에서 일괄 처리.
+        /// </summary>
+        /// <param name="dt">경과 시간 (초). 일반적으로 Time.deltaTime을 전달.</param>
+        public void TickCooldowns(float dt)
+        {
+            foreach (var unit in _unitSpawn.Units.Values)
+            {
+                if (unit.AttackCooldownRemaining > 0f)
+                    unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldownRemaining - dt);
+            }
+        }
+
+        /// <summary>
         /// 사거리 내에 적이 존재하는지 판정만 수행 (데미지 없음, 네트워크 권한 체크 없음).
         /// 클라이언트 측 UnitView Lerp에서 시각적 전투 대기에 사용.
         /// 서버 권위 전투와 무관하게 적 존재 여부만 반환.
@@ -193,6 +278,73 @@ namespace Hexiege.Application
             }
 
             return closestTarget;
+        }
+
+        /// <summary>
+        /// Id와 타입으로 타겟 엔티티를 탐색.
+        /// ApplyAttackDamage()에서 딜레이 후 타겟을 재확인하는 데 사용.
+        /// targetIsUnit이면 UnitSpawnUseCase의 Units에서, 아니면 BuildingPlacementUseCase의 Buildings에서 탐색.
+        /// </summary>
+        /// <param name="targetId">찾을 엔티티의 Id</param>
+        /// <param name="targetIsUnit">true=유닛 Dictionary 탐색, false=건물 Dictionary 탐색</param>
+        /// <returns>해당 Id의 엔티티. 없으면 null.</returns>
+        private IDamageable FindTargetById(int targetId, bool targetIsUnit)
+        {
+            if (targetIsUnit)
+            {
+                // 유닛 Dictionary에서 탐색
+                _unitSpawn.Units.TryGetValue(targetId, out UnitData unit);
+                return unit;
+            }
+            else
+            {
+                // 건물 Dictionary에서 탐색
+                _buildingPlacement.Buildings.TryGetValue(targetId, out BuildingData building);
+                return building;
+            }
+        }
+
+        /// <summary>
+        /// 공격자의 사거리 내에 타겟이 있는지 판정.
+        /// ApplyAttackDamage()에서 딜레이 후 사거리 재확인에 사용.
+        /// FindFirstEnemyTarget()과 동일한 거리 판정 기준 (월드 좌표 또는 HexCoord 폴백).
+        /// </summary>
+        /// <param name="attacker">공격하는 유닛</param>
+        /// <param name="target">사거리 확인 대상</param>
+        /// <returns>사거리 내에 있으면 true</returns>
+        private bool IsTargetInRange(UnitData attacker, IDamageable target)
+        {
+            // FlatTop 인접 타일 월드 거리 = TileHeight(0.866f)
+            // AttackRange x TileHeight: 타일 중심 간 정확한 거리 기준
+            // Epsilon: 경계 케이스 부동소수점 오차 방지 (Pistoleer 0.866 = FlatTop 인접 거리)
+            const float Epsilon = 0.05f;
+            float maxDist = attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
+
+            // _positionProvider가 있으면 월드 좌표 기반 판정 (Lerp 중에도 정확)
+            if (_positionProvider != null)
+            {
+                Vector3 attackerWorldPos = _positionProvider.GetUnitWorldPosition(attacker.Id);
+
+                // 공격자 월드 좌표를 얻을 수 있으면 월드 거리 판정
+                if (attackerWorldPos != Vector3.zero)
+                {
+                    // 타겟이 유닛이면 유닛 월드 좌표, 건물이면 건물 월드 좌표 사용
+                    Vector3 targetPos;
+                    if (target is UnitData)
+                        targetPos = _positionProvider.GetUnitWorldPosition(target.Id);
+                    else
+                        targetPos = _positionProvider.GetBuildingWorldPosition(target.Id);
+
+                    // 미등록 엔티티는 HexCoord → 월드 좌표 변환으로 폴백
+                    if (targetPos == Vector3.zero)
+                        targetPos = HexMetrics.HexToWorld(target.Position);
+
+                    return Vector3.Distance(attackerWorldPos, targetPos) <= maxDist;
+                }
+            }
+
+            // 폴백: HexCoord.Distance 기반 판정
+            return HexCoord.Distance(attacker.Position, target.Position) <= attacker.AttackRange;
         }
 
         /// <summary>
