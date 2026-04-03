@@ -285,13 +285,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1928181932768851017}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.7099169, y: -0.48754397, z: 0.3260927, w: 0.38984922}
-  m_LocalPosition: {x: 0.177, y: 0.304, z: 0.087}
+  m_LocalRotation: {x: 0.39306232, y: 0.5348824, z: -0.35156584, w: -0.6601548}
+  m_LocalPosition: {x: 0.00017084046, y: 0.0663245, z: 0.037813064}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4786353322661846455}
-  m_LocalEulerAnglesHint: {x: -13.624, y: -119.825, z: 103.122}
+  m_LocalEulerAnglesHint: {x: -8.214, y: -83.106, z: 423.358}
 --- !u!33 &2715677933715300210
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -679,8 +679,8 @@ GameObject:
   m_Component:
   - component: {fileID: 3226224472716302074}
   - component: {fileID: 5074346306173475633}
-  - component: {fileID: 1399742279142246906}
   - component: {fileID: 6112621790546395569}
+  - component: {fileID: 1399742279142246906}
   - component: {fileID: 4219786767701892078}
   m_Layer: 0
   m_Name: Unit_Sniper_Red
@@ -718,7 +718,33 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.UnitView
   _meshYOffset: 30
-  _rotationDuration: 0.15
+  _idleToWalkBlend: 0.1
+  _toAttackBlend: 0.08
+--- !u!114 &6112621790546395569
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6630118796036342330}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3712751336
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &1399742279142246906
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -750,7 +776,7 @@ MonoBehaviour:
   SyncPositionY: 1
   SyncPositionZ: 1
   SyncRotAngleX: 0
-  SyncRotAngleY: 0
+  SyncRotAngleY: 1
   SyncRotAngleZ: 0
   SyncScaleX: 1
   SyncScaleY: 1
@@ -765,31 +791,6 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!114 &6112621790546395569
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6630118796036342330}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 0
-  InScenePlacedSourceGlobalObjectIdHash: 0
-  DeferredDespawnTick: 0
-  Ownership: 1
-  AlwaysReplicateAsRoot: 0
-  SynchronizeTransform: 1
-  ActiveSceneSynchronization: 0
-  SceneMigrationSynchronization: 1
-  SpawnWithObservers: 1
-  DontDestroyWithOwner: 0
-  AutoObjectParentSync: 1
-  SyncOwnerTransformWhenParented: 1
-  AllowOwnerToParent: 0
 --- !u!114 &4219786767701892078
 MonoBehaviour:
   m_ObjectHideFlags: 0
