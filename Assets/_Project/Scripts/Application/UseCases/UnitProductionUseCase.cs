@@ -683,7 +683,15 @@ namespace Hexiege.Application
                 // 완료된 type이 AutoEntries에 있을 때만 AutoIndex 증가
                 // (ToggleAutoProduction으로 취소된 타입은 AutoEntries에 없으므로 AutoIndex 유지)
                 if (state.AutoContains(type))
+                {
+                    // 생산 완료된 항목의 IsCharged 리셋 — 다음 순환 시 골드를 다시 차감하기 위해
+                    // IsCharged=true가 그대로 남으면 TryStartNext/TryPreChargeAutoEntries에서
+                    // 이미 차감된 것으로 판단하여 다음 순환부터 골드 소모가 발생하지 않음
+                    var completedEntry = state.AutoEntries[state.AutoIndex];
+                    state.AutoEntries[state.AutoIndex] = new AutoEntry(completedEntry.Type, false);
+
                     state.AutoIndex = (state.AutoIndex + 1) % state.AutoEntries.Count;
+                }
 
                 // 다음 자동 항목이 슬롯에 표시될 수 있으므로 사전 골드 차감 시도
                 TryPreChargeAutoEntries(state);

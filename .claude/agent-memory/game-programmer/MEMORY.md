@@ -175,6 +175,14 @@
   - autoCount==1이면 그 항목이 슬롯0과 동일 → 슬롯2=null
 - `ToggleAutoProduction` 취소 경로: 환불 없음, IsCharged=true && 슬롯1~2면 ManualQueue.Add (Rule 2)
 - `TryStartNext` 자동 경로: IsCharged=false면 이 시점에 골드 차감 후 IsCharged=true 갱신
+- `CompleteProduction` 자동 순환: AutoIndex 순환 **직전**에 완료된 항목의 IsCharged를 false로 리셋 (BUG-20 수정)
+  ```csharp
+  // AutoIndex 순환 전 IsCharged 리셋 — 다음 순환 시 골드 재차감을 위해
+  var completedEntry = state.AutoEntries[state.AutoIndex];
+  state.AutoEntries[state.AutoIndex] = new AutoEntry(completedEntry.Type, false);
+  state.AutoIndex = (state.AutoIndex + 1) % state.AutoEntries.Count;
+  ```
+  - 리셋 안 하면 IsCharged=true 유지 → TryStartNext/TryPreChargeAutoEntries 모두 건너뜀 → 첫 등록 시만 골드 소모
 
 **전역 규칙 참조**: `GameDesignDocument.md` → "생산 패널 운영 규칙" 섹션
 
