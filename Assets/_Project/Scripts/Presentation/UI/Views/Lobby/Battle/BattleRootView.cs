@@ -9,6 +9,7 @@
 // Presentation 레이어 — MonoBehaviour.
 // ============================================================================
 
+using System;
 using UnityEngine;
 
 namespace Hexiege.Presentation
@@ -30,6 +31,16 @@ namespace Hexiege.Presentation
         [SerializeField] private RandomMatchView _randomMatchView;
 
         // ====================================================================
+        // 내부 상태
+        // ====================================================================
+
+        /// <summary>
+        /// 종족 선택 ViewModel. Bind()에서 생성, Unbind()에서 Dispose.
+        /// BattleMainView에 별도 BindRace()로 전달.
+        /// </summary>
+        private RaceSelectionViewModel _raceVm;
+
+        // ====================================================================
         // IView 구현
         // ====================================================================
 
@@ -40,7 +51,14 @@ namespace Hexiege.Presentation
         {
             Unbind();
 
-            if (_battleMainView != null) _battleMainView.Bind(vm);
+            // 종족 선택 ViewModel 생성 — BattleMainView에 별도 메서드로 전달
+            _raceVm = new RaceSelectionViewModel();
+
+            if (_battleMainView != null)
+            {
+                _battleMainView.Bind(vm);
+                _battleMainView.BindRace(_raceVm);
+            }
             if (_customGameView != null) _customGameView.Bind(vm);
             if (_customHostView != null) _customHostView.Bind(vm);
             if (_customJoinView != null) _customJoinView.Bind(vm);
@@ -57,6 +75,10 @@ namespace Hexiege.Presentation
             if (_customHostView != null) _customHostView.Unbind();
             if (_customJoinView != null) _customJoinView.Unbind();
             if (_randomMatchView != null) _randomMatchView.Unbind();
+
+            // 종족 선택 ViewModel Dispose (구독 해제)
+            _raceVm?.Dispose();
+            _raceVm = null;
         }
     }
 }

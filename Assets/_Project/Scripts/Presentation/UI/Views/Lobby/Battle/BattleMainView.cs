@@ -36,6 +36,10 @@ namespace Hexiege.Presentation
         [Tooltip("랜덤 매칭 버튼")]
         [SerializeField] private Button _randomMatchButton;
 
+        [Header("종족 선택")]
+        [Tooltip("종족 선택 UI View (BattleMainView 하단에 배치)")]
+        [SerializeField] private RaceSelectionView _raceSelectionView;
+
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -75,6 +79,19 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
+        /// 종족 선택 ViewModel을 별도로 바인딩.
+        /// IView&lt;BattleViewModel&gt; 인터페이스의 Bind 시그니처를 유지하면서
+        /// 종족 선택 기능을 추가하기 위해 별도 메서드로 분리.
+        /// BattleRootView.Bind()에서 Bind(vm) 호출 직후에 호출됨.
+        /// </summary>
+        /// <param name="raceVm">종족 선택 ViewModel.</param>
+        public void BindRace(RaceSelectionViewModel raceVm)
+        {
+            if (_raceSelectionView != null)
+                _raceSelectionView.Bind(raceVm);
+        }
+
+        /// <summary>
         /// 구독 해제.
         /// </summary>
         public void Unbind()
@@ -84,6 +101,9 @@ namespace Hexiege.Presentation
             if (_singleplayButton != null) _singleplayButton.onClick.RemoveAllListeners();
             if (_customGameButton != null) _customGameButton.onClick.RemoveAllListeners();
             if (_randomMatchButton != null) _randomMatchButton.onClick.RemoveAllListeners();
+
+            // 종족 선택 View도 함께 구독 해제
+            if (_raceSelectionView != null) _raceSelectionView.Unbind();
         }
     }
 }

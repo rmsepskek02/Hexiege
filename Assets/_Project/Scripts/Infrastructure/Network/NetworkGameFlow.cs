@@ -56,6 +56,12 @@ namespace Hexiege.Infrastructure
         /// <summary>게임 부트스트래퍼 참조 (로컬에서 찾아 사용).</summary>
         private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
 
+        /// <summary>Blue 팀(Host)이 선택한 종족. 서버에서만 사용.</summary>
+        private int _blueRace = 0;
+
+        /// <summary>Red 팀(Client)이 선택한 종족. 서버에서만 사용.</summary>
+        private int _redRace = 0;
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -106,7 +112,10 @@ namespace Hexiege.Infrastructure
             LocalPlayerTeam.Set(myTeam);
 
             Debug.Log($"[Network] 팀 직접 할당. IsHost={IsHost}, 팀={myTeam}");
-            RequestReadyServerRpc();
+
+            // 로비에서 선택한 종족을 int로 캐스팅하여 서버에 전송
+            int myRace = (int)LocalPlayerRace.Current;
+            RequestReadyServerRpc(myRace);
             yield break;
         }
 
@@ -116,22 +125,34 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 클라이언트가 게임 준비 완료를 서버에 알림.
-        /// 2명 모두 준비되면 StartGameClientRpc() 호출.
+        /// 로비에서 선택한 종족 정보(int)를 함께 전송.
+        /// 2명 모두 준비되면 StartGameClientRpc(blueRace, redRace) 호출.
         /// </summary>
+        /// <param name="race">로비에서 선택한 종족. (int)RaceId로 캐스팅하여 전송.</param>
         [ServerRpc(RequireOwnership = false)]
-        public void RequestReadyServerRpc(ServerRpcParams rpcParams = default)
+        public void RequestReadyServerRpc(int race, ServerRpcParams rpcParams = default)
         {
             _readyCount++;
             ulong senderId = rpcParams.Receive.SenderClientId;
-            Debug.Log($"[Network] 준비 신호 수신. ClientId={senderId}, 준비 완료={_readyCount}/2");
+            Debug.Log($"[Network] 준비 신호 수신. ClientId={senderId}, Race={race}, 준비 완료={_readyCount}/2");
+
+            // Host(ServerClientId)가 보낸 종족 → Blue 팀, 그 외 → Red 팀
+            if (senderId == NetworkManager.ServerClientId)
+            {
+                _blueRace = race;
+            }
+            else
+            {
+                _redRace = race;
+            }
 
             // 접속 중인 클라이언트 수 = 2명 (Host + Client)
             int expectedPlayers = 2;
             if (_readyCount >= expectedPlayers && !_gameStarted)
             {
                 _gameStarted = true;
-                Debug.Log("[Network] 모든 플레이어 준비 완료. 게임 시작 명령 전송.");
-                StartGameClientRpc();
+                Debug.Log($"[Network] 모든 플레이어 준비 완료. 게임 시작 명령 전송. BlueRace={_blueRace}, RedRace={_redRace}");
+                StartGameClientRpc(_blueRace, _redRace);
             }
         }
 
@@ -141,13 +162,19 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 서버가 모든 클라이언트에 게임 시작을 명령.
+        /// 양 팀 종족 정보를 함께 전달하여 GameRaceContext에 저장.
         /// 각 클라이언트에서 팀에 맞게 맵 로드 및 카메라 초기 위치를 설정.
         /// 맵 로드 후 서버에서 초기 골드 동기화를 수행.
         /// </summary>
+        /// <param name="blueRace">Blue 팀(Host)이 선택한 종족. (int)RaceId.</param>
+        /// <param name="redRace">Red 팀(Client)이 선택한 종족. (int)RaceId.</param>
         [ClientRpc]
-        private void StartGameClientRpc()
+        private void StartGameClientRpc(int blueRace, int redRace)
         {
-            Debug.Log($"[Network] 게임 시작 ClientRpc 수신. 로컬 팀={LocalPlayerTeam.Current}");
+            Debug.Log($"[Network] 게임 시작 ClientRpc 수신. 로컬 팀={LocalPlayerTeam.Current}, BlueRace={blueRace}, RedRace={redRace}");
+
+            // 양 팀 종족 정보를 전역 홀더에 저장 — 인게임에서 종족별 초기화에 사용
+            GameRaceContext.Set((RaceId)blueRace, (RaceId)redRace);
 
             if (_bootstrapper == null)
             {
