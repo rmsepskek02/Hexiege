@@ -48,12 +48,18 @@ namespace Hexiege.Domain
             _                  => 1.0f
         };
 
-        /// <summary> 유닛 타입별 기본 공격 쿨다운 (초). UnitFactory에서 클립 길이로 덮어씀. </summary>
+        /// <summary>
+        /// 유닛 타입별 공격 쿨다운 (초) = Attack 클립 길이.
+        /// 쿨다운 만료 = 한 공격 애니메이션 사이클 완료.
+        ///
+        /// UnitFactory에서 Animator의 실제 클립 길이를 읽어 이 값을 덮어씀.
+        /// 이 값은 클립 길이와 항상 일치해야 함 (참조용).
+        /// </summary>
         public static float GetAttackCooldown(UnitType type) => type switch
         {
-            UnitType.Pistoleer => 1.0f,
-            UnitType.Assault   => 1.0f,
-            UnitType.Sniper    => 1.0f,
+            UnitType.Assault   => 0.2f,  // Assault_Attack.anim 클립 길이
+            UnitType.Pistoleer => 2.0f,  // Pistoleer_Attack.anim 클립 길이
+            UnitType.Sniper    => 3.0f,  // Sniper_Attack.anim 클립 길이
             _                  => 1.0f
         };
 

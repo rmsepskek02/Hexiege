@@ -28,7 +28,7 @@ using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using UniRx;
-using DG.Tweening;
+using Hexiege.Core;
 using Hexiege.Domain;
 using Hexiege.Application;
 using Hexiege.Presentation;
@@ -62,11 +62,28 @@ namespace Hexiege.Infrastructure
         /// <summary>OnUnitWalkStarted 구독 해제용 Disposable. 서버 전용.</summary>
         private System.IDisposable _walkStartedSubscription;
 
-        /// <summary>OnUnitWalkStopped 구독 해제용 Disposable. 서버 전용.</summary>
-        private System.IDisposable _walkStoppedSubscription;
+        /// <summary>OnUnitEnteredCombat 구독 해제용 Disposable. 서버 전용.</summary>
+        private System.IDisposable _enteredCombatSubscription;
 
-        /// <summary>OnUnitFacingChanged 구독 해제용. 서버 전용. 이동 시작 직전 방향을 클라이언트에 전파.</summary>
-        private System.IDisposable _facingChangedSubscription;
+        /// <summary>
+        /// 유닛별 현재 전투 타겟 추적. key=유닛Id, value=(타겟Id, 타겟이 유닛인지).
+        /// 전투 중이 아닌 유닛은 Dictionary에 없음.
+        /// TickCombat에서 이전 프레임 상태와 비교하여 상태 변화 시에만 RPC 전송.
+        /// </summary>
+        private readonly System.Collections.Generic.Dictionary<int, (int targetId, bool isUnit)> _unitCombatTargets
+            = new System.Collections.Generic.Dictionary<int, (int targetId, bool isUnit)>();
+
+        /// <summary>
+        /// StartCombatClientRpc를 전송한 유닛 Id 집합.
+        /// _unitCombatTargets와 분리하여 관리하는 이유:
+        ///   TickCombat(Update)이 코루틴(MoveAlongPath)보다 먼저 실행되면,
+        ///   같은 프레임 내에서 TickCombat이 _unitCombatTargets에 먼저 등록하고
+        ///   OnUnitEnteredCombatHandler의 ContainsKey 가드가 true를 반환하여
+        ///   StartCombatClientRpc가 전송되지 않는 경쟁 조건이 발생한다.
+        ///   → RPC 전송 여부는 이 Set으로만 판단한다.
+        /// </summary>
+        private readonly System.Collections.Generic.HashSet<int> _combatAnimationSent
+            = new System.Collections.Generic.HashSet<int>();
 
         /// <summary>다음 전투 판정까지 남은 시간.</summary>
         private float _attackTimer = 0f;
@@ -107,15 +124,11 @@ namespace Hexiege.Infrastructure
                 _walkStartedSubscription = GameEvents.OnUnitWalkStarted
                     .Subscribe(unitId => StartWalkAnimationClientRpc(unitId));
 
-                _walkStoppedSubscription = GameEvents.OnUnitWalkStopped
-                    .Subscribe(unitId => StopWalkAnimationClientRpc(unitId));
+                // MoveAlongPath에서 적 감지 즉시 StartCombatClientRpc 전송 (TickCombat 50ms 대기 없이)
+                _enteredCombatSubscription = GameEvents.OnUnitEnteredCombat
+                    .Subscribe(OnUnitEnteredCombatHandler);
 
-                // 유닛 방향 전환 이벤트: 이동 시작 직전 방향을 클라이언트에 전달하여
-                // 이동보다 회전이 먼저 시작되도록 함
-                _facingChangedSubscription = GameEvents.OnUnitFacingChanged
-                    .Subscribe(e => TurnToFaceClientRpc(e.UnitId, e.YAngle, e.RotationDuration));
-
-                Debug.Log("[Network] NetworkCombatController: 서버 측 OnEntityDied, Walk, Facing 이벤트 구독 완료.");
+                Debug.Log("[Network] NetworkCombatController: 서버 측 OnEntityDied, Walk, EnteredCombat 이벤트 구독 완료.");
             }
         }
 
@@ -131,10 +144,14 @@ namespace Hexiege.Infrastructure
             // Walk 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _walkStartedSubscription?.Dispose();
             _walkStartedSubscription = null;
-            _walkStoppedSubscription?.Dispose();
-            _walkStoppedSubscription = null;
-            _facingChangedSubscription?.Dispose();
-            _facingChangedSubscription = null;
+
+            // EnteredCombat 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
+            _enteredCombatSubscription?.Dispose();
+            _enteredCombatSubscription = null;
+
+            // 전투 상태 초기화 — 씬 전환 시 이전 게임의 상태가 남지 않도록
+            _unitCombatTargets.Clear();
+            _combatAnimationSent.Clear();
 
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
@@ -152,6 +169,12 @@ namespace Hexiege.Infrastructure
         ///             이 서버 Update에서 일괄 처리.
         ///
         /// _attackInterval마다 Tick을 발행하여 매 프레임 처리 비용을 줄임.
+        ///
+        /// 타이밍 정확도:
+        ///   _attackTimer -= _attackInterval 으로 오버슈트를 다음 Tick에 이월.
+        ///   (0f로 리셋하면 오버슈트가 버려져 Tick 간격이 평균적으로 길어짐)
+        ///   쿨다운 감소는 _attackInterval(고정값)이 아닌 실제 경과 시간(elapsed)으로 처리.
+        ///   → 프레임레이트(30fps/60fps)에 무관하게 공격 주기가 애니메이션 클립 길이와 일치.
         /// </summary>
         private void Update()
         {
@@ -160,24 +183,27 @@ namespace Hexiege.Infrastructure
 
             _attackTimer += Time.deltaTime;
             if (_attackTimer < _attackInterval) return;
-            _attackTimer = 0f;
 
-            TickCombat();
+            // 실제 경과 시간 캡처 후 오버슈트 이월
+            // (예: 60fps에서 16.7ms 프레임 3개 = 50.1ms → elapsed=50.1ms, 다음 Tick까지 0.1ms 이월)
+            float elapsed = _attackTimer;
+            _attackTimer -= _attackInterval;
+
+            TickCombat(elapsed);
         }
 
         /// <summary>
-        /// 살아있는 모든 유닛에 대해 타겟 탐색 + 딜레이 데미지 처리.
+        /// 살아있는 모든 유닛에 대해 타겟 탐색 + 상태 변화 감지 + 딜레이 데미지 처리.
         ///
-        /// 기존 TryAttack()은 타겟 탐색과 데미지 적용을 동시에 수행했으나,
-        /// 이제 TryFindTarget()으로 타겟만 먼저 탐색하고:
-        ///   1. 애니메이션 RPC를 즉시 전송 (클라이언트가 공격 모션 시작)
-        ///   2. 쿨다운 즉시 리셋 (다음 공격까지의 타이머 시작)
-        ///   3. hitFrameTime만큼 대기 후 데미지 적용 (타격 프레임과 데미지 동기화)
+        /// _unitCombatTargets Dictionary로 유닛별 전투 상태(현재 타겟)를 추적하고,
+        /// 상태 변화 시에만 3종 RPC(StartCombat/ChangeTarget/StopCombat)를 전송.
+        /// 같은 타겟을 계속 공격 중이면 RPC 없이 데미지 코루틴만 실행.
         ///
-        /// 이렇게 하면 클라이언트에서 공격 애니메이션의 타격 프레임 시점에
-        /// 서버 데미지(HP 감소)가 도착하여 시각적으로 자연스러운 전투가 됨.
+        /// 이렇게 하면 매 쿨다운 사이클마다 Attack RPC를 반복 전송하지 않아
+        /// 클라이언트의 Attack 루프(Loop Time=ON)가 끊기지 않고 자연스럽게 재생됨.
         /// </summary>
-        private void TickCombat()
+        /// <param name="elapsed">이번 Tick의 실제 경과 시간 (초). 쿨다운 감소에 사용.</param>
+        private void TickCombat(float elapsed)
         {
             if (_bootstrapper == null)
                 _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
@@ -192,29 +218,99 @@ namespace Hexiege.Infrastructure
             // Dictionary를 순회하면서 타겟 탐색
             // 전투 중 RemoveUnit이 호출될 수 있으므로 키를 미리 복사
             var unitIds = new System.Collections.Generic.List<int>(unitSpawn.Units.Keys);
+
+            // 이번 Tick에서 전투 중인 유닛 Id를 수집 (Tick 후 Dictionary 정리용)
+            // HashSet을 사용하여 O(1) Contains 체크
+            var activeThisTick = new System.Collections.Generic.HashSet<int>();
+
             foreach (int id in unitIds)
             {
                 // 순회 도중 사망 처리로 제거되었을 수 있으므로 재확인
                 if (!unitSpawn.Units.TryGetValue(id, out UnitData unit)) continue;
                 if (!unit.IsAlive) continue;
 
-                // 쿨다운 감소 (서버 Tick 간격만큼)
+                // 쿨다운 감소 — 고정값(_attackInterval)이 아닌 실제 경과 시간(elapsed)으로 감소.
+                // 프레임레이트가 낮아도 공격 주기가 애니메이션 클립 길이와 일치.
                 if (unit.AttackCooldownRemaining > 0f)
-                    unit.AttackCooldownRemaining -= _attackInterval;
+                    unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldownRemaining - elapsed);
 
-                // 타겟 탐색만 수행 (데미지 없음, 쿨다운 리셋 없음)
+                // TryFindTarget: 쿨다운이 0이고 사거리 내 적이 있을 때만 타겟 반환.
+                // HasEnemyInRange: 쿨다운과 무관하게 사거리 내 적 존재 여부만 체크.
+                //
+                // 두 가지를 분리하는 이유:
+                //   TryFindTarget이 null을 반환하는 원인이
+                //   "적이 없어서"일 수도 있고, "쿨다운 중이어서"일 수도 있음.
+                //   StopCombat은 오직 "적이 없을 때"만 전송해야 하므로
+                //   HasEnemyInRange로 실제 적 존재 여부를 별도 확인.
                 var attackResult = combat.TryFindTarget(unit);
-                if (attackResult.HasValue)
+                bool hasEnemy = attackResult.HasValue || combat.HasEnemyInRange(unit);
+
+                if (hasEnemy)
                 {
-                    // 1. 애니메이션 RPC 즉시 전송 — 클라이언트가 공격 모션을 바로 시작
-                    TriggerAttackAnimationClientRpc(unit.Id, attackResult.Value.id, attackResult.Value.isUnit);
+                    // 사거리 내 적이 있음 → 전투 상태 유지
+                    activeThisTick.Add(id);
 
-                    // 2. 쿨다운 즉시 리셋 — TryFindTarget()은 쿨다운을 건드리지 않으므로 여기서 처리
-                    unit.AttackCooldownRemaining = unit.AttackCooldown;
+                    if (attackResult.HasValue)
+                    {
+                        // 쿨다운 만료 + 적 있음: 타겟 변경 감지 + 데미지 실행
+                        int targetId = attackResult.Value.id;
+                        bool isUnit = attackResult.Value.isUnit;
 
-                    // 3. hitFrameTime 후 데미지 적용 — 타격 프레임과 데미지 타이밍 동기화
-                    StartCoroutine(DelayedAttackDamage(unit, attackResult.Value.id, attackResult.Value.isUnit, unit.HitFrameTime));
+                        // --- 상태 변화 감지: 이전 타겟과 비교하여 RPC 전송 여부 결정 ---
+                        if (_unitCombatTargets.TryGetValue(id, out var prev))
+                        {
+                            if (prev.targetId != targetId)
+                            {
+                                // 타겟 변경 → ChangeTarget RPC (회전만 업데이트, 애니메이션 재시작 없음)
+                                _unitCombatTargets[id] = (targetId, isUnit);
+                                ChangeTargetClientRpc(id, targetId, isUnit);
+                            }
+                            // else: 같은 타겟 → RPC 없음 (Attack 루프 유지)
+                        }
+                        else
+                        {
+                            // 새로 전투 진입 — Dictionary 등록만 수행.
+                            // StartCombatClientRpc는 OnUnitEnteredCombatHandler에서 단독 담당.
+                            _unitCombatTargets[id] = (targetId, isUnit);
+                        }
+
+                        // 데미지 코루틴 실행 (쿨다운 0일 때만 여기까지 도달)
+                        ExecuteAttack(unit, targetId, isUnit);
+                    }
+                    else
+                    {
+                        // 쿨다운 중 + 적 있음 — 데미지 없음, Attack 루프 유지.
+                        // 단, 쿨다운 중에도 타겟이 변경되었을 수 있으므로 (규칙 5-2)
+                        // FindNearestEnemy로 현재 가장 가까운 적을 확인하여 방향 전환 RPC 전송.
+                        if (_unitCombatTargets.TryGetValue(id, out var prev))
+                        {
+                            var nearestResult = combat.FindNearestEnemy(unit);
+                            if (nearestResult.HasValue && nearestResult.Value.id != prev.targetId)
+                            {
+                                // 타겟 변경 — 쿨다운 중이어도 방향은 즉시 전환 (규칙 5-2)
+                                _unitCombatTargets[id] = (nearestResult.Value.id, nearestResult.Value.isUnit);
+                                ChangeTargetClientRpc(id, nearestResult.Value.id, nearestResult.Value.isUnit);
+                            }
+                        }
+                    }
                 }
+            }
+
+            // 이전 Tick에서 전투 중이었지만 이번 Tick에서 타겟을 찾지 못한 유닛 → StopCombat RPC
+            // Dictionary 순회 중 수정 방지를 위해 제거할 키를 미리 수집
+            var toRemove = new System.Collections.Generic.List<int>();
+            foreach (var kvp in _unitCombatTargets)
+            {
+                if (!activeThisTick.Contains(kvp.Key))
+                {
+                    toRemove.Add(kvp.Key);
+                }
+            }
+            foreach (int id in toRemove)
+            {
+                _unitCombatTargets.Remove(id);
+                _combatAnimationSent.Remove(id); // RPC 전송 추적도 함께 정리
+                StopCombatClientRpc(id);
             }
         }
 
@@ -252,9 +348,91 @@ namespace Hexiege.Infrastructure
             combat.ApplyAttackDamage(attacker, targetId, targetIsUnit);
         }
 
+        /// <summary>
+        /// 타겟을 향한 데미지를 실행. 쿨다운 리셋 + 데미지 코루틴 시작.
+        /// 애니메이션 RPC는 TickCombat의 상태 변화 감지 로직에서 별도로 전송.
+        /// </summary>
+        /// <param name="unit">공격하는 유닛의 데이터</param>
+        /// <param name="targetId">타겟 엔티티의 Id</param>
+        /// <param name="targetIsUnit">true=유닛, false=건물</param>
+        private void ExecuteAttack(UnitData unit, int targetId, bool targetIsUnit)
+        {
+            // 1. 쿨다운 즉시 리셋 — TryFindTarget()은 쿨다운을 건드리지 않으므로 여기서 처리
+            unit.AttackCooldownRemaining = unit.AttackCooldown;
+
+            // 2. hitFrameTime 후 데미지 적용 — 타격 프레임과 데미지 타이밍 동기화
+            StartCoroutine(DelayedAttackDamage(unit, targetId, targetIsUnit, unit.HitFrameTime));
+        }
+
         // ====================================================================
         // 이벤트 핸들러 (서버 전용)
         // ====================================================================
+
+        /// <summary>
+        /// MoveAlongPath에서 적을 처음 감지했을 때 호출.
+        /// TickCombat 인터벌(최대 50ms)을 기다리지 않고 즉시 StartCombatClientRpc 전송.
+        ///
+        /// ※ 가드 조건: _combatAnimationSent로 판단 (_unitCombatTargets 미사용).
+        ///   이유: TickCombat(Update)이 코루틴(MoveAlongPath)보다 먼저 실행될 경우,
+        ///   같은 프레임에 TickCombat이 _unitCombatTargets를 먼저 등록하여
+        ///   ContainsKey 가드가 true를 반환 → RPC 미전송 버그 발생.
+        ///   → RPC 전송 여부를 _combatAnimationSent로 분리하여 이 경쟁 조건을 해소.
+        ///
+        /// ※ ExecuteAttack 동시 호출 (쿨다운=0인 경우):
+        ///   StartCombatClientRpc와 함께 바로 ExecuteAttack을 실행하면
+        ///   서버 공격 사이클이 T=0에서 시작 → 애니메이션 루프(T=0)와 동기화.
+        ///   그렇지 않으면 다음 TickCombat(T≈50ms)에서 ExecuteAttack이 처음 실행되어
+        ///   서버 사이클이 T=0.05에서 시작 → 쿨다운 만료 T=3.05 ≠ 애니메이션 루프 경계 T=3.0.
+        /// </summary>
+        private void OnUnitEnteredCombatHandler(int unitId)
+        {
+            if (_bootstrapper == null)
+                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+            if (_bootstrapper == null) return;
+
+            UnitSpawnUseCase unitSpawn = _bootstrapper.GetUnitSpawn();
+            UnitCombatUseCase combat = _bootstrapper.GetCombatUseCase();
+            if (unitSpawn == null || combat == null) return;
+
+            if (!unitSpawn.Units.TryGetValue(unitId, out UnitData unit)) return;
+            if (!unit.IsAlive) return;
+
+            // StartCombatClientRpc를 이미 전송한 유닛이면 중복 전송 방지.
+            // _unitCombatTargets 대신 _combatAnimationSent를 사용하는 이유:
+            //   TickCombat(Update)과 코루틴(MoveAlongPath) 실행 순서 경쟁 조건 방지.
+            if (_combatAnimationSent.Contains(unitId)) return;
+
+            // 타겟 탐색 — 쿨다운과 무관하게 사거리 내 첫 타겟 탐색
+            // TryFindTarget은 쿨다운 체크 포함이므로 쿨다운 중이어도 FindNearestEnemy로 확인
+            var attackResult = combat.TryFindTarget(unit);
+            if (!attackResult.HasValue)
+            {
+                // TryFindTarget이 null인 경우: 쿨다운 중이거나 적이 없음.
+                // FindNearestEnemy로 쿨다운 없이 재탐색하여 실제 적 존재 여부와 타겟 ID 확인.
+                var nearestResult = combat.FindNearestEnemy(unit);
+                if (!nearestResult.HasValue) return; // 실제로 적이 없으면 종료
+
+                // 쿨다운 중이지만 적은 있음 → 즉시 StartCombatClientRpc 전송.
+                // 규칙 1: 적 감지 즉시 클라이언트에 알려야 하며, 쿨다운은 데미지 타이밍과 무관.
+                _unitCombatTargets[unitId] = (nearestResult.Value.id, nearestResult.Value.isUnit);
+                _combatAnimationSent.Add(unitId);
+                StartCombatClientRpc(unitId, nearestResult.Value.id, nearestResult.Value.isUnit);
+                return;
+            }
+
+            int targetId = attackResult.Value.id;
+            bool targetIsUnit = attackResult.Value.isUnit;
+
+            // 전투 상태 등록 + StartCombatClientRpc 즉시 전송
+            _unitCombatTargets[unitId] = (targetId, targetIsUnit);
+            _combatAnimationSent.Add(unitId);
+            StartCombatClientRpc(unitId, targetId, targetIsUnit);
+
+            // ExecuteAttack 즉시 실행 — 서버 공격 사이클을 애니메이션 시작(T=0)과 동기화.
+            // TickCombat에서 처음 실행되면 T≈50ms 오프셋이 생겨 쿨다운 만료 타이밍이
+            // 애니메이션 루프 경계와 어긋남 → 타겟 소멸 후 애니메이션이 루프 직후 도중에 전환되는 현상.
+            ExecuteAttack(unit, targetId, targetIsUnit);
+        }
 
         /// <summary>
         /// 서버에서 엔티티 사망 이벤트를 수신하여 모든 클라이언트에 사망 전파.
@@ -274,6 +452,14 @@ namespace Hexiege.Infrastructure
             {
                 entityId = unit.Id;
                 isUnit = true;
+
+                // 사망한 유닛의 전투 상태를 Dictionary에서 제거.
+                // StopCombatClientRpc는 전송하지 않음 — EntityDiedClientRpc가 사망 처리를 담당.
+                // 사망한 타겟을 공격 중이던 유닛들의 전투 상태는 제거하지 않음.
+                // → 다음 TickCombat에서 TryFindTarget이 다른 타겟을 찾거나 null을 반환.
+                //   ChangeTargetClientRpc 또는 StopCombatClientRpc가 자연스럽게 발행됨.
+                _unitCombatTargets.Remove(entityId);
+                _combatAnimationSent.Remove(entityId);
             }
             else if (e.Entity is BuildingData building)
             {
@@ -334,24 +520,85 @@ namespace Hexiege.Infrastructure
             }
         }
 
+        // ====================================================================
+        // 전투 상태 ClientRpc — 서버 → 모든 클라이언트
+        // ====================================================================
+
         /// <summary>
-        /// 서버에서 공격 발생 후 모든 클라이언트에 공격 애니메이션 트리거 전송.
-        /// 타겟 Id와 타입을 전달하여 클라이언트에서 실제 transform.position 기반 정밀 방향 계산.
-        /// 서버(Host)도 이 ClientRpc를 수신하여 동일한 애니메이션 처리.
+        /// 유닛이 전투 상태에 진입. 클라이언트에서 Attack 루프 시작 + 타겟 방향 회전.
+        /// TickCombat에서 유닛이 처음 타겟을 발견했을 때 전송.
+        /// 서버(Host)도 수신하여 동일한 애니메이션 처리.
         /// </summary>
-        /// <param name="unitId">공격한 유닛의 Id</param>
+        /// <param name="unitId">공격하는 유닛의 Id</param>
         /// <param name="targetId">타겟 엔티티의 Id</param>
         /// <param name="targetIsUnit">true=유닛, false=건물</param>
         [ClientRpc]
-        private void TriggerAttackAnimationClientRpc(int unitId, int targetId, bool targetIsUnit)
+        private void StartCombatClientRpc(int unitId, int targetId, bool targetIsUnit)
         {
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+            // 유닛 생성 직후 전투 RPC가 도착하면 아직 UnitFactory에 미등록일 수 있으므로,
+            // 코루틴으로 최대 1초간 재시도하여 등록 완료를 대기한다.
+            // (StartWalkAnimationClientRpc의 ApplyStartWalkWithRetry와 동일한 패턴)
+            //
+            // 주의: IsServer 분기를 추가하지 않는다.
+            // 서버(Host)도 이 RPC를 수신하여 동일한 애니메이션 처리가 필요하기 때문.
+            StartCoroutine(ApplyStartCombatWithRetry(unitId, targetId, targetIsUnit));
+        }
 
-            if (_bootstrapper == null) return;
+        /// <summary>
+        /// 전투 애니메이션 적용 코루틴.
+        /// 유닛이 UnitFactory에 등록될 때까지 최대 1초 대기 후 전투 애니메이션 시작.
+        /// 생성 직후 RPC가 도착하면 NetworkUnit의 RegisterToFactory()가 아직 완료되지 않아
+        /// GetUnitObject()가 null을 반환할 수 있으므로 재시도가 필요.
+        /// </summary>
+        /// <param name="unitId">공격하는 유닛의 Id</param>
+        /// <param name="targetId">타겟 엔티티의 Id</param>
+        /// <param name="targetIsUnit">true=유닛, false=건물</param>
+        private IEnumerator ApplyStartCombatWithRetry(int unitId, int targetId, bool targetIsUnit)
+        {
+            var unitFactory = _bootstrapper?.GetUnitFactory();
+            if (unitFactory == null) yield break;
 
-            // UnitFactory에서 해당 유닛의 GameObject 조회
-            var unitFactory = _bootstrapper.GetUnitFactory();
+            // 유닛이 등록될 때까지 최대 1초 대기 (생성 직후 RPC 도착 타이밍 대응)
+            float timeout = 1f;
+            GameObject unitObj = null;
+            while (unitObj == null && timeout > 0f)
+            {
+                unitObj = unitFactory.GetUnitObject(unitId);
+                if (unitObj == null)
+                {
+                    // 1프레임 대기 후 다시 시도 — 매 프레임 Time.deltaTime만큼 타임아웃 감소
+                    yield return null;
+                    timeout -= Time.deltaTime;
+                }
+            }
+
+            // 타임아웃 내에 유닛을 찾지 못하면 포기 (네트워크 지연이 너무 긴 경우)
+            if (unitObj == null) yield break;
+
+            UnitView unitView = unitObj.GetComponent<UnitView>();
+            if (unitView == null) yield break;
+
+            // Walk → Attack 직접 전환.
+            // StopWalkAnimation()을 호출하지 않는 이유:
+            //   StopWalkAnimation()은 내부에서 Idle CrossFade를 시작한다.
+            //   같은 프레임에 StartCombatAnimation()이 Attack CrossFade를 호출해도
+            //   CrossFadeInFixedTime은 즉시 덮어쓰지 않고 Idle 블렌딩이 먼저 끼어들어
+            //   Walk→Idle(잠깐)→Attack 순서로 재생되는 시각적 버그가 발생한다.
+            //   → StartCombatAnimation() 하나만 호출하면 Walk→Attack 직접 전환.
+            unitView.StartCombatAnimation(targetId, targetIsUnit);
+        }
+
+        /// <summary>
+        /// 전투 중 타겟 변경. 클라이언트에서 회전만 업데이트, 애니메이션 재시작 없음.
+        /// TickCombat에서 유닛의 타겟이 이전과 다를 때 전송.
+        /// </summary>
+        /// <param name="unitId">공격하는 유닛의 Id</param>
+        /// <param name="newTargetId">새 타겟 엔티티의 Id</param>
+        /// <param name="newTargetIsUnit">true=유닛, false=건물</param>
+        [ClientRpc]
+        private void ChangeTargetClientRpc(int unitId, int newTargetId, bool newTargetIsUnit)
+        {
+            var unitFactory = _bootstrapper?.GetUnitFactory();
             if (unitFactory == null) return;
 
             GameObject unitObj = unitFactory.GetUnitObject(unitId);
@@ -360,12 +607,29 @@ namespace Hexiege.Infrastructure
             UnitView unitView = unitObj.GetComponent<UnitView>();
             if (unitView == null) return;
 
-            // 공격 애니메이션 시작 전에 Walk 애니메이션을 먼저 정지.
-            // StopWalkAnimationClientRpc가 별도 RPC로 전송되지만,
-            // TriggerAttackAnimationClientRpc보다 늦게 도착할 수 있으므로
-            // 여기서 명시적으로 Walk를 정지하여 Walk/Attack 동시 재생을 방지.
-            unitView.StopWalkAnimation();
-            unitView.TriggerAttackAnimation(targetId, targetIsUnit);
+            // 회전만 업데이트 — 애니메이션 상태 변경 없음
+            unitView.ChangeTarget(newTargetId, newTargetIsUnit);
+        }
+
+        /// <summary>
+        /// 유닛이 전투 상태 종료. 클라이언트에서 Attack → Idle 전환.
+        /// TickCombat에서 유닛의 타겟이 사라졌을 때 전송.
+        /// Idle로 전환하는 이유: 이동 재개 시 StartWalkAnimationClientRpc가 별도로 도착하므로.
+        /// </summary>
+        /// <param name="unitId">전투를 종료하는 유닛의 Id</param>
+        [ClientRpc]
+        private void StopCombatClientRpc(int unitId)
+        {
+            var unitFactory = _bootstrapper?.GetUnitFactory();
+            if (unitFactory == null) return;
+
+            GameObject unitObj = unitFactory.GetUnitObject(unitId);
+            if (unitObj == null) return;
+
+            UnitView unitView = unitObj.GetComponent<UnitView>();
+            if (unitView == null) return;
+
+            unitView.StopCombatAnimation();
         }
 
         /// <summary>
@@ -413,75 +677,13 @@ namespace Hexiege.Infrastructure
 
             if (unitObj == null) yield break;
 
-            // Walk 재시작 전 이동 방향 추적 리셋.
-            // 공격 중 _prevPosition이 정지 위치로 고정되어 있다가 Walk 재개 시
-            // 첫 프레임 델타가 실제 이동 방향과 다를 수 있으므로 리셋해서 올바른 방향 계산 보장.
-            NetworkUnit networkUnit = unitObj.GetComponent<NetworkUnit>();
-            networkUnit?.ResetMovementTracking();
-
             UnitView unitView = unitObj.GetComponent<UnitView>();
             unitView?.StartWalkAnimation();
         }
 
-        /// <summary>
-        /// 서버가 유닛 Walk 정지를 감지하여 모든 클라이언트에 Walk 애니메이션 정지 명령 전송.
-        /// 서버(HOST)는 MoveAlongPath에서 이미 Animator를 직접 제어하므로 스킵.
-        /// Walk 정지 = speed=0 → 현재 Walk 프레임 고정 (Idle 역할).
-        /// </summary>
-        /// <param name="unitId">Walk를 정지한 유닛의 Id</param>
-        [ClientRpc]
-        private void StopWalkAnimationClientRpc(int unitId)
-        {
-            // 서버(HOST)는 MoveAlongPath에서 이미 Walk 정지를 직접 제어함 → 중복 방지
-            if (IsServer) return;
-
-            var unitFactory = _bootstrapper?.GetUnitFactory();
-            if (unitFactory == null) return;
-
-            GameObject unitObj = unitFactory.GetUnitObject(unitId);
-            if (unitObj == null) return;
-
-            UnitView unitView = unitObj.GetComponent<UnitView>();
-            unitView?.StopWalkAnimation();
-        }
-
-        /// <summary>
-        /// 이동 시작 직전 유닛의 목표 방향을 클라이언트에 전달.
-        /// 클라이언트에서 이동보다 회전이 먼저 시작되도록 DORotate 적용.
-        /// 서버는 MoveAlongPath에서 ApplyDirection으로 직접 처리하므로 스킵.
-        /// </summary>
-        /// <param name="unitId">방향이 바뀐 유닛의 Id</param>
-        /// <param name="yAngle">목표 Y축 회전 각도 (도 단위)</param>
-        /// <param name="rotationDuration">회전 지속 시간 (초) — UnitView._rotationDuration과 동일값</param>
-        [ClientRpc]
-        private void TurnToFaceClientRpc(int unitId, float yAngle, float rotationDuration)
-        {
-            // 서버(HOST)는 MoveAlongPath에서 ApplyDirection으로 이미 회전 처리 완료 → 중복 방지
-            if (IsServer) return;
-
-            var unitFactory = _bootstrapper?.GetUnitFactory();
-            if (unitFactory == null) return;
-
-            GameObject unitObj = unitFactory.GetUnitObject(unitId);
-            if (unitObj == null) return;
-
-            // 이동 방향 추적 리셋 — 회전 대기 중 delta=0이 _prevPosition에 영향 없도록.
-            // ResetMovementTracking은 _isPreRotating도 false로 초기화하는 안전망 역할도 수행.
-            NetworkUnit networkUnit = unitObj.GetComponent<NetworkUnit>();
-            networkUnit?.ResetMovementTracking();
-
-            // 프리-회전 시작: LateUpdate 델타 기반 회전을 차단하여 DOTween이 보호되도록 설정.
-            // DORotate가 실행되는 동안 LateUpdate(Update 이후 실행)가 rotation을 덮어씌우는 충돌 방지.
-            networkUnit?.SetPreRotating(true);
-
-            // 목표 방향으로 부드럽게 회전.
-            // rotationDuration은 서버 WaitForSeconds와 동일값 → 서버 이동 시작 시점과 클라이언트 회전 완료 시점 일치.
-            // OnComplete: 프리-회전 완료 후 LateUpdate 델타 회전 재개.
-            unitObj.transform.DOKill();
-            unitObj.transform.DORotate(new Vector3(0f, yAngle, 0f), rotationDuration)
-                             .SetEase(Ease.OutQuad)
-                             .OnComplete(() => networkUnit?.SetPreRotating(false));
-        }
+        // StopWalkAnimationClientRpc 제거 — Idle 상태가 없으므로 Walk 정지 RPC 불필요.
+        // Walk→Attack: StartCombatClientRpc에서 Attack CrossFade 직접 전환.
+        // Walk→Walk: StartWalkAnimationClientRpc에서 처리.
 
         // ====================================================================
         // 사망 처리 헬퍼 (클라이언트 전용)

@@ -30,6 +30,15 @@ namespace Hexiege.Application
         private readonly BuildingPlacementUseCase _buildingPlacement;
         private readonly IEntityPositionProvider _positionProvider;
 
+        /// <summary>
+        /// 싱글플레이 전용 전투 상태 추적.
+        /// key=유닛Id, value=(타겟Id, 타겟이 유닛인지).
+        /// 전투 중이 아닌 유닛은 Dictionary에 없음.
+        /// 멀티플레이에서는 NetworkCombatController._unitCombatTargets가 이 역할을 수행.
+        /// </summary>
+        private readonly Dictionary<int, (int targetId, bool isUnit)> _combatTargets
+            = new Dictionary<int, (int targetId, bool isUnit)>();
+
         public UnitCombatUseCase(
             HexGrid grid,
             UnitSpawnUseCase unitSpawn,
@@ -54,10 +63,11 @@ namespace Hexiege.Application
         {
             if (attacker == null || !attacker.IsAlive) return null;
 
-            // 멀티플레이 모드에서는 서버만 전투 처리.
-            // NetworkManager에 직접 의존하는 대신 NetworkContext 정적 홀더를 사용.
-            // NetworkCombatController.OnNetworkSpawn()에서 NetworkContext.Set()을 호출하여 값 주입.
-            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return null;
+            // 멀티플레이 모드에서는 서버/클라이언트 구분 없이 TryAttack 완전 차단.
+            // 네트워크 모드에서 데미지는 NetworkCombatController가 단독으로 처리하며,
+            // HitFrameTime 타이머 후 ApplyAttackDamage를 호출하는 것이 규칙.
+            // HOST(서버)도 TryAttack을 통해 즉시 데미지를 주면 규칙 2 위반(이중 데미지 + 타이밍 불일치).
+            if (NetworkContext.IsNetworkActive) return null;
 
             // 쿨다운 중이면 공격 불가
             if (attacker.AttackCooldownRemaining > 0f) return null;
@@ -66,12 +76,40 @@ namespace Hexiege.Application
             IDamageable target = FindFirstEnemyTarget(attacker);
             if (target == null) return null;
 
+            int targetId = target.Id;
+            bool targetIsUnit = target is UnitData;
+
+            // --- 싱글플레이 전투 상태 변화 감지 및 이벤트 발행 ---
+            // 멀티플레이에서는 NetworkCombatController가 _unitCombatTargets Dictionary와
+            // StartCombat/ChangeTarget/StopCombat ClientRpc로 이 역할을 수행.
+            if (!NetworkContext.IsNetworkActive)
+            {
+                if (_combatTargets.TryGetValue(attacker.Id, out var prev))
+                {
+                    // 이전에 전투 중이었고 타겟이 다르면 → ChangeTarget 이벤트
+                    if (prev.targetId != targetId)
+                    {
+                        _combatTargets[attacker.Id] = (targetId, targetIsUnit);
+                        GameEvents.OnCombatTargetChanged.OnNext(
+                            new CombatTargetChangedEvent(attacker.Id, targetId, targetIsUnit));
+                    }
+                    // 같은 타겟이면 이벤트 없음 — Attack 루프가 이미 재생 중
+                }
+                else
+                {
+                    // 이전에 전투 중이 아니었으면 → StartCombat 이벤트
+                    _combatTargets[attacker.Id] = (targetId, targetIsUnit);
+                    GameEvents.OnCombatStarted.OnNext(
+                        new CombatStartedEvent(attacker.Id, targetId, targetIsUnit));
+                }
+            }
+
             ExecuteAttack(attacker, target);
 
             // 공격 성공 → 쿨다운 시작
             attacker.AttackCooldownRemaining = attacker.AttackCooldown;
 
-            return (target.Id, target is UnitData);
+            return (targetId, targetIsUnit);
         }
 
         /// <summary>
@@ -99,6 +137,30 @@ namespace Hexiege.Application
             if (attacker.AttackCooldownRemaining > 0f) return null;
 
             // 사거리 내 가장 가까운 적 탐색 (데미지 미적용)
+            IDamageable target = FindFirstEnemyTarget(attacker);
+            if (target == null) return null;
+
+            return (target.Id, target is UnitData);
+        }
+
+        /// <summary>
+        /// 쿨다운과 무관하게 사거리 내 가장 가까운 적을 반환.
+        /// 공격 권한(서버/클라이언트) 체크 없이 순수하게 적 탐색만 수행.
+        ///
+        /// 사용처:
+        ///   1. OnUnitEnteredCombatHandler — 쿨다운 중 적 감지 시 타겟 ID 확보 (StartCombatClientRpc 전송)
+        ///   2. TickCombat — 쿨다운 중 타겟 변경 감지 (ChangeTargetClientRpc 전송)
+        ///
+        /// TryFindTarget과의 차이:
+        ///   TryFindTarget: 서버 권한 체크 + 쿨다운 체크 포함 → 쿨다운 중이면 null
+        ///   FindNearestEnemy: 쿨다운 체크 없음 → 사거리 내 적이 있으면 항상 반환
+        /// </summary>
+        /// <param name="attacker">탐색 기준이 되는 유닛</param>
+        /// <returns>사거리 내 가장 가까운 적이 있으면 (타겟 Id, 타겟이 유닛인지), 없으면 null</returns>
+        public (int id, bool isUnit)? FindNearestEnemy(UnitData attacker)
+        {
+            if (attacker == null || !attacker.IsAlive) return null;
+
             IDamageable target = FindFirstEnemyTarget(attacker);
             if (target == null) return null;
 
@@ -154,6 +216,21 @@ namespace Hexiege.Application
             {
                 if (unit.AttackCooldownRemaining > 0f)
                     unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldownRemaining - dt);
+            }
+        }
+
+        /// <summary>
+        /// 싱글플레이 전용: 유닛의 전투 상태를 해제하고 OnCombatStopped 이벤트를 발행.
+        /// MoveAlongPath에서 HasEnemyInRange가 false가 되어 전투 루프를 탈출할 때 호출.
+        /// 멀티플레이에서는 NetworkCombatController가 TickCombat에서 StopCombatClientRpc를 전송하므로 불필요.
+        /// </summary>
+        /// <param name="unitId">전투를 종료하는 유닛의 Id</param>
+        public void ClearCombatState(int unitId)
+        {
+            // Dictionary에서 제거 성공 = 실제로 전투 중이었음 → 이벤트 발행
+            if (_combatTargets.Remove(unitId))
+            {
+                GameEvents.OnCombatStopped.OnNext(unitId);
             }
         }
 
@@ -370,6 +447,20 @@ namespace Hexiege.Application
             {
                 // 사망 이벤트 발행 → UnitView/BuildingView가 GameObject 파괴
                 GameEvents.OnEntityDied.OnNext(new EntityDiedEvent(target));
+
+                // 싱글플레이: 사망한 유닛의 전투 상태 정리.
+                // 사망한 유닛 자체가 전투 중이었다면 Dictionary에서 제거.
+                // StopCombat 이벤트는 발행하지 않음 — EntityDiedClientRpc가 사망 처리를 담당.
+                if (!NetworkContext.IsNetworkActive && target is UnitData deadUnit)
+                {
+                    _combatTargets.Remove(deadUnit.Id);
+                }
+
+                // 싱글플레이: 사망한 타겟을 공격 중이던 유닛들의 전투 상태는 제거하지 않음.
+                // → 다음 TryAttack() 호출 시 새 타겟을 탐색하거나,
+                //   HasEnemyInRange가 false가 되어 MoveAlongPath에서 ClearCombatState() 호출.
+                // 이렇게 하면 사망 직후 즉시 StopCombat 이벤트가 발행되지 않고,
+                // 자연스러운 타이밍(다음 프레임)에 전투 종료/새 타겟 전환이 발생.
 
                 // 데이터 정리 — Dictionary에서 제거
                 if (target is UnitData u)

@@ -244,41 +244,6 @@ namespace Hexiege.Application
     }
 
     // ====================================================================
-    // 유닛 방향 전환 이벤트 데이터
-    // ====================================================================
-
-    /// <summary>
-    /// 유닛 방향 전환 이벤트 데이터.
-    /// 서버에서 이동 시작 직전 방향을 클라이언트에 전달하여
-    /// 이동 전 회전이 선행되도록 함.
-    /// </summary>
-    public struct UnitFacingChangedEvent
-    {
-        /// <summary> 방향이 바뀐 유닛의 Id. </summary>
-        public int UnitId;
-
-        /// <summary>
-        /// 목표 Y축 회전 각도 (도 단위).
-        /// Atan2 기반 월드 각도 — 클라이언트에서 그대로 DORotate에 사용.
-        /// </summary>
-        public float YAngle;
-
-        /// <summary>
-        /// DORotate 지속 시간 (초).
-        /// UnitView._rotationDuration 값을 그대로 전달하여
-        /// 서버 대기 시간과 클라이언트 회전 시간을 일치시킴.
-        /// </summary>
-        public float RotationDuration;
-
-        public UnitFacingChangedEvent(int unitId, float yAngle, float rotationDuration)
-        {
-            UnitId = unitId;
-            YAngle = yAngle;
-            RotationDuration = rotationDuration;
-        }
-    }
-
-    // ====================================================================
     // 게임 종료 이벤트 데이터
     // ====================================================================
 
@@ -310,6 +275,50 @@ namespace Hexiege.Application
         {
             BarracksId = barracksId;
             Coord = coord;
+        }
+    }
+
+    /// <summary>
+    /// 전투 시작 이벤트 데이터 (싱글플레이 전용).
+    /// UnitCombatUseCase.TryAttack()에서 유닛이 전투 상태에 진입할 때 발행.
+    /// UnitView가 구독하여 StartCombatAnimation() 호출.
+    /// </summary>
+    public struct CombatStartedEvent
+    {
+        /// <summary> 공격하는 유닛의 Id. </summary>
+        public readonly int UnitId;
+        /// <summary> 타겟 엔티티의 Id. </summary>
+        public readonly int TargetId;
+        /// <summary> true=유닛, false=건물. </summary>
+        public readonly bool TargetIsUnit;
+
+        public CombatStartedEvent(int unitId, int targetId, bool targetIsUnit)
+        {
+            UnitId = unitId;
+            TargetId = targetId;
+            TargetIsUnit = targetIsUnit;
+        }
+    }
+
+    /// <summary>
+    /// 전투 타겟 변경 이벤트 데이터 (싱글플레이 전용).
+    /// UnitCombatUseCase.TryAttack()에서 전투 중 타겟이 바뀔 때 발행.
+    /// UnitView가 구독하여 ChangeTarget() 호출 — 회전만 업데이트.
+    /// </summary>
+    public struct CombatTargetChangedEvent
+    {
+        /// <summary> 공격하는 유닛의 Id. </summary>
+        public readonly int UnitId;
+        /// <summary> 새 타겟 엔티티의 Id. </summary>
+        public readonly int NewTargetId;
+        /// <summary> true=유닛, false=건물. </summary>
+        public readonly bool NewTargetIsUnit;
+
+        public CombatTargetChangedEvent(int unitId, int newTargetId, bool newTargetIsUnit)
+        {
+            UnitId = unitId;
+            NewTargetId = newTargetId;
+            NewTargetIsUnit = newTargetIsUnit;
         }
     }
 
@@ -442,21 +451,42 @@ namespace Hexiege.Application
         /// </summary>
         public static readonly Subject<int> OnUnitWalkStarted = new Subject<int>();
 
-        /// <summary>
-        /// 유닛이 이동(Walk)을 정지했을 때 발행. 유닛 Id를 전달.
-        /// 멀티플레이 서버 전용 — 싱글플레이에서는 발행하지 않음.
-        /// 발행: UnitView.MoveAlongPath (적 감지 시 정지), UnitView.StopMovement (이동 강제 중단)
-        /// 구독: NetworkCombatController (StopWalkAnimationClientRpc로 클라이언트에 Walk 정지 전파)
-        /// </summary>
-        public static readonly Subject<int> OnUnitWalkStopped = new Subject<int>();
+        // OnUnitWalkStopped 제거 — Idle 상태가 없으므로 Walk 정지 이벤트 불필요.
+        // Walk→Attack: StartCombatClientRpc에서 직접 처리.
+
+        // ====================================================================
+        // 전투 상태 변화 이벤트 (싱글플레이 전용)
+        // 멀티플레이에서는 NetworkCombatController가 ClientRpc로 직접 UnitView 메서드 호출.
+        // ====================================================================
 
         /// <summary>
-        /// 유닛이 이동 방향을 전환할 때 발행. 이동 시작 직전 방향 정보 전달.
-        /// 멀티플레이 서버 전용 — 싱글플레이에서는 발행하지 않음.
-        /// 발행: UnitView.MoveAlongPath (첫 스텝 ApplyDirection 직후)
-        /// 구독: NetworkCombatController (TurnToFaceClientRpc로 클라이언트에 방향 전파)
+        /// 멀티플레이 서버에서 유닛이 이동 중 처음으로 사거리 내 적을 감지했을 때 발행. 유닛 Id를 전달.
+        /// MoveAlongPath에서 HasEnemyInRange가 true가 되는 첫 순간에만 발행.
+        /// NetworkCombatController가 구독하여 즉시 StartCombatClientRpc를 전송.
+        /// TickCombat을 기다리지 않고 공격 애니메이션을 즉시 시작하기 위함.
         /// </summary>
-        public static readonly Subject<UnitFacingChangedEvent> OnUnitFacingChanged = new Subject<UnitFacingChangedEvent>();
+        public static readonly Subject<int> OnUnitEnteredCombat = new Subject<int>();
+
+        /// <summary>
+        /// 유닛이 전투 상태에 진입했을 때 발행.
+        /// 발행: UnitCombatUseCase (싱글플레이에서 TryAttack 성공 시, 이전에 전투 중이 아니었던 경우)
+        /// 구독: UnitView (StartCombatAnimation 호출)
+        /// </summary>
+        public static readonly Subject<CombatStartedEvent> OnCombatStarted = new Subject<CombatStartedEvent>();
+
+        /// <summary>
+        /// 전투 중 타겟이 변경되었을 때 발행.
+        /// 발행: UnitCombatUseCase (싱글플레이에서 TryAttack 성공 시, 이전 타겟과 다른 경우)
+        /// 구독: UnitView (ChangeTarget 호출 — 회전만 업데이트)
+        /// </summary>
+        public static readonly Subject<CombatTargetChangedEvent> OnCombatTargetChanged = new Subject<CombatTargetChangedEvent>();
+
+        /// <summary>
+        /// 유닛이 전투 상태에서 벗어났을 때 발행.
+        /// 발행: UnitCombatUseCase (싱글플레이에서 사거리 내 적이 없어진 경우)
+        /// 구독: UnitView (StopCombatAnimation 호출)
+        /// </summary>
+        public static readonly Subject<int> OnCombatStopped = new Subject<int>();
 
         // ====================================================================
         // 게임 종료 이벤트

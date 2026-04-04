@@ -20,9 +20,16 @@
 //   1. NGO가 자동으로 프리팹 Instantiate + OnNetworkSpawn() 호출
 //   2. OnNetworkSpawn()에서 unitId 확인:
 //      - 이미 값이 있으면 즉시 등록
-//      - 없으면 OnValueChanged 콜백으로 대기
+//      - 없으면 _unitId.OnValueChanged 콜백을 등록하여 값 도착 시 등록
 //   3. SpawnUnitClientRpc 수신 시 UnitData 생성 + UnitView 초기화
 //      → RegisterClientUnit()으로 UnitView를 UnitFactory에 등록
+//
+// LateUpdate 역할:
+//   Red 클라이언트 전용 좌표/회전 보정.
+//   NetworkTransform이 동기화한 서버(Blue) 도메인 좌표와 Y축 회전을
+//   ViewConverter로 반전하여 Red팀 뷰에 맞게 보정.
+//   - Position: X, Z를 맵 중심 기준으로 반전.
+//   - Rotation: Y축에 +180° 적용 (시각적 이동 방향과 일치하도록).
 //
 // 배치:
 //   유닛 프리팹 루트 오브젝트에 부착.
@@ -31,7 +38,6 @@
 // Infrastructure 레이어 — NetworkBehaviour 사용 허용.
 // ============================================================================
 
-using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using Hexiege.Core;
@@ -43,6 +49,7 @@ namespace Hexiege.Infrastructure
     /// 유닛 프리팹의 네트워크 동기화 컴포넌트.
     /// unitId를 NetworkVariable로 서버→클라이언트 동기화.
     /// 클라이언트 OnNetworkSpawn에서 UnitView 초기화를 위한 연결 지점 역할.
+    /// Red 클라이언트에서는 LateUpdate에서 위치/회전을 반전 보정.
     /// </summary>
     public class NetworkUnit : NetworkBehaviour
     {
@@ -94,14 +101,12 @@ namespace Hexiege.Infrastructure
         /// 네트워크 스폰 시 호출.
         /// 서버: 아무 작업 없음 (UnitFactory에서 직접 초기화 완료).
         /// 클라이언트: unitId가 이미 동기화되었으면 즉시 등록,
-        ///            아니면 코루틴으로 매 프레임 폴링하며 대기.
+        ///            아니면 OnValueChanged 콜백을 등록하여 값이 도착할 때 등록.
         ///
-        /// OnValueChanged 대신 폴링을 사용하는 이유:
-        ///   NetworkVariable 업데이트가 Spawn() 메시지와 별도 패킷으로 오기 때문에
-        ///   OnNetworkSpawn() 시점에 _unitId.Value == -1인 경우가 있음.
-        ///   OnValueChanged 콜백은 동일 프레임 내 변경을 놓칠 수 있어,
-        ///   Walk RPC가 그 사이에 도착하면 유닛이 딕셔너리에 미등록 → 무음 실패.
-        ///   코루틴 폴링은 매 프레임 확인하므로 등록 지연을 최소화.
+        /// OnValueChanged 콜백 방식:
+        ///   NetworkVariable의 값이 변경되면 NGO가 자동으로 콜백을 호출.
+        ///   폴링(매 프레임 확인)보다 효율적이고, 값 변경 즉시 반응하므로
+        ///   Walk RPC가 도착하기 전에 딕셔너리 등록을 완료할 수 있음.
         /// </summary>
         public override void OnNetworkSpawn()
         {
@@ -117,34 +122,42 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            // unitId가 아직 도착하지 않았으면 매 프레임 확인하는 코루틴으로 대기
-            StartCoroutine(WaitForUnitId());
+            // unitId가 아직 도착하지 않았으면 OnValueChanged 콜백으로 대기.
+            // NGO가 서버에서 NetworkVariable 값이 변경되면 이 콜백을 자동 호출.
+            // 폴링 코루틴 대신 콜백을 사용하여 불필요한 매 프레임 체크를 제거.
+            _unitId.OnValueChanged += OnUnitIdReceived;
         }
 
         /// <summary>
-        /// unitId가 설정될 때까지 매 프레임 폴링하는 코루틴.
-        /// 최대 3초 대기 후 타임아웃 경고 출력.
+        /// NetworkVariable(_unitId)의 값이 변경되었을 때 NGO가 호출하는 콜백.
+        /// 새 값이 -1이 아니면(유효한 unitId) UnitFactory에 등록하고 콜백을 해제.
+        /// 콜백 해제를 하지 않으면 이후 값 변경 시 중복 등록이 발생할 수 있으므로 반드시 해제.
         /// </summary>
-        private IEnumerator WaitForUnitId()
+        /// <param name="previousValue">변경 전 값 (보통 -1, 초기 상태).</param>
+        /// <param name="newValue">변경 후 값 (서버가 설정한 unitId).</param>
+        private void OnUnitIdReceived(int previousValue, int newValue)
         {
-            float timeout = 3f;
-            while (_unitId.Value == -1 && timeout > 0f)
-            {
-                yield return null;
-                timeout -= Time.deltaTime;
-            }
+            if (newValue == -1) return;
 
-            if (_unitId.Value != -1)
-                RegisterToFactory(_unitId.Value);
-            else
-                Debug.LogWarning($"[NetworkUnit] unitId 동기화 타임아웃 (3초 초과)");
+            // 유효한 unitId 도착 → UnitFactory 딕셔너리에 등록
+            RegisterToFactory(newValue);
+
+            // 등록 완료 후 콜백 해제 — 1회만 실행하면 되므로 더 이상 구독할 필요 없음
+            _unitId.OnValueChanged -= OnUnitIdReceived;
         }
 
         /// <summary>
         /// 네트워크 디스폰 시 호출.
+        /// OnValueChanged 콜백이 아직 등록되어 있을 수 있으므로 안전하게 해제.
+        /// 예: unitId가 도착하기 전에 오브젝트가 Despawn된 경우
+        ///     콜백이 남아있으면 파괴된 오브젝트에 접근하는 버그 발생 가능.
         /// </summary>
         public override void OnNetworkDespawn()
         {
+            // 안전망: Despawn 시 혹시 남아있는 콜백 해제.
+            // 이미 해제된 상태여도 -= 연산은 에러 없이 무시됨.
+            _unitId.OnValueChanged -= OnUnitIdReceived;
+
             base.OnNetworkDespawn();
         }
 
@@ -192,112 +205,49 @@ namespace Hexiege.Infrastructure
             IsInitialized = true;
         }
 
-        /// <summary>
-        /// 이동 방향 추적 상태를 리셋.
-        /// Walk 재시작 시 이전 공격 위치 기준의 잘못된 델타 계산 방지.
-        /// NetworkCombatController.StartWalkAnimationClientRpc에서 Walk 시작 직전 호출.
-        /// 안전망: DOKill 등으로 DORotate가 중단되어 OnComplete가 미호출된 경우에도
-        /// 다음 Walk 시작 시 _isPreRotating을 해제하여 LateUpdate 회전이 재개되도록 보장.
-        /// </summary>
-        public void ResetMovementTracking()
-        {
-            _hasInitialPosition = false;
-            _isPreRotating = false;
-        }
-
-        /// <summary>
-        /// TurnToFaceClientRpc의 DORotate 실행 중 플래그를 설정/해제.
-        /// true: LateUpdate의 델타 기반 회전을 차단 → DOTween 프리-회전 보호.
-        /// false: LateUpdate 델타 회전 재개 → 이동 중 자연스러운 방향 추적.
-        /// NetworkCombatController에서 DORotate 시작 시 true, OnComplete 시 false로 호출.
-        /// </summary>
-        public void SetPreRotating(bool value) { _isPreRotating = value; }
-
         // ====================================================================
-        // 클라이언트 이동 방향 회전 계산용
-        // ====================================================================
-
-        /// <summary>
-        /// 이전 LateUpdate의 뷰 공간 위치.
-        /// 이동 방향 벡터 계산에 사용.
-        /// </summary>
-        private Vector3 _prevPosition;
-
-        /// <summary>
-        /// 첫 LateUpdate 전 _prevPosition 초기화 여부.
-        /// 첫 프레임의 잘못된 델타 계산 방지.
-        /// </summary>
-        private bool _hasInitialPosition;
-
-        /// <summary>
-        /// TurnToFaceClientRpc의 DORotate 실행 중 여부.
-        /// true이면 LateUpdate 델타 기반 회전을 차단하여 DOTween 프리-회전을 보호.
-        /// DORotate OnComplete 또는 ResetMovementTracking에서 false로 해제.
-        /// </summary>
-        private bool _isPreRotating;
-
-        /// <summary>
-        /// 유닛 메시의 기본 Y축 회전 오프셋.
-        /// UnitView._meshYOffset과 동일값 (프리팹별로 동일하게 설정됨).
-        /// Atan2 계산 결과에서 빼서 모델의 기본 회전을 보정.
-        /// </summary>
-        private const float MeshYOffset = 30f;
-
-        // ====================================================================
-        // Red 클라이언트 좌표 보정 + 이동 방향 회전
+        // Red 클라이언트 좌표/회전 보정
         // ====================================================================
 
         /// <summary>
         /// 클라이언트 전용 LateUpdate 처리:
-        /// ① Red 클라이언트: NetworkTransform이 동기화한 서버(Blue) 도메인 좌표를
-        ///    ViewConverter로 반전하여 올바른 렌더링 위치로 보정.
-        /// ② 이동 방향 기반 회전: NetworkTransform rotation 동기화가 비활성이므로,
-        ///    위치 델타에서 이동 방향을 계산하여 Y축 회전에 적용.
-        ///    정지 중(delta 임계값 미만)에는 회전을 유지하여 공격 애니메이션 회전 보존.
         ///
-        /// 실행 조건:
-        ///   - 서버(IsServer=true): 실행 안 함. MoveAlongPath에서 ApplyDirection이 직접 처리.
-        ///   - 싱글플레이(NetworkContext.IsNetworkActive=false): 실행 안 함. 기존 동작 유지.
+        /// Red 클라이언트 좌표/회전 보정:
+        ///   NetworkTransform이 동기화한 서버(Blue) 도메인 좌표와 Y축 회전을
+        ///   ViewConverter로 반전하여 Red팀 뷰에 맞게 보정.
+        ///   Position: X, Z를 맵 중심 기준으로 반전.
+        ///   Rotation: Y축에 +180° 적용 (시각적 이동 방향과 일치하도록).
+        ///
+        ///   예시: Blue팀에서 "남동쪽(SE=150°)"을 바라보는 유닛은
+        ///         Red팀에서는 "북서쪽(NW=330°)"을 바라봐야 시각적으로 올바름.
+        ///         150° + 180° = 330° → 정확히 반대 방향.
+        ///
+        /// Blue 클라이언트(Host)에서는 서버가 직접 제어하므로 보정 불필요.
+        /// 싱글플레이에서도 서버로 동작하므로 처리 불필요.
+        ///
+        /// 타이밍:
+        ///   NetworkTransform이 Update()에서 서버 값을 적용한 뒤,
+        ///   LateUpdate()에서 Red 보정을 덮어씌움.
+        ///   이 순서가 보장되므로 매 프레임 올바른 Red 뷰가 렌더링됨.
         /// </summary>
         private void LateUpdate()
         {
-            // 서버는 MoveAlongPath에서 직접 위치·회전을 제어하므로 처리 불필요
+            // 서버(Blue Host)와 싱글플레이에서는 처리 불필요
             if (IsServer || !NetworkContext.IsNetworkActive) return;
 
-            // ① Red 클라이언트 위치 보정: NetworkTransform이 전달한 서버(Blue) 도메인 좌표를
-            //    ViewConverter로 반전하여 Red팀 뷰 좌표로 교정.
+            // Red 클라이언트: 서버(Blue) 좌표/회전을 Red 뷰로 반전
             if (ViewConverter.IsFlipped)
+            {
+                // Position 반전: 맵 중심 기준으로 X, Z를 뒤집어 Red팀 관점의 위치로 변환
                 transform.position = ViewConverter.ToView(transform.position);
 
-            // ② 이동 방향 기반 회전 계산 (NetworkTransform rotation 동기화 비활성 상태 대응).
-            //    NetworkTransform은 위치만 동기화하고 회전은 전달하지 않으므로,
-            //    이전 프레임과 현재 프레임의 위치 델타에서 이동 방향을 계산하여 회전에 적용.
-            //    - 이동 중(delta 임계값 이상): 이동 방향으로 회전 업데이트
-            //    - 정지 중(delta 임계값 미만): 회전 유지 (공격 애니메이션 회전 보존)
-            // _isPreRotating=true이면 TurnToFaceClientRpc의 DORotate 실행 중.
-            // DOTween(Update)이 rotation을 설정한 뒤 LateUpdate가 덮어씌우는 충돌을 방지.
-            // DORotate OnComplete 또는 ResetMovementTracking에서 false로 해제되면 재개.
-            if (!_isPreRotating && _hasInitialPosition)
-            {
-                Vector3 delta = transform.position - _prevPosition;
-                delta.y = 0f; // Y축(높이) 성분 제거 — XZ 평면 이동 방향만 사용
-
-                // sqrMagnitude 임계값 0.0001f = |delta| > 약 0.01f/프레임
-                // 걷기 속도(약 0.02~0.05f/프레임)는 통과, 보간 노이즈는 필터링
-                if (delta.sqrMagnitude > 0.0001f)
-                {
-                    float angle = Mathf.Atan2(delta.x, delta.z) * Mathf.Rad2Deg - MeshYOffset;
-                    Quaternion targetRot = Quaternion.Euler(0f, angle, 0f);
-                    // 즉시 스냅 대신 부드러운 회전 보간.
-                    // 720 deg/s = 180° 방향 전환이 약 0.25초에 완료.
-                    transform.rotation = Quaternion.RotateTowards(
-                        transform.rotation, targetRot, 720f * Time.deltaTime);
-                }
+                // Rotation 반전: 서버(Blue)의 Y축 회전에 +180° 적용
+                // Blue팀에서 "남쪽(SE=150°)"을 바라보는 유닛은
+                // Red팀에서는 "북쪽(NW=330°)"을 바라봐야 시각적으로 올바름
+                Vector3 euler = transform.eulerAngles;
+                euler.y = (euler.y + 180f) % 360f;
+                transform.rotation = Quaternion.Euler(euler);
             }
-
-            // 위치 보정 후의 뷰 공간 좌표를 저장 (다음 프레임 델타 계산 기준)
-            _prevPosition = transform.position;
-            _hasInitialPosition = true;
         }
     }
 }

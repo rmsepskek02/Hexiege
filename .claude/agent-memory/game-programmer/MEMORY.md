@@ -23,53 +23,52 @@
 
 ## 최근 작업
 
-### 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 (2026-03-26) ✅ 핵심 동작 완료, 회전 타이밍 보류
+### 전투 애니메이션 시스템 전면 재정비 (2026-04-03~04) ✅ 완료
 
-**신규 파일**:
-- `Infrastructure/Network/NetworkUnit.cs` — 유닛 프리팹 루트 NetworkBehaviour
-  - `_unitId` (NetworkVariable<int>, -1=미설정): 서버→클라이언트 unitId 동기화
-  - `OnNetworkSpawn()`: 클라이언트에서 unitId 확인 후 `RegisterToFactory()` 또는 `WaitForUnitId()` 코루틴 폴링 (3초 타임아웃)
-  - `LateUpdate()`: ① Red 클라이언트 위치 보정 (`ViewConverter.ToView`), ② 위치 델타 기반 Y축 회전 (720°/s RotateTowards)
-  - `ResetMovementTracking()`: Walk 재시작 시 이전 공격 위치 기준 델타 계산 방지
-  - `MarkInitialized()`: 중복 UnitView 초기화 방지 플래그
-
-**수정 파일**:
-- `Infrastructure/Factories/UnitFactory.cs`:
-  - 멀티+서버: `Instantiate → NetworkObject.Spawn() → SetUnitId()` (SetParent 없음 — NGO 제약)
-  - 멀티+클라이언트: early return (NGO가 자동 spawn)
-  - 싱글: 기존 Instantiate 유지
-  - `RegisterUnitObject(int, GameObject)`: 클라이언트 _unitObjects 딕셔너리 등록용
-  - `InitializeUnitView(UnitData)`: 클라이언트 UnitView 초기화 (멀티+클라이언트 SetParent 스킵)
-- `Infrastructure/Network/NetworkCombatController.cs`:
-  - `_facingChangedSubscription` 추가: `GameEvents.OnUnitFacingChanged` 구독 → `TurnToFaceClientRpc`
-  - `TurnToFaceClientRpc(int unitId, float yAngle, float rotationDuration)`: 클라이언트 회전 DORotate
-  - `StartWalkAnimationClientRpc` → `ApplyStartWalkWithRetry` 코루틴: 최대 1초 재시도 (등록 대기)
-  - `using DG.Tweening` 추가
-- `Infrastructure/Network/NetworkUnitMovementController.cs`:
-  - 클라이언트 예측 `MoveTo()` 제거
-  - `SyncMovementClientRpc` 제거 (NetworkTransform이 자동 전달)
-- `Application/Events/GameEvents.cs`:
-  - `UnitFacingChangedEvent { int UnitId, float YAngle, float RotationDuration }` struct 추가
-  - `OnUnitFacingChanged = new Subject<UnitFacingChangedEvent>()` 추가
-- `Presentation/Unit/UnitView.cs`:
-  - `_isWalkPending` 패턴: 공격 중 Walk 요청을 대기, 공격 완료 시 자동 시작
-  - `MoveAlongPath` 첫 스텝(i==1): 멀티플레이 시 `OnUnitFacingChanged` 발행 + `WaitForSeconds(_rotationDuration)` 대기
-  - AttackWait 탈출 후 `while (_attackCoroutine != null) yield return null` (공격 완료 대기)
-  - `PlayAttackAnimation()` 끝: `if (_isWalkPending) StartWalkAnimation()` 호출
-  - `_rotationDuration = 0.3f` (SerializeField, 이전 0.15f에서 변경)
-- `Editor/AddNetworkTransformToPrefabs.cs`:
-  - 메뉴: `Hexiege > Add NetworkTransform To Unit Prefabs`
-  - NetworkObject + NetworkTransform + NetworkUnit 일괄 추가
-  - SyncRotAngle X/Y/Z = false (회전 동기화 비활성 — 공격 DOTween 충돌 방지)
+**핵심 변경 파일**:
+- `NetworkCombatController.cs` — 3-신호 RPC, TickCombat elapsed 수정, _combatAnimationSent, ExecuteAttack 동시 호출
+- `UnitView.cs` — Walk CrossFade 1회 제한, _attackToWalkBlend, StopCombatAnimation 빈 메서드
+- `NetworkUnit.cs` — WaitForUnitId 폴링 → OnValueChanged 콜백 교체
+- `UnitCombatUseCase.cs` — TryAttack 네트워크 완전 차단 (HOST 이중 데미지 방지)
+- `UnitStats.cs` — GetAttackCooldown 실제 클립 길이로 업데이트 (Assault=0.2, Pistoleer=2.0, Sniper=3.0)
 
 **핵심 설계 결정**:
+- StartCombatClientRpc: OnUnitEnteredCombatHandler 단독 전송 (TickCombat에서 제거)
+- AttackCooldown = 클립 길이 — Animator 상태 읽기 없이 순수 타이머로 사이클 판단
+- StopCombatAnimation() = 빈 메서드 — Walk는 StartWalkAnimationClientRpc 타이밍에만 전환
+- `_combatAnimationSent` HashSet — TickCombat/코루틴 실행 순서 경쟁 조건 방지용 RPC 전송 추적
+
+**버그 패턴 교훈**:
+- TickCombat(Update)은 코루틴(yield return null)보다 먼저 실행 → 같은 프레임에 Dictionary 먼저 등록 가능
+- RPC 전송 여부 추적은 타겟 추적 Dictionary와 반드시 분리
+- ExecuteAttack을 핸들러에서 즉시 호출해야 서버 공격 사이클 T=0 = 애니메이션 루프 T=0 동기화
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-03/10_00_combat-animation-overhaul/`
+
+### 유닛 NGO NetworkObject 전환 + 이동/전투/회전 동기화 (2026-03-26~29) ✅ 완료
+
+**핵심 설계 결정 (2026-03-29 최종)**:
 - 유닛 위치 동기화: NGO NetworkTransform (서버 position → 클라이언트 자동 보간)
+- **유닛 회전 동기화: NetworkTransform SyncRotAngleY=true (서버 즉시 스냅 → 클라이언트 보간)**
 - Walk/공격/사망 동기화: ClientRpc (이벤트 기반)
-- NetworkTransform rotation 동기화 비활성: 공격 DOTween과 충돌 방지
-- 클라이언트 회전: LateUpdate 위치 델타 기반 Atan2 계산 + 720°/s RotateTowards
-- Red 클라이언트 좌표 보정: NetworkUnit.LateUpdate() — NetworkTransform이 Update에서 설정 후 LateUpdate에서 덮어씌움
-- NGO NetworkObject 부모 제약: 일반 GameObject(씬 계층 [World]/Units) 하위 배치 불가 → 씬 루트에 생성
+- Red 클라이언트 좌표+회전 보정: NetworkUnit.LateUpdate() (위치 반전 + Y축 +180°)
+- NGO NetworkObject 부모 제약: 씬 루트에 생성 (일반 GameObject 하위 불가)
 - 클라이언트 등록 타이밍: WaitForUnitId 폴링 + ApplyStartWalkWithRetry로 등록 지연 대응
+
+**폐기된 패턴 (2026-03-29)**:
+- ~~클라이언트 LateUpdate 델타 기반 회전 (Atan2 + RotateTowards)~~ → NetworkTransform rotation 동기화로 대체
+- ~~TurnToFaceClientRpc + DORotate 보간~~ → 서버 즉시 스냅 + NetworkTransform 보간으로 대체
+- ~~_isPreRotating / SetPreRotating / SetAttackRotating~~ → 전면 제거
+- ~~_isWalkPending~~ → 공격 중 Walk 무시 가드(`if (_attackCoroutine != null) return`)로 교체
+- ~~HasReceivedTurnToFace / MarkTurnToFaceReceived~~ → 전면 제거
+- ~~ResetMovementTracking / ResetPositionTracking~~ → 전면 제거
+- ~~UnitView의 DOKill/DORotate~~ → Quaternion.Euler 즉시 스냅으로 교체 (using DG.Tweening 제거)
+- ~~GameEvents.OnUnitFacingChanged / UnitFacingChangedEvent~~ → 전면 제거
+- ~~NetworkCombatController.TurnToFaceClientRpc~~ → 전면 제거
+
+**이중 보간 문제 교훈**:
+서버 DORotate(0.3초) + NetworkTransform 보간(0.1초) = ~1초 딜레이.
+서버에서 즉시 스냅하면 NetworkTransform 보간만 적용되어 자연스러운 회전.
 
 ### 공격 타이밍 정밀화 (2026-03-27) ✅ 실기 테스트 완료
 

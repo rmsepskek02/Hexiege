@@ -9,6 +9,14 @@
 //   - UnitAnimationData(Sprite[] ScriptableObject)는 더 이상 사용하지 않음
 //     → AnimatorController에서 상태/트랜지션을 관리
 //
+// [Phase 3] NetworkTransform Rotation 동기화:
+//   - DORotate 보간 → 즉시 스냅(Quaternion.Euler)으로 전면 교체
+//   - 서버에서 즉시 스냅한 rotation을 NetworkTransform이 클라이언트에 보간 전달
+//   - 이중 보간 문제 해결: 서버 DORotate(0.3초) + NetworkTransform 보간(0.1초) = ~1초 딜레이
+//     → 서버 즉시 스냅 + NetworkTransform 보간(0.1초)만 적용되어 자연스러운 회전
+//   - 클라이언트 자체 회전 로직(LateUpdate 델타 기반) 전면 제거
+//   - Red 클라이언트 rotation 보정은 NetworkUnit.LateUpdate()에서 일괄 처리
+//
 // 프리팹 구조 (3D 전환 후):
 //   Unit_{Type} (GameObject)
 //     ├─ MeshFilter + MeshRenderer (or SkinnedMeshRenderer)
@@ -37,9 +45,8 @@ using UnityEngine;
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
-using DG.Tweening;
-using Hexiege.Infrastructure;
 using Hexiege.Application;
+using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
@@ -52,6 +59,7 @@ namespace Hexiege.Presentation
         // Animator.Play()에 사용할 스테이트 이름 해시
         private static readonly int StateWalk = Animator.StringToHash("Walk");
         private static readonly int StateAttack = Animator.StringToHash("Attack");
+        // StateIdle 제거 — 이 게임에서 유닛은 항상 이동 또는 공격 중이므로 Idle 상태가 존재하지 않음.
 
         // 사망은 bool 파라미터로 유지 (Animator 트랜지션 조건)
         private static readonly int AnimIsDead = Animator.StringToHash("IsDead");
@@ -71,10 +79,18 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 프리팹 메시 자식 오브젝트의 localEulerAngles.y 보정값.
         /// Unit_Pistoleer_Mesh가 30도 회전되어 있으므로 Atan2 결과에서 빼줌.
+        /// 서버에서 공격 방향 계산(CalculateAttackAngle)에 사용.
         /// </summary>
         [SerializeField] private float _meshYOffset = 30f;
 
-        [SerializeField] private float _rotationDuration = 0.3f;
+        /// <summary> Walk로 전환할 때 블렌딩 시간 (초). </summary>
+        [SerializeField] private float _idleToWalkBlend = 0.10f;
+
+        /// <summary> 어떤 상태에서 Attack으로 전환할 때 블렌딩 시간 (초). </summary>
+        [SerializeField] private float _toAttackBlend = 0.08f;
+
+        [Tooltip("Attack → Walk 전환 시 CrossFade 블렌드 시간 (초). 규칙 3: 0.10초")]
+        [SerializeField] private float _attackToWalkBlend = 0.10f;
 
         // ====================================================================
         // 내부 참조
@@ -107,16 +123,6 @@ namespace Hexiege.Presentation
         /// <summary> 현재 이동 코루틴. null이면 정지 상태. </summary>
         private Coroutine _moveCoroutine;
 
-        /// <summary> 현재 공격 코루틴. </summary>
-        private Coroutine _attackCoroutine;
-
-        /// <summary>
-        /// 공격 코루틴 진행 중 StartWalkAnimation() 요청이 왔을 때 대기 플래그.
-        /// 공격 코루틴 종료 후 자동으로 Walk를 시작하기 위해 사용.
-        /// 클라이언트 전용 상태 — 서버는 MoveAlongPath에서 직접 Animator를 제어.
-        /// </summary>
-        private bool _isWalkPending;
-
         /// <summary> 현재 이동 중인지 여부. InputHandler에서 이동 명령 중복 방지에 사용. </summary>
         public bool IsMoving => _moveCoroutine != null;
 
@@ -136,6 +142,12 @@ namespace Hexiege.Presentation
         /// <summary>
         /// UnitFactory에서 프리팹 Instantiate 직후 호출.
         /// Domain 데이터를 전달받아 초기 상태 설정.
+        ///
+        /// 스폰 시 즉시 rotation 스냅:
+        ///   서버: 즉시 스냅 → NetworkTransform이 클라이언트에 보간 전달.
+        ///   클라이언트: NetworkTransform이 서버 rotation을 자동 동기화하므로
+        ///             여기서 설정한 값은 곧 서버 값으로 덮어씌워짐.
+        ///             Red 클라이언트는 NetworkUnit.LateUpdate()에서 +180° 보정.
         /// </summary>
         /// <param name="unitData">이 유닛의 Domain 데이터</param>
         public void Initialize(UnitData unitData)
@@ -145,8 +157,15 @@ namespace Hexiege.Presentation
             // [Phase 2] Animator 캐시 — 자식 오브젝트에 있을 수 있으므로 GetComponentInChildren 사용
             _animator = GetComponentInChildren<Animator>();
 
-            // 초기 방향으로 Y축 회전 설정
-            ApplyDirection(_unitData.Facing);
+            // 스폰 시 Facing 방향으로 즉시 rotation 설정.
+            // 서버에서 즉시 스냅하면 NetworkTransform이 이 값을 클라이언트에 자동 보간 전달.
+            // ViewConverter.IsFlipped 보정은 NetworkUnit.LateUpdate()에서 일괄 처리하므로 불필요.
+            int index = (int)_unitData.Facing;
+            if (index >= 0 && index < DirectionAngles.Length)
+            {
+                float spawnAngle = DirectionAngles[index];
+                transform.rotation = Quaternion.Euler(0f, spawnAngle, 0f);
+            }
         }
 
         /// <summary>
@@ -163,16 +182,40 @@ namespace Hexiege.Presentation
             _unitFactory = unitFactory;
             _buildingFactory = buildingFactory;
 
-            // 공격 이벤트 구독 — 싱글플레이 전용.
-            // 멀티플레이에서는 NetworkCombatController가 ClientRpc로 직접 TriggerAttackAnimation() 호출.
+            // 전투 상태 변화 이벤트 구독 — 싱글플레이 전용.
+            // 멀티플레이에서는 NetworkCombatController가 ClientRpc로 직접 메서드 호출.
             if (!NetworkContext.IsNetworkActive)
             {
-                GameEvents.OnEntityAttacked
+                // 전투 시작 → Walk 정지 후 Attack 루프 시작 + 타겟 방향 회전
+                GameEvents.OnCombatStarted
                     .Subscribe(e =>
                     {
-                        if (_unitData != null && e.Attacker == (IDamageable)_unitData)
+                        if (_unitData != null && e.UnitId == _unitData.Id)
                         {
-                            TriggerAttackAnimation(e.Target.Id, e.Target is UnitData);
+                            // Walk → Attack 직접 전환 (Idle 없음)
+                            StartCombatAnimation(e.TargetId, e.TargetIsUnit);
+                        }
+                    })
+                    .AddTo(this);
+
+                // 타겟 변경 → 회전만 업데이트 (애니메이션 재시작 없음)
+                GameEvents.OnCombatTargetChanged
+                    .Subscribe(e =>
+                    {
+                        if (_unitData != null && e.UnitId == _unitData.Id)
+                        {
+                            ChangeTarget(e.NewTargetId, e.NewTargetIsUnit);
+                        }
+                    })
+                    .AddTo(this);
+
+                // 전투 종료 → Attack 정지 후 Idle 전환
+                GameEvents.OnCombatStopped
+                    .Subscribe(unitId =>
+                    {
+                        if (_unitData != null && unitId == _unitData.Id)
+                        {
+                            StopCombatAnimation();
                         }
                     })
                     .AddTo(this);
@@ -201,17 +244,22 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// HexDirection에 따라 유닛의 Y축 회전을 설정.
-        /// [Phase 2] flipX 대신 transform.rotation Y축으로 방향 표현.
+        /// HexDirection에 따라 유닛의 Y축 회전을 즉시 설정.
+        /// 서버 전용 — 클라이언트는 NetworkTransform이 이 값을 자동 보간 동기화.
+        /// DORotate 대신 즉시 스냅하여 NetworkTransform의 이중 보간 문제를 방지.
+        ///
+        /// 이중 보간 문제란:
+        ///   서버에서 DORotate(0.3초 보간) 사용 시, DORotate가 매 프레임 중간값을 설정.
+        ///   NetworkTransform이 이 중간값을 다시 0.1초 보간으로 클라이언트에 전달.
+        ///   결과: 0.3초 + 0.1초 = 최대 ~1초 딜레이로 회전이 느려지는 현상.
+        ///   즉시 스냅하면 NetworkTransform 보간(0.1초)만 적용되어 자연스럽게 동작.
         /// </summary>
         /// <param name="dir">뷰 기준 HexDirection (ViewConverter 반전 적용 후).</param>
         private void ApplyDirection(HexDirection dir)
         {
             int index = (int)dir;
             if (index < 0 || index >= DirectionAngles.Length) return;
-            transform.DOKill();
-            transform.DORotate(new Vector3(0f, DirectionAngles[index], 0f), _rotationDuration)
-                     .SetEase(Ease.OutQuad);
+            transform.rotation = Quaternion.Euler(0f, DirectionAngles[index], 0f);
         }
 
         /// <summary>
@@ -278,10 +326,6 @@ namespace Hexiege.Presentation
             // Walk 정지 — speed=0으로 프레임 고정
             if (_animator != null) _animator.speed = 0f;
 
-            // 멀티플레이 서버: 이동 강제 중단 시 클라이언트에 Walk 정지 이벤트 발행
-            // NetworkCombatController가 이를 수신하여 StopWalkAnimationClientRpc 전송
-            if (NetworkContext.IsNetworkActive && NetworkContext.IsNetworkServer)
-                GameEvents.OnUnitWalkStopped.OnNext(_unitData.Id);
         }
 
         /// <summary>
@@ -309,6 +353,8 @@ namespace Hexiege.Presentation
         /// 경로를 따라 타일→타일 Lerp 이동하는 코루틴.
         /// [Phase 2] 방향 전환: flipX → ApplyDirection(Y축 회전).
         ///           애니메이션: FrameAnimator → Animator.SetBool("IsWalking").
+        /// [Phase 3] DORotate 제거 → 즉시 스냅. TurnToFace RPC 제거.
+        ///           회전은 서버에서 즉시 스냅 → NetworkTransform이 클라이언트에 보간 전달.
         /// </summary>
         private IEnumerator MoveAlongPath(List<HexCoord> path)
         {
@@ -320,6 +366,16 @@ namespace Hexiege.Presentation
             // 유닛별 개별 이동속도 사용 (MoveSpeed 칸/초 → lerp duration 초 변환)
             float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
             HexCoord finalTarget = path[path.Count - 1];
+
+            // Walk 애니메이션 시작 — 이동 시작 시 1회만 CrossFade.
+            // for 루프 안에서 매 타일마다 호출하면 같은 상태로의 CrossFade가 반복되어
+            // 블렌딩이 매번 리셋되고 Walk 모션이 끊기는 현상이 발생.
+            // 이동 시작 전 1회만 호출하면 Walk 루프가 끊김 없이 자연스럽게 재생됨.
+            if (_animator != null)
+            {
+                _animator.speed = 1f;
+                _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
+            }
 
             // 경로의 각 구간을 순회 (0=시작은 건너뜀)
             for (int i = 1; i < path.Count; i++)
@@ -346,44 +402,15 @@ namespace Hexiege.Presentation
                 // ClaimedTile 선점 (같은 팀 유닛 겹침 방지)
                 _unitData.ClaimedTile = to;
 
-                // 이동 방향 계산 → 뷰 관점에 맞게 반전 → Y축 회전 적용
+                // 이동 방향 계산 → 뷰 관점에 맞게 반전 → Y축 회전 즉시 스냅
                 HexDirection dir = FacingDirection.FromCoords(from, to);
                 dir = ViewConverter.FlipDirection(dir);
 
                 _unitData.Facing = dir;
 
                 // [Phase 2] Y축 회전으로 방향 표현 (flipX 대신)
+                // [Phase 3] 즉시 스냅 → NetworkTransform이 클라이언트에 보간 전달
                 ApplyDirection(dir);
-
-                // 이동 시작(첫 스텝)일 때만 회전 선행 대기.
-                // 매 스텝마다 대기하면 이동이 너무 느려지므로 첫 번째 타일 이동에만 적용.
-                // 멀티플레이: 클라이언트에 방향 이벤트를 전파하여 회전이 이동보다 먼저 시작되도록 함.
-                // 싱글플레이: 서버 이벤트 불필요, ApplyDirection의 DORotate 완료까지만 대기.
-                if (i == 1)
-                {
-                    if (NetworkContext.IsNetworkActive)
-                    {
-                        // 방향 각도 계산 — ApplyDirection에서 사용한 값과 동일한 DirectionAngles 참조
-                        int dirIndex = (int)dir;
-                        float yAngle = dirIndex >= 0 && dirIndex < DirectionAngles.Length
-                            ? DirectionAngles[dirIndex]
-                            : transform.eulerAngles.y;
-
-                        // 클라이언트에 방향 이벤트 전달 (NetworkCombatController가 수신하여 RPC 전송)
-                        GameEvents.OnUnitFacingChanged.OnNext(new UnitFacingChangedEvent(_unitData.Id, yAngle, _rotationDuration));
-                    }
-
-                    // 회전 완료까지 대기 — 이동은 회전 후 시작
-                    yield return new WaitForSeconds(_rotationDuration);
-                }
-
-                // Walk 애니메이션 시작 — 이미 Walk 재생 중이면 리셋하지 않음
-                if (_animator != null)
-                {
-                    if (!_animator.GetCurrentAnimatorStateInfo(0).shortNameHash.Equals(StateWalk))
-                        _animator.Play(StateWalk, 0, 0f);
-                    _animator.speed = 1f;
-                }
 
                 // 출발/도착의 도메인 좌표 계산 → 뷰 좌표로 변환
                 Vector3 fromPos = ViewConverter.ToView(HexMetrics.HexToWorld(from));
@@ -404,64 +431,100 @@ namespace Hexiege.Presentation
                     // 이동 중 전투 체크 (매 프레임)
                     if (_combatUseCase != null && _unitData.IsAlive)
                     {
-                        if (NetworkContext.IsNetworkActive)
+                        if (_combatUseCase.HasEnemyInRange(_unitData))
                         {
-                            // 멀티플레이 서버: 사거리 내 적 감지 → Walk 정지 후 서버 TickCombat이 공격 처리
-                            if (_combatUseCase.HasEnemyInRange(_unitData))
+                            if (NetworkContext.IsNetworkActive)
                             {
-                                // Walk 정지 (서버 로컬 Animator) + 클라이언트에 Walk 정지 이벤트 발행
-                                if (_animator != null) _animator.speed = 0f;
-                                GameEvents.OnUnitWalkStopped.OnNext(_unitData.Id);
+                                // 적 감지 즉시 이벤트 발행 → NetworkCombatController가 즉시 StartCombatClientRpc 전송
+                                // TickCombat 인터벌(최대 50ms) 동안 공격 애니메이션이 시작되지 않는 현상 방지.
+                                // 루프 진입 전 1회만 발행 (루프 안에서 반복 발행 금지).
+                                GameEvents.OnUnitEnteredCombat.OnNext(_unitData.Id);
 
+                                // Walk 정지 이벤트를 발행하지 않는 이유:
+                                //   StartCombatClientRpc 내부에서 StopWalkAnimation() + StartCombatAnimation()을
+                                //   같은 프레임에 호출하므로, 별도의 StopWalkRpc는 불필요.
+                                //   여기서 OnUnitWalkStopped를 발행하면:
+                                //     StopWalkRpc(Idle CrossFade) 도착 → TickCombat 인터벌 후 StartCombatRpc 도착
+                                //     → 그 사이에 Idle이 재생되어 유닛이 멈추는 현상(멈춤현상) 발생.
+
+                                // 이동 정지: 적이 사거리 내에 있는 동안 이 루프에서 대기.
+                                // yield return null만 반복하므로 elapsed가 증가하지 않아 유닛 위치가 고정됨.
+                                // (이 루프 없이 외부 while(elapsed < moveSeconds)로 돌아가면 elapsed가 증가하여 유닛이 이동해버림)
                                 while (_unitData.IsAlive && _combatUseCase.HasEnemyInRange(_unitData))
                                 {
-                                    while (_attackCoroutine != null)
-                                        yield return null;
                                     yield return null;
                                 }
 
-                                // 적이 사거리를 벗어났어도 현재 공격 애니메이션이 진행 중이면 완료까지 대기.
-                                // 공격 포즈 중에 이동을 재개하면 NetworkTransform이 위치를 즉시 동기화하여
-                                // 클라이언트에서 공격 포즈로 슬라이딩하는 현상 발생.
-                                while (_attackCoroutine != null)
+                                if (!_unitData.IsAlive) break;
+
+                                // 타겟 이탈 또는 사망 무관하게 현재 공격 사이클이 끝날 때까지 쿨다운 대기.
+                                // 규칙: 타겟 상태에 관계없이 현재 공격 애니메이션 완료 후 이동 재개.
+                                // AttackCooldown = 공격 클립 길이이므로, 쿨다운 만료 = 한 사이클 완료.
+                                while (_unitData.IsAlive && _unitData.AttackCooldownRemaining > 0f)
+                                {
                                     yield return null;
+                                }
 
                                 if (!_unitData.IsAlive) break;
 
-                                // 이동 재개: Walk 복귀 (서버 로컬 Animator) + 클라이언트에 Walk 시작 이벤트 발행
+                                // 사이클 완료 후 적이 다시 사거리에 들어왔으면 전투 루프 재진입
+                                if (_combatUseCase.HasEnemyInRange(_unitData))
+                                    continue;
+
+                                // 이동 재개: 현재 Animator 상태 확인 후 Walk CrossFade.
+                                // 이미 Walk 상태면 CrossFade 재호출 시 Walk 루프가 처음부터 리셋되므로 speed만 복원.
+                                // Attack 상태이면 Attack → Walk CrossFade (0.10초 블렌드, 규칙 3).
                                 if (_animator != null)
                                 {
-                                    _animator.Play(StateWalk, 0, 0f);
-                                    _animator.speed = 1f;
+                                    var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
+                                    if (stateInfo.shortNameHash == StateWalk)
+                                    {
+                                        _animator.speed = 1f;
+                                    }
+                                    else
+                                    {
+                                        _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
+                                    }
                                 }
                                 GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
                             }
-                        }
-                        else
-                        {
-                            // 싱글플레이: HasEnemyInRange로 이동 차단, TryAttack은 쿨다운 기반으로 자동 실행
-                            if (_combatUseCase.HasEnemyInRange(_unitData))
+                            else
                             {
-                                // 이동 중단 → Walk 정지
-                                if (_animator != null) _animator.speed = 0f;
-
+                                // 싱글플레이: 적이 사거리 내에 있는 동안 매 프레임 TryAttack 호출.
+                                // TryAttack이 내부에서 쿨다운을 체크하고, 쿨다운 만료 시 공격 + 이벤트 발행.
                                 while (_unitData.IsAlive && _combatUseCase.HasEnemyInRange(_unitData))
                                 {
-                                    // 쿨다운이 끝나면 공격 시도
                                     _combatUseCase.TryAttack(_unitData);
-
-                                    while (_attackCoroutine != null)
-                                        yield return null;
                                     yield return null;
                                 }
 
                                 if (!_unitData.IsAlive) break;
 
-                                // 적 제거 후 Walk 복귀
+                                // 현재 공격 사이클이 끝날 때까지 쿨다운 대기 (순수 타이머 기반, 규칙 4)
+                                while (_unitData.IsAlive && _unitData.AttackCooldownRemaining > 0f)
+                                {
+                                    yield return null;
+                                }
+
+                                if (!_unitData.IsAlive) break;
+
+                                if (_combatUseCase.HasEnemyInRange(_unitData))
+                                    continue;
+
+                                // 전투 종료 → 이동 재개
+                                _combatUseCase.ClearCombatState(_unitData.Id);
+
                                 if (_animator != null)
                                 {
-                                    _animator.Play(StateWalk, 0, 0f);
-                                    _animator.speed = 1f;
+                                    var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
+                                    if (stateInfo.shortNameHash == StateWalk)
+                                    {
+                                        _animator.speed = 1f;
+                                    }
+                                    else
+                                    {
+                                        _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
+                                    }
                                 }
                             }
                         }
@@ -487,14 +550,9 @@ namespace Hexiege.Presentation
             // 이동 완료 정리
             _unitData.ClaimedTile = null;
 
-            // Walk 정지 — speed=0으로 프레임 고정
-            if (_animator != null) _animator.speed = 0f;
+            // 이동 완료 — 게임 내 모든 이동의 목적지는 적 성이므로
+            // 성 파괴 시 게임 종료. 도착 시 Idle 전환 불필요.
             _moveCoroutine = null;
-
-            // 멀티플레이 서버: 이동 종료 이벤트 발행
-            // → NetworkCombatController가 수신하여 StopWalkAnimationClientRpc로 클라이언트에 Walk 정지 전파
-            if (NetworkContext.IsNetworkActive)
-                GameEvents.OnUnitWalkStopped.OnNext(_unitData.Id);
 
             // 이동 완료 콜백 실행 (1회성)
             var callback = OnMoveComplete;
@@ -546,103 +604,89 @@ namespace Hexiege.Presentation
                 _animator = GetComponentInChildren<Animator>();
             if (_animator == null) return;
 
-            // 공격 애니메이션 진행 중이면 즉시 Walk 시작 불가.
-            // 공격 종료 후 Walk를 시작하도록 대기 플래그만 설정하고 리턴.
-            // 이 가드가 없으면 StartWalkAnimationClientRpc가 공격 중에 도착하여
-            // Walk/Attack 애니메이션이 동시에 재생되는 문제 발생.
-            if (_attackCoroutine != null)
-            {
-                _isWalkPending = true;
-                return;
-            }
-
-            // 대기 플래그 리셋 — 지금 바로 Walk를 시작하므로 대기할 필요 없음
-            _isWalkPending = false;
-
-            // 이미 Walk 재생 중이 아니면 Walk 상태로 전환
-            if (!_animator.GetCurrentAnimatorStateInfo(0).shortNameHash.Equals(StateWalk))
-                _animator.Play(StateWalk, 0, 0f);
-
-            // speed=1로 Walk 애니메이션 재생 (정지 상태에서 복원)
             _animator.speed = 1f;
+            _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
         }
 
-        /// <summary>
-        /// Walk 애니메이션 정지. NetworkCombatController의 StopWalkAnimationClientRpc에서 호출.
-        /// 클라이언트 전용 — 서버는 MoveAlongPath에서 직접 Animator를 제어.
-        /// speed=0으로 현재 Walk 프레임 고정 (별도 Idle 상태 없이 Walk speed=0이 Idle 역할).
-        /// </summary>
-        public void StopWalkAnimation()
-        {
-            // _animator가 null이면 lazy-init 시도 (Initialize() 전에 RPC가 도착한 경우 대응)
-            if (_animator == null)
-                _animator = GetComponentInChildren<Animator>();
-            if (_animator == null) return;
+        // StopWalkAnimation() 제거 — Idle 상태가 없으므로 Walk 정지 전용 메서드 불필요.
+        // Walk→Attack 전환: StartCombatAnimation()에서 Attack CrossFade 직접 호출.
+        // Walk→Walk: 이동 재개 시 StartWalkAnimation()에서 Walk CrossFade 호출.
 
-            // Walk 대기 플래그 해제 — StopWalk 요청이 오면 Walk 복귀 의도도 취소
-            _isWalkPending = false;
-
-            // speed=0으로 현재 프레임 고정 → 사실상 Idle 상태
-            _animator.speed = 0f;
-        }
+        // WaitForAttackCycleEnd() 제거됨 (2026-04-03).
+        // Animator normalizedTime 기반 대기 → 도메인 AttackCooldownRemaining 기반 대기로 교체.
+        // AttackCooldown = 공격 클립 길이이므로 쿨다운 만료 = 한 사이클 완료.
+        // Animator 상태 의존성을 제거하여 CrossFade 블렌딩 중 상태 판별 오류를 근본적으로 방지.
 
         // ====================================================================
-        // 공격 애니메이션
+        // 전투 애니메이션 — 상태 기반 (RPC/이벤트에서 호출)
         // ====================================================================
 
         /// <summary>
-        /// 외부에서 공격 애니메이션을 트리거. NetworkCombatController의 ClientRpc에서 호출.
-        /// 타겟의 실제 transform.position 기반 Atan2 정밀 각도로 회전.
+        /// 전투 시작. 타겟 방향으로 즉시 스냅 회전 후 Attack CrossFade.
+        /// Attack 클립은 Loop Time=ON이므로 별도 루프 로직 불필요 — CrossFade 1회 호출로 무한 루프.
+        ///
+        /// 호출 경로:
+        ///   멀티플레이 → NetworkCombatController.StartCombatClientRpc → UnitView.StartCombatAnimation
+        ///   싱글플레이 → GameEvents.OnCombatStarted → UnitView.StartCombatAnimation
         /// </summary>
         /// <param name="targetId">타겟 엔티티의 Id.</param>
         /// <param name="targetIsUnit">true=유닛, false=건물.</param>
-        public void TriggerAttackAnimation(int targetId, bool targetIsUnit)
+        public void StartCombatAnimation(int targetId, bool targetIsUnit)
         {
             if (_unitData == null || !_unitData.IsAlive) return;
 
-            if (_attackCoroutine != null)
-                StopCoroutine(_attackCoroutine);
-
+            // 타겟 방향으로 즉시 스냅 회전
+            // 서버에서 즉시 스냅 → NetworkTransform이 클라이언트에 보간 전달
             float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
-            _attackCoroutine = StartCoroutine(PlayAttackAnimation(angle));
-        }
+            transform.rotation = Quaternion.Euler(0f, angle, 0f);
 
-        /// <summary>
-        /// 공격 애니메이션을 Animator.Play()로 직접 재생하고 클립 길이만큼 대기.
-        /// Atan2 기반 정밀 Y축 회전 각도를 사용.
-        /// Walk 복귀 없음 — 전투 루프 탈출 시에만 Walk로 복귀.
-        /// </summary>
-        private IEnumerator PlayAttackAnimation(float yAngle)
-        {
-            // Atan2 기반 정밀 공격 각도로 Y축 회전 (DOTween 보간)
-            transform.DOKill();
-            transform.DORotate(new Vector3(0f, yAngle, 0f), _rotationDuration)
-                     .SetEase(Ease.OutQuad);
-
+            // Attack CrossFade 시작 — Loop Time=ON이므로 자동 루프
             if (_animator != null)
             {
                 _animator.speed = 1f;
-                _animator.Play(StateAttack, 0, 0f);
-
-                // 1프레임 대기 — Animator 상태 반영 후 clip length 읽기
-                yield return null;
-
-                float clipLen = _animator.GetCurrentAnimatorStateInfo(0).length;
-                // clipLen이 0이면 안전 폴백
-                if (clipLen <= 0f) clipLen = 0.5f;
-                yield return new WaitForSeconds(clipLen);
+                _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0);
             }
+        }
 
-            _attackCoroutine = null;
+        /// <summary>
+        /// 전투 중 타겟 변경. 회전만 업데이트, 애니메이션 상태 변경 없음.
+        /// Attack 루프는 이미 재생 중이므로 끊김 없이 방향만 전환.
+        ///
+        /// 호출 경로:
+        ///   멀티플레이 → NetworkCombatController.ChangeTargetClientRpc → UnitView.ChangeTarget
+        ///   싱글플레이 → GameEvents.OnCombatTargetChanged → UnitView.ChangeTarget
+        /// </summary>
+        /// <param name="targetId">새 타겟 엔티티의 Id.</param>
+        /// <param name="targetIsUnit">true=유닛, false=건물.</param>
+        public void ChangeTarget(int targetId, bool targetIsUnit)
+        {
+            if (_unitData == null || !_unitData.IsAlive) return;
 
-            // 공격 종료 후 Walk 대기 중이었으면 즉시 Walk 시작.
-            // 공격 코루틴 진행 중 StartWalkAnimation() 요청이 왔을 때
-            // _isWalkPending=true로 예약된 상태를 여기서 소비.
-            if (_isWalkPending)
-            {
-                _isWalkPending = false;
-                StartWalkAnimation();
-            }
+            // 새 타겟 방향으로 즉시 스냅 회전
+            float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
+            transform.rotation = Quaternion.Euler(0f, angle, 0f);
+        }
+
+        /// <summary>
+        /// 전투 종료 알림. 멀티플레이에서는 의도적으로 아무것도 하지 않음.
+        ///
+        /// 호출 경로:
+        ///   멀티플레이 → NetworkCombatController.StopCombatClientRpc → UnitView.StopCombatAnimation
+        ///   싱글플레이 → GameEvents.OnCombatStopped → UnitView.StopCombatAnimation
+        ///
+        /// 비어있는 이유 (멀티플레이):
+        ///   Walk 전환은 서버가 이동을 재개할 때 StartWalkAnimationClientRpc로 명시적으로 신호를 보냄.
+        ///   StopCombatClientRpc 도착 시점과 서버의 실제 이동 재개 시점이 다를 수 있으므로,
+        ///   여기서 Walk CrossFade를 즉시 호출하면 서버가 아직 쿨다운(최대 3초) 대기 중인 동안
+        ///   클라이언트만 Walk 애니메이션이 재생되고 유닛이 실제로 이동하지 않는 불일치가 발생.
+        ///   → Walk 전환 타이밍은 StartWalkAnimationClientRpc에 완전히 위임.
+        ///
+        /// 싱글플레이:
+        ///   MoveAlongPath 내부에서 Walk CrossFade를 직접 호출하므로 이 메서드 불필요.
+        /// </summary>
+        public void StopCombatAnimation()
+        {
+            // 의도적으로 비워둠 — 위 summary 참조.
         }
     }
 }
