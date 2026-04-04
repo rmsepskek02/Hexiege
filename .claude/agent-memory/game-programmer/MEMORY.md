@@ -222,6 +222,24 @@
 - **GameEndUI.cs**: `SetupRematchButton()`에서 `isRandomMatch==true`일 때 버튼 숨기는 분기 제거
   - 랜덤매칭도 커스텀게임과 동일 흐름: 양측 동의 재경기 팝업 + NGO SceneManager.LoadScene("Game")
 
+### 재경기 초기화 버그 수정 (2026-04-04) ✅ 테스트 완료
+
+**증상**: 재경기 시 이전 게임 유닛/건물이 씬에 잔존
+**원인**: NGO SceneManager.LoadScene(Single)으로 같은 씬 재로드 시 동적 스폰 NetworkObject 자동 Despawn 미보장
+**수정**: `NetworkGameEndController.StartRematch()`에서 LoadScene() 직전 SpawnManager.SpawnedObjects 순회 → 동적 NetworkObject 명시적 Despawn
+
+**핵심 패턴**:
+- `SpawnedObjects.Values`를 `List<NetworkObject>` 복사본으로 순회 (Despawn 중 컬렉션 변경 방지)
+- `IsSceneObject == false`만 Despawn (씬 배치 오브젝트 자동 제외)
+- `IsSpawned == true` / `IsSceneObject == false` — NGO 2.9.x에서 bool? (nullable) 비교 방식 필수
+
+**교훈**:
+- `DestroyWithScene = true`는 같은 씬 재로드 시나리오에서 동작 불보장
+- 같은 씬 재로드 전에는 반드시 동적 NetworkObject를 명시적으로 Despawn해야 함
+- `Active Scene Synchronization`은 씬 전환용 설정 — 같은 씬 재로드와 무관
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-03/20_00_rematch-initialization-bug/`
+
 ### 커스텀게임 재경기(Rematch) 시스템 (2026-03-17) ✅ 테스트 완료
 - **NetworkGameManager.cs**: `_isRandomMatchmaking` bool 필드 + `IsRandomMatchmaking` 속성 추가
   - StartMatchmakingAsync → true, CancelMatchmakingAsync/DisconnectAsync → false

@@ -361,6 +361,35 @@ namespace Hexiege.Infrastructure
         private void StartRematch()
         {
             _rematchRequesterId = ulong.MaxValue;
+
+            // ----------------------------------------------------------------
+            // LoadScene 이전에 모든 동적 스폰 NetworkObject를 명시적으로 Despawn.
+            // NGO SceneManager.LoadScene(Single)으로 같은 씬("Game")을 재로드할 때
+            // 동적 스폰 NetworkObject(유닛, 건물 등)가 자동 정리되지 않는 문제 수정.
+            // ----------------------------------------------------------------
+            // SpawnedObjects Dictionary를 직접 순회하면서 Despawn하면
+            // 컬렉션이 변경되어 InvalidOperationException이 발생하므로,
+            // 먼저 List에 복사한 뒤 복사본을 순회한다.
+            // ----------------------------------------------------------------
+            var spawnedCopy = new System.Collections.Generic.List<NetworkObject>(
+                NetworkManager.SpawnManager.SpawnedObjects.Values);
+
+            foreach (var netObj in spawnedCopy)
+            {
+                // IsSceneObject == true인 오브젝트는 씬에 미리 배치된 NetworkObject
+                // (예: NetworkGameFlow, NetworkCombatController 등).
+                // 이들은 씬 재로드 시 NGO가 자동으로 처리하므로 건드리지 않는다.
+                //
+                // null 체크: Despawn 과정에서 다른 오브젝트가 연쇄 파괴될 수 있으므로
+                // Unity 오브젝트 유효성을 먼저 확인한다.
+                // IsSpawned 체크: 이미 Despawn된 오브젝트를 중복 처리하지 않도록 한다.
+                if (netObj != null && netObj.IsSpawned == true && netObj.IsSceneObject == false)
+                {
+                    Debug.Log($"[Network] StartRematch: 동적 NetworkObject Despawn. name={netObj.name}");
+                    netObj.Despawn();
+                }
+            }
+
             Debug.Log("[Network] StartRematch: Game 씬 재로드.");
             NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single);
         }
