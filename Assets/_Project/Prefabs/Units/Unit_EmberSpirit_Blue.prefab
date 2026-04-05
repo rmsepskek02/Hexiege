@@ -457,6 +457,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6928967698342315100}
+  - component: {fileID: 7894418485285079998}
   m_Layer: 0
   m_Name: Unit_EmberSpirit_Blue
   m_TagString: Untagged
@@ -481,6 +482,28 @@ Transform:
   - {fileID: 4188502928952361290}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!95 &7894418485285079998
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4324844746738867284}
+  m_Enabled: 1
+  m_Avatar: {fileID: 9000000, guid: 3a5e846926ac08544b49c67dc7a287d3, type: 3}
+  m_Controller: {fileID: 9100000, guid: c604ed991e03ad24a90acbf0fb938b9d, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1 &4607732135500442909
 GameObject:
   m_ObjectHideFlags: 0

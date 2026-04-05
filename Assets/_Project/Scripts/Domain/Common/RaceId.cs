@@ -5,12 +5,12 @@
 //
 // 사용 예시:
 //   LocalPlayerRace.Set(RaceId.Spirit);      // 정령 종족 선택
-//   if (race == RaceId.Nature) { ... }       // 자연 종족인지 확인
+//   if (race == RaceId.Transcendence) { ... } // 초월 종족인지 확인
 //
 // 종족 목록:
 //   Human  (0) → 인간: 화약 무기와 기계 문명
 //   Spirit (1) → 정령: 원소의 힘을 다루는 영적 존재
-//   Nature (2) → 자연: 숲과 동물의 힘을 빌린 자연의 수호자
+//   Transcendence (2) → 초월: 시공을 초월한 신비로운 존재
 //
 // Domain 레이어 — 외부 의존성 없음.
 // ============================================================================
@@ -24,6 +24,6 @@ namespace Hexiege.Domain
     {
         Human  = 0,  // 인간
         Spirit = 1,  // 정령
-        Nature = 2   // 자연
+        Transcendence = 2   // 초월
     }
 }

@@ -9,7 +9,7 @@
 //
 // 사용 예시:
 //   // 멀티플레이 수신 시
-//   GameRaceContext.Set(RaceId.Spirit, RaceId.Nature);
+//   GameRaceContext.Set(RaceId.Spirit, RaceId.Transcendence);
 //
 //   // 인게임에서 종족별 유닛 풀 초기화 시
 //   RaceId myRace = GameRaceContext.BlueRace;

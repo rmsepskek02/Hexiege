@@ -12,7 +12,8 @@
 //   4. 종족별 캐릭터 프리팹 인스턴스 생성 — 캐러셀 위치에 배치 (3개 모두 활성)
 //
 //   [UI 환경]
-//   5. BattleMainView 하위에 RaceSelectionView 오브젝트 생성 (반응형 앵커 기반)
+//   5. BattlePanel(BattleMainView의 부모) 직속 자식으로 RaceSelectionView 오브젝트 생성
+//      BattlePanel의 하단 50%를 차지하는 반응형 앵커 기반 배치
 //      ├─ CharacterDisplay (RawImage — RenderTexture 출력)
 //      ├─ RaceNameText (TMP_Text — 종족명)
 //      ├─ PrevButton (Button — 이전 종족)
@@ -20,6 +21,13 @@
 //   6. RaceSelectionView 컴포넌트 추가 + 모든 Inspector 슬롯 자동 연결
 //      (캐러셀 Vector3 위치 포함)
 //   7. BattleMainView._raceSelectionView 슬롯 자동 연결
+//
+// [배치 구조]
+//   BattlePanel (ContentArea 전체)
+//     ├── BattleMainPanel  (상단 50% — 건드리지 않음)
+//     ├── RaceSelectionView (하단 50% — BattlePanel 직속 자식)
+//     ├── CustomGamePanel ...
+//     └── RandomMatchPanel ...
 //
 // 실행 전 조건:
 //   - Lobby.unity가 열려 있어야 함
@@ -54,28 +62,32 @@ namespace Hexiege.Editor
         private const int    RT_Width      = 512;
         private const int    RT_Height     = 512;
 
-        // 종족별 대표 캐릭터 프리팹 경로 ([0]인간 [1]정령 [2]자연)
+        // 종족별 대표 캐릭터 프리팹 경로 ([0]인간 [1]정령 [2]초월)
         private static readonly string[] PrefabPaths = {
             "Assets/_Project/Prefabs/Units/Unit_Pistoleer_Blue.prefab",   // [0] 인간
             "Assets/_Project/Prefabs/Units/Unit_EmberSpirit_Blue.prefab", // [1] 정령
-            "Assets/_Project/Prefabs/Units/Unit_FoxMagician_Blue.prefab", // [2] 자연
+            "Assets/_Project/Prefabs/Units/Unit_FoxMagician_Blue.prefab", // [2] 초월
         };
 
         // 씬 오브젝트 이름
         private static readonly string[] CharNames = {
             "CharPreview_Human",
             "CharPreview_Spirit",
-            "CharPreview_Nature",
+            "CharPreview_Transcendence",
         };
 
         // 캐러셀 슬롯 위치 (World Space)
         // 중앙: 카메라에 가까움 → 크게 보임, 좌/우: 카메라에서 멀어 → 작게 보임
-        private static readonly Vector3 CenterPos = new Vector3(1000f,   0f, 4f);
-        private static readonly Vector3 LeftPos   = new Vector3(997.5f,  0f, 7f);
-        private static readonly Vector3 RightPos  = new Vector3(1002.5f, 0f, 7f);
+        // 카메라(Z=-2)와의 거리: Center=5.5, Left/Right=10 → 크기 비율 약 1.8:1
+        // 이전 설정(Z=0.5)은 카메라-캐릭터 거리가 1.5 유닛으로 너무 가까워 극심한 원근 왜곡 발생
+        private static readonly Vector3 CenterPos = new Vector3(1000f,   0.35f, 2f);
+        private static readonly Vector3 LeftPos   = new Vector3(999.7f,  0.3f,  4f);
+        private static readonly Vector3 RightPos  = new Vector3(1000.3f, 0.3f,  4f);
 
-        // 3D 카메라 위치 — 캐릭터보다 앞(Z가 작은 쪽)에서 +Z 방향으로 촬영
-        private static readonly Vector3 CamPos = new Vector3(1000f, 1.2f, -1f);
+        // 3D 카메라 위치 — 캐릭터보다 뒤(Z=-2)에서 +Z 방향으로 촬영
+        // Z=-2로 충분한 거리를 확보하여 원근 왜곡(캐릭터가 납작하게 뭉개지는 현상)을 방지한다.
+        // Y=1.5로 약간 높여서 자연스러운 내려보는 시점을 만든다.
+        private static readonly Vector3 CamPos = new Vector3(1000f, 1.5f, -2f);
 
         // ====================================================================
         // 메뉴 항목
@@ -176,6 +188,7 @@ namespace Hexiege.Editor
         /// <summary>
         /// CharacterPreviewCamera를 생성하거나 기존 카메라를 갱신한다.
         /// Perspective 카메라로 설정하여 캐러셀 원근감 표현.
+        /// FOV를 40도로 낮추고 카메라를 가까이 배치하여 원근감을 극대화한다.
         /// </summary>
         private static void EnsureCamera(int layer, RenderTexture rt)
         {
@@ -186,19 +199,77 @@ namespace Hexiege.Editor
             Camera cam = go.GetComponent<Camera>();
             if (cam == null) cam = go.AddComponent<Camera>();
 
-            // 카메라 위치: 캐릭터보다 앞(Z=-1)에서 +Z 방향으로 촬영
+            // 카메라 위치: 캐릭터보다 뒤(Z=-2)에서 +Z 방향으로 촬영
+            // 12도 아래를 내려보도록 X축 회전 — 캐릭터를 자연스럽게 내려보는 시점
             go.transform.position = CamPos;
-            go.transform.rotation = Quaternion.identity; // +Z 방향 촬영
+            go.transform.rotation = Quaternion.Euler(12f, 0f, 0f);
 
             cam.cullingMask    = 1 << layer;                          // CharacterPreview 레이어만 촬영
             cam.targetTexture  = rt;
             cam.clearFlags     = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.1f, 0.1f, 0.1f, 0f);   // 반투명 어두운 배경
+            // 약간 밝은 어두운 배경 — 캐릭터가 너무 어두운 배경에 묻히지 않도록
+            cam.backgroundColor = new Color(0.15f, 0.15f, 0.18f, 0f);
             cam.orthographic   = false;                                // Perspective — 원근감 필수
-            cam.fieldOfView    = 50f;                                  // 캐러셀 3개 캐릭터가 모두 보이는 화각
+            // FOV 40도: 좁은 화각으로 원근감을 극대화하면서 좌우 캐릭터도 프레임 안에 유지
+            cam.fieldOfView    = 45f;
             cam.nearClipPlane  = 0.1f;
             cam.farClipPlane   = 50f;
             cam.depth          = -10;
+
+            // 캐릭터 프리뷰 전용 조명 추가 — 캐릭터가 밝고 선명하게 보이도록
+            EnsureLight(layer, go.transform);
+        }
+
+        /// <summary>
+        /// CharacterPreview 레이어 전용 Directional Light를 생성하거나 갱신한다.
+        /// 메인 씬 조명과 독립적으로 캐릭터 프리뷰만 밝게 비춘다.
+        /// 카메라 오브젝트의 자식으로 배치하여 프리뷰 관련 오브젝트를 깔끔하게 정리한다.
+        /// </summary>
+        private static void EnsureLight(int layer, Transform cameraTransform)
+        {
+            const string LightName = "CharacterPreviewLight";
+
+            // Unity Object는 ?? 연산자가 올바르게 동작하지 않으므로 명시적 null 체크 사용
+            // 카메라 자식에서 먼저 찾고, 없으면 씬 전체에서 검색 (이전 버전 호환)
+            Transform existingLight = cameraTransform.Find(LightName);
+            GameObject lightGO;
+
+            if (existingLight != null)
+            {
+                lightGO = existingLight.gameObject;
+            }
+            else
+            {
+                // 씬 전체에서 검색 — 이전 실행에서 카메라 밖에 생성되었을 수 있음
+                lightGO = GameObject.Find(LightName);
+                if (lightGO == null)
+                {
+                    lightGO = new GameObject(LightName);
+                }
+                // 카메라 자식으로 이동
+                lightGO.transform.SetParent(cameraTransform, false);
+            }
+
+            Light light = lightGO.GetComponent<Light>();
+            if (light == null) light = lightGO.AddComponent<Light>();
+
+            // Directional Light 설정 — 위쪽 앞에서 비스듬히 비추는 3점 조명의 메인 라이트 역할
+            light.type = LightType.Directional;
+            // 월드 좌표 기준 위치 (Directional Light는 위치 무관하지만 Scene View에서 아이콘 위치용)
+            lightGO.transform.position = new Vector3(1000f, 3f, 0f);
+            // 각도: X=50(위에서 아래로), Y=-30(약간 왼쪽에서) → 캐릭터 정면을 밝게 비춤
+            lightGO.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+
+            // CharacterPreview 레이어만 비추도록 cullingMask 설정
+            // 이렇게 하면 게임 씬의 다른 오브젝트에 영향을 주지 않는다
+            light.cullingMask = 1 << layer;
+
+            // 밝기: 2.0f — 캐릭터가 충분히 밝고 디테일이 잘 보이는 강도
+            light.intensity = 2.0f;
+            // 그림자 비활성화 — 프리뷰용이므로 불필요하고 성능도 절약
+            light.shadows = LightShadows.None;
+            // 색상: 약간 따뜻한 흰색으로 캐릭터가 자연스럽게 보이도록
+            light.color = new Color(1f, 0.97f, 0.92f, 1f);
         }
 
         // ====================================================================
@@ -224,7 +295,7 @@ namespace Hexiege.Editor
         ///   offset = (i - 0 + 3) % 3
         ///   Human(0) → offset 0 → Center (선택됨, 카메라에 가까움)
         ///   Spirit(1) → offset 1 → Right (비선택, 카메라에서 멈)
-        ///   Nature(2) → offset 2 → Left (비선택, 카메라에서 멈)
+        ///   Transcendence(2) → offset 2 → Left (비선택, 카메라에서 멈)
         /// 모든 캐릭터는 활성 상태(SetActive(true)) — 캐러셀에서 3개 동시 표시.
         /// </summary>
         private static GameObject EnsureCharacterInstance(int index, GameObject parent, int layer)
@@ -270,7 +341,7 @@ namespace Hexiege.Editor
             {
                 0 => CenterPos,  // Human → 중앙
                 1 => RightPos,   // Spirit → 오른쪽
-                _ => LeftPos,    // Nature → 왼쪽
+                _ => LeftPos,    // Transcendence → 왼쪽
             };
         }
 
@@ -279,8 +350,17 @@ namespace Hexiege.Editor
         // ====================================================================
 
         /// <summary>
-        /// BattleMainView 하위에 RaceSelectionView UI 계층을 생성하고
+        /// BattlePanel(BattleMainView의 부모) 직속 자식으로 RaceSelectionView UI 계층을 생성하고
         /// RaceSelectionView 컴포넌트의 Inspector 슬롯을 모두 연결한다.
+        ///
+        /// 배치 구조:
+        ///   BattlePanel (ContentArea 전체)
+        ///     ├── BattleMainPanel (상단 50% — 건드리지 않음)
+        ///     ├── RaceSelectionView (하단 50% — 여기서 생성)
+        ///     ├── CustomGamePanel ...
+        ///
+        /// RaceSelectionView는 BattleMainPanel의 형제(sibling)로 배치되므로
+        /// BattleMainPanel 내부의 레이아웃(VerticalLayoutGroup 등)에 영향을 주지 않는다.
         /// 반응형 UI: 모든 요소가 앵커 기반으로 배치되어 해상도에 자동 적응.
         /// </summary>
         private static RaceSelectionView EnsureRaceSelectionUI(
@@ -293,61 +373,66 @@ namespace Hexiege.Editor
             if (font == null)
                 Debug.LogWarning($"[Setup] 폰트를 찾을 수 없습니다: {FontPath}. 기본 폰트가 사용됩니다.");
 
-            Transform bmvTransform = battleMainView.transform;
-
-            // ── BattleMainView가 부모를 꽉 채우도록 RectTransform 강제 설정 ────
-            // 기본적으로 BattleMainView는 버튼 3개 높이만큼만 크기를 가짐.
-            // RaceSelectionView가 anchorMax.y=0.5로 하단 50%를 차지하려면
-            // BattleMainView가 부모(ContentArea)를 가득 채워야 한다.
-            RectTransform bmvRect = battleMainView.GetComponent<RectTransform>();
-            if (bmvRect != null)
-            {
-                bmvRect.anchorMin        = Vector2.zero;
-                bmvRect.anchorMax        = Vector2.one;
-                bmvRect.sizeDelta        = Vector2.zero;
-                bmvRect.anchoredPosition = Vector2.zero;
-
-                // ContentSizeFitter가 있으면 Unconstrained으로 — 앵커 기반 크기와 충돌 방지
-                ContentSizeFitter sizeFitter = battleMainView.GetComponent<ContentSizeFitter>();
-                if (sizeFitter != null)
-                {
-                    sizeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-                    sizeFitter.verticalFit   = ContentSizeFitter.FitMode.Unconstrained;
-                }
-                Debug.Log("[Setup] BattleMainView RectTransform → 부모 전체 채우기 설정 완료.");
-            }
+            // BattlePanel = BattleMainView(BattleMainPanel)의 부모
+            // RaceSelectionView는 BattleMainPanel의 형제(sibling)로 배치해야 하므로
+            // BattlePanel을 부모로 사용한다.
+            Transform battlePanelTransform = battleMainView.transform.parent;
 
             // 이미 RaceSelectionView가 존재하면 재사용 (재실행 안전)
-            RaceSelectionView existing = bmvTransform.GetComponentInChildren<RaceSelectionView>(true);
+            // BattlePanel 하위 전체에서 검색 (이전에 BattleMainPanel 안에 있었을 수도 있음)
+            RaceSelectionView existing = battlePanelTransform.GetComponentInChildren<RaceSelectionView>(true);
 
             GameObject panelGO;
             if (existing != null)
             {
                 panelGO = existing.gameObject;
+
+                // 이전 실행에서 BattleMainPanel 안에 생성되었을 수 있으므로
+                // 부모를 BattlePanel로 재배치한다.
+                if (panelGO.transform.parent != battlePanelTransform)
+                {
+                    panelGO.transform.SetParent(battlePanelTransform, false);
+                    Debug.Log("[Setup] 기존 RaceSelectionView를 BattlePanel 직속으로 이동.");
+                }
+
+                // 기존 오브젝트의 RectTransform 앵커도 올바르게 재설정
+                RectTransform existingRect = panelGO.GetComponent<RectTransform>();
+                if (existingRect != null)
+                {
+                    existingRect.anchorMin        = new Vector2(0f, 0f);
+                    existingRect.anchorMax        = new Vector2(1f, 0.5f);  // BattlePanel 하단 50%
+                    existingRect.pivot            = new Vector2(0.5f, 0.5f);
+                    existingRect.anchoredPosition = Vector2.zero;
+                    existingRect.sizeDelta        = Vector2.zero;
+                }
+
+                // 이전 버전에서 추가했던 LayoutElement(ignoreLayout) 제거
+                // BattlePanel 직속이므로 더 이상 필요 없다
+                LayoutElement oldLE = panelGO.GetComponent<LayoutElement>();
+                if (oldLE != null)
+                {
+                    Object.DestroyImmediate(oldLE);
+                    Debug.Log("[Setup] 불필요한 LayoutElement 컴포넌트 제거.");
+                }
+
                 Debug.Log("[Setup] 기존 RaceSelectionView 재사용.");
             }
             else
             {
                 // ── 패널 루트 ──────────────────────────────────────────────
+                // BattlePanel 직속 자식으로 생성 — BattleMainPanel의 형제(sibling)
                 panelGO = new GameObject("RaceSelectionView");
-                panelGO.transform.SetParent(bmvTransform, false);
+                panelGO.transform.SetParent(battlePanelTransform, false);
 
                 RectTransform panelRect = panelGO.AddComponent<RectTransform>();
-                // 반응형 앵커: 가로는 부모 전체, 세로는 LayoutElement가 제어
+                // 반응형: BattlePanel 하단 50%를 차지
+                // BattleMainPanel(상단 50%)과 겹치지 않게 anchorMax.y=0.5
                 panelRect.anchorMin        = new Vector2(0f, 0f);
-                panelRect.anchorMax        = new Vector2(1f, 1f);
+                panelRect.anchorMax        = new Vector2(1f, 0.5f);  // 하단 50%
                 panelRect.pivot            = new Vector2(0.5f, 0.5f);
                 panelRect.anchoredPosition = Vector2.zero;
                 panelRect.sizeDelta        = Vector2.zero;
             }
-
-            // ── LayoutElement: BattleMainView의 VerticalLayoutGroup이 있을 때
-            // 버튼 3개 아래 남은 공간을 RaceSelectionView가 모두 차지하도록 설정
-            // flexibleHeight=1 → 레이아웃 그룹이 남은 공간을 이 요소에 배분
-            LayoutElement le = panelGO.GetComponent<LayoutElement>();
-            if (le == null) le = panelGO.AddComponent<LayoutElement>();
-            le.flexibleHeight = 1f;
-            Debug.Log("[Setup] RaceSelectionView LayoutElement(flexibleHeight=1) 설정 완료.");
 
             // ── RaceSelectionView 컴포넌트 ──────────────────────────────
             // Unity Object는 ?? 연산자가 올바르게 동작하지 않으므로 명시적 null 체크 사용
@@ -360,10 +445,10 @@ namespace Hexiege.Editor
             RawImage rawImage = EnsureUIElement<RawImage>(panelGO, "CharacterDisplay", ri =>
             {
                 RectTransform r = ri.GetComponent<RectTransform>();
-                // 반응형 앵커: 가로 10%~90%, 세로 15%~100% (패널 내 상단 대부분 차지)
-                r.anchorMin = new Vector2(0.1f, 0.15f);
-                r.anchorMax = new Vector2(0.9f, 1.0f);
-                r.pivot     = new Vector2(0.5f, 0.5f);
+                // 반응형 앵커: 가로 5%~95%, 세로 15%~130% (패널 상단을 넘어서 캐릭터가 크게 보이도록)
+                // anchorMax.y > 1.0이면 부모 RectTransform 영역 위로 넘어감 — 캐릭터 전신 표시용
+                r.anchorMin = new Vector2(0.05f, 0.15f);
+                r.anchorMax = new Vector2(0.95f, 1.3f);
                 r.sizeDelta = Vector2.zero;  // 앵커에 완전히 의존
                 r.anchoredPosition = Vector2.zero;
                 ri.texture = rt;              // RenderTexture 연결
@@ -449,6 +534,10 @@ namespace Hexiege.Editor
             SetVector3(so, "_leftPos",   LeftPos);
             SetVector3(so, "_rightPos",  RightPos);
 
+            // 캐러셀 이동 애니메이션 시간 설정 — 씬에서 확정한 값으로 동기화
+            SerializedProperty moveDurProp = so.FindProperty("_moveDuration");
+            if (moveDurProp != null) moveDurProp.floatValue = 1.0f;
+
             so.ApplyModifiedProperties();
 
             return raceView;
@@ -459,8 +548,9 @@ namespace Hexiege.Editor
         // ====================================================================
 
         /// <summary>
-        /// parent 하위에서 name으로 찾거나 없으면 생성. 생성 시 setup 액션 실행.
-        /// T가 Component일 때 이미 있는 오브젝트는 setup을 건너뜀(재실행 안전).
+        /// parent 하위에서 name으로 찾거나 없으면 생성.
+        /// 기존/신규 모두 setup 액션을 실행하여 레이아웃 속성이 항상 최신 상태를 유지.
+        /// 재실행 시에도 앵커, 크기 등 레이아웃 설정이 올바르게 적용됨.
         /// </summary>
         private static T EnsureUIElement<T>(
             GameObject parent,
@@ -473,6 +563,8 @@ namespace Hexiege.Editor
                 // Unity Object는 ?? 연산자가 올바르게 동작하지 않으므로 명시적 null 체크 사용
                 T comp = existing.GetComponent<T>();
                 if (comp == null) comp = existing.gameObject.AddComponent<T>();
+                // 재실행 시에도 setup을 적용하여 레이아웃 속성 동기화
+                setup?.Invoke(comp);
                 return comp;
             }
 

@@ -133,10 +133,140 @@ NextButton:
 
 ---
 
+## v2 수정사항 (2026-04-05 추가)
+
+### 문제 1: RaceSelectionView 배치 방식 수정
+
+**기존 방식(잘못됨)**: RaceSelectionView를 BattleMainPanel VerticalLayoutGroup 흐름에 포함
+→ VerticalLayoutGroup 수정으로 기존 버튼 3개 위치가 변경됨
+
+**수정 방향**: `LayoutElement.ignoreLayout = true` 적용
+- RaceSelectionView를 BattleMainPanel 자식으로 유지 (BattleMainPanel 숨김 시 함께 숨겨짐)
+- `ignoreLayout=true`로 VerticalLayoutGroup 레이아웃 흐름에서 제외 → 버튼 3개 위치 무변경
+- 앵커 (0,0)~(1,0.45)로 BattleMainPanel 하단 45%를 절대 위치로 차지
+
+**에디터 스크립트에서 제거:**
+- VerticalLayoutGroup.childControlHeight 변경 코드
+- childAlignment 변경 코드
+- 버튼들에 LayoutElement 추가하는 foreach 루프
+- BattleMainView RectTransform 수정 코드
+
+**에디터 스크립트에서 추가:**
+- RaceSelectionView에 `LayoutElement.ignoreLayout = true` 설정
+
+**절대 건드리지 말 것:** BattleMainPanel, CustomGamePanel, CustomHostPanel, CustomJoinPanel, RandomMatchPanel
+
+### 문제 2: 캐릭터 원근감 및 조명 설정 업데이트
+
+| 항목 | 기존 | 수정 |
+|------|------|------|
+| CenterPos | (1000, 0, 3) | (1000, 0, 2) |
+| LeftPos | (997.5, 0, 8) | (998.5, 0, 9) |
+| RightPos | (1002.5, 0, 8) | (1001.5, 0, 9) |
+| CamPos | (1000, 1.0, 0.5) | 유지 |
+| FOV | 40 | 45 |
+| Light intensity | 2.0 | 유지 |
+
+- X 간격 축소 (±2.5 → ±1.5): 비선택 캐릭터가 가장자리에서 잘리는 문제 해결
+- Z 차이 확대 (Center=2, Left/Right=9): 선택/비선택 크기 차이 극대화
+
+---
+
+## v3 추가 사항 (2026-04-06)
+
+### 확정된 씬 구조
+
+```
+BattlePanel (BattleRootView)
+  ├── BattleMainPanel  (anchorMin.y=0.5, anchorMax.y=1 → 상단 50%)
+  └── RaceSelectionView  (anchorMin=0,0 ~ anchorMax=1,0.5 → 하단 50%, BattlePanel 직속 자식)
+        ├── CharacterDisplay (anchorMin=0.05,0.15 ~ anchorMax=0.95,1.3, sizeDelta=0,0)
+        ├── RaceNameText
+        ├── PrevButton
+        └── NextButton
+```
+
+### 확정된 씬 설정값
+
+```
+RaceSelectionView:
+  _centerPos: (1000, 0.35, 2)
+  _leftPos:   (999.7, 0.3, 4)
+  _rightPos:  (1000.3, 0.3, 4)
+  _moveDuration: 1
+```
+
+### 애니메이션 전환 기능 추가
+
+**요구사항**: 선택된(중앙) 캐릭터 → Walk, 비선택(좌우) 캐릭터 → Idle, CrossFade 0.3초
+
+**Animator 컨트롤러 상태 현황:**
+| 종족 | Idle | Walk |
+|------|------|------|
+| 인간(Pistoleer) | ✅ "Idle" | ✅ "Walk" |
+| 정령(EmberSpirit) | ✅ "Idle" | ✅ "Walk" |
+| 초월(FoxMagician) | ✅ "Idle" | ✅ "Walk" |
+
+**버그 수정**: Pistoleer.controller의 Idle 상태 `m_Speed: 0` → `m_Speed: 1` 수정 (Idle 첫 프레임 동결 원인)
+
+**RaceSelectionView.cs 변경 사항:**
+- `Bind()` 시 각 캐릭터 루트에서 `GetComponentInChildren<Animator>()` 캐시
+- `ApplyCarouselPositions()` 에서 offset=0(중앙) → `CrossFadeInFixedTime("Walk", 1.0f, 0)`, offset=1,2(좌우) → `CrossFadeInFixedTime("Idle", 1.0f, 0)`
+- `_animators` 배열은 `_characterRoots`와 같은 길이
+- AnimBlendTime = 1.0f (_moveDuration과 동일)
+
+### 에디터 스크립트 업데이트
+
+CharacterDisplay 앵커를 수동 조정값(anchorMax.y=1.3, sizeDelta.x=-100) 기준으로 순수 앵커 방식으로 정리:
+- anchorMin: (0.05, 0.15)
+- anchorMax: (0.95, 1.3)
+- sizeDelta: (0, 0)
+
+캐릭터 포지션 상수도 씬 확정값으로 업데이트.
+
+---
+
+## v4 추가 사항 (2026-04-06)
+
+### 종족 이름 변경: Nature(자연) → Transcendence(초월)
+
+| 항목 | 변경 전 | 변경 후 |
+|------|---------|---------|
+| C# enum 식별자 | `RaceId.Nature` | `RaceId.Transcendence` |
+| 한글 표시 이름 | `"자연"` | `"초월"` |
+| 씬 오브젝트명 | `CharPreview_Nature` | `CharPreview_Transcendence` |
+
+**변경된 파일:**
+- `Domain/Common/RaceId.cs`
+- `Presentation/UI/ViewModels/RaceSelectionViewModel.cs`
+- `Presentation/UI/Views/Lobby/Battle/RaceSelectionView.cs`
+- `Editor/RaceSelectionPreviewSetup.cs`
+- `Infrastructure/LocalPlayerRace.cs`
+- `Infrastructure/GameRaceContext.cs`
+
+---
+
+## v5 추가 사항 (2026-04-06)
+
+### RaceSelectionView 항상 표시
+
+**변경 전**: 커스텀 게임 등 서브 화면 전환 시 RaceSelectionView 비표시
+**변경 후**: 화면 전환과 무관하게 RaceSelectionView 항상 표시 유지
+
+`BattleMainView.cs` CurrentScreen 구독에서 `_raceSelectionView.gameObject.SetActive(visible)` 제거.
+BattleMainPanel(버튼 영역)만 숨기고 RaceSelectionView는 독립적으로 항상 활성 상태.
+
+---
+
 ## 구현 후 확인 항목
 
 - [ ] 3개 캐릭터가 RenderTexture에 동시에 보임
 - [ ] 버튼 클릭 시 캐러셀 전환 애니메이션 재생
 - [ ] 중앙 캐릭터가 좌우보다 크게 보임 (원근감)
+- [ ] 비선택 캐릭터가 화면 가장자리에서 잘리지 않음
+- [ ] 기존 버튼 3개(싱글플레이어/커스텀게임/랜덤매칭) 위치 변경 없음
 - [ ] 반응형: 해상도 변경 시 UI가 깨지지 않음
 - [ ] 탭 재진입 시 이전 선택 종족 유지 (LocalPlayerRace.Current 초기값)
+- [ ] 선택된 캐릭터 Walk 재생, 비선택 캐릭터 Idle 재생
+- [ ] 전환 시 1.0초 CrossFade 블렌드 적용
+- [ ] 종족명 '초월' 텍스트 정상 표시

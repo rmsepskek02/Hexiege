@@ -16,7 +16,7 @@
 //   - _prevButton: 왼쪽 화살표 Button
 //   - _nextButton: 오른쪽 화살표 Button
 //   - _characterRoots: 종족별 3D 캐릭터 루트 오브젝트 배열
-//       [0] = Human(인간), [1] = Spirit(정령), [2] = Nature(자연)
+//       [0] = Human(인간), [1] = Spirit(정령), [2] = Transcendence(초월)
 //   - _centerPos: 선택된 종족이 위치할 중앙 좌표 (카메라에 가까움 → 크게 보임)
 //   - _leftPos: 비선택 종족의 왼쪽 좌표 (카메라에서 멀어 → 작게 보임)
 //   - _rightPos: 비선택 종족의 오른쪽 좌표 (카메라에서 멀어 → 작게 보임)
@@ -57,21 +57,34 @@ namespace Hexiege.Presentation
         [SerializeField] private Button _nextButton;
 
         [Header("캐릭터 오브젝트")]
-        [Tooltip("종족별 3D 캐릭터 루트. [0]인간 [1]정령 [2]자연")]
+        [Tooltip("종족별 3D 캐릭터 루트. [0]인간 [1]정령 [2]초월")]
         [SerializeField] private GameObject[] _characterRoots;
 
         [Header("캐러셀 슬롯 위치 (World Space)")]
         [Tooltip("선택된 종족이 위치할 중앙 좌표 — 카메라에 가까워서 크게 보임")]
-        [SerializeField] private Vector3 _centerPos = new Vector3(1000f, 0f, 4f);
+        [SerializeField] private Vector3 _centerPos = new Vector3(1000f, 0.35f, 2f);
 
         [Tooltip("비선택 종족의 왼쪽 좌표 — 카메라에서 멀어서 작게 보임")]
-        [SerializeField] private Vector3 _leftPos = new Vector3(997.5f, 0f, 7f);
+        [SerializeField] private Vector3 _leftPos = new Vector3(999.7f, 0.3f, 4f);
 
         [Tooltip("비선택 종족의 오른쪽 좌표 — 카메라에서 멀어서 작게 보임")]
-        [SerializeField] private Vector3 _rightPos = new Vector3(1002.5f, 0f, 7f);
+        [SerializeField] private Vector3 _rightPos = new Vector3(1000.3f, 0.3f, 4f);
 
         [Tooltip("캐러셀 이동 애니메이션 시간(초)")]
         [SerializeField] private float _moveDuration = 0.3f;
+
+        // ====================================================================
+        // 애니메이션 상수
+        // ====================================================================
+
+        // Animator 상태 이름 해시 — 문자열 비교보다 성능이 좋음
+        private static readonly int StateWalk = Animator.StringToHash("Walk");
+        private static readonly int StateIdle = Animator.StringToHash("Idle");
+
+        // 캐러셀 전환 시 Walk↔Idle 블렌드 시간 (초)
+        // _moveDuration(캐릭터 이동 시간)과 동일하게 설정하여
+        // 캐릭터가 새 위치로 이동하는 동안 애니메이션도 함께 자연스럽게 전환됨
+        private const float AnimBlendTime = 1.0f;
 
         // ====================================================================
         // 내부 상태
@@ -79,6 +92,13 @@ namespace Hexiege.Presentation
 
         /// <summary>UniRx 구독 일괄 해제용.</summary>
         private readonly CompositeDisposable _disposables = new();
+
+        /// <summary>
+        /// 각 캐릭터의 Animator 캐시. _characterRoots와 같은 인덱스.
+        /// Bind() 시 초기화, Unbind() 시 null로 정리.
+        /// GetComponent 호출을 매번 반복하지 않도록 한 번만 찾아서 보관한다.
+        /// </summary>
+        private Animator[] _animators;
 
         // ====================================================================
         // IView 구현
@@ -92,6 +112,15 @@ namespace Hexiege.Presentation
         {
             // 기존 구독이 남아있으면 먼저 정리
             Unbind();
+
+            // 각 캐릭터 루트에서 Animator를 찾아 캐시 (자식 오브젝트 포함 탐색)
+            // 프리팹 구조상 Animator는 루트가 아닌 자식에 붙어있을 수 있으므로 GetComponentInChildren 사용
+            _animators = new Animator[_characterRoots != null ? _characterRoots.Length : 0];
+            for (int i = 0; i < _animators.Length; i++)
+            {
+                if (_characterRoots[i] != null)
+                    _animators[i] = _characterRoots[i].GetComponentInChildren<Animator>();
+            }
 
             // 첫 번째 구독(초기값)은 애니메이션 없이 즉시 배치,
             // 이후 변경부터는 DOTween 애니메이션으로 부드럽게 이동
@@ -128,6 +157,10 @@ namespace Hexiege.Presentation
         public void Unbind()
         {
             _disposables.Clear();
+
+            // Animator 캐시 정리 — 재바인딩 시 이전 참조가 남지 않도록
+            // Unbind() 후 Bind()를 다시 호출하면 _animators가 새로 초기화된다
+            _animators = null;
 
             if (_prevButton != null) _prevButton.onClick.RemoveAllListeners();
             if (_nextButton != null) _nextButton.onClick.RemoveAllListeners();
@@ -177,6 +210,17 @@ namespace Hexiege.Presentation
                     1 => _rightPos,   // 다음 종족 → 오른쪽 (카메라에서 멀어 → 작게 보임)
                     _ => _leftPos,    // 이전 종족 → 왼쪽 (카메라에서 멀어 → 작게 보임)
                 };
+
+                // 슬롯에 따라 Walk↔Idle 애니메이션 전환
+                // offset 0 = 중앙(선택됨) → Walk 재생 (캐릭터가 걸어가는 모습)
+                // offset 1,2 = 좌우(비선택) → Idle 재생 (대기 자세)
+                // CrossFadeInFixedTime: AnimBlendTime(0.3초) 동안 현재 상태에서 목표 상태로 부드럽게 블렌딩
+                // layer 0 = Base Layer (Animator Controller의 기본 레이어)
+                if (_animators != null && i < _animators.Length && _animators[i] != null)
+                {
+                    int targetState = (offset == 0) ? StateWalk : StateIdle;
+                    _animators[i].CrossFadeInFixedTime(targetState, AnimBlendTime, 0);
+                }
 
                 Transform charTransform = _characterRoots[i].transform;
 

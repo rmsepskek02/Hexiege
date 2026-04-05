@@ -8,7 +8,7 @@
 //   - 좌우 슬라이드 커맨드 처리 (CmdPrev / CmdNext)
 //   - 종족 변경 시 LocalPlayerRace에 즉시 저장
 //
-// 종족 순환: Human(0) → Spirit(1) → Nature(2) → Human(0) ...
+// 종족 순환: Human(0) → Spirit(1) → Transcendence(2) → Human(0) ...
 //
 // 순수 C# 클래스 — MonoBehaviour 아님.
 // Presentation 레이어.
@@ -42,7 +42,7 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 현재 선택된 종족의 한글 이름.
-        /// SelectedRace가 변경될 때 자동으로 "인간" / "정령" / "자연" 중 하나로 갱신.
+        /// SelectedRace가 변경될 때 자동으로 "인간" / "정령" / "초월" 중 하나로 갱신.
         /// </summary>
         public IReadOnlyReactiveProperty<string> SelectedRaceName { get; }
 
@@ -79,13 +79,13 @@ namespace Hexiege.Presentation
                 {
                     RaceId.Human  => "인간",
                     RaceId.Spirit => "정령",
-                    RaceId.Nature => "자연",
+                    RaceId.Transcendence => "초월",
                     _             => "알 수 없음"
                 })
                 .ToReadOnlyReactiveProperty();
             _disposables.Add(SelectedRaceName as IDisposable);
 
-            // 왼쪽 화살표 → 이전 종족으로 순환 (Human → Nature → Spirit → Human ...)
+            // 왼쪽 화살표 → 이전 종족으로 순환 (Human → Transcendence → Spirit → Human ...)
             CmdPrev
                 .Subscribe(_ =>
                 {
@@ -96,7 +96,7 @@ namespace Hexiege.Presentation
                 })
                 .AddTo(_disposables);
 
-            // 오른쪽 화살표 → 다음 종족으로 순환 (Human → Spirit → Nature → Human ...)
+            // 오른쪽 화살표 → 다음 종족으로 순환 (Human → Spirit → Transcendence → Human ...)
             CmdNext
                 .Subscribe(_ =>
                 {

@@ -57,7 +57,8 @@ namespace Hexiege.Presentation
         {
             Unbind();
 
-            // 화면 활성화 관리 — Main일 때만 표시
+            // 화면 활성화 관리 — Main일 때만 BattleMainPanel(버튼 영역) 표시
+            // RaceSelectionView는 화면 전환과 무관하게 항상 표시 유지
             vm.CurrentScreen
                 .Select(s => s == BattleViewModel.BattleScreen.Main)
                 .DistinctUntilChanged()

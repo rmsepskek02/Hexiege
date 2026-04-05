@@ -12,7 +12,7 @@
 //   LocalPlayerRace.Set(RaceId.Spirit);
 //
 //   // 종족 조회 (게임 시작, 유닛 생성 등에서)
-//   if (LocalPlayerRace.Current == RaceId.Nature) { ... }
+//   if (LocalPlayerRace.Current == RaceId.Transcendence) { ... }
 //
 // Infrastructure 레이어 — 로비 종족 선택 전역 접근점.
 // ============================================================================
