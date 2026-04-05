@@ -230,6 +230,36 @@
 - **GameEndUI.cs**: `SetupRematchButton()`에서 `isRandomMatch==true`일 때 버튼 숨기는 분기 제거
   - 랜덤매칭도 커스텀게임과 동일 흐름: 양측 동의 재경기 팝업 + NGO SceneManager.LoadScene("Game")
 
+### 로비 종족 선택 UI — 캐러셀 방식 (2026-04-04~06) ✅ 테스트 완료
+
+**신규/수정 파일**:
+- `Domain/Common/RaceId.cs` — enum Human=0, Spirit=1, Transcendence=2 (자연→초월 변경)
+- `Infrastructure/LocalPlayerRace.cs` — 로컬 플레이어 종족 정적 홀더 (Set/Current/Reset)
+- `Infrastructure/GameRaceContext.cs` — BlueRace/RedRace 정적 홀더 (멀티플레이 수신용)
+- `Presentation/UI/ViewModels/RaceSelectionViewModel.cs` — UniRx ReactiveProperty, CmdPrev/CmdNext, LocalPlayerRace.Set 연동
+- `Presentation/UI/Views/Lobby/Battle/RaceSelectionView.cs` — 캐러셀 DOTween, Animator CrossFade 1초, IView 패턴
+- `Presentation/UI/Views/Lobby/Battle/BattleMainView.cs` — BindRace() 메서드 추가, RaceSelectionView 항상 표시(독립 토글 제거)
+- `Editor/RaceSelectionPreviewSetup.cs` — 씬 자동 구성 에디터 스크립트 (CharacterPreview 레이어, RT 512×512, 카메라 Z=-2, FOV=45)
+- `Animations/Units/Pistoleer/Pistoleer.controller` — Idle 상태 m_Speed 0→1 수정
+
+**핵심 설계**:
+- RaceSelectionView는 BattlePanel(BattleRootView) 직속 자식, anchorMin=(0,0) anchorMax=(1,0.5) — BattleMainPanel과 sibling
+- BattleMainPanel: 상단 50% (anchorMin.y=0.5, anchorMax.y=1.0)
+- RaceSelectionView 항상 표시 — BattleMainPanel(버튼 영역)만 CurrentScreen에 따라 토글
+- RaceSelectionViewModel은 BattleRootView에서 생성/Dispose, BattleMainView.BindRace()로 전달
+- CharacterPreview 레이어 격리 → RenderTexture → RawImage(CharacterDisplay)
+- AnimBlendTime = 1.0f (_moveDuration과 동일), offset 0(중앙)=Walk, offset 1,2(좌우)=Idle
+
+**캐러셀 위치 (씬 확정값)**:
+- CenterPos: (1000, 0.35, 2), LeftPos: (999.7, 0.3, 4), RightPos: (1000.3, 0.3, 4)
+- 카메라: (1000, 1.5, -2), Rotation: Euler(12, 0, 0), FOV=45
+
+**Pistoleer Idle 버그 교훈**:
+- Animator Controller 상태의 m_Speed 값 직접 확인 필수 (Editor에서 설정하지 않으면 0이 될 수 있음)
+- m_Speed: 0이면 애니메이션이 첫 프레임에서 동결됨
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-04/21_00_race-selection-ui/`
+
 ### 재경기 초기화 버그 수정 (2026-04-04) ✅ 테스트 완료
 
 **증상**: 재경기 시 이전 게임 유닛/건물이 씬에 잔존
@@ -337,5 +367,5 @@
 ### 유닛 애니메이션 핵심
 - Animator.Play() 직접 호출 (트랜지션 우회)
 - 파라미터: IsDead(bool) 1개만
-- Idle = Walk speed=0
 - Root Motion 반드시 OFF
+- **Animator Controller 상태 m_Speed 주의**: 기본값 0이면 애니메이션 첫 프레임 동결. 새 상태 추가 시 m_Speed=1 확인 필수

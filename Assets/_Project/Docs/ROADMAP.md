@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-03-24
-**현재 단계:** Game UI Lifecycle Framework 완료 (IGameUI + GameUIManager, 멀티 클라이언트 팝업 미닫힘 BUG-1 수정)
+**최종 수정일:** 2026-04-06
+**현재 단계:** 로비 종족 선택 UI(캐러셀 방식) 완료. 3종족(인간/정령/초월) RaceId enum + RaceSelectionView + RaceSelectionViewModel 구현 완료.
 
 ---
 
@@ -19,7 +19,7 @@
 | 🟡 중간 | 로비 UI 에셋 제작 + 비주얼 폴리싱 | 에셋+UI | 중 |
 | ~~🟢 낮음~~ | ~~멀티플레이 로비 UI 완성~~ | ✅ MVVM 코드 완료 (2026-03-15) | - |
 | 🟢 낮음 | 재접속 실제 구현 | 기능 | 중 |
-| ⬜ 백로그 | 3종족 시스템 | 기능 | 대 |
+| 🟡 중간 | 3종족 시스템 — 종족 선택 UI 완료, 인게임 종족별 유닛 반영 미완 | 기능 | 대 |
 | ⬜ 백로그 | 방어/마법 타워 | 기능 | 대 |
 | ⬜ 백로그 | 사운드/BGM | 기능 | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
@@ -169,3 +169,6 @@
 | 2026-03-20 | 싱글플레이 ViewConverter 초기화 버그 수정 (ViewConverter.Reset() → LocalPlayerTeam 기반 Setup(isRed, mapCenter), ApplyConfig() 직후 호출) |
 | 2026-03-23 | 자동/수동 생산 하이브리드 시스템 완성 (전역 규칙 5가지 구현, IsCharged 기반 골드 차감 추적, BUG-01~13 수정, 실기 테스트 전 케이스 PASS) |
 | 2026-03-24 | Game UI Lifecycle Framework 완료 (IGameUI 인터페이스 + GameUIManager, 게임 종료/재시작 UI 일괄 제어, 멀티플레이 클라이언트 팝업 미닫힘 BUG-1 수정) |
+| 2026-04-06 | 로비 종족 선택 UI 완료 (RaceId enum 3종족, RaceSelectionViewModel/View 캐러셀, RenderTexture 캐릭터 미리보기, DOTween 전환, Walk/Idle CrossFade 1초) |
+| 2026-04-06 | 종족명 자연→초월 변경 (Nature→Transcendence enum 전체 rename) |
+| 2026-04-06 | Pistoleer Idle 애니메이션 버그 수정 (Pistoleer.controller Idle m_Speed 0→1) |

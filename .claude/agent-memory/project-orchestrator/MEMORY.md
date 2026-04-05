@@ -6,6 +6,19 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
+## 프로젝트 현재 상태 (2026-04-06)
+
+### 2026-04-06 완료
+- **로비 종족 선택 UI (캐러셀 방식)**
+  - 3종족(인간/정령/초월) 캐릭터 3D 미리보기 (RenderTexture + CharacterPreview 레이어)
+  - DOTween 캐러셀 전환, Walk/Idle CrossFade 1초 블렌드
+  - RaceId.Transcendence (자연→초월 전체 rename)
+  - Pistoleer.controller Idle m_Speed 0→1 버그 수정
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-04-04/21_00_race-selection-ui/`
+- **알려진 미완성 (다음 작업)**:
+  - 싱글플레이 게임 시작 시 GameRaceContext.Set() 미호출 (BUG-2) — 인게임 종족 반영 미완
+  - 멀티플레이 종족 전달은 NetworkGameFlow에서 처리되므로 정상
+
 ## 프로젝트 현재 상태 (2026-03-26)
 
 ### 2026-03-27 완료
