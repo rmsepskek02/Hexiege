@@ -258,6 +258,50 @@ BattleMainPanel(버튼 영역)만 숨기고 RaceSelectionView는 독립적으로
 
 ---
 
+## v6 추가 사항 (2026-04-06)
+
+### 모바일 URP 렌더링 버그 수정
+
+**증상**: 실기기 Android에서 `EndRenderPass: Not inside a Renderpass` 에러 발생
+**원인**: `CharacterPreviewRT.renderTexture`의 `antiAliasing = 2` (MSAA 2x) — Android Vulkan에서 URP가 MSAA RenderTexture RenderPass 종료 시 상태 불일치 발생
+**수정**:
+1. `EnsureRenderTexture`에서 신규 RT: `antiAliasing = 1` (MSAA 비활성화)
+2. `EnsureRenderTexture`에서 기존 RT도 `antiAliasing != 1`이면 업데이트하여 에셋 재생성 없이 수정
+3. `EnsureCamera`에서 `UniversalAdditionalCameraData` 추가 — URP Base 카메라로 명시 (Overlay로 잘못 처리되는 케이스 방지)
+
+---
+
+## v7 추가 사항 (2026-04-06)
+
+### Android 실기기 잔상(ghosting) + RenderPass 에러 수정
+
+**증상**:
+1. `RenderPass: Attachment 0 was created with 1 samples but 2 samples were requested` 에러
+2. 캐릭터 이동 시 이전 위치에 잔상이 남는 현상
+
+**근본 원인**: `CharacterPreviewRT.renderTexture`의 `m_AntiAliasing: 2` (에셋 파일에 실제 저장된 값)
+
+- 카메라는 `allowMSAA=false` (1 sample)로 렌더링하려 하지만, RT 에셋 자체가 2 sample을 요구
+- URP가 1 sample 중간 버퍼를 생성한 뒤 2 sample RT에 쓰려 해서 sample count 충돌 발생
+- 충돌로 인해 Render Pass 초기화 실패 → clear 대신 이전 프레임 타일 메모리 로드 → 잔상
+
+**수정된 파일 및 값:**
+
+| 파일 | 항목 | 변경 전 | 변경 후 |
+|------|------|---------|---------|
+| `CharacterPreviewRT.renderTexture` | `m_AntiAliasing` | `2` | `1` |
+| `Lobby.unity` (Camera 컴포넌트) | `m_AllowMSAA` | `1` | `0` |
+| `Lobby.unity` (Camera 컴포넌트) | `m_HDR` | `1` | `0` |
+| `Lobby.unity` (Camera 컴포넌트) | `m_BackGroundColor.a` | `0` | `1` |
+| `RaceSelectionPreviewSetup.cs` | `cam.allowMSAA` | (미설정 기본값 true) | `false` |
+| `RaceSelectionPreviewSetup.cs` | `cam.allowHDR` | (미설정 기본값 true) | `false` |
+| `RaceSelectionPreviewSetup.cs` | `backgroundColor.a` | `0f` | `1f` |
+| `RaceSelectionPreviewSetup.cs` | `urpData.antialiasing` | (미설정) | `AntialiasingMode.None` |
+
+**결과**: 실기기 테스트 PASS — 잔상 없음, RenderPass 에러 없음
+
+---
+
 ## 구현 후 확인 항목
 
 - [ ] 3개 캐릭터가 RenderTexture에 동시에 보임

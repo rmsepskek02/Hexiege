@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-04-06
-**현재 단계:** 로비 종족 선택 UI(캐러셀 방식) 완료. 3종족(인간/정령/초월) RaceId enum + RaceSelectionView + RaceSelectionViewModel 구현 완료.
+**현재 단계:** 로비 종족 선택 UI(캐러셀 방식) 완료. Android 실기기 URP RenderTexture 잔상+RenderPass 에러 수정 완료. 3종족(인간/정령/초월) RaceId enum + RaceSelectionView + RaceSelectionViewModel 구현 완료.
 
 ---
 

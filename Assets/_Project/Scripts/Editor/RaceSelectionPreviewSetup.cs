@@ -46,6 +46,7 @@ using UnityEngine.UI;
 using UnityEditor;
 using TMPro;
 using System.IO;
+using UnityEngine.Rendering.Universal;
 using Hexiege.Presentation;
 
 namespace Hexiege.Editor
@@ -76,13 +77,11 @@ namespace Hexiege.Editor
             "CharPreview_Transcendence",
         };
 
-        // 캐러셀 슬롯 위치 (World Space)
+        // 캐러셀 슬롯 위치 (World Space) — 씬 확정값 (2026-04-06)
         // 중앙: 카메라에 가까움 → 크게 보임, 좌/우: 카메라에서 멀어 → 작게 보임
-        // 카메라(Z=-2)와의 거리: Center=5.5, Left/Right=10 → 크기 비율 약 1.8:1
-        // 이전 설정(Z=0.5)은 카메라-캐릭터 거리가 1.5 유닛으로 너무 가까워 극심한 원근 왜곡 발생
         private static readonly Vector3 CenterPos = new Vector3(1000f,   0.35f, 2f);
-        private static readonly Vector3 LeftPos   = new Vector3(999.7f,  0.3f,  4f);
-        private static readonly Vector3 RightPos  = new Vector3(1000.3f, 0.3f,  4f);
+        private static readonly Vector3 LeftPos   = new Vector3(999.7f,  0.1f,  5f);
+        private static readonly Vector3 RightPos  = new Vector3(1000.3f, 0.1f,  5f);
 
         // 3D 카메라 위치 — 캐릭터보다 뒤(Z=-2)에서 +Z 방향으로 촬영
         // Z=-2로 충분한 거리를 확보하여 원근 왜곡(캐릭터가 납작하게 뭉개지는 현상)을 방지한다.
@@ -208,13 +207,36 @@ namespace Hexiege.Editor
             cam.targetTexture  = rt;
             cam.clearFlags     = CameraClearFlags.SolidColor;
             // 약간 밝은 어두운 배경 — 캐릭터가 너무 어두운 배경에 묻히지 않도록
-            cam.backgroundColor = new Color(0.15f, 0.15f, 0.18f, 0f);
+            // Android Vulkan + Native RenderPass 환경에서 alpha=0인 clear color는
+            // 일부 GPU 드라이버가 clear 연산을 생략하여 이전 프레임 잔상이 남는 버그가 있다.
+            // alpha=1(완전 불투명)로 설정하면 드라이버가 clear를 반드시 실행한다.
+            cam.backgroundColor = new Color(0.15f, 0.15f, 0.18f, 1f);
             cam.orthographic   = false;                                // Perspective — 원근감 필수
             // FOV 40도: 좁은 화각으로 원근감을 극대화하면서 좌우 캐릭터도 프레임 안에 유지
-            cam.fieldOfView    = 45f;
+            cam.fieldOfView    = 10f;
             cam.nearClipPlane  = 0.1f;
             cam.farClipPlane   = 50f;
             cam.depth          = -10;
+            // MSAA 명시적 비활성화 — allowMSAA=true(기본값)로 두면 URP Native RenderPass가
+            // RT의 antiAliasing=1과 충돌하여 "1 samples but 2 samples were requested" 에러 발생.
+            // 이 충돌로 Render Pass clear가 실패하고 이전 프레임 픽셀이 남아 잔상이 생김.
+            cam.allowMSAA      = false;
+            // HDR 비활성화 — 타깃 RT가 ARGB32(LDR)인데 HDR=true면 URP가 내부 HDR 중간 버퍼를
+            // 생성하며 추가적인 sample count 충돌 및 clear 문제가 발생할 수 있음.
+            cam.allowHDR       = false;
+
+            // URP Base 카메라로 명시 설정 — Overlay로 처리되면 RenderTexture 렌더링 시
+            // Android Vulkan 환경에서 "EndRenderPass: Not inside a Renderpass" 에러 발생 가능
+            var urpData = go.GetComponent<UniversalAdditionalCameraData>();
+            if (urpData == null)
+                urpData = go.AddComponent<UniversalAdditionalCameraData>();
+            urpData.renderType = CameraRenderType.Base;
+            // 캐릭터 프리뷰 전용 카메라 — 그림자 렌더링 불필요
+            urpData.renderShadows = false;
+            // TAA(Temporal Anti-Aliasing) 비활성화 — TAA는 현재 프레임과 이전 프레임을 블렌딩하므로
+            // 캐릭터가 DOTween으로 이동할 때 잔상(ghosting) 현상이 발생한다.
+            // 이 카메라에서만 AA를 끄고 캐릭터 윤곽선은 RenderTexture 해상도로 유지한다.
+            urpData.antialiasing = AntialiasingMode.None;
 
             // 캐릭터 프리뷰 전용 조명 추가 — 캐릭터가 밝고 선명하게 보이도록
             EnsureLight(layer, go.transform);
@@ -683,14 +705,27 @@ namespace Hexiege.Editor
         private static RenderTexture EnsureRenderTexture(string path, int w, int h)
         {
             RenderTexture existing = AssetDatabase.LoadAssetAtPath<RenderTexture>(path);
-            if (existing != null) return existing;
+            if (existing != null)
+            {
+                // 기존 에셋의 MSAA가 1이 아니면 1로 수정 — Android Vulkan에서
+                // URP가 MSAA RenderTexture의 RenderPass를 올바르게 처리하지 못해
+                // "EndRenderPass: Not inside a Renderpass" 에러 발생
+                if (existing.antiAliasing != 1)
+                {
+                    existing.antiAliasing = 1;
+                    EditorUtility.SetDirty(existing);
+                    AssetDatabase.SaveAssets();
+                }
+                return existing;
+            }
 
             // 폴더가 없으면 재귀적으로 생성
             string dir = Path.GetDirectoryName(path).Replace("\\", "/");
             if (!AssetDatabase.IsValidFolder(dir)) CreateFoldersRecursive(dir);
 
             RenderTexture rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32);
-            rt.antiAliasing = 2;
+            // MSAA 비활성화 — Android Vulkan에서 URP가 MSAA RenderTexture를 올바르게 처리하지 못함
+            rt.antiAliasing = 1;
             rt.Create();
 
             AssetDatabase.CreateAsset(rt, path);

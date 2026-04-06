@@ -251,12 +251,24 @@
 - AnimBlendTime = 1.0f (_moveDuration과 동일), offset 0(중앙)=Walk, offset 1,2(좌우)=Idle
 
 **캐러셀 위치 (씬 확정값)**:
-- CenterPos: (1000, 0.35, 2), LeftPos: (999.7, 0.3, 4), RightPos: (1000.3, 0.3, 4)
-- 카메라: (1000, 1.5, -2), Rotation: Euler(12, 0, 0), FOV=45
+- CenterPos: (1000, 0.35, 2), LeftPos: (999.7, 0.1, 5), RightPos: (1000.3, 0.1, 5)
+- 카메라: (1000, 1.5, -2), Rotation: Euler(12, 0, 0), FOV=10
 
 **Pistoleer Idle 버그 교훈**:
 - Animator Controller 상태의 m_Speed 값 직접 확인 필수 (Editor에서 설정하지 않으면 0이 될 수 있음)
 - m_Speed: 0이면 애니메이션이 첫 프레임에서 동결됨
+
+**Android URP RenderTexture 잔상 버그 교훈 (2026-04-06)**:
+- 근본 원인: RT 에셋 파일(`m_AntiAliasing: 2`)과 카메라 설정(`allowMSAA=false`, 1 sample) 간 sample count 불일치
+- 에러: `Attachment 0 was created with 1 samples but 2 samples were requested`
+- 현상: sample count 충돌 → URP Render Pass clear 실패 → 이전 프레임 타일 메모리 로드 → 잔상
+- 수정 체크리스트 (RenderTexture 전용 카메라 설정):
+  - RT 에셋: `m_AntiAliasing: 1` (YAML 직접 확인 필수 — EnsureRenderTexture 코드 수정만으로 반영 안 될 수 있음)
+  - Camera: `allowMSAA = false`, `allowHDR = false` (기본값 true라 명시적으로 꺼야 함)
+  - Camera: `backgroundColor.alpha = 1` (alpha=0이면 일부 Android GPU 드라이버 clear 생략)
+  - URP: `urpData.antialiasing = AntialiasingMode.None`
+  - URP: `urpData.renderType = CameraRenderType.Base`
+  - URP: `urpData.renderShadows = false`
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-04/21_00_race-selection-ui/`
 

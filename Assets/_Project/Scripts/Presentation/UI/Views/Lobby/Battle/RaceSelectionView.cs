@@ -65,13 +65,13 @@ namespace Hexiege.Presentation
         [SerializeField] private Vector3 _centerPos = new Vector3(1000f, 0.35f, 2f);
 
         [Tooltip("비선택 종족의 왼쪽 좌표 — 카메라에서 멀어서 작게 보임")]
-        [SerializeField] private Vector3 _leftPos = new Vector3(999.7f, 0.3f, 4f);
+        [SerializeField] private Vector3 _leftPos = new Vector3(999.7f, 0.1f, 5f);
 
         [Tooltip("비선택 종족의 오른쪽 좌표 — 카메라에서 멀어서 작게 보임")]
-        [SerializeField] private Vector3 _rightPos = new Vector3(1000.3f, 0.3f, 4f);
+        [SerializeField] private Vector3 _rightPos = new Vector3(1000.3f, 0.1f, 5f);
 
         [Tooltip("캐러셀 이동 애니메이션 시간(초)")]
-        [SerializeField] private float _moveDuration = 0.3f;
+        [SerializeField] private float _moveDuration = 1.0f;
 
         // ====================================================================
         // 애니메이션 상수

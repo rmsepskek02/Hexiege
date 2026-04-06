@@ -153,12 +153,14 @@
 | 종족 선택 항상 표시 (화면 전환 무관) | ✅ 완료 | BattleMainView에서 RaceSelectionView 독립 토글 제거 |
 | 종족명 자연→초월 변경 | ✅ 완료 | Nature→Transcendence (코드+한글 표시명 모두) |
 | Pistoleer Idle 첫 프레임 동결 버그 수정 | ✅ 완료 | Pistoleer.controller Idle m_Speed 0→1 |
+| Android URP RenderTexture 잔상 + RenderPass 에러 수정 | ✅ 완료 | RT antiAliasing 2→1, allowMSAA/allowHDR false, backgroundColor alpha 1 |
 
 #### 버그 수정
 | 항목 | 상태 |
 |------|------|
 | 자동생산 반복 순환 시 골드 미소모 (BUG-20) | ✅ 완료 (2026-04-04) — CompleteProduction IsCharged 리셋 누락 수정 |
 | Pistoleer Idle 첫 프레임 동결 | ✅ 완료 (2026-04-06) — Pistoleer.controller Idle 상태 m_Speed: 0 → 1 수정 |
+| Android 실기기 캐릭터 잔상 + RenderPass 에러 | ✅ 완료 (2026-04-06) — RT antiAliasing 2→1, Camera allowMSAA/allowHDR false, backgroundColor alpha 1 |
 
 ---
 
