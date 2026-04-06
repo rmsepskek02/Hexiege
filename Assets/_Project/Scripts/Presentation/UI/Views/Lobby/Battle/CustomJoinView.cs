@@ -5,8 +5,7 @@
 // 역할:
 //   - TMP_InputField → 코드 입력
 //   - [참가] → vm.CmdJoinGame.OnNext(코드)
-//   - vm.IsConnecting 구독 → 버튼 비활성화 / 로딩 표시
-//   - vm.ErrorMessage 구독 → 에러 메시지 표시
+//   - vm.IsConnecting 구독 → 버튼 비활성화
 //   - [뒤로] → vm.CmdBack
 //   - vm.CurrentScreen 구독 → CustomJoin일 때만 활성화
 //
@@ -32,13 +31,6 @@ namespace Hexiege.Presentation
         [Header("입력")]
         [Tooltip("로비 코드 입력 필드")]
         [SerializeField] private TMP_InputField _codeInput;
-
-        [Header("텍스트")]
-        [Tooltip("에러 메시지 텍스트")]
-        [SerializeField] private TextMeshProUGUI _errorText;
-
-        [Tooltip("상태 텍스트 (로딩 등)")]
-        [SerializeField] private TextMeshProUGUI _statusText;
 
         [Header("버튼")]
         [Tooltip("참가 버튼")]
@@ -76,20 +68,6 @@ namespace Hexiege.Presentation
                 .Subscribe(connecting =>
                 {
                     if (_joinButton != null) _joinButton.interactable = !connecting;
-                    if (_statusText != null)
-                        _statusText.text = connecting ? "접속 중..." : "";
-                })
-                .AddTo(_disposables);
-
-            // 에러 메시지 표시
-            vm.ErrorMessage
-                .Subscribe(msg =>
-                {
-                    if (_errorText != null)
-                    {
-                        _errorText.text = msg;
-                        _errorText.gameObject.SetActive(!string.IsNullOrEmpty(msg));
-                    }
                 })
                 .AddTo(_disposables);
 
