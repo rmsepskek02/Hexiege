@@ -22,7 +22,9 @@
 
 using System.Collections.Generic;
 using UnityEngine;
+using UniRx;
 using Hexiege.Domain;
+using Hexiege.Application;
 using Hexiege.Core;
 using Hexiege.Infrastructure;
 
@@ -60,8 +62,10 @@ namespace Hexiege.Presentation
         // 생성된 모든 타일 View를 좌표로 인덱싱.
         private readonly Dictionary<HexCoord, HexTileView> _tileViews = new Dictionary<HexCoord, HexTileView>();
 
-        // 생성된 금광 오버레이 오브젝트들. ClearGrid 시 함께 정리.
-        private readonly List<GameObject> _goldMineObjects = new List<GameObject>();
+        // 생성된 금광 오버레이 오브젝트들. 좌표를 키로 사용하여 특정 광산을 빠르게 조회.
+        // 건물 배치/파괴 시 해당 좌표의 광산 오브젝트를 숨기거나 다시 표시하기 위해
+        // List에서 Dictionary로 변경함.
+        private readonly Dictionary<HexCoord, GameObject> _goldMineObjects = new Dictionary<HexCoord, GameObject>();
 
         /// <summary> 생성된 타일 View 딕셔너리 (읽기 전용). </summary>
         public IReadOnlyDictionary<HexCoord, HexTileView> TileViews => _tileViews;
@@ -143,6 +147,14 @@ namespace Hexiege.Presentation
         ///
         /// [Phase 2] 3D 전환 완료: 3D 금광 프리팹 사용.
         /// _goldMinePrefab이 null이면 금광 비주얼 생략 (프리팹 미설정 상태).
+        ///
+        /// 초기 숨김 처리:
+        ///   PlaceGoldMines()에서 시작 채굴소를 PlaceMiningPostDirect()로 배치하면
+        ///   해당 타일의 Owner가 Blue/Red로 변경됨.
+        ///   따라서 Owner가 Neutral이 아닌 금광 타일 = 이미 건물이 배치된 타일이므로
+        ///   생성 직후 SetActive(false)로 숨김.
+        ///   (이 시점에선 OnBuildingPlaced 이벤트가 이미 발행된 후이므로
+        ///    이벤트로는 초기 숨김 처리 불가.)
         /// </summary>
         public void RenderGoldMines(HexGrid grid)
         {
@@ -152,7 +164,8 @@ namespace Hexiege.Presentation
             {
                 if (!kvp.Value.HasGoldMine) continue;
 
-                Vector3 worldPos = HexMetrics.HexToWorld(kvp.Key);
+                HexCoord coord = kvp.Key;
+                Vector3 worldPos = HexMetrics.HexToWorld(coord);
 
                 // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 반전)
                 Vector3 viewPos = ViewConverter.ToView(worldPos);
@@ -164,11 +177,97 @@ namespace Hexiege.Presentation
                     Quaternion.identity,
                     transform
                 );
-                mineObj.name = $"GoldMine_{kvp.Key}";
+                mineObj.name = $"GoldMine_{coord}";
 
-                _goldMineObjects.Add(mineObj);
+                // 좌표를 키로 저장하여 나중에 HideGoldMine/ShowGoldMine에서 조회 가능
+                _goldMineObjects[coord] = mineObj;
+
+                // 초기 숨김: 이미 건물(시작 채굴소)이 배치된 금광 타일은 숨김.
+                // PlaceMiningPostDirect()가 타일 Owner를 해당 팀으로 설정하므로,
+                // Owner가 Neutral이 아닌 금광 타일 = 이미 건물이 존재하는 타일.
+                bool alreadyOccupied = kvp.Value.Owner != TeamId.Neutral;
+                if (alreadyOccupied)
+                {
+                    mineObj.SetActive(false);
+                }
+            }
+
+            // 금광 오브젝트 생성 완료 후 이벤트 구독 시작.
+            // 이후 건물 배치/파괴 시 광산 오브젝트를 실시간으로 숨기거나 표시.
+            SubscribeGoldMineEvents();
+        }
+
+        // ====================================================================
+        // 금광 오브젝트 표시/숨김
+        // ====================================================================
+
+        /// <summary>
+        /// 건물 배치/파괴 이벤트를 구독하여 금광 오브젝트를 실시간으로 숨기거나 표시.
+        ///
+        /// (a) OnBuildingPlaced: 건물이 배치되면 해당 좌표의 금광 오브젝트를 숨김.
+        ///     - 금광 타일 위에 채굴소가 건설되면 금광 비주얼이 가려져야 함.
+        ///     - MiningPost뿐 아니라 모든 건물 타입에 대해 숨김 처리 (안전장치).
+        ///
+        /// (b) OnEntityDied: 채굴소(MiningPost)가 파괴되면 금광 오브젝트를 다시 표시.
+        ///     - 채굴소만 금광 타일 위에 건설되므로, MiningPost 타입만 필터링.
+        ///     - 다른 건물 타입(Castle, Barracks)은 금광 타일과 무관하므로 무시.
+        ///
+        /// .AddTo(this): 이 MonoBehaviour가 Destroy되면 자동으로 구독 해제.
+        /// HexTileView.SubscribeEvents()와 동일한 패턴.
+        /// </summary>
+        private void SubscribeGoldMineEvents()
+        {
+            // (a) 건물 배치 시 → 해당 좌표의 금광 오브젝트 숨김
+            GameEvents.OnBuildingPlaced
+                .Subscribe(e => HideGoldMine(e.Building.Position))
+                .AddTo(this);
+
+            // (b) 엔티티 사망 시 → 채굴소(MiningPost)인 경우만 금광 오브젝트 재표시
+            GameEvents.OnEntityDied
+                .Subscribe(e =>
+                {
+                    // IDamageable을 BuildingData로 캐스팅하여 건물인지 확인.
+                    // 유닛 사망 이벤트는 캐스팅 실패로 자연히 무시됨.
+                    if (e.Entity is BuildingData building
+                        && building.Type == BuildingType.MiningPost)
+                    {
+                        ShowGoldMine(building.Position);
+                    }
+                })
+                .AddTo(this);
+        }
+
+        /// <summary>
+        /// 지정 좌표의 금광 오브젝트를 숨김 (비활성화).
+        /// 건물이 배치되어 금광 비주얼이 가려져야 할 때 호출.
+        /// 해당 좌표에 금광 오브젝트가 없으면 아무 동작 안 함 (null 안전).
+        /// </summary>
+        /// <param name="coord">숨길 금광의 헥스 좌표</param>
+        public void HideGoldMine(HexCoord coord)
+        {
+            if (_goldMineObjects.TryGetValue(coord, out GameObject mineObj) && mineObj != null)
+            {
+                mineObj.SetActive(false);
             }
         }
+
+        /// <summary>
+        /// 지정 좌표의 금광 오브젝트를 다시 표시 (활성화).
+        /// 채굴소가 파괴되어 금광 비주얼이 다시 보여야 할 때 호출.
+        /// 해당 좌표에 금광 오브젝트가 없으면 아무 동작 안 함 (null 안전).
+        /// </summary>
+        /// <param name="coord">표시할 금광의 헥스 좌표</param>
+        public void ShowGoldMine(HexCoord coord)
+        {
+            if (_goldMineObjects.TryGetValue(coord, out GameObject mineObj) && mineObj != null)
+            {
+                mineObj.SetActive(true);
+            }
+        }
+
+        // ====================================================================
+        // 타일 View 조회
+        // ====================================================================
 
         /// <summary>
         /// 좌표로 특정 타일의 View를 조회. 없으면 null.

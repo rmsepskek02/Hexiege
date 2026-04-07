@@ -263,6 +263,18 @@ namespace Hexiege.Application
                     // 금광 타일은 이동 불가 유지 (금광 오브젝트가 남아있음)
                     if (!tile.HasGoldMine)
                         tile.IsWalkable = true;
+
+                    // 채굴소(MiningPost)가 파괴된 경우:
+                    // 해당 타일의 소유권을 Neutral로 되돌려서 타일 색상이 중립으로 복귀하도록 처리.
+                    // Castle/Barracks는 파괴 시 영토 변화가 필요 없으므로 MiningPost만 처리한다.
+                    // HexTileView가 OnTileOwnerChanged 이벤트를 구독하고 있어,
+                    // 이벤트 발행만으로 싱글/멀티 양쪽 클라이언트에서 색상이 자동 갱신된다.
+                    if (building.Type == BuildingType.MiningPost)
+                    {
+                        _grid.SetOwner(building.Position, TeamId.Neutral);
+                        GameEvents.OnTileOwnerChanged.OnNext(
+                            new TileOwnerChangedEvent(building.Position, TeamId.Neutral));
+                    }
                 }
 
                 return _buildings.Remove(buildingId);

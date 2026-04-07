@@ -23,6 +23,19 @@
 
 ## 최근 작업
 
+### 중립 광산 오브젝트 표시 제어 (2026-04-08) ✅ 싱글 실기 완료
+
+**변경 파일**:
+- `Presentation/Grid/HexGridRenderer.cs` — `_goldMineObjects` List→Dictionary, `RenderGoldMines()` 초기 숨김, `HideGoldMine()`/`ShowGoldMine()` 추가, `SubscribeGoldMineEvents()` 추가
+- `Application/UseCases/BuildingPlacementUseCase.cs` — `RemoveBuilding()` 내 MiningPost 파괴 시 타일 Owner Neutral 복원 + OnTileOwnerChanged 발행
+
+**핵심 설계 결정**:
+- 초기 숨김 판별: `RenderGoldMines()` 내 `tile.Owner != TeamId.Neutral` 조건 (PlaceMiningPostDirect 이후 호출 순서 보장)
+- 이벤트 구독: `OnBuildingPlaced` → HideGoldMine / `OnEntityDied(MiningPost)` → ShowGoldMine
+- 타일 소유권 복원: `RemoveBuilding()`에서 처리 — 싱글(UnitCombatUseCase)/멀티(NetworkCombatController) 모두 이 메서드를 거치므로 단일 수정으로 양쪽 커버
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-07/23_45_goldmine-hide/`
+
 ### 종족 인게임 적용 (2026-04-07) ✅ 싱글/멀티 실기 완료
 
 **변경 파일**:
