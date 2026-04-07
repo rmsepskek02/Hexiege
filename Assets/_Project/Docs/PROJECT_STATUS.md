@@ -155,6 +155,17 @@
 | Pistoleer Idle 첫 프레임 동결 버그 수정 | ✅ 완료 | Pistoleer.controller Idle m_Speed 0→1 |
 | Android URP RenderTexture 잔상 + RenderPass 에러 수정 | ✅ 완료 | RT antiAliasing 2→1, allowMSAA/allowHDR false, backgroundColor alpha 1 |
 
+#### 종족 인게임 적용 (2026-04-07)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| UnitFactory 종족별 6세트 프리팹 분기 | ✅ 완료 | GameRaceContext 기반 (race, team) 튜플 switch |
+| BuildingFactory 종족별 6세트 프리팹 분기 | ✅ 완료 | MiningPost 포함 종족별 분기 |
+| GameBootstrapper 싱글 GameRaceContext 초기화 | ✅ 완료 | LoadMap() 직전 Set(LocalPlayerRace.Current, Human) |
+| 오브젝트 이름 실제 프리팹명 반영 | ✅ 완료 | {prefab.name}_{id} 형식 |
+| 에디터 자동 연결 스크립트 | ✅ 완료 | Hexiege/Setup/UnitFactory·BuildingFactory 프리팹 연결 |
+| 싱글플레이 실기 테스트 | ✅ PASS | SINGLE-01~06 전체 통과 |
+| 멀티플레이 실기 테스트 | ✅ PASS | MULTI-01 통과 |
+
 #### 버그 수정
 | 항목 | 상태 |
 |------|------|

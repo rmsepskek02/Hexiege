@@ -8,39 +8,43 @@
 
 ### 건물
 
-| 종족 | 건물명 | 팀 프리팹 | 비고 |
-|------|--------|---------|------|
-| Human | Castle | Blue / Red | 본기지 |
-| Human | Barracks | Blue / Red | 유닛 생산 건물 |
-| Human | MiningPost | 팀 구분 없음 | 금광 위 건설 |
-| Spirit | SpiritNexus | Blue / Red | 본기지 |
-| Spirit | ManaRift | Blue / Red | 금광 위 건설 |
-| Spirit | SummoningAltar | Blue / Red | 유닛 생산 건물 |
-| Transcendence | ElderTree | Blue / Red | 본기지 |
-| Transcendence | FungalNode | Blue / Red | 금광 위 건설 |
-| Transcendence | HunterPlant | Blue / Red | 유닛 생산 건물 |
+> **프리팹 설정 기준**: Root Scale (1,1,1) / Mesh Child Rotation Y = 0
+
+| 종족 | 건물명 | BuildingType | 팀 프리팹 | FBX Scale Factor | 비고 |
+|------|--------|-------------|---------|-----------------|------|
+| Human | Castle | Castle | Blue / Red | 50 | 본기지 |
+| Human | Barracks | Barracks | Blue / Red | 40 | 유닛 생산 건물 |
+| Human | MiningPost | MiningPost | 팀 공용 | 35 | 금광 위 건설 |
+| Spirit | SpiritNexus | Castle | Blue / Red | 30 | 본기지 |
+| Spirit | SummoningAltar | Barracks | Blue / Red | 30 | 유닛 생산 건물 |
+| Spirit | ManaRift | MiningPost | Blue / Red | 40 | 금광 위 건설 |
+| Transcendence | ElderTree | Castle | Blue / Red | 40 | 본기지 |
+| Transcendence | HunterPlant | Barracks | Blue / Red | 40 | 유닛 생산 건물 |
+| Transcendence | FungalNode | MiningPost | Blue / Red | 35 | 금광 위 건설 |
 
 ### 유닛
 
-| 종족 | 유닛명 | 팀 프리팹 | 비고 |
-|------|--------|---------|------|
-| Human | Assault | Blue / Red | 권총병 |
-| Human | Pistoleer | Blue / Red | 돌격소총병 |
-| Human | Sniper | Blue / Red | 저격총병 |
-| Spirit | EmberSpirit | Blue / Red | 불정령1 |
-| Spirit | FlameSpirit | Blue / Red | 불정령2 |
-| Spirit | InfernoSpirit | Blue / Red | 불정령3 |
-| Transcendence | BearGuard | Blue / Red | 곰탱커 |
-| Transcendence | FoxMagician | Blue / Red | 여우마법사 |
-| Transcendence | LionKnight | Blue / Red | 사자검사 |
+> **프리팹 설정 기준**: Root Scale (1,1,1) / Mesh Child Rotation Y = 30 / UnitView _meshYOffset = 30
+
+| 종족 | 유닛명 | UnitType | 팀 프리팹 | FBX Scale Factor | 비고 |
+|------|--------|----------|---------|-----------------|------|
+| Human | Pistoleer | Pistoleer | Blue / Red | 0.25 | 권총병 |
+| Human | Assault | Assault | Blue / Red | 0.25 | 돌격소총병 |
+| Human | Sniper | Sniper | Blue / Red | 0.25 | 저격총병 |
+| Spirit | EmberSpirit | Pistoleer | Blue / Red | 0.25 | 불정령1 |
+| Spirit | FlameSpirit | Assault | Blue / Red | 0.35 | 불정령2 |
+| Spirit | InfernoSpirit | Sniper | Blue / Red | 0.5 | 불정령3 |
+| Transcendence | FoxMagician | Pistoleer | Blue / Red | 0.25 | 여우마법사 |
+| Transcendence | BearGuard | Assault | Blue / Red | 0.4 | 곰탱커 |
+| Transcendence | LionKnight | Sniper | Blue / Red | 0.25 | 사자검사 |
 
 ### 기타 오브젝트
 
-| 오브젝트명 | 비고 |
-|-----------|------|
-| GoldMineTile | 금광 타일 오브젝트 |
-| HexTile | 헥스 타일 |
-| RallyPointMarker | 집결지 마커 |
+| 오브젝트명 | FBX Scale Factor | 비고 |
+|-----------|-----------------|------|
+| GoldMineTile | 30 | 금광 타일 오브젝트 |
+| HexTile | - | 헥스 타일 |
+| RallyPointMarker | 25 | 집결지 마커 |
 
 ---
 

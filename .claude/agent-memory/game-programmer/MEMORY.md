@@ -23,6 +23,28 @@
 
 ## 최근 작업
 
+### 종족 인게임 적용 (2026-04-07) ✅ 싱글/멀티 실기 완료
+
+**변경 파일**:
+- `Infrastructure/Factories/UnitFactory.cs` — 종족별 6세트 프리팹(`_humanBlue/Red`, `_spiritBlue/Red`, `_transcendenceBlue/Red`), GameRaceContext 조회 후 switch 선택, 오브젝트명=`{prefab.name}_{id}`
+- `Infrastructure/Factories/BuildingFactory.cs` — 동일 종족별 6세트 패턴, BuildingTeamPrefabSet에 `miningPost` 필드 추가
+- `Bootstrap/GameBootstrapper.cs` — 싱글플레이 Start()에 `GameRaceContext.Set(LocalPlayerRace.Current, RaceId.Human)` 추가
+- `Editor/SetupUnitFactoryPrefabs.cs` (신규) — 유닛 18개 + 건물 12개 자동 프리팹 연결 에디터 메뉴
+
+**핵심 설계 결정**:
+- GameRaceContext(Infrastructure 정적 홀더)를 UnitFactory/BuildingFactory에서 직접 참조 — 레이어 위반 없음
+- UnitData에 Race 필드 추가하지 않음 — 스폰 시점에 GameRaceContext에서 직접 조회
+- MiningPost: BuildingTeamPrefabSet.miningPost 필드로 종족별 분기
+
+**건물 종족 매핑 (확정)**:
+| BuildingType | Human | Spirit | Transcendence |
+|---|---|---|---|
+| Castle | Building_Castle | Building_SpiritNexus | Building_ElderTree |
+| Barracks | Building_Barracks | Building_SummoningAltar | Building_HunterPlant |
+| MiningPost | Building_MiningPost | Building_ManaRift | Building_FungalNode |
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-07/09_00_faction-ingame-apply/`
+
 ### 전투 애니메이션 시스템 전면 재정비 (2026-04-03~04) ✅ 완료
 
 **핵심 변경 파일**:

@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-04-06
-**현재 단계:** 로비 종족 선택 UI(캐러셀 방식) 완료. Android 실기기 URP RenderTexture 잔상+RenderPass 에러 수정 완료. 3종족(인간/정령/초월) RaceId enum + RaceSelectionView + RaceSelectionViewModel 구현 완료.
+**최종 수정일:** 2026-04-07
+**현재 단계:** 종족 인게임 적용 완료. 로비에서 선택한 종족이 UnitFactory/BuildingFactory에 반영되어 종족별 유닛·건물 프리팹으로 스폰됨. 싱글/멀티 실기 테스트 전 케이스 PASS.
 
 ---
 
@@ -19,7 +19,7 @@
 | 🟡 중간 | 로비 UI 에셋 제작 + 비주얼 폴리싱 | 에셋+UI | 중 |
 | ~~🟢 낮음~~ | ~~멀티플레이 로비 UI 완성~~ | ✅ MVVM 코드 완료 (2026-03-15) | - |
 | 🟢 낮음 | 재접속 실제 구현 | 기능 | 중 |
-| 🟡 중간 | 3종족 시스템 — 종족 선택 UI 완료, 인게임 종족별 유닛 반영 미완 | 기능 | 대 |
+| ~~🟡 중간~~ | ~~3종족 시스템 — 종족 선택 UI + 인게임 종족별 유닛/건물 반영~~ | ✅ 완료 (2026-04-07) | - |
 | ⬜ 백로그 | 방어/마법 타워 | 기능 | 대 |
 | ⬜ 백로그 | 사운드/BGM | 기능 | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
@@ -172,3 +172,4 @@
 | 2026-04-06 | 로비 종족 선택 UI 완료 (RaceId enum 3종족, RaceSelectionViewModel/View 캐러셀, RenderTexture 캐릭터 미리보기, DOTween 전환, Walk/Idle CrossFade 1초) |
 | 2026-04-06 | 종족명 자연→초월 변경 (Nature→Transcendence enum 전체 rename) |
 | 2026-04-06 | Pistoleer Idle 애니메이션 버그 수정 (Pistoleer.controller Idle m_Speed 0→1) |
+| 2026-04-07 | 종족 인게임 적용 완료 (UnitFactory/BuildingFactory 종족별 6세트 분기, MiningPost 종족별 분기, 오브젝트 이름 실제 프리팹명 반영, 에디터 자동 연결 스크립트, 싱글/멀티 실기 PASS) |
