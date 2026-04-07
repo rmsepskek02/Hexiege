@@ -163,7 +163,3 @@
 - `ToastNotification.cs` + `ToastManager.cs` 구현
 - 애니메이션: DOFade (슬라이딩 없음)
 - 성공(초록) / 실패(빨강) / 정보(파랑) 색상 구분
-
-Blue -> Red 프롬포트
-
-Transform this Blue Team game asset into the Red Team version. Change all blue areas, including fabric, glowing energy effects, and painted accents, to a vibrant and highly saturated crimson red (#FF3030). Maintain the exact same character pose, silhouette, and metallic/leather material textures. Ensure the soft 3D cartoon stylized rendering and even lighting remain identical to the original. The output must be a clean game asset on a pure white background. --no background, floor shadows, desaturated colors, changing the character's shape or pose, realistic textures, artifacts, blurry details.

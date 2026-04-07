@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3800351342523496378}
   - component: {fileID: 6255192543529531124}
   m_Layer: 0
-  m_Name: Barracks_Mesh
+  m_Name: Barracks_Red_Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

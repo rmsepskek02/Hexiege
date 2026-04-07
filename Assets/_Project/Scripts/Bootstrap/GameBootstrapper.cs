@@ -259,6 +259,12 @@ namespace Hexiege.Bootstrap
             }
             else
             {
+                // 싱글플레이: 로비에서 선택한 종족을 Blue 팀에 적용.
+                // Red 팀은 AI이므로 기본값 Human으로 설정.
+                // UnitFactory.CreateUnitObject()에서 GameRaceContext를 참조하여
+                // 종족에 맞는 프리팹 세트를 선택하므로, LoadMap() 호출 전에 반드시 설정해야 함.
+                GameRaceContext.Set(LocalPlayerRace.Current, RaceId.Human);
+
                 // 싱글플레이 모드: 기존 로직 그대로 실행
                 LoadMap(HexOrientation.FlatTop);
             }
