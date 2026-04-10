@@ -320,9 +320,18 @@ namespace Hexiege.Application
         /// <summary>
         /// HexCoord.Distance 기반 폴백 판정.
         /// _positionProvider가 null이거나 공격자 월드 좌표를 얻을 수 없을 때 사용.
+        ///
+        /// HexCoord.Distance는 정수(int) 반환이므로, AttackRange가 1.0 미만(예: 0.5)인
+        /// 근접 유닛은 distance <= 0.5 조건이 항상 false가 되는 버그 발생.
+        /// 이를 방지하기 위해 rangeThreshold = Max(1, CeilToInt(AttackRange))로 보정.
+        /// range 0.5 → threshold 1 (인접 타일까지 폴백 탐색 가능).
         /// </summary>
         private IDamageable FindFirstEnemyTargetByHexCoord(UnitData attacker)
         {
+            // HexCoord.Distance는 정수이므로 float AttackRange를 정수 threshold로 변환.
+            // range < 1.0인 근접 유닛도 최소 인접 타일(distance=1)까지 탐색 가능하도록 보정.
+            int rangeThreshold = Mathf.Max(1, Mathf.CeilToInt(attacker.AttackRange));
+
             IDamageable closestTarget = null;
             int minDistance = int.MaxValue;
 
@@ -332,7 +341,7 @@ namespace Hexiege.Application
 
                 int distance = HexCoord.Distance(attacker.Position, unit.Position);
 
-                if (distance <= attacker.AttackRange && distance < minDistance)
+                if (distance <= rangeThreshold && distance < minDistance)
                 {
                     minDistance = distance;
                     closestTarget = unit;
@@ -345,7 +354,7 @@ namespace Hexiege.Application
 
                 int distance = HexCoord.Distance(attacker.Position, building.Position);
 
-                if (distance <= attacker.AttackRange && distance < minDistance)
+                if (distance <= rangeThreshold && distance < minDistance)
                 {
                     minDistance = distance;
                     closestTarget = building;
@@ -418,8 +427,10 @@ namespace Hexiege.Application
                 }
             }
 
-            // 폴백: HexCoord.Distance 기반 판정
-            return HexCoord.Distance(attacker.Position, target.Position) <= attacker.AttackRange;
+            // 폴백: HexCoord.Distance 기반 판정.
+            // HexCoord.Distance는 정수이므로 range < 1.0 근접 유닛도 인접 타일까지 탐색 가능하도록 보정.
+            int fallbackThreshold = Mathf.Max(1, Mathf.CeilToInt(attacker.AttackRange));
+            return HexCoord.Distance(attacker.Position, target.Position) <= fallbackThreshold;
         }
 
         /// <summary>

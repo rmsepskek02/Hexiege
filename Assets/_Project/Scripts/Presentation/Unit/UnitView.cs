@@ -400,7 +400,17 @@ namespace Hexiege.Presentation
                 }
 
                 // ClaimedTile 선점 (같은 팀 유닛 겹침 방지)
-                _unitData.ClaimedTile = to;
+                // 단, 마지막 스텝의 목적지가 non-walkable 타일(성/건물 타일)인 경우에는
+                // ClaimedTile을 설정하지 않는다.
+                // 이유: 성 타일은 유닛이 실제로 도착하여 머무를 수 없는 타일이다.
+                //   ClaimedTile로 설정하면 공격 루프 동안 이 값이 유지되어,
+                //   후속 유닛이 IsTileBlockedBySameTeam()에서 성 타일을 blocked로 인식하게 되고
+                //   성 방향으로의 경로 탐색이 실패하여 두 번째 이후 유닛이 접근하지 못하는 버그가 발생한다.
+                bool isLastStepToNonWalkable = (i == path.Count - 1)
+                    && (_movementUseCase != null && !_movementUseCase.IsWalkable(to));
+
+                if (!isLastStepToNonWalkable)
+                    _unitData.ClaimedTile = to;
 
                 // 이동 방향 계산 → 뷰 관점에 맞게 반전 → Y축 회전 즉시 스냅
                 HexDirection dir = FacingDirection.FromCoords(from, to);
@@ -538,8 +548,15 @@ namespace Hexiege.Presentation
                 // 정확한 최종 위치 보정
                 transform.position = toPos;
 
-                // 논리적 이동 처리
-                if (_movementUseCase != null)
+                // 논리적 이동 처리.
+                // 경로 마지막 타일이 walkable하지 않은 경우(건물 타일) ProcessStep을 생략.
+                // 이유: 건물 타일에 대해 Position/ClaimedTile 업데이트, 타일 점령을 하면
+                //   건물 타일의 소유권이 변경되고 유닛이 건물 위에 위치한 것으로 처리됨.
+                // Lerp 이동 자체는 위에서 수행 완료 — 건물 방향으로의 시각 효과는 유지됨.
+                bool isLastStep = (i == path.Count - 1);
+                bool isNonWalkableTile = (_movementUseCase != null && !_movementUseCase.IsWalkable(to));
+
+                if (_movementUseCase != null && !(isLastStep && isNonWalkableTile))
                 {
                     _movementUseCase.ProcessStep(_unitData, from, to);
                 }

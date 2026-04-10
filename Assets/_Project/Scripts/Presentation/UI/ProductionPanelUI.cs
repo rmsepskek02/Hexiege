@@ -15,6 +15,13 @@
 //   슬롯 1~2 = 대기 큐 (ManualQueue[0], ManualQueue[1])
 //   최대 3개 (1 생산 + 2 대기)
 //
+// 종족별 유닛 버튼 동적 바인딩:
+//   Show() 호출 시 배럭의 팀(Blue/Red)으로 GameRaceContext에서 종족 조회 →
+//   종족에 맞는 UnitType 3개를 버튼에 재바인딩.
+//   Human: Pistoleer / Assault / Sniper
+//   Spirit: FlameSpirit / EmberSpirit / InfernoSpirit
+//   Transcendence: BearGuard / FoxMagician / LionKnight
+//
 // UI 계층 구조 (에디터):
 //   [UI] Canvas
 //     └─ ProductionPopup (_popup, 토글)
@@ -94,19 +101,33 @@ namespace Hexiege.Presentation
         [Tooltip("큐 슬롯 이미지 3개 (순서대로)")]
         [SerializeField] private Image[] _queueSlotImages;
 
-        [Header("Unit Portraits")]
-        [SerializeField] private UnitPortraitSet _bluePortraits;
-        [SerializeField] private UnitPortraitSet _redPortraits;
+        [Header("Unit Portraits — 종족별 초상화 (팀×종족 = 6세트)")]
+        [Tooltip("Blue팀 Human 종족 초상화 (slot1=Pistoleer, slot2=Assault, slot3=Sniper)")]
+        [SerializeField] private UnitPortraitSet _blueHumanPortraits;
+        [Tooltip("Blue팀 Spirit 종족 초상화 (slot1=FlameSpirit, slot2=EmberSpirit, slot3=InfernoSpirit)")]
+        [SerializeField] private UnitPortraitSet _blueSpiritPortraits;
+        [Tooltip("Blue팀 Transcendence 종족 초상화 (slot1=BearGuard, slot2=FoxMagician, slot3=LionKnight)")]
+        [SerializeField] private UnitPortraitSet _blueTranscendencePortraits;
+        [Tooltip("Red팀 Human 종족 초상화")]
+        [SerializeField] private UnitPortraitSet _redHumanPortraits;
+        [Tooltip("Red팀 Spirit 종족 초상화")]
+        [SerializeField] private UnitPortraitSet _redSpiritPortraits;
+        [Tooltip("Red팀 Transcendence 종족 초상화")]
+        [SerializeField] private UnitPortraitSet _redTranscendencePortraits;
 
         /// <summary>
-        /// 팀별 유닛 초상화 스프라이트 세트.
+        /// 종족별 유닛 초상화 스프라이트 세트.
+        /// 3개 슬롯이 종족에 따라 다른 유닛을 나타냄:
+        ///   Human: slot1=Pistoleer, slot2=Assault, slot3=Sniper
+        ///   Spirit: slot1=FlameSpirit, slot2=EmberSpirit, slot3=InfernoSpirit
+        ///   Transcendence: slot1=BearGuard, slot2=FoxMagician, slot3=LionKnight
         /// </summary>
         [System.Serializable]
         public struct UnitPortraitSet
         {
-            public Sprite pistoleer;
-            public Sprite assault;
-            public Sprite sniper;
+            public Sprite slot1;
+            public Sprite slot2;
+            public Sprite slot3;
         }
 
         [Header("Progress")]
@@ -160,6 +181,13 @@ namespace Hexiege.Presentation
         /// <summary> 현재 열린 배럭 Id. 랠리포인트 설정 시 사용. </summary>
         public int CurrentBarracksId => _currentBarracks?.Id ?? -1;
 
+        /// <summary>
+        /// 현재 버튼 3개에 바인딩된 유닛 타입.
+        /// Show() 시 종족에 따라 갱신됨.
+        /// _buttonUnitTypes[0] = 첫 번째 버튼(slot1), [1] = 두 번째(slot2), [2] = 세 번째(slot3).
+        /// </summary>
+        private UnitType[] _buttonUnitTypes = new UnitType[3];
+
         // 롱프레스 판정용
         private float _pointerDownTime;
         private bool _isPointerDown;
@@ -198,10 +226,17 @@ namespace Hexiege.Presentation
             if (_rallyPointButton != null)
                 _rallyPointButton.onClick.AddListener(OnRallyPointClick);
 
-            // 유닛 버튼: 롱프레스/탭 구분을 위해 EventTrigger 사용
-            SetupUnitButton(_pistoleerButton, UnitType.Pistoleer);
-            SetupUnitButton(_assaultButton,   UnitType.Assault);
-            SetupUnitButton(_sniperButton,    UnitType.Sniper);
+            // 유닛 버튼: 롱프레스/탭 구분을 위해 EventTrigger 사용.
+            // 버튼 슬롯 인덱스(0/1/2)로 바인딩 — 실제 UnitType은 Show() 시 _buttonUnitTypes[]에서 동적으로 결정됨.
+            // Initialize()는 한 번만 호출되므로 EventTrigger 중복 추가 위험 없음.
+            SetupUnitButtonBySlot(_pistoleerButton, 0);
+            SetupUnitButtonBySlot(_assaultButton,   1);
+            SetupUnitButtonBySlot(_sniperButton,    2);
+
+            // 기본값으로 Human 종족 UnitType을 초기 설정 (Show() 호출 전 안전망)
+            _buttonUnitTypes[0] = UnitType.Pistoleer;
+            _buttonUnitTypes[1] = UnitType.Assault;
+            _buttonUnitTypes[2] = UnitType.Sniper;
 
             // 큐 슬롯 클릭 → 생산 취소
             SetupQueueSlotButtons();
@@ -239,7 +274,14 @@ namespace Hexiege.Presentation
             if (_ticker != null)
                 _ticker.ShowRallyMarker(barracks.Id);
 
-            UpdateButtonPortraits(barracks.Team);
+            // 배럭 팀에 따라 종족을 조회하고, 버튼에 해당 종족의 UnitType을 바인딩
+            // 예: Spirit 종족이면 slot1=FlameSpirit, slot2=EmberSpirit, slot3=InfernoSpirit
+            RaceId race = barracks.Team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+            BindButtonUnitTypes(race);
+
+            UpdateButtonPortraits(barracks.Team, race);
             UpdateUI();
         }
 
@@ -293,8 +335,11 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 유닛 버튼에 PointerDown/Up 이벤트를 연결하여 탭/롱프레스 구분.
+        /// 슬롯 인덱스(0/1/2)로 바인딩하여, 실제 UnitType은 _buttonUnitTypes[slotIndex]에서
+        /// 런타임에 조회됨. 이 방식으로 Show()마다 EventTrigger를 재등록할 필요 없이
+        /// _buttonUnitTypes 배열만 갱신하면 종족 변경이 반영됨.
         /// </summary>
-        private void SetupUnitButton(Button button, UnitType type)
+        private void SetupUnitButtonBySlot(Button button, int slotIndex)
         {
             if (button == null) return;
 
@@ -302,8 +347,9 @@ namespace Hexiege.Presentation
             if (trigger == null)
                 trigger = button.gameObject.AddComponent<EventTrigger>();
 
+            // PointerDown: 슬롯 인덱스로 _buttonUnitTypes에서 현재 바인딩된 UnitType 조회
             var downEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
-            downEntry.callback.AddListener(_ => OnUnitPointerDown(type));
+            downEntry.callback.AddListener(_ => OnUnitPointerDown(_buttonUnitTypes[slotIndex]));
             trigger.triggers.Add(downEntry);
 
             var upEntry = new EventTrigger.Entry { eventID = EventTriggerType.PointerUp };
@@ -592,13 +638,14 @@ namespace Hexiege.Presentation
             if (state == null) return;
 
             // 버튼별 자동 생산 인디케이터 업데이트
-            // 해당 유닛 타입이 AutoEntries에 등록되어 있으면 인디케이터 활성화
+            // _buttonUnitTypes[]에 바인딩된 현재 종족의 UnitType으로 판단
+            // 예: Spirit 종족이면 FlameSpirit/EmberSpirit/InfernoSpirit로 AutoContains 확인
             if (_pistoleerAutoIndicator != null)
-                _pistoleerAutoIndicator.SetActive(state.IsAutoMode && state.AutoContains(UnitType.Pistoleer));
+                _pistoleerAutoIndicator.SetActive(state.IsAutoMode && state.AutoContains(_buttonUnitTypes[0]));
             if (_assaultAutoIndicator != null)
-                _assaultAutoIndicator.SetActive(state.IsAutoMode && state.AutoContains(UnitType.Assault));
+                _assaultAutoIndicator.SetActive(state.IsAutoMode && state.AutoContains(_buttonUnitTypes[1]));
             if (_sniperAutoIndicator != null)
-                _sniperAutoIndicator.SetActive(state.IsAutoMode && state.AutoContains(UnitType.Sniper));
+                _sniperAutoIndicator.SetActive(state.IsAutoMode && state.AutoContains(_buttonUnitTypes[2]));
 
             // 큐 슬롯 갱신
             UpdateQueueSlots(state);
@@ -798,26 +845,94 @@ namespace Hexiege.Presentation
             }
         }
 
-        /// <summary> 팀에 맞는 초상화 스프라이트를 버튼 Image에 적용. Show() 시 호출. </summary>
-        private void UpdateButtonPortraits(TeamId team)
+        /// <summary>
+        /// 팀+종족에 맞는 초상화 스프라이트를 버튼 Image에 적용. Show() 시 호출.
+        /// 종족별 UnitPortraitSet에서 slot1/slot2/slot3 스프라이트를 각 버튼에 설정.
+        /// </summary>
+        private void UpdateButtonPortraits(TeamId team, RaceId race)
         {
-            var set = team == TeamId.Blue ? _bluePortraits : _redPortraits;
-            if (_pistoleerButtonPortrait != null) _pistoleerButtonPortrait.sprite = set.pistoleer;
-            if (_assaultButtonPortrait   != null) _assaultButtonPortrait.sprite   = set.assault;
-            if (_sniperButtonPortrait    != null) _sniperButtonPortrait.sprite     = set.sniper;
+            var set = GetPortraitSet(team, race);
+            if (_pistoleerButtonPortrait != null) _pistoleerButtonPortrait.sprite = set.slot1;
+            if (_assaultButtonPortrait   != null) _assaultButtonPortrait.sprite   = set.slot2;
+            if (_sniperButtonPortrait    != null) _sniperButtonPortrait.sprite    = set.slot3;
         }
 
-        /// <summary> 유닛 타입에 해당하는 초상화 스프라이트. 현재 배럭 팀 기준으로 세트 선택. </summary>
+        /// <summary>
+        /// 유닛 타입에 해당하는 초상화 스프라이트. 현재 배럭 팀+종족 기준으로 세트 선택.
+        /// _buttonUnitTypes[0/1/2]와 비교하여 해당 슬롯의 스프라이트를 반환.
+        /// 큐 슬롯(ApplySlotImage)에서 UnitType으로 초상화를 찾을 때 사용.
+        /// </summary>
         private Sprite GetPortrait(UnitType type)
         {
-            var set = _currentBarracks?.Team == TeamId.Blue ? _bluePortraits : _redPortraits;
-            return type switch
+            if (_currentBarracks == null) return null;
+
+            TeamId team = _currentBarracks.Team;
+            RaceId race = team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+            var set = GetPortraitSet(team, race);
+
+            // _buttonUnitTypes 배열에서 슬롯 위치를 찾아 해당 슬롯의 스프라이트 반환
+            // 예: type=FlameSpirit이고 _buttonUnitTypes[0]=FlameSpirit이면 → set.slot1
+            if (type == _buttonUnitTypes[0]) return set.slot1;
+            if (type == _buttonUnitTypes[1]) return set.slot2;
+            if (type == _buttonUnitTypes[2]) return set.slot3;
+
+            // 매칭되지 않는 타입 (다른 종족 유닛이 큐에 남아있는 경우 등) → slot1 폴백
+            return set.slot1;
+        }
+
+        /// <summary>
+        /// 팀+종족 조합으로 6세트 중 하나의 UnitPortraitSet을 선택하여 반환.
+        /// </summary>
+        private UnitPortraitSet GetPortraitSet(TeamId team, RaceId race)
+        {
+            if (team == TeamId.Blue)
             {
-                UnitType.Pistoleer => set.pistoleer,
-                UnitType.Assault   => set.assault,
-                UnitType.Sniper    => set.sniper,
-                _                  => set.pistoleer
-            };
+                return race switch
+                {
+                    RaceId.Spirit         => _blueSpiritPortraits,
+                    RaceId.Transcendence  => _blueTranscendencePortraits,
+                    _                     => _blueHumanPortraits
+                };
+            }
+            else
+            {
+                return race switch
+                {
+                    RaceId.Spirit         => _redSpiritPortraits,
+                    RaceId.Transcendence  => _redTranscendencePortraits,
+                    _                     => _redHumanPortraits
+                };
+            }
+        }
+
+        /// <summary>
+        /// 종족에 따라 _buttonUnitTypes 배열을 갱신.
+        /// Show() 시 호출되어 버튼 3개에 바인딩될 UnitType을 결정.
+        /// EventTrigger의 PointerDown 콜백이 _buttonUnitTypes[slotIndex]를 참조하므로
+        /// 이 배열만 갱신하면 탭/롱프레스 시 올바른 종족의 유닛이 생산됨.
+        /// </summary>
+        private void BindButtonUnitTypes(RaceId race)
+        {
+            switch (race)
+            {
+                case RaceId.Spirit:
+                    _buttonUnitTypes[0] = UnitType.FlameSpirit;
+                    _buttonUnitTypes[1] = UnitType.EmberSpirit;
+                    _buttonUnitTypes[2] = UnitType.InfernoSpirit;
+                    break;
+                case RaceId.Transcendence:
+                    _buttonUnitTypes[0] = UnitType.BearGuard;
+                    _buttonUnitTypes[1] = UnitType.FoxMagician;
+                    _buttonUnitTypes[2] = UnitType.LionKnight;
+                    break;
+                default: // Human
+                    _buttonUnitTypes[0] = UnitType.Pistoleer;
+                    _buttonUnitTypes[1] = UnitType.Assault;
+                    _buttonUnitTypes[2] = UnitType.Sniper;
+                    break;
+            }
         }
     }
 }

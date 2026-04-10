@@ -21,18 +21,36 @@ namespace Hexiege.Domain
         /// <summary> 유닛 생산에 걸리는 시간(초). </summary>
         public static float GetProductionTime(UnitType type) => type switch
         {
-            UnitType.Pistoleer => 5f,
-            UnitType.Assault   => 10f,
-            UnitType.Sniper    => 15f,
+            // ── 인간계 ──
+            UnitType.Pistoleer    => 5f,
+            UnitType.Assault      => 10f,
+            UnitType.Sniper       => 15f,
+            // ── 정령계 (미정 → 플레이스홀더) ──
+            UnitType.FlameSpirit  => 5f,
+            UnitType.EmberSpirit  => 10f,
+            UnitType.InfernoSpirit => 15f,
+            // ── 초월계 (미정 → 플레이스홀더) ──
+            UnitType.BearGuard    => 5f,
+            UnitType.FoxMagician  => 10f,
+            UnitType.LionKnight   => 15f,
             _ => 5f
         };
 
         /// <summary> 유닛 생산에 필요한 골드. </summary>
         public static int GetGoldCost(UnitType type) => type switch
         {
-            UnitType.Pistoleer => 50,
-            UnitType.Assault   => 100,
-            UnitType.Sniper    => 200,
+            // ── 인간계 ──
+            UnitType.Pistoleer    => 50,
+            UnitType.Assault      => 100,
+            UnitType.Sniper       => 200,
+            // ── 정령계 (미정 → 플레이스홀더) ──
+            UnitType.FlameSpirit  => 50,
+            UnitType.EmberSpirit  => 100,
+            UnitType.InfernoSpirit => 200,
+            // ── 초월계 (미정 → 플레이스홀더) ──
+            UnitType.BearGuard    => 50,
+            UnitType.FoxMagician  => 100,
+            UnitType.LionKnight   => 200,
             _ => 50
         };
 

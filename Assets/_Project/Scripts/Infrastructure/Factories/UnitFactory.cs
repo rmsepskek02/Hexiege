@@ -76,31 +76,31 @@ namespace Hexiege.Infrastructure
         // ====================================================================
 
         /// <summary>
-        /// 팀별 유닛 프리팹 세트. Inspector에서 Blue/Red 각각 설정.
+        /// 유닛 타입별 Blue/Red 프리팹 쌍.
+        /// 종족별 리스트에 UnitType을 키로 하여 프리팹을 매핑.
+        /// Inspector에서 type 필드로 어떤 유닛인지 식별, blue/red 필드에 각 팀 프리팹을 연결.
         /// </summary>
         [System.Serializable]
-        public struct UnitTeamPrefabSet
+        public struct UnitPrefabEntry
         {
-            public GameObject pistoleer;
-            public GameObject assault;
-            public GameObject sniper;
+            public UnitType type;
+            public GameObject blue;
+            public GameObject red;
         }
 
-        // 종족별·팀별 프리팹 세트.
-        // 로비에서 선택한 종족(GameRaceContext)에 따라 런타임에 적절한 세트를 선택.
-        // Inspector에서 각 종족×팀 조합(6세트)에 프리팹을 연결해야 함.
+        // 종족별 유닛 프리팹 리스트.
+        // 로비에서 선택한 종족(GameRaceContext)에 따라 런타임에 적절한 리스트를 선택.
+        // 각 리스트에 해당 종족의 유닛 3종 × Blue/Red 프리팹을 연결.
+        // 에디터 스크립트(Hexiege/Setup/UnitFactory 프리팹 연결)로 자동 연결 가능.
 
-        [Header("Prefabs - Human (인간)")]
-        [SerializeField] private UnitTeamPrefabSet _humanBluePrefabs;
-        [SerializeField] private UnitTeamPrefabSet _humanRedPrefabs;
+        [Header("인간계 (Human)")]
+        [SerializeField] private List<UnitPrefabEntry> _humanPrefabs;
 
-        [Header("Prefabs - Spirit (정령)")]
-        [SerializeField] private UnitTeamPrefabSet _spiritBluePrefabs;
-        [SerializeField] private UnitTeamPrefabSet _spiritRedPrefabs;
+        [Header("정령계 (Spirit)")]
+        [SerializeField] private List<UnitPrefabEntry> _spiritPrefabs;
 
-        [Header("Prefabs - Transcendence (초월)")]
-        [SerializeField] private UnitTeamPrefabSet _transcendenceBluePrefabs;
-        [SerializeField] private UnitTeamPrefabSet _transcendenceRedPrefabs;
+        [Header("초월계 (Transcendence)")]
+        [SerializeField] private List<UnitPrefabEntry> _transcendencePrefabs;
 
         [Header("Hierarchy")]
         /// <summary>
@@ -176,26 +176,9 @@ namespace Hexiege.Infrastructure
                 ? GameRaceContext.BlueRace
                 : GameRaceContext.RedRace;
 
-            // 종족 + 팀 조합으로 프리팹 세트 선택.
-            // switch expression의 각 분기는 (종족, 팀) 튜플 패턴 매칭.
-            // 안전망: 매칭 실패 시 Human Blue 프리팹 사용 (종족 추가 시 여기에 분기 추가 필요).
-            UnitTeamPrefabSet set = (race, unitData.Team) switch
-            {
-                (RaceId.Human,         TeamId.Blue) => _humanBluePrefabs,
-                (RaceId.Human,         TeamId.Red)  => _humanRedPrefabs,
-                (RaceId.Spirit,        TeamId.Blue) => _spiritBluePrefabs,
-                (RaceId.Spirit,        TeamId.Red)  => _spiritRedPrefabs,
-                (RaceId.Transcendence, TeamId.Blue) => _transcendenceBluePrefabs,
-                (RaceId.Transcendence, TeamId.Red)  => _transcendenceRedPrefabs,
-                _                                   => _humanBluePrefabs  // 안전망: 기본값 Human Blue
-            };
-            GameObject prefab = unitData.Type switch
-            {
-                UnitType.Pistoleer => set.pistoleer,
-                UnitType.Assault   => set.assault,
-                UnitType.Sniper    => set.sniper,
-                _ => null
-            };
+            // 종족 + 유닛 타입 + 팀 조합으로 프리팹 조회.
+            // GetPrefab()이 종족별 리스트에서 UnitType을 키로 탐색하여 해당 팀 프리팹 반환.
+            GameObject prefab = GetPrefab(race, unitData.Type, unitData.Team);
 
             if (prefab == null)
             {
@@ -392,28 +375,41 @@ namespace Hexiege.Infrastructure
                 ? GameRaceContext.BlueRace
                 : GameRaceContext.RedRace;
 
-            // 종족 + 팀 조합으로 프리팹 세트 선택
-            UnitTeamPrefabSet set = (race, unitData.Team) switch
-            {
-                (RaceId.Human,         TeamId.Blue) => _humanBluePrefabs,
-                (RaceId.Human,         TeamId.Red)  => _humanRedPrefabs,
-                (RaceId.Spirit,        TeamId.Blue) => _spiritBluePrefabs,
-                (RaceId.Spirit,        TeamId.Red)  => _spiritRedPrefabs,
-                (RaceId.Transcendence, TeamId.Blue) => _transcendenceBluePrefabs,
-                (RaceId.Transcendence, TeamId.Red)  => _transcendenceRedPrefabs,
-                _                                   => _humanBluePrefabs
-            };
-
-            // 유닛 타입에 맞는 프리팹 선택
-            GameObject prefab = unitData.Type switch
-            {
-                UnitType.Pistoleer => set.pistoleer,
-                UnitType.Assault   => set.assault,
-                UnitType.Sniper    => set.sniper,
-                _ => null
-            };
-
+            // 종족 + 유닛 타입 + 팀 조합으로 프리팹 조회
+            GameObject prefab = GetPrefab(race, unitData.Type, unitData.Team);
             return prefab != null ? prefab.name : null;
+        }
+
+        /// <summary>
+        /// 종족 + 유닛 타입 + 팀 조합으로 해당 프리팹을 조회.
+        /// 종족별 리스트에서 UnitType을 키로 선형 탐색하여 해당 팀의 프리팹을 반환.
+        /// 리스트가 null이거나 매칭되는 엔트리가 없으면 null 반환.
+        /// </summary>
+        /// <param name="race">종족 (Human/Spirit/Transcendence)</param>
+        /// <param name="type">유닛 타입 (종족별 독립 식별자)</param>
+        /// <param name="team">팀 (Blue/Red)</param>
+        /// <returns>해당 프리팹 GameObject. 미설정 시 null.</returns>
+        private GameObject GetPrefab(RaceId race, UnitType type, TeamId team)
+        {
+            // 종족에 해당하는 프리팹 리스트 선택
+            List<UnitPrefabEntry> list = race switch
+            {
+                RaceId.Human         => _humanPrefabs,
+                RaceId.Spirit        => _spiritPrefabs,
+                RaceId.Transcendence => _transcendencePrefabs,
+                _                    => null
+            };
+
+            if (list == null) return null;
+
+            // 리스트에서 UnitType이 일치하는 엔트리를 선형 탐색 (종족당 3개 = O(1) 수준)
+            foreach (var entry in list)
+            {
+                if (entry.type == type)
+                    return team == TeamId.Blue ? entry.blue : entry.red;
+            }
+
+            return null;
         }
 
         /// <summary>

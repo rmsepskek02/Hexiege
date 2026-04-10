@@ -52,18 +52,17 @@ namespace Hexiege.Application
         public List<HexCoord> RequestMove(UnitData unit, HexCoord target)
         {
             // 차단 목록 구성:
-            // - 모든 다른 유닛의 현재 Position (아군/적군 무관)
+            // - 아군 유닛의 현재 Position만 차단 (적 유닛은 HasEnemyInRange로 전투 감지하므로 경로에서 제외)
             // - 같은 팀 유닛의 ClaimedTile (이동 중 선점 타일, 아군끼리 겹침 방지)
-            // - 적 팀의 ClaimedTile은 포함하지 않음 (전투로 해결)
+            // - 적 팀은 Position/ClaimedTile 모두 포함하지 않음 (전투로 해결)
             var blocked = new HashSet<HexCoord>();
             foreach (var other in _unitSpawn.Units.Values)
             {
-                if (other.Id != unit.Id && other.IsAlive)
+                if (other.Id != unit.Id && other.IsAlive && other.Team == unit.Team)
                 {
                     blocked.Add(other.Position);
 
-                    // 같은 팀의 ClaimedTile만 차단 (적 팀은 무시)
-                    if (other.Team == unit.Team && other.ClaimedTile.HasValue)
+                    if (other.ClaimedTile.HasValue)
                         blocked.Add(other.ClaimedTile.Value);
                 }
             }
@@ -71,11 +70,47 @@ namespace Hexiege.Application
             // A* 경로 계산 (유닛 점유 타일 우회)
             List<HexCoord> path = HexPathfinder.FindPath(_grid, unit.Position, target, blocked);
 
+            // 경로가 없고 목표 타일이 존재하지만 walkable하지 않은 경우 (건물 타일 등):
+            // 건물 인접 walkable 타일까지 경로를 찾고, 원래 목표(건물 타일)를 마지막에 추가.
+            // → UnitView에서 마지막 타일(건물 타일) 방향으로 Lerp 이동하다가
+            //   AttackRange 이내에서 공격 시작.
+            // ProcessStep은 마지막 타일(건물)에서 생략됨 (UnitView에서 IsWalkable 체크).
+            if (path == null || path.Count < 2)
+            {
+                HexTile goalTile = _grid.GetTile(target);
+                if (goalTile != null && !goalTile.IsWalkable)
+                {
+                    path = HexPathfinder.FindPathToNeighbor(_grid, unit.Position, target, blocked);
+                    // Count >= 1: 유닛이 이미 최적 인접 타일 위에 있으면 FindPathToNeighbor가
+                    // [start] (count=1)을 반환한다. 이 경우에도 성 타일을 경로 끝에 추가해야
+                    // UnitView가 성 방향으로 Lerp 이동 → 공격을 시작할 수 있다.
+                    if (path != null && path.Count >= 1)
+                    {
+                        // 건물 타일을 경로 끝에 추가 — UnitView가 이 방향으로 Lerp 이동.
+                        // 이 타일은 walkable하지 않으므로 UnitView에서 ProcessStep을 생략.
+                        path.Add(target);
+                    }
+                }
+            }
+
             // 경로 없음 (목표가 이동 불가이거나 막혀있음)
             if (path == null || path.Count < 2)
                 return null;
 
             return path;
+        }
+
+        /// <summary>
+        /// 특정 좌표의 타일이 이동 가능(walkable)한지 확인.
+        /// UnitView에서 경로 마지막 타일이 건물 타일인지 판단하는 데 사용.
+        /// 그리드에 존재하지 않는 좌표는 false 반환 (이동 불가).
+        /// </summary>
+        /// <param name="coord">확인할 타일 좌표</param>
+        /// <returns>타일이 존재하고 walkable이면 true, 아니면 false</returns>
+        public bool IsWalkable(HexCoord coord)
+        {
+            HexTile tile = _grid.GetTile(coord);
+            return tile != null && tile.IsWalkable;
         }
 
         /// <summary>

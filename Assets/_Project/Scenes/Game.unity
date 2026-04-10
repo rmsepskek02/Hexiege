@@ -11706,30 +11706,36 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ffbee3fe087401948ae349db70b1d746, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.UnitFactory
-  _humanBluePrefabs:
-    pistoleer: {fileID: 3775139385689606299, guid: 7bb22226c2f892a4b861224ca882519a, type: 3}
-    assault: {fileID: 3614917809869233749, guid: 5234299cf2ee6e94e959c38f91c336a6, type: 3}
-    sniper: {fileID: 1177749537038205201, guid: ae58b031070a6c04f8f6cb4f20363118, type: 3}
-  _humanRedPrefabs:
-    pistoleer: {fileID: 3775139385689606299, guid: 0fb1fc8960816a449a56977bd4ca2c78, type: 3}
-    assault: {fileID: 318326584771880502, guid: 43bf1e1b432927d4ca1f9f9cbeff5884, type: 3}
-    sniper: {fileID: 6630118796036342330, guid: 25de86da518b1574b9f19dce36ceddd1, type: 3}
-  _spiritBluePrefabs:
-    pistoleer: {fileID: 2384134901492259840, guid: 65437a9ab49692a44b94f8c5d97a93b4, type: 3}
-    assault: {fileID: 3481489615874815791, guid: 30850a40f0ca8b940a1afaf12c1d82c1, type: 3}
-    sniper: {fileID: 1756040586736068049, guid: ef3b992ebcce11244a0f9ef8ba13aad3, type: 3}
-  _spiritRedPrefabs:
-    pistoleer: {fileID: 3541651207582195475, guid: aaff65119146e2248a29f23c479cd35f, type: 3}
-    assault: {fileID: 5306763152045130590, guid: 4c3b5c6f718fbf142afc55d5b3e004fb, type: 3}
-    sniper: {fileID: 7952036579767868673, guid: 625de2ef217f3a843b8bb865e631ab88, type: 3}
-  _transcendenceBluePrefabs:
-    pistoleer: {fileID: 8990919588697864418, guid: 76d2d7f0a80264540994e5ed1956353e, type: 3}
-    assault: {fileID: 5478310507604524601, guid: 31b30650a4fe9034c8e0706bfe301d54, type: 3}
-    sniper: {fileID: 4324638335821351153, guid: fb844688f9e49504584a5c95f185365b, type: 3}
-  _transcendenceRedPrefabs:
-    pistoleer: {fileID: 7820393859577947839, guid: 85f06a8dcec41ca428c66897801f1cb2, type: 3}
-    assault: {fileID: 3154551730380421955, guid: 6c1185ed8d58ee34380e485d0bf76027, type: 3}
-    sniper: {fileID: 3537499202116828560, guid: 60882e4b6ee1f20409867db71e9f6248, type: 3}
+  _humanPrefabs:
+  - type: 0
+    blue: {fileID: 3775139385689606299, guid: 7bb22226c2f892a4b861224ca882519a, type: 3}
+    red: {fileID: 3775139385689606299, guid: 0fb1fc8960816a449a56977bd4ca2c78, type: 3}
+  - type: 1
+    blue: {fileID: 3614917809869233749, guid: 5234299cf2ee6e94e959c38f91c336a6, type: 3}
+    red: {fileID: 318326584771880502, guid: 43bf1e1b432927d4ca1f9f9cbeff5884, type: 3}
+  - type: 2
+    blue: {fileID: 1177749537038205201, guid: ae58b031070a6c04f8f6cb4f20363118, type: 3}
+    red: {fileID: 6630118796036342330, guid: 25de86da518b1574b9f19dce36ceddd1, type: 3}
+  _spiritPrefabs:
+  - type: 3
+    blue: {fileID: 3481489615874815791, guid: 30850a40f0ca8b940a1afaf12c1d82c1, type: 3}
+    red: {fileID: 5306763152045130590, guid: 4c3b5c6f718fbf142afc55d5b3e004fb, type: 3}
+  - type: 4
+    blue: {fileID: 2384134901492259840, guid: 65437a9ab49692a44b94f8c5d97a93b4, type: 3}
+    red: {fileID: 3541651207582195475, guid: aaff65119146e2248a29f23c479cd35f, type: 3}
+  - type: 5
+    blue: {fileID: 1756040586736068049, guid: ef3b992ebcce11244a0f9ef8ba13aad3, type: 3}
+    red: {fileID: 7952036579767868673, guid: 625de2ef217f3a843b8bb865e631ab88, type: 3}
+  _transcendencePrefabs:
+  - type: 6
+    blue: {fileID: 5478310507604524601, guid: 31b30650a4fe9034c8e0706bfe301d54, type: 3}
+    red: {fileID: 3154551730380421955, guid: 6c1185ed8d58ee34380e485d0bf76027, type: 3}
+  - type: 7
+    blue: {fileID: 8990919588697864418, guid: 76d2d7f0a80264540994e5ed1956353e, type: 3}
+    red: {fileID: 7820393859577947839, guid: 85f06a8dcec41ca428c66897801f1cb2, type: 3}
+  - type: 8
+    blue: {fileID: 4324638335821351153, guid: fb844688f9e49504584a5c95f185365b, type: 3}
+    red: {fileID: 3537499202116828560, guid: 60882e4b6ee1f20409867db71e9f6248, type: 3}
   _unitParent: {fileID: 1885953708}
 --- !u!1 &1717399260
 GameObject:
@@ -13638,14 +13644,30 @@ MonoBehaviour:
   - {fileID: 977558808}
   - {fileID: 1436301839}
   - {fileID: 102240673}
-  _bluePortraits:
-    pistoleer: {fileID: 9131090658839770904, guid: 5c88367c9517bbc4f81c33ac2e21e27f, type: 3}
-    assault: {fileID: -8900940657331140977, guid: 7d2baad69fc6fd04493b7b78ef7df91b, type: 3}
-    sniper: {fileID: -7208874421070970473, guid: a1e339d39db0f2e4c9f56bb18e0ff3d3, type: 3}
-  _redPortraits:
-    pistoleer: {fileID: 7968803128098716551, guid: 7a7ccc4d8964a394394447c57afed362, type: 3}
-    assault: {fileID: -4801683537869166604, guid: d601df278dd444844a3ef10334ed8ac0, type: 3}
-    sniper: {fileID: 7802184514867898871, guid: b70d2b06e4b805043adb30ab9fb218c2, type: 3}
+  _blueHumanPortraits:
+    slot1: {fileID: 9131090658839770904, guid: 5c88367c9517bbc4f81c33ac2e21e27f, type: 3}
+    slot2: {fileID: -8900940657331140977, guid: 7d2baad69fc6fd04493b7b78ef7df91b, type: 3}
+    slot3: {fileID: -7208874421070970473, guid: a1e339d39db0f2e4c9f56bb18e0ff3d3, type: 3}
+  _blueSpiritPortraits:
+    slot1: {fileID: 0}
+    slot2: {fileID: 0}
+    slot3: {fileID: 0}
+  _blueTranscendencePortraits:
+    slot1: {fileID: 0}
+    slot2: {fileID: 0}
+    slot3: {fileID: 0}
+  _redHumanPortraits:
+    slot1: {fileID: 7968803128098716551, guid: 7a7ccc4d8964a394394447c57afed362, type: 3}
+    slot2: {fileID: -4801683537869166604, guid: d601df278dd444844a3ef10334ed8ac0, type: 3}
+    slot3: {fileID: 7802184514867898871, guid: b70d2b06e4b805043adb30ab9fb218c2, type: 3}
+  _redSpiritPortraits:
+    slot1: {fileID: 0}
+    slot2: {fileID: 0}
+    slot3: {fileID: 0}
+  _redTranscendencePortraits:
+    slot1: {fileID: 0}
+    slot2: {fileID: 0}
+    slot3: {fileID: 0}
   _progressFill: {fileID: 1043901890}
   _goldText: {fileID: 275063331}
   _populationText: {fileID: 257469112}

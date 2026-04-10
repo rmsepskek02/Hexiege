@@ -1,195 +1,318 @@
-# Plan: 근접(Melee) 유닛 타입 추가 및 사거리 시스템 수정
+# Plan: 유닛 타입 개편 + 근접 사거리 시스템 수정
 
 **날짜**: 2026-04-10  
-**작업**: UnitType.Melee 카테고리 추가 + 1타일 미만 근접 사거리 지원
+**최종 수정**: 2026-04-10 (설계 확정 후 전면 재작성)
 
 ---
 
-## 1. 작업 범위 정의
+## 1. 배경 및 목적
+
+기존 UnitType(Pistoleer/Assault/Sniper)은 종족 공통 카테고리로 설계되었으나,
+기획은 **종족별 독립 유닛** 구조임. 따라서 Spirit/Transcendence 유닛들이
+Human 유닛 타입에 임시 매핑된 상태로 테스트됐음.
+
+이번 작업에서:
+1. UnitType을 **유닛별 독립 식별자**로 개편
+2. 각 유닛이 자기 고유 스탯(range 포함)을 갖도록
+3. 근접 사거리(range 0.5) 동작이 올바르게 동작하도록 시스템 수정
+4. UnitFactory를 새 구조에 맞게 리팩토링
+
+---
+
+## 2. 작업 범위
 
 ### 포함
-- `UnitType.Melee` 카테고리 enum 추가
-- 근접 사거리(< 1.0 타일) 동작이 올바르게 동작하도록 판정 로직 수정
-- 경로탐색 로직 수정 (근접 유닛이 적에게 접근 가능하도록)
-- UnitFactory 프리팹 슬롯 추가 (3종족 × 2팀)
-- 생산 UI에 근접 유닛 버튼 추가 (ProductionPanelUI)
-- UnitStats에 Melee 타입 기본값 추가 (StatsReference.md 기입 전 플레이스홀더)
+- `UnitType.cs`: 유닛별 독립 enum 값 추가
+- `UnitStats.cs`: Spirit/Transcendence 유닛 스탯 추가 (StatsReference 기준)
+- `UnitFactory.cs`: 고정 슬롯 구조 → 유닛 타입별 매핑 리스트 구조로 변경
+- `UnitMovementUseCase.cs`: 적 Position blocked 제거 (전 유닛 통일)
+- `UnitCombatUseCase.cs`: HexCoord 폴백 range < 1.0 버그 수정
+- `SetupUnitFactoryPrefabs.cs` (에디터 스크립트): 새 구조에 맞게 프리팹 자동 연결 재작성
+
+- `ProductionPanelUI.cs`: 종족별 유닛 버튼 동적 매핑 (버튼 UnitType + 초상화 종족 대응)
+- `HexPathfinder.cs` + `UnitMovementUseCase.cs` + `UnitView.cs`: 근접 유닛 목표 방향 이동 (아래 §9 참조)
+- `UnitCombatUseCase.cs`: 잘못 적용된 effectiveRange 수정 되돌리기
 
 ### 미포함 (별도 작업)
-- StatsReference.md 구체적인 스탯 수치 기입 (사용자 직접 작성)
-- Inspector 프리팹 연결 (에디터 스크립트로 별도 처리)
-- 다중 히트 프레임 시스템 (FlameSpirit 6히트, LionKnight 4히트) — 현재 단일 HitFrameTime 구조와 별개 작업
+- 다중 히트 프레임(FlameSpirit 6히트, LionKnight 4히트)
+- StatsReference.md의 HP/공격력/생산 비용 등 미정 스탯 입력 (사용자 직접 작성)
 
 ---
 
-## 2. 근접 사거리 동작 원리
+## 3. UnitType 개편
 
-### 현재 문제
-`FindFirstEnemyTarget` 의 판정식:
-```
-maxDist = AttackRange × HexMetrics.TileHeight(0.866f) + Epsilon(0.05f)
-```
-- AttackRange = 1.0: maxDist = 0.916f → 인접 타일(0.866f) 감지 ✓
-- AttackRange = 0.5: maxDist = 0.483f → 인접 타일(0.866f) 감지 불가 ✗
-
-또한 `UnitMovementUseCase.RequestMove`가 **적 유닛 Position을 blocked에 추가**하므로
-근접 유닛이 적에게 접근하는 경로가 생성되지 않는다.
-
-### 수정 후 동작 흐름
-1. 근접 유닛(AttackRange < 1.0)은 경로탐색 시 적 유닛 위치를 blocked에서 제외
-2. 적 타일 방향으로 직접 접근 경로 생성
-3. Lerp 이동 중, 세계 좌표 거리가 maxDist 이하로 좁혀지면 이동 정지 → 공격 시작
-4. 유닛이 적 타일에 완전히 도달(같은 타일)하기 전 정지 → **겹침 없음**
-
-### AttackRange 권장 기본값
-- 제안값: `0.5f` → maxDist = 0.5 × 0.866 + 0.05 = **0.483f**
-- 이 값에서 유닛은 인접 타일 Lerp의 약 44% 지점에서 공격 시작 (시각적으로 적과 맞닿은 느낌)
-- StatsReference.md에서 최종 결정. 반드시 0 < AttackRange < 1.0 범위여야 함.
-
----
-
-## 3. 파일별 변경 내용
-
-### 3-1. `Assets/_Project/Scripts/Domain/Unit/UnitType.cs`
-**변경**: `Melee = 3` enum 값 추가
-
-```
-Pistoleer = 0
-Assault   = 1
-Sniper    = 2
-Melee     = 3   ← 추가
-```
-
----
-
-### 3-2. `Assets/_Project/Scripts/Domain/Unit/UnitStats.cs`
-**변경**: 6개 static 메서드에 Melee case 추가
-
-| 메서드 | Melee 반환값 | 비고 |
-|--------|------------|------|
-| GetMaxHp | 플레이스홀더 | StatsReference 기입 전 임시값 |
-| GetAttackPower | 플레이스홀더 | 동일 |
-| `GetAttackRange` | **0.5f** | < 1.0 필수. 근접 판정 핵심값 |
-| GetMoveSpeed | 플레이스홀더 | 동일 |
-| GetAttackCooldown | 플레이스홀더 | UnitFactory에서 클립 길이로 덮어씀 |
-| GetHitFrameTime | 플레이스홀더 | Inspector에서 실측 후 갱신 |
-
----
-
-### 3-3. `Assets/_Project/Scripts/Application/UseCases/UnitMovementUseCase.cs`
-**변경**: `RequestMove()` — Melee 유닛은 적 Position을 blocked에서 제외
-
+### 변경 전 (카테고리형)
 ```csharp
-// 변경 전
-blocked.Add(other.Position);   // 아군 + 적군 모두 차단
+public enum UnitType
+{
+    Pistoleer = 0,  // 모든 종족 공유
+    Assault   = 1,
+    Sniper    = 2
+}
+```
 
-// 변경 후
-if (other.Team == unit.Team || unit.AttackRange >= 1.0f)
-    blocked.Add(other.Position);
-// 근접 유닛(AttackRange < 1.0)은 적 위치를 차단하지 않음
-// → 적 타일을 향한 직접 경로 생성 가능
+### 변경 후 (유닛별 독립형)
+```csharp
+public enum UnitType
+{
+    // ── 인간계 (Human) ──
+    Pistoleer   = 0,
+    Assault     = 1,
+    Sniper      = 2,
+
+    // ── 정령계 (Spirit) ──
+    FlameSpirit   = 3,   // range 0.5
+    EmberSpirit   = 4,   // range 0.5
+    InfernoSpirit = 5,   // range 4.0
+
+    // ── 초월계 (Transcendence) ──
+    BearGuard   = 6,   // range 0.5
+    FoxMagician = 7,   // range 3.0
+    LionKnight  = 8    // range 0.5
+}
 ```
 
 ---
 
-### 3-4. `Assets/_Project/Scripts/Application/UseCases/UnitCombatUseCase.cs`
-**변경**: `FindFirstEnemyTargetByHexCoord()` — 소수 AttackRange의 정수 변환 버그 수정
+## 4. UnitStats 추가 내용
 
-```csharp
-// 변경 전
-if (distance <= attacker.AttackRange && ...)
-// AttackRange = 0.5 → distance <= 0 → 실제로 never match (같은 타일 없음)
+StatsReference.md에서 확인된 값으로 추가.  
+HP/공격력/생산비용 등 미정 항목은 플레이스홀더로 작성.
 
-// 변경 후
-int rangeThreshold = Mathf.Max(1, Mathf.CeilToInt(attacker.AttackRange));
-if (distance <= rangeThreshold && ...)
-// AttackRange = 0.5 → rangeThreshold = 1 → 인접 타일까지 폴백 탐색
-// 폴백이므로 과탐지되어도 무방 (주 경로는 세계 좌표 기반)
-```
+| 유닛 | range | speed | cooldown (클립길이) | HitFrameTime |
+|------|-------|-------|---------------------|--------------|
+| FlameSpirit | 0.5 | 2.0 | 3.0s (3:00) | 0:20 = 0.667s |
+| EmberSpirit | 0.5 | 0.5 | 2.33s (2:20) | 1:00 = 1.000s |
+| InfernoSpirit | 4.0 | 1.0 | 3.0s (3:00) | 1:15 = 1.250s |
+| BearGuard | 0.5 | 1.0 | 1.33s (1:20) | 0:20 = 0.667s |
+| FoxMagician | 3.0 | 0.5 | 4.0s (4:00) | 2:25 = 2.417s |
+| LionKnight | 0.5 | 2.0 | 2.33s (2:20) | 0:15 = 0.250s |
+
+> AttackCooldown은 UnitFactory에서 Animator 클립 길이로 덮어씀 (기존 동일).  
+> HitFrameTime은 StatsReference의 첫 번째 히트 프레임 값 기준.
 
 ---
 
-### 3-5. `Assets/_Project/Scripts/Infrastructure/Factories/UnitFactory.cs`
-**변경**: `UnitTeamPrefabSet` 구조체에 `melee` 필드 추가 + 프리팹 선택 switch에 Melee case 추가
+## 5. UnitFactory 구조 변경
 
+### 변경 전 — 고정 슬롯 구조
 ```csharp
-// UnitTeamPrefabSet 구조체
+[System.Serializable]
 public struct UnitTeamPrefabSet
 {
     public GameObject pistoleer;
     public GameObject assault;
     public GameObject sniper;
-    public GameObject melee;   // ← 추가
 }
 
-// 프리팹 선택 switch (2곳 동일 변경)
-UnitType.Melee => set.melee,   // ← 추가
+[SerializeField] private UnitTeamPrefabSet _humanBluePrefabs;
+// ... 종족별 6세트
+```
+
+### 변경 후 — 유닛 타입별 리스트 구조
+```csharp
+[System.Serializable]
+public struct UnitPrefabEntry
+{
+    public UnitType type;
+    public GameObject blue;
+    public GameObject red;
+}
+
+[Header("인간계")]
+[SerializeField] private List<UnitPrefabEntry> _humanPrefabs;
+
+[Header("정령계")]
+[SerializeField] private List<UnitPrefabEntry> _spiritPrefabs;
+
+[Header("초월계")]
+[SerializeField] private List<UnitPrefabEntry> _transcendencePrefabs;
+```
+
+프리팹 조회 메서드:
+```csharp
+private GameObject GetPrefab(RaceId race, UnitType type, TeamId team)
+{
+    var list = race switch {
+        RaceId.Human        => _humanPrefabs,
+        RaceId.Spirit       => _spiritPrefabs,
+        RaceId.Transcendence => _transcendencePrefabs,
+        _ => null
+    };
+    var entry = list?.Find(e => e.type == type);
+    return team == TeamId.Blue ? entry?.blue : entry?.red;
+}
+```
+
+### Inspector 매핑 (에디터 스크립트가 자동 연결)
+| Race | UnitType | Blue | Red |
+|------|----------|------|-----|
+| Human | Pistoleer | Unit_Pistoleer_Blue | Unit_Pistoleer_Red |
+| Human | Assault | Unit_Assault_Blue | Unit_Assault_Red |
+| Human | Sniper | Unit_Sniper_Blue | Unit_Sniper_Red |
+| Spirit | FlameSpirit | Unit_FlameSpirit_Blue | Unit_FlameSpirit_Red |
+| Spirit | EmberSpirit | Unit_EmberSpirit_Blue | Unit_EmberSpirit_Red |
+| Spirit | InfernoSpirit | Unit_InfernoSpirit_Blue | Unit_InfernoSpirit_Red |
+| Transcendence | BearGuard | Unit_BearGuard_Blue | Unit_BearGuard_Red |
+| Transcendence | FoxMagician | Unit_FoxMagician_Blue | Unit_FoxMagician_Red |
+| Transcendence | LionKnight | Unit_LionKnight_Blue | Unit_LionKnight_Red |
+
+프리팹 경로: `Assets/_Project/Prefabs/Units/{Race}/Unit_{Name}_{Team}.prefab`
+
+---
+
+## 6. UnitMovementUseCase 수정
+
+적 유닛 Position을 blocked에서 **전 유닛 대상으로 제거** (근접 유닛만 분기하지 않음).
+
+```csharp
+// 변경 전
+foreach (var other in _unitSpawn.Units.Values)
+{
+    if (other.Id != unit.Id && other.IsAlive)
+    {
+        blocked.Add(other.Position);  // 아군 + 적군 모두 차단
+        if (other.Team == unit.Team && other.ClaimedTile.HasValue)
+            blocked.Add(other.ClaimedTile.Value);
+    }
+}
+
+// 변경 후
+foreach (var other in _unitSpawn.Units.Values)
+{
+    if (other.Id != unit.Id && other.IsAlive)
+    {
+        // 아군 Position만 차단 (적 유닛은 HasEnemyInRange로 전투 감지하므로 경로에서 제외)
+        if (other.Team == unit.Team)
+        {
+            blocked.Add(other.Position);
+            if (other.ClaimedTile.HasValue)
+                blocked.Add(other.ClaimedTile.Value);
+        }
+    }
+}
+```
+
+이유: 원거리 유닛도 HasEnemyInRange가 적 타일 도달 전에 발동하므로
+적 위치 blocked 제거는 실질 동작 변화 없이 코드를 단순화함.
+
+---
+
+## 7. UnitCombatUseCase 수정
+
+HexCoord 폴백 메서드의 range < 1.0 판정 버그 수정.
+
+```csharp
+// 변경 전 (FindFirstEnemyTargetByHexCoord 내부)
+if (distance <= attacker.AttackRange && distance < minDistance)
+// AttackRange = 0.5 → distance <= 0 → 항상 miss (정수 비교)
+
+// 변경 후
+int rangeThreshold = Mathf.Max(1, Mathf.CeilToInt(attacker.AttackRange));
+if (distance <= rangeThreshold && distance < minDistance)
+// AttackRange = 0.5 → threshold = 1 → 인접 타일까지 폴백 탐색
 ```
 
 ---
 
-### 3-6. `Assets/_Project/Scripts/Presentation/UI/ProductionPanelUI.cs`
-**변경**: Melee 버튼/초상화/자동 지시자 필드 추가 + 초기화 코드 추가
+## 8. 에디터 스크립트 수정
 
-추가할 필드:
-- `_meleeButton` (Button)
-- `_meleeButtonPortrait` (Image)
-- `_meleeAutoIndicator` (GameObject)
-- `UnitPortraitSet.melee` (Sprite)
+기존 `SetupUnitFactoryPrefabs.cs`를 새 `List<UnitPrefabEntry>` 구조에 맞게 재작성.
 
-초기화 라인 추가:
-```csharp
-SetupUnitButton(_meleeButton, UnitType.Melee);
-```
-
-자동 생산 지시자 업데이트 추가:
-```csharp
-if (_meleeAutoIndicator != null)
-    _meleeAutoIndicator.SetActive(state.IsAutoMode && state.AutoContains(UnitType.Melee));
-```
+- 메뉴: `Hexiege/Setup/UnitFactory 프리팹 연결` (기존 경로 유지)
+- 9개 유닛(3종족 × 3유닛) × 2팀 = 18개 프리팹 자동 연결
+- 연결 후 `EditorUtility.SetDirty()` + `AssetDatabase.SaveAssets()` 호출
 
 ---
 
-## 4. 변경 없는 파일
+## 9. 근접 유닛 목표 방향 이동 시스템 (신규 추가)
+
+### 배경
+근접 유닛(range 0.5)의 공격 판정 거리 = `0.5 × 0.866 + 0.05 = 0.483f`.
+그런데 현재 경로 탐색은 성 타일이 `IsWalkable = false`이므로 **성 인접 타일에서 경로가 끝남**.
+유닛이 인접 타일 중심에서 멈추면 성까지 거리는 0.866f → 0.483f 판정 범위 밖 → 공격 불가.
+
+### 원하는 동작
+유닛이 성 인접 타일에 도달한 후에도 **성 타일 방향으로 계속 Lerp 이동**하다가,
+성까지 거리가 0.483f 이내가 되는 시점에 공격 시작.
+(`maxDist = 0.483f`는 유지, 경로 시스템을 수정)
+
+### 구현 방법
+
+경로 목표가 walkable하지 않은 건물 타일인 경우:
+`RequestMove`에서 인접 walkable 타일까지 정상 경로를 찾은 뒤 **원래 목표 타일을 경로 마지막에 추가**.
+
+```csharp
+// RequestMove 내부 (UnitMovementUseCase)
+List<HexCoord> path = HexPathfinder.FindPath(_grid, unit.Position, target, blocked);
+
+// 목표 타일이 walkable하지 않아 경로가 없는 경우 (예: 성 타일)
+// → 인접 walkable 타일까지 경로를 탐색하고, target을 마지막에 추가
+if ((path == null || path.Count < 2))
+{
+    HexTile goalTile = _grid.GetTile(target);
+    if (goalTile != null && !goalTile.IsWalkable)
+    {
+        // HexPathfinder에 인접 타일까지 경로 탐색 요청
+        path = HexPathfinder.FindPathToNeighbor(_grid, unit.Position, target, blocked);
+        // Count >= 1: 유닛이 이미 최적 인접 타일 위에 있으면 count=1 반환 → 이 경우도 성 타일 추가 필요
+        if (path != null && path.Count >= 1)
+            path.Add(target);   // 성 타일을 마지막에 추가 → Lerp 방향용
+    }
+}
+```
+
+`UnitView.MoveAlongPath`에서 경로의 마지막 타일이 walkable하지 않은 경우:
+- Lerp는 수행 (성 타일 방향으로 이동)
+- `ProcessStep` 호출은 생략 (성 타일 소유권 변경 방지)
+- **`ClaimedTile = to` 설정도 생략** (성 타일을 ClaimedTile로 설정하면 두 번째 이후 유닛이 성 타일을 blocked로 인식하여 접근 불가)
+- 이동 도중 `HasEnemyInRange` = true가 되면 공격 시작 (기존 로직 그대로)
+
+> **ClaimedTile 영향 분석**: ClaimedTile은 `RequestMove` blocked 구성과 `IsTileBlockedBySameTeam` 두 곳에서 읽힘.
+> 성 타일은 walkable하지 않아 아군 유닛이 실제 위치할 수 없으므로, 성 타일에 대한 ClaimedTile 차단은 불필요하며 오히려 후속 유닛의 접근을 막는 부작용이 있음.
+
+`HexPathfinder.FindPathToNeighbor`:
+- goal이 walkable하지 않을 때, goal의 인접 walkable 타일 중 start에서 가장 가까운 타일을 찾아 그곳까지 경로 반환
+- `start == bestCandidate`이면 `[start]` (count=1) 반환 — 유닛이 이미 최적 인접 타일에 있는 경우
+
+### 변경 파일
+| 파일 | 변경 내용 |
+|------|------|
+| `HexPathfinder.cs` | `FindPathToNeighbor()` 메서드 추가 |
+| `UnitMovementUseCase.cs` | `RequestMove`에서 `path.Count >= 2` → `>= 1`로 완화 |
+| `UnitView.cs` | `MoveAlongPath`에서 마지막 non-walkable 타일에 `ProcessStep` 및 `ClaimedTile` 설정 생략 |
+| `UnitCombatUseCase.cs` | 잘못 적용된 `effectiveRange = max(1.0, AttackRange)` 수정 되돌리기 |
+
+---
+
+## 10. 변경 없는 파일
 
 | 파일 | 이유 |
 |------|------|
-| `UnitCombatUseCase.FindFirstEnemyTarget` (세계좌표 주 경로) | maxDist 공식이 이미 임의 float range 지원 |
-| `UnitView.MoveAlongPath` | `HasEnemyInRange` → `FindFirstEnemyTarget` 경유하므로 변경 불필요 |
-| `NetworkCombatController` | `TryFindTarget` / `HasEnemyInRange` 경유하므로 변경 불필요 |
-| `UnitData` | `AttackRange` 필드 이미 float, 변경 불필요 |
-| `HexPathfinder` | blocked 목록은 호출 쪽(UnitMovementUseCase)이 관리 |
+| `UnitData.cs` | AttackRange는 생성자 파라미터로 전달 — 변경 불필요 |
+| `UnitCombatUseCase.FindFirstEnemyTarget` (세계좌표) | maxDist = AttackRange × TileHeight + Epsilon 유지 |
+| `NetworkCombatController.cs` | TryFindTarget/HasEnemyInRange 경유 — 변경 불필요 |
+| `BuildingFactory.cs` | 건물 타입 구조 무관 |
 
 ---
 
-## 5. Inspector 작업 (에디터 스크립트 필요)
-
-코드 구현 후 아래 Inspector 작업 필요:
-- **UnitFactory**: 각 종족 × 팀(6세트)의 `melee` 슬롯에 프리팹 연결
-- **ProductionPanelUI**: 새 버튼/초상화 오브젝트 연결
-
-→ 에디터 1회성 스크립트 또는 수동으로 처리. 프로그래머에게 스크립트 작성 요청.
-
----
-
-## 6. 위험 요소 / 주의사항
+## 10. 위험 요소
 
 | 위험 | 내용 | 대응 |
 |------|------|------|
-| 근접 유닛 경로 충돌 | blocked 미포함 시 근접 유닛이 적 타일로 이동 중 다른 아군도 같은 경로 시도 | 아군 ClaimedTile 차단은 유지 (team==same만 적용) |
-| 같은 타일 겹침 | Lerp t=1.0에 도달 시 ProcessStep이 적 타일로 Position 업데이트 | AttackRange < 1.0 이면 Lerp 중 적을 반드시 감지하므로 t=1 도달 전 정지됨 (Epsilon=0.05f 안전망) |
-| HexCoord 폴백 과탐지 | rangeThreshold=1로 올려서 인접 폴백 발생 | 폴백은 positionProvider null인 엣지 케이스만. 게임 흐름에서 실질적으로 차이 없음 |
-| ProductionPanelUI 레이아웃 | 4번째 버튼 추가 시 기존 3버튼 배치 변경 필요 | Presenter에게 Unity UI 레이아웃 조정 요청 |
-| AttackCooldown 덮어씌움 | UnitFactory가 Animator 클립 길이로 UnitStats 값을 덮어씀 | Melee도 동일하게 동작 — Attack.anim 클립 길이 자동 적용 |
+| UnitType int 캐스팅 | 코드 곳곳에 `(int)UnitType` 또는 switch/case가 있으면 새 enum 값 추가 시 누락 가능 | 구현 전 전체 grep으로 UnitType 사용처 확인 필수 |
+| Inspector 직렬화 | List<UnitPrefabEntry>로 구조 변경 시 기존 Inspector 연결값 초기화 | 에디터 스크립트로 재연결 처리 |
+| ProductionState.AutoEntries | UnitType[] 배열 사용 — 새 enum 값이 자동 포함되지 않음 | 생산 UI 작업 시 함께 처리 (이번 범위 외) |
+| HitFrameTime 다중 히트 | FlameSpirit(6히트), LionKnight(4히트) — 현재 단일 HitFrameTime만 지원 | 첫 히트 프레임 값만 적용, 다중 히트 구현은 별도 작업 |
 
 ---
 
-## 7. 구현 순서 (game-programmer에게 위임)
+## 11. 구현 순서 (game-programmer 위임)
 
-1. `UnitType.cs` — Melee 추가 (컴파일 에러 발생, 하위 항목들이 즉시 필요)
-2. `UnitStats.cs` — Melee 플레이스홀더 추가 (컴파일 복구)
-3. `UnitFactory.cs` — UnitTeamPrefabSet + switch case 추가
-4. `UnitMovementUseCase.cs` — blocked 조건 분기 추가
-5. `UnitCombatUseCase.cs` — HexCoord 폴백 수정
-6. `ProductionPanelUI.cs` — Melee 버튼/초상화/지시자 추가
-7. Inspector 에디터 스크립트 작성 (UnitFactory melee 슬롯 연결 자동화)
+1. UnitType 사용처 전체 grep (switch/case, int 캐스팅 등 누락 가능 지점 파악)
+2. `UnitType.cs` — enum 값 추가
+3. `UnitStats.cs` — Spirit/Transcendence 유닛 스탯 추가
+4. `UnitFactory.cs` — List<UnitPrefabEntry> 구조로 변경
+5. `UnitMovementUseCase.cs` — blocked 조건 수정
+6. `UnitCombatUseCase.cs` — HexCoord 폴백 수정
+7. `SetupUnitFactoryPrefabs.cs` — 에디터 스크립트 재작성
