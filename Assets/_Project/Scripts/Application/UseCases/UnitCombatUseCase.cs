@@ -410,6 +410,29 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// 현재 공격 중인 타겟이 아직 유효한지 확인한다.
+        /// '유효하다'는 것은 타겟이 살아있고 사거리 내에 있다는 의미다.
+        ///
+        /// TickCombat에서 타겟 교체 전에 호출하여,
+        /// 현재 타겟이 살아있는 동안 더 가까운 새 유닛이 나타나도 타겟을 유지하도록 한다.
+        /// </summary>
+        /// <param name="attacker">공격하는 유닛</param>
+        /// <param name="targetId">현재 타겟의 Id</param>
+        /// <param name="targetIsUnit">true=유닛 타겟, false=건물 타겟</param>
+        /// <returns>타겟이 살아있고 사거리 내에 있으면 true, 사망했거나 사거리를 벗어났으면 false</returns>
+        public bool IsCurrentTargetStillValid(UnitData attacker, int targetId, bool targetIsUnit)
+        {
+            // Id로 타겟 도메인 객체 조회 — 이미 사망하여 Dictionary에서 제거됐다면 null 반환
+            IDamageable target = FindTargetById(targetId, targetIsUnit);
+
+            // 타겟이 없거나 사망했으면 유효하지 않음
+            if (target == null || !target.IsAlive) return false;
+
+            // 타겟이 살아있더라도 사거리를 벗어났으면 유효하지 않음
+            return IsTargetInRange(attacker, target);
+        }
+
+        /// <summary>
         /// 공격자의 사거리 내에 타겟이 있는지 판정.
         /// ApplyAttackDamage()에서 딜레이 후 사거리 재확인에 사용.
         /// FindFirstEnemyTarget()과 동일한 거리 판정 기준 (월드 좌표 또는 HexCoord 폴백).

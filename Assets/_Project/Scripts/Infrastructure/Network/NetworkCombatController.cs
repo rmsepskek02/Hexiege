@@ -261,9 +261,14 @@ namespace Hexiege.Infrastructure
                         {
                             if (prev.targetId != targetId)
                             {
-                                // 타겟 변경 → ChangeTarget RPC (회전만 업데이트, 애니메이션 재시작 없음)
-                                _unitCombatTargets[id] = (targetId, isUnit);
-                                ChangeTargetClientRpc(id, targetId, isUnit);
+                                // 현재 타겟이 아직 살아있고 사거리 내에 있으면 교체하지 않는다.
+                                // 새 유닛이 더 가까이 들어왔더라도 현재 타겟을 유지하여 공격 집중도를 보장한다.
+                                // 현재 타겟이 사망했거나 사거리를 벗어난 경우에만 교체를 허용한다.
+                                if (!combat.IsCurrentTargetStillValid(unit, prev.targetId, prev.isUnit))
+                                {
+                                    _unitCombatTargets[id] = (targetId, isUnit);
+                                    ChangeTargetClientRpc(id, targetId, isUnit);
+                                }
                             }
                             // else: 같은 타겟 → RPC 없음 (Attack 루프 유지)
                         }
@@ -287,9 +292,13 @@ namespace Hexiege.Infrastructure
                             var nearestResult = combat.FindNearestEnemy(unit);
                             if (nearestResult.HasValue && nearestResult.Value.id != prev.targetId)
                             {
-                                // 타겟 변경 — 쿨다운 중이어도 방향은 즉시 전환 (규칙 5-2)
-                                _unitCombatTargets[id] = (nearestResult.Value.id, nearestResult.Value.isUnit);
-                                ChangeTargetClientRpc(id, nearestResult.Value.id, nearestResult.Value.isUnit);
+                                // 쿨다운 중에도 타겟 교체 전 동일하게 현재 타겟 유효성을 확인한다.
+                                // 현재 타겟이 살아있고 사거리 내에 있으면 회전 방향도 유지한다.
+                                if (!combat.IsCurrentTargetStillValid(unit, prev.targetId, prev.isUnit))
+                                {
+                                    _unitCombatTargets[id] = (nearestResult.Value.id, nearestResult.Value.isUnit);
+                                    ChangeTargetClientRpc(id, nearestResult.Value.id, nearestResult.Value.isUnit);
+                                }
                             }
                         }
                     }

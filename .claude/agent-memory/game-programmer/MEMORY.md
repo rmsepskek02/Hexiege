@@ -23,6 +23,22 @@
 
 ## 최근 작업
 
+### 원거리 유닛 공격 중 회전 추적 + 폴리싱 (2026-04-11~12) ✅ 실기 완료
+
+**변경 파일**:
+- `Presentation/Unit/UnitView.cs` — `_combatTargetTransform` Transform 참조 저장 + `Update()` RotateTowards(270°/s) + 방어적 백업 ID 필드(`_combatTargetId`, `_combatTargetIsUnit`) + `ChangeTarget()` 즉시 스냅 제거
+- `Application/UseCases/UnitCombatUseCase.cs` — `IsCurrentTargetStillValid(attacker, targetId, targetIsUnit)` public 메서드 추가 (내부적으로 `FindTargetById` + `IsTargetInRange` 조합)
+- `Infrastructure/Network/NetworkCombatController.cs` — `TickCombat` 타겟 교체 2곳에 `IsCurrentTargetStillValid` 가드 추가
+
+**핵심 설계 결정**:
+- Transform 참조 직접 저장 → 팩토리 딕셔너리 매 프레임 조회 없음
+- 서버에서만 rotation 갱신 — 클라이언트 가드: `NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer`
+- RotateTowards(270°/s): DORotate 폐기 이유(이중 보간)와 달리 서버가 직접 값을 변경하므로 NetworkTransform 딜레이만 발생
+- `StartCombatAnimation()` 즉시 스냅 유지, `ChangeTarget()` 즉시 스냅 제거 — Update()가 자연스럽게 전환
+- 타겟 고착성: 현재 타겟 생존+사거리 내이면 더 가까운 새 유닛이 진입해도 교체 안 함
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-11/ranged-unit-rotation-tracking/` (TC MULTI-001~007 전체 PASS)
+
 ### 근접 공격 거리 다듬기 (2026-04-11) ✅ 실기 완료
 
 **변경 파일**:

@@ -123,6 +123,26 @@ namespace Hexiege.Presentation
         /// <summary> 현재 이동 코루틴. null이면 정지 상태. </summary>
         private Coroutine _moveCoroutine;
 
+        /// <summary>
+        /// 공격 중 타겟 추적용 Transform 참조.
+        /// 공격 시작 시 타겟 GameObject의 Transform을 저장하여,
+        /// Update()에서 매 프레임 이 참조의 position을 읽어 회전 갱신.
+        /// 팩토리 딕셔너리를 매 프레임 조회하는 대신 Transform 참조를 직접 사용하여 효율적.
+        /// 타겟 오브젝트 파괴 시 Unity가 자동으로 null 처리.
+        /// </summary>
+        private Transform _combatTargetTransform = null;
+
+        // 공격 중 타겟 방향으로 회전하는 속도 (초당 각도).
+        // 270도/s 기준: 반대 방향(180도)에서도 약 0.67초 내 전환 완료.
+        // 수치 조정 시 이 상수만 변경하면 됨.
+        private const float CombatRotationSpeed = 270f;
+
+        // [방어적 백업] Transform 참조가 null이 될 경우 팩토리에서 재조회하기 위한 ID 백업.
+        // 멀티플레이 타이밍 문제(StopCombatAnimation / ChangeTarget 호출 순서 역전 등)로
+        // _combatTargetTransform이 null로 덮어써지는 경우에도 추적을 복구할 수 있도록 한다.
+        private int _combatTargetId = -1;
+        private bool _combatTargetIsUnit = true;
+
         /// <summary> 현재 이동 중인지 여부. InputHandler에서 이동 명령 중복 방지에 사용. </summary>
         public bool IsMoving => _moveCoroutine != null;
 
@@ -134,6 +154,62 @@ namespace Hexiege.Presentation
         /// ProductionTicker에서 랠리→Castle 자동 이동 체인에 사용.
         /// </summary>
         public Action OnMoveComplete { get; set; }
+
+        // ====================================================================
+        // 매 프레임 업데이트
+        // ====================================================================
+
+        /// <summary>
+        /// 공격 중 타겟 방향으로 매 프레임 회전 갱신.
+        /// _combatTargetTransform이 null이면(공격 중 아님 또는 타겟 파괴) 즉시 리턴.
+        ///
+        /// 멀티플레이:
+        ///   서버에서만 transform.rotation을 갱신하고,
+        ///   NetworkTransform이 이 값을 클라이언트에 보간 전달.
+        ///   클라이언트에서 직접 rotation을 쓰면 NetworkTransform과 충돌하여
+        ///   이전에 제거한 "클라이언트 자체 회전 로직" 문제가 재발하므로 건너뜀.
+        ///
+        /// 싱글플레이:
+        ///   NetworkContext.IsNetworkActive == false이므로 가드 없이 매 프레임 실행.
+        /// </summary>
+        private void Update()
+        {
+            // Transform 참조가 null인 경우, 백업 ID로 재조회를 시도한다.
+            // 멀티플레이 타이밍 문제 등으로 _combatTargetTransform이 null로 덮어써진 경우
+            // 다음 프레임에 자동으로 복구하기 위한 방어적 처리.
+            if (_combatTargetTransform == null)
+            {
+                // 백업 ID가 유효하지 않으면 추적 대상 없음 — 즉시 리턴
+                if (_combatTargetId == -1) return;
+
+                // 백업 ID로 Transform 재조회 시도
+                _combatTargetTransform = GetTargetTransform(_combatTargetId, _combatTargetIsUnit);
+
+                // 재조회 실패 → 진짜 없는 타겟이므로 ID도 초기화하고 추적 완전 중단
+                if (_combatTargetTransform == null)
+                {
+                    _combatTargetId = -1;
+                    return;
+                }
+            }
+
+            // 멀티플레이 클라이언트에서는 rotation을 직접 쓰지 않는다.
+            // NetworkTransform이 서버 rotation을 자동으로 클라이언트에 동기화하므로,
+            // 클라이언트가 직접 rotation을 쓰면 NetworkTransform과 충돌한다.
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+
+            // 매 프레임 타겟 방향으로 유닛을 부드럽게 회전시킨다.
+            // Quaternion.RotateTowards: 현재 회전에서 목표 회전으로 초당 CombatRotationSpeed 각도만큼 이동.
+            // 타겟이 멀리 있을수록 회전이 느리게 보이지만, 일반적인 유닛 이동 속도에서는 즉각 추적처럼 보임.
+            // 타겟 교체 시(ChangeTarget) 방향이 크게 바뀌어도 자연스럽게 전환.
+            float angle = CalculateAttackAngle(_combatTargetTransform.position);
+            Quaternion targetRotation = Quaternion.Euler(0f, angle, 0f);
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation,
+                targetRotation,
+                CombatRotationSpeed * Time.deltaTime
+            );
+        }
 
         // ====================================================================
         // 초기화
@@ -292,6 +368,18 @@ namespace Hexiege.Presentation
 
             // fallback: 팩토리 미등록 또는 이미 파괴된 경우 현재 forward 방향
             return transform.position + transform.forward;
+        }
+
+        /// <summary>
+        /// targetId와 타입으로 실제 GameObject의 Transform 조회.
+        /// 팩토리에 등록되지 않았거나 이미 파괴된 경우 null 반환.
+        /// </summary>
+        private Transform GetTargetTransform(int targetId, bool targetIsUnit)
+        {
+            GameObject obj = targetIsUnit
+                ? _unitFactory?.GetUnitObject(targetId)
+                : _buildingFactory?.GetBuildingObject(targetId);
+            return obj != null ? obj.transform : null;
         }
 
         // ====================================================================
@@ -663,6 +751,14 @@ namespace Hexiege.Presentation
                 _animator.speed = 1f;
                 _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0);
             }
+
+            // 공격 중 타겟 Transform 참조 저장 → Update()에서 매 프레임 추적
+            _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
+
+            // 멀티플레이 타이밍 문제 대비: Transform 참조가 나중에 null이 되더라도
+            // 백업 ID로 재조회할 수 있도록 ID를 저장한다.
+            _combatTargetId = targetId;
+            _combatTargetIsUnit = targetIsUnit;
         }
 
         /// <summary>
@@ -679,9 +775,12 @@ namespace Hexiege.Presentation
         {
             if (_unitData == null || !_unitData.IsAlive) return;
 
-            // 새 타겟 방향으로 즉시 스냅 회전
-            float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
-            transform.rotation = Quaternion.Euler(0f, angle, 0f);
+            // 추적 대상을 새 타겟으로 교체 → Update()가 새 타겟 방향 추적 시작
+            _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
+
+            // 새 타겟의 ID로 백업을 갱신한다.
+            _combatTargetId = targetId;
+            _combatTargetIsUnit = targetIsUnit;
         }
 
         /// <summary>
@@ -703,6 +802,12 @@ namespace Hexiege.Presentation
         /// </summary>
         public void StopCombatAnimation()
         {
+            // 회전 추적 중단 — null로 초기화하면 Update()가 자동으로 건너뜀
+            _combatTargetTransform = null;
+
+            // Transform 참조와 함께 백업 ID도 초기화하여 Update()의 재조회 시도를 차단한다.
+            _combatTargetId = -1;
+
             // 의도적으로 비워둠 — 위 summary 참조.
         }
     }
