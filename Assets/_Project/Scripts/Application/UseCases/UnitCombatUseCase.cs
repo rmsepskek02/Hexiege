@@ -25,6 +25,17 @@ namespace Hexiege.Application
     /// </summary>
     public class UnitCombatUseCase
     {
+        // 근접 유닛(AttackRange < 1.0) 전용 판정 거리 상수.
+        // 유닛 타겟: 두 유닛 메시가 시각적으로 닿아 보이는 최소 거리.
+        // 기존 0.483f(AttackRange 0.5 × TileHeight 0.866)에서는 두 유닛 사이에 시각적 여백이 생기므로,
+        // 메시가 실제로 맞닿아 보이는 0.3f로 줄여서 자연스러운 근접 공격 연출을 달성.
+        private const float MeleeContactDist = 0.3f;
+
+        // 건물 타겟: 건물 메시가 유닛보다 크므로 유닛 타겟보다 일찍 감지해도 시각적으로 자연스러움.
+        // MeleeContactDist + BuildingDetectionRadius = 0.5f 거리에서 건물 공격 시작.
+        // 건물 메시가 크기 때문에 0.2f 일찍 감지해도 유닛이 건물 메시에 닿아 보임.
+        private const float BuildingDetectionRadius = 0.2f;
+
         private readonly HexGrid _grid;
         private readonly UnitSpawnUseCase _unitSpawn;
         private readonly BuildingPlacementUseCase _buildingPlacement;
@@ -266,15 +277,25 @@ namespace Hexiege.Application
                 return FindFirstEnemyTargetByHexCoord(attacker);
 
             // FlatTop 인접 타일 월드 거리 = TileHeight(0.866f)
-            // AttackRange × TileHeight: 타일 중심 간 정확한 거리 기준
             // Epsilon: 인접 타일 거리(0.866) = Pistoleer maxDist(0.866) 경계 케이스 부동소수점 오차 방지
             const float Epsilon = 0.05f;
-            float maxDist = attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
+
+            // 근접 유닛(AttackRange < 1.0)은 타겟 타입에 따라 판정 거리를 분리.
+            //   유닛 타겟: MeleeContactDist(0.3f) — 두 유닛 메시가 시각적으로 닿는 거리
+            //   건물 타겟: MeleeContactDist + BuildingDetectionRadius(0.2f) — 건물 메시가 크므로 일찍 감지
+            // 원거리 유닛(AttackRange >= 1.0)은 기존 AttackRange × TileHeight 계산 유지.
+            bool isMelee = attacker.AttackRange < 1.0f;
+            float unitMaxDist = isMelee
+                ? MeleeContactDist + Epsilon
+                : attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
+            float buildingMaxDist = isMelee
+                ? MeleeContactDist + BuildingDetectionRadius + Epsilon
+                : attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
 
             IDamageable closestTarget = null;
             float minWorldDist = float.MaxValue;
 
-            // 1. 모든 적 유닛 탐색 (월드 좌표 기반)
+            // 1. 모든 적 유닛 탐색 (월드 좌표 기반, unitMaxDist 사용)
             foreach (var unit in _unitSpawn.Units.Values)
             {
                 if (unit.Team == attacker.Team || !unit.IsAlive) continue;
@@ -287,14 +308,14 @@ namespace Hexiege.Application
 
                 float dist = Vector3.Distance(attackerWorldPos, targetPos);
 
-                if (dist <= maxDist && dist < minWorldDist)
+                if (dist <= unitMaxDist && dist < minWorldDist)
                 {
                     minWorldDist = dist;
                     closestTarget = unit;
                 }
             }
 
-            // 2. 모든 적 건물 탐색 (건물은 이동하지 않으므로 월드 좌표 사용 가능)
+            // 2. 모든 적 건물 탐색 (건물은 이동하지 않으므로 월드 좌표 사용 가능, buildingMaxDist 사용)
             foreach (var building in _buildingPlacement.Buildings.Values)
             {
                 if (building.Team == attacker.Team || !building.IsAlive) continue;
@@ -307,7 +328,7 @@ namespace Hexiege.Application
 
                 float dist = Vector3.Distance(attackerWorldPos, targetPos);
 
-                if (dist <= maxDist && dist < minWorldDist)
+                if (dist <= buildingMaxDist && dist < minWorldDist)
                 {
                     minWorldDist = dist;
                     closestTarget = building;
@@ -399,10 +420,20 @@ namespace Hexiege.Application
         private bool IsTargetInRange(UnitData attacker, IDamageable target)
         {
             // FlatTop 인접 타일 월드 거리 = TileHeight(0.866f)
-            // AttackRange x TileHeight: 타일 중심 간 정확한 거리 기준
             // Epsilon: 경계 케이스 부동소수점 오차 방지 (Pistoleer 0.866 = FlatTop 인접 거리)
             const float Epsilon = 0.05f;
-            float maxDist = attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
+
+            // FindFirstEnemyTarget과 동일한 타겟 타입별 거리 분리 로직.
+            // target이 BuildingData이면 건물 판정 거리(MeleeContactDist + BuildingDetectionRadius),
+            // 그 외(UnitData)이면 유닛 판정 거리(MeleeContactDist) 사용.
+            // 원거리 유닛(AttackRange >= 1.0)은 기존 AttackRange × TileHeight 계산 유지.
+            bool isMelee = attacker.AttackRange < 1.0f;
+            bool targetIsBuilding = target is BuildingData;
+            float maxDist = isMelee
+                ? (targetIsBuilding
+                    ? MeleeContactDist + BuildingDetectionRadius + Epsilon
+                    : MeleeContactDist + Epsilon)
+                : attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
 
             // _positionProvider가 있으면 월드 좌표 기반 판정 (Lerp 중에도 정확)
             if (_positionProvider != null)

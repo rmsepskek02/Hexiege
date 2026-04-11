@@ -23,6 +23,18 @@
 
 ## 최근 작업
 
+### 근접 공격 거리 다듬기 (2026-04-11) ✅ 실기 완료
+
+**변경 파일**:
+- `Application/UseCases/UnitCombatUseCase.cs` — `MeleeContactDist = 0.3f`, `BuildingDetectionRadius = 0.2f` 상수 추가. `FindFirstEnemyTarget`에서 `unitMaxDist`/`buildingMaxDist` 분리. `IsTargetInRange`에서 동일 분기 적용.
+
+**핵심 설계 결정**:
+- 근접(range < 1.0) vs 유닛: 0.35f / vs 건물: 0.55f
+- 원거리(range ≥ 1.0): 기존 `AttackRange * TileHeight + Epsilon` 유지
+- `isMelee = attacker.AttackRange < 1.0f` 분기로 완전 보호
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-11/melee-attack-distance/`
+
 ### UnitType 개편 + 근접 사거리 시스템 (2026-04-10~11) ✅ 싱글/멀티 실기 완료
 
 **변경 파일**:
