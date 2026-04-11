@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: e9db18996acdf9c46be89075a61a79ec
+guid: 2b1aa4a2dad392245a76ac799c329b29
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -5752061386434869626
-    second: Nature Shrine_blue_0
+      213: -3036207801630890547
+    second: flamespirit_portrait_blue_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Nature Shrine_blue_0
+      name: flamespirit_portrait_blue_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1200
-        height: 1280
+        width: 1024
+        height: 1024
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 6860f4f05a29c20b0800000000000000
-      internalID: -5752061386434869626
+      spriteID: dc5658747193dd5d0800000000000000
+      internalID: -3036207801630890547
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Nature Shrine_blue_0: -5752061386434869626
+      flamespirit_portrait_blue_0: -3036207801630890547
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

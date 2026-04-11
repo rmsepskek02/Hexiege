@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-04-11
-**현재 단계:** 근접 공격 거리 다듬기 완료. 유닛 vs 유닛 0.35f, 유닛 vs 건물 0.55f로 타겟 타입별 분리. 생산 패널 Spirit/Transcendence 초상화 스프라이트 미제작.
+**최종 수정일:** 2026-04-12
+**현재 단계:** 원거리 유닛 공격 중 회전 추적 + 타겟 고착성 + 부드러운 회전 전환 완료 (멀티플레이 실기 MULTI-001~007 전체 PASS). 생산 패널 Spirit/Transcendence 초상화 스프라이트 미제작.
 
 ---
 
@@ -21,7 +21,7 @@
 | 🟢 낮음 | 재접속 실제 구현 | 기능 | 중 |
 | ~~🟡 중간~~ | ~~3종족 시스템 — 종족 선택 UI + 인게임 종족별 유닛/건물 반영~~ | ✅ 완료 (2026-04-07) | - |
 | ~~🟡 중간~~ | ~~UnitType 개편 + 근접 사거리 시스템~~ | ✅ 완료 (2026-04-11) | - |
-| 🟡 중간 | 생산 패널 Spirit/Transcendence 초상화 스프라이트 제작 + 연결 | 에셋+UI | 소 |
+| ~~🟡 중간~~ | ~~생산 패널 Spirit/Transcendence 초상화 스프라이트 제작 + 연결~~ | ✅ 완료 (2026-04-12) | - |
 | 🟡 중간 | Spirit/Transcendence HP/ATK/생산비용 확정 (StatsReference.md) | 기획 | 소 |
 | ⬜ 백로그 | 방어/마법 타워 | 기능 | 대 |
 | ⬜ 백로그 | 사운드/BGM | 기능 | 중 |
@@ -176,3 +176,7 @@
 | 2026-04-06 | 종족명 자연→초월 변경 (Nature→Transcendence enum 전체 rename) |
 | 2026-04-06 | Pistoleer Idle 애니메이션 버그 수정 (Pistoleer.controller Idle m_Speed 0→1) |
 | 2026-04-07 | 종족 인게임 적용 완료 (UnitFactory/BuildingFactory 종족별 6세트 분기, MiningPost 종족별 분기, 오브젝트 이름 실제 프리팹명 반영, 에디터 자동 연결 스크립트, 싱글/멀티 실기 PASS) |
+| 2026-04-11 | UnitType 개편 + 근접 사거리 시스템 완료 (9종 독립 enum, FindPathToNeighbor, ClaimedTile non-walkable 예외, 멀티 실기 PASS) |
+| 2026-04-11 | 근접 공격 거리 다듬기 완료 (MeleeContactDist=0.3f, BuildingDetectionRadius=0.2f, 타겟 타입별 분리) |
+| 2026-04-11~12 | 원거리 유닛 공격 중 회전 추적 완료 (Transform 참조 저장, Update() RotateTowards 270°/s, 타겟 고착성, 멀티플레이 타이밍 방어, 멀티 실기 MULTI-001~007 전체 PASS) |
+| 2026-04-12 | 종족+팀별 건물/유닛 초상화 완료 (BuildingRacePortraitSet 6세트, ProductionPanelUI 슬롯 순서 확정, Spirit/Transcendence 스프라이트 Inspector 연결, Spirit Blue ManaRift 제외) |

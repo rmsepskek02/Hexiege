@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: e198024ec12efd84d98afb83b25134e0
+guid: 4b0015b373cc519479c4b4cd43bc94f5
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 9127657552971975479
-    second: Gemini_Generated_Image_qaju08qaju08qaju-Photoroom_0
+      213: -995443695787624477
+    second: bld_spiritnexus_red_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Gemini_Generated_Image_qaju08qaju08qaju-Photoroom_0
+      name: bld_spiritnexus_red_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 0
-        width: 1024
-        height: 1024
+        y: 26
+        width: 1280
+        height: 1254
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 73b4e4c1f24fbae70800000000000000
-      internalID: 9127657552971975479
+      spriteID: 3e73da69b397f22f0800000000000000
+      internalID: -995443695787624477
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Gemini_Generated_Image_qaju08qaju08qaju-Photoroom_0: 9127657552971975479
+      bld_spiritnexus_red_0: -995443695787624477
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

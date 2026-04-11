@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 4971568888c6b894f964f3f5490e74a3
+guid: 7e7ef430ca3948e4ab5af22ae3c78517
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -4577971050805380079
-    second: Gemini_Generated_Image_dvz4lcdvz4lcdvz4-Photoroom_0
+      213: 3784324130366876711
+    second: bld_eldertree_blue_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Gemini_Generated_Image_dvz4lcdvz4lcdvz4-Photoroom_0
+      name: bld_eldertree_blue_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 127
+        y: 0
         width: 1280
-        height: 1153
+        height: 1280
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 11c39bc9597c770c0800000000000000
-      internalID: -4577971050805380079
+      spriteID: 72ce4711fbe948430800000000000000
+      internalID: 3784324130366876711
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Gemini_Generated_Image_dvz4lcdvz4lcdvz4-Photoroom_0: -4577971050805380079
+      bld_eldertree_blue_0: 3784324130366876711
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: d25f22d412b816941a2d37df935fe17b
+guid: e198024ec12efd84d98afb83b25134e0
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 6226337846356486884
-    second: Gemini_Generated_Image_bl9vatbl9vatbl9v-Photoroom_0
+      213: 9127657552971975479
+    second: flamespirit_portrait_red_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Gemini_Generated_Image_bl9vatbl9vatbl9v-Photoroom_0
+      name: flamespirit_portrait_red_0
       rect:
         serializedVersion: 2
-        x: 50
-        y: 27
-        width: 1197
-        height: 1150
+        x: 0
+        y: 0
+        width: 1024
+        height: 1024
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 4ea26af5845686650800000000000000
-      internalID: 6226337846356486884
+      spriteID: 73b4e4c1f24fbae70800000000000000
+      internalID: 9127657552971975479
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Gemini_Generated_Image_bl9vatbl9vatbl9v-Photoroom_0: 6226337846356486884
+      flamespirit_portrait_red_0: 9127657552971975479
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

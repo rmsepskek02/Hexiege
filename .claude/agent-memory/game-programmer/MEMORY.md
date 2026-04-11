@@ -23,6 +23,23 @@
 
 ## 최근 작업
 
+### 건물/유닛 초상화 종족+팀 기반 표시 (2026-04-12) ✅ 실기 완료
+
+**변경 파일**:
+- `Presentation/UI/BuildingPlacementUI.cs` — `BuildingPortraitSet` → `BuildingRacePortraitSet`(barracks+miningPost 필드)으로 교체, Inspector 팀×종족 6세트 필드 추가, `UpdateButtonPortraits()`에 `GameRaceContext` 조회 추가, `GetBuildingPortraitSet()` 신규 메서드
+- `Presentation/UI/ProductionPanelUI.cs` — `BindButtonUnitTypes()` 슬롯 순서 변경 (Spirit: EmberSpirit→FlameSpirit→InfernoSpirit / Transcendence: FoxMagician→BearGuard→LionKnight)
+
+**핵심 설계 결정**:
+- `BuildingRacePortraitSet` 필드명은 BuildingType(barracks/miningPost) 기준 — 종족별 외형명(SummoningAltar 등) 아님. UpdateButtonPortraits에서 종족 무관하게 `set.barracks`로 통일 접근 가능
+- `ProductionPanelUI.GetPortraitSet()` 패턴과 동일하게 팀×종족 switch 6분기
+- `GameRaceContext`(Infrastructure 정적 홀더)는 Presentation에서 참조 허용 — 레이어 위반 없음
+
+**Inspector 연결 확정 슬롯 순서**:
+- Spirit: slot1=EmberSpirit, slot2=FlameSpirit, slot3=InfernoSpirit
+- Transcendence: slot1=FoxMagician, slot2=BearGuard, slot3=LionKnight
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-11/building-portrait-race-support/`
+
 ### 원거리 유닛 공격 중 회전 추적 + 폴리싱 (2026-04-11~12) ✅ 실기 완료
 
 **변경 파일**:

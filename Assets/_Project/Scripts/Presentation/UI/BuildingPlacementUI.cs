@@ -62,23 +62,42 @@ namespace Hexiege.Presentation
         [Tooltip("배럭 버튼 초상화 Image 컴포넌트")]
         [SerializeField] private Image _barracksButtonPortrait;
 
-        [Tooltip("채굴소 버튼 초상화 Image 컴포넌트 (팀 무관 고정)")]
+        [Tooltip("채굴소 버튼 초상화 Image 컴포넌트")]
         [SerializeField] private Image _miningPostButtonPortrait;
 
-        [Header("Building Portraits")]
-        [SerializeField] private BuildingPortraitSet _bluePortraits;
-        [SerializeField] private BuildingPortraitSet _redPortraits;
+        [Header("Building Portraits — 종족+팀별 (팀×종족 = 6세트)")]
 
-        [Tooltip("채굴소 초상화 (팀 구분 없음)")]
-        [SerializeField] private Sprite _miningPostPortrait;
+        [Tooltip("Blue 팀 — 인간 종족 건물 초상화")]
+        [SerializeField] private BuildingRacePortraitSet _blueHumanPortraits;
+
+        [Tooltip("Blue 팀 — 정령 종족 건물 초상화")]
+        [SerializeField] private BuildingRacePortraitSet _blueSpiritPortraits;
+
+        [Tooltip("Blue 팀 — 초월 종족 건물 초상화")]
+        [SerializeField] private BuildingRacePortraitSet _blueTranscendencePortraits;
+
+        [Tooltip("Red 팀 — 인간 종족 건물 초상화")]
+        [SerializeField] private BuildingRacePortraitSet _redHumanPortraits;
+
+        [Tooltip("Red 팀 — 정령 종족 건물 초상화")]
+        [SerializeField] private BuildingRacePortraitSet _redSpiritPortraits;
+
+        [Tooltip("Red 팀 — 초월 종족 건물 초상화")]
+        [SerializeField] private BuildingRacePortraitSet _redTranscendencePortraits;
 
         /// <summary>
-        /// 팀별 건물 초상화 스프라이트 세트 (배럭만 팀 구분).
+        /// 종족+팀별 건물 초상화 스프라이트 세트.
+        /// 배럭과 채굴소 각각 종족마다 외형이 다르므로 종족별 스프라이트를 보유.
+        /// Inspector에서 팀×종족 = 6세트를 설정.
         /// </summary>
         [System.Serializable]
-        public struct BuildingPortraitSet
+        public struct BuildingRacePortraitSet
         {
+            [Tooltip("배럭(병영) 초상화 스프라이트")]
             public Sprite barracks;
+
+            [Tooltip("채굴소 초상화 스프라이트")]
+            public Sprite miningPost;
         }
 
         // ====================================================================
@@ -183,12 +202,50 @@ namespace Hexiege.Presentation
             _sharedBackground?.Register(Close);
         }
 
-        /// <summary> 팀에 맞는 초상화 스프라이트를 버튼 Image에 적용. Show() 시 호출. </summary>
+        /// <summary>
+        /// 팀과 종족에 맞는 초상화 스프라이트를 버튼 Image에 적용.
+        /// Show() 호출 시 실행되어, 현재 팀의 종족에 해당하는 건물 이미지를 버튼에 세팅.
+        /// GameRaceContext에서 팀별 종족을 조회하여 6세트 중 적절한 세트를 선택.
+        /// </summary>
         private void UpdateButtonPortraits(TeamId team)
         {
-            var set = team == TeamId.Blue ? _bluePortraits : _redPortraits;
+            // GameRaceContext에서 해당 팀의 종족을 조회
+            RaceId race = team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+
+            // 팀×종족 조합에 맞는 초상화 세트를 가져옴
+            var set = GetBuildingPortraitSet(team, race);
+
             if (_barracksButtonPortrait   != null) _barracksButtonPortrait.sprite   = set.barracks;
-            if (_miningPostButtonPortrait != null) _miningPostButtonPortrait.sprite  = _miningPostPortrait;
+            if (_miningPostButtonPortrait != null) _miningPostButtonPortrait.sprite = set.miningPost;
+        }
+
+        /// <summary>
+        /// 팀과 종족 조합으로 6세트 중 해당하는 BuildingRacePortraitSet을 반환.
+        /// Blue 팀 3종족(Human/Spirit/Transcendence) + Red 팀 3종족 = 총 6세트.
+        /// ProductionPanelUI.GetPortraitSet()과 동일한 패턴.
+        /// </summary>
+        private BuildingRacePortraitSet GetBuildingPortraitSet(TeamId team, RaceId race)
+        {
+            if (team == TeamId.Blue)
+            {
+                return race switch
+                {
+                    RaceId.Spirit        => _blueSpiritPortraits,
+                    RaceId.Transcendence => _blueTranscendencePortraits,
+                    _                    => _blueHumanPortraits   // Human 또는 기본값
+                };
+            }
+            else
+            {
+                return race switch
+                {
+                    RaceId.Spirit        => _redSpiritPortraits,
+                    RaceId.Transcendence => _redTranscendencePortraits,
+                    _                    => _redHumanPortraits    // Human 또는 기본값
+                };
+            }
         }
 
         /// <summary>

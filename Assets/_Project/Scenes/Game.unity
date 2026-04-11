@@ -1181,11 +1181,24 @@ MonoBehaviour:
   _cancelButton: {fileID: 1195566246}
   _barracksButtonPortrait: {fileID: 1363746487}
   _miningPostButtonPortrait: {fileID: 2100775478}
-  _bluePortraits:
+  _blueHumanPortraits:
     barracks: {fileID: 21300000, guid: e8f9e6348cb03994c975b24ee013a435, type: 3}
-  _redPortraits:
+    miningPost: {fileID: 21300000, guid: 9266774e2b3975747bb4e93e46c1df75, type: 3}
+  _blueSpiritPortraits:
+    barracks: {fileID: 6226337846356486884, guid: d25f22d412b816941a2d37df935fe17b, type: 3}
+    miningPost: {fileID: 0}
+  _blueTranscendencePortraits:
+    barracks: {fileID: -6574315814877885776, guid: c89dc1cdeb86cbf42b76c543968e703e, type: 3}
+    miningPost: {fileID: -5752061386434869626, guid: e9db18996acdf9c46be89075a61a79ec, type: 3}
+  _redHumanPortraits:
     barracks: {fileID: 21300000, guid: a6b81200f0c31494cb869cff99862581, type: 3}
-  _miningPostPortrait: {fileID: 21300000, guid: 9266774e2b3975747bb4e93e46c1df75, type: 3}
+    miningPost: {fileID: 21300000, guid: 9266774e2b3975747bb4e93e46c1df75, type: 3}
+  _redSpiritPortraits:
+    barracks: {fileID: -5001776243631063066, guid: 4c72244de66113c4faa574bd996ba5e3, type: 3}
+    miningPost: {fileID: -4577971050805380079, guid: 4971568888c6b894f964f3f5490e74a3, type: 3}
+  _redTranscendencePortraits:
+    barracks: {fileID: 5578428862838348633, guid: 18c08b3b7ab0ff24e8cce340d964a2b0, type: 3}
+    miningPost: {fileID: -3721942967934581033, guid: a3d403c78e55a4543bf709ab724a42a6, type: 3}
 --- !u!114 &227464725
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -13649,25 +13662,25 @@ MonoBehaviour:
     slot2: {fileID: -8900940657331140977, guid: 7d2baad69fc6fd04493b7b78ef7df91b, type: 3}
     slot3: {fileID: -7208874421070970473, guid: a1e339d39db0f2e4c9f56bb18e0ff3d3, type: 3}
   _blueSpiritPortraits:
-    slot1: {fileID: 0}
-    slot2: {fileID: 0}
-    slot3: {fileID: 0}
+    slot1: {fileID: -4099776283103414008, guid: abce9f16dd8678f4180a99a373cb8df2, type: 3}
+    slot2: {fileID: -3036207801630890547, guid: 2b1aa4a2dad392245a76ac799c329b29, type: 3}
+    slot3: {fileID: -8239309549142863081, guid: 040625b604329df40abec66ea226785f, type: 3}
   _blueTranscendencePortraits:
-    slot1: {fileID: 0}
-    slot2: {fileID: 0}
-    slot3: {fileID: 0}
+    slot1: {fileID: -2163166588155786484, guid: 7b9a95ab04ccbe24dbe58dc518cedda3, type: 3}
+    slot2: {fileID: 8252298987967679434, guid: 6d90fa4a893f2314d8a59a3583b6e132, type: 3}
+    slot3: {fileID: -1152581855206450740, guid: 7cf091e27a8e8f84f8ec3c44d83223f0, type: 3}
   _redHumanPortraits:
     slot1: {fileID: 7968803128098716551, guid: 7a7ccc4d8964a394394447c57afed362, type: 3}
     slot2: {fileID: -4801683537869166604, guid: d601df278dd444844a3ef10334ed8ac0, type: 3}
     slot3: {fileID: 7802184514867898871, guid: b70d2b06e4b805043adb30ab9fb218c2, type: 3}
   _redSpiritPortraits:
-    slot1: {fileID: 0}
-    slot2: {fileID: 0}
-    slot3: {fileID: 0}
+    slot1: {fileID: -7461552873464449196, guid: 7679b45030e44624d807605074f7726c, type: 3}
+    slot2: {fileID: 9127657552971975479, guid: e198024ec12efd84d98afb83b25134e0, type: 3}
+    slot3: {fileID: 329166255586258835, guid: 848153b33782b284089d46d1ecc47d08, type: 3}
   _redTranscendencePortraits:
-    slot1: {fileID: 0}
-    slot2: {fileID: 0}
-    slot3: {fileID: 0}
+    slot1: {fileID: 2024143039362228048, guid: a6b8810dd0df3b444874f42eccc121a9, type: 3}
+    slot2: {fileID: -8837296201493843292, guid: 2f8d4ba09b9d6974aade96f93dcb8c8e, type: 3}
+    slot3: {fileID: 8511990976328827468, guid: b3a2044d3a7ce9043ac737e3f11bcf7d, type: 3}
   _progressFill: {fileID: 1043901890}
   _goldText: {fileID: 275063331}
   _populationText: {fileID: 257469112}

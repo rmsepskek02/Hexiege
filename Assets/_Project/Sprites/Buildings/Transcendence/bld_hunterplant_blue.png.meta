@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 848153b33782b284089d46d1ecc47d08
+guid: c89dc1cdeb86cbf42b76c543968e703e
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 329166255586258835
-    second: Gemini_Generated_Image_k2vghlk2vghlk2vg-Photoroom_0
+      213: -6574315814877885776
+    second: bld_hunterplant_blue_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Gemini_Generated_Image_k2vghlk2vghlk2vg-Photoroom_0
+      name: bld_hunterplant_blue_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1024
-        height: 1024
+        width: 1280
+        height: 1280
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 39fa34827fe619400800000000000000
-      internalID: 329166255586258835
+      spriteID: 0ba88fc399653c4a0800000000000000
+      internalID: -6574315814877885776
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Gemini_Generated_Image_k2vghlk2vghlk2vg-Photoroom_0: 329166255586258835
+      bld_hunterplant_blue_0: -6574315814877885776
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

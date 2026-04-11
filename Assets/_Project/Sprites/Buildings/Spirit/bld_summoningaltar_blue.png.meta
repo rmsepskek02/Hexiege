@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: c89dc1cdeb86cbf42b76c543968e703e
+guid: d25f22d412b816941a2d37df935fe17b
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -6574315814877885776
-    second: War Totem_blue_0
+      213: 6226337846356486884
+    second: bld_summoningaltar_blue_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: War Totem_blue_0
+      name: bld_summoningaltar_blue_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 1280
-        height: 1280
+        x: 50
+        y: 27
+        width: 1197
+        height: 1150
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 0ba88fc399653c4a0800000000000000
-      internalID: -6574315814877885776
+      spriteID: 4ea26af5845686650800000000000000
+      internalID: 6226337846356486884
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      War Totem_blue_0: -6574315814877885776
+      bld_summoningaltar_blue_0: 6226337846356486884
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

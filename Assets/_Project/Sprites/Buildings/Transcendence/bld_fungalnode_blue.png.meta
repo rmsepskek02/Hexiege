@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 7679b45030e44624d807605074f7726c
+guid: e9db18996acdf9c46be89075a61a79ec
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -7461552873464449196
-    second: Gemini_Generated_Image_4s8h864s8h864s8h-Photoroom_0
+      213: -5752061386434869626
+    second: bld_fungalnode_blue_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Gemini_Generated_Image_4s8h864s8h864s8h-Photoroom_0
+      name: bld_fungalnode_blue_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1024
-        height: 1024
+        width: 1200
+        height: 1280
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 4573b50d13d337890800000000000000
-      internalID: -7461552873464449196
+      spriteID: 6860f4f05a29c20b0800000000000000
+      internalID: -5752061386434869626
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Gemini_Generated_Image_4s8h864s8h864s8h-Photoroom_0: -7461552873464449196
+      bld_fungalnode_blue_0: -5752061386434869626
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

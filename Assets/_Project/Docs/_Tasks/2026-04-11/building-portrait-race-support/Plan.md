@@ -135,12 +135,17 @@ private BuildingRacePortraitSet GetBuildingPortraitSet(TeamId team, RaceId race)
 
 ### ProductionPanelUI Inspector (기존 필드에 연결)
 
+슬롯 순서 (2026-04-12 사용자 확정):
+
 | 필드 | slot1 | slot2 | slot3 |
 |------|-------|-------|-------|
-| `_blueSpiritPortraits` | flamespirit_portrait_blue | emberspirit_portrait_blue | infernospirit_portrait_blue |
-| `_blueTranscendencePortraits` | bearguard_portrait_blue | foxmagician_portrait_blue | lionknight_portrait_blue |
-| `_redSpiritPortraits` | flamespirit_portrait_red | emberspirit_portrait_red | infernospirit_portrait_red |
-| `_redTranscendencePortraits` | bearguard_portrait_red | foxmagician_portrait_red | lionknight_portrait_red |
+| `_blueSpiritPortraits` | emberspirit_portrait_blue | flamespirit_portrait_blue | infernospirit_portrait_blue |
+| `_blueTranscendencePortraits` | foxmagician_portrait_blue | bearguard_portrait_blue | lionknight_portrait_blue |
+| `_redSpiritPortraits` | emberspirit_portrait_red | flamespirit_portrait_red | infernospirit_portrait_red |
+| `_redTranscendencePortraits` | foxmagician_portrait_red | bearguard_portrait_red | lionknight_portrait_red |
+
+> Spirit: slot1=EmberSpirit, slot2=FlameSpirit, slot3=InfernoSpirit
+> Transcendence: slot1=FoxMagician, slot2=BearGuard, slot3=LionKnight
 
 ---
 

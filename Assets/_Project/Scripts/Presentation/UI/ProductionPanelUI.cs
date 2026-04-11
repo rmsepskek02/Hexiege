@@ -918,13 +918,13 @@ namespace Hexiege.Presentation
             switch (race)
             {
                 case RaceId.Spirit:
-                    _buttonUnitTypes[0] = UnitType.FlameSpirit;
-                    _buttonUnitTypes[1] = UnitType.EmberSpirit;
+                    _buttonUnitTypes[0] = UnitType.EmberSpirit;
+                    _buttonUnitTypes[1] = UnitType.FlameSpirit;
                     _buttonUnitTypes[2] = UnitType.InfernoSpirit;
                     break;
                 case RaceId.Transcendence:
-                    _buttonUnitTypes[0] = UnitType.BearGuard;
-                    _buttonUnitTypes[1] = UnitType.FoxMagician;
+                    _buttonUnitTypes[0] = UnitType.FoxMagician;
+                    _buttonUnitTypes[1] = UnitType.BearGuard;
                     _buttonUnitTypes[2] = UnitType.LionKnight;
                     break;
                 default: // Human

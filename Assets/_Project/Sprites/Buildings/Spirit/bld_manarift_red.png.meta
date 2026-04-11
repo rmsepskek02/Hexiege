@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 377fcac6477b13a4a96fda099cc88dd4
+guid: 4971568888c6b894f964f3f5490e74a3
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 2866585489092038793
-    second: Spirit Nexus_0
+      213: -4577971050805380079
+    second: bld_manarift_red_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Spirit Nexus_0
+      name: bld_manarift_red_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 0
+        y: 127
         width: 1280
-        height: 1280
+        height: 1153
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 980de93805828c720800000000000000
-      internalID: 2866585489092038793
+      spriteID: 11c39bc9597c770c0800000000000000
+      internalID: -4577971050805380079
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Spirit Nexus_0: 2866585489092038793
+      bld_manarift_red_0: -4577971050805380079
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

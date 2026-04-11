@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 7e7ef430ca3948e4ab5af22ae3c78517
+guid: 7679b45030e44624d807605074f7726c
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 3784324130366876711
-    second: Ancient Den_Blue_0
+      213: -7461552873464449196
+    second: emberspirit_portrait_red_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Ancient Den_Blue_0
+      name: emberspirit_portrait_red_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1280
-        height: 1280
+        width: 1024
+        height: 1024
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 72ce4711fbe948430800000000000000
-      internalID: 3784324130366876711
+      spriteID: 4573b50d13d337890800000000000000
+      internalID: -7461552873464449196
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Ancient Den_Blue_0: 3784324130366876711
+      emberspirit_portrait_red_0: -7461552873464449196
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

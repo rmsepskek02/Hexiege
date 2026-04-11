@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 2b1aa4a2dad392245a76ac799c329b29
+guid: abce9f16dd8678f4180a99a373cb8df2
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3036207801630890547
-    second: Gemini_Generated_Image_x6oat5x6oat5x6oa-Photoroom_0
+      213: -4099776283103414008
+    second: emberspirit_portrait_blue_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Gemini_Generated_Image_x6oat5x6oat5x6oa-Photoroom_0
+      name: emberspirit_portrait_blue_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: dc5658747193dd5d0800000000000000
-      internalID: -3036207801630890547
+      spriteID: 809bc0b213baa17c0800000000000000
+      internalID: -4099776283103414008
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Gemini_Generated_Image_x6oat5x6oat5x6oa-Photoroom_0: -3036207801630890547
+      emberspirit_portrait_blue_0: -4099776283103414008
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
