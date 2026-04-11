@@ -86,6 +86,7 @@
 - 스타일: cartoon stylized, 2D portrait, vibrant colors, bold outline
 - 구도: 상반신 클로즈업 (chest-up portrait), 정면 또는 약 3/4 앵글
 - 팀 컬러를 갑옷, 무기, 액세서리 등에 반영해줘
+- 블루팀은 파란색 외곽선, 레드팀은 빨간색 외곽선을 포함하여 제작하며 외곽선은 얇은 선으로 제작
 ```
 
 ### 팀 컬러 가이드
