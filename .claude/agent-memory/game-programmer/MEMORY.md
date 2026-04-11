@@ -23,6 +23,25 @@
 
 ## 최근 작업
 
+### UnitType 개편 + 근접 사거리 시스템 (2026-04-10~11) ✅ 싱글/멀티 실기 완료
+
+**변경 파일**:
+- `Domain/Unit/UnitType.cs` — Pistoleer=0~LionKnight=8, 9종 유닛 독립 enum
+- `Domain/Unit/UnitStats.cs` — Spirit/Transcendence 6종 스탯 추가 (HP/ATK 미정, Range/Cooldown/HitFrameTime 확정)
+- `Domain/Hex/HexPathfinder.cs` — `FindPathToNeighbor()` 추가: goal의 인접 walkable 타일 중 start에서 가장 가까운 타일까지 경로 반환
+- `Infrastructure/Factories/UnitFactory.cs` — `UnitTeamPrefabSet` → `List<UnitPrefabEntry>(type, blue, red)` 구조로 변경
+- `Application/UseCases/UnitMovementUseCase.cs` — RequestMove에 non-walkable 목표 처리 추가, `path.Count >= 1` 조건
+- `Presentation/Unit/UnitView.cs` — 마지막 non-walkable 타일: ProcessStep 생략 + ClaimedTile 설정 생략
+- `Presentation/UI/ProductionPanelUI.cs` — 종족별 UnitType 동적 바인딩 (`BindButtonUnitTypes`), 6세트 초상화 필드
+- `Editor/SetupUnitFactoryPrefabs.cs` — List<UnitPrefabEntry> 구조에 맞게 재작성
+
+**핵심 설계 결정**:
+- 근접 유닛(range=0.5): maxDist = 0.483f 유지 + 경로에 Castle 타일 추가 → Lerp 이동 연장으로 접근
+- **ClaimedTile non-walkable 타일 예외**: 마지막 타일이 non-walkable이면 ClaimedTile 설정 안 함 — 설정 시 공격 루프 내내 Castle이 blocked로 유지되어 후속 유닛 접근 차단
+- `FindPathToNeighbor` start==bestCandidate → count=1 반환 → `>= 1` 조건으로 Castle 타일 추가 보장
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-10/16_09_melee-unit-attack-range/`
+
 ### 중립 광산 오브젝트 표시 제어 (2026-04-08) ✅ 싱글 실기 완료
 
 **변경 파일**:

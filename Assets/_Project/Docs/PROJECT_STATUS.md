@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-04-08
-**현재 단계:** 중립 광산 오브젝트 표시 제어 완료 (건물 배치 시 숨김, 파괴 시 재표시+타일 중립 복원) / 종족 인게임 적용 완료 / 로비 종족 선택 UI(캐러셀 방식) 완료 / 종족 이름 자연→초월 변경 / Pistoleer Idle 애니메이션 버그 수정 / 전투 애니메이션 시스템 전면 재정비 완료 (6가지 규칙 확정, 3-신호 RPC, TickCombat 타이밍 정확도, 경쟁 조건 버그 수정) / 재경기 초기화 버그 수정 완료 (NGO 동적 NetworkObject 명시적 Despawn) / 공격 타이밍 정밀화 완료 / 이동 전 회전 타이밍 수정 완료 / 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 완료 / Game UI Lifecycle Framework 완료 / 반투명 배경 오버레이 구조 개선 완료 / 자동/수동 생산 하이브리드 시스템 완성 / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 로비 씬 분리 MVVM 구조 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료
+**최종 수정일:** 2026-04-11
+**현재 단계:** UnitType 개편 + 근접 사거리 시스템 완료 (근접 유닛 Castle 방향 접근 공격, 다중 유닛 연속 공격, 종족별 생산 패널 동적 바인딩) (건물 배치 시 숨김, 파괴 시 재표시+타일 중립 복원) / 종족 인게임 적용 완료 / 로비 종족 선택 UI(캐러셀 방식) 완료 / 종족 이름 자연→초월 변경 / Pistoleer Idle 애니메이션 버그 수정 / 전투 애니메이션 시스템 전면 재정비 완료 (6가지 규칙 확정, 3-신호 RPC, TickCombat 타이밍 정확도, 경쟁 조건 버그 수정) / 재경기 초기화 버그 수정 완료 (NGO 동적 NetworkObject 명시적 Despawn) / 공격 타이밍 정밀화 완료 / 이동 전 회전 타이밍 수정 완료 / 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 완료 / Game UI Lifecycle Framework 완료 / 반투명 배경 오버레이 구조 개선 완료 / 자동/수동 생산 하이브리드 시스템 완성 / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 로비 씬 분리 MVVM 구조 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료
 
 ---
 
@@ -165,6 +165,20 @@
 | 에디터 자동 연결 스크립트 | ✅ 완료 | Hexiege/Setup/UnitFactory·BuildingFactory 프리팹 연결 |
 | 싱글플레이 실기 테스트 | ✅ PASS | SINGLE-01~06 전체 통과 |
 | 멀티플레이 실기 테스트 | ✅ PASS | MULTI-01 통과 |
+
+#### UnitType 개편 + 근접 사거리 시스템 (2026-04-10~11)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| UnitType enum 유닛별 독립 식별자로 개편 | ✅ 완료 | Pistoleer=0 ~ LionKnight=8 (9종) |
+| UnitFactory List<UnitPrefabEntry> 구조 변경 | ✅ 완료 | 종족별 리스트 (type/blue/red) |
+| Spirit/Transcendence UnitStats 추가 | ✅ 완료 | Range/Cooldown/HitFrameTime 확정, HP/ATK 미정 |
+| ProductionPanelUI 종족별 버튼 동적 바인딩 | ✅ 완료 | BindButtonUnitTypes(RaceId), 6세트 초상화 필드 |
+| 생산 패널 종족별 초상화 스프라이트 | ⚠️ 미제작 | 기능은 정상, 스프라이트 에셋 준비 후 연결 필요 |
+| 근접 유닛 Castle 방향 Lerp 이동 + 공격 | ✅ 완료 | FindPathToNeighbor + 경로 끝에 Castle 타일 추가 |
+| 다중 유닛 Castle 연속 공격 (ClaimedTile 버그 수정) | ✅ 완료 | 마지막 non-walkable 타일 ClaimedTile 설정 생략 |
+| SetupUnitFactoryPrefabs 에디터 스크립트 재작성 | ✅ 완료 | List 구조 대응 |
+| 싱글플레이 실기 테스트 | ✅ PASS | SINGLE-001~006 통과 (003/004 스프라이트 CONDITIONAL PASS) |
+| 멀티플레이 실기 테스트 | ✅ PASS | MULTI-001 통과 |
 
 #### 버그 수정
 | 항목 | 상태 |
