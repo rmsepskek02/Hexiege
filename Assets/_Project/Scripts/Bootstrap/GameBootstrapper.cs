@@ -674,14 +674,17 @@ namespace Hexiege.Bootstrap
             if (_buildingPlacement == null) return;
 
             // Blue Castle: 하단 중앙
+            // 종족에 따라 Castle HP가 다르므로 GameRaceContext에서 종족을 조회하여 전달
             HexCoord bluePos = HexGrid.OffsetToCube(
                 oc.GridWidth / 2, oc.GridHeight - 2, orientation);
-            _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Blue, bluePos);
+            _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Blue, bluePos,
+                GameRaceContext.BlueRace);
 
             // Red Castle: 상단 중앙
             HexCoord redPos = HexGrid.OffsetToCube(
                 oc.GridWidth / 2, 1, orientation);
-            _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Red, redPos);
+            _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Red, redPos,
+                GameRaceContext.RedRace);
         }
 
         /// <summary>
@@ -732,14 +735,17 @@ namespace Hexiege.Bootstrap
             if (_buildingPlacement != null)
             {
                 // Blue 시작 채굴소
+                // 종족에 따라 MiningPost HP가 다르므로 GameRaceContext에서 종족을 조회하여 전달
                 HexCoord blueMinePos = HexGrid.OffsetToCube(
                     startingMines[0][0], startingMines[0][1], orientation);
-                _buildingPlacement.PlaceMiningPostDirect(TeamId.Blue, blueMinePos);
+                _buildingPlacement.PlaceMiningPostDirect(TeamId.Blue, blueMinePos,
+                    GameRaceContext.BlueRace);
 
                 // Red 시작 채굴소
                 HexCoord redMinePos = HexGrid.OffsetToCube(
                     startingMines[1][0], startingMines[1][1], orientation);
-                _buildingPlacement.PlaceMiningPostDirect(TeamId.Red, redMinePos);
+                _buildingPlacement.PlaceMiningPostDirect(TeamId.Red, redMinePos,
+                    GameRaceContext.RedRace);
             }
         }
 

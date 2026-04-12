@@ -1199,6 +1199,8 @@ MonoBehaviour:
   _redTranscendencePortraits:
     barracks: {fileID: 5578428862838348633, guid: 18c08b3b7ab0ff24e8cce340d964a2b0, type: 3}
     miningPost: {fileID: -3721942967934581033, guid: a3d403c78e55a4543bf709ab724a42a6, type: 3}
+  _barracksCostText: {fileID: 1303339808}
+  _miningPostCostText: {fileID: 666526241}
 --- !u!114 &227464725
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -13681,6 +13683,9 @@ MonoBehaviour:
     slot1: {fileID: 2024143039362228048, guid: a6b8810dd0df3b444874f42eccc121a9, type: 3}
     slot2: {fileID: -8837296201493843292, guid: 2f8d4ba09b9d6974aade96f93dcb8c8e, type: 3}
     slot3: {fileID: 8511990976328827468, guid: b3a2044d3a7ce9043ac737e3f11bcf7d, type: 3}
+  _slot1CostText: {fileID: 228554543}
+  _slot2CostText: {fileID: 1457351121}
+  _slot3CostText: {fileID: 1517686920}
   _progressFill: {fileID: 1043901890}
   _goldText: {fileID: 275063331}
   _populationText: {fileID: 257469112}

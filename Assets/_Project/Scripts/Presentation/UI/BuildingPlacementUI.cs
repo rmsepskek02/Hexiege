@@ -29,6 +29,7 @@
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using Hexiege.Domain;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
@@ -84,6 +85,13 @@ namespace Hexiege.Presentation
 
         [Tooltip("Red 팀 — 초월 종족 건물 초상화")]
         [SerializeField] private BuildingRacePortraitSet _redTranscendencePortraits;
+
+        [Header("Building Cost Text")]
+        [Tooltip("배럭 건설 비용 텍스트 (예: '100G')")]
+        [SerializeField] private TextMeshProUGUI _barracksCostText;
+
+        [Tooltip("채굴소 건설 비용 텍스트 (예: '50G')")]
+        [SerializeField] private TextMeshProUGUI _miningPostCostText;
 
         /// <summary>
         /// 종족+팀별 건물 초상화 스프라이트 세트.
@@ -179,6 +187,7 @@ namespace Hexiege.Presentation
             _currentTeam = team;
 
             UpdateButtonPortraits(team);
+            UpdateBuildingStatsText(team);
 
             if (_buildingPlacement != null)
             {
@@ -246,6 +255,21 @@ namespace Hexiege.Presentation
                     _                    => _redHumanPortraits    // Human 또는 기본값
                 };
             }
+        }
+
+        /// <summary>
+        /// 건물 건설 비용 텍스트를 갱신.
+        /// Show() 호출 시 실행.
+        /// </summary>
+        private void UpdateBuildingStatsText(TeamId team)
+        {
+            // 배럭 비용
+            if (_barracksCostText != null && _config != null)
+                _barracksCostText.SetText($"{_config.BarracksCost}");
+
+            // 채굴소 비용
+            if (_miningPostCostText != null && _config != null)
+                _miningPostCostText.SetText($"{_config.MiningPostCost}");
         }
 
         /// <summary>
@@ -337,7 +361,11 @@ namespace Hexiege.Presentation
                 _resource.SpendGold(_currentTeam, cost);
             }
 
-            _buildingPlacement?.PlaceBuilding(type, _currentTeam, _targetCoord);
+            // 싱글플레이: 현재 팀의 종족을 GameRaceContext에서 조회하여 건물 HP 결정에 사용
+            RaceId singleRace = _currentTeam == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+            _buildingPlacement?.PlaceBuilding(type, _currentTeam, _targetCoord, singleRace);
             Close();
         }
 

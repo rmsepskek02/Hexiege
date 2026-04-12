@@ -47,11 +47,20 @@ namespace Hexiege.Application
         /// 성공 시: BuildingData 생성 → 타일 상태 변경 → 이벤트 발행 → BuildingData 반환
         /// 실패 시: null 반환
         /// </summary>
-        public BuildingData PlaceBuilding(BuildingType type, TeamId team, HexCoord position)
+        /// <param name="type">건물 종류</param>
+        /// <param name="team">소속 팀</param>
+        /// <param name="position">건물 배치 좌표</param>
+        /// <param name="race">
+        /// 해당 팀의 종족. 종족에 따라 건물 HP가 달라짐.
+        /// 호출자(BuildingPlacementUI, NetworkBuildingController, GameBootstrapper)가
+        /// GameRaceContext에서 조회하여 전달.
+        /// </param>
+        public BuildingData PlaceBuilding(BuildingType type, TeamId team, HexCoord position,
+            RaceId race = RaceId.Human)
         {
             // MiningPost는 전용 메서드로 처리 (금광 타일 = 비이동 + 중립)
             if (type == BuildingType.MiningPost)
-                return PlaceMiningPost(team, position);
+                return PlaceMiningPost(team, position, race);
 
             HexTile tile = _grid.GetTile(position);
             if (tile == null) return null;
@@ -61,14 +70,18 @@ namespace Hexiege.Application
             if (type != BuildingType.Castle && tile.Owner != team)
                 return null;
 
-            return PlaceBuildingInternal(type, team, position, tile);
+            return PlaceBuildingInternal(type, team, position, tile, race);
         }
 
         /// <summary>
         /// MiningPost 배치. 금광 타일 전용.
         /// 조건: HasGoldMine + 건물 없음 + 인접 타일 중 하나 이상 팀 소유.
         /// </summary>
-        private BuildingData PlaceMiningPost(TeamId team, HexCoord position)
+        /// <param name="team">소속 팀</param>
+        /// <param name="position">배치 좌표</param>
+        /// <param name="race">종족 (건물 HP 결정에 사용)</param>
+        private BuildingData PlaceMiningPost(TeamId team, HexCoord position,
+            RaceId race = RaceId.Human)
         {
             HexTile tile = _grid.GetTile(position);
             if (tile == null) return null;
@@ -78,20 +91,24 @@ namespace Hexiege.Application
             // 인접 타일 중 하나 이상 팀 소유 필요
             if (!HasAdjacentTeamTile(position, team)) return null;
 
-            return PlaceBuildingInternal(BuildingType.MiningPost, team, position, tile);
+            return PlaceBuildingInternal(BuildingType.MiningPost, team, position, tile, race);
         }
 
         /// <summary>
         /// 시작 시 채굴소 직접 배치 (인접 타일 조건 무시).
         /// GameBootstrapper에서 초기 채굴소 설치에 사용.
         /// </summary>
-        public BuildingData PlaceMiningPostDirect(TeamId team, HexCoord position)
+        /// <param name="team">소속 팀</param>
+        /// <param name="position">배치 좌표</param>
+        /// <param name="race">종족 (건물 HP 결정에 사용)</param>
+        public BuildingData PlaceMiningPostDirect(TeamId team, HexCoord position,
+            RaceId race = RaceId.Human)
         {
             HexTile tile = _grid.GetTile(position);
             if (tile == null) return null;
             if (!tile.HasGoldMine) return null;
 
-            return PlaceBuildingInternal(BuildingType.MiningPost, team, position, tile);
+            return PlaceBuildingInternal(BuildingType.MiningPost, team, position, tile, race);
         }
 
         /// <summary>
@@ -104,14 +121,15 @@ namespace Hexiege.Application
         /// <param name="type">건물 종류</param>
         /// <param name="team">소속 팀</param>
         /// <param name="position">건물 배치 좌표</param>
+        /// <param name="race">종족 (건물 HP 결정에 사용)</param>
         /// <returns>생성된 BuildingData. 타일이 없으면 null.</returns>
         public BuildingData PlaceBuildingWithId(int buildingId, BuildingType type,
-            TeamId team, HexCoord position)
+            TeamId team, HexCoord position, RaceId race = RaceId.Human)
         {
             HexTile tile = _grid.GetTile(position);
             if (tile == null) return null;
 
-            int maxHp = BuildingStats.GetMaxHp(type);
+            int maxHp = BuildingStats.GetMaxHp(type, race);
             // ID 지정 생성자 사용 — 서버와 동일한 Id로 BuildingData 생성
             var building = new BuildingData(buildingId, type, team, position, maxHp);
             _buildings[building.Id] = building;
@@ -142,10 +160,15 @@ namespace Hexiege.Application
         /// <summary>
         /// 건물 배치 공통 로직. 검증 통과 후 호출.
         /// </summary>
+        /// <param name="type">건물 종류</param>
+        /// <param name="team">소속 팀</param>
+        /// <param name="position">배치 좌표</param>
+        /// <param name="tile">배치할 타일 참조</param>
+        /// <param name="race">종족 (건물 HP 결정에 사용)</param>
         private BuildingData PlaceBuildingInternal(BuildingType type, TeamId team,
-            HexCoord position, HexTile tile)
+            HexCoord position, HexTile tile, RaceId race = RaceId.Human)
         {
-            int maxHp = BuildingStats.GetMaxHp(type);
+            int maxHp = BuildingStats.GetMaxHp(type, race);
             var building = new BuildingData(type, team, position, maxHp);
             _buildings[building.Id] = building;
 

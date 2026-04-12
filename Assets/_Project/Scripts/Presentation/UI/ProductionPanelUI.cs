@@ -19,7 +19,7 @@
 //   Show() 호출 시 배럭의 팀(Blue/Red)으로 GameRaceContext에서 종족 조회 →
 //   종족에 맞는 UnitType 3개를 버튼에 재바인딩.
 //   Human: Pistoleer / Assault / Sniper
-//   Spirit: FlameSpirit / EmberSpirit / InfernoSpirit
+//   Spirit: EmberSpirit / FlameSpirit / InfernoSpirit
 //   Transcendence: BearGuard / FoxMagician / LionKnight
 //
 // UI 계층 구조 (에디터):
@@ -104,7 +104,7 @@ namespace Hexiege.Presentation
         [Header("Unit Portraits — 종족별 초상화 (팀×종족 = 6세트)")]
         [Tooltip("Blue팀 Human 종족 초상화 (slot1=Pistoleer, slot2=Assault, slot3=Sniper)")]
         [SerializeField] private UnitPortraitSet _blueHumanPortraits;
-        [Tooltip("Blue팀 Spirit 종족 초상화 (slot1=FlameSpirit, slot2=EmberSpirit, slot3=InfernoSpirit)")]
+        [Tooltip("Blue팀 Spirit 종족 초상화 (slot1=EmberSpirit, slot2=FlameSpirit, slot3=InfernoSpirit)")]
         [SerializeField] private UnitPortraitSet _blueSpiritPortraits;
         [Tooltip("Blue팀 Transcendence 종족 초상화 (slot1=BearGuard, slot2=FoxMagician, slot3=LionKnight)")]
         [SerializeField] private UnitPortraitSet _blueTranscendencePortraits;
@@ -119,7 +119,7 @@ namespace Hexiege.Presentation
         /// 종족별 유닛 초상화 스프라이트 세트.
         /// 3개 슬롯이 종족에 따라 다른 유닛을 나타냄:
         ///   Human: slot1=Pistoleer, slot2=Assault, slot3=Sniper
-        ///   Spirit: slot1=FlameSpirit, slot2=EmberSpirit, slot3=InfernoSpirit
+        ///   Spirit: slot1=EmberSpirit, slot2=FlameSpirit, slot3=InfernoSpirit
         ///   Transcendence: slot1=BearGuard, slot2=FoxMagician, slot3=LionKnight
         /// </summary>
         [System.Serializable]
@@ -129,6 +129,16 @@ namespace Hexiege.Presentation
             public Sprite slot2;
             public Sprite slot3;
         }
+
+        [Header("Unit Cost Texts")]
+        [Tooltip("슬롯1 유닛 골드 비용 텍스트 (예: '50G')")]
+        [SerializeField] private TextMeshProUGUI _slot1CostText;
+
+        [Tooltip("슬롯2 유닛 골드 비용 텍스트 (예: '100G')")]
+        [SerializeField] private TextMeshProUGUI _slot2CostText;
+
+        [Tooltip("슬롯3 유닛 골드 비용 텍스트 (예: '200G')")]
+        [SerializeField] private TextMeshProUGUI _slot3CostText;
 
         [Header("Progress")]
         [Tooltip("생산 진행률 바 fill Image")]
@@ -275,7 +285,7 @@ namespace Hexiege.Presentation
                 _ticker.ShowRallyMarker(barracks.Id);
 
             // 배럭 팀에 따라 종족을 조회하고, 버튼에 해당 종족의 UnitType을 바인딩
-            // 예: Spirit 종족이면 slot1=FlameSpirit, slot2=EmberSpirit, slot3=InfernoSpirit
+            // 예: Spirit 종족이면 slot1=EmberSpirit, slot2=FlameSpirit, slot3=InfernoSpirit
             RaceId race = barracks.Team == TeamId.Blue
                 ? GameRaceContext.BlueRace
                 : GameRaceContext.RedRace;
@@ -933,6 +943,15 @@ namespace Hexiege.Presentation
                     _buttonUnitTypes[2] = UnitType.Sniper;
                     break;
             }
+
+            // 각 슬롯 버튼에 해당 유닛의 골드 비용을 텍스트로 표시
+            // UnitProductionStats에서 유닛 타입별 골드 비용을 조회
+            if (_slot1CostText != null)
+                _slot1CostText.SetText($"{UnitProductionStats.GetGoldCost(_buttonUnitTypes[0])}");
+            if (_slot2CostText != null)
+                _slot2CostText.SetText($"{UnitProductionStats.GetGoldCost(_buttonUnitTypes[1])}");
+            if (_slot3CostText != null)
+                _slot3CostText.SetText($"{UnitProductionStats.GetGoldCost(_buttonUnitTypes[2])}");
         }
     }
 }

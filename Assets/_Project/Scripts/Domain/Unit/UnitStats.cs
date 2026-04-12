@@ -10,8 +10,7 @@
 //   - 정령계(Spirit): FlameSpirit, EmberSpirit, InfernoSpirit
 //   - 초월계(Transcendence): BearGuard, FoxMagician, LionKnight
 //
-// Spirit/Transcendence의 HP/공격력/생산비용은 미정 → 플레이스홀더 값.
-// range, speed, cooldown, HitFrameTime은 StatsReference.md 기준 확정값.
+// 모든 스탯은 StatsReference.md 기준 확정값.
 //
 // Domain 레이어 — 순수 C#, Unity 의존 없음.
 // ============================================================================
@@ -27,14 +26,14 @@ namespace Hexiege.Domain
             UnitType.Pistoleer    => 30,
             UnitType.Assault      => 50,
             UnitType.Sniper       => 30,
-            // ── 정령계 (미정 → 플레이스홀더) ──
-            UnitType.FlameSpirit  => 30,
+            // ── 정령계 ──
             UnitType.EmberSpirit  => 30,
-            UnitType.InfernoSpirit => 30,
-            // ── 초월계 (미정 → 플레이스홀더) ──
-            UnitType.BearGuard    => 30,
-            UnitType.FoxMagician  => 30,
-            UnitType.LionKnight   => 30,
+            UnitType.FlameSpirit  => 50,
+            UnitType.InfernoSpirit => 100,
+            // ── 초월계 ──
+            UnitType.FoxMagician  => 20,
+            UnitType.BearGuard    => 200,
+            UnitType.LionKnight   => 50,
             _                     => 10
         };
 
@@ -45,14 +44,14 @@ namespace Hexiege.Domain
             UnitType.Pistoleer    => 6,
             UnitType.Assault      => 1,
             UnitType.Sniper       => 10,
-            // ── 정령계 (미정 → 플레이스홀더) ──
-            UnitType.FlameSpirit  => 5,
+            // ── 정령계 ──
             UnitType.EmberSpirit  => 5,
-            UnitType.InfernoSpirit => 5,
-            // ── 초월계 (미정 → 플레이스홀더) ──
-            UnitType.BearGuard    => 5,
-            UnitType.FoxMagician  => 5,
-            UnitType.LionKnight   => 5,
+            UnitType.FlameSpirit  => 2,    // 6히트 공격 (총 데미지 = 2 × 6 = 12)
+            UnitType.InfernoSpirit => 25,
+            // ── 초월계 ──
+            UnitType.FoxMagician  => 8,
+            UnitType.BearGuard    => 10,
+            UnitType.LionKnight   => 9,    // 2히트 공격 (총 데미지 = 9 × 2 = 18)
             _                     => 1
         };
 
@@ -82,7 +81,7 @@ namespace Hexiege.Domain
         public static float GetMoveSpeed(UnitType type) => type switch
         {
             // ── 인간계 ──
-            UnitType.Pistoleer    => 1.0f,
+            UnitType.Pistoleer    => 0.5f,
             UnitType.Assault      => 1.0f,
             UnitType.Sniper       => 0.25f,
             // ── 정령계 ── (StatsReference.md 확정값)
@@ -116,7 +115,7 @@ namespace Hexiege.Domain
             // ── 초월계 ── (StatsReference.md 확정값)
             UnitType.BearGuard    => 1.33f,   // 1:20 = 1.33초
             UnitType.FoxMagician  => 4.0f,    // 4:00 = 4.0초
-            UnitType.LionKnight   => 2.33f,   // 2:20 = 2.33초 (4히트 공격)
+            UnitType.LionKnight   => 2.33f,   // 2:20 = 2.33초 (2히트 공격)
             _                     => 1.0f
         };
 
@@ -125,7 +124,7 @@ namespace Hexiege.Domain
         /// 서버가 애니메이션 RPC를 전송한 뒤, 이 시간만큼 대기 후 실제 데미지를 적용.
         /// Attack.anim 타임라인에서 OnAttackHit 이벤트 위치(초)와 일치시켜야 함.
         ///
-        /// 다중 히트 유닛(FlameSpirit 6히트, LionKnight 4히트)은 첫 번째 히트 프레임만 적용.
+        /// 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)은 첫 번째 히트 프레임만 적용.
         /// 다중 히트 구현은 별도 작업에서 처리 예정.
         ///
         /// 기본값은 0.2초. Inspector 미설정 시(0f) 최소 1프레임 대기 후 데미지 적용 (안전망).
@@ -144,7 +143,7 @@ namespace Hexiege.Domain
             // ── 초월계 ── (StatsReference.md 첫 번째 히트 프레임)
             UnitType.BearGuard    => 0.667f,  // 0:20 → 20/30
             UnitType.FoxMagician  => 2.417f,  // 2:25 → (2*30+25)/30 = 85/30
-            UnitType.LionKnight   => 0.250f,  // 0:15 = 0.250초 (Plan.md 확정값)
+            UnitType.LionKnight   => 0.250f,  // 0:15 = 0.250초 (2히트 공격 — 첫 번째 히트 프레임)
             _                     => 0.2f
         };
     }

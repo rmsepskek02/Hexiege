@@ -145,7 +145,11 @@ namespace Hexiege.Infrastructure
             // ----------------------------------------------------------------
             // 골드 차감을 UseCase 실행 전에 수행 (UseCase가 검증을 포함하므로 실패 시 환불 필요)
             // 실제로는 UseCase 실행 후 차감이 더 안전하지만 PlaceBuilding이 실패 시 null 반환
-            BuildingData placed = buildingPlacement.PlaceBuilding(buildingType, team, coord);
+            // 종족별 건물 HP가 다르므로 GameRaceContext에서 해당 팀의 종족을 조회하여 전달
+            RaceId race = team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+            BuildingData placed = buildingPlacement.PlaceBuilding(buildingType, team, coord, race);
             if (placed == null)
             {
                 Debug.LogWarning($"[Network] 서버 측 건물 배치 실패. Type={buildingType}, Team={team}, Coord={coord}");
@@ -214,7 +218,11 @@ namespace Hexiege.Infrastructure
             // 서버와 동일한 Id로 BuildingData 재생성 + 이벤트 발행
             // PlaceBuildingWithId 내부에서 GameEvents.OnBuildingPlaced 발행
             // → BuildingFactory가 프리팹을 생성함
-            BuildingData result = buildingPlacement.PlaceBuildingWithId(buildingId, buildingType, team, coord);
+            // 종족별 건물 HP가 다르므로 GameRaceContext에서 해당 팀의 종족을 조회하여 전달
+            RaceId race = team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+            BuildingData result = buildingPlacement.PlaceBuildingWithId(buildingId, buildingType, team, coord, race);
             if (result == null)
             {
                 Debug.LogWarning($"[Network] SpawnBuildingClientRpc: PlaceBuildingWithId 실패. Id={buildingId}");
