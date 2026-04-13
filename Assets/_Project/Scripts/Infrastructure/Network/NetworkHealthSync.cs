@@ -189,6 +189,10 @@ namespace Hexiege.Infrastructure
             {
                 unit.TakeDamage(diff);
                 Debug.Log($"[Network] 유닛 HP 동기화. UnitId={unitId}, 적용 데미지={diff}, 현재HP={unit.Hp}");
+
+                // 클라이언트에서도 FloatingHpTextSpawner가 반응할 수 있도록 이벤트 재발행.
+                // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
+                GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(unit, serverHp, isUnit: true));
             }
         }
 
@@ -217,6 +221,10 @@ namespace Hexiege.Infrastructure
             {
                 building.TakeDamage(diff);
                 Debug.Log($"[Network] 건물 HP 동기화. BuildingId={buildingId}, 적용 데미지={diff}, 현재HP={building.Hp}");
+
+                // 클라이언트에서도 FloatingHpTextSpawner가 반응할 수 있도록 이벤트 재발행.
+                // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
+                GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(building, serverHp, isUnit: false));
             }
         }
     }

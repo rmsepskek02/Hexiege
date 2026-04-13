@@ -23,6 +23,57 @@
 
 ## 최근 작업
 
+### 피격 시 부유 HP 텍스트 (2026-04-12~13) ✅ 싱글/멀티 실기 완료
+
+**신규 파일**:
+- `Presentation/UI/Common/FloatingHpText.cs` — 단일 부유 텍스트. DOTween Sequence(Y+riseDistance OutCubic + DOFade 동시, duration초). Awake에서 blocksRaycasts=false. Play(text, anchoredPosition, scale=1f). OnComplete → SetActive(false) + 풀 반환 콜백. OnDestroy → Kill.
+- `Presentation/UI/FloatingHpTextSpawner.cs` — GameEvents.OnEntityDamaged 구독(AddTo). Queue<FloatingHpText> 풀 10개 사전 생성. WorldToScreenPoint → ScreenPointToLocalPointInRectangle(camera=null, Screen Space Overlay). orthographicSize 기반 줌 스케일. Initialize(positionProvider, canvas, prefab) — null 체크 포함. Camera.main Initialize()에서 캐싱.
+- `Prefabs/UI/FloatingHpText.prefab` — SetupFloatingHpText 에디터 스크립트로 자동 생성.
+- `Editor/SetupFloatingHpText.cs` — 프리팹 생성 + 씬 배치 + GameBootstrapper 슬롯 자동 연결. 메뉴: `Hexiege/Setup/FloatingHpText 설정`
+
+**변경 파일**:
+- `Bootstrap/GameBootstrapper.cs` — `_floatingHpTextSpawner`, `_floatingHpTextPrefab`, `_uiCanvas` SerializedField 추가. `_positionProvider` 로컬→필드 승격. `LoadMap()`에서 Initialize 호출.
+- `Infrastructure/Network/NetworkHealthSync.cs` — `SyncUnitHealth`/`SyncBuildingHealth`에서 TakeDamage 후 `GameEvents.OnEntityDamaged.OnNext()` 재발행 (클라이언트에서 FloatingHpTextSpawner가 반응하도록).
+
+**Inspector 설정값 (FloatingHpText 프리팹)**:
+- `Rise Distance` (default=80f): 위로 이동 픽셀 거리
+- `Duration` (default=1.2f): 전체 애니메이션 시간(초)
+- **폰트 크기**: TMP 컴포넌트(자식 Text) 에서 직접 수정
+
+**Inspector 설정값 (FloatingHpTextSpawner)**:
+- `Reference Orthographic Size` (default=5f): 줌 스케일 기준값
+
+**핵심 설계 결정**:
+- Screen Space Overlay Canvas → camera=null 전달이 올바름
+- 클라이언트 이벤트 재발행: diff>0인 경우에만 → HP 이미 동기화 시 중복 표시 없음
+- 줌 스케일: transform.localScale + riseDistance 동시 적용 → 시각적 비율 유지
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-12/18_03_floating-hp-text/`
+
+---
+
+### 유닛/건물 스탯 적용 + UI 골드 비용 표기 (2026-04-12~13) ✅ 싱글/멀티 실기 완료
+
+**변경 파일**:
+- `Domain/Unit/UnitStats.cs` — Pistoleer MoveSpeed 1.0→0.5, Spirit/Transcendence 6종 HP/ATK 확정값 적용
+- `Domain/Unit/UnitProductionStats.cs` — Spirit/Transcendence 6종 생산시간/비용 확정값 적용
+- `Domain/Building/BuildingStats.cs` — `GetMaxHp(type, RaceId race)` 오버로드 추가. Transcendence: Castle=200/Barracks=50/MiningPost=40, 나머지: 100/30/20. 단일 파라미터 버전은 `RaceId.Human`으로 위임.
+- `Application/UseCases/BuildingPlacementUseCase.cs` — `PlaceBuilding`/`PlaceMiningPost`/`PlaceMiningPostDirect`/`PlaceBuildingWithId`/`PlaceBuildingInternal`에 `RaceId race = RaceId.Human` 파라미터 추가. Application 레이어 위반 없음 (GameRaceContext 직접 참조 없음).
+- `Bootstrap/GameBootstrapper.cs` — Castle/mine 배치에 `GameRaceContext.BlueRace`/`RedRace` 전달.
+- `Infrastructure/Network/NetworkBuildingController.cs` — ServerRpc/ClientRpc에 race 전달.
+- `Presentation/UI/BuildingPlacementUI.cs` — HP 텍스트 필드 제거. `_barracksCostText`/`_miningPostCostText` 추가. 골드 숫자만 표시(G 없음).
+- `Presentation/UI/ProductionPanelUI.cs` — `_slot1/2/3CostText` 추가. Spirit 슬롯 순서 확정(EmberSpirit→FlameSpirit→InfernoSpirit). 골드 숫자만 표시.
+- `Editor/SetupStatCostTexts.cs` (신규) — 기존 GoldText 오브젝트를 SerializedField에 자동 연결. 메뉴: `Hexiege/Setup/스탯 비용 텍스트 연결`
+
+**핵심 설계 결정**:
+- Transcendence 건물 HP는 RaceId 파라미터로 분기 — UnitCombatUseCase/BuildingData에 Race 필드 추가하지 않음
+- Application 레이어에 GameRaceContext 참조 없음 (호출자에서 race 파라미터로 전달)
+- UI 골드 비용: 숫자만, "G" 없음
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-12/06_42_stats-apply/`
+
+---
+
 ### 건물/유닛 초상화 종족+팀 기반 표시 (2026-04-12) ✅ 실기 완료
 
 **변경 파일**:

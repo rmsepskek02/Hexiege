@@ -6,6 +6,22 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
+## 프로젝트 현재 상태 (2026-04-13)
+
+### 2026-04-12~13 완료
+- **유닛/건물 스탯 확정 적용** (StatsReference.md 기준)
+  - Spirit/Transcendence 6종 HP/ATK/생산시간/비용 확정값 적용
+  - Pistoleer MoveSpeed 0.5f 수정
+  - Transcendence 건물 HP 종족별 분기 (`BuildingStats.GetMaxHp(type, RaceId)`)
+  - 생산 패널/건물 배치 UI 골드 비용 숫자 표기 추가 (G 없음)
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-04-12/06_42_stats-apply/`
+- **피격 시 부유 HP 텍스트**
+  - FloatingHpText.cs + FloatingHpTextSpawner.cs + 프리팹 신규
+  - 줌 기반 크기/위치 스케일링 (orthographicSize 기준)
+  - 멀티플레이: NetworkHealthSync에서 클라이언트 재발행으로 양측 표시
+  - SetupFloatingHpText 에디터 스크립트 자동화
+  - task 문서: `Assets/_Project/Docs/_Tasks/2026-04-12/18_03_floating-hp-text/`
+
 ## 프로젝트 현재 상태 (2026-04-06)
 
 ### 2026-04-06 완료

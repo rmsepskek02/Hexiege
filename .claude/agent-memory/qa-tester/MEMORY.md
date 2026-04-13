@@ -133,6 +133,28 @@
 - HP: NetworkHealthSync로 양쪽 HP 일치하는지
 - 승패: AnnounceWinnerClientRpc로 양쪽 동일 결과 표시되는지
 
+## 스탯 적용 + 부유 HP 텍스트 QA (2026-04-12~13 완료)
+
+### 최종 판정: PASS (전 항목 실기 통과)
+
+### 핵심 발견 사항
+- `SyncHealthClientRpc` 클라이언트에서 `GameEvents.OnEntityDamaged` 미발행 → FloatingHpTextSpawner 미반응 버그 발견. NetworkHealthSync에서 TakeDamage 후 이벤트 재발행으로 수정.
+- `Camera.main` 매 이벤트 탐색 비용 → Initialize()에서 캐싱으로 수정.
+- `_prefab` null 체크 누락 → Initialize() 진입부 null 가드 추가.
+- `ReturnToPool`에서 SetActive(false) 중복 (FloatingHpText OnComplete에서도 수행) — 기능 영향 없음.
+- BuildingStats.GetMaxHp 단일 파라미터 버전이 Human으로 위임 — 하위 호환 정상.
+- Application 레이어에 GameRaceContext 직접 참조 없음 확인.
+
+### 체크리스트 추가 항목
+- [ ] 멀티플레이 전투 중 클라이언트 FloatingHpText 표시 여부 (NetworkHealthSync 재발행 확인)
+- [ ] BuildingStats.GetMaxHp 호출부 RaceId 미전달 누락 없는지 신규 건물 추가 시 확인
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-04-12/06_42_stats-apply/Testcase.md`
+`Assets/_Project/Docs/_Tasks/2026-04-12/18_03_floating-hp-text/Testcase.md`
+
+---
+
 ## 종족 인게임 적용 QA (2026-04-07 완료)
 
 ### 최종 판정: PASS (SINGLE-01~06, MULTI-01 실기 통과)

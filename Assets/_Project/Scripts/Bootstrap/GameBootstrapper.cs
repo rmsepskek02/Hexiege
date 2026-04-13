@@ -108,6 +108,16 @@ namespace Hexiege.Bootstrap
         [Tooltip("재접속 대기 + 강제 승리 판정 컨트롤러 (씬에 ReconnectionHandler NetworkObject 배치 후 연결)")]
         [SerializeField] private Hexiege.Infrastructure.ReconnectionHandler _reconnectionHandler;
 
+        [Header("Floating HP Text")]
+        [Tooltip("피격 시 남은 HP를 머리 위에 표시하는 스포너 컴포넌트")]
+        [SerializeField] private FloatingHpTextSpawner _floatingHpTextSpawner;
+
+        [Tooltip("FloatingHpText 프리팹. TextMeshProUGUI + CanvasGroup 포함.")]
+        [SerializeField] private FloatingHpText _floatingHpTextPrefab;
+
+        [Tooltip("부유 텍스트가 배치될 UI Canvas (Screen Space - Overlay)")]
+        [SerializeField] private Canvas _uiCanvas;
+
         [Header("UI Manager")]
         [Tooltip("게임 UI 생명주기 매니저. 게임 시작/종료 시 등록된 모든 UI에 콜백 호출.")]
         [SerializeField] private GameUIManager _uiManager;
@@ -203,6 +213,7 @@ namespace Hexiege.Bootstrap
         private PopulationUseCase _population;
         private UnitProductionUseCase _unitProduction;
         private GameEndUseCase _gameEnd;
+        private IEntityPositionProvider _positionProvider;
 
         /// <summary>
         /// StartNetworkGame() 중복 호출 방지 플래그.
@@ -353,6 +364,11 @@ namespace Hexiege.Bootstrap
             if (_gameEndUI != null)
                 _gameEndUI.Initialize();
 
+            // 10-2. 부유 HP 텍스트 스포너 초기화
+            // OnEntityDamaged 이벤트 구독 → 피격 시 남은 HP를 머리 위에 표시
+            if (_floatingHpTextSpawner != null)
+                _floatingHpTextSpawner.Initialize(_positionProvider, _uiCanvas, _floatingHpTextPrefab);
+
             // 11. Castle 자동 배치
             PlaceCastles(orientation, oc);
 
@@ -499,8 +515,8 @@ namespace Hexiege.Bootstrap
             _unitSpawn = new UnitSpawnUseCase(_grid);
             _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn);
             _buildingPlacement = new BuildingPlacementUseCase(_grid);
-            var positionProvider = new UnitWorldPositionProvider(_unitFactory, _buildingFactory);
-            _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement, positionProvider);
+            _positionProvider = new UnitWorldPositionProvider(_unitFactory, _buildingFactory);
+            _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement, _positionProvider);
 
             // 생산 시스템
             _resource = new ResourceUseCase(_config.StartingGold);

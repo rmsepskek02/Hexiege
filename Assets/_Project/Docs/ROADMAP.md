@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-04-12
-**현재 단계:** 원거리 유닛 공격 중 회전 추적 + 타겟 고착성 + 부드러운 회전 전환 완료 (멀티플레이 실기 MULTI-001~007 전체 PASS). 생산 패널 Spirit/Transcendence 초상화 스프라이트 미제작.
+**최종 수정일:** 2026-04-13
+**현재 단계:** 유닛/건물 스탯 확정 적용 완료 + 피격 시 부유 HP 텍스트 완료 (싱글/멀티 실기 PASS).
 
 ---
 
@@ -22,7 +22,7 @@
 | ~~🟡 중간~~ | ~~3종족 시스템 — 종족 선택 UI + 인게임 종족별 유닛/건물 반영~~ | ✅ 완료 (2026-04-07) | - |
 | ~~🟡 중간~~ | ~~UnitType 개편 + 근접 사거리 시스템~~ | ✅ 완료 (2026-04-11) | - |
 | ~~🟡 중간~~ | ~~생산 패널 Spirit/Transcendence 초상화 스프라이트 제작 + 연결~~ | ✅ 완료 (2026-04-12) | - |
-| 🟡 중간 | Spirit/Transcendence HP/ATK/생산비용 확정 (StatsReference.md) | 기획 | 소 |
+| ~~🟡 중간~~ | ~~Spirit/Transcendence HP/ATK/생산비용 확정 (StatsReference.md)~~ | ✅ 완료 (2026-04-13) | - |
 | ⬜ 백로그 | 방어/마법 타워 | 기능 | 대 |
 | ⬜ 백로그 | 사운드/BGM | 기능 | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
@@ -180,3 +180,5 @@
 | 2026-04-11 | 근접 공격 거리 다듬기 완료 (MeleeContactDist=0.3f, BuildingDetectionRadius=0.2f, 타겟 타입별 분리) |
 | 2026-04-11~12 | 원거리 유닛 공격 중 회전 추적 완료 (Transform 참조 저장, Update() RotateTowards 270°/s, 타겟 고착성, 멀티플레이 타이밍 방어, 멀티 실기 MULTI-001~007 전체 PASS) |
 | 2026-04-12 | 종족+팀별 건물/유닛 초상화 완료 (BuildingRacePortraitSet 6세트, ProductionPanelUI 슬롯 순서 확정, Spirit/Transcendence 스프라이트 Inspector 연결, Spirit Blue ManaRift 제외) |
+| 2026-04-13 | 유닛/건물 스탯 확정 적용 완료 (Spirit/Transcendence 6종 HP/ATK/생산시간/비용, Pistoleer MoveSpeed 0.5, Transcendence 건물 HP 종족별 분기, UI 골드 비용 표기) |
+| 2026-04-13 | 피격 시 부유 HP 텍스트 완료 (FloatingHpText DOTween 애니메이션, 오브젝트 풀, 줌 스케일링, 멀티플레이 클라이언트 표시, 싱글/멀티 실기 PASS) |

@@ -1186,7 +1186,7 @@ MonoBehaviour:
     miningPost: {fileID: 21300000, guid: 9266774e2b3975747bb4e93e46c1df75, type: 3}
   _blueSpiritPortraits:
     barracks: {fileID: 6226337846356486884, guid: d25f22d412b816941a2d37df935fe17b, type: 3}
-    miningPost: {fileID: 0}
+    miningPost: {fileID: -3708532468683589556, guid: 41462f4aeaa8c684d82c87ca446ee7c6, type: 3}
   _blueTranscendencePortraits:
     barracks: {fileID: -6574315814877885776, guid: c89dc1cdeb86cbf42b76c543968e703e, type: 3}
     miningPost: {fileID: -5752061386434869626, guid: e9db18996acdf9c46be89075a61a79ec, type: 3}
@@ -3903,6 +3903,51 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 521859033}
   m_CullTransparentMesh: 1
+--- !u!1 &537064934
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 537064936}
+  - component: {fileID: 537064935}
+  m_Layer: 0
+  m_Name: FloatingHpTextSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &537064935
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 537064934}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b80371bab3b9694395665a4083b5fd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.FloatingHpTextSpawner
+  _referenceOrthographicSize: 5
+--- !u!4 &537064936
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 537064934}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &543183959
 GameObject:
   m_ObjectHideFlags: 0
@@ -7316,6 +7361,9 @@ MonoBehaviour:
   _networkHealthSync: {fileID: 1898707498}
   _networkGameEnd: {fileID: 174271743}
   _reconnectionHandler: {fileID: 746861411}
+  _floatingHpTextSpawner: {fileID: 537064935}
+  _floatingHpTextPrefab: {fileID: 6989848277667135276, guid: 063238727b75d514b83baa8e21fc9aee, type: 3}
+  _uiCanvas: {fileID: 2087256516}
   _uiManager: {fileID: 640988069}
 --- !u!1 &1102218379
 GameObject:
@@ -15628,3 +15676,4 @@ SceneRoots:
   - {fileID: 1898707499}
   - {fileID: 174271744}
   - {fileID: 746861412}
+  - {fileID: 537064936}
