@@ -173,6 +173,58 @@ Inspector에서 연결할 SerializedField:
 
 ---
 
+---
+
+## [추가 작업] 팀별 텍스트 색상 (2026-04-13)
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `FloatingHpText.cs` | `Play()` 파라미터에 `Color color` 추가, `_text.color = color` 적용 |
+| `FloatingHpTextSpawner.cs` | `OnEntityDamaged()`에서 팀별 색상 결정 + `Play()` 호출 시 전달 |
+
+### FloatingHpText.cs 변경 상세
+
+`Play()` 시그니처 변경:
+```
+기존: Play(string text, Vector2 anchoredPosition, float scale = 1f)
+변경: Play(string text, Vector2 anchoredPosition, float scale = 1f, Color? color = null)
+```
+
+본문:
+```
+_text.color = color ?? Color.white;
+```
+- null이면 흰색 기본값 유지 → 기존 호출부 호환성 보장
+
+### FloatingHpTextSpawner.cs 변경 상세
+
+`OnEntityDamaged()`에서 팀 색상 결정:
+```
+TeamId team = evt.Entity.Team;
+Color textColor = team switch
+{
+    TeamId.Blue => new Color(120/255f, 230/255f, 80/255f),   // 연두색 (가시성 개선 2026-04-13)
+    TeamId.Red  => new Color(255/255f, 220/255f, 30/255f),   // 노란색 (가시성 개선 2026-04-13)
+    _           => Color.white
+};
+```
+
+`Play()` 호출 시 색상 전달:
+```
+hpText.Play($"{evt.CurrentHp}", localPoint + new Vector2(0f, YOffset * scale), scale, textColor);
+```
+
+### 위험 요소
+
+| 위험 | 내용 | 대응 |
+|------|------|------|
+| Neutral 팀 피격 | 건물 초기 상태 등 예외 케이스 | `default → Color.white` 폴백 처리 |
+| null color 전달 | 기존 코드와의 호환 | `Color? color = null` + null 합병 연산자 사용 |
+
+---
+
 ## 추후 대미지 수치 전환 시 변경 범위
 
 | 항목 | 변경 내용 |

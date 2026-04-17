@@ -23,32 +23,36 @@
 
 ## 최근 작업
 
-### 피격 시 부유 HP 텍스트 (2026-04-12~13) ✅ 싱글/멀티 실기 완료
+### 피격 시 부유 HP 텍스트 (2026-04-12~13, 2026-04-17 World Space 전환) ✅ 싱글/멀티 실기 완료
 
 **신규 파일**:
-- `Presentation/UI/Common/FloatingHpText.cs` — 단일 부유 텍스트. DOTween Sequence(Y+riseDistance OutCubic + DOFade 동시, duration초). Awake에서 blocksRaycasts=false. Play(text, anchoredPosition, scale=1f). OnComplete → SetActive(false) + 풀 반환 콜백. OnDestroy → Kill.
-- `Presentation/UI/FloatingHpTextSpawner.cs` — GameEvents.OnEntityDamaged 구독(AddTo). Queue<FloatingHpText> 풀 10개 사전 생성. WorldToScreenPoint → ScreenPointToLocalPointInRectangle(camera=null, Screen Space Overlay). orthographicSize 기반 줌 스케일. Initialize(positionProvider, canvas, prefab) — null 체크 포함. Camera.main Initialize()에서 캐싱.
+- `Presentation/UI/Common/FloatingHpText.cs` — 단일 부유 텍스트. TextMeshPro(3D World Space). DOTween Sequence(LocalMoveY OutCubic + TMP DOFade 동시, duration초). Play(text, worldPosition, scale=1f, color). OnComplete → SetActive(false) + 풀 반환 콜백. OnDestroy → Kill.
+- `Presentation/UI/FloatingHpTextSpawner.cs` — GameEvents.OnEntityDamaged 구독(AddTo). Queue<FloatingHpText> 풀 10개 사전 생성. Initialize(positionProvider, container, prefab) — null 체크 포함. 팀별 색상: `[SerializeField] Color _blueTeamColor` / `_redTeamColor`. evt.Entity.Team switch → Play()에 전달.
 - `Prefabs/UI/FloatingHpText.prefab` — SetupFloatingHpText 에디터 스크립트로 자동 생성.
 - `Editor/SetupFloatingHpText.cs` — 프리팹 생성 + 씬 배치 + GameBootstrapper 슬롯 자동 연결. 메뉴: `Hexiege/Setup/FloatingHpText 설정`
 
 **변경 파일**:
-- `Bootstrap/GameBootstrapper.cs` — `_floatingHpTextSpawner`, `_floatingHpTextPrefab`, `_uiCanvas` SerializedField 추가. `_positionProvider` 로컬→필드 승격. `LoadMap()`에서 Initialize 호출.
+- `Bootstrap/GameBootstrapper.cs` — `_floatingHpTextSpawner`, `_floatingHpTextPrefab`, `_floatingTextContainer(Transform)` SerializedField 추가. `_positionProvider` 로컬→필드 승격. `LoadMap()`에서 Initialize 호출.
 - `Infrastructure/Network/NetworkHealthSync.cs` — `SyncUnitHealth`/`SyncBuildingHealth`에서 TakeDamage 후 `GameEvents.OnEntityDamaged.OnNext()` 재발행 (클라이언트에서 FloatingHpTextSpawner가 반응하도록).
 
 **Inspector 설정값 (FloatingHpText 프리팹)**:
-- `Rise Distance` (default=80f): 위로 이동 픽셀 거리
+- `Rise Distance` (default=0.5f): 위로 이동 거리 (월드 단위, 픽셀 아님)
 - `Duration` (default=1.2f): 전체 애니메이션 시간(초)
-- **폰트 크기**: TMP 컴포넌트(자식 Text) 에서 직접 수정
+- **폰트 크기**: TMP 컴포넌트(자식 Text)에서 직접 수정
+- **Material Preset**: 반드시 독립 .mat 파일(`Maplestory Light SDF FloatingHpText Material.mat`) 지정 — 폰트 에셋 내장 sub-asset 지정 시 Outline 등 편집이 .asset 파일 자체를 오염시킴
 
 **Inspector 설정값 (FloatingHpTextSpawner)**:
-- `Reference Orthographic Size` (default=5f): 줌 스케일 기준값
+- `Y Offset` (default=1.2f): 피격 오브젝트 머리 위 월드 Y 오프셋
 
 **핵심 설계 결정**:
-- Screen Space Overlay Canvas → camera=null 전달이 올바름
-- 클라이언트 이벤트 재발행: diff>0인 경우에만 → HP 이미 동기화 시 중복 표시 없음
-- 줌 스케일: transform.localScale + riseDistance 동시 적용 → 시각적 비율 유지
+- **World Space TextMeshPro**: Screen Space Canvas 전환. 월드 좌표 직접 사용 → 좌표 변환 코드 없음.
+- **scale = 1f 고정**: `orthoSize/referenceSize` 수식 폐기. 줌아웃 시 유닛은 작아지는데 텍스트만 커지는 비율 어긋남 방지. 텍스트가 다른 월드 오브젝트와 동일하게 줌 비례 동작.
+- **빌보드 회전**: `Quaternion.LookRotation(-Camera.main.transform.forward, Camera.main.transform.up)`. 카메라 forward를 그대로 쓰면 텍스트가 카메라에 등을 보임.
+- **좌우 반전 보정**: `LookRotation(-forward, up)`은 텍스트 로컬 X축을 -cameraRight로 만들어 텍스트가 좌우 반전됨. `localScale = new Vector3(-s, s, s)` (X 음수)로 한번 더 뒤집어 복원. TMP 3D 기본 머티리얼이 Cull Off(양면 렌더링)이므로 음수 스케일 정상 표시.
+- **클라이언트 이벤트 재발행**: NetworkHealthSync에서 diff>0인 경우에만 → HP 이미 동기화 시 중복 표시 없음
+- **팀 색상 (기본값)**: Blue=연두(120,230,80), Red=노랑(255,220,30) — Inspector 조정 가능
 
-**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-12/18_03_floating-hp-text/`
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-12/18_03_floating-hp-text/` (초기), `Assets/_Project/Docs/_Tasks/2026-04-13/17_50_floating-text-worldspace/` (World Space 전환)
 
 ---
 

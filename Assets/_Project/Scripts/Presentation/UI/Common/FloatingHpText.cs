@@ -4,17 +4,16 @@
 //
 // 역할:
 //   - 단일 부유 텍스트 인스턴스를 관리.
-//   - Play() 호출 시 지정된 Canvas 로컬 좌표에서 위로 이동하면서 페이드아웃.
+//   - Play() 호출 시 지정된 월드 좌표에서 위로 이동하면서 페이드아웃.
 //   - 애니메이션 완료 후 오브젝트 풀에 반환(콜백 호출).
 //
 // 사용 흐름:
 //   1. FloatingHpTextSpawner가 오브젝트 풀에서 꺼냄.
-//   2. Play("150", localPoint) 호출 → 텍스트 설정 + 애니메이션 시작.
+//   2. Play("150", worldPosition) 호출 → 텍스트 설정 + 애니메이션 시작.
 //   3. 1.2초 후 애니메이션 완료 → SetActive(false) + 풀 반환 콜백.
 //
 // 필수 컴포넌트:
-//   - TextMeshProUGUI: 텍스트 표시용 (Inspector에서 연결).
-//   - CanvasGroup: 알파 페이드 제어용 (Inspector에서 연결).
+//   - TextMeshPro (3D World Space): 텍스트 표시용 (Inspector에서 연결).
 //
 // Presentation 레이어 — DOTween, TMPro 의존.
 // ============================================================================
@@ -36,11 +35,8 @@ namespace Hexiege.Presentation
         // Inspector 참조
         // ====================================================================
 
-        [Tooltip("HP 수치를 표시할 TextMeshProUGUI 컴포넌트")]
-        [SerializeField] private TextMeshProUGUI _text;
-
-        [Tooltip("페이드 애니메이션용 CanvasGroup 컴포넌트")]
-        [SerializeField] private CanvasGroup _canvasGroup;
+        [Tooltip("HP 수치를 표시할 TextMeshPro(3D World Space) 컴포넌트")]
+        [SerializeField] private TextMeshPro _text;
 
         // ====================================================================
         // 내부 상태
@@ -64,28 +60,11 @@ namespace Hexiege.Presentation
 
         [Header("애니메이션 설정")]
 
-        [Tooltip("텍스트가 위로 이동하는 거리 (픽셀 단위). 클수록 더 높이 올라감.")]
-        [SerializeField] private float _riseDistance = 80f;
+        [Tooltip("텍스트가 위로 이동하는 거리 (월드 단위). 클수록 더 높이 올라감.")]
+        [SerializeField] private float _riseDistance = 0.5f;
 
         [Tooltip("이동 + 페이드아웃 애니메이션 총 시간 (초). 클수록 오래 표시됨.")]
         [SerializeField] private float _duration = 1.2f;
-
-        // ====================================================================
-        // 초기화
-        // ====================================================================
-
-        /// <summary>
-        /// CanvasGroup 초기 설정.
-        /// blocksRaycasts = false로 설정하여, 부유 텍스트가 터치/클릭 입력을 가로채지 않도록 방지.
-        /// (설정하지 않으면 텍스트 영역 위의 터치가 무시되는 문제 발생)
-        /// </summary>
-        private void Awake()
-        {
-            if (_canvasGroup != null)
-            {
-                _canvasGroup.blocksRaycasts = false;
-            }
-        }
 
         // ====================================================================
         // 공개 메서드
@@ -103,22 +82,25 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 부유 텍스트 애니메이션 재생.
-        /// 지정된 Canvas 로컬 좌표에 텍스트를 배치하고, 위로 이동 + 페이드아웃 애니메이션 실행.
+        /// 월드 좌표 기준으로 텍스트를 배치하고, 위로 이동 + 페이드아웃 애니메이션 실행.
         ///
         /// 애니메이션 상세:
-        ///   - 시작: anchoredPosition에 텍스트 배치, alpha = 1 (완전 불투명).
-        ///   - 진행: Y축으로 riseDistance * scale 위로 이동 (OutCubic: 처음에 빠르고 끝에서 감속).
-        ///          동시에 alpha가 0으로 페이드아웃.
+        ///   - 시작: worldPosition에 텍스트 배치, alpha = 1 (완전 불투명), rotation = 카메라 정렬.
+        ///   - 진행: 로컬 Y축으로 riseDistance 위로 이동 (OutCubic: 처음에 빠르고 끝에서 감속).
+        ///          동시에 TMP alpha가 0으로 페이드아웃.
         ///   - 완료: SetActive(false) 후 풀 반환 콜백 호출.
         /// </summary>
         /// <param name="text">표시할 텍스트 (예: 남은 HP 수치).</param>
-        /// <param name="anchoredPosition">Canvas 로컬 좌표 기준 시작 위치.</param>
+        /// <param name="worldPosition">월드 공간 시작 위치 (피격 오브젝트 머리 위).</param>
         /// <param name="scale">
-        ///   카메라 줌 기반 UI 스케일 비율.
-        ///   1f = 기준 줌, 0.5f = 절반 크기, 2f = 두 배 크기.
+        ///   텍스트 스케일 비율. 기본값 1f.
         ///   transform.localScale과 이동 거리에 동시 적용됨.
         /// </param>
-        public void Play(string text, Vector2 anchoredPosition, float scale = 1f)
+        /// <param name="color">
+        ///   텍스트 색상. null이면 흰색(Color.white) 적용.
+        ///   Spawner가 피격 대상 팀에 따라 색상을 지정할 때 사용.
+        /// </param>
+        public void Play(string text, Vector3 worldPosition, float scale = 1f, Color? color = null)
         {
             // 이전 애니메이션이 진행 중이면 즉시 정리하여 상태 충돌 방지
             if (_currentSequence != null && _currentSequence.IsActive())
@@ -127,48 +109,60 @@ namespace Hexiege.Presentation
                 _currentSequence = null;
             }
 
-            // 텍스트 내용 설정
+            // 텍스트 내용 + 색상 설정
             if (_text != null)
             {
                 _text.text = text;
+
+                // null 병합 연산자(??): 좌측이 null이면 우측(Color.white) 사용
+                _text.color = color ?? Color.white;
+
+                // TMP 자체 알파를 1로 초기화 (이전 애니메이션으로 0이 되어 있을 수 있음)
+                _text.alpha = 1f;
             }
 
-            // 줌 스케일 적용: 카메라 줌 비율에 따라 텍스트 전체 크기 조정
-            // localScale을 변경하면 텍스트 크기와 RectTransform 시각 크기가 함께 조정됨
-            transform.localScale = Vector3.one * Mathf.Max(scale, 0.1f);
+            // 월드 위치로 직접 배치
+            transform.position = worldPosition;
 
-            // 초기 상태 설정: 완전 불투명 + 지정 위치
-            if (_canvasGroup != null)
+            // 카메라를 정면으로 바라보도록 회전 정렬 (빌보드 효과).
+            // LookRotation(-forward): 텍스트의 +Z 방향이 카메라를 향하도록 설정.
+            // Camera.transform.rotation을 그대로 복사하면 텍스트가 카메라와 같은 방향을 바라봐
+            // 카메라에 등을 보여 화면에 렌더되지 않는 문제가 발생함.
+            if (Camera.main != null)
             {
-                _canvasGroup.alpha = 1f;
+                transform.rotation = Quaternion.LookRotation(
+                    -Camera.main.transform.forward,
+                    Camera.main.transform.up);
             }
+
+            // 스케일 적용.
+            // X축을 음수로 설정하는 이유:
+            //   LookRotation(-forward, up)은 수학적으로 텍스트 로컬 X축을 -cameraRight 방향으로 만든다.
+            //   이 때문에 텍스트가 좌우 반전되어 표시됨.
+            //   X scale을 음수로 한 번 더 뒤집으면 원래 방향으로 복원됨.
+            //   TMP 3D 기본 머티리얼은 Cull Off(양면 렌더링)이므로 음수 스케일이어도 정상 표시됨.
+            float s = Mathf.Max(scale, 0.1f);
+            transform.localScale = new Vector3(-s, s, s);
+
             gameObject.SetActive(true);
 
-            // RectTransform의 anchoredPosition을 시작 위치로 설정
-            RectTransform rt = transform as RectTransform;
-            if (rt != null)
-            {
-                rt.anchoredPosition = anchoredPosition;
-            }
-
-            // DOTween 시퀀스 생성: 위로 이동 + 페이드아웃 동시 실행
+            // DOTween 시퀀스 생성: 로컬 Y축 이동 + TMP 페이드아웃 동시 실행
             _currentSequence = DOTween.Sequence();
 
-            // Y축으로 RiseDistance(80px) 만큼 위로 이동
-            // OutCubic: 시작이 빠르고 끝이 느려져 자연스러운 감속 효과
-            if (rt != null)
-            {
-                _currentSequence.Join(
-                    // 이동 거리도 scale 적용: 줌 아웃 시 더 짧게 이동하여 시각적으로 자연스럽게 보임
-                    rt.DOAnchorPosY(anchoredPosition.y + _riseDistance * scale, _duration)
-                      .SetEase(Ease.OutCubic));
-            }
+            // 로컬 Y축으로 riseDistance 만큼 위로 이동.
+            // DOLocalMoveY를 쓰는 이유: 카메라 회전이 적용된 transform의 "위쪽"(로컬 Y)으로 올라가야 화면상 수직 상승처럼 보임.
+            // OutCubic: 시작이 빠르고 끝이 느려져 자연스러운 감속 효과.
+            float targetLocalY = transform.localPosition.y + _riseDistance * scale;
+            _currentSequence.Join(
+                transform.DOLocalMoveY(targetLocalY, _duration)
+                         .SetEase(Ease.OutCubic));
 
-            // 알파를 0으로 페이드아웃 (이동과 동시 진행)
-            if (_canvasGroup != null)
+            // TMP 알파를 0으로 페이드아웃 (이동과 동시 진행).
+            // DOFade: DG.Tweening.TMPro 확장 메서드 — DG.Tweening using 필요.
+            if (_text != null)
             {
                 _currentSequence.Join(
-                    _canvasGroup.DOFade(0f, _duration));
+                    _text.DOFade(0f, _duration));
             }
 
             // 애니메이션 완료 시: 오브젝트 비활성화 + 풀 반환

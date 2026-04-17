@@ -9,7 +9,7 @@
 
 어떤 작업이든 — 아무리 간단해도 — 아래 순서를 반드시 따른다.
 
-**[ 1 ] `Assets/_Project/Docs/_Tasks/README.md` 읽기**
+**[ 1 ] `Assets/_Project/Docs/WORKFLOW.md` 읽기**
 **[ 2 ] 사용자에게 task 문서 작성 여부 질문**: "task 문서(research.md / plan.md) 작성을 진행할까요?"
 **[ 3 ] 에이전트 호출 시 `.claude/MEMORY.md` 내용을 프롬프트에 전달**
 
@@ -86,17 +86,9 @@
 
 ---
 
-## 문서 시스템 구조
+## 문서 시스템
 
-| 파일 | 역할 | 자동 로드 |
-|------|------|----------|
-| `CLAUDE.md` (이 파일) | 절대 규칙 | ✅ 항상 |
-| `Assets/_Project/Docs/_Tasks/README.md` | 작업 사이클 상세 운영 규칙 — **단일 권위 소스** | ❌ 수동 |
-| `.claude/MEMORY.md` | 에이전트 공용 컨텍스트 인덱스 | ❌ 수동 |
-| `C:\Users\rmsep\.claude\projects\...\memory\` | 프로젝트 상태/학습 메모리 | ✅ 항상 |
-
-## 작업 사이클
-
-상세 운영 규칙은 `Assets/_Project/Docs/_Tasks/README.md` 참조.
+- 전체 문서 인덱스 및 에이전트 역할 → `AGENTS.md` 참조
+- 작업 사이클 상세 운영 규칙 → `Assets/_Project/Docs/WORKFLOW.md` 참조
 
 **[7]~[12] 중 하나라도 빠지면 사이클 미완료.**

@@ -30,7 +30,7 @@
 → `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/CLAUDE.md`
 
 ## 작업 사이클 상세 참조
-→ `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/Assets/_Project/Docs/_Tasks/README.md`
+→ `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/Assets/_Project/Docs/WORKFLOW.md`
 
 ---
 
@@ -54,7 +54,8 @@
 | 로드맵 | `Assets/_Project/Docs/ROADMAP.md` |
 | 기획서 | `Assets/_Project/Docs/GameDesignDocument.md` |
 | 기술설계 | `Assets/_Project/Docs/TechnicalDesignDocument.md` |
-| 작업 사이클 규칙 | `Assets/_Project/Docs/_Tasks/README.md` |
+| 작업 사이클 규칙 | `Assets/_Project/Docs/WORKFLOW.md` |
+| 에이전트 & 문서 인덱스 | `AGENTS.md` |
 
 ---
 

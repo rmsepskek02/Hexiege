@@ -1,6 +1,6 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-04-13
+**최종 수정일:** 2026-04-17
 **현재 단계:** 원거리 유닛 공격 중 회전 추적 + 타겟 고착성 + 부드러운 회전 전환 완료 (멀티플레이 실기 MULTI-001~007 전체 PASS) (근접 유닛 Castle 방향 접근 공격, 다중 유닛 연속 공격, 종족별 생산 패널 동적 바인딩) (건물 배치 시 숨김, 파괴 시 재표시+타일 중립 복원) / 종족 인게임 적용 완료 / 로비 종족 선택 UI(캐러셀 방식) 완료 / 종족 이름 자연→초월 변경 / Pistoleer Idle 애니메이션 버그 수정 / 전투 애니메이션 시스템 전면 재정비 완료 (6가지 규칙 확정, 3-신호 RPC, TickCombat 타이밍 정확도, 경쟁 조건 버그 수정) / 재경기 초기화 버그 수정 완료 (NGO 동적 NetworkObject 명시적 Despawn) / 공격 타이밍 정밀화 완료 / 이동 전 회전 타이밍 수정 완료 / 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 완료 / Game UI Lifecycle Framework 완료 / 반투명 배경 오버레이 구조 개선 완료 / 자동/수동 생산 하이브리드 시스템 완성 / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 로비 씬 분리 MVVM 구조 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료
 
 ---
@@ -45,7 +45,7 @@
 | 유닛 Sniper(저격총병) Blue/Red 프리팹 | ✅ 완료 (2026-03-14) | UnitFactory 팀+타입별 분기, UnitStats/ProductionStats 정의 |
 | 초상화 스프라이트 Blue/Red (전 유닛) | ✅ 완료 | UI용 |
 | 반응형 팝업 UI (ProductionPopup/BuildingPopup) | ✅ 완료 | 앵커 기반 배치, ResponsivePopupUISetup.cs |
-| 종족+팀별 초상화 동적 업데이트 (ProductionPanelUI/BuildingPlacementUI) | ✅ 완료 (2026-04-12) | Show() 호출 시 종족+팀에 맞는 스프라이트 교체 (BuildingRacePortraitSet 6세트, Spirit miningPost Blue 미연결) |
+| 종족+팀별 초상화 동적 업데이트 (ProductionPanelUI/BuildingPlacementUI) | ✅ 완료 (2026-04-12) | Show() 호출 시 종족+팀에 맞는 스프라이트 교체 (BuildingRacePortraitSet 6세트, Spirit ManaRift Blue 2026-04-13 추가) |
 
 #### 3D 전환 (2026-02-27 ~ 2026-03-01)
 | 항목 | 상태 |
@@ -165,17 +165,18 @@
 | 건물 배치 팝업 골드 비용 텍스트 표기 | ✅ 완료 | _barracksCostText / _miningPostCostText |
 | 싱글/멀티 실기 테스트 | ✅ PASS | TC-SINGLE-01~10, TC-MULTI-01 전체 PASS |
 
-#### 피격 시 부유 HP 텍스트 (2026-04-12~13)
+#### 피격 시 부유 HP 텍스트 — World Space (2026-04-12~13, 2026-04-17 World Space 전환)
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| FloatingHpText.cs (DOTween 애니메이션, 오브젝트 풀 반환) | ✅ 완료 | |
-| FloatingHpTextSpawner.cs (이벤트 구독, 좌표 변환, 풀 관리) | ✅ 완료 | |
-| FloatingHpText 프리팹 (Maplestory Light SDF, TMP + CanvasGroup) | ✅ 완료 | |
-| 줌 기반 크기/위치 스케일링 | ✅ 완료 | orthographicSize 기준, Inspector 조정 가능 |
+| FloatingHpText.cs (DOTween 애니메이션, 오브젝트 풀 반환) | ✅ 완료 | TextMeshPro 3D World Space |
+| FloatingHpTextSpawner.cs (이벤트 구독, 풀 관리) | ✅ 완료 | 월드 좌표 직접 사용, 좌표 변환 없음 |
+| FloatingHpText 프리팹 (Maplestory Light SDF FloatingHpText Material.mat) | ✅ 완료 | 독립 .mat 파일 사용 (폰트 .asset 오염 방지) |
+| 줌 연동 비율 일관성 (scale=1f 고정) | ✅ 완료 (2026-04-17) | 텍스트가 유닛/건물처럼 줌 비례 동작 → 모든 줌에서 유닛 대비 비율 일정 |
+| 빌보드 회전 + 좌우 반전 보정 | ✅ 완료 (2026-04-13) | LookRotation(-forward,up) + localScale(-s,s,s) |
 | 멀티플레이 클라이언트 표시 (NetworkHealthSync 재발행) | ✅ 완료 | |
-| 입력 방해 없음 (blocksRaycasts=false, RaycastTarget=OFF) | ✅ 완료 | |
+| 팀별 텍스트 색상 (Blue=연두, Red=노랑) | ✅ 완료 (2026-04-13) | Inspector SerializedField로 조정 가능 |
 | SetupFloatingHpText 에디터 스크립트 자동화 | ✅ 완료 | Hexiege/Setup/FloatingHpText 설정 |
-| 싱글/멀티 실기 테스트 | ✅ PASS | TC-FHT-01~07 전체 PASS |
+| 싱글플레이 실기 테스트 | ✅ PASS | TC-1~6 전체 PASS, TC-7(멀티) 미확인 |
 
 #### 종족 인게임 적용 (2026-04-07)
 | 항목 | 상태 | 비고 |
@@ -195,7 +196,7 @@
 | UnitFactory List<UnitPrefabEntry> 구조 변경 | ✅ 완료 | 종족별 리스트 (type/blue/red) |
 | Spirit/Transcendence UnitStats 추가 | ✅ 완료 | Range/Cooldown/HitFrameTime 확정, HP/ATK 미정 |
 | ProductionPanelUI 종족별 버튼 동적 바인딩 | ✅ 완료 | BindButtonUnitTypes(RaceId), 6세트 초상화 필드 |
-| 생산 패널/건물 배치 종족별 초상화 스프라이트 연결 | ✅ 완료 (2026-04-12) | Spirit/Transcendence 유닛+건물 초상화 Inspector 연결 완료 (Spirit Blue ManaRift 미제작 제외) |
+| 생산 패널/건물 배치 종족별 초상화 스프라이트 연결 | ✅ 완료 (2026-04-13) | Spirit/Transcendence 유닛+건물 초상화 Inspector 연결 완료 (Spirit Blue ManaRift 2026-04-13 제작 완료) |
 | 근접 유닛 Castle 방향 Lerp 이동 + 공격 | ✅ 완료 | FindPathToNeighbor + 경로 끝에 Castle 타일 추가 |
 | 다중 유닛 Castle 연속 공격 (ClaimedTile 버그 수정) | ✅ 완료 | 마지막 non-walkable 타일 ClaimedTile 설정 생략 |
 | SetupUnitFactoryPrefabs 에디터 스크립트 재작성 | ✅ 완료 | List 구조 대응 |

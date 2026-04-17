@@ -96,6 +96,43 @@ Unity 기본 `Queue<T>` 또는 `Stack<T>` 기반으로 단순 구현.
 
 ---
 
+---
+
+## [추가 작업] 팀별 텍스트 색상 (2026-04-13)
+
+### 목적
+피격 엔티티의 팀에 따라 부유 텍스트 색상을 다르게 표시.
+- Blue 팀 피격 → 파란색 텍스트
+- Red 팀 피격 → 빨간색 텍스트
+
+### 팀 정보 접근 경로
+
+`EntityDamagedEvent.Entity`는 `IDamageable` 인터페이스이며, `Team` 프로퍼티(`TeamId`)를 이미 보유.
+
+```
+EntityDamagedEvent.Entity.Team → TeamId.Blue / TeamId.Red
+```
+
+`FloatingHpTextSpawner.OnEntityDamaged()`에서 `evt.Entity.Team` 로 팀 정보를 바로 읽을 수 있음. 별도 인터페이스 추가 불필요.
+
+### 기존 색상 정의 (TeamId.cs 주석 기준)
+
+| TeamId | 용도 | RGB |
+|--------|------|-----|
+| Blue | 파랑 진영 | (77, 128, 230) |
+| Red | 빨강 진영 | (230, 77, 77) |
+
+### 변경 범위
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `FloatingHpText.cs` | `Play()` 메서드에 `Color color` 파라미터 추가, `_text.color`에 적용 |
+| `FloatingHpTextSpawner.cs` | `OnEntityDamaged()`에서 팀별 색상 결정 후 `Play()` 호출 시 전달 |
+
+Inspector 변경 없음. 신규 파일 없음.
+
+---
+
 ## 8. 추후 전환 계획 (대미지 수치로 교체)
 
 | 항목 | 현재 (테스트용) | 추후 (완성형) |

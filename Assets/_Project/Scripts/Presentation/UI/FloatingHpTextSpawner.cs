@@ -5,9 +5,8 @@
 // 역할:
 //   1. GameEvents.OnEntityDamaged 이벤트를 구독하여 피격 발생 감지.
 //   2. 피격 오브젝트의 월드 좌표를 IEntityPositionProvider로 조회.
-//   3. 월드 좌표 → 스크린 좌표 → Canvas 로컬 좌표 변환.
-//   4. 오브젝트 풀에서 FloatingHpText를 꺼내 애니메이션 재생.
-//   5. 애니메이션 완료 후 풀에 반환하여 재사용.
+//   3. 오브젝트 풀에서 FloatingHpText를 꺼내 월드 좌표에 배치 후 애니메이션 재생.
+//   4. 애니메이션 완료 후 풀에 반환하여 재사용.
 //
 // 오브젝트 풀링 설명:
 //   매번 Instantiate/Destroy를 하면 GC(가비지 컬렉션) 부하가 발생.
@@ -23,6 +22,7 @@ using System.Collections.Generic;
 using UniRx;
 using UnityEngine;
 using Hexiege.Application;
+using Hexiege.Domain;
 
 namespace Hexiege.Presentation
 {
@@ -43,10 +43,10 @@ namespace Hexiege.Presentation
         private IEntityPositionProvider _positionProvider;
 
         /// <summary>
-        /// 부유 텍스트의 부모가 될 Canvas.
-        /// Screen Space - Overlay Canvas의 RectTransform 좌표계에서 위치 계산.
+        /// 부유 텍스트 오브젝트들의 부모 컨테이너(월드 공간의 빈 GameObject).
+        /// World Space TextMeshPro이므로 월드 좌표 기준으로 배치됨.
         /// </summary>
-        private Canvas _canvas;
+        private Transform _container;
 
         /// <summary>
         /// FloatingHpText 프리팹. 풀 생성 및 부족 시 추가 Instantiate에 사용.
@@ -67,23 +67,23 @@ namespace Hexiege.Presentation
         private const int InitialPoolSize = 10;
 
         /// <summary>
-        /// 피격 오브젝트 위쪽으로의 추가 오프셋 (Canvas 로컬 좌표 기준, 픽셀).
-        /// 실제 적용 시 줌 스케일이 곱해지므로 줌 배율에 따라 유동적으로 변함.
+        /// 피격 오브젝트 위쪽으로의 월드 공간 Y 오프셋.
+        /// World Space 기반이므로 월드 단위(유닛 높이) 기준.
         /// </summary>
-        private const float YOffset = 80f;
+        [Tooltip("피격 오브젝트 머리 위쪽 시작 오프셋 (월드 Y 단위). 클수록 텍스트가 더 높은 위치에서 시작됨.")]
+        [SerializeField] private float _yOffset = 1.2f;
 
-        [Header("줌 스케일링")]
+        // ====================================================================
+        // 팀별 텍스트 색상 (Inspector에서 조정 가능)
+        // ====================================================================
 
-        [Tooltip("텍스트 크기·오프셋 계산의 기준이 되는 카메라 orthographicSize.\n" +
-                 "이 값일 때 텍스트가 기본 크기로 표시됨.\n" +
-                 "게임에서 기본(기준) 줌 상태의 orthographicSize를 입력하세요.")]
-        [SerializeField] private float _referenceOrthographicSize = 5f;
+        [Header("팀별 텍스트 색상")]
 
-        /// <summary>
-        /// Camera.main 캐시.
-        /// Camera.main은 호출마다 씬 탐색 비용이 발생하므로 Initialize()에서 한 번만 조회하여 보관.
-        /// </summary>
-        private Camera _mainCamera;
+        [Tooltip("Blue 팀 엔티티가 피격당할 때 표시되는 텍스트 색상.")]
+        [SerializeField] private Color _blueTeamColor = new Color(120f / 255f, 230f / 255f, 80f / 255f);
+
+        [Tooltip("Red 팀 엔티티가 피격당할 때 표시되는 텍스트 색상.")]
+        [SerializeField] private Color _redTeamColor = new Color(255f / 255f, 220f / 255f, 30f / 255f);
 
         // ====================================================================
         // 초기화
@@ -94,15 +94,15 @@ namespace Hexiege.Presentation
         /// 의존성 저장, 풀 사전 생성, 이벤트 구독을 순서대로 수행.
         /// </summary>
         /// <param name="positionProvider">유닛/건물 월드 좌표 제공자.</param>
-        /// <param name="canvas">부유 텍스트가 배치될 UI Canvas.</param>
+        /// <param name="container">부유 텍스트가 배치될 월드 공간 부모 Transform.</param>
         /// <param name="prefab">FloatingHpText 프리팹.</param>
         public void Initialize(
             IEntityPositionProvider positionProvider,
-            Canvas canvas,
+            Transform container,
             FloatingHpText prefab)
         {
             // 필수 의존성 null 체크 — Inspector 미연결 시 CreateInstance()에서 크래시 방지
-            if (positionProvider == null || canvas == null || prefab == null)
+            if (positionProvider == null || container == null || prefab == null)
             {
                 Debug.LogError("[FloatingHpTextSpawner] Initialize() 실패: 필수 의존성이 null입니다. " +
                                "GameBootstrapper Inspector에서 모든 슬롯이 연결되었는지 확인하세요.");
@@ -110,11 +110,8 @@ namespace Hexiege.Presentation
             }
 
             _positionProvider = positionProvider;
-            _canvas = canvas;
+            _container = container;
             _prefab = prefab;
-
-            // Camera.main 캐싱 — 매 피격 이벤트마다 씬 탐색 비용 발생을 방지
-            _mainCamera = Camera.main;
 
             // 풀 사전 생성: InitialPoolSize개를 미리 만들어 비활성 상태로 대기
             for (int i = 0; i < InitialPoolSize; i++)
@@ -138,20 +135,15 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 피격 이벤트 핸들러.
-        /// 피격 오브젝트의 월드 좌표를 Canvas 로컬 좌표로 변환하여 부유 텍스트 표시.
-        ///
-        /// 좌표 변환 과정:
-        ///   1. 월드 좌표 (3D 공간) → WorldToScreenPoint → 스크린 좌표 (2D 픽셀)
-        ///   2. 스크린 좌표 → ScreenPointToLocalPointInRectangle → Canvas 로컬 좌표
-        ///   Canvas가 Screen Space - Overlay이므로 camera 파라미터는 null.
+        /// 피격 오브젝트의 월드 좌표에 직접 World Space 텍스트를 배치.
+        /// 텍스트는 다른 월드 오브젝트(유닛, 건물)와 동일하게 줌에 비례해 커지고 작아진다.
         /// </summary>
         /// <param name="evt">피격 이벤트 데이터. Entity(피격 대상), CurrentHp, IsUnit 포함.</param>
         private void OnEntityDamaged(EntityDamagedEvent evt)
         {
-            if (_positionProvider == null || _canvas == null) return;
+            if (_positionProvider == null || _container == null) return;
 
-            // 피격 엔티티의 월드 좌표 조회
-            // IsUnit이면 유닛 좌표, 아니면 건물 좌표
+            // 피격 엔티티의 월드 좌표 조회 — IsUnit이면 유닛, 아니면 건물
             Vector3 worldPos = evt.IsUnit
                 ? _positionProvider.GetUnitWorldPosition(evt.Entity.Id)
                 : _positionProvider.GetBuildingWorldPosition(evt.Entity.Id);
@@ -159,67 +151,29 @@ namespace Hexiege.Presentation
             // Vector3.zero = GameObject가 이미 파괴된 경우 (소멸 후 이벤트 도달)
             if (worldPos == Vector3.zero) return;
 
-            // 캐싱된 카메라가 없으면 좌표 변환 불가
-            if (_mainCamera == null) return;
-
-            // 월드 좌표 → 스크린 좌표 변환
-            // WorldToScreenPoint: 3D 공간의 점을 화면 픽셀 좌표로 변환
-            Vector3 screenPos = _mainCamera.WorldToScreenPoint(worldPos);
-
-            // 스크린 좌표 → Canvas 로컬 좌표 변환
-            // Screen Space - Overlay Canvas이므로 camera = null 전달
-            // out localPoint: 변환 결과 Canvas RectTransform 기준 좌표
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                _canvas.transform as RectTransform,
-                screenPos,
-                null,
-                out Vector2 localPoint);
-
-            // 현재 줌 배율에 따른 스케일 계산
-            // 줌 아웃(orthographicSize 증가) → scale 감소 → 텍스트 작아지고 오프셋도 줄어듦
-            float scale = GetZoomScale();
+            // 피격 지점 머리 위 월드 좌표 계산
+            Vector3 spawnPos = worldPos + Vector3.up * _yOffset;
 
             // 풀에서 텍스트 오브젝트 가져오기
             FloatingHpText hpText = GetFromPool();
 
-            // Canvas의 자식으로 설정 (worldPositionStays=false: 부모 변경 시 로컬 좌표 유지)
-            hpText.transform.SetParent(_canvas.transform, false);
+            // 컨테이너의 자식으로 설정 (worldPositionStays=false: 부모 변경 시 로컬 좌표 유지)
+            hpText.transform.SetParent(_container, false);
 
-            // 남은 HP를 텍스트로 표시 + 줌 스케일 적용 오프셋으로 애니메이션 시작
+            // 피격 대상 팀에 따라 텍스트 색상 결정 — Blue=연두, Red=노랑, 그 외=흰색
+            TeamId team = evt.Entity.Team;
+            Color textColor = team switch
+            {
+                TeamId.Blue => _blueTeamColor,
+                TeamId.Red  => _redTeamColor,
+                _           => Color.white
+            };
+
+            // 남은 HP를 텍스트로 표시 — 월드 좌표 전달
             hpText.Play(
                 $"{evt.CurrentHp}",
-                localPoint + new Vector2(0f, YOffset * scale),
-                scale);
-        }
-
-        // ====================================================================
-        // 줌 스케일 계산
-        // ====================================================================
-
-        /// <summary>
-        /// 현재 카메라 줌 상태를 기준값과 비교하여 UI 스케일 비율을 반환합니다.
-        ///
-        /// Orthographic 카메라 기준:
-        ///   - orthographicSize가 작을수록(줌 인) → scale 커짐 → 텍스트 크고 오프셋 큼
-        ///   - orthographicSize가 클수록(줌 아웃) → scale 작아짐 → 텍스트 작고 오프셋 작음
-        ///
-        /// Perspective 카메라의 경우 orthographic 방식이 맞지 않으므로
-        /// 카메라가 Orthographic이 아닌 경우 1f(기본값)를 반환합니다.
-        /// </summary>
-        private float GetZoomScale()
-        {
-            if (_mainCamera == null) return 1f;
-
-            if (_mainCamera.orthographic)
-            {
-                // orthographicSize가 0이면 나누기 오류 방지
-                if (_mainCamera.orthographicSize <= 0f) return 1f;
-                return _referenceOrthographicSize / _mainCamera.orthographicSize;
-            }
-
-            // Perspective 카메라: 줌 스케일링 미지원 → 기본값 반환
-            // Perspective 카메라를 사용한다면 별도 거리 기반 계산으로 교체 필요
-            return 1f;
+                spawnPos,
+                textColor: textColor);
         }
 
         // ====================================================================
@@ -260,7 +214,7 @@ namespace Hexiege.Presentation
         /// <returns>생성된 FloatingHpText 인스턴스.</returns>
         private FloatingHpText CreateInstance()
         {
-            FloatingHpText instance = Instantiate(_prefab, _canvas.transform);
+            FloatingHpText instance = Instantiate(_prefab, _container);
             instance.SetReturnCallback(ReturnToPool);
             return instance;
         }

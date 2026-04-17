@@ -115,8 +115,8 @@ namespace Hexiege.Bootstrap
         [Tooltip("FloatingHpText 프리팹. TextMeshProUGUI + CanvasGroup 포함.")]
         [SerializeField] private FloatingHpText _floatingHpTextPrefab;
 
-        [Tooltip("부유 텍스트가 배치될 UI Canvas (Screen Space - Overlay)")]
-        [SerializeField] private Canvas _uiCanvas;
+        [Tooltip("부유 텍스트 오브젝트들의 부모 컨테이너 (씬의 FloatingTexts 빈 GameObject)")]
+        [SerializeField] private Transform _floatingTextContainer;
 
         [Header("UI Manager")]
         [Tooltip("게임 UI 생명주기 매니저. 게임 시작/종료 시 등록된 모든 UI에 콜백 호출.")]
@@ -367,7 +367,7 @@ namespace Hexiege.Bootstrap
             // 10-2. 부유 HP 텍스트 스포너 초기화
             // OnEntityDamaged 이벤트 구독 → 피격 시 남은 HP를 머리 위에 표시
             if (_floatingHpTextSpawner != null)
-                _floatingHpTextSpawner.Initialize(_positionProvider, _uiCanvas, _floatingHpTextPrefab);
+                _floatingHpTextSpawner.Initialize(_positionProvider, _floatingTextContainer, _floatingHpTextPrefab);
 
             // 11. Castle 자동 배치
             PlaceCastles(orientation, oc);
