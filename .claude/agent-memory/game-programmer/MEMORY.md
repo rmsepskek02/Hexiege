@@ -23,6 +23,25 @@
 
 ## 최근 작업
 
+### 타겟 고정(Target Lock) 데미지 불일치 버그 수정 (2026-04-18) ✅ 멀티 실기 완료
+
+**수정 파일**: `Infrastructure/Network/NetworkCombatController.cs` — `TickCombat()` 253~297행
+
+**버그**: 유닛 A가 B를 공격 중 더 가까운 C가 접근 시, 애니메이션은 B를 바라보지만 데미지가 C에게 적용되는 문제.
+
+**원인**: `IsCurrentTargetStillValid(B) = true` → `_unitCombatTargets` 미변경(애니메이션 B 유지) 했으나, `ExecuteAttack`은 항상 `TryFindTarget`이 반환한 `targetId`(C)를 사용.
+
+**수정**: `damageTargetId` / `damageTargetIsUnit` 지역 변수 추가.
+- `IsCurrentTargetStillValid = true` → `else` 분기: `damageTargetId = prev.targetId` (기존 타겟 B 유지)
+- `IsCurrentTargetStillValid = false` → 기존 흐름 유지 (새 타겟 C로 교체 + RPC 전송)
+- `ExecuteAttack(unit, damageTargetId, damageTargetIsUnit)` 호출
+
+**교훈**: Target Lock에서 애니메이션 타겟(`_unitCombatTargets`)과 데미지 타겟(`targetId`)은 항상 일치해야 함. `IsCurrentTargetStillValid` 가드로 애니메이션을 유지한다면, 데미지도 같은 타겟에게 적용해야 함.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-17/22_29_target-lock-damage-bug/`
+
+---
+
 ### 피격 시 부유 HP 텍스트 (2026-04-12~13, 2026-04-17 World Space 전환) ✅ 싱글/멀티 실기 완료
 
 **신규 파일**:

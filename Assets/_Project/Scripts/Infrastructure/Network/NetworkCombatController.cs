@@ -256,6 +256,11 @@ namespace Hexiege.Infrastructure
                         int targetId = attackResult.Value.id;
                         bool isUnit = attackResult.Value.isUnit;
 
+                        // 실제 데미지를 적용할 타겟 — 기본값은 TryFindTarget이 반환한 가장 가까운 적.
+                        // IsCurrentTargetStillValid가 true이면 기존 타겟으로 덮어씌워짐.
+                        int damageTargetId = targetId;
+                        bool damageTargetIsUnit = isUnit;
+
                         // --- 상태 변화 감지: 이전 타겟과 비교하여 RPC 전송 여부 결정 ---
                         if (_unitCombatTargets.TryGetValue(id, out var prev))
                         {
@@ -266,11 +271,19 @@ namespace Hexiege.Infrastructure
                                 // 현재 타겟이 사망했거나 사거리를 벗어난 경우에만 교체를 허용한다.
                                 if (!combat.IsCurrentTargetStillValid(unit, prev.targetId, prev.isUnit))
                                 {
+                                    // 기존 타겟이 유효하지 않음 → 새 타겟으로 교체
                                     _unitCombatTargets[id] = (targetId, isUnit);
                                     ChangeTargetClientRpc(id, targetId, isUnit);
                                 }
+                                else
+                                {
+                                    // 기존 타겟이 아직 유효 → 애니메이션과 데미지 모두 기존 타겟 유지
+                                    // (TryFindTarget이 반환한 가까운 적이 아닌 기존 타겟에게 데미지 적용)
+                                    damageTargetId = prev.targetId;
+                                    damageTargetIsUnit = prev.isUnit;
+                                }
                             }
-                            // else: 같은 타겟 → RPC 없음 (Attack 루프 유지)
+                            // else: 같은 타겟 → RPC 없음 (Attack 루프 유지), damageTargetId = targetId (변경 없음)
                         }
                         else
                         {
@@ -280,7 +293,8 @@ namespace Hexiege.Infrastructure
                         }
 
                         // 데미지 코루틴 실행 (쿨다운 0일 때만 여기까지 도달)
-                        ExecuteAttack(unit, targetId, isUnit);
+                        // damageTargetId: 기존 타겟이 유효하면 기존 타겟, 아니면 새 타겟
+                        ExecuteAttack(unit, damageTargetId, damageTargetIsUnit);
                     }
                     else
                     {

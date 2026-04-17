@@ -173,7 +173,7 @@ namespace Hexiege.Presentation
             hpText.Play(
                 $"{evt.CurrentHp}",
                 spawnPos,
-                textColor: textColor);
+                color: textColor);
         }
 
         // ====================================================================

@@ -3933,7 +3933,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.FloatingHpTextSpawner
   _yOffset: 0.8
-  _referenceOrthographicSize: 5
   _blueTeamColor: {r: 0.01960802, g: 1, b: 0, a: 1}
   _redTeamColor: {r: 0.5803922, g: 0, b: 0.8274511, a: 1}
 --- !u!4 &537064936

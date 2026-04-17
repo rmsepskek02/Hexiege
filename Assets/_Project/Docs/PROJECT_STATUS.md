@@ -1,6 +1,6 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-04-17
+**최종 수정일:** 2026-04-18
 **현재 단계:** 원거리 유닛 공격 중 회전 추적 + 타겟 고착성 + 부드러운 회전 전환 완료 (멀티플레이 실기 MULTI-001~007 전체 PASS) (근접 유닛 Castle 방향 접근 공격, 다중 유닛 연속 공격, 종족별 생산 패널 동적 바인딩) (건물 배치 시 숨김, 파괴 시 재표시+타일 중립 복원) / 종족 인게임 적용 완료 / 로비 종족 선택 UI(캐러셀 방식) 완료 / 종족 이름 자연→초월 변경 / Pistoleer Idle 애니메이션 버그 수정 / 전투 애니메이션 시스템 전면 재정비 완료 (6가지 규칙 확정, 3-신호 RPC, TickCombat 타이밍 정확도, 경쟁 조건 버그 수정) / 재경기 초기화 버그 수정 완료 (NGO 동적 NetworkObject 명시적 Despawn) / 공격 타이밍 정밀화 완료 / 이동 전 회전 타이밍 수정 완료 / 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 완료 / Game UI Lifecycle Framework 완료 / 반투명 배경 오버레이 구조 개선 완료 / 자동/수동 생산 하이브리드 시스템 완성 / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 로비 씬 분리 MVVM 구조 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료
 
 ---
@@ -219,6 +219,7 @@
 | Pistoleer Idle 첫 프레임 동결 | ✅ 완료 (2026-04-06) — Pistoleer.controller Idle 상태 m_Speed: 0 → 1 수정 |
 | Android 실기기 캐릭터 잔상 + RenderPass 에러 | ✅ 완료 (2026-04-06) — RT antiAliasing 2→1, Camera allowMSAA/allowHDR false, backgroundColor alpha 1 |
 | 근접 공격 거리 다듬기 | ✅ 완료 (2026-04-11) — 유닛 vs 유닛 0.35f, 유닛 vs 건물 0.55f (타겟 타입별 분리) |
+| 타겟 고정(Target Lock) 데미지 불일치 버그 | ✅ 완료 (2026-04-18) — 멀티플레이에서 애니메이션 타겟(B)과 다른 유닛(C)에게 데미지 적용되던 버그. NetworkCombatController.TickCombat() damageTargetId 분리로 수정 |
 
 ---
 
