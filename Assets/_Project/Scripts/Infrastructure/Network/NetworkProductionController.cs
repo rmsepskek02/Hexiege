@@ -670,6 +670,74 @@ namespace Hexiege.Infrastructure
         }
 
         // ====================================================================
+        // 랠리포인트 설정 — ServerRpc
+        // ====================================================================
+
+        /// <summary>
+        /// 랠리포인트 설정 요청. 클라이언트 UI에서 호출.
+        /// 서버에서 팀 소유권을 검증한 뒤 UnitProductionUseCase.SetRallyPoint()를 실행.
+        ///
+        /// ClientRpc가 필요 없는 이유:
+        ///   랠리포인트는 서버 생산 완료 시 state.RallyPoint를 읽어
+        ///   SpawnUnitClientRpc의 hasRally/rallyQ/rallyR 파라미터로 전달됨.
+        ///   따라서 서버의 ProductionState.RallyPoint만 정확하면 모든 클라이언트에서 올바르게 동작.
+        ///   화면에 표시되는 랠리 마커(OnRallyPointChanged)는 클라이언트 로컬에서
+        ///   _production.SetRallyPoint()를 함께 호출하여 표시만 갱신함.
+        ///
+        /// RequireOwnership=false: 모든 클라이언트에서 호출 가능 (발신자 ClientId로 팀 검증).
+        /// </summary>
+        /// <param name="barracksId">랠리 설정 대상 배럭의 BuildingData Id</param>
+        /// <param name="q">랠리 타겟 타일의 Q 좌표</param>
+        /// <param name="r">랠리 타겟 타일의 R 좌표</param>
+        /// <param name="teamIndex">TeamId 정수값 (Blue=1, Red=2)</param>
+        /// <param name="rpcParams">서버 RPC 파라미터 (발신자 ClientId 포함)</param>
+        [ServerRpc(RequireOwnership = false)]
+        public void SetRallyPointServerRpc(
+            int barracksId,
+            int q,
+            int r,
+            int teamIndex,
+            ServerRpcParams rpcParams = default)
+        {
+            ulong senderClientId = rpcParams.Receive.SenderClientId;
+
+            // ----------------------------------------------------------------
+            // 1. 팀 소유권 검증 (Host=Blue, Client=Red)
+            //    다른 팀 배럭의 랠리포인트를 임의 변경하지 못하도록 발신자 팀과 일치 여부 확인.
+            // ----------------------------------------------------------------
+            TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
+            if ((TeamId)teamIndex != expectedTeam)
+            {
+                Debug.LogWarning($"[Network] SetRallyPointServerRpc: 팀 불일치. ClientId={senderClientId}, 요청팀={teamIndex}, 기대팀={expectedTeam}");
+                return;
+            }
+
+            // ----------------------------------------------------------------
+            // 2. 부트스트래퍼 및 UseCase 확인
+            //    맵 로드 타이밍 이슈로 초기화가 늦을 수 있으므로 Find로 재시도.
+            // ----------------------------------------------------------------
+            if (_bootstrapper == null)
+                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+
+            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            if (production == null)
+            {
+                Debug.LogWarning("[Network] SetRallyPointServerRpc: UnitProductionUseCase가 null.");
+                return;
+            }
+
+            // ----------------------------------------------------------------
+            // 3. 서버 상태에 랠리포인트 반영
+            //    HexCoord는 Hexiege.Core 네임스페이스의 값 객체.
+            //    Application 레이어의 SetRallyPoint가 배럭 존재 여부를 내부에서 처리.
+            // ----------------------------------------------------------------
+            HexCoord target = new HexCoord(q, r);
+            production.SetRallyPoint(barracksId, target);
+
+            Debug.Log($"[Network] 서버: 랠리포인트 설정 완료. BarracksId={barracksId}, Target=({q},{r}), Team={expectedTeam}");
+        }
+
+        // ====================================================================
         // 자동 생산 토글 — ServerRpc + ClientRpc
         // ====================================================================
 

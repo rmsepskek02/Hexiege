@@ -602,12 +602,57 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 랠리포인트 설정 완료. InputHandler에서 타일 클릭 시 호출.
+        ///
+        /// [멀티플레이 버그 수정 — 2026-04-19]
+        /// 이전 구현은 싱글플레이/Host에서는 정상 작동했으나
+        /// 멀티플레이 Client(Red팀)에서는 로컬 ProductionState만 갱신되어
+        /// 서버의 state.RallyPoint는 null로 유지 → 생산 완료 시 랠리 이동이 무시되는 문제가 있었음.
+        ///
+        /// 수정: 네트워크 모드에서는 ServerRpc로 서버에 좌표를 전송하여
+        /// 서버 상태에 랠리를 먼저 반영한 뒤, 클라이언트 로컬에서도 SetRallyPoint를 호출해
+        /// 화면 마커 표시를 즉시 갱신한다(OnRallyPointChanged 이벤트가 마커를 움직임).
         /// </summary>
         public void CompleteRallyPointSetting(HexCoord target)
         {
             if (_currentBarracks == null || _production == null) return;
 
-            _production.SetRallyPoint(_currentBarracks.Id, target);
+            // 배럭 Id와 팀 정보를 로컬 변수에 미리 캡처
+            // (분기 이후 _currentBarracks를 null로 초기화하기 때문에 분기 내부에서 접근 불가)
+            int barracksId = _currentBarracks.Id;
+            TeamId team = _currentBarracks.Team;
+
+            // 네트워크 모드 판별: NGO 컨트롤러가 존재하고 NetworkManager가 리스닝 중이면 멀티플레이.
+            bool isNetworkMode = _networkProductionController != null
+                && NetworkManager.Singleton != null
+                && NetworkManager.Singleton.IsListening;
+
+            if (isNetworkMode)
+            {
+                // 서버에 랠리포인트 설정 요청.
+                // 서버가 state.RallyPoint를 갱신해야 이후 유닛 생산 완료 시
+                // SpawnUnitClientRpc의 hasRally=true로 전달되어 모든 클라이언트에서 랠리 이동이 발생함.
+                _networkProductionController.SetRallyPointServerRpc(
+                    barracksId,
+                    target.Q,
+                    target.R,
+                    (int)team);
+
+                Debug.Log($"[Network] 랠리포인트 설정 요청 전송. BarracksId={barracksId}, Target=({target.Q},{target.R}), Team={team}");
+
+                // 클라이언트 로컬 상태에도 반영 — 마커 표시 목적.
+                // SetRallyPoint 내부에서 OnRallyPointChanged 이벤트가 발행되어
+                // ProductionTicker/RallyMarker 등이 즉시 마커 위치를 갱신한다.
+                // 서버 상태와 잠깐 이중 갱신되지만, 서버 측 SetRallyPoint는 멱등(같은 좌표면 효과 동일)이므로 안전.
+                _production.SetRallyPoint(barracksId, target);
+            }
+            else
+            {
+                // 싱글플레이/Host: 기존대로 UseCase 직접 호출.
+                // (Host도 서버이므로 로컬 호출만으로 서버 상태가 바로 갱신됨)
+                _production.SetRallyPoint(barracksId, target);
+            }
+
+            // 상태 리셋은 두 분기 모두 공통 수행.
             IsSettingRallyPoint = false;
             _currentBarracks = null;
         }

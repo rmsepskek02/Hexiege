@@ -23,6 +23,27 @@
 
 ## 최근 작업
 
+### 랠리포인트 Client 무시 버그 수정 (2026-04-19) ✅ 실기 완료
+
+**수정 파일**:
+- `Infrastructure/Network/NetworkProductionController.cs` — `SetRallyPointServerRpc` 신규 추가 (약 695~738행)
+- `Presentation/UI/ProductionPanelUI.cs` — `CompleteRallyPointSetting()` 네트워크 분기 추가
+
+**버그**: 멀티플레이 Client(Red팀)에서 랠리포인트를 설정해도 생산된 유닛이 랠리포인트를 무시하고 이동.
+
+**원인**: `CompleteRallyPointSetting()`이 `_production.SetRallyPoint()`를 직접 호출 → 클라이언트 로컬 `ProductionState`만 갱신. 서버의 `state.RallyPoint`는 null → `SpawnUnitClientRpc`에 `hasRally=false` 전송.
+
+**수정**:
+- `SetRallyPointServerRpc(barracksId, q, r, teamIndex)` 추가 — 기존 ServerRpc 패턴 그대로 (팀 소유권 검증 → `production.SetRallyPoint()`)
+- `CompleteRallyPointSetting()`에 네트워크 분기 추가:
+  - 네트워크 모드: `SetRallyPointServerRpc` 호출(서버 반영) + 로컬 `_production.SetRallyPoint()`(마커 표시)
+  - 싱글/Host: 기존대로 직접 호출
+- ClientRpc 불필요: 서버 생산 완료 시 `state.RallyPoint`를 읽어 `SpawnUnitClientRpc`로 전달되므로 서버 상태만 정확하면 충분
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-19/18_54_rally-point-ignored/`
+
+---
+
 ### 생산 슬롯 깜빡임 버그 수정 (2026-04-19) ✅ 싱글 실기 완료
 
 **수정 파일**: `Application/UseCases/UnitProductionUseCase.cs` — `ToggleAutoProduction()` 284~288행
