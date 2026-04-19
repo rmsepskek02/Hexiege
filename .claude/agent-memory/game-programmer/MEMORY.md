@@ -23,6 +23,20 @@
 
 ## 최근 작업
 
+### 생산 슬롯 깜빡임 버그 수정 (2026-04-19) ✅ 싱글 실기 완료
+
+**수정 파일**: `Application/UseCases/UnitProductionUseCase.cs` — `ToggleAutoProduction()` 284~288행
+
+**버그**: 큐가 완전히 비어있을 때 자동 생산 타입을 등록하면 1프레임 동안 슬롯1에 표시됐다가 슬롯0으로 이동하는 깜빡임 발생.
+
+**원인**: `canShow = CurrentProducing.HasValue && ChargedPendingCount() < 2` 조건에서 큐가 비어있으면 `HasValue=false` → `canShow=false` → 아이템이 `PendingQueue[0]`(슬롯1)에 미차감 추가. 다음 Tick의 `TryStartNext`가 슬롯0으로 올리기 때문에 1프레임 지연 발생.
+
+**수정**: `PendingQueue.Add + AutoTypes.Add + NormalizeAutoCycleIndex` 이후, `!state.CurrentProducing.HasValue`이면 즉시 `TryStartNext(state)` 호출 후 Early Return. TryStartNext 내부에서 이벤트 발행 처리.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-19/17_49_production-slot-flicker/`
+
+---
+
 ### 타겟 고정(Target Lock) 데미지 불일치 버그 수정 (2026-04-18) ✅ 멀티 실기 완료
 
 **수정 파일**: `Infrastructure/Network/NetworkCombatController.cs` — `TickCombat()` 253~297행
@@ -325,7 +339,39 @@
 - `[UI]/Background` 하나를 ProductionPopup/BuildingPopup/GameEndPanel이 공유
 - 각 팝업 자식 Background 삭제됨
 
-### 자동/수동 생산 하이브리드 시스템 완성 (2026-03-23) ✅ 실기 테스트 완료
+### 유닛 생산 패널 전면 재작성 (2026-04-19) ✅ 실기 완료
+
+**수정 파일**:
+- `Domain/Building/ProductionState.cs` — QueueSlot struct 추가, PendingQueue/AutoTypes/AutoCycleIndex/CurrentIsAuto 추가, IsAutoMode → 읽기 전용 프로퍼티(`AutoTypes.Count > 0`)
+- `Application/UseCases/UnitProductionUseCase.cs` — EnqueueUnit/ToggleAutoProduction/CancelQueueAt/TryStartNext/CompleteProduction/ChargeVisibleSlots 전면 재작성. CancelAutoTypeIfNeeded 헬퍼 추가.
+- `Presentation/UI/ProductionPanelUI.cs` — UpdateQueueSlots 단순화, OnQueueSlotClicked fallback 제거
+- `Infrastructure/Network/NetworkProductionController.cs` — SyncQueueStateClientRpc 파라미터 포맷 변경
+
+**핵심 구조 (PendingQueue 단일 큐)**:
+- `QueueSlot { Type, IsAuto, IsCharged }` — 단일 구조체로 수동/자동 통합
+- `PendingQueue[0]=슬롯1, PendingQueue[1]=슬롯2` 불변식 — UI는 이 순서 그대로 읽으면 됨
+- `AutoTypes: List<UnitType>` — 자동 등록 타입 목록 (인디케이터 + 순환 대상)
+- `IsAutoMode = AutoTypes.Count > 0` — 필드 아님, 항상 AutoTypes 상태에서 계산
+
+**전역 규칙**:
+- Rule 1: 슬롯 클릭 취소 → 항상 전액 환불 (IsCharged=true인 경우)
+- Rule 2: 자동 취소 시 IsCharged=true 항목은 수동 이관 (환불 없이 생산 계속)
+- Rule 2-1: 자동 등록 타입이 PendingQueue 마지막 수동 항목과 같으면 IsAuto=true로 전환 (중복 추가 금지)
+- Rule 3: 수동 추가 시 자동 모드 전체 해제 (IsCharged=false 자동 항목 제거, IsCharged=true는 수동 이관)
+- Rule 4: CurrentProducing + IsCharged=true PendingQueue 합산 ≤ MaxQueueSize(3)
+- Rule 5: 골드 차감 = 수동은 등록 시, 자동은 슬롯1/2 진입 시 (ChargeVisibleSlots)
+
+**슬롯 클릭 = 생산 취소 + 자동 항목이면 AutoTypes에서도 제거**:
+- `CancelAutoTypeIfNeeded(state, type)` — AutoTypes 제거 + 잔여 IsAuto 항목 Rule 2 처리 + NormalizeAutoCycleIndex
+- slotIndex==0: `wasAuto = state.CurrentIsAuto` 를 `CurrentIsAuto=false` 초기화 전에 캡처 필수
+
+**미해결 이슈**: 큐 비어있을 때 자동 등록 시 슬롯1에 1프레임 깜빡임 → 별도 점검 예정
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-19/production-panel-rewrite/`
+
+---
+
+### 자동/수동 생산 하이브리드 시스템 완성 (2026-03-23) [재작성 예정으로 무효화]
 
 **핵심 설계**: AutoEntry(UnitType + IsCharged) 기반 골드 차감 시점 추적
 

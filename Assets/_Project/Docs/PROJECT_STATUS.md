@@ -220,6 +220,7 @@
 | Android 실기기 캐릭터 잔상 + RenderPass 에러 | ✅ 완료 (2026-04-06) — RT antiAliasing 2→1, Camera allowMSAA/allowHDR false, backgroundColor alpha 1 |
 | 근접 공격 거리 다듬기 | ✅ 완료 (2026-04-11) — 유닛 vs 유닛 0.35f, 유닛 vs 건물 0.55f (타겟 타입별 분리) |
 | 타겟 고정(Target Lock) 데미지 불일치 버그 | ✅ 완료 (2026-04-18) — 멀티플레이에서 애니메이션 타겟(B)과 다른 유닛(C)에게 데미지 적용되던 버그. NetworkCombatController.TickCombat() damageTargetId 분리로 수정 |
+| 생산 슬롯 깜빡임 버그 | ✅ 완료 (2026-04-19) — 큐 비어있을 때 자동 등록 시 슬롯1→슬롯0 1프레임 이동. ToggleAutoProduction에서 즉시 TryStartNext 호출로 수정 |
 
 ---
 

@@ -121,8 +121,8 @@
 - [ ] BuildFailedClientRpc UI 피드백 없음: 건물 배치 실패 시 사용자 알림 없음
 - [ ] EnqueueFailedClientRpc UI 피드백 없음: 유닛 생산 큐 추가 실패 시 동일 문제
 - [ ] InputHandler 유닛 이동 네트워크 분기 누락: 멀티플레이에서 탭 이동 시 상대방 화면에 동기화 안 됨
-- [ ] 자동생산 멀티플레이 미지원: 롱프레스 시 UI 반응 없음
-- [ ] 생산 큐 클라이언트 UI 지연: ProductionStartedClientRpc 받기 전까지 UI 업데이트 없음
+- [x] 자동생산 멀티플레이 — NetworkProductionController에 ToggleAutoServerRpc 구현됨 (2026-04-19 확인)
+- [x] 생산 큐 클라이언트 UI: SyncQueueStateClientRpc + ProductionStartedClientRpc 두 경로로 동기화됨 (2026-04-19 확인)
 - [x] NetworkGameEndController._lobbySceneName 하드코딩 수정: "SampleScene" → "Game" (수정 완료)
 
 ## 네트워크 QA 체크리스트
@@ -166,6 +166,30 @@
 
 ### task 문서
 `Assets/_Project/Docs/_Tasks/2026-04-07/09_00_faction-ingame-apply/Testcase.md`
+
+## 생산 패널 전면 재작성 QA (2026-04-19) ✅ 실기 완료
+
+### 최종 판정: PASS (TC-001~018 전체)
+
+### 핵심 발견 사항
+- 구 구조(ManualQueue/AutoEntries/AutoEntry/AutoIndex/CurrentProducingIsAuto/isNormalAutoState) 모두 제거됨.
+- IsAutoMode 읽기 전용 프로퍼티 (`AutoTypes.Count > 0`) — 직접 대입 시도 없음.
+- SyncQueueStateClientRpc 파라미터 모두 int/bool 기본 타입 — NGO 직렬화 정상.
+- CancelAutoTypeIfNeeded 추가: 슬롯 클릭으로 자동 항목 취소 시 AutoTypes에서도 제거 + Rule 2 처리.
+- wasAuto 캡처는 state.CurrentIsAuto=false 초기화 이전 라인에서 반드시 수행해야 함.
+
+### 생산 큐 새 구조 핵심 (이후 QA 재검증 시 기준)
+- QueueSlot { Type, IsAuto, IsCharged } — 단일 구조체
+- PendingQueue[0]=슬롯1, PendingQueue[1]=슬롯2 불변식
+- IsCharged=false: 자동 항목 대기 중 (골드 미차감), ChargeVisibleSlots가 슬롯 진입 시 차감
+- ChargeVisibleSlots 호출 시점: TryStartNext 직후, CancelQueueAt(1/2) 직후, CompleteProduction 직후
+- 슬롯 클릭 취소: 자동 항목이면 CancelAutoTypeIfNeeded도 호출
+
+### 미해결 이슈
+- ~~TC-008 관련: 큐 비어있을 때 자동 등록 시 슬롯1에 1프레임 깜빡임~~ → **수정 완료 (2026-04-19)** `ToggleAutoProduction`에서 `!CurrentProducing.HasValue`이면 즉시 `TryStartNext` 호출로 해결
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-04-19/production-panel-rewrite/Testcase.md`
 
 ## 참고 파일
 - [patterns.md](patterns.md) — 버그 패턴 상세

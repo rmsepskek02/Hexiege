@@ -2,26 +2,26 @@
 // UnitProductionUseCase.cs
 // 배럭별 유닛 생산 큐, 타이머, 자동/수동 모드를 관리하는 핵심 UseCase.
 //
+// ──────────────────────────────────────────────────────────────────────────
+// [재작성 — 2026-04-19]
+// 이중 큐 구조(ManualQueue + AutoEntries)를 단일 PendingQueue(List<QueueSlot>)로 통합.
+// PendingQueue[0]=슬롯1, PendingQueue[1]=슬롯2 불변식 유지 → isNormalAutoState 제거.
+// ──────────────────────────────────────────────────────────────────────────
+//
 // 생산 흐름:
 //   1. 배럭 배치 시 RegisterBarracks() → ProductionState 생성
 //   2. 플레이어가 수동 큐 추가(EnqueueUnit) 또는 자동 토글(ToggleAutoProduction)
 //   3. Tick(dt) 매 프레임 호출 → TryStartNext로 다음 생산 결정
-//   4. 골드/인구 검증 → 골드 차감 → 타이머 시작 (스폰 타일 미확인)
-//   5. 타이머 완료 → CompleteProduction → 스폰 타일 확인
-//      - 스폰 가능: 유닛 생성 + 랠리포인트 이벤트
-//      - 스폰 불가: 대기 (매 프레임 재시도, 다음 생산은 스폰 완료 후 시작)
+//   4. 골드/인구 검증 → 골드 차감 → 타이머 시작
+//   5. 타이머 완료 → CompleteProduction → 유닛 스폰 + 자동이면 AutoTypes 순환 재추가
 //
-// 수동 vs 자동:
-//   수동: 탭 → ManualQueue에 추가 (최대 3). 자동 모드 해제.
-//   자동: 롱프레스 → AutoEntries에 토글. AutoEntries 순환 반복.
-//   수동 시작 시 자동 모드 해제 — 슬롯에 표시된 자동 항목은 ManualQueue로 이관.
-//
-// 전역 규칙 (5가지):
-//   Rule 1: 생산이 취소되면 항상 전액 환불 — 예외 없음
-//   Rule 2: 자동생산 취소 시 큐에 등록(슬롯에 표시)된 항목은 그대로 생산 — ManualQueue로 이관
-//   Rule 3: 수동생산 시행 시 모든 자동생산 취소 — 인디케이터 OFF, AutoEntries 클리어
-//   Rule 4: 생산큐 최대 3개 — CurrentProducing + ManualQueue 기준 (자동 대기 별도)
-//   Rule 5: 비용 차감은 슬롯에 표시될 때 — AutoEntry.IsCharged로 차감 여부 추적
+// 전역 규칙 (5가지 + Rule 2-1):
+//   Rule 1   : 슬롯 X 버튼으로 직접 취소하면 항상 전액 환불 (버튼 탭 취소는 환불 없음)
+//   Rule 2   : 자동 취소 시 골드 차감된(IsCharged=true) 항목은 수동으로 이관(생산 계속)
+//   Rule 3   : 수동 추가 시 자동 모드 전체 해제 (이관 먼저 → AutoTypes 클리어)
+//   Rule 4   : 생산 큐 최대 3개 (CurrentProducing + IsCharged=true PendingQueue 합산)
+//   Rule 5   : 골드 차감 = 슬롯 표시 시점 (자동 항목). 수동 항목은 등록 시 즉시 차감
+//   Rule 2-1 : 자동 등록 타입이 PendingQueue 마지막 수동 항목과 같으면 IsAuto=true로 전환(중복 금지)
 //
 // Application 레이어 — Domain에 의존.
 // ============================================================================
@@ -85,60 +85,69 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 수동 생산: 큐에 유닛 추가.
-        /// 골드/인구 즉시 검증 → 골드 즉시 차감 → 큐에 추가.
         ///
-        /// Rule 3: 자동 모드 해제.
-        /// Rule 2: 슬롯에 표시된(IsCharged=true) 자동 항목은 ManualQueue 앞에 이관.
-        ///         큐 풀 대기(IsCharged=false) 항목은 골드 미차감이므로 소멸.
-        /// Rule 4: CurrentProducing + ManualQueue 기준 최대 3개 (자동 대기 별도).
-        ///         이관 후의 ManualQueue 크기 + CurrentProducing 기준으로 판정.
+        /// 처리 순서:
+        ///   1) Rule 3 — 자동 모드 해제 (IsCharged=true인 자동 항목은 IsAuto=false로 이관(Rule 2),
+        ///      IsCharged=false 자동 항목은 제거, AutoTypes 클리어)
+        ///   2) Rule 4 — 큐 상한(3개) 체크: CurrentProducing + IsCharged=true 항목 합산
+        ///   3) 골드/인구 즉시 검증 + 차감
+        ///   4) PendingQueue 맨 뒤에 수동 항목(IsAuto=false, IsCharged=true) 추가
         /// </summary>
         public bool EnqueueUnit(int barracksId, UnitType type)
         {
             if (!_states.TryGetValue(barracksId, out var state)) return false;
 
-            // ── Rule 3 + Rule 2: 자동 모드 해제 + 슬롯 표시 항목 이관 ──
-            // 수동 추가 전에 처리해야 ManualQueue 크기를 정확히 판단 가능
+            // ─── Rule 3 + Rule 2: 자동 모드 해제 ───────────────────────────
+            // 수동이 들어오면 자동 모드를 전체 해제해야 하지만,
+            // 이미 골드가 차감된 자동 항목은 "수동으로 이관"하여 계속 생산(Rule 2).
+            // IsCharged=false 자동 항목은 골드 미차감이므로 단순 제거(환불 불필요).
             if (state.IsAutoMode)
             {
-                // Rule 2: 슬롯에 표시된(IsCharged=true) 자동 항목을 ManualQueue 앞에 이관
-                // 슬롯 표시 순서 = AutoEntries에서 AutoIndex 기준 순환 순서
-                // 이관 대상: IsCharged=true인 항목만 (골드 이미 차감됨)
-                // 이관 순서: 슬롯1(다음) → 슬롯2(그 다음) 순서로 ManualQueue 앞에 삽입
-                var chargedEntries = CollectChargedSlotEntries(state);
-                int insertIndex = 0;
-                foreach (var entry in chargedEntries)
+                for (int i = state.PendingQueue.Count - 1; i >= 0; i--)
                 {
-                    state.ManualQueue.Insert(insertIndex, entry.Type);
-                    insertIndex++;
+                    QueueSlot s = state.PendingQueue[i];
+                    if (!s.IsAuto) continue; // 수동 항목은 건드리지 않음
+
+                    if (s.IsCharged)
+                    {
+                        // Rule 2: 이미 차감된 자동 항목 → 수동으로 이관 (생산 계속)
+                        s.IsAuto = false;
+                        state.PendingQueue[i] = s;
+                    }
+                    else
+                    {
+                        // 미차감 자동 대기 항목 → 제거 (환불 불필요)
+                        state.PendingQueue.RemoveAt(i);
+                    }
                 }
 
-                // Rule 3: 자동 모드 해제 + AutoEntries 클리어
-                // IsCharged=false 항목은 골드 미차감이므로 환불 불필요, 단순 소멸
-                state.IsAutoMode = false;
-                state.AutoEntries.Clear();
-                state.AutoIndex = 0;
-                // CurrentProducing은 건드리지 않음 — 슬롯 0 생산은 완료까지 유지
-                // (이미 골드가 차감된 생산이므로 취소 없이 완료 허용)
+                // 자동 등록 타입 목록 및 순환 인덱스 초기화
+                state.AutoTypes.Clear();
+                state.AutoCycleIndex = 0;
+                // CurrentProducing은 건드리지 않음 — 이미 진행 중인 생산은 완료까지 유지
             }
 
-            // Rule 4: 생산큐는 최대 3개까지 등록 가능
-            // CurrentProducing + ManualQueue 기준 (이관된 항목 포함)
-            int currentCount = (state.CurrentProducing.HasValue ? 1 : 0) + state.ManualQueue.Count;
-            if (currentCount + 1 > ProductionState.MaxQueueSize) return false;
+            // ─── Rule 4: 큐 상한 체크 ─────────────────────────────────────
+            // CurrentProducing 1슬롯 + IsCharged=true 항목들이 곧 "보이는 큐".
+            // 이 합이 MaxQueueSize(3)를 넘으면 수동 추가 거부.
+            int slotsUsed = (state.CurrentProducing.HasValue ? 1 : 0) + state.ChargedPendingCount();
+            if (slotsUsed + 1 > ProductionState.MaxQueueSize) return false;
 
-            // 골드 확인 + 즉시 차감
+            // ─── 골드/인구 검증 + 즉시 차감 ───────────────────────────────
+            // 수동 항목은 Rule 5에 따라 등록 시 즉시 차감(항상 IsCharged=true).
             int cost = UnitProductionStats.GetGoldCost(type);
             if (!_resource.CanAfford(state.Team, cost)) return false;
 
-            // 인구 확인
             int popCost = UnitProductionStats.GetPopulationCost(type);
             if (!_population.HasPopulation(state.Team, popCost)) return false;
 
             _resource.SpendGold(state.Team, cost);
 
-            // 수동 항목을 큐 맨 뒤에 추가
-            state.ManualQueue.Add(type);
+            // ─── PendingQueue 맨 뒤에 추가 ────────────────────────────────
+            // PendingQueue[0]=슬롯1, PendingQueue[1]=슬롯2 불변식 유지.
+            // CurrentProducing=null이면 다음 Tick의 TryStartNext가 이 항목을 슬롯0으로 올린다.
+            state.PendingQueue.Add(new QueueSlot(type, false, true));
+
             GameEvents.OnProductionQueueChanged.OnNext(
                 new ProductionQueueChangedEvent(barracksId));
             return true;
@@ -146,122 +155,136 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 자동 생산: 유닛 타입 토글 (ON/OFF).
-        /// 이미 등록되어 있으면 해제, 없으면 추가 (최대 3종류).
         ///
-        /// Rule 5: 슬롯에 표시 가능하면 등록 시 즉시 골드 차감 (IsCharged=true).
-        ///         큐 풀 상태이면 골드 미차감 (IsCharged=false).
+        /// 이미 등록된 타입이면 제거:
+        ///   AutoTypes에서 제거 + PendingQueue에서 IsAuto=true & Type==type 항목 처리
+        ///     - IsCharged=true → IsAuto=false 전환 (Rule 2: 수동 이관, 생산 계속)
+        ///     - IsCharged=false → 제거 (환불 불필요)
         ///
-        /// 슬롯 구조:
-        ///   슬롯 0 = 현재 생산 중인 유닛 (CurrentProducing)
-        ///   슬롯 1~2 = AutoEntries에서 다음 생산 예정
-        ///
-        /// 슬롯에 즉시 표시 가능 조건:
-        ///   CurrentProducing이 있고, 현재 슬롯에 표시된 자동 항목 수(IsCharged 기준) + ManualQueue.Count &lt; 2
-        ///   (슬롯1~2 중 빈 자리가 있는 경우)
-        ///
-        /// 제거 시 규칙:
-        ///   - IsCharged=true인 항목 제거: 골드 환불 (Rule 1)
-        ///   - IsCharged=false인 항목 제거: 환불 없음
-        ///   - 슬롯 0에 해당하는 타입 제거: AutoEntries에서만 제거, 생산은 계속, 환불 없음
+        /// 미등록 타입이면 추가:
+        ///   AutoTypes 최대 3개 제한 적용.
+        ///   [Rule 2-1] PendingQueue 마지막이 같은 타입 수동 항목이면 IsAuto=true로 전환 후 반환.
+        ///   그 외 canShow 판정에 따라 IsCharged=true(즉시 차감) 또는 false(미차감) 상태로 추가.
         /// </summary>
         public bool ToggleAutoProduction(int barracksId, UnitType type)
         {
             if (!_states.TryGetValue(barracksId, out var state)) return false;
 
-            int idx = state.AutoIndexOf(type);
-            if (idx >= 0)
+            // AutoTypes 내 등록 여부 확인
+            int typeIndex = state.AutoTypes.IndexOf(type);
+
+            if (typeIndex >= 0)
             {
-                // ── 이미 등록된 타입 → 제거 (취소) ──
-                // 버튼 탭 취소는 자동 순환 목록에서 제거하는 것이지 생산 취소가 아님.
-                // 현재 생산 중인 유닛(슬롯0)은 계속 유지됨 → Rule 1 환불 조건 미해당.
-                // 슬롯 직접 클릭 취소(CancelQueueAt)만 환불 대상.
+                // ──────────────────────────────────────────────
+                // 등록된 타입 → 제거 (자동 해제)
+                // ──────────────────────────────────────────────
+                state.AutoTypes.RemoveAt(typeIndex);
 
-                // ── Rule 2: 슬롯에 표시된(IsCharged=true) 항목은 ManualQueue로 이관 ──
-                // 자동 모드만 취소하고, 이미 골드 차감되어 슬롯에 보이는 항목은 수동 큐로 넘겨서
-                // 생산이 계속 진행되도록 한다.
-                //
-                // 판단 기준:
-                //   - removedEntry.Type == CurrentProducing → 슬롯0(현재 생산 중)
-                //     → 이미 생산 중이므로 이관 불필요 (생산은 CurrentProducing으로 계속됨)
-                //   - 슬롯0이 아님 && IsCharged=true → 슬롯1~2에 표시 중
-                //     → ManualQueue로 이관하여 생산 유지 (Rule 2)
-                //   - IsCharged=false → 큐 풀 대기 상태, 골드 미차감
-                //     → 이관 불필요, 단순 제거
-                AutoEntry removedEntry = state.AutoEntries[idx];
-                // isSlot0 판단: AutoIndex 위치가 아닌 CurrentProducing 타입 비교로 수행.
-                // 이유: "취소 상태"(선행 AutoEntry 제거 후)에서 AutoIndex가 밀려
-                //   idx==AutoIndex가 true여도 실제 슬롯0(현재 생산 중)이 아닐 수 있음.
-                //   예) Assault 제거 후 AutoIndex=0이 Sniper를 가리키지만,
-                //       CurrentProducing=Assault이므로 Sniper는 슬롯1이어야 함.
-                bool isSlot0 = state.CurrentProducing.HasValue
-                               && removedEntry.Type == state.CurrentProducing.Value;
-
-                if (!isSlot0 && removedEntry.IsCharged)
+                // PendingQueue에서 해당 타입의 자동 항목 처리
+                // 뒤에서 앞으로 순회 — 제거 중 인덱스 밀림 방지
+                for (int i = state.PendingQueue.Count - 1; i >= 0; i--)
                 {
-                    // Rule 2 적용: 슬롯1~2에 표시된 항목 → ManualQueue 맨 뒤에 추가
-                    // 골드는 이미 차감되었으므로 환불하지 않고 수동 큐로 이관하여 생산 계속
-                    state.ManualQueue.Add(removedEntry.Type);
+                    QueueSlot s = state.PendingQueue[i];
+                    if (!s.IsAuto || s.Type != type) continue;
+
+                    if (s.IsCharged)
+                    {
+                        // Rule 2 적용: 슬롯에 표시된 항목은 수동으로 이관 (생산 계속, 환불 없음)
+                        s.IsAuto = false;
+                        state.PendingQueue[i] = s;
+                    }
+                    else
+                    {
+                        // 미차감 자동 대기 항목 → 그냥 제거 (환불 없음)
+                        state.PendingQueue.RemoveAt(i);
+                    }
                 }
 
-                // AutoEntries에서 제거 (자동 순환 목록에서만 빠짐)
-                state.AutoEntries.RemoveAt(idx);
+                // AutoCycleIndex가 AutoTypes 범위를 벗어나지 않도록 보정
+                NormalizeAutoCycleIndex(state);
 
-                // AutoEntries가 비면 자동 모드 해제
-                // CurrentProducing은 건드리지 않음 — 슬롯 0 생산은 항상 완료까지 허용
-                if (state.AutoEntries.Count == 0)
-                {
-                    state.IsAutoMode = false;
-                    state.AutoIndex = 0;
-                }
-                else
-                {
-                    // AutoIndex 보정: 제거된 인덱스가 AutoIndex보다 앞이면 1 감소
-                    if (idx < state.AutoIndex)
-                        state.AutoIndex -= 1;
+                GameEvents.OnProductionQueueChanged.OnNext(
+                    new ProductionQueueChangedEvent(barracksId));
+                return true;
+            }
 
-                    // 범위 초과 방지
-                    if (state.AutoIndex >= state.AutoEntries.Count)
-                        state.AutoIndex = 0;
+            // ──────────────────────────────────────────────
+            // 미등록 타입 → 추가 (자동 등록)
+            // ──────────────────────────────────────────────
+
+            // 자동 등록 상한(3종류)
+            if (state.AutoTypes.Count >= 3) return false;
+
+            // ─── Rule 2-1: PendingQueue 마지막 수동 항목과 같은 타입이면 이관 처리 ─────
+            // 사용자가 수동으로 [3,2,1] 등록 후 마지막 '1'에 대해 자동을 활성화하면
+            // "마지막 수동을 자동으로 전환" 의도로 해석하여 중복 항목 추가를 방지.
+            // 골드는 수동 등록 시 이미 차감되었으므로 추가 차감 없이 IsAuto=true로 바꿈.
+            if (state.PendingQueue.Count > 0)
+            {
+                int lastIdx = state.PendingQueue.Count - 1;
+                QueueSlot last = state.PendingQueue[lastIdx];
+
+                if (!last.IsAuto && last.Type == type)
+                {
+                    last.IsAuto = true;
+                    // IsCharged는 그대로 true 유지(이미 차감됨)
+                    state.PendingQueue[lastIdx] = last;
+
+                    state.AutoTypes.Add(type);
+                    // 새 타입 추가 후에도 AutoCycleIndex가 범위를 벗어나지 않도록 보정
+                    NormalizeAutoCycleIndex(state);
+
+                    GameEvents.OnProductionQueueChanged.OnNext(
+                        new ProductionQueueChangedEvent(barracksId));
+                    return true;
                 }
             }
-            else
+
+            // ─── Rule 5: 슬롯1/슬롯2에 즉시 표시 가능한지 판정 ─────────────
+            // 표시 가능 = CurrentProducing이 있고, PendingQueue의 IsCharged=true 항목이 2개 미만.
+            // (슬롯1, 슬롯2 두 칸 중 최소 하나가 비어야 즉시 표시 가능)
+            bool canShow = state.CurrentProducing.HasValue && state.ChargedPendingCount() < 2;
+
+            // BUG-15 방지: 현재 자동으로 같은 타입을 생산 중이면 이중 차감 위험 → 미차감 상태로 보류.
+            // 다음 순환 시 TryStartNext에서 정상 차감되므로 게임 로직에는 문제 없음.
+            if (canShow && state.CurrentIsAuto && state.CurrentProducing == type)
+                canShow = false;
+
+            bool isCharged = false;
+            if (canShow)
             {
-                // ── 미등록 타입 → 추가 ──
+                // 슬롯에 즉시 표시될 수 있으므로 골드/인구 검증 + 차감
+                int cost = UnitProductionStats.GetGoldCost(type);
+                if (!_resource.CanAfford(state.Team, cost)) return false;
 
-                // AutoEntries 최대 3개 제한 (자동 등록 상한)
-                if (state.AutoEntries.Count >= 3) return false;
+                int popCost = UnitProductionStats.GetPopulationCost(type);
+                if (!_population.HasPopulation(state.Team, popCost)) return false;
 
-                // Rule 5: 슬롯에 즉시 표시 가능한지 판단하여 골드 차감 여부 결정
-                // 슬롯 표시 가능 조건: 이 항목이 슬롯1 또는 슬롯2에 들어갈 수 있는가?
-                // CurrentProducing이 없으면 이 항목이 바로 슬롯0(생산 시작)으로 갈 수 있음 → TryStartNext에서 차감
-                // CurrentProducing이 있으면 슬롯1~2에 표시될 수 있음
-                bool canShowInSlot = CanAutoEntryShowInSlot(state);
+                _resource.SpendGold(state.Team, cost);
+                isCharged = true;
+            }
+            // else: 큐가 이미 꽉 차 있음 또는 특수 조건 → 차감 없이 대기 큐로 보냄.
+            //       TryStartNext나 ChargeVisibleSlots가 슬롯에 올라올 때 차감 처리.
 
-                // BUG-15 수정: 현재 슬롯0에서 같은 타입을 생산 중이면 즉시 골드 차감하지 않음.
-                // TryStartNext에서 이미 해당 타입의 골드를 차감했으므로,
-                // 여기서 또 차감하면 등록→취소→재등록 사이클에서 골드가 중복 차감된다.
-                // IsCharged=false로 추가하면 자동 인디케이터 표시에는 문제 없고,
-                // 다음 순환 시 TryStartNext에서 정상적으로 골드가 차감된다.
-                if (canShowInSlot && type == state.CurrentProducing)
-                    canShowInSlot = false;
+            state.PendingQueue.Add(new QueueSlot(type, true, isCharged));
+            state.AutoTypes.Add(type);
+            NormalizeAutoCycleIndex(state);
 
-                bool isCharged = false;
-                if (canShowInSlot)
-                {
-                    // 슬롯에 표시 가능 → 즉시 골드/인구 검증 + 차감
-                    int cost = UnitProductionStats.GetGoldCost(type);
-                    if (!_resource.CanAfford(state.Team, cost)) return false;
-
-                    int popCost = UnitProductionStats.GetPopulationCost(type);
-                    if (!_population.HasPopulation(state.Team, popCost)) return false;
-
-                    _resource.SpendGold(state.Team, cost);
-                    isCharged = true;
-                }
-                // else: 큐 풀 대기 또는 CurrentProducing=null → 골드 미차감, TryStartNext에서 처리
-
-                state.AutoEntries.Add(new AutoEntry(type, isCharged));
-                state.IsAutoMode = true;
+            // ─── 슬롯 깜빡임 버그 방지 ─────────────────────────────────────────────
+            // 큐가 완전히 비어있었던 경우(= 현재 생산 중인 유닛이 없음)에는 방금 추가한
+            // 아이템이 PendingQueue[0]에 들어가면서 "슬롯1(두 번째 칸)"에 잠시 표시된다.
+            // 그 후 다음 Tick()에서 TryStartNext가 이를 슬롯0(첫 번째 칸)으로 올리기 때문에
+            // 1프레임 동안 슬롯1 → 슬롯0으로 튀는 깜빡임이 시각적으로 드러난다.
+            //
+            // 해결: 큐가 비어있었으면 여기서 즉시 TryStartNext를 호출해 슬롯0으로 바로 올린다.
+            //   - TryStartNext 내부에서 OnProductionQueueChanged 이벤트를 발행하므로
+            //     아래의 중복 이벤트 발행을 피하기 위해 Early Return 처리한다.
+            //   - TryStartNext는 골드/인구 검증을 포함하므로, 자원 부족 시 아이템은
+            //     PendingQueue에 미차감 상태로 남아 대기한다(기존 동작 유지).
+            if (!state.CurrentProducing.HasValue)
+            {
+                TryStartNext(state);
+                return true;
             }
 
             GameEvents.OnProductionQueueChanged.OnNext(
@@ -271,177 +294,106 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 생산 큐에서 슬롯 취소.
-        /// slotIndex 0 = 현재 생산 중 (골드 환불), 1~2 = 대기 큐.
+        /// slotIndex 0 = 현재 생산 중 / 1 = 슬롯1 (PendingQueue[0]) / 2 = 슬롯2 (PendingQueue[1]).
         ///
-        /// 자동 모드일 때의 슬롯 구조:
-        ///   슬롯 0 = CurrentProducing (현재 생산 중, 골드 이미 차감 → 환불)
-        ///   슬롯 1~2 = AutoEntries의 다음 생산 예정 항목
-        ///     - IsCharged=true(슬롯 표시됨) → 골드 환불 (Rule 1)
-        ///     - IsCharged=false(큐 풀 대기) → 환불 없음 (일반적으로 이 경우는 발생하지 않음)
+        /// 공통 원칙 (Rule 1): IsCharged=true 항목은 전액 환불.
+        ///   - 슬롯0: CurrentProducing은 항상 차감된 상태이므로 전액 환불
+        ///   - 슬롯1/2: PendingQueue[0]/[1]은 IsCharged=true인 경우만 환불(Rule 5 참조)
         /// </summary>
         public bool CancelQueueAt(int barracksId, int slotIndex)
         {
             if (!_states.TryGetValue(barracksId, out var state)) return false;
 
-            // ── 자동 모드 분기 ──
-            if (state.IsAutoMode)
+            if (slotIndex == 0)
             {
-                if (slotIndex == 0)
+                // ─── 슬롯0: 현재 생산 중인 유닛 취소 ───
+                if (!state.CurrentProducing.HasValue) return false;
+
+                UnitType cancelType = state.CurrentProducing.Value;
+
+                // [BUG-FIX 2026-04-19] 자동 항목이었는지 여부를 "초기화 전"에 먼저 캡처.
+                //   state.CurrentIsAuto = false 라인 이후에 읽으면 항상 false로 판정되어
+                //   AutoTypes 제거 분기로 진입하지 못하는 문제 방지.
+                bool wasAuto = state.CurrentIsAuto;
+
+                // Rule 1: 현재 생산 중인 유닛은 항상 골드 차감된 상태 → 전액 환불
+                _resource.AddGold(state.Team, UnitProductionStats.GetGoldCost(cancelType));
+
+                // 생산 상태 초기화 (다음 Tick에서 TryStartNext가 자연스럽게 다음 항목 선택)
+                state.CurrentProducing = null;
+                state.CurrentIsAuto = false;
+                state.ElapsedTime = 0f;
+                state.RequiredTime = 0f;
+
+                // [BUG-19 재검토] 이전 구조에서는 TryStartNext의 ManualQueue 우선 처리로 인해
+                //   슬롯0 취소 직후 자동→수동 역전 버그가 있어 직접 다음 항목을 시작했었음.
+                //   새 구조에서는 PendingQueue가 이미 올바른 표시 순서를 유지하므로
+                //   TryStartNext에 위임해도 안전함 — 다음 Tick에서 PendingQueue[0]이 슬롯0으로 올라감.
+
+                // [BUG-FIX 2026-04-19] 자동 항목이 취소된 경우, AutoTypes에서도 제거해야
+                //   다음 Tick의 auto 사이클에서 같은 타입이 재생산되지 않음.
+                //   잔여 PendingQueue 내 같은 타입 자동 항목도 Rule 2에 따라 처리됨.
+                if (wasAuto)
                 {
-                    // 슬롯 0: 현재 생산 중인 유닛 즉시 취소 + 골드 환불 + AutoEntries에서 제거
-                    if (!state.CurrentProducing.HasValue) return false;
-
-                    UnitType cancelType = state.CurrentProducing.Value;
-
-                    // AutoEntries에서 현재 생산 중인 타입 제거 (AutoIndex 위치)
-                    if (state.AutoEntries.Count > 0 && state.AutoIndex < state.AutoEntries.Count
-                        && state.AutoEntries[state.AutoIndex].Type == cancelType)
-                    {
-                        state.AutoEntries.RemoveAt(state.AutoIndex);
-                    }
-
-                    // AutoIndex 보정
-                    if (state.AutoEntries.Count == 0)
-                    {
-                        state.IsAutoMode = false;
-                        state.AutoIndex = 0;
-                    }
-                    else if (state.AutoIndex >= state.AutoEntries.Count)
-                    {
-                        state.AutoIndex = 0;
-                    }
-
-                    // 생산 취소 + 골드 환불 (Rule 1: 생산 취소 시 항상 전액 환불)
-                    state.CurrentProducing = null;
-                    state.ElapsedTime = 0f;
-                    state.RequiredTime = 0f;
-                    _resource.AddGold(state.Team, UnitProductionStats.GetGoldCost(cancelType));
-
-                    // ── BUG-19 Bug B 수정: 자동 모드에서 슬롯0 취소 후, 다음 자동 항목 즉시 시작 ──
-                    //
-                    // [문제]
-                    // TryStartNext()는 ManualQueue를 AutoEntries보다 항상 우선 처리한다.
-                    // Rule 2로 ManualQueue에 이관된 항목이 있는 상태에서 슬롯0을 취소하면,
-                    // TryStartNext()가 ManualQueue 항목을 먼저 꺼내 슬롯0에 올려서
-                    // 기대하는 "큐 시프트(슬롯1→슬롯0)" 동작 대신 큐 순서가 역전된다.
-                    //
-                    // [해결]
-                    // 슬롯0 취소 직후, TryStartNext()에 위임하지 않고
-                    // AutoEntries[AutoIndex]를 직접 시작하여 ManualQueue 우선 처리를 우회한다.
-                    // ManualQueue 항목은 이 자동 항목이 자연 완료된 후 TryStartNext()에서 정상 처리된다.
-                    //
-                    // [예시] AutoEntries=[Sniper], ManualQueue=[Pistoleer]:
-                    //   수정 전: TryStartNext → Pistoleer 시작 → 슬롯0=Pistoleer, 슬롯1=Sniper (역전)
-                    //   수정 후: Sniper 직접 시작 → 슬롯0=Sniper, 슬롯1=Pistoleer (정상)
-                    if (state.IsAutoMode && state.AutoEntries.Count > 0)
-                    {
-                        AutoEntry nextAuto = state.AutoEntries[state.AutoIndex];
-
-                        // IsCharged=false인 경우: 큐 풀 대기였던 항목이므로 지금 골드/인구 검증 후 차감
-                        if (!nextAuto.IsCharged)
-                        {
-                            int autoCost = UnitProductionStats.GetGoldCost(nextAuto.Type);
-                            int autoPopCost = UnitProductionStats.GetPopulationCost(nextAuto.Type);
-                            bool canStart = _resource.CanAfford(state.Team, autoCost)
-                                            && _population.HasPopulation(state.Team, autoPopCost);
-                            if (canStart)
-                            {
-                                _resource.SpendGold(state.Team, autoCost);
-                                state.AutoEntries[state.AutoIndex] = new AutoEntry(nextAuto.Type, true);
-                                nextAuto = state.AutoEntries[state.AutoIndex];
-                            }
-                            // 자원 부족 시: CurrentProducing=null 유지 → 다음 Tick에서 TryStartNext()가 처리
-                            // (이 경우 ManualQueue가 먼저 선택될 수 있으나, 자원 부족 예외 케이스이므로 허용)
-                        }
-
-                        if (nextAuto.IsCharged)
-                        {
-                            // 다음 자동 항목을 직접 시작 (TryStartNext를 거치지 않으므로 ManualQueue 우선 우회)
-                            state.CurrentProducing = nextAuto.Type;
-                            state.ElapsedTime = 0f;
-                            state.RequiredTime = UnitProductionStats.GetProductionTime(nextAuto.Type);
-
-                            GameEvents.OnProductionStarted.OnNext(
-                                new ProductionStartedEvent(state.BarracksId, nextAuto.Type));
-                        }
-                    }
+                    CancelAutoTypeIfNeeded(state, cancelType);
                 }
-                else
+
+                GameEvents.OnProductionQueueChanged.OnNext(
+                    new ProductionQueueChangedEvent(barracksId));
+                return true;
+            }
+            else if (slotIndex == 1)
+            {
+                // ─── 슬롯1: PendingQueue[0] 취소 ───
+                if (state.PendingQueue.Count < 1) return false;
+
+                QueueSlot cancelled = state.PendingQueue[0];
+
+                // Rule 1: IsCharged=true면 환불, false면 환불 없음(미차감이므로)
+                if (cancelled.IsCharged)
                 {
-                    // 슬롯 1~2: UpdateQueueSlots의 pending 목록 방식과 동일한 기준으로 취소 대상 결정.
-                    //
-                    // BUG-18 수정 이후 UpdateQueueSlots는 다음 순서로 슬롯1~2를 채움:
-                    //   1) AutoEntries 대기 항목 (AutoIndex 기준으로 현재 이후의 항목)
-                    //   2) ManualQueue 항목 (AutoEntries 대기 항목 이후에 배치)
-                    //
-                    // CancelQueueAt도 동일한 pending 논리를 사용해야 슬롯에 표시된 것과 취소 대상이 일치함.
-                    int autoCount = state.AutoEntries.Count;
-                    int pendingOffset = slotIndex - 1; // 슬롯1→0, 슬롯2→1
+                    _resource.AddGold(state.Team, UnitProductionStats.GetGoldCost(cancelled.Type));
+                }
 
-                    // UpdateQueueSlots와 동일한 isNormalAutoState 판단
-                    // CurrentProducing=null: 아직 TryStartNext 전 → 정상 상태로 간주
-                    bool isNormalAutoState = autoCount > 0 && (
-                        !state.CurrentProducing.HasValue
-                        || state.AutoTypeAt(state.AutoIndex % autoCount) == state.CurrentProducing.Value
-                    );
+                state.PendingQueue.RemoveAt(0);
 
-                    // AutoEntries 대기 항목 수:
-                    //   정상 상태: AutoIndex 위치는 슬롯0 → 그 이후(+1~) 항목이 대기 → 최대 count-1개 (슬롯1~2 기준 최대 2)
-                    //   취소 상태: AutoIndex 위치부터 대기 → 최대 count개 (슬롯1~2 기준 최대 2)
-                    int autoStartOffset = isNormalAutoState ? 1 : 0;
-                    int autoPendingCount = isNormalAutoState
-                        ? System.Math.Min(autoCount - 1, 2)
-                        : System.Math.Min(autoCount, 2);
+                // 슬롯1이 빠지면서 PendingQueue[1]이 새 슬롯1로, PendingQueue[2]가 새 슬롯2로 승격.
+                // 새로 슬롯에 올라온 자동 항목이 IsCharged=false 상태라면 지금 차감해야 함.
+                ChargeVisibleSlots(state);
 
-                    if (pendingOffset < autoPendingCount)
-                    {
-                        // pending 위치가 AutoEntries 범위 내 → AutoEntry 취소
-                        int targetIdx = (state.AutoIndex + autoStartOffset + pendingOffset) % autoCount;
-                        AutoEntry removedEntry = state.AutoEntries[targetIdx];
+                // [BUG-FIX 2026-04-19] 취소된 항목이 자동이었다면 AutoTypes에서도 제거.
+                //   RemoveAt 이후에 호출해도 안전 — cancelled는 이미 값으로 복사된 상태.
+                if (cancelled.IsAuto)
+                {
+                    CancelAutoTypeIfNeeded(state, cancelled.Type);
+                }
 
-                        // Rule 1: IsCharged=true(골드 차감됨)이면 환불
-                        if (removedEntry.IsCharged)
-                        {
-                            int refund = UnitProductionStats.GetGoldCost(removedEntry.Type);
-                            _resource.AddGold(state.Team, refund);
-                        }
+                GameEvents.OnProductionQueueChanged.OnNext(
+                    new ProductionQueueChangedEvent(barracksId));
+                return true;
+            }
+            else if (slotIndex == 2)
+            {
+                // ─── 슬롯2: PendingQueue[1] 취소 ───
+                if (state.PendingQueue.Count < 2) return false;
 
-                        state.AutoEntries.RemoveAt(targetIdx);
+                QueueSlot cancelled = state.PendingQueue[1];
 
-                        // AutoIndex 보정
-                        if (state.AutoEntries.Count == 0)
-                        {
-                            // AutoEntries가 비면 자동 모드 해제
-                            // CurrentProducing은 건드리지 않음 — 슬롯 0 생산은 완료까지 유지
-                            state.IsAutoMode = false;
-                            state.AutoIndex = 0;
-                        }
-                        else
-                        {
-                            // 제거된 인덱스가 AutoIndex보다 앞이면 AutoIndex를 1 감소 (밀림 보정)
-                            if (targetIdx < state.AutoIndex)
-                                state.AutoIndex -= 1;
+                // Rule 1
+                if (cancelled.IsCharged)
+                {
+                    _resource.AddGold(state.Team, UnitProductionStats.GetGoldCost(cancelled.Type));
+                }
 
-                            // 범위 초과 방지
-                            if (state.AutoIndex >= state.AutoEntries.Count)
-                                state.AutoIndex = 0;
-                        }
-                    }
-                    else
-                    {
-                        // pending 위치가 AutoEntries 범위를 초과 → ManualQueue 항목 취소
-                        int manualOffset = pendingOffset - autoPendingCount;
-                        if (manualOffset < 0 || manualOffset >= state.ManualQueue.Count) return false;
+                state.PendingQueue.RemoveAt(1);
 
-                        UnitType cancelType = state.ManualQueue[manualOffset];
+                // 슬롯2 제거 시 PendingQueue[2]가 새 슬롯2로 승격 → 해당 항목이 자동 미차감이면 차감.
+                ChargeVisibleSlots(state);
 
-                        // Rule 1: ManualQueue 항목은 등록 시 골드가 차감됨 → 전액 환불
-                        int refund = UnitProductionStats.GetGoldCost(cancelType);
-                        _resource.AddGold(state.Team, refund);
-
-                        state.ManualQueue.RemoveAt(manualOffset);
-                        // IsAutoMode, AutoEntries, AutoIndex는 변경 없음 — 자동 모드는 계속 유지
-                    }
+                // [BUG-FIX 2026-04-19] 취소된 항목이 자동이었다면 AutoTypes에서도 제거.
+                if (cancelled.IsAuto)
+                {
+                    CancelAutoTypeIfNeeded(state, cancelled.Type);
                 }
 
                 GameEvents.OnProductionQueueChanged.OnNext(
@@ -449,39 +401,7 @@ namespace Hexiege.Application
                 return true;
             }
 
-            // ── 수동 모드 (기존 로직 유지) ──
-            UnitType? cancelledType = null;
-
-            if (slotIndex == 0)
-            {
-                // 현재 생산 중인 유닛 취소
-                if (!state.CurrentProducing.HasValue) return false;
-
-                cancelledType = state.CurrentProducing.Value;
-                state.CurrentProducing = null;
-                state.ElapsedTime = 0f;
-                state.RequiredTime = 0f;
-            }
-            else
-            {
-                // 대기 큐에서 제거 (slotIndex 1 → ManualQueue[0], 2 → ManualQueue[1])
-                int queueIndex = slotIndex - 1;
-                if (queueIndex < 0 || queueIndex >= state.ManualQueue.Count) return false;
-
-                cancelledType = state.ManualQueue[queueIndex];
-                state.ManualQueue.RemoveAt(queueIndex);
-            }
-
-            // 골드 100% 환불 (Rule 1)
-            if (cancelledType.HasValue)
-            {
-                int refund = UnitProductionStats.GetGoldCost(cancelledType.Value);
-                _resource.AddGold(state.Team, refund);
-            }
-
-            GameEvents.OnProductionQueueChanged.OnNext(
-                new ProductionQueueChangedEvent(barracksId));
-            return true;
+            return false;
         }
 
         /// <summary> 배럭의 생산 상태 조회. 없으면 null. </summary>
@@ -566,68 +486,91 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 다음 생산 대상을 결정하고 시작.
-        /// 수동 큐: 골드는 EnqueueUnit 시점에 이미 차감됨 → 즉시 시작.
-        /// 자동 모드:
-        ///   - IsCharged=true(이미 차감됨): 즉시 시작, 중복 차감 없음.
-        ///   - IsCharged=false(큐 풀 대기): 이 시점에 골드/인구 검증 + 차감.
-        /// 스폰 타일은 여기서 확인하지 않음 (생산 완료 시 확인).
+        ///
+        /// 우선순위:
+        ///   1) PendingQueue.Count > 0 : PendingQueue[0]을 꺼내 슬롯0으로 올림.
+        ///      IsAuto && !IsCharged이면 이 시점에 골드/인구 검증+차감(자원 부족 시 원상복구하고 대기).
+        ///   2) IsAutoMode : AutoTypes[AutoCycleIndex % Count]를 직접 생성하여 시작(순환).
+        ///
+        /// 생산 시작 후 ChargeVisibleSlots()로 PendingQueue[0]/[1] 차감.
         /// </summary>
         private void TryStartNext(ProductionState state)
         {
-            UnitType? nextType = null;
-            bool isManual = false;
-
-            // 1. 수동 큐 우선
-            if (state.ManualQueue.Count > 0)
+            if (state.PendingQueue.Count > 0)
             {
-                nextType = state.ManualQueue[0];
-                isManual = true;
-            }
-            // 2. 자동 모드
-            else if (state.IsAutoMode && state.AutoEntries.Count > 0)
-            {
-                nextType = state.AutoEntries[state.AutoIndex].Type;
-            }
+                // PendingQueue의 첫 항목을 꺼내 슬롯0으로 올림
+                QueueSlot slot = state.PendingQueue[0];
+                state.PendingQueue.RemoveAt(0);
 
-            if (!nextType.HasValue) return;
-
-            UnitType type = nextType.Value;
-
-            // 자동 모드일 때 골드 차감 분기
-            if (!isManual)
-            {
-                AutoEntry entry = state.AutoEntries[state.AutoIndex];
-
-                if (!entry.IsCharged)
+                // 자동 항목이면서 아직 미차감이면 이 시점에 검증+차감
+                if (slot.IsAuto && !slot.IsCharged)
                 {
-                    // IsCharged=false: 큐 풀 대기였던 항목 → 이 시점에 골드/인구 검증 + 차감
-                    int cost = UnitProductionStats.GetGoldCost(type);
-                    if (!_resource.CanAfford(state.Team, cost)) return;
+                    int cost = UnitProductionStats.GetGoldCost(slot.Type);
+                    int popCost = UnitProductionStats.GetPopulationCost(slot.Type);
 
-                    int popCost = UnitProductionStats.GetPopulationCost(type);
-                    if (!_population.HasPopulation(state.Team, popCost)) return;
+                    if (!_resource.CanAfford(state.Team, cost)
+                        || !_population.HasPopulation(state.Team, popCost))
+                    {
+                        // 자원 부족 — 다시 앞에 넣고 대기 (다음 Tick에 재시도)
+                        state.PendingQueue.Insert(0, slot);
+                        return;
+                    }
 
                     _resource.SpendGold(state.Team, cost);
-
-                    // 차감 완료 → IsCharged=true로 갱신
-                    state.AutoEntries[state.AutoIndex] = new AutoEntry(type, true);
+                    slot.IsCharged = true;
                 }
-                // IsCharged=true: 이미 등록 시점에 차감됨 → 중복 차감 없음
+
+                // 생산 시작
+                state.CurrentProducing = slot.Type;
+                state.CurrentIsAuto = slot.IsAuto;
+                state.ElapsedTime = 0f;
+                state.RequiredTime = UnitProductionStats.GetProductionTime(slot.Type);
+
+                // 슬롯이 한 칸 앞으로 당겨졌으므로 새로 슬롯1/슬롯2로 올라온 항목의 차감을 시도
+                ChargeVisibleSlots(state);
+
+                GameEvents.OnProductionStarted.OnNext(
+                    new ProductionStartedEvent(state.BarracksId, slot.Type));
+                GameEvents.OnProductionQueueChanged.OnNext(
+                    new ProductionQueueChangedEvent(state.BarracksId));
+                return;
             }
 
-            // 수동 큐에서 제거 (자동은 순환이므로 제거하지 않음)
-            if (isManual)
-                state.ManualQueue.RemoveAt(0);
+            // PendingQueue가 비었지만 자동 모드라면 AutoTypes에서 직접 순환 생성
+            if (state.IsAutoMode)
+            {
+                int count = state.AutoTypes.Count;
+                if (count <= 0) return;
 
-            // 생산 시작
-            state.CurrentProducing = type;
-            state.ElapsedTime = 0f;
-            state.RequiredTime = UnitProductionStats.GetProductionTime(type);
+                int idx = ((state.AutoCycleIndex % count) + count) % count; // 음수 방지
+                UnitType type = state.AutoTypes[idx];
 
-            GameEvents.OnProductionStarted.OnNext(
-                new ProductionStartedEvent(state.BarracksId, type));
-            GameEvents.OnProductionQueueChanged.OnNext(
-                new ProductionQueueChangedEvent(state.BarracksId));
+                int cost = UnitProductionStats.GetGoldCost(type);
+                int popCost = UnitProductionStats.GetPopulationCost(type);
+                if (!_resource.CanAfford(state.Team, cost)
+                    || !_population.HasPopulation(state.Team, popCost))
+                {
+                    // 자원 부족 — 다음 Tick 재시도
+                    return;
+                }
+
+                _resource.SpendGold(state.Team, cost);
+                state.AutoCycleIndex = (idx + 1) % count;
+
+                state.CurrentProducing = type;
+                state.CurrentIsAuto = true;
+                state.ElapsedTime = 0f;
+                state.RequiredTime = UnitProductionStats.GetProductionTime(type);
+
+                // AutoTypes가 여러 개면 PendingQueue에 나머지 타입 하나가 들어있을 수 있음.
+                // 빈 상태면 이 블록은 아무것도 하지 않음.
+                ChargeVisibleSlots(state);
+
+                GameEvents.OnProductionStarted.OnNext(
+                    new ProductionStartedEvent(state.BarracksId, type));
+                GameEvents.OnProductionQueueChanged.OnNext(
+                    new ProductionQueueChangedEvent(state.BarracksId));
+            }
         }
 
         /// <summary>
@@ -649,12 +592,13 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 생산 완료 처리.
-        /// 배럭 인접 빈 타일에 유닛 생성 + OnUnitProduced 이벤트 발행.
-        /// 자동 모드: 완료 후 다음 대기 항목에 골드 차감 시도 (슬롯 표시 위해).
+        /// 유닛 스폰 + 자동 순환 재추가(PendingQueue 끝) + 슬롯 차감 재적용.
+        /// 스폰 실패 시 현재 상태 유지(다음 프레임에 재시도).
         /// </summary>
         private void CompleteProduction(ProductionState state)
         {
             UnitType type = state.CurrentProducing.Value;
+            bool wasAuto = state.CurrentIsAuto;
 
             // 스폰 위치 결정 (배럭 인접 이동 가능 타일)
             HexCoord? spawnTile = FindSpawnTile(state.BarracksPosition);
@@ -674,28 +618,20 @@ namespace Hexiege.Application
 
             // 생산 상태 초기화
             state.CurrentProducing = null;
+            state.CurrentIsAuto = false;
             state.ElapsedTime = 0f;
             state.RequiredTime = 0f;
 
-            // 자동 모드: 다음 타입으로 인덱스 순환 + 다음 항목 사전 골드 차감
-            if (state.IsAutoMode && state.AutoEntries.Count > 0)
+            // 자동 항목이 완료된 경우: 같은 타입을 PendingQueue 끝에 재추가하여 순환을 이어감.
+            // AutoTypes에 해당 타입이 아직 남아있을 때만 재추가(자동 취소된 경우 재추가 안 함).
+            // 이때 미차감(IsCharged=false)으로 넣어서 슬롯에 올라오는 시점에 차감되도록 함.
+            if (wasAuto && state.AutoTypes.Contains(type))
             {
-                // 완료된 type이 AutoEntries에 있을 때만 AutoIndex 증가
-                // (ToggleAutoProduction으로 취소된 타입은 AutoEntries에 없으므로 AutoIndex 유지)
-                if (state.AutoContains(type))
-                {
-                    // 생산 완료된 항목의 IsCharged 리셋 — 다음 순환 시 골드를 다시 차감하기 위해
-                    // IsCharged=true가 그대로 남으면 TryStartNext/TryPreChargeAutoEntries에서
-                    // 이미 차감된 것으로 판단하여 다음 순환부터 골드 소모가 발생하지 않음
-                    var completedEntry = state.AutoEntries[state.AutoIndex];
-                    state.AutoEntries[state.AutoIndex] = new AutoEntry(completedEntry.Type, false);
-
-                    state.AutoIndex = (state.AutoIndex + 1) % state.AutoEntries.Count;
-                }
-
-                // 다음 자동 항목이 슬롯에 표시될 수 있으므로 사전 골드 차감 시도
-                TryPreChargeAutoEntries(state);
+                state.PendingQueue.Add(new QueueSlot(type, true, false));
             }
+
+            // PendingQueue[0]/[1] 중 IsCharged=false 자동 항목이 새로 슬롯에 올라왔다면 지금 차감.
+            ChargeVisibleSlots(state);
 
             // 이벤트 발행 (ProductionTicker가 랠리포인트 이동 처리)
             GameEvents.OnUnitProduced.OnNext(
@@ -719,108 +655,102 @@ namespace Hexiege.Application
         }
 
         // ====================================================================
-        // 자동 생산 골드 차감 헬퍼
+        // 슬롯 차감 헬퍼
         // ====================================================================
 
         /// <summary>
-        /// 새 자동 항목이 슬롯에 즉시 표시 가능한지 판단.
-        /// 슬롯 표시 가능 조건:
-        ///   - CurrentProducing이 있어야 함 (없으면 TryStartNext에서 바로 슬롯0으로 감)
-        ///   - 현재 슬롯1~2에 표시된 항목 수(ManualQueue + IsCharged=true 자동 항목)가 2 미만
+        /// PendingQueue[0]/[1] 중 IsCharged=false인 자동 항목을 시점에 맞춰 차감.
+        /// 수동 항목은 항상 IsCharged=true이므로 이 경로에 걸리지 않음.
         ///
-        /// 즉, 큐 풀 상태(CurrentProducing + 슬롯1~2 모두 차 있음)이면 false.
+        /// 자원 부족 시 break — 해당 위치 이후 항목도 차감하지 않음.
+        /// 차감 실패 항목은 IsCharged=false 상태로 남아, 다음 호출 시점에 재시도.
+        ///
+        /// 호출 시점: TryStartNext 직후, CancelQueueAt(1/2) 직후, CompleteProduction 직후.
         /// </summary>
-        private bool CanAutoEntryShowInSlot(ProductionState state)
+        private void ChargeVisibleSlots(ProductionState state)
         {
-            // CurrentProducing이 없으면 TryStartNext에서 바로 생산 시작 → 슬롯 표시 단계 없음
-            if (!state.CurrentProducing.HasValue) return false;
-
-            // 슬롯1~2에 이미 표시된 항목 수 계산
-            // ManualQueue는 항상 슬롯1~2 우선, 나머지를 IsCharged=true 자동 항목이 채움
-            // AutoEntries[AutoIndex]는 슬롯0(현재 생산 중)에 해당하므로 슬롯1~2 집계에서 제외
-            int shownCount = state.ManualQueue.Count;
-            for (int i = 0; i < state.AutoEntries.Count; i++)
+            int limit = state.PendingQueue.Count < 2 ? state.PendingQueue.Count : 2;
+            for (int i = 0; i < limit; i++)
             {
-                if (i == state.AutoIndex) continue; // 슬롯0 항목은 슬롯1~2 집계 대상이 아님
-                if (state.AutoEntries[i].IsCharged)
-                    shownCount++;
-            }
+                QueueSlot s = state.PendingQueue[i];
+                if (s.IsCharged) continue;
 
-            // 슬롯1~2는 최대 2개 (MaxQueueSize - 1 = 2)
-            return shownCount < (ProductionState.MaxQueueSize - 1);
-        }
+                int cost = UnitProductionStats.GetGoldCost(s.Type);
+                int popCost = UnitProductionStats.GetPopulationCost(s.Type);
 
-        /// <summary>
-        /// 생산 완료 후, 다음 슬롯에 표시될 자동 항목에 대해 사전 골드 차감.
-        /// IsCharged=false인 항목 중 슬롯에 표시 가능한 것만 차감.
-        /// CurrentProducing이 null인 시점(생산 완료 직후)에 호출되므로,
-        /// 다음 TryStartNext에서 슬롯0에 올라갈 항목(AutoIndex)은 건너뛰고
-        /// 그 다음 항목(슬롯1~2에 표시될 것)만 사전 차감.
-        /// </summary>
-        private void TryPreChargeAutoEntries(ProductionState state)
-        {
-            if (!state.IsAutoMode || state.AutoEntries.Count == 0) return;
-
-            // 다음 TryStartNext에서 슬롯0에 올라갈 항목 = AutoEntries[AutoIndex]
-            // 그 항목은 TryStartNext에서 차감되므로 여기서는 건너뜀
-            // 슬롯1~2에 표시될 항목만 사전 차감 (AutoIndex+1, AutoIndex+2)
-            int count = state.AutoEntries.Count;
-            int slotsAvailable = ProductionState.MaxQueueSize - 1; // 2개 (슬롯1~2)
-            int charged = 0;
-
-            for (int offset = 1; offset <= slotsAvailable && offset < count; offset++)
-            {
-                int idx = (state.AutoIndex + offset) % count;
-                AutoEntry entry = state.AutoEntries[idx];
-
-                if (entry.IsCharged)
-                {
-                    // 이미 차감됨 → 카운트만 증가
-                    charged++;
-                    continue;
-                }
-
-                // 미차감 항목 → 골드/인구 검증 + 차감 시도
-                int cost = UnitProductionStats.GetGoldCost(entry.Type);
                 if (!_resource.CanAfford(state.Team, cost)) break;
-
-                int popCost = UnitProductionStats.GetPopulationCost(entry.Type);
                 if (!_population.HasPopulation(state.Team, popCost)) break;
 
                 _resource.SpendGold(state.Team, cost);
-                state.AutoEntries[idx] = new AutoEntry(entry.Type, true);
-                charged++;
+                s.IsCharged = true;
+                state.PendingQueue[i] = s;
             }
         }
 
         /// <summary>
-        /// 수동 생산(EnqueueUnit) 시 호출.
-        /// 자동 모드에서 슬롯1~2에 표시된(IsCharged=true) 항목을 수집하여 반환.
-        /// 수집 순서: AutoIndex 기준 순환 순서 (슬롯1 → 슬롯2).
-        /// CurrentProducing에 해당하는 AutoIndex 위치의 항목은 제외 (슬롯0 = 생산 중).
-        /// ManualQueue로 이관될 항목 목록을 만듦.
+        /// 슬롯 취소 시 해당 타입이 자동 항목이었으면 AutoTypes에서 제거 + 잔여 자동 항목 Rule 2 처리.
+        ///
+        /// 호출 규칙:
+        ///   slotIndex == 0: wasAuto=CurrentIsAuto 값을 취소 전에 캡처하여 전달
+        ///   slotIndex == 1/2: cancelled.IsAuto가 true일 때 전달
+        ///
+        /// 처리 내용:
+        ///   1) AutoTypes에서 해당 타입 제거 (이미 없으면 수동 이관된 항목이므로 조기 반환)
+        ///   2) PendingQueue 내 같은 타입의 자동 항목을 Rule 2에 따라 처리
+        ///      - IsCharged=true → 수동 이관(IsAuto=false 전환, 환불 없이 생산 계속)
+        ///      - IsCharged=false → 단순 제거(미차감이므로 환불 불필요)
+        ///   3) AutoCycleIndex를 새 AutoTypes 범위로 보정
+        ///
+        /// 이 처리가 없으면 자동 항목 슬롯을 취소해도 다음 Tick의 auto 사이클에서 같은 타입이
+        /// 다시 PendingQueue에 추가되어 "취소해도 계속 생산되는" 버그가 발생.
         /// </summary>
-        private List<AutoEntry> CollectChargedSlotEntries(ProductionState state)
+        private void CancelAutoTypeIfNeeded(ProductionState state, UnitType type)
         {
-            var result = new List<AutoEntry>();
-            int count = state.AutoEntries.Count;
-            if (count == 0) return result;
+            // AutoTypes에 없으면 이미 제거되었거나 애초에 수동 항목 → 처리 불필요
+            int idx = state.AutoTypes.IndexOf(type);
+            if (idx < 0) return;
 
-            // 슬롯0(=CurrentProducing)에 해당하는 AutoIndex 항목은 건너뜀
-            // 슬롯1 = AutoIndex+1, 슬롯2 = AutoIndex+2 순서로 순회
-            // IsCharged=true인 것만 이관 대상
-            for (int offset = 1; offset < count && offset <= 2; offset++)
+            // 자동 등록 목록에서 해당 타입 제거 — 다음 auto 사이클에서 재생산되지 않도록
+            state.AutoTypes.RemoveAt(idx);
+
+            // PendingQueue에 남아있는 같은 타입의 자동 항목도 함께 정리
+            // 뒤에서 앞으로 순회 — RemoveAt 사용 시 인덱스가 밀리는 문제 방지
+            for (int i = state.PendingQueue.Count - 1; i >= 0; i--)
             {
-                int idx = (state.AutoIndex + offset) % count;
-                AutoEntry entry = state.AutoEntries[idx];
+                QueueSlot s = state.PendingQueue[i];
+                if (!s.IsAuto || s.Type != type) continue;
 
-                if (entry.IsCharged)
+                if (s.IsCharged)
                 {
-                    result.Add(entry);
+                    // Rule 2: 이미 골드가 차감된 항목은 수동으로 이관(환불 없이 생산 계속)
+                    s.IsAuto = false;
+                    state.PendingQueue[i] = s;
+                }
+                else
+                {
+                    // 미차감 대기 항목 → 제거 (환불 불필요)
+                    state.PendingQueue.RemoveAt(i);
                 }
             }
 
-            return result;
+            // AutoTypes 길이가 줄어들었으므로 AutoCycleIndex가 범위를 벗어나지 않도록 보정
+            NormalizeAutoCycleIndex(state);
+        }
+
+        /// <summary>
+        /// AutoCycleIndex가 AutoTypes의 현재 길이 범위 안에 들도록 보정.
+        /// AutoTypes가 비어 있으면 0으로 리셋.
+        /// </summary>
+        private void NormalizeAutoCycleIndex(ProductionState state)
+        {
+            int count = state.AutoTypes.Count;
+            if (count <= 0)
+            {
+                state.AutoCycleIndex = 0;
+                return;
+            }
+            // 음수나 초과값을 안전하게 범위로 보정
+            state.AutoCycleIndex = ((state.AutoCycleIndex % count) + count) % count;
         }
     }
 }

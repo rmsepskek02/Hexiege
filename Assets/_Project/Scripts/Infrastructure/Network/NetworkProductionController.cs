@@ -144,7 +144,15 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 큐 변경 이벤트 핸들러 (서버 전용).
         /// 클라이언트에 전체 큐 상태를 스냅샷으로 전파.
-        /// ManualQueue 최대 2개 + CurrentProducing + AutoEntries 최대 3개를 전송.
+        ///
+        /// [재작성 — 2026-04-19]
+        /// 새 단일 PendingQueue 구조에 맞춰 전송 포맷 변경:
+        ///   CurrentProducing (Type, IsAuto)
+        ///   PendingQueue[0..2] (Type, IsAuto, IsCharged)
+        ///   AutoTypes[0..2] (Type)
+        ///   AutoCycleIndex
+        /// PendingQueue는 슬롯1/슬롯2 + 자동 순환 대기(최대 1개)를 합쳐 최대 3개면 충분하므로
+        /// 고정 크기 인자로 직렬화(없는 슬롯은 typeInt=-1).
         /// </summary>
         private void OnProductionQueueChanged(ProductionQueueChangedEvent e)
         {
@@ -159,26 +167,42 @@ namespace Hexiege.Infrastructure
             // CurrentProducing: -1이면 없음
             int currentType = state.CurrentProducing.HasValue ? (int)state.CurrentProducing.Value : -1;
 
-            // ManualQueue: 최대 2개, 없는 슬롯은 -1
-            int q0 = state.ManualQueue.Count > 0 ? (int)state.ManualQueue[0] : -1;
-            int q1 = state.ManualQueue.Count > 1 ? (int)state.ManualQueue[1] : -1;
+            // PendingQueue: 최대 3개, 각 슬롯마다 (Type, IsAuto, IsCharged) 3필드 전송.
+            // 인덱스 0→슬롯1, 1→슬롯2, 2→추가 대기(예: 수동 2개 + 자동 등록 1개의 경우 미차감 자동).
+            int p0Type = -1, p1Type = -1, p2Type = -1;
+            bool p0Auto = false, p1Auto = false, p2Auto = false;
+            bool p0Charged = false, p1Charged = false, p2Charged = false;
 
-            // AutoEntries: 최대 3개, 없는 슬롯은 -1 (Type만 전송, IsCharged는 서버만 관리)
-            int auto0 = state.AutoCount > 0 ? (int)state.AutoTypeAt(0) : -1;
-            int auto1 = state.AutoCount > 1 ? (int)state.AutoTypeAt(1) : -1;
-            int auto2 = state.AutoCount > 2 ? (int)state.AutoTypeAt(2) : -1;
+            if (state.PendingQueue.Count > 0)
+            {
+                var s = state.PendingQueue[0];
+                p0Type = (int)s.Type; p0Auto = s.IsAuto; p0Charged = s.IsCharged;
+            }
+            if (state.PendingQueue.Count > 1)
+            {
+                var s = state.PendingQueue[1];
+                p1Type = (int)s.Type; p1Auto = s.IsAuto; p1Charged = s.IsCharged;
+            }
+            if (state.PendingQueue.Count > 2)
+            {
+                var s = state.PendingQueue[2];
+                p2Type = (int)s.Type; p2Auto = s.IsAuto; p2Charged = s.IsCharged;
+            }
+
+            // AutoTypes: 최대 3개, 없는 슬롯은 -1
+            int auto0 = state.AutoTypes.Count > 0 ? (int)state.AutoTypes[0] : -1;
+            int auto1 = state.AutoTypes.Count > 1 ? (int)state.AutoTypes[1] : -1;
+            int auto2 = state.AutoTypes.Count > 2 ? (int)state.AutoTypes[2] : -1;
 
             SyncQueueStateClientRpc(
                 e.BarracksId,
                 currentType,
-                q0,
-                q1,
-                state.IsAutoMode,
-                state.Progress,
-                state.AutoIndex,
-                auto0,
-                auto1,
-                auto2);
+                state.CurrentIsAuto,
+                p0Type, p0Auto, p0Charged,
+                p1Type, p1Auto, p1Charged,
+                p2Type, p2Auto, p2Charged,
+                auto0, auto1, auto2,
+                state.AutoCycleIndex);
         }
 
         /// <summary>
@@ -500,30 +524,43 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 서버에서 큐 상태 변경 시 전체 스냅샷을 클라이언트에 전파.
         /// 큐 추가, 취소, 생산 완료 등 모든 큐 변경에 대응.
-        /// AutoEntries와 AutoIndex도 함께 동기화하여 자동 생산 큐 슬롯 표시를 지원.
+        ///
+        /// [재작성 — 2026-04-19]
+        /// 새 단일 PendingQueue 구조에 맞춰 전송 포맷 변경:
+        ///   - PendingQueue: 최대 3개 슬롯 × (Type, IsAuto, IsCharged)
+        ///   - AutoTypes: 최대 3개 (Type만)
+        ///   - AutoCycleIndex + CurrentIsAuto 추가
+        /// 클라이언트는 전송받은 값으로 ProductionState를 그대로 덮어쓰기.
+        /// IsAutoMode는 AutoTypes.Count로 자동 계산되므로 별도 전송 불필요.
         /// </summary>
         /// <param name="barracksId">배럭 Id</param>
         /// <param name="currentTypeInt">현재 생산 중 유닛 타입 (-1=없음)</param>
-        /// <param name="queue0TypeInt">수동 큐 슬롯 0 (-1=없음)</param>
-        /// <param name="queue1TypeInt">수동 큐 슬롯 1 (-1=없음)</param>
-        /// <param name="isAutoMode">자동 모드 활성 여부</param>
-        /// <param name="progress">현재 생산 진행률</param>
-        /// <param name="autoIndex">자동 순환 인덱스</param>
-        /// <param name="auto0TypeInt">AutoEntries[0].Type (-1=없음)</param>
-        /// <param name="auto1TypeInt">AutoEntries[1].Type (-1=없음)</param>
-        /// <param name="auto2TypeInt">AutoEntries[2].Type (-1=없음)</param>
+        /// <param name="currentIsAuto">현재 생산 중 유닛이 자동 경로로 시작되었는지</param>
+        /// <param name="p0TypeInt">PendingQueue[0].Type (-1=없음)</param>
+        /// <param name="p0IsAuto">PendingQueue[0].IsAuto</param>
+        /// <param name="p0IsCharged">PendingQueue[0].IsCharged</param>
+        /// <param name="p1TypeInt">PendingQueue[1].Type (-1=없음)</param>
+        /// <param name="p1IsAuto">PendingQueue[1].IsAuto</param>
+        /// <param name="p1IsCharged">PendingQueue[1].IsCharged</param>
+        /// <param name="p2TypeInt">PendingQueue[2].Type (-1=없음)</param>
+        /// <param name="p2IsAuto">PendingQueue[2].IsAuto</param>
+        /// <param name="p2IsCharged">PendingQueue[2].IsCharged</param>
+        /// <param name="auto0TypeInt">AutoTypes[0] (-1=없음)</param>
+        /// <param name="auto1TypeInt">AutoTypes[1] (-1=없음)</param>
+        /// <param name="auto2TypeInt">AutoTypes[2] (-1=없음)</param>
+        /// <param name="autoCycleIndex">AutoCycleIndex (다음 자동 순환 위치)</param>
         [ClientRpc]
         private void SyncQueueStateClientRpc(
             int barracksId,
             int currentTypeInt,
-            int queue0TypeInt,
-            int queue1TypeInt,
-            bool isAutoMode,
-            float progress,
-            int autoIndex,
+            bool currentIsAuto,
+            int p0TypeInt, bool p0IsAuto, bool p0IsCharged,
+            int p1TypeInt, bool p1IsAuto, bool p1IsCharged,
+            int p2TypeInt, bool p2IsAuto, bool p2IsCharged,
             int auto0TypeInt,
             int auto1TypeInt,
-            int auto2TypeInt)
+            int auto2TypeInt,
+            int autoCycleIndex)
         {
             if (IsServer) return;
 
@@ -536,36 +573,43 @@ namespace Hexiege.Infrastructure
             var state = production.GetState(barracksId);
             if (state == null) return;
 
-            // 수동 큐 상태 동기화 (서버 스냅샷으로 덮어쓰기)
-            state.ManualQueue.Clear();
-            if (queue0TypeInt >= 0) state.ManualQueue.Add((UnitType)queue0TypeInt);
-            if (queue1TypeInt >= 0) state.ManualQueue.Add((UnitType)queue1TypeInt);
+            // ── PendingQueue 덮어쓰기 ────────────────────────────────────
+            // 클라이언트는 화면 표시용이므로 서버 스냅샷을 그대로 신뢰.
+            state.PendingQueue.Clear();
+            if (p0TypeInt >= 0)
+                state.PendingQueue.Add(new QueueSlot((UnitType)p0TypeInt, p0IsAuto, p0IsCharged));
+            if (p1TypeInt >= 0)
+                state.PendingQueue.Add(new QueueSlot((UnitType)p1TypeInt, p1IsAuto, p1IsCharged));
+            if (p2TypeInt >= 0)
+                state.PendingQueue.Add(new QueueSlot((UnitType)p2TypeInt, p2IsAuto, p2IsCharged));
 
-            // AutoEntries 동기화 (서버 스냅샷으로 덮어쓰기)
-            // 클라이언트는 표시 목적이므로 IsCharged=false로 설정 (골드 추적은 서버만 수행)
-            state.AutoEntries.Clear();
-            if (auto0TypeInt >= 0) state.AutoEntries.Add(new AutoEntry((UnitType)auto0TypeInt, false));
-            if (auto1TypeInt >= 0) state.AutoEntries.Add(new AutoEntry((UnitType)auto1TypeInt, false));
-            if (auto2TypeInt >= 0) state.AutoEntries.Add(new AutoEntry((UnitType)auto2TypeInt, false));
-            state.AutoIndex = autoIndex;
+            // ── AutoTypes 덮어쓰기 ───────────────────────────────────────
+            // AutoTypes.Count > 0이면 IsAutoMode가 자동으로 true가 됨.
+            state.AutoTypes.Clear();
+            if (auto0TypeInt >= 0) state.AutoTypes.Add((UnitType)auto0TypeInt);
+            if (auto1TypeInt >= 0) state.AutoTypes.Add((UnitType)auto1TypeInt);
+            if (auto2TypeInt >= 0) state.AutoTypes.Add((UnitType)auto2TypeInt);
+            state.AutoCycleIndex = autoCycleIndex;
 
-            // CurrentProducing 동기화 (ProductionStartedClientRpc가 아직 안 왔을 경우 대비)
+            // ── CurrentProducing 동기화 ─────────────────────────────────
             if (currentTypeInt >= 0)
             {
-                // 이미 ProductionStartedClientRpc에서 설정된 경우 RequiredTime 보존
+                // ProductionStartedClientRpc에서 이미 타이머가 세팅되었을 수 있으므로
+                // CurrentProducing이 비어 있을 때만 설정 (RequiredTime 보존)
                 if (!state.CurrentProducing.HasValue)
                     state.CurrentProducing = (UnitType)currentTypeInt;
+                state.CurrentIsAuto = currentIsAuto;
             }
             else
             {
+                // 생산 종료/취소 상태 — 타이머 초기화
                 state.CurrentProducing = null;
+                state.CurrentIsAuto = false;
                 state.ElapsedTime = 0f;
                 state.RequiredTime = 0f;
             }
 
-            state.IsAutoMode = isAutoMode;
-
-            // UI 갱신 이벤트 발행
+            // UI 갱신 이벤트 발행 — ProductionPanelUI가 구독 중
             GameEvents.OnProductionQueueChanged.OnNext(
                 new ProductionQueueChangedEvent(barracksId));
         }
@@ -683,35 +727,26 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 자동 생산 상태 변경을 모든 클라이언트에 전파.
-        /// 클라이언트 측 ProductionState를 직접 동기화하여 UI가 올바른 값을 표시하도록 함.
-        /// unitTypeInt로 토글된 유닛 타입을 전달하여 AutoEntries를 정확히 동기화.
+        ///
+        /// [재작성 — 2026-04-19]
+        /// 새 구조에서는 IsAutoMode가 AutoTypes.Count > 0으로 자동 계산되는 읽기 전용 프로퍼티이므로
+        /// 여기서 별도로 상태를 변경할 수 없음.
+        /// AutoTypes와 PendingQueue 모두 SyncQueueStateClientRpc가 토글과 함께 전파되므로
+        /// 이 RPC는 UI 갱신 이벤트 발행 및 로그 출력 용도로만 사용.
         /// </summary>
         /// <param name="barracksId">배럭 Id</param>
-        /// <param name="isAuto">토글 후 자동 모드 활성 여부</param>
-        /// <param name="unitTypeInt">토글 대상 유닛 타입 정수값</param>
+        /// <param name="isAuto">토글 후 자동 모드 활성 여부 (로그 전용)</param>
+        /// <param name="unitTypeInt">토글 대상 유닛 타입 정수값 (로그 전용)</param>
         [ClientRpc]
         private void AutoProductionChangedClientRpc(int barracksId, bool isAuto, int unitTypeInt)
         {
             // 서버는 ToggleAutoServerRpc에서 이미 처리 완료
             if (IsServer) return;
 
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
-            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
-            if (production == null) return;
-
-            var state = production.GetState(barracksId);
-            if (state == null) return;
-
             UnitType unitType = (UnitType)unitTypeInt;
 
-            // AutoEntries는 SyncQueueStateClientRpc에서 이미 완전히 동기화됨.
-            // 여기서는 IsAutoMode만 서버 기준으로 반영한다.
-            // (AutoEntries를 여기서 수정하면 SyncQueueStateClientRpc의 올바른 동기화 결과를 덮어쓰게 됨)
-            state.IsAutoMode = isAuto;
-
-            // 기존 구독을 통해 ProductionPanelUI가 자동으로 갱신
+            // 상태 덮어쓰기는 SyncQueueStateClientRpc가 담당 — 여기서는 UI 갱신 이벤트만 추가 발행.
+            // (SyncQueueStateClientRpc가 도착하지 않은 경우 대비해 리프레시 시그널을 한번 더 보냄)
             GameEvents.OnProductionQueueChanged.OnNext(new ProductionQueueChangedEvent(barracksId));
 
             Debug.Log($"[Network] 클라이언트: 자동 생산 상태 동기화. BarracksId={barracksId}, UnitType={unitType}, IsAuto={isAuto}");

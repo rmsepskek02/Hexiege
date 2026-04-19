@@ -12,8 +12,14 @@
 //
 // 큐 슬롯 표시:
 //   슬롯 0 = 현재 생산 중인 유닛 (프로그레스 바와 연동)
-//   슬롯 1~2 = 대기 큐 (ManualQueue[0], ManualQueue[1])
+//   슬롯 1~2 = 대기 큐 (PendingQueue[0], PendingQueue[1])
 //   최대 3개 (1 생산 + 2 대기)
+//
+// [재작성 — 2026-04-19]
+// ProductionState가 단일 PendingQueue 구조로 바뀌면서 UI 로직도 단순화됨.
+//   - UpdateQueueSlots: 슬롯1=PendingQueue[0], 슬롯2=PendingQueue[1]만 읽으면 끝.
+//   - OnQueueSlotClicked: CancelQueueAt 호출만 남고, 이전의 "취소 상태" fallback 경로 제거됨.
+//   - 자동 인디케이터: state.AutoTypes.Contains(type)로 판단.
 //
 // 종족별 유닛 버튼 동적 바인딩:
 //   Show() 호출 시 배럭의 팀(Blue/Red)으로 GameRaceContext에서 종족 조회 →
@@ -90,7 +96,7 @@ namespace Hexiege.Presentation
         [SerializeField] private Image _sniperButtonPortrait;
 
         [Header("Auto Indicators")]
-        [Tooltip("권총병 자동 생산 인디케이터 (해당 유닛이 AutoEntries에 등록되면 활성)")]
+        [Tooltip("권총병 자동 생산 인디케이터 (해당 유닛이 AutoTypes에 등록되면 활성)")]
         [SerializeField] private GameObject _pistoleerAutoIndicator;
         [Tooltip("돌격병 자동 생산 인디케이터")]
         [SerializeField] private GameObject _assaultAutoIndicator;
@@ -442,10 +448,12 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 큐 슬롯 클릭 → 해당 슬롯 생산 취소.
         ///
-        /// 자동 모드 "취소 상태"(슬롯0의 타입이 AutoEntries에서 이미 제거된 상태) 대응:
-        ///   CancelQueueAt의 방어 조건(slotIndex==1 && count<2)은 "정상 자동 상태" 기준이므로,
-        ///   취소 상태에서 슬롯1~2에 표시된 AutoEntries 항목을 클릭하면 CancelQueueAt이 false를 반환함.
-        ///   이 경우 해당 슬롯에 실제 표시된 AutoEntries 항목을 ToggleAutoProduction으로 제거 처리.
+        /// [재작성 — 2026-04-19]
+        /// 새 PendingQueue 구조에서는 CancelQueueAt이 항상 올바르게 동작하므로
+        /// 이전의 "취소 상태" fallback(ToggleAutoProduction 우회) 경로가 완전히 제거됨.
+        ///   슬롯0 → CancelQueueAt(0): CurrentProducing 취소 + 환불
+        ///   슬롯1 → CancelQueueAt(1): PendingQueue[0] 제거 + 환불(IsCharged=true인 경우)
+        ///   슬롯2 → CancelQueueAt(2): PendingQueue[1] 제거 + 환불(IsCharged=true인 경우)
         /// </summary>
         private void OnQueueSlotClicked(int slotIndex)
         {
@@ -468,41 +476,9 @@ namespace Hexiege.Presentation
             }
 
             // ── 싱글플레이: 로컬 UseCase 직접 호출 ──
-            // CancelQueueAt 먼저 시도 — 정상 자동 모드 및 수동 모드는 여기서 처리됨
-            bool cancelled = _production.CancelQueueAt(_currentBarracks.Id, slotIndex);
-            if (cancelled) return;
-
-            // CancelQueueAt 실패 시: 자동 모드 "취소 상태"에서 슬롯1~2 클릭 케이스 처리
-            // 취소 상태 = CurrentProducing이 AutoEntries에서 이미 제거된 상태
-            // 이때 슬롯1~2에는 AutoEntries의 "다음 생산 예정" 항목이 표시되지만,
-            // CancelQueueAt은 count<2 방어 조건으로 인해 제거하지 못함
-            // → 해당 슬롯에 표시된 타입을 직접 ToggleAutoProduction으로 제거
-            if (slotIndex >= 1)
-            {
-                var state = _production.GetState(_currentBarracks.Id);
-                if (state == null || !state.IsAutoMode || state.AutoCount == 0) return;
-
-                // 취소 상태 판단: AutoEntries[AutoIndex].Type이 CurrentProducing과 다른 경우
-                // (CurrentProducing이 null이면 정상 상태로 간주 — TryStartNext가 곧 시작하므로)
-                int autoCount = state.AutoCount;
-                bool isNormalAutoState = !state.CurrentProducing.HasValue
-                    || state.AutoTypeAt(state.AutoIndex % autoCount) == state.CurrentProducing.Value;
-
-                if (isNormalAutoState) return; // 정상 상태면 추가 처리 불필요
-
-                // 취소 상태에서 슬롯에 표시된 AutoEntries 항목 계산
-                // UpdateQueueSlots와 동일한 로직:
-                //   슬롯1 = AutoEntries[AutoIndex % count]
-                //   슬롯2 = AutoEntries[(AutoIndex + 1) % count]
-                int offset = slotIndex - 1; // 슬롯1→0, 슬롯2→1
-                if (offset >= autoCount) return; // 표시할 항목이 없는 빈 슬롯 클릭
-
-                int targetIdx = (state.AutoIndex + offset) % autoCount;
-                UnitType targetType = state.AutoTypeAt(targetIdx);
-
-                // ToggleAutoProduction으로 해당 타입 제거 (네트워크/싱글플레이 분기는 HandleToggleAuto 사용)
-                HandleToggleAuto(targetType);
-            }
+            // 새 구조에서는 CancelQueueAt이 모든 케이스를 처리하므로 추가 fallback 불필요.
+            // 실패 반환은 "그 슬롯에 취소할 항목이 없음" 상태이므로 조용히 무시.
+            _production.CancelQueueAt(_currentBarracks.Id, slotIndex);
         }
 
         /// <summary>
@@ -517,12 +493,14 @@ namespace Hexiege.Presentation
             if (_currentBarracks == null || _production == null) return;
 
             var state = _production.GetState(_currentBarracks.Id);
-            bool isAutoForType = state != null && state.IsAutoMode && state.AutoContains(type);
+            // 자동 모드 ON이면서 해당 타입이 AutoTypes에 포함되어 있으면 "이미 등록된 타입" 탭으로 간주.
+            // 이 경우 자동 생산에서 해당 타입을 제거(Rule 2: IsCharged=true 항목은 수동 이관).
+            bool isAutoForType = state != null && state.IsAutoMode && state.AutoTypes.Contains(type);
 
             if (isAutoForType)
             {
                 // 자동 모드 ON 상태에서 등록된 타입 탭 → 자동 생산 취소 (ToggleAutoProduction)
-                // ToggleAutoProduction 내부에서 IsCharged 여부에 따라 환불 분기 처리
+                // ToggleAutoProduction 내부에서 IsCharged 여부에 따라 환불/이관 분기 처리
                 HandleToggleAuto(type);
             }
             else
@@ -571,7 +549,8 @@ namespace Hexiege.Presentation
             {
                 // 싱글플레이: 로컬 상태로 판단 (동기화 이슈 없음)
                 var state = _production.GetState(_currentBarracks.Id);
-                bool isAutoForType = state != null && state.IsAutoMode && state.AutoContains(type);
+                // AutoTypes에 이미 해당 타입이 포함되어 있으면 "이미 등록된 자동 타입"
+                bool isAutoForType = state != null && state.IsAutoMode && state.AutoTypes.Contains(type);
 
                 if (isAutoForType)
                 {
@@ -648,14 +627,15 @@ namespace Hexiege.Presentation
             if (state == null) return;
 
             // 버튼별 자동 생산 인디케이터 업데이트
-            // _buttonUnitTypes[]에 바인딩된 현재 종족의 UnitType으로 판단
-            // 예: Spirit 종족이면 FlameSpirit/EmberSpirit/InfernoSpirit로 AutoContains 확인
+            // _buttonUnitTypes[]에 바인딩된 현재 종족의 UnitType으로 판단.
+            // state.AutoTypes가 해당 유닛 타입을 포함하면 인디케이터 활성화.
+            // 예: Spirit 종족이면 EmberSpirit/FlameSpirit/InfernoSpirit을 AutoTypes에서 확인.
             if (_pistoleerAutoIndicator != null)
-                _pistoleerAutoIndicator.SetActive(state.IsAutoMode && state.AutoContains(_buttonUnitTypes[0]));
+                _pistoleerAutoIndicator.SetActive(state.AutoTypes.Contains(_buttonUnitTypes[0]));
             if (_assaultAutoIndicator != null)
-                _assaultAutoIndicator.SetActive(state.IsAutoMode && state.AutoContains(_buttonUnitTypes[1]));
+                _assaultAutoIndicator.SetActive(state.AutoTypes.Contains(_buttonUnitTypes[1]));
             if (_sniperAutoIndicator != null)
-                _sniperAutoIndicator.SetActive(state.IsAutoMode && state.AutoContains(_buttonUnitTypes[2]));
+                _sniperAutoIndicator.SetActive(state.AutoTypes.Contains(_buttonUnitTypes[2]));
 
             // 큐 슬롯 갱신
             UpdateQueueSlots(state);
@@ -669,141 +649,44 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 큐 슬롯 표시.
-        /// 자동 모드 (정상): 슬롯0=현재 생산 중, 슬롯1=AutoEntries[+1], 슬롯2=AutoEntries[+2]
-        /// 자동 모드 (취소): 슬롯0=현재 생산 중, 슬롯1=AutoEntries[AutoIndex](다음 타입), 슬롯2=AutoEntries[+1]
-        /// 수동 모드: 슬롯0=현재 생산 중, 슬롯1~2=ManualQueue[0~1]
-        /// ManualQueue가 있으면 AutoEntries보다 우선 표시.
+        ///
+        /// [재작성 — 2026-04-19]
+        /// 새 PendingQueue 구조 불변식: PendingQueue[0]=슬롯1, PendingQueue[1]=슬롯2.
+        /// 자동/수동 구분 없이 동일하게 읽으면 되므로 isNormalAutoState 계산이 필요 없음.
+        ///
+        ///   슬롯0 = state.CurrentProducing (현재 생산 중인 유닛. 없으면 빈 슬롯)
+        ///   슬롯1 = state.PendingQueue[0].Type (대기 1순위)
+        ///   슬롯2 = state.PendingQueue[1].Type (대기 2순위)
+        ///
+        /// PendingQueue[2] 이상은 "아직 슬롯에 올라올 차례가 아닌 자동 대기 항목"으로 UI에 표시하지 않음.
+        /// 자동 순환으로 슬롯이 비면 TryStartNext / ChargeVisibleSlots가 자동으로 채워줌.
         /// </summary>
         private void UpdateQueueSlots(ProductionState state)
         {
             if (_queueSlotImages == null) return;
 
-            if (state.IsAutoMode)
+            for (int i = 0; i < _queueSlotImages.Length; i++)
             {
-                // ── 자동 모드: AutoEntries 우선 + ManualQueue 후순위 혼용 큐 표시 ──
-                // 슬롯 표시 순서: AutoEntries 대기 항목 → ManualQueue 순서
-                int autoCount = state.AutoCount;
-                int manualCount = state.ManualQueue.Count;
+                if (_queueSlotImages[i] == null) continue;
 
-                for (int i = 0; i < _queueSlotImages.Length; i++)
+                UnitType? slotType = null;
+
+                if (i == 0)
                 {
-                    if (_queueSlotImages[i] == null) continue;
-
-                    UnitType? slotType = null;
-
-                    if (i == 0)
-                    {
-                        // 슬롯 0: 현재 생산 중인 유닛 (수동/자동 무관)
-                        slotType = state.CurrentProducing;
-                    }
-                    else if (i == 1 || i == 2)
-                    {
-                        // ── 슬롯 1~2: AutoEntries 우선 + ManualQueue 후순위 표시 ──
-                        //
-                        // "표시 항목 목록"을 순서대로 구성한 뒤 인덱스로 접근:
-                        //   1) AutoEntries에서 슬롯0(현재 생산 중) 이후의 대기 항목 추가
-                        //   2) ManualQueue 항목을 그 뒤에 추가
-                        //   → slot1 = 목록[0], slot2 = 목록[1]
-                        //
-                        // 이 방식으로 AutoEntries 항목이 항상 ManualQueue보다 먼저 표시됨.
-                        // 예) AutoEntries=[Assault, Sniper], ManualQueue=[Pistoleer]
-                        //   → 목록=[Sniper, Pistoleer] → slot1=Sniper, slot2=Pistoleer
-
-                        // 현재 생산 중인 타입이 AutoEntries에 그대로 있는 "정상 상태"인지 판단
-                        // CurrentProducing=null이면 AutoEntries[AutoIndex]가 곧 슬롯0에 올라올 상태
-                        // → 정상 상태로 처리하여 플리커(슬롯1에 유닛이 순간 등장했다 사라지는 현상) 방지
-                        bool isNormalAutoState = autoCount > 0 && (
-                            !state.CurrentProducing.HasValue
-                            || state.AutoTypeAt(state.AutoIndex % autoCount) == state.CurrentProducing.Value
-                        );
-
-                        // ── 표시 항목 목록 구성 (최대 4개: auto 최대 2 + manual 최대 2) ──
-                        // 배열 할당 대신 인라인으로 최대 4개까지 수집
-                        UnitType? pending0 = null, pending1 = null, pending2 = null, pending3 = null;
-                        int pendingCount = 0;
-
-                        // 1단계: AutoEntries에서 대기 항목 추가
-                        //   정상 상태: AutoIndex가 현재 생산 중 → +1, +2 위치가 대기
-                        //   취소 상태: AutoIndex 자체가 다음 생산 예정 → +0, +1 위치가 대기
-                        if (isNormalAutoState)
-                        {
-                            // 정상 상태: AutoEntries[AutoIndex]는 슬롯0과 동일 → 건너뛰고 다음부터
-                            if (autoCount >= 2)
-                            {
-                                pending0 = state.AutoTypeAt((state.AutoIndex + 1) % autoCount);
-                                pendingCount = 1;
-                            }
-                            if (autoCount >= 3)
-                            {
-                                pending1 = state.AutoTypeAt((state.AutoIndex + 2) % autoCount);
-                                pendingCount = 2;
-                            }
-                        }
-                        else
-                        {
-                            // 취소 상태: AutoEntries[AutoIndex]가 다음 생산 예정 → 즉시 표시
-                            if (autoCount >= 1)
-                            {
-                                pending0 = state.AutoTypeAt(state.AutoIndex % autoCount);
-                                pendingCount = 1;
-                            }
-                            if (autoCount >= 2)
-                            {
-                                pending1 = state.AutoTypeAt((state.AutoIndex + 1) % autoCount);
-                                pendingCount = 2;
-                            }
-                        }
-
-                        // 2단계: ManualQueue 항목을 뒤에 추가
-                        for (int m = 0; m < manualCount && pendingCount < 4; m++)
-                        {
-                            UnitType mType = state.ManualQueue[m];
-                            switch (pendingCount)
-                            {
-                                case 0: pending0 = mType; break;
-                                case 1: pending1 = mType; break;
-                                case 2: pending2 = mType; break;
-                                case 3: pending3 = mType; break;
-                            }
-                            pendingCount++;
-                        }
-
-                        // 3단계: slot1 = 목록[0], slot2 = 목록[1]
-                        int pendingIdx = i - 1; // slot1→0, slot2→1
-                        switch (pendingIdx)
-                        {
-                            case 0: slotType = pending0; break;
-                            case 1: slotType = pending1; break;
-                        }
-                    }
-
-                    ApplySlotImage(i, slotType);
+                    // 슬롯 0: 현재 생산 중인 유닛 (CurrentProducing)
+                    slotType = state.CurrentProducing;
                 }
-            }
-            else
-            {
-                // ── 수동 모드: ManualQueue 기반 큐 표시 (기존 로직) ──
-                for (int i = 0; i < _queueSlotImages.Length; i++)
+                else
                 {
-                    if (_queueSlotImages[i] == null) continue;
-
-                    UnitType? slotType = null;
-
-                    if (i == 0)
-                    {
-                        // 슬롯 0: 현재 생산 중인 유닛
-                        slotType = state.CurrentProducing;
-                    }
-                    else
-                    {
-                        // 슬롯 1~2: 대기 큐 (ManualQueue[0], ManualQueue[1])
-                        int queueIndex = i - 1;
-                        if (queueIndex < state.ManualQueue.Count)
-                            slotType = state.ManualQueue[queueIndex];
-                    }
-
-                    ApplySlotImage(i, slotType);
+                    // 슬롯 1 → PendingQueue[0], 슬롯 2 → PendingQueue[1]
+                    // PendingQueue가 해당 인덱스까지 채워져 있으면 그 타입을 표시하고,
+                    // 아니면 빈 슬롯(null)으로 처리하여 UnitImage를 투명 처리한다.
+                    int queueIndex = i - 1;
+                    if (queueIndex < state.PendingQueue.Count)
+                        slotType = state.PendingQueue[queueIndex].Type;
                 }
+
+                ApplySlotImage(i, slotType);
             }
         }
 
