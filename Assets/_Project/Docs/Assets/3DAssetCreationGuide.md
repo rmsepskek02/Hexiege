@@ -189,7 +189,8 @@ vibrant warm colors, clean architecture, game asset, 3D render style
 background, interior visible, cross-section, partial view,
 realistic texture, dark shadows, fog,
 characters nearby, vegetation overlapping building,
-motion blur, watermark, text
+motion blur, watermark, text,
+fire, smoke, glowing auras, particle effects
 ```
 
 ---
