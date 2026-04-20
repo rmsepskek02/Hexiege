@@ -93,50 +93,93 @@ public (int id, bool isUnit)? FindNearestEnemyInDetectRange(UnitData attacker)
 
 ---
 
-### 4. `Presentation/Unit/UnitView.cs` — MoveAlongPath 재경로 로직 수정
+### 4. `Application/UseCases/UnitCombatUseCase.cs` — 추적용 ID 반환 메서드 추가
 
-**변경 위치:** Lerp while 블록 내부 (라인 522~685 구간)
-
-#### 버그 원인 (1차 구현의 무한루프)
-
-1차 구현: detect → `path 교체` + `i=0; continue` → 새 경로 첫 스텝에서 또 detect → 또 `i=0` → **무한루프**
-
-근본 원인: `i=0`으로 재시작해도 적이 여전히 detect range 내이므로 즉시 또 재경로 발생.
-
-#### 수정 설계 — `isRerouting` 플래그
+#### 4-1. `FindNearestEnemyInDetectRange()` 추가
 
 ```
-bool isRerouting = false  // for loop 바깥에 선언 (스텝 간 유지)
-bool rerouteTriggered = false  // 이번 스텝에서 재경로 발생 여부
+public (int id, bool isUnit)? FindNearestEnemyInDetectRange(UnitData attacker)
+```
 
-[Lerp while 내부]
-  if (!isRerouting && HasEnemyInDetectRange && !HasEnemyInRange):
-      reroutePath 계산
+- `FindFirstEnemyInDetectRange()`가 반환한 `IDamageable`에서 `(Id, isUnit)` 추출
+- UnitView의 Phase 1 추적 루프에서 매 프레임 적 위치 조회에 사용
+
+---
+
+### 5. `Presentation/Unit/UnitView.cs` — 하이브리드 이동 시스템
+
+**변경 위치:** ProcessStep 완료 직후 detect 체크 블록 + 새 Phase 1/2 루프 추가
+
+#### 버그 원인 히스토리
+
+| 단계 | 문제 | 원인 | 수정 |
+|------|------|------|------|
+| 1차 구현 | 게임 멈춤(무한루프) | Lerp 내 detect → `i=0` 재시작 → 또 detect → 무한반복 | `isRerouting` 플래그 추가 |
+| 2차 구현 | 제자리걸음 | `i=-1` → `path[-1]` IndexOutOfRange → 코루틴 종료, Walk 애니만 잔존 | `i=-1` → `i=0` 수정 |
+| 3차 구현 | 이상한 이동(snap-back) | Lerp 도중 detect → `_unitData.Position`이 이전 타일 → 재경로 오류 | detect 체크를 ProcessStep 이후로 이동 |
+| 4차 구현 | 적 타일로 빙 돌아감 | A* 재경로가 타일 단위로 계산 → 적이 타일 중간에 있으면 엉뚱한 타일로 경로 | **하이브리드 이동** 도입 |
+
+#### 최종 설계 — 하이브리드 이동 (Phase 1 + Phase 2)
+
+**핵심 아이디어:**
+- 감지 시 A* 재경로 대신, **월드 좌표로 적에게 직선 이동** (Phase 1)
+- 적이 감지 사거리를 벗어나면, **현재 위치에서 가장 가까운 타일 중심으로 이동** 후 A* 재개 (Phase 2)
+- 타일 ↔ 월드 전환 시 도메인 위치(`_unitData.Position`)를 반드시 동기화
+
+```
+[ProcessStep 완료 후 detect 체크]
+  if (HasEnemyInDetectRange && !HasEnemyInRange):
+      (targetId, targetIsUnit) = FindNearestEnemyInDetectRange()
       if 유효:
-          path = reroutePath
-          isRerouting = true       ← 재경로 플래그 ON
-          rerouteTriggered = true
+          ClaimedTile = null
+          break → 타일 for 루프 탈출, Phase 1 진입
+
+[Phase 1 — 월드 좌표 직선 추적 루프]
+  while (alive):
+      enemyWorldPos = positionProvider.GetUnitWorldPosition(targetId)  // 매 프레임 현재 위치
+      dir = (enemyWorldPos - transform.position).normalized
+      transform.position += dir * moveSpeed * deltaTime
+
+      if HasEnemyInRange:
+          isInPursuit = false
+          [기존 전투 루프]    ← 공격 사거리 진입 → 전투
           break
+      
+      if !HasEnemyInDetectRange:
+          break              ← 적 감지 사거리 이탈 → Phase 2
 
-  if (HasEnemyInRange):
-      isRerouting = false          ← 공격 사거리 진입 = 재경로 목적 달성
-      [기존 전투 루프 그대로]
+      yield return null
 
-[Lerp while 이후]
-  if (rerouteTriggered):
-      i = -1   ← for loop i++ 후 i=0 → 새 경로 첫 스텝 실행
-      continue
-      // isRerouting=true 유지 → 첫 스텝에서 또 재경로 발생하지 않음
+[Phase 2 — 가장 가까운 타일 중심으로 이동 후 A* 재개]
+  // 현재 위치(뷰 좌표) → 도메인 좌표 역변환 → 가장 가까운 타일
+  Vector3 domainPos = ViewConverter.FromView(transform.position)
+  HexCoord nearestTile = HexMetrics.WorldToHex(domainPos)
+  
+  // 타일 중심으로 Lerp 이동
+  Vector3 tileCenter = ViewConverter.ToView(HexMetrics.HexToWorld(nearestTile)) + UnitYOffset
+  while (transform.position != tileCenter):
+      Lerp to tileCenter
+      yield return null
+  
+  // 도메인 위치 동기화 (이 시점부터 _unitData.Position이 정확)
+  _unitData.Position = nearestTile  // 또는 ProcessStep 등가 처리
+  
+  // 원래 목적지로 A* 재계산 + 타일 루프 재개
+  path = RequestMove(_unitData, finalTarget)
+  if 유효:
+      i = 0; continue  // 타일 for 루프 재진입
 ```
 
-**핵심 차이:**
-- `i=0` → `i=-1`: 의미 동일하지만 명시적으로 "i++에 의해 0이 됨"을 표현
-- `isRerouting=true` 유지: 새 경로 실행 중에는 detect 체크 건너뜀 → 무한루프 차단
-- 공격 사거리 진입 시 `isRerouting=false` 해제 → 이후 전투 종료 후 다시 detect 가능
+**핵심 포인트:**
+- Phase 1: 타일 경유 없이 매 프레임 적의 실제 월드 위치를 향해 직선 이동
+- Phase 1 → 전투: 공격 사거리 진입 시 기존 전투 루프 그대로 진입
+- Phase 1 → Phase 2: 적이 감지 사거리 이탈 시에만 (실제로 거의 발생하지 않음)
+- Phase 2: 가장 가까운 타일 중심으로 이동 → 도메인 위치 동기화 → A* 재개
+- `isRerouting` 플래그 불필요 → 제거 (Phase 1 루프가 별도 while로 분리되어 무한루프 없음)
 
 **멀티플레이 고려:**
-- `GameEvents.OnUnitEnteredCombat` 발행: 감지(DetectRange) 시점이 아닌 공격 사거리(AttackRange) 진입 시점 유지
-- 재경로 이동 중 Walk 애니메이션 그대로 유지
+- `GameEvents.OnUnitEnteredCombat` 발행: 공격 사거리(AttackRange) 진입 시점 유지 (변경 없음)
+- Phase 1 이동 중 Walk 애니메이션 그대로 유지
 
 ---
 
@@ -155,7 +198,11 @@ bool rerouteTriggered = false  // 이번 스텝에서 재경로 발생 여부
 3. `UnitCombatUseCase.cs` — HasEnemyInDetectRange, FindFirstEnemyInDetectRange, FindNearestEnemyPositionInDetectRange 추가 ✅
 4. `UnitSpawnUseCase.cs` — UnitData 생성자에 DetectRange 전달 ✅
 5. `UnitCombatUseCase.cs` — `MeleeDetectDist = HexMetrics.TileHeight` → `0.866f` 리터럴로 수정 ✅ (CS0133 에러 수정)
-6. `UnitView.cs` — `isRerouting` 플래그 방식으로 재경로 로직 수정 (무한루프 버그 수정) ← **현재 진행 중**
+6. `UnitView.cs` — `isRerouting` 플래그 방식으로 재경로 로직 수정 (무한루프 버그 수정) ✅
+7. `UnitView.cs` — `i = -1` → `i = 0` 수정 (제자리걸음 버그 수정) ✅
+8. `UnitView.cs` — detect 체크를 Lerp while 내부 → ProcessStep 완료 후로 이동 (snap-back 버그 수정) ✅
+9. `UnitCombatUseCase.cs` — `FindNearestEnemyInDetectRange()` 추가 (추적 대상 ID 반환) ← **다음 작업**
+10. `UnitView.cs` — 하이브리드 이동 시스템 구현 (Phase 1: 월드 좌표 직선 추적 / Phase 2: 타일 복귀 후 A\* 재개)
 
 ---
 

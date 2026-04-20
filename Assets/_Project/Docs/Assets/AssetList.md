@@ -58,12 +58,12 @@
 | Human | FlightFacilities | 지원 건물 | 비행선을 이용한 초장거리 폭격 지원 |
 | Human | TechnicalLaboratory | 업그레이드 건물 | 기술 연구소 (폐쇄형 구조, 지면 잔해/이펙트 제외), 유닛 강화 |
 | Spirit | RuneSpire | 방어 타워 | 화이트 마블/실버 재질의 우아한 첨탑, 상단 수정구 (이펙트 제외) |
-| Spirit | MagicSpirit | 마법 건물 | 양끝이 뾰족한 다면체 쌍뿔 형태의 거대 단일 크리스탈 (이펙트 제외) |
+| Spirit | MagicSpirit | 마법 건물 | 거대 단일 크리스탈 (이펙트 제외) |
 | Spirit | AstronomicalSpirit | 업그레이드 건물 | 마법 아스트롤라베 형태, 회전하는 은색 고리와 중앙의 부유하는 수정구 |
-| Transcendence | VineTower | 방어 타워 | 거대하고 뒤엉킨 가시 덩굴 첨탑 형태, 유기적이고 위협적인 실루엣 (이펙트 제외) |
+| Transcendence | VineTower | 방어 타워 | 지면에 낮게 퍼진 거대 덩굴 군집, 지하 공격을 위한 넓적한 실루엣 (이펙트 제외) |
 | Transcendence | PrimalAltar | 유닛 생산 건물 | 돌 사원과 동물의 뼈, 일부 덩굴이 감긴 사원 형태 (Barracks) |
 | Transcendence | MistShrine | 힐 건물 | 유기적 분수 형태, 물이 넘쳐흐르는 포자 식물과 낮은 연꽃 구조 (안개 이펙트 제외) |
-| Transcendence | WillowShrine | 마법 건물 | 액티브 스킬 사용 |
+| Transcendence | WillowShrine | 마법 건물 | 은색 버드나무와 고대 비석이 조화된 성소, 덩어리감 있는 수평 실루엣 (이펙트 제외) |
 
 ### 유닛
 
