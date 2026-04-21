@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 14971428b0c77804eb8449ba841bbccd
+guid: 52950451e2469d34c940ad94c2734853
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 178342449248471128
-    second: Meshy_AI_Arcane_Orbital_Sphere_0419140538_texture_0
+      213: -1247624129123410153
+    second: Meshy_AI_Azure_Ice_Crystal_Sha_0420155443_texture_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Meshy_AI_Arcane_Orbital_Sphere_0419140538_texture_0
+      name: Meshy_AI_Azure_Ice_Crystal_Sha_0420155443_texture_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 85804df3389997200800000000000000
-      internalID: 178342449248471128
+      spriteID: 71f946af67c8faee0800000000000000
+      internalID: -1247624129123410153
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Meshy_AI_Arcane_Orbital_Sphere_0419140538_texture_0: 178342449248471128
+      Meshy_AI_Azure_Ice_Crystal_Sha_0420155443_texture_0: -1247624129123410153
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
