@@ -659,10 +659,11 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void SetupProduction()
         {
-            // UnitFactory에 런타임 의존성 주입 (생산된 유닛에 자동 적용)
+            // UnitFactory에 런타임 의존성 주입 (생산된 유닛에 자동 적용).
+            // _positionProvider는 UnitView의 하이브리드 이동(Phase 1 월드 좌표 추적)에서 사용.
             if (_unitFactory != null)
                 _unitFactory.SetDependencyReferences(_config, _unitMovement, _unitCombat,
-                    _unitFactory, _buildingFactory);
+                    _unitFactory, _buildingFactory, _positionProvider);
 
             // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요)
             if (_productionTicker != null)

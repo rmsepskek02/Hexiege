@@ -201,8 +201,16 @@ public (int id, bool isUnit)? FindNearestEnemyInDetectRange(UnitData attacker)
 6. `UnitView.cs` — `isRerouting` 플래그 방식으로 재경로 로직 수정 (무한루프 버그 수정) ✅
 7. `UnitView.cs` — `i = -1` → `i = 0` 수정 (제자리걸음 버그 수정) ✅
 8. `UnitView.cs` — detect 체크를 Lerp while 내부 → ProcessStep 완료 후로 이동 (snap-back 버그 수정) ✅
-9. `UnitCombatUseCase.cs` — `FindNearestEnemyInDetectRange()` 추가 (추적 대상 ID 반환) ← **다음 작업**
-10. `UnitView.cs` — 하이브리드 이동 시스템 구현 (Phase 1: 월드 좌표 직선 추적 / Phase 2: 타일 복귀 후 A\* 재개)
+9. `UnitCombatUseCase.cs` — `FindNearestEnemyInDetectRange()` 추가 (추적 대상 ID 반환) ✅
+10. `UnitView.cs` — 하이브리드 이동 시스템 구현 (Phase 1: 월드 좌표 직선 추적 / Phase 2: 타일 복귀 후 A\* 재개) ✅
+
+---
+
+## 테스트 결과 (2026-04-24)
+
+- 감지 후 이동(Phase 1 직선 추적): **동작 확인 ✅**
+- 회전값 개선 필요: Phase 1(월드 좌표 직선 추적) 중 유닛 회전이 자연스럽지 않음
+  → **후속 작업으로 분리** (현재 작업 범위 외)
 
 ---
 

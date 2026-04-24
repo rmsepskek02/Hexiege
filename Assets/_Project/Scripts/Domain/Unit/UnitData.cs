@@ -60,6 +60,14 @@ namespace Hexiege.Domain
         /// <summary> 공격 사거리 (월드 단위). </summary>
         public float AttackRange { get; }
 
+        /// <summary>
+        /// 적 감지 사거리 (타일 단위).
+        /// 근접유닛은 AttackRange보다 크게 설정되어 있으며(예: 0.5 → 1.0),
+        /// 인접 타일의 적을 감지한 뒤 공격 사거리 내로 접근한다.
+        /// 원거리유닛은 AttackRange와 동일 — 감지와 공격 사거리가 일치.
+        /// </summary>
+        public float DetectRange { get; }
+
         /// <summary> 타일 이동 속도 (칸/초). 높을수록 빠름. </summary>
         public float MoveSpeed { get; }
 
@@ -99,10 +107,11 @@ namespace Hexiege.Domain
         /// <param name="maxHp">최대 체력</param>
         /// <param name="attackPower">공격력</param>
         /// <param name="attackRange">공격 사거리 (월드 단위)</param>
+        /// <param name="detectRange">적 감지 사거리 (타일 단위). 근접유닛은 AttackRange보다 크게 설정.</param>
         /// <param name="moveSpeed">타일 이동 속도 (칸/초). 높을수록 빠름.</param>
         /// <param name="facing">초기 바라보는 방향 (기본: 동쪽)</param>
         public UnitData(UnitType type, TeamId team, HexCoord position,
-            int maxHp, int attackPower, float attackRange,
+            int maxHp, int attackPower, float attackRange, float detectRange,
             float moveSpeed = 1.0f,
             HexDirection facing = HexDirection.E)
         {
@@ -114,6 +123,7 @@ namespace Hexiege.Domain
             Hp = maxHp;
             AttackPower = attackPower;
             AttackRange = attackRange;
+            DetectRange = detectRange;
             MoveSpeed = moveSpeed;
             AttackCooldown = UnitStats.GetAttackCooldown(type);
             AttackCooldownRemaining = 0f;
@@ -133,10 +143,11 @@ namespace Hexiege.Domain
         /// <param name="maxHp">최대 체력</param>
         /// <param name="attackPower">공격력</param>
         /// <param name="attackRange">공격 사거리 (월드 단위)</param>
+        /// <param name="detectRange">적 감지 사거리 (타일 단위). 근접유닛은 AttackRange보다 크게 설정.</param>
         /// <param name="moveSpeed">타일 이동 속도 (칸/초). 높을수록 빠름.</param>
         /// <param name="facing">초기 바라보는 방향 (기본: 동쪽)</param>
         public UnitData(int id, UnitType type, TeamId team, HexCoord position,
-            int maxHp, int attackPower, float attackRange,
+            int maxHp, int attackPower, float attackRange, float detectRange,
             float moveSpeed = 1.0f,
             HexDirection facing = HexDirection.E)
         {
@@ -148,6 +159,7 @@ namespace Hexiege.Domain
             Hp = maxHp;
             AttackPower = attackPower;
             AttackRange = attackRange;
+            DetectRange = detectRange;
             MoveSpeed = moveSpeed;
             AttackCooldown = UnitStats.GetAttackCooldown(type);
             AttackCooldownRemaining = 0f;

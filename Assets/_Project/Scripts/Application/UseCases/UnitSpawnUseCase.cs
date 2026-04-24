@@ -69,11 +69,13 @@ namespace Hexiege.Application
                 return null;
 
             // UnitData 생성 (타입별 기본 스탯은 UnitStats에서 결정)
+            // DetectRange: 근접유닛은 인접 타일(1.0) 감지, 원거리유닛은 AttackRange와 동일.
             var unit = new UnitData(
                 type, team, position,
                 UnitStats.GetMaxHp(type),
                 UnitStats.GetAttackPower(type),
                 UnitStats.GetAttackRange(type),
+                UnitStats.GetDetectRange(type),
                 UnitStats.GetMoveSpeed(type));
 
             // 내부 목록에 등록
@@ -145,11 +147,13 @@ namespace Hexiege.Application
             }
 
             // 서버 발급 Id로 UnitData 재생성
+            // DetectRange: 근접유닛은 인접 타일(1.0) 감지, 원거리유닛은 AttackRange와 동일.
             var unit = new UnitData(
                 unitId, type, team, position,
                 UnitStats.GetMaxHp(type),
                 UnitStats.GetAttackPower(type),
                 UnitStats.GetAttackRange(type),
+                UnitStats.GetDetectRange(type),
                 UnitStats.GetMoveSpeed(type));
 
             _units[unit.Id] = unit;

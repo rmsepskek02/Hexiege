@@ -51,23 +51,28 @@ namespace Hexiege.Infrastructure
         private UnitCombatUseCase _depCombat;
         private UnitFactory _depUnitFactory;
         private BuildingFactory _depBuildingFactory;
+        // 유닛의 Phase 1(월드 좌표 직선 추적)에서 적의 실시간 월드 좌표를 조회하기 위해 주입.
+        private IEntityPositionProvider _depPositionProvider;
         private bool _hasDependencies;
 
         /// <summary>
         /// GameBootstrapper에서 UseCase 생성 후 한 번 호출.
         /// 이후 생성되는 모든 유닛에 자동으로 SetDependencies() 적용.
         /// UnitFactory/BuildingFactory는 공격 방향 계산 시 타겟 transform 조회에 사용.
+        /// positionProvider는 하이브리드 이동의 Phase 1(월드 좌표 추적)에서 사용.
         /// </summary>
         public void SetDependencyReferences(
             GameConfig config,
             UnitMovementUseCase movement, UnitCombatUseCase combat,
-            UnitFactory unitFactory = null, BuildingFactory buildingFactory = null)
+            UnitFactory unitFactory = null, BuildingFactory buildingFactory = null,
+            IEntityPositionProvider positionProvider = null)
         {
             _depConfig = config;
             _depMovement = movement;
             _depCombat = combat;
             _depUnitFactory = unitFactory;
             _depBuildingFactory = buildingFactory;
+            _depPositionProvider = positionProvider;
             _hasDependencies = true;
         }
 
@@ -262,7 +267,7 @@ namespace Hexiege.Infrastructure
                 // 런타임 의존성 자동 주입 (생산된 유닛도 즉시 동작 가능)
                 if (_hasDependencies)
                     unitView.SetDependencies(_depConfig, _depMovement, _depCombat,
-                        _depUnitFactory, _depBuildingFactory);
+                        _depUnitFactory, _depBuildingFactory, _depPositionProvider);
             }
 
             // 내부 딕셔너리에 등록 (나중에 삭제 시 사용)
@@ -350,7 +355,7 @@ namespace Hexiege.Infrastructure
                 // 런타임 의존성 자동 주입
                 if (_hasDependencies)
                     unitView.SetDependencies(_depConfig, _depMovement, _depCombat,
-                        _depUnitFactory, _depBuildingFactory);
+                        _depUnitFactory, _depBuildingFactory, _depPositionProvider);
             }
 
             // NetworkUnit에 초기화 완료 플래그 설정

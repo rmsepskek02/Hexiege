@@ -104,7 +104,7 @@
 |------|--------|------|------|
 | Transcendence | VineCrawler | 근접/재생 | 느리지만 체력 재생 |
 | Transcendence | MushroomBomber | 범위 딜 | 독/폭발 공격 | 제작중
-| Transcendence | BloomFairy | 힐러 | 아군 체력 회복 | 제작예정
+| Transcendence | BloomFairy | 힐러 | 아군 체력 회복 | 제작중
 
 #### 인간계 — 근거리 유닛
 
@@ -120,5 +120,5 @@
 |------|--------|------|------|
 | Human | KnightRider | 돌격 기병 | 말 기사, 빠른 돌격 |
 | Human | CannonCart | 원거리 포격 | 대포 수레, 범위 공격 | 제작예정
-| Human | StoneCart | 원거리 포격 | 돌석기 , 범위 공격 | 제작예정 투석기부분 분리해서 제작해야함
+| Human | SteamTank | 중장갑 포격 | 육중한 철갑 전차. 높은 체력과 광역 폭발 공격 | 제작예정
 | Human | WarElephant | 초고체력 탱커 | 전쟁 코끼리, 광역 압박 |

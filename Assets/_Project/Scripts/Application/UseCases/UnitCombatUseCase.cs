@@ -36,6 +36,13 @@ namespace Hexiege.Application
         // 건물 메시가 크기 때문에 0.2f 일찍 감지해도 유닛이 건물 메시에 닿아 보임.
         private const float BuildingDetectionRadius = 0.2f;
 
+        // 근접유닛 감지 사거리(월드 거리).
+        // 헥스 FlatTop 인접 타일 중심 간 거리(= TileHeight ≈ 0.866f)와 일치.
+        // MoveAlongPath에서 이동 중 적 감지 시,
+        //   공격 사거리(MeleeContactDist=0.3f) 밖이지만 인접 타일(~0.866f)에 있는 적을 찾기 위해 사용.
+        // 감지 후 UnitView가 해당 적 쪽으로 경로를 재계산하여 공격 사거리로 접근.
+        private const float MeleeDetectDist = 0.866f; // HexMetrics.TileHeight — FlatTop 인접 타일 중심 간 거리
+
         private readonly HexGrid _grid;
         private readonly UnitSpawnUseCase _unitSpawn;
         private readonly BuildingPlacementUseCase _buildingPlacement;
@@ -254,6 +261,172 @@ namespace Hexiege.Application
         {
             if (attacker == null || !attacker.IsAlive) return false;
             return FindFirstEnemyTarget(attacker) != null;
+        }
+
+        /// <summary>
+        /// 감지 사거리(DetectRange) 내에 적이 있는지 판정.
+        ///
+        /// HasEnemyInRange(AttackRange 기준)와의 차이:
+        ///   HasEnemyInRange   — 공격 사거리(MeleeContactDist=0.3f) 내 적만 탐지 (실제 공격 성립 조건)
+        ///   HasEnemyInDetectRange — 감지 사거리(근접=0.866f) 내 적 탐지 (경로 전환 조건)
+        ///
+        /// 근접유닛은 DetectRange > AttackRange이므로 두 결과가 다를 수 있다.
+        /// 원거리유닛은 DetectRange == AttackRange이므로 두 결과가 항상 동일.
+        ///
+        /// 사용처: UnitView.MoveAlongPath()에서 이동 중 매 프레임 호출.
+        /// 감지 → (공격 사거리 밖이면 접근 이동) → 공격 사거리 진입 → 전투 루프 진입.
+        /// </summary>
+        /// <param name="attacker">감지 주체 유닛</param>
+        /// <returns>감지 사거리 내에 적이 있으면 true</returns>
+        public bool HasEnemyInDetectRange(UnitData attacker)
+        {
+            if (attacker == null || !attacker.IsAlive) return false;
+            return FindFirstEnemyInDetectRange(attacker) != null;
+        }
+
+        /// <summary>
+        /// 감지 사거리(DetectRange) 내 가장 가까운 적의 (Id, 유닛 여부)를 반환.
+        ///
+        /// UnitView에서 감지 후 재경로 대상을 특정하기 위해 사용.
+        /// 반환된 Id로 UnitSpawnUseCase/BuildingPlacementUseCase에서 Position을 조회하여
+        /// HexPathfinder로 해당 타일 근처까지 경로 재계산.
+        ///
+        /// FindNearestEnemy(AttackRange 기준)와의 차이는 HasEnemyInDetectRange 주석 참조.
+        /// </summary>
+        /// <param name="attacker">탐색 주체 유닛</param>
+        /// <returns>감지 사거리 내 가장 가까운 적이 있으면 (Id, 유닛 여부), 없으면 null</returns>
+        public (int id, bool isUnit)? FindNearestEnemyInDetectRange(UnitData attacker)
+        {
+            if (attacker == null || !attacker.IsAlive) return null;
+            IDamageable target = FindFirstEnemyInDetectRange(attacker);
+            if (target == null) return null;
+            return (target.Id, target is UnitData);
+        }
+
+        /// <summary>
+        /// 감지 사거리(DetectRange) 내 가장 가까운 적의 HexCoord 위치를 반환.
+        ///
+        /// UnitView의 MoveAlongPath에서 감지 후 경로 재탐색 시 사용.
+        /// FindNearestEnemyInDetectRange는 Id만 돌려주기 때문에 호출자가 Position을 다시 찾아야 하는데,
+        /// UnitView는 UnitSpawnUseCase/BuildingPlacementUseCase 참조를 갖지 않으므로
+        /// 이 메서드로 HexCoord를 직접 넘겨받아 RequestMove에 그대로 넣는다.
+        /// </summary>
+        /// <param name="attacker">탐색 주체 유닛</param>
+        /// <returns>감지된 적의 HexCoord. 없으면 null.</returns>
+        public HexCoord? FindNearestEnemyPositionInDetectRange(UnitData attacker)
+        {
+            if (attacker == null || !attacker.IsAlive) return null;
+            IDamageable target = FindFirstEnemyInDetectRange(attacker);
+            if (target == null) return null;
+
+            // target.Position(도메인 위치)은 ProcessStep 이후에만 갱신된다.
+            // 적이 타일과 타일 사이(Lerp 중)에 있을 때는 이전 타일 좌표를 가리키므로
+            // positionProvider를 통해 실제 transform 위치(뷰 좌표)를 취득하고,
+            // FromView 역변환 → WorldToHex로 실제 위치의 타일 좌표를 구한다.
+            if (_positionProvider != null)
+            {
+                Vector3 viewPos = Vector3.zero;
+
+                // IDamageable이 유닛인지 건물인지에 따라 다른 provider 메서드 호출.
+                if (target is UnitData unitTarget)
+                    viewPos = _positionProvider.GetUnitWorldPosition(unitTarget.Id);
+                else
+                    viewPos = _positionProvider.GetBuildingWorldPosition(target.Id);
+
+                if (viewPos != Vector3.zero)
+                {
+                    // 뷰 좌표(Red팀이면 반전 적용됨) → 도메인 월드 좌표 역변환 → HexCoord
+                    Vector3 domainPos = ViewConverter.FromView(viewPos);
+                    return HexMetrics.WorldToHex(domainPos);
+                }
+            }
+
+            // 폴백: positionProvider가 없거나 GameObject가 미등록 → 도메인 위치 사용
+            return target.Position;
+        }
+
+        /// <summary>
+        /// 감지 사거리(DetectRange) 기준으로 가장 가까운 적 엔티티(유닛/건물)를 탐색.
+        ///
+        /// FindFirstEnemyTarget(AttackRange 기준)의 거리 상수만 DetectRange로 바꾼 버전.
+        /// 근접유닛: MeleeDetectDist(0.866f) 사용.
+        /// 원거리유닛: AttackRange × TileHeight 사용 (기존 동일 — 감지=공격).
+        ///
+        /// 건물 감지: 근접유닛은 MeleeDetectDist + BuildingDetectionRadius 사용
+        ///   (건물 메시가 크므로 조금 더 일찍 감지, 기존 패턴 동일).
+        /// </summary>
+        private IDamageable FindFirstEnemyInDetectRange(UnitData attacker)
+        {
+            // _positionProvider가 없으면 HexCoord 기반 폴백.
+            // HexCoord 폴백은 이미 threshold=1로 인접 타일까지 탐색하므로
+            // DetectRange(1.0)와 일치 — 별도 폴백 메서드 불필요.
+            if (_positionProvider == null)
+                return FindFirstEnemyTargetByHexCoord(attacker);
+
+            // 공격자 월드 좌표 취득
+            Vector3 attackerWorldPos = _positionProvider.GetUnitWorldPosition(attacker.Id);
+
+            // Vector3.zero = GameObject 미등록 상태 → HexCoord 폴백
+            if (attackerWorldPos == Vector3.zero)
+                return FindFirstEnemyTargetByHexCoord(attacker);
+
+            // 부동소수점 오차 방지용 여유값 (FindFirstEnemyTarget과 동일)
+            const float Epsilon = 0.05f;
+
+            // 근접유닛(AttackRange < 1.0)은 MeleeDetectDist 기준,
+            // 원거리유닛(AttackRange >= 1.0)은 AttackRange 기준으로 탐색.
+            // 원거리는 DetectRange == AttackRange이므로 기존 동작과 완전히 동일.
+            bool isMelee = attacker.AttackRange < 1.0f;
+            float unitMaxDist = isMelee
+                ? MeleeDetectDist + Epsilon
+                : attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
+            float buildingMaxDist = isMelee
+                ? MeleeDetectDist + BuildingDetectionRadius + Epsilon
+                : attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
+
+            IDamageable closestTarget = null;
+            float minWorldDist = float.MaxValue;
+
+            // 1. 모든 적 유닛을 월드 거리 기반으로 탐색
+            foreach (var unit in _unitSpawn.Units.Values)
+            {
+                if (unit.Team == attacker.Team || !unit.IsAlive) continue;
+
+                Vector3 targetPos = _positionProvider.GetUnitWorldPosition(unit.Id);
+
+                // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
+                if (targetPos == Vector3.zero)
+                    targetPos = HexMetrics.HexToWorld(unit.Position);
+
+                float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                if (dist <= unitMaxDist && dist < minWorldDist)
+                {
+                    minWorldDist = dist;
+                    closestTarget = unit;
+                }
+            }
+
+            // 2. 모든 적 건물을 월드 거리 기반으로 탐색
+            foreach (var building in _buildingPlacement.Buildings.Values)
+            {
+                if (building.Team == attacker.Team || !building.IsAlive) continue;
+
+                Vector3 targetPos = _positionProvider.GetBuildingWorldPosition(building.Id);
+
+                if (targetPos == Vector3.zero)
+                    targetPos = HexMetrics.HexToWorld(building.Position);
+
+                float dist = Vector3.Distance(attackerWorldPos, targetPos);
+
+                if (dist <= buildingMaxDist && dist < minWorldDist)
+                {
+                    minWorldDist = dist;
+                    closestTarget = building;
+                }
+            }
+
+            return closestTarget;
         }
 
         /// <summary>

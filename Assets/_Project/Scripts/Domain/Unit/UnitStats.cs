@@ -77,6 +77,31 @@ namespace Hexiege.Domain
             _                     => 1.0f
         };
 
+        /// <summary>
+        /// 유닛 타입별 적 감지 사거리 (타일 단위).
+        ///
+        /// 감지 사거리 vs 공격 사거리(AttackRange)의 차이:
+        ///   - AttackRange: 실제 데미지를 줄 수 있는 거리. 전투 성립 조건.
+        ///   - DetectRange: 적을 인식하고 경로를 전환하기 시작하는 거리. 공격 사거리보다 크거나 같음.
+        ///
+        /// 근접유닛(AttackRange=0.5)은 DetectRange=1.0으로 설정하여
+        /// 인접 타일(HexCoord Distance=1, 월드 0.866f)에 있는 적을 감지 가능하게 함.
+        /// 감지 후 공격 사거리 내로 접근하여 실제 공격이 시작됨.
+        ///
+        /// 원거리유닛은 AttackRange와 동일값을 반환하여 기존 동작을 완전히 유지.
+        /// (감지되는 순간 이미 공격 사거리 내에 있음)
+        /// </summary>
+        public static float GetDetectRange(UnitType type) => type switch
+        {
+            // ── 근접유닛 (AttackRange=0.5) — 인접 타일(1.0)까지 감지 확장 ──
+            UnitType.FlameSpirit  => 1.0f,
+            UnitType.EmberSpirit  => 1.0f,
+            UnitType.BearGuard    => 1.0f,
+            UnitType.LionKnight   => 1.0f,
+            // ── 원거리유닛 — AttackRange와 동일 (기존 동작 유지) ──
+            _                     => GetAttackRange(type)
+        };
+
         /// <summary> 유닛 타입별 이동 속도 (칸/초). 높을수록 빠름. </summary>
         public static float GetMoveSpeed(UnitType type) => type switch
         {

@@ -120,6 +120,13 @@ namespace Hexiege.Presentation
         /// <summary> 건물 팩토리. 타겟 건물의 실제 transform 조회용. </summary>
         private BuildingFactory _buildingFactory;
 
+        /// <summary>
+        /// 엔티티 월드 좌표 제공자.
+        /// Phase 1(월드 좌표 직선 추적)에서 매 프레임 적의 최신 월드 위치를 조회하는 데 사용.
+        /// 주입되지 않은 경우 Phase 1은 스킵되고 Phase 2(A* 재개)로 바로 진입한다.
+        /// </summary>
+        private IEntityPositionProvider _positionProvider;
+
         /// <summary> 현재 이동 코루틴. null이면 정지 상태. </summary>
         private Coroutine _moveCoroutine;
 
@@ -250,13 +257,15 @@ namespace Hexiege.Presentation
         /// </summary>
         public void SetDependencies(GameConfig config,
             UnitMovementUseCase movementUseCase, UnitCombatUseCase combatUseCase,
-            UnitFactory unitFactory = null, BuildingFactory buildingFactory = null)
+            UnitFactory unitFactory = null, BuildingFactory buildingFactory = null,
+            IEntityPositionProvider positionProvider = null)
         {
             _config = config;
             _movementUseCase = movementUseCase;
             _combatUseCase = combatUseCase;
             _unitFactory = unitFactory;
             _buildingFactory = buildingFactory;
+            _positionProvider = positionProvider;
 
             // 전투 상태 변화 이벤트 구독 — 싱글플레이 전용.
             // 멀티플레이에서는 NetworkCombatController가 ClientRpc로 직접 메서드 호출.
@@ -465,9 +474,45 @@ namespace Hexiege.Presentation
                 _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
             }
 
-            // 경로의 각 구간을 순회 (0=시작은 건너뜀)
-            for (int i = 1; i < path.Count; i++)
+            // ====================================================================
+            // 하이브리드 이동 시스템
+            // ====================================================================
+            // 유닛의 이동은 두 가지 Phase가 번갈아 동작한다.
+            //
+            // [ Phase 0 ] 타일 기반 A* 이동 (기본 상태)
+            //   - path 리스트를 순회하며 타일에서 타일로 Lerp 이동.
+            //   - 각 타일 도착 후 적 감지 사거리(DetectRange) 체크:
+            //       적 감지 && 공격 사거리 밖이면 → shouldPursue = true 로 Phase 1 진입.
+            //
+            // [ Phase 1 ] 월드 좌표 직선 추적
+            //   - 타일 단위가 아닌 실시간 월드 좌표로 적을 직선 추적한다.
+            //   - A* 재경로보다 자연스럽고 반응이 빠르다.
+            //   - 종료 조건:
+            //       (a) 적이 공격 사거리에 들어옴 → 전투 루프 진입 후, 감지 사거리 이탈 시 Phase 2.
+            //       (b) 적이 감지 사거리 밖으로 이탈 → Phase 2.
+            //       (c) 추적 대상이 사라짐(파괴 등) → Phase 2.
+            //
+            // [ Phase 2 ] 가장 가까운 타일로 스냅 후 A* 재개
+            //   - Phase 1 종료 시 유닛은 타일 격자 위가 아닌 임의의 월드 좌표에 있다.
+            //   - 가장 가까운 타일 중심으로 이동(타일 이동속도와 동일) 후 도메인 위치 동기화.
+            //   - finalTarget(원래 목적지)로 A* 재계산 → 외부 while 루프 재진입으로 Phase 0 재개.
+            //
+            // 외부 while 루프는 Phase 0 ↔ Phase 1 ↔ Phase 2 전환을 반복시키는 역할.
+
+            // Phase 1(추적 모드) 진입 여부 플래그. for 루프 내부 detect 체크에서 설정.
+            bool shouldPursue = false;
+
+            // 경로 재계산 후 재실행을 위한 외부 루프 (Phase 2 완료 후 새 경로로 Phase 0 재개).
+            while (_unitData.IsAlive)
             {
+                shouldPursue = false;
+
+                // ====================================================================
+                // [ Phase 0 ] 타일 기반 A* 이동
+                // ====================================================================
+                // 경로의 각 구간을 순회 (0=시작은 건너뜀)
+                for (int i = 1; i < path.Count; i++)
+                {
                 HexCoord from = path[i - 1];
                 HexCoord to = path[i];
 
@@ -520,6 +565,7 @@ namespace Hexiege.Presentation
                 // Lerp 이동 + 이동 중 전투 체크
                 // --------------------------------------------------------
                 float elapsed = 0f;
+
                 while (elapsed < moveSeconds)
                 {
                     elapsed += Time.deltaTime;
@@ -529,6 +575,7 @@ namespace Hexiege.Presentation
                     // 이동 중 전투 체크 (매 프레임)
                     if (_combatUseCase != null && _unitData.IsAlive)
                     {
+                        // 공격 사거리 내 적 존재 — 전투 루프 진입.
                         if (_combatUseCase.HasEnemyInRange(_unitData))
                         {
                             if (NetworkContext.IsNetworkActive)
@@ -650,7 +697,239 @@ namespace Hexiege.Presentation
                 }
 
                 _unitData.ClaimedTile = null;
+
+                // --------------------------------------------------------
+                // 스텝 완료 후 적 감지 사거리(DetectRange) 체크 → Phase 1 진입
+                // --------------------------------------------------------
+                // ProcessStep 실행 후에만 도메인 위치(_unitData.Position)가 현재 타일로 갱신된다.
+                // Lerp 도중 체크하면 _unitData.Position이 이전 타일을 가리켜 판정이 어긋난다.
+                //
+                // 이전 방식: A* 재경로로 적 타일까지 새 경로 계산 → 무한루프 가드(isRerouting) 필요.
+                // 신규 방식: 타일 이동을 중단하고 Phase 1(월드 좌표 직선 추적)으로 즉시 전환.
+                //   - shouldPursue=true, for 루프 break → 외부 while이 Phase 1을 실행.
+                //   - Phase 1 종료 후 Phase 2에서 가장 가까운 타일로 스냅 + A* 재계산 → 다음 루프에서 다시 Phase 0.
+                //
+                // 근접유닛만 해당 (원거리유닛은 DetectRange == AttackRange → HasEnemyInRange에서 처리).
+                if (_combatUseCase != null && _unitData.IsAlive
+                    && _combatUseCase.HasEnemyInDetectRange(_unitData)
+                    && !_combatUseCase.HasEnemyInRange(_unitData))
+                {
+                    // ClaimedTile 해제 — Phase 1에서 타일 점유가 필요 없고,
+                    // 방치 시 다른 유닛의 경로 탐색이 이 타일을 blocked로 인식하는 부작용을 방지한다.
+                    _unitData.ClaimedTile = null;
+                    shouldPursue = true;
+                    break;  // for 루프 탈출 → 외부 while에서 Phase 1 진입
+                }
+            }  // end of Phase 0 (for)
+
+            // 유닛 사망 시 정리로 진행
+            if (!_unitData.IsAlive) break;
+
+            // 적 감지 없이 경로를 끝까지 완주한 경우 → 이동 완료 정리로 진행
+            if (!shouldPursue) break;
+
+            // ====================================================================
+            // [ Phase 1 ] 월드 좌표 직선 추적
+            // ====================================================================
+            // _positionProvider가 주입되지 않은 경우(구버전/테스트 환경) Phase 1을 스킵하고
+            // 바로 Phase 2로 넘어간다. 이 경우 유닛은 현재 타일에서 A* 재계산으로 이어진다.
+            if (_combatUseCase != null && _positionProvider != null)
+            {
+                // 추적 대상 선정 — 감지 사거리 내 가장 가까운 적.
+                var pursuitTarget = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
+                if (pursuitTarget.HasValue)
+                {
+                    int targetId = pursuitTarget.Value.id;
+                    bool targetIsUnit = pursuitTarget.Value.isUnit;
+
+                    // 타일 이동속도와 동일한 월드 단위 속도.
+                    // 1타일을 moveSeconds초에 이동 = TileHeight 월드거리를 moveSeconds초에 이동.
+                    // → 초당 (TileHeight / moveSeconds) 월드 단위.
+                    float worldSpeed = HexMetrics.TileHeight / moveSeconds;
+
+                    while (_unitData.IsAlive)
+                    {
+                        // 매 프레임 추적 대상의 최신 월드 좌표를 조회 → 움직이는 적도 따라간다.
+                        Vector3 enemyViewPos = targetIsUnit
+                            ? _positionProvider.GetUnitWorldPosition(targetId)
+                            : _positionProvider.GetBuildingWorldPosition(targetId);
+
+                        // provider가 Vector3.zero를 반환 = 대상 파괴 또는 미등록 → Phase 2로.
+                        if (enemyViewPos == Vector3.zero)
+                            break;
+
+                        // --------------------------------------------------------
+                        // 공격 사거리 진입 → 전투 루프 (기존 Phase 0 내부 로직과 동일 구조)
+                        // --------------------------------------------------------
+                        if (_combatUseCase.HasEnemyInRange(_unitData))
+                        {
+                            if (NetworkContext.IsNetworkActive)
+                            {
+                                // 멀티플레이: 서버는 이벤트만 발행 — NetworkCombatController가 RPC로 전파.
+                                GameEvents.OnUnitEnteredCombat.OnNext(_unitData.Id);
+
+                                // 적이 사거리 내에 있는 동안 대기 (이동 없음)
+                                while (_unitData.IsAlive && _combatUseCase.HasEnemyInRange(_unitData))
+                                    yield return null;
+
+                                if (!_unitData.IsAlive) break;
+
+                                // 현재 공격 사이클이 끝날 때까지 쿨다운 대기.
+                                while (_unitData.IsAlive && _unitData.AttackCooldownRemaining > 0f)
+                                    yield return null;
+
+                                if (!_unitData.IsAlive) break;
+
+                                // 사이클 완료 후 다시 사거리에 들어왔으면 전투 루프 재진입
+                                if (_combatUseCase.HasEnemyInRange(_unitData))
+                                    continue;
+
+                                // 이동 재개 애니메이션 — Attack → Walk CrossFade (또는 이미 Walk면 speed만)
+                                if (_animator != null)
+                                {
+                                    var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
+                                    if (stateInfo.shortNameHash == StateWalk)
+                                        _animator.speed = 1f;
+                                    else
+                                        _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
+                                }
+                                GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
+                            }
+                            else
+                            {
+                                // 싱글플레이: 매 프레임 TryAttack (내부 쿨다운 체크).
+                                while (_unitData.IsAlive && _combatUseCase.HasEnemyInRange(_unitData))
+                                {
+                                    _combatUseCase.TryAttack(_unitData);
+                                    yield return null;
+                                }
+
+                                if (!_unitData.IsAlive) break;
+
+                                while (_unitData.IsAlive && _unitData.AttackCooldownRemaining > 0f)
+                                    yield return null;
+
+                                if (!_unitData.IsAlive) break;
+
+                                if (_combatUseCase.HasEnemyInRange(_unitData))
+                                    continue;
+
+                                // 싱글플레이: 전투 종료 시 상태 직접 정리.
+                                _combatUseCase.ClearCombatState(_unitData.Id);
+
+                                if (_animator != null)
+                                {
+                                    var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
+                                    if (stateInfo.shortNameHash == StateWalk)
+                                        _animator.speed = 1f;
+                                    else
+                                        _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
+                                }
+                            }
+
+                            // 전투 후: 감지 사거리 밖 = 적 이탈 → Phase 2로.
+                            if (!_combatUseCase.HasEnemyInDetectRange(_unitData))
+                                break;
+
+                            // 감지 사거리 안에 다른 적이 있는 경우 계속 추적 루프로.
+                            continue;
+                        }
+
+                        // --------------------------------------------------------
+                        // 감지 사거리 이탈 (전투 없이) → Phase 2로
+                        // --------------------------------------------------------
+                        if (!_combatUseCase.HasEnemyInDetectRange(_unitData))
+                            break;
+
+                        // --------------------------------------------------------
+                        // 직선 이동 (Y축 무시 — 수평 이동만)
+                        // --------------------------------------------------------
+                        Vector3 moveDir = enemyViewPos - transform.position;
+                        moveDir.y = 0f;
+                        float dist = moveDir.magnitude;
+                        if (dist > 0.01f)
+                            transform.position += moveDir.normalized * worldSpeed * Time.deltaTime;
+
+                        yield return null;
+                    }
+                }
             }
+
+            if (!_unitData.IsAlive) break;
+
+            // ====================================================================
+            // [ Phase 2 ] 가장 가까운 타일 중심으로 스냅 후 A* 재개
+            // ====================================================================
+            // Phase 1 종료 시점에 유닛은 타일 격자 위가 아닌 임의의 월드 좌표에 있다.
+            // 도메인 좌표계(HexCoord)와 뷰 좌표계를 다시 동기화하려면:
+            //   1) 현재 뷰 좌표 → 도메인 좌표 역변환 → 가장 가까운 HexCoord 탐색.
+            //   2) 해당 타일 중심까지 부드럽게 이동 (타일 이동속도 동일).
+            //   3) 도메인 위치 갱신(ProcessStep).
+            //   4) finalTarget 방향으로 A* 재계산 → 외부 while 상단으로 돌아가 Phase 0 재개.
+            {
+                // 현재 뷰 좌표 → 도메인 월드 좌표 역변환
+                Vector3 domainPos = ViewConverter.FromView(transform.position);
+                HexCoord nearestTile = HexMetrics.WorldToHex(domainPos);
+
+                // 가장 가까운 타일 중심의 뷰 좌표 (유닛 높이 오프셋 포함)
+                Vector3 tileCenter = ViewConverter.ToView(HexMetrics.HexToWorld(nearestTile));
+                tileCenter.y += HexMetrics.UnitYOffset;
+
+                // 타일 중심까지 Lerp 이동 (타일 이동속도와 동일한 월드 속도)
+                float worldSpeed2 = HexMetrics.TileHeight / moveSeconds;
+                Vector3 snapStart = transform.position;
+                float snapDist = Vector3.Distance(snapStart, tileCenter);
+
+                if (snapDist > 0.01f)
+                {
+                    float snapDuration = snapDist / worldSpeed2;
+                    float snapElapsed = 0f;
+                    while (snapElapsed < snapDuration && _unitData.IsAlive)
+                    {
+                        snapElapsed += Time.deltaTime;
+                        float t = Mathf.Clamp01(snapElapsed / snapDuration);
+                        transform.position = Vector3.Lerp(snapStart, tileCenter, t);
+                        yield return null;
+                    }
+                }
+                transform.position = tileCenter;
+
+                if (!_unitData.IsAlive) break;
+
+                // 도메인 좌표 동기화 — ProcessStep으로 _unitData.Position을 nearestTile로 갱신.
+                // from/to를 동일하게 넘겨도 ProcessStep 내부에서 Position/타일 점유가 정상 처리된다.
+                if (_movementUseCase != null)
+                    _movementUseCase.ProcessStep(_unitData, _unitData.Position, nearestTile);
+                _unitData.ClaimedTile = null;
+
+                // Walk 애니메이션 재개 (Phase 1 전투 중 Attack 상태였을 수 있음)
+                if (_animator != null)
+                {
+                    var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
+                    if (stateInfo.shortNameHash == StateWalk)
+                        _animator.speed = 1f;
+                    else
+                        _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
+                }
+                if (NetworkContext.IsNetworkActive)
+                    GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
+
+                // 원래 목적지(finalTarget)로 A* 재계산.
+                // 성공 시 새 path로 외부 while 상단(Phase 0)으로 돌아가 이동 재개.
+                if (_movementUseCase != null)
+                {
+                    List<HexCoord> resumePath = _movementUseCase.RequestMove(_unitData, finalTarget);
+                    if (resumePath != null && resumePath.Count >= 2)
+                    {
+                        path = resumePath;
+                        continue;  // 외부 while → 새 path로 Phase 0 재실행
+                    }
+                }
+
+                // A* 재계산 실패 → 더 이상 진행 불가, 이동 종료
+                break;
+            }
+        }  // end of outer while (Phase 0 ↔ Phase 1 ↔ Phase 2 반복)
 
             // 이동 완료 정리
             _unitData.ClaimedTile = null;
