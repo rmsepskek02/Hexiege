@@ -842,13 +842,28 @@ namespace Hexiege.Presentation
                             break;
 
                         // --------------------------------------------------------
-                        // 직선 이동 (Y축 무시 — 수평 이동만)
+                        // 직선 이동 (Y축 무시 — 수평 이동만) + 타겟 방향 서서히 회전
                         // --------------------------------------------------------
                         Vector3 moveDir = enemyViewPos - transform.position;
                         moveDir.y = 0f;
                         float dist = moveDir.magnitude;
                         if (dist > 0.01f)
+                        {
+                            // 매 프레임 타겟 방향으로 유닛을 서서히 회전시킨다.
+                            // CalculateAttackAngle: enemyViewPos 기준 Y축 회전 각도 계산 (meshYOffset 보정 포함)
+                            // RotateTowards: 현재 회전에서 목표 회전까지 CombatRotationSpeed(270°/s)만큼 이동
+                            // 전투 중 타겟 추적 회전(Update 메서드)과 동일한 패턴 사용
+                            float pursuitAngle = CalculateAttackAngle(enemyViewPos);
+                            Quaternion targetRot = Quaternion.Euler(0f, pursuitAngle, 0f);
+                            transform.rotation = Quaternion.RotateTowards(
+                                transform.rotation,
+                                targetRot,
+                                CombatRotationSpeed * Time.deltaTime
+                            );
+
+                            // 타겟 방향으로 직선 이동
                             transform.position += moveDir.normalized * worldSpeed * Time.deltaTime;
+                        }
 
                         yield return null;
                     }

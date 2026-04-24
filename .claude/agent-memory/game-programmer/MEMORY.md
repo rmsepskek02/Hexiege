@@ -23,6 +23,22 @@
 
 ## 최근 작업
 
+### 근접유닛 추적 중 회전 개선 (2026-04-24) ✅ 실기 완료
+
+**수정 파일**:
+- `Presentation/Unit/UnitView.cs` — Phase 1 직선 이동 블록 (850~866 라인) 회전 로직 추가
+
+**문제**: Phase 1(월드 좌표 직선 추적) 중 `transform.rotation` 업데이트 없음 → 이전 타일 이동 방향 회전 고정.
+
+**수정**: `if (dist > 0.01f)` 블록 내 이동 전에 `CalculateAttackAngle(enemyViewPos)` + `Quaternion.RotateTowards(CombatRotationSpeed * deltaTime)` 추가.
+전투 중 타겟 추적 회전(`Update()`)과 동일한 패턴 사용.
+
+**멀티플레이**: `MoveAlongPath` 코루틴 가드(`NetworkContext.IsNetworkActive && !IsNetworkServer`)로 서버만 실행 → NetworkTransform이 클라이언트에 보간 전달.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-24/15_45_melee-pursuit-rotation/`
+
+---
+
 ### 랠리포인트 Client 무시 버그 수정 (2026-04-19) ✅ 실기 완료
 
 **수정 파일**:
