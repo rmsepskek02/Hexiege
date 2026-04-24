@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 3660084474149669173}
   - component: {fileID: 8805804751732030525}
   m_Layer: 0
-  m_Name: SummoningAltar_Mesh
+  m_Name: Building_SummoningAltar_Red_Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

@@ -57,7 +57,7 @@ GameObject:
   - component: {fileID: 4787407018899591529}
   - component: {fileID: 3898415997070858733}
   m_Layer: 0
-  m_Name: HunterPlant_Red_Mesh
+  m_Name: Building_HunterPlant_Red_Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

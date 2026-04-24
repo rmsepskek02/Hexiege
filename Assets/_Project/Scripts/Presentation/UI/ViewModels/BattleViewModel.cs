@@ -194,10 +194,6 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void LoadSingleplayScene()
         {
-            // 싱글플레이 종족 컨텍스트 설정 — 인게임에서 종족별 유닛/건물 로드에 사용
-            // 상대 종족은 다음 작업(AI 종족 선택)에서 의미 있는 값으로 변경 예정
-            GameRaceContext.Set(LocalPlayerRace.Current, RaceId.Human);
-
             LoadingScreen.Instance?.Show("게임 로딩 중...");
             await Task.Delay(2000);
             SceneManager.LoadScene("Game");

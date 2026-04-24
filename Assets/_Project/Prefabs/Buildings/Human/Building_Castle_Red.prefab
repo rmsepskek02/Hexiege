@@ -57,7 +57,7 @@ GameObject:
   - component: {fileID: 4407449013129358327}
   - component: {fileID: 2447665497335852466}
   m_Layer: 0
-  m_Name: Castle_Red_Mesh
+  m_Name: Building_Castle_Red_Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

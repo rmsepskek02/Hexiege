@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 4183177268744568587}
   - component: {fileID: 9205077975176663082}
   m_Layer: 0
-  m_Name: ElderTree_Blue_Mesh
+  m_Name: Building_ElderTree_Blue_Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

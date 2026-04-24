@@ -57,7 +57,7 @@ GameObject:
   - component: {fileID: 8305859721308399426}
   - component: {fileID: 2220096591802327465}
   m_Layer: 0
-  m_Name: FungalNode_Red_Mesh
+  m_Name: Building_FungalNode_Red_Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

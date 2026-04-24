@@ -57,7 +57,7 @@ GameObject:
   - component: {fileID: 1546557498791298912}
   - component: {fileID: 6655620428334895370}
   m_Layer: 0
-  m_Name: SpiritNexus_Blue_Mesh
+  m_Name: Building_SpiritNexus_Blue_Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

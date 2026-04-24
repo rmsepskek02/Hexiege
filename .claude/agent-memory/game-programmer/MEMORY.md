@@ -23,6 +23,21 @@
 
 ## 최근 작업
 
+### 싱글플레이 AI 종족 랜덤 결정 (2026-04-24) ✅ 실기 완료
+
+**수정 파일**:
+- `Bootstrap/GameBootstrapper.cs` — 283번째 줄 `GameRaceContext.Set(LocalPlayerRace.Current, RaceId.Human)` → `Enum.GetValues` + `Random.Range`로 교체
+- `Presentation/UI/ViewModels/BattleViewModel.cs` — `LoadSingleplayScene()`에서 중복된 `GameRaceContext.Set()` 호출 및 주석 제거
+
+**핵심 설계 결정**:
+- `(RaceId[])System.Enum.GetValues(typeof(RaceId))` 패턴 — 새 종족 추가 시 자동으로 랜덤 풀에 포함
+- `GameRaceContext` 설정 책임은 `GameBootstrapper.cs` 단독 (BattleViewModel 이중 설정 제거)
+- `LoadMap()` 이전 설정 순서 유지
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-24/23_06_random-opponent-race/`
+
+---
+
 ### 다중 히트 데미지 구현 (2026-04-24) ✅ 실기 완료
 
 **수정 파일**:

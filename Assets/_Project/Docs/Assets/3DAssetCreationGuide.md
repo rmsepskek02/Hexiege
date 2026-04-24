@@ -4,7 +4,12 @@
 >
 > 공통 규칙(프로젝트 컨셉, 프롬포트 원칙, 공통 이미지 조건) → [CommonAssetGuide.md](CommonAssetGuide.md)
 
----
+### 파티클 및 이펙트 효과 제외 (No Particles/VFX)
+3D 모델링 변환 시 파티클이나 마법 효과(빛나는 오라, 불꽃, 연기, 번개 등)는 메시에 포함되어 형태를 심각하게 왜곡시킨다. 이펙트는 Unity 인게임에서 별도로 구현해야 한다.
+```
+요청 키워드: no particles, no special effects, clean mesh, solid form
+Negative 키워드: particle effects, magic auras, glowing energy, smoke, fire, vfx, sparks, floating elements
+```
 
 ## 팀 색상 구분 규칙
 
@@ -36,14 +41,7 @@
 블루팀 이미지를 Gemini에 첨부한 뒤 아래 프롬포트로 레드팀 버전을 생성한다.
 
 ```
-Transform this Blue Team game asset into the Red Team version.
-Change all blue areas, including fabric, glowing energy effects, and painted accents,
-to a vibrant and highly saturated crimson red (#FF3030).
-Maintain the exact same character pose, silhouette, and metallic/leather material textures.
-Ensure the soft 3D cartoon stylized rendering and even lighting remain identical to the original.
-The output must be a clean game asset on a pure white background.
-Do not include: background, floor shadows, desaturated colors,
-changes to the character's shape or pose, realistic textures, artifacts, blurry details.
+-Transform this Blue Team game asset into the Red Team version. -Change all blue areas, including fabric, glowing energy effects, and painted accents, -to a vibrant and highly saturated crimson red (#FF3030). -Maintain the exact same character pose, silhouette, and metallic/leather material textures. -Ensure the soft 3D cartoon stylized rendering and even lighting remain identical to the original. -The output must be a clean game asset on a pure white background. -Do not include: background, floor shadows, desaturated colors, -changes to the character's shape or pose, realistic textures, artifacts, blurry details. +Transform this Blue Team game asset into the Red Team version by changing the color palette. +Replace all blue areas (including fabric, painted accents, and decorative elements) +with a vibrant and highly saturated crimson red (#FF3030). +Keep the asset's original structure, silhouette, and material textures (metal, wood, leather) exactly the same. +Ensure the lighting, cartoon stylized rendering, and high-quality details are preserved. +The output must be a clean asset on a pure white background. +Do not include: background, floor shadows, changes to the asset's shape, desaturated colors, +realistic textures, artifacts, blurry details, particle effects, or magic VFX.
 ```
 
 ---
@@ -248,6 +246,7 @@ Negative 키워드: running, attacking, jumping, sitting, crouching
 | **전신/전체 보이게** | 일부 잘린 모델은 3D 변환 시 왜곡 발생 |
 | **균일한 조명** | 강한 그림자가 모델에 텍스처처럼 구워짐 |
 | **명확한 실루엣** | 복잡한 외곽선은 3D 메시가 엉킴 |
+| **이펙트 없음** | 파티클 등이 3D 메시의 일부로 굳어지는 현상 방지 |
 | **정면뷰 (유닛)** | 리깅을 위한 좌우 대칭 확인 가능 |
 | **55도뷰 (건물)** | 이소메트릭 카메라에 자연스러운 3D 변환 |
 

@@ -44,6 +44,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("전역 설정 ScriptableObject")]
         [SerializeField] private GameConfig _config;
 
+        [Tooltip("유닛 전투/생산 수치 ScriptableObject. UnitStats / UnitProductionStats의 소스.")]
+        [SerializeField] private UnitStatsConfig _unitStatsConfig;
+
         // [Phase 2] UnitAnimationData 제거 — Animator(Mecanim)가 대체
 
         [Header("Scene References")]
@@ -265,6 +268,15 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void Start()
         {
+            // ────────────────────────────────────────────────────────────
+            // UnitStats / UnitProductionStats를 ScriptableObject 설정값으로 초기화.
+            // 이 시점 이후 생성되는 모든 UnitData에 SO 수치가 적용됨.
+            // 네트워크 모드/싱글 모드 분기보다 반드시 먼저 실행해야 함 —
+            // NetworkGameFlow가 StartNetworkGame()을 늦게 호출하더라도 그 전에
+            // 생성되는 유닛이 기본값을 참조하지 않도록.
+            // ────────────────────────────────────────────────────────────
+            InitializeUnitStatsFromConfig();
+
             // 네트워크 모드 확인: NetworkManager가 활성화되어 있으면 네트워크 게임
             bool isNetworkMode = IsNetworkMode();
 
@@ -277,14 +289,76 @@ namespace Hexiege.Bootstrap
             else
             {
                 // 싱글플레이: 로비에서 선택한 종족을 Blue 팀에 적용.
-                // Red 팀은 AI이므로 기본값 Human으로 설정.
+                // Red 팀(AI)은 RaceId에 정의된 모든 종족 중 무작위로 결정한다.
+                // 새 종족이 추가되어도 자동으로 후보에 포함됨.
                 // UnitFactory.CreateUnitObject()에서 GameRaceContext를 참조하여
                 // 종족에 맞는 프리팹 세트를 선택하므로, LoadMap() 호출 전에 반드시 설정해야 함.
-                GameRaceContext.Set(LocalPlayerRace.Current, RaceId.Human);
+                RaceId[] allRaces = (RaceId[])System.Enum.GetValues(typeof(RaceId));
+                RaceId opponentRace = allRaces[UnityEngine.Random.Range(0, allRaces.Length)];
+                GameRaceContext.Set(LocalPlayerRace.Current, opponentRace);
 
                 // 싱글플레이 모드: 기존 로직 그대로 실행
                 LoadMap(HexOrientation.FlatTop);
             }
+        }
+
+        // ====================================================================
+        // UnitStats / UnitProductionStats 초기화
+        // ====================================================================
+
+        /// <summary>
+        /// Inspector에 연결된 UnitStatsConfig(ScriptableObject)를 읽어
+        /// Domain의 UnitStats / UnitProductionStats 정적 Dictionary에 주입한다.
+        ///
+        /// 왜 여기서?
+        ///   Domain 레이어는 Unity(ScriptableObject)에 의존하면 안 된다.
+        ///   따라서 ScriptableObject → Domain용 순수 C# 구조체로의 변환을
+        ///   Bootstrap(유일하게 전체를 아는 곳)에서 수행한다.
+        ///
+        /// Config가 연결돼 있지 않으면 에러 로그만 남기고 스킵 —
+        /// UnitStats 내부 폴백 값이 사용되지만, 당연히 잘못된 수치이므로
+        /// 반드시 Inspector에서 _unitStatsConfig 필드를 연결해야 한다.
+        /// </summary>
+        private void InitializeUnitStatsFromConfig()
+        {
+            if (_unitStatsConfig == null)
+            {
+                Debug.LogError("[GameBootstrapper] UnitStatsConfig가 연결되지 않았습니다. " +
+                               "Inspector의 Config 섹션에서 Assets/Resources/Config/UnitStatsConfig.asset을 연결해 주세요.");
+                return;
+            }
+
+            // Config의 각 항목(UnitStatEntry)을 Domain용 StatValues / ProductionValues로 변환.
+            // 동일한 UnitType이 여러 번 등장하면 나중 항목이 이전 항목을 덮어씀.
+            var statDict = new System.Collections.Generic.Dictionary<UnitType, UnitStats.StatValues>();
+            var prodDict = new System.Collections.Generic.Dictionary<UnitType, UnitProductionStats.ProductionValues>();
+
+            foreach (var entry in _unitStatsConfig.Stats)
+            {
+                statDict[entry.unitType] = new UnitStats.StatValues
+                {
+                    MaxHp = entry.maxHp,
+                    AttackPower = entry.attackPower,
+                    AttackRange = entry.attackRange,
+                    DetectRange = entry.detectRange,
+                    MoveSpeed = entry.moveSpeed,
+                    AttackCooldown = entry.attackCooldown,
+                    HitFrameTimes = entry.hitFrameTimes
+                };
+
+                prodDict[entry.unitType] = new UnitProductionStats.ProductionValues
+                {
+                    ProductionTime = entry.productionTime,
+                    GoldCost = entry.goldCost,
+                    PopulationCost = entry.populationCost
+                };
+            }
+
+            UnitStats.Initialize(statDict);
+            UnitProductionStats.Initialize(prodDict);
+
+            Debug.Log($"[GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료. " +
+                      $"등록된 유닛 수: {statDict.Count}");
         }
 
         // ====================================================================

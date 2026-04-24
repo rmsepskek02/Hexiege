@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 2109659317156434931}
   - component: {fileID: 2530837239117552710}
   m_Layer: 0
-  m_Name: ManaRift_Blue_Mesh
+  m_Name: Building_ManaRift_Blue_Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
