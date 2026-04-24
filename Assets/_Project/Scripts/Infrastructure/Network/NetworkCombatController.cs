@@ -383,8 +383,12 @@ namespace Hexiege.Infrastructure
             // 1. 쿨다운 즉시 리셋 — TryFindTarget()은 쿨다운을 건드리지 않으므로 여기서 처리
             unit.AttackCooldownRemaining = unit.AttackCooldown;
 
-            // 2. hitFrameTime 후 데미지 적용 — 타격 프레임과 데미지 타이밍 동기화
-            StartCoroutine(DelayedAttackDamage(unit, targetId, targetIsUnit, unit.HitFrameTime));
+            // 2. 각 히트 프레임 시간마다 독립 코루틴을 실행하여 데미지 타이밍 동기화.
+            // 단일 히트 유닛: HitFrameTimes 원소가 1개 → 기존과 동일하게 코루틴 1개 실행.
+            // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트): 원소 수만큼 코루틴 실행.
+            // 각 코루틴은 독립적으로 동작하며, 타겟 사망 시 ApplyAttackDamage 내 IsAlive 체크로 자동 취소.
+            foreach (float hitTime in unit.HitFrameTimes)
+                StartCoroutine(DelayedAttackDamage(unit, targetId, targetIsUnit, hitTime));
         }
 
         // ====================================================================

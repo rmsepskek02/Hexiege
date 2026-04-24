@@ -57,6 +57,36 @@ namespace Hexiege.Application
         private readonly Dictionary<int, (int targetId, bool isUnit)> _combatTargets
             = new Dictionary<int, (int targetId, bool isUnit)>();
 
+        /// <summary>
+        /// 싱글플레이 전용: 데미지 적용 예약(타격 프레임 딜레이)을 위한 내부 구조체.
+        /// 공격 애니메이션 사이클 안의 히트 프레임별로 1개씩 생성된다.
+        ///
+        /// TryAttack()에서 공격 애니메이션이 시작되는 순간,
+        /// 각 HitFrameTimes 원소마다 PendingHit 하나를 _pendingHits 리스트에 등록한다.
+        /// TickPendingHits()가 매 프레임 RemainingDelay를 감소시키며,
+        /// 0 이하가 되면 데미지(ExecuteAttack)를 적용한 뒤 리스트에서 제거.
+        ///
+        /// 멀티플레이에서는 이 구조체 대신 MonoBehaviour 기반 코루틴을 사용한다
+        /// (NetworkCombatController.DelayedAttackDamage).
+        /// </summary>
+        private struct PendingHit
+        {
+            /// <summary>공격자(이 유닛의 Attacker 스탯 기준으로 데미지 적용).</summary>
+            public UnitData Attacker;
+            /// <summary>타겟 엔티티(유닛 또는 건물)의 Id.</summary>
+            public int TargetId;
+            /// <summary>타겟이 유닛인지 여부. true=유닛, false=건물.</summary>
+            public bool TargetIsUnit;
+            /// <summary>남은 딜레이(초). 0 이하가 되면 데미지 적용.</summary>
+            public float RemainingDelay;
+        }
+
+        /// <summary>
+        /// 싱글플레이 전용: 대기 중인 데미지 적용 예약 목록.
+        /// TickPendingHits()에서 매 프레임 타이머를 감소시켜 만료된 항목을 실제 데미지로 전환.
+        /// </summary>
+        private readonly List<PendingHit> _pendingHits = new List<PendingHit>();
+
         public UnitCombatUseCase(
             HexGrid grid,
             UnitSpawnUseCase unitSpawn,
@@ -83,7 +113,7 @@ namespace Hexiege.Application
 
             // 멀티플레이 모드에서는 서버/클라이언트 구분 없이 TryAttack 완전 차단.
             // 네트워크 모드에서 데미지는 NetworkCombatController가 단독으로 처리하며,
-            // HitFrameTime 타이머 후 ApplyAttackDamage를 호출하는 것이 규칙.
+            // HitFrameTimes 배열의 각 타이머 후 ApplyAttackDamage를 호출하는 것이 규칙.
             // HOST(서버)도 TryAttack을 통해 즉시 데미지를 주면 규칙 2 위반(이중 데미지 + 타이밍 불일치).
             if (NetworkContext.IsNetworkActive) return null;
 
@@ -122,9 +152,34 @@ namespace Hexiege.Application
                 }
             }
 
-            ExecuteAttack(attacker, target);
+            // 다중 히트 예약:
+            // 공격 애니메이션 사이클 안의 각 히트 프레임마다 PendingHit을 등록한다.
+            // 예) FlameSpirit은 6개 타이머가 예약되어 각각 독립적으로 데미지 적용.
+            //
+            // HitFrameTimes가 null이거나 비어 있으면 안전망으로 즉시 1회 데미지를 적용한다
+            // (Inspector 미설정 대비).
+            float[] hitTimes = attacker.HitFrameTimes;
+            if (hitTimes == null || hitTimes.Length == 0)
+            {
+                // 기존 동작 유지(즉시 1회 데미지)
+                ExecuteAttack(attacker, target);
+            }
+            else
+            {
+                for (int i = 0; i < hitTimes.Length; i++)
+                {
+                    _pendingHits.Add(new PendingHit
+                    {
+                        Attacker = attacker,
+                        TargetId = targetId,
+                        TargetIsUnit = targetIsUnit,
+                        // 타이머는 0 이하에서 실행되므로, 0f인 경우 최소 1프레임 뒤 실행되도록 아주 작은 양수로 보정.
+                        RemainingDelay = hitTimes[i] > 0f ? hitTimes[i] : 0.0001f
+                    });
+                }
+            }
 
-            // 공격 성공 → 쿨다운 시작
+            // 공격 성공 → 쿨다운 시작 (TryAttack에서 한 번만 리셋)
             attacker.AttackCooldownRemaining = attacker.AttackCooldown;
 
             return (targetId, targetIsUnit);
@@ -187,7 +242,11 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 실제 데미지를 적용하는 메서드.
-        /// TryFindTarget() 성공 후, hitFrameTime(타격 프레임) 딜레이 뒤에 호출.
+        /// 각 히트 프레임(HitFrameTimes의 원소마다) 딜레이가 만료된 시점에 호출된다.
+        ///
+        /// 호출 경로:
+        ///   - 싱글플레이: TickPendingHits()에서 만료된 PendingHit 항목별로 호출.
+        ///   - 멀티플레이: NetworkCombatController.DelayedAttackDamage 코루틴(히트 개수만큼)에서 호출.
         ///
         /// 타겟 고정(Target Lock) 설계:
         ///   공격 모션을 시작한 순간 타겟이 확정됨.
@@ -195,6 +254,12 @@ namespace Hexiege.Application
         ///   단, 아래 두 경우에만 취소:
         ///   1. 공격자가 딜레이 중 사망
         ///   2. 타겟이 딜레이 중 사망 (다른 유닛에게 먼저 처치됨)
+        ///
+        /// 쿨다운 리셋 규칙:
+        ///   쿨다운은 공격 모션이 시작되는 순간(=TryAttack 또는 NetworkCombatController.ExecuteAttack) 한 번만 리셋.
+        ///   다중 히트의 경우 각 히트마다 이 메서드가 여러 번 호출되므로 여기서 리셋하면
+        ///   마지막 히트 시점에 쿨다운이 다시 처음으로 돌아가는 문제가 발생한다.
+        ///   따라서 이 메서드는 데미지만 적용하고 쿨다운을 건드리지 않는다.
         /// </summary>
         /// <param name="attacker">공격하는 유닛</param>
         /// <param name="targetId">타겟 엔티티의 Id</param>
@@ -214,8 +279,7 @@ namespace Hexiege.Application
             // 데미지 적용 + 이벤트 발행
             ExecuteAttack(attacker, target);
 
-            // 쿨다운 리셋 — TryFindTarget()에서 하지 않으므로 여기서 처리.
-            attacker.AttackCooldownRemaining = attacker.AttackCooldown;
+            // 쿨다운 리셋은 여기서 하지 않음 — 위 주석 참조(다중 히트 호환).
         }
 
         /// <summary>
@@ -234,6 +298,45 @@ namespace Hexiege.Application
             {
                 if (unit.AttackCooldownRemaining > 0f)
                     unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldownRemaining - dt);
+            }
+        }
+
+        /// <summary>
+        /// 싱글플레이 전용: 대기 중인 데미지 예약(PendingHit)의 타이머를 감소시키고,
+        /// 만료된 항목에 대해 실제 데미지를 적용한다.
+        /// GameBootstrapper.Update()에서 TickCooldowns 바로 뒤에 매 프레임 호출.
+        ///
+        /// 멀티플레이에서는 NetworkCombatController의 코루틴이 같은 역할을 수행하므로
+        /// 이 메서드가 호출되어도 _pendingHits가 비어 있어 아무 동작도 하지 않는다
+        /// (TryAttack 초입의 NetworkActive 가드로 인해 등록조차 되지 않음).
+        ///
+        /// 순회 중 Remove 안정성:
+        ///   역순으로 순회하면서 만료 항목을 그 자리에서 RemoveAt 하므로,
+        ///   앞쪽 인덱스가 뒤로 밀릴 일이 없어 누락/중복 없이 안전하게 처리 가능.
+        /// </summary>
+        /// <param name="dt">경과 시간 (초). 일반적으로 Time.deltaTime을 전달.</param>
+        public void TickPendingHits(float dt)
+        {
+            // 역순 순회: 중간에 원소를 제거해도 남은 인덱스가 흔들리지 않음.
+            for (int i = _pendingHits.Count - 1; i >= 0; i--)
+            {
+                PendingHit hit = _pendingHits[i];
+                hit.RemainingDelay -= dt;
+
+                if (hit.RemainingDelay > 0f)
+                {
+                    // 아직 타이머가 남음 → 감소된 값을 다시 저장(struct는 값 복사이므로 재할당 필수).
+                    _pendingHits[i] = hit;
+                    continue;
+                }
+
+                // 타이머 만료 → 실제 데미지 적용 후 리스트에서 제거.
+                // 쿨다운 리셋은 TryAttack()에서 이미 수행됐으므로 여기서는 하지 않음
+                // (ApplyAttackDamage 내부의 쿨다운 리셋 로직도 아래에서 제거됨).
+                //
+                // 공격자 생존/타겟 생존/타겟 재탐색(Id 기반)은 ApplyAttackDamage 내부에서 처리.
+                ApplyAttackDamage(hit.Attacker, hit.TargetId, hit.TargetIsUnit);
+                _pendingHits.RemoveAt(i);
             }
         }
 

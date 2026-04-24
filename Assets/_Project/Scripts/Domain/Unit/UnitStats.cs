@@ -140,36 +140,39 @@ namespace Hexiege.Domain
             // ── 초월계 ── (StatsReference.md 확정값)
             UnitType.BearGuard    => 1.33f,   // 1:20 = 1.33초
             UnitType.FoxMagician  => 4.0f,    // 4:00 = 4.0초
-            UnitType.LionKnight   => 2.33f,   // 2:20 = 2.33초 (2히트 공격)
+            UnitType.LionKnight   => 3.0f,    // 3:00 = 3.0초 (2히트 공격)
             _                     => 1.0f
         };
 
         /// <summary>
-        /// 공격 애니메이션에서 타격 프레임(Animation Event OnAttackHit)까지의 시간 (초).
-        /// 서버가 애니메이션 RPC를 전송한 뒤, 이 시간만큼 대기 후 실제 데미지를 적용.
+        /// 공격 애니메이션에서 타격 프레임(Animation Event OnAttackHit)까지의 시간 (초) 배열.
+        /// 서버가 애니메이션 RPC를 전송한 뒤, 배열의 각 시간마다 데미지를 개별 적용.
         /// Attack.anim 타임라인에서 OnAttackHit 이벤트 위치(초)와 일치시켜야 함.
         ///
-        /// 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)은 첫 번째 히트 프레임만 적용.
-        /// 다중 히트 구현은 별도 작업에서 처리 예정.
+        /// 단일 히트 유닛은 원소가 1개인 배열을 반환.
+        /// 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)은 각 히트 프레임을
+        /// 오름차순으로 나열한 배열을 반환.
         ///
-        /// 기본값은 0.2초. Inspector 미설정 시(0f) 최소 1프레임 대기 후 데미지 적용 (안전망).
+        /// 기본값은 [ 0.2f ]. Inspector 미설정 시(0f) 최소 1프레임 대기 후 데미지 적용 (안전망).
         /// </summary>
-        public static float GetHitFrameTime(UnitType type) => type switch
+        public static float[] GetHitFrameTimes(UnitType type) => type switch
         {
             // Animation Event(OnAttackHit) 위치 실측값 (초:프레임 → 초 변환, 30fps 기준)
             // ── 인간계 ──
-            UnitType.Assault      => 0.133f,  // 0:04 → 4/30
-            UnitType.Pistoleer    => 0.833f,  // 0:25 → 25/30
-            UnitType.Sniper       => 2.000f,  // 2:00 → 2초
-            // ── 정령계 ── (StatsReference.md 첫 번째 히트 프레임)
-            UnitType.FlameSpirit  => 0.667f,  // 0:20 → 20/30
-            UnitType.EmberSpirit  => 1.000f,  // 1:00 → 1초
-            UnitType.InfernoSpirit => 1.250f,  // 1:15 → (1*30+15)/30 = 45/30
-            // ── 초월계 ── (StatsReference.md 첫 번째 히트 프레임)
-            UnitType.BearGuard    => 0.667f,  // 0:20 → 20/30
-            UnitType.FoxMagician  => 2.417f,  // 2:25 → (2*30+25)/30 = 85/30
-            UnitType.LionKnight   => 0.250f,  // 0:15 = 0.250초 (2히트 공격 — 첫 번째 히트 프레임)
-            _                     => 0.2f
+            UnitType.Assault      => new[] { 0.133f },                                          // 0:04 → 4/30
+            UnitType.Pistoleer    => new[] { 0.833f },                                          // 0:25 → 25/30
+            UnitType.Sniper       => new[] { 2.000f },                                          // 2:00 → 2초
+            // ── 정령계 ── (StatsReference.md 확정값)
+            // FlameSpirit은 한 공격 사이클(3.0초) 동안 6번 히트 (히트당 공격력 2)
+            UnitType.FlameSpirit  => new[] { 0.667f, 1.167f, 1.433f, 1.667f, 1.933f, 2.100f }, // 6히트: 0:20 / 1:05 / 1:13 / 1:20 / 1:28 / 2:03
+            UnitType.EmberSpirit  => new[] { 1.000f },                                          // 1:00 → 1초
+            UnitType.InfernoSpirit => new[] { 1.250f },                                         // 1:15 → (1*30+15)/30 = 45/30
+            // ── 초월계 ── (StatsReference.md 확정값)
+            UnitType.BearGuard    => new[] { 0.667f },                                          // 0:20 → 20/30
+            UnitType.FoxMagician  => new[] { 2.417f },                                          // 2:25 → (2*30+25)/30 = 85/30
+            // LionKnight는 한 공격 사이클(3.0초) 동안 2번 히트 (히트당 공격력 9)
+            UnitType.LionKnight   => new[] { 0.733f, 1.267f },                                  // 2히트: 0:22 / 1:08
+            _                     => new[] { 0.2f }
         };
     }
 }

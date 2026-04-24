@@ -242,9 +242,15 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void Update()
         {
-            // 싱글플레이에서만 쿨다운 감소
+            // 싱글플레이에서만 쿨다운 감소 및 다중 히트 예약 타이머 처리.
+            // 멀티플레이에서는 NetworkCombatController가 서버 Tick 기반으로 이 역할을 수행.
             if (!IsNetworkMode() && _unitCombat != null)
+            {
                 _unitCombat.TickCooldowns(Time.deltaTime);
+                // 각 PendingHit의 타이머를 감소시키고 만료된 항목의 데미지를 적용.
+                // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)의 2번째 이후 히트가 여기서 처리됨.
+                _unitCombat.TickPendingHits(Time.deltaTime);
+            }
         }
 
         // ====================================================================

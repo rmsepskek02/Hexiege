@@ -78,11 +78,14 @@ namespace Hexiege.Domain
         public float AttackCooldownRemaining { get; set; }
 
         /// <summary>
-        /// 공격 애니메이션에서 타격 프레임(OnAttackHit)까지의 시간 (초).
-        /// 서버가 애니메이션 RPC 전송 후 이 시간만큼 대기한 뒤 데미지를 적용하는 기준값.
-        /// UnitStats.GetHitFrameTime()에서 타입별 기본값을 복사.
+        /// 공격 애니메이션에서 타격 프레임(OnAttackHit)까지의 시간 (초) 배열.
+        /// 서버가 애니메이션 RPC 전송 후 배열의 각 시간마다 데미지를 개별 적용하는 기준값.
+        /// UnitStats.GetHitFrameTimes()에서 타입별 기본값을 복사.
+        ///
+        /// 단일 히트 유닛은 원소가 1개. 다중 히트 유닛(FlameSpirit 6, LionKnight 2)은
+        /// 각 히트 프레임을 오름차순으로 나열한 배열을 가진다.
         /// </summary>
-        public float HitFrameTime { get; set; }
+        public float[] HitFrameTimes { get; set; }
 
         /// <summary> 유닛이 살아있는지 여부. </summary>
         public bool IsAlive => Hp > 0;
@@ -127,7 +130,7 @@ namespace Hexiege.Domain
             MoveSpeed = moveSpeed;
             AttackCooldown = UnitStats.GetAttackCooldown(type);
             AttackCooldownRemaining = 0f;
-            HitFrameTime = UnitStats.GetHitFrameTime(type);
+            HitFrameTimes = UnitStats.GetHitFrameTimes(type);
             Facing = facing;
         }
 
@@ -163,7 +166,7 @@ namespace Hexiege.Domain
             MoveSpeed = moveSpeed;
             AttackCooldown = UnitStats.GetAttackCooldown(type);
             AttackCooldownRemaining = 0f;
-            HitFrameTime = UnitStats.GetHitFrameTime(type);
+            HitFrameTimes = UnitStats.GetHitFrameTimes(type);
             Facing = facing;
 
             // 지정 Id 이후로 자동 발급 카운터를 앞당겨 충돌 방지

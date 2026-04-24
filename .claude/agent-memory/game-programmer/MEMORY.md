@@ -23,6 +23,30 @@
 
 ## 최근 작업
 
+### 다중 히트 데미지 구현 (2026-04-24) ✅ 실기 완료
+
+**수정 파일**:
+- `Domain/Unit/UnitStats.cs` — `GetHitFrameTime()` 제거 → `GetHitFrameTimes()` 추가 (반환형 `float[]`), LionKnight AttackCooldown 2.33f → 3.0f 수정
+- `Domain/Unit/UnitData.cs` — `HitFrameTime: float` → `HitFrameTimes: float[]` 교체 (생성자 2개 모두)
+- `Application/UseCases/UnitCombatUseCase.cs` — `PendingHit` struct + `_pendingHits` List + `TickPendingHits(float dt)` 추가. `TryAttack()`에서 각 히트 프레임마다 PendingHit enqueue, 쿨다운 리셋은 TryAttack에서 1회만.
+- `Infrastructure/Network/NetworkCombatController.cs` — `ExecuteAttack()`에서 `HitFrameTimes` foreach로 `DelayedAttackDamage` 코루틴 N개 실행
+- `Bootstrap/GameBootstrapper.cs` — `Update()`에 `_unitCombat.TickPendingHits(Time.deltaTime)` 추가
+
+**핵심 설계 결정**:
+- 쿨다운은 공격 사이클 시작 시 1회만 리셋 — 히트 횟수와 무관
+- 싱글플레이: MonoBehaviour 아님 → 코루틴 불가 → `_pendingHits` 타이머 리스트 방식 (TickCooldowns와 동일 패턴)
+- 멀티플레이: `DelayedAttackDamage` 코루틴을 히트 수만큼 병렬 실행
+- 타겟 사망 시 잔여 히트 자동 취소 — `ApplyAttackDamage` 내 `IsAlive` 체크로 처리
+- `ApplyAttackDamage()`에서 쿨다운 리셋 제거 (다중 히트 시 마지막 히트에서 재리셋 방지)
+
+**다중 히트 유닛 타이밍 (StatsReference.md 기준, 30fps)**:
+- FlameSpirit (6히트, 쿨다운 3.0s): 0.667 / 1.167 / 1.433 / 1.667 / 1.933 / 2.100s
+- LionKnight (2히트, 쿨다운 3.0s): 0.733 / 1.267s
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-24/16_31_multi-hit-damage/`
+
+---
+
 ### 근접유닛 추적 중 회전 개선 (2026-04-24) ✅ 실기 완료
 
 **수정 파일**:
