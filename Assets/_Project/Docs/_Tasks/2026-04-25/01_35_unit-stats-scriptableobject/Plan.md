@@ -1,4 +1,4 @@
-# Plan — 유닛 스탯 ScriptableObject 전환
+# Plan — 유닛 스탯 ScriptableObject 전환 ✅ 완료 (2026-04-25)
 
 ## 목표
 
@@ -163,3 +163,82 @@ Unity 에디터에서 `Create → Hexiege → UnitStatsConfig`로 생성 후
 | `Initialize()` 호출 전 `GetXxx()` 접근 | Dictionary miss → `Debug.LogWarning` + fallback 0/기본값 반환 |
 | `.asset`에 특정 UnitType Entry 누락 | `GetEntry()` miss → 경고 로그로 즉시 인지 가능 |
 | `Resources/Config/` 경로 오탈자 | `Resources.Load` 실패 → null 체크로 에러 로그 |
+
+---
+
+## 추가 작업 — 건물 스탯 ScriptableObject 전환 (2026-04-25)
+
+### 현재 구조
+
+| 스탯 | 현재 위치 | 문제 |
+|------|-----------|------|
+| HP | `Domain/Building/BuildingStats.cs` (switch 표현식) | 코드 수정 필요 |
+| 골드 비용 | `Infrastructure/Config/GameConfig.cs` (`BarracksCost`, `MiningPostCost`) | 유닛/건물 스탯이 분산됨 |
+| 공격력 | 미구현 | — |
+
+### Entry 구조 (B방식 — 건물 타입별 묶음)
+
+```
+[Serializable] struct BuildingTypeEntry
+  - buildingType          : BuildingType
+  // HP (종족별)
+  - humanMaxHp            : int
+  - spiritMaxHp           : int
+  - transcendenceMaxHp    : int
+  // 골드 비용 (종족별)
+  - humanGoldCost         : int
+  - spiritGoldCost        : int
+  - transcendenceGoldCost : int
+  // 공격력 (종족별, 향후 타워 기능 대비)
+  - humanAttackPower      : int
+  - spiritAttackPower     : int
+  - transcendenceAttackPower : int
+```
+
+### 기본값 (현재 코드 기준)
+
+| BuildingType | Human HP | Spirit HP | Trans HP | Human Gold | Spirit Gold | Trans Gold | ATK |
+|---|---|---|---|---|---|---|---|
+| Castle | 100 | 100 | 200 | 0 | 0 | 0 | 0 |
+| Barracks | 30 | 30 | 50 | 100 | 100 | 100 | 0 |
+| MiningPost | 20 | 20 | 40 | 50 | 50 | 50 | 0 |
+
+> Castle 비용 = 0 (시작 시 자동 배치, 직접 구매 불가)
+> 골드 비용 기본값은 `GameConfig.BarracksCost(100)`, `MiningPostCost(50)` 기준
+
+### 신규 파일
+
+| 파일 | 내용 |
+|------|------|
+| `Infrastructure/Config/BuildingStatsConfig.cs` | **신규** — `BuildingTypeEntry` struct + `BuildingStatsConfig : ScriptableObject` |
+| `Editor/SetupBuildingStatsConfig.cs` | **신규** — 에셋 자동 생성 에디터 스크립트 (`Hexiege/Setup/BuildingStatsConfig 생성`) |
+
+### 수정 파일
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `Domain/Building/BuildingStats.cs` | switch → Dictionary, `Initialize()` 추가, `GetGoldCost()` · `GetAttackPower()` 신규 메서드 추가 |
+| `Bootstrap/GameBootstrapper.cs` | `[SerializeField] private BuildingStatsConfig _buildingStatsConfig` 추가, `InitializeBuildingStatsFromConfig()` 호출 추가 |
+| `Presentation/UI/BuildingPlacementUI.cs` | `GetBuildingCost()` → `_config` 대신 `BuildingStats.GetGoldCost()` 호출로 교체 |
+
+### BuildingStats 추가 메서드 (Domain)
+
+```
+// 기존 유지
+GetMaxHp(BuildingType) → Human 기준 fallback
+GetMaxHp(BuildingType, RaceId) → Dictionary 조회로 전환
+
+// 신규
+GetGoldCost(BuildingType, RaceId) → int
+GetAttackPower(BuildingType, RaceId) → int
+```
+
+### GameConfig 처리
+
+`GameConfig.BarracksCost`, `GameConfig.MiningPostCost`는 **그대로 유지** (참조 코드 삭제 최소화).
+`BuildingPlacementUI.GetBuildingCost()` 내부만 BuildingStats 조회로 교체.
+GameConfig 필드는 추후 별도로 정리.
+
+### 에셋 경로
+
+`Assets/_Project/Resources/Config/BuildingStatsConfig.asset`

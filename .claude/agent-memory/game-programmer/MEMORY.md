@@ -23,6 +23,33 @@
 
 ## 최근 작업
 
+### 유닛/건물 스탯 ScriptableObject 전환 (2026-04-25) ✅ 구현 완료
+
+**신규 파일**:
+- `Infrastructure/Config/UnitStatsConfig.cs` — `UnitStatEntry` 구조체(전투+생산 스탯 통합) + `UnitStatsConfig : ScriptableObject`
+- `Infrastructure/Config/BuildingStatsConfig.cs` — `BuildingTypeEntry` 구조체(B방식: 건물타입별 3종족 값 묶음) + `BuildingStatsConfig : ScriptableObject`
+- `Editor/SetupUnitStatsConfig.cs` — 메뉴: `Hexiege/Setup/UnitStatsConfig 생성`. 9종 유닛 기본값 자동 주입.
+- `Editor/SetupBuildingStatsConfig.cs` — 메뉴: `Hexiege/Setup/BuildingStatsConfig 생성`. Castle/Barracks/MiningPost 기본값 자동 주입.
+
+**수정 파일**:
+- `Domain/Unit/UnitStats.cs` — switch 표현식 → `Dictionary<UnitType, StatValues>`. `Initialize(IReadOnlyDictionary<UnitType, StatValues>)` 추가. miss → 폴백 반환.
+- `Domain/Unit/UnitProductionStats.cs` — 동일 패턴. `Dictionary<UnitType, ProductionValues>`, `Initialize()` 추가.
+- `Domain/Building/BuildingStats.cs` — switch 표현식 → `Dictionary<(BuildingType, RaceId), StatValues>`, `Initialize()` 추가. `GetGoldCost(type, race)`, `GetAttackPower(type, race)` 신규 메서드.
+- `Bootstrap/GameBootstrapper.cs` — `[SerializeField] _unitStatsConfig`, `[SerializeField] _buildingStatsConfig` 추가. `InitializeUnitStatsFromConfig()`, `InitializeBuildingStatsFromConfig()` 메서드 추가.
+- `Presentation/UI/BuildingPlacementUI.cs` — `GetBuildingCost()` → `BuildingStats.GetGoldCost(type, race)` 사용으로 변경.
+
+**에셋 경로**: `Assets/_Project/Resources/Config/UnitStatsConfig.asset`, `Assets/_Project/Resources/Config/BuildingStatsConfig.asset`
+
+**핵심 설계 결정**:
+- Domain 순수성 유지: Domain 내부 C# 구조체(`StatValues`, `ProductionValues`)를 직접 정의. Infrastructure → Domain 의존 없음.
+- GameBootstrapper가 SO → Domain 구조체 변환 담당 (단일 책임).
+- Play Mode 중 SO 수정 → Dictionary는 Start() 복사본이므로 다음 Play Mode 진입까지 미반영 (의도된 동작).
+- `GameConfig.BarracksCost/MiningPostCost` 필드는 유지 (참조 제거 최소화).
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-25/01_35_unit-stats-scriptableobject/`
+
+---
+
 ### 싱글플레이 AI 종족 랜덤 결정 (2026-04-24) ✅ 실기 완료
 
 **수정 파일**:

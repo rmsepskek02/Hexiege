@@ -47,6 +47,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("유닛 전투/생산 수치 ScriptableObject. UnitStats / UnitProductionStats의 소스.")]
         [SerializeField] private UnitStatsConfig _unitStatsConfig;
 
+        [Tooltip("건물 HP/골드비용/공격력 ScriptableObject. BuildingStats의 소스.")]
+        [SerializeField] private BuildingStatsConfig _buildingStatsConfig;
+
         // [Phase 2] UnitAnimationData 제거 — Animator(Mecanim)가 대체
 
         [Header("Scene References")]
@@ -277,6 +280,11 @@ namespace Hexiege.Bootstrap
             // ────────────────────────────────────────────────────────────
             InitializeUnitStatsFromConfig();
 
+            // BuildingStats도 동일 이유로 여기서 초기화.
+            // PlaceCastles / PlaceMiningPostDirect 등이 GetMaxHp를 참조하므로
+            // 맵 로드 전에 Dictionary가 채워져 있어야 한다.
+            InitializeBuildingStatsFromConfig();
+
             // 네트워크 모드 확인: NetworkManager가 활성화되어 있으면 네트워크 게임
             bool isNetworkMode = IsNetworkMode();
 
@@ -324,7 +332,7 @@ namespace Hexiege.Bootstrap
             if (_unitStatsConfig == null)
             {
                 Debug.LogError("[GameBootstrapper] UnitStatsConfig가 연결되지 않았습니다. " +
-                               "Inspector의 Config 섹션에서 Assets/Resources/Config/UnitStatsConfig.asset을 연결해 주세요.");
+                               "Inspector의 Config 섹션에서 Assets/_Project/Resources/Config/UnitStatsConfig.asset을 연결해 주세요.");
                 return;
             }
 
@@ -359,6 +367,70 @@ namespace Hexiege.Bootstrap
 
             Debug.Log($"[GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료. " +
                       $"등록된 유닛 수: {statDict.Count}");
+        }
+
+        // ====================================================================
+        // BuildingStats 초기화
+        // ====================================================================
+
+        /// <summary>
+        /// Inspector에 연결된 BuildingStatsConfig(ScriptableObject)를 읽어
+        /// Domain의 BuildingStats 정적 Dictionary에 주입한다.
+        ///
+        /// 동작 순서:
+        ///   1. Config의 각 BuildingTypeEntry를 순회.
+        ///   2. 한 entry당 Human / Spirit / Transcendence 3종족의 StatValues를 추출.
+        ///   3. (BuildingType, RaceId) 튜플을 키로 하는 Dictionary에 저장.
+        ///   4. BuildingStats.Initialize(dict)로 일괄 주입.
+        ///
+        /// Config 미연결 시: 에러 로그만 남기고 스킵.
+        /// 이 경우 BuildingStats 내부 폴백 값이 사용되지만 밸런싱 의도와 다를 수 있으므로
+        /// 반드시 Inspector에서 _buildingStatsConfig 필드를 연결해야 한다.
+        /// </summary>
+        private void InitializeBuildingStatsFromConfig()
+        {
+            if (_buildingStatsConfig == null)
+            {
+                Debug.LogError("[GameBootstrapper] BuildingStatsConfig가 연결되지 않았습니다. " +
+                               "Inspector의 Config 섹션에서 Assets/_Project/Resources/Config/BuildingStatsConfig.asset을 연결해 주세요.");
+                return;
+            }
+
+            // (건물 타입, 종족) → 스탯 Dictionary 구성.
+            // 한 건물 타입 항목당 3종족이 동시에 등록된다.
+            var dict = new System.Collections.Generic.Dictionary<(BuildingType, RaceId), BuildingStats.StatValues>();
+
+            foreach (var entry in _buildingStatsConfig.Stats)
+            {
+                // Human
+                dict[(entry.buildingType, RaceId.Human)] = new BuildingStats.StatValues
+                {
+                    MaxHp = entry.humanMaxHp,
+                    GoldCost = entry.humanGoldCost,
+                    AttackPower = entry.humanAttackPower
+                };
+
+                // Spirit
+                dict[(entry.buildingType, RaceId.Spirit)] = new BuildingStats.StatValues
+                {
+                    MaxHp = entry.spiritMaxHp,
+                    GoldCost = entry.spiritGoldCost,
+                    AttackPower = entry.spiritAttackPower
+                };
+
+                // Transcendence
+                dict[(entry.buildingType, RaceId.Transcendence)] = new BuildingStats.StatValues
+                {
+                    MaxHp = entry.transcendenceMaxHp,
+                    GoldCost = entry.transcendenceGoldCost,
+                    AttackPower = entry.transcendenceAttackPower
+                };
+            }
+
+            BuildingStats.Initialize(dict);
+
+            Debug.Log($"[GameBootstrapper] BuildingStats 초기화 완료. " +
+                      $"등록된 (건물×종족) 엔트리 수: {dict.Count}");
         }
 
         // ====================================================================

@@ -1,0 +1,129 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e84a38e94dc70f4a95a549c68e80915, type: 3}
+  m_Name: UnitStatsConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.UnitStatsConfig
+  _stats:
+  - unitType: 0
+    maxHp: 30
+    attackPower: 6
+    attackRange: 1
+    detectRange: 1
+    moveSpeed: 0.5
+    attackCooldown: 2
+    hitFrameTimes:
+    - 0.833
+    productionTime: 5
+    goldCost: 50
+    populationCost: 1
+  - unitType: 1
+    maxHp: 50
+    attackPower: 1
+    attackRange: 2
+    detectRange: 2
+    moveSpeed: 1
+    attackCooldown: 0.2
+    hitFrameTimes:
+    - 0.133
+    productionTime: 10
+    goldCost: 100
+    populationCost: 1
+  - unitType: 2
+    maxHp: 30
+    attackPower: 10
+    attackRange: 5
+    detectRange: 5
+    moveSpeed: 0.25
+    attackCooldown: 3
+    hitFrameTimes:
+    - 2
+    productionTime: 15
+    goldCost: 200
+    populationCost: 1
+  - unitType: 3
+    maxHp: 50
+    attackPower: 2
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 2
+    attackCooldown: 3
+    hitFrameTimes:
+    - 0.667
+    - 1.167
+    - 1.433
+    - 1.667
+    - 1.933
+    - 2.1
+    productionTime: 15
+    goldCost: 200
+    populationCost: 1
+  - unitType: 4
+    maxHp: 30
+    attackPower: 5
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 0.5
+    attackCooldown: 2.33
+    hitFrameTimes:
+    - 1
+    productionTime: 5
+    goldCost: 50
+    populationCost: 1
+  - unitType: 5
+    maxHp: 100
+    attackPower: 25
+    attackRange: 4
+    detectRange: 4
+    moveSpeed: 1
+    attackCooldown: 3
+    hitFrameTimes:
+    - 1.25
+    productionTime: 30
+    goldCost: 500
+    populationCost: 1
+  - unitType: 6
+    maxHp: 200
+    attackPower: 10
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 1
+    attackCooldown: 1.33
+    hitFrameTimes:
+    - 0.667
+    productionTime: 25
+    goldCost: 400
+    populationCost: 1
+  - unitType: 7
+    maxHp: 20
+    attackPower: 8
+    attackRange: 3
+    detectRange: 3
+    moveSpeed: 0.5
+    attackCooldown: 4
+    hitFrameTimes:
+    - 2.417
+    productionTime: 5
+    goldCost: 50
+    populationCost: 1
+  - unitType: 8
+    maxHp: 50
+    attackPower: 9
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 2
+    attackCooldown: 3
+    hitFrameTimes:
+    - 0.733
+    - 1.267
+    productionTime: 15
+    goldCost: 200
+    populationCost: 1

@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 595508b2073a28344ba613882a79d788, type: 3}
+  m_Name: BuildingStatsConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.BuildingStatsConfig
+  _stats:
+  - buildingType: 0
+    humanMaxHp: 100
+    spiritMaxHp: 100
+    transcendenceMaxHp: 200
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+  - buildingType: 1
+    humanMaxHp: 30
+    spiritMaxHp: 30
+    transcendenceMaxHp: 50
+    humanGoldCost: 100
+    spiritGoldCost: 100
+    transcendenceGoldCost: 100
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+  - buildingType: 2
+    humanMaxHp: 20
+    spiritMaxHp: 20
+    transcendenceMaxHp: 40
+    humanGoldCost: 50
+    spiritGoldCost: 50
+    transcendenceGoldCost: 50
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0

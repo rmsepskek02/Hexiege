@@ -260,16 +260,25 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 건물 건설 비용 텍스트를 갱신.
         /// Show() 호출 시 실행.
+        ///
+        /// 종족에 따라 비용이 달라질 수 있으므로, 현재 팀의 종족을 GameRaceContext에서
+        /// 조회하여 BuildingStats.GetGoldCost()로부터 값을 읽어 표시한다.
+        /// 기존처럼 GameConfig.BarracksCost / MiningPostCost 에 하드코딩된 값을 쓰지 않음.
         /// </summary>
         private void UpdateBuildingStatsText(TeamId team)
         {
-            // 배럭 비용
-            if (_barracksCostText != null && _config != null)
-                _barracksCostText.SetText($"{_config.BarracksCost}");
+            // 현재 팀의 종족 조회 (Blue/Red 각각 Human/Spirit/Transcendence 중 하나)
+            RaceId race = team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+
+            // 배럭 비용 — 종족별 값이 BuildingStatsConfig에서 온다
+            if (_barracksCostText != null)
+                _barracksCostText.SetText($"{BuildingStats.GetGoldCost(BuildingType.Barracks, race)}");
 
             // 채굴소 비용
-            if (_miningPostCostText != null && _config != null)
-                _miningPostCostText.SetText($"{_config.MiningPostCost}");
+            if (_miningPostCostText != null)
+                _miningPostCostText.SetText($"{BuildingStats.GetGoldCost(BuildingType.MiningPost, race)}");
         }
 
         /// <summary>
@@ -369,16 +378,23 @@ namespace Hexiege.Presentation
             Close();
         }
 
-        /// <summary> 건물 타입별 비용. </summary>
+        /// <summary>
+        /// 건물 타입 + 현재 팀 종족 기준 건설 비용을 반환.
+        ///
+        /// 조회 흐름:
+        ///   1. _currentTeam(TeamId.Blue/Red) → GameRaceContext에서 종족 조회
+        ///   2. BuildingStats.GetGoldCost(type, race) 호출 → Dictionary에서 값 반환
+        ///
+        /// Castle은 자동 배치이므로 BuildingStatsConfig에 0으로 설정되어 있어야 함.
+        /// </summary>
         private int GetBuildingCost(BuildingType type)
         {
-            if (_config == null) return 0;
-            switch (type)
-            {
-                case BuildingType.Barracks: return _config.BarracksCost;
-                case BuildingType.MiningPost: return _config.MiningPostCost;
-                default: return 0; // Castle은 자동 배치이므로 비용 없음
-            }
+            // 팝업이 열려있는 팀의 종족을 조회 (Show()에서 _currentTeam이 세팅됨)
+            RaceId race = _currentTeam == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+
+            return BuildingStats.GetGoldCost(type, race);
         }
     }
 }

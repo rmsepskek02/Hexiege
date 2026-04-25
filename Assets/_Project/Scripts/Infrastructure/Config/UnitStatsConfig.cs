@@ -17,7 +17,7 @@
 //
 // 생성 방법:
 //   메뉴 `Hexiege/Setup/UnitStatsConfig 생성` 실행 시
-//   `Assets/Resources/Config/UnitStatsConfig.asset`로 자동 생성되며
+//   `Assets/_Project/Resources/Config/UnitStatsConfig.asset`로 자동 생성되며
 //   현재 코드 기준 스탯값이 기본 입력된다.
 //
 // Infrastructure 레이어 — Unity 의존 허용 (ScriptableObject).
@@ -82,7 +82,7 @@ namespace Hexiege.Infrastructure
     // ========================================================================
     // UnitStatsConfig
     // 모든 UnitType의 UnitStatEntry를 한곳에 모으는 ScriptableObject.
-    // 에셋 경로(권장): Assets/Resources/Config/UnitStatsConfig.asset
+    // 에셋 경로(권장): Assets/_Project/Resources/Config/UnitStatsConfig.asset
     // ========================================================================
     [CreateAssetMenu(fileName = "UnitStatsConfig", menuName = "Hexiege/UnitStatsConfig")]
     public class UnitStatsConfig : ScriptableObject
