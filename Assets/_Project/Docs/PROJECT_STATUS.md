@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-04-25
-**현재 단계:** 유닛/건물 스탯 ScriptableObject 전환 완료 (Inspector에서 코드 수정 없이 수치 편집 가능) / 싱글플레이 AI 종족 랜덤 결정 완료 / 다중 히트 데미지 구현 완료 (FlameSpirit 6히트, LionKnight 2히트) / 근접유닛 추적 중 회전 개선 완료 / 원거리 유닛 공격 중 회전 추적 + 타겟 고착성 + 부드러운 회전 전환 완료 (멀티플레이 실기 MULTI-001~007 전체 PASS) (근접 유닛 Castle 방향 접근 공격, 다중 유닛 연속 공격, 종족별 생산 패널 동적 바인딩) (건물 배치 시 숨김, 파괴 시 재표시+타일 중립 복원) / 종족 인게임 적용 완료 / 로비 종족 선택 UI(캐러셀 방식) 완료 / 종족 이름 자연→초월 변경 / Pistoleer Idle 애니메이션 버그 수정 / 전투 애니메이션 시스템 전면 재정비 완료 (6가지 규칙 확정, 3-신호 RPC, TickCombat 타이밍 정확도, 경쟁 조건 버그 수정) / 재경기 초기화 버그 수정 완료 (NGO 동적 NetworkObject 명시적 Despawn) / 공격 타이밍 정밀화 완료 / 이동 전 회전 타이밍 수정 완료 / 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 완료 / Game UI Lifecycle Framework 완료 / 반투명 배경 오버레이 구조 개선 완료 / 자동/수동 생산 하이브리드 시스템 완성 / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / 팀별 피아식별 프리팹 에셋 완료 / 신규 유닛 2종(Assault/Sniper) 에셋+코드 연동 완료 / 반응형 팝업 UI 완료 / 팀별 초상화 동적 업데이트 완료 / 공격 애니메이션-타격 동기화 완료 / 로비 씬 분리 MVVM 구조 완료 / 재경기 시스템 완료(커스텀+랜덤) / 건물 인근 이동/공격 버그 수정 완료 / 카메라 줌 DOTween 보간 완료 / UI DOTween 애니메이션 프레임워크 완료
+**최종 수정일:** 2026-04-26
+**현재 단계:** 타일 소유권 실시간 감지(TileOwnershipService) 완료 — Phase 1 직선 이동 중에도 유닛이 지나가는 타일 즉시 점령 / 근접유닛 뒷무빙 5차 개선 완료 — Phase 1 타겟 재선택 + Phase 2 후방 스냅 방지 + 점유 누수 방지 / 유닛/건물 스탯 ScriptableObject 전환 완료 / 싱글플레이 AI 종족 랜덤 결정 완료 / 다중 히트 데미지 구현 완료 / 근접유닛 추적 중 회전 개선 완료 / 원거리 유닛 공격 중 회전 추적 + 타겟 고착성 완료 (멀티플레이 실기 MULTI-001~007 전체 PASS) / 종족 인게임 적용 완료 / 로비 종족 선택 UI(캐러셀 방식) 완료 / 전투 애니메이션 시스템 전면 재정비 완료 / 재경기 초기화 버그 수정 완료 / 공격 타이밍 정밀화 완료 / 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 완료 / Game UI Lifecycle Framework 완료 / 자동/수동 생산 하이브리드 시스템 완성 / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / UI DOTween 애니메이션 프레임워크 완료
 
 ---
 
@@ -13,7 +13,7 @@
 | 시스템 | 상태 | 비고 |
 |--------|------|------|
 | 헥스 그리드 (FlatTop/PointyTop) | ✅ 완료 | 듀얼 Orientation 지원, 런타임 전환 |
-| 타일 소유권/점령 | ✅ 완료 | 유닛 이동 시 자동 점령 |
+| 타일 소유권/점령 | ✅ 완료 (2026-04-26 갱신) | TileOwnershipService — Phase 0/1/2 모든 이동 방식에서 매 프레임 물리 위치 기반 실시간 점령 |
 | 금광 타일 시스템 | ✅ 완료 (2026-04-08 갱신) | HasGoldMine, 채굴소 건설 조건, 건물 배치 시 광산 숨김/파괴 시 재표시+타일 중립 복원 |
 | A* 경로탐색 | ✅ 완료 (2026-03-18 갱신) | ClaimedTile 기반 아군 차단 (중간 타일만), 목표 타일 blocked 체크 제거 |
 | 카메라 줌 보간 | ✅ 완료 (2026-03-19) | DOTween.To + Ease.OutCubic, _targetZoom 누적, _zoomDuration(0.25f) SerializeField |
@@ -221,6 +221,24 @@
 | Phase 1 추적 중 타겟 방향 회전 개선 | ✅ 완료 (2026-04-24) | CalculateAttackAngle + RotateTowards(270°/s), 이전 타일 방향 고정 문제 해소 |
 | 싱글플레이 실기 테스트 | ✅ PASS | SINGLE-001~002 통과 (2026-04-24) |
 
+#### 타일 소유권 실시간 감지 — TileOwnershipService (2026-04-26)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| `TileOwnershipService.cs` 신규 생성 | ✅ 완료 | `Application/Services/` — Pull 모델, 매 프레임 유닛 물리 위치 기반 타일 소유권 결정 |
+| HashSet 풀(`Queue<HashSet<TeamId>>`) | ✅ 완료 | 매 프레임 GC 최소화 |
+| 점령 규칙 (한 팀/양 팀/없음) | ✅ 완료 | 한 팀만 있을 때만 갱신, 나머지 현 상태 유지 |
+| 이벤트 중복 발행 방지 | ✅ 완료 | `GetOwner != claimingTeam` 조건 가드 |
+| `HexGrid.GetOwner(HexCoord)` 신규 추가 | ✅ 완료 | `_tiles.TryGetValue` → `tile.Owner` |
+| GameBootstrapper Tick 연결 | ✅ 완료 | `(!NetworkContext.IsNetworkActive \|\| NetworkContext.IsNetworkServer)` 가드 |
+
+#### 근접유닛 뒷무빙 5차 개선 (2026-04-26)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Phase 1 타겟 사망 시 즉시 다음 적 재선택 | ✅ 완료 | 다음 적 있으면 Phase 1 유지, 없으면 Phase 2 진입 |
+| 전투 루프 종료 후 다음 타겟 선택 | ✅ 완료 | 전투 종료 후에도 감지 범위 내 적 재탐색 |
+| Phase 2 후방 스냅 방지 | ✅ 완료 | `HexCoord.Distance` 비교로 nearestTile이 finalTarget보다 멀면 현 위치 유지 |
+| Phase 2 점유 누수 방지 | ✅ 완료 | `nearestTile == _unitData.Position`이면 `RegisterOccupancyMove` 생략 |
+
 #### 유닛/건물 스탯 ScriptableObject 전환 (2026-04-25)
 | 항목 | 상태 | 비고 |
 |------|------|------|
@@ -245,6 +263,8 @@
 | 타겟 고정(Target Lock) 데미지 불일치 버그 | ✅ 완료 (2026-04-18) — 멀티플레이에서 애니메이션 타겟(B)과 다른 유닛(C)에게 데미지 적용되던 버그. NetworkCombatController.TickCombat() damageTargetId 분리로 수정 |
 | 생산 슬롯 깜빡임 버그 | ✅ 완료 (2026-04-19) — 큐 비어있을 때 자동 등록 시 슬롯1→슬롯0 1프레임 이동. ToggleAutoProduction에서 즉시 TryStartNext 호출로 수정 |
 | 랠리포인트 Client 무시 버그 | ✅ 완료 (2026-04-19) — 멀티플레이 Client(Red팀)에서 랠리포인트 설정이 서버에 전달되지 않던 버그. NetworkProductionController에 SetRallyPointServerRpc 추가, ProductionPanelUI에 네트워크 분기 추가 |
+| 근접유닛 뒷무빙 현상 | ✅ 완료 (2026-04-26) — Phase 1 타겟 사망 시 무조건 Phase 2 진입으로 후방 스냅 발생. 타겟 사망 즉시 다음 적 재선택 + Phase 2 후방 스냅 방지 + 점유 누수 방지 (UnitView.cs 3곳 수정) |
+| Phase 1 중 타일 소유권 미갱신 | ✅ 완료 (2026-04-26) — Phase 1(월드 직선 추적) 중 유닛이 타일을 지나가도 소유권이 갱신되지 않던 구조적 문제. TileOwnershipService(Pull 모델)로 매 프레임 물리 위치 기반 실시간 점령 |
 
 ---
 

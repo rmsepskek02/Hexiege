@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-04-25  
-**현재 단계:** 유닛/건물 스탯 ScriptableObject 전환 완료 (코드 수정 없이 Inspector에서 수치 편집 가능)
+**최종 수정일:** 2026-04-26  
+**현재 단계:** 타일 소유권 실시간 감지(TileOwnershipService) 완료 + 근접유닛 뒷무빙 5차 개선 완료
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---

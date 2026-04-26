@@ -42,6 +42,25 @@
 
 ---
 
+### 근접 유닛 뒷무빙 수정 5차 개선 (2026-04-26) ✅ 사용자 확인 완료
+
+**수정 파일**: `Presentation/Unit/UnitView.cs` (3곳 수정)
+
+**Step 1 — Phase 1 타겟 사망 시 즉시 재선택**: Phase 1 이동 중 `GetUnitWorldPosition == Vector3.zero`(타겟 파괴) 감지 시 무조건 Phase 2 진입 대신, `_combatUseCase.HasEnemyInDetectRange` + `FindNearestEnemyInDetectRange`로 다음 적 재선택 → 있으면 `continue`(Phase 1 유지), 없으면 `break`(Phase 2 진입).
+
+**Step 2 — 전투 루프 종료 후 다음 타겟 선택**: 전투 종료(`break`) 직후 `HasEnemyInDetectRange` 재확인 → 적 있으면 `FindNearestEnemyInDetectRange`로 타겟 전환 후 `continue`(Phase 1 재개), 없으면 Phase 2 진입.
+
+**Step 3 — Phase 2 후방 스냅 방지**: Phase 2 진입 시 `HexCoord.Distance(nearestTile, finalTarget) > HexCoord.Distance(_unitData.Position, finalTarget)`이면 `nearestTile = _unitData.Position` 유지(후방 스냅 차단). `nearestTile == _unitData.Position`이면 `RegisterOccupancyMove` 생략(점유 누수 방지).
+
+**핵심 설계 결정**:
+- **뒷무빙 근본 원인**: Phase 1 타겟 사망 → 무조건 Phase 2 진입 → 현재 물리 위치에서 가장 가까운 타일(=후방일 수 있음)로 스냅.
+- **거리 비교 기준**: 월드 거리(float) 대신 `HexCoord.Distance`(도메인 정수 거리) 사용 → 팀 관점(ViewConverter) 무관, 부동소수점 오차 없음.
+- **4차 개선 RegisterOccupancyMove 연동**: `nearestTile == _unitData.Position`이면 실제 이동 없음 → `RegisterOccupancyMove` 생략으로 TO+1 중복 방지. FROM-1은 이후 `ProcessStep`에서만 발생하므로 점유 정합성 유지.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-26/15_00_phase1-target-reselect/`
+
+---
+
 ### 패스파인딩 4차 개선 — FROM 타일 점유 해제 타이밍 수정 (2026-04-26) ✅ 실기 완료
 
 **수정 파일**:
