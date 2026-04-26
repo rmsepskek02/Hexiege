@@ -1012,9 +1012,34 @@ namespace Hexiege.Presentation
                             ? _positionProvider.GetUnitWorldPosition(targetId)
                             : _positionProvider.GetBuildingWorldPosition(targetId);
 
-                        // provider가 Vector3.zero를 반환 = 대상 파괴 또는 미등록 → Phase 2로.
+                        // provider가 Vector3.zero를 반환 = 대상 파괴 또는 미등록.
                         if (enemyViewPos == Vector3.zero)
+                        {
+                            // [5차 개선 — 2026-04-26] 타겟 사망 시 즉시 다음 적 재선택.
+                            // 기존에는 무조건 break → Phase 2(스냅 + 재경로)로 빠졌다.
+                            // 그 결과 유닛이 처음 감지 타일 근처로 스냅되어 "뒷무빙"처럼 보였다.
+                            // 감지 사거리 내에 다른 적이 있으면 Phase 2를 건너뛰고 바로 새 타겟을 추적한다.
+                            //
+                            // 동작 원리:
+                            //   1) HasEnemyInDetectRange로 감지 사거리 내 다른 적이 있는지 먼저 확인.
+                            //   2) FindNearestEnemyInDetectRange로 가장 가까운 적의 (id, isUnit) 취득.
+                            //   3) targetId/targetIsUnit 지역 변수를 새 타겟으로 갱신 후 continue로
+                            //      while 루프 상단 재실행 → 다음 프레임부터 새 타겟을 추적한다.
+                            //   4) 감지 사거리 내 적이 없으면 기존 동작과 동일하게 break하여 Phase 2로 진입.
+                            if (_combatUseCase != null && _combatUseCase.HasEnemyInDetectRange(_unitData))
+                            {
+                                var nextTarget = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
+                                if (nextTarget.HasValue)
+                                {
+                                    // 새 타겟으로 전환 후 루프 상단으로 — Phase 2 스냅 없음.
+                                    targetId = nextTarget.Value.id;
+                                    targetIsUnit = nextTarget.Value.isUnit;
+                                    continue;
+                                }
+                            }
+                            // 감지 사거리 내 적 없음 → 기존과 동일하게 Phase 2로 이탈.
                             break;
+                        }
 
                         // --------------------------------------------------------
                         // 공격 사거리 진입 → 전투 루프 (기존 Phase 0 내부 로직과 동일 구조)
@@ -1089,8 +1114,23 @@ namespace Hexiege.Presentation
                             if (!_combatUseCase.HasEnemyInDetectRange(_unitData))
                                 break;
 
-                            // 감지 사거리 안에 다른 적이 있는 경우 계속 추적 루프로.
-                            continue;
+                            // [5차 개선 — 2026-04-26] 감지 사거리 내 다음 적 재선택 후 Phase 1 재개.
+                            // 기존 continue는 죽은 targetId로 루프 상단을 다시 돌았고,
+                            // enemyViewPos == zero → 즉시 break(Phase 2) 되는 문제가 있었다.
+                            //
+                            // 동작 원리:
+                            //   - 전투가 끝났다 = 이전 타겟이 죽었거나 사거리 이탈.
+                            //   - 여기서 명시적으로 가장 가까운 새 적을 다시 선택하여 targetId/targetIsUnit을 갱신.
+                            //   - 갱신 후 continue로 while 루프 상단 진입 → 다음 프레임부터 새 타겟 추적.
+                            //   - 만약 FindNearestEnemyInDetectRange가 null이면 (이미 위에서 HasEnemyInDetectRange를 통과했지만
+                            //     race condition이 발생할 수 있음) 안전하게 break하여 Phase 2로 빠진다.
+                            var nextEnemy = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
+                            if (!nextEnemy.HasValue)
+                                break;  // 감지 사거리 내 타겟 없음 → Phase 2로
+
+                            targetId = nextEnemy.Value.id;
+                            targetIsUnit = nextEnemy.Value.isUnit;
+                            continue;  // 새 타겟으로 Phase 1 루프 재개
                         }
 
                         // --------------------------------------------------------
@@ -1144,6 +1184,25 @@ namespace Hexiege.Presentation
                 Vector3 domainPos = ViewConverter.FromView(transform.position);
                 HexCoord nearestTile = HexMetrics.WorldToHex(domainPos);
 
+                // [5차 개선 — 2026-04-26] nearestTile 후방 스냅 방지.
+                // Phase 1에서 직선 추적하다가 적이 죽거나 사거리를 벗어나면 Phase 2로 진입한다.
+                // 이때 transform.position(현재 뷰 좌표)을 가장 가까운 타일로 스냅하는데,
+                // 그 가장 가까운 타일(nearestTile)이 finalTarget(원래 목적지)에서 보면
+                // _unitData.Position(이전 타일)보다 더 멀 수 있다.
+                // 이 경우 그대로 스냅하면 유닛이 시각적으로 "뒤로 한 칸 물러난 뒤 다시 전진"하는
+                // 뒷무빙처럼 보인다.
+                //
+                // 해결: nearestTile이 finalTarget 기준으로 _unitData.Position보다 멀면(=후방이면)
+                // nearestTile을 _unitData.Position으로 대체한다.
+                // 즉, 뒤로 가는 스냅을 차단하고 현재 도메인 위치를 그대로 유지.
+                int nearestDistToFinal = HexCoord.Distance(nearestTile, finalTarget);
+                int domainDistToFinal  = HexCoord.Distance(_unitData.Position, finalTarget);
+                if (nearestDistToFinal > domainDistToFinal)
+                {
+                    // nearestTile이 더 멀다 = 뒷쪽 타일 → 앞쪽(도메인 위치)으로 대체
+                    nearestTile = _unitData.Position;
+                }
+
                 // 가장 가까운 타일 중심의 뷰 좌표 (유닛 높이 오프셋 포함)
                 Vector3 tileCenter = ViewConverter.ToView(HexMetrics.HexToWorld(nearestTile));
                 tileCenter.y += HexMetrics.UnitYOffset;
@@ -1187,7 +1246,16 @@ namespace Hexiege.Presentation
                 //   to   = nearestTile(스냅 위치).
                 //   Phase 1 진입 직전에 _pendingOccupancyTile은 default로 리셋된 상태이므로
                 //   이중 등록 위험은 없다.
-                if (_movementUseCase != null)
+                //
+                // [5차 개선 — 2026-04-26] 점유 누수 방지를 위한 조건 추가.
+                //   nearestTile == _unitData.Position인 경우(위 후방 스냅 방지로 같은 타일이 된 경우)
+                //   RegisterOccupancyMove를 호출하면 4차 개선 구조상 다음과 같은 누수가 발생한다:
+                //     1) RegisterOccupancyMove → ReserveOccupancy(같은 타일)+1 으로 점유 +1만 발생.
+                //     2) 이어지는 ProcessStep(_unitData, _unitData.Position, nearestTile)는
+                //        from == to 조건으로 OnUnitRemoved(FROM-1)를 건너뛴다.
+                //     3) 결과: TO는 +1되었지만 FROM은 -1되지 않아 점유가 누적되는 누수.
+                //   같은 타일이면 점유 변화 자체가 없으므로 호출을 생략한다.
+                if (nearestTile != _unitData.Position && _movementUseCase != null)
                 {
                     _movementUseCase.RegisterOccupancyMove(_unitData.Position, nearestTile, _unitData.Type);
                 }
