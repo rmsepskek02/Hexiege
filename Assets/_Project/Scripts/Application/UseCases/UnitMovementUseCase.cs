@@ -176,12 +176,9 @@ namespace Hexiege.Application
             // 유닛 위치 업데이트
             unit.Position = to;
 
-            // 타일 점령: 이동한 타일을 유닛의 팀 색상으로 변경
-            _grid.SetOwner(to, unit.Team);
-
-            // 이벤트 발행 → UnitView가 스프라이트 이동, HexTileView가 색상 변경
+            // 이벤트 발행 → UnitView가 스프라이트 이동
+            // 타일 소유권 갱신은 TileOwnershipService.Tick()이 매 프레임 물리 위치 기반으로 처리한다.
             GameEvents.OnUnitMoved.OnNext(new UnitMovedEvent(unit.Id, from, to));
-            GameEvents.OnTileOwnerChanged.OnNext(new TileOwnerChangedEvent(to, unit.Team));
         }
 
         /// <summary>
