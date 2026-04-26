@@ -29,6 +29,7 @@ using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
 using Hexiege.Application;
+using Hexiege.Application.Services;
 using Hexiege.Infrastructure;
 using Hexiege.Presentation;
 
@@ -236,6 +237,12 @@ namespace Hexiege.Bootstrap
         // UnitView가 다음 타일로 이동하기 직전에 빈 타일을 찾는 데 사용한다.
         private TileOccupancyManager _occupancyManager;
 
+        // TileOwnershipService — 매 프레임 모든 유닛의 물리 위치를 확인하여 타일 소유권을 갱신.
+        // 유닛 이동 방식(Phase 0 타일 Lerp / Phase 1 월드 좌표 추적 / Phase 2 스냅)과 무관하게
+        // "현재 보이는 위치" 기준으로 점령이 반영되도록 한다.
+        // 서버(또는 싱글플레이)에서만 Tick을 호출 — 클라이언트는 별도 동기화 경로로 점령 결과 수신.
+        private TileOwnershipService _tileOwnership;
+
         /// <summary>
         /// FlowFieldService 반환.
         /// 외부에서 캐시 무효화 등을 직접 호출할 필요가 있는 경우(예: 디버깅) 사용.
@@ -289,6 +296,21 @@ namespace Hexiege.Bootstrap
                 // 각 PendingHit의 타이머를 감소시키고 만료된 항목의 데미지를 적용.
                 // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)의 2번째 이후 히트가 여기서 처리됨.
                 _unitCombat.TickPendingHits(Time.deltaTime);
+            }
+
+            // ────────────────────────────────────────────────────────────────
+            // TileOwnershipService: 유닛 물리 위치 기반 타일 소유권 실시간 갱신.
+            // 서버(또는 싱글플레이)에서만 실행 — 클라이언트는 동기화로 점령 결과를 받음.
+            //
+            // 가드 조건:
+            //   - 싱글플레이: NetworkContext.IsNetworkActive == false → 통과
+            //   - Host/서버: IsNetworkActive == true && IsNetworkServer == true → 통과
+            //   - 순수 Client: IsNetworkActive == true && IsNetworkServer == false → 차단
+            // ────────────────────────────────────────────────────────────────
+            if (_tileOwnership != null &&
+                (!NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer))
+            {
+                _tileOwnership.Tick();
             }
         }
 
@@ -728,6 +750,12 @@ namespace Hexiege.Bootstrap
             _buildingPlacement = new BuildingPlacementUseCase(_grid);
             _positionProvider = new UnitWorldPositionProvider(_unitFactory, _buildingFactory);
             _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement, _positionProvider);
+
+            // TileOwnershipService 초기화.
+            // _grid, _unitSpawn, _positionProvider가 모두 준비된 직후에 생성한다.
+            // 매 프레임 GameBootstrapper.Update()에서 Tick()이 호출되며,
+            // 유닛 이동 방식(Phase 0/1/2)에 무관하게 시각 위치를 기준으로 타일을 점령한다.
+            _tileOwnership = new TileOwnershipService(_grid, _unitSpawn, _positionProvider);
 
             // 생산 시스템
             _resource = new ResourceUseCase(_config.StartingGold);

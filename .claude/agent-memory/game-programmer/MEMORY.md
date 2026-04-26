@@ -23,6 +23,25 @@
 
 ## 최근 작업
 
+### 타일 소유권 실시간 감지 시스템 구현 (2026-04-26) ✅ 구현 완료
+
+**신규 파일**: `Application/Services/TileOwnershipService.cs` — Pull 모델. 매 프레임 모든 살아있는 유닛의 viewPos를 받아 ViewConverter.FromView → HexMetrics.WorldToHex로 헥스 좌표 역산 후 `Dictionary<HexCoord, HashSet<TeamId>>`에 누적. 한 팀만 있는 타일에 한해 `_grid.GetOwner != claimingTeam`일 때만 SetOwner + OnTileOwnerChanged 발행. HashSet 풀(`Queue<HashSet<TeamId>>`)로 GC 최소화.
+
+**수정 파일**:
+- `Domain/Hex/HexGrid.cs` — `GetOwner(HexCoord)` 신규. `_tiles.TryGetValue` → `tile.Owner` 또는 Neutral.
+- `Bootstrap/GameBootstrapper.cs` — `using Hexiege.Application.Services;`, `_tileOwnership` 필드, `CreateUseCases()`의 `_unitCombat` 직후 인스턴스 생성, `Update()`에 가드 `(!NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer)` 후 `Tick()`.
+
+**핵심 설계 결정**:
+- **HexCoord.IsInvalid 부재** → 그리드 경계 검증은 `_grid.HasTile(tile)`로 대체 (TileOccupancyManager의 `IsInvalid`는 (0,0) 약속 기반의 사설 헬퍼이므로 점령 판정에는 부적합 — (0,0)이 일반 타일).
+- **점령 규칙**: 한 팀만 있을 때만 갱신, 양 팀 동시면 유지(분쟁지), 비어있으면 유지(점령 영구화). `teams.Count != 1` 분기로 처리.
+- **서버 가드**: 싱글(`!IsNetworkActive`) + Host(`IsNetworkServer`) 통과, 순수 Client 차단. 클라이언트는 `_grid.SetOwner` 직접 호출 시 도메인-뷰 불일치 위험 — 별도 동기화 경로(NetworkTileSync 등)로 결과만 수신.
+- **이벤트 중복 발행 방지**: `_grid.GetOwner(tile) == claimingTeam`이면 SetOwner/OnNext 모두 생략. 같은 팀이 계속 차지 중인 타일에서 매 프레임 이벤트가 발행되어 HexTileView가 불필요하게 반응하는 것 차단.
+- **Application/Services 경로**: 메모리에는 TileOccupancyManager가 Application 직속으로 적혀 있었으나 실제로는 Application/Services에 있음 → 신규 파일도 같은 폴더에 생성.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-26/17_00_tile-ownership-detection/`
+
+---
+
 ### 패스파인딩 4차 개선 — FROM 타일 점유 해제 타이밍 수정 (2026-04-26) ✅ 실기 완료
 
 **수정 파일**:

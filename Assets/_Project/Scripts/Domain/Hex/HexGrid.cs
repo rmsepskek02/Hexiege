@@ -158,6 +158,25 @@ namespace Hexiege.Domain
         }
 
         /// <summary>
+        /// 타일의 현재 소유 팀을 반환한다.
+        /// 그리드 밖이거나 등록되지 않은 좌표라면 TeamId.Neutral을 돌려준다.
+        ///
+        /// TileOwnershipService에서 매 프레임 "현재 소유자가 새 점령 팀과 다른가?"를
+        /// 판단할 때 사용한다. 다를 때만 SetOwner와 OnTileOwnerChanged 이벤트를 호출하여
+        /// 같은 팀이 계속 차지하고 있는 경우의 불필요한 이벤트 발행을 막는다.
+        /// </summary>
+        /// <param name="coord">조회할 타일의 큐브 좌표.</param>
+        /// <returns>해당 타일의 소유 팀. 존재하지 않으면 TeamId.Neutral.</returns>
+        public TeamId GetOwner(HexCoord coord)
+        {
+            if (_tiles.TryGetValue(coord, out HexTile tile))
+            {
+                return tile.Owner;
+            }
+            return TeamId.Neutral;
+        }
+
+        /// <summary>
         /// 인접한 6방향의 타일 목록을 반환 (그리드 밖은 제외).
         /// 타일 정보가 필요한 경우 사용 (소유자 확인 등).
         /// </summary>
