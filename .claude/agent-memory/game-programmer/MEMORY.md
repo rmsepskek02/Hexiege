@@ -23,6 +23,24 @@
 
 ## 최근 작업
 
+### 패스파인딩 3차 개선 — 뭉침/팅김 해결 (2026-04-25) ✅ 구현 완료
+
+**수정 파일**:
+- `Application/Services/TileOccupancyManager.cs` — `FindAvailableTile(preferred, size, grid, destination)` 오버로드 추가. forward 필터 BFS: `Distance(candidate, destination) <= Distance(preferred, destination) + 1` 조건 충족 타일만 반환. fallback으로 필터 없이 재BFS. 기존 단일 파라미터 오버로드는 default destination 위임으로 유지.
+- `Application/UseCases/UnitMovementUseCase.cs` — `ProcessStep`에서 `_occupancyManager.OnUnitMoved` 호출 제거(도메인 로직만 담당). `RegisterOccupancyMove(from, to, type)` 신규 추가(Lerp 시작 직전 호출용). `ReleaseOccupancy(tile, type)` 신규 추가(중단 경로 누수 방지). `FindAvailableTile(preferred, size, destination)` 오버로드 추가.
+- `Presentation/Unit/UnitView.cs` — `_pendingOccupancyTile` 필드 추가(default = 미등록). `ReleaseOccupancyIfPending()` 헬퍼 추가. Phase 0 루프 진입 전 `prevActualTile = _unitData.Position` 초기화. for 루프 내 `from = prevActualTile`로 변경(기존 `path[i-1]` 폐기). FindAvailableTile에 `finalTarget` 전달. Lerp 시작 직전 RegisterOccupancyMove 호출. 정상 도착 시 `prevActualTile = to; _pendingOccupancyTile = default;` 갱신. 우회 발생(`actualTo != to`) 시 `detouredNeedsRepath = true` + for break → 외부 while에서 RequestMove 재호출 후 continue. interruptedByDetect/StopMovement/사망 핸들러에 `ReleaseOccupancyIfPending()` 추가. Phase 2 스냅 후 `RegisterOccupancyMove(_unitData.Position, nearestTile, type)` 명시 호출.
+
+**핵심 설계 결정**:
+- **점유 갱신 타이밍**: ProcessStep(Lerp 후) → Lerp 시작 직전. 같은 프레임 내 다른 유닛이 즉시 "이 타일 차 있음" 인식 → Race Condition 해결.
+- **prevActualTile 추적**: 우회 발생 시에도 `from`이 항상 실제 이전 도착 타일을 가리켜 OnUnitMoved의 from 감소가 올바른 타일에 적용됨.
+- **우회 시 즉시 re-path**: 원래 path는 actualTo와 무관하므로 그대로 이어가면 측면/후방 지그재그(팅김) 발생. for break + RequestMove로 현재 위치 기준 새 플로우 필드 경로 받음.
+- **forward 필터 +1 여유**: 헥스 그리드 특성상 측면 타일이 같은 거리이거나 +1이 될 수 있어 너무 엄격하면 모든 측면 차단됨. fallback BFS로 극단 상황도 처리.
+- **_pendingOccupancyTile = default 약속**: HexCoord(0,0)이 일반 타일일 수 있지만 기존 `TileOccupancyManager.IsInvalid` 약속과 동일하게 "미등록" 의미로만 사용.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-25/10_05_pathfinding-improvement/`
+
+---
+
 ### 유닛/건물 스탯 ScriptableObject 전환 (2026-04-25) ✅ 구현 완료
 
 **신규 파일**:
