@@ -71,9 +71,9 @@
 
 | 종족 | 유닛명 | 단계 | 원소 |
 |------|--------|------|------|
-| Spirit | TideSpirit | 1단계 | 물 | 제작예정
-| Spirit | StreamSpirit | 2단계 | 물 | 제작예정
-| Spirit | TorrentSpirit | 3단계 | 물 | 제작예정
+| Spirit | TideSpirit | 1단계 | 물 | 제작완료
+| Spirit | StreamSpirit | 2단계 | 물 | 애니메이션 제작중
+| Spirit | TorrentSpirit | 3단계 | 물 | 제작완료
 | Spirit | SparkSpirit | 1단계 | 전기 |
 | Spirit | StormSpirit | 2단계 | 전기 |
 | Spirit | ThunderSpirit | 3단계 | 전기 |
@@ -110,8 +110,8 @@
 
 | 종족 | 유닛명 | 역할 | 비고 |
 |------|--------|------|------|
-| Human | IronSwordsman | 근접 | 검, 기본 근접 딜러 | 애니메이션 제작중 무기 제작완료
-| Human | SpearGuard | 근접 | 창, 긴 근접 사거리 | 애니메이션 제작중 무기 제작완료
+| Human | LittleKnight | 근접 | 검, 기본 근접 딜러 | 애니메이션 제작중 무기 제작완료
+| Human | SpearMan | 근접 | 창, 긴 근접 사거리 | 애니메이션 제작중 무기 제작완료
 | Human | BattleAxe | 근접 | 도끼, 느리지만 광역 | 애니메이션 제작중 무기 제작완료
 
 #### 인간계 — 탈것 유닛

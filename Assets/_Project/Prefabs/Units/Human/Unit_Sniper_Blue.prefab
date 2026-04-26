@@ -179,6 +179,7 @@ MonoBehaviour:
   _meshYOffset: 30
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
+  _attackToWalkBlend: 0.1
 --- !u!114 &5481468241028201940
 MonoBehaviour:
   m_ObjectHideFlags: 0

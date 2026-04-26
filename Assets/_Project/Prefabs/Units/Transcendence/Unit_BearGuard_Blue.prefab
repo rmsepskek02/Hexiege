@@ -77,7 +77,7 @@ Animator:
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: afe5b31601ee05b41b4ff5290f014634, type: 3}
   m_Controller: {fileID: 9100000, guid: df3dfff57716a3e4caea2d278b2eff9e, type: 2}
-  m_CullingMode: 0
+  m_CullingMode: 1
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
@@ -558,7 +558,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3626399624
+  GlobalObjectIdHash: 1564197508
   InScenePlacedSourceGlobalObjectIdHash: 1564197508
   DeferredDespawnTick: 0
   Ownership: 1
