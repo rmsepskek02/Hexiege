@@ -66,6 +66,12 @@ namespace Hexiege.Infrastructure
         [Tooltip("공격 애니 내 타격 프레임 시간(초) 배열. 다중 히트는 오름차순")]
         public float[] hitFrameTimes;
 
+        // ── 점유 정보 ──────────────────────────────────────────────
+        // 한 타일의 최대 점유 합계는 3. 소형(1) / 중형(2) / 대형(3) 기준.
+        // TileOccupancyManager가 "다음 타일에 들어갈 수 있는가"를 판단할 때만 사용.
+        [Tooltip("타일당 점유 크기. 소형=1 / 중형=2 / 대형=3. 한 타일 최대 합계=3")]
+        public float occupancySize;
+
         // ── 생산 스탯 ──────────────────────────────────────────────
         [Header("Production")]
 

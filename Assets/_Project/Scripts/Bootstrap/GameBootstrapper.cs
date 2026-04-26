@@ -221,6 +221,39 @@ namespace Hexiege.Bootstrap
         private GameEndUseCase _gameEnd;
         private IEntityPositionProvider _positionProvider;
 
+        // ────────────────────────────────────────────────────────────────────
+        // 패스파인딩 인프라 (2026-04-25 플로우 필드 도입)
+        //   _flowFieldService: 목적지별 BFS 결과를 캐싱·관리.
+        //                       UnitMovementUseCase 생성 시 주입.
+        //   _slotManager: 같은 타일에 여러 유닛이 모일 때 시각 위치를 분산.
+        //                 UnitFactory를 통해 UnitView에 주입.
+        // ────────────────────────────────────────────────────────────────────
+        private FlowFieldService _flowFieldService;
+        private TileSlotManager _slotManager;
+
+        // 타일별 점유량 추적 — 같은 타일에 너무 많은 유닛이 모이는 것을 방지.
+        // UnitMovementUseCase에 주입되어 ProcessStep 시 자동 갱신되며,
+        // UnitView가 다음 타일로 이동하기 직전에 빈 타일을 찾는 데 사용한다.
+        private TileOccupancyManager _occupancyManager;
+
+        /// <summary>
+        /// FlowFieldService 반환.
+        /// 외부에서 캐시 무효화 등을 직접 호출할 필요가 있는 경우(예: 디버깅) 사용.
+        /// 일반적인 경우 UnitMovementUseCase 내부에서만 사용된다.
+        /// </summary>
+        public FlowFieldService GetFlowFieldService() => _flowFieldService;
+
+        /// <summary>
+        /// TileSlotManager 반환. UnitView가 슬롯 점유/해제에 사용.
+        /// </summary>
+        public TileSlotManager GetTileSlotManager() => _slotManager;
+
+        /// <summary>
+        /// TileOccupancyManager 반환. 디버깅 등 외부에서 점유 상태를 조회할 때 사용.
+        /// 일반적인 사용은 UnitMovementUseCase 내부에서 자동 처리된다.
+        /// </summary>
+        public TileOccupancyManager GetTileOccupancyManager() => _occupancyManager;
+
         /// <summary>
         /// StartNetworkGame() 중복 호출 방지 플래그.
         /// NetworkGameFlow가 재스폰될 경우 LoadMap이 재실행되는 것을 막음.
@@ -351,7 +384,10 @@ namespace Hexiege.Bootstrap
                     DetectRange = entry.detectRange,
                     MoveSpeed = entry.moveSpeed,
                     AttackCooldown = entry.attackCooldown,
-                    HitFrameTimes = entry.hitFrameTimes
+                    HitFrameTimes = entry.hitFrameTimes,
+                    // OccupancySize: 타일 점유 크기 (소형 1 / 중형 2 / 대형 3).
+                    // SO에서 0으로 비어 있으면 UnitStats.GetOccupancySize()에서 1f로 폴백.
+                    OccupancySize = entry.occupancySize
                 };
 
                 prodDict[entry.unitType] = new UnitProductionStats.ProductionValues
@@ -665,7 +701,30 @@ namespace Hexiege.Bootstrap
         {
             _gridInteraction = new GridInteractionUseCase(_grid);
             _unitSpawn = new UnitSpawnUseCase(_grid);
-            _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn);
+
+            // 플로우 필드 서비스 — 그리드 참조 저장 + walkable 변경 이벤트 구독.
+            // UnitMovementUseCase 생성 전에 만들어야 주입이 가능하다.
+            // 재경기/맵 전환 시 같은 인스턴스라면 Initialize 내부에서 기존 구독을 정리한다.
+            if (_flowFieldService == null)
+                _flowFieldService = new FlowFieldService();
+            _flowFieldService.Initialize(_grid);
+
+            // 타일 슬롯 매니저 — 같은 타일에 여러 유닛이 모일 때 시각 위치 분산.
+            // 상태가 누적되므로 맵 전환 시 Clear()로 초기화한다.
+            if (_slotManager == null)
+                _slotManager = new TileSlotManager();
+            _slotManager.Clear();
+
+            // 타일 점유량 매니저 — 한 타일에 들어갈 수 있는 유닛 수를 제한해
+            // 좁은 타일에 과도하게 몰리는 현상을 방지한다.
+            // 슬롯 매니저처럼 누적 상태를 가지므로 맵 전환 시 Clear()로 초기화.
+            if (_occupancyManager == null)
+                _occupancyManager = new TileOccupancyManager();
+            _occupancyManager.Clear();
+
+            // 이전 UseCase의 이벤트 구독을 정리한 뒤 새로 생성 (재경기 시 중복 구독 방지).
+            _unitMovement?.Dispose();
+            _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn, _flowFieldService, _occupancyManager);
             _buildingPlacement = new BuildingPlacementUseCase(_grid);
             _positionProvider = new UnitWorldPositionProvider(_unitFactory, _buildingFactory);
             _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement, _positionProvider);
@@ -813,9 +872,10 @@ namespace Hexiege.Bootstrap
         {
             // UnitFactory에 런타임 의존성 주입 (생산된 유닛에 자동 적용).
             // _positionProvider는 UnitView의 하이브리드 이동(Phase 1 월드 좌표 추적)에서 사용.
+            // _slotManager는 같은 타일에 모인 유닛들을 시각적으로 분산시키는 데 사용.
             if (_unitFactory != null)
                 _unitFactory.SetDependencyReferences(_config, _unitMovement, _unitCombat,
-                    _unitFactory, _buildingFactory, _positionProvider);
+                    _unitFactory, _buildingFactory, _positionProvider, _slotManager);
 
             // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요)
             if (_productionTicker != null)

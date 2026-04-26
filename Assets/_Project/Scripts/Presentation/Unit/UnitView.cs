@@ -127,6 +127,33 @@ namespace Hexiege.Presentation
         /// </summary>
         private IEntityPositionProvider _positionProvider;
 
+        /// <summary>
+        /// 같은 타일에 여러 유닛이 모일 때 시각 위치를 분산시키는 슬롯 매니저.
+        /// Phase 0 타일 진입 직전에 ClaimSlot으로 오프셋을 받아 Lerp 목표 위치에 적용,
+        /// 다음 타일로 이동을 마치면 이전 타일에 대해 ReleaseSlot.
+        /// 주입되지 않은 경우 슬롯 오프셋은 적용되지 않고 타일 중심으로만 이동.
+        /// </summary>
+        private TileSlotManager _slotManager;
+
+        /// <summary>
+        /// 현재 점유 중인 슬롯의 타일 좌표.
+        /// HexCoord는 struct이므로 nullable로 보관 — 점유 없음을 명확히 표현.
+        /// 사망/취소 시 ReleaseSlot 호출 직후 null로 초기화한다.
+        /// </summary>
+        private HexCoord? _claimedSlotTile;
+
+        /// <summary>
+        /// [3차 개선 — 2026-04-25]
+        /// Lerp 시작 전에 미리 등록한 점유 타일.
+        /// Race Condition 방지를 위해 점유는 Lerp 전 즉시 등록되며,
+        /// 정상 도착 시 default로 리셋되고, 사망/감지 인터럽트 등 중단 시
+        /// ReleaseOccupancy로 해제하기 위한 추적 필드.
+        ///
+        /// HexCoord는 struct여서 default = (0,0). (0,0)이 일반 타일일 수도 있지만
+        /// 기존 TileOccupancyManager.IsInvalid 약속과 동일하게 "미등록"의 의미로만 사용한다.
+        /// </summary>
+        private HexCoord _pendingOccupancyTile = default;
+
         /// <summary> 현재 이동 코루틴. null이면 정지 상태. </summary>
         private Coroutine _moveCoroutine;
 
@@ -258,7 +285,8 @@ namespace Hexiege.Presentation
         public void SetDependencies(GameConfig config,
             UnitMovementUseCase movementUseCase, UnitCombatUseCase combatUseCase,
             UnitFactory unitFactory = null, BuildingFactory buildingFactory = null,
-            IEntityPositionProvider positionProvider = null)
+            IEntityPositionProvider positionProvider = null,
+            TileSlotManager slotManager = null)
         {
             _config = config;
             _movementUseCase = movementUseCase;
@@ -266,6 +294,7 @@ namespace Hexiege.Presentation
             _unitFactory = unitFactory;
             _buildingFactory = buildingFactory;
             _positionProvider = positionProvider;
+            _slotManager = slotManager;
 
             // 전투 상태 변화 이벤트 구독 — 싱글플레이 전용.
             // 멀티플레이에서는 NetworkCombatController가 ClientRpc로 직접 메서드 호출.
@@ -312,6 +341,15 @@ namespace Hexiege.Presentation
                 {
                     if (_unitData != null && e.Entity == (IDamageable)_unitData)
                     {
+                        // 사망 시 점유 슬롯 해제 — 다른 유닛이 이 자리에 들어올 수 있도록.
+                        ReleaseSlotIfClaimed();
+
+                        // [3차 개선] Lerp 전 등록한 점유도 해제.
+                        // 도메인 사망 이벤트는 UnitMovementUseCase가 자체 구독하여 unit.Position에 대한
+                        // OnUnitRemoved를 처리하지만, _pendingOccupancyTile은 아직 도착 전 좌표라
+                        // unit.Position과 다를 수 있다 → 명시적으로 별도 해제 필요.
+                        ReleaseOccupancyIfPending();
+
                         // 사망 시 speed 복원 후 IsDead bool 설정 (Animator 트랜지션)
                         if (_animator != null)
                         {
@@ -420,9 +458,52 @@ namespace Hexiege.Presentation
             }
             _unitData.ClaimedTile = null;
 
+            // 슬롯 점유도 함께 해제 — 정지한 유닛이 빈 슬롯을 계속 차지해
+            // 다른 유닛이 그 자리로 들어오지 못하는 부작용 방지.
+            ReleaseSlotIfClaimed();
+
+            // [3차 개선] Lerp 전 등록한 점유도 해제 — 점유 누수 방지.
+            // 정지 시점에 _pendingOccupancyTile이 살아있다면 그 타일에 도착하지 못한 채 멈춘 것이므로
+            // 점유를 풀어야 다른 유닛이 그 자리로 들어올 수 있다.
+            ReleaseOccupancyIfPending();
+
             // Walk 정지 — speed=0으로 프레임 고정
             if (_animator != null) _animator.speed = 0f;
 
+        }
+
+        /// <summary>
+        /// 현재 점유 중인 슬롯이 있다면 해제. 없거나 매니저 미주입이면 무시.
+        /// 사망/이동 정지/이동 완료 등 시점에서 호출하여 빈 슬롯을 다른 유닛이 사용할 수 있게 한다.
+        /// </summary>
+        private void ReleaseSlotIfClaimed()
+        {
+            if (_slotManager != null && _claimedSlotTile.HasValue)
+            {
+                _slotManager.ReleaseSlot(_claimedSlotTile.Value, _unitData != null ? _unitData.Id : -1);
+                _claimedSlotTile = null;
+            }
+        }
+
+        /// <summary>
+        /// [3차 개선 — 2026-04-25]
+        /// Lerp 전에 등록한 점유가 남아있다면 해제. 사망/감지 인터럽트/StopMovement 등
+        /// "Lerp가 정상적으로 끝나지 못한 모든 경로"에서 호출되어야 점유 누수가 없다.
+        ///
+        /// _pendingOccupancyTile이 default(=(0,0))이면 미등록 상태이므로 호출만 무시.
+        /// 호출 후 _pendingOccupancyTile을 default로 리셋한다.
+        /// </summary>
+        private void ReleaseOccupancyIfPending()
+        {
+            // default 비교 — TileOccupancyManager의 IsInvalid 약속과 동일.
+            // 실제 (0,0) 타일이 _pendingOccupancyTile로 들어오는 경우는 호출 측 약속으로 막는다.
+            if (_pendingOccupancyTile == default(HexCoord)) return;
+
+            if (_movementUseCase != null && _unitData != null)
+            {
+                _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
+            }
+            _pendingOccupancyTile = default;
         }
 
         /// <summary>
@@ -510,38 +591,104 @@ namespace Hexiege.Presentation
                 // ====================================================================
                 // [ Phase 0 ] 타일 기반 A* 이동
                 // ====================================================================
+                // Lerp 도중 적 감지 사거리 진입을 즉시 잡아내기 위한 플래그.
+                // 기존에는 타일 도착 후 한 번만 체크해 "현재 타일까지 다 이동한 뒤"에야
+                // Phase 1로 진입했지만, 본 플래그로 Lerp 중 break하여 즉시 추적이 가능하다.
+                bool interruptedByDetect = false;
+
+                // [3차 개선 — 2026-04-25] 우회 발생으로 for 루프를 빠져나갈지 여부.
+                // true가 되면 외부 while이 Phase 2를 거치지 않고 바로 새 RequestMove로 Phase 0를 재개해야 한다.
+                // (Phase 2는 Phase 1 종료 후 스냅 처리 전용. 우회 후 재경로는 그 흐름을 거치지 않는다.)
+                bool detouredNeedsRepath = false;
+
+                // [3차 개선] 실제로 마지막에 도착한 타일을 추적.
+                // 기존에는 from = path[i-1]로 하드코딩되어, 이전 스텝에서 우회(actualTo != path[i])했을 때
+                // 다음 스텝의 from이 "실제 이전 도착 타일"과 어긋나 점유 정보가 잘못 갱신됐다.
+                // prevActualTile을 매 스텝 actualTo로 갱신하여 이 오류를 차단한다.
+                HexCoord prevActualTile = _unitData.Position;
+
                 // 경로의 각 구간을 순회 (0=시작은 건너뜀)
                 for (int i = 1; i < path.Count; i++)
                 {
-                HexCoord from = path[i - 1];
+                // [3차 개선] from은 path[i-1]이 아니라 실제 이전 도착 타일.
+                // 첫 스텝(i=1)에서는 prevActualTile = _unitData.Position이 자연스럽게 path[0]과 같다.
+                HexCoord from = prevActualTile;
                 HexCoord to = path[i];
 
-                // Per-step 체크: 같은 팀에 의해 차단되었는지 확인 → 재탐색
-                if (_movementUseCase != null && _movementUseCase.IsTileBlockedBySameTeam(_unitData, to))
-                {
-                    List<HexCoord> newPath = _movementUseCase.RequestMove(_unitData, finalTarget);
-                    if (newPath != null)
-                    {
-                        path = newPath;
-                        i = 0;
-                        continue;
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
+                // ※ 플로우 필드 도입(2026-04-25)으로 per-step IsTileBlockedBySameTeam 체크 제거.
+                //   기존에는 같은 팀 유닛의 Position/ClaimedTile을 차단으로 보고 재탐색했으나,
+                //   유닛 수가 많아지면 모든 후보 타일이 차단되어 경로가 null이 되고 이동이 멈추는
+                //   현상이 발생했다. 플로우 필드는 walkable 여부만 보고 같은 타일에 여러 유닛이
+                //   모이는 것을 허용하며, 시각적 겹침은 슬롯 매니저가 분산시킨다.
 
-                // ClaimedTile 선점 (같은 팀 유닛 겹침 방지)
-                // 단, 마지막 스텝의 목적지가 non-walkable 타일(성/건물 타일)인 경우에는
-                // ClaimedTile을 설정하지 않는다.
-                // 이유: 성 타일은 유닛이 실제로 도착하여 머무를 수 없는 타일이다.
-                //   ClaimedTile로 설정하면 공격 루프 동안 이 값이 유지되어,
-                //   후속 유닛이 IsTileBlockedBySameTeam()에서 성 타일을 blocked로 인식하게 되고
-                //   성 방향으로의 경로 탐색이 실패하여 두 번째 이후 유닛이 접근하지 못하는 버그가 발생한다.
+                // ────────────────────────────────────────────────────────────
+                // 타일 점유 체크 (2026-04-25 2차 개선)
+                //   다음 타일(to)이 점유 한도(MaxOccupancy=3)를 이미 넘긴 상태라면
+                //   FindAvailableTile이 BFS로 가까운 빈 타일을 찾아 반환한다.
+                //   모든 타일이 가득 차면(이론상 인구 제한으로 거의 불가능) null을 반환하므로
+                //   yield return null로 다음 프레임을 기다리며 빈자리가 생길 때까지 폴링.
+                //
+                //   actualTo가 원래 to와 다르면 그 타일로 우회 — 다음 RequestMove(플로우 필드)
+                //   호출 시 자연스럽게 새 경로가 만들어지므로 path 자체를 직접 수정하지 않는다.
+                //
+                //   마지막 스텝이 non-walkable 타일(성/건물)인 경우는 우회하지 않고 그대로
+                //   to를 사용한다 — 공격 시작 위치이므로 점유 체크 대상이 아님.
+                // ────────────────────────────────────────────────────────────
                 bool isLastStepToNonWalkable = (i == path.Count - 1)
                     && (_movementUseCase != null && !_movementUseCase.IsWalkable(to));
 
+                // [3차 개선] 우회 발생 여부 — Lerp 후 for 루프를 break할지 결정에 사용.
+                bool didDetour = false;
+
+                if (!isLastStepToNonWalkable && _movementUseCase != null)
+                {
+                    float mySize = _movementUseCase.GetOccupancySize(_unitData.Type);
+                    HexCoord? actualTo = null;
+                    // 빈자리가 생길 때까지 매 프레임 다시 시도 (대부분 1회 호출로 즉시 결정).
+                    // [3차 개선] finalTarget을 destination으로 함께 넘겨서, 우회 후보 중에서도
+                    // 목적지 방향으로 진행하는 타일이 우선 선택되도록 한다(forward 필터).
+                    while (actualTo == null && _unitData.IsAlive)
+                    {
+                        actualTo = _movementUseCase.FindAvailableTile(to, mySize, finalTarget);
+                        if (actualTo == null)
+                            yield return null;
+                    }
+                    if (!_unitData.IsAlive) break;
+
+                    // [3차 개선] 우회 발생 — actualTo가 원래 to와 다르면 표시.
+                    // for 루프 마지막에 break하여 새 RequestMove로 경로를 재계산한다(팅김 방지).
+                    if (actualTo.Value != to)
+                        didDetour = true;
+
+                    to = actualTo.Value;
+
+                    // 우회 결과 마지막 스텝 판정이 바뀔 수 있으므로 재평가 — 안전망.
+                    isLastStepToNonWalkable = (i == path.Count - 1) && !_movementUseCase.IsWalkable(to);
+                }
+
+                // ────────────────────────────────────────────────────────────
+                // [3차 개선 — Lerp 시작 직전 점유 등록]
+                //   기존에는 ProcessStep(=Lerp 완료 후)에서 OnUnitMoved를 호출했다.
+                //   그 결과 같은 프레임에 여러 유닛이 동시에 CanFit를 통과하여 한도를 초과하는
+                //   Race Condition이 발생했다. 이제 Lerp 시작 전에 즉시 점유를 잡아 올림으로써
+                //   같은 프레임 내 다른 유닛은 이 타일이 이미 차 있다고 인식하게 된다.
+                //
+                //   from은 prevActualTile(실제 이전 위치). non-walkable 마지막 스텝일 때도
+                //   유닛은 이전 타일을 떠나 마지막 스텝의 시작점에서 공격을 시작하므로
+                //   점유 갱신 자체는 동일하게 처리한다.
+                //
+                //   _pendingOccupancyTile에 to를 기록하여, 사망/감지 인터럽트 등으로 도착하지
+                //   못하면 ReleaseOccupancyIfPending에서 해제할 수 있게 한다.
+                // ────────────────────────────────────────────────────────────
+                if (_movementUseCase != null && _unitData != null)
+                {
+                    _movementUseCase.RegisterOccupancyMove(from, to, _unitData.Type);
+                    _pendingOccupancyTile = to;
+                }
+
+                // ClaimedTile은 유지 — 다른 시스템(전투/생산)에서 참조할 수 있고,
+                // 향후 차단 로직이 다시 필요해질 경우를 위해 데이터 자체는 보존.
+                // 마지막 스텝이 non-walkable(성/건물)인 경우는 점유 의미가 없으므로 설정 생략.
                 if (!isLastStepToNonWalkable)
                     _unitData.ClaimedTile = to;
 
@@ -561,6 +708,41 @@ namespace Hexiege.Presentation
                 Vector3 toPos = ViewConverter.ToView(HexMetrics.HexToWorld(to));
                 toPos.y += HexMetrics.UnitYOffset;
 
+                // ─────────────────────────────────────────────────────────────
+                // 슬롯 오프셋 적용 (시각적 분산)
+                //   같은 타일에 여러 유닛이 도착하면 시각적으로 같은 위치에 겹쳐 보인다.
+                //   슬롯 매니저에서 빈 슬롯을 받아 to/from 양쪽 모두에 오프셋을 적용해
+                //   매끄러운 Lerp 이동(이전 슬롯 위치 → 새 슬롯 위치)이 되도록 한다.
+                //   non-walkable 타일(성/건물)은 슬롯을 사용하지 않는다.
+                // ─────────────────────────────────────────────────────────────
+                if (_slotManager != null)
+                {
+                    // 이전에 점유 중이던 슬롯의 오프셋을 fromPos에 반영해야
+                    // Lerp 시작점이 실제 유닛의 현재 시각 위치와 일치한다.
+                    if (_claimedSlotTile.HasValue)
+                    {
+                        Vector3 prevOffset = _slotManager.ClaimSlot(_claimedSlotTile.Value, _unitData.Id);
+                        fromPos += prevOffset;
+                    }
+
+                    if (!isLastStepToNonWalkable)
+                    {
+                        // 이전 슬롯 해제 후 새 슬롯 점유 → toPos에 오프셋 적용.
+                        if (_claimedSlotTile.HasValue && _claimedSlotTile.Value != to)
+                            _slotManager.ReleaseSlot(_claimedSlotTile.Value, _unitData.Id);
+
+                        Vector3 slotOffset = _slotManager.ClaimSlot(to, _unitData.Id);
+                        toPos += slotOffset;
+                        _claimedSlotTile = to;
+                    }
+                    else
+                    {
+                        // non-walkable 마지막 스텝(성/건물 방향): 슬롯을 새로 잡지 않고
+                        // 이전 슬롯도 그대로 두면 "한 칸 앞 타일" 슬롯이 계속 점유된 채 공격을 시작한다.
+                        // 이게 의도된 동작 — 공격 위치가 같은 슬롯 분산 효과를 누림.
+                    }
+                }
+
                 // --------------------------------------------------------
                 // Lerp 이동 + 이동 중 전투 체크
                 // --------------------------------------------------------
@@ -571,6 +753,23 @@ namespace Hexiege.Presentation
                     elapsed += Time.deltaTime;
                     float t = Mathf.Clamp01(elapsed / moveSeconds);
                     transform.position = Vector3.Lerp(fromPos, toPos, t);
+
+                    // ────────────────────────────────────────────────────
+                    // [Bug 1 fix] Lerp 도중 적 감지 사거리 진입 시 즉시 중단
+                    //   기존에는 타일 도착 후에만 체크해서 "현재 타일까지 다 이동한 뒤"에야
+                    //   Phase 1로 진입했다 → 적이 가까이 있어도 한 박자 늦게 반응.
+                    //   Lerp 매 프레임 체크하여 감지 즉시 break → Phase 1로 진입.
+                    //
+                    //   ※ HasEnemyInRange는 아래 전투 루프가 처리하므로 여기서는 제외 —
+                    //     공격 사거리 안에 있다면 추적이 아니라 전투를 시작해야 한다.
+                    // ────────────────────────────────────────────────────
+                    if (_combatUseCase != null && _unitData.IsAlive
+                        && _combatUseCase.HasEnemyInDetectRange(_unitData)
+                        && !_combatUseCase.HasEnemyInRange(_unitData))
+                    {
+                        interruptedByDetect = true;
+                        break;
+                    }
 
                     // 이동 중 전투 체크 (매 프레임)
                     if (_combatUseCase != null && _unitData.IsAlive)
@@ -680,6 +879,26 @@ namespace Hexiege.Presentation
 
                 if (!_unitData.IsAlive) break;
 
+                // ────────────────────────────────────────────────────────────
+                // [Bug 1 fix] Lerp 도중 감지 중단된 경우의 처리
+                //   타일 도착 처리(ProcessStep, ClaimedTile 갱신, 점령 등)를 모두 건너뛰고
+                //   슬롯/타일 점유만 정리한 뒤 Phase 1으로 즉시 진입.
+                //   이렇게 해야 "Lerp 중간에서 멈춰 추적 시작" 효과가 나며,
+                //   현재 타일 중심까지 이동을 완료하지 않는다.
+                // ────────────────────────────────────────────────────────────
+                if (interruptedByDetect)
+                {
+                    _unitData.ClaimedTile = null;
+                    ReleaseSlotIfClaimed();
+
+                    // [3차 개선] Lerp 전 등록한 점유 해제 — 도착하지 못한 to 타일은
+                    // 이 유닛이 차지하지 않은 것으로 처리해야 다른 유닛이 들어올 수 있다.
+                    ReleaseOccupancyIfPending();
+
+                    shouldPursue = true;
+                    break;  // for 루프 탈출 → 외부 while에서 Phase 1 진입
+                }
+
                 // 정확한 최종 위치 보정
                 transform.position = toPos;
 
@@ -697,6 +916,21 @@ namespace Hexiege.Presentation
                 }
 
                 _unitData.ClaimedTile = null;
+
+                // [3차 개선] Lerp가 정상 완료되어 to 타일에 도착했으므로
+                // 다음 스텝을 위해 prevActualTile을 갱신하고 _pendingOccupancyTile을 default로 리셋.
+                // (정상 도착의 경우 점유 해제가 필요 없다 — 이미 도착했으므로 점유는 유지되어야 함)
+                prevActualTile = to;
+                _pendingOccupancyTile = default;
+
+                // [3차 개선] 우회가 발생했다면 원래 path는 더 이상 유효하지 않다.
+                // for 루프를 break하여 외부 while로 빠진 뒤 새 RequestMove로 현재 위치 기준 경로 재계산.
+                // 이렇게 하지 않으면 actualTo → path[i+1] 방향이 측면·후방이 되어 지그재그(팅김) 발생.
+                if (didDetour)
+                {
+                    detouredNeedsRepath = true;
+                    break;  // for 루프 탈출 → 외부 while로 진입
+                }
 
                 // --------------------------------------------------------
                 // 스텝 완료 후 적 감지 사거리(DetectRange) 체크 → Phase 1 진입
@@ -717,6 +951,10 @@ namespace Hexiege.Presentation
                     // ClaimedTile 해제 — Phase 1에서 타일 점유가 필요 없고,
                     // 방치 시 다른 유닛의 경로 탐색이 이 타일을 blocked로 인식하는 부작용을 방지한다.
                     _unitData.ClaimedTile = null;
+
+                    // Phase 1은 자유로운 월드 좌표 추적이라 타일 슬롯이 의미가 없다.
+                    // 슬롯을 비워 다른 유닛이 이 타일에 들어올 수 있게 한다.
+                    ReleaseSlotIfClaimed();
                     shouldPursue = true;
                     break;  // for 루프 탈출 → 외부 while에서 Phase 1 진입
                 }
@@ -724,6 +962,26 @@ namespace Hexiege.Presentation
 
             // 유닛 사망 시 정리로 진행
             if (!_unitData.IsAlive) break;
+
+            // [3차 개선 — 우회 후 경로 재계산]
+            //   for 루프에서 우회가 발생해 break 했다면 path는 이미 의미 없어진 상태.
+            //   Phase 1/2를 거치지 않고 즉시 finalTarget으로 새 경로를 받아 외부 while 상단으로 돌아간다.
+            //   현재 위치(_unitData.Position = actualTo)에서 플로우 필드를 재조회하므로 자연스러운 경로가 된다.
+            if (detouredNeedsRepath)
+            {
+                List<HexCoord> rerouted = _movementUseCase != null
+                    ? _movementUseCase.RequestMove(_unitData, finalTarget)
+                    : null;
+
+                if (rerouted != null && rerouted.Count >= 2)
+                {
+                    path = rerouted;
+                    continue;  // 외부 while 상단 → 새 path로 Phase 0 재실행
+                }
+
+                // 새 경로 계산 실패 시 이동 종료(이미 도착했거나 막힘).
+                break;
+            }
 
             // 적 감지 없이 경로를 끝까지 완주한 경우 → 이동 완료 정리로 진행
             if (!shouldPursue) break;
@@ -890,6 +1148,17 @@ namespace Hexiege.Presentation
                 Vector3 tileCenter = ViewConverter.ToView(HexMetrics.HexToWorld(nearestTile));
                 tileCenter.y += HexMetrics.UnitYOffset;
 
+                // Phase 2 스냅 시점에 슬롯을 다시 점유 → 다음 Phase 0 시작 시 정상적으로
+                // 이전 슬롯에서 새 슬롯으로 이동할 수 있게 한다.
+                // 이 위치 보정 후 tileCenter에 슬롯 오프셋을 더하면 더 자연스럽지만,
+                // 단순화를 위해 슬롯은 점유만 하고 tileCenter는 그대로 사용 (다음 스텝에서 보정됨).
+                if (_slotManager != null)
+                {
+                    Vector3 snapSlotOffset = _slotManager.ClaimSlot(nearestTile, _unitData.Id);
+                    tileCenter += snapSlotOffset;
+                    _claimedSlotTile = nearestTile;
+                }
+
                 // 타일 중심까지 Lerp 이동 (타일 이동속도와 동일한 월드 속도)
                 float worldSpeed2 = HexMetrics.TileHeight / moveSeconds;
                 Vector3 snapStart = transform.position;
@@ -911,8 +1180,20 @@ namespace Hexiege.Presentation
 
                 if (!_unitData.IsAlive) break;
 
+                // [3차 개선] Phase 2 스냅 도착 — 점유 갱신.
+                //   ProcessStep은 더 이상 OnUnitMoved를 호출하지 않으므로
+                //   여기서 명시적으로 RegisterOccupancyMove를 호출해야 점유 정보가 일관된다.
+                //   from = _unitData.Position(Phase 0의 마지막 도착 타일).
+                //   to   = nearestTile(스냅 위치).
+                //   Phase 1 진입 직전에 _pendingOccupancyTile은 default로 리셋된 상태이므로
+                //   이중 등록 위험은 없다.
+                if (_movementUseCase != null)
+                {
+                    _movementUseCase.RegisterOccupancyMove(_unitData.Position, nearestTile, _unitData.Type);
+                }
+
                 // 도메인 좌표 동기화 — ProcessStep으로 _unitData.Position을 nearestTile로 갱신.
-                // from/to를 동일하게 넘겨도 ProcessStep 내부에서 Position/타일 점유가 정상 처리된다.
+                // ProcessStep은 도메인 로직(Position/Facing/소유권/이벤트)만 담당.
                 if (_movementUseCase != null)
                     _movementUseCase.ProcessStep(_unitData, _unitData.Position, nearestTile);
                 _unitData.ClaimedTile = null;

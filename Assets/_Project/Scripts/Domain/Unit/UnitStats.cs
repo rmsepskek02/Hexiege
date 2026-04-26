@@ -49,6 +49,20 @@ namespace Hexiege.Domain
             public float MoveSpeed;
             public float AttackCooldown;
             public float[] HitFrameTimes;
+
+            // ────────────────────────────────────────────────────────────
+            // OccupancySize
+            //   타일당 점유 가능 총량(MaxOccupancy=3) 대비 이 유닛이 차지하는 양.
+            //   소형=1, 중형=2, 대형=3 기준으로 책정.
+            //
+            //   예시: 3 = 한 타일을 단독으로 사용해야 함 (BearGuard 등 거대 유닛)
+            //         2 = 한 타일에 같은 크기 1마리 + 소형 1마리 정도가 한계
+            //         1 = 한 타일에 최대 3마리까지 공존 가능
+            //
+            //   이 값은 TileOccupancyManager가 "다음 타일에 들어갈 수 있는가"를
+            //   판단할 때만 사용. 전투 판정/렌더링에는 영향 없음.
+            // ────────────────────────────────────────────────────────────
+            public float OccupancySize;
         }
 
         // 내부 Dictionary. Initialize()가 호출되기 전에는 null.
@@ -153,6 +167,18 @@ namespace Hexiege.Domain
                 return v.HitFrameTimes;
             }
             return new[] { 0.2f };
+        }
+
+        /// <summary>
+        /// 유닛 타입별 타일 점유 크기.
+        /// 소형(1) / 중형(2) / 대형(3) 기준이며 한 타일의 최대 점유 합계는 3이다.
+        /// Config에 값이 없거나 0 이하면 안전망으로 1f를 반환 (소형 취급).
+        /// </summary>
+        public static float GetOccupancySize(UnitType type)
+        {
+            if (TryGet(type, out var v) && v.OccupancySize > 0f)
+                return v.OccupancySize;
+            return 1f;
         }
     }
 }

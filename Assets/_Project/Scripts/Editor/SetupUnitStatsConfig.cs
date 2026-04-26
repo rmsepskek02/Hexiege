@@ -94,47 +94,51 @@ namespace Hexiege.Infrastructure.EditorTools
         {
             // 기본 스탯 테이블 — UnitStats.cs / UnitProductionStats.cs의 기존 switch 값과 동일.
             // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)의 hitFrameTimes는 오름차순 배열.
+            // OccupancySize 기준 (한 타일 합계 상한 = 3):
+            //   소형(1): Pistoleer / Assault / Sniper / EmberSpirit / FoxMagician
+            //   중형(2): FlameSpirit / InfernoSpirit / LionKnight
+            //   대형(3): BearGuard
             var entries = new List<UnitStatEntry>
             {
                 // ── 인간계 ───────────────────────────────────────────────
                 BuildEntry(UnitType.Pistoleer, maxHp:30, atk:6,  atkRange:1.0f, detectRange:1.0f, moveSpeed:0.5f,
                            atkCooldown:2.0f, hitFrames:new[] { 0.833f },
-                           prodTime:5f,  gold:50,  pop:1),
+                           prodTime:5f,  gold:50,  pop:1, occupancy:1f),
 
                 BuildEntry(UnitType.Assault,   maxHp:50, atk:1,  atkRange:2.0f, detectRange:2.0f, moveSpeed:1.0f,
                            atkCooldown:0.2f, hitFrames:new[] { 0.133f },
-                           prodTime:10f, gold:100, pop:1),
+                           prodTime:10f, gold:100, pop:1, occupancy:1f),
 
                 BuildEntry(UnitType.Sniper,    maxHp:30, atk:10, atkRange:5.0f, detectRange:5.0f, moveSpeed:0.25f,
                            atkCooldown:3.0f, hitFrames:new[] { 2.000f },
-                           prodTime:15f, gold:200, pop:1),
+                           prodTime:15f, gold:200, pop:1, occupancy:1f),
 
                 // ── 정령계 ───────────────────────────────────────────────
                 BuildEntry(UnitType.FlameSpirit,  maxHp:50,  atk:2,  atkRange:0.5f, detectRange:1.0f, moveSpeed:2.0f,
                            atkCooldown:3.0f,
                            hitFrames:new[] { 0.667f, 1.167f, 1.433f, 1.667f, 1.933f, 2.100f },
-                           prodTime:15f, gold:200, pop:1),
+                           prodTime:15f, gold:200, pop:1, occupancy:2f),
 
                 BuildEntry(UnitType.EmberSpirit,   maxHp:30,  atk:5,  atkRange:0.5f, detectRange:1.0f, moveSpeed:0.5f,
                            atkCooldown:2.33f, hitFrames:new[] { 1.000f },
-                           prodTime:5f,  gold:50,  pop:1),
+                           prodTime:5f,  gold:50,  pop:1, occupancy:1f),
 
                 BuildEntry(UnitType.InfernoSpirit, maxHp:100, atk:25, atkRange:4.0f, detectRange:4.0f, moveSpeed:1.0f,
                            atkCooldown:3.0f, hitFrames:new[] { 1.250f },
-                           prodTime:30f, gold:500, pop:1),
+                           prodTime:30f, gold:500, pop:1, occupancy:2f),
 
                 // ── 초월계 ───────────────────────────────────────────────
                 BuildEntry(UnitType.BearGuard,   maxHp:200, atk:10, atkRange:0.5f, detectRange:1.0f, moveSpeed:1.0f,
                            atkCooldown:1.33f, hitFrames:new[] { 0.667f },
-                           prodTime:25f, gold:400, pop:1),
+                           prodTime:25f, gold:400, pop:1, occupancy:3f),
 
                 BuildEntry(UnitType.FoxMagician, maxHp:20,  atk:8,  atkRange:3.0f, detectRange:3.0f, moveSpeed:0.5f,
                            atkCooldown:4.0f,  hitFrames:new[] { 2.417f },
-                           prodTime:5f,  gold:50,  pop:1),
+                           prodTime:5f,  gold:50,  pop:1, occupancy:1f),
 
                 BuildEntry(UnitType.LionKnight,  maxHp:50,  atk:9,  atkRange:0.5f, detectRange:1.0f, moveSpeed:2.0f,
                            atkCooldown:3.0f,  hitFrames:new[] { 0.733f, 1.267f },
-                           prodTime:15f, gold:200, pop:1),
+                           prodTime:15f, gold:200, pop:1, occupancy:2f),
             };
 
             // private _stats 필드에 SerializedObject로 값 주입 + dirty 처리.
@@ -157,7 +161,8 @@ namespace Hexiege.Infrastructure.EditorTools
             UnitType type,
             int maxHp, int atk, float atkRange, float detectRange, float moveSpeed,
             float atkCooldown, float[] hitFrames,
-            float prodTime, int gold, int pop)
+            float prodTime, int gold, int pop,
+            float occupancy)
         {
             return new UnitStatEntry
             {
@@ -171,7 +176,8 @@ namespace Hexiege.Infrastructure.EditorTools
                 hitFrameTimes = hitFrames,
                 productionTime = prodTime,
                 goldCost = gold,
-                populationCost = pop
+                populationCost = pop,
+                occupancySize = occupancy
             };
         }
 
@@ -202,6 +208,9 @@ namespace Hexiege.Infrastructure.EditorTools
             elem.FindPropertyRelative("productionTime").floatValue = entry.productionTime;
             elem.FindPropertyRelative("goldCost").intValue = entry.goldCost;
             elem.FindPropertyRelative("populationCost").intValue = entry.populationCost;
+
+            // OccupancySize 필드 — 한 타일에 들어갈 수 있는 유닛 수 한도(상한 3) 대비 차지하는 양.
+            elem.FindPropertyRelative("occupancySize").floatValue = entry.occupancySize;
         }
     }
 }

@@ -23,6 +23,27 @@
 
 ## 최근 작업
 
+### 패스파인딩 4차 개선 — FROM 타일 점유 해제 타이밍 수정 (2026-04-26) ✅ 실기 완료
+
+**수정 파일**:
+- `Application/Services/TileOccupancyManager.cs` — `ReserveOccupancy(HexCoord tile, float unitSize)` public 메서드 추가. `Increase(tile, unitSize)` 래퍼. IsInvalid 가드 포함.
+- `Application/UseCases/UnitMovementUseCase.cs` — `RegisterOccupancyMove`: `OnUnitMoved(from, to)` → `ReserveOccupancy(to, size)` 변경(TO+1만 예약, from 파라미터 유지). `ProcessStep`: 첫 줄에 `from != to && _occupancyManager != null` 조건으로 `OnUnitRemoved(from, GetOccupancySize(unit.Type))` 추가(Lerp 완료 후 FROM 해제).
+
+**핵심 설계 결정**:
+- **FROM 해제 타이밍 분리**: Lerp 시작 전 RegisterOccupancyMove → TO+1만. Lerp 완료 후 ProcessStep → FROM-1. 유닛이 물리적으로 FROM에 있는 동안 FROM 점유가 유지되어 다른 유닛의 잘못된 진입 차단.
+- **부가 수정**: death-during-Lerp 이중 해제 버그 동시 해결. FROM은 ProcessStep에서만 감소하므로 사망 시 OnEntityDied → OnUnitRemoved(FROM) 1회만 적용.
+- **Phase 2 from==to**: `from != to` 조건으로 Phase 2 스냅(from==to) 시 OnUnitRemoved 미호출. 올바른 동작.
+- **스폰(from=default)**: OnUnitRemoved 내부 IsInvalid 체크가 default coord를 skip. 안전.
+
+**실기 결과**:
+- 권총병(원거리) 유닛 분산 개선 확인 (PASS)
+- 근접 유닛(EmberSpirit) 뭉침은 구조적 한계 — 별도 작업 필요
+- 뒷무빙 현상(Phase 1 타겟 재선택 미비) 발견 → `_Tasks/2026-04-26/15_00_phase1-target-reselect/`
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-26/11_00_occupancy-from-fix/`
+
+---
+
 ### 패스파인딩 3차 개선 — 뭉침/팅김 해결 (2026-04-25) ✅ 구현 완료
 
 **수정 파일**:
