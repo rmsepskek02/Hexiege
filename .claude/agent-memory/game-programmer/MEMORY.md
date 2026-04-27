@@ -23,6 +23,25 @@
 
 ## 최근 작업
 
+### 근접 유닛 뭉침 개선 — 18슬롯 + 슬롯도달후 직진 (2026-04-27) ✅ 구현 완료
+
+**수정 파일**:
+- `Application/Services/AttackPositionManager.cs` — 6슬롯 → 18슬롯 재작성. 인접 타일 N개당 (중심 + 좌측경계 + 우측경계) 3위치 생성. 좌/우 경계는 N>=2일 때만. 데이터 구조 `Dictionary<HexCoord, Dictionary<int, HexCoord>>` → `Dictionary<HexCoord, Dictionary<int, Vector3>>` (도메인 좌표 보관). 점유 카운트는 Vector3.Distance < 0.01f로 동등 비교. `_candidateBuffer` 재사용 + `AddCandidateUnique`로 중복 위치 방지.
+- `Presentation/Unit/UnitView.cs` (Phase 1 루프 ~Line 1245) — moveTarget 결정에 `reachedSlot` 분기 추가. `Vector2.Distance` 기준 0.15f 이내면 `enemyViewPos`로 전환.
+
+**버그 원인**: 슬롯 위치(0.866f 또는 0.75f)가 전투 사거리(유닛 0.3f / 건물 0.5f)보다 멀어, `moveTarget = _currentAttackPos`로 유지하면 슬롯 도달 시 `dist < 0.01f`에 걸려 유닛이 그대로 멈춤 → `HasEnemyInRange` FALSE → 전투 시작 안 됨.
+
+**핵심 설계 결정**:
+- **도메인 좌표로 점유 추적**: `HexMetrics.HexToWorld` 기반 도메인 좌표를 `_assignments`에 보관. 뷰 좌표는 팀별 ViewConverter로 회전될 수 있어 카운트 기준이 흔들리기 때문. `unitViewPos`와의 거리 비교 시점에만 `ToView`로 변환.
+- **AddCandidateUnique 중복 방지**: 인접 타일이 6개 미만(맵 가장자리)일 때 같은 좌/우 경계 위치가 두 번 계산될 수 있음. `Vector3.Distance < SamePositionEpsilon(0.01f)`로 중복 흡수.
+- **단방향 전환 (reachedSlot)**: 한 번 슬롯 도달 후 `enemyViewPos`로 전환되면 같은 Phase 1 루프 내에서 슬롯으로 되돌아가지 않음 → 진동 방지.
+- **Y축 무시 거리 판정**: `Vector2.Distance(transform.position.xz, _currentAttackPos.xz)` — UnitYOffset 차이로 인한 도달 판정 오차 제거.
+- **MaxUnitsPerSlot=2 fallback 유지**: 36개 유닛 동시 공격까지 분산 가능. 초과해도 가장 적은 위치로 fallback.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-26/18_30_melee-spread/`
+
+---
+
 ### 타일 소유권 실시간 감지 시스템 구현 (2026-04-26) ✅ 구현 완료
 
 **신규 파일**: `Application/Services/TileOwnershipService.cs` — Pull 모델. 매 프레임 모든 살아있는 유닛의 viewPos를 받아 ViewConverter.FromView → HexMetrics.WorldToHex로 헥스 좌표 역산 후 `Dictionary<HexCoord, HashSet<TeamId>>`에 누적. 한 팀만 있는 타일에 한해 `_grid.GetOwner != claimingTeam`일 때만 SetOwner + OnTileOwnerChanged 발행. HashSet 풀(`Queue<HashSet<TeamId>>`)로 GC 최소화.

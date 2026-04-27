@@ -1,14 +1,24 @@
 # Research: 근접 유닛 과도 뭉침 개선 (포위 위치 할당)
 
-**날짜**: 2026-04-26  
+**날짜**: 2026-04-26 (버그 반영 업데이트: 2026-04-27)
 **작업 ID**: 18_30_melee-spread  
 **담당**: game-programmer 에이전트
 
 ---
 
+## 이 작업이 하려는 것 (자연어 설명)
+
+근접 유닛들이 같은 적을 공격하러 갈 때 모두 한 점으로 쏠려 뭉치는 현상을 개선한다.
+
+근접 유닛은 적을 감지하면 적의 위치를 향해 직선으로 이동한다. 게임의 특성상 모든 유닛이 같은 적을 목표로 하기 때문에, 모두 똑같은 한 지점으로 수렴해 크게 겹쳐 보이는 문제가 생긴다.
+
+이를 해결하기 위해 적 주변의 인접 타일을 "공격 슬롯"으로 나누고, 각 유닛에게 서로 다른 슬롯을 배정한다. 먼저 도착한 유닛이 가장 가까운 슬롯을 차지하면, 다음 유닛은 빈 슬롯을 배정받아 자연스럽게 다른 방향에서 접근하게 된다. 결과적으로 유닛들이 적을 여러 방향에서 둘러싸는 형태가 된다.
+
+---
+
 ## 1. 문제 정의
 
-여러 근접 유닛이 같은 건물/성을 공격할 때 과도하게 한 지점에 몰리는 현상.  
+여러 근접 유닛이 같은 건물/성/유닛을 공격할 때 과도하게 한 지점에 몰리는 현상.  
 소수 겹침은 허용하되, 게임의 특성상 모든 유닛의 목표가 동일하기 때문에  
 **과도하게 집중되는 현상**을 개선하는 것이 목적이다.
 
@@ -27,7 +37,7 @@ transform.position += moveDir.normalized * worldSpeed * Time.deltaTime;
 ```
 
 - `enemyViewPos`는 적(건물/유닛)의 정확한 `transform.position`
-- 모든 유닛이 같은 건물을 공격하면 → 모든 유닛의 `enemyViewPos`가 동일
+- 모든 유닛이 같은 적을 공격하면 → 모든 유닛의 `enemyViewPos`가 동일
 - 모든 유닛이 **완전히 같은 단일 지점**으로 직선 이동 → 물리적 수렴 발생
 
 ### 2-2. 기존 분산 시스템의 한계
@@ -55,36 +65,54 @@ TileOccupancyManager가 MaxOccupancy=3을 초과하면 BFS 우회를 하지만
 
 ### 3-1. 핵심 아이디어
 
-Phase 1 진입 시 `enemyViewPos` 대신 **적 주변 6개 인접 타일 중 배정된 타일의 중심**으로 이동.
+Phase 1 진입 시 `enemyViewPos` 대신 **적 주변 인접 타일 중 배정된 슬롯 위치**로 이동.
 
-각 유닛이 서로 다른 인접 타일을 배정받으면 Phase 1에서도 자연스럽게 분산된다.
+각 유닛이 서로 다른 위치를 배정받으면 Phase 1에서도 자연스럽게 분산된다.
 
 ```
-[기존]  모든 유닛 → enemyViewPos (건물 중심)
-[변경]  유닛 A → 적 북동쪽 타일 중심
-        유닛 B → 적 동쪽 타일 중심
-        유닛 C → 적 남동쪽 타일 중심
+[기존]  모든 유닛 → enemyViewPos (적 중심)
+[변경]  유닛 A → 적 북동쪽 슬롯 위치
+        유닛 B → 적 동쪽 슬롯 위치
+        유닛 C → 적 북쪽 좌측 경계 위치
 ```
 
-### 3-2. 슬롯 선택 규칙
+### 3-2. 18방향 슬롯 설계
 
-1. 타겟 주변 6개 인접 타일(HexCoord) 조회
-2. 각 인접 타일에 이미 배정된 유닛 수 확인
-3. 유닛 현재 위치에서 **가장 가까운 빈(또는 가장 적게 배정된) 타일** 선택
-4. 배정 후 Phase 1 목표 좌표를 해당 타일 중심으로 설정
+기존 6개 인접 타일 중심만 사용하는 방식에서 확장하여,  
+각 인접 타일마다 **중심 + 좌측 경계 + 우측 경계** 3개 위치를 사용한다.
+
+- 중심 위치: 인접 타일 중심 (기존 방식)
+- 좌측 경계: 해당 인접 타일 중심과 왼쪽 인접 타일 중심의 중간점
+- 우측 경계: 해당 인접 타일 중심과 오른쪽 인접 타일 중심의 중간점
+
+**거리 참고**:
+- 인접 타일 중심 → 타겟까지: 0.866f (TileHeight)
+- 좌/우 경계점 → 타겟까지: 약 0.75f
+
+6타일 × 3위치 = **최대 18방향**에서 접근 가능.  
+각 위치당 최대 배정 유닛 수(MaxUnitsPerSlot)를 적용하면 훨씬 많은 유닛이 분산된다.
+
+### 3-3. 슬롯 선택 규칙
+
+1. 타겟 주변 18개 슬롯 위치 목록 생성
+2. 각 위치에 이미 배정된 유닛 수 확인
+3. 유닛 현재 위치에서 **가장 가까운 빈(또는 가장 적게 배정된) 위치** 선택
+4. 배정 후 Phase 1 목표 좌표를 해당 위치로 설정
 
 → "가장 가까운 빈 슬롯" 규칙으로 우회 없이 자연스러운 방향에서 접근 가능.
 
-### 3-3. 공격 사거리 도달 방식
+### 3-4. 슬롯 위치 도달 후 타겟으로 직진
 
-Phase 1 루프 안에서는 목표 위치(배정된 타일 중심)로 이동하면서  
-매 프레임 `HasEnemyInRange(_unitData)` 체크가 동시에 수행된다.
+배정된 슬롯 위치(~0.75~0.866f)는 전투 판정 거리(유닛 0.3f, 건물 0.5f)보다 멀다.  
+슬롯 위치에 도달한 뒤 거기서 멈추면 전투가 시작되지 않는다.
 
-적 인접 타일 중심 → 건물까지의 거리 = 0.866f (TileHeight)  
-공격 사거리(MeleeContactDist) = 0.3f  
+따라서 슬롯 위치에 도달하면 `enemyViewPos`로 목표를 전환하여 전투 거리까지 직진한다.
 
-배정된 타일 중심을 향해 이동하는 도중에 공격 사거리(0.3f)에 진입하면  
-자연스럽게 전투 루프로 전환된다 → **정확히 타일 중심까지 이동할 필요 없음**.
+```
+① 슬롯 위치를 향해 직진 (분산 효과 — 각 유닛이 다른 방향에서 접근)
+② 슬롯 위치 근처 도달 → enemyViewPos로 목표 전환
+③ 전투 거리 진입 → 전투 시작
+```
 
 ---
 
@@ -92,15 +120,15 @@ Phase 1 루프 안에서는 목표 위치(배정된 타일 중심)로 이동하�
 
 ### 4-1. 역할
 
-- 타겟(HexCoord)별로 인접 타일에 배정된 유닛 목록을 관리
-- 유닛이 Phase 1 진입 시 슬롯 요청(Claim) → 배정된 타일의 월드 좌표 반환
+- 타겟(HexCoord)별로 18개 슬롯 위치에 배정된 유닛 목록을 관리
+- 유닛이 Phase 1 진입 시 슬롯 요청(Claim) → 배정된 슬롯의 월드 좌표 반환
 - 유닛 사망/Phase 2 진입 시 슬롯 해제(Release)
 
-### 4-2. 인터페이스 (예상)
+### 4-2. 인터페이스
 
 ```csharp
 // 타겟 타일(targetCoord) 주변에서 unit의 현재 위치 기준 가장 가까운 슬롯을 배정.
-// 반환: 배정된 인접 타일의 월드 뷰 좌표 (Phase 1 목표로 사용)
+// 반환: 배정된 슬롯의 월드 뷰 좌표 (Phase 1 이동 목표로 사용)
 Vector3 ClaimAttackSlot(HexCoord targetCoord, int unitId, Vector3 unitWorldPos)
 
 // 배정된 슬롯 해제 (유닛 사망, Phase 2 진입, 타겟 변경 시)
@@ -112,45 +140,44 @@ void Clear()
 
 ### 4-3. 슬롯 용량 규칙
 
-- 기본: 인접 타일 1개당 최대 2~3개 유닛 배정 (튜닝 가능)
-- 모든 인접 슬롯이 꽉 차면 fallback: 가장 적게 배정된 타일 반환 (무한 대기 방지)
+- 기본: 슬롯 위치 1개당 최대 MaxUnitsPerSlot 유닛 배정 (기본값 2)
+- 모든 슬롯이 꽉 차면 fallback: 가장 적게 배정된 위치 반환 (무한 대기 방지)
 
 ---
 
-## 5. 영향 범위 (수정 대상 파일)
+## 5. 테스트 중 발견된 버그 (2026-04-27)
 
-| 파일 | 변경 유형 | 위치 |
-|---|---|---|
-| `Application/Services/AttackPositionManager.cs` | **신규 생성** | — |
-| `Presentation/Unit/UnitView.cs` | **수정** | Phase 1 루프 내 목표 좌표 계산 (~Line 1000~1167) |
-| `Bootstrap/GameBootstrapper.cs` | **수정** | AttackPositionManager 생성 + UnitView에 주입 |
-| `Presentation/Unit/UnitView.cs` | **수정** | `SetDependencies()` 파라미터 추가 |
+### 5-1. 증상
 
-### 5-1. UnitView 수정 핵심 포인트
+구현 후 테스트에서 유닛들이 인접 타일 중심에 멈춰 전투가 시작되지 않는 현상 확인.
 
-**Phase 1 진입 시** (Line ~997):
-```csharp
-// 기존: enemyViewPos를 매 프레임 조회하여 직선 이동
-Vector3 enemyViewPos = _positionProvider.GetUnitWorldPosition(targetId);
+### 5-2. 원인
 
-// 변경: Phase 1 진입 시 1회만 AttackPositionManager에서 배정된 타일 좌표 취득
-Vector3 attackPos = _attackPositionManager.ClaimAttackSlot(targetCoord, _unitData.Id, transform.position);
-```
+- 배정된 슬롯 위치(인접 타일 중심, 0.866f)에 도달하면 이동이 멈춤 (`dist < 0.01f`)
+- 전투 판정(`HasEnemyInRange`)은 실제 적까지의 거리를 기준으로 함
+  - 유닛 대상: 0.3f 이내
+  - 건물 대상: 0.5f 이내
+- 슬롯 위치(0.866f)는 전투 판정 거리보다 멀어 전투가 시작되지 않음
 
-**Phase 1 종료 시** (break 또는 전투 루프 종료 후):
-```csharp
-_attackPositionManager.ReleaseAttackSlot(targetCoord, _unitData.Id);
-```
+### 5-3. 해결 방법
 
-**유닛 사망 시** (`OnEntityDied` 구독 내):
-```csharp
-// ReleaseSlotIfClaimed, ReleaseOccupancyIfPending과 함께 공격 슬롯도 해제
-_attackPositionManager?.ReleaseAttackSlot(_lastAttackTarget, _unitData.Id);
-```
+슬롯 위치에 도달한 후 `enemyViewPos`로 이동 목표를 전환한다.  
+UnitView.cs의 `moveTarget` 계산 부분에 조건 추가 (상세는 Plan.md 참조).
 
 ---
 
-## 6. 기존 시스템과의 관계
+## 6. 영향 범위 (수정 대상 파일)
+
+| 파일 | 변경 유형 |
+|---|---|
+| `Application/Services/AttackPositionManager.cs` | **수정** — 18슬롯 설계로 변경 |
+| `Presentation/Unit/UnitView.cs` | **수정** — 슬롯 도달 후 타겟 직진 로직 추가 |
+| `Bootstrap/GameBootstrapper.cs` | 기존 구현 유지 |
+| `Infrastructure/Factories/UnitFactory.cs` | 기존 구현 유지 |
+
+---
+
+## 7. 기존 시스템과의 관계
 
 | 시스템 | 관계 |
 |---|---|
@@ -161,26 +188,15 @@ _attackPositionManager?.ReleaseAttackSlot(_lastAttackTarget, _unitData.Id);
 
 ---
 
-## 7. 네트워크 고려 사항
+## 8. 네트워크 고려 사항
 
 - `AttackPositionManager`는 **서버(또는 싱글플레이)에서만 사용**.  
   Phase 1 이동 자체가 서버에서만 실행되므로 클라이언트 동기화 불필요.
-- `TileSlotManager`와 동일 정책 적용 가능  
-  ("슬롯 할당은 시각 전용이므로 서버/클라이언트가 별도로 관리해도 무방" — TileSlotManager 주석 참조)
-
----
-
-## 8. 추가 고려사항 (타겟 변경 시)
-
-Phase 1에서 타겟이 사망하여 `FindNearestEnemyInDetectRange`로 새 타겟을 잡는 경우(`continue`):
-- 이전 타겟에 대한 슬롯을 해제하고 새 타겟에 대한 슬롯을 재배정해야 한다.
-- 타겟 HexCoord 추적을 위한 `_currentAttackTargetCoord` 필드 필요.
 
 ---
 
 ## 9. 미결 이슈
 
-- 슬롯 용량(인접 타일당 최대 유닛 수)은 게임 밸런스 테스트 후 결정  
-  → 기본값으로 2 제안 (6 타일 × 2 = 최대 12개 유닛이 한 건물 공격 가능)
-- 원거리 유닛은 Phase 1 사용 여부와 무관하게 공격 위치 할당 제외  
-  (Phase 1은 근접유닛 전용이며, 원거리는 A*로 목적지에 직접 도달)
+- 슬롯 용량(위치당 최대 유닛 수)은 게임 밸런스 테스트 후 결정  
+  → 기본값 2 제안 (18위치 × 2 = 최대 36개 유닛이 한 타겟 공격 가능, 실질적으로 충분)
+- 원거리 유닛은 Phase 1 사용 여부와 무관하게 공격 위치 할당 제외

@@ -233,7 +233,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1071848446903559731}
   m_Layer: 0
-  m_Name: Unit_StreamSpirit_Blue
+  m_Name: Unit_StreamSpirit_Red
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -360,7 +360,7 @@ GameObject:
   - component: {fileID: 4119711718639637203}
   - component: {fileID: 9207816815275419032}
   m_Layer: 0
-  m_Name: Unit_StreamSpirit_Blue_Mesh
+  m_Name: Unit_StreamSpirit_Red_Mesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -686,7 +686,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: f42fee4b58273834889cedf9e583243d, type: 2}
+  - {fileID: 2100000, guid: 97d772ffb97b89e44a8b1ed01f7d9ed1, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

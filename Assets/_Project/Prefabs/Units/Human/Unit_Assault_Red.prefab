@@ -49,9 +49,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.UnitView
   _meshYOffset: 30
-  _toIdleBlend: 0.15
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
+  _attackToWalkBlend: 0.1
 --- !u!114 &352989067727545149
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -64,7 +64,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2029254851
+  GlobalObjectIdHash: 1569031168
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -324,13 +324,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 794125124582799035}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.023066776, y: -0.45626968, z: -0.04491343, w: 0.888408}
-  m_LocalPosition: {x: 0.1439918, y: 0.13303521, z: 0.19698937}
+  m_LocalRotation: {x: -0.05351912, y: -0.41249052, z: -0.033235088, w: 0.908781}
+  m_LocalPosition: {x: 0.031093933, y: 0.015920436, z: 0.04039011}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 441517045352990327}
-  m_LocalEulerAnglesHint: {x: 0, y: -54.368, z: -5.788}
+  m_LocalEulerAnglesHint: {x: -7.163, y: -48.767, z: -0.939}
 --- !u!33 &4652006612635272281
 MeshFilter:
   m_ObjectHideFlags: 0
