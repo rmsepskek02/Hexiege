@@ -34,7 +34,7 @@
 
 ### 유닛
 
-> **프리팹 설정 기준**: Root Scale (1,1,1) / Mesh Child Rotation Y = 0 / UnitView _meshYOffset = 30
+> **프리팹 설정 기준**: Root Scale (1,1,1) / Mesh Child Rotation Y = 0 
 
 | 종족 | 유닛명 | UnitType | 팀 프리팹 | FBX Scale Factor | 비고 |
 |------|--------|----------|---------|-----------------|------|

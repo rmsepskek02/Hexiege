@@ -365,3 +365,141 @@ Vector3 moveTarget = _currentAttackPos;
 | 기존 18슬롯 점유 해제 로직(`ReleaseAttackSlotIfClaimed`) 과 인터페이스 불일치 | 슬롯 해제가 정상 동작하지 않으면 누수 발생 | 기존 슬롯 해제 인터페이스 유지. 내부 구현만 각도 기반으로 교체 |
 | 12방향이 18방향보다 적어 밀집 시 슬롯 포화 가능 | 슬롯 포화 시 마지막 슬롯이 배정 | 현재 18슬롯도 실제로는 인접 타일 수 기반이라 6~12개 수준. 12방향도 충분하며, 포화 시 동작은 기존과 동일 수준 |
 | `contactDistance` 값 결정 | 너무 작으면 겹침, 너무 크면 전투 불가 | 기존 전투 사거리(0.3f) 또는 슬롯 도달 임계값과 동일하게 설정. 테스트로 검증 필요 |
+
+---
+
+## Step 4 — Phase 2 forward 타일 우선 선택 + Lerp 중 적 감지 (2026-04-28 추가)
+
+### 배경
+
+Step 1, 2, 3 적용 후에도 Phase 2에서 불정령이 뒤로 이동하는 현상이 잔존한다.
+
+원인: Phase 1 진입 후 타겟이 조기 사망하거나 불정령이 헥스 경계를 넘기 전에 Phase 2로 진입하면, `WorldToHex(현재 위치) = T0(Phase 1 시작 타일) = _unitData.Position`이 되어 Lerp가 T0 중심으로 후방 이동한다.
+
+추가로 Phase 2 Lerp 루프에는 적 감지 코드가 없어, Lerp 도중 새 적이 나타나도 반응이 한 박자 늦어진다.
+
+### 수정 내용
+
+**수정 파일**: `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs` — Phase 2 코드 (라인 1441~1484)
+
+---
+
+### Step 4-A — Phase 2 forward 타일 우선 선택
+
+**위치**: `UnitView.cs` — Phase 2에서 `nearestTile` 결정 직후 (라인 1441 이후)
+
+**변경 전**:
+```csharp
+Vector3 domainPos = ViewConverter.FromView(transform.position);
+HexCoord nearestTile = HexMetrics.WorldToHex(domainPos);
+
+// [2026-04-27] 5차 개선 제거 코멘트 ...
+```
+
+**변경 후**:
+```csharp
+Vector3 domainPos = ViewConverter.FromView(transform.position);
+HexCoord nearestTile = HexMetrics.WorldToHex(domainPos);
+
+// [7차 개선 — 2026-04-28] Phase 2 forward 타일 우선 선택.
+// nearestTile == _unitData.Position인 경우, 불정령이 Phase 1 중 헥스 경계를 넘지 못한 채로
+// Phase 2에 진입했다는 의미다.
+// 이때 nearestTile(= T0)로 Lerp하면 불정령이 뒤로 이동하게 된다.
+// 해결: 성(finalTarget) 방향으로 더 가까운 forward neighbor 중 현재 위치에서 중심이
+// 가장 가까운 타일을 nearestTile로 교체한다.
+if (nearestTile == _unitData.Position)
+{
+    int currentDist = HexCoord.Distance(nearestTile, finalTarget);
+    HexCoord bestForward = nearestTile;  // 앞쪽 후보가 없으면 T0 유지(폴백)
+    float bestDistSq = float.MaxValue;
+
+    // T0의 6방향 인접 타일을 순회하여 forward 후보(성에 더 가까운 타일) 탐색
+    foreach (HexCoord neighbor in HexMetrics.GetNeighbors(nearestTile))
+    {
+        if (HexCoord.Distance(neighbor, finalTarget) < currentDist)
+        {
+            // 성 방향으로 앞쪽에 있는 타일 → 현재 위치와의 2D 거리 비교
+            Vector3 neighborDomainPos = HexMetrics.HexToWorld(neighbor);
+            float dx = domainPos.x - neighborDomainPos.x;
+            float dz = domainPos.z - neighborDomainPos.z;
+            float distSq = dx * dx + dz * dz;
+            if (distSq < bestDistSq)
+            {
+                bestDistSq = distSq;
+                bestForward = neighbor;
+            }
+        }
+    }
+
+    // 앞쪽 후보를 찾았으면 교체
+    if (bestForward != nearestTile)
+        nearestTile = bestForward;
+}
+```
+
+> **Note**: `HexMetrics.GetNeighbors` API가 없는 경우, 동등한 인접 타일 열거 API로 대체한다.
+
+---
+
+### Step 4-B — Phase 2 Lerp 중 적 감지
+
+**위치**: `UnitView.cs` — Phase 2 Lerp while 루프 내부 (라인 1477~1483)
+
+**변경 전**:
+```csharp
+while (snapElapsed < snapDuration && _unitData.IsAlive)
+{
+    snapElapsed += Time.deltaTime;
+    float t = Mathf.Clamp01(snapElapsed / snapDuration);
+    transform.position = Vector3.Lerp(snapStart, tileCenter, t);
+    yield return null;
+}
+```
+
+**변경 후**:
+```csharp
+while (snapElapsed < snapDuration && _unitData.IsAlive)
+{
+    snapElapsed += Time.deltaTime;
+    float t = Mathf.Clamp01(snapElapsed / snapDuration);
+    transform.position = Vector3.Lerp(snapStart, tileCenter, t);
+
+    // [7차 개선 — 2026-04-28] Phase 2 Lerp 중 forward 적 감지.
+    // Lerp 도중 감지 범위에 들어온 앞쪽 적을 인식하면 Lerp를 조기 종료한다.
+    // → transform.position = tileCenter(루프 직후 강제 스냅) 후 ProcessStep 실행.
+    // → A* 재계산 + continue → Phase 0 첫 감지 체크에서 즉시 Phase 1 재진입.
+    if (_combatUseCase != null && _unitData.IsAlive
+        && _combatUseCase.HasEnemyInDetectRange(_unitData)
+        && !_combatUseCase.HasEnemyInRange(_unitData))
+    {
+        HexCoord? snapDetectCoord = _combatUseCase.FindNearestEnemyPositionInDetectRange(_unitData);
+        HexCoord snapCurrentTile = HexMetrics.WorldToHex(ViewConverter.FromView(transform.position));
+        bool snapEnemyIsForward = snapDetectCoord.HasValue &&
+            HexCoord.Distance(snapDetectCoord.Value, finalTarget)
+            <= HexCoord.Distance(snapCurrentTile, finalTarget);
+        if (snapEnemyIsForward)
+            break;  // Lerp 조기 종료 → 루프 직후 transform.position = tileCenter로 즉시 스냅
+    }
+
+    yield return null;
+}
+```
+
+---
+
+### 위험 요소
+
+| 위험 | 영향 | 대응 |
+|------|------|------|
+| `HexMetrics.GetNeighbors` API 존재 여부 불확실 | 컴파일 에러 | 동등한 인접 타일 열거 API로 대체 |
+| forward neighbor가 점유된 경우 | 두 불정령이 같은 타일로 Lerp | 점유 체크는 Phase 0 슬롯 배정에서 처리됨. Phase 2 스냅은 타일 중심 이동만 담당하므로 허용 |
+| Lerp 조기 종료 후 즉시 스냅 | 자연스러운 이동이 끊기고 텔레포트처럼 보일 수 있음 | Phase 2 Lerp 거리 자체가 작기(< 0.5f) 때문에 시각적 영향 미미 |
+| Phase 0 재진입 후 즉시 Phase 1 로직 | Phase 0 첫 감지 체크에서 Phase 1 진입까지 1프레임 지연 | 실질적으로 무해 (1프레임 지연) |
+
+---
+
+### 아키텍처 제약
+
+- `UnitView.cs` 단독 수정. 다른 파일 변경 없음.
+- Step 4-A: forward neighbor 탐색 시 walkability(통과 불가 타일) 체크는 생략 가능. Phase 2 스냅은 시각적 위치 동기화 목적이며, Phase 0 A*가 실제 경로를 재계산한다.
+- Step 4-B: 기존 `FindNearestEnemyPositionInDetectRange` API 재사용 (Step 2와 동일).

@@ -307,3 +307,71 @@ B의 인접 타일 후보들 중 T_origin이 포함됨.
 슬롯 위치가 항상 공격 목표 근처에 있기 때문에, 불정령은 현재 위치와 무관하게 **항상 앞쪽(공격 목표 방향)으로만 이동**하게 된다. 슬롯 도달 후 2단계 이동도 불필요해진다.
 
 구체적인 구현 방법은 Plan.md Step 3 참조.
+
+---
+
+## 11. 잔존 원인 분석 — Phase 2 nearestTile 후방 스냅 (2026-04-28 추가)
+
+Step 1, 2, 3 적용 후에도 특정 상황에서 불정령이 Phase 2 진입 시 뒤로 이동하는 현상이 발생한다.
+
+### 11-1. 발생 시나리오
+
+Phase 1에서 불정령이 적을 향해 이동하던 중, 불정령이 아직 헥스 경계를 넘기 전에 적이 사망하면 Phase 2로 진입한다. 이 시점에서 불정령은 T0(Phase 1 시작 타일) 내부의 한 지점에 있다.
+
+```
+상황:
+  불정령(S)의 Phase 1 시작 위치 = T0 중심 + 0.2f (T1 방향으로 이미 0.2f 전진)
+  타겟(P) = T0 앞의 인접 타일 T1
+  12방향 슬롯 = T1 중심 + dir × 0.3f ≈ T0 중심 + 0.7f (T0→T1 방향 기준)
+
+  Phase 1: S가 슬롯 위치(T0 중심 + 0.7f)로 이동 시작
+  → 타겟(P)이 S가 슬롯에 도달하기 전에 사망
+
+  타겟 사망 시점의 S 위치: T0 중심 + 0.4f (아직 T0/T1 경계를 못 넘음)
+
+  Phase 2 진입:
+    nearestTile = WorldToHex(T0 중심 + 0.4f) = T0  (0.4f < 경계 0.5f)
+    _unitData.Position = T0  (Phase 1 진입 이후 도메인 좌표 갱신 안 됨)
+    → nearestTile == _unitData.Position == T0
+
+  Lerp: S가 (T0 중심 + 0.4f) → T0 중심으로 이동 = 0.4f 뒤로 이동
+```
+
+### 11-2. 핵심 조건
+
+`WorldToHex`는 현재 뷰 좌표에서 **가장 가까운 타일 중심**을 반환한다. 현재 위치가 T0 중심으로부터 절반 거리 미만에 있으면 T0를 반환한다.
+
+| 방향 | T0/T1 경계 거리 | Phase 1에서 넘기 전에 타겟 사망 가능성 |
+|------|----------------|---------------------------------------|
+| 축방향 (1.0f) | T0 중심 + 0.5f | 불정령이 0.5f 미만 이동 시 T0 반환 |
+| 대각선 (0.901f) | T0 중심 + 0.45f | 불정령이 0.45f 미만 이동 시 T0 반환 |
+
+Phase 1 진입 후 타겟이 조기 사망하거나, 감지 범위를 벗어나면 이 조건이 성립한다.
+
+### 11-3. Phase 2 Lerp 중 적 감지 부재 문제
+
+Phase 2의 Lerp 루프는 현재 `_unitData.IsAlive`만 체크한다:
+
+```csharp
+while (snapElapsed < snapDuration && _unitData.IsAlive)
+{
+    snapElapsed += Time.deltaTime;
+    transform.position = Vector3.Lerp(snapStart, tileCenter, t);
+    yield return null;
+    // ← 적 감지 없음. Lerp 중에 새 적이 감지 범위 안에 들어와도 무시됨.
+}
+```
+
+이 때문에 Phase 2 Lerp 도중 새로운 적이 감지 범위에 들어와도 불정령이 해당 타일 중심까지 이동 완료 후 Phase 0을 재시작하고, Phase 0 첫 감지 체크에서야 비로소 Phase 1로 진입한다. 반응이 한 박자 늦어진다.
+
+### 11-4. 수정 방향
+
+두 가지를 수정한다.
+
+**수정 1 — Phase 2 앞쪽 타일 우선 선택**:
+`nearestTile == _unitData.Position`인 경우(불정령이 Phase 1 시작 타일 내부에 있는 경우), `nearestTile`(T0) 대신 **성(finalTarget) 방향으로 더 가까운 forward neighbor 타일** 중 현재 위치에서 중심이 가장 가까운 타일을 사용한다. 이렇게 하면 Lerp가 앞쪽으로 이동하게 된다.
+
+**수정 2 — Phase 2 Lerp 중 적 감지**:
+Lerp while 루프 안에 앞쪽 적 감지 체크(Step 2와 동일한 forward filter)를 추가한다. 앞쪽 적을 감지하면 Lerp를 조기 종료하고 `transform.position = tileCenter`로 즉시 스냅 후, 정상적인 Phase 2 완료 처리(ProcessStep + A* 재계산)를 거쳐 Phase 0으로 넘어간다. Phase 0 첫 번째 감지 체크에서 즉시 Phase 1로 진입한다.
+
+구체적인 구현 방법은 Plan.md Step 4 참조.

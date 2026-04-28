@@ -23,6 +23,26 @@
 
 ## 최근 작업
 
+### Mesh Y Offset 제거 및 DirectionAngles 수정 (2026-04-29) ✅ 사용자 확인 완료
+
+**수정 파일**: `Presentation/Unit/UnitView.cs`
+
+**변경 내용**:
+- `DirectionAngles` 수정: `{0,60,120,180,240,300}` → `{60,120,180,240,300,0}`
+  - FlatTop 헥스에서 각 방향의 실제 Unity 월드 각도(atan2 기반)
+  - NW(5)=0°: FlatTop NW(Q=0, R-1)의 월드 delta=(x:0, z:+1) → atan2(0,1)=0°
+  - 기존 시스템: DirectionAngles + 메시자식Y(30°) = 올바른 월드 각도였음. 메시 자식 제거 후 DirectionAngles가 직접 올바른 값을 담아야 함
+- `_meshYOffset` SerializeField 제거
+- `CalculateAttackAngle()` 반환에서 `- _meshYOffset` 제거
+
+**핵심 설계 결정**:
+- **DirectionAngles 부호 주의**: 메시 자식 Y를 제거할 때 DirectionAngles를 -30°가 아닌 +30° 조정해야 함. 기존값{30,...,330}+30={60,...,0}이 정답. -30°로 적용하면({0,...,300}) 이동 방향과 시각 방향이 60° 어긋남.
+- **CalculateAttackAngle 독립성**: DirectionAngles를 사용하지 않고 Atan2 직접 계산 → 이동 방향 변경에 무관. 메시 Y=0이므로 추가 보정값 불필요.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-28/14_30_mesh-offset-cleanup/`
+
+---
+
 ### 근접 유닛 뭉침 개선 — 18슬롯 + 슬롯도달후 직진 (2026-04-27) ✅ 구현 완료
 
 **수정 파일**:

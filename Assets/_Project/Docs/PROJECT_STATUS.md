@@ -26,7 +26,7 @@
 | 전투 애니메이션 시스템 (멀티플레이) | ✅ 완료 (2026-04-04) | 3-신호 RPC, 6가지 규칙, _combatAnimationSent 경쟁조건 수정, 사이클 동기화 |
 | Walk 애니메이션 연속 재생 | ✅ 완료 (2026-03-09) | 매 스텝 0f 리셋 제거 → 이미 Walk 상태이면 클립 유지 |
 | 공격 애니메이션-타격 시각 동기화 | ✅ 완료 (2026-03-14) | Animation Event + AnimationEventRelay → scale punch (데미지 타이밍 무변경) |
-| 유닛 메시 방향 보정 | ✅ 완료 (2026-03-14) | 하위 Mesh 오브젝트 Y 회전 30° / _meshYOffset 공격 방향 전용 / Root Motion OFF |
+| 유닛 메시 방향 보정 | ✅ 완료 (2026-04-29 갱신) | 전 유닛 Mesh Y=0, _meshYOffset 제거, 이동 anim offset=0, DirectionAngles={60,120,180,240,300,0} (FlatTop 월드 각도 기준) |
 | 유닛 회전 보간 (DOTween) | ✅ 완료 (2026-03-14) | ApplyDirection + PlayAttackAnimation 모두 DORotate(_rotationDuration).SetEase(Ease.OutQuad) |
 | 공격 후 Walk 복귀 버그 수정 | ✅ 완료 (2026-03-14) | 타겟 소멸 후 이동 재개 시 Play(StateWalk) 명시 호출 (멀티/싱글 공통) |
 | 건물 배치 (Castle/Barracks/MiningPost) | ✅ 완료 | 건설 검증, 영토 확장 |
