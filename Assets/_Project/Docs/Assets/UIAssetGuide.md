@@ -236,7 +236,7 @@ Negative 키워드: pastel, muted, washed out, desaturated
 ### 3. 초상화는 팀별로 각각 생성
 Red / Blue 두 버전을 따로 요청한다.
 팀 컬러를 갑옷이나 액세서리 포인트 컬러로 적용하고 캐릭터 기본 톤은 유지한다.
-
+chest-up 이미지로 생성한다.
 ---
 
 ## Unity Sprite Import 설정

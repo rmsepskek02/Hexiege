@@ -107,7 +107,7 @@ Negative 키워드: particle effects, magic auras, glowing energy, smoke, fire, 
 - 프롬포트는 영어로 작성하고, 각 항목의 의미를 한글로 설명해줘
 - Positive / Negative 두 섹션으로 명확히 나눠줘
 - 프롬포트는 하나로 합쳐서 작성해줘 (여러 개로 나누지 말 것)
-- 이 에셋에 어울리는 레퍼런스 이미지를 어디서 찾으면 좋을지 알려줘
+- 이 에셋에 어울리는 레퍼런스 이미지를 어떤 것을 사용하면 좋을지 알려줘(다른게임이 아니라 현재 프로젝트 내에 있는 이미지)
 - Meshy AI image-to-3D 변환에 최적화할 것
 
 [이미지 조건]

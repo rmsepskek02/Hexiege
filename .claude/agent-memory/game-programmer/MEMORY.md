@@ -23,6 +23,31 @@
 
 ## 최근 작업
 
+### Phase 2 후방 스냅 수정 — 7차 개선 Step 4 (2026-04-29) ✅ 구현 완료
+
+**수정 파일**: `Presentation/Unit/UnitView.cs` (Phase 2 영역, 라인 1438~1545)
+
+**변경 1 — Phase 2 forward 타일 우선 선택 (Step 4-A)**:
+- `nearestTile == _unitData.Position`(= T0)인 경우, T0의 6방향 인접 타일을 순회하여 forward neighbor(`HexCoord.Distance(neighbor, finalTarget) < currentDist`) 중 현재 위치(domainPos)에서 2D 거리(dx²+dz²)가 가장 가까운 타일을 nearestTile로 교체.
+- API: `HexDirectionExtensions.Count` + `((HexDirection)i).Neighbor(origin)` 패턴 사용 (HexMetrics.GetNeighbors 부재).
+- walkability 체크 생략 — Phase 0 A* 재계산이 실제 경로를 다시 잡음.
+- 폴백: 앞쪽 후보가 없으면 T0 그대로 유지(`bestForward != nearestTile` 조건으로만 교체).
+
+**변경 2 — Phase 2 Lerp 중 적 감지 (Step 4-B)**:
+- Phase 2 Lerp while 루프(`Vector3.Lerp(snapStart, tileCenter, t)` 직후)에 적 감지 블록 추가.
+- 조건: `HasEnemyInDetectRange && !HasEnemyInRange && snapEnemyIsForward`(Step 2 forward filter 동일 적용).
+- forward 판정: `HexCoord.Distance(snapDetectCoord, finalTarget) <= HexCoord.Distance(snapCurrentTile, finalTarget)` (≤ 조건 — 동거리 적은 앞쪽 간주).
+- forward 적 감지 시 break → 루프 직후 `transform.position = tileCenter` 강제 스냅 → ProcessStep 정상 실행 → 외부 while로 복귀해 A* 재계산 + Phase 0 첫 감지 체크에서 즉시 Phase 1 재진입.
+
+**핵심 설계 결정**:
+- **HexCoord 인접 탐색 패턴**: `HexMetrics.GetNeighbors`는 부재. `HexGrid.GetNeighbors`는 `List<HexTile>` 반환이라 부적합. 순수 좌표 인접 탐색에는 `HexDirectionExtensions.Count` + `((HexDirection)i).Neighbor(coord)`이 표준 패턴.
+- **`<=` (동거리 forward 포함)**: Step 2/4-B 모두 동일. 동거리 적은 앞쪽으로 간주해야 잡을 수 있는 적을 놓치지 않음. `>`로 하면 잠재적 누락.
+- **forward filter 일관성**: Phase 0 Lerp 중 감지(라인 811), Phase 0 스텝 완료 후 감지(라인 992), Phase 1 최초 타겟(라인 1042), Phase 1 타겟 사망 재선택, Phase 1 전투 종료 재선택, Phase 2 Lerp 중 감지(이번 변경) 모두 동일한 forward 판정 패턴 사용.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-27/01_17_phase2-backward-snap-fix/` (Step 4)
+
+---
+
 ### Mesh Y Offset 제거 및 DirectionAngles 수정 (2026-04-29) ✅ 사용자 확인 완료
 
 **수정 파일**: `Presentation/Unit/UnitView.cs`
