@@ -21,6 +21,11 @@
 | 권총병 (Pistoleer) | 30 | 6 | 1.0 | 0.5 | 2.0 | 5초 | 50 | 1 |
 | 돌격소총병 (Assault) | 50 | 1 | 2.0 | 1.0 | 0.2 | 10초 | 100 | 1 |
 | 저격총병 (Sniper) | 30 | 10 | 5.0 | 0.25 | 3.0 | 15초 | 200 | 1 |
+| 근접기사 (LittleKnight) | - | - | - | - | - | - | - | - |
+| 창병 (SpearMan) | - | - | - | - | - | - | - | - |
+| 도끼병 (BattleAxe) | - | - | - | - | - | - | - | - |
+| 전차 (Tank) | - | - | - | - | - | - | - | - |
+| 포격수레 (CannonCart) | - | - | - | - | - | - | - | - |
 
 ## 유닛 — 정령계 (Spirit)
 
@@ -29,6 +34,12 @@
 | EmberSpirit | 30 | 5 | 0.5 | 0.5 | 1:00(2:20) | 5초 | 50 | 1 |
 | FlameSpirit | 50 | 2 | 0.5 | 2 | 0:20,1:05,1:13,1:20,1:28,2:03(3:00) | 15초 | 200 | 1 | 6히트공격
 | InfernoSpirit | 100 | 25 | 4 | 1 | 1:15(3:00) | 30초 | 500 | 1 |
+| DustSpirit | - | - | - | - | - | - | - | - |
+| BoulderSpirit | - | - | - | - | - | - | - | - |
+| QuakeSpirit | - | - | - | - | - | - | - | - |
+| TideSpirit | - | - | - | - | - | - | - | - |
+| StreamSpirit | - | - | - | - | - | - | - | - |
+| TorrentSpirit | - | - | - | - | - | - | - | - |
 
 ## 유닛 — 초월계 (Transcendence)
 
@@ -37,6 +48,11 @@
 | FoxMagician | 20 | 8 | 3 | 0.5 | 2:25(4:00) | 5 | 50 | 1 |
 | BearGuard | 200 | 10 | 0.5 | 1 | 0:20(1:20) | 25 | 400 | 1 |
 | LionKnight | 50 | 9 | 0.5 | 2 | 0:22,1:08(3:00) | 15 | 200 | 1 | 2히트 공격
+| RhinoBreaker | - | - | - | - | - | - | - | - |
+| EagleArcher | - | - | - | - | - | - | - | - |
+| RabbitTrickster | - | - | - | - | - | - | - | - |
+| MushroomBomber | - | - | - | - | - | - | - | - |
+| BloomFairy | - | - | - | - | - | - | - | - |
 
 ---
 
@@ -47,6 +63,9 @@
 | 본기지 (Castle) | 100 | - (자동 배치) |
 | 배럭 (Barracks) | 30 | 100 골드 |
 | 채굴소 (MiningPost) | 20 | 50 골드 |
+| 자동포탑 (CannonTower) | - | - |
+| 비행시설 (FlightFacility) | - | - |
+| 기술연구소 (TechnicalLaboratory) | - | - |
 
 ## 건물 — 정령계 (Spirit)
 
@@ -55,6 +74,9 @@
 | SpiritNexus | 100 | - (자동 배치) |
 | SummoningAltar | 30 | 100 |
 | ManaRift | 20 | 50 |
+| RuneSpire | - | - |
+| MagicSpirit | - | - |
+| AstronomicalSpirit | - | - |
 
 ## 건물 — 초월계 (Transcendence)
 
@@ -63,3 +85,7 @@
 | ElderTree | 200 | - (자동 배치) |
 | FungalNode | 50 | 100 |
 | HunterPlant | 40 | 50 |
+| VineTower | - | - |
+| PrimalAltar | - | - |
+| MistShrine | - | - |
+| WillowShrine | - | - |

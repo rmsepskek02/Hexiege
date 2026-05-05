@@ -131,9 +131,9 @@ namespace Hexiege.Infrastructure
             // ----------------------------------------------------------------
             // 4. 골드 충분 여부 확인
             // ----------------------------------------------------------------
-            int cost = GetBuildingCost(buildingType);
+            int cost = GetBuildingCost(buildingType, team);
             if (!resource.CanAfford(team, cost))
-            {
+{
                 Debug.LogWarning($"[Network] 골드 부족. 팀={team}, 비용={cost}, 현재골드={resource.GetGold(team)}");
                 SendBuildFailed(senderClientId, "골드 부족");
                 return;
@@ -273,32 +273,19 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 건물 타입별 골드 비용 반환.
         /// BuildingPlacementUI.GetBuildingCost와 동일한 로직을 서버에서도 검증.
-        /// GameBootstrapper.GetConfig()로 ScriptableObject 값을 참조.
         /// </summary>
         /// <param name="type">건물 종류</param>
-        /// <returns>골드 비용. Castle/알 수 없는 타입은 0.</returns>
-        private int GetBuildingCost(BuildingType type)
+        /// <param name="team">요청한 팀 (종족 조회를 위해 필요)</param>
+        /// <returns>골드 비용.</returns>
+        private int GetBuildingCost(BuildingType type, TeamId team)
         {
-            GameConfig config = _bootstrapper != null ? _bootstrapper.GetConfig() : null;
+            // 해당 팀의 종족 조회
+            RaceId race = team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
 
-            if (config == null)
-            {
-                // GameConfig를 찾지 못한 경우 하드코딩 폴백 (Inspector 미연결 안전 처리)
-                Debug.LogWarning("[Network] NetworkBuildingController: GameConfig를 찾을 수 없어 기본 비용 사용.");
-                return type switch
-                {
-                    BuildingType.Barracks => 100,
-                    BuildingType.MiningPost => 50,
-                    _ => 0
-                };
-            }
-
-            return type switch
-            {
-                BuildingType.Barracks => config.BarracksCost,
-                BuildingType.MiningPost => config.MiningPostCost,
-                _ => 0
-            };
+            // BuildingStats 도메인 클래스를 통해 종족별/건물별 비용 조회
+            return BuildingStats.GetGoldCost(type, race);
         }
-    }
+}
 }

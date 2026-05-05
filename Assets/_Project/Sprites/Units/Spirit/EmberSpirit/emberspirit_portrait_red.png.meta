@@ -3,8 +3,8 @@ guid: 7679b45030e44624d807605074f7726c
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -7461552873464449196
-    second: emberspirit_portrait_red_0
+      213: 3100032252126965752
+    second: emberSpirit_portrait_red_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: emberspirit_portrait_red_0
+      name: emberSpirit_portrait_red_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1024
-        height: 1024
+        width: 1254
+        height: 1254
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 4573b50d13d337890800000000000000
-      internalID: -7461552873464449196
+      spriteID: 8ff284c98e6850b20800000000000000
+      internalID: 3100032252126965752
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      emberspirit_portrait_red_0: -7461552873464449196
+      emberSpirit_portrait_red_0: 3100032252126965752
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

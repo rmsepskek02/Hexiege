@@ -3,8 +3,8 @@ guid: abce9f16dd8678f4180a99a373cb8df2
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -4099776283103414008
-    second: emberspirit_portrait_blue_0
+      213: 6389091628656337479
+    second: emberSpirit_portrait_blue_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: emberspirit_portrait_blue_0
+      name: emberSpirit_portrait_blue_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1024
-        height: 1024
+        width: 1254
+        height: 1254
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 809bc0b213baa17c0800000000000000
-      internalID: -4099776283103414008
+      spriteID: 742ab734cfc9aa850800000000000000
+      internalID: 6389091628656337479
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      emberspirit_portrait_blue_0: -4099776283103414008
+      emberSpirit_portrait_blue_0: 6389091628656337479
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

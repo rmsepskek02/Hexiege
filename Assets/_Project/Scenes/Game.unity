@@ -1176,31 +1176,119 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.BuildingPlacementUI
   _popup: {fileID: 227464725}
   _sharedBackground: {fileID: 543183966}
-  _barracksButton: {fileID: 261378706}
-  _miningPostButton: {fileID: 1169409528}
+  _buildingButtons:
+  - {fileID: 1650815866}
+  - {fileID: 261378706}
+  - {fileID: 1169409528}
+  - {fileID: 1749998682}
+  - {fileID: 310416571}
+  - {fileID: 477704454}
+  - {fileID: 682984708}
+  - {fileID: 678055856}
+  - {fileID: 696456401}
+  _buildingButtonIcons:
+  - {fileID: 1885157477}
+  - {fileID: 1363746487}
+  - {fileID: 2100775478}
+  - {fileID: 1613858611}
+  - {fileID: 815574258}
+  - {fileID: 187225947}
+  - {fileID: 1381545930}
+  - {fileID: 436081956}
+  - {fileID: 1122594333}
+  _buildingCostTexts:
+  - {fileID: 1146422250}
+  - {fileID: 1303339808}
+  - {fileID: 666526241}
+  - {fileID: 598496197}
+  - {fileID: 677898304}
+  - {fileID: 850993251}
+  - {fileID: 1512926078}
+  - {fileID: 1817431259}
+  - {fileID: 1884731518}
   _cancelButton: {fileID: 1195566246}
-  _barracksButtonPortrait: {fileID: 1363746487}
-  _miningPostButtonPortrait: {fileID: 2100775478}
-  _blueHumanPortraits:
-    barracks: {fileID: 21300000, guid: e8f9e6348cb03994c975b24ee013a435, type: 3}
-    miningPost: {fileID: 21300000, guid: 9266774e2b3975747bb4e93e46c1df75, type: 3}
-  _blueSpiritPortraits:
-    barracks: {fileID: 6226337846356486884, guid: d25f22d412b816941a2d37df935fe17b, type: 3}
-    miningPost: {fileID: -3708532468683589556, guid: 41462f4aeaa8c684d82c87ca446ee7c6, type: 3}
-  _blueTranscendencePortraits:
-    barracks: {fileID: -6574315814877885776, guid: c89dc1cdeb86cbf42b76c543968e703e, type: 3}
-    miningPost: {fileID: -5752061386434869626, guid: e9db18996acdf9c46be89075a61a79ec, type: 3}
-  _redHumanPortraits:
-    barracks: {fileID: 21300000, guid: a6b81200f0c31494cb869cff99862581, type: 3}
-    miningPost: {fileID: 21300000, guid: 9266774e2b3975747bb4e93e46c1df75, type: 3}
-  _redSpiritPortraits:
-    barracks: {fileID: -5001776243631063066, guid: 4c72244de66113c4faa574bd996ba5e3, type: 3}
-    miningPost: {fileID: -4577971050805380079, guid: 4971568888c6b894f964f3f5490e74a3, type: 3}
-  _redTranscendencePortraits:
-    barracks: {fileID: 5578428862838348633, guid: 18c08b3b7ab0ff24e8cce340d964a2b0, type: 3}
-    miningPost: {fileID: -3721942967934581033, guid: a3d403c78e55a4543bf709ab724a42a6, type: 3}
-  _barracksCostText: {fileID: 1303339808}
-  _miningPostCostText: {fileID: 666526241}
+  _blueHumanBuildings:
+  - type: 0
+    icon: {fileID: 21300000, guid: c2099c4ac35095e489914ac888c97f21, type: 3}
+  - type: 1
+    icon: {fileID: 21300000, guid: e8f9e6348cb03994c975b24ee013a435, type: 3}
+  - type: 2
+    icon: {fileID: 21300000, guid: 9266774e2b3975747bb4e93e46c1df75, type: 3}
+  - type: 3
+    icon: {fileID: 21300000, guid: 1774cfcab3e6f4349add213aef9eb95b, type: 3}
+  - type: 4
+    icon: {fileID: 21300000, guid: 23a65682554e2324d92f29e3a47893fc, type: 3}
+  - type: 5
+    icon: {fileID: 21300000, guid: 64648488298a215478a85cda6366501c, type: 3}
+  _blueSpiritBuildings:
+  - type: 0
+    icon: {fileID: 21300000, guid: 377fcac6477b13a4a96fda099cc88dd4, type: 3}
+  - type: 1
+    icon: {fileID: 21300000, guid: d25f22d412b816941a2d37df935fe17b, type: 3}
+  - type: 2
+    icon: {fileID: 21300000, guid: 41462f4aeaa8c684d82c87ca446ee7c6, type: 3}
+  - type: 3
+    icon: {fileID: 21300000, guid: 5e24e61351c474046b76aa90256b1618, type: 3}
+  - type: 5
+    icon: {fileID: 21300000, guid: ad317537d0c62394fbfd8a8e6cc892d2, type: 3}
+  - type: 6
+    icon: {fileID: 21300000, guid: 6652ac78206021b4cae3122e994086f9, type: 3}
+  _blueTranscendenceBuildings:
+  - type: 0
+    icon: {fileID: 21300000, guid: 7e7ef430ca3948e4ab5af22ae3c78517, type: 3}
+  - type: 1
+    icon: {fileID: 21300000, guid: 1109d4e12e43be047840b52e69dc4b07, type: 3}
+  - type: 2
+    icon: {fileID: 21300000, guid: e9db18996acdf9c46be89075a61a79ec, type: 3}
+  - type: 3
+    icon: {fileID: 21300000, guid: 60af7c62b61bf4b40a9c0ae01da27b21, type: 3}
+  - type: 5
+    icon: {fileID: 21300000, guid: c89dc1cdeb86cbf42b76c543968e703e, type: 3}
+  - type: 6
+    icon: {fileID: 21300000, guid: c363dd1431e389d4a8e55c5fd5c647b0, type: 3}
+  - type: 8
+    icon: {fileID: 21300000, guid: adfabf7ede5b570409244c54ef6125d3, type: 3}
+  _redHumanBuildings:
+  - type: 0
+    icon: {fileID: 21300000, guid: 06aa4e93237bcda4eae0549e3219151b, type: 3}
+  - type: 1
+    icon: {fileID: 21300000, guid: a6b81200f0c31494cb869cff99862581, type: 3}
+  - type: 2
+    icon: {fileID: 21300000, guid: 9266774e2b3975747bb4e93e46c1df75, type: 3}
+  - type: 3
+    icon: {fileID: 21300000, guid: e85601e90488f0a45bdbc6e95196771e, type: 3}
+  - type: 4
+    icon: {fileID: 21300000, guid: 89bfc7a988c00174bb42befcb4e650c8, type: 3}
+  - type: 5
+    icon: {fileID: 21300000, guid: 1bc929b686554ea4495418eb45aa03e6, type: 3}
+  _redSpiritBuildings:
+  - type: 0
+    icon: {fileID: 21300000, guid: 4b0015b373cc519479c4b4cd43bc94f5, type: 3}
+  - type: 1
+    icon: {fileID: 21300000, guid: 4c72244de66113c4faa574bd996ba5e3, type: 3}
+  - type: 2
+    icon: {fileID: 21300000, guid: 4971568888c6b894f964f3f5490e74a3, type: 3}
+  - type: 3
+    icon: {fileID: 21300000, guid: 7e0bfd3dc380a6a4587b5522572a3cdb, type: 3}
+  - type: 5
+    icon: {fileID: 21300000, guid: 4e22507d7d9aa154fbe93ce73dd439b6, type: 3}
+  - type: 6
+    icon: {fileID: 21300000, guid: 68e33c95d58db584c99f0ff3984db6db, type: 3}
+  _redTranscendenceBuildings:
+  - type: 0
+    icon: {fileID: 21300000, guid: c49c2921b4b1cdd4fb3478db538cfd5e, type: 3}
+  - type: 1
+    icon: {fileID: 21300000, guid: 960b12d3eacac2b4e89d1c8ffa21c803, type: 3}
+  - type: 2
+    icon: {fileID: 21300000, guid: a3d403c78e55a4543bf709ab724a42a6, type: 3}
+  - type: 3
+    icon: {fileID: 21300000, guid: 34d73963d95a4904a8d3d9179b4307e9, type: 3}
+  - type: 5
+    icon: {fileID: 21300000, guid: 18c08b3b7ab0ff24e8cce340d964a2b0, type: 3}
+  - type: 6
+    icon: {fileID: 21300000, guid: 1f51eb84bf8f669469b124879722b784, type: 3}
+  - type: 8
+    icon: {fileID: 21300000, guid: b7c8c565b1ea01b4db04561473bdf922, type: 3}
 --- !u!114 &227464725
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3017,30 +3105,66 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 40138d8226f49e94da8bdb031a2eddf0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.BuildingFactory
-  _humanBluePrefabs:
-    castle: {fileID: 765432376476959553, guid: a4a75fb66c9bcee40a669ab8717ab768, type: 3}
-    barracks: {fileID: 6463912587188652229, guid: 304df71b81c043049bdd3f62d7a2ab56, type: 3}
-    miningPost: {fileID: 351406288662950317, guid: 5d1c18201eb5091469fe2c436c00fc4c, type: 3}
-  _humanRedPrefabs:
-    castle: {fileID: 765432376476959553, guid: 3dec187b2b9e0154189535d89624d5d7, type: 3}
-    barracks: {fileID: 6463912587188652229, guid: 1b71ba24baa8b3c42ac076e1e7061f84, type: 3}
-    miningPost: {fileID: 351406288662950317, guid: 5d1c18201eb5091469fe2c436c00fc4c, type: 3}
-  _spiritBluePrefabs:
-    castle: {fileID: 1857654401588918110, guid: fde317dade8a84b4c9a82eacf6b53470, type: 3}
-    barracks: {fileID: 1204022773525959850, guid: 763f55cdb8e03d64f87c6d2b22c7056f, type: 3}
-    miningPost: {fileID: 9030264474798663592, guid: 62026720441f9384daf249ceaba93f86, type: 3}
-  _spiritRedPrefabs:
-    castle: {fileID: 822863544194094991, guid: bebc228f54258f344a9da17701ccdf64, type: 3}
-    barracks: {fileID: 8782201499183471541, guid: 9069b1e0901e64845b0c63dbdcb3d7e3, type: 3}
-    miningPost: {fileID: 8453041003323805349, guid: 44fe8a2af1031a042b9e3c027c3c0fa4, type: 3}
-  _transcendenceBluePrefabs:
-    castle: {fileID: 4112862942867103276, guid: 9d54446708084554a95360e0a75f1d3a, type: 3}
-    barracks: {fileID: 1149929224600758827, guid: ec09ae81d10979f44870ee8d57508c64, type: 3}
-    miningPost: {fileID: 7401702668516506271, guid: 630c3e455b0e19c47852f173e4c9b384, type: 3}
-  _transcendenceRedPrefabs:
-    castle: {fileID: 3757525160238391500, guid: 99dde9af17faf2f429d8a66081b6ed5d, type: 3}
-    barracks: {fileID: 1811976759365324877, guid: ba1c91f8361c40e4c9505e9004931809, type: 3}
-    miningPost: {fileID: 1057692540566286997, guid: 48841f86cf9c8ca49b263e0551468b13, type: 3}
+  _humanPrefabs:
+  - type: 0
+    blue: {fileID: 765432376476959553, guid: a4a75fb66c9bcee40a669ab8717ab768, type: 3}
+    red: {fileID: 765432376476959553, guid: 3dec187b2b9e0154189535d89624d5d7, type: 3}
+  - type: 1
+    blue: {fileID: 6463912587188652229, guid: 304df71b81c043049bdd3f62d7a2ab56, type: 3}
+    red: {fileID: 6463912587188652229, guid: 1b71ba24baa8b3c42ac076e1e7061f84, type: 3}
+  - type: 2
+    blue: {fileID: 351406288662950317, guid: 5d1c18201eb5091469fe2c436c00fc4c, type: 3}
+    red: {fileID: 351406288662950317, guid: 5d1c18201eb5091469fe2c436c00fc4c, type: 3}
+  - type: 3
+    blue: {fileID: 2007337873928872874, guid: 51da62dc9dae3564d9215ba7a960741b, type: 3}
+    red: {fileID: 2007337873928872874, guid: 56409693a8dfd8f4b8b09d85f55632bd, type: 3}
+  - type: 4
+    blue: {fileID: 4802738421452157492, guid: 5f1e305b8b3b2334c9f13937c68208ed, type: 3}
+    red: {fileID: 4802738421452157492, guid: 301385e3fd0708e44a2598de1224401c, type: 3}
+  - type: 5
+    blue: {fileID: 8029547832654828052, guid: 2357e42246294254bb419f95637b0893, type: 3}
+    red: {fileID: 8029547832654828052, guid: 629ac8748c768b04988a4a2fb74a17fe, type: 3}
+  _spiritPrefabs:
+  - type: 0
+    blue: {fileID: 1857654401588918110, guid: fde317dade8a84b4c9a82eacf6b53470, type: 3}
+    red: {fileID: 822863544194094991, guid: bebc228f54258f344a9da17701ccdf64, type: 3}
+  - type: 1
+    blue: {fileID: 1204022773525959850, guid: 763f55cdb8e03d64f87c6d2b22c7056f, type: 3}
+    red: {fileID: 8782201499183471541, guid: 9069b1e0901e64845b0c63dbdcb3d7e3, type: 3}
+  - type: 2
+    blue: {fileID: 9030264474798663592, guid: 62026720441f9384daf249ceaba93f86, type: 3}
+    red: {fileID: 8453041003323805349, guid: 44fe8a2af1031a042b9e3c027c3c0fa4, type: 3}
+  - type: 3
+    blue: {fileID: 1841777180058836555, guid: 48a391cc2a0fbda418b1d5fb7de8e1f8, type: 3}
+    red: {fileID: 1841777180058836555, guid: 50de052e62ead3944b1c755a89e5dcf4, type: 3}
+  - type: 5
+    blue: {fileID: 2688944341476764168, guid: c59ab7862cfd062449a8d92c23ba575f, type: 3}
+    red: {fileID: 2688944341476764168, guid: d8ef79d8301aa6c499b91705cf19db94, type: 3}
+  - type: 6
+    blue: {fileID: 8746717881537119858, guid: 75bbb0b1fbcadb141b9d8ee20182eb1a, type: 3}
+    red: {fileID: 8746717881537119858, guid: ecb2f6b80bb25054197a48a46b1342f6, type: 3}
+  _transcendencePrefabs:
+  - type: 0
+    blue: {fileID: 4112862942867103276, guid: 9d54446708084554a95360e0a75f1d3a, type: 3}
+    red: {fileID: 3757525160238391500, guid: 99dde9af17faf2f429d8a66081b6ed5d, type: 3}
+  - type: 1
+    blue: {fileID: 7250938212710401833, guid: dd0f6ce3d810e764d81d20b14e2077fa, type: 3}
+    red: {fileID: 7250938212710401833, guid: 4d1494338a025dd47a3ed2562ec49ef7, type: 3}
+  - type: 2
+    blue: {fileID: 7401702668516506271, guid: 630c3e455b0e19c47852f173e4c9b384, type: 3}
+    red: {fileID: 1057692540566286997, guid: 48841f86cf9c8ca49b263e0551468b13, type: 3}
+  - type: 3
+    blue: {fileID: 1468946039463223629, guid: c00d242c87dc82b4294d4f0c99ecacbe, type: 3}
+    red: {fileID: 1468946039463223629, guid: e637761d2b59c564e93a586ce44df93b, type: 3}
+  - type: 5
+    blue: {fileID: 3974057549447734755, guid: a406f5dbf67202f4780c67b30a21e9f0, type: 3}
+    red: {fileID: 3974057549447734755, guid: 716c00ba77cdc9948a23dae9571001b0, type: 3}
+  - type: 8
+    blue: {fileID: 2135682036489620645, guid: 53ad5dd27ca4e1645a0440f71f694b34, type: 3}
+    red: {fileID: 2135682036489620645, guid: f332e27ed879b2d40bce50268d36f32f, type: 3}
+  - type: 6
+    blue: {fileID: 1149929224600758827, guid: ec09ae81d10979f44870ee8d57508c64, type: 3}
+    red: {fileID: 1811976759365324877, guid: ba1c91f8361c40e4c9505e9004931809, type: 3}
   _buildingParent: {fileID: 701964378}
 --- !u!1 &365692186
 GameObject:
@@ -5072,7 +5196,7 @@ GameObject:
   - component: {fileID: 678055854}
   - component: {fileID: 678055856}
   m_Layer: 0
-  m_Name: Slot5
+  m_Name: Slot8
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5270,7 +5394,7 @@ GameObject:
   - component: {fileID: 682984706}
   - component: {fileID: 682984708}
   m_Layer: 0
-  m_Name: Slot4
+  m_Name: Slot7
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -5458,7 +5582,7 @@ GameObject:
   - component: {fileID: 696456399}
   - component: {fileID: 696456401}
   m_Layer: 0
-  m_Name: Slot6
+  m_Name: Slot9
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -11783,26 +11907,74 @@ MonoBehaviour:
   - type: 2
     blue: {fileID: 1177749537038205201, guid: ae58b031070a6c04f8f6cb4f20363118, type: 3}
     red: {fileID: 6630118796036342330, guid: 25de86da518b1574b9f19dce36ceddd1, type: 3}
-  _spiritPrefabs:
   - type: 3
+    blue: {fileID: 706557163707619843, guid: 3610a3acac634d542a0b010cf4f494cc, type: 3}
+    red: {fileID: 706557163707619843, guid: 3610a3acac634d542a0b010cf4f494cc, type: 3}
+  - type: 4
+    blue: {fileID: 7399617787143926463, guid: 0ccbe86e05acded448d0dab522d79418, type: 3}
+    red: {fileID: 7399617787143926463, guid: 0ccbe86e05acded448d0dab522d79418, type: 3}
+  - type: 5
+    blue: {fileID: 5596701579882278624, guid: 2cdfd4876bc5886499d7325922884c8c, type: 3}
+    red: {fileID: 5596701579882278624, guid: 2cdfd4876bc5886499d7325922884c8c, type: 3}
+  - type: 7
+    blue: {fileID: 571444110236257184, guid: 9f24c93cf4803914fb9524ad5aa3bb68, type: 3}
+    red: {fileID: 571444110236257184, guid: cb3bc2727d390fa43a8aefd4f3310a2e, type: 3}
+  - type: 6
+    blue: {fileID: 8655925054014569892, guid: e0ca26360ff21d244bb8839d39be1bf5, type: 3}
+    red: {fileID: 8655925054014569892, guid: 945d9dfc2a485c4458fad1623b2f0fb6, type: 3}
+  _spiritPrefabs:
+  - type: 10
     blue: {fileID: 3481489615874815791, guid: 30850a40f0ca8b940a1afaf12c1d82c1, type: 3}
     red: {fileID: 5306763152045130590, guid: 4c3b5c6f718fbf142afc55d5b3e004fb, type: 3}
-  - type: 4
+  - type: 11
     blue: {fileID: 2384134901492259840, guid: 65437a9ab49692a44b94f8c5d97a93b4, type: 3}
     red: {fileID: 3541651207582195475, guid: aaff65119146e2248a29f23c479cd35f, type: 3}
-  - type: 5
+  - type: 12
     blue: {fileID: 1756040586736068049, guid: ef3b992ebcce11244a0f9ef8ba13aad3, type: 3}
     red: {fileID: 7952036579767868673, guid: 625de2ef217f3a843b8bb865e631ab88, type: 3}
+  - type: 13
+    blue: {fileID: 7341887392386187503, guid: 35eb981efb7999940a712f27b57a5e22, type: 3}
+    red: {fileID: 7341887392386187503, guid: 9e698a76390df6c4f912f5d9e120e866, type: 3}
+  - type: 14
+    blue: {fileID: 21791065289132006, guid: ed8f7c54de615284ead6cca046630693, type: 3}
+    red: {fileID: 21791065289132006, guid: 37aeff26a5cd70148bb93cb5b56c30fe, type: 3}
+  - type: 15
+    blue: {fileID: 1327493637489527210, guid: d941b882323af0a49b46616c54567ba8, type: 3}
+    red: {fileID: 1327493637489527210, guid: 9582c9d3f199f674bb1d899722463f6e, type: 3}
+  - type: 16
+    blue: {fileID: 8567724254245295487, guid: 1ee5280e90b88604e90425408b79b5a7, type: 3}
+    red: {fileID: 8567724254245295487, guid: 86b911b71c9cfd74dad1b99ead59680a, type: 3}
+  - type: 17
+    blue: {fileID: 4514012868270751666, guid: f041791106841fc4380cfdfdf135ee7e, type: 3}
+    red: {fileID: 4514012868270751666, guid: ce594dcacf5606a439c034eac6a8448c, type: 3}
+  - type: 18
+    blue: {fileID: 3536031145536561663, guid: 4bbf44175a9e285488f1f9114ba304a6, type: 3}
+    red: {fileID: 3536031145536561663, guid: d4deb64f4b4a8734db61eea3bc19334a, type: 3}
   _transcendencePrefabs:
-  - type: 6
+  - type: 20
     blue: {fileID: 5478310507604524601, guid: 31b30650a4fe9034c8e0706bfe301d54, type: 3}
     red: {fileID: 3154551730380421955, guid: 6c1185ed8d58ee34380e485d0bf76027, type: 3}
-  - type: 7
+  - type: 21
     blue: {fileID: 8990919588697864418, guid: 76d2d7f0a80264540994e5ed1956353e, type: 3}
     red: {fileID: 7820393859577947839, guid: 85f06a8dcec41ca428c66897801f1cb2, type: 3}
-  - type: 8
+  - type: 22
     blue: {fileID: 4324638335821351153, guid: fb844688f9e49504584a5c95f185365b, type: 3}
     red: {fileID: 3537499202116828560, guid: 60882e4b6ee1f20409867db71e9f6248, type: 3}
+  - type: 23
+    blue: {fileID: 917049485526155964, guid: 3b0d52635c72d3d4f80ab64ea23259c6, type: 3}
+    red: {fileID: 917049485526155964, guid: 580b02a820d17904ea0c6e0812c21fc6, type: 3}
+  - type: 24
+    blue: {fileID: 6828605627732116859, guid: 138733bda9aef5a44ae5069ab0467dc3, type: 3}
+    red: {fileID: 6828605627732116859, guid: 457dc5c00c5476d46a52f945c57d75fb, type: 3}
+  - type: 25
+    blue: {fileID: 7760243811753235212, guid: f8057fd8cc6c0ec4fbab3017b937d894, type: 3}
+    red: {fileID: 7760243811753235212, guid: 651c84fc382894a48b555c1c17bfc9d6, type: 3}
+  - type: 26
+    blue: {fileID: 7710827832351617236, guid: 2f6c4a53c8439fd42a05816bbbfa5473, type: 3}
+    red: {fileID: 7710827832351617236, guid: ad61e84b5260ead48ac28d4de63bbba7, type: 3}
+  - type: 27
+    blue: {fileID: 9113406549177339274, guid: f9886e15c0cc9304495c2074a3fee051, type: 3}
+    red: {fileID: 9113406549177339274, guid: e9897a020243c2341b01fde0a37b3db9, type: 3}
   _unitParent: {fileID: 1885953708}
 --- !u!1 &1717399260
 GameObject:
@@ -13729,46 +13901,116 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.ProductionPanelUI
   _popup: {fileID: 1959302711}
   _sharedBackground: {fileID: 543183966}
-  _pistoleerButton: {fileID: 2016188247}
-  _assaultButton: {fileID: 1492405312}
-  _sniperButton: {fileID: 433698336}
-  _pistoleerButtonPortrait: {fileID: 1662500641}
-  _assaultButtonPortrait: {fileID: 552684238}
-  _sniperButtonPortrait: {fileID: 1408117682}
-  _pistoleerAutoIndicator: {fileID: 216228453}
-  _assaultAutoIndicator: {fileID: 1933666177}
-  _sniperAutoIndicator: {fileID: 736899643}
+  _unitButtons:
+  - {fileID: 2016188247}
+  - {fileID: 1492405312}
+  - {fileID: 433698336}
+  - {fileID: 1102218383}
+  - {fileID: 285583108}
+  - {fileID: 1755786159}
+  _unitButtonPortraits:
+  - {fileID: 1662500641}
+  - {fileID: 552684238}
+  - {fileID: 1408117682}
+  - {fileID: 135212174}
+  - {fileID: 1762283364}
+  - {fileID: 158936671}
+  _unitCostTexts:
+  - {fileID: 228554543}
+  - {fileID: 1457351121}
+  - {fileID: 1517686920}
+  - {fileID: 264540017}
+  - {fileID: 2028602154}
+  - {fileID: 1980356202}
+  _unitAutoIndicators:
+  - {fileID: 216228453}
+  - {fileID: 1933666177}
+  - {fileID: 736899643}
+  - {fileID: 962467147}
+  - {fileID: 1352993345}
+  - {fileID: 1692449778}
   _queueSlotImages:
   - {fileID: 977558808}
   - {fileID: 1436301839}
   - {fileID: 102240673}
-  _blueHumanPortraits:
-    slot1: {fileID: 9131090658839770904, guid: 5c88367c9517bbc4f81c33ac2e21e27f, type: 3}
-    slot2: {fileID: -8900940657331140977, guid: 7d2baad69fc6fd04493b7b78ef7df91b, type: 3}
-    slot3: {fileID: -7208874421070970473, guid: a1e339d39db0f2e4c9f56bb18e0ff3d3, type: 3}
-  _blueSpiritPortraits:
-    slot1: {fileID: -4099776283103414008, guid: abce9f16dd8678f4180a99a373cb8df2, type: 3}
-    slot2: {fileID: -3036207801630890547, guid: 2b1aa4a2dad392245a76ac799c329b29, type: 3}
-    slot3: {fileID: -8239309549142863081, guid: 040625b604329df40abec66ea226785f, type: 3}
-  _blueTranscendencePortraits:
-    slot1: {fileID: -2163166588155786484, guid: 7b9a95ab04ccbe24dbe58dc518cedda3, type: 3}
-    slot2: {fileID: 8252298987967679434, guid: 6d90fa4a893f2314d8a59a3583b6e132, type: 3}
-    slot3: {fileID: -1152581855206450740, guid: 7cf091e27a8e8f84f8ec3c44d83223f0, type: 3}
-  _redHumanPortraits:
-    slot1: {fileID: 7968803128098716551, guid: 7a7ccc4d8964a394394447c57afed362, type: 3}
-    slot2: {fileID: -4801683537869166604, guid: d601df278dd444844a3ef10334ed8ac0, type: 3}
-    slot3: {fileID: 7802184514867898871, guid: b70d2b06e4b805043adb30ab9fb218c2, type: 3}
-  _redSpiritPortraits:
-    slot1: {fileID: -7461552873464449196, guid: 7679b45030e44624d807605074f7726c, type: 3}
-    slot2: {fileID: 9127657552971975479, guid: e198024ec12efd84d98afb83b25134e0, type: 3}
-    slot3: {fileID: 329166255586258835, guid: 848153b33782b284089d46d1ecc47d08, type: 3}
-  _redTranscendencePortraits:
-    slot1: {fileID: 2024143039362228048, guid: a6b8810dd0df3b444874f42eccc121a9, type: 3}
-    slot2: {fileID: -8837296201493843292, guid: 2f8d4ba09b9d6974aade96f93dcb8c8e, type: 3}
-    slot3: {fileID: 8511990976328827468, guid: b3a2044d3a7ce9043ac737e3f11bcf7d, type: 3}
-  _slot1CostText: {fileID: 228554543}
-  _slot2CostText: {fileID: 1457351121}
-  _slot3CostText: {fileID: 1517686920}
+  _blueHumanUnits:
+  - type: 0
+    portrait: {fileID: 9131090658839770904, guid: 5c88367c9517bbc4f81c33ac2e21e27f, type: 3}
+  - type: 7
+    portrait: {fileID: -7647865196670784497, guid: 53545a9873f00d5459e00ced77984578, type: 3}
+  - type: 6
+    portrait: {fileID: 9110248153483991423, guid: 0a06fc7e4d709884fa6988c897a8c841, type: 3}
+  - type: 3
+    portrait: {fileID: -2394390214635997083, guid: d116a85f15fe3404c961ce353be80d0c, type: 3}
+  - type: 4
+    portrait: {fileID: -6730442961522761171, guid: 40dcea928f51a9b41a125f30170b319c, type: 3}
+  - type: 5
+    portrait: {fileID: -4910241382653279608, guid: 9b65c37f8f66bc04cb1399a8f815203f, type: 3}
+  _blueSpiritUnits:
+  - type: 11
+    portrait: {fileID: 6389091628656337479, guid: abce9f16dd8678f4180a99a373cb8df2, type: 3}
+  - type: 14
+    portrait: {fileID: 1853199123991286668, guid: 20a9caa1f905e874583a3e69bf0609bb, type: 3}
+  - type: 15
+    portrait: {fileID: -1988698761584724020, guid: ca61857fea9ae9c4fa852eebc4e242dd, type: 3}
+  - type: 16
+    portrait: {fileID: 1662810718661039468, guid: 27c346848ca9338428745dc09ce35af5, type: 3}
+  - type: 17
+    portrait: {fileID: -6022936562212597385, guid: bccf60efb83546d418e2e5be9d3fa3a4, type: 3}
+  - type: 18
+    portrait: {fileID: 894993552404841630, guid: 433f5c4b848831f4080fe158a26b9279, type: 3}
+  _blueTranscendenceUnits:
+  - type: 21
+    portrait: {fileID: -2163166588155786484, guid: 7b9a95ab04ccbe24dbe58dc518cedda3, type: 3}
+  - type: 26
+    portrait: {fileID: 8688158366751182967, guid: e26b1c057ec57bf45ae670e848938c4b, type: 3}
+  - type: 23
+    portrait: {fileID: -8604930688002475972, guid: d4817d5225169e74ba97554bca2e110b, type: 3}
+  - type: 24
+    portrait: {fileID: -208661805653078256, guid: 25f63a76996698d4d92a19c28c3b38ab, type: 3}
+  - type: 25
+    portrait: {fileID: 5932794648694198521, guid: be9d639da9f0038458ef1c59eb4c50ab, type: 3}
+  - type: 27
+    portrait: {fileID: -1167274886896987951, guid: 4f64b197d76e4ad47a45b15b906562ad, type: 3}
+  _redHumanUnits:
+  - type: 0
+    portrait: {fileID: 7968803128098716551, guid: 7a7ccc4d8964a394394447c57afed362, type: 3}
+  - type: 7
+    portrait: {fileID: -3457881213243411746, guid: 9de62f3e4756ae24fbac3dd1336ea6a6, type: 3}
+  - type: 6
+    portrait: {fileID: -1266777957771881127, guid: faf0e688aba83f54a8257dd921ea5943, type: 3}
+  - type: 3
+    portrait: {fileID: 209037139018840843, guid: 579bbe358ef19ff41bf0a3ced9cc3724, type: 3}
+  - type: 4
+    portrait: {fileID: -4686749356743169352, guid: d089703785f18cc4db35283c21dfd201, type: 3}
+  - type: 5
+    portrait: {fileID: 4099219531971592555, guid: 9cec0c7dd0f78484aab84ad11d409fb3, type: 3}
+  _redSpiritUnits:
+  - type: 13
+    portrait: {fileID: 437966772050777256, guid: 8f9bfd4ab6ea798499ccf2db20e0fde0, type: 3}
+  - type: 14
+    portrait: {fileID: -4818266053658533094, guid: cd560c69491c3214aa5ab4e97309e1ec, type: 3}
+  - type: 15
+    portrait: {fileID: 5141002508255793561, guid: 6b0232f6e2c30a242bd518271aade14a, type: 3}
+  - type: 16
+    portrait: {fileID: -6845415403351820049, guid: 14061b83bf7983d43a9a7d120361210b, type: 3}
+  - type: 17
+    portrait: {fileID: -8664260111542035441, guid: ca75b45f13372294687dde9b58d67909, type: 3}
+  - type: 18
+    portrait: {fileID: -2561774433156305655, guid: 9fc11c8f02524f146a4e49d26bd6f743, type: 3}
+  _redTranscendenceUnits:
+  - type: 21
+    portrait: {fileID: 2024143039362228048, guid: a6b8810dd0df3b444874f42eccc121a9, type: 3}
+  - type: 26
+    portrait: {fileID: -2738341249253990287, guid: 4e890ee235ee8ae4fa5b6dd07f3d6a28, type: 3}
+  - type: 22
+    portrait: {fileID: 4655796577161666160, guid: c3e3571f4adba0d409c9ebb1614ad6e5, type: 3}
+  - type: 24
+    portrait: {fileID: 2612778263421102178, guid: 051afdcb367bcae4f83116857f8f1e47, type: 3}
+  - type: 25
+    portrait: {fileID: -7890360287506375465, guid: bf724f9adc67b3f4e8e9938f213c380d, type: 3}
+  - type: 27
+    portrait: {fileID: -4752987123452344761, guid: 6347c8061e581e94ab9ae6320340a88d, type: 3}
   _progressFill: {fileID: 1043901890}
   _goldText: {fileID: 275063331}
   _populationText: {fileID: 257469112}

@@ -22,6 +22,8 @@ MonoBehaviour:
     attackCooldown: 2
     hitFrameTimes:
     - 0.833
+    attackKind: 1
+    occupancySize: 0
     productionTime: 5
     goldCost: 50
     populationCost: 1
@@ -34,6 +36,8 @@ MonoBehaviour:
     attackCooldown: 0.2
     hitFrameTimes:
     - 0.133
+    attackKind: 0
+    occupancySize: 0
     productionTime: 10
     goldCost: 100
     populationCost: 1
@@ -46,6 +50,8 @@ MonoBehaviour:
     attackCooldown: 3
     hitFrameTimes:
     - 2
+    attackKind: 0
+    occupancySize: 0
     productionTime: 15
     goldCost: 200
     populationCost: 1
@@ -63,10 +69,12 @@ MonoBehaviour:
     - 1.667
     - 1.933
     - 2.1
+    attackKind: 0
+    occupancySize: 0
     productionTime: 15
     goldCost: 200
     populationCost: 1
-  - unitType: 4
+  - unitType: 11
     maxHp: 30
     attackPower: 5
     attackRange: 0.5
@@ -75,6 +83,8 @@ MonoBehaviour:
     attackCooldown: 2.33
     hitFrameTimes:
     - 1
+    attackKind: 0
+    occupancySize: 0
     productionTime: 5
     goldCost: 50
     populationCost: 1
@@ -87,6 +97,8 @@ MonoBehaviour:
     attackCooldown: 3
     hitFrameTimes:
     - 1.25
+    attackKind: 0
+    occupancySize: 0
     productionTime: 30
     goldCost: 500
     populationCost: 1
@@ -99,6 +111,8 @@ MonoBehaviour:
     attackCooldown: 1.33
     hitFrameTimes:
     - 0.667
+    attackKind: 0
+    occupancySize: 0
     productionTime: 25
     goldCost: 400
     populationCost: 1
@@ -111,10 +125,12 @@ MonoBehaviour:
     attackCooldown: 4
     hitFrameTimes:
     - 2.417
+    attackKind: 0
+    occupancySize: 0
     productionTime: 5
     goldCost: 50
     populationCost: 1
-  - unitType: 8
+  - unitType: 21
     maxHp: 50
     attackPower: 9
     attackRange: 0.5
@@ -124,6 +140,8 @@ MonoBehaviour:
     hitFrameTimes:
     - 0.733
     - 1.267
+    attackKind: 0
+    occupancySize: 0
     productionTime: 15
     goldCost: 200
     populationCost: 1

@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-04-26
-**현재 단계:** 타일 소유권 실시간 감지(TileOwnershipService) 완료 — Phase 1 직선 이동 중에도 유닛이 지나가는 타일 즉시 점령 / 근접유닛 뒷무빙 5차 개선 완료 — Phase 1 타겟 재선택 + Phase 2 후방 스냅 방지 + 점유 누수 방지 / 유닛/건물 스탯 ScriptableObject 전환 완료 / 싱글플레이 AI 종족 랜덤 결정 완료 / 다중 히트 데미지 구현 완료 / 근접유닛 추적 중 회전 개선 완료 / 원거리 유닛 공격 중 회전 추적 + 타겟 고착성 완료 (멀티플레이 실기 MULTI-001~007 전체 PASS) / 종족 인게임 적용 완료 / 로비 종족 선택 UI(캐러셀 방식) 완료 / 전투 애니메이션 시스템 전면 재정비 완료 / 재경기 초기화 버그 수정 완료 / 공격 타이밍 정밀화 완료 / 유닛 NGO NetworkObject 전환 + 이동/전투 동기화 완료 / Game UI Lifecycle Framework 완료 / 자동/수동 생산 하이브리드 시스템 완성 / 멀티플레이 Phase 8 완료 / 3D 전환 완료 / UI DOTween 애니메이션 프레임워크 완료
+**최종 수정일:** 2026-04-30
+**현재 단계:** 종족/팀 초상화 및 생산 연동 정비 완료 — UI 스킨 로직 제거 및 데이터 기반 초상화/프리팹 동기화 완료 / 타일 소유권 실시간 감지(TileOwnershipService) 완료 ...
 
 ---
 
@@ -46,7 +46,7 @@
 | 유닛 Sniper(저격총병) Blue/Red 프리팹 | ✅ 완료 (2026-03-14) | UnitFactory 팀+타입별 분기, UnitStats/ProductionStats 정의 |
 | 초상화 스프라이트 Blue/Red (전 유닛) | ✅ 완료 | UI용 |
 | 반응형 팝업 UI (ProductionPopup/BuildingPopup) | ✅ 완료 | 앵커 기반 배치, ResponsivePopupUISetup.cs |
-| 종족+팀별 초상화 동적 업데이트 (ProductionPanelUI/BuildingPlacementUI) | ✅ 완료 (2026-04-12) | Show() 호출 시 종족+팀에 맞는 스프라이트 교체 (BuildingRacePortraitSet 6세트, Spirit ManaRift Blue 2026-04-13 추가) |
+| 종족+팀별 초상화 동적 업데이트 (ProductionPanelUI/BuildingPlacementUI) | ✅ 완료 (2026-04-30) | Show() 호출 시 종족+팀에 맞는 스프라이트 교체 및 생산 타입 바인딩 |
 
 #### 3D 전환 (2026-02-27 ~ 2026-03-01)
 | 항목 | 상태 |

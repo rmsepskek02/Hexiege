@@ -191,6 +191,23 @@
 ### task 문서
 `Assets/_Project/Docs/_Tasks/2026-04-19/production-panel-rewrite/Testcase.md`
 
+## 이동/전투 재설계 QA (2026-04-30 정적 분석 완료, 실기 미완)
+
+### 정적 분석 판정
+- BUG-001 (Critical, FAIL): GameBootstrapper.SetupProduction()에서 TileMoveSlotManager를 UnitFactory에 미전달 → UnitFactory.CreateUnitObject()에서도 UnitView에 미전달. 슬롯 분산 전체 불작동.
+- BUG-002 (Major, FAIL): ResumeFromForwardTile()에서 _unitData.Position은 forwardTile로 갱신되지만 transform.position은 공격 슬롯 위치 그대로 → RunTileTraversal 재진입 시 Lerp 출발점 불일치로 순간이동 발생.
+- BUG-003 (Major, CONDITIONAL PASS): FindForwardAvailable 대기 루프 — 전방 타일 모두 가득 찬 교착 상황에서 무한 대기. 설계 의도(대기)와 일치하지만 교착 가능성은 실기 확인 필요.
+- BUG-004 (Minor, CONDITIONAL PASS): ClaimByApproach fallback 무제한 — MaxUnitsPerSlot 실제 차단 미구현. 대규모 전투 실기 확인 후 정책 결정.
+
+### 핵심 패턴 — 신규 매니저 추가 시 3곳 와이어링 필수
+1. GameBootstrapper.CreateUseCases() 에서 인스턴스 생성
+2. GameBootstrapper.SetupProduction() 에서 UnitFactory.SetDependencyReferences() 호출에 인자 추가
+3. UnitFactory.CreateUnitObject() / InitializeUnitView() 에서 unitView.SetDependencies() 호출에 인자 추가
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-04-30/02_29_movement-combat-redesign/Testcase.md`
+`Assets/_Project/Docs/_Logs/2026-04-30/02_29_movement-combat-redesign/Log.md`
+
 ## 참고 파일
 - [patterns.md](patterns.md) — 버그 패턴 상세
 - [qa_history.md](qa_history.md) — 완료된 QA 상세 내역 (생산시스템/DOTween/카메라/재경기/로비/로딩/랜덤매칭)

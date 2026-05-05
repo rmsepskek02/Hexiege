@@ -116,10 +116,10 @@ TextureImporter:
       name: foxMagician_portrait_red_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 63
-        width: 1024
-        height: 961
+        x: 2
+        y: 0
+        width: 1233
+        height: 1223
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

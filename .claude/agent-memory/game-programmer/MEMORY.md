@@ -23,6 +23,23 @@
 
 ## 최근 작업
 
+### UI 종족/팀 초상화 및 생산 연동 시스템 정비 (2026-04-30) ✅ 구현 완료
+
+**수정 파일**: `Presentation/UI/ProductionPanelUI.cs`, `Presentation/UI/BuildingPlacementUI.cs`, `Bootstrap/GameBootstrapper.cs`
+
+**변경 내용**:
+- **UI Skinning 로직 제거**: 프로젝트 방향에 따라 배경 색상 변경 등 비주얼 스킨 필드 및 코드를 모두 제거하여 인스펙터를 단순화.
+- **데이터 기반 바인딩**: 종족별 데이터 리스트(`UnitPortraitEntry`, `BuildingPortraitEntry`)를 사용하여 버튼에 `UnitType`/`BuildingType`과 스프라이트를 동시 바인딩.
+- **생산 타입 동기화 보장**: UI에서 보이는 초상화와 실제 생성되는 프리팹이 1:1로 일치하도록 버튼 클릭 시 리스트에 매핑된 타입을 정확히 전달.
+- **비용 텍스트 동적 갱신**: `UnitProductionStats` 및 `BuildingStats`를 참조하여 종족/유닛별 골드 비용을 UI에 실시간 반영.
+- **Initialize 정리**: `ProductionPanelUI.Initialize`에서 더 이상 사용하지 않는 `GameConfig` 파라미터 제거.
+
+**핵심 설계 결정**:
+- **데이터 우선 원칙**: 복잡한 스킨 시스템보다 플레이어가 선택한 종족의 데이터가 정확히 UI와 게임 플레이(생산)에 반영되는 정합성을 최우선으로 함.
+- **인스펙터 최적화**: 불필요한 설정 칸을 줄여 데이터 입력 실수를 방지하고, 향후 종족 추가 시 데이터 리스트만 채우면 되도록 확장성 확보.
+
+---
+
 ### Phase 2 후방 스냅 수정 — 7차 개선 Step 4 (2026-04-29) ✅ 구현 완료
 
 **수정 파일**: `Presentation/Unit/UnitView.cs` (Phase 2 영역, 라인 1438~1545)
