@@ -1,0 +1,28 @@
+{
+    "asset": "48b8cb1b51bf22f4495267a1cb551226",
+    "fileName": "019df971-8ebc-79fe-9f6a-c4222082adce.png",
+    "prompt": "A stylized 2D stationary swirling flame outer layer, bright orange and red wisps, casual cartoon style, flat shaded, clean lines, transparent background. The flame wisps should be perfectly centered.",
+    "negativePrompt": "",
+    "model": "gemini-3.0-pro",
+    "modelName": "Gemini 3.0 Pro",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

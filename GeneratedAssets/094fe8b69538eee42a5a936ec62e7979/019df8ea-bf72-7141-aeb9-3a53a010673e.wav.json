@@ -1,0 +1,15 @@
+{
+    "asset": "094fe8b69538eee42a5a936ec62e7979",
+    "fileName": "019df8ea-bf72-7141-aeb9-3a53a010673e.wav",
+    "prompt": "Sharp sci-fi laser gun shot, energetic, punchy muzzle blast sound effect",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

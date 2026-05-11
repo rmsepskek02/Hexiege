@@ -1,0 +1,15 @@
+{
+    "asset": "8fce812c382c0d745a9c8cb19428c10e",
+    "fileName": "019df8ea-c6d7-7502-b885-6ea4f2305b86.wav",
+    "prompt": "Heavy tank cannon blast, powerful low-frequency explosion, ground-shaking impact sound effect",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

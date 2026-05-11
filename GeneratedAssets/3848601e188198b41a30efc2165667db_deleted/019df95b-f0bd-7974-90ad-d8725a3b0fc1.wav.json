@@ -1,0 +1,15 @@
+{
+    "asset": "3848601e188198b41a30efc2165667db",
+    "fileName": "019df95b-f0bd-7974-90ad-d8725a3b0fc1.wav",
+    "prompt": "Soft and soothing nature healing magic sound, gentle whispering leaves, organic rustling, calm wind chime, shimmering light, low-pass filtered, peaceful and natural game sfx, no sharp transients",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 2.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

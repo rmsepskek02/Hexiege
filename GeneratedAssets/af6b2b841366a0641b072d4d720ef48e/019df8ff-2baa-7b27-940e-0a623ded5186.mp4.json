@@ -1,0 +1,38 @@
+{
+    "asset": "af6b2b841366a0641b072d4d720ef48e",
+    "fileName": "019df8ff-2baa-7b27-940e-0a623ded5186.mp4",
+    "prompt": "Animated muzzle flash fire burst, 16 frames, ONLY fire and sparks, NO cannon, NO weapon, vibrant red orange and yellow flames, stylized 2D VFX, transparent background",
+    "negativePrompt": "",
+    "model": "video-kling-v3-i2v-pro",
+    "modelName": "Kling V3 I2V Pro",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Spritesheet",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 9,
+                "doodle": [],
+                "label": "First",
+                "strength": 1.0,
+                "invertStrength": false,
+                "assetReferenceGuid": "843a18a312b6f7a44bc0600e3923a54a",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 0,
+        "height": 0
+    },
+    "spriteSheet": true,
+    "duration": 5.0
+}

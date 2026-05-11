@@ -1,0 +1,28 @@
+{
+    "asset": "3315a3995c38e744a81308f792c805f7",
+    "fileName": "019df936-e810-78b2-ab6d-6b7e0415815d.jpg",
+    "prompt": "A stylized green glowing magic sparkle, nature magic dust, bright emerald green, shimmering, game vfx sprite, flat shaded, clean lines, transparent background, star shape sparkle with a soft glow",
+    "negativePrompt": "",
+    "model": "flux-2-pro",
+    "modelName": "Flux 2 (Pro)",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

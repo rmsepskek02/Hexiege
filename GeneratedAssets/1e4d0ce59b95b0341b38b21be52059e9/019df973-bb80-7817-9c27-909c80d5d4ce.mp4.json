@@ -1,0 +1,38 @@
+{
+    "asset": "1e4d0ce59b95b0341b38b21be52059e9",
+    "fileName": "019df973-bb80-7817-9c27-909c80d5d4ce.mp4",
+    "prompt": "Stationary swirling orange flame wisps, centered in frame, 4x4 sprite sheet, bright orange and red, game vfx, flat shaded, transparent background. The flames stay in one spot.",
+    "negativePrompt": "",
+    "model": "video-kling-v3-i2v-pro",
+    "modelName": "Kling V3 I2V Pro",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Spritesheet",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 9,
+                "doodle": [],
+                "label": "First",
+                "strength": 1.0,
+                "invertStrength": false,
+                "assetReferenceGuid": "48b8cb1b51bf22f4495267a1cb551226",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 0,
+        "height": 0
+    },
+    "spriteSheet": true,
+    "duration": 5.0
+}

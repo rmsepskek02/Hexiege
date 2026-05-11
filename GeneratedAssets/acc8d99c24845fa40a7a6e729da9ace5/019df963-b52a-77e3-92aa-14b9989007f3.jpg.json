@@ -1,0 +1,28 @@
+{
+    "asset": "acc8d99c24845fa40a7a6e729da9ace5",
+    "fileName": "019df963-b52a-77e3-92aa-14b9989007f3.jpg",
+    "prompt": "A single circular glowing ring, soft pulse wave, magic ripple effect, bright white and cyan glow, casual cartoon style, flat shaded, clean lines, transparent background. This is a top-down view of a thin energy ring.",
+    "negativePrompt": "",
+    "model": "flux-2-pro",
+    "modelName": "Flux 2 (Pro)",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

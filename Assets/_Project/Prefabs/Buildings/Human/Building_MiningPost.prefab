@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7469470644034262932}
   - component: {fileID: 5343676219513767748}
+  - component: {fileID: 258427853070550521}
   m_Layer: 0
   m_Name: Building_MiningPost
   m_TagString: Untagged
@@ -45,6 +46,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c178b6f3e086351409b946635cbfae71, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.BuildingView
+--- !u!114 &258427853070550521
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 351406288662950317}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1c510863e1c34a47999ba32cd645540, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.MiningEffectView
+  _goldEffectPrefab: {fileID: 5136317118315795036, guid: 20e150334abffbc4ea3bb967969f4a02, type: 3}
+  _offset: {x: 0, y: 1.6, z: 0}
 --- !u!1 &740154723568224871
 GameObject:
   m_ObjectHideFlags: 0

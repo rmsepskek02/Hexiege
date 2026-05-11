@@ -1,0 +1,15 @@
+{
+    "asset": "87516d23257485a42aa662811c25c783",
+    "fileName": "019df8f5-ebb3-71d5-a40a-45855cc94660.wav",
+    "prompt": "Classic medieval gunpowder cannon blast, heavy punchy explosion, smoky and deep",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 10.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

@@ -1,0 +1,28 @@
+{
+    "asset": "bc3e755bc68b9bb46aa380823361a606",
+    "fileName": "019df957-3145-7fef-99e6-bdc761cc7d10.jpg",
+    "prompt": "A stylized emerald green diamond suit shape (playing card diamond), vertically elongated (height is 2x width), flat vector style, glowing core, soft emerald aura, clean lines, transparent background. This is a single static reference frame.",
+    "negativePrompt": "",
+    "model": "flux-2-pro",
+    "modelName": "Flux 2 (Pro)",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

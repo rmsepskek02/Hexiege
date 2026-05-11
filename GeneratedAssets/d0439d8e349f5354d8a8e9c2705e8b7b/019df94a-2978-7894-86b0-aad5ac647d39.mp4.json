@@ -1,0 +1,38 @@
+{
+    "asset": "d0439d8e349f5354d8a8e9c2705e8b7b",
+    "fileName": "019df94a-2978-7894-86b0-aad5ac647d39.mp4",
+    "prompt": "Animated twinkling magic sparkle, diamond-shaped, 4x4 sprite sheet, bright emerald green, glowing, game vfx, flat shaded, clean lines, transparent background",
+    "negativePrompt": "",
+    "model": "video-kling-v3-i2v-pro",
+    "modelName": "Kling V3 I2V Pro",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Spritesheet",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 9,
+                "doodle": [],
+                "label": "First",
+                "strength": 1.0,
+                "invertStrength": false,
+                "assetReferenceGuid": "beeb6384b5d001b4eac5cced0afbc20e",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 0,
+        "height": 0
+    },
+    "spriteSheet": true,
+    "duration": 5.0
+}

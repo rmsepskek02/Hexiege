@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 352989067727545149}
   - component: {fileID: 7781417193090903642}
   - component: {fileID: 5358091794733303605}
+  - component: {fileID: 7699751222376766216}
   m_Layer: 0
   m_Name: Unit_Assault_Red
   m_TagString: Untagged
@@ -48,7 +49,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b032e7de55b97a44aa94ce3b24f914b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.UnitView
-  _meshYOffset: 0
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
   _attackToWalkBlend: 0.1
@@ -64,7 +64,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 805796131
+  GlobalObjectIdHash: 1987445915
   InScenePlacedSourceGlobalObjectIdHash: 1569031168
   DeferredDespawnTick: 0
   Ownership: 1
@@ -136,6 +136,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &7699751222376766216
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 318326584771880502}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1fef5bd4af559540a24b131b0c32067, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.UnitEffectView
+  _muzzleFlashPrefab: {fileID: 366247194139956687, guid: b8a94c24b0c0a624681430f45bb94e0d, type: 3}
+  _hitEffectPrefab: {fileID: 1735493158772446501, guid: 127fe4089856fa34dac2c259f946e95b, type: 3}
+  _muzzleTransform: {fileID: 7453805586519402007}
 --- !u!1 &462453215419701492
 GameObject:
   m_ObjectHideFlags: 0

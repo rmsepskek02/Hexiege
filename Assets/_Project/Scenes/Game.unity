@@ -7493,6 +7493,8 @@ MonoBehaviour:
   _floatingHpTextPrefab: {fileID: 6989848277667135276, guid: 063238727b75d514b83baa8e21fc9aee, type: 3}
   _floatingTextContainer: {fileID: 1881939769}
   _uiManager: {fileID: 640988069}
+  _slotForwardRatio: 0.15
+  _slotSideRatio: 0.15
 --- !u!1 &1102218379
 GameObject:
   m_ObjectHideFlags: 0
@@ -13986,8 +13988,8 @@ MonoBehaviour:
   - type: 5
     portrait: {fileID: 4099219531971592555, guid: 9cec0c7dd0f78484aab84ad11d409fb3, type: 3}
   _redSpiritUnits:
-  - type: 13
-    portrait: {fileID: 437966772050777256, guid: 8f9bfd4ab6ea798499ccf2db20e0fde0, type: 3}
+  - type: 11
+    portrait: {fileID: 3100032252126965752, guid: 7679b45030e44624d807605074f7726c, type: 3}
   - type: 14
     portrait: {fileID: -4818266053658533094, guid: cd560c69491c3214aa5ab4e97309e1ec, type: 3}
   - type: 15

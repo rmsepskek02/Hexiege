@@ -1,0 +1,15 @@
+{
+    "asset": "809405fcd77b31847af77b294fd7d146",
+    "fileName": "019df90c-3575-7f2f-86ac-592ad7b148a8.wav",
+    "prompt": "Assault rifle gunshot sound, stylized, punchy, single shot, game audio",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 1.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

@@ -1,0 +1,15 @@
+{
+    "asset": "baf9b0d4d4d4f2a4fad9f54e70d755b9",
+    "fileName": "019df90c-cd3e-7593-8b42-ca7060f41719.wav",
+    "prompt": "Bullet impact on body/metal sound, stylized cartoon thud and spark sound, game hit effect, punchy and short",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 1.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

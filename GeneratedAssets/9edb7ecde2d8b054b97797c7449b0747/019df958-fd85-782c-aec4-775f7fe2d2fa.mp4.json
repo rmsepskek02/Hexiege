@@ -1,0 +1,38 @@
+{
+    "asset": "9edb7ecde2d8b054b97797c7449b0747",
+    "fileName": "019df958-fd85-782c-aec4-775f7fe2d2fa.mp4",
+    "prompt": "Twinkling and pulsing glow animation of the provided diamond shape, the shape itself stays fixed in size, but the inner light pulses and sparkles, 4x4 sprite sheet, emerald green, transparent background.",
+    "negativePrompt": "",
+    "model": "video-kling-v3-i2v-pro",
+    "modelName": "Kling V3 I2V Pro",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Spritesheet",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 9,
+                "doodle": [],
+                "label": "First",
+                "strength": 1.0,
+                "invertStrength": false,
+                "assetReferenceGuid": "bc3e755bc68b9bb46aa380823361a606",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 0,
+        "height": 0
+    },
+    "spriteSheet": true,
+    "duration": 5.0
+}

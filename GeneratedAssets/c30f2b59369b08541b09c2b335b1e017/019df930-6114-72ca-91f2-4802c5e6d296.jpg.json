@@ -1,0 +1,28 @@
+{
+    "asset": "c30f2b59369b08541b09c2b335b1e017",
+    "fileName": "019df930-6114-72ca-91f2-4802c5e6d296.jpg",
+    "prompt": "A stylized cartoon gold dust particle, bright yellow gold, sparkling, shimmering, game vfx sprite, flat shaded, clean lines, transparent background, star shape sparkle",
+    "negativePrompt": "",
+    "model": "flux-2-pro",
+    "modelName": "Flux 2 (Pro)",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

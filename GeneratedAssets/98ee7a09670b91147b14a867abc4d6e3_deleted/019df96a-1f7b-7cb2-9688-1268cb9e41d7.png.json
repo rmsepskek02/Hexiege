@@ -1,0 +1,28 @@
+{
+    "asset": "98ee7a09670b91147b14a867abc4d6e3",
+    "fileName": "019df96a-1f7b-7cb2-9688-1268cb9e41d7.png",
+    "prompt": "Stylized 2D fireball game asset, bright orange and yellow flames, glowing core, casual cartoon style, flat shaded, clean lines, transparent background.",
+    "negativePrompt": "",
+    "model": "gemini-3.0-pro",
+    "modelName": "Gemini 3.0 Pro",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

@@ -130,9 +130,9 @@ MonoBehaviour:
     productionTime: 5
     goldCost: 50
     populationCost: 1
-  - unitType: 21
+  - unitType: 13
     maxHp: 50
-    attackPower: 9
+    attackPower: 5
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 2
@@ -142,6 +142,6 @@ MonoBehaviour:
     - 1.267
     attackKind: 0
     occupancySize: 0
-    productionTime: 15
-    goldCost: 200
+    productionTime: 5
+    goldCost: 50
     populationCost: 1

@@ -1,0 +1,15 @@
+{
+    "asset": "6eaaad4afebb8894f97532a85d48e15a",
+    "fileName": "019df961-76b5-71d2-a774-ad4fbf46a3cc.wav",
+    "prompt": "Ethereal nature healing magic, soft whispering wind, gentle rustling of leaves, calm forest atmosphere, soothing harmonic chime, organic texture, no sharp transients, peaceful and serene, soft attack and long decay",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 2.5,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

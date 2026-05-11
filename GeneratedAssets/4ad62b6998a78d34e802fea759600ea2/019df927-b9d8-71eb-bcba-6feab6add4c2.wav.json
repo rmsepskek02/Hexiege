@@ -1,0 +1,15 @@
+{
+    "asset": "4ad62b6998a78d34e802fea759600ea2",
+    "fileName": "019df927-b9d8-71eb-bcba-6feab6add4c2.wav",
+    "prompt": "Stylized cartoon gold coin collection sound, twinkle, sparkle, positive chime, game reward sfx",
+    "negativePrompt": "",
+    "model": "elevenlabs-sound-effects-v2",
+    "modelName": "ElevenLabs Sound Effects V2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "duration": 1.0,
+    "autoTrim": false,
+    "hasReference": false,
+    "voice": ""
+}

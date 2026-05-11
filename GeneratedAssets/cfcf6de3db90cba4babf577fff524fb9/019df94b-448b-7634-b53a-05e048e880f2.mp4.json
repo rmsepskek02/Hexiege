@@ -1,0 +1,38 @@
+{
+    "asset": "cfcf6de3db90cba4babf577fff524fb9",
+    "fileName": "019df94b-448b-7634-b53a-05e048e880f2.mp4",
+    "prompt": "Animated twinkling magic sparkle, the diamond suit shape from playing cards, 4x4 sprite sheet, bright emerald green, glowing, game vfx, flat shaded, clean lines, transparent background",
+    "negativePrompt": "",
+    "model": "video-kling-v3-i2v-pro",
+    "modelName": "Kling V3 I2V Pro",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Spritesheet",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 9,
+                "doodle": [],
+                "label": "First",
+                "strength": 1.0,
+                "invertStrength": false,
+                "assetReferenceGuid": "9184eeb0f8baf9d438b04db95b565c71",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 0,
+        "height": 0
+    },
+    "spriteSheet": true,
+    "duration": 5.0
+}

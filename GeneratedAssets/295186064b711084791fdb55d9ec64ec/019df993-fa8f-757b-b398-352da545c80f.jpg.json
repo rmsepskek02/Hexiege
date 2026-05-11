@@ -1,0 +1,28 @@
+{
+    "asset": "295186064b711084791fdb55d9ec64ec",
+    "fileName": "019df993-fa8f-757b-b398-352da545c80f.jpg",
+    "prompt": "A stylized cartoon fire spark, bright orange and yellow glow, small ember, casual cartoon style, flat shaded, clean lines, transparent background.",
+    "negativePrompt": "",
+    "model": "flux-2-pro",
+    "modelName": "Flux 2 (Pro)",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

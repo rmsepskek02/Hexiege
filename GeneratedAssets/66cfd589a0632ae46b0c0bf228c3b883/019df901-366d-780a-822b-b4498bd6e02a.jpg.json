@@ -1,0 +1,28 @@
+{
+    "asset": "66cfd589a0632ae46b0c0bf228c3b883",
+    "fileName": "019df901-366d-780a-822b-b4498bd6e02a.jpg",
+    "prompt": "Pure fire burst VFX, explosion energy, no objects, no weapons, transparent background, vibrant red orange and yellow, medieval fantasy style, clean edges, high detail stylized fire",
+    "negativePrompt": "",
+    "model": "flux-2-pro",
+    "modelName": "Flux 2 (Pro)",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}
