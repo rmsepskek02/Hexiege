@@ -51,26 +51,30 @@ namespace Hexiege.Infrastructure
         private UnitCombatUseCase _depCombat;
         private UnitFactory _depUnitFactory;
         private BuildingFactory _depBuildingFactory;
-        // 유닛의 Phase 1(월드 좌표 직선 추적)에서 적의 실시간 월드 좌표를 조회하기 위해 주입.
+        // 적의 실시간 월드 좌표를 조회하기 위해 주입(근접 추격 회전 등에서 사용).
         private IEntityPositionProvider _depPositionProvider;
-        // 같은 타일에 여러 유닛이 모일 때 시각 위치를 분산시키는 슬롯 매니저.
-        // UnitView가 타일 도착/해제 시점에 ClaimSlot/ReleaseSlot을 호출.
-        private TileSlotManager _depSlotManager;
+        // 근접 유닛이 추격 중 공격 슬롯(타겟 중심 12방향)을 배정받기 위해 주입.
+        private AttackPositionManager _depAttackPositionManager;
+        // [2026-04-30] 새 이동/전투 흐름(MoveAlongPathV3) 전용 이동 슬롯 매니저.
+        //   타일에 둘 이상의 유닛이 모일 때 ClaimSlot으로 위치 분산.
+        private TileMoveSlotManager _depMoveSlotManager;
         private bool _hasDependencies;
 
         /// <summary>
         /// GameBootstrapper에서 UseCase 생성 후 한 번 호출.
         /// 이후 생성되는 모든 유닛에 자동으로 SetDependencies() 적용.
         /// UnitFactory/BuildingFactory는 공격 방향 계산 시 타겟 transform 조회에 사용.
-        /// positionProvider는 하이브리드 이동의 Phase 1(월드 좌표 추적)에서 사용.
-        /// slotManager는 같은 타일에 모인 유닛들의 시각 위치 분산에 사용.
+        /// positionProvider는 추격 중 적 월드 좌표 추적에서 사용.
+        /// moveSlotManager는 같은 타일에 모인 유닛들이 슬롯 위치로 분산되도록 한다.
+        /// attackPositionManager는 근접 추격 시 공격 슬롯 배정에 사용.
         /// </summary>
         public void SetDependencyReferences(
             GameConfig config,
             UnitMovementUseCase movement, UnitCombatUseCase combat,
             UnitFactory unitFactory = null, BuildingFactory buildingFactory = null,
             IEntityPositionProvider positionProvider = null,
-            TileSlotManager slotManager = null)
+            AttackPositionManager attackPositionManager = null,
+            TileMoveSlotManager moveSlotManager = null)
         {
             _depConfig = config;
             _depMovement = movement;
@@ -78,7 +82,10 @@ namespace Hexiege.Infrastructure
             _depUnitFactory = unitFactory;
             _depBuildingFactory = buildingFactory;
             _depPositionProvider = positionProvider;
-            _depSlotManager = slotManager;
+            _depAttackPositionManager = attackPositionManager;
+            // [2026-04-30] 새 이동/전투 흐름이 사용하는 매니저.
+            //   GameBootstrapper에서 함께 생성/주입되며, null이면 슬롯 분산이 비활성화된 것으로 간주.
+            _depMoveSlotManager = moveSlotManager;
             _hasDependencies = true;
         }
 
@@ -271,9 +278,13 @@ namespace Hexiege.Infrastructure
                     unitData.AttackCooldown = attackClipLength;
 
                 // 런타임 의존성 자동 주입 (생산된 유닛도 즉시 동작 가능)
+                // [2026-04-30 BUG-001 수정] _depMoveSlotManager 인자를 추가로 전달.
+                //   기존에는 빠져 있어 UnitView._moveSlotManager == null로 유지되었고,
+                //   RunTileTraversal에서 슬롯 분산 분기가 폴백되어 유닛 겹침 현상 발생.
                 if (_hasDependencies)
                     unitView.SetDependencies(_depConfig, _depMovement, _depCombat,
-                        _depUnitFactory, _depBuildingFactory, _depPositionProvider, _depSlotManager);
+                        _depUnitFactory, _depBuildingFactory, _depPositionProvider,
+                        _depAttackPositionManager, _depMoveSlotManager);
             }
 
             // 내부 딕셔너리에 등록 (나중에 삭제 시 사용)
@@ -359,9 +370,13 @@ namespace Hexiege.Infrastructure
                     unitData.AttackCooldown = attackClipLength;
 
                 // 런타임 의존성 자동 주입
+                // [2026-04-30 BUG-001 수정] 클라이언트 경로에서도 _depMoveSlotManager 인자 추가.
+                //   서버 경로(CreateUnitObject)와 동일하게 새 이동 슬롯 매니저를 주입해야
+                //   클라이언트 측 UnitView도 슬롯 분산을 정상적으로 활용할 수 있음.
                 if (_hasDependencies)
                     unitView.SetDependencies(_depConfig, _depMovement, _depCombat,
-                        _depUnitFactory, _depBuildingFactory, _depPositionProvider, _depSlotManager);
+                        _depUnitFactory, _depBuildingFactory, _depPositionProvider,
+                        _depAttackPositionManager, _depMoveSlotManager);
             }
 
             // NetworkUnit에 초기화 완료 플래그 설정

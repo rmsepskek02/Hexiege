@@ -27,6 +27,39 @@ using System.Collections.Generic;
 
 namespace Hexiege.Domain
 {
+    // ========================================================================
+    // AttackKind
+    // 유닛의 공격 방식(근접/원거리)을 명시적으로 구분하는 enum.
+    //
+    // 왜 enum으로 따로 두는가?
+    //   기존 코드에서는 "DetectRange == AttackRange"라는 묵시적 가정으로
+    //   "원거리는 즉시 공격, 근접은 직선 추적"을 분기해 왔다.
+    //   이 묵시 가정은 데이터(스탯) 변경 시 쉽게 깨지므로, 새 이동/전투 규칙
+    //   (GameSystemRules.md 규칙 13/15)에서는 명시적 데이터로 노출한다.
+    //
+    // 동작 차이 (규칙 13/15 발췌):
+    //   Melee  : 감지 사거리 진입 → 이동 슬롯 해제 → 공격 슬롯으로 직선 이동 → 도달 시 공격
+    //            전투 종료 → 현재 위치 기준 앞쪽 가장 가까운 타일에서 A* 재개
+    //   Ranged : 공격 사거리 진입 → 이동 슬롯 유지하며 그 자리에서 즉시 공격
+    //            전투 종료 → 별도 처리 없이 현재 이동 슬롯 위치에서 A* 재개
+    //
+    // Domain 레이어 — 순수 C# 열거형, Unity 의존 없음.
+    // ========================================================================
+    public enum AttackKind
+    {
+        /// <summary>
+        /// 근접 유닛: 감지 시 공격 슬롯으로 달려가 타격, 전투 후 앞쪽 타일에서 A* 재개.
+        /// 예: EmberSpirit, BearGuard, FlameSpirit, LionKnight.
+        /// </summary>
+        Melee = 0,
+
+        /// <summary>
+        /// 원거리 유닛: 사거리 안에 적이 들어오면 이동 슬롯에 멈춘 채 즉시 사격.
+        /// 별도 추적 없음. 예: Pistoleer, Sniper, FoxMagician, InfernoSpirit, Assault.
+        /// </summary>
+        Ranged = 1
+    }
+
     public static class UnitStats
     {
         // ====================================================================
@@ -49,6 +82,18 @@ namespace Hexiege.Domain
             public float MoveSpeed;
             public float AttackCooldown;
             public float[] HitFrameTimes;
+
+            // ────────────────────────────────────────────────────────────
+            // Kind
+            //   유닛이 근접(Melee)인지 원거리(Ranged)인지 명시적으로 구분.
+            //   새 이동/전투 규칙(GameSystemRules.md 규칙 13/15)에서
+            //   "감지 → 직선 추적" vs "사거리 진입 → 즉시 공격" 분기를
+            //   이 필드 하나로 결정한다.
+            //
+            //   Inspector에서 드롭다운으로 선택 가능 (Infrastructure의
+            //   UnitStatEntry.attackKind 필드에 노출).
+            // ────────────────────────────────────────────────────────────
+            public AttackKind Kind;
 
             // ────────────────────────────────────────────────────────────
             // OccupancySize
@@ -179,6 +224,24 @@ namespace Hexiege.Domain
             if (TryGet(type, out var v) && v.OccupancySize > 0f)
                 return v.OccupancySize;
             return 1f;
+        }
+
+        /// <summary>
+        /// 유닛 타입별 공격 방식(Melee / Ranged) 반환.
+        /// Config에 값이 등록되지 않은 경우 안전망으로 AttackKind.Ranged를 반환.
+        ///
+        /// 폴백을 Ranged로 두는 이유:
+        ///   - 기존 묵시 가정("DetectRange == AttackRange면 원거리")의 기본 동작이
+        ///     "그 자리에서 즉시 공격(=Ranged)"이었기 때문에, 데이터 누락 시
+        ///     기존 동작과 가장 가까운 결과가 나오도록 한다.
+        ///   - 신규 유닛 추가 시 Inspector에서 명시적으로 Melee를 지정해야 함을
+        ///     상기시키는 효과도 있다.
+        /// </summary>
+        public static AttackKind GetAttackKind(UnitType type)
+        {
+            if (TryGet(type, out var v))
+                return v.Kind;
+            return AttackKind.Ranged;
         }
     }
 }

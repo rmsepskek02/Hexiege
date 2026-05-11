@@ -21,8 +21,10 @@
 
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using UniRx;
 using Hexiege.Domain;
+using Hexiege.Core;
 
 namespace Hexiege.Application
 {
@@ -238,41 +240,111 @@ namespace Hexiege.Application
             return UnitStats.GetOccupancySize(type);
         }
 
-        /// <summary>
-        /// preferred 타일에 unitSize를 받을 수 있는지 확인 후, 불가능하면
-        /// BFS로 가장 가까운 빈 walkable 타일을 찾아 반환.
-        /// 모두 가득 차면 null — 호출 측은 다음 프레임에 재시도해야 한다.
-        ///
-        /// OccupancyManager가 주입되지 않았다면(레거시 호환) 항상 preferred 그대로 반환 —
-        /// 점유 체크가 비활성화된 것과 동일한 효과.
-        ///
-        /// destination 미지정 오버로드 — forward 필터가 적용되지 않아 "가장 가까운 빈 타일"이
-        /// 그대로 반환된다(기존 동작). 호환을 위해 유지.
-        /// </summary>
-        /// <param name="preferred">원래 가고 싶었던 타일 좌표.</param>
-        /// <param name="unitSize">이동하려는 유닛의 OccupancySize.</param>
-        /// <returns>들어갈 수 있는 타일 좌표 또는 null.</returns>
-        public HexCoord? FindAvailableTile(HexCoord preferred, float unitSize)
-        {
-            if (_occupancyManager == null) return preferred;
-            return _occupancyManager.FindAvailableTile(preferred, unitSize, _grid);
-        }
+        // ====================================================================
+        // [2026-04-30] 새 규칙 5 — "앞쪽 빈 타일 찾기 (또는 대기)" 래퍼
+        // ====================================================================
 
         /// <summary>
-        /// [3차 개선 — 2026-04-25]
-        /// destination 파라미터를 받는 오버로드.
+        /// 새 규칙 5 (점유가 가득 찬 타일 처리)에 맞춘 forward-only 래퍼.
+        /// 기존 FindAvailableTile은 forward 필터 실패 시 fallback BFS(필터 OFF)로 측후방까지 후보를
+        /// 넓혀 어떤 빈 타일이라도 찾아주었다. 그러나 새 규칙은 "뒤로 우회 절대 금지, 앞쪽이 없으면
+        /// 대기"가 명시이므로, fallback 없이 forward-only BFS만 호출한다.
         ///
-        /// preferred에 들어갈 수 없을 때 BFS 우회 후보를 고를 때, 단순히 가장 가까운 빈 타일이 아니라
-        /// "최종 목적지(destination)에서 더 멀어지지 않는" 타일을 우선 선택한다.
-        /// 이로써 우회 후 후방으로 튕겨나가는 현상(팅김)이 줄어든다.
+        /// 동작:
+        ///   1) preferred가 들어갈 수 있으면 그대로 반환.
+        ///   2) preferred가 막혀 있으면, destination 방향으로 더 가까운(또는 같은) walkable 타일 중
+        ///      빈 타일을 BFS로 탐색하여 가장 가까운 후보를 반환.
+        ///   3) 앞쪽에 빈 타일이 없으면 null — 호출 측은 다음 프레임에 다시 시도하여 빈자리가 생길 때까지 대기.
         ///
-        /// destination을 default(HexCoord) 또는 preferred와 동일하게 넘기면 forward 필터가 비활성화되어
-        /// 위의 단일 파라미터 오버로드와 같은 결과가 된다.
+        /// occupancyManager가 주입되지 않은 경우(레거시) 항상 preferred 반환 — 점유 체크 비활성화 동등 효과.
         /// </summary>
-        public HexCoord? FindAvailableTile(HexCoord preferred, float unitSize, HexCoord destination)
+        /// <param name="preferred">원래 진입하고 싶었던 타일.</param>
+        /// <param name="unitSize">유닛의 OccupancySize.</param>
+        /// <param name="destination">최종 목적지(우회 방향 결정용). default 시 null이 반환된다.</param>
+        /// <param name="currentTile">
+        /// [BUG-008 — 2026-05-06] 호출 유닛의 현재 논리 타일 좌표(prevActualTile).
+        /// BFS visited에 미리 등록되어 "현재 위치 타일"이 우회 후보로 반환되는 것을 차단한다.
+        /// 호출 측이 모를 때는 default(HexCoord)를 전달(이 경우 추가 제외 없음 — 기존 동작).
+        /// </param>
+        /// <returns>들어갈 수 있는 앞쪽 타일 좌표 또는 null(=대기).</returns>
+        public HexCoord? FindForwardAvailable(HexCoord preferred, float unitSize, HexCoord destination, HexCoord currentTile)
         {
+            // OccupancyManager 미주입(레거시): preferred 그대로 반환 — 점유 체크 비활성화 동작.
             if (_occupancyManager == null) return preferred;
-            return _occupancyManager.FindAvailableTile(preferred, unitSize, _grid, destination);
+            return _occupancyManager.FindForwardAvailable(preferred, unitSize, _grid, destination, currentTile);
+        }
+
+        // ====================================================================
+        // [2026-04-30] 새 규칙 11/15 — 전투 종료 후 "앞쪽 가장 가까운 타일" 찾기
+        // ====================================================================
+
+        /// <summary>
+        /// 유닛의 현재 월드 위치를 기준으로 finalTarget 방향 앞쪽(=목적지 쪽)에서
+        /// 가장 가까운 walkable 타일을 반환한다. 근접 유닛이 공격 슬롯을 풀고 A*를 재개할 때 사용.
+        ///
+        /// 동작:
+        ///   1) 현재 월드 좌표(unitWorldPosDomain)에서 가장 가까운 타일을 nearestTile로 잡는다.
+        ///      (HexMetrics.WorldToHex 사용 — 도메인 좌표 기준)
+        ///   2) HexCoord.Distance(nearestTile, finalTarget) 보다 더 가까운(또는 같은) walkable 타일을
+        ///      6방향 인접 후보 중에서 찾는다.
+        ///   3) 후보가 있으면 그 중 unitWorldPosDomain에서 가장 가까운 타일(중심간 거리)을 반환.
+        ///   4) 없으면 nearestTile 그대로 반환 (이미 앞쪽이거나, 그리드 끝).
+        ///
+        /// 좌표 인자는 도메인 좌표(ViewConverter.FromView로 미리 변환된 값)를 받는다.
+        /// 이 메서드 내부에선 ViewConverter를 호출하지 않으므로, 호출 측에서 적절히 변환할 것.
+        /// </summary>
+        /// <param name="unitWorldPosDomain">유닛의 현재 도메인 월드 좌표 (XZ 평면, Y 무시).</param>
+        /// <param name="finalTarget">최종 목적지 좌표 (예: 적 성).</param>
+        /// <returns>앞쪽 가장 가까운 walkable 타일 좌표.</returns>
+        public HexCoord FindForwardClosestTile(Vector3 unitWorldPosDomain, HexCoord finalTarget)
+        {
+            // 1) 현재 위치에서 가장 가까운 타일.
+            HexCoord nearestTile = HexMetrics.WorldToHex(unitWorldPosDomain);
+
+            // 그리드에 존재하지 않는 좌표인 경우 (스폰 직후 등 극단적인 상황) 안전하게 폴백.
+            if (_grid == null || !_grid.HasTile(nearestTile))
+            {
+                return nearestTile;
+            }
+
+            int currentDist = HexCoord.Distance(nearestTile, finalTarget);
+
+            // 2) 6방향 인접 후보 중 forward(같은 거리 또는 더 가까운) walkable 타일 후보 수집.
+            //    HexMetrics.GetNeighbors는 부재 → HexDirectionExtensions로 직접 순회.
+            HexCoord bestTile = nearestTile;
+            float bestDistSq = float.MaxValue;
+            bool foundForward = false;
+
+            for (int i = 0; i < HexDirectionExtensions.Count; i++)
+            {
+                HexCoord neighbor = ((HexDirection)i).Neighbor(nearestTile);
+
+                // 그리드 밖이거나 walkable이 아니면 후보 제외.
+                if (!_grid.HasTile(neighbor)) continue;
+                HexTile tile = _grid.GetTile(neighbor);
+                if (tile == null || !tile.IsWalkable) continue;
+
+                // 새 규칙 15: 뒤쪽 타일 절대 금지 → "현재 거리 미만"만 허용 (strict less).
+                // HexCoord.Distance는 정수 도메인 거리이므로 부동소수점 오차 없음.
+                int neighborDist = HexCoord.Distance(neighbor, finalTarget);
+                if (neighborDist >= currentDist) continue;
+
+                // 후보 중 unitWorldPosDomain에서 가장 가까운 타일 우선 (XZ 평면 거리).
+                Vector3 neighborWorld = HexMetrics.HexToWorld(neighbor);
+                float dx = neighborWorld.x - unitWorldPosDomain.x;
+                float dz = neighborWorld.z - unitWorldPosDomain.z;
+                float distSq = dx * dx + dz * dz;
+
+                if (distSq < bestDistSq)
+                {
+                    bestDistSq = distSq;
+                    bestTile = neighbor;
+                    foundForward = true;
+                }
+            }
+
+            // 3) forward 후보 없으면 nearestTile 그대로 (이미 앞쪽이거나 그리드 끝).
+            return foundForward ? bestTile : nearestTile;
         }
     }
 }

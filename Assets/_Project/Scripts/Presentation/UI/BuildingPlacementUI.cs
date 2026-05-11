@@ -29,6 +29,7 @@
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections.Generic;
 using TMPro;
 using Hexiege.Domain;
 using Hexiege.Application;
@@ -50,63 +51,33 @@ namespace Hexiege.Presentation
         [Tooltip("Canvas 직속 공유 Background (터치 시 팝업 닫기)")]
         [SerializeField] private SharedBackgroundButton _sharedBackground;
 
-        [Tooltip("배럭 건설 버튼")]
-        [SerializeField] private Button _barracksButton;
+        [Header("Dynamic Building Buttons")]
+[Tooltip("건물 배치 버튼 리스트")]
+        [SerializeField] private List<Button> _buildingButtons;
 
-        [Tooltip("채굴소 건설 버튼")]
-        [SerializeField] private Button _miningPostButton;
+        [Tooltip("버튼 리스트와 1:1 매칭되는 아이콘 Image 컴포넌트")]
+        [SerializeField] private List<Image> _buildingButtonIcons;
+
+        [Tooltip("버튼 리스트와 1:1 매칭되는 비용 텍스트")]
+        [SerializeField] private List<TextMeshProUGUI> _buildingCostTexts;
 
         [Tooltip("취소 버튼")]
         [SerializeField] private Button _cancelButton;
 
-        [Header("Button Portrait Images")]
-        [Tooltip("배럭 버튼 초상화 Image 컴포넌트")]
-        [SerializeField] private Image _barracksButtonPortrait;
-
-        [Tooltip("채굴소 버튼 초상화 Image 컴포넌트")]
-        [SerializeField] private Image _miningPostButtonPortrait;
-
-        [Header("Building Portraits — 종족+팀별 (팀×종족 = 6세트)")]
-
-        [Tooltip("Blue 팀 — 인간 종족 건물 초상화")]
-        [SerializeField] private BuildingRacePortraitSet _blueHumanPortraits;
-
-        [Tooltip("Blue 팀 — 정령 종족 건물 초상화")]
-        [SerializeField] private BuildingRacePortraitSet _blueSpiritPortraits;
-
-        [Tooltip("Blue 팀 — 초월 종족 건물 초상화")]
-        [SerializeField] private BuildingRacePortraitSet _blueTranscendencePortraits;
-
-        [Tooltip("Red 팀 — 인간 종족 건물 초상화")]
-        [SerializeField] private BuildingRacePortraitSet _redHumanPortraits;
-
-        [Tooltip("Red 팀 — 정령 종족 건물 초상화")]
-        [SerializeField] private BuildingRacePortraitSet _redSpiritPortraits;
-
-        [Tooltip("Red 팀 — 초월 종족 건물 초상화")]
-        [SerializeField] private BuildingRacePortraitSet _redTranscendencePortraits;
-
-        [Header("Building Cost Text")]
-        [Tooltip("배럭 건설 비용 텍스트 (예: '100G')")]
-        [SerializeField] private TextMeshProUGUI _barracksCostText;
-
-        [Tooltip("채굴소 건설 비용 텍스트 (예: '50G')")]
-        [SerializeField] private TextMeshProUGUI _miningPostCostText;
-
-        /// <summary>
-        /// 종족+팀별 건물 초상화 스프라이트 세트.
-        /// 배럭과 채굴소 각각 종족마다 외형이 다르므로 종족별 스프라이트를 보유.
-        /// Inspector에서 팀×종족 = 6세트를 설정.
-        /// </summary>
         [System.Serializable]
-        public struct BuildingRacePortraitSet
+        public struct BuildingPortraitEntry
         {
-            [Tooltip("배럭(병영) 초상화 스프라이트")]
-            public Sprite barracks;
-
-            [Tooltip("채굴소 초상화 스프라이트")]
-            public Sprite miningPost;
+            public BuildingType type;
+            public Sprite icon;
         }
+
+        [Header("Building Entries — 종족+팀별 (팀×종족 = 6세트)")]
+        [SerializeField] private List<BuildingPortraitEntry> _blueHumanBuildings;
+        [SerializeField] private List<BuildingPortraitEntry> _blueSpiritBuildings;
+        [SerializeField] private List<BuildingPortraitEntry> _blueTranscendenceBuildings;
+        [SerializeField] private List<BuildingPortraitEntry> _redHumanBuildings;
+        [SerializeField] private List<BuildingPortraitEntry> _redSpiritBuildings;
+        [SerializeField] private List<BuildingPortraitEntry> _redTranscendenceBuildings;
 
         // ====================================================================
         // 내부 상태
@@ -144,10 +115,6 @@ namespace Hexiege.Presentation
         // 초기화
         // ====================================================================
 
-        /// <summary>
-        /// GameBootstrapper에서 호출. UseCase 참조 설정 및 버튼 이벤트 연결.
-        /// NetworkBuildingController는 멀티플레이 시에만 주입. 싱글플레이 시 null.
-        /// </summary>
         public void Initialize(BuildingPlacementUseCase buildingPlacement,
             ResourceUseCase resource, GameConfig config,
             NetworkBuildingController networkBuildingController = null)
@@ -157,128 +124,115 @@ namespace Hexiege.Presentation
             _config = config;
             _networkBuildingController = networkBuildingController;
 
-            // 시작 시 팝업 비활성 (AnimatedPanel.Awake()에서 이미 비활성화되지만 명시적 보장)
-
-            // 버튼 이벤트 연결
-            // 공유 Background 닫기는 Show()/Close()에서 Register/Unregister로 처리
-
-            if (_barracksButton != null)
-                _barracksButton.onClick.AddListener(() => PlaceAndClose(BuildingType.Barracks));
-
-            if (_miningPostButton != null)
-                _miningPostButton.onClick.AddListener(() => PlaceAndClose(BuildingType.MiningPost));
-
             if (_cancelButton != null)
                 _cancelButton.onClick.AddListener(Close);
         }
 
-        // ====================================================================
-        // 팝업 표시/닫기
-        // ====================================================================
-
-        /// <summary>
-        /// 건물 선택 팝업 표시. InputHandler에서 호출.
-        /// </summary>
-        /// <param name="coord">건물을 배치할 타일 좌표</param>
-        /// <param name="team">배치하는 팀</param>
         public void Show(HexCoord coord, TeamId team)
         {
             _targetCoord = coord;
             _currentTeam = team;
 
-            UpdateButtonPortraits(team);
-            UpdateBuildingStatsText(team);
-
-            if (_buildingPlacement != null)
-            {
-                // 금광 타일: MiningPost만 활성, Barracks 비활성
-                // 일반 타일: Barracks만 활성, MiningPost 비활성
-                bool canMine = _buildingPlacement.CanPlaceBuildingType(
-                    BuildingType.MiningPost, coord, team);
-                bool canBarracks = _buildingPlacement.CanPlaceBuildingType(
-                    BuildingType.Barracks, coord, team);
-
-                if (_miningPostButton != null)
-                    _miningPostButton.interactable = canMine;
-                if (_barracksButton != null)
-                    _barracksButton.interactable = canBarracks;
-            }
-
-            _popup?.Show();
-
-            // 공유 Background에 이 패널의 Close 콜백 등록
-            // Background 터치 시 Close()가 호출되어 팝업이 닫힌다
-            _sharedBackground?.Register(Close);
-        }
-
-        /// <summary>
-        /// 팀과 종족에 맞는 초상화 스프라이트를 버튼 Image에 적용.
-        /// Show() 호출 시 실행되어, 현재 팀의 종족에 해당하는 건물 이미지를 버튼에 세팅.
-        /// GameRaceContext에서 팀별 종족을 조회하여 6세트 중 적절한 세트를 선택.
-        /// </summary>
-        private void UpdateButtonPortraits(TeamId team)
-        {
-            // GameRaceContext에서 해당 팀의 종족을 조회
+            // 1. 해당 팀의 현재 종족 조회
             RaceId race = team == TeamId.Blue
                 ? GameRaceContext.BlueRace
                 : GameRaceContext.RedRace;
 
-            // 팀×종족 조합에 맞는 초상화 세트를 가져옴
-            var set = GetBuildingPortraitSet(team, race);
+            Debug.Log($"[BuildingPlacementUI] Show - Team: {team}, Race: {race}");
 
-            if (_barracksButtonPortrait   != null) _barracksButtonPortrait.sprite   = set.barracks;
-            if (_miningPostButtonPortrait != null) _miningPostButtonPortrait.sprite = set.miningPost;
+            // 2. 종족별 건물 리스트 가져오기
+            var list = GetBuildingList(team, race);
+
+            // 3. 버튼 이미지(아이콘) 및 비용 업데이트
+            UpdateButtonPortraits(team, race);
+
+            // 4. 버튼 활성화 및 건설 로직 연결
+            if (_buildingButtons != null)
+            {
+                for (int i = 0; i < _buildingButtons.Count; i++)
+                {
+                    if (i < list.Count)
+                    {
+                        var entry = list[i];
+                        _buildingButtons[i].gameObject.SetActive(true);
+                        _buildingButtons[i].onClick.RemoveAllListeners();
+                        _buildingButtons[i].onClick.AddListener(() => PlaceAndClose(entry.type));
+
+                        // 건설 비용 텍스트 업데이트
+                        if (i < _buildingCostTexts.Count && _buildingCostTexts[i] != null)
+                        {
+                            int cost = BuildingStats.GetGoldCost(entry.type, race);
+                            _buildingCostTexts[i].SetText($"{cost}G");
+                        }
+
+                        // 배치 가능 여부 체크
+                        if (_buildingPlacement != null)
+                        {
+                            _buildingButtons[i].interactable = _buildingPlacement.CanPlaceBuildingType(entry.type, coord, team);
+                        }
+                    }
+                    else
+                    {
+                        _buildingButtons[i].gameObject.SetActive(false);
+                    }
+                }
+            }
+
+            _popup?.Show();
+            _sharedBackground?.Register(Close);
         }
 
-        /// <summary>
-        /// 팀과 종족 조합으로 6세트 중 해당하는 BuildingRacePortraitSet을 반환.
-        /// Blue 팀 3종족(Human/Spirit/Transcendence) + Red 팀 3종족 = 총 6세트.
-        /// ProductionPanelUI.GetPortraitSet()과 동일한 패턴.
-        /// </summary>
-        private BuildingRacePortraitSet GetBuildingPortraitSet(TeamId team, RaceId race)
+        private void UpdateButtonPortraits(TeamId team, RaceId race)
+        {
+            var list = GetBuildingList(team, race);
+            if (_buildingButtonIcons != null)
+            {
+                for (int i = 0; i < _buildingButtonIcons.Count; i++)
+                {
+                    if (i < list.Count && _buildingButtonIcons[i] != null)
+                    {
+                        _buildingButtonIcons[i].sprite = list[i].icon;
+                    }
+                }
+            }
+        }
+
+        private List<BuildingPortraitEntry> GetBuildingList(TeamId team, RaceId race)
         {
             if (team == TeamId.Blue)
             {
                 return race switch
                 {
-                    RaceId.Spirit        => _blueSpiritPortraits,
-                    RaceId.Transcendence => _blueTranscendencePortraits,
-                    _                    => _blueHumanPortraits   // Human 또는 기본값
+                    RaceId.Spirit        => _blueSpiritBuildings,
+                    RaceId.Transcendence => _blueTranscendenceBuildings,
+                    _                    => _blueHumanBuildings
                 };
             }
             else
             {
                 return race switch
                 {
-                    RaceId.Spirit        => _redSpiritPortraits,
-                    RaceId.Transcendence => _redTranscendencePortraits,
-                    _                    => _redHumanPortraits    // Human 또는 기본값
+                    RaceId.Spirit        => _redSpiritBuildings,
+                    RaceId.Transcendence => _redTranscendenceBuildings,
+                    _                    => _redHumanBuildings
                 };
             }
         }
 
-        /// <summary>
-        /// 건물 건설 비용 텍스트를 갱신.
-        /// Show() 호출 시 실행.
-        ///
-        /// 종족에 따라 비용이 달라질 수 있으므로, 현재 팀의 종족을 GameRaceContext에서
-        /// 조회하여 BuildingStats.GetGoldCost()로부터 값을 읽어 표시한다.
-        /// 기존처럼 GameConfig.BarracksCost / MiningPostCost 에 하드코딩된 값을 쓰지 않음.
-        /// </summary>
-        private void UpdateBuildingStatsText(TeamId team)
+        private void UpdateBuildingStatsText(TeamId team, RaceId race)
         {
-            // 현재 팀의 종족 조회 (Blue/Red 각각 Human/Spirit/Transcendence 중 하나)
-            RaceId race = team == TeamId.Blue
-                ? GameRaceContext.BlueRace
-                : GameRaceContext.RedRace;
-
-            // 배럭 비용 — 종족별 값이 BuildingStatsConfig에서 온다
-            if (_barracksCostText != null)
-                _barracksCostText.SetText($"{BuildingStats.GetGoldCost(BuildingType.Barracks, race)}");
-
-            // 채굴소 비용
-            if (_miningPostCostText != null)
-                _miningPostCostText.SetText($"{BuildingStats.GetGoldCost(BuildingType.MiningPost, race)}");
+            var list = GetBuildingList(team, race);
+            if (_buildingCostTexts != null)
+            {
+                for (int i = 0; i < _buildingCostTexts.Count; i++)
+                {
+                    if (i < list.Count && _buildingCostTexts[i] != null)
+                    {
+                        int cost = BuildingStats.GetGoldCost(list[i].type, race);
+                        _buildingCostTexts[i].SetText($"{cost}G");
+                    }
+                }
+            }
         }
 
         /// <summary>

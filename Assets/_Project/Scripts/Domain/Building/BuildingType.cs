@@ -14,8 +14,14 @@ namespace Hexiege.Domain
 {
     public enum BuildingType
     {
-        Castle,      // 본기지 — 게임 시작 시 자동 배치
-        Barracks,    // 배럭 — 유닛 생산 (MVP에서 기능 추가)
-        MiningPost   // 채굴소 — 자원 수집 (MVP에서 기능 추가)
+        Castle,          // 본기지 — 게임 시작 시 자동 배치
+        Barracks,        // 배럭 — 유닛 생산
+        MiningPost,      // 채굴소 — 자원 수집
+        AutoTower,       // 자동 방어 포탑
+        FlightFacility,  // 지원 건물
+        Research,        // 업그레이드 연구 건물
+        MagicBuilding,   // 마법 특수 건물
+        AncientGrove,    // 초월계 업그레이드 건물
+        HealShrine       // 회복 건물
     }
 }

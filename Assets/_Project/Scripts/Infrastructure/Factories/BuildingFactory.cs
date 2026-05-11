@@ -39,32 +39,28 @@ namespace Hexiege.Infrastructure
         // ====================================================================
 
         /// <summary>
-        /// 팀별 건물 프리팹 세트.
-        /// 종족마다 Blue/Red 각각 1세트씩, 총 6세트를 Inspector에서 설정.
-        /// castle = 본진(Castle/SpiritNexus/ElderTree), barracks = 병영(Barracks/SummoningAltar/HunterPlant).
+        /// 건물 타입별 Blue/Red 프리팹 쌍.
+        /// Inspector에서 type 필드로 건물 종류를 식별하고, 각 팀 프리팹을 연결합니다.
         /// </summary>
         [System.Serializable]
-        public struct BuildingTeamPrefabSet
+        public struct BuildingPrefabEntry
         {
-            public GameObject castle;
-            public GameObject barracks;
-            public GameObject miningPost;   // 종족별 채굴소 프리팹 (Human은 Blue/Red 동일 프리팹 사용)
+            public BuildingType type;
+            public GameObject blue;
+            public GameObject red;
         }
 
-        // ── 종족별 프리팹 세트 (각 종족 × Blue/Red = 2세트) ──────────────
-        // GameRaceContext에서 팀의 종족을 조회한 뒤, 아래 6세트 중 하나를 선택한다.
+        // 종족별 건물 프리팹 리스트.
+        // 각 리스트에 해당 종족의 건물(본진, 배럭, 채굴소, 방어탑 등) × Blue/Red 프리팹을 연결합니다.
 
-        [Header("Prefabs - Human (인간)")]
-        [SerializeField] private BuildingTeamPrefabSet _humanBluePrefabs;
-        [SerializeField] private BuildingTeamPrefabSet _humanRedPrefabs;
+        [Header("인간계 (Human)")]
+        [SerializeField] private List<BuildingPrefabEntry> _humanPrefabs;
 
-        [Header("Prefabs - Spirit (정령)")]
-        [SerializeField] private BuildingTeamPrefabSet _spiritBluePrefabs;
-        [SerializeField] private BuildingTeamPrefabSet _spiritRedPrefabs;
+        [Header("정령계 (Spirit)")]
+        [SerializeField] private List<BuildingPrefabEntry> _spiritPrefabs;
 
-        [Header("Prefabs - Transcendence (초월)")]
-        [SerializeField] private BuildingTeamPrefabSet _transcendenceBluePrefabs;
-        [SerializeField] private BuildingTeamPrefabSet _transcendenceRedPrefabs;
+        [Header("초월계 (Transcendence)")]
+        [SerializeField] private List<BuildingPrefabEntry> _transcendencePrefabs;
 
         [Header("Hierarchy")]
         [Tooltip("건물 부모 Transform ([World]/Buildings)")]
@@ -109,38 +105,18 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void CreateBuildingObject(BuildingData data)
         {
-            // ── 종족 + 팀 조합으로 프리팹 세트 선택 ──────────────────────
+            // ── 종족 + 팀 조합으로 프리팹 조회 ──────────────────────
             // GameRaceContext는 게임 시작 시(GameBootstrapper) Blue/Red 각 팀의 종족을 저장한다.
-            // MiningPost도 종족별 프리팹을 사용하므로 동일한 set에서 선택.
             RaceId race = data.Team == TeamId.Blue
                 ? GameRaceContext.BlueRace
                 : GameRaceContext.RedRace;
 
-            // 종족(3) × 팀(2) = 6가지 조합 → 해당하는 프리팹 세트 반환
-            BuildingTeamPrefabSet set = (race, data.Team) switch
-            {
-                (RaceId.Human,         TeamId.Blue) => _humanBluePrefabs,
-                (RaceId.Human,         TeamId.Red)  => _humanRedPrefabs,
-                (RaceId.Spirit,        TeamId.Blue) => _spiritBluePrefabs,
-                (RaceId.Spirit,        TeamId.Red)  => _spiritRedPrefabs,
-                (RaceId.Transcendence, TeamId.Blue) => _transcendenceBluePrefabs,
-                (RaceId.Transcendence, TeamId.Red)  => _transcendenceRedPrefabs,
-                // 안전망: 매핑되지 않는 조합이 들어오면 Human Blue로 폴백
-                _                                   => _humanBluePrefabs
-            };
-
-            // 건물타입에 맞는 프리팹 선택 (MiningPost도 종족별 프리팹 세트에서 선택)
-            GameObject prefab = data.Type switch
-            {
-                BuildingType.Castle     => set.castle,
-                BuildingType.Barracks   => set.barracks,
-                BuildingType.MiningPost => set.miningPost,
-                _ => null
-            };
+            // 종족 + 건물 타입 + 팀 조합으로 프리팹 조회.
+            GameObject prefab = GetPrefab(race, data.Type, data.Team);
 
             if (prefab == null)
             {
-                Debug.LogError($"[BuildingFactory] {data.Type}에 해당하는 프리팹이 설정되지 않았습니다.");
+                Debug.LogError($"[BuildingFactory] {race}/{data.Team}/{data.Type}에 해당하는 프리팹이 설정되지 않았습니다.");
                 return;
             }
 
@@ -153,12 +129,12 @@ namespace Hexiege.Infrastructure
             viewPos.y += _buildingYOffset;
 
             // 프리팹 인스턴스 생성. 뷰 좌표에 배치.
+            // 건물은 NetworkBuildingController의 SpawnBuildingClientRpc를 통해 모든 클라이언트에서
+            // 각각 로컬 인스턴스로 생성되어 동기화됩니다 (NetworkObject.Spawn 방식 아님).
             GameObject obj = Instantiate(prefab, viewPos, Quaternion.identity, _buildingParent);
+            
             // 오브젝트 이름을 실제 프리팹 이름 + Id로 설정 (에디터 디버깅용)
-            // 예: "Building_SpiritNexus_Blue_1" — 프리팹 이름이 그대로 반영되어 종족 구분이 명확함
             obj.name = $"{prefab.name}_{data.Id}";
-
-            // [Phase 2] 3D 전환: sortingOrder 제거 — 렌더 순서는 Z-buffer로 자동 처리
 
             // BuildingView 컴포넌트 초기화
             var view = obj.GetComponent<Presentation.BuildingView>();
@@ -168,6 +144,30 @@ namespace Hexiege.Infrastructure
             }
 
             _buildingObjects[data.Id] = obj;
+        }
+
+        /// <summary>
+        /// 종족 + 건물 타입 + 팀 조합으로 해당 프리팹을 조회.
+        /// </summary>
+        private GameObject GetPrefab(RaceId race, BuildingType type, TeamId team)
+        {
+            List<BuildingPrefabEntry> list = race switch
+            {
+                RaceId.Human         => _humanPrefabs,
+                RaceId.Spirit        => _spiritPrefabs,
+                RaceId.Transcendence => _transcendencePrefabs,
+                _                    => null
+            };
+
+            if (list == null) return null;
+
+            foreach (var entry in list)
+            {
+                if (entry.type == type)
+                    return team == TeamId.Blue ? entry.blue : entry.red;
+            }
+
+            return null;
         }
 
         /// <summary>

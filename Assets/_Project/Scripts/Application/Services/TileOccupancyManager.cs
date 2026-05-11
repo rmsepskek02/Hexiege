@@ -132,88 +132,33 @@ namespace Hexiege.Application
         }
 
         /// <summary>
-        /// preferred 타일이 unitSize를 받을 수 있으면 그 좌표를 반환.
-        /// 받을 수 없으면 BFS로 walkable 인접 타일을 탐색하여 처음 발견된 가능 타일을 반환.
-        /// 모두 가득 찼으면 null 반환 — 호출 측은 다음 프레임에 재시도해야 한다.
-        ///
-        /// 호환용(destination 미지정) 오버로드 — 내부적으로 destination을 default로 처리하여
-        /// forward 필터를 비활성화한다(=기존 동작과 동일).
-        /// </summary>
-        /// <param name="preferred">원래 가고 싶었던 타일 좌표.</param>
-        /// <param name="unitSize">이동하려는 유닛의 OccupancySize.</param>
-        /// <param name="grid">walkable 여부 판정 + 이웃 탐색에 사용할 그리드.</param>
-        /// <returns>들어갈 수 있는 타일 좌표 또는 null(모두 가득).</returns>
-        public HexCoord? FindAvailableTile(HexCoord preferred, float unitSize, HexGrid grid)
-        {
-            // destination을 default로 넘기면 forward 필터가 비활성화되어 기존 동작과 동일해진다.
-            return FindAvailableTile(preferred, unitSize, grid, default);
-        }
-
-        /// <summary>
-        /// preferred 타일이 unitSize를 받을 수 있으면 그 좌표를 반환.
-        /// 받을 수 없으면 BFS로 walkable 인접 타일을 탐색하여 가능 타일을 찾는다.
-        ///
-        /// [3차 개선 — 2026-04-25]
-        /// destination 파라미터로 "최종 목적지"를 함께 받아, 우회 후보가 목적지 방향으로
-        /// 진행하는 타일이 되도록 forward 필터를 적용한다.
-        ///   - 우회 후보 c가 preferred보다 1칸 이상 더 멀어지면 후방·측면으로 보고 제외.
-        ///   - 즉, 조건: HexCoord.Distance(c, destination) <= HexCoord.Distance(preferred, destination) + 1.
-        ///   - 1칸 여유는 헥스 그리드 특성상 측면 타일이 같은 거리이거나 +1 거리가 될 수 있어
-        ///     너무 엄격하면 모든 측면이 차단되는 것을 방지하기 위함.
-        ///
-        /// forward 필터가 maxNodes 안에서 후보를 못 찾으면 fallback으로 방향 제한 없이
-        /// 다시 BFS를 수행한다(원래 동작). 이렇게 하면 한도 초과 + 후방으로만 빈 타일이
-        /// 있는 극단적 상황에서도 결과적으로 우회 가능.
-        ///
-        /// destination이 default(HexCoord)거나 preferred와 같은 경우 forward 필터를 적용하지 않는다.
-        /// </summary>
-        /// <param name="preferred">원래 가고 싶었던 타일 좌표.</param>
-        /// <param name="unitSize">이동하려는 유닛의 OccupancySize.</param>
-        /// <param name="grid">walkable 여부 판정 + 이웃 탐색에 사용할 그리드.</param>
-        /// <param name="destination">최종 목적지 좌표(우회 방향 결정에 사용). default 시 필터 비활성.</param>
-        /// <returns>들어갈 수 있는 타일 좌표 또는 null(모두 가득).</returns>
-        public HexCoord? FindAvailableTile(HexCoord preferred, float unitSize, HexGrid grid, HexCoord destination)
-        {
-            if (grid == null) return null;
-
-            // 1차: preferred 자체가 가능하면 즉시 반환.
-            HexTile preferredTile = grid.GetTile(preferred);
-            bool preferredWalkable = preferredTile != null && preferredTile.IsWalkable;
-            if (preferredWalkable && CanFit(preferred, unitSize))
-                return preferred;
-
-            // forward 필터 활성 여부:
-            //   destination이 default(HexCoord)이거나 preferred와 같으면 비활성.
-            //   (default는 "목적지 정보 없음" 약속, preferred==destination은 이미 도착 상황이라 의미 없음)
-            bool useForwardFilter = !(destination == default(HexCoord)) && destination != preferred;
-            int preferredDist = useForwardFilter ? HexCoord.Distance(preferred, destination) : 0;
-
-            // 1차 시도: forward 필터 적용하여 BFS.
-            HexCoord? forwardResult = BfsFindAvailable(preferred, unitSize, grid,
-                useForwardFilter, destination, preferredDist);
-            if (forwardResult.HasValue) return forwardResult;
-
-            // forward 필터로 못 찾았고, 필터가 활성 상태였다면 fallback으로 다시 시도.
-            // fallback은 방향 제한 없이 가까운 빈 타일을 찾으므로 결과적으로 우회는 보장된다.
-            if (useForwardFilter)
-            {
-                return BfsFindAvailable(preferred, unitSize, grid, false, default, 0);
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// FindAvailableTile의 내부 BFS 본체.
-        /// useForwardFilter=true이면 후보 타일이 목적지에서 더 멀어지지 않을 때만 반환 후보로 인정.
+        /// FindForwardAvailable의 내부 BFS 본체.
+        /// 후보 타일이 목적지에서 더 멀어지지 않을 때만(거리 +1 여유) 반환 후보로 인정한다.
         /// 큐에는 항상 추가하므로 외곽 탐색은 계속 진행된다.
+        ///
+        /// 새 규칙(GameSystemRules.md 규칙 5)에서는 "뒤로 우회 절대 금지, 앞쪽이 없으면 대기"이므로
+        /// useForwardFilter=false fallback은 더 이상 호출되지 않는다(파라미터는 제거됨).
+        ///
+        /// [BUG-008 — 2026-05-06] currentTile 파라미터:
+        ///   호출 유닛의 현재 논리 타일을 visited에 미리 등록하여 우회 후보로 반환되는 것을 차단한다.
+        ///   currentTile == default(HexCoord)이면 추가 제외 없음.
         /// </summary>
         private HexCoord? BfsFindAvailable(HexCoord preferred, float unitSize, HexGrid grid,
-            bool useForwardFilter, HexCoord destination, int preferredDist)
+            HexCoord destination, int preferredDist, HexCoord currentTile)
         {
             // visited는 "이미 큐에 넣었거나 검사한 타일"을 기록하여 중복 방문 방지.
             // 시작 좌표 자체도 visited에 넣어 둠 (이미 위에서 실패함).
             var visited = new HashSet<HexCoord> { preferred };
+
+            // [BUG-008] 현재 유닛 위치 타일을 visited에 추가 — 우회 결과로 자기 자신을 반환하는 일을 차단.
+            //   default(HexCoord)는 "정보 없음" 약속이므로 그 경우엔 추가하지 않는다.
+            //   IsInvalid 체크는 의도적으로 사용하지 않는다 — 일반 (0,0) 타일에 위치한 유닛도 보호받아야 한다.
+            //   (단, 현재 약속상 호출 측에서 의미 있는 좌표만 넘겨준다는 전제하에)
+            if (!(currentTile == default(HexCoord)))
+            {
+                visited.Add(currentTile);
+            }
+
             var queue = new Queue<HexCoord>();
             queue.Enqueue(preferred);
 
@@ -238,17 +183,10 @@ namespace Hexiege.Application
                     {
                         // forward 필터: 목적지에서 너무 멀어지지 않는 타일만 반환.
                         // 헥스 거리 기준으로 preferred보다 +1까지는 측면으로 간주하고 허용.
-                        if (useForwardFilter)
-                        {
-                            int candidateDist = HexCoord.Distance(nb, destination);
-                            if (candidateDist <= preferredDist + 1)
-                                return nb;
-                            // 필터 미통과 — 후보로는 반환하지 않지만 큐에는 추가하여 외곽 탐색 계속.
-                        }
-                        else
-                        {
+                        int candidateDist = HexCoord.Distance(nb, destination);
+                        if (candidateDist <= preferredDist + 1)
                             return nb;
-                        }
+                        // 필터 미통과 — 후보로는 반환하지 않지만 큐에는 추가하여 외곽 탐색 계속.
                     }
 
                     // 들어갈 수 없어도(또는 forward 필터 미통과여도) 더 외곽으로 탐색을 확장하기 위해 큐에 추가.
@@ -258,6 +196,64 @@ namespace Hexiege.Application
 
             // 가득 차서 후보가 전혀 없음(또는 forward 조건을 만족하는 타일이 없음).
             return null;
+        }
+
+        // ====================================================================
+        // [2026-04-30] 새 이동/전투 규칙(GameSystemRules.md 규칙 5) — "앞쪽 또는 대기"
+        // ====================================================================
+
+        /// <summary>
+        /// [2026-04-30] 새 규칙용 우회 메서드.
+        /// preferred 타일에 들어갈 수 있으면 그 좌표를 반환.
+        /// 들어갈 수 없으면 BFS로 "앞쪽(목적지에 가까워지는) walkable 타일"만 후보로 인정해 반환.
+        /// 앞쪽에 빈 타일이 없으면 null — 호출 측은 "현재 위치에서 대기"한다.
+        ///
+        /// 새 규칙 5와의 차이:
+        ///   기존 FindAvailableTile(...)은 forward 필터 실패 시 fallback BFS(필터 OFF)로 다시
+        ///   시도해 어떤 빈 타일이라도 찾아주었다. 그러나 새 규칙은 "뒤로 우회 절대 금지,
+        ///   앞쪽이 없으면 대기"이므로 fallback BFS 자체를 호출하지 않는다.
+        ///
+        /// destination이 default(HexCoord)이거나 preferred와 같으면 forward 필터를 활성화할 수
+        /// 없어 의미가 없는 호출이다. 이 경우 안전을 위해 null을 반환한다(호출 측에서 destination을
+        /// 반드시 의미 있는 값으로 넘기는 것을 강제).
+        /// </summary>
+        /// <param name="preferred">원래 가고 싶었던 타일 좌표.</param>
+        /// <param name="unitSize">이동하려는 유닛의 OccupancySize.</param>
+        /// <param name="grid">walkable 여부 판정 + 이웃 탐색에 사용할 그리드.</param>
+        /// <param name="destination">최종 목적지 좌표(우회 방향 결정에 사용). default 시 null 반환.</param>
+        /// <param name="currentTile">
+        /// [BUG-008 — 2026-05-06] 호출 유닛의 현재 논리 타일 좌표(prevActualTile).
+        /// BFS visited 초기 집합에 추가하여 "현재 위치 타일"이 우회 후보로 반환되는 것을 차단한다.
+        /// 호출 측이 의미 있는 값을 모르거나 폴백이 필요하면 default(HexCoord)를 넘긴다(이 경우 추가 제외 없음).
+        /// </param>
+        /// <returns>들어갈 수 있는 앞쪽 타일 좌표 또는 null(앞쪽이 모두 가득 → 대기).</returns>
+        public HexCoord? FindForwardAvailable(HexCoord preferred, float unitSize, HexGrid grid, HexCoord destination, HexCoord currentTile)
+        {
+            if (grid == null) return null;
+
+            // 1차: preferred가 가능하면 즉시 반환.
+            //   ※ currentTile == preferred인 경우 — 같은 타일이라 의미상 "이미 도착"이지만
+            //   아래 forward 필터가 destination==preferred를 비활성 케이스로 처리하므로 그대로 두어도 된다.
+            HexTile preferredTile = grid.GetTile(preferred);
+            bool preferredWalkable = preferredTile != null && preferredTile.IsWalkable;
+            if (preferredWalkable && CanFit(preferred, unitSize))
+                return preferred;
+
+            // forward 필터 활성화 가능 여부 확인 — 새 규칙은 이게 항상 활성화돼야 한다.
+            // destination이 의미 없는 값이면 호출 자체가 잘못된 것으로 간주.
+            bool useForwardFilter = !(destination == default(HexCoord)) && destination != preferred;
+            if (!useForwardFilter)
+            {
+                return null;
+            }
+
+            int preferredDist = HexCoord.Distance(preferred, destination);
+
+            // forward 필터 BFS — 통과 후보 없으면 null(=대기).
+            // 기존 FindAvailableTile의 fallback BFS는 호출하지 않는다(새 규칙 핵심).
+            return BfsFindAvailable(preferred, unitSize, grid,
+                destination: destination, preferredDist: preferredDist,
+                currentTile: currentTile);
         }
 
         /// <summary>

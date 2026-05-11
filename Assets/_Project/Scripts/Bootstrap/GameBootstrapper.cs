@@ -129,6 +129,13 @@ namespace Hexiege.Bootstrap
         [Tooltip("게임 UI 생명주기 매니저. 게임 시작/종료 시 등록된 모든 UI에 콜백 호출.")]
         [SerializeField] private GameUIManager _uiManager;
 
+        [Header("이동 슬롯 오프셋 (TileMoveSlotManager)")]
+        [Tooltip("슬롯 1번(앞 중앙)이 타일 중심에서 성 방향으로 떨어지는 비율. 0~0.5 권장. 기본값 0.30.")]
+        [SerializeField] private float _slotForwardRatio = 0.30f;
+
+        [Tooltip("슬롯 2번(뒤좌)·3번(뒤우)이 타일 중심에서 좌/우로 떨어지는 비율. 0~0.5 권장. 기본값 0.30.")]
+        [SerializeField] private float _slotSideRatio = 0.30f;
+
         // ====================================================================
         // UseCase 인스턴스 (런타임 생성)
         // ====================================================================
@@ -226,11 +233,22 @@ namespace Hexiege.Bootstrap
         // 패스파인딩 인프라 (2026-04-25 플로우 필드 도입)
         //   _flowFieldService: 목적지별 BFS 결과를 캐싱·관리.
         //                       UnitMovementUseCase 생성 시 주입.
-        //   _slotManager: 같은 타일에 여러 유닛이 모일 때 시각 위치를 분산.
-        //                 UnitFactory를 통해 UnitView에 주입.
         // ────────────────────────────────────────────────────────────────────
         private FlowFieldService _flowFieldService;
-        private TileSlotManager _slotManager;
+
+        // ────────────────────────────────────────────────────────────────────
+        // [2026-04-30] 이동/전투 재설계 — 새 이동 슬롯 매니저.
+        //   새 코루틴(MoveAlongPathV3)이 사용하는 매니저.
+        //   - 슬롯 3개 (앞 / 뒤좌 / 뒤우)
+        //   - 슬롯 위치 = 타일 내 이동 목표 좌표(슬롯 도달 = 타일 도착)
+        //   - 점유치 2 유닛도 슬롯 1개만 차지
+        // ────────────────────────────────────────────────────────────────────
+        private TileMoveSlotManager _moveSlotManager;
+
+        // 근접 유닛 Phase 1 추적 시 타겟 주변 인접 타일을 유닛별로 배정.
+        // 같은 지점으로 수렴하는 뭉침 현상을 방지한다.
+        // UnitFactory를 통해 UnitView에 주입.
+        private AttackPositionManager _attackPositionManager;
 
         // 타일별 점유량 추적 — 같은 타일에 너무 많은 유닛이 모이는 것을 방지.
         // UnitMovementUseCase에 주입되어 ProcessStep 시 자동 갱신되며,
@@ -251,9 +269,16 @@ namespace Hexiege.Bootstrap
         public FlowFieldService GetFlowFieldService() => _flowFieldService;
 
         /// <summary>
-        /// TileSlotManager 반환. UnitView가 슬롯 점유/해제에 사용.
+        /// [2026-04-30] TileMoveSlotManager 반환. 새 이동/전투 흐름(MoveAlongPathV3)이 사용한다.
+        /// 외부 디버깅/조회 목적으로만 노출. 일반 사용은 UnitView 내부 자동 처리.
         /// </summary>
-        public TileSlotManager GetTileSlotManager() => _slotManager;
+        public TileMoveSlotManager GetTileMoveSlotManager() => _moveSlotManager;
+
+        /// <summary>
+        /// AttackPositionManager 반환. UnitView가 Phase 1 추적 시 인접 타일 슬롯을 점유/해제.
+        /// 디버깅/외부 조회 목적으로 노출 (일반 사용은 UnitView 내부에서 자동 처리).
+        /// </summary>
+        public AttackPositionManager GetAttackPositionManager() => _attackPositionManager;
 
         /// <summary>
         /// TileOccupancyManager 반환. 디버깅 등 외부에서 점유 상태를 조회할 때 사용.
@@ -266,6 +291,20 @@ namespace Hexiege.Bootstrap
         /// NetworkGameFlow가 재스폰될 경우 LoadMap이 재실행되는 것을 막음.
         /// </summary>
         private bool _networkGameStarted = false;
+
+        // ────────────────────────────────────────────────────────────────────
+        // [2026-04-30] 새 규칙 4 — 건물 변경 시 즉시 모든 유닛 경로 재계산(eager).
+        //
+        //   FlowFieldService가 OnBuildingPlaced / OnEntityDied(building)에서 InvalidateAll로
+        //   캐시를 비워주지만, 이건 lazy 동작 — 다음 RequestMove 시점에 재계산된다.
+        //   새 규칙은 "변경 시점에 모든 살아있는 유닛이 즉시 새 경로로 갱신"을 요구한다.
+        //
+        //   Application 레이어(UnitMovementUseCase)는 Presentation(UnitView)에 직접 접근할 수
+        //   없으므로, composition root(여기 GameBootstrapper)가 이 트리거를 담당한다.
+        //
+        //   구독은 LoadMap()에서 1회 시작하고 ClearAll()/Dispose 시점에 정리한다.
+        // ────────────────────────────────────────────────────────────────────
+        private CompositeDisposable _eagerRepathSubscriptions;
 
         /// <summary>
         /// 네트워크 게임이 이미 시작되었는지 여부.
@@ -326,6 +365,14 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void Start()
         {
+            // ────────────────────────────────────────────────────────────
+            // [실기 로그] 새 플레이 세션이 시작됐음을 RuntimeLog.txt에 명시 기록.
+            // GameBootstrapper.Start()는 게임 씬(Game.unity) 진입 시 1회만 호출되므로
+            // 세션 시작 마커로 사용하기에 가장 자연스러운 위치다.
+            // 릴리즈 빌드에서는 본문이 비워져 호출 비용이 0이 된다.
+            // ────────────────────────────────────────────────────────────
+            MovementLogger.SessionStart();
+
             // ────────────────────────────────────────────────────────────
             // UnitStats / UnitProductionStats를 ScriptableObject 설정값으로 초기화.
             // 이 시점 이후 생성되는 모든 UnitData에 SO 수치가 적용됨.
@@ -409,7 +456,13 @@ namespace Hexiege.Bootstrap
                     HitFrameTimes = entry.hitFrameTimes,
                     // OccupancySize: 타일 점유 크기 (소형 1 / 중형 2 / 대형 3).
                     // SO에서 0으로 비어 있으면 UnitStats.GetOccupancySize()에서 1f로 폴백.
-                    OccupancySize = entry.occupancySize
+                    OccupancySize = entry.occupancySize,
+                    // Kind: 근접/원거리 분기.
+                    // 새 이동/전투 규칙(GameSystemRules.md 13/15)에서
+                    //  "감지 시 직선 추적" vs "사거리 진입 시 즉시 공격"을 결정.
+                    // SO Inspector에서 명시적으로 선택해야 하며, 기본값(enum 0=Melee)이
+                    // 실제 의도와 다를 수 있으므로 Config 항목별로 반드시 확인할 것.
+                    Kind = entry.attackKind
                 };
 
                 prodDict[entry.unitType] = new UnitProductionStats.ProductionValues
@@ -594,6 +647,70 @@ namespace Hexiege.Bootstrap
             // UI가 OnGameStarted() 콜백을 안전하게 처리할 수 있도록 보장.
             GameEvents.OnGameStarted.OnNext(Unit.Default);
 
+            // 15. [2026-04-30] 새 규칙 4 — 건물 변경 시 모든 유닛 경로 즉시 재계산.
+            //     이 시점이면 _unitFactory / _unitMovement / _flowFieldService 모두 준비됨.
+            SetupEagerRepathOnBuildingChanges();
+
+        }
+
+        // ====================================================================
+        // [2026-04-30] 새 규칙 4 — eager 경로 재계산 트리거 설정
+        // ====================================================================
+
+        /// <summary>
+        /// 건물 배치 / 건물 사망 이벤트를 구독하여
+        /// 살아있는 모든 유닛에게 OnPathInvalidated() 호출 → 동일 destination으로
+        /// 새 경로를 받아 이동을 즉시 재시작시킨다.
+        ///
+        /// 구독 해제는 ClearAll() 또는 OnDestroy()에서 처리.
+        /// 멀티플레이에서는 서버에서만 트리거되어야 하므로 가드 적용.
+        /// </summary>
+        private void SetupEagerRepathOnBuildingChanges()
+        {
+            // 기존 구독 정리 (재경기/맵 전환 시 중복 구독 방지).
+            _eagerRepathSubscriptions?.Dispose();
+            _eagerRepathSubscriptions = new CompositeDisposable();
+
+            // 건물 배치: walkable이 false로 바뀌어 기존 경로가 부정확해질 수 있다.
+            GameEvents.OnBuildingPlaced
+                .Subscribe(_ => RepathAllAliveUnits())
+                .AddTo(_eagerRepathSubscriptions);
+
+            // 엔티티 사망: 건물 사망만 walkable에 영향 → 그때만 재계산.
+            GameEvents.OnEntityDied
+                .Subscribe(e =>
+                {
+                    if (e.Entity is BuildingData) RepathAllAliveUnits();
+                })
+                .AddTo(_eagerRepathSubscriptions);
+        }
+
+        /// <summary>
+        /// 모든 살아있는 유닛에 대해 OnPathInvalidated()를 호출.
+        /// 서버(또는 싱글플레이)에서만 동작 — 클라이언트는 NetworkTransform이 결과를 동기화한다.
+        /// </summary>
+        private void RepathAllAliveUnits()
+        {
+            // 서버 가드 — 싱글(IsNetworkActive==false) 또는 Host(IsNetworkServer==true) 통과.
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+            if (_unitSpawn == null || _unitFactory == null) return;
+
+            // _unitSpawn.Units는 IReadOnlyDictionary<int, UnitData>.
+            // 살아있는 유닛만 처리 (사망한 유닛은 OnEntityDied에서 OnUnitRemoved가 호출됨).
+            foreach (var kv in _unitSpawn.Units)
+            {
+                UnitData unit = kv.Value;
+                if (unit == null || !unit.IsAlive) continue;
+
+                GameObject obj = _unitFactory.GetUnitObject(unit.Id);
+                if (obj == null) continue;
+
+                Hexiege.Presentation.UnitView view = obj.GetComponent<Hexiege.Presentation.UnitView>();
+                if (view == null) continue;
+
+                // UnitView 내부에서 destination 보유 여부와 NetworkContext 가드를 다시 한 번 체크.
+                view.OnPathInvalidated();
+            }
         }
 
         // ====================================================================
@@ -731,11 +848,23 @@ namespace Hexiege.Bootstrap
                 _flowFieldService = new FlowFieldService();
             _flowFieldService.Initialize(_grid);
 
-            // 타일 슬롯 매니저 — 같은 타일에 여러 유닛이 모일 때 시각 위치 분산.
-            // 상태가 누적되므로 맵 전환 시 Clear()로 초기화한다.
-            if (_slotManager == null)
-                _slotManager = new TileSlotManager();
-            _slotManager.Clear();
+            // ────────────────────────────────────────────────────────────
+            // [2026-04-30] TileMoveSlotManager — 새 이동/전투 흐름(MoveAlongPathV3) 전용.
+            //   UnitView의 새 코루틴이 ClaimSlot/ReleaseSlot을 호출하며, 슬롯 위치(월드 좌표)가
+            //   곧 다음 이동 목표가 된다. 슬롯 3개(앞/뒤좌/뒤우) 정의는 규칙 17 참조.
+            //   누적 상태를 가지므로 맵 전환 시 Clear()로 초기화.
+            // ────────────────────────────────────────────────────────────
+            if (_moveSlotManager == null)
+                _moveSlotManager = new TileMoveSlotManager(_slotForwardRatio, _slotSideRatio);
+            _moveSlotManager.Clear();
+
+            // 공격 위치 매니저 — 근접 유닛 Phase 1 뭉침 방지.
+            // [7차 개선 — 2026-04-28] 슬롯 정의가 타일 기반 → 12방향 angular 기반으로 바뀌면서
+            // HexGrid 의존이 사라져 매개변수 없는 생성자로 전환.
+            // 누적 상태(타겟별 슬롯 점유)를 가지므로 맵 전환 시 Clear()로 초기화.
+            if (_attackPositionManager == null)
+                _attackPositionManager = new AttackPositionManager();
+            _attackPositionManager.Clear();
 
             // 타일 점유량 매니저 — 한 타일에 들어갈 수 있는 유닛 수를 제한해
             // 좁은 타일에 과도하게 몰리는 현상을 방지한다.
@@ -861,6 +990,10 @@ namespace Hexiege.Bootstrap
             // 게임 종료 UI 숨김
             if (_gameEndUI != null)
                 _gameEndUI.Hide();
+
+            // [2026-04-30] eager 재경로 트리거 구독 정리. 다음 LoadMap에서 다시 구독한다.
+            _eagerRepathSubscriptions?.Dispose();
+            _eagerRepathSubscriptions = null;
         }
 
         // ====================================================================
@@ -899,11 +1032,13 @@ namespace Hexiege.Bootstrap
         private void SetupProduction()
         {
             // UnitFactory에 런타임 의존성 주입 (생산된 유닛에 자동 적용).
-            // _positionProvider는 UnitView의 하이브리드 이동(Phase 1 월드 좌표 추적)에서 사용.
-            // _slotManager는 같은 타일에 모인 유닛들을 시각적으로 분산시키는 데 사용.
+            // _positionProvider는 UnitView의 월드 좌표 직선 추적/회전에서 사용.
+            // _moveSlotManager는 새 코루틴(MoveAlongPathV3)이 타일 도착 시 슬롯 클레임에 사용.
+            // _attackPositionManager는 근접 추격 시 공격 슬롯(12방향) 배정에 사용.
             if (_unitFactory != null)
                 _unitFactory.SetDependencyReferences(_config, _unitMovement, _unitCombat,
-                    _unitFactory, _buildingFactory, _positionProvider, _slotManager);
+                    _unitFactory, _buildingFactory, _positionProvider,
+                    _attackPositionManager, _moveSlotManager);
 
             // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요)
             if (_productionTicker != null)
@@ -920,7 +1055,7 @@ namespace Hexiege.Bootstrap
             // 생산 패널 UI 초기화 (네트워크 컨트롤러 포함)
             if (_productionUI != null)
                 _productionUI.Initialize(_unitProduction, _resource, _population, _productionTicker, productionController);
-        }
+            }
 
         /// <summary>
         /// 양 팀 Castle 자동 배치. 게임 시작 시 호출.

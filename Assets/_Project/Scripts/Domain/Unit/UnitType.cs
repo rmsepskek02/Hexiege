@@ -21,15 +21,31 @@ namespace Hexiege.Domain
         Pistoleer     = 0,   // 권총병: 사거리 1.0, 빠른 생산
         Assault       = 1,   // 돌격소총병: 사거리 2.0, 높은 연사력
         Sniper        = 2,   // 저격총병: 사거리 5.0, 높은 공격력
+        LittleKnight  = 3,   // 근접 보병
+        SpearMan      = 4,   // 창병
+        BattleAxe     = 5,   // 도끼병
+        Tank          = 6,   // 중장갑 포격 전차
+        CannonCart    = 7,   // 원거리 포격 수레
 
         // ── 정령계 (Spirit) ──
-        FlameSpirit   = 3,   // 화염 정령: 근접(0.5), 빠른 이동, 6히트 공격
-        EmberSpirit   = 4,   // 잔불 정령: 근접(0.5), 느린 이동
-        InfernoSpirit = 5,   // 지옥불 정령: 원거리(4.0), 중거리 포격
+        FlameSpirit   = 10,  // 화염 정령: 근접(0.5), 빠른 이동, 6히트 공격
+        EmberSpirit   = 11,  // 잔불 정령: 근접(0.5), 느린 이동
+        InfernoSpirit = 12,  // 지옥불 정령: 원거리(4.0), 중거리 포격
+        DustSpirit    = 13,  // 흙정령1
+        BoulderSpirit = 14,  // 흙정령2
+        QuakeSpirit   = 15,  // 흙정령3
+        TideSpirit    = 16,  // 물정령1
+        StreamSpirit  = 17,  // 물정령2
+        TorrentSpirit = 18,  // 물정령3
 
         // ── 초월계 (Transcendence) ──
-        BearGuard     = 6,   // 곰 근위병: 근접(0.5), 탱커
-        FoxMagician   = 7,   // 여우 마법사: 원거리(3.0), 느린 이동
-        LionKnight    = 8    // 사자 기사: 근접(0.5), 빠른 이동, 4히트 공격
+        BearGuard       = 20,  // 곰 근위병: 근접(0.5), 탱커
+        FoxMagician     = 21,  // 여우 마법사: 원거리(3.0), 느린 이동
+        LionKnight      = 22,  // 사자 기사: 근접(0.5), 빠른 이동, 4히트 공격
+        RhinoBreaker    = 23,  // 돌진 탱커
+        EagleArcher     = 24,  // 원거리 궁수
+        RabbitTrickster = 25,  // 민첩 근접
+        MushroomBomber  = 26,  // 범위 폭발 딜러
+        BloomFairy      = 27   // 힐러
     }
 }
