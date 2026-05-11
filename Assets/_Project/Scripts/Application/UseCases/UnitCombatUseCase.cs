@@ -36,12 +36,13 @@ namespace Hexiege.Application
         // 건물 메시가 크기 때문에 0.2f 일찍 감지해도 유닛이 건물 메시에 닿아 보임.
         private const float BuildingDetectionRadius = 0.2f;
 
-        // 근접유닛 감지 사거리(월드 거리).
-        // 헥스 FlatTop 인접 타일 중심 간 거리(= TileHeight ≈ 0.866f)와 일치.
-        // MoveAlongPath에서 이동 중 적 감지 시,
-        //   공격 사거리(MeleeContactDist=0.3f) 밖이지만 인접 타일(~0.866f)에 있는 적을 찾기 위해 사용.
-        // 감지 후 UnitView가 해당 적 쪽으로 경로를 재계산하여 공격 사거리로 접근.
-        private const float MeleeDetectDist = 0.866f; // HexMetrics.TileHeight — FlatTop 인접 타일 중심 간 거리
+        // [2026-05-11 비활성화 — 근접/원거리 통합 detect 사거리]
+        // 기존에는 근접유닛 전용 감지 사거리(0.866f, 인접 타일 1칸)를 별도 상수로 두고
+        // AttackRange < 1.0 분기로 사용했습니다. 새 규칙에서는 모든 유닛이
+        // UnitData.DetectRange × HexMetrics.TileHeight를 감지 사거리로 사용합니다.
+        // 시그니처 호환을 위해 상수 자체는 보존(주석 처리)합니다.
+        //
+        // private const float MeleeDetectDist = 0.866f;
 
         private readonly HexGrid _grid;
         private readonly UnitSpawnUseCase _unitSpawn;
@@ -476,16 +477,12 @@ namespace Hexiege.Application
             // 부동소수점 오차 방지용 여유값 (FindFirstEnemyTarget과 동일)
             const float Epsilon = 0.05f;
 
-            // 근접유닛(AttackRange < 1.0)은 MeleeDetectDist 기준,
-            // 원거리유닛(AttackRange >= 1.0)은 AttackRange 기준으로 탐색.
-            // 원거리는 DetectRange == AttackRange이므로 기존 동작과 완전히 동일.
-            bool isMelee = attacker.AttackRange < 1.0f;
-            float unitMaxDist = isMelee
-                ? MeleeDetectDist + Epsilon
-                : attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
-            float buildingMaxDist = isMelee
-                ? MeleeDetectDist + BuildingDetectionRadius + Epsilon
-                : attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
+            // [2026-05-11 통합] 근접/원거리 구분 없이 모든 유닛이
+            // UnitData.DetectRange × HexMetrics.TileHeight를 감지 사거리로 사용.
+            // 건물은 크기가 크므로 BuildingDetectionRadius만큼 추가 여유 적용(기존 패턴 유지).
+            float detectDist = attacker.DetectRange * HexMetrics.TileHeight + Epsilon;
+            float unitMaxDist = detectDist;
+            float buildingMaxDist = detectDist + BuildingDetectionRadius;
 
             IDamageable closestTarget = null;
             float minWorldDist = float.MaxValue;

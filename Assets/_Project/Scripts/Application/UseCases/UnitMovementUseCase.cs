@@ -39,11 +39,13 @@ namespace Hexiege.Application
         // 플로우 필드 캐시 서비스 — 목적지별 BFS 결과를 공유한다.
         private readonly FlowFieldService _flowFieldService;
 
-        // 타일별 점유량 추적 — 좁은 타일에 너무 많이 모이는 것을 막는 데 사용.
-        // null 허용(레거시 호환). null이면 점유 체크가 무력화되어 기존과 동일한 동작.
+        // [2026-05-11 비활성화 — 슬롯/점유 시스템 폐기]
+        // _occupancyManager는 항상 null이 주입됩니다. 새 규칙(GameSystemRules.md)에서는
+        // 타일 점유 추적을 사용하지 않습니다. 시그니처는 호출부 호환을 위해 유지합니다.
         private readonly TileOccupancyManager _occupancyManager;
 
-        // 사망/제거 이벤트 구독 해제용 — 점유 정보 정리에 필요.
+        // 사망/제거 이벤트 구독 해제용 — 점유 정보 정리에 사용하던 것이지만 폐기됨.
+        // _subscriptions 자체는 향후 확장을 위해 유지하지만 현재는 구독 추가가 없습니다.
         private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
 
         public UnitMovementUseCase(HexGrid grid, UnitSpawnUseCase unitSpawn,
@@ -55,19 +57,21 @@ namespace Hexiege.Application
             _flowFieldService = flowFieldService;
             _occupancyManager = occupancyManager;
 
-            // 유닛 사망 시 점유 자동 해제 — UnitView가 명시적으로 해제하지 않아도 누수 방지.
-            // 클라이언트 코드 흐름에서 빠지더라도 도메인 이벤트만 도착하면 정합성이 유지된다.
-            if (_occupancyManager != null)
-            {
-                _subscriptions.Add(GameEvents.OnEntityDied.Subscribe(evt =>
-                {
-                    if (evt.Entity is UnitData unit)
-                    {
-                        float size = GetOccupancySize(unit.Type);
-                        _occupancyManager.OnUnitRemoved(unit.Position, size);
-                    }
-                }));
-            }
+            // [2026-05-11 비활성화 — 점유 시스템 폐기]
+            // OnEntityDied → OnUnitRemoved 자동 구독은 점유 시스템 폐기로 제거됐습니다.
+            // 기존 코드는 git 히스토리에서 확인 가능합니다.
+            //
+            // if (_occupancyManager != null)
+            // {
+            //     _subscriptions.Add(GameEvents.OnEntityDied.Subscribe(evt =>
+            //     {
+            //         if (evt.Entity is UnitData unit)
+            //         {
+            //             float size = GetOccupancySize(unit.Type);
+            //             _occupancyManager.OnUnitRemoved(unit.Position, size);
+            //         }
+            //     }));
+            // }
         }
 
         /// <summary>
@@ -155,21 +159,16 @@ namespace Hexiege.Application
         /// <param name="to">도착 타일 좌표</param>
         public void ProcessStep(UnitData unit, HexCoord from, HexCoord to)
         {
-            // [4차 개선 — 2026-04-26] FROM 타일 점유 해제.
-            // RegisterOccupancyMove는 TO+1만 예약했으므로, 여기서 FROM-1을 처리한다.
-            // 유닛이 Lerp를 완료하여 실제로 FROM을 떠난 시점이므로 타이밍이 정확하다.
+            // [2026-05-11 비활성화 — 점유 시스템 폐기]
+            // FROM 타일 점유 해제(_occupancyManager.OnUnitRemoved) 호출은 제거됐습니다.
+            // 새 규칙에서는 점유 추적이 없으므로 도메인 상태(Position, Facing)만 갱신하고
+            // OnUnitMoved 이벤트를 발행합니다.
             //
-            // 처리 조건:
-            //   - from != to: 같은 타일 이동(Phase 2 스냅 등)은 점유 변동이 없어야 함.
-            //     RegisterOccupancyMove 측도 TO==FROM이면 결과적으로 +1만 발생하지만,
-            //     Phase 2 스냅 같은 케이스에서는 RegisterOccupancyMove를 별도 호출하므로
-            //     여기서 FROM 해제까지 함께 일어나면 점유가 누락된다.
-            //   - _occupancyManager != null: 서버에서만 동작, null 방어.
-            //   - OnUnitRemoved 내부에 IsInvalid 체크 있음 → 스폰(from=default) 안전.
-            if (from != to && _occupancyManager != null)
-            {
-                _occupancyManager.OnUnitRemoved(from, GetOccupancySize(unit.Type));
-            }
+            // 기존 코드:
+            // if (from != to && _occupancyManager != null)
+            // {
+            //     _occupancyManager.OnUnitRemoved(from, GetOccupancySize(unit.Type));
+            // }
 
             // 이동 방향 계산 → 스프라이트 방향 전환에 사용
             HexDirection dir = FacingDirection.FromCoords(from, to);
@@ -208,10 +207,13 @@ namespace Hexiege.Application
         /// </summary>
         public void RegisterOccupancyMove(HexCoord from, HexCoord to, UnitType type)
         {
-            if (_occupancyManager == null) return;
-            float size = GetOccupancySize(type);
-            // TO 타일만 예약 — FROM 해제는 ProcessStep에서 처리한다.
-            _occupancyManager.ReserveOccupancy(to, size);
+            // [2026-05-11 비활성화 — 점유 시스템 폐기]
+            // 본문 비워둠. 호출부 호환을 위해 시그니처만 유지합니다.
+            //
+            // 기존 코드:
+            // if (_occupancyManager == null) return;
+            // float size = GetOccupancySize(type);
+            // _occupancyManager.ReserveOccupancy(to, size);
         }
 
         /// <summary>
@@ -225,15 +227,20 @@ namespace Hexiege.Application
         /// </summary>
         public void ReleaseOccupancy(HexCoord tile, UnitType type)
         {
-            if (_occupancyManager == null) return;
-            float size = GetOccupancySize(type);
-            _occupancyManager.OnUnitRemoved(tile, size);
+            // [2026-05-11 비활성화 — 점유 시스템 폐기]
+            // 본문 비워둠. 호출부 호환을 위해 시그니처만 유지합니다.
+            //
+            // 기존 코드:
+            // if (_occupancyManager == null) return;
+            // float size = GetOccupancySize(type);
+            // _occupancyManager.OnUnitRemoved(tile, size);
         }
 
         /// <summary>
         /// 유닛 타입의 OccupancySize 조회.
-        /// UnitView에서 다음 타일 진입 가능 여부를 판단할 때 사용한다.
-        /// UnitStats를 통해 ScriptableObject(UnitStatsConfig) 값이 반환된다.
+        /// [2026-05-11 비활성화 — 점유 시스템 폐기] 새 규칙에서는 사용되지 않으나
+        /// 호환을 위해 시그니처와 위임 동작은 유지합니다. UnitStats.GetOccupancySize도
+        /// 내부적으로 폴백 1f를 반환하므로 안전합니다.
         /// </summary>
         public float GetOccupancySize(UnitType type)
         {
@@ -269,9 +276,10 @@ namespace Hexiege.Application
         /// <returns>들어갈 수 있는 앞쪽 타일 좌표 또는 null(=대기).</returns>
         public HexCoord? FindForwardAvailable(HexCoord preferred, float unitSize, HexCoord destination, HexCoord currentTile)
         {
-            // OccupancyManager 미주입(레거시): preferred 그대로 반환 — 점유 체크 비활성화 동작.
-            if (_occupancyManager == null) return preferred;
-            return _occupancyManager.FindForwardAvailable(preferred, unitSize, _grid, destination, currentTile);
+            // [2026-05-11 비활성화 — 점유 시스템 폐기]
+            // 항상 preferred 그대로 반환 — 새 규칙에서는 우회를 수행하지 않습니다.
+            // 호출부 호환을 위해 시그니처는 유지합니다.
+            return preferred;
         }
 
         // ====================================================================

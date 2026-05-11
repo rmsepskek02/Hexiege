@@ -129,12 +129,17 @@ namespace Hexiege.Bootstrap
         [Tooltip("게임 UI 생명주기 매니저. 게임 시작/종료 시 등록된 모든 UI에 콜백 호출.")]
         [SerializeField] private GameUIManager _uiManager;
 
-        [Header("이동 슬롯 오프셋 (TileMoveSlotManager)")]
-        [Tooltip("슬롯 1번(앞 중앙)이 타일 중심에서 성 방향으로 떨어지는 비율. 0~0.5 권장. 기본값 0.30.")]
-        [SerializeField] private float _slotForwardRatio = 0.30f;
-
-        [Tooltip("슬롯 2번(뒤좌)·3번(뒤우)이 타일 중심에서 좌/우로 떨어지는 비율. 0~0.5 권장. 기본값 0.30.")]
-        [SerializeField] private float _slotSideRatio = 0.30f;
+        // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
+        // 이동 슬롯 오프셋(TileMoveSlotManager)은 새 이동/전투 규칙(GameSystemRules.md)에 따라
+        // 더 이상 사용하지 않으므로 Inspector 노출 SerializeField를 주석 처리합니다.
+        // 새 규칙: 유닛은 단일 상태 머신(A* 이동 → 전투 이동 → 공격)을 따르며,
+        // 같은 타일에 모이는 유닛을 슬롯으로 분산시키지 않습니다.
+        // [Header("이동 슬롯 오프셋 (TileMoveSlotManager)")]
+        // [Tooltip("슬롯 1번(앞 중앙)이 타일 중심에서 성 방향으로 떨어지는 비율. 0~0.5 권장. 기본값 0.30.")]
+        // [SerializeField] private float _slotForwardRatio = 0.30f;
+        //
+        // [Tooltip("슬롯 2번(뒤좌)·3번(뒤우)이 타일 중심에서 좌/우로 떨어지는 비율. 0~0.5 권장. 기본값 0.30.")]
+        // [SerializeField] private float _slotSideRatio = 0.30f;
 
         // ====================================================================
         // UseCase 인스턴스 (런타임 생성)
@@ -236,24 +241,19 @@ namespace Hexiege.Bootstrap
         // ────────────────────────────────────────────────────────────────────
         private FlowFieldService _flowFieldService;
 
-        // ────────────────────────────────────────────────────────────────────
+        // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
+        // 아래 세 매니저(TileMoveSlotManager / AttackPositionManager / TileOccupancyManager)는
+        // 새 이동/전투 규칙(GameSystemRules.md)에 따라 더 이상 사용하지 않습니다.
+        // 필드 자체는 주석으로 보존하여 향후 롤백/참고 시 위치를 명확히 합니다.
+        //
         // [2026-04-30] 이동/전투 재설계 — 새 이동 슬롯 매니저.
-        //   새 코루틴(MoveAlongPathV3)이 사용하는 매니저.
-        //   - 슬롯 3개 (앞 / 뒤좌 / 뒤우)
-        //   - 슬롯 위치 = 타일 내 이동 목표 좌표(슬롯 도달 = 타일 도착)
-        //   - 점유치 2 유닛도 슬롯 1개만 차지
-        // ────────────────────────────────────────────────────────────────────
-        private TileMoveSlotManager _moveSlotManager;
-
+        // private TileMoveSlotManager _moveSlotManager;
+        //
         // 근접 유닛 Phase 1 추적 시 타겟 주변 인접 타일을 유닛별로 배정.
-        // 같은 지점으로 수렴하는 뭉침 현상을 방지한다.
-        // UnitFactory를 통해 UnitView에 주입.
-        private AttackPositionManager _attackPositionManager;
-
+        // private AttackPositionManager _attackPositionManager;
+        //
         // 타일별 점유량 추적 — 같은 타일에 너무 많은 유닛이 모이는 것을 방지.
-        // UnitMovementUseCase에 주입되어 ProcessStep 시 자동 갱신되며,
-        // UnitView가 다음 타일로 이동하기 직전에 빈 타일을 찾는 데 사용한다.
-        private TileOccupancyManager _occupancyManager;
+        // private TileOccupancyManager _occupancyManager;
 
         // TileOwnershipService — 매 프레임 모든 유닛의 물리 위치를 확인하여 타일 소유권을 갱신.
         // 유닛 이동 방식(Phase 0 타일 Lerp / Phase 1 월드 좌표 추적 / Phase 2 스냅)과 무관하게
@@ -268,23 +268,24 @@ namespace Hexiege.Bootstrap
         /// </summary>
         public FlowFieldService GetFlowFieldService() => _flowFieldService;
 
-        /// <summary>
-        /// [2026-04-30] TileMoveSlotManager 반환. 새 이동/전투 흐름(MoveAlongPathV3)이 사용한다.
-        /// 외부 디버깅/조회 목적으로만 노출. 일반 사용은 UnitView 내부 자동 처리.
-        /// </summary>
-        public TileMoveSlotManager GetTileMoveSlotManager() => _moveSlotManager;
+        // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
+        // 슬롯/점유 매니저는 더 이상 생성되지 않으므로 외부 노출 getter는 항상 null을 반환합니다.
+        // 외부 호출부(있다면)에서 NullReference가 나지 않도록 시그니처는 유지합니다.
 
         /// <summary>
-        /// AttackPositionManager 반환. UnitView가 Phase 1 추적 시 인접 타일 슬롯을 점유/해제.
-        /// 디버깅/외부 조회 목적으로 노출 (일반 사용은 UnitView 내부에서 자동 처리).
+        /// [2026-05-11 비활성화] TileMoveSlotManager는 폐기되었습니다. 항상 null 반환.
         /// </summary>
-        public AttackPositionManager GetAttackPositionManager() => _attackPositionManager;
+        public TileMoveSlotManager GetTileMoveSlotManager() => null;
 
         /// <summary>
-        /// TileOccupancyManager 반환. 디버깅 등 외부에서 점유 상태를 조회할 때 사용.
-        /// 일반적인 사용은 UnitMovementUseCase 내부에서 자동 처리된다.
+        /// [2026-05-11 비활성화] AttackPositionManager는 폐기되었습니다. 항상 null 반환.
         /// </summary>
-        public TileOccupancyManager GetTileOccupancyManager() => _occupancyManager;
+        public AttackPositionManager GetAttackPositionManager() => null;
+
+        /// <summary>
+        /// [2026-05-11 비활성화] TileOccupancyManager는 폐기되었습니다. 항상 null 반환.
+        /// </summary>
+        public TileOccupancyManager GetTileOccupancyManager() => null;
 
         /// <summary>
         /// StartNetworkGame() 중복 호출 방지 플래그.
@@ -849,33 +850,30 @@ namespace Hexiege.Bootstrap
             _flowFieldService.Initialize(_grid);
 
             // ────────────────────────────────────────────────────────────
-            // [2026-04-30] TileMoveSlotManager — 새 이동/전투 흐름(MoveAlongPathV3) 전용.
-            //   UnitView의 새 코루틴이 ClaimSlot/ReleaseSlot을 호출하며, 슬롯 위치(월드 좌표)가
-            //   곧 다음 이동 목표가 된다. 슬롯 3개(앞/뒤좌/뒤우) 정의는 규칙 17 참조.
-            //   누적 상태를 가지므로 맵 전환 시 Clear()로 초기화.
+            // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
+            // 새 이동/전투 규칙(GameSystemRules.md)에 따라 슬롯/점유 매니저는 더 이상
+            // 생성하지 않습니다. UnitView의 새 상태 머신은 슬롯/점유 분기 없이
+            // A* 이동 → 전투 이동 → 공격의 단일 흐름으로 동작합니다.
+            //
+            // 기존 코드(롤백 참고용):
+            //   if (_moveSlotManager == null)
+            //       _moveSlotManager = new TileMoveSlotManager(_slotForwardRatio, _slotSideRatio);
+            //   _moveSlotManager.Clear();
+            //
+            //   if (_attackPositionManager == null)
+            //       _attackPositionManager = new AttackPositionManager();
+            //   _attackPositionManager.Clear();
+            //
+            //   if (_occupancyManager == null)
+            //       _occupancyManager = new TileOccupancyManager();
+            //   _occupancyManager.Clear();
             // ────────────────────────────────────────────────────────────
-            if (_moveSlotManager == null)
-                _moveSlotManager = new TileMoveSlotManager(_slotForwardRatio, _slotSideRatio);
-            _moveSlotManager.Clear();
-
-            // 공격 위치 매니저 — 근접 유닛 Phase 1 뭉침 방지.
-            // [7차 개선 — 2026-04-28] 슬롯 정의가 타일 기반 → 12방향 angular 기반으로 바뀌면서
-            // HexGrid 의존이 사라져 매개변수 없는 생성자로 전환.
-            // 누적 상태(타겟별 슬롯 점유)를 가지므로 맵 전환 시 Clear()로 초기화.
-            if (_attackPositionManager == null)
-                _attackPositionManager = new AttackPositionManager();
-            _attackPositionManager.Clear();
-
-            // 타일 점유량 매니저 — 한 타일에 들어갈 수 있는 유닛 수를 제한해
-            // 좁은 타일에 과도하게 몰리는 현상을 방지한다.
-            // 슬롯 매니저처럼 누적 상태를 가지므로 맵 전환 시 Clear()로 초기화.
-            if (_occupancyManager == null)
-                _occupancyManager = new TileOccupancyManager();
-            _occupancyManager.Clear();
 
             // 이전 UseCase의 이벤트 구독을 정리한 뒤 새로 생성 (재경기 시 중복 구독 방지).
+            // [2026-05-11 비활성화] occupancyManager 인자는 null을 전달 — UnitMovementUseCase 내부에서
+            // null이면 점유 체크가 모두 무력화되어 새 규칙과 동일한 동작이 됩니다.
             _unitMovement?.Dispose();
-            _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn, _flowFieldService, _occupancyManager);
+            _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn, _flowFieldService, null);
             _buildingPlacement = new BuildingPlacementUseCase(_grid);
             _positionProvider = new UnitWorldPositionProvider(_unitFactory, _buildingFactory);
             _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement, _positionProvider);
@@ -1033,12 +1031,14 @@ namespace Hexiege.Bootstrap
         {
             // UnitFactory에 런타임 의존성 주입 (생산된 유닛에 자동 적용).
             // _positionProvider는 UnitView의 월드 좌표 직선 추적/회전에서 사용.
-            // _moveSlotManager는 새 코루틴(MoveAlongPathV3)이 타일 도착 시 슬롯 클레임에 사용.
-            // _attackPositionManager는 근접 추격 시 공격 슬롯(12방향) 배정에 사용.
+            // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
+            //   _moveSlotManager / _attackPositionManager는 더 이상 생성되지 않으므로 null 전달.
+            //   UnitFactory의 SetDependencyReferences는 시그니처를 유지(호출부 변경 최소화)하며,
+            //   UnitView 내부에서 null인 경우 슬롯 분기를 타지 않도록 처리합니다.
             if (_unitFactory != null)
                 _unitFactory.SetDependencyReferences(_config, _unitMovement, _unitCombat,
                     _unitFactory, _buildingFactory, _positionProvider,
-                    _attackPositionManager, _moveSlotManager);
+                    null, null);
 
             // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요)
             if (_productionTicker != null)

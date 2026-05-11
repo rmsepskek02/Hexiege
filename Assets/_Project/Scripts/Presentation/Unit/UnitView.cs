@@ -121,67 +121,31 @@ namespace Hexiege.Presentation
         /// </summary>
         private IEntityPositionProvider _positionProvider;
 
-        /// <summary>
-        /// 근접 유닛 추격 시 타겟 주변 12방향 위치를 슬롯으로 배정하는 매니저.
-        /// 같은 적을 노리는 여러 유닛이 한 지점으로 몰리는 뭉침 현상을 방지한다.
-        /// 주입되지 않으면 근접 추격 시 타겟 위치 그대로 추적(폴백).
-        /// </summary>
+        // ====================================================================
+        // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
+        // 아래 두 매니저 참조와 V3 슬롯/점유 추적 필드는 새 이동/전투 규칙(GameSystemRules.md)에 따라
+        // 더 이상 사용되지 않습니다. 그러나 SetDependencies 시그니처 호환과 기존 사용처(주석 처리된 코드)에서
+        // 필드 이름을 참조하는 부분이 있어 필드 자체는 살려둡니다.
+        // - SetDependencies에서 항상 null이 주입되며,
+        // - 새 코루틴(MoveAlongPathV3)은 이 필드들을 일절 사용하지 않습니다.
+        // ====================================================================
+
+        /// <summary>[2026-05-11 비활성화] 슬롯 시스템 폐기 — 항상 null이 주입됩니다.</summary>
         private AttackPositionManager _attackPositionManager;
 
-        /// <summary>
-        /// [V3 — 새 이동/전투 흐름] 같은 타일에 여러 유닛이 들어오면 슬롯(앞/뒤좌/뒤우)에 배정하여
-        /// 시각적으로 분산시키는 매니저. 새 코루틴(MoveAlongPathV3)이 타일 도착 직전에
-        /// GetUnitCount로 인원수를 확인하고, 1명 이상이면 ClaimSlot으로 슬롯 위치를 받아 이동 목표로 사용.
-        /// 주입되지 않으면 항상 타일 중심을 이동 목표로 삼는다(폴백).
-        /// </summary>
+        /// <summary>[2026-05-11 비활성화] 슬롯 시스템 폐기 — 항상 null이 주입됩니다.</summary>
         private TileMoveSlotManager _moveSlotManager;
 
-        // ====================================================================
-        // [V3 전용 상태 필드]
-        //   현재 어떤 이동 슬롯/공격 슬롯을 점유 중인지 추적하여 cleanup 시점에
-        //   누수 없이 정확하게 매니저에 ReleaseSlot을 호출하기 위한 변수들.
-        // ====================================================================
-
-        /// <summary>
-        /// 현재 점유 중인 이동 슬롯의 타일 좌표.
-        /// TileMoveSlotManager.ClaimSlot 호출 시 등록, ReleaseSlot 호출 직후 null로 초기화.
-        /// HexCoord는 struct이므로 nullable로 보관 — "이동 슬롯 미점유"를 명확히 표현.
-        /// </summary>
+        /// <summary>[2026-05-11 비활성화] 슬롯 시스템 폐기 — 새 코루틴에서 사용하지 않습니다.</summary>
         private HexCoord? _v2MoveSlotTile;
 
-        /// <summary>
-        /// 현재 점유 중인 공격 슬롯의 타겟 타일 좌표.
-        /// ClaimByApproach 호출 시 등록, ReleaseAttackSlot 호출 직후 null로 초기화.
-        /// </summary>
+        /// <summary>[2026-05-11 비활성화] 슬롯 시스템 폐기 — 새 코루틴에서 사용하지 않습니다.</summary>
         private HexCoord? _v2AttackSlotTargetCoord;
 
-        /// <summary>
-        /// Lerp 시작 직전 RegisterOccupancyMove로 예약한 타일 좌표.
-        /// Lerp가 정상 완료되면 default로 초기화.
-        /// StopMovement/사망 등 Lerp 중간 종료 시 ReleaseOccupancy 호출용.
-        ///
-        /// HexCoord는 struct이므로 default = (Q=0, R=0).
-        /// 비교용 약속으로 (0,0)이 일반 타일이더라도 _pendingOccupancyTile에는 저장하지 않는다 —
-        /// 호출 측에서 보장한다(TileOccupancyManager.IsInvalid 약속과 동일).
-        /// </summary>
+        /// <summary>[2026-05-11 비활성화] 점유 시스템 폐기 — 새 코루틴에서 사용하지 않습니다.</summary>
         private HexCoord _pendingOccupancyTile;
 
-        /// <summary>
-        /// [BUG-007] 원거리 정지 전투 진행 중인지 여부.
-        ///
-        /// 배경:
-        ///   근접 전투는 공격 슬롯 보유(_v2AttackSlotTargetCoord.HasValue)로 전투 상태를 식별할 수 있지만,
-        ///   원거리 정지 전투는 공격 슬롯을 별도로 잡지 않으므로 별도 플래그가 필요하다.
-        ///
-        ///   건물 건설/파괴 등으로 GameBootstrapper.RepathAllAliveUnits()가 호출되면
-        ///   OnPathInvalidated()가 모든 살아있는 유닛에게 전달된다. 전투 중인 원거리 유닛까지
-        ///   새 경로 계산 + 이동 코루틴 재시작 대상이 되어 두 코루틴이 동시에 돌고
-        ///   이동 슬롯이 중복 점유되는 현상이 발생했다.
-        ///
-        /// 처리:
-        ///   - 원거리 정지 전투 진입 직전에 true, 종료 직후에 false.
-        ///   - OnPathInvalidated()는 이 플래그가 true이면 즉시 return하여 전투를 보존한다.
-        /// </summary>
+        /// <summary>[2026-05-11 비활성화] 원거리 정지 전투 개념 폐기 — 새 코루틴에서 사용하지 않습니다.</summary>
         private bool _v2InStationaryCombat;
 
         /// <summary> 현재 이동 코루틴. null이면 정지 상태. </summary>
@@ -223,6 +187,26 @@ namespace Hexiege.Presentation
         // _combatTargetTransform이 null로 덮어써지는 경우에도 추적을 복구할 수 있도록 한다.
         private int _combatTargetId = -1;
         private bool _combatTargetIsUnit = true;
+
+        // ────────────────────────────────────────────────────────────────────
+        // [BUG-001 — 2026-05-12] 전투 추격(EnterCombatPursuitV3 실행 중) 여부 플래그.
+        //
+        // 왜 필요한가:
+        //   기존 IsInCombat()는 _combatTargetTransform != null만 판정합니다.
+        //   _combatTargetTransform은 "실제 공격 시작"(StartCombatAnimation 호출) 시점에만 set되므로,
+        //   적을 감지하고 추격 중인 단계(아직 공격 사거리에 미도달)에서는 false가 됩니다.
+        //   이 상태에서 건물 생성/파괴 → RepathAllAliveUnits → OnPathInvalidated가 호출되면
+        //   추격 중인 유닛도 repath 대상이 되어 추격 코루틴이 끊기고 다시 이동 코루틴이 시작되어
+        //   유닛이 한 프레임 이상 시각적으로 멈춥니다.
+        //
+        // 사용법:
+        //   - EnterCombatPursuitV3 진입 직후 true로 set.
+        //   - 모든 yield break 직전 + 함수 끝에서 false로 reset.
+        //     (Unity 코루틴(IEnumerator)에서는 try/finally가 동작하지 않으므로 명시적 처리 필요.)
+        //   - IsInCombat()이 (_combatTargetTransform != null || _isInCombatPursuit)로 평가하여
+        //     추격 단계도 "전투 중"으로 판정하게 합니다.
+        // ────────────────────────────────────────────────────────────────────
+        private bool _isInCombatPursuit = false;
 
         /// <summary> 현재 이동 중인지 여부. InputHandler에서 이동 명령 중복 방지에 사용. </summary>
         public bool IsMoving => _moveCoroutine != null;
@@ -398,35 +382,27 @@ namespace Hexiege.Presentation
                 {
                     if (_unitData != null && e.Entity == (IDamageable)_unitData)
                     {
-                        // [실기 로그] 유닛 사망 — 위치/타입/팀/현재 점유 슬롯 상태를 함께 기록.
-                        // 사망 시 슬롯 누수 여부 추적이 핵심이므로 어떤 슬롯이 살아있던 상태인지 미리 캡처한다.
-                        bool hadV2MoveSlot = _v2MoveSlotTile.HasValue;
-                        bool hadV2AttackSlot = _v2AttackSlotTargetCoord.HasValue;
+                        // [실기 로그] 유닛 사망 — 위치/타입/팀 기록.
+                        // [2026-05-11 비활성화] 슬롯/점유 정보는 더 이상 추적하지 않으므로 로그에서 제거.
                         MovementLogger.Log(_unitData.Id, "UNIT_DIED",
-                            $"position={_unitData.Position} type={_unitData.Type} team={_unitData.Team} hadMoveSlot={hadV2MoveSlot} hadAttackSlot={hadV2AttackSlot}");
+                            $"position={_unitData.Position} type={_unitData.Type} team={_unitData.Team}");
 
-                        // [V3] 사망 시 슬롯/점유 해제 — 다른 유닛이 이 자리에 들어올 수 있도록.
-                        // V3 흐름은 헬퍼 ReleaseV2MoveSlotIfClaimed / ReleaseV2AttackSlotIfClaimed 만 사용.
-                        // (필드/메서드 명만 V2 접두어가 남아있을 뿐, V3에서도 동일하게 사용한다.)
+                        // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
+                        // 사망 시 슬롯/점유 해제 로직은 모두 비활성화됐습니다.
+                        // 새 상태 머신은 슬롯/점유를 사용하지 않으므로 누수 우려가 없습니다.
+                        // 헬퍼는 no-op이지만 호출 자체는 유지하여, 혹시 외부에서 필드가
+                        // 임의로 set된 경우에도 일관되게 null로 정리되도록 합니다.
                         ReleaseV2MoveSlotIfClaimed();
                         ReleaseV2AttackSlotIfClaimed();
 
-                        // [V3] Lerp 전에 예약한 TO 타일 점유도 해제 (점유 누수 방지).
-                        //   _pendingOccupancyTile != default 이면, 이 유닛이 도착하지 못한 채로 죽었다는 뜻.
-                        //   도메인 OnEntityDied 구독으로 UnitMovementUseCase가 unit.Position(=FROM)에 대해서는
-                        //   자동 해제하지만, _pendingOccupancyTile(=TO 예약)은 별도로 명시적으로 풀어야 한다.
-                        if (_pendingOccupancyTile != default(HexCoord)
-                            && _movementUseCase != null && _unitData != null)
-                        {
-                            _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
-                            _pendingOccupancyTile = default;
-                        }
-
-                        // [실기 로그] 사망 시 슬롯 해제 완료 — 호출 직후 상태로 기록(누수 점검용).
-                        // ReleaseV2MoveSlot/AttackSlot 헬퍼가 내부에서 SLOT_RELEASE/ATTACK_SLOT_RELEASE를
-                        // 이미 기록하지만, "사망 경로에서 해제됐다"는 별도 마커를 한 줄 더 남긴다.
-                        MovementLogger.Log(_unitData.Id, "SLOT_RELEASE_ON_DEATH",
-                            $"moveSlotReleased={hadV2MoveSlot} attackSlotReleased={hadV2AttackSlot}");
+                        // 기존 점유 누수 해제 코드는 모두 비활성화됨.
+                        //
+                        // if (_pendingOccupancyTile != default(HexCoord)
+                        //     && _movementUseCase != null && _unitData != null)
+                        // {
+                        //     _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
+                        //     _pendingOccupancyTile = default;
+                        // }
 
                         // 사망 시 speed 복원 후 IsDead bool 설정 (Animator 트랜지션)
                         if (_animator != null)
@@ -534,65 +510,51 @@ namespace Hexiege.Presentation
                 StopCoroutine(_moveCoroutine);
                 _moveCoroutine = null;
             }
+            // [2026-05-11 비활성화] ClaimedTile 폐기 예정이지만 호출 자체는 유지(null 설정은 무해).
             _unitData.ClaimedTile = null;
 
-            // [V3] 정지 시 슬롯/점유 해제 — 정지한 유닛이 빈 슬롯을 계속 차지해
-            // 다른 유닛이 그 자리로 들어오지 못하는 부작용 방지.
+            // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
+            // 슬롯/점유 해제 코드는 모두 비활성화. 헬퍼만 호출하여 필드 상태를 일관되게 정리합니다.
             ReleaseV2MoveSlotIfClaimed();
             ReleaseV2AttackSlotIfClaimed();
 
-            // [V3] Lerp 전에 예약한 TO 타일 점유도 해제 (점유 누수 방지).
-            //   _pendingOccupancyTile != default 이면, 도착하지 못한 채 멈춘 것 → 다른 유닛이 들어올 수 있도록 풀어준다.
-            if (_pendingOccupancyTile != default(HexCoord)
-                && _movementUseCase != null && _unitData != null)
-            {
-                _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
-                _pendingOccupancyTile = default;
-            }
+            // 기존 점유 해제 코드 (비활성화):
+            // if (_pendingOccupancyTile != default(HexCoord)
+            //     && _movementUseCase != null && _unitData != null)
+            // {
+            //     _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
+            //     _pendingOccupancyTile = default;
+            // }
 
             // Walk 정지 — speed=0으로 프레임 고정
             if (_animator != null) _animator.speed = 0f;
-
         }
 
         // ====================================================================
-        // [V3] 슬롯 cleanup 헬퍼 (V2에서 만든 헬퍼를 V3가 그대로 재사용)
+        // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
+        // 아래 두 헬퍼는 V3 코루틴이 슬롯 매니저를 더 이상 사용하지 않으므로
+        // 본문이 모두 no-op으로 바뀌었습니다. 호출처(StopMovement, 사망 핸들러 등)에서는
+        // 그대로 호출되어도 안전하도록 메서드 자체는 유지합니다.
         // ====================================================================
 
         /// <summary>
-        /// [V2] 현재 점유 중인 TileMoveSlotManager 슬롯을 해제한다.
-        /// 사망/이동 정지/공격 슬롯 진입/타일 도착(다음 타일로 이전) 등
-        /// 슬롯이 살아있을 수 있는 모든 종료 경로에서 호출.
-        /// 매니저 미주입이거나 점유 중이 아니면 안전하게 무시한다.
+        /// [2026-05-11 비활성화] TileMoveSlotManager가 폐기되어 본문은 비어있습니다.
+        /// 호환을 위해 시그니처만 유지 — 호출되어도 아무것도 하지 않습니다.
         /// </summary>
         private void ReleaseV2MoveSlotIfClaimed()
         {
-            if (_moveSlotManager != null && _v2MoveSlotTile.HasValue && _unitData != null)
-            {
-                // [실기 로그] 이동 슬롯 해제 — 호출 직전 좌표를 캡처해야 정확한 위치가 남는다.
-                MovementLogger.Log(_unitData.Id, "SLOT_RELEASE",
-                    $"tile={_v2MoveSlotTile.Value}");
-                _moveSlotManager.ReleaseSlot(_v2MoveSlotTile.Value, _unitData.Id);
-            }
-            // 매니저가 없더라도 상태는 일관되게 정리한다.
+            // [2026-05-11 비활성화 — 슬롯 시스템 폐기] 본문 제거됨.
+            // 슬롯 매니저가 더 이상 주입되지 않으므로 해제할 슬롯도 존재하지 않습니다.
             _v2MoveSlotTile = null;
         }
 
         /// <summary>
-        /// [V2] 현재 점유 중인 AttackPositionManager 공격 슬롯을 해제한다.
-        /// 근접 추적 종료(타겟 처치/이탈), 사망, 이동 정지, 헬퍼 종료 모든 경로에서 호출.
-        /// 매니저 미주입이거나 점유 중이 아니면 안전하게 무시한다.
+        /// [2026-05-11 비활성화] AttackPositionManager가 폐기되어 본문은 비어있습니다.
+        /// 호환을 위해 시그니처만 유지 — 호출되어도 아무것도 하지 않습니다.
         /// </summary>
         private void ReleaseV2AttackSlotIfClaimed()
         {
-            if (_attackPositionManager != null && _v2AttackSlotTargetCoord.HasValue && _unitData != null)
-            {
-                // [실기 로그] 공격 슬롯 해제 — 호출 직전 좌표를 캡처해야 정확한 위치가 남는다.
-                // 추격 종료/타겟 전환/사망/StopMovement 등 다양한 경로에서 호출되므로 통합 지점으로 사용.
-                MovementLogger.Log(_unitData.Id, "ATTACK_SLOT_RELEASE",
-                    $"targetCoord={_v2AttackSlotTargetCoord.Value}");
-                _attackPositionManager.ReleaseAttackSlot(_v2AttackSlotTargetCoord.Value, _unitData.Id);
-            }
+            // [2026-05-11 비활성화 — 슬롯 시스템 폐기] 본문 제거됨.
             _v2AttackSlotTargetCoord = null;
         }
 
@@ -683,7 +645,10 @@ namespace Hexiege.Presentation
             if (IsInCombat())
             {
                 // [실기 로그] 전투 중이라 repath를 무시했음을 명시 — 검증용 마커.
-                MovementLogger.Log(_unitData.Id, "REPATH_SKIP_COMBAT", $"reason=InCombat");
+                // [BUG-001 — 2026-05-12] 추격 단계도 InCombat 판정에 포함됐는지 진단할 수 있도록
+                // _isInCombatPursuit 플래그 값을 함께 기록.
+                MovementLogger.Log(_unitData.Id, "REPATH_SKIP_COMBAT",
+                    $"reason=InCombat isPursuit={_isInCombatPursuit}");
                 return;
             }
 
@@ -697,56 +662,75 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// [BUG-007 — 2026-05-06] 현재 유닛이 전투 중인지 판정.
+        /// 현재 유닛이 전투 중(공격 또는 전투 이동 중)인지 판정.
+        ///
+        /// [2026-05-11 재설계]
+        ///   기존 슬롯 기반 판정(`_v2AttackSlotTargetCoord.HasValue || _v2InStationaryCombat`)은
+        ///   슬롯 시스템 폐기로 더 이상 유효하지 않으므로, 공격 타겟 추적 상태로 판정합니다.
         ///
         /// 판정 기준:
-        ///   - 근접 공격 슬롯을 보유 중이면 EnterMeleePursuit/EnterCombatLoop 진행 중.
-        ///   - 원거리 정지 전투 플래그가 true이면 EnterStationaryCombat 진행 중.
+        ///   - `_combatTargetTransform != null`: 전투/추격 코루틴이 진행 중일 때
+        ///     `StartCombatAnimation`이 set하고, `StopCombatAnimation`이 null로 리셋합니다.
+        ///   - [BUG-001 — 2026-05-12] `_isInCombatPursuit == true`: 추격 단계(아직 공격 사거리 미도달)
+        ///     인 동안 EnterCombatPursuitV3가 set합니다.
+        ///     이 플래그가 없으면 추격 중에 건물 변화 → RepathAllAliveUnits이 트리거되어
+        ///     OnPathInvalidated가 새 path로 코루틴을 교체하고, 결과적으로 추격 코루틴이
+        ///     중단되어 유닛이 한 프레임 시각적으로 멈추는 버그가 발생합니다.
         ///
-        /// 호출 측은 이 결과로 "이동 코루틴을 새로 시작하면 안 되는 상태"를 빠르게 식별한다.
+        /// 호출 측(OnPathInvalidated)은 이 결과로 "이동 코루틴을 새로 시작하면 안 되는 상태"를
+        /// 빠르게 식별하여, 전투 중 RepathAllAliveUnits에 의한 강제 종료를 방지합니다.
         /// </summary>
         private bool IsInCombat()
         {
-            return _v2AttackSlotTargetCoord.HasValue || _v2InStationaryCombat;
+            // 공격 애니메이션 중(_combatTargetTransform != null) 또는
+            // 추격 코루틴 실행 중(_isInCombatPursuit) — 둘 중 하나만 참이어도 전투 상태.
+            return _combatTargetTransform != null || _isInCombatPursuit;
         }
 
         // ====================================================================
-        // [V3 — 2026-05-06] MoveAlongPathV3 — 새 이동/전투 흐름 (인라인 구조)
+        // [2026-05-11 재설계] MoveAlongPathV3 — 새 단일 상태 머신
         // ====================================================================
-        // GameSystemRules.md 규칙 1~18을 따른 V3 코루틴.
+        // GameSystemRules.md 새 규칙 7~10에 따른 통합 상태 머신:
         //
-        // V2 대비 구조적 변경:
-        //   - V2Result enum + Action<>/콜백 위임 패턴 제거
-        //   - RunTileTraversal 분리 헬퍼 제거 → 외부 while 안에 타일 순회 for 루프 직접 인라인
-        //   - 흐름 제어가 명확해져 디버깅과 코드 리뷰가 쉬워짐
+        //   [A* 이동] : path 따라 타일 중심 → 타일 중심 Lerp 이동.
+        //              매 프레임 HasEnemyInDetectRange 체크.
+        //              감지되면 → [전투 이동]으로 전환.
         //
-        // 기능 로직(슬롯/우회/원거리 정지/근접 추격/전투 루프/전방 재개)은 V2와 동일.
+        //   [전투 이동] : 적의 월드 위치를 향해 직선 이동 (근접/원거리 동일).
+        //                매 프레임 HasEnemyInRange 체크.
+        //                사거리 진입 → [공격]으로 전환.
+        //                적이 detect 사거리 이탈 → [A* 이동 재개].
+        //                타겟 사망 → detect 내 다른 적 재선택 또는 [A* 이동 재개].
+        //
+        //   [공격] : 멈춘 채로 공격/쿨다운 루프.
+        //            적이 사거리 이탈 → [전투 이동] 또는 [A* 이동 재개].
+        //
+        // 차이점 (V3 이전 대비):
+        //   - 근접/원거리(AttackKind) 분기 제거 → 차이는 공격 사거리 수치뿐.
+        //   - 이동 슬롯/공격 슬롯/타일 점유 모두 제거 → 단순 타일 중심 이동.
+        //   - 우회(detour)/대기 로직 제거 → 다른 유닛과 같은 타일에 들어가도 문제 없음.
+        //   - 원거리 "정지 즉시 공격" 분기 제거 → 원거리도 detect 진입 후 전투 이동으로 접근.
         //
         // 헬퍼 구조:
-        //   MoveAlongPathV3            — 메인 코루틴 (서버 가드 + 외부 while + 타일 순회 인라인 + cleanup)
-        //   ├─ EnterMeleePursuitV3     — 근접: 이동슬롯 해제 → 공격슬롯으로 직진 (규칙 11/13)
-        //   │     └─ EnterCombatLoopV3 — 공격 사거리 도달 후 공격/쿨다운 루프
-        //   ├─ EnterStationaryCombatV3 — 원거리: 이동슬롯 유지 + 즉시 공격 (규칙 13)
-        //   │     └─ EnterCombatLoopV3
-        //   ├─ ResumeFromForwardTileV3 — 근접 전투 종료 후 앞쪽 타일 A* 재개 (규칙 11/15)
-        //   └─ MoveCleanupAndCompleteV3 — 슬롯/점유 정리 + OnMoveComplete 콜백
+        //   MoveAlongPathV3            — 메인 코루틴 (서버 가드 + path 순회 + cleanup)
+        //   ├─ EnterCombatPursuitV3    — [전투 이동] 적 월드 위치로 직선 이동 + 사거리 도달 시 공격
+        //   │     └─ EnterCombatLoopV3 — [공격] 사거리 안에 있는 동안 공격/쿨다운 루프
+        //   ├─ ResumeFromForwardTileV3 — [A* 이동 재개] 현재 위치 기준 앞쪽 타일에서 새 경로 시작
+        //   └─ MoveCleanupAndCompleteV3 — 코루틴 정리 + OnMoveComplete 콜백
         // ====================================================================
 
         /// <summary>
-        /// [V3] 새 이동/전투 메인 코루틴.
+        /// [2026-05-11 재설계] 단일 상태 머신 메인 코루틴.
         ///
         /// 동작 흐름:
-        ///   1) 멀티플레이 가드 — 서버가 아니면 즉시 yield break (NetworkTransform이 보간 동기화).
+        ///   1) 멀티플레이 가드 — 서버가 아니면 즉시 yield break.
         ///   2) path 유효성 체크 — 비정상이면 cleanup 후 종료.
-        ///   3) Walk 애니메이션 시작 — 한 번만 CrossFade (반복 호출 시 모션이 끊김).
-        ///   4) 외부 while: 유닛이 살아있는 동안 path 순회용 for 루프를 인라인으로 돌린다.
-        ///        - 우회 발생 또는 근접 전투 종료로 새 path가 필요해지면 break → 외부 while로 빠져 RequestMove 후 재진입.
-        ///        - 정상 완주 또는 사망이면 break → cleanup 단계로.
-        ///   5) MoveCleanupAndCompleteV3로 마무리 (슬롯/점유 정리 + OnMoveComplete 콜백).
-        ///
-        /// 멀티플레이 정책:
-        ///   서버에서만 코루틴이 실행되며, NetworkTransform이 클라이언트에 위치를 자동 보간 전달한다.
-        ///   클라이언트가 직접 이동하면 이중 보간 + 권위 위반이 발생하므로 진입부에서 차단한다.
+        ///   3) Walk 애니메이션 시작 (1회만 CrossFade).
+        ///   4) 외부 while: path를 순회하며 타일 중심으로 Lerp.
+        ///      - 매 프레임 detect 사거리 내 적 확인.
+        ///      - 감지되면 EnterCombatPursuitV3로 전투 이동 → 공격 흐름 위임.
+        ///      - 전투 종료 후 ResumeFromForwardTileV3로 앞쪽 타일에서 새 경로 받아 재개.
+        ///   5) 정상 완주 또는 사망이면 cleanup.
         /// </summary>
         /// <param name="path">A* 경로 (시작점 포함, 길이 ≥ 2).</param>
         private IEnumerator MoveAlongPathV3(List<HexCoord> path)
@@ -790,18 +774,23 @@ namespace Hexiege.Presentation
             float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
 
             // ────────────────────────────────────────────────────────────────
-            // 외부 while — 다음의 두 가지 이유로 path가 갱신되면 다시 위로 돌아온다:
-            //   (A) 우회(detour) 발생: 원래 path가 무효 → RequestMove로 새 path 받음.
-            //   (B) 근접 전투 후 ResumeFromForwardTileV3: 전투 종료 시점에서 새 path 받음.
-            // 정상 완주 또는 사망이면 외부 while 자체가 break.
+            // 외부 while — path가 새로 발급될 때마다 위로 돌아와 새 path로 순회.
+            //   재경로 사유:
+            //     (A) 전투 종료 후 ResumeFromForwardTileV3가 새 path를 반환.
+            //   정상 완주 또는 사망이면 외부 while 자체가 break.
+            //
+            // [2026-05-11 재설계]
+            //   기존의 우회(detour)/대기 로직과 슬롯 분기는 모두 제거됐습니다.
+            //   타일에 다른 유닛이 있어도 그대로 진입하며, 같은 타일에서 시각적으로 겹치는 것은
+            //   새 규칙상 허용됩니다(분산은 별도 시스템 책임이 아님).
             // ────────────────────────────────────────────────────────────────
             while (_unitData != null && _unitData.IsAlive)
             {
                 // 새 path를 받아 다시 시작할지 결정하는 플래그.
-                // for 안에서 true로 바꾼 뒤 break하면 외부 while로 빠져 path를 갱신하고 continue로 돌아온다.
+                // for 안에서 true로 바꾼 뒤 break하면 외부 while로 빠져 새 path로 continue.
                 bool needRepath = false;
 
-                // 마지막에 실제로 도착한 타일 — from 인자에 사용. 우회 시에도 정확히 추적.
+                // 마지막에 실제로 도착한 타일 — ProcessStep의 from 인자에 사용.
                 HexCoord prevActualTile = _unitData.Position;
 
                 // ────────────────────────────────────────────────────────────
@@ -815,80 +804,29 @@ namespace Hexiege.Presentation
                     HexCoord from = prevActualTile;
                     HexCoord to = path[i];
 
-                    // 마지막 스텝이 non-walkable(성/건물)인지 — 점유/우회 검사를 건너뛰는 기준.
+                    // 마지막 스텝이 non-walkable(성/건물)인지 — ProcessStep을 건너뛰는 기준.
                     bool isLastStep = (i == path.Count - 1);
                     bool isLastStepToNonWalkable = isLastStep
                         && (_movementUseCase != null && !_movementUseCase.IsWalkable(to));
 
-                    // ──────────────────────────────────────────────────────
-                    // 규칙 5 — 점유가 가득 찬 타일 처리: 앞쪽 빈 타일 우회 또는 대기.
-                    // ──────────────────────────────────────────────────────
-                    bool didDetour = false;
-                    if (!isLastStepToNonWalkable && _movementUseCase != null)
-                    {
-                        float mySize = _movementUseCase.GetOccupancySize(_unitData.Type);
-
-                        HexCoord? actualTo = null;
-                        // 첫 시도가 실패해 yield return null로 대기에 들어간 경우만 WAIT_START/END 기록.
-                        bool waitLogged = false;
-
-                        while (actualTo == null && _unitData.IsAlive)
-                        {
-                            // [BUG-008] 현재 유닛 위치 타일을 명시 전달 → BFS visited에 미리 등록되어
-                            // "현재 위치"가 우회 후보로 반환되는 사고(detourTo == currentTile)를 차단.
-                            actualTo = _movementUseCase.FindForwardAvailable(to, mySize, finalTarget, prevActualTile);
-                            if (actualTo == null)
-                            {
-                                if (!waitLogged)
-                                {
-                                    MovementLogger.Log(_unitData.Id, "WAIT_START",
-                                        $"current={prevActualTile} blockedTile={to}");
-                                    waitLogged = true;
-                                }
-                                yield return null;          // 앞쪽 빈 타일 없음 — 다음 프레임에 다시 시도.
-                            }
-                        }
-                        if (!_unitData.IsAlive) break;
-
-                        if (waitLogged)
-                        {
-                            MovementLogger.Log(_unitData.Id, "WAIT_END",
-                                $"resumeTo={actualTo.Value}");
-                        }
-
-                        if (actualTo.Value != to)
-                        {
-                            didDetour = true;
-                            MovementLogger.Log(_unitData.Id, "DETOUR",
-                                $"originalTo={to} detourTo={actualTo.Value} currentTile={prevActualTile}");
-                        }
-
-                        to = actualTo.Value;
-                        // 우회 결과 마지막 스텝 판정이 바뀔 수 있으므로 재평가.
-                        isLastStepToNonWalkable = isLastStep && !_movementUseCase.IsWalkable(to);
-                    }
+                    // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
+                    // 기존의 우회(detour)/대기 로직(FindForwardAvailable + WAIT_START/END)은 모두 제거됐습니다.
+                    // 새 규칙에서는 같은 타일에 여러 유닛이 들어가도 그대로 진행합니다.
+                    // 기존 코드는 git 히스토리에서 확인 가능합니다.
 
                     // [실기 로그] 다음 타일로의 이동이 확정된 시점.
                     MovementLogger.Log(_unitData.Id, "TILE_MOVE",
                         $"from={from} to={to} lastStep={isLastStep}");
 
-                    // ──────────────────────────────────────────────────────
-                    // Lerp 시작 직전 점유 등록 (Race Condition 방지).
-                    //   같은 프레임 내 다른 유닛이 즉시 "이 타일 차 있음"을 인식하도록 TO+1 예약.
-                    //   FROM 해제는 ProcessStep에서 수행 (4차 개선 분리 방식).
-                    // ──────────────────────────────────────────────────────
-                    if (_movementUseCase != null && _unitData != null)
-                    {
-                        _movementUseCase.RegisterOccupancyMove(from, to, _unitData.Type);
-                        _pendingOccupancyTile = to;
-                    }
+                    // [2026-05-11 비활성화] 점유 등록(RegisterOccupancyMove)은 새 규칙에서 사용하지 않습니다.
 
-                    // 다른 시스템(전투/생산)에서 참조 가능하도록 ClaimedTile 갱신 (마지막 non-walkable 제외).
+                    // [2026-05-11 비활성화] ClaimedTile 갱신도 슬롯/점유 시스템과 함께 폐기되었습니다.
+                    // 호출 자체는 유지하여 다른 시스템에서 참조하더라도 null로 보이도록 합니다.
                     if (!isLastStepToNonWalkable)
                         _unitData.ClaimedTile = to;
 
                     // ──────────────────────────────────────────────────────
-                    // 방향 전환 — 도메인 from→to 방향을 뷰 관점으로 반전 후 Y축 회전 즉시 스냅.
+                    // [A* 이동] 방향 전환 — 도메인 from→to 방향을 뷰 관점으로 반전 후 Y축 회전 즉시 스냅.
                     //   서버에서 즉시 스냅하면 NetworkTransform이 클라이언트에 보간 전달.
                     // ──────────────────────────────────────────────────────
                     HexDirection dir = FacingDirection.FromCoords(from, to);
@@ -897,96 +835,29 @@ namespace Hexiege.Presentation
                     ApplyDirection(dir);
 
                     // ──────────────────────────────────────────────────────
-                    // 규칙 10/17 — 이동 슬롯 결정 + 슬롯 위치를 이동 목표로.
-                    //   forward 벡터(도메인 좌표 기준 from→to)는 매니저에 전달.
-                    //   슬롯 위치는 도메인 좌표 → ViewConverter.ToView로 뷰 좌표 변환 + UnitYOffset.
+                    // [A* 이동] 이동 목표 = 항상 타일 중심.
+                    //   슬롯 시스템 폐기로 인해 같은 타일에 여러 유닛이 들어가도 동일한 중심으로 이동.
+                    //   시각적 분산은 별도 시스템 책임이 아니라는 게 새 규칙의 입장입니다.
                     // ──────────────────────────────────────────────────────
-                    Vector3 fromDomain = HexMetrics.HexToWorld(from);
                     Vector3 toDomain = HexMetrics.HexToWorld(to);
 
-                    // forward 벡터(도메인 좌표). 영벡터 폴백은 매니저 내부에서 처리.
-                    Vector3 forwardDirDomain = toDomain - fromDomain;
-
-                    // Lerp 출발점은 현재 위치(직전 슬롯/위치를 그대로 이어받는다).
+                    // Lerp 출발점은 현재 위치(직전 도착 위치를 그대로 이어받음).
                     Vector3 fromPos = transform.position;
 
-                    // ──────────────────────────────────────────────────────
-                    // 이동 목표 = 타일 중심 또는 이동 슬롯의 뷰 월드 좌표.
-                    //
-                    // [규칙 10] A* 이동 중 다음 타일이 결정되는 순간, 해당 타일 내 유닛 수를 확인한다.
-                    //   - 타일 안에 유닛이 혼자(=목표 타일 점유 0명, 내가 들어가면 1명)인 경우:
-                    //       → 타일 중심을 이동 목표로 삼는다. 슬롯을 새로 잡지 않는다.
-                    //   - 타일 안에 유닛이 2명 이상(=목표 타일 점유 1명 이상, 내가 들어가면 2명 이상)인 경우:
-                    //       → 이동 슬롯을 즉시 할당하고 슬롯 위치를 이동 목표로 삼는다.
-                    //
-                    // 주의: GetUnitCount(to)는 "현재 타일에 이미 클레임된 유닛 수"이며,
-                    //       나 자신은 ClaimSlot 호출 직전이므로 아직 카운트에 포함되지 않는다.
-                    //       따라서 0이면 "혼자 들어감", 1 이상이면 "2명 이상".
-                    // ──────────────────────────────────────────────────────
-                    Vector3 toPos;
-                    if (!isLastStepToNonWalkable && _moveSlotManager != null && _unitData != null)
-                    {
-                        int existingCount = _moveSlotManager.GetUnitCount(to);
-
-                        if (existingCount == 0)
-                        {
-                            // [규칙 10] 혼자 들어가는 타일 — 타일 중심으로 이동.
-                            //   직전 스텝에서 다른 타일에 잡아둔 이동 슬롯이 남아있다면 해제(slot leak 방지).
-                            //   _v2MoveSlotTile은 null로 비워, 다음 스텝에서 정상적으로 새 판단이 이뤄지도록 한다.
-                            if (_v2MoveSlotTile.HasValue && _v2MoveSlotTile.Value != to)
-                                ReleaseV2MoveSlotIfClaimed();
-
-                            // 타일 중심 좌표 = 도메인 좌표 → 뷰 좌표 변환 + 유닛 높이 보정.
-                            toPos = ViewConverter.ToView(toDomain);
-                            toPos.y += HexMetrics.UnitYOffset;
-
-                            _v2MoveSlotTile = null;
-
-                            // [실기 로그] 혼자 들어가는 타일이므로 타일 중심으로 이동한다.
-                            MovementLogger.Log(_unitData.Id, "TILE_CENTER_MOVE",
-                                $"tile={to} existingCount={existingCount} worldPos={toPos}");
-                        }
-                        else
-                        {
-                            // [규칙 10] 이미 다른 유닛이 있는 타일 — 이동 슬롯을 즉시 할당.
-                            //   직전 이동 슬롯이 다른 타일이면 먼저 해제 (slot leak 방지).
-                            if (_v2MoveSlotTile.HasValue && _v2MoveSlotTile.Value != to)
-                                ReleaseV2MoveSlotIfClaimed();
-
-                            // 새 타일에서 슬롯을 클레임 — 도메인 좌표 → 뷰 좌표 변환 + 유닛 높이 보정.
-                            Vector3 slotDomain = _moveSlotManager.ClaimSlot(to, _unitData.Id, fromDomain, forwardDirDomain);
-                            Vector3 slotView = ViewConverter.ToView(slotDomain);
-                            slotView.y += HexMetrics.UnitYOffset;
-
-                            toPos = slotView;
-                            _v2MoveSlotTile = to;
-
-                            // [실기 로그] 이동 슬롯 클레임 — 슬롯 번호도 함께 조회해 기록.
-                            int slotIndex = -1;
-                            _moveSlotManager.TryGetSlot(to, _unitData.Id, out slotIndex);
-                            MovementLogger.Log(_unitData.Id, "SLOT_CLAIM",
-                                $"tile={to} slot={slotIndex} existingCount={existingCount} worldPos={toPos}");
-                        }
-                    }
-                    else
-                    {
-                        // 매니저 미주입 또는 마지막 스텝 non-walkable — 타일 중심을 그대로 사용.
-                        // non-walkable 마지막 스텝(성/건물)은 슬롯을 새로 잡지 않으나 직전 슬롯은 유지(공격 위치 분산 효과).
-                        toPos = ViewConverter.ToView(toDomain);
-                        toPos.y += HexMetrics.UnitYOffset;
-                    }
+                    // 타일 중심 = 도메인 좌표 → 뷰 좌표 변환 + 유닛 높이 보정.
+                    Vector3 toPos = ViewConverter.ToView(toDomain);
+                    toPos.y += HexMetrics.UnitYOffset;
 
                     // ──────────────────────────────────────────────────────
-                    // Lerp 이동 + 매 프레임 적 감지 / 사거리 체크.
-                    //   이동 시간 = moveSeconds (한 칸 시간). 슬롯 오프셋 미세 차이는 무시.
+                    // [A* 이동] Lerp 이동 + 매 프레임 detect 사거리 적 감지.
+                    //   - detect 진입 → EnterCombatPursuitV3로 [전투 이동] 위임.
+                    //   - 근접/원거리 구분 없음. 차이는 EnterCombatPursuitV3 내부의 사거리 수치뿐.
                     // ──────────────────────────────────────────────────────
                     float elapsed = 0f;
                     float targetDuration = moveSeconds;
 
-                    // [규칙 15] 원거리 전투로 Lerp가 중단되었는지 표시하는 플래그.
-                    //   true면 Lerp while 탈출 후 toPos 스냅과 ProcessStep을 건너뛰고
-                    //   현재 물리 위치 기준으로 A*를 새로 요청한다.
-                    //   for 루프의 매 타일 반복마다 자동으로 새로 선언되므로 별도 초기화 불필요.
+                    // [전투 이동]으로 전환되었음을 표시. true면 Lerp while 탈출 후
+                    // toPos 강제 스냅과 ProcessStep을 모두 건너뛰고 새 path로 외부 while 재진입.
                     bool interruptedByCombat = false;
 
                     while (elapsed < targetDuration && _unitData != null && _unitData.IsAlive)
@@ -995,144 +866,57 @@ namespace Hexiege.Presentation
                         float t = Mathf.Clamp01(elapsed / targetDuration);
                         transform.position = Vector3.Lerp(fromPos, toPos, t);
 
-                        // ── 적 감지 / 전투 진입 분기 ──────────────────────
-                        if (_combatUseCase != null && _unitData.IsAlive)
+                        // ── [A* 이동] → [전투 이동] 전환 ──
+                        // 감지 사거리 안에 적이 있으면 즉시 전투 이동으로 위임.
+                        // 근접/원거리 분기 없음. 두 종류 모두 동일하게 적을 향해 직선 이동 시작.
+                        if (_combatUseCase != null && _unitData.IsAlive
+                            && _combatUseCase.HasEnemyInDetectRange(_unitData))
                         {
-                            AttackKind kind = UnitStats.GetAttackKind(_unitData.Type);
-
-                            // 원거리: 공격 사거리 진입 즉시 정지 + 공격 (이동 슬롯 유지).
-                            if (kind == AttackKind.Ranged && _combatUseCase.HasEnemyInRange(_unitData))
+                            // [실기 로그] 적 감지 — 전투 이동 진입 직전.
+                            var detected = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
+                            if (detected.HasValue)
                             {
-                                // [실기 로그] 원거리 적 감지 — 공격 사거리 안.
-                                var detectedRanged = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
-                                if (detectedRanged.HasValue)
-                                {
-                                    MovementLogger.Log(_unitData.Id, "ENEMY_DETECTED",
-                                        $"kind=Ranged enemyId={detectedRanged.Value.id} isUnit={detectedRanged.Value.isUnit}");
-                                }
+                                MovementLogger.Log(_unitData.Id, "ENEMY_DETECTED",
+                                    $"enemyId={detected.Value.id} isUnit={detected.Value.isUnit}");
+                            }
 
-                                // [규칙 13] 원거리는 현재 위치에서 즉시 멈춤 — 스냅 없음.
-                                //   - 과거에는 toPos(이동 슬롯 위치)로 순간이동시켰지만,
-                                //     이렇게 하면 후속 유닛이 도착해 같은 toPos에서 또 멈추면서 겹친다.
-                                //   - 현재 물리 위치에서 그대로 정지 → 공격 슬롯(아래 EnterStationaryCombatV3)이
-                                //     접근 방향 기반 12방향 분산을 담당해 겹침을 방지한다.
-                                //   - 목적지 이동 슬롯은 더 이상 도착하지 않으므로 즉시 해제(점유 누수 방지).
-                                ReleaseV2MoveSlotIfClaimed();
+                            MovementLogger.Log(_unitData.Id, "COMBAT_PURSUIT_START",
+                                $"currentPos={transform.position}");
 
-                                // elapsed를 최대값으로 설정 → 전투 종료 후 Lerp while 루프 즉시 탈출,
-                                // 이어지는 TILE_ARRIVED 처리 흐름이 자연스럽게 실행된다.
-                                elapsed = targetDuration;
+                            // ClaimedTile 정리 — 다른 시스템이 참조하더라도 영향 없도록.
+                            _unitData.ClaimedTile = null;
 
-                                MovementLogger.Log(_unitData.Id, "STATIONARY_COMBAT_START",
-                                    $"currentTile={to}");
-                                MovementLogger.Log(_unitData.Id, "COMBAT_START",
-                                    $"mode=Ranged currentTile={prevActualTile}");
+                            // [전투 이동] → [공격] 흐름을 EnterCombatPursuitV3에 전부 위임.
+                            yield return EnterCombatPursuitV3();
 
-                                // [BUG-007] 원거리 정지 전투 진입 플래그 ON — OnPathInvalidated의 repath를 차단.
-                                _v2InStationaryCombat = true;
-                                yield return EnterStationaryCombatV3();
-                                // [방향 버그 수정 — 2026-05-11]
-                                // A* 이동 재개 시 ApplyDirection(dir)이 이동 방향으로 회전을 설정하지만,
-                                // _combatTargetTransform이 null이 아닌 동안 Update()가 매 프레임 회전을 덮어써서
-                                // 이동 방향이 아닌 잘못된 방향을 바라보는 버그가 발생한다.
-                                // StopCombatClientRpc는 TickCombat(50ms 주기)으로 지연 전송되어 즉시 해소되지 않는다.
-                                // 서버에서 StopCombatAnimation()을 직접 호출하면 _combatTargetTransform = null,
-                                // _combatTargetId = -1이 즉시 적용되어 Update()의 회전 간섭이 사라진다.
-                                // 이후 ApplyDirection(dir)이 설정한 이동 방향이 그대로 유지된다.
-                                // 클라이언트 동기화는 기존 StopCombatClientRpc가 그대로 처리. 중복 호출은 내부 null 체크로 안전.
-                                StopCombatAnimation();
-                                _v2InStationaryCombat = false;
+                            // 전투 종료 후 회전 정합성 유지.
+                            // _combatTargetTransform이 null이 아닌 동안 Update()가 매 프레임 회전을 덮어쓰므로
+                            // StopCombatAnimation()을 직접 호출하여 즉시 추적을 끊습니다.
+                            StopCombatAnimation();
 
-                                MovementLogger.Log(_unitData.Id, "COMBAT_END",
-                                    $"reason=StationaryEnded mode=Ranged");
+                            MovementLogger.Log(_unitData.Id, "COMBAT_END",
+                                $"reason=PursuitEnded currentPos={transform.position}");
 
-                                if (_unitData == null || !_unitData.IsAlive) break;
+                            if (_unitData == null || !_unitData.IsAlive) break;
 
-                                // [규칙 15] 원거리 전투 종료 — 현재 물리 위치에서 A*를 재개해야 한다.
-                                //   과거에는 yield/continue로 같은 Lerp를 이어갔는데, elapsed가 이미
-                                //   targetDuration이므로 다음 while 조건이 false가 되어 루프를 자연 탈출하고
-                                //   곧이어 transform.position = toPos가 실행 → 슬롯 위치로 순간이동하는
-                                //   버그가 있었다.
-                                //   이제는 플래그만 ON으로 켜두고 while을 자연 탈출시킨 뒤,
-                                //   while 종료 직후 분기에서 toPos 스냅과 ProcessStep을 모두 건너뛰고
-                                //   needRepath = true로 for를 빠져나가 외부 while에서 RequestMove를
-                                //   다시 호출하도록 한다.
+                            // 전투 중에 물리 위치가 적 근처로 이동했으므로,
+                            // 같은 path를 재사용하면 path[i]가 출발 근방을 가리켜 역행이 발생함.
+                            // → ResumeFromForwardTileV3로 현재 위치 기준 앞쪽 타일에서 새 경로를 받습니다.
+                            List<HexCoord> resumePath = ResumeFromForwardTileV3(finalTarget);
+                            if (resumePath != null && resumePath.Count >= 2)
+                            {
+                                MovementLogger.Log(_unitData.Id, "RESUME_FORWARD",
+                                    $"resumeFrom={_unitData.Position} newPathLength={resumePath.Count}");
+                                path = resumePath;
+                                needRepath = true;
                                 interruptedByCombat = true;
+                                break;  // Lerp while 탈출
                             }
 
-                            // 근접: 감지 사거리 진입(공격 사거리 밖) → 이동 슬롯/점유 풀고 추격 시작.
-                            if (kind == AttackKind.Melee
-                                && _combatUseCase.HasEnemyInDetectRange(_unitData)
-                                && !_combatUseCase.HasEnemyInRange(_unitData))
-                            {
-                                // [실기 로그] 근접 적 감지 — 추격 모드 전환 직전.
-                                var detectedMelee = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
-                                var detectedMeleeCoord = _combatUseCase.FindNearestEnemyPositionInDetectRange(_unitData);
-                                if (detectedMelee.HasValue)
-                                {
-                                    int hexDist = detectedMeleeCoord.HasValue
-                                        ? HexCoord.Distance(_unitData.Position, detectedMeleeCoord.Value)
-                                        : -1;
-                                    MovementLogger.Log(_unitData.Id, "ENEMY_DETECTED",
-                                        $"kind=Melee enemyId={detectedMelee.Value.id} isUnit={detectedMelee.Value.isUnit} hexDist={hexDist}");
-                                }
-
-                                // 이동 슬롯 해제 — 다른 유닛이 이 타일에 들어올 수 있게 함.
-                                ReleaseV2MoveSlotIfClaimed();
-                                // Lerp 도중 도착 못 한 to 타일의 점유 예약을 해제(누수 방지) — 인라인 처리.
-                                if (_pendingOccupancyTile != default(HexCoord)
-                                    && _movementUseCase != null && _unitData != null)
-                                {
-                                    _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
-                                    _pendingOccupancyTile = default;
-                                }
-                                _unitData.ClaimedTile = null;
-
-                                yield return EnterMeleePursuitV3(finalTarget);
-
-                                if (_unitData == null || !_unitData.IsAlive) break;
-
-                                // 근접 전투 종료 → ResumeFromForwardTileV3로 새 path를 받고 외부 while로 위임.
-                                List<HexCoord> resumePath = ResumeFromForwardTileV3(finalTarget);
-                                if (resumePath != null && resumePath.Count >= 2)
-                                {
-                                    MovementLogger.Log(_unitData.Id, "RESUME_FORWARD",
-                                        $"resumeFrom={_unitData.Position} newPathLength={resumePath.Count}");
-                                    path = resumePath;
-                                    needRepath = true;
-                                    break;  // for 탈출 → 외부 while continue
-                                }
-
-                                // 새 path를 만들지 못함 → 이동 종료(외부 while도 자연 break).
-                                MovementLogger.Log(_unitData.Id, "RESUME_FAILED",
-                                    $"fromPos={_unitData.Position} finalTarget={finalTarget}");
-                                goto cleanup;
-                            }
-
-                            // 근접인데 이미 공격 사거리 안(드문 케이스) → 즉시 EnterCombatLoopV3.
-                            if (kind == AttackKind.Melee && _combatUseCase.HasEnemyInRange(_unitData))
-                            {
-                                var detectedMeleeAdj = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
-                                if (detectedMeleeAdj.HasValue)
-                                {
-                                    MovementLogger.Log(_unitData.Id, "ENEMY_DETECTED",
-                                        $"kind=Melee-InRange enemyId={detectedMeleeAdj.Value.id} isUnit={detectedMeleeAdj.Value.isUnit}");
-                                }
-
-                                MovementLogger.Log(_unitData.Id, "COMBAT_START",
-                                    $"mode=Melee-InRange currentTile={prevActualTile}");
-
-                                yield return EnterCombatLoopV3();
-
-                                MovementLogger.Log(_unitData.Id, "COMBAT_END",
-                                    $"reason=InRangeLoopEnded mode=Melee-InRange");
-
-                                if (_unitData == null || !_unitData.IsAlive) break;
-
-                                // 같은 슬롯 위치 그대로 이번 Lerp 계속.
-                                yield return null;
-                                continue;
-                            }
+                            // 새 path를 만들지 못함 → 이동 종료.
+                            MovementLogger.Log(_unitData.Id, "RESUME_FAILED",
+                                $"fromPos={_unitData.Position} finalTarget={finalTarget}");
+                            goto cleanup;
                         }
 
                         yield return null;
@@ -1140,80 +924,21 @@ namespace Hexiege.Presentation
 
                     if (_unitData == null || !_unitData.IsAlive) break;
 
-                    // [규칙 15] 원거리 전투로 Lerp가 중단된 경우:
-                    //   유닛은 toPos(이동 슬롯 위치)에 물리적으로 도달하지 않았으므로
-                    //   ① toPos 강제 스냅 금지 — 순간이동으로 시각적 텔레포트가 발생함.
-                    //   ② ProcessStep 호출 금지 — 도메인 위치(_unitData.Position)를 to로 갱신하면
-                    //      실제로는 마지막 정상 도착 타일(prevActualTile)에 있는 유닛의 좌표가
-                    //      어긋나 점유/패스파인딩 정합성이 깨진다.
-                    //
-                    //   [버그 수정 — 2026-05-11]
-                    //   기존 코드는 needRepath = true 만 세팅하고 path 자체를 교체하지 않았다.
-                    //   그 결과 외부 while이 continue로 돌아온 뒤에도 같은 path를 재사용하여
-                    //   for i=1 부터 다시 순회 → 이미 통과한 타일(path[1], 즉 출발지 근방)로
-                    //   역행하는 현상이 발생했다.
-                    //
-                    //   예시:
-                    //     원래 path = [(5,0), (5,1), (5,2), ..., (5,5), ..., (5,16)]
-                    //     (5,5)까지 정상 도달 후 (5,5)→(5,6) Lerp 중 원거리 적 감지 → 정지 전투.
-                    //     전투 종료 시점에 _unitData.Position = (5,5).
-                    //     이때 path를 그대로 두고 for i=1 부터 시작하면 to = path[1] = (5,1) → 역행.
-                    //
-                    //   해결:
-                    //     RequestMove로 현재 위치(_unitData.Position) → finalTarget 새 경로를 받아
-                    //     path를 교체한 뒤 break. 외부 while continue 시 새 path[0] = 현재 위치,
-                    //     path[1] = 정방향 다음 타일이 되어 정상 진행한다.
-                    //
-                    //   _pendingOccupancyTile 해제는 원거리 전투 진입부에서 이미 처리되지 않으므로
-                    //   여기서 누수 방지 차원에서 함께 풀어준다.
+                    // [전투 이동]으로 중단된 경우: toPos 강제 스냅과 ProcessStep을 건너뛰고
+                    // for 루프를 빠져나가 외부 while에서 새 path로 재진입.
                     if (interruptedByCombat)
                     {
-                        // ── 1) 점유/슬롯 클리어 ──
-                        // Lerp 중단으로 to 타일에 도달하지 않았으므로 to에 대한 점유 예약을 풀어야 한다.
-                        // 풀지 않으면 다음 유닛이 이 타일을 사용 불가로 인식해 무한 대기/우회가 발생한다.
-                        if (_pendingOccupancyTile != default(HexCoord)
-                            && _movementUseCase != null && _unitData != null)
-                        {
-                            _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
-                            _pendingOccupancyTile = default;
-                        }
-                        _unitData.ClaimedTile = null;
-
-                        MovementLogger.Log(_unitData.Id, "RANGED_COMBAT_REPATH",
-                            $"resumeFrom={_unitData.Position} finalTarget={finalTarget}");
-
-                        // ── 2) 새 path 계산 ──
-                        // 기존 path를 그대로 쓰면 외부 while → for i=1 → path[1](=출발지 근방)로 역행한다.
-                        // 따라서 현재 도메인 위치(_unitData.Position = 마지막 정상 도착 타일)에서
-                        // finalTarget까지의 새 경로를 받아 path를 교체한 뒤 break 한다.
-                        // 패턴은 같은 코루틴 내 didDetour 분기의 rerouted 처리(라인 1179~)와 동일하다.
-                        List<HexCoord> repathedPath = _movementUseCase != null
-                            ? _movementUseCase.RequestMove(_unitData, finalTarget)
-                            : null;
-
-                        if (repathedPath != null && repathedPath.Count >= 2)
-                        {
-                            // 새 경로 확보 — path를 교체하고 외부 while로 위임.
-                            // 외부 while은 continue로 다시 진입하여 prevActualTile = _unitData.Position
-                            // 부터 새 path[1]로 정방향 이동을 시작한다.
-                            path = repathedPath;
-                            needRepath = true;
-                            break;  // for 탈출 → 외부 while continue → 새 path로 재순회.
-                        }
-
-                        // 경로를 만들지 못함 — 적이 목적지를 완전히 막았거나 finalTarget이 도달 불가.
-                        // 더 이상 이동할 수 없으므로 이동 자체를 종료하고 cleanup으로 점프한다.
-                        MovementLogger.Log(_unitData.Id, "RANGED_COMBAT_REPATH_FAIL",
-                            $"resumeFrom={_unitData.Position} finalTarget={finalTarget}");
-                        goto cleanup;
+                        break;
                     }
 
-                    // 정확한 최종 위치 보정 — 슬롯 위치(toPos)에 도착 (정상 Lerp 완료 시에만).
+                    // ──────────────────────────────────────────────────────
+                    // [A* 이동] 정상 Lerp 완료 — 타일 중심에 스냅 + 도메인 위치 갱신.
+                    // ──────────────────────────────────────────────────────
+                    // 정확한 최종 위치 보정.
                     transform.position = toPos;
 
-                    // 도메인 처리:
-                    //   ProcessStep으로 _unitData.Position을 to로 갱신 + FROM 점유 해제.
-                    //   마지막 스텝이 non-walkable이면 ProcessStep 생략 — 건물/성 위에 유닛이 위치한 것으로 처리되지 않도록.
+                    // 도메인 처리: _unitData.Position을 to로 갱신.
+                    // 마지막 스텝이 non-walkable(성/건물)이면 ProcessStep 생략 — 유닛이 건물 위에 존재하는 것으로 처리되지 않도록.
                     if (_movementUseCase != null && !(isLastStep && isLastStepToNonWalkable))
                     {
                         _movementUseCase.ProcessStep(_unitData, from, to);
@@ -1221,28 +946,12 @@ namespace Hexiege.Presentation
 
                     _unitData.ClaimedTile = null;
                     prevActualTile = to;
-                    _pendingOccupancyTile = default;     // 정상 도착 — 미해제 점유 없음.
 
                     MovementLogger.Log(_unitData.Id, "TILE_ARRIVED",
                         $"tile={to} pos={transform.position}");
 
-                    // 우회가 발생했다면 원래 path는 더 이상 유효하지 않다 — 새 RequestMove로 재계산.
-                    if (didDetour)
-                    {
-                        List<HexCoord> rerouted = _movementUseCase != null
-                            ? _movementUseCase.RequestMove(_unitData, finalTarget)
-                            : null;
-
-                        if (rerouted != null && rerouted.Count >= 2)
-                        {
-                            path = rerouted;
-                            needRepath = true;
-                            break;  // for 탈출 → 외부 while continue
-                        }
-
-                        // 새 경로 없음 — 이동 종료.
-                        goto cleanup;
-                    }
+                    // [2026-05-11 비활성화] 우회(didDetour)/재경로 분기는 제거됐습니다.
+                    // 새 규칙에서는 같은 타일에 여러 유닛이 들어가도 우회하지 않으므로 재계산 불필요.
                 }  // end of for (path 순회)
 
                 // for를 정상 종료(완주) 또는 사망/탈출 — 외부 while 분기.
@@ -1256,187 +965,154 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// [V3] 근접 추격 코루틴 (규칙 11/13).
+        /// [2026-05-11 비활성화] 슬롯 기반 근접 추격은 폐기되었습니다.
+        /// 호출처(MoveAlongPathV3)가 EnterCombatPursuitV3를 호출하도록 교체됐으며,
+        /// 이 메서드는 더 이상 호출되지 않습니다.
+        /// 본문은 컴파일 호환을 위해 즉시 yield break로 변경된 상태입니다.
+        /// </summary>
+        private IEnumerator EnterMeleePursuitV3_OBSOLETE(HexCoord finalTarget)
+        {
+            yield break;
+            // [2026-05-11 비활성화] 기존 본문은 git 히스토리에서 확인 가능합니다.
+            // 제거된 의존성: _attackPositionManager, _v2AttackSlotTargetCoord, ReleaseV2AttackSlotIfClaimed.
+        }
+
+        /// <summary>
+        /// [2026-05-11 비활성화] 원거리 정지 전투는 폐기되었습니다.
+        /// 새 규칙에서는 원거리 유닛도 detect 진입 → 전투 이동(접근) → 사거리 도달 시 공격의 흐름을 따릅니다.
+        /// 호출처(MoveAlongPathV3)는 EnterCombatPursuitV3로 통일됐습니다.
+        /// </summary>
+        private IEnumerator EnterStationaryCombatV3_OBSOLETE()
+        {
+            yield break;
+            // [2026-05-11 비활성화] 기존 본문은 git 히스토리에서 확인 가능합니다.
+        }
+
+        /// <summary>
+        /// [2026-05-11 신규] 통합 전투 추격 코루틴 (근접/원거리 공통).
+        ///
+        /// 새 규칙(GameSystemRules.md 규칙 7)에 따른 [전투 이동] → [공격] 단일 상태 머신.
+        /// 근접/원거리 구분 없음 — 차이는 UnitData.AttackRange 수치뿐.
         ///
         /// 동작:
         ///   1) FindNearestEnemyInDetectRange로 첫 타겟 선택.
-        ///   2) ClaimByApproach로 공격 슬롯 배정 (contactRadius: 유닛=0.3f, 건물=0.5f).
-        ///   3) 매 프레임 슬롯 위치로 직선 이동 + 적 방향 회전 추적.
-        ///   4) HasEnemyInRange → EnterCombatLoopV3 호출.
-        ///   5) 타겟 처치 시 다음 적 재선택 or 종료.
-        ///   6) 감지 사거리 이탈 시 종료.
-        ///   7) 종료 시 ReleaseV2AttackSlotIfClaimed 보장 (누수 방지).
+        ///   2) 매 프레임:
+        ///      - 타겟이 detect 사거리 밖이면 종료(→ A* 재개).
+        ///      - 타겟이 사망/파괴되면 detect 내 다른 적 재선택. 없으면 종료.
+        ///      - 타겟이 공격 사거리(HasEnemyInRange) 안이면 EnterCombatLoopV3 호출.
+        ///         · 전투 종료 후 detect 내 다른 적이 있으면 타겟 교체 후 continue.
+        ///         · 없으면 종료.
+        ///      - 그 외(detect 안, 사거리 밖) → 적 방향으로 직선 이동.
         ///
-        /// finalTarget은 현재 헬퍼 안에서 직접 쓰지 않지만, 추후 forward 필터 도입에 대비해 호출 측이 가지고 있다.
+        /// 슬롯/점유 없음 — 같은 적을 향해 여러 유닛이 같은 위치로 모여도 그대로 진행합니다.
         /// </summary>
-        private IEnumerator EnterMeleePursuitV3(HexCoord finalTarget)
+        private IEnumerator EnterCombatPursuitV3()
         {
-            if (_combatUseCase == null || _positionProvider == null
-                || _attackPositionManager == null || _unitData == null)
+            // ────────────────────────────────────────────────────────────
+            // [BUG-001 — 2026-05-12] 추격 단계 진입 마킹.
+            //   IsInCombat()가 true를 반환하도록 하여, 건물 변화로 인한
+            //   RepathAllAliveUnits → OnPathInvalidated에서 추격 코루틴이 끊기지 않게 한다.
+            //   Unity 코루틴(IEnumerator)은 try/finally가 동작하지 않으므로,
+            //   각 yield break 직전 + 함수 끝에서 false로 명시적 리셋해야 한다.
+            // ────────────────────────────────────────────────────────────
+            _isInCombatPursuit = true;
+
+            // 필수 의존성 가드 — _positionProvider는 적 월드 좌표 조회에 사용.
+            if (_combatUseCase == null || _positionProvider == null || _unitData == null)
             {
-                // [실기 로그 — 2026-05-11] 추적 진입 자체가 불가한 케이스.
-                //   주입이 빠진 상태 — 일반적인 플레이에서는 발생하면 안 된다.
-                //   분산이 안 되는 원인 추적 중 "로그조차 안 남는 케이스"를 잡기 위해 기록.
                 int safeId = _unitData != null ? _unitData.Id : -1;
-                MovementLogger.Log(safeId, "MELEE_PURSUIT_SKIP",
+                MovementLogger.Log(safeId, "COMBAT_PURSUIT_SKIP",
                     $"reason=NullDependency combatUseCase={_combatUseCase != null}"
                     + $" positionProvider={_positionProvider != null}"
-                    + $" attackPositionManager={_attackPositionManager != null}"
                     + $" unitData={_unitData != null}");
+                _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                 yield break;
             }
-
-            MovementLogger.Log(_unitData.Id, "MELEE_PURSUIT_START",
-                $"currentPos={_unitData.Position}");
 
             // 첫 타겟 선택 — 감지 사거리 내 가장 가까운 적.
             var firstTarget = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
             if (!firstTarget.HasValue)
             {
-                // [실기 로그 — 2026-05-11] 호출 측에서 감지 사거리 안 적이 있다고 판단했는데
-                //   FindNearestEnemyInDetectRange가 null을 반환하는 경우.
-                //   (감지 이벤트 발생부터 EnterMeleePursuitV3 진입까지 사이에 적이 사라졌거나,
-                //    내부 조회 로직이 동기화되지 않은 케이스를 잡기 위함)
-                MovementLogger.Log(_unitData.Id, "MELEE_PURSUIT_SKIP",
+                MovementLogger.Log(_unitData.Id, "COMBAT_PURSUIT_SKIP",
                     $"reason=FindNearestEnemyInDetectRangeNull currentPos={_unitData.Position}");
+                _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                 yield break;
             }
 
             int targetId = firstTarget.Value.id;
             bool targetIsUnit = firstTarget.Value.isUnit;
 
-            // 공격 슬롯 배정 — 접근 방향 기반(규칙 18).
-            HexCoord? targetCoord = _combatUseCase.FindNearestEnemyPositionInDetectRange(_unitData);
-            if (!targetCoord.HasValue)
-            {
-                // [실기 로그 — 2026-05-11] FindNearestEnemyInDetectRange는 적을 찾았지만
-                //   FindNearestEnemyPositionInDetectRange가 좌표를 반환 못 하는 비정상 케이스.
-                //   타겟 id는 잡혔지만 도메인 좌표 변환에 실패한 상황을 추적.
-                MovementLogger.Log(_unitData.Id, "MELEE_PURSUIT_SKIP",
-                    $"reason=NoTargetCoord targetId={targetId} targetIsUnit={targetIsUnit}");
-                yield break;
-            }
-
-            // approach 벡터: 유닛(도메인) → 적(도메인). 도메인 좌표 변환 후 차로 계산.
-            Vector3 unitDomainPos = ViewConverter.FromView(transform.position);
-            Vector3 targetDomainPos = HexMetrics.HexToWorld(targetCoord.Value);
-            Vector3 approachVecDomain = targetDomainPos - unitDomainPos;
-
-            // contactRadius: 유닛 0.3f, 건물 0.5f. (전투 사거리와 일치하여 도달 즉시 전투 진입.)
-            float contactRadius = targetIsUnit ? 0.3f : 0.5f;
-
-            // [실기 로그 — 2026-05-11] ClaimByApproach 호출 컨텍스트(첫 진입).
-            //   분산 분석 시점에 "어느 경로(초기/재선택/전투후)로 슬롯 클레임이 일어났는지"
-            //   추적할 수 있도록 단계명(stage)을 함께 남긴다.
-            //   AttackPositionManager 내부에서 호출 직후 MELEE_SLOT_DETAIL(상세)이 추가로 기록된다.
-            float approachAnglePre = Mathf.Atan2(approachVecDomain.x, approachVecDomain.z) * Mathf.Rad2Deg;
-            MovementLogger.Log(_unitData.Id, "MELEE_SLOT_DETAIL",
-                $"stage=InitialClaim targetCoord={targetCoord.Value} targetId={targetId}"
-                + $" approachAngle={approachAnglePre:F1} contactRadius={contactRadius:F2}");
-
-            Vector3 attackSlotViewPos = _attackPositionManager.ClaimByApproach(
-                targetCoord.Value, _unitData.Id, unitDomainPos, approachVecDomain, contactRadius);
-
-            // [동적 슬롯 — 2026-05-11] 배정 실패(정원 초과 또는 각도 충돌)
-            // → 이 타겟은 이미 포화 상태이므로 공격 슬롯을 잡지 않고 A* 이동으로 우회한다.
-            // EnterMeleePursuitV3 진입 전에 이동 슬롯은 이미 해제됐으므로 별도 해제 불필요.
-            if (attackSlotViewPos == Vector3.zero)
-            {
-                MovementLogger.Log(_unitData.Id, "MELEE_SLOT_BYPASS",
-                    $"reason=ClaimFailed targetCoord={targetCoord.Value} targetId={targetId}");
-                yield break;
-            }
-
-            _v2AttackSlotTargetCoord = targetCoord;
-
-            // [실기 로그] 첫 공격 슬롯 클레임 — 적 좌표/슬롯 월드 위치/접근 각도.
-            float approachAngle = approachAnglePre;
-            MovementLogger.Log(_unitData.Id, "ATTACK_SLOT_CLAIM",
-                $"targetCoord={targetCoord.Value} targetId={targetId} slotPos={attackSlotViewPos} approachAngle={approachAngle:F1}");
-
-            // 이동 속도 (규칙 9 — A* 이동과 동일 스탯).
+            // 이동 속도 (A* 이동과 동일 스탯 사용).
+            // worldSpeed = TileHeight / moveSeconds → 1초당 약 한 칸 거리 이동.
             float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
             float worldSpeed = HexMetrics.TileHeight / moveSeconds;
 
+            // 매 프레임 루프 — 적 상태 확인 + 전투 이동 또는 공격으로 분기.
             while (_unitData != null && _unitData.IsAlive)
             {
-                // 적의 최신 월드 좌표 (적이 이동 중일 수 있음).
+                // ── 1) 적의 최신 월드 좌표 조회 ──
+                // 적이 이동 중일 수 있으므로 매 프레임 갱신.
                 Vector3 enemyViewPos = targetIsUnit
                     ? _positionProvider.GetUnitWorldPosition(targetId)
                     : _positionProvider.GetBuildingWorldPosition(targetId);
 
-                // 타겟 파괴 — 사거리 내 다음 적 재선택(규칙 14). 없으면 종료.
+                // ── 2) 타겟 파괴 → 다음 타겟 재선택 or 종료 ──
                 if (enemyViewPos == Vector3.zero)
                 {
                     var next = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
                     if (!next.HasValue)
                     {
-                        ReleaseV2AttackSlotIfClaimed();
+                        // detect 내 다른 적 없음 → A* 재개로 위임.
+                        MovementLogger.Log(_unitData.Id, "COMBAT_END",
+                            $"reason=TargetDestroyedNoMore prevTargetId={targetId}");
+                        // [BUG-002 진단 로그] 타겟 사망으로 추격 종료 시 현재 위치 기록.
+                        //   이 직후 ResumeFromForwardTileV3가 호출되어 transform.position을
+                        //   스냅하므로, 스냅 직전의 unitPos/domainPos를 비교 분석할 수 있도록 남긴다.
+                        MovementLogger.Log(_unitData.Id, "PURSUIT_END_TARGET_DEAD",
+                            $"unitPos={transform.position} domainPos={_unitData.Position} targetId={targetId}");
+                        _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
 
                     int prevTargetId = targetId;
-                    ReleaseV2AttackSlotIfClaimed();
                     targetId = next.Value.id;
                     targetIsUnit = next.Value.isUnit;
-
                     MovementLogger.Log(_unitData.Id, "TARGET_SWITCH",
                         $"reason=prevDestroyed prevTargetId={prevTargetId} newTargetId={targetId}");
-
-                    HexCoord? newCoord = _combatUseCase.FindNearestEnemyPositionInDetectRange(_unitData);
-                    if (!newCoord.HasValue) yield break;
-
-                    Vector3 newUnitDomain = ViewConverter.FromView(transform.position);
-                    Vector3 newTargetDomain = HexMetrics.HexToWorld(newCoord.Value);
-                    Vector3 newApproach = newTargetDomain - newUnitDomain;
-                    contactRadius = targetIsUnit ? 0.3f : 0.5f;
-
-                    // [실기 로그 — 2026-05-11] ClaimByApproach 호출 컨텍스트(타겟 파괴 후 재선택).
-                    //   직전 타겟이 파괴되어 새로운 적을 향해 재클레임 하는 경로.
-                    //   AttackPositionManager 내부에서 호출 직후 MELEE_SLOT_DETAIL(상세)이 추가로 기록된다.
-                    float approachAngle2Pre = Mathf.Atan2(newApproach.x, newApproach.z) * Mathf.Rad2Deg;
-                    MovementLogger.Log(_unitData.Id, "MELEE_SLOT_DETAIL",
-                        $"stage=ReclaimAfterTargetDestroyed targetCoord={newCoord.Value} targetId={targetId}"
-                        + $" approachAngle={approachAngle2Pre:F1} contactRadius={contactRadius:F2}");
-
-                    attackSlotViewPos = _attackPositionManager.ClaimByApproach(
-                        newCoord.Value, _unitData.Id, newUnitDomain, newApproach, contactRadius);
-
-                    // [동적 슬롯 — 2026-05-11] 재선택 후 배정 실패 → 우회
-                    if (attackSlotViewPos == Vector3.zero)
-                    {
-                        MovementLogger.Log(_unitData.Id, "MELEE_SLOT_BYPASS",
-                            $"reason=ClaimFailedAfterTargetSwitch targetCoord={newCoord.Value} targetId={targetId}");
-                        yield break;
-                    }
-
-                    _v2AttackSlotTargetCoord = newCoord;
-
-                    float approachAngle2 = approachAngle2Pre;
-                    MovementLogger.Log(_unitData.Id, "ATTACK_SLOT_CLAIM",
-                        $"targetCoord={newCoord.Value} targetId={targetId} slotPos={attackSlotViewPos} approachAngle={approachAngle2:F1}");
 
                     yield return null;
                     continue;
                 }
 
-                // 공격 사거리 진입 → EnterCombatLoopV3. 종료 후 다음 적 또는 추적 종료.
+                // ── 3) 적이 detect 사거리 밖으로 이탈 → 종료 ──
+                if (!_combatUseCase.HasEnemyInDetectRange(_unitData))
+                {
+                    MovementLogger.Log(_unitData.Id, "COMBAT_END",
+                        $"reason=EnemyEscapedDetect targetId={targetId}");
+                    _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
+                    yield break;
+                }
+
+                // ── 4) 공격 사거리 도달 → [공격] 루프 ──
                 if (_combatUseCase.HasEnemyInRange(_unitData))
                 {
                     MovementLogger.Log(_unitData.Id, "COMBAT_START",
-                        $"mode=Melee targetId={targetId} targetCoord={_v2AttackSlotTargetCoord}");
+                        $"targetId={targetId} targetIsUnit={targetIsUnit}");
 
                     yield return EnterCombatLoopV3();
 
                     if (_unitData == null || !_unitData.IsAlive)
+                    {
+                        _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
+                    }
 
-                    // 전투 종료 후 사거리 내에 다른 적이 남았으면 새 타겟 재선택.
+                    // 전투 종료 후 detect 내에 다른 적이 남았으면 새 타겟 선택 후 continue.
                     if (!_combatUseCase.HasEnemyInDetectRange(_unitData))
                     {
                         MovementLogger.Log(_unitData.Id, "COMBAT_END",
                             $"reason=NoEnemyInDetectRange targetId={targetId}");
-                        ReleaseV2AttackSlotIfClaimed();
+                        _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
 
@@ -1445,149 +1121,46 @@ namespace Hexiege.Presentation
                     {
                         MovementLogger.Log(_unitData.Id, "COMBAT_END",
                             $"reason=FindNearestNull targetId={targetId}");
-                        ReleaseV2AttackSlotIfClaimed();
+                        _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
 
-                    MovementLogger.Log(_unitData.Id, "COMBAT_END",
-                        $"reason=SwitchTarget prevTargetId={targetId}");
-
                     int prevTargetId2 = targetId;
-                    ReleaseV2AttackSlotIfClaimed();
                     targetId = nextEnemy.Value.id;
                     targetIsUnit = nextEnemy.Value.isUnit;
-
                     MovementLogger.Log(_unitData.Id, "TARGET_SWITCH",
                         $"reason=AfterCombat prevTargetId={prevTargetId2} newTargetId={targetId}");
-
-                    HexCoord? nextCoord = _combatUseCase.FindNearestEnemyPositionInDetectRange(_unitData);
-                    if (!nextCoord.HasValue) yield break;
-
-                    Vector3 udPos = ViewConverter.FromView(transform.position);
-                    Vector3 tdPos = HexMetrics.HexToWorld(nextCoord.Value);
-                    Vector3 appr = tdPos - udPos;
-                    contactRadius = targetIsUnit ? 0.3f : 0.5f;
-
-                    // [실기 로그 — 2026-05-11] ClaimByApproach 호출 컨텍스트(전투 종료 후 재선택).
-                    //   직전 적과의 전투 루프가 끝나고 사거리 내 다른 적을 향해 재클레임 하는 경로.
-                    //   AttackPositionManager 내부에서 호출 직후 MELEE_SLOT_DETAIL(상세)이 추가로 기록된다.
-                    float approachAngle3Pre = Mathf.Atan2(appr.x, appr.z) * Mathf.Rad2Deg;
-                    MovementLogger.Log(_unitData.Id, "MELEE_SLOT_DETAIL",
-                        $"stage=ReclaimAfterCombat targetCoord={nextCoord.Value} targetId={targetId}"
-                        + $" approachAngle={approachAngle3Pre:F1} contactRadius={contactRadius:F2}");
-
-                    attackSlotViewPos = _attackPositionManager.ClaimByApproach(
-                        nextCoord.Value, _unitData.Id, udPos, appr, contactRadius);
-                    _v2AttackSlotTargetCoord = nextCoord;
-
-                    float approachAngle3 = approachAngle3Pre;
-                    MovementLogger.Log(_unitData.Id, "ATTACK_SLOT_CLAIM",
-                        $"targetCoord={nextCoord.Value} targetId={targetId} slotPos={attackSlotViewPos} approachAngle={approachAngle3:F1}");
 
                     yield return null;
                     continue;
                 }
 
-                // 감지 사거리 이탈 — 추적 종료.
-                if (!_combatUseCase.HasEnemyInDetectRange(_unitData))
-                {
-                    MovementLogger.Log(_unitData.Id, "COMBAT_END",
-                        $"reason=EnemyEscapedDetect targetId={targetId}");
-                    ReleaseV2AttackSlotIfClaimed();
-                    yield break;
-                }
-
-                // ── 슬롯으로 직선 이동 + 매 프레임 적 방향 회전 ──
-                Vector3 moveDir = attackSlotViewPos - transform.position;
+                // ── 5) [전투 이동] 적의 월드 위치로 직선 이동 + 매 프레임 적 방향 회전 ──
+                // 슬롯 없음 — 같은 적을 노리는 유닛이 같은 위치로 모여도 진행.
+                // 회전: 시각적으로 자연스럽게 적을 바라보며 추적.
+                Vector3 moveDir = enemyViewPos - transform.position;
                 moveDir.y = 0f;
                 float dist = moveDir.magnitude;
                 if (dist > 0.01f)
                 {
-                    // 적 방향(실제 적 위치)으로 회전 — 시각적으로 자연스러운 추적.
                     float pursuitAngle = CalculateAttackAngle(enemyViewPos);
                     Quaternion targetRot = Quaternion.Euler(0f, pursuitAngle, 0f);
                     transform.rotation = Quaternion.RotateTowards(
                         transform.rotation, targetRot, CombatRotationSpeed * Time.deltaTime);
 
-                    // 슬롯 위치로 직선 이동.
+                    // 적 방향으로 직선 이동 (한 프레임 이동량 = worldSpeed × dt).
                     transform.position += moveDir.normalized * worldSpeed * Time.deltaTime;
                 }
 
                 yield return null;
             }
 
-            // 사망/외부 종료 — 슬롯 cleanup은 호출 측에서 한 번 더 보장하지만, 안전망으로 한 번 더.
-            ReleaseV2AttackSlotIfClaimed();
-        }
-
-        /// <summary>
-        /// [V3] 원거리 정지 전투(규칙 13/15).
-        ///
-        /// 동작:
-        ///   - 이동 슬롯을 유지한 채 그 자리에서 EnterCombatLoopV3 호출.
-        ///   - 전투 종료 후 별도 처리 없이 호출 측(메인 코루틴)으로 복귀하면
-        ///     같은 슬롯 위치에서 이번 Lerp가 자연스럽게 재개된다(규칙 15).
-        /// </summary>
-        private IEnumerator EnterStationaryCombatV3()
-        {
-            if (_combatUseCase == null || _unitData == null)
-                yield break;
-
-            // 진입 시점에 사거리 안에 적이 없으면 즉시 yield break.
-            if (!_combatUseCase.HasEnemyInRange(_unitData))
-                yield break;
-
-            // ──────────────────────────────────────────────────────
-            // [규칙 18] 공격 슬롯 클레임 — 같은 적을 노리는 원거리 유닛 분산.
-            //   - 같은 자리에서 멈춰 겹치는 문제를 해결하기 위해, 전투 진입 직전에
-            //     적 타겟 타일을 기준으로 접근 방향 기반 12방향 슬롯 중 하나를 점유한다.
-            //   - 슬롯은 EnterCombatLoopV3 동안 유지되며, 종료 시 명시적으로 해제한다.
-            //   - 타겟 정보를 조회할 수 없으면 슬롯 없이 그대로 전투 루프에 진입(fallback).
-            //   - 시각적으로 유닛 위치를 이동시키지는 않는다(규칙 13 — 원거리는 그 자리에서 공격).
-            //     슬롯 클레임의 목적은 "이 슬롯은 내가 차지했다"는 점유 표시여서, 후속 원거리
-            //     유닛의 ClaimByApproach가 이 슬롯을 피해 다른 슬롯을 선택하도록 만드는 것.
-            // ──────────────────────────────────────────────────────
-            bool attackSlotClaimed = false;
-            if (_attackPositionManager != null)
-            {
-                // 타겟 좌표와 타겟 유닛/건물 여부 조회.
-                HexCoord? targetCoord = _combatUseCase.FindNearestEnemyPositionInDetectRange(_unitData);
-                var targetInfo = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
-
-                if (targetCoord.HasValue && targetInfo.HasValue)
-                {
-                    // approach 벡터: 유닛(도메인) → 적(도메인). 도메인 좌표 변환 후 차로 계산.
-                    //   - 뷰 좌표(transform.position)를 ViewConverter.FromView로 도메인 좌표로 환원,
-                    //     적 도메인 좌표는 HexMetrics.HexToWorld로 계산.
-                    //   - 두 도메인 좌표의 차이 벡터 = 적을 향한 접근 방향.
-                    Vector3 unitDomainPos = ViewConverter.FromView(transform.position);
-                    Vector3 targetDomainPos = HexMetrics.HexToWorld(targetCoord.Value);
-                    Vector3 approachVecDomain = targetDomainPos - unitDomainPos;
-
-                    // contactRadius: 유닛 타겟=0.3f, 건물 타겟=0.5f. (전투 사거리와 일치 — 규칙 18.)
-                    float contactRadius = targetInfo.Value.isUnit ? 0.3f : 0.5f;
-
-                    // 12방향 슬롯 중 접근 방향에 가장 가까운 빈 슬롯을 받는다.
-                    Vector3 attackSlotViewPos = _attackPositionManager.ClaimByApproach(
-                        targetCoord.Value, _unitData.Id, unitDomainPos, approachVecDomain, contactRadius);
-
-                    _v2AttackSlotTargetCoord = targetCoord;
-                    attackSlotClaimed = true;
-
-                    MovementLogger.Log(_unitData.Id, "RANGED_ATTACK_SLOT_CLAIM",
-                        $"targetCoord={targetCoord.Value} slotPos={attackSlotViewPos}");
-                }
-            }
-
-            // 실제 공격/쿨다운 루프 — 사거리 내에 적이 있는 동안 유지.
-            yield return EnterCombatLoopV3();
-
-            // 전투 종료 후 공격 슬롯 해제 — 다른 유닛이 이 슬롯을 사용할 수 있도록.
-            //   (StopMovement/OnEntityDied 경로에서도 해제되지만, 정상 종료 경로의 안전망.)
-            if (attackSlotClaimed)
-            {
-                ReleaseV2AttackSlotIfClaimed();
-            }
+            // ────────────────────────────────────────────────────────────
+            // [BUG-001 — 2026-05-12] while 루프가 자연 종료(_unitData null/사망)된 경우의
+            // 안전망 리셋. 위쪽의 모든 명시적 yield break 경로에서도 false로 set하지만,
+            // 함수 마지막에서도 반드시 false임을 보장하여 다음 추격 진입 시 잔존하지 않도록 한다.
+            // ────────────────────────────────────────────────────────────
+            _isInCombatPursuit = false;
         }
 
         /// <summary>
@@ -1700,10 +1273,16 @@ namespace Hexiege.Presentation
             // 앞쪽 가장 가까운 walkable 타일 — 뒤쪽 절대 금지 규칙은 UseCase 내부에서 보장.
             HexCoord forwardTile = _movementUseCase.FindForwardClosestTile(unitDomainPos, finalTarget);
 
-            // 같은 타일이면 점유 변동이 없으므로 ProcessStep 호출 자체를 생략(점유 누수 방지).
+            // 같은 타일이면 도메인 갱신 불필요. 다른 타일이면 ProcessStep만 호출.
+            // [2026-05-11 비활성화] RegisterOccupancyMove는 점유 시스템 폐기로 인해 호출 제거됨.
             if (forwardTile != _unitData.Position)
             {
-                _movementUseCase.RegisterOccupancyMove(_unitData.Position, forwardTile, _unitData.Type);
+                // [BUG-002 진단 로그] 도메인 위치 점프 — 추격 중에는 _unitData.Position이 갱신되지 않으므로
+                //   ProcessStep 호출 직전에 from/to 타일 거리를 기록한다.
+                //   tileDist가 1보다 크면 추격 중 여러 타일을 건너뛴 것 → 스냅 거리가 크다는 신호.
+                MovementLogger.Log(_unitData.Id, "RESUME_DOMAIN_JUMP",
+                    $"from={_unitData.Position} to={forwardTile} "
+                    + $"tileDist={HexCoord.Distance(_unitData.Position, forwardTile)}");
                 _movementUseCase.ProcessStep(_unitData, _unitData.Position, forwardTile);
             }
             _unitData.ClaimedTile = null;
@@ -1726,6 +1305,15 @@ namespace Hexiege.Presentation
             Vector3 forwardWorld = HexMetrics.HexToWorld(forwardTile);
             Vector3 forwardView = ViewConverter.ToView(forwardWorld);
             forwardView.y += HexMetrics.UnitYOffset;
+
+            // [BUG-002 진단 로그] 스냅 직전 위치/거리 기록.
+            //   snapDistSq가 크면 추격 중 transform이 멀리 이동했다는 뜻 →
+            //   이후 Lerp 시작점과의 불일치로 시각적 텔레포트가 발생할 가능성을 시사.
+            MovementLogger.Log(_unitData.Id, "RESUME_SNAP",
+                $"domainPosBefore={_unitData.Position} forwardTile={forwardTile} "
+                + $"transformPosBefore={transform.position} transformPosAfter={forwardView} "
+                + $"snapDistSq={(forwardView - transform.position).sqrMagnitude:F4}");
+
             transform.position = forwardView;
 
             // Walk 애니메이션 재개 — 전투 중 Attack 상태였을 수 있음.
@@ -1746,34 +1334,37 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// [V3] 이동 종료 시 슬롯/점유/콜백을 일관되게 정리한다.
+        /// 이동 종료 시 정리 + 1회성 콜백 호출.
         /// 외부 while 종료(완주/사망/RESUME 실패) 직후 + path 비정상 종료 직후 등에서 호출.
+        ///
+        /// [2026-05-11 비활성화] 슬롯/점유 해제 코드는 모두 비활성화됐습니다.
+        /// 헬퍼 호출(no-op)만 유지하여, 혹시 외부에서 필드가 임의로 set된 경우에도
+        /// 일관되게 null로 정리되도록 합니다.
         /// </summary>
         private void MoveCleanupAndCompleteV3()
         {
             // [실기 로그] 이동 종료 cleanup — 사망/완주/StopMovement 등 모든 종료 경로에서 호출.
-            // 사망 경로(_unitData == null 또는 IsAlive == false)이면 UNIT_DIED 마커 추가.
             if (_unitData == null || !_unitData.IsAlive)
             {
                 int idForLog = _unitData != null ? _unitData.Id : -1;
                 MovementLogger.Log(idForLog, "UNIT_DIED",
-                    $"context=MoveCleanupAndCompleteV3 moveSlot={_v2MoveSlotTile} attackSlot={_v2AttackSlotTargetCoord}");
+                    $"context=MoveCleanupAndCompleteV3");
             }
 
             if (_unitData != null)
                 _unitData.ClaimedTile = null;
 
-            // 슬롯/공격슬롯/점유 모두 해제 — 이미 풀려 있어도 헬퍼 안에서 안전하게 무시.
+            // [2026-05-11 비활성화] 슬롯/공격슬롯/점유 해제는 no-op으로 변경됨.
             ReleaseV2MoveSlotIfClaimed();
             ReleaseV2AttackSlotIfClaimed();
 
-            // [V3] pending occupancy 해제 — 인라인 처리 (V1 헬퍼가 제거됐으므로 직접 처리).
-            if (_pendingOccupancyTile != default(HexCoord)
-                && _movementUseCase != null && _unitData != null)
-            {
-                _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
-                _pendingOccupancyTile = default;
-            }
+            // [2026-05-11 비활성화] pending occupancy 해제 코드 제거 (점유 시스템 폐기).
+            // if (_pendingOccupancyTile != default(HexCoord)
+            //     && _movementUseCase != null && _unitData != null)
+            // {
+            //     _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
+            //     _pendingOccupancyTile = default;
+            // }
 
             _moveCoroutine = null;
 

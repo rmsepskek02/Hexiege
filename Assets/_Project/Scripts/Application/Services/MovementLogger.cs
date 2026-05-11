@@ -51,7 +51,7 @@ namespace Hexiege.Application
         // 프로젝트 루트 기준 상대 경로(Application.dataPath = ".../Assets" 이므로 한 단계 상위로 ../).
         // 첫 호출 시 EnsureInitialized()에서 절대 경로로 캐싱한다.
         private const string LogRelativePath =
-            "/../Assets/_Project/Docs/_Logs/2026-05-07/19_43_movement-combat-full-rewrite/RuntimeLog.txt";
+            "/../Assets/_Project/Docs/_Logs/2026-05-11/23_19_unit-movement-redesign/RuntimeLog.txt";
 
         // ────────────────────────────────────────────────────────────────────
         // 내부 상태

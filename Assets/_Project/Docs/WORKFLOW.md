@@ -8,14 +8,14 @@
 ## 폴더 구조
 
 ```
-_Tasks/                              ← 사용자용 작업 문서
+Assets/_Project/Docs/_Tasks/         ← 사용자용 작업 문서
 └── YYYY-MM-DD/
   └── HH_MM_[작업명]/
     ├── Research.md    ← 코드 파악, 영향 범위, 현재 상태
     ├── Plan.md        ← 구현 접근법, 파일별 변경 내용, 위험 요소
     └── Testcase.md    ← 테스트 시나리오 + 사용자 실기 결과 기록
 
-_Logs/                               ← 에이전트용 QA-Fix 반복 로그
+Assets/_Project/Docs/_Logs/          ← 에이전트용 QA-Fix 반복 로그
 └── YYYY-MM-DD/
   └── HH_MM_[작업명]/                ← _Tasks와 동일 경로명 (대응 관계)
     └── Log.md         ← QA ↔ DEV 이터레이션 이력 (에이전트 전용)
@@ -23,14 +23,14 @@ _Logs/                               ← 에이전트용 QA-Fix 반복 로그
 
 예시:
 ```
-_Tasks/
+Assets/_Project/Docs/_Tasks/
 └── 2026-03-05/
   └── 18_05_network-input-fix/
     ├── Research.md
     ├── Plan.md
     └── Testcase.md
 
-_Logs/
+Assets/_Project/Docs/_Logs/
 └── 2026-03-05/
   └── 18_05_network-input-fix/
     └── Log.md
@@ -170,7 +170,7 @@ TC 목록과 **별도 섹션**으로 문서 하단에 작성. qa-tester 에이�
 - 판정은 `PASS` / `FAIL` / `CONDITIONAL PASS` 3단계 사용
 - **멀티플레이 TC**: 에디터(Host) + 빌드(Client) 구성이 필요하여 QA 에이전트 단독 실기 불가 → 해당 TC에 "에이전트 실기 불가 — 사용자 확인 필요" 표기 후 정적 분석만 수행
 - 발견된 버그는 BUG-ID로 명시하여 QA 섹션에 기록
-- **FAIL 발견 시**: `_Logs/` 하위 동일 경로에 Log.md 생성(없는 경우) 후 해당 Round [QA] 섹션에 버그 기록 → game-programmer에게 Log.md 경로와 함께 수정 요청
+- **FAIL 발견 시**: `Assets/_Project/Docs/_Logs/` 하위 동일 경로에 Log.md 생성(없는 경우) 후 해당 Round [QA] 섹션에 버그 기록 → game-programmer에게 Log.md 경로와 함께 수정 요청
 - **재QA 시**: Log.md에 다음 Round 섹션 추가 후 동일 절차 반복
 
 ---
@@ -178,7 +178,7 @@ TC 목록과 **별도 섹션**으로 문서 하단에 작성. qa-tester 에이�
 ## Log.md 운영 규칙
 
 ### 위치 및 생성 시점
-- 경로: `_Logs/YYYY-MM-DD/HH_MM_[작업명]/Log.md`
+- 경로: `Assets/_Project/Docs/_Logs/YYYY-MM-DD/HH_MM_[작업명]/Log.md`
 - **_Tasks와 동일한 날짜/시간/작업명 폴더**를 사용 (대응 관계 유지)
 - QA 에이전트가 FAIL을 처음 발견한 시점에 생성
 
