@@ -1,0 +1,246 @@
+=== SESSION START: 2026-05-06 18:45:12 ===
+[18:45:27.083] [UnitID:0] [SPAWN] position=(5, 15) type=EmberSpirit team=Blue
+[18:45:27.096] [UnitID:0] [PATH_CALC] length=17 from=(5, 15) to=(5, -1)
+[18:45:27.098] [UnitID:0] [SPAWN] finalTarget=(5, -1) from=(5, 15) pathLength=17
+[18:45:27.101] [UnitID:0] [TILE_MOVE] from=(5, 15) to=(5, 14) lastStep=False
+[18:45:27.105] [UnitID:0] [SLOT_CLAIM] tile=(5, 14) slot=2 worldPos=(3.45, 0.15, -14.59)
+[18:45:28.623] [UnitID:1] [SPAWN] position=(5, 0) type=Pistoleer team=Red
+[18:45:28.625] [UnitID:1] [PATH_CALC] length=17 from=(5, 0) to=(5, 16)
+[18:45:28.625] [UnitID:1] [SPAWN] finalTarget=(5, 16) from=(5, 0) pathLength=17
+[18:45:28.625] [UnitID:1] [TILE_MOVE] from=(5, 0) to=(5, 1) lastStep=False
+[18:45:28.626] [UnitID:1] [SLOT_CLAIM] tile=(5, 1) slot=3 worldPos=(3.45, 0.15, -2.73)
+[18:45:29.068] [UnitID:0] [TILE_ARRIVED] tile=(5, 14) pos=(3.45, 0.15, -14.59)
+[18:45:29.070] [UnitID:0] [TILE_MOVE] from=(5, 14) to=(5, 13) lastStep=False
+[18:45:29.070] [UnitID:0] [SLOT_RELEASE] tile=(5, 14)
+[18:45:29.071] [UnitID:0] [SLOT_CLAIM] tile=(5, 13) slot=2 worldPos=(3.45, 0.15, -13.72)
+[18:45:30.622] [UnitID:1] [TILE_ARRIVED] tile=(5, 1) pos=(3.45, 0.15, -2.73)
+[18:45:30.622] [UnitID:1] [TILE_MOVE] from=(5, 1) to=(5, 2) lastStep=False
+[18:45:30.623] [UnitID:1] [SLOT_RELEASE] tile=(5, 1)
+[18:45:30.623] [UnitID:1] [SLOT_CLAIM] tile=(5, 2) slot=3 worldPos=(3.45, 0.15, -3.60)
+[18:45:31.078] [UnitID:0] [TILE_ARRIVED] tile=(5, 13) pos=(3.45, 0.15, -13.72)
+[18:45:31.078] [UnitID:0] [TILE_MOVE] from=(5, 13) to=(5, 12) lastStep=False
+[18:45:31.079] [UnitID:0] [SLOT_RELEASE] tile=(5, 13)
+[18:45:31.079] [UnitID:0] [SLOT_CLAIM] tile=(5, 12) slot=2 worldPos=(3.45, 0.15, -12.86)
+[18:45:32.127] [UnitID:2] [SPAWN] position=(5, 15) type=EmberSpirit team=Blue
+[18:45:32.128] [UnitID:2] [PATH_CALC] length=17 from=(5, 15) to=(5, -1)
+[18:45:32.128] [UnitID:2] [SPAWN] finalTarget=(5, -1) from=(5, 15) pathLength=17
+[18:45:32.130] [UnitID:2] [TILE_MOVE] from=(5, 15) to=(5, 14) lastStep=False
+[18:45:32.130] [UnitID:2] [SLOT_CLAIM] tile=(5, 14) slot=2 worldPos=(3.45, 0.15, -14.59)
+[18:45:32.625] [UnitID:1] [TILE_ARRIVED] tile=(5, 2) pos=(3.45, 0.15, -3.60)
+[18:45:32.625] [UnitID:1] [TILE_MOVE] from=(5, 2) to=(5, 3) lastStep=False
+[18:45:32.625] [UnitID:1] [SLOT_RELEASE] tile=(5, 2)
+[18:45:32.626] [UnitID:1] [SLOT_CLAIM] tile=(5, 3) slot=3 worldPos=(3.45, 0.15, -4.46)
+[18:45:33.082] [UnitID:0] [TILE_ARRIVED] tile=(5, 12) pos=(3.45, 0.15, -12.86)
+[18:45:33.082] [UnitID:0] [TILE_MOVE] from=(5, 12) to=(5, 11) lastStep=False
+[18:45:33.082] [UnitID:0] [SLOT_RELEASE] tile=(5, 12)
+[18:45:33.082] [UnitID:0] [SLOT_CLAIM] tile=(5, 11) slot=2 worldPos=(3.45, 0.15, -11.99)
+[18:45:33.646] [UnitID:3] [SPAWN] position=(5, 0) type=Pistoleer team=Red
+[18:45:33.647] [UnitID:3] [PATH_CALC] length=17 from=(5, 0) to=(5, 16)
+[18:45:33.648] [UnitID:3] [SPAWN] finalTarget=(5, 16) from=(5, 0) pathLength=17
+[18:45:33.648] [UnitID:3] [TILE_MOVE] from=(5, 0) to=(5, 1) lastStep=False
+[18:45:33.649] [UnitID:3] [SLOT_CLAIM] tile=(5, 1) slot=3 worldPos=(3.45, 0.15, -2.73)
+[18:45:34.124] [UnitID:2] [TILE_ARRIVED] tile=(5, 14) pos=(3.45, 0.15, -14.59)
+[18:45:34.124] [UnitID:2] [TILE_MOVE] from=(5, 14) to=(5, 13) lastStep=False
+[18:45:34.125] [UnitID:2] [SLOT_RELEASE] tile=(5, 14)
+[18:45:34.125] [UnitID:2] [SLOT_CLAIM] tile=(5, 13) slot=2 worldPos=(3.45, 0.15, -13.72)
+[18:45:34.635] [UnitID:1] [TILE_ARRIVED] tile=(5, 3) pos=(3.45, 0.15, -4.46)
+[18:45:34.636] [UnitID:1] [TILE_MOVE] from=(5, 3) to=(5, 4) lastStep=False
+[18:45:34.636] [UnitID:1] [SLOT_RELEASE] tile=(5, 3)
+[18:45:34.637] [UnitID:1] [SLOT_CLAIM] tile=(5, 4) slot=3 worldPos=(3.45, 0.15, -5.33)
+[18:45:35.090] [UnitID:0] [TILE_ARRIVED] tile=(5, 11) pos=(3.45, 0.15, -11.99)
+[18:45:35.090] [UnitID:0] [TILE_MOVE] from=(5, 11) to=(5, 10) lastStep=False
+[18:45:35.091] [UnitID:0] [SLOT_RELEASE] tile=(5, 11)
+[18:45:35.091] [UnitID:0] [SLOT_CLAIM] tile=(5, 10) slot=2 worldPos=(3.45, 0.15, -11.13)
+[18:45:35.650] [UnitID:3] [TILE_ARRIVED] tile=(5, 1) pos=(3.45, 0.15, -2.73)
+[18:45:35.652] [UnitID:3] [TILE_MOVE] from=(5, 1) to=(5, 2) lastStep=False
+[18:45:35.652] [UnitID:3] [SLOT_RELEASE] tile=(5, 1)
+[18:45:35.652] [UnitID:3] [SLOT_CLAIM] tile=(5, 2) slot=3 worldPos=(3.45, 0.15, -3.60)
+[18:45:36.132] [UnitID:2] [TILE_ARRIVED] tile=(5, 13) pos=(3.45, 0.15, -13.72)
+[18:45:36.132] [UnitID:2] [TILE_MOVE] from=(5, 13) to=(5, 12) lastStep=False
+[18:45:36.133] [UnitID:2] [SLOT_RELEASE] tile=(5, 13)
+[18:45:36.134] [UnitID:2] [SLOT_CLAIM] tile=(5, 12) slot=2 worldPos=(3.45, 0.15, -12.86)
+[18:45:36.636] [UnitID:1] [TILE_ARRIVED] tile=(5, 4) pos=(3.45, 0.15, -5.33)
+[18:45:36.636] [UnitID:1] [TILE_MOVE] from=(5, 4) to=(5, 5) lastStep=False
+[18:45:36.637] [UnitID:1] [SLOT_RELEASE] tile=(5, 4)
+[18:45:36.637] [UnitID:1] [SLOT_CLAIM] tile=(5, 5) slot=3 worldPos=(3.45, 0.15, -6.20)
+[18:45:37.089] [UnitID:0] [TILE_ARRIVED] tile=(5, 10) pos=(3.45, 0.15, -11.13)
+[18:45:37.090] [UnitID:0] [TILE_MOVE] from=(5, 10) to=(5, 9) lastStep=False
+[18:45:37.090] [UnitID:0] [SLOT_RELEASE] tile=(5, 10)
+[18:45:37.090] [UnitID:0] [SLOT_CLAIM] tile=(5, 9) slot=2 worldPos=(3.45, 0.15, -10.26)
+[18:45:37.145] [UnitID:4] [SPAWN] position=(5, 15) type=EmberSpirit team=Blue
+[18:45:37.146] [UnitID:4] [PATH_CALC] length=17 from=(5, 15) to=(5, -1)
+[18:45:37.146] [UnitID:4] [SPAWN] finalTarget=(5, -1) from=(5, 15) pathLength=17
+[18:45:37.147] [UnitID:4] [TILE_MOVE] from=(5, 15) to=(5, 14) lastStep=False
+[18:45:37.147] [UnitID:4] [SLOT_CLAIM] tile=(5, 14) slot=2 worldPos=(3.45, 0.15, -14.59)
+[18:45:37.662] [UnitID:3] [TILE_ARRIVED] tile=(5, 2) pos=(3.45, 0.15, -3.60)
+[18:45:37.664] [UnitID:3] [TILE_MOVE] from=(5, 2) to=(5, 3) lastStep=False
+[18:45:37.664] [UnitID:3] [SLOT_RELEASE] tile=(5, 2)
+[18:45:37.665] [UnitID:3] [SLOT_CLAIM] tile=(5, 3) slot=3 worldPos=(3.45, 0.15, -4.46)
+[18:45:38.132] [UnitID:2] [TILE_ARRIVED] tile=(5, 12) pos=(3.45, 0.15, -12.86)
+[18:45:38.133] [UnitID:2] [TILE_MOVE] from=(5, 12) to=(5, 11) lastStep=False
+[18:45:38.134] [UnitID:2] [SLOT_RELEASE] tile=(5, 12)
+[18:45:38.134] [UnitID:2] [SLOT_CLAIM] tile=(5, 11) slot=2 worldPos=(3.45, 0.15, -11.99)
+[18:45:38.643] [UnitID:1] [TILE_ARRIVED] tile=(5, 5) pos=(3.45, 0.15, -6.20)
+[18:45:38.644] [UnitID:1] [TILE_MOVE] from=(5, 5) to=(5, 6) lastStep=False
+[18:45:38.644] [UnitID:1] [SLOT_RELEASE] tile=(5, 5)
+[18:45:38.645] [UnitID:1] [SLOT_CLAIM] tile=(5, 6) slot=3 worldPos=(3.45, 0.15, -7.06)
+[18:45:38.666] [UnitID:5] [SPAWN] position=(5, 0) type=Pistoleer team=Red
+[18:45:38.668] [UnitID:5] [PATH_CALC] length=17 from=(5, 0) to=(5, 16)
+[18:45:38.668] [UnitID:5] [SPAWN] finalTarget=(5, 16) from=(5, 0) pathLength=17
+[18:45:38.668] [UnitID:5] [TILE_MOVE] from=(5, 0) to=(5, 1) lastStep=False
+[18:45:38.669] [UnitID:5] [SLOT_CLAIM] tile=(5, 1) slot=3 worldPos=(3.45, 0.15, -2.73)
+[18:45:39.090] [UnitID:0] [TILE_ARRIVED] tile=(5, 9) pos=(3.45, 0.15, -10.26)
+[18:45:39.091] [UnitID:0] [TILE_MOVE] from=(5, 9) to=(5, 8) lastStep=False
+[18:45:39.091] [UnitID:0] [SLOT_RELEASE] tile=(5, 9)
+[18:45:39.091] [UnitID:0] [SLOT_CLAIM] tile=(5, 8) slot=2 worldPos=(3.45, 0.15, -9.39)
+[18:45:39.152] [UnitID:4] [TILE_ARRIVED] tile=(5, 14) pos=(3.45, 0.15, -14.59)
+[18:45:39.152] [UnitID:4] [TILE_MOVE] from=(5, 14) to=(5, 13) lastStep=False
+[18:45:39.152] [UnitID:4] [SLOT_RELEASE] tile=(5, 14)
+[18:45:39.153] [UnitID:4] [SLOT_CLAIM] tile=(5, 13) slot=2 worldPos=(3.45, 0.15, -13.72)
+[18:45:39.663] [UnitID:3] [TILE_ARRIVED] tile=(5, 3) pos=(3.45, 0.15, -4.46)
+[18:45:39.664] [UnitID:3] [TILE_MOVE] from=(5, 3) to=(5, 4) lastStep=False
+[18:45:39.665] [UnitID:3] [SLOT_RELEASE] tile=(5, 3)
+[18:45:39.665] [UnitID:3] [SLOT_CLAIM] tile=(5, 4) slot=3 worldPos=(3.45, 0.15, -5.33)
+[18:45:40.142] [UnitID:2] [TILE_ARRIVED] tile=(5, 11) pos=(3.45, 0.15, -11.99)
+[18:45:40.142] [UnitID:2] [TILE_MOVE] from=(5, 11) to=(5, 10) lastStep=False
+[18:45:40.142] [UnitID:2] [SLOT_RELEASE] tile=(5, 11)
+[18:45:40.143] [UnitID:2] [SLOT_CLAIM] tile=(5, 10) slot=2 worldPos=(3.45, 0.15, -11.13)
+[18:45:40.647] [UnitID:1] [TILE_ARRIVED] tile=(5, 6) pos=(3.45, 0.15, -7.06)
+[18:45:40.648] [UnitID:1] [TILE_MOVE] from=(5, 6) to=(5, 7) lastStep=False
+[18:45:40.649] [UnitID:1] [SLOT_RELEASE] tile=(5, 6)
+[18:45:40.649] [UnitID:1] [SLOT_CLAIM] tile=(5, 7) slot=3 worldPos=(3.45, 0.15, -7.93)
+[18:45:40.667] [UnitID:5] [TILE_ARRIVED] tile=(5, 1) pos=(3.45, 0.15, -2.73)
+[18:45:40.667] [UnitID:5] [TILE_MOVE] from=(5, 1) to=(5, 2) lastStep=False
+[18:45:40.669] [UnitID:5] [SLOT_RELEASE] tile=(5, 1)
+[18:45:40.669] [UnitID:5] [SLOT_CLAIM] tile=(5, 2) slot=3 worldPos=(3.45, 0.15, -3.60)
+[18:45:41.095] [UnitID:0] [TILE_ARRIVED] tile=(5, 8) pos=(3.45, 0.15, -9.39)
+[18:45:41.095] [UnitID:0] [TILE_MOVE] from=(5, 8) to=(5, 7) lastStep=False
+[18:45:41.096] [UnitID:0] [SLOT_RELEASE] tile=(5, 8)
+[18:45:41.096] [UnitID:0] [SLOT_CLAIM] tile=(5, 7) slot=2 worldPos=(3.45, 0.15, -8.53)
+[18:45:41.154] [UnitID:4] [TILE_ARRIVED] tile=(5, 13) pos=(3.45, 0.15, -13.72)
+[18:45:41.154] [UnitID:4] [TILE_MOVE] from=(5, 13) to=(5, 12) lastStep=False
+[18:45:41.155] [UnitID:4] [SLOT_RELEASE] tile=(5, 13)
+[18:45:41.155] [UnitID:4] [SLOT_CLAIM] tile=(5, 12) slot=2 worldPos=(3.45, 0.15, -12.86)
+[18:45:41.671] [UnitID:3] [TILE_ARRIVED] tile=(5, 4) pos=(3.45, 0.15, -5.33)
+[18:45:41.673] [UnitID:3] [TILE_MOVE] from=(5, 4) to=(5, 5) lastStep=False
+[18:45:41.673] [UnitID:3] [SLOT_RELEASE] tile=(5, 4)
+[18:45:41.674] [UnitID:3] [SLOT_CLAIM] tile=(5, 5) slot=3 worldPos=(3.45, 0.15, -6.20)
+[18:45:42.140] [UnitID:2] [TILE_ARRIVED] tile=(5, 10) pos=(3.45, 0.15, -11.13)
+[18:45:42.140] [UnitID:2] [TILE_MOVE] from=(5, 10) to=(5, 9) lastStep=False
+[18:45:42.141] [UnitID:2] [SLOT_RELEASE] tile=(5, 10)
+[18:45:42.141] [UnitID:2] [SLOT_CLAIM] tile=(5, 9) slot=2 worldPos=(3.45, 0.15, -10.26)
+[18:45:42.168] [UnitID:6] [SPAWN] position=(5, 15) type=EmberSpirit team=Blue
+[18:45:42.169] [UnitID:6] [PATH_CALC] length=17 from=(5, 15) to=(5, -1)
+[18:45:42.169] [UnitID:6] [SPAWN] finalTarget=(5, -1) from=(5, 15) pathLength=17
+[18:45:42.169] [UnitID:6] [TILE_MOVE] from=(5, 15) to=(5, 14) lastStep=False
+[18:45:42.170] [UnitID:6] [SLOT_CLAIM] tile=(5, 14) slot=2 worldPos=(3.45, 0.15, -14.59)
+[18:45:42.505] [UnitID:1] [ENEMY_DETECTED] kind=Ranged enemyId=0 isUnit=True
+[18:45:42.505] [UnitID:1] [STATIONARY_COMBAT_START] currentTile=(5, 7)
+[18:45:42.506] [UnitID:1] [COMBAT_START] mode=Ranged currentTile=(5, 6)
+[18:45:42.512] [UnitID:0] [ENEMY_DETECTED] kind=Melee enemyId=1 isUnit=True hexDist=1
+[18:45:42.513] [UnitID:0] [SLOT_RELEASE] tile=(5, 7)
+[18:45:42.515] [UnitID:0] [MELEE_PURSUIT_START] currentPos=(5, 8)
+[18:45:42.520] [UnitID:0] [ATTACK_SLOT_CLAIM] targetCoord=(5, 7) targetId=1 slotPos=(3.90, 0.15, -7.97) approachAngle=28.5
+[18:45:42.679] [UnitID:5] [TILE_ARRIVED] tile=(5, 2) pos=(3.45, 0.15, -3.60)
+[18:45:42.680] [UnitID:5] [TILE_MOVE] from=(5, 2) to=(5, 3) lastStep=False
+[18:45:42.680] [UnitID:5] [SLOT_RELEASE] tile=(5, 2)
+[18:45:42.681] [UnitID:5] [SLOT_CLAIM] tile=(5, 3) slot=3 worldPos=(3.45, 0.15, -4.46)
+[18:45:43.159] [UnitID:4] [TILE_ARRIVED] tile=(5, 12) pos=(3.45, 0.15, -12.86)
+[18:45:43.159] [UnitID:4] [TILE_MOVE] from=(5, 12) to=(5, 11) lastStep=False
+[18:45:43.160] [UnitID:4] [SLOT_RELEASE] tile=(5, 12)
+[18:45:43.160] [UnitID:4] [SLOT_CLAIM] tile=(5, 11) slot=2 worldPos=(3.45, 0.15, -11.99)
+[18:45:43.677] [UnitID:3] [TILE_ARRIVED] tile=(5, 5) pos=(3.45, 0.15, -6.20)
+[18:45:43.677] [UnitID:3] [TILE_MOVE] from=(5, 5) to=(5, 6) lastStep=False
+[18:45:43.677] [UnitID:3] [SLOT_RELEASE] tile=(5, 5)
+[18:45:43.677] [UnitID:3] [SLOT_CLAIM] tile=(5, 6) slot=3 worldPos=(3.45, 0.15, -7.06)
+[18:45:43.687] [UnitID:7] [SPAWN] position=(5, 0) type=Pistoleer team=Red
+[18:45:43.688] [UnitID:7] [PATH_CALC] length=17 from=(5, 0) to=(5, 16)
+[18:45:43.689] [UnitID:7] [SPAWN] finalTarget=(5, 16) from=(5, 0) pathLength=17
+[18:45:43.689] [UnitID:7] [TILE_MOVE] from=(5, 0) to=(5, 1) lastStep=False
+[18:45:43.690] [UnitID:7] [SLOT_CLAIM] tile=(5, 1) slot=3 worldPos=(3.45, 0.15, -2.73)
+[18:45:44.147] [UnitID:2] [TILE_ARRIVED] tile=(5, 9) pos=(3.45, 0.15, -10.26)
+[18:45:44.149] [UnitID:2] [TILE_MOVE] from=(5, 9) to=(5, 8) lastStep=False
+[18:45:44.149] [UnitID:2] [SLOT_RELEASE] tile=(5, 9)
+[18:45:44.150] [UnitID:2] [SLOT_CLAIM] tile=(5, 8) slot=2 worldPos=(3.45, 0.15, -9.39)
+[18:45:44.170] [UnitID:6] [TILE_ARRIVED] tile=(5, 14) pos=(3.45, 0.15, -14.59)
+[18:45:44.170] [UnitID:6] [TILE_MOVE] from=(5, 14) to=(5, 13) lastStep=False
+[18:45:44.170] [UnitID:6] [SLOT_RELEASE] tile=(5, 14)
+[18:45:44.170] [UnitID:6] [SLOT_CLAIM] tile=(5, 13) slot=2 worldPos=(3.45, 0.15, -13.72)
+[18:45:44.682] [UnitID:5] [TILE_ARRIVED] tile=(5, 3) pos=(3.45, 0.15, -4.46)
+[18:45:44.683] [UnitID:5] [TILE_MOVE] from=(5, 3) to=(5, 4) lastStep=False
+[18:45:44.683] [UnitID:5] [SLOT_RELEASE] tile=(5, 3)
+[18:45:44.684] [UnitID:5] [SLOT_CLAIM] tile=(5, 4) slot=3 worldPos=(3.45, 0.15, -5.33)
+[18:45:45.165] [UnitID:4] [TILE_ARRIVED] tile=(5, 11) pos=(3.45, 0.15, -11.99)
+[18:45:45.165] [UnitID:4] [TILE_MOVE] from=(5, 11) to=(5, 10) lastStep=False
+[18:45:45.166] [UnitID:4] [SLOT_RELEASE] tile=(5, 11)
+[18:45:45.166] [UnitID:4] [SLOT_CLAIM] tile=(5, 10) slot=2 worldPos=(3.45, 0.15, -11.13)
+[18:45:45.684] [UnitID:3] [TILE_ARRIVED] tile=(5, 6) pos=(3.45, 0.15, -7.06)
+[18:45:45.684] [UnitID:3] [TILE_MOVE] from=(5, 6) to=(5, 7) lastStep=False
+[18:45:45.685] [UnitID:3] [SLOT_RELEASE] tile=(5, 6)
+[18:45:45.685] [UnitID:3] [SLOT_CLAIM] tile=(5, 7) slot=2 worldPos=(4.05, 0.15, -7.93)
+[18:45:45.696] [UnitID:7] [TILE_ARRIVED] tile=(5, 1) pos=(3.45, 0.15, -2.73)
+[18:45:45.697] [UnitID:7] [TILE_MOVE] from=(5, 1) to=(5, 2) lastStep=False
+[18:45:45.697] [UnitID:7] [SLOT_RELEASE] tile=(5, 1)
+[18:45:45.697] [UnitID:7] [SLOT_CLAIM] tile=(5, 2) slot=3 worldPos=(3.45, 0.15, -3.60)
+[18:45:45.863] [UnitID:3] [ENEMY_DETECTED] kind=Ranged enemyId=0 isUnit=True
+[18:45:45.864] [UnitID:3] [STATIONARY_COMBAT_START] currentTile=(5, 7)
+[18:45:45.864] [UnitID:3] [COMBAT_START] mode=Ranged currentTile=(5, 6)
+[18:45:45.865] [UnitID:0] [COMBAT_START] mode=Melee targetId=1 targetCoord=(5, 7)
+[18:45:46.153] [UnitID:2] [TILE_ARRIVED] tile=(5, 8) pos=(3.45, 0.15, -9.39)
+[18:45:46.154] [UnitID:2] [TILE_MOVE] from=(5, 8) to=(5, 7) lastStep=False
+[18:45:46.154] [UnitID:2] [SLOT_RELEASE] tile=(5, 8)
+[18:45:46.154] [UnitID:2] [SLOT_CLAIM] tile=(5, 7) slot=1 worldPos=(3.75, 0.15, -7.93)
+[18:45:46.174] [UnitID:6] [TILE_ARRIVED] tile=(5, 13) pos=(3.45, 0.15, -13.72)
+[18:45:46.175] [UnitID:6] [TILE_MOVE] from=(5, 13) to=(5, 12) lastStep=False
+[18:45:46.175] [UnitID:6] [SLOT_RELEASE] tile=(5, 13)
+[18:45:46.176] [UnitID:6] [SLOT_CLAIM] tile=(5, 12) slot=2 worldPos=(3.45, 0.15, -12.86)
+[18:45:46.695] [UnitID:5] [TILE_ARRIVED] tile=(5, 4) pos=(3.45, 0.15, -5.33)
+[18:45:46.696] [UnitID:5] [TILE_MOVE] from=(5, 4) to=(5, 5) lastStep=False
+[18:45:46.697] [UnitID:5] [SLOT_RELEASE] tile=(5, 4)
+[18:45:46.698] [UnitID:5] [SLOT_CLAIM] tile=(5, 5) slot=3 worldPos=(3.45, 0.15, -6.20)
+[18:45:46.899] [UnitID:2] [ENEMY_DETECTED] kind=Melee enemyId=1 isUnit=True hexDist=1
+[18:45:46.900] [UnitID:2] [SLOT_RELEASE] tile=(5, 7)
+[18:45:46.900] [UnitID:2] [MELEE_PURSUIT_START] currentPos=(5, 8)
+[18:45:46.901] [UnitID:2] [ATTACK_SLOT_CLAIM] targetCoord=(5, 7) targetId=1 slotPos=(3.75, 0.15, -7.93) approachAngle=17.0
+[18:45:47.175] [UnitID:4] [TILE_ARRIVED] tile=(5, 10) pos=(3.45, 0.15, -11.13)
+[18:45:47.175] [UnitID:4] [TILE_MOVE] from=(5, 10) to=(5, 9) lastStep=False
+[18:45:47.176] [UnitID:4] [SLOT_RELEASE] tile=(5, 10)
+[18:45:47.176] [UnitID:4] [SLOT_CLAIM] tile=(5, 9) slot=2 worldPos=(3.45, 0.15, -10.26)
+[18:45:47.189] [UnitID:8] [SPAWN] position=(5, 15) type=EmberSpirit team=Blue
+[18:45:47.190] [UnitID:8] [PATH_CALC] length=17 from=(5, 15) to=(5, -1)
+[18:45:47.192] [UnitID:8] [SPAWN] finalTarget=(5, -1) from=(5, 15) pathLength=17
+[18:45:47.192] [UnitID:8] [TILE_MOVE] from=(5, 15) to=(5, 14) lastStep=False
+[18:45:47.193] [UnitID:8] [SLOT_CLAIM] tile=(5, 14) slot=2 worldPos=(3.45, 0.15, -14.59)
+[18:45:47.694] [UnitID:7] [TILE_ARRIVED] tile=(5, 2) pos=(3.45, 0.15, -3.60)
+[18:45:47.694] [UnitID:7] [TILE_MOVE] from=(5, 2) to=(5, 3) lastStep=False
+[18:45:47.695] [UnitID:7] [SLOT_RELEASE] tile=(5, 2)
+[18:45:47.695] [UnitID:7] [SLOT_CLAIM] tile=(5, 3) slot=3 worldPos=(3.45, 0.15, -4.46)
+[18:45:48.182] [UnitID:6] [TILE_ARRIVED] tile=(5, 12) pos=(3.45, 0.15, -12.86)
+[18:45:48.182] [UnitID:6] [TILE_MOVE] from=(5, 12) to=(5, 11) lastStep=False
+[18:45:48.184] [UnitID:6] [SLOT_RELEASE] tile=(5, 12)
+[18:45:48.184] [UnitID:6] [SLOT_CLAIM] tile=(5, 11) slot=2 worldPos=(3.45, 0.15, -11.99)
+[18:45:48.457] [UnitID:2] [COMBAT_START] mode=Melee targetId=1 targetCoord=(5, 7)
+[18:45:48.561] [UnitID:0] [UNIT_DIED] position=(5, 8) type=EmberSpirit team=Blue hadMoveSlot=False hadAttackSlot=True
+[18:45:48.562] [UnitID:0] [ATTACK_SLOT_RELEASE] targetCoord=(5, 7)
+[18:45:48.563] [UnitID:0] [SLOT_RELEASE_ON_DEATH] moveSlotReleased=False attackSlotReleased=True
+[18:45:48.694] [UnitID:5] [TILE_ARRIVED] tile=(5, 5) pos=(3.45, 0.15, -6.20)
+[18:45:48.694] [UnitID:5] [TILE_MOVE] from=(5, 5) to=(5, 6) lastStep=False
+[18:45:48.695] [UnitID:5] [SLOT_RELEASE] tile=(5, 5)
+[18:45:48.695] [UnitID:5] [SLOT_CLAIM] tile=(5, 6) slot=3 worldPos=(3.45, 0.15, -7.06)
+[18:45:48.710] [UnitID:9] [SPAWN] position=(5, 0) type=Pistoleer team=Red
+[18:45:48.712] [UnitID:9] [PATH_CALC] length=17 from=(5, 0) to=(5, 16)
+[18:45:48.712] [UnitID:9] [SPAWN] finalTarget=(5, 16) from=(5, 0) pathLength=17
+[18:45:48.713] [UnitID:9] [TILE_MOVE] from=(5, 0) to=(5, 1) lastStep=False
+[18:45:48.713] [UnitID:9] [SLOT_CLAIM] tile=(5, 1) slot=3 worldPos=(3.45, 0.15, -2.73)
+[18:45:49.206] [UnitID:8] [TILE_ARRIVED] tile=(5, 14) pos=(3.45, 0.15, -14.59)
+[18:45:49.206] [UnitID:8] [TILE_MOVE] from=(5, 14) to=(5, 13) lastStep=False
+[18:45:49.207] [UnitID:8] [SLOT_RELEASE] tile=(5, 14)
+[18:45:49.207] [UnitID:8] [SLOT_CLAIM] tile=(5, 13) slot=2 worldPos=(3.45, 0.15, -13.72)
+[18:45:49.208] [UnitID:4] [TILE_ARRIVED] tile=(5, 9) pos=(3.45, 0.15, -10.26)
+[18:45:49.208] [UnitID:4] [TILE_MOVE] from=(5, 9) to=(5, 8) lastStep=False
+[18:45:49.208] [UnitID:4] [SLOT_RELEASE] tile=(5, 9)
+[18:45:49.209] [UnitID:4] [SLOT_CLAIM] tile=(5, 8) slot=2 worldPos=(3.45, 0.15, -9.39)
+[18:45:49.709] [UnitID:7] [TILE_ARRIVED] tile=(5, 3) pos=(3.45, 0.15, -4.46)
+[18:45:49.709] [UnitID:7] [TILE_MOVE] from=(5, 3) to=(5, 4) lastStep=False
+[18:45:49.711] [UnitID:7] [SLOT_RELEASE] tile=(5, 3)
+[18:45:49.711] [UnitID:7] [SLOT_CLAIM] tile=(5, 4) slot=3 worldPos=(3.45, 0.15, -5.33)
