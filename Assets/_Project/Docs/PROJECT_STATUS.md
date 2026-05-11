@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-04-30
-**현재 단계:** 종족/팀 초상화 및 생산 연동 정비 완료 — UI 스킨 로직 제거 및 데이터 기반 초상화/프리팹 동기화 완료 / 타일 소유권 실시간 감지(TileOwnershipService) 완료 ...
+**최종 수정일:** 2026-05-11
+**현재 단계:** 이동 슬롯 오프셋 Inspector 조정 기능 완료 (GameBootstrapper에서 SlotForwardRatio/SlotSideRatio 실시간 설정 가능)
 
 ---
 

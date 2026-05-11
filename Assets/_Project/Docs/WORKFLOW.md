@@ -100,6 +100,8 @@ _Logs/
 - 작업 중 발견한 부가 이슈도 여기에 기록
 
 ### [4] Plan.md 작성 및 승인
+- **`Assets/_Project/Docs/GameSystemRules.md` 읽기 필수 — 예외 없음. Plan.md 작성 전 반드시 읽을 것.**
+- **Plan의 각 수정 항목은 GameSystemRules.md의 어떤 규칙에 근거하는지 명시할 것.**
 - 구체적인 구현 방법, 수정할 파일 목록
 - 예상 위험 요소, 아키텍처 제약 사항
 - Plan.md 내용을 사용자에게 공유 → **명시적 승인 확인 후에만** 구현 시작

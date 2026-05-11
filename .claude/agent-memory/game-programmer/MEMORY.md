@@ -23,6 +23,21 @@
 
 ## 최근 작업
 
+### 이동 슬롯 오프셋 Inspector 조정 기능 추가 (2026-05-11) ✅ 사용자 확인 완료
+
+**수정 파일**:
+- `Application/Services/TileMoveSlotManager.cs` — `private const float SlotForwardRatio/SlotSideRatio` → `private readonly float`. 기본값 0.30f를 유지하는 생성자 파라미터 추가. `GetSlotWorldPositionInternal`을 `static` → 인스턴스 메서드로 전환(readonly 필드 접근을 위해).
+- `Bootstrap/GameBootstrapper.cs` — `[Header("이동 슬롯 오프셋")]` + `[SerializeField] private float _slotForwardRatio/SideRatio = 0.30f` 추가. `new TileMoveSlotManager()` → `new TileMoveSlotManager(_slotForwardRatio, _slotSideRatio)`.
+
+**핵심 설계 결정**:
+- TileMoveSlotManager는 순수 C# 클래스(MonoBehaviour 아님) → [SerializeField] 직접 불가. GameBootstrapper(MonoBehaviour)에 SerializeField 배치 후 생성자로 값 전달.
+- 기본값 0.30f 유지 → 기존 동작과 동일, 행동 변화 없음.
+- 런타임 중 Inspector 수정은 적용 안 됨(생성 시 1회 주입). 플레이 시작 전 설정 필요.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-11/10_49_slot-ratio-inspector/`
+
+---
+
 ### UI 종족/팀 초상화 및 생산 연동 시스템 정비 (2026-04-30) ✅ 구현 완료
 
 **수정 파일**: `Presentation/UI/ProductionPanelUI.cs`, `Presentation/UI/BuildingPlacementUI.cs`, `Bootstrap/GameBootstrapper.cs`
