@@ -173,3 +173,68 @@ Inspector에서 `UnitStatsConfig`의 각 원거리 유닛(`Pistoleer`, `Sniper`,
 | 원거리 유닛 DetectRange | DetectRange 미설정 시 DetectRange == AttackRange로 폴백되어 감지 즉시 공격 상태로 전환됨 | Inspector 설정 작업(7번)을 구현 완료 후 반드시 병행 |
 | `ProcessStep()` 수정 | FROM 점유 해제 코드만 제거하는 정밀 수정이므로 방향 계산·Position 업데이트 로직에 영향 없어야 함 | 수정 후 컴파일 에러 즉시 확인 |
 | UnitView 코루틴 흐름 | 파일이 매우 크고 Phase 0/1/2 전환 코드가 복잡하게 얽혀 있어 누락 가능성 있음 | game-programmer 에이전트 위임 시 Research.md와 함께 전달 |
+
+---
+
+## BUG-002 수정 — 전투 종료 후 순간이동 → 걷기 전환 (Round 2, 2026-05-13)
+
+### 자연어 설명
+
+전투가 끝난 직후 유닛이 A* 이동을 재개할 때 약 1타일 거리를 순간이동하는 버그를 수정한다.
+
+현재 코드는 전투 종료 시 재개 타일 중심으로 유닛의 위치를 **즉시 점프**시킨다. 그러나 게임 시스템 규칙 9는 "타일 중심으로 **이동한 뒤** A*를 재개한다"고 명시하므로, 즉시 점프 대신 정상 이동 속도로 **걸어서** 이동해야 한다.
+
+런타임 로그에서 확인된 증거:
+- `RESUME_SNAP snapDistSq=0.9845` — 1프레임에 약 1타일(0.99m) 순간이동
+- `RESUME_SNAP snapDistSq=1.5992` — 1프레임에 약 1.27m 순간이동
+
+### 원인
+
+`ResumeFromForwardTileV3` 함수 말미의 `transform.position = forwardView;` 코드가 유닛의 위치를 1프레임 안에 강제로 재배치한다. 규칙 9의 "이동한 뒤"를 "즉시 위치를 맞춘 뒤"로 잘못 구현한 것이다.
+
+### 수정 대상
+
+**근거 규칙:** 규칙 9 (A* 이동 재개 방식) — "성 방향 앞쪽에 있는 타일 중 가장 가까운 타일의 중심으로 **이동한 뒤** A*를 재개한다."
+
+**수정 파일:** `Presentation/Unit/UnitView.cs`
+
+---
+
+### 수정 내용
+
+#### 1. `ResumeFromForwardTileV3` — 즉시 스냅 제거
+
+함수 말미의 `transform.position = forwardView;` 즉시 대입 코드를 제거한다.
+함수 자체의 반환 타입(`List<HexCoord>`)과 나머지 로직(도메인 위치 갱신, 경로 요청)은 그대로 유지한다.
+
+기존 `RESUME_SNAP` 진단 로그도 스냅 제거에 맞게 내용을 수정한다.
+
+#### 2. `MoveAlongPathV3` — 재개 전 정렬 Lerp 추가
+
+전투 코루틴(`EnterCombatPursuitV3`) 종료 직후, `ResumeFromForwardTileV3` 호출 **이전**에 다음 순서로 처리한다:
+
+```
+1. 현재 transform.position → ViewConverter → 도메인 좌표 변환
+2. FindForwardClosestTile로 forwardTile 계산
+3. forwardTile 중심을 뷰 좌표(alignView)로 변환
+4. 현재 위치 → alignView까지 Lerp 이동
+   - 이동 시간 = (물리 거리 / HexMetrics.TileHeight) × moveSeconds
+   - 규칙 5: A* 이동과 동일한 MoveSpeed 스탯 사용
+   - Lerp while 내부에서 매 프레임 사망 체크 (_unitData.IsAlive)
+   - Lerp while 내부에서 매 프레임 적 감지 체크 (HasEnemyInDetectRange)
+     → 감지 시 Lerp 즉시 중단 후 전투 이동 진입
+5. Lerp 완료 → transform.position = alignView 최종 스냅
+6. ResumeFromForwardTileV3(finalTarget) 호출하여 새 path 수령
+```
+
+`ResumeFromForwardTileV3`의 시그니처는 변경하지 않으므로 그 외 호출 측 구조 변경은 없다.
+
+---
+
+### 위험 요소
+
+| 항목 | 위험 | 대응 |
+|------|------|------|
+| Lerp 도중 적 감지 | 정렬 Lerp 중 감지 사거리 내 적이 진입하면 전투 이동으로 즉시 전환해야 함 | Lerp while 내부에서 `HasEnemyInDetectRange` 체크 포함 |
+| Lerp 도중 유닛 사망 | 정렬 Lerp 중 유닛이 사망하면 코루틴을 안전하게 종료해야 함 | Lerp while 조건에 `_unitData.IsAlive` 포함 |
+| 이동 속도 계산 오류 | alignDuration을 잘못 계산하면 비정상적으로 빠르거나 느린 이동이 됨 | `(alignDist / HexMetrics.TileHeight) × moveSeconds` 공식 적용 |

@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-04-26  
-**현재 단계:** 타일 소유권 실시간 감지(TileOwnershipService) 완료 + 근접유닛 뒷무빙 5차 개선 완료
+**최종 수정일:** 2026-05-15  
+**현재 단계:** 유닛 이동/전투/회전 시스템 전면 재설계 완료 (슬롯 폐기, MoveAlongPathV3 통일, RotateTowards 통일)
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -74,8 +74,8 @@
 - 골드 소모 + 생산 시간/수입/HP 증가
 
 ### D-3. 유닛 AI 상태머신
-- 현재: 이동 중 인접 적 자동 공격 (하드코딩)
-- 목표: Idle → Patrol → Chase → Attack → Retreat 상태 전환
+**✅ 기본 전투 AI 구현 완료 (2026-05-11)**: 슬롯/점유 시스템 폐기. 근접·원거리 모두 단일 상태 머신(MoveAlongPathV3) 적용. A* 이동 → 적 감지(DetectRange) → 직선 추격(EnterCombatPursuitV3) → 공격 → 재개(Lerp 정렬) 사이클 완성. 겹침 허용, 모든 유닛 동일 규칙 적용.
+- 추가 목표: Idle → Patrol → Retreat 상태 확장 (현재 미구현)
 
 ---
 

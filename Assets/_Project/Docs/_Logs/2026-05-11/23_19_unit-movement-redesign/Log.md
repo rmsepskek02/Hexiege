@@ -69,3 +69,44 @@
 
 - MovementLogger 경로:
   - `Application/Services/MovementLogger.cs` — `LogRelativePath` 상수를 기존 `2026-05-07/19_43_movement-combat-full-rewrite/RuntimeLog.txt` → `2026-05-11/23_19_unit-movement-redesign/RuntimeLog.txt`로 변경(현재 작업 폴더 반영).
+
+---
+
+## Round 2 — 2026-05-13
+
+### [QA] 발견된 문제
+
+- **BUG-002: [SNAP→WALK] — 전투 종료 후 유닛이 순간이동하는 현상**
+
+  **자연어 설명**
+
+  Round 1 진단 로그(`RESUME_SNAP`)로 확인된 실제 원인은 다음과 같습니다.
+
+  전투가 종료되어 A* 이동을 재개할 때, `ResumeFromForwardTileV3()`는 "앞쪽 가장 가까운 타일"(forwardTile)을 찾은 직후 `transform.position`을 그 타일 중심으로 **즉시 스냅**했습니다. 추격 중에는 유닛이 적 근처(공격 슬롯)까지 물리적으로 이동했지만 도메인 위치(`_unitData.Position`)는 갱신되지 않으므로, forwardTile은 추격 전 타일에서 한 칸 앞쪽이 되고, 결과적으로 공격 슬롯 → forwardTile 중심까지의 거리(약 1타일)를 한 프레임 안에 점프하는 시각적 순간이동이 발생했습니다.
+
+  이는 **규칙 9(A* 이동 재개 방식)** 위반입니다. 규칙 9는 현재 월드 위치 기준 앞쪽 타일 중심까지 "이동한 뒤" A*를 재개하라고 명시하고 있으며, 즉시 스냅이 아니라 동일 이동 속도로 걸어가야 합니다.
+
+  - 관련 파일: `Presentation/Unit/UnitView.cs` — `ResumeFromForwardTileV3()`, `MoveAlongPathV3()`
+  - 원인 분석: 규칙 9 위반. `transform.position = forwardView` 즉시 스냅으로 구현하여 1타일 순간이동 발생.
+  - 수정 방향: 즉시 스냅 제거 → Lerp로 걸어서 이동. forwardTile은 호출 측에서 1회만 계산해 함수에 파라미터로 전달(이중 `FindForwardClosestTile` 호출 시 한 타일 더 앞쪽이 선택되어 도메인-뷰 좌표가 다시 어긋나는 부작용 방지).
+
+### [DEV] 수정 내용
+
+- `Presentation/Unit/UnitView.cs` — `ResumeFromForwardTileV3(HexCoord finalTarget)` → `ResumeFromForwardTileV3(HexCoord finalTarget, HexCoord forwardTile)`로 시그니처 변경. 함수 내부의 `FindForwardClosestTile` 호출과 `transform.position = forwardView` 즉시 스냅, 그리고 `RESUME_SNAP` 로그 블록을 제거. 도메인 갱신(`ProcessStep`), Walk 애니메이션 재개, `RequestMove`로 새 path 발급 로직은 그대로 유지. `RESUME_DOMAIN_JUMP` 로그도 유지(추격 중 다중 타일 점프 진단에 필요).
+
+- `Presentation/Unit/UnitView.cs` — `MoveAlongPathV3()` 내 전투 종료 직후 흐름을 다음 5단계로 재구성.
+  1. `ViewConverter.FromView(transform.position)`로 도메인 위치를 역산한 뒤 `FindForwardClosestTile`을 **1회만** 호출하여 `forwardTile`을 결정.
+  2. `forwardTile`의 도메인 월드 좌표를 `ViewConverter.ToView` + `UnitYOffset`으로 변환한 `alignView`를 정렬 목표로 설정.
+  3. `alignDist = Vector3.Distance(transform.position, alignView)`. 동일 이동 속도(규칙 5)를 보장하기 위해 `alignDuration = (alignDist / HexMetrics.TileHeight) * moveSeconds`로 환산. `alignDuration <= 0.0001f`이면 Lerp 생략.
+  4. 기존 A* Lerp와 동일한 구조의 while 루프로 `Vector3.Lerp(alignFromPos, alignView, t)` 진행. 매 프레임 `HasEnemyInDetectRange` 체크 → 감지 시 `alignInterruptedByCombat = true`로 break. 사망(`!_unitData.IsAlive`) 시 자연스럽게 while 종료.
+  5. 정렬 Lerp 종료 후 분기 — `alignInterruptedByCombat`이면 `interruptedByCombat = true`로 설정 후 외부 for 루프 break(같은 path 유지 → 다음 사이클에서 detect 체크가 다시 추격으로 전환). 정상 종료면 `transform.position = alignView`로 최종 스냅한 뒤 `ResumeFromForwardTileV3(finalTarget, forwardTile)` 호출. 그 외 후속 처리(needRepath/interruptedByCombat 설정, RESUME_FAILED 처리)는 기존과 동일.
+
+- 진단 로그 추가:
+  - `RESUME_ALIGN_START` — forwardTile, alignDist, alignDuration 기록.
+  - `RESUME_ALIGN_INTERRUPT` — 정렬 Lerp 도중 새 적 감지 시 enemyId/isUnit/currentPos 기록.
+  - `RESUME_ALIGN_END` — 정렬 Lerp 정상 종료 시 forwardTile/pos 기록.
+
+- 영향 범위:
+  - 규칙 9 충족: 재개 시 시각적 순간이동 제거, 정렬도 동일 이동 속도로 "걸어서" 처리됨.
+  - BUG-001(`_isInCombatPursuit` 플래그) 관련 코드는 일절 수정하지 않음.
+  - `RESUME_DOMAIN_JUMP` 로그는 그대로 유지되어 추격 중 도메인 점프 거리 자체는 계속 관찰 가능.

@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-05-11
-**현재 단계:** 이동 슬롯 오프셋 Inspector 조정 기능 완료 (GameBootstrapper에서 SlotForwardRatio/SlotSideRatio 실시간 설정 가능)
+**최종 수정일:** 2026-05-14
+**현재 단계:** 유닛 회전 시스템 전면 개편 완료 (방향 계산 Atan2 통일, 모든 회전 RotateTowards 적용, _rotationSpeed Inspector 노출)
 
 ---
 
@@ -27,7 +27,7 @@
 | Walk 애니메이션 연속 재생 | ✅ 완료 (2026-03-09) | 매 스텝 0f 리셋 제거 → 이미 Walk 상태이면 클립 유지 |
 | 공격 애니메이션-타격 시각 동기화 | ✅ 완료 (2026-03-14) | Animation Event + AnimationEventRelay → scale punch (데미지 타이밍 무변경) |
 | 유닛 메시 방향 보정 | ✅ 완료 (2026-04-29 갱신) | 전 유닛 Mesh Y=0, _meshYOffset 제거, 이동 anim offset=0, DirectionAngles={60,120,180,240,300,0} (FlatTop 월드 각도 기준) |
-| 유닛 회전 보간 (DOTween) | ✅ 완료 (2026-03-14) | ApplyDirection + PlayAttackAnimation 모두 DORotate(_rotationDuration).SetEase(Ease.OutQuad) |
+| 유닛 회전 시스템 (RotateTowards 통일) | ✅ 완료 (2026-05-14 개편) | 모든 회전 Quaternion.RotateTowards 통일. 방향 계산 Atan2(현재 월드 위치→목적지) 기반. [SerializeField] _rotationSpeed = 270f Inspector 조정 가능 |
 | 공격 후 Walk 복귀 버그 수정 | ✅ 완료 (2026-03-14) | 타겟 소멸 후 이동 재개 시 Play(StateWalk) 명시 호출 (멀티/싱글 공통) |
 | 건물 배치 (Castle/Barracks/MiningPost) | ✅ 완료 | 건설 검증, 영토 확장 |
 | 자원 시스템 (골드) | ✅ 완료 | 채굴소 수입, 건물/유닛 비용 |
@@ -252,6 +252,27 @@
 | BuildingPlacementUI GetBuildingCost BuildingStats 연동 | ✅ 완료 | `BuildingStats.GetGoldCost(type, race)` |
 | 에디터 자동 생성 스크립트 2종 | ✅ 완료 | `Hexiege/Setup/UnitStatsConfig 생성`, `Hexiege/Setup/BuildingStatsConfig 생성` |
 | 에셋 파일 생성 | ✅ 완료 | `Assets/_Project/Resources/Config/UnitStatsConfig.asset`, `BuildingStatsConfig.asset` |
+
+#### 설계 규칙 문서 (GameSystemRules.md)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 유닛 이동 시스템 규칙 1~8 | ✅ 확정 (2026-05-14 개편) | 이동/전투/회전 규칙 통합, 총 16개 규칙으로 재번호화 |
+| 회전 규칙 통합 | ✅ 확정 (2026-05-14) | 규칙 7(A* 이동 중 서서히 회전), 8(재개 시 이동 방향 바라봄), 12(전투 이동 중), 15(공격 중) — 이동/전투 규칙에 통합 |
+
+---
+
+#### 유닛 이동/전투 시스템 재설계 (2026-05-11~13)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 슬롯 시스템 전면 폐기 | ✅ 완료 (2026-05-11) | TileMoveSlotManager / TileOccupancyManager / AttackPositionManager 비활성화(주석 처리). GameBootstrapper 주입 코드 포함 |
+| 타일 점유 한도(OccupancySize) 제거 | ✅ 완료 (2026-05-11) | UnitData.ClaimedTile / UnitStats.OccupancySize / UnitMovementUseCase 점유 메서드 비활성화 |
+| 근접/원거리 동일 상태 머신 (MoveAlongPathV3) | ✅ 완료 (2026-05-11) | Phase 0(A* Lerp) → 감지 → Phase 1(직선 추격) → 공격 → FindForwardClosestTile → 재개. 겹침 허용 |
+| UnitCombatUseCase DetectRange 판정 통합 | ✅ 완료 (2026-05-11) | isMelee 분기 제거, 모든 유닛 DetectRange × TileHeight 통일 |
+| 원거리 유닛 DetectRange 수치 분리 | ✅ 완료 (2026-05-11) | UnitStatsConfig Inspector에서 원거리 유닛 DetectRange > AttackRange 설정 |
+| 추격 중 건물 변화 시 유닛 멈춤 (BUG-001) | ✅ 완료 (2026-05-12) | `_isInCombatPursuit` 필드 추가, IsInCombat() 추격 단계도 전투 중으로 판정 |
+| 전투 종료 후 순간이동 (BUG-002) | ✅ 완료 (2026-05-13) | 즉시 스냅 제거 → 정렬 Lerp(동일 이동 속도)로 교체. 정렬 중 적 감지 시 즉시 전투 재진입 |
+
+---
 
 #### 버그 수정 및 폴리싱
 | 항목 | 상태 |

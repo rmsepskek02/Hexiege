@@ -1,0 +1,12 @@
+============================================================
+[BugTrace] Session Start  2026-05-15 03:51:45.004
+  Path : D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Assets\_Project\Docs\_Logs\2026-05-15\02_57_character-display-bug\RuntimeLog.txt
+============================================================
+[03:51:45.005] [BugTrace] BattleRootView.Bind() 호출됨. 시각: 03:51:45.005
+[03:51:45.006] [BugTrace] BattleRootView.Unbind() 호출됨. 시각: 03:51:45.006
+[03:51:45.008] [BugTrace] RaceSelectionViewModel 생성됨. LocalPlayerRace.Current: Human. 시각: 03:51:45.008
+[03:51:45.016] [BugTrace] ApplyCarouselPositions 호출. race: Human, animate: False. 시각: 03:51:45.016
+[03:52:07.152] [BugTrace] ApplyCarouselPositions 호출. race: Spirit, animate: True. 시각: 03:52:07.152
+[03:52:07.809] [BugTrace] CurrentScreen → RandomMatch. 매칭 시작. 시각: 03:52:07.809
+[03:52:18.326] [BugTrace] BattleViewModel.OnClientConnected 호출. 현재 ConnectedPlayers: 0. 시각: 03:52:18.326
+[03:52:25.279] [BugTrace] BattleRootView.Unbind() 호출됨. 시각: 03:52:25.279
