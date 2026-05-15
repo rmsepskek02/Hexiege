@@ -57,6 +57,11 @@ namespace Hexiege.Presentation
         private UnitFactory _unitFactory;
         private GameConfig _config;
 
+        // 적 성 인접 타일별 배정 카운트를 관리하는 매니저.
+        // 유닛마다 서로 다른 접근 타일을 받아 한 줄로 늘어서는 현상을 방지한다.
+        // GameBootstrapper.SetupProduction()에서 Initialize() 호출 시 주입된다.
+        private CastleApproachManager _castleApproachManager;
+
         // ====================================================================
         // 랠리포인트 마커 관리
         // ====================================================================
@@ -84,6 +89,12 @@ namespace Hexiege.Presentation
             public int UnitId;
             public TeamId Team;
             public HexCoord CastlePos;
+
+            // 이 유닛이 배정받은 성 인접 접근 타일.
+            // siege 단계의 이동 목표로 사용되어, TickSiege에서 더 가까운 빈 타일로 재이동할 때도
+            // 원래 배정된 분산 방향을 유지하도록 한다.
+            // 인접 walkable 타일이 없어 폴백된 경우에는 CastlePos와 같은 값이 들어갈 수 있다.
+            public HexCoord ApproachTile;
         }
 
         /// <summary> siege 대상 유닛 목록. unitId → SiegeEntry. </summary>
@@ -108,7 +119,8 @@ namespace Hexiege.Presentation
             UnitMovementUseCase unitMovement,
             BuildingPlacementUseCase buildingPlacement,
             UnitFactory unitFactory,
-            GameConfig config)
+            GameConfig config,
+            CastleApproachManager castleApproach)
         {
             _productionUseCase = production;
             _resourceUseCase = resource;
@@ -116,6 +128,7 @@ namespace Hexiege.Presentation
             _buildingPlacement = buildingPlacement;
             _unitFactory = unitFactory;
             _config = config;
+            _castleApproachManager = castleApproach;
 
             SubscribeEvents();
         }
@@ -278,10 +291,13 @@ namespace Hexiege.Presentation
                 DestroyMarker(building.Id);
             }
 
-            // 유닛 사망 시 siege 목록에서 제거
+            // 유닛 사망 시 siege 목록에서 제거 + 성 접근 타일 배정 해제.
+            // 배정을 해제하지 않으면 _assignedCounts가 계속 누적되어 다음 유닛들이
+            // 같은 타일로 몰리거나 후보가 부족해 보이는 문제가 발생할 수 있다.
             if (e.Entity is UnitData unit)
             {
                 _siegeUnits.Remove(unit.Id);
+                _castleApproachManager?.Release(unit.Id);
             }
         }
 
@@ -428,25 +444,37 @@ namespace Hexiege.Presentation
             HexCoord? enemyCastle = FindEnemyCastlePos(unit.Team);
             if (!enemyCastle.HasValue) return;
 
-            // Castle 방향 BFS 이동
-            List<HexCoord> path = FindPathToNearestEmptyTile(unit, enemyCastle.Value);
+            // ────────────────────────────────────────────────────────────
+            // 성 인접 6개 타일 중 가장 덜 배정된 타일을 이 유닛의 이동 목표로 받는다.
+            // 다른 유닛과 서로 다른 접근 타일을 받게 되므로 FlowField 결과가 분기되어
+            // 성 주변 여러 방향에서 자연스럽게 접근하게 된다.
+            // 매니저가 없거나(생성 실패 등) 인접 walkable 타일이 하나도 없으면
+            // null이 반환되며, 그 경우 기존처럼 성 타일 자체를 목표로 폴백한다.
+            // ────────────────────────────────────────────────────────────
+            HexCoord? approachTile = _castleApproachManager?.AssignApproachTile(enemyCastle.Value, unit.Id);
+            HexCoord moveTarget = approachTile ?? enemyCastle.Value;
+
+            // 결정된 이동 목표로 BFS 경로 탐색.
+            List<HexCoord> path = FindPathToNearestEmptyTile(unit, moveTarget);
             if (path != null)
             {
-                // 이동 완료 후 siege 등록 콜백
-                unitView.OnMoveComplete = () => RegisterSiege(unit, enemyCastle.Value);
+                // 이동 완료 후 siege 등록 콜백 — 성 좌표와 접근 타일을 함께 저장.
+                unitView.OnMoveComplete = () => RegisterSiege(unit, enemyCastle.Value, moveTarget);
                 unitView.MoveTo(path);
             }
             else
             {
                 // 경로 없어도 siege 등록 (추후 빈 타일 생기면 이동)
-                RegisterSiege(unit, enemyCastle.Value);
+                RegisterSiege(unit, enemyCastle.Value, moveTarget);
             }
         }
 
         /// <summary>
         /// siege 목록에 유닛 등록.
+        /// approachTile은 MoveTowardEnemyCastle에서 CastleApproachManager가 배정한 분산 목표 타일.
+        /// 매니저가 후보를 찾지 못한 경우에는 castlePos와 같은 값이 전달될 수 있다.
         /// </summary>
-        private void RegisterSiege(UnitData unit, HexCoord castlePos)
+        private void RegisterSiege(UnitData unit, HexCoord castlePos, HexCoord approachTile)
         {
             if (!unit.IsAlive) return;
 
@@ -458,7 +486,8 @@ namespace Hexiege.Presentation
             {
                 UnitId = unit.Id,
                 Team = unit.Team,
-                CastlePos = castlePos
+                CastlePos = castlePos,
+                ApproachTile = approachTile
             };
         }
 
@@ -498,24 +527,37 @@ namespace Hexiege.Presentation
                 if (unitView.IsMoving) continue;
 
                 UnitData unit = unitView.Data;
-                int currentDist = HexCoord.Distance(unit.Position, entry.CastlePos);
+
+                // siege 완료 판정은 항상 "성 본체와의 거리"를 기준으로 한다.
+                // 접근 타일에 도달했더라도 성과 인접하지 않으면 계속 추격해야 함.
+                int currentDistToCastle = HexCoord.Distance(unit.Position, entry.CastlePos);
 
                 // Castle 인접 도착 → siege 완료
-                if (currentDist <= 1)
+                if (currentDistToCastle <= 1)
                 {
                     _siegeUnits.Remove(unitId);
                     continue;
                 }
 
-                // Castle 방향 BFS로 더 가까운 빈 타일 탐색
-                List<HexCoord> path = FindPathToNearestEmptyTile(unit, entry.CastlePos);
+                // 이동 목표는 배정된 접근 타일을 우선 사용.
+                // ApproachTile이 default(=Q,R=0)면 배정이 없었거나 폴백 경우이므로 성 좌표 사용.
+                HexCoord moveTarget = entry.ApproachTile.Equals(default(HexCoord))
+                    ? entry.CastlePos
+                    : entry.ApproachTile;
+
+                // "지금 위치에서 이동 목표(접근 타일)까지의 거리" 기준으로
+                // 더 가까운 빈 타일로 재이동할지 결정한다.
+                int currentDistToTarget = HexCoord.Distance(unit.Position, moveTarget);
+
+                // 접근 타일 방향 BFS로 더 가까운 빈 타일 탐색
+                List<HexCoord> path = FindPathToNearestEmptyTile(unit, moveTarget);
                 if (path != null)
                 {
-                    // 새 경로의 도착점이 현재보다 Castle에 더 가까운지 확인
+                    // 새 경로의 도착점이 현재보다 접근 타일에 더 가까운지 확인
                     HexCoord destination = path[path.Count - 1];
-                    int newDist = HexCoord.Distance(destination, entry.CastlePos);
+                    int newDist = HexCoord.Distance(destination, moveTarget);
 
-                    if (newDist < currentDist)
+                    if (newDist < currentDistToTarget)
                     {
                         unitView.OnMoveComplete = () =>
                         {

@@ -261,6 +261,12 @@ namespace Hexiege.Bootstrap
         // 서버(또는 싱글플레이)에서만 Tick을 호출 — 클라이언트는 별도 동기화 경로로 점령 결과 수신.
         private TileOwnershipService _tileOwnership;
 
+        // CastleApproachManager — 적 성 인접 타일별 배정 카운트를 관리.
+        // ProductionTicker가 새 유닛을 성으로 이동시킬 때 가장 덜 배정된 인접 타일을 받아
+        // 유닛별로 다른 목적지를 사용 → 같은 FlowField 공유로 인한 "줄지어 이동" 현상 방지.
+        // CreateUseCases()에서 _grid 초기화 직후에 인스턴스를 만든다.
+        private CastleApproachManager _castleApproachManager;
+
         /// <summary>
         /// FlowFieldService 반환.
         /// 외부에서 캐시 무효화 등을 직접 호출할 필요가 있는 경우(예: 디버깅) 사용.
@@ -366,14 +372,6 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void Start()
         {
-            // ────────────────────────────────────────────────────────────
-            // [실기 로그] 새 플레이 세션이 시작됐음을 RuntimeLog.txt에 명시 기록.
-            // GameBootstrapper.Start()는 게임 씬(Game.unity) 진입 시 1회만 호출되므로
-            // 세션 시작 마커로 사용하기에 가장 자연스러운 위치다.
-            // 릴리즈 빌드에서는 본문이 비워져 호출 비용이 0이 된다.
-            // ────────────────────────────────────────────────────────────
-            MovementLogger.SessionStart();
-
             // ────────────────────────────────────────────────────────────
             // UnitStats / UnitProductionStats를 ScriptableObject 설정값으로 초기화.
             // 이 시점 이후 생성되는 모든 UnitData에 SO 수치가 적용됨.
@@ -884,6 +882,12 @@ namespace Hexiege.Bootstrap
             // 유닛 이동 방식(Phase 0/1/2)에 무관하게 시각 위치를 기준으로 타일을 점령한다.
             _tileOwnership = new TileOwnershipService(_grid, _unitSpawn, _positionProvider);
 
+            // CastleApproachManager 초기화.
+            // 재경기/맵 전환 시 같은 인스턴스를 재사용하지 않고 새로 만든다.
+            // 이렇게 하면 이전 게임의 _assignedCounts/_unitAssignments가 자동으로 사라진다.
+            // (만약 추후 인스턴스 재사용이 필요해지면 여기서 Clear()를 호출하는 방식으로 바꾸면 된다.)
+            _castleApproachManager = new CastleApproachManager(_grid);
+
             // 생산 시스템
             _resource = new ResourceUseCase(_config.StartingGold);
             _population = new PopulationUseCase(_grid, _unitSpawn, _buildingPlacement);
@@ -981,6 +985,11 @@ namespace Hexiege.Bootstrap
 
             _buildingPlacement?.Clear();
 
+            // 성 접근 타일 배정 상태도 초기화.
+            // CreateUseCases()에서 어차피 새 인스턴스를 만들지만, ClearAll 직후
+            // 외부에서 매니저를 참조하는 일이 생기더라도 깨끗한 상태를 보장한다.
+            _castleApproachManager?.Clear();
+
             // 이전 게임 종료 UseCase 정리
             _gameEnd?.Dispose();
             _gameEnd = null;
@@ -1031,20 +1040,17 @@ namespace Hexiege.Bootstrap
         {
             // UnitFactory에 런타임 의존성 주입 (생산된 유닛에 자동 적용).
             // _positionProvider는 UnitView의 월드 좌표 직선 추적/회전에서 사용.
-            // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
-            //   _moveSlotManager / _attackPositionManager는 더 이상 생성되지 않으므로 null 전달.
-            //   UnitFactory의 SetDependencyReferences는 시그니처를 유지(호출부 변경 최소화)하며,
-            //   UnitView 내부에서 null인 경우 슬롯 분기를 타지 않도록 처리합니다.
             if (_unitFactory != null)
-                _unitFactory.SetDependencyReferences(_config, _unitMovement, _unitCombat,
-                    _unitFactory, _buildingFactory, _positionProvider,
-                    null, null);
+                _unitFactory.SetDependencyReferences(_unitMovement, _unitCombat,
+                    _unitFactory, _buildingFactory, _positionProvider);
 
             // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요)
+            // CastleApproachManager를 함께 주입하여 유닛이 성 인접 타일을 분산 배정받도록 한다.
             if (_productionTicker != null)
                 _productionTicker.Initialize(
                     _unitProduction, _resource, _unitMovement,
-                    _buildingPlacement, _unitFactory, _config);
+                    _buildingPlacement, _unitFactory, _config,
+                    _castleApproachManager);
 
             // 네트워크 모드 여부에 따라 NetworkProductionController 주입 (싱글플레이 시 null)
             bool isNetworkMode = IsNetworkMode();

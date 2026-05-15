@@ -157,8 +157,6 @@ namespace Hexiege.Application
             // 2) 정원 초과 검사 — 이미 MaxAttackersPerTarget명이 등록된 상태면 새 유닛은 거부.
             if (list.Count >= MaxAttackersPerTarget)
             {
-                MovementLogger.Log(unitId, "MELEE_SLOT_REJECT",
-                    $"reason=MaxReached targetCoord={targetCoord} count={list.Count}");
                 return Vector3.zero;
             }
 
@@ -175,9 +173,6 @@ namespace Hexiege.Application
                 float diff = Mathf.Abs(Mathf.DeltaAngle(angleDeg, list[i].angleDeg));
                 if (diff < MinAngleSeparation)
                 {
-                    MovementLogger.Log(unitId, "MELEE_SLOT_REJECT",
-                        $"reason=AngleConflict targetCoord={targetCoord}"
-                        + $" approachAngle={angleDeg:F1} conflictAngle={list[i].angleDeg:F1} diff={diff:F1}");
                     return Vector3.zero;
                 }
             }
@@ -186,10 +181,6 @@ namespace Hexiege.Application
             list.Add(new AttackerInfo { unitId = unitId, angleDeg = angleDeg });
             Vector3 slotDomainPos = targetDomainPos + approach * contactRadius;
             Vector3 slotViewPos = ToViewWithUnitYOffset(slotDomainPos);
-
-            MovementLogger.Log(unitId, "MELEE_SLOT_DYNAMIC",
-                $"targetCoord={targetCoord} angleDeg={angleDeg:F1} attackerCount={list.Count}"
-                + $" slotPos={slotViewPos} contactRadius={contactRadius:F2}");
 
             return slotViewPos;
         }

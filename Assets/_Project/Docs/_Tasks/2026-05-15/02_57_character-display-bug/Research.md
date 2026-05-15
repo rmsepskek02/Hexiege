@@ -181,12 +181,48 @@ RequestReadyServerRpc(myRace);
 
 ---
 
+## 2차 조사에서 추가로 확인된 사항 (2026-05-15)
+
+### 코드 레벨에서 배제된 경로
+
+| 항목 | 확인 결과 |
+|------|-----------|
+| `LocalPlayerRace.Reset()` 호출 여부 | 코드 전체 grep 결과 호출 없음 — Human으로 되돌아가는 경로 아님 |
+| `DOTween.Kill` 전역 호출 여부 | `RaceSelectionView.cs` 두 곳에만 존재, 전역 `DOTween.KillAll()` 없음 |
+| `BattleMainView.OnEnable`/`OnDisable` | 존재하지 않음 — `SetActive` 시 자동 Rebind 없음 |
+| `RandomMatchView`의 캐릭터 관련 코드 | 없음 — UI 텍스트·버튼만 처리 |
+| `LobbyViewModel.CurrentTab` 기본값 | `LobbyTab.Battle` — 탭 전환으로 인한 BattlePanel 비활성화 없음 |
+| `LoadingScreen.Show()` 의 씬 영향 | 없음 — CanvasGroup.DOFade만 실행, Sort Order 999 오버레이 |
+| `_randomMatchButton` 비활성화 타이밍 | `BattleMainView.SetActive(false)` 시 함께 비활성화 → 버튼 재클릭 불가 |
+
+### 코드 추적으로 확인된 정상 흐름
+
+`ApplyCarouselPositions(Spirit, animate:true)` 호출 시 각 캐릭터의 예상 이동:
+
+| 캐릭터 | offset | 시작 위치 | 목표 위치 | DOTween |
+|--------|--------|-----------|-----------|---------|
+| Human (i=0) | 2 → 왼쪽 | `_centerPos` | `_leftPos` | 1초 이동 |
+| Spirit (i=1) | 0 → 중앙 | `_rightPos` | `_centerPos` | 1초 이동 |
+| Transcendence (i=2) | 1 → 오른쪽 | `_leftPos` | `_rightPos` | 1초 이동 |
+
+1초 완료 후 Human은 `_leftPos`에, Spirit은 `_centerPos`에 있어야 한다.
+
+### 현재 로그에서 2차 ApplyCarouselPositions(Human) 호출이 보이지 않는 이유
+
+세 가지 가능성 중 코드상으로 확인 불가한 사항:
+
+1. **Inspector `_characterRoots[0]`이 Human이 아닌 다른 캐릭터인 경우** — 배열 인덱스가 잘못 연결되어 있으면 offset 계산이 다른 캐릭터에 적용됨
+2. **Inspector `_leftPos` / `_centerPos` 값이 뒤바뀌어 설정된 경우** — Human DOTween이 `_leftPos`를 향하지만 실제로 그 값이 중앙 좌표라면 Human은 중앙에 남음
+3. **`_moveDuration`이 매우 길게 설정된 경우** — 로딩 화면이 나타날 시점에도 DOTween이 실행 중이어서 Human이 아직 중앙 근처에 있음
+
+→ **위 세 항목은 코드 읽기만으로 확인 불가. 런타임 로그에 실제 Inspector 값을 기록해야 함.**
+
 ## 추가 확인이 필요한 항목
 
-1. **`_rawImage`가 Inspector에서 어느 오브젝트의 자식인지** — `BattleMainView` 외부에 있다면 항상 렌더링됨
-2. **매칭 완료~씬 전환 사이에 `CurrentScreen`이 변경되는 경우** — 특히 예외 경로 재확인
-3. **`LoadingScreen`이 표시되기 전 프레임에 캐러셀이 갱신되는지** — 로딩 스크린 애니메이션 시간이 있다면 그 사이에 노출 가능
-4. **BattleMainView 비활성화 후에도 RaceSelectionView 구독이 살아있어 캐릭터 위치가 변경될 수 있는지** — 구독은 `_disposables`에 묶여 있어 Unbind 전까지 살아있음
+1. **`ApplyCarouselPositions` 호출 시 실제 Inspector 위치 값** — `_centerPos`, `_leftPos`, `_rightPos`, `_moveDuration` 실제 값 로그 기록
+2. **각 캐릭터의 실제 현재 위치(transform.position)** — 이동 직전과 이동 완료 후 비교
+3. **`KillAllCharacterTweens()` 호출 타이밍** — Unbind 이전에 호출되는지 여부 확인
+4. **`_rawImage`가 Inspector에서 어느 오브젝트의 자식인지** — `BattleMainView` 외부에 있다면 항상 렌더링됨
 
 ---
 
@@ -198,3 +234,41 @@ RequestReadyServerRpc(myRace);
 - `SelectedRace.Value`가 의도치 않게 Human으로 변경되거나, `RaceSelectionView.Bind()`가 재호출되어 Human 기준으로 재배치되는 경우에 버그가 발생
 - 가장 유력한 경로: **매칭 완료 후 어떤 경우에 `CurrentScreen = Main`이 되어 `BattleMainView`가 활성화되고, 그 순간 `LocalPlayerRace.Current` 기반의 캐릭터 위치 재배치가 발생**하는 타이밍 버그로 추정
 - **간혹 발생한다는 점은 Race Condition(타이밍에 따라 결과가 달라지는 현상)임을 시사**
+
+---
+
+## 최종 원인 확정 (2026-05-15)
+
+### 런타임 로그 기반 분석 결과
+
+2차 강화 로그(Inspector 실제값, 캐릭터 transform 위치, KillAllCharacterTweens 호출 추적)를 Red팀 클라이언트에서 수집한 결과, 코드 실행 경로 자체는 완전히 정상이었다.
+
+- `ApplyCarouselPositions` 호출 횟수, 인수, 목표 위치 모두 정상
+- Inspector 위치값(`centerPos`/`leftPos`/`rightPos`) 정상, 배열 순서 정상
+- 버그 발생 구간(클라이언트 연결 후 ~ 씬 전환 전)에 캐러셀 관련 코드 일체 실행 없음
+
+### 실제 원인: NetworkTransform 위치 동기화
+
+**Lobby 씬의 세 캐릭터 프리뷰 오브젝트가 실제 게임 유닛 프리팹 인스턴스였다.**
+
+| 씬 오브젝트 | 원본 프리팹 |
+|------------|------------|
+| `CharPreview_Human` | `Unit_Pistoleer_Blue.prefab` |
+| `CharPreview_Spirit` | `Unit_EmberSpirit_Blue.prefab` |
+| `CharPreview_Transcendence` | `Unit_FoxMagician_Blue.prefab` |
+
+게임 유닛 프리팹에는 에디터 스크립트로 자동 추가된 `NetworkObject` + `NetworkTransform`이 포함되어 있다.
+
+**버그 발생 흐름:**
+1. Red 클라이언트가 릴레이에 연결되는 순간(`OnClientConnected`) NGO가 씬의 `NetworkObject`를 인식
+2. `NetworkTransform`이 **호스트(Blue)의 캐릭터 위치를 클라이언트에게 동기화**
+3. 호스트는 Human을 선택한 상태(Human이 `centerPos`) → 이 위치가 클라이언트로 전송
+4. 클라이언트는 Spirit을 선택해 DOTween으로 Spirit→중앙, Human→왼쪽으로 이동시켰지만, NetworkTransform이 Human→중앙 위치로 덮어씀
+5. 결과: 애니메이션은 로컬 선택 기준(Spirit=Walk, Human=Idle)이고, 위치는 호스트 기준(Human=중앙) → 불일치
+
+### 수정 방법
+
+Lobby 씬에서 세 캐릭터 프리뷰 오브젝트를 **프리팹 언팩** 후, 로비 프리뷰에 불필요한 네트워크 컴포넌트와 게임 로직 컴포넌트를 제거했다.
+
+제거한 컴포넌트: `UnitView`, `AnimationEventRelay`, `NetworkUnit`, `NetworkTransform`, `NetworkObject`
+유지한 컴포넌트: `Transform`, `Animator`, `SkinnedMeshRenderer` 및 메시 자식 오브젝트

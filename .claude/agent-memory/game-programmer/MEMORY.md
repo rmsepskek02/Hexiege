@@ -23,6 +23,76 @@
 
 ## 최근 작업
 
+### 로비 캐릭터 잘못 표시 버그 — 로그 추가 + 원인 확정 (2026-05-15) ✅ 완료
+
+**작업 내용**: 랜덤 매칭 후 Red 클라이언트의 캐러셀에 선택한 종족 대신 Human이 잠깐 표시되는 버그 추적.
+
+**로그 추가 파일**: `Presentation/UI/Views/Lobby/Battle/RaceSelectionView.cs`
+- `ApplyCarouselPositions()`: Inspector 위치값, 캐릭터 배열 수, 각 캐릭터별 현재위치/목표위치 로그 추가
+- `KillAllCharacterTweens()`: 호출 시각 로그 추가
+
+**원인 확정**: CharPreview_Human/Spirit/Transcendence가 실제 유닛 프리팹(Unit_Pistoleer_Blue 등) 인스턴스 → NetworkTransform이 Host 캐러셀 위치를 Red 클라이언트로 동기화하여 DOTween 위치를 덮어씀. 코드 수정 없이 Unity Editor 작업으로 해결.
+
+**수정 (에디터 작업)**: Lobby.unity에서 CharPreview 3종 Unpack Completely → UnitView, AnimationEventRelay, NetworkUnit, NetworkTransform, NetworkObject 컴포넌트 제거.
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-15/02_57_character-display-bug/`
+
+---
+
+### 유닛 회전 시스템 수정 + MovementLogger 삭제 (2026-05-14) ✅ 완료
+
+**수정 파일**:
+- `Presentation/Unit/UnitView.cs`
+  - `[SerializeField] private float _rotationSpeed = 270f` (기존 `const CombatRotationSpeed = 270f` 교체)
+  - A* 이동 방향 계산: `FacingDirection.FromCoords(from, to)` → `CalculateAttackAngle(toPos)` (현재 월드 위치→목적지 Atan2)
+  - A* Lerp 루프 내 매 프레임 `Quaternion.RotateTowards(현재, targetRot, _rotationSpeed * Time.deltaTime)` 추가
+  - 정렬(Align) 단계 방향 계산: 동일하게 `CalculateAttackAngle(alignView)` 교체
+  - 정렬 Lerp 루프 내 동일하게 RotateTowards 추가
+  - `ApplyDirection()` 호출부(2곳) 제거 (메서드 자체는 유지)
+  - `MovementLogger.Log()` 29개 호출 전체 제거
+- `Application/Services/MovementLogger.cs` — **파일 삭제**
+- `Bootstrap/GameBootstrapper.cs` — `MovementLogger.SessionStart()` 제거
+- `Application/Services/AttackPositionManager.cs` — `MovementLogger.Log()` 3개 제거
+
+**핵심 설계 결정**:
+- `CalculateAttackAngle`이 이미 Atan2 기반 정확한 각도 계산을 하므로 A*/정렬 회전에도 동일 메서드 재사용
+- `_rotationSpeed` 단일 필드로 모든 회전(이동/정렬/추격/공격) 통일 — Inspector 조정 가능
+- `ApplyDirection()` 메서드는 현재 호출처 없으나 코드에 남겨둠 (삭제는 별도 작업)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-14/14_30_unit-rotation-system-fix/`
+
+---
+
+### 유닛 이동/전투 시스템 재설계 (2026-05-11) ✅ 완료
+
+슬롯 기반 분산 방식 전면 폐기 → 겹침 허용 단순 구조로 전환. 근접/원거리 동일 상태 머신.
+
+**비활성화(주석 처리) 항목**:
+- `GameBootstrapper.cs` — TileMoveSlotManager / TileOccupancyManager / AttackPositionManager 생성 및 주입 코드
+- `Presentation/Unit/UnitView.cs` — 슬롯/점유 관련 필드(`_moveSlotManager`, `_attackPositionManager`, `_v2MoveSlotTile`, `_v2AttackSlotTargetCoord`, `_pendingOccupancyTile`, `_v2InStationaryCombat`) 및 메서드(`ReleaseV2MoveSlotIfClaimed`, `ReleaseV2AttackSlotIfClaimed`)
+- `Application/UseCases/UnitMovementUseCase.cs` — `_occupancyManager`, `RegisterOccupancyMove()`, `ReleaseOccupancy()`, `FindForwardAvailable()`
+- `Domain/Unit/UnitData.cs` — `ClaimedTile` 필드
+- `Domain/Unit/UnitStats.cs` — `OccupancySize` 필드 및 `GetOccupancySize()` 메서드
+
+**신규 구현**:
+- `UnitView.cs` — `MoveAlongPathV3()` 새 상태 머신 (근접/원거리 동일):
+  - Phase 0(A* Lerp) → HasEnemyInDetectRange 감지 → Phase 1(월드 직선 추격) → HasEnemyInRange 진입 → 공격 → FindForwardClosestTile → Phase 0 재개
+- `UnitCombatUseCase.cs` — `FindFirstEnemyInDetectRange()` 내 isMelee 분기 제거, 모든 유닛 `DetectRange × TileHeight` 통일
+- UnitStatsConfig Inspector — 원거리 유닛 DetectRange를 AttackRange보다 크게 설정
+
+**BUG-001 (2026-05-12)**: 전투 추격 중 건물 생성/파괴 시 유닛 멈춤
+- `_isInCombatPursuit` bool 필드 추가
+- `IsInCombat()` → `_combatTargetTransform != null || _isInCombatPursuit`
+
+**BUG-002 (2026-05-13)**: 전투 종료 후 약 1타일 순간이동
+- `ResumeFromForwardTileV3()` 내 즉시 스냅(`transform.position = forwardView`) 제거
+- `MoveAlongPathV3()` 전투 종료 직후 정렬 Lerp 추가 (동일 이동 속도로 걸어서 이동)
+- 정렬 Lerp 내 매 프레임 적 감지 체크 (중단 시 전투 이동 재진입)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-11/23_19_unit-movement-redesign/`
+
+---
+
 ### 이동 슬롯 오프셋 Inspector 조정 기능 추가 (2026-05-11) ✅ 사용자 확인 완료
 
 **수정 파일**:

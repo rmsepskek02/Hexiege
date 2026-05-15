@@ -79,13 +79,51 @@ Debug.Log($"[BugTrace] BattleRootView.Unbind() 호출. 시각: {System.DateTime.
 
 ---
 
+### 1단계 강화 로그 (2차 추가 — 2026-05-15)
+
+1차 런타임 로그 분석 결과, 코드 실행 경로 자체는 정상으로 확인되었다.
+`ApplyCarouselPositions(Spirit, True)` 한 번만 호출되고 있으므로, 이제 **Inspector에 설정된 실제 위치 값과 각 캐릭터 오브젝트의 실제 transform 위치**를 로그로 확인해야 한다.
+
+확인해야 할 세 가지 의심 원인:
+1. `_characterRoots` 배열 순서가 잘못되어 Spirit과 Human의 인덱스가 뒤바뀐 경우
+2. Inspector에서 `_leftPos`와 `_centerPos` 값이 뒤바뀌거나 잘못 설정된 경우
+3. `_moveDuration`이 너무 길게 설정되어, DOTween 이동이 로딩 화면 시점에도 아직 완료되지 않은 경우
+
+#### 1-3 강화 — `RaceSelectionView.cs` — `ApplyCarouselPositions` 상세 로그
+
+기존 1-3 로그에 더해 다음을 추가한다.
+
+**추가할 로그 위치**: `ApplyCarouselPositions()` 내부, 각 캐릭터 DOMove 호출 직전
+
+```csharp
+// ApplyCarouselPositions() 진입부에 추가 (기존 로그 다음 줄)
+BugTraceLogger.Log($"[BugTrace] 인스펙터 위치값 — centerPos: {_centerPos}, leftPos: {_leftPos}, rightPos: {_rightPos}, moveDuration: {_moveDuration}");
+BugTraceLogger.Log($"[BugTrace] 캐릭터 배열 수: {_characterRoots?.Length ?? -1}");
+
+// 각 캐릭터 DOMove 호출 직전 (루프 내부에서 각 캐릭터마다)
+// 예: index i, charTransform, targetPos 계산 후
+BugTraceLogger.Log($"[BugTrace] 캐릭터[{i}] 이동 — 이름: {_characterRoots[i]?.name}, 현재위치: {charTransform.position}, 목표위치: {targetPos}");
+```
+
+#### 1-5 신규 — `RaceSelectionView.cs` — `KillAllCharacterTweens` 호출 감시
+
+**목적**: `KillAllCharacterTweens()`가 예기치 않은 타이밍에 호출되어 DOTween이 중단되는지 확인
+
+**수정 위치**: `KillAllCharacterTweens()` 진입부 첫 줄
+
+```csharp
+BugTraceLogger.Log($"[BugTrace] KillAllCharacterTweens 호출됨. 시각: {System.DateTime.Now:HH:mm:ss.fff}");
+```
+
+---
+
 ## 수정할 파일 목록 (1단계)
 
 | 파일 | 수정 내용 |
 |------|-----------|
 | `Assets/_Project/Scripts/Presentation/UI/ViewModels/BattleViewModel.cs` | CurrentScreen 변경·OnClientConnected 로그 추가 |
 | `Assets/_Project/Scripts/Presentation/UI/ViewModels/RaceSelectionViewModel.cs` | 생성자 로그 추가 |
-| `Assets/_Project/Scripts/Presentation/UI/Views/Lobby/Battle/RaceSelectionView.cs` | ApplyCarouselPositions 로그 추가 |
+| `Assets/_Project/Scripts/Presentation/UI/Views/Lobby/Battle/RaceSelectionView.cs` | ApplyCarouselPositions 로그 추가 + Inspector 위치값·캐릭터 transform 로그 추가 (2차) + KillAllCharacterTweens 호출 로그 추가 (2차) |
 | `Assets/_Project/Scripts/Presentation/UI/Views/Lobby/Battle/BattleRootView.cs` | Bind/Unbind 로그 추가 |
 
 ---
@@ -161,3 +199,30 @@ Debug.Log($"[BugTrace] BattleRootView.Unbind() 호출. 시각: {System.DateTime.
 [5] 수정 후 재테스트
 [6] 로그 코드 제거 (1단계 추가분)
 ```
+
+---
+
+## 수정 완료 (2026-05-15)
+
+### 실제 원인
+
+로그 분석 결과, 예상했던 경로(A/B/C)와 다른 원인으로 확정됨.
+
+Lobby 씬의 캐릭터 프리뷰 오브젝트가 실제 게임 유닛 프리팹(`Unit_Pistoleer_Blue` 등)이었으며, 이 프리팹에 자동 추가된 **NetworkTransform이 호스트의 캐릭터 위치를 Red 클라이언트에게 동기화**하여 클라이언트가 DOTween으로 설정한 위치를 덮어쓰는 것이 원인.
+
+### 적용한 수정
+
+1단계 로그 코드(`BugTraceLogger.Log` 구문)는 제거 없이 모니터링 목적으로 유지.
+
+**Unity 에디터 작업 (씬 직접 수정):**
+- Lobby.unity에서 `CharPreview_Human`, `CharPreview_Spirit`, `CharPreview_Transcendence` 세 오브젝트를 프리팹 언팩
+- 각 오브젝트에서 다음 컴포넌트 제거:
+  1. `UnitView`
+  2. `AnimationEventRelay`
+  3. `NetworkUnit`
+  4. `NetworkTransform`
+  5. `NetworkObject`
+
+### 테스트 결과
+
+수차례 재현 시도에서 버그 미발생. 간헐적 현상이므로 추후 지속 모니터링 예정.

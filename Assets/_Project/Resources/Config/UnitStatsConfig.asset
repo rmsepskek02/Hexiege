@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.UnitStatsConfig
   _stats:
   - unitType: 0
-    maxHp: 30
+    maxHp: 15
     attackPower: 6
     attackRange: 1
     detectRange: 2
@@ -75,7 +75,7 @@ MonoBehaviour:
     goldCost: 200
     populationCost: 1
   - unitType: 11
-    maxHp: 30
+    maxHp: 40
     attackPower: 5
     attackRange: 0.5
     detectRange: 1

@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-05-14
-**현재 단계:** 유닛 회전 시스템 전면 개편 완료 (방향 계산 Atan2 통일, 모든 회전 RotateTowards 적용, _rotationSpeed Inspector 노출)
+**최종 수정일:** 2026-05-15
+**현재 단계:** 랜덤 매칭 후 캐릭터 잘못 표시 버그 수정 완료 (Lobby CharPreview NetworkTransform 위치 동기화 문제 — 프리팹 언팩 + 컴포넌트 제거)
 
 ---
 
@@ -277,6 +277,7 @@
 #### 버그 수정 및 폴리싱
 | 항목 | 상태 |
 |------|------|
+| 랜덤 매칭 후 캐릭터 잘못 표시 버그 | ✅ 완료 (2026-05-15) — Lobby 씬 CharPreview 오브젝트가 실제 유닛 프리팹 인스턴스(NetworkTransform 포함)여서 Host 캐러셀 위치가 Red 클라이언트로 동기화되던 원인 확정. Unpack Completely + NetworkObject 계열 컴포넌트 5종 제거 |
 | 자동생산 반복 순환 시 골드 미소모 (BUG-20) | ✅ 완료 (2026-04-04) — CompleteProduction IsCharged 리셋 누락 수정 |
 | Pistoleer Idle 첫 프레임 동결 | ✅ 완료 (2026-04-06) — Pistoleer.controller Idle 상태 m_Speed: 0 → 1 수정 |
 | Android 실기기 캐릭터 잔상 + RenderPass 에러 | ✅ 완료 (2026-04-06) — RT antiAliasing 2→1, Camera allowMSAA/allowHDR false, backgroundColor alpha 1 |

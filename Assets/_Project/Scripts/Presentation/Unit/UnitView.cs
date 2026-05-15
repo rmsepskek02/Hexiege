@@ -96,9 +96,6 @@ namespace Hexiege.Presentation
         /// <summary> Animator — 상태 전환 및 애니메이션 재생. </summary>
         private Animator _animator;
 
-        /// <summary> 전역 설정 (이동 속도 등). </summary>
-        private GameConfig _config;
-
         /// <summary>
         /// 이동 UseCase 참조. 타일 도착 시 ProcessStep 호출용.
         /// GameBootstrapper에서 주입.
@@ -120,33 +117,6 @@ namespace Hexiege.Presentation
         /// 주입되지 않은 경우 Phase 1은 스킵되고 Phase 2(A* 재개)로 바로 진입한다.
         /// </summary>
         private IEntityPositionProvider _positionProvider;
-
-        // ====================================================================
-        // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
-        // 아래 두 매니저 참조와 V3 슬롯/점유 추적 필드는 새 이동/전투 규칙(GameSystemRules.md)에 따라
-        // 더 이상 사용되지 않습니다. 그러나 SetDependencies 시그니처 호환과 기존 사용처(주석 처리된 코드)에서
-        // 필드 이름을 참조하는 부분이 있어 필드 자체는 살려둡니다.
-        // - SetDependencies에서 항상 null이 주입되며,
-        // - 새 코루틴(MoveAlongPathV3)은 이 필드들을 일절 사용하지 않습니다.
-        // ====================================================================
-
-        /// <summary>[2026-05-11 비활성화] 슬롯 시스템 폐기 — 항상 null이 주입됩니다.</summary>
-        private AttackPositionManager _attackPositionManager;
-
-        /// <summary>[2026-05-11 비활성화] 슬롯 시스템 폐기 — 항상 null이 주입됩니다.</summary>
-        private TileMoveSlotManager _moveSlotManager;
-
-        /// <summary>[2026-05-11 비활성화] 슬롯 시스템 폐기 — 새 코루틴에서 사용하지 않습니다.</summary>
-        private HexCoord? _v2MoveSlotTile;
-
-        /// <summary>[2026-05-11 비활성화] 슬롯 시스템 폐기 — 새 코루틴에서 사용하지 않습니다.</summary>
-        private HexCoord? _v2AttackSlotTargetCoord;
-
-        /// <summary>[2026-05-11 비활성화] 점유 시스템 폐기 — 새 코루틴에서 사용하지 않습니다.</summary>
-        private HexCoord _pendingOccupancyTile;
-
-        /// <summary>[2026-05-11 비활성화] 원거리 정지 전투 개념 폐기 — 새 코루틴에서 사용하지 않습니다.</summary>
-        private bool _v2InStationaryCombat;
 
         /// <summary> 현재 이동 코루틴. null이면 정지 상태. </summary>
         private Coroutine _moveCoroutine;
@@ -177,10 +147,11 @@ namespace Hexiege.Presentation
         /// </summary>
         private Transform _combatTargetTransform = null;
 
-        // 공격 중 타겟 방향으로 회전하는 속도 (초당 각도).
+        // 회전 속도 (초당 각도) — 인스펙터에서 조정 가능.
+        // 전투 중 타겟 추적, A* 이동 중 방향 전환, 전투 종료 후 정렬 모두 동일한 속도로 회전한다.
         // 270도/s 기준: 반대 방향(180도)에서도 약 0.67초 내 전환 완료.
-        // 수치 조정 시 이 상수만 변경하면 됨.
-        private const float CombatRotationSpeed = 270f;
+        // SerializeField로 노출되어 있어 프리팹별/유닛별 회전감 차이를 데이터로 조정할 수 있다.
+        [SerializeField] private float _rotationSpeed = 270f;
 
         // [방어적 백업] Transform 참조가 null이 될 경우 팩토리에서 재조회하기 위한 ID 백업.
         // 멀티플레이 타이밍 문제(StopCombatAnimation / ChangeTarget 호출 순서 역전 등)로
@@ -264,7 +235,7 @@ namespace Hexiege.Presentation
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
 
             // 매 프레임 타겟 방향으로 유닛을 부드럽게 회전시킨다.
-            // Quaternion.RotateTowards: 현재 회전에서 목표 회전으로 초당 CombatRotationSpeed 각도만큼 이동.
+            // Quaternion.RotateTowards: 현재 회전에서 목표 회전으로 초당 _rotationSpeed 각도만큼 이동.
             // 타겟이 멀리 있을수록 회전이 느리게 보이지만, 일반적인 유닛 이동 속도에서는 즉각 추적처럼 보임.
             // 타겟 교체 시(ChangeTarget) 방향이 크게 바뀌어도 자연스럽게 전환.
             float angle = CalculateAttackAngle(_combatTargetTransform.position);
@@ -272,7 +243,7 @@ namespace Hexiege.Presentation
             transform.rotation = Quaternion.RotateTowards(
                 transform.rotation,
                 targetRotation,
-                CombatRotationSpeed * Time.deltaTime
+                _rotationSpeed * Time.deltaTime
             );
         }
 
@@ -298,11 +269,6 @@ namespace Hexiege.Presentation
             // [Phase 2] Animator 캐시 — 자식 오브젝트에 있을 수 있으므로 GetComponentInChildren 사용
             _animator = GetComponentInChildren<Animator>();
 
-            // [실기 로그] 유닛 스폰 — 처음에는 finalTarget을 모르므로 위치 정보만 기록.
-            // finalTarget은 MoveAlongPathV3 진입 시 별도 로그로 남는다.
-            MovementLogger.Log(_unitData.Id, "SPAWN",
-                $"position={_unitData.Position} type={_unitData.Type} team={_unitData.Team}");
-
             // 스폰 시 Facing 방향으로 즉시 rotation 설정.
             // 서버에서 즉시 스냅하면 NetworkTransform이 이 값을 클라이언트에 자동 보간 전달.
             // ViewConverter.IsFlipped 보정은 NetworkUnit.LateUpdate()에서 일괄 처리하므로 불필요.
@@ -318,24 +284,16 @@ namespace Hexiege.Presentation
         /// 외부 의존성 주입. GameBootstrapper에서 모든 컴포넌트 생성 후 호출.
         /// [Phase 2] UnitAnimationData 파라미터 제거 — Animator(Mecanim)가 대체.
         /// </summary>
-        public void SetDependencies(GameConfig config,
+        public void SetDependencies(
             UnitMovementUseCase movementUseCase, UnitCombatUseCase combatUseCase,
             UnitFactory unitFactory = null, BuildingFactory buildingFactory = null,
-            IEntityPositionProvider positionProvider = null,
-            AttackPositionManager attackPositionManager = null,
-            TileMoveSlotManager moveSlotManager = null)
+            IEntityPositionProvider positionProvider = null)
         {
-            _config = config;
             _movementUseCase = movementUseCase;
             _combatUseCase = combatUseCase;
             _unitFactory = unitFactory;
             _buildingFactory = buildingFactory;
             _positionProvider = positionProvider;
-            _attackPositionManager = attackPositionManager;
-            // [V3 — 2026-05-06] 새 이동/전투 흐름(MoveAlongPathV3) 전용 매니저.
-            //   같은 타일에 도착한 유닛 수가 많으면 GetUnitCount/ClaimSlot으로 슬롯에 분산 배치.
-            //   null이면 항상 타일 중심을 이동 목표로 삼는 폴백 동작.
-            _moveSlotManager = moveSlotManager;
 
             // 전투 상태 변화 이벤트 구독 — 싱글플레이 전용.
             // 멀티플레이에서는 NetworkCombatController가 ClientRpc로 직접 메서드 호출.
@@ -382,28 +340,6 @@ namespace Hexiege.Presentation
                 {
                     if (_unitData != null && e.Entity == (IDamageable)_unitData)
                     {
-                        // [실기 로그] 유닛 사망 — 위치/타입/팀 기록.
-                        // [2026-05-11 비활성화] 슬롯/점유 정보는 더 이상 추적하지 않으므로 로그에서 제거.
-                        MovementLogger.Log(_unitData.Id, "UNIT_DIED",
-                            $"position={_unitData.Position} type={_unitData.Type} team={_unitData.Team}");
-
-                        // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
-                        // 사망 시 슬롯/점유 해제 로직은 모두 비활성화됐습니다.
-                        // 새 상태 머신은 슬롯/점유를 사용하지 않으므로 누수 우려가 없습니다.
-                        // 헬퍼는 no-op이지만 호출 자체는 유지하여, 혹시 외부에서 필드가
-                        // 임의로 set된 경우에도 일관되게 null로 정리되도록 합니다.
-                        ReleaseV2MoveSlotIfClaimed();
-                        ReleaseV2AttackSlotIfClaimed();
-
-                        // 기존 점유 누수 해제 코드는 모두 비활성화됨.
-                        //
-                        // if (_pendingOccupancyTile != default(HexCoord)
-                        //     && _movementUseCase != null && _unitData != null)
-                        // {
-                        //     _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
-                        //     _pendingOccupancyTile = default;
-                        // }
-
                         // 사망 시 speed 복원 후 IsDead bool 설정 (Animator 트랜지션)
                         if (_animator != null)
                         {
@@ -419,25 +355,6 @@ namespace Hexiege.Presentation
         // ====================================================================
         // 방향 처리 — Y축 회전 기반
         // ====================================================================
-
-        /// <summary>
-        /// HexDirection에 따라 유닛의 Y축 회전을 즉시 설정.
-        /// 서버 전용 — 클라이언트는 NetworkTransform이 이 값을 자동 보간 동기화.
-        /// DORotate 대신 즉시 스냅하여 NetworkTransform의 이중 보간 문제를 방지.
-        ///
-        /// 이중 보간 문제란:
-        ///   서버에서 DORotate(0.3초 보간) 사용 시, DORotate가 매 프레임 중간값을 설정.
-        ///   NetworkTransform이 이 중간값을 다시 0.1초 보간으로 클라이언트에 전달.
-        ///   결과: 0.3초 + 0.1초 = 최대 ~1초 딜레이로 회전이 느려지는 현상.
-        ///   즉시 스냅하면 NetworkTransform 보간(0.1초)만 적용되어 자연스럽게 동작.
-        /// </summary>
-        /// <param name="dir">뷰 기준 HexDirection (ViewConverter 반전 적용 후).</param>
-        private void ApplyDirection(HexDirection dir)
-        {
-            int index = (int)dir;
-            if (index < 0 || index >= DirectionAngles.Length) return;
-            transform.rotation = Quaternion.Euler(0f, DirectionAngles[index], 0f);
-        }
 
         /// <summary>
         /// 타겟의 실제 월드 위치를 기반으로 Atan2 정밀 공격 각도를 계산.
@@ -484,17 +401,6 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
-        // Animator 안전 래퍼
-        // ====================================================================
-
-        /// <summary> Animator null 체크 후 bool 파라미터 설정. IsDead 전용. </summary>
-        private void SetAnimatorBool(int paramHash, bool value)
-        {
-            if (_animator != null)
-                _animator.SetBool(paramHash, value);
-        }
-
-        // ====================================================================
         // 이동
         // ====================================================================
 
@@ -513,49 +419,8 @@ namespace Hexiege.Presentation
             // [2026-05-11 비활성화] ClaimedTile 폐기 예정이지만 호출 자체는 유지(null 설정은 무해).
             _unitData.ClaimedTile = null;
 
-            // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
-            // 슬롯/점유 해제 코드는 모두 비활성화. 헬퍼만 호출하여 필드 상태를 일관되게 정리합니다.
-            ReleaseV2MoveSlotIfClaimed();
-            ReleaseV2AttackSlotIfClaimed();
-
-            // 기존 점유 해제 코드 (비활성화):
-            // if (_pendingOccupancyTile != default(HexCoord)
-            //     && _movementUseCase != null && _unitData != null)
-            // {
-            //     _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
-            //     _pendingOccupancyTile = default;
-            // }
-
             // Walk 정지 — speed=0으로 프레임 고정
             if (_animator != null) _animator.speed = 0f;
-        }
-
-        // ====================================================================
-        // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
-        // 아래 두 헬퍼는 V3 코루틴이 슬롯 매니저를 더 이상 사용하지 않으므로
-        // 본문이 모두 no-op으로 바뀌었습니다. 호출처(StopMovement, 사망 핸들러 등)에서는
-        // 그대로 호출되어도 안전하도록 메서드 자체는 유지합니다.
-        // ====================================================================
-
-        /// <summary>
-        /// [2026-05-11 비활성화] TileMoveSlotManager가 폐기되어 본문은 비어있습니다.
-        /// 호환을 위해 시그니처만 유지 — 호출되어도 아무것도 하지 않습니다.
-        /// </summary>
-        private void ReleaseV2MoveSlotIfClaimed()
-        {
-            // [2026-05-11 비활성화 — 슬롯 시스템 폐기] 본문 제거됨.
-            // 슬롯 매니저가 더 이상 주입되지 않으므로 해제할 슬롯도 존재하지 않습니다.
-            _v2MoveSlotTile = null;
-        }
-
-        /// <summary>
-        /// [2026-05-11 비활성화] AttackPositionManager가 폐기되어 본문은 비어있습니다.
-        /// 호환을 위해 시그니처만 유지 — 호출되어도 아무것도 하지 않습니다.
-        /// </summary>
-        private void ReleaseV2AttackSlotIfClaimed()
-        {
-            // [2026-05-11 비활성화 — 슬롯 시스템 폐기] 본문 제거됨.
-            _v2AttackSlotTargetCoord = null;
         }
 
         /// <summary>
@@ -582,13 +447,6 @@ namespace Hexiege.Presentation
             {
                 _currentDestination = path[path.Count - 1];
                 _hasDestination = true;
-
-                // [실기 로그] A* 경로 계산 완료 — 경로 길이와 시작/종점을 함께 기록.
-                if (_unitData != null)
-                {
-                    MovementLogger.Log(_unitData.Id, "PATH_CALC",
-                        $"length={path.Count} from={path[0]} to={_currentDestination}");
-                }
             }
 
             // [V3 — 2026-05-06] 새 이동/전투 흐름 코루틴 시작.
@@ -644,11 +502,6 @@ namespace Hexiege.Presentation
             // ────────────────────────────────────────────────────────────
             if (IsInCombat())
             {
-                // [실기 로그] 전투 중이라 repath를 무시했음을 명시 — 검증용 마커.
-                // [BUG-001 — 2026-05-12] 추격 단계도 InCombat 판정에 포함됐는지 진단할 수 있도록
-                // _isInCombatPursuit 플래그 값을 함께 기록.
-                MovementLogger.Log(_unitData.Id, "REPATH_SKIP_COMBAT",
-                    $"reason=InCombat isPursuit={_isInCombatPursuit}");
                 return;
             }
 
@@ -766,10 +619,6 @@ namespace Hexiege.Presentation
             // 최종 목적지(외부 while 동안 변하지 않음). 우회/재경로 모두 이 좌표를 기준.
             HexCoord finalTarget = path[path.Count - 1];
 
-            // [실기 로그] V3 진입 — finalTarget을 포함한 이동 시작 기록.
-            MovementLogger.Log(_unitData.Id, "SPAWN",
-                $"finalTarget={finalTarget} from={_unitData.Position} pathLength={path.Count}");
-
             // 유닛별 개별 이동 속도 (MoveSpeed 칸/초 → 1칸 이동 시간(초) 변환).
             float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
 
@@ -814,10 +663,6 @@ namespace Hexiege.Presentation
                     // 새 규칙에서는 같은 타일에 여러 유닛이 들어가도 그대로 진행합니다.
                     // 기존 코드는 git 히스토리에서 확인 가능합니다.
 
-                    // [실기 로그] 다음 타일로의 이동이 확정된 시점.
-                    MovementLogger.Log(_unitData.Id, "TILE_MOVE",
-                        $"from={from} to={to} lastStep={isLastStep}");
-
                     // [2026-05-11 비활성화] 점유 등록(RegisterOccupancyMove)은 새 규칙에서 사용하지 않습니다.
 
                     // [2026-05-11 비활성화] ClaimedTile 갱신도 슬롯/점유 시스템과 함께 폐기되었습니다.
@@ -826,13 +671,16 @@ namespace Hexiege.Presentation
                         _unitData.ClaimedTile = to;
 
                     // ──────────────────────────────────────────────────────
-                    // [A* 이동] 방향 전환 — 도메인 from→to 방향을 뷰 관점으로 반전 후 Y축 회전 즉시 스냅.
-                    //   서버에서 즉시 스냅하면 NetworkTransform이 클라이언트에 보간 전달.
+                    // [A* 이동] 도메인 방향(_unitData.Facing) 갱신 — HexDirection 단위의 도메인 상태 추적용.
+                    //   시각적 회전은 더 이상 ApplyDirection으로 즉시 스냅하지 않는다.
+                    //   대신 아래 Lerp 루프에서 매 프레임 RotateTowards로 부드럽게 회전한다.
                     // ──────────────────────────────────────────────────────
                     HexDirection dir = FacingDirection.FromCoords(from, to);
                     dir = ViewConverter.FlipDirection(dir);
                     _unitData.Facing = dir;
-                    ApplyDirection(dir);
+                    // [회전 시스템 변경 — 2026-05-14] ApplyDirection(dir) 즉시 스냅 제거.
+                    //   기존: 타일 전환 순간 Y축 회전이 점프하여 시각적으로 부자연스러웠음.
+                    //   변경: 목표 각도(targetRot)를 정해두고 Lerp 루프에서 매 프레임 RotateTowards로 누적 회전.
 
                     // ──────────────────────────────────────────────────────
                     // [A* 이동] 이동 목표 = 항상 타일 중심.
@@ -847,6 +695,15 @@ namespace Hexiege.Presentation
                     // 타일 중심 = 도메인 좌표 → 뷰 좌표 변환 + 유닛 높이 보정.
                     Vector3 toPos = ViewConverter.ToView(toDomain);
                     toPos.y += HexMetrics.UnitYOffset;
+
+                    // ──────────────────────────────────────────────────────
+                    // [회전 시스템 변경 — 2026-05-14] 목표 각도 계산 — toPos 정의 직후 1회만.
+                    //   CalculateAttackAngle은 (toPos - 현재 위치) 벡터의 XZ 평면 Atan2 결과를 도 단위로 반환한다.
+                    //   이 각도는 Lerp 루프 시작 시점의 출발 위치 기준이며, 루프 도중에는 갱신하지 않는다.
+                    //   (1 타일 거리이므로 출발 시점 방향과 도착 시점 방향이 거의 동일.)
+                    // ──────────────────────────────────────────────────────
+                    float targetAngle = CalculateAttackAngle(toPos);
+                    Quaternion targetRot = Quaternion.Euler(0f, targetAngle, 0f);
 
                     // ──────────────────────────────────────────────────────
                     // [A* 이동] Lerp 이동 + 매 프레임 detect 사거리 적 감지.
@@ -866,23 +723,19 @@ namespace Hexiege.Presentation
                         float t = Mathf.Clamp01(elapsed / targetDuration);
                         transform.position = Vector3.Lerp(fromPos, toPos, t);
 
+                        // [회전 시스템 변경 — 2026-05-14] 매 프레임 RotateTowards로 점진 회전.
+                        //   _rotationSpeed(초당 각도) × Time.deltaTime 만큼 targetRot로 다가간다.
+                        //   1 타일 이동 시간(moveSeconds)이 회전 완료에 충분할 만큼 _rotationSpeed가 크면 거의 즉시 정렬됨.
+                        //   서버에서만 실행되며, NetworkTransform이 클라이언트로 회전 보간 전달.
+                        transform.rotation = Quaternion.RotateTowards(
+                            transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
+
                         // ── [A* 이동] → [전투 이동] 전환 ──
                         // 감지 사거리 안에 적이 있으면 즉시 전투 이동으로 위임.
                         // 근접/원거리 분기 없음. 두 종류 모두 동일하게 적을 향해 직선 이동 시작.
                         if (_combatUseCase != null && _unitData.IsAlive
                             && _combatUseCase.HasEnemyInDetectRange(_unitData))
                         {
-                            // [실기 로그] 적 감지 — 전투 이동 진입 직전.
-                            var detected = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
-                            if (detected.HasValue)
-                            {
-                                MovementLogger.Log(_unitData.Id, "ENEMY_DETECTED",
-                                    $"enemyId={detected.Value.id} isUnit={detected.Value.isUnit}");
-                            }
-
-                            MovementLogger.Log(_unitData.Id, "COMBAT_PURSUIT_START",
-                                $"currentPos={transform.position}");
-
                             // ClaimedTile 정리 — 다른 시스템이 참조하더라도 영향 없도록.
                             _unitData.ClaimedTile = null;
 
@@ -894,19 +747,115 @@ namespace Hexiege.Presentation
                             // StopCombatAnimation()을 직접 호출하여 즉시 추적을 끊습니다.
                             StopCombatAnimation();
 
-                            MovementLogger.Log(_unitData.Id, "COMBAT_END",
-                                $"reason=PursuitEnded currentPos={transform.position}");
+                            if (_unitData == null || !_unitData.IsAlive) break;
+
+                            // ──────────────────────────────────────────────────────────
+                            // [BUG-002 수정 — 2026-05-13] 전투 종료 → 앞쪽 타일까지 "걸어서" 정렬.
+                            //
+                            //   왜 필요한가:
+                            //     전투 추격 중 transform.position은 공격 슬롯(=적 근처)으로 이동했고,
+                            //     _unitData.Position(도메인)은 여전히 추격 전 타일을 가리킨다.
+                            //     이 상태에서 즉시 새 path Lerp를 시작하면, 출발점이 공격 슬롯이 되어
+                            //     다음 타일까지 비정상적으로 멀리 점프하는 시각적 순간이동이 발생한다.
+                            //
+                            //   해결:
+                            //     1) FindForwardClosestTile로 "앞쪽 타일" forwardTile을 1회만 결정.
+                            //     2) 그 타일 중심 뷰 좌표(alignView)까지 동일 이동 속도로 Lerp.
+                            //        (규칙 5: A* 이동과 동일 속도 — moveSeconds는 1칸 이동 시간이므로
+                            //         실제 거리 / TileHeight 비율을 곱해 시간 환산.)
+                            //     3) Lerp 도중에도 detect 사거리 적 감지 시 즉시 중단 → 새 추격 진입.
+                            //     4) Lerp 완료 후 transform.position을 alignView로 최종 정렬 스냅.
+                            //     5) 같은 forwardTile을 ResumeFromForwardTileV3에 전달해 도메인 갱신 +
+                            //        새 path 발급. (이중 FindForwardClosestTile 호출 방지)
+                            // ──────────────────────────────────────────────────────────
+
+                            // 1) forwardTile 계산 — 호출은 단 1회.
+                            Vector3 unitDomainPos = ViewConverter.FromView(transform.position);
+                            HexCoord forwardTile = _movementUseCase.FindForwardClosestTile(unitDomainPos, finalTarget);
+
+                            // 2) forwardTile 중심 뷰 좌표.
+                            Vector3 forwardWorld = HexMetrics.HexToWorld(forwardTile);
+                            Vector3 alignView = ViewConverter.ToView(forwardWorld);
+                            alignView.y += HexMetrics.UnitYOffset;
+
+                            Vector3 alignFromPos = transform.position;
+                            float alignDist = Vector3.Distance(alignFromPos, alignView);
+
+                            // 동일 이동 속도 환산: moveSeconds는 1 타일 거리 이동에 필요한 시간이므로,
+                            // 실제 정렬 거리에 비례해 시간을 줄이거나 늘린다.
+                            // 거리 0(또는 매우 작음)이면 Lerp 자체를 생략하고 즉시 스냅.
+                            float alignDuration = (HexMetrics.TileHeight > 0f)
+                                ? (alignDist / HexMetrics.TileHeight) * moveSeconds
+                                : 0f;
+
+                            // 정렬 Lerp 중에 새 적이 감지되면 다시 추격에 진입해야 하므로 별도 플래그.
+                            bool alignInterruptedByCombat = false;
+
+                            // 정렬 방향 계산 — unitDomainPos가 속한 타일에서 forwardTile로 가는 HexDirection.
+                            HexCoord nearestTile = HexMetrics.WorldToHex(unitDomainPos);
+                            HexDirection alignDir = FacingDirection.FromCoords(nearestTile, forwardTile);
+
+                            // ──────────────────────────────────────────────────────
+                            // [회전 시스템 변경 — 2026-05-14] 정렬 회전을 RotateTowards로 점진 회전.
+                            //   기존: ApplyDirection으로 Lerp 시작 직전에 Y축 회전을 즉시 스냅.
+                            //     문제 - 전투 종료 후 적 방향(스냅된 회전)에서 정렬 방향으로 점프하여 시각적으로 부자연스러움.
+                            //   변경: 목표 각도(alignTargetRot)를 정해두고 Lerp 루프에서 매 프레임 누적 회전.
+                            //     CalculateAttackAngle(alignView): 현재 위치에서 정렬 목적지 뷰 좌표까지의 XZ 방향 각도.
+                            //   _unitData.Facing은 도메인 상태 추적 목적으로 기존처럼 HexDirection으로 갱신 유지.
+                            // ──────────────────────────────────────────────────────
+                            HexDirection alignViewDir = ViewConverter.FlipDirection(alignDir);
+                            _unitData.Facing = alignViewDir;
+
+                            float alignTargetAngle = CalculateAttackAngle(alignView);
+                            Quaternion alignTargetRot = Quaternion.Euler(0f, alignTargetAngle, 0f);
+
+                            if (alignDuration > 0.0001f)
+                            {
+                                float alignElapsed = 0f;
+                                while (alignElapsed < alignDuration && _unitData != null && _unitData.IsAlive)
+                                {
+                                    alignElapsed += Time.deltaTime;
+                                    float at = Mathf.Clamp01(alignElapsed / alignDuration);
+                                    transform.position = Vector3.Lerp(alignFromPos, alignView, at);
+
+                                    // [회전 시스템 변경 — 2026-05-14] 매 프레임 RotateTowards로 점진 회전.
+                                    //   _rotationSpeed(초당 각도) × Time.deltaTime 만큼 alignTargetRot로 다가간다.
+                                    //   전투 종료 후 적 방향에서 정렬 방향까지 부드러운 회전이 보이도록 한다.
+                                    //   서버에서만 실행되며, NetworkTransform이 클라이언트로 회전 보간 전달.
+                                    transform.rotation = Quaternion.RotateTowards(
+                                        transform.rotation, alignTargetRot, _rotationSpeed * Time.deltaTime);
+
+                                    // 정렬 도중에도 새 적 감지 시 즉시 다음 추격 사이클로 넘긴다.
+                                    if (_combatUseCase != null && _unitData.IsAlive
+                                        && _combatUseCase.HasEnemyInDetectRange(_unitData))
+                                    {
+                                        alignInterruptedByCombat = true;
+                                        break;
+                                    }
+
+                                    yield return null;
+                                }
+                            }
 
                             if (_unitData == null || !_unitData.IsAlive) break;
 
-                            // 전투 중에 물리 위치가 적 근처로 이동했으므로,
-                            // 같은 path를 재사용하면 path[i]가 출발 근방을 가리켜 역행이 발생함.
-                            // → ResumeFromForwardTileV3로 현재 위치 기준 앞쪽 타일에서 새 경로를 받습니다.
-                            List<HexCoord> resumePath = ResumeFromForwardTileV3(finalTarget);
+                            // 정렬 Lerp 도중 새 적이 감지된 경우: 정렬을 마무리하지 않고 곧장 외부 while로
+                            // 빠져 새 path를 받지 않은 채 다시 진입 → 다음 사이클에서 추격이 재개된다.
+                            // 같은 path를 그대로 재사용하면 다시 path[i]를 향해 Lerp가 시작되고, 그 즉시
+                            // detect 체크가 추격으로 전환한다.
+                            if (alignInterruptedByCombat)
+                            {
+                                interruptedByCombat = true;
+                                break;  // Lerp while 탈출 → for 루프도 interruptedByCombat 처리로 break
+                            }
+
+                            // 4) 최종 정렬 스냅 — 부동소수점 누적 오차 보정.
+                            transform.position = alignView;
+
+                            // 5) 같은 forwardTile로 도메인 갱신 + 새 path 발급.
+                            List<HexCoord> resumePath = ResumeFromForwardTileV3(finalTarget, forwardTile);
                             if (resumePath != null && resumePath.Count >= 2)
                             {
-                                MovementLogger.Log(_unitData.Id, "RESUME_FORWARD",
-                                    $"resumeFrom={_unitData.Position} newPathLength={resumePath.Count}");
                                 path = resumePath;
                                 needRepath = true;
                                 interruptedByCombat = true;
@@ -914,8 +863,6 @@ namespace Hexiege.Presentation
                             }
 
                             // 새 path를 만들지 못함 → 이동 종료.
-                            MovementLogger.Log(_unitData.Id, "RESUME_FAILED",
-                                $"fromPos={_unitData.Position} finalTarget={finalTarget}");
                             goto cleanup;
                         }
 
@@ -947,9 +894,6 @@ namespace Hexiege.Presentation
                     _unitData.ClaimedTile = null;
                     prevActualTile = to;
 
-                    MovementLogger.Log(_unitData.Id, "TILE_ARRIVED",
-                        $"tile={to} pos={transform.position}");
-
                     // [2026-05-11 비활성화] 우회(didDetour)/재경로 분기는 제거됐습니다.
                     // 새 규칙에서는 같은 타일에 여러 유닛이 들어가도 우회하지 않으므로 재계산 불필요.
                 }  // end of for (path 순회)
@@ -962,30 +906,6 @@ namespace Hexiege.Presentation
             cleanup:
             // 정상/사망/완주/RESUME 실패 등 모든 종료 경로에서 공통 cleanup.
             MoveCleanupAndCompleteV3();
-        }
-
-        /// <summary>
-        /// [2026-05-11 비활성화] 슬롯 기반 근접 추격은 폐기되었습니다.
-        /// 호출처(MoveAlongPathV3)가 EnterCombatPursuitV3를 호출하도록 교체됐으며,
-        /// 이 메서드는 더 이상 호출되지 않습니다.
-        /// 본문은 컴파일 호환을 위해 즉시 yield break로 변경된 상태입니다.
-        /// </summary>
-        private IEnumerator EnterMeleePursuitV3_OBSOLETE(HexCoord finalTarget)
-        {
-            yield break;
-            // [2026-05-11 비활성화] 기존 본문은 git 히스토리에서 확인 가능합니다.
-            // 제거된 의존성: _attackPositionManager, _v2AttackSlotTargetCoord, ReleaseV2AttackSlotIfClaimed.
-        }
-
-        /// <summary>
-        /// [2026-05-11 비활성화] 원거리 정지 전투는 폐기되었습니다.
-        /// 새 규칙에서는 원거리 유닛도 detect 진입 → 전투 이동(접근) → 사거리 도달 시 공격의 흐름을 따릅니다.
-        /// 호출처(MoveAlongPathV3)는 EnterCombatPursuitV3로 통일됐습니다.
-        /// </summary>
-        private IEnumerator EnterStationaryCombatV3_OBSOLETE()
-        {
-            yield break;
-            // [2026-05-11 비활성화] 기존 본문은 git 히스토리에서 확인 가능합니다.
         }
 
         /// <summary>
@@ -1020,11 +940,6 @@ namespace Hexiege.Presentation
             // 필수 의존성 가드 — _positionProvider는 적 월드 좌표 조회에 사용.
             if (_combatUseCase == null || _positionProvider == null || _unitData == null)
             {
-                int safeId = _unitData != null ? _unitData.Id : -1;
-                MovementLogger.Log(safeId, "COMBAT_PURSUIT_SKIP",
-                    $"reason=NullDependency combatUseCase={_combatUseCase != null}"
-                    + $" positionProvider={_positionProvider != null}"
-                    + $" unitData={_unitData != null}");
                 _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                 yield break;
             }
@@ -1033,8 +948,6 @@ namespace Hexiege.Presentation
             var firstTarget = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
             if (!firstTarget.HasValue)
             {
-                MovementLogger.Log(_unitData.Id, "COMBAT_PURSUIT_SKIP",
-                    $"reason=FindNearestEnemyInDetectRangeNull currentPos={_unitData.Position}");
                 _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                 yield break;
             }
@@ -1063,22 +976,12 @@ namespace Hexiege.Presentation
                     if (!next.HasValue)
                     {
                         // detect 내 다른 적 없음 → A* 재개로 위임.
-                        MovementLogger.Log(_unitData.Id, "COMBAT_END",
-                            $"reason=TargetDestroyedNoMore prevTargetId={targetId}");
-                        // [BUG-002 진단 로그] 타겟 사망으로 추격 종료 시 현재 위치 기록.
-                        //   이 직후 ResumeFromForwardTileV3가 호출되어 transform.position을
-                        //   스냅하므로, 스냅 직전의 unitPos/domainPos를 비교 분석할 수 있도록 남긴다.
-                        MovementLogger.Log(_unitData.Id, "PURSUIT_END_TARGET_DEAD",
-                            $"unitPos={transform.position} domainPos={_unitData.Position} targetId={targetId}");
                         _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
 
-                    int prevTargetId = targetId;
                     targetId = next.Value.id;
                     targetIsUnit = next.Value.isUnit;
-                    MovementLogger.Log(_unitData.Id, "TARGET_SWITCH",
-                        $"reason=prevDestroyed prevTargetId={prevTargetId} newTargetId={targetId}");
 
                     yield return null;
                     continue;
@@ -1087,8 +990,6 @@ namespace Hexiege.Presentation
                 // ── 3) 적이 detect 사거리 밖으로 이탈 → 종료 ──
                 if (!_combatUseCase.HasEnemyInDetectRange(_unitData))
                 {
-                    MovementLogger.Log(_unitData.Id, "COMBAT_END",
-                        $"reason=EnemyEscapedDetect targetId={targetId}");
                     _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                     yield break;
                 }
@@ -1096,9 +997,6 @@ namespace Hexiege.Presentation
                 // ── 4) 공격 사거리 도달 → [공격] 루프 ──
                 if (_combatUseCase.HasEnemyInRange(_unitData))
                 {
-                    MovementLogger.Log(_unitData.Id, "COMBAT_START",
-                        $"targetId={targetId} targetIsUnit={targetIsUnit}");
-
                     yield return EnterCombatLoopV3();
 
                     if (_unitData == null || !_unitData.IsAlive)
@@ -1110,8 +1008,6 @@ namespace Hexiege.Presentation
                     // 전투 종료 후 detect 내에 다른 적이 남았으면 새 타겟 선택 후 continue.
                     if (!_combatUseCase.HasEnemyInDetectRange(_unitData))
                     {
-                        MovementLogger.Log(_unitData.Id, "COMBAT_END",
-                            $"reason=NoEnemyInDetectRange targetId={targetId}");
                         _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
@@ -1119,17 +1015,12 @@ namespace Hexiege.Presentation
                     var nextEnemy = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
                     if (!nextEnemy.HasValue)
                     {
-                        MovementLogger.Log(_unitData.Id, "COMBAT_END",
-                            $"reason=FindNearestNull targetId={targetId}");
                         _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
 
-                    int prevTargetId2 = targetId;
                     targetId = nextEnemy.Value.id;
                     targetIsUnit = nextEnemy.Value.isUnit;
-                    MovementLogger.Log(_unitData.Id, "TARGET_SWITCH",
-                        $"reason=AfterCombat prevTargetId={prevTargetId2} newTargetId={targetId}");
 
                     yield return null;
                     continue;
@@ -1146,7 +1037,7 @@ namespace Hexiege.Presentation
                     float pursuitAngle = CalculateAttackAngle(enemyViewPos);
                     Quaternion targetRot = Quaternion.Euler(0f, pursuitAngle, 0f);
                     transform.rotation = Quaternion.RotateTowards(
-                        transform.rotation, targetRot, CombatRotationSpeed * Time.deltaTime);
+                        transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
 
                     // 적 방향으로 직선 이동 (한 프레임 이동량 = worldSpeed × dt).
                     transform.position += moveDir.normalized * worldSpeed * Time.deltaTime;
@@ -1253,68 +1144,52 @@ namespace Hexiege.Presentation
         /// [V3] 근접 전투 종료 후 A* 재개 시 출발 타일을 결정한다 (규칙 11/15).
         ///
         /// 동작:
-        ///   1) FindForwardClosestTile로 현재 월드 위치 기준 앞쪽 가장 가까운 walkable 타일 탐색.
+        ///   1) (호출 측이 미리 계산한) forwardTile을 파라미터로 받음 — 이중 계산 방지.
         ///   2) ProcessStep으로 도메인 위치를 그 타일로 갱신 + FROM(이전 _unitData.Position) 해제.
         ///   3) 같은 타일이면 ProcessStep 생략 — 점유 누수 방지.
-        ///   4) [BUG-002] transform.position을 forwardTile에 강제 스냅 — 도메인↔뷰 불일치로 인한 순간이동 방지.
-        ///   5) Walk 애니메이션 재개.
-        ///   6) finalTarget으로 RequestMove → 새 path 반환. 호출 측이 외부 while로 재진입.
+        ///   4) Walk 애니메이션 재개.
+        ///   5) finalTarget으로 RequestMove → 새 path 반환. 호출 측이 외부 while로 재진입.
         ///
         /// 뒤쪽 타일로 복귀하지 않는다(규칙 11/15).
+        ///
+        /// [BUG-002 — 2026-05-13]
+        ///   이전에는 transform.position을 forwardTile에 즉시 스냅했으나, 이는 규칙 9(걸어서 재개)
+        ///   위반이며 1타일 순간이동의 직접 원인이었다. 이제 transform.position 정렬은 호출 측
+        ///   (MoveAlongPathV3)에서 Lerp로 처리하므로, 이 함수는 도메인 갱신과 path 재발급만 담당한다.
+        ///
+        /// [중요] forwardTile 이중 계산 방지:
+        ///   호출 측은 Lerp 시작 전에 FindForwardClosestTile을 1회 호출하여 forwardTile을 결정한 뒤,
+        ///   그 값으로 transform을 정렬하고 동일한 forwardTile을 이 함수에 전달해야 한다.
+        ///   만약 이 함수가 FindForwardClosestTile을 다시 호출하면, 정렬 후의 transform.position
+        ///   기준으로 한 타일 더 앞쪽이 선택될 수 있어 도메인-뷰 좌표가 다시 어긋난다.
         /// </summary>
-        private List<HexCoord> ResumeFromForwardTileV3(HexCoord finalTarget)
+        private List<HexCoord> ResumeFromForwardTileV3(HexCoord finalTarget, HexCoord forwardTile)
         {
             if (_movementUseCase == null || _unitData == null || !_unitData.IsAlive)
                 return null;
-
-            // 현재 뷰 좌표 → 도메인 좌표 역변환.
-            Vector3 unitDomainPos = ViewConverter.FromView(transform.position);
-
-            // 앞쪽 가장 가까운 walkable 타일 — 뒤쪽 절대 금지 규칙은 UseCase 내부에서 보장.
-            HexCoord forwardTile = _movementUseCase.FindForwardClosestTile(unitDomainPos, finalTarget);
 
             // 같은 타일이면 도메인 갱신 불필요. 다른 타일이면 ProcessStep만 호출.
             // [2026-05-11 비활성화] RegisterOccupancyMove는 점유 시스템 폐기로 인해 호출 제거됨.
             if (forwardTile != _unitData.Position)
             {
-                // [BUG-002 진단 로그] 도메인 위치 점프 — 추격 중에는 _unitData.Position이 갱신되지 않으므로
-                //   ProcessStep 호출 직전에 from/to 타일 거리를 기록한다.
-                //   tileDist가 1보다 크면 추격 중 여러 타일을 건너뛴 것 → 스냅 거리가 크다는 신호.
-                MovementLogger.Log(_unitData.Id, "RESUME_DOMAIN_JUMP",
-                    $"from={_unitData.Position} to={forwardTile} "
-                    + $"tileDist={HexCoord.Distance(_unitData.Position, forwardTile)}");
                 _movementUseCase.ProcessStep(_unitData, _unitData.Position, forwardTile);
             }
             _unitData.ClaimedTile = null;
 
             // ────────────────────────────────────────────────────────────
-            // [BUG-002] 뷰 좌표(transform.position)를 forwardTile에 강제 스냅.
+            // [BUG-002 수정 — 2026-05-13] 즉시 스냅 제거.
             //
-            // 왜 필요한가:
-            //   근접 전투 종료 시점에 transform.position은 공격 슬롯(=적 근처)이고,
-            //   _unitData.Position만 forwardTile로 갱신되면 도메인-뷰 좌표가 불일치한다.
-            //   이후 메인 코루틴이 재진입하여 다음 타일을 향해 Lerp를 시작하면,
-            //   출발점(공격 슬롯) → 도착점(forwardTile+1 슬롯)으로 1칸 이동 시간 안에
-            //   먼 거리를 점프해 시각적으로 순간이동이 발생한다.
+            //   이전 구현:
+            //     Vector3 forwardWorld = HexMetrics.HexToWorld(forwardTile);
+            //     Vector3 forwardView = ViewConverter.ToView(forwardWorld);
+            //     forwardView.y += HexMetrics.UnitYOffset;
+            //     transform.position = forwardView;   ← 1타일 순간이동의 원인.
             //
-            // 어떻게 해결:
-            //   forwardTile의 도메인 월드 좌표를 ViewConverter로 뷰 좌표로 바꾼 뒤
-            //   UnitYOffset을 더해 transform.position에 즉시 스냅한다.
-            //   ViewConverter.ToView는 Red 팀의 Y 반전을 자동 적용하므로 팀 무관하게 안전.
+            //   현재:
+            //     호출 측(MoveAlongPathV3)이 이 함수 호출 전에 Lerp로 forwardTile 중심까지
+            //     "걸어서" 이동시킨 뒤 정렬 스냅까지 마쳤다고 가정한다.
+            //     따라서 여기서는 도메인 갱신과 path 재발급만 처리한다.
             // ────────────────────────────────────────────────────────────
-            Vector3 forwardWorld = HexMetrics.HexToWorld(forwardTile);
-            Vector3 forwardView = ViewConverter.ToView(forwardWorld);
-            forwardView.y += HexMetrics.UnitYOffset;
-
-            // [BUG-002 진단 로그] 스냅 직전 위치/거리 기록.
-            //   snapDistSq가 크면 추격 중 transform이 멀리 이동했다는 뜻 →
-            //   이후 Lerp 시작점과의 불일치로 시각적 텔레포트가 발생할 가능성을 시사.
-            MovementLogger.Log(_unitData.Id, "RESUME_SNAP",
-                $"domainPosBefore={_unitData.Position} forwardTile={forwardTile} "
-                + $"transformPosBefore={transform.position} transformPosAfter={forwardView} "
-                + $"snapDistSq={(forwardView - transform.position).sqrMagnitude:F4}");
-
-            transform.position = forwardView;
 
             // Walk 애니메이션 재개 — 전투 중 Attack 상태였을 수 있음.
             if (_animator != null)
@@ -1336,35 +1211,11 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 이동 종료 시 정리 + 1회성 콜백 호출.
         /// 외부 while 종료(완주/사망/RESUME 실패) 직후 + path 비정상 종료 직후 등에서 호출.
-        ///
-        /// [2026-05-11 비활성화] 슬롯/점유 해제 코드는 모두 비활성화됐습니다.
-        /// 헬퍼 호출(no-op)만 유지하여, 혹시 외부에서 필드가 임의로 set된 경우에도
-        /// 일관되게 null로 정리되도록 합니다.
         /// </summary>
         private void MoveCleanupAndCompleteV3()
         {
-            // [실기 로그] 이동 종료 cleanup — 사망/완주/StopMovement 등 모든 종료 경로에서 호출.
-            if (_unitData == null || !_unitData.IsAlive)
-            {
-                int idForLog = _unitData != null ? _unitData.Id : -1;
-                MovementLogger.Log(idForLog, "UNIT_DIED",
-                    $"context=MoveCleanupAndCompleteV3");
-            }
-
             if (_unitData != null)
                 _unitData.ClaimedTile = null;
-
-            // [2026-05-11 비활성화] 슬롯/공격슬롯/점유 해제는 no-op으로 변경됨.
-            ReleaseV2MoveSlotIfClaimed();
-            ReleaseV2AttackSlotIfClaimed();
-
-            // [2026-05-11 비활성화] pending occupancy 해제 코드 제거 (점유 시스템 폐기).
-            // if (_pendingOccupancyTile != default(HexCoord)
-            //     && _movementUseCase != null && _unitData != null)
-            // {
-            //     _movementUseCase.ReleaseOccupancy(_pendingOccupancyTile, _unitData.Type);
-            //     _pendingOccupancyTile = default;
-            // }
 
             _moveCoroutine = null;
 
