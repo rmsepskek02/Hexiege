@@ -261,11 +261,23 @@ namespace Hexiege.Bootstrap
         // 서버(또는 싱글플레이)에서만 Tick을 호출 — 클라이언트는 별도 동기화 경로로 점령 결과 수신.
         private TileOwnershipService _tileOwnership;
 
-        // CastleApproachManager — 적 성 인접 타일별 배정 카운트를 관리.
-        // ProductionTicker가 새 유닛을 성으로 이동시킬 때 가장 덜 배정된 인접 타일을 받아
-        // 유닛별로 다른 목적지를 사용 → 같은 FlowField 공유로 인한 "줄지어 이동" 현상 방지.
-        // CreateUseCases()에서 _grid 초기화 직후에 인스턴스를 만든다.
-        private CastleApproachManager _castleApproachManager;
+        // ────────────────────────────────────────────────────────────────────
+        // [2026-05-15] 혼잡도 기반 분산 시스템 (v2) — 핵심 인스턴스.
+        //
+        //   _congestionMap          — 타일별 혼잡도 누적/감쇠 데이터.
+        //   _congestionPathfinder   — 혼잡도 가중 A* 탐색기.
+        //   _congestionSubs         — OnUnitEnteredTile 구독 해제용. ClearAll에서 정리.
+        //
+        // 튜닝 값(DecayInterval / CongestionWeight)은 별도 ScriptableObject 대신
+        // GameConfig(_config)에 통합되어 있다. ProductionTicker가 _config를 통해 직접 읽는다.
+        //
+        // 생성/소유 정책:
+        //   _congestionMap / _congestionPathfinder는 매 LoadMap()마다 새로 만들어 이전 게임의 잔여 혼잡도가
+        //   다음 게임으로 새지 않도록 보장한다.
+        // ────────────────────────────────────────────────────────────────────
+        private CongestionMap _congestionMap;
+        private CongestionAwarePathfinder _congestionPathfinder;
+        private System.IDisposable _congestionSub;
 
         /// <summary>
         /// FlowFieldService 반환.
@@ -882,11 +894,28 @@ namespace Hexiege.Bootstrap
             // 유닛 이동 방식(Phase 0/1/2)에 무관하게 시각 위치를 기준으로 타일을 점령한다.
             _tileOwnership = new TileOwnershipService(_grid, _unitSpawn, _positionProvider);
 
-            // CastleApproachManager 초기화.
-            // 재경기/맵 전환 시 같은 인스턴스를 재사용하지 않고 새로 만든다.
-            // 이렇게 하면 이전 게임의 _assignedCounts/_unitAssignments가 자동으로 사라진다.
-            // (만약 추후 인스턴스 재사용이 필요해지면 여기서 Clear()를 호출하는 방식으로 바꾸면 된다.)
-            _castleApproachManager = new CastleApproachManager(_grid);
+            // ────────────────────────────────────────────────────────────
+            // [2026-05-15] 혼잡도 시스템 인스턴스 초기화.
+            //   - 튜닝 값(DecayInterval / CongestionWeight)은 GameConfig(_config)에 통합되어 있어
+            //     별도 ScriptableObject 로드가 필요 없다. ProductionTicker가 _config를 직접 참조.
+            //   - _congestionMap / _congestionPathfinder: 매 LoadMap()마다 새로 만들어 잔여 혼잡도 차단.
+            //   - _congestionSub: OnUnitEnteredTile 구독 — 서버에서만 누적되도록 가드.
+            // ────────────────────────────────────────────────────────────
+            _congestionMap = new CongestionMap();
+            _congestionPathfinder = new CongestionAwarePathfinder();
+
+            // 기존 구독이 있다면 정리(재경기/맵 전환 시 중복 구독 방지).
+            _congestionSub?.Dispose();
+            // Action<int, HexCoord>는 일반 C# 이벤트 형태이므로 +=/-= 패턴으로 구독 관리.
+            System.Action<int, HexCoord> congestionHandler = (unitId, tile) =>
+            {
+                // 서버(또는 싱글플레이)에서만 누적. 클라이언트는 시각 동기화만 받으므로 누적 불요.
+                if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+                _congestionMap?.Increment(tile);
+            };
+            GameEvents.OnUnitEnteredTile += congestionHandler;
+            // 람다 캡처를 풀기 위해 Dispose 시점에 -=로 명시 해제하는 IDisposable wrapper 생성.
+            _congestionSub = new ActionDisposable(() => GameEvents.OnUnitEnteredTile -= congestionHandler);
 
             // 생산 시스템
             _resource = new ResourceUseCase(_config.StartingGold);
@@ -985,10 +1014,15 @@ namespace Hexiege.Bootstrap
 
             _buildingPlacement?.Clear();
 
-            // 성 접근 타일 배정 상태도 초기화.
-            // CreateUseCases()에서 어차피 새 인스턴스를 만들지만, ClearAll 직후
-            // 외부에서 매니저를 참조하는 일이 생기더라도 깨끗한 상태를 보장한다.
-            _castleApproachManager?.Clear();
+            // ────────────────────────────────────────────────────────────
+            // [2026-05-15] 혼잡도 시스템 정리.
+            //   - 누적된 혼잡도 비우기: 다음 게임이 0에서 시작하도록.
+            //   - OnUnitEnteredTile 구독 해제: 다음 LoadMap()의 CreateUseCases가 새로 구독한다.
+            // ────────────────────────────────────────────────────────────
+            _congestionMap?.Clear();
+
+            _congestionSub?.Dispose();
+            _congestionSub = null;
 
             // 이전 게임 종료 UseCase 정리
             _gameEnd?.Dispose();
@@ -1044,13 +1078,16 @@ namespace Hexiege.Bootstrap
                 _unitFactory.SetDependencyReferences(_unitMovement, _unitCombat,
                     _unitFactory, _buildingFactory, _positionProvider);
 
-            // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요)
-            // CastleApproachManager를 함께 주입하여 유닛이 성 인접 타일을 분산 배정받도록 한다.
+            // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요).
+            // [2026-05-15] CastleApproachManager(v1) 대신 혼잡도 시스템(v2) 인스턴스를 함께 주입.
+            //   _grid / _congestionMap / _congestionPathfinder는 모두 null일 수 있고,
+            //   그 경우 ProductionTicker가 BFS 폴백 경로로 동작한다.
+            //   혼잡도 튜닝 값은 _config(GameConfig)에 통합되어 별도 인자가 필요 없다.
             if (_productionTicker != null)
                 _productionTicker.Initialize(
                     _unitProduction, _resource, _unitMovement,
                     _buildingPlacement, _unitFactory, _config,
-                    _castleApproachManager);
+                    _grid, _congestionMap, _congestionPathfinder);
 
             // 네트워크 모드 여부에 따라 NetworkProductionController 주입 (싱글플레이 시 null)
             bool isNetworkMode = IsNetworkMode();
@@ -1159,6 +1196,31 @@ namespace Hexiege.Bootstrap
         {
             return NetworkManager.Singleton != null &&
                 (NetworkManager.Singleton.IsHost || NetworkManager.Singleton.IsClient);
+        }
+
+        // ====================================================================
+        // 내부 헬퍼 — Action 기반 구독을 IDisposable로 감싸 안전하게 해제할 수 있게 한다.
+        // GameEvents.OnUnitEnteredTile은 일반 C# delegate이므로 +=/-=로 직접 관리하지만,
+        // 이를 통일된 Dispose 패턴으로 다루기 위한 작은 래퍼이다.
+        // ====================================================================
+
+        /// <summary>
+        /// 전달받은 Action을 Dispose 호출 시 1회만 실행하는 IDisposable.
+        /// 일반 C# delegate 구독(`event += handler`)의 해제(`event -= handler`)를
+        /// IDisposable 인터페이스로 래핑하기 위해 사용한다.
+        /// </summary>
+        private sealed class ActionDisposable : System.IDisposable
+        {
+            private System.Action _action;
+
+            public ActionDisposable(System.Action action) { _action = action; }
+
+            public void Dispose()
+            {
+                var a = _action;
+                _action = null;
+                a?.Invoke();
+            }
         }
 
     }

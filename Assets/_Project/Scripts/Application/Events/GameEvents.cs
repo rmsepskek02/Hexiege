@@ -364,6 +364,18 @@ namespace Hexiege.Application
         /// </summary>
         public static readonly Subject<UnitSpawnedEvent> OnUnitSpawned = new Subject<UnitSpawnedEvent>();
 
+        /// <summary>
+        /// 유닛이 A* 이동 중 새 타일에 진입할 때 발행 (서버 전용).
+        /// int: 유닛 Id, HexCoord: 진입 타일 좌표.
+        /// 발행: UnitView (MoveAlongPathV3에서 _isAStarMoving == true인 동안 타일 전환 직후)
+        /// 구독: GameBootstrapper → CongestionMap.Increment (혼잡도 누적)
+        /// </summary>
+        /// <remarks>
+        /// 다른 게임 전역 이벤트(Subject)와 달리 가벼운 한 방향 호출 패턴이므로 Action으로 노출한다.
+        /// 구독자가 null이어도 안전하도록 발행 측은 `?.Invoke(...)`로 호출할 것.
+        /// </remarks>
+        public static Action<int, HexCoord> OnUnitEnteredTile;
+
         // ====================================================================
         // 전투 관련 이벤트
         // ====================================================================

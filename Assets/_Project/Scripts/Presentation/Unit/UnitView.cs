@@ -179,6 +179,22 @@ namespace Hexiege.Presentation
         // ────────────────────────────────────────────────────────────────────
         private bool _isInCombatPursuit = false;
 
+        // ────────────────────────────────────────────────────────────────────
+        // [2026-05-15] A* 이동 단계 여부 플래그 (혼잡도 시스템 연동용).
+        //
+        // 왜 필요한가:
+        //   혼잡도 누적은 "정상 A* 이동" 중에만 의미가 있다. 전투 추격(EnterCombatPursuitV3)
+        //   단계에서는 유닛이 적을 향해 직선 이동하므로 타일 진입 이벤트를 발행하면
+        //   엉뚱한 타일에 혼잡도가 쌓일 수 있다.
+        //
+        // 사용법:
+        //   - MoveAlongPathV3 시작 시 true로 set.
+        //   - EnterCombatPursuitV3 진입 직전(detect 사거리 적 발견)에 false로 set.
+        //   - 전투 종료 후 ResumeFromForwardTileV3로 새 path를 받으면 다시 true.
+        //   - MoveCleanupAndCompleteV3(이동 완료)에서 false로 reset.
+        // ────────────────────────────────────────────────────────────────────
+        private bool _isAStarMoving = false;
+
         /// <summary> 현재 이동 중인지 여부. InputHandler에서 이동 명령 중복 방지에 사용. </summary>
         public bool IsMoving => _moveCoroutine != null;
 
@@ -616,6 +632,11 @@ namespace Hexiege.Presentation
                 _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
             }
 
+            // [2026-05-15] 혼잡도 기여 활성화 — 본 코루틴이 도는 동안 새 타일 진입 시
+            // GameEvents.OnUnitEnteredTile을 발행한다. 전투 추격 진입 시 false로 바뀌고,
+            // resumePath로 A* 재개 시 다시 true로 돌아온다.
+            _isAStarMoving = true;
+
             // 최종 목적지(외부 while 동안 변하지 않음). 우회/재경로 모두 이 좌표를 기준.
             HexCoord finalTarget = path[path.Count - 1];
 
@@ -739,6 +760,10 @@ namespace Hexiege.Presentation
                             // ClaimedTile 정리 — 다른 시스템이 참조하더라도 영향 없도록.
                             _unitData.ClaimedTile = null;
 
+                            // [2026-05-15] 혼잡도 기여 일시 중단 — 추격 단계는 타일을 거치지 않는
+                            // 직선 이동이므로 OnUnitEnteredTile 발행을 막는다. resumePath에서 다시 true.
+                            _isAStarMoving = false;
+
                             // [전투 이동] → [공격] 흐름을 EnterCombatPursuitV3에 전부 위임.
                             yield return EnterCombatPursuitV3();
 
@@ -859,6 +884,8 @@ namespace Hexiege.Presentation
                                 path = resumePath;
                                 needRepath = true;
                                 interruptedByCombat = true;
+                                // [2026-05-15] 혼잡도 기여 재활성화 — 전투 종료 후 정상 A* 재개.
+                                _isAStarMoving = true;
                                 break;  // Lerp while 탈출
                             }
 
@@ -889,6 +916,14 @@ namespace Hexiege.Presentation
                     if (_movementUseCase != null && !(isLastStep && isLastStepToNonWalkable))
                     {
                         _movementUseCase.ProcessStep(_unitData, from, to);
+                    }
+
+                    // [2026-05-15] 혼잡도 시스템 — A* 이동 중 새 타일에 진입했을 때만 발행.
+                    // 전투 추격 단계에서는 _isAStarMoving == false라 발행되지 않는다.
+                    // GameBootstrapper가 이 이벤트를 받아 CongestionMap.Increment(tile)을 수행한다.
+                    if (_isAStarMoving)
+                    {
+                        GameEvents.OnUnitEnteredTile?.Invoke(_unitData.Id, to);
                     }
 
                     _unitData.ClaimedTile = null;
@@ -1218,6 +1253,9 @@ namespace Hexiege.Presentation
                 _unitData.ClaimedTile = null;
 
             _moveCoroutine = null;
+
+            // [2026-05-15] 혼잡도 기여 종료 — 이동이 끝났으니 새 코루틴 전까지는 발행하지 않는다.
+            _isAStarMoving = false;
 
             // 1회성 이동 완료 콜백 (랠리→Castle 자동 이동 체인 등에서 사용).
             var callback = OnMoveComplete;

@@ -39,6 +39,7 @@ using UniRx;
 using Unity.Netcode;
 using Hexiege.Domain;
 using Hexiege.Application;
+using Hexiege.Application.Services;
 using Hexiege.Infrastructure;
 using Hexiege.Core;
 
@@ -57,10 +58,23 @@ namespace Hexiege.Presentation
         private UnitFactory _unitFactory;
         private GameConfig _config;
 
-        // 적 성 인접 타일별 배정 카운트를 관리하는 매니저.
-        // 유닛마다 서로 다른 접근 타일을 받아 한 줄로 늘어서는 현상을 방지한다.
-        // GameBootstrapper.SetupProduction()에서 Initialize() 호출 시 주입된다.
-        private CastleApproachManager _castleApproachManager;
+        // ────────────────────────────────────────────────────────────────────
+        // [2026-05-15] 혼잡도 기반 경로 분산 시스템 (v2).
+        //
+        //   _grid                   — CongestionAwarePathfinder가 walkable 여부를 확인할 때 사용.
+        //   _congestionMap          — 타일별 혼잡도 누적/감쇠를 관리.
+        //   _congestionPathfinder   — 혼잡도를 반영한 A* 경로 탐색기.
+        //   _decayTimer             — DecayInterval 주기로 _congestionMap.Decay()를 호출하기 위한 누적 타이머.
+        //   _buildingChangeSubs     — 건물 배치/파괴 이벤트 구독 해제용. siege 유닛 경로 재계산을 트리거.
+        //
+        // 혼잡도 튜닝 값(DecayInterval / CongestionWeight)은 별도 ScriptableObject가 아닌
+        // GameConfig(_config.CongestionDecayInterval / _config.CongestionWeight)에서 직접 읽는다.
+        // ────────────────────────────────────────────────────────────────────
+        private HexGrid _grid;
+        private CongestionMap _congestionMap;
+        private CongestionAwarePathfinder _congestionPathfinder;
+        private float _decayTimer;
+        private CompositeDisposable _buildingChangeSubs;
 
         // ====================================================================
         // 랠리포인트 마커 관리
@@ -89,12 +103,6 @@ namespace Hexiege.Presentation
             public int UnitId;
             public TeamId Team;
             public HexCoord CastlePos;
-
-            // 이 유닛이 배정받은 성 인접 접근 타일.
-            // siege 단계의 이동 목표로 사용되어, TickSiege에서 더 가까운 빈 타일로 재이동할 때도
-            // 원래 배정된 분산 방향을 유지하도록 한다.
-            // 인접 walkable 타일이 없어 폴백된 경우에는 CastlePos와 같은 값이 들어갈 수 있다.
-            public HexCoord ApproachTile;
         }
 
         /// <summary> siege 대상 유닛 목록. unitId → SiegeEntry. </summary>
@@ -120,7 +128,9 @@ namespace Hexiege.Presentation
             BuildingPlacementUseCase buildingPlacement,
             UnitFactory unitFactory,
             GameConfig config,
-            CastleApproachManager castleApproach)
+            HexGrid grid,
+            CongestionMap congestionMap,
+            CongestionAwarePathfinder congestionPathfinder)
         {
             _productionUseCase = production;
             _resourceUseCase = resource;
@@ -128,7 +138,12 @@ namespace Hexiege.Presentation
             _buildingPlacement = buildingPlacement;
             _unitFactory = unitFactory;
             _config = config;
-            _castleApproachManager = castleApproach;
+
+            // 혼잡도 시스템 의존성 (v2). 모두 null이어도 SubscribeEvents 이후 정상 동작 — 폴백 경로가 동작.
+            _grid = grid;
+            _congestionMap = congestionMap;
+            _congestionPathfinder = congestionPathfinder;
+            _decayTimer = 0f;
 
             SubscribeEvents();
         }
@@ -157,6 +172,51 @@ namespace Hexiege.Presentation
             GameEvents.OnRallyPointChanged
                 .Subscribe(OnRallyPointChanged)
                 .AddTo(this);
+
+            // ────────────────────────────────────────────────────────────────
+            // [2026-05-15] 혼잡도 시스템 — 건물 배치/파괴로 walkable이 바뀌면
+            // siege 유닛들이 들고 있던 경로가 부적합해질 수 있으므로 즉시 새 path를 발급해
+            // 다음 코루틴 사이클에 반영되도록 트리거한다.
+            //
+            // 기존 GameBootstrapper.SetupEagerRepathOnBuildingChanges()는
+            // 살아있는 모든 유닛에 OnPathInvalidated()를 호출해 UnitView가 새 path를 받게 한다.
+            // 본 핸들러는 siege 등록 상태 자체에 추가로 영향을 주진 않지만, 향후 v2 전용 후처리
+            // (예: 혼잡도 부분 리셋)를 둘 위치로 활용하기 위해 별도로 둔다.
+            // ────────────────────────────────────────────────────────────────
+            _buildingChangeSubs?.Dispose();
+            _buildingChangeSubs = new CompositeDisposable();
+
+            GameEvents.OnBuildingPlaced
+                .Subscribe(_ => OnWalkableChanged())
+                .AddTo(_buildingChangeSubs);
+
+            GameEvents.OnEntityDied
+                .Subscribe(e =>
+                {
+                    if (e.Entity is BuildingData) OnWalkableChanged();
+                })
+                .AddTo(_buildingChangeSubs);
+        }
+
+        /// <summary>
+        /// 건물 배치 또는 파괴로 walkable이 변했을 때 호출되는 후처리 훅.
+        /// 현재는 v2 전용 추가 처리가 없지만, 향후 혼잡도 부분 리셋이나
+        /// siege 경로 즉시 재발급 등을 둘 위치로 예약해 둔다.
+        /// </summary>
+        private void OnWalkableChanged()
+        {
+            // 향후 확장 지점. 현재는 GameBootstrapper.RepathAllAliveUnits가
+            // UnitView.OnPathInvalidated()를 통해 모든 유닛 경로를 다시 발급하므로 별도 작업 불요.
+        }
+
+        /// <summary>
+        /// 컴포넌트 파괴 시 직접 관리하는 CompositeDisposable을 명시적으로 해제한다.
+        /// AddTo(this)로 묶인 구독은 자동 해제되지만, _buildingChangeSubs는 별도이므로 수동 처리.
+        /// </summary>
+        private void OnDestroy()
+        {
+            _buildingChangeSubs?.Dispose();
+            _buildingChangeSubs = null;
         }
 
         // ====================================================================
@@ -194,6 +254,21 @@ namespace Hexiege.Presentation
             {
                 _resourceUseCase.TickIncome(dt, _buildingPlacement,
                     _config.MiningGoldPerSecond, _config.BaseGoldPerSecond);
+            }
+
+            // ────────────────────────────────────────────────────────────────
+            // [2026-05-15] 혼잡도 감쇠 — 설정된 주기(CongestionDecayInterval)마다 한 번씩
+            // 모든 타일의 혼잡도를 1씩 감소시킨다. 0 이하는 Map에서 제거되어 자연스럽게 사라진다.
+            // 서버(또는 싱글플레이)에서만 실행한다. _congestionMap이 주입되고 _config의 감쇠 간격이 0보다 큰 경우에만 동작.
+            // ────────────────────────────────────────────────────────────────
+            if (_congestionMap != null && _config != null && _config.CongestionDecayInterval > 0f)
+            {
+                _decayTimer += dt;
+                if (_decayTimer >= _config.CongestionDecayInterval)
+                {
+                    _decayTimer = 0f;
+                    _congestionMap.Decay();
+                }
             }
 
             // Siege 유닛 주기적 탐색
@@ -291,13 +366,10 @@ namespace Hexiege.Presentation
                 DestroyMarker(building.Id);
             }
 
-            // 유닛 사망 시 siege 목록에서 제거 + 성 접근 타일 배정 해제.
-            // 배정을 해제하지 않으면 _assignedCounts가 계속 누적되어 다음 유닛들이
-            // 같은 타일로 몰리거나 후보가 부족해 보이는 문제가 발생할 수 있다.
+            // 유닛 사망 시 siege 목록에서 제거
             if (e.Entity is UnitData unit)
             {
                 _siegeUnits.Remove(unit.Id);
-                _castleApproachManager?.Release(unit.Id);
             }
         }
 
@@ -433,48 +505,75 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 유닛을 적 Castle 방향으로 BFS 이동시키고 siege 목록에 등록.
+        /// 유닛을 적 Castle 방향으로 이동시키고 siege 목록에 등록.
         /// 랠리포인트 도착 콜백 또는 랠리 미설정 시 직접 호출.
         /// </summary>
+        /// <remarks>
+        /// [2026-05-15] v1(CastleApproachManager)에서 v2(CongestionAwarePathfinder)로 교체.
+        ///   - v1: 인접 6타일을 카운트해 가장 덜 배정된 타일을 유닛별로 다르게 부여.
+        ///   - v2: 같은 목적지(=성 좌표)를 쓰되, 경로 비용 = 1 + 혼잡도 × CongestionWeight 적용.
+        ///        유닛이 진입한 타일에 혼잡도가 누적되어 후속 유닛이 자연스럽게 우회한다.
+        /// 폴백: v2 경로 계산 실패 시 기존 FindPathToNearestEmptyTile(BFS) 사용.
+        /// </remarks>
         private void MoveTowardEnemyCastle(UnitData unit, UnitView unitView)
         {
             if (!unit.IsAlive || _buildingPlacement == null) return;
 
-            // 적 Castle 위치 찾기
+            // 적 Castle 위치 찾기 — 모든 유닛이 같은 좌표를 목적지로 사용한다.
+            // 분산은 경로 단계의 혼잡도 가중치로 달성한다.
             HexCoord? enemyCastle = FindEnemyCastlePos(unit.Team);
             if (!enemyCastle.HasValue) return;
 
-            // ────────────────────────────────────────────────────────────
-            // 성 인접 6개 타일 중 가장 덜 배정된 타일을 이 유닛의 이동 목표로 받는다.
-            // 다른 유닛과 서로 다른 접근 타일을 받게 되므로 FlowField 결과가 분기되어
-            // 성 주변 여러 방향에서 자연스럽게 접근하게 된다.
-            // 매니저가 없거나(생성 실패 등) 인접 walkable 타일이 하나도 없으면
-            // null이 반환되며, 그 경우 기존처럼 성 타일 자체를 목표로 폴백한다.
-            // ────────────────────────────────────────────────────────────
-            HexCoord? approachTile = _castleApproachManager?.AssignApproachTile(enemyCastle.Value, unit.Id);
-            HexCoord moveTarget = approachTile ?? enemyCastle.Value;
+            HexCoord moveTarget = enemyCastle.Value;
 
-            // 결정된 이동 목표로 BFS 경로 탐색.
-            List<HexCoord> path = FindPathToNearestEmptyTile(unit, moveTarget);
+            // ────────────────────────────────────────────────────────────
+            // v2: 혼잡도 인식 경로 우선 시도.
+            //   - _congestionPathfinder / _congestionMap / _config가 모두 와이어링된 경우에만 시도.
+            //   - 결과 path가 비어 있거나 null이면 v1 폴백(FindPathToNearestEmptyTile)로 진입.
+            //   - 혼잡도 가중치는 _config.CongestionWeight(GameConfig)에서 읽는다.
+            // ────────────────────────────────────────────────────────────
+            List<HexCoord> path = null;
+            if (_congestionPathfinder != null && _congestionMap != null && _config != null
+                && _unitMovement != null)
+            {
+                List<HexCoord> congestionPath = _congestionPathfinder.FindPath(
+                    unit.Position,
+                    moveTarget,
+                    _grid,
+                    _congestionMap,
+                    _config.CongestionWeight);
+
+                if (congestionPath != null && congestionPath.Count >= 2)
+                {
+                    path = congestionPath;
+                }
+            }
+
+            // 혼잡도 경로 실패 시 기존 BFS 폴백.
+            if (path == null)
+                path = FindPathToNearestEmptyTile(unit, moveTarget);
+
             if (path != null)
             {
-                // 이동 완료 후 siege 등록 콜백 — 성 좌표와 접근 타일을 함께 저장.
-                unitView.OnMoveComplete = () => RegisterSiege(unit, enemyCastle.Value, moveTarget);
+                // 이동 완료 후 siege 등록 콜백 — 성 좌표만 저장(v1의 ApproachTile은 폐기).
+                unitView.OnMoveComplete = () => RegisterSiege(unit, enemyCastle.Value);
                 unitView.MoveTo(path);
             }
             else
             {
                 // 경로 없어도 siege 등록 (추후 빈 타일 생기면 이동)
-                RegisterSiege(unit, enemyCastle.Value, moveTarget);
+                RegisterSiege(unit, enemyCastle.Value);
             }
         }
 
         /// <summary>
         /// siege 목록에 유닛 등록.
-        /// approachTile은 MoveTowardEnemyCastle에서 CastleApproachManager가 배정한 분산 목표 타일.
-        /// 매니저가 후보를 찾지 못한 경우에는 castlePos와 같은 값이 전달될 수 있다.
         /// </summary>
-        private void RegisterSiege(UnitData unit, HexCoord castlePos, HexCoord approachTile)
+        /// <remarks>
+        /// [2026-05-15] v1의 approachTile 파라미터 제거 — 모든 유닛이 성 좌표를 목적지로 공유한다.
+        /// 분산은 CongestionMap이 경로 단계에서 처리한다.
+        /// </remarks>
+        private void RegisterSiege(UnitData unit, HexCoord castlePos)
         {
             if (!unit.IsAlive) return;
 
@@ -486,8 +585,7 @@ namespace Hexiege.Presentation
             {
                 UnitId = unit.Id,
                 Team = unit.Team,
-                CastlePos = castlePos,
-                ApproachTile = approachTile
+                CastlePos = castlePos
             };
         }
 
@@ -539,21 +637,17 @@ namespace Hexiege.Presentation
                     continue;
                 }
 
-                // 이동 목표는 배정된 접근 타일을 우선 사용.
-                // ApproachTile이 default(=Q,R=0)면 배정이 없었거나 폴백 경우이므로 성 좌표 사용.
-                HexCoord moveTarget = entry.ApproachTile.Equals(default(HexCoord))
-                    ? entry.CastlePos
-                    : entry.ApproachTile;
+                // [2026-05-15] v1의 ApproachTile은 폐기되어 모든 유닛이 성 좌표를 이동 목표로 사용한다.
+                HexCoord moveTarget = entry.CastlePos;
 
-                // "지금 위치에서 이동 목표(접근 타일)까지의 거리" 기준으로
-                // 더 가까운 빈 타일로 재이동할지 결정한다.
+                // "지금 위치에서 성까지의 거리" 기준으로 더 가까운 빈 타일로 재이동할지 결정한다.
                 int currentDistToTarget = HexCoord.Distance(unit.Position, moveTarget);
 
-                // 접근 타일 방향 BFS로 더 가까운 빈 타일 탐색
+                // 성 방향 BFS로 더 가까운 빈 타일 탐색
                 List<HexCoord> path = FindPathToNearestEmptyTile(unit, moveTarget);
                 if (path != null)
                 {
-                    // 새 경로의 도착점이 현재보다 접근 타일에 더 가까운지 확인
+                    // 새 경로의 도착점이 현재보다 성에 더 가까운지 확인
                     HexCoord destination = path[path.Count - 1];
                     int newDist = HexCoord.Distance(destination, moveTarget);
 

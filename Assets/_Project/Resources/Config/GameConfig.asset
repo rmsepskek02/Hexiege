@@ -31,13 +31,14 @@ MonoBehaviour:
   _miningGoldPerSecond: 10
   _barracksCost: 100
   _miningPostCost: 50
-  UnitMoveSeconds: 0.3
+  UnitMoveSpeed: 1
   UnitYOffset: 0.15
   BuildingYOffset: 0.1
+  CongestionDecayInterval: 5
+  CongestionWeight: 1
   _rallyPointPrefab: {fileID: 221429504860326395, guid: 9a7970d384ace6747b4f5ecd884b69e8, type: 3}
   _rallyMarkerOffset: {x: 0.1, y: 0.28, z: 0}
   _rallyMarkerEuler: {x: -90, y: 180, z: 0}
-  AnimationFps: 6
   CameraZoomMin: 2
   CameraZoomMax: 7
   CameraZoomDefault: 7

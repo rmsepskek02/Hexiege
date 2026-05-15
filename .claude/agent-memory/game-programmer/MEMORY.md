@@ -23,6 +23,33 @@
 
 ## 최근 작업
 
+### 혼잡도 기반 유닛 분산 시스템 (2026-05-15) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-15/17_29_congestion-based-spread/`
+
+**문제**: 모든 유닛이 성 방향으로 세로 줄 이동 현상. v1(CastleApproachManager — 성 인접 타일 배정)은 경로가 거의 동일해 시각 효과 없었음.
+
+**신규 파일**:
+- `Application/Services/CongestionMap.cs` — 타일별 혼잡도 관리 (Increment/Decay/Clear). 순수 C#.
+- `Application/Services/CongestionAwarePathfinder.cs` — 혼잡도 가중 A*. 타일 비용=1+(혼잡도×CongestionWeight). 목적지 non-walkable이면 walkable 인접 자동 대체.
+
+**삭제 파일**:
+- `Application/Services/CastleApproachManager.cs` — v1 전체 삭제 (테스트 완료 후)
+- `Infrastructure/Config/CongestionConfig.cs` — 필요 없어 미생성 (GameConfig에 통합)
+
+**수정 파일**:
+- `GameConfig.cs` — `CongestionDecayInterval=5f`, `CongestionWeight=3f` 필드 추가 (Header "Congestion Spread")
+- `GameEvents.cs` — `OnUnitEnteredTile: Action<int, HexCoord>` 추가
+- `UnitView.cs` — `_isAStarMoving` bool 필드. A* 이동 시 true, 전투 추격 시 false. 타일 전환 완료 시 `_isAStarMoving=true`이면 OnUnitEnteredTile 발행.
+- `ProductionTicker.cs` — CongestionMap/Pathfinder 주입. 감쇠 타이머(`_decayTimer`). MoveTowardEnemyCastle에서 A* 우선, 실패 시 BFS 폴백.
+- `GameBootstrapper.cs` — CongestionMap/Pathfinder 생성. OnUnitEnteredTile 구독(서버 가드: `if NetworkActive && !IsServer return`). ClearAll에 Clear 추가.
+
+**핵심 설계 결정**:
+- CongestionConfig ScriptableObject 미생성 → GameConfig.asset에 2필드 통합 (ScriptableObject 낭비 방지)
+- reactive congestion: 유닛이 실제 타일 진입 시점에 혼잡도 증가 (사전 등록 아님) — 같은 건물에서 동시 생산 불가이므로 반응형으로 충분
+
+---
+
 ### 로비 캐릭터 잘못 표시 버그 — 로그 추가 + 원인 확정 (2026-05-15) ✅ 완료
 
 **작업 내용**: 랜덤 매칭 후 Red 클라이언트의 캐러셀에 선택한 종족 대신 Human이 잠깐 표시되는 버그 추적.

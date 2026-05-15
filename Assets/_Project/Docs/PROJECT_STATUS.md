@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-05-15
-**현재 단계:** 랜덤 매칭 후 캐릭터 잘못 표시 버그 수정 완료 (Lobby CharPreview NetworkTransform 위치 동기화 문제 — 프리팹 언팩 + 컴포넌트 제거)
+**현재 단계:** 혼잡도 기반 유닛 분산 시스템(v2) 완료 (CongestionMap + CongestionAwarePathfinder, v1 CastleApproachManager 폐기 삭제)
 
 ---
 
@@ -35,6 +35,7 @@
 | 유닛 생산 (수동/자동) | ✅ 완료 | 큐 최대 3, 롱프레스 자동 |
 | 랠리포인트 | ✅ 완료 | 마커 표시, BFS 빈 타일 탐색, 위치/회전 Inspector 조정 (GameConfig.RallyMarkerOffset/Euler) |
 | 공성 시스템 | ✅ 완료 | 랠리→Castle 방향 자동 진군 |
+| 유닛 분산 이동 (혼잡도 기반) | ✅ 완료 (2026-05-15) | CongestionMap + CongestionAwarePathfinder — 타일 혼잡도 가중 A*로 경로 자연 분산. GameConfig에 DecayInterval/CongestionWeight 통합 |
 | 승패 판정 (Castle 파괴) | ✅ 완료 | GameEndUseCase, UI 표시 |
 
 #### 팀별 피아식별 + 신규 유닛 에셋 (2026-03-13)
