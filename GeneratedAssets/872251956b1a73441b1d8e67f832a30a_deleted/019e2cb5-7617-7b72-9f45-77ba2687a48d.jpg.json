@@ -1,0 +1,38 @@
+{
+    "asset": "872251956b1a73441b1d8e67f832a30a",
+    "fileName": "019e2cb5-7617-7b72-9f45-77ba2687a48d.jpg",
+    "prompt": "Change only the blue glowing parts and blue decorative elements to red. Keep all the stone textures, moss, and background exactly as they are in the original. Do not change the shape or add new details.",
+    "negativePrompt": "",
+    "model": "seedream-4-5",
+    "modelName": "Seedream 4.5",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "872251956b1a73441b1d8e67f832a30a",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

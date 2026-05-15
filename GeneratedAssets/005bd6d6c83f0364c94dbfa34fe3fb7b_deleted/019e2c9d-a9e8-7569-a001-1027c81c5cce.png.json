@@ -1,0 +1,38 @@
+{
+    "asset": "005bd6d6c83f0364c94dbfa34fe3fb7b",
+    "fileName": "019e2c9d-a9e8-7569-a001-1027c81c5cce.png",
+    "prompt": "Red team version of the Primal Altar texture. Change all blue glowing crystals and blue circular patterns from the reference image to a bright red color. Keep the stone texture, grass, and vines identical to the reference image.",
+    "negativePrompt": "",
+    "model": "gpt-image-1-5",
+    "modelName": "GPT Image 1.5",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "54552601bcf63a04ab6666a1322e0124",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

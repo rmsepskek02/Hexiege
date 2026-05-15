@@ -1,0 +1,38 @@
+{
+    "asset": "54552601bcf63a04ab6666a1322e0124",
+    "fileName": "019e2c9e-f1a9-73be-acba-35853ea1323c.jpg",
+    "prompt": "Change all the blue parts of this sprite to a vibrant red color. Maintain the exact same structure, stone texture, and transparency as the original. Do not add any new elements.",
+    "negativePrompt": "",
+    "model": "seedream-4-5",
+    "modelName": "Seedream 4.5",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "54552601bcf63a04ab6666a1322e0124",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

@@ -20,13 +20,11 @@
 | Human | FlightFacility | FlightFacility | Blue / Red | 1 | 마법 건물 |
 | Human | TechnicalLaboratory | Research | Blue / Red | 1 | 업그레이드 건물 |
 | Spirit | SpiritNexus | Castle | Blue / Red | 30 | 본기지 |
-| Spirit | SummoningAltar | Barracks | Blue / Red | 30 | 유닛 생산 건물 (다른 용도로 재사용 예정) |
 | Spirit | ManaRift | MiningPost | Blue / Red | 40 | 금광 위 건설 |
 | Spirit | RuneSpire | AutoTower | Blue / Red | 1 | 방어 타워 |
 | Spirit | MagicSpirit | MagicBuilding | Blue / Red | 1 | 마법 건물 |
 | Spirit | AstronomicalSpirit | Research | Blue / Red | 1 | 업그레이드 건물 |
 | Transcendence | ElderTree | Castle | Blue / Red | 40 | 본기지 |
-| Transcendence | HunterPlant | AncientGrove | Blue / Red | 40 | 업그레이드 건물 |
 | Transcendence | FungalNode | MiningPost | Blue / Red | 35 | 금광 위 건설 |
 | Transcendence | VineTower | AutoTower | Blue / Red | 1 | 방어 타워 |
 | Transcendence | PrimalAltar (Animal Stage 1) | Barracks | Blue / Red | 1 | 유닛 생산 건물 1단계 - 낮은 돌 제단과 거대한 동물 갈비뼈, 덩굴 장식 |
@@ -74,6 +72,14 @@
 | EagleBow | 1 | EagleArcher 활 무기 서브프리팹 |
 | RabbitSword | 1 | RabbitTrickster 검 무기 서브프리팹 |
 
+#### 미사용 / 재분류 예정 (Repurposed)
+> 제작은 완료되었으나 원래 역할에서 제외되어 새로운 용도를 검토 중인 에셋
+
+| 종족 | 건물명 | 원래 BuildingType | 팀 프리팹 | FBX Scale Factor | 비고 |
+|------|--------|-----------------|---------|-----------------|------|
+| Spirit | SummoningAltar | Barracks | Blue / Red | 30 | 기존 유닛 생산 건물에서 다른 용도로 재사용 예정 |
+| Transcendence | HunterPlant | AncientGrove | Blue / Red | 40 | 기존 업그레이드 건물에서 다른 용도로 재사용 예정 |
+
 ### 2. 제작 예정 3D 에셋
 
 | 종족 | 유닛명 | 역할/원소 | 비고 |
@@ -97,13 +103,11 @@
 | Spirit | GaeaSanctum (Earth Stage 3) | Barracks | 땅 속성 3단계 - 대지의 기운이 서린 바위 신전, 중앙의 거대한 균열 바위 핵 강조 |
 | Transcendence | PrimalDen (Animal Group A Stage 2) | Barracks | 초월계 동물A 2단계 - 나무와 돌로 된 야생의 탑 위 푸른 영혼 구체 |
 | Transcendence | PrimalSanctuary (Animal Group A Stage 3) | Barracks | 초월계 동물A 3단계 - 덩굴이 감긴 석조 신전 내부의 거대한 야생의 영혼 핵 |
-| Transcendence | FeralSanctuary (Animal Group B Stage 1) | Barracks | 동물 그룹 B 1단계 (FoxMagician, EagleArcher, LionKnight) - 장식이 적고 형태가 명확한 나무 건물 | 
-| Transcendence | BeastDen (Animal Stage 2) | Barracks | 초월계 동물 유닛 생산 건물 2단계 (FoxMagician, EagleArcher, LionKnight) |
-| Transcendence | ApexLair (Animal Stage 3) | Barracks | 초월계 동물 유닛 생산 건물 3단계 (FoxMagician, EagleArcher, LionKnight) |
+| Transcendence | FeralAltar (Animal Group B Stage 1) | Barracks | 동물 그룹 B 1단계 (FoxMagician, EagleArcher, LionKnight) - 장식이 적고 형태가 명확한 나무 건물 | 
+| Transcendence | FeralDen (Animal Group B Stage 2) | Barracks | 초월계 동물 그룹 B 2단계 (FoxMagician, EagleArcher, LionKnight) |
+| Transcendence | FeralSanctuary (Animal Group B Stage 3) | Barracks | 초월계 동물 그룹 B 3단계 (FoxMagician, EagleArcher, LionKnight) |
 | Transcendence | SporePatch (Plant Stage 1) | Barracks |  |  | 초월계 식물 1단계 - 납작한 이끼 돌판 위 거대 버섯 군락과 포자 결정 |
 | Transcendence | FloralNursery (Plant Stage 2) | Barracks |  |  | 초월계 식물 2단계 - 덩굴 줄기 아치가 감싸는 성장 중인 푸른 꽃 성소 |
-| Spirit | SummoningAltar (Repurposed) | (TBD) | 기존 유닛 생산 건물에서 다른 용도로 재사용 예정 |
-| Transcendence | HunterPlant (Repurposed) | (TBD) | 기존 업그레이드 건물에서 다른 용도로 재사용 예정 |
 | Human | WarElephant | 초고체력 탱커 | 전쟁 코끼리, 광역 압박 |
 | Spirit | Spark/Storm/Thunder | 전기 (1~3단계) | 미제작 |
 | Spirit | Glow/Radiant/Aurora | 빛 (1~3단계) | 미제작 |
