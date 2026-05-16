@@ -23,6 +23,25 @@
 
 ## 최근 작업
 
+### Rule 20 슬롯0 확장 (2026-05-17) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-17/00_21_production-rule20-slot0-extension/`
+
+**수정 파일**: `Application/UseCases/UnitProductionUseCase.cs`, `Docs/GameSystemRules.md`
+
+**변경 내용**:
+- `ToggleAutoProduction`에 슬롯0 체크 블록 추가 (AutoTypes 상한 체크 직후, Rule 2-1 직전)
+  - 조건: `CurrentProducing.HasValue && CurrentProducing.Value == type && !CurrentIsAuto`
+  - 처리: `CurrentIsAuto = true` + `AutoTypes.Add(type)` + `NormalizeAutoCycleIndex` + 이벤트 발행
+- `GameSystemRules.md` 규칙 20 문구에 "슬롯0 수동 생산 중" 케이스 추가
+
+**설계 의도**:
+- 슬롯0에서 수동 A 생산 중 A 자동등록 → 슬롯1에 중복 추가 없이 슬롯0 자체를 자동으로 전환
+- 완료 시 `wasAuto=true` → 자동 순환 자연 시작
+- BUG-15(CurrentIsAuto=true 케이스)와 조건 상호 배타 → 충돌 없음
+
+---
+
 ### 건물 생성/파괴 시 유닛 이동 멈춤 수정 (2026-05-17) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-16/17_00_building-repath-freeze-fix/`

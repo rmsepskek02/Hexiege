@@ -215,6 +215,29 @@ namespace Hexiege.Application
             // 자동 등록 상한(3종류)
             if (state.AutoTypes.Count >= 3) return false;
 
+            // ─── Rule 20 확장: 슬롯0(CurrentProducing)이 같은 타입 수동 항목이면 수동→자동 전환 ───
+            // 슬롯0에서 수동으로 A를 생산 중일 때 A를 자동등록하면,
+            // 슬롯1에 A를 새로 추가하지 않고 슬롯0 자체를 "자동"으로 전환한다.
+            // → 완료 시 CompleteProduction의 wasAuto=true 조건을 만족하여 자동 순환이 시작됨.
+            // → 골드 이중 차감 없음 (슬롯0의 골드는 이미 수동 등록 시 차감됨).
+            //
+            // 예시: 슬롯0에 [Pistoleer(수동, 생산 중)]만 있는 상태에서 Pistoleer 자동등록 버튼을 누르면,
+            //       슬롯1에 새 Pistoleer를 추가하지 않고 슬롯0의 IsAuto만 true로 바꾼다.
+            //       기존 BUG-15 방어(CurrentIsAuto=true 케이스)와는 상호 배타이므로 충돌 없음.
+            if (state.CurrentProducing.HasValue &&
+                state.CurrentProducing.Value == type &&
+                !state.CurrentIsAuto)
+            {
+                state.CurrentIsAuto = true;
+                state.AutoTypes.Add(type);
+                // 새 타입 추가 후 AutoCycleIndex가 범위를 벗어나지 않도록 보정
+                NormalizeAutoCycleIndex(state);
+
+                GameEvents.OnProductionQueueChanged.OnNext(
+                    new ProductionQueueChangedEvent(barracksId));
+                return true;
+            }
+
             // ─── Rule 2-1: PendingQueue 마지막 수동 항목과 같은 타입이면 이관 처리 ─────
             // 사용자가 수동으로 [3,2,1] 등록 후 마지막 '1'에 대해 자동을 활성화하면
             // "마지막 수동을 자동으로 전환" 의도로 해석하여 중복 항목 추가를 방지.
