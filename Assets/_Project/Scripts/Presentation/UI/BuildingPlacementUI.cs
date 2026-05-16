@@ -26,11 +26,13 @@
 // Presentation 레이어 — Unity 의존 (MonoBehaviour, UI).
 // ============================================================================
 
+using System;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using TMPro;
+using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
@@ -111,6 +113,13 @@ namespace Hexiege.Presentation
         /// <summary> 팝업이 닫힌 프레임. 같은 프레임 클릭 통과 방지용. </summary>
         public int ClosedFrame { get; private set; } = -1;
 
+        /// <summary>
+        /// 골드 변경 이벤트(OnResourceChanged) 구독 토큰.
+        /// 팝업이 열린 동안만 구독을 유지해 비용 텍스트 색상을 실시간으로 재평가하고,
+        /// Close() 시 즉시 Dispose하여 불필요한 콜백 호출을 막는다.
+        /// </summary>
+        private IDisposable _resourceSubscription;
+
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -162,7 +171,7 @@ namespace Hexiege.Presentation
                         if (i < _buildingCostTexts.Count && _buildingCostTexts[i] != null)
                         {
                             int cost = BuildingStats.GetGoldCost(entry.type, race);
-                            _buildingCostTexts[i].SetText($"{cost}G");
+                            _buildingCostTexts[i].SetText($"{cost}");
                         }
 
                         // 배치 가능 여부 체크
@@ -180,6 +189,66 @@ namespace Hexiege.Presentation
 
             _popup?.Show();
             _sharedBackground?.Register(Close);
+
+            // 팝업이 열리는 순간 현재 보유 골드를 기준으로 비용 텍스트 색상을 즉시 평가.
+            // (살 수 없는 건물의 비용은 빨간색, 살 수 있는 건물은 흰색으로 표시)
+            UpdateCostTextColors();
+
+            // 팝업이 열려 있는 동안 골드 변동이 발생하면 색상을 실시간으로 재평가하도록 구독.
+            // 자기 팀(_currentTeam)에 해당하는 이벤트만 필터링하여 불필요한 갱신을 방지.
+            // 이전에 남아있을 수 있는 구독은 안전하게 해제 후 새로 시작.
+            _resourceSubscription?.Dispose();
+            _resourceSubscription = GameEvents.OnResourceChanged
+                .Where(evt => evt.Team == _currentTeam)
+                .Subscribe(_ => UpdateCostTextColors());
+        }
+
+        /// <summary>
+        /// 현재 팀의 보유 골드와 각 건물의 건설 비용을 비교하여 비용 텍스트 색상을 갱신.
+        ///
+        /// 규칙:
+        ///   - 보유 골드 < 비용 → 빨간색 (살 수 없음을 시각적으로 알림)
+        ///   - 보유 골드 >= 비용 → 흰색 (정상)
+        ///   - 버튼이 비활성(SetActive=false)이거나 텍스트가 null 이면 건너뜀.
+        ///
+        /// 호출 시점:
+        ///   1. Show() — 팝업이 열리는 순간 1회
+        ///   2. OnResourceChanged 이벤트 — 골드가 변동될 때마다
+        /// </summary>
+        private void UpdateCostTextColors()
+        {
+            if (_resource == null || _buildingCostTexts == null) return;
+
+            // 현재 팀의 종족 조회 (Show()에서 _currentTeam이 세팅된 상태)
+            RaceId race = _currentTeam == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+
+            // 종족별 건물 리스트 조회
+            var list = GetBuildingList(_currentTeam, race);
+
+            // 현재 보유 골드 (한 번만 조회 후 재사용)
+            int currentGold = _resource.GetGold(_currentTeam);
+
+            for (int i = 0; i < _buildingCostTexts.Count; i++)
+            {
+                // 텍스트 또는 매칭되는 버튼이 없으면 건너뜀
+                if (_buildingCostTexts[i] == null) continue;
+                if (_buildingButtons == null || i >= _buildingButtons.Count) continue;
+                if (_buildingButtons[i] == null || !_buildingButtons[i].gameObject.activeSelf) continue;
+
+                // 리스트 범위 밖이면 흰색으로 유지
+                if (i >= list.Count)
+                {
+                    _buildingCostTexts[i].color = Color.white;
+                    continue;
+                }
+
+                int cost = BuildingStats.GetGoldCost(list[i].type, race);
+
+                // 보유 골드가 비용보다 적으면 빨간색으로 표시
+                _buildingCostTexts[i].color = (currentGold < cost) ? Color.red : Color.white;
+            }
         }
 
         private void UpdateButtonPortraits(TeamId team, RaceId race)
@@ -229,7 +298,7 @@ namespace Hexiege.Presentation
                     if (i < list.Count && _buildingCostTexts[i] != null)
                     {
                         int cost = BuildingStats.GetGoldCost(list[i].type, race);
-                        _buildingCostTexts[i].SetText($"{cost}G");
+                        _buildingCostTexts[i].SetText($"{cost}");
                     }
                 }
             }
@@ -241,6 +310,21 @@ namespace Hexiege.Presentation
         public void Close()
         {
             ClosedFrame = Time.frameCount;
+
+            // 골드 변경 이벤트 구독 해제 — 팝업이 닫혀 있는 동안 불필요한 콜백을 막는다.
+            _resourceSubscription?.Dispose();
+            _resourceSubscription = null;
+
+            // 비용 텍스트 색상을 모두 흰색으로 초기화.
+            // 다음 Show() 호출 시 빨간색이 잔존하지 않은 깨끗한 상태에서 시작하기 위함.
+            if (_buildingCostTexts != null)
+            {
+                for (int i = 0; i < _buildingCostTexts.Count; i++)
+                {
+                    if (_buildingCostTexts[i] != null)
+                        _buildingCostTexts[i].color = Color.white;
+                }
+            }
 
             // 공유 Background 콜백 해제 (Hide 애니메이션 중 추가 터치 방지)
             _sharedBackground?.Unregister();
@@ -319,7 +403,11 @@ namespace Hexiege.Presentation
                 int cost = GetBuildingCost(type);
                 if (!_resource.CanAfford(_currentTeam, cost))
                 {
-                    return; // 골드 부족 → 배치하지 않음
+                    // 골드 부족 시 사용자에게 토스트 메시지로 피드백.
+                    // 팝업은 그대로 유지하여, 빨간색으로 표시된 비용 텍스트와 함께
+                    // 사용자가 어떤 건물이 부족한지 즉시 인지할 수 있게 한다.
+                    ToastUI.Show(ToastKey.GoldInsufficient);
+                    return; // 골드 부족 → 배치하지 않음 (팝업 유지)
                 }
                 _resource.SpendGold(_currentTeam, cost);
             }

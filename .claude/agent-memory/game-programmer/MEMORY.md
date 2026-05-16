@@ -23,6 +23,48 @@
 
 ## 최근 작업
 
+### 건물 배치 패널 실패 피드백 + UI 개선 (2026-05-16) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-16/20_10_building-placement-fail-feedback/`
+
+**수정 파일**:
+- `BuildingPlacementUI.cs` — 3가지 변경:
+  1. **UpdateCostTextColors()** 신규 private 메서드 추가. `_buildingCostTexts[i]`를 순회하며 현재 골드와 건설 비용 비교, 부족 시 `Color.red`, 충분 시 `Color.white`.
+  2. **Show()** 마지막에 `UpdateCostTextColors()` 즉시 호출 + `GameEvents.OnResourceChanged` 구독(`_resourceSubscription: IDisposable`). 팝업 열린 동안만 실시간 갱신.
+  3. **Close()** 앞에 `_resourceSubscription?.Dispose()` + 비용 텍스트 전체 `Color.white` 초기화.
+  4. **PlaceAndClose() 싱글플레이 분기** — 골드 부족 시 `ToastUI.Show(ToastKey.GoldInsufficient)` 호출 후 `return`(팝업 유지).
+
+**핵심 설계**:
+- 멀티플레이 분기는 수정하지 않음 (범위 밖).
+- `IDisposable _resourceSubscription` 패턴으로 Show/Close 생명주기에 이벤트 구독을 한정.
+- `GetBuildingList(_currentTeam, race)` 기존 메서드 재사용으로 버튼-텍스트 인덱스 일치 보장.
+
+---
+
+### ToastUI SetActive 버그 수정 (2026-05-16) ✅ 완료
+
+**수정 파일**: `Presentation/UI/Common/ToastUI.cs`
+
+**버그**: `ClearAll()` / `FinishCurrent()` 에서 `_canvasGroup.gameObject.SetActive(false)` 호출 → `OnGameStarted`로 ClearAll 실행 시 루트 비활성화 → `Update()` 정지 → 이후 토스트 큐 완전히 동작 불가.
+
+**수정**: 3곳에서 `SetActive(false/true)` 제거:
+- `TryShowNext()`: `SetActive(true)` → `blocksRaycasts=true, interactable=true`
+- `FinishCurrent()`: `SetActive(false)` → `blocksRaycasts=false, interactable=false`
+- `ClearAll()`: `SetActive(false)` → `blocksRaycasts=false, interactable=false`
+
+**원칙**: Toast 루트 GameObject는 항상 활성 상태. 숨김은 `alpha=0 + blocksRaycasts=false`만으로 처리.
+
+---
+
+### 건물 비용 텍스트 'G' 접미사 제거 (2026-05-16) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-16/21_30_building-cost-g-removal/`
+
+**수정**: `BuildingPlacementUI.cs` 2곳 — `$"{cost}G"` → `$"{cost}"`.
+생산 패널(원래부터 숫자만)과 동일한 표기로 통일.
+
+---
+
 ### 유닛 생산 실패 피드백 시스템 (2026-05-16) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-16/15_09_production-fail-feedback/`

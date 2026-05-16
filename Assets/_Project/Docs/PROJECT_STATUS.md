@@ -286,6 +286,15 @@
 | 자동 생산 자원 부족 시 즉시 취소 | ✅ 완료 | IsCharged=false 항목만 취소, IsCharged=true는 Rule 2 유지 |
 | 싱글플레이 실기 테스트 | ✅ PASS (골드부족·큐초과) | 인구초과·자동취소는 코드 검토 완료 |
 
+#### 건물 배치 패널 실패 피드백 + UI 개선 (2026-05-16)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 골드 부족 시 건물 비용 텍스트 빨간색 | ✅ 완료 | 팝업 열릴 때 + OnResourceChanged 구독으로 실시간 재평가. 팝업 닫힐 때 흰색 초기화 |
+| 골드 부족 시 토스트 메시지 | ✅ 완료 | `ToastKey.GoldInsufficient` 재사용. 팝업 유지(Close 호출 없음). 싱글플레이 분기만 적용 |
+| 건물 비용 텍스트 'G' 접미사 제거 | ✅ 완료 | "200G" → "200". 생산 패널과 동일 표기로 통일 |
+| ToastUI SetActive 버그 수정 | ✅ 완료 | ClearAll/FinishCurrent의 SetActive(false) 제거 → CanvasGroup.blocksRaycasts+interactable로 대체. 루트 항상 활성 유지 |
+| 싱글플레이 실기 테스트 | ✅ PASS | 골드 부족 비용 텍스트 빨간색, 토스트 메시지, 팝업 유지 동작 확인 |
+
 #### 버그 수정 및 폴리싱
 | 항목 | 상태 |
 |------|------|

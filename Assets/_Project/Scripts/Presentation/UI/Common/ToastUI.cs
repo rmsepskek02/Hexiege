@@ -203,11 +203,14 @@ namespace Hexiege.Presentation
             }
 
             // 텍스트 갱신 + 즉시 표시(진입 애니메이션 없음).
+            // SetActive를 사용하지 않는 이유: 루트가 비활성화되면 Update()가 멈춰
+            // 큐가 영영 동작하지 않는다. 대신 알파 + 레이캐스트 차단/허용으로 표시 제어.
             if (_messageText != null) _messageText.text = message;
             if (_canvasGroup != null)
             {
                 _canvasGroup.alpha = 1f;
-                _canvasGroup.gameObject.SetActive(true);
+                _canvasGroup.blocksRaycasts = true; // 클릭 입력 받기 시작
+                _canvasGroup.interactable = true;   // 상호작용 허용
             }
 
             _remainingDuration = duration;
@@ -260,7 +263,8 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 현재 토스트 마무리 처리.
-        /// 알파 0 + 비활성화 후, 큐에 다음 항목이 있으면 즉시 표시.
+        /// 알파 0 + 레이캐스트 차단 후, 큐에 다음 항목이 있으면 즉시 표시.
+        /// 루트 GameObject는 항상 활성 상태로 유지(Update()가 멈추면 큐가 정지함).
         /// </summary>
         private void FinishCurrent()
         {
@@ -270,7 +274,8 @@ namespace Hexiege.Presentation
             if (_canvasGroup != null)
             {
                 _canvasGroup.alpha = 0f;
-                _canvasGroup.gameObject.SetActive(false);
+                _canvasGroup.blocksRaycasts = false; // 클릭 입력 차단(투명하지만 클릭 막힘 방지)
+                _canvasGroup.interactable = false;   // 상호작용 차단
             }
             _fadeTween = null;
 
@@ -301,6 +306,8 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 큐와 현재 표시를 모두 비워 초기 상태로 되돌림.
         /// 게임 시작/종료/재초기화 시 호출.
+        /// 루트 GameObject는 항상 활성 상태로 유지해야 한다.
+        /// (루트가 비활성화되면 Update()가 멈춰 이후 토스트 큐가 영영 동작하지 않음)
         /// </summary>
         private void ClearAll()
         {
@@ -313,7 +320,8 @@ namespace Hexiege.Presentation
             if (_canvasGroup != null)
             {
                 _canvasGroup.alpha = 0f;
-                _canvasGroup.gameObject.SetActive(false);
+                _canvasGroup.blocksRaycasts = false; // 클릭 입력 차단
+                _canvasGroup.interactable = false;   // 상호작용 차단
             }
         }
 
