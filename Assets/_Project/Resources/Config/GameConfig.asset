@@ -24,7 +24,7 @@ MonoBehaviour:
     TileHeight: 0.866
   NeutralColor: {r: 0.69803923, g: 0.69803923, b: 0.69803923, a: 1}
   BlueTeamColor: {r: 0.3019608, g: 0.5019608, b: 0.9019608, a: 1}
-  RedTeamColor: {r: 0.9019608, g: 0.3019608, b: 0.3019608, a: 1}
+  RedTeamColor: {r: 1, g: 0.1882353, b: 0.1882353, a: 1}
   SelectedTint: {r: 1, g: 1, b: 0.5019608, a: 1}
   _startingGold: 5000
   _baseGoldPerSecond: 0

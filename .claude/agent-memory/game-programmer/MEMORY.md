@@ -94,12 +94,25 @@
 
 슬롯 기반 분산 방식 전면 폐기 → 겹침 허용 단순 구조로 전환. 근접/원거리 동일 상태 머신.
 
-**비활성화(주석 처리) 항목**:
+**비활성화(주석 처리) 항목** (2026-05-11 당시):
 - `GameBootstrapper.cs` — TileMoveSlotManager / TileOccupancyManager / AttackPositionManager 생성 및 주입 코드
 - `Presentation/Unit/UnitView.cs` — 슬롯/점유 관련 필드(`_moveSlotManager`, `_attackPositionManager`, `_v2MoveSlotTile`, `_v2AttackSlotTargetCoord`, `_pendingOccupancyTile`, `_v2InStationaryCombat`) 및 메서드(`ReleaseV2MoveSlotIfClaimed`, `ReleaseV2AttackSlotIfClaimed`)
 - `Application/UseCases/UnitMovementUseCase.cs` — `_occupancyManager`, `RegisterOccupancyMove()`, `ReleaseOccupancy()`, `FindForwardAvailable()`
 - `Domain/Unit/UnitData.cs` — `ClaimedTile` 필드
 - `Domain/Unit/UnitStats.cs` — `OccupancySize` 필드 및 `GetOccupancySize()` 메서드
+
+**✅ 완전 제거 완료 (2026-05-16 dead-code-cleanup)**:
+- `Application/Services/TileMoveSlotManager.cs` — **파일 삭제** (+ .meta)
+- `Application/Services/TileOccupancyManager.cs` — 비활성 메서드 5개 제거 (`OnUnitMoved`, `OnUnitRemoved`, `ReserveOccupancy`, `BfsFindAvailable`, `FindForwardAvailable`). 클래스 자체는 유지.
+- `Application/UseCases/UnitMovementUseCase.cs` — `RegisterOccupancyMove()`, `ReleaseOccupancy()`, `GetOccupancySize()` 제거
+- `Domain/Unit/UnitData.cs` — `ClaimedTile` 프로퍼티 제거
+- `Domain/Unit/UnitStats.cs` — `OccupancySize` 필드, `GetOccupancySize()` 제거
+- `Presentation/Unit/UnitView.cs` — `ClaimedTile` 참조 7곳 제거
+- `Bootstrap/GameBootstrapper.cs` — TileMoveSlotManager getter 및 OccupancySize 할당 라인 제거
+- `Domain/Hex/HexPathfinder.cs` — `FindPathToNeighbor()` 제거 (호출처 없음)
+- `Application/Events/GameEvents.cs` — `OnGamePaused`, `OnGameResumed` Subject 제거 (발행 코드 없음)
+- `Presentation/UI/GameUIManager.cs` — OnGamePaused/OnGameResumed 구독 코드 및 Notify 메서드 제거
+- `Presentation/UI/Core/IGameUI.cs` — `OnGamePaused()`, `OnGameResumed()` default 메서드 제거
 
 **신규 구현**:
 - `UnitView.cs` — `MoveAlongPathV3()` 새 상태 머신 (근접/원거리 동일):

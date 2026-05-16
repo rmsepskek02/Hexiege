@@ -291,11 +291,6 @@ namespace Hexiege.Bootstrap
         // 외부 호출부(있다면)에서 NullReference가 나지 않도록 시그니처는 유지합니다.
 
         /// <summary>
-        /// [2026-05-11 비활성화] TileMoveSlotManager는 폐기되었습니다. 항상 null 반환.
-        /// </summary>
-        public TileMoveSlotManager GetTileMoveSlotManager() => null;
-
-        /// <summary>
         /// [2026-05-11 비활성화] AttackPositionManager는 폐기되었습니다. 항상 null 반환.
         /// </summary>
         public AttackPositionManager GetAttackPositionManager() => null;
@@ -465,9 +460,6 @@ namespace Hexiege.Bootstrap
                     MoveSpeed = entry.moveSpeed,
                     AttackCooldown = entry.attackCooldown,
                     HitFrameTimes = entry.hitFrameTimes,
-                    // OccupancySize: 타일 점유 크기 (소형 1 / 중형 2 / 대형 3).
-                    // SO에서 0으로 비어 있으면 UnitStats.GetOccupancySize()에서 1f로 폴백.
-                    OccupancySize = entry.occupancySize,
                     // Kind: 근접/원거리 분기.
                     // 새 이동/전투 규칙(GameSystemRules.md 13/15)에서
                     //  "감지 시 직선 추적" vs "사거리 진입 시 즉시 공격"을 결정.

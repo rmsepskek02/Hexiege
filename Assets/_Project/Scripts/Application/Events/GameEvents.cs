@@ -522,17 +522,5 @@ namespace Hexiege.Application
         /// 구독: GameUIManager (등록된 모든 UI에 OnGameStarted() 호출)
         /// </summary>
         public static readonly Subject<Unit> OnGameStarted = new Subject<Unit>();
-
-        /// <summary>
-        /// 게임 일시정지 시 발행 (확장용, 현재는 선언만).
-        /// 추후 일시정지 기능 구현 시 활용.
-        /// </summary>
-        public static readonly Subject<Unit> OnGamePaused = new Subject<Unit>();
-
-        /// <summary>
-        /// 게임 재개 시 발행 (확장용, 현재는 선언만).
-        /// 추후 일시정지 해제 시 활용.
-        /// </summary>
-        public static readonly Subject<Unit> OnGameResumed = new Subject<Unit>();
     }
 }

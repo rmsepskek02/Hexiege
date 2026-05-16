@@ -1,0 +1,38 @@
+{
+    "asset": "0123e12d968a7ad4ba80eabcac6bda99",
+    "fileName": "019e2cf2-1aac-73b0-8dec-64b1020af308.png",
+    "prompt": "Recolor all blue team-colored parts (roofs, banners, accents) of this building to red #FF3030. Keep the existing art style and ensure the background remains transparent. Do not add any new elements. Original blue file must remain unchanged; save this as a new red version.",
+    "negativePrompt": "",
+    "model": "gpt-image-1-5",
+    "modelName": "GPT Image 1.5",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "0123e12d968a7ad4ba80eabcac6bda99",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

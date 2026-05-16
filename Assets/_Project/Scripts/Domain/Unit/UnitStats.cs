@@ -89,15 +89,6 @@ namespace Hexiege.Domain
             //   UnitStatEntry.attackKind 필드에 노출).
             // ────────────────────────────────────────────────────────────
             public AttackKind Kind;
-
-            // ────────────────────────────────────────────────────────────
-            // OccupancySize
-            // [2026-05-11 비활성화 — 점유 시스템 폐기]
-            // 타일 점유 추적이 사라졌으므로 이 값은 더 이상 이동 분기에 사용되지 않습니다.
-            // 시그니처 호환(Initialize에서 set, GetOccupancySize에서 get)을 위해 필드는 보존합니다.
-            // 향후 완전 제거 예정.
-            // ────────────────────────────────────────────────────────────
-            public float OccupancySize;
         }
 
         // 내부 Dictionary. Initialize()가 호출되기 전에는 null.
@@ -202,19 +193,6 @@ namespace Hexiege.Domain
                 return v.HitFrameTimes;
             }
             return new[] { 0.2f };
-        }
-
-        /// <summary>
-        /// 유닛 타입별 타일 점유 크기.
-        /// [2026-05-11 비활성화 — 점유 시스템 폐기]
-        /// 시그니처 호환을 위해 메서드는 보존하며, 항상 안전망 값(1f) 또는 Config 값을 반환합니다.
-        /// 새 이동/전투 로직은 이 값을 참조하지 않습니다.
-        /// </summary>
-        public static float GetOccupancySize(UnitType type)
-        {
-            if (TryGet(type, out var v) && v.OccupancySize > 0f)
-                return v.OccupancySize;
-            return 1f;
         }
 
         /// <summary>

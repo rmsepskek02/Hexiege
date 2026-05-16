@@ -90,14 +90,6 @@ namespace Hexiege.Domain
         /// <summary> 유닛이 살아있는지 여부. </summary>
         public bool IsAlive => Hp > 0;
 
-        /// <summary>
-        /// [2026-05-11 비활성화 — 슬롯 시스템 폐기]
-        /// 이동 중 선점한 타일 좌표. 새 규칙에서는 더 이상 경로탐색 차단에 사용되지 않습니다.
-        /// 외부 코드(UnitView 등)에서 set/get 호출은 그대로 남아 있으나 동작에는 영향이 없습니다.
-        /// 향후 완전 제거 예정. 시그니처 호환을 위해 프로퍼티 자체는 보존합니다.
-        /// </summary>
-        public HexCoord? ClaimedTile { get; set; }
-
         // 유닛 Id 자동 발급용 정적 카운터.
         // 첫 유닛은 Id=0, 다음은 Id=1, ...
         private static int _nextId;

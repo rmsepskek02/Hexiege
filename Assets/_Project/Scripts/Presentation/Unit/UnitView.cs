@@ -432,8 +432,6 @@ namespace Hexiege.Presentation
                 StopCoroutine(_moveCoroutine);
                 _moveCoroutine = null;
             }
-            // [2026-05-11 비활성화] ClaimedTile 폐기 예정이지만 호출 자체는 유지(null 설정은 무해).
-            _unitData.ClaimedTile = null;
 
             // Walk 정지 — speed=0으로 프레임 고정
             if (_animator != null) _animator.speed = 0f;
@@ -686,11 +684,6 @@ namespace Hexiege.Presentation
 
                     // [2026-05-11 비활성화] 점유 등록(RegisterOccupancyMove)은 새 규칙에서 사용하지 않습니다.
 
-                    // [2026-05-11 비활성화] ClaimedTile 갱신도 슬롯/점유 시스템과 함께 폐기되었습니다.
-                    // 호출 자체는 유지하여 다른 시스템에서 참조하더라도 null로 보이도록 합니다.
-                    if (!isLastStepToNonWalkable)
-                        _unitData.ClaimedTile = to;
-
                     // ──────────────────────────────────────────────────────
                     // [A* 이동] 도메인 방향(_unitData.Facing) 갱신 — HexDirection 단위의 도메인 상태 추적용.
                     //   시각적 회전은 더 이상 ApplyDirection으로 즉시 스냅하지 않는다.
@@ -757,9 +750,6 @@ namespace Hexiege.Presentation
                         if (_combatUseCase != null && _unitData.IsAlive
                             && _combatUseCase.HasEnemyInDetectRange(_unitData))
                         {
-                            // ClaimedTile 정리 — 다른 시스템이 참조하더라도 영향 없도록.
-                            _unitData.ClaimedTile = null;
-
                             // [2026-05-15] 혼잡도 기여 일시 중단 — 추격 단계는 타일을 거치지 않는
                             // 직선 이동이므로 OnUnitEnteredTile 발행을 막는다. resumePath에서 다시 true.
                             _isAStarMoving = false;
@@ -926,7 +916,6 @@ namespace Hexiege.Presentation
                         GameEvents.OnUnitEnteredTile?.Invoke(_unitData.Id, to);
                     }
 
-                    _unitData.ClaimedTile = null;
                     prevActualTile = to;
 
                     // [2026-05-11 비활성화] 우회(didDetour)/재경로 분기는 제거됐습니다.
@@ -1209,7 +1198,6 @@ namespace Hexiege.Presentation
             {
                 _movementUseCase.ProcessStep(_unitData, _unitData.Position, forwardTile);
             }
-            _unitData.ClaimedTile = null;
 
             // ────────────────────────────────────────────────────────────
             // [BUG-002 수정 — 2026-05-13] 즉시 스냅 제거.
@@ -1249,9 +1237,6 @@ namespace Hexiege.Presentation
         /// </summary>
         private void MoveCleanupAndCompleteV3()
         {
-            if (_unitData != null)
-                _unitData.ClaimedTile = null;
-
             _moveCoroutine = null;
 
             // [2026-05-15] 혼잡도 기여 종료 — 이동이 끝났으니 새 코루틴 전까지는 발행하지 않는다.

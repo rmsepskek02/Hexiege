@@ -1,0 +1,38 @@
+{
+    "asset": "3e4ec67dcd6d66b44b330684b2445835",
+    "fileName": "019e2f61-37d0-796c-95be-f2f3dbddb17a.png",
+    "prompt": "RED team version of the building in the reference image. 1. Change all blue parts (banners, roofs, gems) to red #FF3030. 2. Change the central magical crystal orb/ball to red #FF3030. Keep everything else (architecture, style, lighting) EXACTLY the same. Transparent background. No white background.",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "0119f600d6a603041aec5a51a7866dde",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

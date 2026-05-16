@@ -3,7 +3,7 @@
 // 게임 UI 생명주기 인터페이스.
 //
 // 역할:
-//   게임의 주요 상태 변경(시작, 종료, 일시정지, 재개) 시
+//   게임의 주요 상태 변경(시작, 종료) 시
 //   각 UI 컴포넌트가 자신의 상태를 적절히 처리할 수 있도록 콜백을 제공.
 //
 // 사용 방법:
@@ -20,7 +20,7 @@
 //   {
 //       // 게임 종료 시 팝업 닫기만 필요한 경우
 //       public void OnGameEnded() { Close(); }
-//       // OnGameStarted, OnGamePaused, OnGameResumed는 default 빈 구현 사용
+//       // OnGameStarted는 default 빈 구현 사용
 //   }
 //
 // Presentation 레이어 — Unity 의존 없음 (순수 C# 인터페이스).
@@ -47,17 +47,5 @@ namespace Hexiege.Presentation
         /// 기본 구현: 아무것도 하지 않음.
         /// </summary>
         void OnGameEnded() { }
-
-        /// <summary>
-        /// 게임 일시정지 시 호출 (확장용, 현재 미사용).
-        /// 기본 구현: 아무것도 하지 않음.
-        /// </summary>
-        void OnGamePaused() { }
-
-        /// <summary>
-        /// 게임 재개 시 호출 (확장용, 현재 미사용).
-        /// 기본 구현: 아무것도 하지 않음.
-        /// </summary>
-        void OnGameResumed() { }
     }
 }

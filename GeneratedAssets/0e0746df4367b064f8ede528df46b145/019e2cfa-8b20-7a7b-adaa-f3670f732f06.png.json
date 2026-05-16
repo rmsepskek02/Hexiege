@@ -1,0 +1,38 @@
+{
+    "asset": "0e0746df4367b064f8ede528df46b145",
+    "fileName": "019e2cfa-8b20-7a7b-adaa-f3670f732f06.png",
+    "prompt": "Fantasy game building sprite, red team version. Visual clone of the reference image, but change all blue elements (banners, roofs, accents) to red #FF3030. Identical art style, perspective, and detail. Transparent background. No white background.",
+    "negativePrompt": "",
+    "model": "gpt-image-1",
+    "modelName": "GPT Image 1",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "8c263c2f7d1c29f4e9278601de34dd78",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

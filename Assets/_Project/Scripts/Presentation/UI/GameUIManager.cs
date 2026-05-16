@@ -109,15 +109,6 @@ namespace Hexiege.Presentation
             GameEvents.OnGameStarted
                 .Subscribe(_ => NotifyGameStarted())
                 .AddTo(_subscriptions);
-
-            // 일시정지/재개 이벤트 구독 (확장용, 현재는 선언만 되어 있음)
-            GameEvents.OnGamePaused
-                .Subscribe(_ => NotifyGamePaused())
-                .AddTo(_subscriptions);
-
-            GameEvents.OnGameResumed
-                .Subscribe(_ => NotifyGameResumed())
-                .AddTo(_subscriptions);
         }
 
         // ====================================================================
@@ -173,28 +164,6 @@ namespace Hexiege.Presentation
             for (int i = 0; i < _uis.Count; i++)
             {
                 _uis[i].OnGameStarted();
-            }
-        }
-
-        /// <summary>
-        /// 등록된 모든 UI에 일시정지를 알림. (확장용)
-        /// </summary>
-        private void NotifyGamePaused()
-        {
-            for (int i = 0; i < _uis.Count; i++)
-            {
-                _uis[i].OnGamePaused();
-            }
-        }
-
-        /// <summary>
-        /// 등록된 모든 UI에 재개를 알림. (확장용)
-        /// </summary>
-        private void NotifyGameResumed()
-        {
-            for (int i = 0; i < _uis.Count; i++)
-            {
-                _uis[i].OnGameResumed();
             }
         }
     }
