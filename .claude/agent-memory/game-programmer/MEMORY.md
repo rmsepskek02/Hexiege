@@ -23,6 +23,24 @@
 
 ## 최근 작업
 
+### 랠리포인트 깃발 팀별 표시 분리 (2026-05-16) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-16/15_30_rally-point-flag-visibility/`
+
+**버그**: 클라이언트가 랠리포인트 설정 시 호스트 화면에도 깃발이 표시되던 현상.
+
+**원인**: `RallyPointChangedEvent`에 팀 정보가 없어, `ProductionTicker`가 상대 팀 이벤트도 무조건 처리.
+호스트가 RPC 핸들러에서 `SetRallyPoint()`를 실행하면 호스트 측에서도 `OnRallyPointChanged` 발생.
+
+**수정 파일 (3개)**:
+- `GameEvents.cs` — `RallyPointChangedEvent`에 `TeamId Team` 필드 추가, 생성자 파라미터 추가
+- `UnitProductionUseCase.cs` — `SetRallyPoint()` / `ClearRallyPoint()` 이벤트 발행 시 `state.Team` 전달
+- `ProductionTicker.cs` — `OnRallyPointChanged()` 진입부에 팀 필터 추가. `IsServer → Blue`, 아니면 `Red`. 싱글플레이(NetworkManager=null) 시 필터 건너뜀.
+
+**설계 원칙**: 이벤트가 자기 완결적이 되도록(누구 팀 것인지 이벤트 자체에 포함), 필터링 책임은 Presentation 레이어(ProductionTicker)에 위치.
+
+---
+
 ### 혼잡도 기반 유닛 분산 시스템 (2026-05-15) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-15/17_29_congestion-based-spread/`

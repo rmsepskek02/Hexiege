@@ -142,6 +142,7 @@
 | Spirit | TideSpirit | tidespirit_portrait_blue/red.png | |
 | Spirit | TorrentSpirit | torrentspirit_portrait_blue/red.png | |
 | Transcendence | BearGuard | bearguard_portrait_blue/red.png | |
+| Transcendence | BloomFairy | bloomfairy_portrait_blue/red.png | |
 | Transcendence | EagleArcher | eaglearcher_portrait_blue/red.png | |
 | Transcendence | FoxMagician | foxmagician_portrait_blue/red.png | |
 | Transcendence | LionKnight | lionknight_portrait_blue/red.png | |
@@ -151,18 +152,68 @@
 
 ### 2. 건물 아이콘 (Building Icons)
 
-| 종족 | 건물명 | 파일명 | 비고 |
-|------|--------|--------|------|
-| Human | Barracks | bld_barracks_blue/red.png | |
-| Human | Castle | bld_castle_blue/red.png | |
-| Human | MiningPost | bld_mining_post.png | |
-| Spirit | ManaRift | bld_manarift_blue/red.png | |
-| Spirit | SpiritNexus | bld_spiritnexus_blue/red.png | |
-| Spirit | SummoningAltar | bld_summoningaltar_blue/red.png | |
-| Transcendence | ElderTree | bld_eldertree_blue/red.png | |
-| Transcendence | FungalNode | bld_fungalnode_blue/red.png | |
-| Transcendence | HunterPlant | bld_hunterplant_blue/red.png | |
-| Misc | GoldMine | obj_goldmine.png | |
+> 폴더 경로: `Assets/_Project/Sprites/Buildings/`
+
+#### Human
+
+| 건물명 | 파일명 | 비고 |
+|--------|--------|------|
+| Armory | bld_armory_blue/red.png | |
+| Barracks | bld_barracks_blue/red.png | |
+| CannonTower | bld_cannontower_blue/red.png | |
+| Castle | bld_castle_blue/red.png | |
+| FlightFacility | bld_flightfacility_blue/red.png | |
+| Garage | bld_garage_blue/red.png | |
+| Gunsmith | bld_gunsmith_blue/red.png | |
+| MiningPost | bld_miningpost_blue/red.png | |
+| TechnicalLaboratory | bld_technicallaboratory_blue/red.png | |
+| TrainingCamp | bld_trainingcamp_blue/red.png | |
+| VehicleBay | bld_vehiclebay_blue/red.png | |
+| WarAcademy | bld_waracademy_blue/red.png | |
+| WeaponForge | bld_weaponforge_blue/red.png | |
+
+#### Spirit
+
+| 건물명 | 파일명 | 비고 |
+|--------|--------|------|
+| AquaSpring | bld_aquaspring_blue/red.png | |
+| AstronomicalSpirit | bld_astronomicalspirit_blue/red.png | |
+| BlazeConduit | bld_blazeconduit_blue/red.png | |
+| FireSpire | bld_firespire_blue/red.png | |
+| GaeaSanctum | bld_gaeasanctum_blue/red.png | |
+| MagicSpirit | bld_magicspirit_blue/red.png | |
+| ManaRift | bld_manarift_blue/red.png | |
+| OceanicHeart | bld_oceanicheart_blue/red.png | |
+| RuneSpire | bld_runespire_blue/red.png | |
+| SpiritNexus | bld_spiritnexus_blue/red.png | |
+| StoneMound | bld_stonemound_blue/red.png | |
+| SummoningAltar | bld_summoningaltar_blue/red.png | |
+| TerraForge | bld_terraforge_blue/red.png | |
+
+#### Transcendence
+
+| 건물명 | 파일명 | 비고 |
+|--------|--------|------|
+| ElderTree | bld_eldertree_blue/red.png | |
+| FeralAltar | bld_feralaltar_blue/red.png | |
+| FeralDen | bld_feralden_blue/red.png | |
+| FeralSanctuary | bld_feralsanctuary_blue/red.png | |
+| FloralNursery | bld_floralnursery_blue/red.png | |
+| FungalNode | bld_fungalnode_blue/red.png | |
+| HunterPlant | bld_hunterplant_blue/red.png | |
+| MistShrine | bld_mistshrine_blue/red.png | |
+| PrimalAltar | bld_primalaltar_blue/red.png | |
+| PrimalDen | bld_primalden_blue/red.png | |
+| PrimalSanctuary | bld_primalsanctuary_blue/red.png | |
+| SporePatch | bld_sporepatch_blue/red.png | |
+| VineTower | bld_vinetower_blue/red.png | |
+| WillowShrine | bld_willowshrine_blue/red.png | |
+
+#### Misc
+
+| 오브젝트명 | 파일명 | 비고 |
+|-----------|--------|------|
+| GoldMine | obj_goldmine.png | |
 
 ### 3. UI 시스템 요소 (Common UI)
 

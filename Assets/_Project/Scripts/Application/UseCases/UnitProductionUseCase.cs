@@ -432,7 +432,7 @@ namespace Hexiege.Application
 
             state.RallyPoint = target;
             GameEvents.OnRallyPointChanged.OnNext(
-                new RallyPointChangedEvent(barracksId, target));
+                new RallyPointChangedEvent(barracksId, target, state.Team));
         }
 
         /// <summary> 랠리 포인트 해제. </summary>
@@ -441,7 +441,7 @@ namespace Hexiege.Application
             if (!_states.TryGetValue(barracksId, out var state)) return;
             state.RallyPoint = null;
             GameEvents.OnRallyPointChanged.OnNext(
-                new RallyPointChangedEvent(barracksId, null));
+                new RallyPointChangedEvent(barracksId, null, state.Team));
         }
 
         // ====================================================================
@@ -511,8 +511,13 @@ namespace Hexiege.Application
                     if (!_resource.CanAfford(state.Team, cost)
                         || !_population.HasPopulation(state.Team, popCost))
                     {
-                        // 자원 부족 — 다시 앞에 넣고 대기 (다음 Tick에 재시도)
-                        state.PendingQueue.Insert(0, slot);
+                        // [2026-05-16] 자원 부족 시 자동 생산 즉시 취소.
+                        //   - 미차감(IsCharged=false) 항목이므로 환불은 불필요.
+                        //   - 해당 타입을 AutoTypes에서 제거하고 잔여 자동 항목도 Rule 2에 따라 정리.
+                        //   - 큐 변경 이벤트를 발행해 UI가 즉시 갱신되도록 한다.
+                        CancelAutoTypeIfNeeded(state, slot.Type);
+                        GameEvents.OnProductionQueueChanged.OnNext(
+                            new ProductionQueueChangedEvent(state.BarracksId));
                         return;
                     }
 
@@ -550,7 +555,34 @@ namespace Hexiege.Application
                 if (!_resource.CanAfford(state.Team, cost)
                     || !_population.HasPopulation(state.Team, popCost))
                 {
-                    // 자원 부족 — 다음 Tick 재시도
+                    // [2026-05-16] 자원 부족 → 자동 생산 전체 즉시 취소.
+                    //   - AutoTypes / AutoCycleIndex 초기화.
+                    //   - PendingQueue의 IsCharged=false 자동 항목 제거(미차감이므로 환불 불필요).
+                    //   - IsCharged=true 자동 항목은 Rule 2에 따라 IsAuto=false로 수동 이관(이미 차감 → 환불 없이 생산 계속).
+                    //   - 큐 변경 이벤트로 UI 즉시 갱신.
+                    state.AutoTypes.Clear();
+                    state.AutoCycleIndex = 0;
+
+                    for (int i = state.PendingQueue.Count - 1; i >= 0; i--)
+                    {
+                        QueueSlot s = state.PendingQueue[i];
+                        if (!s.IsAuto) continue; // 수동 항목은 건드리지 않음
+
+                        if (s.IsCharged)
+                        {
+                            // Rule 2: 이미 차감 → 수동으로 이관
+                            s.IsAuto = false;
+                            state.PendingQueue[i] = s;
+                        }
+                        else
+                        {
+                            // 미차감 자동 대기 항목 → 제거
+                            state.PendingQueue.RemoveAt(i);
+                        }
+                    }
+
+                    GameEvents.OnProductionQueueChanged.OnNext(
+                        new ProductionQueueChangedEvent(state.BarracksId));
                     return;
                 }
 

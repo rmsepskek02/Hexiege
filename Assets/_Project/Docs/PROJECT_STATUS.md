@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-05-15
-**현재 단계:** 혼잡도 기반 유닛 분산 시스템(v2) 완료 (CongestionMap + CongestionAwarePathfinder, v1 CastleApproachManager 폐기 삭제)
+**최종 수정일:** 2026-05-16
+**현재 단계:** 랠리포인트 깃발 팀별 표시 분리 완료 (클라이언트/호스트 각자 자신의 깃발만 표시)
 
 ---
 
@@ -33,7 +33,7 @@
 | 자원 시스템 (골드) | ✅ 완료 | 채굴소 수입, 건물/유닛 비용 |
 | 인구 시스템 | ✅ 완료 | 타일 수 = 최대 인구 |
 | 유닛 생산 (수동/자동) | ✅ 완료 | 큐 최대 3, 롱프레스 자동 |
-| 랠리포인트 | ✅ 완료 | 마커 표시, BFS 빈 타일 탐색, 위치/회전 Inspector 조정 (GameConfig.RallyMarkerOffset/Euler) |
+| 랠리포인트 | ✅ 완료 | 마커 표시, BFS 빈 타일 탐색, 위치/회전 Inspector 조정. 팀별 표시 분리: 각 플레이어 자신의 깃발만 표시 (2026-05-16) |
 | 공성 시스템 | ✅ 완료 | 랠리→Castle 방향 자동 진군 |
 | 유닛 분산 이동 (혼잡도 기반) | ✅ 완료 (2026-05-15) | CongestionMap + CongestionAwarePathfinder — 타일 혼잡도 가중 A*로 경로 자연 분산. GameConfig에 DecayInterval/CongestionWeight 통합 |
 | 승패 판정 (Castle 파괴) | ✅ 완료 | GameEndUseCase, UI 표시 |
@@ -278,6 +278,7 @@
 #### 버그 수정 및 폴리싱
 | 항목 | 상태 |
 |------|------|
+| 랠리포인트 깃발 상대팀에도 표시되는 버그 | ✅ 완료 (2026-05-16) — RallyPointChangedEvent에 TeamId 추가, ProductionTicker에 팀 필터 추가. 멀티: 각 플레이어 자신의 깃발만 표시. 싱글플레이 영향 없음 |
 | 랜덤 매칭 후 캐릭터 잘못 표시 버그 | ✅ 완료 (2026-05-15) — Lobby 씬 CharPreview 오브젝트가 실제 유닛 프리팹 인스턴스(NetworkTransform 포함)여서 Host 캐러셀 위치가 Red 클라이언트로 동기화되던 원인 확정. Unpack Completely + NetworkObject 계열 컴포넌트 5종 제거 |
 | 자동생산 반복 순환 시 골드 미소모 (BUG-20) | ✅ 완료 (2026-04-04) — CompleteProduction IsCharged 리셋 누락 수정 |
 | Pistoleer Idle 첫 프레임 동결 | ✅ 완료 (2026-04-06) — Pistoleer.controller Idle 상태 m_Speed: 0 → 1 수정 |

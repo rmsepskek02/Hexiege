@@ -79,6 +79,21 @@ namespace Hexiege.Presentation
         private bool _longPressTriggered;
         private UnitType _activeUnitType;
 
+        // ────────────────────────────────────────────────────────────────────
+        // 생산 실패 사유 — UI 피드백을 위해 OnUnitTap이 어떤 검증에서 실패했는지 분류.
+        // None       : 실패 아님(정상 등록)
+        // GoldInsufficient : 골드 부족 → 골드 텍스트 빨간색 + 토스트
+        // PopulationFull   : 인구 한계 도달 → 토스트(HUD 색상은 GameHudUI가 자체 처리)
+        // QueueFull        : 큐 3개 초과 → 토스트
+        // ────────────────────────────────────────────────────────────────────
+        private enum ProductionFailReason
+        {
+            None,
+            GoldInsufficient,
+            PopulationFull,
+            QueueFull
+        }
+
         public void Initialize(UnitProductionUseCase production,
             ResourceUseCase resource, PopulationUseCase population,
             ProductionTicker ticker,
@@ -208,13 +223,82 @@ namespace Hexiege.Presentation
         {
             if (_currentBarracks == null || _production == null) return;
             var state = _production.GetState(_currentBarracks.Id);
-            if (state != null && state.IsAutoMode && state.AutoTypes.Contains(type)) HandleToggleAuto(type);
-            else
+
+            // 자동 생산 중인 타입을 다시 탭한 경우 → 자동 토글(해제) 분기.
+            // 이 분기에서는 추가 등록이 아니므로 실패 피드백을 발생시키지 않는다.
+            if (state != null && state.IsAutoMode && state.AutoTypes.Contains(type))
             {
-                if (_networkProductionController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
-                    _networkProductionController.RequestEnqueueServerRpc(_currentBarracks.Id, (int)type, (int)_currentBarracks.Team);
-                else
-                    _production.EnqueueUnit(_currentBarracks.Id, type);
+                HandleToggleAuto(type);
+                return;
+            }
+
+            // ─── 사전 검증 (UI 피드백용) ───────────────────────────────
+            // 실제 등록은 EnqueueUnit / ServerRpc가 하지만, 여기서 한 번 더
+            // 같은 조건을 검사해 "어떤 사유로 실패할지"를 파악한다.
+            // 우선순위: 큐 상한 > 골드 > 인구.
+            ProductionFailReason reason = ValidateProduction(state, type);
+            if (reason != ProductionFailReason.None)
+            {
+                HandleProductionFail(reason);
+                return;
+            }
+
+            // 검증 통과 — 실제 등록을 위임.
+            if (_networkProductionController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+                _networkProductionController.RequestEnqueueServerRpc(_currentBarracks.Id, (int)type, (int)_currentBarracks.Team);
+            else
+                _production.EnqueueUnit(_currentBarracks.Id, type);
+        }
+
+        /// <summary>
+        /// 수동 생산 등록 가능 여부를 사전 검사.
+        /// UnitProductionUseCase.EnqueueUnit의 검증 순서와 동일하게 맞춰
+        /// UI 피드백과 실제 등록 결과가 어긋나지 않도록 보장한다.
+        /// </summary>
+        private ProductionFailReason ValidateProduction(ProductionState state, UnitType type)
+        {
+            if (state == null) return ProductionFailReason.None;
+
+            // 1) 큐 상한 — CurrentProducing 1슬롯 + IsCharged=true 항목 합산.
+            int slotsUsed = (state.CurrentProducing.HasValue ? 1 : 0) + state.ChargedPendingCount();
+            if (slotsUsed + 1 > ProductionState.MaxQueueSize)
+                return ProductionFailReason.QueueFull;
+
+            // 2) 골드 검증.
+            int cost = UnitProductionStats.GetGoldCost(type);
+            if (_resource != null && !_resource.CanAfford(state.Team, cost))
+                return ProductionFailReason.GoldInsufficient;
+
+            // 3) 인구 검증.
+            int popCost = UnitProductionStats.GetPopulationCost(type);
+            if (_population != null && !_population.HasPopulation(state.Team, popCost))
+                return ProductionFailReason.PopulationFull;
+
+            return ProductionFailReason.None;
+        }
+
+        /// <summary>
+        /// 생산 실패 사유에 따라 사용자에게 피드백을 표시.
+        ///   GoldInsufficient → 생산 패널 골드 텍스트 빨강 + 토스트
+        ///   PopulationFull   → 토스트만(HUD 인구 텍스트는 GameHudUI가 자체적으로 빨강 처리)
+        ///   QueueFull        → 토스트만(특정 텍스트 색 변경 없음)
+        /// </summary>
+        private void HandleProductionFail(ProductionFailReason reason)
+        {
+            switch (reason)
+            {
+                case ProductionFailReason.GoldInsufficient:
+                    if (_goldText != null) _goldText.color = Color.red;
+                    ToastUI.Show(ToastKey.GoldInsufficient);
+                    break;
+
+                case ProductionFailReason.PopulationFull:
+                    ToastUI.Show(ToastKey.PopulationFull);
+                    break;
+
+                case ProductionFailReason.QueueFull:
+                    ToastUI.Show(ToastKey.ProductionQueueFull);
+                    break;
             }
         }
 
@@ -284,8 +368,43 @@ namespace Hexiege.Presentation
         private void UpdateInfoBar()
         {
             if (_currentBarracks == null) return;
-            if (_goldText != null && _resource != null) _goldText.text = _resource.GetGold(_currentBarracks.Team).ToString();
-            if (_populationText != null && _population != null) _populationText.text = $"{_population.GetUsedPopulation(_currentBarracks.Team)}/{_population.GetMaxPopulation(_currentBarracks.Team)}";
+
+            // ── 골드 텍스트 갱신 + 색상 재평가 ──
+            // 골드가 변할 때마다 "현재 배럭에서 만들 수 있는 가장 싼 유닛"의 비용과 비교하여
+            // 부족하면 빨강, 충분하면 흰색으로 자동 복구한다.
+            if (_goldText != null && _resource != null)
+            {
+                int currentGold = _resource.GetGold(_currentBarracks.Team);
+                _goldText.text = currentGold.ToString();
+
+                int cheapestCost = GetCheapestUnitCost();
+                // cheapestCost가 0이면(목록 비었을 가능성) 색 변경하지 않음.
+                if (cheapestCost > 0)
+                    _goldText.color = (currentGold < cheapestCost) ? Color.red : Color.white;
+                else
+                    _goldText.color = Color.white;
+            }
+
+            // ── 인구 텍스트 갱신 ──
+            if (_populationText != null && _population != null)
+                _populationText.text = $"{_population.GetUsedPopulation(_currentBarracks.Team)}/{_population.GetMaxPopulation(_currentBarracks.Team)}";
+        }
+
+        /// <summary>
+        /// 현재 배럭이 생산할 수 있는 유닛(_activeUnitTypes) 중 가장 저렴한 골드 비용 반환.
+        /// 비어 있으면 0 반환(색상 재평가 시 0이면 흰색 유지).
+        /// </summary>
+        private int GetCheapestUnitCost()
+        {
+            if (_activeUnitTypes == null || _activeUnitTypes.Count == 0) return 0;
+
+            int min = int.MaxValue;
+            for (int i = 0; i < _activeUnitTypes.Count; i++)
+            {
+                int cost = UnitProductionStats.GetGoldCost(_activeUnitTypes[i]);
+                if (cost < min) min = cost;
+            }
+            return (min == int.MaxValue) ? 0 : min;
         }
 
         private void UpdateButtonPortraits(TeamId team, RaceId race)

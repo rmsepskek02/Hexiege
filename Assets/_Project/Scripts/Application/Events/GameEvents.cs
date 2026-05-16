@@ -270,11 +270,14 @@ namespace Hexiege.Application
         public readonly int BarracksId;
         /// <summary> 설정된 좌표. null이면 해제. </summary>
         public readonly HexCoord? Coord;
+        /// <summary> 랠리포인트를 설정한 배럭의 소속 팀. 화면 표시 필터링에 사용. </summary>
+        public readonly TeamId Team;
 
-        public RallyPointChangedEvent(int barracksId, HexCoord? coord)
+        public RallyPointChangedEvent(int barracksId, HexCoord? coord, TeamId team)
         {
             BarracksId = barracksId;
             Coord = coord;
+            Team = team;
         }
     }
 
