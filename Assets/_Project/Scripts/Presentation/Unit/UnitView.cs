@@ -195,6 +195,29 @@ namespace Hexiege.Presentation
         // ────────────────────────────────────────────────────────────────────
         private bool _isAStarMoving = false;
 
+        // ────────────────────────────────────────────────────────────────────
+        // [2026-05-16] 건물 생성/파괴 시 유닛 멈춤 현상 제거용 — 부드러운 경로 교체 패턴.
+        //
+        // 배경:
+        //   기존에는 OnPathInvalidated가 호출되면 MoveTo(newPath)를 즉시 불러
+        //   현재 이동 코루틴(MoveAlongPathV3)을 강제로 StopCoroutine + StartCoroutine한다.
+        //   이 과정에서 1~2 프레임의 공백이 발생하여 유닛이 눈에 띄게 잠깐 멈춘다.
+        //
+        // 해결:
+        //   _pendingPath: OnPathInvalidated가 새 경로를 여기에 "예약"만 한다.
+        //                 코루틴은 그대로 돌면서 매 타일 도착 시점에 _pendingPath를 검사해
+        //                 비어있지 않으면 path 변수를 교체하고 외부 while로 재진입한다.
+        //                 코루틴 자체는 멈추지 않으므로 시각적 끊김 없음.
+        //
+        //   _currentNextTileCoord: 지금 Lerp 중인 "다음 도착 타일"의 좌표를 보관.
+        //                          Lerp 시작 직전 set, Lerp 완료 직후 null.
+        //                          OnPathInvalidated에서 "현재 향하는 타일에 건물이 새로 생긴
+        //                          (=walkable이 아닌)" 케이스를 감지해야 할 때 사용한다.
+        //                          이 경우는 예약 방식으로는 늦으므로 기존처럼 즉시 MoveTo한다.
+        // ────────────────────────────────────────────────────────────────────
+        private List<HexCoord> _pendingPath = null;
+        private HexCoord? _currentNextTileCoord = null;
+
         /// <summary> 현재 이동 중인지 여부. InputHandler에서 이동 명령 중복 방지에 사용. </summary>
         public bool IsMoving => _moveCoroutine != null;
 
@@ -449,6 +472,13 @@ namespace Hexiege.Presentation
             // 클라이언트는 NetworkTransform이 서버 위치를 자동으로 보간·동기화.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
 
+            // [2026-05-16] 새 코루틴을 시작하므로, OnPathInvalidated가 예약해 둔
+            // _pendingPath는 더 이상 유효하지 않다(이미 새 path가 들어왔기 때문).
+            // 이전 예약을 끌고 가면 다음 타일 도착 직후 즉시 path가 또 교체되어 의도와 다른 동작이 된다.
+            _pendingPath = null;
+            // 현재 Lerp 중인 타일 정보도 초기화 — 새 코루틴이 자기 첫 타일에서 다시 set한다.
+            _currentNextTileCoord = null;
+
             if (_moveCoroutine != null)
             {
                 StopCoroutine(_moveCoroutine);
@@ -521,11 +551,39 @@ namespace Hexiege.Presentation
 
             HexCoord dest = _currentDestination;
             List<HexCoord> newPath = _movementUseCase.RequestMove(_unitData, dest);
-            if (newPath != null && newPath.Count >= 2)
+            if (newPath == null || newPath.Count < 2)
             {
-                MoveTo(newPath);
+                // newPath가 null/짧으면 현재 위치에서 그대로 대기. 다음 트리거에서 다시 시도.
+                return;
             }
-            // newPath가 null/짧으면 현재 위치에서 그대로 대기. 다음 트리거에서 다시 시도.
+
+            // ────────────────────────────────────────────────────────────
+            // [2026-05-16] 부드러운 경로 교체 — 건물 생성/파괴 시 멈춤 현상 제거.
+            //
+            // 기본 동작:
+            //   _pendingPath에 새 경로를 "예약"만 한다.
+            //   MoveAlongPathV3 코루틴은 그대로 돌면서, 매 타일 도착 직후
+            //   _pendingPath를 검사해 비어있지 않으면 path 변수를 교체하고
+            //   외부 while로 재진입한다. 코루틴 자체는 중단되지 않으므로
+            //   StopCoroutine + StartCoroutine에 의한 1~2 프레임 공백이 사라진다.
+            //
+            // 예외(즉시 MoveTo 필요):
+            //   지금 Lerp 중인 다음 도착 타일(_currentNextTileCoord)에
+            //   바로 건물이 새로 생긴 경우. 이때는 다음 타일 도착까지 기다리면
+            //   유닛이 건물을 뚫고 그 타일 중심까지 이동해 버린다.
+            //   따라서 이 케이스에만 기존처럼 코루틴을 즉시 교체한다.
+            // ────────────────────────────────────────────────────────────
+            if (_currentNextTileCoord.HasValue
+                && !_movementUseCase.IsWalkable(_currentNextTileCoord.Value))
+            {
+                // 다음 도착 타일이 막혔으므로 부드러운 교체 불가 — 즉시 코루틴 재시작.
+                MoveTo(newPath);
+                return;
+            }
+
+            // 그 외 일반 케이스: 코루틴을 그대로 두고 새 path만 예약.
+            // 이후 매 타일 도착 시점에 MoveAlongPathV3가 이 값을 소비한다.
+            _pendingPath = newPath;
         }
 
         /// <summary>
@@ -731,6 +789,11 @@ namespace Hexiege.Presentation
                     // toPos 강제 스냅과 ProcessStep을 모두 건너뛰고 새 path로 외부 while 재진입.
                     bool interruptedByCombat = false;
 
+                    // [2026-05-16] 지금 Lerp 중인 "다음 도착 타일" 좌표를 기록.
+                    // OnPathInvalidated가 호출됐을 때 이 타일에 건물이 새로 생긴 경우만
+                    // 즉시 코루틴을 재시작해야 하므로 외부에서 검사할 수 있도록 노출한다.
+                    _currentNextTileCoord = to;
+
                     while (elapsed < targetDuration && _unitData != null && _unitData.IsAlive)
                     {
                         elapsed += Time.deltaTime;
@@ -753,6 +816,12 @@ namespace Hexiege.Presentation
                             // [2026-05-15] 혼잡도 기여 일시 중단 — 추격 단계는 타일을 거치지 않는
                             // 직선 이동이므로 OnUnitEnteredTile 발행을 막는다. resumePath에서 다시 true.
                             _isAStarMoving = false;
+
+                            // [2026-05-16] 전투 추격 진입 — 더 이상 "다음 도착 타일"을 향해 가지 않으므로
+                            // OnPathInvalidated가 잘못된 타일을 검사하지 않도록 즉시 null로 비운다.
+                            // (IsInCombat()가 true가 되어 OnPathInvalidated가 사실상 early return하지만,
+                            //  방어적으로 정합 상태 유지.)
+                            _currentNextTileCoord = null;
 
                             // [전투 이동] → [공격] 흐름을 EnterCombatPursuitV3에 전부 위임.
                             yield return EnterCombatPursuitV3();
@@ -917,6 +986,70 @@ namespace Hexiege.Presentation
                     }
 
                     prevActualTile = to;
+
+                    // [2026-05-16] 타일 도착 완료 → 다음 Lerp 시작 전까지는 "다음 도착 타일" 정보 없음.
+                    // null로 비워 두지 않으면 OnPathInvalidated가 이미 지나간 타일을 검사할 수 있다.
+                    _currentNextTileCoord = null;
+
+                    // ──────────────────────────────────────────────────────
+                    // [2026-05-16] 부드러운 경로 교체 — OnPathInvalidated가 예약한 새 path 소비.
+                    //
+                    //   OnPathInvalidated가 _pendingPath에 새 경로를 담아 두면,
+                    //   여기서(타일 중심 도착 직후) 그것을 꺼내 path 변수를 교체한다.
+                    //   현재 위치(_unitData.Position == to)가 새 path 어디에 해당하는지 찾아
+                    //   거기서부터 이어가도록 외부 while로 재진입한다.
+                    //
+                    //   현재 위치를 새 path에서 찾지 못하는 경우(드물지만 가능):
+                    //     - 새 경로 자체가 다른 시작점부터 만들어진 경우 등.
+                    //     - 이때는 안전하게 MoveTo(_pendingPath)로 코루틴을 재시작한다.
+                    //       (이 경로에서는 시각적 끊김이 있지만, 데이터 무결성이 우선.)
+                    // ──────────────────────────────────────────────────────
+                    if (_pendingPath != null)
+                    {
+                        List<HexCoord> pending = _pendingPath;
+                        _pendingPath = null;
+
+                        // 현재 도메인 위치가 새 path의 어느 인덱스에 있는지 검색.
+                        // 찾으면 그 지점부터 이어 돌도록 path를 잘라낸다.
+                        int startIdx = -1;
+                        for (int k = 0; k < pending.Count; k++)
+                        {
+                            if (pending[k].Q == _unitData.Position.Q
+                                && pending[k].R == _unitData.Position.R)
+                            {
+                                startIdx = k;
+                                break;
+                            }
+                        }
+
+                        if (startIdx >= 0 && startIdx < pending.Count - 1)
+                        {
+                            // 정상 케이스: 현재 위치를 새 path의 startIdx로 두고,
+                            // 그 다음 타일(startIdx+1)부터 진행하도록 path 교체.
+                            // path[0]은 항상 시작점(현재 위치) — 슬라이스 후에도 이 규약 유지.
+                            List<HexCoord> sliced = new List<HexCoord>(pending.Count - startIdx);
+                            for (int k = startIdx; k < pending.Count; k++)
+                            {
+                                sliced.Add(pending[k]);
+                            }
+                            path = sliced;
+
+                            // 최종 목적지가 바뀌었을 수도 있으므로 갱신.
+                            finalTarget = path[path.Count - 1];
+
+                            // 외부 while 재진입 → 새 path 기준으로 i=1부터 다시 순회.
+                            needRepath = true;
+                            break;  // for 탈출 → 아래 `if (needRepath) continue;`로 외부 while 재진입.
+                        }
+                        else
+                        {
+                            // 안전망: 현재 위치를 새 path에서 찾지 못함 → 코루틴 재시작.
+                            // MoveTo 안에서 _pendingPath / _currentNextTileCoord가 초기화되고
+                            // 기존 코루틴이 정지된 뒤 새 코루틴이 시작된다.
+                            MoveTo(pending);
+                            yield break;
+                        }
+                    }
 
                     // [2026-05-11 비활성화] 우회(didDetour)/재경로 분기는 제거됐습니다.
                     // 새 규칙에서는 같은 타일에 여러 유닛이 들어가도 우회하지 않으므로 재계산 불필요.
@@ -1241,6 +1374,12 @@ namespace Hexiege.Presentation
 
             // [2026-05-15] 혼잡도 기여 종료 — 이동이 끝났으니 새 코루틴 전까지는 발행하지 않는다.
             _isAStarMoving = false;
+
+            // [2026-05-16] 이동이 완전히 종료되었으므로 부드러운 교체 관련 상태도 모두 초기화.
+            // 이렇게 해두지 않으면 다음에 MoveTo가 호출되기 전에 OnPathInvalidated가 끼어들었을 때
+            // 이미 종료된 코루틴의 잔재 정보를 보고 잘못된 분기를 탈 수 있다.
+            _pendingPath = null;
+            _currentNextTileCoord = null;
 
             // 1회성 이동 완료 콜백 (랠리→Castle 자동 이동 체인 등에서 사용).
             var callback = OnMoveComplete;

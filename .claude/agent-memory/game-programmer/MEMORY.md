@@ -23,6 +23,29 @@
 
 ## 최근 작업
 
+### 건물 생성/파괴 시 유닛 이동 멈춤 수정 (2026-05-17) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-16/17_00_building-repath-freeze-fix/`
+
+**수정 파일**: `Presentation/Unit/UnitView.cs`
+
+**문제**: 건물 생성/파괴 시 `RepathAllAliveUnits → OnPathInvalidated → MoveTo` 흐름으로 코루틴이 즉시 재시작되어 1~2 프레임 유닛 멈춤 발생.
+
+**수정 내용**:
+- **필드 2개 추가**: `_pendingPath (List<HexCoord>)`, `_currentNextTileCoord (HexCoord?)`
+- **`OnPathInvalidated()` 분기 추가**:
+  - 현재 Lerp 중인 다음 타일(`_currentNextTileCoord`)에 건물이 생긴 경우 → 기존처럼 즉시 `MoveTo()` (건물 뚫고 지나가기 방지)
+  - 그 외 → `_pendingPath = newPath` 저장만 (코루틴 유지, 멈춤 없음)
+- **`MoveAlongPathV3()` 수정**: 각 타일 Lerp 시작 직전 `_currentNextTileCoord` set, 완료 직후 null. 타일 도착 직후 `_pendingPath` 소비 → 현재 위치로 새 path 슬라이스 후 외부 while 재진입. 인덱스 못 찾으면 `MoveTo()` 안전망.
+- **`MoveTo()` 수정**: 진입 시 `_pendingPath = null`, `_currentNextTileCoord = null` 초기화.
+- **`MoveCleanupAndCompleteV3()` 수정**: 종료 시 두 필드 모두 null 초기화.
+
+**핵심 설계**:
+- "부드러운 교체(예약) = 기본, 즉시 재시작 = 예외(앞 타일 막힌 경우만)"
+- GameBootstrapper/FlowFieldService 변경 없음. UnitView.cs 단독 수정.
+
+---
+
 ### 건물 배치 패널 실패 피드백 + UI 개선 (2026-05-16) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-16/20_10_building-placement-fail-feedback/`
