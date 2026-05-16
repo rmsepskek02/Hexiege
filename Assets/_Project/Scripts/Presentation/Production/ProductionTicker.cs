@@ -323,6 +323,16 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnRallyPointChanged(RallyPointChangedEvent e)
         {
+            // 멀티플레이 중이면 로컬 플레이어의 팀에 해당하는 이벤트만 처리한다.
+            // 호스트(서버) = Blue팀, 클라이언트(비서버) = Red팀.
+            // 상대 팀 배럭의 랠리포인트 변경 이벤트는 깃발 표시 없이 건너뛴다.
+            // 싱글플레이에서는 NetworkManager가 없으므로 이 블록을 건너뛰어 기존과 동일하게 동작한다.
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+            {
+                TeamId localTeam = NetworkManager.Singleton.IsServer ? TeamId.Blue : TeamId.Red;
+                if (e.Team != localTeam) return;
+            }
+
             if (e.Coord.HasValue)
             {
                 // 마커 생성 또는 이동
