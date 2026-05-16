@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: aa54ccbfe9fb3994ba783ec2c6faaf3f
+guid: fa060223941a6624d9aff0f7acb5003e
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 8887461990294198088
-    second: Meshy_AI_Red_Roof_Castle_0301080441_texture_roughness_0
+      213: 4733409626683940162
+    second: Meshy_AI_Blue_Crown_Castle_0515153138_texture_roughness_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Meshy_AI_Red_Roof_Castle_0301080441_texture_roughness_0
+      name: Meshy_AI_Blue_Crown_Castle_0515153138_texture_roughness_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 8479546a79b965b70800000000000000
-      internalID: 8887461990294198088
+      spriteID: 24d19ee0af270b140800000000000000
+      internalID: 4733409626683940162
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Meshy_AI_Red_Roof_Castle_0301080441_texture_roughness_0: 8887461990294198088
+      Meshy_AI_Blue_Crown_Castle_0515153138_texture_roughness_0: 4733409626683940162
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 208d4a7e18c29924ca64ac2b352e4dbc
+guid: 86c123b106dc14a4c97d766f52e1e962
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 888890142044994710
-    second: Meshy_AI_sawon_0420160209_texture_roughness_0
+      213: 8683821043886928414
+    second: Meshy_AI_Vinebound_Horned_Alta_0508155152_texture_roughness_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Meshy_AI_sawon_0420160209_texture_roughness_0
+      name: Meshy_AI_Vinebound_Horned_Alta_0508155152_texture_roughness_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 69c30f8efd8f55c00800000000000000
-      internalID: 888890142044994710
+      spriteID: e1231f50b31238870800000000000000
+      internalID: 8683821043886928414
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Meshy_AI_sawon_0420160209_texture_roughness_0: 888890142044994710
+      Meshy_AI_Vinebound_Horned_Alta_0508155152_texture_roughness_0: 8683821043886928414
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

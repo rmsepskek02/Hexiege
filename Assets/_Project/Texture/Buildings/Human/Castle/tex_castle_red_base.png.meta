@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 10e4b69491bc1884ca3148f57b574246
+guid: d993e615b03499c4885f06dbd6294e00
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -1543243466444102750
-    second: tex_castle_red_albedo_0
+      213: 7890729660501287342
+    second: "ChatGPT Image 2026\uB144 5\uC6D4 16\uC77C \uC624\uC804 02_21_13_0"
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: tex_castle_red_albedo_0
+      name: "ChatGPT Image 2026\uB144 5\uC6D4 16\uC77C \uC624\uC804 02_21_13_0"
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 2048
-        height: 2048
+        width: 1254
+        height: 1254
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 2a328a46e3c459ae0800000000000000
-      internalID: -1543243466444102750
+      spriteID: ea161d0c1d0818d60800000000000000
+      internalID: 7890729660501287342
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      tex_castle_red_albedo_0: -1543243466444102750
+      "ChatGPT Image 2026\uB144 5\uC6D4 16\uC77C \uC624\uC804 02_21_13_0": 7890729660501287342
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

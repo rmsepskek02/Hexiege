@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: e19309849dcc17f489408c11524a4dfe
+guid: 54c9c57194d480f4dbf9d338e611b66c
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -4721231282442641512
-    second: Gemini_Generated_Image_e5kjc1e5kjc1e5kj_0
+      213: -5071376728392189239
+    second: tex_primalaltar_red_base_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -24,7 +24,7 @@ TextureImporter:
     heightScale: 0.25
     normalMapFilter: 0
     flipGreenChannel: 0
-  isReadable: 0
+  isReadable: 1
   streamingMipmaps: 0
   streamingMipmapsPriority: 0
   vTOnly: 0
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Gemini_Generated_Image_e5kjc1e5kjc1e5kj_0
+      name: Meshy_AI_Vinebound_Horned_Alta_0508155152_texture_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1024
-        height: 1024
+        width: 2048
+        height: 2048
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 89f5b8ba921da7eb0800000000000000
-      internalID: -4721231282442641512
+      spriteID: 50b49e89755b5e910800000000000000
+      internalID: 1866097008447146757
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Gemini_Generated_Image_e5kjc1e5kjc1e5kj_0: -4721231282442641512
+      Meshy_AI_Vinebound_Horned_Alta_0508155152_texture_0: 1866097008447146757
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

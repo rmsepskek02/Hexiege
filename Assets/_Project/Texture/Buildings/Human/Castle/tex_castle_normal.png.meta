@@ -1,16 +1,16 @@
 fileFormatVersion: 2
-guid: 9eff9dd3f118fe34a8e578b4886e1e33
+guid: 5b34acfcc1327ff4eb8190e742c410bd
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -7436922806471071019
-    second: Meshy_AI_Red_Roof_Castle_0301080441_texture_normal_0
+      213: 5561522839486431496
+    second: Meshy_AI_Blue_Crown_Castle_0515153138_texture_normal_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
     mipMapMode: 0
-    enableMipMap: 1
-    sRGBTexture: 0
+    enableMipMap: 0
+    sRGBTexture: 1
     linearTexture: 0
     fadeOut: 0
     borderMipMap: 0
@@ -55,9 +55,9 @@ TextureImporter:
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
-  alphaIsTransparency: 0
+  alphaIsTransparency: 1
   spriteTessellationDetail: -1
-  textureType: 1
+  textureType: 8
   textureShape: 1
   singleChannelComponent: 0
   flipbookRows: 1
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Meshy_AI_Red_Roof_Castle_0301080441_texture_normal_0
+      name: Meshy_AI_Blue_Crown_Castle_0515153138_texture_normal_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 5da6a4a2c1ebac890800000000000000
-      internalID: -7436922806471071019
+      spriteID: 8018fc96e8f7e2d40800000000000000
+      internalID: 5561522839486431496
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Meshy_AI_Red_Roof_Castle_0301080441_texture_normal_0: -7436922806471071019
+      Meshy_AI_Blue_Crown_Castle_0515153138_texture_normal_0: 5561522839486431496
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: eeef6fff81004fa4ca4d22347b5d4356
+guid: 7bee03301c95e134490c88a312bf541c
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -3446680626377999980
-    second: Meshy_AI_Swordsmith_s_Cottage_0301081748_texture_roughness_0
+      213: 7779982131876068985
+    second: Meshy_AI_Blue_Bannered_Fortres_0508151327_texture_roughness_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Meshy_AI_Swordsmith_s_Cottage_0301081748_texture_roughness_0
+      name: Meshy_AI_Blue_Bannered_Fortres_0508151327_texture_roughness_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 499b48a4b3eea20d0800000000000000
-      internalID: -3446680626377999980
+      spriteID: 97efb51678c08fb60800000000000000
+      internalID: 7779982131876068985
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Meshy_AI_Swordsmith_s_Cottage_0301081748_texture_roughness_0: -3446680626377999980
+      Meshy_AI_Blue_Bannered_Fortres_0508151327_texture_roughness_0: 7779982131876068985
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

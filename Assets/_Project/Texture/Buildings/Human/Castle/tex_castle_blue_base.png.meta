@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 31aa5a54d1d275a45b89514df5cb1785
+guid: 31f7a6f29f0c9cc4d8306b41921d1863
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 1054862433951873533
-    second: tex_castle_blue_albedo_0
+      213: 295044438788696092
+    second: Meshy_AI_Blue_Crown_Castle_0515153138_texture_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: tex_castle_blue_albedo_0
+      name: Meshy_AI_Blue_Crown_Castle_0515153138_texture_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: df9fa967bcf93ae00800000000000000
-      internalID: 1054862433951873533
+      spriteID: c1864f69a55381400800000000000000
+      internalID: 295044438788696092
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      tex_castle_blue_albedo_0: 1054862433951873533
+      Meshy_AI_Blue_Crown_Castle_0515153138_texture_0: 295044438788696092
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

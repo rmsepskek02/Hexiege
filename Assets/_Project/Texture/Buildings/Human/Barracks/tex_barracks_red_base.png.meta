@@ -1,15 +1,15 @@
 fileFormatVersion: 2
-guid: 716da6a518fbec246b31acd6d1bc07b2
+guid: 0f98b1be04f363147b7bed731db0eff5
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -4389114817422862138
-    second: tex_barracks_red_albedo_0
+      213: 9065645782120055933
+    second: "ChatGPT Image 2026\uB144 5\uC6D4 16\uC77C \uC624\uC804 02_32_41_0"
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
     mipMapMode: 0
-    enableMipMap: 1
+    enableMipMap: 0
     sRGBTexture: 1
     linearTexture: 0
     fadeOut: 0
@@ -55,9 +55,9 @@ TextureImporter:
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
-  alphaIsTransparency: 0
+  alphaIsTransparency: 1
   spriteTessellationDetail: -1
-  textureType: 0
+  textureType: 8
   textureShape: 1
   singleChannelComponent: 0
   flipbookRows: 1
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: tex_barracks_red_albedo_0
+      name: "ChatGPT Image 2026\uB144 5\uC6D4 16\uC77C \uC624\uC804 02_32_41_0"
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 2048
-        height: 2048
+        width: 1254
+        height: 1254
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 6c85b1df35bb613c0800000000000000
-      internalID: -4389114817422862138
+      spriteID: d74c8c69ec4afcd70800000000000000
+      internalID: 9065645782120055933
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      tex_barracks_red_albedo_0: -4389114817422862138
+      "ChatGPT Image 2026\uB144 5\uC6D4 16\uC77C \uC624\uC804 02_32_41_0": 9065645782120055933
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -15,19 +15,41 @@
 |------|--------|-------------|---------|-----------------|------|
 | Human | Castle | Castle | Blue / Red | 50 | 본기지 |
 | Human | TrainingCamp | Barracks | Blue / Red | 40 | 유닛 생산 건물 (근거리류 1단계) - 기초 훈련소 디자인 |
-| Human | MiningPost | MiningPost | 팀 공용 | 35 | 금광 위 건설 |
+| Human | WarAcademy | Barracks | Blue / Red | 1 | 유닛 생산 건물 (근거리류 2단계) |
+| Human | Barracks | Barracks | Blue / Red | 1 | 유닛 생산 건물 (근거리류 3단계) |
+| Human | Gunsmith | Barracks | Blue / Red | 1 | 유닛 생산 건물 (총기류 1단계) |
+| Human | Armory | Barracks | Blue / Red | 1 | 유닛 생산 건물 (총기류 2단계) |
+| Human | WeaponForge | Barracks | Blue / Red | 1 | 유닛 생산 건물 (총기류 3단계) |
+| Human | Garage | Barracks | Blue / Red | 1 | 유닛 생산 건물 (탈것류 1단계) |
+| Human | VehicleBay | Barracks | Blue / Red | 1 | 유닛 생산 건물 (탈것류 2단계) |
+| Human | MiningPost | MiningPost | Blue / Red | 1 | 금광 위 건설 |
 | Human | CannonTower | AutoTower | Blue / Red | 1 | 방어 타워 |
 | Human | FlightFacility | FlightFacility | Blue / Red | 1 | 마법 건물 |
 | Human | TechnicalLaboratory | Research | Blue / Red | 1 | 업그레이드 건물 |
 | Spirit | SpiritNexus | Castle | Blue / Red | 30 | 본기지 |
 | Spirit | ManaRift | MiningPost | Blue / Red | 40 | 금광 위 건설 |
+| Spirit | FireSpire | Barracks | Blue / Red | 1 | 유닛 생산 건물 (불 속성 1단계) |
+| Spirit | BlazeConduit | Barracks | Blue / Red | 1 | 유닛 생산 건물 (불 속성 2단계) |
+| Spirit | InfernoCore | Barracks | Blue / Red | 1 | 유닛 생산 건물 (불 속성 3단계) |
+| Spirit | AquaSpring | Barracks | Blue / Red | 1 | 유닛 생산 건물 (물 속성 1단계) |
+| Spirit | TidalNexus | Barracks | Blue / Red | 1 | 유닛 생산 건물 (물 속성 2단계) |
+| Spirit | OceanicHeart | Barracks | Blue / Red | 1 | 유닛 생산 건물 (물 속성 3단계) |
+| Spirit | StoneMound | Barracks | Blue / Red | 1 | 유닛 생산 건물 (땅 속성 1단계) |
+| Spirit | TerraForge | Barracks | Blue / Red | 1 | 유닛 생산 건물 (땅 속성 2단계) |
+| Spirit | GaeaSanctum | Barracks | Blue / Red | 1 | 유닛 생산 건물 (땅 속성 3단계) |
 | Spirit | RuneSpire | AutoTower | Blue / Red | 1 | 방어 타워 |
 | Spirit | MagicSpirit | MagicBuilding | Blue / Red | 1 | 마법 건물 |
 | Spirit | AstronomicalSpirit | Research | Blue / Red | 1 | 업그레이드 건물 |
 | Transcendence | ElderTree | Castle | Blue / Red | 40 | 본기지 |
 | Transcendence | FungalNode | MiningPost | Blue / Red | 35 | 금광 위 건설 |
+| Transcendence | PrimalAltar (Animal Stage 1) | Barracks | Blue / Red | 1 | 유닛 생산 건물 (동물A 1단계) - 낮은 돌 제단과 거대한 동물 갈비뼈, 덩굴 장식 |
+| Transcendence | PrimalDen | Barracks | Blue / Red | 1 | 유닛 생산 건물 (동물A 2단계) |
+| Transcendence | FeralAltar | Barracks | Blue / Red | 1 | 유닛 생산 건물 (동물B 1단계) |
+| Transcendence | FeralDen | Barracks | Blue / Red | 1 | 유닛 생산 건물 (동물B 2단계) |
+| Transcendence | FeralSanctuary | Barracks | Blue / Red | 1 | 유닛 생산 건물 (동물B 3단계) |
+| Transcendence | SporePatch | Barracks | Blue / Red | 1 | 유닛 생산 건물 (식물 1단계) |
+| Transcendence | FloralNursery | Barracks | Blue / Red | 1 | 유닛 생산 건물 (식물 2단계) |
 | Transcendence | VineTower | AutoTower | Blue / Red | 1 | 방어 타워 |
-| Transcendence | PrimalAltar (Animal Stage 1) | Barracks | Blue / Red | 1 | 유닛 생산 건물 1단계 - 낮은 돌 제단과 거대한 동물 갈비뼈, 덩굴 장식 |
 | Transcendence | MistShrine | HealShrine | Blue / Red | 1 | 힐 건물 |
 | Transcendence | WillowShrine | MagicBuilding | Blue / Red | 1 | 마법 건물 |
 
@@ -85,33 +107,11 @@
 | 종족 | 유닛명 | 역할/원소 | 비고 |
 |------|--------|----------|------|
 | Human | KnightRider | 돌격 기병 | 말 기사, 빠른 돌격 |
-| Human | WarAcademy | Barracks | 근거리 유닛 생산 건물 2단계 - 깔끔한 지붕과 기둥 중심의 심플한 학교 |
-| Human | Barracks | Barracks | 근거리 유닛 생산 건물 3단계 - 굵직한 돌벽과 큰 깃발이 강조된 튼튼한 병영 |
-| Human | Gunsmith (Firearms Stage 1) | Barracks | 총기류 유닛 생산 건물 1단계 |
-| Human | Armory (Firearms Stage 2) | Barracks | 총기류 유닛 생산 건물 2단계 |
-| Human | WeaponForge (Firearms Stage 3) | Barracks | 총기류 유닛 생산 건물 3단계 |
-| Human | Garage (Vehicle Stage 1) | Barracks | 탈것류 유닛 생산 건물 1단계 |
-| Human | VehicleBay (Vehicle Stage 2) | Barracks | 탈것류 유닛 생산 건물 2단계 |
-| Spirit | FireSpire (Fire Stage 1) | Barracks | 불 속성 1단계 - 불꽃 모양의 제단 위 화염 결정, 화염 문양 각인 |
-| Spirit | BlazeConduit (Fire Stage 2) | Barracks | 불 속성 2단계 - 날카로운 돌기둥들이 호위하는 화염 성소, 화염 문양 각인 |
-| Spirit | InfernoCore (Fire Stage 3) | Barracks | 불 속성 3단계 - 용암 대지 컨셉의 신전, 중앙의 거대한 불꽃 결정 강조 |
-| Spirit | AquaSpring (Water Stage 1) | Barracks | 물 속성 1단계 - 둥글고 부드러운 모양의 제단 위 물방울 결정, 파동 문양 각인 |
-| Spirit | TidalNexus (Water Stage 2) | Barracks | 물 속성 2단계 - 부드러운 돌 아치가 감싸는 물의 성소, 파동 문양 각인 |
-| Spirit | OceanicHeart (Water Stage 3) | Barracks | 물 속성 3단계 - 용궁 컨셉의 수중 신전, 중앙의 거대한 물방울 결정 강조 |
-| Spirit | StoneMound (Earth Stage 1) | Barracks | 땅 속성 1단계 - 거칠고 갈라진 형상의 제단 위 바위 결정, 대지의 균열 문양 각인 |
-| Spirit | TerraForge (Earth Stage 2) | Barracks | 땅 속성 2단계 - 층층이 쌓인 거친 돌벽이 보강된 대지 성소, 대지의 균열 문양 각인 |
-| Spirit | GaeaSanctum (Earth Stage 3) | Barracks | 땅 속성 3단계 - 대지의 기운이 서린 바위 신전, 중앙의 거대한 균열 바위 핵 강조 |
-| Transcendence | PrimalDen (Animal Group A Stage 2) | Barracks | 초월계 동물A 2단계 - 나무와 돌로 된 야생의 탑 위 푸른 영혼 구체 |
-| Transcendence | PrimalSanctuary (Animal Group A Stage 3) | Barracks | 초월계 동물A 3단계 - 덩굴이 감긴 석조 신전 내부의 거대한 야생의 영혼 핵 |
-| Transcendence | FeralAltar (Animal Group B Stage 1) | Barracks | 동물 그룹 B 1단계 (FoxMagician, EagleArcher, LionKnight) - 장식이 적고 형태가 명확한 나무 건물 | 
-| Transcendence | FeralDen (Animal Group B Stage 2) | Barracks | 초월계 동물 그룹 B 2단계 (FoxMagician, EagleArcher, LionKnight) |
-| Transcendence | FeralSanctuary (Animal Group B Stage 3) | Barracks | 초월계 동물 그룹 B 3단계 (FoxMagician, EagleArcher, LionKnight) |
-| Transcendence | SporePatch (Plant Stage 1) | Barracks |  |  | 초월계 식물 1단계 - 납작한 이끼 돌판 위 거대 버섯 군락과 포자 결정 |
-| Transcendence | FloralNursery (Plant Stage 2) | Barracks |  |  | 초월계 식물 2단계 - 덩굴 줄기 아치가 감싸는 성장 중인 푸른 꽃 성소 |
 | Human | WarElephant | 초고체력 탱커 | 전쟁 코끼리, 광역 압박 |
 | Spirit | Spark/Storm/Thunder | 전기 (1~3단계) | 미제작 |
 | Spirit | Glow/Radiant/Aurora | 빛 (1~3단계) | 미제작 |
 | Spirit | Shadow/Void/Abyss | 어둠 (1~3단계) | 미제작 |
+| Transcendence | PrimalSanctuary (Animal Group A Stage 3) | Barracks | 초월계 동물A 3단계 - 덩굴이 감긴 석조 신전 내부의 거대한 야생의 영혼 핵 |
 | Transcendence | WolfScout | 정찰/러시 | 빠른 이동속도 |
 | Transcendence | TigerBlade | 고화력 근접 | 높은 공격력 |
 | Transcendence | TurtleShield | 방어형 | 최고 HP, 느린 이동 |
@@ -231,3 +231,9 @@
 |-----------|--------|------|
 | HexTile | tile_hex.png | 기본 헥스 타일 |
 | HexTile Flat | tile_hex_flat.png | 평면 헥스 타일 |
+
+### 5. UI 프리팹 (UI Prefabs)
+
+| 프리팹명 | 비고 |
+|---------|------|
+| FloatingHpText | 유닛 피격 시 표시되는 플로팅 데미지 텍스트 |

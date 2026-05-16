@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 9cb6aaa8e02882f46aa7595746c5ba87
+guid: d449cb848e9e75d4b9940175ea07410a
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -1304588973465755598
-    second: Meshy_AI_Treasure_Mine_0301081757_texture_roughness_0
+      213: 9030438735934027520
+    second: Meshy_AI_Gold_Mine_Winch_0515153359_texture_roughness_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Meshy_AI_Treasure_Mine_0301081757_texture_roughness_0
+      name: Meshy_AI_Gold_Mine_Winch_0515153359_texture_roughness_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 230aeaa9d3b25ede0800000000000000
-      internalID: -1304588973465755598
+      spriteID: 007764d5f20925d70800000000000000
+      internalID: 9030438735934027520
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Meshy_AI_Treasure_Mine_0301081757_texture_roughness_0: -1304588973465755598
+      Meshy_AI_Gold_Mine_Winch_0515153359_texture_roughness_0: 9030438735934027520
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

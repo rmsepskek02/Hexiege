@@ -1,16 +1,16 @@
 fileFormatVersion: 2
-guid: f36677768309bc84893dafbcb8fd286e
+guid: b4fa0747a82fb6d4f9d5cb290a723e5d
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 7347328090530290958
-    second: Meshy_AI_Swordsmith_s_Cottage_0301081748_texture_metallic_0
+      213: 3835119402737056319
+    second: Meshy_AI_Blue_Bannered_Fortres_0508151327_texture_metallic_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
     mipMapMode: 0
-    enableMipMap: 1
-    sRGBTexture: 0
+    enableMipMap: 0
+    sRGBTexture: 1
     linearTexture: 0
     fadeOut: 0
     borderMipMap: 0
@@ -55,9 +55,9 @@ TextureImporter:
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
-  alphaIsTransparency: 0
+  alphaIsTransparency: 1
   spriteTessellationDetail: -1
-  textureType: 0
+  textureType: 8
   textureShape: 1
   singleChannelComponent: 0
   flipbookRows: 1
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Meshy_AI_Swordsmith_s_Cottage_0301081748_texture_metallic_0
+      name: Meshy_AI_Blue_Bannered_Fortres_0508151327_texture_metallic_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: e0d9e4478f3f6f560800000000000000
-      internalID: 7347328090530290958
+      spriteID: f3ab95707c4193530800000000000000
+      internalID: 3835119402737056319
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Meshy_AI_Swordsmith_s_Cottage_0301081748_texture_metallic_0: 7347328090530290958
+      Meshy_AI_Blue_Bannered_Fortres_0508151327_texture_metallic_0: 3835119402737056319
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

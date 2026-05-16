@@ -1,15 +1,15 @@
 fileFormatVersion: 2
-guid: c8deb57886795e1409f5fe705124c59c
+guid: 7c4cbe704dd05a24da81d32fb3cc78db
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 2130701459564820077
-    second: tex_barracks_blue_albedo_0
+      213: -7045190679028868480
+    second: Meshy_AI_Blue_Bannered_Fortres_0508151327_texture_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
     mipMapMode: 0
-    enableMipMap: 1
+    enableMipMap: 0
     sRGBTexture: 1
     linearTexture: 0
     fadeOut: 0
@@ -55,9 +55,9 @@ TextureImporter:
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
-  alphaIsTransparency: 0
+  alphaIsTransparency: 1
   spriteTessellationDetail: -1
-  textureType: 0
+  textureType: 8
   textureShape: 1
   singleChannelComponent: 0
   flipbookRows: 1
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: tex_barracks_blue_albedo_0
+      name: Meshy_AI_Blue_Bannered_Fortres_0508151327_texture_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: d6674c340b5c19d10800000000000000
-      internalID: 2130701459564820077
+      spriteID: 08a579987647a3e90800000000000000
+      internalID: -7045190679028868480
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      tex_barracks_blue_albedo_0: 2130701459564820077
+      Meshy_AI_Blue_Bannered_Fortres_0508151327_texture_0: -7045190679028868480
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
