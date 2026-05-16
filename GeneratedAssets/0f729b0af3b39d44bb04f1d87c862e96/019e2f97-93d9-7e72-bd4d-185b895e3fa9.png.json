@@ -1,0 +1,38 @@
+{
+    "asset": "0f729b0af3b39d44bb04f1d87c862e96",
+    "fileName": "019e2f97-93d9-7e72-bd4d-185b895e3fa9.png",
+    "prompt": "Change all blue team identification elements to red color #FF3030. Specifically, change the blue banners, blue decorative gems, and the blue crystal ball (orb) inside the building to this red color. Maintain the exact same art style, stone textures, and transparent background. Do not modify any other parts of the building structure.",
+    "negativePrompt": "",
+    "model": "gpt-image-1-5",
+    "modelName": "GPT Image 1.5",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "0f729b0af3b39d44bb04f1d87c862e96",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

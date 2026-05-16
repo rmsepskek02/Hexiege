@@ -1,0 +1,38 @@
+{
+    "asset": "ff7ab529bc4ede14fb03f485eb89e33e",
+    "fileName": "019e2f80-7706-7954-9bfa-fa06d98f85cf.png",
+    "prompt": "Change all blue team identifying elements (banners, gems, decorations) of this building to the red color #FF3030. Maintain the same art style, metallic textures, and architectural details. Ensure the background remains completely transparent. The building itself is a stone tower with a blue spire topper that should now be red.",
+    "negativePrompt": "",
+    "model": "gpt-image-1-5",
+    "modelName": "GPT Image 1.5",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "ff7ab529bc4ede14fb03f485eb89e33e",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

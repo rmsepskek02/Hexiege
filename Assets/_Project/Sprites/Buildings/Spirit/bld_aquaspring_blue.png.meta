@@ -3,8 +3,8 @@ guid: ebf43161662ae0d46a41eb7c6a602f14
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -4290479049186673847
-    second: "ChatGPT Image 2026\uB144 5\uC6D4 8\uC77C \uC624\uD6C4 11_11_08-Photoroom_0"
+      213: 7803112687322105301
+    second: bld_aquaspring_blue_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -113,13 +113,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: "ChatGPT Image 2026\uB144 5\uC6D4 8\uC77C \uC624\uD6C4 11_11_08-Photoroom_0"
+      name: bld_aquaspring_blue_0
       rect:
         serializedVersion: 2
-        x: 0
+        x: 71
         y: 166
-        width: 1184
-        height: 1088
+        width: 1114
+        height: 957
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 94bf8f469082574c0800000000000000
-      internalID: -4290479049186673847
+      spriteID: 5d58d2e75a93a4c60800000000000000
+      internalID: 7803112687322105301
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      "ChatGPT Image 2026\uB144 5\uC6D4 8\uC77C \uC624\uD6C4 11_11_08-Photoroom_0": -4290479049186673847
+      bld_aquaspring_blue_0: 7803112687322105301
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

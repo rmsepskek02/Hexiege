@@ -3,8 +3,8 @@ guid: c6dc99d9e050ccf49a568b24fbdae9b0
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 6711111173730281583
-    second: MiningPost_0
+      213: 998110134620680869
+    second: bld_miningpost_blue_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: MiningPost_0
+      name: bld_miningpost_blue_0
       rect:
         serializedVersion: 2
         x: 0
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: f6829563e08a22d50800000000000000
-      internalID: 6711111173730281583
+      spriteID: 5a278c411eff9dd00800000000000000
+      internalID: 998110134620680869
       vertices: []
       indices: 
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      MiningPost_0: 6711111173730281583
+      bld_miningpost_blue_0: 998110134620680869
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

@@ -1,0 +1,38 @@
+{
+    "asset": "ff7ab529bc4ede14fb03f485eb89e33e",
+    "fileName": "019e2f7c-d619-7bdf-9d25-accf19f6cb1e.png",
+    "prompt": "Change all blue parts (banners and gems) to red color #FF3030. This is the Red Team version of the building. The central flame and structure should remain consistent with the original style. Maintain transparency if any, or prepare for background removal.",
+    "negativePrompt": "",
+    "model": "gpt-image-1-5",
+    "modelName": "GPT Image 1.5",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "ff7ab529bc4ede14fb03f485eb89e33e",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

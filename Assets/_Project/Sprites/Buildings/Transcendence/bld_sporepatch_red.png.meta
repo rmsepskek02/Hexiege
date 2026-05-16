@@ -1,7 +1,5 @@
 fileFormatVersion: 2
 guid: 494c3266eb84d31459b632dfb9b99c31
-labels:
-- UnityAI
 TextureImporter:
   internalIDToNameTable:
   - first:
@@ -53,7 +51,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 1024
+  spritePixelsToUnits: 100
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -118,10 +116,10 @@ TextureImporter:
       name: bld_sporepatch_red_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 1024
-        height: 1024
+        x: 19
+        y: 32
+        width: 945
+        height: 939
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

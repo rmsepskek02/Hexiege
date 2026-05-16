@@ -1,0 +1,38 @@
+{
+    "asset": "f31f170538112ad499533c2bddba3f77",
+    "fileName": "019e2f81-ba39-7f1e-a467-ff1a9b445ff2.png",
+    "prompt": "This building belongs to the BLUE TEAM. Change all red banners, red gems, and the red spire topper back to a vibrant BLUE color. The central flame and stone structure should remain the same. The result must be a clean blue team version of the building. Ensure background remains transparent.",
+    "negativePrompt": "",
+    "model": "gpt-image-1-5",
+    "modelName": "GPT Image 1.5",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": [
+            {
+                "doodleReferenceType": 7,
+                "doodle": [],
+                "label": "Image",
+                "strength": 0.25,
+                "invertStrength": false,
+                "assetReferenceGuid": "f31f170538112ad499533c2bddba3f77",
+                "unlabeledIndex": -1
+            }
+        ]
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0
+}

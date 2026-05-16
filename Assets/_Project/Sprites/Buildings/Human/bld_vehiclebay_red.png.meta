@@ -1,7 +1,5 @@
 fileFormatVersion: 2
 guid: 5f156fb4b9a15cd49881e867c1c52287
-labels:
-- UnityAI
 TextureImporter:
   internalIDToNameTable:
   - first:
@@ -53,7 +51,7 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 1024
+  spritePixelsToUnits: 100
   spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
@@ -121,7 +119,7 @@ TextureImporter:
         x: 0
         y: 0
         width: 1024
-        height: 1024
+        height: 1019
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}

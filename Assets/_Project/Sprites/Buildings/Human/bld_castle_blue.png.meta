@@ -3,8 +3,8 @@ guid: ec9ea4a8e628de64c9ed1c2baa35a0fb
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -6754239384357436178
-    second: Castle_0
+      213: 8834263162165420963
+    second: bld_castle_blue_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -113,7 +113,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Castle_0
+      name: bld_castle_blue_0
       rect:
         serializedVersion: 2
         x: 121
@@ -128,8 +128,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ee40c6fb01f1442a0800000000000000
-      internalID: -6754239384357436178
+      spriteID: 3a360314a8b999a70800000000000000
+      internalID: 8834263162165420963
       vertices: []
       indices: 
       edges: []
@@ -138,7 +138,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Castle_0: -6754239384357436178
+      bld_castle_blue_0: 8834263162165420963
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
