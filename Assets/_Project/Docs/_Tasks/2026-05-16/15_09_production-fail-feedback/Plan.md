@@ -17,7 +17,7 @@
 
 | 상황 | UI 효과 | 토스트 메시지 |
 |------|---------|-----------|
-| 골드 부족 (수동 생산 시도) | 생산 패널 내 `_goldText` 빨간색 | O ("골드가 부족합니다") |
+| 골드 부족 (수동 생산 시도) | 각 유닛 생산 비용 텍스트(`_unitCostTexts`) 개별 빨간색 | O ("골드가 부족합니다") |
 | 인구 초과 (수동 생산 시도) | HUD 상단 `_populationText` 빨간색 | O ("인구수가 가득 찼습니다") |
 | 큐 3개 초과 | 없음 | O ("생산 대기열이 가득 찼습니다") |
 | 자동 생산 중 자원 부족 | 없음 | X (자동 생산 즉시 취소) |
@@ -69,7 +69,7 @@ ToastSpawner.Show(ToastKey.GoldInsufficient)
 
 #### 1-3. 동작 규칙
 
-**표시 위치:** 화면 하단 중앙 고정
+**표시 위치:** 화면 중앙 고정 *(초기 기획은 하단 중앙이었으나 사용자가 인게임에서 화면 중앙으로 변경)*
 
 **스택 방식 큐:**
 - 동시에 여러 요청이 오면 큐에 순서대로 쌓아 차례로 표시
@@ -113,15 +113,18 @@ ToastSpawner.Show(ToastKey.GoldInsufficient)
 #### 2-2. `HandleProductionFail()` 신규 메서드 추가
 
 실패 원인별 처리:
-- **골드 부족**: `_goldText.color = Color.red` + `ToastSpawner.Show(ToastKey.GoldInsufficient)`
-- **인구 초과**: HUD의 인구 텍스트 빨간색 요청 + `ToastSpawner.Show(ToastKey.PopulationFull)`
-- **큐 초과**: `ToastSpawner.Show(ToastKey.ProductionQueueFull)`
+- **골드 부족**: 토스트만 표시 (`ToastUI.Show(ToastKey.GoldInsufficient)`) — 비용 텍스트 색상은 `UpdateInfoBar()`가 자동 관리
+- **인구 초과**: HUD의 인구 텍스트 빨간색 요청 + `ToastUI.Show(ToastKey.PopulationFull)`
+- **큐 초과**: `ToastUI.Show(ToastKey.ProductionQueueFull)`
 
-#### 2-3. `UpdateInfoBar()` — 골드 텍스트 색상 복구 로직 추가 (line 284~289)
+#### 2-3. `UpdateInfoBar()` — 유닛 생산 비용 텍스트 색상 로직 추가
 
-골드가 충분한 상태로 회복되면 `_goldText.color`를 기본 흰색으로 복구.
-- 어떤 유닛 타입의 골드 비용과 비교할지: 생산 패널이 열려 있는 배럭 기준 **첫 번째 유닛 비용** 기준 (가장 저렴한 유닛이라도 살 수 없는 상태 = 빨간색)
-- 골드 변경 이벤트(`OnResourceChanged`) 구독 시 갱신 → 이미 구독 중이므로 `UpdateInfoBar()`에 색상 판단 로직 추가만 하면 됨
+**`_goldText`(보유 골드 표시)의 색상은 변경하지 않는다.**
+
+대신 각 유닛 버튼의 생산 비용 텍스트(`_unitCostTexts[i]`)를 개별적으로 평가:
+- 보유 골드 < 해당 유닛 비용 → 해당 유닛의 비용 텍스트를 **빨간색**
+- 보유 골드 >= 해당 유닛 비용 → 해당 유닛의 비용 텍스트를 **흰색** (자동 복구)
+- 골드 변경 이벤트(`OnResourceChanged`) 구독 시 갱신 → 실시간으로 모든 유닛 버튼에 반영
 
 ---
 

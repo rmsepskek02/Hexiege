@@ -71,3 +71,4 @@
 | 2026-05-15 | 랜덤 매칭 후 캐릭터 잘못 표시 버그 수정 — Lobby 씬 CharPreview 오브젝트가 실제 유닛 프리팹(NetworkTransform 자동 추가됨) 인스턴스여서 Host의 캐러셀 위치가 Red 클라이언트로 동기화되던 원인 확정. Unpack Completely 후 UnitView/AnimationEventRelay/NetworkUnit/NetworkTransform/NetworkObject 5종 제거. |
 | 2026-05-15 | 혼잡도 기반 유닛 분산 시스템(v2) 완료 — 모든 유닛이 세로 줄지어 이동하는 현상 개선. 타일별 혼잡도 누적(CongestionMap) + 혼잡도 가중 A*(CongestionAwarePathfinder) 도입. CastleApproachManager(v1) 폐기 삭제. 설정값(DecayInterval/CongestionWeight)은 GameConfig에 통합. 사용자 테스트 PASS. |
 | 2026-05-16 | 랠리포인트 깃발 팀별 표시 분리 완료 — 클라이언트 설정 시 호스트에도 깃발이 표시되던 버그 수정. RallyPointChangedEvent에 TeamId 추가, ProductionTicker에 로컬 팀 필터 추가. 싱글플레이 영향 없음. |
+| 2026-05-16 | 유닛 생산 실패 피드백 시스템 완료 — 골드 부족/인구 초과/큐 초과 시 토스트 메시지 표시. 유닛별 생산 비용 텍스트 빨간색, HUD 인구수 텍스트 빨간색. 자동 생산 자원 부족 시 즉시 취소(IsCharged=false만). 범용 ToastUI 시스템(DontDestroyOnLoad, 큐, DOTween 페이드아웃) + ToastMessageConfig ScriptableObject 신규 구현. |

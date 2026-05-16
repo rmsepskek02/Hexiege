@@ -23,6 +23,28 @@
 
 ## 최근 작업
 
+### 유닛 생산 실패 피드백 시스템 (2026-05-16) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-16/15_09_production-fail-feedback/`
+
+**신규 파일 4개**:
+- `Infrastructure/Config/ToastMessageConfig.cs` — ScriptableObject. ToastEntry struct(key/message/duration). TryGet().
+- `Presentation/UI/Common/ToastKey.cs` — enum: GoldInsufficient=0, PopulationFull=1, ProductionQueueFull=2.
+- `Presentation/UI/Common/ToastUI.cs` — 싱글턴 MonoBehaviour. IPointerClickHandler 구현. 정적 진입점 `ToastUI.Show(ToastKey)`. Queue<ToastKey> 방식. DontDestroyOnLoad 독립 Canvas. CanvasGroup DOTween 페이드아웃. GameEvents.OnGameStarted/OnGameEnd 구독으로 자동 정리.
+- `Editor/SetupToastUI.cs` — 1회성 에디터 스크립트. Toast를 씬 루트 오브젝트(부모 없음)로 생성. 자체 Canvas(ScreenSpaceOverlay, sortingOrder=100) + GraphicRaycaster + CanvasGroup + ToastUI.
+
+**핵심 주의사항**:
+- **DontDestroyOnLoad = 루트 오브젝트 전용**: Toast를 [UI] Canvas 자식으로 배치하면 씬 전환 시 파괴됨. 반드시 씬 루트(부모 없음)에 배치.
+- **SetActive(false) 사용 금지**: 비활성 상태에서 Awake() 미호출 → DontDestroyOnLoad 미등록. 숨김은 CanvasGroup.alpha=0으로 처리.
+- **골드 텍스트 색상**: `_goldText`(보유 골드 표시)는 변경 안 함. `_unitCostTexts[i]`(각 유닛 생산 비용)만 개별 평가하여 빨간색 전환.
+
+**수정 파일**:
+- `ProductionPanelUI.cs` — `ProductionFailReason` enum 추가. `OnUnitTap()` 사전 검증 + HandleProductionFail(). `UpdateInfoBar()` 유닛별 비용 텍스트 색상 조건 추가.
+- `GameHudUI.cs` — `_lastPopFull` nullable 캐시 필드. `UpdateDisplay()` 인구수 텍스트 `used >= max` 조건 색상 전환.
+- `UnitProductionUseCase.cs` — `TryStartNext()` 자동 생산 자원 부족 시 재시도 → 즉시 취소(IsCharged=false만, IsCharged=true는 Rule 2 유지).
+
+---
+
 ### 랠리포인트 깃발 팀별 표시 분리 (2026-05-16) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-16/15_30_rally-point-flag-visibility/`

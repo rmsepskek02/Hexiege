@@ -67,6 +67,11 @@ namespace Hexiege.Presentation
         private int _lastBlueTiles = -1;
         private int _lastRedTiles = -1;
 
+        // 인구 텍스트 색상 변경 상태 캐시.
+        // 매 프레임 Color 객체 비교/할당이 일어나지 않도록, "이번에 가득 찼었나?"만 기억해
+        // 상태 전이가 있을 때만 색을 바꾼다. 초기값 null로 두어 최초 1회는 반드시 갱신되도록 함.
+        private bool? _lastPopFull;
+
         // 멀티플레이 모드 캐시 (매 프레임 NetworkManager 접근 방지)
         private bool _isNetworkMode;
 
@@ -104,6 +109,9 @@ namespace Hexiege.Presentation
             _lastMaxPop = -1;
             _lastBlueTiles = -1;
             _lastRedTiles = -1;
+            // null로 초기화 → 다음 UpdateDisplay()에서 isFull과 비교 시
+            // 반드시 색상 갱신이 1회 강제 발생하도록 한다.
+            _lastPopFull = null;
         }
 
         // ====================================================================
@@ -158,6 +166,15 @@ namespace Hexiege.Presentation
                     _lastUsedPop = used;
                     _lastMaxPop = max;
                     _populationText.text = $"{used} / {max}";
+                }
+
+                // 인구 가득 참 상태 시각화 — used >= max일 때 빨간색.
+                // 상태가 바뀐 프레임에만 Color 할당이 일어나 GC 부담을 최소화.
+                bool isFull = used >= max;
+                if (_lastPopFull != isFull)
+                {
+                    _lastPopFull = isFull;
+                    _populationText.color = isFull ? Color.red : Color.white;
                 }
             }
 

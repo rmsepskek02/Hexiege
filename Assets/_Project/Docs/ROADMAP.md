@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-05-15  
-**현재 단계:** 유닛 이동/전투/회전 시스템 전면 재설계 완료 (슬롯 폐기, MoveAlongPathV3 통일, RotateTowards 통일)
+**최종 수정일:** 2026-05-16  
+**현재 단계:** 유닛 생산 실패 피드백 시스템 완료 (ToastUI 범용 시스템, 골드/인구/큐 피드백, 자동 생산 취소)
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -23,11 +23,11 @@
 
 ## Phase A — 네트워크 버그 수정
 
-### A-1. BuildFailed/EnqueueFailed UI 피드백 누락
+### A-1. BuildFailed/EnqueueFailed UI 피드백 (멀티플레이 분기)
 - **파일**: `NetworkBuildingController.cs`, `NetworkProductionController.cs`
-- **증상**: 건물 배치/생산 큐 실패 시 사용자에게 아무 피드백 없음 (서버 로그만 출력)
-- **현황**: `BuildFailedClientRpc` / `EnqueueFailedClientRpc` RPC 구조는 완성. 함수 내부에 UI 호출만 추가하면 됨
-- **대기 이유**: 전반적인 UI 기획(토스트/팝업 디자인 등)을 먼저 진행한 후 구현 예정
+- **현황**: 싱글플레이 생산 실패 피드백 완료 (2026-05-16 — ToastUI 범용 시스템 구축 포함)
+- **남은 작업**: `EnqueueFailedClientRpc` / `BuildFailedClientRpc` 내부에 `ToastUI.Show()` 호출 추가 (멀티플레이 분기)
+- **비고**: ToastUI 시스템이 이미 완성되어 있어 RPC 핸들러에 1~2줄 추가만 필요
 
 ---
 

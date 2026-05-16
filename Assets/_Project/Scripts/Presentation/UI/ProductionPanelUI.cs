@@ -288,7 +288,8 @@ namespace Hexiege.Presentation
             switch (reason)
             {
                 case ProductionFailReason.GoldInsufficient:
-                    if (_goldText != null) _goldText.color = Color.red;
+                    // 유닛 비용 텍스트 색상은 UpdateInfoBar()가 매 골드 변경 시 자동으로 관리.
+                    // 여기서는 토스트 메시지만 표시.
                     ToastUI.Show(ToastKey.GoldInsufficient);
                     break;
 
@@ -369,42 +370,34 @@ namespace Hexiege.Presentation
         {
             if (_currentBarracks == null) return;
 
-            // ── 골드 텍스트 갱신 + 색상 재평가 ──
-            // 골드가 변할 때마다 "현재 배럭에서 만들 수 있는 가장 싼 유닛"의 비용과 비교하여
-            // 부족하면 빨강, 충분하면 흰색으로 자동 복구한다.
+            // ── 보유 골드 텍스트 갱신 ──
             if (_goldText != null && _resource != null)
+                _goldText.text = _resource.GetGold(_currentBarracks.Team).ToString();
+
+            // ── 각 유닛 생산 비용 텍스트 색상 재평가 ──
+            // 보유 골드가 해당 유닛의 생산 비용보다 적으면 빨간색, 충분하면 흰색.
+            // 골드 변경 이벤트(OnResourceChanged)가 발생할 때마다 호출되어 자동으로 갱신.
+            if (_resource != null && _unitCostTexts != null)
             {
                 int currentGold = _resource.GetGold(_currentBarracks.Team);
-                _goldText.text = currentGold.ToString();
-
-                int cheapestCost = GetCheapestUnitCost();
-                // cheapestCost가 0이면(목록 비었을 가능성) 색 변경하지 않음.
-                if (cheapestCost > 0)
-                    _goldText.color = (currentGold < cheapestCost) ? Color.red : Color.white;
-                else
-                    _goldText.color = Color.white;
+                for (int i = 0; i < _unitCostTexts.Count; i++)
+                {
+                    if (_unitCostTexts[i] == null) continue;
+                    // 활성 유닛 목록 범위를 벗어나면 색상을 흰색으로 유지
+                    if (i >= _activeUnitTypes.Count)
+                    {
+                        _unitCostTexts[i].color = Color.white;
+                        continue;
+                    }
+                    int cost = UnitProductionStats.GetGoldCost(_activeUnitTypes[i]);
+                    // 보유 골드가 이 유닛의 비용보다 적으면 빨간색으로 표시
+                    _unitCostTexts[i].color = (currentGold < cost) ? Color.red : Color.white;
+                }
             }
 
             // ── 인구 텍스트 갱신 ──
             if (_populationText != null && _population != null)
                 _populationText.text = $"{_population.GetUsedPopulation(_currentBarracks.Team)}/{_population.GetMaxPopulation(_currentBarracks.Team)}";
-        }
-
-        /// <summary>
-        /// 현재 배럭이 생산할 수 있는 유닛(_activeUnitTypes) 중 가장 저렴한 골드 비용 반환.
-        /// 비어 있으면 0 반환(색상 재평가 시 0이면 흰색 유지).
-        /// </summary>
-        private int GetCheapestUnitCost()
-        {
-            if (_activeUnitTypes == null || _activeUnitTypes.Count == 0) return 0;
-
-            int min = int.MaxValue;
-            for (int i = 0; i < _activeUnitTypes.Count; i++)
-            {
-                int cost = UnitProductionStats.GetGoldCost(_activeUnitTypes[i]);
-                if (cost < min) min = cost;
-            }
-            return (min == int.MaxValue) ? 0 : min;
         }
 
         private void UpdateButtonPortraits(TeamId team, RaceId race)

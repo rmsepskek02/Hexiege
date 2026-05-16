@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-05-16
-**현재 단계:** 랠리포인트 깃발 팀별 표시 분리 완료 (클라이언트/호스트 각자 자신의 깃발만 표시)
+**현재 단계:** 유닛 생산 실패 피드백 시스템 완료 (골드 부족/인구 초과/큐 초과 토스트 + 텍스트 색상 변경, 자동 생산 즉시 취소)
 
 ---
 
@@ -275,6 +275,17 @@
 
 ---
 
+#### 유닛 생산 실패 피드백 시스템 (2026-05-16)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 범용 토스트 UI 시스템 (ToastUI) | ✅ 완료 | DontDestroyOnLoad 독립 Canvas, 큐 방식, 터치 제거, DOTween 페이드아웃 |
+| ToastMessageConfig ScriptableObject | ✅ 완료 | Resources/Config — 메시지/노출시간 Inspector 편집 가능 |
+| 골드 부족 피드백 — 유닛 생산 비용 텍스트 빨간색 | ✅ 완료 | `_unitCostTexts[i]` 개별 평가 (보유 골드 표시 텍스트는 변경 안 함) |
+| 인구 초과 피드백 — HUD 인구수 텍스트 빨간색 | ✅ 완료 | `used >= max` 조건 매 갱신 시 색상 자동 전환 |
+| 수동 생산 실패 토스트 3종 | ✅ 완료 | GoldInsufficient / PopulationFull / ProductionQueueFull |
+| 자동 생산 자원 부족 시 즉시 취소 | ✅ 완료 | IsCharged=false 항목만 취소, IsCharged=true는 Rule 2 유지 |
+| 싱글플레이 실기 테스트 | ✅ PASS (골드부족·큐초과) | 인구초과·자동취소는 코드 검토 완료 |
+
 #### 버그 수정 및 폴리싱
 | 항목 | 상태 |
 |------|------|
@@ -298,7 +309,7 @@
 | 항목 | 파일 | 비고 |
 |------|------|------|
 | BuildFailedClientRpc UI 피드백 없음 | NetworkBuildingController | RPC 구조 완성, UI 기획 후 구현 예정 |
-| EnqueueFailedClientRpc UI 피드백 없음 | NetworkProductionController | RPC 구조 완성, UI 기획 후 구현 예정 |
+| EnqueueFailedClientRpc UI 피드백 없음 | NetworkProductionController | 싱글플레이 피드백 완료(2026-05-16). 멀티플레이 분기(RPC)는 별도 작업 예정 |
 | 재접속 실제 구현 없음 | ReconnectionHandler | 30초 대기 후 ForceWin만 |
 | 로비 UI 비주얼 폴리싱 | Lobby Views | UI 에셋 제작 후 진행 예정 |
 
