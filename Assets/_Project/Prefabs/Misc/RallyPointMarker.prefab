@@ -101,15 +101,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1794716030433781159, guid: 58fd7c1b66913af478306e90d57c41a3, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: 0.118
       objectReference: {fileID: 0}
     - target: {fileID: 1794716030433781159, guid: 58fd7c1b66913af478306e90d57c41a3, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.05
+      value: 0.018
       objectReference: {fileID: 0}
     - target: {fileID: 1794716030433781159, guid: 58fd7c1b66913af478306e90d57c41a3, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: -0.211
       objectReference: {fileID: 0}
     - target: {fileID: 1794716030433781159, guid: 58fd7c1b66913af478306e90d57c41a3, type: 3}
       propertyPath: m_LocalRotation.w
@@ -129,7 +129,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1794716030433781159, guid: 58fd7c1b66913af478306e90d57c41a3, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
+      value: 90
       objectReference: {fileID: 0}
     - target: {fileID: 1794716030433781159, guid: 58fd7c1b66913af478306e90d57c41a3, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
@@ -142,6 +142,18 @@ PrefabInstance:
     - target: {fileID: 4259467024044578219, guid: 58fd7c1b66913af478306e90d57c41a3, type: 3}
       propertyPath: m_Name
       value: Eff_RallyPoint_Wave
+      objectReference: {fileID: 0}
+    - target: {fileID: 6062715275301001161, guid: 58fd7c1b66913af478306e90d57c41a3, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.b
+      value: 0.6226415
+      objectReference: {fileID: 0}
+    - target: {fileID: 6062715275301001161, guid: 58fd7c1b66913af478306e90d57c41a3, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.g
+      value: 0.0026611022
+      objectReference: {fileID: 0}
+    - target: {fileID: 6062715275301001161, guid: 58fd7c1b66913af478306e90d57c41a3, type: 3}
+      propertyPath: InitialModule.startColor.maxColor.r
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
