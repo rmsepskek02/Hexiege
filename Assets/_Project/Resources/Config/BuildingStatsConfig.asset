@@ -14,32 +14,357 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.BuildingStatsConfig
   _stats:
   - buildingType: 0
-    humanMaxHp: 100
-    spiritMaxHp: 100
-    transcendenceMaxHp: 200
+    humanMaxHp: 200
+    spiritMaxHp: 150
+    transcendenceMaxHp: 300
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 0
     humanAttackPower: 0
     spiritAttackPower: 0
     transcendenceAttackPower: 0
+    upgradeCost: 0
   - buildingType: 1
-    humanMaxHp: 30
-    spiritMaxHp: 30
-    transcendenceMaxHp: 50
-    humanGoldCost: 100
-    spiritGoldCost: 100
+    humanMaxHp: 100
+    spiritMaxHp: 50
+    transcendenceMaxHp: 150
+    humanGoldCost: 50
+    spiritGoldCost: 50
     transcendenceGoldCost: 100
     humanAttackPower: 0
     spiritAttackPower: 0
     transcendenceAttackPower: 0
+    upgradeCost: 0
   - buildingType: 2
-    humanMaxHp: 20
-    spiritMaxHp: 20
-    transcendenceMaxHp: 40
-    humanGoldCost: 50
-    spiritGoldCost: 50
-    transcendenceGoldCost: 50
+    humanMaxHp: 50
+    spiritMaxHp: 150
+    transcendenceMaxHp: 100
+    humanGoldCost: 150
+    spiritGoldCost: 200
+    transcendenceGoldCost: 175
+    humanAttackPower: 15
+    spiritAttackPower: 15
+    transcendenceAttackPower: 15
+    humanAttackCooldown: 5
+    spiritAttackCooldown: 3.5
+    transcendenceAttackCooldown: 5
+    upgradeCost: 0
+  - buildingType: 3
+    humanMaxHp: 100
+    spiritMaxHp: 0
+    transcendenceMaxHp: 0
+    humanGoldCost: 200
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
     humanAttackPower: 0
     spiritAttackPower: 0
     transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 4
+    humanMaxHp: 100
+    spiritMaxHp: 100
+    transcendenceMaxHp: 150
+    humanGoldCost: 200
+    spiritGoldCost: 200
+    transcendenceGoldCost: 200
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 5
+    humanMaxHp: 0
+    spiritMaxHp: 100
+    transcendenceMaxHp: 150
+    humanGoldCost: 0
+    spiritGoldCost: 200
+    transcendenceGoldCost: 200
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 6
+    humanMaxHp: 0
+    spiritMaxHp: 0
+    transcendenceMaxHp: 50
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 100
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 7
+    humanMaxHp: 100
+    spiritMaxHp: 0
+    transcendenceMaxHp: 0
+    humanGoldCost: 100
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 100
+  - buildingType: 8
+    humanMaxHp: 200
+    spiritMaxHp: 0
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 200
+  - buildingType: 9
+    humanMaxHp: 300
+    spiritMaxHp: 0
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 10
+    humanMaxHp: 100
+    spiritMaxHp: 0
+    transcendenceMaxHp: 0
+    humanGoldCost: 100
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 100
+  - buildingType: 11
+    humanMaxHp: 200
+    spiritMaxHp: 0
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 200
+  - buildingType: 12
+    humanMaxHp: 300
+    spiritMaxHp: 0
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 13
+    humanMaxHp: 100
+    spiritMaxHp: 0
+    transcendenceMaxHp: 0
+    humanGoldCost: 100
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 100
+  - buildingType: 14
+    humanMaxHp: 200
+    spiritMaxHp: 0
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 15
+    humanMaxHp: 0
+    spiritMaxHp: 50
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 75
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 200
+  - buildingType: 16
+    humanMaxHp: 0
+    spiritMaxHp: 100
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 400
+  - buildingType: 17
+    humanMaxHp: 0
+    spiritMaxHp: 400
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 18
+    humanMaxHp: 0
+    spiritMaxHp: 50
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 75
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 200
+  - buildingType: 19
+    humanMaxHp: 0
+    spiritMaxHp: 100
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 400
+  - buildingType: 20
+    humanMaxHp: 0
+    spiritMaxHp: 400
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 21
+    humanMaxHp: 0
+    spiritMaxHp: 50
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 75
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 200
+  - buildingType: 22
+    humanMaxHp: 0
+    spiritMaxHp: 100
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 400
+  - buildingType: 23
+    humanMaxHp: 0
+    spiritMaxHp: 400
+    transcendenceMaxHp: 0
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 24
+    humanMaxHp: 0
+    spiritMaxHp: 0
+    transcendenceMaxHp: 150
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 125
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 200
+  - buildingType: 25
+    humanMaxHp: 0
+    spiritMaxHp: 0
+    transcendenceMaxHp: 300
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 300
+  - buildingType: 26
+    humanMaxHp: 0
+    spiritMaxHp: 0
+    transcendenceMaxHp: 400
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 27
+    humanMaxHp: 0
+    spiritMaxHp: 0
+    transcendenceMaxHp: 150
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 125
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 200
+  - buildingType: 28
+    humanMaxHp: 0
+    spiritMaxHp: 0
+    transcendenceMaxHp: 300
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 300
+  - buildingType: 29
+    humanMaxHp: 0
+    spiritMaxHp: 0
+    transcendenceMaxHp: 400
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0
+  - buildingType: 30
+    humanMaxHp: 0
+    spiritMaxHp: 0
+    transcendenceMaxHp: 150
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 125
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 200
+  - buildingType: 31
+    humanMaxHp: 0
+    spiritMaxHp: 0
+    transcendenceMaxHp: 300
+    humanGoldCost: 0
+    spiritGoldCost: 0
+    transcendenceGoldCost: 0
+    humanAttackPower: 0
+    spiritAttackPower: 0
+    transcendenceAttackPower: 0
+    upgradeCost: 0

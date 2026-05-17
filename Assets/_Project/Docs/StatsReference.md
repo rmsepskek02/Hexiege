@@ -1,6 +1,6 @@
 # Hexiege — 스탯 레퍼런스
 
-**최종 수정일:** 2026-05-12
+**최종 수정일:** 2026-05-17
 
 ---
 
@@ -31,7 +31,7 @@
 
 | 유닛 | HP | 공격력 | 공격 사거리 (타일) | 감지 사거리 (타일) | 이동속도 (칸/초) | 공격 쿨다운 (초) | 생산 시간 | 골드 비용 | 인구 | 비고 |
 |------|----|--------|--------------------|--------------------|------------------|------------------|-----------|-----------|------|------|
-| EmberSpirit | 30 | 5 | 0.5 | 1.0 | 0.5 | 1:00(2:20) | 5초 | 50 | 1 | |
+| EmberSpirit | 35 | 6 | 0.5 | 1.0 | 0.5 | 1:00(2:20) | 5초 | 50 | 1 | |
 | FlameSpirit | 50 | 2 | 0.5 | 1.0 | 2 | 0:20,1:05,1:13,1:20,1:28,2:03(3:00) | 15초 | 200 | 1 | 6히트 공격 |
 | InfernoSpirit | 100 | 25 | 4.0 | 4.0 | 1 | 1:15(3:00) | 30초 | 500 | 1 | |
 | DustSpirit | - | - | - | - | - | - | - | - | - | |
@@ -58,34 +58,111 @@
 
 ## 건물 — 인간계 (Human)
 
-| 건물 | HP | 건설 비용 |
-|------|----|-----------|
-| 본기지 (Castle) | 100 | - (자동 배치) |
-| 배럭 (Barracks) | 30 | 100 골드 |
-| 채굴소 (MiningPost) | 20 | 50 골드 |
-| 자동포탑 (CannonTower) | - | - |
-| 비행시설 (FlightFacility) | - | - |
-| 기술연구소 (TechnicalLaboratory) | - | - |
+### 기지 & 채굴소
+
+| 건물 | BuildingType | HP | 건설 비용 | 수입(골드/초) |
+|------|-------------|-----|-----------|--------------|
+| 본기지 (Castle) | Castle | 200 | - | - |
+| 채굴소 (MiningPost) | MiningPost | 100 | 50 | 5 |
+
+### 생산 건물
+
+| 건물 | BuildingType | HP | 건설 비용 | 업그레이드 비용 |
+|------|-------------|-----|-----------|----------------|
+| 근거리A 1단계 (TrainingCamp) | TrainingCamp | 100 | 100 | - |
+| 근거리A 2단계 (WarAcademy) | WarAcademy | 200 | - | 100 |
+| 근거리A 3단계 (HumanBarracks) | HumanBarracks | 300 | - | 200 |
+| 총기류 1단계 (Gunsmith) | Gunsmith | 100 | 100 | - |
+| 총기류 2단계 (Armory) | Armory | 200 | - | 100 |
+| 총기류 3단계 (WeaponForge) | WeaponForge | 300 | - | 200 |
+| 탈것류 1단계 (Garage) | Garage | 100 | 100 | - |
+| 탈것류 2단계 (VehicleBay) | VehicleBay | 200 | - | 100 |
+
+### 방어 건물
+
+| 건물 | BuildingType | HP | 건설 비용 | 공격력 | 공격 사거리 | 공격 쿨다운 |
+|------|-------------|-----|-----------|--------|------------|------------|
+| 자동포탑 (CannonTower) | AutoTower | 50 | 150 | 15 | 4.0 | 5.0s |
+
+### 특수 건물
+
+| 건물 | BuildingType | HP | 건설 비용 | 힐량 | 효과 |
+|------|-------------|-----|-----------|------|------|
+| 비행시설 (FlightFacility) | FlightFacility | 100 | 200 | - | - |
+| 기술연구소 (TechnicalLaboratory) | Research | 100 | 200 | - | - |
+
+---
 
 ## 건물 — 정령계 (Spirit)
 
-| 건물 | HP | 건설 비용 |
-|------|----|-----------|
-| SpiritNexus | 100 | - (자동 배치) |
-| SummoningAltar | 30 | 100 |
-| ManaRift | 20 | 50 |
-| RuneSpire | - | - |
-| MagicSpirit | - | - |
-| AstronomicalSpirit | - | - |
+### 기지 & 채굴소
+
+| 건물 | BuildingType | HP | 건설 비용 | 수입(골드/초) |
+|------|-------------|-----|-----------|--------------|
+| 본기지 (SpiritNexus) | Castle | 150 | - | - |
+| 채굴소 (ManaRift) | MiningPost | 50 | 50 | 5 |
+
+### 생산 건물
+
+| 건물 | BuildingType | HP | 건설 비용 | 업그레이드 비용 |
+|------|-------------|-----|-----------|----------------|
+| 불 1단계 (FireSpire) | FireSpire | 50 | 75 | - |
+| 불 2단계 (BlazeConduit) | BlazeConduit | 100 | - | 200 |
+| 불 3단계 (InfernoCore) | InfernoCore | 400 | - | 400 |
+| 물 1단계 (AquaSpring) | AquaSpring | 50 | 75 | - |
+| 물 2단계 (TidalNexus) | TidalNexus | 100 | - | 200 |
+| 물 3단계 (OceanicHeart) | OceanicHeart | 400 | - | 400 |
+| 땅 1단계 (StoneMound) | StoneMound | 50 | 75 | - |
+| 땅 2단계 (TerraForge) | TerraForge | 100 | - | 200 |
+| 땅 3단계 (GaeaSanctum) | GaeaSanctum | 400 | - | 400 |
+
+### 방어 건물
+
+| 건물 | BuildingType | HP | 건설 비용 | 공격력 | 공격 사거리 | 공격 쿨다운 |
+|------|-------------|-----|-----------|--------|------------|------------|
+| 방어포탑 (RuneSpire) | AutoTower | 150 | 200 | 15 | 4.0 | 3.5s |
+
+### 특수 건물
+
+| 건물 | BuildingType | HP | 건설 비용 | 힐량 | 효과 |
+|------|-------------|-----|-----------|------|------|
+| 마법건물 (MagicSpirit) | MagicBuilding | 100 | 200 | - | - |
+| 연구건물 (AstronomicalSpirit) | Research | 100 | 200 | - | - |
+
+---
 
 ## 건물 — 초월계 (Transcendence)
 
-| 건물 | HP | 건설 비용 |
-|------|----|-----------|
-| ElderTree | 200 | - (자동 배치) |
-| FungalNode | 50 | 100 |
-| HunterPlant | 40 | 50 |
-| VineTower | - | - |
-| PrimalAltar | - | - |
-| MistShrine | - | - |
-| WillowShrine | - | - |
+### 기지 & 채굴소
+
+| 건물 | BuildingType | HP | 건설 비용 | 수입(골드/초) |
+|------|-------------|-----|-----------|--------------|
+| 본기지 (ElderTree) | Castle | 300 | - | - |
+| 채굴소 (FungalNode) | MiningPost | 150 | 100 | 5 |
+
+### 생산 건물
+
+| 건물 | BuildingType | HP | 건설 비용 | 업그레이드 비용 |
+|------|-------------|-----|-----------|----------------|
+| 동물A 1단계 (PrimalAltar) | PrimalAltar | 150 | 125 | - |
+| 동물A 2단계 (PrimalDen) | PrimalDen | 300 | - | 200 |
+| 동물A 3단계 (PrimalSanctuary) | PrimalSanctuary | 400 | - | 300 |
+| 동물B 1단계 (FeralAltar) | FeralAltar | 150 | 125 | - |
+| 동물B 2단계 (FeralDen) | FeralDen | 300 | - | 200 |
+| 동물B 3단계 (FeralSanctuary) | FeralSanctuary | 400 | - | 300 |
+| 식물 1단계 (SporePatch) | SporePatch | 150 | 125 | - |
+| 식물 2단계 (FloralNursery) | FloralNursery | 300 | - | 200 |
+
+### 방어 건물
+
+| 건물 | BuildingType | HP | 건설 비용 | 공격력 | 공격 사거리 | 공격 쿨다운 |
+|------|-------------|-----|-----------|--------|------------|------------|
+| 방어포탑 (VineTower) | AutoTower | 100 | 175 | 15 | 4.0 | 5.0s |
+
+### 특수 건물
+
+| 건물 | BuildingType | HP | 건설 비용 | 힐량 | 효과 |
+|------|-------------|-----|-----------|------|------|
+| 힐 건물 (MistShrine) | HealShrine | 50 | 100 | 1 HP/s (범위 3) | - |
+| 마법건물 (WillowShrine) | MagicBuilding | 150 | 200 | - | - |
+| 연구건물 (AncientGrove) | Research | 150 | 200 | - | - |

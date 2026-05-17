@@ -36,7 +36,7 @@ MonoBehaviour:
   BuildingYOffset: 0.1
   CongestionDecayInterval: 5
   CongestionWeight: 1
-  _rallyPointPrefab: {fileID: 221429504860326395, guid: 9a7970d384ace6747b4f5ecd884b69e8, type: 3}
+  _rallyPointPrefab: {fileID: 5350369924232257247, guid: 2614f324f210dec4fb11c09b66ffd9b1, type: 3}
   _rallyMarkerOffset: {x: 0.1, y: 0.28, z: 0}
   _rallyMarkerEuler: {x: -90, y: 180, z: 0}
   CameraZoomMin: 2

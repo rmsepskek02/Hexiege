@@ -5,7 +5,7 @@
 // 인터랙션 흐름:
 //   1. InputHandler가 자기 팀 빈 타일 탭 감지
 //   2. BuildingPlacementUI.Show(coord, team) 호출 → 팝업 표시
-//   3. 플레이어가 배럭/채굴소 버튼 탭 → PlaceAndClose() → 건물 배치 + 팝업 닫기
+//   3. 플레이어가 건물 버튼 탭 → PlaceAndClose() → 건물 배치 + 팝업 닫기
 //   4. Background 터치, CancelButton → Close()
 //
 // Castle은 게임 시작 시 자동 배치되므로 이 UI에 포함하지 않음.
@@ -16,9 +16,10 @@
 //     │   ├─ Background (전체화면 검은 오버레이 + Button → Close)
 //     │   ├─ CancelButton
 //     │   └─ BuildingPanel
-//     │       └─ VerticalButtons (Vertical Layout Group)
-//     │           ├─ Buttons1 (Horizontal Layout) — Castle, Barracks, MiningPost
-//     │           └─ Buttons2 (Horizontal Layout) — Castle, Barracks, MiningPost
+//     │       └─ BuildingButtonGrid (Layout Group)
+//     │           └─ Button × N (종족별 건물 수에 맞게 구성)
+//     │               Human/Spirit: 생산건물 3종 + 비생산건물 3종 + 채굴소 = 7개
+//     │               Transcendence: 생산건물 3종 + 비생산건물 4종 + 채굴소 = 8개
 //     └─ EventSystem
 //
 // BuildingPopup 래퍼 하나를 SetActive 토글하면 하위 전체(Background + Panel)가 함께 제어됨.
@@ -73,10 +74,12 @@ namespace Hexiege.Presentation
             public Sprite icon;
         }
 
-        [Header("Building Entries — 종족+팀별 (팀×종족 = 6세트)")]
+        [Header("Blue Team — Building Entries")]
         [SerializeField] private List<BuildingPortraitEntry> _blueHumanBuildings;
         [SerializeField] private List<BuildingPortraitEntry> _blueSpiritBuildings;
         [SerializeField] private List<BuildingPortraitEntry> _blueTranscendenceBuildings;
+
+        [Header("Red Team — Building Entries")]
         [SerializeField] private List<BuildingPortraitEntry> _redHumanBuildings;
         [SerializeField] private List<BuildingPortraitEntry> _redSpiritBuildings;
         [SerializeField] private List<BuildingPortraitEntry> _redTranscendenceBuildings;

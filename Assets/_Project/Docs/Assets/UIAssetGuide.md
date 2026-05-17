@@ -1,14 +1,39 @@
 # UI 에셋 제작 가이드
 
-> **제작 흐름**: Gemini로 2D 이미지 생성 → Unity Sprite로 Import
+> **제작 흐름**: AI 이미지 생성 → Unity Sprite로 Import
 >
 > 공통 규칙(프로젝트 컨셉, 프롬포트 원칙, 공통 이미지 조건) → [CommonAssetGuide.md](CommonAssetGuide.md)
 
 ---
 
-## UI 에셋 종류
+## ⚠️ 절대 규칙 — 모든 AI 도구 공통, 예외 없음
 
-현재 사용 중이거나 사용 예정인 UI 에셋 카테고리:
+**이미지 생성 규칙**
+
+| 규칙 | 내용 |
+|------|------|
+| **해상도** | **1024 × 1024** — 아이콘, 버튼, 초상화, 패널 전부 동일 |
+| **배경** | **투명 (transparent)** |
+| **버튼 비율** | 반드시 **1:1 정사각형**으로 제작 — 가로 비율 조정은 Unity 9-Slice로 처리 |
+
+**프롬프트를 사용자에게 제공할 때 반드시 포함해야 할 3가지**
+
+**1. Positive / Negative를 하나의 코드 블록 안에 함께 작성**
+```
+Positive: [영어 프롬프트 내용]
+Negative: [제외할 영어 키워드]
+```
+❌ Positive 코드 블록 + Negative 코드 블록으로 분리 금지
+
+**2. 각 항목의 의미를 한글로 설명**
+- 영어 키워드가 어떤 의도인지 한글로 함께 설명
+
+**3. 프로젝트 내 레퍼런스 에셋 언급**
+- `Assets/_Project/Sprites/` 하위에 존재하는 기존 에셋과 스타일을 맞춰야 하는 경우, 어떤 에셋을 참고하면 좋은지 명시
+
+---
+
+## UI 에셋 종류
 
 | 카테고리 | 설명 | 예시 |
 |---------|------|------|
@@ -26,67 +51,32 @@
 
 | 항목 | 3D 에셋 (유닛/건물) | UI 에셋 |
 |------|-------------------|---------|
-| **제작 흐름** | Gemini → Meshy AI → Unity | Gemini → Unity (직접) |
+| **제작 흐름** | Gemini/GPT → Meshy AI → Unity | AI 이미지 생성 → Unity (직접) |
 | **Meshy AI 변환** | 필요 | 불필요 |
 | **앵글** | 정면 / 55도 이소메트릭 | 정면 플랫 (2D 기준) |
 | **포즈 고려** | 필요 (유닛) | 불필요 |
-| **배경** | 순수 흰색 (Meshy 분리용) | 투명 또는 순수 흰색 |
+| **배경** | 순수 흰색 (Meshy 분리용) | 투명 |
 | **Unity Import** | FBX / GLB | Sprite (PNG) |
 
 ---
 
 ## 유닛 초상화 제작 흐름
 
-> Meshy AI에서 3D 모델을 만들 때 사용했던 원본 2D 컨셉 이미지를 Gemini에 첨부하여 초상화를 생성한다.
+> Meshy AI에서 3D 모델을 만들 때 사용했던 원본 2D 컨셉 이미지를 AI에 첨부하여 초상화를 생성한다.
 > 동일한 원본 이미지를 레퍼런스로 사용하기 때문에 3D 모델과 시각적 일관성이 유지된다.
 
 ```
 [1] Meshy AI 3D 모델 제작 시 사용했던 원본 2D 컨셉 이미지 준비
       ↓
-[2] Gemini에 원본 2D 컨셉 이미지 + 아래 템플릿 프롬포트 전달
+[2] AI에 원본 2D 컨셉 이미지 + 아래 템플릿 프롬포트 전달
       ↓
-[3] Gemini에서 2D 카툰 초상화 이미지 생성
+[3] 2D 카툰 초상화 이미지 생성
       ↓
 [4] 팀별 컬러(Red / Blue) 적용 버전 각각 생성
       ↓
 [5] Unity에서 Sprite로 Import
       ↓
 [6] Assets/_Project/Sprites/Units/[유닛명]/ 폴더에 배치
-```
-
-### 초상화 Gemini 요청 템플릿
-
-원본 2D 컨셉 이미지를 Gemini에 첨부하면서 아래 내용을 함께 전달한다.
-
-```
-첨부한 2D 이미지를 참고해서 아래 조건에 맞는 2D 카툰 초상화 이미지를 생성해줘.
-이 첨부 이미지는 Meshy AI에서 3D 모델을 만들 때 사용했던 원본 컨셉 이미지야.
-생산 패널 초상화로 사용할 거야.
-
-[유닛 정보]
-- 유닛명: [예: Pistoleer / 권총병]
-- 종족: [Human / Spirit / Transcendence]
-- 팀 컬러: [Red (주황-빨간 계열) / Blue (파란 계열)]
-- 역할: [예: 권총을 든 원거리 보병]
-
-[게임 정보]
-- 게임: Hexiege — 헥스 타일 기반 1v1 RTS, 모바일 세로 모드
-- 비주얼: Clash of Clans / Clash Royale 풍 카툰 스타일
-- 구도: 상반신 클로즈업 초상화 (얼굴~가슴 위주)
-
-[필수 조건]
-- 프롬포트는 영어로 작성하고, 각 항목의 의미를 한글로 설명해줘
-- Positive / Negative 두 섹션으로 명확히 나눠줘
-- 프롬포트는 하나로 합쳐서 작성해줘 (여러 개로 나누지 말 것)
-- 이 에셋에 어울리는 레퍼런스를 어디서 찾으면 좋을지 알려줘
-
-[이미지 조건]
-- 배경: 투명 또는 순수 흰색
-- 해상도: 1024 × 1024
-- 스타일: cartoon stylized, 2D portrait, vibrant colors, bold outline
-- 구도: 상반신 클로즈업 (chest-up portrait), 정면 또는 약 3/4 앵글
-- 팀 컬러를 갑옷, 무기, 액세서리 등에 반영해줘
-- 블루팀은 파란색 외곽선, 레드팀은 빨간색 외곽선을 포함하여 제작하며 외곽선은 얇은 선으로 제작
 ```
 
 ### 팀 컬러 가이드
@@ -98,39 +88,6 @@
 
 > 팀 컬러는 전체 색상을 바꾸는 것이 아니라 포인트 컬러로 적용한다.
 > 예: 권총병 피부색/복장 기본 톤 유지 + 어깨 갑옷만 Red 또는 Blue로 변경
-
----
-
-## Gemini 요청 템플릿 (일반 UI 에셋)
-
-아래 템플릿을 복사해서 [대괄호] 항목만 채워 Gemini에게 요청한다.
-
-```
-다음 조건에 맞는 UI 이미지를 생성해줘. 이 이미지는 모바일 게임 UI에 직접 사용할 거야.
-
-[에셋 정보]
-- 종류: [아이콘 / 버튼 / 패널 배경 / 바 / 슬롯 / 장식 요소]
-- 이름 / 설명: [예: 골드 아이콘, 동전 모양의 HUD 자원 아이콘]
-- 사용 위치: [예: HUD 상단, 건물 정보 패널, 생산 패널]
-
-[게임 정보]
-- 게임: Hexiege — 헥스 타일 기반 1v1 RTS, 모바일 세로 모드
-- 비주얼: Clash of Clans / Clash Royale 풍 카툰 스타일
-- 해상도: 1080 × 1920 기준
-
-[필수 조건]
-- 프롬포트는 영어로 작성하고, 각 항목의 의미를 한글로 설명해줘
-- Positive / Negative 두 섹션으로 명확히 나눠줘
-- 프롬포트는 하나로 합쳐서 작성해줘 (여러 개로 나누지 말 것)
-- 이 에셋에 어울리는 레퍼런스를 어디서 찾으면 좋을지 알려줘
-
-[이미지 조건]
-- 배경: 투명 또는 순수 흰색
-- 해상도: 1024 × 1024 (모든 UI 에셋 동일)
-- 스타일: cartoon stylized, flat game UI, vibrant colors
-- 단일 오브젝트 (아이콘 하나 또는 버튼 하나만)
-- 조명: 균일하고 부드러운 조명
-```
 
 ---
 
@@ -174,7 +131,6 @@ multiple objects in frame, dark gloomy colors, muted colors
 
 ### 버튼
 텍스트가 들어갈 공간을 고려해 중앙 영역은 단순하게 유지한다.
-1:1 정사각형으로 제작하고, Unity의 9-Slice 설정으로 원하는 가로 비율로 늘려 사용한다.
 ```
 추가 Positive: button frame, rounded corners, cartoon game button, center area clean for text
 추가 Negative: text on button, icon on button, overly decorative center
@@ -209,34 +165,12 @@ HP 바, 생산 진행 바 등 수치를 시각화하는 프레임이다.
 ```
 
 ### 장식 요소 (구분선, 뱃지 등)
-투명 배경이 필수다.
 게임 전체 테마와 어울리는 소재감(금속, 돌, 나무 등)을 사용한다.
 ```
 추가 Positive: transparent background, decorative divider, fantasy UI ornament
 추가 Negative: solid background, plain line, modern flat design
 ```
 
----
-
-## 2D 이미지 주의사항 (UI 특화)
-
-### 1. 선명하고 진한 색상 사용
-모바일 화면에서 작게 표시되므로 탁하거나 파스텔 톤은 가독성이 떨어진다.
-```
-요청 키워드: vibrant colors, saturated colors, bold colors
-Negative 키워드: pastel, muted, washed out, desaturated
-```
-
-### 2. 외곽선(Outline) 포함 권장
-카툰 스타일 UI는 외곽선이 있어야 3D 에셋과 시각적으로 통일감이 생긴다.
-```
-요청 키워드: bold outline, cartoon outline, thick outline
-```
-
-### 3. 초상화는 팀별로 각각 생성
-Red / Blue 두 버전을 따로 요청한다.
-팀 컬러를 갑옷이나 액세서리 포인트 컬러로 적용하고 캐릭터 기본 톤은 유지한다.
-chest-up 이미지로 생성한다.
 ---
 
 ## Unity Sprite Import 설정
@@ -247,7 +181,7 @@ Sprite Mode           : Single
 Pixels Per Unit       : 100
 Filter Mode           : Bilinear
 Compression           : ASTC (모바일)
-Alpha Is Transparency : ON (투명 배경 사용 시)
+Alpha Is Transparency : ON
 ```
 
 ---
