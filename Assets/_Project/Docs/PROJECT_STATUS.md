@@ -295,6 +295,23 @@
 | ToastUI SetActive 버그 수정 | ✅ 완료 | ClearAll/FinishCurrent의 SetActive(false) 제거 → CanvasGroup.blocksRaycasts+interactable로 대체. 루트 항상 활성 유지 |
 | 싱글플레이 실기 테스트 | ✅ PASS | 골드 부족 비용 텍스트 빨간색, 토스트 메시지, 팝업 유지 동작 확인 |
 
+#### 건물 업그레이드 시스템 (2026-05-17~18)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| BuildingType enum 26종 확장 | ✅ 완료 | 단일 Barracks 제거 → 종족별 생산라인×단계(1/2/3) |
+| BuildingTypeHelper.cs 신설 (Domain) | ✅ 완료 | IsProductionBuilding / GetStage / GetNextStage / CanUpgrade |
+| BuildingData.Stage 파생 프로퍼티 | ✅ 완료 | BuildingType에서 도출, 별도 저장 없음 |
+| BuildingStats.GetUpgradeCost + GetTotalInvestedCost | ✅ 완료 | 업그레이드 비용 조회 + 누적 투자비 캐시 |
+| BuildingStatsConfig.upgradeCost 필드 | ✅ 완료 | 32종 BuildingType Inspector 설정 완료 |
+| GameEvents.OnBuildingUpgraded | ✅ 완료 | BuildingUpgradedEvent(OldBuildingId, NewBuilding) |
+| BuildingPlacementUseCase.UpgradeBuilding() | ✅ 완료 | 기존 BuildingData 제거 → 다음 단계 BuildingData 생성 |
+| BuildingFactory.UpgradeBuildingObject() | ✅ 완료 | 새 GO 먼저 생성 → 기존 GO Destroy (빈 타일 방지) |
+| NetworkBuildingController 업그레이드 RPC | ✅ 완료 | RequestUpgradeServerRpc / UpgradeBuildingClientRpc |
+| ProductionPanelUI BuildingUnitMapping 구조 | ✅ 완료 | BuildingType별 유닛 라인업 + requiredStage 단계별 잠금 |
+| ToastKey.UpgradeRequired + ToastMessageConfig | ✅ 완료 | 잠금 유닛 탭 시 "건물 업그레이드가 필요합니다" 토스트 |
+| GameBootstrapper 누적 투자비 캐싱 | ✅ 완료 | 단계별 체인 순회 → BuildingStats._totalInvestedCostCache |
+| 신규 3D 에셋 (HumanBarracks, AncientGrove, PrimalSanctuary) | ✅ 완료 | Blue/Red 프리팹 + 머티리얼 |
+
 #### ProductionPopup UI 레이아웃 재구성 (2026-05-18)
 | 항목 | 상태 | 비고 |
 |------|------|------|

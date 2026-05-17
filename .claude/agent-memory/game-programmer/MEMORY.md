@@ -48,14 +48,14 @@
 
 **SetupBuildingStatsConfig.cs** (Editor): Barracks 1행 → 24행(생산건물 전체)로 확장. 기본값 정책 = 1단계 30HP/100G/80U, 2단계 45HP/150G/120U, 3단계 60HP/200G/0U (Trans HP ×1.6~2).
 
-**남은 Inspector 작업** (코드 외):
-- `BuildingFactory` 프리팹 리스트 — 각 BuildingType별 Blue/Red 프리팹 연결
-- `BuildingPlacementUI` 6개 종족별 리스트를 각 라인의 1단계 건물로 재구성
-- `ProductionPanelUI._buildingUnitMappings` — 각 BuildingType별 유닛 라인업 + requiredStage 설정
-- `ProductionPanelUI._unitLockIndicators` — 각 버튼 위 잠금 오버레이 GO 생성/연결
-- `ProductionPanelUI._upgradeButton` + `_upgradeCostText` UI 추가
+**Inspector 작업 전체 완료 (2026-05-18)**:
+- `BuildingFactory` 프리팹 리스트 — ✅ **완료**: 각 BuildingType별 Blue/Red 프리팹 연결
+- `BuildingPlacementUI` 6개 종족별 리스트 — ✅ **완료**: 각 라인의 1단계 건물로 재구성
+- `ProductionPanelUI._buildingUnitMappings` — ✅ **완료 (2026-05-18)**: 각 BuildingType별 유닛 라인업 + requiredStage 설정
+- `ProductionPanelUI._unitLockIndicators` — ✅ **완료**: 각 버튼 위 잠금 오버레이 GO 생성/연결
+- `ProductionPanelUI._upgradeButton` + `_upgradeCostText` — ✅ **완료**: UI 추가
 - `BuildingStatsConfig.asset` — ✅ **완료 (2026-05-18)**: 32개 BuildingType 전체 항목 채움. StatsReference.md 기준 HP/비용/공격력/업그레이드비용 전종 적용. AutoTower 종족별 AttackCooldown(Human 5.0s, Spirit 3.5s, Trans 5.0s) 적용.
-- `ToastMessageConfig.asset` — `UpgradeRequired` 키 메시지 추가
+- `ToastMessageConfig.asset` — ✅ **완료 (2026-05-18)**: key 3 `UpgradeRequired` 추가 (message: "건물 업그레이드가 필요합니다", duration: 1 — Unity 자동 정규화)
 
 **주의 — 직렬화 영향**: `BuildingType` 열거형 순서 변경 → 씬/에셋의 기존 Barracks=1 인덱스 직렬화 데이터가 다른 enum 값으로 덮어쓰임. 개발 단계에서 허용했으나 Inspector 모든 항목 재검토 필요.
 

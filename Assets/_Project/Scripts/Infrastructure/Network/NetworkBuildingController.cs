@@ -287,5 +287,160 @@ namespace Hexiege.Infrastructure
             // BuildingStats 도메인 클래스를 통해 종족별/건물별 비용 조회
             return BuildingStats.GetGoldCost(type, race);
         }
+
+        // ====================================================================
+        // 업그레이드 — ServerRpc / ClientRpc
+        // ====================================================================
+
+        /// <summary>
+        /// 건물 업그레이드 요청. 클라이언트의 업그레이드 버튼 클릭 시 호출.
+        /// 서버에서 소유권·골드를 다시 검증한 후 UpgradeBuilding 실행,
+        /// 성공 시 UpgradeBuildingClientRpc로 모든 클라이언트에 동기화.
+        /// </summary>
+        /// <param name="buildingId">업그레이드 대상 건물 Id.</param>
+        /// <param name="rpcParams">서버 RPC 파라미터(발신자 ClientId 포함).</param>
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestUpgradeServerRpc(int buildingId, ServerRpcParams rpcParams = default)
+        {
+            ulong senderClientId = rpcParams.Receive.SenderClientId;
+
+            Debug.Log($"[Network] 건물 업그레이드 요청 수신. ClientId={senderClientId}, BuildingId={buildingId}");
+
+            if (_bootstrapper == null)
+                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+
+            if (_bootstrapper == null)
+            {
+                Debug.LogError("[Network] RequestUpgradeServerRpc: GameBootstrapper를 찾을 수 없습니다.");
+                SendBuildFailed(senderClientId, "서버 초기화 오류");
+                return;
+            }
+
+            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
+            ResourceUseCase resource = _bootstrapper.GetResource();
+
+            if (buildingPlacement == null || resource == null)
+            {
+                Debug.LogError("[Network] RequestUpgradeServerRpc: UseCase가 null입니다.");
+                SendBuildFailed(senderClientId, "맵 로드 중");
+                return;
+            }
+
+            // 1) 건물 조회 + 존재 확인
+            BuildingData old = buildingPlacement.GetBuilding(buildingId);
+            if (old == null)
+            {
+                Debug.LogWarning($"[Network] 업그레이드 대상 건물 없음. Id={buildingId}");
+                SendBuildFailed(senderClientId, "건물 없음");
+                return;
+            }
+
+            // 2) 소유권 검증 (발신자 ClientId → 기대 팀 매핑과 건물 팀이 일치해야 함)
+            TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
+            if (old.Team != expectedTeam)
+            {
+                Debug.LogWarning($"[Network] 업그레이드 소유권 불일치. 발신자={senderClientId}, 건물팀={old.Team}, 기대팀={expectedTeam}");
+                SendBuildFailed(senderClientId, "소유권 불일치");
+                return;
+            }
+
+            // 3) 업그레이드 가능 여부
+            BuildingType? nextOpt = BuildingTypeHelper.GetNextStage(old.Type);
+            if (!nextOpt.HasValue)
+            {
+                Debug.LogWarning($"[Network] 업그레이드 불가 (최고 단계). Type={old.Type}");
+                SendBuildFailed(senderClientId, "최고 단계");
+                return;
+            }
+
+            // 4) 골드 검증
+            int upgradeCost = BuildingStats.GetUpgradeCost(old.Type);
+            if (!resource.CanAfford(old.Team, upgradeCost))
+            {
+                Debug.LogWarning($"[Network] 업그레이드 골드 부족. 팀={old.Team}, 비용={upgradeCost}, 현재={resource.GetGold(old.Team)}");
+                SendBuildFailed(senderClientId, "골드 부족");
+                return;
+            }
+
+            // 5) 서버 측 업그레이드 실행 (BuildingData 교체 + 이벤트 발행)
+            RaceId race = old.Team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+            BuildingData newBuilding = buildingPlacement.UpgradeBuilding(buildingId, race);
+            if (newBuilding == null)
+            {
+                Debug.LogWarning($"[Network] 서버 업그레이드 실행 실패. Id={buildingId}");
+                SendBuildFailed(senderClientId, "업그레이드 실패");
+                return;
+            }
+
+            // 6) 골드 차감 (서버에서만)
+            resource.SpendGold(old.Team, upgradeCost);
+
+            Debug.Log($"[Network] 서버: 업그레이드 성공. oldId={buildingId}, newId={newBuilding.Id}, newType={newBuilding.Type}");
+
+            // 7) 모든 클라이언트에 동기화 명령 전파
+            UpgradeBuildingClientRpc(
+                buildingId,
+                newBuilding.Id,
+                (int)newBuilding.Type,
+                (int)newBuilding.Team,
+                newBuilding.Position.Q,
+                newBuilding.Position.R);
+        }
+
+        /// <summary>
+        /// 서버 업그레이드 성공 시 모든 클라이언트에 동기화.
+        /// 서버는 이미 UpgradeBuilding으로 처리했으므로 IsServer 분기에서 건너뜀.
+        /// </summary>
+        [ClientRpc]
+        private void UpgradeBuildingClientRpc(
+            int oldBuildingId,
+            int newBuildingId,
+            int newTypeInt,
+            int teamIndex,
+            int q,
+            int r)
+        {
+            // 서버는 이미 처리됨 — 중복 적용 방지
+            if (IsServer) return;
+
+            Debug.Log($"[Network] UpgradeBuildingClientRpc 수신. oldId={oldBuildingId}, newId={newBuildingId}, newType={newTypeInt}");
+
+            if (_bootstrapper == null)
+                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+
+            if (_bootstrapper == null)
+            {
+                Debug.LogError("[Network] UpgradeBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                return;
+            }
+
+            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
+            if (buildingPlacement == null)
+            {
+                Debug.LogError("[Network] UpgradeBuildingClientRpc: BuildingPlacementUseCase가 null입니다.");
+                return;
+            }
+
+            BuildingType newType = (BuildingType)newTypeInt;
+            TeamId team = (TeamId)teamIndex;
+
+            // 종족별 HP 결정에 사용
+            RaceId race = team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+
+            // 서버와 동일한 Id로 새 BuildingData 재생성 + 이벤트 발행
+            // (q,r 은 디버깅/검증용 — UseCase 내부에서는 기존 BuildingData의 Position을 그대로 사용)
+            BuildingData result = buildingPlacement.UpgradeBuildingWithId(oldBuildingId, newBuildingId, newType, race);
+            if (result == null)
+            {
+                Debug.LogWarning($"[Network] UpgradeBuildingClientRpc: UpgradeBuildingWithId 실패. oldId={oldBuildingId}");
+                return;
+            }
+
+            Debug.Log($"[Network] 클라이언트: 업그레이드 동기화 완료. newId={result.Id}, newType={newType}");
+        }
 }
 }

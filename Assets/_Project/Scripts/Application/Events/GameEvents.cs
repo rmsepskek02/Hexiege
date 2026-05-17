@@ -177,6 +177,33 @@ namespace Hexiege.Application
         }
     }
 
+    /// <summary>
+    /// 건물 업그레이드 이벤트 데이터.
+    /// BuildingPlacementUseCase.UpgradeBuilding 성공 시 발행 →
+    /// BuildingFactory가 새 프리팹을 먼저 만들고 기존 GO를 제거 (빈 타일 방지).
+    /// </summary>
+    public struct BuildingUpgradedEvent
+    {
+        /// <summary>
+        /// 업그레이드 이전 건물의 Id.
+        /// BuildingFactory는 이 Id로 기존 GO를 찾아 제거한다.
+        /// </summary>
+        public int OldBuildingId;
+
+        /// <summary>
+        /// 업그레이드로 새로 생성된 BuildingData.
+        /// Id는 보통 기존 Id가 그대로 유지되지만, 네트워크 동기화 시 새 Id가 할당될 수 있다.
+        /// BuildingFactory는 NewBuilding.Id로 새 GO를 등록한다.
+        /// </summary>
+        public BuildingData NewBuilding;
+
+        public BuildingUpgradedEvent(int oldBuildingId, BuildingData newBuilding)
+        {
+            OldBuildingId = oldBuildingId;
+            NewBuilding = newBuilding;
+        }
+    }
+
     // ====================================================================
     // 생산 시스템 이벤트 데이터
     // ====================================================================
@@ -414,6 +441,13 @@ namespace Hexiege.Application
         /// 구독: BuildingFactory (프리팹 인스턴스 생성)
         /// </summary>
         public static readonly Subject<BuildingPlacedEvent> OnBuildingPlaced = new Subject<BuildingPlacedEvent>();
+
+        /// <summary>
+        /// 건물이 업그레이드되어 다음 단계로 교체되었을 때 발행.
+        /// 발행: BuildingPlacementUseCase.UpgradeBuilding
+        /// 구독: BuildingFactory (새 프리팹 생성 후 기존 GO 제거)
+        /// </summary>
+        public static readonly Subject<BuildingUpgradedEvent> OnBuildingUpgraded = new Subject<BuildingUpgradedEvent>();
 
         // ====================================================================
         // 생산 시스템 이벤트

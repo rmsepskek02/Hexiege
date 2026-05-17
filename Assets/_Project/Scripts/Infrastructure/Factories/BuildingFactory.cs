@@ -86,6 +86,11 @@ namespace Hexiege.Infrastructure
             GameEvents.OnBuildingPlaced
                 .Subscribe(e => CreateBuildingObject(e.Building))
                 .AddTo(this);
+
+            // 업그레이드 이벤트 구독 — 새 프리팹을 먼저 만든 후 기존 GO를 제거한다.
+            GameEvents.OnBuildingUpgraded
+                .Subscribe(e => UpgradeBuildingObject(e.OldBuildingId, e.NewBuilding))
+                .AddTo(this);
         }
 
         /// <summary>
@@ -168,6 +173,59 @@ namespace Hexiege.Infrastructure
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 건물 업그레이드 처리.
+        /// 새 프리팹을 동일 위치/회전에 먼저 생성 → 기존 GO를 Destroy → 딕셔너리 갱신.
+        /// 빈 타일이 보이지 않도록 반드시 "새 GO 생성 후 기존 GO 제거" 순서를 지킨다.
+        /// </summary>
+        /// <param name="oldBuildingId">업그레이드 전 BuildingData Id.</param>
+        /// <param name="newBuilding">업그레이드 후 새로 생성된 BuildingData.</param>
+        private void UpgradeBuildingObject(int oldBuildingId, BuildingData newBuilding)
+        {
+            // 기존 GO 위치/회전 백업. 신규 GO 생성 시 그대로 적용.
+            // (BuildingData.Position에서 다시 계산해도 되지만, ViewConverter/Y 오프셋 등을 한 번 더
+            //  수행하면 부동소수 오차가 누적될 수 있어 기존 GO의 transform을 그대로 재사용한다.)
+            if (!_buildingObjects.TryGetValue(oldBuildingId, out var oldObj) || oldObj == null)
+            {
+                // 기존 GO가 없으면 일반 배치 경로로 폴백 (혹시 모를 누락 대비).
+                CreateBuildingObject(newBuilding);
+                return;
+            }
+
+            Vector3 spawnPos = oldObj.transform.position;
+            Quaternion spawnRot = oldObj.transform.rotation;
+
+            // 종족 + 새 BuildingType + 팀으로 프리팹 조회
+            RaceId race = newBuilding.Team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+
+            GameObject prefab = GetPrefab(race, newBuilding.Type, newBuilding.Team);
+            if (prefab == null)
+            {
+                Debug.LogError($"[BuildingFactory] 업그레이드 프리팹 누락: {race}/{newBuilding.Team}/{newBuilding.Type}");
+                return;
+            }
+
+            // 1) 새 GO 먼저 생성 — 빈 타일 방지를 위해 반드시 기존 GO 제거 전에 수행
+            GameObject newObj = Instantiate(prefab, spawnPos, spawnRot, _buildingParent);
+            newObj.name = $"{prefab.name}_{newBuilding.Id}";
+
+            // BuildingView 초기화
+            var view = newObj.GetComponent<Presentation.BuildingView>();
+            if (view != null)
+            {
+                view.Initialize(newBuilding);
+            }
+
+            // 2) 기존 GO 제거
+            Destroy(oldObj);
+            _buildingObjects.Remove(oldBuildingId);
+
+            // 3) 새 GO 등록 (서버/클라이언트 모두 newBuilding.Id 키로 저장)
+            _buildingObjects[newBuilding.Id] = newObj;
         }
 
         /// <summary>

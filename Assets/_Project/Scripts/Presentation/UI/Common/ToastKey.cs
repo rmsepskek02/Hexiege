@@ -31,6 +31,9 @@ namespace Hexiege.Presentation
         PopulationFull,
 
         /// <summary>생산 대기열 가득 — 생산 큐가 이미 3개로 꽉 차 추가 등록을 거부할 때.</summary>
-        ProductionQueueFull
+        ProductionQueueFull,
+
+        /// <summary>업그레이드 필요 — 현재 건물 단계로는 생산할 수 없는 유닛을 탭했을 때.</summary>
+        UpgradeRequired
     }
 }

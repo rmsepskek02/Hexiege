@@ -97,30 +97,172 @@ namespace Hexiege.Infrastructure.EditorTools
         /// </summary>
         private static void PopulateDefaults(BuildingStatsConfig config)
         {
-            // 기본 스탯 테이블 — 기존 BuildingStats.cs switch 값 + GameConfig 비용 값과 1:1 동일.
+            // 기본 스탯 테이블 — 생산건물은 단계(1/2/3)별로 HP/비용/업그레이드 비용을 차등.
+            // 모든 값은 운영 중 Inspector에서 자유롭게 조정 가능. 여기서는 합리적 기본값만 제공.
+            //
+            // 정책 요약:
+            //   - 1단계 건물: HP 30(Trans 50), GoldCost 100, UpgradeCost 80
+            //   - 2단계 건물: HP 45(Trans 75), GoldCost 150, UpgradeCost 120
+            //   - 3단계 건물(라인 최고): HP 60(Trans 100), GoldCost 200, UpgradeCost 0(업그레이드 없음)
+            //   - 2단계 라인 종점(Garage→VehicleBay, SporePatch→FloralNursery):
+            //     VehicleBay/FloralNursery 도 UpgradeCost 0.
             var entries = new List<BuildingTypeEntry>
             {
-                // ── Castle ─────────────────────────────────────────────
-                // 자동 배치이므로 골드 비용은 모든 종족에서 0.
-                // Transcendence만 HP가 200으로 2배.
+                // ── 비생산 건물 ────────────────────────────────────────
                 BuildEntry(BuildingType.Castle,
                     humanHp:   100, spiritHp:   100, transHp:   200,
                     humanGold: 0,   spiritGold: 0,   transGold: 0,
-                    humanAtk:  0,   spiritAtk:  0,   transAtk:  0),
+                    humanAtk:  0,   spiritAtk:  0,   transAtk:  0,
+                    upgrade:   0),
 
-                // ── Barracks ───────────────────────────────────────────
-                // 골드 100은 기존 GameConfig._barracksCost 기본값과 동일.
-                BuildEntry(BuildingType.Barracks,
-                    humanHp:   30,  spiritHp:   30,  transHp:   50,
-                    humanGold: 100, spiritGold: 100, transGold: 100,
-                    humanAtk:  0,   spiritAtk:  0,   transAtk:  0),
-
-                // ── MiningPost ─────────────────────────────────────────
-                // 골드 50은 기존 GameConfig._miningPostCost 기본값과 동일.
                 BuildEntry(BuildingType.MiningPost,
                     humanHp:   20,  spiritHp:   20,  transHp:   40,
                     humanGold: 50,  spiritGold: 50,  transGold: 50,
-                    humanAtk:  0,   spiritAtk:  0,   transAtk:  0),
+                    humanAtk:  0,   spiritAtk:  0,   transAtk:  0,
+                    upgrade:   0),
+
+                // ── Human — 근거리A 라인 ────────────────────────────────
+                BuildEntry(BuildingType.TrainingCamp,
+                    humanHp: 30, spiritHp: 30, transHp: 50,
+                    humanGold: 100, spiritGold: 100, transGold: 100,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 80),
+                BuildEntry(BuildingType.WarAcademy,
+                    humanHp: 45, spiritHp: 45, transHp: 75,
+                    humanGold: 150, spiritGold: 150, transGold: 150,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 120),
+                BuildEntry(BuildingType.HumanBarracks,
+                    humanHp: 60, spiritHp: 60, transHp: 100,
+                    humanGold: 200, spiritGold: 200, transGold: 200,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 0),
+
+                // ── Human — 총기류 라인 ────────────────────────────────
+                BuildEntry(BuildingType.Gunsmith,
+                    humanHp: 30, spiritHp: 30, transHp: 50,
+                    humanGold: 100, spiritGold: 100, transGold: 100,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 80),
+                BuildEntry(BuildingType.Armory,
+                    humanHp: 45, spiritHp: 45, transHp: 75,
+                    humanGold: 150, spiritGold: 150, transGold: 150,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 120),
+                BuildEntry(BuildingType.WeaponForge,
+                    humanHp: 60, spiritHp: 60, transHp: 100,
+                    humanGold: 200, spiritGold: 200, transGold: 200,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 0),
+
+                // ── Human — 탈것류 라인 (1→2) ─────────────────────────
+                BuildEntry(BuildingType.Garage,
+                    humanHp: 30, spiritHp: 30, transHp: 50,
+                    humanGold: 100, spiritGold: 100, transGold: 100,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 80),
+                BuildEntry(BuildingType.VehicleBay,
+                    humanHp: 45, spiritHp: 45, transHp: 75,
+                    humanGold: 150, spiritGold: 150, transGold: 150,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 0),
+
+                // ── Spirit — 불 라인 ──────────────────────────────────
+                BuildEntry(BuildingType.FireSpire,
+                    humanHp: 30, spiritHp: 30, transHp: 50,
+                    humanGold: 100, spiritGold: 100, transGold: 100,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 80),
+                BuildEntry(BuildingType.BlazeConduit,
+                    humanHp: 45, spiritHp: 45, transHp: 75,
+                    humanGold: 150, spiritGold: 150, transGold: 150,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 120),
+                BuildEntry(BuildingType.InfernoCore,
+                    humanHp: 60, spiritHp: 60, transHp: 100,
+                    humanGold: 200, spiritGold: 200, transGold: 200,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 0),
+
+                // ── Spirit — 물 라인 ──────────────────────────────────
+                BuildEntry(BuildingType.AquaSpring,
+                    humanHp: 30, spiritHp: 30, transHp: 50,
+                    humanGold: 100, spiritGold: 100, transGold: 100,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 80),
+                BuildEntry(BuildingType.TidalNexus,
+                    humanHp: 45, spiritHp: 45, transHp: 75,
+                    humanGold: 150, spiritGold: 150, transGold: 150,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 120),
+                BuildEntry(BuildingType.OceanicHeart,
+                    humanHp: 60, spiritHp: 60, transHp: 100,
+                    humanGold: 200, spiritGold: 200, transGold: 200,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 0),
+
+                // ── Spirit — 땅 라인 ──────────────────────────────────
+                BuildEntry(BuildingType.StoneMound,
+                    humanHp: 30, spiritHp: 30, transHp: 50,
+                    humanGold: 100, spiritGold: 100, transGold: 100,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 80),
+                BuildEntry(BuildingType.TerraForge,
+                    humanHp: 45, spiritHp: 45, transHp: 75,
+                    humanGold: 150, spiritGold: 150, transGold: 150,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 120),
+                BuildEntry(BuildingType.GaeaSanctum,
+                    humanHp: 60, spiritHp: 60, transHp: 100,
+                    humanGold: 200, spiritGold: 200, transGold: 200,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 0),
+
+                // ── Transcendence — 동물A 라인 ────────────────────────
+                BuildEntry(BuildingType.PrimalAltar,
+                    humanHp: 30, spiritHp: 30, transHp: 50,
+                    humanGold: 100, spiritGold: 100, transGold: 100,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 80),
+                BuildEntry(BuildingType.PrimalDen,
+                    humanHp: 45, spiritHp: 45, transHp: 75,
+                    humanGold: 150, spiritGold: 150, transGold: 150,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 120),
+                BuildEntry(BuildingType.PrimalSanctuary,
+                    humanHp: 60, spiritHp: 60, transHp: 100,
+                    humanGold: 200, spiritGold: 200, transGold: 200,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 0),
+
+                // ── Transcendence — 동물B 라인 ────────────────────────
+                BuildEntry(BuildingType.FeralAltar,
+                    humanHp: 30, spiritHp: 30, transHp: 50,
+                    humanGold: 100, spiritGold: 100, transGold: 100,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 80),
+                BuildEntry(BuildingType.FeralDen,
+                    humanHp: 45, spiritHp: 45, transHp: 75,
+                    humanGold: 150, spiritGold: 150, transGold: 150,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 120),
+                BuildEntry(BuildingType.FeralSanctuary,
+                    humanHp: 60, spiritHp: 60, transHp: 100,
+                    humanGold: 200, spiritGold: 200, transGold: 200,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 0),
+
+                // ── Transcendence — 식물 라인 (1→2) ───────────────────
+                BuildEntry(BuildingType.SporePatch,
+                    humanHp: 30, spiritHp: 30, transHp: 50,
+                    humanGold: 100, spiritGold: 100, transGold: 100,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 80),
+                BuildEntry(BuildingType.FloralNursery,
+                    humanHp: 45, spiritHp: 45, transHp: 75,
+                    humanGold: 150, spiritGold: 150, transGold: 150,
+                    humanAtk: 0, spiritAtk: 0, transAtk: 0,
+                    upgrade: 0),
             };
 
             // private _stats 필드에 SerializedObject로 값 주입 + dirty 처리.
@@ -139,12 +281,14 @@ namespace Hexiege.Infrastructure.EditorTools
         /// <summary>
         /// BuildingTypeEntry 한 건을 만드는 헬퍼.
         /// 이름 있는 인수로 호출해 건물 타입별 종족 값을 한눈에 비교 가능하게 한다.
+        /// upgrade: 다음 단계로 업그레이드 시 드는 골드 비용. 최고 단계 또는 비생산건물은 0.
         /// </summary>
         private static BuildingTypeEntry BuildEntry(
             BuildingType type,
             int humanHp, int spiritHp, int transHp,
             int humanGold, int spiritGold, int transGold,
-            int humanAtk, int spiritAtk, int transAtk)
+            int humanAtk, int spiritAtk, int transAtk,
+            int upgrade = 0)
         {
             return new BuildingTypeEntry
             {
@@ -160,7 +304,9 @@ namespace Hexiege.Infrastructure.EditorTools
 
                 humanAttackPower = humanAtk,
                 spiritAttackPower = spiritAtk,
-                transcendenceAttackPower = transAtk
+                transcendenceAttackPower = transAtk,
+
+                upgradeCost = upgrade
             };
         }
 
@@ -183,6 +329,8 @@ namespace Hexiege.Infrastructure.EditorTools
             elem.FindPropertyRelative("humanAttackPower").intValue = entry.humanAttackPower;
             elem.FindPropertyRelative("spiritAttackPower").intValue = entry.spiritAttackPower;
             elem.FindPropertyRelative("transcendenceAttackPower").intValue = entry.transcendenceAttackPower;
+
+            elem.FindPropertyRelative("upgradeCost").intValue = entry.upgradeCost;
         }
     }
 }

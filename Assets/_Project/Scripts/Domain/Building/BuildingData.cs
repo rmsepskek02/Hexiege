@@ -12,7 +12,7 @@
 //   - HP, Level, 생산 큐, 업그레이드 상태 등
 //
 // 사용 예시:
-//   var building = new BuildingData(BuildingType.Barracks, TeamId.Blue, coord);
+//   var building = new BuildingData(BuildingType.TrainingCamp, TeamId.Blue, coord);
 //
 // Domain 레이어 — 순수 C#, Unity 의존 없음.
 // ============================================================================
@@ -33,6 +33,12 @@ namespace Hexiege.Domain
 
         /// <summary> 배치 위치 (헥스 좌표). 변경 불가. </summary>
         public HexCoord Position { get; }
+
+        /// <summary>
+        /// 건물의 단계 번호(1/2/3). 비생산건물(Castle/MiningPost 등)은 0.
+        /// BuildingType에서 파생되므로 별도 저장 필드 없음.
+        /// </summary>
+        public int Stage => BuildingTypeHelper.GetStage(Type);
 
         // --- 전투 스탯 추가 ---
         public int MaxHp { get; }

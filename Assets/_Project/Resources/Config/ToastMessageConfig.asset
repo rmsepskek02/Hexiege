@@ -15,10 +15,13 @@ MonoBehaviour:
   _entries:
   - key: 0
     message: "\uACE8\uB4DC\uAC00 \uBD80\uC871\uD569\uB2C8\uB2E4"
-    duration: 2
+    duration: 1
   - key: 1
     message: "\uC778\uAD6C\uC218\uAC00 \uAC00\uB4DD \uCC3C\uC2B5\uB2C8\uB2E4"
-    duration: 2
+    duration: 1
   - key: 2
     message: "\uC0DD\uC0B0 \uB300\uAE30\uC5F4\uC774 \uAC00\uB4DD \uCC3C\uC2B5\uB2C8\uB2E4"
-    duration: 1.5
+    duration: 1
+  - key: 3
+    message: "\uAC74\uBB3C \uC5C5\uADF8\uB808\uC774\uB4DC\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4"
+    duration: 1

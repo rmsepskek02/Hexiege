@@ -208,15 +208,16 @@ namespace Hexiege.Presentation
             HexCoord clickedCoord = HexMetrics.WorldToHex(worldPos);
 
             // --------------------------------------------------------
-            // 2. 건물이 있는 타일 → 배럭이면 생산 UI, 아니면 타일 선택
+            // 2. 건물이 있는 타일 → 생산건물(라인/단계 무관)이면 생산 UI, 아니면 타일 선택
             // --------------------------------------------------------
             if (_buildingPlacement != null)
             {
                 BuildingData buildingAtPos = _buildingPlacement.GetBuildingAt(clickedCoord);
                 if (buildingAtPos != null)
                 {
-                    // 자기 팀 배럭 클릭 → 생산 패널 표시
-                    if (buildingAtPos.Type == BuildingType.Barracks
+                    // 자기 팀 생산건물 클릭 → 생산 패널 표시
+                    // BuildingTypeHelper.IsProductionBuilding으로 모든 종족·라인·단계 인식
+                    if (BuildingTypeHelper.IsProductionBuilding(buildingAtPos.Type)
                         && buildingAtPos.Team == LocalPlayerTeam.Current
                         && buildingAtPos.IsAlive
                         && _productionUI != null)

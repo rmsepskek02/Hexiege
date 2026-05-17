@@ -46,7 +46,7 @@ namespace Hexiege.Infrastructure
     [System.Serializable]
     public struct BuildingTypeEntry
     {
-        [Tooltip("대상 건물 타입 (Castle / Barracks / MiningPost)")]
+        [Tooltip("대상 건물 타입 (Castle / MiningPost / 생산건물 등)")]
         public BuildingType buildingType;
 
         [Header("HP")]
@@ -78,6 +78,22 @@ namespace Hexiege.Infrastructure
 
         [Tooltip("초월 종족 공격력. 현재 미사용.")]
         public int transcendenceAttackPower;
+
+        [Header("Attack Cooldown (향후 타워 기능 대비)")]
+        [Tooltip("인간 종족 공격 쿨다운(초). 타워 기능 도입 시 사용. 비타워 건물은 0.")]
+        public float humanAttackCooldown;
+
+        [Tooltip("정령 종족 공격 쿨다운(초). 타워 기능 도입 시 사용. 비타워 건물은 0.")]
+        public float spiritAttackCooldown;
+
+        [Tooltip("초월 종족 공격 쿨다운(초). 타워 기능 도입 시 사용. 비타워 건물은 0.")]
+        public float transcendenceAttackCooldown;
+
+        [Header("Upgrade Cost")]
+        [Tooltip("이 건물을 다음 단계로 업그레이드하는 비용(골드). " +
+                 "최고 단계 건물이나 비생산건물은 0으로 둔다. " +
+                 "종족과 무관하게 BuildingType 하나당 단일 값으로 관리한다.")]
+        public int upgradeCost;
     }
 
     // ========================================================================

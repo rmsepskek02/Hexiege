@@ -312,5 +312,87 @@ namespace Hexiege.Application
         {
             _buildings.Clear();
         }
+
+        // ====================================================================
+        // 업그레이드
+        // ====================================================================
+
+        /// <summary>
+        /// 서버/싱글플레이 측 건물 업그레이드 실행.
+        /// 기존 BuildingData를 제거하고 다음 단계의 BuildingData로 교체한다.
+        /// 타일의 IsWalkable·소유권은 그대로 유지된다(건물이 계속 존재).
+        ///
+        /// 검증 항목 (외부 골드 검증은 호출자 책임):
+        ///   - 건물 존재 여부
+        ///   - 다음 단계 존재 여부 (CanUpgrade)
+        ///
+        /// 흐름:
+        ///   1) 기존 BuildingData 조회
+        ///   2) NextStage 타입 결정
+        ///   3) 기존 BuildingData를 _buildings에서 제거
+        ///   4) 새 BuildingType + 새 HP로 BuildingData 생성 (새 Id 자동 발급)
+        ///   5) GameEvents.OnBuildingUpgraded 발행 → BuildingFactory가 GO 교체
+        /// </summary>
+        /// <param name="buildingId">업그레이드 대상 건물 Id.</param>
+        /// <param name="race">건물 소유 종족 (새 단계 HP 결정에 사용).</param>
+        /// <returns>업그레이드 후 생성된 새 BuildingData. 실패 시 null.</returns>
+        public BuildingData UpgradeBuilding(int buildingId, RaceId race = RaceId.Human)
+        {
+            // 1) 기존 건물 조회
+            if (!_buildings.TryGetValue(buildingId, out var oldBuilding))
+                return null;
+
+            // 2) 다음 단계 타입 결정
+            BuildingType? nextOpt = BuildingTypeHelper.GetNextStage(oldBuilding.Type);
+            if (!nextOpt.HasValue) return null;
+            BuildingType nextType = nextOpt.Value;
+
+            // 3) 기존 BuildingData 제거. 타일 IsWalkable/Owner는 그대로 유지.
+            _buildings.Remove(buildingId);
+
+            // 4) 새 BuildingData 생성. 새 HP 적용. Id는 자동 발급.
+            int newMaxHp = BuildingStats.GetMaxHp(nextType, race);
+            var newBuilding = new BuildingData(nextType, oldBuilding.Team, oldBuilding.Position, newMaxHp);
+            _buildings[newBuilding.Id] = newBuilding;
+
+            // 5) 이벤트 발행 → BuildingFactory가 새 프리팹 생성 후 기존 GO 제거 (빈 타일 방지)
+            GameEvents.OnBuildingUpgraded.OnNext(new BuildingUpgradedEvent(buildingId, newBuilding));
+
+            return newBuilding;
+        }
+
+        /// <summary>
+        /// 네트워크 클라이언트 측 업그레이드 적용 (서버에서 생성된 새 BuildingId를 그대로 사용).
+        /// 서버가 검증·실행한 결과를 클라이언트에 동기화할 때 사용.
+        /// 검증 없이 직접 도메인 상태를 변경하고 이벤트를 발행.
+        /// </summary>
+        /// <param name="oldBuildingId">업그레이드 이전 건물 Id (제거 대상).</param>
+        /// <param name="newBuildingId">서버가 새로 발급한 건물 Id.</param>
+        /// <param name="newType">새 BuildingType (다음 단계).</param>
+        /// <param name="race">건물 소유 종족 (HP 결정에 사용).</param>
+        /// <returns>생성된 새 BuildingData. 위치 정보가 없으면 null.</returns>
+        public BuildingData UpgradeBuildingWithId(int oldBuildingId, int newBuildingId,
+            BuildingType newType, RaceId race = RaceId.Human)
+        {
+            // 위치/팀 정보를 알기 위해 기존 BuildingData가 필요.
+            if (!_buildings.TryGetValue(oldBuildingId, out var oldBuilding))
+                return null;
+
+            TeamId team = oldBuilding.Team;
+            HexCoord position = oldBuilding.Position;
+
+            // 기존 BuildingData 제거. 타일 상태는 그대로 유지.
+            _buildings.Remove(oldBuildingId);
+
+            // 서버와 동일한 Id로 새 BuildingData 생성.
+            int newMaxHp = BuildingStats.GetMaxHp(newType, race);
+            var newBuilding = new BuildingData(newBuildingId, newType, team, position, newMaxHp);
+            _buildings[newBuilding.Id] = newBuilding;
+
+            // 이벤트 발행 — BuildingFactory가 새 프리팹 생성 후 기존 GO 제거
+            GameEvents.OnBuildingUpgraded.OnNext(new BuildingUpgradedEvent(oldBuildingId, newBuilding));
+
+            return newBuilding;
+        }
     }
 }

@@ -61,11 +61,13 @@ namespace Hexiege.Application
         // ====================================================================
 
         /// <summary>
-        /// 배럭 건물이 배치될 때 호출. ProductionState를 생성하여 등록.
+        /// 배럭(생산건물)이 배치될 때 호출. ProductionState를 생성하여 등록.
+        /// 종족별 라인의 모든 단계(예: TrainingCamp/WarAcademy/HumanBarracks 등)를
+        /// BuildingTypeHelper.IsProductionBuilding으로 일괄 인식한다.
         /// </summary>
         public void RegisterBarracks(BuildingData barracks)
         {
-            if (barracks == null || barracks.Type != BuildingType.Barracks) return;
+            if (barracks == null || !BuildingTypeHelper.IsProductionBuilding(barracks.Type)) return;
             if (_states.ContainsKey(barracks.Id)) return;
 
             _states[barracks.Id] = new ProductionState(barracks.Id, barracks.Team, barracks.Position);
