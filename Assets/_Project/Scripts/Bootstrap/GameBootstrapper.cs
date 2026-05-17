@@ -516,12 +516,18 @@ namespace Hexiege.Bootstrap
 
             foreach (var entry in _buildingStatsConfig.Stats)
             {
+                // UpgradeCost는 BuildingType당 단일 값. 모든 종족 엔트리에 동일 값 주입.
+                // (BuildingStats.GetUpgradeCost는 어떤 종족 키로도 같은 값을 반환하도록 동작)
+                int upgrade = entry.upgradeCost;
+
                 // Human
                 dict[(entry.buildingType, RaceId.Human)] = new BuildingStats.StatValues
                 {
                     MaxHp = entry.humanMaxHp,
                     GoldCost = entry.humanGoldCost,
-                    AttackPower = entry.humanAttackPower
+                    AttackPower = entry.humanAttackPower,
+                    AttackCooldown = entry.humanAttackCooldown,
+                    UpgradeCost = upgrade
                 };
 
                 // Spirit
@@ -529,7 +535,9 @@ namespace Hexiege.Bootstrap
                 {
                     MaxHp = entry.spiritMaxHp,
                     GoldCost = entry.spiritGoldCost,
-                    AttackPower = entry.spiritAttackPower
+                    AttackPower = entry.spiritAttackPower,
+                    AttackCooldown = entry.spiritAttackCooldown,
+                    UpgradeCost = upgrade
                 };
 
                 // Transcendence
@@ -537,11 +545,53 @@ namespace Hexiege.Bootstrap
                 {
                     MaxHp = entry.transcendenceMaxHp,
                     GoldCost = entry.transcendenceGoldCost,
-                    AttackPower = entry.transcendenceAttackPower
+                    AttackPower = entry.transcendenceAttackPower,
+                    AttackCooldown = entry.transcendenceAttackCooldown,
+                    UpgradeCost = upgrade
                 };
             }
 
             BuildingStats.Initialize(dict);
+
+            // ── 철거 환불용 누적 투자 비용 계산 및 캐싱 ─────────────────────────
+            // 각 생산건물 라인의 1단계 건물에서 시작해 체인을 순방향으로 순회한다.
+            // 단계를 거칠수록 이전 단계의 업그레이드 비용이 누적된다.
+            // 팝업이 열릴 때마다 계산하지 않도록 게임 시작 시 1회만 계산하여 캐싱한다.
+
+            // 1단계 생산건물 목록 (BuildingTypeHelper.GetStage() == 1)
+            var stage1Buildings = new BuildingType[]
+            {
+                BuildingType.TrainingCamp,
+                BuildingType.Gunsmith,
+                BuildingType.Garage,
+                BuildingType.FireSpire,
+                BuildingType.AquaSpring,
+                BuildingType.StoneMound,
+                BuildingType.PrimalAltar,
+                BuildingType.FeralAltar,
+                BuildingType.SporePatch,
+            };
+
+            foreach (var race in new[] { RaceId.Human, RaceId.Spirit, RaceId.Transcendence })
+            {
+                foreach (var stage1 in stage1Buildings)
+                {
+                    // 1단계: 누적 비용 = 1단계 건설비
+                    BuildingType currentType = stage1;
+                    int accumulated = BuildingStats.GetGoldCost(currentType, race);
+                    BuildingStats.SetTotalInvestedCost(currentType, race, accumulated);
+
+                    // 다음 단계가 있는 동안 순방향으로 체인을 순회한다.
+                    // 각 단계에서 현재 단계의 업그레이드 비용을 더해 다음 단계의 누적값을 구한다.
+                    BuildingType? nextType;
+                    while ((nextType = BuildingTypeHelper.GetNextStage(currentType)).HasValue)
+                    {
+                        accumulated += BuildingStats.GetUpgradeCost(currentType);
+                        BuildingStats.SetTotalInvestedCost(nextType.Value, race, accumulated);
+                        currentType = nextType.Value;
+                    }
+                }
+            }
 
             Debug.Log($"[GameBootstrapper] BuildingStats 초기화 완료. " +
                       $"등록된 (건물×종족) 엔트리 수: {dict.Count}");
@@ -1088,8 +1138,18 @@ namespace Hexiege.Bootstrap
                 isNetworkMode ? _networkProductionController : null;
 
             // 생산 패널 UI 초기화 (네트워크 컨트롤러 포함)
+            // 업그레이드 기능을 위해 BuildingPlacementUseCase + NetworkBuildingController도 함께 주입.
+            Hexiege.Infrastructure.NetworkBuildingController buildingControllerForProduction =
+                isNetworkMode ? _networkBuildingController : null;
             if (_productionUI != null)
-                _productionUI.Initialize(_unitProduction, _resource, _population, _productionTicker, productionController);
+                _productionUI.Initialize(
+                    _unitProduction,
+                    _resource,
+                    _population,
+                    _productionTicker,
+                    productionController,
+                    _buildingPlacement,
+                    buildingControllerForProduction);
             }
 
         /// <summary>

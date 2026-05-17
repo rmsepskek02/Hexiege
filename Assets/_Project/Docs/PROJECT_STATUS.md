@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-05-17
-**현재 단계:** 자동 생산 Rule 20 슬롯0 확장 완료 (슬롯0 수동 생산 중 자동등록 시 슬롯0 자체를 자동으로 전환)
+**최종 수정일:** 2026-05-18
+**현재 단계:** ProductionPopup UI 레이아웃 재구성 완료 (팀별 업그레이드 아이콘, 2유닛 레이아웃, 철거 환불 누적 계산, 2/3단계 건물 랠리 마커 버그 수정)
 
 ---
 
@@ -244,7 +244,7 @@
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | UnitStatsConfig ScriptableObject (전투+생산 통합) | ✅ 완료 | `UnitStatEntry` struct, Inspector에서 9종 유닛 수치 편집 |
-| BuildingStatsConfig ScriptableObject (건물타입별 종족 묶음) | ✅ 완료 | `BuildingTypeEntry` B방식, Inspector에서 3종 건물 × 3종족 수치 편집 |
+| BuildingStatsConfig ScriptableObject (건물타입별 종족 묶음) | ✅ 완료 (2026-05-18 갱신) | `BuildingTypeEntry` B방식, 32종 BuildingType × 3종족 전체 항목 채움. `AttackCooldown` (float) 필드 추가 — AutoTower 종족별 쿨다운 적용 (Human/Trans 5.0s, Spirit 3.5s). `BuildingStats.GetAttackCooldown(type, race)` API 신규. |
 | UnitStats switch → Dictionary 전환 | ✅ 완료 | `Dictionary<UnitType, StatValues>`, `Initialize()` 추가 |
 | UnitProductionStats switch → Dictionary 전환 | ✅ 완료 | `Dictionary<UnitType, ProductionValues>`, `Initialize()` 추가 |
 | BuildingStats switch → Dictionary 전환 | ✅ 완료 | `Dictionary<(BuildingType, RaceId), StatValues>`, HP+골드+공격력 통합 |
@@ -295,6 +295,16 @@
 | ToastUI SetActive 버그 수정 | ✅ 완료 | ClearAll/FinishCurrent의 SetActive(false) 제거 → CanvasGroup.blocksRaycasts+interactable로 대체. 루트 항상 활성 유지 |
 | 싱글플레이 실기 테스트 | ✅ PASS | 골드 부족 비용 텍스트 빨간색, 토스트 메시지, 팝업 유지 동작 확인 |
 
+#### ProductionPopup UI 레이아웃 재구성 (2026-05-18)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| BuildingIconEntry 팀별 Sprite 분리 (blueIcon/redIcon) | ✅ 완료 | GetBuildingIcon(BuildingType, TeamId). Sprite 명명 규칙: bld_{type}_blue/red.png |
+| 2유닛 건물 레이아웃 [유닛1][빈슬롯][유닛2] | ✅ 완료 | _unitButtonGroups (List<CanvasGroup>). 가운데 슬롯 alpha=0 숨김, 레이아웃 공간 유지 |
+| UpdateButtonPortraits() 2유닛 슬롯 매핑 수정 | ✅ 완료 | 2유닛 시: slot0=list[0], slot2=list[1] (slot1 스킵). 이전 건물 초상화 잔존 버그 수정 |
+| HeaderText 건물 이름 동적 표시 | ✅ 완료 | BuildingType.ToString() 기반. Show() 호출 시 갱신 |
+| 철거 환불 누적 계산 | ✅ 완료 | 1단계 건설비 + 모든 업그레이드비 합산의 50%. BuildingStats.GetTotalInvestedCost() + GameBootstrapper 캐싱 |
+| 2/3단계 건물 랠리 마커 미표시 버그 수정 | ✅ 완료 | ProductionTicker에 OnBuildingUpgraded 구독 추가. 전 종족 테스트 통과 |
+
 #### 버그 수정 및 폴리싱
 | 항목 | 상태 |
 |------|------|
@@ -339,7 +349,7 @@
 | 방어 타워 (Defense Tower) | 낮음 | Phase 3 |
 | 마법 타워 (Magic Tower) | 낮음 | Phase 3 |
 | 연구소 (Research Lab) | 낮음 | Phase 3 |
-| 건물 업그레이드 시스템 | 낮음 | Phase 3 |
+| 건물 철거 로직 구현 | 낮음 | Phase 3 |
 | 유닛 AI 상태머신 | 낮음 | Phase 3 |
 | 타임라인/서든데스 시스템 | 낮음 | Phase 3 |
 | 사운드/BGM | 낮음 | Phase 4 |

@@ -163,6 +163,12 @@ namespace Hexiege.Presentation
                 .Subscribe(OnBuildingPlaced)
                 .AddTo(this);
 
+            // 건물 업그레이드 → 기존 ProductionState 제거 후 새 건물로 재등록
+            // (2/3단계 건물도 랠리포인트·마커가 정상 동작하도록)
+            GameEvents.OnBuildingUpgraded
+                .Subscribe(OnBuildingUpgraded)
+                .AddTo(this);
+
             // 엔티티 사망 → 배럭 파괴 시 해제 + 마커 제거
             GameEvents.OnEntityDied
                 .Subscribe(OnEntityDied)
@@ -349,28 +355,50 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 건물 배치 시 배럭이면 ProductionState 등록.
+        /// 건물 배치 시 생산건물이면 ProductionState 등록.
+        /// 종족·라인·단계와 무관하게 BuildingTypeHelper.IsProductionBuilding으로 인식한다.
         /// </summary>
         private void OnBuildingPlaced(BuildingPlacedEvent e)
         {
             if (_productionUseCase == null) return;
 
-            if (e.Building.Type == BuildingType.Barracks)
+            if (BuildingTypeHelper.IsProductionBuilding(e.Building.Type))
             {
                 _productionUseCase.RegisterBarracks(e.Building);
             }
         }
 
         /// <summary>
-        /// 엔티티 사망 시 배럭이면 ProductionState 해제 + 마커 제거.
+        /// 건물 업그레이드 시 호출.
+        /// 기존 BuildingId(업그레이드 이전)의 ProductionState를 제거하고,
+        /// 새 BuildingData(업그레이드 이후)로 재등록한다.
+        /// 이렇게 하지 않으면 업그레이드된 2/3단계 건물은 _productionUseCase._states에
+        /// 등록되지 않아 랠리포인트 설정 시 마커가 표시되지 않는다.
+        /// </summary>
+        private void OnBuildingUpgraded(BuildingUpgradedEvent e)
+        {
+            if (_productionUseCase == null) return;
+
+            // 업그레이드된 건물이 생산건물인지 확인
+            if (!BuildingTypeHelper.IsProductionBuilding(e.NewBuilding.Type)) return;
+
+            // 기존 건물 ProductionState 제거
+            _productionUseCase.UnregisterBarracks(e.OldBuildingId);
+
+            // 새 건물로 재등록 (랠리포인트, 생산 큐 등 초기화됨)
+            _productionUseCase.RegisterBarracks(e.NewBuilding);
+        }
+
+        /// <summary>
+        /// 엔티티 사망 시 생산건물이면 ProductionState 해제 + 마커 제거.
         /// 유닛 사망이면 siege 목록에서 제거.
         /// </summary>
         private void OnEntityDied(EntityDiedEvent e)
         {
             if (_productionUseCase == null) return;
 
-            // 배럭 파괴 시 해제 + 마커 제거
-            if (e.Entity is BuildingData building && building.Type == BuildingType.Barracks)
+            // 생산건물 파괴 시 해제 + 마커 제거
+            if (e.Entity is BuildingData building && BuildingTypeHelper.IsProductionBuilding(building.Type))
             {
                 _productionUseCase.UnregisterBarracks(building.Id);
                 DestroyMarker(building.Id);

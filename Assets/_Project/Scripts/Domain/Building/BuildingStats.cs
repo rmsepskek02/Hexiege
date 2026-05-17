@@ -44,6 +44,16 @@ namespace Hexiege.Domain
 
             /// <summary> 공격력. 현재 미사용, 향후 타워 기능용. </summary>
             public int AttackPower;
+
+            /// <summary> 공격 쿨다운(초). 현재 미사용, 향후 타워 기능용. 비타워 건물은 0. </summary>
+            public float AttackCooldown;
+
+            /// <summary>
+            /// 이 건물을 다음 단계로 업그레이드할 때 드는 골드 비용.
+            /// 최고 단계 건물이나 비생산건물은 0.
+            /// 종족과 무관하게 BuildingType당 단일 값으로 관리한다.
+            /// </summary>
+            public int UpgradeCost;
         }
 
         // ====================================================================
@@ -55,6 +65,28 @@ namespace Hexiege.Domain
         /// Initialize 전에는 null이며, 이 경우 폴백 값을 반환한다.
         /// </summary>
         private static Dictionary<(BuildingType, RaceId), StatValues> _data;
+
+        // (건물 타입, 종족) → 해당 건물까지 투자된 총 골드 (1단계 건설비 + 모든 업그레이드비 합산).
+        // GameBootstrapper.InitializeBuildingStatsFromConfig() 완료 후 캐싱된다.
+        private static Dictionary<(BuildingType, RaceId), int> _totalInvestedCostCache
+            = new Dictionary<(BuildingType, RaceId), int>();
+
+        /// <summary>
+        /// GameBootstrapper 초기화 시 호출.
+        /// 해당 (건물 타입, 종족) 조합의 누적 투자 비용을 캐시에 저장한다.
+        /// 누적 투자 비용 = 1단계 건설비 + 1→2 업그레이드비 + 2→3 업그레이드비 (해당하는 경우).
+        /// </summary>
+        public static void SetTotalInvestedCost(BuildingType type, RaceId race, int total)
+            => _totalInvestedCostCache[(type, race)] = total;
+
+        /// <summary>
+        /// 해당 건물까지 투자된 총 골드를 반환한다.
+        /// GameBootstrapper 초기화 후에만 정확한 값을 반환하며,
+        /// 캐시에 없으면 현재 건물의 건설비(GetGoldCost)를 폴백으로 반환한다.
+        /// 철거 환불 계산에 사용: 반환값 / 2 = 환불 금액.
+        /// </summary>
+        public static int GetTotalInvestedCost(BuildingType type, RaceId race)
+            => _totalInvestedCostCache.TryGetValue((type, race), out int v) ? v : GetGoldCost(type, race);
 
         /// <summary>
         /// Bootstrap 레이어에서 호출.
@@ -126,6 +158,35 @@ namespace Hexiege.Domain
             return 0;
         }
 
+        /// <summary>
+        /// 건물 타입 + 종족별 공격 쿨다운(초) 반환.
+        /// 현재는 미사용이며, 향후 타워 기능 도입 시 활용.
+        /// 비타워 건물이거나 Config에 값이 없으면 0을 반환.
+        /// </summary>
+        public static float GetAttackCooldown(BuildingType type, RaceId race)
+        {
+            if (TryGet(type, race, out var v))
+                return v.AttackCooldown;
+            return 0f;
+        }
+
+        /// <summary>
+        /// 건물을 다음 단계로 업그레이드할 때 드는 골드 비용 반환.
+        /// 업그레이드 비용은 종족과 무관하게 BuildingType당 단일 값으로 관리한다.
+        /// 따라서 내부 Dictionary 조회 시에는 임의 종족(Human)을 키로 사용해도 무방.
+        /// Initialize 시점에 모든 종족 항목에 동일 값을 넣어두기 때문이다.
+        ///
+        /// 폴백: Dictionary에 없으면 0을 반환 (최고 단계 / 비생산건물 = 업그레이드 불가).
+        /// </summary>
+        public static int GetUpgradeCost(BuildingType type)
+        {
+            // 어떤 종족 키로 조회해도 같은 값이 들어있도록 Initialize에서 보장.
+            if (TryGet(type, RaceId.Human, out var vh)) return vh.UpgradeCost;
+            if (TryGet(type, RaceId.Spirit, out var vs)) return vs.UpgradeCost;
+            if (TryGet(type, RaceId.Transcendence, out var vt)) return vt.UpgradeCost;
+            return 0;
+        }
+
         // ====================================================================
         // 내부 헬퍼
         // ====================================================================
@@ -145,36 +206,66 @@ namespace Hexiege.Domain
 
         /// <summary>
         /// Initialize 미호출 / Config 미연결 시 사용할 폴백 HP 값.
-        /// 기존 switch 표현식과 동일한 값.
+        /// 모든 생산건물(IsProductionBuilding=true)은 단계별로 동일한 기본 HP를 갖는다.
+        /// 실제 운영에서는 Inspector의 BuildingStatsConfig에서 단계별/종족별로 조정한다.
         /// </summary>
         private static int GetDefaultMaxHp(BuildingType type, RaceId race)
         {
-            // Transcendence 종족은 Castle/Barracks/MiningPost 모두 더 높은 HP
+            // 비생산건물 폴백
             switch (type)
             {
                 case BuildingType.Castle:
                     return race == RaceId.Transcendence ? 200 : 100;
-                case BuildingType.Barracks:
-                    return race == RaceId.Transcendence ? 50 : 30;
                 case BuildingType.MiningPost:
                     return race == RaceId.Transcendence ? 40 : 20;
-                default:
-                    return 10;
             }
+
+            // 생산건물 폴백 — 단계별 기본 HP (1단계 30, 2단계 45, 3단계 60)
+            // Transcendence는 다른 종족 대비 약 1.6배.
+            if (BuildingTypeHelper.IsProductionBuilding(type))
+            {
+                int stage = BuildingTypeHelper.GetStage(type);
+                int baseHp = stage switch
+                {
+                    1 => 30,
+                    2 => 45,
+                    3 => 60,
+                    _ => 30
+                };
+                return race == RaceId.Transcendence ? (int)(baseHp * 1.6f) : baseHp;
+            }
+
+            // 알 수 없는 타입
+            return 10;
         }
 
         /// <summary>
         /// Initialize 미호출 / Config 미연결 시 사용할 폴백 골드 비용.
-        /// 기존 GameConfig의 기본값과 동일 (Barracks=100, MiningPost=50, Castle=0).
+        /// MiningPost=50, Castle=0. 생산건물은 단계별로 기본값을 다르게 매긴다.
+        /// 실제 운영에서는 Inspector에서 정확한 값을 설정한다.
         /// </summary>
         private static int GetDefaultGoldCost(BuildingType type, RaceId race)
         {
             switch (type)
             {
-                case BuildingType.Barracks: return 100;
                 case BuildingType.MiningPost: return 50;
-                default: return 0; // Castle 및 알 수 없는 타입
+                case BuildingType.Castle:     return 0;
             }
+
+            // 생산건물 폴백 — 단계별 기본 골드 비용 (1단계 100, 2단계 150, 3단계 200)
+            if (BuildingTypeHelper.IsProductionBuilding(type))
+            {
+                int stage = BuildingTypeHelper.GetStage(type);
+                return stage switch
+                {
+                    1 => 100,
+                    2 => 150,
+                    3 => 200,
+                    _ => 100
+                };
+            }
+
+            return 0;
         }
     }
 }

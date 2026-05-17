@@ -23,6 +23,110 @@
 
 ## 최근 작업
 
+### 건물 업그레이드 시스템 + 단계별 생산건물 (2026-05-17) ✅ 코드 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-17/02_16_building-upgrade-system/`
+
+**핵심 변경**:
+- `BuildingType` 열거형에서 단일 `Barracks` 제거 → 종족별 라인 × 단계(1/2/3) 26종으로 확장
+- `BuildingTypeHelper` (Domain) 신설: `IsProductionBuilding`, `GetStage`, `GetNextStage`, `CanUpgrade`
+- `BuildingData.Stage` 파생 프로퍼티 (BuildingType에서 도출, 별도 저장 없음)
+- `BuildingStats.GetUpgradeCost(BuildingType)` — 종족 무관 단일 값. Initialize 시 모든 종족 엔트리에 동일 값 주입.
+- `BuildingStatsConfig.BuildingTypeEntry`에 `upgradeCost` 필드 추가
+- `GameEvents.OnBuildingUpgraded` (`BuildingUpgradedEvent: OldBuildingId, NewBuilding`) 추가
+- `BuildingPlacementUseCase.UpgradeBuilding(id, race)` / `UpgradeBuildingWithId(...)` — 기존 BuildingData 제거 후 next stage로 교체. 타일 IsWalkable/Owner 유지.
+- `BuildingFactory.UpgradeBuildingObject` — **새 GO 먼저 생성 → 기존 GO Destroy** 순서로 빈 타일 방지
+- `ProductionPanelUI`: `BuildingUnitMapping` (BuildingType → 유닛 라인업) Inspector 구조 도입. 단계별 잠금: `_activeUnitLocks[i]` 추가, `_unitLockIndicators` 활성화. 잠금 유닛 탭 시 `ToastKey.UpgradeRequired`. 업그레이드 버튼(`_upgradeButton`/`_upgradeCostText`) 신규.
+- 기존 6개 종족 고정 리스트는 **주석 처리** (테스트 통과 후 삭제 예정)
+- `NetworkBuildingController.RequestUpgradeServerRpc` / `UpgradeBuildingClientRpc` 신규 — 소유권/골드 재검증 후 클라이언트 동기화
+- `GameBootstrapper.InitializeBuildingStatsFromConfig`에 UpgradeCost 주입 추가. `_productionUI.Initialize`에 `BuildingPlacementUseCase`, `NetworkBuildingController` 인자 2개 추가.
+
+**Barracks→IsProductionBuilding 치환 위치**:
+- `UnitProductionUseCase.RegisterBarracks`
+- `ProductionTicker.OnBuildingPlaced`, `OnEntityDied`
+- `InputHandler` 타일 클릭 분기
+
+**SetupBuildingStatsConfig.cs** (Editor): Barracks 1행 → 24행(생산건물 전체)로 확장. 기본값 정책 = 1단계 30HP/100G/80U, 2단계 45HP/150G/120U, 3단계 60HP/200G/0U (Trans HP ×1.6~2).
+
+**남은 Inspector 작업** (코드 외):
+- `BuildingFactory` 프리팹 리스트 — 각 BuildingType별 Blue/Red 프리팹 연결
+- `BuildingPlacementUI` 6개 종족별 리스트를 각 라인의 1단계 건물로 재구성
+- `ProductionPanelUI._buildingUnitMappings` — 각 BuildingType별 유닛 라인업 + requiredStage 설정
+- `ProductionPanelUI._unitLockIndicators` — 각 버튼 위 잠금 오버레이 GO 생성/연결
+- `ProductionPanelUI._upgradeButton` + `_upgradeCostText` UI 추가
+- `BuildingStatsConfig.asset` — ✅ **완료 (2026-05-18)**: 32개 BuildingType 전체 항목 채움. StatsReference.md 기준 HP/비용/공격력/업그레이드비용 전종 적용. AutoTower 종족별 AttackCooldown(Human 5.0s, Spirit 3.5s, Trans 5.0s) 적용.
+- `ToastMessageConfig.asset` — `UpgradeRequired` 키 메시지 추가
+
+**주의 — 직렬화 영향**: `BuildingType` 열거형 순서 변경 → 씬/에셋의 기존 Barracks=1 인덱스 직렬화 데이터가 다른 enum 값으로 덮어쓰임. 개발 단계에서 허용했으나 Inspector 모든 항목 재검토 필요.
+
+---
+
+### 건물 스탯 확정 + Config 32종 항목 채움 + AttackCooldown 필드 추가 (2026-05-18) ✅ 완료
+
+**변경 파일**:
+- `Infrastructure/Config/BuildingStatsConfig.cs` — `BuildingTypeEntry` struct에 `humanAttackCooldown`, `spiritAttackCooldown`, `transcendenceAttackCooldown` (float) 3개 필드 추가
+- `Domain/Building/BuildingStats.cs` — `StatValues`에 `AttackCooldown (float)` 추가. `GetAttackCooldown(BuildingType, RaceId)` 메서드 신규 추가.
+- `Bootstrap/GameBootstrapper.cs` — `InitializeBuildingStatsFromConfig()`에 `AttackCooldown` 주입 추가
+- `Resources/Config/BuildingStatsConfig.asset` — 3개 항목 → 32개 BuildingType 전체 항목으로 확장. StatsReference.md 기준 값 적용.
+
+**핵심 수치 (AutoTower, buildingType: 2)**:
+- Human (CannonTower): HP 50, 비용 150, 공격력 15, 쿨다운 5.0s
+- Spirit (RuneSpire): HP 150, 비용 200, 공격력 15, 쿨다운 3.5s
+- Transcendence (VineTower): HP 100, 비용 175, 공격력 15, 쿨다운 5.0s
+
+**API**: `BuildingStats.GetAttackCooldown(type, race)` — 타워 구현 시 쿨다운 조회에 사용. 비타워 건물은 0f 반환.
+
+---
+
+### ProductionPopup UI 레이아웃 재구성 + 2/3단계 건물 랠리 마커 버그 수정 (2026-05-17~18) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-17/15_30_production-popup-ui-layout/`
+
+**수정 파일**:
+- `Presentation/UI/ProductionPanelUI.cs`
+- `Editor/SetupProductionPopupUI.cs`
+- `Domain/Building/BuildingStats.cs`
+- `Bootstrap/GameBootstrapper.cs`
+- `Presentation/Production/ProductionTicker.cs`
+
+**변경 내용 요약**:
+
+1. **BuildingIconEntry 구조체 블루/레드 분리**
+   - `icon (Sprite)` 단일 필드 → `blueIcon`, `redIcon` 2개 필드로 분리
+   - `GetBuildingIcon(BuildingType, TeamId)` — 팀에 맞는 Sprite 반환
+
+2. **철거 환불 누적 계산**
+   - 기존: 현재 건물의 건설비만 기준
+   - 변경: 1단계 건설비 + 모든 업그레이드비 합산의 50%
+   - `BuildingStats._totalInvestedCostCache` 딕셔너리 추가 (`SetTotalInvestedCost` / `GetTotalInvestedCost`)
+   - `GameBootstrapper` 초기화 시 단계별 체인 순회하여 캐시 채움
+
+3. **2유닛 건물 레이아웃 [유닛1][빈슬롯][유닛2]**
+   - `_unitButtonGroups (List<CanvasGroup>)` 필드 추가
+   - `BindButtonUnitTypes()`: 2유닛 시 슬롯1을 CanvasGroup alpha=0으로 숨겨 레이아웃 공간 유지
+   - `_activeUnitTypes`를 3개(슬롯0/더미/슬롯2)로 확장하여 IndexOutOfRange 방지
+
+4. **HeaderText 건물 이름 동적 표시**
+   - `_headerText (TextMeshProUGUI)` 필드 추가
+   - `Show()` 내 `_headerText.text = barracks.Type.ToString()` 갱신
+
+5. **UpdateButtonPortraits() 2유닛 슬롯 매핑 수정**
+   - 2유닛 시: slot0=list[0], slot1=스킵(더미), slot2=list[1]
+   - 기존 코드는 list[i]→portrait[i] 직접 대응으로 슬롯2 갱신 누락 → 이전 건물 초상화 잔존 버그 수정
+
+6. **2/3단계 건물 랠리 마커 미표시 버그 수정** ← 핵심
+   - 원인: `ProductionTicker`가 `OnBuildingPlaced`만 구독 → 업그레이드 시 새 건물이 `_states`에 미등록 → 마커 생성 안 됨
+   - 수정: `SubscribeEvents()`에 `GameEvents.OnBuildingUpgraded` 구독 추가
+   - `OnBuildingUpgraded` 핸들러: `UnregisterBarracks(e.OldBuildingId)` + `RegisterBarracks(e.NewBuilding)`
+   - 전 종족(Human/Spirit/Transcendence) 테스트 통과 (2026-05-18)
+
+**주의 — Sprite 명명 규칙**:
+- 경로: `Assets/_Project/Sprites/Buildings/`
+- 규칙: `bld_{buildingtype_소문자}_blue.png` / `bld_{buildingtype_소문자}_red.png`
+- 에디터 스크립트 Step [4]: `AssetDatabase.FindAssets()`로 자동 탐색 후 `_buildingUpgradeIcons` 자동 채우기
+
+---
+
 ### Rule 20 슬롯0 확장 (2026-05-17) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-17/00_21_production-rule20-slot0-extension/`
