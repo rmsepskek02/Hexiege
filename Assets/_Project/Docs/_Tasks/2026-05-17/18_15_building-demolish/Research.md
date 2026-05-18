@@ -47,11 +47,18 @@ Castle(본기지)을 제외한 모든 건물이 대상이며, 철거 시 건설 
 - 따라서 채굴소 등 비생산 건물을 클릭해도 현재는 아무 팝업도 뜨지 않는다.
 - 채굴소 클릭 시 새 팝업을 열려면 `InputHandler`도 수정이 필요하다.
 
-#### `ProductionPanelUI.cs`
+#### `ProductionPanelUI.cs` — 철거 UI 껍데기 이미 구현됨
 
 - 배럭 클릭 시 열리는 생산 패널 UI.
-- 유닛 버튼, 큐 슬롯, 업그레이드 버튼 등이 있다.
-- 여기에 철거 버튼을 추가하면 생산 건물 철거가 가능해진다.
+- 다음 철거 관련 코드가 **이미 구현 완료**되어 있다:
+  - `[SerializeField] private Button _demolishButton;` — 인스펙터 연결 필드 존재 (라인 143)
+  - `[SerializeField] private TextMeshProUGUI _demolishRefundText;` — 환불 금액 텍스트 필드 존재 (라인 155)
+  - `_demolishButton.onClick.AddListener(OnDemolishButtonClick)` — `Initialize()`에서 버튼 이벤트 연결 완료
+  - `UpdateDemolishRefund(race)` — `Show()` 호출 시 환불 금액 계산 및 텍스트 표시 **완전 구현** (라인 620~634)
+    - `BuildingStats.GetTotalInvestedCost()` 로 누적 투자 비용의 50%를 계산해 초록색 텍스트로 표시
+- 다음 항목은 **미구현(스텁)**:
+  - `OnDemolishButtonClick()` — `Debug.Log` 한 줄과 `// TODO: 철거 로직 구현 예정` 주석만 있음 (라인 657~661)
+  - 즉, **UI 껍데기(버튼, 텍스트, 환불 금액 표시)는 완료, 실제 철거 실행 로직만 비어 있음**
 
 #### 채굴소(MiningPost) 팝업 — 현재 없음
 
@@ -67,7 +74,7 @@ Castle(본기지)을 제외한 모든 건물이 대상이며, 철거 시 건설 
 |--------|------|----------|
 | Application | `BuildingPlacementUseCase.cs` | `DemolishBuilding()` 신규 추가 |
 | Application | `UnitProductionUseCase.cs` | `CancelAllQueue()` 신규 추가 |
-| Presentation | `ProductionPanelUI.cs` | 철거 버튼 추가 |
+| Presentation | `ProductionPanelUI.cs` | 철거 버튼 UI 이미 완료 — `OnDemolishButtonClick()` 로직만 구현 필요 |
 | Presentation | `InputHandler.cs` | 채굴소 클릭 분기 추가 |
 | Presentation | 신규 `MiningPostPanelUI.cs` | 채굴소용 팝업 신규 제작 |
 | Infrastructure | `NetworkBuildingController.cs` | `RequestDemolishServerRpc()` 추가 |

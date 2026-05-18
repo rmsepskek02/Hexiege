@@ -442,5 +442,148 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] 클라이언트: 업그레이드 동기화 완료. newId={result.Id}, newType={newType}");
         }
+
+        // ====================================================================
+        // 철거 — ServerRpc / ClientRpc
+        // ====================================================================
+
+        /// <summary>
+        /// 건물 철거 요청. 클라이언트의 철거 버튼 클릭 시 호출.
+        ///
+        /// 서버 검증 순서:
+        ///   1) 건물 존재 확인
+        ///   2) Castle(본기지) 철거 불가 — Castle은 절대 철거할 수 없음
+        ///   3) 소유권 확인 — 요청한 클라이언트가 해당 건물의 팀 소유주여야 함
+        /// 검증 통과 시:
+        ///   - 생산 건물이면 CancelAllQueue → 생산 큐 전체 취소 및 골드 환불
+        ///   - 건설 비용 50% 골드 환불
+        ///   - RemoveBuilding → 건물 도메인 상태 제거 + 이벤트 발행 (프리팹 제거)
+        ///   - DemolishBuildingClientRpc → 모든 클라이언트에 동기화
+        ///
+        /// 근거: RequestBuildServerRpc / RequestUpgradeServerRpc 패턴과 동일한 구조.
+        /// </summary>
+        /// <param name="buildingId">철거할 건물 Id</param>
+        /// <param name="rpcParams">서버 RPC 파라미터 (발신자 ClientId 포함)</param>
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestDemolishServerRpc(int buildingId, ServerRpcParams rpcParams = default)
+        {
+            ulong senderClientId = rpcParams.Receive.SenderClientId;
+
+            Debug.Log($"[Network] 건물 철거 요청 수신. ClientId={senderClientId}, BuildingId={buildingId}");
+
+            if (_bootstrapper == null)
+                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+
+            if (_bootstrapper == null)
+            {
+                Debug.LogError("[Network] RequestDemolishServerRpc: GameBootstrapper를 찾을 수 없습니다.");
+                SendBuildFailed(senderClientId, "서버 초기화 오류");
+                return;
+            }
+
+            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
+            ResourceUseCase resource = _bootstrapper.GetResource();
+
+            if (buildingPlacement == null || resource == null)
+            {
+                Debug.LogError("[Network] RequestDemolishServerRpc: UseCase가 null입니다.");
+                SendBuildFailed(senderClientId, "맵 로드 중");
+                return;
+            }
+
+            // 1) 건물 존재 확인
+            BuildingData building = buildingPlacement.GetBuilding(buildingId);
+            if (building == null)
+            {
+                Debug.LogWarning($"[Network] 철거 대상 건물 없음. Id={buildingId}");
+                SendBuildFailed(senderClientId, "건물 없음");
+                return;
+            }
+
+            // 2) Castle(본기지) 철거 불가 — 본기지는 절대 철거할 수 없음
+            if (building.Type == BuildingType.Castle)
+            {
+                Debug.LogWarning($"[Network] Castle은 철거할 수 없습니다. Id={buildingId}");
+                SendBuildFailed(senderClientId, "철거 불가");
+                return;
+            }
+
+            // 3) 소유권 검증 (발신자 ClientId → 기대 팀 매핑과 건물 팀이 일치해야 함)
+            TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
+            if (building.Team != expectedTeam)
+            {
+                Debug.LogWarning($"[Network] 철거 소유권 불일치. 발신자={senderClientId}, 건물팀={building.Team}, 기대팀={expectedTeam}");
+                SendBuildFailed(senderClientId, "소유권 불일치");
+                return;
+            }
+
+            // 4) 생산 건물이면 생산 큐 전체 취소 + 골드 환불 (Rule 5: 이미 차감된 항목 전액 환불)
+            // CancelAllQueue 내부에서 골드 환불과 이벤트 발행이 함께 처리된다.
+            if (BuildingTypeHelper.IsProductionBuilding(building.Type))
+            {
+                UnitProductionUseCase production = _bootstrapper.GetUnitProduction();
+                if (production != null)
+                    production.CancelAllQueue(buildingId);
+            }
+
+            // 5) 건설 비용 50% 환불 (건설 비용 누적합의 절반 반환)
+            // 2단계 건물이면 1단계 건설비 + 업그레이드 비용의 합산의 50%를 환불한다.
+            RaceId race = building.Team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+            int totalInvested = BuildingStats.GetTotalInvestedCost(building.Type, race);
+            int refund = totalInvested / 2;
+            resource.AddGold(building.Team, refund);
+
+            Debug.Log($"[Network] 서버: 건물 철거 처리. Id={buildingId}, Type={building.Type}, Team={building.Team}, 환불={refund}");
+
+            // 6) 서버 도메인 상태 제거
+            // DemolishBuilding = OnEntityDied 발행(서버 BuildingView 프리팹 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
+            buildingPlacement.DemolishBuilding(buildingId);
+
+            // 7) 모든 클라이언트에 동기화 명령 전파
+            DemolishBuildingClientRpc(buildingId);
+        }
+
+        /// <summary>
+        /// 서버 철거 처리 완료 후 모든 클라이언트에 도메인 상태 동기화.
+        /// 서버는 이미 RemoveBuilding()으로 처리했으므로 IsServer 분기에서 건너뜀.
+        /// 클라이언트는 RemoveBuilding()을 호출하여 동일한 건물을 도메인에서 제거한다.
+        /// 이벤트 발행으로 BuildingFactory가 프리팹을 제거한다.
+        ///
+        /// 근거: SpawnBuildingClientRpc / UpgradeBuildingClientRpc 패턴과 동일한 구조.
+        /// </summary>
+        /// <param name="buildingId">철거된 건물 Id</param>
+        [ClientRpc]
+        private void DemolishBuildingClientRpc(int buildingId)
+        {
+            // 서버는 이미 처리됨 — 중복 적용 방지
+            if (IsServer) return;
+
+            Debug.Log($"[Network] DemolishBuildingClientRpc 수신. Id={buildingId}");
+
+            if (_bootstrapper == null)
+                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+
+            if (_bootstrapper == null)
+            {
+                Debug.LogError("[Network] DemolishBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                return;
+            }
+
+            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
+            if (buildingPlacement == null)
+            {
+                Debug.LogError("[Network] DemolishBuildingClientRpc: BuildingPlacementUseCase가 null입니다.");
+                return;
+            }
+
+            // 클라이언트 도메인 상태 제거
+            // DemolishBuilding = OnEntityDied 발행(BuildingView 프리팹 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
+            buildingPlacement.DemolishBuilding(buildingId);
+
+            Debug.Log($"[Network] 클라이언트: 건물 철거 동기화 완료. Id={buildingId}");
+        }
 }
+
 }

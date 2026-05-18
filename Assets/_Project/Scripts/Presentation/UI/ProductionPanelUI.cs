@@ -20,8 +20,6 @@
 //     이동하는 부작용이 있어 레이아웃 공간을 유지하는 CanvasGroup 방식으로 전환.
 //   - 업그레이드 버튼 아이콘(_upgradeIconImage)에 다음 단계 건물 Sprite를
 //     런타임에 할당하기 위한 매핑 리스트(_buildingUpgradeIcons) 추가.
-//   - 랠리 버튼은 비용이 없으므로 골드 표시 영역(_rallyGoldDisplay)을
-//     Initialize 시점에 한 번 SetActive(false) 처리.
 //   - 철거 환불 금액 = 건설 비용 50%. 초록색 텍스트로 표시(UpdateDemolishRefund).
 // ============================================================================
 
@@ -148,9 +146,6 @@ namespace Hexiege.Presentation
         [Tooltip("업그레이드 버튼에 부착된 CanvasGroup. alpha=0으로 숨겨도 레이아웃 공간 유지.")]
         [SerializeField] private CanvasGroup _upgradeButtonGroup;
 
-        [Tooltip("랠리 버튼 하단의 골드 표시 영역(부모 GO). Initialize 시점에 비활성화.")]
-        [SerializeField] private GameObject _rallyGoldDisplay;
-
         [Tooltip("철거 버튼 하단에 표시되는 환불 금액 텍스트. 초록색으로 표시.")]
         [SerializeField] private TextMeshProUGUI _demolishRefundText;
 
@@ -254,10 +249,6 @@ namespace Hexiege.Presentation
             // 철거 버튼 이벤트 연결 (실제 철거 로직은 별도 작업 예정)
             if (_demolishButton != null)
                 _demolishButton.onClick.AddListener(OnDemolishButtonClick);
-
-            // 랠리 버튼은 비용이 없으므로 골드 표시 영역을 영구 비활성화
-            if (_rallyGoldDisplay != null)
-                _rallyGoldDisplay.SetActive(false);
 
             if (_unitButtons != null)
             {
@@ -651,13 +642,66 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 철거 버튼 클릭 핸들러.
-        /// 실제 철거 로직은 별도 작업으로 구현 예정이다.
-        /// 현재는 로그만 출력하고 아무 동작도 하지 않는다.
+        ///
+        /// 처리 흐름 (멀티플레이):
+        ///   1) RequestDemolishServerRpc 호출 → 서버에서 소유권 검증 후
+        ///      CancelAllQueue(큐 취소 + 환불) → AddGold(건설비 50% 환불) → RemoveBuilding 실행
+        ///   2) DemolishBuildingClientRpc로 모든 클라이언트에 동기화
+        ///
+        /// 처리 흐름 (싱글플레이):
+        ///   1) CancelAllQueue → 생산 큐 전체 취소 + 이미 차감된 골드 환불
+        ///   2) AddGold → 건설 비용 50% 환불
+        ///   3) RemoveBuilding → 건물 도메인 상태 제거 + 이벤트 발행 (프리팹 제거)
+        ///
+        /// 마지막으로 Close()를 호출하여 팝업을 닫는다.
+        ///
+        /// 근거: GameSystemRules.md — 건물 철거 시스템 규칙 2, 3, 4, 5
         /// </summary>
         private void OnDemolishButtonClick()
         {
-            // TODO: 철거 로직 구현 예정 (별도 작업)
-            Debug.Log($"[ProductionPanelUI] 철거 버튼 클릭 — BuildingType: {_currentBarracks?.Type} (로직 미구현)");
+            // 현재 건물 데이터가 없으면 동작 중단
+            if (_currentBarracks == null) return;
+
+            // 멀티플레이 모드인지 확인 (NetworkManager가 활성화된 상태)
+            bool isNetworkMode = _networkBuildingController != null
+                && NetworkManager.Singleton != null
+                && NetworkManager.Singleton.IsListening;
+
+            if (isNetworkMode)
+            {
+                // ── 멀티플레이: 서버에 철거 요청을 보낸다 ──────────────────────
+                // 소유권 검증, 큐 취소/환불, 골드 환불, RemoveBuilding, 클라이언트 동기화를
+                // 서버(NetworkBuildingController)가 모두 처리한다.
+                _networkBuildingController.RequestDemolishServerRpc(_currentBarracks.Id);
+            }
+            else
+            {
+                // ── 싱글플레이: UseCase를 직접 호출 ────────────────────────────
+
+                // 1) 생산 건물이면 생산 큐 전체 취소 + 이미 차감된 골드 전액 환불
+                //    (CancelAllQueue 내부에서 환불 처리가 함께 이루어진다)
+                if (BuildingTypeHelper.IsProductionBuilding(_currentBarracks.Type) && _production != null)
+                    _production.CancelAllQueue(_currentBarracks.Id);
+
+                // 2) 건설 비용 50% 환불
+                //    누적 투자 비용(건설비 + 업그레이드 비용 합산)의 절반을 돌려준다.
+                if (_resource != null)
+                {
+                    RaceId race = (_currentBarracks.Team == TeamId.Blue)
+                        ? GameRaceContext.BlueRace
+                        : GameRaceContext.RedRace;
+                    int totalInvested = BuildingStats.GetTotalInvestedCost(_currentBarracks.Type, race);
+                    int refund = totalInvested / 2;
+                    _resource.AddGold(_currentBarracks.Team, refund);
+                }
+
+                // 3) 건물 도메인 상태 제거
+                // DemolishBuilding = OnEntityDied 발행(BuildingView 프리팹 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
+                _buildingPlacement?.DemolishBuilding(_currentBarracks.Id);
+            }
+
+            // 팝업 닫기 (건물이 사라지므로 패널을 유지할 이유가 없음)
+            Close();
         }
 
         // ====================================================================

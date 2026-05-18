@@ -153,31 +153,6 @@ public static class SetupProductionPopupUI
             var slot4 = unitButtons2.GetChild(0);
             WireButton(so, "_rallyPointButton", slot4.GetComponent<Button>(), "Slot4 (랠리)");
 
-            // 랠리 골드 표시 영역: 자식 TMP 가 속한 GO 를 우선 사용한다.
-            // - TMP의 부모가 Slot 자신이 아니면 → 부모 GO (래퍼 컨테이너) 를 표시 영역으로 사용
-            // - TMP의 부모가 Slot 자신이면 → TMP의 GO 자체를 표시 영역으로 사용
-            // - TMP 자체를 못 찾으면 → 경고 후 수동 연결 안내
-            var rallyTmp = slot4.GetComponentInChildren<TextMeshProUGUI>(true);
-            if (rallyTmp == null)
-            {
-                Debug.LogWarning("[Setup] _rallyGoldDisplay 자동 연결 실패 — Inspector에서 수동 연결 필요");
-            }
-            else
-            {
-                var tmpGO = rallyTmp.gameObject;
-                var parentGO = rallyTmp.transform.parent != null ? rallyTmp.transform.parent.gameObject : tmpGO;
-                var displayGO = (parentGO == slot4.gameObject) ? tmpGO : parentGO;
-
-                var prop = so.FindProperty("_rallyGoldDisplay");
-                if (prop == null)
-                    Debug.LogError("[Setup] '_rallyGoldDisplay' 프로퍼티를 찾을 수 없습니다.");
-                else
-                {
-                    prop.objectReferenceValue = displayGO;
-                    Debug.Log($"[Setup] _rallyGoldDisplay 연결 완료: '{displayGO.name}'");
-                }
-            }
-
             // ── Slot5 (인덱스 1) → 업그레이드 버튼 ───────────────────────
             var slot5 = unitButtons2.GetChild(1);
             WireButton(so, "_upgradeButton", slot5.GetComponent<Button>(), "Slot5 (업그레이드)");

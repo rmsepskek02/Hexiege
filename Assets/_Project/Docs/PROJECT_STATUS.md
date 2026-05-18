@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-05-18
-**현재 단계:** ProductionPopup UI 레이아웃 재구성 완료 (팀별 업그레이드 아이콘, 2유닛 레이아웃, 철거 환불 누적 계산, 2/3단계 건물 랠리 마커 버그 수정)
+**현재 단계:** 건물 철거 시스템 완료 (생산 건물 철거, 50% 골드 환불, 생산 큐 전액 환불, 멀티플레이 서버 권위 처리, BuildingFactory GO 파괴 수정)
 
 ---
 
@@ -322,6 +322,19 @@
 | 철거 환불 누적 계산 | ✅ 완료 | 1단계 건설비 + 모든 업그레이드비 합산의 50%. BuildingStats.GetTotalInvestedCost() + GameBootstrapper 캐싱 |
 | 2/3단계 건물 랠리 마커 미표시 버그 수정 | ✅ 완료 | ProductionTicker에 OnBuildingUpgraded 구독 추가. 전 종족 테스트 통과 |
 
+#### 건물 철거 시스템 (2026-05-18)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| UnitProductionUseCase.CancelAllQueue() | ✅ 완료 | 생산 큐 전체 취소 + IsCharged=true 항목 전액 환불 + UnregisterBarracks |
+| ProductionPanelUI.OnDemolishButtonClick() | ✅ 완료 | 싱글: CancelAllQueue → AddGold(50%) → DemolishBuilding. 멀티: RequestDemolishServerRpc |
+| BuildingPlacementUseCase.DemolishBuilding() | ✅ 완료 | OnEntityDied 발행 → RemoveBuilding 호출 |
+| NetworkBuildingController — RequestDemolishServerRpc | ✅ 완료 | 소유권/Castle/존재 검증 후 철거 + DemolishBuildingClientRpc 동기화 |
+| BuildingFactory — OnEntityDied 구독 (GO 파괴) | ✅ 완료 | B방식: 구독 1개 + _buildingObjects Dict O(1) 조회로 GO 파괴 |
+| BuildingView.cs + MiningEffectView.cs 삭제 | ✅ 완료 | 미사용 코드 제거. BuildingFactory가 GO 파괴 책임 인수 |
+| 채굴소(MiningPost) 철거 UI | ⏸ 연기 | 별도 MiningPostPanelUI 제작 시 구현 |
+
+---
+
 #### 버그 수정 및 폴리싱
 | 항목 | 상태 |
 |------|------|
@@ -366,7 +379,6 @@
 | 방어 타워 (Defense Tower) | 낮음 | Phase 3 |
 | 마법 타워 (Magic Tower) | 낮음 | Phase 3 |
 | 연구소 (Research Lab) | 낮음 | Phase 3 |
-| 건물 철거 로직 구현 | 낮음 | Phase 3 |
 | 유닛 AI 상태머신 | 낮음 | Phase 3 |
 | 타임라인/서든데스 시스템 | 낮음 | Phase 3 |
 | 사운드/BGM | 낮음 | Phase 4 |

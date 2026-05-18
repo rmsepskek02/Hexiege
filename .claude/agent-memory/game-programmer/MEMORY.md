@@ -23,6 +23,30 @@
 
 ## 최근 작업
 
+### 건물 철거 시스템 (2026-05-18) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-17/18_15_building-demolish/`
+
+**핵심 변경**:
+- `UnitProductionUseCase.CancelAllQueue(barracksId)` 신규: ① ClearRallyPoint(barracksId) — UnregisterBarracks 이전 필수 ② CurrentProducing 환불 ③ PendingQueue IsCharged=true 항목 환불, false 항목은 환불 없이 제거 ④ 상태 초기화 ⑤ OnProductionQueueChanged 발행 ⑥ UnregisterBarracks 호출
+- `BuildingPlacementUseCase.DemolishBuilding(buildingId)` 신규: `GameEvents.OnEntityDied.OnNext(new EntityDiedEvent(building))` → `RemoveBuilding(buildingId)` 반환
+- `ProductionPanelUI.OnDemolishButtonClick()`: 싱글 → CancelAllQueue + AddGold(TotalInvestedCost/2) + DemolishBuilding → Close(). 멀티 → RequestDemolishServerRpc → Close()
+- `NetworkBuildingController.RequestDemolishServerRpc`: 소유권(팀) + Castle 아님 + 건물 존재 검증 → CancelAllQueue + AddGold + DemolishBuilding → DemolishBuildingClientRpc
+- `DemolishBuildingClientRpc`: `if (IsServer) return;` (호스트 이중 처리 방지) → buildingPlacement.DemolishBuilding()
+- `BuildingFactory.Awake()` — OnEntityDied 구독 추가(B방식): `if (e.Entity is not BuildingData building) return;` 유닛 필터링 → `_buildingObjects.TryGetValue` → Destroy(go)
+- `BuildingView.cs` 삭제 (prefab에 미부착, 책임 BuildingFactory로 이전)
+- `MiningEffectView.cs` 삭제 (미사용, BuildingView 의존)
+
+**건물 프리팹 구조 확인**:
+- Root GO(Transform ONLY) + Child GO(MeshFilter/MeshRenderer) — BuildingView 미부착이 원인
+- BuildingFactory가 `_buildingObjects` Dict로 Id→GO 관리 → 이 Dict로 GO 직접 파괴
+
+**골드 환불 조회 API**: `BuildingStats.GetTotalInvestedCost(type, race)` / 2
+
+**범위 조정**: 채굴소(MiningPost) 철거 UI(MiningPostPanelUI + InputHandler 분기)는 별도 작업으로 연기
+
+---
+
 ### 건물 업그레이드 시스템 + 단계별 생산건물 (2026-05-17) ✅ 코드 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-17/02_16_building-upgrade-system/`

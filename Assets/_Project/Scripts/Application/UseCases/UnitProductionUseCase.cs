@@ -436,6 +436,75 @@ namespace Hexiege.Application
             return state;
         }
 
+        /// <summary>
+        /// 배럭 철거 시 생산 큐 전체를 한 번에 취소하고, 이미 차감된 골드를 전액 환불한다.
+        ///
+        /// 처리 순서:
+        ///   1) 랠리포인트 마커 제거 이벤트 발행 (UnregisterBarracks 전에 호출해야 state에 접근 가능)
+        ///   2) state.CurrentProducing 이 있으면 해당 유닛 비용 전액 환불 (항상 IsCharged=true)
+        ///   3) state.PendingQueue 전체 순회:
+        ///        - IsCharged=true 항목 → 전액 환불
+        ///        - IsCharged=false 항목 → 환불 없이 제거 (골드가 아직 차감되지 않았으므로)
+        ///   4) 생산 상태 초기화 (CurrentProducing, AutoTypes, PendingQueue 등)
+        ///   5) OnProductionQueueChanged 이벤트 발행 → UI 즉시 갱신
+        ///   6) UnregisterBarracks 호출 → ProductionState 딕셔너리에서 제거
+        ///
+        /// 근거: GameSystemRules.md — 건물 철거 시스템 규칙 5
+        ///   이미 차감된 항목은 전액 환불, 미차감 항목은 환불 없이 제거.
+        /// </summary>
+        /// <param name="barracksId">철거할 배럭의 건물 Id</param>
+        public void CancelAllQueue(int barracksId)
+        {
+            // state가 없으면(비생산 건물이거나 이미 해제됨) 즉시 반환
+            if (!_states.TryGetValue(barracksId, out var state)) return;
+
+            // ─── Step 1: 랠리포인트 마커 제거 ─────────────────────────────────
+            // UnregisterBarracks가 호출되면 state가 사라지므로, 이벤트 발행 전에 먼저 처리.
+            ClearRallyPoint(barracksId);
+
+            // ─── Step 2: 현재 생산 중인 유닛 환불 ─────────────────────────────
+            // CurrentProducing은 항상 골드가 차감된 상태(IsCharged=true에 해당)이므로 전액 환불.
+            if (state.CurrentProducing.HasValue)
+            {
+                _resource.AddGold(
+                    state.Team,
+                    UnitProductionStats.GetGoldCost(state.CurrentProducing.Value));
+            }
+
+            // ─── Step 3: PendingQueue 전체 환불/제거 ───────────────────────────
+            // IsCharged=true 항목은 골드가 이미 차감됐으므로 전액 환불.
+            // IsCharged=false 항목은 미차감이므로 환불 없이 제거.
+            foreach (var slot in state.PendingQueue)
+            {
+                if (slot.IsCharged)
+                {
+                    _resource.AddGold(
+                        state.Team,
+                        UnitProductionStats.GetGoldCost(slot.Type));
+                }
+                // IsCharged=false 항목은 골드 차감이 없었으므로 그냥 넘어감
+            }
+
+            // ─── Step 4: 생산 상태 전체 초기화 ────────────────────────────────
+            // 리스트/필드를 비워두어야 UnregisterBarracks 이후 혹시 남은 참조가 오동작하지 않음.
+            state.PendingQueue.Clear();
+            state.AutoTypes.Clear();
+            state.AutoCycleIndex = 0;
+            state.CurrentProducing = null;
+            state.CurrentIsAuto = false;
+            state.ElapsedTime = 0f;
+            state.RequiredTime = 0f;
+
+            // ─── Step 5: UI에 큐 변경 알림 ─────────────────────────────────────
+            // 팝업이 아직 열려 있다면 슬롯 이미지를 빈 상태로 즉시 갱신.
+            GameEvents.OnProductionQueueChanged.OnNext(
+                new ProductionQueueChangedEvent(barracksId));
+
+            // ─── Step 6: ProductionState 딕셔너리에서 제거 ─────────────────────
+            // 이후 Tick()에서 이 배럭의 state에 접근하지 않도록 마지막에 제거.
+            UnregisterBarracks(barracksId);
+        }
+
         // ====================================================================
         // 랠리 포인트
         // ====================================================================
