@@ -58,18 +58,16 @@ namespace Hexiege.Application
             _occupancyManager = occupancyManager;
 
             // [2026-05-11 비활성화 — 점유 시스템 폐기]
-            // OnEntityDied → OnUnitRemoved 자동 구독은 점유 시스템 폐기로 제거됐습니다.
+            // 유닛 사망 → OnUnitRemoved 자동 구독은 점유 시스템 폐기로 제거됐습니다.
             // 기존 코드는 git 히스토리에서 확인 가능합니다.
             //
             // if (_occupancyManager != null)
             // {
-            //     _subscriptions.Add(GameEvents.OnEntityDied.Subscribe(evt =>
+            //     _subscriptions.Add(GameEvents.OnUnitDied.Subscribe(evt =>
             //     {
-            //         if (evt.Entity is UnitData unit)
-            //         {
-            //             float size = GetOccupancySize(unit.Type);
-            //             _occupancyManager.OnUnitRemoved(unit.Position, size);
-            //         }
+            //         UnitData unit = evt.Unit;
+            //         float size = GetOccupancySize(unit.Type);
+            //         _occupancyManager.OnUnitRemoved(unit.Position, size);
             //     }));
             // }
         }

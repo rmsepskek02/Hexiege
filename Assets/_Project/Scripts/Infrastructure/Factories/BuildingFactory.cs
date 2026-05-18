@@ -10,7 +10,7 @@
 //   5. 생성된 GameObject를 Buildings 부모 오브젝트 하위에 배치
 //
 // 건물 파괴(사망/철거):
-//   - GameEvents.OnEntityDied 이벤트를 구독해 BuildingData인 경우 딕셔너리에서 GO를 찾아 Destroy.
+//   - GameEvents.OnBuildingDied 이벤트를 구독해 딕셔너리에서 해당 GO를 찾아 Destroy.
 //   - 별도의 BuildingView 컴포넌트 없이 BuildingFactory가 단일 책임으로 GO 생명주기를 관리한다.
 //
 // [Phase 2] 3D 전환:
@@ -97,30 +97,27 @@ namespace Hexiege.Infrastructure
                 .AddTo(this);
 
             // ── 건물 사망/철거 이벤트 구독 ──────────────────────
-            // OnEntityDied 이벤트는 유닛/건물 공용이다.
-            // (UnitCombatUseCase 등에서 유닛이 죽을 때도 같은 이벤트가 발행됨)
-            // 따라서 이벤트로 전달된 Entity가 BuildingData인지 먼저 확인해
-            // "건물 사망"인 경우에만 GO를 파괴한다.
+            // OnBuildingDied는 건물 전용 사망 이벤트다.
+            // (유닛 사망은 별도의 OnUnitDied로 발행되며 여기서는 다루지 않는다.)
             //
             // 동작 흐름:
-            //   1) BuildingPlacementUseCase.DemolishBuilding() 또는 전투 시스템에서 OnEntityDied 발행
+            //   1) BuildingPlacementUseCase.DemolishBuilding() 또는 전투 시스템에서 OnBuildingDied 발행
             //   2) 여기서 _buildingObjects 딕셔너리(Id → GameObject)를 O(1)로 조회
             //   3) 해당 GO를 Destroy 후 딕셔너리에서 제거
             //
             // 과거에는 BuildingView 컴포넌트가 자기 자신의 사망을 구독하고
             // Destroy(gameObject)를 호출했지만, 프리팹에 BuildingView가 누락되어
             // 철거 시 GO가 사라지지 않는 버그가 있었다. → BuildingFactory가 단일 책임으로 처리.
-            GameEvents.OnEntityDied
+            //
+            // 강타입 사망 이벤트 분리(OnUnitDied/OnBuildingDied)로 BuildingFactory는 건물 전용 채널만 구독하면 충분하다.
+            GameEvents.OnBuildingDied
                 .Subscribe(e =>
                 {
-                    // 유닛 사망 이벤트는 무시 (BuildingData가 아니면 즉시 리턴)
-                    if (e.Entity is not BuildingData building) return;
-
                     // 딕셔너리에서 해당 건물 GO를 꺼내 파괴한다.
                     // Unity 객체 비교 시 == null 패턴 사용 (Destroyed 객체 대응).
-                    if (_buildingObjects.TryGetValue(building.Id, out var go) && go != null)
+                    if (_buildingObjects.TryGetValue(e.Building.Id, out var go) && go != null)
                     {
-                        _buildingObjects.Remove(building.Id);
+                        _buildingObjects.Remove(e.Building.Id);
                         Destroy(go);
                     }
                 })
@@ -176,7 +173,7 @@ namespace Hexiege.Infrastructure
             obj.name = $"{prefab.name}_{data.Id}";
 
             // 생성된 GO를 딕셔너리에 등록 (Id → GameObject).
-            // 이후 사망/철거 시 OnEntityDied 구독자(Awake 참조)가 이 딕셔너리에서 GO를 찾아 파괴한다.
+            // 이후 사망/철거 시 OnBuildingDied 구독자(Awake 참조)가 이 딕셔너리에서 GO를 찾아 파괴한다.
             _buildingObjects[data.Id] = obj;
         }
 
@@ -247,7 +244,7 @@ namespace Hexiege.Infrastructure
             _buildingObjects.Remove(oldBuildingId);
 
             // 3) 새 GO 등록 (서버/클라이언트 모두 newBuilding.Id 키로 저장)
-            //    이후 사망/철거 시 OnEntityDied 구독자(Awake 참조)가 newBuilding.Id로 GO를 찾아 파괴한다.
+            //    이후 사망/철거 시 OnBuildingDied 구독자(Awake 참조)가 newBuilding.Id로 GO를 찾아 파괴한다.
             _buildingObjects[newBuilding.Id] = newObj;
         }
 

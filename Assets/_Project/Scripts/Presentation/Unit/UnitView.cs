@@ -373,11 +373,15 @@ namespace Hexiege.Presentation
                     .AddTo(this);
             }
 
-            // 사망 이벤트 구독 — 이 유닛이 사망하면 GameObject 파괴
-            GameEvents.OnEntityDied
+            // 사망 이벤트 구독 — 이 유닛이 사망하면 GameObject 파괴.
+            // 유닛 전용 이벤트(OnUnitDied)를 구독한다.
+            // UnitDiedEvent.Unit이 UnitData 강타입이라 별도 캐스트 없이 직접 비교만 하면 된다.
+            GameEvents.OnUnitDied
                 .Subscribe(e =>
                 {
-                    if (_unitData != null && e.Entity == (IDamageable)_unitData)
+                    // 이 UnitView 인스턴스가 들고 있는 _unitData와 일치할 때만 자기 자신을 파괴.
+                    // 다른 유닛의 사망 이벤트는 무시.
+                    if (_unitData != null && e.Unit == _unitData)
                     {
                         // 사망 시 speed 복원 후 IsDead bool 설정 (Animator 트랜지션)
                         if (_animator != null)

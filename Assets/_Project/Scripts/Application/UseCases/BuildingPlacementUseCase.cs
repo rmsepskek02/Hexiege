@@ -274,16 +274,19 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 플레이어 철거 요청으로 건물을 제거한다.
-        /// RemoveBuilding과 달리 OnEntityDied 이벤트를 먼저 발행하여
-        /// BuildingView(프리팹)가 자신을 Destroy 할 수 있도록 한다.
+        /// RemoveBuilding과 달리 OnBuildingDied 이벤트를 먼저 발행하여
+        /// BuildingFactory(프리팹 관리)가 GameObject를 파괴할 수 있도록 한다.
         ///
         /// 처리 순서:
         ///   1) 건물 존재 확인
-        ///   2) OnEntityDied 이벤트 발행 → BuildingView.Destroy(gameObject)
+        ///   2) OnBuildingDied 이벤트 발행 → BuildingFactory가 _buildingObjects에서 GO를 찾아 Destroy
         ///   3) RemoveBuilding 호출 → 도메인 딕셔너리 제거 + 타일 상태 복구
         ///
         /// 근거: UnitCombatUseCase에서 건물 HP=0 파괴 시 동일 패턴 사용.
-        ///   (라인 787: OnEntityDied 발행 → 라인 807: RemoveBuilding 호출)
+        ///   (ExecuteAttack 사망 분기: OnBuildingDied 발행 → RemoveBuilding 호출)
+        ///
+        /// 사망 이벤트 채널은 유닛(OnUnitDied) / 건물(OnBuildingDied) 둘로 분리되어 있어
+        /// 건물 철거에서는 OnBuildingDied만 발행하면 된다.
         /// </summary>
         /// <param name="buildingId">철거할 건물 Id</param>
         /// <returns>성공 시 true, 건물이 없으면 false</returns>
@@ -293,11 +296,11 @@ namespace Hexiege.Application
             if (!_buildings.TryGetValue(buildingId, out var building))
                 return false;
 
-            // OnEntityDied 이벤트 발행 → BuildingView가 자신의 GameObject를 Destroy.
-            // UnitCombatUseCase의 건물 HP=0 파괴 경로와 동일한 패턴.
-            // Castle을 철거하면 GameEndUseCase가 OnEntityDied를 받아 게임 종료를 판정하지만,
+            // OnBuildingDied 이벤트 발행 → BuildingFactory가 자신의 GameObject를 Destroy.
+            // UnitCombatUseCase의 건물 HP=0 파괴 경로와 동일한 패턴(분리된 이벤트 사용).
+            // Castle을 철거하면 GameEndUseCase가 OnBuildingDied를 받아 게임 종료를 판정하지만,
             // 철거 호출 전 Castle 여부를 검증하므로 실제로는 Castle이 여기에 도달하지 않는다.
-            GameEvents.OnEntityDied.OnNext(new EntityDiedEvent(building));
+            GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(building));
 
             // 도메인 딕셔너리에서 제거 + 타일 상태(IsWalkable, 소유권) 복구
             return RemoveBuilding(buildingId);
@@ -306,7 +309,7 @@ namespace Hexiege.Application
         /// <summary>
         /// 건물을 목록에서 제거하고 타일을 이동 가능 상태로 복구.
         /// UnitCombatUseCase에서 건물 HP가 0 이하가 되었을 때 호출.
-        /// 철거 시에는 OnEntityDied 발행이 포함된 DemolishBuilding을 사용할 것.
+        /// 철거 시에는 OnBuildingDied 발행이 포함된 DemolishBuilding을 사용할 것.
         /// </summary>
         public bool RemoveBuilding(int buildingId)
         {

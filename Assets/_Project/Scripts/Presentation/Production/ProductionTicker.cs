@@ -7,7 +7,7 @@
 //   2. ResourceUseCase.TickIncome(dt) 호출 → 채굴소 골드 수입 처리
 //   3. OnUnitProduced 이벤트 수신 → 생산된 유닛을 랠리포인트로 자동 이동
 //   4. OnBuildingPlaced 이벤트 수신 → 배럭 등록
-//   5. OnEntityDied 이벤트 수신 → 배럭 파괴 시 해제 + 마커 제거
+//   5. OnBuildingDied / OnUnitDied 이벤트 수신 → 배럭 파괴 시 해제 + 마커 제거 / siege 목록 정리
 //   6. OnRallyPointChanged 이벤트 수신 → 마커 생성/이동/제거
 //   7. Siege 시스템: 랠리→Castle 자동 이동 + 지속 접근 탐색
 //
@@ -169,9 +169,16 @@ namespace Hexiege.Presentation
                 .Subscribe(OnBuildingUpgraded)
                 .AddTo(this);
 
-            // 엔티티 사망 → 배럭 파괴 시 해제 + 마커 제거
-            GameEvents.OnEntityDied
-                .Subscribe(OnEntityDied)
+            // 사망 이벤트는 분리된 두 채널을 각각 구독한다.
+            //   OnBuildingDied  → 생산건물(배럭)이라면 ProductionState 해제 + 랠리 마커 제거
+            //   OnUnitDied      → siege 목록(_siegeUnits)에서 해당 유닛 제거
+            // 강타입 DTO 분리(BuildingDiedEvent/UnitDiedEvent) 덕분에 핸들러도 두 개로 깔끔히 나뉜다.
+            GameEvents.OnBuildingDied
+                .Subscribe(OnBuildingDied)
+                .AddTo(this);
+
+            GameEvents.OnUnitDied
+                .Subscribe(OnUnitDied)
                 .AddTo(this);
 
             // 랠리포인트 변경 → 마커 생성/이동/제거
@@ -196,11 +203,11 @@ namespace Hexiege.Presentation
                 .Subscribe(_ => OnWalkableChanged())
                 .AddTo(_buildingChangeSubs);
 
-            GameEvents.OnEntityDied
-                .Subscribe(e =>
-                {
-                    if (e.Entity is BuildingData) OnWalkableChanged();
-                })
+            // 건물 사망만 walkable에 영향을 주므로 OnBuildingDied만 구독한다.
+            // (유닛 사망은 walkable과 무관하여 OnUnitDied 구독 불필요.)
+            // 건물 전용 강타입 이벤트라 BuildingData 캐스트 분기가 필요 없다.
+            GameEvents.OnBuildingDied
+                .Subscribe(_ => OnWalkableChanged())
                 .AddTo(_buildingChangeSubs);
         }
 
@@ -390,25 +397,36 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 엔티티 사망 시 생산건물이면 ProductionState 해제 + 마커 제거.
-        /// 유닛 사망이면 siege 목록에서 제거.
+        /// 건물 사망 시 생산건물이면 ProductionState를 해제하고 랠리 마커도 제거.
+        /// 비생산 건물(Castle/MiningPost 등)이면 아무 동작도 하지 않는다.
+        ///
+        /// 사망 이벤트가 유닛/건물로 강타입 분리(OnUnitDied/OnBuildingDied)되어
+        /// 한 메서드 안에서 is 캐스트로 분기할 필요 없이 핸들러 자체를 둘로 나누게 되었다.
         /// </summary>
-        private void OnEntityDied(EntityDiedEvent e)
+        /// <param name="e">사망한 건물 정보가 담긴 이벤트.</param>
+        private void OnBuildingDied(BuildingDiedEvent e)
         {
             if (_productionUseCase == null) return;
+            if (e.Building == null) return;
 
-            // 생산건물 파괴 시 해제 + 마커 제거
-            if (e.Entity is BuildingData building && BuildingTypeHelper.IsProductionBuilding(building.Type))
+            // 생산건물(배럭/2·3단계 생산건물)만 ProductionState/마커가 등록되어 있으므로
+            // BuildingTypeHelper.IsProductionBuilding 으로 한 번 더 필터링.
+            if (BuildingTypeHelper.IsProductionBuilding(e.Building.Type))
             {
-                _productionUseCase.UnregisterBarracks(building.Id);
-                DestroyMarker(building.Id);
+                _productionUseCase.UnregisterBarracks(e.Building.Id);
+                DestroyMarker(e.Building.Id);
             }
+        }
 
-            // 유닛 사망 시 siege 목록에서 제거
-            if (e.Entity is UnitData unit)
-            {
-                _siegeUnits.Remove(unit.Id);
-            }
+        /// <summary>
+        /// 유닛 사망 시 siege(공성) 자동 이동 목록에서 해당 유닛을 제거.
+        /// _siegeUnits에 등록된 유닛이 아니면 Remove는 false를 반환하지만 부작용은 없다.
+        /// </summary>
+        /// <param name="e">사망한 유닛 정보가 담긴 이벤트.</param>
+        private void OnUnitDied(UnitDiedEvent e)
+        {
+            if (e.Unit == null) return;
+            _siegeUnits.Remove(e.Unit.Id);
         }
 
         // ====================================================================

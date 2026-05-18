@@ -11,7 +11,7 @@
 // 흐름:
 //   [서버] Castle 파괴
 //     → NetworkCombatController.EntityDiedClientRpc
-//     → [서버] GameEndUseCase.OnEntityDied → GameEvents.OnGameEnd
+//     → [서버] GameEndUseCase.OnBuildingDied → GameEvents.OnGameEnd
 //     → [서버] NetworkGameEndController.OnGameEnd 수신
 //     → AnnounceWinnerClientRpc(winnerTeamIndex, isRandomMatch)
 //     → [모든 클라이언트] SetupRematchButton + ShowResult

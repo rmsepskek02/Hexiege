@@ -538,7 +538,7 @@ namespace Hexiege.Infrastructure
             Debug.Log($"[Network] 서버: 건물 철거 처리. Id={buildingId}, Type={building.Type}, Team={building.Team}, 환불={refund}");
 
             // 6) 서버 도메인 상태 제거
-            // DemolishBuilding = OnEntityDied 발행(서버 BuildingView 프리팹 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
+            // DemolishBuilding = OnBuildingDied 발행(서버 BuildingFactory가 GO 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
             buildingPlacement.DemolishBuilding(buildingId);
 
             // 7) 모든 클라이언트에 동기화 명령 전파
@@ -579,7 +579,7 @@ namespace Hexiege.Infrastructure
             }
 
             // 클라이언트 도메인 상태 제거
-            // DemolishBuilding = OnEntityDied 발행(BuildingView 프리팹 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
+            // DemolishBuilding = OnBuildingDied 발행(BuildingFactory가 GO 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
             buildingPlacement.DemolishBuilding(buildingId);
 
             Debug.Log($"[Network] 클라이언트: 건물 철거 동기화 완료. Id={buildingId}");

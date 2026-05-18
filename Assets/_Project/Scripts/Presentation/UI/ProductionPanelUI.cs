@@ -696,7 +696,7 @@ namespace Hexiege.Presentation
                 }
 
                 // 3) 건물 도메인 상태 제거
-                // DemolishBuilding = OnEntityDied 발행(BuildingView 프리팹 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
+                // DemolishBuilding = OnBuildingDied 발행(BuildingFactory가 GO 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
                 _buildingPlacement?.DemolishBuilding(_currentBarracks.Id);
             }
 

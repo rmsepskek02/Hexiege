@@ -7,8 +7,8 @@
 //     (싱글플레이에서는 UnitView.MoveAlongPath의 코루틴이 TryAttack을 직접 호출)
 //     (멀티플레이에서는 UnitCombatUseCase.TryAttack이 클라이언트에서 return false이므로
 //      이 컨트롤러가 서버 Update에서 모든 살아있는 유닛에 대해 TryAttack을 호출)
-//   - OnEntityDied 이벤트 구독 → EntityDiedClientRpc로 사망 전파
-//   - 클라이언트에서 도메인 데이터 정리 + GameEvents.OnEntityDied 재발행
+//   - OnUnitDied / OnBuildingDied 이벤트 구독 → EntityDiedClientRpc로 사망 전파
+//   - 클라이언트에서 도메인 데이터 정리 + GameEvents.OnUnitDied / OnBuildingDied 재발행
 //     → GameEndUseCase가 Castle 파괴 감지 → GameEndUI 반응
 //
 // 전투 Tick 주기:
@@ -56,8 +56,11 @@ namespace Hexiege.Infrastructure
         /// <summary>GameBootstrapper 참조. UseCase 접근에 사용.</summary>
         private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
 
-        /// <summary>OnEntityDied 구독 해제용 Disposable.</summary>
-        private System.IDisposable _diedSubscription;
+        /// <summary>OnUnitDied 구독 해제용 Disposable. 서버 전용(유닛 사망 → 클라이언트 RPC 전파).</summary>
+        private System.IDisposable _unitDiedSubscription;
+
+        /// <summary>OnBuildingDied 구독 해제용 Disposable. 서버 전용(건물 사망 → 클라이언트 RPC 전파).</summary>
+        private System.IDisposable _buildingDiedSubscription;
 
         /// <summary>OnUnitWalkStarted 구독 해제용 Disposable. 서버 전용.</summary>
         private System.IDisposable _walkStartedSubscription;
@@ -94,7 +97,7 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 네트워크 스폰 시 GameBootstrapper를 탐색하고
-        /// 서버라면 OnEntityDied 이벤트를 구독하여 사망 전파 준비.
+        /// 서버라면 OnUnitDied / OnBuildingDied 이벤트를 구독하여 사망 전파 준비.
         /// </summary>
         public override void OnNetworkSpawn()
         {
@@ -115,8 +118,13 @@ namespace Hexiege.Infrastructure
             // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
             {
-                _diedSubscription = GameEvents.OnEntityDied
-                    .Subscribe(OnEntityDied);
+                // 사망 이벤트는 OnUnitDied / OnBuildingDied 두 갈래로 분리되었으므로
+                // 서버 측에서도 각각 구독한다.
+                // 분리 이유: 구독 측에서 매번 is 캐스트로 타입을 분기하지 않도록 강타입 DTO를 사용.
+                _unitDiedSubscription = GameEvents.OnUnitDied
+                    .Subscribe(OnUnitDied);
+                _buildingDiedSubscription = GameEvents.OnBuildingDied
+                    .Subscribe(OnBuildingDied);
 
                 // 서버 UnitView의 Walk 시작/정지 이벤트를 수신하여 클라이언트에 전파.
                 // UnitView.MoveAlongPath()는 서버에서만 실행되므로,
@@ -128,7 +136,7 @@ namespace Hexiege.Infrastructure
                 _enteredCombatSubscription = GameEvents.OnUnitEnteredCombat
                     .Subscribe(OnUnitEnteredCombatHandler);
 
-                Debug.Log("[Network] NetworkCombatController: 서버 측 OnEntityDied, Walk, EnteredCombat 이벤트 구독 완료.");
+                Debug.Log("[Network] NetworkCombatController: 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat 이벤트 구독 완료.");
             }
         }
 
@@ -138,8 +146,15 @@ namespace Hexiege.Infrastructure
         public override void OnNetworkDespawn()
         {
             base.OnNetworkDespawn();
-            _diedSubscription?.Dispose();
-            _diedSubscription = null;
+
+            // 사망 이벤트 구독을 모두 해제 (Unit/Building 두 종류 모두).
+            // 어느 한 쪽이라도 누수되면 다음 게임에서 동일 핸들러가 중복 실행되어
+            // EntityDiedClientRpc가 두 번 전송되는 문제로 이어진다.
+            _unitDiedSubscription?.Dispose();
+            _unitDiedSubscription = null;
+
+            _buildingDiedSubscription?.Dispose();
+            _buildingDiedSubscription = null;
 
             // Walk 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _walkStartedSubscription?.Dispose();
@@ -462,47 +477,54 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
-        /// 서버에서 엔티티 사망 이벤트를 수신하여 모든 클라이언트에 사망 전파.
-        /// GameEndUseCase도 OnEntityDied를 구독하므로 서버에서 이미 게임 종료 판정됨.
+        /// 서버에서 유닛 사망 이벤트를 수신하여 모든 클라이언트에 사망 전파.
         /// 클라이언트에도 동일한 이벤트 체인을 재현하기 위해 ClientRpc로 전파.
+        ///
+        /// 강타입 DTO(UnitDiedEvent) 사용으로 얻는 이점:
+        ///   - is 캐스트 분기 불필요. UnitDiedEvent.Unit이 이미 UnitData 강타입.
+        ///   - 알 수 없는 엔티티 타입 분기 불필요 (DTO 자체가 유닛 전용).
         /// </summary>
-        private void OnEntityDied(EntityDiedEvent e)
+        /// <param name="e">사망한 유닛 정보가 담긴 이벤트.</param>
+        private void OnUnitDied(UnitDiedEvent e)
+        {
+            // 서버만 클라이언트에 전파한다. 클라이언트에서 도착하는 OnUnitDied는
+            // EntityDiedClientRpc → HandleUnitDied 가 재발행한 것이므로 무시.
+            if (!IsServer) return;
+            if (e.Unit == null) return;
+
+            int unitId = e.Unit.Id;
+
+            // 사망한 유닛의 전투 상태를 Dictionary에서 제거.
+            // StopCombatClientRpc는 전송하지 않음 — EntityDiedClientRpc가 사망 처리를 담당.
+            // 사망한 타겟을 공격 중이던 유닛들의 전투 상태는 제거하지 않음.
+            // → 다음 TickCombat에서 TryFindTarget이 다른 타겟을 찾거나 null을 반환.
+            //   ChangeTargetClientRpc 또는 StopCombatClientRpc가 자연스럽게 발행됨.
+            _unitCombatTargets.Remove(unitId);
+            _combatAnimationSent.Remove(unitId);
+
+            Debug.Log($"[Network] 서버: 유닛 사망. Id={unitId}");
+
+            // 모든 클라이언트에 사망 전파. RPC 시그니처는 유지(isUnit=true).
+            EntityDiedClientRpc(unitId, true);
+        }
+
+        /// <summary>
+        /// 서버에서 건물 사망 이벤트를 수신하여 모든 클라이언트에 사망 전파.
+        /// GameEndUseCase가 동일한 OnBuildingDied를 구독하므로 서버에서 이미 게임 종료 판정됨.
+        /// 클라이언트에서도 EntityDiedClientRpc → HandleBuildingDied → OnBuildingDied 재발행으로
+        /// 동일한 이벤트 체인을 재현한다.
+        /// </summary>
+        /// <param name="e">사망한 건물 정보가 담긴 이벤트.</param>
+        private void OnBuildingDied(BuildingDiedEvent e)
         {
             if (!IsServer) return;
-            if (e.Entity == null) return;
+            if (e.Building == null) return;
 
-            // 엔티티 Id와 타입 추출
-            int entityId;
-            bool isUnit;
+            int buildingId = e.Building.Id;
+            Debug.Log($"[Network] 서버: 건물 사망. Id={buildingId}");
 
-            if (e.Entity is UnitData unit)
-            {
-                entityId = unit.Id;
-                isUnit = true;
-
-                // 사망한 유닛의 전투 상태를 Dictionary에서 제거.
-                // StopCombatClientRpc는 전송하지 않음 — EntityDiedClientRpc가 사망 처리를 담당.
-                // 사망한 타겟을 공격 중이던 유닛들의 전투 상태는 제거하지 않음.
-                // → 다음 TickCombat에서 TryFindTarget이 다른 타겟을 찾거나 null을 반환.
-                //   ChangeTargetClientRpc 또는 StopCombatClientRpc가 자연스럽게 발행됨.
-                _unitCombatTargets.Remove(entityId);
-                _combatAnimationSent.Remove(entityId);
-            }
-            else if (e.Entity is BuildingData building)
-            {
-                entityId = building.Id;
-                isUnit = false;
-            }
-            else
-            {
-                Debug.LogWarning("[Network] NetworkCombatController.OnEntityDied: 알 수 없는 엔티티 타입.");
-                return;
-            }
-
-            Debug.Log($"[Network] 서버: 엔티티 사망. Id={entityId}, IsUnit={isUnit}");
-
-            // 모든 클라이언트에 사망 전파
-            EntityDiedClientRpc(entityId, isUnit);
+            // 모든 클라이언트에 사망 전파. RPC 시그니처는 유지(isUnit=false).
+            EntityDiedClientRpc(buildingId, false);
         }
 
         // ====================================================================
@@ -513,8 +535,8 @@ namespace Hexiege.Infrastructure
         /// 서버에서 엔티티 사망 후 모든 클라이언트에 사망 처리 명령 전송.
         /// 클라이언트:
         ///   1. 도메인 데이터(Unit/Building) Dictionary에서 제거
-        ///   2. GameEvents.OnEntityDied 발행
-        ///      → UnitView / BuildingView가 GameObject 파괴
+        ///   2. GameEvents.OnUnitDied 또는 GameEvents.OnBuildingDied 발행
+        ///      → UnitView가 GameObject 파괴 / BuildingFactory가 건물 GameObject 파괴
         ///      → GameEndUseCase(클라이언트)가 Castle 사망 감지 → GameEndUI 반응
         /// </summary>
         /// <param name="entityId">사망한 엔티티 Id</param>
@@ -718,8 +740,10 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 클라이언트 측 유닛 사망 처리.
-        /// UnitData를 Dictionary에서 제거하고 GameEvents.OnEntityDied 발행.
+        /// UnitData를 Dictionary에서 제거하고 GameEvents.OnUnitDied 발행.
         /// UnitView가 이를 구독하여 GameObject를 파괴.
+        ///
+        /// 사망 이벤트 채널은 유닛 전용 OnUnitDied / 건물 전용 OnBuildingDied 둘로 나뉜다.
         /// </summary>
         private void HandleUnitDied(int unitId)
         {
@@ -746,17 +770,19 @@ namespace Hexiege.Infrastructure
             // 도메인 Dictionary에서 제거
             unitSpawn.RemoveUnit(unitId);
 
-            // GameEvents 재발행 → UnitView.OnEntityDied 구독자 실행
-            GameEvents.OnEntityDied.OnNext(new EntityDiedEvent(unit));
+            // GameEvents.OnUnitDied 재발행 → UnitView 구독자가 GameObject를 파괴.
+            GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(unit));
 
             Debug.Log($"[Network] 클라이언트: 유닛 사망 처리 완료. UnitId={unitId}");
         }
 
         /// <summary>
         /// 클라이언트 측 건물 사망 처리.
-        /// BuildingData를 Dictionary에서 제거하고 GameEvents.OnEntityDied 발행.
-        /// BuildingView가 이를 구독하여 GameObject를 파괴.
-        /// GameEndUseCase도 OnEntityDied를 구독 → Castle 파괴 시 게임 종료 판정.
+        /// BuildingData를 Dictionary에서 제거하고 GameEvents.OnBuildingDied 발행.
+        /// BuildingFactory가 이를 구독하여 GameObject를 파괴.
+        /// GameEndUseCase도 OnBuildingDied를 구독 → Castle 파괴 시 게임 종료 판정.
+        ///
+        /// 사망 이벤트 채널은 유닛 전용 OnUnitDied / 건물 전용 OnBuildingDied 둘로 나뉜다.
         /// </summary>
         private void HandleBuildingDied(int buildingId)
         {
@@ -783,8 +809,8 @@ namespace Hexiege.Infrastructure
             // 도메인 Dictionary에서 제거
             buildingPlacement.RemoveBuilding(buildingId);
 
-            // GameEvents 재발행 → BuildingView, GameEndUseCase 구독자 실행
-            GameEvents.OnEntityDied.OnNext(new EntityDiedEvent(building));
+            // GameEvents.OnBuildingDied 재발행 → BuildingFactory, GameEndUseCase 등 구독자가 후속 처리.
+            GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(building));
 
             Debug.Log($"[Network] 클라이언트: 건물 사망 처리 완료. BuildingId={buildingId}");
         }

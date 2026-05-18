@@ -208,9 +208,10 @@ namespace Hexiege.Presentation
         ///     - 금광 타일 위에 채굴소가 건설되면 금광 비주얼이 가려져야 함.
         ///     - MiningPost뿐 아니라 모든 건물 타입에 대해 숨김 처리 (안전장치).
         ///
-        /// (b) OnEntityDied: 채굴소(MiningPost)가 파괴되면 금광 오브젝트를 다시 표시.
+        /// (b) OnBuildingDied: 채굴소(MiningPost)가 파괴되면 금광 오브젝트를 다시 표시.
         ///     - 채굴소만 금광 타일 위에 건설되므로, MiningPost 타입만 필터링.
         ///     - 다른 건물 타입(Castle, Barracks)은 금광 타일과 무관하므로 무시.
+        ///     - 사망 이벤트 분리(OnUnitDied/OnBuildingDied) 이후 캐스트가 불필요해졌다.
         ///
         /// .AddTo(this): 이 MonoBehaviour가 Destroy되면 자동으로 구독 해제.
         /// HexTileView.SubscribeEvents()와 동일한 패턴.
@@ -222,16 +223,15 @@ namespace Hexiege.Presentation
                 .Subscribe(e => HideGoldMine(e.Building.Position))
                 .AddTo(this);
 
-            // (b) 엔티티 사망 시 → 채굴소(MiningPost)인 경우만 금광 오브젝트 재표시
-            GameEvents.OnEntityDied
+            // (b) 건물 사망 시 → 채굴소(MiningPost)인 경우만 금광 오브젝트 재표시.
+            // 사망 이벤트가 유닛/건물로 분리되어 건물 전용 OnBuildingDied만 구독하면 충분하다.
+            GameEvents.OnBuildingDied
                 .Subscribe(e =>
                 {
-                    // IDamageable을 BuildingData로 캐스팅하여 건물인지 확인.
-                    // 유닛 사망 이벤트는 캐스팅 실패로 자연히 무시됨.
-                    if (e.Entity is BuildingData building
-                        && building.Type == BuildingType.MiningPost)
+                    // MiningPost만 금광 타일 위에 건설되므로 그 외 타입은 무시.
+                    if (e.Building.Type == BuildingType.MiningPost)
                     {
-                        ShowGoldMine(building.Position);
+                        ShowGoldMine(e.Building.Position);
                     }
                 })
                 .AddTo(this);

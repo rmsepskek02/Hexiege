@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-05-18
-**현재 단계:** 건물 철거 시스템 완료 (생산 건물 철거, 50% 골드 환불, 생산 큐 전액 환불, 멀티플레이 서버 권위 처리, BuildingFactory GO 파괴 수정)
+**현재 단계:** OnEntityDied 이벤트 분리 리팩토링 완료 (OnUnitDied + OnBuildingDied 강타입 이벤트로 분리, 13개 파일, 구독자 타입 필터 전면 제거)
 
 ---
 
@@ -332,6 +332,13 @@
 | BuildingFactory — OnEntityDied 구독 (GO 파괴) | ✅ 완료 | B방식: 구독 1개 + _buildingObjects Dict O(1) 조회로 GO 파괴 |
 | BuildingView.cs + MiningEffectView.cs 삭제 | ✅ 완료 | 미사용 코드 제거. BuildingFactory가 GO 파괴 책임 인수 |
 | 채굴소(MiningPost) 철거 UI | ⏸ 연기 | 별도 MiningPostPanelUI 제작 시 구현 |
+
+---
+
+#### 코드 리팩토링 (2026-05-18)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| OnEntityDied 이벤트 분리 | ✅ 완료 | 단일 공용 이벤트 → OnUnitDied + OnBuildingDied 강타입 분리. 구독자 타입 필터(is-캐스팅) 전면 제거. 13개 파일 수정 |
 
 ---
 

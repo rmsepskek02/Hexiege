@@ -149,16 +149,47 @@ namespace Hexiege.Application
     }
 
     /// <summary>
-    /// 사망 이벤트 데이터. 유닛/건물 모두 포함.
+    /// 유닛 사망 이벤트 데이터.
+    /// 발행: UnitCombatUseCase(싱글), NetworkCombatController(클라이언트 동기화)
+    /// 구독: UnitView(GameObject 파괴), ProductionTicker(siege 목록 정리),
+    ///       NetworkCombatController(서버 → EntityDiedClientRpc 전파)
+    ///
+    /// 유닛 전용 강타입 사망 DTO.
+    /// 구독 측에서 매번 is 캐스트로 타입을 확인하지 않아도 되도록,
+    /// 유닛 전용 핸들러와 건물 전용 핸들러를 명확히 구분하기 위한 목적이다.
     /// </summary>
-    public struct EntityDiedEvent
+    public readonly struct UnitDiedEvent
     {
-        /// <summary> 사망한 엔티티. </summary>
-        public readonly IDamageable Entity;
+        /// <summary> 사망한 유닛 데이터. </summary>
+        public readonly UnitData Unit;
 
-        public EntityDiedEvent(IDamageable entity)
+        public UnitDiedEvent(UnitData unit)
         {
-            Entity = entity;
+            Unit = unit;
+        }
+    }
+
+    /// <summary>
+    /// 건물 사망 이벤트 데이터.
+    /// 발행: UnitCombatUseCase(전투 파괴), BuildingPlacementUseCase.DemolishBuilding(철거),
+    ///       NetworkCombatController(클라이언트 동기화)
+    /// 구독: BuildingFactory(GameObject 파괴), GameEndUseCase(Castle 파괴 → 게임 종료),
+    ///       FlowFieldService(walkable 변경 → 경로 캐시 무효화),
+    ///       GameBootstrapper(살아있는 유닛 즉시 재경로),
+    ///       ProductionTicker(생산건물 해제 + walkable 변경 후처리),
+    ///       HexGridRenderer(MiningPost 파괴 시 금광 재표시)
+    ///
+    /// 건물 전용 강타입 사망 DTO.
+    /// UnitDiedEvent와 한 쌍으로 사용되며 구독자는 타입 캐스트 없이 BuildingData에 바로 접근할 수 있다.
+    /// </summary>
+    public readonly struct BuildingDiedEvent
+    {
+        /// <summary> 사망한 건물 데이터. </summary>
+        public readonly BuildingData Building;
+
+        public BuildingDiedEvent(BuildingData building)
+        {
+            Building = building;
         }
     }
 
@@ -425,11 +456,28 @@ namespace Hexiege.Application
         public static readonly Subject<EntityDamagedEvent> OnEntityDamaged = new();
 
         /// <summary>
-        /// 엔티티(유닛/건물)가 사망했을 때 발행.
-        /// 발행: UnitCombatUseCase
-        /// 구독: UnitView, BuildingView (사망 처리, GameObject 파괴)
+        /// 유닛이 사망했을 때 발행.
+        /// 발행: UnitCombatUseCase(싱글플레이 전투), NetworkCombatController(클라이언트 동기화).
+        /// 구독: UnitView(GameObject 파괴), ProductionTicker(siege 목록 정리),
+        ///       NetworkCombatController(서버 → EntityDiedClientRpc 전파).
+        ///
+        /// 사망 채널은 유닛(OnUnitDied) / 건물(OnBuildingDied) 두 갈래로 분리되어 있으며,
+        /// 구독 측이 is 캐스트로 타입을 구분할 필요가 없도록 DTO도 강타입으로 노출한다.
         /// </summary>
-        public static readonly Subject<EntityDiedEvent> OnEntityDied = new Subject<EntityDiedEvent>();
+        public static readonly Subject<UnitDiedEvent> OnUnitDied = new Subject<UnitDiedEvent>();
+
+        /// <summary>
+        /// 건물이 사망(파괴/철거)했을 때 발행.
+        /// 발행: UnitCombatUseCase(전투 파괴), BuildingPlacementUseCase.DemolishBuilding(철거),
+        ///       NetworkCombatController(클라이언트 동기화).
+        /// 구독: BuildingFactory(GameObject 파괴), GameEndUseCase(Castle → 게임 종료),
+        ///       FlowFieldService(경로 캐시 무효화), GameBootstrapper(살아있는 유닛 재경로),
+        ///       ProductionTicker(생산건물 해제 + walkable 변경 후처리),
+        ///       HexGridRenderer(MiningPost 파괴 시 금광 재표시).
+        ///
+        /// OnUnitDied와 짝을 이루는 건물 전용 사망 채널. 구독자는 BuildingData에 바로 접근 가능.
+        /// </summary>
+        public static readonly Subject<BuildingDiedEvent> OnBuildingDied = new Subject<BuildingDiedEvent>();
 
         // ====================================================================
         // 건물 관련 이벤트

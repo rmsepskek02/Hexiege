@@ -309,7 +309,7 @@ namespace Hexiege.Bootstrap
         // ────────────────────────────────────────────────────────────────────
         // [2026-04-30] 새 규칙 4 — 건물 변경 시 즉시 모든 유닛 경로 재계산(eager).
         //
-        //   FlowFieldService가 OnBuildingPlaced / OnEntityDied(building)에서 InvalidateAll로
+        //   FlowFieldService가 OnBuildingPlaced / OnBuildingDied 에서 InvalidateAll로
         //   캐시를 비워주지만, 이건 lazy 동작 — 다음 RequestMove 시점에 재계산된다.
         //   새 규칙은 "변경 시점에 모든 살아있는 유닛이 즉시 새 경로로 갱신"을 요구한다.
         //
@@ -729,12 +729,11 @@ namespace Hexiege.Bootstrap
                 .Subscribe(_ => RepathAllAliveUnits())
                 .AddTo(_eagerRepathSubscriptions);
 
-            // 엔티티 사망: 건물 사망만 walkable에 영향 → 그때만 재계산.
-            GameEvents.OnEntityDied
-                .Subscribe(e =>
-                {
-                    if (e.Entity is BuildingData) RepathAllAliveUnits();
-                })
+            // 건물 사망만 walkable에 영향 → 그때만 재계산.
+            // 유닛 사망(OnUnitDied)은 walkable과 무관하므로 구독 대상이 아니다.
+            // OnBuildingDied는 건물 전용 강타입 이벤트라 별도 캐스트 분기가 필요 없다.
+            GameEvents.OnBuildingDied
+                .Subscribe(_ => RepathAllAliveUnits())
                 .AddTo(_eagerRepathSubscriptions);
         }
 
@@ -749,7 +748,7 @@ namespace Hexiege.Bootstrap
             if (_unitSpawn == null || _unitFactory == null) return;
 
             // _unitSpawn.Units는 IReadOnlyDictionary<int, UnitData>.
-            // 살아있는 유닛만 처리 (사망한 유닛은 OnEntityDied에서 OnUnitRemoved가 호출됨).
+            // 살아있는 유닛만 처리 (사망한 유닛은 OnUnitDied 경로에서 별도 정리됨).
             foreach (var kv in _unitSpawn.Units)
             {
                 UnitData unit = kv.Value;

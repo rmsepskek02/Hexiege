@@ -3,15 +3,15 @@
 // Castle 파괴를 감지하여 게임 승패를 판정하는 UseCase.
 //
 // 역할:
-//   1. OnEntityDied 이벤트 구독
-//   2. 사망한 엔티티가 Castle인지 확인
+//   1. OnBuildingDied 이벤트 구독 (Castle만 관심 대상이므로 건물 전용 이벤트만 구독)
+//   2. 사망한 건물이 Castle인지 확인
 //   3. Castle 팀의 상대 팀을 승리자로 OnGameEnd 이벤트 발행
 //
 // 흐름:
-//   UnitCombatUseCase → OnEntityDied → GameEndUseCase → OnGameEnd → GameEndUI
+//   UnitCombatUseCase → OnBuildingDied → GameEndUseCase → OnGameEnd → GameEndUI
 //
 // 멀티플레이 동작:
-//   - 서버: OnEntityDied 수신 → IsGameOver 체크 → OnGameEnd 발행
+//   - 서버: OnBuildingDied 수신 → IsGameOver 체크 → OnGameEnd 발행
 //          → NetworkGameEndController가 OnGameEnd를 구독하여 ClientRpc로 전파
 //   - 클라이언트: NetworkContext.IsNetworkActive가 true이면 OnGameEnd 발행을 생략.
 //               GameEndUI는 AnnounceWinnerClientRpc를 통해서만 표시됨.
@@ -19,6 +19,10 @@
 //
 // 싱글플레이:
 //   NetworkContext.IsNetworkActive = false → 기존 로직 그대로 실행.
+//
+// 사망 이벤트 채널:
+//   유닛 전용 OnUnitDied / 건물 전용 OnBuildingDied 두 채널이 존재한다.
+//   GameEndUseCase는 Castle(건물)만 관심 대상이므로 OnBuildingDied만 구독한다.
 //
 // Application 레이어 — 순수 C# + UniRx.
 // ============================================================================
@@ -38,30 +42,41 @@ namespace Hexiege.Application
 
         public GameEndUseCase()
         {
-            _subscription = GameEvents.OnEntityDied
-                .Subscribe(OnEntityDied);
+            // 건물 전용 사망 이벤트만 구독 — Castle 파괴 외엔 게임 종료와 무관하므로
+            // 유닛 사망(OnUnitDied)은 구독하지 않는다.
+            _subscription = GameEvents.OnBuildingDied
+                .Subscribe(OnBuildingDied);
         }
 
-        private void OnEntityDied(EntityDiedEvent e)
+        /// <summary>
+        /// 건물이 사망(파괴/철거)했을 때 호출.
+        /// Castle이 파괴된 경우에만 게임 종료를 판정하고 OnGameEnd 이벤트를 발행한다.
+        ///
+        /// 건물 전용 강타입 DTO(BuildingDiedEvent)를 사용하므로 별도의 is 캐스트 분기가 불필요.
+        /// </summary>
+        /// <param name="e">사망한 건물 정보가 담긴 이벤트.</param>
+        private void OnBuildingDied(BuildingDiedEvent e)
         {
+            // 이미 게임이 끝났다면 추가 처리 없음 (중복 발행 방지)
             if (IsGameOver) return;
+            if (e.Building == null) return;
 
-            // Castle이 파괴되었는지 확인
-            if (e.Entity is BuildingData building && building.Type == BuildingType.Castle)
+            // Castle이 아닌 건물 파괴는 게임 종료와 무관 → 무시
+            if (e.Building.Type != BuildingType.Castle) return;
+
+            IsGameOver = true;
+
+            // 멀티플레이 클라이언트에서는 OnGameEnd를 직접 발행하지 않음.
+            // 서버의 NetworkGameEndController → AnnounceWinnerClientRpc 경유로 표시됨.
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer)
             {
-                IsGameOver = true;
-
-                // 멀티플레이 클라이언트에서는 OnGameEnd를 직접 발행하지 않음.
-                // 서버의 NetworkGameEndController → AnnounceWinnerClientRpc 경유로 표시됨.
-                if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer)
-                {
-                    return;
-                }
-
-                // 싱글플레이 또는 네트워크 서버: OnGameEnd 발행
-                TeamId winner = (building.Team == TeamId.Blue) ? TeamId.Red : TeamId.Blue;
-                GameEvents.OnGameEnd.OnNext(new GameEndEvent(winner));
+                return;
             }
+
+            // 싱글플레이 또는 네트워크 서버: OnGameEnd 발행.
+            // 파괴된 Castle의 팀과 반대 팀이 승자.
+            TeamId winner = (e.Building.Team == TeamId.Blue) ? TeamId.Red : TeamId.Blue;
+            GameEvents.OnGameEnd.OnNext(new GameEndEvent(winner));
         }
 
         public void Dispose()

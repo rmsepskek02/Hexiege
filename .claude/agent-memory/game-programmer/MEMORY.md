@@ -23,6 +23,25 @@
 
 ## 최근 작업
 
+### OnEntityDied 이벤트 분리 리팩토링 (2026-05-18) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-18/15_00_entity-died-event-split/`
+
+**핵심 변경**:
+- `EntityDiedEvent` + `OnEntityDied` 완전 삭제
+- `UnitDiedEvent(UnitData Unit)` / `BuildingDiedEvent(BuildingData Building)` 강타입 struct 신규
+- `GameEvents.OnUnitDied` / `GameEvents.OnBuildingDied` Subject 신규
+- 발행 측 4곳 교체: `UnitCombatUseCase.TryAttack` (타입 분기), `BuildingPlacementUseCase.DemolishBuilding`, `NetworkCombatController.HandleUnitDied` / `HandleBuildingDied`
+- 구독 측 9곳 교체: `BuildingFactory`, `UnitView`, `ProductionTicker`(핸들러 2개 분리), `GameEndUseCase`, `FlowFieldService`, `GameBootstrapper`, `NetworkCombatController`(서버 구독 2개 분리 + OnNetworkDespawn Dispose 2개), `HexGridRenderer`
+- **RPC 시그니처 유지**: `EntityDiedClientRpc(int entityId, bool isUnit)` 그대로 — 와이어 포맷 호환성
+
+**설계 원칙**:
+- 분리 완료 후 `OnEntityDied`/`EntityDiedEvent` .cs 전체에서 0건 검증 필수
+- `NetworkCombatController._diedSubscription` 단일 → `_unitDiedSubscription` + `_buildingDiedSubscription` 2개 — OnNetworkDespawn에서 둘 다 Dispose
+- 사망 이벤트 발행 순서: RemoveUnit/RemoveBuilding **직전** 발행 유지 (구독자가 도메인 Dict 접근 가능해야 함)
+
+---
+
 ### 건물 철거 시스템 (2026-05-18) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-17/18_15_building-demolish/`

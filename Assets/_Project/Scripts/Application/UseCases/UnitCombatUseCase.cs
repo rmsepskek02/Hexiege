@@ -783,8 +783,21 @@ namespace Hexiege.Application
             // 타겟 사망 처리
             if (!target.IsAlive)
             {
-                // 사망 이벤트 발행 → UnitView/BuildingView가 GameObject 파괴
-                GameEvents.OnEntityDied.OnNext(new EntityDiedEvent(target));
+                // 사망 이벤트 발행.
+                // 유닛/건물 전용 이벤트 두 가지로 분리되어 있으므로 타겟 타입에 따라 분기 발행.
+                //   - UnitData  → OnUnitDied(UnitDiedEvent)
+                //   - BuildingData → OnBuildingDied(BuildingDiedEvent)
+                // 데이터 정리(_unitSpawn.RemoveUnit / _buildingPlacement.RemoveBuilding) 직전에
+                // 발행하여 구독자(UnitView/BuildingFactory/GameEndUseCase 등)가
+                // 도메인 Dictionary에 아직 해당 엔티티가 존재하는 상태에서 후속 처리를 할 수 있도록 한다.
+                if (target is UnitData diedUnit)
+                {
+                    GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(diedUnit));
+                }
+                else if (target is BuildingData diedBuilding)
+                {
+                    GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(diedBuilding));
+                }
 
                 // 싱글플레이: 사망한 유닛의 전투 상태 정리.
                 // 사망한 유닛 자체가 전투 중이었다면 Dictionary에서 제거.
