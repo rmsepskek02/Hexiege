@@ -2,25 +2,22 @@
 // ProductionPanelUI.cs
 // 배럭(생산건물) 클릭 시 표시되는 유닛 생산 패널 UI.
 //
+// 변경 이력 (2026-05-18 — BuildingPanelBase 도입):
+//   - 공통 요소(팝업/외부탭/헤더/닫기/철거/환불)를 BuildingPanelBase로 이동.
+//   - _currentBarracks 필드를 베이스의 _currentBuilding으로 통합.
+//   - Show/Close 메서드는 베이스에 위임하고 OnShow/OnBeforeClose 훅만 사용.
+//   - 철거 흐름은 베이스의 OnDemolishButtonClick + BeforeDemolish 훅 패턴으로 통합.
+//
 // 변경 이력 (2026-05-17 — 건물 업그레이드 시스템 도입):
 //   - 종족 단위(6개)로 묶여 있던 유닛 리스트를 BuildingType 단위 매핑으로 교체.
 //   - 각 유닛에 requiredStage(해금 단계)를 추가해, 현재 건물 단계보다 높은 유닛은
 //     "잠금" 상태로 표시. 잠금 유닛 탭 시 ToastKey.UpgradeRequired 토스트를 노출.
 //   - 업그레이드 버튼 추가. 다음 단계 비용을 표시하고, 클릭 시 골드 검증 후
 //     싱글/멀티 분기로 업그레이드 요청을 보냄.
-//   - 기존 6개 종족 고정 리스트(_blueHumanUnits 등)는 호환을 위해 [Obsolete]로
-//     남겨두고 주석 처리(추후 테스트 통과 시 완전 삭제 예정).
 //
 // 변경 이력 (2026-05-17 — ProductionPopup UI 레이아웃 재구성):
 //   - 유닛 버튼 6개 → 3개로 축소. 하단 3개 슬롯은 랠리/업그레이드/철거로 분리.
-//   - 철거 버튼(_demolishButton) 신설. 이번 범위는 UI와 환불 금액 표시만이며
-//     실제 철거 동작은 별도 작업 예정 (OnDemolishButtonClick은 로그만 출력).
 //   - 업그레이드 버튼 숨김 방식을 SetActive → CanvasGroup.alpha=0으로 교체.
-//     Grid Layout Group에서 SetActive(false)는 슬롯이 사라지며 다른 버튼이
-//     이동하는 부작용이 있어 레이아웃 공간을 유지하는 CanvasGroup 방식으로 전환.
-//   - 업그레이드 버튼 아이콘(_upgradeIconImage)에 다음 단계 건물 Sprite를
-//     런타임에 할당하기 위한 매핑 리스트(_buildingUpgradeIcons) 추가.
-//   - 철거 환불 금액 = 건설 비용 50%. 초록색 텍스트로 표시(UpdateDemolishRefund).
 // ============================================================================
 
 using UnityEngine;
@@ -36,12 +33,8 @@ using TMPro;
 
 namespace Hexiege.Presentation
 {
-    public class ProductionPanelUI : MonoBehaviour, IGameUI
+    public class ProductionPanelUI : BuildingPanelBase
     {
-        [Header("Popup")]
-        [SerializeField] private AnimatedPanel _popup;
-        [SerializeField] private SharedBackgroundButton _sharedBackground;
-
         [Header("Unit Buttons")]
         [SerializeField] private List<Button> _unitButtons;
         [SerializeField] private List<Image> _unitButtonPortraits;
@@ -102,22 +95,6 @@ namespace Hexiege.Presentation
                  "현재 건물 단계보다 높은 requiredStage 유닛은 자동으로 잠금 표시된다.")]
         [SerializeField] private List<BuildingUnitMapping> _buildingUnitMappings;
 
-        // ────────────────────────────────────────────────────────────────────
-        // [Deprecated] 종족별 고정 유닛 리스트 — 빌딩별 매핑으로 대체됨.
-        // 테스트 통과 후 완전 삭제 예정 (Inspector 데이터 마이그레이션 확인 필요).
-        // ────────────────────────────────────────────────────────────────────
-        // [Header("Unit Entries — 종족별 유닛 설정 (DEPRECATED)")]
-        // [SerializeField] private List<UnitPortraitEntry> _blueHumanUnits;
-        // [SerializeField] private List<UnitPortraitEntry> _blueSpiritUnits;
-        // [SerializeField] private List<UnitPortraitEntry> _blueTranscendenceUnits;
-        // [SerializeField] private List<UnitPortraitEntry> _redHumanUnits;
-        // [SerializeField] private List<UnitPortraitEntry> _redSpiritUnits;
-        // [SerializeField] private List<UnitPortraitEntry> _redTranscendenceUnits;
-
-        [Header("Header")]
-        [Tooltip("팝업 상단에 현재 건물 이름을 표시하는 텍스트. Show() 호출 시 BuildingType.ToString()으로 갱신된다.")]
-        [SerializeField] private TextMeshProUGUI _headerText;
-
         [Header("Progress")]
         [SerializeField] private Image _progressFill;
 
@@ -126,7 +103,7 @@ namespace Hexiege.Presentation
         [SerializeField] private TextMeshProUGUI _populationText;
 
         [Header("Buttons")]
-        [SerializeField] private Button _cancelButton;
+        [Tooltip("랠리포인트 설정 버튼. 클릭 후 타일을 선택하면 생산 유닛 집결지로 지정된다.")]
         [SerializeField] private Button _rallyPointButton;
 
         [Header("Upgrade")]
@@ -136,18 +113,11 @@ namespace Hexiege.Presentation
         [Tooltip("업그레이드 비용 표시 텍스트.")]
         [SerializeField] private TextMeshProUGUI _upgradeCostText;
 
-        [Header("Action Buttons")]
-        [Tooltip("철거 버튼. 클릭 로직은 별도 작업 예정.")]
-        [SerializeField] private Button _demolishButton;
-
         [Tooltip("업그레이드 버튼에 표시될 아이콘 Image. 다음 단계 건물 Sprite를 런타임에 할당.")]
         [SerializeField] private Image _upgradeIconImage;
 
         [Tooltip("업그레이드 버튼에 부착된 CanvasGroup. alpha=0으로 숨겨도 레이아웃 공간 유지.")]
         [SerializeField] private CanvasGroup _upgradeButtonGroup;
-
-        [Tooltip("철거 버튼 하단에 표시되는 환불 금액 텍스트. 초록색으로 표시.")]
-        [SerializeField] private TextMeshProUGUI _demolishRefundText;
 
         /// <summary>
         /// BuildingType과 해당 건물의 아이콘 Sprite를 연결하는 구조체.
@@ -173,19 +143,12 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         private UnitProductionUseCase _production;
-        private ResourceUseCase _resource;
         private PopulationUseCase _population;
         private ProductionTicker _ticker;
-        private BuildingPlacementUseCase _buildingPlacement;
         private NetworkProductionController _networkProductionController;
-        private NetworkBuildingController _networkBuildingController;
-        private BuildingData _currentBarracks;
 
-        public bool IsOpen => _popup != null && _popup.IsVisible;
-        public int ClosedFrame { get; private set; } = -1;
         public bool IsSettingRallyPoint { get; private set; }
         public int RallyPointSetFrame { get; private set; }
-        public int CurrentBarracksId => _currentBarracks?.Id ?? -1;
 
         /// <summary>
         /// 현재 표시 중인 버튼 슬롯에 바인딩된 UnitType 리스트.
@@ -222,10 +185,8 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// UseCase 의존성 주입 + 버튼 이벤트 연결.
-        /// 신규 파라미터:
-        ///   - buildingPlacement: 싱글플레이 업그레이드 실행에 사용.
-        ///   - networkBuildingController: 멀티플레이 업그레이드 RPC 송신에 사용.
-        /// 기존 호출자 호환을 위해 두 매개변수 모두 기본값 null.
+        /// 베이스의 닫기/철거 버튼 등록은 InitializeBase에서 처리하고,
+        /// 이 메서드는 생산 패널 고유 요소(랠리/업그레이드/유닛 버튼)만 연결한다.
         /// </summary>
         public void Initialize(UnitProductionUseCase production,
             ResourceUseCase resource, PopulationUseCase population,
@@ -234,21 +195,17 @@ namespace Hexiege.Presentation
             BuildingPlacementUseCase buildingPlacement = null,
             NetworkBuildingController networkBuildingController = null)
         {
+            // 베이스 의존성/공통 버튼 등록 (닫기/철거)
+            InitializeBase(buildingPlacement, resource, networkBuildingController);
+
             _production = production;
-            _resource = resource;
             _population = population;
             _ticker = ticker;
             _networkProductionController = networkProductionController;
-            _buildingPlacement = buildingPlacement;
-            _networkBuildingController = networkBuildingController;
 
-            if (_cancelButton != null) _cancelButton.onClick.AddListener(Close);
+            // 생산 패널 고유 버튼 이벤트
             if (_rallyPointButton != null) _rallyPointButton.onClick.AddListener(OnRallyPointClick);
             if (_upgradeButton != null) _upgradeButton.onClick.AddListener(OnUpgradeButtonClick);
-
-            // 철거 버튼 이벤트 연결 (실제 철거 로직은 별도 작업 예정)
-            if (_demolishButton != null)
-                _demolishButton.onClick.AddListener(OnDemolishButtonClick);
 
             if (_unitButtons != null)
             {
@@ -261,44 +218,39 @@ namespace Hexiege.Presentation
             GameEvents.OnResourceChanged.Subscribe(_ => UpdateInfoBar()).AddTo(this);
         }
 
-        public void Show(BuildingData barracks)
+        // ====================================================================
+        // 베이스 훅 — Show / Close
+        // ====================================================================
+
+        /// <summary>
+        /// 생산 패널 고유의 Show 처리.
+        /// 베이스가 _currentBuilding 저장 + 헤더 갱신 + 환불 표시까지 끝낸 후 호출된다.
+        /// </summary>
+        protected override void OnShow(BuildingData building)
         {
-            _currentBarracks = barracks;
-
-            // 건물 이름 표시: BuildingType의 enum 이름을 그대로 사용한다.
-            // 예: BuildingType.Garage → "Garage", BuildingType.TrainingCamp → "TrainingCamp"
-            if (_headerText != null)
-                _headerText.text = barracks.Type.ToString();
-
             IsSettingRallyPoint = false;
-            _popup?.Show();
-            _sharedBackground?.Register(Close);
 
-            if (_ticker != null) _ticker.ShowRallyMarker(barracks.Id);
+            if (_ticker != null) _ticker.ShowRallyMarker(building.Id);
 
-            RaceId race = (barracks.Team == TeamId.Blue) ? GameRaceContext.BlueRace : GameRaceContext.RedRace;
-            Debug.Log($"[ProductionUI] Show - Team: {barracks.Team}, Race: {race}, BuildingType: {barracks.Type}, Stage: {barracks.Stage}");
+            RaceId race = (building.Team == TeamId.Blue) ? GameRaceContext.BlueRace : GameRaceContext.RedRace;
+            Debug.Log($"[ProductionUI] Show - Team: {building.Team}, Race: {race}, BuildingType: {building.Type}, Stage: {building.Stage}");
 
             BindButtonUnitTypes(race);
-            UpdateButtonPortraits(barracks.Team, race);
+            UpdateButtonPortraits(building.Team, race);
             UpdateLockIndicators();
             UpdateUpgradeButton(race);
-            UpdateDemolishRefund(race);
             UpdateUI();
         }
 
-        public void Close()
+        /// <summary>
+        /// 생산 패널 고유의 Close 사전 처리.
+        /// 베이스가 ClosedFrame 기록/팝업 닫기를 수행하기 전에 호출된다.
+        /// </summary>
+        protected override void OnBeforeClose()
         {
-            ClosedFrame = Time.frameCount;
             IsSettingRallyPoint = false;
-            _sharedBackground?.Unregister();
             if (_ticker != null) _ticker.HideAllRallyMarkers();
-            _popup?.Hide();
-            _currentBarracks = null;
         }
-
-        public void OnGameEnded() => Close();
-        public void OnGameStarted() => Close();
 
         // ====================================================================
         // 유닛 버튼 입력 처리
@@ -345,7 +297,7 @@ namespace Hexiege.Presentation
                 _longPressTriggered = true;
                 OnUnitLongPress(_activeUnitType);
             }
-            if (IsOpen && _currentBarracks != null) UpdateProgressBar();
+            if (IsOpen && _currentBuilding != null) UpdateProgressBar();
         }
 
         private void SetupQueueSlotButtons()
@@ -366,13 +318,13 @@ namespace Hexiege.Presentation
 
         private void OnQueueSlotClicked(int slotIndex)
         {
-            if (_currentBarracks == null || _production == null) return;
+            if (_currentBuilding == null || _production == null) return;
             if (_networkProductionController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
             {
-                _networkProductionController.CancelSlotServerRpc(_currentBarracks.Id, slotIndex, (int)_currentBarracks.Team);
+                _networkProductionController.CancelSlotServerRpc(_currentBuilding.Id, slotIndex, (int)_currentBuilding.Team);
                 return;
             }
-            _production.CancelQueueAt(_currentBarracks.Id, slotIndex);
+            _production.CancelQueueAt(_currentBuilding.Id, slotIndex);
         }
 
         // ====================================================================
@@ -381,7 +333,7 @@ namespace Hexiege.Presentation
 
         private void OnUnitTap(UnitType type)
         {
-            if (_currentBarracks == null || _production == null) return;
+            if (_currentBuilding == null || _production == null) return;
 
             // ── 잠금 유닛 탭 시 토스트 후 종료 ─────────────────────────
             // 현재 건물 단계가 유닛 해금 단계에 못 미치면 생산이 불가하므로,
@@ -392,7 +344,7 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            var state = _production.GetState(_currentBarracks.Id);
+            var state = _production.GetState(_currentBuilding.Id);
 
             // 자동 생산 중인 타입을 다시 탭한 경우 → 자동 토글(해제) 분기.
             if (state != null && state.IsAutoMode && state.AutoTypes.Contains(type))
@@ -411,18 +363,18 @@ namespace Hexiege.Presentation
 
             // 검증 통과 — 실제 등록을 위임.
             if (_networkProductionController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
-                _networkProductionController.RequestEnqueueServerRpc(_currentBarracks.Id, (int)type, (int)_currentBarracks.Team);
+                _networkProductionController.RequestEnqueueServerRpc(_currentBuilding.Id, (int)type, (int)_currentBuilding.Team);
             else
-                _production.EnqueueUnit(_currentBarracks.Id, type);
+                _production.EnqueueUnit(_currentBuilding.Id, type);
         }
 
         /// <summary>
         /// 슬롯에 바인딩된 유닛 타입이 현재 건물 단계 기준으로 잠금 상태인지 판정.
-        /// _currentBarracks.Stage &lt; requiredStage 이면 true.
+        /// _currentBuilding.Stage &lt; requiredStage 이면 true.
         /// </summary>
         private bool IsUnitLocked(UnitType type)
         {
-            if (_currentBarracks == null) return false;
+            if (_currentBuilding == null) return false;
             // _activeUnitTypes / _activeUnitLocks 는 BindButtonUnitTypes에서 동기 갱신.
             for (int i = 0; i < _activeUnitTypes.Count; i++)
             {
@@ -483,21 +435,21 @@ namespace Hexiege.Presentation
         private void HandleToggleAuto(UnitType type)
         {
             if (_networkProductionController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
-                _networkProductionController.ToggleAutoServerRpc(_currentBarracks.Id, (int)type, (int)_currentBarracks.Team);
+                _networkProductionController.ToggleAutoServerRpc(_currentBuilding.Id, (int)type, (int)_currentBuilding.Team);
             else
-                _production.ToggleAutoProduction(_currentBarracks.Id, type);
+                _production.ToggleAutoProduction(_currentBuilding.Id, type);
         }
 
         private void OnRallyPointClick() { IsSettingRallyPoint = true; RallyPointSetFrame = Time.frameCount; _popup?.Hide(); }
 
         public void CompleteRallyPointSetting(HexCoord target)
         {
-            if (_currentBarracks == null || _production == null) return;
+            if (_currentBuilding == null || _production == null) return;
             if (_networkProductionController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
-                _networkProductionController.SetRallyPointServerRpc(_currentBarracks.Id, target.Q, target.R, (int)_currentBarracks.Team);
-            _production.SetRallyPoint(_currentBarracks.Id, target);
+                _networkProductionController.SetRallyPointServerRpc(_currentBuilding.Id, target.Q, target.R, (int)_currentBuilding.Team);
+            _production.SetRallyPoint(_currentBuilding.Id, target);
             IsSettingRallyPoint = false;
-            _currentBarracks = null;
+            _currentBuilding = null;
         }
 
         // ====================================================================
@@ -513,9 +465,9 @@ namespace Hexiege.Presentation
         /// </summary>
         private void UpdateUpgradeButton(RaceId race)
         {
-            if (_currentBarracks == null) return;
+            if (_currentBuilding == null) return;
 
-            bool canUpgrade = BuildingTypeHelper.CanUpgrade(_currentBarracks.Type);
+            bool canUpgrade = BuildingTypeHelper.CanUpgrade(_currentBuilding.Type);
 
             // CanvasGroup으로 숨김 — SetActive 대신 alpha=0을 사용해 레이아웃 공간을 유지한다.
             // SetActive(false)를 쓰면 Grid Layout에서 해당 슬롯이 사라져 다른 버튼 위치가 이동한다.
@@ -529,10 +481,10 @@ namespace Hexiege.Presentation
             // 업그레이드 가능한 경우: 다음 단계 건물 아이콘을 버튼 이미지에 설정한다.
             if (canUpgrade && _upgradeIconImage != null)
             {
-                BuildingType? nextType = BuildingTypeHelper.GetNextStage(_currentBarracks.Type);
+                BuildingType? nextType = BuildingTypeHelper.GetNextStage(_currentBuilding.Type);
                 if (nextType.HasValue)
                 {
-                    Sprite icon = GetBuildingIcon(nextType.Value, _currentBarracks.Team);
+                    Sprite icon = GetBuildingIcon(nextType.Value, _currentBuilding.Team);
                     if (icon != null)
                         _upgradeIconImage.sprite = icon;
                 }
@@ -542,10 +494,10 @@ namespace Hexiege.Presentation
             {
                 if (canUpgrade)
                 {
-                    int cost = BuildingStats.GetUpgradeCost(_currentBarracks.Type);
+                    int cost = BuildingStats.GetUpgradeCost(_currentBuilding.Type);
                     _upgradeCostText.text = $"{cost}";
                     // 보유 골드 부족 시 비용 텍스트 빨간색으로 표시 (배치 패널 패턴과 동일)
-                    int currentGold = _resource != null ? _resource.GetGold(_currentBarracks.Team) : int.MaxValue;
+                    int currentGold = _resource != null ? _resource.GetGold(_currentBuilding.Team) : int.MaxValue;
                     _upgradeCostText.color = (currentGold < cost) ? Color.red : Color.white;
                     _upgradeCostText.gameObject.SetActive(true);
                 }
@@ -566,11 +518,11 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnUpgradeButtonClick()
         {
-            if (_currentBarracks == null) return;
-            if (!BuildingTypeHelper.CanUpgrade(_currentBarracks.Type)) return;
+            if (_currentBuilding == null) return;
+            if (!BuildingTypeHelper.CanUpgrade(_currentBuilding.Type)) return;
 
-            int cost = BuildingStats.GetUpgradeCost(_currentBarracks.Type);
-            if (_resource != null && !_resource.CanAfford(_currentBarracks.Team, cost))
+            int cost = BuildingStats.GetUpgradeCost(_currentBuilding.Type);
+            if (_resource != null && !_resource.CanAfford(_currentBuilding.Team, cost))
             {
                 ToastUI.Show(ToastKey.GoldInsufficient);
                 return;
@@ -583,16 +535,16 @@ namespace Hexiege.Presentation
             if (isNetworkMode)
             {
                 // 서버에 업그레이드 요청 — 골드 차감/검증은 서버에서 다시 수행.
-                _networkBuildingController.RequestUpgradeServerRpc(_currentBarracks.Id);
+                _networkBuildingController.RequestUpgradeServerRpc(_currentBuilding.Id);
             }
             else
             {
                 // 싱글플레이: 직접 골드 차감 + UseCase 실행
-                if (_resource != null) _resource.SpendGold(_currentBarracks.Team, cost);
-                RaceId singleRace = (_currentBarracks.Team == TeamId.Blue)
+                if (_resource != null) _resource.SpendGold(_currentBuilding.Team, cost);
+                RaceId singleRace = (_currentBuilding.Team == TeamId.Blue)
                     ? GameRaceContext.BlueRace
                     : GameRaceContext.RedRace;
-                _buildingPlacement?.UpgradeBuilding(_currentBarracks.Id, singleRace);
+                _buildingPlacement?.UpgradeBuilding(_currentBuilding.Id, singleRace);
             }
 
             // 업그레이드 후 새 건물 인스턴스는 다음 클릭에서 다시 패널을 열도록 함.
@@ -600,28 +552,23 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
-        // 철거 / 환불 표시
+        // 철거 사전 처리 — 베이스 OnDemolishButtonClick에서 호출됨 (싱글플레이만)
         // ====================================================================
 
         /// <summary>
-        /// 철거 버튼 하단에 환불 예정 금액을 표시한다.
-        /// 환불 금액 = 건설 비용의 50%. 텍스트 색상은 초록색으로 고정한다.
-        /// 실제 철거 로직은 이번 범위 외이므로 금액 표시만 처리한다.
+        /// 베이스의 OnDemolishButtonClick(싱글플레이 분기)에서 호출되는 사전 훅.
+        /// 생산 건물의 생산 큐 전체를 취소(이미 차감된 골드 환불 포함)한다.
+        /// 멀티플레이에서는 서버 RequestDemolishServerRpc 내부에서 동일 작업이 수행되므로
+        /// 이 훅은 호출되지 않는다.
         /// </summary>
-        private void UpdateDemolishRefund(RaceId race)
+        protected override void BeforeDemolish()
         {
-            if (_demolishRefundText == null || _currentBarracks == null) return;
+            if (_currentBuilding == null) return;
 
-            // 1단계 건설비 + 현재 단계까지의 업그레이드 비용 합산의 50%를 환불한다.
-            // 누적 투자 비용은 GameBootstrapper 초기화 시 1회 계산되어 BuildingStats에 캐싱된다.
-            // 2단계 건물 예: (1단계 건설비 + 1→2 업그레이드비) / 2
-            // 3단계 건물 예: (1단계 건설비 + 1→2 업그레이드비 + 2→3 업그레이드비) / 2
-            int totalInvested = BuildingStats.GetTotalInvestedCost(_currentBarracks.Type, race);
-            int refund = totalInvested / 2;
-
-            _demolishRefundText.text = $"{refund}";
-            // 환불 금액임을 시각적으로 구분하기 위해 초록색으로 표시한다.
-            _demolishRefundText.color = Color.green;
+            // IsProductionBuilding=true 인 건물만 큐 취소가 의미가 있다.
+            // (이 패널 자체가 생산 건물 전용이므로 보통 true이지만, 베이스 일관성을 위해 가드 유지.)
+            if (BuildingTypeHelper.IsProductionBuilding(_currentBuilding.Type) && _production != null)
+                _production.CancelAllQueue(_currentBuilding.Id);
         }
 
         /// <summary>
@@ -640,78 +587,14 @@ namespace Hexiege.Presentation
             return null;
         }
 
-        /// <summary>
-        /// 철거 버튼 클릭 핸들러.
-        ///
-        /// 처리 흐름 (멀티플레이):
-        ///   1) RequestDemolishServerRpc 호출 → 서버에서 소유권 검증 후
-        ///      CancelAllQueue(큐 취소 + 환불) → AddGold(건설비 50% 환불) → RemoveBuilding 실행
-        ///   2) DemolishBuildingClientRpc로 모든 클라이언트에 동기화
-        ///
-        /// 처리 흐름 (싱글플레이):
-        ///   1) CancelAllQueue → 생산 큐 전체 취소 + 이미 차감된 골드 환불
-        ///   2) AddGold → 건설 비용 50% 환불
-        ///   3) RemoveBuilding → 건물 도메인 상태 제거 + 이벤트 발행 (프리팹 제거)
-        ///
-        /// 마지막으로 Close()를 호출하여 팝업을 닫는다.
-        ///
-        /// 근거: GameSystemRules.md — 건물 철거 시스템 규칙 2, 3, 4, 5
-        /// </summary>
-        private void OnDemolishButtonClick()
-        {
-            // 현재 건물 데이터가 없으면 동작 중단
-            if (_currentBarracks == null) return;
-
-            // 멀티플레이 모드인지 확인 (NetworkManager가 활성화된 상태)
-            bool isNetworkMode = _networkBuildingController != null
-                && NetworkManager.Singleton != null
-                && NetworkManager.Singleton.IsListening;
-
-            if (isNetworkMode)
-            {
-                // ── 멀티플레이: 서버에 철거 요청을 보낸다 ──────────────────────
-                // 소유권 검증, 큐 취소/환불, 골드 환불, RemoveBuilding, 클라이언트 동기화를
-                // 서버(NetworkBuildingController)가 모두 처리한다.
-                _networkBuildingController.RequestDemolishServerRpc(_currentBarracks.Id);
-            }
-            else
-            {
-                // ── 싱글플레이: UseCase를 직접 호출 ────────────────────────────
-
-                // 1) 생산 건물이면 생산 큐 전체 취소 + 이미 차감된 골드 전액 환불
-                //    (CancelAllQueue 내부에서 환불 처리가 함께 이루어진다)
-                if (BuildingTypeHelper.IsProductionBuilding(_currentBarracks.Type) && _production != null)
-                    _production.CancelAllQueue(_currentBarracks.Id);
-
-                // 2) 건설 비용 50% 환불
-                //    누적 투자 비용(건설비 + 업그레이드 비용 합산)의 절반을 돌려준다.
-                if (_resource != null)
-                {
-                    RaceId race = (_currentBarracks.Team == TeamId.Blue)
-                        ? GameRaceContext.BlueRace
-                        : GameRaceContext.RedRace;
-                    int totalInvested = BuildingStats.GetTotalInvestedCost(_currentBarracks.Type, race);
-                    int refund = totalInvested / 2;
-                    _resource.AddGold(_currentBarracks.Team, refund);
-                }
-
-                // 3) 건물 도메인 상태 제거
-                // DemolishBuilding = OnBuildingDied 발행(BuildingFactory가 GO 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
-                _buildingPlacement?.DemolishBuilding(_currentBarracks.Id);
-            }
-
-            // 팝업 닫기 (건물이 사라지므로 패널을 유지할 이유가 없음)
-            Close();
-        }
-
         // ====================================================================
         // UI 갱신
         // ====================================================================
 
         private void UpdateUI()
         {
-            if (_currentBarracks == null || _production == null) return;
-            var state = _production.GetState(_currentBarracks.Id);
+            if (_currentBuilding == null || _production == null) return;
+            var state = _production.GetState(_currentBuilding.Id);
             if (state == null) return;
 
             if (_unitAutoIndicators != null)
@@ -765,20 +648,20 @@ namespace Hexiege.Presentation
             else { _queueSlotImages[slotIndex].sprite = null; _queueSlotImages[slotIndex].color = new Color(1, 1, 1, 0); }
         }
 
-        private void UpdateProgressBar() { if (_progressFill != null && _currentBarracks != null && _production != null) _progressFill.fillAmount = _production.GetState(_currentBarracks.Id)?.Progress ?? 0f; }
+        private void UpdateProgressBar() { if (_progressFill != null && _currentBuilding != null && _production != null) _progressFill.fillAmount = _production.GetState(_currentBuilding.Id)?.Progress ?? 0f; }
 
         private void UpdateInfoBar()
         {
-            if (_currentBarracks == null) return;
+            if (_currentBuilding == null) return;
 
             // ── 보유 골드 텍스트 갱신 ──
             if (_goldText != null && _resource != null)
-                _goldText.text = _resource.GetGold(_currentBarracks.Team).ToString();
+                _goldText.text = _resource.GetGold(_currentBuilding.Team).ToString();
 
             // ── 각 유닛 생산 비용 텍스트 색상 재평가 ──
             if (_resource != null && _unitCostTexts != null)
             {
-                int currentGold = _resource.GetGold(_currentBarracks.Team);
+                int currentGold = _resource.GetGold(_currentBuilding.Team);
                 for (int i = 0; i < _unitCostTexts.Count; i++)
                 {
                     if (_unitCostTexts[i] == null) continue;
@@ -794,16 +677,16 @@ namespace Hexiege.Presentation
 
             // ── 업그레이드 비용 텍스트도 골드 변경 시 함께 색상 재평가 ──
             if (_upgradeCostText != null && _upgradeCostText.gameObject.activeSelf
-                && BuildingTypeHelper.CanUpgrade(_currentBarracks.Type))
+                && BuildingTypeHelper.CanUpgrade(_currentBuilding.Type))
             {
-                int currentGold = _resource != null ? _resource.GetGold(_currentBarracks.Team) : int.MaxValue;
-                int upCost = BuildingStats.GetUpgradeCost(_currentBarracks.Type);
+                int currentGold = _resource != null ? _resource.GetGold(_currentBuilding.Team) : int.MaxValue;
+                int upCost = BuildingStats.GetUpgradeCost(_currentBuilding.Type);
                 _upgradeCostText.color = (currentGold < upCost) ? Color.red : Color.white;
             }
 
             // ── 인구 텍스트 갱신 ──
             if (_populationText != null && _population != null)
-                _populationText.text = $"{_population.GetUsedPopulation(_currentBarracks.Team)}/{_population.GetMaxPopulation(_currentBarracks.Team)}";
+                _populationText.text = $"{_population.GetUsedPopulation(_currentBuilding.Team)}/{_population.GetMaxPopulation(_currentBuilding.Team)}";
         }
 
         private void UpdateButtonPortraits(TeamId team, RaceId race)
@@ -841,32 +724,32 @@ namespace Hexiege.Presentation
 
         private Sprite GetPortrait(UnitType type)
         {
-            if (_currentBarracks == null) return null;
-            var list = GetUnitEntriesForCurrentBuilding(_currentBarracks.Team);
+            if (_currentBuilding == null) return null;
+            var list = GetUnitEntriesForCurrentBuilding(_currentBuilding.Team);
             foreach (var entry in list) if (entry.type == type) return entry.portrait;
             return (list.Count > 0) ? list[0].portrait : null;
         }
 
         /// <summary>
-        /// 현재 _currentBarracks에 매핑된 유닛 엔트리 리스트를 반환.
+        /// 현재 _currentBuilding에 매핑된 유닛 엔트리 리스트를 반환.
         /// 매핑이 없으면 빈 리스트를 반환 (안전 폴백 — 잘못된 BuildingType이거나
         /// Inspector에서 매핑이 누락된 경우 빈 버튼 슬롯이 표시됨).
         /// </summary>
         private List<UnitPortraitEntry> GetUnitEntriesForCurrentBuilding(TeamId team)
         {
-            if (_currentBarracks == null || _buildingUnitMappings == null)
+            if (_currentBuilding == null || _buildingUnitMappings == null)
                 return new List<UnitPortraitEntry>();
 
             foreach (var mapping in _buildingUnitMappings)
             {
-                if (mapping.buildingType != _currentBarracks.Type) continue;
+                if (mapping.buildingType != _currentBuilding.Type) continue;
                 return team == TeamId.Blue
                     ? (mapping.blueUnits ?? new List<UnitPortraitEntry>())
                     : (mapping.redUnits ?? new List<UnitPortraitEntry>());
             }
 
             // 매핑 누락 — 콘솔 경고 후 빈 리스트 반환
-            Debug.LogWarning($"[ProductionPanelUI] BuildingType={_currentBarracks.Type}에 대한 유닛 매핑이 없습니다.");
+            Debug.LogWarning($"[ProductionPanelUI] BuildingType={_currentBuilding.Type}에 대한 유닛 매핑이 없습니다.");
             return new List<UnitPortraitEntry>();
         }
 
@@ -878,10 +761,10 @@ namespace Hexiege.Presentation
         /// </summary>
         private void BindButtonUnitTypes(RaceId race)
         {
-            if (_currentBarracks == null) return;
-            int currentStage = _currentBarracks.Stage;
+            if (_currentBuilding == null) return;
+            int currentStage = _currentBuilding.Stage;
 
-            var list = GetUnitEntriesForCurrentBuilding(_currentBarracks.Team);
+            var list = GetUnitEntriesForCurrentBuilding(_currentBuilding.Team);
             _activeUnitTypes.Clear();
             _activeUnitLocks.Clear();
 

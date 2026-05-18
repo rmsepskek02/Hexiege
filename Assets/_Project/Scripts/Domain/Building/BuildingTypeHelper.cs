@@ -177,5 +177,26 @@ namespace Hexiege.Domain
         {
             return GetNextStage(type).HasValue;
         }
+
+        // ====================================================================
+        // 액션 패널 표시 가능 여부
+        // ====================================================================
+
+        /// <summary>
+        /// 비생산 건물 중 액션 패널(BuildingActionPanelUI)을 표시할 대상인지 판정.
+        /// 생산 건물은 ProductionPanelUI가 담당하므로 제외하며,
+        /// Castle은 철거 불가 + 생산 불가이므로 클릭해도 액션 패널을 표시하지 않는다.
+        /// </summary>
+        /// <param name="type">검사할 건물 타입.</param>
+        /// <returns>액션 패널을 표시할 비생산 건물이면 true.</returns>
+        public static bool CanShowActionPanel(BuildingType type)
+        {
+            // 생산 건물은 생산 패널이 담당 → 제외
+            if (IsProductionBuilding(type)) return false;
+            // Castle은 철거 불가 + 다른 액션도 없음 → 제외
+            if (type == BuildingType.Castle) return false;
+            // 그 외 비생산 건물(MiningPost, AutoTower 등)은 액션 패널 표시 대상
+            return true;
+        }
     }
 }

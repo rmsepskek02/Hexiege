@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-05-18
-**현재 단계:** OnEntityDied 이벤트 분리 리팩토링 완료 (OnUnitDied + OnBuildingDied 강타입 이벤트로 분리, 13개 파일, 구독자 타입 필터 전면 제거)
+**최종 수정일:** 2026-05-19
+**현재 단계:** 비생산 건물 공용 액션 패널 UI 완료 (BuildingActionPanelUI — 채굴소/타워 클릭 시 팝업 + 철거 버튼 동작)
 
 ---
 
@@ -331,7 +331,21 @@
 | NetworkBuildingController — RequestDemolishServerRpc | ✅ 완료 | 소유권/Castle/존재 검증 후 철거 + DemolishBuildingClientRpc 동기화 |
 | BuildingFactory — OnEntityDied 구독 (GO 파괴) | ✅ 완료 | B방식: 구독 1개 + _buildingObjects Dict O(1) 조회로 GO 파괴 |
 | BuildingView.cs + MiningEffectView.cs 삭제 | ✅ 완료 | 미사용 코드 제거. BuildingFactory가 GO 파괴 책임 인수 |
-| 채굴소(MiningPost) 철거 UI | ⏸ 연기 | 별도 MiningPostPanelUI 제작 시 구현 |
+| 채굴소(MiningPost) 철거 UI | ✅ 기본 완료 | BuildingActionPanelUI에서 철거 지원. 전용 패널(일시정지 등)은 별도 작업 예정 |
+
+---
+
+#### 비생산 건물 공용 액션 패널 UI (2026-05-18~19)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| `BuildingPanelBase.cs` 추상 베이스 신규 | ✅ 완료 | ProductionPanelUI / BuildingActionPanelUI 공통 부모. Template Method 패턴. |
+| `BuildingActionPanelUI.cs` 신규 | ✅ 완료 | 비생산 건물 클릭 시 공용 팝업 (헤더 + 철거 버튼) |
+| `ProductionPanelUI` BuildingPanelBase 상속 리팩토링 | ✅ 완료 | 공통 필드/메서드 베이스 이전. 외부 API 동일 유지 |
+| `BuildingTypeHelper.CanShowActionPanel()` 추가 | ✅ 완료 | `!IsProductionBuilding && type != Castle` |
+| `InputHandler` 분기 추가 | ✅ 완료 | CanShowActionPanel 분기 + ClosedFrame 체크 |
+| `GameBootstrapper` 주입/등록 추가 | ✅ 완료 | UIManager 등록 + 비생산 건물 환불 캐시 루프 |
+| `SetupBuildingActionPanelUI.cs` 에디터 스크립트 | ✅ 완료 | 씬 자동 생성 + 필드 배선 + GameBootstrapper 연결 |
+| 싱글플레이 실기 테스트 | ✅ PASS | 채굴소/AutoTower 팝업 표시 + 철거 버튼 동작 확인 |
 
 ---
 

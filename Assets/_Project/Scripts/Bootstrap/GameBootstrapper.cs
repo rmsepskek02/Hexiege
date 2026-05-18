@@ -75,6 +75,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("생산 패널 UI")]
         [SerializeField] private ProductionPanelUI _productionUI;
 
+        [Tooltip("비생산 건물 공용 액션 패널 UI (MiningPost / Tower / 특수건물 클릭 시 표시).")]
+        [SerializeField] private BuildingActionPanelUI _buildingActionPanelUI;
+
         [Tooltip("생산 티커")]
         [SerializeField] private ProductionTicker _productionTicker;
 
@@ -128,6 +131,13 @@ namespace Hexiege.Bootstrap
         [Header("UI Manager")]
         [Tooltip("게임 UI 생명주기 매니저. 게임 시작/종료 시 등록된 모든 UI에 콜백 호출.")]
         [SerializeField] private GameUIManager _uiManager;
+
+        [Header("인게임 설정 메뉴")]
+        [Tooltip("인게임 설정 메뉴 팝업 (사운드/포기 버튼).")]
+        [SerializeField] private InGameSettingsUI _inGameSettingsUI;
+
+        [Tooltip("범용 확인 팝업 (포기 확인 등에 재사용).")]
+        [SerializeField] private ConfirmPopup _confirmPopup;
 
         // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
         // 이동 슬롯 오프셋(TileMoveSlotManager)은 새 이동/전투 규칙(GameSystemRules.md)에 따라
@@ -593,6 +603,32 @@ namespace Hexiege.Bootstrap
                 }
             }
 
+            // ── 비생산 건물 환불 캐시 ───────────────────────────────────────────
+            // 비생산 건물은 단계 개념이 없으므로 최초 건설 비용 자체가 누적 투자 비용이 된다.
+            // 액션 패널(BuildingActionPanelUI)이 GetTotalInvestedCost()로 환불액(50%)을 계산하므로,
+            // 여기서 미리 캐시를 채워두지 않으면 환불액이 0으로 표시되는 버그가 생긴다.
+            // (Castle은 철거 불가이므로 캐시 불필요 — 넣어도 무해하지만 명시적으로 제외)
+            //
+            // 대상 enum: BuildingType.cs의 "비생산 건물" 섹션과 1:1 일치(Castle 제외):
+            //   MiningPost, AutoTower, FlightFacility, Research, MagicBuilding, HealShrine
+            var nonProductionBuildings = new BuildingType[]
+            {
+                BuildingType.MiningPost,
+                BuildingType.AutoTower,
+                BuildingType.FlightFacility,
+                BuildingType.Research,
+                BuildingType.MagicBuilding,
+                BuildingType.HealShrine,
+            };
+            foreach (var race in new[] { RaceId.Human, RaceId.Spirit, RaceId.Transcendence })
+            {
+                foreach (var type in nonProductionBuildings)
+                {
+                    int cost = BuildingStats.GetGoldCost(type, race);
+                    BuildingStats.SetTotalInvestedCost(type, race, cost);
+                }
+            }
+
             Debug.Log($"[GameBootstrapper] BuildingStats 초기화 완료. " +
                       $"등록된 (건물×종족) 엔트리 수: {dict.Count}");
         }
@@ -616,6 +652,11 @@ namespace Hexiege.Bootstrap
                 _uiManager.Register(_gameHudUI);
                 _uiManager.Register(_productionUI);
                 _uiManager.Register(_buildingUI);
+                // 비생산 건물 공용 액션 패널도 IGameUI 구현체이므로 함께 등록한다.
+                // 게임 시작/종료 시 자동으로 패널이 닫히도록 보장.
+                _uiManager.Register(_buildingActionPanelUI);
+                // 인게임 설정 메뉴도 IGameUI — 재경기/게임 종료 시 자동 닫힘 보장을 위해 등록.
+                _uiManager.Register(_inGameSettingsUI);
                 _uiManager.Register(_gameEndUI);
                 _uiManager.Initialize();
             }
@@ -679,6 +720,12 @@ namespace Hexiege.Bootstrap
             // 10-1. 게임 종료 UI 초기화
             if (_gameEndUI != null)
                 _gameEndUI.Initialize();
+
+            // 10-1-1. 인게임 설정 메뉴 초기화.
+            // _gameEnd(GameEndUseCase)는 CreateUseCases() 내부에서 생성되므로 이 시점이면 준비됨.
+            // 싱글플레이 포기 시 _gameEnd.Forfeit()을 호출하도록 주입한다.
+            if (_inGameSettingsUI != null)
+                _inGameSettingsUI.Initialize(_gameEnd);
 
             // 10-2. 부유 HP 텍스트 스포너 초기화
             // OnEntityDamaged 이벤트 구독 → 피격 시 남은 HP를 머리 위에 표시
@@ -1032,9 +1079,12 @@ namespace Hexiege.Bootstrap
         {
             if (_inputHandler != null)
             {
+                // 비생산 건물 액션 패널(_buildingActionPanelUI)을 마지막 인자로 함께 주입.
+                // 싱글/멀티 모드 모두 동일 — 멀티는 액션 패널 내부에서 ServerRpc 분기 처리.
                 _inputHandler.Initialize(
                     _gridInteraction, _mainCamera,
-                    _buildingPlacement, _buildingUI, _productionUI);
+                    _buildingPlacement, _buildingUI, _productionUI,
+                    _buildingActionPanelUI);
             }
         }
 
@@ -1100,6 +1150,21 @@ namespace Hexiege.Bootstrap
                     isNetworkMode ? _networkBuildingController : null;
 
                 _buildingUI.Initialize(_buildingPlacement, _resource, _config, controller);
+            }
+
+            // ────────────────────────────────────────────────────────────
+            // 비생산 건물 공용 액션 패널 초기화.
+            //   MiningPost / AutoTower / FlightFacility / Research / MagicBuilding / HealShrine 등
+            //   "유닛 생산 UI가 필요 없는" 건물을 클릭했을 때 표시되는 간이 팝업.
+            //   현재 지원 동작: 건물 이름(헤더) + 철거(환불 골드 자동 지급).
+            //   멀티플레이 시 NetworkBuildingController를 주입해 ServerRpc 경유 철거 수행.
+            // ────────────────────────────────────────────────────────────
+            if (_buildingActionPanelUI != null)
+            {
+                bool isNetworkMode = IsNetworkMode();
+                Hexiege.Infrastructure.NetworkBuildingController controller =
+                    isNetworkMode ? _networkBuildingController : null;
+                _buildingActionPanelUI.Initialize(_buildingPlacement, _resource, controller);
             }
         }
 

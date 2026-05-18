@@ -53,6 +53,9 @@ namespace Hexiege.Presentation
         /// <summary> 생산 패널 UI. </summary>
         private ProductionPanelUI _productionUI;
 
+        /// <summary> 비생산 건물(MiningPost/Tower/특수건물) 클릭 시 표시되는 공용 액션 패널. </summary>
+        private BuildingActionPanelUI _actionPanelUI;
+
         /// <summary> 메인 카메라 참조 (ScreenToWorldPoint 변환용). </summary>
         private Camera _mainCamera;
 
@@ -84,13 +87,16 @@ namespace Hexiege.Presentation
             Camera mainCamera,
             BuildingPlacementUseCase buildingPlacement,
             BuildingPlacementUI buildingUI,
-            ProductionPanelUI productionUI)
+            ProductionPanelUI productionUI,
+            BuildingActionPanelUI actionPanelUI)
         {
             _gridInteraction = gridInteraction;
             _mainCamera = mainCamera;
             _buildingPlacement = buildingPlacement;
             _buildingUI = buildingUI;
             _productionUI = productionUI;
+            // 비생산 건물용 공용 액션 패널 — Castle 제외, MiningPost/Tower/특수건물 클릭 시 표시.
+            _actionPanelUI = actionPanelUI;
         }
 
         // ====================================================================
@@ -196,8 +202,11 @@ namespace Hexiege.Presentation
                 return;
 
             int frame = Time.frameCount;
+            // 같은 프레임에 팝업이 닫힌 경우, 그 닫힘 클릭이 다시 타일 선택으로 흘러가지 않도록 차단.
+            // 비생산 건물 액션 패널도 동일하게 ClosedFrame 가드 적용.
             if ((_buildingUI != null && _buildingUI.ClosedFrame == frame)
-                || (_productionUI != null && _productionUI.ClosedFrame == frame))
+                || (_productionUI != null && _productionUI.ClosedFrame == frame)
+                || (_actionPanelUI != null && _actionPanelUI.ClosedFrame == frame))
                 return;
 
             // 스크린 좌표 → XZ 평면 레이캐스트 → 뷰 좌표 → 도메인 월드 좌표로 역변환
@@ -208,22 +217,42 @@ namespace Hexiege.Presentation
             HexCoord clickedCoord = HexMetrics.WorldToHex(worldPos);
 
             // --------------------------------------------------------
-            // 2. 건물이 있는 타일 → 생산건물(라인/단계 무관)이면 생산 UI, 아니면 타일 선택
+            // 2. 건물이 있는 타일 → 종류에 따라 분기
+            //    (1) 생산건물(IsProductionBuilding == true)
+            //          : 풀스펙 생산 패널(유닛 버튼/큐/업그레이드 등) 표시
+            //    (2) 비생산건물 중 Castle 제외 (CanShowActionPanel == true)
+            //          : 공용 액션 패널(건물 이름 + 철거) 표시
+            //    (3) Castle 등 액션 불가 건물
+            //          : 어떤 팝업도 띄우지 않음 (클릭 무반응)
+            //
+            //    자기 팀이 아니거나 사망 상태(IsAlive == false)면 어느 팝업도 띄우지 않는다.
             // --------------------------------------------------------
             if (_buildingPlacement != null)
             {
                 BuildingData buildingAtPos = _buildingPlacement.GetBuildingAt(clickedCoord);
                 if (buildingAtPos != null)
                 {
-                    // 자기 팀 생산건물 클릭 → 생산 패널 표시
-                    // BuildingTypeHelper.IsProductionBuilding으로 모든 종족·라인·단계 인식
-                    if (BuildingTypeHelper.IsProductionBuilding(buildingAtPos.Type)
-                        && buildingAtPos.Team == LocalPlayerTeam.Current
-                        && buildingAtPos.IsAlive
-                        && _productionUI != null)
+                    // 자기 팀 건물인지 + 살아있는지 사전 검사. 적 건물 클릭은 기존처럼 팝업 미표시.
+                    bool isMine = buildingAtPos.Team == LocalPlayerTeam.Current;
+                    bool isAlive = buildingAtPos.IsAlive;
+
+                    if (isMine && isAlive)
                     {
-                        _productionUI.Show(buildingAtPos);
+                        if (BuildingTypeHelper.IsProductionBuilding(buildingAtPos.Type)
+                            && _productionUI != null)
+                        {
+                            // (1) 생산 건물 → 생산 패널 (유닛 버튼, 큐, 업그레이드 포함 풀스펙)
+                            _productionUI.Show(buildingAtPos);
+                        }
+                        else if (BuildingTypeHelper.CanShowActionPanel(buildingAtPos.Type)
+                            && _actionPanelUI != null)
+                        {
+                            // (2) 비생산 건물 (Castle 제외) → 공용 액션 패널 (건물 이름 + 철거)
+                            _actionPanelUI.Show(buildingAtPos);
+                        }
+                        // (3) Castle: CanShowActionPanel이 false 반환 → 어느 분기도 해당 없음 → 클릭 무반응
                     }
+                    // 적 건물 클릭: 어떤 팝업도 띄우지 않음 (기존 동작 유지)
 
                     _gridInteraction?.SelectTileAt(worldPos);
                     return;

@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-05-18  
-**현재 단계:** ProductionPopup UI 레이아웃 재구성 + 2/3단계 건물 랠리 마커 버그 수정 완료
+**최종 수정일:** 2026-05-19  
+**현재 단계:** 비생산 건물 공용 액션 패널 UI 완료 (BuildingActionPanelUI)
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -79,8 +79,7 @@
 **✅ 완료 (2026-05-17~18)**: 종족별 단계 BuildingType 26종 확장, BuildingPlacementUseCase.UpgradeBuilding(), NetworkBuildingController RPC, ProductionPopup 업그레이드 버튼/아이콘, 철거 환불 누적 계산 완료. 전 종족 테스트 통과.
 
 ### D-2-1. 건물 철거 로직 구현
-- 철거 버튼 UI 및 환불 금액 표시는 완료 (2026-05-18)
-- 실제 철거(건물 제거 + 골드 환불) 로직은 미구현 — 별도 작업 예정
+**✅ 완료 (2026-05-18~19)**: BuildingActionPanelUI를 통해 비생산 건물(채굴소/타워 등) 철거 가능. BuildingPanelBase.OnDemolishButtonClick()에 싱글/멀티 분기 공통 구현. 채굴소 전용 패널(일시정지 등)은 별도 작업.
 
 ### D-3. 유닛 AI 상태머신
 **✅ 기본 전투 AI 구현 완료 (2026-05-11)**: 슬롯/점유 시스템 폐기. 근접·원거리 모두 단일 상태 머신(MoveAlongPathV3) 적용. A* 이동 → 적 감지(DetectRange) → 직선 추격(EnterCombatPursuitV3) → 공격 → 재개(Lerp 정렬) 사이클 완성. 겹침 허용, 모든 유닛 동일 규칙 적용.

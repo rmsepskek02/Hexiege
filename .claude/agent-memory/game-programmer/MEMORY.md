@@ -23,6 +23,25 @@
 
 ## 최근 작업
 
+### 비생산 건물 공용 액션 패널 UI — BuildingActionPanelUI (2026-05-18~19) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-18/17_00_building-action-panel-ui/`
+
+**핵심 변경**:
+- `BuildingPanelBase` (`Presentation/UI/`) 추상 베이스 신규: protected SerializeField 6개(`_popup`, `_sharedBackground`, `_headerText`, `_cancelButton`, `_demolishButton`, `_demolishRefundText`). `InitializeBase()`, `Show()`/`Close()` virtual, `OnDemolishButtonClick()` 공통 철거 흐름 (싱글/멀티 분기). Template Method 패턴 — `OnShow()` / `OnBeforeClose()` / `BeforeDemolish()` 훅.
+- `BuildingActionPanelUI` (`Presentation/UI/`) 신규: `BuildingPanelBase` 상속. `Initialize` 1개만 구현. 비생산 건물(채굴소/타워 등) 클릭 시 표시.
+- `ProductionPanelUI` 리팩토링: `BuildingPanelBase` 상속. 공통 필드/메서드 제거. `Show`→`OnShow`, `Close`→`OnBeforeClose`, `OnDemolishButtonClick`→`BeforeDemolish` 훅으로 분해.
+- `BuildingTypeHelper.CanShowActionPanel(BuildingType)` 추가: `!IsProductionBuilding && type != Castle`
+- `InputHandler`: `_actionPanelUI` 필드 추가, Initialize 시그니처 확장, ClosedFrame 체크 + 건물 클릭 분기에 CanShowActionPanel 추가.
+- `GameBootstrapper`: `_buildingActionPanelUI` SerializeField 추가, UIManager 등록, SetupBuildings Initialize, SetupInput 인자 추가, 비생산 건물 환불 캐시 루프 추가.
+- `SetupBuildingActionPanelUI.cs` (Editor): ProductionPanelUI GO 복제 → 생산 전용 자식 GO 제거 → BuildingActionPanelUI 컴포넌트 교체 → 공유 필드 6개 자동 배선 → GameBootstrapper 슬롯 자동 연결.
+
+**설계 포인트**:
+- SharedBackgroundButton이 **비활성 GO**에 부착 → `FindFirstObjectByType<SharedBackgroundButton>(FindObjectsInactive.Include)` 필수
+- 비생산 건물 환불 캐시 루프 누락 시 `GetTotalInvestedCost` → 0 반환 버그
+
+---
+
 ### OnEntityDied 이벤트 분리 리팩토링 (2026-05-18) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-18/15_00_entity-died-event-split/`
