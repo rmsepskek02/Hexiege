@@ -208,11 +208,13 @@
 
 ---
 
-## 작업 그룹 3: Presentation → NGO 직접 의존 제거 (8건)
+## 작업 그룹 3: 레이어 간 직접 의존 제거 (11건)
 
-**근거(아키텍처 원칙):** CLAUDE.md / 프로젝트 MEMORY.md — "Presentation은 NGO 직접 참조 금지 → 이벤트/인터페이스로만 통신". `using Unity.Netcode`가 Presentation 레이어 9개 파일에 산재(Research 기준 8건, 실제 Grep으로 9건 확인).
+**근거(아키텍처 원칙):** CLAUDE.md / 프로젝트 MEMORY.md — "레이어는 정해진 방향으로만 의존". 두 방향의 위반이 존재:
+- **Presentation → NGO 직접 의존**: `using Unity.Netcode`가 Presentation 레이어 9개 파일에 산재
+- **Infrastructure → Presentation 역방향 의존**: Infrastructure가 UI를 직접 참조·호출 (2개 파일, 코드 확인 완료)
 
-**작업 범위:** (Grep 결과로 검증된 실제 9개 파일)
+**작업 범위:** (코드 직접 확인 결과 11개 파일)
 - `Presentation/Production/ProductionTicker.cs` (라인 39)
 - `Presentation/UI/BuildingPanelBase.cs` (라인 41)
 - `Presentation/UI/BuildingPlacementUI.cs` (라인 31)
@@ -221,11 +223,13 @@
 - `Presentation/UI/LobbyUI.cs` (라인 37)
 - `Presentation/UI/NetworkStatusUI.cs` (라인 29, 30 — Transports.UTP 포함)
 - `Presentation/UI/ProductionPanelUI.cs` (라인 27)
-- 추가: `Presentation/UI/InGameSettingsUI.cs` (라인 211 FindFirstObjectByType 호출도 함께 정리)
+- `Presentation/UI/InGameSettingsUI.cs` (라인 211 FindFirstObjectByType 호출도 함께 정리)
+- `Infrastructure/Network/NetworkCombatController.cs` (라인 34 — UnitView 직접 제어)
+- `Infrastructure/Network/NetworkGameEndController.cs` (라인 44 — GameEndUI/RematchPopup/GameUIManager 직접 제어)
 
 **접근 방법:**
 
-각 UI 파일별로 다른 패턴이 필요 — 4가지 카테고리로 분류:
+각 파일별로 다른 패턴이 필요 — 5가지 카테고리로 분류:
 
 ### 카테고리 A: 단순히 NetworkContext만 참조하면 되는 경우
 - **대상**: `GameHudUI`, `GameEndUI`, `ProductionTicker`
@@ -271,17 +275,55 @@
   | `RequestEnqueueServerRpc(buildingId, (int)type, ...)` (430) | `RequestEnqueue(int buildingId, UnitType type)` | NetworkProductionController |
   | `ToggleAutoServerRpc(buildingId, (int)type, ...)` (502) | `RequestToggleAuto(int buildingId, UnitType type)` | NetworkProductionController |
   | `SetRallyPointServerRpc(buildingId, Q, R, ...)` (513) | `RequestSetRallyPoint(int buildingId, int q, int r)` | NetworkProductionController |
-  | `RequestUpgradeServerRpc(buildingId)` (602) | `RequestUpgrade(int buildingId)` | ⚠️ 실행 전 Grep으로 어느 컨트롤러에 정의된 RPC인지 확인 필요 |
+  | `RequestUpgradeServerRpc(buildingId)` (602) | `RequestUpgrade(int buildingId)` | NetworkBuildingController (Grep 확인 완료 — `_networkBuildingController` 상속 필드 사용) |
 
 - **주의**: `RequestDemolishServerRpc`는 상위 클래스 BuildingPanelBase에서 호출 — 위 BuildingPanelBase 항목에서 함께 해소. ProductionPanelUI는 오버라이드 없음.
 
+### 카테고리 E: Infrastructure → Presentation 역방향 의존 (GameEvents 이벤트 발행으로 전환)
+
+- **대상**: `NetworkCombatController`, `NetworkGameEndController`
+- **핵심 접근**: UI를 직접 호출하는 대신 **GameEvents에 이벤트를 발행**. UI 쪽에서 이벤트를 구독해 스스로 반응. 싱글플레이와 동일한 흐름으로 통일.
+
+#### NetworkCombatController (코드 직접 확인 결과)
+
+현재 ClientRpc 핸들러 안에서 `UnitView`를 GetComponent로 꺼내 애니메이션 메서드를 직접 호출. → **신규 GameEvents 이벤트 발행으로 교체**, UnitView가 이벤트를 구독해 스스로 처리.
+
+| 현재 직접 호출 | 교체할 GameEvents 이벤트 (신규 추가) | UnitView 구독 처리 |
+|---|---|---|
+| `unitView.StartCombatAnimation(targetId, isUnit)` | `GameEvents.OnNetworkCombatStarted.OnNext(unitId, targetId, isUnit)` | `StartCombatAnimation(...)` 호출 |
+| `unitView.ChangeTarget(newTargetId, isUnit)` | `GameEvents.OnNetworkCombatTargetChanged.OnNext(unitId, targetId, isUnit)` | `ChangeTarget(...)` 호출 |
+| `unitView.StopCombatAnimation()` | `GameEvents.OnNetworkCombatStopped.OnNext(unitId)` | `StopCombatAnimation()` 호출 |
+| `unitView.StartWalkAnimation()` | `GameEvents.OnNetworkWalkStarted.OnNext(unitId)` | `StartWalkAnimation()` 호출 |
+
+- `using Hexiege.Presentation` 제거. `UnitView` GetComponent 코드 모두 제거.
+- UnitView에 구독 추가 (OnNetworkSpawn) + 구독 해제 (OnNetworkDespawn / OnDestroy)
+
+#### NetworkGameEndController (코드 직접 확인 결과)
+
+현재 `AnnounceWinnerClientRpc` 안에서 `GameEndUI.ShowResult()`, `SetupRematchButton()`, `GameUIManager.NotifyGameEnded()` 직접 호출. → **기존 GameEvents.OnGameEnd 재사용 + 신규 이벤트 추가**로 UI 직접 참조 제거.
+
+| 현재 직접 호출 | 교체 방법 |
+|---|---|
+| `_gameEndUI.ShowResult(winnerTeam, LocalPlayerTeam.Current)` | `GameEvents.OnGameEnd.OnNext(new GameEndEvent(winnerTeam))` 발행 — GameEndUI 기존 구독이 자동 반응 |
+| `_uiManager.NotifyGameEnded()` | 동일 `GameEvents.OnGameEnd` 구독으로 GameUIManager도 처리 |
+| `_gameEndUI.SetupRematchButton(isRandom, RequestRematch)` | `GameEvents.OnNetworkRematchAvailable.OnNext(isRandom)` 신규 이벤트 발행 — GameEndUI가 구독해 버튼 설정. 콜백 대신 `GameEvents.OnRematchRequested` 이벤트를 발행하고 NetworkGameEndController가 구독 |
+| `_rematchRequestPopup.ShowRequest(...)` | `GameEvents.OnNetworkRematchRequested.OnNext(...)` 발행 — 팝업이 구독해 표시 |
+| `_rematchRequestPopup.ShowDeclined()` | `GameEvents.OnNetworkRematchDeclined.OnNext(...)` 발행 — 팝업이 구독해 거절 상태 표시 |
+| `_gameEndUI.RestoreRematchButton()` | `GameEvents.OnNetworkRematchDeclined` 동일 이벤트 구독 |
+
+- `[SerializeField] private GameEndUI _gameEndUI`, `RematchRequestPopup`, `GameUIManager` 필드 모두 제거
+- `using Hexiege.Presentation` 제거
+- FindFirstObjectByType<GameEndUI/RematchRequestPopup/GameUIManager> 호출 모두 제거
+
 **위험 요소:**
-- 9개 파일을 한 PR로 정리하면 변경 범위가 매우 큼 → **카테고리별 별도 PR 권장 (A→D→B→C 순)**. 카테고리 D 내부 순서: BuildingPanelBase 먼저 → BuildingPlacementUI / ProductionPanelUI.
-- `BuildingPanelBase`가 추상 클래스라 변경 시 두 자식 클래스(ProductionPanelUI, BuildingActionPanelUI 등)에 모두 영향 — BuildingPanelBase 변경 직후 두 자식이 모두 컴파일되는지 확인.
-- `ProductionPanelUI`의 `RequestUpgradeServerRpc`가 어느 컨트롤러(NetworkProductionController vs NetworkBuildingController)에 있는지 실행 전 Grep 확인 필요 — 잘못된 컨트롤러에 래퍼 추가 시 RPC 라우팅 실패.
+- 11개 파일을 한 PR로 정리하면 변경 범위가 매우 큼 → **카테고리별 별도 PR 권장 (A→D→B→C→E 순)**. 카테고리 D 내부 순서: BuildingPanelBase 먼저 → BuildingPlacementUI / ProductionPanelUI.
+- `BuildingPanelBase`가 추상 클래스라 변경 시 두 자식 클래스(ProductionPanelUI, BuildingActionPanelUI)에 모두 영향 — BuildingPanelBase 변경 직후 두 자식이 모두 컴파일되는지 확인.
+- `RequestUpgradeServerRpc`는 NetworkBuildingController에 있음 (Grep 확인 완료) — ProductionPanelUI가 상속 필드 `_networkBuildingController`를 사용하므로 래퍼 메서드는 NetworkBuildingController에 추가.
 - NetworkXxxController가 NetworkBehaviour라서 인터페이스 추출 시 Mock 부담 — 일반 C# 인터페이스로 만들고 NetworkBehaviour는 구현체로 두면 해결.
 - `ProductionPanelUI`의 ServerRpc 호출이 RequiresAuthority 등 NGO 속성을 직접 참조하는 경우 — 컨트롤러 메서드 시그니처에서 흡수.
 - 카테고리 B의 `FindFirstObjectByType` 제거는 그룹 4와 겹침 — 그룹 3에서 함께 정리하면 그룹 4 작업량 감소.
+- **카테고리 E 이벤트 구독 해제 누락 위험** — UnitView가 신규 이벤트를 구독할 때 OnNetworkDespawn/OnDestroy에서 반드시 구독 해제. 누락 시 재경기 이후 이전 UnitView 인스턴스의 구독이 남아 중복 애니메이션 처리 발생.
+- **카테고리 E 재경기 콜백 이벤트화** — `RequestRematch` 메서드가 NetworkGameEndController 내부 콜백이었으므로, GameEvents 이벤트로 교체 시 GameEndUI의 버튼 클릭 → `GameEvents.OnLocalRematchRequested` 발행 → NetworkGameEndController 구독 흐름을 명확히 설계해야 함.
 
 ### 변경 파일 목록
 
@@ -298,8 +340,14 @@
 | `Presentation/UI/LobbyUI.cs` | `using Unity.Netcode` 제거 + `FindFirstObjectByType<NetworkGameManager>()` 2회 제거 + Initialize 주입 | 수정 (카테고리 B) |
 | `Presentation/UI/InGameSettingsUI.cs` | `using Unity.Netcode` 제거 (있다면) + `FindFirstObjectByType<NetworkGameEndController>()` 제거 + IForfeitService 주입 | 수정 (카테고리 B) |
 | `Presentation/UI/NetworkStatusUI.cs` | `using Unity.Netcode`, `using Unity.Netcode.Transports.UTP` 제거 + NetworkLifecycleSnapshot 사용 | 수정 (카테고리 C) |
-| `Infrastructure/Network/NetworkGameEndController.cs` | IForfeitService 인터페이스 구현 (Application 또는 Domain에 인터페이스 정의) | 수정 (인터페이스 구현) |
-| `Application/Abstractions/IForfeitService.cs` (신규) | `void RequestForfeit()` 인터페이스 | 추가 (정책 결정 후) |
+| `Infrastructure/Network/NetworkCombatController.cs` | `using Hexiege.Presentation` 제거 + UnitView 직접 호출 → GameEvents 이벤트 발행으로 교체 | 수정 (카테고리 E) |
+| `Infrastructure/Network/NetworkGameEndController.cs` | `using Hexiege.Presentation` 제거 + GameEndUI/RematchPopup/GameUIManager 직접 호출 → GameEvents 이벤트 발행으로 교체 + IForfeitService 인터페이스 구현 + `[SerializeField]` UI 필드 전체 제거 | 수정 (카테고리 B+E) |
+| `Application/Events/GameEvents.cs` | 신규 이벤트 추가 — OnNetworkCombatStarted/TargetChanged/Stopped, OnNetworkWalkStarted, OnNetworkRematchAvailable, OnNetworkRematchRequested, OnNetworkRematchDeclined, OnLocalRematchRequested | 수정 (이벤트 추가) |
+| `Presentation/View/UnitView.cs` | 신규 GameEvents 이벤트 구독 추가 (OnNetworkCombatStarted 등 4개) + OnNetworkDespawn/OnDestroy에서 구독 해제 | 수정 (카테고리 E) |
+| `Presentation/UI/GameEndUI.cs` | GameEvents.OnGameEnd 구독 보강(멀티플레이 흐름 통일) + OnNetworkRematchAvailable 구독 + OnNetworkRematchDeclined 구독 + RestoreRematchButton 이벤트 구독 처리 | 수정 (카테고리 E) |
+| `Presentation/UI/RematchRequestPopup.cs` | OnNetworkRematchRequested 구독 → ShowRequest() + OnNetworkRematchDeclined 구독 → ShowDeclined() | 수정 (카테고리 E) |
+| `Presentation/UI/GameUIManager.cs` | GameEvents.OnGameEnd 구독 추가 → NotifyGameEnded() 자동 처리 (NetworkGameEndController 직접 호출 대체) | 수정 (카테고리 E) |
+| `Application/Abstractions/IForfeitService.cs` (신규) | `void RequestForfeit()` 인터페이스 | 추가 |
 
 ---
 
@@ -497,12 +545,38 @@
 - **대상**: `Infrastructure/Network/MatchmakerManager.cs` 라인 113, 116, 136, 139
 - **방법**: `MatchmakingException` 도메인 예외 클래스 또는 Result 패턴.
 
-### 6-15. ToastMessageConfig / UnitFactory Infrastructure→Presentation 역방향 의존 검증
+### 6-15. ToastMessageConfig / UnitFactory Infrastructure→Presentation 역방향 의존 해소
 
-- **대상**: Research에서 "확인 필요"로 분류. Infrastructure가 Presentation을 import하는 패턴.
-- **방법**: 실제 의존 방향 검증 후 정책 결정.
-  - (A) Config는 데이터만 → 의존 해소 위해 데이터 형태 분리
-  - (B) Factory는 Presentation View를 알아야 함 → IUnitViewBinder 인터페이스 추출
+> **⚠️ 범위 변경**: NetworkCombatController, NetworkGameEndController는 **그룹 3 카테고리 E로 이동**하여 처리. 본 항목은 ToastMessageConfig, UnitFactory 2건.
+
+**(코드 직접 확인 완료 — 해결책 확정)**
+
+#### ToastMessageConfig (간단)
+- **원인**: `ToastKey` enum이 Presentation 네임스페이스에 있어서 Config가 Presentation을 import.
+- **해결**: `ToastKey` enum을 **Application 레이어로 이동** → ToastMessageConfig는 Presentation 대신 Application만 참조. 위험 거의 없음.
+- **영향**: ToastKey를 참조하는 모든 파일의 using 경로 업데이트 필요 (Grep으로 확인 후 일괄 변경).
+
+#### UnitFactory (인터페이스 추출)
+- **원인**: `UnitView`를 직접 GetComponent로 꺼내어 `Initialize(unitData)` / `SetDependencies(...)` 호출.
+- **해결**: Application 레이어에 `IUnitView` 인터페이스 정의 → UnitView가 구현 → UnitFactory는 `IUnitView`만 알면 됨.
+  ```
+  // Application/Abstractions/IUnitView.cs
+  interface IUnitView {
+      void Initialize(UnitData unitData);
+      void SetDependencies(UnitMovementUseCase, UnitCombatUseCase, ...);
+  }
+  ```
+- **영향**: UnitView에 `: IUnitView` 추가. UnitFactory의 `UnitView` 타입 참조를 `IUnitView`로 교체.
+
+#### 변경 파일 목록
+
+| 파일 | 변경 내용 | 변경 방식 |
+|------|-----------|-----------|
+| `Presentation/UI/ToastKey.cs` (현재 위치 추정) | Application 레이어로 이동 | 이동 |
+| `Infrastructure/Config/ToastMessageConfig.cs` | `using Hexiege.Presentation` → `using Hexiege.Application` | 수정 |
+| `Application/Abstractions/IUnitView.cs` (신규) | `Initialize` / `SetDependencies` 인터페이스 | 추가 |
+| `Presentation/View/UnitView.cs` | `: IUnitView` 추가 | 수정 |
+| `Infrastructure/Factories/UnitFactory.cs` | `using Hexiege.Presentation` 제거, `UnitView` → `IUnitView` 교체 | 수정 |
 
 ---
 
