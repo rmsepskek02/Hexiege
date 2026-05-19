@@ -9381,10 +9381,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 1093139682}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.5}
-  m_AnchorMax: {x: 1, y: 0.5}
+  m_AnchorMin: {x: 0.14, y: 0.5}
+  m_AnchorMax: {x: 0.86, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: -130, y: 20}
+  m_SizeDelta: {x: 0, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1043901890
 MonoBehaviour:
@@ -18692,6 +18692,7 @@ GameObject:
   - component: {fileID: 1959302709}
   - component: {fileID: 1959302710}
   - component: {fileID: 1959302711}
+  - component: {fileID: 1959302712}
   m_Layer: 0
   m_Name: ProductionPopup
   m_TagString: Untagged
@@ -19338,6 +19339,18 @@ MonoBehaviour:
   _hideDuration: 0.15
   _slideOffset: 300
   _backgroundOverlay: {fileID: 543183965}
+--- !u!114 &1959302712
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1959302708}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: baa3e92a3edd8b24cba4bf7c75e4d51b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.ProductionPopupDiagnostic
 --- !u!1 &1978228654
 GameObject:
   m_ObjectHideFlags: 0
