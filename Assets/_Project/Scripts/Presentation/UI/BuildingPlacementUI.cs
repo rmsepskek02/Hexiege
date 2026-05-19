@@ -123,9 +123,71 @@ namespace Hexiege.Presentation
         /// </summary>
         private IDisposable _resourceSubscription;
 
+        /// <summary>
+        /// 각 건물 버튼에 대응되는 CanvasGroup 캐시 리스트.
+        /// _buildingButtons와 1:1로 매칭되며, Awake()에서 자동으로 채워진다.
+        ///
+        /// 빈 슬롯을 숨길 때 SetActive(false) 대신 CanvasGroup.alpha=0 을 사용하는 이유:
+        ///   - HorizontalLayoutGroup은 SetActive(false) 자식을 레이아웃 계산에서 완전히 제외함.
+        ///   - 그 결과 9개 슬롯 중 7번만 남으면 Child Force Expand Width=true 설정에 의해
+        ///     7번 버튼 하나가 전체 가로폭을 채우는 레이아웃 깨짐이 발생.
+        ///   - CanvasGroup은 GameObject가 활성 상태를 유지하므로 RectTransform 크기는 보존되고,
+        ///     alpha/interactable/blocksRaycasts만 0으로 만들어 시각적·상호작용적으로 숨김 처리만 함.
+        ///
+        /// Inspector에는 노출하지 않으며, 버튼에 CanvasGroup이 없으면 Awake에서 자동 부착한다.
+        /// </summary>
+        private List<CanvasGroup> _buttonCanvasGroups;
+
         // ====================================================================
         // 초기화
         // ====================================================================
+
+        /// <summary>
+        /// Inspector 배선 직후 한 번 호출되어 버튼별 CanvasGroup 캐시를 구성한다.
+        ///
+        /// 각 건물 버튼 GameObject에 CanvasGroup이 부착되어 있으면 그대로 캐시하고,
+        /// 없다면 자동으로 AddComponent하여 부착한다. 이렇게 하면 Inspector에서 별도 배선
+        /// 작업을 하지 않아도 빈 슬롯 숨김 동작이 동작한다.
+        ///
+        /// 초기 상태는 모두 alpha=0 (숨김)으로 설정하여, Show() 호출 전 잔존 표시를 방지.
+        /// </summary>
+        private void Awake()
+        {
+            // 버튼 리스트가 비어있으면(에디터에서 미배선) 빈 리스트로 초기화하고 종료.
+            // null 체크 후 List 할당으로 NRE 방지.
+            if (_buildingButtons == null)
+            {
+                _buttonCanvasGroups = new List<CanvasGroup>();
+                return;
+            }
+
+            _buttonCanvasGroups = new List<CanvasGroup>(_buildingButtons.Count);
+
+            for (int i = 0; i < _buildingButtons.Count; i++)
+            {
+                var button = _buildingButtons[i];
+                if (button == null)
+                {
+                    // 빈 슬롯 자리에는 null을 추가해 인덱스 정합성을 유지.
+                    _buttonCanvasGroups.Add(null);
+                    continue;
+                }
+
+                // 버튼 GameObject에서 CanvasGroup 조회 → 없으면 자동 부착.
+                // TryGetComponent는 가비지 할당이 없는 권장 패턴.
+                if (!button.TryGetComponent(out CanvasGroup cg))
+                {
+                    cg = button.gameObject.AddComponent<CanvasGroup>();
+                }
+
+                // 초기 상태: 완전히 숨김. Show()에서 필요한 슬롯만 alpha=1로 켠다.
+                cg.alpha = 0f;
+                cg.interactable = false;
+                cg.blocksRaycasts = false;
+
+                _buttonCanvasGroups.Add(cg);
+            }
+        }
 
         public void Initialize(BuildingPlacementUseCase buildingPlacement,
             ResourceUseCase resource, GameConfig config,
@@ -159,14 +221,33 @@ namespace Hexiege.Presentation
             UpdateButtonPortraits(team, race);
 
             // 4. 버튼 활성화 및 건설 로직 연결
+            //
+            // 빈 슬롯은 SetActive(false)가 아닌 CanvasGroup으로 숨긴다.
+            // (이유: HorizontalLayoutGroup이 SetActive(false) 자식을 레이아웃에서 제외하여
+            //  남은 버튼 1개가 전체 가로폭을 채우는 레이아웃 깨짐 발생.
+            //  CanvasGroup은 GameObject 활성 상태를 유지하므로 RectTransform 공간은 보존됨.)
             if (_buildingButtons != null)
             {
                 for (int i = 0; i < _buildingButtons.Count; i++)
                 {
+                    // 해당 인덱스의 CanvasGroup 캐시 (Awake에서 1:1 매칭으로 구성됨).
+                    // 안전을 위해 범위/null 체크 후 사용.
+                    CanvasGroup cg = (_buttonCanvasGroups != null && i < _buttonCanvasGroups.Count)
+                        ? _buttonCanvasGroups[i]
+                        : null;
+
                     if (i < list.Count)
                     {
                         var entry = list[i];
-                        _buildingButtons[i].gameObject.SetActive(true);
+
+                        // 슬롯 활성: 시각적으로 보이고 클릭 가능 상태로 전환.
+                        if (cg != null)
+                        {
+                            cg.alpha = 1f;
+                            cg.interactable = true;
+                            cg.blocksRaycasts = true;
+                        }
+
                         _buildingButtons[i].onClick.RemoveAllListeners();
                         _buildingButtons[i].onClick.AddListener(() => PlaceAndClose(entry.type));
 
@@ -185,7 +266,15 @@ namespace Hexiege.Presentation
                     }
                     else
                     {
-                        _buildingButtons[i].gameObject.SetActive(false);
+                        // 빈 슬롯: 시각적으로 숨기되 레이아웃 공간은 유지.
+                        // GameObject는 SetActive(true) 상태이므로 HorizontalLayoutGroup이
+                        // 이 슬롯의 RectTransform 크기를 그대로 계산에 포함시킨다.
+                        if (cg != null)
+                        {
+                            cg.alpha = 0f;
+                            cg.interactable = false;
+                            cg.blocksRaycasts = false;
+                        }
                     }
                 }
             }
@@ -238,7 +327,15 @@ namespace Hexiege.Presentation
                 // 텍스트 또는 매칭되는 버튼이 없으면 건너뜀
                 if (_buildingCostTexts[i] == null) continue;
                 if (_buildingButtons == null || i >= _buildingButtons.Count) continue;
-                if (_buildingButtons[i] == null || !_buildingButtons[i].gameObject.activeSelf) continue;
+                if (_buildingButtons[i] == null) continue;
+
+                // 빈 슬롯 판별 — 더 이상 GameObject.activeSelf로 판단하지 않는다.
+                // (변경 이유: 빈 슬롯도 SetActive(true) 상태이므로 activeSelf는 항상 true.
+                //  대신 CanvasGroup.alpha < 0.5 인 슬롯을 "숨겨진 빈 슬롯"으로 간주하여 스킵.)
+                if (_buttonCanvasGroups == null
+                    || i >= _buttonCanvasGroups.Count
+                    || _buttonCanvasGroups[i] == null
+                    || _buttonCanvasGroups[i].alpha < 0.5f) continue;
 
                 // 리스트 범위 밖이면 흰색으로 유지
                 if (i >= list.Count)

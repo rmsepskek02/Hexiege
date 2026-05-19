@@ -23,6 +23,22 @@
 
 ## 최근 작업
 
+### 건물 배치 팝업 3행 버튼 레이아웃 버그 수정 (2026-05-19) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-19/14_00_building-slot-layout-fix/`
+
+**핵심 변경** (`Presentation/UI/BuildingPlacementUI.cs`):
+- `List<CanvasGroup> _buttonCanvasGroups` 필드 추가
+- `Awake()` 추가: `_buildingButtons` 순회 → `TryGetComponent<CanvasGroup>` → 없으면 `AddComponent`. 초기 alpha=0/interactable=false/blocksRaycasts=false 설정
+- `Show()`: `SetActive(false/true)` → CanvasGroup alpha/interactable/blocksRaycasts 0↔1 전환으로 교체
+- `UpdateCostTextColors()`: `!gameObject.activeSelf` 조건 → `_buttonCanvasGroups[i].alpha < 0.5f` 조건으로 교체
+
+**근본 원인**: `HorizontalLayoutGroup(ChildForceExpandWidth=1)`은 `SetActive(false)` 자식을 레이아웃에서 완전 제외 → 7개 건물(Human/Spirit) 시 3행의 슬롯 하나만 남아 전체 가로폭 채움.
+
+**해결 원칙**: CanvasGroup.alpha=0으로 숨기면 GameObject 활성 상태 유지 → RectTransform 공간 보존 → 레이아웃 균일.
+
+---
+
 ### 인게임 설정 메뉴 + 게임 포기 기능 (2026-05-18~19) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-18/23_36_ingame-settings-forfeit/`

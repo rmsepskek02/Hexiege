@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-05-19
-**현재 단계:** 인게임 설정 메뉴 + 게임 포기 기능 완료 (InGameSettingsUI + ConfirmPopup + ForfeitServerRpc)
+**현재 단계:** 건물 배치 팝업 3행 버튼 레이아웃 버그 수정 완료 (BuildingPlacementUI CanvasGroup)
 
 ---
 
@@ -375,6 +375,7 @@
 #### 버그 수정 및 폴리싱
 | 항목 | 상태 |
 |------|------|
+| 건물 배치 팝업 3행 버튼 가로폭 불일치 | ✅ 완료 (2026-05-19) — Human/Spirit(7개 건물) 시 3행 버튼 1개가 전체 가로폭 채우던 버그. SetActive(false) → CanvasGroup alpha=0 전환으로 HorizontalLayoutGroup 레이아웃 공간 보존. BuildingPlacementUI.cs 수정 |
 | 건물 생성/파괴 시 유닛 이동 멈춤 | ✅ 완료 (2026-05-17) — OnPathInvalidated에서 코루틴 즉시 재시작 대신 _pendingPath 예약 방식 도입. 다음 타일 도착 시점에 부드럽게 경로 교체. 앞 타일에 건물이 생긴 경우만 즉시 재시작 (건물 관통 방지). UnitView.cs 단독 수정 |
 | 랠리포인트 깃발 상대팀에도 표시되는 버그 | ✅ 완료 (2026-05-16) — RallyPointChangedEvent에 TeamId 추가, ProductionTicker에 팀 필터 추가. 멀티: 각 플레이어 자신의 깃발만 표시. 싱글플레이 영향 없음 |
 | 랜덤 매칭 후 캐릭터 잘못 표시 버그 | ✅ 완료 (2026-05-15) — Lobby 씬 CharPreview 오브젝트가 실제 유닛 프리팹 인스턴스(NetworkTransform 포함)여서 Host 캐러셀 위치가 Red 클라이언트로 동기화되던 원인 확정. Unpack Completely + NetworkObject 계열 컴포넌트 5종 제거 |
