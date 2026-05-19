@@ -143,16 +143,46 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// Inspector 배선 직후 한 번 호출되어 버튼별 CanvasGroup 캐시를 구성한다.
+        /// GameBootstrapper가 호출하는 초기화 메서드.
+        /// UseCase 등 의존성을 주입받고, 버튼별 CanvasGroup 캐시를 함께 구성한다.
         ///
-        /// 각 건물 버튼 GameObject에 CanvasGroup이 부착되어 있으면 그대로 캐시하고,
-        /// 없다면 자동으로 AddComponent하여 부착한다. 이렇게 하면 Inspector에서 별도 배선
-        /// 작업을 하지 않아도 빈 슬롯 숨김 동작이 동작한다.
+        /// [중요 — 왜 Awake()를 쓰지 않고 Initialize()에서 처리하는가?]
+        ///   BuildingPopup GameObject는 씬 시작 시 비활성(SetActive=false) 상태로 배치된다.
+        ///   Unity의 Awake()는 GameObject가 비활성이면 호출되지 않는다.
+        ///   (정확히는 처음 활성화되는 시점에서야 호출됨)
         ///
-        /// 초기 상태는 모두 alpha=0 (숨김)으로 설정하여, Show() 호출 전 잔존 표시를 방지.
+        ///   따라서 만약 CanvasGroup 캐시 구성을 Awake()에 두면:
+        ///     1. 씬 로드 시 BuildingPopup은 비활성 → Awake() 미호출 → _buttonCanvasGroups = null
+        ///     2. 첫 Show() 호출 시 CanvasGroup 캐시가 null이라 alpha=1 설정이 건너뛰어짐
+        ///     3. _popup.Show() 내부에서 SetActive(true) 발생 → 이 순간 Awake() 실행
+        ///     4. Awake()가 모든 CanvasGroup의 alpha를 0으로 초기화
+        ///     5. 결과: 팝업은 열렸지만 버튼이 전혀 안 보임 (두 번째 클릭부터 정상)
+        ///
+        ///   Initialize()는 GameBootstrapper에서 직접 호출하는 일반 C# 메서드이므로
+        ///   GameObject가 비활성 상태여도 정상 실행된다 → 캐시 구성이 보장됨.
+        ///
+        /// [CanvasGroup 캐시 구성 로직]
+        ///   각 건물 버튼 GameObject에 CanvasGroup이 부착되어 있으면 그대로 캐시하고,
+        ///   없다면 AddComponent로 자동 부착한다. 그 결과 Inspector에서 별도의 CanvasGroup
+        ///   배선 작업을 하지 않아도 빈 슬롯 숨김(alpha=0) 동작이 정상 작동한다.
+        ///
+        ///   초기 상태는 모두 alpha=0 (숨김)으로 설정해, Show() 호출 전 잔존 표시를 방지한다.
         /// </summary>
-        private void Awake()
+        public void Initialize(BuildingPlacementUseCase buildingPlacement,
+            ResourceUseCase resource, GameConfig config,
+            NetworkBuildingController networkBuildingController = null)
         {
+            // ---- 1) 의존성 주입 ----
+            _buildingPlacement = buildingPlacement;
+            _resource = resource;
+            _config = config;
+            _networkBuildingController = networkBuildingController;
+
+            // 취소 버튼 클릭 시 팝업을 닫도록 리스너 등록.
+            if (_cancelButton != null)
+                _cancelButton.onClick.AddListener(Close);
+
+            // ---- 2) 건물 버튼별 CanvasGroup 캐시 구성 ----
             // 버튼 리스트가 비어있으면(에디터에서 미배선) 빈 리스트로 초기화하고 종료.
             // null 체크 후 List 할당으로 NRE 방지.
             if (_buildingButtons == null)
@@ -187,19 +217,6 @@ namespace Hexiege.Presentation
 
                 _buttonCanvasGroups.Add(cg);
             }
-        }
-
-        public void Initialize(BuildingPlacementUseCase buildingPlacement,
-            ResourceUseCase resource, GameConfig config,
-            NetworkBuildingController networkBuildingController = null)
-        {
-            _buildingPlacement = buildingPlacement;
-            _resource = resource;
-            _config = config;
-            _networkBuildingController = networkBuildingController;
-
-            if (_cancelButton != null)
-                _cancelButton.onClick.AddListener(Close);
         }
 
         public void Show(HexCoord coord, TeamId team)

@@ -104,3 +104,34 @@ Inspector 변경: **없음** (CanvasGroup은 코드에서 자동 추가)
 - [ ] 비어있는 슬롯 영역 클릭 시 반응 없는지 확인 (blocksRaycasts=false)
 - [ ] 골드 부족 시 비용 텍스트 빨간색 표시 확인 (UpdateCostTextColors 로직 정상 동작)
 - [ ] 팝업 닫기 후 재오픈 시 버튼 상태 정상 초기화 확인
+
+---
+
+## 버그 수정 — 최초 타일 클릭 시 팝업 내용 미표시 (2026-05-19)
+
+### 원인
+
+구현 직후 발견된 버그. 최초 타일 클릭 시 건물 버튼이 전혀 보이지 않고, 두 번째 클릭부터 정상 표시됨.
+
+`BuildingPlacementUI` 컴포넌트가 `BuildingPopup` 오브젝트(`m_IsActive: 0`) 위에 부착되어 있어, 씬 로드 시점에 `Awake()`가 실행되지 않음. 그 결과:
+
+1. 첫 클릭 → `Show()` 호출 → `_buttonCanvasGroups == null` → alpha 설정 전부 건너뜀
+2. `_popup.Show()` → `SetActive(true)` → 이 시점에 `Awake()` 실행 → 모든 슬롯 alpha=0 초기화
+3. 결과: 팝업은 열렸지만 빈 화면
+
+### 해결 방법 — CanvasGroup 초기화를 `Initialize()`로 이전
+
+`Initialize()`는 GameBootstrapper가 호출하는 일반 C# 메서드이므로, 오브젝트가 비활성 상태여도 정상 실행됨.
+
+| 변경 전 | 변경 후 |
+|---------|---------|
+| `Awake()`에서 CanvasGroup 캐시 | `Initialize()`에서 CanvasGroup 캐시 |
+| 비활성 시 실행 안 됨 | 항상 실행 보장 |
+
+`Awake()`는 제거하거나 빈 메서드로 유지.
+
+### 변경 파일
+
+| 파일 | 변경 내용 |
+|------|-----------|
+| `Presentation/UI/BuildingPlacementUI.cs` | `Awake()` 제거, `Initialize()` 내부에 CanvasGroup 캐시 코드 이전 |

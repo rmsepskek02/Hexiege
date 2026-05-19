@@ -228,9 +228,9 @@
 각 UI 파일별로 다른 패턴이 필요 — 4가지 카테고리로 분류:
 
 ### 카테고리 A: 단순히 NetworkContext만 참조하면 되는 경우
-- **대상**: `GameHudUI`, `GameEndUI`, `BuildingPanelBase`, `BuildingPlacementUI`, `ProductionPanelUI`, `ProductionTicker`
+- **대상**: `GameHudUI`, `GameEndUI`, `ProductionTicker`
 - **접근**: `using Unity.Netcode` 제거 → 멀티/싱글 분기는 이미 만들어진 `NetworkContext.IsNetworkActive` / `IsNetworkServer` 사용으로 대체.
-- ServerRpc 호출이 필요한 경우 — Infrastructure 레이어의 NetworkXxxController 인스턴스를 인터페이스로 받아 호출 (예: `INetworkProductionService` 추출 검토).
+- **⚠️ BuildingPanelBase, BuildingPlacementUI, ProductionPanelUI는 카테고리 D** (코드 직접 확인 결과 — ServerRpc 직접 호출 존재)
 
 ### 카테고리 B: NetworkBehaviour 인스턴스를 직접 잡아야 하는 경우
 - **대상**: `LobbyUI`, `InGameSettingsUI`
@@ -243,11 +243,42 @@
 - **접근**: 헤더 주석에 "로컬 표시 전용"이라고 명시되어 있으나 NGO API를 직접 호출. NetworkContext에 표시용 메타데이터(`ConnectionStateText`, `LocalAddress` 등) 추가 또는 NetworkLifecycleSnapshot 데이터 객체로 노출.
 
 ### 카테고리 D: ServerRpc 직접 호출
-- **대상**: `ProductionPanelUI` (RequestProductionServerRpc 등을 NetworkProductionController 메서드 호출로 우회)
-- **접근**: NetworkProductionController에 일반 메서드(`RequestProduction(...)`)를 노출하고 내부에서 ServerRpc 호출하도록 위임. UI는 NetworkProductionController 인스턴스만 알면 됨.
+- **대상**: `BuildingPanelBase`, `ProductionPanelUI`, `BuildingPlacementUI`
+- **접근**: 각 UI 파일에서 직접 호출하는 ServerRpc를 Infrastructure 레이어 컨트롤러의 일반 래퍼 메서드로 교체. UI는 "어떤 RPC를 써야 하는지" 알 필요 없음.
+
+#### BuildingPanelBase (코드 직접 확인 결과)
+- `OnDemolishButtonClick()` 라인 258~260: `_networkBuildingController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening` 분기
+  → `_networkBuildingController != null && NetworkContext.IsNetworkActive`로 교체
+- `OnDemolishButtonClick()` 라인 265: `_networkBuildingController.RequestDemolishServerRpc(_currentBuilding.Id)` 직접 호출
+  → `NetworkBuildingController`에 `RequestDemolish(int buildingId)` 래퍼 메서드 추가 후 교체
+- **이 클래스가 상위 클래스이므로 ProductionPanelUI 작업 전에 먼저 처리 권장**
+
+#### BuildingPlacementUI (코드 직접 확인 결과)
+- `PlaceAndClose()` 라인 471~472: `NetworkManager.Singleton != null && (IsHost || IsClient)` 분기
+  → `NetworkContext.IsNetworkActive`로 교체
+- `PlaceAndClose()` 라인 490: `_networkBuildingController.RequestBuildServerRpc(...)` 직접 호출
+  → `NetworkBuildingController`에 `RequestBuild(BuildingType type, TeamId team, int Q, int R)` 래퍼 메서드 추가 후 교체
+- `_networkBuildingController`는 `Initialize()`에서 이미 주입받아 필드로 보관 중이므로 주입 구조 변경 불필요
+
+#### ProductionPanelUI (코드 직접 확인 결과)
+- `using Unity.Netcode` 제거 (라인 27)
+- NetworkManager.Singleton 체크 5개소 (라인 386, 429, 501, 512, 595~597) → `NetworkContext.IsNetworkActive` 또는 `_networkProductionController != null` 분기로 교체
+- 직접 ServerRpc 호출 5건 → NetworkProductionController(또는 NetworkBuildingController) 래퍼 메서드로 교체:
+
+  | 현재 호출 (라인) | 교체할 래퍼 메서드 | 담당 컨트롤러 |
+  |---|---|---|
+  | `CancelSlotServerRpc(buildingId, slotIndex, ...)` (388) | `RequestCancelSlot(int buildingId, int slotIndex)` | NetworkProductionController |
+  | `RequestEnqueueServerRpc(buildingId, (int)type, ...)` (430) | `RequestEnqueue(int buildingId, UnitType type)` | NetworkProductionController |
+  | `ToggleAutoServerRpc(buildingId, (int)type, ...)` (502) | `RequestToggleAuto(int buildingId, UnitType type)` | NetworkProductionController |
+  | `SetRallyPointServerRpc(buildingId, Q, R, ...)` (513) | `RequestSetRallyPoint(int buildingId, int q, int r)` | NetworkProductionController |
+  | `RequestUpgradeServerRpc(buildingId)` (602) | `RequestUpgrade(int buildingId)` | ⚠️ 실행 전 Grep으로 어느 컨트롤러에 정의된 RPC인지 확인 필요 |
+
+- **주의**: `RequestDemolishServerRpc`는 상위 클래스 BuildingPanelBase에서 호출 — 위 BuildingPanelBase 항목에서 함께 해소. ProductionPanelUI는 오버라이드 없음.
 
 **위험 요소:**
-- 9개 파일을 한 PR로 정리하면 변경 범위가 매우 큼 → **카테고리별 별도 PR 권장 (A→D→B→C 순)**.
+- 9개 파일을 한 PR로 정리하면 변경 범위가 매우 큼 → **카테고리별 별도 PR 권장 (A→D→B→C 순)**. 카테고리 D 내부 순서: BuildingPanelBase 먼저 → BuildingPlacementUI / ProductionPanelUI.
+- `BuildingPanelBase`가 추상 클래스라 변경 시 두 자식 클래스(ProductionPanelUI, BuildingActionPanelUI 등)에 모두 영향 — BuildingPanelBase 변경 직후 두 자식이 모두 컴파일되는지 확인.
+- `ProductionPanelUI`의 `RequestUpgradeServerRpc`가 어느 컨트롤러(NetworkProductionController vs NetworkBuildingController)에 있는지 실행 전 Grep 확인 필요 — 잘못된 컨트롤러에 래퍼 추가 시 RPC 라우팅 실패.
 - NetworkXxxController가 NetworkBehaviour라서 인터페이스 추출 시 Mock 부담 — 일반 C# 인터페이스로 만들고 NetworkBehaviour는 구현체로 두면 해결.
 - `ProductionPanelUI`의 ServerRpc 호출이 RequiresAuthority 등 NGO 속성을 직접 참조하는 경우 — 컨트롤러 메서드 시그니처에서 흡수.
 - 카테고리 B의 `FindFirstObjectByType` 제거는 그룹 4와 겹침 — 그룹 3에서 함께 정리하면 그룹 4 작업량 감소.
@@ -256,16 +287,17 @@
 
 | 파일 | 변경 내용 | 변경 방식 |
 |------|-----------|-----------|
-| `Presentation/UI/GameHudUI.cs` | `using Unity.Netcode` 제거, NetworkContext 사용 | 수정 |
-| `Presentation/UI/GameEndUI.cs` | 동상 | 수정 |
-| `Presentation/UI/BuildingPanelBase.cs` | 동상 | 수정 |
-| `Presentation/UI/BuildingPlacementUI.cs` | 동상 | 수정 |
-| `Presentation/UI/ProductionPanelUI.cs` | `using Unity.Netcode` 제거 + NetworkProductionController.RequestProduction(...) 메서드 호출로 전환 | 수정 |
-| `Presentation/Production/ProductionTicker.cs` | `using Unity.Netcode` 제거 + NetworkContext 분기로 전환 | 수정 |
-| `Presentation/UI/LobbyUI.cs` | `using Unity.Netcode` 제거 + `FindFirstObjectByType<NetworkGameManager>()` 2회 제거 + Initialize 주입 | 수정 |
-| `Presentation/UI/InGameSettingsUI.cs` | `using Unity.Netcode` 제거 (있다면) + `FindFirstObjectByType<NetworkGameEndController>()` 제거 + IForfeitService 또는 Initialize 주입 | 수정 |
-| `Presentation/UI/NetworkStatusUI.cs` | `using Unity.Netcode`, `using Unity.Netcode.Transports.UTP` 제거 + NetworkLifecycleSnapshot 사용 | 수정 |
-| `Infrastructure/Network/NetworkProductionController.cs` | UI에서 호출할 일반 메서드 노출 (내부에서 ServerRpc 호출) | 수정 (메서드 추가) |
+| `Presentation/UI/GameHudUI.cs` | `using Unity.Netcode` 제거 + NetworkContext 사용 | 수정 (카테고리 A) |
+| `Presentation/UI/GameEndUI.cs` | 동상 | 수정 (카테고리 A) |
+| `Presentation/Production/ProductionTicker.cs` | `using Unity.Netcode` 제거 + NetworkContext 분기로 전환 | 수정 (카테고리 A) |
+| `Presentation/UI/BuildingPanelBase.cs` | `using Unity.Netcode` 제거 + `NetworkManager.Singleton` 체크 → `NetworkContext.IsNetworkActive`로 교체 + `RequestDemolishServerRpc` → `RequestDemolish()` 래퍼 메서드 교체 | 수정 (카테고리 D) |
+| `Presentation/UI/BuildingPlacementUI.cs` | `using Unity.Netcode` 제거 + `NetworkManager.Singleton` 체크 → `NetworkContext.IsNetworkActive` 교체 + `RequestBuildServerRpc` → `NetworkBuildingController.RequestBuild(...)` 래퍼 메서드 교체 | 수정 (카테고리 D) |
+| `Presentation/UI/ProductionPanelUI.cs` | `using Unity.Netcode` 제거 + NetworkManager.Singleton 체크 5개소 교체 + ServerRpc 직접 호출 5건(CancelSlot/RequestEnqueue/ToggleAuto/SetRallyPoint/RequestUpgrade) → NetworkProductionController 래퍼 메서드로 교체 | 수정 (카테고리 D) |
+| `Infrastructure/Network/NetworkBuildingController.cs` | UI에서 호출할 래퍼 메서드 2개 추가: `RequestBuild(BuildingType, TeamId, int Q, int R)`, `RequestDemolish(int buildingId)` | 수정 (메서드 추가) |
+| `Infrastructure/Network/NetworkProductionController.cs` | UI에서 호출할 래퍼 메서드 추가: `RequestCancelSlot`, `RequestEnqueue`, `RequestToggleAuto`, `RequestSetRallyPoint`, `RequestUpgrade`(또는 빌딩 컨트롤러 확인 후 분배) | 수정 (메서드 추가) |
+| `Presentation/UI/LobbyUI.cs` | `using Unity.Netcode` 제거 + `FindFirstObjectByType<NetworkGameManager>()` 2회 제거 + Initialize 주입 | 수정 (카테고리 B) |
+| `Presentation/UI/InGameSettingsUI.cs` | `using Unity.Netcode` 제거 (있다면) + `FindFirstObjectByType<NetworkGameEndController>()` 제거 + IForfeitService 주입 | 수정 (카테고리 B) |
+| `Presentation/UI/NetworkStatusUI.cs` | `using Unity.Netcode`, `using Unity.Netcode.Transports.UTP` 제거 + NetworkLifecycleSnapshot 사용 | 수정 (카테고리 C) |
 | `Infrastructure/Network/NetworkGameEndController.cs` | IForfeitService 인터페이스 구현 (Application 또는 Domain에 인터페이스 정의) | 수정 (인터페이스 구현) |
 | `Application/Abstractions/IForfeitService.cs` (신규) | `void RequestForfeit()` 인터페이스 | 추가 (정책 결정 후) |
 
