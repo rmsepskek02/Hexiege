@@ -224,6 +224,54 @@ namespace Hexiege.Infrastructure
         }
 
         // ====================================================================
+        // 포기 (Forfeit) — 인게임 설정 메뉴에서 호출
+        // ====================================================================
+
+        /// <summary>
+        /// 포기 요청. 로컬에서 InGameSettingsUI가 사용자에게 확인 후 호출.
+        /// 내부적으로 ServerRpc를 전송하여 서버에서 자기 팀을 패배 처리한다.
+        /// </summary>
+        public void RequestForfeit()
+        {
+            Debug.Log("[Network] 포기 요청 전송.");
+            ForfeitServerRpc();
+        }
+
+        /// <summary>
+        /// 클라이언트의 포기 요청을 서버에서 처리.
+        /// 포기자의 ClientId로 팀을 식별하고(Host=0=Blue, Client=Red), 반대 팀을 승리자로 전체 클라이언트에 발표.
+        /// 이미 결과가 발표된 상태(_announced==true)라면 무시 — Castle 파괴 직후 포기 클릭 등의 경쟁 상황 방어.
+        ///
+        /// RequireOwnership=false: 이 NetworkObject는 서버 소유이므로
+        /// 클라이언트가 호출할 수 있도록 명시적으로 허용해야 한다.
+        /// </summary>
+        [ServerRpc(RequireOwnership = false)]
+        private void ForfeitServerRpc(ServerRpcParams rpcParams = default)
+        {
+            if (!IsServer) return;
+            if (_announced) return;
+
+            ulong forfeiterId = rpcParams.Receive.SenderClientId;
+
+            // ClientId → TeamId 매핑.
+            //   Host(서버 호스트) = ClientId 0 = Blue 팀
+            //   Client(접속자)     = Red 팀
+            // 이 매핑은 NetworkGameManager에서도 동일하게 사용 중인 규약.
+            TeamId forfeitTeam = (forfeiterId == 0) ? TeamId.Blue : TeamId.Red;
+            TeamId winnerTeam = (forfeitTeam == TeamId.Blue) ? TeamId.Red : TeamId.Blue;
+
+            _announced = true;
+            Debug.Log($"[Network] 포기 처리. 포기자ClientId={forfeiterId}, " +
+                      $"포기팀={forfeitTeam}, 승리팀={winnerTeam}");
+
+            // 포기에 의한 정상 종료 — 재경기 신청은 가능하도록 isRandomMatch=false 전달.
+            // (랜덤 매칭이라도 isRandomMatch는 NetworkGameManager에서 별도로 판단되지만,
+            //  여기서는 보수적으로 false를 넣어 클라이언트가 재경기 버튼을 띄울 수 있게 함.
+            //  실제 랜덤매칭 종료 처리는 기존 OnGameEndServer 경로와 동일하게 동작.)
+            AnnounceWinnerClientRpc((int)winnerTeam, false);
+        }
+
+        // ====================================================================
         // 재경기 (Rematch) — 커스텀게임 전용
         // ====================================================================
 

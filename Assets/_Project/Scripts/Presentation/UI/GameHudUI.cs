@@ -25,6 +25,7 @@
 
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using Hexiege.Domain;
 using Hexiege.Application;
@@ -51,6 +52,13 @@ namespace Hexiege.Presentation
 
         [Tooltip("레드 팀 보유 타일 수 텍스트")]
         [SerializeField] private TextMeshProUGUI _redTileCountText;
+
+        [Header("설정 버튼")]
+        [Tooltip("설정 메뉴를 여는 버튼. 화면 우측 상단에 배치.")]
+        [SerializeField] private Button _settingsButton;
+
+        [Tooltip("설정 버튼 클릭 시 열릴 인게임 설정 메뉴 UI.")]
+        [SerializeField] private InGameSettingsUI _settingsUI;
 
         // ====================================================================
         // 의존성 (Initialize로 주입)
@@ -94,9 +102,27 @@ namespace Hexiege.Presentation
                              (NetworkManager.Singleton.IsHost ||
                               NetworkManager.Singleton.IsClient);
 
+            // 설정 버튼 리스너 등록.
+            // RemoveListener 후 AddListener: Initialize가 재경기로 인해 여러 번 호출돼도
+            // 클릭 시 OnSettingsClicked가 한 번만 호출되도록 보장.
+            if (_settingsButton != null)
+            {
+                _settingsButton.onClick.RemoveListener(OnSettingsClicked);
+                _settingsButton.onClick.AddListener(OnSettingsClicked);
+            }
+
             // 즉시 한 번 갱신
             ResetCachedValues();
             UpdateDisplay();
+        }
+
+        /// <summary>
+        /// 설정 버튼 클릭 시 호출. 인게임 설정 메뉴 팝업을 연다.
+        /// _settingsUI가 Inspector에 연결되지 않은 경우 안전하게 무시.
+        /// </summary>
+        private void OnSettingsClicked()
+        {
+            _settingsUI?.Show();
         }
 
         /// <summary>

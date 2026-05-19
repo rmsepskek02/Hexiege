@@ -79,6 +79,30 @@ namespace Hexiege.Application
             GameEvents.OnGameEnd.OnNext(new GameEndEvent(winner));
         }
 
+        /// <summary>
+        /// 싱글플레이 포기 처리.
+        /// 로컬 플레이어(Blue 팀 고정)를 패배 처리하고 Red 팀 승리로 OnGameEnd 이벤트를 발행한다.
+        ///
+        /// 호출자:
+        ///   InGameSettingsUI.OnForfeitConfirmed() — 사용자가 포기 확인 팝업에서 확정 클릭 시.
+        ///
+        /// 멀티플레이는 이 메서드를 사용하지 않는다.
+        /// 멀티에서는 NetworkGameEndController.RequestForfeit() 경로로 서버가 처리.
+        ///
+        /// 이미 게임이 종료된 상태(IsGameOver==true)라면 중복 발행 방지를 위해 무시한다.
+        /// </summary>
+        public void Forfeit()
+        {
+            // 이미 끝났다면 무시 (예: Castle 파괴와 포기 클릭이 동시에 들어오는 케이스)
+            if (IsGameOver) return;
+
+            IsGameOver = true;
+
+            // 싱글플레이에서는 로컬 플레이어 = 항상 Blue.
+            // Blue가 포기했으므로 Red가 승리.
+            GameEvents.OnGameEnd.OnNext(new GameEndEvent(TeamId.Red));
+        }
+
         public void Dispose()
         {
             _subscription?.Dispose();

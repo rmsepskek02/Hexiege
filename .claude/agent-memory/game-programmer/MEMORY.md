@@ -23,6 +23,27 @@
 
 ## 최근 작업
 
+### 인게임 설정 메뉴 + 게임 포기 기능 (2026-05-18~19) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-18/23_36_ingame-settings-forfeit/`
+
+**핵심 변경**:
+- `InGameSettingsUI.cs` (`Presentation/UI/`) 신규: `IGameUI` 구현. `Show()` — 싱글플레이 `Time.timeScale=0`(`_pausedBySettings=true`), SharedBackground 등록. `Hide()` — `_pausedBySettings`이면 `timeScale` 복원, `_confirmPopup?.Hide()`. 포기 흐름: ConfirmPopup 표시 → `OnForfeitConfirmed()` → `NetworkContext.IsNetworkActive` 분기 → 멀티 `RequestForfeit()` / 싱글 `GameEndUseCase.Forfeit()`.
+- `ConfirmPopup.cs` (`Presentation/UI/`) 신규: 범용 확인 팝업. `Show(message, confirmLabel, cancelLabel, onConfirm, onCancel)`. `BlockingOverlay` — 풀스크린 투명 Image(alpha=0, raycastTarget=true)로 공유 Background 클릭 차단. `_panel.gameObject.SetActive(true)` → `_panel.Show()` 순서 필수 (AnimatedPanel.Hide()가 SetActive(false) 함).
+- `GameEndUseCase.Forfeit()` 신규: `IsGameOver=true` 설정 → `GameEvents.OnGameEnd(TeamId.Red)` 발행 (싱글플레이 포기).
+- `NetworkGameEndController.RequestForfeit()` + `ForfeitServerRpc`: `RequireOwnership=false`. Host=ClientId0=Blue, Client=Red. 기존 `_announced` 플래그 재사용, `AnnounceWinnerClientRpc` 재사용.
+- `GameHudUI`: `_settingsButton`, `_settingsUI` 필드 추가, `OnSettingsClicked()` 메서드 추가.
+- `GameBootstrapper`: `_inGameSettingsUI`, `_confirmPopup` SerializeField 추가, `LoadMap()`에 UIManager 등록 + Initialize 호출.
+- `SetupInGameSettingsUI.cs` (Editor): HUD 재배치(StatsPanel + 4 Row) + 설정 패널 생성 + 필드 배선 자동화.
+
+**설계 포인트**:
+- `AnimatedPanel._backgroundOverlay`(CanvasGroup) → `[UI]/Background`의 CanvasGroup 연결 필수. 미연결 시 반투명 배경 미표시.
+- `ConfirmPopup.BlockingOverlay`: ConfirmPopup 열릴 때 Settings 패널의 SharedBackground 클릭 차단 (의도치 않은 패널 닫힘 방지).
+- `ConfirmPopup.Show()` 전 반드시 `_panel.gameObject.SetActive(true)` 선호출 (AnimatedPanel lazy init 문제).
+- 싱글플레이 일시정지: `Time.timeScale=0`, UIAnimator `SetUpdate(true)` 적용으로 DOTween이 timeScale=0 중에도 동작.
+
+---
+
 ### 비생산 건물 공용 액션 패널 UI — BuildingActionPanelUI (2026-05-18~19) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-18/17_00_building-action-panel-ui/`

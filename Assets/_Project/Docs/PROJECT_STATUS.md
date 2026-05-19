@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-05-19
-**현재 단계:** 비생산 건물 공용 액션 패널 UI 완료 (BuildingActionPanelUI — 채굴소/타워 클릭 시 팝업 + 철거 버튼 동작)
+**현재 단계:** 인게임 설정 메뉴 + 게임 포기 기능 완료 (InGameSettingsUI + ConfirmPopup + ForfeitServerRpc)
 
 ---
 
@@ -346,6 +346,22 @@
 | `GameBootstrapper` 주입/등록 추가 | ✅ 완료 | UIManager 등록 + 비생산 건물 환불 캐시 루프 |
 | `SetupBuildingActionPanelUI.cs` 에디터 스크립트 | ✅ 완료 | 씬 자동 생성 + 필드 배선 + GameBootstrapper 연결 |
 | 싱글플레이 실기 테스트 | ✅ PASS | 채굴소/AutoTower 팝업 표시 + 철거 버튼 동작 확인 |
+
+---
+
+#### 인게임 설정 메뉴 + 게임 포기 기능 (2026-05-18~19)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| `InGameSettingsUI.cs` 신규 | ✅ 완료 | IGameUI 구현. Show() 싱글 일시정지(timeScale=0). Hide() 복원 + ConfirmPopup 닫기 |
+| `ConfirmPopup.cs` 신규 | ✅ 완료 | 범용 확인 팝업. BlockingOverlay로 공유 Background 클릭 차단 |
+| 포기 흐름 구현 | ✅ 완료 | 싱글: GameEndUseCase.Forfeit() / 멀티: NetworkGameEndController.ForfeitServerRpc |
+| `GameEndUseCase.Forfeit()` 신규 | ✅ 완료 | IsGameOver=true + GameEvents.OnGameEnd(TeamId.Red) 발행 |
+| `NetworkGameEndController.ForfeitServerRpc` 신규 | ✅ 완료 | RequireOwnership=false. _announced 재사용, AnnounceWinnerClientRpc 재사용 |
+| `GameHudUI` 설정 버튼 연결 | ✅ 완료 | _settingsButton, _settingsUI 필드 + OnSettingsClicked() |
+| `GameBootstrapper` 등록 | ✅ 완료 | _inGameSettingsUI, _confirmPopup SerializeField + UIManager 등록 |
+| `SetupInGameSettingsUI.cs` 에디터 스크립트 | ✅ 완료 | HUD 재배치 + 설정 패널 생성 + 필드 배선 자동화 |
+| AnimatedPanel._backgroundOverlay 배선 | ✅ 완료 | [UI]/Background CanvasGroup 연결 → 패널 열릴 때 반투명 배경 표시 |
+| 싱글플레이 실기 테스트 | ✅ PASS | 설정 메뉴 열기/닫기, 일시정지, 포기 기능 확인 |
 
 ---
 

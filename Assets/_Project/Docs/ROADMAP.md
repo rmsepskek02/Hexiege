@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-05-19  
-**현재 단계:** 비생산 건물 공용 액션 패널 UI 완료 (BuildingActionPanelUI)
+**현재 단계:** 인게임 설정 메뉴 + 게임 포기 기능 완료 (InGameSettingsUI + ConfirmPopup)
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
