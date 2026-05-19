@@ -43,6 +43,70 @@ namespace Hexiege.Presentation
         [Header("Auto Indicators")]
         [SerializeField] private List<GameObject> _unitAutoIndicators;
 
+        [Header("Auto Production Effect")]
+        [Tooltip("자동 생산 중일 때 유닛 버튼에 적용할 테두리 회전 효과 머티리얼.")]
+        [SerializeField] private Material _autoProductionMaterial;
+        [Tooltip("회전 속도")]
+        [SerializeField] private float _borderSpeed = 5.0f;
+        [Tooltip("테두리 두께")]
+        [SerializeField] private float _borderThickness = 0.05f;
+        [Tooltip("테두리 모서리 둥글기 (0~0.5)")]
+        [SerializeField] private float _borderRadius = 0.1f;
+        [Tooltip("테두리 안쪽 여백 (0~0.5)")]
+        [SerializeField] private float _borderInset = 0.02f;
+
+        [Tooltip("각 유닛 버튼의 테두리 효과를 담당하는 오버레이 이미지 리스트. 버튼 리스트와 1:1 매칭.")]
+[SerializeField] private List<UnityEngine.UI.Image> _unitBorderOverlays;
+
+        private Material _instancedAutoMaterial;
+
+        // ====================================================================
+        // 초기화
+        // ====================================================================
+
+        private void Awake()
+        {
+            // ── 자동 생산 효과 머티리얼 인스턴스화 (최적화) ──────────────────────
+            if (_autoProductionMaterial != null)
+            {
+                _instancedAutoMaterial = new Material(_autoProductionMaterial);
+                UpdateMaterialProperties();
+
+                // 인스턴스화된 머티리얼을 모든 오버레이에 할당
+                if (_unitBorderOverlays != null)
+                {
+                    foreach (var overlay in _unitBorderOverlays)
+                    {
+                        if (overlay != null) overlay.material = _instancedAutoMaterial;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// 인스펙터의 설정값들을 실제 셰이더 머티리얼에 반영합니다.
+        /// </summary>
+        private void UpdateMaterialProperties()
+        {
+            if (_instancedAutoMaterial == null) return;
+            
+            _instancedAutoMaterial.SetFloat("_Speed", _borderSpeed);
+            _instancedAutoMaterial.SetFloat("_Thickness", _borderThickness);
+            _instancedAutoMaterial.SetFloat("_Radius", _borderRadius);
+            _instancedAutoMaterial.SetFloat("_Inset", _borderInset);
+        }
+
+        #if UNITY_EDITOR
+        private void OnValidate()
+        {
+            // 플레이 모드에서 슬라이더를 움직이면 즉시 셰이더에 반영되도록 함
+            if (UnityEngine.Application.isPlaying && _instancedAutoMaterial != null)
+            {
+                UpdateMaterialProperties();
+            }
+        }
+        #endif
+
         [Header("Lock Indicators")]
         [Tooltip("각 유닛 버튼 위에 표시되는 잠금 오버레이 GameObject. 버튼 리스트와 1:1 매칭. " +
                  "현재 건물 단계보다 높은 단계의 유닛에 대해 활성화된다.")]
@@ -597,14 +661,25 @@ namespace Hexiege.Presentation
             var state = _production.GetState(_currentBuilding.Id);
             if (state == null) return;
 
-            if (_unitAutoIndicators != null)
+            if (_unitButtons != null)
             {
-                for (int i = 0; i < _unitAutoIndicators.Count; i++)
+                for (int i = 0; i < _unitButtons.Count; i++)
                 {
-                    if (i < _activeUnitTypes.Count && _unitAutoIndicators[i] != null)
-                        _unitAutoIndicators[i].SetActive(state.AutoTypes.Contains(_activeUnitTypes[i]));
-                    else if (_unitAutoIndicators[i] != null)
-                        _unitAutoIndicators[i].SetActive(false);
+                    if (_unitButtons[i] == null) continue;
+
+                    bool isAuto = i < _activeUnitTypes.Count && state.AutoTypes.Contains(_activeUnitTypes[i]);
+
+                    // ── 자동 생산 시각 효과 갱신 (전용 오버레이 활성화) ──
+                    if (_unitBorderOverlays != null && i < _unitBorderOverlays.Count && _unitBorderOverlays[i] != null)
+                    {
+                        _unitBorderOverlays[i].gameObject.SetActive(isAuto);
+                    }
+
+                    // ── 기존 도트 인디케이터 갱신 ──
+if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoIndicators[i] != null)
+                    {
+                        _unitAutoIndicators[i].SetActive(isAuto);
+                    }
                 }
             }
             UpdateQueueSlots(state);
