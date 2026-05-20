@@ -74,9 +74,15 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 싱글플레이 포기 시 호출할 UseCase.
         /// GameBootstrapper.LoadMap()에서 Initialize()로 주입된다.
-        /// 멀티플레이에서는 사용하지 않음 — 대신 NetworkGameEndController를 거친다.
+        /// 멀티플레이에서는 사용하지 않음 — 대신 _forfeitService(NetworkGameEndController 구현)를 거친다.
         /// </summary>
         private GameEndUseCase _gameEndUseCase;
+
+        /// <summary>
+        /// 포기 요청을 위임할 서비스. 싱글/멀티 분기 없이 RequestForfeit() 한 번 호출하면 된다.
+        /// GameBootstrapper.LoadMap()에서 적합한 구현체를 주입한다.
+        /// </summary>
+        private IForfeitService _forfeitService;
 
         // ====================================================================
         // 초기화
@@ -84,12 +90,18 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// GameBootstrapper.LoadMap()에서 호출.
-        /// UseCase 주입 + 버튼 리스너 등록 + 초기 상태 보장.
+        /// UseCase + 포기 서비스 주입 + 버튼 리스너 등록 + 초기 상태 보장.
+        ///
+        /// [2026-05-20] forfeitService 인자 추가:
+        ///   기존: OnForfeitConfirmed에서 FindFirstObjectByType<NetworkGameEndController> 호출
+        ///   변경: GameBootstrapper가 싱글/멀티 모드에 따라 적합한 IForfeitService 구현체를 주입
         /// </summary>
         /// <param name="gameEndUseCase">싱글플레이 포기 처리에 사용할 UseCase.</param>
-        public void Initialize(GameEndUseCase gameEndUseCase)
+        /// <param name="forfeitService">포기 요청을 위임할 서비스. 싱글=GameEndUseCase, 멀티=NetworkGameEndController.</param>
+        public void Initialize(GameEndUseCase gameEndUseCase, IForfeitService forfeitService = null)
         {
             _gameEndUseCase = gameEndUseCase;
+            _forfeitService = forfeitService;
 
             // 버튼 리스너 등록 — RemoveAllListeners 후 재등록으로 중복 호출 방지.
             // (Initialize는 재경기 시 다시 호출될 수 있음)
@@ -198,26 +210,31 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 포기 확정 콜백.
-        /// - 멀티플레이: NetworkGameEndController.RequestForfeit() → 서버가 자기 팀을 패배 처리.
-        /// - 싱글플레이: GameEndUseCase.Forfeit() → Red 승리로 즉시 게임 종료.
-        /// 마지막에 자기 팝업을 닫는다.
+        /// 싱글/멀티 모드 분기는 _forfeitService 구현체가 처리하므로 본 메서드는 단일 흐름.
+        /// - 싱글: GameEndUseCase.RequestForfeit() → Red 승리로 즉시 게임 종료.
+        /// - 멀티: NetworkGameEndController.RequestForfeit() → 서버가 자기 팀 패배 처리.
+        ///
+        /// [2026-05-20] 리팩토링:
+        ///   기존: FindFirstObjectByType&lt;NetworkGameEndController&gt;()로 직접 호출
+        ///   변경: GameBootstrapper에서 주입된 IForfeitService에 위임 (FindFirstObjectByType 제거)
+        ///
+        /// _forfeitService가 주입되지 않은 경우의 폴백:
+        ///   싱글이면 _gameEndUseCase.Forfeit() 직접 호출. 멀티이면 경고 로그 후 종료.
         /// </summary>
         private void OnForfeitConfirmed()
         {
-            if (NetworkContext.IsNetworkActive)
+            if (_forfeitService != null)
             {
-                // 네트워크 모드: 서버 측에서 자기 팀 패배 처리하도록 RPC 전송.
-                // 컨트롤러 인스턴스는 씬의 NetworkObject이므로 동적으로 탐색.
-                var netGameEnd = FindFirstObjectByType<NetworkGameEndController>();
-                if (netGameEnd != null)
-                    netGameEnd.RequestForfeit();
-                else
-                    Debug.LogWarning("[InGameSettingsUI] NetworkGameEndController를 찾을 수 없어 포기 요청을 보낼 수 없습니다.");
+                _forfeitService.RequestForfeit();
+            }
+            else if (!NetworkContext.IsNetworkActive)
+            {
+                // 폴백: 싱글플레이는 _gameEndUseCase 직접 호출 (구주입 경로 호환)
+                _gameEndUseCase?.Forfeit();
             }
             else
             {
-                // 싱글플레이: UseCase 직접 호출.
-                _gameEndUseCase?.Forfeit();
+                Debug.LogWarning("[InGameSettingsUI] IForfeitService가 주입되지 않아 멀티플레이 포기 요청을 보낼 수 없습니다.");
             }
 
             // 포기 처리는 비동기적이지만(특히 네트워크) UI는 즉시 닫는다.

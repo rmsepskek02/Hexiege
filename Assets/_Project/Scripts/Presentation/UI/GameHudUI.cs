@@ -23,7 +23,6 @@
 // Presentation 레이어 — Unity 의존 (MonoBehaviour).
 // ============================================================================
 
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -97,10 +96,9 @@ namespace Hexiege.Presentation
             _population = population;
             _initialized = true;
 
-            // 네트워크 모드 확인 (Host 또는 Client)
-            _isNetworkMode = NetworkManager.Singleton != null &&
-                             (NetworkManager.Singleton.IsHost ||
-                              NetworkManager.Singleton.IsClient);
+            // 네트워크 모드 확인 — Application 레이어의 NetworkContext 정적 홀더 사용.
+            // (Presentation → Unity.Netcode 직접 의존 제거)
+            _isNetworkMode = NetworkContext.IsNetworkActive;
 
             // 설정 버튼 리스너 등록.
             // RemoveListener 후 AddListener: Initialize가 재경기로 인해 여러 번 호출돼도

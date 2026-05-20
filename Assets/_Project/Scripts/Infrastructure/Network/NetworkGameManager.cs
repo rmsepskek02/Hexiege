@@ -53,6 +53,26 @@ namespace Hexiege.Infrastructure
         /// <summary>연결 해제 완료.</summary>
         public event Action OnDisconnected;
 
+        /// <summary>
+        /// 2명(또는 그 이상) 클라이언트 접속이 완료되어 게임 시작 가능 상태가 되었을 때 발행.
+        /// LobbyUI가 로비 패널 숨김 처리를 위해 구독.
+        /// 이벤트 매개변수: 현재까지 접속 완료한 클라이언트 수.
+        ///
+        /// 이전에는 LobbyUI가 NetworkManager.OnClientConnectedCallback을 직접 구독해
+        /// ConnectedClientsList.Count로 판정했으나, Presentation 레이어가 Unity.Netcode에 직접 의존하지 않도록
+        /// 책임을 Infrastructure 레이어인 본 매니저로 이전.
+        /// </summary>
+        public event Action<int> OnAllPlayersReady;
+
+        /// <summary>
+        /// 클라이언트 측에서 서버 연결이 끊겼을 때 발행.
+        /// NetworkStatusUI가 연결 끊김 팝업 표시를 위해 구독.
+        ///
+        /// 서버 측은 ReconnectionHandler가 별도 처리하므로 이 이벤트는 발행되지 않는다.
+        /// (서버는 자신의 LocalClientId 끊김만 인지하므로 이 이벤트와 무관)
+        /// </summary>
+        public event Action OnServerDisconnected;
+
         // ====================================================================
         // 내부 매니저
         // ====================================================================
@@ -88,11 +108,69 @@ namespace Hexiege.Infrastructure
             _matchmakerManager = new MatchmakerManager();
         }
 
+        /// <summary>
+        /// NetworkManager.OnClientDisconnectCallback 통합 핸들러.
+        /// 클라이언트 측에서 서버와의 연결이 끊겼을 때 OnServerDisconnected 이벤트를 발행한다.
+        /// 서버(Host) 측에서는 다른 컨트롤러(ReconnectionHandler)가 처리하므로 발행하지 않는다.
+        ///
+        /// 이전에는 NetworkStatusUI(Presentation)가 OnClientDisconnectCallback을 직접 구독했으나,
+        /// Presentation 레이어의 Unity.Netcode 직접 의존 제거를 위해 NGM이 가로채는 구조로 변경.
+        /// </summary>
+        private void HandleClientDisconnected(ulong clientId)
+        {
+            if (NetworkManager.Singleton == null) return;
+
+            // 서버(Host)는 OnServerDisconnected 발행 대상이 아님 (상대 클라 끊김은 ReconnectionHandler 담당)
+            if (NetworkManager.Singleton.IsServer) return;
+
+            // 클라이언트 측: 서버(=자기 자신 또는 ServerClientId) 끊김 처리
+            Debug.Log($"[Network] NGM: 클라이언트 측 서버 연결 끊김 감지 (clientId={clientId}). OnServerDisconnected 발행.");
+            OnServerDisconnected?.Invoke();
+        }
+
+        /// <summary>
+        /// UnityTransport의 RTT(왕복 시간, ms)를 조회. Presentation 레이어 표시용.
+        /// NetworkManager가 없거나 Transport 가 UnityTransport가 아니면 0 반환.
+        /// 호출자(NetworkStatusUI)는 0 또는 음수일 때 "--ms"로 표시한다.
+        /// </summary>
+        public ulong GetCurrentRttMs()
+        {
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+                return 0UL;
+
+            var transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport
+                as Unity.Netcode.Transports.UTP.UnityTransport;
+            if (transport == null) return 0UL;
+
+            // Host(서버 자신) / Client(서버를 향한 RTT) 모두 ServerClientId 사용
+            return transport.GetCurrentRtt(NetworkManager.ServerClientId);
+        }
+
+        /// <summary>
+        /// 현재 NGO가 활성 상태이고 Host 또는 Client로 실행 중인지 여부.
+        /// NetworkContext.IsNetworkActive와 같지만 NGM 단일 진입점으로 호출하기 위해 추가.
+        /// </summary>
+        public bool IsNetworkRunning =>
+            NetworkManager.Singleton != null &&
+            (NetworkManager.Singleton.IsHost || NetworkManager.Singleton.IsClient);
+
+        /// <summary>
+        /// NetworkManager 종료. NetworkStatusUI 등 외부에서 안전 종료를 위해 호출.
+        /// ShutdownNetworkManager는 private이므로 공개 래퍼 메서드를 제공한다.
+        /// </summary>
+        public void ShutdownNetwork()
+        {
+            ShutdownNetworkManager();
+        }
+
         private void OnDestroy()
         {
-            // Client 접속 콜백 구독 해제 (누수 방지)
+            // Client 접속/끊김 콜백 구독 해제 (누수 방지)
             if (NetworkManager.Singleton != null)
+            {
                 NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
+                NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+            }
 
             StopHeartbeat();
             _matchmakingCts?.Dispose();
@@ -156,14 +234,16 @@ namespace Hexiege.Infrastructure
                     return;
                 }
 
-                // 3-1. Client 접속 감지 콜백 구독 — StartHost() 이전에 등록 (레이스 컨디션 방지)
+                // 3-1. Client 접속/끊김 감지 콜백 구독 — StartHost() 이전에 등록 (레이스 컨디션 방지)
                 NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
+                NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
 
                 // 3. NetworkManager Host 시작
                 if (!StartNetworkHost())
                 {
                     // 실패 시 등록한 콜백 해제 후 에러 반환
                     NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
+                    NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
                     OnError?.Invoke("NetworkManager.StartHost() 실패.");
                     return;
                 }
@@ -230,9 +310,12 @@ namespace Hexiege.Infrastructure
                     return;
                 }
 
-                // 4. NetworkManager Client 시작
+                // 4. NetworkManager Client 시작 — 끊김 콜백을 StartClient 이전에 등록 (레이스 컨디션 방지)
+                NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+
                 if (!StartNetworkClient())
                 {
+                    NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
                     OnError?.Invoke("NetworkManager.StartClient() 실패.");
                     return;
                 }
@@ -434,6 +517,9 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// NGO Client 접속 콜백. HOST 전용.
         /// Host 자신(LocalClientId)을 제외한 실제 Client 접속 시 OnClientConnected 발행.
+        ///
+        /// 또한 2명(또는 그 이상) 접속이 완료되었으면 OnAllPlayersReady 이벤트도 발행하여
+        /// LobbyUI가 NetworkManager에 직접 의존하지 않고 로비 숨김 처리를 할 수 있도록 한다.
         /// </summary>
         private void HandleClientConnected(ulong clientId)
         {
@@ -442,6 +528,15 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] Client 접속 감지 (clientId={clientId}). OnClientConnected 발행.");
             OnClientConnected?.Invoke();
+
+            // 전체 접속 수가 2명 이상이면 OnAllPlayersReady 발행
+            // (LobbyUI가 NetworkManager.OnClientConnectedCallback을 직접 구독하지 않도록 책임을 분리)
+            int connectedCount = NetworkManager.Singleton.ConnectedClientsList.Count;
+            if (connectedCount >= 2)
+            {
+                Debug.Log($"[Network] OnAllPlayersReady 발행. 접속 수={connectedCount}");
+                OnAllPlayersReady?.Invoke(connectedCount);
+            }
         }
 
         /// <summary>

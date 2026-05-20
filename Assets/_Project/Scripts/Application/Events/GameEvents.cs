@@ -73,6 +73,25 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// 유닛이 A* 이동 중 새 타일에 진입할 때 발행되는 이벤트 데이터.
+    /// 혼잡도(CongestionMap) 누적 등에 사용.
+    /// 발행은 서버 전용 — UnitView.MoveAlongPath의 _isAStarMoving 분기에서.
+    /// </summary>
+    public readonly struct UnitEnteredTileEvent
+    {
+        /// <summary> 진입한 유닛 Id. </summary>
+        public readonly int UnitId;
+        /// <summary> 진입한 타일 좌표. </summary>
+        public readonly HexCoord Coord;
+
+        public UnitEnteredTileEvent(int unitId, HexCoord coord)
+        {
+            UnitId = unitId;
+            Coord = coord;
+        }
+    }
+
+    /// <summary>
     /// 유닛 이동 이벤트 데이터.
     /// 유닛이 타일 하나를 이동할 때마다 발행.
     /// </summary>
@@ -383,6 +402,130 @@ namespace Hexiege.Application
         }
     }
 
+    // ====================================================================
+    // 멀티플레이 동기화 전용 전투/이동 이벤트 (NetworkCombatController → UnitView)
+    // ====================================================================
+    //
+    // 왜 별도 이벤트인가?
+    //   싱글플레이용 OnCombatStarted/등은 UnitView가 `if (!NetworkContext.IsNetworkActive)` 가드로 구독.
+    //   멀티플레이에서 같은 이벤트를 재사용하면 가드 분리/이중 구독 관리가 복잡해지므로,
+    //   별도 채널(OnNetworkCombatStarted 등)로 발행하고 UnitView가 별도 구독한다.
+    //   NetworkCombatController는 UnitView를 직접 GetComponent로 꺼내지 않게 된다.
+
+    /// <summary>
+    /// 멀티플레이 전용 전투 시작 이벤트 데이터.
+    /// 서버 NetworkCombatController가 StartCombatClientRpc 흐름에서 발행.
+    /// UnitView는 OnNetworkCombatStarted 구독으로 StartCombatAnimation() 호출.
+    /// </summary>
+    public readonly struct NetworkCombatStartedEvent
+    {
+        /// <summary> 공격하는 유닛의 Id. </summary>
+        public readonly int UnitId;
+        /// <summary> 타겟 엔티티의 Id. </summary>
+        public readonly int TargetId;
+        /// <summary> true=유닛, false=건물. </summary>
+        public readonly bool TargetIsUnit;
+
+        public NetworkCombatStartedEvent(int unitId, int targetId, bool targetIsUnit)
+        {
+            UnitId = unitId;
+            TargetId = targetId;
+            TargetIsUnit = targetIsUnit;
+        }
+    }
+
+    /// <summary>
+    /// 멀티플레이 전용 타겟 변경 이벤트 데이터.
+    /// 서버 NetworkCombatController가 ChangeTargetClientRpc 흐름에서 발행.
+    /// UnitView는 OnNetworkCombatTargetChanged 구독으로 ChangeTarget() 호출 — 회전만 업데이트.
+    /// </summary>
+    public readonly struct NetworkCombatTargetChangedEvent
+    {
+        /// <summary> 공격하는 유닛의 Id. </summary>
+        public readonly int UnitId;
+        /// <summary> 새 타겟 엔티티의 Id. </summary>
+        public readonly int TargetId;
+        /// <summary> true=유닛, false=건물. </summary>
+        public readonly bool TargetIsUnit;
+
+        public NetworkCombatTargetChangedEvent(int unitId, int targetId, bool targetIsUnit)
+        {
+            UnitId = unitId;
+            TargetId = targetId;
+            TargetIsUnit = targetIsUnit;
+        }
+    }
+
+    /// <summary>
+    /// 멀티플레이 전용 전투 종료 이벤트 데이터.
+    /// 서버 NetworkCombatController가 StopCombatClientRpc 흐름에서 발행.
+    /// UnitView는 OnNetworkCombatStopped 구독으로 StopCombatAnimation() 호출.
+    /// </summary>
+    public readonly struct NetworkCombatStoppedEvent
+    {
+        /// <summary> 전투를 종료하는 유닛의 Id. </summary>
+        public readonly int UnitId;
+
+        public NetworkCombatStoppedEvent(int unitId)
+        {
+            UnitId = unitId;
+        }
+    }
+
+    /// <summary>
+    /// 멀티플레이 전용 Walk 시작 이벤트 데이터.
+    /// 서버 NetworkCombatController가 StartWalkAnimationClientRpc 흐름에서 발행.
+    /// UnitView는 OnNetworkWalkStarted 구독으로 StartWalkAnimation() 호출.
+    /// </summary>
+    public readonly struct NetworkWalkStartedEvent
+    {
+        /// <summary> Walk를 시작한 유닛의 Id. </summary>
+        public readonly int UnitId;
+
+        public NetworkWalkStartedEvent(int unitId)
+        {
+            UnitId = unitId;
+        }
+    }
+
+    // ====================================================================
+    // 멀티플레이 재경기 관련 이벤트
+    // ====================================================================
+
+    /// <summary>
+    /// 멀티플레이 서버에서 게임 종료 시 재경기 버튼 설정을 알리는 이벤트.
+    /// NetworkGameEndController.AnnounceWinnerClientRpc 흐름에서 발행.
+    /// GameEndUI는 OnNetworkRematchAvailable 구독으로 SetupRematchButton 호출.
+    /// </summary>
+    public readonly struct NetworkRematchAvailableEvent
+    {
+        /// <summary> 랜덤 매칭 여부. true이면 GameEndUI에서 재경기 버튼을 숨길 수 있음. </summary>
+        public readonly bool IsRandomMatch;
+
+        public NetworkRematchAvailableEvent(bool isRandomMatch)
+        {
+            IsRandomMatch = isRandomMatch;
+        }
+    }
+
+    /// <summary>
+    /// 멀티플레이 상대 클라이언트에서 재경기 요청 팝업을 표시하라는 신호.
+    /// NetworkGameEndController.NotifyRematchRequestedClientRpc 흐름에서 발행.
+    /// RematchRequestPopup이 OnNetworkRematchRequested 구독으로 ShowRequest 호출.
+    ///
+    /// 응답(수락/거절)은 OnLocalRematchAccepted / OnLocalRematchDeclined로 발행.
+    /// </summary>
+    public readonly struct NetworkRematchRequestedEvent
+    {
+        // 현재 추가 데이터 필요 없음 — 단순 신호 역할.
+        // 추후 요청자 표시 등이 필요하면 ClientId/PlayerName 등을 추가.
+    }
+
+    // OnLocalRematchRequested / OnLocalRematchAccepted / OnLocalRematchDeclined:
+    //   UI(GameEndUI 버튼 / RematchRequestPopup 버튼) 측에서 발행하여
+    //   NetworkGameEndController가 구독해 ServerRpc를 보내는 흐름이다.
+    //   별도 payload가 없으므로 Subject<Unit>으로 발행한다.
+
     /// <summary>
     /// 게임 전역 이벤트 허브.
     /// 모든 이벤트는 static Subject로, 어디서든 발행/구독 가능.
@@ -427,15 +570,14 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 유닛이 A* 이동 중 새 타일에 진입할 때 발행 (서버 전용).
-        /// int: 유닛 Id, HexCoord: 진입 타일 좌표.
         /// 발행: UnitView (MoveAlongPathV3에서 _isAStarMoving == true인 동안 타일 전환 직후)
         /// 구독: GameBootstrapper → CongestionMap.Increment (혼잡도 누적)
+        ///
+        /// [2026-05-20] Action&lt;int, HexCoord&gt; → Subject&lt;UnitEnteredTileEvent&gt;로 통일.
+        /// 다른 GameEvents와 동일한 패턴이라 GameBootstrapper에서 ActionDisposable 래퍼가 불필요해진다.
         /// </summary>
-        /// <remarks>
-        /// 다른 게임 전역 이벤트(Subject)와 달리 가벼운 한 방향 호출 패턴이므로 Action으로 노출한다.
-        /// 구독자가 null이어도 안전하도록 발행 측은 `?.Invoke(...)`로 호출할 것.
-        /// </remarks>
-        public static Action<int, HexCoord> OnUnitEnteredTile;
+        public static readonly Subject<UnitEnteredTileEvent> OnUnitEnteredTile
+            = new Subject<UnitEnteredTileEvent>();
 
         // ====================================================================
         // 전투 관련 이벤트
@@ -586,6 +728,99 @@ namespace Hexiege.Application
         public static readonly Subject<int> OnCombatStopped = new Subject<int>();
 
         // ====================================================================
+        // 멀티플레이 전용 전투/이동 동기화 이벤트
+        // ====================================================================
+        // NetworkCombatController가 UnitView를 직접 GetComponent로 잡지 않도록
+        // ClientRpc 핸들러 내부에서 본 이벤트를 발행하고, UnitView가 자신의 Id에 해당하는
+        // 이벤트만 필터링하여 처리한다. 싱글플레이용 OnCombatStarted/등과 채널을 분리해
+        // 가드/구독 관리가 단순해진다.
+
+        /// <summary>
+        /// 멀티플레이 서버에서 클라이언트에 전투 시작 명령 전파 시 발행.
+        /// 발행: NetworkCombatController.StartCombatClientRpc → ApplyStartCombatWithRetry
+        /// 구독: UnitView (자기 Id에 해당하면 StartCombatAnimation 호출)
+        /// </summary>
+        public static readonly Subject<NetworkCombatStartedEvent> OnNetworkCombatStarted
+            = new Subject<NetworkCombatStartedEvent>();
+
+        /// <summary>
+        /// 멀티플레이 서버에서 클라이언트에 타겟 변경 명령 전파 시 발행.
+        /// 발행: NetworkCombatController.ChangeTargetClientRpc
+        /// 구독: UnitView (자기 Id에 해당하면 ChangeTarget 호출 — 회전만 업데이트)
+        /// </summary>
+        public static readonly Subject<NetworkCombatTargetChangedEvent> OnNetworkCombatTargetChanged
+            = new Subject<NetworkCombatTargetChangedEvent>();
+
+        /// <summary>
+        /// 멀티플레이 서버에서 클라이언트에 전투 종료 명령 전파 시 발행.
+        /// 발행: NetworkCombatController.StopCombatClientRpc
+        /// 구독: UnitView (자기 Id에 해당하면 StopCombatAnimation 호출)
+        /// </summary>
+        public static readonly Subject<NetworkCombatStoppedEvent> OnNetworkCombatStopped
+            = new Subject<NetworkCombatStoppedEvent>();
+
+        /// <summary>
+        /// 멀티플레이 서버에서 클라이언트에 Walk 시작 명령 전파 시 발행.
+        /// 발행: NetworkCombatController.StartWalkAnimationClientRpc → ApplyStartWalkWithRetry
+        /// 구독: UnitView (자기 Id에 해당하면 StartWalkAnimation 호출)
+        /// </summary>
+        public static readonly Subject<NetworkWalkStartedEvent> OnNetworkWalkStarted
+            = new Subject<NetworkWalkStartedEvent>();
+
+        // ====================================================================
+        // 멀티플레이 재경기(Rematch) 이벤트
+        // ====================================================================
+        // NetworkGameEndController가 UI를 직접 호출하지 않도록 이벤트 채널로 분리.
+        //   서버 → 클라이언트 방향: OnNetworkRematchAvailable / OnNetworkRematchRequested / OnNetworkRematchDeclined
+        //   UI → NetworkGameEndController 방향: OnLocalRematchRequested / OnLocalRematchAccepted / OnLocalRematchDeclined
+        //
+        // 모두 단순 신호이므로 payload가 거의 없다. Subject<Unit>은 UniRx의 빈 신호 패턴.
+
+        /// <summary>
+        /// 게임 종료 시 재경기 버튼 활성화를 알리는 이벤트.
+        /// 발행: NetworkGameEndController.AnnounceWinnerClientRpc
+        /// 구독: GameEndUI (SetupRematchButton 호출)
+        /// </summary>
+        public static readonly Subject<NetworkRematchAvailableEvent> OnNetworkRematchAvailable
+            = new Subject<NetworkRematchAvailableEvent>();
+
+        /// <summary>
+        /// 상대 플레이어로부터 재경기 요청을 받았음을 알리는 이벤트.
+        /// 발행: NetworkGameEndController.NotifyRematchRequestedClientRpc
+        /// 구독: RematchRequestPopup (ShowRequest 호출)
+        /// </summary>
+        public static readonly Subject<NetworkRematchRequestedEvent> OnNetworkRematchRequested
+            = new Subject<NetworkRematchRequestedEvent>();
+
+        /// <summary>
+        /// 상대 플레이어가 재경기를 거절했음을 알리는 이벤트.
+        /// 발행: NetworkGameEndController.NotifyRematchDeclinedClientRpc
+        /// 구독: RematchRequestPopup (ShowDeclined 호출), GameEndUI (RestoreRematchButton 호출)
+        /// </summary>
+        public static readonly Subject<Unit> OnNetworkRematchDeclined = new Subject<Unit>();
+
+        /// <summary>
+        /// 로컬에서 재경기 요청 버튼을 눌렀음을 알리는 이벤트.
+        /// 발행: GameEndUI (SetupRematchButton 콜백)
+        /// 구독: NetworkGameEndController (RequestRematchServerRpc 호출)
+        /// </summary>
+        public static readonly Subject<Unit> OnLocalRematchRequested = new Subject<Unit>();
+
+        /// <summary>
+        /// 로컬에서 재경기 요청 팝업의 "수락" 버튼을 눌렀음을 알리는 이벤트.
+        /// 발행: RematchRequestPopup (OnAcceptClicked)
+        /// 구독: NetworkGameEndController (AcceptRematchServerRpc 호출)
+        /// </summary>
+        public static readonly Subject<Unit> OnLocalRematchAccepted = new Subject<Unit>();
+
+        /// <summary>
+        /// 로컬에서 재경기 요청 팝업의 "거절" 버튼을 눌렀음을 알리는 이벤트.
+        /// 발행: RematchRequestPopup (OnDeclineClicked)
+        /// 구독: NetworkGameEndController (DeclineRematchServerRpc 호출)
+        /// </summary>
+        public static readonly Subject<Unit> OnLocalRematchDeclined = new Subject<Unit>();
+
+        // ====================================================================
         // 게임 종료 이벤트
         // ====================================================================
 
@@ -599,6 +834,20 @@ namespace Hexiege.Application
         // ====================================================================
         // 게임 생명주기 이벤트
         // ====================================================================
+
+        // ====================================================================
+        // 토스트 메시지 요청 이벤트
+        // ====================================================================
+        // ToastUI(Presentation)가 본 이벤트를 구독하여 ToastKey에 해당하는 메시지를 큐에 추가한다.
+        // Infrastructure 레이어(NetworkBuildingController 등)가 ToastUI 정적 호출 대신 본 이벤트를 발행하면
+        // Infrastructure → Presentation 직접 의존이 사라진다.
+
+        /// <summary>
+        /// 토스트 메시지 표시 요청.
+        /// 발행: NetworkBuildingController(실패 알림), NetworkProductionController(실패 알림) 등
+        /// 구독: ToastUI (큐에 키를 추가하고 표시)
+        /// </summary>
+        public static readonly Subject<ToastKey> OnToastRequested = new Subject<ToastKey>();
 
         /// <summary>
         /// 게임 시작(또는 재시작) 시 발행. LoadMap() 완료 후 발행.

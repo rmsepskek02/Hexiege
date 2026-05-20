@@ -31,7 +31,6 @@ using UniRx;
 using Hexiege.Core;
 using Hexiege.Domain;
 using Hexiege.Application;
-using Hexiege.Presentation;
 
 namespace Hexiege.Infrastructure
 {
@@ -220,9 +219,7 @@ namespace Hexiege.Infrastructure
         /// <param name="elapsed">이번 Tick의 실제 경과 시간 (초). 쿨다운 감소에 사용.</param>
         private void TickCombat(float elapsed)
         {
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null) return;
 
             UnitSpawnUseCase unitSpawn = _bootstrapper.GetUnitSpawn();
@@ -428,8 +425,7 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void OnUnitEnteredCombatHandler(int unitId)
         {
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null) return;
 
             UnitSpawnUseCase unitSpawn = _bootstrapper.GetUnitSpawn();
@@ -549,10 +545,7 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] EntityDiedClientRpc 수신. Id={entityId}, IsUnit={isUnit}");
 
-            // UseCase 접근
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] EntityDiedClientRpc: GameBootstrapper를 찾을 수 없습니다.");
@@ -577,6 +570,10 @@ namespace Hexiege.Infrastructure
         /// 유닛이 전투 상태에 진입. 클라이언트에서 Attack 루프 시작 + 타겟 방향 회전.
         /// TickCombat에서 유닛이 처음 타겟을 발견했을 때 전송.
         /// 서버(Host)도 수신하여 동일한 애니메이션 처리.
+        ///
+        /// [2026-05-20] 리팩토링: UnitView를 GetComponent로 직접 잡아 호출하던 패턴을
+        /// GameEvents.OnNetworkCombatStarted 발행으로 전환. UnitView가 자신의 Id에 해당하는
+        /// 이벤트만 구독하여 처리. Infrastructure → Presentation 역방향 의존이 사라짐.
         /// </summary>
         /// <param name="unitId">공격하는 유닛의 Id</param>
         /// <param name="targetId">타겟 엔티티의 Id</param>
@@ -584,62 +581,21 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void StartCombatClientRpc(int unitId, int targetId, bool targetIsUnit)
         {
-            // 유닛 생성 직후 전투 RPC가 도착하면 아직 UnitFactory에 미등록일 수 있으므로,
-            // 코루틴으로 최대 1초간 재시도하여 등록 완료를 대기한다.
-            // (StartWalkAnimationClientRpc의 ApplyStartWalkWithRetry와 동일한 패턴)
-            //
             // 주의: IsServer 분기를 추가하지 않는다.
             // 서버(Host)도 이 RPC를 수신하여 동일한 애니메이션 처리가 필요하기 때문.
-            StartCoroutine(ApplyStartCombatWithRetry(unitId, targetId, targetIsUnit));
-        }
-
-        /// <summary>
-        /// 전투 애니메이션 적용 코루틴.
-        /// 유닛이 UnitFactory에 등록될 때까지 최대 1초 대기 후 전투 애니메이션 시작.
-        /// 생성 직후 RPC가 도착하면 NetworkUnit의 RegisterToFactory()가 아직 완료되지 않아
-        /// GetUnitObject()가 null을 반환할 수 있으므로 재시도가 필요.
-        /// </summary>
-        /// <param name="unitId">공격하는 유닛의 Id</param>
-        /// <param name="targetId">타겟 엔티티의 Id</param>
-        /// <param name="targetIsUnit">true=유닛, false=건물</param>
-        private IEnumerator ApplyStartCombatWithRetry(int unitId, int targetId, bool targetIsUnit)
-        {
-            var unitFactory = _bootstrapper?.GetUnitFactory();
-            if (unitFactory == null) yield break;
-
-            // 유닛이 등록될 때까지 최대 1초 대기 (생성 직후 RPC 도착 타이밍 대응)
-            float timeout = 1f;
-            GameObject unitObj = null;
-            while (unitObj == null && timeout > 0f)
-            {
-                unitObj = unitFactory.GetUnitObject(unitId);
-                if (unitObj == null)
-                {
-                    // 1프레임 대기 후 다시 시도 — 매 프레임 Time.deltaTime만큼 타임아웃 감소
-                    yield return null;
-                    timeout -= Time.deltaTime;
-                }
-            }
-
-            // 타임아웃 내에 유닛을 찾지 못하면 포기 (네트워크 지연이 너무 긴 경우)
-            if (unitObj == null) yield break;
-
-            UnitView unitView = unitObj.GetComponent<UnitView>();
-            if (unitView == null) yield break;
-
-            // Walk → Attack 직접 전환.
-            // StopWalkAnimation()을 호출하지 않는 이유:
-            //   StopWalkAnimation()은 내부에서 Idle CrossFade를 시작한다.
-            //   같은 프레임에 StartCombatAnimation()이 Attack CrossFade를 호출해도
-            //   CrossFadeInFixedTime은 즉시 덮어쓰지 않고 Idle 블렌딩이 먼저 끼어들어
-            //   Walk→Idle(잠깐)→Attack 순서로 재생되는 시각적 버그가 발생한다.
-            //   → StartCombatAnimation() 하나만 호출하면 Walk→Attack 직접 전환.
-            unitView.StartCombatAnimation(targetId, targetIsUnit);
+            //
+            // 이벤트 발행만 수행. UnitView가 OnNetworkCombatStarted를 구독해 자기 Id에 해당하면
+            // StartCombatAnimation을 호출한다. 유닛 생성 직후 RPC가 도착해 UnitView가 아직 구독하지
+            // 못한 경우라도, UnitView 측에서 OnEnable/OnNetworkSpawn 시점에 늦게 구독을 등록한 뒤
+            // 다음 이벤트부터 처리한다(첫 Combat 이벤트는 다음 TickCombat에서 다시 발행됨).
+            GameEvents.OnNetworkCombatStarted.OnNext(new NetworkCombatStartedEvent(unitId, targetId, targetIsUnit));
         }
 
         /// <summary>
         /// 전투 중 타겟 변경. 클라이언트에서 회전만 업데이트, 애니메이션 재시작 없음.
         /// TickCombat에서 유닛의 타겟이 이전과 다를 때 전송.
+        ///
+        /// [2026-05-20] 리팩토링: UnitView 직접 호출 → GameEvents.OnNetworkCombatTargetChanged 발행.
         /// </summary>
         /// <param name="unitId">공격하는 유닛의 Id</param>
         /// <param name="newTargetId">새 타겟 엔티티의 Id</param>
@@ -647,38 +603,22 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void ChangeTargetClientRpc(int unitId, int newTargetId, bool newTargetIsUnit)
         {
-            var unitFactory = _bootstrapper?.GetUnitFactory();
-            if (unitFactory == null) return;
-
-            GameObject unitObj = unitFactory.GetUnitObject(unitId);
-            if (unitObj == null) return;
-
-            UnitView unitView = unitObj.GetComponent<UnitView>();
-            if (unitView == null) return;
-
-            // 회전만 업데이트 — 애니메이션 상태 변경 없음
-            unitView.ChangeTarget(newTargetId, newTargetIsUnit);
+            GameEvents.OnNetworkCombatTargetChanged.OnNext(
+                new NetworkCombatTargetChangedEvent(unitId, newTargetId, newTargetIsUnit));
         }
 
         /// <summary>
         /// 유닛이 전투 상태 종료. 클라이언트에서 Attack → Idle 전환.
         /// TickCombat에서 유닛의 타겟이 사라졌을 때 전송.
         /// Idle로 전환하는 이유: 이동 재개 시 StartWalkAnimationClientRpc가 별도로 도착하므로.
+        ///
+        /// [2026-05-20] 리팩토링: UnitView 직접 호출 → GameEvents.OnNetworkCombatStopped 발행.
         /// </summary>
         /// <param name="unitId">전투를 종료하는 유닛의 Id</param>
         [ClientRpc]
         private void StopCombatClientRpc(int unitId)
         {
-            var unitFactory = _bootstrapper?.GetUnitFactory();
-            if (unitFactory == null) return;
-
-            GameObject unitObj = unitFactory.GetUnitObject(unitId);
-            if (unitObj == null) return;
-
-            UnitView unitView = unitObj.GetComponent<UnitView>();
-            if (unitView == null) return;
-
-            unitView.StopCombatAnimation();
+            GameEvents.OnNetworkCombatStopped.OnNext(new NetworkCombatStoppedEvent(unitId));
         }
 
         /// <summary>
@@ -687,8 +627,8 @@ namespace Hexiege.Infrastructure
         /// 클라이언트는 NetworkTransform으로 위치만 동기화받고,
         /// Walk 애니메이션은 이 RPC를 통해 별도로 동기화.
         ///
-        /// 유닛 생성 직후 Walk RPC가 도착하면 아직 UnitFactory에 미등록일 수 있으므로,
-        /// 코루틴으로 최대 1초간 재시도하여 등록 완료를 대기.
+        /// [2026-05-20] 리팩토링: UnitView 직접 호출 → GameEvents.OnNetworkWalkStarted 발행.
+        /// 서버(HOST) 스킵 분기는 RPC 차원에서 유지하여 호스트의 중복 애니메이션 호출을 막는다.
         /// </summary>
         /// <param name="unitId">Walk를 시작한 유닛의 Id</param>
         [ClientRpc]
@@ -697,37 +637,7 @@ namespace Hexiege.Infrastructure
             // 서버(HOST)는 MoveAlongPath에서 이미 Walk 애니메이션을 직접 제어함 → 중복 방지
             if (IsServer) return;
 
-            StartCoroutine(ApplyStartWalkWithRetry(unitId));
-        }
-
-        /// <summary>
-        /// Walk 애니메이션 적용 코루틴.
-        /// 유닛이 UnitFactory에 등록될 때까지 최대 1초 대기 후 Walk 시작.
-        /// 생성 직후 RPC가 도착하면 NetworkUnit의 RegisterToFactory()가 아직 완료되지 않아
-        /// GetUnitObject()가 null을 반환할 수 있으므로 재시도가 필요.
-        /// </summary>
-        private IEnumerator ApplyStartWalkWithRetry(int unitId)
-        {
-            var unitFactory = _bootstrapper?.GetUnitFactory();
-            if (unitFactory == null) yield break;
-
-            // 유닛이 등록될 때까지 최대 1초 대기 (생성 직후 RPC 도착 타이밍 대응)
-            float timeout = 1f;
-            GameObject unitObj = null;
-            while (unitObj == null && timeout > 0f)
-            {
-                unitObj = unitFactory.GetUnitObject(unitId);
-                if (unitObj == null)
-                {
-                    yield return null;
-                    timeout -= Time.deltaTime;
-                }
-            }
-
-            if (unitObj == null) yield break;
-
-            UnitView unitView = unitObj.GetComponent<UnitView>();
-            unitView?.StartWalkAnimation();
+            GameEvents.OnNetworkWalkStarted.OnNext(new NetworkWalkStartedEvent(unitId));
         }
 
         // StopWalkAnimationClientRpc 제거 — Idle 상태가 없으므로 Walk 정지 RPC 불필요.

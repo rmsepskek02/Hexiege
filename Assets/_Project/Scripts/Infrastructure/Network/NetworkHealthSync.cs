@@ -138,10 +138,7 @@ namespace Hexiege.Infrastructure
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
 
-            // UseCase 접근
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] SyncHealthClientRpc: GameBootstrapper를 찾을 수 없습니다.");

@@ -14,7 +14,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Hexiege.Domain;
-using Hexiege.Core;
 
 namespace Hexiege.Application
 {
@@ -36,18 +35,13 @@ namespace Hexiege.Application
         // 건물 메시가 크기 때문에 0.2f 일찍 감지해도 유닛이 건물 메시에 닿아 보임.
         private const float BuildingDetectionRadius = 0.2f;
 
-        // [2026-05-11 비활성화 — 근접/원거리 통합 detect 사거리]
-        // 기존에는 근접유닛 전용 감지 사거리(0.866f, 인접 타일 1칸)를 별도 상수로 두고
-        // AttackRange < 1.0 분기로 사용했습니다. 새 규칙에서는 모든 유닛이
-        // UnitData.DetectRange × HexMetrics.TileHeight를 감지 사거리로 사용합니다.
-        // 시그니처 호환을 위해 상수 자체는 보존(주석 처리)합니다.
-        //
-        // private const float MeleeDetectDist = 0.866f;
-
         private readonly HexGrid _grid;
         private readonly UnitSpawnUseCase _unitSpawn;
         private readonly BuildingPlacementUseCase _buildingPlacement;
         private readonly IEntityPositionProvider _positionProvider;
+
+        // 월드↔헥스 좌표 변환기. Core(HexMetrics / ViewConverter) 의존을 피하기 위한 인터페이스 주입.
+        private readonly IHexCoordinateMapper _mapper;
 
         /// <summary>
         /// 싱글플레이 전용 전투 상태 추적.
@@ -92,12 +86,14 @@ namespace Hexiege.Application
             HexGrid grid,
             UnitSpawnUseCase unitSpawn,
             BuildingPlacementUseCase buildingPlacement,
-            IEntityPositionProvider positionProvider = null)
+            IEntityPositionProvider positionProvider,
+            IHexCoordinateMapper mapper)
         {
             _grid = grid;
             _unitSpawn = unitSpawn;
             _buildingPlacement = buildingPlacement;
             _positionProvider = positionProvider;
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -440,8 +436,8 @@ namespace Hexiege.Application
                 if (viewPos != Vector3.zero)
                 {
                     // 뷰 좌표(Red팀이면 반전 적용됨) → 도메인 월드 좌표 역변환 → HexCoord
-                    Vector3 domainPos = ViewConverter.FromView(viewPos);
-                    return HexMetrics.WorldToHex(domainPos);
+                    Vector3 domainPos = _mapper.NormalizeToDomainPosition(viewPos);
+                    return _mapper.WorldToHex(domainPos);
                 }
             }
 
@@ -478,9 +474,9 @@ namespace Hexiege.Application
             const float Epsilon = 0.05f;
 
             // [2026-05-11 통합] 근접/원거리 구분 없이 모든 유닛이
-            // UnitData.DetectRange × HexMetrics.TileHeight를 감지 사거리로 사용.
+            // UnitData.DetectRange × TileHeight를 감지 사거리로 사용.
             // 건물은 크기가 크므로 BuildingDetectionRadius만큼 추가 여유 적용(기존 패턴 유지).
-            float detectDist = attacker.DetectRange * HexMetrics.TileHeight + Epsilon;
+            float detectDist = attacker.DetectRange * _mapper.TileHeight + Epsilon;
             float unitMaxDist = detectDist;
             float buildingMaxDist = detectDist + BuildingDetectionRadius;
 
@@ -496,7 +492,7 @@ namespace Hexiege.Application
 
                 // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
                 if (targetPos == Vector3.zero)
-                    targetPos = HexMetrics.HexToWorld(unit.Position);
+                    targetPos = _mapper.HexToWorld(unit.Position);
 
                 float dist = Vector3.Distance(attackerWorldPos, targetPos);
 
@@ -515,7 +511,7 @@ namespace Hexiege.Application
                 Vector3 targetPos = _positionProvider.GetBuildingWorldPosition(building.Id);
 
                 if (targetPos == Vector3.zero)
-                    targetPos = HexMetrics.HexToWorld(building.Position);
+                    targetPos = _mapper.HexToWorld(building.Position);
 
                 float dist = Vector3.Distance(attackerWorldPos, targetPos);
 
@@ -560,10 +556,10 @@ namespace Hexiege.Application
             bool isMelee = attacker.AttackRange < 1.0f;
             float unitMaxDist = isMelee
                 ? MeleeContactDist + Epsilon
-                : attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
+                : attacker.AttackRange * _mapper.TileHeight + Epsilon;
             float buildingMaxDist = isMelee
                 ? MeleeContactDist + BuildingDetectionRadius + Epsilon
-                : attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
+                : attacker.AttackRange * _mapper.TileHeight + Epsilon;
 
             IDamageable closestTarget = null;
             float minWorldDist = float.MaxValue;
@@ -577,7 +573,7 @@ namespace Hexiege.Application
 
                 // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
                 if (targetPos == Vector3.zero)
-                    targetPos = HexMetrics.HexToWorld(unit.Position);
+                    targetPos = _mapper.HexToWorld(unit.Position);
 
                 float dist = Vector3.Distance(attackerWorldPos, targetPos);
 
@@ -597,7 +593,7 @@ namespace Hexiege.Application
 
                 // 미등록 건물은 HexCoord → 월드 좌표 변환으로 폴백
                 if (targetPos == Vector3.zero)
-                    targetPos = HexMetrics.HexToWorld(building.Position);
+                    targetPos = _mapper.HexToWorld(building.Position);
 
                 float dist = Vector3.Distance(attackerWorldPos, targetPos);
 
@@ -729,7 +725,7 @@ namespace Hexiege.Application
                 ? (targetIsBuilding
                     ? MeleeContactDist + BuildingDetectionRadius + Epsilon
                     : MeleeContactDist + Epsilon)
-                : attacker.AttackRange * HexMetrics.TileHeight + Epsilon;
+                : attacker.AttackRange * _mapper.TileHeight + Epsilon;
 
             // _positionProvider가 있으면 월드 좌표 기반 판정 (Lerp 중에도 정확)
             if (_positionProvider != null)
@@ -748,7 +744,7 @@ namespace Hexiege.Application
 
                     // 미등록 엔티티는 HexCoord → 월드 좌표 변환으로 폴백
                     if (targetPos == Vector3.zero)
-                        targetPos = HexMetrics.HexToWorld(target.Position);
+                        targetPos = _mapper.HexToWorld(target.Position);
 
                     return Vector3.Distance(attackerWorldPos, targetPos) <= maxDist;
                 }

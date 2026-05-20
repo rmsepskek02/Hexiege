@@ -160,15 +160,11 @@ namespace Hexiege.Infrastructure
             HexCoord coord = new HexCoord(q, r);
             TeamId newOwner = (TeamId)teamIndex;
 
-            // bootstrapper 참조가 없으면 재탐색 (맵 로드 타이밍 차이 대비)
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-                if (_bootstrapper == null)
-                {
-                    Debug.LogWarning($"[Network] BroadcastTileChangeClientRpc: GameBootstrapper 없음. 좌표=({q},{r})");
-                    return;
-                }
+                Debug.LogWarning($"[Network] BroadcastTileChangeClientRpc: GameBootstrapper 없음. 좌표=({q},{r})");
+                return;
             }
 
             // 1. 클라이언트의 HexGrid 도메인 상태 갱신

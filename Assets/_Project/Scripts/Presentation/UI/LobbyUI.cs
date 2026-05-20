@@ -34,7 +34,6 @@
 
 using System;
 using System.Threading.Tasks;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -91,6 +90,8 @@ namespace Hexiege.Presentation
         private void Start()
         {
             // NetworkGameManager 자동 탐색 (Inspector에 연결 안 된 경우)
+            // [2026-05-20] 리팩토링: FindFirstObjectByType은 유지하되, Unity.Netcode 직접 의존은 제거.
+            //   NetworkManager.OnClientConnectedCallback 구독 → NGM.OnAllPlayersReady 이벤트로 위임.
             if (_networkGameManager == null)
                 _networkGameManager = FindFirstObjectByType<NetworkGameManager>();
 
@@ -106,9 +107,10 @@ namespace Hexiege.Presentation
             _networkGameManager.OnClientConnected += OnClientJoined;
             _networkGameManager.OnError += OnNetworkError;
 
-            // NetworkManager 연결 완료 콜백 (2명 접속 시 로비 숨김)
-            if (NetworkManager.Singleton != null)
-                NetworkManager.Singleton.OnClientConnectedCallback += OnClientConnectedCallback;
+            // 2명 접속 완료 시 로비 숨김 — NGM이 NetworkManager 콜백을 가로채 발행.
+            // 이전: NetworkManager.Singleton.OnClientConnectedCallback 직접 구독
+            // 변경: NGM.OnAllPlayersReady (int connectedCount) 구독으로 위임
+            _networkGameManager.OnAllPlayersReady += OnAllPlayersReady;
 
             // 버튼 이벤트 등록
             if (_hostButton != null)
@@ -140,10 +142,8 @@ namespace Hexiege.Presentation
                 _networkGameManager.OnHostStarted -= OnHostStarted;
                 _networkGameManager.OnClientConnected -= OnClientJoined;
                 _networkGameManager.OnError -= OnNetworkError;
+                _networkGameManager.OnAllPlayersReady -= OnAllPlayersReady;
             }
-
-            if (NetworkManager.Singleton != null)
-                NetworkManager.Singleton.OnClientConnectedCallback -= OnClientConnectedCallback;
         }
 
         // ====================================================================
@@ -276,22 +276,19 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// NetworkManager.OnClientConnectedCallback.
-        /// 2명 이상 연결되면 로비 패널을 숨김.
-        /// (NetworkGameFlow가 게임 시작을 총괄하므로 여기서는 UI 숨김만 처리)
+        /// NGM.OnAllPlayersReady 이벤트 핸들러.
+        /// 2명 이상 접속이 완료되면 NGM이 발행하므로, 여기서는 로비 패널 숨김 처리만 수행.
+        /// (NetworkGameFlow가 게임 시작을 총괄하므로 LobbyUI는 UI 숨김만 담당)
+        ///
+        /// 이전에는 NetworkManager.Singleton.OnClientConnectedCallback을 직접 구독해
+        /// ConnectedClientsList.Count로 판정했으나, Presentation 레이어가 Unity.Netcode에 직접 의존하지 않도록
+        /// 책임을 NGM(Infrastructure)에 이전.
         /// </summary>
-        private void OnClientConnectedCallback(ulong clientId)
+        /// <param name="connectedCount">현재까지 접속 완료한 클라이언트 수.</param>
+        private void OnAllPlayersReady(int connectedCount)
         {
-            if (NetworkManager.Singleton == null) return;
-
-            int connectedCount = NetworkManager.Singleton.ConnectedClientsList.Count;
-            Debug.Log($"[Network] LobbyUI: 클라이언트 연결. 총 접속 수={connectedCount}");
-
-            // 2명 모두 연결 완료 시 로비 숨김
-            if (connectedCount >= 2)
-            {
-                HideLobby();
-            }
+            Debug.Log($"[Network] LobbyUI: OnAllPlayersReady 수신. 총 접속 수={connectedCount}");
+            HideLobby();
         }
 
         // ====================================================================

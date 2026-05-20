@@ -176,14 +176,11 @@ namespace Hexiege.Infrastructure
             // 양 팀 종족 정보를 전역 홀더에 저장 — 인게임에서 종족별 초기화에 사용
             GameRaceContext.Set((RaceId)blueRace, (RaceId)redRace);
 
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-                if (_bootstrapper == null)
-                {
-                    Debug.LogError("[Network] StartGameClientRpc: GameBootstrapper를 찾을 수 없습니다.");
-                    return;
-                }
+                Debug.LogError("[Network] StartGameClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                return;
             }
 
             // GameBootstrapper를 통해 네트워크 게임 시작 (맵 로드 + UseCase 생성)

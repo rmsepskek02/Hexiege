@@ -36,7 +36,6 @@ using Unity.Netcode;
 using Hexiege.Domain;
 using Hexiege.Core;
 using Hexiege.Application;
-using Hexiege.Presentation;
 
 namespace Hexiege.Infrastructure
 {
@@ -249,8 +248,9 @@ namespace Hexiege.Infrastructure
                 }
             }
 
-            // UnitView 컴포넌트 가져와서 UnitData 전달
-            var unitView = unitObj.GetComponent<UnitView>();
+            // [2026-05-20] UnitView 구체 타입 대신 IUnitView 인터페이스로 가져와서 Presentation 의존 제거.
+            // GetComponent<IInterface>()는 Unity가 컴포넌트 중 해당 인터페이스를 구현한 것을 반환한다.
+            IUnitView unitView = unitObj.GetComponent<IUnitView>();
             if (unitView != null)
             {
                 unitView.Initialize(unitData);
@@ -337,8 +337,8 @@ namespace Hexiege.Infrastructure
             // 만약 초기 1~2프레임 동안 원점에 나타나는 문제가 있다면
             // 여기에 viewPos 설정을 추가할 수 있음.
 
-            // UnitView 컴포넌트 초기화
-            var unitView = unitObj.GetComponent<UnitView>();
+            // [2026-05-20] UnitView 구체 타입 대신 IUnitView 인터페이스로 가져온다.
+            IUnitView unitView = unitObj.GetComponent<IUnitView>();
             if (unitView != null)
             {
                 unitView.Initialize(unitData);

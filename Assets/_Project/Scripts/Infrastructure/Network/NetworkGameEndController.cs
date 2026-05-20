@@ -41,36 +41,36 @@ using UnityEngine.SceneManagement;
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
-using Hexiege.Presentation;
 
 namespace Hexiege.Infrastructure
 {
     /// <summary>
     /// 네트워크 승패 판정 동기화 + 커스텀게임 재경기 컨트롤러.
     /// 서버에서 게임 종료를 감지하고 모든 클라이언트에 결과를 전파.
+    ///
+    /// [2026-05-20] 리팩토링:
+    ///   - using Hexiege.Presentation 제거 (Infrastructure → Presentation 역방향 의존 제거)
+    ///   - GameEndUI / RematchRequestPopup / GameUIManager SerializeField 제거
+    ///   - UI 직접 호출 → GameEvents 발행으로 교체
+    ///   - IForfeitService 인터페이스 구현 — InGameSettingsUI가 NetworkGameEndController를 직접 알지 않게
     /// </summary>
-    public class NetworkGameEndController : NetworkBehaviour
+    public class NetworkGameEndController : NetworkBehaviour, IForfeitService
     {
-        // ====================================================================
-        // Inspector 설정
-        // ====================================================================
-
-        [Header("씬 연결")]
-        [Tooltip("게임 종료 UI 컴포넌트. GameBootstrapper에서 자동 주입 가능.")]
-        [SerializeField] private GameEndUI _gameEndUI;
-
-        [Tooltip("재경기 요청 팝업. Inspector 미연결 시 자동 탐색.")]
-        [SerializeField] private RematchRequestPopup _rematchRequestPopup;
-
-        [Tooltip("게임 UI 매니저. 게임 종료 시 클라이언트 측 열린 팝업(생산 패널, 건물 배치 등)을 일괄 닫기 위해 사용. Inspector 미연결 시 자동 탐색.")]
-        [SerializeField] private GameUIManager _uiManager;
-
         // ====================================================================
         // 내부 상태
         // ====================================================================
 
         /// <summary>게임 종료 이벤트 구독 해제용 Disposable.</summary>
         private System.IDisposable _gameEndSubscription;
+
+        /// <summary>로컬 재경기 요청 이벤트 구독 해제용 Disposable.</summary>
+        private System.IDisposable _localRematchRequestedSub;
+
+        /// <summary>로컬 재경기 수락 이벤트 구독 해제용 Disposable.</summary>
+        private System.IDisposable _localRematchAcceptedSub;
+
+        /// <summary>로컬 재경기 거절 이벤트 구독 해제용 Disposable.</summary>
+        private System.IDisposable _localRematchDeclinedSub;
 
         /// <summary>결과 발표 여부. 서버에서 중복 전파 방지용.</summary>
         private bool _announced = false;
@@ -86,28 +86,13 @@ namespace Hexiege.Infrastructure
         // ====================================================================
 
         /// <summary>
-        /// 네트워크 스폰 시 GameEndUI, RematchRequestPopup을 탐색하고,
-        /// 서버라면 OnGameEnd를 구독하여 승패 발표 준비.
+        /// 네트워크 스폰 시 서버라면 OnGameEnd를 구독하고,
+        /// 양측 모두 로컬 재경기 응답 이벤트(GameEvents.OnLocalRematch*)를 구독한다.
+        /// UI 컴포넌트(GameEndUI/RematchRequestPopup/GameUIManager) 탐색 제거.
         /// </summary>
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-
-            // GameEndUI가 Inspector에 연결되지 않은 경우 씬에서 탐색
-            if (_gameEndUI == null)
-                _gameEndUI = FindFirstObjectByType<GameEndUI>();
-
-            if (_gameEndUI == null)
-                Debug.LogWarning("[Network] NetworkGameEndController: GameEndUI를 찾을 수 없습니다.");
-
-            // RematchRequestPopup 자동 탐색 (비활성 오브젝트 포함)
-            if (_rematchRequestPopup == null)
-                _rematchRequestPopup = FindFirstObjectByType<RematchRequestPopup>(FindObjectsInactive.Include);
-
-            // GameUIManager 탐색 — 게임 종료 시 클라이언트 측 열린 팝업을 닫기 위해 필요
-            // (Inspector 미연결 시 자동 탐색)
-            if (_uiManager == null)
-                _uiManager = FindFirstObjectByType<GameUIManager>();
 
             Debug.Log($"[Network] NetworkGameEndController 스폰. IsServer={IsServer}");
 
@@ -119,6 +104,20 @@ namespace Hexiege.Infrastructure
 
                 Debug.Log("[Network] NetworkGameEndController: 서버 측 OnGameEnd 구독 완료.");
             }
+
+            // 로컬 측 재경기 응답 이벤트 구독 — UI가 이벤트를 발행하면 본 컨트롤러가
+            // 적절한 ServerRpc로 변환하여 서버에 전달한다.
+            //
+            // 호스트(IsServer)도 자신의 로컬 UI 발행 신호를 ServerRpc로 그대로 보낸다.
+            // (ServerRpc는 호스트에서 즉시 실행되므로 함수 호출과 동일하게 동작)
+            _localRematchRequestedSub = GameEvents.OnLocalRematchRequested
+                .Subscribe(_ => RequestRematchServerRpc());
+
+            _localRematchAcceptedSub = GameEvents.OnLocalRematchAccepted
+                .Subscribe(_ => AcceptRematchServerRpc());
+
+            _localRematchDeclinedSub = GameEvents.OnLocalRematchDeclined
+                .Subscribe(_ => DeclineRematchServerRpc());
         }
 
         /// <summary>
@@ -129,6 +128,14 @@ namespace Hexiege.Infrastructure
             base.OnNetworkDespawn();
             _gameEndSubscription?.Dispose();
             _gameEndSubscription = null;
+
+            _localRematchRequestedSub?.Dispose();
+            _localRematchRequestedSub = null;
+            _localRematchAcceptedSub?.Dispose();
+            _localRematchAcceptedSub = null;
+            _localRematchDeclinedSub?.Dispose();
+            _localRematchDeclinedSub = null;
+
             _rematchRequesterId = ulong.MaxValue;
         }
 
@@ -167,6 +174,16 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 서버에서 확정된 승리 팀 인덱스를 모든 클라이언트에 전송.
         /// 게임 모드에 따라 재경기 버튼 동작을 분기 설정.
+        ///
+        /// [2026-05-20] 리팩토링:
+        ///   기존: GameEndUI/GameUIManager를 직접 참조해 메서드 호출.
+        ///   변경: GameEvents 이벤트 발행으로 교체. UI 컴포넌트는 각자 이벤트를 구독해 반응한다.
+        ///     - OnGameEnd: GameEndUI(자체 구독)가 ShowResult/일시정지 처리,
+        ///                  GameUIManager(자체 구독)가 열린 팝업을 닫음.
+        ///     - OnNetworkRematchAvailable: GameEndUI(자체 구독)가 재경기 버튼 활성화.
+        ///
+        /// 호스트(서버)에서는 OnGameEnd가 이미 OnGameEndServer 호출 직전에 한 번 발행되었으므로,
+        /// 본 핸들러에서는 클라이언트 측에서만 OnGameEnd를 재발행하여 동일한 UI 흐름이 작동하게 한다.
         /// </summary>
         /// <param name="winnerTeamIndex">승리한 팀의 TeamId 정수값 (Blue=1, Red=2)</param>
         /// <param name="isRandomMatch">랜덤 매칭 여부. true이면 재경기 버튼 숨김.</param>
@@ -177,27 +194,17 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] AnnounceWinnerClientRpc 수신. 승리 팀={winnerTeam}, 로컬 팀={LocalPlayerTeam.Current}, 랜덤매칭={isRandomMatch}");
 
-            if (_gameEndUI == null)
+            // 클라이언트(비서버)에서는 OnGameEnd가 발행되지 않았으므로 여기서 발행한다.
+            // (서버에서는 OnGameEndServer 호출 직전 이미 OnGameEnd가 발행된 상태)
+            // GameEndUI가 OnGameEnd를 구독해 ShowResult 등 표시/일시정지 처리.
+            // GameUIManager는 OnGameEnd를 구독해 NotifyGameEnded()로 열린 팝업을 닫음.
+            if (!IsServer)
             {
-                _gameEndUI = FindFirstObjectByType<GameEndUI>();
-                if (_gameEndUI == null)
-                {
-                    Debug.LogError("[Network] AnnounceWinnerClientRpc: GameEndUI를 찾을 수 없습니다.");
-                    return;
-                }
+                GameEvents.OnGameEnd.OnNext(new GameEndEvent(winnerTeam));
             }
 
-            // 클라이언트에서는 GameEvents.OnGameEnd가 발행되지 않으므로
-            // GameUIManager에 직접 게임 종료를 알려 열린 팝업들(생산 패널, 건물 배치 등)을 닫는다.
-            // Host에서는 이미 OnGameEnd 구독으로 1회 호출됐으나, 중복 호출해도 안전
-            // (이미 닫힌 UI에 OnGameEnded()를 다시 호출해도 부작용 없음).
-            _uiManager?.NotifyGameEnded();
-
-            // 게임 모드에 따라 재경기 버튼 설정
-            _gameEndUI.SetupRematchButton(isRandomMatch, RequestRematch);
-
-            // 로컬 팀 기준으로 승리/패배 결정하여 UI 표시
-            _gameEndUI.ShowResult(winnerTeam, LocalPlayerTeam.Current);
+            // 재경기 버튼 설정 신호 — GameEndUI가 구독해 SetupRematchButton 호출.
+            GameEvents.OnNetworkRematchAvailable.OnNext(new NetworkRematchAvailableEvent(isRandomMatch));
         }
 
         // ====================================================================
@@ -275,14 +282,10 @@ namespace Hexiege.Infrastructure
         // 재경기 (Rematch) — 커스텀게임 전용
         // ====================================================================
 
-        /// <summary>
-        /// 재경기 요청. GameEndUI의 다시하기 버튼 콜백으로 연결됨.
-        /// </summary>
-        private void RequestRematch()
-        {
-            Debug.Log("[Network] 재경기 요청 전송.");
-            RequestRematchServerRpc();
-        }
+        // [2026-05-20] 리팩토링: 재경기 콜백(RequestRematch / OnAcceptRematch / OnDeclineRematch)
+        // 메서드는 제거되었다. 이전에는 NetworkGameEndController가 GameEndUI/RematchRequestPopup에
+        // 콜백을 직접 등록했으나, 이제는 UI가 GameEvents.OnLocalRematchRequested 등을 발행하고
+        // 본 컨트롤러는 OnNetworkSpawn에서 해당 이벤트를 구독한다. 구독 핸들러에서 ServerRpc를 호출.
 
         /// <summary>
         /// 클라이언트의 재경기 요청을 서버에서 처리.
@@ -323,23 +326,17 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 상대 클라이언트에게 재경기 요청이 들어왔음을 알림.
         /// 팝업으로 수락/거절 선택지 표시.
+        ///
+        /// [2026-05-20] 리팩토링:
+        ///   기존: RematchRequestPopup을 직접 ShowRequest(콜백) 호출.
+        ///   변경: GameEvents.OnNetworkRematchRequested 발행. 팝업은 자체 구독으로 ShowRequest 호출.
+        ///         수락/거절은 OnLocalRematchAccepted / OnLocalRematchDeclined 이벤트로 다시 본 컨트롤러에 전달됨.
         /// </summary>
         [ClientRpc]
         private void NotifyRematchRequestedClientRpc(ClientRpcParams clientRpcParams = default)
         {
-            Debug.Log("[Network] 재경기 요청 수신. 팝업 표시.");
-            // 비활성 상태일 수 있으므로 null이면 재탐색
-            if (_rematchRequestPopup == null)
-                _rematchRequestPopup = FindFirstObjectByType<RematchRequestPopup>(FindObjectsInactive.Include);
-            if (_rematchRequestPopup != null)
-                _rematchRequestPopup.ShowRequest(OnAcceptRematch, OnDeclineRematch);
-        }
-
-        /// <summary>재경기 수락 콜백.</summary>
-        private void OnAcceptRematch()
-        {
-            Debug.Log("[Network] 재경기 수락.");
-            AcceptRematchServerRpc();
+            Debug.Log("[Network] 재경기 요청 수신. OnNetworkRematchRequested 발행.");
+            GameEvents.OnNetworkRematchRequested.OnNext(new NetworkRematchRequestedEvent());
         }
 
         /// <summary>
@@ -350,13 +347,6 @@ namespace Hexiege.Infrastructure
         {
             Debug.Log("[Network] AcceptRematchServerRpc 수신. 재경기 시작.");
             StartRematch();
-        }
-
-        /// <summary>재경기 거절 콜백.</summary>
-        private void OnDeclineRematch()
-        {
-            Debug.Log("[Network] 재경기 거절.");
-            DeclineRematchServerRpc();
         }
 
         /// <summary>
@@ -389,17 +379,16 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 요청자에게 재경기 거절을 알림. 버튼 상태 복원.
+        ///
+        /// [2026-05-20] 리팩토링:
+        ///   기존: RematchRequestPopup.ShowDeclined() + GameEndUI.RestoreRematchButton() 직접 호출.
+        ///   변경: GameEvents.OnNetworkRematchDeclined 발행. 두 UI 모두 자체 구독으로 처리.
         /// </summary>
         [ClientRpc]
         private void NotifyRematchDeclinedClientRpc(ClientRpcParams clientRpcParams = default)
         {
-            Debug.Log("[Network] 재경기 거절 알림 수신.");
-
-            if (_rematchRequestPopup != null)
-                _rematchRequestPopup.ShowDeclined();
-
-            if (_gameEndUI != null)
-                _gameEndUI.RestoreRematchButton();
+            Debug.Log("[Network] 재경기 거절 알림 수신. OnNetworkRematchDeclined 발행.");
+            GameEvents.OnNetworkRematchDeclined.OnNext(Unit.Default);
         }
 
         /// <summary>

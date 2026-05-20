@@ -22,61 +22,56 @@
 
 namespace Hexiege.Domain
 {
+    // [2026-05-20] 각 멤버에 정수 값을 명시 부여.
+    //   - 기존 순서와 동일한 값을 그대로 부여하므로 기존 ScriptableObject/Scene 직렬화 데이터에 영향 없음.
+    //   - 신규 건물 추가 시 반드시 마지막 빈 번호를 명시 부여하여 기존 인덱스 보존.
+    //   - RPC 직렬화(NetworkBuildingController)에서 (int)BuildingType 캐스트가 명시값으로 안정화됨.
     public enum BuildingType
     {
         // ---------------- 비생산 건물 ----------------
-        Castle,          // 본기지 — 게임 시작 시 자동 배치
-        MiningPost,      // 채굴소 — 자원 수집
-        AutoTower,       // 자동 방어 포탑
-        FlightFacility,  // 지원 건물
-        Research,        // 업그레이드 연구 건물 (Human: TechnicalLaboratory / Spirit: AstronomicalSpirit / Transcendence: AncientGrove)
-        MagicBuilding,   // 마법 특수 건물
-        HealShrine,      // 회복 건물
+        Castle = 0,           // 본기지 — 게임 시작 시 자동 배치
+        MiningPost = 1,       // 채굴소 — 자원 수집
+        AutoTower = 2,        // 자동 방어 포탑
+        FlightFacility = 3,   // 지원 건물
+        Research = 4,         // 업그레이드 연구 건물
+        MagicBuilding = 5,    // 마법 특수 건물
+        HealShrine = 6,       // 회복 건물
 
         // ---------------- Human 생산 건물 ----------------
-        // 근거리A 라인 (1 → 2 → 3)
-        TrainingCamp,    // 근거리A 1단계
-        WarAcademy,      // 근거리A 2단계
-        HumanBarracks,   // 근거리A 3단계 (구 Barracks 명칭 충돌 방지)
+        TrainingCamp = 7,     // 근거리A 1단계
+        WarAcademy = 8,       // 근거리A 2단계
+        HumanBarracks = 9,    // 근거리A 3단계
 
-        // 총기류 라인 (1 → 2 → 3)
-        Gunsmith,        // 총기류 1단계
-        Armory,          // 총기류 2단계
-        WeaponForge,     // 총기류 3단계
+        Gunsmith = 10,        // 총기류 1단계
+        Armory = 11,          // 총기류 2단계
+        WeaponForge = 12,     // 총기류 3단계
 
-        // 탈것류 라인 (1 → 2)
-        Garage,          // 탈것류 1단계
-        VehicleBay,      // 탈것류 2단계
+        Garage = 13,          // 탈것류 1단계
+        VehicleBay = 14,      // 탈것류 2단계
 
         // ---------------- Spirit 생산 건물 ----------------
-        // 불 속성 라인 (1 → 2 → 3)
-        FireSpire,       // 불 1단계
-        BlazeConduit,    // 불 2단계
-        InfernoCore,     // 불 3단계
+        FireSpire = 15,       // 불 1단계
+        BlazeConduit = 16,    // 불 2단계
+        InfernoCore = 17,     // 불 3단계
 
-        // 물 속성 라인 (1 → 2 → 3)
-        AquaSpring,      // 물 1단계
-        TidalNexus,      // 물 2단계
-        OceanicHeart,    // 물 3단계
+        AquaSpring = 18,      // 물 1단계
+        TidalNexus = 19,      // 물 2단계
+        OceanicHeart = 20,    // 물 3단계
 
-        // 땅 속성 라인 (1 → 2 → 3)
-        StoneMound,      // 땅 1단계
-        TerraForge,      // 땅 2단계
-        GaeaSanctum,     // 땅 3단계
+        StoneMound = 21,      // 땅 1단계
+        TerraForge = 22,      // 땅 2단계
+        GaeaSanctum = 23,     // 땅 3단계
 
         // ---------------- Transcendence 생산 건물 ----------------
-        // 동물A 라인 (1 → 2 → 3) — PrimalSanctuary는 제작 예정
-        PrimalAltar,     // 동물A 1단계
-        PrimalDen,       // 동물A 2단계
-        PrimalSanctuary, // 동물A 3단계 (제작 예정)
+        PrimalAltar = 24,     // 동물A 1단계
+        PrimalDen = 25,       // 동물A 2단계
+        PrimalSanctuary = 26, // 동물A 3단계 (제작 예정)
 
-        // 동물B 라인 (1 → 2 → 3)
-        FeralAltar,      // 동물B 1단계
-        FeralDen,        // 동물B 2단계
-        FeralSanctuary,  // 동물B 3단계
+        FeralAltar = 27,      // 동물B 1단계
+        FeralDen = 28,        // 동물B 2단계
+        FeralSanctuary = 29,  // 동물B 3단계
 
-        // 식물 라인 (1 → 2)
-        SporePatch,      // 식물 1단계
-        FloralNursery    // 식물 2단계
+        SporePatch = 30,      // 식물 1단계
+        FloralNursery = 31    // 식물 2단계
     }
 }

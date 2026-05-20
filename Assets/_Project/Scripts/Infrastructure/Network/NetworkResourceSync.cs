@@ -212,11 +212,8 @@ namespace Hexiege.Infrastructure
         /// <param name="serverGold">서버의 현재 골드 값</param>
         private void ApplyGoldToLocalUseCase(TeamId team, int serverGold)
         {
-            if (_bootstrapper == null)
-            {
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-                if (_bootstrapper == null) return;
-            }
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_bootstrapper == null) return;
 
             ResourceUseCase resource = _bootstrapper.GetResource();
             if (resource == null)

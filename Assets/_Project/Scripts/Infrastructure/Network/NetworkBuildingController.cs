@@ -61,6 +61,51 @@ namespace Hexiege.Infrastructure
         }
 
         // ====================================================================
+        // 외부 호출용 래퍼 메서드 — UI 등 Presentation 레이어에서 사용
+        // ====================================================================
+        //
+        // 왜 래퍼 메서드인가?
+        //   UI(Presentation)가 ServerRpc 메서드(*ServerRpc 접미사)를 직접 호출하면
+        //   "내가 어떤 RPC를 써야 하는지"까지 알아야 하고 NGO API에 직접 결합된다.
+        //   래퍼 메서드는 UI에게 일반 메서드 호출 형태를 제공하여 결합도를 낮춘다.
+        //   내부 구현이 ServerRpc인지, 다른 메커니즘인지 UI가 신경 쓰지 않아도 된다.
+        //
+        // ====================================================================
+
+        /// <summary>
+        /// 건물 배치 요청 — UI 래퍼.
+        /// 실제로는 RequestBuildServerRpc로 위임된다.
+        /// </summary>
+        /// <param name="buildingType">배치할 건물 종류.</param>
+        /// <param name="team">요청 팀.</param>
+        /// <param name="q">배치 좌표 Q.</param>
+        /// <param name="r">배치 좌표 R.</param>
+        public void RequestBuild(BuildingType buildingType, TeamId team, int q, int r)
+        {
+            RequestBuildServerRpc((int)buildingType, (int)team, q, r);
+        }
+
+        /// <summary>
+        /// 건물 업그레이드 요청 — UI 래퍼.
+        /// 실제로는 RequestUpgradeServerRpc로 위임된다.
+        /// </summary>
+        /// <param name="buildingId">업그레이드할 건물 Id.</param>
+        public void RequestUpgrade(int buildingId)
+        {
+            RequestUpgradeServerRpc(buildingId);
+        }
+
+        /// <summary>
+        /// 건물 철거 요청 — UI 래퍼.
+        /// 실제로는 RequestDemolishServerRpc로 위임된다.
+        /// </summary>
+        /// <param name="buildingId">철거할 건물 Id.</param>
+        public void RequestDemolish(int buildingId)
+        {
+            RequestDemolishServerRpc(buildingId);
+        }
+
+        // ====================================================================
         // ServerRpc — 클라이언트 → 서버
         // ====================================================================
 
@@ -89,9 +134,8 @@ namespace Hexiege.Infrastructure
             // ----------------------------------------------------------------
             // 1. 부트스트래퍼 및 UseCase 존재 확인
             // ----------------------------------------------------------------
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] RequestBuildServerRpc: GameBootstrapper를 찾을 수 없습니다.");
@@ -194,9 +238,8 @@ namespace Hexiege.Infrastructure
             Debug.Log($"[Network] SpawnBuildingClientRpc 수신. Id={buildingId}, Type={buildingTypeInt}, Team={teamIndex}, Q={q}, R={r}");
 
             // UseCase 접근
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] SpawnBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");
@@ -255,7 +298,12 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 건물 배치 실패 알림. 요청한 클라이언트에게만 전송.
-        /// 현재는 로그만 출력. 향후 UI 피드백(토스트 메시지 등)으로 확장 가능.
+        /// 클라이언트는 GameEvents.OnToastRequested 이벤트를 발행하여 ToastUI에 표시한다.
+        ///
+        /// [2026-05-20] reason 문자열을 ToastKey로 매핑하여 토스트 표시:
+        ///   "골드 부족" → ToastKey.GoldInsufficient
+        ///   그 외(맵 로드 중/팀 불일치/배치 위치 오류/서버 초기화 오류) → 키가 없으므로 로그만 남기고 표시 생략.
+        ///   (각 사유별 토스트 키가 추가되면 매핑을 확장한다.)
         /// </summary>
         /// <param name="reason">실패 이유</param>
         /// <param name="clientRpcParams">대상 클라이언트 파라미터</param>
@@ -263,7 +311,11 @@ namespace Hexiege.Infrastructure
         private void BuildFailedClientRpc(string reason, ClientRpcParams clientRpcParams = default)
         {
             Debug.LogWarning($"[Network] 건물 배치 실패: {reason}");
-            // TODO: UI 피드백 — 토스트 메시지, 버튼 흔들기 효과 등
+
+            // reason → ToastKey 매핑. 매핑이 정의된 사유만 토스트 발행.
+            if (reason == "골드 부족")
+                GameEvents.OnToastRequested.OnNext(ToastKey.GoldInsufficient);
+            // 향후 ToastKey가 늘어나면 여기에 매핑을 추가한다.
         }
 
         // ====================================================================
@@ -306,9 +358,8 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] 건물 업그레이드 요청 수신. ClientId={senderClientId}, BuildingId={buildingId}");
 
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] RequestUpgradeServerRpc: GameBootstrapper를 찾을 수 없습니다.");
@@ -407,9 +458,8 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] UpgradeBuildingClientRpc 수신. oldId={oldBuildingId}, newId={newBuildingId}, newType={newTypeInt}");
 
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] UpgradeBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");
@@ -471,9 +521,8 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] 건물 철거 요청 수신. ClientId={senderClientId}, BuildingId={buildingId}");
 
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] RequestDemolishServerRpc: GameBootstrapper를 찾을 수 없습니다.");
@@ -562,9 +611,8 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] DemolishBuildingClientRpc 수신. Id={buildingId}");
 
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] DemolishBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");

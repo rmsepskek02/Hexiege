@@ -22,9 +22,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UniRx;
 using Hexiege.Domain;
-using Hexiege.Core;
 
 namespace Hexiege.Application
 {
@@ -33,51 +31,32 @@ namespace Hexiege.Application
         // 경로 계산 및 타일 점령에 사용할 그리드 참조
         private readonly HexGrid _grid;
 
-        // 적 유닛 좌표 조회 등을 위한 참조 (현 시점에서는 사용처 없음, 향후 확장 대비 유지).
-        private readonly UnitSpawnUseCase _unitSpawn;
-
         // 플로우 필드 캐시 서비스 — 목적지별 BFS 결과를 공유한다.
         private readonly FlowFieldService _flowFieldService;
 
-        // [2026-05-11 비활성화 — 슬롯/점유 시스템 폐기]
-        // _occupancyManager는 항상 null이 주입됩니다. 새 규칙(GameSystemRules.md)에서는
-        // 타일 점유 추적을 사용하지 않습니다. 시그니처는 호출부 호환을 위해 유지합니다.
-        private readonly TileOccupancyManager _occupancyManager;
+        // 월드↔헥스 좌표 변환기. Core(HexMetrics) 의존을 피하기 위한 인터페이스 주입.
+        private readonly IHexCoordinateMapper _mapper;
 
-        // 사망/제거 이벤트 구독 해제용 — 점유 정보 정리에 사용하던 것이지만 폐기됨.
-        // _subscriptions 자체는 향후 확장을 위해 유지하지만 현재는 구독 추가가 없습니다.
-        private readonly CompositeDisposable _subscriptions = new CompositeDisposable();
+        // [2026-05-20] 이동 시 위치 역인덱스 동기화를 위해 UnitSpawnUseCase 참조 보관.
+        // ProcessStep에서 unit.Position 갱신 직후 _unitSpawn.NotifyUnitMoved(from, to) 호출.
+        private readonly UnitSpawnUseCase _unitSpawn;
 
         public UnitMovementUseCase(HexGrid grid, UnitSpawnUseCase unitSpawn,
-            FlowFieldService flowFieldService,
-            TileOccupancyManager occupancyManager = null)
+            FlowFieldService flowFieldService, IHexCoordinateMapper mapper)
         {
             _grid = grid;
             _unitSpawn = unitSpawn;
             _flowFieldService = flowFieldService;
-            _occupancyManager = occupancyManager;
-
-            // [2026-05-11 비활성화 — 점유 시스템 폐기]
-            // 유닛 사망 → OnUnitRemoved 자동 구독은 점유 시스템 폐기로 제거됐습니다.
-            // 기존 코드는 git 히스토리에서 확인 가능합니다.
-            //
-            // if (_occupancyManager != null)
-            // {
-            //     _subscriptions.Add(GameEvents.OnUnitDied.Subscribe(evt =>
-            //     {
-            //         UnitData unit = evt.Unit;
-            //         float size = GetOccupancySize(unit.Type);
-            //         _occupancyManager.OnUnitRemoved(unit.Position, size);
-            //     }));
-            // }
+            _mapper = mapper;
         }
 
         /// <summary>
         /// 구독 해제. 게임 종료/재경기 시 GameBootstrapper가 호출.
+        /// 현재 구독 대상이 없으므로 본문은 비어 있으나, IDisposable 계약과
+        /// 외부 호출부(_unitMovement?.Dispose()) 호환을 위해 메서드는 유지한다.
         /// </summary>
         public void Dispose()
         {
-            _subscriptions?.Dispose();
         }
 
         /// <summary>
@@ -138,36 +117,17 @@ namespace Hexiege.Application
         /// UnitView의 코루틴에서 타일→타일 Lerp 이동이 끝날 때마다 호출.
         ///
         /// 처리 내용:
-        ///   1. [4차 개선] FROM 타일 점유 해제 (실제로 떠난 시점)
-        ///   2. 이동 방향 계산 → UnitData.Facing 업데이트
-        ///   3. UnitData.Position 업데이트
-        ///   4. 도착 타일을 유닛의 팀으로 점령
-        ///   5. 이동/점령 이벤트 발행
+        ///   1. 이동 방향 계산 → UnitData.Facing 업데이트
+        ///   2. UnitData.Position 업데이트
+        ///   3. 이동 이벤트 발행
         ///
-        /// [3차 개선 — 2026-04-25]
-        /// 점유량 갱신(OnUnitMoved) 호출을 ProcessStep에서 분리하여 RegisterOccupancyMove로 옮겼다.
-        ///
-        /// [4차 개선 — 2026-04-26]
-        /// FROM 타일 점유 해제만 ProcessStep으로 다시 가져온다(분리된 형태).
-        /// RegisterOccupancyMove는 TO+1만 예약하고, 실제로 FROM을 떠난 이 시점에 FROM-1을 처리해야
-        /// 이동이 도중에 중단되더라도 FROM 점유가 유닛 위치보다 먼저 사라지지 않는다.
+        /// 타일 소유권 갱신은 TileOwnershipService.Tick()이 매 프레임 물리 위치 기반으로 처리한다.
         /// </summary>
         /// <param name="unit">이동 중인 유닛</param>
         /// <param name="from">출발 타일 좌표</param>
         /// <param name="to">도착 타일 좌표</param>
         public void ProcessStep(UnitData unit, HexCoord from, HexCoord to)
         {
-            // [2026-05-11 비활성화 — 점유 시스템 폐기]
-            // FROM 타일 점유 해제(_occupancyManager.OnUnitRemoved) 호출은 제거됐습니다.
-            // 새 규칙에서는 점유 추적이 없으므로 도메인 상태(Position, Facing)만 갱신하고
-            // OnUnitMoved 이벤트를 발행합니다.
-            //
-            // 기존 코드:
-            // if (from != to && _occupancyManager != null)
-            // {
-            //     _occupancyManager.OnUnitRemoved(from, GetOccupancySize(unit.Type));
-            // }
-
             // 이동 방향 계산 → 스프라이트 방향 전환에 사용
             HexDirection dir = FacingDirection.FromCoords(from, to);
             unit.Facing = dir;
@@ -175,44 +135,13 @@ namespace Hexiege.Application
             // 유닛 위치 업데이트
             unit.Position = to;
 
+            // [2026-05-20] 위치 역인덱스 동기화 — UnitSpawnUseCase._unitsByPosition을 from→to로 갱신.
+            // GetUnitAt(coord) O(1) 조회를 위해 두 자료구조의 무결성을 보장한다.
+            _unitSpawn?.NotifyUnitMoved(unit, from, to);
+
             // 이벤트 발행 → UnitView가 스프라이트 이동
             // 타일 소유권 갱신은 TileOwnershipService.Tick()이 매 프레임 물리 위치 기반으로 처리한다.
             GameEvents.OnUnitMoved.OnNext(new UnitMovedEvent(unit.Id, from, to));
-        }
-
-        // ====================================================================
-        // [2026-04-30] 새 규칙 5 — "앞쪽 빈 타일 찾기 (또는 대기)" 래퍼
-        // ====================================================================
-
-        /// <summary>
-        /// 새 규칙 5 (점유가 가득 찬 타일 처리)에 맞춘 forward-only 래퍼.
-        /// 기존 FindAvailableTile은 forward 필터 실패 시 fallback BFS(필터 OFF)로 측후방까지 후보를
-        /// 넓혀 어떤 빈 타일이라도 찾아주었다. 그러나 새 규칙은 "뒤로 우회 절대 금지, 앞쪽이 없으면
-        /// 대기"가 명시이므로, fallback 없이 forward-only BFS만 호출한다.
-        ///
-        /// 동작:
-        ///   1) preferred가 들어갈 수 있으면 그대로 반환.
-        ///   2) preferred가 막혀 있으면, destination 방향으로 더 가까운(또는 같은) walkable 타일 중
-        ///      빈 타일을 BFS로 탐색하여 가장 가까운 후보를 반환.
-        ///   3) 앞쪽에 빈 타일이 없으면 null — 호출 측은 다음 프레임에 다시 시도하여 빈자리가 생길 때까지 대기.
-        ///
-        /// occupancyManager가 주입되지 않은 경우(레거시) 항상 preferred 반환 — 점유 체크 비활성화 동등 효과.
-        /// </summary>
-        /// <param name="preferred">원래 진입하고 싶었던 타일.</param>
-        /// <param name="unitSize">유닛의 OccupancySize.</param>
-        /// <param name="destination">최종 목적지(우회 방향 결정용). default 시 null이 반환된다.</param>
-        /// <param name="currentTile">
-        /// [BUG-008 — 2026-05-06] 호출 유닛의 현재 논리 타일 좌표(prevActualTile).
-        /// BFS visited에 미리 등록되어 "현재 위치 타일"이 우회 후보로 반환되는 것을 차단한다.
-        /// 호출 측이 모를 때는 default(HexCoord)를 전달(이 경우 추가 제외 없음 — 기존 동작).
-        /// </param>
-        /// <returns>들어갈 수 있는 앞쪽 타일 좌표 또는 null(=대기).</returns>
-        public HexCoord? FindForwardAvailable(HexCoord preferred, float unitSize, HexCoord destination, HexCoord currentTile)
-        {
-            // [2026-05-11 비활성화 — 점유 시스템 폐기]
-            // 항상 preferred 그대로 반환 — 새 규칙에서는 우회를 수행하지 않습니다.
-            // 호출부 호환을 위해 시그니처는 유지합니다.
-            return preferred;
         }
 
         // ====================================================================
@@ -240,7 +169,7 @@ namespace Hexiege.Application
         public HexCoord FindForwardClosestTile(Vector3 unitWorldPosDomain, HexCoord finalTarget)
         {
             // 1) 현재 위치에서 가장 가까운 타일.
-            HexCoord nearestTile = HexMetrics.WorldToHex(unitWorldPosDomain);
+            HexCoord nearestTile = _mapper.WorldToHex(unitWorldPosDomain);
 
             // 그리드에 존재하지 않는 좌표인 경우 (스폰 직후 등 극단적인 상황) 안전하게 폴백.
             if (_grid == null || !_grid.HasTile(nearestTile))
@@ -271,7 +200,7 @@ namespace Hexiege.Application
                 if (neighborDist >= currentDist) continue;
 
                 // 후보 중 unitWorldPosDomain에서 가장 가까운 타일 우선 (XZ 평면 거리).
-                Vector3 neighborWorld = HexMetrics.HexToWorld(neighbor);
+                Vector3 neighborWorld = _mapper.HexToWorld(neighbor);
                 float dx = neighborWorld.x - unitWorldPosDomain.x;
                 float dz = neighborWorld.z - unitWorldPosDomain.z;
                 float distSq = dx * dx + dz * dz;

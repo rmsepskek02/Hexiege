@@ -3,11 +3,11 @@
 // 네트워크 상태(Ping/RTT) 표시 및 연결 끊김 처리 UI.
 //
 // 역할:
-//   1. 매 0.5초마다 UnityTransport.GetCurrentRtt()로 RTT(ms) 읽어 텍스트 갱신
+//   1. 매 0.5초마다 NetworkGameManager.GetCurrentRttMs()로 RTT(ms) 읽어 텍스트 갱신
 //   2. 싱글플레이/미연결 시 패널 전체 비활성화
 //   3. 연결 끊김 감지:
-//      - 서버: 상대방(클라이언트)이 나갔을 때 ReconnectionHandler에 위임
-//      - 클라이언트: 서버 연결이 끊겼을 때 연결 끊김 팝업 표시
+//      - 서버: 상대방(클라이언트)이 나갔을 때 ReconnectionHandler에 위임 (이 UI는 발행 안 함)
+//      - 클라이언트: 서버 연결이 끊겼을 때 NetworkGameManager.OnServerDisconnected 수신 → 팝업 표시
 //
 // 씬 구조 (Inspector에서 수동 배치):
 //   [UI] Canvas
@@ -19,19 +19,19 @@
 //
 // 주의:
 //   - NetworkBehaviour 불필요: 로컬 표시 전용 (Presentation 레이어)
-//   - NetworkManager.Singleton null 방어 필수
+//   - [2026-05-20] Unity.Netcode / UTP 직접 의존 제거 — NetworkGameManager API로 통일
 //   - 씬 전환(SceneManager) 참조: UnityEngine.SceneManagement
 //
 // Presentation 레이어 — Unity 의존 (MonoBehaviour).
 // ============================================================================
 
 using System.Collections;
-using Unity.Netcode;
-using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using TMPro;
+using Hexiege.Application;
+using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
@@ -66,6 +66,13 @@ namespace Hexiege.Presentation
         [Tooltip("연결 끊김 후 복귀할 씬 이름")]
         [SerializeField] private string _returnSceneName = "SampleScene";
 
+        // [2026-05-20] 리팩토링: NetworkGameManager 주입.
+        //   기존: NetworkManager.Singleton + UnityTransport 직접 참조
+        //   변경: NGM의 GetCurrentRttMs / OnServerDisconnected / IsNetworkRunning / ShutdownNetwork 사용.
+        [Header("의존성")]
+        [Tooltip("네트워크 게임 매니저. RTT 조회/연결 끊김 알림/Shutdown 위임용. Inspector 미연결 시 자동 탐색.")]
+        [SerializeField] private NetworkGameManager _networkGameManager;
+
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -90,10 +97,14 @@ namespace Hexiege.Presentation
             if (_disconnectReturnButton != null)
                 _disconnectReturnButton.onClick.AddListener(OnReturnButtonClicked);
 
-            // 네트워크 모드 확인 후 패널 활성/비활성 결정
-            bool isNetworkMode = NetworkManager.Singleton != null &&
-                                 (NetworkManager.Singleton.IsHost ||
-                                  NetworkManager.Singleton.IsClient);
+            // NetworkGameManager 자동 탐색 (Inspector에 연결 안 된 경우)
+            if (_networkGameManager == null)
+                _networkGameManager = FindFirstObjectByType<NetworkGameManager>();
+
+            // 네트워크 모드 확인 후 패널 활성/비활성 결정 — NetworkContext / NGM 사용
+            // (이전: NetworkManager.Singleton.IsHost || IsClient 직접 호출)
+            bool isNetworkMode = NetworkContext.IsNetworkActive ||
+                                 (_networkGameManager != null && _networkGameManager.IsNetworkRunning);
 
             if (_networkStatusPanel != null)
                 _networkStatusPanel.SetActive(isNetworkMode);
@@ -104,9 +115,10 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            // 멀티플레이: Ping 갱신 코루틴 시작 + 연결 끊김 콜백 등록
+            // 멀티플레이: Ping 갱신 코루틴 시작 + 서버 끊김 이벤트 구독
             _pingCoroutine = StartCoroutine(PingRefreshCoroutine());
-            NetworkManager.Singleton.OnClientDisconnectCallback += OnClientDisconnected;
+            if (_networkGameManager != null)
+                _networkGameManager.OnServerDisconnected += OnServerDisconnected;
 
             Debug.Log("[Network] NetworkStatusUI: 네트워크 상태 모니터링 시작.");
         }
@@ -120,9 +132,9 @@ namespace Hexiege.Presentation
                 _pingCoroutine = null;
             }
 
-            // 콜백 해제 (NetworkManager가 살아있는 경우에만)
-            if (NetworkManager.Singleton != null)
-                NetworkManager.Singleton.OnClientDisconnectCallback -= OnClientDisconnected;
+            // 이벤트 구독 해제 (NGM이 살아있는 경우에만)
+            if (_networkGameManager != null)
+                _networkGameManager.OnServerDisconnected -= OnServerDisconnected;
         }
 
         // ====================================================================
@@ -145,38 +157,24 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// UnityTransport.GetCurrentRtt()를 사용하여 RTT를 읽고 텍스트 갱신.
-        /// Host에서는 서버 측 클라이언트 ID 0의 RTT를, Client에서는 서버 RTT를 조회.
-        /// RTT 조회 실패 시 "--ms" 표시.
+        /// NetworkGameManager.GetCurrentRttMs()를 사용하여 RTT를 읽고 텍스트 갱신.
+        /// Host에서는 자신(서버)에 대한 RTT(보통 0에 가까움), Client에서는 서버를 향한 RTT.
+        /// NGM이 없거나 네트워크 미연결 시 "--ms" 표시.
+        ///
+        /// 이전에는 UnityTransport를 직접 참조해 GetCurrentRtt를 호출했으나,
+        /// Presentation 레이어의 Unity.Netcode.Transports.UTP 직접 의존을 제거하고자
+        /// 책임을 Infrastructure 레이어인 NGM으로 이전.
         /// </summary>
         private void UpdatePingDisplay()
         {
             if (_pingText == null) return;
-            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+            if (_networkGameManager == null || !_networkGameManager.IsNetworkRunning)
             {
                 _pingText.text = "--ms";
                 return;
             }
 
-            // UnityTransport 컴포넌트 획득 (NetworkTransport 베이스 클래스 경유)
-            UnityTransport transport = NetworkManager.Singleton.NetworkConfig.NetworkTransport
-                as UnityTransport;
-
-            if (transport == null)
-            {
-                _pingText.text = "--ms";
-                return;
-            }
-
-            // 클라이언트: 서버(NGO 서버 ClientId = 서버 측 고유 ID) RTT 조회
-            // Host: 자신이 서버이므로 로컬 연결 → RTT는 0에 가까움
-            // 클라이언트가 서버에 대한 RTT를 조회하려면 ServerClientId를 사용
-            ulong targetClientId = NetworkManager.Singleton.IsHost
-                ? NetworkManager.ServerClientId  // Host에서 서버 자신의 ID
-                : NetworkManager.ServerClientId; // Client에서 서버를 향한 RTT
-
-            ulong rttMs = transport.GetCurrentRtt(targetClientId);
-
+            ulong rttMs = _networkGameManager.GetCurrentRttMs();
             _pingText.text = $"{rttMs}ms";
         }
 
@@ -185,30 +183,19 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// NetworkManager.OnClientDisconnectCallback 수신.
-        /// - 서버: 상대방 클라이언트(자신이 아닌 ID)가 나갔을 때 → ReconnectionHandler에 위임
-        /// - 클라이언트: 서버(clientId == NetworkManager.ServerClientId)가 끊겼을 때 팝업 표시
+        /// NetworkGameManager.OnServerDisconnected 이벤트 수신.
+        /// NGM은 "클라이언트 측에서 서버 연결이 끊긴 경우"에만 이 이벤트를 발행한다.
+        /// 서버(Host) 측 상대방 끊김은 ReconnectionHandler가 별도 처리하므로
+        /// 본 핸들러에서는 추가 분기 없이 곧바로 팝업을 표시한다.
+        ///
+        /// 이전 OnClientDisconnected(ulong clientId)는 NetworkManager.IsServer 분기로
+        /// 서버/클라이언트를 구분했으나, NGM이 책임을 가져가면서 본 메서드는 클라이언트 전용으로 단순화되었다.
         /// </summary>
-        private void OnClientDisconnected(ulong clientId)
+        private void OnServerDisconnected()
         {
             if (_disconnectHandled) return;
 
-            // 서버(Host)인 경우: 상대방 클라이언트 연결 끊김
-            if (NetworkManager.Singleton.IsServer)
-            {
-                // 자기 자신의 ClientId는 무시 (NetworkManager.LocalClientId)
-                if (clientId == NetworkManager.Singleton.LocalClientId)
-                    return;
-
-                // ReconnectionHandler가 처리 — 서버측 로직은 위임
-                // NetworkStatusUI는 서버에서는 팝업을 띄우지 않음
-                Debug.Log($"[Network] 서버: 클라이언트(ID={clientId}) 연결 끊김. ReconnectionHandler에 위임.");
-                return;
-            }
-
-            // 클라이언트인 경우: 서버 연결 끊김
-            // clientId가 서버 ID(0)이거나 0인 경우 서버와의 연결 해제로 판단
-            Debug.Log($"[Network] 클라이언트: 서버 연결 끊김 (clientId={clientId}). 팝업 표시.");
+            Debug.Log("[Network] 클라이언트: 서버 연결 끊김 알림 수신. 팝업 표시.");
             _disconnectHandled = true;
             ShowDisconnectPopup();
         }
@@ -230,7 +217,10 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 연결 끊김 팝업의 "확인" 버튼 클릭 시.
-        /// NetworkManager를 종료하고 지정된 씬으로 복귀.
+        /// NetworkGameManager.ShutdownNetwork()를 호출하고 지정된 씬으로 복귀.
+        ///
+        /// 이전: NetworkManager.Singleton.Shutdown() 직접 호출
+        /// 변경: NGM의 공개 래퍼 ShutdownNetwork() 호출 — Unity.Netcode 직접 의존 제거
         /// </summary>
         private void OnReturnButtonClicked()
         {
@@ -239,9 +229,9 @@ namespace Hexiege.Presentation
             // 시간 복원 (게임 종료 팝업과 함께 표시된 경우)
             Time.timeScale = 1f;
 
-            // 네트워크 종료
-            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
-                NetworkManager.Singleton.Shutdown();
+            // 네트워크 종료 — NGM에 위임
+            if (_networkGameManager != null)
+                _networkGameManager.ShutdownNetwork();
 
             // 복귀 씬 로드
             SceneManager.LoadScene(_returnSceneName);

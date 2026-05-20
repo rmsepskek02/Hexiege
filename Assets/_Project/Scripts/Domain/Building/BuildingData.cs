@@ -50,19 +50,16 @@ namespace Hexiege.Domain
 
         /// <summary>
         /// 건물 생성. Id는 _nextId에서 자동 발급.
+        /// [2026-05-20] 중복 제거 — ID 지정 생성자에 위임한다.
         /// </summary>
         /// <param name="type">건물 종류</param>
         /// <param name="team">소속 팀</param>
         /// <param name="position">배치 위치 (헥스 좌표)</param>
         /// <param name="maxHp">최대 체력</param>
         public BuildingData(BuildingType type, TeamId team, HexCoord position, int maxHp)
+            : this(_nextId++, type, team, position, maxHp)
         {
-            Id = _nextId++;
-            Type = type;
-            Team = team;
-            Position = position;
-            MaxHp = maxHp;
-            Hp = maxHp;
+            // 자동 Id 발급 후 ID 지정 생성자에 위임.
         }
 
         /// <summary>

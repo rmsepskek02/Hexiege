@@ -28,7 +28,6 @@
 // ============================================================================
 
 using System;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
@@ -480,13 +479,16 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 선택된 건물 타입을 배치하고 팝업 닫기.
         /// 싱글플레이: UseCase 직접 호출 (기존 흐름 유지).
-        /// 멀티플레이: NetworkBuildingController.RequestBuildServerRpc를 통해
+        /// 멀티플레이: NetworkBuildingController.RequestBuild 래퍼를 통해
         ///             서버에 배치 요청을 위임. 골드 차감과 실제 배치는 서버에서 처리.
+        ///
+        /// [2026-05-20] Unity.Netcode 직접 의존 제거:
+        ///   - NetworkManager.Singleton.IsHost/IsClient 체크 → NetworkContext.IsNetworkActive
+        ///   - RequestBuildServerRpc 직접 호출 → RequestBuild() 래퍼 메서드
         /// </summary>
         private void PlaceAndClose(BuildingType type)
         {
-            bool isNetworkMode = NetworkManager.Singleton != null &&
-                                 (NetworkManager.Singleton.IsHost || NetworkManager.Singleton.IsClient);
+            bool isNetworkMode = NetworkContext.IsNetworkActive;
 
             if (isNetworkMode && _networkBuildingController != null)
             {
@@ -503,10 +505,10 @@ namespace Hexiege.Presentation
                     }
                 }
 
-                // 서버에 배치 요청 전송
-                _networkBuildingController.RequestBuildServerRpc(
-                    (int)type,
-                    (int)_currentTeam,
+                // 서버에 배치 요청 전송 — ServerRpc 직접 호출 대신 래퍼 메서드 사용
+                _networkBuildingController.RequestBuild(
+                    type,
+                    _currentTeam,
                     _targetCoord.Q,
                     _targetCoord.R);
 

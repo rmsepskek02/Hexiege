@@ -29,12 +29,12 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
-using Unity.Netcode;
 using TMPro;
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
 using Hexiege.Bootstrap;
+using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
@@ -57,6 +57,13 @@ namespace Hexiege.Presentation
         [Header("Dependencies")]
         [Tooltip("GameBootstrapper (재시작용)")]
         [SerializeField] private GameBootstrapper _bootstrapper;
+
+        // [2026-05-20] Unity.Netcode 직접 의존 제거를 위해 NetworkGameManager를 Inspector 주입으로 변경.
+        // 기존: NetworkManager.Singleton.Shutdown()을 GameEndUI에서 직접 호출
+        // 변경: NetworkGameManager.BackToLobby()에 위임 — Application 레이어 NetworkContext만 사용
+        // (NetworkGameManager는 Infrastructure 레이어 컴포넌트로 NGO를 안전하게 종료하는 책임을 가짐)
+        [Tooltip("네트워크 게임 매니저. 멀티플레이 시 로비 복귀 처리 위임용. 싱글플레이면 null이어도 됨.")]
+        [SerializeField] private NetworkGameManager _networkGameManager;
 
         [Header("로비 복귀")]
         [Tooltip("로비로 돌아가기 버튼")]
@@ -82,6 +89,12 @@ namespace Hexiege.Presentation
         /// <summary> 현재 이벤트 구독. 재초기화 시 이전 구독 정리용. </summary>
         private System.IDisposable _gameEndSubscription;
 
+        /// <summary> 멀티플레이 재경기 활성화 이벤트 구독 해제용. </summary>
+        private System.IDisposable _rematchAvailableSubscription;
+
+        /// <summary> 멀티플레이 재경기 거절 이벤트 구독 해제용. </summary>
+        private System.IDisposable _rematchDeclinedSubscription;
+
         /// <summary> 자동 로비 복귀 카운트다운 코루틴. </summary>
         private Coroutine _countdownCoroutine;
 
@@ -97,10 +110,22 @@ namespace Hexiege.Presentation
         {
             // 이전 구독 정리 (재시작 시 중복 방지)
             _gameEndSubscription?.Dispose();
+            _rematchAvailableSubscription?.Dispose();
+            _rematchDeclinedSubscription?.Dispose();
 
             // 게임 종료 이벤트 구독
+            // [2026-05-20] 멀티플레이 흐름 통일: NetworkGameEndController가 GameEvents.OnGameEnd를 발행하므로
+            //   싱글/멀티 모두 본 구독으로 ShowResult 진입한다.
             _gameEndSubscription = GameEvents.OnGameEnd
                 .Subscribe(OnGameEnd);
+
+            // [2026-05-20] 멀티 재경기 버튼 활성화 신호 구독.
+            _rematchAvailableSubscription = GameEvents.OnNetworkRematchAvailable
+                .Subscribe(e => SetupRematchButton(e.IsRandomMatch));
+
+            // [2026-05-20] 멀티 재경기 거절 신호 구독 — 버튼/카운트다운 상태 복원.
+            _rematchDeclinedSubscription = GameEvents.OnNetworkRematchDeclined
+                .Subscribe(_ => RestoreRematchButton());
 
             // 다시하기 버튼 이벤트 (중복 등록 방지)
             if (_restartButton != null)
@@ -124,6 +149,8 @@ namespace Hexiege.Presentation
         {
             StopCountdown();
             _gameEndSubscription?.Dispose();
+            _rematchAvailableSubscription?.Dispose();
+            _rematchDeclinedSubscription?.Dispose();
         }
 
         // ====================================================================
@@ -150,12 +177,21 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 게임 종료 시 호출. 승리/패배 텍스트 표시 + 게임 일시정지.
+        ///
+        /// [2026-05-20] 멀티플레이 흐름 통일:
+        ///   기존: 싱글은 OnGameEnd 구독으로 자동 표시되고, 멀티는 NetworkGameEndController가
+        ///         ShowResult를 직접 호출했다.
+        ///   변경: NetworkGameEndController도 GameEvents.OnGameEnd를 발행하므로 본 핸들러로 일원화.
+        ///         로컬 팀 비교는 LocalPlayerTeam.Current(멀티)로 처리하되, 싱글은 LocalPlayerTeam이
+        ///         설정되지 않으므로 Blue 고정 폴백을 사용한다.
         /// </summary>
         private void OnGameEnd(GameEndEvent e)
         {
             if (_panel == null) return;
-            // 플레이어 = Blue 고정
-            bool isWin = (e.Winner == TeamId.Blue);
+
+            // 멀티플레이면 LocalPlayerTeam.Current(자신의 팀)과 비교, 싱글이면 Blue 기본.
+            TeamId localTeam = NetworkContext.IsNetworkActive ? LocalPlayerTeam.Current : TeamId.Blue;
+            bool isWin = (e.Winner == localTeam);
 
             if (_resultText != null)
             {
@@ -244,6 +280,16 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 로비로 즉시 복귀. 네트워크 활성 여부와 무관하게 로컬 독립 처리.
+        ///
+        /// 네트워크 활성 시:
+        ///   NetworkGameManager.BackToLobby() 호출 — 내부에서 OnClientConnectedCallback 해제,
+        ///   Heartbeat 정지, Lobby 퇴장, Shutdown, 씬 전환을 순서대로 안전하게 처리.
+        /// 싱글플레이 시:
+        ///   SceneManager.LoadScene("Lobby") 직접 호출.
+        ///
+        /// 이전에는 NetworkManager.Singleton.Shutdown()을 직접 호출했으나,
+        /// Unity.Netcode 직접 의존을 제거하고자 Application 레이어 NetworkContext로 분기하고,
+        /// 실제 Shutdown 책임은 Infrastructure 레이어 NetworkGameManager로 위임.
         /// </summary>
         private void ReturnToLobby()
         {
@@ -251,9 +297,14 @@ namespace Hexiege.Presentation
             Time.timeScale = 1f;
             Hide();
 
-            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
-                NetworkManager.Singleton.Shutdown();
+            // 멀티플레이 활성 + NGM 주입되어 있으면 NGM에 위임 (BackToLobby가 내부에서 씬 전환까지 처리)
+            if (NetworkContext.IsNetworkActive && _networkGameManager != null)
+            {
+                _networkGameManager.BackToLobby("Lobby");
+                return;
+            }
 
+            // 싱글플레이 또는 NGM 미연결: 씬 전환만 수행
             SceneManager.LoadScene("Lobby");
         }
 
@@ -289,16 +340,20 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 멀티플레이 재경기 버튼 설정. 게임 모드에 따라 버튼 동작 분기.
-        /// 랜덤매칭: 다시하기 버튼 숨김 (로비 복귀만 가능).
-        /// 커스텀게임: 재경기 요청 콜백 연결 + 요청 중 상태 표시.
+        /// 랜덤매칭: 다시하기 버튼 숨김 (로비 복귀만 가능) — 현재는 동일 동작으로 유지.
+        /// 커스텀게임: 재경기 요청 발행 + 요청 중 상태 표시.
+        ///
+        /// [2026-05-20] 리팩토링:
+        ///   기존: NetworkGameEndController가 onRequestRematch 콜백을 직접 주입.
+        ///   변경: GameEvents.OnNetworkRematchAvailable 구독 시 자동 호출 + 콜백 대신
+        ///         OnLocalRematchRequested 이벤트를 발행해 컨트롤러가 ServerRpc로 변환한다.
         /// </summary>
         /// <param name="isRandomMatch">랜덤 매칭 여부. 현재 미사용 — 랜덤/커스텀 모두 동일 동작.</param>
-        /// <param name="onRequestRematch">재경기 요청 콜백.</param>
-        public void SetupRematchButton(bool isRandomMatch, System.Action onRequestRematch)
+        public void SetupRematchButton(bool isRandomMatch)
         {
             if (_restartButton == null) return;
 
-            // 멀티플레이: 재경기 요청 콜백 연결 (랜덤/커스텀 동일)
+            // 멀티플레이: 재경기 요청 이벤트 발행 (랜덤/커스텀 동일)
             _restartButton.onClick.RemoveAllListeners();
             _restartButton.onClick.AddListener(() =>
             {
@@ -311,7 +366,8 @@ namespace Hexiege.Presentation
                 if (_backToLobbyButton != null)
                     _backToLobbyButton.interactable = false;
 
-                onRequestRematch?.Invoke();
+                // 컨트롤러 직접 호출 대신 이벤트 발행 → NetworkGameEndController가 구독 후 ServerRpc 전송
+                GameEvents.OnLocalRematchRequested.OnNext(Unit.Default);
             });
         }
 

@@ -110,21 +110,12 @@ namespace Hexiege.Domain
             int maxHp, int attackPower, float attackRange, float detectRange,
             float moveSpeed = 1.0f,
             HexDirection facing = HexDirection.E)
+            : this(_nextId++, type, team, position, maxHp, attackPower, attackRange,
+                   detectRange, moveSpeed, facing)
         {
-            Id = _nextId++;
-            Type = type;
-            Team = team;
-            Position = position;
-            MaxHp = maxHp;
-            Hp = maxHp;
-            AttackPower = attackPower;
-            AttackRange = attackRange;
-            DetectRange = detectRange;
-            MoveSpeed = moveSpeed;
-            AttackCooldown = UnitStats.GetAttackCooldown(type);
-            AttackCooldownRemaining = 0f;
-            HitFrameTimes = UnitStats.GetHitFrameTimes(type);
-            Facing = facing;
+            // 자동 Id 발급 후 ID 지정 생성자에 위임.
+            // _nextId 갱신은 ID 지정 생성자 안에서 if (_nextId <= id) _nextId = id + 1; 로 처리되지만,
+            // 여기서 이미 _nextId++가 발생했으므로 추가 처리 불필요.
         }
 
         /// <summary>

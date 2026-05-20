@@ -50,7 +50,10 @@ using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
-    public class UnitView : MonoBehaviour
+    // [2026-05-20] IUnitView 인터페이스 구현 추가.
+    //   UnitFactory(Infrastructure)가 Presentation 구체 타입 대신 인터페이스로 Initialize를 호출하도록.
+    //   SetDependencies는 Infrastructure 구체 타입을 받으므로 인터페이스에 포함하지 않음.
+    public class UnitView : MonoBehaviour, Hexiege.Application.IUnitView
     {
         // ====================================================================
         // Animator 파라미터 해시 (문자열 비교 방지)
@@ -335,7 +338,7 @@ namespace Hexiege.Presentation
             _positionProvider = positionProvider;
 
             // 전투 상태 변화 이벤트 구독 — 싱글플레이 전용.
-            // 멀티플레이에서는 NetworkCombatController가 ClientRpc로 직접 메서드 호출.
+            // 멀티플레이에서는 NetworkCombatController가 GameEvents.OnNetworkCombatStarted 등을 발행한다.
             if (!NetworkContext.IsNetworkActive)
             {
                 // 전투 시작 → Walk 정지 후 Attack 루프 시작 + 타겟 방향 회전
@@ -368,6 +371,58 @@ namespace Hexiege.Presentation
                         if (_unitData != null && unitId == _unitData.Id)
                         {
                             StopCombatAnimation();
+                        }
+                    })
+                    .AddTo(this);
+            }
+            else
+            {
+                // [2026-05-20] 멀티플레이 전용 전투/Walk 이벤트 구독.
+                // NetworkCombatController가 ClientRpc 핸들러에서 UnitView를 직접 GetComponent로 잡지 않도록,
+                // GameEvents.OnNetworkCombatStarted/등을 발행하면 본인 Id에 해당하는 이벤트만 처리한다.
+                //
+                // AddTo(this)로 GameObject 파괴 시 자동 구독 해제 — 재경기/씬 전환 시 누수 방지.
+
+                // 멀티플레이 전투 시작
+                GameEvents.OnNetworkCombatStarted
+                    .Subscribe(e =>
+                    {
+                        if (_unitData != null && e.UnitId == _unitData.Id)
+                        {
+                            StartCombatAnimation(e.TargetId, e.TargetIsUnit);
+                        }
+                    })
+                    .AddTo(this);
+
+                // 멀티플레이 타겟 변경
+                GameEvents.OnNetworkCombatTargetChanged
+                    .Subscribe(e =>
+                    {
+                        if (_unitData != null && e.UnitId == _unitData.Id)
+                        {
+                            ChangeTarget(e.TargetId, e.TargetIsUnit);
+                        }
+                    })
+                    .AddTo(this);
+
+                // 멀티플레이 전투 종료
+                GameEvents.OnNetworkCombatStopped
+                    .Subscribe(e =>
+                    {
+                        if (_unitData != null && e.UnitId == _unitData.Id)
+                        {
+                            StopCombatAnimation();
+                        }
+                    })
+                    .AddTo(this);
+
+                // 멀티플레이 Walk 시작 (서버 ClientRpc → 클라이언트 Walk 애니메이션 동기화)
+                GameEvents.OnNetworkWalkStarted
+                    .Subscribe(e =>
+                    {
+                        if (_unitData != null && e.UnitId == _unitData.Id)
+                        {
+                            StartWalkAnimation();
                         }
                     })
                     .AddTo(this);
@@ -984,9 +1039,10 @@ namespace Hexiege.Presentation
                     // [2026-05-15] 혼잡도 시스템 — A* 이동 중 새 타일에 진입했을 때만 발행.
                     // 전투 추격 단계에서는 _isAStarMoving == false라 발행되지 않는다.
                     // GameBootstrapper가 이 이벤트를 받아 CongestionMap.Increment(tile)을 수행한다.
+                    // [2026-05-20] Action → Subject 통일: GameEvents.OnUnitEnteredTile.OnNext(...) 사용.
                     if (_isAStarMoving)
                     {
-                        GameEvents.OnUnitEnteredTile?.Invoke(_unitData.Id, to);
+                        GameEvents.OnUnitEnteredTile.OnNext(new UnitEnteredTileEvent(_unitData.Id, to));
                     }
 
                     prevActualTile = to;

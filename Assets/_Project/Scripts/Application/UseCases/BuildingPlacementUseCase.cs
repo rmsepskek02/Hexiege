@@ -28,6 +28,14 @@ namespace Hexiege.Application
         // 배치된 모든 건물을 Id로 인덱싱하여 관리.
         private readonly Dictionary<int, BuildingData> _buildings = new Dictionary<int, BuildingData>();
 
+        // ====================================================================
+        // [2026-05-20] 위치 기반 역인덱스 (성능 최적화)
+        // ====================================================================
+        // 건물은 한 타일에 최대 1개이므로 List 없이 단일 매핑이면 충분하다.
+        // 동기화 책임: PlaceBuilding* / DemolishBuilding / RemoveBuilding / UpgradeBuilding* / Clear
+        private readonly Dictionary<HexCoord, BuildingData> _buildingsByPosition
+            = new Dictionary<HexCoord, BuildingData>();
+
         /// <summary> 현재 존재하는 모든 건물 목록 (읽기 전용). </summary>
         public IReadOnlyDictionary<int, BuildingData> Buildings => _buildings;
 
@@ -133,6 +141,7 @@ namespace Hexiege.Application
             // ID 지정 생성자 사용 — 서버와 동일한 Id로 BuildingData 생성
             var building = new BuildingData(buildingId, type, team, position, maxHp);
             _buildings[building.Id] = building;
+            _buildingsByPosition[position] = building; // 위치 역인덱스 동기화
 
             // 타일 상태 변경
             tile.IsWalkable = false;
@@ -171,6 +180,7 @@ namespace Hexiege.Application
             int maxHp = BuildingStats.GetMaxHp(type, race);
             var building = new BuildingData(type, team, position, maxHp);
             _buildings[building.Id] = building;
+            _buildingsByPosition[position] = building; // 위치 역인덱스 동기화
 
             // 타일 상태 변경: 이동 불가 + 소유권 설정
             tile.IsWalkable = false;
@@ -260,16 +270,12 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 좌표에 있는 건물 조회.
-        /// O(n) 탐색이지만 건물 수가 적어 문제 없음.
+        /// [2026-05-20] 위치 역인덱스(_buildingsByPosition) 도입으로 O(n) → O(1)로 단축.
         /// </summary>
         public BuildingData GetBuildingAt(HexCoord position)
         {
-            foreach (var kvp in _buildings)
-            {
-                if (kvp.Value.Position == position)
-                    return kvp.Value;
-            }
-            return null;
+            _buildingsByPosition.TryGetValue(position, out var building);
+            return building;
         }
 
         /// <summary>
@@ -335,6 +341,12 @@ namespace Hexiege.Application
                     }
                 }
 
+                // 위치 역인덱스에서도 동기 제거 — 동일 인스턴스인 경우에만 제거 (업그레이드 도중 안전성)
+                if (_buildingsByPosition.TryGetValue(building.Position, out var indexed) &&
+                    ReferenceEquals(indexed, building))
+                {
+                    _buildingsByPosition.Remove(building.Position);
+                }
                 return _buildings.Remove(buildingId);
             }
             return false;
@@ -346,6 +358,7 @@ namespace Hexiege.Application
         public void Clear()
         {
             _buildings.Clear();
+            _buildingsByPosition.Clear();
         }
 
         // ====================================================================
@@ -389,6 +402,8 @@ namespace Hexiege.Application
             int newMaxHp = BuildingStats.GetMaxHp(nextType, race);
             var newBuilding = new BuildingData(nextType, oldBuilding.Team, oldBuilding.Position, newMaxHp);
             _buildings[newBuilding.Id] = newBuilding;
+            // 위치 역인덱스 교체 — 같은 타일에 새 인스턴스 매핑
+            _buildingsByPosition[newBuilding.Position] = newBuilding;
 
             // 5) 이벤트 발행 → BuildingFactory가 새 프리팹 생성 후 기존 GO 제거 (빈 타일 방지)
             GameEvents.OnBuildingUpgraded.OnNext(new BuildingUpgradedEvent(buildingId, newBuilding));
@@ -423,6 +438,8 @@ namespace Hexiege.Application
             int newMaxHp = BuildingStats.GetMaxHp(newType, race);
             var newBuilding = new BuildingData(newBuildingId, newType, team, position, newMaxHp);
             _buildings[newBuilding.Id] = newBuilding;
+            // 위치 역인덱스 교체
+            _buildingsByPosition[position] = newBuilding;
 
             // 이벤트 발행 — BuildingFactory가 새 프리팹 생성 후 기존 GO 제거
             GameEvents.OnBuildingUpgraded.OnNext(new BuildingUpgradedEvent(oldBuildingId, newBuilding));

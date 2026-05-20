@@ -18,11 +18,11 @@
 //   _selectedCoord: 현재 선택된 타일 좌표 (없으면 null)
 //   같은 타일을 다시 클릭하면 선택 해제 (토글)
 //
-// Application 레이어 — Domain과 Core에 의존, Unity에 직접 의존하지 않음.
+// Application 레이어 — Domain만 의존. 좌표 변환은 IHexCoordinateMapper 인터페이스로
+// 추상화하여 Core 레이어(HexMetrics)에 직접 의존하지 않는다.
 // ============================================================================
 
 using Hexiege.Domain;
-using Hexiege.Core;
 
 namespace Hexiege.Application
 {
@@ -31,15 +31,19 @@ namespace Hexiege.Application
         // 타일 데이터 조회용 그리드 참조
         private readonly HexGrid _grid;
 
+        // 월드↔헥스 좌표 변환기. Core(HexMetrics) 의존을 피하기 위한 인터페이스 주입.
+        private readonly IHexCoordinateMapper _mapper;
+
         // 현재 선택된 타일 좌표. null이면 아무것도 선택 안 된 상태.
         private HexCoord? _selectedCoord;
 
         /// <summary> 현재 선택된 타일 좌표. 외부에서 읽기 전용. </summary>
         public HexCoord? SelectedCoord => _selectedCoord;
 
-        public GridInteractionUseCase(HexGrid grid)
+        public GridInteractionUseCase(HexGrid grid, IHexCoordinateMapper mapper)
         {
             _grid = grid;
+            _mapper = mapper;
         }
 
         /// <summary>
@@ -54,7 +58,7 @@ namespace Hexiege.Application
         /// <param name="worldPos">클릭된 Unity 월드 좌표</param>
         public void SelectTileAt(UnityEngine.Vector3 worldPos)
         {
-            HexCoord coord = HexMetrics.WorldToHex(worldPos);
+            HexCoord coord = _mapper.WorldToHex(worldPos);
 
             // 그리드 밖 클릭 → 선택 해제
             if (!_grid.HasTile(coord))

@@ -28,13 +28,13 @@
 //   - HashSet 인스턴스를 매 프레임 할당하지 않도록 _setPool로 재사용.
 //   - 타일 Dictionary도 .Clear() 후 재사용하여 GC 압력을 최소화.
 //
-// Application 레이어 — Domain/Core(ViewConverter, HexMetrics) 참조 가능.
+// Application 레이어 — IHexCoordinateMapper 인터페이스를 통해 좌표 변환.
+// Core(HexMetrics / ViewConverter)에 직접 의존하지 않는다.
 // ============================================================================
 
 using System.Collections.Generic;
 using UnityEngine;
 using Hexiege.Domain;
-using Hexiege.Core;
 
 namespace Hexiege.Application.Services
 {
@@ -58,6 +58,9 @@ namespace Hexiege.Application.Services
         // 유닛의 실제 월드(view) 좌표를 얻기 위한 인터페이스.
         // 싱글/멀티 모두 UnitWorldPositionProvider 인스턴스가 주입된다.
         private readonly IEntityPositionProvider _positionProvider;
+
+        // 월드↔헥스 좌표 변환기. Core(HexMetrics / ViewConverter) 의존을 피하기 위한 인터페이스 주입.
+        private readonly IHexCoordinateMapper _mapper;
 
         // ====================================================================
         // 프레임 작업용 자료구조
@@ -84,11 +87,14 @@ namespace Hexiege.Application.Services
         /// <param name="grid">소유권을 갱신할 HexGrid 인스턴스.</param>
         /// <param name="unitSpawn">살아있는 유닛 목록을 제공하는 UseCase.</param>
         /// <param name="positionProvider">유닛의 실제 월드 좌표를 반환하는 인터페이스.</param>
-        public TileOwnershipService(HexGrid grid, UnitSpawnUseCase unitSpawn, IEntityPositionProvider positionProvider)
+        /// <param name="mapper">월드↔헥스 좌표 변환 + 도메인 좌표 정규화 인터페이스.</param>
+        public TileOwnershipService(HexGrid grid, UnitSpawnUseCase unitSpawn,
+            IEntityPositionProvider positionProvider, IHexCoordinateMapper mapper)
         {
             _grid = grid;
             _unitSpawn = unitSpawn;
             _positionProvider = positionProvider;
+            _mapper = mapper;
         }
 
         // ====================================================================
@@ -107,7 +113,7 @@ namespace Hexiege.Application.Services
         public void Tick()
         {
             // 안전 가드: 의존성이 빠져 있으면 무동작 (재경기 직후 등 일시 상태).
-            if (_grid == null || _unitSpawn == null || _positionProvider == null) return;
+            if (_grid == null || _unitSpawn == null || _positionProvider == null || _mapper == null) return;
 
             // ─── Step 1: 이전 프레임 누적 정보 초기화 ─────────────────────────
             // 각 HashSet은 Clear 후 풀에 반납하여 다음 프레임에 재사용.
@@ -135,11 +141,12 @@ namespace Hexiege.Application.Services
                 Vector3 viewPos = _positionProvider.GetUnitWorldPosition(unitId);
                 if (viewPos == Vector3.zero) continue;
 
-                // Red 팀이면 ViewConverter가 좌표를 반전 출력했으므로 도메인 기준으로 되돌린다.
-                Vector3 domainPos = ViewConverter.FromView(viewPos);
+                // Red 팀이면 매퍼 내부에서 좌표를 반전 출력했으므로 도메인 기준으로 되돌린다.
+                // (HexMetricsCoordinateMapper.NormalizeToDomainPosition은 ViewConverter.FromView를 위임 호출.)
+                Vector3 domainPos = _mapper.NormalizeToDomainPosition(viewPos);
 
                 // 가장 가까운 헥스 타일 좌표를 계산.
-                HexCoord tile = HexMetrics.WorldToHex(domainPos);
+                HexCoord tile = _mapper.WorldToHex(domainPos);
 
                 // 그리드 밖이면 무시. (HexCoord에는 IsInvalid 프로퍼티가 없으므로
                 // 그리드 자체에 등록된 타일인지를 가지고 유효성을 판단한다.)

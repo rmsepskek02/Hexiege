@@ -23,6 +23,71 @@
 
 ## 최근 작업
 
+### 코드 리팩토링 Group 3/5/6 완료 (2026-05-20) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-19/10_46_code-refactoring/Plan.md`
+
+**Group 3 (레이어 의존 제거) 완료 카테고리**:
+- A: NetworkContext 교체 — ProductionTicker, GameEndUI에서 `NetworkManager.Singleton` 직접 호출 제거
+- B: NGM 주입화 — LobbyUI, NetworkStatusUI에서 `OnClientConnectedCallback` 직접 구독 제거
+  - NGM에 `OnAllPlayersReady(int)`, `OnServerDisconnected`, `GetCurrentRttMs()`, `IsNetworkRunning`, `ShutdownNetwork()` 추가
+- D: ServerRpc 래퍼화 — BuildingPanelBase, BuildingPlacementUI, ProductionPanelUI에서 `*ServerRpc` 직접 호출 제거
+  - NetworkBuildingController에 `RequestBuild`, `RequestDemolish`, `RequestUpgrade` 래퍼 추가
+  - NetworkProductionController에 `RequestEnqueue`, `RequestCancelSlot`, `RequestSetRallyPoint`, `RequestToggleAuto` 래퍼 추가
+- E (Combat): NetworkCombatController가 UnitView GetComponent 직접 호출 → GameEvents 발행으로 교체
+  - GameEvents.OnNetworkCombatStarted/TargetChanged/Stopped, OnNetworkWalkStarted 4개 신규 추가
+  - UnitView가 멀티플레이 분기에서 위 이벤트 구독
+- E (GameEnd): NetworkGameEndController가 GameEndUI/RematchRequestPopup/GameUIManager 직접 호출 → GameEvents 발행
+  - GameEvents.OnNetworkRematchAvailable/Requested/Declined, OnLocalRematchRequested/Accepted/Declined 추가
+  - `[SerializeField] _gameEndUI/_rematchRequestPopup/_uiManager` 모두 제거
+  - **IForfeitService 인터페이스 신규** (`Application/Interfaces/IForfeitService.cs`)
+    - GameEndUseCase가 구현 (싱글), NetworkGameEndController가 구현 (멀티)
+    - InGameSettingsUI에서 `FindFirstObjectByType<NetworkGameEndController>()` 제거 → 주입으로 변경
+    - GameBootstrapper.Map.cs에서 `NetworkContext.IsNetworkActive` 분기로 적합한 구현체 선택 주입
+
+**Group 5 (O(n) 캐시화) 완료**:
+- UnitSpawnUseCase: `_unitsByPosition: Dictionary<HexCoord, List<UnitData>>` 추가, `NotifyUnitMoved(unit, from, to)` 신규
+  - UnitMovementUseCase.ProcessStep이 호출해 위치 갱신 단일 진입점 보장
+- BuildingPlacementUseCase: `_buildingsByPosition: Dictionary<HexCoord, BuildingData>` 추가
+  - GetBuildingAt O(n) → O(1)
+- HexGrid: `_ownedTileCounts: Dictionary<TeamId, int>` 추가, Generate에서 Neutral=총타일수로 초기화
+  - SetOwner 호출 시 이전/새 팀 ±1 갱신, CountTilesOwnedBy O(187) → O(1)
+- PopulationUseCase: `_usedPopulationByTeam` 추가, OnUnit*/OnBuilding* 이벤트 구독으로 증감 갱신
+  - IDisposable 구현, GameBootstrapper.Map.cs ClearAll에서 `_population?.Dispose()` 추가
+
+**Group 6 완료**:
+- 6-1: BuildingType enum 0~31 명시값 부여 (기존 순서 보존, 직렬화 영향 없음)
+- 6-2: UnitData/BuildingData 일반 생성자 → `:this(...)` 위임 패턴
+- 6-7: OnUnitEnteredTile `Action<int, HexCoord>` → `Subject<UnitEnteredTileEvent>` 통일
+  - GameBootstrapper.cs ActionDisposable 내부 클래스 제거
+- 6-8: TODO 토스트 연결 — GameEvents.OnToastRequested 신규, ToastUI 구독
+  - NetworkBuildingController/NetworkProductionController에서 reason 문자열 → ToastKey 매핑하여 발행
+- 6-13: GameBootstrapper.IsNetworkMode → NetworkContext.IsNetworkActive로 단일화, using Unity.Netcode 제거
+- 6-15: ToastKey Presentation → Application/Events로 이동 (네임스페이스 `Hexiege.Application`)
+  - ToastMessageConfig: `using Hexiege.Presentation` → `using Hexiege.Application`
+  - IUnitView 인터페이스 신규 (`Application/Interfaces/IUnitView.cs`)
+  - UnitView가 IUnitView 구현, UnitFactory가 `GetComponent<IUnitView>()` 사용
+  - UnitFactory.cs `using Hexiege.Presentation` 제거 — Infrastructure→Presentation 의존 완전 제거
+
+**검증 결과**:
+- Presentation 레이어 `using Unity.Netcode` 0건 (Grep 검증 완료)
+- Infrastructure 레이어 `using Hexiege.Presentation` 0건 (Grep 검증 완료, 1건은 주석만)
+- ServerRpc 직접 호출 Presentation에서 0건 (Grep 검증 완료, 4건은 주석만)
+
+**Unity Inspector 수동 처리 필요**:
+1. NetworkGameEndController에서 `_gameEndUI`, `_rematchRequestPopup`, `_uiManager` 3개 SerializeField 제거됨
+   → 씬 Inspector에서 NetworkGameEndController 오브젝트의 위 슬롯이 비어 있음 (제거되었으므로 무관)
+2. GameEndUI에 `_networkGameManager` SerializeField 신규 추가 → 씬 Inspector에서 NetworkGameManager 오브젝트 연결 필요
+3. NetworkStatusUI에 `_networkGameManager` SerializeField 신규 추가 → 동일하게 연결 필요
+4. ToastKey.cs 파일이 `Application/Events/`로 이동됨 → Unity Editor에서 .meta 갱신 자동 처리되지만, 이동된 파일 위치 확인 권장
+
+**미처리/유의 사항**:
+- IUnitView.SetDependencies가 Infrastructure 구체 타입(UnitFactory/BuildingFactory)을 인자로 받음
+  - 엄격 정리 시 IUnitFactory/IBuildingFactory 별도 추출 필요, 본 리팩토링 범위에서 1차 의존만 제거
+- Group 2/2-B/4/7은 이전 에이전트가 처리 완료한 상태 그대로 유지
+
+---
+
 ### 건물 배치 팝업 3행 버튼 레이아웃 버그 수정 (2026-05-19) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-19/14_00_building-slot-layout-fix/`

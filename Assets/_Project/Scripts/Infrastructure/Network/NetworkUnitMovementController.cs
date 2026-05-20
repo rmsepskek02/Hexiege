@@ -122,9 +122,7 @@ namespace Hexiege.Infrastructure
             // ----------------------------------------------------------------
             // 1. UseCase 존재 확인
             // ----------------------------------------------------------------
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] RequestMoveServerRpc: GameBootstrapper를 찾을 수 없습니다.");

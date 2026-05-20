@@ -220,7 +220,6 @@ namespace Hexiege.Domain
             // 같은 좌표를 중복 추가하지 않도록 마지막 원소와 비교 후 추가.
             if (path.Count == 0 || path[path.Count - 1] != Destination)
             {
-                HexTile destTileCheck = null;
                 // _flow에 Destination 자체가 키로 등록되었는지를 walkable 여부 판정 근거로 사용.
                 // walkable 목적지는 Compute()에서 flow[destination] = destination로 등록된다.
                 if (!_flow.ContainsKey(Destination))
@@ -229,8 +228,6 @@ namespace Hexiege.Domain
                     // (UnitView가 마지막 타일 방향으로 Lerp 이동 후 공격하도록 하기 위함)
                     path.Add(Destination);
                 }
-                // destTileCheck 변수는 의미 명확화를 위해 선언만 해 둔 자리표시 — 실제 사용 없음.
-                _ = destTileCheck;
             }
 
             return path;

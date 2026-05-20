@@ -34,6 +34,22 @@ namespace Hexiege.Application
         // UnitView 생성, 유닛 조회, 삭제 등에 사용.
         private readonly Dictionary<int, UnitData> _units = new Dictionary<int, UnitData>();
 
+        // ====================================================================
+        // [2026-05-20] 위치 기반 역인덱스 (성능 최적화)
+        // ====================================================================
+        //
+        // 동일 좌표에 여러 유닛이 겹칠 수 있으므로(슬롯 시스템 폐기로 겹침 허용),
+        // Dictionary<HexCoord, List<UnitData>> 형태로 같은 타일 위 유닛들을 묶어 보관한다.
+        // GetUnitAt(coord)는 List의 첫 항목을 반환 — InputHandler 등 "임의의 하나" 정책 호출자 보존.
+        //
+        // 동기화 책임:
+        //   - SpawnUnit / SpawnUnitWithId: 등록 시 추가
+        //   - RemoveUnit: 제거
+        //   - 이동: UnitMovementUseCase.ProcessStep 이후 NotifyUnitMoved(unit, from, to)를 호출해야 한다
+        //     (이중 자료구조 무결성을 보장하기 위한 단일 진입점)
+        private readonly Dictionary<HexCoord, List<UnitData>> _unitsByPosition
+            = new Dictionary<HexCoord, List<UnitData>>();
+
         /// <summary> 현재 존재하는 모든 유닛 목록 (읽기 전용). </summary>
         public IReadOnlyDictionary<int, UnitData> Units => _units;
 
@@ -78,8 +94,9 @@ namespace Hexiege.Application
                 UnitStats.GetDetectRange(type),
                 UnitStats.GetMoveSpeed(type));
 
-            // 내부 목록에 등록
+            // 내부 목록에 등록 + 위치 역인덱스 동기화
             _units[unit.Id] = unit;
+            AddToPositionIndex(unit, position);
 
             // 타일을 유닛의 팀으로 점령
             _grid.SetOwner(position, team);
@@ -104,25 +121,77 @@ namespace Hexiege.Application
         /// <summary>
         /// 특정 좌표에 있는 유닛을 찾아 반환.
         /// 타일 클릭 시 해당 위치의 유닛이 있는지 확인하는 데 사용.
-        /// O(n) 탐색이지만 프로토타입 유닛 수가 적어 문제 없음.
+        ///
+        /// [2026-05-20] 위치 역인덱스 도입으로 O(n) → O(1)로 단축.
+        /// 동일 좌표에 여러 유닛이 있을 경우 List의 첫 항목을 반환 — 기존 "임의의 하나" 정책 유지.
         /// </summary>
         public UnitData GetUnitAt(HexCoord position)
         {
-            foreach (var kvp in _units)
-            {
-                if (kvp.Value.Position == position)
-                    return kvp.Value;
-            }
+            if (_unitsByPosition.TryGetValue(position, out var list) && list.Count > 0)
+                return list[0];
             return null;
         }
 
         /// <summary>
         /// 유닛을 목록에서 제거 (사망 처리 시).
         /// UnitCombatUseCase에서 HP가 0 이하가 된 유닛에 대해 호출.
+        ///
+        /// [2026-05-20] 위치 역인덱스도 함께 정리한다.
         /// </summary>
         public bool RemoveUnit(int unitId)
         {
+            if (_units.TryGetValue(unitId, out var unit))
+            {
+                RemoveFromPositionIndex(unit, unit.Position);
+            }
             return _units.Remove(unitId);
+        }
+
+        /// <summary>
+        /// 유닛 이동 시 호출 — 위치 역인덱스 동기화 단일 진입점.
+        /// UnitMovementUseCase.ProcessStep이 unit.Position을 갱신한 직후 반드시 호출해야 한다.
+        ///
+        /// from에서 제거 → to에 추가 순서. unit 인스턴스는 동일하므로 _units 본 컬렉션은 갱신 불필요.
+        /// </summary>
+        /// <param name="unit">이동한 유닛 (Position은 이미 to로 갱신됨)</param>
+        /// <param name="from">이동 전 좌표</param>
+        /// <param name="to">이동 후 좌표 (unit.Position과 동일해야 함)</param>
+        public void NotifyUnitMoved(UnitData unit, HexCoord from, HexCoord to)
+        {
+            if (unit == null) return;
+            if (from == to) return;
+            RemoveFromPositionIndex(unit, from);
+            AddToPositionIndex(unit, to);
+        }
+
+        // ====================================================================
+        // 내부 헬퍼 — 위치 역인덱스 갱신
+        // ====================================================================
+
+        /// <summary>
+        /// 지정 좌표의 유닛 리스트에 유닛 추가. 리스트가 없으면 생성한다.
+        /// </summary>
+        private void AddToPositionIndex(UnitData unit, HexCoord coord)
+        {
+            if (!_unitsByPosition.TryGetValue(coord, out var list))
+            {
+                list = new List<UnitData>(1);
+                _unitsByPosition[coord] = list;
+            }
+            // 중복 방지 — 같은 인스턴스가 두 번 들어가지 않도록
+            if (!list.Contains(unit))
+                list.Add(unit);
+        }
+
+        /// <summary>
+        /// 지정 좌표의 유닛 리스트에서 유닛 제거. 리스트가 비면 키도 제거한다.
+        /// </summary>
+        private void RemoveFromPositionIndex(UnitData unit, HexCoord coord)
+        {
+            if (!_unitsByPosition.TryGetValue(coord, out var list)) return;
+            list.Remove(unit);
+            if (list.Count == 0)
+                _unitsByPosition.Remove(coord);
         }
 
         /// <summary>
@@ -157,6 +226,8 @@ namespace Hexiege.Application
                 UnitStats.GetMoveSpeed(type));
 
             _units[unit.Id] = unit;
+            // 위치 역인덱스 동기화 (싱글플레이 SpawnUnit과 동일 처리)
+            AddToPositionIndex(unit, position);
 
             // 타일 소유권 설정
             _grid.SetOwner(position, team);

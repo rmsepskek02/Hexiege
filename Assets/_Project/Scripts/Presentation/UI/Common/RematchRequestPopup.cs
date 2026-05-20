@@ -12,6 +12,8 @@
 using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
+using UniRx;
+using Hexiege.Application;
 
 namespace Hexiege.Presentation
 {
@@ -74,6 +76,9 @@ namespace Hexiege.Presentation
         /// <summary>거절 알림 패널 페이드 Tween. 오버레이와 독립적으로 페이드 애니메이션 실행.</summary>
         private Tween _declinedFade;
 
+        /// <summary>OnNetworkRematchRequested / OnNetworkRematchDeclined 이벤트 구독 모음.</summary>
+        private CompositeDisposable _eventSubscriptions;
+
         // ====================================================================
         // Unity 생명주기
         // ====================================================================
@@ -97,6 +102,19 @@ namespace Hexiege.Presentation
             if (_overlay != null)      _overlay.SetActive(false);
             if (_requestPanel != null) _requestPanel.SetActive(false);
             if (_declinedPanel != null) _declinedPanel.SetActive(false);
+
+            // [2026-05-20] GameEvents 구독으로 NetworkGameEndController의 직접 호출을 제거.
+            //   OnNetworkRematchRequested → ShowRequest() (콜백 없이)
+            //   OnNetworkRematchDeclined → ShowDeclined()
+            _eventSubscriptions = new CompositeDisposable();
+
+            GameEvents.OnNetworkRematchRequested
+                .Subscribe(_ => ShowRequest())
+                .AddTo(_eventSubscriptions);
+
+            GameEvents.OnNetworkRematchDeclined
+                .Subscribe(_ => ShowDeclined())
+                .AddTo(_eventSubscriptions);
         }
 
         private void OnDestroy()
@@ -105,6 +123,10 @@ namespace Hexiege.Presentation
             _overlayFade?.Kill();
             _requestFade?.Kill();
             _declinedFade?.Kill();
+
+            // GameEvents 구독 해제
+            _eventSubscriptions?.Dispose();
+            _eventSubscriptions = null;
         }
 
         // ====================================================================
@@ -172,8 +194,29 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 재경기 요청 수신 팝업 표시.
-        /// 수락/거절 버튼으로 사용자 선택을 받음.
+        /// 재경기 요청 수신 팝업 표시 — 콜백 없는 단순 표시.
+        /// 수락/거절 시에는 GameEvents.OnLocalRematchAccepted / OnLocalRematchDeclined를 발행한다.
+        ///
+        /// [2026-05-20] Awake에서 GameEvents.OnNetworkRematchRequested 구독으로 자동 호출되며,
+        /// 직접 호출도 가능하다.
+        /// </summary>
+        public void ShowRequest()
+        {
+            // 콜백 미사용 — GameEvents 발행으로 대체.
+            _onAccept = null;
+            _onDecline = null;
+
+            // 거절 패널은 즉시 비활성 (페이드 불필요 — 보이지 않는 상태)
+            if (_declinedPanel != null) _declinedPanel.SetActive(false);
+
+            // 오버레이 + 요청 패널 페이드인 (각각 독립 Tween으로 관리)
+            FadeIn(_overlay, _overlayCg, ref _overlayFade);
+            FadeIn(_requestPanel, _requestPanelCg, ref _requestFade);
+        }
+
+        /// <summary>
+        /// 재경기 요청 수신 팝업 표시 — 콜백 버전(레거시 호환).
+        /// 새 코드에서는 콜백 없는 ShowRequest()를 사용하고 GameEvents.OnLocalRematch* 이벤트로 응답할 것.
         /// </summary>
         /// <param name="onAccept">수락 시 호출할 콜백.</param>
         /// <param name="onDecline">거절 시 호출할 콜백.</param>
@@ -182,10 +225,7 @@ namespace Hexiege.Presentation
             _onAccept = onAccept;
             _onDecline = onDecline;
 
-            // 거절 패널은 즉시 비활성 (페이드 불필요 — 보이지 않는 상태)
             if (_declinedPanel != null) _declinedPanel.SetActive(false);
-
-            // 오버레이 + 요청 패널 페이드인 (각각 독립 Tween으로 관리)
             FadeIn(_overlay, _overlayCg, ref _overlayFade);
             FadeIn(_requestPanel, _requestPanelCg, ref _requestFade);
         }
@@ -218,18 +258,21 @@ namespace Hexiege.Presentation
         // 버튼 핸들러
         // ====================================================================
 
-        /// <summary>수락 버튼 클릭. 팝업 닫고 콜백 실행.</summary>
+        /// <summary>수락 버튼 클릭. 팝업 닫고 콜백 또는 GameEvents.OnLocalRematchAccepted 발행.</summary>
         private void OnAcceptClicked()
         {
             Hide();
-            _onAccept?.Invoke();
+            // 콜백이 설정되어 있으면(레거시 경로) 콜백 호출, 그렇지 않으면 GameEvents 발행.
+            if (_onAccept != null) _onAccept.Invoke();
+            else GameEvents.OnLocalRematchAccepted.OnNext(Unit.Default);
         }
 
-        /// <summary>거절 버튼 클릭. 팝업 닫고 콜백 실행.</summary>
+        /// <summary>거절 버튼 클릭. 팝업 닫고 콜백 또는 GameEvents.OnLocalRematchDeclined 발행.</summary>
         private void OnDeclineClicked()
         {
             Hide();
-            _onDecline?.Invoke();
+            if (_onDecline != null) _onDecline.Invoke();
+            else GameEvents.OnLocalRematchDeclined.OnNext(Unit.Default);
         }
     }
 }

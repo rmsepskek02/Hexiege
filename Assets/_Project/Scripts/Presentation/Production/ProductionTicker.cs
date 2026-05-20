@@ -36,7 +36,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UniRx;
-using Unity.Netcode;
 using Hexiege.Domain;
 using Hexiege.Application;
 using Hexiege.Application.Services;
@@ -242,11 +241,9 @@ namespace Hexiege.Presentation
 
             // 멀티플레이 모드에서는 서버만 생산 Tick과 수입 처리를 실행.
             // 클라이언트는 생산 타이머를 진행하면 서버와 상태가 어긋나므로 스킵.
-            // 싱글플레이(NetworkManager 없음) 또는 서버이면 기존 로직 실행.
-            bool isNetworkListening = NetworkManager.Singleton != null &&
-                                      NetworkManager.Singleton.IsListening;
-
-            if (isNetworkListening && !NetworkManager.Singleton.IsServer)
+            // 싱글플레이(NetworkContext.IsNetworkActive=false) 또는 서버이면 기존 로직 실행.
+            // Application 레이어의 NetworkContext 정적 홀더를 통해 Unity.Netcode 의존성 제거.
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer)
             {
                 // 멀티플레이 클라이언트: UseCase Tick(생산 로직) 및 수입 Tick 생략
                 // 단, 프로그레스 바 시각 갱신을 위해 클라이언트 로컬 ElapsedTime만 진행
@@ -339,10 +336,11 @@ namespace Hexiege.Presentation
             // 멀티플레이 중이면 로컬 플레이어의 팀에 해당하는 이벤트만 처리한다.
             // 호스트(서버) = Blue팀, 클라이언트(비서버) = Red팀.
             // 상대 팀 배럭의 랠리포인트 변경 이벤트는 깃발 표시 없이 건너뛴다.
-            // 싱글플레이에서는 NetworkManager가 없으므로 이 블록을 건너뛰어 기존과 동일하게 동작한다.
-            if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+            // 싱글플레이에서는 NetworkContext.IsNetworkActive=false이므로 이 블록을 건너뛰어 기존과 동일하게 동작한다.
+            // Application 레이어의 NetworkContext 정적 홀더로 Unity.Netcode 의존성 제거.
+            if (NetworkContext.IsNetworkActive)
             {
-                TeamId localTeam = NetworkManager.Singleton.IsServer ? TeamId.Blue : TeamId.Red;
+                TeamId localTeam = NetworkContext.IsNetworkServer ? TeamId.Blue : TeamId.Red;
                 if (e.Team != localTeam) return;
             }
 

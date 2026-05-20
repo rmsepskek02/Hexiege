@@ -38,7 +38,6 @@
 
 using UnityEngine;
 using UnityEngine.UI;
-using Unity.Netcode;
 using TMPro;
 using Hexiege.Domain;
 using Hexiege.Application;
@@ -254,15 +253,16 @@ namespace Hexiege.Presentation
         {
             if (_currentBuilding == null) return;
 
-            // 멀티플레이 여부 — NetworkManager가 활성화되어 있고 컨트롤러가 주입된 경우.
+            // 멀티플레이 여부 — Application 레이어의 NetworkContext + 컨트롤러 주입 여부로 판단.
+            // (이전: NetworkManager.Singleton.IsListening 직접 호출 — Presentation의 NGO 직접 의존)
             bool isNetworkMode = _networkBuildingController != null
-                && NetworkManager.Singleton != null
-                && NetworkManager.Singleton.IsListening;
+                && NetworkContext.IsNetworkActive;
 
             if (isNetworkMode)
             {
                 // 서버가 검증/큐취소/환불/철거/동기화를 모두 담당한다.
-                _networkBuildingController.RequestDemolishServerRpc(_currentBuilding.Id);
+                // ServerRpc 직접 호출 대신 일반 래퍼(RequestDemolish) 사용으로 결합도 감소.
+                _networkBuildingController.RequestDemolish(_currentBuilding.Id);
             }
             else
             {

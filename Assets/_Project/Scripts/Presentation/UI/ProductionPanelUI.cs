@@ -24,7 +24,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections.Generic;
-using Unity.Netcode;
 using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
@@ -383,9 +382,10 @@ namespace Hexiege.Presentation
         private void OnQueueSlotClicked(int slotIndex)
         {
             if (_currentBuilding == null || _production == null) return;
-            if (_networkProductionController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+            // 멀티플레이 → 서버에 위임. NetworkContext + 래퍼 메서드로 NGO 직접 의존 제거.
+            if (_networkProductionController != null && NetworkContext.IsNetworkActive)
             {
-                _networkProductionController.CancelSlotServerRpc(_currentBuilding.Id, slotIndex, (int)_currentBuilding.Team);
+                _networkProductionController.RequestCancelSlot(_currentBuilding.Id, slotIndex, _currentBuilding.Team);
                 return;
             }
             _production.CancelQueueAt(_currentBuilding.Id, slotIndex);
@@ -425,9 +425,9 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            // 검증 통과 — 실제 등록을 위임.
-            if (_networkProductionController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
-                _networkProductionController.RequestEnqueueServerRpc(_currentBuilding.Id, (int)type, (int)_currentBuilding.Team);
+            // 검증 통과 — 실제 등록을 위임. 멀티플레이는 NetworkContext + 래퍼 메서드로 분기.
+            if (_networkProductionController != null && NetworkContext.IsNetworkActive)
+                _networkProductionController.RequestEnqueue(_currentBuilding.Id, type, _currentBuilding.Team);
             else
                 _production.EnqueueUnit(_currentBuilding.Id, type);
         }
@@ -498,8 +498,9 @@ namespace Hexiege.Presentation
 
         private void HandleToggleAuto(UnitType type)
         {
-            if (_networkProductionController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
-                _networkProductionController.ToggleAutoServerRpc(_currentBuilding.Id, (int)type, (int)_currentBuilding.Team);
+            // 멀티플레이 → 서버에 위임. NetworkContext + 래퍼 메서드로 NGO 직접 의존 제거.
+            if (_networkProductionController != null && NetworkContext.IsNetworkActive)
+                _networkProductionController.RequestToggleAuto(_currentBuilding.Id, type, _currentBuilding.Team);
             else
                 _production.ToggleAutoProduction(_currentBuilding.Id, type);
         }
@@ -509,8 +510,9 @@ namespace Hexiege.Presentation
         public void CompleteRallyPointSetting(HexCoord target)
         {
             if (_currentBuilding == null || _production == null) return;
-            if (_networkProductionController != null && NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
-                _networkProductionController.SetRallyPointServerRpc(_currentBuilding.Id, target.Q, target.R, (int)_currentBuilding.Team);
+            // 멀티플레이 → 서버에도 위임. NetworkContext + 래퍼 메서드로 NGO 직접 의존 제거.
+            if (_networkProductionController != null && NetworkContext.IsNetworkActive)
+                _networkProductionController.RequestSetRallyPoint(_currentBuilding.Id, target.Q, target.R, _currentBuilding.Team);
             _production.SetRallyPoint(_currentBuilding.Id, target);
             IsSettingRallyPoint = false;
             _currentBuilding = null;
@@ -592,14 +594,16 @@ namespace Hexiege.Presentation
                 return;
             }
 
+            // 멀티플레이 여부 — Application 레이어 NetworkContext + 컨트롤러 주입으로 판단.
+            // (이전: NetworkManager.Singleton.IsListening 직접 호출 — Presentation의 NGO 직접 의존)
             bool isNetworkMode = _networkBuildingController != null
-                && NetworkManager.Singleton != null
-                && NetworkManager.Singleton.IsListening;
+                && NetworkContext.IsNetworkActive;
 
             if (isNetworkMode)
             {
                 // 서버에 업그레이드 요청 — 골드 차감/검증은 서버에서 다시 수행.
-                _networkBuildingController.RequestUpgradeServerRpc(_currentBuilding.Id);
+                // ServerRpc 직접 호출 대신 일반 래퍼(RequestUpgrade) 사용으로 결합도 감소.
+                _networkBuildingController.RequestUpgrade(_currentBuilding.Id);
             }
             else
             {

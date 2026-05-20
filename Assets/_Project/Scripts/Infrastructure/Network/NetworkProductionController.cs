@@ -81,6 +81,68 @@ namespace Hexiege.Infrastructure
             }
         }
 
+        // ====================================================================
+        // 외부 호출용 래퍼 메서드 — UI 등 Presentation 레이어에서 사용
+        // ====================================================================
+        //
+        // 왜 래퍼 메서드인가?
+        //   ProductionPanelUI 등 UI(Presentation)가 *ServerRpc 메서드를 직접 호출하면
+        //   NGO API에 결합된다. 래퍼는 UI에게 일반 메서드 호출 형태를 제공하여
+        //   Presentation의 Unity.Netcode 직접 의존을 제거한다.
+        //
+        //   각 래퍼는 enum 타입을 그대로 받아 내부에서 int 캐스트하여 ServerRpc로 전달한다.
+        //
+        // ====================================================================
+
+        /// <summary>
+        /// 유닛 생산 큐 추가 요청 — UI 래퍼.
+        /// 실제로는 RequestEnqueueServerRpc로 위임된다.
+        /// </summary>
+        /// <param name="barracksId">생산 요청 배럭 Id.</param>
+        /// <param name="unitType">생산할 유닛 종류.</param>
+        /// <param name="team">요청 팀.</param>
+        public void RequestEnqueue(int barracksId, UnitType unitType, TeamId team)
+        {
+            RequestEnqueueServerRpc(barracksId, (int)unitType, (int)team);
+        }
+
+        /// <summary>
+        /// 유닛 생산 큐 슬롯 취소 요청 — UI 래퍼.
+        /// 실제로는 CancelSlotServerRpc로 위임된다.
+        /// </summary>
+        /// <param name="barracksId">대상 배럭 Id.</param>
+        /// <param name="slotIndex">취소할 큐 슬롯 인덱스(0=생산 중, 1~2=대기 큐).</param>
+        /// <param name="team">요청 팀.</param>
+        public void RequestCancelSlot(int barracksId, int slotIndex, TeamId team)
+        {
+            CancelSlotServerRpc(barracksId, slotIndex, (int)team);
+        }
+
+        /// <summary>
+        /// 랠리포인트 설정 요청 — UI 래퍼.
+        /// 실제로는 SetRallyPointServerRpc로 위임된다.
+        /// </summary>
+        /// <param name="barracksId">대상 배럭 Id.</param>
+        /// <param name="q">랠리 타겟 좌표 Q.</param>
+        /// <param name="r">랠리 타겟 좌표 R.</param>
+        /// <param name="team">요청 팀.</param>
+        public void RequestSetRallyPoint(int barracksId, int q, int r, TeamId team)
+        {
+            SetRallyPointServerRpc(barracksId, q, r, (int)team);
+        }
+
+        /// <summary>
+        /// 자동 생산 토글 요청 — UI 래퍼.
+        /// 실제로는 ToggleAutoServerRpc로 위임된다.
+        /// </summary>
+        /// <param name="barracksId">대상 배럭 Id.</param>
+        /// <param name="unitType">토글 대상 유닛 종류.</param>
+        /// <param name="team">요청 팀.</param>
+        public void RequestToggleAuto(int barracksId, UnitType unitType, TeamId team)
+        {
+            ToggleAutoServerRpc(barracksId, (int)unitType, (int)team);
+        }
+
         /// <summary>
         /// 네트워크 디스폰 시 이벤트 구독 해제.
         /// </summary>
@@ -261,9 +323,7 @@ namespace Hexiege.Infrastructure
             // ----------------------------------------------------------------
             // 1. 부트스트래퍼 및 UseCase 확인
             // ----------------------------------------------------------------
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] RequestEnqueueServerRpc: GameBootstrapper를 찾을 수 없습니다.");
@@ -393,10 +453,7 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] SpawnUnitClientRpc 수신. UnitId={unitId}, Type={unitTypeInt}, Team={teamIndex}, Q={q}, R={r}");
 
-            // UseCase 접근
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_bootstrapper == null)
             {
                 Debug.LogError("[Network] SpawnUnitClientRpc: GameBootstrapper를 찾을 수 없습니다.");
@@ -498,9 +555,7 @@ namespace Hexiege.Infrastructure
         {
             if (IsServer) return;
 
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
             if (production == null) return;
 
@@ -564,9 +619,7 @@ namespace Hexiege.Infrastructure
         {
             if (IsServer) return;
 
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
             if (production == null) return;
 
@@ -646,9 +699,7 @@ namespace Hexiege.Infrastructure
             }
 
             // 부트스트래퍼 및 UseCase 확인
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
             if (production == null)
             {
@@ -716,9 +767,7 @@ namespace Hexiege.Infrastructure
             // 2. 부트스트래퍼 및 UseCase 확인
             //    맵 로드 타이밍 이슈로 초기화가 늦을 수 있으므로 Find로 재시도.
             // ----------------------------------------------------------------
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
             if (production == null)
             {
@@ -767,9 +816,7 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            if (_bootstrapper == null)
-                _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-
+            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
             if (production == null)
             {
@@ -841,13 +888,26 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 생산 큐 추가 실패 알림. 요청한 클라이언트에게만 전송.
-        /// 현재는 로그만 출력. 향후 UI 피드백으로 확장 가능.
+        /// 클라이언트는 GameEvents.OnToastRequested 이벤트를 발행하여 ToastUI에 표시한다.
+        ///
+        /// [2026-05-20] reason 문자열을 ToastKey로 매핑:
+        ///   "골드 부족" → GoldInsufficient
+        ///   "인구 부족"/"인구 한계" → PopulationFull
+        ///   "큐 가득" → ProductionQueueFull
+        ///   그 외는 로그만 남기고 토스트 생략.
         /// </summary>
         [ClientRpc]
         private void EnqueueFailedClientRpc(string reason, ClientRpcParams clientRpcParams = default)
         {
             Debug.LogWarning($"[Network] 유닛 생산 큐 추가 실패: {reason}");
-            // TODO: UI 피드백 — 토스트 메시지 등
+
+            // reason → ToastKey 매핑. 매핑이 정의된 사유만 토스트 발행.
+            if (reason == "골드 부족")
+                GameEvents.OnToastRequested.OnNext(ToastKey.GoldInsufficient);
+            else if (reason == "인구 부족" || reason == "인구 한계")
+                GameEvents.OnToastRequested.OnNext(ToastKey.PopulationFull);
+            else if (reason == "큐 가득")
+                GameEvents.OnToastRequested.OnNext(ToastKey.ProductionQueueFull);
         }
     }
 }

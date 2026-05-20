@@ -33,7 +33,7 @@ using Hexiege.Domain;
 
 namespace Hexiege.Application
 {
-    public class GameEndUseCase : IDisposable
+    public class GameEndUseCase : IDisposable, IForfeitService
     {
         /// <summary> 게임이 이미 종료되었는지 여부. 중복 발행 방지. </summary>
         public bool IsGameOver { get; private set; }
@@ -101,6 +101,16 @@ namespace Hexiege.Application
             // 싱글플레이에서는 로컬 플레이어 = 항상 Blue.
             // Blue가 포기했으므로 Red가 승리.
             GameEvents.OnGameEnd.OnNext(new GameEndEvent(TeamId.Red));
+        }
+
+        /// <summary>
+        /// IForfeitService 구현 — 싱글플레이용 포기 어댑터.
+        /// InGameSettingsUI는 싱글/멀티 모드 분기 없이 IForfeitService.RequestForfeit()만 호출하면 된다.
+        /// 싱글플레이 모드에서는 본 메서드가 Forfeit()을 그대로 위임 호출한다.
+        /// </summary>
+        public void RequestForfeit()
+        {
+            Forfeit();
         }
 
         public void Dispose()
