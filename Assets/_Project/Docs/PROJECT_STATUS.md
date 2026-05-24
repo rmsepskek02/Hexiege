@@ -254,6 +254,15 @@
 | 에디터 자동 생성 스크립트 2종 | ✅ 완료 | `Hexiege/Setup/UnitStatsConfig 생성`, `Hexiege/Setup/BuildingStatsConfig 생성` |
 | 에셋 파일 생성 | ✅ 완료 | `Assets/_Project/Resources/Config/UnitStatsConfig.asset`, `BuildingStatsConfig.asset` |
 
+#### 공통 UI 규칙 수립 및 Canvas Scaler / SafeArea 적용 (2026-05-25)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 공통 UI 규칙 10개 확정 (GameSystemRules.md) | ✅ 완료 | Canvas Scaler, 앵커 기반 레이아웃, SafeArea, CanvasGroup 패턴, 폰트, 골드 부족 UI, 팝업/모달 구분 등 |
+| Canvas Scaler 통일 (Rule 1) | ✅ 완료 | SetupCanvasScaler.cs 에디터 스크립트. Game.unity(540×960→1080×1920, 0.5→0) + Lobby.unity Canvas2(0.5→0) |
+| SafeAreaFitter.cs 신규 구현 (Rule 4) | ✅ 완료 | Screen.safeArea 기반 anchorMin/anchorMax 정규화. `Presentation/UI/Common/` |
+| SafeAreaContainer 씬 구조 적용 (Rule 4) | ✅ 완료 | SetupSafeAreaContainer.cs 에디터 스크립트. Game.unity 7개 UI 이동, Lobby.unity 캔버스별 적용, ToastUI SafeAreaFitter 직접 부착 |
+| 전체 UI 규칙 준수 검증 | ⏳ 새 task에서 진행 | Rule 2(앵커), Rule 3(Filled 자식), Rule 5(CanvasGroup), Rule 6(폰트), Rule 10(LIFO) 등 기존 UI 검토 |
+
 #### 설계 규칙 문서 (GameSystemRules.md)
 | 항목 | 상태 | 비고 |
 |------|------|------|
