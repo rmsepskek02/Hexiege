@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-05-19  
-**현재 단계:** 인게임 설정 메뉴 + 게임 포기 기능 완료 (InGameSettingsUI + ConfirmPopup)
+**최종 수정일:** 2026-05-24
+**현재 단계:** 코드 리팩토링 7개 그룹 전체 완료 + 로그인 시스템 C# 구현 완료 (Login.unity 씬 조립 및 Firebase Console 설정 별도 진행 필요)
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -10,7 +10,10 @@
 
 | 우선순위 | 작업 | 카테고리 | 예상 규모 |
 |---------|------|---------|---------|
-| 🟡 중간 | BuildFailed/EnqueueFailed UI 피드백 | UI 기획 후 진행 | 소 |
+| ✅ 완료 | 코드 리팩토링 7개 그룹 전체 | 아키텍처 | 대 |
+| ✅ 완료 | 로그인 시스템 C# 구현 (Firebase Auth + GPGS) | 기능 | 중 |
+| 🔴 높음 | Login.unity 씬 조립 + Firebase Console 설정 | UI/인프라 | 소 |
+| 🟡 중간 | BuildFailed/EnqueueFailed UI 피드백 (멀티) | UI | 소 |
 | 🟡 중간 | 게임 내 밸런싱 (골드/HP/생산시간) | 기획 | 중 |
 | 🟡 중간 | 로비 UI 에셋 제작 + 비주얼 폴리싱 | 에셋+UI | 중 |
 | 🟢 낮음 | 재접속 실제 구현 | 기능 | 중 |
@@ -18,17 +21,14 @@
 | ⬜ 백로그 | 사운드/BGM | 기능 | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
 | ⬜ 백로그 | Firebase 백엔드 (랭킹/IAP) | 기능 | 대 |
-| ⬜ 백로그 | 로그인 시스템 구현 (Login.unity) | 기능 | 중 |
 
 ---
 
 ## Phase A — 네트워크 버그 수정
 
-### A-1. BuildFailed/EnqueueFailed UI 피드백 (멀티플레이 분기)
-- **파일**: `NetworkBuildingController.cs`, `NetworkProductionController.cs`
-- **현황**: 싱글플레이 생산 실패 피드백 완료 (2026-05-16 — ToastUI 범용 시스템 구축 포함)
-- **남은 작업**: `EnqueueFailedClientRpc` / `BuildFailedClientRpc` 내부에 `ToastUI.Show()` 호출 추가 (멀티플레이 분기)
-- **비고**: ToastUI 시스템이 이미 완성되어 있어 RPC 핸들러에 1~2줄 추가만 필요
+### ✅ A-1. BuildFailed/EnqueueFailed UI 피드백 (멀티플레이 분기) — 완료 (2026-05-24)
+- **완료 내용**: `GameEvents.OnToastRequested` Subject 패턴 도입. NetworkBuildingController / NetworkProductionController RPC 핸들러에서 Subject 발행 → ToastUI 구독. Presentation이 Infrastructure를 직접 참조하지 않는 구조 완성.
+- **파일**: `NetworkBuildingController.cs`, `NetworkProductionController.cs`, `GameEvents.cs`, `ToastKey.cs`
 
 ---
 

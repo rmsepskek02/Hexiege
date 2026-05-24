@@ -405,6 +405,27 @@
 
 ---
 
+#### 코드 리팩토링 전체 완료 (2026-05-24)
+
+7개 그룹 전체 구현 완료. task 문서: `Assets/_Project/Docs/_Tasks/2026-05-19/10_46_code-refactoring/`
+
+| 그룹 | 내용 | 상태 |
+|------|------|------|
+| **그룹 1** — Slot/Occupancy 시스템 제거 | AttackPositionManager, TileOccupancyManager 등 ~600줄 삭제. 관련 주석/참조 전면 정리 | ✅ 완료 |
+| **그룹 2** — Application→Core 의존성 제거 | IHexCoordinateMapper 인터페이스 신규. HexMetricsCoordinateMapper 구현체. Application이 Core HexMetrics 직접 참조 금지 | ✅ 완료 |
+| **그룹 2-B** — Infrastructure→Core 의존성 분리 | HexCoordinateMapper 구현체 Infrastructure로 이동. 레이어 경계 완성 | ✅ 완료 |
+| **그룹 3** — Presentation→NGO 의존성 제거 (카테고리 A~E) | Presentation 레이어에서 `using Unity.Netcode` 0건. Infrastructure에서 `using Hexiege.Presentation` 0건. ServerRpc 래퍼 메서드 패턴 도입. 11개 파일 수정 | ✅ 완료 |
+| **그룹 4** — FindFirstObjectByType 캐시화 | 30+회 매 프레임 호출 → OnNetworkSpawn 시점 1회 캐시로 전환 (~12회 이하로 감소) | ✅ 완료 |
+| **그룹 5** — O(n) 탐색 캐시화 | `_unitsByPosition`, `_buildingsByPosition`, `_ownedTileCounts`, `_usedPopulationByTeam` Dictionary 도입. GetUnitAt/GetBuildingAt/CountTilesOwnedBy/GetUsedPopulation → O(1) | ✅ 완료 |
+| **그룹 6** — 가독성/유지보수 (15개 sub-task) | enum 명시값, 중복 생성자 제거, 메서드 분해, GameEvents Subject 허브 통일, ToastKey Application 이동, IUnitView 인터페이스, IsNetworkMode→NetworkContext.IsNetworkActive 전면 교체, TODO 토스트 해소 등 15항목 전부 완료 | ✅ 완료 |
+| **그룹 7** — GameBootstrapper partial class 분리 | GameBootstrapper.cs / Setup.cs / Map.cs / Network.cs 4파일로 분리 | ✅ 완료 |
+
+**인스펙터 수동 연결 필요** (에디터에서 직접 연결):
+- `GameEndUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결
+- `NetworkStatusUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결
+
+---
+
 #### 버그 수정 및 폴리싱
 | 항목 | 상태 |
 |------|------|

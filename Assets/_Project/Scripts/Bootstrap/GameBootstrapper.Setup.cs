@@ -279,26 +279,6 @@ namespace Hexiege.Bootstrap
                 _flowFieldService = new FlowFieldService();
             _flowFieldService.Initialize(_grid);
 
-            // ────────────────────────────────────────────────────────────
-            // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
-            // 새 이동/전투 규칙(GameSystemRules.md)에 따라 슬롯/점유 매니저는 더 이상
-            // 생성하지 않습니다. UnitView의 새 상태 머신은 슬롯/점유 분기 없이
-            // A* 이동 → 전투 이동 → 공격의 단일 흐름으로 동작합니다.
-            //
-            // 기존 코드(롤백 참고용):
-            //   if (_moveSlotManager == null)
-            //       _moveSlotManager = new TileMoveSlotManager(_slotForwardRatio, _slotSideRatio);
-            //   _moveSlotManager.Clear();
-            //
-            //   if (_attackPositionManager == null)
-            //       _attackPositionManager = new AttackPositionManager();
-            //   _attackPositionManager.Clear();
-            //
-            //   if (_occupancyManager == null)
-            //       _occupancyManager = new TileOccupancyManager();
-            //   _occupancyManager.Clear();
-            // ────────────────────────────────────────────────────────────
-
             // 이전 UseCase의 이벤트 구독을 정리한 뒤 새로 생성 (재경기 시 중복 구독 방지).
             _unitMovement?.Dispose();
             _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn, _flowFieldService, hexMapper);
