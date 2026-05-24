@@ -21,6 +21,7 @@
 | `Assets/_Project/Docs/TechnicalDesignDocument.md` | TDD — 기술 아키텍처 설계 |
 | `Assets/_Project/Docs/UIGuidelines.md` | UI 가이드라인 |
 | `Assets/_Project/Docs/StatsReference.md` | 유닛/건물 스탯 참조표 |
+| `Assets/_Project/Docs/AuthSystemRules.md` | 로그인/인증 시스템 규칙 |
 
 ### 에셋 문서
 

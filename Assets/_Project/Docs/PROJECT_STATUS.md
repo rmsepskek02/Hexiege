@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-05-19
-**현재 단계:** 건물 배치 팝업 3행 버튼 레이아웃 버그 수정 완료 (BuildingPlacementUI CanvasGroup)
+**최종 수정일:** 2026-05-24
+**현재 단계:** 로그인 시스템 C# 구현 완료 (Firebase SDK v13.11.0 + GPGS v2.1.0 설치, 컴파일 에러 해결, 런타임 설정은 추후 진행)
 
 ---
 
@@ -260,6 +260,39 @@
 | 유닛 이동 시스템 규칙 1~8 | ✅ 확정 (2026-05-14 개편) | 이동/전투/회전 규칙 통합, 총 16개 규칙으로 재번호화 |
 | 회전 규칙 통합 | ✅ 확정 (2026-05-14) | 규칙 7(A* 이동 중 서서히 회전), 8(재개 시 이동 방향 바라봄), 12(전투 이동 중), 15(공격 중) — 이동/전투 규칙에 통합 |
 
+#### 인증 시스템 설계 규칙 문서 (AuthSystemRules.md)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| AuthSystemRules.md 작성 | ✅ 완료 (2026-05-23) | Firebase Auth 기반. 로그인 3종(익명/Google Play Games/이메일+비밀번호), Firebase UID → UGS 브릿지, 백엔드 Option A(Firebase 생태계) 확정 |
+
+---
+
+#### 로그인 시스템 C# 구현 (2026-05-24)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Firebase SDK v13.11.0 설치 | ✅ 완료 | FirebaseAuth.unitypackage 임포트. FirebaseApp은 v12+에서 각 패키지에 번들됨 (별도 임포트 불필요) |
+| Google Play Games Plugin v2.1.0 설치 | ✅ 완료 | GitHub `current-build/` 폴더 내 .unitypackage 임포트. v1은 2026년 5월부터 deprecated |
+| EDM4U Android 의존성 해결 | ✅ 완료 | Custom Main Gradle Template + Custom Gradle Properties Template 활성화 (Jetifier 필요). Multidex 불필요 (Min API 25) |
+| FirebaseAuthService.cs (Infrastructure) | ✅ 완료 | Firebase SDK 래퍼. 익명/Google/이메일 로그인 API 제공. AuthException + AuthErrorReason enum 정의. SignInWithCredentialAsync 반환값 FirebaseUser로 수정 (SDK 13.x 호환) |
+| LoginUseCase.cs (Application) | ✅ 완료 | 로그인 흐름 조율. BridgeToUGSAsync(Firebase UID → UGS) 포함. 현재 SignInWithCustomIdAsync 미지원으로 익명 로그인 임시 사용 (TODO 주석) |
+| AccountLinkUseCase.cs (Application) | ✅ 완료 | 익명 → 실계정 연동 흐름 |
+| LoginBootstrapper.cs (Bootstrap) | ✅ 완료 | Login.unity 씬 Composition Root. PlayGamesPlatform.Activate() + Firebase 초기화 + DI |
+| LoginRootView.cs (Presentation) | ✅ 완료 | 패널 전환 + Back 스택 + Android 뒤로가기. Application.Quit() → UnityEngine.Application.Quit() 수정 (Hexiege.Application 네임스페이스 충돌 방지) |
+| LoginSelectView.cs | ✅ 완료 | 로그인 방식 선택 화면 |
+| EmailLoginView.cs | ✅ 완료 | 이메일 로그인 화면 |
+| SignUpView.cs | ✅ 완료 | 이메일 회원가입 화면 |
+| EmailVerifyView.cs | ✅ 완료 | 이메일 인증 대기 화면 |
+| PasswordResetView.cs | ✅ 완료 | 비밀번호 재설정 화면 |
+| AnonymousWarningPopup.cs | ✅ 완료 | 익명 로그인 경고 팝업 |
+| ProfileView.cs (Lobby — 수정) | ✅ 완료 | 계정 정보 표시, Google/이메일 연동 버튼, 로그아웃 UI 구현 |
+| UnityServicesInitializer.cs (수정) | ✅ 완료 | 매 초기화 시 항상 SignOut() → SignInAnonymouslyAsync() 수행하여 유효한 토큰 보장. IsSignedIn=true(기기 캐시)이지만 서버 토큰 만료 시 발생하는 UGS 401 버그 수정 (2026-05-24). ※ Login 씬 흐름 완성 시 재검토 필요 |
+| 컴파일 에러 전체 해결 | ✅ 완료 | CS0103(AuthException/AuthErrorReason using 누락), CS0029(SignInWithCredentialAsync 반환 타입), CS1061(SignInWithCustomIdAsync 미지원), CS0234(Application.Quit 네임스페이스 충돌) 전체 해결 |
+| 기존 UGS 로그인 동작 보존 | ✅ 완료 | Lobby.unity 직접 실행 시 익명 로그인으로 PlayerId 발급 — 멀티플레이 기능 정상 동작. 401 버그 수정 후 커스텀 게임 + 랜덤 매칭 모두 확인 |
+| Firebase Console 설정 | ❌ 미완료 | google-services.json, SHA-1 등록, Authentication 방식 활성화 — 추후 진행 |
+| GPGS 클라이언트 ID 설정 | ❌ 미완료 | Unity > Window > Google Play Games > Setup 에서 Web Client ID 입력 — 추후 진행 |
+| Login.unity 씬 생성 | ❌ 미완료 | UIWireframe.md 기반 UI 배치 + Inspector 연결 — 추후 진행 |
+| Firebase UID → UGS Custom ID 브릿지 | ⚠️ 임시 | SignInWithCustomIdAsync 현재 UGS SDK 미지원. 임시로 SignInAnonymouslyAsync 사용. 추후 UGS SDK 업데이트 시 교체 예정 |
+
 ---
 
 #### 유닛 이동/전투 시스템 재설계 (2026-05-11~13)
@@ -422,7 +455,8 @@
 | 사운드/BGM | 낮음 | Phase 4 |
 | 튜토리얼 | 낮음 | Phase 4 |
 | 게임 내 밸런싱 | 중간 | Phase 4 |
-| PlayFab 백엔드 (계정/랭킹/인앱결제) | 낮음 | Phase 4 |
+| 로그인 시스템 구현 (Login.unity) | 낮음 | Phase 4 |
+| Firebase 백엔드 (랭킹/실시간 리더보드/IAP) | 낮음 | Phase 4 |
 | 카드 수집 시스템 | 낮음 | Phase 4 |
 
 ---
@@ -434,7 +468,8 @@
 | 게임 엔진 | Unity | 6000.0.x (Unity 6 LTS) |
 | 렌더 파이프라인 | URP | Universal Render Pipeline |
 | 네트워크 | Netcode for GameObjects | 2.9.2 |
-| 멀티플레이 서비스 | Unity Multiplayer Services | 2.0.0 (Lobby+Relay+Auth 통합) |
+| 멀티플레이 서비스 | Unity Multiplayer Services | 2.0.0 (Lobby+Relay 전용) |
+| 인증 (로그인) | Firebase Authentication + Google Play Games Plugin | Firebase SDK v13.11.0 + GPGS v2.1.0 설치 완료 (런타임 설정 미완료) |
 | 이벤트 시스템 | UniRx | 7.1.0 |
 | 3D 모델링 도구 | Meshy.ai | Image-to-3D 파이프라인 |
 | 애니메이션 | Mixamo + Unity Animator | Mecanim |

@@ -17,7 +17,8 @@
 | ⬜ 백로그 | 방어/마법 타워 | 기능 | 대 |
 | ⬜ 백로그 | 사운드/BGM | 기능 | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
-| ⬜ 백로그 | PlayFab 백엔드 | 기능 | 대 |
+| ⬜ 백로그 | Firebase 백엔드 (랭킹/IAP) | 기능 | 대 |
+| ⬜ 백로그 | 로그인 시스템 구현 (Login.unity) | 기능 | 중 |
 
 ---
 
@@ -97,7 +98,14 @@
 - 첫 실행 시 인터랙티브 튜토리얼
 - 헥스 클릭 → 건물 건설 → 유닛 생산 → 공성 흐름 안내
 
-### E-3. PlayFab 백엔드
-- 계정 시스템 (로그인/회원가입)
-- 랭킹 (승/패 기록)
-- 인앱결제 (스킨/종족 언락)
+### E-3. Firebase 백엔드
+- 실시간 글로벌 리더보드 (Firestore onSnapshot)
+- 승/패 기록 저장 (Firestore)
+- Android 인앱결제 (Google Play Billing — 스킨)
+- Firebase Functions (경기 결과 처리, IAP 영수증 검증)
+
+### E-4. 로그인 시스템 구현 (Login.unity)
+- Login.unity 씬 신규 생성 (Build Index 분리)
+- LoginUI (익명/Google Play Games/이메일+비밀번호 선택 화면)
+- ProfileView 계정 연동 탭 구현 (익명 → 실계정 전환)
+- AuthSystemRules.md 기준 구현

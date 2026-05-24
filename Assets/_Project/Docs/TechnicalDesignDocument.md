@@ -32,9 +32,9 @@
 | **전송 레이어** | Unity Transport (UTP) | - |
 | **NAT 관통** | Unity Relay | - |
 | **매칭** | Unity Lobby | - |
-| **인증** | Unity Authentication | - |
+| **인증** | Firebase Authentication + Google Play Games Plugin | SDK 설치 예정 |
 | **경로찾기** | 커스텀 A* (HexPathfinder) | 자체 구현 |
-| **백엔드** | PlayFab | - |
+| **백엔드** | Firebase (Firestore + Functions + Google Play Billing) | - |
 | **이벤트 시스템** | UniRx | 7.1.0 |
 | **애니메이션** | Animator (Mecanim) | Walk/Attack/Dead 상태 기반 |
 | **모바일 입력** | Lean Touch+ / Unity Input System | - |
@@ -169,6 +169,10 @@ void ShowEffectClientRpc(Vector3 position) {
 ---
 
 ## 🗄️ 백엔드 설계
+
+> **⚠️ 업데이트 예정 (2026-05-23):** PlayFab → Firebase 생태계로 전환 결정.  
+> 상세 구조: Firebase Auth(로그인) + Firestore(리더보드/유저데이터) + Firebase Functions(서버 로직) + Google Play Billing(IAP).  
+> 아래 PlayFab 문서는 이전 설계 참고용으로 유지.
 
 ### PlayFab 구조
 

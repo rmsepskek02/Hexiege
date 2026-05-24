@@ -3,6 +3,9 @@
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 #
 .utmp/
+
+# Firebase large native binaries (GitHub 100MB 제한 초과)
+Assets/Firebase/Plugins/x86_64/*.bundle
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
