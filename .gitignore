@@ -34,6 +34,10 @@ Assets/ExternalDependencyManager.meta
 Assets/GeneratedLocalRepo/
 Assets/GeneratedLocalRepo.meta
 
+# EDM4U Force Resolve 시 현재 PC의 절대경로로 재작성됨 → 커밋하면 다른 PC에서 빌드 실패
+Assets/Plugins/Android/settingsTemplate.gradle
+Assets/Plugins/Android/settingsTemplate.gradle.meta
+
 # Google Version Handler 설정 — EDM4U가 기기별로 자동 갱신
 ProjectSettings/GvhProjectSettings.xml
 /[Ll]ibrary/
