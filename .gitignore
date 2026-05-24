@@ -4,8 +4,38 @@
 #
 .utmp/
 
-# Firebase large native binaries (GitHub 100MB 제한 초과)
-Assets/Firebase/Plugins/x86_64/*.bundle
+# Firebase Unity SDK (용량 대형 - 로컬 임포트로 재설치)
+Assets/Firebase/
+Assets/Firebase.meta
+
+# Firebase가 설치하는 에디터 리소스 (아이콘 등)
+Assets/Editor Default Resources/Firebase/
+Assets/Editor Default Resources/Firebase.meta
+
+# Firebase iOS/tvOS 플러그인 (모바일 Android 전용 프로젝트이므로 불필요)
+Assets/Plugins/iOS/Firebase/
+Assets/Plugins/iOS/Firebase.meta
+Assets/Plugins/tvOS/Firebase/
+Assets/Plugins/tvOS/Firebase.meta
+
+# Google Play Games Plugin for Unity (용량 대형 - 로컬 임포트로 재설치)
+Assets/GooglePlayGames/
+Assets/GooglePlayGames.meta
+
+# GPGS가 설치하는 Android 매니페스트 라이브러리
+Assets/Plugins/Android/GooglePlayGamesManifest.androidlib/
+Assets/Plugins/Android/GooglePlayGamesManifest.androidlib.meta
+
+# EDM4U(External Dependency Manager) — 기기마다 .meta가 달라져 충돌 유발
+Assets/ExternalDependencyManager/
+Assets/ExternalDependencyManager.meta
+
+# EDM4U(External Dependency Manager)가 Android Resolver 실행 시 자동 재생성
+Assets/GeneratedLocalRepo/
+Assets/GeneratedLocalRepo.meta
+
+# Google Version Handler 설정 — EDM4U가 기기별로 자동 갱신
+ProjectSettings/GvhProjectSettings.xml
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
