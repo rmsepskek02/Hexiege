@@ -86,6 +86,13 @@ namespace Hexiege.Presentation
         private LoginUseCase _loginUseCase;
         private AccountLinkUseCase _accountLinkUseCase;
 
+        // 익명 전용 영역(_anonymousSection)에 부착된 CanvasGroup 캐시.
+        // 공통 UI 규칙 Rule 5: SetActive 대신 CanvasGroup으로 표시/숨김 처리.
+        // _anonymousSection은 다른 UI(계정 정보 텍스트/로그아웃 버튼 등)와 같은 부모
+        // LayoutGroup 안에 배치되는 경우가 많아, SetActive로 숨기면 다른 요소가 위로
+        // 밀려올라가는 레이아웃 흔들림이 생긴다. CanvasGroup.alpha=0으로 공간 유지.
+        private CanvasGroup _anonymousSectionGroup;
+
         // ====================================================================
         // Unity 생명주기
         // ====================================================================
@@ -97,6 +104,14 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void Start()
         {
+            // 익명 영역의 CanvasGroup을 확보(없으면 추가).
+            // Inspector에서 연결한 _anonymousSection이 null이면 그룹도 null로 유지.
+            if (_anonymousSection != null)
+            {
+                if (!_anonymousSection.TryGetComponent(out _anonymousSectionGroup))
+                    _anonymousSectionGroup = _anonymousSection.AddComponent<CanvasGroup>();
+            }
+
             _authService = new FirebaseAuthService();
             bool ready = await _authService.InitializeAsync();
             if (!ready)
@@ -149,7 +164,7 @@ namespace Hexiege.Presentation
             {
                 if (_accountInfoText != null)
                     _accountInfoText.text = "로그인 정보가 없습니다.";
-                SafeSetActive(_anonymousSection, false);
+                SetAnonymousSectionVisible(false);
                 return;
             }
 
@@ -161,7 +176,7 @@ namespace Hexiege.Presentation
                         "현재 익명으로 로그인 중입니다.\n" +
                         "계정을 연동하면 기기 변경 시에도 데이터를 유지할 수 있습니다.";
                 }
-                SafeSetActive(_anonymousSection, true);
+                SetAnonymousSectionVisible(true);
             }
             else
             {
@@ -174,7 +189,7 @@ namespace Hexiege.Presentation
                 if (_accountInfoText != null)
                     _accountInfoText.text = string.IsNullOrWhiteSpace(label) ? "로그인됨" : label;
 
-                SafeSetActive(_anonymousSection, false);
+                SetAnonymousSectionVisible(false);
             }
         }
 
@@ -335,9 +350,22 @@ namespace Hexiege.Presentation
             }
         }
 
-        private static void SafeSetActive(GameObject go, bool active)
+        /// <summary>
+        /// 익명 전용 영역 표시/숨김 처리 (CanvasGroup 기반).
+        /// 공통 UI 규칙 Rule 5: SetActive 대신 CanvasGroup으로 처리해
+        /// LayoutGroup 안에서 공간이 사라지는 레이아웃 깨짐을 방지한다.
+        /// 익명 영역이 보이지 않을 때도 공간이 유지되어, 주변 UI(로그아웃 버튼 등)가
+        /// 위로 밀려올라오는 흔들림 없이 항상 같은 위치에 표시된다.
+        /// </summary>
+        /// <param name="visible">true=표시, false=숨김.</param>
+        private void SetAnonymousSectionVisible(bool visible)
         {
-            if (go != null) go.SetActive(active);
+            if (_anonymousSectionGroup == null)
+                return;
+
+            _anonymousSectionGroup.alpha = visible ? 1f : 0f;
+            _anonymousSectionGroup.blocksRaycasts = visible;
+            _anonymousSectionGroup.interactable = visible;
         }
     }
 }

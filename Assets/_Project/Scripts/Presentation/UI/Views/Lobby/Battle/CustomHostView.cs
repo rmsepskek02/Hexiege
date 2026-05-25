@@ -52,6 +52,34 @@ namespace Hexiege.Presentation
 
         private readonly CompositeDisposable _disposables = new();
 
+        // 본 View 자신의 GameObject에 부착된 CanvasGroup 캐시.
+        // 공통 UI 규칙 Rule 5: SetActive 대신 CanvasGroup으로 표시/숨김 처리.
+        private CanvasGroup _canvasGroup;
+
+        // 에러 텍스트 GameObject에 부착된 CanvasGroup 캐시.
+        // _errorText는 다른 상태 텍스트들과 함께 같은 부모(LayoutGroup) 안에 배치되는 경우가 많아,
+        // SetActive로 숨기면 다른 텍스트가 위로 밀려올라가는 레이아웃 흔들림이 생긴다.
+        // CanvasGroup.alpha=0으로 숨기면 공간은 유지된다.
+        private CanvasGroup _errorTextGroup;
+
+        // ====================================================================
+        // Unity 생명주기
+        // ====================================================================
+
+        private void Awake()
+        {
+            // 자신의 CanvasGroup 확보.
+            if (!TryGetComponent(out _canvasGroup))
+                _canvasGroup = gameObject.AddComponent<CanvasGroup>();
+
+            // 에러 텍스트의 CanvasGroup 확보 (있으면 사용, 없으면 추가).
+            if (_errorText != null)
+            {
+                if (!_errorText.TryGetComponent(out _errorTextGroup))
+                    _errorTextGroup = _errorText.gameObject.AddComponent<CanvasGroup>();
+            }
+        }
+
         // ====================================================================
         // IView 구현
         // ====================================================================
@@ -63,11 +91,12 @@ namespace Hexiege.Presentation
         {
             Unbind();
 
-            // 화면 활성화 관리
+            // 화면 활성화 관리 — CustomHost일 때만 표시
+            // Rule 5: SetActive 대신 CanvasGroup의 alpha/blocksRaycasts/interactable 전환.
             vm.CurrentScreen
                 .Select(s => s == BattleViewModel.BattleScreen.CustomHost)
                 .DistinctUntilChanged()
-                .Subscribe(visible => gameObject.SetActive(visible))
+                .Subscribe(SetVisible)
                 .AddTo(_disposables);
 
             // 로비 코드 표시
@@ -98,14 +127,14 @@ namespace Hexiege.Presentation
                 .AddTo(_disposables);
 
             // 에러 메시지 표시
+            // 빈 메시지일 때는 CanvasGroup.alpha=0으로 숨겨 공간만 유지(레이아웃 흔들림 방지).
             vm.ErrorMessage
                 .Subscribe(msg =>
                 {
                     if (_errorText != null)
-                    {
                         _errorText.text = msg;
-                        _errorText.gameObject.SetActive(!string.IsNullOrEmpty(msg));
-                    }
+
+                    SetErrorTextVisible(!string.IsNullOrEmpty(msg));
                 })
                 .AddTo(_disposables);
 
@@ -123,6 +152,42 @@ namespace Hexiege.Presentation
             _disposables.Clear();
 
             if (_cancelButton != null) _cancelButton.onClick.RemoveAllListeners();
+        }
+
+        // ====================================================================
+        // 헬퍼
+        // ====================================================================
+
+        /// <summary>
+        /// View 표시/숨김 처리 (CanvasGroup 기반).
+        /// 공통 UI 규칙 Rule 5: SetActive 대신 CanvasGroup으로 처리해
+        /// LayoutGroup 안에서 공간이 사라지는 레이아웃 깨짐을 방지한다.
+        /// </summary>
+        /// <param name="visible">true=표시, false=숨김.</param>
+        private void SetVisible(bool visible)
+        {
+            if (_canvasGroup == null)
+                return;
+
+            _canvasGroup.alpha = visible ? 1f : 0f;
+            _canvasGroup.blocksRaycasts = visible;
+            _canvasGroup.interactable = visible;
+        }
+
+        /// <summary>
+        /// 에러 텍스트 표시/숨김 처리 (CanvasGroup 기반).
+        /// 에러 텍스트가 부모 LayoutGroup 안에 있더라도 공간이 유지되어
+        /// 다른 텍스트(코드/상태 등)가 위로 밀려올라가지 않는다.
+        /// </summary>
+        /// <param name="visible">true=표시, false=숨김.</param>
+        private void SetErrorTextVisible(bool visible)
+        {
+            if (_errorTextGroup == null)
+                return;
+
+            _errorTextGroup.alpha = visible ? 1f : 0f;
+            _errorTextGroup.blocksRaycasts = visible;
+            _errorTextGroup.interactable = visible;
         }
     }
 }
