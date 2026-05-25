@@ -93,9 +93,16 @@ SetActive(false)를 사용하면 두 가지 문제가 발생한다.
 ### 폰트
 
 **규칙 6. 기본 폰트**
-모든 TextMeshPro 텍스트 컴포넌트에 Maplestory Light SDF 폰트를 사용한다.
-경로: `Assets/_Project/Fonts/Maplestory Light SDF.asset`
-에디터 스크립트로 UI를 생성할 때도 폰트 에셋을 명시적으로 설정해야 한다. 예외 없음.
+TextMeshPro 텍스트 컴포넌트에 사용하는 폰트는 아래 두 가지다.
+
+| 폰트 | 경로 | 용도 |
+|------|------|------|
+| Maplestory Light SDF | `Assets/_Project/Fonts/Maplestory Light SDF.asset` | 기본 폰트 (일반 본문, 라벨, 수치 등) |
+| Maplestory Bold SDF | `Assets/_Project/Fonts/Maplestory Bold SDF.asset` | 강조 폰트 (헤더, 버튼 등 굵은 표현 필요 시) |
+
+기본값은 Maplestory Light SDF이며, 강조가 필요한 경우 Bold SDF를 사용한다.
+에디터 스크립트로 UI를 생성할 때도 폰트 에셋을 명시적으로 설정해야 한다.
+이 두 폰트 외의 폰트는 사용하지 않는다.
 
 ---
 
