@@ -1,8 +1,8 @@
 # Research — 전체 UI 규칙 준수 검증
 
 이 작업은 오늘 수립한 공통 UI 규칙(GameSystemRules.md 규칙 1~10)이 현재 구현된 모든 UI에 잘 적용되어 있는지 전수 검사하는 것이다.
-코드 전수 감사 + 씬 YAML 파일 검토를 통해 항목별 준수 여부를 확인했다.
-Rule 2, 3, 6은 Inspector 레벨에서만 확인 가능하므로 Unity Editor에서 직접 확인이 필요하다.
+코드 전수 감사 + 씬 YAML 파일 직접 분석을 통해 10개 규칙 전부 확인 완료했다.
+Rule 2는 씬 내 모든 RectTransform 요소를 전수 추출하여 확인했다.
 
 ---
 
@@ -52,7 +52,7 @@ Rule 2, 3, 6은 Inspector 레벨에서만 확인 가능하므로 Unity Editor에
 | ToastUI | ✅ | N/A | N/A | ✅⁵ | ✅ | ✅ | N/A | N/A | N/A | N/A |
 | LoadingScreen | N/A | N/A | N/A | N/A | ✅ | ✅ | N/A | N/A | N/A | N/A |
 | AnimatedPanel | N/A | N/A | N/A | N/A | ⚠️⁶ | N/A | N/A | N/A | N/A | N/A |
-| RematchRequestPopup | N/A | N/A | N/A | N/A | ⚠️⁶ | ✅ | N/A | ✅모달 | N/A | N/A |
+| RematchRequestPopup | N/A | ⚠️¹⁰ | N/A | N/A | ⚠️⁶ | ✅ | N/A | ✅모달 | N/A | N/A |
 | SharedBackgroundButton | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | ✅ |
 | SafeAreaFitter | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
 | FloatingHpText | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
@@ -60,6 +60,7 @@ Rule 2, 3, 6은 Inspector 레벨에서만 확인 가능하므로 Unity Editor에
 **각주:**
 - ⁵ ToastUI: Lobby.unity YAML에서 SafeAreaFitter 존재 확인됨
 - ⁶ AnimatedPanel/RematchRequestPopup: DOTween 제약상 `SetActive(true)` 선행 필수 → 규칙 허용 예외
+- ¹⁰ RematchRequestPopup 내부: RequestPanel (480×280), DeclinedPanel (400×220) — center anchor 고정 크기. ConfirmPopup > Panel과 동일 패턴, 조건부 허용
 
 ---
 
@@ -111,7 +112,10 @@ Rule 2, 3, 6은 Inspector 레벨에서만 확인 가능하므로 Unity Editor에
 
 ### Rule 2 — 앵커 기반 레이아웃
 
-주요 컨테이너 RectTransform YAML 직접 확인 결과:
+씬 내 모든 RectTransform 요소를 YAML에서 전수 추출하여 확인했다.
+center anchor (0.5, 0.5)→(0.5, 0.5) 요소를 전부 추출하고 sizeDelta 및 오브젝트 이름을 검토했다.
+
+#### 컨테이너 레이어 (최상위 패널)
 
 | 씬 | 오브젝트 | AnchorMin | AnchorMax | SizeDelta | 상태 |
 |----|---------|-----------|-----------|-----------|------|
@@ -120,15 +124,36 @@ Rule 2, 3, 6은 Inspector 레벨에서만 확인 가능하므로 Unity Editor에
 | Game.unity | BuildingActionPanel | (0,0) | (1,1) | (0,-150) 인셋 | ✅ |
 | Game.unity | GameHUD | (0,1) | (1,1) | (0,100) | ✅ 의도된 고정 높이 |
 | Game.unity | ConfirmPopup | (0,0) | (1,1) | (0,0) | ✅ |
-| Game.unity | ConfirmPopup > Panel | (0.5,0.5) | (0.5,0.5) | (550,350) | ⚠️ 모달 고정 크기, 조건부 허용 |
 | Game.unity | GameEndPanel | (0,0) | (1,1) | (0,0) | ✅ |
 | Game.unity | ProductionPopup | (0,0) | (1,1) | (0,0) | ✅ |
 | Game.unity | InGameSettingsPanel | (0,0) | (1,1) | (0,0) | ✅ |
+| Game.unity | RematchRequestPopup | (0,0) | (1,1) | (0,0) | ✅ |
 | Lobby.unity | LobbyRoot | (0,0) | (1,1) | (0,0) | ✅ |
 | Lobby.unity | BattlePanel | (0,0) | (1,1) | (0,0) | ✅ |
 | Lobby.unity | CustomGamePanel | (0,0.5) | (1,1) | (0,0) | ✅ 상반부 stretch |
 | Lobby.unity | ProfilePanel | (0,0) | (1,1) | (0,0) | ✅ |
 | Lobby.unity | RaceSelectionView | (0,0) | (1,0.5) | (0,0) | ✅ 하반부 stretch |
+
+#### 내부 요소 (center anchor 전수 검사)
+
+| 씬 | 오브젝트 | SizeDelta | 분류 | 상태 |
+|----|---------|-----------|------|------|
+| Game.unity | 버튼 fill 이미지 × 13 | (0.5→0.8) 부분 stretch | 비율 기반 fill | ✅ |
+| Game.unity | 아이콘 × 3 | 75×75 | 아이콘 | ✅ 의도된 고정 |
+| Game.unity | 소형 아이콘 × 3 | 45×45 | 아이콘 | ✅ 의도된 고정 |
+| Game.unity | 텍스트 × 2 | 160×30 | 텍스트 라벨 | ✅ 의도된 고정 |
+| Game.unity | 텍스트 × 1 | 200×50 | 텍스트 라벨 | ✅ 의도된 고정 |
+| Game.unity | SoundButton | 400×150 | 설정 버튼 | ✅ 버튼 예외 허용 |
+| Game.unity | ForfeitButton | 400×150 | 설정 버튼 | ✅ 버튼 예외 허용 |
+| Game.unity | ConfirmPopup > Panel | 550×350 | 모달 다이얼로그 | ⚠️ 조건부 허용 |
+| Game.unity | RequestPanel | 480×280 | 팝업 내 패널 | ⚠️ 조건부 허용 |
+| Game.unity | DeclinedPanel | 400×220 | 팝업 내 패널 | ⚠️ 조건부 허용 |
+| Lobby.unity | ErrorText | 200×50 | 텍스트 | ✅ 의도된 고정 |
+| Lobby.unity | Background (Toast 내) | 700×80 | 토스트 알림 배경 | ✅ 의도된 고정 |
+| Lobby.unity | StatusText | 700×80 | 텍스트 | ✅ 의도된 고정 |
+| Lobby.unity | Spinner | 120×120 | 로딩 인디케이터 | ✅ 의도된 고정 |
+
+**조건부 허용 판단 기준**: 모달/팝업 다이얼로그 패널의 고정 크기는 의도된 디자인 크기이며, Canvas Scaler(width-based) 보정으로 실질적인 레이아웃 위험 없음.
 
 ### Rule 3 — Filled/Simple 부모의 자식 앵커
 
@@ -177,6 +202,6 @@ Rule 2, 3, 6 모두 씬 YAML 파일 직접 분석으로 확인 완료. Inspector
 
 | 규칙 | 결과 |
 |------|------|
-| Rule 2 (앵커 기반) | ✅ 주요 컨테이너 전부 stretch 앵커. ConfirmPopup 내부 Panel만 조건부 허용 |
+| Rule 2 (앵커 기반) | ✅ 전체 요소 전수 확인. 컨테이너 전부 stretch. 모달 팝업 패널(Panel/RequestPanel/DeclinedPanel)은 조건부 허용 |
 | Rule 3 (Filled 자식) | ✅ Filled 이미지 자식 없음. Fill 앵커 이미 비율 적용 |
 | Rule 6 (기본 폰트) | ✅ Bold/Light 두 폰트 모두 허용됨 |
