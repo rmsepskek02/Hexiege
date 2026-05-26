@@ -261,7 +261,7 @@
 | Canvas Scaler 통일 (Rule 1) | ✅ 완료 | SetupCanvasScaler.cs 에디터 스크립트. Game.unity(540×960→1080×1920, 0.5→0) + Lobby.unity Canvas2(0.5→0) |
 | SafeAreaFitter.cs 신규 구현 (Rule 4) | ✅ 완료 | Screen.safeArea 기반 anchorMin/anchorMax 정규화. `Presentation/UI/Common/` |
 | SafeAreaContainer 씬 구조 적용 (Rule 4) | ✅ 완료 | SetupSafeAreaContainer.cs 에디터 스크립트. Game.unity 7개 UI 이동, Lobby.unity 캔버스별 적용, ToastUI SafeAreaFitter 직접 부착 |
-| 전체 UI 규칙 준수 검증 (Rule 5 CanvasGroup 전환) | ✅ 완료 (2026-05-25) | 로비 7개 뷰 SetActive → CanvasGroup 전환. LobbyRootView, BattleMainView, CustomGameView, CustomHostView, CustomJoinView, RandomMatchView, ProfileView. 실기기 TC 결과: 기본 탭 전환/커스텀 게임 흐름 PASS. 랜덤 매칭 대기화면 BUG(GameObj inactive)→ Inspector에서 직접 수정 완료 |
+| 전체 UI 규칙 준수 검증 (Rule 5 CanvasGroup 전환) | ✅ 완료 (2026-05-27) | 로비 7개 뷰 SetActive → CanvasGroup 전환. LobbyRootView, BattleMainView, CustomGameView, CustomHostView, CustomJoinView, RandomMatchView, ProfileView. 실기기 TC 전체 PASS (2026-05-27): TC-SINGLE-001~014 PASS, TC-SINGLE-015~016 SKIP(로그인 미구현). 랜덤 매칭 대기화면 BUG(GameObj inactive)→ Inspector에서 직접 수정 완료 |
 | 로비 배경 Safe Area 수정 (Rule 4) | ✅ 완료 (2026-05-26) | LobbyRoot Image가 SafeAreaContainer 안에 있어 Safe Area 경계에서 배경이 끊기는 문제. Canvas 직속 자식 LobbyBackground 오브젝트 신규 추가(전체화면 stretch, 남색), LobbyRoot Image 비활성화. FixLobbyBackground.cs 에디터 스크립트로 적용. 실기기 테스트 PASS |
 
 #### 설계 규칙 문서 (GameSystemRules.md)

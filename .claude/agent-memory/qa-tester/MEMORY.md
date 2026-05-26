@@ -210,16 +210,18 @@
 `Assets/_Project/Docs/_Tasks/2026-04-30/02_29_movement-combat-redesign/Testcase.md`
 `Assets/_Project/Docs/_Logs/2026-04-30/02_29_movement-combat-redesign/Log.md`
 
-## 로비 SetActive→CanvasGroup 전환 정적 분석 (2026-05-25) ✅ 완료
+## 로비 SetActive→CanvasGroup 전환 실기 테스트 (2026-05-25~27) ✅ 완료
 
-### 판정: 로비 7개 뷰 전체 규칙 준수 확인
+### 판정: TC-SINGLE-001~014 전체 PASS / TC-SINGLE-015~016 SKIP (로그인 미구현)
 
 ### 핵심 발견 사항
-- 로비 7개 뷰(LobbyRootView, MainLobbyView, BattleMainView, BattleRootView, ProfileView, RankingView, ShopView 등) 모두 `CanvasGroup.alpha/blocksRaycasts/interactable` 패턴으로 전환 완료 확인
-- `ProductionPanelUI.UpdateUpgradeButton()`에 `SetActive` 1건 잔존 (인게임 UI, 로비 작업 범위 밖, Minor — 기능 영향 없음, 향후 일관성 정리 권장)
+- 로비 7개 뷰 모두 `CanvasGroup.alpha/blocksRaycasts/interactable` 패턴으로 전환 완료 + 실기 통과
+- `ProductionPanelUI.UpdateUpgradeButton()`에 `SetActive` 1건 잔존 (인게임 UI, 로비 작업 범위 밖, Minor — 향후 일관성 정리 권장)
+- TC-SINGLE-009/010 (방 만들기 에러 메시지): 초기 TC가 잘못된 전제(코드 입력란/확인 버튼 존재)로 작성됨 → 실제 구현(네트워크 오류 시 ErrorMessage 표시, StartHosting 재시도 시 초기화) 기준으로 수정 후 통과
+- TC-SINGLE-015/016 (프로필 로그인): Firebase Auth 구현은 존재하나 프로젝트에서 미사용 상태 → 추후 로그인 기능 활성화 시 재테스트
 
 ### task 문서
-`Assets/_Project/Docs/_Tasks/2026-05-25/lobby-canvasgroup-refactor/`
+`Assets/_Project/Docs/_Tasks/2026-05-25/ui-rules-inspection/Testcase.md`
 
 ---
 
