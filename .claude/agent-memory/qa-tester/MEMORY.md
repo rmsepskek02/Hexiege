@@ -79,6 +79,8 @@
 - LocalPlayerTeam.Current 기본값 = Blue → 싱글플레이 동작 항상 확인
 - 팀 기반 로직 변경 시 StartAutoMove의 하드코딩 Blue/Red 확인
 - ViewConverter.IsFlipped 상태가 올바르게 초기화/리셋 되는지 확인
+- **CanvasGroup Rule 5 검사**: UI 뷰의 Show/Hide에서 `SetActive(false/true)` 잔존 여부 확인 → 반드시 `CanvasGroup.alpha=0/1 + blocksRaycasts=false/true + interactable=false/true` 패턴으로 구현되어야 함 (DontDestroyOnLoad 오브젝트의 Awake 미호출 버그 + LayoutGroup 레이아웃 깨짐 방지)
+- **Safe Area Rule 4 검사**: 전체화면 배경 요소(`Image`로 화면 전체를 채우는 오브젝트)가 `SafeAreaContainer` 밖(`Canvas` 직속)에 배치되어 있는지 확인 → 배경이 `SafeAreaContainer` 안에 있으면 노치/홈바 기기에서 Safe Area 경계에서 잘려 보임
 
 ## 알려진 취약 지점
 - FindObjectsByType 사용처: InputHandler.StartAutoMove, InputHandler.HandleClick
@@ -207,6 +209,40 @@
 ### task 문서
 `Assets/_Project/Docs/_Tasks/2026-04-30/02_29_movement-combat-redesign/Testcase.md`
 `Assets/_Project/Docs/_Logs/2026-04-30/02_29_movement-combat-redesign/Log.md`
+
+## 로비 SetActive→CanvasGroup 전환 정적 분석 (2026-05-25) ✅ 완료
+
+### 판정: 로비 7개 뷰 전체 규칙 준수 확인
+
+### 핵심 발견 사항
+- 로비 7개 뷰(LobbyRootView, MainLobbyView, BattleMainView, BattleRootView, ProfileView, RankingView, ShopView 등) 모두 `CanvasGroup.alpha/blocksRaycasts/interactable` 패턴으로 전환 완료 확인
+- `ProductionPanelUI.UpdateUpgradeButton()`에 `SetActive` 1건 잔존 (인게임 UI, 로비 작업 범위 밖, Minor — 기능 영향 없음, 향후 일관성 정리 권장)
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-05-25/lobby-canvasgroup-refactor/`
+
+---
+
+## 게임 화면 UI TC 작성 (2026-05-26) — 실기 테스트 대기 중
+
+### 총 62개 TC 작성 완료 (실기 미완)
+
+### 커버 범위
+- GameHudUI (7개): 골드/인구수/킬카운트 표시, 공성 게이지, 설정 버튼
+- BuildingPlacementUI (9개): 패널 표시/숨김, 건설 비용 갱신, 실패 피드백
+- ProductionPanelUI (22개): 수동/자동 생산, 큐 조작, 업그레이드, 랠리포인트
+- BuildingActionPanelUI (5개): 채굴소/타워 액션 패널
+- InGameSettingsUI (9개): 일시정지, 포기 확인, 설정 패널
+- GameEndUI (7개): 승패 표시, 재경기, 로비 복귀
+- 공통 (3개): 레이아웃, Safe Area
+
+### 정적 분석 발견 사항
+- `ProductionPanelUI.UpdateUpgradeButton()`에서 `_upgradeButton.gameObject.SetActive(...)` 1건 — Minor, 기능 영향 없음, Rule 5 일관성 정리 권장
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-05-26/game-ui-tc/Testcase.md`
+
+---
 
 ## 참고 파일
 - [patterns.md](patterns.md) — 버그 패턴 상세

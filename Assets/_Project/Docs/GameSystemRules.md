@@ -72,6 +72,15 @@ SafeAreaContainer에는 SafeAreaFitter 컴포넌트를 부착하여 Safe Area �
 - 전체화면을 채워야 하는 배경 요소는 SafeAreaContainer 밖(Canvas 직속)에 배치한다.
 - 독립 Canvas를 가진 UI(ToastUI 등)는 해당 Canvas에도 SafeAreaFitter를 적용한다.
 
+**전체화면 배경 오브젝트 구현 방법**
+
+배경 오브젝트를 Canvas 직속에 올바르게 배치하기 위해 아래 4가지를 반드시 지킨다.
+
+1. **RectTransform 설정**: anchorMin=(0,0), anchorMax=(1,1), offsetMin=offsetMax=(0,0) → Canvas 전체를 빈틈없이 채움
+2. **raycastTarget=false**: Image 컴포넌트의 Raycast Target을 반드시 꺼야 한다. 켜두면 배경이 터치 이벤트를 모두 가로채 하위 UI 버튼이 눌리지 않는다.
+3. **Hierarchy 순서**: 배경 오브젝트를 SafeAreaContainer보다 위(앞)에 배치한다. Unity UI는 Hierarchy 위쪽 오브젝트를 먼저(뒤에) 그리므로, 배경이 SafeAreaContainer 아래에 있으면 모든 UI를 가린다.
+4. **기존 Image 처리**: SafeAreaContainer 안에 있던 오브젝트에 배경 역할의 Image가 붙어 있었다면, 별도 배경 오브젝트를 생성한 뒤 기존 Image는 삭제 대신 `enabled=false`로 비활성화한다. 실기 테스트 통과 후 최종 삭제한다.
+
 ---
 
 ### UI 숨김/표시

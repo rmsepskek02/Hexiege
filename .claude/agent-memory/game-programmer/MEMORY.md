@@ -23,6 +23,56 @@
 
 ## 최근 작업
 
+### 로비 배경 Safe Area 수정 — FixLobbyBackground.cs 에디터 스크립트 (2026-05-26) ✅ 실기 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-26/safe-area-lobby-bg/`
+
+**문제**: 노치/홈바 기기에서 로비 배경이 Safe Area 경계에서 잘리는 현상. 원인: `LobbyRoot`의 Image 컴포넌트(남색 배경, r:0.059 g:0.059 b:0.102 a:1)가 `SafeAreaContainer` 안에 위치하여 Safe Area 크기만큼만 그려짐 (GameSystemRules.md Rule 4 위반).
+
+**수정 구조** (Rule 4 준수):
+```
+Canvas
+├── LobbyBackground  ← 신규 생성. Image(전체화면 stretch). SafeAreaContainer보다 앞 배치. raycastTarget=false
+└── SafeAreaContainer  ← SafeAreaFitter 기존 그대로
+    └── LobbyRoot  ← Image 컴포넌트 enabled=false로 비활성화
+```
+
+**에디터 스크립트**: `Assets/Editor/FixLobbyBackground.cs`
+- 메뉴: `Hexiege/Setup/로비 배경 Safe Area 수정`
+- `LobbyRootView` 컴포넌트로 계층 역추적 (LobbyRoot → SafeAreaContainer → Canvas)
+- `Undo.RegisterCreatedObjectUndo`, `Undo.SetTransformParent`, `Undo.AddComponent<Image>`, `Undo.RecordObject` 패턴으로 Ctrl+Z 지원
+- 실행 후 Ctrl+Z로 실수로 되돌리지 않도록 주의 — Undo 스택에 등록된 변경이 취소될 수 있음
+
+**Safe Area 전체화면 배경 설계 원칙**:
+- 전체화면 배경은 반드시 `SafeAreaContainer` 밖(`Canvas` 직속)에 배치 (Rule 4)
+- RectTransform: anchorMin=(0,0) / anchorMax=(1,1) / offsetMin=offsetMax=Vector2.zero
+- `raycastTarget=false` 필수 — 배경이 터치 이벤트 차단하지 않도록
+- Hierarchy 순서: 배경 오브젝트가 `SafeAreaContainer`보다 위(=먼저 그려짐=뒤에 표시됨)에 위치해야 함
+
+---
+
+### 로비 SetActive→CanvasGroup 전환 (2026-05-25) ✅ 실기 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-25/lobby-canvasgroup-refactor/`
+
+**수정 대상**: 로비 7개 뷰 (LobbyRootView, MainLobbyView, BattleMainView, BattleRootView, ProfileView, RankingView, ShopView 포함)
+
+**변경 패턴**:
+- `gameObject.SetActive(false)` → `_canvasGroup.alpha=0; _canvasGroup.blocksRaycasts=false; _canvasGroup.interactable=false`
+- `gameObject.SetActive(true)` → `_canvasGroup.alpha=1; _canvasGroup.blocksRaycasts=true; _canvasGroup.interactable=true`
+
+**이유** (GameSystemRules.md Rule 5):
+- `SetActive(false)` 상태의 오브젝트는 `LayoutGroup`에서 완전 제외 → 재활성화 시 레이아웃 깨짐 버그
+- `DontDestroyOnLoad` 오브젝트에서 `SetActive(false)` 후 씬 전환 시 Awake 미호출 버그
+- CanvasGroup 패턴: 오브젝트는 항상 활성 상태 유지, 시각적으로만 숨김
+
+**신규 UI 뷰 추가 시 체크리스트**:
+1. `CanvasGroup` 컴포넌트 부착 필수
+2. `_canvasGroup` SerializeField 연결
+3. Show/Hide를 `SetActive` 대신 반드시 CanvasGroup 패턴으로 구현
+
+---
+
 ### 코드 리팩토링 Group 3/5/6 완료 (2026-05-20) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-19/10_46_code-refactoring/Plan.md`
