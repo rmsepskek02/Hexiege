@@ -23,6 +23,30 @@
 
 ## 최근 작업
 
+### 멀티플레이 포기 시 호스트 GameEndUI 미표시 버그 수정 (2026-05-27) ✅ 실기 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-27/16_52_game-end-ui-bugfix/`
+
+**버그**: 멀티플레이에서 포기(Forfeit) 시 호스트 측 게임 종료 UI가 표시되지 않는 버그. 클라이언트 측은 정상 표시.
+
+**근본 원인**: `AnnounceWinnerClientRpc` 내부의 `!IsServer` 가드는 정상 종료(Castle 파괴) 흐름에서 서버가 이미 `GameEndUseCase`를 통해 `OnGameEnd`를 발행했으므로 중복 발행을 방지하는 코드다. 그러나 포기 흐름(`ForfeitServerRpc`)은 `GameEndUseCase`를 전혀 거치지 않고 `AnnounceWinnerClientRpc`를 직접 호출한다. 결과적으로 서버(호스트)에서 `OnGameEnd`가 한 번도 발행되지 않아 `GameEndUI`가 표시되지 않음.
+
+**수정** (`Infrastructure/Network/NetworkGameEndController.cs` — `ForfeitServerRpc()`):
+- `_announced = true` 설정 후, `AnnounceWinnerClientRpc` 호출 **직전**에 `GameEvents.OnGameEnd.OnNext(new GameEndEvent(winnerTeam))` 1줄 추가.
+- 안전성: `_announced=true` 상태이므로 이 발행을 `OnGameEndServer`가 받아도 153행 가드(`if (_announced) return`)에 의해 즉시 return → 중복 처리 없음.
+
+**흐름 비교**:
+- 정상 종료: `GameEndUseCase → OnGameEnd(서버) → OnGameEndServer → AnnounceWinnerClientRpc` → 클라이언트만 OnGameEnd 재발행
+- 포기(수정 전): `ForfeitServerRpc → AnnounceWinnerClientRpc` → 호스트 OnGameEnd 없음 (버그)
+- 포기(수정 후): `ForfeitServerRpc → OnGameEnd(서버 직접) → AnnounceWinnerClientRpc` → 클라이언트도 OnGameEnd 발행
+
+**Canvas Hierarchy BUG-002 동시 수정** (코드 변경 아님):
+- 문제: `RematchRequestPopup`이 `SafeAreaContainer`보다 앞 인덱스 → `GameEndPanel`에 가려짐
+- 수정: Inspector에서 `SafeAreaContainer`와 `RematchRequestPopup` 순서를 교환 → RematchRequestPopup이 SafeAreaContainer 위에 렌더링
+- `AnimatedPanel.Show()`에 `SetAsLastSibling()` 없음 확인 → Inspector 순서가 영구 적용됨
+
+---
+
 ### 로비 배경 Safe Area 수정 — FixLobbyBackground.cs 에디터 스크립트 (2026-05-26) ✅ 실기 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-26/safe-area-lobby-bg/`

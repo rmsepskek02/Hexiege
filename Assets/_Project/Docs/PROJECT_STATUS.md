@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-05-26
-**현재 단계:** 로그인 시스템 C# 구현 완료 (Firebase SDK v13.11.0 + GPGS v2.1.0 설치, 컴파일 에러 해결, 런타임 설정은 추후 진행)
+**최종 수정일:** 2026-05-27
+**현재 단계:** 게임 화면 UI TC 62개 실기기 테스트 완료 + 멀티플레이 END UI 버그 2건 수정
 
 ---
 
@@ -263,6 +263,14 @@
 | SafeAreaContainer 씬 구조 적용 (Rule 4) | ✅ 완료 | SetupSafeAreaContainer.cs 에디터 스크립트. Game.unity 7개 UI 이동, Lobby.unity 캔버스별 적용, ToastUI SafeAreaFitter 직접 부착 |
 | 전체 UI 규칙 준수 검증 (Rule 5 CanvasGroup 전환) | ✅ 완료 (2026-05-27) | 로비 7개 뷰 SetActive → CanvasGroup 전환. LobbyRootView, BattleMainView, CustomGameView, CustomHostView, CustomJoinView, RandomMatchView, ProfileView. 실기기 TC 전체 PASS (2026-05-27): TC-SINGLE-001~014 PASS, TC-SINGLE-015~016 SKIP(로그인 미구현). 랜덤 매칭 대기화면 BUG(GameObj inactive)→ Inspector에서 직접 수정 완료 |
 | 로비 배경 Safe Area 수정 (Rule 4) | ✅ 완료 (2026-05-26) | LobbyRoot Image가 SafeAreaContainer 안에 있어 Safe Area 경계에서 배경이 끊기는 문제. Canvas 직속 자식 LobbyBackground 오브젝트 신규 추가(전체화면 stretch, 남색), LobbyRoot Image 비활성화. FixLobbyBackground.cs 에디터 스크립트로 적용. 실기기 테스트 PASS |
+
+#### 게임 화면 UI TC 전체 실기기 테스트 (2026-05-27)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 게임 화면 UI TC 62개 실기기 테스트 | ✅ 완료 | `Assets/_Project/Docs/_Tasks/2026-05-26/game-ui-tc/Testcase.md` 참조 |
+| TC-MULTI-END-001 버그 수정 (BUG-001) | ✅ 완료 | 포기 시 호스트 GameEndUI 미표시. `NetworkGameEndController.ForfeitServerRpc`에 `GameEvents.OnGameEnd.OnNext()` 1줄 추가. 근본 원인: ForfeitServerRpc가 GameEndUseCase를 건너뛰어 서버 측 OnGameEnd 미발행 |
+| TC-MULTI-END-001 버그 수정 (BUG-002) | ✅ 완료 | 재경기 팝업이 GameEndUI 뒤에 가려짐. Canvas Hierarchy에서 RematchRequestPopup을 SafeAreaContainer 이후 인덱스로 이동 (Inspector). AnimatedPanel.Show()에 SetAsLastSibling() 없음 확인 → 영구 수정 |
+| UI 크기/레이아웃 FAIL 항목 | ❌ 별도 작업 예정 | HUD-007(설정 버튼), BP-001/PRD-001/BAP-001(패널 높이), SET-004(확인팝업 버튼 색상), SET-007/END-001(UI 크기), MULTI-END-002(재경기 UI 크기) |
 
 #### 설계 규칙 문서 (GameSystemRules.md)
 | 항목 | 상태 | 비고 |

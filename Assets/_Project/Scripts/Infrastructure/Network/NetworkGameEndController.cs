@@ -271,6 +271,26 @@ namespace Hexiege.Infrastructure
             Debug.Log($"[Network] 포기 처리. 포기자ClientId={forfeiterId}, " +
                       $"포기팀={forfeitTeam}, 승리팀={winnerTeam}");
 
+            // ----------------------------------------------------------------
+            // [버그 수정 2026-05-27] 호스트 측 GameEndUI 미표시 문제 해결
+            // ----------------------------------------------------------------
+            // 정상 종료 흐름(Castle 파괴)은 다음 경로를 거친다:
+            //   GameEndUseCase → GameEvents.OnGameEnd 발행 → OnGameEndServer 수신
+            //   → AnnounceWinnerClientRpc 호출
+            // 이 경로에서는 서버(호스트)에서 OnGameEnd가 이미 발행된 상태이므로
+            // AnnounceWinnerClientRpc 안의 "!IsServer" 가드(중복 발행 방지)가 의미를 가진다.
+            //
+            // 그러나 포기 흐름(ForfeitServerRpc)은 GameEndUseCase를 건너뛰고
+            // 곧바로 AnnounceWinnerClientRpc를 호출한다. 그 결과:
+            //   - 클라이언트(비서버): !IsServer == true → OnGameEnd 발행 → GameEndUI 표시 정상
+            //   - 호스트(서버):       !IsServer == false → OnGameEnd 미발행 → GameEndUI 미표시 (버그)
+            //
+            // 따라서 포기 흐름에서는 서버 측에서도 OnGameEnd를 명시적으로 발행해야 한다.
+            // OnGameEndServer는 위에서 _announced=true로 설정되었기 때문에
+            // 이 발행을 다시 받아도 153행 가드에 의해 즉시 return → 중복 처리 없음.
+            // ----------------------------------------------------------------
+            GameEvents.OnGameEnd.OnNext(new GameEndEvent(winnerTeam));
+
             // 포기에 의한 정상 종료 — 재경기 신청은 가능하도록 isRandomMatch=false 전달.
             // (랜덤 매칭이라도 isRandomMatch는 NetworkGameManager에서 별도로 판단되지만,
             //  여기서는 보수적으로 false를 넣어 클라이언트가 재경기 버튼을 띄울 수 있게 함.
