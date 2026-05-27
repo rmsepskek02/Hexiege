@@ -83,6 +83,11 @@ namespace Hexiege.Presentation
         [SerializeField] private List<BuildingPortraitEntry> _redSpiritBuildings;
         [SerializeField] private List<BuildingPortraitEntry> _redTranscendenceBuildings;
 
+        [Header("색상 설정")]
+        [Tooltip("프로젝트 공용 UI 색상 설정 에셋. Resources/Config/UIColorConfig.asset 을 연결. " +
+                 "골드 부족/평상시 비용 텍스트 색상이 이 에셋에서 결정된다.")]
+        [SerializeField] private UIColorConfig _colorConfig;
+
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -353,17 +358,22 @@ namespace Hexiege.Presentation
                     || _buttonCanvasGroups[i] == null
                     || _buttonCanvasGroups[i].alpha < 0.5f) continue;
 
-                // 리스트 범위 밖이면 흰색으로 유지
+                // 리스트 범위 밖이면 기본(흰색)으로 유지
                 if (i >= list.Count)
                 {
-                    _buildingCostTexts[i].color = Color.white;
+                    // _colorConfig가 연결되어 있으면 normalTextColor, 미연결 시 Color.white 폴백
+                    _buildingCostTexts[i].color = _colorConfig?.normalTextColor ?? Color.white;
                     continue;
                 }
 
                 int cost = BuildingStats.GetGoldCost(list[i].type, race);
 
-                // 보유 골드가 비용보다 적으면 빨간색으로 표시
-                _buildingCostTexts[i].color = (currentGold < cost) ? Color.red : Color.white;
+                // 보유 골드가 비용보다 적으면 강조 색상(보통 빨강), 충분하면 기본(흰색).
+                // _colorConfig 미연결 시에도 동작하도록 ?? 연산자로 합리적 폴백 색 지정.
+                bool insufficient = currentGold < cost;
+                _buildingCostTexts[i].color = insufficient
+                    ? (_colorConfig?.goldInsufficientColor ?? Color.red)
+                    : (_colorConfig?.normalTextColor       ?? Color.white);
             }
         }
 
@@ -431,14 +441,16 @@ namespace Hexiege.Presentation
             _resourceSubscription?.Dispose();
             _resourceSubscription = null;
 
-            // 비용 텍스트 색상을 모두 흰색으로 초기화.
+            // 비용 텍스트 색상을 모두 기본(흰색)으로 초기화.
             // 다음 Show() 호출 시 빨간색이 잔존하지 않은 깨끗한 상태에서 시작하기 위함.
+            // _colorConfig 미연결 시 Color.white 폴백으로 안전하게 동작.
             if (_buildingCostTexts != null)
             {
+                Color resetColor = _colorConfig?.normalTextColor ?? Color.white;
                 for (int i = 0; i < _buildingCostTexts.Count; i++)
                 {
                     if (_buildingCostTexts[i] != null)
-                        _buildingCostTexts[i].color = Color.white;
+                        _buildingCostTexts[i].color = resetColor;
                 }
             }
 

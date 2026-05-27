@@ -562,9 +562,13 @@ namespace Hexiege.Presentation
                 {
                     int cost = BuildingStats.GetUpgradeCost(_currentBuilding.Type);
                     _upgradeCostText.text = $"{cost}";
-                    // 보유 골드 부족 시 비용 텍스트 빨간색으로 표시 (배치 패널 패턴과 동일)
+                    // 보유 골드 부족 시 비용 텍스트를 강조 색상으로 표시 (배치 패널 패턴과 동일)
+                    // _colorConfig는 BuildingPanelBase에서 protected로 상속받은 필드를 사용한다.
                     int currentGold = _resource != null ? _resource.GetGold(_currentBuilding.Team) : int.MaxValue;
-                    _upgradeCostText.color = (currentGold < cost) ? Color.red : Color.white;
+                    bool insufficient = currentGold < cost;
+                    _upgradeCostText.color = insufficient
+                        ? (_colorConfig?.goldInsufficientColor ?? Color.red)
+                        : (_colorConfig?.normalTextColor       ?? Color.white);
                     _upgradeCostText.gameObject.SetActive(true);
                 }
                 else
@@ -738,19 +742,25 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
                 _goldText.text = _resource.GetGold(_currentBuilding.Team).ToString();
 
             // ── 각 유닛 생산 비용 텍스트 색상 재평가 ──
+            // _colorConfig는 BuildingPanelBase에서 protected로 상속받은 필드를 사용한다.
+            // 미연결 시에도 Color.red/Color.white 폴백으로 안전하게 동작.
             if (_resource != null && _unitCostTexts != null)
             {
                 int currentGold = _resource.GetGold(_currentBuilding.Team);
+                Color insufficientColor = _colorConfig?.goldInsufficientColor ?? Color.red;
+                Color normalColor       = _colorConfig?.normalTextColor       ?? Color.white;
+
                 for (int i = 0; i < _unitCostTexts.Count; i++)
                 {
                     if (_unitCostTexts[i] == null) continue;
                     if (i >= _activeUnitTypes.Count)
                     {
-                        _unitCostTexts[i].color = Color.white;
+                        // 빈 슬롯은 기본(흰색)으로 유지
+                        _unitCostTexts[i].color = normalColor;
                         continue;
                     }
                     int cost = UnitProductionStats.GetGoldCost(_activeUnitTypes[i]);
-                    _unitCostTexts[i].color = (currentGold < cost) ? Color.red : Color.white;
+                    _unitCostTexts[i].color = (currentGold < cost) ? insufficientColor : normalColor;
                 }
             }
 
@@ -760,7 +770,10 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
             {
                 int currentGold = _resource != null ? _resource.GetGold(_currentBuilding.Team) : int.MaxValue;
                 int upCost = BuildingStats.GetUpgradeCost(_currentBuilding.Type);
-                _upgradeCostText.color = (currentGold < upCost) ? Color.red : Color.white;
+                bool insufficient = currentGold < upCost;
+                _upgradeCostText.color = insufficient
+                    ? (_colorConfig?.goldInsufficientColor ?? Color.red)
+                    : (_colorConfig?.normalTextColor       ?? Color.white);
             }
 
             // ── 인구 텍스트 갱신 ──

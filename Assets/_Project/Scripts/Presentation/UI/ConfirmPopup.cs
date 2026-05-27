@@ -42,6 +42,7 @@ using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
@@ -81,6 +82,13 @@ namespace Hexiege.Presentation
         [Tooltip("취소 버튼 라벨 텍스트.")]
         [SerializeField] private TextMeshProUGUI _cancelButtonText;
 
+        [Header("색상 설정")]
+        [Tooltip("프로젝트 전체에서 공유하는 UI 색상 설정 에셋. " +
+                 "Resources/Config/UIColorConfig.asset 을 연결하면 " +
+                 "Awake() 시점에 확인/취소 버튼 배경색이 자동으로 적용된다.")]
+        [SerializeField] private UIColorConfig _colorConfig;
+
+
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -94,6 +102,39 @@ namespace Hexiege.Presentation
         /// 현재 등록된 취소 콜백. Show()에서 갱신, OnCancelClicked()에서 Invoke.
         /// </summary>
         private Action _onCancel;
+
+        // ====================================================================
+        // Unity 생명주기
+        // ====================================================================
+
+        /// <summary>
+        /// 컴포넌트 초기화 시점.
+        ///
+        /// 버튼 배경 색상은 매 Show() 호출마다 바뀌지 않는 고정값이다.
+        /// 따라서 매번 Show()에서 색상을 재할당하는 대신, 컴포넌트가 처음 활성화될 때
+        /// 단 1회만 색상을 적용하여 불필요한 GC/할당을 최소화한다.
+        ///
+        /// 안전 가드:
+        ///   - _colorConfig가 Inspector에서 연결되지 않은 경우 즉시 return.
+        ///     (기존 UI 색상이 그대로 유지되므로 시각적 깨짐은 발생하지 않음)
+        ///   - _confirmButtonImage / _cancelButtonImage 중 하나라도 연결되지 않으면
+        ///     해당 항목만 건너뛴다 — 부분 연결 상태에서도 동작.
+        /// </summary>
+        private void Awake()
+        {
+            // 색상 설정 에셋이 연결되지 않았다면 색상 적용을 건너뛴다.
+            // 이 경우 Inspector에서 수동으로 지정한 기존 색상이 그대로 사용된다.
+            if (_colorConfig == null) return;
+
+            // 확인 버튼 배경 색상 (예: 포기 버튼 — 보통 초록색).
+            // Button.targetGraphic은 Button이 색상 전환에 사용하는 Image를 가리킨다.
+            if (_confirmButton != null)
+                _confirmButton.targetGraphic.color = _colorConfig.confirmButtonColor;
+
+            // 취소 버튼 배경 색상 (예: 취소 버튼 — 보통 빨간색).
+            if (_cancelButton != null)
+                _cancelButton.targetGraphic.color = _colorConfig.cancelButtonColor;
+        }
 
         // ====================================================================
         // 공개 메서드

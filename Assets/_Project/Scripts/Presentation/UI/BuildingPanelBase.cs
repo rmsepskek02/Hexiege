@@ -78,6 +78,12 @@ namespace Hexiege.Presentation
         [Tooltip("철거 시 받게 될 골드 환불액 텍스트.")]
         [SerializeField] protected TextMeshProUGUI _demolishRefundText;
 
+        [Header("색상 설정")]
+        [Tooltip("프로젝트 공용 UI 색상 설정 에셋. Resources/Config/UIColorConfig.asset 을 연결. " +
+                 "철거 환불 텍스트와 자식 클래스의 비용 텍스트 색상이 이 에셋에서 결정된다. " +
+                 "protected이므로 ProductionPanelUI / BuildingActionPanelUI 의 Inspector에도 동일 슬롯이 노출된다.")]
+        [SerializeField] protected UIColorConfig _colorConfig;
+
         // ====================================================================
         // 의존성 (자식 클래스의 Initialize 호출 시 주입)
         // ====================================================================
@@ -230,8 +236,9 @@ namespace Hexiege.Presentation
             int refund = totalInvested / 2;
 
             _demolishRefundText.text = $"{refund}";
-            // 환불은 양의 자원 회수이므로 시각적으로 초록색으로 표시한다.
-            _demolishRefundText.color = Color.green;
+            // 환불은 양의 자원 회수이므로 시각적으로 초록색 톤으로 표시한다.
+            // _colorConfig가 연결되어 있으면 그 값을, 미연결 시 Color.green 폴백을 사용.
+            _demolishRefundText.color = _colorConfig?.demolishRefundColor ?? Color.green;
         }
 
         // ====================================================================

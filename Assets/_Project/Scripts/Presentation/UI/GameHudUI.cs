@@ -59,6 +59,11 @@ namespace Hexiege.Presentation
         [Tooltip("설정 버튼 클릭 시 열릴 인게임 설정 메뉴 UI.")]
         [SerializeField] private InGameSettingsUI _settingsUI;
 
+        [Header("색상 설정")]
+        [Tooltip("프로젝트 공용 UI 색상 설정 에셋. Resources/Config/UIColorConfig.asset 을 연결. " +
+                 "인구 텍스트가 가득 찼을 때/평상시 색상이 이 에셋에서 결정된다.")]
+        [SerializeField] private UIColorConfig _colorConfig;
+
         // ====================================================================
         // 의존성 (Initialize로 주입)
         // ====================================================================
@@ -192,13 +197,18 @@ namespace Hexiege.Presentation
                     _populationText.text = $"{used} / {max}";
                 }
 
-                // 인구 가득 참 상태 시각화 — used >= max일 때 빨간색.
+                // 인구 가득 참 상태 시각화 — used >= max일 때 강조 색상(보통 빨강).
                 // 상태가 바뀐 프레임에만 Color 할당이 일어나 GC 부담을 최소화.
                 bool isFull = used >= max;
                 if (_lastPopFull != isFull)
                 {
                     _lastPopFull = isFull;
-                    _populationText.color = isFull ? Color.red : Color.white;
+                    // 색상 설정 에셋이 연결되어 있으면 그 값을, 아니면 합리적인 폴백 색을 사용한다.
+                    // (Inspector 미연결 시에도 시각적 경고가 정상 동작하도록 안전 가드.)
+                    if (_colorConfig != null)
+                        _populationText.color = isFull ? _colorConfig.populationFullColor : _colorConfig.normalTextColor;
+                    else
+                        _populationText.color = isFull ? Color.red : Color.white;
                 }
             }
 

@@ -83,8 +83,10 @@ namespace Hexiege.Presentation
         // 색상 설정
         // ====================================================================
 
-        private static readonly Color WinColor = new Color(0.3f, 0.5f, 0.9f);   // 파랑
-        private static readonly Color LoseColor = new Color(0.9f, 0.3f, 0.3f);  // 빨강
+        [Header("색상 설정")]
+        [Tooltip("프로젝트 공용 UI 색상 설정 에셋. Resources/Config/UIColorConfig.asset 을 연결. " +
+                 "승리/패배 결과 텍스트 색상이 이 에셋에서 결정된다.")]
+        [SerializeField] private UIColorConfig _colorConfig;
 
         /// <summary> 현재 이벤트 구독. 재초기화 시 이전 구독 정리용. </summary>
         private System.IDisposable _gameEndSubscription;
@@ -196,7 +198,12 @@ namespace Hexiege.Presentation
             if (_resultText != null)
             {
                 _resultText.text = isWin ? "승리!" : "패배!";
-                _resultText.color = isWin ? WinColor : LoseColor;
+                // 색상 설정 에셋이 연결되어 있으면 그 값을, 아니면 합리적인 폴백 색을 사용한다.
+                // (Inspector 미연결 시에도 시각적으로 승/패 구분이 가능하도록 안전 가드.)
+                if (_colorConfig != null)
+                    _resultText.color = isWin ? _colorConfig.winColor : _colorConfig.loseColor;
+                else
+                    _resultText.color = isWin ? new Color(0.3f, 0.5f, 0.9f) : new Color(0.9f, 0.3f, 0.3f);
             }
 
             _panel?.Show();
@@ -263,7 +270,12 @@ namespace Hexiege.Presentation
             if (_resultText != null)
             {
                 _resultText.text = isWin ? "승리!" : "패배!";
-                _resultText.color = isWin ? WinColor : LoseColor;
+                // 색상 설정 에셋이 연결되어 있으면 그 값을, 아니면 합리적인 폴백 색을 사용한다.
+                // (Inspector 미연결 시에도 시각적으로 승/패 구분이 가능하도록 안전 가드.)
+                if (_colorConfig != null)
+                    _resultText.color = isWin ? _colorConfig.winColor : _colorConfig.loseColor;
+                else
+                    _resultText.color = isWin ? new Color(0.3f, 0.5f, 0.9f) : new Color(0.9f, 0.3f, 0.3f);
             }
 
             _panel?.Show();
