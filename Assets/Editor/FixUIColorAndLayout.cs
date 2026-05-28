@@ -153,6 +153,210 @@ namespace Hexiege.Editor
         }
 
         // ====================================================================
+        // 진입점 — 파손된 UI 레이아웃 복구 (1회성)
+        // ====================================================================
+
+        /// <summary>
+        /// Round 2 에디터 스크립트의 StretchSingleComponent(_cancelButton) 호출이
+        /// 잘못 적용한 stretch 앵커를 복구한다.
+        ///
+        /// 파손 내역:
+        ///   - 건물 패널 3개(BuildingPlacementUI / BuildingActionPanelUI / ProductionPanelUI)의
+        ///     CancelButton 이 anchorMin=(0,0), anchorMax=(1,1) 전체 stretch 상태가 됨.
+        ///   - RematchRequestPopup 의 DeclinedConfirmButton 도 동일하게 전체 stretch 됨.
+        ///
+        /// 코드는 이미 수정됐으나 Game.unity 씬 파일에는 파손된 값이 저장된 상태이므로
+        /// 씬을 열어 해당 RectTransform 들을 의도된 코너/하단-중앙 배치로 되돌린다.
+        /// </summary>
+        [MenuItem("Hexiege/Setup/Fix Broken UI Layout")]
+        public static void RunFixBrokenUI()
+        {
+            // 현재 씬에 저장하지 않은 변경이 있으면 사용자에게 저장 여부를 먼저 확인한다.
+            // 사용자가 취소하면 작업을 중단해 실수로 덮어쓰는 것을 막는다.
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
+            {
+                Debug.Log("[FixUIColorAndLayout] 사용자가 저장을 취소하여 작업을 중단합니다.");
+                return;
+            }
+
+            // 작업 후 원래 보고 있던 씬으로 되돌리기 위해 현재 씬 경로를 기억한다.
+            string previousScenePath = EditorSceneManager.GetActiveScene().path;
+
+            // 대상 씬 파일이 실제로 존재하는지 검사 (경로 오타/파일 이동 대비).
+            if (!System.IO.File.Exists(GameScenePath))
+            {
+                EditorUtility.DisplayDialog("오류",
+                    $"Game.unity 를 찾을 수 없습니다.\n{GameScenePath}", "OK");
+                return;
+            }
+
+            // Game.unity 를 단독으로 연다 (다른 씬은 모두 닫힘).
+            Scene scene = EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Single);
+
+            // 작업 결과를 한 줄씩 모아두었다가 마지막 다이얼로그에 표시한다.
+            var resultLog = new List<string>();
+
+            // 1) 건물 패널 3개의 CancelButton 복구.
+            FixCancelButtons(resultLog);
+
+            // 2) RematchRequestPopup 의 DeclinedConfirmButton 복구.
+            FixDeclinedConfirmButton(resultLog);
+
+            // 3) 변경 사항을 디스크에 저장한다 (Dirty 마킹 후 SaveScene).
+            EditorSceneManager.MarkSceneDirty(scene);
+            bool saved = EditorSceneManager.SaveScene(scene);
+            resultLog.Add($"\nGame.unity 저장 {(saved ? "성공" : "실패")}");
+
+            // 4) 작업 전 보고 있던 씬으로 복구.
+            RestoreScene(previousScenePath);
+
+            // 5) 결과 다이얼로그 표시.
+            EditorUtility.DisplayDialog(
+                "Fix Broken UI Layout",
+                "파손된 UI 레이아웃 복구 완료.\n\n" + string.Join("\n", resultLog) + "\n\n" +
+                "[주의]\n" +
+                "변경 후 Ctrl+Z 사용 시 한 번에 모든 변경이 되돌려질 수 있습니다.\n" +
+                "필요시 작업을 다시 실행하세요.",
+                "OK");
+        }
+
+        // --------------------------------------------------------------------
+        // CancelButton 3종 복구
+        // --------------------------------------------------------------------
+
+        /// <summary>
+        /// BuildingPlacementUI / ProductionPanelUI / BuildingActionPanelUI 의
+        /// _cancelButton RectTransform 을 우상단 코너 고정 배치로 복구한다.
+        ///
+        /// 목표값(닫기 X 아이콘 버튼, 부모 패널 우상단 코너에 고정 픽셀 크기):
+        ///   anchorMin = (1,1), anchorMax = (1,1), pivot = (1,1),
+        ///   anchoredPosition = (-10,-10), sizeDelta = (100,80)
+        /// 피벗 (1,1) 이므로 버튼은 코너 기준 좌하방으로 성장 → 코너에서 10px 안쪽에 자연스럽게 위치.
+        ///
+        /// 주의: BuildingPlacementUI 는 자체 private _cancelButton 을 가지고,
+        ///       ProductionPanelUI / BuildingActionPanelUI 는 BuildingPanelBase 의
+        ///       protected _cancelButton 을 상속한다. 상속과 무관하게 각 타입별로
+        ///       독립적으로 인스턴스를 찾아 처리한다(SerializedObject 는 동일하게 동작).
+        /// </summary>
+        private static void FixCancelButtons(List<string> log)
+        {
+            log.Add("[CancelButton 복구]");
+
+            // 각 타입을 독립적으로 탐색하여 _cancelButton 을 복구한다.
+            FixSingleCancelButton<BuildingPlacementUI>(log);
+            FixSingleCancelButton<ProductionPanelUI>(log);
+            FixSingleCancelButton<BuildingActionPanelUI>(log);
+        }
+
+        /// <summary>
+        /// 타입 T 인스턴스 하나를 찾아 그 _cancelButton 의 RectTransform 을 우상단 코너 배치로 복구한다.
+        /// 비활성 오브젝트도 포함하여 탐색한다(FindObjectsInactive.Include).
+        /// </summary>
+        private static void FixSingleCancelButton<T>(List<string> log)
+            where T : MonoBehaviour
+        {
+            // 비활성 패널(팝업은 평소 닫혀 있음)도 찾을 수 있도록 Include 옵션 사용.
+            var component = Object.FindFirstObjectByType<T>(FindObjectsInactive.Include);
+            if (component == null)
+            {
+                log.Add($"  [경고] {typeof(T).Name} 인스턴스를 찾지 못했습니다.");
+                return;
+            }
+
+            // SerializedObject 를 통해 _cancelButton 필드 참조를 안전하게 읽는다.
+            var so = new SerializedObject(component);
+            so.Update();
+            var prop = so.FindProperty("_cancelButton");
+            if (prop == null || prop.objectReferenceValue == null)
+            {
+                log.Add($"  [경고] {typeof(T).Name}: _cancelButton 필드 또는 참조가 null.");
+                return;
+            }
+
+            // 참조가 Button 직접 타입이 아닐 수도 있으므로(Component 폴백) 둘 다 처리.
+            Button btn = prop.objectReferenceValue as Button;
+            if (btn == null && prop.objectReferenceValue is Component c)
+                btn = c.GetComponent<Button>();
+
+            RectTransform rt = btn != null ? btn.GetComponent<RectTransform>() : null;
+            if (rt == null)
+            {
+                log.Add($"  [경고] {typeof(T).Name}: _cancelButton 에서 RectTransform 추출 실패.");
+                return;
+            }
+
+            // Undo 기록 후 우상단 코너 고정 배치 값을 적용.
+            Undo.RecordObject(rt, $"Fix CancelButton of {typeof(T).Name}");
+            rt.anchorMin        = new Vector2(1f, 1f);
+            rt.anchorMax        = new Vector2(1f, 1f);
+            rt.pivot            = new Vector2(1f, 1f);
+            rt.anchoredPosition = new Vector2(-10f, -10f);
+            rt.sizeDelta        = new Vector2(100f, 80f);
+            EditorUtility.SetDirty(rt);
+
+            log.Add($"  {typeof(T).Name}._cancelButton: anchor=(1,1), pivot=(1,1), pos=(-10,-10), size=(100,80)");
+        }
+
+        // --------------------------------------------------------------------
+        // DeclinedConfirmButton 복구
+        // --------------------------------------------------------------------
+
+        /// <summary>
+        /// RematchRequestPopup 의 _declinedConfirmButton RectTransform 을
+        /// DeclinedPanel 하단 중앙 배치로 복구한다.
+        ///
+        /// 목표값(거절 알림 팝업의 "확인" 버튼, GO명 "ButtonArea"):
+        ///   anchorMin = (0.5,0), anchorMax = (0.5,0), pivot = (0.5,0),
+        ///   anchoredPosition = (0,15), sizeDelta = (212,88)
+        /// 다른 버튼(_acceptButton / _declineButton)과 동일한 크기(212×88)로 맞춘다.
+        /// </summary>
+        private static void FixDeclinedConfirmButton(List<string> log)
+        {
+            log.Add("\n[DeclinedConfirmButton 복구]");
+
+            // 거절 알림 팝업은 평소 비활성 상태이므로 Include 로 탐색.
+            var popup = Object.FindFirstObjectByType<RematchRequestPopup>(FindObjectsInactive.Include);
+            if (popup == null)
+            {
+                log.Add("  [경고] RematchRequestPopup 인스턴스를 찾지 못했습니다.");
+                return;
+            }
+
+            // SerializedObject 를 통해 _declinedConfirmButton 필드 참조를 안전하게 읽는다.
+            var so = new SerializedObject(popup);
+            so.Update();
+            var prop = so.FindProperty("_declinedConfirmButton");
+            if (prop == null || prop.objectReferenceValue == null)
+            {
+                log.Add("  [경고] RematchRequestPopup: _declinedConfirmButton 필드 또는 참조가 null.");
+                return;
+            }
+
+            // Button 직접 타입이 아닐 수도 있으므로 Component 폴백 처리.
+            Button btn = prop.objectReferenceValue as Button;
+            if (btn == null && prop.objectReferenceValue is Component c)
+                btn = c.GetComponent<Button>();
+
+            RectTransform rt = btn != null ? btn.GetComponent<RectTransform>() : null;
+            if (rt == null)
+            {
+                log.Add("  [경고] RematchRequestPopup: _declinedConfirmButton 에서 RectTransform 추출 실패.");
+                return;
+            }
+
+            // Undo 기록 후 하단 중앙 배치 값을 적용.
+            Undo.RecordObject(rt, "Fix DeclinedConfirmButton of RematchRequestPopup");
+            rt.anchorMin        = new Vector2(0.5f, 0f);
+            rt.anchorMax        = new Vector2(0.5f, 0f);
+            rt.pivot            = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0f, 15f);
+            rt.sizeDelta        = new Vector2(212f, 88f);
+            EditorUtility.SetDirty(rt);
+
+            log.Add("  RematchRequestPopup._declinedConfirmButton: anchor=(0.5,0), pivot=(0.5,0), pos=(0,15), size=(212,88)");
+        }
+
+        // ====================================================================
         // 1) UIColorConfig 에셋 생성/로드
         // ====================================================================
 
@@ -1117,5 +1321,6 @@ namespace Hexiege.Editor
             }
         }
     }
+
 }
 #endif
