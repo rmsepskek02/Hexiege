@@ -438,3 +438,101 @@ RequestPanel/DeclinedPanel이 Canvas 비율(80%×40%) 기반으로 커졌지만,
 별도 `FixUILayoutRound2.cs` 메뉴 스크립트 생성.
 
 Round 2 수정에는 씬 계층 탐색이 필요하므로 game-programmer 에이전트가 씬을 직접 확인한 뒤 구체적인 GO 경로/이름을 파악하여 구현.
+
+---
+
+## Round 2 실패 원인 분석 및 Round 3 복구 계획
+
+### Round 2에서 실제로 파손된 것 (씬 YAML 직접 검증 결과)
+
+Round 2 코드에 포함된 `StretchSingleComponent(_cancelButton)` 호출이 씬에 적용됨.
+이후 코드는 수정됐으나 씬 파일(Game.unity)에는 파손된 값이 이미 저장된 상태.
+
+**씬 YAML 직접 확인 결과:**
+
+| 오브젝트 | 파손 여부 | 현재 값 | 비고 |
+|---------|----------|--------|------|
+| BuildingPlacementUI._cancelButton (RT: 1195566245) | **파손** | anchorMin=(0,0), anchorMax=(1,1), sizeDelta=(0,0) | 전체 패널 stretch |
+| BuildingActionPanelUI._cancelButton (RT: 2030508638) | **파손** | anchorMin=(0,0), anchorMax=(1,1), sizeDelta=(0,0) | 전체 패널 stretch |
+| ProductionPanelUI._cancelButton (RT: 450248396) | **파손** | anchorMin=(0,0), anchorMax=(1,1), sizeDelta=(0,0) | 전체 패널 stretch |
+| RematchRequestPopup._declinedConfirmButton (RT: 1380616210, "ButtonArea") | **파손** | anchorMin=(0,0), anchorMax=(1,1), sizeDelta=(0,0) | 전체 패널 stretch |
+| _acceptButton (RT: 1627294649) | **정상** | anchorMin=(0,1), pos=(106,-44), size=(212,88) | 변경 안 됨 |
+| _declineButton (RT: 975996727) | **정상** | anchorMin=(0,1), pos=(334,-44), size=(212,88) | 변경 안 됨 |
+| _progressFill (RT: 1043901889) | **정상** (의도적 stretch) | anchorMin=(0,0), anchorMax=(1,1) | fill 이미지 — stretch가 정상 동작 |
+| GridLayoutGroup constraint | **파손 없음** | 해당 없음 | Game.unity에 GridLayoutGroup 컴포넌트 자체가 없음 |
+
+---
+
+### Step 16 — Fix Broken UI Layout 복구 스크립트 (Round 3)
+
+**파일:** `Assets/Editor/FixUIColorAndLayout.cs` — 새 메뉴 항목 추가
+
+**메뉴 경로:** `Hexiege/Setup/Fix Broken UI Layout`
+
+**수행 내용:**
+파손된 4개 요소의 RectTransform 을 올바른 위치/크기로 복구한다.
+기존 `ApplyAnchors` / `TrySetAnchorsFromObjectField` 헬퍼를 재사용한다.
+단, `_cancelButton`과 `_declinedConfirmButton`은 `sizeDelta`와 `anchoredPosition`이 (0,0)이 아닌
+고정 픽셀 값이 필요하므로 새 오버로드나 직접 호출을 사용한다.
+
+**복구 목표값:**
+
+#### CancelButton 3개 (BuildingPlacementUI / BuildingActionPanelUI / ProductionPanelUI)
+
+닫기(X) 아이콘 버튼. 부모 패널의 헤더 텍스트 우측 빈 공간(약 100px)에 배치.
+씬 분석 기준: ProductionPanel 내 HeaderText가 sizeDelta.x = -150으로 좌측을 채우고 우측에 공간을 남겨 둠.
+
+| 항목 | 값 |
+|------|----|
+| anchorMin | (1, 1) |
+| anchorMax | (1, 1) |
+| pivot | (1, 1) |
+| anchoredPosition | (-10, -10) |
+| sizeDelta | (100, 80) |
+
+의미: 부모 패널 우상단 코너 기준, 10px 안쪽에 100×80px 버튼 배치.
+피벗 (1,1) → 버튼이 좌하방으로 성장하므로 코너에서 안쪽으로 자연스럽게 위치함.
+
+구현 방법:
+```
+SerializedObject(buildingPlacementUI) → "_cancelButton" → RectTransform 추출 → ApplyAnchors
+SerializedObject(productionPanelUI)   → "_cancelButton" → RectTransform 추출 → ApplyAnchors
+SerializedObject(actionPanelUI)       → "_cancelButton" → RectTransform 추출 → ApplyAnchors
+```
+
+#### DeclinedConfirmButton (RematchRequestPopup._declinedConfirmButton "ButtonArea")
+
+거절 알림 팝업("상대방이 재경기를 거절했습니다")의 확인 버튼.
+부모: DeclinedPanel (anchorMin=(0.1,0.3), anchorMax=(0.9,0.7) — Canvas 기준 80%×40% 중앙 패널).
+자식 구성: 제목 텍스트, 내용 텍스트, ButtonArea(확인 버튼) — 레이아웃 그룹 없음.
+
+| 항목 | 값 |
+|------|----|
+| anchorMin | (0.5, 0) |
+| anchorMax | (0.5, 0) |
+| pivot | (0.5, 0) |
+| anchoredPosition | (0, 15) |
+| sizeDelta | (212, 88) |
+
+의미: DeclinedPanel 하단 중앙에서 15px 위에 212×88px 버튼 배치.
+_acceptButton / _declineButton과 동일한 크기(212×88)로 통일.
+
+구현 방법:
+```
+SerializedObject(rematchPopup) → "_declinedConfirmButton" → RectTransform 추출 → ApplyAnchors
+```
+
+**전체 플로우:**
+```
+RunFixBrokenUI()
+  → OpenScene(Game.unity)
+  → FixCancelButtons() : 3개 패널 _cancelButton 복구
+  → FixDeclinedConfirmButton() : RematchRequestPopup._declinedConfirmButton 복구
+  → MarkDirty + SaveScene
+  → 결과 다이얼로그
+```
+
+**안전성:**
+- Undo.RecordObject 적용 — Ctrl+Z 복구 가능
+- 비활성 오브젝트 포함(FindObjectsInactive.Include)
+- 각 단계 null 체크 및 log 기록
