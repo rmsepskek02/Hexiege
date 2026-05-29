@@ -23,6 +23,21 @@
 
 ## 최근 작업
 
+### BuildingActionPanelUI 씬 계층 재설계 + 런타임 슬롯 제어 (2026-05-29) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-29/building-action-panel-rebuild/`
+
+**핵심 변경**:
+- `BuildingActionPanelUI.cs`: `_allSlotButtons`(9개 전체) + `_activeSlotButtons`(활성만) 필드 추가. `BuildSlotCanvasGroups()`에서 CanvasGroup 캐시·초기값 alpha=0. `OnShow()` 오버라이드에서 전체 숨김 후 활성 버튼만 alpha=1 — **BuildingPlacementUI._buttonCanvasGroups 패턴과 동일**.
+- Game.unity: BuildingActionPanel 3x3 VLG+HLG 그리드 구조. 래퍼 anchoredPosition/sizeDelta 오프셋 제거. CancelButton anchor=(0.883,0.852)~(0.993,0.97) (BuildingPlacementUI와 통일). HeaderText 순수 앵커: (0.096,0.826)~(0.867,1.006).
+- 에디터 스크립트 2개 사용 후 삭제: `RebuildBuildingActionPanel.cs`, `FixHeaderTextAnchor.cs`
+
+**설계 포인트**:
+- 빈 슬롯 숨김은 에디터 고정이 아닌 런타임 `OnShow()`에서 처리 → 나중에 건물 타입별 다른 버튼 표시 확장 가능
+- `BuildingPanelBase.OnShow()` 훅을 오버라이드하는 구조이므로 베이스 Show() 흐름(헤더갱신·애니메이션·환불텍스트)은 변경 없음
+
+---
+
 ### BuildingPlacementUI 씬 계층 재설계 (2026-05-29) ✅ 에디터 구성 완료 / 실기 재검증 필요
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-29/building-placement-ui-rebuild/`

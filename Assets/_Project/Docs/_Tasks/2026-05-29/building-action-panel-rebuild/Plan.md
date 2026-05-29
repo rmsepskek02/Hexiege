@@ -6,6 +6,9 @@ BuildingActionPanel의 레이아웃을 GameSystemRules에 맞게 재구성합니
 래퍼의 고정 픽셀 오프셋 제거, 불필요한 ProductionPanelUI 잔재 계층 정리,
 GoldText 앵커 오류 수정, CancelButton 위치를 다른 패널과 통일하는 것이 핵심입니다.
 
+또한 빈 슬롯 숨김 처리를 에디터 고정값이 아닌 런타임에서 처리하도록 설계합니다.
+이를 통해 나중에 건물 타입별로 다른 버튼을 표시하는 확장도 자연스럽게 지원됩니다.
+
 ---
 
 ## 목표 계층 구조
@@ -115,10 +118,62 @@ BuildingActionPanel (래퍼 + BuildingActionPanelUI + AnimatedPanel)
 
 ---
 
+---
+
+## 런타임 슬롯 숨김 설계 (추가 결정사항)
+
+### 배경
+
+빈 슬롯 8개의 CanvasGroup.alpha=0을 에디터에서 고정하는 방식은 다음 문제가 있다:
+- 나중에 건물 타입별로 다른 버튼을 표시하는 확장이 어렵다
+- 에디터 값에 의존하면 스크립트 재실행 시마다 다시 설정해야 한다
+
+### 설계 방향 — BuildingPlacementUI와 동일한 패턴
+
+BuildingPlacementUI의 슬롯 관리 방식을 그대로 따른다.
+
+**BuildingPlacementUI 패턴 요약:**
+- `Initialize()`: `_buildingButtons` 전체를 순회해 CanvasGroup 캐시, 초기값 전부 alpha=0
+- `Show()`: 실제 사용할 버튼 리스트와 비교해 i < list.Count이면 alpha=1, 아니면 alpha=0
+
+**BuildingActionPanelUI 적용:**
+
+```
+Inspector 필드 2개 추가 (BuildingActionPanelUI.cs):
+  [SerializeField] private List<Button> _allSlotButtons
+    → 9개 슬롯 전부 연결 (전체 슬롯 CanvasGroup 제어용)
+  [SerializeField] private List<Button> _activeSlotButtons
+    → 실제 사용할 버튼만 연결 (현재: DestroyButton 1개)
+    → Inspector에서 추가/제거로 활성 슬롯 조절 가능
+
+Initialize() 추가 로직:
+  → _allSlotButtons 전체에 CanvasGroup 캐시, 초기값 alpha=0
+
+OnShow(BuildingData) 오버라이드:
+  → _allSlotButtons 전체 alpha=0 초기화
+  → _activeSlotButtons에 포함된 버튼만 alpha=1 활성화
+```
+
+### 구현 위치
+
+- **파일**: `Assets/_Project/Scripts/Presentation/UI/BuildingActionPanelUI.cs`
+- **방법**: `Initialize()` 오버라이드(또는 확장) + `BuildingPanelBase`의 `OnShow(BuildingData)` 훅 오버라이드
+
+### 미래 확장 시나리오
+
+건물 타입에 따라 다른 버튼을 표시해야 할 때,
+`OnShow()` 내부에서 `building.Type`을 확인하고 `_activeSlotButtons`를 동적으로 구성하거나,
+Inspector에서 타입별 활성 버튼 리스트를 별도로 정의하면 된다.
+
+---
+
 ## 작업 순서
 
-1. `Assets/Editor/RebuildBuildingActionPanel.cs` 작성
+1. `Assets/Editor/RebuildBuildingActionPanel.cs` 작성 (3x3 그리드 구조)
+   - 에디터 스크립트에서는 모든 슬롯을 alpha=1로 생성 (런타임에서 제어)
 2. Unity에서 `Hexiege/Setup/BuildingActionPanel 재구성` 메뉴 실행
-3. Inspector 연결 상태 확인
-4. 에디터 플레이 모드에서 채굴소 탭 → 팝업 표시 확인
-5. 실기기 TC-SINGLE-BAP-001 재검증
+3. `BuildingActionPanelUI.cs`에 `OnShow()` 오버라이드 구현
+   - 전체 슬롯 숨김 후 DestroyButton 슬롯만 활성화
+4. Inspector 연결 상태 확인
+5. 에디터 플레이 모드에서 채굴소 탭 → 팝업 표시 확인
+6. 실기기 TC-SINGLE-BAP-001 재검증
