@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-05-27
-**현재 단계:** 게임 화면 UI TC 62개 실기기 테스트 완료 + 멀티플레이 END UI 버그 2건 수정 (Login.unity 씬 조립 및 Firebase Console 설정 별도 진행 필요)
+**최종 수정일:** 2026-05-29
+**현재 단계:** BuildingPlacementUI 씬 계층 재설계 완료 + 게임 화면 UI FAIL 항목 일부 해소 (Login.unity 씬 조립 및 Firebase Console 설정 별도 진행 필요)
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -13,7 +13,8 @@
 | ✅ 완료 | 코드 리팩토링 7개 그룹 전체 | 아키텍처 | 대 |
 | ✅ 완료 | 로그인 시스템 C# 구현 (Firebase Auth + GPGS) | 기능 | 중 |
 | ✅ 완료 | 게임 화면 UI TC 62개 실기기 테스트 + END UI 버그 수정 | QA/버그 | 중 |
-| 🔴 높음 | 게임 화면 UI 크기/레이아웃 수정 (HUD-007, BP-001, PRD-001 등 9항목) | UI | 소 |
+| ✅ 완료 | BuildingPlacementUI 씬 계층 재설계 (BP-001/BP-002 해결) | UI | 중 |
+| 🔴 높음 | 게임 화면 UI 크기/레이아웃 수정 잔여 (HUD-007, PRD-001, BAP-001, SET-004, SET-007/END-001, MULTI-END-002 — 7항목) | UI | 소 |
 | 🔴 높음 | Login.unity 씬 조립 + Firebase Console 설정 | UI/인프라 | 소 |
 | 🟡 중간 | BuildFailed/EnqueueFailed UI 피드백 (멀티) | UI | 소 |
 | 🟡 중간 | 게임 내 밸런싱 (골드/HP/생산시간) | 기획 | 중 |

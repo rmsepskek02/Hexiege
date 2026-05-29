@@ -60,6 +60,9 @@ namespace Hexiege.Presentation
         [Tooltip("버튼 리스트와 1:1 매칭되는 아이콘 Image 컴포넌트")]
         [SerializeField] private List<Image> _buildingButtonIcons;
 
+        [Tooltip("버튼 리스트와 1:1 매칭되는 골드 아이콘 Image 컴포넌트. 버튼 내부 우측 상단에 위치.")]
+        [SerializeField] private List<Image> _buildingGoldIcons;
+
         [Tooltip("버튼 리스트와 1:1 매칭되는 비용 텍스트")]
         [SerializeField] private List<TextMeshProUGUI> _buildingCostTexts;
 

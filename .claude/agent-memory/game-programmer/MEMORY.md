@@ -23,6 +23,30 @@
 
 ## 최근 작업
 
+### BuildingPlacementUI 씬 계층 재설계 (2026-05-29) ✅ 에디터 구성 완료 / 실기 재검증 필요
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-29/building-placement-ui-rebuild/`
+
+**문제**: 기존 BuildingPlacementUI가 패널 높이 부족, 버튼 테두리 침범, 골드 아이콘 Y축 정렬 불일치로 FAIL. 수치 조정만으로는 해결 불가 → 씬 계층 전면 재구성.
+
+**핵심 변경**:
+- `Game.unity`: BuildingPanel anchor=(0,0)~(1,0.4). GridContainer anchor=(0.08,0.123)~(0.92,0.864). CancelButton anchor=(0.883,0.852)~(0.993,0.97). 모두 순수 앵커 기반(anchoredPosition=0, sizeDelta=0).
+- 버튼 그리드: GridLayoutGroup 대신 VerticalLayoutGroup→Row별 HorizontalLayoutGroup 중첩 (GameSystemRules Rule 2 supplement). 3행×3열 = 9슬롯.
+- 각 버튼 내부: HLG(childControlWidth=true) → IconImage(flexibleWidth=6) + CostContainer(flexibleWidth=4, VLG) → GoldIcon(ui_icon_gold, min/preferred=44) + CostText(Maplestory Light SDF).
+- `BuildingPlacementUI.cs`: `_buildingGoldIcons` 필드 추가.
+- `GameSystemRules.md`: Rule 2에 Layout Group 반응형 패턴 추가.
+- 구 `BuildingButtons` 컨테이너 씬에서 제거.
+
+**1회성 셋업 스크립트**: `Assets/Editor/RebuildBuildingPlacementUI.cs`
+- 메뉴: `Hexiege/Setup/BuildingPlacementUI 재구성`
+- anchoredPosition/sizeDelta를 0으로 맞추려면 앵커 변경 후 `rt.anchoredPosition = Vector2.zero` 명시 필수 (offsetMin/offsetMax만 설정하면 anchoredPosition 오프셋이 남음)
+- 버튼 내부 재구성 시 기존 자식 전체 먼저 삭제 필수 (구 Slot 등 잔여 오브젝트가 LayoutElement와 충돌)
+- GoldIcon에 AspectRatioFitter가 있으면 반드시 제거 (preferredHeight 무시 원인)
+
+**GameSystemRules 준수 검증 완료** (2026-05-29): Rule 2/4/5/6 모두 준수 확인.
+
+---
+
 ### 멀티플레이 포기 시 호스트 GameEndUI 미표시 버그 수정 (2026-05-27) ✅ 실기 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-27/16_52_game-end-ui-bugfix/`

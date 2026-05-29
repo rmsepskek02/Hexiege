@@ -45,6 +45,12 @@ sizeDelta, offsetMin, offsetMax 등 고정 픽셀값 사용 금지.
 앵커(Anchor)란 부모 오브젝트를 기준으로 자식 오브젝트의 위치와 크기를 비율로 지정하는 방식이다.
 화면 크기가 달라져도 비율이 유지되므로 어떤 해상도에서도 레이아웃이 일관되게 표시된다.
 
+Layout Group 내부 반응형 패턴:
+GridLayoutGroup의 CellSize는 고정 픽셀값이므로 사용하지 않는다.
+대신 VerticalLayoutGroup + HorizontalLayoutGroup 중첩 구조를 사용하고,
+Control Child Size + Child Force Expand를 활성화하면 CellSize 없이
+가용 공간을 자동으로 균등 분배한다.
+
 **규칙 3. Filled/Simple 이미지 자식 앵커 규칙**
 Image.Type.Filled 또는 Simple 타입 이미지 안에 자식 이미지가 있는 경우,
 자식 이미지도 부모와 같은 비율로 앵커를 설정해야 한다.
