@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: f5dbb98a85baad04eab27646d18ebdcc
+guid: bf98675d89d10fb4c843c9f72e4d5c4f
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -2619846105140684308
-    second: ui_btn_cancel_0
+      213: -2721250942921201429
+    second: ui_icon_email_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -37,7 +37,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 0
+    filterMode: 1
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -100,12 +100,12 @@ TextureImporter:
     buildTarget: Android
     maxTextureSize: 2048
     resizeAlgorithm: 0
-    textureFormat: 4
+    textureFormat: -1
     textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
-    overridden: 1
+    overridden: 0
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
@@ -113,23 +113,23 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: ui_btn_cancel_0
+      name: ui_icon_email_0
       rect:
         serializedVersion: 2
-        x: 200
-        y: 200
-        width: 620
-        height: 620
+        x: 178
+        y: 286
+        width: 667
+        height: 505
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ce916e019df64abd0800000000000000
-      internalID: -2619846105140684308
+      spriteID: be82c7a6fac2c3ad0800000000000000
+      internalID: -2721250942921201429
       vertices: []
       indices: 
       edges: []
@@ -148,7 +148,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      ui_btn_cancel_0: -2619846105140684308
+      ui_icon_email_0: -2721250942921201429
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

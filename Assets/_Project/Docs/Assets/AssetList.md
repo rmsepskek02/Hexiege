@@ -221,12 +221,16 @@
 ### 3. UI 시스템 요소 (Common UI)
 
 | 분류 | 용도 | 파일명 |
-|------|--------|
+|------|------|--------|
 | Bars | HP/진행도 프레임 | ui_bar_alt_frame, ui_bar_hp_frame, ui_bar_progress_frame |
-| Buttons | 기본 버튼 | ui_btn_cancel, ui_btn_gold_normal |
-| Icons | 자원/기능 아이콘 | ui_icon_gold, ui_icon_population, ui_icon_rallypoint, ui_icon_timer |
+| Buttons | 버튼 배경 프레임 | ui_btn_cancel, ui_btn_gold_normal, ui_btn_primary, ui_btn_secondary |
+| Icons — 자원/기능 | 인게임 HUD 아이콘 | ui_icon_gold, ui_icon_population, ui_icon_rallypoint, ui_icon_timer, ui_icon_lock, ui_icon_destroy |
+| Icons — 공통 기능 | 설정/종료 아이콘 | ui_icon_settings, ui_icon_quit |
+| Icons — TabBar | 로비 탭 바 아이콘 | ui_icon_tab_battle, ui_icon_tab_shop, ui_icon_tab_profile, ui_icon_tab_ranking |
+| Icons — 로비 버튼 | 로비 패널 버튼 아이콘 | ui_icon_singleplay, ui_icon_randommatch, ui_icon_customgame, ui_icon_createroom, ui_icon_joinbycode, ui_icon_email, ui_icon_logout, ui_icon_back, ui_icon_cancel |
 | Panels | 배경 패널 | ui_panel_dark, ui_panel_light |
 | Slots | 슬롯 배경 | ui_slot_bar, ui_slot_icon_dark, ui_slot_icon_light, ui_slot_queue |
+| Spinners | 로딩/매칭 대기 스피너 | ui_spinner_hexorb |
 
 ### 4. 맵 및 타일 스프라이트 (Tiles)
 

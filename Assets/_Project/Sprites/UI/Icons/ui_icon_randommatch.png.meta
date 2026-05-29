@@ -1,10 +1,19 @@
 fileFormatVersion: 2
-guid: f5dbb98a85baad04eab27646d18ebdcc
+guid: 9ed9019155be2aa4f9d6a76357dc69f5
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -2619846105140684308
-    second: ui_btn_cancel_0
+      213: -163572423628434354
+    second: ui_icon_randommatch_0
+  - first:
+      213: 8695544341723322096
+    second: ui_icon_randommatch_1
+  - first:
+      213: 828514515421364454
+    second: ui_icon_randommatch_2
+  - first:
+      213: 1493227407974965779
+    second: ui_icon_randommatch_3
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -37,7 +46,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 0
+    filterMode: 1
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -100,12 +109,12 @@ TextureImporter:
     buildTarget: Android
     maxTextureSize: 2048
     resizeAlgorithm: 0
-    textureFormat: 4
+    textureFormat: -1
     textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
-    overridden: 1
+    overridden: 0
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
@@ -113,23 +122,89 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: ui_btn_cancel_0
+      name: ui_icon_randommatch_0
       rect:
         serializedVersion: 2
-        x: 200
-        y: 200
-        width: 620
-        height: 620
+        x: 0
+        y: 211
+        width: 1220
+        height: 1043
       alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+      pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: ce916e019df64abd0800000000000000
-      internalID: -2619846105140684308
+      spriteID: e44d3925fbfdabdf0800000000000000
+      internalID: -163572423628434354
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ui_icon_randommatch_1
+      rect:
+        serializedVersion: 2
+        x: 497
+        y: 858
+        width: 124
+        height: 225
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0f693110287cca870800000000000000
+      internalID: 8695544341723322096
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ui_icon_randommatch_2
+      rect:
+        serializedVersion: 2
+        x: 517
+        y: 208
+        width: 83
+        height: 135
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 6e002f6ef897f7b00800000000000000
+      internalID: 828514515421364454
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: ui_icon_randommatch_3
+      rect:
+        serializedVersion: 2
+        x: 622
+        y: 207
+        width: 102
+        height: 181
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 312a9358a6209b410800000000000000
+      internalID: 1493227407974965779
       vertices: []
       indices: 
       edges: []
@@ -148,7 +223,10 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      ui_btn_cancel_0: -2619846105140684308
+      ui_icon_randommatch_0: -163572423628434354
+      ui_icon_randommatch_1: 8695544341723322096
+      ui_icon_randommatch_2: 828514515421364454
+      ui_icon_randommatch_3: 1493227407974965779
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

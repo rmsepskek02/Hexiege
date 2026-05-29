@@ -491,7 +491,7 @@
 | BuildFailedClientRpc UI 피드백 없음 | NetworkBuildingController | RPC 구조 완성, UI 기획 후 구현 예정 |
 | EnqueueFailedClientRpc UI 피드백 없음 | NetworkProductionController | 싱글플레이 피드백 완료(2026-05-16). 멀티플레이 분기(RPC)는 별도 작업 예정 |
 | 재접속 실제 구현 없음 | ReconnectionHandler | 30초 대기 후 ForceWin만 |
-| 로비 UI 비주얼 폴리싱 | Lobby Views | UI 에셋 제작 후 진행 예정 |
+| 로비 UI 비주얼 폴리싱 | Lobby Views | UI 에셋 제작 완료 (2026-05-30) — 비주얼 폴리싱 작업만 잔여 |
 
 #### GameConfig 코드 기본값 vs Inspector 값
 - AnimationFps 필드 제거 완료 (2026-03-09 — 미사용 필드)
