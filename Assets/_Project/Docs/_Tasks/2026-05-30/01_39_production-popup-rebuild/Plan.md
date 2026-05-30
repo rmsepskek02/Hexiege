@@ -13,50 +13,79 @@
 
 ---
 
-## 현재 씬 상태 (2차 작업 시작 기준)
+## 현재 씬 상태 (최신 기준)
+
+스크립트 누적 실행 결과:
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | HeaderText 앵커 | ✅ 완료 | anchorMin=(0.05,0.85), anchorMax=(0.85,0.97) |
 | CancelButton 앵커 | ✅ 완료 | anchorMin=(0.883,0.852), anchorMax=(0.993,0.97) |
-| UnitsButtons 영역 | ❌ 재작업 필요 | 버튼이 너무 크게 늘어남 |
-| QueueSlots | ❌ 재작업 필요 | 높이 손실로 크기 이상 |
-| InfoBar | ❌ 재작업 필요 | 위치·크기 모두 변경 필요 |
-| ProgressBar / Fill | ✅ 건드리지 않음 | 앵커 정상 유지 중 |
+| ProgressBar Y | ✅ 완료 | anchorMin.y=0.17, anchorMax.y=0.25 |
+| QueueSlots Y | ✅ 완료 | anchorMin.y=0.25, anchorMax.y=0.49 |
+| UnitsButtons Y | ✅ 완료 | anchorMin.y=0.49, anchorMax.y=0.97 |
+| UnitsButtons X + VLG 패딩 | ✅ 완료 | anchorMin.x=0.08, anchorMax.x=0.92, Padding=20, Spacing=8 |
+| UnitsButtons GridContainer 구조 | ✅ 완료 | ApplyGridContainer.cs 실행 완료 |
+| 유닛 버튼 내부 구조 (BuildingPopup 동일화) | ❌ 미완료 | 이번 작업 대상 |
+| QueueSlots 슬롯 정렬 | ❌ 미완료 | 왼쪽 치우침 문제 잔존 |
+| InfoBar 위치/크기 | ❌ 미완료 | 별도 작업 필요 |
 
 ---
 
 ## 수정 항목
 
-### 1. HeaderText — ✅ 이미 완료, 재작업 불필요
+### 1. HeaderText — ✅ 완료
 
 ---
 
-### 2. CancelButton — ✅ 이미 완료, 재작업 불필요
+### 2. CancelButton — ✅ 완료
 
 ---
 
-### 3. UnitsButtons 영역 — 2행 3열 그리드 재구성
+### 3. UnitsButtons 영역 — BuildingPopup과 동일한 계층 구조 적용
 
 **근거**: GameSystemRules 공통 UI 규칙 Rule 2 (Layout Group 반응형 패턴)
 
-**설계 방향**: BuildingPopup(BuildingPlacementUI)의 3×3 그리드와 동일한 VLG+HLG 중첩 구조를 사용하되, ProductionPopup은 **2행 3열** 구성이다.
+**설계 방향**: BuildingPopup의 `BuildingPanel → GridContainer → VLG → Row × N` 구조를 그대로 따른다.
+UnitsButtons가 BuildingPanel 역할(외부 컨테이너), GridContainer(신규 생성)가 실제 그리드를 담당한다.
 
-- Row 1 (UnitButtons): 유닛 생산 버튼 3개
-- Row 2 (Buttons): 액션 버튼 3개 (랠리, 업그레이드, 철거)
-
-두 행은 균등한 높이로 분배된다 (별도 비율 없음, 1:1 그리드).
-
-**UnitsButtons (VLG) 목표 설정**:
+**목표 계층 구조**:
 ```
-childControlWidth  = true
-childControlHeight = true
-childForceExpandWidth  = true
-childForceExpandHeight = true
-spacing = 적절한 간격
+UnitsButtons (단순 컨테이너, VLG 제거)
+  └── GridContainer (신규 생성)
+        anchor: (0.08, 0.123) ~ (0.92, 0.864)  ← BuildingPopup GridContainer와 동일
+        anchoredPosition: (0, 0), sizeDelta: (0, 0)
+        VLG:
+          padding (Left/Right/Top/Bottom) = 20   ← BuildingPopup GridContainer VLG와 동일
+          spacing = 8
+          childAlignment = MiddleCenter
+          childControlWidth/Height = true
+          childForceExpandWidth/Height = true
+        ├── UnitButtons (HLG — 유닛 버튼 3개, GridContainer 하위로 이동)
+        └── Buttons (HLG — 액션 버튼 3개, GridContainer 하위로 이동)
 ```
 
-**UnitButtons / Buttons (각 HLG) 목표 설정**:
+**BuildingPopup과 비교**:
+
+| | BuildingPopup | ProductionPopup |
+|---|---|---|
+| 외부 컨테이너 | BuildingPanel | UnitsButtons |
+| 그리드 컨테이너 | GridContainer | GridContainer (신규) |
+| GridContainer anchor | (0.08, 0.123)~(0.92, 0.864) | 동일 |
+| VLG padding | 20 (상하좌우) | 동일 |
+| VLG spacing | 8 | 동일 |
+| 행 수 | 3행 | 2행 |
+
+**작업 내용**:
+1. UnitsButtons에서 VerticalLayoutGroup 제거
+2. UnitsButtons 자식으로 GridContainer 오브젝트 신규 생성
+3. GridContainer에 위 RectTransform 수치 적용
+4. GridContainer에 VLG 추가 (BuildingPopup과 동일 값)
+5. UnitButtons, Buttons를 GridContainer 하위로 Reparent
+
+**⚠️ Inspector 재연결 필요**: UnitButtons, Buttons를 Reparent해도 ProductionPanelUI의 SerializedField 참조는 유지되나, 실행 후 반드시 Inspector에서 null 여부 확인.
+
+**UnitButtons / Buttons (각 HLG) 현재 설정** (변경 없음 유지):
 ```
 childControlWidth  = true
 childControlHeight = true
@@ -138,31 +167,67 @@ GoldText, PopText (텍스트):
 
 ## 구현 방식
 
-### 2회성 Editor 스크립트 (1차 수정분 위에 덮어쓰기)
+### 현재까지 실행된 스크립트
 
-**파일**: `Assets/Editor/FixProductionPopup.cs`
-**메뉴**: `Hexiege/Setup/ProductionPopup 2차 수정`
+| 스크립트 | 적용 내용 |
+|----------|-----------|
+| `RebuildProductionPopup.cs` | HeaderText, CancelButton 앵커 수정 |
+| `FixProductionPopup.cs` | UnitsButtons 그리드 설정, QueueSlots, InfoBar 1차 조정 |
+| `FixProductionPopupGrid.cs` | UnitsButtons 앵커 x(0.08~0.92), VLG Padding=20, Spacing=8 |
+| `FixProductionPopupRatio.cs` | ProgressBar/QueueSlots/UnitsButtons Y앵커 6:3:1 비율 조정 |
+| `ApplyGridContainer.cs` | UnitsButtons에 GridContainer 생성, UnitButtons/Buttons 이동 |
 
-1차 스크립트(`RebuildProductionPopup.cs`)로 HeaderText/CancelButton은 이미 완료.
-이 스크립트는 **나머지 3개 영역만** 수정한다.
+### 4. 유닛 버튼 내부 구조 — BuildingPopup Slot과 동일하게
 
-스크립트에서 수행하는 작업:
-1. UnitsButtons VLG / UnitButtons HLG / Buttons HLG 설정 재조정 + 기존 LayoutElement 삭제
-2. QueueSlots HLG alignment/childControl 변경 + 각 Slot sizeDelta 정사각형으로 복원
-3. InfoBar RT 앵커를 프레임 하단 중앙으로 재설정 + 자식 요소 LayoutElement 조정
+**근거**: GameSystemRules 공통 UI 규칙 Rule 2 (Layout Group 반응형 패턴)
+
+**설계 방향**: GridContainer > UnitButtons 행의 버튼 3개(Button1/2/3)를 BuildingPopup의 Slot과 동일한 내부 구조로 변환한다.
+
+**BuildingPopup Slot 구조 (실측값 기준)**:
+```
+Slot (Button + Image + HLG + CanvasGroup)
+  HLG: Padding L=60, R=60, T=20, B=20, Spacing=6
+       childAlignment=MiddleCenter
+       childControlWidth/Height=true, childForceExpandWidth/Height=true
+  ├── IconImage (Image + LayoutElement: flexibleWidth=6, flexibleHeight=1)
+  └── CostContainer (VLG: spacing=4, childControlW/H=true, childForceExpandW=true, H=false)
+        ├── GoldIcon (Image + LayoutElement: minWidth=44, minHeight=44,
+        │                                    preferredWidth=44, preferredHeight=44)
+        └── CostText (TMP + LayoutElement: preferredWidth=400, preferredHeight=22)
+```
+
+**ProductionPopup Button (현재 → 목표)**:
+```
+Button1/2/3 (현재: Button + Image + CanvasGroup, 자식들이 앵커 기반 직접 배치)
+  →
+Button1/2/3 (목표: Button + Image + HLG + CanvasGroup)
+  HLG: Padding L=60, R=60, T=20, B=20, Spacing=6  ← BuildingPopup과 동일
+       childAlignment=MiddleCenter
+       childControlWidth/Height=true, childForceExpandWidth/Height=true
+  ├── UnitImage (Image, 기존 유지 + LayoutElement 추가: flexibleWidth=6, flexibleHeight=1)
+  ├── CostContainer (신규 VLG, BuildingPopup CostContainer와 동일)
+  │     ├── GoldIcon (Button 직속 → CostContainer 하위로 이동, LayoutElement 추가)
+  │     └── GoldText (Button 직속 → CostContainer 하위로 이동, LayoutElement 추가)
+  └── BorderOverlay (기존 유지, LayoutElement: ignoreLayout=true 추가 → HLG 배치에서 제외)
+```
+
+**파일**: `Assets/Editor/ApplyButtonStructure.cs`
+**메뉴**: `Hexiege/Setup/ProductionPopup 버튼 구조 적용`
 
 ---
 
 ## Inspector 확인 목록
 
-2차 스크립트 실행 후 확인:
+스크립트 실행 후 ProductionPanelUI 컴포넌트 확인:
 
 | 필드 | 확인 내용 |
 |------|-----------|
-| `_unitButtons` (3개) | UnitButtons 행의 유닛 버튼 — null 아닌지 |
-| `_queueSlotImages` (3개) | Slot1/2/3 Image — null 아닌지 |
-| `_goldText` | InfoBar > GoldText — null 아닌지 |
-| `_populationText` | InfoBar > PopText — null 아닌지 |
+| `_unitButtons` (3개) | Button1/2/3 — null 아닌지 |
+| `_unitButtonPortraits` (3개) | UnitImage의 Image 컴포넌트 — null 아닌지 |
+| `_unitCostTexts` (3개) | GoldText TMP — null 아닌지 (CostContainer 이동 후) |
+| `_unitBorderOverlays` (3개) | BorderOverlay Image — null 아닌지 |
+| `_rallyPointButton` | Buttons 행의 랠리 버튼 — null 아닌지 |
+| `_upgradeButton` | Buttons 행의 업그레이드 버튼 — null 아닌지 |
 
 ---
 
@@ -170,19 +235,18 @@ GoldText, PopText (텍스트):
 
 | 항목 | 내용 | 대응 |
 |------|------|------|
-| QueueSlots 슬롯 크기 N 값 | 정사각형 크기는 QueueSlots 높이에 따라 조정 필요 | 실기 확인 후 sizeDelta 값 조정 |
-| InfoBar anchorMax.y 값 | 패널 프레임 테두리 두께가 불명확 | 실기 확인 후 0.1 → 조정 |
-| LayoutElement 삭제 시 참조 오류 | 1차 스크립트가 추가한 LayoutElement 삭제 필요 | DestroyImmediate(le) + Undo 등록 |
-| 업그레이드 버튼 숨김 | CanvasGroup.alpha=0인 버튼이 Grid 공간을 차지하므로 레이아웃 유지됨 | 확인 필요 |
+| GoldText/GoldIcon Reparent 후 참조 | CostContainer로 이동 시 _unitCostTexts 참조 유지 여부 | Inspector에서 null 체크 |
+| BorderOverlay HLG 간섭 | ignoreLayout=true 없으면 HLG가 BorderOverlay도 레이아웃에 포함 | LayoutElement.ignoreLayout=true 필수 |
+| UnitImage 앵커 → LayoutElement 전환 | 기존 anchor(0,0~1,1)에서 LayoutElement 기반으로 변환 | HLG childControl=true이면 앵커 무시됨 |
 
 ---
 
 ## 작업 순서
 
-1. `Assets/Editor/FixProductionPopup.cs` 작성 (game-programmer 에이전트)
-2. Unity에서 `Hexiege/Setup/ProductionPopup 2차 수정` 실행 (사용자)
-3. 실기 확인 후 슬롯 크기(N) 및 InfoBar 앵커 미세 조정
-4. Inspector 필드 연결 확인
+1. `Assets/Editor/ApplyButtonStructure.cs` 작성 (game-programmer 에이전트)
+2. Unity에서 `Hexiege/Setup/ProductionPopup 버튼 구조 적용` 실행
+3. Inspector에서 ProductionPanelUI 필드 null 체크
+4. 에디터 플레이 모드에서 배럭 클릭 → 생산 패널 확인
 
 ---
 
