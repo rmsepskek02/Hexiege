@@ -84,16 +84,28 @@ BuildingPopup(건물 배치 패널), BuildingActionPanel(비생산 건물 액션
 
 ### ProductionPopup 특수 슬롯 — Rallypoint
 
-ProductionPopup Row1에만 존재하는 Rallypoint 버튼이 다른 슬롯과 **다른 HLG 패딩**을 사용한다.
+Rallypoint의 자식 IconImage에 `IgnoreLayout: 1` + 앵커 배치가 적용되어 있어, HLG 패딩이 아이콘 크기에 전혀 영향을 미치지 않는다.
 
-| 항목 | 일반 슬롯 (유닛/업그레이드/철거) | Rallypoint 슬롯 |
+**Rallypoint 슬롯 구조 (씬 파일 직접 확인):**
+```
+Rallypoint (HLG: L125 R125 T0 B0)
+  └── IconImage
+        LayoutElement: IgnoreLayout = true   ← HLG 레이아웃 계산 제외
+        AnchorMin = (0, 0), AnchorMax = (1, 1)
+        SizeDelta = (-80, -80)               ← 슬롯 크기 기준 상하좌우 40px 여백
+        PreserveAspect = true
+```
+
+**IgnoreLayout=true의 의미**: HLG의 L125 R125 패딩이 아이콘에 적용되지 않고, 대신 슬롯 전체 크기에서 상하좌우 40px을 뺀 영역으로 배치된다.
+
+| 항목 | 일반 슬롯 (유닛 버튼) | Rallypoint |
 |------|------|------|
-| HLG Padding | L60 R60 T20 B20 | **L125 R125 T0 B0** |
-| Slot SizeDelta (캐시) | (283.73, 218.45) | **(277.14, 218.45)** |
-| 아이콘 가용 너비 (이론값) | 283.73 − 120 = **163.73px** | 277.14 − 250 = **27.14px** |
-| 실제 표시 아이콘 크기 (이론값) | 163.73 × 0.6 = **약 98px** | **약 27px** |
+| 아이콘 크기 결정 방식 | HLG flex 분배 (L60 R60 제외 후 60%) | 앵커 (슬롯 − 80px) |
+| HLG Padding | L60 R60 T20 B20 | L125 R125 T0 B0 (아이콘에 무효) |
+| 아이콘 너비 | (283−120) × 0.6 = **약 98px** | 277−80 = **약 197px** |
+| 아이콘 높이 | 218−40 = **178px** | 218−80 = **138px** |
 
-⚠️ 위 수치는 씬 파일 캐시 기반 이론값. 실제 이미지에서 Rallypoint가 더 크게 보이므로 런타임 실제 값과 다를 수 있음 — MCP 실측 필요.
+→ Rallypoint 아이콘이 일반 유닛 버튼 아이콘보다 **가로 기준 약 2배** 크게 표시됨. 이미지에서 Rallypoint가 더 크게 보이는 것과 일치.
 
 ---
 
@@ -111,13 +123,13 @@ ProductionPopup Row1에만 존재하는 Rallypoint 버튼이 다른 슬롯과 **
 
 ## 파악된 확실한 문제
 
-### 문제 1 — ProductionPopup Rallypoint 패딩 다름 (영향 미확정)
+### 문제 1 — ProductionPopup Rallypoint 아이콘이 다른 버튼보다 약 2배 크게 표시됨
 
-- **위치**: `Assets/_Project/Scenes/Game.unity` > ProductionPopup > ProductionPanel > GridContainer > Row1 > Rallypoint
-- **현재 HLG Padding**: L125 R125 T0 B0
-- **다른 슬롯 Padding**: L60 R60 T20 B20
-- **계산값**: 씬 파일 캐시 기준 Slot 너비 277px − 패딩 250px = 아이콘 가용 27px
-- **⚠️ 주의**: 위 계산은 이론값. 실제 이미지에서 Rallypoint 아이콘은 오히려 다른 버튼보다 크게 보임. 씬 파일 캐시값이 런타임 실제 크기를 반영하지 않을 가능성 있음. MCP로 실측 필요.
+- **위치**: ProductionPopup > Row1 > Rallypoint > IconImage
+- **원인**: IconImage에 `IgnoreLayout=true` + `Anchor(0,0)~(1,1) SizeDelta=(-80,-80)` 적용
+  → HLG 패딩 무시하고 슬롯 전체 크기 기준 배치
+- **결과**: Rallypoint 아이콘 ≈ **197px × 138px** vs 유닛 버튼 아이콘 ≈ **98px × 178px**
+- **의도된 설계인지 불명확**: IgnoreLayout + 앵커 방식이 의도적인 설계인지, 아니면 이전 작업에서 남은 잔재인지 확인 필요
 
 ### 문제 2 — Row0 vs Row1 크기 차이 (원인 미확정)
 
