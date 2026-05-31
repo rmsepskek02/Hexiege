@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-05-29
-**현재 단계:** BuildingPlacementUI 씬 계층 재설계 완료 + GameSystemRules 준수 검증 완료
+**최종 수정일:** 2026-05-31
+**현재 단계:** 패널 버튼 크기 불일치 수정 완료 (PRD-001, BAP-001 해결)
 
 ---
 
@@ -270,7 +270,7 @@
 | 게임 화면 UI TC 62개 실기기 테스트 | ✅ 완료 | `Assets/_Project/Docs/_Tasks/2026-05-26/game-ui-tc/Testcase.md` 참조 |
 | TC-MULTI-END-001 버그 수정 (BUG-001) | ✅ 완료 | 포기 시 호스트 GameEndUI 미표시. `NetworkGameEndController.ForfeitServerRpc`에 `GameEvents.OnGameEnd.OnNext()` 1줄 추가. 근본 원인: ForfeitServerRpc가 GameEndUseCase를 건너뛰어 서버 측 OnGameEnd 미발행 |
 | TC-MULTI-END-001 버그 수정 (BUG-002) | ✅ 완료 | 재경기 팝업이 GameEndUI 뒤에 가려짐. Canvas Hierarchy에서 RematchRequestPopup을 SafeAreaContainer 이후 인덱스로 이동 (Inspector). AnimatedPanel.Show()에 SetAsLastSibling() 없음 확인 → 영구 수정 |
-| UI 크기/레이아웃 FAIL 항목 (BP-001/002, BAP-001 완료) | ⚠️ 일부 완료, 나머지 별도 작업 예정 | ✅ BP-001/BP-002(건물 배치 패널): 씬 계층 재설계로 해결 (2026-05-29). ✅ BAP-001(비생산 건물 패널): 3x3 그리드 + 런타임 슬롯 제어로 해결 (2026-05-29). ❌ HUD-007(설정 버튼), PRD-001(생산 패널 높이), SET-004(확인팝업 버튼 색상), SET-007/END-001(UI 크기), MULTI-END-002(재경기 UI 크기) |
+| UI 크기/레이아웃 FAIL 항목 (BP-001/002, BAP-001, PRD-001 완료) | ⚠️ 일부 완료, 나머지 별도 작업 예정 | ✅ BP-001/BP-002(건물 배치 패널): 씬 계층 재설계로 해결 (2026-05-29). ✅ BAP-001(비생산 건물 패널): 3x3 그리드 + 런타임 슬롯 제어로 해결 (2026-05-29). ✅ PRD-001(패널 버튼 크기): LayoutElement(prefH=0,flexH=1) Row 적용 + Rallypoint 패딩 수정으로 해결 (2026-05-31). ❌ HUD-007(설정 버튼), SET-004(확인팝업 버튼 색상), SET-007/END-001(UI 크기), MULTI-END-002(재경기 UI 크기) |
 
 #### BuildingActionPanelUI 씬 계층 재설계 + 런타임 슬롯 제어 (2026-05-29)
 | 항목 | 상태 | 비고 |

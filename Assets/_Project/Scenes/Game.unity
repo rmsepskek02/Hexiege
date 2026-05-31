@@ -472,6 +472,7 @@ GameObject:
   - component: {fileID: 35961980}
   - component: {fileID: 35961979}
   - component: {fileID: 35961978}
+  - component: {fileID: 35961983}
   m_Layer: 0
   m_Name: Slot8
   m_TagString: Untagged
@@ -620,6 +621,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 35961976}
   m_CullTransparentMesh: 1
+--- !u!114 &35961983
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 35961976}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &43196426
 GameObject:
   m_ObjectHideFlags: 0
@@ -1543,6 +1564,7 @@ GameObject:
   - component: {fileID: 119021096}
   - component: {fileID: 119021095}
   - component: {fileID: 119021094}
+  - component: {fileID: 119021099}
   m_Layer: 0
   m_Name: Rallypoint
   m_TagString: Untagged
@@ -1567,8 +1589,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 138.56883, y: -109.22666}
-  m_SizeDelta: {x: 277.13766, y: 218.45332}
+  m_AnchoredPosition: {x: 141.86668, y: -109.22666}
+  m_SizeDelta: {x: 283.73337, y: 218.45332}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &119021094
 MonoBehaviour:
@@ -1583,8 +1605,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.HorizontalLayoutGroup
   m_Padding:
-    m_Left: 125
-    m_Right: 125
+    m_Left: 60
+    m_Right: 60
     m_Top: 0
     m_Bottom: 0
   m_ChildAlignment: 4
@@ -1690,6 +1712,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 119021092}
   m_CullTransparentMesh: 1
+--- !u!114 &119021099
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 119021092}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: 0
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &129040345
 GameObject:
   m_ObjectHideFlags: 0
@@ -1700,6 +1742,7 @@ GameObject:
   m_Component:
   - component: {fileID: 129040346}
   - component: {fileID: 129040347}
+  - component: {fileID: 129040348}
   m_Layer: 0
   m_Name: Row2
   m_TagString: Untagged
@@ -1755,6 +1798,26 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &129040348
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 129040345}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &136781391
 GameObject:
   m_ObjectHideFlags: 0
@@ -1765,6 +1828,7 @@ GameObject:
   m_Component:
   - component: {fileID: 136781392}
   - component: {fileID: 136781393}
+  - component: {fileID: 136781394}
   m_Layer: 0
   m_Name: Row0
   m_TagString: Untagged
@@ -1785,11 +1849,8 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 203499423}
-  - {fileID: 421601955}
   - {fileID: 739666571}
-  - {fileID: 2109204903}
   - {fileID: 610116484}
-  - {fileID: 1950394264}
   m_Father: {fileID: 560630988}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
@@ -1823,6 +1884,26 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &136781394
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 136781391}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &140875432
 GameObject:
   m_ObjectHideFlags: 0
@@ -2167,6 +2248,7 @@ GameObject:
   - component: {fileID: 190049118}
   - component: {fileID: 190049117}
   - component: {fileID: 190049116}
+  - component: {fileID: 190049121}
   m_Layer: 0
   m_Name: Slot4
   m_TagString: Untagged
@@ -2315,6 +2397,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 190049114}
   m_CullTransparentMesh: 1
+--- !u!114 &190049121
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 190049114}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &194798719
 GameObject:
   m_ObjectHideFlags: 0
@@ -2624,6 +2726,7 @@ GameObject:
   - component: {fileID: 203499426}
   - component: {fileID: 203499425}
   - component: {fileID: 203499424}
+  - component: {fileID: 203499429}
   m_Layer: 0
   m_Name: Slot1
   m_TagString: Untagged
@@ -2645,6 +2748,7 @@ RectTransform:
   m_Children:
   - {fileID: 1279405477}
   - {fileID: 1394560888}
+  - {fileID: 421601955}
   m_Father: {fileID: 136781392}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
@@ -2772,6 +2876,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 203499422}
   m_CullTransparentMesh: 1
+--- !u!114 &203499429
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 203499422}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &203912634
 GameObject:
   m_ObjectHideFlags: 0
@@ -2782,6 +2906,7 @@ GameObject:
   m_Component:
   - component: {fileID: 203912635}
   - component: {fileID: 203912636}
+  - component: {fileID: 203912637}
   m_Layer: 0
   m_Name: Row0
   m_TagString: Untagged
@@ -2837,6 +2962,26 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &203912637
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 203912634}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &224436728
 GameObject:
   m_ObjectHideFlags: 0
@@ -4083,6 +4228,7 @@ GameObject:
   - component: {fileID: 261378706}
   - component: {fileID: 261378708}
   - component: {fileID: 261378707}
+  - component: {fileID: 261378709}
   m_Layer: 0
   m_Name: Slot2
   m_TagString: Untagged
@@ -4231,6 +4377,26 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &261378709
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 261378702}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &275063329
 GameObject:
   m_ObjectHideFlags: 0
@@ -4656,6 +4822,7 @@ GameObject:
   m_Component:
   - component: {fileID: 301328581}
   - component: {fileID: 301328582}
+  - component: {fileID: 301328583}
   m_Layer: 0
   m_Name: Row1
   m_TagString: Untagged
@@ -4711,6 +4878,26 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &301328583
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 301328580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &304405156
 GameObject:
   m_ObjectHideFlags: 0
@@ -5099,6 +5286,7 @@ GameObject:
   m_Component:
   - component: {fileID: 308914483}
   - component: {fileID: 308914484}
+  - component: {fileID: 308914485}
   m_Layer: 0
   m_Name: Row1
   m_TagString: Untagged
@@ -5154,6 +5342,26 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &308914485
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 308914482}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &310416567
 GameObject:
   m_ObjectHideFlags: 0
@@ -5168,6 +5376,7 @@ GameObject:
   - component: {fileID: 310416571}
   - component: {fileID: 310416573}
   - component: {fileID: 310416572}
+  - component: {fileID: 310416574}
   m_Layer: 0
   m_Name: Slot5
   m_TagString: Untagged
@@ -5316,6 +5525,26 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &310416574
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 310416567}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &330585543
 GameObject:
   m_ObjectHideFlags: 0
@@ -6456,12 +6685,12 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 136781392}
+  m_Father: {fileID: 203499423}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: -60, y: -60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &421601956
 MonoBehaviour:
@@ -6531,6 +6760,7 @@ GameObject:
   m_Component:
   - component: {fileID: 423278035}
   - component: {fileID: 423278036}
+  - component: {fileID: 423278037}
   m_Layer: 0
   m_Name: Row2
   m_TagString: Untagged
@@ -6586,6 +6816,26 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &423278037
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 423278034}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &446112431
 GameObject:
   m_ObjectHideFlags: 0
@@ -6986,6 +7236,7 @@ GameObject:
   - component: {fileID: 477704454}
   - component: {fileID: 477704456}
   - component: {fileID: 477704455}
+  - component: {fileID: 477704457}
   m_Layer: 0
   m_Name: Slot6
   m_TagString: Untagged
@@ -7134,6 +7385,26 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &477704457
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 477704450}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &491620638
 GameObject:
   m_ObjectHideFlags: 0
@@ -7148,6 +7419,7 @@ GameObject:
   - component: {fileID: 491620642}
   - component: {fileID: 491620641}
   - component: {fileID: 491620640}
+  - component: {fileID: 491620645}
   m_Layer: 0
   m_Name: Destroy
   m_TagString: Untagged
@@ -7173,8 +7445,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 723.68445, y: -109.22666}
-  m_SizeDelta: {x: 287.0312, y: 218.45332}
+  m_AnchoredPosition: {x: 725.33344, y: -109.22666}
+  m_SizeDelta: {x: 283.73337, y: 218.45332}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &491620640
 MonoBehaviour:
@@ -7296,6 +7568,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 491620638}
   m_CullTransparentMesh: 1
+--- !u!114 &491620645
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 491620638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: 0
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &494935849
 GameObject:
   m_ObjectHideFlags: 0
@@ -7844,6 +8136,7 @@ GameObject:
   - component: {fileID: 543530849}
   - component: {fileID: 543530848}
   - component: {fileID: 543530847}
+  - component: {fileID: 543530852}
   m_Layer: 0
   m_Name: Slot7
   m_TagString: Untagged
@@ -7992,6 +8285,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 543530845}
   m_CullTransparentMesh: 1
+--- !u!114 &543530852
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 543530845}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &552583751
 GameObject:
   m_ObjectHideFlags: 0
@@ -8102,8 +8415,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 103.42027, y: -109.22666}
-  m_SizeDelta: {x: 86.84054, y: 178.45332}
+  m_AnchoredPosition: {x: 102.19673, y: -109.22666}
+  m_SizeDelta: {x: 84.393456, y: 178.45332}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &552792037
 MonoBehaviour:
@@ -8198,8 +8511,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 103.42027, y: -109.22666}
-  m_SizeDelta: {x: 86.84054, y: 178.45332}
+  m_AnchoredPosition: {x: 102.19673, y: -109.22666}
+  m_SizeDelta: {x: 84.393456, y: 178.45332}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &558116737
 MonoBehaviour:
@@ -8751,6 +9064,7 @@ GameObject:
   - component: {fileID: 610116487}
   - component: {fileID: 610116486}
   - component: {fileID: 610116485}
+  - component: {fileID: 610116490}
   m_Layer: 0
   m_Name: Slot3
   m_TagString: Untagged
@@ -8772,6 +9086,7 @@ RectTransform:
   m_Children:
   - {fileID: 1604594736}
   - {fileID: 1638488855}
+  - {fileID: 1950394264}
   m_Father: {fileID: 136781392}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
@@ -8899,6 +9214,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 610116483}
   m_CullTransparentMesh: 1
+--- !u!114 &610116490
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 610116483}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &614041979
 GameObject:
   m_ObjectHideFlags: 0
@@ -8934,8 +9269,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 37.09533, y: -113.22666}
-  m_SizeDelta: {x: 74.19066, y: 22}
+  m_AnchoredPosition: {x: 36.669956, y: -113.22666}
+  m_SizeDelta: {x: 73.33991, y: 22}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &614041981
 MonoBehaviour:
@@ -9715,6 +10050,7 @@ GameObject:
   - component: {fileID: 678055856}
   - component: {fileID: 678055858}
   - component: {fileID: 678055857}
+  - component: {fileID: 678055859}
   m_Layer: 0
   m_Name: Slot8
   m_TagString: Untagged
@@ -9863,6 +10199,26 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &678055859
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 678055852}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &679646420
 GameObject:
   m_ObjectHideFlags: 0
@@ -10048,6 +10404,7 @@ GameObject:
   - component: {fileID: 682984708}
   - component: {fileID: 682984710}
   - component: {fileID: 682984709}
+  - component: {fileID: 682984711}
   m_Layer: 0
   m_Name: Slot7
   m_TagString: Untagged
@@ -10196,6 +10553,26 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &682984711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 682984704}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &696456397
 GameObject:
   m_ObjectHideFlags: 0
@@ -10210,6 +10587,7 @@ GameObject:
   - component: {fileID: 696456401}
   - component: {fileID: 696456403}
   - component: {fileID: 696456402}
+  - component: {fileID: 696456404}
   m_Layer: 0
   m_Name: Slot9
   m_TagString: Untagged
@@ -10358,6 +10736,26 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &696456404
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 696456397}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &697420764
 GameObject:
   m_ObjectHideFlags: 0
@@ -10860,6 +11258,7 @@ GameObject:
   - component: {fileID: 739666574}
   - component: {fileID: 739666573}
   - component: {fileID: 739666572}
+  - component: {fileID: 739666577}
   m_Layer: 0
   m_Name: Slot2
   m_TagString: Untagged
@@ -10881,6 +11280,7 @@ RectTransform:
   m_Children:
   - {fileID: 577759126}
   - {fileID: 1801916610}
+  - {fileID: 2109204903}
   m_Father: {fileID: 136781392}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
@@ -11008,6 +11408,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 739666570}
   m_CullTransparentMesh: 1
+--- !u!114 &739666577
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 739666570}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &742034127
 GameObject:
   m_ObjectHideFlags: 0
@@ -11392,8 +11812,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 37.09533, y: -113.22666}
-  m_SizeDelta: {x: 74.19066, y: 22}
+  m_AnchoredPosition: {x: 36.669956, y: -113.22666}
+  m_SizeDelta: {x: 73.33991, y: 22}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &784492565
 MonoBehaviour:
@@ -11783,6 +12203,7 @@ GameObject:
   m_Component:
   - component: {fileID: 835298990}
   - component: {fileID: 835298991}
+  - component: {fileID: 835298992}
   m_Layer: 0
   m_Name: Row1
   m_TagString: Untagged
@@ -11838,6 +12259,26 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &835298992
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 835298989}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &840553005
 GameObject:
   m_ObjectHideFlags: 0
@@ -12126,6 +12567,7 @@ GameObject:
   - component: {fileID: 909344269}
   - component: {fileID: 909344268}
   - component: {fileID: 909344267}
+  - component: {fileID: 909344272}
   m_Layer: 0
   m_Name: Slot3
   m_TagString: Untagged
@@ -12274,6 +12716,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 909344265}
   m_CullTransparentMesh: 1
+--- !u!114 &909344272
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 909344265}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &923972373
 GameObject:
   m_ObjectHideFlags: 0
@@ -14461,6 +14923,7 @@ GameObject:
   - component: {fileID: 1140741870}
   - component: {fileID: 1140741869}
   - component: {fileID: 1140741868}
+  - component: {fileID: 1140741873}
   m_Layer: 0
   m_Name: Slot5
   m_TagString: Untagged
@@ -14609,6 +15072,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1140741866}
   m_CullTransparentMesh: 1
+--- !u!114 &1140741873
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1140741866}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1141540167
 GameObject:
   m_ObjectHideFlags: 0
@@ -15018,6 +15501,7 @@ GameObject:
   - component: {fileID: 1169409528}
   - component: {fileID: 1169409530}
   - component: {fileID: 1169409529}
+  - component: {fileID: 1169409531}
   m_Layer: 0
   m_Name: Slot3
   m_TagString: Untagged
@@ -15166,6 +15650,26 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &1169409531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1169409524}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1172775543
 GameObject:
   m_ObjectHideFlags: 0
@@ -15251,6 +15755,7 @@ GameObject:
   - component: {fileID: 1178122251}
   - component: {fileID: 1178122250}
   - component: {fileID: 1178122249}
+  - component: {fileID: 1178122254}
   m_Layer: 0
   m_Name: Slot1
   m_TagString: Untagged
@@ -15399,6 +15904,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1178122247}
   m_CullTransparentMesh: 1
+--- !u!114 &1178122254
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1178122247}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1190594041
 GameObject:
   m_ObjectHideFlags: 0
@@ -16234,6 +16759,7 @@ GameObject:
   - component: {fileID: 1241430145}
   - component: {fileID: 1241430144}
   - component: {fileID: 1241430143}
+  - component: {fileID: 1241430148}
   m_Layer: 0
   m_Name: Slot5
   m_TagString: Untagged
@@ -16259,8 +16785,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 428.65326, y: -109.22666}
-  m_SizeDelta: {x: 287.0312, y: 218.45332}
+  m_AnchoredPosition: {x: 433.60004, y: -109.22666}
+  m_SizeDelta: {x: 283.73337, y: 218.45332}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1241430143
 MonoBehaviour:
@@ -16382,6 +16908,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1241430141}
   m_CullTransparentMesh: 1
+--- !u!114 &1241430148
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1241430141}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: 0
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1241834742
 GameObject:
   m_ObjectHideFlags: 0
@@ -16396,6 +16942,7 @@ GameObject:
   - component: {fileID: 1241834746}
   - component: {fileID: 1241834745}
   - component: {fileID: 1241834744}
+  - component: {fileID: 1241834749}
   m_Layer: 0
   m_Name: Slot9
   m_TagString: Untagged
@@ -16544,6 +17091,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1241834742}
   m_CullTransparentMesh: 1
+--- !u!114 &1241834749
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1241834742}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1258247177
 GameObject:
   m_ObjectHideFlags: 0
@@ -17493,6 +18060,7 @@ GameObject:
   - component: {fileID: 1323908852}
   - component: {fileID: 1323908851}
   - component: {fileID: 1323908850}
+  - component: {fileID: 1323908855}
   m_Layer: 0
   m_Name: Slot2
   m_TagString: Untagged
@@ -17641,6 +18209,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1323908848}
   m_CullTransparentMesh: 1
+--- !u!114 &1323908855
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1323908848}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1331427699
 GameObject:
   m_ObjectHideFlags: 0
@@ -17934,6 +18522,7 @@ GameObject:
   - component: {fileID: 1350056422}
   - component: {fileID: 1350056421}
   - component: {fileID: 1350056420}
+  - component: {fileID: 1350056425}
   m_Layer: 0
   m_Name: Slot6
   m_TagString: Untagged
@@ -18082,6 +18671,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1350056418}
   m_CullTransparentMesh: 1
+--- !u!114 &1350056425
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1350056418}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1353734414
 GameObject:
   m_ObjectHideFlags: 0
@@ -18118,8 +18727,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 189.93588, y: -109.22666}
-  m_SizeDelta: {x: 74.19066, y: 178.45332}
+  m_AnchoredPosition: {x: 187.06342, y: -109.22666}
+  m_SizeDelta: {x: 73.33991, y: 178.45332}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1353734416
 MonoBehaviour:
@@ -19601,8 +20210,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 37.09533, y: -76.22666}
-  m_SizeDelta: {x: 74.19066, y: 44}
+  m_AnchoredPosition: {x: 36.669956, y: -76.22666}
+  m_SizeDelta: {x: 73.33991, y: 44}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1520201268
 MonoBehaviour:
@@ -21854,6 +22463,7 @@ GameObject:
   - component: {fileID: 1644697146}
   - component: {fileID: 1644697145}
   - component: {fileID: 1644697144}
+  - component: {fileID: 1644697149}
   m_Layer: 0
   m_Name: Slot7
   m_TagString: Untagged
@@ -22002,6 +22612,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1644697142}
   m_CullTransparentMesh: 1
+--- !u!114 &1644697149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1644697142}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1650090259
 GameObject:
   m_ObjectHideFlags: 0
@@ -22101,6 +22731,7 @@ GameObject:
   - component: {fileID: 1650815866}
   - component: {fileID: 1650815868}
   - component: {fileID: 1650815867}
+  - component: {fileID: 1650815869}
   m_Layer: 0
   m_Name: Slot1
   m_TagString: Untagged
@@ -22249,6 +22880,26 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &1650815869
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1650815862}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1708566850
 GameObject:
   m_ObjectHideFlags: 0
@@ -22567,8 +23218,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 37.09533, y: -76.22666}
-  m_SizeDelta: {x: 74.19066, y: 44}
+  m_AnchoredPosition: {x: 36.669956, y: -76.22666}
+  m_SizeDelta: {x: 73.33991, y: 44}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1728720893
 MonoBehaviour:
@@ -22775,6 +23426,7 @@ GameObject:
   - component: {fileID: 1749998682}
   - component: {fileID: 1749998684}
   - component: {fileID: 1749998683}
+  - component: {fileID: 1749998685}
   m_Layer: 0
   m_Name: Slot4
   m_TagString: Untagged
@@ -22923,6 +23575,26 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &1749998685
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1749998678}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1793262964
 GameObject:
   m_ObjectHideFlags: 0
@@ -24256,6 +24928,7 @@ GameObject:
   - component: {fileID: 1915231626}
   - component: {fileID: 1915231625}
   - component: {fileID: 1915231624}
+  - component: {fileID: 1915231629}
   m_Layer: 0
   m_Name: Slot8
   m_TagString: Untagged
@@ -24404,6 +25077,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1915231622}
   m_CullTransparentMesh: 1
+--- !u!114 &1915231629
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1915231622}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1922318055
 GameObject:
   m_ObjectHideFlags: 0
@@ -24576,6 +25269,7 @@ GameObject:
   - component: {fileID: 1936907557}
   - component: {fileID: 1936907556}
   - component: {fileID: 1936907555}
+  - component: {fileID: 1936907560}
   m_Layer: 0
   m_Name: Slot9
   m_TagString: Untagged
@@ -24724,6 +25418,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1936907553}
   m_CullTransparentMesh: 1
+--- !u!114 &1936907560
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1936907553}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: 0
+  m_PreferredHeight: -1
+  m_FlexibleWidth: 1
+  m_FlexibleHeight: -1
+  m_LayoutPriority: 1
 --- !u!1 &1950394263
 GameObject:
   m_ObjectHideFlags: 0
@@ -24755,12 +25469,12 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 136781392}
+  m_Father: {fileID: 610116484}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: -60, y: -60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1950394265
 MonoBehaviour:
@@ -26260,8 +26974,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 189.93588, y: -109.22666}
-  m_SizeDelta: {x: 74.19066, y: 178.45332}
+  m_AnchoredPosition: {x: 187.06342, y: -109.22666}
+  m_SizeDelta: {x: 73.33991, y: 178.45332}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2013752051
 MonoBehaviour:
@@ -26319,6 +27033,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2018778918}
   - component: {fileID: 2018778919}
+  - component: {fileID: 2018778920}
   m_Layer: 0
   m_Name: Row2
   m_TagString: Untagged
@@ -26374,6 +27089,26 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &2018778920
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2018778917}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &2024826446
 GameObject:
   m_ObjectHideFlags: 0
@@ -26836,6 +27571,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2036639532}
   - component: {fileID: 2036639533}
+  - component: {fileID: 2036639534}
   m_Layer: 0
   m_Name: Row0
   m_TagString: Untagged
@@ -26891,6 +27627,26 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &2036639534
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2036639531}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &2039310090
 GameObject:
   m_ObjectHideFlags: 0
@@ -28118,12 +28874,12 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 136781392}
+  m_Father: {fileID: 739666571}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: -60, y: -60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &2109204904
 MonoBehaviour:

@@ -23,6 +23,28 @@
 
 ## 최근 작업
 
+### 패널 버튼 크기 불일치 수정 (2026-05-31) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-31/13_18_panel-button-size-inconsistency/`
+
+**문제**: BuildingPopup / BuildingActionPanel / ProductionPopup 세 패널에서 Row별 버튼 높이와 Row 내 Slot 너비가 불균등하게 표시됨.
+
+**근본 원인**: 슬롯 내부 아이콘 Image의 스프라이트 native size가 VLG의 preferredHeight 배분 단계(Phase 2)에서 Row별 불균등을 발생. `childForceExpandHeight=True`는 Phase 3(flexible)에서만 작동하여 Phase 2의 불균등을 해소하지 못함.
+
+**해결**: `Assets/Editor/FixPanelRowLayout.cs` Editor 스크립트 신규 작성
+- 메뉴: `Hexiege/Fix Panel Row Layout`
+- 3개 패널 × 3개 Row = 9개 Row에 `LayoutElement(preferredHeight=0, flexibleHeight=1)` 추가
+- 3개 패널 × 9개 Slot = 27개 Slot에 `LayoutElement(preferredWidth=0, flexibleWidth=1)` 추가
+- ProductionPopup Row1 Rallypoint HLG 패딩 L125 R125 → L60 R60 (IgnoreLayout 아이콘이라 시각 변화 없음)
+- ProductionPopup Row1 슬롯(Rallypoint/Slot5/Destroy) LayoutElement minWidth=0 추가 (CostContainer 부재로 인한 natural min 차이 해소)
+- `Undo.RecordObject` + `EditorUtility.SetDirty` + `EditorSceneManager.SaveScene` 적용
+
+**GameSystemRules 준수**: Rule 2 (앵커 기반 배치, 균등 분배 원칙) — LayoutElement는 Rule 2가 의도하는 균등 분배가 스프라이트 크기에 방해받지 않도록 보완하는 것으로 위반 없음.
+
+**수정 결과**: Row0/Row1/Row2 모두 218.45px, 모든 Slot 283.73px (런타임 로그 확인)
+
+---
+
 ### 유닛 초상화 자동 할당 에디터 스크립트 (2026-05-31) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-31/09_32_production-panel-portrait-auto-assign/`
