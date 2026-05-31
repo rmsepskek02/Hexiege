@@ -784,6 +784,7 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
         private void UpdateButtonPortraits(TeamId team, RaceId race)
         {
             var list = GetUnitEntriesForCurrentBuilding(team);
+            Debug.Log($"[Portrait] team={team} listCount={list.Count} portraitsCount={_unitButtonPortraits?.Count}");
             if (_unitButtonPortraits == null) return;
 
             // 유닛이 정확히 2종류인 건물은 [유닛1][빈슬롯][유닛2] 배치를 사용한다.
@@ -794,22 +795,31 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
 
             for (int i = 0; i < _unitButtonPortraits.Count; i++)
             {
-                if (_unitButtonPortraits[i] == null) continue;
+                if (_unitButtonPortraits[i] == null) { Debug.Log($"[Portrait] [{i}] Image null"); continue; }
 
                 if (twoUnitLayout)
                 {
                     // 2유닛 배치: slot0 = list[0], slot1 = 스킵, slot2 = list[1]
                     if (i == 0)
+                    {
                         _unitButtonPortraits[i].sprite = list[0].portrait;
+                        Debug.Log("[Portrait] [0] sprite=" + (list[0].portrait != null ? list[0].portrait.name : "NULL"));
+                    }
                     else if (i == 2)
+                    {
                         _unitButtonPortraits[i].sprite = list[1].portrait;
+                        Debug.Log("[Portrait] [2] sprite=" + (list[1].portrait != null ? list[1].portrait.name : "NULL"));
+                    }
                     // slot1(i==1)은 숨겨진 더미 슬롯 — 초상화 갱신 불필요
                 }
                 else
                 {
                     // 유닛이 1개 또는 3개인 경우: 기존 동작 유지
                     if (i < list.Count)
+                    {
                         _unitButtonPortraits[i].sprite = list[i].portrait;
+                        Debug.Log("[Portrait] [" + i + "] sprite=" + (list[i].portrait != null ? list[i].portrait.name : "NULL"));
+                    }
                 }
             }
         }
