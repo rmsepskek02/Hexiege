@@ -256,6 +256,12 @@
 | 에디터 자동 생성 스크립트 2종 | ✅ 완료 | `Hexiege/Setup/UnitStatsConfig 생성`, `Hexiege/Setup/BuildingStatsConfig 생성` |
 | 에셋 파일 생성 | ✅ 완료 | `Assets/_Project/Resources/Config/UnitStatsConfig.asset`, `BuildingStatsConfig.asset` |
 
+#### Lobby UI 전체 규칙 준수 수정 (2026-05-30)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Lobby.unity 규칙 위반 25건 전수 수정 | ✅ 완료 | 규칙 1(Toast CanvasScaler 추가) 1건, 규칙 2(앵커 비율화) 23건, 규칙 5(CanvasGroup 초기값) 1건. 에디터 스크립트 4종(GroupA~D) 실행 적용 |
+| 규칙 1~6 전체 준수 검증 | ✅ 완료 | Explore 에이전트 정적 분석 + 실기 확인. 위반 0건 |
+
 #### 공통 UI 규칙 수립 및 Canvas Scaler / SafeArea 적용 (2026-05-25)
 | 항목 | 상태 | 비고 |
 |------|------|------|

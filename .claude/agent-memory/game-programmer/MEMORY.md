@@ -23,6 +23,29 @@
 
 ## 최근 작업
 
+### Lobby UI 규칙 준수 수정 — 에디터 스크립트 4종 (2026-05-30) ✅ 완료 (실기 PASS)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-30/12_24_lobby-ui-rule-compliance/`
+
+**에디터 스크립트**: `Assets/Editor/FixLobbyUiGroupA~D.cs` — 메뉴 `Hexiege/Fix/LobbyUI/GroupA~D`
+
+**수정 내용**: Lobby.unity 씬의 25건 UI 규칙 위반(GameSystemRules.md 규칙 1/2/5) 일괄 수정.
+- GroupA: Toast Canvas CanvasScaler 추가(규칙 1), Background/Message 앵커 비율화(규칙 2), CanvasGroup 초기값 정렬(규칙 5)
+- GroupB: LoadingScreen Spinner/StatusText, CodeInput Text Area 앵커 비율화
+- GroupC: TabBar(anchorMax.y=0.073) / ContentArea(anchorMin.y=0.073) 앵커 비율화
+- GroupD: 5개 VLG 패널(BattleMainPanel/CustomGamePanel/CustomHostPanel/CustomJoinPanel/RandomMatchPanel) 내 16개 자식 처리
+
+**VLG 자식 고정 픽셀 → 앵커 기반 전환 패턴 (중요)**:
+- VLG: `childControlHeight = true`, `childForceExpandHeight = false`
+- 각 자식 LayoutElement: `preferredHeight = 원래_SizeDelta.y`, `flexibleHeight = 0`, 나머지 -1
+- 자식 sizeDelta = (0, 0)
+- ⚠️ `childForceExpandHeight = true`로 설정하면 VLG 패널 전체 높이를 자식들이 채워버려 버튼이 비정상적으로 커짐
+- ⚠️ `flexibleHeight > 0`이면 preferredHeight 이후 남는 공간을 추가 분배받아 크기 변동 발생
+
+**앵커 계산값 검증 필수**: Plan.md에 명시된 앵커 계산값과 에디터 스크립트 코드값을 반드시 일치시킬 것. 이번 작업에서 GroupA Toast Background y값 불일치(0.04 vs 0.5) 발견 → 실기 시 Toast 위치가 중앙이 아닌 최하단으로 배치되는 버그 발생.
+
+---
+
 ### 건물 업그레이드 생산 상태 처리 오류 수정 (2026-05-31) ✅ 완료 (실기 PASS)
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-31/21_03_upgrade-production-state-fix/`
