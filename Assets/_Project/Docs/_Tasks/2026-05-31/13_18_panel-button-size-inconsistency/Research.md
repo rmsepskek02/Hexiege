@@ -129,7 +129,7 @@ Rallypoint (HLG: L125 R125 T0 B0)
 - **원인**: IconImage에 `IgnoreLayout=true` + `Anchor(0,0)~(1,1) SizeDelta=(-80,-80)` 적용
   → HLG 패딩 무시하고 슬롯 전체 크기 기준 배치
 - **결과**: Rallypoint 아이콘 ≈ **197px × 138px** vs 유닛 버튼 아이콘 ≈ **98px × 178px**
-- **의도된 설계인지 불명확**: IgnoreLayout + 앵커 방식이 의도적인 설계인지, 아니면 이전 작업에서 남은 잔재인지 확인 필요
+- **의도된 설계**: Rallypoint 아이콘을 크게 보이도록 의도적으로 선택한 방식. 버그 아님.
 
 ### 문제 2 — Row0 vs Row1 크기 차이 (원인 미확정)
 
