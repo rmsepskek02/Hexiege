@@ -696,8 +696,9 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
         }
 
         /// <summary>
-        /// 잠금 인디케이터 GameObject 활성/비활성 갱신.
-        /// _activeUnitLocks[i] 가 true면 오버레이 On, false면 Off.
+        /// 잠금 인디케이터 GameObject 활성/비활성 갱신 + 잠긴 유닛 초상화 디밍.
+        /// _activeUnitLocks[i] 가 true면 자물쇠 오버레이 On + 초상화를 어둡게,
+        /// false면 오버레이 Off + 초상화 원래 색(흰색)으로 복원한다.
         /// 슬롯에 유닛이 바인딩되지 않은 경우는 잠금도 끈다.
         /// </summary>
         private void UpdateLockIndicators()
@@ -706,10 +707,34 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
             for (int i = 0; i < _unitLockIndicators.Count; i++)
             {
                 if (_unitLockIndicators[i] == null) continue;
-                bool show = i < _activeUnitLocks.Count
-                            && i < _activeUnitTypes.Count
-                            && _activeUnitLocks[i];
-                _unitLockIndicators[i].SetActive(show);
+
+                // ── 인디케이터 인덱스 → 슬롯 인덱스 매핑 ──────────────────────────
+                // 슬롯0(index 0)은 1단계 유닛이라 항상 해금 상태이므로 잠금 인디케이터가 없다.
+                // 따라서 _unitLockIndicators[0]은 슬롯1(2단계 유닛), [1]은 슬롯2(3단계 유닛)에
+                // 대응한다. 인디케이터 인덱스 i에 +1을 더해 실제 슬롯 인덱스를 구한다.
+                int slotIndex = i + 1;
+
+                // 잠금 여부 판정: 해당 슬롯의 _activeUnitLocks[slotIndex]가 true이면
+                // 현재 건물 단계가 유닛 해금 단계에 못 미치는 잠금 유닛이다.
+                bool locked = slotIndex < _activeUnitLocks.Count
+                              && slotIndex < _activeUnitTypes.Count
+                              && _activeUnitLocks[slotIndex];
+
+                // 자물쇠 아이콘 오버레이 GameObject 표시/숨김 처리.
+                _unitLockIndicators[i].SetActive(locked);
+
+                // 초상화 디밍: 잠금 상태면 어둡게, 해금 상태면 원래 색(흰색)으로 복원한다.
+                // 디밍 대상도 슬롯 인덱스(slotIndex)를 기준으로 해야 인디케이터와 같은 슬롯을 가리킨다.
+                // _unitButtonPortraits가 비어 있거나 해당 슬롯이 없는 경우를 안전하게 건너뛴다.
+                // (참고) UpdateButtonPortraits()는 .sprite만 변경하므로 여기서 .color를 바꿔도 충돌하지 않는다.
+                if (_unitButtonPortraits != null && slotIndex < _unitButtonPortraits.Count && _unitButtonPortraits[slotIndex] != null)
+                {
+                    // RGB 0.35는 약 35% 밝기 — 유닛 실루엣은 알아볼 수 있지만 비활성처럼 어둡게 보인다.
+                    // 알파(투명도)는 1로 유지해 디밍만 적용하고 사라지지는 않게 한다.
+                    _unitButtonPortraits[slotIndex].color = locked
+                        ? new Color(0.35f, 0.35f, 0.35f, 1f)
+                        : Color.white;
+                }
             }
         }
 

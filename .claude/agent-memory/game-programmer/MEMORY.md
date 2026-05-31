@@ -23,6 +23,42 @@
 
 ## 최근 작업
 
+### Production 잠금 유닛 Lock Icon + 초상화 디밍 (2026-05-31) ✅ 완료 (실기 PASS)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-31/19_48_production-lock-icon/`
+
+**목적**: ProductionPopup에서 업그레이드 단계 미달로 잠긴 유닛 버튼에 (1)초상화 디밍 (2)자물쇠 아이콘 배지를 표시.
+
+**슬롯 구조 (중요)**: ProductionPopup 유닛 버튼 슬롯 3개 = 1/2/3단계 유닛.
+- 슬롯0(index 0): 1단계 유닛 — 항상 해금 → LockIndicator 불필요
+- 슬롯1(index 1): 2단계 유닛 — 잠길 수 있음 → LockIndicator 필요
+- 슬롯2(index 2): 3단계 유닛 — 잠길 수 있음 → LockIndicator 필요
+- 따라서 `_unitLockIndicators`는 슬롯1/슬롯2만 대응 (2개). 인덱스 매핑: `_unitLockIndicators[0]`→슬롯1, `[1]`→슬롯2.
+
+**코드 변경** (`Presentation/UI/ProductionPanelUI.cs` — `UpdateLockIndicators()`):
+- 인덱스 매핑 보정: 루프 안에서 `int slotIndex = i + 1` 추가 → `_activeUnitLocks`/`_activeUnitTypes`/`_unitButtonPortraits` 접근 시 모두 `slotIndex` 사용
+- 잠금 시 `_unitButtonPortraits[slotIndex].color = new Color(0.35f,0.35f,0.35f,1f)`, 해금 시 `Color.white`
+- 안전 가드: `_unitButtonPortraits != null && slotIndex < Count && [slotIndex] != null`
+- 충돌 없음 확인: `UpdateButtonPortraits()`는 `.sprite`만 변경, `.color`는 아무도 건드리지 않음
+- 2유닛 배치(`twoUnitLayout`, list.Count==2: [유닛1][빈][유닛2])에서도 slotIndex=2가 두 번째 실유닛을 가리켜 올바르게 동작
+
+**에디터 스크립트** (`Assets/Editor/AddLockIcons.cs`) — 전면 재작성:
+- 메뉴: `Hexiege/Setup/잠금 아이콘 추가`
+- 구방식 문제: `_unitLockIndicators`가 비어 있으면 아무것도 못 함. 신방식: `_unitButtons`에서 Slot GO를 찾아 LockIndicator를 직접 생성 후 `_unitLockIndicators`에 연결
+- `Object.FindObjectOfType<ProductionPanelUI>(true)` → `SerializedObject`로 `_unitButtons`(List<Button>) 읽기
+- 대상 슬롯 인덱스 = {1, 2}만 (슬롯0 스킵). `buttonsProp.GetArrayElementAtIndex(slot).objectReferenceValue as Button` → `button.gameObject`(= Slot GO)
+- Slot GO 하위에 "LockIndicator" GO 생성 (이미 있으면 재사용). 생성 GO 컴포넌트: RectTransform + LayoutElement + Image
+- **LayoutElement.ignoreLayout = true 필수**: Slot GO에 HorizontalLayoutGroup이 있어 무시 안 하면 자물쇠가 다른 자식과 가로로 나란히 배치됨 (BorderOverlay GO와 동일 패턴)
+- RectTransform: anchorMin(0.6,0)~anchorMax(1,0.4), pivot(1,0), anchoredPosition=0, sizeDelta=0 → 우측 하단 40% 비율 배치 (Rule 2 준수)
+- Image: 스프라이트 `Assets/_Project/Sprites/UI/Icons/ui_icon_lock.png`, raycastTarget=false, preserveAspect=true, color=white
+- 초기 상태 `SetActive(false)` — 런타임 코드가 잠금 시 켜줌
+- 생성/재사용 GO를 슬롯 순서(슬롯1→슬롯2)대로 `_unitLockIndicators`에 연결: `indicatorsProp.arraySize = N` 후 `GetArrayElementAtIndex(i).objectReferenceValue = go`
+- Undo: `RegisterCompleteObjectUndo(panel)`(직렬화 필드용) + `RegisterCreatedObjectUndo`/`SetTransformParent`(GO 생성용) + `so.ApplyModifiedProperties` + MarkSceneDirty + SaveScene
+
+**패턴 메모**: 에디터 스크립트에서 다른 컴포넌트의 private `[SerializeField]` 리스트에 접근할 때는 `new SerializedObject(comp).FindProperty(name)` → `GetArrayElementAtIndex(i).objectReferenceValue` 사용 (리플렉션보다 안전). 리스트에 **쓰기**도 가능: `arraySize` 설정 후 각 요소에 `objectReferenceValue` 할당 → `ApplyModifiedProperties()`.
+
+---
+
 ### 패널 버튼 크기 불일치 수정 (2026-05-31) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-31/13_18_panel-button-size-inconsistency/`
