@@ -23,6 +23,33 @@
 
 ## 최근 작업
 
+### 유닛 초상화 자동 할당 에디터 스크립트 (2026-05-31) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-31/09_32_production-panel-portrait-auto-assign/`
+
+**문제**: `ProductionPanelUI` 유닛 버튼에 런타임에서 초상화 이미지가 표시되지 않는 버그.
+
+**근본 원인 — 데이터 소스 불일치**:
+- 씬뷰 미리보기: `_unitButtonPortraits[i]` (Image 컴포넌트 Source Image 슬롯에 직접 할당)
+- 런타임 소스: `_buildingUnitMappings[x].blueUnits[i].portrait` Sprite 필드
+- `UpdateButtonPortraits()`가 패널 열릴 때 `_unitButtonPortraits[i].sprite = list[i].portrait` 로 덮어씀
+- `_buildingUnitMappings`의 `portrait` 슬롯이 null → 이미지 사라짐
+
+**해결**: `Assets/Editor/AssignUnitPortraits.cs` 에디터 유틸리티 신규 생성
+- 메뉴: `Hexiege/Setup/유닛 초상화 자동 할당`
+- `_buildingUnitMappings`의 모든 `blueUnits`/`redUnits` 배열 순회
+- `UnitType.ToString().ToLower()` → `{name}_portrait_{blue|red}` 파일명 패턴 생성
+- `AssetDatabase.FindAssets` → Sprite 로드 → `portrait` 슬롯 할당
+- 기존 할당값 유지 (null 슬롯만 채움)
+- 실행 결과: 142개 portrait 전부 할당 완료, null 0개
+
+**스프라이트 파일명 규칙 (확인 완료)**:
+- 패턴: `{UnitType.ToString().ToLower()}_portrait_{blue|red}.png`
+- 경로: `Assets/_Project/Sprites/Units/{Human|Spirit|Transcendence}/{UnitName}/`
+- `UnitType.ToString().ToLower()` 변환 결과가 폴더명/파일명 prefix와 정확히 일치
+
+---
+
 ### BuildingActionPanelUI 씬 계층 재설계 + 런타임 슬롯 제어 (2026-05-29) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-29/building-action-panel-rebuild/`
