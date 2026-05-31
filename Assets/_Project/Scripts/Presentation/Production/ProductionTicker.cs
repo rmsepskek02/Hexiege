@@ -387,11 +387,21 @@ namespace Hexiege.Presentation
             // 업그레이드된 건물이 생산건물인지 확인
             if (!BuildingTypeHelper.IsProductionBuilding(e.NewBuilding.Type)) return;
 
-            // 기존 건물 ProductionState 제거
-            _productionUseCase.UnregisterBarracks(e.OldBuildingId);
+            // 업그레이드 전 랠리포인트 좌표를 먼저 저장해 둔다.
+            // CancelAllQueue가 랠리포인트를 초기화하므로 반드시 그 전에 읽어야 한다.
+            HexCoord? savedRallyPoint = _productionUseCase.GetState(e.OldBuildingId)?.RallyPoint;
 
-            // 새 건물로 재등록 (랠리포인트, 생산 큐 등 초기화됨)
+            // 생산 중이거나 골드가 차감된 대기 항목을 환불하고 기존 상태를 제거한다.
+            // (UnregisterBarracks 대신 CancelAllQueue를 사용 — 내부에서 UnregisterBarracks까지 수행)
+            // 근거: GameSystemRules.md — 건물 철거 시스템 규칙 5
+            _productionUseCase.CancelAllQueue(e.OldBuildingId);
+
+            // 새 건물로 빈 생산 상태를 등록한다.
             _productionUseCase.RegisterBarracks(e.NewBuilding);
+
+            // 저장해 둔 랠리포인트가 있으면 새 건물 상태에 복원한다.
+            if (savedRallyPoint.HasValue)
+                _productionUseCase.SetRallyPoint(e.NewBuilding.Id, savedRallyPoint.Value);
         }
 
         /// <summary>

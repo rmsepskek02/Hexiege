@@ -23,6 +23,29 @@
 
 ## 최근 작업
 
+### 건물 업그레이드 생산 상태 처리 오류 수정 (2026-05-31) ✅ 완료 (실기 PASS)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-31/21_03_upgrade-production-state-fix/`
+
+**수정 파일**: `Presentation/Production/ProductionTicker.cs` — `OnBuildingUpgraded()` 1곳만
+
+**버그 1 (골드 환불 누락)**:
+- 원인: `UnregisterBarracks(oldId)`는 `_states.Remove()` 1줄만 수행 — 환불 없음
+- 수정: `CancelAllQueue(oldId)`로 교체. 내부에서 ① CurrentProducing 환불 ② PendingQueue IsCharged=true 항목 환불 ③ UnregisterBarracks 포함
+- 근거: GameSystemRules.md — 건물 철거 시스템 규칙 5
+
+**버그 2 (랠리포인트 초기화)**:
+- 원인: `RegisterBarracks(newBuilding)`이 새 빈 `ProductionState` 생성 → 기존 `RallyPoint(HexCoord?)` 유실
+- 수정: `CancelAllQueue` 호출 **전에** `GetState(oldId)?.RallyPoint` 저장 → `RegisterBarracks` 후 `SetRallyPoint(newId, saved)` 복원
+
+**수정 순서 (순서 바꾸면 버그 재발)**:
+1. `savedRallyPoint = GetState(oldId)?.RallyPoint` — CancelAllQueue가 ClearRallyPoint를 호출하기 전에 저장
+2. `CancelAllQueue(oldId)` — 환불 + 제거(UnregisterBarracks 내장)
+3. `RegisterBarracks(newBuilding)` — 새 상태
+4. `if (savedRallyPoint.HasValue) SetRallyPoint(newId, savedRallyPoint.Value)` — 복원
+
+---
+
 ### Production 잠금 유닛 Lock Icon + 초상화 디밍 (2026-05-31) ✅ 완료 (실기 PASS)
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-31/19_48_production-lock-icon/`

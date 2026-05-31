@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-05-31
-**현재 단계:** ProductionPopup 잠금 유닛 Lock Icon 표시 완료
+**현재 단계:** 건물 업그레이드 생산 상태 처리 오류 수정 완료
 
 ---
 
@@ -49,6 +49,7 @@
 | 반응형 팝업 UI (ProductionPopup/BuildingPopup) | ✅ 완료 | 앵커 기반 배치, ResponsivePopupUISetup.cs |
 | 종족+팀별 초상화 동적 업데이트 (ProductionPanelUI/BuildingPlacementUI) | ✅ 완료 (2026-04-30) | Show() 호출 시 종족+팀에 맞는 스프라이트 교체 및 생산 타입 바인딩 |
 | 잠금 유닛 Lock Icon 표시 (ProductionPopup) | ✅ 완료 (2026-05-31) | 초상화 디밍(35% 밝기) + 우측 하단 자물쇠 아이콘 배지. 업그레이드 후 잠금 해제 확인 |
+| 건물 업그레이드 생산 상태 처리 오류 수정 | ✅ 완료 (2026-05-31) | 업그레이드 시 생산 중 골드 환불 누락 + 랠리포인트 초기화 2건 수정. ProductionTicker.cs 1개 수정 |
 
 #### 3D 전환 (2026-02-27 ~ 2026-03-01)
 | 항목 | 상태 |

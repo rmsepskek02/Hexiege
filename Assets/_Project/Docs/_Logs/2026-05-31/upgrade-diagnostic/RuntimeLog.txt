@@ -1,0 +1,88 @@
+============================================================
+[UpgradeDiag] 진단 시작  2026-05-31 20:56:20
+============================================================
+[20:56:20.896] [UpgradeDiag] 진단 컴포넌트 시작. 업그레이드 버튼을 눌러보세요.
+[20:56:29.026] [UpgradeDiag] Initialize — _upgradeButton=Slot5, _upgradeButtonGroup=Slot5, _buildingPlacement=OK
+[20:56:33.676] [UpgradeDiag] GetUnitEntries — Type=Gunsmith 매핑 찾음, 유닛 수=3
+[20:56:33.678] [UpgradeDiag] GetUnitEntries — Type=Gunsmith 매핑 찾음, 유닛 수=3
+[20:56:34.293] [UpgradeDiag] OnUpgradeButtonClick 진입 — _currentBuilding=Id=4, Type=Gunsmith, Stage=1
+[20:56:34.294] [UpgradeDiag] CanUpgrade=True, _buildingPlacement=OK
+[20:56:34.294] [UpgradeDiag] UpgradeCost=100, CurrentGold=4910, CanAfford=True, isNetworkMode=False
+[20:56:34.297] [UpgradeDiag] UpgradeBuilding 성공 — oldId=4, oldType=Gunsmith → newId=5, newType=Armory, newStage=2
+[20:56:34.298] [UpgradeDiag] UpgradeBuildingObject — race=Human, type=Armory, team=Blue, 프리팹=Building_Armory_Blue
+[20:56:34.299] [UpgradeDiag] ProductionTicker.OnBuildingUpgraded — oldId=4, newType=Armory, IsProductionBuilding=True
+[20:56:34.300] [UpgradeDiag] ProductionTicker — 생산상태 재등록 완료. newId=5
+[20:56:35.176] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:56:35.177] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:56:38.189] [UpgradeDiag] OnUpgradeButtonClick 진입 — _currentBuilding=Id=5, Type=Armory, Stage=2
+[20:56:38.189] [UpgradeDiag] CanUpgrade=True, _buildingPlacement=OK
+[20:56:38.191] [UpgradeDiag] UpgradeCost=200, CurrentGold=4821, CanAfford=True, isNetworkMode=False
+[20:56:38.191] [UpgradeDiag] UpgradeBuilding 성공 — oldId=5, oldType=Armory → newId=6, newType=WeaponForge, newStage=3
+[20:56:38.192] [UpgradeDiag] UpgradeBuildingObject — race=Human, type=WeaponForge, team=Blue, 프리팹=Building_WeaponForge_Blue
+[20:56:38.193] [UpgradeDiag] ProductionTicker.OnBuildingUpgraded — oldId=5, newType=WeaponForge, IsProductionBuilding=True
+[20:56:38.193] [UpgradeDiag] ProductionTicker — 생산상태 재등록 완료. newId=6
+[20:56:38.917] [UpgradeDiag] GetUnitEntries — Type=WeaponForge 매핑 찾음, 유닛 수=3
+[20:56:38.917] [UpgradeDiag] GetUnitEntries — Type=WeaponForge 매핑 찾음, 유닛 수=3
+[20:56:42.917] [UpgradeDiag] GetUnitEntries — Type=Garage 매핑 찾음, 유닛 수=2
+[20:56:42.918] [UpgradeDiag] GetUnitEntries — Type=Garage 매핑 찾음, 유닛 수=2
+[20:56:44.843] [UpgradeDiag] OnUpgradeButtonClick 진입 — _currentBuilding=Id=7, Type=Garage, Stage=1
+[20:56:44.844] [UpgradeDiag] CanUpgrade=True, _buildingPlacement=OK
+[20:56:44.844] [UpgradeDiag] UpgradeCost=100, CurrentGold=4541, CanAfford=True, isNetworkMode=False
+[20:56:44.845] [UpgradeDiag] UpgradeBuilding 성공 — oldId=7, oldType=Garage → newId=8, newType=VehicleBay, newStage=2
+[20:56:44.846] [UpgradeDiag] UpgradeBuildingObject — race=Human, type=VehicleBay, team=Blue, 프리팹=Building_VehicleBay_Blue
+[20:56:44.847] [UpgradeDiag] ProductionTicker.OnBuildingUpgraded — oldId=7, newType=VehicleBay, IsProductionBuilding=True
+[20:56:44.847] [UpgradeDiag] ProductionTicker — 생산상태 재등록 완료. newId=8
+[20:56:45.388] [UpgradeDiag] GetUnitEntries — Type=VehicleBay 매핑 찾음, 유닛 수=2
+[20:56:45.389] [UpgradeDiag] GetUnitEntries — Type=VehicleBay 매핑 찾음, 유닛 수=2
+[20:56:45.841] [UpgradeDiag] GetUnitEntries — Type=VehicleBay 매핑 찾음, 유닛 수=2
+[20:56:45.842] [UpgradeDiag] GetUnitEntries — Type=VehicleBay 매핑 찾음, 유닛 수=2
+[20:56:48.865] [UpgradeDiag] GetUnitEntries — Type=Gunsmith 매핑 찾음, 유닛 수=3
+[20:56:48.866] [UpgradeDiag] GetUnitEntries — Type=Gunsmith 매핑 찾음, 유닛 수=3
+[20:56:51.083] [UpgradeDiag] OnUpgradeButtonClick 진입 — _currentBuilding=Id=9, Type=Gunsmith, Stage=1
+[20:56:51.084] [UpgradeDiag] CanUpgrade=True, _buildingPlacement=OK
+[20:56:51.085] [UpgradeDiag] UpgradeCost=100, CurrentGold=4360, CanAfford=True, isNetworkMode=False
+[20:56:51.086] [UpgradeDiag] UpgradeBuilding 성공 — oldId=9, oldType=Gunsmith → newId=10, newType=Armory, newStage=2
+[20:56:51.087] [UpgradeDiag] UpgradeBuildingObject — race=Human, type=Armory, team=Blue, 프리팹=Building_Armory_Blue
+[20:56:51.088] [UpgradeDiag] ProductionTicker.OnBuildingUpgraded — oldId=9, newType=Armory, IsProductionBuilding=True
+[20:56:51.088] [UpgradeDiag] ProductionTicker — 생산상태 재등록 완료. newId=10
+[20:56:51.561] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:56:51.562] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:56:51.982] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:56:51.983] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:56:53.328] [UpgradeDiag] OnUpgradeButtonClick 진입 — _currentBuilding=Id=10, Type=Armory, Stage=2
+[20:56:53.329] [UpgradeDiag] CanUpgrade=True, _buildingPlacement=OK
+[20:56:53.330] [UpgradeDiag] UpgradeCost=200, CurrentGold=4267, CanAfford=True, isNetworkMode=False
+[20:56:53.332] [UpgradeDiag] UpgradeBuilding 성공 — oldId=10, oldType=Armory → newId=11, newType=WeaponForge, newStage=3
+[20:56:53.332] [UpgradeDiag] UpgradeBuildingObject — race=Human, type=WeaponForge, team=Blue, 프리팹=Building_WeaponForge_Blue
+[20:56:53.333] [UpgradeDiag] ProductionTicker.OnBuildingUpgraded — oldId=10, newType=WeaponForge, IsProductionBuilding=True
+[20:56:53.334] [UpgradeDiag] ProductionTicker — 생산상태 재등록 완료. newId=11
+[20:56:54.043] [UpgradeDiag] GetUnitEntries — Type=WeaponForge 매핑 찾음, 유닛 수=3
+[20:56:54.043] [UpgradeDiag] GetUnitEntries — Type=WeaponForge 매핑 찾음, 유닛 수=3
+[20:56:54.712] [UpgradeDiag] GetUnitEntries — Type=WeaponForge 매핑 찾음, 유닛 수=3
+[20:56:54.713] [UpgradeDiag] GetUnitEntries — Type=WeaponForge 매핑 찾음, 유닛 수=3
+[20:56:58.929] [UpgradeDiag] GetUnitEntries — Type=Gunsmith 매핑 찾음, 유닛 수=3
+[20:56:58.930] [UpgradeDiag] GetUnitEntries — Type=Gunsmith 매핑 찾음, 유닛 수=3
+[20:57:00.829] [UpgradeDiag] GetUnitEntries — Type=Gunsmith 매핑 찾음, 유닛 수=3
+[20:57:00.830] [UpgradeDiag] GetUnitEntries — Type=Gunsmith 매핑 찾음, 유닛 수=3
+[20:57:01.636] [UpgradeDiag] OnUpgradeButtonClick 진입 — _currentBuilding=Id=12, Type=Gunsmith, Stage=1
+[20:57:01.637] [UpgradeDiag] CanUpgrade=True, _buildingPlacement=OK
+[20:57:01.638] [UpgradeDiag] UpgradeCost=100, CurrentGold=3992, CanAfford=True, isNetworkMode=False
+[20:57:01.639] [UpgradeDiag] UpgradeBuilding 성공 — oldId=12, oldType=Gunsmith → newId=13, newType=Armory, newStage=2
+[20:57:01.641] [UpgradeDiag] UpgradeBuildingObject — race=Human, type=Armory, team=Blue, 프리팹=Building_Armory_Blue
+[20:57:01.642] [UpgradeDiag] ProductionTicker.OnBuildingUpgraded — oldId=12, newType=Armory, IsProductionBuilding=True
+[20:57:01.643] [UpgradeDiag] ProductionTicker — 생산상태 재등록 완료. newId=13
+[20:57:02.339] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:57:02.341] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:57:04.536] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:57:04.537] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:57:08.539] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:57:08.542] [UpgradeDiag] GetUnitEntries — Type=Armory 매핑 찾음, 유닛 수=3
+[20:57:10.913] [UpgradeDiag] OnUpgradeButtonClick 진입 — _currentBuilding=Id=13, Type=Armory, Stage=2
+[20:57:10.914] [UpgradeDiag] CanUpgrade=True, _buildingPlacement=OK
+[20:57:10.914] [UpgradeDiag] UpgradeCost=200, CurrentGold=3819, CanAfford=True, isNetworkMode=False
+[20:57:10.916] [UpgradeDiag] UpgradeBuilding 성공 — oldId=13, oldType=Armory → newId=14, newType=WeaponForge, newStage=3
+[20:57:10.917] [UpgradeDiag] UpgradeBuildingObject — race=Human, type=WeaponForge, team=Blue, 프리팹=Building_WeaponForge_Blue
+[20:57:10.917] [UpgradeDiag] ProductionTicker.OnBuildingUpgraded — oldId=13, newType=WeaponForge, IsProductionBuilding=True
+[20:57:10.918] [UpgradeDiag] ProductionTicker — 생산상태 재등록 완료. newId=14
+[20:57:11.991] [UpgradeDiag] GetUnitEntries — Type=WeaponForge 매핑 찾음, 유닛 수=3
+[20:57:11.992] [UpgradeDiag] GetUnitEntries — Type=WeaponForge 매핑 찾음, 유닛 수=3
