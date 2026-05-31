@@ -90,10 +90,10 @@ ProductionPopup Row1에만 존재하는 Rallypoint 버튼이 다른 슬롯과 **
 |------|------|------|
 | HLG Padding | L60 R60 T20 B20 | **L125 R125 T0 B0** |
 | Slot SizeDelta (캐시) | (283.73, 218.45) | **(277.14, 218.45)** |
-| 아이콘 가용 너비 | 283.73 − 120 = **163.73px** | 277.14 − 250 = **27.14px** |
-| 실제 표시 아이콘 크기 | 163.73 × 0.6 = **약 98px** | **약 27px** |
+| 아이콘 가용 너비 (이론값) | 283.73 − 120 = **163.73px** | 277.14 − 250 = **27.14px** |
+| 실제 표시 아이콘 크기 (이론값) | 163.73 × 0.6 = **약 98px** | **약 27px** |
 
-→ Rallypoint 아이콘이 다른 버튼 아이콘의 **약 1/4 수준**으로 표시됨
+⚠️ 위 수치는 씬 파일 캐시 기반 이론값. 실제 이미지에서 Rallypoint가 더 크게 보이므로 런타임 실제 값과 다를 수 있음 — MCP 실측 필요.
 
 ---
 
@@ -111,12 +111,13 @@ ProductionPopup Row1에만 존재하는 Rallypoint 버튼이 다른 슬롯과 **
 
 ## 파악된 확실한 문제
 
-### 문제 1 — ProductionPopup Rallypoint 패딩 과다 (코드 확인 완료)
+### 문제 1 — ProductionPopup Rallypoint 패딩 다름 (영향 미확정)
 
 - **위치**: `Assets/_Project/Scenes/Game.unity` > ProductionPopup > ProductionPanel > GridContainer > Row1 > Rallypoint
 - **현재 HLG Padding**: L125 R125 T0 B0
 - **다른 슬롯 Padding**: L60 R60 T20 B20
-- **영향**: Rallypoint 아이콘이 다른 버튼 대비 약 1/4 크기로 표시됨
+- **계산값**: 씬 파일 캐시 기준 Slot 너비 277px − 패딩 250px = 아이콘 가용 27px
+- **⚠️ 주의**: 위 계산은 이론값. 실제 이미지에서 Rallypoint 아이콘은 오히려 다른 버튼보다 크게 보임. 씬 파일 캐시값이 런타임 실제 크기를 반영하지 않을 가능성 있음. MCP로 실측 필요.
 
 ### 문제 2 — Row0 vs Row1 크기 차이 (원인 미확정)
 
