@@ -23,6 +23,40 @@
 
 ## 최근 작업
 
+### 방어 타워(AutoTower) 공격 기능 구현 (2026-06-01) ✅ 완료 (실기 PASS)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-01/05_01_defense-tower-implementation/`
+
+**신규 파일**: `Application/UseCases/TowerCombatUseCase.cs`
+- `Tick(float dt)`: AutoTower 순회 → 쿨다운 감소 → 0 이하 시 적 탐색 → 데미지 적용
+- 타겟 선택: `Vector3.Distance` 기준 가장 가까운 적 유닛 (건물 제외)
+- 멀티플레이 가드: `NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer`이면 Tick 조기 반환
+
+**팀→종족 변환 패턴**: Domain에서 GameRaceContext(Infrastructure) 직접 참조 불가 → `Func<TeamId, RaceId>` 델리게이트를 GameBootstrapper에서 주입
+
+---
+
+### Human CannonTower 초기 방향 설정 (2026-06-02) ✅ 완료 (실기 PASS)
+
+**수정 파일**: `Infrastructure/Factories/BuildingFactory.cs`
+
+**`GetInitialRotation(RaceId race, BuildingType type, TeamId team)`**:
+- Human + AutoTower 조합일 때만 분기
+- `ViewConverter.IsFlipped`로 로컬 플레이어 팀 판별 (`IsFlipped ? TeamId.Red : TeamId.Blue`)
+- 내 포탑: `Quaternion.identity` / 상대 포탑: `Quaternion.Euler(0f, 180f, 0f)`
+
+**핵심 원칙**: 팀 색깔(Blue/Red) 기준이 아닌 "내 진영 vs 상대 진영" 기준으로 회전 결정. ViewConverter가 위치만 반전하고 회전은 변환하지 않으므로 상대 포탑에 180도 적용.
+
+---
+
+### UnitStatsConfig 미사용 필드 제거 (2026-06-02) ✅ 완료
+
+- `AttackKind` enum, `StatValues.Kind`, `GetAttackKind()` 제거 (2026-05-11 비활성화된 미사용 코드)
+- `attackKind`, `occupancySize` 필드 제거 (`occupancySize`: TileOccupancyManager 클래스 자체가 없음)
+- 미사용 필드 확인 시 주석 언급만 믿지 말고 코드베이스 전체 Grep 필수
+
+---
+
 ### Lobby UI 규칙 준수 수정 — 에디터 스크립트 4종 (2026-05-30) ✅ 완료 (실기 PASS)
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-05-30/12_24_lobby-ui-rule-compliance/`

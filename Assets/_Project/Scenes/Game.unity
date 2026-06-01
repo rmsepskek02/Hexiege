@@ -5944,6 +5944,7 @@ MonoBehaviour:
     blue: {fileID: 3814944138934192500, guid: 0f81fef47472b8e44bfd66155f996eae, type: 3}
     red: {fileID: 2182691925636478756, guid: 737744e2cb786f0459bdeed0c004dd5b, type: 3}
   _buildingParent: {fileID: 701964378}
+  _cannonTowerFacingAngle: 180
 --- !u!1 &348550798
 GameObject:
   m_ObjectHideFlags: 0

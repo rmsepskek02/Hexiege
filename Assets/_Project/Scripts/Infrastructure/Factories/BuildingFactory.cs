@@ -164,10 +164,15 @@ namespace Hexiege.Infrastructure
             Vector3 viewPos = ViewConverter.ToView(worldPos);
             viewPos.y += _buildingYOffset;
 
+            // 건물 초기 회전값 계산.
+            // Human CannonTower(AutoTower)만 팀에 따라 대포가 상대 진영을 향하도록 Y축 회전을 적용한다.
+            // 그 외 건물은 Quaternion.identity(회전 없음)를 반환한다.
+            Quaternion rotation = GetInitialRotation(race, data.Type, data.Team);
+
             // 프리팹 인스턴스 생성. 뷰 좌표에 배치.
             // 건물은 NetworkBuildingController의 SpawnBuildingClientRpc를 통해 모든 클라이언트에서
             // 각각 로컬 인스턴스로 생성되어 동기화됩니다 (NetworkObject.Spawn 방식 아님).
-            GameObject obj = Instantiate(prefab, viewPos, Quaternion.identity, _buildingParent);
+            GameObject obj = Instantiate(prefab, viewPos, rotation, _buildingParent);
 
             // 오브젝트 이름을 실제 프리팹 이름 + Id로 설정 (에디터 디버깅용)
             obj.name = $"{prefab.name}_{data.Id}";
@@ -199,6 +204,48 @@ namespace Hexiege.Infrastructure
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 건물의 초기 회전값을 계산한다.
+        ///
+        /// Human 종족의 방어 타워(AutoTower=CannonTower)에만 적용되며,
+        /// 대포가 상대방 진영을 향하도록 Y축 회전값을 반환한다.
+        ///
+        /// 화면상에서 "내 진영"은 항상 아래쪽, "상대 진영"은 항상 위쪽에 표시된다.
+        /// ViewConverter.IsFlipped 값으로 로컬 플레이어의 팀을 알 수 있다.
+        ///   - IsFlipped == true  → 로컬 플레이어는 Red팀
+        ///   - IsFlipped == false → 로컬 플레이어는 Blue팀
+        ///
+        /// 따라서 건물 소유 팀이 로컬 플레이어 팀과 같으면(= 내 포탑) 회전 없이 그대로 두고,
+        /// 다르면(= 상대방 포탑) Y축 180도 회전을 적용해 대포가 서로 마주보게 한다.
+        ///   - 내 포탑   : Quaternion.identity (회전 없음)
+        ///   - 상대 포탑 : Quaternion.Euler(0, 180, 0)
+        ///
+        /// Human + AutoTower 조합이 아닌 경우(Spirit/Transcendence 타워, 생산 건물 등)는
+        /// Quaternion.identity(회전 없음)를 반환하여 기존 동작을 유지한다.
+        /// </summary>
+        /// <param name="race">건물 종족.</param>
+        /// <param name="type">건물 타입.</param>
+        /// <param name="team">건물 소유 팀.</param>
+        /// <returns>적용할 초기 회전값.</returns>
+        private Quaternion GetInitialRotation(RaceId race, BuildingType type, TeamId team)
+        {
+            // Human CannonTower(AutoTower) 조합에만 방향 회전을 적용한다.
+            if (race == RaceId.Human && type == BuildingType.AutoTower)
+            {
+                // ViewConverter.IsFlipped로 로컬 플레이어의 팀을 파악한다.
+                // 반전 모드면 로컬 플레이어는 Red, 아니면 Blue다.
+                TeamId localTeam = ViewConverter.IsFlipped ? TeamId.Red : TeamId.Blue;
+
+                // 상대방 포탑은 대포가 나를 향하도록 Y축 180도 회전, 내 포탑은 회전 없음.
+                return team == localTeam
+                    ? Quaternion.identity
+                    : Quaternion.Euler(0f, 180f, 0f);
+            }
+
+            // 그 외 모든 건물은 회전 없음(기존 동작 유지).
+            return Quaternion.identity;
         }
 
         /// <summary>
