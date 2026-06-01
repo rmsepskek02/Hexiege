@@ -27,34 +27,6 @@ using System.Collections.Generic;
 
 namespace Hexiege.Domain
 {
-    // ========================================================================
-    // AttackKind
-    // [2026-05-11 비활성화 — 이동 로직 분기 미사용]
-    // 새 이동/전투 규칙(GameSystemRules.md)에서는 근접/원거리 모두 동일한 상태 머신
-    // (A* 이동 → 전투 이동 → 공격)을 따릅니다. 차이는 공격 사거리 수치(AttackRange)뿐이며,
-    // AttackKind는 더 이상 이동/전투 분기에 사용되지 않습니다.
-    //
-    // enum 자체와 UnitStats.GetAttackKind, StatValues.Kind 필드는 Inspector 호환과
-    // 향후 UI 분류(아이콘 표시 등) 용도로 보존합니다. 단, UnitView/UnitMovement/UnitCombat의
-    // 로직 분기에서는 사용하지 않으므로 값이 어떻게 설정되어도 동작에 영향이 없습니다.
-    //
-    // Domain 레이어 — 순수 C# 열거형, Unity 의존 없음.
-    // ========================================================================
-    public enum AttackKind
-    {
-        /// <summary>
-        /// [2026-05-11 분기 미사용] 근접 유닛 식별자 (UI/분류 용도).
-        /// 예: EmberSpirit, BearGuard, FlameSpirit, LionKnight.
-        /// </summary>
-        Melee = 0,
-
-        /// <summary>
-        /// [2026-05-11 분기 미사용] 원거리 유닛 식별자 (UI/분류 용도).
-        /// 예: Pistoleer, Sniper, FoxMagician, InfernoSpirit, Assault.
-        /// </summary>
-        Ranged = 1
-    }
-
     public static class UnitStats
     {
         // ====================================================================
@@ -77,18 +49,6 @@ namespace Hexiege.Domain
             public float MoveSpeed;
             public float AttackCooldown;
             public float[] HitFrameTimes;
-
-            // ────────────────────────────────────────────────────────────
-            // Kind
-            //   유닛이 근접(Melee)인지 원거리(Ranged)인지 명시적으로 구분.
-            //   새 이동/전투 규칙(GameSystemRules.md 규칙 13/15)에서
-            //   "감지 → 직선 추적" vs "사거리 진입 → 즉시 공격" 분기를
-            //   이 필드 하나로 결정한다.
-            //
-            //   Inspector에서 드롭다운으로 선택 가능 (Infrastructure의
-            //   UnitStatEntry.attackKind 필드에 노출).
-            // ────────────────────────────────────────────────────────────
-            public AttackKind Kind;
         }
 
         // 내부 Dictionary. Initialize()가 호출되기 전에는 null.
@@ -193,24 +153,6 @@ namespace Hexiege.Domain
                 return v.HitFrameTimes;
             }
             return new[] { 0.2f };
-        }
-
-        /// <summary>
-        /// 유닛 타입별 공격 방식(Melee / Ranged) 반환.
-        /// Config에 값이 등록되지 않은 경우 안전망으로 AttackKind.Ranged를 반환.
-        ///
-        /// 폴백을 Ranged로 두는 이유:
-        ///   - 기존 묵시 가정("DetectRange == AttackRange면 원거리")의 기본 동작이
-        ///     "그 자리에서 즉시 공격(=Ranged)"이었기 때문에, 데이터 누락 시
-        ///     기존 동작과 가장 가까운 결과가 나오도록 한다.
-        ///   - 신규 유닛 추가 시 Inspector에서 명시적으로 Melee를 지정해야 함을
-        ///     상기시키는 효과도 있다.
-        /// </summary>
-        public static AttackKind GetAttackKind(UnitType type)
-        {
-            if (TryGet(type, out var v))
-                return v.Kind;
-            return AttackKind.Ranged;
         }
     }
 }

@@ -66,19 +66,6 @@ namespace Hexiege.Infrastructure
         [Tooltip("공격 애니 내 타격 프레임 시간(초) 배열. 다중 히트는 오름차순")]
         public float[] hitFrameTimes;
 
-        // ── 공격 방식 ──────────────────────────────────────────────
-        // Melee : 감지 시 적에게 직선 이동(공격 슬롯) 후 타격
-        // Ranged: 사거리 안에 적이 들어오면 이동 슬롯에 멈춰 즉시 공격
-        // 새 이동/전투 규칙(GameSystemRules.md 13/15)에서 분기 기준이 되는 필드.
-        [Tooltip("공격 방식. Melee=직선 추적 후 타격 / Ranged=제자리에서 즉시 공격")]
-        public AttackKind attackKind;
-
-        // ── 점유 정보 ──────────────────────────────────────────────
-        // 한 타일의 최대 점유 합계는 3. 소형(1) / 중형(2) / 대형(3) 기준.
-        // TileOccupancyManager가 "다음 타일에 들어갈 수 있는가"를 판단할 때만 사용.
-        [Tooltip("타일당 점유 크기. 소형=1 / 중형=2 / 대형=3. 한 타일 최대 합계=3")]
-        public float occupancySize;
-
         // ── 생산 스탯 ──────────────────────────────────────────────
         [Header("Production")]
 

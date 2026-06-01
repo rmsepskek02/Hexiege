@@ -69,14 +69,14 @@
 
 | 건물 | BuildingType | HP | 건설 비용 | 업그레이드 비용 |
 |------|-------------|-----|-----------|----------------|
-| 근거리A 1단계 (TrainingCamp) | TrainingCamp | 100 | 100 | - |
-| 근거리A 2단계 (WarAcademy) | WarAcademy | 200 | - | 100 |
-| 근거리A 3단계 (HumanBarracks) | HumanBarracks | 300 | - | 200 |
-| 총기류 1단계 (Gunsmith) | Gunsmith | 100 | 100 | - |
-| 총기류 2단계 (Armory) | Armory | 200 | - | 100 |
-| 총기류 3단계 (WeaponForge) | WeaponForge | 300 | - | 200 |
-| 탈것류 1단계 (Garage) | Garage | 100 | 100 | - |
-| 탈것류 2단계 (VehicleBay) | VehicleBay | 200 | - | 100 |
+| 근거리A 1단계 (TrainingCamp) | TrainingCamp | 100 | 100 | 100 |
+| 근거리A 2단계 (WarAcademy) | WarAcademy | 200 | - | 200 |
+| 근거리A 3단계 (HumanBarracks) | HumanBarracks | 300 | - | - |
+| 총기류 1단계 (Gunsmith) | Gunsmith | 100 | 100 | 100 |
+| 총기류 2단계 (Armory) | Armory | 200 | - | 200 |
+| 총기류 3단계 (WeaponForge) | WeaponForge | 300 | - | - |
+| 탈것류 1단계 (Garage) | Garage | 100 | 100 | 100 |
+| 탈것류 2단계 (VehicleBay) | VehicleBay | 200 | - | - |
 
 ### 방어 건물
 
@@ -106,15 +106,15 @@
 
 | 건물 | BuildingType | HP | 건설 비용 | 업그레이드 비용 |
 |------|-------------|-----|-----------|----------------|
-| 불 1단계 (FireSpire) | FireSpire | 50 | 75 | - |
-| 불 2단계 (BlazeConduit) | BlazeConduit | 100 | - | 200 |
-| 불 3단계 (InfernoCore) | InfernoCore | 400 | - | 400 |
-| 물 1단계 (AquaSpring) | AquaSpring | 50 | 75 | - |
-| 물 2단계 (TidalNexus) | TidalNexus | 100 | - | 200 |
-| 물 3단계 (OceanicHeart) | OceanicHeart | 400 | - | 400 |
-| 땅 1단계 (StoneMound) | StoneMound | 50 | 75 | - |
-| 땅 2단계 (TerraForge) | TerraForge | 100 | - | 200 |
-| 땅 3단계 (GaeaSanctum) | GaeaSanctum | 400 | - | 400 |
+| 불 1단계 (FireSpire) | FireSpire | 50 | 75 | 200 |
+| 불 2단계 (BlazeConduit) | BlazeConduit | 100 | - | 400 |
+| 불 3단계 (InfernoCore) | InfernoCore | 400 | - | - |
+| 물 1단계 (AquaSpring) | AquaSpring | 50 | 75 | 200 |
+| 물 2단계 (TidalNexus) | TidalNexus | 100 | - | 400 |
+| 물 3단계 (OceanicHeart) | OceanicHeart | 400 | - | - |
+| 땅 1단계 (StoneMound) | StoneMound | 50 | 75 | 200 |
+| 땅 2단계 (TerraForge) | TerraForge | 100 | - | 400 |
+| 땅 3단계 (GaeaSanctum) | GaeaSanctum | 400 | - | - |
 
 ### 방어 건물
 
@@ -144,14 +144,14 @@
 
 | 건물 | BuildingType | HP | 건설 비용 | 업그레이드 비용 |
 |------|-------------|-----|-----------|----------------|
-| 동물A 1단계 (PrimalAltar) | PrimalAltar | 150 | 125 | - |
-| 동물A 2단계 (PrimalDen) | PrimalDen | 300 | - | 200 |
-| 동물A 3단계 (PrimalSanctuary) | PrimalSanctuary | 400 | - | 300 |
-| 동물B 1단계 (FeralAltar) | FeralAltar | 150 | 125 | - |
-| 동물B 2단계 (FeralDen) | FeralDen | 300 | - | 200 |
-| 동물B 3단계 (FeralSanctuary) | FeralSanctuary | 400 | - | 300 |
-| 식물 1단계 (SporePatch) | SporePatch | 150 | 125 | - |
-| 식물 2단계 (FloralNursery) | FloralNursery | 300 | - | 200 |
+| 동물A 1단계 (PrimalAltar) | PrimalAltar | 150 | 125 | 200 |
+| 동물A 2단계 (PrimalDen) | PrimalDen | 300 | - | 300 |
+| 동물A 3단계 (PrimalSanctuary) | PrimalSanctuary | 400 | - | - |
+| 동물B 1단계 (FeralAltar) | FeralAltar | 150 | 125 | 200 |
+| 동물B 2단계 (FeralDen) | FeralDen | 300 | - | 300 |
+| 동물B 3단계 (FeralSanctuary) | FeralSanctuary | 400 | - | - |
+| 식물 1단계 (SporePatch) | SporePatch | 150 | 125 | 200 |
+| 식물 2단계 (FloralNursery) | FloralNursery | 300 | - | - |
 
 ### 방어 건물
 

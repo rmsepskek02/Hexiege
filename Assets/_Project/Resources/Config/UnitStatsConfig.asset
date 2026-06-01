@@ -14,16 +14,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.UnitStatsConfig
   _stats:
   - unitType: 0
-    maxHp: 12
+    maxHp: 30
     attackPower: 6
     attackRange: 1
-    detectRange: 2
+    detectRange: 1
     moveSpeed: 0.5
     attackCooldown: 2
     hitFrameTimes:
-    - 0.833
-    attackKind: 1
-    occupancySize: 0
+    - 2
     productionTime: 5
     goldCost: 50
     populationCost: 1
@@ -35,9 +33,7 @@ MonoBehaviour:
     moveSpeed: 1
     attackCooldown: 0.2
     hitFrameTimes:
-    - 0.133
-    attackKind: 0
-    occupancySize: 0
+    - 0.2
     productionTime: 10
     goldCost: 100
     populationCost: 1
@@ -49,13 +45,23 @@ MonoBehaviour:
     moveSpeed: 0.25
     attackCooldown: 3
     hitFrameTimes:
-    - 2
-    attackKind: 0
-    occupancySize: 0
+    - 3
     productionTime: 15
     goldCost: 200
     populationCost: 1
-  - unitType: 3
+  - unitType: 11
+    maxHp: 35
+    attackPower: 6
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 0.5
+    attackCooldown: 2.2
+    hitFrameTimes:
+    - 1
+    productionTime: 5
+    goldCost: 50
+    populationCost: 1
+  - unitType: 10
     maxHp: 50
     attackPower: 2
     attackRange: 0.5
@@ -63,32 +69,16 @@ MonoBehaviour:
     moveSpeed: 2
     attackCooldown: 3
     hitFrameTimes:
-    - 0.667
-    - 1.167
-    - 1.433
-    - 1.667
-    - 1.933
-    - 2.1
-    attackKind: 0
-    occupancySize: 0
+    - 0.2
+    - 1.05
+    - 1.13
+    - 1.2
+    - 1.28
+    - 2.03
     productionTime: 15
     goldCost: 200
     populationCost: 1
-  - unitType: 11
-    maxHp: 40
-    attackPower: 6
-    attackRange: 0.5
-    detectRange: 1
-    moveSpeed: 0.5
-    attackCooldown: 2.33
-    hitFrameTimes:
-    - 1
-    attackKind: 0
-    occupancySize: 0
-    productionTime: 5
-    goldCost: 50
-    populationCost: 1
-  - unitType: 5
+  - unitType: 12
     maxHp: 100
     attackPower: 25
     attackRange: 4
@@ -96,27 +86,11 @@ MonoBehaviour:
     moveSpeed: 1
     attackCooldown: 3
     hitFrameTimes:
-    - 1.25
-    attackKind: 0
-    occupancySize: 0
+    - 1.15
     productionTime: 30
     goldCost: 500
     populationCost: 1
-  - unitType: 6
-    maxHp: 200
-    attackPower: 10
-    attackRange: 0.5
-    detectRange: 1
-    moveSpeed: 1
-    attackCooldown: 1.33
-    hitFrameTimes:
-    - 0.667
-    attackKind: 0
-    occupancySize: 0
-    productionTime: 25
-    goldCost: 400
-    populationCost: 1
-  - unitType: 7
+  - unitType: 21
     maxHp: 20
     attackPower: 8
     attackRange: 3
@@ -124,24 +98,32 @@ MonoBehaviour:
     moveSpeed: 0.5
     attackCooldown: 4
     hitFrameTimes:
-    - 2.417
-    attackKind: 0
-    occupancySize: 0
+    - 2.25
     productionTime: 5
     goldCost: 50
     populationCost: 1
-  - unitType: 13
+  - unitType: 20
+    maxHp: 200
+    attackPower: 10
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 1
+    attackCooldown: 1.2
+    hitFrameTimes:
+    - 0.2
+    productionTime: 25
+    goldCost: 400
+    populationCost: 1
+  - unitType: 22
     maxHp: 50
-    attackPower: 5
+    attackPower: 9
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 2
     attackCooldown: 3
     hitFrameTimes:
-    - 0.733
-    - 1.267
-    attackKind: 0
-    occupancySize: 0
-    productionTime: 5
-    goldCost: 50
+    - 0.22
+    - 1.08
+    productionTime: 15
+    goldCost: 200
     populationCost: 1

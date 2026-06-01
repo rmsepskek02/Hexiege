@@ -72,13 +72,7 @@ namespace Hexiege.Bootstrap
                     DetectRange = entry.detectRange,
                     MoveSpeed = entry.moveSpeed,
                     AttackCooldown = entry.attackCooldown,
-                    HitFrameTimes = entry.hitFrameTimes,
-                    // Kind: 근접/원거리 분기.
-                    // 새 이동/전투 규칙(GameSystemRules.md 13/15)에서
-                    //  "감지 시 직선 추적" vs "사거리 진입 시 즉시 공격"을 결정.
-                    // SO Inspector에서 명시적으로 선택해야 하며, 기본값(enum 0=Melee)이
-                    // 실제 의도와 다를 수 있으므로 Config 항목별로 반드시 확인할 것.
-                    Kind = entry.attackKind
+                    HitFrameTimes = entry.hitFrameTimes
                 };
 
                 prodDict[entry.unitType] = new UnitProductionStats.ProductionValues
