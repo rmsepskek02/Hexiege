@@ -49,6 +49,13 @@ namespace Hexiege.Domain
             public float AttackCooldown;
 
             /// <summary>
+            /// 공격 사거리(타일 단위). 방어 타워가 적 유닛을 탐색하는 반경.
+            /// 월드 거리 판정 시 TileHeight를 곱해 월드 단위로 환산한다.
+            /// 비타워 건물은 0.
+            /// </summary>
+            public float AttackRange;
+
+            /// <summary>
             /// 이 건물을 다음 단계로 업그레이드할 때 드는 골드 비용.
             /// 최고 단계 건물이나 비생산건물은 0.
             /// 종족과 무관하게 BuildingType당 단일 값으로 관리한다.
@@ -167,6 +174,18 @@ namespace Hexiege.Domain
         {
             if (TryGet(type, race, out var v))
                 return v.AttackCooldown;
+            return 0f;
+        }
+
+        /// <summary>
+        /// 건물 타입 + 종족별 공격 사거리(타일 단위) 반환.
+        /// 방어 타워(AutoTower)가 적 유닛을 탐색하는 반경에 사용한다.
+        /// 비타워 건물이거나 Config에 값이 없으면 0을 반환 — 사거리 0이면 공격 불가.
+        /// </summary>
+        public static float GetAttackRange(BuildingType type, RaceId race)
+        {
+            if (TryGet(type, race, out var v))
+                return v.AttackRange;
             return 0f;
         }
 

@@ -11,7 +11,7 @@
 // 설계:
 //   - 서버만 실행 (OnNetworkSpawn에서 IsServer 체크)
 //   - NetworkBehaviour → Infrastructure 레이어에 배치
-//   - NetworkGameEndController는 FindFirstObjectByType으로 탐색
+//   - NetworkGameEndController는 OnNetworkSpawn에서 1회 캐시하여 재사용
 //     (씬에 반드시 존재해야 ForceWin 작동)
 //
 // 배치:
@@ -56,6 +56,13 @@ namespace Hexiege.Infrastructure
         /// <summary>이미 ForceWin을 호출했는지 여부. 중복 실행 방지.</summary>
         private bool _forceWinTriggered;
 
+        /// <summary>
+        /// NetworkGameEndController 참조.
+        /// 서버 측 OnNetworkSpawn에서 1회만 탐색하여 캐시하고 이후에는 재탐색 없이 사용한다.
+        /// WaitAndForceWin 코루틴에서 씬 전체 탐색을 반복하지 않기 위한 캐시.
+        /// </summary>
+        private NetworkGameEndController _networkGameEndController;
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -74,6 +81,10 @@ namespace Hexiege.Infrastructure
                 enabled = false;
                 return;
             }
+
+            // 서버 측 OnNetworkSpawn에서 1회만 탐색하여 캐시.
+            // WaitAndForceWin 코루틴에서 매번 탐색하지 않도록 미리 보관.
+            _networkGameEndController = FindFirstObjectByType<NetworkGameEndController>();
 
             // 서버: 연결/연결 끊김 콜백 등록
             NetworkManager.OnClientDisconnectCallback += OnClientDisconnected;
@@ -183,9 +194,9 @@ namespace Hexiege.Infrastructure
             Debug.Log($"[Network] ReconnectionHandler: 재접속 타임아웃. " +
                       $"강제 승리 처리. 승리 팀 index={winnerTeamIndex}");
 
-            // NetworkGameEndController를 통해 모든 클라이언트에 결과 전파
-            NetworkGameEndController endController =
-                FindFirstObjectByType<NetworkGameEndController>();
+            // NetworkGameEndController를 통해 모든 클라이언트에 결과 전파.
+            // OnNetworkSpawn에서 미리 캐시해 둔 참조를 사용 (매번 씬 탐색하지 않음).
+            NetworkGameEndController endController = _networkGameEndController;
 
             if (endController == null)
             {

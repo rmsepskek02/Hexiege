@@ -140,6 +140,7 @@ namespace Hexiege.Bootstrap
                     GoldCost = entry.humanGoldCost,
                     AttackPower = entry.humanAttackPower,
                     AttackCooldown = entry.humanAttackCooldown,
+                    AttackRange = entry.humanAttackRange,
                     UpgradeCost = upgrade
                 };
 
@@ -150,6 +151,7 @@ namespace Hexiege.Bootstrap
                     GoldCost = entry.spiritGoldCost,
                     AttackPower = entry.spiritAttackPower,
                     AttackCooldown = entry.spiritAttackCooldown,
+                    AttackRange = entry.spiritAttackRange,
                     UpgradeCost = upgrade
                 };
 
@@ -160,6 +162,7 @@ namespace Hexiege.Bootstrap
                     GoldCost = entry.transcendenceGoldCost,
                     AttackPower = entry.transcendenceAttackPower,
                     AttackCooldown = entry.transcendenceAttackCooldown,
+                    AttackRange = entry.transcendenceAttackRange,
                     UpgradeCost = upgrade
                 };
             }
@@ -285,6 +288,20 @@ namespace Hexiege.Bootstrap
             _buildingPlacement = new BuildingPlacementUseCase(_grid);
             _positionProvider = new UnitWorldPositionProvider(_unitFactory, _buildingFactory);
             _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper);
+
+            // 방어 타워 전투 UseCase.
+            // Application 레이어가 GameRaceContext(Infrastructure)에 직접 의존하지 않도록,
+            // composition root인 여기서 "팀 → 종족" 변환 함수를 주입한다.
+            // 팀별 종족 매핑은 BuildingFactory/UnitFactory와 동일하게
+            // Blue → BlueRace, Red → RedRace 규칙을 따른다.
+            _towerCombat = new TowerCombatUseCase(
+                _buildingPlacement,
+                _unitSpawn,
+                hexMapper,
+                _positionProvider,
+                team => team == TeamId.Blue
+                    ? GameRaceContext.BlueRace
+                    : GameRaceContext.RedRace);
 
             // TileOwnershipService 초기화.
             // _grid, _unitSpawn, _positionProvider, hexMapper가 모두 준비된 직후에 생성한다.

@@ -81,6 +81,13 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private ulong _rematchRequesterId = ulong.MaxValue;
 
+        /// <summary>
+        /// NetworkGameManager 참조.
+        /// 서버 측 OnNetworkSpawn에서 1회만 탐색하여 캐시하고 이후에는 재탐색 없이 사용한다.
+        /// OnGameEndServer에서 씬 전체 탐색을 반복하지 않기 위한 캐시.
+        /// </summary>
+        private Hexiege.Infrastructure.NetworkGameManager _networkGameManager;
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -98,6 +105,10 @@ namespace Hexiege.Infrastructure
 
             if (IsServer)
             {
+                // 서버 측 OnNetworkSpawn에서 1회만 탐색하여 캐시.
+                // OnGameEndServer 핸들러에서 매번 탐색하지 않도록 미리 보관.
+                _networkGameManager = FindFirstObjectByType<Hexiege.Infrastructure.NetworkGameManager>();
+
                 // 서버: 게임 종료 이벤트 구독 → 모든 클라이언트에 결과 전파
                 _gameEndSubscription = GameEvents.OnGameEnd
                     .Subscribe(OnGameEndServer);
@@ -155,9 +166,10 @@ namespace Hexiege.Infrastructure
             _announced = true;
             int winnerTeamIndex = (int)e.Winner;
 
-            // 랜덤 매칭 여부 확인 — 재경기 버튼 분기에 사용
+            // 랜덤 매칭 여부 확인 — 재경기 버튼 분기에 사용.
+            // OnNetworkSpawn에서 미리 캐시해 둔 참조를 사용 (매번 씬 탐색하지 않음).
             bool isRandomMatch = false;
-            var ngm = FindFirstObjectByType<NetworkGameManager>();
+            var ngm = _networkGameManager;
             if (ngm != null)
                 isRandomMatch = ngm.IsRandomMatchmaking;
 

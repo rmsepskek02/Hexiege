@@ -89,6 +89,16 @@ namespace Hexiege.Infrastructure
         [Tooltip("초월 종족 공격 쿨다운(초). 타워 기능 도입 시 사용. 비타워 건물은 0.")]
         public float transcendenceAttackCooldown;
 
+        [Header("Attack Range (방어 타워 사거리, 타일 단위)")]
+        [Tooltip("인간 종족 공격 사거리(타일). 방어 타워(AutoTower)만 사용. 비타워 건물은 0.")]
+        public float humanAttackRange;
+
+        [Tooltip("정령 종족 공격 사거리(타일). 방어 타워(AutoTower)만 사용. 비타워 건물은 0.")]
+        public float spiritAttackRange;
+
+        [Tooltip("초월 종족 공격 사거리(타일). 방어 타워(AutoTower)만 사용. 비타워 건물은 0.")]
+        public float transcendenceAttackRange;
+
         [Header("Upgrade Cost")]
         [Tooltip("이 건물을 다음 단계로 업그레이드하는 비용(골드). " +
                  "최고 단계 건물이나 비생산건물은 0으로 둔다. " +

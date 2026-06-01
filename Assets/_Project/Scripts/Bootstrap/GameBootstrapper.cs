@@ -166,6 +166,7 @@ namespace Hexiege.Bootstrap
         private UnitMovementUseCase _unitMovement;
         private UnitSpawnUseCase _unitSpawn;
         private UnitCombatUseCase _unitCombat;
+        private TowerCombatUseCase _towerCombat;
         private BuildingPlacementUseCase _buildingPlacement;
         private ResourceUseCase _resource;
         private PopulationUseCase _population;
@@ -293,6 +294,13 @@ namespace Hexiege.Bootstrap
         public UnitCombatUseCase GetCombatUseCase() => _unitCombat;
 
         /// <summary>
+        /// 현재 TowerCombatUseCase 반환.
+        /// NetworkCombatController에서 서버 측 방어 타워 공격 처리에 사용.
+        /// 맵 로드 전이면 null 반환.
+        /// </summary>
+        public TowerCombatUseCase GetTowerCombat() => _towerCombat;
+
+        /// <summary>
         /// UnitFactory 반환.
         /// NetworkUnitMovementController에서 UnitView 조회(GetUnitObject)에 사용.
         /// </summary>
@@ -387,6 +395,18 @@ namespace Hexiege.Bootstrap
                 // 각 PendingHit의 타이머를 감소시키고 만료된 항목의 데미지를 적용.
                 // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)의 2번째 이후 히트가 여기서 처리됨.
                 _unitCombat.TickPendingHits(Time.deltaTime);
+            }
+
+            // ────────────────────────────────────────────────────────────────
+            // 방어 타워 전투: 싱글플레이에서만 여기서 Tick.
+            // 멀티플레이에서는 NetworkCombatController가 서버 Tick에서 호출하므로
+            // 여기서 호출하면 이중 데미지가 발생한다 → IsNetworkMode 가드로 차단.
+            // (TowerCombatUseCase.Tick 내부에도 클라이언트 차단 가드가 있지만,
+            //  Host에서 이중 호출되는 것을 막기 위해 싱글에서만 호출한다.)
+            // ────────────────────────────────────────────────────────────────
+            if (!IsNetworkMode() && _towerCombat != null)
+            {
+                _towerCombat.Tick(Time.deltaTime);
             }
 
             // ────────────────────────────────────────────────────────────────

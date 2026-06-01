@@ -227,6 +227,17 @@ namespace Hexiege.Infrastructure
 
             if (unitSpawn == null || combat == null) return;
 
+            // ────────────────────────────────────────────────────────────────
+            // 방어 타워 전투(서버 권위 — 방어 타워 시스템 규칙 9).
+            // 이 Update()는 진입부에서 IsServer 가드로 클라이언트를 차단하므로,
+            // 여기서 타워 Tick을 호출하면 서버에서만 데미지가 적용된다.
+            // 타워가 유닛을 처치하면 TowerCombatUseCase가 OnUnitDied를 발행하고,
+            // 그 이벤트를 이 컨트롤러가 이미 구독(OnUnitDied)하고 있어
+            // EntityDiedClientRpc로 클라이언트에 자동 전파된다.
+            // ────────────────────────────────────────────────────────────────
+            TowerCombatUseCase tower = _bootstrapper.GetTowerCombat();
+            tower?.Tick(elapsed);
+
             // Dictionary를 순회하면서 타겟 탐색
             // 전투 중 RemoveUnit이 호출될 수 있으므로 키를 미리 복사
             var unitIds = new System.Collections.Generic.List<int>(unitSpawn.Units.Keys);

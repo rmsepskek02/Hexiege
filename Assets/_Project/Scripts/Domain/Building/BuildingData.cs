@@ -45,6 +45,18 @@ namespace Hexiege.Domain
         public int Hp { get; private set; }
         public bool IsAlive => Hp > 0;
 
+        /// <summary>
+        /// 방어 타워(AutoTower)의 남은 공격 쿨다운(초).
+        /// 0 이하면 공격 가능, 공격 직후 AttackCooldown 값으로 리셋된다.
+        ///
+        /// 생성 시 0으로 초기화 — 배치 직후 사거리 안에 적이 있으면 딜레이 없이
+        /// 즉시 첫 공격이 가능하다(방어 타워 시스템 규칙 4).
+        ///
+        /// UnitData.AttackCooldownRemaining과 동일한 패턴.
+        /// 비타워 건물에서는 항상 0이며 아무 의미가 없다(TowerCombatUseCase가 타워만 순회).
+        /// </summary>
+        public float AttackCooldownRemaining { get; set; }
+
         // 건물 Id 자동 발급용 정적 카운터.
         private static int _nextId;
 
