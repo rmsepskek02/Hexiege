@@ -836,10 +836,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b032e7de55b97a44aa94ce3b24f914b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.UnitView
-  _meshYOffset: 0
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
   _attackToWalkBlend: 0.1
+  _rotationSpeed: 270
 --- !u!114 &-4997947105498995162
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -968,7 +968,7 @@ GameObject:
   - component: {fileID: 504615124492447600}
   - component: {fileID: 4000570372798802844}
   m_Layer: 0
-  m_Name: FoxStaff_Red
+  m_Name: FoxStaff_Blue
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -984,7 +984,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0.0639683, y: -0.48418996, z: 0.40697762, w: 0.771905}
   m_LocalPosition: {x: -0.037, y: -0.003, z: 0.043}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 50, y: 50, z: 50}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 3891309718770650774}

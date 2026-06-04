@@ -176,10 +176,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8b032e7de55b97a44aa94ce3b24f914b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.UnitView
-  _meshYOffset: 0
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
   _attackToWalkBlend: 0.1
+  _rotationSpeed: 270
 --- !u!114 &5481468241028201940
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -192,7 +192,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2628273941
+  GlobalObjectIdHash: 332759148
   InScenePlacedSourceGlobalObjectIdHash: 1388810823
   DeferredDespawnTick: 0
   Ownership: 1
@@ -989,7 +989,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0.39306232, y: 0.5348824, z: -0.35156584, w: -0.6601548}
   m_LocalPosition: {x: 0.00017084046, y: 0.0663245, z: 0.037813064}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 60, y: 60, z: 60}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7846388463145013566}

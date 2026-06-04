@@ -320,7 +320,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2588610442
+  GlobalObjectIdHash: 642796188
   InScenePlacedSourceGlobalObjectIdHash: 2588610442
   DeferredDespawnTick: 0
   Ownership: 1
@@ -811,8 +811,8 @@ Transform:
   m_GameObject: {fileID: 6052529111257875933}
   serializedVersion: 2
   m_LocalRotation: {x: 0.43968874, y: 0.38521972, z: -0.5216624, w: -0.621408}
-  m_LocalPosition: {x: 0, y: 0.05, z: 0}
-  m_LocalScale: {x: 15, y: 15, z: 15}
+  m_LocalPosition: {x: 0.01, y: 0.11, z: 0}
+  m_LocalScale: {x: 20, y: 20, z: 20}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7792289126025544175}
