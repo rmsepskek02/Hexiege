@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-06-05
-**현재 단계:** 자동생산 슬롯 버그 수정 + BuildingView Missing Script 정리 완료
+**최종 수정일:** 2026-06-06
+**현재 단계:** NetworkGameManager 중복 인스턴스 정리 + 콘솔 경고 제거 완료
 
 ---
 
@@ -56,6 +56,7 @@
 | BuildingView Missing Script 정리 | ✅ 완료 (2026-06-05) | Spirit/Transcendence 건물 프리팹 8개에서 삭제된 BuildingView 참조 제거. Editor 스크립트 1회 실행. |
 | 자동생산 재등록 슬롯 버그 수정 | ✅ 완료 (2026-06-05) | CurrentIsAuto 파생 getter 구조로 개선. UnitProductionUseCase reset 2곳 제거. |
 | 신규 유닛 프리팹 컴포넌트 부착 (32개) | 🔧 스크립트 완료 (2026-06-05) / 실기 테스트 예정 | Human 5종·Spirit 6종·Transcendence 5종 × Blue/Red. `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`. 후속: Animation Event·UnitFactory 등록·스탯 추가 별도 필요. |
+| NetworkGameManager 고아 필드 + Game씬 NGM 제거 | ✅ 완료 (2026-06-06) | GameBootstrapper 미사용 _networkGameManager 필드 제거. Game.unity 중복 NGM 제거. 싱글+멀티 실기 확인. |
 
 #### 3D 전환 (2026-02-27 ~ 2026-03-01)
 | 항목 | 상태 |

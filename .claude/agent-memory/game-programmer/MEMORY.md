@@ -23,6 +23,27 @@
 
 ## 최근 작업
 
+### NetworkGameManager 고아 필드 + Game씬 NGM 제거 (2026-06-06) ✅ 완료 (싱글+멀티 실기 PASS)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-06/00_08_networkgamemanager-cleanup/`
+
+**수정 파일**:
+
+- `Bootstrap/GameBootstrapper.cs` — `_networkGameManager` SerializeField 3줄 제거 (고아 필드)
+- `Assets/Editor/RemoveGameSceneNGM.cs` — Game씬 NGM 제거 1회성 Editor 스크립트 (실행 완료)
+
+**근본 원인**: NetworkGameManager는 Lobby에서 생성 후 DontDestroyOnLoad로 유지되는 구조인데 Game.unity에도 별도 NGM 배치 → 씬 전환 시 인스턴스 중복. GameBootstrapper의 `_networkGameManager` 필드는 코드 어디에서도 미사용 고아 상태.
+
+**씬 NGM 제거 Editor 스크립트 패턴**:
+
+- `FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None)`
+- `go.scene.name == "Game"`으로 Lobby NGM과 Game NGM 구분 (씬 소속 필터링)
+- Additive 임시 로드 → `Undo.DestroyObjectImmediate` → `EditorSceneManager.SaveScene` → CloseScene
+
+**교훈**: DontDestroyOnLoad 오브젝트는 생성 씬(Lobby) 하나에만 배치. Game씬 중복 배치 금지. GameBootstrapper SerializeField는 실제 사용하는 필드만 유지.
+
+---
+
 ### 신규 유닛 프리팹 컴포넌트 자동 부착 에디터 스크립트 (2026-06-05) ✅ 스크립트 작성 완료 (실기 테스트 예정)
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-05/22_14_unit-prefab-component-setup/`

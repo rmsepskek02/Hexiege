@@ -14474,7 +14474,6 @@ MonoBehaviour:
   _mainCamera: {fileID: 330585545}
   _gameEndUI: {fileID: 1309749081}
   _gameHudUI: {fileID: 875631172}
-  _networkGameManager: {fileID: 1536187602}
   _networkGameFlow: {fileID: 102157243}
   _networkBuildingController: {fileID: 1310222880}
   _networkProductionController: {fileID: 1172775545}
@@ -18050,7 +18049,7 @@ MonoBehaviour:
   _resultText: {fileID: 2104385912}
   _restartButton: {fileID: 1978228656}
   _bootstrapper: {fileID: 1093233943}
-  _networkGameManager: {fileID: 1536187602}
+  _networkGameManager: {fileID: 0}
   _backToLobbyButton: {fileID: 1555752452}
   _countdownText: {fileID: 194798721}
   _autoReturnSeconds: 30
@@ -20642,50 +20641,6 @@ MonoBehaviour:
   _flatTopTilePrefab: {fileID: 1365630466316853550, guid: ebdae33e1133e744697ea79add92517e, type: 3}
   _goldMinePrefab: {fileID: 2041052343442008847, guid: 1861220f311bc0f4f936c42b60acdcc6, type: 3}
   _config: {fileID: 11400000, guid: 7cca7135ba1fd4b4cb646e723c248995, type: 2}
---- !u!1 &1536187601
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1536187603}
-  - component: {fileID: 1536187602}
-  m_Layer: 0
-  m_Name: NetworkGameManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1536187602
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1536187601}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: fc3472553ea2f3f44a43aa930f9665a2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkGameManager
---- !u!4 &1536187603
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1536187601}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1536809449
 GameObject:
   m_ObjectHideFlags: 0
@@ -29440,7 +29395,6 @@ SceneRoots:
   - {fileID: 2087256517}
   - {fileID: 1436642750}
   - {fileID: 1887215751}
-  - {fileID: 1536187603}
   - {fileID: 102157244}
   - {fileID: 704494125}
   - {fileID: 118494268}

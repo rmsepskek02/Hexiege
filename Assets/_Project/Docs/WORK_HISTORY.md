@@ -100,3 +100,4 @@
 | 2026-06-02 | UnitStatsConfig 미사용 필드 제거 + 스탯 정비 완료 — AttackKind enum/Kind 필드/GetAttackKind() 제거(2026-05-11 비활성화 코드 삭제). occupancySize 제거(TileOccupancyManager 미구현). 유닛 9종 attackCooldown/hitFrameTimes를 StatsReference.md 기준으로 정비. StatsReference.md 업그레이드 비용 표기 출발점 기준으로 통일. ApplyStatsReference.cs 에디터 스크립트로 일괄 적용. |
 | 2026-06-05 | BuildingView Missing Script 정리 완료 — Spirit/Transcendence 건물 프리팹 8개에서 삭제된 BuildingView 컴포넌트 참조 제거. Editor 스크립트 1회 실행으로 일괄 처리. |
 | 2026-06-05 | 신규 유닛 프리팹 컴포넌트 부착 에디터 스크립트 완료 — Human 5종·Spirit 6종·Transcendence 5종 × Blue/Red 총 32개 프리팹에 UnitView/AnimationEventRelay/NetworkUnit 등 컴포넌트 자동 부착. Assets/Editor/Setup/SetupNewUnitPrefabs.cs. 실기 테스트 예정. |
+| 2026-06-06 | NetworkGameManager 고아 필드 + Game씬 중복 NGM 제거 완료 — GameBootstrapper._networkGameManager SerializeField(코드 사용처 없는 고아 필드) 제거. Game.unity에 중복 배치된 NGM GameObject 제거(DontDestroyOnLoad 구조상 Lobby씬 NGM이 유지되므로 불필요). 싱글플레이+멀티플레이 실기 PASS. 콘솔 DontDestroyOnLoad 경고 제거. |

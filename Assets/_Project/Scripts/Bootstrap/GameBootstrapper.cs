@@ -108,9 +108,6 @@ namespace Hexiege.Bootstrap
         [SerializeField] private GameHudUI _gameHudUI;
 
         [Header("Network")]
-        [Tooltip("네트워크 게임 세션 관리 컴포넌트 (씬에 NetworkGameManager GameObject 배치 후 연결)")]
-        [SerializeField] private Hexiege.Infrastructure.NetworkGameManager _networkGameManager;
-
         [Tooltip("네트워크 게임 시작 흐름 총괄 컴포넌트 (씬에 NetworkGameFlow NetworkObject 배치 후 연결)")]
         [SerializeField] private Hexiege.Infrastructure.NetworkGameFlow _networkGameFlow;
 
