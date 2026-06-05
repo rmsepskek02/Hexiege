@@ -98,3 +98,5 @@
 | 2026-06-05 | 자동생산 완료 사이클 슬롯2 깜빡임 버그 수정 — 자동생산 완료 시 재순환 항목이 슬롯2에 1프레임 표시되다가 사라지는 버그. CompleteProduction에서 ChargeVisibleSlots+OnProductionQueueChanged 직접 발행 제거 → TryStartNext 즉시 호출로 대체. 2026-04-19 AddNewAutoSlot 수정과 동일 패턴(완료 사이클 경로가 미처 처리되지 않았던 것). 실기 테스트 PASS. |
 | 2026-06-02 | Human CannonTower 초기 방향 설정 완료 — BuildingFactory.GetInitialRotation() 신규. "내 진영 vs 상대 진영" 기준으로 회전 결정(Blue/Red 팀 색깔 기준 아님). ViewConverter.IsFlipped로 로컬 팀 판별 → 상대 포탑 Y180도, 내 포탑 기본값. 실기 테스트 PASS. |
 | 2026-06-02 | UnitStatsConfig 미사용 필드 제거 + 스탯 정비 완료 — AttackKind enum/Kind 필드/GetAttackKind() 제거(2026-05-11 비활성화 코드 삭제). occupancySize 제거(TileOccupancyManager 미구현). 유닛 9종 attackCooldown/hitFrameTimes를 StatsReference.md 기준으로 정비. StatsReference.md 업그레이드 비용 표기 출발점 기준으로 통일. ApplyStatsReference.cs 에디터 스크립트로 일괄 적용. |
+| 2026-06-05 | BuildingView Missing Script 정리 완료 — Spirit/Transcendence 건물 프리팹 8개에서 삭제된 BuildingView 컴포넌트 참조 제거. Editor 스크립트 1회 실행으로 일괄 처리. |
+| 2026-06-05 | 신규 유닛 프리팹 컴포넌트 부착 에디터 스크립트 완료 — Human 5종·Spirit 6종·Transcendence 5종 × Blue/Red 총 32개 프리팹에 UnitView/AnimationEventRelay/NetworkUnit 등 컴포넌트 자동 부착. Assets/Editor/Setup/SetupNewUnitPrefabs.cs. 실기 테스트 예정. |

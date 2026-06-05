@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.17.0
-**최종 수정일:** 2026-03-19
+**버전:** 0.18.0
+**최종 수정일:** 2026-06-05
 **작성자:** HANYONGHEE
 
 ---
@@ -32,7 +32,7 @@
 | **전송 레이어** | Unity Transport (UTP) | - |
 | **NAT 관통** | Unity Relay | - |
 | **매칭** | Unity Lobby | - |
-| **인증** | Firebase Authentication + Google Play Games Plugin | SDK 설치 예정 |
+| **인증** | Firebase Authentication + Google Play Games Plugin | Firebase SDK v13.11.0 + GPGS v2.1.0 설치 완료 (런타임 설정 미완료) |
 | **경로찾기** | 커스텀 A* (HexPathfinder) | 자체 구현 |
 | **백엔드** | Firebase (Firestore + Functions + Google Play Billing) | - |
 | **이벤트 시스템** | UniRx | 7.1.0 |
@@ -40,8 +40,7 @@
 | **모바일 입력** | Lean Touch+ / Unity Input System | - |
 
 ### 개발 언어
-- **C# 9.0** (Unity 2022.3+)
-- **JavaScript** (PlayFab CloudScript)
+- **C# 9.0** (Unity 6)
 
 ### 개발 도구
 - **IDE**: Visual Studio 2022 / Rider
@@ -82,11 +81,13 @@
 Assets/
 └── _Project/
     ├── Scripts/
+    │   ├── Bootstrap/           # Composition Root (GameBootstrapper partial × 4, LoginBootstrapper)
     │   ├── Domain/              # 순수 C# 엔티티
-    │   ├── Application/         # Use Cases
-    │   ├── Infrastructure/      # 외부 연동
-    │   ├── Presentation/        # Unity UI/View
-    │   └── Core/                # 공통 유틸리티
+    │   ├── Application/         # Use Cases, GameEvents, NetworkContext
+    │   ├── Infrastructure/      # 외부 연동, Network Controllers, Factories
+    │   ├── Presentation/        # Unity UI/View, UnitView, CameraController
+    │   ├── Core/                # 공통 유틸리티 (HexMetrics, ViewConverter)
+    │   └── Diagnostics/         # 진단/디버그 전용 도구
     ├── Prefabs/
     ├── Materials/
     ├── Scenes/
@@ -170,112 +171,101 @@ void ShowEffectClientRpc(Vector3 position) {
 
 ## 🗄️ 백엔드 설계
 
-> **⚠️ 업데이트 예정 (2026-05-23):** PlayFab → Firebase 생태계로 전환 결정.  
-> 상세 구조: Firebase Auth(로그인) + Firestore(리더보드/유저데이터) + Firebase Functions(서버 로직) + Google Play Billing(IAP).  
-> 아래 PlayFab 문서는 이전 설계 참고용으로 유지.
-
-### PlayFab 구조
+### Firebase 구조
 
 ```
 Unity 클라이언트
     ↓
-PlayFab Client SDK
+Firebase SDK v13.11.0 + GPGS v2.1.0
     ↓
-PlayFab Services
-    ├─ Authentication      (로그인)
-    ├─ Player Data         (유저 데이터)
-    ├─ Virtual Currency    (골드, 크리스탈)
-    ├─ Inventory           (아이템)
-    ├─ Leaderboard         (랭킹)
-    ├─ Matchmaking         (매칭)
-    ├─ CloudScript         (서버 로직)
-    └─ Economy             (인앱 결제)
+Firebase Services
+    ├─ Firebase Authentication  (로그인 — 익명 / Google Play Games / 이메일+비밀번호)
+    ├─ Google Play Games Plugin (Google 로그인 OAuth 브릿지)
+    ├─ Firestore               (유저 데이터 / 실시간 리더보드)
+    ├─ Firebase Functions      (경기 결과 처리, IAP 영수증 검증)
+    └─ Google Play Billing     (인앱 결제 — 스킨/배틀패스)
 ```
 
-### CloudScript 함수 목록
+### UGS 연결 구조 (인게임 멀티플레이)
 
-| 함수명 | 역할 | 호출 시점 |
-|--------|------|-----------|
-| **ClaimDailyReward** | 일일 보상 지급 | 로그인 시 |
-| **PurchaseItem** | 상점 아이템 구매 | 구매 버튼 |
-| **CompleteMatch** | 경기 종료 처리 | 경기 끝 |
-| **UpdateLeaderboard** | 랭크 점수 갱신 | 경기 끝 |
-| **GrantBattlepassReward** | 배틀패스 보상 | 티어 달성 |
-
-### 주요 API 호출 예시
-
-**로그인**:
-```csharp
-PlayFabClientAPI.LoginWithCustomID(new LoginWithCustomIDRequest {
-    CustomId = SystemInfo.deviceUniqueIdentifier,
-    CreateAccount = true
-}, result => {
-    Debug.Log("Logged in: " + result.PlayFabId);
-}, error => {});
+```
+Firebase Auth (로그인)
+    ↓ Firebase UID
+LoginUseCase.BridgeToUGSAsync()
+    ↓ UGS 익명 로그인 (임시 — SignInWithCustomIdAsync 미지원)
+Unity Gaming Services (Lobby + Relay)
+    ↓
+NGO 멀티플레이 세션
 ```
 
-**아이템 구매 (CloudScript)**:
-```csharp
-PlayFabClientAPI.ExecuteCloudScript(new ExecuteCloudScriptRequest {
-    FunctionName = "PurchaseItem",
-    FunctionParameter = new { itemId = "skin_human_future", price = 299 }
-}, result => {
-    var response = JsonUtility.FromJson<PurchaseResult>(result.FunctionResult.ToString());
-}, error => {});
-```
+> ⚠️ Firebase UID → UGS Custom ID 브릿지는 현재 `SignInAnonymouslyAsync` 임시 처리 중.
+> UGS SDK에서 `SignInWithCustomIdAsync` 지원 시 교체 예정.
+
+### 로그인 흐름 (AuthSystemRules.md 참조)
+
+| 방식 | 구현 파일 | 상태 |
+|------|----------|------|
+| 익명 로그인 | `FirebaseAuthService.cs` | ✅ 코드 완료 |
+| Google Play Games | `FirebaseAuthService.cs` | ✅ 코드 완료 (GPGS 클라이언트 ID 미설정) |
+| 이메일+비밀번호 | `FirebaseAuthService.cs` | ✅ 코드 완료 (Firebase Console 설정 미완료) |
+| 계정 연동 (익명→실계정) | `AccountLinkUseCase.cs` | ✅ 코드 완료 |
+
+### Firebase Functions 예정 기능
+
+| 함수 | 역할 |
+|------|------|
+| `completeMatch` | 경기 결과 처리 + Firestore 랭킹 갱신 |
+| `verifyPurchase` | Google Play Billing IAP 영수증 검증 |
 
 ---
 
 ## 💾 데이터베이스 스키마
 
-### PlayFab 데이터 구조
+### Firestore 컬렉션 구조
 
-#### User Data
+#### users/{firebaseUid}
 ```json
 {
-  "userId": "ABC123",
   "displayName": "한용희",
-  "level": 15,
-  "exp": 2500,
-  "currency": {
-    "gold": 5000,
-    "crystal": 250
-  },
   "stats": {
     "totalGames": 120,
     "wins": 65,
     "losses": 55,
-    "winRate": 0.54,
     "rankPoints": 1450
   },
   "inventory": {
-    "races": ["human", "elemental"],
-    "skins": ["human_future", "elem_dark"],
-    "emotes": ["gg", "nice", "oops"]
-  },
-  "battlepass": {
-    "tier": 25,
-    "exp": 12500,
-    "isPremium": true
+    "races": ["human", "spirit"],
+    "skins": []
   }
 }
 ```
 
-#### Match Data
+#### matches/{matchId}
 ```json
 {
-  "matchId": "match_20260127_001",
-  "mode": "ranked",
+  "mode": "custom",
   "duration": 635,
   "players": {
-    "blue": { "userId": "user_A", "race": "human" },
-    "red": { "userId": "user_B", "race": "elemental" }
+    "blue": { "userId": "firebase_uid_A", "race": "human" },
+    "red": { "userId": "firebase_uid_B", "race": "spirit" }
   },
   "result": {
     "winner": "blue",
     "blueStats": { "tilesControlled": 48, "unitsKilled": 35 },
     "redStats": { "tilesControlled": 32, "unitsKilled": 28 }
-  }
+  },
+  "timestamp": "2026-06-05T12:00:00Z"
+}
+```
+
+#### leaderboard/{rankId}
+```json
+{
+  "userId": "firebase_uid_A",
+  "displayName": "한용희",
+  "rankPoints": 1450,
+  "wins": 65,
+  "updatedAt": "2026-06-05T12:00:00Z"
 }
 ```
 
@@ -648,38 +638,26 @@ public interface IDamageable {
 ```
 UnitData와 BuildingData 모두 IDamageable을 구현하여 UnitCombatUseCase가 동일한 로직으로 공격 가능.
 
-#### 중앙 집중 스탯 관리
+#### 중앙 집중 스탯 관리 — ScriptableObject 기반 (2026-04-25 전환)
 
-타입별 기본 스탯을 정적 클래스에서 관리:
+타입별 기본 스탯을 ScriptableObject로 관리. Inspector에서 코드 수정 없이 수치 편집 가능.
+
 ```csharp
-// UnitStats: 유닛 타입별 기본 스탯 (2026-03-14 재확정)
-public static class UnitStats {
-    public static int GetMaxHp(UnitType type) => type switch {
-        UnitType.Pistoleer => 30, UnitType.Assault => 50, UnitType.Sniper => 30, _ => 10
-    };
-    public static int GetAttackPower(UnitType type) => type switch {
-        UnitType.Pistoleer => 6, UnitType.Assault => 1, UnitType.Sniper => 10, _ => 1
-    };
-    public static float GetAttackRange(UnitType type) => type switch {
-        UnitType.Pistoleer => 1.0f, UnitType.Assault => 2.0f, UnitType.Sniper => 5.0f, _ => 1.0f
-    };
-    // 사거리 임계값(world units) = AttackRange * TileHeight(0.866) + 0.05f (Epsilon)
-    // Pistoleer: 0.916, Assault: 1.782, Sniper: 4.38
-    public static float GetMoveSeconds(UnitType type) => type switch {
-        UnitType.Pistoleer => 1.0f, UnitType.Assault => 1.0f, UnitType.Sniper => 0.25f, _ => 1.0f
-    };
-    public static float GetAttackCooldown(UnitType type) => type switch {
-        UnitType.Pistoleer => 1.0f, _ => 1.0f  // UnitFactory에서 Attack 클립 길이로 덮어씀
-    };
-}
+// UnitStats: UnitStatsConfig ScriptableObject 기반
+// 에셋: Assets/_Project/Resources/Config/UnitStatsConfig.asset
+// 내부: Dictionary<UnitType, StatValues> O(1) 조회
+// API: UnitStats.GetMaxHp(type), GetAttackPower(type), GetAttackRange(type),
+//      GetMoveSeconds(type), GetAttackCooldown(type)
+// 유닛 9종 (Pistoleer=0 ~ LionKnight=8) + 신규 16종 추가 예정
+// 사거리 임계값(world units) = AttackRange * TileHeight(0.866) + 0.05f (Epsilon)
 
-// BuildingStats: 건물 타입별 기본 HP
-public static class BuildingStats {
-    public static int GetMaxHp(BuildingType type) => type switch {
-        BuildingType.Castle => 100, BuildingType.Barracks => 30,
-        BuildingType.MiningPost => 20, _ => 10
-    };
-}
+// BuildingStats: BuildingStatsConfig ScriptableObject 기반
+// 에셋: Assets/_Project/Resources/Config/BuildingStatsConfig.asset
+// 내부: Dictionary<(BuildingType, RaceId), StatValues>
+// BuildingType 26종 × 3종족(Human/Spirit/Transcendence) 조합
+// API: BuildingStats.GetMaxHp(type, race), GetGoldCost(type, race),
+//      BuildingStats.GetAttackCooldown(type, race), GetUpgradeCost(type, race),
+//      BuildingStats.GetTotalInvestedCost(type, race) — 누적 투자비 캐시
 ```
 
 #### 전투 스탯
@@ -741,15 +719,20 @@ ClaimedTile 해제, ProcessStep(Position 갱신 + SetOwner)
 - 패배한 유닛은 타일 중앙에 도달하지 못하므로 점령 불가
 - SetOwner는 Lerp 완료 후 ProcessStep에서만 호출 (변경 없음)
 
-#### 사망 처리 (Dead Entity Cleanup)
+#### 사망 처리 (Dead Entity Cleanup, 2026-05-18 강타입 분리)
 ```
 UnitCombatUseCase.ExecuteAttack()
   ↓ target.IsAlive == false
-GameEvents.OnEntityDied 이벤트 발행
+GameEvents.OnUnitDied (유닛) 또는 OnBuildingDied (건물) 강타입 이벤트 발행
   ↓
-1. UnitView/BuildingView가 구독 → GameObject.Destroy()
-2. UnitSpawnUseCase.RemoveUnit() 또는 BuildingPlacementUseCase.RemoveBuilding()
-   → Dictionary에서 제거 + 건물은 타일 IsWalkable 복구
+[유닛 사망]
+1. UnitView가 구독 → GameObject.Destroy()
+2. UnitSpawnUseCase.RemoveUnit() → Dictionary에서 제거
+
+[건물 사망/철거]
+1. BuildingFactory가 OnBuildingDied 구독 → _buildingObjects Dict O(1) 조회 → GO Destroy
+   (BuildingView.cs 삭제됨 — BuildingFactory가 GO 파괴 책임 인수)
+2. BuildingPlacementUseCase.RemoveBuilding() → Dictionary 제거 + 타일 IsWalkable 복구
 ```
 
 #### 타일 선택 하이라이트 처리
@@ -770,39 +753,47 @@ if (e.Coord == _coord)
 > Deselect() 이벤트(Coord == PreviousCoord)에서 Check1(해제)과 Check2(토글)가 동일 타일에서
 > 연속 실행되어 하이라이트가 잔존하는 버그 발생. 결정적(deterministic) 할당으로 수정.
 
-#### 이벤트 기반 전투 통신
+#### 이벤트 기반 전투 통신 (2026-05-18 강타입 이벤트로 분리)
 
-IDamageable 기반 이벤트로 유닛/건물 모두 동일하게 처리:
+유닛/건물 사망 이벤트를 강타입으로 분리하여 구독자의 is-캐스팅 필터 전면 제거:
 
 ```csharp
-// 공격 이벤트 (UnitCombatUseCase → UnitView/BuildingView)
+// 공격 이벤트 (UnitCombatUseCase → UnitView)
 GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
-// attacker: IDamageable (공격자), target: IDamageable (피격 대상)
 
-// 사망 이벤트 (UnitCombatUseCase → UnitView/BuildingView)
-GameEvents.OnEntityDied.OnNext(new EntityDiedEvent(entity));
-// entity: IDamageable (사망한 유닛 또는 건물)
+// 유닛 사망 이벤트 (UnitCombatUseCase → UnitView, UnitSpawnUseCase 등)
+GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(unitData));
+
+// 건물 사망/철거 이벤트 (BuildingPlacementUseCase → BuildingFactory 등)
+GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(buildingData));
 ```
 
-**이벤트 매칭**: View에서 자신의 엔티티를 식별할 때 **참조 비교** 사용:
+**이벤트 매칭**: View에서 자신의 엔티티를 식별할 때 **Id 비교** 사용:
 ```csharp
 // UnitView에서
-if (e.Attacker == (IDamageable)_unitData) { /* 이 유닛이 공격자 */ }
-// BuildingView에서
-if (e.Entity == (IDamageable)Data) { /* 이 건물이 파괴됨 */ }
+if (e.Unit.Id == _unitData.Id) { /* 이 유닛이 사망 */ }
+// BuildingFactory에서
+if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 ```
 
 ### 건물 배치 시스템 (MVP Phase 1)
 
 프로토타입 완료 후 첫 MVP 기능. 건물 배치 + 시각화만 구현 (자원/생산 시스템 미포함).
 
-#### 건물 타입
+#### 건물 타입 (2026-05-17 26종 확장)
 ```csharp
-public enum BuildingType {
-    Castle,      // 본기지 — 게임 시작 시 자동 배치
-    Barracks,    // 배럭 — MVP에서 유닛 생산 기능 추가
-    MiningPost   // 채굴소 — MVP에서 자원 수집 기능 추가
-}
+// BuildingType enum — 26종
+// Castle×3종족, MiningPost×3종족
+// 종족별 생산라인 3단계: HumanBarracks1/2/3, AncientGrove1/2/3, PrimalSanctuary1/2/3
+// AutoTower×3종족 (Human=CannonTower, Spirit=MagicTower, Trans=MistShrine)
+// 추가: ResearchLab (미구현)
+//
+// BuildingTypeHelper.cs (Domain 레이어):
+//   IsProductionBuilding(type) — 생산 패널 표시 여부
+//   GetStage(type)             — 건물 단계 (1/2/3)
+//   GetNextStage(type)         — 업그레이드 대상 타입
+//   CanUpgrade(type)           — 업그레이드 가능 여부
+//   CanShowActionPanel(type)   — 비생산 건물 액션 패널 표시 여부
 ```
 
 #### 건물 데이터 (IDamageable 패턴)
@@ -859,8 +850,13 @@ public class BuildingData : IDamageable {
 // 건물 배치 (BuildingPlacementUseCase → BuildingFactory)
 GameEvents.OnBuildingPlaced.OnNext(new BuildingPlacedEvent(building));
 
-// 건물 피격/사망은 전투 이벤트(OnEntityAttacked/OnEntityDied)를 통해 처리
-// BuildingView가 OnEntityDied를 구독하여 파괴 시 GameObject 제거
+// 건물 업그레이드 (BuildingPlacementUseCase → BuildingFactory, ProductionTicker 등)
+GameEvents.OnBuildingUpgraded.OnNext(new BuildingUpgradedEvent(oldBuildingId, newBuilding));
+
+// 건물 사망/철거 (BuildingPlacementUseCase → BuildingFactory)
+GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(building));
+// BuildingFactory가 _buildingObjects Dict에서 O(1) 조회 후 GO Destroy
+// (BuildingView.cs 삭제됨 — 2026-05-18)
 ```
 
 #### 영토 확장 (건물 건설 시)
@@ -898,18 +894,18 @@ public static class UnitProductionStats {
     public static int GetPopulationCost(UnitType type) => 1;
 }
 
-// ProductionState: 배럭 하나의 생산 상태
+// ProductionState: 배럭 하나의 생산 상태 (2026-04-19 PendingQueue 구조로 재작성)
 public class ProductionState {
     public int BarracksId;
-    public List<UnitType> ManualQueue;      // 수동 큐 (최대 3 = 생산 중 1 + 대기 2)
-    public List<UnitType> AutoTypes;        // 자동 생산 타입 목록
+    public List<QueueSlot> PendingQueue;    // 수동+자동 통합 단일 큐 (최대 3 가시 슬롯)
+    public List<UnitType> AutoTypes;        // 자동 등록 타입 목록 (순환 반복)
     public bool IsAutoMode;
     public int AutoIndex;                   // 자동 순환 인덱스
-    public UnitType? CurrentProducing;      // 현재 생산 중인 유닛
-    public float ElapsedTime, RequiredTime;
+    // CurrentIsAuto: AutoTypes에서 파생하는 getter (2026-06-05 수동 필드 → getter 전환)
+    public bool CurrentIsAuto => PendingQueue.Count > 0 && AutoTypes.Contains(PendingQueue[0].UnitType);
     public HexCoord? RallyPoint;
-    public float Progress => RequiredTime > 0 ? ElapsedTime / RequiredTime : 0f;
 }
+// QueueSlot: UnitType, IsCharged(골드 차감 여부), Progress(생산 진행도)
 ```
 
 #### UseCase 구조
@@ -1158,6 +1154,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.18.0 | 2026-06-05 | Firebase 백엔드 전환 완료 반영 (Firebase SDK v13.11.0 + GPGS v2.1.0 설치 완료, PlayFab → Firebase/Firestore 구조로 교체). 폴더 구조 Bootstrap/Diagnostics 추가. ScriptableObject 기반 UnitStats/BuildingStats 반영. BuildingType 26종 확장 반영. ProductionState PendingQueue 구조 반영. OnEntityDied → OnUnitDied+OnBuildingDied 강타입 분리 반영. |
 | 0.17.0 | 2026-03-19 | 유닛 스탯 코드 예시 재확정 (ATK: Pistoleer=6, Assault=1, Sniper=10 / 사거리: 1.0/2.0/5.0 / epsilon 0.05f 명시 / Sniper MoveSpeed=0.25). Castle HP 50→100. A* 목표 타일 blocked 체크 제거 반영. UIAnimator/AnimatedPanel 패턴 섹션 추가. 개발 로드맵 섹션 삭제 (ROADMAP.md 참조로 대체). |
 | 0.16.0 | 2026-03-19 | 카메라 줌 DOTween 보간 완료 (CameraController _targetZoom + DOTween.To Ease.OutCubic, _zoomDuration SerializeField). |
 | 0.15.0 | 2026-03-17~18 | 전역 로딩 스크린 (LoadingScreen.cs 싱글턴, Show/Hide DOFade, sceneLoaded 자동 Hide). 재경기 시스템 (RematchRequestPopup, RequestRematchServerRpc, NGO LoadScene 재로드). 멀티플레이 로비 복귀 버그 수정 (로컬 독립 처리, WaitForSecondsRealtime 기반 30초 카운트다운). |

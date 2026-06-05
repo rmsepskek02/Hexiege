@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-06-02
-**현재 단계:** 방어 타워(AutoTower) 공격 기능 구현 완료 — UI FAIL 잔여 5항목 + Login.unity 씬 조립 진행 필요
+**최종 수정일:** 2026-06-05
+**현재 단계:** 자동생산 슬롯 버그 수정 + BuildingView Missing Script 정리 완료 — 신규 유닛 프리팹 실기 테스트 예정 + UI FAIL 잔여 5항목 + Login.unity 씬 조립 진행 필요
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -15,6 +15,7 @@
 | ✅ 완료 | 게임 화면 UI TC 62개 실기기 테스트 + END UI 버그 수정 | QA/버그 | 중 |
 | ✅ 완료 | BuildingPlacementUI 씬 계층 재설계 (BP-001/BP-002 해결) | UI | 중 |
 | ✅ 완료 | 패널 버튼 크기 불일치 수정 (PRD-001, BAP-001) — LayoutElement 균등화 | UI | 소 |
+| 🔴 높음 | 신규 유닛 프리팹 실기 테스트 + 후속 작업 (Animation Event 부착, UnitFactory 등록, StatsReference 스탯 확정) | 기능 | 대 |
 | 🔴 높음 | 게임 화면 UI 크기/레이아웃 수정 잔여 (HUD-007, SET-004, SET-007/END-001, MULTI-END-002 — 5항목) | UI | 소 |
 | 🔴 높음 | Login.unity 씬 조립 + Firebase Console 설정 | UI/인프라 | 소 |
 | 🟡 중간 | BuildFailed/EnqueueFailed UI 피드백 (멀티) | UI | 소 |
@@ -88,6 +89,15 @@
 ### D-3. 유닛 AI 상태머신
 **✅ 기본 전투 AI 구현 완료 (2026-05-11)**: 슬롯/점유 시스템 폐기. 근접·원거리 모두 단일 상태 머신(MoveAlongPathV3) 적용. A* 이동 → 적 감지(DetectRange) → 직선 추격(EnterCombatPursuitV3) → 공격 → 재개(Lerp 정렬) 사이클 완성. 겹침 허용, 모든 유닛 동일 규칙 적용.
 - 추가 목표: Idle → Patrol → Retreat 상태 확장 (현재 미구현)
+
+### D-4. 신규 유닛 프리팹 완성 (16종)
+**🔧 에디터 스크립트 완료 (2026-06-05)**: Human 5종(LittleKnight/SpearMan/BattleAxe/Tank/CannonCart)·Spirit 6종(DustSpirit/BoulderSpirit/QuakeSpirit/TideSpirit/StreamSpirit/TorrentSpirit)·Transcendence 5종(RabbitTrickster/RhinoBreaker 등) × Blue/Red 총 32개 프리팹 자동 컴포넌트 부착. `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`
+
+**남은 작업**:
+1. 실기 테스트 — 프리팹 컴포넌트 부착 정상 동작 확인
+2. Animation Event 부착 (각 유닛 공격 애니메이션 타이밍)
+3. UnitFactory 종족별 리스트에 신규 16종 등록
+4. StatsReference.md 스탯 확정 후 UnitStatsConfig Inspector 입력
 
 ---
 

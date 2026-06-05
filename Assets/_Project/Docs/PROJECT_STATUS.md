@@ -521,8 +521,6 @@
 
 | 기능 | 우선순위 | 관련 Phase |
 |------|---------|-----------|
-| 3종족 시스템 | 중간 | Phase 3 |
-| 방어 타워 (Defense Tower) | 낮음 | Phase 3 |
 | 마법 타워 (Magic Tower) | 낮음 | Phase 3 |
 | 연구소 (Research Lab) | 낮음 | Phase 3 |
 | 유닛 AI 상태머신 | 낮음 | Phase 3 |
