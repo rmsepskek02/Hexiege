@@ -23,6 +23,42 @@
 
 ## 최근 작업
 
+### 신규 유닛 프리팹 컴포넌트 자동 부착 에디터 스크립트 (2026-06-05) ✅ 스크립트 작성 완료 (실기 테스트 예정)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-05/22_14_unit-prefab-component-setup/`
+
+**생성 파일**: `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`  
+**메뉴**: `Hexiege/Setup/신규 유닛 컴포넌트 부착`
+
+**배경**: 32개 신규 유닛 프리팹에 아트 완성 후 컴포넌트 부착이 필요. Root에 UnitView/NetworkObject/NetworkTransform/NetworkUnit, _Mesh 자식에 AnimationEventRelay.
+
+**구현 패턴**:
+
+- `PrefabUtility.LoadPrefabContents` → 처리 → `SaveAsPrefabAsset` → `UnloadPrefabContents`
+- UnitView/NetworkTransform Inspector 값은 `SerializedObject.FindProperty` → `ApplyModifiedPropertiesWithoutUndo()`
+- `GetComponent == null` 후 AddComponent (멱등성 보장)
+- `_Mesh` 키워드로 직속 자식 탐색 → AnimationEventRelay 부착
+
+**주의**: Animation Event(OnAttackHit 타이밍) / UnitFactory 등록 / UnitStatsConfig 추가는 별도 작업.
+
+---
+
+### BuildingView Missing Script 정리 (2026-06-05) ✅ 완료 (실기 PASS)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-05/22_42_missing-buildingview-script/`
+
+**수정 파일**: `Assets/Editor/RemoveMissingScripts.cs` (1회성 — 실행 후 삭제)
+
+**원인**: `BuildingView` 스크립트(GUID: `c178b6f3e086351409b946635cbfae71`)가 건물 철거 시스템 구현 시 의도적으로 삭제됐으나, Spirit/Transcendence 계열 프리팹 8개에 Missing 참조가 잔존.
+
+**영향 프리팹 (8개)**: Spirit(ManaRift, SpiritNexus) × Blue/Red, Transcendence(ElderTree, FungalNode) × Blue/Red
+
+**해결**: Editor 스크립트 → 메뉴 `Hexiege/Setup/Missing Script 제거` → `PrefabUtility.LoadPrefabContents` + `GameObjectUtility.RemoveMonoBehavioursWithMissingScript`.
+
+**교훈**: 스크립트 삭제 시 해당 스크립트가 붙어있던 모든 프리팹의 Missing Script 참조를 함께 정리해야 함.
+
+---
+
 ### 자동생산 재등록 슬롯 버그 구조 개선 (2026-06-05) ✅ 완료 (정적분석+실기 PASS)
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-05/11_31_auto-unregister-currentisauto-fix/`

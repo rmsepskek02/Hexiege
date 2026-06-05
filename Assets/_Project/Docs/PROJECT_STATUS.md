@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-06-02
-**현재 단계:** 방어 타워(AutoTower) 공격 기능 구현 + 스탯 정비 완료
+**최종 수정일:** 2026-06-05
+**현재 단계:** 자동생산 슬롯 버그 수정 + BuildingView Missing Script 정리 완료
 
 ---
 
@@ -53,6 +53,9 @@
 | 방어 타워(AutoTower) 공격 기능 | ✅ 완료 (2026-06-01) | TowerCombatUseCase 신규. 종족별 쿨다운(Human 5s/Spirit 3.5s/Trans 5s), 사거리 4.0 타일, 서버 권위. |
 | Human CannonTower 초기 방향 | ✅ 완료 (2026-06-02) | BuildingFactory.GetInitialRotation() — 상대 포탑 Y180도, 내 포탑 기본값. |
 | UnitStatsConfig 미사용 필드 제거 + 스탯 정비 | ✅ 완료 (2026-06-02) | AttackKind/occupancySize 제거. 유닛 9종 쿨다운/hitFrameTimes 문서 기준 입력. |
+| BuildingView Missing Script 정리 | ✅ 완료 (2026-06-05) | Spirit/Transcendence 건물 프리팹 8개에서 삭제된 BuildingView 참조 제거. Editor 스크립트 1회 실행. |
+| 자동생산 재등록 슬롯 버그 수정 | ✅ 완료 (2026-06-05) | CurrentIsAuto 파생 getter 구조로 개선. UnitProductionUseCase reset 2곳 제거. |
+| 신규 유닛 프리팹 컴포넌트 부착 (32개) | 🔧 스크립트 완료 (2026-06-05) / 실기 테스트 예정 | Human 5종·Spirit 6종·Transcendence 5종 × Blue/Red. `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`. 후속: Animation Event·UnitFactory 등록·스탯 추가 별도 필요. |
 
 #### 3D 전환 (2026-02-27 ~ 2026-03-01)
 | 항목 | 상태 |
