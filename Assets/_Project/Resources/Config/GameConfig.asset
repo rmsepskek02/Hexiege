@@ -28,7 +28,7 @@ MonoBehaviour:
   SelectedTint: {r: 1, g: 1, b: 0.5019608, a: 1}
   _startingGold: 5000
   _baseGoldPerSecond: 0
-  _miningGoldPerSecond: 3
+  _miningGoldPerSecond: 10
   _barracksCost: 100
   _miningPostCost: 50
   UnitMoveSpeed: 1

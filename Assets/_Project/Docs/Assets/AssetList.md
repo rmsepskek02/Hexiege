@@ -1,6 +1,8 @@
 ﻿# 에셋 목록
 
 > 완성된 에셋 현황과 추가 제작이 필요한 에셋을 관리하는 문서
+> VFX / SFX 에셋 목록 → [VFXSFXList.md](VFXSFXList.md)
+> VFX / SFX 제작 가이드 → [VFXSFXGuide.md](VFXSFXGuide.md)
 
 ---
 

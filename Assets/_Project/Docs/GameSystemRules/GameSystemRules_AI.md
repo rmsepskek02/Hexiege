@@ -78,10 +78,10 @@ GameBootstrapper에서 `LocalPlayerDifficulty.Current`에 따라 해당 구조�
 
 | Phase | 이름 | 목표 |
 |-------|------|------|
-| Phase 1 | 초반 | 첫 생산 건물 건설 + 기본 유닛 생산 시작 + 첫 채굴소 확보 |
-| Phase 2 | 중반 | 첫 건물 업그레이드 + 두 번째 생산 라인 개설 |
+| Phase 1 | 초반 | 첫 생산 건물 건설 + 기본 유닛 생산 시작 |
+| Phase 2 | 중반 | 첫 채굴소 확보 + 건물 업그레이드 또는 두 번째 생산 라인 개설 |
 | Phase 3 | 중후반 | 업그레이드 완성(3단계) + 생산 라인 확충 |
-| Phase 4 | 후반 | 최대 생산 유지 + 공세 집중 |
+| Phase 4 | 후반 | 두 번째 채굴소 확보 + 최대 생산 유지 + 공세 집중 |
 
 **규칙 7. Phase 내 순서 보장**
 동일 Phase 내의 빌드오더 항목은 정의된 순서대로 실행된다.
@@ -235,16 +235,159 @@ R1 쿨다운 중이어도 R2는 실행 가능하다.
 
 ### AI 빌드오더 시나리오
 
-구체적인 Phase별 항목과 타이밍은 현재 문서 작성 후 별도 논의 예정.
-결정 후 아래 섹션에 추가한다.
+Human AI는 3가지 시나리오 중 하나로 동작한다. 시나리오 선택은 [TBD — 난이도/종족 조합 결정 예정].
 
-```
-[Human 빌드오더 — 논의 예정]
-Phase 1: ...
-Phase 2: ...
-Phase 3: ...
-Phase 4: ...
-```
+**공통 규칙**
+- 채굴소(MiningPost)는 Phase 2 초반과 Phase 4 초반에 각 1개씩 확보한다.
+- 각 단계는 순서대로 실행되며, 앞 단계가 완료되지 않으면 다음 단계로 진행되지 않는다.
+- delaySeconds는 해당 Phase 시작 후 이 항목까지의 기본 대기 시간(보통 난이도 기준)이다.
+- 쉬움은 delay × 1.5, 어려움은 delay × 0.7을 기준으로 조정 예정.
+
+**Phase 타이밍 기준**
+
+| Phase | 시간 |
+|-------|------|
+| Phase 1 | 0~3분 |
+| Phase 2 | 3~6분 |
+| Phase 3 | 6~9분 |
+| Phase 4 | 9분~종료 (최대 12분) |
+
+---
+
+#### 시나리오 A — 물량형 (Mass)
+
+**전략**: 업그레이드보다 생산 라인 확장 우선. 1~2단계 유닛을 대량 생산해 물량으로 압도.
+**최종 목표**: 근거리 3단계(BattleAxe) + 총기 3단계(Sniper). 탈것 없음.
+
+**Phase 1 (초반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | PlaceBuilding | TrainingCamp | 0 | 5초 |
+| 2 | StartAutoProduction | LittleKnight | 0 | 20초 |
+
+**Phase 2 (중반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | PlaceBuilding | MiningPost | - | 5초 |
+| 2 | PlaceBuilding | Gunsmith | 1 | 20초 |
+| 3 | StartAutoProduction | Pistoleer | 1 | 35초 |
+
+**Phase 3 (중후반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | UpgradeBuilding | WarAcademy | 0 | 5초 |
+| 2 | StartAutoProduction | SpearMan | 0 | 30초 |
+| 3 | UpgradeBuilding | Armory | 1 | 60초 |
+| 4 | StartAutoProduction | Assault | 1 | 90초 |
+
+**Phase 4 (후반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | PlaceBuilding | MiningPost | - | 5초 |
+| 2 | UpgradeBuilding | HumanBarracks | 0 | 15초 |
+| 3 | StartAutoProduction | BattleAxe | 0 | 45초 |
+| 4 | UpgradeBuilding | WeaponForge | 1 | 50초 |
+| 5 | StartAutoProduction | Sniper | 1 | 80초 |
+
+---
+
+#### 시나리오 B — 테크형 (Tech)
+
+**전략**: 빠른 업그레이드로 고급 유닛 조기 확보. Phase 4에 탈것 2단계(Tank) 진입.
+**최종 목표**: 근거리 3단계(BattleAxe) + 총기 2단계(Assault) + 탈것 2단계(Tank).
+
+**Phase 1 (초반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | PlaceBuilding | TrainingCamp | 0 | 5초 |
+| 2 | StartAutoProduction | LittleKnight | 0 | 20초 |
+
+**Phase 2 (중반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | PlaceBuilding | MiningPost | - | 5초 |
+| 2 | UpgradeBuilding | WarAcademy | 0 | 20초 |
+| 3 | StartAutoProduction | SpearMan | 0 | 45초 |
+| 4 | PlaceBuilding | Gunsmith | 1 | 60초 |
+| 5 | StartAutoProduction | Pistoleer | 1 | 75초 |
+
+**Phase 3 (중후반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | UpgradeBuilding | HumanBarracks | 0 | 5초 |
+| 2 | StartAutoProduction | BattleAxe | 0 | 35초 |
+| 3 | UpgradeBuilding | Armory | 1 | 60초 |
+| 4 | StartAutoProduction | Assault | 1 | 90초 |
+
+**Phase 4 (후반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | PlaceBuilding | MiningPost | - | 5초 |
+| 2 | PlaceBuilding | Garage | 2 | 15초 |
+| 3 | StartAutoProduction | CannonCart | 2 | 30초 |
+| 4 | UpgradeBuilding | VehicleBay | 2 | 60초 |
+| 5 | StartAutoProduction | Tank | 2 | 90초 |
+
+---
+
+#### 시나리오 C — 균형형 (Balanced)
+
+**전략**: 근거리+총기 업그레이드를 병행하고 Phase 4에 총기 최상급 + 탈것 라인 개설. 추가시간에 탈것 2단계 완성.
+**10분 목표**: 근거리 3단계(BattleAxe) + 총기 3단계(Sniper) + 탈것 1단계(CannonCart).
+**추가시간 목표**: 탈것 2단계(Tank) 완성.
+
+**Phase 1 (초반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | PlaceBuilding | TrainingCamp | 0 | 5초 |
+| 2 | StartAutoProduction | LittleKnight | 0 | 20초 |
+
+**Phase 2 (중반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | PlaceBuilding | MiningPost | - | 5초 |
+| 2 | UpgradeBuilding | WarAcademy | 0 | 20초 |
+| 3 | StartAutoProduction | SpearMan | 0 | 45초 |
+| 4 | PlaceBuilding | Gunsmith | 1 | 60초 |
+| 5 | StartAutoProduction | Pistoleer | 1 | 75초 |
+
+**Phase 3 (중후반)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | UpgradeBuilding | HumanBarracks | 0 | 5초 |
+| 2 | StartAutoProduction | BattleAxe | 0 | 35초 |
+| 3 | UpgradeBuilding | Armory | 1 | 60초 |
+| 4 | StartAutoProduction | Assault | 1 | 90초 |
+
+**Phase 4 (후반 + 추가시간)**
+
+| 순서 | actionType | 대상 | 라인 | delay(보통) |
+|------|-----------|------|------|------------|
+| 1 | PlaceBuilding | MiningPost | - | 5초 |
+| 2 | UpgradeBuilding | WeaponForge | 1 | 15초 |
+| 3 | StartAutoProduction | Sniper | 1 | 45초 |
+| 4 | PlaceBuilding | Garage | 2 | 50초 |
+| 5 | StartAutoProduction | CannonCart | 2 | 65초 |
+| 6 | UpgradeBuilding | VehicleBay | 2 | 120초 ※ |
+| 7 | StartAutoProduction | Tank | 2 | 150초 ※ |
+
+※ delay 120초 이후 항목은 추가시간(10~12분) 구간에 해당한다.
+
+---
+
+> ⚠️ 위 시나리오의 delay 수치는 10분 플레이타임 기준 보통 난이도 예비값이다.
+> StatsReference.md 스탯(건물 건설 시간, 유닛 비용) 확정 후 실제 경제 시뮬레이션을 통해 재조정한다.
 
 ---
 

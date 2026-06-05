@@ -63,7 +63,7 @@
 | 건물 | BuildingType | HP | 건설 비용 | 수입(골드/초) |
 |------|-------------|-----|-----------|--------------|
 | 본기지 (Castle) | Castle | 200 | - | - |
-| 채굴소 (MiningPost) | MiningPost | 100 | 50 | 5 |
+| 채굴소 (MiningPost) | MiningPost | 100 | 50 | 10 |
 
 ### 생산 건물
 
