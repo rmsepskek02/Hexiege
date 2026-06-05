@@ -114,11 +114,31 @@ namespace Hexiege.Domain
 
         /// <summary>
         /// 현재 슬롯0(CurrentProducing)이 자동 생산으로 시작되었는지 여부.
-        /// true  = 자동 경로에서 시작됨 (AutoTypes 순환 또는 IsAuto=true 슬롯)
-        /// false = 수동 경로에서 시작됨 또는 생산 없음
-        /// CompleteProduction에서 "자동 순환 재추가" 여부를 결정하는 데 사용.
+        ///
+        /// [2026-06-05 구조 개선] IsAutoMode와 동일한 파생 계산 방식으로 전환.
+        /// 기존에는 별도 bool 필드를 수동으로 관리했는데, 자동 해제 경로
+        /// (UnregisterAutoType, DisableAutoMode 등)에서 reset이 누락되면
+        /// AutoTypes 상태와 불일치가 생겨 슬롯 중복/누락 버그가 발생했다.
+        ///
+        /// getter: backing flag가 true이고, 현재 생산 중이고, 해당 타입이 AutoTypes에
+        ///         아직 등록된 경우에만 true를 반환한다.
+        ///         → AutoTypes에서 타입이 제거되는 순간 자동으로 false 반환 (수동 reset 불필요).
+        /// setter: _currentIsAutoFlag만 갱신. 기존 코드(state.CurrentIsAuto = true/false)와 완전 호환.
         /// </summary>
-        public bool CurrentIsAuto { get; set; }
+        public bool CurrentIsAuto
+        {
+            get => _currentIsAutoFlag
+                   && CurrentProducing.HasValue
+                   && AutoTypes.Contains(CurrentProducing.Value);
+            set => _currentIsAutoFlag = value;
+        }
+
+        /// <summary>
+        /// CurrentIsAuto getter의 backing field.
+        /// "이 생산이 자동 경로에서 시작됐는가"라는 의도만 저장한다.
+        /// 실제 자동 여부는 AutoTypes와 함께 getter에서 계산된다.
+        /// </summary>
+        private bool _currentIsAutoFlag;
 
         /// <summary> 현재 생산 경과 시간(초). </summary>
         public float ElapsedTime { get; set; }

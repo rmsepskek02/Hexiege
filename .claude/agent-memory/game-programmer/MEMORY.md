@@ -23,6 +23,43 @@
 
 ## 최근 작업
 
+### 자동생산 재등록 슬롯 버그 구조 개선 (2026-06-05) ✅ 완료 (정적분석+실기 PASS)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-05/11_31_auto-unregister-currentisauto-fix/`
+
+**수정 파일**:
+- `Domain/Building/ProductionState.cs` — `CurrentIsAuto` 파생 계산 getter
+- `Application/UseCases/UnitProductionUseCase.cs` — reset 2곳 제거, `RegisterAutoType` 조건 1행 추가
+- `Docs/GameSystemRules/GameSystemRules_UI.md` — 규칙 20 보완
+
+**근본 원인**: `CurrentIsAuto`가 수동 관리 필드 → 자동 해제 시 reset 누락 → `TryConvertCurrentToAuto` 잘못 거부 → 슬롯 중복/누락
+
+**구조 개선 패턴**: `IsAutoMode`와 동일. backing field(`_currentIsAutoFlag`) + 파생 getter:
+```csharp
+get => _currentIsAutoFlag && CurrentProducing.HasValue && AutoTypes.Contains(CurrentProducing.Value);
+```
+
+**`PendingQueue.Count == 0` 조건**: `TryConvertCurrentToAuto` 적용을 큐가 비어있을 때만 허용. 큐에 다른 항목이 있으면 슬롯3에 추가 (중복이 아닌 순환 큐). GameSystemRules 규칙 20에 명시됨.
+
+**setter 호환**: 기존 `state.CurrentIsAuto = true/false` 코드 전체 유지 (`_currentIsAutoFlag` 갱신만 함).
+
+---
+
+### 자동생산 완료 사이클 슬롯2 깜빡임 수정 (2026-06-05) ✅ 완료 (실기 PASS)
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-05/10_59_auto-production-cycle-flicker/`
+
+**수정 파일**: `Application/UseCases/UnitProductionUseCase.cs` — `CompleteProduction` 1곳
+
+**버그**: 자동생산 완료 시 재순환 항목이 슬롯2에 1프레임 표시되었다가 사라지는 깜빡임.
+**근본 원인**: `CompleteProduction`이 `ChargeVisibleSlots` + `OnProductionQueueChanged` 발행 후 `TryStartNext`를 다음 프레임에 위임하는 1프레임 갭.
+
+**수정**: `ChargeVisibleSlots` 제거 + `OnProductionQueueChanged` 직접 발행 제거 → `OnUnitProduced` 후 즉시 `TryStartNext(state)` 호출. fallback: `!CurrentProducing.HasValue`이면 이벤트 수동 발행.
+
+**패턴**: AddNewAutoSlot 2026-04-19 수정과 동일. CompleteProduction 경로가 미처 처리되지 않았던 것.
+
+---
+
 ### 방어 타워(AutoTower) 공격 기능 구현 (2026-06-01) ✅ 완료 (실기 PASS)
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-01/05_01_defense-tower-implementation/`

@@ -487,7 +487,9 @@
 | Android 실기기 캐릭터 잔상 + RenderPass 에러 | ✅ 완료 (2026-04-06) — RT antiAliasing 2→1, Camera allowMSAA/allowHDR false, backgroundColor alpha 1 |
 | 근접 공격 거리 다듬기 | ✅ 완료 (2026-04-11) — 유닛 vs 유닛 0.35f, 유닛 vs 건물 0.55f (타겟 타입별 분리) |
 | 타겟 고정(Target Lock) 데미지 불일치 버그 | ✅ 완료 (2026-04-18) — 멀티플레이에서 애니메이션 타겟(B)과 다른 유닛(C)에게 데미지 적용되던 버그. NetworkCombatController.TickCombat() damageTargetId 분리로 수정 |
-| 생산 슬롯 깜빡임 버그 | ✅ 완료 (2026-04-19) — 큐 비어있을 때 자동 등록 시 슬롯1→슬롯0 1프레임 이동. ToggleAutoProduction에서 즉시 TryStartNext 호출로 수정 |
+| 생산 슬롯 깜빡임 버그 (등록 경로) | ✅ 완료 (2026-04-19) — 큐 비어있을 때 자동 등록 시 슬롯2→슬롯1 1프레임 이동. AddNewAutoSlot에서 즉시 TryStartNext 호출로 수정 |
+| 생산 슬롯 깜빡임 버그 (완료 사이클 경로) | ✅ 완료 (2026-06-05) — 자동생산 완료 시 재순환 항목이 슬롯2에 1프레임 표시되는 버그. CompleteProduction에서 ChargeVisibleSlots+이벤트 직접 발행 제거 → TryStartNext 즉시 호출로 수정 (UnitProductionUseCase.cs) |
+| 자동생산 재등록 슬롯 중복/누락 버그 | ✅ 완료 (2026-06-05) — 자동 해제/재등록 시 슬롯 중복 표시 및 슬롯3 미추가 버그 3케이스. CurrentIsAuto를 수동 필드에서 파생 계산 getter로 구조 개선(ProductionState.cs), RegisterAutoType에 PendingQueue.Count==0 조건 추가, GameSystemRules 규칙 20 보완 |
 | 랠리포인트 Client 무시 버그 | ✅ 완료 (2026-04-19) — 멀티플레이 Client(Red팀)에서 랠리포인트 설정이 서버에 전달되지 않던 버그. NetworkProductionController에 SetRallyPointServerRpc 추가, ProductionPanelUI에 네트워크 분기 추가 |
 | 근접유닛 뒷무빙 현상 | ✅ 완료 (2026-04-26) — Phase 1 타겟 사망 시 무조건 Phase 2 진입으로 후방 스냅 발생. 타겟 사망 즉시 다음 적 재선택 + Phase 2 후방 스냅 방지 + 점유 누수 방지 (UnitView.cs 3곳 수정) |
 | Phase 1 중 타일 소유권 미갱신 | ✅ 완료 (2026-04-26) — Phase 1(월드 직선 추적) 중 유닛이 타일을 지나가도 소유권이 갱신되지 않던 구조적 문제. TileOwnershipService(Pull 모델)로 매 프레임 물리 위치 기반 실시간 점령 |

@@ -184,7 +184,12 @@ namespace Hexiege.Application
             // 슬롯1에 A를 새로 추가하지 않고 슬롯0 자체를 "자동"으로 전환한다.
             // → 완료 시 CompleteProduction의 wasAuto=true 조건을 만족하여 자동 순환이 시작됨.
             // → 골드 이중 차감 없음 (슬롯0의 골드는 이미 수동 등록 시 차감됨).
-            if (TryConvertCurrentToAuto(state, barracksId, type))
+            //
+            // [2026-06-05] PendingQueue가 비어있을 때만 적용한다.
+            // 대기 중인 다른 항목이 있으면 슬롯0 전환 대신 AddNewAutoSlot으로 슬롯3에 추가한다.
+            // 예: [Assault(슬롯1)] [Pistoleer(슬롯2)] 상태에서 Assault 재등록 →
+            //     Pistoleer가 중간에 있으므로 슬롯3 추가가 올바른 동작이다 (중복 아님).
+            if (state.PendingQueue.Count == 0 && TryConvertCurrentToAuto(state, barracksId, type))
                 return true;
 
             // Rule 2-1: PendingQueue 마지막 수동 항목이 같은 타입이면 IsAuto=true로 전환.
@@ -700,14 +705,30 @@ namespace Hexiege.Application
                 state.PendingQueue.Add(new QueueSlot(type, true, false));
             }
 
-            // PendingQueue[0]/[1] 중 IsCharged=false 자동 항목이 새로 슬롯에 올라왔다면 지금 차감.
-            ChargeVisibleSlots(state);
-
-            // 이벤트 발행 (ProductionTicker가 랠리포인트 이동 처리)
+            // [2026-06-05 깜빡임 수정] AddNewAutoSlot의 2026-04-19 수정과 동일한 패턴.
+            // 기존 코드는 여기서 ChargeVisibleSlots + OnProductionQueueChanged를 발행하고,
+            // 실제 다음 항목을 슬롯0으로 올리는 TryStartNext는 다음 프레임에야 실행됐다.
+            // 그 결과 "슬롯1=비어있음, 슬롯2=대기유닛" 상태가 한 프레임 동안 UI에 노출되어
+            // 슬롯2가 1프레임 깜빡이는 버그가 발생했다.
+            //
+            // 해결: CompleteProduction 직후 TryStartNext를 즉시 호출하여 같은 프레임 안에
+            // 슬롯 상태를 정착시킨다.
+            //  - ChargeVisibleSlots는 TryStartNext 내부에서 호출되므로 여기서 제거한다.
+            //  - OnProductionQueueChanged도 TryStartNext 내부에서 발행되므로 여기서 직접 발행하지 않는다.
+            //  - 단, OnUnitProduced(랠리포인트 이동 처리용)는 TryStartNext와 무관하므로 그대로 발행한다.
             GameEvents.OnUnitProduced.OnNext(
                 new UnitProducedEvent(unit, state.RallyPoint));
-            GameEvents.OnProductionQueueChanged.OnNext(
-                new ProductionQueueChangedEvent(state.BarracksId));
+
+            TryStartNext(state);
+
+            // TryStartNext가 아무것도 시작하지 않은 경우(큐 비어있음 + 자동 모드 아님)에는
+            // 내부에서 이벤트를 발행하지 않으므로, 여기서 수동으로 발행해 UI를 갱신한다.
+            // (생산이 시작됐다면 CurrentProducing에 값이 들어가고 이벤트도 이미 발행된 상태다.)
+            if (!state.CurrentProducing.HasValue)
+            {
+                GameEvents.OnProductionQueueChanged.OnNext(
+                    new ProductionQueueChangedEvent(state.BarracksId));
+            }
         }
 
         /// <summary>
