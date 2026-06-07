@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-06-06
-**현재 단계:** 콘솔 경고 전체 정리 완료 — 신규 유닛 프리팹 실기 테스트 예정 + UI FAIL 잔여 5항목 + Login.unity 씬 조립 진행 필요
+**최종 수정일:** 2026-06-07
+**현재 단계:** AI 시스템 코드 구현 완료 — Inspector 작업 + 실기 테스트 필요. 신규 유닛 프리팹 실기 테스트 예정 + UI FAIL 잔여 5항목 + Login.unity 씬 조립 진행 필요
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -15,6 +15,8 @@
 | ✅ 완료 | 게임 화면 UI TC 62개 실기기 테스트 + END UI 버그 수정 | QA/버그 | 중 |
 | ✅ 완료 | BuildingPlacementUI 씬 계층 재설계 (BP-001/BP-002 해결) | UI | 중 |
 | ✅ 완료 | 패널 버튼 크기 불일치 수정 (PRD-001, BAP-001) — LayoutElement 균등화 | UI | 소 |
+| 🔵 구현완료 | AI 시스템 — 코드 완료. Inspector 연결 + 실기 테스트 대기 | 기능 | 대 |
+| 🔴 높음 | AI 시스템 — Inspector 작업 (AIConfig/Scenario에셋 생성, DifficultySelectView GO 배치) | UI/기능 | 소 |
 | 🔴 높음 | 신규 유닛 프리팹 실기 테스트 + 후속 작업 (Animation Event 부착, UnitFactory 등록, StatsReference 스탯 확정) | 기능 | 대 |
 | 🔴 높음 | 게임 화면 UI 크기/레이아웃 수정 잔여 (HUD-007, SET-004, SET-007/END-001, MULTI-END-002 — 5항목) | UI | 소 |
 | 🔴 높음 | Login.unity 씬 조립 + Firebase Console 설정 | UI/인프라 | 소 |
@@ -51,6 +53,18 @@
 ---
 
 ## Phase C — 게임플레이 완성도
+
+### C-0. 싱글플레이 AI 시스템
+**🔵 코드 구현 완료 (2026-06-07)**: LocalPlayerDifficulty / AIConfig / AIScenarioConfig ScriptableObject / AIOpponentController(빌드오더+반응시스템+BFS) / GameBootstrapper 연동 / 로비 난이도 선택 UI(DifficultySelectView) 전체 완료.
+
+**남은 작업**:
+1. `Hexiege/Setup/AIConfig 생성` 메뉴 실행 → `Game.unity` GameBootstrapper에 연결
+2. `Hexiege/Setup/AIScenarioConfig_Human_A/B/C 생성` 메뉴 실행
+3. `Lobby.unity`에 `DifficultySelectView` GO 생성·배치 + `BattleRootView` Inspector 연결
+4. 싱글플레이 실기 테스트 (AI 동작, 난이도 선택 흐름)
+5. 빌드오더 수치(A/B/C ScriptableObject) — 밸런싱 후 채워넣기
+
+---
 
 ### C-1. 게임 내 밸런싱
 현재 수치는 임시값. 플레이테스트 후 조정 필요.

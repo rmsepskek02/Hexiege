@@ -38,7 +38,13 @@ namespace Hexiege.Presentation
             CustomGame,
             CustomHost,
             CustomJoin,
-            RandomMatch
+            RandomMatch,
+            /// <summary>
+            /// 싱글플레이 난이도 선택 화면.
+            /// [싱글플레이] 버튼 클릭 시 BattleMain → 이 화면으로 전환.
+            /// 난이도를 선택하면 LocalPlayerDifficulty에 저장 후 게임 씬으로 이동.
+            /// </summary>
+            SingleplayDifficulty
         }
 
         // ====================================================================
@@ -70,8 +76,18 @@ namespace Hexiege.Presentation
         // 커맨드 (View → ViewModel)
         // ====================================================================
 
-        /// <summary>싱글플레이 시작.</summary>
+        /// <summary>
+        /// 싱글플레이 시작. 클릭 시 난이도 선택 화면(SingleplayDifficulty)으로 전환.
+        /// (GameSystemRules_AI.md 규칙 35)
+        /// </summary>
         public Subject<Unit> CmdStartSingleplay = new();
+
+        /// <summary>
+        /// 난이도 선택 완료. DifficultySelectView에서 쉬움/보통/어려움 버튼 클릭 시 발행.
+        /// LocalPlayerDifficulty에 선택 난이도를 저장하고 Game 씬을 로드한다.
+        /// (GameSystemRules_AI.md 규칙 35)
+        /// </summary>
+        public Subject<DifficultyLevel> CmdSelectDifficulty = new();
 
         /// <summary>호스트로 방 만들기.</summary>
         public Subject<Unit> CmdStartHosting = new();
@@ -116,8 +132,19 @@ namespace Hexiege.Presentation
             _networkManager.OnError += OnNetworkError;
 
             // 커맨드 처리 설정
+            // [싱글플레이] 버튼 → 난이도 선택 화면으로 전환 (씬 로드 직접 아님)
+            // (GameSystemRules_AI.md 규칙 35)
             CmdStartSingleplay
-                .Subscribe(_ => LoadSingleplayScene())
+                .Subscribe(_ => CurrentScreen.Value = BattleScreen.SingleplayDifficulty)
+                .AddTo(_disposables);
+
+            // 난이도 선택 완료 → LocalPlayerDifficulty에 저장 후 Game 씬 로드
+            CmdSelectDifficulty
+                .Subscribe(level =>
+                {
+                    LocalPlayerDifficulty.Set(level);
+                    LoadSingleplayScene();
+                })
                 .AddTo(_disposables);
 
             CmdStartHosting
@@ -239,11 +266,13 @@ namespace Hexiege.Presentation
         {
             CurrentScreen.Value = CurrentScreen.Value switch
             {
-                BattleScreen.CustomHost  => BattleScreen.CustomGame,
-                BattleScreen.CustomJoin  => BattleScreen.CustomGame,
-                BattleScreen.CustomGame  => BattleScreen.Main,
-                BattleScreen.RandomMatch => BattleScreen.Main,
-                _                        => BattleScreen.Main
+                BattleScreen.CustomHost          => BattleScreen.CustomGame,
+                BattleScreen.CustomJoin          => BattleScreen.CustomGame,
+                BattleScreen.CustomGame          => BattleScreen.Main,
+                BattleScreen.RandomMatch         => BattleScreen.Main,
+                // 난이도 선택 화면에서 뒤로가기 → 전투 메인으로 복귀
+                BattleScreen.SingleplayDifficulty => BattleScreen.Main,
+                _                                => BattleScreen.Main
             };
         }
 
@@ -296,6 +325,7 @@ namespace Hexiege.Presentation
                 _networkManager.OnError -= OnNetworkError;
             }
             _disposables.Dispose();
+            CmdSelectDifficulty?.Dispose();
         }
     }
 }

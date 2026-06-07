@@ -299,10 +299,20 @@ namespace Hexiege.Application
         public readonly UnitData Unit;
         public readonly HexCoord? RallyPoint;
 
-        public UnitProducedEvent(UnitData unit, HexCoord? rallyPoint)
+        /// <summary>
+        /// 이 유닛을 생산한 배럭(생산 건물)의 Id.
+        /// AI 시스템(AIOpponentController)이 이 값으로 _lineProduction을 조회하여
+        /// 같은 배럭에 다음 유닛을 EnqueueUnit 재호출하는 "콜백 기반 연속 생산"에 사용한다.
+        /// (GameSystemRules_AI.md 규칙 12)
+        /// 기존 구독자(ProductionTicker)는 이 필드를 사용하지 않으므로 하위 호환성에 영향 없음.
+        /// </summary>
+        public readonly int BarracksId;
+
+        public UnitProducedEvent(UnitData unit, HexCoord? rallyPoint, int barracksId)
         {
             Unit = unit;
             RallyPoint = rallyPoint;
+            BarracksId = barracksId;
         }
     }
 

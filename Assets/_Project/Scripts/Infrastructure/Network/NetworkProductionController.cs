@@ -504,7 +504,9 @@ namespace Hexiege.Infrastructure
             HexCoord? rallyPoint = hasRally ? (HexCoord?)new HexCoord(rallyQ, rallyR) : null;
 
             // OnUnitProduced 발행 → ProductionTicker가 랠리포인트 자동 이동 처리
-            GameEvents.OnUnitProduced.OnNext(new UnitProducedEvent(unit, rallyPoint));
+            // 멀티플레이 클라이언트 경로에는 배럭 Id가 동기화되지 않으며, AI는 싱글플레이 전용이라
+            // 이 경로에서 BarracksId를 사용하는 구독자가 없으므로 -1(미지정)을 전달한다.
+            GameEvents.OnUnitProduced.OnNext(new UnitProducedEvent(unit, rallyPoint, -1));
 
             Debug.Log($"[Network] 클라이언트: 유닛 데이터 재생성 완료. UnitId={unit.Id}, Type={unitType}, Team={team}");
         }

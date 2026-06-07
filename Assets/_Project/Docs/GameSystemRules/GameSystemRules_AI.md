@@ -12,8 +12,9 @@
 - [3. 빌드오더 스크립트 시스템](#3-빌드오더-스크립트-시스템)
 - [4. 반응 시스템](#4-반응-시스템)
 - [5. 가드 메커니즘](#5-가드-메커니즘)
-- [6. Human 종족 참조 정보](#6-human-종족-참조-정보)
-- [7. 아키텍처 및 구현 규칙](#7-아키텍처-및-구현-규칙)
+- [6. 건물 배치 로직](#6-건물-배치-로직)
+- [7. Human 종족 참조 정보](#7-human-종족-참조-정보)
+- [8. 아키텍처 및 구현 규칙](#8-아키텍처-및-구현-규칙)
 
 ---
 
@@ -57,7 +58,7 @@ GameBootstrapper에서 `LocalPlayerDifficulty.Current`에 따라 해당 구조�
 
 | 파라미터 | 필드명 | 쉬움 | 보통 | 어려움 | 설명 |
 |----------|--------|------|------|--------|------|
-| 골드 수입 배율 | goldIncomeMultiplier | 0.7 | 1.0 | 1.3 | AI 채굴소 수입에 곱하는 배율. 플레이어는 항상 1.0 |
+| 골드 수입 배율 | goldIncomeMultiplier | 0.7 | 1.0 | 1.3 | AI 채굴소 수입에 곱하는 배율. 플레이어는 항상 1.0. 적용 방식 → 규칙 34 참조 |
 | 생산 시간 배율 | productionTimeMultiplier | 1.3 | 1.0 | 0.7 | AI 유닛 생산 시간에 곱하는 배율. 클수록 생산이 느려짐 |
 | 결정 주기 (초) | decisionInterval | 20 | 10 | 5 | 반응 시스템이 게임 상태를 점검하는 주기 |
 | 유닛 수 비율 임계값 | unitCountThreshold | 0.7 | 1.0 | 1.3 | 규칙 R1 참조 — AI 유닛 수가 이 값 이하일 때 생산 활성화 |
@@ -65,6 +66,7 @@ GameBootstrapper에서 `LocalPlayerDifficulty.Current`에 따라 해당 구조�
 | 빌드오더 가속 쿨다운 (초) | buildOrderAccelCooldown | 20 | 20 | 20 | 규칙 R2 쿨다운. 난이도 무관 동일값 |
 | 생산 활성화 쿨다운 (초) | productionActivationCooldown | 15 | 15 | 15 | 규칙 R1 쿨다운. 난이도 무관 동일값 |
 | 재시도 간격 (초) | retryInterval | 10 | 10 | 10 | 빌드오더 단계 실패 시 재시도 간격. 난이도 무관 동일값 |
+| 채굴소 탐지 주기 (초) | mineCheckInterval | 20 | 20 | 20 | MiningPost 존재 여부 탐지 및 재건 시도 주기. 난이도 무관 동일값 |
 
 ---
 
@@ -99,9 +101,9 @@ GameBootstrapper에서 `LocalPlayerDifficulty.Current`에 따라 해당 구조�
 
 | 필드 | 설명 |
 |------|------|
-| actionType | 행동 종류: PlaceBuilding / UpgradeBuilding / StartAutoProduction |
+| actionType | 행동 종류: PlaceBuilding / UpgradeBuilding / StartProduction |
 | buildingType | 대상 건물 타입 (PlaceBuilding / UpgradeBuilding 시 사용) |
-| unitType | 자동생산 유닛 타입 (StartAutoProduction 시 사용) |
+| unitType | 생산 유닛 타입 (StartProduction 시 사용) |
 | targetBuildingLine | 대상 건물 라인 인덱스 (여러 생산 건물 중 몇 번째인지) |
 | phaseIndex | 속하는 Phase 번호 (1~4) |
 | delaySeconds | Phase 시작 후 이 항목까지의 기본 대기 시간 (쉬움/보통/어려움 각각 정의) |
@@ -122,45 +124,65 @@ Assets/_Project/Resources/Config/
 └── AIScenarioConfig_Transcendence.asset  ← 추후 추가
 ```
 
+### StartProduction 실행 방식
+
+**규칙 12. StartProduction 콜백 기반 생산**
+`StartProduction` 빌드오더 단계가 실행되면 다음 두 가지가 일어난다.
+
+1. `_lineProduction[lineIndex] = unitType` 기록 — 이 라인의 배럭이 앞으로 생산할 유닛 타입을 저장
+2. 해당 배럭에 `EnqueueUnit(barracksId, unitType)` 1회 호출 — 초기 큐 시드
+
+이후 `GameEvents.OnUnitProduced` 이벤트를 구독하여 Red 팀 유닛이 생산될 때마다 콜백을 받는다.
+콜백에서 `event.BarracksId`로 `_lineProduction`을 조회해 `EnqueueUnit`을 즉시 호출한다.
+유닛이 나오는 순간 다음 유닛이 등록되므로 타이머 없이 생산이 끊기지 않고 유지된다.
+
+골드가 부족해 `EnqueueUnit`이 실패해도 다음 유닛 생산 완료 시 다시 시도하므로 별도 재시도 로직이 불필요하다.
+
+> **구현 참고**: `UnitProducedEvent`에 `BarracksId` 필드 추가 필요.
+> `UnitProductionUseCase.CompleteProduction`에서 이벤트 발행 시 `state.BarracksId` 전달.
+> 기존 구독자(`ProductionTicker`)는 이 필드를 사용하지 않으므로 하위 호환성 문제 없음.
+
 ---
 
 ## 4. 반응 시스템
 
 ### 결정 루프
 
-**규칙 12. 폴링 기반 1회 행동**
+**규칙 13. 폴링 기반 1회 행동**
 반응 시스템은 `decisionInterval`마다 한 번씩 상태를 점검하고,
 조건을 충족한 첫 번째 규칙 하나만 실행한 후 해당 사이클을 종료한다.
 한 사이클에 여러 규칙이 동시에 실행되지 않는다.
 
-**규칙 13. 규칙 우선순위**
+**규칙 14. 규칙 우선순위**
 규칙 목록을 위에서부터 순회하며 조건 충족 + 쿨다운 없음인 첫 번째 규칙만 실행한다.
 아래 순서가 우선순위다:
 
 1. 규칙 R1 (유닛 수 열세) → 더 시급한 전투 대응
 2. 규칙 R2 (골드 과잉) → 자원 낭비 방지
+3. 규칙 R3 (MiningPost 파괴 감지) → 중립 자원 거점 복구
 
-### 규칙 R1 — 유닛 수 열세 시 자동생산 활성화
+### 규칙 R1 — 유닛 생산 긴급 보충
 
-**규칙 14. 조건**
+**규칙 15. 조건**
 ```
 AI 현재 유닛 수 < 플레이어 현재 유닛 수 × unitCountThreshold
 ```
 AND 현재 R1 쿨다운 없음
 
-**규칙 15. 행동**
-AI가 보유한 생산 건물 중 자동생산이 꺼진 건물이 있으면, 그 건물의 현재 단계에서 생산 가능한 유닛 중 가장 저렴한 유닛으로 자동생산을 활성화한다.
-자동생산이 이미 모두 켜져 있으면 이 규칙은 행동을 수행하지 않는다.
+**규칙 16. 행동**
+`_lineProduction`에 배럭-유닛 타입이 등록된 모든 Red 생산 건물에 대해 즉시 `EnqueueUnit(barracksId, _lineProduction[lineIndex])`를 호출한다.
+평시에는 `OnUnitProduced` 콜백이 지속 생산을 유지하지만, 유닛이 전투에서 급감한 경우 이 긴급 보충이 큐를 즉시 채운다.
+큐가 가득 차거나 골드가 부족한 경우 `EnqueueUnit`이 자동으로 실패를 반환하므로 별도 상태 확인이 불필요하다.
 
-**규칙 16. 쿨다운**
+**규칙 17. 쿨다운**
 행동 수행 후 `productionActivationCooldown`(15초) 동안 R1은 재실행되지 않는다.
-행동이 없어도(자동생산 모두 켜진 상태) 쿨다운은 적용되지 않는다.
+콜백 기반 정상 생산 중에는 이 규칙이 실행되지 않으므로 쿨다운도 발생하지 않는다.
 
 ---
 
 ### 규칙 R2 — 골드 과잉 시 빌드오더 가속
 
-**규칙 17. 조건**
+**규칙 18. 조건**
 ```
 AI 현재 골드 ≥ goldExcessThreshold
 ```
@@ -168,10 +190,10 @@ AND 빌드오더에 대기 중인 다음 항목이 존재
 AND 해당 항목의 `delaySeconds` 타이머가 아직 만료되지 않음
 AND 현재 R2 쿨다운 없음
 
-**규칙 18. 행동**
+**규칙 19. 행동**
 대기 중인 다음 빌드오더 항목의 타이머를 즉시 만료 처리하여 바로 실행 시도한다.
 
-**규칙 19. 쿨다운**
+**규칙 20. 쿨다운**
 가속 실행 후 `buildOrderAccelCooldown`(20초) 동안 R2는 재실행되지 않는다.
 
 ---
@@ -180,11 +202,11 @@ AND 현재 R2 쿨다운 없음
 
 ### 빌드오더 단계 실패 처리
 
-**규칙 20. 재시도 방식**
+**규칙 21. 재시도 방식**
 빌드오더 단계가 실패(골드 부족, 타일 없음)하면 즉시 포기하거나 다음 단계로 넘어가지 않는다.
 `retryInterval`(10초) 간격으로 같은 단계를 반복 시도한다.
 
-**규칙 21. 골드 부족 시 생산 취소 1회 시도**
+**규칙 22. 골드 부족 시 생산 취소 1회 시도**
 골드 부족이 원인인 경우, 수동 생산 큐에 있는 항목 중 IsCharged=false 항목 1개를 취소하여 골드를 확보 시도한다. 이 시도는 해당 빌드오더 단계에서 **딱 1회만** 허용된다.
 
 | 시점 | 동작 |
@@ -194,23 +216,101 @@ AND 현재 R2 쿨다운 없음
 
 수동 생산(IsCharged=false)만 취소 대상이다. 이미 골드가 차감된 생산(IsCharged=true)은 취소하지 않는다.
 
-**규칙 22. 자동생산 취소 금지**
-자동생산 설정은 골드 확보 목적으로 취소하지 않는다.
-자동생산은 규칙 R1에 의해서만 켜고 끈다.
+**규칙 23. 자동생산 미사용**
+AI는 자동생산 기능을 사용하지 않는다.
+유닛 생산은 `StartProduction` 단계의 초기 시드 `EnqueueUnit`과 `OnUnitProduced` 콜백으로만 유지되며,
+유닛 수 열세 시 R1 긴급 보충이 담당한다.
+골드 확보를 위해 자동생산을 켜거나, 이미 등록된 콜백을 해제하는 행동을 하지 않는다.
 
-**규칙 23. 타일 부족 시 대기**
+**규칙 24. 타일 부족 시 대기**
 타일 부족(배치 가능한 타일 없음)이 원인인 경우, 생산 취소 없이 `retryInterval` 대기 후 재시도한다.
 타일은 전투 결과로 확보되므로 기다리면 해소된다.
 
 ### 행동 타입 쿨다운
 
-**규칙 24. 쿨다운 독립 관리**
+**규칙 25. 쿨다운 독립 관리**
 각 행동 타입(R1, R2)은 독립적인 쿨다운을 가진다.
 R1 쿨다운 중이어도 R2는 실행 가능하다.
 
 ---
 
-## 6. Human 종족 참조 정보
+## 6. 건물 배치 로직
+
+### 일반 건물 배치
+
+**규칙 26. BFS 기반 배치 타일 선택**
+AI가 건물을 배치할 타일은 다음 방식으로 결정한다.
+
+1. Red 성채를 시작점으로 BFS 탐색
+2. Red 팀 소유 + `IsWalkable=true` 타일 중 가장 가까운 타일을 후보로 선택
+3. **후보 타일이 기존 Red 생산 건물의 인접 6타일에 해당하면 건너뜀**
+4. 조건을 만족하는 첫 번째 타일에 배치
+
+배럭 인접 타일을 보존하는 이유: `UnitProductionUseCase.FindSpawnTile`이 배럭 인접 6타일 중 walkable + 유닛 없는 타일에 유닛을 스폰한다. 모든 인접 타일이 건물로 막히면 생산 완료 후에도 유닛이 영구적으로 나오지 못하는 블로킹 상태가 된다.
+
+**사용 API (모두 public 확인 완료):**
+
+| 목적 | API |
+|------|-----|
+| 건물 배치 유효성 확인 | `BuildingPlacementUseCase.CanPlaceBuildingType(type, position, team)` |
+| 건물 배치 실행 | `BuildingPlacementUseCase.PlaceBuilding(type, team, position, race)` |
+| 전체 건물 조회 | `BuildingPlacementUseCase.Buildings` (IReadOnlyDictionary) |
+| 생산 건물 여부 확인 | `BuildingTypeHelper.IsProductionBuilding(type)` |
+
+---
+
+### 채굴소(MiningPost) 배치 — 병행 트랙
+
+MiningPost는 Build Order 항목에서 제거하고, Phase 진입 시 독립적으로 동작하는 병행 트랙이 처리한다.
+
+**규칙 27. MiningPost 병행 트랙**
+Phase 2 및 Phase 4 진입 시 각각 병행 트랙이 자동 시작된다.
+
+트랙 실행 흐름:
+1. `isTrackActive = true`
+2. `BuildingPlacementUseCase.Buildings`에서 Red 생산 건물 전체 조회
+3. 모든 생산 건물에 `SetRallyPoint` → 대상 금광 인접 타일 지정
+4. 매 `mineCheckInterval`마다 `PlaceMiningPost` 조건 확인
+   - 미충족: 유닛들이 랠리포인트 방향으로 행군하며 인접 타일을 자연스럽게 점령
+   - Blue 점령 상태: 행군 중인 유닛이 자동 전투로 Blue MiningPost 파괴 후 배치
+5. 배치 성공 → 모든 생산 건물 `ClearRallyPoint` → `isTrackActive = false`
+
+> Phase 2: 첫 번째 중립 금광 타겟
+> Phase 4: 두 번째 중립 금광 타겟 (Phase 2에서 점령하지 않은 쪽)
+
+**광산 타일 위치 조회 방식**
+AI는 맵마다 광산 타일 위치가 다를 수 있으므로 고정 좌표를 사용하지 않는다.
+`HexGrid.Tiles`(IReadOnlyDictionary)를 순회하여 `HasGoldMine == true`인 타일을 필터링하고,
+이미 Red MiningPost가 없는 타일을 Phase별 타겟 순서대로 선택한다.
+
+**사용 API:**
+
+| 목적 | API |
+|------|-----|
+| 채굴소 배치 | `BuildingPlacementUseCase.PlaceMiningPost(team, position, race)` |
+| 랠리포인트 설정 | `UnitProductionUseCase.SetRallyPoint(barracksId, target)` |
+| 랠리포인트 초기화 | `UnitProductionUseCase.ClearRallyPoint(barracksId)` |
+| 광산 타일 조회 | `HexGrid.Tiles.Values.Where(t => t.HasGoldMine)` |
+
+---
+
+### 규칙 R3 — MiningPost 파괴 감지 및 재건
+
+**탐지 주기:** `mineCheckInterval`(기본 20초, AIConfig에서 설정)
+
+**조건:**
+```
+점령 완료되었어야 하는 금광에 Red MiningPost 없음
+AND isTrackActive == false
+```
+
+**행동:** 병행 트랙 재시작 (`isTrackActive = true` → SetRallyPoint → …)
+
+`isTrackActive` 플래그가 중복 실행을 방지하고, `mineCheckInterval`이 탐지 주기와 자연 쿨다운을 동시에 담당한다. 트랙 실행 중에는 `isTrackActive == true`이므로 Reaction System이 중복으로 트랙을 시작하지 않는다.
+
+---
+
+## 7. Human 종족 참조 정보
 
 ### 생산 건물 라인 (BuildingType.cs 기준)
 
@@ -235,178 +335,26 @@ R1 쿨다운 중이어도 R2는 실행 가능하다.
 
 ### AI 빌드오더 시나리오
 
-Human AI는 3가지 시나리오 중 하나로 동작한다. 시나리오 선택은 [TBD — 난이도/종족 조합 결정 예정].
-
-**공통 규칙**
-- 채굴소(MiningPost)는 Phase 2 초반과 Phase 4 초반에 각 1개씩 확보한다.
-- 각 단계는 순서대로 실행되며, 앞 단계가 완료되지 않으면 다음 단계로 진행되지 않는다.
-- delaySeconds는 해당 Phase 시작 후 이 항목까지의 기본 대기 시간(보통 난이도 기준)이다.
-- 쉬움은 delay × 1.5, 어려움은 delay × 0.7을 기준으로 조정 예정.
-
-**Phase 타이밍 기준**
-
-| Phase | 시간 |
-|-------|------|
-| Phase 1 | 0~3분 |
-| Phase 2 | 3~6분 |
-| Phase 3 | 6~9분 |
-| Phase 4 | 9분~종료 (최대 12분) |
+→ **[GameSystemRules_AI_Scenario_Human.md](GameSystemRules_AI_Scenario_Human.md)** 참조
 
 ---
 
-#### 시나리오 A — 물량형 (Mass)
-
-**전략**: 업그레이드보다 생산 라인 확장 우선. 1~2단계 유닛을 대량 생산해 물량으로 압도.
-**최종 목표**: 근거리 3단계(BattleAxe) + 총기 3단계(Sniper). 탈것 없음.
-
-**Phase 1 (초반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | PlaceBuilding | TrainingCamp | 0 | 5초 |
-| 2 | StartAutoProduction | LittleKnight | 0 | 20초 |
-
-**Phase 2 (중반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | PlaceBuilding | MiningPost | - | 5초 |
-| 2 | PlaceBuilding | Gunsmith | 1 | 20초 |
-| 3 | StartAutoProduction | Pistoleer | 1 | 35초 |
-
-**Phase 3 (중후반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | UpgradeBuilding | WarAcademy | 0 | 5초 |
-| 2 | StartAutoProduction | SpearMan | 0 | 30초 |
-| 3 | UpgradeBuilding | Armory | 1 | 60초 |
-| 4 | StartAutoProduction | Assault | 1 | 90초 |
-
-**Phase 4 (후반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | PlaceBuilding | MiningPost | - | 5초 |
-| 2 | UpgradeBuilding | HumanBarracks | 0 | 15초 |
-| 3 | StartAutoProduction | BattleAxe | 0 | 45초 |
-| 4 | UpgradeBuilding | WeaponForge | 1 | 50초 |
-| 5 | StartAutoProduction | Sniper | 1 | 80초 |
-
----
-
-#### 시나리오 B — 테크형 (Tech)
-
-**전략**: 빠른 업그레이드로 고급 유닛 조기 확보. Phase 4에 탈것 2단계(Tank) 진입.
-**최종 목표**: 근거리 3단계(BattleAxe) + 총기 2단계(Assault) + 탈것 2단계(Tank).
-
-**Phase 1 (초반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | PlaceBuilding | TrainingCamp | 0 | 5초 |
-| 2 | StartAutoProduction | LittleKnight | 0 | 20초 |
-
-**Phase 2 (중반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | PlaceBuilding | MiningPost | - | 5초 |
-| 2 | UpgradeBuilding | WarAcademy | 0 | 20초 |
-| 3 | StartAutoProduction | SpearMan | 0 | 45초 |
-| 4 | PlaceBuilding | Gunsmith | 1 | 60초 |
-| 5 | StartAutoProduction | Pistoleer | 1 | 75초 |
-
-**Phase 3 (중후반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | UpgradeBuilding | HumanBarracks | 0 | 5초 |
-| 2 | StartAutoProduction | BattleAxe | 0 | 35초 |
-| 3 | UpgradeBuilding | Armory | 1 | 60초 |
-| 4 | StartAutoProduction | Assault | 1 | 90초 |
-
-**Phase 4 (후반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | PlaceBuilding | MiningPost | - | 5초 |
-| 2 | PlaceBuilding | Garage | 2 | 15초 |
-| 3 | StartAutoProduction | CannonCart | 2 | 30초 |
-| 4 | UpgradeBuilding | VehicleBay | 2 | 60초 |
-| 5 | StartAutoProduction | Tank | 2 | 90초 |
-
----
-
-#### 시나리오 C — 균형형 (Balanced)
-
-**전략**: 근거리+총기 업그레이드를 병행하고 Phase 4에 총기 최상급 + 탈것 라인 개설. 추가시간에 탈것 2단계 완성.
-**10분 목표**: 근거리 3단계(BattleAxe) + 총기 3단계(Sniper) + 탈것 1단계(CannonCart).
-**추가시간 목표**: 탈것 2단계(Tank) 완성.
-
-**Phase 1 (초반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | PlaceBuilding | TrainingCamp | 0 | 5초 |
-| 2 | StartAutoProduction | LittleKnight | 0 | 20초 |
-
-**Phase 2 (중반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | PlaceBuilding | MiningPost | - | 5초 |
-| 2 | UpgradeBuilding | WarAcademy | 0 | 20초 |
-| 3 | StartAutoProduction | SpearMan | 0 | 45초 |
-| 4 | PlaceBuilding | Gunsmith | 1 | 60초 |
-| 5 | StartAutoProduction | Pistoleer | 1 | 75초 |
-
-**Phase 3 (중후반)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | UpgradeBuilding | HumanBarracks | 0 | 5초 |
-| 2 | StartAutoProduction | BattleAxe | 0 | 35초 |
-| 3 | UpgradeBuilding | Armory | 1 | 60초 |
-| 4 | StartAutoProduction | Assault | 1 | 90초 |
-
-**Phase 4 (후반 + 추가시간)**
-
-| 순서 | actionType | 대상 | 라인 | delay(보통) |
-|------|-----------|------|------|------------|
-| 1 | PlaceBuilding | MiningPost | - | 5초 |
-| 2 | UpgradeBuilding | WeaponForge | 1 | 15초 |
-| 3 | StartAutoProduction | Sniper | 1 | 45초 |
-| 4 | PlaceBuilding | Garage | 2 | 50초 |
-| 5 | StartAutoProduction | CannonCart | 2 | 65초 |
-| 6 | UpgradeBuilding | VehicleBay | 2 | 120초 ※ |
-| 7 | StartAutoProduction | Tank | 2 | 150초 ※ |
-
-※ delay 120초 이후 항목은 추가시간(10~12분) 구간에 해당한다.
-
----
-
-> ⚠️ 위 시나리오의 delay 수치는 10분 플레이타임 기준 보통 난이도 예비값이다.
-> StatsReference.md 스탯(건물 건설 시간, 유닛 비용) 확정 후 실제 경제 시뮬레이션을 통해 재조정한다.
-
----
-
-## 7. 아키텍처 및 구현 규칙
+## 8. 아키텍처 및 구현 규칙
 
 ### 레이어 귀속
 
-**규칙 25. AIOpponentController 위치**
+**규칙 28. AIOpponentController 위치**
 `Application/Services/AIOpponentController.cs`에 배치한다.
 UseCase들(`BuildingPlacementUseCase`, `UnitProductionUseCase`, `ResourceUseCase`)을 생성자에서 주입받아 사용한다.
 AI는 UseCase를 통해서만 게임 상태를 변경한다. Domain 레이어를 직접 조작하지 않는다.
 
-**규칙 26. AIConfig / AIScenarioConfig 위치**
+**규칙 29. AIConfig / AIScenarioConfig 위치**
 `Infrastructure/Config/` 아래에 ScriptableObject로 배치한다.
 기존 `UnitStatsConfig`, `BuildingStatsConfig`와 동일한 패턴을 따른다.
 
 ### 초기화
 
-**규칙 27. GameBootstrapper에서 초기화**
+**규칙 30. GameBootstrapper에서 초기화**
 `GameBootstrapper.Setup.cs`에 `InitializeAI()` 헬퍼를 추가하여 `LoadMap()` 호출 직후 실행한다.
 `IsNetworkMode()` 가드로 싱글플레이에서만 초기화한다.
 
@@ -419,13 +367,31 @@ AI는 UseCase를 통해서만 게임 상태를 변경한다. Domain 레이어를
   ...
 ```
 
-**규칙 28. AIOpponentController.Tick()**
+**규칙 30-A. AI On/Off 인스펙터 토글**
+`GameBootstrapper`에 `[SerializeField] private bool _enableAI = true;` 필드를 추가한다.
+테스트 시 인스펙터에서 체크박스를 꺼 AI를 비활성화할 수 있다.
+
+```csharp
+// GameBootstrapper.cs
+[Header("AI 설정")]
+[Tooltip("AI 활성화 여부. false로 끄면 싱글플레이에서도 AI가 동작하지 않는다.")]
+[SerializeField] private bool _enableAI = true;
+
+// LoadMap() 내부
+if (!IsNetworkMode() && _enableAI)
+    InitializeAI();
+```
+
+`AIConfig` ScriptableObject가 아닌 씬 레벨 필드로 두는 이유:
+테스트용 토글은 에셋 파일을 수정하지 않고 씬에서 바로 켜고 끌 수 있어야 하기 때문이다.
+
+**규칙 31. AIOpponentController.Tick()**
 `GameBootstrapper.Update()`에서 싱글플레이 전용 블록에 포함하여 매 프레임 Tick을 호출한다.
 내부에서 빌드오더 타이머와 반응 시스템 폴링 타이머를 함께 갱신한다.
 
 ### 난이도 전달
 
-**규칙 29. LocalPlayerDifficulty 정적 홀더**
+**규칙 32. LocalPlayerDifficulty 정적 홀더**
 로비에서 선택한 난이도를 게임 씬으로 전달하는 정적 홀더 클래스 `LocalPlayerDifficulty`를 `Infrastructure` 레이어에 추가한다.
 기존 `LocalPlayerRace` 패턴과 동일하게 구현한다.
 
@@ -440,6 +406,51 @@ public static class LocalPlayerDifficulty
 }
 ```
 
-**규칙 30. 씬 진입 시 AIConfig 선택**
+**규칙 33. 씬 진입 시 AIConfig 선택**
 `GameBootstrapper.InitializeAI()`에서 `LocalPlayerDifficulty.Current`를 읽어
 해당 난이도의 `AIConfig` asset을 로드하고 `AIOpponentController`에 주입한다.
+
+### 로비 난이도 선택 UI
+
+**규칙 35. 난이도 선택 화면 흐름**
+싱글플레이 난이도는 로비의 별도 화면에서 선택한다. 흐름은 다음과 같다.
+
+```
+BattleMainView
+  → [싱글플레이] 버튼 클릭
+  → BattleScreen.SingleplayDifficulty 상태로 전환
+  → DifficultySelectView 표시 (쉬움 / 보통 / 어려움 / 뒤로가기)
+  → 난이도 버튼 클릭
+  → LocalPlayerDifficulty.Current = 선택값
+  → 게임 씬 로드
+```
+
+**규칙 36. 구현 변경 범위**
+기존 `BattleScreen` 열거형 패턴을 그대로 재사용하며 상태 하나만 추가한다.
+
+| 변경 대상 | 내용 |
+|----------|------|
+| `BattleViewModel.BattleScreen` enum | `SingleplayDifficulty` 상태 추가 |
+| `BattleViewModel` | `CmdStartSingleplay` → `CurrentScreen = SingleplayDifficulty`로 변경. `CmdSelectDifficulty(DifficultyLevel)` 커맨드 추가 (LocalPlayerDifficulty 설정 + 씬 로드) |
+| `DifficultySelectView` | 신규 View — 쉬움/보통/어려움 버튼 3개 + 뒤로가기 버튼. `BattleViewModel`에 바인딩 |
+| `BattleRootView` | `DifficultySelectView` 참조 추가 및 `Bind()`에서 바인딩 |
+
+뒤로가기 버튼은 `CurrentScreen = BattleScreen.Main`으로 복귀한다.
+난이도를 선택하지 않고 뒤로 나가면 `LocalPlayerDifficulty.Current`는 변경되지 않는다(이전 값 또는 기본값 `Normal` 유지).
+
+---
+
+### 골드 수입 배율 적용
+
+**규칙 34. goldIncomeMultiplier 적용 방식 (Option C)**
+`goldIncomeMultiplier`는 게임 초기화 시 한 번만 적용하는 방식을 따른다.
+
+- `GameBootstrapper.InitializeAI()`에서 `ResourceUseCase.SetIncomeMultiplier(TeamId.Red, config.goldIncomeMultiplier)` 를 1회 호출
+- `ResourceUseCase` 내부에서 배율 값을 저장하고, `TickIncome` 실행 시 Red 팀 수입에 배율을 곱해 적용
+- Blue 팀(플레이어)은 항상 1.0 배율이며, AI의 배율만 이 API로 조정
+
+이 방식은 `TickIncome` 호출자(`GameBootstrapper`) 를 수정하지 않아도 되며,
+`ResourceUseCase` 외부에서 배율 계산 로직을 갖지 않아 의존성이 최소화된다.
+
+> **구현 참고**: `ResourceUseCase`에 `SetIncomeMultiplier(TeamId team, float multiplier)` 메서드 추가 필요.
+> 내부 필드 `_incomeMultipliers[team]`에 저장 후 `TickIncome`에서 적용.

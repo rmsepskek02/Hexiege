@@ -540,5 +540,97 @@ namespace Hexiege.Bootstrap
                     _buildingPlacement,
                     buildingControllerForProduction);
         }
+
+        // ====================================================================
+        // AI 시스템 초기화 (GameSystemRules_AI.md 규칙 30~34)
+        // ====================================================================
+
+        /// <summary>
+        /// 싱글플레이 AI(Red 팀)를 초기화한다.
+        /// LoadMap()의 SetupProduction() 직후, 싱글플레이 + _enableAI일 때만 호출된다.
+        ///
+        /// 동작:
+        ///   1. Resources에서 AIConfig / AIScenarioConfig 에셋 로드
+        ///   2. LocalPlayerDifficulty.Current에 해당하는 DifficultyParams 선택
+        ///   3. Human 시나리오 A/B/C 중 무작위 1개 선택 (규칙 11 — 다양성)
+        ///   4. ResourceUseCase에 Red 팀 수입 배율 적용 (규칙 34)
+        ///   5. AIOpponentController 생성 + 의존성 주입 → _aiController에 보관
+        ///
+        /// 에셋이 없으면 에러 로그 후 AI를 생성하지 않는다(게임은 정상 진행, AI만 비활성).
+        /// </summary>
+        private void InitializeAI()
+        {
+            // 재경기 안전성: 이전 AI 컨트롤러가 남아있으면 구독 해제 후 폐기.
+            _aiController?.Dispose();
+            _aiController = null;
+
+            // 1. AIConfig 로드 (Resources/Config/AIConfig)
+            AIConfig aiConfig = Resources.Load<AIConfig>("Config/AIConfig");
+            if (aiConfig == null)
+            {
+                Debug.LogError("[GameBootstrapper] AIConfig.asset을 찾을 수 없습니다. " +
+                               "메뉴 Hexiege/Setup/AIConfig 생성으로 만들어 주세요. AI를 비활성화합니다.");
+                return;
+            }
+
+            // 2. 난이도 파라미터 선택
+            DifficultyLevel difficulty = LocalPlayerDifficulty.Current;
+            DifficultyParams aiParams = aiConfig.GetParams(difficulty);
+
+            // 3. Human 시나리오 A/B/C 무작위 선택.
+            //    (현재 Human 종족만 시나리오 보유 — 추후 종족별 분기 추가 예정)
+            AIScenarioConfig scenario = LoadRandomHumanScenario();
+            if (scenario == null)
+            {
+                Debug.LogError("[GameBootstrapper] AIScenarioConfig_Human_* 에셋을 찾을 수 없습니다. " +
+                               "메뉴 Hexiege/Setup/AIScenarioConfig_Human_A~C 생성으로 만들어 주세요. AI를 비활성화합니다.");
+                return;
+            }
+
+            // 4. Red 팀 채굴소 수입 배율 적용 (규칙 34 — 게임 시작 시 1회).
+            _resource.SetIncomeMultiplier(TeamId.Red, aiParams.goldIncomeMultiplier);
+
+            // 5. AIOpponentController 생성 + 주입.
+            _aiController = new AIOpponentController(
+                _buildingPlacement,
+                _unitProduction,
+                _resource,
+                _unitSpawn,
+                _grid,
+                aiParams,
+                scenario,
+                difficulty);
+
+            Debug.Log($"[GameBootstrapper] AI 초기화 완료. 난이도={difficulty}, " +
+                      $"시나리오={scenario.scenarioName}, 수입배율={aiParams.goldIncomeMultiplier}");
+        }
+
+        /// <summary>
+        /// Human 시나리오 A/B/C 에셋 중 존재하는 것들을 모아 무작위로 하나를 반환한다.
+        /// 일부 에셋이 없어도 존재하는 것들 안에서 선택한다. 하나도 없으면 null.
+        /// </summary>
+        private AIScenarioConfig LoadRandomHumanScenario()
+        {
+            // 후보 경로 (Resources 기준 — 확장자 제외).
+            string[] candidates =
+            {
+                "Config/AIScenarioConfig_Human_A",
+                "Config/AIScenarioConfig_Human_B",
+                "Config/AIScenarioConfig_Human_C",
+            };
+
+            // 존재하는 시나리오만 수집.
+            var loaded = new System.Collections.Generic.List<AIScenarioConfig>();
+            foreach (var path in candidates)
+            {
+                var sc = Resources.Load<AIScenarioConfig>(path);
+                if (sc != null) loaded.Add(sc);
+            }
+
+            if (loaded.Count == 0) return null;
+
+            int idx = UnityEngine.Random.Range(0, loaded.Count);
+            return loaded[idx];
+        }
     }
 }

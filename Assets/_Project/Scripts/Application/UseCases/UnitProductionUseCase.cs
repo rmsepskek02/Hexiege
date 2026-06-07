@@ -716,8 +716,10 @@ namespace Hexiege.Application
             //  - ChargeVisibleSlots는 TryStartNext 내부에서 호출되므로 여기서 제거한다.
             //  - OnProductionQueueChanged도 TryStartNext 내부에서 발행되므로 여기서 직접 발행하지 않는다.
             //  - 단, OnUnitProduced(랠리포인트 이동 처리용)는 TryStartNext와 무관하므로 그대로 발행한다.
+            // BarracksId를 함께 전달 — AI(AIOpponentController)가 이 값으로
+            // 어느 배럭에서 유닛이 나왔는지 식별하여 다음 유닛을 재등록한다(규칙 12).
             GameEvents.OnUnitProduced.OnNext(
-                new UnitProducedEvent(unit, state.RallyPoint));
+                new UnitProducedEvent(unit, state.RallyPoint, state.BarracksId));
 
             TryStartNext(state);
 

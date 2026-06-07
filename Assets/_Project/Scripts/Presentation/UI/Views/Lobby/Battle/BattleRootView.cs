@@ -30,6 +30,10 @@ namespace Hexiege.Presentation
         [SerializeField] private CustomJoinView _customJoinView;
         [SerializeField] private RandomMatchView _randomMatchView;
 
+        [Tooltip("싱글플레이 난이도 선택 화면 View. " +
+                 "Lobby.unity에서 DifficultySelectView GO를 생성하고 이 슬롯에 연결한다.")]
+        [SerializeField] private DifficultySelectView _difficultySelectView;
+
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -59,10 +63,12 @@ namespace Hexiege.Presentation
                 _battleMainView.Bind(vm);
                 _battleMainView.BindRace(_raceVm);
             }
-            if (_customGameView != null) _customGameView.Bind(vm);
-            if (_customHostView != null) _customHostView.Bind(vm);
-            if (_customJoinView != null) _customJoinView.Bind(vm);
-            if (_randomMatchView != null) _randomMatchView.Bind(vm);
+            if (_customGameView != null)      _customGameView.Bind(vm);
+            if (_customHostView != null)      _customHostView.Bind(vm);
+            if (_customJoinView != null)      _customJoinView.Bind(vm);
+            if (_randomMatchView != null)     _randomMatchView.Bind(vm);
+            // 싱글플레이 난이도 선택 화면 바인딩
+            if (_difficultySelectView != null) _difficultySelectView.Bind(vm);
         }
 
         /// <summary>
@@ -70,11 +76,12 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Unbind()
         {
-            if (_battleMainView != null) _battleMainView.Unbind();
-            if (_customGameView != null) _customGameView.Unbind();
-            if (_customHostView != null) _customHostView.Unbind();
-            if (_customJoinView != null) _customJoinView.Unbind();
-            if (_randomMatchView != null) _randomMatchView.Unbind();
+            if (_battleMainView != null)      _battleMainView.Unbind();
+            if (_customGameView != null)      _customGameView.Unbind();
+            if (_customHostView != null)      _customHostView.Unbind();
+            if (_customJoinView != null)      _customJoinView.Unbind();
+            if (_randomMatchView != null)     _randomMatchView.Unbind();
+            if (_difficultySelectView != null) _difficultySelectView.Unbind();
 
             // 종족 선택 ViewModel Dispose (구독 해제)
             _raceVm?.Dispose();

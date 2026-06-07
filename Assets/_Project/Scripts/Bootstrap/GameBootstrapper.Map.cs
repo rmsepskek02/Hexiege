@@ -107,6 +107,12 @@ namespace Hexiege.Bootstrap
             // 9. 생산 시스템 초기화
             SetupProduction();
 
+            // 9-A. AI 시스템 초기화 (싱글플레이 전용)
+            // SetupProduction() 직후 — UseCase가 모두 준비된 시점이어야 한다.
+            // 멀티플레이이거나 Inspector에서 _enableAI=false이면 AI를 생성하지 않는다.
+            if (!NetworkContext.IsNetworkActive && _enableAI)
+                InitializeAI();
+
             // 10. HUD 초기화
             if (_gameHudUI != null)
                 _gameHudUI.Initialize(_resource, _population);

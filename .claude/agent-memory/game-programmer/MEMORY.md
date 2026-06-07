@@ -23,6 +23,40 @@
 
 ## 최근 작업
 
+### 싱글플레이 AI 시스템 Phase 1~5 (2026-06-07) 🔵 코드 완료 / Inspector·실기 테스트 대기
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-07/16_40_ai-system-implementation/`
+
+**신규 생성 파일**:
+- `Infrastructure/LocalPlayerDifficulty.cs` — DifficultyLevel enum(Easy/Normal/Hard) + 정적 홀더 패턴 (LocalPlayerRace와 동일)
+- `Infrastructure/Config/AIConfig.cs` — DifficultyParams 중첩 구조체 × Easy/Normal/Hard ScriptableObject
+- `Infrastructure/Config/AIScenarioConfig.cs` — BuildOrderStep(ActionType enum + BuildingType/UnitType/targetBuildingLine/delay 3종) 플랫 리스트 ScriptableObject
+- `Application/Services/AIOpponentController.cs` — Tick() 기반 AI 핵심. 빌드오더 스크립트(Phase 1~4), 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴), BFS 건물 배치, MiningPost 병행 트랙
+- `Presentation/UI/Views/Lobby/Battle/DifficultySelectView.cs` — BattleScreen.SingleplayDifficulty 상태 시 표시. 쉬움/보통/어려움 버튼 → vm.CmdSelectDifficulty
+- `Assets/Editor/AIConfigSetup.cs` — `Hexiege/Setup/AIConfig 생성` + `AIScenarioConfig_Human_A/B/C 생성` 메뉴
+
+**수정 파일**:
+- `Application/Events/GameEvents.cs` — `UnitProducedEvent`에 `BarracksId` 필드 추가 (AI 콜백 기반 연속 생산용)
+- `Application/UseCases/ResourceUseCase.cs` — `SetIncomeMultiplier(TeamId, float)` + `_incomeMultipliers Dictionary` 추가. TickTeamIncome()에 배율 적용
+- `Bootstrap/GameBootstrapper.cs` — `[Header("AI 설정")] [SerializeField] bool _enableAI = true` + `_aiController?.Tick(Time.deltaTime)` in Update()
+- `Bootstrap/GameBootstrapper.Setup.cs` — `InitializeAI()` 헬퍼: AIConfig 로드 → 난이도 파라미터 선택 → Random.Range(0,3)으로 시나리오 A/B/C 선택 → SetIncomeMultiplier 호출 → AIOpponentController 생성
+- `Bootstrap/GameBootstrapper.Map.cs` — `SetupProduction()` 직후 `if (!NetworkContext.IsNetworkActive && _enableAI) InitializeAI();` 추가
+- `Presentation/UI/ViewModels/BattleViewModel.cs` — `BattleScreen.SingleplayDifficulty` 추가, `CmdSelectDifficulty Subject<DifficultyLevel>` 추가, `CmdStartSingleplay` → 난이도 화면 전환으로 변경, `NavigateBack()` 케이스 추가
+- `Presentation/UI/Views/Lobby/Battle/BattleRootView.cs` — `_difficultySelectView SerializeField` 추가, `Bind/Unbind` 포함
+
+**AI 설계 핵심 패턴**:
+- **콜백 기반 연속 생산**: `StartProduction` 실행 시 `_lineProduction[barracksId]=unitType` 기록 + 시드 1회 `EnqueueUnit` → `GameEvents.OnUnitProduced` 구독에서 Red팀 유닛 생산 시 해당 배럭에 `EnqueueUnit` 재호출 (자동생산 미사용, 규칙 23)
+- **BFS 배치**: Red 성채 BFS → walkable + Red 소유 + 기존 생산 건물 인접 6타일 제외 → 최근접 타일
+- **MiningPost 병행 트랙**: Phase 2/4 진입 시 활성화 → `_mineTiles`(HasGoldMine 기반) 중 미점령 타겟 → 모든 배럭 SetRallyPoint → mineCheckInterval 주기 PlaceMiningPost → 성공 시 ClearRallyPoint + 트랙 종료
+- **[SerializeField] 필드**: GameBootstrapper.cs 메인 파일에만 추가 규칙 준수
+
+**Inspector 작업 (사용자 수행 필요)**:
+1. `Hexiege/Setup/AIConfig 생성` 메뉴 실행 → `Resources/Config/AIConfig.asset` 생성 → Game.unity GameBootstrapper에 연결
+2. `Hexiege/Setup/AIScenarioConfig_Human_A/B/C 생성` 메뉴 실행
+3. Lobby.unity에 `DifficultySelectView` GO 생성·배치 (쉬움/보통/어려움/뒤로가기 버튼 4개) → BattleRootView Inspector 연결
+
+---
+
 ### NetworkGameManager 고아 필드 + Game씬 NGM 제거 (2026-06-06) ✅ 완료 (싱글+멀티 실기 PASS)
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-06/00_08_networkgamemanager-cleanup/`

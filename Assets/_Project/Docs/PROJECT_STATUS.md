@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-06-06
-**현재 단계:** NetworkGameManager 중복 인스턴스 정리 + 콘솔 경고 제거 완료
+**최종 수정일:** 2026-06-07
+**현재 단계:** 싱글플레이 AI 시스템 코드 구현 완료 — Inspector 연결 + 실기 테스트 대기
 
 ---
 
@@ -57,6 +57,27 @@
 | 자동생산 재등록 슬롯 버그 수정 | ✅ 완료 (2026-06-05) | CurrentIsAuto 파생 getter 구조로 개선. UnitProductionUseCase reset 2곳 제거. |
 | 신규 유닛 프리팹 컴포넌트 부착 (32개) | 🔧 스크립트 완료 (2026-06-05) / 실기 테스트 예정 | Human 5종·Spirit 6종·Transcendence 5종 × Blue/Red. `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`. 후속: Animation Event·UnitFactory 등록·스탯 추가 별도 필요. |
 | NetworkGameManager 고아 필드 + Game씬 NGM 제거 | ✅ 완료 (2026-06-06) | GameBootstrapper 미사용 _networkGameManager 필드 제거. Game.unity 중복 NGM 제거. 싱글+멀티 실기 확인. |
+
+#### 싱글플레이 AI 시스템 (2026-06-07)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| LocalPlayerDifficulty.cs (정적 홀더) | ✅ 완료 | `Infrastructure/` — DifficultyLevel enum(Easy/Normal/Hard), LocalPlayerRace 패턴 동일 |
+| AIConfig.cs ScriptableObject | ✅ 완료 | `Infrastructure/Config/` — DifficultyParams(goldIncomeMultiplier/productionTimeMultiplier/decisionInterval 외 6개) × Easy/Normal/Hard |
+| AIScenarioConfig.cs ScriptableObject | ✅ 완료 | `Infrastructure/Config/` — BuildOrderStep(ActionType/BuildingType/UnitType/targetBuildingLine/delay 3종) 플랫 리스트 구조 |
+| AIConfigSetup.cs Editor 스크립트 | ✅ 완료 | `Assets/Editor/` — 메뉴 `Hexiege/Setup/AIConfig 생성` + `AIScenarioConfig_Human_A/B/C 생성` |
+| UnitProducedEvent.BarracksId 추가 | ✅ 완료 | `Application/Events/GameEvents.cs` — AI 콜백 기반 연속 생산용. 기존 구독자 ProductionTicker 영향 없음 |
+| ResourceUseCase.SetIncomeMultiplier() | ✅ 완료 | `Application/UseCases/ResourceUseCase.cs` — Red 팀 골드 수입 배율 설정. TickTeamIncome()에 적용 |
+| AIOpponentController.cs (AI 핵심) | ✅ 완료 | `Application/Services/` — 빌드오더 스크립트(Phase 1~4), 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴), BFS 건물 배치, MiningPost 병행 트랙 |
+| GameBootstrapper — _enableAI 필드 | ✅ 완료 | `Bootstrap/GameBootstrapper.cs` — `[SerializeField] bool _enableAI = true` Inspector 토글 |
+| GameBootstrapper — InitializeAI() | ✅ 완료 | `Bootstrap/GameBootstrapper.Setup.cs` — AIConfig 로드, 시나리오 랜덤 선택, SetIncomeMultiplier 호출, AIOpponentController 생성·주입 |
+| GameBootstrapper — Map.cs 연동 | ✅ 완료 | `Bootstrap/GameBootstrapper.Map.cs` — SetupProduction() 직후 InitializeAI() 호출 (싱글플레이 + _enableAI=true 조건) |
+| BattleViewModel — SingleplayDifficulty | ✅ 완료 | `BattleViewModel.cs` — BattleScreen.SingleplayDifficulty 추가, CmdSelectDifficulty Subject<DifficultyLevel> 추가, CmdStartSingleplay → 난이도 화면 전환으로 변경 |
+| DifficultySelectView.cs 신규 | ✅ 완료 | `Presentation/UI/Views/Lobby/Battle/` — 쉬움/보통/어려움 버튼 + CanvasGroup 패턴(Rule 5). Inspector 연결 필요 |
+| BattleRootView — DifficultySelectView 바인딩 | ✅ 완료 | `BattleRootView.cs` — _difficultySelectView 필드 + Bind/Unbind 포함 |
+| Inspector 작업 | ⏳ 대기 | Game.unity: `Hexiege/Setup/AIConfig 생성` 메뉴 실행 → GameBootstrapper에 AIConfig.asset 연결. Lobby.unity: DifficultySelectView GO 생성 + BattleRootView 연결 |
+| 실기 테스트 | ⏳ 대기 | Inspector 작업 완료 후 싱글플레이 AI 동작 확인 필요 |
+
+---
 
 #### 3D 전환 (2026-02-27 ~ 2026-03-01)
 | 항목 | 상태 |
