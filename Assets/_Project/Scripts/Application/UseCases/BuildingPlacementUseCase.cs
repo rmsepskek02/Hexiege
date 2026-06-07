@@ -88,7 +88,7 @@ namespace Hexiege.Application
         /// <param name="team">소속 팀</param>
         /// <param name="position">배치 좌표</param>
         /// <param name="race">종족 (건물 HP 결정에 사용)</param>
-        private BuildingData PlaceMiningPost(TeamId team, HexCoord position,
+        public BuildingData PlaceMiningPost(TeamId team, HexCoord position,
             RaceId race = RaceId.Human)
         {
             HexTile tile = _grid.GetTile(position);

@@ -68,9 +68,13 @@ namespace Hexiege.Bootstrap
         [Tooltip("건물 HP/골드비용/공격력 ScriptableObject. BuildingStats의 소스.")]
         [SerializeField] private BuildingStatsConfig _buildingStatsConfig;
 
-        [Header("AI 설정")]
-        [Tooltip("AI 활성화 여부. false로 끄면 싱글플레이에서도 AI가 동작하지 않는다. (테스트용 토글)")]
-        [SerializeField] private bool _enableAI = true;
+        // [AIConfig 이전] _enableAI는 AIConfig.enableAI 필드로 이전되었다.
+        //   이제 AI On/Off는 Resources/Config/AIConfig.asset의 enableAI 값으로 결정한다.
+        //   (Project 창에서 씬을 열지 않고도 토글 가능 → 테스트 편의성)
+        //   검증 안전을 위해 삭제 대신 주석 처리. 사용자 테스트 통과 후 제거 예정.
+        // [Header("AI 설정")]
+        // [Tooltip("AI 활성화 여부. false로 끄면 싱글플레이에서도 AI가 동작하지 않는다. (테스트용 토글)")]
+        // [SerializeField] private bool _enableAI = true;
 
         // [Phase 2] UnitAnimationData 제거 — Animator(Mecanim)가 대체
 
@@ -176,7 +180,7 @@ namespace Hexiege.Bootstrap
         private IEntityPositionProvider _positionProvider;
 
         // [AI 시스템] 싱글플레이 AI 컨트롤러. InitializeAI()에서 생성, 매 프레임 Update()에서 Tick.
-        // 싱글플레이 + _enableAI=true일 때만 생성된다. 멀티플레이에서는 항상 null.
+        // 싱글플레이 + AIConfig.enableAI=true일 때만 생성된다. 멀티플레이에서는 항상 null.
         private AIOpponentController _aiController;
 
         // ────────────────────────────────────────────────────────────────────
@@ -431,7 +435,7 @@ namespace Hexiege.Bootstrap
 
             // ────────────────────────────────────────────────────────────────
             // [AI 시스템] 싱글플레이 AI 컨트롤러 구동.
-            // _aiController는 싱글플레이 + _enableAI일 때만 생성되므로(InitializeAI),
+            // _aiController는 싱글플레이 + AIConfig.enableAI일 때만 생성되므로(InitializeAI),
             // 여기서는 null 체크만으로 충분하다 (멀티플레이에서는 항상 null).
             // ────────────────────────────────────────────────────────────────
             _aiController?.Tick(Time.deltaTime);

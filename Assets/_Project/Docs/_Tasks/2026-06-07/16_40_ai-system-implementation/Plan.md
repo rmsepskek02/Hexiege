@@ -60,6 +60,11 @@ Phase 1~2는 기존 파일의 소규모 수정(전제 조건)이고, Phase 3~4�
 
 `AIConfig`에 `easy`, `normal`, `hard` 세 개의 `DifficultyParams` 필드 포함.
 
+**[변경] AI On/Off 필드 추가**:
+- `public bool enableAI = true;` 필드를 AIConfig 클래스에 추가
+- 기존 `GameBootstrapper._enableAI`(SerializeField)를 이 필드로 대체
+- 이유: Game.unity 씬을 열지 않아도 Project 창에서 AIConfig.asset을 선택해 즉시 토글 가능 → 테스트 편의성 향상
+
 ### 2-2. AIScenarioConfig ScriptableObject
 **파일**: `Infrastructure/Config/AIScenarioConfig.cs` (신규)
 **근거**: GameSystemRules_AI.md 규칙 11
@@ -147,15 +152,20 @@ public void Tick(float deltaTime)
 
 ## Phase 4 — GameBootstrapper 연동
 
-### 4-1. _enableAI 필드
+### 4-1. _enableAI 필드 → AIConfig.enableAI 이전
 **파일**: `Bootstrap/GameBootstrapper.cs`
-**근거**: GameSystemRules_AI.md 규칙 30-A
+**근거**: GameSystemRules_AI.md 규칙 30-A / 테스트 편의성
+
+**[변경]** 기존 `_enableAI` SerializeField를 주석 처리하고 AIConfig.enableAI로 대체한다.
 
 ```csharp
-[Header("AI 설정")]
-[Tooltip("AI 활성화 여부. false로 끄면 싱글플레이에서도 AI가 동작하지 않는다.")]
-[SerializeField] private bool _enableAI = true;
+// [AIConfig 이전] _enableAI는 AIConfig.enableAI로 이전되었다. 테스트 통과 후 제거 예정.
+// [Header("AI 설정")]
+// [Tooltip("AI 활성화 여부. false로 끄면 싱글플레이에서도 AI가 동작하지 않는다.")]
+// [SerializeField] private bool _enableAI = true;
 ```
+
+> ℹ️ 기존 로직 제거 규칙: 검증 전까지 삭제 대신 주석 처리. 사용자 테스트 통과 후 제거.
 
 ### 4-2. InitializeAI() 헬퍼
 **파일**: `Bootstrap/GameBootstrapper.Setup.cs`
@@ -176,10 +186,27 @@ private void InitializeAI()
 **파일**: `Bootstrap/GameBootstrapper.Map.cs`
 **근거**: GameSystemRules_AI.md 규칙 30
 
+**[변경]** `_enableAI` 참조 제거. InitializeAI() 내부에서 AIConfig를 로드하므로 Map.cs의 조건을 단순화한다.
+
 ```csharp
 // SetupProduction() 직후
-if (!isNetworkMode && _enableAI)
+// enableAI 체크는 InitializeAI() 내부에서 AIConfig 로드 후 수행
+if (!NetworkContext.IsNetworkActive)
     InitializeAI();
+```
+
+**InitializeAI() 내부 변경** (`Bootstrap/GameBootstrapper.Setup.cs`):
+```csharp
+private void InitializeAI()
+{
+    var config = Resources.Load<AIConfig>("Config/AIConfig");
+    if (config == null || !config.enableAI)   // ← enableAI 체크 추가
+    {
+        Debug.Log("[GameBootstrapper] AIConfig.enableAI = false — AI 비활성화.");
+        return;
+    }
+    // 이하 기존 로직 유지
+}
 ```
 
 ### 4-4. Update()에 AI Tick 추가
@@ -222,14 +249,52 @@ _aiController?.Tick(Time.deltaTime);
 
 ---
 
-## Inspector 작업 목록 (구현 완료 후 사용자 수행)
+## Phase 5-추가 — DifficultySelectView 레이아웃 구조 수정
 
-| 씬 | 작업 |
-|-----|------|
-| `Game.unity` | `GameBootstrapper` Inspector에 `AIConfig.asset` 연결 |
-| `Game.unity` | `_enableAI` 체크박스 확인 (기본 true) |
-| `Lobby.unity` | `DifficultySelectView` UI 오브젝트 생성 및 배치 |
-| `Lobby.unity` | `BattleRootView`에 `DifficultySelectView` 연결 |
+### 배경
+SetupDifficultySelectView.cs 실행 후 사용자가 스프라이트·폰트 색상을 수동 작업한 상태.
+ButtonArea라는 중간 컨테이너가 기존 패널(BattleMainPanel 등)과 다른 구조를 만들어 버튼 크기 불일치 발생.
+
+### 목적
+ButtonArea를 제거하고 VLG를 DifficultySelectView 루트에 직접 부착.
+이미 설정된 스프라이트·폰트 색상은 리패런팅(부모 변경)으로 자동 보존된다.
+
+### 변경 내용 (1회성 에디터 스크립트: `Editor/FixDifficultySelectViewLayout.cs`)
+**메뉴**: `Hexiege/Fix/DifficultySelectView 레이아웃 수정`
+
+1. 씬에서 `DifficultySelectView` 찾기
+2. `ButtonArea` 자식 찾기
+3. ButtonArea의 자식 버튼 4개를 DifficultySelectView 직속으로 리패런팅
+4. `ButtonArea` GO 삭제
+5. `DifficultySelectView`에 VLG 추가 — BattleMainPanel 동일 설정:
+   - Padding Top=60, Bottom=60, Left=0, Right=0
+   - Spacing=20, ChildAlignment=MiddleCenter
+   - ChildForceExpandWidth=true, ChildForceExpandHeight=**false**
+   - ChildControlWidth=true, ChildControlHeight=true
+6. 버튼 4개에 LayoutElement 추가:
+   - PreferredHeight=100, FlexibleHeight=0, 나머지 -1
+
+> ℹ️ 리패런팅은 컴포넌트 값(Image.sprite, TMP.color 등)을 변경하지 않으므로 수동 작업한 스프라이트·색상이 보존된다.
+
+---
+
+## Inspector 작업 목록 (에디터 스크립트로 자동화)
+
+### 단계 1 — 에셋 생성 (AIConfigSetup.cs, 이미 존재)
+| 메뉴 | 생성 에셋 | 비고 |
+|------|----------|------|
+| `Hexiege/Setup/AIConfig 생성` | `Resources/Config/AIConfig.asset` | 이미 있으면 생략 |
+| `Hexiege/Setup/AIScenarioConfig_Human_A 생성` | `Resources/Config/AIScenarioConfig_Human_A.asset` | 이미 있으면 생략 |
+| `Hexiege/Setup/AIScenarioConfig_Human_B 생성` | `Resources/Config/AIScenarioConfig_Human_B.asset` | 이미 있으면 생략 |
+| `Hexiege/Setup/AIScenarioConfig_Human_C 생성` | `Resources/Config/AIScenarioConfig_Human_C.asset` | 이미 있으면 생략 |
+
+> ℹ️ AIConfig는 Resources.Load로 로드 — GameBootstrapper Inspector 연결 불필요.
+> ℹ️ `_enableAI`는 기본값 `true` — Inspector 작업 불필요.
+
+### 단계 2 — Lobby.unity 씬이 열린 상태에서 실행 (SetupDifficultySelectView.cs)
+| 메뉴 | 동작 |
+|------|------|
+| `Hexiege/Setup/난이도 선택 UI 생성` | DifficultySelectView GO 생성, 버튼 4개 배선, BattleRootView 연결, 씬 저장 |
 
 ---
 

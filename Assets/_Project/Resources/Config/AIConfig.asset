@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 85ce24913aefab74a9f03d4fa0002992, type: 3}
+  m_Name: AIConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.AIConfig
+  enableAI: 1
+  easy:
+    goldIncomeMultiplier: 0.7
+    productionTimeMultiplier: 1.3
+    decisionInterval: 20
+    unitCountThreshold: 0.7
+    goldExcessThreshold: 300
+    buildOrderAccelCooldown: 20
+    productionActivationCooldown: 15
+    retryInterval: 10
+    mineCheckInterval: 20
+  normal:
+    goldIncomeMultiplier: 1
+    productionTimeMultiplier: 1
+    decisionInterval: 10
+    unitCountThreshold: 1
+    goldExcessThreshold: 200
+    buildOrderAccelCooldown: 20
+    productionActivationCooldown: 15
+    retryInterval: 10
+    mineCheckInterval: 20
+  hard:
+    goldIncomeMultiplier: 1.3
+    productionTimeMultiplier: 0.7
+    decisionInterval: 5
+    unitCountThreshold: 1.3
+    goldExcessThreshold: 150
+    buildOrderAccelCooldown: 20
+    productionActivationCooldown: 15
+    retryInterval: 10
+    mineCheckInterval: 20

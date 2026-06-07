@@ -547,7 +547,8 @@ namespace Hexiege.Bootstrap
 
         /// <summary>
         /// 싱글플레이 AI(Red 팀)를 초기화한다.
-        /// LoadMap()의 SetupProduction() 직후, 싱글플레이 + _enableAI일 때만 호출된다.
+        /// LoadMap()의 SetupProduction() 직후, 싱글플레이일 때 호출된다.
+        /// AI On/Off는 이 메서드 내부에서 AIConfig.enableAI를 점검해 결정한다.
         ///
         /// 동작:
         ///   1. Resources에서 AIConfig / AIScenarioConfig 에셋 로드
@@ -570,6 +571,15 @@ namespace Hexiege.Bootstrap
             {
                 Debug.LogError("[GameBootstrapper] AIConfig.asset을 찾을 수 없습니다. " +
                                "메뉴 Hexiege/Setup/AIConfig 생성으로 만들어 주세요. AI를 비활성화합니다.");
+                return;
+            }
+
+            // 1-A. AI On/Off 토글 점검 (구 _enableAI를 대체).
+            //   AIConfig.enableAI = false이면 AI 컨트롤러를 만들지 않고 조기 반환한다.
+            //   에러가 아닌 정상 동작이므로 LogError가 아닌 Log로 남긴다.
+            if (!aiConfig.enableAI)
+            {
+                Debug.Log("[GameBootstrapper] AIConfig.enableAI = false — AI를 비활성화합니다.");
                 return;
             }
 

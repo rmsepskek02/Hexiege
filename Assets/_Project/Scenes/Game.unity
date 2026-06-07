@@ -674,8 +674,8 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 875631171}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.87, y: 0.05}
-  m_AnchorMax: {x: 0.99, y: 0.95}
+  m_AnchorMin: {x: 0.92, y: 0.1}
+  m_AnchorMax: {x: 0.99, y: 0.97}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -14462,6 +14462,7 @@ MonoBehaviour:
   _config: {fileID: 11400000, guid: 7cca7135ba1fd4b4cb646e723c248995, type: 2}
   _unitStatsConfig: {fileID: 11400000, guid: 802548ed3a8262149b5e3252a6916407, type: 2}
   _buildingStatsConfig: {fileID: 11400000, guid: d7b6bea86b98d354b8d19851830d2678, type: 2}
+  _enableAI: 1
   _gridRenderer: {fileID: 1534373523}
   _cameraController: {fileID: 330585548}
   _inputHandler: {fileID: 2140535622}

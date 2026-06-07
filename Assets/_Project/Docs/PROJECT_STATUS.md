@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-06-07
-**현재 단계:** 싱글플레이 AI 시스템 코드 구현 완료 — Inspector 연결 + 실기 테스트 대기
+**현재 단계:** 싱글플레이 AI 시스템 코드 완료 — AI 시나리오(빌드오더 수치) 작업 후 실기 테스트 예정
 
 ---
 
@@ -68,14 +68,14 @@
 | UnitProducedEvent.BarracksId 추가 | ✅ 완료 | `Application/Events/GameEvents.cs` — AI 콜백 기반 연속 생산용. 기존 구독자 ProductionTicker 영향 없음 |
 | ResourceUseCase.SetIncomeMultiplier() | ✅ 완료 | `Application/UseCases/ResourceUseCase.cs` — Red 팀 골드 수입 배율 설정. TickTeamIncome()에 적용 |
 | AIOpponentController.cs (AI 핵심) | ✅ 완료 | `Application/Services/` — 빌드오더 스크립트(Phase 1~4), 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴), BFS 건물 배치, MiningPost 병행 트랙 |
-| GameBootstrapper — _enableAI 필드 | ✅ 완료 | `Bootstrap/GameBootstrapper.cs` — `[SerializeField] bool _enableAI = true` Inspector 토글 |
-| GameBootstrapper — InitializeAI() | ✅ 완료 | `Bootstrap/GameBootstrapper.Setup.cs` — AIConfig 로드, 시나리오 랜덤 선택, SetIncomeMultiplier 호출, AIOpponentController 생성·주입 |
-| GameBootstrapper — Map.cs 연동 | ✅ 완료 | `Bootstrap/GameBootstrapper.Map.cs` — SetupProduction() 직후 InitializeAI() 호출 (싱글플레이 + _enableAI=true 조건) |
+| AI On/Off 설정 — AIConfig.enableAI | ✅ 완료 | `Infrastructure/Config/AIConfig.cs` — `public bool enableAI = true` 필드. Project 창에서 AIConfig.asset 선택 → Inspector 토글 (Game.unity 씬 접근 불필요). GameBootstrapper._enableAI 주석 처리됨 |
+| GameBootstrapper — InitializeAI() | ✅ 완료 | `Bootstrap/GameBootstrapper.Setup.cs` — AIConfig 로드 → enableAI=false면 조기 반환 → 시나리오 랜덤 선택, SetIncomeMultiplier 호출, AIOpponentController 생성·주입 |
+| GameBootstrapper — Map.cs 연동 | ✅ 완료 | `Bootstrap/GameBootstrapper.Map.cs` — SetupProduction() 직후 `if (!NetworkContext.IsNetworkActive) InitializeAI();` (enableAI 체크는 InitializeAI() 내부) |
 | BattleViewModel — SingleplayDifficulty | ✅ 완료 | `BattleViewModel.cs` — BattleScreen.SingleplayDifficulty 추가, CmdSelectDifficulty Subject<DifficultyLevel> 추가, CmdStartSingleplay → 난이도 화면 전환으로 변경 |
-| DifficultySelectView.cs 신규 | ✅ 완료 | `Presentation/UI/Views/Lobby/Battle/` — 쉬움/보통/어려움 버튼 + CanvasGroup 패턴(Rule 5). Inspector 연결 필요 |
+| DifficultySelectView.cs 신규 + UI 구조 | ✅ 완료 | `Presentation/UI/Views/Lobby/Battle/` — 쉬움/보통/어려움/뒤로 버튼 + CanvasGroup 패턴(Rule 5). BattlePanel 상단 절반 배치. VLG Padding 60/60, Spacing 20, preferredHeight=100 (BattleMainPanel 동일 구조) |
 | BattleRootView — DifficultySelectView 바인딩 | ✅ 완료 | `BattleRootView.cs` — _difficultySelectView 필드 + Bind/Unbind 포함 |
-| Inspector 작업 | ⏳ 대기 | Game.unity: `Hexiege/Setup/AIConfig 생성` 메뉴 실행 → GameBootstrapper에 AIConfig.asset 연결. Lobby.unity: DifficultySelectView GO 생성 + BattleRootView 연결 |
-| 실기 테스트 | ⏳ 대기 | Inspector 작업 완료 후 싱글플레이 AI 동작 확인 필요 |
+| Inspector 작업 | ⏳ 대기 | `Hexiege/Setup/AIConfig 생성` → `AIScenarioConfig_Human_A/B/C 생성` → (Lobby.unity) `Hexiege/Fix/DifficultySelectView 레이아웃 수정` 순서로 실행 |
+| 실기 테스트 | ⏳ 대기 | AI 시나리오 작업 완료 후 싱글플레이 AI 동작 확인 예정 |
 
 ---
 

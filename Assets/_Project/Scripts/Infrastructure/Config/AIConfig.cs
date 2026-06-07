@@ -79,6 +79,18 @@ namespace Hexiege.Infrastructure
     [CreateAssetMenu(fileName = "AIConfig", menuName = "Hexiege/AIConfig")]
     public class AIConfig : ScriptableObject
     {
+        [Header("AI On/Off")]
+
+        // [AIConfig 이전] 기존 GameBootstrapper._enableAI(SerializeField)를 이 필드로 대체한다.
+        //   장점: Game.unity 씬을 열지 않아도 Project 창에서 AIConfig.asset만 선택해
+        //         즉시 AI를 켜고 끌 수 있다. 테스트 편의성 향상.
+        //   사용처: GameBootstrapper.InitializeAI()가 AIConfig를 로드한 직후 이 값을 점검하여,
+        //          false이면 AI 컨트롤러를 만들지 않고 조기 반환한다.
+        [Tooltip("AI 활성화 여부. false로 끄면 싱글플레이에서도 AI가 동작하지 않는다. (테스트용 토글)")]
+        public bool enableAI = true;
+
+        [Header("난이도별 파라미터")]
+
         [Tooltip("쉬움 난이도 파라미터")]
         public DifficultyParams easy;
 

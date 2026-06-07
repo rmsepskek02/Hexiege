@@ -367,23 +367,31 @@ AI는 UseCase를 통해서만 게임 상태를 변경한다. Domain 레이어를
   ...
 ```
 
-**규칙 30-A. AI On/Off 인스펙터 토글**
-`GameBootstrapper`에 `[SerializeField] private bool _enableAI = true;` 필드를 추가한다.
-테스트 시 인스펙터에서 체크박스를 꺼 AI를 비활성화할 수 있다.
+**규칙 30-A. AI On/Off 토글**
+AI 활성화 여부는 `AIConfig` ScriptableObject의 `enableAI` 필드로 제어한다.
+`Resources/Config/AIConfig.asset`을 Project 창에서 선택하면 씬을 열지 않고 Inspector에서 바로 토글할 수 있다.
 
 ```csharp
-// GameBootstrapper.cs
-[Header("AI 설정")]
-[Tooltip("AI 활성화 여부. false로 끄면 싱글플레이에서도 AI가 동작하지 않는다.")]
-[SerializeField] private bool _enableAI = true;
+// AIConfig.cs
+[Header("AI On/Off")]
+[Tooltip("false로 끄면 싱글플레이에서도 AI가 동작하지 않는다.")]
+public bool enableAI = true;
 
-// LoadMap() 내부
-if (!IsNetworkMode() && _enableAI)
-    InitializeAI();
+// GameBootstrapper.Setup.cs — InitializeAI() 내부
+var aiConfig = Resources.Load<AIConfig>("Config/AIConfig");
+if (aiConfig == null || !aiConfig.enableAI)
+{
+    Debug.Log("[GameBootstrapper] AI 비활성화 상태.");
+    return;
+}
+
+// GameBootstrapper.Map.cs — LoadMap() 내부
+if (!NetworkContext.IsNetworkActive)
+    InitializeAI();   // enableAI 체크는 InitializeAI() 내부에서 수행
 ```
 
-`AIConfig` ScriptableObject가 아닌 씬 레벨 필드로 두는 이유:
-테스트용 토글은 에셋 파일을 수정하지 않고 씬에서 바로 켜고 끌 수 있어야 하기 때문이다.
+`GameBootstrapper` 씬 레벨 SerializeField가 아닌 `AIConfig` 에셋으로 두는 이유:
+Game.unity 씬을 열지 않아도 Project 창에서 에셋을 선택해 즉시 토글할 수 있어 테스트 편의성이 높다.
 
 **규칙 31. AIOpponentController.Tick()**
 `GameBootstrapper.Update()`에서 싱글플레이 전용 블록에 포함하여 매 프레임 Tick을 호출한다.

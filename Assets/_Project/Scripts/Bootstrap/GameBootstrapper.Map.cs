@@ -109,8 +109,9 @@ namespace Hexiege.Bootstrap
 
             // 9-A. AI 시스템 초기화 (싱글플레이 전용)
             // SetupProduction() 직후 — UseCase가 모두 준비된 시점이어야 한다.
-            // 멀티플레이이거나 Inspector에서 _enableAI=false이면 AI를 생성하지 않는다.
-            if (!NetworkContext.IsNetworkActive && _enableAI)
+            // 멀티플레이에서는 AI를 생성하지 않는다.
+            // AI On/Off(enableAI)는 InitializeAI() 내부에서 AIConfig 로드 후 점검한다.
+            if (!NetworkContext.IsNetworkActive)
                 InitializeAI();
 
             // 10. HUD 초기화

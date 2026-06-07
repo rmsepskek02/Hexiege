@@ -58,11 +58,11 @@
 **🔵 코드 구현 완료 (2026-06-07)**: LocalPlayerDifficulty / AIConfig / AIScenarioConfig ScriptableObject / AIOpponentController(빌드오더+반응시스템+BFS) / GameBootstrapper 연동 / 로비 난이도 선택 UI(DifficultySelectView) 전체 완료.
 
 **남은 작업**:
-1. `Hexiege/Setup/AIConfig 생성` 메뉴 실행 → `Game.unity` GameBootstrapper에 연결
+1. `Hexiege/Setup/AIConfig 생성` 메뉴 실행 (`Resources/Config/AIConfig.asset` 생성 — AI On/Off는 이 에셋 Inspector에서 토글)
 2. `Hexiege/Setup/AIScenarioConfig_Human_A/B/C 생성` 메뉴 실행
-3. `Lobby.unity`에 `DifficultySelectView` GO 생성·배치 + `BattleRootView` Inspector 연결
-4. 싱글플레이 실기 테스트 (AI 동작, 난이도 선택 흐름)
-5. 빌드오더 수치(A/B/C ScriptableObject) — 밸런싱 후 채워넣기
+3. `Lobby.unity` 열린 상태에서 `Hexiege/Fix/DifficultySelectView 레이아웃 수정` 메뉴 실행 (기존 ButtonArea 제거, BattleMainPanel 동일 구조로 정렬)
+4. 빌드오더 수치(A/B/C ScriptableObject) — 밸런싱 후 채워넣기
+5. 싱글플레이 실기 테스트 (AI 동작, 난이도 선택 흐름)
 
 ---
 
