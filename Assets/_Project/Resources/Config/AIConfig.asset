@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85ce24913aefab74a9f03d4fa0002992, type: 3}
   m_Name: AIConfig
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.AIConfig
-  enableAI: 1
+  enableAI: 0
   easy:
     goldIncomeMultiplier: 0.7
     productionTimeMultiplier: 1.3
