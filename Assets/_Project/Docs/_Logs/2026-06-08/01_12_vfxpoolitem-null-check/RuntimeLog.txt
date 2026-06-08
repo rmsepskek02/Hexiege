@@ -1,0 +1,277 @@
+============================================================
+[EffectDiag] 진단 시작  2026-06-08 09:53:36
+============================================================
+[09:54:06.138] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:06.139] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:06.140] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:06.157] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:06.158] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:06.159] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:08.127] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:08.128] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:08.128] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:08.132] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:08.133] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:08.133] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:10.124] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:10.124] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:10.125] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:10.127] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:10.128] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:10.129] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:10.997] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:10.998] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:10.999] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:11.235] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:11.236] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:11.237] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:12.124] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:12.125] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:12.126] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:12.127] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:12.129] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:12.129] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:12.997] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:12.998] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:12.998] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:13.234] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:13.234] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:13.236] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:15.000] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:15.003] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:15.004] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:15.235] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:15.237] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:15.237] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:16.003] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:16.004] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:16.005] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:16.250] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:16.252] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:16.253] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:16.845] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:16.847] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:16.849] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:16.996] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:16.997] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:16.998] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:17.229] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:17.229] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:17.230] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:18.007] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:18.009] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:18.011] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:18.246] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:18.247] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:18.247] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:18.836] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:18.837] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:18.839] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:19.004] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:19.004] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:19.006] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:20.003] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:20.004] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:20.005] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:20.250] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:20.252] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:20.253] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:20.837] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:20.837] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:20.839] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:20.994] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:20.996] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:20.997] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:22.007] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:22.008] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:22.009] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:22.249] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:22.250] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:22.251] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:22.841] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:22.841] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:22.841] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:22.900] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:22.901] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:22.901] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:22.994] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:22.995] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:22.996] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:23.274] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:23.275] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:23.275] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:24.002] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:24.003] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:24.004] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:24.351] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:24.351] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:24.351] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:24.838] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:24.839] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:24.840] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:24.905] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:24.906] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:24.906] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:25.004] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:25.005] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:25.006] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:25.272] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:25.272] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:25.273] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:26.352] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:26.352] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:26.354] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:26.901] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:26.901] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:26.902] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:26.997] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:26.997] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:26.999] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:27.268] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:27.269] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:27.270] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:27.913] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:27.914] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:27.914] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:28.416] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:28.417] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:28.418] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:28.901] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:28.902] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:28.904] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:29.264] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:29.264] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:29.266] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:29.912] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:29.913] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:29.914] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:30.422] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:30.423] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:30.423] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:30.905] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:30.905] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:30.906] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:31.263] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:31.264] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:31.264] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:31.375] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:31.376] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:31.378] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:31.918] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:31.920] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:31.921] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:32.416] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:32.417] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:32.418] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:32.867] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:32.868] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:32.868] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:32.909] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:32.910] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:32.911] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:33.374] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:33.374] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:33.376] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:33.916] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:33.917] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:33.918] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:34.859] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:34.860] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:34.861] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:35.376] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:35.377] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:35.378] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:36.365] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:36.367] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:36.368] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:36.567] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:36.568] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:36.568] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:37.375] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:37.378] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:37.379] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:37.826] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:37.826] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:37.827] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:38.205] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:38.206] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:38.206] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:38.208] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:38.208] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:38.209] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:38.366] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:38.367] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:38.368] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:38.557] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:38.557] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:38.558] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:39.382] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:39.383] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:39.384] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:39.824] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:39.824] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:39.825] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:40.203] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:40.204] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:40.205] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:40.207] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:40.208] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:40.209] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:40.366] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:40.367] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:40.368] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:40.559] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:40.560] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:40.562] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:41.821] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:41.823] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:41.824] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:42.199] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:42.199] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:42.200] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:42.202] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:42.203] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:42.203] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:42.356] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:42.357] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:42.358] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:42.865] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:42.865] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:42.868] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:43.198] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:43.199] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:43.200] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:43.822] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:43.828] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:43.830] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:44.200] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:44.200] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:44.202] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:44.205] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:44.206] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:44.206] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:44.404] [EffectDiag] OnAttackHit 호출 — unitData=Pistoleer, isAlive=True, EffectManager.Instance=True
+[09:54:44.406] [EffectDiag] PlayUnitAttack — type=Pistoleer, _unitConfig=True, preset=True, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject)
+[09:54:44.407] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Attack, vfxPrefab=vfx_pistoleer_attack (UnityEngine.GameObject), sfxClip=sfx_pistoleer_attack (UnityEngine.AudioClip)
+[09:54:44.508] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.517] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.524] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.529] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.535] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.541] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.548] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.555] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.562] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.569] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.576] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.582] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.588] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.593] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.600] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.605] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.611] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.618] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.623] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.629] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.634] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)
+[09:54:44.638] [EffectDiag] Play — preset=EffectPreset_Pistoleer_Death, vfxPrefab=vfx_unit_death (UnityEngine.GameObject), sfxClip=sfx_unit_death (UnityEngine.AudioClip)

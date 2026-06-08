@@ -143,6 +143,11 @@ namespace Hexiege.Bootstrap
             if (_floatingHpTextSpawner != null)
                 _floatingHpTextSpawner.Initialize(_positionProvider, _floatingTextContainer, _floatingHpTextPrefab);
 
+            // 10-3. EffectManager 초기화 — VFX/SFX Pool 구성 및 Config 연결
+            // 각 Config의 List → Dictionary 변환과 SFX Pool 사전 생성이 여기서 수행된다.
+            if (_effectManager != null)
+                _effectManager.Initialize(_unitEffectConfig, _buildingEffectConfig, _uiEffectConfig);
+
             // 11. Castle 자동 배치
             PlaceCastles(orientation, oc);
 

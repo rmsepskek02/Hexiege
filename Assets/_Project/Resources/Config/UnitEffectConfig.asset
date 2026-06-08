@@ -1,0 +1,90 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 280f109d20151f049952cdc847899c0d, type: 3}
+  m_Name: UnitEffectConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.UnitEffectConfig
+  _entries:
+  - unitType: 0
+    attackPreset: {fileID: 11400000, guid: 60d8c8cb91a39e44b9fe26824fd6a283, type: 2}
+    deathPreset: {fileID: 11400000, guid: 3ec9b19b1a309c44cb205ebf040e29cb, type: 2}
+  - unitType: 1
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 2
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 3
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 4
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 5
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 6
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 7
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 10
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 11
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 12
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 13
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 14
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 15
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 16
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 17
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 18
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 20
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 21
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 22
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 23
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 24
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 25
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 26
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}
+  - unitType: 27
+    attackPreset: {fileID: 0}
+    deathPreset: {fileID: 0}

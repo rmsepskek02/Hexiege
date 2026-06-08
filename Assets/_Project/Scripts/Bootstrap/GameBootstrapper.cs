@@ -150,6 +150,19 @@ namespace Hexiege.Bootstrap
         [Tooltip("부유 텍스트 오브젝트들의 부모 컨테이너 (씬의 FloatingTexts 빈 GameObject)")]
         [SerializeField] private Transform _floatingTextContainer;
 
+        [Header("Effect Manager")]
+        [Tooltip("VFX/SFX를 통합 관리하는 이펙트 매니저. 씬에 배치된 EffectManager 오브젝트 연결.")]
+        [SerializeField] private EffectManager _effectManager;
+
+        [Tooltip("유닛 타입별 공격/사망 이펙트 설정 ScriptableObject")]
+        [SerializeField] private UnitEffectConfig _unitEffectConfig;
+
+        [Tooltip("건물 타입별 파괴/업그레이드 이펙트 설정 ScriptableObject")]
+        [SerializeField] private BuildingEffectConfig _buildingEffectConfig;
+
+        [Tooltip("UI 이펙트 설정 ScriptableObject")]
+        [SerializeField] private UiEffectConfig _uiEffectConfig;
+
         [Header("UI Manager")]
         [Tooltip("게임 UI 생명주기 매니저. 게임 시작/종료 시 등록된 모든 UI에 콜백 호출.")]
         [SerializeField] private GameUIManager _uiManager;

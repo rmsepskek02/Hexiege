@@ -8671,6 +8671,7 @@ Transform:
   - {fileID: 341670089}
   - {fileID: 1532222246}
   - {fileID: 640988070}
+  - {fileID: 1461311452}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &574141991
@@ -14462,7 +14463,6 @@ MonoBehaviour:
   _config: {fileID: 11400000, guid: 7cca7135ba1fd4b4cb646e723c248995, type: 2}
   _unitStatsConfig: {fileID: 11400000, guid: 802548ed3a8262149b5e3252a6916407, type: 2}
   _buildingStatsConfig: {fileID: 11400000, guid: d7b6bea86b98d354b8d19851830d2678, type: 2}
-  _enableAI: 1
   _gridRenderer: {fileID: 1534373523}
   _cameraController: {fileID: 330585548}
   _inputHandler: {fileID: 2140535622}
@@ -14486,6 +14486,10 @@ MonoBehaviour:
   _floatingHpTextSpawner: {fileID: 537064935}
   _floatingHpTextPrefab: {fileID: 6989848277667135276, guid: 063238727b75d514b83baa8e21fc9aee, type: 3}
   _floatingTextContainer: {fileID: 1881939769}
+  _effectManager: {fileID: 1461311451}
+  _unitEffectConfig: {fileID: 11400000, guid: bfc1cdad4b27d614c9d16d0a4cc948bd, type: 2}
+  _buildingEffectConfig: {fileID: 11400000, guid: 7fed065e003df024e823348951f99cea, type: 2}
+  _uiEffectConfig: {fileID: 11400000, guid: 83d2f978cdafca447ae746731c5a5f6e, type: 2}
   _uiManager: {fileID: 640988069}
   _inGameSettingsUI: {fileID: 1733172840}
   _confirmPopup: {fileID: 1103865167}
@@ -14922,6 +14926,37 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!1 &1117619990
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1117619991}
+  m_Layer: 0
+  m_Name: VFX_Container
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1117619991
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1117619990}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1461311452}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1127994751
 GameObject:
   m_ObjectHideFlags: 0
@@ -16118,6 +16153,37 @@ MonoBehaviour:
   m_FlexibleWidth: 1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
+--- !u!1 &1189639621
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1189639622}
+  m_Layer: 0
+  m_Name: SFX_Container
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1189639622
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1189639621}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1461311452}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1190594041
 GameObject:
   m_ObjectHideFlags: 0
@@ -20156,6 +20222,56 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1458369112}
   m_CullTransparentMesh: 1
+--- !u!1 &1461311450
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1461311452}
+  - component: {fileID: 1461311451}
+  m_Layer: 0
+  m_Name: EffectManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1461311451
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1461311450}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5eb3209c3a8c49d4faea46b4509f6e08, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.EffectManager
+  _vfxContainer: {fileID: 1117619991}
+  _sfxContainer: {fileID: 1189639622}
+  _maxConcurrentSfx: 8
+  _initialPoolSizePerType: 5
+--- !u!4 &1461311452
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1461311450}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1117619991}
+  - {fileID: 1189639622}
+  m_Father: {fileID: 565899220}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1471920958
 GameObject:
   m_ObjectHideFlags: 0

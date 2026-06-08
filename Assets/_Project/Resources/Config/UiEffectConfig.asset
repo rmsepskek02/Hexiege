@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 933d9e361e8b4d24e808e58ab95c70cc, type: 3}
+  m_Name: UiEffectConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.UiEffectConfig
+  _entries:
+  - key: 0
+    preset: {fileID: 0}
+  - key: 1
+    preset: {fileID: 0}
+  - key: 2
+    preset: {fileID: 0}
+  - key: 3
+    preset: {fileID: 0}
+  - key: 4
+    preset: {fileID: 0}
+  - key: 5
+    preset: {fileID: 0}
+  - key: 6
+    preset: {fileID: 0}
