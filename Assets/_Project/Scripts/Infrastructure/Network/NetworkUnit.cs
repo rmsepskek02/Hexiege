@@ -42,6 +42,7 @@ using Unity.Netcode;
 using UnityEngine;
 using Hexiege.Core;
 using Hexiege.Application;
+using Hexiege.Presentation;
 
 namespace Hexiege.Infrastructure
 {
@@ -168,6 +169,22 @@ namespace Hexiege.Infrastructure
             // 안전망: Despawn 시 혹시 남아있는 콜백 해제.
             // 이미 해제된 상태여도 -= 연산은 에러 없이 무시됨.
             _unitId.OnValueChanged -= OnUnitIdReceived;
+
+            // 클라이언트 전용: 사망 이펙트를 여기서 재생한다.
+            // OnNetworkDespawn은 GO가 파괴되기 직전에 반드시 호출되므로
+            // EntityDiedClientRpc보다 NGO Despawn이 먼저 도착하는 경쟁 조건에서도 이펙트가 보장된다.
+            // 서버는 UnitView의 OnUnitDied 구독자에서 이미 재생하므로 클라이언트만 처리한다.
+            if (!IsServer)
+            {
+                var unitView = GetComponent<UnitView>();
+
+                if (unitView != null && unitView.UnitData != null)
+                {
+                    EffectManager.Instance?.PlayUnitDeath(
+                        unitView.UnitData.Type,
+                        transform.position);
+                }
+            }
 
             base.OnNetworkDespawn();
         }

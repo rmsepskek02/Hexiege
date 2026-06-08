@@ -719,15 +719,25 @@ ClaimedTile 해제, ProcessStep(Position 갱신 + SetOwner)
 - 패배한 유닛은 타일 중앙에 도달하지 못하므로 점령 불가
 - SetOwner는 Lerp 완료 후 ProcessStep에서만 호출 (변경 없음)
 
-#### 사망 처리 (Dead Entity Cleanup, 2026-05-18 강타입 분리)
+#### 사망 처리 (Dead Entity Cleanup, 2026-05-18 강타입 분리 / 2026-06-08 NGO Despawn 패턴 수정)
 ```
 UnitCombatUseCase.ExecuteAttack()
   ↓ target.IsAlive == false
 GameEvents.OnUnitDied (유닛) 또는 OnBuildingDied (건물) 강타입 이벤트 발행
   ↓
-[유닛 사망]
-1. UnitView가 구독 → GameObject.Destroy()
+[유닛 사망 — 싱글플레이]
+1. UnitView 구독(Presentation) → EffectManager.PlayUnitDeath() → Destroy(gameObject)
 2. UnitSpawnUseCase.RemoveUnit() → Dictionary에서 제거
+
+[유닛 사망 — 멀티플레이]
+※ 레이어 규칙: Presentation(UnitView)은 Unity.Netcode 직접 참조 금지 → NetworkContext 홀더만 사용
+1. 서버: NetworkCombatController(Infrastructure) 구독
+   → EntityDiedClientRpc 발행 → NetworkObject.Despawn(destroy:true)
+   → 모든 클라이언트에 GO 파괴 전파 (Destroy(gameObject)는 NGO 전파 불보장)
+   → 서버측 UnitView도 OnUnitDied 수신 → EffectManager.PlayUnitDeath() (서버 화면 이펙트)
+2. 클라이언트: UnitView.OnUnitDied() → NetworkContext.IsNetworkActive && !IsNetworkServer → return (처리 없음)
+   클라이언트: NetworkUnit.OnNetworkDespawn() 자동 호출 → EffectManager.PlayUnitDeath() → GO NGO 파괴
+3. 서버/클라이언트 공통: EntityDiedClientRpc 수신 측에서 OnUnitDied 재발행 → UnitSpawnUseCase.RemoveUnit()
 
 [건물 사망/철거]
 1. BuildingFactory가 OnBuildingDied 구독 → _buildingObjects Dict O(1) 조회 → GO Destroy

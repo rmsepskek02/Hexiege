@@ -1,0 +1,42 @@
+=== 유닛 사망 NGO 버그 픽스 검증 로그 ===
+=== 세션 시작: 2026-06-08 10:52:40 / IsServer=False ===
+[10:53:23.124] [UnitView] OnUnitDied — type=Pistoleer, IsNetworkActive=True, IsNetworkServer=False
+[10:53:23.125] [UnitView] 클라이언트 경로 — return
+[10:53:23.130] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:23.130] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:23.133] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:24.412] [UnitView] OnUnitDied — type=Pistoleer, IsNetworkActive=True, IsNetworkServer=False
+[10:53:24.413] [UnitView] 클라이언트 경로 — return
+[10:53:24.413] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:24.415] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:24.416] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:27.931] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:27.931] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:27.932] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:27.932] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:27.933] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:27.934] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:27.934] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:27.934] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:27.936] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:27.936] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:27.937] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:27.937] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:27.938] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:27.938] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:27.939] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:27.940] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:27.940] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:27.941] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:27.942] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:27.943] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:27.943] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:27.943] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:27.944] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:27.945] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:27.945] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:27.945] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:27.946] [클라이언트] 이펙트 재생 완료 — type=Pistoleer
+[10:53:27.946] [NetworkUnit] OnNetworkDespawn — IsServer=False
+[10:53:27.947] [클라이언트] 이펙트 재생 시도 — unitView=있음, UnitData=Pistoleer
+[10:53:27.948] [클라이언트] 이펙트 재생 완료 — type=Pistoleer

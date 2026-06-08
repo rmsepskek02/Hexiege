@@ -512,7 +512,47 @@ namespace Hexiege.Infrastructure
             Debug.Log($"[Network] 서버: 유닛 사망. Id={unitId}");
 
             // 모든 클라이언트에 사망 전파. RPC 시그니처는 유지(isUnit=true).
+            // EntityDiedClientRpc는 클라이언트의 도메인 데이터 정리 + OnUnitDied 재발행을 담당한다.
             EntityDiedClientRpc(unitId, true);
+
+            // ────────────────────────────────────────────────────────────────
+            // [핵심 수정 — 2026-06-08] NGO를 통한 클라이언트 GameObject 파괴.
+            //
+            // 왜 필요한가:
+            //   서버 UnitView의 OnUnitDied 구독자가 Destroy(gameObject)를 호출해도
+            //   그 파괴는 서버 로컬에서만 일어나며 NGO를 통해 클라이언트로 전파되지 않는다.
+            //   결과적으로 클라이언트 화면에는 죽은 유닛의 GameObject가 그대로 남는다.
+            //
+            //   NGO에서 클라이언트의 네트워크 오브젝트를 함께 파괴하려면
+            //   반드시 서버에서 NetworkObject.Despawn(destroy: true)를 명시적으로 호출해야 한다.
+            //   이렇게 하면:
+            //     1) NGO가 모든 클라이언트에 Despawn 메시지를 보낸다.
+            //     2) 클라이언트에서 NetworkUnit.OnNetworkDespawn()이 호출되어
+            //        사망 이펙트를 재생한 뒤 GameObject가 자동으로 파괴된다.
+            //     3) 서버(Host)에서도 destroy: true에 의해 GameObject가 파괴되므로
+            //        UnitView가 별도로 Destroy를 호출할 필요가 없다.
+            //
+            // 주의: 이 처리는 Infrastructure 레이어 안에서만 NGO API를 사용하므로
+            //       레이어 규칙(Presentation에서 Unity.Netcode 직접 참조 금지)을 위반하지 않는다.
+            // ────────────────────────────────────────────────────────────────
+            if (_bootstrapper != null)
+            {
+                UnitFactory unitFactory = _bootstrapper.GetUnitFactory();
+                GameObject unitObj = unitFactory != null
+                    ? unitFactory.GetUnitObject(unitId)
+                    : null;
+
+                if (unitObj != null)
+                {
+                    NetworkObject netObj = unitObj.GetComponent<NetworkObject>();
+                    // 아직 스폰 상태인 NetworkObject만 Despawn 가능.
+                    // (이미 다른 경로로 Despawn된 경우 중복 호출 시 NGO가 경고를 출력하므로 가드)
+                    if (netObj != null && netObj.IsSpawned)
+                    {
+                        netObj.Despawn(destroy: true);
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -543,7 +583,9 @@ namespace Hexiege.Infrastructure
         /// 클라이언트:
         ///   1. 도메인 데이터(Unit/Building) Dictionary에서 제거
         ///   2. GameEvents.OnUnitDied 또는 GameEvents.OnBuildingDied 발행
-        ///      → UnitView가 GameObject 파괴 / BuildingFactory가 건물 GameObject 파괴
+        ///      → 유닛 GameObject 파괴는 서버의 NetworkObject.Despawn(destroy:true)가
+        ///        NGO를 통해 자동 처리(NetworkUnit.OnNetworkDespawn에서 이펙트 재생).
+        ///      → 건물은 BuildingFactory가 OnBuildingDied 구독으로 GameObject 파괴.
         ///      → GameEndUseCase(클라이언트)가 Castle 사망 감지 → GameEndUI 반응
         /// </summary>
         /// <param name="entityId">사망한 엔티티 Id</param>

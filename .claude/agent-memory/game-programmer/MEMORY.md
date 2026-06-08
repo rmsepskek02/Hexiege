@@ -20,8 +20,66 @@
 - NetworkBehaviour는 씬에 NetworkObject로 배치해야 RPC 작동
 - RPC 파라미터: 직렬화 가능 타입만 (INetworkSerializable 또는 기본 타입/enum)
 - 클라이언트 전용 분기: `NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer`
+- **NetworkObject.Despawn(destroy: true)**: 서버에서만 호출 가능. `Destroy(gameObject)`는 NGO 클라이언트 전파 불보장 — 반드시 Despawn 명시 호출 (2026-06-08 확인)
+- **유닛 사망 패턴**: NetworkCombatController.OnUnitDied()에서 EntityDiedClientRpc 발행 후 `NetworkObject.Despawn(true)` 호출. 클라이언트는 `NetworkUnit.OnNetworkDespawn()`에서 이펙트 재생. UnitView(Presentation)는 Unity.Netcode 직접 참조 금지 — NetworkContext 홀더 패턴만 사용
 
 ## 최근 작업
+
+### 멀티플레이 유닛 사망 NGO Despawn 버그 수정 (2026-06-08) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-08/02_27_networkobject-invalid-destroy/`
+
+**증상**: 멀티플레이에서 유닛 사망 시 클라이언트 화면에 GO가 사라지지 않고 사망 이펙트도 재생되지 않음.
+
+**근본 원인**: 서버 `UnitView.OnUnitDied()`에서 `Destroy(gameObject)` 호출이 NGO Despawn 메시지를 클라이언트에 전파하지 않음.
+
+**핵심 교훈**: NGO에서 클라이언트로 GO 파괴를 전파하려면 서버에서 반드시 `NetworkObject.Despawn(destroy: true)`를 명시 호출해야 한다. `Destroy(gameObject)` 방식은 NGO 전파 불보장.
+
+**수정 내용**:
+- `NetworkCombatController.cs` — `OnUnitDied()` 서버 핸들러: `EntityDiedClientRpc` 발행 후 `UnitFactory.GetUnitObject(unitId)`로 GO 조회 → `NetworkObject.Despawn(true)` 명시 호출
+- `UnitView.cs` — `Unity.Netcode.NetworkObject` / `NetworkManager.Singleton` 직접 참조 완전 제거 (레이어 규칙 위반 수정). `NetworkContext.IsNetworkActive` / `IsNetworkServer` 홀더 패턴으로 교체
+- `NetworkUnit.cs` — `OnNetworkDespawn()` 클라이언트: 이펙트 재생 로직 유지 (임시 진단 코드 제거)
+- `EffectManager.cs` — 임시 진단 로그 코드(DiagLog/DeathLog) 완전 제거
+
+**레이어 규칙 재확인**: `NetworkBehaviour` 및 Unity.Netcode 직접 참조 → Infrastructure 레이어 전용. Presentation(UnitView)에서 Unity.Netcode 참조는 절대 금지.
+
+**런타임 로그 검증**: 13킬 전체에서 `OnNetworkDespawn` 게임플레이 중 발생(씬 언로드 시만 발생하던 이전과 대조) + 이펙트 재생 완료 확인.
+
+---
+
+### EffectManager VFX/SFX 통합 시스템 (2026-06-08) 🔵 코드 완료 / Inspector 작업 + 실기 테스트 예정
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-08/00_20_effect-manager-system/`
+
+**신규 생성 파일 (전부 `Presentation/Effects/`, namespace Hexiege.Presentation)**:
+- `EffectPreset.cs` — VFX 프리팹 + SFX 클립 + 볼륨 묶는 ScriptableObject. CreateAssetMenu "Hexiege/Effects/EffectPreset"
+- `UnitEffectConfig.cs` — UnitType별 attack/death 프리셋. List<Entry> + Initialize()에서 Dictionary 캐싱 (UnitStatsConfig 패턴)
+- `BuildingEffectConfig.cs` — BuildingType별 destroy/upgrade 프리셋. 동일 패턴
+- `UiEffectConfig.cs` — UiEffectKey(enum 7종) → preset. enum은 이 파일 상단에 정의
+- `VfxPoolItem.cs` — ParticleSystem.IsAlive(true) false 시 자동 Pool 반환. EffectManager가 Instantiate 시 없으면 AddComponent (프리팹 사전 준비 불필요)
+- `EffectManager.cs` — static Instance (DontDestroyOnLoad 없음, Game씬 전용). VFX Pool(Dictionary<GameObject,Queue> 프리팹별, 무제한) + SFX Pool(공유 Queue<AudioSource>, 동시 8개 제한, spatialBlend=0 2D)
+- `Assets/Editor/Setup/SetupEffectConfigs.cs` — 메뉴 3종(UnitEffectConfig/BuildingEffectConfig/UiEffectConfig 생성). SerializedObject로 private _entries 채움
+
+**수정 파일**:
+- `Presentation/Unit/UnitView.cs` — `OnAttackHit()`에 `EffectManager.Instance?.PlayUnitAttack` + OnUnitDied 구독 블록 Destroy 직전 `PlayUnitDeath` 추가
+- `Bootstrap/GameBootstrapper.cs` — `_effectManager/_unitEffectConfig/_buildingEffectConfig/_uiEffectConfig` SerializeField 추가 (Floating HP Text 헤더 아래)
+- `Bootstrap/GameBootstrapper.Map.cs` — FloatingHpTextSpawner Initialize 직후 `_effectManager?.Initialize(...)` 호출
+- `Presentation/Unit/UnitEffectView.cs` — DEPRECATED 주석 + 전체 /* */ 비활성화 (프리팹 컴포넌트 제거 + 파일 삭제는 실기 PASS 후)
+
+**핵심 설계 결정**:
+- **공격 VFX는 반드시 OnAttackHit() Animation Event 기반** — `GameEvents.OnEntityAttacked`는 서버 전용이라 멀티 클라이언트 미도달. AnimationEventRelay.OnAttackHit() → UnitView.OnAttackHit()는 모든 클라이언트 로컬 실행이라 멀티에서도 정상
+- **static Instance 채택 이유**: 프리팹 Animation Event 호출이라 DI 불가 → `EffectManager.Instance?.` 직접 접근. SingletonMonoBehaviour는 DontDestroyOnLoad 포함이라 Game씬 전용에 부적합
+- **enum SerializedProperty 주의**: UnitType/BuildingType은 값이 비연속(0,1..7,10..)이므로 `enumValueIndex`에 정수값 직접 대입 금지 → enumNames 순회하며 intValue 일치 인덱스 탐색 (SetupEffectConfigs.EnumIndexOf 헬퍼)
+- **VFX Pool은 프리팹별 lazy 생성** — init 시점에 어떤 프리팹 쓸지 모름. `_initialPoolSizePerType`은 향후 워밍업용 (현재 미사용, SerializeField라 CS0414 경고 없음)
+- **SFX 8개 제한**: `_activeSfxCount < _maxConcurrentSfx` 검사, 초과 시 무시. Coroutine으로 clip.length+0.1초 후 반환
+
+**Inspector 작업 (사용자 수행 필요)**:
+1. 메뉴 `Hexiege/Setup/UnitEffectConfig 생성` / `BuildingEffectConfig 생성` / `UiEffectConfig 생성` 3종 실행 → Resources/Config/*.asset 생성
+2. Game.unity에 EffectManager GameObject 배치 + VFX_Container / SFX_Container 빈 자식 생성 후 연결
+3. GameBootstrapper Inspector에 EffectManager + Config 3종 연결
+4. EffectPreset 에셋 만들어 Config에 연결 (VFX 프리팹 / SFX 클립)
+
+---
 
 ### 싱글플레이 AI 시스템 Phase 1~5 + UI (2026-06-07) 🔵 코드 완료 / AI 시나리오 작업 후 실기 테스트 예정
 

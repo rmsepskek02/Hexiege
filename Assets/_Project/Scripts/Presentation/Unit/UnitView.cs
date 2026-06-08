@@ -96,6 +96,9 @@ namespace Hexiege.Presentation
         /// <summary> 이 유닛에 연결된 Domain 데이터. </summary>
         private UnitData _unitData;
 
+        /// <summary> NetworkUnit.OnNetworkDespawn에서 클라이언트 이펙트 재생 시 타입 참조용. </summary>
+        public UnitData UnitData => _unitData;
+
         /// <summary> Animator — 상태 전환 및 애니메이션 재생. </summary>
         private Animator _animator;
 
@@ -444,7 +447,40 @@ namespace Hexiege.Presentation
                             _animator.speed = 1f;
                             _animator.SetBool(AnimIsDead, true);
                         }
-                        Destroy(gameObject);
+
+                        // ────────────────────────────────────────────────────
+                        // 멀티플레이 클라이언트:
+                        //   사망 이펙트 재생과 GameObject 파괴를 모두
+                        //   NetworkUnit.OnNetworkDespawn()에서 처리한다.
+                        //   (서버가 NetworkObject.Despawn(destroy:true)를 호출하면
+                        //    NGO가 이 클라이언트의 OnNetworkDespawn을 부르고 GO를 파괴한다.)
+                        //   따라서 클라이언트는 여기서 아무것도 하지 않고 즉시 반환한다.
+                        //
+                        //   레이어 규칙 준수:
+                        //     Presentation 레이어에서는 Unity.Netcode를 직접 참조하지 않고
+                        //     Application 레이어의 NetworkContext 정적 홀더만 사용한다.
+                        // ────────────────────────────────────────────────────
+                        if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer)
+                        {
+                            // 멀티플레이 클라이언트 경로 — 여기서는 아무것도 하지 않고 반환.
+                            //   (이펙트 재생/파괴는 NetworkUnit.OnNetworkDespawn이 담당)
+                            return;
+                        }
+
+                        // 서버 또는 싱글플레이: 사망 이펙트를 여기서 즉시 재생.
+                        // EffectManager가 아직 없는 경우를 대비해 ?. 연산자로 안전 처리.
+                        EffectManager.Instance?.PlayUnitDeath(_unitData.Type, transform.position);
+
+                        // GameObject 파괴 경로 분기:
+                        //   - 싱글플레이: NGO가 없으므로 여기서 직접 Destroy한다.
+                        //   - 멀티플레이 서버: 파괴하지 않는다.
+                        //       NetworkCombatController가 NetworkObject.Despawn(destroy:true)로
+                        //       서버/클라이언트 GameObject를 함께 파괴하기 때문이다.
+                        //       (여기서 Destroy를 호출하면 Despawn 대상이 사라져 NGO 경고가 발생한다.)
+                        if (!NetworkContext.IsNetworkActive)
+                        {
+                            Destroy(gameObject);
+                        }
                     }
                 })
                 .AddTo(this);
@@ -1459,6 +1495,12 @@ namespace Hexiege.Presentation
         public void OnAttackHit()
         {
             if (_unitData == null || !_unitData.IsAlive) return;
+
+            // 공격 이펙트 재생 (VFX + SFX 동시).
+            // OnAttackHit은 모든 클라이언트에서 로컬로 실행되는 Animation Event이므로
+            // 멀티플레이에서도 양쪽 화면에 공격 이펙트가 정상 재생된다.
+            // EffectManager가 아직 없는 경우(초기화 전/테스트 등)를 대비해 ?. 연산자로 안전 처리.
+            EffectManager.Instance?.PlayUnitAttack(_unitData.Type, transform.position);
 
             StartCoroutine(HitReactionCoroutine());
         }
