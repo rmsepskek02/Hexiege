@@ -25,6 +25,24 @@
 
 ## 최근 작업
 
+### 전체 유닛 사망 VFX 적용 (2026-06-08) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-08/19_08_unit-death-vfx/`
+
+**배경**: EffectManager.PlayUnitDeath()는 UnitEffectConfig.GetDeath(type) → preset이 null이면 즉시 반환. Pistoleer(unitType=0)만 deathPreset이 연결되어 있고 나머지 23종은 null이었음. 코드 흐름(UnitView 싱글/서버 481줄, NetworkUnit.OnNetworkDespawn 클라이언트 183줄)은 이미 정상 구현 상태.
+
+**해결**: 코드 변경 없음 — 에셋 작업만으로 완료.
+- `EffectPreset_Unit_Death_Common.asset` 신규 생성 (vfx_unit_death.prefab + 사망 SFX, 볼륨 1.0)
+- 1회성 에디터 스크립트 `SetUnitDeathVfxAll.cs` — 메뉴 `Hexiege/Setup/Set Unit Death VFX (All Units)`
+  - GUID 기반 VFX 프리팹/SFX 클립 로드 → EffectPreset 생성 → UnitEffectConfig 전체 24종 deathPreset 일괄 연결
+- 기존 `EffectPreset_Pistoleer_Death.asset` 삭제 (참조 없음 확인 후 제거)
+
+**에디터 스크립트 패턴**:
+- `ScriptableObject.CreateInstance<T>()` → `AssetDatabase.CreateAsset()` → `SerializedObject`로 private 필드 설정
+- `AssetDatabase.GUIDToAssetPath(guid)` → `LoadAssetAtPath<T>()` 로 GUID 기반 에셋 로드 (파일 이동/이름변경에 안정적)
+
+---
+
 ### 유닛 VFX 디테일 개선 (2026-06-08) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-08/14_44_vfx-scaling-mode-fix/`

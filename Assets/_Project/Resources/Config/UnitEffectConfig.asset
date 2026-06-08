@@ -15,76 +15,76 @@ MonoBehaviour:
   _entries:
   - unitType: 0
     attackPreset: {fileID: 11400000, guid: 60d8c8cb91a39e44b9fe26824fd6a283, type: 2}
-    deathPreset: {fileID: 11400000, guid: 3ec9b19b1a309c44cb205ebf040e29cb, type: 2}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 1
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 2
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 3
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 4
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 5
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 6
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 7
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 10
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 11
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 12
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 13
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 14
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 15
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 16
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 17
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 18
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 20
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 21
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 22
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 23
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 24
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 25
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 26
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 27
     attackPreset: {fileID: 0}
-    deathPreset: {fileID: 0}
+    deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
