@@ -3252,7 +3252,7 @@ MonoBehaviour:
   - type: 15
     icon: {fileID: 21300000, guid: b7345bb4f8d86b34ca715c2bd05854a7, type: 3}
   - type: 18
-    icon: {fileID: 7803112687322105301, guid: ebf43161662ae0d46a41eb7c6a602f14, type: 3}
+    icon: {fileID: 21300000, guid: ebf43161662ae0d46a41eb7c6a602f14, type: 3}
   - type: 21
     icon: {fileID: 21300000, guid: 1cd1597824efcdf42885e558f3aa15a9, type: 3}
   - type: 2
