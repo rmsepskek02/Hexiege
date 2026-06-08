@@ -25,6 +25,26 @@
 
 ## 최근 작업
 
+### 유닛 VFX 디테일 개선 (2026-06-08) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-08/14_44_vfx-scaling-mode-fix/`
+
+**작업 1 — ScalingMode 수정**
+- 유닛 VFX 프리팹 3개(`vfx_pistoleer_attack`, `vfx_tank_attack`, `vfx_unit_death`)의 모든 ParticleSystem이 `scalingMode: 1`(Local) 상태 — Unity 기본값이 Local이라 의도치 않게 방치된 것
+- `scalingMode: 0`(Hierarchy)로 변경하는 1회성 에디터 스크립트 `VfxScalingModeFixer.cs` 작성 후 실행
+- 이후 루트 Transform Scale로 이펙트 전체 크기 조절 가능해짐
+
+**작업 2 — VfxSpawnPoint 스폰 위치/회전 수정**
+- `UnitView.cs`: `[SerializeField] Transform _vfxSpawnPoint` 추가. `OnAttackHit()`에서 위치는 `_vfxSpawnPoint.position`, 회전은 `Quaternion.LookRotation(transform.forward)` 사용
+- `EffectManager.cs`: `PlayUnitAttack(UnitType, Vector3, Quaternion)` 시그니처로 확장
+- **핵심 교훈 — VfxSpawnPoint가 스켈레톤 본 하위에 있을 때**: `_vfxSpawnPoint.rotation`은 본 회전(약 0,-90,-90도)이 섞여 VFX가 엉뚱한 방향으로 발사됨. 위치(`position`)는 본 덕분에 정확하므로 그대로 사용하되, **회전은 반드시 `Quaternion.LookRotation(transform.forward)`로 대체**
+
+**작업 3 — vfx_unit_death 퍼짐 효과 제거**
+- 3개 ParticleSystem의 `startSpeed`를 모두 0으로 설정 (YAML 직접 수정)
+- 루트 PS: scalar 0.2→0, Lingerer: 0.3→0, PuffBurst: scalar 2.6/minScalar 1.8→ 0/0
+
+---
+
 ### 멀티플레이 유닛 사망 NGO Despawn 버그 수정 (2026-06-08) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-08/02_27_networkobject-invalid-destroy/`

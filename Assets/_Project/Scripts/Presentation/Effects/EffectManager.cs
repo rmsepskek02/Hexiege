@@ -152,12 +152,14 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 유닛 공격 이펙트 재생. UnitView.OnAttackHit()(Animation Event)에서 호출.
+        /// 피스톨러처럼 방향성이 있는 VFX를 위해 회전(rot)을 함께 받는다.
         /// </summary>
         /// <param name="type">공격한 유닛의 타입.</param>
-        /// <param name="pos">재생할 월드 좌표 (보통 유닛 위치).</param>
-        public void PlayUnitAttack(UnitType type, Vector3 pos)
+        /// <param name="pos">재생할 월드 좌표 (보통 총구 또는 유닛 위치).</param>
+        /// <param name="rot">재생할 월드 회전 (VFX 발사 방향). 방향성이 없는 VFX는 영향 없음.</param>
+        public void PlayUnitAttack(UnitType type, Vector3 pos, Quaternion rot)
         {
-            Play(_unitConfig?.GetAttack(type), pos);
+            Play(_unitConfig?.GetAttack(type), pos, rot);
         }
 
         /// <summary>
@@ -167,7 +169,8 @@ namespace Hexiege.Presentation
         /// <param name="pos">재생할 월드 좌표.</param>
         public void PlayUnitDeath(UnitType type, Vector3 pos)
         {
-            Play(_unitConfig?.GetDeath(type), pos);
+            // 사망 VFX는 방향성이 없으므로 회전 없이(identity) 재생.
+            Play(_unitConfig?.GetDeath(type), pos, Quaternion.identity);
         }
 
         /// <summary>
@@ -177,7 +180,8 @@ namespace Hexiege.Presentation
         /// <param name="pos">재생할 월드 좌표.</param>
         public void PlayBuildingDestroy(BuildingType type, Vector3 pos)
         {
-            Play(_buildingConfig?.GetDestroy(type), pos);
+            // 건물 파괴 VFX는 방향성이 없으므로 회전 없이(identity) 재생.
+            Play(_buildingConfig?.GetDestroy(type), pos, Quaternion.identity);
         }
 
         /// <summary>
@@ -187,7 +191,8 @@ namespace Hexiege.Presentation
         /// <param name="pos">재생할 월드 좌표.</param>
         public void PlayBuildingUpgrade(BuildingType type, Vector3 pos)
         {
-            Play(_buildingConfig?.GetUpgrade(type), pos);
+            // 건물 업그레이드 VFX는 방향성이 없으므로 회전 없이(identity) 재생.
+            Play(_buildingConfig?.GetUpgrade(type), pos, Quaternion.identity);
         }
 
         /// <summary>
@@ -196,8 +201,8 @@ namespace Hexiege.Presentation
         /// <param name="key">재생할 UI 이펙트 키.</param>
         public void PlayUi(UiEffectKey key)
         {
-            // UI 이펙트는 화면 좌표 개념이 없으므로 원점에서 재생 (SFX는 위치 무관).
-            Play(_uiConfig?.Get(key), Vector3.zero);
+            // UI 이펙트는 화면 좌표 개념이 없으므로 원점에서 회전 없이(identity) 재생 (SFX는 위치/회전 무관).
+            Play(_uiConfig?.Get(key), Vector3.zero, Quaternion.identity);
         }
 
         // ====================================================================
@@ -210,7 +215,8 @@ namespace Hexiege.Presentation
         /// </summary>
         /// <param name="preset">재생할 이펙트 프리셋. null이면 조기 반환.</param>
         /// <param name="pos">재생할 월드 좌표.</param>
-        private void Play(EffectPreset preset, Vector3 pos)
+        /// <param name="rot">재생할 월드 회전. 방향성 있는 VFX(피스톨러 등)에 사용. 방향 무관 호출은 identity 전달.</param>
+        private void Play(EffectPreset preset, Vector3 pos, Quaternion rot)
         {
             // preset이 null이면 이펙트 미설정 유닛/건물이므로 아무것도 하지 않는다.
             if (preset == null) return;
@@ -219,7 +225,7 @@ namespace Hexiege.Presentation
             if (preset.VfxPrefab != null)
             {
                 VfxPoolItem item = GetOrCreateVfx(preset.VfxPrefab);
-                item.Play(pos, Quaternion.identity);
+                item.Play(pos, rot);
             }
 
             // ── SFX ── 클립이 있고 동시 재생 한도 미만일 때만 재생.

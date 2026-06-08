@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-06-07
-**현재 단계:** AI 시스템 코드 구현 완료 — Inspector 작업 + 실기 테스트 필요. 신규 유닛 프리팹 실기 테스트 예정 + UI FAIL 잔여 5항목 + Login.unity 씬 조립 진행 필요
+**최종 수정일:** 2026-06-08
+**현재 단계:** AI 시스템 코드 구현 완료 + VFX 디테일 개선 완료 — AI Inspector 작업 + 실기 테스트 필요. 신규 유닛 프리팹 실기 테스트 예정 + UI FAIL 잔여 5항목 + Login.unity 씬 조립 진행 필요
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---

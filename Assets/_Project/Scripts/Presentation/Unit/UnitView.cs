@@ -89,6 +89,15 @@ namespace Hexiege.Presentation
         [Tooltip("Attack → Walk 전환 시 CrossFade 블렌드 시간 (초). 규칙 3: 0.10초")]
         [SerializeField] private float _attackToWalkBlend = 0.10f;
 
+        /// <summary>
+        /// 공격 VFX를 재생할 기준 위치/회전을 제공하는 빈 자식 Transform(예: 총구 끝).
+        /// 프리팹에서 무기 끝 같은 위치에 빈 GameObject("VfxSpawnPoint")를 두고 이 슬롯에 연결한다.
+        /// 유닛은 공격 시 적 방향으로 이미 회전하므로, 이 Transform의 월드 회전이 곧 발사 방향이 된다.
+        /// 연결하지 않은 유닛(피스톨러 외)은 기존처럼 유닛 발 위치(transform.position)로 폴백한다.
+        /// </summary>
+        [Tooltip("공격 VFX 스폰 기준 Transform(총구 등). 비어 있으면 유닛 발 위치로 폴백.")]
+        [SerializeField] private Transform _vfxSpawnPoint;
+
         // ====================================================================
         // 내부 참조
         // ====================================================================
@@ -1500,7 +1509,15 @@ namespace Hexiege.Presentation
             // OnAttackHit은 모든 클라이언트에서 로컬로 실행되는 Animation Event이므로
             // 멀티플레이에서도 양쪽 화면에 공격 이펙트가 정상 재생된다.
             // EffectManager가 아직 없는 경우(초기화 전/테스트 등)를 대비해 ?. 연산자로 안전 처리.
-            EffectManager.Instance?.PlayUnitAttack(_unitData.Type, transform.position);
+
+            // VfxSpawnPoint가 연결된 유닛(피스톨러 등)은 총구 위치를 스폰 기준점으로 사용한다.
+            // ※ 회전은 VfxSpawnPoint.rotation을 쓰지 않는다.
+            //   VfxSpawnPoint가 스켈레톤 본(손 부위) 하위에 배치되어 있어,
+            //   월드 회전에 본 고유 회전(약 0, -90, -90도)이 섞여 VFX가 엉뚱한 방향으로 발사되기 때문이다.
+            //   위치는 본 덕분에 정확하므로 유지하고, 회전만 유닛 루트의 정면 방향으로 교체한다.
+            Vector3 spawnPos = _vfxSpawnPoint != null ? _vfxSpawnPoint.position : transform.position;
+            Quaternion spawnRot = Quaternion.LookRotation(transform.forward);
+            EffectManager.Instance?.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot);
 
             StartCoroutine(HitReactionCoroutine());
         }
