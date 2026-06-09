@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "896888428641",
+    "project_id": "hexiege",
+    "storage_bucket": "hexiege.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:896888428641:android:b3fff4907ca0c08bfcf220",
+        "android_client_info": {
+          "package_name": "com.gorocompany.hexiege"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWO81eQEg5oJLgnbvkNn7WYl03OIaEaPE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

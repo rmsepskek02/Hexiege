@@ -34,12 +34,41 @@
 
 ## 구현 단계
 
-### [1] Login.unity 씬 생성
+### [1] Login.unity 씬 생성 ✅ 완료 (SetupLoginScene.cs 에디터 스크립트)
 
 - 경로: `Assets/_Project/Scenes/Login.unity`
 - 빈 씬 생성 후 Canvas (Screen Space - Overlay) 추가
-- Build Settings에 등록
-- 로그인 기능 테스트 시: Login = 0, Lobby = 1, Game = 2
+- Build Settings에 등록 (Login = 0, Lobby = 1, Game = 2)
+- 메뉴 실행: `Hexiege/Setup/Login 씬 생성`
+
+#### UI 구조 설계 결정
+
+**씬 계층 구조** (GameSystemRules_UI.md Rule 4 준수):
+```
+Canvas
+├── Background          ← bg_login.png 전체화면 배경 (SafeAreaContainer 밖, raycastTarget=false)
+└── SafeAreaContainer   ← SafeAreaFitter 부착 (노치/홈바 대응)
+    ├── LoginRoot       ← LoginRootView 부착 (일반 뷰들의 부모)
+    │   ├── LoginSelectPanel    ← 투명 컨테이너 (패널 배경 없음)
+    │   ├── EmailLoginPanel     ← 투명 컨테이너 (패널 배경 없음)
+    │   ├── SignUpPanel         ← 투명 컨테이너 (패널 배경 없음)
+    │   ├── EmailVerifyPanel    ← 투명 컨테이너 (패널 배경 없음)
+    │   └── PasswordResetPanel  ← 투명 컨테이너 (패널 배경 없음)
+    ├── ConfirmPopup            ← 오버레이 팝업 (BlockingOverlay + PopupBox 패널 배경 유지)
+    ├── LoadingIndicator        ← 로딩 오버레이
+    └── AnonymousWarningPopup   ← 오버레이 팝업 (BlockingOverlay + PopupBox 패널 배경 유지)
+```
+
+**패널 배경 적용 기준**:
+- **일반 뷰** (LoginSelectPanel, EmailLoginPanel, SignUpPanel, EmailVerifyPanel, PasswordResetPanel): 로그인 씬 전용 씬이므로 씬 배경(bg_login.png)이 이미 존재 → 별도 패널 배경 불필요. 투명 컨테이너(Image 없음)로 구성.
+- **팝업** (ConfirmPopup, AnonymousWarningPopup): 오버레이로 띄우는 구조이므로 BlockingOverlay + PopupBox(ui_panel_light.png) 패널 배경 유지.
+
+**레이아웃 규칙** (GameSystemRules_UI.md Rule 2 준수):
+- 모든 sizeDelta = Vector2.zero, 앵커 비율 기반 배치
+- ContentArea(VLG) 패턴: BackButton은 패널 직속(앵커 고정), 나머지 요소는 ContentArea(VerticalLayoutGroup) 하위
+- LayoutElement.preferredHeight로 높이 지정
+
+**텍스트 색상**: 모든 TMP 텍스트 `Color.black` (#000000)
 
 ---
 
@@ -275,7 +304,8 @@ await AuthenticationService.Instance.SignInAnonymouslyAsync();
 
 | 파일 | 상태 | 구현 여부 | 주요 내용 |
 |------|------|---------|---------|
-| `Login.unity` | 신규 | ❌ 미완료 | 로그인 씬 (Inspector 연결 포함, Firebase Console 설정 이후 진행) |
+| `Login.unity` | 신규 | ✅ 완료 | 로그인 씬 — `SetupLoginScene.cs` 에디터 스크립트로 생성 (`Hexiege/Setup/Login 씬 생성`) |
+| `SetupLoginScene.cs` | 신규 | ✅ 완료 | Login.unity 씬 자동 생성 에디터 스크립트. 일반 뷰는 투명 컨테이너, 팝업은 패널 배경 유지. 텍스트 전체 Color.black. |
 | `FirebaseAuthService.cs` | 신규 | ✅ 완료 | Firebase SDK 래퍼. SignInWithCredentialAsync 반환값 FirebaseUser로 처리 (SDK 13.x) |
 | `LoginBootstrapper.cs` | 신규 | ✅ 완료 | Login 씬 Composition Root |
 | `LoginUseCase.cs` | 신규 | ✅ 완료 | 로그인 흐름 조율 + UGS 브릿지 (현재 익명 임시, SignInWithCustomIdAsync 추후) |
@@ -333,7 +363,7 @@ await AuthenticationService.Instance.SignInAnonymouslyAsync();
   - Authentication 방식 3종 활성화
   - google-services.json → Assets/ 배치
 
-[1] Login.unity 씬 생성 (미완료 — 사전-2 이후 진행)
+[1] Login.unity 씬 생성 ✅ 완료 (SetupLoginScene.cs — Hexiege/Setup/Login 씬 생성)
 [2] FirebaseAuthService.cs ✅ 완료
 [3] LoginBootstrapper.cs ✅ 완료
 [4] LoginUseCase.cs ✅ 완료 (UGS 브릿지는 임시 익명 로그인)
