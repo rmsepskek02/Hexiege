@@ -238,7 +238,7 @@ MonoBehaviour:
     humanMaxHp: 100
     spiritMaxHp: 0
     transcendenceMaxHp: 0
-    humanGoldCost: 100
+    humanGoldCost: 200
     spiritGoldCost: 0
     transcendenceGoldCost: 0
     humanAttackPower: 0
@@ -250,7 +250,7 @@ MonoBehaviour:
     humanAttackRange: 0
     spiritAttackRange: 0
     transcendenceAttackRange: 0
-    upgradeCost: 100
+    upgradeCost: 300
   - buildingType: 14
     humanMaxHp: 200
     spiritMaxHp: 0
