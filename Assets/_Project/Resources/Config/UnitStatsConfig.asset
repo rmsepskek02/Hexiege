@@ -26,7 +26,7 @@ MonoBehaviour:
     goldCost: 50
     populationCost: 1
   - unitType: 1
-    maxHp: 50
+    maxHp: 40
     attackPower: 1
     attackRange: 2
     detectRange: 2
@@ -39,15 +39,81 @@ MonoBehaviour:
     populationCost: 1
   - unitType: 2
     maxHp: 30
-    attackPower: 10
+    attackPower: 18
     attackRange: 5
     detectRange: 5
     moveSpeed: 0.25
     attackCooldown: 3
     hitFrameTimes:
     - 3
-    productionTime: 15
+    productionTime: 20
     goldCost: 200
+    populationCost: 1
+  - unitType: 3
+    maxHp: 35
+    attackPower: 4
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 1
+    attackCooldown: 3
+    hitFrameTimes:
+    - 0.25
+    - 1.15
+    productionTime: 5
+    goldCost: 50
+    populationCost: 1
+  - unitType: 4
+    maxHp: 50
+    attackPower: 10
+    attackRange: 1
+    detectRange: 1.5
+    moveSpeed: 1
+    attackCooldown: 2
+    hitFrameTimes:
+    - 0.24
+    productionTime: 10
+    goldCost: 100
+    populationCost: 1
+  - unitType: 6
+    maxHp: 100
+    attackPower: 30
+    attackRange: 3
+    detectRange: 4
+    moveSpeed: 1
+    attackCooldown: 4
+    hitFrameTimes:
+    - 4
+    productionTime: 30
+    goldCost: 400
+    populationCost: 1
+  - unitType: 7
+    maxHp: 50
+    attackPower: 20
+    attackRange: 3
+    detectRange: 4
+    moveSpeed: 1
+    attackCooldown: 4
+    hitFrameTimes:
+    - 4
+    productionTime: 20
+    goldCost: 150
+    populationCost: 1
+  - unitType: 10
+    maxHp: 35
+    attackPower: 3
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 2
+    attackCooldown: 3
+    hitFrameTimes:
+    - 0.2
+    - 1.05
+    - 1.13
+    - 1.2
+    - 1.28
+    - 2.03
+    productionTime: 10
+    goldCost: 100
     populationCost: 1
   - unitType: 11
     maxHp: 35
@@ -61,25 +127,8 @@ MonoBehaviour:
     productionTime: 5
     goldCost: 50
     populationCost: 1
-  - unitType: 10
-    maxHp: 50
-    attackPower: 2
-    attackRange: 0.5
-    detectRange: 1
-    moveSpeed: 2
-    attackCooldown: 3
-    hitFrameTimes:
-    - 0.2
-    - 1.05
-    - 1.13
-    - 1.2
-    - 1.28
-    - 2.03
-    productionTime: 15
-    goldCost: 200
-    populationCost: 1
   - unitType: 12
-    maxHp: 100
+    maxHp: 60
     attackPower: 25
     attackRange: 4
     detectRange: 4
@@ -88,23 +137,59 @@ MonoBehaviour:
     hitFrameTimes:
     - 1.15
     productionTime: 30
-    goldCost: 500
+    goldCost: 400
     populationCost: 1
-  - unitType: 21
-    maxHp: 20
-    attackPower: 8
-    attackRange: 3
-    detectRange: 3
+  - unitType: 13
+    maxHp: 50
+    attackPower: 6
+    attackRange: 0.5
+    detectRange: 1
     moveSpeed: 0.5
-    attackCooldown: 4
+    attackCooldown: 3
     hitFrameTimes:
-    - 2.25
+    - 1.04
     productionTime: 5
     goldCost: 50
     populationCost: 1
+  - unitType: 14
+    maxHp: 80
+    attackPower: 8
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 0.5
+    attackCooldown: 4
+    hitFrameTimes:
+    - 1.15
+    productionTime: 15
+    goldCost: 100
+    populationCost: 1
+  - unitType: 16
+    maxHp: 30
+    attackPower: 7
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 1
+    attackCooldown: 3
+    hitFrameTimes:
+    - 1.15
+    productionTime: 5
+    goldCost: 50
+    populationCost: 1
+  - unitType: 17
+    maxHp: 30
+    attackPower: 6
+    attackRange: 3
+    detectRange: 3
+    moveSpeed: 0.5
+    attackCooldown: 1.15
+    hitFrameTimes:
+    - 0.17
+    productionTime: 10
+    goldCost: 100
+    populationCost: 1
   - unitType: 20
-    maxHp: 200
-    attackPower: 10
+    maxHp: 100
+    attackPower: 6
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 1
@@ -112,7 +197,19 @@ MonoBehaviour:
     hitFrameTimes:
     - 0.2
     productionTime: 25
-    goldCost: 400
+    goldCost: 300
+    populationCost: 1
+  - unitType: 21
+    maxHp: 20
+    attackPower: 15
+    attackRange: 3
+    detectRange: 3
+    moveSpeed: 0.5
+    attackCooldown: 4
+    hitFrameTimes:
+    - 2.25
+    productionTime: 5
+    goldCost: 70
     populationCost: 1
   - unitType: 22
     maxHp: 50
@@ -126,4 +223,40 @@ MonoBehaviour:
     - 1.08
     productionTime: 15
     goldCost: 200
+    populationCost: 1
+  - unitType: 23
+    maxHp: 60
+    attackPower: 10
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 2
+    attackCooldown: 2
+    hitFrameTimes:
+    - 1.05
+    productionTime: 20
+    goldCost: 200
+    populationCost: 1
+  - unitType: 24
+    maxHp: 35
+    attackPower: 6
+    attackRange: 3
+    detectRange: 3
+    moveSpeed: 1
+    attackCooldown: 1
+    hitFrameTimes:
+    - 0.1
+    productionTime: 15
+    goldCost: 150
+    populationCost: 1
+  - unitType: 25
+    maxHp: 20
+    attackPower: 10
+    attackRange: 0.5
+    detectRange: 1
+    moveSpeed: 2
+    attackCooldown: 2
+    hitFrameTimes:
+    - 0.18
+    productionTime: 5
+    goldCost: 50
     populationCost: 1
