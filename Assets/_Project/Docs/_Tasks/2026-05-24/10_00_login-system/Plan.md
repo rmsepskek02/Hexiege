@@ -70,6 +70,23 @@ Canvas
 
 **텍스트 색상**: 모든 TMP 텍스트 `Color.black` (#000000)
 
+#### UI 디자인 조정 이력 (SetupLoginScene.cs 반복 수정)
+
+| 날짜 | 변경 내용 |
+|------|---------|
+| 2026-06-10 | 일반 뷰 패널 배경 제거 — 로그인 전용 씬이므로 투명 컨테이너로 변경 |
+| 2026-06-10 | 모든 텍스트 색상 `Color.black` 통일 |
+| 2026-06-10 | 콘텐츠 수직 중앙 정렬 — VLG `childAlignment` `UpperCenter` → `MiddleCenter` |
+| 2026-06-10 | 모든 버튼 스프라이트 `ui_btn_lavender` 통일 |
+| 2026-06-10 | 팝업(ConfirmPopup, AnonymousWarningPopup) PopupBox 우측 상단에 `ui_btn_cancel` 닫기 버튼 추가 |
+| 2026-06-10 | 전체 UI 크기 확대 (버튼 130→160, 인풋 100→130, 타이틀 160→200, 라벨 120→150 / 폰트 비례 증가) |
+| 2026-06-10 | BackButton: `ui_btn_silver` 배경 제거 → `ui_icon_back`을 버튼 Image로 직접 사용 (투명 PNG 확인) |
+
+**BackButton 구조 변경 근거**:
+- `ui_icon_back.png`는 투명 배경 PNG (로비 PrevButton에서 동일 에셋 정상 동작 확인)
+- 기존 구조(`ui_btn_silver` 배경 + `ui_icon_back` 아이콘 오버레이)는 실버 배경이 흰색으로 노출되는 문제
+- 변경 후: `ui_icon_back` 자체가 완성형 버튼 그래픽이므로 직접 버튼 Image로 사용
+
 ---
 
 ### [2] FirebaseAuthService.cs 구현

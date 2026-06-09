@@ -50,45 +50,55 @@ InitializeAsync()
 
 ## 신규 씬
 
-| 씬 | 경로 | 역할 |
-|----|------|------|
-| Login.unity | `Assets/_Project/Scenes/Login.unity` | 로그인 전용 씬 (신규) |
+| 씬 | 경로 | 역할 | 구현 상태 |
+|----|------|------|---------|
+| Login.unity | `Assets/_Project/Scenes/Login.unity` | 로그인 전용 씬 | ✅ 완료 (`SetupLoginScene.cs` 에디터 스크립트로 자동 생성) |
 
 ---
 
 ## 신규 생성 파일 목록
 
+### Editor 스크립트 (빌드 제외)
+| 파일 | 경로 | 역할 | 구현 상태 |
+|------|------|------|---------|
+| `SetupLoginScene.cs` | `Assets/Editor/Setup/` | Login.unity 씬 자동 생성 에디터 유틸리티. 메뉴: `Hexiege/Setup/Login 씬 생성`. 씬 계층·UI 배치·SerializeField 연결을 일괄 처리 | ✅ 완료 |
+
 ### Infrastructure 레이어
-| 파일 | 경로 | 역할 |
-|------|------|------|
-| `FirebaseAuthService.cs` | `Infrastructure/Auth/` | Firebase SDK 래퍼. 로그인·로그아웃·세션확인·계정연동 API 제공 |
+| 파일 | 경로 | 역할 | 구현 상태 |
+|------|------|------|---------|
+| `FirebaseAuthService.cs` | `Infrastructure/Auth/` | Firebase SDK 래퍼. 로그인·로그아웃·세션확인·계정연동 API 제공 | ✅ 완료 |
 
 ### Application 레이어
-| 파일 | 경로 | 역할 |
-|------|------|------|
-| `LoginUseCase.cs` | `Application/UseCases/` | 로그인 흐름 조율 (Firebase 로그인 → UGS 브릿지 포함) |
-| `AccountLinkUseCase.cs` | `Application/UseCases/` | 익명 계정 → 실계정 연동 흐름 |
+| 파일 | 경로 | 역할 | 구현 상태 |
+|------|------|------|---------|
+| `LoginUseCase.cs` | `Application/UseCases/` | 로그인 흐름 조율 (Firebase 로그인 → UGS 브릿지 포함) | ✅ 완료 |
+| `AccountLinkUseCase.cs` | `Application/UseCases/` | 익명 계정 → 실계정 연동 흐름 | ✅ 완료 |
 
 ### Bootstrap 레이어
-| 파일 | 경로 | 역할 |
-|------|------|------|
-| `LoginBootstrapper.cs` | `Bootstrap/` | Login 씬 전용 Composition Root |
+| 파일 | 경로 | 역할 | 구현 상태 |
+|------|------|------|---------|
+| `LoginBootstrapper.cs` | `Bootstrap/` | Login 씬 전용 Composition Root | ✅ 완료 |
 
 ### Presentation 레이어 — Login 씬 신규
+| 파일 | 경로 | 역할 | 구현 상태 |
+|------|------|------|---------|
+| `LoginRootView.cs` | `Presentation/UI/Views/Login/` | 화면 전환 조율, 패널 스택 관리 | ✅ 완료 |
+| `LoginSelectView.cs` | `Presentation/UI/Views/Login/` | 로그인 방식 선택 화면 | ✅ 완료 |
+| `EmailLoginView.cs` | `Presentation/UI/Views/Login/` | 이메일 로그인 화면 | ✅ 완료 |
+| `SignUpView.cs` | `Presentation/UI/Views/Login/` | 이메일 회원가입 화면 | ✅ 완료 |
+| `EmailVerifyView.cs` | `Presentation/UI/Views/Login/` | 이메일 인증 대기 화면 | ✅ 완료 |
+| `PasswordResetView.cs` | `Presentation/UI/Views/Login/` | 비밀번호 재설정 화면 | ✅ 완료 |
+| `AnonymousWarningPopup.cs` | `Presentation/UI/Views/Login/` | 익명 로그인 경고 팝업 | ✅ 완료 |
+
+### Presentation 레이어 — 기존 재사용
 | 파일 | 경로 | 역할 |
 |------|------|------|
-| `LoginRootView.cs` | `Presentation/UI/Views/Login/` | 화면 전환 조율, 패널 스택 관리 |
-| `LoginSelectView.cs` | `Presentation/UI/Views/Login/` | 로그인 방식 선택 화면 |
-| `EmailLoginView.cs` | `Presentation/UI/Views/Login/` | 이메일 로그인 화면 |
-| `SignUpView.cs` | `Presentation/UI/Views/Login/` | 이메일 회원가입 화면 |
-| `EmailVerifyView.cs` | `Presentation/UI/Views/Login/` | 이메일 인증 대기 화면 |
-| `PasswordResetView.cs` | `Presentation/UI/Views/Login/` | 비밀번호 재설정 화면 |
-| `AnonymousWarningPopup.cs` | `Presentation/UI/Views/Login/` | 익명 로그인 경고 팝업 |
+| `ConfirmPopup.cs` | `Presentation/UI/` | 공용 확인 팝업 — Login 씬에서 앱 종료 확인 + 네트워크 오류에 공유 (1개 인스턴스) |
 
 ### Presentation 레이어 — Lobby 씬 수정
-| 파일 | 경로 | 역할 |
-|------|------|------|
-| `ProfileView.cs` | `Presentation/UI/Views/Lobby/Profile/` | 계정 연동 + 로그아웃 UI (현재 빈 파일 → 내용 추가) |
+| 파일 | 경로 | 역할 | 구현 상태 |
+|------|------|------|---------|
+| `ProfileView.cs` | `Presentation/UI/Views/Lobby/Profile/` | 계정 연동 + 로그아웃 UI (빈 파일 → 내용 추가) | ✅ 완료 |
 
 ---
 

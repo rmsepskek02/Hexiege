@@ -218,9 +218,9 @@ namespace HexiegeEditor
 
             CreateTitle(contentArea, "HEXIEGE");
 
-            Button google = CreateVlgButton(contentArea, "GoogleLoginButton", "Google로 로그인", "ui_btn_gold");
-            Button email = CreateVlgButton(contentArea, "EmailLoginButton", "이메일로 로그인", "ui_btn_sapphire");
-            Button anon = CreateVlgButton(contentArea, "AnonymousButton", "익명으로 시작하기", "ui_btn_silver");
+            Button google = CreateVlgButton(contentArea, "GoogleLoginButton", "Google로 로그인", "ui_btn_lavender");
+            Button email = CreateVlgButton(contentArea, "EmailLoginButton", "이메일로 로그인", "ui_btn_lavender");
+            Button anon = CreateVlgButton(contentArea, "AnonymousButton", "익명으로 시작하기", "ui_btn_lavender");
             TextMeshProUGUI status = CreateStatusText(panel.transform);
 
             var so = new SerializedObject(view);
@@ -253,9 +253,9 @@ namespace HexiegeEditor
             TMP_InputField pwInput = CreateVlgInput(contentArea, "PasswordInput", "비밀번호",
                 TMP_InputField.ContentType.Password);
 
-            Button forgot = CreateVlgButton(contentArea, "ForgotPasswordButton", "비밀번호 찾기", "ui_btn_silver");
-            Button login = CreateVlgButton(contentArea, "LoginButton", "로그인", "ui_btn_sapphire");
-            Button signUp = CreateVlgButton(contentArea, "SignUpButton", "회원가입", "ui_btn_silver");
+            Button forgot = CreateVlgButton(contentArea, "ForgotPasswordButton", "비밀번호 찾기", "ui_btn_lavender");
+            Button login = CreateVlgButton(contentArea, "LoginButton", "로그인", "ui_btn_lavender");
+            Button signUp = CreateVlgButton(contentArea, "SignUpButton", "회원가입", "ui_btn_lavender");
             TextMeshProUGUI status = CreateStatusText(panel.transform);
 
             var so = new SerializedObject(view);
@@ -292,7 +292,7 @@ namespace HexiegeEditor
             TMP_InputField pwConfirm = CreateVlgInput(contentArea, "PasswordConfirmInput", "비밀번호 확인",
                 TMP_InputField.ContentType.Password);
 
-            Button signUp = CreateVlgButton(contentArea, "SignUpButton", "회원가입", "ui_btn_sapphire");
+            Button signUp = CreateVlgButton(contentArea, "SignUpButton", "회원가입", "ui_btn_lavender");
             TextMeshProUGUI status = CreateStatusText(panel.transform);
 
             var so = new SerializedObject(view);
@@ -321,8 +321,8 @@ namespace HexiegeEditor
             CreateVlgLabel(contentArea, "GuideText",
                 "인증 메일이 발송되었습니다.\n메일함을 확인하고 인증 링크를 클릭해 주세요.", 26f);
 
-            Button check = CreateVlgButton(contentArea, "CheckVerifyButton", "인증 완료 확인", "ui_btn_sapphire");
-            Button resend = CreateVlgButton(contentArea, "ResendButton", "인증 메일 재발송", "ui_btn_silver");
+            Button check = CreateVlgButton(contentArea, "CheckVerifyButton", "인증 완료 확인", "ui_btn_lavender");
+            Button resend = CreateVlgButton(contentArea, "ResendButton", "인증 메일 재발송", "ui_btn_lavender");
             TextMeshProUGUI status = CreateStatusText(panel.transform);
 
             var so = new SerializedObject(view);
@@ -353,7 +353,7 @@ namespace HexiegeEditor
 
             TMP_InputField emailInput = CreateVlgInput(contentArea, "EmailInput", "이메일 주소",
                 TMP_InputField.ContentType.EmailAddress);
-            Button send = CreateVlgButton(contentArea, "SendButton", "재설정 메일 보내기", "ui_btn_sapphire");
+            Button send = CreateVlgButton(contentArea, "SendButton", "재설정 메일 보내기", "ui_btn_lavender");
             TextMeshProUGUI status = CreateStatusText(panel.transform);
 
             var so = new SerializedObject(view);
@@ -384,6 +384,20 @@ namespace HexiegeEditor
             GameObject box = CreatePopupBox(root.transform, "PopupBox", 720f, 760f,
                 out AnimatedPanel animPanel);
 
+            // PopupBox 우측 상단에 닫기 버튼 배치 (VLG 영향을 받지 않도록 ignoreLayout=true)
+            GameObject closeGo = CreateUIObject("CloseButton", box.transform);
+            RectTransform closeRt = closeGo.GetComponent<RectTransform>();
+            closeRt.anchorMin = new Vector2(0.833f, 0.895f);  // 720×760 기준 우측 상단
+            closeRt.anchorMax = new Vector2(1.0f, 1.0f);
+            closeRt.pivot = new Vector2(1f, 1f);
+            closeRt.anchoredPosition = Vector2.zero;
+            closeRt.sizeDelta = Vector2.zero;
+            LayoutElement closeLe = closeGo.AddComponent<LayoutElement>();
+            closeLe.ignoreLayout = true;
+            Image closeImg = closeGo.AddComponent<Image>();
+            ApplySprite(closeImg, "ui_btn_cancel");
+            closeGo.AddComponent<Button>().targetGraphic = closeImg;
+
             // AnonymousWarningPopup 내부 VLG — 박스 안 요소를 위에서 아래로 순서대로 쌓는다.
             VerticalLayoutGroup boxVlg = box.AddComponent<VerticalLayoutGroup>();
             boxVlg.padding = new RectOffset(40, 40, 40, 40);
@@ -396,8 +410,8 @@ namespace HexiegeEditor
 
             // 라벨과 버튼을 CreateVlgLabel, CreateVlgButton으로 배치한다.
             TextMeshProUGUI warning = CreateVlgLabel(box.transform, "WarningText", string.Empty, 28f);
-            Button create = CreateVlgButton(box.transform, "CreateAccountButton", "계정 만들기", "ui_btn_mint");
-            Button cont = CreateVlgButton(box.transform, "ContinueAnonymousButton", "계속 익명으로 진행", "ui_btn_bronze");
+            Button create = CreateVlgButton(box.transform, "CreateAccountButton", "계정 만들기", "ui_btn_lavender");
+            Button cont = CreateVlgButton(box.transform, "ContinueAnonymousButton", "계속 익명으로 진행", "ui_btn_lavender");
 
             var so = new SerializedObject(popup);
             so.FindProperty("_panel").objectReferenceValue = animPanel;
@@ -423,6 +437,20 @@ namespace HexiegeEditor
             GameObject overlay = CreateOverlay(root.transform, "BlockingOverlay");
             GameObject box = CreatePopupBox(root.transform, "PopupBox", 720f, 460f,
                 out AnimatedPanel animPanel);
+
+            // PopupBox 우측 상단에 닫기 버튼 배치 (VLG 영향을 받지 않도록 ignoreLayout=true)
+            GameObject closeGo = CreateUIObject("CloseButton", box.transform);
+            RectTransform closeRt = closeGo.GetComponent<RectTransform>();
+            closeRt.anchorMin = new Vector2(0.833f, 0.867f);  // 720×460 기준 우측 상단
+            closeRt.anchorMax = new Vector2(1.0f, 1.0f);
+            closeRt.pivot = new Vector2(1f, 1f);
+            closeRt.anchoredPosition = Vector2.zero;
+            closeRt.sizeDelta = Vector2.zero;
+            LayoutElement closeLe = closeGo.AddComponent<LayoutElement>();
+            closeLe.ignoreLayout = true;
+            Image closeImg = closeGo.AddComponent<Image>();
+            ApplySprite(closeImg, "ui_btn_cancel");
+            closeGo.AddComponent<Button>().targetGraphic = closeImg;
 
             // ConfirmPopup 내부 VLG — 박스 안 요소를 위에서 아래로 순서대로 쌓는다.
             VerticalLayoutGroup boxVlg = box.AddComponent<VerticalLayoutGroup>();
@@ -452,8 +480,8 @@ namespace HexiegeEditor
             btnHlg.childForceExpandHeight = true;
 
             // 확인/취소 버튼 (HLG 자식 — 각각 50% 너비 차지)
-            Button confirm = CreateVlgButton(btnContainer.transform, "ConfirmButton", "확인", "ui_btn_emerald");
-            Button cancel = CreateVlgButton(btnContainer.transform, "CancelButton", "취소", "ui_btn_silver");
+            Button confirm = CreateVlgButton(btnContainer.transform, "ConfirmButton", "확인", "ui_btn_lavender");
+            Button cancel = CreateVlgButton(btnContainer.transform, "CancelButton", "취소", "ui_btn_lavender");
 
             TextMeshProUGUI confirmLabel = confirm.GetComponentInChildren<TextMeshProUGUI>();
             TextMeshProUGUI cancelLabel = cancel.GetComponentInChildren<TextMeshProUGUI>();
@@ -604,15 +632,14 @@ namespace HexiegeEditor
             }
         }
 
-        /// <summary>전체 화면을 덮는 패널(배경 Image 포함)을 만든다.</summary>
+        /// <summary>전체 화면을 덮는 투명 컨테이너 패널을 만든다.</summary>
         private static GameObject CreatePanel(string name, Transform parent)
         {
+            // 로그인 씬 전용 씬이므로 씬 배경(bg_login)이 이미 존재한다.
+            // 각 뷰는 패널 배경 없이 투명 컨테이너로 구성한다.
+            // 오버레이 팝업(ConfirmPopup, AnonymousWarningPopup)은 CreatePopupBox를 사용하므로 이 메서드와 무관하다.
             GameObject panel = CreateUIObject(name, parent);
             StretchFull(panel.GetComponent<RectTransform>());
-            Image img = panel.AddComponent<Image>();
-            // ui_panel_dark.png 패널 배경 + 약간 반투명으로 뒤 배경이 비치도록 한다.
-            ApplySprite(img, "ui_panel_dark");
-            img.color = new Color(1f, 1f, 1f, 0.92f); // 약간 반투명 — 배경 비침
             return panel;
         }
 
@@ -631,12 +658,12 @@ namespace HexiegeEditor
 
             // VLG에서 선호 높이를 인식할 수 있도록 LayoutElement를 추가한다.
             LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredHeight = 160f;   // 타이틀 영역 높이 (기존 Label sizeDelta.y=160 기준)
+            le.preferredHeight = 200f;   // 타이틀 영역 높이 (기존 Label sizeDelta.y=160 기준)
             le.flexibleHeight = 0f;
 
             TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
             tmp.text = text;
-            tmp.fontSize = 56f;
+            tmp.fontSize = 68f;
             tmp.color = TextColor;
             tmp.alignment = TextAlignmentOptions.Center;
             ApplyFont(tmp, bold: true); // 타이틀은 Bold
@@ -671,7 +698,7 @@ namespace HexiegeEditor
             // 충분한 여백을 주어 Title이 BackButton에 겹치지 않도록 한다.
             vlg.padding = new RectOffset(60, 60, 200, 160);
             vlg.spacing = 24f;
-            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childAlignment = TextAnchor.MiddleCenter;
             vlg.childControlWidth = true;
             vlg.childForceExpandWidth = true;
             vlg.childControlHeight = true;
@@ -695,7 +722,7 @@ namespace HexiegeEditor
             // BackButton이 없으므로 Top 여백을 80으로 줄인다.
             vlg.padding = new RectOffset(60, 60, 80, 160);
             vlg.spacing = 24f;
-            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childAlignment = TextAnchor.MiddleCenter;
             vlg.childControlWidth = true;
             vlg.childForceExpandWidth = true;
             vlg.childControlHeight = true;
@@ -719,7 +746,7 @@ namespace HexiegeEditor
 
             TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
             tmp.text = string.Empty;
-            tmp.fontSize = 26f;
+            tmp.fontSize = 32f;
             tmp.color = Color.black;
             tmp.alignment = TextAlignmentOptions.Center;
             // 줄바꿈은 TMP 기본값이 활성(Normal)이므로 별도 설정하지 않는다.
@@ -749,7 +776,7 @@ namespace HexiegeEditor
 
             // VLG에서 선호 높이를 인식할 수 있도록 LayoutElement를 추가한다.
             LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredHeight = 130f;
+            le.preferredHeight = 160f;
             le.flexibleHeight = 0f;
 
             // 버튼 텍스트 라벨
@@ -757,7 +784,7 @@ namespace HexiegeEditor
             StretchFull(labelGo.GetComponent<RectTransform>());
             TextMeshProUGUI tmp = labelGo.AddComponent<TextMeshProUGUI>();
             tmp.text = label;
-            tmp.fontSize = 34f;
+            tmp.fontSize = 42f;
             tmp.color = Color.black;
             tmp.alignment = TextAlignmentOptions.Center;
             ApplyFont(tmp, bold: true); // 버튼 라벨은 Bold
@@ -787,7 +814,7 @@ namespace HexiegeEditor
 
             // VLG에서 선호 높이를 인식할 수 있도록 LayoutElement를 추가한다.
             LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredHeight = 100f;
+            le.preferredHeight = 130f;
             le.flexibleHeight = 0f;
 
             // TextArea 뷰포트 (TMP InputField 표준 구조)
@@ -812,7 +839,7 @@ namespace HexiegeEditor
             StretchFull(ph.GetComponent<RectTransform>());
             TextMeshProUGUI phTmp = ph.AddComponent<TextMeshProUGUI>();
             phTmp.text = placeholder;
-            phTmp.fontSize = 30f;
+            phTmp.fontSize = 38f;
             phTmp.color = Color.black;
             phTmp.alignment = TextAlignmentOptions.Left;
             ApplyFont(phTmp, bold: false);
@@ -822,7 +849,7 @@ namespace HexiegeEditor
             StretchFull(txt.GetComponent<RectTransform>());
             TextMeshProUGUI txtTmp = txt.AddComponent<TextMeshProUGUI>();
             txtTmp.text = string.Empty;
-            txtTmp.fontSize = 30f;
+            txtTmp.fontSize = 38f;
             txtTmp.color = TextColor;
             txtTmp.alignment = TextAlignmentOptions.Left;
             ApplyFont(txtTmp, bold: false);
@@ -848,7 +875,7 @@ namespace HexiegeEditor
 
             // VLG에서 선호 높이를 인식할 수 있도록 LayoutElement를 추가한다.
             LayoutElement le = go.AddComponent<LayoutElement>();
-            le.preferredHeight = 120f;
+            le.preferredHeight = 150f;
             le.flexibleHeight = 0f;
 
             TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
@@ -873,19 +900,13 @@ namespace HexiegeEditor
             rt.anchoredPosition = Vector2.zero;
             rt.sizeDelta = Vector2.zero;
 
+            // ui_icon_back.png는 투명 배경의 완성형 버튼 그래픽이므로 직접 버튼 Image로 사용한다.
+            // (별도 배경을 쓰면 배경색이 흰색으로 노출되는 문제 발생 — 로비 PrevButton 동일 패턴 적용)
             Image img = go.AddComponent<Image>();
-            // 뒤로가기 버튼 배경 — ui_btn_silver.png 적용.
-            ApplySprite(img, "ui_btn_silver");
+            ApplySprite(img, "ui_icon_back", preserveAspect: true);
 
             Button btn = go.AddComponent<Button>();
             btn.targetGraphic = img;
-
-            // 텍스트 "←" 대신 ui_icon_back.png 아이콘 이미지를 버튼 위에 올린다.
-            GameObject iconGo = CreateUIObject("Icon", go.transform);
-            StretchFull(iconGo.GetComponent<RectTransform>());
-            Image iconImg = iconGo.AddComponent<Image>();
-            ApplySprite(iconImg, "ui_icon_back", preserveAspect: true);
-            iconImg.raycastTarget = false; // 아이콘이 버튼 클릭을 가리지 않도록
 
             return btn;
         }
