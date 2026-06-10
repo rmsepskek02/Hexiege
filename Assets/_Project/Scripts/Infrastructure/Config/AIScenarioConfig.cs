@@ -12,12 +12,16 @@
 //   각 항목이 phaseIndex(0~3)를 직접 가지고 있어, AIOpponentController가
 //   phaseIndex로 그룹핑하여 Phase 단위로 순차 실행한다.
 //
-// 종족별 / 시나리오별 별도 에셋:
-//   Human 종족은 A/B/C 3개 시나리오를 각각 별도 .asset으로 관리한다.
-//     - AIScenarioConfig_Human_A.asset
-//     - AIScenarioConfig_Human_B.asset
-//     - AIScenarioConfig_Human_C.asset
-//   게임 시작 시 GameBootstrapper가 3개 중 하나를 무작위로 선택해 AI에 주입한다.
+// 종족별 단일 에셋 구조 (신규):
+//   각 종족 1개의 .asset에 3개 시나리오를 ScenarioBundle 배열로 담는다.
+//     - AIScenarioConfig_Human.asset       (scenarios[0/1/2] = A/B/C)
+//     - AIScenarioConfig_Spirit.asset      (scenarios[0/1/2] = Inferno/Torrent/Quake)
+//     - AIScenarioConfig_Transcendence.asset (scenarios[0/1/2] = Rush/Flora/Beast)
+//   GameBootstrapper가 Random.Range(0,3)으로 하나를 선택해 AI에 주입한다.
+//
+// 레거시 에셋 (AIScenarioConfig_Human_A/B/C.asset):
+//   기존 단일 시나리오 에셋. scenarioName + _steps 필드 사용.
+//   신규 Human.asset 테스트 통과 후 삭제 예정.
 //
 // Infrastructure 레이어 — Unity 의존 허용 (ScriptableObject).
 //   (GameSystemRules_AI.md 규칙 11, 29)
@@ -42,6 +46,22 @@ namespace Hexiege.Infrastructure
 
         /// <summary>유닛 생산 시작 (unitType 사용). 콜백 기반 연속 생산 시드.</summary>
         StartProduction
+    }
+
+    /// <summary>
+    /// 종족 단위 에셋(Human / Spirit / Transcendence)에 담기는 단일 시나리오 묶음.
+    /// AIScenarioConfig.scenarios 리스트의 원소로 사용된다.
+    /// </summary>
+    [System.Serializable]
+    public class ScenarioBundle
+    {
+        /// <summary>이 시나리오의 식별 이름(예: Human_A). 디버깅·로깅용.</summary>
+        [Tooltip("이 시나리오의 식별 이름(예: Human_A). 디버깅·로깅용.")]
+        public string scenarioName = "Unnamed";
+
+        /// <summary>빌드오더 항목 목록. 여러 Phase의 항목을 하나의 평탄 리스트로 보관.</summary>
+        [Tooltip("빌드오더 항목 목록. 여러 Phase의 항목을 하나의 평탄 리스트로 보관.")]
+        public List<BuildOrderStep> steps = new List<BuildOrderStep>();
     }
 
     /// <summary>
@@ -104,6 +124,7 @@ namespace Hexiege.Infrastructure
     [CreateAssetMenu(fileName = "AIScenarioConfig", menuName = "Hexiege/AIScenarioConfig")]
     public class AIScenarioConfig : ScriptableObject
     {
+        // ---- 레거시 필드 (Human_A/B/C.asset 호환용 — 해당 에셋 삭제 후 제거 가능) ----
         [Tooltip("이 시나리오를 식별하기 위한 이름(예: Human_A). 디버깅/로깅용.")]
         public string scenarioName = "Unnamed";
 
@@ -113,5 +134,11 @@ namespace Hexiege.Infrastructure
 
         /// <summary> 외부에서 읽기 전용으로 빌드오더 항목 목록에 접근할 때 사용. </summary>
         public IReadOnlyList<BuildOrderStep> Steps => _steps;
+
+        // ---- 신규: 종족 단위 에셋(Human / Spirit / Transcendence)에서 사용 ----
+
+        [Tooltip("종족 에셋이 담는 3개 시나리오 배열. 게임 시작 시 무작위로 하나를 선택한다. " +
+                 "Human_A/B/C 같은 레거시 에셋은 이 필드를 비워두고 _steps를 사용한다.")]
+        public List<ScenarioBundle> scenarios = new List<ScenarioBundle>();
     }
 }
