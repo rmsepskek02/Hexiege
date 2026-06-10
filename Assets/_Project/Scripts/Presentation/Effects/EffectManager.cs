@@ -1,12 +1,15 @@
 // ============================================================================
 // EffectManager.cs
-// 게임 전체의 VFX(시각 이펙트)와 SFX(사운드)를 통합 관리하는 핵심 매니저.
+// 게임 전체의 VFX(시각 이펙트)를 통합 관리하는 핵심 매니저.
+//
+// [SOUND_SYSTEM_REFACTOR] SFX는 AudioManager로 분리됨 — 이제 VFX 전용이다.
+//   SFX가 필요한 호출부는 EffectManager.Instance?.PlayXxx() 바로 아래 줄에서
+//   AudioManager.Instance?.PlayXxxSfx()를 짝지어 호출한다 (GameSystemRules_Sound 규칙 15).
 //
 // 역할:
 //   1. VFX Object Pool — 파티클을 미리 만들어 재사용 (개수 제한 없음).
-//   2. SFX Object Pool — AudioSource를 재사용 (동시 8개 제한).
-//   3. Config(유닛/건물/UI) 참조 — 어떤 상황에 어떤 이펙트를 재생할지 조회.
-//   4. 외부 API — PlayUnitAttack/PlayUnitDeath/... 한 줄 호출로 VFX+SFX 동시 재생.
+//   2. Config(유닛/건물/UI) 참조 — 어떤 상황에 어떤 VFX를 재생할지 조회.
+//   3. 외부 API — PlayUnitAttack/PlayUnitDeath/... 한 줄 호출로 VFX 재생.
 //
 // 왜 static Instance인가:
 //   UnitView.OnAttackHit()는 유닛 프리팹의 Animation Event에서 호출되므로
@@ -56,12 +59,13 @@ namespace Hexiege.Presentation
         [Tooltip("재생된 VFX 오브젝트들의 부모 컨테이너. 씬의 빈 GameObject 연결.")]
         [SerializeField] private Transform _vfxContainer;
 
-        [Tooltip("SFX용 AudioSource 오브젝트들의 부모 컨테이너. 씬의 빈 GameObject 연결.")]
-        [SerializeField] private Transform _sfxContainer;
-
-        [Header("SFX 제한")]
-        [Tooltip("동시에 재생 가능한 최대 SFX 개수. 초과 시 새 SFX는 무시됨.")]
-        [SerializeField] private int _maxConcurrentSfx = 8;
+        // SOUND_SYSTEM_REFACTOR: SFX 컨테이너/동시 재생 제한은 AudioManager로 이전 완료. 검증 후 삭제 예정.
+        // [Tooltip("SFX용 AudioSource 오브젝트들의 부모 컨테이너. 씬의 빈 GameObject 연결.")]
+        // [SerializeField] private Transform _sfxContainer;
+        //
+        // [Header("SFX 제한")]
+        // [Tooltip("동시에 재생 가능한 최대 SFX 개수. 초과 시 새 SFX는 무시됨.")]
+        // [SerializeField] private int _maxConcurrentSfx = 8;
 
         [Header("VFX Pool 초기 크기")]
         [Tooltip("프리팹 종류마다 미리 생성해 둘 VFX 인스턴스 수. (현재는 lazy 생성이라 미사용 — 향후 사전 워밍업용)")]
@@ -86,11 +90,12 @@ namespace Hexiege.Presentation
         private readonly Dictionary<GameObject, Queue<VfxPoolItem>> _vfxPools
             = new Dictionary<GameObject, Queue<VfxPoolItem>>();
 
-        /// <summary> SFX Pool — 모든 사운드가 공유하는 AudioSource 큐. </summary>
-        private readonly Queue<AudioSource> _sfxPool = new Queue<AudioSource>();
-
-        /// <summary> 현재 재생 중인 SFX 개수. _maxConcurrentSfx와 비교하여 제한. </summary>
-        private int _activeSfxCount = 0;
+        // SOUND_SYSTEM_REFACTOR: SFX 풀 상태는 AudioManager로 이전 완료. 검증 후 삭제 예정.
+        // /// <summary> SFX Pool — 모든 사운드가 공유하는 AudioSource 큐. </summary>
+        // private readonly Queue<AudioSource> _sfxPool = new Queue<AudioSource>();
+        //
+        // /// <summary> 현재 재생 중인 SFX 개수. _maxConcurrentSfx와 비교하여 제한. </summary>
+        // private int _activeSfxCount = 0;
 
         // ====================================================================
         // Unity 생명주기 — static Instance 관리
@@ -137,13 +142,14 @@ namespace Hexiege.Presentation
             _buildingConfig?.Initialize();
             _uiConfig?.Initialize();
 
-            // SFX Pool 사전 생성 — 동시 재생 한도만큼 AudioSource를 미리 만들어 둔다.
-            for (int i = 0; i < _maxConcurrentSfx; i++)
-            {
-                AudioSource src = CreateSfxSource();
-                src.gameObject.SetActive(false);
-                _sfxPool.Enqueue(src);
-            }
+            // SOUND_SYSTEM_REFACTOR: SFX 풀 사전 생성은 AudioManager로 이전 완료. 검증 후 삭제 예정.
+            // // SFX Pool 사전 생성 — 동시 재생 한도만큼 AudioSource를 미리 만들어 둔다.
+            // for (int i = 0; i < _maxConcurrentSfx; i++)
+            // {
+            //     AudioSource src = CreateSfxSource();
+            //     src.gameObject.SetActive(false);
+            //     _sfxPool.Enqueue(src);
+            // }
         }
 
         // ====================================================================
@@ -228,20 +234,23 @@ namespace Hexiege.Presentation
                 item.Play(pos, rot);
             }
 
-            // ── SFX ── 클립이 있고 동시 재생 한도 미만일 때만 재생.
-            if (preset.SfxClip != null && _activeSfxCount < _maxConcurrentSfx)
-            {
-                AudioSource src = GetOrCreateSfx();
-                src.transform.position = pos;
-                src.clip = preset.SfxClip;
-                src.volume = preset.SfxVolume;
-                src.gameObject.SetActive(true);
-                src.Play();
-
-                _activeSfxCount++;
-                // 클립 길이 후 자동 반환.
-                StartCoroutine(ReturnSfxAfterPlay(src, preset.SfxClip.length));
-            }
+            // SOUND_SYSTEM_REFACTOR: SFX 재생은 AudioManager로 이전 완료. 검증 후 삭제 예정.
+            //   이제 EffectManager는 VFX 전용. SFX는 호출부에서 AudioManager.Instance?.PlayXxxSfx()로
+            //   같은 줄 바로 아래에서 짝지어 호출한다 (GameSystemRules_Sound 규칙 15).
+            // // ── SFX ── 클립이 있고 동시 재생 한도 미만일 때만 재생.
+            // if (preset.SfxClip != null && _activeSfxCount < _maxConcurrentSfx)
+            // {
+            //     AudioSource src = GetOrCreateSfx();
+            //     src.transform.position = pos;
+            //     src.clip = preset.SfxClip;
+            //     src.volume = preset.SfxVolume;
+            //     src.gameObject.SetActive(true);
+            //     src.Play();
+            //
+            //     _activeSfxCount++;
+            //     // 클립 길이 후 자동 반환.
+            //     StartCoroutine(ReturnSfxAfterPlay(src, preset.SfxClip.length));
+            // }
         }
 
         // ====================================================================
@@ -318,58 +327,60 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
-        // 내부 — SFX Pool 관리
+        // SOUND_SYSTEM_REFACTOR: 아래 SFX Pool 관리 코드는 AudioManager로 이전 완료.
+        //   검증(실기 테스트) 통과 후 이 주석 블록 전체를 최종 삭제할 예정.
+        //   (WORKFLOW.md "기존 로직 제거" 규칙 — 검증 전까지 비활성화 유지)
         // ====================================================================
 
-        /// <summary>
-        /// SFX용 AudioSource를 Pool에서 꺼내거나, 없으면 새로 만든다.
-        /// </summary>
-        /// <returns>재생 준비된 AudioSource.</returns>
-        private AudioSource GetOrCreateSfx()
-        {
-            if (_sfxPool.Count > 0)
-                return _sfxPool.Dequeue();
-
-            return CreateSfxSource();
-        }
-
-        /// <summary>
-        /// SFX용 AudioSource를 담은 GameObject를 새로 생성한다.
-        /// 2D 사운드(공간감 없음)로 설정하여 위치와 무관하게 일정하게 들리도록 한다.
-        /// </summary>
-        /// <returns>생성된 AudioSource.</returns>
-        private AudioSource CreateSfxSource()
-        {
-            GameObject go = new GameObject("SfxSource");
-            go.transform.SetParent(_sfxContainer, false);
-
-            AudioSource src = go.AddComponent<AudioSource>();
-            src.playOnAwake = false;
-            // spatialBlend 0 = 완전 2D. UI/전투 효과음은 거리감 없이 일정하게 들려야 자연스럽다.
-            src.spatialBlend = 0f;
-            return src;
-        }
-
-        /// <summary>
-        /// 클립 재생이 끝난 뒤 AudioSource를 Pool에 반환하는 코루틴.
-        /// 정확한 종료 시점을 잡기 어려우므로 클립 길이 + 0.1초 여유를 둔다.
-        /// </summary>
-        /// <param name="src">반환할 AudioSource.</param>
-        /// <param name="duration">클립 길이(초).</param>
-        private IEnumerator ReturnSfxAfterPlay(AudioSource src, float duration)
-        {
-            yield return new WaitForSeconds(duration + 0.1f);
-
-            _activeSfxCount--;
-            if (_activeSfxCount < 0) _activeSfxCount = 0; // 방어적 하한 보정.
-
-            if (src != null)
-            {
-                src.Stop();
-                src.clip = null;
-                src.gameObject.SetActive(false);
-                _sfxPool.Enqueue(src);
-            }
-        }
+        // /// <summary>
+        // /// SFX용 AudioSource를 Pool에서 꺼내거나, 없으면 새로 만든다.
+        // /// </summary>
+        // /// <returns>재생 준비된 AudioSource.</returns>
+        // private AudioSource GetOrCreateSfx()
+        // {
+        //     if (_sfxPool.Count > 0)
+        //         return _sfxPool.Dequeue();
+        //
+        //     return CreateSfxSource();
+        // }
+        //
+        // /// <summary>
+        // /// SFX용 AudioSource를 담은 GameObject를 새로 생성한다.
+        // /// 2D 사운드(공간감 없음)로 설정하여 위치와 무관하게 일정하게 들리도록 한다.
+        // /// </summary>
+        // /// <returns>생성된 AudioSource.</returns>
+        // private AudioSource CreateSfxSource()
+        // {
+        //     GameObject go = new GameObject("SfxSource");
+        //     go.transform.SetParent(_sfxContainer, false);
+        //
+        //     AudioSource src = go.AddComponent<AudioSource>();
+        //     src.playOnAwake = false;
+        //     // spatialBlend 0 = 완전 2D. UI/전투 효과음은 거리감 없이 일정하게 들려야 자연스럽다.
+        //     src.spatialBlend = 0f;
+        //     return src;
+        // }
+        //
+        // /// <summary>
+        // /// 클립 재생이 끝난 뒤 AudioSource를 Pool에 반환하는 코루틴.
+        // /// 정확한 종료 시점을 잡기 어려우므로 클립 길이 + 0.1초 여유를 둔다.
+        // /// </summary>
+        // /// <param name="src">반환할 AudioSource.</param>
+        // /// <param name="duration">클립 길이(초).</param>
+        // private IEnumerator ReturnSfxAfterPlay(AudioSource src, float duration)
+        // {
+        //     yield return new WaitForSeconds(duration + 0.1f);
+        //
+        //     _activeSfxCount--;
+        //     if (_activeSfxCount < 0) _activeSfxCount = 0; // 방어적 하한 보정.
+        //
+        //     if (src != null)
+        //     {
+        //         src.Stop();
+        //         src.clip = null;
+        //         src.gameObject.SetActive(false);
+        //         _sfxPool.Enqueue(src);
+        //     }
+        // }
     }
 }

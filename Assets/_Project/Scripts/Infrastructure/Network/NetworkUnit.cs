@@ -182,7 +182,8 @@ namespace Hexiege.Infrastructure
                 {
                     EffectManager.Instance?.PlayUnitDeath(
                         unitView.UnitData.Type,
-                        transform.position);
+                        transform.position);                                // VFX
+                    AudioManager.Instance?.PlayUnitDeathSfx(unitView.UnitData.Type); // SFX (규칙 15 — VFX와 짝)
                 }
             }
 

@@ -25,6 +25,36 @@
 
 ## 최근 작업
 
+### 사운드 시스템 (AudioManager + SFX/BGM 분리) (2026-06-10) 🔵 코드 완료 / Inspector 작업 + 실기 테스트 예정
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/`
+**브랜치**: `claude/sound-system-review-itwt0t`
+
+**핵심 설계**: EffectManager=VFX 전용, AudioManager=BGM+SFX 전담 (GameSystemRules_Sound 규칙 1). VFX+SFX 쌍은 같은 호출지점에서 두 매니저를 연달아 호출(규칙 15).
+
+**신규 파일**:
+- `Infrastructure/Config/SoundConfig.cs` — BGM 4종(login/lobby/battle/gameEnd)+crossfadeDuration, UnitSoundEntry/BuildingSoundEntry List→Dict 캐싱(UnitEffectConfig 패턴). Domain 타입(UnitType/BuildingType)만 키. **이전 세션에서 이미 생성됨**.
+- `Presentation/Audio/AudioManager.cs` — `SingletonMonoBehaviour<AudioManager>` 상속(DontDestroyOnLoad). `enum BgmType{Login,Lobby,Battle,GameEnd}` + `struct UiSoundEntry{UiEffectKey,clip,volume}`(규칙 4 — UI SFX는 SoundConfig가 아닌 AudioManager 직접 보유). BGM 크로스페이드(AudioSource A/B 번갈아, unscaledDeltaTime — timeScale=0 무관), SFX 풀(EffectManager에서 이전, spatialBlend=0, sfxGroup 연결, 동시 8개), 볼륨 PlayerPrefs("MasterVolume"/"BGMVolume"/"SFXVolume", 0~1→`Log10(Max(v,0.0001))*20` dB). Awake에서 SceneManager.activeSceneChanged+OnGameStarted+OnGameEnd 구독, Initialize()에서 현재 씬 BGM 즉시 재생(규칙 7).
+
+**수정 파일 (SFX 코드는 주석 비활성화 — WORKFLOW 규칙, "SOUND_SYSTEM_REFACTOR" 마커. 실기 PASS 후 삭제)**:
+- `Presentation/Effects/EffectPreset.cs` — _sfxClip/_sfxVolume/SfxClip/SfxVolume 주석 처리. VfxPrefab만 활성.
+- `Presentation/Effects/EffectManager.cs` — _sfxPool/_activeSfxCount/_sfxContainer/_maxConcurrentSfx + GetOrCreateSfx/CreateSfxSource/ReturnSfxAfterPlay + Play() SFX 블록 + Initialize SFX 풀 생성 전부 주석. `using System.Collections;`는 주석코드용이라 잔존(미사용이나 무해).
+- `Presentation/Unit/UnitView.cs` — OnAttackHit(공격)/OnUnitDied 핸들러에 `AudioManager.Instance?.PlayUnitAttackSfx/PlayUnitDeathSfx` 추가(VFX 호출 바로 아래).
+- `Infrastructure/Network/NetworkUnit.cs` — OnNetworkDespawn 클라이언트 사망에 PlayUnitDeathSfx 추가.
+- `Bootstrap/LoginBootstrapper.cs` — `_soundConfig` SerializeField + Start() 맨앞 `AudioManager.Instance?.Initialize(_soundConfig)`.
+- `Presentation/UI/InGameSettingsUI.cs` — _volumePanelGroup/_masterSlider/_bgmSlider/_sfxSlider 추가. _soundButton→볼륨패널 토글(CanvasGroup alpha, UI 규칙 5). 슬라이더 초기값 GetXxxVolume, onChange SetXxxVolume.
+
+**Inspector 작업 필요 (코드로 불가)**:
+1. AudioMixer.mixer 에셋 생성(`Assets/_Project/Audio/`) — Master→BGM/SFX 그룹, Exposed `MasterVolume`/`BGMVolume`/`SFXVolume`(0dB).
+2. Login.unity `[Audio]` GO에 AudioManager + BGM AudioSource A/B 자식 + SFX Container 자식 + 믹서 그룹 연결.
+3. SoundConfig.asset 생성(`Resources/Config/`), LoginBootstrapper._soundConfig 연결.
+4. InGameSettingsUI 볼륨 패널 CanvasGroup+슬라이더3 생성/연결.
+5. 기존 EffectPreset .asset의 SfxClip → SoundConfig로 수동 이전.
+
+**주의**: SoundConfig는 이전 세션이 이미 작성 완료 상태였음(스펙 일치). AudioManager 외 코드는 본 세션에서 작성.
+
+---
+
 ### AI 시나리오 ScriptableObject 종족별 재구조화 (2026-06-10) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-10/01_06_ai-scenario-scriptableobject-restructure/`

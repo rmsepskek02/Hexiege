@@ -18,6 +18,18 @@
 | [GameSystemRules_AI_Scenario_Human.md](GameSystemRules/GameSystemRules_AI_Scenario_Human.md) | Human 종족 AI 빌드오더 시나리오 A/B/C |
 | [GameSystemRules_AI_Scenario_Spirit.md](GameSystemRules/GameSystemRules_AI_Scenario_Spirit.md) | Spirit 종족 AI 빌드오더 시나리오 A/B/C |
 | [GameSystemRules_AI_Scenario_Transcendence.md](GameSystemRules/GameSystemRules_AI_Scenario_Transcendence.md) | Transcendence 종족 AI 빌드오더 시나리오 A/B/C |
+| [GameSystemRules_Sound.md](GameSystemRules/GameSystemRules_Sound.md) | BGM 전환 규칙, SFX 정책, 볼륨 제어, AudioManager 아키텍처 |
+
+---
+
+### 사운드 관련 작업
+→ [GameSystemRules_Sound.md](GameSystemRules/GameSystemRules_Sound.md)
+- AudioManager 레이어 및 DontDestroyOnLoad 규칙
+- BGM 전환 시점 (Login/Lobby/Battle/Victory/Defeat)
+- BGM 크로스페이드 방식
+- SFX 2D 고정, 동시 재생 한도 8개
+- VFX+SFX 쌍 호출 규칙
+- 볼륨 채널 (Master/BGM/SFX), PlayerPrefs 저장
 
 ---
 

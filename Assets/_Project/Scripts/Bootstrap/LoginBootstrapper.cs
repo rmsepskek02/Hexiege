@@ -68,6 +68,10 @@ namespace Hexiege.Bootstrap
         [Tooltip("로그인 성공 후 이동할 씬 이름. 기본값: Lobby")]
         [SerializeField] private string _nextSceneName = "Lobby";
 
+        [Header("사운드")]
+        [Tooltip("AudioManager에 주입할 BGM/SFX 데이터 묶음(SoundConfig 에셋).")]
+        [SerializeField] private SoundConfig _soundConfig;
+
         // ====================================================================
         // 런타임 인스턴스
         // ====================================================================
@@ -99,6 +103,12 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private async void Start()
         {
+            // 사운드 시스템 초기화 — Firebase 초기화보다 먼저 수행하여
+            // Login 씬 진입 직후 곧바로 로그인 BGM이 재생되도록 한다.
+            // AudioManager는 [Audio] 오브젝트에 부착되어 있으며 DontDestroyOnLoad로 이후 씬까지 유지된다.
+            // Instance가 null일 수 있는 개발 중 직접 진입 상황을 대비해 ?. 연산자로 안전 처리한다 (규칙 5).
+            AudioManager.Instance?.Initialize(_soundConfig);
+
             await InitializeAndDispatchAsync();
         }
 
