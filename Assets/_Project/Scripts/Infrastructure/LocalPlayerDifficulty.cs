@@ -19,28 +19,20 @@
 //   // 난이도 조회 (GameBootstrapper.InitializeAI에서)
 //   var diff = LocalPlayerDifficulty.Current;
 //
+// 타입 이동 안내:
+//   DifficultyLevel(enum)은 Domain 레이어(Domain/AI/DifficultyLevel.cs)로 이동되었다.
+//   - 난이도는 게임 규칙의 핵심 개념이라 Unity에 의존하지 않는 Domain에 두는 것이
+//     의존 방향(Domain ← Infrastructure)에 맞다.
+//   - 본 파일은 상단의 `using Hexiege.Domain;`을 통해 그 타입을 그대로 참조한다.
+//
 // Infrastructure 레이어 — 로비 난이도 선택 전역 접근점.
 //   (GameSystemRules_AI.md 규칙 32)
 // ============================================================================
 
+using Hexiege.Domain; // DifficultyLevel(enum)을 Domain 레이어에서 가져오기 위함.
+
 namespace Hexiege.Infrastructure
 {
-    /// <summary>
-    /// 싱글플레이 AI 난이도 단계.
-    /// 쉬움 / 보통 / 어려움 3단계. AIConfig의 easy/normal/hard 파라미터와 1:1로 매핑된다.
-    /// </summary>
-    public enum DifficultyLevel
-    {
-        /// <summary>쉬움 — AI 수입/생산 속도가 느림.</summary>
-        Easy,
-
-        /// <summary>보통 — 기준 난이도(배율 1.0).</summary>
-        Normal,
-
-        /// <summary>어려움 — AI 수입/생산 속도가 빠름.</summary>
-        Hard
-    }
-
     /// <summary>
     /// 현재 로컬 플레이어가 선택한 AI 난이도를 전역에서 접근 가능하게 하는 정적 홀더.
     /// DifficultySelectView에서 난이도를 선택하면 Set()을 호출해 갱신.

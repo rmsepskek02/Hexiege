@@ -23,6 +23,14 @@
 //   기존 단일 시나리오 에셋. scenarioName + _steps 필드 사용.
 //   신규 Human.asset 테스트 통과 후 삭제 예정.
 //
+// 타입 이동 안내:
+//   AIActionType(enum), BuildOrderStep(struct)은 Domain 레이어
+//   (Domain/AI/BuildOrderStep.cs)로 이동되었다.
+//   - 이 두 타입은 "AI가 무엇을 할지"라는 게임 규칙 자체이므로 Unity에 의존하지 않는
+//     Domain에 두는 것이 의존 방향(Domain ← Application ← Infrastructure)에 맞다.
+//   - 본 파일은 상단의 `using Hexiege.Domain;`을 통해 두 타입을 그대로 참조한다.
+//     (ScenarioBundle.steps가 Domain의 BuildOrderStep을 리스트로 담는다.)
+//
 // Infrastructure 레이어 — Unity 의존 허용 (ScriptableObject).
 //   (GameSystemRules_AI.md 규칙 11, 29)
 // ============================================================================
@@ -33,21 +41,6 @@ using Hexiege.Domain;
 
 namespace Hexiege.Infrastructure
 {
-    /// <summary>
-    /// 빌드오더 한 항목의 행동 종류.
-    /// </summary>
-    public enum AIActionType
-    {
-        /// <summary>새 건물 배치 (buildingType 사용).</summary>
-        PlaceBuilding,
-
-        /// <summary>기존 건물 업그레이드 (buildingType = 업그레이드 후 단계 타입).</summary>
-        UpgradeBuilding,
-
-        /// <summary>유닛 생산 시작 (unitType 사용). 콜백 기반 연속 생산 시드.</summary>
-        StartProduction
-    }
-
     /// <summary>
     /// 종족 단위 에셋(Human / Spirit / Transcendence)에 담기는 단일 시나리오 묶음.
     /// AIScenarioConfig.scenarios 리스트의 원소로 사용된다.
@@ -62,59 +55,6 @@ namespace Hexiege.Infrastructure
         /// <summary>빌드오더 항목 목록. 여러 Phase의 항목을 하나의 평탄 리스트로 보관.</summary>
         [Tooltip("빌드오더 항목 목록. 여러 Phase의 항목을 하나의 평탄 리스트로 보관.")]
         public List<BuildOrderStep> steps = new List<BuildOrderStep>();
-    }
-
-    /// <summary>
-    /// 빌드오더 한 단계(Step)의 직렬화 데이터. (GameSystemRules_AI.md 규칙 9)
-    ///
-    /// [System.Serializable] 속성이 있어야 Inspector 리스트에 펼쳐져 노출된다.
-    /// </summary>
-    [System.Serializable]
-    public struct BuildOrderStep
-    {
-        [Tooltip("행동 종류: 건물 배치 / 건물 업그레이드 / 유닛 생산 시작")]
-        public AIActionType actionType;
-
-        [Tooltip("대상 건물 타입 (PlaceBuilding / UpgradeBuilding 시 사용). " +
-                 "UpgradeBuilding이면 업그레이드 후의 다음 단계 타입을 지정.")]
-        public BuildingType buildingType;
-
-        [Tooltip("생산 유닛 타입 (StartProduction 시 사용)")]
-        public UnitType unitType;
-
-        [Tooltip("대상 건물 라인 인덱스. 0=근거리A, 1=총기류, 2=탈것류. " +
-                 "같은 라인의 PlaceBuilding이 만든 배럭에 이후 항목이 연결된다.")]
-        public int targetBuildingLine;
-
-        [Tooltip("속하는 Phase 번호. 0=Phase1(초반), 1=Phase2(중반), 2=Phase3(중후반), 3=Phase4(후반)")]
-        public int phaseIndex;
-
-        [Header("난이도별 대기 시간 (Phase 시작 후 이 항목까지의 초)")]
-
-        [Tooltip("쉬움 난이도에서 이 항목 실행까지의 대기 시간(초)")]
-        public float delaySecondsEasy;
-
-        [Tooltip("보통 난이도에서 이 항목 실행까지의 대기 시간(초)")]
-        public float delaySecondsNormal;
-
-        [Tooltip("어려움 난이도에서 이 항목 실행까지의 대기 시간(초)")]
-        public float delaySecondsHard;
-
-        /// <summary>
-        /// 난이도에 해당하는 대기 시간(초)을 반환한다.
-        /// AIOpponentController가 현재 난이도에 맞는 타이머 길이를 구할 때 사용.
-        /// </summary>
-        /// <param name="level">현재 AI 난이도.</param>
-        /// <returns>해당 난이도의 delaySeconds 값.</returns>
-        public float GetDelaySeconds(DifficultyLevel level)
-        {
-            switch (level)
-            {
-                case DifficultyLevel.Easy: return delaySecondsEasy;
-                case DifficultyLevel.Hard: return delaySecondsHard;
-                default: return delaySecondsNormal;
-            }
-        }
     }
 
     /// <summary>

@@ -25,6 +25,22 @@
 
 ## 최근 작업
 
+### AI 시나리오 ScriptableObject 종족별 재구조화 (2026-06-10) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-10/01_06_ai-scenario-scriptableobject-restructure/`
+
+**핵심**: `DifficultyLevel`(enum) / `BuildOrderStep`(struct) / `AIActionType`(enum)을 Infrastructure → **Domain 레이어로 이동**.
+- `Domain/AI/DifficultyLevel.cs`, `Domain/AI/BuildOrderStep.cs` (AIActionType 포함) 신규
+- Domain은 UnityEngine 참조 금지 → BuildOrderStep에서 [Tooltip]/[Header] 제거, [Serializable](System)만 유지
+- Infrastructure(`AIScenarioConfig.cs`/`LocalPlayerDifficulty.cs`/`AIConfig.cs`)는 중복 정의 삭제 후 `using Hexiege.Domain;`로 참조
+- 참조 파일 전부(AIOpponentController/BattleViewModel/DifficultySelectView)에 `using Hexiege.Domain;` 확인. AIOpponentController는 DifficultyParams/GameRaceContext 때문에 `using Hexiege.Infrastructure;` 유지
+
+**시나리오 에셋 구조 변경**: 종족당 단일 에셋 + 3시나리오 묶음.
+- 레거시 `AIScenarioConfig_Human_A/B/C.asset` 폐기 → `AIScenarioConfig_{Human|Spirit|Transcendence}.asset` (각 `scenarios[0/1/2]` ScenarioBundle 배열)
+- `GameBootstrapper.Setup.cs` `LoadScenarioBundleForRace()`: `GameRaceContext.RedRace` 기반 switch로 종족별 경로 결정 후 `Random.Range`로 1개 선택. (구 `LoadRandomHumanScenario` 제거됨)
+- 타이밍: `GameRaceContext.Set`이 `InitializeAI`보다 먼저 실행되어 RedRace 확정 보장
+- `AIScenarioConfig.cs`는 레거시 호환용 `scenarioName`/`_steps` 필드를 아직 보유(향후 제거 가능)
+
 ### 전체 유닛 사망 VFX 적용 (2026-06-08) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-08/19_08_unit-death-vfx/`

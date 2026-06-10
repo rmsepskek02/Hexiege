@@ -26,6 +26,7 @@
 // ============================================================================
 
 using UnityEngine;
+using Hexiege.Domain; // DifficultyLevel(enum)을 Domain 레이어에서 가져오기 위함.
 
 namespace Hexiege.Infrastructure
 {
