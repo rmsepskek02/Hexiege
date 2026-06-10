@@ -443,6 +443,47 @@ namespace Hexiege.Infrastructure
         }
 
         // ====================================================================
+        // ID Token 발급 (UGS OIDC 브릿지용)
+        // ====================================================================
+
+        /// <summary>
+        /// 현재 로그인된 Firebase 사용자의 ID Token(JWT)을 발급한다.
+        /// 이 토큰을 UGS 의 SignInWithOpenIdConnectAsync 에 전달하면
+        /// Firebase 계정과 UGS PlayerId 를 1:1 로 연결할 수 있다.
+        ///
+        /// 유니티 초급 개발자를 위한 안내:
+        ///   - "ID Token" 은 "이 사용자가 누구인지" 를 Firebase 가 서명해 발급한 증명서(JWT 문자열)다.
+        ///     UGS 는 이 증명서를 검증해 동일 Firebase 계정이면 항상 같은 PlayerId 를 돌려준다.
+        ///   - 이 메서드는 Firebase SDK 의 TokenAsync 를 직접 호출하는 유일한 지점이다.
+        ///     상위 레이어(LoginUseCase)가 Firebase SDK 에 의존하지 않도록 여기서 캡슐화한다.
+        /// </summary>
+        /// <param name="forceRefresh">
+        /// true 면 캐시를 무시하고 서버에서 새 토큰을 강제로 받아온다.
+        /// false(기본)면 캐시된 토큰을 우선 사용하되 만료가 임박하면 SDK 가 자동 갱신한다.
+        /// 일반적인 브릿지에는 false 로 충분하다(불필요한 서버 왕복 방지).
+        /// </param>
+        /// <returns>Firebase ID Token(JWT 문자열).</returns>
+        public async Task<string> GetIdTokenAsync(bool forceRefresh = false)
+        {
+            EnsureInitialized();
+            if (_auth.CurrentUser == null)
+                throw new AuthException(AuthErrorReason.NotLoggedIn,
+                    "로그인된 사용자가 없어 ID Token 을 발급할 수 없습니다.");
+
+            try
+            {
+                // TokenAsync(false): 캐시된 토큰 우선, 만료 임박 시 SDK 가 알아서 갱신.
+                string token = await _auth.CurrentUser.TokenAsync(forceRefresh);
+                Debug.Log("[FirebaseAuth] ID Token 발급 완료 (UGS OIDC 브릿지용).");
+                return token;
+            }
+            catch (FirebaseException e)
+            {
+                throw ConvertException(e, "ID Token 발급");
+            }
+        }
+
+        // ====================================================================
         // 내부 헬퍼
         // ====================================================================
 

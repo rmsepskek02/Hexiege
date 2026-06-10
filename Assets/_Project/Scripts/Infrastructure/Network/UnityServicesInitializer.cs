@@ -9,11 +9,15 @@
 // [2026-05-24 변경 — 로그인 시스템 도입]
 //   기존: 익명 로그인(SignInAnonymouslyAsync) 까지 자동 수행.
 //   변경: 인증은 LoginUseCase.BridgeToUGSAsync(firebaseUID) 로 위임.
-//         본 클래스는 UGS 초기화만 담당하며, 인증 자체는 Firebase UID 기반
-//         SignInWithCustomIdAsync 흐름이 LoginUseCase 내부에서 처리한다.
+//         본 클래스는 UGS 초기화만 담당한다.
 //
-//   변경 이유: Firebase 와 UGS 의 사용자 ID 일관성을 위해 Firebase UID 를
-//             UGS Custom ID 로 등록하는 구조로 전환 (AuthSystemRules.md).
+// [2026-06-10 변경 — OIDC Bridge 도입]
+//   실계정(Google/이메일) 인증은 Firebase ID Token 을 UGS OIDC Provider 에 전달하는
+//   SignInWithOpenIdConnectAsync 흐름으로 LoginUseCase 내부에서 처리한다.
+//   (익명 계정은 기존대로 UGS 익명 로그인 사용 — AuthSystemRules.md UGS 연결 규칙 2~3)
+//
+//   변경 이유: Firebase 와 UGS 의 사용자 ID 일관성을 위해 Firebase 계정을
+//             UGS PlayerId 와 1:1 로 연결하는 OIDC Bridge 구조로 전환 (AuthSystemRules.md).
 //
 // 위치: Infrastructure 레이어 — 외부 서비스 연동 담당.
 // ============================================================================
@@ -29,7 +33,7 @@ namespace Hexiege.Infrastructure
     /// <summary>
     /// Unity Gaming Services 초기화 클래스.
     /// 네트워크 기능 사용 전 InitializeAsync() 호출 필요.
-    /// 인증은 외부(LoginUseCase) 에서 SignInWithCustomIdAsync 로 별도 수행.
+    /// 인증은 외부(LoginUseCase.BridgeToUGSAsync)에서 OIDC Bridge / 익명 로그인으로 별도 수행.
     /// </summary>
     public class UnityServicesInitializer
     {
@@ -42,7 +46,7 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 현재 로그인 상태.
-        /// Firebase UID 기반 SignInWithCustomIdAsync 가 수행된 후 true.
+        /// LoginUseCase.BridgeToUGSAsync 의 OIDC Bridge(또는 익명 로그인)가 수행된 후 true.
         /// 본 클래스는 직접 로그인을 수행하지 않으므로, 호출 시점의 상태만 반환.
         /// </summary>
         public bool IsSignedIn => AuthenticationService.Instance.IsSignedIn;
@@ -80,17 +84,51 @@ namespace Hexiege.Infrastructure
 
                 IsInitialized = true;
 
-                // 항상 재로그인하여 서버로부터 유효한 토큰을 발급받는다.
-                // IsSignedIn이 true여도 서버 토큰이 만료되어 있으면 Lobby 등 UGS API 호출 시
-                // HTTP 401 Unauthorized 에러가 발생하므로, 기존 세션을 끊고 새로 로그인한다.
-                // ※ 추후 Login 씬 흐름(Firebase UID 기반 로그인)이 완성되면 이 로직 재검토 필요.
+                // ----------------------------------------------------------------
+                // [2026-06-10 변경 — OIDC Bridge 도입]
+                //
+                // 변경 이유:
+                //   기존에는 "항상 SignOut → SignInAnonymouslyAsync" 로 매번 새 익명 세션을
+                //   만들었다(HTTP 401 토큰 만료 버그 회피 목적). 그러나 이제 Login 씬에서
+                //   Firebase 계정을 UGS OIDC 로 연결한 세션이 만들어지므로, 이 익명 재로그인은
+                //   그 OIDC 세션을 덮어써 PlayerId 가 매번 바뀌는 문제를 일으킨다.
+                //
+                //   OIDC 전환 후에는 토큰 갱신 책임이 UGS SDK 로 넘어가(IsSignedIn 인 동안
+                //   SDK 가 Access Token 을 자동 갱신) "항상 재로그인" 자체가 불필요하다.
+                //
+                // 새 정책:
+                //   - 이미 로그인된 세션(주로 Login 씬이 만든 OIDC 세션)이 있으면 그대로 보존.
+                //   - 세션이 전혀 없을 때만 폴백으로 익명 로그인.
+                //     (Login 씬을 거치지 않고 Game/Lobby 씬으로 바로 진입하는 현재 개발/테스트
+                //      흐름에서 Lobby/Relay 가 동작하려면 최소한의 PlayerId 가 필요하기 때문.)
+                //
+                // ⚠️ 기존 로직은 삭제하지 않고 아래에 주석으로 비활성화만 해 둔다.
+                //    (WORKFLOW.md 기존 로직 제거 규칙 — 사용자 테스트 통과 후 최종 삭제)
+                // ----------------------------------------------------------------
+
+                // === [구 로직 — 비활성화] 항상 재로그인 ===
+                // if (AuthenticationService.Instance.IsSignedIn)
+                // {
+                //     AuthenticationService.Instance.SignOut();
+                //     Debug.Log("[Network] 기존 UGS 세션 로그아웃 — 토큰 갱신을 위해 재로그인 수행.");
+                // }
+                // Debug.Log("[Network] UGS 익명 로그인 수행...");
+                // await AuthenticationService.Instance.SignInAnonymouslyAsync();
+
+                // === [신 로직] OIDC 세션 보존 + 세션 없을 때만 폴백 ===
                 if (AuthenticationService.Instance.IsSignedIn)
                 {
-                    AuthenticationService.Instance.SignOut();
-                    Debug.Log("[Network] 기존 UGS 세션 로그아웃 — 토큰 갱신을 위해 재로그인 수행.");
+                    // Login 씬이 만든 OIDC(또는 익명) 세션이 살아 있으면 그대로 사용.
+                    // SDK 가 토큰을 자동 갱신하므로 덮어쓰지 않는다.
+                    Debug.Log($"[Network] 기존 UGS 세션 보존 — 재로그인 생략. PlayerId={PlayerId}");
                 }
-                Debug.Log("[Network] UGS 익명 로그인 수행...");
-                await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                else
+                {
+                    // 세션이 전혀 없는 경우(예: Login 씬을 거치지 않은 단독 테스트 진입).
+                    // 멀티플레이가 최소한 동작하도록 익명 세션으로 폴백한다.
+                    Debug.Log("[Network] UGS 세션 없음 — 익명 로그인으로 폴백 수행.");
+                    await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                }
 
                 onSuccess?.Invoke(PlayerId);
                 Debug.Log($"[Network] UGS 초기화 완료. " +
