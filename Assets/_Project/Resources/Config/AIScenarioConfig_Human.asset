@@ -1,0 +1,359 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f212b89a59f47d54ea2b03316a42850b, type: 3}
+  m_Name: AIScenarioConfig_Human
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.AIScenarioConfig
+  scenarioName: Human
+  _steps: []
+  scenarios:
+  - scenarioName: Human_A
+    steps:
+    - actionType: 0
+      buildingType: 7
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 0
+      delaySecondsEasy: 5
+      delaySecondsNormal: 5
+      delaySecondsHard: 5
+    - actionType: 2
+      buildingType: 0
+      unitType: 3
+      targetBuildingLine: 0
+      phaseIndex: 0
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 0
+      buildingType: 10
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 1
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 2
+      buildingType: 0
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 1
+      delaySecondsEasy: 35
+      delaySecondsNormal: 35
+      delaySecondsHard: 35
+    - actionType: 1
+      buildingType: 8
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 2
+      delaySecondsEasy: 5
+      delaySecondsNormal: 5
+      delaySecondsHard: 5
+    - actionType: 2
+      buildingType: 0
+      unitType: 4
+      targetBuildingLine: 0
+      phaseIndex: 2
+      delaySecondsEasy: 30
+      delaySecondsNormal: 30
+      delaySecondsHard: 30
+    - actionType: 1
+      buildingType: 11
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 2
+      delaySecondsEasy: 60
+      delaySecondsNormal: 60
+      delaySecondsHard: 60
+    - actionType: 2
+      buildingType: 0
+      unitType: 1
+      targetBuildingLine: 1
+      phaseIndex: 2
+      delaySecondsEasy: 90
+      delaySecondsNormal: 90
+      delaySecondsHard: 90
+    - actionType: 1
+      buildingType: 9
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 3
+      delaySecondsEasy: 15
+      delaySecondsNormal: 15
+      delaySecondsHard: 15
+    - actionType: 2
+      buildingType: 0
+      unitType: 5
+      targetBuildingLine: 0
+      phaseIndex: 3
+      delaySecondsEasy: 45
+      delaySecondsNormal: 45
+      delaySecondsHard: 45
+    - actionType: 1
+      buildingType: 12
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 3
+      delaySecondsEasy: 50
+      delaySecondsNormal: 50
+      delaySecondsHard: 50
+    - actionType: 2
+      buildingType: 0
+      unitType: 2
+      targetBuildingLine: 1
+      phaseIndex: 3
+      delaySecondsEasy: 80
+      delaySecondsNormal: 80
+      delaySecondsHard: 80
+  - scenarioName: Human_B
+    steps:
+    - actionType: 0
+      buildingType: 7
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 0
+      delaySecondsEasy: 5
+      delaySecondsNormal: 5
+      delaySecondsHard: 5
+    - actionType: 2
+      buildingType: 0
+      unitType: 3
+      targetBuildingLine: 0
+      phaseIndex: 0
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 1
+      buildingType: 8
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 1
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 2
+      buildingType: 0
+      unitType: 4
+      targetBuildingLine: 0
+      phaseIndex: 1
+      delaySecondsEasy: 45
+      delaySecondsNormal: 45
+      delaySecondsHard: 45
+    - actionType: 0
+      buildingType: 10
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 1
+      delaySecondsEasy: 60
+      delaySecondsNormal: 60
+      delaySecondsHard: 60
+    - actionType: 2
+      buildingType: 0
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 1
+      delaySecondsEasy: 75
+      delaySecondsNormal: 75
+      delaySecondsHard: 75
+    - actionType: 1
+      buildingType: 9
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 2
+      delaySecondsEasy: 5
+      delaySecondsNormal: 5
+      delaySecondsHard: 5
+    - actionType: 2
+      buildingType: 0
+      unitType: 5
+      targetBuildingLine: 0
+      phaseIndex: 2
+      delaySecondsEasy: 35
+      delaySecondsNormal: 35
+      delaySecondsHard: 35
+    - actionType: 1
+      buildingType: 11
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 2
+      delaySecondsEasy: 60
+      delaySecondsNormal: 60
+      delaySecondsHard: 60
+    - actionType: 2
+      buildingType: 0
+      unitType: 1
+      targetBuildingLine: 1
+      phaseIndex: 2
+      delaySecondsEasy: 90
+      delaySecondsNormal: 90
+      delaySecondsHard: 90
+    - actionType: 0
+      buildingType: 13
+      unitType: 0
+      targetBuildingLine: 2
+      phaseIndex: 3
+      delaySecondsEasy: 15
+      delaySecondsNormal: 15
+      delaySecondsHard: 15
+    - actionType: 2
+      buildingType: 0
+      unitType: 7
+      targetBuildingLine: 2
+      phaseIndex: 3
+      delaySecondsEasy: 30
+      delaySecondsNormal: 30
+      delaySecondsHard: 30
+    - actionType: 1
+      buildingType: 14
+      unitType: 0
+      targetBuildingLine: 2
+      phaseIndex: 3
+      delaySecondsEasy: 60
+      delaySecondsNormal: 60
+      delaySecondsHard: 60
+    - actionType: 2
+      buildingType: 0
+      unitType: 6
+      targetBuildingLine: 2
+      phaseIndex: 3
+      delaySecondsEasy: 90
+      delaySecondsNormal: 90
+      delaySecondsHard: 90
+  - scenarioName: Human_C
+    steps:
+    - actionType: 0
+      buildingType: 7
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 0
+      delaySecondsEasy: 5
+      delaySecondsNormal: 5
+      delaySecondsHard: 5
+    - actionType: 2
+      buildingType: 0
+      unitType: 3
+      targetBuildingLine: 0
+      phaseIndex: 0
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 1
+      buildingType: 8
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 1
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 2
+      buildingType: 0
+      unitType: 4
+      targetBuildingLine: 0
+      phaseIndex: 1
+      delaySecondsEasy: 45
+      delaySecondsNormal: 45
+      delaySecondsHard: 45
+    - actionType: 0
+      buildingType: 10
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 1
+      delaySecondsEasy: 60
+      delaySecondsNormal: 60
+      delaySecondsHard: 60
+    - actionType: 2
+      buildingType: 0
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 1
+      delaySecondsEasy: 75
+      delaySecondsNormal: 75
+      delaySecondsHard: 75
+    - actionType: 1
+      buildingType: 9
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 2
+      delaySecondsEasy: 5
+      delaySecondsNormal: 5
+      delaySecondsHard: 5
+    - actionType: 2
+      buildingType: 0
+      unitType: 5
+      targetBuildingLine: 0
+      phaseIndex: 2
+      delaySecondsEasy: 35
+      delaySecondsNormal: 35
+      delaySecondsHard: 35
+    - actionType: 1
+      buildingType: 11
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 2
+      delaySecondsEasy: 60
+      delaySecondsNormal: 60
+      delaySecondsHard: 60
+    - actionType: 2
+      buildingType: 0
+      unitType: 1
+      targetBuildingLine: 1
+      phaseIndex: 2
+      delaySecondsEasy: 90
+      delaySecondsNormal: 90
+      delaySecondsHard: 90
+    - actionType: 1
+      buildingType: 12
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 3
+      delaySecondsEasy: 15
+      delaySecondsNormal: 15
+      delaySecondsHard: 15
+    - actionType: 2
+      buildingType: 0
+      unitType: 2
+      targetBuildingLine: 1
+      phaseIndex: 3
+      delaySecondsEasy: 45
+      delaySecondsNormal: 45
+      delaySecondsHard: 45
+    - actionType: 0
+      buildingType: 13
+      unitType: 0
+      targetBuildingLine: 2
+      phaseIndex: 3
+      delaySecondsEasy: 50
+      delaySecondsNormal: 50
+      delaySecondsHard: 50
+    - actionType: 2
+      buildingType: 0
+      unitType: 7
+      targetBuildingLine: 2
+      phaseIndex: 3
+      delaySecondsEasy: 65
+      delaySecondsNormal: 65
+      delaySecondsHard: 65
+    - actionType: 1
+      buildingType: 14
+      unitType: 0
+      targetBuildingLine: 2
+      phaseIndex: 3
+      delaySecondsEasy: 120
+      delaySecondsNormal: 120
+      delaySecondsHard: 120
+    - actionType: 2
+      buildingType: 0
+      unitType: 6
+      targetBuildingLine: 2
+      phaseIndex: 3
+      delaySecondsEasy: 150
+      delaySecondsNormal: 150
+      delaySecondsHard: 150

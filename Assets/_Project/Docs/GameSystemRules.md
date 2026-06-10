@@ -16,6 +16,8 @@
 | [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템 |
 | [GameSystemRules_AI.md](GameSystemRules/GameSystemRules_AI.md) | AI 난이도 시스템, 빌드오더 스크립트, 반응 시스템, 건물 배치 로직, 가드 메커니즘 |
 | [GameSystemRules_AI_Scenario_Human.md](GameSystemRules/GameSystemRules_AI_Scenario_Human.md) | Human 종족 AI 빌드오더 시나리오 A/B/C |
+| [GameSystemRules_AI_Scenario_Spirit.md](GameSystemRules/GameSystemRules_AI_Scenario_Spirit.md) | Spirit 종족 AI 빌드오더 시나리오 A/B/C |
+| [GameSystemRules_AI_Scenario_Transcendence.md](GameSystemRules/GameSystemRules_AI_Scenario_Transcendence.md) | Transcendence 종족 AI 빌드오더 시나리오 A/B/C |
 
 ---
 
@@ -51,3 +53,9 @@
 
 → [GameSystemRules_AI_Scenario_Human.md](GameSystemRules/GameSystemRules_AI_Scenario_Human.md)
 - Human 종족 시나리오 A (물량형), B (테크형), C (균형형) 빌드오더 테이블
+
+→ [GameSystemRules_AI_Scenario_Spirit.md](GameSystemRules/GameSystemRules_AI_Scenario_Spirit.md)
+- Spirit 종족 시나리오 A (Spirit-Inferno 불 집중형), B (Spirit-Torrent 물 집중형), C (Spirit-Quake 땅 집중형) 빌드오더 테이블
+
+→ [GameSystemRules_AI_Scenario_Transcendence.md](GameSystemRules/GameSystemRules_AI_Scenario_Transcendence.md)
+- Transcendence 종족 시나리오 A (Trans-Rush 초반 물량형), B (Trans-Flora 동물A+식물 균형형), C (Trans-Beast 동물 고테크형) 빌드오더 테이블

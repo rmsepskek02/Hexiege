@@ -1,0 +1,311 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f212b89a59f47d54ea2b03316a42850b, type: 3}
+  m_Name: AIScenarioConfig_Spirit
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.AIScenarioConfig
+  scenarioName: Spirit
+  _steps: []
+  scenarios:
+  - scenarioName: Spirit-Inferno
+    steps:
+    - actionType: 0
+      buildingType: 15
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 0
+      delaySecondsEasy: 5
+      delaySecondsNormal: 5
+      delaySecondsHard: 5
+    - actionType: 2
+      buildingType: 0
+      unitType: 11
+      targetBuildingLine: 0
+      phaseIndex: 0
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 1
+      buildingType: 16
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 1
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 2
+      buildingType: 0
+      unitType: 10
+      targetBuildingLine: 0
+      phaseIndex: 1
+      delaySecondsEasy: 50
+      delaySecondsNormal: 50
+      delaySecondsHard: 50
+    - actionType: 0
+      buildingType: 21
+      unitType: 0
+      targetBuildingLine: 2
+      phaseIndex: 1
+      delaySecondsEasy: 70
+      delaySecondsNormal: 70
+      delaySecondsHard: 70
+    - actionType: 2
+      buildingType: 0
+      unitType: 13
+      targetBuildingLine: 2
+      phaseIndex: 1
+      delaySecondsEasy: 90
+      delaySecondsNormal: 90
+      delaySecondsHard: 90
+    - actionType: 1
+      buildingType: 17
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 2
+      delaySecondsEasy: 15
+      delaySecondsNormal: 15
+      delaySecondsHard: 15
+    - actionType: 2
+      buildingType: 0
+      unitType: 12
+      targetBuildingLine: 0
+      phaseIndex: 2
+      delaySecondsEasy: 50
+      delaySecondsNormal: 50
+      delaySecondsHard: 50
+    - actionType: 1
+      buildingType: 22
+      unitType: 0
+      targetBuildingLine: 2
+      phaseIndex: 2
+      delaySecondsEasy: 60
+      delaySecondsNormal: 60
+      delaySecondsHard: 60
+    - actionType: 2
+      buildingType: 0
+      unitType: 14
+      targetBuildingLine: 2
+      phaseIndex: 2
+      delaySecondsEasy: 90
+      delaySecondsNormal: 90
+      delaySecondsHard: 90
+    - actionType: 1
+      buildingType: 23
+      unitType: 0
+      targetBuildingLine: 2
+      phaseIndex: 3
+      delaySecondsEasy: 30
+      delaySecondsNormal: 30
+      delaySecondsHard: 30
+    - actionType: 2
+      buildingType: 0
+      unitType: 15
+      targetBuildingLine: 2
+      phaseIndex: 3
+      delaySecondsEasy: 70
+      delaySecondsNormal: 70
+      delaySecondsHard: 70
+  - scenarioName: Spirit-Torrent
+    steps:
+    - actionType: 0
+      buildingType: 18
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 0
+      delaySecondsEasy: 5
+      delaySecondsNormal: 5
+      delaySecondsHard: 5
+    - actionType: 2
+      buildingType: 0
+      unitType: 16
+      targetBuildingLine: 1
+      phaseIndex: 0
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 1
+      buildingType: 19
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 1
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 2
+      buildingType: 0
+      unitType: 17
+      targetBuildingLine: 1
+      phaseIndex: 1
+      delaySecondsEasy: 50
+      delaySecondsNormal: 50
+      delaySecondsHard: 50
+    - actionType: 0
+      buildingType: 15
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 1
+      delaySecondsEasy: 70
+      delaySecondsNormal: 70
+      delaySecondsHard: 70
+    - actionType: 2
+      buildingType: 0
+      unitType: 11
+      targetBuildingLine: 0
+      phaseIndex: 1
+      delaySecondsEasy: 90
+      delaySecondsNormal: 90
+      delaySecondsHard: 90
+    - actionType: 1
+      buildingType: 20
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 2
+      delaySecondsEasy: 15
+      delaySecondsNormal: 15
+      delaySecondsHard: 15
+    - actionType: 2
+      buildingType: 0
+      unitType: 18
+      targetBuildingLine: 1
+      phaseIndex: 2
+      delaySecondsEasy: 50
+      delaySecondsNormal: 50
+      delaySecondsHard: 50
+    - actionType: 1
+      buildingType: 16
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 2
+      delaySecondsEasy: 60
+      delaySecondsNormal: 60
+      delaySecondsHard: 60
+    - actionType: 2
+      buildingType: 0
+      unitType: 10
+      targetBuildingLine: 0
+      phaseIndex: 2
+      delaySecondsEasy: 90
+      delaySecondsNormal: 90
+      delaySecondsHard: 90
+    - actionType: 1
+      buildingType: 17
+      unitType: 0
+      targetBuildingLine: 0
+      phaseIndex: 3
+      delaySecondsEasy: 30
+      delaySecondsNormal: 30
+      delaySecondsHard: 30
+    - actionType: 2
+      buildingType: 0
+      unitType: 12
+      targetBuildingLine: 0
+      phaseIndex: 3
+      delaySecondsEasy: 65
+      delaySecondsNormal: 65
+      delaySecondsHard: 65
+  - scenarioName: Spirit-Quake
+    steps:
+    - actionType: 0
+      buildingType: 21
+      unitType: 0
+      targetBuildingLine: 2
+      phaseIndex: 0
+      delaySecondsEasy: 5
+      delaySecondsNormal: 5
+      delaySecondsHard: 5
+    - actionType: 2
+      buildingType: 0
+      unitType: 13
+      targetBuildingLine: 2
+      phaseIndex: 0
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 1
+      buildingType: 22
+      unitType: 0
+      targetBuildingLine: 2
+      phaseIndex: 1
+      delaySecondsEasy: 20
+      delaySecondsNormal: 20
+      delaySecondsHard: 20
+    - actionType: 2
+      buildingType: 0
+      unitType: 14
+      targetBuildingLine: 2
+      phaseIndex: 1
+      delaySecondsEasy: 50
+      delaySecondsNormal: 50
+      delaySecondsHard: 50
+    - actionType: 0
+      buildingType: 18
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 1
+      delaySecondsEasy: 70
+      delaySecondsNormal: 70
+      delaySecondsHard: 70
+    - actionType: 2
+      buildingType: 0
+      unitType: 16
+      targetBuildingLine: 1
+      phaseIndex: 1
+      delaySecondsEasy: 90
+      delaySecondsNormal: 90
+      delaySecondsHard: 90
+    - actionType: 1
+      buildingType: 23
+      unitType: 0
+      targetBuildingLine: 2
+      phaseIndex: 2
+      delaySecondsEasy: 15
+      delaySecondsNormal: 15
+      delaySecondsHard: 15
+    - actionType: 2
+      buildingType: 0
+      unitType: 15
+      targetBuildingLine: 2
+      phaseIndex: 2
+      delaySecondsEasy: 50
+      delaySecondsNormal: 50
+      delaySecondsHard: 50
+    - actionType: 1
+      buildingType: 19
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 2
+      delaySecondsEasy: 60
+      delaySecondsNormal: 60
+      delaySecondsHard: 60
+    - actionType: 2
+      buildingType: 0
+      unitType: 17
+      targetBuildingLine: 1
+      phaseIndex: 2
+      delaySecondsEasy: 90
+      delaySecondsNormal: 90
+      delaySecondsHard: 90
+    - actionType: 1
+      buildingType: 20
+      unitType: 0
+      targetBuildingLine: 1
+      phaseIndex: 3
+      delaySecondsEasy: 30
+      delaySecondsNormal: 30
+      delaySecondsHard: 30
+    - actionType: 2
+      buildingType: 0
+      unitType: 18
+      targetBuildingLine: 1
+      phaseIndex: 3
+      delaySecondsEasy: 65
+      delaySecondsNormal: 65
+      delaySecondsHard: 65

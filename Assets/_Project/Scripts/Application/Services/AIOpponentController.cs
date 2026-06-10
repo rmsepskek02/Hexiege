@@ -49,7 +49,10 @@ namespace Hexiege.Application.Services
 
         // 난이도 파라미터(값 복사본)와 시나리오 데이터.
         private readonly DifficultyParams _params;
-        private readonly AIScenarioConfig _scenario;
+        // 선택된 시나리오의 빌드오더 항목 목록.
+        private readonly IReadOnlyList<BuildOrderStep> _scenarioSteps;
+        // 선택된 시나리오 이름 (로깅용).
+        private readonly string _scenarioName;
         private readonly DifficultyLevel _difficulty;
 
         // AI가 제어하는 팀. 현재는 항상 Red.
@@ -139,7 +142,8 @@ namespace Hexiege.Application.Services
         /// <param name="unitSpawn">유닛 조회용 UseCase (유닛 수 비교에 사용).</param>
         /// <param name="grid">금광 타일 조회용 그리드.</param>
         /// <param name="aiParams">선택된 난이도의 파라미터.</param>
-        /// <param name="scenario">사용할 빌드오더 시나리오.</param>
+        /// <param name="scenarioSteps">사용할 빌드오더 시나리오의 항목 목록.</param>
+        /// <param name="scenarioName">선택된 시나리오 이름 (로깅용).</param>
         /// <param name="difficulty">현재 난이도 단계 (delaySeconds 선택에 사용).</param>
         public AIOpponentController(
             BuildingPlacementUseCase buildingPlacement,
@@ -148,7 +152,8 @@ namespace Hexiege.Application.Services
             UnitSpawnUseCase unitSpawn,
             HexGrid grid,
             DifficultyParams aiParams,
-            AIScenarioConfig scenario,
+            IReadOnlyList<BuildOrderStep> scenarioSteps,
+            string scenarioName,
             DifficultyLevel difficulty)
         {
             _buildingPlacement = buildingPlacement;
@@ -157,7 +162,8 @@ namespace Hexiege.Application.Services
             _unitSpawn = unitSpawn;
             _grid = grid;
             _params = aiParams;
-            _scenario = scenario;
+            _scenarioSteps = scenarioSteps;
+            _scenarioName  = scenarioName;
             _difficulty = difficulty;
 
             BuildPhaseGroups();
@@ -188,9 +194,9 @@ namespace Hexiege.Application.Services
             for (int i = 0; i < 4; i++)
                 _phases.Add(new List<BuildOrderStep>());
 
-            if (_scenario == null) return;
+            if (_scenarioSteps == null) return;
 
-            foreach (var step in _scenario.Steps)
+            foreach (var step in _scenarioSteps)
             {
                 int p = step.phaseIndex;
                 if (p < 0 || p >= _phases.Count) continue; // 잘못된 phaseIndex는 무시

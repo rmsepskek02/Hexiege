@@ -23,6 +23,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UniRx;
+using Hexiege.Domain;         // DifficultyLevel(enum) — Domain 레이어로 이동됨.
 using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation

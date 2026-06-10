@@ -19,6 +19,7 @@
 //   * Unity 생명주기 메서드를 본 파일에 두지 않는다 — 중복 정의 방지.
 // ============================================================================
 
+using System.Collections.Generic;
 using UnityEngine;
 using UniRx;
 using Hexiege.Domain;
@@ -587,13 +588,14 @@ namespace Hexiege.Bootstrap
             DifficultyLevel difficulty = LocalPlayerDifficulty.Current;
             DifficultyParams aiParams = aiConfig.GetParams(difficulty);
 
-            // 3. Human 시나리오 A/B/C 무작위 선택.
-            //    (현재 Human 종족만 시나리오 보유 — 추후 종족별 분기 추가 예정)
-            AIScenarioConfig scenario = LoadRandomHumanScenario();
-            if (scenario == null)
+            // 3. AI(Red 팀) 종족에 맞는 시나리오 에셋을 로드하고 3개 중 하나를 무작위 선택.
+            //    종족 결정은 GameRaceContext.RedRace를 따른다 (LoadScenarioBundleForRace 내부).
+            var (scenarioSteps, scenarioName) = LoadScenarioBundleForRace();
+            if (scenarioSteps == null)
             {
-                Debug.LogError("[GameBootstrapper] AIScenarioConfig_Human_* 에셋을 찾을 수 없습니다. " +
-                               "메뉴 Hexiege/Setup/AIScenarioConfig_Human_A~C 생성으로 만들어 주세요. AI를 비활성화합니다.");
+                Debug.LogError("[GameBootstrapper] AI 시나리오 에셋을 찾을 수 없습니다. " +
+                               "AIScenarioConfig_Human.asset이 Resources/Config/에 있는지 확인하세요. " +
+                               "AI를 비활성화합니다.");
                 return;
             }
 
@@ -608,39 +610,74 @@ namespace Hexiege.Bootstrap
                 _unitSpawn,
                 _grid,
                 aiParams,
-                scenario,
+                scenarioSteps,
+                scenarioName,
                 difficulty);
 
             Debug.Log($"[GameBootstrapper] AI 초기화 완료. 난이도={difficulty}, " +
-                      $"시나리오={scenario.scenarioName}, 수입배율={aiParams.goldIncomeMultiplier}");
+                      $"시나리오={scenarioName}, 수입배율={aiParams.goldIncomeMultiplier}");
         }
 
         /// <summary>
-        /// Human 시나리오 A/B/C 에셋 중 존재하는 것들을 모아 무작위로 하나를 반환한다.
-        /// 일부 에셋이 없어도 존재하는 것들 안에서 선택한다. 하나도 없으면 null.
+        /// AI(Red 팀)의 종족에 맞는 시나리오 에셋을 로드하고,
+        /// 그 안에 담긴 3개 시나리오 중 하나를 무작위로 선택해 반환한다.
+        ///
+        /// 종족 결정:
+        ///   GameRaceContext.RedRace(현재 AI 팀 종족)에 따라 로드할 에셋 경로가 달라진다.
+        ///     - RaceId.Human         → "Config/AIScenarioConfig_Human"
+        ///     - RaceId.Spirit        → "Config/AIScenarioConfig_Spirit"
+        ///     - RaceId.Transcendence → "Config/AIScenarioConfig_Transcendence"
+        ///
+        /// 타이밍 안전성:
+        ///   GameRaceContext.Set(...)이 InitializeAI()보다 먼저 실행되므로,
+        ///   이 메서드 호출 시점에는 RedRace 값이 이미 확정되어 있다.
         /// </summary>
-        private AIScenarioConfig LoadRandomHumanScenario()
+        /// <returns>선택된 BuildOrderStep 목록과 시나리오 이름. 에셋 없으면 (null, null).</returns>
+        private (IReadOnlyList<BuildOrderStep> steps, string name) LoadScenarioBundleForRace()
         {
-            // 후보 경로 (Resources 기준 — 확장자 제외).
-            string[] candidates =
-            {
-                "Config/AIScenarioConfig_Human_A",
-                "Config/AIScenarioConfig_Human_B",
-                "Config/AIScenarioConfig_Human_C",
-            };
+            // AI(Red 팀)의 종족을 기준으로 로드할 에셋 경로를 결정한다.
+            RaceId aiRace = GameRaceContext.RedRace;
 
-            // 존재하는 시나리오만 수집.
-            var loaded = new System.Collections.Generic.List<AIScenarioConfig>();
-            foreach (var path in candidates)
+            // 종족 → Resources 경로(확장자 제외) 매핑.
+            // 새 종족이 추가되면 이 switch에 한 줄만 더하면 된다.
+            string path;
+            switch (aiRace)
             {
-                var sc = Resources.Load<AIScenarioConfig>(path);
-                if (sc != null) loaded.Add(sc);
+                case RaceId.Human:
+                    path = "Config/AIScenarioConfig_Human";
+                    break;
+                case RaceId.Spirit:
+                    path = "Config/AIScenarioConfig_Spirit";
+                    break;
+                case RaceId.Transcendence:
+                    path = "Config/AIScenarioConfig_Transcendence";
+                    break;
+                default:
+                    Debug.LogWarning($"[GameBootstrapper] 알 수 없는 AI 종족({aiRace})입니다. " +
+                                     "시나리오를 로드할 수 없습니다.");
+                    return (null, null);
             }
 
-            if (loaded.Count == 0) return null;
+            var config = Resources.Load<AIScenarioConfig>(path);
 
-            int idx = UnityEngine.Random.Range(0, loaded.Count);
-            return loaded[idx];
+            if (config == null)
+            {
+                Debug.LogWarning($"[GameBootstrapper] (종족={aiRace}) {path}.asset을 찾을 수 없습니다.");
+                return (null, null);
+            }
+
+            if (config.scenarios == null || config.scenarios.Count == 0)
+            {
+                Debug.LogWarning($"[GameBootstrapper] (종족={aiRace}) {path}.asset의 " +
+                                 "scenarios 배열이 비어 있습니다.");
+                return (null, null);
+            }
+
+            int idx = UnityEngine.Random.Range(0, config.scenarios.Count);
+            var bundle = config.scenarios[idx];
+            Debug.Log($"[GameBootstrapper] 시나리오 선택: 종족={aiRace}, " +
+                      $"{bundle.scenarioName} (인덱스 {idx})");
+            return (bundle.steps, bundle.scenarioName);
         }
     }
 }

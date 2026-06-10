@@ -154,13 +154,77 @@
   - Assault/Sniper 생산 버튼 추가 (ProductionPanelUI) ✅
 - **전투 범위 수정 (2026-03-14)**: epsilon +0.1f 제거 → 타일 점령 타이밍 정상화
 
+## 싱글플레이 AI 시스템 (2026-06-10 완료)
+
+### AI 시나리오 ScriptableObject 에셋 (2026-06-10 완료)
+- 3종족 시나리오가 각 1파일에 3시나리오 내장된 형태로 완성됨 (종족당 단일 에셋).
+- 파일명: `AIScenarioConfig_Human.asset` / `AIScenarioConfig_Spirit.asset` / `AIScenarioConfig_Transcendence.asset`
+- 경로: `Resources/Config/`. 게임 시작 시 `GameRaceContext.RedRace`로 종족 판별 후 해당 에셋에서 무작위 시나리오 1개 선택.
+- 레거시 Human_A/B/C 개별 에셋은 삭제됨.
+
+### AI 시나리오 구조
+- Phase 4단계: Phase 1(0~3분) / Phase 2(3~6분) / Phase 3(6~9분) / Phase 4(9분~종료)
+- 시나리오 선택: 게임 시작 시 A/B/C 중 균등 확률(33.3%) 랜덤. `UnityEngine.Random.Range(0, 3)` 인덱스 사용.
+- 난이도는 `delaySeconds` 배율(쉬움 ×1.5 / 어려움 ×0.7)과 `goldIncomeMultiplier`로만 반영.
+- 채굴소(MiningPost 계열)는 Phase 2와 Phase 4에 병행 트랙으로 자동 처리.
+- 골드 경제: 시작 500g + 채굴소 10g/s × 180s × 2 = 10분 기준 이론 최대 약 5,300g.
+
+### Human 종족 시나리오 (완료)
+- **건물 비용**: 1단계 100g / 2단계 업글 100g / 3단계 업글 200g / MiningPost 50g
+- **시나리오 A — 물량형**: TrainingCamp→Gunsmith 각 3단계. 건물 총 비용 900g.
+- **시나리오 B — 테크형**: 근거리A 3단계 + 총기 2단계 + 탈것 2단계. 총 1,200g.
+- **시나리오 C — 균형형**: 근거리A 3단계 + 총기 3단계 + 탈것 1단계(+추가시간 2단계). 총 1,400g.
+
+### Human 생산 건물 라인
+
+| 라인 | Stage 1 | Stage 2 | Stage 3 | S1유닛 | S2유닛 | S3유닛 |
+|------|---------|---------|---------|--------|--------|--------|
+| 0 — 근거리A | TrainingCamp | WarAcademy | HumanBarracks | LittleKnight | SpearMan | BattleAxe |
+| 1 — 총기류 | Gunsmith | Armory | WeaponForge | Pistoleer | Assault | Sniper |
+| 2 — 탈것류 | Garage | VehicleBay | — | CannonCart | Tank | — |
+
+### Spirit 종족 시나리오 (완료)
+- **건물 비용**: 1단계 75g / 2단계 업글 200g / 3단계 업글 400g / ManaRift 50g
+- 단일 라인 3단계 총 비용 675g. 3단계 업글(400g)이 비싸므로 Phase 3 진입 직후(15초 지연) 배치.
+- 3개 시나리오 모두 동일 구조: 메인 라인 3단계 + 보조 라인 2단계(Phase 3) → 보조 라인 3단계(Phase 4). 총 1,450g.
+- **시나리오 A — Spirit-Inferno**: 불 메인(InfernoSpirit) + 땅 보조(QuakeSpirit Phase 4).
+- **시나리오 B — Spirit-Torrent**: 물 메인(TorrentSpirit) + 불 보조(InfernoSpirit Phase 4).
+- **시나리오 C — Spirit-Quake**: 땅 메인(QuakeSpirit) + 물 보조(TorrentSpirit Phase 4).
+
+### Spirit 생산 건물 라인
+
+| 라인 | Stage 1 | Stage 2 | Stage 3 | S1유닛 | S2유닛 | S3유닛 |
+|------|---------|---------|---------|--------|--------|--------|
+| 0 — 불 | FireSpire | BlazeConduit | InfernoCore | EmberSpirit | FlameSpirit | InfernoSpirit |
+| 1 — 물 | AquaSpring | TidalNexus | OceanicHeart | TideSpirit | StreamSpirit | TorrentSpirit |
+| 2 — 땅 | StoneMound | TerraForge | GaeaSanctum | DustSpirit | BoulderSpirit | QuakeSpirit |
+
+### Transcendence 종족 시나리오 (완료)
+- **건물 비용**: 1단계 125g / 2단계 업글 200g / 3단계 업글 300g / FungalNode 100g
+- 단일 라인 3단계 총 비용 625g. 1단계 건설(125g)이 타 종족보다 비싸 초반 멀티 라인 오픈 타이밍이 중요.
+- **시나리오 A — Trans-Rush**: 동물A + 동물B 두 라인 모두 2단계(Phase 3), 동물B 3단계(Phase 4). 총 1,150g.
+- **시나리오 B — Trans-Flora**: 동물A 3단계(BearGuard) + 식물 2단계(BloomFairy) + 동물B 1단계(FoxMagician, Phase 4). 총 1,275g.
+- **시나리오 C — Trans-Beast**: 동물B 3단계(LionKnight) 우선 → 동물A 3단계(BearGuard, Phase 4). 총 1,450g.
+
+### Transcendence 생산 건물 라인
+
+| 라인 | Stage 1 | Stage 2 | Stage 3 | S1유닛 | S2유닛 | S3유닛 |
+|------|---------|---------|---------|--------|--------|--------|
+| 0 — 동물A | PrimalAltar | PrimalDen | PrimalSanctuary | RabbitTrickster | RhinoBreaker | BearGuard |
+| 1 — 동물B | FeralAltar | FeralDen | FeralSanctuary | FoxMagician | EagleArcher | LionKnight |
+| 2 — 식물 | SporePatch | FloralNursery | — | MushroomBomber | BloomFairy | — |
+
+> 식물 라인은 2단계(FloralNursery)가 최상위. BloomFairy는 공격 불가 힐 전용 유닛.
+
+---
+
 ## 미구현/미결 기획 항목
 - 카메라 각도 최적화 (현재 55도 적용, 테스트 후 조정 가능)
-- 3종족 시스템 (TDD Phase 3)
-- AI 상태머신 (현재는 공성 시스템으로 임시 대체)
+- ~~AI Inspector 에셋 작업 (AIScenarioConfig_Spirit/Transcendence.asset 생성 + 수치 입력)~~ ✅ 완료 (2026-06-10): 3종족 단일 에셋 구조로 완성
+- AI 실기 테스트 (빌드오더 동작 확인)
 - 사운드/BGM
 - 튜토리얼
-- 밸런싱 (골드/생산시간/HP — 유닛 기본 스탯은 2026-03-13 확정, 건물 HP/수입 등 추가 조정 가능)
+- 밸런싱 (AI delay 수치는 예비값 — StatsReference.md 확정 후 경제 시뮬레이션 재조정 예정)
 - PlayFab 백엔드 연동 (계정/랭킹/인앱결제)
 - 멀티플레이 로비 UI 완성
 
