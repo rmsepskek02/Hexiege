@@ -47,16 +47,34 @@
 
 ### Firebase ↔ UGS 연결 구조
 
-Firebase 로그인으로 Firebase UID를 발급받은 뒤, 이를 UGS Custom ID로 전달하여 UGS PlayerId를 발급받는다.
+Firebase 로그인 후, Firebase가 발급한 **ID Token(JWT)** 을 UGS OIDC Provider(`oidc-firebase`)에 전달하여 UGS PlayerId를 발급받는다(OIDC Bridge).
+동일 Firebase 계정이면 기기를 바꿔도 항상 같은 UGS PlayerId가 반환되므로, 랭킹·재화 등 계정 귀속 데이터를 안전하게 저장할 수 있다.
 UGS Lobby / Relay 는 UGS PlayerId만 필요로 하므로 기존 멀티플레이 코드(LobbyManager, RelayManager 등)는 변경하지 않는다.
 
+**실계정(Google / 이메일)** — OIDC Bridge:
+
 ```
-Firebase 로그인 → Firebase UID 발급
+Firebase 로그인 → Firebase ID Token(JWT) 발급 (TokenAsync)
                        ↓
-UGS SignInWithCustomIdAsync(Firebase UID) → UGS PlayerId 발급
-                                                  ↓
-                                   UGS Lobby / Relay 사용 가능
+UGS SignInWithOpenIdConnectAsync("oidc-firebase", idToken) → UGS PlayerId 발급 (계정 1:1 연결)
+                                                                  ↓
+                                                   UGS Lobby / Relay 사용 가능
 ```
+
+**익명 계정(Anonymous)** — 기존 익명 로그인 유지:
+
+익명 Firebase 계정은 기기 종속이라 다기기 일관성이 애초에 불필요하고, OIDC Provider가 익명 토큰을 식별 주체로 인정하지 않으므로 UGS도 익명 로그인을 사용한다.
+
+```
+익명 Firebase 로그인 → (ID Token 미사용)
+                       ↓
+UGS SignInAnonymouslyAsync() → UGS PlayerId 발급 (기기 종속)
+                                    ↓
+                     UGS Lobby / Relay 사용 가능
+```
+
+> OIDC Provider 이름은 UGS 규약상 `oidc-` 접두사로 시작해야 하며, UGS Dashboard에 `oidc-firebase` Provider를 등록해 두어야 한다.
+> 구현 위치: `LoginUseCase.BridgeToUGSAsync()`. Firebase ID Token은 Infrastructure의 `FirebaseAuthService.GetIdTokenAsync(false)`를 통해서만 발급한다(Application 레이어가 Firebase SDK에 직접 의존하지 않도록 캡슐화).
 
 ---
 
@@ -335,8 +353,9 @@ Firebase 서버 오류 발생 시 "일시적인 오류가 발생했습니다. �
 
 **규칙 3. UGS 연결 오류**
 
-Firebase 로그인 성공 후 UGS PlayerId 발급에 실패한 경우 멀티플레이 기능이 동작하지 않을 수 있음을 안내한다.
+Firebase 로그인 성공 후 UGS PlayerId 발급(OIDC Bridge 또는 익명 로그인)에 실패한 경우 멀티플레이 기능이 동작하지 않을 수 있음을 안내한다.
 로그인 자체는 성공으로 처리하고 Lobby 씬으로 이동한다.
+(`LoginUseCase.BridgeToUGSAsync()` 는 UGS 브릿지 예외를 잡아 경고 로그만 남기고, 로그인 결과를 실패로 바꾸지 않는다.)
 
 ---
 
@@ -344,25 +363,46 @@ Firebase 로그인 성공 후 UGS PlayerId 발급에 실패한 경우 멀티플�
 
 **규칙 1. UGS 초기화 시점**
 
-Firebase 로그인 완료 후 UGS 초기화 및 Custom ID 로그인을 수행한다.
-로그인 방식(익명 / Google / 이메일)에 관계없이 동일하게 처리한다.
+Firebase 로그인 완료 후 UGS 초기화 및 UGS 로그인(OIDC Bridge 또는 익명)을 수행한다.
+브릿지 진입점은 `LoginUseCase.BridgeToUGSAsync()` 한 곳으로 통일한다.
 
-**규칙 2. UGS Custom ID 값**
+**규칙 2. UGS 로그인 방식 (실계정 — OIDC Token)**
 
-UGS Custom ID로 Firebase UID를 사용한다.
+실계정(Google / 이메일)은 Firebase ID Token(JWT)을 UGS OIDC Provider에 전달하여 PlayerId를 1:1로 연결한다.
 
-**규칙 3. 기존 코드 변경 범위**
+```csharp
+string firebaseToken = await firebaseAuthService.GetIdTokenAsync(false); // 내부적으로 FirebaseUser.TokenAsync(false)
+await AuthenticationService.Instance.SignInWithOpenIdConnectAsync("oidc-firebase", firebaseToken);
+```
 
-UnityServicesInitializer의 SignInAnonymouslyAsync 호출 부분을 SignInWithCustomIdAsync로 교체한다.
-LobbyManager, RelayManager, MatchmakerManager, NetworkGameManager 등 기존 멀티플레이 코드는 변경하지 않는다.
+- Provider 이름은 `oidc-firebase` (UGS 규약상 `oidc-` 접두사 필수, UGS Dashboard에 사전 등록 필요).
+- 토큰은 캐시 우선(`forceRefresh: false`)으로 발급하며, 만료 임박 시 Firebase SDK가 자동 갱신한다.
+- Firebase ID Token 발급은 Infrastructure의 `FirebaseAuthService.GetIdTokenAsync()`로만 수행한다(Application 레이어가 Firebase SDK에 직접 의존하지 않도록 캡슐화).
 
-> ⚠️ **현재 상태 (2026-05-24 기준)**
+**규칙 3. UGS 로그인 방식 (익명 계정 — 예외 처리)**
+
+익명 Firebase 계정(`FirebaseUser.IsAnonymous == true`)은 OIDC 식별 주체로 인정되지 않으므로 기존대로 UGS 익명 로그인을 사용한다.
+
+```csharp
+await AuthenticationService.Instance.SignInAnonymouslyAsync();
+```
+
+- 익명 계정은 기기 종속이라 다기기 PlayerId 일관성이 애초에 불필요하다.
+- 분기 판정은 `FirebaseAuthService.IsAnonymous` 프로퍼티로 수행한다.
+
+**규칙 4. 세션 보존 (UnityServicesInitializer)**
+
+`UnityServicesInitializer.InitializeAsync()`는 UGS 초기화만 담당하며, 인증은 `LoginUseCase.BridgeToUGSAsync()`에 위임한다.
+
+- Login 씬이 만든 OIDC(또는 익명) 세션이 살아 있으면(`IsSignedIn == true`) 재로그인 없이 그대로 보존한다. (UGS SDK가 Access Token을 자동 갱신하므로 세션을 덮어쓰지 않는다.)
+- 세션이 전혀 없는 경우(Login 씬을 거치지 않은 단독 테스트 진입 등)에만 익명 로그인으로 폴백한다.
+- LobbyManager, RelayManager, MatchmakerManager, NetworkGameManager 등 기존 멀티플레이 코드는 변경하지 않는다.
+
+> **참고 (기존 로직 비활성화)**
 >
-> UGS SDK가 `SignInWithCustomIdAsync`를 지원하지 않아 규칙 3은 미구현 상태다.
-> 현재 `UnityServicesInitializer.InitializeAsync()`는 매 호출 시 `SignOut()` → `SignInAnonymouslyAsync()`를 수행한다.
-> (UGS 토큰 만료로 인한 HTTP 401 버그 수정 목적)
->
-> **재검토 시점**: UGS SDK가 `SignInWithCustomIdAsync`를 지원하게 되어 Firebase UID → UGS 브릿지를 실제로 구현할 때, `InitializeAsync()`의 재인증 로직 전체를 재설계해야 한다. Login 씬이 발급한 Firebase UID 기반 UGS 세션을 Lobby 씬 진입 시 덮어쓰지 않도록 처리 방식 변경 필요.
+> 과거 `InitializeAsync()`는 매 호출 시 `SignOut()` → `SignInAnonymouslyAsync()`로 항상 재로그인했다(HTTP 401 토큰 만료 회피 목적).
+> OIDC 전환으로 이 동작은 OIDC 세션을 덮어써 PlayerId가 매번 바뀌는 문제를 일으키므로 비활성화했다.
+> 해당 블록은 `UnityServicesInitializer.cs`에 주석으로 남아 있으며, 사용자 테스트 통과 후 최종 삭제 예정.
 
 ---
 

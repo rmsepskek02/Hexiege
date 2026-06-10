@@ -342,7 +342,7 @@
 #### 인증 시스템 설계 규칙 문서 (AuthSystemRules.md)
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| AuthSystemRules.md 작성 | ✅ 완료 (2026-05-23) | Firebase Auth 기반. 로그인 3종(익명/Google Play Games/이메일+비밀번호), Firebase UID → UGS 브릿지, 백엔드 Option A(Firebase 생태계) 확정 |
+| AuthSystemRules.md 작성 | ✅ 완료 (2026-05-23, 2026-06-10 갱신) | Firebase Auth 기반. 로그인 3종(익명/Google Play Games/이메일+비밀번호). Firebase ID Token → UGS OIDC Bridge(`SignInWithOpenIdConnectAsync`) 설계. UGS 데이터 플랫폼(Cloud Save/Leaderboard/Economy) 채택 확정 |
 
 ---
 
@@ -353,7 +353,7 @@
 | Google Play Games Plugin v2.1.0 설치 | ✅ 완료 | GitHub `current-build/` 폴더 내 .unitypackage 임포트. v1은 2026년 5월부터 deprecated |
 | EDM4U Android 의존성 해결 | ✅ 완료 | Custom Main Gradle Template + Custom Gradle Properties Template 활성화 (Jetifier 필요). Multidex 불필요 (Min API 25) |
 | FirebaseAuthService.cs (Infrastructure) | ✅ 완료 | Firebase SDK 래퍼. 익명/Google/이메일 로그인 API 제공. AuthException + AuthErrorReason enum 정의. SignInWithCredentialAsync 반환값 FirebaseUser로 수정 (SDK 13.x 호환) |
-| LoginUseCase.cs (Application) | ✅ 완료 | 로그인 흐름 조율. BridgeToUGSAsync(Firebase UID → UGS) 포함. 현재 SignInWithCustomIdAsync 미지원으로 익명 로그인 임시 사용 (TODO 주석) |
+| LoginUseCase.cs (Application) | ✅ 완료 (2026-06-10 갱신) | 로그인 흐름 조율. BridgeToUGSAsync(Task<bool>) — 실계정: OIDC Bridge(`SignInWithOpenIdConnectAsync("oidc-firebase")`), 익명: UGS 익명 로그인 분기 구현 완료 |
 | AccountLinkUseCase.cs (Application) | ✅ 완료 | 익명 → 실계정 연동 흐름 |
 | LoginBootstrapper.cs (Bootstrap) | ✅ 완료 | Login.unity 씬 Composition Root. PlayGamesPlatform.Activate() + Firebase 초기화 + DI |
 | LoginRootView.cs (Presentation) | ✅ 완료 | 패널 전환 + Back 스택 + Android 뒤로가기. Application.Quit() → UnityEngine.Application.Quit() 수정 (Hexiege.Application 네임스페이스 충돌 방지) |
@@ -364,13 +364,13 @@
 | PasswordResetView.cs | ✅ 완료 | 비밀번호 재설정 화면 |
 | AnonymousWarningPopup.cs | ✅ 완료 | 익명 로그인 경고 팝업 |
 | ProfileView.cs (Lobby — 수정) | ✅ 완료 | 계정 정보 표시, Google/이메일 연동 버튼, 로그아웃 UI 구현 |
-| UnityServicesInitializer.cs (수정) | ✅ 완료 | 매 초기화 시 항상 SignOut() → SignInAnonymouslyAsync() 수행하여 유효한 토큰 보장. IsSignedIn=true(기기 캐시)이지만 서버 토큰 만료 시 발생하는 UGS 401 버그 수정 (2026-05-24). ※ Login 씬 흐름 완성 시 재검토 필요 |
+| UnityServicesInitializer.cs (수정) | ✅ 완료 (2026-06-10 갱신) | OIDC 세션 보존 로직으로 교체. 기존 세션 있으면 재로그인 없이 보존, 세션 없을 때만 익명 폴백. 기존 "항상 재로그인" 블록은 주석 처리(테스트 통과 후 최종 삭제 예정) |
 | 컴파일 에러 전체 해결 | ✅ 완료 | CS0103(AuthException/AuthErrorReason using 누락), CS0029(SignInWithCredentialAsync 반환 타입), CS1061(SignInWithCustomIdAsync 미지원), CS0234(Application.Quit 네임스페이스 충돌) 전체 해결 |
 | 기존 UGS 로그인 동작 보존 | ✅ 완료 | Lobby.unity 직접 실행 시 익명 로그인으로 PlayerId 발급 — 멀티플레이 기능 정상 동작. 401 버그 수정 후 커스텀 게임 + 랜덤 매칭 모두 확인 |
 | Firebase Console 설정 | ❌ 미완료 | google-services.json, SHA-1 등록, Authentication 방식 활성화 — 추후 진행 |
 | GPGS 클라이언트 ID 설정 | ❌ 미완료 | Unity > Window > Google Play Games > Setup 에서 Web Client ID 입력 — 추후 진행 |
 | Login.unity 씬 생성 | ❌ 미완료 | UIWireframe.md 기반 UI 배치 + Inspector 연결 — 추후 진행 |
-| Firebase UID → UGS Custom ID 브릿지 | ⚠️ 임시 | SignInWithCustomIdAsync 현재 UGS SDK 미지원. 임시로 SignInAnonymouslyAsync 사용. 추후 UGS SDK 업데이트 시 교체 예정 |
+| Firebase → UGS OIDC Bridge | ✅ 코드 완료 (2026-06-10) | `SignInWithOpenIdConnectAsync("oidc-firebase", firebaseToken)` 구현. UGS Dashboard OIDC Provider 등록 완료 후 실기 테스트 가능 |
 
 ---
 

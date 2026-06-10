@@ -188,18 +188,29 @@ Firebase Services
 
 ### UGS 연결 구조 (인게임 멀티플레이)
 
+**실계정 (Google / 이메일)**
 ```
-Firebase Auth (로그인)
-    ↓ Firebase UID
-LoginUseCase.BridgeToUGSAsync()
-    ↓ UGS 익명 로그인 (임시 — SignInWithCustomIdAsync 미지원)
-Unity Gaming Services (Lobby + Relay)
-    ↓
-NGO 멀티플레이 세션
+Firebase Auth (로그인) → Firebase ID Token 발급
+                                ↓
+        LoginUseCase.BridgeToUGSAsync()
+                                ↓ SignInWithOpenIdConnectAsync("oidc-firebase", token)
+        Unity Gaming Services (PlayerId 계정 귀속)
+                                ↓
+        UGS Lobby + Relay + Cloud Save + Leaderboard + Economy
+                                ↓
+        NGO 멀티플레이 세션
 ```
 
-> ⚠️ Firebase UID → UGS Custom ID 브릿지는 현재 `SignInAnonymouslyAsync` 임시 처리 중.
-> UGS SDK에서 `SignInWithCustomIdAsync` 지원 시 교체 예정.
+**익명 계정**
+```
+Firebase Auth (익명 로그인)
+        ↓
+LoginUseCase.BridgeToUGSAsync()
+        ↓ SignInAnonymouslyAsync (기기 종속 PlayerId)
+Unity Gaming Services (Lobby + Relay)
+        ↓
+NGO 멀티플레이 세션
+```
 
 ### 로그인 흐름 (AuthSystemRules.md 참조)
 
