@@ -14,7 +14,9 @@
 - [5. 가드 메커니즘](#5-가드-메커니즘)
 - [6. 건물 배치 로직](#6-건물-배치-로직)
 - [7. Human 종족 참조 정보](#7-human-종족-참조-정보)
-- [8. 아키텍처 및 구현 규칙](#8-아키텍처-및-구현-규칙)
+- [8. Spirit 종족 참조 정보](#8-spirit-종족-참조-정보)
+- [9. Transcendence 종족 참조 정보](#9-transcendence-종족-참조-정보)
+- [10. 아키텍처 및 구현 규칙](#10-아키텍처-및-구현-규칙)
 
 ---
 
@@ -111,7 +113,7 @@ GameBootstrapper에서 `LocalPlayerDifficulty.Current`에 따라 해당 구조�
 **규칙 10. 종족별 별도 시나리오**
 각 종족(Human / Spirit / Transcendence)은 독립적인 빌드오더 시나리오를 가진다.
 Phase 구조(4단계)는 공통이지만, 건물 타입과 유닛 타입은 종족마다 다르다.
-현재 Human 시나리오를 우선 설계하고, 나머지 종족은 동일한 Phase 구조를 재사용한다.
+3종족 모두 시나리오 문서가 작성 완료되었다.
 
 **규칙 11. 시나리오 저장 방식**
 종족별 시나리오는 ScriptableObject(`AIScenarioConfig.asset`)에 직렬화하여 저장한다.
@@ -120,8 +122,8 @@ Phase 구조(4단계)는 공통이지만, 건물 타입과 유닛 타입은 종�
 ```
 Assets/_Project/Resources/Config/
 ├── AIScenarioConfig_Human.asset
-├── AIScenarioConfig_Spirit.asset      ← 추후 추가
-└── AIScenarioConfig_Transcendence.asset  ← 추후 추가
+├── AIScenarioConfig_Spirit.asset
+└── AIScenarioConfig_Transcendence.asset
 ```
 
 ### StartProduction 실행 방식
@@ -339,7 +341,57 @@ AND isTrackActive == false
 
 ---
 
-## 8. 아키텍처 및 구현 규칙
+## 8. Spirit 종족 참조 정보
+
+### 생산 건물 라인
+
+| 라인 | Stage 1 | Stage 2 | Stage 3 |
+|------|---------|---------|---------|
+| 0 — 불 | FireSpire | BlazeConduit | InfernoCore |
+| 1 — 물 | AquaSpring | TidalNexus | OceanicHeart |
+| 2 — 땅 | StoneMound | TerraForge | GaeaSanctum |
+
+### 건물-유닛 매핑
+
+| 라인 | requiredStage=1 | requiredStage=2 | requiredStage=3 |
+|------|----------------|----------------|----------------|
+| 0 — 불 | EmberSpirit | FlameSpirit | InfernoSpirit |
+| 1 — 물 | TideSpirit | StreamSpirit | TorrentSpirit |
+| 2 — 땅 | DustSpirit | BoulderSpirit | QuakeSpirit |
+
+### AI 빌드오더 시나리오
+
+→ **[GameSystemRules_AI_Scenario_Spirit.md](GameSystemRules_AI_Scenario_Spirit.md)** 참조
+
+---
+
+## 9. Transcendence 종족 참조 정보
+
+### 생산 건물 라인
+
+| 라인 | Stage 1 | Stage 2 | Stage 3 |
+|------|---------|---------|---------|
+| 0 — 동물A | PrimalAltar | PrimalDen | PrimalSanctuary |
+| 1 — 동물B | FeralAltar | FeralDen | FeralSanctuary |
+| 2 — 식물 | SporePatch | FloralNursery | — (2단계까지) |
+
+### 건물-유닛 매핑
+
+| 라인 | requiredStage=1 | requiredStage=2 | requiredStage=3 |
+|------|----------------|----------------|----------------|
+| 0 — 동물A | RabbitTrickster | RhinoBreaker | BearGuard |
+| 1 — 동물B | FoxMagician | EagleArcher | LionKnight |
+| 2 — 식물 | MushroomBomber | BloomFairy | — |
+
+> 식물 라인은 2단계(FloralNursery)가 최상위다.
+
+### AI 빌드오더 시나리오
+
+→ **[GameSystemRules_AI_Scenario_Transcendence.md](GameSystemRules_AI_Scenario_Transcendence.md)** 참조
+
+---
+
+## 10. 아키텍처 및 구현 규칙
 
 ### 레이어 귀속
 
