@@ -27,29 +27,34 @@ using UnityEngine;
 namespace Hexiege.Presentation
 {
     /// <summary>
-    /// VFX 프리팹 + SFX 클립을 하나로 묶는 이펙트 프리셋 에셋.
+    /// VFX 프리팹을 담는 이펙트 프리셋 에셋. (SFX는 AudioManager/SoundConfig로 분리됨)
     /// 공격/사망/파괴/UI 등 각 연출 상황마다 하나씩 만들어 Config에 연결한다.
     /// </summary>
     [CreateAssetMenu(fileName = "EffectPreset", menuName = "Hexiege/Effects/EffectPreset")]
     public class EffectPreset : ScriptableObject
     {
-        [Tooltip("재생할 파티클 시스템 프리팹. 비워두면 VFX 없이 SFX만 재생됨.")]
+        [Tooltip("재생할 파티클 시스템 프리팹. 비워두면 아무 VFX도 재생되지 않음.")]
         [SerializeField] private GameObject _vfxPrefab;
-
-        [Tooltip("재생할 사운드 클립. 비워두면 SFX 없이 VFX만 재생됨.")]
-        [SerializeField] private AudioClip _sfxClip;
-
-        [Tooltip("사운드 볼륨 (0~1). 기본 1.0")]
-        [Range(0f, 1f)]
-        [SerializeField] private float _sfxVolume = 1f;
 
         /// <summary> 재생할 파티클 시스템 프리팹. 없으면 null. </summary>
         public GameObject VfxPrefab => _vfxPrefab;
 
-        /// <summary> 재생할 사운드 클립. 없으면 null. </summary>
-        public AudioClip SfxClip => _sfxClip;
-
-        /// <summary> 사운드 볼륨 (0~1). </summary>
-        public float SfxVolume => _sfxVolume;
+        // SOUND_SYSTEM_REFACTOR: SFX는 AudioManager + SoundConfig로 이전 완료.
+        // 검증(실기 테스트) 통과 전까지 기존 SFX 필드/프로퍼티를 주석으로 비활성화한다.
+        // 통과 후 아래 주석 블록을 최종 삭제할 예정. (WORKFLOW.md "기존 로직 제거" 규칙)
+        //   ⚠️ 기존 EffectPreset .asset에 SfxClip이 연결돼 있다면 데이터 소실 위험 →
+        //      SoundConfig로 수동 이전 후 삭제할 것.
+        // [Tooltip("재생할 사운드 클립. 비워두면 SFX 없이 VFX만 재생됨.")]
+        // [SerializeField] private AudioClip _sfxClip;
+        //
+        // [Tooltip("사운드 볼륨 (0~1). 기본 1.0")]
+        // [Range(0f, 1f)]
+        // [SerializeField] private float _sfxVolume = 1f;
+        //
+        // /// <summary> 재생할 사운드 클립. 없으면 null. </summary>
+        // public AudioClip SfxClip => _sfxClip;
+        //
+        // /// <summary> 사운드 볼륨 (0~1). </summary>
+        // public float SfxVolume => _sfxVolume;
     }
 }
