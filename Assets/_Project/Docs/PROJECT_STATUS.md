@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-06-10
-**현재 단계:** 3종족 AI 시나리오 ScriptableObject 개편 완료 — 싱글플레이 실기 테스트 예정
+**현재 단계:** 사운드 시스템 코드 구현 완료 — Inspector 작업 + 실기 테스트 예정
 
 ---
 
@@ -60,6 +60,7 @@
 | 멀티플레이 유닛 사망 GO 미파괴 + 이펙트 미재생 버그 수정 | ✅ 완료 (2026-06-08) | 근본 원인: 서버 UnitView의 Destroy(gameObject)가 NGO 클라이언트 전파 불보장. 수정: NetworkCombatController(Infrastructure)에서 EntityDiedClientRpc 발행 후 NetworkObject.Despawn(destroy:true) 명시 호출. UnitView에서 Unity.Netcode 직접 참조 완전 제거(레이어 규칙 준수). 런타임 로그 13킬 전체 이펙트 재생 확인. |
 | 전체 유닛 사망 VFX 적용 | ✅ 완료 (2026-06-08) | EffectPreset_Unit_Death_Common.asset 신규 생성(vfx_unit_death+SFX). SetUnitDeathVfxAll 에디터 스크립트로 UnitEffectConfig 전체 24종 deathPreset 일괄 연결. 코드 변경 없음(에셋 작업만). 기존 EffectPreset_Pistoleer_Death.asset 삭제. |
 | 유닛 VFX 디테일 개선 3종 | ✅ 완료 (2026-06-08) | ① VFX 프리팹 3개 ParticleSystem ScalingMode Local→Hierarchy (VfxScalingModeFixer 에디터 스크립트). ② 피스톨러 공격 VFX 스폰 위치 — VfxSpawnPoint GO(총구 위치)로 position 참조, rotation은 `Quaternion.LookRotation(transform.forward)` (스켈레톤 본 하위 배치로 _vfxSpawnPoint.rotation 사용 불가). UnitView + EffectManager 수정. ③ vfx_unit_death 퍼짐 효과 제거 (3개 PS startSpeed→0 YAML 직접 수정). |
+| 사운드 시스템 (AudioManager + SFX/BGM 분리) | 🔵 코드 완료 (2026-06-10) / Inspector 작업 + 실기 테스트 예정 | SoundConfig.cs(Infrastructure) + AudioManager.cs(Presentation, DontDestroyOnLoad) 신규. BGM 크로스페이드(A/B 채널), SFX 풀(8개, 2D), 볼륨 3채널(Master/BGM/SFX, PlayerPrefs). EffectManager VFX 전용 분리(SFX 비활성화). VFX+SFX 쌍 호출 UnitView×2 + NetworkUnit×1 복원. LoginBootstrapper Initialize 추가. InGameSettingsUI 볼륨 슬라이더 연동. Inspector 작업: AudioMixer 에셋·AudioManager Login.unity 배치·SoundConfig 에셋 생성 필요. 로비 볼륨 패널 미구현(별도 작업). |
 
 #### 싱글플레이 AI 시스템 (2026-06-07)
 | 항목 | 상태 | 비고 |
@@ -552,7 +553,7 @@
 | 연구소 (Research Lab) | 낮음 | Phase 3 |
 | 유닛 AI 상태머신 | 낮음 | Phase 3 |
 | 타임라인/서든데스 시스템 | 낮음 | Phase 3 |
-| 사운드/BGM | 낮음 | Phase 4 |
+| 사운드/BGM — Inspector 작업 + 실기 테스트 | 높음 | Phase 4 |
 | 튜토리얼 | 낮음 | Phase 4 |
 | 게임 내 밸런싱 | 중간 | Phase 4 |
 | 로그인 시스템 구현 (Login.unity) | 낮음 | Phase 4 |

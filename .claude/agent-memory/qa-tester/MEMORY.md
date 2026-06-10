@@ -246,6 +246,26 @@
 
 ---
 
+## 사운드 시스템 QA 정적 분석 (2026-06-10) — PASS
+
+task 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/`
+
+정적 분석 결과: 전체 PASS (FAIL 0건)
+- 규칙 1~22 전체 준수 확인
+- 아키텍처 의존성 방향 준수 (SoundConfig=Infrastructure, AudioManager=Presentation)
+- VFX+SFX 쌍 호출 3곳 모두 확인 (UnitView×2, NetworkUnit×1)
+- BGM 크로스페이드 로직, SFX 풀, 볼륨 dB 변환 정상
+
+QA 수정 사항 (3건):
+- ReturnSfxAfterPlay: WaitForSeconds → WaitForSecondsRealtime (timeScale=0 대응)
+- Initialize() 재호출 시 SFX 풀 중복 생성 방지 코드 추가
+- 무음 전환 후 _activeBgmSource = fadeIn으로 상태 명확화
+
+실기 테스트: 미진행 (Inspector 작업 완료 후 진행 예정)
+TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.md`
+
+---
+
 ## AI 시나리오 ScriptableObject 개편 QA (2026-06-10)
 
 ### 종합 판정: CONDITIONAL PASS

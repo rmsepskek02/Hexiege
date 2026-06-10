@@ -334,7 +334,10 @@ AudioManager.Instance?.PlayUnitDeathSfx(type);       // SFX
 
 ---
 
-### Step 7. 로비 설정 패널 UI 작성 (Presentation/UI)
+### Step 7. 로비 설정 패널 UI 작성 (Presentation/UI) ⚠️ 미구현 — 별도 작업
+
+> **미구현**: 이번 구현 사이클에서 진행되지 않았다. 로비 UI 설계가 확정된 후 별도 작업으로 진행한다.
+> GameSystemRules_Sound 규칙 22에 기술된 요구사항은 유효하며, 이후 작업 시 아래 내용을 구현해야 한다.
 
 GameSystemRules_Sound 규칙 22: Lobby 씬에도 볼륨 슬라이더를 배치한다.
 
