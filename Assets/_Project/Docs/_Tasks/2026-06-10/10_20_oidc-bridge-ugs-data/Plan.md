@@ -124,6 +124,35 @@ OIDC로 전환 후에는 토큰 갱신 책임이 Firebase SDK → UGS SDK로 넘
 
 ---
 
+---
+
+### Step 4. `LoginUseCase.cs` — `BridgeToUGSAsync` 빈 UID 조용한 반환 개선 (QA 피드백)
+
+**파일**: `Assets/_Project/Scripts/Application/UseCases/LoginUseCase.cs`
+**변경 위치**: `BridgeToUGSAsync()` 상단 가드 (lines 360–364)
+
+**문제**
+```csharp
+// 현재: void 반환 + LogError → 호출자가 브릿지 성공 여부를 알 수 없음
+if (string.IsNullOrWhiteSpace(firebaseUID))
+{
+    Debug.LogError("[LoginUseCase] BridgeToUGSAsync: firebaseUID 가 비어 있습니다.");
+    return;
+}
+```
+
+**변경 방향**
+- 메서드 시그니처를 `Task` → `Task<bool>`로 변경
+- 정상 완료 시 `return true`, UID 빈 값·예외 등 실패 시 `return false`
+- 호출부(Google/이메일/익명/자동 로그인 각 흐름)에서 반환값을 받아 UGS 미연결 상태 감지 가능하게 수정
+- `AuthSystemRules.md` 오류 처리 규칙 3은 유지 — 브릿지 실패여도 로그인 자체는 성공 처리
+
+**호출부 처리 방침**
+- 반환값이 `false`인 경우: 로그인 성공 처리는 유지하되, 호출부에서 `Debug.LogWarning`으로 UGS 미연결 상태 기록
+- 추후 Lobby 씬에서 멀티플레이 기능 제한 안내 팝업 연결 시 이 반환값 활용 가능
+
+---
+
 ## 구현 제외 항목 (이번 작업 범위 아님)
 
 | 항목 | 이유 |
