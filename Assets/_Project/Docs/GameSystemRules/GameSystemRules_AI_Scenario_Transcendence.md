@@ -74,8 +74,8 @@ Phase 구조, 반응 시스템, 건물 배치 로직 등 공통 구현 규칙은
 
 | 라인 | requiredStage=1 | requiredStage=2 | requiredStage=3 |
 |------|----------------|----------------|----------------|
-| 0 — 동물A | RabbitTrickster | LionKnight | BearGuard |
-| 1 — 동물B | FoxMagician | EagleArcher | RhinoBreaker |
+| 0 — 동물A | RabbitTrickster | RhinoBreaker | BearGuard |
+| 1 — 동물B | FoxMagician | EagleArcher | LionKnight |
 | 2 — 식물 | MushroomBomber | BloomFairy | — |
 
 > 식물 라인은 2단계(FloralNursery)가 최상위다.
@@ -122,9 +122,9 @@ Phase 구조, 반응 시스템, 건물 배치 로직 등 공통 구현 규칙은
 ## 6. 시나리오 A — Trans-Rush (초반 물량형)
 
 **전략**: Phase 1~2에 동물A(RabbitTrickster) + 동물B(FoxMagician) 두 라인을 동시 개설해 값싼 1단계 유닛으로 조기 압박.
-Phase 3에 양 라인을 2단계로 동시 업그레이드해 LionKnight + EagleArcher 전환.
-Phase 4에 동물B 라인을 3단계(RhinoBreaker)까지 완성.
-**10분 목표**: LionKnight(동물A 2단계) + RhinoBreaker(동물B 3단계) 동시 운용.
+Phase 3에 양 라인을 2단계로 동시 업그레이드해 RhinoBreaker + EagleArcher로 전환.
+Phase 4에 동물B 라인을 3단계(LionKnight)까지 완성. LionKnight은 저비용(200g/15s) 고속 2히트 근접으로 물량 러시에 적합.
+**10분 목표**: RhinoBreaker(동물A 2단계) + EagleArcher(동물B 2단계) + LionKnight(동물B 3단계) 전선 완성.
 
 **Phase 1 (초반)**
 
@@ -145,7 +145,7 @@ Phase 4에 동물B 라인을 3단계(RhinoBreaker)까지 완성.
 | 순서 | actionType | 대상 | 라인 | delay(보통) |
 |------|-----------|------|------|------------|
 | 1 | UpgradeBuilding | PrimalDen | 0 | 10초 |
-| 2 | StartProduction | LionKnight | 0 | 35초 |
+| 2 | StartProduction | RhinoBreaker | 0 | 35초 |
 | 3 | UpgradeBuilding | FeralDen | 1 | 50초 |
 | 4 | StartProduction | EagleArcher | 1 | 75초 |
 
@@ -154,13 +154,13 @@ Phase 4에 동물B 라인을 3단계(RhinoBreaker)까지 완성.
 | 순서 | actionType | 대상 | 라인 | delay(보통) |
 |------|-----------|------|------|------------|
 | 1 | UpgradeBuilding | FeralSanctuary | 1 | 20초 |
-| 2 | StartProduction | RhinoBreaker | 1 | 55초 |
+| 2 | StartProduction | LionKnight | 1 | 55초 |
 
 ---
 
 ## 7. 시나리오 B — Trans-Flora (동물A + 식물 균형형)
 
-**전략**: 동물A 라인을 Phase 3에서 3단계(PrimalSanctuary)까지 완성해 BearGuard(HP 200 탱커)를 확보.
+**전략**: 동물A 라인을 Phase 3에서 3단계(PrimalSanctuary)까지 완성해 BearGuard(HP 200 궁극 탱커)를 확보.
 Phase 2에 식물 라인(SporePatch)을 개설하고 Phase 3에 FloralNursery로 업그레이드해 BloomFairy(힐 서포트) 추가.
 BearGuard의 높은 체력과 BloomFairy의 힐이 맞물려 후반 전선을 안정적으로 유지.
 Phase 4에 동물B 라인(FoxMagician)을 추가 개설해 원거리 화력 보강.
@@ -178,7 +178,7 @@ Phase 4에 동물B 라인(FoxMagician)을 추가 개설해 원거리 화력 보�
 | 순서 | actionType | 대상 | 라인 | delay(보통) |
 |------|-----------|------|------|------------|
 | 1 | UpgradeBuilding | PrimalDen | 0 | 20초 |
-| 2 | StartProduction | LionKnight | 0 | 45초 |
+| 2 | StartProduction | RhinoBreaker | 0 | 45초 |
 | 3 | PlaceBuilding | SporePatch | 2 | 70초 |
 | 4 | StartProduction | MushroomBomber | 2 | 90초 |
 
@@ -202,10 +202,10 @@ Phase 4에 동물B 라인(FoxMagician)을 추가 개설해 원거리 화력 보�
 
 ## 8. 시나리오 C — Trans-Beast (동물 고테크형)
 
-**전략**: 동물B 라인을 우선 3단계(FeralSanctuary)까지 완성해 RhinoBreaker를 먼저 확보.
-동물A 라인은 Phase 2에 개설해 Phase 4에서 3단계(PrimalSanctuary)로 완성, BearGuard 추가.
+**전략**: 동물B 라인을 우선 3단계(FeralSanctuary)까지 완성해 LionKnight(2히트 고속 근접)를 먼저 확보.
+동물A 라인은 Phase 2에 개설해 Phase 4에서 3단계(PrimalSanctuary)로 완성, BearGuard(HP 200 궁극 탱커) 추가.
 두 동물 라인 모두 3단계에 도달하는 것이 최종 목표. 가장 고비용이나 후반 최강 조합.
-**Phase 4 목표**: RhinoBreaker(동물B 3단계) + BearGuard(동물A 3단계) 동시 운용.
+**Phase 4 목표**: LionKnight(동물B 3단계) + BearGuard(동물A 3단계) 동시 운용.
 
 **Phase 1 (초반)**
 
@@ -228,9 +228,9 @@ Phase 4에 동물B 라인(FoxMagician)을 추가 개설해 원거리 화력 보�
 | 순서 | actionType | 대상 | 라인 | delay(보통) |
 |------|-----------|------|------|------------|
 | 1 | UpgradeBuilding | FeralSanctuary | 1 | 10초 |
-| 2 | StartProduction | RhinoBreaker | 1 | 40초 |
+| 2 | StartProduction | LionKnight | 1 | 40초 |
 | 3 | UpgradeBuilding | PrimalDen | 0 | 60초 |
-| 4 | StartProduction | LionKnight | 0 | 85초 |
+| 4 | StartProduction | RhinoBreaker | 0 | 85초 |
 
 **Phase 4 (후반)**
 
