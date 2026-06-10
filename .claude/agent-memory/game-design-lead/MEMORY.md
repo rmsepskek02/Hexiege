@@ -156,6 +156,12 @@
 
 ## 싱글플레이 AI 시스템 (2026-06-10 완료)
 
+### AI 시나리오 ScriptableObject 에셋 (2026-06-10 완료)
+- 3종족 시나리오가 각 1파일에 3시나리오 내장된 형태로 완성됨 (종족당 단일 에셋).
+- 파일명: `AIScenarioConfig_Human.asset` / `AIScenarioConfig_Spirit.asset` / `AIScenarioConfig_Transcendence.asset`
+- 경로: `Resources/Config/`. 게임 시작 시 `GameRaceContext.RedRace`로 종족 판별 후 해당 에셋에서 무작위 시나리오 1개 선택.
+- 레거시 Human_A/B/C 개별 에셋은 삭제됨.
+
 ### AI 시나리오 구조
 - Phase 4단계: Phase 1(0~3분) / Phase 2(3~6분) / Phase 3(6~9분) / Phase 4(9분~종료)
 - 시나리오 선택: 게임 시작 시 A/B/C 중 균등 확률(33.3%) 랜덤. `UnityEngine.Random.Range(0, 3)` 인덱스 사용.
@@ -214,7 +220,7 @@
 
 ## 미구현/미결 기획 항목
 - 카메라 각도 최적화 (현재 55도 적용, 테스트 후 조정 가능)
-- AI Inspector 에셋 작업 (AIScenarioConfig_Spirit/Transcendence.asset 생성 + 수치 입력)
+- ~~AI Inspector 에셋 작업 (AIScenarioConfig_Spirit/Transcendence.asset 생성 + 수치 입력)~~ ✅ 완료 (2026-06-10): 3종족 단일 에셋 구조로 완성
 - AI 실기 테스트 (빌드오더 동작 확인)
 - 사운드/BGM
 - 튜토리얼

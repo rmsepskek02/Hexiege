@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.18.0
-**최종 수정일:** 2026-06-05
+**버전:** 0.19.0
+**최종 수정일:** 2026-06-10
 **작성자:** HANYONGHEE
 
 ---
@@ -638,6 +638,27 @@ public interface IDamageable {
 ```
 UnitData와 BuildingData 모두 IDamageable을 구현하여 UnitCombatUseCase가 동일한 로직으로 공격 가능.
 
+### 싱글플레이 AI 오퍼넌트 시스템 (2026-06-10 확정)
+
+싱글플레이 모드에서 Red 팀을 자동으로 운영하는 AI 오퍼넌트. 빌드오더 스크립트와 반응 시스템으로 구성된다.
+
+**아키텍처 (레이어 배치):**
+- `DifficultyLevel`, `AIActionType`, `BuildOrderStep` → `Hexiege.Domain` (`Scripts/Domain/AI/`)
+- `AIScenarioConfig` ScriptableObject → `Hexiege.Infrastructure`
+- `AIOpponentController` → `Hexiege.Application` (빌드오더 + 반응 시스템)
+- `GameBootstrapper` → 시나리오 번들 로드 및 AI 주입 (composition root)
+
+> DifficultyLevel·AIActionType·BuildOrderStep를 Domain 레이어로 분리한 이유: Application 레이어의 AIOpponentController가 이 타입들을 직접 참조하므로, Infrastructure에 두면 Application→Infrastructure 직접 의존이 발생한다. Domain 분리로 의존 방향(Application→Domain)을 정상화했다.
+
+**에셋 구조:**
+- 종족별 1개 에셋 × 3개 시나리오
+  - `AIScenarioConfig_Human.asset` (Human_A / Human_B / Human_C)
+  - `AIScenarioConfig_Spirit.asset` (Inferno / Torrent / Quake)
+  - `AIScenarioConfig_Transcendence.asset` (Rush / Flora / Beast)
+- 게임 시작 시 `GameRaceContext.RedRace`로 종족을 판별한 뒤 해당 에셋에서 무작위 시나리오 1개를 선택한다.
+
+**ScriptableObject 경로:** `Resources/Config/AIScenarioConfig_{종족}.asset`
+
 #### 중앙 집중 스탯 관리 — ScriptableObject 기반 (2026-04-25 전환)
 
 타입별 기본 스탯을 ScriptableObject로 관리. Inspector에서 코드 수정 없이 수치 편집 가능.
@@ -1164,6 +1185,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.19.0 | 2026-06-10 | AI 시나리오 ScriptableObject 3종족 개편. Domain/AI 레이어 신규(DifficultyLevel, BuildOrderStep, AIActionType). 종족별 단일 에셋 구조. |
 | 0.18.0 | 2026-06-05 | Firebase 백엔드 전환 완료 반영 (Firebase SDK v13.11.0 + GPGS v2.1.0 설치 완료, PlayFab → Firebase/Firestore 구조로 교체). 폴더 구조 Bootstrap/Diagnostics 추가. ScriptableObject 기반 UnitStats/BuildingStats 반영. BuildingType 26종 확장 반영. ProductionState PendingQueue 구조 반영. OnEntityDied → OnUnitDied+OnBuildingDied 강타입 분리 반영. |
 | 0.17.0 | 2026-03-19 | 유닛 스탯 코드 예시 재확정 (ATK: Pistoleer=6, Assault=1, Sniper=10 / 사거리: 1.0/2.0/5.0 / epsilon 0.05f 명시 / Sniper MoveSpeed=0.25). Castle HP 50→100. A* 목표 타일 blocked 체크 제거 반영. UIAnimator/AnimatedPanel 패턴 섹션 추가. 개발 로드맵 섹션 삭제 (ROADMAP.md 참조로 대체). |
 | 0.16.0 | 2026-03-19 | 카메라 줌 DOTween 보간 완료 (CameraController _targetZoom + DOTween.To Ease.OutCubic, _zoomDuration SerializeField). |

@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-06-10
-**현재 단계:** 싱글플레이 AI 시스템 코드 + 전 종족 AI 시나리오 문서 완료 — Inspector 에셋 작업 후 실기 테스트 예정
+**현재 단계:** 3종족 AI 시나리오 ScriptableObject 개편 완료 — 싱글플레이 실기 테스트 예정
 
 ---
 
@@ -78,6 +78,7 @@
 | DifficultySelectView.cs 신규 + UI 구조 | ✅ 완료 | `Presentation/UI/Views/Lobby/Battle/` — 쉬움/보통/어려움/뒤로 버튼 + CanvasGroup 패턴(Rule 5). BattlePanel 상단 절반 배치. VLG Padding 60/60, Spacing 20, preferredHeight=100 (BattleMainPanel 동일 구조) |
 | BattleRootView — DifficultySelectView 바인딩 | ✅ 완료 | `BattleRootView.cs` — _difficultySelectView 필드 + Bind/Unbind 포함 |
 | AI 시나리오 문서 (전 종족) | ✅ 완료 (2026-06-10) | Human 3개 + Spirit 3개 + Transcendence 3개 — 총 9개 빌드오더 시나리오. 골드 수지 검토 완료. |
+| AI 시나리오 ScriptableObject 3종족 개편 | ✅ 완료 (2026-06-10) | Human/Spirit/Transcendence 각 1파일 × 3시나리오. DifficultyLevel·BuildOrderStep Domain 레이어 분리. |
 | Inspector 작업 | ⏳ 대기 | `Hexiege/Setup/AIConfig 생성` → `AIScenarioConfig_Human_A/B/C 생성` → Spirit/Transcendence 시나리오 에셋 생성 → (Lobby.unity) `Hexiege/Fix/DifficultySelectView 레이아웃 수정` 순서로 실행 |
 | 실기 테스트 | ⏳ 대기 | Inspector 에셋 작업 완료 후 싱글플레이 AI 동작 확인 예정 |
 

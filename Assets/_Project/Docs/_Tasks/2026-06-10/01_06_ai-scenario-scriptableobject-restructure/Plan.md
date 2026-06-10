@@ -152,11 +152,13 @@ YAML 직접 작성. 3개 시나리오 포함.
 
 ## Step 7. 구 에셋 정리 (테스트 통과 후)
 
+> ✅ 2026-06-10 완료 — 레거시 Human_A/B/C 에셋 삭제 및 주석 코드 정리 완료
+
 테스트 통과 확인 후:
-- `AIScenarioConfig_Human_A.asset` + `.meta` 삭제
-- `AIScenarioConfig_Human_B.asset` + `.meta` 삭제
-- `AIScenarioConfig_Human_C.asset` + `.meta` 삭제
-- `GameBootstrapper`의 주석 처리된 `LoadRandomHumanScenario()` 코드 삭제
+- `AIScenarioConfig_Human_A.asset` + `.meta` 삭제 ✅ 완료 (2026-06-10)
+- `AIScenarioConfig_Human_B.asset` + `.meta` 삭제 ✅ 완료 (2026-06-10)
+- `AIScenarioConfig_Human_C.asset` + `.meta` 삭제 ✅ 완료 (2026-06-10)
+- `GameBootstrapper`의 주석 처리된 `LoadRandomHumanScenario()` 코드 삭제 ✅ 완료 (2026-06-10)
 
 ---
 

@@ -246,6 +246,28 @@
 
 ---
 
+## AI 시나리오 ScriptableObject 개편 QA (2026-06-10)
+
+### 종합 판정: CONDITIONAL PASS
+
+### 검토 항목
+- 컴파일 에러 가능성: PASS
+- 기능 로직: PASS
+- YAML 데이터 오류: CONDITIONAL PASS
+- 아키텍처 위반: CONDITIONAL PASS → 후속 수정으로 완전 해소됨
+
+### 핵심 발견 사항
+- BuildOrderStep/AIActionType이 Infrastructure에 있어 Application→Infrastructure 직접 의존 발생
+  → 후속 작업에서 Domain/AI 레이어로 이동하여 완전 해소
+- DifficultyLevel도 Infrastructure에 있어 BuildOrderStep.GetDelaySeconds()로 인한 연쇄 위반
+  → DifficultyLevel도 Domain으로 함께 이동하여 해소
+- Human_A phaseIndex 1에서 unitType:0(Pistoleer)를 targetBuildingLine:1(총기류)에 배치 → 설계 의도 확인됨 (Pistoleer는 총기류 유닛)
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-06-10/01_06_ai-scenario-scriptableobject-restructure/`
+
+---
+
 ## 참고 파일
 - [patterns.md](patterns.md) — 버그 패턴 상세
 - [qa_history.md](qa_history.md) — 완료된 QA 상세 내역 (생산시스템/DOTween/카메라/재경기/로비/로딩/랜덤매칭)
