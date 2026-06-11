@@ -246,22 +246,29 @@
 
 ---
 
-## AI 시나리오 ScriptableObject 개편 QA (2026-06-10)
+## AI 시나리오 ScriptableObject 개편 QA (2026-06-10 → 2차 완료 2026-06-11)
 
-### 종합 판정: CONDITIONAL PASS
+### 종합 판정: CONDITIONAL PASS (정적 분석 전항목 PASS, 실기 대기)
 
-### 검토 항목
-- 컴파일 에러 가능성: PASS
-- 기능 로직: PASS
-- YAML 데이터 오류: CONDITIONAL PASS
-- 아키텍처 위반: CONDITIONAL PASS → 후속 수정으로 완전 해소됨
-
-### 핵심 발견 사항
+### 1차 QA (2026-06-10) 핵심 발견 사항
 - BuildOrderStep/AIActionType이 Infrastructure에 있어 Application→Infrastructure 직접 의존 발생
-  → 후속 작업에서 Domain/AI 레이어로 이동하여 완전 해소
+  → 2차 작업에서 Domain/AI 레이어로 이동하여 해소
 - DifficultyLevel도 Infrastructure에 있어 BuildOrderStep.GetDelaySeconds()로 인한 연쇄 위반
   → DifficultyLevel도 Domain으로 함께 이동하여 해소
-- Human_A phaseIndex 1에서 unitType:0(Pistoleer)를 targetBuildingLine:1(총기류)에 배치 → 설계 의도 확인됨 (Pistoleer는 총기류 유닛)
+
+### 2차 QA (2026-06-11) 핵심 확인 사항
+- BuildOrderStep, AIActionType, DifficultyLevel 모두 Hexiege.Domain 네임스페이스로 이동 완료
+- 세 타입 모두 UnityEngine 의존 없음 ([Serializable]은 System.Serializable — 허용)
+- LoadScenarioBundleForRace(): 3종족 switch 완비, null/빈배열 방어 코드 존재
+- 레거시 Human_A/B/C.asset 실물 삭제 완료 (Glob 결과 0건)
+- 에셋 YAML: 3종족 9개 시나리오 모두 actionType(0~2), phaseIndex(0~3) 범위 내
+- NOTE-001(Minor): AIScenarioConfig.cs 주석/XML doc에 구버전 경로 예시 잔존 — 기능 무영향
+
+### AI 시나리오 현행 구조
+- 종족별 단일 에셋: Human/Spirit/Transcendence 각 1개
+- 각 에셋에 3개 ScenarioBundle 내장
+- Human: Rush/Tech/Balance, Spirit: Inferno/Torrent/Quake, Transcendence: Rush/Flora/Beast
+- 종족 결정: GameRaceContext.RedRace (AI는 항상 Red팀)
 
 ### task 문서
 `Assets/_Project/Docs/_Tasks/2026-06-10/01_06_ai-scenario-scriptableobject-restructure/`
