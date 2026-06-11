@@ -9708,6 +9708,7 @@ MonoBehaviour:
   _anonymousWarningPopup: {fileID: 1904661451}
   _loadingIndicator: {fileID: 229004327}
   _nextSceneName: Lobby
+  _soundConfig: {fileID: 0}
 --- !u!4 &1693386394
 Transform:
   m_ObjectHideFlags: 0
