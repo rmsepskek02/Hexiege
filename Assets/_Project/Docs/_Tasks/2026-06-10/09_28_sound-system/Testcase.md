@@ -335,3 +335,103 @@ GameSystemRules_Sound.md 규칙 1~22 전체 준수 여부 확인.
 
 PASS — 규칙 1~22 전체 준수 확인. 수정 3건 적용 완료.
 실기 테스트는 Inspector 작업 완료 후 진행 예정.
+
+---
+
+### 2차 정적 분석 — Inspector 설정 자동화 (2026-06-11)
+
+#### 분석 대상
+
+| 파일 | 변경 유형 |
+|------|----------|
+| `Assets/_Project/Scripts/Presentation/UI/InGameSettingsUI.cs` | 수정 — `_mainButtonContainer` 숨김/복원 로직 추가 |
+| `Assets/_Project/Scripts/Presentation/UI/LobbySettingsView.cs` | 신규 — 로비 설정 탭 네비게이션 컴포넌트 |
+| `Assets/Editor/Setup/SetupAudioManager.cs` | 신규 — Login.unity AudioManager 자동 구성 |
+| `Assets/Editor/Setup/SetupInGameVolumePanel.cs` | 신규 — Game.unity 볼륨 패널 UI 자동 구성 |
+| `Assets/Editor/Setup/SetupLobbySettingsTab.cs` | 신규 — Lobby.unity 설정 탭 자동 구성 |
+
+---
+
+#### InGameSettingsUI.cs
+
+| 항목 | 점검 내용 | 판정 |
+|------|----------|------|
+| `HideVolumePanel()` — `_volumePanelGroup` null 시 early return | L344: `if (_volumePanelGroup == null) return;` 로 안전하게 보호됨 | PASS |
+| `HideVolumePanel()` — `_mainButtonContainer` null 체크 | L351: `if (_mainButtonContainer != null)` 조건부 처리 | PASS |
+| `ShowVolumePanel()` — `_mainButtonContainer` null 체크 | L331: `if (_mainButtonContainer != null)` 조건부 처리 | PASS |
+| `Initialize()` 시점 `HideVolumePanel()` 호출 안전성 | `_volumePanelGroup`이 null이면 early return → `_mainButtonContainer` 복원도 실행되지 않음. 에디터 스크립트로 필드가 연결된 이후에는 문제없으나, 미연결 상태에서 `_mainButtonContainer`가 초기에 보이는 상태여야 한다면 보장이 없음 | WARNING |
+| `OnSoundButtonClicked()` — `alpha >= 0.5f` 토글 조건 | ShowVolumePanel/HideVolumePanel이 1f 또는 0f만 설정하므로 0.5 임계값은 실질적으로 안전 | PASS |
+| `Hide()` 내부 `HideVolumePanel()` 호출 후 `_mainButtonContainer` 복원 | HideVolumePanel L351-356에서 복원 처리됨. 단 상기 WARNING 조건 동일 적용 | PASS |
+| 볼륨 슬라이더 null-safe (`?.` / `?? 1f`) | SetupVolumeSliders, RefreshVolumeSliderValues 모두 `?.` 와 `?? 1f` 적용 확인 | PASS |
+| 리스너 중복 등록 방지 | `Initialize()` 재호출 시 모든 버튼에 `RemoveAllListeners()` 후 재등록 | PASS |
+
+**WARNING 상세 (경미)**: `Initialize()` 시 `_volumePanelGroup`이 null이면 `HideVolumePanel()`이 early return되어 `_mainButtonContainer` 복원 로직이 실행되지 않는다. SetupInGameVolumePanel 에디터 스크립트가 정상 실행된 후에는 두 필드 모두 연결되므로 실제 런타임에서는 문제가 발생하지 않는다. 다만 에디터 스크립트 미실행 상태에서 Inspector 미연결 시 `_mainButtonContainer`가 초기 표시 상태가 아닌 채로 시작할 수 있다.
+
+---
+
+#### LobbySettingsView.cs
+
+| 항목 | 점검 내용 | 판정 |
+|------|----------|------|
+| `Awake()` → `Initialize()` 호출 | L104-106: Awake에서 Initialize 1회 호출 | PASS |
+| 리스너 중복 등록 방지 | 모든 버튼 `RemoveAllListeners()` 후 재등록 | PASS |
+| `ShowMain()` null 체크 | `SetGroupVisible`이 null 체크 내장 (L287), `SetBackButtonVisible`도 null 체크 내장 (L302) | PASS |
+| `ShowSubView(null)` 처리 | L229: `if (subView == null) return;` early return | PASS |
+| 사운드 서브 화면 진입 시 슬라이더 refresh | L238-239: `RefreshVolumeSliderValues()` 호출 확인 | PASS |
+| AudioManager null-safe | SetupVolumeSliders, RefreshVolumeSliderValues 전체 `?.` 와 `?? 1f` 적용 | PASS |
+| BackButton SetActive 방식 | 앵커 고정 배치이므로 SetActive로 처리 — LayoutGroup 영향 없음 (L301-303 주석 명시) | PASS |
+| 서브 화면 전환 시 기존 서브 화면 비활성화 | L234-235: `_soundSubView`와 `_profileSubView` 각각 `subView == x` 조건으로 SetActive 처리 | PASS |
+
+---
+
+#### SetupAudioManager.cs
+
+| 항목 | 점검 내용 | 판정 |
+|------|----------|------|
+| AudioMixer 없을 때 경고 후 중단 | L53-65: `DisplayDialog` 후 `return` — 정상 중단 | PASS |
+| BGM/SFX 그룹 없을 때 경고 후 중단 | L127-134: `DisplayDialog` 후 `return` | PASS |
+| 그룹 체크 시점 — 불완전 GO 잔류 가능성 | BGM/SFX 그룹 체크(L127)는 [Audio] GO와 AudioSource 자식이 이미 생성된 후에 수행됨. 그룹 없으면 return하되 씬에 불완전한 [Audio] GO가 저장되지 않고 잔류할 수 있음. 씬 저장(L174)이 return 이후이므로 실제 저장은 안 되지만, 에디터 세션 내 Hierarchy에는 잔류 | WARNING |
+| `LoginBootstrapper` 없을 때 처리 | L166-169: `LogWarning` 후 계속 진행 (팝업 없음, 비필수 필드이므로 적절) | PASS |
+| SoundConfig 이미 있을 때 재사용 | L71-77: `LoadAssetAtPath` 결과가 null이 아니면 재사용, null일 때만 `CreateInstance` | PASS |
+| `[Audio]` GO 중복 생성 방지 | L94-96: `GameObject.Find("[Audio]")` 결과가 null일 때만 신규 생성 | PASS |
+| BGM AudioSource outputAudioMixerGroup 연결 | L140-141: bgmSourceA, bgmSourceB에 bgmGroup 연결 | PASS |
+| SFX Group AudioManager 필드 연결 | L149: `_sfxGroup`에 sfxGroup SerializedObject 연결 | PASS |
+
+**WARNING 상세 (경미)**: BGM/SFX 그룹 체크는 [Audio] GO와 자식 AudioSource가 생성된 후에 실행된다. 그룹이 없어 `return`되면 씬 저장(L174) 전에 종료되므로 디스크에 저장은 안 된다. 그러나 에디터 Hierarchy에는 [Audio] GO와 자식 오브젝트가 잔류하여 씬을 수동 저장하면 불완전한 상태로 저장될 수 있다. 실용적으로는 믹서 설정 완료 후 재실행하면 재사용 처리되므로 치명적이지 않으나, 명시적으로 `DestroyImmediate(audioGo)` 후 return하거나 체크 순서를 앞으로 이동하면 더 안전함.
+
+---
+
+#### SetupInGameVolumePanel.cs
+
+| 항목 | 점검 내용 | 판정 |
+|------|----------|------|
+| `_panel` null 체크 | L81-88: `_panel` property가 null이거나 objectReferenceValue가 null이면 `DisplayDialog` 후 return | PASS |
+| `_soundButton` / `_forfeitButton` null 처리 | L97-98: `?.objectReferenceValue as Button` → null이면 SetParent 조건 블록 스킵됨 (L123-124) | PASS |
+| 슬라이더 Unity UI 표준 구조 | Background / Fill Area / Fill / Handle Slide Area / Handle 계층 모두 생성 확인 | PASS |
+| `slider.fillRect` 설정 | L305: `slider.fillRect = fillRt;` | PASS |
+| `slider.handleRect` 설정 | L321: `slider.handleRect = handleRt;` | PASS |
+| `slider.targetGraphic` 설정 | L322: `slider.targetGraphic = handleImg;` | PASS |
+| InGameSettingsUI 필드 연결 누락 여부 | `_mainButtonContainer`, `_volumePanelGroup`, `_masterSlider`, `_bgmSlider`, `_sfxSlider`, `_backButton`, `_masterValueText`, `_bgmValueText`, `_sfxValueText` 총 9개 필드 연결 확인 — 누락 없음 | PASS |
+
+---
+
+#### SetupLobbySettingsTab.cs
+
+| 항목 | 점검 내용 | 판정 |
+|------|----------|------|
+| ProfilePanel null 체크 | L73-77: `profilePanelGo == null`이면 `DisplayDialog` 후 return | PASS |
+| ProfileView 없을 때 처리 | L104-106: `profileView != null` 조건부로 SetActive — null safe | PASS |
+| LobbySettingsView 필드 연결 누락 여부 | `_backButton`, `_mainView`, `_subViewContainer`, `_profileButton`, `_soundButton`, `_soundSubView`, `_profileSubView`, `_masterSlider`, `_bgmSlider`, `_sfxSlider`, `_masterValueText`, `_bgmValueText`, `_sfxValueText` 총 13개 필드 — 누락 없음 | PASS |
+| TabBarView 없을 때 처리 | L82: `if (tabBar != null)` 조건부 — null safe | PASS |
+| BackButton 초기 숨김 | L135: `backBtnGo.SetActive(false);` — 정상 | PASS |
+| MainView/SubViewContainer 초기 상태 | MainView: alpha=1, SubViewContainer: alpha=0, interactable=false, blocksRaycasts=false — 정상 | PASS |
+
+---
+
+#### 2차 정적 분석 종합 판정
+
+CONDITIONAL PASS — 전체 구현 로직은 올바르며 중대 버그 없음. 경미한 WARNING 2건 기록.
+
+**WARNING 목록 (Minor — 수정 권장)**:
+1. `InGameSettingsUI.HideVolumePanel()`: `_volumePanelGroup` null 시 `_mainButtonContainer` 복원 스킵. 에디터 스크립트 정상 실행 후에는 런타임 무영향이나 미연결 상태에서의 방어 로직 부재.
+2. `SetupAudioManager.Run()`: BGM/SFX 그룹 체크가 GO 생성 후에 수행되어, 그룹 없을 때 return 시 Hierarchy에 불완전한 [Audio] GO가 에디터 세션 내 잔류. 씬 저장 전 return이므로 디스크 저장 문제는 없음.
