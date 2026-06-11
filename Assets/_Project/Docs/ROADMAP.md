@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-06-08
-**현재 단계:** AI 시스템 코드 구현 완료 + VFX 디테일 개선 완료 — AI Inspector 작업 + 실기 테스트 필요. 신규 유닛 프리팹 실기 테스트 예정 + UI FAIL 잔여 5항목 + Login.unity 씬 조립 진행 필요
+**최종 수정일:** 2026-06-10
+**현재 단계:** 사운드 시스템 코드 완료 — AudioMixer Inspector 작업 + 실기 테스트 필요. AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정 + UI FAIL 잔여 5항목 + Login.unity 씬 조립 진행 필요
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -25,7 +25,8 @@
 | 🟡 중간 | 로비 UI 비주얼 폴리싱 (에셋 제작 완료 2026-05-30) | UI | 중 |
 | 🟢 낮음 | 재접속 실제 구현 | 기능 | 중 |
 | ✅ 완료 | 방어 타워(AutoTower) 공격 기능 | 기능 | 대 |
-| ⬜ 백로그 | 사운드/BGM | 기능 | 중 |
+| 🔵 구현완료 | 사운드 시스템 — 코드 완료. AudioMixer Inspector 작업 + 실기 테스트 대기. 로비 볼륨 패널 미구현(별도 작업) | 기능 | 중 |
+| 🔴 높음 | 사운드 시스템 — Inspector 작업 (AudioMixer 에셋 생성, Login.unity AudioManager 배치, SoundConfig 에셋 생성) | 기능/Inspector | 소 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
 | ⬜ 백로그 | Firebase 백엔드 (랭킹/IAP) | 기능 | 대 |
 

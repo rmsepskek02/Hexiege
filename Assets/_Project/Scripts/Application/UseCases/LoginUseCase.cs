@@ -5,7 +5,7 @@
 // 역할:
 //   - 익명 / Google / 이메일 3가지 로그인 흐름을 통합 API 로 제공
 //   - Firebase 로그인 결과를 LoginResult enum 으로 표준화
-//   - UGS 브릿지(Firebase UID → UGS Custom ID) 수행
+//   - UGS 브릿지(실계정: Firebase ID Token → UGS OIDC / 익명: UGS 익명 로그인) 수행
 //   - 이메일 인증 상태 확인 / 인증 메일 발송 / 비밀번호 재설정 메일 발송
 //
 // 의존성:
@@ -113,7 +113,13 @@ namespace Hexiege.Application
             try
             {
                 Debug.Log($"[LoginUseCase] 자동 로그인: 세션 발견 (UID={_authService.FirebaseUID}). UGS 브릿지 진행.");
-                await BridgeToUGSAsync(_authService.FirebaseUID);
+
+                // UGS 브릿지 성공 여부를 받아 둔다. false 여도 로그인 자체는 성공 처리(규칙 3).
+                bool bridged = await BridgeToUGSAsync(_authService.FirebaseUID);
+                if (!bridged)
+                {
+                    Debug.LogWarning("[LoginUseCase] 자동 로그인: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
+                }
                 return true;
             }
             catch (Exception e)
@@ -136,7 +142,13 @@ namespace Hexiege.Application
             try
             {
                 string uid = await _authService.SignInAnonymouslyAsync();
-                await BridgeToUGSAsync(uid);
+
+                // UGS 미연결이어도 로그인은 성공으로 처리(규칙 3) — 경고만 남긴다.
+                bool bridged = await BridgeToUGSAsync(uid);
+                if (!bridged)
+                {
+                    Debug.LogWarning("[LoginUseCase] 익명 로그인: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
+                }
                 return LoginResult.Success;
             }
             catch (AuthException e)
@@ -159,7 +171,13 @@ namespace Hexiege.Application
             try
             {
                 string uid = await _authService.SignInWithGoogleAsync();
-                await BridgeToUGSAsync(uid);
+
+                // UGS 미연결이어도 로그인은 성공으로 처리(규칙 3) — 경고만 남긴다.
+                bool bridged = await BridgeToUGSAsync(uid);
+                if (!bridged)
+                {
+                    Debug.LogWarning("[LoginUseCase] Google 로그인: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
+                }
                 return LoginResult.Success;
             }
             catch (AuthException e)
@@ -192,7 +210,12 @@ namespace Hexiege.Application
                     return LoginResult.NeedsEmailVerification;
                 }
 
-                await BridgeToUGSAsync(uid);
+                // UGS 미연결이어도 로그인은 성공으로 처리(규칙 3) — 경고만 남긴다.
+                bool bridged = await BridgeToUGSAsync(uid);
+                if (!bridged)
+                {
+                    Debug.LogWarning("[LoginUseCase] 이메일 로그인: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
+                }
                 return LoginResult.Success;
             }
             catch (AuthException e)
@@ -257,8 +280,13 @@ namespace Hexiege.Application
                 bool verified = await _authService.CheckEmailVerifiedAsync();
                 if (!verified) return false;
 
-                // 인증 완료 → UGS 브릿지까지 진행
-                await BridgeToUGSAsync(_authService.FirebaseUID);
+                // 인증 완료 → UGS 브릿지까지 진행.
+                // UGS 미연결이어도 인증 완료 흐름 자체는 성공으로 처리(규칙 3) — 경고만 남긴다.
+                bool bridged = await BridgeToUGSAsync(_authService.FirebaseUID);
+                if (!bridged)
+                {
+                    Debug.LogWarning("[LoginUseCase] 이메일 인증 완료: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
+                }
                 return true;
             }
             catch (AuthException e)
@@ -326,22 +354,54 @@ namespace Hexiege.Application
         // ====================================================================
 
         /// <summary>
-        /// Firebase UID 를 UGS Custom ID 로 등록하여 UGS PlayerId 를 발급받는다.
-        /// 로그인 방식(익명/Google/이메일) 과 무관하게 동일하게 호출되는 후속 단계.
+        /// Firebase 계정을 UGS PlayerId 와 연결한다(OIDC Bridge).
+        /// 로그인 방식(익명/Google/이메일) 과 무관하게 동일하게 호출되는 후속 단계지만,
+        /// 계정 종류에 따라 내부 처리가 두 갈래로 나뉜다.
         ///
-        /// AuthSystemRules.md 규칙: Firebase UID = UGS Custom ID.
-        /// 첫 호출 시 신규 UGS 계정이 자동 생성되도록 createAccount: true 옵션 사용.
+        /// 1) 실계정(Google / 이메일):
+        ///    Firebase 가 발급한 ID Token(JWT)을 UGS OIDC Provider("oidc-firebase")에 전달한다.
+        ///    동일 Firebase 계정이면 기기를 바꿔도 항상 같은 UGS PlayerId 가 반환되므로,
+        ///    랭킹·재화 등 계정 귀속 데이터를 안전하게 저장할 수 있다.
+        ///    (AuthSystemRules.md — UGS 연결 규칙 2)
+        ///
+        /// 2) 익명 계정(Anonymous):
+        ///    익명 Firebase 계정은 기기 종속이라 다기기 일관성이 애초에 불필요하고,
+        ///    OIDC Provider 가 익명 토큰을 식별 주체로 인정하지 않으므로
+        ///    기존대로 UGS 익명 로그인을 사용한다.
+        ///    (AuthSystemRules.md — UGS 연결 규칙 3)
         ///
         /// UGS 연결 실패 시: 멀티플레이 기능만 제한되며, 로그인 자체는 성공으로 처리.
         ///   (AuthSystemRules.md 오류 처리 규칙 3 — UGS 실패가 로그인 차단으로 이어지지 않도록)
+        ///
+        /// 유니티 초급 개발자를 위한 안내:
+        ///   - "OIDC(OpenID Connect)" 는 "한 서비스(Firebase)의 로그인 증명을
+        ///     다른 서비스(UGS)가 그대로 신뢰하게 해 주는 표준 규약" 이다.
+        ///   - 우리는 Firebase ID Token 을 UGS 에 보여 주고 "이 사람 Firebase 가 보증해" 라고 알려,
+        ///     UGS 가 같은 사람에게 항상 같은 PlayerId 를 주도록 만든다.
         /// </summary>
-        /// <param name="firebaseUID">UGS Custom ID 로 사용할 Firebase UID.</param>
-        public async Task BridgeToUGSAsync(string firebaseUID)
+        /// <param name="firebaseUID">
+        /// 로그인된 사용자의 Firebase UID. 비어 있으면 로그인되지 않은 상태로 간주해 즉시 반환한다.
+        /// (실제 인증에 쓰이는 값은 ID Token 이며, UID 는 유효성 가드 + 로그용으로만 사용)
+        /// </param>
+        /// <returns>
+        /// UGS 브릿지 성공 여부(true = UGS 연결 성공 / false = 미연결).
+        ///
+        /// 유니티 초급 개발자를 위한 안내:
+        ///   - 예전에는 이 메서드가 값을 돌려주지 않아(Task), 호출한 쪽에서
+        ///     "UGS 연결이 됐는지" 전혀 알 수 없었다.
+        ///   - UGS 연결 실패는 로그인 자체를 막지 않으므로(예외를 위로 던지지 않음),
+        ///     성공/실패를 구분하려면 반드시 반환값으로 알려 줘야 한다.
+        ///   - 그래서 bool 을 반환하도록 바꿔, 호출부가 false 일 때
+        ///     "멀티플레이는 제한될 수 있음" 같은 경고를 남길 수 있게 했다.
+        ///   - 단, false 라도 로그인 흐름 자체는 계속 성공으로 진행한다
+        ///     (AuthSystemRules.md 오류 처리 규칙 3).
+        /// </returns>
+        public async Task<bool> BridgeToUGSAsync(string firebaseUID)
         {
             if (string.IsNullOrWhiteSpace(firebaseUID))
             {
                 Debug.LogError("[LoginUseCase] BridgeToUGSAsync: firebaseUID 가 비어 있습니다.");
-                return;
+                return false;
             }
 
             try
@@ -353,26 +413,43 @@ namespace Hexiege.Application
                     await UnityServices.InitializeAsync();
                 }
 
-                // 이전 세션이 남아 있다면 정리 — 다른 Firebase UID 로 재바인딩되는 경우 대비.
+                // 이전 세션이 남아 있다면 정리 — 다른 Firebase 계정으로 재바인딩되는 경우 대비.
+                // (예: 익명 → 로그아웃 → 다른 Google 계정으로 로그인하는 흐름)
                 if (AuthenticationService.Instance.IsSignedIn)
                 {
                     AuthenticationService.Instance.SignOut();
                 }
 
-                // TODO: 이 UGS Authentication SDK 버전은 SignInWithCustomIdAsync 를 지원하지 않는다.
-                //   Firebase UID → UGS Custom ID 브릿지는 추후 구현 예정.
-                //   현재는 익명 로그인으로 UGS PlayerId 를 발급받는 임시 처리.
-                if (!AuthenticationService.Instance.IsSignedIn)
+                if (_authService.IsAnonymous)
                 {
+                    // [익명 계정] OIDC 식별 주체가 없으므로 기존 익명 로그인 유지.
+                    Debug.Log("[LoginUseCase] 익명 계정 — UGS 익명 로그인 수행.");
                     await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                }
+                else
+                {
+                    // [실계정] Firebase ID Token 을 UGS OIDC Provider 에 전달 → PlayerId 1:1 연결.
+                    //   "oidc-firebase" 는 UGS Dashboard 에 등록한 Provider 이름이며,
+                    //   UGS 규약상 OIDC Provider 이름은 "oidc-" 접두사로 시작해야 한다.
+                    //   토큰은 캐시 우선(false)으로 발급 — 만료 임박 시 Firebase SDK 가 자동 갱신한다.
+                    Debug.Log("[LoginUseCase] 실계정 — Firebase ID Token 으로 UGS OIDC 브릿지 수행.");
+                    string firebaseToken = await _authService.GetIdTokenAsync(false);
+                    await AuthenticationService.Instance.SignInWithOpenIdConnectAsync(
+                        "oidc-firebase",
+                        firebaseToken);
                 }
 
                 Debug.Log($"[LoginUseCase] UGS 브릿지 완료. PlayerId={AuthenticationService.Instance.PlayerId}");
+
+                // 익명/OIDC 어느 경로든 위 로그인이 예외 없이 끝났으면 UGS 연결 성공.
+                return true;
             }
             catch (Exception e)
             {
                 // 로그인 자체를 실패로 처리하지 않는다 — 규칙 3 참조.
+                // 다만 호출부가 "UGS 미연결" 을 인지할 수 있도록 false 를 반환한다.
                 Debug.LogWarning($"[LoginUseCase] UGS 브릿지 실패(멀티플레이 제한): {e.Message}");
+                return false;
             }
         }
     }

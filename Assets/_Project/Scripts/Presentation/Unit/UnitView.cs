@@ -477,8 +477,9 @@ namespace Hexiege.Presentation
                         }
 
                         // 서버 또는 싱글플레이: 사망 이펙트를 여기서 즉시 재생.
-                        // EffectManager가 아직 없는 경우를 대비해 ?. 연산자로 안전 처리.
-                        EffectManager.Instance?.PlayUnitDeath(_unitData.Type, transform.position);
+                        // EffectManager/AudioManager가 아직 없는 경우를 대비해 ?. 연산자로 안전 처리.
+                        EffectManager.Instance?.PlayUnitDeath(_unitData.Type, transform.position);   // VFX
+                        AudioManager.Instance?.PlayUnitDeathSfx(_unitData.Type);                     // SFX (규칙 15 — VFX와 짝)
 
                         // GameObject 파괴 경로 분기:
                         //   - 싱글플레이: NGO가 없으므로 여기서 직접 Destroy한다.
@@ -1517,7 +1518,8 @@ namespace Hexiege.Presentation
             //   위치는 본 덕분에 정확하므로 유지하고, 회전만 유닛 루트의 정면 방향으로 교체한다.
             Vector3 spawnPos = _vfxSpawnPoint != null ? _vfxSpawnPoint.position : transform.position;
             Quaternion spawnRot = Quaternion.LookRotation(transform.forward);
-            EffectManager.Instance?.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot);
+            EffectManager.Instance?.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot);  // VFX
+            AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                    // SFX (규칙 15 — VFX와 짝)
 
             StartCoroutine(HitReactionCoroutine());
         }

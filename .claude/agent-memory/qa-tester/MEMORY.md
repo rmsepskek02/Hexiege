@@ -246,6 +246,26 @@
 
 ---
 
+## 사운드 시스템 QA 정적 분석 (2026-06-10) — PASS
+
+task 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/`
+
+정적 분석 결과: 전체 PASS (FAIL 0건)
+- 규칙 1~22 전체 준수 확인
+- 아키텍처 의존성 방향 준수 (SoundConfig=Infrastructure, AudioManager=Presentation)
+- VFX+SFX 쌍 호출 3곳 모두 확인 (UnitView×2, NetworkUnit×1)
+- BGM 크로스페이드 로직, SFX 풀, 볼륨 dB 변환 정상
+
+QA 수정 사항 (3건):
+- ReturnSfxAfterPlay: WaitForSeconds → WaitForSecondsRealtime (timeScale=0 대응)
+- Initialize() 재호출 시 SFX 풀 중복 생성 방지 코드 추가
+- 무음 전환 후 _activeBgmSource = fadeIn으로 상태 명확화
+
+실기 테스트: 미진행 (Inspector 작업 완료 후 진행 예정)
+TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.md`
+
+---
+
 ## AI 시나리오 ScriptableObject 개편 QA (2026-06-10 → 2차 완료 2026-06-11)
 
 ### 종합 판정: CONDITIONAL PASS (정적 분석 전항목 PASS, 실기 대기)
@@ -272,6 +292,28 @@
 
 ### task 문서
 `Assets/_Project/Docs/_Tasks/2026-06-10/01_06_ai-scenario-scriptableobject-restructure/`
+
+---
+
+## Login UI 완성도 QA 정적 분석 (2026-06-11)
+
+### 종합 판정: FAIL (CanvasGroup Rule 5 위반)
+
+### 핵심 발견 사항
+- **[Rule 5 위반]** LoginRootView.SetActivePanel() / HideAll()에서 5개 패널 전환에 `SetActive()` 직접 사용 → CanvasGroup 패턴으로 교체 필요
+- **[Inspector 공유 이슈]** `_confirmPopup`(종료 팝업) 과 `_networkErrorPopup`이 동일한 ConfirmPopup 오브젝트(fileID: 422375806) 참조 → 두 팝업이 동시에 호출되면 Show() 재호출로 메시지/콜백 덮어쓰기 발생 가능 (Major)
+- **[Safe Area Rule 4]** Background가 Canvas 직속 자식으로 SafeAreaContainer 밖에 배치됨 → PASS
+- **[Inspector 연결]** LoginBootstrapper 7개 View 슬롯 전부 연결됨, `_loadingIndicator` 연결됨
+- `_headerText: {fileID: 0}` — null 허용(코드에서 Optional 처리됨), 문제 없음
+- AnonymousWarningPopup의 `_blockingOverlay` / `_panel.gameObject.SetActive()` 패턴 → AnimatedPanel 팝업에서 허용되는 패턴임 (Rule 5 위반 아님)
+
+### Login 씬 계층 구조 (확인 완료)
+- Canvas → [Background (Canvas 직속), SafeAreaContainer (Canvas 직속)]
+- SafeAreaContainer → [LoginRootView, ConfirmPopup, LoadingIndicator, AnonymousWarningPopup]
+- LoginRootView → [LoginSelectPanel, EmailLoginPanel, SignUpPanel, EmailVerifyPanel, PasswordResetPanel]
+
+### task 문서
+정적 분석만 수행 (플레이모드 실기 불가 — Firebase 미설정)
 
 ---
 

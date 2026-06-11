@@ -54,11 +54,24 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 우측 상단의 X 닫기 버튼.")]
         [SerializeField] private Button _closeButton;
 
-        [Tooltip("사운드 옵션 버튼 (현재는 플레이스홀더 — 클릭해도 동작 없음).")]
+        [Tooltip("사운드 옵션 버튼. 클릭 시 볼륨 조절 패널을 토글한다.")]
         [SerializeField] private Button _soundButton;
 
         [Tooltip("게임 포기 버튼. 클릭 시 ConfirmPopup으로 재확인.")]
         [SerializeField] private Button _forfeitButton;
+
+        [Header("볼륨 패널")]
+        [Tooltip("볼륨 슬라이더를 담은 패널의 CanvasGroup. Show/Hide를 CanvasGroup으로 처리 (UI 규칙 5).")]
+        [SerializeField] private CanvasGroup _volumePanelGroup;
+
+        [Tooltip("마스터 볼륨 슬라이더 (0~1).")]
+        [SerializeField] private Slider _masterSlider;
+
+        [Tooltip("BGM 볼륨 슬라이더 (0~1).")]
+        [SerializeField] private Slider _bgmSlider;
+
+        [Tooltip("SFX 볼륨 슬라이더 (0~1).")]
+        [SerializeField] private Slider _sfxSlider;
 
         // ====================================================================
         // 내부 상태
@@ -115,10 +128,50 @@ namespace Hexiege.Presentation
                 _forfeitButton.onClick.RemoveAllListeners();
                 _forfeitButton.onClick.AddListener(OnForfeitClicked);
             }
-            // _soundButton은 현재 플레이스홀더 — 리스너 등록 자체를 하지 않는다.
+
+            // 사운드 버튼 → 볼륨 패널 토글.
+            if (_soundButton != null)
+            {
+                _soundButton.onClick.RemoveAllListeners();
+                _soundButton.onClick.AddListener(OnSoundButtonClicked);
+            }
+
+            // 볼륨 슬라이더 초기화 — 현재 저장된 볼륨을 슬라이더에 반영하고 변경 리스너를 연결한다.
+            SetupVolumeSliders();
+
+            // 볼륨 패널은 시작 시 숨김.
+            HideVolumePanel();
 
             // 초기 상태는 반드시 숨김으로 시작
             Hide();
+        }
+
+        /// <summary>
+        /// 볼륨 슬라이더 3종의 초기값을 AudioManager에서 읽어 반영하고,
+        /// 값 변경 시 AudioManager에 즉시 전달하는 리스너를 등록한다.
+        /// Initialize는 재경기 시 재호출될 수 있으므로 RemoveAllListeners로 중복 등록을 방지한다.
+        /// AudioManager.Instance가 null일 수 있으므로(개발 중 직접 진입) ?. 와 ?? 1f로 안전 처리한다 (규칙 5).
+        /// </summary>
+        private void SetupVolumeSliders()
+        {
+            if (_masterSlider != null)
+            {
+                _masterSlider.onValueChanged.RemoveAllListeners();
+                _masterSlider.value = AudioManager.Instance?.GetMasterVolume() ?? 1f;
+                _masterSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetMasterVolume(v));
+            }
+            if (_bgmSlider != null)
+            {
+                _bgmSlider.onValueChanged.RemoveAllListeners();
+                _bgmSlider.value = AudioManager.Instance?.GetBgmVolume() ?? 1f;
+                _bgmSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetBgmVolume(v));
+            }
+            if (_sfxSlider != null)
+            {
+                _sfxSlider.onValueChanged.RemoveAllListeners();
+                _sfxSlider.value = AudioManager.Instance?.GetSfxVolume() ?? 1f;
+                _sfxSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetSfxVolume(v));
+            }
         }
 
         // ====================================================================
@@ -177,9 +230,74 @@ namespace Hexiege.Presentation
                 _pausedBySettings = false;
             }
 
+            // 볼륨 패널도 함께 닫는다 — 설정 메뉴가 닫히면 하위 패널도 잔류하지 않도록.
+            HideVolumePanel();
+
             // 팝업 본체 페이드 아웃.
             if (_panel != null)
                 _panel.Hide();
+        }
+
+        // ====================================================================
+        // 볼륨 패널 토글 (UI 규칙 5 — CanvasGroup으로 표시/숨김)
+        // ====================================================================
+
+        /// <summary>
+        /// 사운드 버튼 클릭 핸들러. 볼륨 패널이 보이면 숨기고, 숨겨져 있으면 표시한다.
+        /// CanvasGroup.alpha로 현재 표시 여부를 판단한다.
+        /// </summary>
+        private void OnSoundButtonClicked()
+        {
+            if (_volumePanelGroup == null) return;
+
+            // alpha가 0.5 이상이면 표시 중으로 간주 → 숨김, 아니면 표시.
+            if (_volumePanelGroup.alpha >= 0.5f)
+                HideVolumePanel();
+            else
+                ShowVolumePanel();
+        }
+
+        /// <summary>
+        /// 볼륨 패널을 표시한다 (CanvasGroup alpha=1 + 입력 활성화).
+        /// 표시 직전 슬라이더 값을 현재 저장값과 동기화한다.
+        /// </summary>
+        private void ShowVolumePanel()
+        {
+            if (_volumePanelGroup == null) return;
+
+            // 다른 씬(로비 등)에서 볼륨이 바뀌었을 수 있으므로 표시 시점에 슬라이더 값을 다시 동기화.
+            RefreshVolumeSliderValues();
+
+            _volumePanelGroup.alpha = 1f;
+            _volumePanelGroup.interactable = true;
+            _volumePanelGroup.blocksRaycasts = true;
+        }
+
+        /// <summary>
+        /// 볼륨 패널을 숨긴다 (CanvasGroup alpha=0 + 입력 비활성화).
+        /// </summary>
+        private void HideVolumePanel()
+        {
+            if (_volumePanelGroup == null) return;
+
+            _volumePanelGroup.alpha = 0f;
+            _volumePanelGroup.interactable = false;
+            _volumePanelGroup.blocksRaycasts = false;
+        }
+
+        /// <summary>
+        /// 슬라이더 값만 현재 저장 볼륨으로 다시 맞춘다 (리스너 재등록 없음).
+        /// onValueChanged 리스너가 이미 붙어 있으므로, 값만 갱신하면 SetXxxVolume이
+        /// 다시 호출될 수 있으나 동일 값이라 부작용은 없다.
+        /// </summary>
+        private void RefreshVolumeSliderValues()
+        {
+            if (_masterSlider != null)
+                _masterSlider.value = AudioManager.Instance?.GetMasterVolume() ?? 1f;
+            if (_bgmSlider != null)
+                _bgmSlider.value = AudioManager.Instance?.GetBgmVolume() ?? 1f;
+            if (_sfxSlider != null)
+                _sfxSlider.value = AudioManager.Instance?.GetSfxVolume() ?? 1f;
         }
 
         // ====================================================================
