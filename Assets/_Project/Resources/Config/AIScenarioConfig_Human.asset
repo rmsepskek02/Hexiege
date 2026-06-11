@@ -13,9 +13,8 @@ MonoBehaviour:
   m_Name: AIScenarioConfig_Human
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.AIScenarioConfig
   scenarioName: Human
-  _steps: []
   scenarios:
-  - scenarioName: Human_A
+  - scenarioName: Human-Rush
     steps:
     - actionType: 0
       buildingType: 7
@@ -113,7 +112,7 @@ MonoBehaviour:
       delaySecondsEasy: 80
       delaySecondsNormal: 80
       delaySecondsHard: 80
-  - scenarioName: Human_B
+  - scenarioName: Human-Tech
     steps:
     - actionType: 0
       buildingType: 7
@@ -227,7 +226,7 @@ MonoBehaviour:
       delaySecondsEasy: 90
       delaySecondsNormal: 90
       delaySecondsHard: 90
-  - scenarioName: Human_C
+  - scenarioName: Human-Balance
     steps:
     - actionType: 0
       buildingType: 7
