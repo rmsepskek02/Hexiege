@@ -48,8 +48,8 @@ namespace Hexiege.Infrastructure
     [System.Serializable]
     public class ScenarioBundle
     {
-        /// <summary>이 시나리오의 식별 이름(예: Human_A). 디버깅·로깅용.</summary>
-        [Tooltip("이 시나리오의 식별 이름(예: Human_A). 디버깅·로깅용.")]
+        /// <summary>이 시나리오의 식별 이름(예: Human-Rush). 디버깅·로깅용.</summary>
+        [Tooltip("이 시나리오의 식별 이름(예: Human-Rush). 디버깅·로깅용.")]
         public string scenarioName = "Unnamed";
 
         /// <summary>빌드오더 항목 목록. 여러 Phase의 항목을 하나의 평탄 리스트로 보관.</summary>
@@ -58,8 +58,8 @@ namespace Hexiege.Infrastructure
     }
 
     /// <summary>
-    /// 한 종족(시나리오)의 빌드오더 전체를 담는 ScriptableObject.
-    /// 에셋 경로(권장): Assets/_Project/Resources/Config/AIScenarioConfig_Human_A.asset 등
+    /// 한 종족의 AI 빌드오더 시나리오 묶음을 담는 ScriptableObject.
+    /// 에셋 경로: Assets/_Project/Resources/Config/AIScenarioConfig_{종족}.asset
     /// </summary>
     [CreateAssetMenu(fileName = "AIScenarioConfig", menuName = "Hexiege/AIScenarioConfig")]
     public class AIScenarioConfig : ScriptableObject
