@@ -268,6 +268,28 @@
 
 ---
 
+## Login UI 완성도 QA 정적 분석 (2026-06-11)
+
+### 종합 판정: FAIL (CanvasGroup Rule 5 위반)
+
+### 핵심 발견 사항
+- **[Rule 5 위반]** LoginRootView.SetActivePanel() / HideAll()에서 5개 패널 전환에 `SetActive()` 직접 사용 → CanvasGroup 패턴으로 교체 필요
+- **[Inspector 공유 이슈]** `_confirmPopup`(종료 팝업) 과 `_networkErrorPopup`이 동일한 ConfirmPopup 오브젝트(fileID: 422375806) 참조 → 두 팝업이 동시에 호출되면 Show() 재호출로 메시지/콜백 덮어쓰기 발생 가능 (Major)
+- **[Safe Area Rule 4]** Background가 Canvas 직속 자식으로 SafeAreaContainer 밖에 배치됨 → PASS
+- **[Inspector 연결]** LoginBootstrapper 7개 View 슬롯 전부 연결됨, `_loadingIndicator` 연결됨
+- `_headerText: {fileID: 0}` — null 허용(코드에서 Optional 처리됨), 문제 없음
+- AnonymousWarningPopup의 `_blockingOverlay` / `_panel.gameObject.SetActive()` 패턴 → AnimatedPanel 팝업에서 허용되는 패턴임 (Rule 5 위반 아님)
+
+### Login 씬 계층 구조 (확인 완료)
+- Canvas → [Background (Canvas 직속), SafeAreaContainer (Canvas 직속)]
+- SafeAreaContainer → [LoginRootView, ConfirmPopup, LoadingIndicator, AnonymousWarningPopup]
+- LoginRootView → [LoginSelectPanel, EmailLoginPanel, SignUpPanel, EmailVerifyPanel, PasswordResetPanel]
+
+### task 문서
+정적 분석만 수행 (플레이모드 실기 불가 — Firebase 미설정)
+
+---
+
 ## 참고 파일
 - [patterns.md](patterns.md) — 버그 패턴 상세
 - [qa_history.md](qa_history.md) — 완료된 QA 상세 내역 (생산시스템/DOTween/카메라/재경기/로비/로딩/랜덤매칭)
