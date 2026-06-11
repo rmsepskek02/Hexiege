@@ -317,6 +317,27 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 
 ---
 
+## Login UI CanvasGroup 전환 + NetworkErrorPopup 분리 QA (2026-06-11)
+
+### 종합 판정: CONDITIONAL PASS
+
+### 핵심 발견 사항
+- **[Rule 5 준수 확인]** `LoginRootView.cs` 전체에서 `GameObject.SetActive()` 패널 전환 호출 없음. `ShowGroup()`/`HideGroup()`으로 alpha/blocksRaycasts/interactable 3속성 모두 처리. 완전 준수.
+- **[Inspector 공유 이슈 해소]** `_confirmPopup`(종료 팝업)과 `_networkErrorPopup`이 별도 오브젝트로 분리. LoginUiSetup 에디터 스크립트로 자동 생성/연결.
+- **[Minor Bug-1]** `LoginUiSetup.cs`: `SafeAreaContainer` 미발견 시 NetworkErrorPopup이 씬 루트에 생성된 채 저장됨 — `LogWarning`만 출력, `DisplayDialog` 미사용 (186-190행).
+- **[Minor Bug-2]** `ShowNetworkErrorPopup()`이 `cancelLabel: string.Empty` 전달하지만 `ConfirmPopup.Show()`는 취소 버튼을 숨기지 않아 빈 버튼 노출 가능성 (`ConfirmPopup.cs` 175-179행).
+- **[LoginBootstrapper 호환]** CanvasGroup 타입 변경(GameObject → CanvasGroup)에 대해 LoginBootstrapper가 패널 슬롯 직접 참조 없음 — 영향 없음.
+- **[ConfirmPopup Show() 시그니처]** 5개 인자 모두 일치. LoginRootView 양쪽 호출부 모두 정상.
+
+### ConfirmPopup 재사용 패턴 주의
+- `cancelLabel: string.Empty` 전달 시 취소 버튼이 빈 텍스트로 노출됨 (버튼 숨김 로직 없음)
+- 단독 확인 버튼만 필요한 팝업은 취소 버튼을 Inspector에서 비활성화하거나, ConfirmPopup에 `cancelLabel` 빈 문자열 시 버튼 숨김 로직 추가 필요
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-06-11/00_31_login-ui-canvasgroup-popup-fix/Testcase.md`
+
+---
+
 ## 참고 파일
 - [patterns.md](patterns.md) — 버그 패턴 상세
 - [qa_history.md](qa_history.md) — 완료된 QA 상세 내역 (생산시스템/DOTween/카메라/재경기/로비/로딩/랜덤매칭)
