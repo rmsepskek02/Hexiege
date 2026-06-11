@@ -338,9 +338,243 @@ PASS — 규칙 1~22 전체 준수 확인. 수정 3건 적용 완료.
 
 ---
 
-### 2차 정적 분석 — Inspector 설정 자동화 (2026-06-11)
+## 인게임 볼륨 패널 UI 테스트 (InGameSettingsUI)
 
-#### 분석 대상
+### UI-INGAME-01: 사운드 버튼 클릭 시 메인 버튼 그룹 숨김 + 볼륨 패널 표시
+
+**전제:** SetupInGameVolumePanel 에디터 스크립트가 정상 실행되어 InGameSettingsUI의 모든 필드가 연결된 상태. Game 씬에서 InGameSettingsUI 팝업이 열린 상태(Show() 호출됨). 볼륨 패널은 초기 숨김 상태(alpha=0).
+
+**동작:**
+1. 인게임 설정 팝업에서 [사운드] 버튼을 클릭한다
+
+**기댓값:**
+- MainButtonContainer CanvasGroup의 alpha가 0으로 변경된다
+- MainButtonContainer의 interactable과 blocksRaycasts가 false로 변경된다
+- VolumePanel CanvasGroup의 alpha가 1로 변경된다
+- VolumePanel의 interactable과 blocksRaycasts가 true로 변경된다
+- 볼륨 슬라이더 3종(마스터/배경음/효과음)이 현재 저장된 값으로 표시된다
+
+**결과:**
+
+---
+
+### UI-INGAME-02: 볼륨 패널에서 뒤로가기 버튼 클릭 시 메인 버튼 그룹 복원 + 볼륨 패널 숨김
+
+**전제:** UI-INGAME-01 완료 후 볼륨 패널이 표시된 상태
+
+**동작:**
+1. 볼륨 패널 하단의 [← 뒤로] 버튼을 클릭한다
+
+**기댓값:**
+- VolumePanel CanvasGroup의 alpha가 0으로 변경된다
+- VolumePanel의 interactable과 blocksRaycasts가 false로 변경된다
+- MainButtonContainer CanvasGroup의 alpha가 1로 복원된다
+- MainButtonContainer의 interactable과 blocksRaycasts가 true로 복원된다
+- [사운드] 버튼과 [포기] 버튼이 다시 보이고 터치 가능하다
+
+**결과:**
+
+---
+
+### UI-INGAME-03: X(닫기) 버튼으로 팝업 닫을 때 볼륨 패널과 메인 버튼 초기화
+
+**전제:** 볼륨 패널이 열린 상태(사운드 버튼 클릭 후)에서 X 닫기 버튼을 클릭하는 상황
+
+**동작:**
+1. UI-INGAME-01을 통해 볼륨 패널을 표시한다
+2. X(닫기) 버튼을 클릭한다
+
+**기댓값:**
+- 팝업 전체가 Hide() 처리된다
+- HideVolumePanel()이 내부적으로 호출되어 VolumePanel이 숨겨진다
+- MainButtonContainer가 복원된다 (alpha=1, interactable=true, blocksRaycasts=true)
+- 싱글플레이라면 Time.timeScale이 1로 복원된다
+
+**결과:**
+
+---
+
+### UI-INGAME-04: 볼륨 패널 열린 상태에서 X 닫기 후 재오픈 시 메인 버튼 그룹이 표시된 초기 상태
+
+**전제:** 볼륨 패널이 열린 채로 팝업을 X로 닫은 직후
+
+**동작:**
+1. UI-INGAME-03 완료 후 다시 인게임 설정 버튼(우상단)을 클릭하여 팝업을 재오픈한다
+
+**기댓값:**
+- 팝업이 Show()될 때 볼륨 패널은 숨겨진 상태이다 (이전 열린 상태가 잔류하지 않음)
+- MainButtonContainer가 표시된 상태이다 (alpha=1)
+- [사운드], [포기] 버튼이 정상 표시되고 터치 가능하다
+
+**결과:**
+
+---
+
+## 로비 설정 탭 네비게이션 테스트 (LobbySettingsView)
+
+### UI-LOBBY-01: 설정 탭 진입 시 메인 뷰 표시, 뒤로가기 버튼 없음
+
+**전제:** SetupLobbySettingsTab 에디터 스크립트가 정상 실행된 상태. 로비 씬에서 하단 탭바의 설정 탭 아이콘을 터치할 수 있는 상태.
+
+**동작:**
+1. 로비 씬 하단 탭바에서 [설정] 탭을 클릭한다
+
+**기댓값:**
+- LobbySettingsView의 메인 화면(MainView)이 표시된다 (alpha=1)
+- [프로필] 버튼과 [사운드] 버튼이 화면 중앙에 표시된다
+- SubViewContainer는 숨겨진 상태이다 (alpha=0)
+- BackButton이 화면에 보이지 않는다 (SetActive(false))
+
+**결과:**
+
+---
+
+### UI-LOBBY-02: 사운드 버튼 클릭 시 사운드 서브 화면 진입, 뒤로가기 버튼 표시
+
+**전제:** UI-LOBBY-01 완료 후 메인 화면이 표시된 상태
+
+**동작:**
+1. 메인 화면에서 [사운드] 버튼을 클릭한다
+
+**기댓값:**
+- MainView가 숨겨진다 (alpha=0, blocksRaycasts=false)
+- SubViewContainer가 표시된다 (alpha=1, blocksRaycasts=true)
+- SoundSubView만 활성화되고 ProfileSubView는 비활성 상태이다
+- 볼륨 슬라이더 3종(마스터/배경음/효과음)이 현재 저장된 값으로 표시된다
+- BackButton이 좌상단에 표시된다 (SetActive(true))
+
+**결과:**
+
+---
+
+### UI-LOBBY-03: 프로필 버튼 클릭 시 프로필 서브 화면 진입, 뒤로가기 버튼 표시
+
+**전제:** UI-LOBBY-01 완료 후 메인 화면이 표시된 상태
+
+**동작:**
+1. 메인 화면에서 [프로필] 버튼을 클릭한다
+
+**기댓값:**
+- MainView가 숨겨진다 (alpha=0)
+- SubViewContainer가 표시된다 (alpha=1)
+- ProfileSubView만 활성화되고 SoundSubView는 비활성 상태이다
+- BackButton이 좌상단에 표시된다
+
+**결과:**
+
+---
+
+### UI-LOBBY-04: 서브 화면에서 뒤로가기 버튼 클릭 시 메인 뷰 복귀, 뒤로가기 버튼 사라짐
+
+**전제:** UI-LOBBY-02 또는 UI-LOBBY-03 완료 후 서브 화면이 표시된 상태
+
+**동작:**
+1. 좌상단 BackButton을 클릭한다
+
+**기댓값:**
+- SubViewContainer가 숨겨진다 (alpha=0, blocksRaycasts=false)
+- MainView가 다시 표시된다 (alpha=1, blocksRaycasts=true)
+- 모든 서브 화면(SoundSubView, ProfileSubView)이 비활성화된다
+- BackButton이 사라진다 (SetActive(false))
+
+**결과:**
+
+---
+
+### UI-LOBBY-05: 로비 사운드 서브 화면 볼륨 슬라이더 조절 시 즉시 적용
+
+**전제:** UI-LOBBY-02 완료 후 사운드 서브 화면이 표시된 상태. AudioManager가 존재하는 상태(Login 씬을 거쳐 진입).
+
+**동작:**
+1. 마스터 볼륨 슬라이더를 0으로 내린다
+2. 마스터 볼륨 슬라이더를 다시 1로 올린다
+3. 배경음 슬라이더를 0.5로 조절한다
+4. 효과음 슬라이더를 0으로 내린다
+
+**기댓값:**
+- 슬라이더를 움직이는 즉시 해당 채널 볼륨이 AudioManager에 반영된다
+- 각 슬라이더 우측의 퍼센트 텍스트가 슬라이더 값에 맞게 갱신된다 (예: "50%", "0%")
+- 마스터 0 → BGM/SFX 모두 무음
+- BGM 0 → BGM 무음, SFX는 영향 없음
+
+**결과:**
+
+---
+
+### UI-LOBBY-06: 타 탭 이동 후 설정 탭 재진입 시 메인 뷰로 초기화됨
+
+**전제:** UI-LOBBY-02 완료 후 사운드 서브 화면이 표시된 상태
+
+**동작:**
+1. 하단 탭바에서 다른 탭(예: 편성 탭)으로 이동한다
+2. 다시 [설정] 탭으로 돌아온다
+
+**기댓값:**
+- LobbySettingsView가 메인 화면 상태로 표시된다 (Initialize() → ShowMain() 재실행)
+- BackButton이 없는 상태이다
+- 이전에 열었던 서브 화면 상태가 잔류하지 않는다
+
+**결과:**
+
+---
+
+## 에디터 스크립트 검증 (정적 / 에디터 실행)
+
+아래 TC는 Unity Editor에서 직접 MenuItem을 실행하여 확인한다.
+
+### EDITOR-01: SetupAudioManager — GameAudioMixer.mixer 없을 때 경고 다이얼로그 표시 후 중단
+
+**전제:** `Assets/_Project/Audio/GameAudioMixer.mixer` 파일이 존재하지 않는 상태 (에디터 실행 전 임시 이동/제거)
+
+**동작:**
+1. Unity 상단 메뉴 → Hexiege/Setup/사운드 - AudioManager 설정을 실행한다
+
+**기댓값 (정적 검증):**
+- `EditorUtility.DisplayDialog("AudioMixer 없음", ...)` 가 호출된다 (L53-64)
+- 이후 `return`으로 진행이 중단된다 (L65)
+- Login.unity가 열리지 않고, [Audio] GO가 생성되지 않는다
+
+**결과:**
+
+---
+
+### EDITOR-02: SetupAudioManager — 이미 [Audio] GO 있을 때 중복 생성 없이 재사용
+
+**전제:** SetupAudioManager를 이미 한 번 실행하여 Login.unity에 [Audio] GO와 AudioManager 컴포넌트가 존재하는 상태
+
+**동작:**
+1. Unity 상단 메뉴 → Hexiege/Setup/사운드 - AudioManager 설정을 다시 실행한다
+
+**기댓값 (에디터 실행 검증):**
+- Hierarchy에 [Audio] GO가 하나만 존재한다 (중복 생성 없음)
+- `GameObject.Find("[Audio]")`가 기존 GO를 반환하고 신규 생성 분기를 타지 않는다 (L94-96)
+- SoundConfig.asset이 새로 생성되지 않고 기존 것을 재사용한다
+- 이미 할당된 SoundConfig 클립이 초기화되지 않는다
+
+**결과:**
+
+---
+
+### EDITOR-03: SetupInGameVolumePanel — _panel 미연결 상태에서 실행 시 안내 메시지 후 중단
+
+**전제:** Game.unity에 InGameSettingsUI 컴포넌트는 존재하지만 `_panel` 필드가 Inspector에서 연결되지 않은 상태
+
+**동작:**
+1. Unity 상단 메뉴 → Hexiege/Setup/사운드 - 인게임 볼륨 패널 생성을 실행한다
+
+**기댓값 (에디터 실행 검증):**
+- `EditorUtility.DisplayDialog("_panel 없음", ...)` 가 호출된다 (L82-88)
+- 이후 `return`으로 진행이 중단된다
+- MainButtonContainer, VolumePanel GO가 생성되지 않는다
+- InGameSettingsUI 필드 연결 작업이 수행되지 않는다
+
+**결과:**
+
+---
+
+## 2차 정적 분석 결과 — Inspector 설정 자동화 (2026-06-11)
+
+### 분석 대상
 
 | 파일 | 변경 유형 |
 |------|----------|
@@ -352,7 +586,7 @@ PASS — 규칙 1~22 전체 준수 확인. 수정 3건 적용 완료.
 
 ---
 
-#### InGameSettingsUI.cs
+### InGameSettingsUI.cs
 
 | 항목 | 점검 내용 | 판정 |
 |------|----------|------|
@@ -369,7 +603,7 @@ PASS — 규칙 1~22 전체 준수 확인. 수정 3건 적용 완료.
 
 ---
 
-#### LobbySettingsView.cs
+### LobbySettingsView.cs
 
 | 항목 | 점검 내용 | 판정 |
 |------|----------|------|
@@ -384,7 +618,7 @@ PASS — 규칙 1~22 전체 준수 확인. 수정 3건 적용 완료.
 
 ---
 
-#### SetupAudioManager.cs
+### SetupAudioManager.cs
 
 | 항목 | 점검 내용 | 판정 |
 |------|----------|------|
@@ -401,7 +635,7 @@ PASS — 규칙 1~22 전체 준수 확인. 수정 3건 적용 완료.
 
 ---
 
-#### SetupInGameVolumePanel.cs
+### SetupInGameVolumePanel.cs
 
 | 항목 | 점검 내용 | 판정 |
 |------|----------|------|
@@ -415,7 +649,7 @@ PASS — 규칙 1~22 전체 준수 확인. 수정 3건 적용 완료.
 
 ---
 
-#### SetupLobbySettingsTab.cs
+### SetupLobbySettingsTab.cs
 
 | 항목 | 점검 내용 | 판정 |
 |------|----------|------|
@@ -428,7 +662,7 @@ PASS — 규칙 1~22 전체 준수 확인. 수정 3건 적용 완료.
 
 ---
 
-#### 2차 정적 분석 종합 판정
+### 2차 정적 분석 종합 판정
 
 CONDITIONAL PASS — 전체 구현 로직은 올바르며 중대 버그 없음. 경미한 WARNING 2건 기록.
 
