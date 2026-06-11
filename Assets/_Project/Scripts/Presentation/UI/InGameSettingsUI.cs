@@ -60,9 +60,17 @@ namespace Hexiege.Presentation
         [Tooltip("게임 포기 버튼. 클릭 시 ConfirmPopup으로 재확인.")]
         [SerializeField] private Button _forfeitButton;
 
+        [Header("메인 버튼 그룹")]
+        [Tooltip("사운드/포기 등 메인 버튼을 묶은 컨테이너의 CanvasGroup. " +
+                 "볼륨 사이드바를 열면 이 그룹을 숨기고, 뒤로가기 시 다시 표시한다 (UI 규칙 5).")]
+        [SerializeField] private CanvasGroup _mainButtonContainer;
+
         [Header("볼륨 패널")]
         [Tooltip("볼륨 슬라이더를 담은 패널의 CanvasGroup. Show/Hide를 CanvasGroup으로 처리 (UI 규칙 5).")]
         [SerializeField] private CanvasGroup _volumePanelGroup;
+
+        [Tooltip("볼륨 사이드바 → 메인 버튼 그룹으로 복귀하는 뒤로가기 버튼.")]
+        [SerializeField] private Button _backButton;
 
         [Tooltip("마스터 볼륨 슬라이더 (0~1).")]
         [SerializeField] private Slider _masterSlider;
@@ -72,6 +80,16 @@ namespace Hexiege.Presentation
 
         [Tooltip("SFX 볼륨 슬라이더 (0~1).")]
         [SerializeField] private Slider _sfxSlider;
+
+        [Header("볼륨 퍼센트 텍스트 (선택)")]
+        [Tooltip("마스터 볼륨 퍼센트 표시 텍스트. 슬라이더 값에 따라 '100%' 형태로 갱신된다.")]
+        [SerializeField] private TextMeshProUGUI _masterValueText;
+
+        [Tooltip("BGM 볼륨 퍼센트 표시 텍스트.")]
+        [SerializeField] private TextMeshProUGUI _bgmValueText;
+
+        [Tooltip("SFX 볼륨 퍼센트 표시 텍스트.")]
+        [SerializeField] private TextMeshProUGUI _sfxValueText;
 
         // ====================================================================
         // 내부 상태
@@ -129,11 +147,18 @@ namespace Hexiege.Presentation
                 _forfeitButton.onClick.AddListener(OnForfeitClicked);
             }
 
-            // 사운드 버튼 → 볼륨 패널 토글.
+            // 사운드 버튼 → 볼륨 사이드바 표시(메인 버튼 그룹 숨김).
             if (_soundButton != null)
             {
                 _soundButton.onClick.RemoveAllListeners();
                 _soundButton.onClick.AddListener(OnSoundButtonClicked);
+            }
+
+            // 뒤로가기 버튼 → 볼륨 사이드바 숨김(메인 버튼 그룹 복원).
+            if (_backButton != null)
+            {
+                _backButton.onClick.RemoveAllListeners();
+                _backButton.onClick.AddListener(HideVolumePanel);
             }
 
             // 볼륨 슬라이더 초기화 — 현재 저장된 볼륨을 슬라이더에 반영하고 변경 리스너를 연결한다.
@@ -154,24 +179,54 @@ namespace Hexiege.Presentation
         /// </summary>
         private void SetupVolumeSliders()
         {
-            if (_masterSlider != null)
+            SetupOneSlider(
+                _masterSlider, _masterValueText,
+                AudioManager.Instance?.GetMasterVolume() ?? 1f,
+                v => AudioManager.Instance?.SetMasterVolume(v));
+
+            SetupOneSlider(
+                _bgmSlider, _bgmValueText,
+                AudioManager.Instance?.GetBgmVolume() ?? 1f,
+                v => AudioManager.Instance?.SetBgmVolume(v));
+
+            SetupOneSlider(
+                _sfxSlider, _sfxValueText,
+                AudioManager.Instance?.GetSfxVolume() ?? 1f,
+                v => AudioManager.Instance?.SetSfxVolume(v));
+        }
+
+        /// <summary>
+        /// 슬라이더 한 개의 초기값/리스너/퍼센트 텍스트를 설정하는 공통 헬퍼.
+        /// </summary>
+        /// <param name="slider">대상 슬라이더 (null 허용).</param>
+        /// <param name="valueText">퍼센트 표시 텍스트 (null 허용).</param>
+        /// <param name="initialValue">초기 슬라이더 값 (0~1).</param>
+        /// <param name="onChanged">값 변경 시 AudioManager에 전달할 콜백.</param>
+        private void SetupOneSlider(Slider slider, TextMeshProUGUI valueText,
+            float initialValue, System.Action<float> onChanged)
+        {
+            if (slider == null) return;
+
+            slider.onValueChanged.RemoveAllListeners();
+            slider.value = initialValue;
+            UpdateValueText(valueText, initialValue);
+
+            slider.onValueChanged.AddListener(v =>
             {
-                _masterSlider.onValueChanged.RemoveAllListeners();
-                _masterSlider.value = AudioManager.Instance?.GetMasterVolume() ?? 1f;
-                _masterSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetMasterVolume(v));
-            }
-            if (_bgmSlider != null)
-            {
-                _bgmSlider.onValueChanged.RemoveAllListeners();
-                _bgmSlider.value = AudioManager.Instance?.GetBgmVolume() ?? 1f;
-                _bgmSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetBgmVolume(v));
-            }
-            if (_sfxSlider != null)
-            {
-                _sfxSlider.onValueChanged.RemoveAllListeners();
-                _sfxSlider.value = AudioManager.Instance?.GetSfxVolume() ?? 1f;
-                _sfxSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetSfxVolume(v));
-            }
+                onChanged?.Invoke(v);
+                UpdateValueText(valueText, v);
+            });
+        }
+
+        /// <summary>
+        /// 0~1 슬라이더 값을 "100%" 형태의 정수 퍼센트 문자열로 텍스트에 반영한다.
+        /// </summary>
+        /// <param name="valueText">갱신할 텍스트 (null이면 무시).</param>
+        /// <param name="value">0~1 볼륨 값.</param>
+        private void UpdateValueText(TextMeshProUGUI valueText, float value)
+        {
+            if (valueText == null) return;
+            valueText.text = $"{Mathf.RoundToInt(value * 100f)}%";
         }
 
         // ====================================================================
@@ -271,6 +326,14 @@ namespace Hexiege.Presentation
             _volumePanelGroup.alpha = 1f;
             _volumePanelGroup.interactable = true;
             _volumePanelGroup.blocksRaycasts = true;
+
+            // 메인 버튼 그룹(사운드/포기)을 숨긴다 — 볼륨 패널과 동시에 표시되지 않도록 (UI 규칙 5).
+            if (_mainButtonContainer != null)
+            {
+                _mainButtonContainer.alpha = 0f;
+                _mainButtonContainer.interactable = false;
+                _mainButtonContainer.blocksRaycasts = false;
+            }
         }
 
         /// <summary>
@@ -283,6 +346,14 @@ namespace Hexiege.Presentation
             _volumePanelGroup.alpha = 0f;
             _volumePanelGroup.interactable = false;
             _volumePanelGroup.blocksRaycasts = false;
+
+            // 볼륨 패널이 닫히면 메인 버튼 그룹(사운드/포기)을 다시 표시한다.
+            if (_mainButtonContainer != null)
+            {
+                _mainButtonContainer.alpha = 1f;
+                _mainButtonContainer.interactable = true;
+                _mainButtonContainer.blocksRaycasts = true;
+            }
         }
 
         /// <summary>
