@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: AIScenarioConfig_Spirit
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.AIScenarioConfig
   scenarioName: Spirit
-  _steps: []
   scenarios:
   - scenarioName: Spirit-Inferno
     steps:
