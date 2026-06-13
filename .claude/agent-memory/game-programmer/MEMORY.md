@@ -25,6 +25,14 @@
 
 ## 최근 작업
 
+### AnimatedPanel/UIAnimator/ConfirmPopup SetActive→CanvasGroup 리팩토링 (2026-06-13) 🔵 코드 완료 / Inspector(씬) 작업 필요
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-12/09_13_animatedpanel-canvasgroup-refactor/`
+- `UIAnimator.cs`: 이미 이전 세션에서 SetActive 제거 완료 상태였음(Show=interactable/blocksRaycasts=true, Hide OnComplete=interactable/blocksRaycasts=false). 추가 변경 없음.
+- `AnimatedPanel.cs`: EnsureInitialized()에 `_cg.alpha=0/blocksRaycasts=false/interactable=false` 명시 추가. `_backgroundOverlay`(CanvasGroup 타입) Show=alpha1/raycast/interactable=true, Hide=0/false/false. SetActive 호출 전부 제거 + 주석 갱신.
+- `ConfirmPopup.cs`: 190행 `_panel.gameObject.SetActive(true)` 제거(Show()만 호출). `_blockingOverlay`(GameObject 타입)는 이번 범위 제외 — 후속 작업.
+- **씬 작업**: Game.unity에 AnimatedPanel 부착 비활성 GO 6개(BuildingPopup/BuildingActionPanel/Panel×2/GameEndPanel/ProductionPopup). Lobby.unity는 0개. 에디터 스크립트 `Assets/Editor/Setup/ActivateAnimatedPanels.cs`(메뉴 `Hexiege/Setup/AnimatedPanel 활성화`) 작성 — 사용자 실행 필요.
+- **AnimatedPanel GUID**: `b97e76d0453d56e4b961752cd52c6eb6`. 씬 YAML에서 m_IsActive 조회: MonoBehaviour(114) 중 GUID 매칭 → m_GameObject fileID → 해당 GO body의 m_IsActive 확인.
+
 ### 사운드 시스템 (AudioManager + SFX/BGM 분리) (2026-06-10) 🔵 코드 완료 / Inspector 작업 + 실기 테스트 예정
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/`
