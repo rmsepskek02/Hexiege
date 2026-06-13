@@ -14,11 +14,12 @@
 //   UIAnimator.CountTo(goldText, 100, 200);
 //
 // 주의:
-//   - Show 계열 메서드는 gameObject.SetActive(true)를 먼저 호출한 뒤 애니메이션 시작.
-//     (비활성 오브젝트에서는 DOTween이 동작하지 않기 때문)
-//   - Hide 계열 메서드는 애니메이션 완료 후 OnComplete에서 SetActive(false) 호출.
-//   - CanvasGroup.blocksRaycasts: Show 시 true, Hide 완료 시 false.
-//     (애니메이션 도중 의도치 않은 입력 차단/허용 제어)
+//   - 오브젝트는 항상 활성(SetActive=true) 상태를 유지한다. 가시성은 CanvasGroup으로만 제어.
+//     (공통 UI 규칙 5: 오브젝트를 비활성화하지 않고 CanvasGroup으로 숨긴다.
+//      SetActive(false)는 LayoutGroup에서 제외되거나 Awake 미호출 등 버그를 유발)
+//   - Show 계열 메서드: alpha 0→1 페이드인 + blocksRaycasts/interactable = true 로 입력 수용.
+//   - Hide 계열 메서드: alpha 1→0 페이드아웃 후 OnComplete에서 blocksRaycasts/interactable = false 로 입력 차단.
+//     (오브젝트는 active 상태로 남지만 CanvasGroup이 완전히 투명 + 입력 차단되어 숨김과 동일)
 //
 // Presentation 레이어 — DOTween 의존.
 // ============================================================================
@@ -44,7 +45,7 @@ namespace Hexiege.Presentation
         /// 팝업 등장 애니메이션.
         /// CanvasGroup 알파를 0→1로 페이드인하면서 스케일을 0.85→1로 확대.
         /// Ease.OutBack 으로 약간 튀어나오는 느낌의 바운스 효과 적용.
-        /// gameObject를 SetActive(true)로 활성화한 뒤 애니메이션을 시작함.
+        /// 오브젝트는 항상 active 상태이므로 SetActive 호출 없이 CanvasGroup만 제어한다.
         /// </summary>
         /// <param name="cg">알파 애니메이션 대상 CanvasGroup. 투명도와 레이캐스트 제어.</param>
         /// <param name="t">스케일 애니메이션 대상 Transform.</param>
@@ -52,12 +53,10 @@ namespace Hexiege.Presentation
         /// <returns>생성된 Sequence. 호출부에서 Kill()로 중단 가능.</returns>
         public static Sequence PopupShow(CanvasGroup cg, Transform t, float duration = 0.2f)
         {
-            // 비활성 오브젝트에서는 DOTween이 동작하지 않으므로 먼저 활성화
-            cg.gameObject.SetActive(true);
-
             // 시작 상태 초기화: 완전 투명 + 약간 축소된 상태에서 시작
             cg.alpha = 0f;
             cg.blocksRaycasts = true; // 등장 시 즉시 입력 수용
+            cg.interactable = true;   // EnsureInitialized에서 false로 꺼둔 입력을 다시 켜줌
             t.localScale = Vector3.one * 0.85f;
 
             // Sequence: 페이드인 + 스케일업을 동시에 실행
@@ -71,7 +70,8 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 팝업 퇴장 애니메이션.
         /// CanvasGroup 알파를 1→0으로 페이드아웃하면서 스케일을 1→0.85로 축소.
-        /// 애니메이션 완료 후 SetActive(false) 호출 + onComplete 콜백 실행.
+        /// 애니메이션 완료 후 blocksRaycasts/interactable = false 로 입력 차단 + onComplete 콜백 실행.
+        /// 오브젝트는 active 상태로 유지되며, 완전 투명 + 입력 차단으로 숨김 효과를 낸다.
         /// </summary>
         /// <param name="cg">알파 애니메이션 대상 CanvasGroup.</param>
         /// <param name="t">스케일 애니메이션 대상 Transform.</param>
@@ -86,9 +86,9 @@ namespace Hexiege.Presentation
             seq.SetUpdate(true); // timeScale=0에서도 동작
             seq.OnComplete(() =>
             {
-                // 애니메이션 완료 후 오브젝트 비활성화 + 레이캐스트 차단
+                // 애니메이션 완료 후 입력 차단 (오브젝트는 active 유지, CanvasGroup으로만 숨김)
                 cg.blocksRaycasts = false;
-                cg.gameObject.SetActive(false);
+                cg.interactable = false;
                 onComplete?.Invoke();
             });
             return seq;
@@ -110,15 +110,13 @@ namespace Hexiege.Presentation
         /// <returns>생성된 Sequence.</returns>
         public static Sequence SlideInFromBottom(RectTransform rt, CanvasGroup cg, float offsetY = 300f, float duration = 0.25f)
         {
-            // 비활성 오브젝트에서는 DOTween이 동작하지 않으므로 먼저 활성화
-            cg.gameObject.SetActive(true);
-
             // 시작 상태: 화면 아래 + 완전 투명
             var pos = rt.anchoredPosition;
             pos.y = -offsetY;
             rt.anchoredPosition = pos;
             cg.alpha = 0f;
             cg.blocksRaycasts = true;
+            cg.interactable = true;   // EnsureInitialized에서 false로 꺼둔 입력을 다시 켜줌
 
             // Sequence: 위로 슬라이드 + 페이드인 동시 실행
             var seq = DOTween.Sequence();
@@ -131,7 +129,7 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 화면 하단으로 슬라이드하며 퇴장하는 애니메이션.
         /// anchoredPosition.y를 0에서 -offsetY로 이동 + CanvasGroup 페이드아웃.
-        /// 완료 후 SetActive(false) + onComplete 콜백.
+        /// 완료 후 blocksRaycasts/interactable = false 로 입력 차단 + onComplete 콜백.
         /// </summary>
         /// <param name="rt">이동 대상 RectTransform.</param>
         /// <param name="cg">알파 애니메이션 대상 CanvasGroup.</param>
@@ -147,8 +145,9 @@ namespace Hexiege.Presentation
             seq.SetUpdate(true);
             seq.OnComplete(() =>
             {
+                // 애니메이션 완료 후 입력 차단 (오브젝트는 active 유지, CanvasGroup으로만 숨김)
                 cg.blocksRaycasts = false;
-                cg.gameObject.SetActive(false);
+                cg.interactable = false;
                 onComplete?.Invoke();
             });
             return seq;
@@ -171,15 +170,13 @@ namespace Hexiege.Presentation
         /// <returns>생성된 Sequence.</returns>
         public static Sequence SlideInFromTop(RectTransform rt, CanvasGroup cg, float offsetY = 300f, float duration = 0.25f)
         {
-            // 비활성 오브젝트에서는 DOTween이 동작하지 않으므로 먼저 활성화
-            cg.gameObject.SetActive(true);
-
             // 시작 상태: 화면 위 + 완전 투명
             var pos = rt.anchoredPosition;
             pos.y = offsetY;
             rt.anchoredPosition = pos;
             cg.alpha = 0f;
             cg.blocksRaycasts = true;
+            cg.interactable = true;   // EnsureInitialized에서 false로 꺼둔 입력을 다시 켜줌
 
             // Sequence: 아래로 슬라이드 + 페이드인 동시 실행
             var seq = DOTween.Sequence();
@@ -192,7 +189,7 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 화면 상단으로 슬라이드하며 퇴장하는 애니메이션.
         /// anchoredPosition.y를 0에서 +offsetY로 이동 + CanvasGroup 페이드아웃.
-        /// 완료 후 SetActive(false) + onComplete 콜백.
+        /// 완료 후 blocksRaycasts/interactable = false 로 입력 차단 + onComplete 콜백.
         /// SlideOutToBottom의 상단 대칭 버전.
         /// </summary>
         /// <param name="rt">이동 대상 RectTransform.</param>
@@ -209,8 +206,9 @@ namespace Hexiege.Presentation
             seq.SetUpdate(true);
             seq.OnComplete(() =>
             {
+                // 애니메이션 완료 후 입력 차단 (오브젝트는 active 유지, CanvasGroup으로만 숨김)
                 cg.blocksRaycasts = false;
-                cg.gameObject.SetActive(false);
+                cg.interactable = false;
                 onComplete?.Invoke();
             });
             return seq;

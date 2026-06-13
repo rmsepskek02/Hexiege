@@ -16,7 +16,8 @@
 //   3. 코드에서 Show()/Hide()만 호출하면 됨.
 //
 // 주의:
-//   - Awake()에서 gameObject.SetActive(false) 호출 → 초기 상태는 숨김.
+//   - 오브젝트는 항상 active 상태를 유지한다(SetActive 사용 안 함, 공통 UI 규칙 5).
+//     초기 숨김은 EnsureInitialized()에서 CanvasGroup(alpha=0/blocksRaycasts=false/interactable=false)으로 처리.
 //   - _currentSeq?.Kill()로 진행 중인 애니메이션을 항상 정리 후 새 애니메이션 시작.
 //     (Show→Hide 빠른 전환 시 이전 애니메이션이 남아있으면 상태 꼬임 방지)
 //   - IsVisible 프로퍼티로 현재 표시 상태를 확인 가능.
@@ -81,7 +82,8 @@ namespace Hexiege.Presentation
 
         [Header("배경 오버레이 (선택적)")]
         [Tooltip("슬라이드 패널 뒤에 깔리는 반투명 배경 CanvasGroup. " +
-                 "연결 시 Show()에서 즉시 SetActive(true), Hide() 호출 즉시 SetActive(false). " +
+                 "연결 시 Show()에서 즉시 alpha=1/입력차단 ON, Hide() 호출 즉시 alpha=0/입력차단 OFF. " +
+                 "(SetActive 대신 CanvasGroup으로 제어 — 공통 UI 규칙 5) " +
                  "연결하지 않으면 무시됨 — 기존 동작에 영향 없음.")]
         [SerializeField] private CanvasGroup _backgroundOverlay;
 
