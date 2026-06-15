@@ -2,13 +2,12 @@
 
 ## 이 작업으로 무엇을 고치는가
 
-Lobby 씬 전수 점검에서 발견된 3가지 규칙 위반을 수정한다.
+Lobby 씬 전수 점검에서 발견된 규칙 위반을 수정한다.
 
-1. `LobbyUI.cs` — `_lobbyPanel` SetActive → CanvasGroup 전환 (Rule 5)
-2. `AnonymousWarningPopup.cs` — `_blockingOverlay` SetActive → CanvasGroup 전환 (Rule 5)
-3. `LoadingScreen > StatusText` — LiberationSans → Maplestory Light SDF 교체 (Rule 6)
+1. `LobbyUI.cs` — `_lobbyPanel` SetActive → CanvasGroup 전환 (Rule 5) — 현재 씬 미배치, 코드만 수정
+2. `LoadingScreen > StatusText` — LiberationSans → Maplestory Light SDF 교체 (Rule 6) ✅ 완료
 
-코드 2개 파일 수정 + Inspector 작업(에디터 스크립트) + Inspector 폰트 교체.
+> ⚠️ `AnonymousWarningPopup._blockingOverlay`는 초기 분석 오류로 포함되었으나 Login.unity 소속. Login 씬 점검 작업으로 이관.
 
 ---
 

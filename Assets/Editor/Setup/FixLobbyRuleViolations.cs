@@ -39,11 +39,8 @@ namespace Hexiege.EditorTools
     /// </summary>
     public static class FixLobbyRuleViolations
     {
-        // 이 스크립트가 실행 가능한 씬 이름 목록.
-        // ②(AnonymousWarningPopup)는 Login.unity에, ③(StatusText 폰트)는 Lobby.unity에 배치돼 있으므로
-        // 두 씬에서 모두 실행할 수 있어야 한다.
-        private static readonly System.Collections.Generic.HashSet<string> AllowedScenes
-            = new System.Collections.Generic.HashSet<string> { "Lobby", "Login" };
+        // 검증용 상수. Lobby.unity 씬에서만 실행되도록 막는다.
+        private const string LobbySceneName = "Lobby";
 
         // 허용 폰트(Maplestory Light SDF)의 GUID. AssetDatabase로 경로를 역추적하는 데 사용한다.
         private const string MaplestoryLightGuid = "58c71976882d99940aedcaa81b1248c5";
@@ -55,17 +52,16 @@ namespace Hexiege.EditorTools
         public static void Fix()
         {
             // ── 0) 현재 씬 검증 ──────────────────────────────────────────────
-            // Lobby.unity 또는 Login.unity에서만 실행 가능. 다른 씬에서는 중단.
-            // (② AnonymousWarningPopup → Login.unity, ③ StatusText 폰트 → Lobby.unity)
+            // 다른 씬에서 실수로 실행하면 엉뚱한 오브젝트를 건드릴 수 있으므로 막는다.
             Scene scene = EditorSceneManager.GetActiveScene();
-            if (!AllowedScenes.Contains(scene.name))
+            if (scene.name != LobbySceneName)
             {
                 EditorUtility.DisplayDialog(
                     "잘못된 씬",
                     $"현재 씬은 '{scene.name}' 입니다.\n" +
-                    "Lobby.unity 또는 Login.unity 씬을 연 상태에서 실행하세요.",
+                    "Lobby.unity 씬을 연 상태에서 실행하세요.",
                     "확인");
-                Debug.LogError($"[FixLobbyRuleViolations] 허용되지 않은 씬: '{scene.name}'. 작업을 중단합니다.");
+                Debug.LogError($"[FixLobbyRuleViolations] 현재 씬이 Lobby가 아님: '{scene.name}'. 작업을 중단합니다.");
                 return;
             }
 
