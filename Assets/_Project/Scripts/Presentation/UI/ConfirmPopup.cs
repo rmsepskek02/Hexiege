@@ -118,7 +118,7 @@ namespace Hexiege.Presentation
         /// 안전 가드:
         ///   - _colorConfig가 Inspector에서 연결되지 않은 경우 즉시 return.
         ///     (기존 UI 색상이 그대로 유지되므로 시각적 깨짐은 발생하지 않음)
-        ///   - _confirmButtonImage / _cancelButtonImage 중 하나라도 연결되지 않으면
+        ///   - _confirmButton / _cancelButton 중 하나라도 연결되지 않으면
         ///     해당 항목만 건너뛴다 — 부분 연결 상태에서도 동작.
         /// </summary>
         private void Awake()
@@ -179,7 +179,7 @@ namespace Hexiege.Presentation
                 _cancelButton.onClick.AddListener(OnCancelClicked);
             }
 
-            // 4) 뒤쪽 입력 차단을 즉시 활성화 (규칙 5: SetActive 대신 CanvasGroup으로 표시)
+            // 4) 뒤쪽 입력 차단을 즉시 활성화
             if (_blockingOverlay != null)
             {
                 _blockingOverlay.alpha = 1f;
@@ -188,9 +188,8 @@ namespace Hexiege.Presentation
             }
 
             // 5) 패널 등장 애니메이션 시작.
-            //    AnimatedPanel은 SetActive 대신 CanvasGroup으로 가시성을 제어하므로
-            //    오브젝트는 항상 active 상태이며, Show() 호출만으로 다시 표시된다(공통 UI 규칙 5).
-            //    (과거에는 Hide()가 SetActive(false)했기에 Show 직전 SetActive(true)가 필요했으나 더 이상 불필요)
+            //    AnimatedPanel은 CanvasGroup으로 가시성을 제어하므로
+            //    오브젝트는 항상 active 상태이며, Show() 호출만으로 다시 표시된다.
             if (_panel != null)
                 _panel.Show();
         }
@@ -202,7 +201,6 @@ namespace Hexiege.Presentation
         public void Hide()
         {
             // 입력 차단 오버레이는 즉시 해제 (페이드 아웃 중에도 뒤쪽 조작이 즉시 가능하도록)
-            // 규칙 5: SetActive 대신 CanvasGroup으로 숨김 처리.
             if (_blockingOverlay != null)
             {
                 _blockingOverlay.alpha = 0f;
