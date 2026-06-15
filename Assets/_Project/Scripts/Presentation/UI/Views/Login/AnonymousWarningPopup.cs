@@ -37,8 +37,9 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 등장/퇴장 애니메이션을 담당하는 AnimatedPanel.")]
         [SerializeField] private AnimatedPanel _panel;
 
-        [Tooltip("뒤쪽 입력 차단 오버레이 GameObject. Raycast Target = true.")]
-        [SerializeField] private GameObject _blockingOverlay;
+        // [Rule 5] SetActive 대신 CanvasGroup으로 제어한다. (오브젝트는 켜둔 채 투명도/입력만 토글)
+        [Tooltip("뒤쪽 입력 차단 오버레이 CanvasGroup. alpha/blocksRaycasts로 제어.")]
+        [SerializeField] private CanvasGroup _blockingOverlay;
 
         [Header("텍스트")]
         [Tooltip("경고 메시지 텍스트.")]
@@ -98,14 +99,26 @@ namespace Hexiege.Presentation
         /// <summary>팝업 표시.</summary>
         public void Show()
         {
-            if (_blockingOverlay != null) _blockingOverlay.SetActive(true);
+            // [Rule 5] SetActive 대신 CanvasGroup으로 표시. (불투명 + 뒤 입력 차단)
+            if (_blockingOverlay != null)
+            {
+                _blockingOverlay.alpha = 1f;
+                _blockingOverlay.blocksRaycasts = true;
+                _blockingOverlay.interactable = true;
+            }
             if (_panel != null) _panel.Show();
         }
 
         /// <summary>팝업 숨김.</summary>
         public void Hide()
         {
-            if (_blockingOverlay != null) _blockingOverlay.SetActive(false);
+            // [Rule 5] SetActive 대신 CanvasGroup으로 숨김. (투명 + 입력 통과)
+            if (_blockingOverlay != null)
+            {
+                _blockingOverlay.alpha = 0f;
+                _blockingOverlay.blocksRaycasts = false;
+                _blockingOverlay.interactable = false;
+            }
             if (_panel != null) _panel.Hide();
         }
 
