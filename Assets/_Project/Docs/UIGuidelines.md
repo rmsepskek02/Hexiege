@@ -1,6 +1,6 @@
 # UI 가이드라인 — Hexiege
 
-**최종 수정일:** 2026-03-19
+**최종 수정일:** 2026-06-12
 **적용 범위:** 모든 UI 씬 (Game.unity, Lobby.unity)
 
 ---
@@ -15,7 +15,7 @@
 | **게임 상태 알림 패널** | 게임 흐름 변화를 알리는 대형 UI | GameEndUI |
 | **시스템 팝업** | 사용자 결정이 필요한 오버레이 다이얼로그 | RematchRequestPopup |
 | **HUD** | 항상 표시되는 인게임 정보 | GameHudUI (골드, 인구, 타이머) |
-| **토스트 알림** | 일시적 피드백 메시지 (자동 사라짐) | ToastNotification (구현 예정) |
+| **토스트 알림** | 일시적 피드백 메시지 (자동 사라짐) | ToastUI (구현 완료 — DontDestroyOnLoad 싱글턴, 큐 기반 순차 표시) |
 | **로비 UI** | 로비 씬 탭/서브뷰 전환 | TabBarView, BattleRootView 서브뷰 |
 
 ---

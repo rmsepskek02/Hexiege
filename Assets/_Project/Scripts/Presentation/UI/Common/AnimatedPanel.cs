@@ -16,7 +16,8 @@
 //   3. 코드에서 Show()/Hide()만 호출하면 됨.
 //
 // 주의:
-//   - Awake()에서 gameObject.SetActive(false) 호출 → 초기 상태는 숨김.
+//   - 오브젝트는 항상 active 상태를 유지한다(SetActive 사용 안 함, 공통 UI 규칙 5).
+//     초기 숨김은 EnsureInitialized()에서 CanvasGroup(alpha=0/blocksRaycasts=false/interactable=false)으로 처리.
 //   - _currentSeq?.Kill()로 진행 중인 애니메이션을 항상 정리 후 새 애니메이션 시작.
 //     (Show→Hide 빠른 전환 시 이전 애니메이션이 남아있으면 상태 꼬임 방지)
 //   - IsVisible 프로퍼티로 현재 표시 상태를 확인 가능.
@@ -81,7 +82,8 @@ namespace Hexiege.Presentation
 
         [Header("배경 오버레이 (선택적)")]
         [Tooltip("슬라이드 패널 뒤에 깔리는 반투명 배경 CanvasGroup. " +
-                 "연결 시 Show()에서 즉시 SetActive(true), Hide() 호출 즉시 SetActive(false). " +
+                 "연결 시 Show()에서 즉시 alpha=1/입력차단 ON, Hide() 호출 즉시 alpha=0/입력차단 OFF. " +
+                 "(SetActive 대신 CanvasGroup으로 제어 — 공통 UI 규칙 5) " +
                  "연결하지 않으면 무시됨 — 기존 동작에 영향 없음.")]
         [SerializeField] private CanvasGroup _backgroundOverlay;
 
@@ -154,7 +156,16 @@ namespace Hexiege.Presentation
             // RectTransform 캐시 (UI 오브젝트이므로 항상 존재)
             _rt = GetComponent<RectTransform>();
 
-            // 초기 상태: 숨김
+            // 초기 상태: 숨김.
+            // 오브젝트는 항상 active 상태이므로(SetActive 사용 안 함, 공통 UI 규칙 5),
+            // 초기 숨김을 SetActive(false)에 의존하지 않고 CanvasGroup 값으로 직접 설정한다.
+            //   - alpha = 0           : 완전 투명(화면에 안 보임)
+            //   - blocksRaycasts=false: 투명한 영역이 뒤쪽 UI의 클릭을 가로채지 않도록 차단 해제
+            //   - interactable=false  : 패널 내부 버튼/입력이 비활성 상태에서 반응하지 않도록 차단
+            // 이후 Show()가 호출되면 UIAnimator가 위 값들을 다시 켜준다.
+            _cg.alpha = 0f;
+            _cg.blocksRaycasts = false;
+            _cg.interactable = false;
             IsVisible = false;
         }
 
@@ -175,35 +186,42 @@ namespace Hexiege.Presentation
             _currentSeq?.Kill();
             IsVisible = true;
 
-            // 배경 오버레이가 Inspector에 연결된 경우 애니메이션 없이 즉시 활성화.
+            // 배경 오버레이가 Inspector에 연결된 경우 애니메이션 없이 즉시 표시.
             // 패널 슬라이드/페이드 애니메이션과 별개로 배경만 바로 표시하여
             // 사용자가 패널 등장 시작과 동시에 뒤쪽 UI 조작을 차단하는 역할.
+            // SetActive 대신 CanvasGroup 값으로 제어한다(공통 UI 규칙 5):
+            //   - alpha = 1            : 반투명 배경을 즉시 보이게 함
+            //   - blocksRaycasts=true  : 뒤쪽 UI 클릭을 차단
+            //   - interactable=true    : (오버레이 자체에 상호작용 요소가 있을 경우 대비) 입력 허용
             // _backgroundOverlay == null이면 이 블록은 건너뛰어 기존 동작과 동일.
             if (_backgroundOverlay != null)
-                _backgroundOverlay.gameObject.SetActive(true);
+            {
+                _backgroundOverlay.alpha = 1f;
+                _backgroundOverlay.blocksRaycasts = true;
+                _backgroundOverlay.interactable = true;
+            }
 
-            // 애니메이션 타입에 따라 분기
+            // 애니메이션 타입에 따라 분기.
+            // 각 UIAnimator 메서드는 SetActive를 호출하지 않고 CanvasGroup(alpha/raycast/interactable)만 제어한다.
             switch (_animationType)
             {
                 case AnimationType.PopupFade:
-                    // UIAnimator.PopupShow 내부에서 SetActive(true) 호출됨
                     _currentSeq = UIAnimator.PopupShow(_cg, transform, _showDuration);
                     break;
 
                 case AnimationType.SlideFromBottom:
-                    // UIAnimator.SlideInFromBottom 내부에서 SetActive(true) 호출됨
                     _currentSeq = UIAnimator.SlideInFromBottom(_rt, _cg, _slideOffset, _showDuration);
                     break;
 
                 case AnimationType.SlideFromTop:
-                    // UIAnimator.SlideInFromTop 내부에서 SetActive(true) 호출됨
                     _currentSeq = UIAnimator.SlideInFromTop(_rt, _cg, _slideOffset, _showDuration);
                     break;
             }
         }
 
         /// <summary>
-        /// 패널 퇴장. 애니메이션 완료 후 SetActive(false) + onComplete 콜백 실행.
+        /// 패널 퇴장. 애니메이션 완료 후 CanvasGroup으로 숨김 처리 + onComplete 콜백 실행.
+        /// (SetActive(false)를 호출하지 않고 alpha/raycast/interactable로만 숨김 — 공통 UI 규칙 5)
         /// 이미 숨김 상태면 아무 동작도 하지 않음 (중복 호출 방어).
         /// </summary>
         /// <param name="onComplete">퇴장 애니메이션 완료 후 실행할 콜백. null 허용.</param>
@@ -221,31 +239,38 @@ namespace Hexiege.Presentation
             _currentSeq?.Kill();
 
             // 배경 오버레이가 Inspector에 연결된 경우:
-            // Hide() 호출 즉시 배경을 비활성화하여, 패널 퇴장 슬라이드 애니메이션이
+            // Hide() 호출 즉시 배경을 숨겨, 패널 퇴장 슬라이드 애니메이션이
             // 시작되는 순간부터 뒤쪽 UI가 보이도록 함.
-            // (이전에는 애니메이션 완료 후에 비활성화하여 배경이 너무 오래 남아있었음)
+            // (이전에는 애니메이션 완료 후에 숨겨서 배경이 너무 오래 남아있었음)
+            // SetActive 대신 CanvasGroup 값으로 제어한다(공통 UI 규칙 5):
+            //   - alpha = 0            : 배경을 즉시 투명하게
+            //   - blocksRaycasts=false : 뒤쪽 UI 클릭 차단 해제
+            //   - interactable=false   : 오버레이 입력 차단
             // _backgroundOverlay == null이면 이 블록은 건너뛰어 기존 동작과 동일.
             if (_backgroundOverlay != null)
-                _backgroundOverlay.gameObject.SetActive(false);
+            {
+                _backgroundOverlay.alpha = 0f;
+                _backgroundOverlay.blocksRaycasts = false;
+                _backgroundOverlay.interactable = false;
+            }
 
             // wrappedComplete: switch 문에 전달할 완료 콜백.
-            // 배경 비활성화는 이미 위에서 즉시 처리했으므로 onComplete만 그대로 전달.
+            // 배경 숨김은 이미 위에서 즉시 처리했으므로 onComplete만 그대로 전달.
             System.Action wrappedComplete = onComplete;
 
+            // 각 UIAnimator 메서드는 OnComplete에서 SetActive 대신
+            // blocksRaycasts/interactable=false로 입력을 차단한다(오브젝트는 active 유지).
             switch (_animationType)
             {
                 case AnimationType.PopupFade:
-                    // UIAnimator.PopupHide 내부에서 OnComplete: SetActive(false) 호출됨
                     _currentSeq = UIAnimator.PopupHide(_cg, transform, wrappedComplete, _hideDuration);
                     break;
 
                 case AnimationType.SlideFromBottom:
-                    // UIAnimator.SlideOutToBottom 내부에서 OnComplete: SetActive(false) 호출됨
                     _currentSeq = UIAnimator.SlideOutToBottom(_rt, _cg, wrappedComplete, _slideOffset, _hideDuration);
                     break;
 
                 case AnimationType.SlideFromTop:
-                    // UIAnimator.SlideOutToTop 내부에서 OnComplete: SetActive(false) 호출됨
                     _currentSeq = UIAnimator.SlideOutToTop(_rt, _cg, wrappedComplete, _slideOffset, _hideDuration);
                     break;
             }

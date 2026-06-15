@@ -27,13 +27,13 @@
 //     3. 버튼 onClick 리스너 RemoveAllListeners 후 재등록
 //        (Show()가 여러 번 호출돼도 콜백이 누적되지 않도록 보장)
 //     4. _blockingOverlay 즉시 SetActive(true)
-//     5. _panel.gameObject.SetActive(true) → _panel.Show()
-//        (AnimatedPanel.Hide()는 완료 후 Panel을 SetActive(false)하므로
-//         다음 Show() 직전에 반드시 SetActive(true)를 다시 호출해야 함)
+//     5. _panel.Show()
+//        (AnimatedPanel은 SetActive 대신 CanvasGroup으로 가시성을 제어하므로,
+//         오브젝트는 항상 active 상태를 유지하며 Show()만 호출하면 된다 — 공통 UI 규칙 5)
 //
 //   Hide() 호출 시:
 //     1. _blockingOverlay 즉시 SetActive(false)
-//     2. _panel.Hide() — 페이드+스케일 아웃 애니메이션 후 SetActive(false) 처리
+//     2. _panel.Hide() — 페이드+스케일 아웃 애니메이션 후 CanvasGroup으로 숨김 처리
 //
 // Presentation 레이어 — MonoBehaviour 의존.
 // ============================================================================
@@ -182,14 +182,12 @@ namespace Hexiege.Presentation
             if (_blockingOverlay != null)
                 _blockingOverlay.SetActive(true);
 
-            // 5) Panel 활성화 후 애니메이션 시작.
-            //    AnimatedPanel.Hide()는 완료 후 Panel GameObject를 SetActive(false)하므로,
-            //    다음 Show() 직전에 반드시 SetActive(true)를 먼저 호출해야 한다.
+            // 5) 패널 등장 애니메이션 시작.
+            //    AnimatedPanel은 SetActive 대신 CanvasGroup으로 가시성을 제어하므로
+            //    오브젝트는 항상 active 상태이며, Show() 호출만으로 다시 표시된다(공통 UI 규칙 5).
+            //    (과거에는 Hide()가 SetActive(false)했기에 Show 직전 SetActive(true)가 필요했으나 더 이상 불필요)
             if (_panel != null)
-            {
-                _panel.gameObject.SetActive(true);
                 _panel.Show();
-            }
         }
 
         /// <summary>
