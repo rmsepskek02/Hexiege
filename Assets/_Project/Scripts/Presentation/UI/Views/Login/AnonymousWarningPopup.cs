@@ -95,19 +95,11 @@ namespace Hexiege.Presentation
         // 표시 / 숨김
         // ====================================================================
 
-        /// <summary>
-        /// 팝업 표시.
-        /// AnimatedPanel.Hide() 가 완료 후 SetActive(false) 하므로,
-        /// 다음 Show() 직전에 반드시 SetActive(true) 를 호출해야 한다 (ConfirmPopup 과 동일 패턴).
-        /// </summary>
+        /// <summary>팝업 표시.</summary>
         public void Show()
         {
             if (_blockingOverlay != null) _blockingOverlay.SetActive(true);
-            if (_panel != null)
-            {
-                _panel.gameObject.SetActive(true);
-                _panel.Show();
-            }
+            if (_panel != null) _panel.Show();
         }
 
         /// <summary>팝업 숨김.</summary>
