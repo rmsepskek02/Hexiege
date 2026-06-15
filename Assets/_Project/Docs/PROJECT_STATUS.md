@@ -290,6 +290,14 @@
 | 에디터 자동 생성 스크립트 2종 | ✅ 완료 | `Hexiege/Setup/UnitStatsConfig 생성`, `Hexiege/Setup/BuildingStatsConfig 생성` |
 | 에셋 파일 생성 | ✅ 완료 | `Assets/_Project/Resources/Config/UnitStatsConfig.asset`, `BuildingStatsConfig.asset` |
 
+#### Lobby 씬 UI 규칙 재점검 및 추가 수정 (2026-06-15)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Rule 5: `LobbyUI._lobbyPanel` CanvasGroup 전환 | ✅ 완료 | `GameObject` → `CanvasGroup`, SetActive → alpha/blocksRaycasts/interactable |
+| Rule 6: `LoadingScreen > StatusText` 폰트 교체 | ✅ 완료 | LiberationSans SDF → Maplestory Light SDF. `FixLobbyRuleViolations.cs` 에디터 스크립트 실행 |
+| `BattleRootView.cs` 미사용 `using System;` 제거 | ✅ 완료 | 코드 정리 |
+| 규칙 1~6 전수 재점검 (YAML 173개 GO) | ✅ 완료 | Rule 1/2/4/5/6 전체 준수. Rule 3 실기 확인 권장 |
+
 #### Lobby UI 전체 규칙 준수 수정 (2026-05-30)
 | 항목 | 상태 | 비고 |
 |------|------|------|

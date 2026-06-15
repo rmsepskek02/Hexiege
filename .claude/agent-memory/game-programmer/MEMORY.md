@@ -25,6 +25,14 @@
 
 ## 최근 작업
 
+### Lobby.unity 규칙 전수 점검 및 추가 수정 (2026-06-15) ✅ 완료
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-15/18_12_lobby-rule-violations/`
+- **Rule 5**: `LobbyUI.cs` `_lobbyPanel` 타입 `GameObject`→`CanvasGroup`. Show: alpha=1/blocksRaycasts=true/interactable=true. Hide: alpha=0/false/false. (LobbyUI는 현재 씬 미배치 — 코드만 수정)
+- **Rule 6**: `LoadingScreen>SafeAreaContainer>StatusText` TMP 폰트 `LiberationSans SDF`→`Maplestory Light SDF` 교체. `FixLobbyRuleViolations.cs` 에디터 스크립트(메뉴 `Hexiege/Setup/Lobby 규칙 위반 수정`) 실행 완료.
+- **클린업**: `BattleRootView.cs` 미사용 `using System;` 제거.
+- **AnonymousWarningPopup._blockingOverlay**: Login.unity 소속으로 확인 → Login 씬 작업으로 이관.
+- **YAML 전수 점검 결과**: Rule 1(Canvas Scaler 1080×1920 ScaleWithScreenSize) ✅, Rule 2(sizeDelta 위반 없음) ✅, Rule 4(SafeAreaFitter 3곳 모두 부착) ✅, Rule 5(LobbyUI 코드 수정 완료) ✅, Rule 6(Maplestory 폰트로 교체) ✅.
+
 ### AnimatedPanel/UIAnimator/ConfirmPopup SetActive→CanvasGroup 리팩토링 (2026-06-13~15) ✅ 완료
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-12/09_13_animatedpanel-canvasgroup-refactor/`
 - `UIAnimator.cs`: 이미 이전 세션에서 SetActive 제거 완료 상태였음(Show=interactable/blocksRaycasts=true, Hide OnComplete=interactable/blocksRaycasts=false). 추가 변경 없음.
