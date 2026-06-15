@@ -59,7 +59,7 @@ namespace Hexiege.Presentation
 
         private Material _instancedAutoMaterial;
 
-        /// <summary>_unitBorderOverlays 각각의 CanvasGroup 캐시. 규칙 5 적용을 위한 가시성 제어용.</summary>
+        /// <summary>_unitBorderOverlays 각각의 CanvasGroup 캐시. 가시성 제어용.</summary>
         private List<CanvasGroup> _unitBorderOverlayCgs;
 
         // ====================================================================
@@ -84,7 +84,7 @@ namespace Hexiege.Presentation
                 }
             }
 
-            // ── CanvasGroup 캐시 초기화 (규칙 5: SetActive 대신 CanvasGroup으로 가시성 제어) ──
+            // ── CanvasGroup 캐시 초기화 ──────────────────────────────────────────
             // _unitBorderOverlays는 material 할당 때문에 List<Image> 타입을 유지해야 하므로,
             // 가시성 제어용으로 각 오버레이의 CanvasGroup을 별도 리스트에 1:1로 캐싱한다.
             // CanvasGroup이 없으면 런타임에 추가하여 안전하게 보장한다.
@@ -134,8 +134,7 @@ namespace Hexiege.Presentation
 
         [Header("Lock Indicators")]
         [Tooltip("각 유닛 버튼 위에 표시되는 잠금 오버레이의 CanvasGroup. 버튼 리스트와 1:1 매칭. " +
-                 "현재 건물 단계보다 높은 단계의 유닛에 대해 alpha=1로 표시된다. " +
-                 "규칙 5에 따라 SetActive 대신 CanvasGroup으로 가시성을 제어한다.")]
+                 "현재 건물 단계보다 높은 단계의 유닛에 대해 alpha=1로 표시된다.")]
         [SerializeField] private List<CanvasGroup> _unitLockIndicators;
 
         [Header("Unit Button Groups")]
@@ -704,7 +703,7 @@ namespace Hexiege.Presentation
 
                     bool isAuto = i < _activeUnitTypes.Count && state.AutoTypes.Contains(_activeUnitTypes[i]);
 
-                    // ── 자동 생산 시각 효과 갱신 (규칙 5: SetActive 대신 CanvasGroup으로 표시) ──
+                    // ── 자동 생산 시각 효과 갱신 ──
                     // 자동 생산 중이면 alpha=1로 테두리 효과를 보이고, 아니면 alpha=0으로 숨긴다.
                     // blocksRaycasts는 테두리가 버튼 입력을 가로채지 않도록 가시성과 동일하게 맞춘다.
                     if (_unitBorderOverlayCgs != null && i < _unitBorderOverlayCgs.Count && _unitBorderOverlayCgs[i] != null)
@@ -751,7 +750,7 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
                               && _activeUnitLocks[slotIndex];
 
                 // 자물쇠 아이콘 오버레이 표시/숨김 처리.
-                // 규칙 5: SetActive 대신 CanvasGroup으로 제어 — 잠금 시 alpha=1, 해금 시 alpha=0.
+                // 잠금 시 alpha=1(표시), 해금 시 alpha=0(숨김).
                 // blocksRaycasts는 가시성과 동일하게 맞춰, 보이지 않는 자물쇠가 버튼 입력을 가로채지 않게 한다.
                 _unitLockIndicators[i].alpha = locked ? 1f : 0f;
                 _unitLockIndicators[i].blocksRaycasts = locked;
