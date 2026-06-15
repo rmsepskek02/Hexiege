@@ -99,6 +99,11 @@ SetActive(false)를 사용하면 두 가지 문제가 발생한다.
 - Layout Group(버튼들이 나란히 정렬되는 구조) 안에서 해당 요소가 차지하던 공간이 사라져 나머지 요소들이 이동한다.
 - 오브젝트 내부 로직(Update 등)이 함께 멈춘다. DontDestroyOnLoad 오브젝트(ToastUI 등)에서 이 방식을 쓰면 이후 동작이 전혀 일어나지 않는다.
 
+**DOTween / AnimatedPanel 사용 시 추가 주의사항**:
+- DOTween 애니메이션이 진행 중인 오브젝트를 SetActive(false)로 비활성화하면 Tween 시퀀스가 강제 중단되고, 이후 Show() 호출 시 초기화 타이밍이 꼬일 수 있다.
+- `AnimatedPanel` 컴포넌트가 붙은 오브젝트는 **항상 active 상태로 유지**한다. `EnsureInitialized()`에서 CanvasGroup을 `alpha=0 / blocksRaycasts=false / interactable=false`로 초기 설정하여 시각적으로 숨긴다.
+- 배경 오버레이(`_backgroundOverlay`)도 GameObject는 항상 active 상태 유지. Show() 시 `alpha=1 / blocksRaycasts=true / interactable=true`, Hide() 시 `alpha=0 / false / false`로 즉시 전환한다.
+
 ---
 
 ### 폰트

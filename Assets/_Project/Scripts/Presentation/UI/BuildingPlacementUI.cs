@@ -154,19 +154,9 @@ namespace Hexiege.Presentation
         /// UseCase 등 의존성을 주입받고, 버튼별 CanvasGroup 캐시를 함께 구성한다.
         ///
         /// [중요 — 왜 Awake()를 쓰지 않고 Initialize()에서 처리하는가?]
-        ///   BuildingPopup GameObject는 씬 시작 시 비활성(SetActive=false) 상태로 배치된다.
-        ///   Unity의 Awake()는 GameObject가 비활성이면 호출되지 않는다.
-        ///   (정확히는 처음 활성화되는 시점에서야 호출됨)
-        ///
-        ///   따라서 만약 CanvasGroup 캐시 구성을 Awake()에 두면:
-        ///     1. 씬 로드 시 BuildingPopup은 비활성 → Awake() 미호출 → _buttonCanvasGroups = null
-        ///     2. 첫 Show() 호출 시 CanvasGroup 캐시가 null이라 alpha=1 설정이 건너뛰어짐
-        ///     3. _popup.Show() 내부에서 SetActive(true) 발생 → 이 순간 Awake() 실행
-        ///     4. Awake()가 모든 CanvasGroup의 alpha를 0으로 초기화
-        ///     5. 결과: 팝업은 열렸지만 버튼이 전혀 안 보임 (두 번째 클릭부터 정상)
-        ///
-        ///   Initialize()는 GameBootstrapper에서 직접 호출하는 일반 C# 메서드이므로
-        ///   GameObject가 비활성 상태여도 정상 실행된다 → 캐시 구성이 보장됨.
+        ///   GameBootstrapper가 UseCase 등 외부 의존성을 주입하는 시점이 Awake() 이후이므로,
+        ///   의존성이 필요한 초기화 로직은 GameBootstrapper가 직접 호출하는 Initialize()에 둔다.
+        ///   CanvasGroup 캐시 구성도 같은 시점에 함께 처리한다.
         ///
         /// [CanvasGroup 캐시 구성 로직]
         ///   각 건물 버튼 GameObject에 CanvasGroup이 부착되어 있으면 그대로 캐시하고,

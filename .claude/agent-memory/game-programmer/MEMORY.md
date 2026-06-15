@@ -25,12 +25,16 @@
 
 ## 최근 작업
 
-### AnimatedPanel/UIAnimator/ConfirmPopup SetActive→CanvasGroup 리팩토링 (2026-06-13) 🔵 코드 완료 / Inspector(씬) 작업 필요
+### AnimatedPanel/UIAnimator/ConfirmPopup SetActive→CanvasGroup 리팩토링 (2026-06-13~15) ✅ 완료
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-12/09_13_animatedpanel-canvasgroup-refactor/`
 - `UIAnimator.cs`: 이미 이전 세션에서 SetActive 제거 완료 상태였음(Show=interactable/blocksRaycasts=true, Hide OnComplete=interactable/blocksRaycasts=false). 추가 변경 없음.
 - `AnimatedPanel.cs`: EnsureInitialized()에 `_cg.alpha=0/blocksRaycasts=false/interactable=false` 명시 추가. `_backgroundOverlay`(CanvasGroup 타입) Show=alpha1/raycast/interactable=true, Hide=0/false/false. SetActive 호출 전부 제거 + 주석 갱신.
-- `ConfirmPopup.cs`: 190행 `_panel.gameObject.SetActive(true)` 제거(Show()만 호출). `_blockingOverlay`(GameObject 타입)는 이번 범위 제외 — 후속 작업.
-- **씬 작업**: Game.unity에 AnimatedPanel 부착 비활성 GO 6개(BuildingPopup/BuildingActionPanel/Panel×2/GameEndPanel/ProductionPopup). Lobby.unity는 0개. 에디터 스크립트 `Assets/Editor/Setup/ActivateAnimatedPanels.cs`(메뉴 `Hexiege/Setup/AnimatedPanel 활성화`) 작성 — 사용자 실행 필요.
+- `ConfirmPopup.cs`: `_blockingOverlay` 타입 GameObject→CanvasGroup 변경. Show()에서 alpha=1/blocksRaycasts/interactable=true, Hide()에서 alpha=0/false/false. `_panel.gameObject.SetActive(true)` 제거.
+- `RematchRequestPopup.cs`: 모든 SetActive 제거. Awake()에서 CanvasGroup 초기값 설정. FadeIn/FadeOut에서 interactable 제어 추가.
+- `ProductionPanelUI.cs`: `_unitLockIndicators` List<GameObject>→List<CanvasGroup> 변경. `_unitBorderOverlays` CanvasGroup 캐시 추가. SetActive→CanvasGroup alpha 제어.
+- `InGameSettingsUI.cs`: Show()에서 `_panel.gameObject.SetActive(true)` 제거(AnimatedPanel 항상 active이므로 불필요).
+- `AnonymousWarningPopup.cs`: `_panel.gameObject.SetActive(true)` 제거. `_blockingOverlay.SetActive()` 유지(Lobby 씬 별도 작업 예정).
+- **씬 작업**: `FixRule5Violations.cs`(메뉴 `Hexiege/Setup/규칙5 위반 수정`) 에디터 스크립트 실행 완료. AnimatedPanel 오브젝트 전부 활성화, _unitLockIndicators Inspector 재배선 완료. Game.unity 비활성 오브젝트 2개(Background CanvasGroup 의도적, NetworkManager 비UI)만 남음 — 위반 없음.
 - **AnimatedPanel GUID**: `b97e76d0453d56e4b961752cd52c6eb6`. 씬 YAML에서 m_IsActive 조회: MonoBehaviour(114) 중 GUID 매칭 → m_GameObject fileID → 해당 GO body의 m_IsActive 확인.
 
 ### 사운드 시스템 (AudioManager + SFX/BGM 분리) (2026-06-10) 🔵 코드 완료 / Inspector 작업 + 실기 테스트 예정
@@ -676,7 +680,7 @@ Canvas
 
 **핵심 변경**:
 - `InGameSettingsUI.cs` (`Presentation/UI/`) 신규: `IGameUI` 구현. `Show()` — 싱글플레이 `Time.timeScale=0`(`_pausedBySettings=true`), SharedBackground 등록. `Hide()` — `_pausedBySettings`이면 `timeScale` 복원, `_confirmPopup?.Hide()`. 포기 흐름: ConfirmPopup 표시 → `OnForfeitConfirmed()` → `NetworkContext.IsNetworkActive` 분기 → 멀티 `RequestForfeit()` / 싱글 `GameEndUseCase.Forfeit()`.
-- `ConfirmPopup.cs` (`Presentation/UI/`) 신규: 범용 확인 팝업. `Show(message, confirmLabel, cancelLabel, onConfirm, onCancel)`. `BlockingOverlay` — 풀스크린 투명 Image(alpha=0, raycastTarget=true)로 공유 Background 클릭 차단. `_panel.gameObject.SetActive(true)` → `_panel.Show()` 순서 필수 (AnimatedPanel.Hide()가 SetActive(false) 함).
+- `ConfirmPopup.cs` (`Presentation/UI/`) 신규: 범용 확인 팝업. `Show(message, confirmLabel, cancelLabel, onConfirm, onCancel)`. `BlockingOverlay`(CanvasGroup) — Show 시 alpha=1/blocksRaycasts/interactable=true, Hide 시 alpha=0/false/false.
 - `GameEndUseCase.Forfeit()` 신규: `IsGameOver=true` 설정 → `GameEvents.OnGameEnd(TeamId.Red)` 발행 (싱글플레이 포기).
 - `NetworkGameEndController.RequestForfeit()` + `ForfeitServerRpc`: `RequireOwnership=false`. Host=ClientId0=Blue, Client=Red. 기존 `_announced` 플래그 재사용, `AnnounceWinnerClientRpc` 재사용.
 - `GameHudUI`: `_settingsButton`, `_settingsUI` 필드 추가, `OnSettingsClicked()` 메서드 추가.
@@ -686,7 +690,7 @@ Canvas
 **설계 포인트**:
 - `AnimatedPanel._backgroundOverlay`(CanvasGroup) → `[UI]/Background`의 CanvasGroup 연결 필수. 미연결 시 반투명 배경 미표시.
 - `ConfirmPopup.BlockingOverlay`: ConfirmPopup 열릴 때 Settings 패널의 SharedBackground 클릭 차단 (의도치 않은 패널 닫힘 방지).
-- `ConfirmPopup.Show()` 전 반드시 `_panel.gameObject.SetActive(true)` 선호출 (AnimatedPanel lazy init 문제).
+- `ConfirmPopup.Show()` — `_panel.Show()` 직접 호출. AnimatedPanel은 항상 active 상태이므로 `SetActive(true)` 선호출 불필요.
 - 싱글플레이 일시정지: `Time.timeScale=0`, UIAnimator `SetUpdate(true)` 적용으로 DOTween이 timeScale=0 중에도 동작.
 
 ---

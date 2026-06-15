@@ -430,7 +430,7 @@ _panel.Show();
 _panel.Hide(onComplete: () => { /* 퇴장 완료 후 실행 */ });
 ```
 
-**배경 오버레이 규칙**: `_backgroundOverlay`가 연결된 경우 Show() 시 즉시 SetActive(true), Hide() 완료 후 SetActive(false). 패널 슬라이드 애니메이션과 독립적으로 즉시 처리.
+**배경 오버레이 규칙**: `_backgroundOverlay`(CanvasGroup 타입)가 연결된 경우 Show() 시 즉시 `alpha=1 / blocksRaycasts=true / interactable=true`, Hide() 완료 후 즉시 `alpha=0 / false / false`. 패널 슬라이드 애니메이션과 독립적으로 즉시 처리. 배경 GameObject는 항상 active 상태 유지.
 
 **분류별 애니메이션 기준** → `Assets/_Project/Docs/UIGuidelines.md` 참조.
 

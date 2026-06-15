@@ -45,7 +45,7 @@
 | HideDuration | `0.2f` |
 | SlideOffset | `300f` (px) |
 | Ease | `OutCubic` (UIAnimator 고정) |
-| 배경 오버레이 | 있는 경우 즉시 SetActive (하단 참조) |
+| 배경 오버레이 | 있는 경우 즉시 CanvasGroup 전환 (하단 참조) |
 
 ### 게임 상태 알림 패널 (SlideFromTop)
 | 항목 | 값 |
@@ -77,24 +77,24 @@
 
 슬라이드 애니메이션이 있는 패널에 반투명 배경(Overlay)이 필요한 경우:
 
-**규칙: 배경은 애니메이션 없이 즉시 SetActive**
+**규칙: 배경은 애니메이션 없이 즉시 CanvasGroup으로 전환 (공통 UI 규칙 5)**
 
 | 시점 | 동작 |
 |------|------|
-| `Show()` 호출 | 배경 → `SetActive(true)` 즉시 (패널 슬라이드와 동시) |
-| `Hide()` 완료 | 배경 → `SetActive(false)` 즉시 (패널 슬라이드 완료 후) |
+| `Show()` 호출 | 배경 → `alpha=1, blocksRaycasts=true, interactable=true` 즉시 (패널 슬라이드와 동시) |
+| `Hide()` 호출 | 배경 → `alpha=0, blocksRaycasts=false, interactable=false` 즉시 (패널 슬라이드 완료 후) |
 
 ### Inspector 연결 방법
 1. 배경 오브젝트에 `CanvasGroup` 컴포넌트 부착
 2. `AnimatedPanel` 컴포넌트의 `Background Overlay` 필드에 해당 CanvasGroup 연결
-3. 배경 오브젝트는 초기 상태 `SetActive(false)` (Inspector에서 체크 해제)
+3. 배경 오브젝트는 항상 **active 상태** 유지 (초기 숨김은 CanvasGroup alpha=0이 담당)
 
-> `Background Overlay` 필드가 비어있으면 기존 동작과 동일 — 기존 패널에 영향 없음.
+> `Background Overlay` 필드가 비어있으면 배경 없이 동작 — 기존 패널에 영향 없음.
 
 ### 씬 계층 예시
 ```
 [UI] Canvas
-  ├─ Background               ← 공유 배경. CanvasGroup + Button + SharedBackgroundButton 부착, 초기 비활성
+  ├─ Background               ← 공유 배경. CanvasGroup + Button + SharedBackgroundButton 부착, 항상 active
   ├─ ProductionPopup          ← AnimatedPanel 부착, _backgroundOverlay = 공유 Background
   │   └─ ContentPanel         ← 실제 콘텐츠 (자식 Background 없음)
   └─ BuildingPopup            ← AnimatedPanel 부착, _backgroundOverlay = 공유 Background
@@ -138,7 +138,7 @@
 - [ ] `Show Duration` / `Hide Duration` 기본값 확인
 - [ ] `Slide Offset` (슬라이드 타입만, 기본 300f)
 - [ ] `Background Overlay` — 배경이 있는 패널만 연결 (없으면 비워둠)
-- [ ] 배경 오브젝트 초기 상태 `SetActive(false)` 확인
+- [ ] 배경 오브젝트 active 상태 확인 (초기 숨김은 CanvasGroup alpha=0이 담당)
 
 ### CanvasGroup 관련
 - [ ] AnimatedPanel이 있는 오브젝트: CanvasGroup 자동 추가됨 (수동 불필요)

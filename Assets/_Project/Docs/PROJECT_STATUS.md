@@ -114,7 +114,7 @@
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | `UIAnimator.cs` — static 헬퍼 | ✅ 완료 | PopupShow/Hide, SlideFromBottom/Top, ButtonPunch, CountTo, FlashText, FillTo |
-| `AnimatedPanel.cs` — 팝업 컴포넌트 | ✅ 완료 | AnimationType(PopupFade/SlideFromBottom/SlideFromTop), IsVisible, SetUpdate(true), `_backgroundOverlay`(즉시 SetActive) |
+| `AnimatedPanel.cs` — 팝업 컴포넌트 | ✅ 완료 | AnimationType(PopupFade/SlideFromBottom/SlideFromTop), IsVisible, SetUpdate(true), `_backgroundOverlay`(CanvasGroup — Show 시 alpha=1/blocksRaycasts/interactable=true, Hide 시 alpha=0/false/false 즉시 전환) |
 | `AnimatedPanelSetup.cs` — Inspector 자동화 에디터 스크립트 | ✅ 완료 | `Hexiege/Setup/Apply AnimatedPanel Setup` 메뉴 |
 | GameEndPanel → SlideFromTop | ✅ 완료 | 위에서 아래로 슬라이드 인 |
 | ProductionPopup → SlideFromBottom | ✅ 완료 | 하단 슬라이드 업 |

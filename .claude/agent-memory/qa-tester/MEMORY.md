@@ -305,7 +305,7 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - **[Safe Area Rule 4]** Background가 Canvas 직속 자식으로 SafeAreaContainer 밖에 배치됨 → PASS
 - **[Inspector 연결]** LoginBootstrapper 7개 View 슬롯 전부 연결됨, `_loadingIndicator` 연결됨
 - `_headerText: {fileID: 0}` — null 허용(코드에서 Optional 처리됨), 문제 없음
-- AnonymousWarningPopup의 `_blockingOverlay` / `_panel.gameObject.SetActive()` 패턴 → AnimatedPanel 팝업에서 허용되는 패턴임 (Rule 5 위반 아님)
+- AnonymousWarningPopup의 `_blockingOverlay.SetActive()` — Lobby 씬 별도 점검 예정 항목. `_panel.gameObject.SetActive(true)` 는 이미 제거됨(2026-06-15).
 
 ### Login 씬 계층 구조 (확인 완료)
 - Canvas → [Background (Canvas 직속), SafeAreaContainer (Canvas 직속)]
