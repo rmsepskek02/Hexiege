@@ -199,14 +199,10 @@ namespace Hexiege.Presentation
             if (_sharedBackground != null)
                 _sharedBackground.Register(Hide);
 
-            // 팝업 본체 활성화 후 페이드 인.
-            // AnimatedPanel.Hide()는 완료 시 Panel을 SetActive(false) 처리하므로,
-            // 다음 Show() 직전에 SetActive(true)가 필요.
+            // 팝업 본체 페이드 인.
+            // AnimatedPanel은 CanvasGroup으로 가시성을 제어하므로 오브젝트는 항상 active 상태.
             if (_panel != null)
-            {
-                _panel.gameObject.SetActive(true);
                 _panel.Show();
-            }
         }
 
         /// <summary>
