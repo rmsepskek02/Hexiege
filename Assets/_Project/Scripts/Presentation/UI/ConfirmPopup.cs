@@ -26,13 +26,13 @@
 //     2. 콜백 저장 (외부 onConfirm/onCancel)
 //     3. 버튼 onClick 리스너 RemoveAllListeners 후 재등록
 //        (Show()가 여러 번 호출돼도 콜백이 누적되지 않도록 보장)
-//     4. _blockingOverlay 즉시 SetActive(true)
+//     4. _blockingOverlay 즉시 표시 (CanvasGroup: alpha=1, blocksRaycasts/interactable=true)
 //     5. _panel.Show()
 //        (AnimatedPanel은 SetActive 대신 CanvasGroup으로 가시성을 제어하므로,
 //         오브젝트는 항상 active 상태를 유지하며 Show()만 호출하면 된다 — 공통 UI 규칙 5)
 //
 //   Hide() 호출 시:
-//     1. _blockingOverlay 즉시 SetActive(false)
+//     1. _blockingOverlay 즉시 숨김 (CanvasGroup: alpha=0, blocksRaycasts/interactable=false)
 //     2. _panel.Hide() — 페이드+스케일 아웃 애니메이션 후 CanvasGroup으로 숨김 처리
 //
 // Presentation 레이어 — MonoBehaviour 의존.
@@ -57,9 +57,10 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         [Header("입력 차단 오버레이")]
-        [Tooltip("팝업이 떠 있을 때 뒤쪽 UI 입력을 차단하는 전체 화면 투명 Image. " +
-                 "Raycast Target=true이어야 클릭 차단이 동작.")]
-        [SerializeField] private GameObject _blockingOverlay;
+        [Tooltip("팝업이 떠 있을 때 뒤쪽 UI 입력을 차단하는 전체 화면 투명 Image의 CanvasGroup. " +
+                 "규칙 5에 따라 SetActive 대신 alpha/blocksRaycasts로 표시·숨김을 제어한다. " +
+                 "차단이 동작하려면 하위 Image의 Raycast Target=true 이어야 한다.")]
+        [SerializeField] private CanvasGroup _blockingOverlay;
 
         [Header("팝업 본체")]
         [Tooltip("팝업 박스 자체에 부착된 AnimatedPanel (PopupFade 타입 권장).")]
@@ -178,9 +179,13 @@ namespace Hexiege.Presentation
                 _cancelButton.onClick.AddListener(OnCancelClicked);
             }
 
-            // 4) 뒤쪽 입력 차단을 즉시 활성화
+            // 4) 뒤쪽 입력 차단을 즉시 활성화 (규칙 5: SetActive 대신 CanvasGroup으로 표시)
             if (_blockingOverlay != null)
-                _blockingOverlay.SetActive(true);
+            {
+                _blockingOverlay.alpha = 1f;
+                _blockingOverlay.blocksRaycasts = true;
+                _blockingOverlay.interactable = true;
+            }
 
             // 5) 패널 등장 애니메이션 시작.
             //    AnimatedPanel은 SetActive 대신 CanvasGroup으로 가시성을 제어하므로
@@ -197,10 +202,15 @@ namespace Hexiege.Presentation
         public void Hide()
         {
             // 입력 차단 오버레이는 즉시 해제 (페이드 아웃 중에도 뒤쪽 조작이 즉시 가능하도록)
+            // 규칙 5: SetActive 대신 CanvasGroup으로 숨김 처리.
             if (_blockingOverlay != null)
-                _blockingOverlay.SetActive(false);
+            {
+                _blockingOverlay.alpha = 0f;
+                _blockingOverlay.blocksRaycasts = false;
+                _blockingOverlay.interactable = false;
+            }
 
-            // 팝업 본체는 애니메이션 후 SetActive(false) 처리 — AnimatedPanel이 담당
+            // 팝업 본체는 애니메이션 후 CanvasGroup으로 숨김 처리 — AnimatedPanel이 담당
             if (_panel != null)
                 _panel.Hide();
         }
