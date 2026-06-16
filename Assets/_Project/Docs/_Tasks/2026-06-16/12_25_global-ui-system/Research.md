@@ -40,12 +40,15 @@ Lobby.unity의 [UI] Canvas 하위에 배치되어 있고, 정적 `ToastUI.Show(T
 
 ## 전역화 대상 UI 확정
 
-| 현재 이름 | 새 이름 | 역할 |
+| UI | 프리팹 기준 씬 | 역할 |
 |--|--|--|
-| ConfirmPopup | ConfirmPopup (유지) | Y/N 선택 팝업 |
-| AnonymousWarningPopup | AlertPopup | 단순 확인(Y만) 팝업 — 이름이 특정 상황을 지칭해 범용 컴포넌트로 부적합 |
-| LoadingIndicator | LoadingIndicator (유지) | 비동기 요청 대기 스피너 |
-| ToastUI | ToastUI (유지) | 가이던스/알림 메시지 — 이미 전역 동작 중, Splash로 이동만 필요 |
+| ConfirmPopup | Game.unity | Y/N 선택 팝업 |
+| LoadingIndicator | Lobby.unity | 비동기 요청 대기 스피너 |
+| ToastUI | Lobby.unity | 가이던스/알림 메시지 — 이미 전역 동작 중, Splash로 이동만 필요 |
+
+**AnonymousWarningPopup — 전역화 제외**:
+버튼이 "계정 만들기" / "익명으로 계속" 두 개이며 각 버튼에 Login 씬 전용 로직이 하드코딩되어 있다.
+범용 팝업이 아닌 Login 씬 전용 UI이므로 전역화 대상에서 제외한다.
 
 ---
 

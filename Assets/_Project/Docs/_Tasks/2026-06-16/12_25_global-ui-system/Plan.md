@@ -2,10 +2,14 @@
 
 ## 이 작업으로 무엇을 만드는가
 
-씬마다 중복 배치되어 있던 공통 UI(ConfirmPopup, AlertPopup, LoadingIndicator, ToastUI)를
+씬마다 중복 배치되어 있던 공통 UI(ConfirmPopup, LoadingIndicator, ToastUI)를
 Splash 씬에서 초기화하는 전역 UIManager로 통합한다.
 동시에 Splash 씬을 신설하여 전역 시스템(UIManager, AudioManager, Firebase 등) 초기화를
 LoginBootstrapper에서 분리한다.
+
+**프리팹 기준 씬** (Inspector에서 가장 완성된 버전):
+- ConfirmPopup → Game.unity
+- ToastUI, LoadingIndicator → Lobby.unity
 
 ---
 
@@ -41,14 +45,16 @@ namespace Hexiege.Presentation
 
 ---
 
-### STEP 2 — AnonymousWarningPopup → AlertPopup rename
+### STEP 2 — 프리팹 추출
 
-**변경**: `AnonymousWarningPopup.cs` → `AlertPopup.cs`
+각 씬에서 완성된 버전을 프리팹으로 추출한다.
 
-- 클래스명: `AnonymousWarningPopup` → `AlertPopup`
-- 네임스페이스: `Hexiege.Presentation` 유지
-- 파일 이동: `Views/Login/AnonymousWarningPopup.cs` → `UI/Common/AlertPopup.cs`
-- Login 씬 전용 메시지는 UIManager.ShowAlert() 호출 시 message 파라미터로 전달
+- **Game.unity → ConfirmPopup 프리팹** 추출
+  - 저장 경로: `Assets/_Project/Prefabs/UI/ConfirmPopup.prefab`
+- **Lobby.unity → ToastUI 프리팹** 추출
+  - 저장 경로: `Assets/_Project/Prefabs/UI/ToastUI.prefab`
+- **Lobby.unity → LoadingIndicator 프리팹** 추출
+  - 저장 경로: `Assets/_Project/Prefabs/UI/LoadingIndicator.prefab`
 
 ---
 
@@ -62,11 +68,10 @@ namespace Hexiege.Presentation
 ├─ UIManager (SingletonMonoBehaviour)
 │   └─ UIManager Canvas (SortingOrder: 100)
 │       └─ SafeAreaContainer (SafeAreaFitter)
-│           ├─ ConfirmPopup
-│           ├─ AlertPopup
-│           └─ LoadingIndicator
+│           ├─ ConfirmPopup   ← Game.unity에서 추출한 프리팹 배치
+│           └─ LoadingIndicator ← Lobby.unity에서 추출한 프리팹 배치
 └─ Toast Canvas (SortingOrder: 200)
-    └─ ToastUI
+    └─ ToastUI               ← Lobby.unity에서 추출한 프리팹 배치
 
 [Audio] GameObject
 └─ AudioManager (SingletonMonoBehaviour)
@@ -115,16 +120,16 @@ namespace Hexiege.Presentation
 
 **Login.unity**:
 - ConfirmPopup GameObject 제거
-- AnonymousWarningPopup GameObject 제거 (AlertPopup은 UIManager Canvas로 이동)
 - LoadingIndicator GameObject 제거
 - [Audio] GameObject 제거 (Splash로 이동)
 
 **Lobby.unity**:
 - ConfirmPopup GameObject 제거
-- Toast Canvas > ToastUI GameObject 제거 (Splash로 이동)
+- Toast Canvas > ToastUI GameObject 제거 (Splash로 이동, 프리팹 추출 후)
+- LoadingIndicator GameObject 제거 (프리팹 추출 후)
 
 **Game.unity**:
-- ConfirmPopup GameObject 제거
+- ConfirmPopup GameObject 제거 (프리팹 추출 후)
 
 ---
 
@@ -136,9 +141,11 @@ namespace Hexiege.Presentation
 - Assets/_Project/Scripts/Presentation/UI/UIManager.cs
 - Assets/_Project/Scripts/Bootstrap/SplashBootstrapper.cs
 - Assets/_Project/Scenes/Splash.unity
+- Assets/_Project/Prefabs/UI/ConfirmPopup.prefab  (Game.unity에서 추출)
+- Assets/_Project/Prefabs/UI/ToastUI.prefab       (Lobby.unity에서 추출)
+- Assets/_Project/Prefabs/UI/LoadingIndicator.prefab (Lobby.unity에서 추출)
 
 [변경]
-- Assets/_Project/Scripts/Presentation/UI/Views/Login/AnonymousWarningPopup.cs → UI/Common/AlertPopup.cs (rename + 이동)
 - Assets/_Project/Scripts/Bootstrap/LoginBootstrapper.cs
 - Assets/_Project/Scripts/Bootstrap/GameBootstrapper.cs
 
@@ -165,9 +172,10 @@ namespace Hexiege.Presentation
 ## 작업 순서
 
 1. IUIManager + UIManager 코드 작성
-2. AlertPopup 코드 작성 (AnonymousWarningPopup 범용화)
-3. SplashBootstrapper 코드 작성
-4. LoginBootstrapper / GameBootstrapper 코드 수정
-5. Splash.unity 씬 생성 + Inspector 연결 (에디터 작업)
-6. Login / Lobby / Game.unity 씬 정리 (에디터 작업)
-7. 빌드 세팅 등록
+2. SplashBootstrapper 코드 작성
+3. LoginBootstrapper / GameBootstrapper 코드 수정
+4. Game.unity에서 ConfirmPopup 프리팹 추출
+5. Lobby.unity에서 ToastUI / LoadingIndicator 프리팹 추출
+6. Splash.unity 씬 생성 + 프리팹 배치 + Inspector 연결 (에디터 작업)
+7. Login / Lobby / Game.unity 씬에서 중복 UI 제거 (에디터 작업)
+8. 빌드 세팅 등록 (Splash를 index 0으로)
