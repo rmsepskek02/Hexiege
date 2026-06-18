@@ -6,20 +6,28 @@
 //   Unity 상단 메뉴 → Hexiege/Setup/Login씬 UIManager 배치 클릭
 //
 // 생성하는 계층 구조(Login.unity):
+//
 //   [UI Systems]                       ← 빈 GameObject(그룹)
-//   ├─ UIManager                       ← UIManager 컴포넌트(SingletonMonoBehaviour → DontDestroyOnLoad)
-//   │   └─ UIManager Canvas            ← Canvas (SortingOrder 100) + CanvasScaler + GraphicRaycaster
-//   │       └─ SafeAreaContainer       ← SafeAreaFitter (노치/홈바 회피)
-//   │           ├─ ConfirmPopup        ← 프리팹 인스턴스(있을 때만)
-//   │           └─ LoadingIndicator    ← 프리팹 인스턴스(있을 때만)
-//   └─ Toast Canvas                    ← Canvas (SortingOrder 200) + CanvasScaler + GraphicRaycaster
-//       └─ ToastUI                     ← 프리팹 인스턴스(있을 때만)
+//   └─ UIManager                       ← UIManager 컴포넌트(SingletonMonoBehaviour → DontDestroyOnLoad)
+//       └─ UIManager Canvas            ← Canvas (SortingOrder 100) + CanvasScaler + GraphicRaycaster
+//           └─ SafeAreaContainer       ← SafeAreaFitter (노치/홈바 회피)
+//               ├─ ConfirmPopup        ← 프리팹 인스턴스(있을 때만)
+//               └─ LoadingIndicator    ← 프리팹 인스턴스(있을 때만)
+//
+//   Toast (씬 루트)                    ← ToastUI 프리팹 — 씬 루트에 직접 배치
+//                                        ToastUI.Awake()가 SetParent(null) + DontDestroyOnLoad 자동 처리.
+//                                        자체 Canvas(SortingOrder:100) + SafeAreaFitter 내장.
 //
 // 전제:
 //   - ConfirmPopup / LoadingIndicator / ToastUI 프리팹은 STEP 4(ExtractUIManagerPrefabs)에서
-//     사용자가 수동으로 추출한다. 이 스크립트 실행 시점에 프리팹이 없을 수 있으므로,
+//     추출한다. 이 스크립트 실행 시점에 프리팹이 없을 수 있으므로,
 //     프리팹이 존재할 때만 인스턴스화하고 없으면 경고 로그만 출력한다(안전 처리).
 //   - UIManager의 _confirmPopup / _loadingIndicator 필드는 프리팹이 배치된 경우 자동 연결한다.
+//
+// Toast를 별도 Canvas 안에 넣지 않는 이유:
+//   ToastUI.Awake()에서 transform.SetParent(null)로 스스로 부모를 끊고
+//   DontDestroyOnLoad를 적용하므로, 래퍼 Canvas 안에 넣어도 Awake 직후 빠져나간다.
+//   Toast는 자체 Canvas를 보유하므로 씬 루트에 직접 배치하는 것이 올바른 방식이다.
 //
 // 참고:
 //   - 9:16 세로 기준 해상도(1080x1920)는 프로젝트의 다른 Setup 스크립트와 동일하게 맞춘다.
@@ -60,9 +68,6 @@ namespace HexiegeEditor
         /// <summary>UIManager Canvas 정렬 순서(공통 팝업/로딩 — 일반 UI 위).</summary>
         private const int UIManagerCanvasSortingOrder = 100;
 
-        /// <summary>Toast Canvas 정렬 순서(가장 위 — 토스트는 항상 최상위).</summary>
-        private const int ToastCanvasSortingOrder = 200;
-
         // ====================================================================
         // 메뉴 진입점
         // ====================================================================
@@ -102,19 +107,18 @@ namespace HexiegeEditor
             StretchFull(safeAreaGo.GetComponent<RectTransform>());
             safeAreaGo.AddComponent<SafeAreaFitter>();
 
-            // 2) Toast Canvas (SortingOrder 200)
-            GameObject toastCanvasGo = CreateCanvas("Toast Canvas", ToastCanvasSortingOrder);
-            toastCanvasGo.transform.SetParent(uiSystems.transform, false);
-
-            // 3) 프리팹 인스턴스화(존재할 때만) + UIManager 참조 연결
+            // 2) ConfirmPopup / LoadingIndicator 프리팹 인스턴스화(존재할 때만) + UIManager 참조 연결
             ConfirmPopup confirmPopup = InstantiatePrefabInto<ConfirmPopup>(
                 ConfirmPopupPrefabPath, safeAreaGo.transform, "ConfirmPopup");
 
             CanvasGroup loadingIndicator = InstantiateLoadingIndicatorInto(
                 LoadingIndicatorPrefabPath, safeAreaGo.transform);
 
-            InstantiatePrefabInto<ToastUI>(
-                ToastUIPrefabPath, toastCanvasGo.transform, "ToastUI");
+            // 3) ToastUI — 씬 루트에 직접 배치.
+            //    Toast는 자체 Canvas + SafeAreaFitter를 내장한 독립 오브젝트다.
+            //    ToastUI.Awake()가 SetParent(null) + DontDestroyOnLoad를 자동 처리하므로
+            //    래퍼 Canvas 없이 씬 루트에 바로 인스턴스화한다.
+            InstantiateToastAtSceneRoot(scene);
 
             // 4) UIManager의 private [SerializeField] 필드 자동 주입
             WireUIManagerReferences(uiManager, confirmPopup, loadingIndicator);
@@ -153,6 +157,27 @@ namespace HexiegeEditor
             scaler.matchWidthOrHeight = 1f; // 세로(높이) 기준으로 맞춤.
 
             return canvasGo;
+        }
+
+        /// <summary>
+        /// ToastUI 프리팹을 씬 루트에 직접 인스턴스화한다.
+        /// Toast는 자체 Canvas를 보유하고 Awake()에서 SetParent(null) + DontDestroyOnLoad를
+        /// 스스로 처리하므로, 별도 래퍼 Canvas 없이 씬 루트에 배치하는 것이 올바른 방식이다.
+        /// </summary>
+        private static void InstantiateToastAtSceneRoot(Scene scene)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ToastUIPrefabPath);
+            if (prefab == null)
+            {
+                Debug.LogWarning($"[SetupUIManagerInScene] ToastUI 프리팹이 아직 없습니다({ToastUIPrefabPath}). " +
+                                 "STEP 4(UIManager 프리팹 추출)를 먼저 실행한 뒤 다시 배치하세요. 이 항목은 건너뜁니다.");
+                return;
+            }
+
+            // 프리팹 연결을 유지한 채 씬 루트(부모 없음)에 인스턴스화한다.
+            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+            SceneManager.MoveGameObjectToScene(instance, scene);
+            Debug.Log("[SetupUIManagerInScene] ToastUI 프리팹을 씬 루트에 인스턴스화 완료.");
         }
 
         /// <summary>

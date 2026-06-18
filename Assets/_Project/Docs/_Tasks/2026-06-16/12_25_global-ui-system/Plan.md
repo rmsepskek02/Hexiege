@@ -120,12 +120,28 @@ Canvas
 
 각 씬에서 완성된 버전을 프리팹으로 추출한다.
 
-- **Game.unity → ConfirmPopup 프리팹** 추출
+- **Game.unity → ConfirmPopup 프리팹** 추출 (구조 변경 없음)
   - 저장 경로: `Assets/_Project/Prefabs/UI/ConfirmPopup.prefab`
-- **Lobby.unity → ToastUI 프리팹** 추출
+  - Canvas 없이 Canvas 하위 위젯으로 존재 → UIManager Canvas 안에 그대로 임베드
+
+- **Lobby.unity → ToastUI 프리팹** 추출 (구조 변경 없음)
   - 저장 경로: `Assets/_Project/Prefabs/UI/ToastUI.prefab`
-- **Lobby.unity → LoadingIndicator 프리팹** 추출
+  - 자체 Canvas + DontDestroyOnLoad 내장 독립 오브젝트 → 씬 루트에 직접 배치
+
+- **Lobby.unity → LoadingIndicator 프리팹** 추출 (**B안 — 비UI 컴포넌트 제거 후 저장**)
   - 저장 경로: `Assets/_Project/Prefabs/UI/LoadingIndicator.prefab`
+  - 원본 오브젝트 이름: `LoadingScreen` (자체 Canvas + LoadingScreen.cs 보유)
+  - 추출 시 제거: `Canvas`, `CanvasScaler`, `GraphicRaycaster`, `LoadingScreen.cs`
+  - 유지되는 구조:
+    ```
+    LoadingIndicator (RectTransform + CanvasGroup)
+    └─ RootPanel (Image — 반투명 배경)
+        ├─ Spinner (Image — 회전 아이콘)
+        └─ StatusText (TextMeshProUGUI)
+    ```
+  - ⚠️ 추출 후 Spinner 오브젝트에 `SpinnerRotator` 컴포넌트 수동 부착 필요
+    (기존 LoadingScreen.cs Update()의 회전 로직 대체)
+  - 씬은 변경 폐기(CloseScene true)로 원본 LoadingScreen 보존
 
 ---
 
@@ -135,14 +151,20 @@ Login.unity에 UIManager 전용 GameObject 추가:
 
 ```
 [UI Systems] GameObject (Login.unity)
-├─ UIManager (SingletonMonoBehaviour → DontDestroyOnLoad)
-│   └─ UIManager Canvas (SortingOrder: 100)
-│       └─ SafeAreaContainer (SafeAreaFitter)
-│           ├─ ConfirmPopup   ← 프리팹 배치
-│           └─ LoadingIndicator ← 프리팹 배치
-└─ Toast Canvas (SortingOrder: 200)
-    └─ ToastUI               ← 프리팹 배치
+└─ UIManager (SingletonMonoBehaviour → DontDestroyOnLoad)
+    └─ UIManager Canvas (SortingOrder: 100)
+        └─ SafeAreaContainer (SafeAreaFitter)
+            ├─ ConfirmPopup      ← 프리팹 배치 (Canvas 없는 순수 UI 위젯)
+            └─ LoadingIndicator  ← 프리팹 배치 (B안 — Canvas/LoadingScreen.cs 제거본)
+
+Toast (씬 루트 — [UI Systems] 밖)
+  ← ToastUI 프리팹 직접 배치 (자체 Canvas 내장)
+  ← Awake()에서 SetParent(null) + DontDestroyOnLoad 자동 처리
 ```
+
+> **Toast를 래퍼 Canvas 안에 넣지 않는 이유**:
+> ToastUI.Awake()가 `transform.SetParent(null)`로 스스로 부모를 끊고 DontDestroyOnLoad를
+> 적용한다. 래퍼 Canvas 안에 넣어도 런타임에 빠져나가므로 처음부터 씬 루트에 배치한다.
 
 ---
 
