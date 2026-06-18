@@ -7,15 +7,19 @@
 //   Unity 상단 메뉴 → Hexiege/Setup/UIManager 프리팹 추출 클릭
 //
 // 추출 대상(Plan 기준 — 각 씬에서 가장 완성된 버전):
-//   1) Game.unity  → ConfirmPopup        → Assets/_Project/Prefabs/UI/ConfirmPopup.prefab
-//   2) Lobby.unity → ToastUI             → Assets/_Project/Prefabs/UI/ToastUI.prefab
-//   3) Lobby.unity → LoadingIndicator    → Assets/_Project/Prefabs/UI/LoadingIndicator.prefab
+//   1) Game.unity  → ConfirmPopup     → Assets/_Project/Prefabs/UI/ConfirmPopup.prefab
+//   2) Lobby.unity → ToastUI          → Assets/_Project/Prefabs/UI/ToastUI.prefab
+//   3) Lobby.unity → LoadingIndicator → Assets/_Project/Prefabs/UI/LoadingIndicator.prefab
 //
 // 탐색 방식:
 //   - ConfirmPopup / ToastUI 는 전용 컴포넌트 타입이 존재하므로 "컴포넌트 타입"으로 찾는다.
 //     (Hexiege.Presentation.ConfirmPopup, Hexiege.Presentation.ToastUI)
-//   - LoadingIndicator 는 전용 컴포넌트가 없는(CanvasGroup 기반) 오브젝트이므로
-//     "GameObject 이름(LoadingIndicator)"으로 찾는다.
+//   - LoadingIndicator 는 Lobby.unity의 "LoadingScreen" 오브젝트를 이름으로 찾아 추출한다.
+//     단, LoadingScreen은 자체 Canvas + LoadingScreen.cs 싱글턴을 가진 독립 오브젝트이므로
+//     UIManager 하위에 임베드하기 위해 아래 컴포넌트를 추출 전 제거한다(B안):
+//       제거: Canvas, CanvasScaler, GraphicRaycaster, LoadingScreen.cs
+//       유지: RectTransform, CanvasGroup, RootPanel(Image), Spinner(Image), StatusText(TMP)
+//     씬은 CloseScene(removeScene: true)으로 닫아 변경을 폐기하므로 원본 씬은 보존된다.
 //
 // 동작 개요:
 //   - 대상 씬을 Additive 로드 → 해당 오브젝트를 찾아 프리팹으로 저장 → 씬 닫기.
@@ -25,6 +29,9 @@
 // 주의:
 //   - 1회성 셋업 스크립트. 추출 완료 후 삭제해도 무방하다.
 //   - Editor 전용 — 빌드에는 포함되지 않는다 (Assets/Editor 폴더).
+//   - LoadingIndicator 추출 후 Spinner 자식 오브젝트에 SpinnerRotator 컴포넌트를
+//     수동으로 부착해야 회전 애니메이션이 동작한다.
+//     (기존 LoadingScreen.cs의 Update()가 담당하던 회전 로직을 대체)
 // ============================================================================
 
 using System.IO;
@@ -32,7 +39,9 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using Hexiege.Presentation;
+using Hexiege.Presentation.UI;
 
 namespace HexiegeEditor
 {
@@ -57,11 +66,11 @@ namespace HexiegeEditor
         private const string LoadingIndicatorPrefabPath = PrefabDir + "/LoadingIndicator.prefab";
 
         /// <summary>
-        /// LoadingScreen은 전용 컴포넌트(LoadingScreen.cs)가 있으나,
-        /// Lobby.unity에서 배치된 GameObject 이름이 "LoadingScreen"이므로
-        /// 컴포넌트 타입 대신 이름으로 탐색한다.
+        /// Lobby.unity에서 LoadingIndicator로 추출할 오브젝트 이름.
+        /// 씬에서는 "LoadingScreen"으로 배치되어 있으나, 추출 시 Canvas/LoadingScreen.cs를
+        /// 제거(B안)하여 UIManager에 임베드 가능한 순수 UI 프리팹으로 저장한다.
         /// </summary>
-        private const string LoadingIndicatorObjectName = "LoadingScreen";
+        private const string LoadingScreenObjectName = "LoadingScreen";
 
         // ====================================================================
         // 메뉴 진입점
@@ -76,14 +85,17 @@ namespace HexiegeEditor
             // 저장 폴더가 없으면 만든다.
             EnsurePrefabDir();
 
-            // 1) Game.unity → ConfirmPopup (컴포넌트 타입으로 탐색)
+            // 1) Game.unity → ConfirmPopup (컴포넌트 타입으로 탐색, 구조 변경 없음)
             ExtractFromScene<ConfirmPopup>(GameScenePath, ConfirmPopupPrefabPath, "ConfirmPopup");
 
-            // 2) Lobby.unity → ToastUI (컴포넌트 타입으로 탐색)
+            // 2) Lobby.unity → ToastUI (컴포넌트 타입으로 탐색, 구조 변경 없음)
+            //    ToastUI는 자체 Canvas + DontDestroyOnLoad를 가진 독립 오브젝트이므로
+            //    그대로 추출한다. SetupUIManagerInScene에서 씬 루트에 직접 배치한다.
             ExtractFromScene<ToastUI>(LobbyScenePath, ToastUIPrefabPath, "ToastUI");
 
-            // 3) Lobby.unity → LoadingIndicator (이름으로 탐색)
-            ExtractByNameFromScene(LobbyScenePath, LoadingIndicatorObjectName, LoadingIndicatorPrefabPath);
+            // 3) Lobby.unity → LoadingIndicator (B안: LoadingScreen에서 비UI 컴포넌트 제거 후 추출)
+            //    원본 씬은 CloseScene(true)으로 변경이 폐기되어 보존된다.
+            ExtractLoadingIndicatorFromScene(LobbyScenePath, LoadingIndicatorPrefabPath);
 
             // 추출된 에셋을 에디터에 반영.
             AssetDatabase.SaveAssets();
@@ -127,28 +139,60 @@ namespace HexiegeEditor
         }
 
         /// <summary>
-        /// 지정한 씬을 Additive 로드하여, 주어진 이름의 GameObject를 프리팹으로 저장한다.
-        /// 전용 컴포넌트가 없는 오브젝트(LoadingIndicator 등)에 사용한다.
+        /// B안 — Lobby.unity의 LoadingScreen에서 비UI 컴포넌트를 제거한 뒤
+        /// LoadingIndicator.prefab으로 저장한다.
+        ///
+        /// LoadingScreen은 자체 Canvas + LoadingScreen.cs 싱글턴을 가진 독립 오브젝트이므로
+        /// 그대로 UIManager 하위에 넣으면 Canvas 중첩 및 DontDestroyOnLoad 충돌이 발생한다.
+        /// 따라서 추출 전 UIManager와 충돌하는 컴포넌트만 씬 내 임시로 제거하고 저장한다.
+        /// 씬은 CloseScene(true)으로 닫아 원본이 변경되지 않도록 보장한다.
+        ///
+        /// 제거 대상 컴포넌트:
+        ///   - Canvas          : UIManager Canvas 안에 중첩 Canvas가 생기는 것을 방지
+        ///   - CanvasScaler    : Canvas가 없으면 의미 없으므로 함께 제거
+        ///   - GraphicRaycaster: Canvas가 없으면 동작하지 않으므로 함께 제거
+        ///   - LoadingScreen   : DontDestroyOnLoad / OnSceneLoaded 자동 Hide / 싱글턴 제거
+        ///
+        /// 유지되는 구조:
+        ///   LoadingIndicator (RectTransform + CanvasGroup)
+        ///   └─ RootPanel (Image — 반투명 배경)
+        ///       ├─ Spinner (Image — 회전 아이콘, SpinnerRotator 수동 부착 필요)
+        ///       └─ StatusText (TextMeshProUGUI)
         /// </summary>
-        /// <param name="scenePath">대상 씬 경로.</param>
-        /// <param name="objectName">찾을 GameObject 이름.</param>
-        /// <param name="prefabPath">저장할 프리팹 경로.</param>
-        private static void ExtractByNameFromScene(string scenePath, string objectName, string prefabPath)
+        private static void ExtractLoadingIndicatorFromScene(string scenePath, string prefabPath)
         {
             Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
             try
             {
-                GameObject target = FindGameObjectByNameInScene(scene, objectName);
+                GameObject target = FindGameObjectByNameInScene(scene, LoadingScreenObjectName);
                 if (target == null)
                 {
-                    Debug.LogWarning($"[ExtractUIManagerPrefabs] {scenePath} 에서 '{objectName}' 이름의 GameObject를 찾지 못했습니다. 건너뜁니다.");
+                    Debug.LogWarning($"[ExtractUIManagerPrefabs] {scenePath} 에서 '{LoadingScreenObjectName}' 이름의 GameObject를 찾지 못했습니다. 건너뜁니다.");
                     return;
                 }
 
-                SavePrefab(target, prefabPath, objectName);
+                // Canvas 관련 컴포넌트 제거 — UIManager Canvas 안에 중첩되면 안 됨.
+                // DestroyImmediate는 에디터 모드에서 컴포넌트를 즉시 제거한다.
+                // 씬은 CloseScene(true)으로 폐기되므로 원본에는 영향 없음.
+                var canvas = target.GetComponent<Canvas>();
+                if (canvas != null) DestroyImmediate(canvas);
+
+                var canvasScaler = target.GetComponent<CanvasScaler>();
+                if (canvasScaler != null) DestroyImmediate(canvasScaler);
+
+                var raycaster = target.GetComponent<GraphicRaycaster>();
+                if (raycaster != null) DestroyImmediate(raycaster);
+
+                // LoadingScreen.cs 제거 — DontDestroyOnLoad + 싱글턴 + OnSceneLoaded 자동 Hide 제거.
+                // UIManager가 CanvasGroup으로 직접 Show/Hide를 제어하므로 이 로직은 필요 없다.
+                var loadingScreen = target.GetComponent<LoadingScreen>();
+                if (loadingScreen != null) DestroyImmediate(loadingScreen);
+
+                SavePrefab(target, prefabPath, "LoadingIndicator");
             }
             finally
             {
+                // CloseScene(true) = 변경 폐기. 씬 원본(LoadingScreen 그대로)은 보존된다.
                 EditorSceneManager.CloseScene(scene, true);
             }
         }
@@ -190,7 +234,6 @@ namespace HexiegeEditor
         {
             foreach (GameObject root in scene.GetRootGameObjects())
             {
-                // 루트 자신도 검사.
                 if (root.name == objectName) return root;
 
                 // 하위(비활성 포함) 전체를 순회.
