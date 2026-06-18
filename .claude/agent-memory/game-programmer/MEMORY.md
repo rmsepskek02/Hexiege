@@ -25,6 +25,35 @@
 
 ## 최근 작업
 
+### 전역 UIManager + SplashOverlayView (2026-06-16) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-16/12_25_global-ui-system/`
+**테스트**: 사용자 실기 PASS (2026-06-18, TC-01~07 전체)
+
+**핵심 설계**: 씬마다 중복 배치되던 공통 UI(ConfirmPopup/LoadingIndicator/ToastUI)를 Login 씬에서 1회 생성하는 전역 UIManager로 통합. UIManager는 `SingletonMonoBehaviour<UIManager>` + `IUIManager`, DontDestroyOnLoad로 전 씬 공유.
+
+**신규 파일**:
+- `Presentation/UI/Core/IUIManager.cs` — `ShowConfirm(message, onConfirm, onCancel=null, confirmLabel="확인", cancelLabel="취소")` + `ShowLoading(bool show, string message = "")`. ShowLoading은 모든 로딩 사유(씬 전환/Firebase/매칭 등)를 단일 API로 통합.
+- `Presentation/UI/UIManager.cs` — IUIManager 구현체. _confirmPopup(ConfirmPopup)/_loadingIndicator 참조 보유. ConfirmPopup/LoadingIndicator는 UIManager Canvas(SortingOrder 100) 하위에 임베드.
+- `Presentation/UI/SplashOverlayView.cs` — SetStatus("로딩 중...")/ShowTapToStart(DOTween alpha 0↔1 깜빡임)/FadeOut(onComplete). 전용 Canvas(SortingOrder 200), Background(SafeArea 밖) + SafeAreaContainer(텍스트 안). 자동 로그인 성공 시 탭 없이 FadeOut→Lobby.
+- `Presentation/UI/Common/SpinnerRotator.cs` — LoadingIndicator Spinner 회전. 프리팹 추출 시 에디터 스크립트가 자동 부착.
+- `Debug/UIManagerTestButtonHandler.cs` — 임시 테스트용.
+- `Assets/Editor/Setup/ExtractUIManagerPrefabs.cs` — ConfirmPopup(Game.unity)/ToastUI·LoadingIndicator(Lobby.unity) 프리팹 추출. LoadingIndicator는 B안(Canvas/CanvasScaler/GraphicRaycaster/LoadingScreen.cs 제거 후 추출).
+- `Assets/Editor/Setup/SetupUIManagerInScene.cs` — Login.unity에 UIManager Canvas + 프리팹 배치.
+- `Assets/Editor/Setup/AddUIManagerTestButton.cs` — 임시 테스트용.
+
+**수정 파일**:
+- `Bootstrap/LoginBootstrapper.cs` — SplashOverlayView 연동, ShowLoading을 UIManager로 위임. 흐름: SetStatus→초기화→ShowTapToStart→탭→FadeOut→로그인/Lobby.
+- `Bootstrap/GameBootstrapper.cs` — 미사용 `_confirmPopup` SerializeField 제거(UIManager로 이전).
+- `Presentation/UI/ViewModels/BattleViewModel.cs` — LoadingScreen → `UIManager.ShowLoading()` 전환.
+- `Presentation/UI/InGameSettingsUI.cs` — ConfirmPopup → `UIManager.ShowConfirm()`.
+- `Presentation/UI/Views/Login/LoginRootView.cs` — ConfirmPopup/networkErrorPopup → UIManager, 입력 → New Input System.
+- `Presentation/UI/Views/Lobby/Profile/ProfileView.cs` — ConfirmPopup → `UIManager.ShowConfirm()`.
+
+**ToastUI 배치**: 자체 Canvas 내장 + Awake에서 SetParent(null)+DontDestroyOnLoad → UIManager Canvas 밖, 씬 루트에 직접 배치.
+
+**null-safe**: UIManager 미생성 씬(Lobby/Game) 단독 실행 시 `UIManager.Instance?.` 패턴으로 안전 무시(TC-07 PASS).
+
 ### Lobby.unity 규칙 전수 점검 및 추가 수정 (2026-06-15) ✅ 완료
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-15/18_12_lobby-rule-violations/`
 - **Rule 5**: `LobbyUI.cs` `_lobbyPanel` 타입 `GameObject`→`CanvasGroup`. Show: alpha=1/blocksRaycasts=true/interactable=true. Hide: alpha=0/false/false. (LobbyUI는 현재 씬 미배치 — 코드만 수정)
