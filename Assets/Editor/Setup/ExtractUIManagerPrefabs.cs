@@ -177,16 +177,17 @@ namespace HexiegeEditor
                 }
 
                 // Canvas 관련 컴포넌트 제거 — UIManager Canvas 안에 중첩되면 안 됨.
-                // DestroyImmediate는 에디터 모드에서 컴포넌트를 즉시 제거한다.
+                // 제거 순서 중요: Canvas에 의존하는 컴포넌트(GraphicRaycaster → CanvasScaler)를
+                // 먼저 제거한 뒤 Canvas를 제거해야 한다. 순서가 틀리면 Unity가 의존성 오류를 낸다.
                 // 씬은 CloseScene(true)으로 폐기되므로 원본에는 영향 없음.
-                var canvas = target.GetComponent<Canvas>();
-                if (canvas != null) Object.DestroyImmediate(canvas);
+                var raycaster = target.GetComponent<GraphicRaycaster>();
+                if (raycaster != null) Object.DestroyImmediate(raycaster);
 
                 var canvasScaler = target.GetComponent<CanvasScaler>();
                 if (canvasScaler != null) Object.DestroyImmediate(canvasScaler);
 
-                var raycaster = target.GetComponent<GraphicRaycaster>();
-                if (raycaster != null) Object.DestroyImmediate(raycaster);
+                var canvas = target.GetComponent<Canvas>();
+                if (canvas != null) Object.DestroyImmediate(canvas);
 
                 // LoadingScreen.cs 제거 — DontDestroyOnLoad + 싱글턴 + OnSceneLoaded 자동 Hide 제거.
                 // UIManager가 CanvasGroup으로 직접 Show/Hide를 제어하므로 이 로직은 필요 없다.
