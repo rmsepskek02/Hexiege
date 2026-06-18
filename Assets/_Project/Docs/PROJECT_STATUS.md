@@ -61,6 +61,7 @@
 | 전체 유닛 사망 VFX 적용 | ✅ 완료 (2026-06-08) | EffectPreset_Unit_Death_Common.asset 신규 생성(vfx_unit_death+SFX). SetUnitDeathVfxAll 에디터 스크립트로 UnitEffectConfig 전체 24종 deathPreset 일괄 연결. 코드 변경 없음(에셋 작업만). 기존 EffectPreset_Pistoleer_Death.asset 삭제. |
 | 유닛 VFX 디테일 개선 3종 | ✅ 완료 (2026-06-08) | ① VFX 프리팹 3개 ParticleSystem ScalingMode Local→Hierarchy (VfxScalingModeFixer 에디터 스크립트). ② 피스톨러 공격 VFX 스폰 위치 — VfxSpawnPoint GO(총구 위치)로 position 참조, rotation은 `Quaternion.LookRotation(transform.forward)` (스켈레톤 본 하위 배치로 _vfxSpawnPoint.rotation 사용 불가). UnitView + EffectManager 수정. ③ vfx_unit_death 퍼짐 효과 제거 (3개 PS startSpeed→0 YAML 직접 수정). |
 | 사운드 시스템 (AudioManager + SFX/BGM 분리) | 🔵 코드 완료 (2026-06-10) / Inspector 작업 + 실기 테스트 예정 | SoundConfig.cs(Infrastructure) + AudioManager.cs(Presentation, DontDestroyOnLoad) 신규. BGM 크로스페이드(A/B 채널), SFX 풀(8개, 2D), 볼륨 3채널(Master/BGM/SFX, PlayerPrefs). EffectManager VFX 전용 분리(SFX 비활성화). VFX+SFX 쌍 호출 UnitView×2 + NetworkUnit×1 복원. LoginBootstrapper Initialize 추가. InGameSettingsUI 볼륨 슬라이더 연동. Inspector 작업: AudioMixer 에셋·AudioManager Login.unity 배치·SoundConfig 에셋 생성 필요. 로비 볼륨 패널 미구현(별도 작업). |
+| 전역 UI 시스템 (UIManager + SplashOverlay) | ✅ 완료 (2026-06-18) | UIManager(SingletonMonoBehaviour+IUIManager), SplashOverlayView(DOTween 깜빡임+페이드아웃), SpinnerRotator 신규. ConfirmPopup/LoadingIndicator 전역 통합 (Login 씬 1회 생성 → DontDestroyOnLoad). 씬별 중복 ConfirmPopup/LoadingScreen 제거, BattleViewModel LoadingScreen→UIManager 전환. 사용자 실기 TC-01~07 PASS. |
 
 #### 싱글플레이 AI 시스템 (2026-06-07)
 | 항목 | 상태 | 비고 |
@@ -378,7 +379,7 @@
 | 기존 UGS 로그인 동작 보존 | ✅ 완료 | Lobby.unity 직접 실행 시 익명 로그인으로 PlayerId 발급 — 멀티플레이 기능 정상 동작. 401 버그 수정 후 커스텀 게임 + 랜덤 매칭 모두 확인 |
 | Firebase Console 설정 | ❌ 미완료 | google-services.json, SHA-1 등록, Authentication 방식 활성화 — 추후 진행 |
 | GPGS 클라이언트 ID 설정 | ❌ 미완료 | Unity > Window > Google Play Games > Setup 에서 Web Client ID 입력 — 추후 진행 |
-| Login.unity 씬 생성 | ❌ 미완료 | UIWireframe.md 기반 UI 배치 + Inspector 연결 — 추후 진행 |
+| Login.unity 씬 생성 | 🔵 부분 완료 (2026-06-18) | UIManager + SplashOverlay 배치 완료. 로그인 UI 배치(UIWireframe.md 기반) + Inspector 연결은 미완료 — 추후 진행 |
 | Firebase → UGS OIDC Bridge | ✅ 코드 완료 (2026-06-10) | `SignInWithOpenIdConnectAsync("oidc-firebase", firebaseToken)` 구현. UGS Dashboard OIDC Provider 등록 완료 후 실기 테스트 가능 |
 
 ---
