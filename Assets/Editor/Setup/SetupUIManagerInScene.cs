@@ -72,6 +72,11 @@ namespace HexiegeEditor
         private const string LoadingIndicatorPrefabPath = "Assets/_Project/Prefabs/UI/LoadingIndicator.prefab";
         private const string ToastUIPrefabPath          = "Assets/_Project/Prefabs/UI/ToastUI.prefab";
 
+        /// <summary>규칙 6: 기본 폰트 경로 (Maplestory Light SDF).</summary>
+        private const string FontLightPath = "Assets/_Project/Fonts/Maplestory Light SDF.asset";
+        /// <summary>규칙 6: 강조 폰트 경로 (Maplestory Bold SDF).</summary>
+        private const string FontBoldPath  = "Assets/_Project/Fonts/Maplestory Bold SDF.asset";
+
         /// <summary>9:16 세로 기준 해상도 (CanvasScaler Reference Resolution).</summary>
         private static readonly Vector2 ReferenceResolution = new Vector2(1080f, 1920f);
 
@@ -179,7 +184,9 @@ namespace HexiegeEditor
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = ReferenceResolution;
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 1f; // 세로(높이) 기준으로 맞춤.
+            // 규칙 1: Match Width Or Height = 0 (가로 너비 기준 스케일링).
+            // 세로가 긴 기기(21:9 등)에서 캔버스 논리 높이가 자연스럽게 늘어나는 방식으로 대응한다.
+            scaler.matchWidthOrHeight = 0f;
 
             return canvasGo;
         }
@@ -207,8 +214,9 @@ namespace HexiegeEditor
             SplashOverlayView splashView = overlayGo.AddComponent<SplashOverlayView>();
 
             // --- Background (Image, 전체화면, RaycastTarget = true) ---
-            // 화면 전체를 덮어 초기화 중 배경 이미지를 표시하고, IPointerClickHandler가
-            // 탭을 수신하려면 이 Image의 RaycastTarget이 켜져 있어야 한다.
+            // 규칙 4: 전체화면 배경은 SafeAreaContainer 밖(SplashOverlay 직속)에 배치한다.
+            //   SafeArea 제약을 받으면 노치/홈바 영역이 배경색으로 비어 보이기 때문이다.
+            // IPointerClickHandler가 탭을 수신하려면 이 Image의 RaycastTarget이 켜져 있어야 한다.
             GameObject bgGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
             bgGo.transform.SetParent(overlayGo.transform, false);
             StretchFull(bgGo.GetComponent<RectTransform>());
@@ -216,15 +224,30 @@ namespace HexiegeEditor
             bgImage.color = new Color(0.07f, 0.07f, 0.07f, 1f); // 기본 어두운 배경색.
             bgImage.raycastTarget = true;
 
+            // --- SafeAreaContainer (규칙 4) ---
+            // 실제 UI 요소(텍스트)는 노치/홈바 영역을 피해야 하므로 SafeAreaContainer 안에 배치한다.
+            // SafeAreaFitter 컴포넌트가 런타임에 SafeArea 범위로 RectTransform을 자동 조정한다.
+            GameObject safeAreaGo = new GameObject("SafeAreaContainer", typeof(RectTransform));
+            safeAreaGo.transform.SetParent(overlayGo.transform, false);
+            StretchFull(safeAreaGo.GetComponent<RectTransform>());
+            safeAreaGo.AddComponent<SafeAreaFitter>();
+
+            // 규칙 6: Maplestory Light SDF 폰트를 로드한다. 없으면 경고 후 기본 폰트로 진행한다.
+            TMP_FontAsset fontLight = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontLightPath);
+            if (fontLight == null)
+                Debug.LogWarning($"[SetupUIManagerInScene] Maplestory Light SDF 폰트를 찾지 못했습니다({FontLightPath}). " +
+                                 "기본 폰트로 생성됩니다. Inspector에서 수동으로 교체해 주세요.");
+
             // --- StatusText (TextMeshProUGUI, "로딩 중...") ---
-            // 초기화 진행 중 상태 문구를 표시한다. 화면 중앙에 배치한다.
+            // 초기화 진행 중 상태 문구. SafeAreaContainer 안에 배치해 노치/홈바에 가리지 않도록 한다.
             GameObject statusGo = new GameObject("StatusText", typeof(RectTransform));
-            statusGo.transform.SetParent(overlayGo.transform, false);
+            statusGo.transform.SetParent(safeAreaGo.transform, false);
             TextMeshProUGUI statusText = statusGo.AddComponent<TextMeshProUGUI>();
             statusText.text = "로딩 중...";
             statusText.fontSize = 36;
             statusText.alignment = TextAlignmentOptions.Center;
             statusText.color = Color.white;
+            if (fontLight != null) statusText.font = fontLight; // 규칙 6.
             RectTransform statusRt = statusGo.GetComponent<RectTransform>();
             statusRt.anchorMin = new Vector2(0.1f, 0.45f);
             statusRt.anchorMax = new Vector2(0.9f, 0.55f);
@@ -233,15 +256,17 @@ namespace HexiegeEditor
 
             // --- TapToStartText (TextMeshProUGUI, "Tap to Start", alpha=0) ---
             // ShowTapToStart() 호출 시 alpha 0→1 깜빡임으로 표시된다.
+            // SafeAreaContainer 안에 배치해 노치/홈바에 가리지 않도록 한다.
             // Awake에서 alpha=0으로 초기화되므로, 에디터에서 값을 미리 0으로 설정해도 무방하다.
             GameObject tapGo = new GameObject("TapToStartText", typeof(RectTransform));
-            tapGo.transform.SetParent(overlayGo.transform, false);
+            tapGo.transform.SetParent(safeAreaGo.transform, false);
             TextMeshProUGUI tapText = tapGo.AddComponent<TextMeshProUGUI>();
             tapText.text = "Tap to Start";
             tapText.fontSize = 42;
             tapText.alignment = TextAlignmentOptions.Center;
             tapText.color = Color.white;
             tapText.alpha = 0f;
+            if (fontLight != null) tapText.font = fontLight; // 규칙 6.
             RectTransform tapRt = tapGo.GetComponent<RectTransform>();
             tapRt.anchorMin = new Vector2(0.1f, 0.45f);
             tapRt.anchorMax = new Vector2(0.9f, 0.55f);
