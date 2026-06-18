@@ -25,6 +25,16 @@
 
 ## 최근 작업
 
+### 전역 UIManager + SplashOverlayView (2026-06-18) 🔵 코드 완료 / Inspector 작업 + 실기 테스트 예정
+**브랜치**: `claude/trusting-archimedes-268huf`
+- `Presentation/UI/Core/IUIManager.cs` — ShowConfirm/ShowLoading 계약. 순수 인터페이스(Unity 비의존).
+- `Presentation/UI/UIManager.cs` — `SingletonMonoBehaviour<UIManager>` + IUIManager. `_confirmPopup`(ConfirmPopup), `_loadingIndicator`(CanvasGroup). ShowConfirm→ConfirmPopup.Show 위임, ShowLoading→CanvasGroup alpha/blocksRaycasts/interactable. Login 씬 [UI Systems]에 배치 → DontDestroyOnLoad로 전 씬 유지.
+- `Presentation/UI/SplashOverlayView.cs` — MonoBehaviour + IPointerClickHandler. `_overlayCanvasGroup`/`_statusText`/`_tapToStartText`. Awake에서 오버레이 alpha=1/blocks=true, tapText alpha=0. ShowTapToStart(`DOTween.To(()=>alpha,...).SetLoops(-1,Yoyo)` 깜빡임 + `_tapToStartActive=true`)/FadeOut(`DOFade(0,0.5)`+OnComplete에서 blocks/interactable=false+콜백). **SetActive 미사용(규칙 5) — statusText는 alpha=0으로 숨김**. `SetTapCallback(Action)`로 탭 후속 동작(ShowLoginSelect) 주입 → OnPointerClick은 `_tapToStartActive`일 때만 FadeOut(_tapCallback).
+- `Bootstrap/LoginBootstrapper.cs` — `_loadingIndicator`(GameObject) 제거, `_splashOverlay` 추가. Start에서 SetStatus("로딩 중...") 먼저. 자동로그인 성공→`FadeOut(GoToNextScene)`, 실패→`SetTapCallback(ShowLoginSelect)`+`ShowTapToStart()`. **`ShowLoading(bool)`는 제거 안 함** — EmailLoginView 등 5개 View가 `_bootstrapper.ShowLoading()` 호출하므로 `UIManager.Instance?.ShowLoading(show)` 위임 shim으로 유지(스펙의 "제거"와 충돌 → 컴파일 보존 우선).
+- `Bootstrap/GameBootstrapper.cs` — 미사용 `_confirmPopup` SerializeField 제거(死 참조였음, 어디에도 미주입). InGameSettingsUI는 자체 `_confirmPopup` 보유(Initialize가 IUIManager 안 받으므로 파라미터 추가 안 함).
+- **스코프 외 파일**: `Assets/Editor/Setup/ExtractUIManagerPrefabs.cs`(이전 세션 생성 1회성 에디터 도구)는 본 task 범위 아님 → 미커밋 잔존.
+- **Inspector 작업 필요**: Login.unity에 [UI Systems]/UIManager + ConfirmPopup/LoadingIndicator(CanvasGroup) 배치·연결, SplashOverlay GO(CanvasGroup+Background Image raycastTarget=true+StatusText+TapToStartText) 구성, LoginBootstrapper._splashOverlay 연결.
+
 ### AnimatedPanel/UIAnimator/ConfirmPopup SetActive→CanvasGroup 리팩토링 (2026-06-13~15) ✅ 완료
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-12/09_13_animatedpanel-canvasgroup-refactor/`
 - `UIAnimator.cs`: 이미 이전 세션에서 SetActive 제거 완료 상태였음(Show=interactable/blocksRaycasts=true, Hide OnComplete=interactable/blocksRaycasts=false). 추가 변경 없음.
