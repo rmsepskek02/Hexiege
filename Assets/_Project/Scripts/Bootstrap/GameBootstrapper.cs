@@ -171,8 +171,11 @@ namespace Hexiege.Bootstrap
         [Tooltip("인게임 설정 메뉴 팝업 (사운드/포기 버튼).")]
         [SerializeField] private InGameSettingsUI _inGameSettingsUI;
 
-        [Tooltip("범용 확인 팝업 (포기 확인 등에 재사용).")]
-        [SerializeField] private ConfirmPopup _confirmPopup;
+        // [2026-06-18] _confirmPopup SerializeField 제거.
+        //   기존: GameBootstrapper가 ConfirmPopup을 직접 들고 있었으나 어디에도 주입되지 않는 死(dead) 참조였다.
+        //   확인 팝업이 필요한 View(InGameSettingsUI)는 자체 _confirmPopup을 보유하고 있으며,
+        //   전역 확인 팝업이 필요한 경우 UIManager.Instance(IUIManager)를 통해 호출한다.
+        //   (InGameSettingsUI.Initialize는 IUIManager를 받지 않으므로 파라미터를 추가하지 않는다.)
 
         // ====================================================================
         // UseCase 인스턴스 (런타임 생성)
