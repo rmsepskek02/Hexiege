@@ -338,6 +338,28 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 
 ---
 
+## 전역 UI 시스템 QA (2026-06-18) ✅ 완료
+
+### 종합 판정: PASS (수정 후)
+
+### 발견 및 수정된 버그
+- **[Major, 수정완료] 규칙 1 위반**: `SetupUIManagerInScene.cs` `CanvasScaler.matchWidthOrHeight = 1f` → `0f` (가로 기준). UIManager Canvas / SplashOverlay Canvas 모두 해당.
+- **[Major, 수정완료] 규칙 4 위반**: SplashOverlay에 SafeAreaContainer 없어 StatusText/TapToStartText가 노치 영역에 가려질 수 있음 → SafeAreaContainer + SafeAreaFitter 추가, 텍스트를 그 안으로 이동. Background는 전체화면 요소이므로 SafeAreaContainer 밖(SplashOverlay 직속) 유지.
+- **[Major, 수정완료] 규칙 6 위반**: `SetupUIManagerInScene.cs`에서 에디터 스크립트로 생성하는 TextMeshProUGUI(StatusText/TapToStartText)에 Maplestory Light SDF 폰트 미적용 → `AssetDatabase.LoadAssetAtPath<TMP_FontAsset>` 로드 후 명시 적용.
+
+### Minor (미수정)
+- `LoginBootstrapper.cs:116` 주석에서 `(규칙 5)` 참조 부정확 — null-safe 패턴 설명인데 CanvasGroup 규칙 번호 기재됨. 기능 무영향.
+- `BattleViewModel.cs:222` `Task.Delay(2000)` 고정 2초 지연 — 씬 로딩 완료 타이밍과 무관한 하드코딩. 이번 작업 범위 외.
+
+### 핵심 교훈
+- 에디터 스크립트로 UI를 생성할 때 **폰트(규칙 6)** 와 **SafeAreaContainer(규칙 4)** 는 반드시 명시 설정
+- `matchWidthOrHeight`는 프로젝트 규칙 상 **0f(가로 기준)** 고정
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-06-16/12_25_global-ui-system/Testcase.md`
+
+---
+
 ## 참고 파일
 - [patterns.md](patterns.md) — 버그 패턴 상세
 - [qa_history.md](qa_history.md) — 완료된 QA 상세 내역 (생산시스템/DOTween/카메라/재경기/로비/로딩/랜덤매칭)
