@@ -24,6 +24,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
+using Hexiege.DebugTools;
 
 namespace HexiegeEditor
 {
