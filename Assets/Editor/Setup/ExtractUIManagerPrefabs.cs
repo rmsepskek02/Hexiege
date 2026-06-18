@@ -43,6 +43,11 @@ using UnityEngine.UI;
 using Hexiege.Presentation;
 using Hexiege.Presentation.UI;
 
+// SpinnerRotator 참조 안내:
+//   이 스크립트는 LoadingIndicator 추출 후 Spinner 자식에 SpinnerRotator를 자동 부착한다.
+//   SpinnerRotator.cs(Assets/_Project/Scripts/Presentation/UI/Common/)가 먼저
+//   컴파일되어 있어야 한다. 스크립트 오류 없이 컴파일된 상태에서 메뉴를 실행할 것.
+
 namespace HexiegeEditor
 {
     /// <summary>
@@ -188,6 +193,11 @@ namespace HexiegeEditor
                 var loadingScreen = target.GetComponent<LoadingScreen>();
                 if (loadingScreen != null) DestroyImmediate(loadingScreen);
 
+                // SpinnerRotator 자동 부착 — "Spinner" 이름의 자식 오브젝트에 추가.
+                // LoadingScreen.cs가 담당하던 Z축 회전 로직(Update())을 대체한다.
+                // 비활성 자식까지 포함해 탐색한다.
+                AddSpinnerRotatorToSpinner(target);
+
                 SavePrefab(target, prefabPath, "LoadingIndicator");
             }
             finally
@@ -200,6 +210,34 @@ namespace HexiegeEditor
         // ====================================================================
         // 헬퍼
         // ====================================================================
+
+        /// <summary>
+        /// target 하위에서 이름이 "Spinner"인 첫 오브젝트를 찾아 SpinnerRotator를 추가한다.
+        /// 이미 SpinnerRotator가 부착되어 있으면 중복 추가하지 않는다.
+        /// Spinner 오브젝트가 없으면 경고만 출력하고 계속 진행한다.
+        /// </summary>
+        private static void AddSpinnerRotatorToSpinner(GameObject root)
+        {
+            // GetComponentsInChildren으로 비활성 자식까지 포함해 탐색.
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name != "Spinner") continue;
+
+                // 이미 부착된 경우 건너뜀.
+                if (t.GetComponent<SpinnerRotator>() != null)
+                {
+                    Debug.Log("[ExtractUIManagerPrefabs] Spinner에 SpinnerRotator가 이미 있습니다. 건너뜁니다.");
+                    return;
+                }
+
+                t.gameObject.AddComponent<SpinnerRotator>();
+                Debug.Log("[ExtractUIManagerPrefabs] Spinner에 SpinnerRotator를 자동 부착했습니다.");
+                return;
+            }
+
+            Debug.LogWarning("[ExtractUIManagerPrefabs] LoadingIndicator 하위에서 'Spinner' 오브젝트를 찾지 못했습니다. " +
+                             "SpinnerRotator를 수동으로 부착해야 합니다.");
+        }
 
         /// <summary>
         /// 프리팹 저장 폴더가 없으면 생성한다(중간 폴더 포함).
