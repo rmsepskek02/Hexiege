@@ -180,18 +180,18 @@ namespace HexiegeEditor
                 // DestroyImmediate는 에디터 모드에서 컴포넌트를 즉시 제거한다.
                 // 씬은 CloseScene(true)으로 폐기되므로 원본에는 영향 없음.
                 var canvas = target.GetComponent<Canvas>();
-                if (canvas != null) DestroyImmediate(canvas);
+                if (canvas != null) Object.DestroyImmediate(canvas);
 
                 var canvasScaler = target.GetComponent<CanvasScaler>();
-                if (canvasScaler != null) DestroyImmediate(canvasScaler);
+                if (canvasScaler != null) Object.DestroyImmediate(canvasScaler);
 
                 var raycaster = target.GetComponent<GraphicRaycaster>();
-                if (raycaster != null) DestroyImmediate(raycaster);
+                if (raycaster != null) Object.DestroyImmediate(raycaster);
 
                 // LoadingScreen.cs 제거 — DontDestroyOnLoad + 싱글턴 + OnSceneLoaded 자동 Hide 제거.
                 // UIManager가 CanvasGroup으로 직접 Show/Hide를 제어하므로 이 로직은 필요 없다.
                 var loadingScreen = target.GetComponent<LoadingScreen>();
-                if (loadingScreen != null) DestroyImmediate(loadingScreen);
+                if (loadingScreen != null) Object.DestroyImmediate(loadingScreen);
 
                 // SpinnerRotator 자동 부착 — "Spinner" 이름의 자식 오브젝트에 추가.
                 // LoadingScreen.cs가 담당하던 Z축 회전 로직(Update())을 대체한다.
