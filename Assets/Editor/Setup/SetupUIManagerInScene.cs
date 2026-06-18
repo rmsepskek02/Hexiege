@@ -1,6 +1,6 @@
 // ============================================================================
 // SetupUIManagerInScene.cs
-// 전역 UI 시스템(UIManager)을 Login.unity 씬에 배치하는 1회성 에디터 도구.
+// 전역 UI 시스템(UIManager) 및 SplashOverlay를 Login.unity 씬에 배치하는 1회성 에디터 도구.
 //
 // 실행 방법:
 //   Unity 상단 메뉴 → Hexiege/Setup/Login씬 UIManager 배치 클릭
@@ -14,6 +14,12 @@
 //               ├─ ConfirmPopup        ← 프리팹 인스턴스(있을 때만)
 //               └─ LoadingIndicator    ← 프리팹 인스턴스(있을 때만)
 //
+//   SplashOverlay Canvas (씬 루트)     ← Canvas (SortingOrder 200 — 항상 최상위)
+//   └─ SplashOverlay                   ← CanvasGroup + SplashOverlayView (IPointerClickHandler)
+//       ├─ Background                  ← Image (전체화면, RaycastTarget=true — 탭 입력 수신)
+//       ├─ StatusText                  ← TextMeshProUGUI ("로딩 중...")
+//       └─ TapToStartText              ← TextMeshProUGUI ("Tap to Start", alpha=0)
+//
 //   Toast (씬 루트)                    ← ToastUI 프리팹 — 씬 루트에 직접 배치
 //                                        ToastUI.Awake()가 SetParent(null) + DontDestroyOnLoad 자동 처리.
 //                                        자체 Canvas(SortingOrder:100) + SafeAreaFitter 내장.
@@ -23,6 +29,8 @@
 //     추출한다. 이 스크립트 실행 시점에 프리팹이 없을 수 있으므로,
 //     프리팹이 존재할 때만 인스턴스화하고 없으면 경고 로그만 출력한다(안전 처리).
 //   - UIManager의 _confirmPopup / _loadingIndicator 필드는 프리팹이 배치된 경우 자동 연결한다.
+//   - SplashOverlayView의 Inspector 참조(_overlayCanvasGroup, _statusText, _tapToStartText)와
+//     LoginBootstrapper._splashOverlay는 이 스크립트가 자동으로 연결한다.
 //
 // Toast를 별도 Canvas 안에 넣지 않는 이유:
 //   ToastUI.Awake()에서 transform.SetParent(null)로 스스로 부모를 끊고
@@ -37,11 +45,13 @@
 // Editor 전용 — 빌드에는 포함되지 않는다 (Assets/Editor 폴더).
 // ============================================================================
 
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Hexiege.Bootstrap;
 using Hexiege.Presentation;
 
 namespace HexiegeEditor
@@ -67,6 +77,12 @@ namespace HexiegeEditor
 
         /// <summary>UIManager Canvas 정렬 순서(공통 팝업/로딩 — 일반 UI 위).</summary>
         private const int UIManagerCanvasSortingOrder = 100;
+
+        /// <summary>
+        /// SplashOverlay Canvas 정렬 순서.
+        /// UIManager(100)보다 높게 설정해 초기화 중 공통 UI가 노출되는 것을 막는다.
+        /// </summary>
+        private const int SplashOverlayCanvasSortingOrder = 200;
 
         // ====================================================================
         // 메뉴 진입점
@@ -114,16 +130,25 @@ namespace HexiegeEditor
             CanvasGroup loadingIndicator = InstantiateLoadingIndicatorInto(
                 LoadingIndicatorPrefabPath, safeAreaGo.transform);
 
-            // 3) ToastUI — 씬 루트에 직접 배치.
+            // 3) SplashOverlay — 씬 루트에 전용 Canvas(SortingOrder 200)를 생성하고
+            //    그 아래에 SplashOverlayView 계층을 자동 구성한다.
+            //    SortingOrder를 UIManager Canvas(100)보다 높게 설정해 초기화 중
+            //    공통 UI가 SplashOverlay 위로 노출되지 않도록 한다.
+            SplashOverlayView splashOverlay = CreateSplashOverlay(scene);
+
+            // 4) ToastUI — 씬 루트에 직접 배치.
             //    Toast는 자체 Canvas + SafeAreaFitter를 내장한 독립 오브젝트다.
             //    ToastUI.Awake()가 SetParent(null) + DontDestroyOnLoad를 자동 처리하므로
             //    래퍼 Canvas 없이 씬 루트에 바로 인스턴스화한다.
             InstantiateToastAtSceneRoot(scene);
 
-            // 4) UIManager의 private [SerializeField] 필드 자동 주입
+            // 5) UIManager의 private [SerializeField] 필드 자동 주입
             WireUIManagerReferences(uiManager, confirmPopup, loadingIndicator);
 
-            // 5) 씬 저장
+            // 6) LoginBootstrapper._splashOverlay 자동 주입
+            WireLoginBootstrapperSplashOverlay(scene, splashOverlay);
+
+            // 7) 씬 저장
             EditorSceneManager.MarkSceneDirty(scene);
             bool saved = EditorSceneManager.SaveScene(scene, LoginScenePath);
             if (saved)
@@ -157,6 +182,119 @@ namespace HexiegeEditor
             scaler.matchWidthOrHeight = 1f; // 세로(높이) 기준으로 맞춤.
 
             return canvasGo;
+        }
+
+        /// <summary>
+        /// SplashOverlay 전용 Canvas를 씬 루트에 생성하고, 그 아래에 SplashOverlayView 계층을
+        /// (Background / StatusText / TapToStartText) 구성한다.
+        /// SplashOverlayView의 SerializeField 참조도 자동으로 연결한다.
+        /// </summary>
+        /// <returns>생성된 SplashOverlayView. 항상 non-null을 반환한다.</returns>
+        private static SplashOverlayView CreateSplashOverlay(Scene scene)
+        {
+            // --- SplashOverlay Canvas (씬 루트, SortingOrder 200) ---
+            // UIManager Canvas(100)보다 높은 순서로 배치해 초기화 중에도 항상 최상위에 표시된다.
+            GameObject splashCanvasGo = CreateCanvas("SplashOverlay Canvas", SplashOverlayCanvasSortingOrder);
+            SceneManager.MoveGameObjectToScene(splashCanvasGo, scene);
+
+            // --- SplashOverlay (CanvasGroup + SplashOverlayView) ---
+            // CanvasGroup: alpha / blocksRaycasts 로 페이드아웃 및 입력 제어.
+            // SplashOverlayView: 상태 문구 변경, "Tap to Start" 깜빡임, FadeOut 로직을 담당.
+            GameObject overlayGo = new GameObject("SplashOverlay", typeof(RectTransform));
+            overlayGo.transform.SetParent(splashCanvasGo.transform, false);
+            StretchFull(overlayGo.GetComponent<RectTransform>());
+            CanvasGroup overlayCanvasGroup = overlayGo.AddComponent<CanvasGroup>();
+            SplashOverlayView splashView = overlayGo.AddComponent<SplashOverlayView>();
+
+            // --- Background (Image, 전체화면, RaycastTarget = true) ---
+            // 화면 전체를 덮어 초기화 중 배경 이미지를 표시하고, IPointerClickHandler가
+            // 탭을 수신하려면 이 Image의 RaycastTarget이 켜져 있어야 한다.
+            GameObject bgGo = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            bgGo.transform.SetParent(overlayGo.transform, false);
+            StretchFull(bgGo.GetComponent<RectTransform>());
+            Image bgImage = bgGo.GetComponent<Image>();
+            bgImage.color = new Color(0.07f, 0.07f, 0.07f, 1f); // 기본 어두운 배경색.
+            bgImage.raycastTarget = true;
+
+            // --- StatusText (TextMeshProUGUI, "로딩 중...") ---
+            // 초기화 진행 중 상태 문구를 표시한다. 화면 중앙에 배치한다.
+            GameObject statusGo = new GameObject("StatusText", typeof(RectTransform));
+            statusGo.transform.SetParent(overlayGo.transform, false);
+            TextMeshProUGUI statusText = statusGo.AddComponent<TextMeshProUGUI>();
+            statusText.text = "로딩 중...";
+            statusText.fontSize = 36;
+            statusText.alignment = TextAlignmentOptions.Center;
+            statusText.color = Color.white;
+            RectTransform statusRt = statusGo.GetComponent<RectTransform>();
+            statusRt.anchorMin = new Vector2(0.1f, 0.45f);
+            statusRt.anchorMax = new Vector2(0.9f, 0.55f);
+            statusRt.offsetMin = Vector2.zero;
+            statusRt.offsetMax = Vector2.zero;
+
+            // --- TapToStartText (TextMeshProUGUI, "Tap to Start", alpha=0) ---
+            // ShowTapToStart() 호출 시 alpha 0→1 깜빡임으로 표시된다.
+            // Awake에서 alpha=0으로 초기화되므로, 에디터에서 값을 미리 0으로 설정해도 무방하다.
+            GameObject tapGo = new GameObject("TapToStartText", typeof(RectTransform));
+            tapGo.transform.SetParent(overlayGo.transform, false);
+            TextMeshProUGUI tapText = tapGo.AddComponent<TextMeshProUGUI>();
+            tapText.text = "Tap to Start";
+            tapText.fontSize = 42;
+            tapText.alignment = TextAlignmentOptions.Center;
+            tapText.color = Color.white;
+            tapText.alpha = 0f;
+            RectTransform tapRt = tapGo.GetComponent<RectTransform>();
+            tapRt.anchorMin = new Vector2(0.1f, 0.45f);
+            tapRt.anchorMax = new Vector2(0.9f, 0.55f);
+            tapRt.offsetMin = Vector2.zero;
+            tapRt.offsetMax = Vector2.zero;
+
+            // --- SplashOverlayView Inspector 참조 자동 주입 ---
+            SerializedObject soView = new SerializedObject(splashView);
+            soView.FindProperty("_overlayCanvasGroup").objectReferenceValue = overlayCanvasGroup;
+            soView.FindProperty("_statusText").objectReferenceValue = statusText;
+            soView.FindProperty("_tapToStartText").objectReferenceValue = tapText;
+            soView.ApplyModifiedPropertiesWithoutUndo();
+
+            Debug.Log("[SetupUIManagerInScene] SplashOverlay 계층 생성 및 참조 연결 완료.");
+            return splashView;
+        }
+
+        /// <summary>
+        /// 씬의 LoginBootstrapper를 찾아 _splashOverlay 필드에 생성된 SplashOverlayView를 주입한다.
+        /// LoginBootstrapper가 없으면 경고 로그만 출력하고 넘어간다(개발 중 직접 진입 대비).
+        /// </summary>
+        private static void WireLoginBootstrapperSplashOverlay(Scene scene, SplashOverlayView splashView)
+        {
+            if (splashView == null) return;
+
+            // 씬 전체 루트를 순회하며 LoginBootstrapper 컴포넌트를 탐색한다.
+            LoginBootstrapper bootstrapper = null;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                bootstrapper = root.GetComponentInChildren<LoginBootstrapper>(true);
+                if (bootstrapper != null) break;
+            }
+
+            if (bootstrapper == null)
+            {
+                Debug.LogWarning("[SetupUIManagerInScene] LoginBootstrapper를 씬에서 찾지 못했습니다. " +
+                                 "_splashOverlay 필드를 Inspector에서 수동으로 연결해 주세요.");
+                return;
+            }
+
+            SerializedObject so = new SerializedObject(bootstrapper);
+            SerializedProperty prop = so.FindProperty("_splashOverlay");
+            if (prop != null)
+            {
+                prop.objectReferenceValue = splashView;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                Debug.Log("[SetupUIManagerInScene] LoginBootstrapper._splashOverlay 자동 연결 완료.");
+            }
+            else
+            {
+                Debug.LogWarning("[SetupUIManagerInScene] LoginBootstrapper에서 _splashOverlay 프로퍼티를 " +
+                                 "찾지 못했습니다. Inspector에서 수동으로 연결해 주세요.");
+            }
         }
 
         /// <summary>
