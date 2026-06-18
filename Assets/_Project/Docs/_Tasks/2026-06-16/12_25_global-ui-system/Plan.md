@@ -139,8 +139,7 @@ Canvas
         ├─ Spinner (Image — 회전 아이콘)
         └─ StatusText (TextMeshProUGUI)
     ```
-  - ⚠️ 추출 후 Spinner 오브젝트에 `SpinnerRotator` 컴포넌트 수동 부착 필요
-    (기존 LoadingScreen.cs Update()의 회전 로직 대체)
+  - `Spinner` 자식 오브젝트에 `SpinnerRotator` 컴포넌트 **자동 부착** (에디터 스크립트가 처리)
   - 씬은 변경 폐기(CloseScene true)로 원본 LoadingScreen 보존
 
 ---
