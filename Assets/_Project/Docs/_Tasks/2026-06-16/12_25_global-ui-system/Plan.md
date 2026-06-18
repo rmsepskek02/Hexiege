@@ -7,9 +7,16 @@ Login 씬에서 초기화하는 전역 UIManager로 통합한다.
 동시에 Login 씬에 SplashOverlay UI를 추가하여 초기화 중 배경 이미지를 표시하고,
 완료 후 "Tap to Start" 안내를 거쳐 페이드아웃 후 로그인 화면을 노출한다.
 
+**LoadingIndicator 설계 원칙**:
+로딩의 사유(씬 전환, Firebase 처리, 매칭 대기 등)와 로딩 UI는 분리한다.
+로딩이 필요한 모든 상황은 `UIManager.ShowLoading(true, "메시지")`로 시작하고
+완료되면 `UIManager.ShowLoading(false)`로 끈다.
+기존에 씬 전환용으로 별도 운용되던 `LoadingScreen`은 UIManager로 대체하여 제거한다.
+
 **프리팹 기준 씬** (Inspector에서 가장 완성된 버전):
 - ConfirmPopup → Game.unity
-- ToastUI, LoadingIndicator → Lobby.unity
+- ToastUI → Lobby.unity
+- LoadingIndicator → Lobby.unity의 LoadingScreen(B안: Canvas/LoadingScreen.cs 제거 후 추출)
 
 ---
 
@@ -175,12 +182,11 @@ Toast (씬 루트 — [UI Systems] 밖)
 
 ---
 
-### STEP 7 — ConfirmPopup 직접 참조 → UIManager.ShowConfirm() 전환
+### STEP 7 — 공통 UI 직접 참조 → UIManager 전환
 
-기존에 씬 내 ConfirmPopup을 SerializeField로 직접 참조하던 View들을
-`UIManager.Instance?.ShowConfirm()`으로 전환한다.
+씬 내 공통 UI를 직접 참조하던 View/ViewModel들을 UIManager 경유로 전환한다.
 
-**변경 대상**:
+**ConfirmPopup 직접 참조 → UIManager.ShowConfirm()**:
 
 | 파일 | 필드 | 변경 내용 |
 |--|--|--|
@@ -188,6 +194,21 @@ Toast (씬 루트 — [UI Systems] 밖)
 | `LoginRootView.cs` | `[SerializeField] private ConfirmPopup _confirmPopup` | 필드 제거, `UIManager.Instance?.ShowConfirm(...)` 호출로 교체 |
 | `LoginRootView.cs` | `[SerializeField] private ConfirmPopup _networkErrorPopup` | 필드 제거, `UIManager.Instance?.ShowConfirm(...)` 호출로 교체 |
 | `ProfileView.cs` | `[SerializeField] private ConfirmPopup _alertPopup` | 필드 제거, `UIManager.Instance?.ShowConfirm(...)` 호출로 교체 |
+
+**LoadingScreen.Instance → UIManager.ShowLoading()**:
+
+| 파일 | 변경 내용 |
+|--|--|
+| `BattleViewModel.cs` | `LoadingScreen.Instance?.Show("msg")` → `UIManager.Instance?.ShowLoading(true, "msg")` |
+| `BattleViewModel.cs` | `LoadingScreen.Instance?.Hide()` → `UIManager.Instance?.ShowLoading(false)` |
+
+**IUIManager / UIManager 인터페이스 확장**:
+
+| 항목 | 변경 내용 |
+|--|--|
+| `IUIManager.ShowLoading` | `(bool show)` → `(bool show, string message = "")` |
+| `UIManager._loadingStatusText` | `TextMeshProUGUI` 필드 추가 — Show 시 메시지 반영, Hide 시 초기화 |
+| `LoginBootstrapper.ShowLoading` | `(bool show)` → `(bool show, string message = "")` 동기화 |
 
 ---
 
@@ -201,7 +222,7 @@ Toast (씬 루트 — [UI Systems] 밖)
 **Lobby.unity**:
 - ConfirmPopup GameObject 제거 (프리팹 추출 후)
 - Toast Canvas > ToastUI GameObject 제거 (프리팹 추출 후)
-- LoadingIndicator GameObject 제거 (프리팹 추출 후)
+- **LoadingScreen GameObject 제거** (UIManager.ShowLoading()이 씬 전환 포함 모든 로딩을 담당)
 
 **Game.unity**:
 - ConfirmPopup GameObject 제거 (프리팹 추출 후)
@@ -222,6 +243,10 @@ Toast (씬 루트 — [UI Systems] 밖)
 [변경]
 - Assets/_Project/Scripts/Bootstrap/LoginBootstrapper.cs
 - Assets/_Project/Scripts/Bootstrap/GameBootstrapper.cs
+- Assets/_Project/Scripts/Presentation/UI/Core/IUIManager.cs       (ShowLoading message 파라미터 추가)
+- Assets/_Project/Scripts/Presentation/UI/UIManager.cs             (_loadingStatusText 필드 + ShowLoading 확장)
+- Assets/_Project/Scripts/Presentation/UI/ViewModels/BattleViewModel.cs (LoadingScreen → UIManager 전환)
+- Assets/_Project/Scripts/Presentation/UI/Common/SpinnerRotator.cs (신규 — 회전 컴포넌트)
 
 [씬 수정 — Inspector 작업]
 - Assets/_Project/Scenes/Login.unity  (SplashOverlay + UIManager Canvas 추가, 기존 중복 UI 제거)

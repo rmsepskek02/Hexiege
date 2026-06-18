@@ -255,9 +255,9 @@ namespace Hexiege.Bootstrap
         /// (EmailLoginView 등 기존 호출부가 이 시그니처를 그대로 사용하므로 메서드는 유지한다.)
         /// UIManager.Instance가 null일 수 있는 개발 중 직접 진입 상황을 대비해 ?. 로 안전 처리한다.
         /// </summary>
-        public void ShowLoading(bool show)
+        public void ShowLoading(bool show, string message = "")
         {
-            UIManager.Instance?.ShowLoading(show);
+            UIManager.Instance?.ShowLoading(show, message);
         }
     }
 }

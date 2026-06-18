@@ -37,8 +37,12 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 로딩 인디케이터의 표시 여부를 토글한다.
+        /// Firebase 처리, 씬 전환, 매칭 대기 등 로딩이 필요한 모든 상황에서 사용한다.
+        /// 로딩의 사유와 로딩 UI는 분리되어 있으며, 호출부는 시작/종료 시점만 알린다.
         /// </summary>
         /// <param name="show">true면 표시, false면 숨김.</param>
-        void ShowLoading(bool show);
+        /// <param name="message">로딩 중 표시할 상태 메시지. 빈 문자열이면 이전 메시지 유지.</param>
+        void ShowLoading(bool show, string message = "");
     }
 }
+
