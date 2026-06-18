@@ -7,7 +7,7 @@
 ## 프로젝트 개요
 - 장르: 모바일 1v1 RTS, 헥스 타일맵 기반 공성전 (9:16 세로)
 - 엔진: Unity 6000.0.x (URP), C# 9.0, NGO 2.9.2
-- 씬: Lobby.unity (Build Index 0), Game.unity (Build Index 1)
+- 씬: Login.unity (Build Index 0), Lobby.unity (Build Index 1), Game.unity (Build Index 2)
 - 레이어: Domain → Application → Core → Infrastructure → Presentation → Bootstrap
 
 ---
@@ -23,6 +23,8 @@
 | Assembly Definitions | 없음 — 네임스페이스 규약으로만 레이어 경계 관리 |
 | NGO RPC 메서드명 | 반드시 `ServerRpc`/`ClientRpc`로 끝나야 함 |
 | NGO 설정 | Enable Scene Management = ON 필수 |
+| UIManager | Login 씬에서 1회 생성 → DontDestroyOnLoad. 호출은 항상 `UIManager.Instance?.Method()` null-safe 패턴. Lobby/Game 씬 직접 진입 시 Instance=null 가능 |
+| 공통 UI 호출 | `UIManager.Instance?.ShowConfirm(...)` / `UIManager.Instance?.ShowLoading(bool, string)` — 씬 직접 참조 금지 |
 
 ---
 

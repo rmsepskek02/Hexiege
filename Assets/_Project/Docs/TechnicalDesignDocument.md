@@ -413,6 +413,39 @@ UIAnimator.SlideInFromTop(RectTransform rt, CanvasGroup cg, float offset, float 
 UIAnimator.SlideOutToTop(RectTransform rt, CanvasGroup cg, Action onComplete, float offset, float duration);
 ```
 
+#### UIManager — 전역 공통 UI 싱글톤
+
+`Assets/_Project/Scripts/Presentation/UI/UIManager.cs` — Login 씬에서 1회 생성, DontDestroyOnLoad로 모든 씬에서 유지되는 공통 UI 매니저.
+
+```
+[UI Systems] (Login.unity)
+└─ UIManager (SingletonMonoBehaviour<UIManager> + IUIManager)
+    └─ UIManager Canvas (SortingOrder 100)
+        └─ SafeAreaContainer (SafeAreaFitter)
+            ├─ ConfirmPopup     ← _confirmPopup 연결
+            └─ LoadingIndicator ← _loadingIndicator(CanvasGroup) 연결
+
+SplashOverlay Canvas (씬 루트, SortingOrder 200)
+└─ SplashOverlay (CanvasGroup + SplashOverlayView)
+    ├─ Background (SafeArea 밖 — 전체화면)
+    └─ SafeAreaContainer
+        ├─ StatusText ("로딩 중...")
+        └─ TapToStartText ("Tap to Start")
+
+Toast (씬 루트) ← ToastUI 프리팹, 자체 DontDestroyOnLoad
+```
+
+**외부 호출 패턴** (null-safe — Login 씬 직접 진입 시 Instance=null 가능):
+```csharp
+UIManager.Instance?.ShowConfirm("메시지", onConfirm, onCancel);
+UIManager.Instance?.ShowLoading(true, "로딩 중...");
+UIManager.Instance?.ShowLoading(false);
+```
+
+**LoadingIndicator 설계 원칙**: 로딩 사유(씬 전환/Firebase/매칭 등)와 로딩 UI를 분리. 모든 로딩 상황에 `ShowLoading(bool, string)` 단일 API 사용.
+
+---
+
 #### AnimatedPanel 컴포넌트
 
 `Assets/_Project/Scripts/Presentation/UI/Common/AnimatedPanel.cs` — 패널 GameObject에 부착하여 Show()/Hide() 호출만으로 애니메이션 자동 처리.

@@ -17,6 +17,8 @@
 | **HUD** | 항상 표시되는 인게임 정보 | GameHudUI (골드, 인구, 타이머) |
 | **토스트 알림** | 일시적 피드백 메시지 (자동 사라짐) | ToastUI (구현 완료 — DontDestroyOnLoad 싱글턴, 큐 기반 순차 표시) |
 | **로비 UI** | 로비 씬 탭/서브뷰 전환 | TabBarView, BattleRootView 서브뷰 |
+| **전역 공통 UI** | 씬 전환과 무관하게 항상 사용 가능한 공통 팝업/로딩 | UIManager (ConfirmPopup + LoadingIndicator — Login 씬 1회 생성, DontDestroyOnLoad) |
+| **스플래시 오버레이** | 앱 진입 시 초기화 중 표시, Tap to Start 흐름 | SplashOverlayView (Login 씬 전용, SortingOrder 200) |
 
 ---
 
