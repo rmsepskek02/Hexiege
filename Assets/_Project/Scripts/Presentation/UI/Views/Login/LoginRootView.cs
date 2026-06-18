@@ -72,12 +72,6 @@ namespace Hexiege.Presentation
         [Tooltip("익명 로그인 경고 팝업. 패널 전환 스택과 무관.")]
         [SerializeField] private AnonymousWarningPopup _anonymousWarningPopup;
 
-        [Tooltip("앱 종료 확인 팝업 (ConfirmPopup 재사용).")]
-        [SerializeField] private ConfirmPopup _confirmPopup;
-
-        [Tooltip("네트워크 오류 팝업 (ConfirmPopup 재사용 또는 단순 메시지).")]
-        [SerializeField] private ConfirmPopup _networkErrorPopup;
-
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -217,23 +211,24 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 앱 종료 확인 팝업을 표시한다.
-        /// 기존 ConfirmPopup 을 재사용 — Inspector 에서 _confirmPopup 연결 필수.
+        /// UIManager.ShowConfirm()으로 전역 팝업 사용 — UIManager가 null이면 즉시 종료.
         /// </summary>
         private void ShowQuitConfirm()
         {
-            if (_confirmPopup == null)
+            if (UIManager.Instance == null)
             {
-                Debug.LogWarning("[LoginRootView] _confirmPopup 미연결 — 즉시 종료합니다.");
+                // UIManager 미초기화 상태(씬 직접 진입 등) — 안전을 위해 즉시 종료.
+                Debug.LogWarning("[LoginRootView] UIManager가 없어 즉시 종료합니다.");
                 UnityEngine.Application.Quit();
                 return;
             }
 
-            _confirmPopup.Show(
+            UIManager.Instance.ShowConfirm(
                 message: "앱을 종료하시겠습니까?",
-                confirmLabel: "종료",
-                cancelLabel: "취소",
                 onConfirm: UnityEngine.Application.Quit,
-                onCancel: null);
+                onCancel: null,
+                confirmLabel: "종료",
+                cancelLabel: "취소");
         }
 
         // ====================================================================
@@ -260,18 +255,12 @@ namespace Hexiege.Presentation
         /// </summary>
         public void ShowNetworkErrorPopup()
         {
-            if (_networkErrorPopup == null)
-            {
-                Debug.LogWarning("[LoginRootView] _networkErrorPopup 미연결.");
-                return;
-            }
-
-            _networkErrorPopup.Show(
+            UIManager.Instance?.ShowConfirm(
                 message: "네트워크 설정을 확인하고 다시 시도하세요.",
-                confirmLabel: "확인",
-                cancelLabel: string.Empty,
                 onConfirm: null,
-                onCancel: null);
+                onCancel: null,
+                confirmLabel: "확인",
+                cancelLabel: string.Empty);
         }
 
         // ====================================================================
