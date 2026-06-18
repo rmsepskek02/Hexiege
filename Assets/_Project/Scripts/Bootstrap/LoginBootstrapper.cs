@@ -60,9 +60,10 @@ namespace Hexiege.Bootstrap
         [Tooltip("익명 로그인 경고 팝업.")]
         [SerializeField] private AnonymousWarningPopup _anonymousWarningPopup;
 
-        [Header("로딩 표시")]
-        [Tooltip("자동 로그인 시도 중 표시할 로딩 인디케이터 GameObject.")]
-        [SerializeField] private GameObject _loadingIndicator;
+        [Header("스플래시 오버레이")]
+        [Tooltip("Login 씬 진입 시 표시되는 스플래시 오버레이. " +
+                 "초기화 중 '로딩 중...' → 완료 후 'Tap to Start' → 탭 시 페이드아웃을 담당한다.")]
+        [SerializeField] private SplashOverlayView _splashOverlay;
 
         [Header("씬 전환 설정")]
         [Tooltip("로그인 성공 후 이동할 씬 이름. 기본값: Lobby")]
@@ -103,11 +104,23 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private async void Start()
         {
-            // 사운드 시스템 초기화 — Firebase 초기화보다 먼저 수행하여
-            // Login 씬 진입 직후 곧바로 로그인 BGM이 재생되도록 한다.
-            // AudioManager는 [Audio] 오브젝트에 부착되어 있으며 DontDestroyOnLoad로 이후 씬까지 유지된다.
-            // Instance가 null일 수 있는 개발 중 직접 진입 상황을 대비해 ?. 연산자로 안전 처리한다 (규칙 5).
+            // 1) 스플래시 오버레이에 "로딩 중..." 상태를 가장 먼저 표시한다.
+            //    초기화가 끝날 때까지 배경 이미지 + 상태 문구로 진행 상황을 안내한다.
+            //    개발 중 오버레이 미연결 상황을 대비해 ?. 로 안전 처리한다.
+            _splashOverlay?.SetStatus("로딩 중...");
+
+            // 2) 사운드 시스템 초기화 — Firebase 초기화보다 먼저 수행하여
+            //    Login 씬 진입 직후 곧바로 로그인 BGM이 재생되도록 한다.
+            //    AudioManager는 [Audio] 오브젝트에 부착되어 있으며 DontDestroyOnLoad로 이후 씬까지 유지된다.
+            //    Instance가 null일 수 있는 개발 중 직접 진입 상황을 대비해 ?. 연산자로 안전 처리한다 (규칙 5).
             AudioManager.Instance?.Initialize(_soundConfig);
+
+            // 3) 전역 UIManager 존재 확인(로그용). UIManager는 이 씬의 [UI Systems] 하위에 배치되어
+            //    Awake에서 Instance 등록 + DontDestroyOnLoad 처리된다.
+            //    개발 중 직접 진입 등으로 null일 수 있으므로 경고만 출력하고 진행한다(규칙 5).
+            if (UIManager.Instance == null)
+                Debug.LogWarning("[LoginBootstrapper] UIManager.Instance가 null입니다. " +
+                                 "[UI Systems]에 UIManager가 배치되어 있는지 확인하세요. 공통 UI 호출은 무시됩니다.");
 
             await InitializeAndDispatchAsync();
         }
@@ -125,8 +138,6 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private async Task InitializeAndDispatchAsync()
         {
-            ShowLoading(true);
-
             // 1) Firebase SDK 초기화
             _authService = new FirebaseAuthService();
             bool fbReady = await _authService.InitializeAsync();
@@ -152,15 +163,38 @@ namespace Hexiege.Bootstrap
                 bool autoOk = await _loginUseCase.TryAutoLoginAsync();
                 if (autoOk)
                 {
-                    Debug.Log("[LoginBootstrapper] 자동 로그인 성공. Lobby 씬으로 이동합니다.");
-                    GoToNextScene();
+                    Debug.Log("[LoginBootstrapper] 자동 로그인 성공. 스플래시를 닫고 Lobby 씬으로 이동합니다.");
+                    // 자동 로그인 성공: "Tap to Start"를 거치지 않고 곧바로
+                    // 스플래시 페이드아웃 → 완료 콜백에서 Lobby 씬으로 이동한다.
+                    // 오버레이가 없으면 FadeOut이 즉시 콜백을 호출하므로 흐름이 멈추지 않는다.
+                    if (_splashOverlay != null)
+                        _splashOverlay.FadeOut(GoToNextScene);
+                    else
+                        GoToNextScene();
                     return;
                 }
-                Debug.LogWarning("[LoginBootstrapper] 자동 로그인 실패. 로그인 선택 화면을 표시합니다.");
+                Debug.LogWarning("[LoginBootstrapper] 자동 로그인 실패. 'Tap to Start' 후 로그인 선택 화면을 표시합니다.");
             }
 
-            // 자동 로그인 실패 또는 세션 없음 → 로그인 선택 화면 표시
-            ShowLoading(false);
+            // 5) 자동 로그인 실패 또는 세션 없음
+            //    로그인 선택 화면을 먼저 활성화해 둔다. 이 화면은 스플래시 오버레이(최상위) 뒤에
+            //    가려진 상태로 존재하다가, 사용자가 탭해 오버레이가 페이드아웃되면 자연스럽게 드러난다.
+            //    → SplashOverlayView의 탭 입력은 자체적으로 FadeOut을 수행하므로,
+            //      별도의 완료 콜백 없이도 "탭 → 오버레이 사라짐 → 로그인 화면 노출" 흐름이 성립한다.
+            ShowLoginSelect();
+
+            // "Tap to Start"를 표시해 탭 입력을 허용한다.
+            // 오버레이가 없으면(개발 중 직접 진입 등) 위에서 이미 로그인 화면을 띄웠으므로 추가 동작 불필요.
+            if (_splashOverlay != null)
+                _splashOverlay.ShowTapToStart();
+        }
+
+        /// <summary>
+        /// 로그인 선택 화면을 노출한다.
+        /// 자동 로그인 실패 시 스플래시 뒤에서 미리 활성화해 두는 용도로 사용한다.
+        /// </summary>
+        private void ShowLoginSelect()
+        {
             if (_rootView != null)
                 _rootView.ShowLoginSelect();
         }
@@ -214,12 +248,13 @@ namespace Hexiege.Bootstrap
 
         /// <summary>
         /// 로딩 인디케이터 표시 토글.
-        /// 자동 로그인 / 비동기 요청 중 사용자에게 진행 상황을 안내.
+        /// 로딩 인디케이터는 전역 UIManager로 이동했으므로, 이 메서드는 UIManager에 위임한다.
+        /// (EmailLoginView 등 기존 호출부가 이 시그니처를 그대로 사용하므로 메서드는 유지한다.)
+        /// UIManager.Instance가 null일 수 있는 개발 중 직접 진입 상황을 대비해 ?. 로 안전 처리한다.
         /// </summary>
         public void ShowLoading(bool show)
         {
-            if (_loadingIndicator != null)
-                _loadingIndicator.SetActive(show);
+            UIManager.Instance?.ShowLoading(show);
         }
     }
 }
