@@ -21,7 +21,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using Hexiege.Presentation;
 
-namespace Hexiege.Debug
+namespace Hexiege.DebugTools
 {
     /// <summary>
     /// UIManager ShowConfirm / ShowLoading 임시 테스트 핸들러.
