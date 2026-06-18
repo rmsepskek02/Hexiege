@@ -177,21 +177,24 @@ namespace Hexiege.Bootstrap
             }
 
             // 5) 자동 로그인 실패 또는 세션 없음
-            //    로그인 선택 화면을 먼저 활성화해 둔다. 이 화면은 스플래시 오버레이(최상위) 뒤에
-            //    가려진 상태로 존재하다가, 사용자가 탭해 오버레이가 페이드아웃되면 자연스럽게 드러난다.
-            //    → SplashOverlayView의 탭 입력은 자체적으로 FadeOut을 수행하므로,
-            //      별도의 완료 콜백 없이도 "탭 → 오버레이 사라짐 → 로그인 화면 노출" 흐름이 성립한다.
-            ShowLoginSelect();
-
-            // "Tap to Start"를 표시해 탭 입력을 허용한다.
-            // 오버레이가 없으면(개발 중 직접 진입 등) 위에서 이미 로그인 화면을 띄웠으므로 추가 동작 불필요.
+            //    "Tap to Start"를 표시하고, 사용자가 탭하면 오버레이가 페이드아웃된 뒤
+            //    그 완료 콜백(ShowLoginSelect)으로 로그인 선택 화면을 노출한다.
+            //    → 탭 콜백을 먼저 주입(SetTapCallback)한 다음 ShowTapToStart()를 호출한다.
+            //    오버레이가 없으면(개발 중 직접 진입 등) 곧바로 로그인 선택 화면을 표시한다.
             if (_splashOverlay != null)
+            {
+                _splashOverlay.SetTapCallback(ShowLoginSelect);
                 _splashOverlay.ShowTapToStart();
+            }
+            else
+            {
+                ShowLoginSelect();
+            }
         }
 
         /// <summary>
         /// 로그인 선택 화면을 노출한다.
-        /// 자동 로그인 실패 시 스플래시 뒤에서 미리 활성화해 두는 용도로 사용한다.
+        /// 스플래시 페이드아웃 완료 콜백(탭 이후) 또는 오버레이 미연결 시 직접 호출된다.
         /// </summary>
         private void ShowLoginSelect()
         {
