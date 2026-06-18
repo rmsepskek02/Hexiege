@@ -20,6 +20,7 @@
 
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using Hexiege.Application;
 using Hexiege.Bootstrap;
 
@@ -237,9 +238,10 @@ namespace Hexiege.Presentation
 
         private void Update()
         {
-            // 안드로이드 뒤로가기 = KeyCode.Escape
+            // 안드로이드 뒤로가기 = Escape 키 (New Input System).
             //   Editor 에서 ESC 키로 동일 흐름을 테스트할 수 있다.
-            if (Input.GetKeyDown(KeyCode.Escape))
+            //   Keyboard.current가 null이면 키보드 장치가 없는 환경(모바일 실기 등)이므로 건너뛴다.
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 HandleBack();
             }
