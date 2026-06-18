@@ -56,8 +56,12 @@ namespace HexiegeEditor
         private const string ToastUIPrefabPath          = PrefabDir + "/ToastUI.prefab";
         private const string LoadingIndicatorPrefabPath = PrefabDir + "/LoadingIndicator.prefab";
 
-        /// <summary>LoadingIndicator는 전용 컴포넌트가 없으므로 이 GameObject 이름으로 찾는다.</summary>
-        private const string LoadingIndicatorObjectName = "LoadingIndicator";
+        /// <summary>
+        /// LoadingScreen은 전용 컴포넌트(LoadingScreen.cs)가 있으나,
+        /// Lobby.unity에서 배치된 GameObject 이름이 "LoadingScreen"이므로
+        /// 컴포넌트 타입 대신 이름으로 탐색한다.
+        /// </summary>
+        private const string LoadingIndicatorObjectName = "LoadingScreen";
 
         // ====================================================================
         // 메뉴 진입점

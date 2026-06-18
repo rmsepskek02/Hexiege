@@ -70,10 +70,6 @@ namespace Hexiege.Presentation
         [Tooltip("연동/로그아웃 결과 메시지.")]
         [SerializeField] private TextMeshProUGUI _statusText;
 
-        [Header("팝업 (선택)")]
-        [Tooltip("연동 충돌 등 알림에 재사용할 ConfirmPopup. 미연결 시 _statusText 만 사용.")]
-        [SerializeField] private ConfirmPopup _alertPopup;
-
         [Header("씬 전환")]
         [Tooltip("로그아웃 후 이동할 씬 이름.")]
         [SerializeField] private string _loginSceneName = "Login";
@@ -331,21 +327,22 @@ namespace Hexiege.Presentation
         private void ClearStatus() => SetStatus(string.Empty);
 
         /// <summary>
-        /// 알림 팝업 표시. ConfirmPopup 이 미연결되어 있으면 statusText 로 대체.
+        /// 알림 팝업 표시. UIManager가 없으면 statusText 로 대체.
         /// </summary>
         private void ShowAlert(string message)
         {
-            if (_alertPopup != null)
+            if (UIManager.Instance != null)
             {
-                _alertPopup.Show(
+                UIManager.Instance.ShowConfirm(
                     message: message,
-                    confirmLabel: "확인",
-                    cancelLabel: string.Empty,
                     onConfirm: null,
-                    onCancel: null);
+                    onCancel: null,
+                    confirmLabel: "확인",
+                    cancelLabel: string.Empty);
             }
             else
             {
+                // UIManager 미초기화 상태(씬 직접 진입 등) — statusText로 대체.
                 SetStatus(message);
             }
         }

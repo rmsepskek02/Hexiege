@@ -8,7 +8,7 @@
 //     (AnimatedPanel.SetUpdate(true)가 적용되어 timeScale=0에서도 페이드 애니메이션이 동작)
 //   - 멀티플레이에서는 일시정지 불가 — 다른 플레이어의 진행이 멈출 수 없으므로
 //     timeScale을 건드리지 않는다.
-//   - 포기 버튼 클릭 시 ConfirmPopup으로 사용자 의사 재확인.
+//   - 포기 버튼 클릭 시 UIManager.ShowConfirm()으로 사용자 의사 재확인.
 //   - 포기 확정 시:
 //       싱글: GameEndUseCase.Forfeit() — Red 승리 처리.
 //       멀티: NetworkGameEndController.RequestForfeit() — 서버가 자기 팀을 패배 처리.
@@ -46,9 +46,6 @@ namespace Hexiege.Presentation
 
         [Tooltip("Canvas 직속 공유 Background. 등록된 콜백을 통해 외부 클릭 시 팝업이 닫힘.")]
         [SerializeField] private SharedBackgroundButton _sharedBackground;
-
-        [Tooltip("포기 확정용 확인 팝업. 포기 버튼 클릭 시 이 팝업을 열어 사용자 의사 재확인.")]
-        [SerializeField] private ConfirmPopup _confirmPopup;
 
         [Header("버튼")]
         [Tooltip("팝업 우측 상단의 X 닫기 버튼.")]
@@ -211,9 +208,6 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
-            // 포기 확인 팝업이 떠 있었다면 함께 닫는다 — 잔류 모달 방지.
-            _confirmPopup?.Hide();
-
             // SharedBackground 콜백 해제 — 닫힌 후 외부 클릭이 잘못 트리거되는 것을 막음.
             if (_sharedBackground != null)
                 _sharedBackground.Unregister();
@@ -306,20 +300,13 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnForfeitClicked()
         {
-            if (_confirmPopup == null)
-            {
-                // 확인 팝업이 설정되어 있지 않으면 안전을 위해 동작을 막는다.
-                // (Inspector 미연결 시 의도치 않은 즉시 패배 방지)
-                Debug.LogWarning("[InGameSettingsUI] ConfirmPopup이 연결되지 않아 포기 동작을 수행하지 않습니다.");
-                return;
-            }
-
-            _confirmPopup.Show(
+            // UIManager가 null이면(씬 직접 진입 등) 팝업을 띄우지 않고 안전하게 무시한다.
+            UIManager.Instance?.ShowConfirm(
                 message: "정말 포기하시겠습니까?",
-                confirmLabel: "포기",
-                cancelLabel: "취소",
                 onConfirm: OnForfeitConfirmed,
-                onCancel: null);
+                onCancel: null,
+                confirmLabel: "포기",
+                cancelLabel: "취소");
         }
 
         /// <summary>
