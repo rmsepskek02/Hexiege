@@ -29,6 +29,7 @@
 // Presentation 레이어 — MonoBehaviour 의존. SingletonMonoBehaviour는 Core 레이어.
 // ============================================================================
 
+using TMPro;
 using UnityEngine;
 using Hexiege.Core;
 
@@ -51,6 +52,10 @@ namespace Hexiege.Presentation
         [Tooltip("로딩 인디케이터의 CanvasGroup. alpha/blocksRaycasts로 표시·숨김을 제어한다. " +
                  "SetActive 대신 CanvasGroup을 쓰는 이유: 오브젝트를 항상 active로 유지하기 위함(공통 UI 규칙).")]
         [SerializeField] private CanvasGroup _loadingIndicator;
+
+        [Tooltip("로딩 중 상태 메시지를 표시하는 텍스트. LoadingIndicator 하위의 StatusText를 연결한다. " +
+                 "null이면 메시지 표시 없이 스피너만 보인다.")]
+        [SerializeField] private TextMeshProUGUI _loadingStatusText;
 
         // ====================================================================
         // Unity 생명주기
@@ -102,10 +107,23 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 로딩 인디케이터 표시 여부를 토글한다.
+        /// Firebase 처리, 씬 전환, 매칭 대기 등 로딩 사유에 관계없이 이 메서드 하나로 제어한다.
         /// </summary>
         /// <param name="show">true면 표시, false면 숨김.</param>
-        public void ShowLoading(bool show)
+        /// <param name="message">로딩 중 표시할 상태 메시지. 빈 문자열이면 이전 메시지 유지.</param>
+        public void ShowLoading(bool show, string message = "")
         {
+            // 메시지가 있으면 StatusText에 반영한다.
+            // 숨김(show=false) 시에는 메시지를 굳이 바꾸지 않아도 되지만,
+            // 다음 번 표시 때 이전 메시지가 잠깐 노출되는 것을 막기 위해 초기화한다.
+            if (_loadingStatusText != null)
+            {
+                if (!string.IsNullOrEmpty(message))
+                    _loadingStatusText.text = message;
+                else if (!show)
+                    _loadingStatusText.text = string.Empty;
+            }
+
             ApplyLoadingVisibility(show);
         }
 
