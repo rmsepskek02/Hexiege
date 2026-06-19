@@ -594,6 +594,37 @@ Transform:
   - {fileID: 3183415744006209538}
   m_Father: {fileID: 4476829798257344759}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &6661160657026424649
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8738081101664547822}
+  m_Layer: 0
+  m_Name: VfxSpawnPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8738081101664547822
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6661160657026424649}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0.011}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 693748011012249891}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6860981132355652511
 GameObject:
   m_ObjectHideFlags: 0
@@ -839,7 +870,7 @@ MonoBehaviour:
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
   _attackToWalkBlend: 0.1
-  _vfxSpawnPoint: {fileID: 0}
+  _vfxSpawnPoint: {fileID: 8738081101664547822}
   _rotationSpeed: 270
 --- !u!114 &-4997947105498995162
 MonoBehaviour:
@@ -853,7 +884,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 1732468890
+  GlobalObjectIdHash: 1284350946
   InScenePlacedSourceGlobalObjectIdHash: 1284350946
   DeferredDespawnTick: 0
   Ownership: 1
@@ -987,7 +1018,8 @@ Transform:
   m_LocalPosition: {x: -0.037, y: -0.003, z: 0.043}
   m_LocalScale: {x: 50, y: 50, z: 50}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 8738081101664547822}
   m_Father: {fileID: 3891309718770650774}
   m_LocalEulerAnglesHint: {x: 17.179, y: -56.814, z: 46.259}
 --- !u!33 &504615124492447600
@@ -1057,6 +1089,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5180382956596080338}
   - component: {fileID: 1840816207276764043}
+  - component: {fileID: 745094499064623247}
   m_Layer: 0
   m_Name: Unit_FoxMagician_Red_Mesh
   m_TagString: Untagged
@@ -1103,6 +1136,18 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &745094499064623247
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8888224229729005266}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b74fadfb97679cff2665b8c6c2481eae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.AnimationEventRelay
 --- !u!1 &8979409391686821352
 GameObject:
   m_ObjectHideFlags: 0

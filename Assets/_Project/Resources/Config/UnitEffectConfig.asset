@@ -68,7 +68,7 @@ MonoBehaviour:
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 21
-    attackPreset: {fileID: 0}
+    attackPreset: {fileID: 11400000, guid: b32662a6201b75c49bc2c1fa466d4fdc, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
   - unitType: 22
     attackPreset: {fileID: 0}
