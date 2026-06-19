@@ -99,10 +99,19 @@ NetworkErrorPopup
 | CancelButton 텍스트 이름 | `Text` | `Label` | ✅ 변경 |
 | Text anchor | (0,0) ~ (1,1) stretch | 미확인 | 확인 필요 |
 
-### 5. CloseButton (NetworkErrorPopup 전용 유지)
+### 5. CloseButton (NetworkErrorPopup 전용)
 
-- ConfirmPopup에는 없지만 NetworkErrorPopup에는 필요 → **그대로 유지**
-- RectTransform 변경 불필요 (CloseButton은 Panel 앵커 변경에 따라 상대 위치 자동 조정됨)
+ConfirmPopup에는 없으나 NetworkErrorPopup에만 존재 → 유지.
+
+| 항목 | 값 | 변경 필요 |
+|------|---|----------|
+| AnchorMin | (0.833, 0.867) | — |
+| AnchorMax | (1, 1) | — |
+| AnchoredPosition | (0, 0) | — |
+| SizeDelta | (0, 0) | — |
+| Pivot | (1, 1) 우상단 기준 | — |
+| **LayoutElement** | IgnoreLayout=true (VerticalLayoutGroup 무시용) | ✅ 제거 (VLG 제거 후 불필요) |
+| Image, Button | 있음 | — |
 
 ### 6. 변경 없는 항목
 

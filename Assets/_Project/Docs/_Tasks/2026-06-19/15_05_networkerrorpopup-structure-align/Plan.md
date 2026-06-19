@@ -113,12 +113,16 @@ C# 코드 변경은 없으며, Unity Editor Inspector 작업만으로 완료된�
 
 ---
 
-### STEP 7. CloseButton (변경 없음)
+### STEP 7. CloseButton (LayoutElement 제거만)
 
 **오브젝트**: `NetworkErrorPopup > Panel > CloseButton`
 
-- NetworkErrorPopup 전용 기능 — 유지
-- STEP 1의 Panel Anchor 변경에 따라 상대 위치가 자동 조정되므로 별도 수정 불필요
+| 작업 | 내용 |
+|------|------|
+| 이름 | 유지 (`CloseButton`) |
+| RectTransform | 유지 (anchor 기반 비율 — Panel Anchor 변경 후에도 상대 위치 자동 유지) |
+| LayoutElement 제거 | `IgnoreLayout=true`로 VerticalLayoutGroup 무시용으로 추가된 것 — STEP 1에서 VerticalLayoutGroup 제거 후 불필요 |
+| Image, Button | 유지 |
 
 ---
 
