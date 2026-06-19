@@ -1,0 +1,962 @@
+fileFormatVersion: 2
+guid: 843ef5eb8adab514aac687a21cfa4d11
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 8571422592538303889
+    second: tex_vfx_flame_flipbook_0
+  - first:
+      213: 2099962781181710632
+    second: tex_vfx_flame_flipbook_1
+  - first:
+      213: -3084096604411902864
+    second: tex_vfx_flame_flipbook_2
+  - first:
+      213: -8685567279795581494
+    second: tex_vfx_flame_flipbook_3
+  - first:
+      213: 1566253785129895415
+    second: tex_vfx_flame_flipbook_4
+  - first:
+      213: -8928813192694241023
+    second: tex_vfx_flame_flipbook_5
+  - first:
+      213: -5376244686487476689
+    second: tex_vfx_flame_flipbook_6
+  - first:
+      213: 2760798921064248941
+    second: tex_vfx_flame_flipbook_7
+  - first:
+      213: 855279298289136507
+    second: tex_vfx_flame_flipbook_8
+  - first:
+      213: -1509797667554610247
+    second: tex_vfx_flame_flipbook_9
+  - first:
+      213: -5971538021906027798
+    second: tex_vfx_flame_flipbook_10
+  - first:
+      213: -8793191527572626322
+    second: tex_vfx_flame_flipbook_11
+  - first:
+      213: -8128398979927996396
+    second: tex_vfx_flame_flipbook_12
+  - first:
+      213: 8572207628087359513
+    second: tex_vfx_flame_flipbook_13
+  - first:
+      213: 2033705589791409892
+    second: tex_vfx_flame_flipbook_14
+  - first:
+      213: -4286197606361001032
+    second: tex_vfx_flame_flipbook_15
+  - first:
+      213: 5623928714100423208
+    second: tex_vfx_flame_flipbook_16
+  - first:
+      213: -9215035720389212335
+    second: tex_vfx_flame_flipbook_17
+  - first:
+      213: -6262400197992253223
+    second: tex_vfx_flame_flipbook_18
+  - first:
+      213: 2167750688061680553
+    second: tex_vfx_flame_flipbook_19
+  - first:
+      213: -3306628613570981955
+    second: tex_vfx_flame_flipbook_20
+  - first:
+      213: 4102629710953007327
+    second: tex_vfx_flame_flipbook_21
+  - first:
+      213: -4402818214360304111
+    second: tex_vfx_flame_flipbook_22
+  - first:
+      213: -956328552127525099
+    second: tex_vfx_flame_flipbook_23
+  - first:
+      213: -706279867782579359
+    second: tex_vfx_flame_flipbook_24
+  - first:
+      213: 3183419659532119223
+    second: tex_vfx_flame_flipbook_25
+  - first:
+      213: -7466815612276747769
+    second: tex_vfx_flame_flipbook_26
+  - first:
+      213: -5334122793565265856
+    second: tex_vfx_flame_flipbook_27
+  - first:
+      213: -1363862466978962961
+    second: tex_vfx_flame_flipbook_28
+  - first:
+      213: 3444851414976791253
+    second: tex_vfx_flame_flipbook_29
+  - first:
+      213: -4028653015968357454
+    second: tex_vfx_flame_flipbook_30
+  - first:
+      213: -4809326759512681535
+    second: tex_vfx_flame_flipbook_31
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 1
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 0
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 1
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 100
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 0
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 1024
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_0
+      rect:
+        serializedVersion: 2
+        x: 6
+        y: 897
+        width: 243
+        height: 127
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 19dd0004f6fc3f670800000000000000
+      internalID: 8571422592538303889
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_1
+      rect:
+        serializedVersion: 2
+        x: 23
+        y: 795
+        width: 211
+        height: 215
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 82190edf501942d10800000000000000
+      internalID: 2099962781181710632
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_2
+      rect:
+        serializedVersion: 2
+        x: 266
+        y: 897
+        width: 241
+        height: 127
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0744a018a761335d0800000000000000
+      internalID: -3084096604411902864
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_3
+      rect:
+        serializedVersion: 2
+        x: 281
+        y: 795
+        width: 206
+        height: 216
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: acd470fb39aa67780800000000000000
+      internalID: -8685567279795581494
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_4
+      rect:
+        serializedVersion: 2
+        x: 523
+        y: 898
+        width: 241
+        height: 126
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7f547cae4837cb510800000000000000
+      internalID: 1566253785129895415
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_5
+      rect:
+        serializedVersion: 2
+        x: 537
+        y: 795
+        width: 207
+        height: 219
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 10963a745bb761480800000000000000
+      internalID: -8928813192694241023
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_6
+      rect:
+        serializedVersion: 2
+        x: 767
+        y: 897
+        width: 254
+        height: 127
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: f26255431fdb365b0800000000000000
+      internalID: -5376244686487476689
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_7
+      rect:
+        serializedVersion: 2
+        x: 790
+        y: 793
+        width: 209
+        height: 219
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: d66f05acdf3505620800000000000000
+      internalID: 2760798921064248941
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_8
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 641
+        width: 247
+        height: 128
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: b73f4468dff8edb00800000000000000
+      internalID: 855279298289136507
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_9
+      rect:
+        serializedVersion: 2
+        x: 21
+        y: 538
+        width: 212
+        height: 213
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9b3b1b6450f1c0be0800000000000000
+      internalID: -1509797667554610247
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_10
+      rect:
+        serializedVersion: 2
+        x: 256
+        y: 641
+        width: 254
+        height: 128
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: aea6d81cec5d02da0800000000000000
+      internalID: -5971538021906027798
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_11
+      rect:
+        serializedVersion: 2
+        x: 280
+        y: 535
+        width: 212
+        height: 225
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: e642f0dd4ee48f580800000000000000
+      internalID: -8793191527572626322
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_12
+      rect:
+        serializedVersion: 2
+        x: 513
+        y: 642
+        width: 256
+        height: 127
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4188eb0a130223f80800000000000000
+      internalID: -8128398979927996396
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_13
+      rect:
+        serializedVersion: 2
+        x: 535
+        y: 533
+        width: 213
+        height: 218
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9187a059b6996f670800000000000000
+      internalID: 8572207628087359513
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_14
+      rect:
+        serializedVersion: 2
+        x: 772
+        y: 642
+        width: 252
+        height: 127
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4e64e39757c293c10800000000000000
+      internalID: 2033705589791409892
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_15
+      rect:
+        serializedVersion: 2
+        x: 791
+        y: 535
+        width: 207
+        height: 224
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 8b319bb7cfd5484c0800000000000000
+      internalID: -4286197606361001032
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_16
+      rect:
+        serializedVersion: 2
+        x: 6
+        y: 385
+        width: 250
+        height: 128
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 82a331e5e553c0e40800000000000000
+      internalID: 5623928714100423208
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_17
+      rect:
+        serializedVersion: 2
+        x: 21
+        y: 278
+        width: 212
+        height: 224
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1574aade5dd9d1080800000000000000
+      internalID: -9215035720389212335
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_18
+      rect:
+        serializedVersion: 2
+        x: 261
+        y: 385
+        width: 131
+        height: 128
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9d8f555133c7719a0800000000000000
+      internalID: -6262400197992253223
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_19
+      rect:
+        serializedVersion: 2
+        x: 277
+        y: 281
+        width: 213
+        height: 224
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9ab668bf3c5651e10800000000000000
+      internalID: 2167750688061680553
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_20
+      rect:
+        serializedVersion: 2
+        x: 394
+        y: 385
+        width: 115
+        height: 128
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: dbf85f39bce7c12d0800000000000000
+      internalID: -3306628613570981955
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_21
+      rect:
+        serializedVersion: 2
+        x: 518
+        y: 385
+        width: 248
+        height: 128
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fd841564cf77fe830800000000000000
+      internalID: 4102629710953007327
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_22
+      rect:
+        serializedVersion: 2
+        x: 534
+        y: 287
+        width: 211
+        height: 209
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1163f62492c06e2c0800000000000000
+      internalID: -4402818214360304111
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_23
+      rect:
+        serializedVersion: 2
+        x: 776
+        y: 385
+        width: 248
+        height: 128
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 51f00e9af307ab2f0800000000000000
+      internalID: -956328552127525099
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_24
+      rect:
+        serializedVersion: 2
+        x: 793
+        y: 277
+        width: 205
+        height: 219
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 16b3fc8c33ac236f0800000000000000
+      internalID: -706279867782579359
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_25
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 129
+        width: 513
+        height: 128
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 7bc28695057cd2c20800000000000000
+      internalID: 3183419659532119223
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_26
+      rect:
+        serializedVersion: 2
+        x: 21
+        y: 26
+        width: 205
+        height: 215
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 70257e2f2ca806890800000000000000
+      internalID: -7466815612276747769
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_27
+      rect:
+        serializedVersion: 2
+        x: 278
+        y: 17
+        width: 205
+        height: 231
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 0406a35a49369f5b0800000000000000
+      internalID: -5334122793565265856
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_28
+      rect:
+        serializedVersion: 2
+        x: 511
+        y: 130
+        width: 256
+        height: 127
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: fe12b35ff46921de0800000000000000
+      internalID: -1363862466978962961
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_29
+      rect:
+        serializedVersion: 2
+        x: 538
+        y: 24
+        width: 206
+        height: 227
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5d281bd3c129ecf20800000000000000
+      internalID: 3444851414976791253
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_30
+      rect:
+        serializedVersion: 2
+        x: 767
+        y: 129
+        width: 256
+        height: 128
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2b366eb3d695718c0800000000000000
+      internalID: -4028653015968357454
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: tex_vfx_flame_flipbook_31
+      rect:
+        serializedVersion: 2
+        x: 793
+        y: 33
+        width: 210
+        height: 210
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 1c3577a0bc6d14db0800000000000000
+      internalID: -4809326759512681535
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      tex_vfx_flame_flipbook_0: 8571422592538303889
+      tex_vfx_flame_flipbook_1: 2099962781181710632
+      tex_vfx_flame_flipbook_10: -5971538021906027798
+      tex_vfx_flame_flipbook_11: -8793191527572626322
+      tex_vfx_flame_flipbook_12: -8128398979927996396
+      tex_vfx_flame_flipbook_13: 8572207628087359513
+      tex_vfx_flame_flipbook_14: 2033705589791409892
+      tex_vfx_flame_flipbook_15: -4286197606361001032
+      tex_vfx_flame_flipbook_16: 5623928714100423208
+      tex_vfx_flame_flipbook_17: -9215035720389212335
+      tex_vfx_flame_flipbook_18: -6262400197992253223
+      tex_vfx_flame_flipbook_19: 2167750688061680553
+      tex_vfx_flame_flipbook_2: -3084096604411902864
+      tex_vfx_flame_flipbook_20: -3306628613570981955
+      tex_vfx_flame_flipbook_21: 4102629710953007327
+      tex_vfx_flame_flipbook_22: -4402818214360304111
+      tex_vfx_flame_flipbook_23: -956328552127525099
+      tex_vfx_flame_flipbook_24: -706279867782579359
+      tex_vfx_flame_flipbook_25: 3183419659532119223
+      tex_vfx_flame_flipbook_26: -7466815612276747769
+      tex_vfx_flame_flipbook_27: -5334122793565265856
+      tex_vfx_flame_flipbook_28: -1363862466978962961
+      tex_vfx_flame_flipbook_29: 3444851414976791253
+      tex_vfx_flame_flipbook_3: -8685567279795581494
+      tex_vfx_flame_flipbook_30: -4028653015968357454
+      tex_vfx_flame_flipbook_31: -4809326759512681535
+      tex_vfx_flame_flipbook_4: 1566253785129895415
+      tex_vfx_flame_flipbook_5: -8928813192694241023
+      tex_vfx_flame_flipbook_6: -5376244686487476689
+      tex_vfx_flame_flipbook_7: 2760798921064248941
+      tex_vfx_flame_flipbook_8: 855279298289136507
+      tex_vfx_flame_flipbook_9: -1509797667554610247
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

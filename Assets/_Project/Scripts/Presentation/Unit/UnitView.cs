@@ -1520,23 +1520,9 @@ namespace Hexiege.Presentation
             Quaternion spawnRot = Quaternion.LookRotation(transform.forward);
             EffectManager.Instance?.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot);  // VFX
             AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                    // SFX (규칙 15 — VFX와 짝)
+            }
 
-            StartCoroutine(HitReactionCoroutine());
-        }
-
-        /// <summary>
-        /// 스케일 펀치로 타격감을 표현하는 코루틴.
-        /// 0.85배 축소 → 0.05초 후 원래 크기 복원.
-        /// </summary>
-        private IEnumerator HitReactionCoroutine()
-        {
-            Vector3 originalScale = transform.localScale;
-            transform.localScale = originalScale * 0.85f;
-            yield return new WaitForSeconds(0.05f);
-            transform.localScale = originalScale;
-        }
-
-        // ====================================================================
+            // ====================================================================
         // Walk 애니메이션 — 클라이언트 전용 (NetworkCombatController의 ClientRpc에서 호출)
         // ====================================================================
 
