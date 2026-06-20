@@ -22,6 +22,7 @@
 | `Assets/_Project/Docs/UIGuidelines.md` | UI 가이드라인 |
 | `Assets/_Project/Docs/StatsReference.md` | 유닛/건물 스탯 참조표 |
 | `Assets/_Project/Docs/AuthSystemRules.md` | 로그인/인증 시스템 규칙 |
+| `Assets/_Project/Docs/LogRules.md` | 런타임 로그 파일 작성 규칙 (파일 위치, 형식, 레벨, 금지사항) |
 | `Assets/_Project/Docs/GameSystemRules.md` | 게임 시스템 규칙 인덱스 (세부 규칙은 `GameSystemRules/` 하위 파일 참조) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, 건물 배치 패널, 인게임 설정 메뉴 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동, 전투 진입, 전투 연계 |
