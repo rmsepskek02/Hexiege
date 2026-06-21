@@ -29,8 +29,10 @@
 // Presentation 레이어 — MonoBehaviour 의존. SingletonMonoBehaviour는 Core 레이어.
 // ============================================================================
 
+using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using Hexiege.Core;
 
 namespace Hexiege.Presentation
@@ -57,6 +59,30 @@ namespace Hexiege.Presentation
                  "null이면 메시지 표시 없이 스피너만 보인다.")]
         [SerializeField] private TextMeshProUGUI _loadingStatusText;
 
+        [Header("반투명 배경 오버레이 (BlockingOverlay)")]
+        [Tooltip("모든 팝업이 공유하는 반투명 배경 오버레이의 CanvasGroup. " +
+                 "UIManager Canvas 직속(SafeAreaContainer 바깥)에 배치하여 노치/홈바 영향 없이 전체화면을 덮는다. " +
+                 "규칙 5에 따라 SetActive 대신 alpha/blocksRaycasts로 표시·숨김을 제어한다. " +
+                 "차단이 동작하려면 하위 Image의 Raycast Target=true 이어야 한다.")]
+        [SerializeField] private CanvasGroup _blockingOverlay;
+
+        [Tooltip("BlockingOverlay에 부착된 Button. Popup 모드(터치 시 닫기)에서 onClick에 콜백을 등록한다. " +
+                 "Modal 모드(터치 차단만)에서는 onClick에 아무 리스너도 등록하지 않는다.")]
+        [SerializeField] private Button _blockingOverlayButton;
+
+        // ====================================================================
+        // 내부 상태
+        // ====================================================================
+
+        /// <summary>
+        /// 반투명 배경 오버레이의 중첩 참조 카운터.
+        /// ShowBlockingOverlay 호출마다 +1, HideBlockingOverlay 호출마다 -1.
+        /// 0이 될 때에만 실제로 오버레이를 숨긴다.
+        /// (예: ConfirmPopup이 떠 있는 상태에서 또 다른 모달이 Show되면 2가 되고,
+        ///  하나가 Hide되어도 1이 남아 있으므로 오버레이는 유지된다.)
+        /// </summary>
+        private int _blockingOverlayRefCount;
+
         // ====================================================================
         // Unity 생명주기
         // ====================================================================
@@ -75,6 +101,10 @@ namespace Hexiege.Presentation
 
             // 시작 시 로딩 인디케이터는 항상 숨김 상태로 둔다.
             ApplyLoadingVisibility(false);
+
+            // 시작 시 반투명 배경 오버레이도 숨김 상태로 둔다(참조 카운터=0).
+            _blockingOverlayRefCount = 0;
+            ApplyBlockingOverlayVisibility(false);
         }
 
         // ====================================================================
@@ -127,6 +157,63 @@ namespace Hexiege.Presentation
             ApplyLoadingVisibility(show);
         }
 
+        /// <summary>
+        /// 반투명 배경 오버레이를 표시한다(IUIManager 계약 구현).
+        ///
+        /// 동작:
+        ///   1. 참조 카운터를 1 증가시킨다(중첩 표시 지원).
+        ///   2. onClick 리스너를 항상 먼저 제거한다(이전 모드의 콜백이 남지 않도록).
+        ///   3. Popup 모드(onTap != null)면 onClick에 콜백을 등록한다.
+        ///      Modal 모드(onTap == null)면 리스너 없이 입력만 차단한다.
+        ///   4. CanvasGroup을 표시 상태(alpha=1, 입력 차단)로 만든다.
+        ///
+        /// 주의: 중첩 시 가장 마지막에 등록된 onTap이 현재 오버레이 콜백이 된다.
+        /// 일반적으로 Popup끼리 중첩되지 않으므로(Popup 위에는 Modal만 뜨는 구조) 문제되지 않는다.
+        /// </summary>
+        /// <param name="onTap">터치 콜백. null이면 Modal 모드(입력 차단만).</param>
+        public void ShowBlockingOverlay(Action onTap = null)
+        {
+            // 중첩 표시 횟수를 누적한다.
+            _blockingOverlayRefCount++;
+
+            // 버튼이 연결되어 있으면 이전 리스너를 제거하고 현재 모드에 맞게 다시 등록한다.
+            if (_blockingOverlayButton != null)
+            {
+                _blockingOverlayButton.onClick.RemoveAllListeners();
+
+                // Popup 모드: 터치 시 콜백 실행. Modal 모드: 리스너 없음(입력만 차단).
+                if (onTap != null)
+                    _blockingOverlayButton.onClick.AddListener(() => onTap.Invoke());
+            }
+
+            // 실제 표시는 카운터와 무관하게 항상 "보이는 상태"를 보장하면 된다.
+            ApplyBlockingOverlayVisibility(true);
+        }
+
+        /// <summary>
+        /// 반투명 배경 오버레이를 숨긴다(IUIManager 계약 구현).
+        ///
+        /// 동작:
+        ///   1. 참조 카운터를 1 감소시킨다(0 미만으로는 내려가지 않도록 가드).
+        ///   2. 카운터가 0이 된 경우에만 실제로 오버레이를 숨기고 onClick 리스너를 정리한다.
+        ///   3. 아직 다른 팝업이 오버레이를 사용 중(카운터 > 0)이면 표시 상태를 유지한다.
+        /// </summary>
+        public void HideBlockingOverlay()
+        {
+            // 카운터 언더플로 방지 — 중복 Hide 호출에도 안전하게 동작.
+            if (_blockingOverlayRefCount > 0)
+                _blockingOverlayRefCount--;
+
+            // 아직 오버레이를 사용 중인 팝업이 남아 있으면 숨기지 않는다.
+            if (_blockingOverlayRefCount > 0) return;
+
+            // 마지막 사용자가 닫혔으므로 실제로 숨김 처리 + 콜백 해제.
+            if (_blockingOverlayButton != null)
+                _blockingOverlayButton.onClick.RemoveAllListeners();
+
+            ApplyBlockingOverlayVisibility(false);
+        }
+
         // ====================================================================
         // 내부 로직
         // ====================================================================
@@ -145,6 +232,21 @@ namespace Hexiege.Presentation
             // 로딩 중에는 뒤쪽 UI 입력을 막아 사용자가 중복 조작하지 못하게 한다.
             _loadingIndicator.blocksRaycasts = show;
             _loadingIndicator.interactable = show;
+        }
+
+        /// <summary>
+        /// 반투명 배경 오버레이 CanvasGroup의 가시성을 적용한다.
+        /// SetActive 대신 alpha/blocksRaycasts를 사용해 오브젝트를 항상 active로 유지한다(규칙 5).
+        /// _blockingOverlay가 연결되지 않았으면 아무 동작도 하지 않는다(안전 가드).
+        /// </summary>
+        /// <param name="show">true면 표시(alpha=1, 입력 차단), false면 숨김(alpha=0, 입력 통과).</param>
+        private void ApplyBlockingOverlayVisibility(bool show)
+        {
+            if (_blockingOverlay == null) return;
+
+            _blockingOverlay.alpha = show ? 1f : 0f;
+            _blockingOverlay.blocksRaycasts = show;
+            _blockingOverlay.interactable = show;
         }
     }
 }
