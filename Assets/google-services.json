@@ -12,7 +12,20 @@
           "package_name": "com.gorocompany.hexiege"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "896888428641-jepblfnpm3366dbrdvg5mv0k1dev49d7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.gorocompany.hexiege",
+            "certificate_hash": "d5484adf8e549e2777b8c7b77a9082ec964b3e46"
+          }
+        },
+        {
+          "client_id": "896888428641-8hl0hiov936ccl7mi7gqkrg0h7flgff3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCWO81eQEg5oJLgnbvkNn7WYl03OIaEaPE"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "896888428641-8hl0hiov936ccl7mi7gqkrg0h7flgff3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

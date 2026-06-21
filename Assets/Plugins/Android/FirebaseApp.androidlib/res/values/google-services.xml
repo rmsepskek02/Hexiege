@@ -1,9 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
-<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/gcm_defaultSenderId,@string/google_storage_bucket,@string/project_id,@string/google_api_key,@string/google_crash_reporting_api_key,@string/google_app_id">
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@string/gcm_defaultSenderId,@string/google_storage_bucket,@string/project_id,@string/google_api_key,@string/google_crash_reporting_api_key,@string/google_app_id,@string/default_android_client_id,@string/default_web_client_id">
   <string name="gcm_defaultSenderId" translatable="false">896888428641</string>
   <string name="google_storage_bucket" translatable="false">hexiege.firebasestorage.app</string>
   <string name="project_id" translatable="false">hexiege</string>
   <string name="google_api_key" translatable="false">AIzaSyCWO81eQEg5oJLgnbvkNn7WYl03OIaEaPE</string>
   <string name="google_crash_reporting_api_key" translatable="false">AIzaSyCWO81eQEg5oJLgnbvkNn7WYl03OIaEaPE</string>
   <string name="google_app_id" translatable="false">1:896888428641:android:b3fff4907ca0c08bfcf220</string>
+  <string name="default_android_client_id" translatable="false">896888428641-jepblfnpm3366dbrdvg5mv0k1dev49d7.apps.googleusercontent.com</string>
+  <string name="default_web_client_id" translatable="false">896888428641-8hl0hiov936ccl7mi7gqkrg0h7flgff3.apps.googleusercontent.com</string>
 </resources>
