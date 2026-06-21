@@ -146,21 +146,27 @@ void HideBlockingOverlay();
 
 ---
 
-### [10] 씬 수정 (에디터 스크립트 또는 Inspector 직접)
+### [10] 씬 수정 — 에디터 스크립트 자동화
 
-**Login.unity:**
-- `SafeAreaContainer > NetworkErrorPopup > BlockingOverlay`: Image enabled=false (테스트 통과 후 삭제)
-- `SafeAreaContainer > AnonymousWarningPopup > BlockingOverlay`: 동일
+파일: `Assets/Editor/Setup/MigrateBlockingOverlayToUIManager.cs`
+메뉴: `Hexiege > Setup > BlockingOverlay UIManager 씬 마이그레이션 실행`
 
-**UIManager Canvas (Login.unity 내 [UI Systems] 하위):**
-- `UIManager Canvas` 직속에 `BlockingOverlay` GameObject 추가
-- 구성: Image(color=0,0,0,0.6 / raycastTarget=true) + Button + CanvasGroup(alpha=0, interactable=false, blocksRaycasts=false)
-- RectTransform: anchorMin=(0,0), anchorMax=(1,1), offset=(0,0)
+**[Login.unity] 자동 처리:**
+- `UIManager Canvas` 직속에 `BlockingOverlay` GameObject 생성
+  - Image(color=0,0,0,0.6 / raycastTarget=true) + Button + CanvasGroup(alpha=0 / blocksRaycasts=false / interactable=false)
+  - RectTransform: anchorMin=(0,0), anchorMax=(1,1), offset=(0,0)
+  - sibling index=0 (SafeAreaContainer보다 먼저 렌더링)
+- UIManager 컴포넌트의 `_blockingOverlay`(CanvasGroup) / `_blockingOverlayButton`(Button) 필드 자동 연결
+- 씬 자동 저장
 
-**Game.unity:**
-- `RematchRequestPopup > Overlay` GameObject: 비활성화 (m_IsActive=0, 테스트 통과 후 삭제)
-- `Canvas > Background` (SharedBackgroundButton 부착): 비활성화 (테스트 통과 후 삭제)
-- `SharedBackgroundButton` 참조 Inspector 연결 해제
+**[Game.unity] 자동 처리:**
+- `RematchRequestPopup > Overlay` Image의 `raycastTarget = false` 설정
+  (코드에서 참조 제거됨 — 터치 차단 역할 불필요)
+- 씬 자동 저장
+
+**[확인 필요 — 자동화 미포함]:**
+- `Canvas > Background` (SharedBackgroundButton 부착): 이미 `m_IsActive: 0` 확인됨 → 별도 처리 불필요
+- Lobby.unity: `GameUIManager`만 존재, `UIManager`는 DontDestroyOnLoad로 Login에서 인계 → 별도 처리 불필요
 
 ---
 
