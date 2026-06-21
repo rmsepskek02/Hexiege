@@ -3067,7 +3067,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.BuildingPlacementUI
   _popup: {fileID: 227464725}
-  _sharedBackground: {fileID: 543183966}
   _buildingButtons:
   - {fileID: 1650815866}
   - {fileID: 261378706}
@@ -4557,7 +4556,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.BuildingActionPanelUI
   _popup: {fileID: 291771321}
-  _sharedBackground: {fileID: 543183966}
   _headerText: {fileID: 4192435}
   _cancelButton: {fileID: 2030508639}
   _demolishButton: {fileID: 1350056422}
@@ -7783,7 +7781,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
   m_Color: {r: 0, g: 0, b: 0, a: 0.6}
-  m_RaycastTarget: 1
+  m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
@@ -22578,7 +22576,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.InGameSettingsUI
   _panel: {fileID: 697420766}
-  _sharedBackground: {fileID: 543183966}
   _closeButton: {fileID: 304874442}
   _soundButton: {fileID: 307988811}
   _forfeitButton: {fileID: 1331427701}
@@ -24834,7 +24831,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.ProductionPanelUI
   _popup: {fileID: 1959302711}
-  _sharedBackground: {fileID: 543183966}
   _headerText: {fileID: 1559220614}
   _cancelButton: {fileID: 450248397}
   _demolishButton: {fileID: 491620642}
@@ -28457,7 +28453,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d26ab2269c84ef641957a86f95840bd0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.RematchRequestPopup
-  _overlay: {fileID: 521859033}
   _requestPanel: {fileID: 2029320046}
   _acceptButton: {fileID: 1627294650}
   _declineButton: {fileID: 975996728}
