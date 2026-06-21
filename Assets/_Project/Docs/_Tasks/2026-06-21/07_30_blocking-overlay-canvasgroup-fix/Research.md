@@ -18,29 +18,32 @@
 ### 관련 파일
 - `Assets/_Project/Scenes/Login.unity`
 - `Assets/_Project/Scripts/Presentation/UI/ConfirmPopup.cs`
+- `Assets/_Project/Scripts/Presentation/UI/Views/Login/AnonymousWarningPopup.cs`
 
 ### 버그 원인 (단계별)
 
-**1. `NetworkErrorPopup`이 씬에서 항상 활성화 상태로 시작**
+**1. `NetworkErrorPopup` / `AnonymousWarningPopup`이 씬에서 항상 활성화 상태로 시작**
 
 Login.unity 씬 계층:
 ```
 SafeAreaContainer
 ├─ LoginRoot
-├─ AnonymousWarningPopup
+├─ AnonymousWarningPopup  ← m_IsActive: 1 (항상 활성)
+│   ├─ BlockingOverlay  ← m_IsActive: 1, Image color (0,0,0,0.6)
+│   └─ Panel (AnimatedPanel)
 └─ NetworkErrorPopup  ← m_IsActive: 1 (항상 활성)
     ├─ BlockingOverlay  ← m_IsActive: 1, Image color (0,0,0,0.6)
     └─ Panel (AnimatedPanel)
 ```
 
-**2. `BlockingOverlay`에 CanvasGroup이 없음**
+**2. 두 팝업 모두 `BlockingOverlay`에 CanvasGroup이 없음**
 
-`ConfirmPopup.cs`의 `_blockingOverlay` 필드는 `CanvasGroup` 타입:
+`ConfirmPopup.cs` / `AnonymousWarningPopup.cs`의 `_blockingOverlay` 필드는 모두 `CanvasGroup` 타입:
 ```csharp
 [SerializeField] private CanvasGroup _blockingOverlay;
 ```
 
-하지만 씬의 `BlockingOverlay` GameObject 컴포넌트 목록:
+하지만 두 팝업의 `BlockingOverlay` GameObject 컴포넌트 목록:
 - RectTransform
 - CanvasRenderer
 - Image (color: r=0, g=0, b=0, **a=0.6**)
@@ -51,7 +54,7 @@ SafeAreaContainer
 **3. `SplashOverlay`가 덮고 있어서 Tap 전에는 보이지 않음**
 
 `SplashOverlay Canvas`는 Sort Order 200으로 모든 UI 위에 렌더링된다.
-Tap 후 SplashOverlay가 페이드아웃되면, 그 아래에 항상 존재하던 검정 반투명 Image가 드러난다.
+Tap 후 SplashOverlay가 페이드아웃되면, 그 아래에 항상 존재하던 검정 반투명 Image들이 드러난다.
 
 **4. `AnimatedPanel`(`_panel`)은 정상적으로 숨겨짐**
 
@@ -61,7 +64,7 @@ Tap 후 SplashOverlay가 페이드아웃되면, 그 아래에 항상 존재하�
 ### 관련 코드 동작 흐름
 
 ```
-ConfirmPopup.Hide() 호출 시:
+ConfirmPopup.Hide() / AnonymousWarningPopup.Hide() 호출 시:
   _blockingOverlay?.alpha = 0f     ← _blockingOverlay가 null이므로 실행 안 됨
   _blockingOverlay?.blocksRaycasts = false  ← 동일
   _panel.Hide()                    ← AnimatedPanel은 정상 동작
@@ -71,6 +74,6 @@ ConfirmPopup.Hide() 호출 시:
 
 ## 영향 범위
 
-- Login 씬 `NetworkErrorPopup` 오브젝트만 해당
+- Login 씬의 `NetworkErrorPopup`, `AnonymousWarningPopup` 두 오브젝트 모두 해당
 - 다른 씬의 ConfirmPopup은 UIManager 소속으로 별도 관리됨 (영향 없음)
-- `ConfirmPopup.cs` 코드 자체는 수정 불필요 — 씬 Inspector 수정으로 해결 가능
+- `ConfirmPopup.cs` / `AnonymousWarningPopup.cs` 코드 자체는 수정 불필요 — 씬 Inspector 수정으로 해결 가능
