@@ -25,6 +25,17 @@
 
 ## 최근 작업
 
+### BlockingOverlay UIManager 단일 소유 통합 (2026-06-21) — 코드 완료, 씬/실기 테스트 대기
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-21/07_30_blocking-overlay-canvasgroup-fix/Plan.md`
+**핵심**: 각 팝업이 개별 소유하던 반투명 배경 오버레이를 UIManager 단일 소유로 통합 (SafeArea 갇힘 문제 해결).
+- `IUIManager`: `ShowBlockingOverlay(System.Action onTap = null)` + `HideBlockingOverlay()` 추가.
+- `UIManager`: `_blockingOverlay`(CanvasGroup) + `_blockingOverlayButton`(Button) 필드. Modal(onTap=null, 입력 차단만) / Popup(onTap!=null, 터치 시 콜백) 2모드. **중첩은 `_blockingOverlayRefCount` 참조 카운터**로 관리 — 0일 때만 실제 숨김. 카운터 언더플로 가드 있음(`if(>0)`).
+- 호출부(Modal): ConfirmPopup, AnonymousWarningPopup, RematchRequestPopup. (Popup): InGameSettingsUI, BuildingPlacementUI, BuildingPanelBase(=ProductionPanelUI/BuildingActionPanelUI 상속).
+- **RematchRequestPopup 주의**: 요청→거절 패널 전환 시 ShowRequest 후 ShowDeclined가 둘 다 +1 하면 Hide 1회로 카운터 0 안됨 → `_overlayShown` bool 가드 + `ShowOverlayOnce()`/`HideOverlayOnce()` 헬퍼로 항상 0/1만 점유.
+- 기존 로직(`_blockingOverlay`/`_sharedBackground`/`_overlay`/`_overlayCg`/`_overlayFade`)은 삭제 금지, 전부 주석 처리(`[구로직 — 테스트 통과 후 삭제]`)로 보존.
+- 씬 작업([10])은 별도(.unity Inspector): UIManager Canvas 직속 BlockingOverlay GameObject 생성 필요 — 이번 코드 작업 범위 외.
+- 규칙 문서: `GameSystemRules_UI.md` 공통 규칙 4(SafeArea)/5(CanvasGroup)에 BlockingOverlay 단일 소유 패턴 명문화.
+
 ### 전역 UIManager + SplashOverlayView (2026-06-16) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-16/12_25_global-ui-system/`

@@ -43,6 +43,33 @@ namespace Hexiege.Presentation
         /// <param name="show">true면 표시, false면 숨김.</param>
         /// <param name="message">로딩 중 표시할 상태 메시지. 빈 문자열이면 이전 메시지 유지.</param>
         void ShowLoading(bool show, string message = "");
+
+        /// <summary>
+        /// 반투명 배경 오버레이(BlockingOverlay)를 표시한다.
+        ///
+        /// 이 오버레이는 UIManager가 단일 소유하며, 팝업이 직접 소유하지 않는다.
+        /// (근거: GameSystemRules_UI.md 공통 규칙 4 — 전체화면 요소는 SafeAreaContainer 밖에 둔다.
+        ///        공통 규칙 5 — 표시/숨김은 CanvasGroup으로 제어한다.)
+        ///
+        /// 두 가지 모드로 동작한다.
+        ///   - Modal 모드 (onTap == null): 뒤쪽 입력만 차단한다. 오버레이를 터치해도 아무 일도 일어나지 않는다.
+        ///     (예: ConfirmPopup, AnonymousWarningPopup, RematchRequestPopup — 명시적 버튼으로만 닫힘)
+        ///   - Popup 모드 (onTap != null): 오버레이를 터치하면 등록된 콜백(보통 팝업 닫기)이 실행된다.
+        ///     (예: InGameSettingsUI, BuildingPlacementUI — 바깥을 탭하면 닫힘)
+        ///
+        /// 중첩 호출(이미 표시된 상태에서 다시 Show)은 참조 카운터로 누적 관리한다.
+        /// HideBlockingOverlay()가 마지막 1건까지 모두 호출되어 카운터가 0이 될 때에만 실제로 숨겨진다.
+        /// </summary>
+        /// <param name="onTap">
+        /// 오버레이 터치 시 실행할 콜백. null이면 Modal 모드(입력 차단만), 값이 있으면 Popup 모드(터치 시 콜백 실행).
+        /// </param>
+        void ShowBlockingOverlay(System.Action onTap = null);
+
+        /// <summary>
+        /// 반투명 배경 오버레이(BlockingOverlay)를 숨긴다.
+        /// 중첩 표시 중이라면 참조 카운터를 1 감소시키고, 카운터가 0이 될 때에만 실제로 숨김 처리한다.
+        /// </summary>
+        void HideBlockingOverlay();
     }
 }
 

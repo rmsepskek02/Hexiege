@@ -49,9 +49,11 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 래퍼 (AnimatedPanel 부착, Show()/Hide()로 토글)")]
         [SerializeField] private AnimatedPanel _popup;
 
-        [Header("Shared Background")]
-        [Tooltip("Canvas 직속 공유 Background (터치 시 팝업 닫기)")]
-        [SerializeField] private SharedBackgroundButton _sharedBackground;
+        // [2026-06-21] SharedBackgroundButton → UIManager.ShowBlockingOverlay(Popup 모드)로 통합.
+        //   테스트 통과 후 삭제 예정.
+        // [Header("Shared Background")]
+        // [Tooltip("Canvas 직속 공유 Background (터치 시 팝업 닫기)")]
+        // [SerializeField] private SharedBackgroundButton _sharedBackground;
 
         [Header("Dynamic Building Buttons")]
 [Tooltip("건물 배치 버튼 리스트")]
@@ -294,7 +296,9 @@ namespace Hexiege.Presentation
             }
 
             _popup?.Show();
-            _sharedBackground?.Register(Close);
+            // [2026-06-21] UIManager 공유 BlockingOverlay를 Popup 모드로 표시(터치 시 Close 호출).
+            UIManager.Instance?.ShowBlockingOverlay(Close);
+            // [구로직 — 테스트 통과 후 삭제] _sharedBackground?.Register(Close);
 
             // 팝업이 열리는 순간 현재 보유 골드를 기준으로 비용 텍스트 색상을 즉시 평가.
             // (살 수 없는 건물의 비용은 빨간색, 살 수 있는 건물은 흰색으로 표시)
@@ -447,8 +451,9 @@ namespace Hexiege.Presentation
                 }
             }
 
-            // 공유 Background 콜백 해제 (Hide 애니메이션 중 추가 터치 방지)
-            _sharedBackground?.Unregister();
+            // [2026-06-21] UIManager 공유 BlockingOverlay 숨김.
+            UIManager.Instance?.HideBlockingOverlay();
+            // [구로직 — 테스트 통과 후 삭제] _sharedBackground?.Unregister();
 
             _popup?.Hide();
         }

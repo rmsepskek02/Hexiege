@@ -73,6 +73,9 @@ SafeAreaContainer에는 SafeAreaFitter 컴포넌트를 부착하여 Safe Area �
 - 실제 UI 요소(팝업, HUD 등)는 전부 SafeAreaContainer 안에 배치한다.
 - 전체화면을 채워야 하는 배경 요소는 SafeAreaContainer 밖(Canvas 직속)에 배치한다.
 - 독립 Canvas를 가진 UI(ToastUI 등)는 해당 Canvas에도 SafeAreaFitter를 적용한다.
+- **반투명 배경 오버레이(BlockingOverlay)도 전체화면 배경과 동일하게 SafeAreaContainer 밖(UIManager Canvas 직속)에 두어야 한다.**
+  팝업 컴포넌트가 직접 소유하지 않고, `UIManager.ShowBlockingOverlay()` / `HideBlockingOverlay()`를 통해 제어한다.
+  (각 팝업이 SafeAreaContainer 안에 개별 오버레이를 소유하면 노치/홈바 영역이 가려지지 않는 구조적 문제가 발생하므로, UIManager가 단일 소유한다.)
 
 **전체화면 배경 오브젝트 구현 방법**
 
@@ -103,6 +106,14 @@ SetActive(false)를 사용하면 두 가지 문제가 발생한다.
 - DOTween 애니메이션이 진행 중인 오브젝트를 SetActive(false)로 비활성화하면 Tween 시퀀스가 강제 중단되고, 이후 Show() 호출 시 초기화 타이밍이 꼬일 수 있다.
 - `AnimatedPanel` 컴포넌트가 붙은 오브젝트는 **항상 active 상태로 유지**한다. `EnsureInitialized()`에서 CanvasGroup을 `alpha=0 / blocksRaycasts=false / interactable=false`로 초기 설정하여 시각적으로 숨긴다.
 - 배경 오버레이(`_backgroundOverlay`)도 GameObject는 항상 active 상태 유지. Show() 시 `alpha=1 / blocksRaycasts=true / interactable=true`, Hide() 시 `alpha=0 / false / false`로 즉시 전환한다.
+
+**반투명 배경 오버레이(BlockingOverlay) 단일 소유 패턴**:
+- 반투명 배경 오버레이는 **UIManager가 단일 소유**한다. 개별 팝업이 자체 오버레이를 들고 있지 않으며, `UIManager.ShowBlockingOverlay(onTap)` / `UIManager.HideBlockingOverlay()`로만 제어한다.
+- 두 가지 모드로 구분한다.
+  - **Modal 모드** — `ShowBlockingOverlay()` (콜백 없음): 뒤쪽 입력만 차단한다. 오버레이를 터치해도 닫히지 않는다. (ConfirmPopup, AnonymousWarningPopup, RematchRequestPopup)
+  - **Popup 모드** — `ShowBlockingOverlay(() => Close())` (콜백 있음): 오버레이를 터치하면 등록된 콜백(팝업 닫기)이 실행된다. (InGameSettingsUI, BuildingPlacementUI, 생산/건물 패널)
+- 팝업이 중첩될 수 있으므로 UIManager는 **참조 카운터**로 표시 횟수를 누적 관리한다. `HideBlockingOverlay()`가 호출되어 카운터가 0이 될 때에만 실제로 숨겨진다.
+- 호출은 항상 null-safe 패턴 `UIManager.Instance?.ShowBlockingOverlay(...)`를 사용한다 (씬 직접 진입 시 Instance가 null일 수 있음).
 
 ---
 
