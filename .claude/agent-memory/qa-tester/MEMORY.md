@@ -360,6 +360,34 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 
 ---
 
+## BlockingOverlay UIManager 통합 QA (2026-06-21) — CONDITIONAL PASS
+
+### 종합 판정: CONDITIONAL PASS (Inspector 연결 미확인)
+
+### 핵심 구현 패턴 (이후 유사 작업 참조)
+- UIManager 단일 소유: `_blockingOverlay(CanvasGroup)` + `_blockingOverlayButton(Button)`
+- 참조 카운터(`_blockingOverlayRefCount`): 중첩 Show 지원, HideOverlay가 0이 될 때만 실제 숨김
+- 두 모드: Modal(onTap=null) vs Popup(onTap=콜백), Button.onClick으로 분기
+- RematchRequestPopup 전용 패턴: `_overlayShown` bool로 ShowOverlayOnce/HideOverlayOnce — 팝업 전환 시 중복 +1 방지
+
+### 발견된 잠재 문제 (Minor)
+- BUG-001: `BuildingPlacementUI.Show()`에서 `_popup?.Show()` 이후 `UIManager.Instance?.ShowBlockingOverlay(Close)` 호출 순서 — 팝업이 먼저 나타난 직후 오버레이 표시. `InGameSettingsUI.Show()`는 반대 순서(오버레이 먼저). 기능 차이는 없으나 순서 불일치.
+- BUG-002: `BuildingPanelBase.Show()`도 `_popup?.Show()` 이후 `ShowBlockingOverlay` 호출. `ConfirmPopup.Show()`와 `InGameSettingsUI.Show()`와 순서 불일치.
+- BUG-003: `SharedBackgroundButton.cs` 파일 자체는 테스트 통과 전이므로 아직 존재(정상). 그러나 Lobby씬/Game씬 프리팹에서 SharedBackgroundButton 컴포넌트가 완전히 제거됐는지는 Inspector 레벨에서만 확인 가능.
+- `BuildingPlacementUI.cs` line 468 주석이 과거 SharedBackgroundButton 언급 — 코드 주석 일관성 Minor 이슈.
+
+### ShowBlockingOverlay 호출 순서 패턴 (확인 필요)
+- 권장 순서: ShowBlockingOverlay 먼저 → 팝업 패널 Show. (오버레이가 먼저 표시돼야 팝업 아래에 정확히 배치됨)
+- ConfirmPopup, InGameSettingsUI: 오버레이 먼저 호출 (올바름)
+- BuildingPlacementUI, BuildingPanelBase: 팝업 Show 먼저 → 오버레이 나중 (Minor 불일치)
+
+### 에디터 스크립트 주의점
+- `MigrateBlockingOverlayToUIManager.cs`: Login.unity만 BlockingOverlay 생성, Game.unity는 RematchOverlay RaycastTarget만 비활성화
+- `SetSiblingIndex(0)`: BlockingOverlay를 SafeAreaContainer보다 Hierarchy 위에 배치 → 팝업보다 뒤에 렌더링 (올바름)
+
+### task 문서
+분석 대상: `Assets/_Project/Docs/_Tasks/` 내 해당 날짜 폴더
+
 ## 참고 파일
 - [patterns.md](patterns.md) — 버그 패턴 상세
 - [qa_history.md](qa_history.md) — 완료된 QA 상세 내역 (생산시스템/DOTween/카메라/재경기/로비/로딩/랜덤매칭)
