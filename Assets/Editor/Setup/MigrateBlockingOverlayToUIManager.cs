@@ -1,98 +1,294 @@
 // ============================================================================
 // MigrateBlockingOverlayToUIManager.cs
-// UIManager 단일 소유 BlockingOverlay 마이그레이션 안내 에디터 스크립트.
+// UIManager 단일 소유 BlockingOverlay 씬 마이그레이션 에디터 스크립트.
 //
 // 목적:
-//   각 씬에서 UIManager Canvas에 BlockingOverlay GameObject를 추가하는
-//   Inspector 작업 가이드를 제공한다.
-//   자동화 불가 항목(씬 열기 / Inspector 연결)은 체크리스트로 안내한다.
+//   Login.unity에서 UIManager Canvas 직속에 BlockingOverlay GameObject를 생성하고
+//   UIManager 컴포넌트의 _blockingOverlay / _blockingOverlayButton 필드를 자동 연결한다.
+//   Game.unity에서 RematchRequestPopup > Overlay Image의 RaycastTarget을 비활성화한다.
 //
 // 사용 방법:
-//   메뉴: Hexiege > Setup > BlockingOverlay UIManager 마이그레이션 가이드
+//   메뉴: Hexiege > Setup > BlockingOverlay UIManager 씬 마이그레이션 실행
 //
-// ⚠️  씬 직접 수정은 하지 않는다 — 씬 파일 자동 저장 시 예기치 않은 충돌이
-//      발생할 수 있으므로 Inspector를 통해 수동으로 진행한다.
+// ⚠️  실행 전 씬을 저장해두는 것을 권장한다 (Ctrl+S).
+//      이 스크립트는 Login.unity와 Game.unity를 열고 수정한 뒤 저장한다.
+//      현재 열린 씬의 저장되지 않은 변경 사항이 있으면 실행 전 확인 다이얼로그가 뜬다.
 // ============================================================================
 
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UI;
+using System.Linq;
 
 namespace Hexiege.Editor.Setup
 {
-    /// <summary>
-    /// BlockingOverlay를 UIManager로 마이그레이션하기 위한 Inspector 작업 가이드.
-    /// </summary>
     public static class MigrateBlockingOverlayToUIManager
     {
+        // 씬 경로
+        private const string LoginScenePath = "Assets/_Project/Scenes/Login.unity";
+        private const string GameScenePath  = "Assets/_Project/Scenes/Game.unity";
+
+        // Login 씬에서 찾을 오브젝트 이름
+        private const string UIManagerCanvasName  = "UIManager Canvas";
+        private const string BlockingOverlayName  = "BlockingOverlay";
+        private const string UIManagerObjectName  = "UIManager";
+
+        // Game 씬에서 찾을 오브젝트 이름
+        private const string RematchPopupName     = "RematchRequestPopup";
+        private const string OverlayName          = "Overlay";
+
         // ====================================================================
         // 메뉴 항목
         // ====================================================================
 
-        [MenuItem("Hexiege/Setup/BlockingOverlay UIManager 마이그레이션 가이드")]
-        private static void ShowMigrationGuide()
+        [MenuItem("Hexiege/Setup/BlockingOverlay UIManager 씬 마이그레이션 실행")]
+        private static void RunMigration()
         {
-            // 에디터 다이얼로그로 체크리스트 표시
-            string guide = BuildGuideText();
-            EditorUtility.DisplayDialog(
-                "BlockingOverlay UIManager 마이그레이션 가이드",
-                guide,
-                "확인"
+            bool confirmed = EditorUtility.DisplayDialog(
+                "BlockingOverlay UIManager 마이그레이션",
+                "Login.unity와 Game.unity를 열고 아래 작업을 자동으로 수행합니다.\n\n" +
+                "[Login.unity]\n" +
+                "• UIManager Canvas 직속에 BlockingOverlay 생성\n" +
+                "• UIManager의 _blockingOverlay / _blockingOverlayButton 필드 연결\n\n" +
+                "[Game.unity]\n" +
+                "• RematchRequestPopup > Overlay Image의 RaycastTarget 비활성화\n\n" +
+                "계속하시겠습니까?",
+                "실행", "취소"
             );
 
-            // 콘솔에도 출력 (복사/참조용)
-            Debug.Log("[MigrateBlockingOverlayToUIManager]\n" + guide);
+            if (!confirmed) return;
+
+            // 현재 열린 씬 저장 여부 확인
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+
+            bool loginOk = MigrateLoginScene();
+            bool gameOk  = MigrateGameScene();
+
+            string result =
+                $"[Login.unity] {(loginOk ? "✓ 완료" : "✗ 실패 — 콘솔 로그 확인")}\n" +
+                $"[Game.unity]  {(gameOk  ? "✓ 완료" : "✗ 실패 — 콘솔 로그 확인")}";
+
+            EditorUtility.DisplayDialog("마이그레이션 결과", result, "확인");
+            Debug.Log($"[MigrateBlockingOverlayToUIManager] 완료\n{result}");
         }
 
         // ====================================================================
-        // 가이드 텍스트 빌드
+        // Login.unity 마이그레이션
         // ====================================================================
 
-        private static string BuildGuideText()
+        private static bool MigrateLoginScene()
         {
-            return
-                "=== UIManager BlockingOverlay 마이그레이션 체크리스트 ===\n\n" +
+            // 씬 열기
+            var scene = EditorSceneManager.OpenScene(LoginScenePath, OpenSceneMode.Single);
+            if (!scene.IsValid())
+            {
+                Debug.LogError($"[Migration] Login.unity를 열 수 없습니다: {LoginScenePath}");
+                return false;
+            }
 
-                "[ 공통 — UIManager 설정 ]\n" +
-                "□ UIManager가 위치한 Canvas의 직속 자식으로 'BlockingOverlay' GameObject를 추가한다.\n" +
-                "  - Canvas > (Inspector) Sort Order = 100 이상으로 설정\n" +
-                "  - RectTransform: anchorMin=(0,0) anchorMax=(1,1) offsetMin=offsetMax=(0,0)\n" +
-                "  - Image 컴포넌트 추가: Color=(0,0,0,0.5), Raycast Target=true\n" +
-                "  - CanvasGroup 컴포넌트 추가: alpha=0, blocksRaycasts=false, interactable=false\n" +
-                "  - Button 컴포넌트 추가 (터치 닫기 Popup 모드용)\n" +
-                "  - SafeAreaContainer 바깥(Canvas 직속)에 위치해야 함 (Rule 4)\n\n" +
+            // UIManager Canvas 탐색
+            var uiManagerCanvas = FindInScene<Canvas>(UIManagerCanvasName);
+            if (uiManagerCanvas == null)
+            {
+                Debug.LogError($"[Migration] '{UIManagerCanvasName}' Canvas를 Login 씬에서 찾을 수 없습니다.");
+                return false;
+            }
 
-                "□ UIManager Inspector에서 두 필드를 연결한다.\n" +
-                "  - _blockingOverlay → 위에서 만든 BlockingOverlay의 CanvasGroup\n" +
-                "  - _blockingOverlayButton → BlockingOverlay의 Button 컴포넌트\n\n" +
+            // BlockingOverlay가 이미 UIManager Canvas 직속 자식으로 존재하는지 확인
+            var existingOverlay = uiManagerCanvas.transform
+                .Cast<Transform>()
+                .FirstOrDefault(t => t.name == BlockingOverlayName);
 
-                "[ Login 씬 — Assets/Scenes/Login.unity ]\n" +
-                "□ UIManager Canvas에 BlockingOverlay를 추가하고 Inspector 연결\n" +
-                "□ (구) AnonymousWarningPopup 안에 있던 BlockingOverlay Image가 있다면\n" +
-                "  Raycast Target=false로 설정하거나 제거한다.\n" +
-                "□ (구) ConfirmPopup 안에 있던 BlockingOverlay Image가 있다면 동일 처리\n\n" +
+            GameObject overlayGO;
+            if (existingOverlay != null)
+            {
+                Debug.Log($"[Migration] BlockingOverlay가 이미 존재합니다. 필드 연결만 수행합니다.");
+                overlayGO = existingOverlay.gameObject;
+            }
+            else
+            {
+                // BlockingOverlay GameObject 생성
+                overlayGO = new GameObject(BlockingOverlayName);
+                overlayGO.transform.SetParent(uiManagerCanvas.transform, worldPositionStays: false);
 
-                "[ Game 씬 — Assets/Scenes/Game.unity ]\n" +
-                "□ UIManager Canvas에 BlockingOverlay를 추가하고 Inspector 연결\n" +
-                "□ (구) RematchRequestPopup > Overlay GameObject:\n" +
-                "  - Image의 Raycast Target=false로 설정 (입력 차단 역할 제거)\n" +
-                "  - 또는 삭제 (코드에서 이미 참조 제거됨)\n" +
-                "□ (구) SharedBackground 오브젝트 (Canvas 직속 Background+Button):\n" +
-                "  - 해당 GameObject를 비활성화하거나 삭제\n" +
-                "  - InGameSettingsUI, BuildingPlacementUI, BuildingPanelBase 모두\n" +
-                "    UIManager.ShowBlockingOverlay()로 교체 완료됨\n\n" +
+                // RectTransform — 전체화면 커버
+                var rect = overlayGO.GetComponent<RectTransform>();
+                if (rect == null) rect = overlayGO.AddComponent<RectTransform>();
+                rect.anchorMin        = Vector2.zero;
+                rect.anchorMax        = Vector2.one;
+                rect.offsetMin        = Vector2.zero;
+                rect.offsetMax        = Vector2.zero;
 
-                "[ Lobby 씬 — Assets/Scenes/Lobby.unity ]\n" +
-                "□ UIManager가 존재하는지 확인\n" +
-                "□ 존재한다면 동일하게 BlockingOverlay 추가 및 Inspector 연결\n\n" +
+                // Image — 반투명 검정, 터치 차단
+                var img = overlayGO.AddComponent<Image>();
+                img.color         = new Color(0f, 0f, 0f, 0.6f);
+                img.raycastTarget = true;
 
-                "[ 완료 후 검증 ]\n" +
-                "□ Login > 익명 로그인 경고 팝업 → 배경이 전체화면을 덮는지 확인\n" +
-                "□ Game > 포기 확인 팝업 → 배경이 노치/홈바 영역까지 덮는지 확인\n" +
-                "□ Game > 설정 메뉴 → 배경 탭 시 닫히는지 확인\n" +
-                "□ Game > 건물 클릭 패널 → 배경 탭 시 닫히는지 확인\n" +
-                "□ Game > 재경기 요청 팝업 → 배경 탭이 차단되는지 확인\n\n" +
+                // Button — Popup 모드에서 터치 닫기용
+                overlayGO.AddComponent<Button>();
 
-                "참고: GameSystemRules_UI.md 규칙 4, 규칙 5 참조";
+                // CanvasGroup — 초기 숨김 상태 (alpha=0)
+                var cg = overlayGO.AddComponent<CanvasGroup>();
+                cg.alpha           = 0f;
+                cg.blocksRaycasts  = false;
+                cg.interactable    = false;
+
+                // SafeAreaContainer 보다 앞(Hierarchy 위쪽=먼저 렌더)에 위치하도록 sibling 0으로 설정
+                overlayGO.transform.SetSiblingIndex(0);
+
+                Debug.Log("[Migration] BlockingOverlay GameObject 생성 완료.");
+            }
+
+            // UIManager 컴포넌트 탐색 및 필드 연결
+            bool fieldOk = ConnectUIManagerFields(overlayGO);
+
+            // 씬 저장
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log("[Migration] Login.unity 저장 완료.");
+
+            return fieldOk;
+        }
+
+        /// <summary>
+        /// UIManager 컴포넌트를 씬에서 찾아 _blockingOverlay / _blockingOverlayButton 필드를 연결한다.
+        /// </summary>
+        private static bool ConnectUIManagerFields(GameObject overlayGO)
+        {
+            // UIManager 컴포넌트는 이름이 "UIManager"인 GameObject에 부착되어 있음
+            var uiManagerGO = GameObject.Find(UIManagerObjectName);
+            if (uiManagerGO == null)
+            {
+                Debug.LogError($"[Migration] '{UIManagerObjectName}' GameObject를 찾을 수 없습니다.");
+                return false;
+            }
+
+            // 컴포넌트 타입은 MonoBehaviour이므로 이름으로 찾는다
+            var uiManager = uiManagerGO.GetComponent<MonoBehaviour>();
+            MonoBehaviour targetComponent = null;
+
+            // UIManager 네임스페이스의 컴포넌트를 타입 이름으로 탐색
+            foreach (var mb in uiManagerGO.GetComponents<MonoBehaviour>())
+            {
+                if (mb != null && mb.GetType().Name == "UIManager")
+                {
+                    targetComponent = mb;
+                    break;
+                }
+            }
+
+            if (targetComponent == null)
+            {
+                Debug.LogError("[Migration] UIManager 컴포넌트를 찾을 수 없습니다.");
+                return false;
+            }
+
+            var so = new SerializedObject(targetComponent);
+
+            // _blockingOverlay (CanvasGroup)
+            var cg = overlayGO.GetComponent<CanvasGroup>();
+            var overlayProp = so.FindProperty("_blockingOverlay");
+            if (overlayProp != null && cg != null)
+            {
+                overlayProp.objectReferenceValue = cg;
+                Debug.Log("[Migration] UIManager._blockingOverlay 연결 완료.");
+            }
+            else
+            {
+                Debug.LogWarning("[Migration] _blockingOverlay 필드 또는 CanvasGroup을 찾을 수 없습니다.");
+            }
+
+            // _blockingOverlayButton (Button)
+            var btn = overlayGO.GetComponent<Button>();
+            var buttonProp = so.FindProperty("_blockingOverlayButton");
+            if (buttonProp != null && btn != null)
+            {
+                buttonProp.objectReferenceValue = btn;
+                Debug.Log("[Migration] UIManager._blockingOverlayButton 연결 완료.");
+            }
+            else
+            {
+                Debug.LogWarning("[Migration] _blockingOverlayButton 필드 또는 Button을 찾을 수 없습니다.");
+            }
+
+            so.ApplyModifiedProperties();
+            EditorUtility.SetDirty(targetComponent);
+            return true;
+        }
+
+        // ====================================================================
+        // Game.unity 마이그레이션
+        // ====================================================================
+
+        private static bool MigrateGameScene()
+        {
+            var scene = EditorSceneManager.OpenScene(GameScenePath, OpenSceneMode.Single);
+            if (!scene.IsValid())
+            {
+                Debug.LogError($"[Migration] Game.unity를 열 수 없습니다: {GameScenePath}");
+                return false;
+            }
+
+            bool result = DisableRematchOverlayRaycast();
+
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log("[Migration] Game.unity 저장 완료.");
+
+            return result;
+        }
+
+        /// <summary>
+        /// RematchRequestPopup > Overlay Image의 RaycastTarget을 false로 설정한다.
+        /// 코드에서 이미 참조가 제거되었으므로 입력 차단 역할이 없어야 한다.
+        /// </summary>
+        private static bool DisableRematchOverlayRaycast()
+        {
+            // RematchRequestPopup GameObject 탐색
+            var rematchPopupGO = GameObject.Find(RematchPopupName);
+            if (rematchPopupGO == null)
+            {
+                Debug.LogError($"[Migration] '{RematchPopupName}' GameObject를 Game 씬에서 찾을 수 없습니다.");
+                return false;
+            }
+
+            // Overlay 자식 탐색
+            var overlayTransform = rematchPopupGO.transform.Find(OverlayName);
+            if (overlayTransform == null)
+            {
+                Debug.LogError($"[Migration] '{RematchPopupName}' 하위에 '{OverlayName}' GameObject가 없습니다.");
+                return false;
+            }
+
+            var img = overlayTransform.GetComponent<Image>();
+            if (img == null)
+            {
+                Debug.LogWarning($"[Migration] Overlay에 Image 컴포넌트가 없습니다. 건너뜁니다.");
+                return true;
+            }
+
+            if (!img.raycastTarget)
+            {
+                Debug.Log("[Migration] Overlay Image RaycastTarget이 이미 false입니다.");
+                return true;
+            }
+
+            img.raycastTarget = false;
+            EditorUtility.SetDirty(img);
+            Debug.Log("[Migration] RematchRequestPopup > Overlay Image RaycastTarget 비활성화 완료.");
+            return true;
+        }
+
+        // ====================================================================
+        // 유틸리티
+        // ====================================================================
+
+        /// <summary>
+        /// 현재 열린 씬에서 이름이 일치하는 컴포넌트 T를 가진 첫 번째 GameObject를 반환한다.
+        /// </summary>
+        private static T FindInScene<T>(string goName) where T : Component
+        {
+            return Object.FindObjectsByType<T>(FindObjectsSortMode.None)
+                .FirstOrDefault(c => c.gameObject.name == goName);
         }
     }
 }
