@@ -44,8 +44,11 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 박스 본체에 부착된 AnimatedPanel (PopupFade 권장).")]
         [SerializeField] private AnimatedPanel _panel;
 
-        [Tooltip("Canvas 직속 공유 Background. 등록된 콜백을 통해 외부 클릭 시 팝업이 닫힘.")]
-        [SerializeField] private SharedBackgroundButton _sharedBackground;
+        // [2026-06-21] SharedBackgroundButton → UIManager.ShowBlockingOverlay(Popup 모드)로 통합.
+        //   UIManager가 단일 BlockingOverlay를 소유하여 SafeArea 문제 없이 전체화면 커버.
+        //   테스트 통과 후 삭제 예정.
+        // [Tooltip("Canvas 직속 공유 Background. 등록된 콜백을 통해 외부 클릭 시 팝업이 닫힘.")]
+        // [SerializeField] private SharedBackgroundButton _sharedBackground;
 
         [Header("버튼")]
         [Tooltip("팝업 우측 상단의 X 닫기 버튼.")]
@@ -191,10 +194,13 @@ namespace Hexiege.Presentation
                 _pausedBySettings = true;
             }
 
-            // 공유 Background에 닫기 콜백 등록 — 바깥 영역 클릭 시 Hide() 호출됨.
-            // 이전에 다른 팝업이 등록해뒀더라도 Register()가 덮어쓰므로 안전.
-            if (_sharedBackground != null)
-                _sharedBackground.Register(Hide);
+            // [2026-06-21] UIManager의 공유 BlockingOverlay를 Popup 모드로 표시.
+            //   Popup 모드: 오버레이를 터치하면 Hide()가 호출되어 팝업이 닫힘.
+            //   (규칙 8: Popup 타입은 배경 탭으로 닫힘)
+            UIManager.Instance?.ShowBlockingOverlay(Hide);
+            // [구로직 — 테스트 통과 후 삭제]
+            // if (_sharedBackground != null)
+            //     _sharedBackground.Register(Hide);
 
             // 팝업 본체 페이드 인.
             // AnimatedPanel은 CanvasGroup으로 가시성을 제어하므로 오브젝트는 항상 active 상태.
@@ -208,9 +214,11 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
-            // SharedBackground 콜백 해제 — 닫힌 후 외부 클릭이 잘못 트리거되는 것을 막음.
-            if (_sharedBackground != null)
-                _sharedBackground.Unregister();
+            // [2026-06-21] UIManager 공유 BlockingOverlay 숨김(참조 카운터 -1).
+            UIManager.Instance?.HideBlockingOverlay();
+            // [구로직 — 테스트 통과 후 삭제]
+            // if (_sharedBackground != null)
+            //     _sharedBackground.Unregister();
 
             // 이 스크립트가 일시정지를 걸어둔 경우에만 복원.
             // (멀티플레이에서는 _pausedBySettings가 false이므로 건드리지 않음)

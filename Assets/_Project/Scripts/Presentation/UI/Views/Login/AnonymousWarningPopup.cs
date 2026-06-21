@@ -38,9 +38,12 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 등장/퇴장 애니메이션을 담당하는 AnimatedPanel.")]
         [SerializeField] private AnimatedPanel _panel;
 
+        // [2026-06-21] BlockingOverlay를 UIManager 단일 소유 구조로 통합.
+        //   자체 _blockingOverlay 대신 UIManager.Instance?.ShowBlockingOverlay() (Modal 모드)를 사용한다.
+        //   아래 필드는 테스트 통과 후 삭제 예정 — 현재는 비활성화(주석 처리)로 보존.
         // [Rule 5] SetActive 대신 CanvasGroup으로 제어한다. (오브젝트는 켜둔 채 투명도/입력만 토글)
-        [Tooltip("뒤쪽 입력 차단 오버레이 CanvasGroup. alpha/blocksRaycasts로 제어.")]
-        [SerializeField] private CanvasGroup _blockingOverlay;
+        // [Tooltip("뒤쪽 입력 차단 오버레이 CanvasGroup. alpha/blocksRaycasts로 제어.")]
+        // [SerializeField] private CanvasGroup _blockingOverlay;
 
         [Header("텍스트")]
         [Tooltip("경고 메시지 텍스트.")]
@@ -102,26 +105,32 @@ namespace Hexiege.Presentation
         public void Show()
         {
             RuntimeLog("INFO", "팝업 표시됨"); // [DEBUG-TEMP] 디버깅 완료 후 제거
+            // [2026-06-21] UIManager 단일 소유 BlockingOverlay를 Modal 모드로 표시(터치해도 닫히지 않음).
+            UIManager.Instance?.ShowBlockingOverlay();
+            // [구로직 — 테스트 통과 후 삭제]
             // [Rule 5] SetActive 대신 CanvasGroup으로 표시. (불투명 + 뒤 입력 차단)
-            if (_blockingOverlay != null)
-            {
-                _blockingOverlay.alpha = 1f;
-                _blockingOverlay.blocksRaycasts = true;
-                _blockingOverlay.interactable = true;
-            }
+            // if (_blockingOverlay != null)
+            // {
+            //     _blockingOverlay.alpha = 1f;
+            //     _blockingOverlay.blocksRaycasts = true;
+            //     _blockingOverlay.interactable = true;
+            // }
             if (_panel != null) _panel.Show();
         }
 
         /// <summary>팝업 숨김.</summary>
         public void Hide()
         {
+            // [2026-06-21] UIManager 단일 소유 BlockingOverlay를 숨김(중첩 시 참조 카운터로 처리).
+            UIManager.Instance?.HideBlockingOverlay();
+            // [구로직 — 테스트 통과 후 삭제]
             // [Rule 5] SetActive 대신 CanvasGroup으로 숨김. (투명 + 입력 통과)
-            if (_blockingOverlay != null)
-            {
-                _blockingOverlay.alpha = 0f;
-                _blockingOverlay.blocksRaycasts = false;
-                _blockingOverlay.interactable = false;
-            }
+            // if (_blockingOverlay != null)
+            // {
+            //     _blockingOverlay.alpha = 0f;
+            //     _blockingOverlay.blocksRaycasts = false;
+            //     _blockingOverlay.interactable = false;
+            // }
             if (_panel != null) _panel.Hide();
         }
 

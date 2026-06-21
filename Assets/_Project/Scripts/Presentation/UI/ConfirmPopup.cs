@@ -56,11 +56,14 @@ namespace Hexiege.Presentation
         // Inspector 참조
         // ====================================================================
 
-        [Header("입력 차단 오버레이")]
-        [Tooltip("팝업이 떠 있을 때 뒤쪽 UI 입력을 차단하는 전체 화면 투명 Image의 CanvasGroup. " +
-                 "규칙 5에 따라 SetActive 대신 alpha/blocksRaycasts로 표시·숨김을 제어한다. " +
-                 "차단이 동작하려면 하위 Image의 Raycast Target=true 이어야 한다.")]
-        [SerializeField] private CanvasGroup _blockingOverlay;
+        // [2026-06-21] BlockingOverlay를 UIManager 단일 소유 구조로 통합.
+        //   자체 _blockingOverlay 대신 UIManager.Instance?.ShowBlockingOverlay() (Modal 모드)를 사용한다.
+        //   아래 필드는 테스트 통과 후 삭제 예정 — 현재는 비활성화(주석 처리)로 보존.
+        // [Header("입력 차단 오버레이")]
+        // [Tooltip("팝업이 떠 있을 때 뒤쪽 UI 입력을 차단하는 전체 화면 투명 Image의 CanvasGroup. " +
+        //          "규칙 5에 따라 SetActive 대신 alpha/blocksRaycasts로 표시·숨김을 제어한다. " +
+        //          "차단이 동작하려면 하위 Image의 Raycast Target=true 이어야 한다.")]
+        // [SerializeField] private CanvasGroup _blockingOverlay;
 
         [Header("팝업 본체")]
         [Tooltip("팝업 박스 자체에 부착된 AnimatedPanel (PopupFade 타입 권장).")]
@@ -179,13 +182,18 @@ namespace Hexiege.Presentation
                 _cancelButton.onClick.AddListener(OnCancelClicked);
             }
 
-            // 4) 뒤쪽 입력 차단을 즉시 활성화
-            if (_blockingOverlay != null)
-            {
-                _blockingOverlay.alpha = 1f;
-                _blockingOverlay.blocksRaycasts = true;
-                _blockingOverlay.interactable = true;
-            }
+            // 4) 뒤쪽 입력 차단을 즉시 활성화.
+            //    [2026-06-21] UIManager가 단일 소유하는 BlockingOverlay를 Modal 모드로 표시.
+            //    Modal 모드(콜백 없음)이므로 오버레이를 터치해도 닫히지 않고 입력만 차단된다.
+            //    (확인/취소 버튼으로만 닫힘 — 규칙 9: 모달은 배경 탭 닫기 불가)
+            UIManager.Instance?.ShowBlockingOverlay();
+            // [구로직 — 테스트 통과 후 삭제]
+            // if (_blockingOverlay != null)
+            // {
+            //     _blockingOverlay.alpha = 1f;
+            //     _blockingOverlay.blocksRaycasts = true;
+            //     _blockingOverlay.interactable = true;
+            // }
 
             // 5) 패널 등장 애니메이션 시작.
             //    AnimatedPanel은 CanvasGroup으로 가시성을 제어하므로
@@ -200,13 +208,16 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
-            // 입력 차단 오버레이는 즉시 해제 (페이드 아웃 중에도 뒤쪽 조작이 즉시 가능하도록)
-            if (_blockingOverlay != null)
-            {
-                _blockingOverlay.alpha = 0f;
-                _blockingOverlay.blocksRaycasts = false;
-                _blockingOverlay.interactable = false;
-            }
+            // 입력 차단 오버레이는 즉시 해제 (페이드 아웃 중에도 뒤쪽 조작이 즉시 가능하도록).
+            // [2026-06-21] UIManager 단일 소유 BlockingOverlay를 숨김(중첩 시 참조 카운터로 처리).
+            UIManager.Instance?.HideBlockingOverlay();
+            // [구로직 — 테스트 통과 후 삭제]
+            // if (_blockingOverlay != null)
+            // {
+            //     _blockingOverlay.alpha = 0f;
+            //     _blockingOverlay.blocksRaycasts = false;
+            //     _blockingOverlay.interactable = false;
+            // }
 
             // 팝업 본체는 애니메이션 후 CanvasGroup으로 숨김 처리 — AnimatedPanel이 담당
             if (_panel != null)
