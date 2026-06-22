@@ -10931,7 +10931,7 @@ MonoBehaviour:
   _emailVerifyView: {fileID: 947354209}
   _passwordResetView: {fileID: 599844318}
   _anonymousWarningPopup: {fileID: 1904661451}
-  _networkErrorPopup: {fileID: 0}
+  _networkErrorPopup: {fileID: 73106101}
   _splashOverlay: {fileID: 528281121}
   _nextSceneName: Lobby
   _soundConfig: {fileID: 0}
