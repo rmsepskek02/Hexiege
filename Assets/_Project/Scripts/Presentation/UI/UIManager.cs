@@ -246,9 +246,6 @@ namespace Hexiege.Presentation
         /// <param name="onTap">터치 콜백. null이면 Modal 모드(입력 차단만).</param>
         public void ShowBlockingOverlay(Action onTap = null)
         {
-            // [DEBUG-TEMP] 런타임 로그 — 디버깅 완료 후 제거
-            RuntimeLogWriter.Write($"[{System.DateTime.Now:HH:mm:ss.fff}] [INFO] [UI/UIManager] ShowBlockingOverlay 호출 | _blockingOverlay={(_blockingOverlay != null ? "연결됨" : "NULL")}, refCount={_blockingOverlayRefCount + 1}, onTap={(onTap != null ? "있음" : "없음")}");
-
             // 중첩 표시 횟수를 누적한다.
             _blockingOverlayRefCount++;
 
@@ -318,9 +315,6 @@ namespace Hexiege.Presentation
         /// <param name="show">true면 표시(alpha=1, 입력 차단), false면 숨김(alpha=0, 입력 통과).</param>
         private void ApplyBlockingOverlayVisibility(bool show)
         {
-            // [DEBUG-TEMP] 런타임 로그 — 디버깅 완료 후 제거
-            RuntimeLogWriter.Write($"[{System.DateTime.Now:HH:mm:ss.fff}] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show={show}, _blockingOverlay={(_blockingOverlay != null ? $"alpha→{(show ? 1f : 0f)}" : "NULL(건너뜀)")}");
-
             if (_blockingOverlay == null) return;
 
             _blockingOverlay.alpha = show ? 1f : 0f;

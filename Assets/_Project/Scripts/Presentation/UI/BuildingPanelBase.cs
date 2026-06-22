@@ -162,9 +162,6 @@ namespace Hexiege.Presentation
         /// <param name="building">패널이 표시할 대상 건물 데이터.</param>
         public virtual void Show(BuildingData building)
         {
-            // [DEBUG-TEMP] 런타임 로그 — 디버깅 완료 후 제거
-            RuntimeLogWriter.Write($"[{System.DateTime.Now:HH:mm:ss.fff}] [INFO] [UI/BuildingPanelBase] Show 호출 | UIManager.Instance={(UIManager.Instance != null ? "있음" : "NULL")}");
-
             _currentBuilding = building;
 
             // 헤더에 건물 이름 표시 (예: BuildingType.Garage -> "Garage")
