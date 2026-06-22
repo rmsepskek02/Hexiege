@@ -123,6 +123,12 @@ namespace Hexiege.Presentation
                     SetPanelVisible(_rankingPanelGroup, tab == LobbyViewModel.LobbyTab.Ranking);
                 })
                 .AddTo(this);
+
+            // [로딩 인디케이터 끄기] Lobby 씬이 준비된 시점이다.
+            // 게임 포기(멀티)/로비 복귀/연결 끊김 복귀 등으로 다른 씬에서 켜둔
+            // 전역 로딩 인디케이터를 여기서 끈다(UI 규칙 L-3).
+            // 어디서 켰든 목적지 씬(Lobby)이 준비되면 자동으로 꺼지도록 책임을 일원화한다.
+            UIManager.Instance?.ShowLoading(false);
         }
 
         private void OnDestroy()

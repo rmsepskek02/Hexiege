@@ -97,6 +97,9 @@ namespace Hexiege.Presentation
         /// <summary> 멀티플레이 재경기 거절 이벤트 구독 해제용. </summary>
         private System.IDisposable _rematchDeclinedSubscription;
 
+        /// <summary> 멀티플레이 재경기 시작(씬 재로드 직전) 이벤트 구독 해제용. </summary>
+        private System.IDisposable _rematchStartingSubscription;
+
         /// <summary> 자동 로비 복귀 카운트다운 코루틴. </summary>
         private Coroutine _countdownCoroutine;
 
@@ -114,6 +117,7 @@ namespace Hexiege.Presentation
             _gameEndSubscription?.Dispose();
             _rematchAvailableSubscription?.Dispose();
             _rematchDeclinedSubscription?.Dispose();
+            _rematchStartingSubscription?.Dispose();
 
             // 게임 종료 이벤트 구독
             // [2026-05-20] 멀티플레이 흐름 통일: NetworkGameEndController가 GameEvents.OnGameEnd를 발행하므로
@@ -128,6 +132,12 @@ namespace Hexiege.Presentation
             // [2026-05-20] 멀티 재경기 거절 신호 구독 — 버튼/카운트다운 상태 복원.
             _rematchDeclinedSubscription = GameEvents.OnNetworkRematchDeclined
                 .Subscribe(_ => RestoreRematchButton());
+
+            // [재경기 로딩] 서버가 재경기를 시작(씬 재로드 직전)하면 모든 클라이언트가
+            // 전역 로딩 인디케이터를 표시한다. 씬이 재로드되어 새 GameBootstrapper.LoadMap()이
+            // 완료되면 자동으로 꺼진다(UI 규칙 L-3).
+            _rematchStartingSubscription = GameEvents.OnNetworkRematchStarting
+                .Subscribe(_ => UIManager.Instance?.ShowLoading(true, "재경기 준비 중..."));
 
             // 다시하기 버튼 이벤트 (중복 등록 방지)
             if (_restartButton != null)
@@ -153,6 +163,7 @@ namespace Hexiege.Presentation
             _gameEndSubscription?.Dispose();
             _rematchAvailableSubscription?.Dispose();
             _rematchDeclinedSubscription?.Dispose();
+            _rematchStartingSubscription?.Dispose();
         }
 
         // ====================================================================
@@ -308,6 +319,11 @@ namespace Hexiege.Presentation
             StopCountdown();
             Time.timeScale = 1f;
             Hide();
+
+            // 로비 복귀는 씬 전환(멀티는 네트워크 종료 포함)이 일어나므로
+            // 그 사이 사용자가 멈춘 화면을 보지 않도록 전역 로딩 인디케이터를 띄운다.
+            // 로딩을 끄는 책임은 목적지 씬(Lobby)의 LobbyRootView 초기화 완료 시점이 담당한다(UI 규칙 L-3).
+            UIManager.Instance?.ShowLoading(true, "로비로 이동 중...");
 
             // 멀티플레이 활성 + NGM 주입되어 있으면 NGM에 위임 (BackToLobby가 내부에서 씬 전환까지 처리)
             if (NetworkContext.IsNetworkActive && _networkGameManager != null)

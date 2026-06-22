@@ -335,6 +335,13 @@ namespace Hexiege.Presentation
         {
             if (_forfeitService != null)
             {
+                // 멀티플레이 포기는 서버 RPC 왕복 + 결과 동기화/씬 전환까지 시간이 걸리므로
+                // 그 사이 사용자가 멈춘 화면을 보지 않도록 전역 로딩 인디케이터를 띄운다.
+                // 싱글플레이 포기는 즉시 결과창(GameEndUI)이 떠서 로딩이 불필요하므로 띄우지 않는다.
+                // 로딩을 끄는 책임은 목적지 씬 Bootstrapper가 담당한다(UI 규칙 L-3).
+                if (NetworkContext.IsNetworkActive)
+                    UIManager.Instance?.ShowLoading(true, "게임을 포기하는 중...");
+
                 _forfeitService.RequestForfeit();
             }
             else if (!NetworkContext.IsNetworkActive)

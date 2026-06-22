@@ -22,6 +22,7 @@ using Hexiege.Domain;
 using Hexiege.Core;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
+using Hexiege.Presentation; // UIManager(전역 로딩 인디케이터) 호출용
 
 namespace Hexiege.Bootstrap
 {
@@ -167,6 +168,10 @@ namespace Hexiege.Bootstrap
             //     이 시점이면 _unitFactory / _unitMovement / _flowFieldService 모두 준비됨.
             SetupEagerRepathOnBuildingChanges();
 
+            // 16. [로딩 인디케이터 끄기] Game 씬이 완전히 준비된 시점이다.
+            //     게임 시작/재경기 등으로 다른 곳에서 켜둔 전역 로딩 인디케이터를 여기서 끈다(UI 규칙 L-3).
+            //     어디서 켰든 목적지 씬(Game)이 준비되면 자동으로 꺼지도록 책임을 일원화한다.
+            UIManager.Instance?.ShowLoading(false);
         }
 
         // ====================================================================

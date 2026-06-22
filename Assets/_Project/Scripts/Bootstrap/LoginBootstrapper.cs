@@ -209,6 +209,11 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void ShowLoginSelect()
         {
+            // [로딩 인디케이터 끄기] Login 씬 진입이 완료되어 로그인 선택 화면을 표시하는 시점이다.
+            // 로그아웃 등으로 다른 씬에서 켜둔 전역 로딩 인디케이터를 여기서 끈다(UI 규칙 L-3).
+            // 어디서 켰든 목적지 씬(Login)이 준비되면 자동으로 꺼지도록 책임을 일원화한다.
+            UIManager.Instance?.ShowLoading(false);
+
             if (_rootView != null)
                 _rootView.ShowLoginSelect();
         }

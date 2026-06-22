@@ -810,6 +810,19 @@ namespace Hexiege.Application
         public static readonly Subject<Unit> OnNetworkRematchDeclined = new Subject<Unit>();
 
         /// <summary>
+        /// 서버가 재경기를 시작(Game 씬 재로드 직전)했음을 모든 클라이언트에 알리는 이벤트.
+        /// 발행: NetworkGameEndController.NotifyRematchStartingClientRpc (서버 → 전체 클라이언트)
+        /// 구독: GameEndUI (전역 로딩 인디케이터 표시 — "재경기 준비 중...")
+        ///
+        /// 왜 이벤트로 보내는가:
+        ///   재경기 씬 전환은 서버(Infrastructure)에서 일어나지만, 로딩 인디케이터(UIManager)는
+        ///   Presentation 레이어 소속이다. Infrastructure가 Presentation을 직접 참조하면
+        ///   레이어 방향이 역행하므로, GameEvents(Application)를 경유하여 Presentation의
+        ///   GameEndUI가 구독해 로딩을 띄우도록 한다(UI 규칙 L-3, L-4).
+        /// </summary>
+        public static readonly Subject<Unit> OnNetworkRematchStarting = new Subject<Unit>();
+
+        /// <summary>
         /// 로컬에서 재경기 요청 버튼을 눌렀음을 알리는 이벤트.
         /// 발행: GameEndUI (SetupRematchButton 콜백)
         /// 구독: NetworkGameEndController (RequestRematchServerRpc 호출)

@@ -229,6 +229,11 @@ namespace Hexiege.Presentation
             // 시간 복원 (게임 종료 팝업과 함께 표시된 경우)
             Time.timeScale = 1f;
 
+            // 연결 끊김 복귀도 네트워크 종료 + 씬 전환이 일어나므로
+            // 그 사이 사용자가 멈춘 화면을 보지 않도록 전역 로딩 인디케이터를 띄운다.
+            // 로딩을 끄는 책임은 목적지 씬의 초기화 완료 시점이 담당한다(UI 규칙 L-3).
+            UIManager.Instance?.ShowLoading(true, "로비로 이동 중...");
+
             // 네트워크 종료 — NGM에 위임
             if (_networkGameManager != null)
                 _networkGameManager.ShutdownNetwork();

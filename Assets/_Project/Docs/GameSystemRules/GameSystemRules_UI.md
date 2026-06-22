@@ -174,6 +174,33 @@ TextMeshPro 텍스트 컴포넌트에 사용하는 폰트는 아래 두 가지�
 
 ---
 
+### 로딩 인디케이터 (LoadingIndicator)
+
+**규칙 L-1. LoadingIndicator는 UIManager.ShowLoading()으로만 제어**
+- `UIManager.Instance?.ShowLoading(true, "메시지")` / `ShowLoading(false)`
+- 직접 LoadingIndicator GameObject를 활성/비활성 금지.
+
+**규칙 L-2. 씬 전환이나 비동기 작업 시작 시 반드시 ShowLoading(true) 호출**
+- 해당하는 상황: 씬 전환(LoginScene/LobbyScene/GameScene), 로그아웃, 게임 포기(멀티), 로비 복귀, 재경기.
+- 싱글플레이 포기는 결과창(GameEndUI)만 표시하므로 해당 없음.
+
+**규칙 L-3. ShowLoading(false) 책임은 목적지 씬 Bootstrapper**
+- 씬을 시작하는 호출부는 ShowLoading(true)만 담당한다.
+- ShowLoading(false)는 각 씬의 초기화 완료 시점에 호출한다.
+  - Login 씬: LoginBootstrapper(ShowLoginSelect / 자동 로그인 분기).
+  - Lobby 씬: LobbyRootView.Start() 완료 시점.
+  - Game 씬: GameBootstrapper.LoadMap() 완료 시점.
+- 어디서 켰든 목적지 씬이 준비되면 자동으로 꺼지므로 ShowLoading(false) 누락 버그를 방지한다.
+- 예외 경로(비동기 작업 실패로 씬 전환이 무산된 경우)에서는 켠 호출부가 직접 ShowLoading(false)로 끈다.
+
+**규칙 L-4. null-safe 패턴 필수**
+- `UIManager.Instance?.ShowLoading(...)` — Lobby/Game 씬 단독 실행 시 Instance가 null일 수 있으므로 null-safe를 보장한다.
+
+> Infrastructure(NetworkBehaviour)에서 발생하는 씬 전환(재경기 등)은 UIManager(Presentation)를 직접 참조하지 않고
+> GameEvents(Application)를 경유해 Presentation(GameEndUI)이 ShowLoading을 호출하도록 한다(레이어 방향 보호).
+
+---
+
 ## 생산 패널 UI
 
 ---

@@ -295,6 +295,12 @@ namespace Hexiege.Presentation
         {
             SetInteractable(false);
 
+            // 로그아웃은 Firebase/UGS 세션 종료(비동기) 후 Login 씬으로 전환되므로
+            // 사용자가 멈춘 화면을 보지 않도록 전역 로딩 인디케이터를 띄운다.
+            // 로딩을 끄는 책임은 목적지 씬(Login)의 LoginBootstrapper가 담당한다(UI 규칙 L-3).
+            // UIManager가 null일 수 있는 상황(씬 직접 진입 등)을 대비해 ?. 로 안전 처리한다(규칙 L-4).
+            UIManager.Instance?.ShowLoading(true, "로그아웃 중...");
+
             try
             {
                 await _loginUseCase.SignOutAsync();
@@ -305,6 +311,8 @@ namespace Hexiege.Presentation
                 Debug.LogError($"[ProfileView] 로그아웃 중 예외: {e.Message}");
                 SetStatus("로그아웃 중 오류가 발생했습니다.");
                 SetInteractable(true);
+                // 예외로 씬 전환이 일어나지 않으므로 여기서 로딩을 직접 끈다(UI 규칙 L-3 예외 경로).
+                UIManager.Instance?.ShowLoading(false);
             }
         }
 

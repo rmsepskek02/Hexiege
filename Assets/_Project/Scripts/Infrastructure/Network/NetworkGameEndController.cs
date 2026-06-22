@@ -459,8 +459,31 @@ namespace Hexiege.Infrastructure
                 }
             }
 
+            // ----------------------------------------------------------------
+            // [로딩 인디케이터] Game 씬 재로드 직전에 모든 클라이언트(서버 포함)에게
+            // "재경기 준비 중..." 로딩 인디케이터를 띄우도록 신호를 보낸다.
+            // 씬이 재로드되어 새 GameBootstrapper.LoadMap()이 완료되면 자동으로 꺼진다(UI 규칙 L-3).
+            // ----------------------------------------------------------------
+            NotifyRematchStartingClientRpc();
+
             Debug.Log("[Network] StartRematch: Game 씬 재로드.");
             NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single);
+        }
+
+        /// <summary>
+        /// 재경기 시작을 모든 클라이언트(서버 포함)에 알려 로딩 인디케이터를 표시하게 한다.
+        /// ClientRpc는 NetworkBehaviour(Infrastructure)에서만 호출 가능하다.
+        /// UIManager(Presentation)를 직접 참조하지 않고 GameEvents(Application)를 경유 발행하여
+        /// 레이어 방향(Infrastructure → Presentation 역행)을 어기지 않는다.
+        /// GameEndUI가 OnNetworkRematchStarting을 구독해 ShowLoading(true)를 호출한다(UI 규칙 L-3).
+        ///
+        /// 호스트(서버)도 ClientRpc 본문이 로컬에서 실행되므로 별도 호출 없이 함께 로딩이 표시된다.
+        /// </summary>
+        [ClientRpc]
+        private void NotifyRematchStartingClientRpc()
+        {
+            Debug.Log("[Network] NotifyRematchStartingClientRpc 수신. 재경기 로딩 표시 신호 발행.");
+            GameEvents.OnNetworkRematchStarting.OnNext(Unit.Default);
         }
 
         // ====================================================================

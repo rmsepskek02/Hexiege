@@ -1,5 +1,13 @@
 # Plan — LoadingIndicator 전수 적용
 
+> ✅ **구현 완료 (2026-06-22)** — 미해결 질문 1·2·3 모두 확정 후 반영.
+> - 미해결 1(싱글 포기): 옵션 (a) 채택 — 싱글 포기는 로딩 미표시, 멀티 분기에만 표시.
+> - 미해결 2(ShowLoading(false) 책임자): 각 목적지 씬 Bootstrapper로 일원화 (규칙 L-3).
+>   Login=LoginBootstrapper.ShowLoginSelect, Lobby=LobbyRootView.Start(), Game=GameBootstrapper.LoadMap().
+> - 미해결 3(재경기 클라이언트 표시 지점): NetworkGameEndController.NotifyRematchStartingClientRpc
+>   → GameEvents.OnNetworkRematchStarting 발행 → GameEndUI 구독해 ShowLoading(true).
+> - GameSystemRules_UI.md에 로딩 인디케이터 규칙 L-1~L-4 신설 완료.
+
 ## 1. 무엇을 어떻게 고칠 것인가 (자연어 설명)
 
 씬이 바뀌거나 서버와 통신하는 모든 순간에 사용자가 "멈춘 화면"을 보지 않도록, 로딩 인디케이터(`UIManager.ShowLoading(true, "...")`)를 빠짐없이 띄운다. 구체적으로는 **로그아웃, 게임 포기, 로비 복귀, 연결 끊김 복귀, 재경기** 다섯 가지 상황에서 씬 전환 직전에 로딩 표시를 추가한다.
