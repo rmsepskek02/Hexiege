@@ -60,6 +60,10 @@ namespace Hexiege.Editor.Setup
         // 독립 Canvas 의 정렬 순서. BlockingOverlay(UIManager Canvas) 보다 위에 그려지도록 높게 설정.
         private const int PopupSortingOrder = 200;
 
+        // LoadingIndicator 독립 Canvas 의 정렬 순서.
+        // 팝업(200) 보다도 위에 그려져야 모든 UI 최상단에 로딩 표시가 보인다.
+        private const int LoadingIndicatorSortingOrder = 300;
+
         // ====================================================================
         // 메뉴 1 — BUG-A: LoadingIndicator 이동
         // ====================================================================
@@ -140,6 +144,81 @@ namespace Hexiege.Editor.Setup
                 moved
                     ? $"'{LoadingIndicatorName}' 를 '{UIManagerCanvasName}' 직속으로 이동 + 전체화면 stretch 완료."
                     : $"'{LoadingIndicatorName}' 는 이미 '{UIManagerCanvasName}' 직속입니다. 전체화면 stretch 만 적용했습니다.");
+        }
+
+        // ====================================================================
+        // 메뉴 — LoadingIndicator 독립 Canvas 추가
+        // ====================================================================
+
+        /// <summary>
+        /// LoadingIndicator GameObject 에 독립 Canvas(overrideSorting, sortingOrder=300) 와
+        /// GraphicRaycaster 를 추가한다.
+        /// BUG-B 수정으로 팝업들이 독립 Canvas(sortingOrder=200)를 갖게 되면서,
+        /// UIManager Canvas(sortingOrder=100) 에 속한 LoadingIndicator 가 팝업 뒤에 가려지는 문제를 해결한다.
+        /// LoadingIndicator 는 항상 모든 UI 위에 표시되어야 하므로 가장 높은 sortingOrder=300 을 부여한다.
+        ///
+        /// UIManager._loadingIndicator 는 CanvasGroup 참조이므로, 같은 GameObject 에 Canvas 가 추가돼도
+        /// 참조가 깨지지 않는다(코드 수정 불필요).
+        /// </summary>
+        [MenuItem("Hexiege/Setup/Login UI — LoadingIndicator 독립 Canvas 추가")]
+        private static void AddLoadingIndicatorCanvas()
+        {
+            // 현재 씬이 Login.unity 인지 확인
+            if (!EnsureLoginSceneOpen(out var scene)) return;
+
+            // 1) UIManager 컴포넌트 찾기 (비활성 포함, 타입명으로 필터)
+            var uiManager = FindComponentByTypeName(UIManagerTypeName);
+            if (uiManager == null)
+            {
+                Report(false, $"'{UIManagerTypeName}' 컴포넌트를 씬에서 찾을 수 없습니다.");
+                return;
+            }
+
+            // 2) UIManager 의 _loadingIndicator 필드(CanvasGroup) 읽기
+            var uiManagerSO = new SerializedObject(uiManager);
+            var loadingProp = uiManagerSO.FindProperty(LoadingIndicatorField);
+            if (loadingProp == null || loadingProp.objectReferenceValue == null)
+            {
+                Report(false,
+                    $"'{UIManagerTypeName}' 의 '{LoadingIndicatorField}' 필드(CanvasGroup)가 비어 있거나 없습니다.");
+                return;
+            }
+
+            // 3) CanvasGroup → 해당 gameObject 가 LoadingIndicator
+            var loadingCanvasGroup = loadingProp.objectReferenceValue as CanvasGroup;
+            if (loadingCanvasGroup == null)
+            {
+                Report(false, $"'{LoadingIndicatorField}' 필드가 CanvasGroup 타입이 아닙니다.");
+                return;
+            }
+            var loadingGO = loadingCanvasGroup.gameObject;
+
+            // 4) Canvas 컴포넌트 추가(없으면) 또는 sortingOrder 보정(있으면)
+            var canvas = loadingGO.GetComponent<Canvas>();
+            if (canvas == null)
+            {
+                // 새로 생성되는 컴포넌트는 AddComponent 가 Undo 에 등록한다.
+                canvas = Undo.AddComponent<Canvas>(loadingGO);
+            }
+            // 기존 Canvas 가 있더라도 설정값 변경 전 Undo 에 기록한다.
+            Undo.RecordObject(canvas, "Configure LoadingIndicator Canvas");
+            canvas.overrideSorting = true;
+            canvas.sortingOrder = LoadingIndicatorSortingOrder;
+
+            // 5) GraphicRaycaster 추가 (없는 경우에만)
+            var raycaster = loadingGO.GetComponent<GraphicRaycaster>();
+            if (raycaster == null)
+            {
+                Undo.AddComponent<GraphicRaycaster>(loadingGO);
+            }
+
+            // 6) 씬 dirty 마킹 + 저장
+            EditorUtility.SetDirty(loadingGO);
+            SaveScene(scene);
+
+            Report(true,
+                $"'{LoadingIndicatorName}' 에 독립 Canvas(overrideSorting=true, " +
+                $"sortingOrder={LoadingIndicatorSortingOrder}) + GraphicRaycaster 추가 완료.");
         }
 
         // ====================================================================
