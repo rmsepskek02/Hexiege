@@ -99,7 +99,23 @@ ConfirmPopup의 **루트 GameObject**에 다음 두 컴포넌트를 추가한다
 [추가 — 1회성, 검증 후 삭제 가능]
 - Assets/_Project/Scripts/Editor/Fix_AddCanvasToConfirmPopup.cs
     → 위 컴포넌트를 프리팹에 추가하는 에디터 메뉴 스크립트
+
+[신규 — 문서]
+- Assets/_Project/Docs/GameSystemRules/GameSystemRules_CanvasSortingOrder.md
+    → 전역 SortingOrder 대역 규칙 및 씬별 Canvas 구조 문서 신규 작성
+
+[수정 — 문서]
+- Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md
+    → GameSystemRules_CanvasSortingOrder.md 참조 링크 추가
 ```
+
+### 5-1. GameSystemRules_UI.md 참조 링크 추가
+
+`GameSystemRules_UI.md`에 Canvas SortingOrder 관련 참조 링크를 추가한다.
+신규 작성한 `GameSystemRules_CanvasSortingOrder.md`로 연결하여, UI 문서를 보는
+사람이 SortingOrder 구조 및 씬별 Canvas 목록을 쉽게 찾아갈 수 있도록 한다.
+
+---
 
 - `UIManager.cs` / `InGameSettingsUI.cs` / `ConfirmPopup.cs` : **변경 없음** (4-2 참조)
 - 씬 파일(`Login.unity` / `Game.unity`) : **변경 없음** (ConfirmPopup은 프리팹 인스턴스라
@@ -116,6 +132,8 @@ ConfirmPopup의 **루트 GameObject**에 다음 두 컴포넌트를 추가한다
 2. `ConfirmPopup.prefab` 루트에 GraphicRaycaster가 존재하는지 확인.
 3. `Login.unity`의 ConfirmPopup 인스턴스에 SortingOrder를 덮어쓰는 프리팹 오버라이드가
    걸려 있지 않은지 확인(있으면 250이 무력화될 수 있음 → 오버라이드 제거 필요).
+4. `GameSystemRules_CanvasSortingOrder.md`의 씬별 Canvas 표가 실제 씬
+   (Login / Lobby / Game)의 Canvas SortingOrder 값과 일치하는지 확인.
 
 ### 6-2. 실기 검증 (사용자 테스트)
 

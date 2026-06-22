@@ -2,6 +2,8 @@
 
 공통 UI 규칙 및 UI 패널(생산 패널, 건물 배치 패널, 인게임 설정 메뉴)에 적용되는 규칙 모음.
 
+> Canvas SortingOrder 구조 및 씬별 Canvas 목록 → [`GameSystemRules_CanvasSortingOrder.md`](GameSystemRules_CanvasSortingOrder.md) 참조
+
 ---
 
 ## 목차
