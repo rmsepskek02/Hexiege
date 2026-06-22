@@ -27,15 +27,6 @@ namespace Hexiege.Presentation
         // 로그가 저장될 폴더 경로.
         // Application.dataPath 는 "<프로젝트>/Assets" 를 가리키므로,
         // 그 아래 _Project/Docs/_Logs/... 경로를 조합한다.
-        // UnityEngine.Application 을 명시 — Hexiege.Application 네임스페이스와 이름이 겹쳐
-        // 단순히 Application 으로 쓰면 컴파일러가 Hexiege.Application 을 먼저 찾아 오류가 남.
-        private static readonly string LogDir = System.IO.Path.Combine(
-            UnityEngine.Application.dataPath,
-            "_Project/Docs/_Logs/2026-06-22/09_32_canvas-sorting-order-fix");
-
-        // 실제 로그가 기록될 파일 경로.
-        private static readonly string LogPath = System.IO.Path.Combine(LogDir, "RuntimeLog_host.txt");
-
         /// <summary>
         /// [DEBUG-TEMP] 한 줄 메시지를 로그 파일 끝에 덧붙인다(append).
         /// 파일이 아직 없으면 헤더를 먼저 쓴 뒤 기록한다.
@@ -45,20 +36,29 @@ namespace Hexiege.Presentation
         {
             try
             {
+                // static readonly 필드로 선언하면 클래스 로드 시점(런타임 전)에
+                // Application.dataPath 가 아직 초기화되지 않아 빈 문자열이 될 수 있으므로,
+                // 호출 시점마다 경로를 계산한다.
+                // UnityEngine.Application 을 명시 — Hexiege.Application 네임스페이스와 이름이 겹침.
+                string logDir = System.IO.Path.Combine(
+                    UnityEngine.Application.dataPath,
+                    "_Project/Docs/_Logs/2026-06-22/09_32_canvas-sorting-order-fix");
+                string logPath = System.IO.Path.Combine(logDir, "RuntimeLog_host.txt");
+
                 // 폴더가 없으면 생성한다(이미 있으면 아무 일도 일어나지 않음).
-                System.IO.Directory.CreateDirectory(LogDir);
+                System.IO.Directory.CreateDirectory(logDir);
 
                 // 파일이 처음 생성되는 경우, 세션 헤더를 먼저 기록한다.
-                if (!System.IO.File.Exists(LogPath))
+                if (!System.IO.File.Exists(logPath))
                 {
                     string header =
                         "=== BlockingOverlay 렌더링 디버깅 로그 ===\n" +
                         $"=== 세션 시작: {System.DateTime.Now:yyyy-MM-dd HH:mm:ss} ===\n";
-                    System.IO.File.WriteAllText(LogPath, header);
+                    System.IO.File.WriteAllText(logPath, header);
                 }
 
                 // 메시지를 줄바꿈과 함께 파일 끝에 덧붙인다.
-                System.IO.File.AppendAllText(LogPath, message + "\n");
+                System.IO.File.AppendAllText(logPath, message + "\n");
             }
             catch
             {
