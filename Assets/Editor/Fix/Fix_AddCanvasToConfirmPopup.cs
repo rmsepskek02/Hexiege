@@ -162,7 +162,11 @@ namespace Hexiege.EditorTools.Fix
             finally
             {
                 // 검증용으로 Additive 로드한 씬은 다시 닫는다 (저장하지 않음).
-                EditorSceneManager.CloseScene(loginScene, true);
+                // 단, 해당 씬이 현재 유일하게 열린 씬이면 CloseScene이 불가하므로 스킵한다.
+                if (EditorSceneManager.sceneCount > 1)
+                    EditorSceneManager.CloseScene(loginScene, true);
+                else
+                    Debug.Log("[Fix_AddCanvasToConfirmPopup] Login 씬이 유일한 열린 씬이라 닫지 않음 (정상).");
             }
         }
 
