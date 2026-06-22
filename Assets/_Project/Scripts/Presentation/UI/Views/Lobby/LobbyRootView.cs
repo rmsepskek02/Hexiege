@@ -79,12 +79,12 @@ namespace Hexiege.Presentation
 
         private void Awake()
         {
-            // 각 탭 패널에 CanvasGroup을 확보(없으면 자동 추가).
-            // Inspector에서 별도로 연결할 필요 없도록 런타임에 GetComponent → AddComponent 패턴 사용.
-            _battlePanelGroup = EnsureCanvasGroup(_battlePanel);
-            _shopPanelGroup = EnsureCanvasGroup(_shopPanel);
-            _profilePanelGroup = EnsureCanvasGroup(_profilePanel);
-            _rankingPanelGroup = EnsureCanvasGroup(_rankingPanel);
+            // 각 패널에 에디터에서 미리 부착된 CanvasGroup을 가져온다.
+            // CanvasGroup이 없으면 null — SetupLobbyPanelCanvasGroups 에디터 스크립트 실행 필수.
+            _battlePanelGroup  = _battlePanel?.GetComponent<CanvasGroup>();
+            _shopPanelGroup    = _shopPanel?.GetComponent<CanvasGroup>();
+            _profilePanelGroup = _profilePanel?.GetComponent<CanvasGroup>();
+            _rankingPanelGroup = _rankingPanel?.GetComponent<CanvasGroup>();
         }
 
         private void Start()
@@ -142,26 +142,6 @@ namespace Hexiege.Presentation
         // ====================================================================
         // 헬퍼
         // ====================================================================
-
-        /// <summary>
-        /// 대상 GameObject에 CanvasGroup이 없으면 추가하여 보장한다.
-        /// CanvasGroup은 alpha 0/blocksRaycasts false 조합으로 GameObject 활성 상태를 유지하면서
-        /// 사용자에게 보이지 않도록 만든다 — LayoutGroup의 공간이 사라지지 않음.
-        /// null 안전.
-        /// </summary>
-        /// <param name="target">CanvasGroup을 확보할 대상 GameObject.</param>
-        /// <returns>확보된 CanvasGroup. target이 null이면 null.</returns>
-        private static CanvasGroup EnsureCanvasGroup(GameObject target)
-        {
-            if (target == null)
-                return null;
-
-            // 이미 부착되어 있으면 그대로 사용, 없으면 새로 추가.
-            if (!target.TryGetComponent<CanvasGroup>(out var group))
-                group = target.AddComponent<CanvasGroup>();
-
-            return group;
-        }
 
         /// <summary>
         /// 패널 표시/숨김 처리 (CanvasGroup 기반).
