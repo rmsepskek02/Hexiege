@@ -3288,13 +3288,14 @@ GameObject:
   - component: {fileID: 576258269}
   - component: {fileID: 576258268}
   - component: {fileID: 576258270}
+  - component: {fileID: 576258271}
   m_Layer: 0
   m_Name: ProfilePanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &576258267
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3436,6 +3437,18 @@ MonoBehaviour:
   _logoutButton: {fileID: 166073026}
   _statusText: {fileID: 0}
   _loginSceneName: Login
+--- !u!225 &576258271
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 576258266}
+  m_Enabled: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &580018331
 GameObject:
   m_ObjectHideFlags: 0
@@ -5416,13 +5429,14 @@ GameObject:
   - component: {fileID: 1075408176}
   - component: {fileID: 1075408178}
   - component: {fileID: 1075408177}
+  - component: {fileID: 1075408179}
   m_Layer: 0
   m_Name: ShopPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1075408176
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5542,6 +5556,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1075408175}
   m_CullTransparentMesh: 1
+--- !u!225 &1075408179
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1075408175}
+  m_Enabled: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &1075429683
 GameObject:
   m_ObjectHideFlags: 0
@@ -6360,13 +6386,14 @@ GameObject:
   - component: {fileID: 1207351865}
   - component: {fileID: 1207351867}
   - component: {fileID: 1207351866}
+  - component: {fileID: 1207351868}
   m_Layer: 0
   m_Name: RankingPanel
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1207351865
 RectTransform:
   m_ObjectHideFlags: 0
@@ -6415,7 +6442,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4285689443
   m_fontColor: {r: 0.3882353, g: 0.43137255, b: 0.44705883, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -6428,7 +6455,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -6486,6 +6513,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1207351864}
   m_CullTransparentMesh: 1
+--- !u!225 &1207351868
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1207351864}
+  m_Enabled: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
+  m_IgnoreParentGroups: 0
 --- !u!1 &1335931217
 GameObject:
   m_ObjectHideFlags: 0
@@ -8751,6 +8790,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1921361598}
   - component: {fileID: 1921361599}
+  - component: {fileID: 1921361600}
   m_Layer: 0
   m_Name: BattlePanel
   m_TagString: Untagged
@@ -8802,6 +8842,18 @@ MonoBehaviour:
   _customJoinView: {fileID: 1591544643}
   _randomMatchView: {fileID: 620341562}
   _difficultySelectView: {fileID: 1758623606}
+--- !u!225 &1921361600
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1921361597}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &1928019417
 GameObject:
   m_ObjectHideFlags: 0
