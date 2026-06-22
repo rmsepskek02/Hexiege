@@ -67,3 +67,33 @@ SortingOrder 300 → LoadingIndicator 독립 Canvas
 | Game | GameEndPanel, ProductionPopup 동일 확인 |
 | Lobby | 기존 동작 유지 (회귀 없음) |
 | Login | 기존 동작 유지 (회귀 없음) |
+
+---
+
+## 런타임 로그 디버깅 (Canvas Override 적용 후에도 증상 미해결)
+
+Canvas Override 수정 적용 후 사용자 테스트 결과 변화 없음 → 런타임 실행 흐름 추적을 위해 파일 기반 RuntimeLog 추가.
+
+### 목적
+- UIManager.Instance가 Game 씬에서 null인지 확인
+- `_blockingOverlay` 필드가 연결되어 있는지 확인
+- `ShowBlockingOverlay` / `ApplyBlockingOverlayVisibility`가 실제로 호출되는지 확인
+
+### 로그 파일 경로 (LogRules.md 규칙)
+```
+Assets/_Project/Docs/_Logs/2026-06-22/09_32_canvas-sorting-order-fix/RuntimeLog_host.txt
+```
+
+### 로그 삽입 위치 ([DEBUG-TEMP] Debug.Log 교체)
+| 파일 | 메서드 | 로그 내용 |
+|------|--------|---------|
+| `UIManager.cs` | `ShowBlockingOverlay` | `_blockingOverlay` 연결 여부, refCount, onTap 여부 |
+| `UIManager.cs` | `ApplyBlockingOverlayVisibility` | show 값, `_blockingOverlay` 상태 |
+| `BuildingPanelBase.cs` | `Show` | `UIManager.Instance` null 여부 |
+| `BuildingPlacementUI.cs` | `Show` | `UIManager.Instance` null 여부, Team, Race |
+| `InGameSettingsUI.cs` | `Show` | `UIManager.Instance` null 여부 |
+
+### 구현 방식
+- `UIManager.cs` 내 private static `WriteRuntimeLog(string message)` 헬퍼 추가
+- 첫 호출 시 헤더(`=== ... ===`) 자동 생성 후 append
+- 로그 코드는 디버깅 완료 후 반드시 제거 (로그 파일은 영구 보존)

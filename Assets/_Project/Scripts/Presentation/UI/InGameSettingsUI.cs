@@ -187,8 +187,8 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Show()
         {
-            // [DEBUG-TEMP] 디버깅 완료 후 제거
-            Debug.Log($"[{DateTime.Now:HH:mm:ss.fff}] [INFO] [UI/InGameSettingsUI] Show 호출 | UIManager.Instance={(UIManager.Instance != null ? "있음" : "NULL")}");
+            // [DEBUG-TEMP] 런타임 로그 — 디버깅 완료 후 제거
+            RuntimeLogWriter.Write($"[{System.DateTime.Now:HH:mm:ss.fff}] [INFO] [UI/InGameSettingsUI] Show 호출 | UIManager.Instance={(UIManager.Instance != null ? "있음" : "NULL")}");
 
             // 싱글플레이만 일시정지 — 멀티플레이는 절대 timeScale을 0으로 설정하지 않음.
             // NetworkContext.IsNetworkActive == false → 싱글플레이.
