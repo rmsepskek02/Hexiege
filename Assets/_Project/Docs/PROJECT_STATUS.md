@@ -292,6 +292,13 @@
 | 에디터 자동 생성 스크립트 2종 | ✅ 완료 | `Hexiege/Setup/UnitStatsConfig 생성`, `Hexiege/Setup/BuildingStatsConfig 생성` |
 | 에셋 파일 생성 | ✅ 완료 | `Assets/_Project/Resources/Config/UnitStatsConfig.asset`, `BuildingStatsConfig.asset` |
 
+#### Lobby 패널 CanvasGroup 사전 부착 + ProfileView 로그아웃 버튼 (2026-06-22)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| ProfileView 로그아웃 버튼 UI 추가 | ✅ 완료 | `AddLogoutButtonToProfileView.cs` 에디터 스크립트. LogoutButton GO 생성 + ProfileView._logoutButton 연결. 임시 배치(추후 재설계 예정) |
+| Lobby 탭 패널 CanvasGroup 에디터 사전 부착 | ✅ 완료 | `SetupLobbyPanelCanvasGroups.cs` 에디터 스크립트. 4개 패널 활성화 + CanvasGroup 초기값 설정 |
+| LobbyRootView EnsureCanvasGroup → GetComponent 전환 | ✅ 완료 | 런타임 AddComponent 방식 폐기. EnsureCanvasGroup() 헬퍼 제거 |
+
 #### Lobby 씬 UI 규칙 재점검 및 추가 수정 (2026-06-15)
 | 항목 | 상태 | 비고 |
 |------|------|------|
