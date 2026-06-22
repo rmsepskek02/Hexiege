@@ -1,11 +1,13 @@
-# Plan — Login UI CanvasGroup 전환 + 에러 팝업 분리
+# Plan — Login UI CanvasGroup 전환 + 에러 팝업 분리 + UI 레이어 버그 수정
 
 ## 이 작업이 하는 일
 
-로그인 화면에서 세 가지를 수정한다.
-1. 패널 전환 방식을 `SetActive` → CanvasGroup 패턴으로 교체 (프로젝트 규칙 준수)
-2. 앱 종료 확인 팝업과 네트워크 에러 팝업을 별도 오브젝트로 분리
-3. 선언만 되고 사용하지 않는 `_headerText` 변수 제거
+로그인 화면에서 다섯 가지를 수정한다.
+1. 패널 전환 방식을 `SetActive` → CanvasGroup 패턴으로 교체 (프로젝트 규칙 준수) — **✅ 완료**
+2. 앱 종료 확인 팝업과 네트워크 에러 팝업을 별도 오브젝트로 분리 — **✅ 완료 (Inspector 연결만 미완)**
+3. 선언만 되고 사용하지 않는 `_headerText` 변수 제거 — **✅ 완료**
+4. LoadingIndicator를 SafeAreaContainer 밖으로 이동하여 전체화면 커버 복구 (BUG-A)
+5. AnonymousWarningPopup을 UIManager Canvas 안으로 이동하여 BlockingOverlay에 가려지지 않도록 수정 (BUG-B)
 
 ---
 
@@ -16,6 +18,8 @@
 | SetActive → CanvasGroup 전환 | `GameSystemRules_UI.md` — 공통 UI 규칙 5 |
 | 팝업 오브젝트 분리 | `GameSystemRules_UI.md` — 공통 UI 규칙 10 (팝업 중첩 안전성) |
 | 미사용 변수 제거 | CLAUDE.md 규칙 6 (작업 범위 최소화, 불필요 코드 제거) |
+| LoadingIndicator SafeArea 밖으로 이동 (BUG-A) | `GameSystemRules_UI.md` — 공통 UI 규칙 4 (전체화면 요소는 SafeAreaContainer 밖) |
+| AnonymousWarningPopup UIManager Canvas로 이동 (BUG-B) | `GameSystemRules_UI.md` — 공통 UI 규칙 4, 8 (Canvas SortingOrder 계층 일치) |
 
 ---
 
@@ -168,21 +172,106 @@ Unity Editor에서 메뉴 `Hexiege/Setup/Login UI — CanvasGroup + NetworkError
 
 ---
 
+## Step 3. 에디터 스크립트 — _networkErrorPopup 슬롯 연결 (미완료 항목)
+
+**파일**: `Assets/_Project/Scripts/Editor/LoginUiSetup.cs` (1회성 실행 후 삭제)
+
+**메뉴 경로**: `Hexiege/Setup/Login UI — NetworkErrorPopup 슬롯 연결`
+
+씬에는 NetworkErrorPopup 오브젝트가 이미 존재하지만 LoginRootView의 `_networkErrorPopup` 슬롯이 연결되어 있지 않다.
+에디터 스크립트에서 NetworkErrorPopup 오브젝트를 이름으로 찾아 `_networkErrorPopup` 슬롯에 연결한다.
+
+---
+
+## Step 4. 에디터 스크립트 — BUG-A: LoadingIndicator 이동
+
+**파일**: 동일 에디터 스크립트에 메뉴 항목 추가
+
+**메뉴 경로**: `Hexiege/Setup/Login UI — BUG-A LoadingIndicator 이동`
+
+### 수행할 작업
+
+1. UIManager Canvas 하위에서 LoadingIndicator 오브젝트를 찾는다
+2. LoadingIndicator의 부모를 `SafeAreaContainer`에서 `UIManager Canvas` 직속으로 변경한다
+3. RectTransform을 전체화면 stretch로 설정한다 (anchorMin: 0,0 / anchorMax: 1,1 / offsetMin: 0,0 / offsetMax: 0,0)
+
+### 목표 구조
+
+```
+UIManager Canvas (SortingOrder: 100)
+├─ BlockingOverlay                    ← 기존 위치 유지
+├─ LoadingIndicator (CanvasGroup)     ← SafeAreaContainer 밖으로 이동
+│   ├─ Background (Image)
+│   └─ SafeAreaContainer (SafeAreaFitter)
+│       ├─ Spinner
+│       └─ StatusText
+└─ SafeAreaContainer (SafeAreaFitter)
+    └─ ConfirmPopup
+```
+
+> **주의**: LoadingIndicator 내부의 SafeAreaContainer는 그대로 유지한다.
+> Spinner와 StatusText는 SafeArea 범위 안에 표시되어야 하며, Background만 전체화면을 커버하면 된다.
+> Background는 LoadingIndicator 직속이므로 LoadingIndicator가 전체화면이 되면 자동으로 전체화면 커버가 된다.
+
+---
+
+## Step 5. 에디터 스크립트 — BUG-B: AnonymousWarningPopup 이동
+
+**메뉴 경로**: `Hexiege/Setup/Login UI — BUG-B AnonymousWarningPopup 이동`
+
+### 수행할 작업
+
+1. Login Canvas의 SafeAreaContainer에서 AnonymousWarningPopup 오브젝트를 찾는다
+2. UIManager Canvas의 SafeAreaContainer 하위로 이동한다
+3. RectTransform을 전체화면 stretch로 설정한다 (anchorMin: 0,0 / anchorMax: 1,1)
+4. `_anonymousWarningPopup` Inspector 슬롯 참조를 재연결한다
+   - LoginRootView 컴포넌트에서 AnonymousWarningPopup을 참조하는 슬롯을 새 위치의 오브젝트로 재연결
+
+### 목표 구조
+
+```
+Login Canvas (SortingOrder: 0)
+└─ SafeAreaContainer (SafeAreaFitter)
+    ├─ LoginRoot (LoginRootView)
+    │   └─ (5개 패널)
+    └─ NetworkErrorPopup              ← 기존 위치 유지
+
+UIManager Canvas (SortingOrder: 100)
+├─ BlockingOverlay
+└─ SafeAreaContainer (SafeAreaFitter)
+    ├─ ConfirmPopup
+    ├─ LoadingIndicator               ← BUG-A 수정 후 이 위치가 아닌 Canvas 직속
+    └─ AnonymousWarningPopup          ← BUG-B: 여기로 이동
+```
+
+### 위험 요소
+
+| 위험 | 대응 |
+|------|------|
+| AnonymousWarningPopup이 LoginRootView 외에 다른 곳에서도 참조될 가능성 | 씬 파싱에서 `_anonymousWarningPopup` 참조가 두 곳(fileID 기준) 확인됨 — 에디터 스크립트에서 모든 참조를 재연결 |
+| 이동 후 RectTransform 초기화 필요 | 에디터 스크립트에서 명시적으로 설정 |
+
+---
+
 ## 구현 순서
 
 ```
-[1] LoginRootView.cs 수정 (Step 1)
+[1] LoginRootView.cs 수정 → ✅ 완료
       ↓
-[2] 에디터 스크립트 작성 (Step 2)
+[2] 에디터 스크립트 작성 (Step 2 원본 + Step 3~5 추가)
       ↓
-[3] 사용자가 에디터 스크립트 실행 (Step 3)
+[3] 사용자가 에디터 스크립트 실행 (Step 3: NetworkErrorPopup 연결)
       ↓
-[4] 플레이모드에서 패널 전환 동작 확인
+[4] 사용자가 에디터 스크립트 실행 (Step 4: BUG-A LoadingIndicator 이동)
+      ↓
+[5] 사용자가 에디터 스크립트 실행 (Step 5: BUG-B AnonymousWarningPopup 이동)
+      ↓
+[6] 플레이모드에서 전체 동작 확인
 ```
 
 ---
 
-## 위험 요소
+## 위험 요소 (원본 Step 1~2)
 
 | 위험 | 대응 |
 |------|------|
