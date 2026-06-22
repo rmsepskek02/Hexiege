@@ -25,6 +25,21 @@
 
 ## 최근 작업
 
+### LoadingIndicator 최소 표시 시간 + ConfirmPopup/NetworkErrorPopup 버그 수정 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/05_50_loading-indicator-min-duration/`
+
+**핵심**:
+- `UIManager.ShowLoading(false)` 호출 시 최소 표시 시간(`_loadingMinDuration`, 기본 1f초)이 지나지 않았으면 `WaitForSecondsRealtime`으로 지연 후 숨김
+- `_loadingShowTime` 기록 + `_hideLoadingCoroutine` 코루틴 관리 (중복 hide 방지)
+- AnonymousWarningPopup(SortingOrder=200)에 가리는 문제: LoadingIndicator에 독립 Canvas(SortingOrder=300) 추가 (`LoginUiSetup.cs` 에디터 스크립트 메뉴 항목 추가)
+
+**ConfirmPopup + NetworkErrorPopup 버그 원인 및 수정**:
+- **ConfirmPopup 패널 미표시**: 씬 프리팹 인스턴스 오버라이드로 루트 CanvasGroup alpha=0, interactable=0 강제됨 → Inspector에서 alpha=1, interactable=true로 수정
+- **NetworkErrorPopup 패널 미표시**: `_panel` 슬롯 null → `Show()/Hide()`에서 `if (_panel != null)` 분기가 모두 건너뜀. 컴포넌트 교체 시 슬롯 재연결 필수
+- **버튼 클릭 무반응**: `NetworkErrorPopup.Initialize()`가 호출되지 않아 버튼 콜백 미등록 → LoginBootstrapper의 `_networkErrorPopup` 슬롯 연결 누락이 원인
+- **주의**: NetworkErrorPopup은 LoginRootView + **LoginBootstrapper** 두 곳 모두 슬롯 연결 필요. LoginBootstrapper가 `Initialize()` 호출, LoginRootView가 `Show()` 호출
+
 ### Lobby 패널 CanvasGroup 에디터 사전 부착 + LobbyRootView 단순화 (2026-06-22) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/05_59_lobby-canvasgroup-preattach/`

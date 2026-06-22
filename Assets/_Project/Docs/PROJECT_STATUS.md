@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-06-20
-**현재 단계:** 사운드 시스템 코드 구현 완료 — Inspector 작업 + 실기 테스트 예정
+**최종 수정일:** 2026-06-22
+**현재 단계:** UIManager LoadingIndicator 최소 표시 시간 + ConfirmPopup/NetworkErrorPopup 버그 수정 완료 — 사운드 시스템 Inspector 작업 + Login.unity 씬 로그인 UI 조립 예정
 
 ---
 
@@ -62,6 +62,9 @@
 | 유닛 VFX 디테일 개선 3종 | ✅ 완료 (2026-06-08) | ① VFX 프리팹 3개 ParticleSystem ScalingMode Local→Hierarchy (VfxScalingModeFixer 에디터 스크립트). ② 피스톨러 공격 VFX 스폰 위치 — VfxSpawnPoint GO(총구 위치)로 position 참조, rotation은 `Quaternion.LookRotation(transform.forward)` (스켈레톤 본 하위 배치로 _vfxSpawnPoint.rotation 사용 불가). UnitView + EffectManager 수정. ③ vfx_unit_death 퍼짐 효과 제거 (3개 PS startSpeed→0 YAML 직접 수정). |
 | 사운드 시스템 (AudioManager + SFX/BGM 분리) | 🔵 코드 완료 (2026-06-10) / Inspector 작업 + 실기 테스트 예정 | SoundConfig.cs(Infrastructure) + AudioManager.cs(Presentation, DontDestroyOnLoad) 신규. BGM 크로스페이드(A/B 채널), SFX 풀(8개, 2D), 볼륨 3채널(Master/BGM/SFX, PlayerPrefs). EffectManager VFX 전용 분리(SFX 비활성화). VFX+SFX 쌍 호출 UnitView×2 + NetworkUnit×1 복원. LoginBootstrapper Initialize 추가. InGameSettingsUI 볼륨 슬라이더 연동. Inspector 작업: AudioMixer 에셋·AudioManager Login.unity 배치·SoundConfig 에셋 생성 필요. 로비 볼륨 패널 미구현(별도 작업). |
 | 전역 UI 시스템 (UIManager + SplashOverlay) | ✅ 완료 (2026-06-18) | UIManager(SingletonMonoBehaviour+IUIManager), SplashOverlayView(DOTween 깜빡임+페이드아웃), SpinnerRotator 신규. ConfirmPopup/LoadingIndicator 전역 통합 (Login 씬 1회 생성 → DontDestroyOnLoad). 씬별 중복 ConfirmPopup/LoadingScreen 제거, BattleViewModel LoadingScreen→UIManager 전환. 사용자 실기 TC-01~07 PASS. |
+| LoadingIndicator 최소 표시 시간 보장 | ✅ 완료 (2026-06-22) | `UIManager.ShowLoading(false)` 호출 시 최소 1초 미만이면 코루틴으로 지연(`WaitForSecondsRealtime`). `_loadingMinDuration` SerializeField(기본 1f). 모든 호출부 자동 적용. |
+| LoadingIndicator 독립 Canvas(300) 추가 | ✅ 완료 (2026-06-22) | AnonymousWarningPopup(SortingOrder=200)이 LoadingIndicator를 가리는 문제 해결. `LoginUiSetup.cs` 에디터 스크립트에 메뉴 항목 추가(`Hexiege/Setup/Login UI — LoadingIndicator 독립 Canvas 추가`). LoadingIndicator에 독립 Canvas(SortingOrder=300, overrideSorting=true) + GraphicRaycaster 자동 추가. |
+| ConfirmPopup + NetworkErrorPopup 씬 버그 수정 | ✅ 완료 (2026-06-22) | ① ConfirmPopup: 씬 프리팹 인스턴스 오버라이드로 루트 CanvasGroup이 alpha=0/interactable=0으로 강제된 버그 Inspector 수정. ② NetworkErrorPopup: ConfirmPopup 컴포넌트가 남아있던 것 교체, `_panel` 슬롯 연결, LoginRootView + LoginBootstrapper `_networkErrorPopup` 슬롯 연결. |
 
 #### 싱글플레이 AI 시스템 (2026-06-07)
 | 항목 | 상태 | 비고 |
