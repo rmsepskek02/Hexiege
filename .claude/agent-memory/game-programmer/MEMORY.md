@@ -25,6 +25,32 @@
 
 ## 최근 작업
 
+### ConfirmPopup z-order 버그 수정 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/15_09_ingame-settings-confirm-popup-zorder/`
+
+**근본 원인**: ConfirmPopup 프리팹 루트에 자체 Canvas가 없어, 부모 UIManager Canvas(SO=100)를 그대로 따라감.  
+InGameSettings 패널 하위 `Panel` GO에는 Canvas Override(SO=200)가 있어 200 > 100으로 ConfirmPopup이 항상 뒤에 렌더링됨.
+
+**수정**: ConfirmPopup.prefab 루트에 Canvas(Override Sorting=true, SortingOrder=250) + GraphicRaycaster 추가 (Inspector 직접 작업).
+
+**Canvas SortingOrder 최종 구조** (전체 확정):
+```
+SO 0   → [UI] Canvas (Game 씬 HUD)
+SO 100 → UIManager Canvas (BlockingOverlay)
+SO 200 → 각 패널 Canvas Override (BuildingPopup, BuildingActionPanel, InGameSettings, GameEndPanel, ProductionPopup)
+SO 250 → ConfirmPopup 독립 Canvas (모달 팝업 — 항상 패널 위)
+SO 300 → LoadingIndicator 독립 Canvas
+```
+
+**에디터 스크립트**: `Assets/Editor/Fix/Fix_AddCanvasToConfirmPopup.cs`  
+(메뉴: `Hexiege/Fix/Add Canvas To ConfirmPopup (SO=250)`)  
+`LoadPrefabContents` 환경에서는 직접 프로퍼티 대입이 직렬화에 반영되지 않는 경우가 있음 — 반드시 `SerializedObject.FindProperty + ApplyModifiedPropertiesWithoutUndo` 방식 사용.
+
+**참조 문서**: `Assets/_Project/Docs/GameSystemRules/GameSystemRules_CanvasSortingOrder.md`
+
+---
+
 ### Canvas SortingOrder + BlockingOverlay 렌더링 수정 (2026-06-22) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/09_32_canvas-sorting-order-fix/`

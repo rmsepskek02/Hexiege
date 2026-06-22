@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-06-22
-**현재 단계:** BlockingOverlay 씬 전환 버그 수정 완료 — LoadingIndicator Game씬 미숨김 + InGameSettings/ConfirmPopup 렌더링 순서 버그 수정 예정 + 사운드/AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**현재 단계:** ConfirmPopup z-order 버그 수정 완료 (Canvas SO=250) — LoadingIndicator Game씬 미숨김 버그 수정 예정 + 사운드/AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---

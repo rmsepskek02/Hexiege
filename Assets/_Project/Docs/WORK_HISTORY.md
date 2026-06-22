@@ -9,6 +9,8 @@
 
 | 날짜 | 마일스톤 |
 |------|---------|
+| 2026-06-22 | ConfirmPopup z-order 버그 수정 완료 — InGameSettings Panel(Canvas SO=200)이 ConfirmPopup 위에 렌더링되던 문제. ConfirmPopup.prefab 루트에 Canvas(Override Sorting=true, SO=250) + GraphicRaycaster 추가(Inspector 직접 작업). Canvas SortingOrder 전체 구조 확정(SO=0/100/200/250/300) 및 GameSystemRules_CanvasSortingOrder.md 신규 작성. Fix_AddCanvasToConfirmPopup.cs 에디터 스크립트 작성(LoadPrefabContents 환경에서 SerializedObject 방식 필수). |
+| 2026-06-22 | BlockingOverlay 씬 전환 버그 수정 완료 — DontDestroyOnLoad 루트 GO 제약. Canvas SO 구조(0/100/200/300) 수립. RuntimeLogWriter [DEBUG-TEMP] 코드 제거. |
 | 2026-06-20 | LogRules.md 작성 완료 — 런타임 로그 + QA-Fix 로그 규칙 통합. 실기기 Logcat 공유 방식 확정. WORKFLOW.md Log.md 섹션 이동. |
 | 2026-02 이전 | 싱글플레이 코어 루프 완성 (헥스, 전투, 건물, 생산, 승패) |
 | 2026-02 | 멀티플레이 Phase 1~8 완성 |
