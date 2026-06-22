@@ -261,6 +261,55 @@ namespace Hexiege.Editor.Setup
             int reconnected = ReconnectSlot(
                 NetworkErrorPopupField, popupGO, NetworkErrorPopupType);
 
+            // 8) NetworkErrorPopup 컴포넌트의 _panel / _confirmButton 슬롯 자동 연결
+            //    씬 구조: NetworkErrorPopup > Panel(AnimatedPanel) > ButtonContainer > ConfirmButton
+            netComp = popupGO.GetComponents<Component>()
+                .FirstOrDefault(c => c != null && c.GetType().Name == NetworkErrorPopupType);
+            if (netComp != null)
+            {
+                var so = new SerializedObject(netComp);
+
+                // _panel: 직속 자식 "Panel"의 AnimatedPanel 컴포넌트
+                var panelTransform = popupGO.transform
+                    .Cast<Transform>()
+                    .FirstOrDefault(t => t.name == "Panel");
+                if (panelTransform != null)
+                {
+                    var animatedPanel = panelTransform.GetComponent<MonoBehaviour>();
+                    if (animatedPanel != null && animatedPanel.GetType().Name == "AnimatedPanel")
+                    {
+                        var panelProp = so.FindProperty("_panel");
+                        if (panelProp != null)
+                        {
+                            panelProp.objectReferenceValue = animatedPanel;
+                        }
+                    }
+
+                    // _confirmButton: Panel > ButtonContainer > ConfirmButton
+                    var buttonContainer = panelTransform
+                        .Cast<Transform>()
+                        .FirstOrDefault(t => t.name == "ButtonContainer");
+                    if (buttonContainer != null)
+                    {
+                        var confirmTransform = buttonContainer
+                            .Cast<Transform>()
+                            .FirstOrDefault(t => t.name == "ConfirmButton");
+                        if (confirmTransform != null)
+                        {
+                            var btn = confirmTransform.GetComponent<Button>();
+                            var btnProp = so.FindProperty("_confirmButton");
+                            if (btnProp != null && btn != null)
+                            {
+                                btnProp.objectReferenceValue = btn;
+                            }
+                        }
+                    }
+                }
+
+                so.ApplyModifiedProperties();
+                EditorUtility.SetDirty(netComp);
+            }
+
             EditorUtility.SetDirty(popupGO);
             SaveScene(scene);
 
