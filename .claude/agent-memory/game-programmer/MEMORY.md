@@ -25,6 +25,36 @@
 
 ## 최근 작업
 
+### Canvas SortingOrder + BlockingOverlay 렌더링 수정 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/09_32_canvas-sorting-order-fix/`
+
+**근본 원인**: UIManager GameObject가 Login.unity에서 `[UI Systems]` 하위 자식으로 배치되어 있었음.  
+`DontDestroyOnLoad`는 **루트 GameObject에만 작동** — 자식 오브젝트에는 적용되지 않음.  
+→ 씬 전환 시 UIManager가 파괴되어 Game 씬에서 `UIManager.Instance == null`.  
+→ 모든 패널의 `Show()`에서 `UIManager.Instance?.ShowBlockingOverlay(...)` 호출이 null-safe 스킵됨.
+
+**수정**: Login.unity Hierarchy에서 UIManager를 `[UI Systems]` 밖 루트 레벨로 이동 (씬 Inspector 작업).
+
+**Canvas SortingOrder 최종 구조**:
+```
+SO 0   → [UI] Canvas (Game 씬 HUD)
+SO 100 → UIManager Canvas (BlockingOverlay + ConfirmPopup)
+SO 200 → 각 패널 Canvas Override (BuildingPopup, BuildingActionPanel, InGameSettings, GameEndPanel, ProductionPopup)
+SO 300 → LoadingIndicator 독립 Canvas
+```
+
+**Game.unity 씬 작업**: 5개 패널 GO에 Canvas(Override Sorting=true, SO=200) + GraphicRaycaster 추가.
+
+**핵심 교훈**:
+- `DontDestroyOnLoad`는 반드시 루트 GO에만 작동. 자식 배치 시 씬 전환마다 재생성+즉시파괴 반복.
+- 런타임 로그로 확인: `ApplyBlockingOverlayVisibility` 반복 호출 = UIManager 매번 새로 생성되는 신호.
+- 게임 씬 패널이 UIManager보다 높은 SO 필요 시 Canvas Override 사용 (GameSystemRules_UI Rule 4).
+- `Hexiege.Application` 네임스페이스가 `UnityEngine.Application`을 가림 → `Application.dataPath` 등 UnityEngine.Application 멤버는 반드시 `UnityEngine.Application.xxx` 명시.
+
+---
+
+
 ### LoadingIndicator 최소 표시 시간 + ConfirmPopup/NetworkErrorPopup 버그 수정 (2026-06-22) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/05_50_loading-indicator-min-duration/`
