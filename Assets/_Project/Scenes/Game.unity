@@ -3219,7 +3219,7 @@ MonoBehaviour:
   _showDuration: 0.2
   _hideDuration: 0.15
   _slideOffset: 300
-  _backgroundOverlay: {fileID: 543183965}
+  _backgroundOverlay: {fileID: 0}
 --- !u!1 &235397921
 GameObject:
   m_ObjectHideFlags: 0
@@ -4589,7 +4589,7 @@ MonoBehaviour:
   _showDuration: 0.2
   _hideDuration: 0.15
   _slideOffset: 300
-  _backgroundOverlay: {fileID: 543183965}
+  _backgroundOverlay: {fileID: 0}
 --- !u!1 &296351756
 GameObject:
   m_ObjectHideFlags: 0
@@ -10716,7 +10716,7 @@ MonoBehaviour:
   _showDuration: 0.2
   _hideDuration: 0.15
   _slideOffset: 300
-  _backgroundOverlay: {fileID: 543183965}
+  _backgroundOverlay: {fileID: 0}
 --- !u!225 &697420767
 CanvasGroup:
   m_ObjectHideFlags: 0
@@ -17287,7 +17287,7 @@ MonoBehaviour:
   _showDuration: 0.2
   _hideDuration: 0.15
   _slideOffset: 300
-  _backgroundOverlay: {fileID: 543183965}
+  _backgroundOverlay: {fileID: 0}
 --- !u!1 &1310222878
 GameObject:
   m_ObjectHideFlags: 0
@@ -25447,7 +25447,7 @@ MonoBehaviour:
   _showDuration: 0.2
   _hideDuration: 0.15
   _slideOffset: 300
-  _backgroundOverlay: {fileID: 543183965}
+  _backgroundOverlay: {fileID: 0}
 --- !u!1 &1973447143
 GameObject:
   m_ObjectHideFlags: 0
@@ -27419,7 +27419,7 @@ Canvas:
   m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 200
   m_TargetDisplay: 0
 --- !u!224 &2087256517
 RectTransform:
