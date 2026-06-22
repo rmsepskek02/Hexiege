@@ -27,8 +27,10 @@ namespace Hexiege.Presentation
         // 로그가 저장될 폴더 경로.
         // Application.dataPath 는 "<프로젝트>/Assets" 를 가리키므로,
         // 그 아래 _Project/Docs/_Logs/... 경로를 조합한다.
+        // UnityEngine.Application 을 명시 — Hexiege.Application 네임스페이스와 이름이 겹쳐
+        // 단순히 Application 으로 쓰면 컴파일러가 Hexiege.Application 을 먼저 찾아 오류가 남.
         private static readonly string LogDir = System.IO.Path.Combine(
-            Application.dataPath,
+            UnityEngine.Application.dataPath,
             "_Project/Docs/_Logs/2026-06-22/09_32_canvas-sorting-order-fix");
 
         // 실제 로그가 기록될 파일 경로.
