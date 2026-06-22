@@ -4,10 +4,10 @@
 
 로그인 화면에서 다섯 가지를 수정한다.
 1. 패널 전환 방식을 `SetActive` → CanvasGroup 패턴으로 교체 (프로젝트 규칙 준수) — **✅ 완료**
-2. 앱 종료 확인 팝업과 네트워크 에러 팝업을 별도 오브젝트로 분리 — **✅ 완료 (Inspector 연결만 미완)**
+2. 앱 종료 확인 팝업과 네트워크 에러 팝업을 별도 오브젝트로 분리 — **✅ 완료**
 3. 선언만 되고 사용하지 않는 `_headerText` 변수 제거 — **✅ 완료**
 4. LoadingIndicator를 SafeAreaContainer 밖으로 이동하여 전체화면 커버 복구 (BUG-A)
-5. AnonymousWarningPopup을 UIManager Canvas 안으로 이동하여 BlockingOverlay에 가려지지 않도록 수정 (BUG-B)
+5. AnonymousWarningPopup / NetworkErrorPopup이 UIManager의 BlockingOverlay에 가려지지 않도록 수정 (BUG-B)
 
 ---
 
@@ -19,188 +19,54 @@
 | 팝업 오브젝트 분리 | `GameSystemRules_UI.md` — 공통 UI 규칙 10 (팝업 중첩 안전성) |
 | 미사용 변수 제거 | CLAUDE.md 규칙 6 (작업 범위 최소화, 불필요 코드 제거) |
 | LoadingIndicator SafeArea 밖으로 이동 (BUG-A) | `GameSystemRules_UI.md` — 공통 UI 규칙 4 (전체화면 요소는 SafeAreaContainer 밖) |
-| AnonymousWarningPopup UIManager Canvas로 이동 (BUG-B) | `GameSystemRules_UI.md` — 공통 UI 규칙 4, 8 (Canvas SortingOrder 계층 일치) |
+| 팝업에 독립 Canvas 추가 (BUG-B) | `GameSystemRules_UI.md` — 규칙 4 (ToastUI처럼 독립 Canvas를 가진 UI 허용), 규칙 5 (UIManager BlockingOverlay 단일 소유 유지) |
 
 ---
 
-## Step 1. `LoginRootView.cs` — CanvasGroup 패턴 전환 + _headerText 제거
+## BUG-B 해결 설계
 
-**파일**: `Assets/_Project/Scripts/Presentation/UI/Views/Login/LoginRootView.cs`
+### 문제
+AnonymousWarningPopup과 NetworkErrorPopup은 Login Canvas(SortingOrder=0) 안에 있다.
+UIManager.ShowBlockingOverlay()를 호출하면 UIManager Canvas(SortingOrder=100)의 BlockingOverlay가 화면에 표시되는데,
+이것이 Login Canvas 전체를 덮기 때문에 두 팝업이 BlockingOverlay 뒤에 가려진다.
 
-### 1-1. SerializeField 타입 변경
+### 해결 방향
+두 팝업을 Login Canvas에 그대로 유지하되, 각 팝업 오브젝트에 **독립 Canvas 컴포넌트**를 추가하여
+SortingOrder를 UIManager Canvas(100)보다 높게 설정한다. (SortingOrder=200)
 
-5개 패널 참조를 `GameObject` → `CanvasGroup`으로 변경한다.
-Inspector에서 재연결이 필요하므로 에디터 스크립트(Step 3)로 처리한다.
+Unity에서 GameObject에 Canvas 컴포넌트를 직접 붙이면 부모 Canvas의 SortingOrder를 무시하고
+자신의 SortingOrder로 독립 렌더링된다. ToastUI가 동일한 방식을 사용하며, GameSystemRules_UI.md 규칙 4에도 명시된 패턴이다.
 
-```csharp
-// 변경 전
-[SerializeField] private GameObject _loginSelectPanel;
-// ... 5개
-
-// 변경 후
-[SerializeField] private CanvasGroup _loginSelectPanel;
-// ... 5개
+### 렌더링 순서 (수정 후)
+```
+(SortingOrder   0) Login Canvas          — 로그인 패널들
+(SortingOrder 100) UIManager Canvas      — BlockingOverlay (화면 어둡게 + 입력 차단)
+(SortingOrder 200) 팝업 자체 Canvas     — AnonymousWarningPopup / NetworkErrorPopup (BlockingOverlay 위에 표시)
 ```
 
-### 1-2. _headerText 제거
-
-아래 4줄을 삭제한다. Inspector에서도 null 상태였으므로 씬 파일 영향 없음.
-
-```csharp
-// 삭제
-[Header("공통 UI 요소")]
-[Tooltip("모든 화면 공통의 헤더 텍스트(선택). null 허용.")]
-[SerializeField] private TextMeshProUGUI _headerText;
-```
-
-`using TMPro;` 선언도 _headerText가 유일한 TMP 사용처인 경우 함께 제거한다.
-(ConfirmPopup 등 다른 using 여부 확인 후 제거)
-
-### 1-3. SafeSetActive 헬퍼 → ShowGroup / HideGroup 헬퍼로 교체
-
-```csharp
-// 삭제
-private static void SafeSetActive(GameObject go, bool active)
-{
-    if (go != null) go.SetActive(active);
-}
-
-// 추가
-private static void ShowGroup(CanvasGroup cg)
-{
-    if (cg == null) return;
-    cg.alpha = 1f;
-    cg.blocksRaycasts = true;
-    cg.interactable = true;
-}
-
-private static void HideGroup(CanvasGroup cg)
-{
-    if (cg == null) return;
-    cg.alpha = 0f;
-    cg.blocksRaycasts = false;
-    cg.interactable = false;
-}
-```
-
-### 1-4. HideAll() 수정
-
-```csharp
-public void HideAll()
-{
-    HideGroup(_loginSelectPanel);
-    HideGroup(_emailLoginPanel);
-    HideGroup(_signUpPanel);
-    HideGroup(_emailVerifyPanel);
-    HideGroup(_passwordResetPanel);
-    _currentPanel = LoginPanel.None;
-}
-```
-
-### 1-5. SetActivePanel() 수정
-
-```csharp
-private void SetActivePanel(LoginPanel panel)
-{
-    // 전체 숨김 후 지정 패널만 표시
-    HideAll();  // _currentPanel이 None으로 초기화되므로 별도 처리
-    _currentPanel = panel;
-
-    switch (panel)
-    {
-        case LoginPanel.LoginSelect:   ShowGroup(_loginSelectPanel);   break;
-        case LoginPanel.EmailLogin:    ShowGroup(_emailLoginPanel);    break;
-        case LoginPanel.SignUp:        ShowGroup(_signUpPanel);        break;
-        case LoginPanel.EmailVerify:   ShowGroup(_emailVerifyPanel);   break;
-        case LoginPanel.PasswordReset: ShowGroup(_passwordResetPanel); break;
-    }
-}
-```
-
-> **주의**: `HideAll()` 내부에서 `_currentPanel = LoginPanel.None`을 설정하므로
-> `SetActivePanel()` 에서는 HideAll() 호출 후 `_currentPanel`을 panel 값으로 재설정해야 한다.
+### UIManager BlockingOverlay 단일 소유 원칙 유지
+- 두 팝업이 자체 BlockingOverlay를 갖지 않는다 (자식 BlockingOverlay 오브젝트 삭제)
+- UIManager.ShowBlockingOverlay() 호출 구조 그대로 유지
 
 ---
 
-## Step 2. 에디터 스크립트 — CanvasGroup 추가 + NetworkErrorPopup 생성
-
-### 목적
-
-- 5개 패널 GameObject에 CanvasGroup 컴포넌트 추가
-- NetworkErrorPopup 전용 ConfirmPopup 오브젝트를 씬에 추가
-- LoginRootView Inspector 슬롯 재연결 (GameObject → CanvasGroup)
-
-### 파일
-
-`Assets/_Project/Scripts/Editor/LoginUiSetup.cs` (1회성 실행 후 삭제 가능)
-
-### 메뉴 경로
-
-`Hexiege/Setup/Login UI — CanvasGroup + NetworkErrorPopup 설정`
-
-### 스크립트가 수행할 작업
-
-1. `Login.unity` 씬이 열려 있는지 확인
-2. 5개 패널 GameObject를 이름으로 찾아 `CanvasGroup` 컴포넌트 추가
-   - 이미 있으면 건너뜀 (중복 방지)
-   - 초기 상태 설정: LoginSelectPanel만 표시(alpha=1, blocksRaycasts=true, interactable=true), 나머지 숨김(alpha=0, false, false)
-3. LoginRootView 컴포넌트의 패널 슬롯을 새로 추가된 CanvasGroup으로 재연결
-4. ConfirmPopup 오브젝트(앱 종료용)를 기준으로 동일 구조의 NetworkErrorPopup 오브젝트를 복제하여 씬에 추가
-   - GameObject 이름: `NetworkErrorPopup`
-   - SafeAreaContainer 하위에 배치
-5. LoginRootView의 `_networkErrorPopup` 슬롯에 새 NetworkErrorPopup 연결
-6. `EditorSceneManager.MarkSceneDirty()` + `AssetDatabase.SaveAssets()`
-
-### 대상 오브젝트 이름 (Login.unity 씬 기준)
-
-| 슬롯 | 패널 이름 |
-|------|----------|
-| _loginSelectPanel | LoginSelectPanel |
-| _emailLoginPanel | EmailLoginPanel |
-| _signUpPanel | SignUpPanel |
-| _emailVerifyPanel | EmailVerifyPanel |
-| _passwordResetPanel | PasswordResetPanel |
-| 기존 ConfirmPopup | (fileID: 422375806, 이름으로 탐색) |
-| SafeAreaContainer | SafeAreaContainer |
-
----
-
-## Step 3. 사용자 — 에디터 스크립트 실행
-
-Unity Editor에서 메뉴 `Hexiege/Setup/Login UI — CanvasGroup + NetworkErrorPopup 설정`을 실행한다.
-완료 후 Login.unity를 저장한다.
-
----
-
-## Step 3. 에디터 스크립트 — _networkErrorPopup 슬롯 연결 (미완료 항목)
-
-**파일**: `Assets/_Project/Scripts/Editor/LoginUiSetup.cs` (1회성 실행 후 삭제)
-
-**메뉴 경로**: `Hexiege/Setup/Login UI — NetworkErrorPopup 슬롯 연결`
-
-씬에는 NetworkErrorPopup 오브젝트가 이미 존재하지만 LoginRootView의 `_networkErrorPopup` 슬롯이 연결되어 있지 않다.
-에디터 스크립트에서 NetworkErrorPopup 오브젝트를 이름으로 찾아 `_networkErrorPopup` 슬롯에 연결한다.
-
----
-
-## Step 4. 에디터 스크립트 — BUG-A: LoadingIndicator 이동
-
-**파일**: 동일 에디터 스크립트에 메뉴 항목 추가
-
-**메뉴 경로**: `Hexiege/Setup/Login UI — BUG-A LoadingIndicator 이동`
-
-### 수행할 작업
-
-1. UIManager Canvas 하위에서 LoadingIndicator 오브젝트를 찾는다
-2. LoadingIndicator의 부모를 `SafeAreaContainer`에서 `UIManager Canvas` 직속으로 변경한다
-3. RectTransform을 전체화면 stretch로 설정한다 (anchorMin: 0,0 / anchorMax: 1,1 / offsetMin: 0,0 / offsetMax: 0,0)
-
-### 목표 구조
+## 목표 씬 구조
 
 ```
+Login Canvas (SortingOrder: 0)
+└─ SafeAreaContainer (SafeAreaFitter)
+    ├─ LoginRoot (LoginRootView)
+    │   ├─ LoginSelectPanel (CanvasGroup)
+    │   ├─ EmailLoginPanel (CanvasGroup)
+    │   ├─ SignUpPanel (CanvasGroup)
+    │   ├─ EmailVerifyPanel (CanvasGroup)
+    │   └─ PasswordResetPanel (CanvasGroup)
+    ├─ AnonymousWarningPopup [Canvas(200) + GraphicRaycaster]  ← 독립 Canvas 추가, BlockingOverlay 자식 삭제
+    └─ NetworkErrorPopup     [Canvas(200) + GraphicRaycaster]  ← 독립 Canvas 추가, BlockingOverlay 자식 삭제
+
 UIManager Canvas (SortingOrder: 100)
-├─ BlockingOverlay                    ← 기존 위치 유지
-├─ LoadingIndicator (CanvasGroup)     ← SafeAreaContainer 밖으로 이동
+├─ BlockingOverlay
+├─ LoadingIndicator (CanvasGroup)  ← BUG-A: SafeAreaContainer 밖으로 이동
 │   ├─ Background (Image)
 │   └─ SafeAreaContainer (SafeAreaFitter)
 │       ├─ Spinner
@@ -209,75 +75,104 @@ UIManager Canvas (SortingOrder: 100)
     └─ ConfirmPopup
 ```
 
-> **주의**: LoadingIndicator 내부의 SafeAreaContainer는 그대로 유지한다.
-> Spinner와 StatusText는 SafeArea 범위 안에 표시되어야 하며, Background만 전체화면을 커버하면 된다.
-> Background는 LoadingIndicator 직속이므로 LoadingIndicator가 전체화면이 되면 자동으로 전체화면 커버가 된다.
+> **AnonymousWarningPopup 현재 위치 복원 필요**: 이전 잘못된 작업으로 UIManager Canvas로 이동되어 있음.
+> Login Canvas > SafeAreaContainer로 되돌린 뒤 독립 Canvas를 추가한다.
 
 ---
 
-## Step 5. 에디터 스크립트 — BUG-B: AnonymousWarningPopup 이동
+## Step 1. `NetworkErrorPopup.cs` — 전용 스크립트 신규 작성 ✅ 미완료
 
-**메뉴 경로**: `Hexiege/Setup/Login UI — BUG-B AnonymousWarningPopup 이동`
+**파일**: `Assets/_Project/Scripts/Presentation/UI/Views/Login/NetworkErrorPopup.cs`
 
-### 수행할 작업
+AnonymousWarningPopup.cs를 참고하여 동일한 구조로 작성한다.
 
-1. Login Canvas의 SafeAreaContainer에서 AnonymousWarningPopup 오브젝트를 찾는다
-2. UIManager Canvas의 SafeAreaContainer 하위로 이동한다
-3. RectTransform을 전체화면 stretch로 설정한다 (anchorMin: 0,0 / anchorMax: 1,1)
-4. `_anonymousWarningPopup` Inspector 슬롯 참조를 재연결한다
-   - LoginRootView 컴포넌트에서 AnonymousWarningPopup을 참조하는 슬롯을 새 위치의 오브젝트로 재연결
+- `UIManager.Instance?.ShowBlockingOverlay()` — Modal 모드 (Show 시 호출)
+- `UIManager.Instance?.HideBlockingOverlay()` — Hide 시 호출
+- NetworkErrorPopup에 표시할 메시지와 확인 버튼만 있는 단순 구조
 
-### 목표 구조
+---
 
+## Step 2. `LoginRootView.cs` — ShowNetworkErrorPopup() 수정 ✅ 미완료
+
+**파일**: `Assets/_Project/Scripts/Presentation/UI/Views/Login/LoginRootView.cs`
+
+현재 `ShowNetworkErrorPopup()`이 `UIManager.Instance?.ShowConfirm()`을 호출하고 있다.
+NetworkErrorPopup 전용 스크립트가 생기므로, NetworkErrorPopup을 직접 Show()하도록 변경한다.
+
+```csharp
+// 변경 전
+public void ShowNetworkErrorPopup()
+{
+    UIManager.Instance?.ShowConfirm(
+        message: "네트워크 설정을 확인하고 다시 시도하세요.",
+        ...);
+}
+
+// 변경 후
+[SerializeField] private NetworkErrorPopup _networkErrorPopup;
+
+public void ShowNetworkErrorPopup()
+{
+    _networkErrorPopup?.Show();
+}
 ```
-Login Canvas (SortingOrder: 0)
-└─ SafeAreaContainer (SafeAreaFitter)
-    ├─ LoginRoot (LoginRootView)
-    │   └─ (5개 패널)
-    └─ NetworkErrorPopup              ← 기존 위치 유지
 
-UIManager Canvas (SortingOrder: 100)
-├─ BlockingOverlay
-└─ SafeAreaContainer (SafeAreaFitter)
-    ├─ ConfirmPopup
-    ├─ LoadingIndicator               ← BUG-A 수정 후 이 위치가 아닌 Canvas 직속
-    └─ AnonymousWarningPopup          ← BUG-B: 여기로 이동
-```
+---
 
-### 위험 요소
+## Step 3. 에디터 스크립트 — Inspector 작업 자동화 ✅ 미완료
 
-| 위험 | 대응 |
-|------|------|
-| AnonymousWarningPopup이 LoginRootView 외에 다른 곳에서도 참조될 가능성 | 씬 파싱에서 `_anonymousWarningPopup` 참조가 두 곳(fileID 기준) 확인됨 — 에디터 스크립트에서 모든 참조를 재연결 |
-| 이동 후 RectTransform 초기화 필요 | 에디터 스크립트에서 명시적으로 설정 |
+**파일**: `Assets/_Project/Scripts/Editor/LoginUiSetup.cs` (기존 파일 교체)
+
+### 메뉴 항목 1: `Hexiege/Setup/Login UI — BUG-A: LoadingIndicator 이동`
+
+1. UIManager Canvas 하위 SafeAreaContainer에서 LoadingIndicator를 찾는다
+2. UIManager Canvas 직속으로 부모 변경 (Undo 등록)
+3. RectTransform: anchorMin(0,0) / anchorMax(1,1) / offset(0,0) 전체화면 stretch
+
+### 메뉴 항목 2: `Hexiege/Setup/Login UI — BUG-B: AnonymousWarningPopup 복원 및 Canvas 추가`
+
+1. 현재 UIManager Canvas > SafeAreaContainer에서 AnonymousWarningPopup을 찾는다
+2. Login Canvas > SafeAreaContainer로 부모 변경 (Undo 등록)
+3. RectTransform: anchorMin(0,0) / anchorMax(1,1) / offset(0,0)
+4. AnonymousWarningPopup에 Canvas 컴포넌트 추가 (SortingOrder=200, overrideSorting=true)
+5. GraphicRaycaster 컴포넌트 추가
+6. 자식 BlockingOverlay 오브젝트 삭제
+7. LoginRootView의 `_anonymousWarningPopup` 슬롯 재연결
+
+### 메뉴 항목 3: `Hexiege/Setup/Login UI — BUG-B: NetworkErrorPopup Canvas 추가`
+
+1. Login Canvas > SafeAreaContainer에서 NetworkErrorPopup을 찾는다
+2. Canvas 컴포넌트 추가 (SortingOrder=200, overrideSorting=true)
+3. GraphicRaycaster 컴포넌트 추가
+4. 자식 BlockingOverlay 오브젝트 삭제
+5. NetworkErrorPopup에 NetworkErrorPopup.cs 컴포넌트 추가 (기존 ConfirmPopup 컴포넌트 제거)
+6. LoginRootView의 `_networkErrorPopup` 슬롯 연결
 
 ---
 
 ## 구현 순서
 
 ```
-[1] LoginRootView.cs 수정 → ✅ 완료
+[1] NetworkErrorPopup.cs 신규 작성 (Step 1)
       ↓
-[2] 에디터 스크립트 작성 (Step 2 원본 + Step 3~5 추가)
+[2] LoginRootView.cs 수정 (Step 2)
       ↓
-[3] 사용자가 에디터 스크립트 실행 (Step 3: NetworkErrorPopup 연결)
+[3] LoginUiSetup.cs 에디터 스크립트 작성 (Step 3)
       ↓
-[4] 사용자가 에디터 스크립트 실행 (Step 4: BUG-A LoadingIndicator 이동)
+[4] 사용자: Hexiege/Setup 메뉴 순서대로 실행
       ↓
-[5] 사용자가 에디터 스크립트 실행 (Step 5: BUG-B AnonymousWarningPopup 이동)
-      ↓
-[6] 플레이모드에서 전체 동작 확인
+[5] Login.unity 저장 후 플레이모드 테스트
 ```
 
 ---
 
-## 위험 요소 (원본 Step 1~2)
+## 위험 요소
 
 | 위험 | 대응 |
 |------|------|
-| CanvasGroup 초기 alpha 설정 누락 | 에디터 스크립트에서 초기 상태 명시적으로 설정 |
-| PushCurrentToStack에서 LoginPanel.None이 push될 가능성 | 기존 코드(라인 292)에 이미 `if (_currentPanel != LoginPanel.None)` 가드 존재 — 문제없음 |
-| SetActivePanel → HideAll 연쇄 호출 시 _currentPanel 초기화 | Step 1-5에서 HideAll() 후 즉시 _currentPanel = panel 재설정으로 처리 |
+| LoadingIndicator가 DontDestroyOnLoad 오브젝트라 이름으로 못 찾을 수 있음 | `Resources.FindObjectsOfTypeAll<UIManager>()` 를 통해 UIManager 컴포넌트 → Canvas → LoadingIndicator 탐색 |
+| AnonymousWarningPopup 참조가 씬에서 두 곳(LoginRootView 외 1곳) 확인됨 | 에디터 스크립트에서 모든 LoginRootView 컴포넌트를 탐색하여 재연결 |
+| NetworkErrorPopup의 기존 ConfirmPopup 컴포넌트 제거 시 Inspector 참조 깨짐 | 에디터 스크립트에서 컴포넌트 교체 후 새 컴포넌트로 슬롯 재연결 |
 
 ---
 
