@@ -170,7 +170,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9b7ec25c88af24141ba6fafa31d6f03c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.NetworkErrorPopup
-  _panel: {fileID: 0}
+  _panel: {fileID: 927980772}
   _confirmButton: {fileID: 2097994377}
 --- !u!114 &73106102
 MonoBehaviour:
