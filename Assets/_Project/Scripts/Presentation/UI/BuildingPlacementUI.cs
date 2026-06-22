@@ -220,6 +220,9 @@ namespace Hexiege.Presentation
 
         public void Show(HexCoord coord, TeamId team)
         {
+            // [DEBUG-TEMP] 디버깅 완료 후 제거
+            Debug.Log($"[{DateTime.Now:HH:mm:ss.fff}] [INFO] [UI/BuildingPlacementUI] Show 호출 | UIManager.Instance={(UIManager.Instance != null ? "있음" : "NULL")}");
+
             _targetCoord = coord;
             _currentTeam = team;
 
