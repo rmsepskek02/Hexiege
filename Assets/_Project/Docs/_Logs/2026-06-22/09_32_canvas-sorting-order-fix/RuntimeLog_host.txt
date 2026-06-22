@@ -39,3 +39,52 @@
 [20:43:59.313] [INFO] [UI/BuildingPlacementUI] Show 팀/종족 | Team=Blue, Race=Human
 [20:44:00.565] [INFO] [UI/InGameSettingsUI] Show 호출 | UIManager.Instance=NULL
 [20:44:01.911] [INFO] [UI/InGameSettingsUI] Show 호출 | UIManager.Instance=NULL
+[21:10:53.913] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:13.947] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:27.175] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:27.199] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:27.199] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:27.200] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:27.200] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:41.307] [INFO] [UI/BuildingPlacementUI] Show 호출 | UIManager.Instance=있음
+[21:16:41.308] [INFO] [UI/BuildingPlacementUI] Show 팀/종족 | Team=Blue, Race=Human
+[21:16:41.312] [INFO] [UI/UIManager] ShowBlockingOverlay 호출 | _blockingOverlay=연결됨, refCount=1, onTap=있음
+[21:16:41.312] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=True, _blockingOverlay=alpha→1
+[21:16:41.930] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:42.807] [INFO] [UI/BuildingPlacementUI] Show 호출 | UIManager.Instance=있음
+[21:16:42.807] [INFO] [UI/BuildingPlacementUI] Show 팀/종족 | Team=Blue, Race=Human
+[21:16:42.808] [INFO] [UI/UIManager] ShowBlockingOverlay 호출 | _blockingOverlay=연결됨, refCount=1, onTap=있음
+[21:16:42.808] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=True, _blockingOverlay=alpha→1
+[21:16:43.264] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:44.003] [INFO] [UI/BuildingPlacementUI] Show 호출 | UIManager.Instance=있음
+[21:16:44.004] [INFO] [UI/BuildingPlacementUI] Show 팀/종족 | Team=Blue, Race=Human
+[21:16:44.005] [INFO] [UI/UIManager] ShowBlockingOverlay 호출 | _blockingOverlay=연결됨, refCount=1, onTap=있음
+[21:16:44.005] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=True, _blockingOverlay=alpha→1
+[21:16:44.608] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:45.500] [INFO] [UI/BuildingPanelBase] Show 호출 | UIManager.Instance=있음
+[21:16:45.500] [INFO] [UI/UIManager] ShowBlockingOverlay 호출 | _blockingOverlay=연결됨, refCount=1, onTap=있음
+[21:16:45.500] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=True, _blockingOverlay=alpha→1
+[21:16:46.074] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:47.098] [INFO] [UI/BuildingPanelBase] Show 호출 | UIManager.Instance=있음
+[21:16:47.099] [INFO] [UI/UIManager] ShowBlockingOverlay 호출 | _blockingOverlay=연결됨, refCount=1, onTap=있음
+[21:16:47.099] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=True, _blockingOverlay=alpha→1
+[21:16:47.600] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:48.115] [INFO] [UI/InGameSettingsUI] Show 호출 | UIManager.Instance=있음
+[21:16:48.115] [INFO] [UI/UIManager] ShowBlockingOverlay 호출 | _blockingOverlay=연결됨, refCount=1, onTap=있음
+[21:16:48.115] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=True, _blockingOverlay=alpha→1
+[21:16:49.423] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:49.923] [INFO] [UI/InGameSettingsUI] Show 호출 | UIManager.Instance=있음
+[21:16:49.923] [INFO] [UI/UIManager] ShowBlockingOverlay 호출 | _blockingOverlay=연결됨, refCount=1, onTap=있음
+[21:16:49.924] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=True, _blockingOverlay=alpha→1
+[21:16:50.664] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:51.502] [INFO] [UI/InGameSettingsUI] Show 호출 | UIManager.Instance=있음
+[21:16:51.502] [INFO] [UI/UIManager] ShowBlockingOverlay 호출 | _blockingOverlay=연결됨, refCount=1, onTap=있음
+[21:16:51.503] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=True, _blockingOverlay=alpha→1
+[21:16:52.060] [INFO] [UI/UIManager] ShowBlockingOverlay 호출 | _blockingOverlay=연결됨, refCount=2, onTap=없음
+[21:16:52.060] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=True, _blockingOverlay=alpha→1
+[21:16:54.814] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:54.815] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:54.816] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:54.816] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:54.816] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
+[21:16:54.818] [INFO] [UI/UIManager] ApplyBlockingOverlayVisibility | show=False, _blockingOverlay=alpha→0
