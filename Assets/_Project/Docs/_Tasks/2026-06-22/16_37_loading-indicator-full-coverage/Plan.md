@@ -148,3 +148,44 @@ ShowLoading(false) 호출 시 최소 표시 시간(UIManager._loadingMinDuration
 - [ ] 멀티 연결 끊김 팝업 "확인" → 로딩 표시 후 복귀 (수정 4)
 - [ ] 커스텀게임 재경기 수락 → 양 클라이언트 모두 로딩 표시 후 Game 재진입 (수정 5)
 - [ ] 모든 경로에서 새 씬 도착 후 로딩이 정상적으로 사라짐 (미해결 2 정책 확정 후)
+
+---
+
+## 9. SceneLoader 도입 — 씬 전환 로딩 인디케이터 자동화 (2026-06-22 추가)
+
+### 9.1 무엇을 왜 하는가 (자연어 설명)
+
+위 3~8장은 씬 전환 직전마다 `UIManager.Instance?.ShowLoading(true, "...")`를 **개발자가 직접 한 줄씩 추가**하는 방식이었다. 이 방식은 새로운 씬 전환 코드를 작성할 때마다 로딩 표시를 빠뜨릴 위험이 있다.
+
+그래서 **모든 씬 전환을 단일 진입점(`SceneLoader.Load`)으로 통일**한다. 이 클래스는 씬을 로드하기 직전에 로딩 인디케이터를 자동으로 켜주므로, 개발자가 로딩 호출을 빠뜨릴 수 없다. 씬 이름도 상수(`SceneLoader.Login/Lobby/Game`)로 관리해 문자열 오타를 방지한다.
+
+### 9.2 생성 위치 및 역할
+
+- **신규 파일**: `Assets/_Project/Scripts/Presentation/UI/SceneLoader.cs`
+- **네임스페이스**: `Hexiege.Presentation`
+- **역할**: 정적 유틸리티. `Load(sceneName, message = null)` 호출 시 ① `UIManager.Instance?.ShowLoading(true, msg)` 자동 호출 → ② `SceneManager.LoadScene(sceneName)` 수행.
+- 씬 이름 상수: `Login` / `Lobby` / `Game`.
+- 기본 메시지: 씬 이름별 기본 안내 문구 제공(message 미지정 시). Login="로그인 화면으로 이동 중...", Lobby="로비로 이동 중...", Game="게임을 불러오는 중...".
+- 로딩을 끄는 책임은 기존과 동일하게 **목적지 씬 Bootstrapper**(규칙 L-3): LoginBootstrapper.ShowLoginSelect / LobbyRootView.Start / GameBootstrapper.Map.LoadMap.
+
+### 9.3 교체한 파일 목록 (기존 `SceneManager.LoadScene` → `SceneLoader.Load`)
+
+| 파일 | 위치 | 기존 | 변경 |
+|------|------|------|------|
+| `Presentation/UI/ViewModels/BattleViewModel.cs` | `LoadSingleplayScene()` | `SceneManager.LoadScene("Game")` | `SceneLoader.Load(SceneLoader.Game, "게임 로딩 중...")` (2초 대기 UX 때문에 선행 ShowLoading은 유지) |
+| `Presentation/UI/Views/Lobby/Profile/ProfileView.cs` | `OnLogoutClicked()` | `SceneManager.LoadScene(_loginSceneName)` | `SceneLoader.Load(_loginSceneName, "로그아웃 중...")` (비동기 대기 위한 선행 ShowLoading 유지) |
+| `Presentation/UI/NetworkStatusUI.cs` | `OnReturnButtonClicked()` | 선행 `ShowLoading(true,...)` + `SceneManager.LoadScene(_returnSceneName)` | 선행 ShowLoading 제거, `SceneLoader.Load(_returnSceneName, "로비로 이동 중...")` |
+| `Presentation/UI/GameEndUI.cs` | `ReturnToLobby()` | `SceneManager.LoadScene("Lobby")` | `SceneLoader.Load(SceneLoader.Lobby, "로비로 이동 중...")` (NGM 분기 커버 위한 선행 ShowLoading 유지) |
+| `Bootstrap/LoginBootstrapper.cs` | `GoToNextScene()` | `SceneManager.LoadScene(_nextSceneName)` | `SceneLoader.Load(_nextSceneName)` |
+| `Infrastructure/Network/NetworkGameManager.cs` | `BackToLobby()` | `SceneManager.LoadScene(lobbySceneName)` | `SceneLoader.Load(lobbySceneName)` (+ `using Hexiege.Presentation` 추가) |
+
+**using 정리**: 위 파일 중 `SceneManager`가 더 이상 코드에서 쓰이지 않게 된 BattleViewModel / ProfileView / NetworkStatusUI / GameEndUI / LoginBootstrapper는 `using UnityEngine.SceneManagement` 제거. NetworkGameManager는 NGO `LoadSceneMode` 사용 때문에 해당 using 유지.
+
+### 9.4 NGO SceneManager는 교체 제외 — 이유
+
+- `Infrastructure/Network/NetworkGameEndController.cs:470` 의 `NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single)` 은 **교체하지 않았다**.
+- 이유: 이것은 NGO(Netcode for GameObjects)의 네트워크 씬 매니저로, 서버가 씬을 로드하면 모든 클라이언트에 자동 동기화하는 별도 메커니즘이다. 일반 `UnityEngine.SceneManagement.SceneManager.LoadScene`(로컬 단독 전환)과 동작 방식이 근본적으로 다르므로 `SceneLoader`가 담당하지 않는다.
+
+### 9.5 아키텍처 점검
+
+- `SceneLoader`는 Presentation 레이어. Infrastructure의 `NetworkGameManager`가 이를 참조하지만, 동일 레이어 파일(`NetworkUnit`, `NetworkGameEndController`)이 이미 `Hexiege.Presentation`(UIManager/EffectManager)을 참조하고 있어 기존 의존 방향과 일치한다. 새로운 레이어 위반 없음.

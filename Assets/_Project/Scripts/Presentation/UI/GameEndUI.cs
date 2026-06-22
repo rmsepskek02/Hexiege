@@ -28,7 +28,6 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using TMPro;
 using UniRx;
 using Hexiege.Domain;
@@ -308,7 +307,7 @@ namespace Hexiege.Presentation
         ///   NetworkGameManager.BackToLobby() 호출 — 내부에서 OnClientConnectedCallback 해제,
         ///   Heartbeat 정지, Lobby 퇴장, Shutdown, 씬 전환을 순서대로 안전하게 처리.
         /// 싱글플레이 시:
-        ///   SceneManager.LoadScene("Lobby") 직접 호출.
+        ///   SceneLoader.Load(SceneLoader.Lobby) 호출 (로딩 인디케이터 자동 표시).
         ///
         /// 이전에는 NetworkManager.Singleton.Shutdown()을 직접 호출했으나,
         /// Unity.Netcode 직접 의존을 제거하고자 Application 레이어 NetworkContext로 분기하고,
@@ -332,8 +331,10 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            // 싱글플레이 또는 NGM 미연결: 씬 전환만 수행
-            SceneManager.LoadScene("Lobby");
+            // 싱글플레이 또는 NGM 미연결: 씬 전환만 수행.
+            // 위에서 이미 ShowLoading(true)를 호출했지만, SceneLoader.Load 가 다시 호출해도
+            // 같은 메시지로 갱신될 뿐이므로 부작용은 없다.
+            SceneLoader.Load(SceneLoader.Lobby, "로비로 이동 중...");
         }
 
         /// <summary>

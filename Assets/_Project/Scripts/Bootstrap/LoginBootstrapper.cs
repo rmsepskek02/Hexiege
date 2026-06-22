@@ -23,7 +23,6 @@ using System;                       // [DEBUG-TEMP] 디버깅 완료 후 제거 
 using System.Threading.Tasks;
 using GooglePlayGames;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
 using Hexiege.Presentation;
@@ -265,7 +264,8 @@ namespace Hexiege.Bootstrap
                 Debug.LogError("[LoginBootstrapper] _nextSceneName 이 비어 있어 씬 이동을 진행할 수 없습니다.");
                 return;
             }
-            SceneManager.LoadScene(_nextSceneName);
+            // SceneLoader.Load 가 내부에서 로딩 인디케이터를 자동 표시한다.
+            SceneLoader.Load(_nextSceneName);
         }
 
         /// <summary>
