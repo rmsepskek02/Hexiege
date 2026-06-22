@@ -20,7 +20,7 @@
 // 주의:
 //   - NetworkBehaviour 불필요: 로컬 표시 전용 (Presentation 레이어)
 //   - [2026-05-20] Unity.Netcode / UTP 직접 의존 제거 — NetworkGameManager API로 통일
-//   - 씬 전환(SceneManager) 참조: UnityEngine.SceneManagement
+//   - 씬 전환: SceneLoader.Load 사용 (로딩 인디케이터 자동 표시)
 //
 // Presentation 레이어 — Unity 의존 (MonoBehaviour).
 // ============================================================================
@@ -28,7 +28,6 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using TMPro;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
@@ -229,17 +228,15 @@ namespace Hexiege.Presentation
             // 시간 복원 (게임 종료 팝업과 함께 표시된 경우)
             Time.timeScale = 1f;
 
-            // 연결 끊김 복귀도 네트워크 종료 + 씬 전환이 일어나므로
-            // 그 사이 사용자가 멈춘 화면을 보지 않도록 전역 로딩 인디케이터를 띄운다.
-            // 로딩을 끄는 책임은 목적지 씬의 초기화 완료 시점이 담당한다(UI 규칙 L-3).
-            UIManager.Instance?.ShowLoading(true, "로비로 이동 중...");
-
             // 네트워크 종료 — NGM에 위임
             if (_networkGameManager != null)
                 _networkGameManager.ShutdownNetwork();
 
-            // 복귀 씬 로드
-            SceneManager.LoadScene(_returnSceneName);
+            // 복귀 씬 로드.
+            // SceneLoader.Load 가 내부에서 로딩 인디케이터를 띄우므로 별도 ShowLoading 호출은 제거했다.
+            // 연결 끊김 복귀도 네트워크 종료 + 씬 전환이 일어나므로 그 사이 사용자가 멈춘 화면을 보지 않게 된다.
+            // 로딩을 끄는 책임은 목적지 씬의 초기화 완료 시점이 담당한다(UI 규칙 L-3).
+            SceneLoader.Load(_returnSceneName, "로비로 이동 중...");
         }
     }
 }

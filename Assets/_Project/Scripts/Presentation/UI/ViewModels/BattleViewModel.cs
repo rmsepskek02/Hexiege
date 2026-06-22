@@ -16,7 +16,6 @@
 using System;
 using System.Threading.Tasks;
 using UniRx;
-using UnityEngine.SceneManagement;
 using Hexiege.Domain;
 using Hexiege.Infrastructure;
 
@@ -220,9 +219,11 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void LoadSingleplayScene()
         {
+            // SceneLoader.Load 가 내부에서 ShowLoading(true)를 호출하므로 별도 호출은 제거한다.
+            // 단, 여기서는 로딩 표시 후 2초 대기가 필요하므로 먼저 로딩만 띄우고 대기한 뒤 씬을 로드한다.
             UIManager.Instance?.ShowLoading(true, "게임 로딩 중...");
             await Task.Delay(2000);
-            SceneManager.LoadScene("Game");
+            SceneLoader.Load(SceneLoader.Game, "게임 로딩 중...");
         }
 
         /// <summary>
