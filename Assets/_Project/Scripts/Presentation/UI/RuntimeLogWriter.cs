@@ -60,9 +60,10 @@ namespace Hexiege.Presentation
                 // 메시지를 줄바꿈과 함께 파일 끝에 덧붙인다.
                 System.IO.File.AppendAllText(logPath, message + "\n");
             }
-            catch
+            catch (System.Exception e)
             {
-                // 로그 기록 실패는 게임 동작에 영향을 주지 않도록 무시한다.
+                // [DEBUG-TEMP] 파일 기록 실패 원인 파악용 — 원인 확인 후 제거
+                UnityEngine.Debug.LogError($"[RuntimeLogWriter] 파일 기록 실패: {e}");
             }
         }
     }
