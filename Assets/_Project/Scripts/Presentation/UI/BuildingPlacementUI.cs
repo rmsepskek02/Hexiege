@@ -220,9 +220,6 @@ namespace Hexiege.Presentation
 
         public void Show(HexCoord coord, TeamId team)
         {
-            // [DEBUG-TEMP] 런타임 로그 — 디버깅 완료 후 제거
-            RuntimeLogWriter.Write($"[{System.DateTime.Now:HH:mm:ss.fff}] [INFO] [UI/BuildingPlacementUI] Show 호출 | UIManager.Instance={(UIManager.Instance != null ? "있음" : "NULL")}");
-
             _targetCoord = coord;
             _currentTeam = team;
 
@@ -230,9 +227,6 @@ namespace Hexiege.Presentation
             RaceId race = team == TeamId.Blue
                 ? GameRaceContext.BlueRace
                 : GameRaceContext.RedRace;
-
-            // [DEBUG-TEMP] 런타임 로그 — 디버깅 완료 후 제거
-            RuntimeLogWriter.Write($"[{System.DateTime.Now:HH:mm:ss.fff}] [INFO] [UI/BuildingPlacementUI] Show 팀/종족 | Team={team}, Race={race}");
 
             // 2. 종족별 건물 리스트 가져오기
             var list = GetBuildingList(team, race);
