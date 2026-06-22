@@ -61,6 +61,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("익명 로그인 경고 팝업.")]
         [SerializeField] private AnonymousWarningPopup _anonymousWarningPopup;
 
+        [Tooltip("네트워크 오류 안내 팝업.")]
+        [SerializeField] private NetworkErrorPopup _networkErrorPopup;
+
         [Header("스플래시 오버레이")]
         [Tooltip("Login 씬 진입 시 표시되는 스플래시 오버레이. " +
                  "초기화 중 '로딩 중...' → 완료 후 'Tap to Start' → 탭 시 페이드아웃을 담당한다.")]
@@ -237,6 +240,9 @@ namespace Hexiege.Bootstrap
 
             if (_anonymousWarningPopup != null)
                 _anonymousWarningPopup.Initialize(_rootView, _loginUseCase, this);
+
+            if (_networkErrorPopup != null)
+                _networkErrorPopup.Initialize(_rootView);
         }
 
         // ====================================================================

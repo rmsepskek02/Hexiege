@@ -25,6 +25,48 @@
 
 ## 최근 작업
 
+### LoadingIndicator 최소 표시 시간 + ConfirmPopup/NetworkErrorPopup 버그 수정 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/05_50_loading-indicator-min-duration/`
+
+**핵심**:
+- `UIManager.ShowLoading(false)` 호출 시 최소 표시 시간(`_loadingMinDuration`, 기본 1f초)이 지나지 않았으면 `WaitForSecondsRealtime`으로 지연 후 숨김
+- `_loadingShowTime` 기록 + `_hideLoadingCoroutine` 코루틴 관리 (중복 hide 방지)
+- AnonymousWarningPopup(SortingOrder=200)에 가리는 문제: LoadingIndicator에 독립 Canvas(SortingOrder=300) 추가 (`LoginUiSetup.cs` 에디터 스크립트 메뉴 항목 추가)
+
+**ConfirmPopup + NetworkErrorPopup 버그 원인 및 수정**:
+- **ConfirmPopup 패널 미표시**: 씬 프리팹 인스턴스 오버라이드로 루트 CanvasGroup alpha=0, interactable=0 강제됨 → Inspector에서 alpha=1, interactable=true로 수정
+- **NetworkErrorPopup 패널 미표시**: `_panel` 슬롯 null → `Show()/Hide()`에서 `if (_panel != null)` 분기가 모두 건너뜀. 컴포넌트 교체 시 슬롯 재연결 필수
+- **버튼 클릭 무반응**: `NetworkErrorPopup.Initialize()`가 호출되지 않아 버튼 콜백 미등록 → LoginBootstrapper의 `_networkErrorPopup` 슬롯 연결 누락이 원인
+- **주의**: NetworkErrorPopup은 LoginRootView + **LoginBootstrapper** 두 곳 모두 슬롯 연결 필요. LoginBootstrapper가 `Initialize()` 호출, LoginRootView가 `Show()` 호출
+
+### Lobby 패널 CanvasGroup 에디터 사전 부착 + LobbyRootView 단순화 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/05_59_lobby-canvasgroup-preattach/`
+
+**핵심**: 런타임 `AddComponent` 방식(EnsureCanvasGroup)을 에디터 사전 부착 방식으로 전환.
+- `Assets/Editor/Setup/SetupLobbyPanelCanvasGroups.cs` 에디터 스크립트 신규 (`Hexiege/Setup/Lobby 패널 CanvasGroup 설정` 메뉴)
+  - BattlePanel/ShopPanel/ProfilePanel/RankingPanel 4개 모두 `SetActive(true)`
+  - 4개 패널에 CanvasGroup 부착 (없는 경우에만)
+  - BattlePanel: alpha=1, blocksRaycasts=true, interactable=true
+  - ShopPanel/ProfilePanel/RankingPanel: alpha=0, blocksRaycasts=false, interactable=false
+- `LobbyRootView.Awake()`: `EnsureCanvasGroup()` → `GetComponent<CanvasGroup>()` 교체
+- `EnsureCanvasGroup()` 헬퍼 메서드 제거
+
+**원칙**: 컴포넌트 부착은 런타임 코드가 아닌 에디터에서 미리 해두는 것이 원칙 (GameSystemRules_UI.md Rule 5).
+
+### ProfileView 로그아웃 버튼 추가 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/04_34_lobby-profile-logout-button/`
+
+**핵심**: Firebase 익명 로그인 성공 후 로비에서 로그아웃 가능한 임시 버튼 추가.
+- `Assets/Editor/Setup/AddLogoutButtonToProfileView.cs` 에디터 스크립트 신규 (`Hexiege/Setup/ProfileView 로그아웃 버튼 추가` 메뉴)
+  - ProfilePanel에 ProfileView 컴포넌트 부착 (없는 경우)
+  - LogoutButton GO 생성 (Button + Image + TextMeshProUGUI "로그아웃", Maplestory Bold SDF)
+  - SerializedObject로 `ProfileView._logoutButton` 필드 자동 연결
+  - 임시 RectTransform: 하단 고정 앵커 (Rule 2 임시 — 추후 ProfileView 전체 재설계 시 수정 예정)
+- 코드 변경 없음 — ProfileView._logoutButton + OnLogoutClicked()는 이미 구현 완료 상태였음.
+
 ### BlockingOverlay UIManager 단일 소유 통합 (2026-06-21) — 코드 완료, 씬/실기 테스트 대기
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-21/07_30_blocking-overlay-canvasgroup-fix/Plan.md`
 **핵심**: 각 팝업이 개별 소유하던 반투명 배경 오버레이를 UIManager 단일 소유로 통합 (SafeArea 갇힘 문제 해결).

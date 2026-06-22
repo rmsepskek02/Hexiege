@@ -73,6 +73,9 @@ namespace Hexiege.Presentation
         [Tooltip("익명 로그인 경고 팝업. 패널 전환 스택과 무관.")]
         [SerializeField] private AnonymousWarningPopup _anonymousWarningPopup;
 
+        [Tooltip("네트워크 오류 안내 팝업.")]
+        [SerializeField] private NetworkErrorPopup _networkErrorPopup;
+
         // ====================================================================
         // 내부 상태
         // ====================================================================
@@ -257,12 +260,8 @@ namespace Hexiege.Presentation
         /// </summary>
         public void ShowNetworkErrorPopup()
         {
-            UIManager.Instance?.ShowConfirm(
-                message: "네트워크 설정을 확인하고 다시 시도하세요.",
-                onConfirm: null,
-                onCancel: null,
-                confirmLabel: "확인",
-                cancelLabel: string.Empty);
+            if (_networkErrorPopup != null)
+                _networkErrorPopup.Show();
         }
 
         // ====================================================================
