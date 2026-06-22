@@ -79,42 +79,44 @@ namespace Hexiege.EditorTools.Fix
             if (canvas == null)
             {
                 canvas = prefabRoot.AddComponent<Canvas>();
-                canvas.overrideSorting = true;
-                canvas.sortingOrder = TargetSortingOrder;
-                // 새로 추가한 컴포넌트의 프로퍼티 변경 사항을 Unity 직렬화 시스템에 알린다.
+                Debug.Log($"[Fix_AddCanvasToConfirmPopup] Canvas 추가됨.");
+            }
+
+            // SerializedObject를 통해 프로퍼티를 설정한다.
+            // LoadPrefabContents 환경에서는 직접 프로퍼티 대입보다 SerializedObject/Property
+            // 방식이 Unity 직렬화 시스템에 더 확실하게 반영된다.
+            SerializedObject so = new SerializedObject(canvas);
+
+            SerializedProperty overrideSortingProp = so.FindProperty("m_OverrideSorting");
+            SerializedProperty sortingOrderProp    = so.FindProperty("m_SortingOrder");
+
+            bool changed = false;
+
+            if (overrideSortingProp != null && !overrideSortingProp.boolValue)
+            {
+                overrideSortingProp.boolValue = true;
+                changed = true;
+            }
+
+            if (sortingOrderProp != null && sortingOrderProp.intValue != TargetSortingOrder)
+            {
+                Debug.Log($"[Fix_AddCanvasToConfirmPopup] SortingOrder " +
+                          $"{sortingOrderProp.intValue} -> {TargetSortingOrder} 로 보정합니다.");
+                sortingOrderProp.intValue = TargetSortingOrder;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                // 변경 사항을 SerializedObject에 적용한다.
+                so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(canvas);
-                Debug.Log($"[Fix_AddCanvasToConfirmPopup] Canvas 추가됨 " +
+                Debug.Log($"[Fix_AddCanvasToConfirmPopup] Canvas 설정 완료 " +
                           $"(OverrideSorting=true, SortingOrder={TargetSortingOrder}).");
             }
             else
             {
-                // 이미 Canvas가 존재 — OverrideSorting/SortingOrder 값만 확인/보정한다.
-                bool changed = false;
-
-                if (!canvas.overrideSorting)
-                {
-                    canvas.overrideSorting = true;
-                    changed = true;
-                }
-
-                if (canvas.sortingOrder != TargetSortingOrder)
-                {
-                    Debug.Log($"[Fix_AddCanvasToConfirmPopup] 기존 Canvas의 SortingOrder " +
-                              $"{canvas.sortingOrder} -> {TargetSortingOrder} 로 보정합니다.");
-                    canvas.sortingOrder = TargetSortingOrder;
-                    changed = true;
-                }
-
-                if (changed)
-                {
-                    // 기존 컴포넌트 프로퍼티 변경 사항을 Unity 직렬화 시스템에 알린다.
-                    EditorUtility.SetDirty(canvas);
-                    Debug.Log("[Fix_AddCanvasToConfirmPopup] Canvas가 이미 존재하여 설정만 보정했습니다.");
-                }
-                else
-                {
-                    Debug.Log("[Fix_AddCanvasToConfirmPopup] Canvas가 이미 올바르게 설정되어 있습니다. (변경 없음)");
-                }
+                Debug.Log("[Fix_AddCanvasToConfirmPopup] Canvas가 이미 올바르게 설정되어 있습니다. (변경 없음)");
             }
 
             // [GraphicRaycaster 처리] OverrideSorting Canvas는 자체 Raycaster가 필요하다.
