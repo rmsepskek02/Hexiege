@@ -81,6 +81,8 @@ namespace Hexiege.EditorTools.Fix
                 canvas = prefabRoot.AddComponent<Canvas>();
                 canvas.overrideSorting = true;
                 canvas.sortingOrder = TargetSortingOrder;
+                // 새로 추가한 컴포넌트의 프로퍼티 변경 사항을 Unity 직렬화 시스템에 알린다.
+                EditorUtility.SetDirty(canvas);
                 Debug.Log($"[Fix_AddCanvasToConfirmPopup] Canvas 추가됨 " +
                           $"(OverrideSorting=true, SortingOrder={TargetSortingOrder}).");
             }
@@ -105,6 +107,8 @@ namespace Hexiege.EditorTools.Fix
 
                 if (changed)
                 {
+                    // 기존 컴포넌트 프로퍼티 변경 사항을 Unity 직렬화 시스템에 알린다.
+                    EditorUtility.SetDirty(canvas);
                     Debug.Log("[Fix_AddCanvasToConfirmPopup] Canvas가 이미 존재하여 설정만 보정했습니다.");
                 }
                 else
