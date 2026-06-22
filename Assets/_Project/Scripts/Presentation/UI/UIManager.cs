@@ -30,6 +30,7 @@
 // ============================================================================
 
 using System;
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -59,6 +60,11 @@ namespace Hexiege.Presentation
                  "null이면 메시지 표시 없이 스피너만 보인다.")]
         [SerializeField] private TextMeshProUGUI _loadingStatusText;
 
+        [Tooltip("로딩 인디케이터가 표시된 후 최소 유지해야 하는 시간(초). " +
+                 "ShowLoading(false)가 이 시간보다 빨리 호출되면 남은 시간만큼 대기 후 숨긴다. " +
+                 "너무 빠르게 사라지는 '깜빡임' 현상을 방지한다. 기본값: 1초.")]
+        [SerializeField] private float _loadingMinDuration = 1f;
+
         [Header("반투명 배경 오버레이 (BlockingOverlay)")]
         [Tooltip("모든 팝업이 공유하는 반투명 배경 오버레이의 CanvasGroup. " +
                  "UIManager Canvas 직속(SafeAreaContainer 바깥)에 배치하여 노치/홈바 영향 없이 전체화면을 덮는다. " +
@@ -82,6 +88,19 @@ namespace Hexiege.Presentation
         ///  하나가 Hide되어도 1이 남아 있으므로 오버레이는 유지된다.)
         /// </summary>
         private int _blockingOverlayRefCount;
+
+        /// <summary>
+        /// ShowLoading(true)가 호출된 시각(Time.realtimeSinceStartup 기준).
+        /// ShowLoading(false) 호출 시 최소 표시 시간이 지났는지 판단하는 데 사용한다.
+        /// </summary>
+        private float _loadingShowTime;
+
+        /// <summary>
+        /// ShowLoading(false) 지연 처리 코루틴 참조.
+        /// 최소 표시 시간이 남아 있을 때 대기 중인 숨김 코루틴을 추적한다.
+        /// 중복 실행 방지 및 조기 취소(show가 다시 호출되는 경우)에 사용한다.
+        /// </summary>
+        private Coroutine _hideLoadingCoroutine;
 
         // ====================================================================
         // Unity 생명주기
@@ -138,23 +157,77 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 로딩 인디케이터 표시 여부를 토글한다.
         /// Firebase 처리, 씬 전환, 매칭 대기 등 로딩 사유에 관계없이 이 메서드 하나로 제어한다.
+        ///
+        /// 최소 표시 시간 보장:
+        ///   ShowLoading(true) 후 _loadingMinDuration(기본 1초)이 지나기 전에
+        ///   ShowLoading(false)가 호출되면, 남은 시간 동안 코루틴으로 대기한 뒤 숨긴다.
+        ///   이를 통해 로딩 인디케이터가 깜빡이고 사라지는 현상을 방지한다.
+        ///   대기 중에 ShowLoading(true)가 다시 호출되면 대기 코루틴을 취소하고 계속 표시 상태를 유지한다.
         /// </summary>
-        /// <param name="show">true면 표시, false면 숨김.</param>
+        /// <param name="show">true면 표시, false면 숨김(최소 표시 시간 보장 후).</param>
         /// <param name="message">로딩 중 표시할 상태 메시지. 빈 문자열이면 이전 메시지 유지.</param>
         public void ShowLoading(bool show, string message = "")
         {
-            // 메시지가 있으면 StatusText에 반영한다.
-            // 숨김(show=false) 시에는 메시지를 굳이 바꾸지 않아도 되지만,
-            // 다음 번 표시 때 이전 메시지가 잠깐 노출되는 것을 막기 위해 초기화한다.
-            if (_loadingStatusText != null)
+            if (show)
             {
-                if (!string.IsNullOrEmpty(message))
-                    _loadingStatusText.text = message;
-                else if (!show)
-                    _loadingStatusText.text = string.Empty;
-            }
+                // 대기 중인 숨김 코루틴이 있으면 취소한다.
+                // (show → hide(대기중) → show 패턴에서 대기 중 숨김이 실행되지 않도록)
+                if (_hideLoadingCoroutine != null)
+                {
+                    StopCoroutine(_hideLoadingCoroutine);
+                    _hideLoadingCoroutine = null;
+                }
 
-            ApplyLoadingVisibility(show);
+                // 표시 시각을 기록한다. 이후 ShowLoading(false)에서 최소 표시 시간 계산에 사용한다.
+                _loadingShowTime = Time.realtimeSinceStartup;
+
+                if (_loadingStatusText != null && !string.IsNullOrEmpty(message))
+                    _loadingStatusText.text = message;
+
+                ApplyLoadingVisibility(true);
+            }
+            else
+            {
+                // 중복 숨김 코루틴 방지
+                if (_hideLoadingCoroutine != null)
+                {
+                    StopCoroutine(_hideLoadingCoroutine);
+                    _hideLoadingCoroutine = null;
+                }
+
+                float elapsed = Time.realtimeSinceStartup - _loadingShowTime;
+                if (elapsed >= _loadingMinDuration)
+                {
+                    // 최소 표시 시간이 이미 지났으면 즉시 숨긴다.
+                    if (_loadingStatusText != null)
+                        _loadingStatusText.text = string.Empty;
+                    ApplyLoadingVisibility(false);
+                }
+                else
+                {
+                    // 최소 표시 시간이 남아 있으면 코루틴으로 나머지 시간 대기 후 숨긴다.
+                    _hideLoadingCoroutine = StartCoroutine(HideLoadingAfterMinDurationCoroutine());
+                }
+            }
+        }
+
+        /// <summary>
+        /// 로딩 인디케이터 최소 표시 시간이 남아 있을 때 대기 후 숨기는 코루틴.
+        /// WaitForSecondsRealtime을 사용하여 Time.timeScale=0 상황(씬 전환 등)에도 올바르게 동작한다.
+        /// </summary>
+        private IEnumerator HideLoadingAfterMinDurationCoroutine()
+        {
+            float elapsed = Time.realtimeSinceStartup - _loadingShowTime;
+            float remaining = _loadingMinDuration - elapsed;
+
+            if (remaining > 0f)
+                yield return new WaitForSecondsRealtime(remaining);
+
+            if (_loadingStatusText != null)
+                _loadingStatusText.text = string.Empty;
+
+            ApplyLoadingVisibility(false);
+            _hideLoadingCoroutine = null;
         }
 
         /// <summary>
