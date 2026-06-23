@@ -25,7 +25,7 @@ using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using Hexiege.Presentation; // SceneLoader (씬 전환 + 로딩 인디케이터 자동 표시)
+using Hexiege.Application; // GameEvents (씬 전환을 Presentation에 위임하는 이벤트 채널)
 
 namespace Hexiege.Infrastructure
 {
@@ -622,9 +622,9 @@ namespace Hexiege.Infrastructure
             // 4. NGO 연결 해제
             ShutdownNetworkManager();
 
-            // 5. 씬 전환 — SceneLoader.Load 가 로딩 인디케이터를 자동 표시한다.
-            //    (이 SceneManager.LoadScene 은 NGO 씬 매니저가 아닌 일반 씬 전환이므로 SceneLoader 대상)
-            SceneLoader.Load(lobbySceneName);
+            // 5. 씬 전환 — SceneLoader(Presentation)를 직접 참조하지 않고
+            //    GameEvents(Application)를 경유해 GameEndUI(Presentation)가 처리하도록 한다(UI 규칙 L-4).
+            GameEvents.OnNetworkBackToLobby.OnNext(lobbySceneName);
         }
 
         // ====================================================================

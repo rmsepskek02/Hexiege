@@ -823,6 +823,17 @@ namespace Hexiege.Application
         public static readonly Subject<Unit> OnNetworkRematchStarting = new Subject<Unit>();
 
         /// <summary>
+        /// 네트워크 게임 종료 후 로비로 복귀할 때 발행하는 이벤트.
+        /// 발행: NetworkGameManager.BackToLobby (NGO Shutdown 완료 직후)
+        /// 구독: GameEndUI (SceneLoader.Load 호출)
+        ///
+        /// 왜 이벤트로 보내는가:
+        ///   BackToLobby는 Infrastructure 레이어지만, 씬 전환(SceneLoader)은 Presentation 소속이다.
+        ///   레이어 방향을 보호하기 위해 GameEvents(Application)를 경유한다(UI 규칙 L-4 주석).
+        /// </summary>
+        public static readonly Subject<string> OnNetworkBackToLobby = new Subject<string>();
+
+        /// <summary>
         /// 로컬에서 재경기 요청 버튼을 눌렀음을 알리는 이벤트.
         /// 발행: GameEndUI (SetupRematchButton 콜백)
         /// 구독: NetworkGameEndController (RequestRematchServerRpc 호출)

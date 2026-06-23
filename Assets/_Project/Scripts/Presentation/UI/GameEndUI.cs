@@ -99,6 +99,9 @@ namespace Hexiege.Presentation
         /// <summary> 멀티플레이 재경기 시작(씬 재로드 직전) 이벤트 구독 해제용. </summary>
         private System.IDisposable _rematchStartingSubscription;
 
+        /// <summary> 네트워크 로비 복귀(씬 전환) 이벤트 구독 해제용. </summary>
+        private System.IDisposable _backToLobbySubscription;
+
         /// <summary> 자동 로비 복귀 카운트다운 코루틴. </summary>
         private Coroutine _countdownCoroutine;
 
@@ -117,6 +120,7 @@ namespace Hexiege.Presentation
             _rematchAvailableSubscription?.Dispose();
             _rematchDeclinedSubscription?.Dispose();
             _rematchStartingSubscription?.Dispose();
+            _backToLobbySubscription?.Dispose();
 
             // 게임 종료 이벤트 구독
             // [2026-05-20] 멀티플레이 흐름 통일: NetworkGameEndController가 GameEvents.OnGameEnd를 발행하므로
@@ -137,6 +141,12 @@ namespace Hexiege.Presentation
             // 완료되면 자동으로 꺼진다(UI 규칙 L-3).
             _rematchStartingSubscription = GameEvents.OnNetworkRematchStarting
                 .Subscribe(_ => UIManager.Instance?.ShowLoading(true, "재경기 준비 중..."));
+
+            // [로비 복귀] NetworkGameManager.BackToLobby(Infrastructure)가 NGO Shutdown 완료 후
+            //   본 이벤트를 발행한다. 씬 전환(SceneLoader)은 Presentation 책임이므로
+            //   Infrastructure가 직접 호출하지 않고 이 구독을 통해 처리한다(UI 규칙 L-4).
+            _backToLobbySubscription = GameEvents.OnNetworkBackToLobby
+                .Subscribe(sceneName => SceneLoader.Load(sceneName));
 
             // 다시하기 버튼 이벤트 (중복 등록 방지)
             if (_restartButton != null)
@@ -163,6 +173,7 @@ namespace Hexiege.Presentation
             _rematchAvailableSubscription?.Dispose();
             _rematchDeclinedSubscription?.Dispose();
             _rematchStartingSubscription?.Dispose();
+            _backToLobbySubscription?.Dispose();
         }
 
         // ====================================================================
