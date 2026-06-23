@@ -14,10 +14,85 @@
 // Domain 레이어 — 순수 C#, Unity 의존 없음.
 // ============================================================================
 
+using System.Collections.Generic;
+
 namespace Hexiege.Domain
 {
     public static class BuildingTypeHelper
     {
+        // ====================================================================
+        // lookup table (생산건물 메타데이터)
+        //
+        // 왜 switch가 아니라 Dictionary인가?
+        //   - 기존에는 IsProductionBuilding / GetStage / GetNextStage 세 메서드가
+        //     각각 동일한 건물 목록을 switch로 중복 나열했다.
+        //   - 신규 건물 추가 시 세 곳을 모두 수정해야 해서 누락 위험이 컸다.
+        //   - 한 건물의 모든 속성(생산 여부 / 단계 / 다음 단계)을 한 행에 모아두면
+        //     추가·수정이 한 곳에서 끝나고, 세 메서드는 단순 조회만 한다.
+        // ====================================================================
+
+        /// <summary>
+        /// 생산건물 1개의 메타데이터(생산 여부 / 단계 / 다음 단계)를 담는 불변 구조체.
+        /// 값 타입(struct)이라 Dictionary 값으로 저장돼도 추가 힙 할당이 없다.
+        /// </summary>
+        private readonly struct BuildingMeta
+        {
+            public readonly bool IsProduction;        // 생산건물 여부
+            public readonly int Stage;                // 단계(1·2·3)
+            public readonly BuildingType? NextStage;  // 다음 단계(없으면 null)
+
+            public BuildingMeta(bool isProduction, int stage, BuildingType? nextStage = null)
+            {
+                IsProduction = isProduction;
+                Stage = stage;
+                NextStage = nextStage;
+            }
+        }
+
+        /// <summary>
+        /// 모든 생산건물의 메타데이터 테이블.
+        /// 여기에 없는 건물(Castle, MiningPost, AutoTower 등)은 비생산건물로 간주된다.
+        /// 신규 생산건물을 추가할 때는 이 테이블에 한 행만 추가하면 된다.
+        /// </summary>
+        private static readonly Dictionary<BuildingType, BuildingMeta> _buildingTable =
+            new Dictionary<BuildingType, BuildingMeta>
+            {
+                // Human — 근거리A
+                { BuildingType.TrainingCamp,      new BuildingMeta(true, 1, BuildingType.WarAcademy) },
+                { BuildingType.WarAcademy,        new BuildingMeta(true, 2, BuildingType.HumanBarracks) },
+                { BuildingType.HumanBarracks,     new BuildingMeta(true, 3) },
+                // Human — 총기류
+                { BuildingType.Gunsmith,          new BuildingMeta(true, 1, BuildingType.Armory) },
+                { BuildingType.Armory,            new BuildingMeta(true, 2, BuildingType.WeaponForge) },
+                { BuildingType.WeaponForge,       new BuildingMeta(true, 3) },
+                // Human — 탈것류 (2단계까지)
+                { BuildingType.Garage,            new BuildingMeta(true, 1, BuildingType.VehicleBay) },
+                { BuildingType.VehicleBay,        new BuildingMeta(true, 2) },
+                // Spirit — 불
+                { BuildingType.FireSpire,         new BuildingMeta(true, 1, BuildingType.BlazeConduit) },
+                { BuildingType.BlazeConduit,      new BuildingMeta(true, 2, BuildingType.InfernoCore) },
+                { BuildingType.InfernoCore,       new BuildingMeta(true, 3) },
+                // Spirit — 물
+                { BuildingType.AquaSpring,        new BuildingMeta(true, 1, BuildingType.TidalNexus) },
+                { BuildingType.TidalNexus,        new BuildingMeta(true, 2, BuildingType.OceanicHeart) },
+                { BuildingType.OceanicHeart,      new BuildingMeta(true, 3) },
+                // Spirit — 땅
+                { BuildingType.StoneMound,        new BuildingMeta(true, 1, BuildingType.TerraForge) },
+                { BuildingType.TerraForge,        new BuildingMeta(true, 2, BuildingType.GaeaSanctum) },
+                { BuildingType.GaeaSanctum,       new BuildingMeta(true, 3) },
+                // Transcendence — 동물A
+                { BuildingType.PrimalAltar,       new BuildingMeta(true, 1, BuildingType.PrimalDen) },
+                { BuildingType.PrimalDen,         new BuildingMeta(true, 2, BuildingType.PrimalSanctuary) },
+                { BuildingType.PrimalSanctuary,   new BuildingMeta(true, 3) },  // 생산 건물로 포함 (사용자 확인)
+                // Transcendence — 동물B
+                { BuildingType.FeralAltar,        new BuildingMeta(true, 1, BuildingType.FeralDen) },
+                { BuildingType.FeralDen,          new BuildingMeta(true, 2, BuildingType.FeralSanctuary) },
+                { BuildingType.FeralSanctuary,    new BuildingMeta(true, 3) },
+                // Transcendence — 식물 (2단계까지)
+                { BuildingType.SporePatch,        new BuildingMeta(true, 1, BuildingType.FloralNursery) },
+                { BuildingType.FloralNursery,     new BuildingMeta(true, 2) },
+            };
+
         // ====================================================================
         // 카테고리 판별
         // ====================================================================
@@ -29,6 +104,11 @@ namespace Hexiege.Domain
         /// </summary>
         /// <param name="type">검사할 건물 타입.</param>
         /// <returns>생산건물이면 true, 비생산건물(Castle, MiningPost 등)이면 false.</returns>
+        public static bool IsProductionBuilding(BuildingType type)
+            => _buildingTable.TryGetValue(type, out var meta) && meta.IsProduction;
+
+        // [Phase 2 리팩토링] 기존 switch 본문 — 테스트 통과 후 삭제 예정.
+        /*
         public static bool IsProductionBuilding(BuildingType type)
         {
             switch (type)
@@ -68,6 +148,7 @@ namespace Hexiege.Domain
                     return false;
             }
         }
+        */
 
         // ====================================================================
         // 단계(Stage) 조회
@@ -79,6 +160,11 @@ namespace Hexiege.Domain
         /// </summary>
         /// <param name="type">검사할 건물 타입.</param>
         /// <returns>1/2/3 (생산건물 단계) 또는 0 (비생산건물).</returns>
+        public static int GetStage(BuildingType type)
+            => _buildingTable.TryGetValue(type, out var meta) ? meta.Stage : 0;
+
+        // [Phase 2 리팩토링] 기존 switch 본문 — 테스트 통과 후 삭제 예정.
+        /*
         public static int GetStage(BuildingType type)
         {
             switch (type)
@@ -121,6 +207,7 @@ namespace Hexiege.Domain
                     return 0;
             }
         }
+        */
 
         // ====================================================================
         // 업그레이드 경로
@@ -131,6 +218,11 @@ namespace Hexiege.Domain
         /// 다음 단계가 없으면(최고 단계 / 비생산건물) null을 반환한다.
         /// 예: TrainingCamp → WarAcademy, Garage → VehicleBay, VehicleBay → null
         /// </summary>
+        public static BuildingType? GetNextStage(BuildingType type)
+            => _buildingTable.TryGetValue(type, out var meta) ? meta.NextStage : null;
+
+        // [Phase 2 리팩토링] 기존 switch 본문 — 테스트 통과 후 삭제 예정.
+        /*
         public static BuildingType? GetNextStage(BuildingType type)
         {
             switch (type)
@@ -168,6 +260,7 @@ namespace Hexiege.Domain
                     return null;
             }
         }
+        */
 
         /// <summary>
         /// 해당 건물이 업그레이드 가능한지 여부를 반환한다.
