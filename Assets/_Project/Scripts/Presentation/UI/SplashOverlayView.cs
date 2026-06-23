@@ -14,13 +14,14 @@
 //     │     "Tap to Start"         │  ← alpha 0↔1 깜빡임 (ShowTapToStart)
 //     └───────────────────────────┘
 //         ↓ 화면 탭
-//     SplashOverlay 전체 페이드아웃 (FadeOut) → 로그인 화면 노출 또는 Lobby 이동
+//     로그인 X: SplashOverlay 전체 페이드아웃 (FadeOut) → 로그인 화면 노출
+//     로그인 O: FadeOut 없이 즉시 → 로딩 인디케이터 → Lobby 이동
 //
 // 역할 정리:
 //   - SetStatus(text)     : StatusText 문구 변경(예: "로딩 중...")
 //   - ShowTapToStart()    : StatusText 숨김 + TapToStartText 깜빡임 시작 + 탭 입력 허용
 //   - FadeOut(onComplete) : 오버레이 전체 CanvasGroup 페이드아웃 후 콜백 호출
-//   - 화면 탭             : _tapToStartActive 상태일 때만 FadeOut을 트리거
+//   - 화면 탭             : _tapToStartActive 상태일 때만 동작. _skipFadeOnTap에 따라 즉시 콜백 또는 FadeOut 후 콜백
 //
 // 씬 배치(Login.unity):
 //   Canvas
@@ -99,6 +100,13 @@ namespace Hexiege.Presentation
         /// LoginBootstrapper가 ShowTapToStart 호출 전에 SetTapCallback으로 주입한다.
         /// </summary>
         private Action _tapCallback;
+
+        /// <summary>
+        /// true이면 탭 시 FadeOut을 건너뛰고 콜백을 즉시 실행한다.
+        /// 로그인 O 분기에서 사용 — 로딩 인디케이터(SortingOrder 300)가 화면을 덮으므로
+        /// FadeOut이 없어도 Login 씬 배경이 노출되지 않는다.
+        /// </summary>
+        private bool _skipFadeOnTap;
 
         // ====================================================================
         // Unity 생명주기
@@ -215,10 +223,15 @@ namespace Hexiege.Presentation
         /// 탭으로 오버레이를 닫은 후 실행할 콜백을 설정한다.
         /// LoginBootstrapper가 ShowTapToStart 호출 전에 연결한다.
         /// </summary>
-        /// <param name="callback">탭 후 FadeOut 완료 시 호출될 콜백.</param>
-        public void SetTapCallback(Action callback)
+        /// <param name="callback">탭 후 실행될 콜백.</param>
+        /// <param name="skipFade">
+        /// true이면 FadeOut 없이 콜백을 즉시 호출한다(로그인 O 분기용).
+        /// false(기본값)이면 기존대로 FadeOut 후 콜백 호출(로그인 X 분기용).
+        /// </param>
+        public void SetTapCallback(Action callback, bool skipFade = false)
         {
             _tapCallback = callback;
+            _skipFadeOnTap = skipFade;
         }
 
         // ====================================================================
@@ -233,7 +246,20 @@ namespace Hexiege.Presentation
         public void OnPointerClick(PointerEventData eventData)
         {
             if (!_tapToStartActive) return;
-            FadeOut(_tapCallback);
+
+            if (_skipFadeOnTap)
+            {
+                // FadeOut 없이 즉시 콜백 실행.
+                // 로딩 인디케이터(SortingOrder 300)가 화면을 덮으므로 배경 노출 없음.
+                _tapToStartActive = false;
+                _blinkTween?.Kill();
+                _blinkTween = null;
+                _tapCallback?.Invoke();
+            }
+            else
+            {
+                FadeOut(_tapCallback);
+            }
         }
     }
 }

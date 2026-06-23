@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-06-22
-**현재 단계:** ConfirmPopup z-order 버그 수정 완료 (Canvas SO=250 추가) — LoadingIndicator Game씬 미숨김 버그 + AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**최종 수정일:** 2026-06-23
+**현재 단계:** 스플래시 화면 로그인 흐름 개선 완료 (skipFade 모드) — LoadingIndicator Game씬 미숨김 버그 + AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 
 ---
 
@@ -66,6 +66,7 @@
 | LoadingIndicator 독립 Canvas(300) 추가 | ✅ 완료 (2026-06-22) | AnonymousWarningPopup(SortingOrder=200)이 LoadingIndicator를 가리는 문제 해결. `LoginUiSetup.cs` 에디터 스크립트에 메뉴 항목 추가(`Hexiege/Setup/Login UI — LoadingIndicator 독립 Canvas 추가`). LoadingIndicator에 독립 Canvas(SortingOrder=300, overrideSorting=true) + GraphicRaycaster 자동 추가. |
 | ConfirmPopup + NetworkErrorPopup 씬 버그 수정 | ✅ 완료 (2026-06-22) | ① ConfirmPopup: 씬 프리팹 인스턴스 오버라이드로 루트 CanvasGroup이 alpha=0/interactable=0으로 강제된 버그 Inspector 수정. ② NetworkErrorPopup: ConfirmPopup 컴포넌트가 남아있던 것 교체, `_panel` 슬롯 연결, LoginRootView + LoginBootstrapper `_networkErrorPopup` 슬롯 연결. |
 | 로그인 팝업 CloseButton 무반응 버그 수정 | ✅ 완료 (2026-06-23) | AnonymousWarningPopup / NetworkErrorPopup 두 팝업에 `_closeButton` SerializeField 추가 + Inspector 연결. CloseButton GO가 씬에 활성(Active) 상태로 존재했으나 코드 필드 누락으로 리스너 미등록 → 클릭 무반응. AnonymousWarningPopup은 `SetInteractable()`에 `_closeButton` 포함(로그인 진행 중 취소 방지). |
+| 스플래시 화면 로그인 흐름 개선 (skipFade 모드) | ✅ 완료 (2026-06-23) | 로그인된 상태 재실행 시 스플래시 FadeOut으로 로그인 씬 배경이 노출되던 문제 해결. `SplashOverlayView._skipFadeOnTap` 필드 + `SetTapCallback(callback, skipFade=false)` 파라미터 추가. `OnPointerClick` skipFade 분기: true이면 FadeOut 없이 즉시 콜백 호출. `LoginBootstrapper` 자동 로그인 성공 분기에서 `SetTapCallback(GoToNextScene, skipFade:true)` + `ShowLoading(false)` + `ShowTapToStart()` 적용. 로딩 인디케이터(SO=300)가 즉시 화면 커버. 로그인 X 흐름 변화 없음. |
 | ConfirmPopup z-order 버그 수정 (Canvas SO=250) | ✅ 완료 (2026-06-22) | InGameSettings Panel(SO=200)이 ConfirmPopup 위에 렌더링되던 문제. ConfirmPopup.prefab 루트에 Canvas(Override Sorting=true, SO=250) + GraphicRaycaster 추가. Canvas SortingOrder 전체 구조 확정: SO=0/100/200/250/300. GameSystemRules_CanvasSortingOrder.md 작성. |
 | BlockingOverlay 씬 전환 후 미표시 버그 수정 | ✅ 완료 (2026-06-22) | 근본 원인: UIManager가 Login.unity에서 `[UI Systems]` 자식으로 배치되어 DontDestroyOnLoad가 동작하지 않음(Unity 제약: DontDestroyOnLoad는 루트 GO에만 적용). Game 씬 전환 후 UIManager가 파괴되어 `UIManager.Instance=null`. 수정: Login.unity에서 UIManager GO를 계층 루트로 이동(Inspector). Canvas SortingOrder 확정 구조: SO=0(HUD) / SO=100(UIManager BlockingOverlay) / SO=200(패널 Canvas Override) / SO=300(LoadingIndicator). 파일 기반 RuntimeLog(RuntimeLogWriter.cs [DEBUG-TEMP]) 로 흐름 추적 후 원인 확인 → 디버깅 완료 후 로그 코드 제거. |
 

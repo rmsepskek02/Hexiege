@@ -25,6 +25,32 @@
 
 ## 최근 작업
 
+### 스플래시 화면 로그인 흐름 개선 — skipFade 모드 (2026-06-23) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-23/07_20_splash-login-flow/`
+
+**문제**: 로그인된 상태로 재실행 시 탭 → FadeOut(0.5초) → 이 동안 Login 씬 배경 노출. 스플래시가 투명해지는 동안 로그인 화면이 보여 어색한 전환 발생.
+
+**해결**: `SplashOverlayView`에 `_skipFadeOnTap` bool 필드 추가. `SetTapCallback` 두 번째 파라미터 `skipFade=false`(기본값) 추가 — 기존 로그인 X 호출 코드 변경 없음. `OnPointerClick` skipFade 분기: true면 FadeOut 없이 즉시 `_tapCallback` 호출, false면 기존 `FadeOut(_tapCallback)`.
+
+**LoginBootstrapper 자동 로그인 성공 분기 변경**:
+```csharp
+_splashOverlay.SetTapCallback(GoToNextScene, skipFade: true);
+UIManager.Instance?.ShowLoading(false);
+_splashOverlay.ShowTapToStart();
+```
+로딩 인디케이터(SortingOrder=300)가 탭 직후 즉시 화면 커버 → FadeOut 없어도 Login 씬 배경 미노출.
+
+**흐름 비교**:
+- 로그인 O: 탭 → 즉시 GoToNextScene → SceneLoader.Load("Lobby") → 로딩 인디케이터(SO=300) → 로비
+- 로그인 X: 탭 → FadeOut(0.5초, 로그인 화면 드러남) → ShowLoginSelect (기존 동작 유지)
+
+**수정 파일**:
+- `Presentation/UI/SplashOverlayView.cs` — `_skipFadeOnTap` 필드, `SetTapCallback(callback, bool skipFade=false)`, `OnPointerClick` 분기
+- `Bootstrap/LoginBootstrapper.cs` — 자동 로그인 성공 분기 `SetTapCallback(..., skipFade:true)` + `ShowLoading(false)` + `ShowTapToStart()`
+
+---
+
 ### 로그인 팝업 CloseButton 무반응 수정 (2026-06-23) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-23/04_49_cancel-button-fix/`

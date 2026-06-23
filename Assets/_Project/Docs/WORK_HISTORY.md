@@ -9,6 +9,7 @@
 
 | 날짜 | 마일스톤 |
 |------|---------|
+| 2026-06-23 | 스플래시 화면 로그인 흐름 개선 완료 — 로그인된 상태 재실행 시 스플래시 → "Tap to Start" → 탭 → 로비 직접 이동(FadeOut 없음). `SplashOverlayView`에 `_skipFadeOnTap` 필드 + `SetTapCallback(callback, skipFade=false)` 파라미터 추가. `OnPointerClick` skipFade 분기로 즉시 콜백 실행. `LoginBootstrapper` 자동 로그인 성공 분기에서 `skipFade:true` 적용. 로그인 X 기존 흐름(FadeOut → 로그인 화면 노출) 변화 없음. |
 | 2026-06-23 | 로그인 팝업 CloseButton 무반응 수정 완료 — AnonymousWarningPopup / NetworkErrorPopup 두 팝업에 `_closeButton` SerializeField 추가 + Inspector 연결. CloseButton GO가 씬에 활성화 상태로 존재했으나 코드 필드 누락으로 클릭 무반응이던 버그 해결. |
 | 2026-06-23 | LoadingIndicator 전수 적용 완료 — SceneLoader 정적 유틸리티 신규, 모든 씬 전환(로그아웃/포기/로비복귀/재경기/연결끊김) ShowLoading 커버. UIManager.LoadSceneWithDelay 텍스트 지연 버그 수정(ShowLoading 코루틴 외부로 이동). AnonymousWarningPopup 초기 메시지 누락 수정("로그인 중..."). NetworkGameManager Infrastructure→Presentation 레이어 위반 수정(GameEvents.OnNetworkBackToLobby 이벤트 경유). GameSystemRules_UI.md 로딩 규칙 L-1~L-4 신설. |
 | 2026-06-22 | ConfirmPopup z-order 버그 수정 완료 — InGameSettings Panel(Canvas SO=200)이 ConfirmPopup 위에 렌더링되던 문제. ConfirmPopup.prefab 루트에 Canvas(Override Sorting=true, SO=250) + GraphicRaycaster 추가(Inspector 직접 작업). Canvas SortingOrder 전체 구조 확정(SO=0/100/200/250/300) 및 GameSystemRules_CanvasSortingOrder.md 신규 작성. Fix_AddCanvasToConfirmPopup.cs 에디터 스크립트 작성(LoadPrefabContents 환경에서 SerializedObject 방식 필수). |
