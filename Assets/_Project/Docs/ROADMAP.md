@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-06-23
-**현재 단계:** LoadingIndicator 전수 적용 완료 (SceneLoader 도입, 레이어 위반 수정, 텍스트 지연 버그 수정) — 사운드/AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**현재 단계:** 로그인 팝업 CloseButton 무반응 버그 수정 완료 — 사운드/AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
