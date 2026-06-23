@@ -105,10 +105,6 @@ namespace Hexiege.Presentation
         /// <summary>
         /// GameBootstrapper.LoadMap()에서 호출.
         /// UseCase + 포기 서비스 주입 + 버튼 리스너 등록 + 초기 상태 보장.
-        ///
-        /// [2026-05-20] forfeitService 인자 추가:
-        ///   기존: OnForfeitConfirmed에서 FindFirstObjectByType<NetworkGameEndController> 호출
-        ///   변경: GameBootstrapper가 싱글/멀티 모드에 따라 적합한 IForfeitService 구현체를 주입
         /// </summary>
         /// <param name="gameEndUseCase">싱글플레이 포기 처리에 사용할 UseCase.</param>
         /// <param name="forfeitService">포기 요청을 위임할 서비스. 싱글=GameEndUseCase, 멀티=NetworkGameEndController.</param>
@@ -195,7 +191,7 @@ namespace Hexiege.Presentation
                 _pausedBySettings = true;
             }
 
-            // [2026-06-21] UIManager의 공유 BlockingOverlay를 Popup 모드로 표시.
+            // UIManager의 공유 BlockingOverlay를 Popup 모드로 표시.
             //   Popup 모드: 오버레이를 터치하면 Hide()가 호출되어 팝업이 닫힘.
             //   (규칙 8: Popup 타입은 배경 탭으로 닫힘)
             UIManager.Instance?.ShowBlockingOverlay(Hide);
@@ -215,7 +211,7 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
-            // [2026-06-21] UIManager 공유 BlockingOverlay 숨김(참조 카운터 -1).
+            // UIManager 공유 BlockingOverlay 숨김(참조 카운터 -1).
             UIManager.Instance?.HideBlockingOverlay();
             // [구로직 — 테스트 통과 후 삭제]
             // if (_sharedBackground != null)
@@ -323,10 +319,6 @@ namespace Hexiege.Presentation
         /// 싱글/멀티 모드 분기는 _forfeitService 구현체가 처리하므로 본 메서드는 단일 흐름.
         /// - 싱글: GameEndUseCase.RequestForfeit() → Red 승리로 즉시 게임 종료.
         /// - 멀티: NetworkGameEndController.RequestForfeit() → 서버가 자기 팀 패배 처리.
-        ///
-        /// [2026-05-20] 리팩토링:
-        ///   기존: FindFirstObjectByType&lt;NetworkGameEndController&gt;()로 직접 호출
-        ///   변경: GameBootstrapper에서 주입된 IForfeitService에 위임 (FindFirstObjectByType 제거)
         ///
         /// _forfeitService가 주입되지 않은 경우의 폴백:
         ///   싱글이면 _gameEndUseCase.Forfeit() 직접 호출. 멀티이면 경고 로그 후 종료.
