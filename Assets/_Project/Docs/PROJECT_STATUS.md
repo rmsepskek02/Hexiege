@@ -81,7 +81,7 @@
 | UnitProducedEvent.BarracksId 추가 | ✅ 완료 | `Application/Events/GameEvents.cs` — AI 콜백 기반 연속 생산용. 기존 구독자 ProductionTicker 영향 없음 |
 | ResourceUseCase.SetIncomeMultiplier() | ✅ 완료 | `Application/UseCases/ResourceUseCase.cs` — Red 팀 골드 수입 배율 설정. TickTeamIncome()에 적용 |
 | AIOpponentController.cs (AI 핵심) | ✅ 완료 | `Application/Services/` — 빌드오더 스크립트(Phase 1~4), 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴), BFS 건물 배치, MiningPost 병행 트랙 |
-| AI On/Off 설정 — AIConfig.enableAI | ✅ 완료 | `Infrastructure/Config/AIConfig.cs` — `public bool enableAI = true` 필드. Project 창에서 AIConfig.asset 선택 → Inspector 토글 (Game.unity 씬 접근 불필요). GameBootstrapper._enableAI 주석 처리됨 |
+| AI On/Off 설정 — AIConfig.enableAI | ✅ 완료 | `Infrastructure/Config/AIConfig.cs` — `public bool enableAI = true` 필드. Project 창에서 AIConfig.asset 선택 → Inspector 토글 (Game.unity 씬 접근 불필요). 구 GameBootstrapper._enableAI 주석 처리 블록은 코드 정리 Phase 1(2026-06-23)에서 제거됨 |
 | GameBootstrapper — InitializeAI() | ✅ 완료 | `Bootstrap/GameBootstrapper.Setup.cs` — AIConfig 로드 → enableAI=false면 조기 반환 → 시나리오 랜덤 선택, SetIncomeMultiplier 호출, AIOpponentController 생성·주입 |
 | GameBootstrapper — Map.cs 연동 | ✅ 완료 | `Bootstrap/GameBootstrapper.Map.cs` — SetupProduction() 직후 `if (!NetworkContext.IsNetworkActive) InitializeAI();` (enableAI 체크는 InitializeAI() 내부) |
 | BattleViewModel — SingleplayDifficulty | ✅ 완료 | `BattleViewModel.cs` — BattleScreen.SingleplayDifficulty 추가, CmdSelectDifficulty Subject<DifficultyLevel> 추가, CmdStartSingleplay → 난이도 화면 전환으로 변경 |

@@ -75,3 +75,4 @@
 - QA 에이전트 제안 → 반드시 컴파일 확인 후 적용
 - Scene NetworkObjects → Despawn/Respawn 시 리셋 → GameBootstrapper flag 사용
 - TeamAssigner 삭제됨 (2026-03-20) — NetworkGameFlow.WaitForTeamAndSendReady()에서 팀 직접 할당
+- 코드 정리 Phase 1 완료 (2026-06-23) — 약 30개 파일 히스토리성 주석/폐기 코드 제거. `GameBootstrapper.Setup.cs` 환불 캐시 종족 목록은 `refundRaces` 지역 변수 1개로 통합(중복 배열 제거). 구조 변경(switch→Dictionary)은 Phase 2 예정

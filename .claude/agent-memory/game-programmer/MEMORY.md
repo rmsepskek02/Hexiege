@@ -1,5 +1,12 @@
 # Game Programmer Agent Memory
 
+## 최근 작업 — 코드 정리(클린업) Phase 1 (2026-06-23)
+- 약 30개 파일에서 히스토리성 주석(`[2026-XX-XX]`/`[Phase X]` 라벨) + 구방식→현재방식 전환 설명 주석 제거
+- 폐기 코드 제거: `GameBootstrapper.cs` `_enableAI` 블록(주석 처리 코드+메모), `_confirmPopup` 전환 설명 블록 / `NetworkGameFlow.cs` 빈 섹션 헤더
+- `GameBootstrapper.Setup.cs`: 환불 캐시 계산에서 두 번 새로 만들던 `new[] { RaceId.Human, RaceId.Spirit, RaceId.Transcendence }` → `refundRaces` 지역 변수 1개로 통합. 원소·순서 동일 → 동작 보장
+- 순수 주석/폐기코드 정리로 런타임 동작 불변. 구조 변경(switch→Dictionary 등)은 Phase 2 별도 진행
+- 클린업 원칙: 단독 이력 주석은 줄 통째 제거, WHY 설명 본문은 보존(날짜 토큰만 제거)
+
 ## CRITICAL — GIT 명령 절대 금지
 - **모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
