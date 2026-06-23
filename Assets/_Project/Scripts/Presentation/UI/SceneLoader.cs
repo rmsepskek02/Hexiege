@@ -32,9 +32,18 @@ namespace Hexiege.Presentation
             // 메시지가 지정되지 않았으면 씬에 맞는 기본 안내 문구를 사용한다.
             string msg = message ?? GetDefaultMessage(sceneName);
 
-            // UIManager 가 아직 생성되지 않은 상황(씬 직접 진입 등)을 대비해 ?. 로 안전 처리한다(UI 규칙 L-4).
-            UIManager.Instance?.ShowLoading(true, msg);
+            // UIManager 가 있으면 로딩 인디케이터 표시 → 1초 대기 → 씬 전환을 코루틴으로 처리한다.
+            //   ShowLoading(true) 직후 바로 LoadScene을 호출하면 로딩 화면이 그려지기도 전에
+            //   씬이 전환되어 사용자가 로딩을 인식하지 못한다. 그래서 코루틴 대기가 필요하다.
+            //   (SceneLoader는 정적 클래스라 코루틴을 직접 실행할 수 없으므로 UIManager에 위임한다.)
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.LoadSceneWithDelay(sceneName, msg);
+                return;
+            }
 
+            // UIManager 가 아직 생성되지 않은 상황(씬 직접 진입 등)을 대비한 fallback —
+            // 로딩 인디케이터 없이 곧바로 씬을 전환한다(UI 규칙 L-4).
             UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
         }
 

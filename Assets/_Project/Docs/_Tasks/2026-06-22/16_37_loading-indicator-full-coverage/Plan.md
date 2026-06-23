@@ -189,3 +189,34 @@ ShowLoading(false) 호출 시 최소 표시 시간(UIManager._loadingMinDuration
 ### 9.5 아키텍처 점검
 
 - `SceneLoader`는 Presentation 레이어. Infrastructure의 `NetworkGameManager`가 이를 참조하지만, 동일 레이어 파일(`NetworkUnit`, `NetworkGameEndController`)이 이미 `Hexiege.Presentation`(UIManager/EffectManager)을 참조하고 있어 기존 의존 방향과 일치한다. 새로운 레이어 위반 없음.
+
+---
+
+## 10. 로딩 인디케이터 버그 수정 (2026-06-23 추가)
+
+### 10.1 버그 1 — SceneLoader가 ShowLoading 직후 즉시 씬 전환
+
+**증상**: `SceneLoader.Load`가 `ShowLoading(true)` 직후 곧바로 `LoadScene`을 호출 → 로딩 인디케이터가 화면에 그려지기도 전에 씬이 전환되어 사용자가 로딩 화면을 인식하지 못함.
+
+**원인**: SceneLoader는 정적 클래스라 코루틴(대기)을 실행할 수 없어, 표시와 전환 사이에 시간 간격을 둘 수 없었음.
+
+**수정**:
+- `IUIManager`에 `void LoadSceneWithDelay(string sceneName, string message)` 시그니처 추가.
+- `UIManager`에 구현 추가 — `LoadSceneRoutine` 코루틴이 `ShowLoading(true, message)` → `WaitForSecondsRealtime(1f)` → `SceneManager.LoadScene` 순서로 처리. MonoBehaviour인 UIManager가 코루틴 실행을 담당.
+- `SceneLoader.Load`: `UIManager.Instance`가 있으면 `LoadSceneWithDelay` 호출, null이면(씬 직접 진입 등) 로딩 없이 즉시 `LoadScene` fallback.
+
+### 10.2 중복 ShowLoading 점검 결과
+
+- `BattleViewModel.LoadSingleplayScene`, `ProfileView.OnLogoutClicked`, `GameEndUI.ReturnToLobby` 세 곳의 선행 `ShowLoading(true)`는 **제거하지 않음**.
+  - 이유: 각각 `await Task.Delay`(2초 UX), `await SignOutAsync`(비동기 로그아웃), NGM 분기(네트워크 종료) 등 SceneLoader.Load **호출 이전의 대기/분기 구간**을 커버해야 하므로 필요. SceneLoader.Load 바로 직전의 중복 호출이 아니라서 제거 대상이 아님.
+
+### 10.3 버그 2 — Login 씬에서 로딩 인디케이터가 꺼지지 않음 (TC-04)
+
+**증상**: 로그아웃 후 Login 씬 진입 시, 스플래시 "Tap to Start" 화면에서 로딩 인디케이터가 계속 표시됨. 사용자가 탭해야만 사라짐.
+
+**원인**: `ShowLoading(false)`를 `ShowLoginSelect()`에서 호출했는데, `ShowLoginSelect`는 스플래시를 사용자가 **탭한 뒤에야** 실행됨 → 탭 전까지 로딩이 계속 표시.
+
+**수정** (`LoginBootstrapper.cs`):
+- `ShowLoginSelect()`의 `ShowLoading(false)` 제거.
+- 스플래시가 있는 경우: `_splashOverlay.ShowTapToStart()` 호출 직전에 `ShowLoading(false)` 이동 (스플래시가 화면에 준비된 시점).
+- 스플래시가 없는 경우: `ShowLoginSelect()` 직전에 `ShowLoading(false)`.

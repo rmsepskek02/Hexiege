@@ -45,6 +45,13 @@ namespace Hexiege.Presentation
         void ShowLoading(bool show, string message = "");
 
         /// <summary>
+        /// 로딩 인디케이터를 표시하고 1초 대기 후 씬을 전환한다.
+        /// </summary>
+        /// <param name="sceneName">전환할 씬 이름.</param>
+        /// <param name="message">로딩 중 표시할 상태 메시지.</param>
+        void LoadSceneWithDelay(string sceneName, string message);
+
+        /// <summary>
         /// 반투명 배경 오버레이(BlockingOverlay)를 표시한다.
         ///
         /// 이 오버레이는 UIManager가 단일 소유하며, 팝업이 직접 소유하지 않는다.

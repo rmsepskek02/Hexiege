@@ -194,10 +194,20 @@ namespace Hexiege.Bootstrap
             if (_splashOverlay != null)
             {
                 _splashOverlay.SetTapCallback(ShowLoginSelect);
+
+                // [로딩 인디케이터 끄기] 스플래시가 "Tap to Start" 상태로 화면에 준비되는 시점이다.
+                //   이 시점에는 Login 씬이 이미 사용자에게 보여줄 준비가 끝났으므로,
+                //   로그아웃 등으로 이전 씬에서 켜둔 전역 로딩 인디케이터를 여기서 끈다(UI 규칙 L-3).
+                //   (ShowLoginSelect는 사용자가 탭한 뒤에야 실행되므로, 거기서 끄면
+                //    탭 전까지 로딩 인디케이터가 계속 떠 있는 버그가 발생한다.)
+                UIManager.Instance?.ShowLoading(false);
+
                 _splashOverlay.ShowTapToStart();
             }
             else
             {
+                // 스플래시가 없으면(개발 중 직접 진입 등) 곧바로 로그인 선택 화면을 표시하기 직전에 끈다.
+                UIManager.Instance?.ShowLoading(false);
                 ShowLoginSelect();
             }
         }
@@ -208,10 +218,10 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void ShowLoginSelect()
         {
-            // [로딩 인디케이터 끄기] Login 씬 진입이 완료되어 로그인 선택 화면을 표시하는 시점이다.
-            // 로그아웃 등으로 다른 씬에서 켜둔 전역 로딩 인디케이터를 여기서 끈다(UI 규칙 L-3).
-            // 어디서 켰든 목적지 씬(Login)이 준비되면 자동으로 꺼지도록 책임을 일원화한다.
-            UIManager.Instance?.ShowLoading(false);
+            // [주의] 로딩 인디케이터 끄기는 더 이상 여기서 하지 않는다.
+            //   ShowLoginSelect는 스플래시 "Tap to Start"를 사용자가 탭한 뒤에야 실행되므로,
+            //   여기서 끄면 탭 전까지 로딩 인디케이터가 계속 떠 있는 버그가 발생한다(TC-04).
+            //   → 로딩 끄기는 스플래시가 화면에 준비된 시점(InitializeAndDispatchAsync)으로 이동했다.
 
             if (_rootView != null)
                 _rootView.ShowLoginSelect();

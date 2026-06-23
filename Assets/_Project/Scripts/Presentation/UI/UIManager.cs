@@ -231,6 +231,36 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
+        /// 로딩 인디케이터를 표시하고 1초 대기한 뒤 씬을 전환한다(IUIManager 계약 구현).
+        ///
+        /// 왜 필요한가:
+        ///   ShowLoading(true) 직후 곧바로 씬을 로드하면, 로딩 인디케이터가 화면에
+        ///   제대로 그려지기도 전에 씬 전환이 일어나 사용자가 로딩 화면을 인식하지 못한다.
+        ///   이 메서드는 코루틴으로 1초 대기를 보장하여 로딩 화면이 확실히 보이도록 한다.
+        ///   (SceneLoader는 정적 클래스라 코루틴을 실행할 수 없으므로,
+        ///    MonoBehaviour인 UIManager가 이 역할을 대신 맡는다.)
+        /// </summary>
+        /// <param name="sceneName">전환할 씬 이름.</param>
+        /// <param name="message">로딩 중 표시할 상태 메시지.</param>
+        public void LoadSceneWithDelay(string sceneName, string message)
+        {
+            StartCoroutine(LoadSceneRoutine(sceneName, message));
+        }
+
+        /// <summary>
+        /// 로딩 인디케이터 표시 → 1초 대기 → 씬 전환을 순서대로 수행하는 코루틴.
+        /// WaitForSecondsRealtime을 사용하여 Time.timeScale=0 상황에서도 올바르게 동작한다.
+        /// </summary>
+        private IEnumerator LoadSceneRoutine(string sceneName, string message)
+        {
+            // 로딩 인디케이터를 표시한다.
+            ShowLoading(true, message);
+            // 사용자가 로딩 화면을 충분히 인식할 수 있도록 1초 대기한다.
+            yield return new WaitForSecondsRealtime(1f);
+            UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
+        }
+
+        /// <summary>
         /// 반투명 배경 오버레이를 표시한다(IUIManager 계약 구현).
         ///
         /// 동작:
