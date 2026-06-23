@@ -61,13 +61,6 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 등장/사라짐 애니메이션을 담당하는 컴포넌트.")]
         [SerializeField] protected AnimatedPanel _popup;
 
-        // [2026-06-21] SharedBackgroundButton을 UIManager 단일 소유 BlockingOverlay(Popup 모드)로 대체.
-        //   Show()에서 UIManager.Instance?.ShowBlockingOverlay(Close), Close()에서 HideBlockingOverlay() 호출.
-        //   ProductionPanelUI / BuildingActionPanelUI 모두 이 베이스를 통해 동일하게 동작한다.
-        //   아래 필드는 테스트 통과 후 삭제 예정 — 현재는 비활성화(주석 처리)로 보존.
-        // [Tooltip("팝업 바깥 영역 탭 감지용 컴포넌트. Show 시 Register, Close 시 Unregister.")]
-        // [SerializeField] protected SharedBackgroundButton _sharedBackground;
-
         [Header("Header")]
         [Tooltip("팝업 상단에 건물 이름을 표시. Show() 시 BuildingType.ToString()으로 갱신.")]
         [SerializeField] protected TextMeshProUGUI _headerText;
@@ -172,9 +165,8 @@ namespace Hexiege.Presentation
             _popup?.Show();
 
             // 외부 탭 닫기 콜백 등록 (Close 호출되도록)
-            // [2026-06-21] UIManager 공유 BlockingOverlay를 Popup 모드로 표시(터치 시 Close 호출).
+            // UIManager 공유 BlockingOverlay를 Popup 모드로 표시(터치 시 Close 호출).
             UIManager.Instance?.ShowBlockingOverlay(Close);
-            // [구로직 — 테스트 통과 후 삭제] _sharedBackground?.Register(Close);
 
             // 환불 금액 텍스트 갱신
             // 팀에 따라 해당 종족의 누적 투자 비용을 조회한다.
@@ -211,9 +203,8 @@ namespace Hexiege.Presentation
             ClosedFrame = Time.frameCount;
 
             // 외부 탭 닫기 콜백 해제
-            // [2026-06-21] UIManager 공유 BlockingOverlay 숨김.
+            // UIManager 공유 BlockingOverlay 숨김.
             UIManager.Instance?.HideBlockingOverlay();
-            // [구로직 — 테스트 통과 후 삭제] _sharedBackground?.Unregister();
 
             // 팝업 사라짐 애니메이션
             _popup?.Hide();

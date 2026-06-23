@@ -27,13 +27,6 @@ namespace Hexiege.Presentation
         // Inspector 설정
         // ====================================================================
 
-        // [2026-06-21] BlockingOverlay를 UIManager 단일 소유 구조로 통합.
-        //   자체 _overlay 대신 UIManager.Instance?.ShowBlockingOverlay() (Modal 모드)를 사용한다.
-        //   아래 필드는 테스트 통과 후 삭제 예정 — 현재는 비활성화(주석 처리)로 보존.
-        // [Header("배경 오버레이")]
-        // [Tooltip("반투명 검정 오버레이. 팝업 표시 시 활성화, 숨김 시 비활성화.")]
-        // [SerializeField] private GameObject _overlay;
-
         [Header("요청 팝업 (수락/거절)")]
         [Tooltip("재경기 요청 수신 패널. '상대방이 재경기를 요청하였습니다.' 표시.")]
         [SerializeField] private GameObject _requestPanel;
@@ -61,19 +54,11 @@ namespace Hexiege.Presentation
         /// <summary>거절 콜백.</summary>
         private System.Action _onDecline;
 
-        // [2026-06-21] 오버레이 CanvasGroup/Tween 비활성화 — UIManager가 BlockingOverlay를 단일 소유.
-        //              테스트 통과 후 삭제 예정.
-        // /// <summary>오버레이 CanvasGroup. DOFade 페이드 애니메이션에 사용.</summary>
-        // private CanvasGroup _overlayCg;
-
         /// <summary>요청 패널 CanvasGroup. DOFade 페이드 애니메이션에 사용.</summary>
         private CanvasGroup _requestPanelCg;
 
         /// <summary>거절 알림 패널 CanvasGroup. DOFade 페이드 애니메이션에 사용.</summary>
         private CanvasGroup _declinedPanelCg;
-
-        // /// <summary>오버레이 페이드 Tween. 패널별 독립 관리하여 동시 페이드 시 서로 Kill하지 않도록 분리.</summary>
-        // private Tween _overlayFade;
 
         /// <summary>요청 패널 페이드 Tween. 오버레이와 독립적으로 페이드 애니메이션 실행.</summary>
         private Tween _requestFade;
@@ -85,7 +70,7 @@ namespace Hexiege.Presentation
         private CompositeDisposable _eventSubscriptions;
 
         /// <summary>
-        /// [2026-06-21] 이 팝업이 현재 UIManager BlockingOverlay 참조를 점유 중인지 추적.
+        /// 이 팝업이 현재 UIManager BlockingOverlay 참조를 점유 중인지 추적.
         /// 요청 팝업 → 거절 팝업으로 전환(ShowRequest 후 ShowDeclined)될 때 오버레이를
         /// 중복으로 +1 하지 않도록 보장한다. 이 팝업은 항상 오버레이 참조를 0 또는 1개만 보유한다.
         /// (그렇지 않으면 Hide() 1회로는 카운터가 0이 되지 않아 오버레이가 잔류한다.)
@@ -99,8 +84,7 @@ namespace Hexiege.Presentation
         private void Awake()
         {
             // CanvasGroup 캐시: 없으면 자동 추가 — DOFade 애니메이션에 필수
-            // [2026-06-21] 오버레이는 UIManager가 단일 소유하므로 여기서 캐시하지 않는다.
-            // _overlayCg = EnsureCanvasGroup(_overlay);
+            // 오버레이는 UIManager가 단일 소유하므로 여기서 캐시하지 않는다.
             _requestPanelCg = EnsureCanvasGroup(_requestPanel);
             _declinedPanelCg = EnsureCanvasGroup(_declinedPanel);
 
@@ -113,12 +97,11 @@ namespace Hexiege.Presentation
                 _declinedConfirmButton.onClick.AddListener(Hide);
 
             // 초기 상태: 즉시 숨김 (애니메이션 없이 — Awake에서 페이드하면 시각적 깜빡임 발생)
-            // [2026-06-21] 오버레이 초기화는 UIManager가 담당하므로 제거.
-            // if (_overlayCg != null)      { _overlayCg.alpha = 0f; _overlayCg.blocksRaycasts = false; _overlayCg.interactable = false; }
+            // 오버레이 초기화는 UIManager가 담당한다.
             if (_requestPanelCg != null) { _requestPanelCg.alpha = 0f; _requestPanelCg.blocksRaycasts = false; _requestPanelCg.interactable = false; }
             if (_declinedPanelCg != null){ _declinedPanelCg.alpha = 0f; _declinedPanelCg.blocksRaycasts = false; _declinedPanelCg.interactable = false; }
 
-            // [2026-05-20] GameEvents 구독으로 NetworkGameEndController의 직접 호출을 제거.
+            // GameEvents 구독으로 재경기 요청/거절 이벤트를 수신한다.
             //   OnNetworkRematchRequested → ShowRequest() (콜백 없이)
             //   OnNetworkRematchDeclined → ShowDeclined()
             _eventSubscriptions = new CompositeDisposable();
@@ -135,8 +118,6 @@ namespace Hexiege.Presentation
         private void OnDestroy()
         {
             // 패널별 페이드 Tween을 모두 정리 — 씬 전환 시 남은 Tween 에러 방지
-            // [2026-06-21] 오버레이 Tween 제거.
-            // _overlayFade?.Kill();
             _requestFade?.Kill();
             _declinedFade?.Kill();
 
@@ -212,7 +193,7 @@ namespace Hexiege.Presentation
         /// 재경기 요청 수신 팝업 표시 — 콜백 없는 단순 표시.
         /// 수락/거절 시에는 GameEvents.OnLocalRematchAccepted / OnLocalRematchDeclined를 발행한다.
         ///
-        /// [2026-05-20] Awake에서 GameEvents.OnNetworkRematchRequested 구독으로 자동 호출되며,
+        /// Awake에서 GameEvents.OnNetworkRematchRequested 구독으로 자동 호출되며,
         /// 직접 호출도 가능하다.
         /// </summary>
         public void ShowRequest()
