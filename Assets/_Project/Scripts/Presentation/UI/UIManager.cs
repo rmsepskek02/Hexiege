@@ -244,17 +244,20 @@ namespace Hexiege.Presentation
         /// <param name="message">로딩 중 표시할 상태 메시지.</param>
         public void LoadSceneWithDelay(string sceneName, string message)
         {
-            StartCoroutine(LoadSceneRoutine(sceneName, message));
+            // 로딩 인디케이터를 동기적으로 즉시 표시한다.
+            // (코루틴 내부에서 호출하면 StartCoroutine 이후 다음 프레임에 실행되어,
+            //  인디케이터 패널은 켜져 있는데 텍스트만 한 박자 늦게 나타나는 문제가 생긴다.
+            //  따라서 인디케이터와 텍스트가 같은 프레임에 나타나도록 여기서 직접 호출한다.)
+            ShowLoading(true, message);
+            StartCoroutine(LoadSceneRoutine(sceneName));
         }
 
         /// <summary>
-        /// 로딩 인디케이터 표시 → 1초 대기 → 씬 전환을 순서대로 수행하는 코루틴.
+        /// 1초 대기 → 씬 전환을 순서대로 수행하는 코루틴.
         /// WaitForSecondsRealtime을 사용하여 Time.timeScale=0 상황에서도 올바르게 동작한다.
         /// </summary>
-        private IEnumerator LoadSceneRoutine(string sceneName, string message)
+        private IEnumerator LoadSceneRoutine(string sceneName)
         {
-            // 로딩 인디케이터를 표시한다.
-            ShowLoading(true, message);
             // 사용자가 로딩 화면을 충분히 인식할 수 있도록 1초 대기한다.
             yield return new WaitForSecondsRealtime(1f);
             UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
