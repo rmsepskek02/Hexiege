@@ -9,6 +9,7 @@
 
 | 날짜 | 마일스톤 |
 |------|---------|
+| 2026-06-23 | 코드 정리(클린업) Phase 1 완료 — 히스토리성 주석 및 폐기 코드 제거. 약 30개 파일에서 `[2026-XX-XX]`/`[Phase X]` 형식 이력 라벨 + 구방식→현재방식 전환 설명 주석 제거. 폐기 코드 블록 제거(`GameBootstrapper.cs` `_enableAI` 주석 처리 블록 + `_confirmPopup` 전환 설명 블록). `NetworkGameFlow.cs` 빈 섹션 헤더 제거. `GameBootstrapper.Setup.cs` 중복 RaceId 배열 → 지역 변수 1개 통합(원소·순서 동일 → 환불 캐시 결과 불변). 순수 주석/폐기코드 정리로 런타임 동작 변경 없음. 미래 사용 의도 주석은 미발견(플래그 없음). 브랜치 `claude/code-refactor-cleanup-jsa24o`. task: `_Tasks/2026-06-23/00_00_코드정리-클린업/`. 구조 변경(switch→Dictionary 등)은 Phase 2로 별도 진행. |
 | 2026-06-23 | 스플래시 화면 로그인 흐름 개선 완료 — 로그인된 상태 재실행 시 스플래시 → "Tap to Start" → 탭 → 로비 직접 이동(FadeOut 없음). `SplashOverlayView`에 `_skipFadeOnTap` 필드 + `SetTapCallback(callback, skipFade=false)` 파라미터 추가. `OnPointerClick` skipFade 분기로 즉시 콜백 실행. `LoginBootstrapper` 자동 로그인 성공 분기에서 `skipFade:true` 적용. 로그인 X 기존 흐름(FadeOut → 로그인 화면 노출) 변화 없음. |
 | 2026-06-23 | 로그인 팝업 CloseButton 무반응 수정 완료 — AnonymousWarningPopup / NetworkErrorPopup 두 팝업에 `_closeButton` SerializeField 추가 + Inspector 연결. CloseButton GO가 씬에 활성화 상태로 존재했으나 코드 필드 누락으로 클릭 무반응이던 버그 해결. |
 | 2026-06-23 | LoadingIndicator 전수 적용 완료 — SceneLoader 정적 유틸리티 신규, 모든 씬 전환(로그아웃/포기/로비복귀/재경기/연결끊김) ShowLoading 커버. UIManager.LoadSceneWithDelay 텍스트 지연 버그 수정(ShowLoading 코루틴 외부로 이동). AnonymousWarningPopup 초기 메시지 누락 수정("로그인 중..."). NetworkGameManager Infrastructure→Presentation 레이어 위반 수정(GameEvents.OnNetworkBackToLobby 이벤트 경유). GameSystemRules_UI.md 로딩 규칙 L-1~L-4 신설. |

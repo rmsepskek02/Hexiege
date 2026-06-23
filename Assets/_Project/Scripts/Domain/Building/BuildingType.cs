@@ -22,7 +22,7 @@
 
 namespace Hexiege.Domain
 {
-    // [2026-05-20] 각 멤버에 정수 값을 명시 부여.
+    // 각 멤버에 정수 값을 명시 부여.
     //   - 기존 순서와 동일한 값을 그대로 부여하므로 기존 ScriptableObject/Scene 직렬화 데이터에 영향 없음.
     //   - 신규 건물 추가 시 반드시 마지막 빈 번호를 명시 부여하여 기존 인덱스 보존.
     //   - RPC 직렬화(NetworkBuildingController)에서 (int)BuildingType 캐스트가 명시값으로 안정화됨.

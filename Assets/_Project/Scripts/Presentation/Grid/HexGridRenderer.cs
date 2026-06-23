@@ -11,12 +11,6 @@
 //   3. 타일 프리팹을 Instantiate하여 XZ 평면에 배치
 //   4. HexTileView 컴포넌트를 Initialize()로 초기화
 //
-// [Phase 2] 3D 전환 완료:
-//   - SpriteRenderer 참조 및 sortingOrder 로직 완전 제거됨
-//   - 3D MeshRenderer 기반 타일 프리팹 사용 (프리팹 교체는 에디터 작업)
-//   - XZ 평면 배치 (Phase 1에서 HexMetrics가 XZ 반환)
-//   - 금광: 3D 프리팹으로 교체 (_goldMinePrefab에 3D 메시 설정)
-//
 // Presentation 레이어 — Unity 의존.
 // ============================================================================
 
@@ -77,8 +71,6 @@ namespace Hexiege.Presentation
         /// <summary>
         /// HexGrid 데이터를 받아 화면에 타일을 배치.
         /// GameBootstrapper에서 그리드 생성 직후 호출.
-        ///
-        /// [Phase 2] 3D 전환 완료: sortingOrder 제거됨, XZ 평면 배치.
         /// </summary>
         /// <param name="grid">렌더링할 헥스 그리드 데이터</param>
         public void RenderGrid(HexGrid grid)
@@ -145,7 +137,6 @@ namespace Hexiege.Presentation
         /// 금광이 있는 타일 위에 금광 오브젝트를 생성.
         /// GameBootstrapper에서 PlaceGoldMines() 후 호출.
         ///
-        /// [Phase 2] 3D 전환 완료: 3D 금광 프리팹 사용.
         /// _goldMinePrefab이 null이면 금광 비주얼 생략 (프리팹 미설정 상태).
         ///
         /// 초기 숨김 처리:

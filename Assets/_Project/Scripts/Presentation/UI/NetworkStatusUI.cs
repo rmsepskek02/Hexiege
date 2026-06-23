@@ -19,7 +19,7 @@
 //
 // 주의:
 //   - NetworkBehaviour 불필요: 로컬 표시 전용 (Presentation 레이어)
-//   - [2026-05-20] Unity.Netcode / UTP 직접 의존 제거 — NetworkGameManager API로 통일
+//   - Unity.Netcode / UTP 직접 의존 없음 — NetworkGameManager API로 통일
 //   - 씬 전환: SceneLoader.Load 사용 (로딩 인디케이터 자동 표시)
 //
 // Presentation 레이어 — Unity 의존 (MonoBehaviour).
@@ -68,9 +68,8 @@ namespace Hexiege.Presentation
         [Tooltip("연결 끊김 후 복귀할 씬 이름")]
         [SerializeField] private string _returnSceneName = SceneLoader.Lobby;
 
-        // [2026-05-20] 리팩토링: NetworkGameManager 주입.
-        //   기존: NetworkManager.Singleton + UnityTransport 직접 참조
-        //   변경: NGM의 GetCurrentRttMs / OnServerDisconnected / IsNetworkRunning / ShutdownNetwork 사용.
+        // NetworkGameManager 주입 — NGM의 GetCurrentRttMs / OnServerDisconnected /
+        //   IsNetworkRunning / ShutdownNetwork를 사용한다(NetworkManager.Singleton 직접 참조 회피).
         [Header("의존성")]
         [Tooltip("네트워크 게임 매니저. RTT 조회/연결 끊김 알림/Shutdown 위임용. Inspector 미연결 시 자동 탐색.")]
         [SerializeField] private NetworkGameManager _networkGameManager;

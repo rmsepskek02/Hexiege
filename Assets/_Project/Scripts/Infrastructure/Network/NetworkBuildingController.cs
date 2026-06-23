@@ -300,7 +300,7 @@ namespace Hexiege.Infrastructure
         /// 건물 배치 실패 알림. 요청한 클라이언트에게만 전송.
         /// 클라이언트는 GameEvents.OnToastRequested 이벤트를 발행하여 ToastUI에 표시한다.
         ///
-        /// [2026-05-20] reason 문자열을 ToastKey로 매핑하여 토스트 표시:
+        /// reason 문자열을 ToastKey로 매핑하여 토스트 표시:
         ///   "골드 부족" → ToastKey.GoldInsufficient
         ///   그 외(맵 로드 중/팀 불일치/배치 위치 오류/서버 초기화 오류) → 키가 없으므로 로그만 남기고 표시 생략.
         ///   (각 사유별 토스트 키가 추가되면 매핑을 확장한다.)

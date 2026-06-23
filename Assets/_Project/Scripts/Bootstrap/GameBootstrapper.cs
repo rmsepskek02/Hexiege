@@ -38,9 +38,6 @@
 //   * partial 파일들은 private 헬퍼만 담는다.
 // ============================================================================
 
-// [2026-05-20] using Unity.Netcode 제거 — NetworkManager 직접 호출은 NetworkContext.IsNetworkActive로 단일화됨.
-//   Inspector SerializeField로 노출된 NetworkBehaviour 타입(NetworkGameManager 등)은
-//   Hexiege.Infrastructure 네임스페이스에서 import되므로 Unity.Netcode를 직접 import할 필요가 없다.
 using UnityEngine;
 using UniRx;
 using Hexiege.Domain;
@@ -67,16 +64,6 @@ namespace Hexiege.Bootstrap
 
         [Tooltip("건물 HP/골드비용/공격력 ScriptableObject. BuildingStats의 소스.")]
         [SerializeField] private BuildingStatsConfig _buildingStatsConfig;
-
-        // [AIConfig 이전] _enableAI는 AIConfig.enableAI 필드로 이전되었다.
-        //   이제 AI On/Off는 Resources/Config/AIConfig.asset의 enableAI 값으로 결정한다.
-        //   (Project 창에서 씬을 열지 않고도 토글 가능 → 테스트 편의성)
-        //   검증 안전을 위해 삭제 대신 주석 처리. 사용자 테스트 통과 후 제거 예정.
-        // [Header("AI 설정")]
-        // [Tooltip("AI 활성화 여부. false로 끄면 싱글플레이에서도 AI가 동작하지 않는다. (테스트용 토글)")]
-        // [SerializeField] private bool _enableAI = true;
-
-        // [Phase 2] UnitAnimationData 제거 — Animator(Mecanim)가 대체
 
         [Header("Scene References")]
         [Tooltip("[World]/HexGrid 오브젝트의 HexGridRenderer")]
@@ -171,12 +158,6 @@ namespace Hexiege.Bootstrap
         [Tooltip("인게임 설정 메뉴 팝업 (사운드/포기 버튼).")]
         [SerializeField] private InGameSettingsUI _inGameSettingsUI;
 
-        // [2026-06-18] _confirmPopup SerializeField 제거.
-        //   기존: GameBootstrapper가 ConfirmPopup을 직접 들고 있었으나 어디에도 주입되지 않는 死(dead) 참조였다.
-        //   확인 팝업이 필요한 View(InGameSettingsUI)는 자체 _confirmPopup을 보유하고 있으며,
-        //   전역 확인 팝업이 필요한 경우 UIManager.Instance(IUIManager)를 통해 호출한다.
-        //   (InGameSettingsUI.Initialize는 IUIManager를 받지 않으므로 파라미터를 추가하지 않는다.)
-
         // ====================================================================
         // UseCase 인스턴스 (런타임 생성)
         // ====================================================================
@@ -213,7 +194,7 @@ namespace Hexiege.Bootstrap
         private TileOwnershipService _tileOwnership;
 
         // ────────────────────────────────────────────────────────────────────
-        // [2026-05-15] 혼잡도 기반 분산 시스템 (v2) — 핵심 인스턴스.
+        // 혼잡도 기반 분산 시스템 (v2) — 핵심 인스턴스.
         //
         //   _congestionMap          — 타일별 혼잡도 누적/감쇠 데이터.
         //   _congestionPathfinder   — 혼잡도 가중 A* 탐색기.
@@ -237,7 +218,7 @@ namespace Hexiege.Bootstrap
         private bool _networkGameStarted = false;
 
         // ────────────────────────────────────────────────────────────────────
-        // [2026-04-30] 새 규칙 4 — 건물 변경 시 즉시 모든 유닛 경로 재계산(eager).
+        // 새 규칙 4 — 건물 변경 시 즉시 모든 유닛 경로 재계산(eager).
         //
         //   FlowFieldService가 OnBuildingPlaced / OnBuildingDied 에서 InvalidateAll로
         //   캐시를 비워주지만, 이건 lazy 동작 — 다음 RequestMove 시점에 재계산된다.
@@ -465,16 +446,11 @@ namespace Hexiege.Bootstrap
         /// 현재 네트워크 모드(멀티플레이)로 실행 중인지 확인합니다.
         /// Host 또는 Client로 연결된 경우 true를 반환합니다.
         ///
-        /// [2026-05-20] NetworkManager.Singleton 직접 호출 → NetworkContext.IsNetworkActive로 단일화.
-        /// Update 매 프레임에서 호출되는 경로(라인 345)의 비용도 줄어든다.
+        /// NetworkContext.IsNetworkActive로 단일화되어 있어 Update 매 프레임 호출 비용이 낮다.
         /// </summary>
         private bool IsNetworkMode()
         {
             return NetworkContext.IsNetworkActive;
         }
-
-        // [2026-05-20] ActionDisposable 내부 클래스 제거.
-        // OnUnitEnteredTile이 Action → Subject로 통일되면서 UniRx의 IDisposable이 직접 반환되어,
-        // 별도의 IDisposable 래퍼 래핑이 불필요해졌다.
     }
 }

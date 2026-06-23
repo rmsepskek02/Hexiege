@@ -62,7 +62,7 @@ namespace Hexiege.Domain
 
         /// <summary>
         /// 건물 생성. Id는 _nextId에서 자동 발급.
-        /// [2026-05-20] 중복 제거 — ID 지정 생성자에 위임한다.
+        /// ID 지정 생성자에 위임한다.
         /// </summary>
         /// <param name="type">건물 종류</param>
         /// <param name="team">소속 팀</param>

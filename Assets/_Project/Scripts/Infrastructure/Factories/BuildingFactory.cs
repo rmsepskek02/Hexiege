@@ -13,11 +13,6 @@
 //   - GameEvents.OnBuildingDied 이벤트를 구독해 딕셔너리에서 해당 GO를 찾아 Destroy.
 //   - 별도의 BuildingView 컴포넌트 없이 BuildingFactory가 단일 책임으로 GO 생명주기를 관리한다.
 //
-// [Phase 2] 3D 전환:
-//   - SpriteRenderer + sortingOrder 코드 완전 제거
-//   - 3D MeshRenderer 기반 프리팹 사용 (프리팹 교체는 에디터 작업)
-//   - 렌더 순서는 3D 깊이(Z-buffer)로 자동 처리
-//
 // Inspector 설정:
 //   - 종족별 프리팹 세트 6개: Human/Spirit/Transcendence × Blue/Red
 //   - 각 세트에 Castle, Barracks, MiningPost 3개 프리팹

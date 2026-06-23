@@ -892,7 +892,7 @@ namespace Hexiege.Infrastructure
         /// 생산 큐 추가 실패 알림. 요청한 클라이언트에게만 전송.
         /// 클라이언트는 GameEvents.OnToastRequested 이벤트를 발행하여 ToastUI에 표시한다.
         ///
-        /// [2026-05-20] reason 문자열을 ToastKey로 매핑:
+        /// reason 문자열을 ToastKey로 매핑:
         ///   "골드 부족" → GoldInsufficient
         ///   "인구 부족"/"인구 한계" → PopulationFull
         ///   "큐 가득" → ProductionQueueFull

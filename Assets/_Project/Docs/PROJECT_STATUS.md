@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-06-23
-**현재 단계:** 스플래시 화면 로그인 흐름 개선 완료 (skipFade 모드) — LoadingIndicator Game씬 미숨김 버그 + AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**현재 단계:** 코드 정리(클린업) Phase 1 완료 — AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 
 ---
 
@@ -67,6 +67,7 @@
 | ConfirmPopup + NetworkErrorPopup 씬 버그 수정 | ✅ 완료 (2026-06-22) | ① ConfirmPopup: 씬 프리팹 인스턴스 오버라이드로 루트 CanvasGroup이 alpha=0/interactable=0으로 강제된 버그 Inspector 수정. ② NetworkErrorPopup: ConfirmPopup 컴포넌트가 남아있던 것 교체, `_panel` 슬롯 연결, LoginRootView + LoginBootstrapper `_networkErrorPopup` 슬롯 연결. |
 | 로그인 팝업 CloseButton 무반응 버그 수정 | ✅ 완료 (2026-06-23) | AnonymousWarningPopup / NetworkErrorPopup 두 팝업에 `_closeButton` SerializeField 추가 + Inspector 연결. CloseButton GO가 씬에 활성(Active) 상태로 존재했으나 코드 필드 누락으로 리스너 미등록 → 클릭 무반응. AnonymousWarningPopup은 `SetInteractable()`에 `_closeButton` 포함(로그인 진행 중 취소 방지). |
 | 스플래시 화면 로그인 흐름 개선 (skipFade 모드) | ✅ 완료 (2026-06-23) | 로그인된 상태 재실행 시 스플래시 FadeOut으로 로그인 씬 배경이 노출되던 문제 해결. `SplashOverlayView._skipFadeOnTap` 필드 + `SetTapCallback(callback, skipFade=false)` 파라미터 추가. `OnPointerClick` skipFade 분기: true이면 FadeOut 없이 즉시 콜백 호출. `LoginBootstrapper` 자동 로그인 성공 분기에서 `SetTapCallback(GoToNextScene, skipFade:true)` + `ShowLoading(false)` + `ShowTapToStart()` 적용. 로딩 인디케이터(SO=300)가 즉시 화면 커버. 로그인 X 흐름 변화 없음. |
+| 코드 정리(클린업) Phase 1 — 히스토리성 주석 및 폐기 코드 제거 | ✅ 완료 (2026-06-23) | 약 30개 파일에서 `[2026-XX-XX]`/`[Phase X]` 형식 이력 라벨 제거, 구방식→현재방식 전환 설명 주석 제거. 폐기 코드 블록 제거: `GameBootstrapper.cs`의 `_enableAI` 블록(주석 처리 코드+메모)·`_confirmPopup` 전환 설명 블록. `NetworkGameFlow.cs` 빈 섹션 헤더 제거. `GameBootstrapper.Setup.cs` 중복 RaceId 배열 → 지역 변수 1개 통합(동작 동일). 런타임 동작 변경 없음(순수 주석/폐기코드 정리). 브랜치 `claude/code-refactor-cleanup-jsa24o`. task: `_Tasks/2026-06-23/00_00_코드정리-클린업/` |
 | ConfirmPopup z-order 버그 수정 (Canvas SO=250) | ✅ 완료 (2026-06-22) | InGameSettings Panel(SO=200)이 ConfirmPopup 위에 렌더링되던 문제. ConfirmPopup.prefab 루트에 Canvas(Override Sorting=true, SO=250) + GraphicRaycaster 추가. Canvas SortingOrder 전체 구조 확정: SO=0/100/200/250/300. GameSystemRules_CanvasSortingOrder.md 작성. |
 | BlockingOverlay 씬 전환 후 미표시 버그 수정 | ✅ 완료 (2026-06-22) | 근본 원인: UIManager가 Login.unity에서 `[UI Systems]` 자식으로 배치되어 DontDestroyOnLoad가 동작하지 않음(Unity 제약: DontDestroyOnLoad는 루트 GO에만 적용). Game 씬 전환 후 UIManager가 파괴되어 `UIManager.Instance=null`. 수정: Login.unity에서 UIManager GO를 계층 루트로 이동(Inspector). Canvas SortingOrder 확정 구조: SO=0(HUD) / SO=100(UIManager BlockingOverlay) / SO=200(패널 Canvas Override) / SO=300(LoadingIndicator). 파일 기반 RuntimeLog(RuntimeLogWriter.cs [DEBUG-TEMP]) 로 흐름 추적 후 원인 확인 → 디버깅 완료 후 로그 코드 제거. |
 
@@ -80,7 +81,7 @@
 | UnitProducedEvent.BarracksId 추가 | ✅ 완료 | `Application/Events/GameEvents.cs` — AI 콜백 기반 연속 생산용. 기존 구독자 ProductionTicker 영향 없음 |
 | ResourceUseCase.SetIncomeMultiplier() | ✅ 완료 | `Application/UseCases/ResourceUseCase.cs` — Red 팀 골드 수입 배율 설정. TickTeamIncome()에 적용 |
 | AIOpponentController.cs (AI 핵심) | ✅ 완료 | `Application/Services/` — 빌드오더 스크립트(Phase 1~4), 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴), BFS 건물 배치, MiningPost 병행 트랙 |
-| AI On/Off 설정 — AIConfig.enableAI | ✅ 완료 | `Infrastructure/Config/AIConfig.cs` — `public bool enableAI = true` 필드. Project 창에서 AIConfig.asset 선택 → Inspector 토글 (Game.unity 씬 접근 불필요). GameBootstrapper._enableAI 주석 처리됨 |
+| AI On/Off 설정 — AIConfig.enableAI | ✅ 완료 | `Infrastructure/Config/AIConfig.cs` — `public bool enableAI = true` 필드. Project 창에서 AIConfig.asset 선택 → Inspector 토글 (Game.unity 씬 접근 불필요). 구 GameBootstrapper._enableAI 주석 처리 블록은 코드 정리 Phase 1(2026-06-23)에서 제거됨 |
 | GameBootstrapper — InitializeAI() | ✅ 완료 | `Bootstrap/GameBootstrapper.Setup.cs` — AIConfig 로드 → enableAI=false면 조기 반환 → 시나리오 랜덤 선택, SetIncomeMultiplier 호출, AIOpponentController 생성·주입 |
 | GameBootstrapper — Map.cs 연동 | ✅ 완료 | `Bootstrap/GameBootstrapper.Map.cs` — SetupProduction() 직후 `if (!NetworkContext.IsNetworkActive) InitializeAI();` (enableAI 체크는 InitializeAI() 내부) |
 | BattleViewModel — SingleplayDifficulty | ✅ 완료 | `BattleViewModel.cs` — BattleScreen.SingleplayDifficulty 추가, CmdSelectDifficulty Subject<DifficultyLevel> 추가, CmdStartSingleplay → 난이도 화면 전환으로 변경 |

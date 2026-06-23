@@ -49,12 +49,6 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 래퍼 (AnimatedPanel 부착, Show()/Hide()로 토글)")]
         [SerializeField] private AnimatedPanel _popup;
 
-        // [2026-06-21] SharedBackgroundButton → UIManager.ShowBlockingOverlay(Popup 모드)로 통합.
-        //   테스트 통과 후 삭제 예정.
-        // [Header("Shared Background")]
-        // [Tooltip("Canvas 직속 공유 Background (터치 시 팝업 닫기)")]
-        // [SerializeField] private SharedBackgroundButton _sharedBackground;
-
         [Header("Dynamic Building Buttons")]
 [Tooltip("건물 배치 버튼 리스트")]
         [SerializeField] private List<Button> _buildingButtons;
@@ -294,9 +288,8 @@ namespace Hexiege.Presentation
             }
 
             _popup?.Show();
-            // [2026-06-21] UIManager 공유 BlockingOverlay를 Popup 모드로 표시(터치 시 Close 호출).
+            // UIManager 공유 BlockingOverlay를 Popup 모드로 표시(터치 시 Close 호출).
             UIManager.Instance?.ShowBlockingOverlay(Close);
-            // [구로직 — 테스트 통과 후 삭제] _sharedBackground?.Register(Close);
 
             // 팝업이 열리는 순간 현재 보유 골드를 기준으로 비용 텍스트 색상을 즉시 평가.
             // (살 수 없는 건물의 비용은 빨간색, 살 수 있는 건물은 흰색으로 표시)
@@ -449,9 +442,8 @@ namespace Hexiege.Presentation
                 }
             }
 
-            // [2026-06-21] UIManager 공유 BlockingOverlay 숨김.
+            // UIManager 공유 BlockingOverlay 숨김.
             UIManager.Instance?.HideBlockingOverlay();
-            // [구로직 — 테스트 통과 후 삭제] _sharedBackground?.Unregister();
 
             _popup?.Hide();
         }
@@ -489,10 +481,6 @@ namespace Hexiege.Presentation
         /// 싱글플레이: UseCase 직접 호출 (기존 흐름 유지).
         /// 멀티플레이: NetworkBuildingController.RequestBuild 래퍼를 통해
         ///             서버에 배치 요청을 위임. 골드 차감과 실제 배치는 서버에서 처리.
-        ///
-        /// [2026-05-20] Unity.Netcode 직접 의존 제거:
-        ///   - NetworkManager.Singleton.IsHost/IsClient 체크 → NetworkContext.IsNetworkActive
-        ///   - RequestBuildServerRpc 직접 호출 → RequestBuild() 래퍼 메서드
         /// </summary>
         private void PlaceAndClose(BuildingType type)
         {
