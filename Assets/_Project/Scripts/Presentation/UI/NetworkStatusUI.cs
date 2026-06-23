@@ -62,8 +62,11 @@ namespace Hexiege.Presentation
         [Tooltip("Ping 갱신 간격 (초)")]
         [SerializeField] private float _pingRefreshInterval = 0.5f;
 
+        // TODO: 재접속(Reconnection) 기능 구현 시, 복구 가능 여부에 따라
+        //       게임 씬(SceneLoader.Game) 또는 로비 씬(SceneLoader.Lobby)으로 분기 처리 필요.
+        //       현재는 항상 로비로 복귀. ROADMAP B-2 참조.
         [Tooltip("연결 끊김 후 복귀할 씬 이름")]
-        [SerializeField] private string _returnSceneName = "SampleScene";
+        [SerializeField] private string _returnSceneName = SceneLoader.Lobby;
 
         // [2026-05-20] 리팩토링: NetworkGameManager 주입.
         //   기존: NetworkManager.Singleton + UnityTransport 직접 참조
