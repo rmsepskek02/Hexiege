@@ -180,7 +180,9 @@ namespace Hexiege.Bootstrap
                     //   오버레이가 없으면(개발 중 직접 진입 등) 곧바로 씬을 이동한다.
                     if (_splashOverlay != null)
                     {
-                        _splashOverlay.SetTapCallback(GoToNextScene);
+                        // skipFade: true — 탭 시 FadeOut 없이 즉시 GoToNextScene 호출.
+                        // SceneLoader가 로딩 인디케이터를 표시하므로 Login 씬 배경이 노출되지 않는다.
+                        _splashOverlay.SetTapCallback(GoToNextScene, skipFade: true);
 
                         // [로딩 인디케이터 끄기] 스플래시가 "Tap to Start" 상태로 화면에 준비되는 시점이다(UI 규칙 L-3).
                         UIManager.Instance?.ShowLoading(false);
