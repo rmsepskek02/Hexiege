@@ -25,6 +25,36 @@
 
 ## 최근 작업
 
+### LoadingIndicator 전수 적용 + 관련 버그 수정 (2026-06-22~23) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/16_37_loading-indicator-full-coverage/`
+
+**핵심 패턴**:
+- `SceneLoader` 정적 유틸리티 신규 (`Hexiege.Presentation`): 모든 씬 전환 단일 진입점. `UIManager.LoadSceneWithDelay` 위임 — ShowLoading(true) 즉시 실행 → 1초 대기 → LoadScene.
+- **ShowLoading 호출 위치**: 코루틴 외부에서 동기 실행 필수. 코루틴 내부에 두면 다음 프레임에 실행되어 텍스트 지연 발생.
+- **ShowLoading(false) 책임자(규칙 L-3)**: Login=LoginBootstrapper, Lobby=LobbyRootView.Start(), Game=GameBootstrapper.LoadMap().
+- **Infrastructure→Presentation 직접 참조 금지**: `NetworkGameManager`가 `SceneLoader`를 직접 호출하면 레이어 위반. `GameEvents.OnNetworkBackToLobby`(Subject<string>) 이벤트 경유 → `GameEndUI`(Presentation)가 구독해 `SceneLoader.Load` 호출.
+- **재경기 로딩**: `NetworkGameEndController` → `GameEvents.OnNetworkRematchStarting` 발행 → `GameEndUI` 구독해 ShowLoading(true). 동일 패턴.
+- **초기 메시지 누락 주의**: `ShowLoading(true)` 메시지 없이 호출하면 배경/스피너만 켜지고 텍스트 공백. 반드시 메시지 함께 전달.
+
+**수정된 파일 목록**:
+- `SceneLoader.cs` (신규)
+- `IUIManager.cs` (`LoadSceneWithDelay` 추가)
+- `UIManager.cs` (`LoadSceneWithDelay`, `LoadSceneRoutine` 추가 — ShowLoading 코루틴 외부 이동)
+- `LoginBootstrapper.cs` (ShowLoading(false) 위치 수정)
+- `GameEvents.cs` (`OnNetworkRematchStarting`, `OnNetworkBackToLobby` Subject 추가)
+- `NetworkGameEndController.cs` (`NotifyRematchStartingClientRpc` 추가)
+- `NetworkGameManager.cs` (`using Hexiege.Presentation` 제거, `GameEvents.OnNetworkBackToLobby.OnNext` 발행)
+- `GameEndUI.cs` (OnNetworkRematchStarting/OnNetworkBackToLobby 구독)
+- `InGameSettingsUI.cs` (멀티 포기 분기만 ShowLoading)
+- `ProfileView.cs` (로그아웃 ShowLoading)
+- `LobbyRootView.cs` (ShowLoading(false))
+- `GameBootstrapper.Map.cs` (ShowLoading(false))
+- `AnonymousWarningPopup.cs` ("로그인 중..." 초기 메시지 추가)
+- `NetworkStatusUI.cs` (`_returnSceneName` 기본값 → `SceneLoader.Lobby`)
+
+---
+
 ### ConfirmPopup z-order 버그 수정 (2026-06-22) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/15_09_ingame-settings-confirm-popup-zorder/`
