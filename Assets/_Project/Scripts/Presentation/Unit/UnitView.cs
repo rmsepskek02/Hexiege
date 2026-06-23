@@ -651,7 +651,7 @@ namespace Hexiege.Presentation
             }
 
             // ────────────────────────────────────────────────────────────
-            // [2026-05-16] 부드러운 경로 교체 — 건물 생성/파괴 시 멈춤 현상 제거.
+            // 부드러운 경로 교체 — 건물 생성/파괴 시 멈춤 현상 제거.
             //
             // 기본 동작:
             //   _pendingPath에 새 경로를 "예약"만 한다.
@@ -681,15 +681,12 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 현재 유닛이 전투 중(공격 또는 전투 이동 중)인지 판정.
-        ///
-        /// [2026-05-11 재설계]
-        ///   기존 슬롯 기반 판정(`_v2AttackSlotTargetCoord.HasValue || _v2InStationaryCombat`)은
-        ///   슬롯 시스템 폐기로 더 이상 유효하지 않으므로, 공격 타겟 추적 상태로 판정합니다.
+        /// 공격 타겟 추적 상태로 판정합니다.
         ///
         /// 판정 기준:
         ///   - `_combatTargetTransform != null`: 전투/추격 코루틴이 진행 중일 때
         ///     `StartCombatAnimation`이 set하고, `StopCombatAnimation`이 null로 리셋합니다.
-        ///   - [BUG-001 — 2026-05-12] `_isInCombatPursuit == true`: 추격 단계(아직 공격 사거리 미도달)
+        ///   - `_isInCombatPursuit == true`: 추격 단계(아직 공격 사거리 미도달)
         ///     인 동안 EnterCombatPursuitV3가 set합니다.
         ///     이 플래그가 없으면 추격 중에 건물 변화 → RepathAllAliveUnits이 트리거되어
         ///     OnPathInvalidated가 새 path로 코루틴을 교체하고, 결과적으로 추격 코루틴이
@@ -706,7 +703,7 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
-        // [2026-05-11 재설계] MoveAlongPathV3 — 새 단일 상태 머신
+        // MoveAlongPathV3 — 단일 상태 머신
         // ====================================================================
         // GameSystemRules.md 새 규칙 7~10에 따른 통합 상태 머신:
         //
@@ -723,11 +720,10 @@ namespace Hexiege.Presentation
         //   [공격] : 멈춘 채로 공격/쿨다운 루프.
         //            적이 사거리 이탈 → [전투 이동] 또는 [A* 이동 재개].
         //
-        // 차이점 (V3 이전 대비):
-        //   - 근접/원거리(AttackKind) 분기 제거 → 차이는 공격 사거리 수치뿐.
-        //   - 이동 슬롯/공격 슬롯/타일 점유 모두 제거 → 단순 타일 중심 이동.
-        //   - 우회(detour)/대기 로직 제거 → 다른 유닛과 같은 타일에 들어가도 문제 없음.
-        //   - 원거리 "정지 즉시 공격" 분기 제거 → 원거리도 detect 진입 후 전투 이동으로 접근.
+        // 특징:
+        //   - 근접/원거리(AttackKind) 차이는 공격 사거리 수치뿐.
+        //   - 타일 점유 없이 단순 타일 중심 이동 — 다른 유닛과 같은 타일에 들어가도 문제 없음.
+        //   - 원거리도 detect 진입 후 전투 이동으로 접근한다.
         //
         // 헬퍼 구조:
         //   MoveAlongPathV3            — 메인 코루틴 (서버 가드 + path 순회 + cleanup)
@@ -781,7 +777,7 @@ namespace Hexiege.Presentation
                 _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
             }
 
-            // [2026-05-15] 혼잡도 기여 활성화 — 본 코루틴이 도는 동안 새 타일 진입 시
+            // 혼잡도 기여 활성화 — 본 코루틴이 도는 동안 새 타일 진입 시
             // GameEvents.OnUnitEnteredTile을 발행한다. 전투 추격 진입 시 false로 바뀌고,
             // resumePath로 A* 재개 시 다시 true로 돌아온다.
             _isAStarMoving = true;
@@ -798,10 +794,8 @@ namespace Hexiege.Presentation
             //     (A) 전투 종료 후 ResumeFromForwardTileV3가 새 path를 반환.
             //   정상 완주 또는 사망이면 외부 while 자체가 break.
             //
-            // [2026-05-11 재설계]
-            //   기존의 우회(detour)/대기 로직과 슬롯 분기는 모두 제거됐습니다.
             //   타일에 다른 유닛이 있어도 그대로 진입하며, 같은 타일에서 시각적으로 겹치는 것은
-            //   새 규칙상 허용됩니다(분산은 별도 시스템 책임이 아님).
+            //   허용된다(분산은 별도 시스템 책임이 아님).
             // ────────────────────────────────────────────────────────────────
             while (_unitData != null && _unitData.IsAlive)
             {
@@ -828,29 +822,20 @@ namespace Hexiege.Presentation
                     bool isLastStepToNonWalkable = isLastStep
                         && (_movementUseCase != null && !_movementUseCase.IsWalkable(to));
 
-                    // [2026-05-11 비활성화 — 슬롯 시스템 폐기]
-                    // 기존의 우회(detour)/대기 로직(FindForwardAvailable + WAIT_START/END)은 모두 제거됐습니다.
-                    // 새 규칙에서는 같은 타일에 여러 유닛이 들어가도 그대로 진행합니다.
-                    // 기존 코드는 git 히스토리에서 확인 가능합니다.
-
-                    // [2026-05-11 비활성화] 점유 등록(RegisterOccupancyMove)은 새 규칙에서 사용하지 않습니다.
-
                     // ──────────────────────────────────────────────────────
                     // [A* 이동] 도메인 방향(_unitData.Facing) 갱신 — HexDirection 단위의 도메인 상태 추적용.
-                    //   시각적 회전은 더 이상 ApplyDirection으로 즉시 스냅하지 않는다.
-                    //   대신 아래 Lerp 루프에서 매 프레임 RotateTowards로 부드럽게 회전한다.
+                    //   시각적 회전은 ApplyDirection으로 즉시 스냅하지 않고,
+                    //   아래 Lerp 루프에서 매 프레임 RotateTowards로 부드럽게 회전한다.
+                    //   (즉시 스냅하면 타일 전환 순간 Y축 회전이 점프하여 시각적으로 부자연스럽다.)
                     // ──────────────────────────────────────────────────────
                     HexDirection dir = FacingDirection.FromCoords(from, to);
                     dir = ViewConverter.FlipDirection(dir);
                     _unitData.Facing = dir;
-                    // [회전 시스템 변경 — 2026-05-14] ApplyDirection(dir) 즉시 스냅 제거.
-                    //   기존: 타일 전환 순간 Y축 회전이 점프하여 시각적으로 부자연스러웠음.
-                    //   변경: 목표 각도(targetRot)를 정해두고 Lerp 루프에서 매 프레임 RotateTowards로 누적 회전.
 
                     // ──────────────────────────────────────────────────────
                     // [A* 이동] 이동 목표 = 항상 타일 중심.
-                    //   슬롯 시스템 폐기로 인해 같은 타일에 여러 유닛이 들어가도 동일한 중심으로 이동.
-                    //   시각적 분산은 별도 시스템 책임이 아니라는 게 새 규칙의 입장입니다.
+                    //   같은 타일에 여러 유닛이 들어가도 동일한 중심으로 이동한다.
+                    //   시각적 분산은 별도 시스템 책임이 아니다.
                     // ──────────────────────────────────────────────────────
                     Vector3 toDomain = HexMetrics.HexToWorld(to);
 
@@ -882,7 +867,7 @@ namespace Hexiege.Presentation
                     // toPos 강제 스냅과 ProcessStep을 모두 건너뛰고 새 path로 외부 while 재진입.
                     bool interruptedByCombat = false;
 
-                    // [2026-05-16] 지금 Lerp 중인 "다음 도착 타일" 좌표를 기록.
+                    // 지금 Lerp 중인 "다음 도착 타일" 좌표를 기록.
                     // OnPathInvalidated가 호출됐을 때 이 타일에 건물이 새로 생긴 경우만
                     // 즉시 코루틴을 재시작해야 하므로 외부에서 검사할 수 있도록 노출한다.
                     _currentNextTileCoord = to;
@@ -906,11 +891,11 @@ namespace Hexiege.Presentation
                         if (_combatUseCase != null && _unitData.IsAlive
                             && _combatUseCase.HasEnemyInDetectRange(_unitData))
                         {
-                            // [2026-05-15] 혼잡도 기여 일시 중단 — 추격 단계는 타일을 거치지 않는
+                            // 혼잡도 기여 일시 중단 — 추격 단계는 타일을 거치지 않는
                             // 직선 이동이므로 OnUnitEnteredTile 발행을 막는다. resumePath에서 다시 true.
                             _isAStarMoving = false;
 
-                            // [2026-05-16] 전투 추격 진입 — 더 이상 "다음 도착 타일"을 향해 가지 않으므로
+                            // 전투 추격 진입 — 더 이상 "다음 도착 타일"을 향해 가지 않으므로
                             // OnPathInvalidated가 잘못된 타일을 검사하지 않도록 즉시 null로 비운다.
                             // (IsInCombat()가 true가 되어 OnPathInvalidated가 사실상 early return하지만,
                             //  방어적으로 정합 상태 유지.)
@@ -1036,7 +1021,7 @@ namespace Hexiege.Presentation
                                 path = resumePath;
                                 needRepath = true;
                                 interruptedByCombat = true;
-                                // [2026-05-15] 혼잡도 기여 재활성화 — 전투 종료 후 정상 A* 재개.
+                                // 혼잡도 기여 재활성화 — 전투 종료 후 정상 A* 재개.
                                 _isAStarMoving = true;
                                 break;  // Lerp while 탈출
                             }
@@ -1070,10 +1055,9 @@ namespace Hexiege.Presentation
                         _movementUseCase.ProcessStep(_unitData, from, to);
                     }
 
-                    // [2026-05-15] 혼잡도 시스템 — A* 이동 중 새 타일에 진입했을 때만 발행.
+                    // 혼잡도 시스템 — A* 이동 중 새 타일에 진입했을 때만 발행.
                     // 전투 추격 단계에서는 _isAStarMoving == false라 발행되지 않는다.
                     // GameBootstrapper가 이 이벤트를 받아 CongestionMap.Increment(tile)을 수행한다.
-                    // [2026-05-20] Action → Subject 통일: GameEvents.OnUnitEnteredTile.OnNext(...) 사용.
                     if (_isAStarMoving)
                     {
                         GameEvents.OnUnitEnteredTile.OnNext(new UnitEnteredTileEvent(_unitData.Id, to));
@@ -1081,12 +1065,12 @@ namespace Hexiege.Presentation
 
                     prevActualTile = to;
 
-                    // [2026-05-16] 타일 도착 완료 → 다음 Lerp 시작 전까지는 "다음 도착 타일" 정보 없음.
+                    // 타일 도착 완료 — 다음 Lerp 시작 전까지는 "다음 도착 타일" 정보 없음.
                     // null로 비워 두지 않으면 OnPathInvalidated가 이미 지나간 타일을 검사할 수 있다.
                     _currentNextTileCoord = null;
 
                     // ──────────────────────────────────────────────────────
-                    // [2026-05-16] 부드러운 경로 교체 — OnPathInvalidated가 예약한 새 path 소비.
+                    // 부드러운 경로 교체 — OnPathInvalidated가 예약한 새 path 소비.
                     //
                     //   OnPathInvalidated가 _pendingPath에 새 경로를 담아 두면,
                     //   여기서(타일 중심 도착 직후) 그것을 꺼내 path 변수를 교체한다.
@@ -1466,10 +1450,10 @@ namespace Hexiege.Presentation
         {
             _moveCoroutine = null;
 
-            // [2026-05-15] 혼잡도 기여 종료 — 이동이 끝났으니 새 코루틴 전까지는 발행하지 않는다.
+            // 혼잡도 기여 종료 — 이동이 끝났으니 새 코루틴 전까지는 발행하지 않는다.
             _isAStarMoving = false;
 
-            // [2026-05-16] 이동이 완전히 종료되었으므로 부드러운 교체 관련 상태도 모두 초기화.
+            // 이동이 완전히 종료되었으므로 부드러운 교체 관련 상태도 모두 초기화.
             // 이렇게 해두지 않으면 다음에 MoveTo가 호출되기 전에 OnPathInvalidated가 끼어들었을 때
             // 이미 종료된 코루틴의 잔재 정보를 보고 잘못된 분기를 탈 수 있다.
             _pendingPath = null;

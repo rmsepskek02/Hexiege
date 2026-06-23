@@ -45,8 +45,7 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 박스 본체에 부착된 AnimatedPanel (PopupFade 권장).")]
         [SerializeField] private AnimatedPanel _panel;
 
-        // [2026-06-21] SharedBackgroundButton → UIManager.ShowBlockingOverlay(Popup 모드)로 통합.
-        //   UIManager가 단일 BlockingOverlay를 소유하여 SafeArea 문제 없이 전체화면 커버.
+        // UIManager가 단일 BlockingOverlay를 소유하여 SafeArea 문제 없이 전체화면 커버.
         //   테스트 통과 후 삭제 예정.
         // [Tooltip("Canvas 직속 공유 Background. 등록된 콜백을 통해 외부 클릭 시 팝업이 닫힘.")]
         // [SerializeField] private SharedBackgroundButton _sharedBackground;

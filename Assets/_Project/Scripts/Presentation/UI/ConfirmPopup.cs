@@ -56,8 +56,7 @@ namespace Hexiege.Presentation
         // Inspector 참조
         // ====================================================================
 
-        // [2026-06-21] BlockingOverlay를 UIManager 단일 소유 구조로 통합.
-        //   자체 _blockingOverlay 대신 UIManager.Instance?.ShowBlockingOverlay() (Modal 모드)를 사용한다.
+        // 자체 _blockingOverlay 대신 UIManager.Instance?.ShowBlockingOverlay() (Modal 모드)를 사용한다.
         //   아래 필드는 테스트 통과 후 삭제 예정 — 현재는 비활성화(주석 처리)로 보존.
         // [Header("입력 차단 오버레이")]
         // [Tooltip("팝업이 떠 있을 때 뒤쪽 UI 입력을 차단하는 전체 화면 투명 Image의 CanvasGroup. " +
