@@ -126,7 +126,5 @@ namespace Hexiege.Core
 
             return (Hexiege.Domain.HexDirection)(((int)dir + 3) % 6);
         }
-
-        // [Phase 2] FlatTopSortingOrder() 제거 — 3D Z-buffer로 렌더 순서 자동 처리
     }
 }

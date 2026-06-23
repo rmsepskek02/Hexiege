@@ -164,6 +164,9 @@ namespace Hexiege.Bootstrap
 
             BuildingStats.Initialize(dict);
 
+            // 환불 캐시를 채울 대상 종족 목록. 생산건물/비생산건물 양쪽 루프에서 공유한다.
+            var refundRaces = new[] { RaceId.Human, RaceId.Spirit, RaceId.Transcendence };
+
             // ── 철거 환불용 누적 투자 비용 계산 및 캐싱 ─────────────────────────
             // 각 생산건물 라인의 1단계 건물에서 시작해 체인을 순방향으로 순회한다.
             // 단계를 거칠수록 이전 단계의 업그레이드 비용이 누적된다.
@@ -183,7 +186,7 @@ namespace Hexiege.Bootstrap
                 BuildingType.SporePatch,
             };
 
-            foreach (var race in new[] { RaceId.Human, RaceId.Spirit, RaceId.Transcendence })
+            foreach (var race in refundRaces)
             {
                 foreach (var stage1 in stage1Buildings)
                 {
@@ -221,7 +224,7 @@ namespace Hexiege.Bootstrap
                 BuildingType.MagicBuilding,
                 BuildingType.HealShrine,
             };
-            foreach (var race in new[] { RaceId.Human, RaceId.Spirit, RaceId.Transcendence })
+            foreach (var race in refundRaces)
             {
                 foreach (var type in nonProductionBuildings)
                 {
@@ -510,7 +513,7 @@ namespace Hexiege.Bootstrap
                     _unitFactory, _buildingFactory, _positionProvider);
 
             // 생산 티커 초기화 (ProductionPanelUI보다 먼저 — UI에서 마커 참조 필요).
-            // [2026-05-15] CastleApproachManager(v1) 대신 혼잡도 시스템(v2) 인스턴스를 함께 주입.
+            // 혼잡도 시스템(v2) 인스턴스를 함께 주입한다.
             //   _grid / _congestionMap / _congestionPathfinder는 모두 null일 수 있고,
             //   그 경우 ProductionTicker가 BFS 폴백 경로로 동작한다.
             //   혼잡도 튜닝 값은 _config(GameConfig)에 통합되어 별도 인자가 필요 없다.

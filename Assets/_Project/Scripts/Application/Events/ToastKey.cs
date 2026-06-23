@@ -12,9 +12,6 @@
 //     "어떤 문구로 보여줄지"는 신경 쓰지 않아도 됩니다.
 //   - 문구를 ScriptableObject에서 관리하므로 기획자가 코드 수정 없이 텍스트만 바꿀 수 있습니다.
 //
-// [2026-05-20] Application 레이어로 이동:
-//   ToastMessageConfig(Infrastructure)가 Presentation을 import하던 역방향 의존을 해소.
-//
 // Application 레이어 — Unity 의존 없음(순수 enum).
 // ============================================================================
 

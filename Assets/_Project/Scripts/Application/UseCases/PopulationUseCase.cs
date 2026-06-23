@@ -7,7 +7,7 @@
 //   사용 인구 = 건물 수 + 유닛 수 (각 1 인구)
 //   가용 인구 = 총 인구 - 사용 인구
 //
-// [2026-05-20] 성능 최적화 — 팀별 사용 인구수를 Dictionary 캐시로 관리.
+// 성능 최적화 — 팀별 사용 인구수를 Dictionary 캐시로 관리.
 // GameEvents.OnUnitSpawned / OnUnitDied / OnBuildingPlaced / OnBuildingDied를 구독하여
 // 증감 갱신하므로 GetUsedPopulation 호출 시 O(n) 순회 없이 O(1)로 반환.
 //
@@ -27,7 +27,7 @@ namespace Hexiege.Application
         private readonly UnitSpawnUseCase _unitSpawn;
         private readonly BuildingPlacementUseCase _buildingPlacement;
 
-        // [2026-05-20] 팀별 사용 인구수 캐시.
+        // 팀별 사용 인구수 캐시.
         // 유닛 생성/사망 + 건물 배치/사망 이벤트로 증감 갱신.
         private readonly Dictionary<TeamId, int> _usedPopulationByTeam = new Dictionary<TeamId, int>();
 
@@ -83,7 +83,7 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 해당 팀의 사용 중인 인구수 (= 건물 수 + 유닛 수).
-        /// [2026-05-20] Dictionary 캐시로 O(1) 즉시 반환.
+        /// Dictionary 캐시로 O(1) 즉시 반환.
         /// </summary>
         public int GetUsedPopulation(TeamId team)
         {

@@ -624,9 +624,8 @@ namespace Hexiege.Infrastructure
         /// TickCombat에서 유닛이 처음 타겟을 발견했을 때 전송.
         /// 서버(Host)도 수신하여 동일한 애니메이션 처리.
         ///
-        /// [2026-05-20] 리팩토링: UnitView를 GetComponent로 직접 잡아 호출하던 패턴을
-        /// GameEvents.OnNetworkCombatStarted 발행으로 전환. UnitView가 자신의 Id에 해당하는
-        /// 이벤트만 구독하여 처리. Infrastructure → Presentation 역방향 의존이 사라짐.
+        /// GameEvents.OnNetworkCombatStarted를 발행하면 UnitView가 자신의 Id에 해당하는
+        /// 이벤트만 구독해 처리한다. 이렇게 하여 Infrastructure → Presentation 역방향 의존을 피한다.
         /// </summary>
         /// <param name="unitId">공격하는 유닛의 Id</param>
         /// <param name="targetId">타겟 엔티티의 Id</param>
@@ -647,8 +646,6 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 전투 중 타겟 변경. 클라이언트에서 회전만 업데이트, 애니메이션 재시작 없음.
         /// TickCombat에서 유닛의 타겟이 이전과 다를 때 전송.
-        ///
-        /// [2026-05-20] 리팩토링: UnitView 직접 호출 → GameEvents.OnNetworkCombatTargetChanged 발행.
         /// </summary>
         /// <param name="unitId">공격하는 유닛의 Id</param>
         /// <param name="newTargetId">새 타겟 엔티티의 Id</param>
@@ -664,8 +661,6 @@ namespace Hexiege.Infrastructure
         /// 유닛이 전투 상태 종료. 클라이언트에서 Attack → Idle 전환.
         /// TickCombat에서 유닛의 타겟이 사라졌을 때 전송.
         /// Idle로 전환하는 이유: 이동 재개 시 StartWalkAnimationClientRpc가 별도로 도착하므로.
-        ///
-        /// [2026-05-20] 리팩토링: UnitView 직접 호출 → GameEvents.OnNetworkCombatStopped 발행.
         /// </summary>
         /// <param name="unitId">전투를 종료하는 유닛의 Id</param>
         [ClientRpc]
@@ -680,7 +675,6 @@ namespace Hexiege.Infrastructure
         /// 클라이언트는 NetworkTransform으로 위치만 동기화받고,
         /// Walk 애니메이션은 이 RPC를 통해 별도로 동기화.
         ///
-        /// [2026-05-20] 리팩토링: UnitView 직접 호출 → GameEvents.OnNetworkWalkStarted 발행.
         /// 서버(HOST) 스킵 분기는 RPC 차원에서 유지하여 호스트의 중복 애니메이션 호출을 막는다.
         /// </summary>
         /// <param name="unitId">Walk를 시작한 유닛의 Id</param>

@@ -14,11 +14,6 @@
 //   4. Instantiate → UnitView 컴포넌트 초기화
 //   5. 생성된 GameObject를 Units 부모 오브젝트 하위에 배치
 //
-// [Phase 2] 3D 전환:
-//   - UnitAnimationData(Sprite[] 기반) 의존성 완전 제거
-//   - Animator(Mecanim) 기반 애니메이션으로 교체 (프리팹에 Animator 설정)
-//   - sortingOrder 불필요 (3D Z-buffer로 렌더 순서 자동 처리)
-//
 // Inspector 설정:
 //   - UnitPrefab: 유닛 프리팹 참조 (Renderer + UnitView + Animator)
 //   - UnitParent: 생성된 유닛들의 부모 Transform ([World]/Units)
@@ -248,7 +243,7 @@ namespace Hexiege.Infrastructure
                 }
             }
 
-            // [2026-05-20] UnitView 구체 타입 대신 IUnitView 인터페이스로 가져와서 Presentation 의존 제거.
+            // UnitView 구체 타입 대신 IUnitView 인터페이스로 가져와 Presentation 의존을 끊는다.
             // GetComponent<IInterface>()는 Unity가 컴포넌트 중 해당 인터페이스를 구현한 것을 반환한다.
             IUnitView unitView = unitObj.GetComponent<IUnitView>();
             if (unitView != null)
@@ -337,7 +332,7 @@ namespace Hexiege.Infrastructure
             // 만약 초기 1~2프레임 동안 원점에 나타나는 문제가 있다면
             // 여기에 viewPos 설정을 추가할 수 있음.
 
-            // [2026-05-20] UnitView 구체 타입 대신 IUnitView 인터페이스로 가져온다.
+            // UnitView 구체 타입 대신 IUnitView 인터페이스로 가져온다.
             IUnitView unitView = unitObj.GetComponent<IUnitView>();
             if (unitView != null)
             {

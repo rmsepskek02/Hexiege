@@ -582,9 +582,6 @@ namespace Hexiege.Application
         /// 유닛이 A* 이동 중 새 타일에 진입할 때 발행 (서버 전용).
         /// 발행: UnitView (MoveAlongPathV3에서 _isAStarMoving == true인 동안 타일 전환 직후)
         /// 구독: GameBootstrapper → CongestionMap.Increment (혼잡도 누적)
-        ///
-        /// [2026-05-20] Action&lt;int, HexCoord&gt; → Subject&lt;UnitEnteredTileEvent&gt;로 통일.
-        /// 다른 GameEvents와 동일한 패턴이라 GameBootstrapper에서 ActionDisposable 래퍼가 불필요해진다.
         /// </summary>
         public static readonly Subject<UnitEnteredTileEvent> OnUnitEnteredTile
             = new Subject<UnitEnteredTileEvent>();

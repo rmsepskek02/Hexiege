@@ -35,7 +35,7 @@ namespace Hexiege.Application
         private readonly Dictionary<int, UnitData> _units = new Dictionary<int, UnitData>();
 
         // ====================================================================
-        // [2026-05-20] 위치 기반 역인덱스 (성능 최적화)
+        // 위치 기반 역인덱스 (성능 최적화)
         // ====================================================================
         //
         // 동일 좌표에 여러 유닛이 겹칠 수 있으므로(슬롯 시스템 폐기로 겹침 허용),
@@ -122,7 +122,7 @@ namespace Hexiege.Application
         /// 특정 좌표에 있는 유닛을 찾아 반환.
         /// 타일 클릭 시 해당 위치의 유닛이 있는지 확인하는 데 사용.
         ///
-        /// [2026-05-20] 위치 역인덱스 도입으로 O(n) → O(1)로 단축.
+        /// 위치 역인덱스로 O(n) → O(1)로 단축.
         /// 동일 좌표에 여러 유닛이 있을 경우 List의 첫 항목을 반환 — 기존 "임의의 하나" 정책 유지.
         /// </summary>
         public UnitData GetUnitAt(HexCoord position)
@@ -136,7 +136,7 @@ namespace Hexiege.Application
         /// 유닛을 목록에서 제거 (사망 처리 시).
         /// UnitCombatUseCase에서 HP가 0 이하가 된 유닛에 대해 호출.
         ///
-        /// [2026-05-20] 위치 역인덱스도 함께 정리한다.
+        /// 위치 역인덱스도 함께 정리한다.
         /// </summary>
         public bool RemoveUnit(int unitId)
         {

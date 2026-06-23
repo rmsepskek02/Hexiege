@@ -185,7 +185,7 @@ namespace Hexiege.Application
             // → 완료 시 CompleteProduction의 wasAuto=true 조건을 만족하여 자동 순환이 시작됨.
             // → 골드 이중 차감 없음 (슬롯0의 골드는 이미 수동 등록 시 차감됨).
             //
-            // [2026-06-05] PendingQueue가 비어있을 때만 적용한다.
+            // PendingQueue가 비어있을 때만 적용한다.
             // 대기 중인 다른 항목이 있으면 슬롯0 전환 대신 AddNewAutoSlot으로 슬롯3에 추가한다.
             // 예: [Assault(슬롯1)] [Pistoleer(슬롯2)] 상태에서 Assault 재등록 →
             //     Pistoleer가 중간에 있으므로 슬롯3 추가가 올바른 동작이다 (중복 아님).
@@ -554,7 +554,7 @@ namespace Hexiege.Application
                     if (!_resource.CanAfford(state.Team, cost)
                         || !_population.HasPopulation(state.Team, popCost))
                     {
-                        // [2026-05-16] 자원 부족 시 자동 생산 즉시 취소.
+                        // 자원 부족 시 자동 생산 즉시 취소.
                         //   - 미차감(IsCharged=false) 항목이므로 환불은 불필요.
                         //   - 해당 타입을 AutoTypes에서 제거하고 잔여 자동 항목도 Rule 2에 따라 정리.
                         //   - 큐 변경 이벤트를 발행해 UI가 즉시 갱신되도록 한다.
@@ -598,7 +598,7 @@ namespace Hexiege.Application
                 if (!_resource.CanAfford(state.Team, cost)
                     || !_population.HasPopulation(state.Team, popCost))
                 {
-                    // [2026-05-16] 자원 부족 → 자동 생산 전체 즉시 취소.
+                    // 자원 부족 → 자동 생산 전체 즉시 취소.
                     //   - AutoTypes / AutoCycleIndex 초기화.
                     //   - PendingQueue의 IsCharged=false 자동 항목 제거(미차감이므로 환불 불필요).
                     //   - IsCharged=true 자동 항목은 Rule 2에 따라 IsAuto=false로 수동 이관(이미 차감 → 환불 없이 생산 계속).

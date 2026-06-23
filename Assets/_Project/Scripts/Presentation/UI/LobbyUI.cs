@@ -95,8 +95,7 @@ namespace Hexiege.Presentation
         private void Start()
         {
             // NetworkGameManager 자동 탐색 (Inspector에 연결 안 된 경우)
-            // [2026-05-20] 리팩토링: FindFirstObjectByType은 유지하되, Unity.Netcode 직접 의존은 제거.
-            //   NetworkManager.OnClientConnectedCallback 구독 → NGM.OnAllPlayersReady 이벤트로 위임.
+            // 플레이어 준비 알림은 NGM.OnAllPlayersReady 이벤트로 받는다(NetworkManager 콜백 직접 구독 회피).
             if (_networkGameManager == null)
                 _networkGameManager = FindFirstObjectByType<NetworkGameManager>();
 
