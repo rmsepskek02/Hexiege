@@ -579,23 +579,22 @@ namespace Hexiege.Presentation
                 _moveCoroutine = null;
             }
 
-            // [2026-04-30] 새 규칙 4용 — 외부에서 이 유닛이 어디로 가는지 알 수 있도록 저장.
-            // 빈 경로/null 안전 처리: path가 비정상이면 기존 코루틴 동작이 알아서 종료된다.
+            // 외부에서 이 유닛이 어디로 가는지 알 수 있도록 최종 목적지를 저장.
+            // 빈 경로/null 안전 처리: path가 비정상이면 코루틴 동작이 알아서 종료된다.
             if (path != null && path.Count > 0)
             {
                 _currentDestination = path[path.Count - 1];
                 _hasDestination = true;
             }
 
-            // [V3 — 2026-05-06] 새 이동/전투 흐름 코루틴 시작.
+            // 이동/전투 흐름 코루틴 시작.
             //   - GameSystemRules.md 규칙 1~18을 그대로 따른다.
-            //   - V2(콜백 + V2Result enum)와 달리 외부 while 안에 타일 순회를 직접 인라인 → 가독성 향상.
-            //   - 기능 로직(슬롯 처리/우회/원거리 정지/근접 추격/전투 루프/전방 재개)은 V2와 동일.
+            //   - 외부 while 안에 타일 순회를 직접 인라인하여 가독성을 높였다.
             _moveCoroutine = StartCoroutine(MoveAlongPathV3(path));
         }
 
         /// <summary>
-        /// [2026-04-30] 외부(예: GameBootstrapper / FlowField 갱신 트리거)에서
+        /// 외부(예: GameBootstrapper / FlowField 갱신 트리거)에서
         /// "현재 진행 중인 경로가 무효화됐으니 동일 destination으로 다시 RequestMove해서
         ///  새 경로로 이동을 재시작하라"고 알려주는 메서드.
         ///
@@ -621,9 +620,9 @@ namespace Hexiege.Presentation
             if (_movementUseCase == null) return;
 
             // ────────────────────────────────────────────────────────────
-            // [BUG-007 — 2026-05-06] 전투 중인 유닛에 대한 repath 차단.
+            // 전투 중인 유닛에 대한 repath 차단.
             //
-            // 배경:
+            // 왜 필요한가:
             //   건물 건설/파괴 시 GameBootstrapper.RepathAllAliveUnits()가
             //   살아있는 모든 유닛의 OnPathInvalidated()를 호출한다.
             //   여기서 그대로 MoveTo(newPath)를 부르면 기존 전투 코루틴이 종료되지 않은 채
