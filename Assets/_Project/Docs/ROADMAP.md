@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-06-18
-**현재 단계:** 전역 UI 시스템(UIManager+SplashOverlay) 완료 — 사운드 시스템 Inspector 작업 + AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정 + UI FAIL 잔여 5항목 + Login.unity 씬 로그인 UI 조립 진행 필요
+**최종 수정일:** 2026-06-23
+**현재 단계:** 스플래시 화면 로그인 흐름 개선 완료 (skipFade 모드) — 사운드/AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---

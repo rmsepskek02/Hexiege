@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Hexiege.Application; // GameEvents (씬 전환을 Presentation에 위임하는 이벤트 채널)
 
 namespace Hexiege.Infrastructure
 {
@@ -621,8 +622,9 @@ namespace Hexiege.Infrastructure
             // 4. NGO 연결 해제
             ShutdownNetworkManager();
 
-            // 5. 씬 전환
-            SceneManager.LoadScene(lobbySceneName);
+            // 5. 씬 전환 — SceneLoader(Presentation)를 직접 참조하지 않고
+            //    GameEvents(Application)를 경유해 GameEndUI(Presentation)가 처리하도록 한다(UI 규칙 L-4).
+            GameEvents.OnNetworkBackToLobby.OnNext(lobbySceneName);
         }
 
         // ====================================================================

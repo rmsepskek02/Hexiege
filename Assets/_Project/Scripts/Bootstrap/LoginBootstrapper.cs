@@ -23,7 +23,6 @@ using System;                       // [DEBUG-TEMP] 디버깅 완료 후 제거 
 using System.Threading.Tasks;
 using GooglePlayGames;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
 using Hexiege.Presentation;
@@ -60,6 +59,9 @@ namespace Hexiege.Bootstrap
 
         [Tooltip("익명 로그인 경고 팝업.")]
         [SerializeField] private AnonymousWarningPopup _anonymousWarningPopup;
+
+        [Tooltip("네트워크 오류 안내 팝업.")]
+        [SerializeField] private NetworkErrorPopup _networkErrorPopup;
 
         [Header("스플래시 오버레이")]
         [Tooltip("Login 씬 진입 시 표시되는 스플래시 오버레이. " +
@@ -171,14 +173,27 @@ namespace Hexiege.Bootstrap
                 bool autoOk = await _loginUseCase.TryAutoLoginAsync();
                 if (autoOk)
                 {
-                    Debug.Log("[LoginBootstrapper] 자동 로그인 성공. 스플래시를 닫고 Lobby 씬으로 이동합니다.");
-                    // 자동 로그인 성공: "Tap to Start"를 거치지 않고 곧바로
-                    // 스플래시 페이드아웃 → 완료 콜백에서 Lobby 씬으로 이동한다.
-                    // 오버레이가 없으면 FadeOut이 즉시 콜백을 호출하므로 흐름이 멈추지 않는다.
+                    Debug.Log("[LoginBootstrapper] 자동 로그인 성공. 'Tap to Start' 후 Lobby 씬으로 이동합니다.");
+                    // 자동 로그인 성공이라도 곧바로 씬을 이동하지 않고 "Tap to Start"를 거친다.
+                    //   탭 콜백으로 GoToNextScene을 주입한 뒤, 로딩 인디케이터를 끄고 "Tap to Start"를 표시한다.
+                    //   → 사용자가 탭하면 오버레이가 페이드아웃되고 그 완료 콜백(GoToNextScene)으로 Lobby 씬으로 이동한다.
+                    //   오버레이가 없으면(개발 중 직접 진입 등) 곧바로 씬을 이동한다.
                     if (_splashOverlay != null)
-                        _splashOverlay.FadeOut(GoToNextScene);
+                    {
+                        // skipFade: true — 탭 시 FadeOut 없이 즉시 GoToNextScene 호출.
+                        // SceneLoader가 로딩 인디케이터를 표시하므로 Login 씬 배경이 노출되지 않는다.
+                        _splashOverlay.SetTapCallback(GoToNextScene, skipFade: true);
+
+                        // [로딩 인디케이터 끄기] 스플래시가 "Tap to Start" 상태로 화면에 준비되는 시점이다(UI 규칙 L-3).
+                        UIManager.Instance?.ShowLoading(false);
+
+                        _splashOverlay.ShowTapToStart();
+                    }
                     else
+                    {
+                        UIManager.Instance?.ShowLoading(false);
                         GoToNextScene();
+                    }
                     return;
                 }
                 Debug.LogWarning("[LoginBootstrapper] 자동 로그인 실패. 'Tap to Start' 후 로그인 선택 화면을 표시합니다.");
@@ -192,10 +207,20 @@ namespace Hexiege.Bootstrap
             if (_splashOverlay != null)
             {
                 _splashOverlay.SetTapCallback(ShowLoginSelect);
+
+                // [로딩 인디케이터 끄기] 스플래시가 "Tap to Start" 상태로 화면에 준비되는 시점이다.
+                //   이 시점에는 Login 씬이 이미 사용자에게 보여줄 준비가 끝났으므로,
+                //   로그아웃 등으로 이전 씬에서 켜둔 전역 로딩 인디케이터를 여기서 끈다(UI 규칙 L-3).
+                //   (ShowLoginSelect는 사용자가 탭한 뒤에야 실행되므로, 거기서 끄면
+                //    탭 전까지 로딩 인디케이터가 계속 떠 있는 버그가 발생한다.)
+                UIManager.Instance?.ShowLoading(false);
+
                 _splashOverlay.ShowTapToStart();
             }
             else
             {
+                // 스플래시가 없으면(개발 중 직접 진입 등) 곧바로 로그인 선택 화면을 표시하기 직전에 끈다.
+                UIManager.Instance?.ShowLoading(false);
                 ShowLoginSelect();
             }
         }
@@ -206,6 +231,11 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private void ShowLoginSelect()
         {
+            // [주의] 로딩 인디케이터 끄기는 더 이상 여기서 하지 않는다.
+            //   ShowLoginSelect는 스플래시 "Tap to Start"를 사용자가 탭한 뒤에야 실행되므로,
+            //   여기서 끄면 탭 전까지 로딩 인디케이터가 계속 떠 있는 버그가 발생한다(TC-04).
+            //   → 로딩 끄기는 스플래시가 화면에 준비된 시점(InitializeAndDispatchAsync)으로 이동했다.
+
             if (_rootView != null)
                 _rootView.ShowLoginSelect();
         }
@@ -237,6 +267,9 @@ namespace Hexiege.Bootstrap
 
             if (_anonymousWarningPopup != null)
                 _anonymousWarningPopup.Initialize(_rootView, _loginUseCase, this);
+
+            if (_networkErrorPopup != null)
+                _networkErrorPopup.Initialize(_rootView);
         }
 
         // ====================================================================
@@ -254,7 +287,8 @@ namespace Hexiege.Bootstrap
                 Debug.LogError("[LoginBootstrapper] _nextSceneName 이 비어 있어 씬 이동을 진행할 수 없습니다.");
                 return;
             }
-            SceneManager.LoadScene(_nextSceneName);
+            // SceneLoader.Load 가 내부에서 로딩 인디케이터를 자동 표시한다.
+            SceneLoader.Load(_nextSceneName);
         }
 
         /// <summary>

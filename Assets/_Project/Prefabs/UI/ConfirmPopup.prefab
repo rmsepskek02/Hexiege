@@ -860,6 +860,8 @@ GameObject:
   - component: {fileID: 1370355218027472002}
   - component: {fileID: 4354652966265726529}
   - component: {fileID: 3908128627451007350}
+  - component: {fileID: 3006034738817234908}
+  - component: {fileID: 6880806494692755149}
   m_Layer: 0
   m_Name: ConfirmPopup
   m_TagString: Untagged
@@ -912,7 +914,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5cde9cf32dabdf44a95ba98b6c9b2823, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.ConfirmPopup
-  _blockingOverlay: {fileID: 6354293846761239206}
   _panel: {fileID: 8494723194931794879}
   _messageText: {fileID: 7164158541732802467}
   _confirmButton: {fileID: 6691089387855059810}
@@ -920,6 +921,46 @@ MonoBehaviour:
   _confirmButtonText: {fileID: 4396354000344872480}
   _cancelButtonText: {fileID: 5692597103739300123}
   _colorConfig: {fileID: 11400000, guid: ce7db35dba9189c4e9d9c510f0a3bbce, type: 2}
+--- !u!223 &3006034738817234908
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7688936100688926447}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 2
+  m_Camera: {fileID: 0}
+  m_PlaneDistance: 100
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 1
+  m_OverridePixelPerfect: 0
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 25
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 250
+  m_TargetDisplay: 0
+--- !u!114 &6880806494692755149
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7688936100688926447}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.GraphicRaycaster
+  m_IgnoreReversedGraphics: 1
+  m_BlockingObjects: 0
+  m_BlockingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &9139676281891593591
 GameObject:
   m_ObjectHideFlags: 0

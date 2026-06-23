@@ -25,6 +25,174 @@
 
 ## 최근 작업
 
+### 스플래시 화면 로그인 흐름 개선 — skipFade 모드 (2026-06-23) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-23/07_20_splash-login-flow/`
+
+**문제**: 로그인된 상태로 재실행 시 탭 → FadeOut(0.5초) → 이 동안 Login 씬 배경 노출. 스플래시가 투명해지는 동안 로그인 화면이 보여 어색한 전환 발생.
+
+**해결**: `SplashOverlayView`에 `_skipFadeOnTap` bool 필드 추가. `SetTapCallback` 두 번째 파라미터 `skipFade=false`(기본값) 추가 — 기존 로그인 X 호출 코드 변경 없음. `OnPointerClick` skipFade 분기: true면 FadeOut 없이 즉시 `_tapCallback` 호출, false면 기존 `FadeOut(_tapCallback)`.
+
+**LoginBootstrapper 자동 로그인 성공 분기 변경**:
+```csharp
+_splashOverlay.SetTapCallback(GoToNextScene, skipFade: true);
+UIManager.Instance?.ShowLoading(false);
+_splashOverlay.ShowTapToStart();
+```
+로딩 인디케이터(SortingOrder=300)가 탭 직후 즉시 화면 커버 → FadeOut 없어도 Login 씬 배경 미노출.
+
+**흐름 비교**:
+- 로그인 O: 탭 → 즉시 GoToNextScene → SceneLoader.Load("Lobby") → 로딩 인디케이터(SO=300) → 로비
+- 로그인 X: 탭 → FadeOut(0.5초, 로그인 화면 드러남) → ShowLoginSelect (기존 동작 유지)
+
+**수정 파일**:
+- `Presentation/UI/SplashOverlayView.cs` — `_skipFadeOnTap` 필드, `SetTapCallback(callback, bool skipFade=false)`, `OnPointerClick` 분기
+- `Bootstrap/LoginBootstrapper.cs` — 자동 로그인 성공 분기 `SetTapCallback(..., skipFade:true)` + `ShowLoading(false)` + `ShowTapToStart()`
+
+---
+
+### 로그인 팝업 CloseButton 무반응 수정 (2026-06-23) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-23/04_49_cancel-button-fix/`
+
+**원인 패턴**: CloseButton GO가 씬에 활성화 상태로 존재해도 C# 코드에 `[SerializeField] private Button _closeButton` 필드가 없으면 Inspector 연결 자체가 불가 → 클릭 리스너 등록 안 됨 → 무반응.
+
+**수정 내용**:
+- `AnonymousWarningPopup.cs`: `_closeButton` 추가 + `OnCloseButtonClicked()` → `Hide()`. `SetInteractable()`에 포함 (로그인 진행 중 취소 방지).
+- `NetworkErrorPopup.cs`: `_closeButton` 추가 + `OnCloseButtonClicked()` → `Hide()`. 기존 `_confirmButton`(ConfirmButton GO)은 유지.
+
+**씬 구조 확인 패턴**: Login.unity 내 팝업 Inspector 연결 상태는 씬 파일에서 MonoBehaviour 섹션의 SerializeField 값(`{fileID: 0}` = 미연결)으로 확인 가능.
+
+---
+
+### LoadingIndicator 전수 적용 + 관련 버그 수정 (2026-06-22~23) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/16_37_loading-indicator-full-coverage/`
+
+**핵심 패턴**:
+- `SceneLoader` 정적 유틸리티 신규 (`Hexiege.Presentation`): 모든 씬 전환 단일 진입점. `UIManager.LoadSceneWithDelay` 위임 — ShowLoading(true) 즉시 실행 → 1초 대기 → LoadScene.
+- **ShowLoading 호출 위치**: 코루틴 외부에서 동기 실행 필수. 코루틴 내부에 두면 다음 프레임에 실행되어 텍스트 지연 발생.
+- **ShowLoading(false) 책임자(규칙 L-3)**: Login=LoginBootstrapper, Lobby=LobbyRootView.Start(), Game=GameBootstrapper.LoadMap().
+- **Infrastructure→Presentation 직접 참조 금지**: `NetworkGameManager`가 `SceneLoader`를 직접 호출하면 레이어 위반. `GameEvents.OnNetworkBackToLobby`(Subject<string>) 이벤트 경유 → `GameEndUI`(Presentation)가 구독해 `SceneLoader.Load` 호출.
+- **재경기 로딩**: `NetworkGameEndController` → `GameEvents.OnNetworkRematchStarting` 발행 → `GameEndUI` 구독해 ShowLoading(true). 동일 패턴.
+- **초기 메시지 누락 주의**: `ShowLoading(true)` 메시지 없이 호출하면 배경/스피너만 켜지고 텍스트 공백. 반드시 메시지 함께 전달.
+
+**수정된 파일 목록**:
+- `SceneLoader.cs` (신규)
+- `IUIManager.cs` (`LoadSceneWithDelay` 추가)
+- `UIManager.cs` (`LoadSceneWithDelay`, `LoadSceneRoutine` 추가 — ShowLoading 코루틴 외부 이동)
+- `LoginBootstrapper.cs` (ShowLoading(false) 위치 수정)
+- `GameEvents.cs` (`OnNetworkRematchStarting`, `OnNetworkBackToLobby` Subject 추가)
+- `NetworkGameEndController.cs` (`NotifyRematchStartingClientRpc` 추가)
+- `NetworkGameManager.cs` (`using Hexiege.Presentation` 제거, `GameEvents.OnNetworkBackToLobby.OnNext` 발행)
+- `GameEndUI.cs` (OnNetworkRematchStarting/OnNetworkBackToLobby 구독)
+- `InGameSettingsUI.cs` (멀티 포기 분기만 ShowLoading)
+- `ProfileView.cs` (로그아웃 ShowLoading)
+- `LobbyRootView.cs` (ShowLoading(false))
+- `GameBootstrapper.Map.cs` (ShowLoading(false))
+- `AnonymousWarningPopup.cs` ("로그인 중..." 초기 메시지 추가)
+- `NetworkStatusUI.cs` (`_returnSceneName` 기본값 → `SceneLoader.Lobby`)
+
+---
+
+### ConfirmPopup z-order 버그 수정 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/15_09_ingame-settings-confirm-popup-zorder/`
+
+**근본 원인**: ConfirmPopup 프리팹 루트에 자체 Canvas가 없어, 부모 UIManager Canvas(SO=100)를 그대로 따라감.  
+InGameSettings 패널 하위 `Panel` GO에는 Canvas Override(SO=200)가 있어 200 > 100으로 ConfirmPopup이 항상 뒤에 렌더링됨.
+
+**수정**: ConfirmPopup.prefab 루트에 Canvas(Override Sorting=true, SortingOrder=250) + GraphicRaycaster 추가 (Inspector 직접 작업).
+
+**Canvas SortingOrder 최종 구조** (전체 확정):
+```
+SO 0   → [UI] Canvas (Game 씬 HUD)
+SO 100 → UIManager Canvas (BlockingOverlay)
+SO 200 → 각 패널 Canvas Override (BuildingPopup, BuildingActionPanel, InGameSettings, GameEndPanel, ProductionPopup)
+SO 250 → ConfirmPopup 독립 Canvas (모달 팝업 — 항상 패널 위)
+SO 300 → LoadingIndicator 독립 Canvas
+```
+
+**에디터 스크립트**: `Assets/Editor/Fix/Fix_AddCanvasToConfirmPopup.cs`  
+(메뉴: `Hexiege/Fix/Add Canvas To ConfirmPopup (SO=250)`)  
+`LoadPrefabContents` 환경에서는 직접 프로퍼티 대입이 직렬화에 반영되지 않는 경우가 있음 — 반드시 `SerializedObject.FindProperty + ApplyModifiedPropertiesWithoutUndo` 방식 사용.
+
+**참조 문서**: `Assets/_Project/Docs/GameSystemRules/GameSystemRules_CanvasSortingOrder.md`
+
+---
+
+### Canvas SortingOrder + BlockingOverlay 렌더링 수정 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/09_32_canvas-sorting-order-fix/`
+
+**근본 원인**: UIManager GameObject가 Login.unity에서 `[UI Systems]` 하위 자식으로 배치되어 있었음.  
+`DontDestroyOnLoad`는 **루트 GameObject에만 작동** — 자식 오브젝트에는 적용되지 않음.  
+→ 씬 전환 시 UIManager가 파괴되어 Game 씬에서 `UIManager.Instance == null`.  
+→ 모든 패널의 `Show()`에서 `UIManager.Instance?.ShowBlockingOverlay(...)` 호출이 null-safe 스킵됨.
+
+**수정**: Login.unity Hierarchy에서 UIManager를 `[UI Systems]` 밖 루트 레벨로 이동 (씬 Inspector 작업).
+
+**Canvas SortingOrder 최종 구조**:
+```
+SO 0   → [UI] Canvas (Game 씬 HUD)
+SO 100 → UIManager Canvas (BlockingOverlay + ConfirmPopup)
+SO 200 → 각 패널 Canvas Override (BuildingPopup, BuildingActionPanel, InGameSettings, GameEndPanel, ProductionPopup)
+SO 300 → LoadingIndicator 독립 Canvas
+```
+
+**Game.unity 씬 작업**: 5개 패널 GO에 Canvas(Override Sorting=true, SO=200) + GraphicRaycaster 추가.
+
+**핵심 교훈**:
+- `DontDestroyOnLoad`는 반드시 루트 GO에만 작동. 자식 배치 시 씬 전환마다 재생성+즉시파괴 반복.
+- 런타임 로그로 확인: `ApplyBlockingOverlayVisibility` 반복 호출 = UIManager 매번 새로 생성되는 신호.
+- 게임 씬 패널이 UIManager보다 높은 SO 필요 시 Canvas Override 사용 (GameSystemRules_UI Rule 4).
+- `Hexiege.Application` 네임스페이스가 `UnityEngine.Application`을 가림 → `Application.dataPath` 등 UnityEngine.Application 멤버는 반드시 `UnityEngine.Application.xxx` 명시.
+
+---
+
+
+### LoadingIndicator 최소 표시 시간 + ConfirmPopup/NetworkErrorPopup 버그 수정 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/05_50_loading-indicator-min-duration/`
+
+**핵심**:
+- `UIManager.ShowLoading(false)` 호출 시 최소 표시 시간(`_loadingMinDuration`, 기본 1f초)이 지나지 않았으면 `WaitForSecondsRealtime`으로 지연 후 숨김
+- `_loadingShowTime` 기록 + `_hideLoadingCoroutine` 코루틴 관리 (중복 hide 방지)
+- AnonymousWarningPopup(SortingOrder=200)에 가리는 문제: LoadingIndicator에 독립 Canvas(SortingOrder=300) 추가 (`LoginUiSetup.cs` 에디터 스크립트 메뉴 항목 추가)
+
+**ConfirmPopup + NetworkErrorPopup 버그 원인 및 수정**:
+- **ConfirmPopup 패널 미표시**: 씬 프리팹 인스턴스 오버라이드로 루트 CanvasGroup alpha=0, interactable=0 강제됨 → Inspector에서 alpha=1, interactable=true로 수정
+- **NetworkErrorPopup 패널 미표시**: `_panel` 슬롯 null → `Show()/Hide()`에서 `if (_panel != null)` 분기가 모두 건너뜀. 컴포넌트 교체 시 슬롯 재연결 필수
+- **버튼 클릭 무반응**: `NetworkErrorPopup.Initialize()`가 호출되지 않아 버튼 콜백 미등록 → LoginBootstrapper의 `_networkErrorPopup` 슬롯 연결 누락이 원인
+- **주의**: NetworkErrorPopup은 LoginRootView + **LoginBootstrapper** 두 곳 모두 슬롯 연결 필요. LoginBootstrapper가 `Initialize()` 호출, LoginRootView가 `Show()` 호출
+
+### Lobby 패널 CanvasGroup 에디터 사전 부착 + LobbyRootView 단순화 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/05_59_lobby-canvasgroup-preattach/`
+
+**핵심**: 런타임 `AddComponent` 방식(EnsureCanvasGroup)을 에디터 사전 부착 방식으로 전환.
+- `Assets/Editor/Setup/SetupLobbyPanelCanvasGroups.cs` 에디터 스크립트 신규 (`Hexiege/Setup/Lobby 패널 CanvasGroup 설정` 메뉴)
+  - BattlePanel/ShopPanel/ProfilePanel/RankingPanel 4개 모두 `SetActive(true)`
+  - 4개 패널에 CanvasGroup 부착 (없는 경우에만)
+  - BattlePanel: alpha=1, blocksRaycasts=true, interactable=true
+  - ShopPanel/ProfilePanel/RankingPanel: alpha=0, blocksRaycasts=false, interactable=false
+- `LobbyRootView.Awake()`: `EnsureCanvasGroup()` → `GetComponent<CanvasGroup>()` 교체
+- `EnsureCanvasGroup()` 헬퍼 메서드 제거
+
+**원칙**: 컴포넌트 부착은 런타임 코드가 아닌 에디터에서 미리 해두는 것이 원칙 (GameSystemRules_UI.md Rule 5).
+
+### ProfileView 로그아웃 버튼 추가 (2026-06-22) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/04_34_lobby-profile-logout-button/`
+
+**핵심**: Firebase 익명 로그인 성공 후 로비에서 로그아웃 가능한 임시 버튼 추가.
+- `Assets/Editor/Setup/AddLogoutButtonToProfileView.cs` 에디터 스크립트 신규 (`Hexiege/Setup/ProfileView 로그아웃 버튼 추가` 메뉴)
+  - ProfilePanel에 ProfileView 컴포넌트 부착 (없는 경우)
+  - LogoutButton GO 생성 (Button + Image + TextMeshProUGUI "로그아웃", Maplestory Bold SDF)
+  - SerializedObject로 `ProfileView._logoutButton` 필드 자동 연결
+  - 임시 RectTransform: 하단 고정 앵커 (Rule 2 임시 — 추후 ProfileView 전체 재설계 시 수정 예정)
+- 코드 변경 없음 — ProfileView._logoutButton + OnLogoutClicked()는 이미 구현 완료 상태였음.
+
 ### BlockingOverlay UIManager 단일 소유 통합 (2026-06-21) — 코드 완료, 씬/실기 테스트 대기
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-21/07_30_blocking-overlay-canvasgroup-fix/Plan.md`
 **핵심**: 각 팝업이 개별 소유하던 반투명 배경 오버레이를 UIManager 단일 소유로 통합 (SafeArea 갇힘 문제 해결).

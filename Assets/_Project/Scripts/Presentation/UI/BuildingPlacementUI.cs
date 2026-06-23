@@ -228,8 +228,6 @@ namespace Hexiege.Presentation
                 ? GameRaceContext.BlueRace
                 : GameRaceContext.RedRace;
 
-            Debug.Log($"[BuildingPlacementUI] Show - Team: {team}, Race: {race}");
-
             // 2. 종족별 건물 리스트 가져오기
             var list = GetBuildingList(team, race);
 

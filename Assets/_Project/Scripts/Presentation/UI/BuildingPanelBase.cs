@@ -36,6 +36,7 @@
 // Presentation 레이어 — Unity MonoBehaviour 의존.
 // ============================================================================
 
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
