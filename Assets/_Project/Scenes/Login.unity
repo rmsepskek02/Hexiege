@@ -172,6 +172,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.NetworkErrorPopup
   _panel: {fileID: 927980772}
   _confirmButton: {fileID: 2097994377}
+  _closeButton: {fileID: 747432734}
 --- !u!114 &73106102
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11652,6 +11653,7 @@ MonoBehaviour:
   _warningText: {fileID: 1177761989}
   _createAccountButton: {fileID: 274760992}
   _continueAnonymousButton: {fileID: 1570111391}
+  _closeButton: {fileID: 875054728}
 --- !u!114 &1904661452
 MonoBehaviour:
   m_ObjectHideFlags: 0
