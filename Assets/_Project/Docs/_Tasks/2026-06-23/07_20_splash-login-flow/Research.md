@@ -107,7 +107,9 @@ if (autoOk)
 
 ## 영향 범위
 
-- 수정 파일: `LoginBootstrapper.cs` 1곳 (자동 로그인 성공 분기, 약 5줄 변경)
+- 수정 파일 2곳:
+  - `SplashOverlayView.cs` — `_skipFadeOnTap` 필드 추가, `SetTapCallback(callback, bool skipFade=false)` 파라미터 추가, `OnPointerClick` skipFade 분기 추가
+  - `LoginBootstrapper.cs` — 자동 로그인 성공 분기에서 `SetTapCallback(GoToNextScene, skipFade:true)` + `ShowLoading(false)` + `ShowTapToStart()` 적용
 - 씬/프리팹 변경 없음
 - 로그인 X 흐름 변경 없음
 - Lobby 씬 / 이후 흐름 변경 없음
