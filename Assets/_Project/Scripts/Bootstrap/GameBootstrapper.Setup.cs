@@ -305,7 +305,7 @@ namespace Hexiege.Bootstrap
             _tileOwnership = new TileOwnershipService(_grid, _unitSpawn, _positionProvider, hexMapper);
 
             // ────────────────────────────────────────────────────────────
-            // [2026-05-15] 혼잡도 시스템 인스턴스 초기화.
+            // 혼잡도 시스템 인스턴스 초기화.
             //   - 튜닝 값(DecayInterval / CongestionWeight)은 GameConfig(_config)에 통합되어 있어
             //     별도 ScriptableObject 로드가 필요 없다. ProductionTicker가 _config를 직접 참조.
             //   - _congestionMap / _congestionPathfinder: 매 LoadMap()마다 새로 만들어 잔여 혼잡도 차단.
@@ -316,8 +316,7 @@ namespace Hexiege.Bootstrap
 
             // 기존 구독이 있다면 정리(재경기/맵 전환 시 중복 구독 방지).
             _congestionSub?.Dispose();
-            // [2026-05-20] Action → Subject 통일: UniRx Subscribe로 구독하고, 반환된 IDisposable로 해제.
-            // 람다 캡처/ActionDisposable 래퍼가 불필요해진다.
+            // UniRx Subscribe로 구독하고, 반환된 IDisposable로 해제한다.
             _congestionSub = GameEvents.OnUnitEnteredTile.Subscribe(e =>
             {
                 // 서버(또는 싱글플레이)에서만 누적. 클라이언트는 시각 동기화만 받으므로 누적 불요.
