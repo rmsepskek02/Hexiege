@@ -25,6 +25,20 @@
 
 ## 최근 작업
 
+### 로그인 팝업 CloseButton 무반응 수정 (2026-06-23) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-23/04_49_cancel-button-fix/`
+
+**원인 패턴**: CloseButton GO가 씬에 활성화 상태로 존재해도 C# 코드에 `[SerializeField] private Button _closeButton` 필드가 없으면 Inspector 연결 자체가 불가 → 클릭 리스너 등록 안 됨 → 무반응.
+
+**수정 내용**:
+- `AnonymousWarningPopup.cs`: `_closeButton` 추가 + `OnCloseButtonClicked()` → `Hide()`. `SetInteractable()`에 포함 (로그인 진행 중 취소 방지).
+- `NetworkErrorPopup.cs`: `_closeButton` 추가 + `OnCloseButtonClicked()` → `Hide()`. 기존 `_confirmButton`(ConfirmButton GO)은 유지.
+
+**씬 구조 확인 패턴**: Login.unity 내 팝업 Inspector 연결 상태는 씬 파일에서 MonoBehaviour 섹션의 SerializeField 값(`{fileID: 0}` = 미연결)으로 확인 가능.
+
+---
+
 ### LoadingIndicator 전수 적용 + 관련 버그 수정 (2026-06-22~23) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-22/16_37_loading-indicator-full-coverage/`
