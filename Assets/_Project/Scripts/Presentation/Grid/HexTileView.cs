@@ -2,13 +2,7 @@
 // HexTileView.cs
 // 타일 하나의 비주얼(색상, 선택 하이라이트)을 담당하는 Presentation 컴포넌트.
 //
-// [Phase 2] 3D 전환 완료:
-//   - SpriteRenderer → Renderer (MeshRenderer/SpriteRenderer 모두 호환)
-//   - PolygonCollider2D → Collider (BoxCollider/MeshCollider 등 3D 콜라이더)
-//   - sortingOrder 관련 코드 제거
-//   - 색상 변경: renderer.material.color 사용
-//
-// 프리팹 구조 (3D 전환 후):
+// 프리팹 구조:
 //   HexTile (GameObject)
 //     ├─ MeshFilter + MeshRenderer (3D 타일 메시)
 //     ├─ BoxCollider (3D 클릭 판정)
@@ -47,7 +41,7 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 이 타일의 Renderer. 색상 변경에 사용.
-        /// [Phase 2] Renderer 타입으로 선언하여 MeshRenderer/SpriteRenderer 모두 호환.
+        /// Renderer 타입으로 선언하여 MeshRenderer/SpriteRenderer 모두 호환.
         /// </summary>
         private Renderer _renderer;
 
@@ -72,7 +66,7 @@ namespace Hexiege.Presentation
             _coord = coord;
             _config = config;
 
-            // [Phase 2] Renderer 타입으로 가져와서 MeshRenderer/SpriteRenderer 모두 대응
+            // Renderer 타입으로 가져와서 MeshRenderer/SpriteRenderer 모두 대응
             _renderer = GetComponent<Renderer>();
 
             // 머티리얼 인스턴스 캐시 — SG_HexTile 셰이더(윗면)를 우선 탐색
@@ -150,7 +144,6 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 현재 소유 팀과 선택 상태에 따라 머티리얼 색상을 갱신.
-        /// [Phase 2] SpriteRenderer.color → material.color 로 변경.
         /// </summary>
         private void UpdateColor()
         {

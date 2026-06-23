@@ -2,22 +2,12 @@
 // UnitView.cs
 // 유닛의 비주얼(이동, 방향, 애니메이션 상태)을 담당하는 컴포넌트.
 //
-// [Phase 2] 3D 전환:
-//   - FrameAnimator + SpriteRenderer 기반 → Animator(Mecanim) 기반으로 전면 교체
-//   - flipX 방향 처리 → Y축 회전 (transform.rotation)으로 교체
-//   - sortingOrder 관련 코드 제거
-//   - UnitAnimationData(Sprite[] ScriptableObject)는 더 이상 사용하지 않음
-//     → AnimatorController에서 상태/트랜지션을 관리
+// 회전 동기화 방식:
+//   - 회전은 즉시 스냅(Quaternion.Euler)으로 적용한다.
+//   - 멀티플레이에서는 서버가 즉시 스냅한 rotation을 NetworkTransform이 클라이언트에 보간 전달한다.
+//   - Red 클라이언트 rotation 보정은 NetworkUnit.LateUpdate()에서 일괄 처리한다.
 //
-// [Phase 3] NetworkTransform Rotation 동기화:
-//   - DORotate 보간 → 즉시 스냅(Quaternion.Euler)으로 전면 교체
-//   - 서버에서 즉시 스냅한 rotation을 NetworkTransform이 클라이언트에 보간 전달
-//   - 이중 보간 문제 해결: 서버 DORotate(0.3초) + NetworkTransform 보간(0.1초) = ~1초 딜레이
-//     → 서버 즉시 스냅 + NetworkTransform 보간(0.1초)만 적용되어 자연스러운 회전
-//   - 클라이언트 자체 회전 로직(LateUpdate 델타 기반) 전면 제거
-//   - Red 클라이언트 rotation 보정은 NetworkUnit.LateUpdate()에서 일괄 처리
-//
-// 프리팹 구조 (3D 전환 후):
+// 프리팹 구조:
 //   Unit_{Type} (GameObject)
 //     ├─ MeshFilter + MeshRenderer (or SkinnedMeshRenderer)
 //     ├─ Animator (AnimatorController 설정)
@@ -50,7 +40,7 @@ using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
-    // [2026-05-20] IUnitView 인터페이스 구현 추가.
+    // IUnitView 인터페이스 구현.
     //   UnitFactory(Infrastructure)가 Presentation 구체 타입 대신 인터페이스로 Initialize를 호출하도록.
     //   SetDependencies는 Infrastructure 구체 타입을 받으므로 인터페이스에 포함하지 않음.
     public class UnitView : MonoBehaviour, Hexiege.Application.IUnitView
@@ -137,9 +127,9 @@ namespace Hexiege.Presentation
         private Coroutine _moveCoroutine;
 
         /// <summary>
-        /// [2026-04-30] 현재 이동 명령의 최종 목적지(예: 적 성, 랠리포인트).
+        /// 현재 이동 명령의 최종 목적지(예: 적 성, 랠리포인트).
         /// MoveTo(path)가 호출될 때 path[path.Count - 1]을 저장하며,
-        /// 새 규칙 4(건물 변경 시 즉시 모든 유닛 경로 재계산) 트리거에서
+        /// 건물 변경 시 모든 유닛 경로를 재계산하는 트리거에서
         /// "이 유닛은 어디로 가고 있었나"를 외부에서 알 수 있도록 노출용으로 보관.
         ///
         /// HexCoord는 struct여서 default = (Q=0, R=0). (0,0)이 일반 타일일 수도 있으나
@@ -175,10 +165,10 @@ namespace Hexiege.Presentation
         private bool _combatTargetIsUnit = true;
 
         // ────────────────────────────────────────────────────────────────────
-        // [BUG-001 — 2026-05-12] 전투 추격(EnterCombatPursuitV3 실행 중) 여부 플래그.
+        // 전투 추격(EnterCombatPursuitV3 실행 중) 여부 플래그.
         //
         // 왜 필요한가:
-        //   기존 IsInCombat()는 _combatTargetTransform != null만 판정합니다.
+        //   IsInCombat()는 _combatTargetTransform != null만 판정합니다.
         //   _combatTargetTransform은 "실제 공격 시작"(StartCombatAnimation 호출) 시점에만 set되므로,
         //   적을 감지하고 추격 중인 단계(아직 공격 사거리에 미도달)에서는 false가 됩니다.
         //   이 상태에서 건물 생성/파괴 → RepathAllAliveUnits → OnPathInvalidated가 호출되면
@@ -195,7 +185,7 @@ namespace Hexiege.Presentation
         private bool _isInCombatPursuit = false;
 
         // ────────────────────────────────────────────────────────────────────
-        // [2026-05-15] A* 이동 단계 여부 플래그 (혼잡도 시스템 연동용).
+        // A* 이동 단계 여부 플래그 (혼잡도 시스템 연동용).
         //
         // 왜 필요한가:
         //   혼잡도 누적은 "정상 A* 이동" 중에만 의미가 있다. 전투 추격(EnterCombatPursuitV3)
@@ -211,14 +201,14 @@ namespace Hexiege.Presentation
         private bool _isAStarMoving = false;
 
         // ────────────────────────────────────────────────────────────────────
-        // [2026-05-16] 건물 생성/파괴 시 유닛 멈춤 현상 제거용 — 부드러운 경로 교체 패턴.
+        // 건물 생성/파괴 시 유닛 멈춤 현상 제거용 — 부드러운 경로 교체 패턴.
         //
-        // 배경:
-        //   기존에는 OnPathInvalidated가 호출되면 MoveTo(newPath)를 즉시 불러
-        //   현재 이동 코루틴(MoveAlongPathV3)을 강제로 StopCoroutine + StartCoroutine한다.
-        //   이 과정에서 1~2 프레임의 공백이 발생하여 유닛이 눈에 띄게 잠깐 멈춘다.
+        // 왜 필요한가:
+        //   OnPathInvalidated가 호출될 때 MoveTo(newPath)로 현재 이동 코루틴을 강제로
+        //   StopCoroutine + StartCoroutine하면 1~2 프레임의 공백이 생겨 유닛이 잠깐 멈춘다.
+        //   이를 피하기 위해 코루틴을 멈추지 않고 경로만 교체하는 예약 방식을 사용한다.
         //
-        // 해결:
+        // 동작:
         //   _pendingPath: OnPathInvalidated가 새 경로를 여기에 "예약"만 한다.
         //                 코루틴은 그대로 돌면서 매 타일 도착 시점에 _pendingPath를 검사해
         //                 비어있지 않으면 path 변수를 교체하고 외부 while로 재진입한다.
@@ -320,7 +310,7 @@ namespace Hexiege.Presentation
         {
             _unitData = unitData;
 
-            // [Phase 2] Animator 캐시 — 자식 오브젝트에 있을 수 있으므로 GetComponentInChildren 사용
+            // Animator 캐시 — 자식 오브젝트에 있을 수 있으므로 GetComponentInChildren 사용
             _animator = GetComponentInChildren<Animator>();
 
             // 스폰 시 Facing 방향으로 즉시 rotation 설정.
@@ -336,7 +326,6 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 외부 의존성 주입. GameBootstrapper에서 모든 컴포넌트 생성 후 호출.
-        /// [Phase 2] UnitAnimationData 파라미터 제거 — Animator(Mecanim)가 대체.
         /// </summary>
         public void SetDependencies(
             UnitMovementUseCase movementUseCase, UnitCombatUseCase combatUseCase,
@@ -389,7 +378,7 @@ namespace Hexiege.Presentation
             }
             else
             {
-                // [2026-05-20] 멀티플레이 전용 전투/Walk 이벤트 구독.
+                // 멀티플레이 전용 전투/Walk 이벤트 구독.
                 // NetworkCombatController가 ClientRpc 핸들러에서 UnitView를 직접 GetComponent로 잡지 않도록,
                 // GameEvents.OnNetworkCombatStarted/등을 발행하면 본인 Id에 해당하는 이벤트만 처리한다.
                 //
@@ -577,7 +566,7 @@ namespace Hexiege.Presentation
             // 클라이언트는 NetworkTransform이 서버 위치를 자동으로 보간·동기화.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
 
-            // [2026-05-16] 새 코루틴을 시작하므로, OnPathInvalidated가 예약해 둔
+            // 새 코루틴을 시작하므로, OnPathInvalidated가 예약해 둔
             // _pendingPath는 더 이상 유효하지 않다(이미 새 path가 들어왔기 때문).
             // 이전 예약을 끌고 가면 다음 타일 도착 직후 즉시 path가 또 교체되어 의도와 다른 동작이 된다.
             _pendingPath = null;

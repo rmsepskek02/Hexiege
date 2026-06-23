@@ -205,10 +205,9 @@ namespace Hexiege.Presentation
             // 거절 패널은 즉시 숨김 (페이드 불필요 — 보이지 않는 상태)
             if (_declinedPanelCg != null) { _declinedPanelCg.alpha = 0f; _declinedPanelCg.blocksRaycasts = false; _declinedPanelCg.interactable = false; }
 
-            // [2026-06-21] 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시(터치해도 닫히지 않음).
+            // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시(터치해도 닫히지 않음).
             ShowOverlayOnce();
-            // 요청 패널만 페이드인 (오버레이 FadeIn 제거)
-            // [구로직 — 테스트 통과 후 삭제] FadeIn(_overlay, _overlayCg, ref _overlayFade);
+            // 요청 패널만 페이드인.
             FadeIn(_requestPanel, _requestPanelCg, ref _requestFade);
         }
 
@@ -224,9 +223,8 @@ namespace Hexiege.Presentation
             _onDecline = onDecline;
 
             if (_declinedPanelCg != null) { _declinedPanelCg.alpha = 0f; _declinedPanelCg.blocksRaycasts = false; _declinedPanelCg.interactable = false; }
-            // [2026-06-21] 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시.
+            // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시.
             ShowOverlayOnce();
-            // [구로직 — 테스트 통과 후 삭제] FadeIn(_overlay, _overlayCg, ref _overlayFade);
             FadeIn(_requestPanel, _requestPanelCg, ref _requestFade);
         }
 
@@ -239,10 +237,9 @@ namespace Hexiege.Presentation
             // 요청 패널은 즉시 숨김 (페이드 불필요 — 보이지 않는 상태)
             if (_requestPanelCg != null) { _requestPanelCg.alpha = 0f; _requestPanelCg.blocksRaycasts = false; _requestPanelCg.interactable = false; }
 
-            // [2026-06-21] 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시.
+            // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시.
             ShowOverlayOnce();
-            // 거절 알림 패널만 페이드인 (오버레이 FadeIn 제거)
-            // [구로직 — 테스트 통과 후 삭제] FadeIn(_overlay, _overlayCg, ref _overlayFade);
+            // 거절 알림 패널만 페이드인.
             FadeIn(_declinedPanel, _declinedPanelCg, ref _declinedFade);
         }
 
@@ -251,15 +248,14 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
-            // [2026-06-21] 오버레이는 UIManager가 단일 소유 — 점유 중일 때만 1회 해제.
+            // 오버레이는 UIManager가 단일 소유 — 점유 중일 때만 1회 해제.
             HideOverlayOnce();
-            // [구로직 — 테스트 통과 후 삭제] FadeOut(_overlay, _overlayCg, ref _overlayFade);
             FadeOut(_requestPanel, _requestPanelCg, ref _requestFade);
             FadeOut(_declinedPanel, _declinedPanelCg, ref _declinedFade);
         }
 
         // ====================================================================
-        // 오버레이 참조 점유 헬퍼 ([2026-06-21] UIManager 단일 소유 구조)
+        // 오버레이 참조 점유 헬퍼 (UIManager 단일 소유 구조)
         // ====================================================================
 
         /// <summary>
