@@ -56,6 +56,11 @@ namespace Hexiege.Presentation
         [Tooltip("계속 익명으로 진행 버튼 → 익명 로그인 실행.")]
         [SerializeField] private Button _continueAnonymousButton;
 
+        // 팝업 우측 상단의 닫기(X) 버튼.
+        // 씬에는 활성 상태로 존재했으나 코드 연결이 없어 클릭해도 무반응이던 버그를 수정한다.
+        [Tooltip("닫기(X) 버튼 → 팝업을 닫고 이전 화면으로 돌아간다.")]
+        [SerializeField] private Button _closeButton;
+
         // ====================================================================
         // 의존성
         // ====================================================================
@@ -81,6 +86,10 @@ namespace Hexiege.Presentation
             if (_continueAnonymousButton != null)
                 _continueAnonymousButton.onClick.AddListener(OnContinueAnonymousClicked);
 
+            // 닫기(X) 버튼 클릭 시 팝업을 닫는다.
+            if (_closeButton != null)
+                _closeButton.onClick.AddListener(OnCloseButtonClicked);
+
             // 기본 메시지 — Inspector 에서 별도로 설정해도 무방.
             if (_warningText != null && string.IsNullOrEmpty(_warningText.text))
             {
@@ -95,6 +104,8 @@ namespace Hexiege.Presentation
         {
             if (_createAccountButton != null) _createAccountButton.onClick.RemoveAllListeners();
             if (_continueAnonymousButton != null) _continueAnonymousButton.onClick.RemoveAllListeners();
+            // 메모리 누수 방지를 위해 닫기 버튼 리스너도 해제한다.
+            if (_closeButton != null) _closeButton.onClick.RemoveAllListeners();
         }
 
         // ====================================================================
@@ -145,6 +156,14 @@ namespace Hexiege.Presentation
         {
             Hide();
             if (_rootView != null) _rootView.ShowSignUp();
+        }
+
+        /// <summary>
+        /// 닫기(X) 버튼 클릭 → 팝업만 닫는다(추가 동작 없음).
+        /// </summary>
+        private void OnCloseButtonClicked()
+        {
+            Hide();
         }
 
         /// <summary>
@@ -199,6 +218,8 @@ namespace Hexiege.Presentation
         {
             if (_createAccountButton != null) _createAccountButton.interactable = on;
             if (_continueAnonymousButton != null) _continueAnonymousButton.interactable = on;
+            // 로그인 진행 중에는 닫기 버튼도 비활성화하여 도중 취소를 막는다.
+            if (_closeButton != null) _closeButton.interactable = on;
         }
 
         // ====================================================================

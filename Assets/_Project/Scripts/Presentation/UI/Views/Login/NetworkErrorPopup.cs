@@ -39,6 +39,11 @@ namespace Hexiege.Presentation
         [Tooltip("확인 버튼 → 팝업 닫기만 수행.")]
         [SerializeField] private Button _confirmButton;
 
+        // 팝업 우측 상단의 닫기(X) 버튼.
+        // 씬에는 활성 상태로 존재했으나 코드 연결이 없어 클릭해도 무반응이던 버그를 수정한다.
+        [Tooltip("닫기(X) 버튼 → 팝업을 닫는다.")]
+        [SerializeField] private Button _closeButton;
+
         // ====================================================================
         // 의존성
         // ====================================================================
@@ -63,12 +68,17 @@ namespace Hexiege.Presentation
             // 확인 버튼 클릭 시 팝업을 닫는다.
             if (_confirmButton != null)
                 _confirmButton.onClick.AddListener(OnConfirmClicked);
+
+            // 닫기(X) 버튼 클릭 시 팝업을 닫는다.
+            if (_closeButton != null)
+                _closeButton.onClick.AddListener(OnCloseButtonClicked);
         }
 
         private void OnDestroy()
         {
             // 메모리 누수 방지를 위해 등록한 리스너를 모두 해제한다.
             if (_confirmButton != null) _confirmButton.onClick.RemoveAllListeners();
+            if (_closeButton != null) _closeButton.onClick.RemoveAllListeners();
         }
 
         // ====================================================================
@@ -102,6 +112,14 @@ namespace Hexiege.Presentation
         private void OnConfirmClicked()
         {
             RuntimeLog("INFO", "확인 버튼 클릭됨"); // [DEBUG-TEMP] 디버깅 완료 후 제거
+            Hide();
+        }
+
+        /// <summary>
+        /// 닫기(X) 버튼 클릭 → 팝업 닫기만 수행.
+        /// </summary>
+        private void OnCloseButtonClicked()
+        {
             Hide();
         }
 
