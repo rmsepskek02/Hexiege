@@ -173,14 +173,25 @@ namespace Hexiege.Bootstrap
                 bool autoOk = await _loginUseCase.TryAutoLoginAsync();
                 if (autoOk)
                 {
-                    Debug.Log("[LoginBootstrapper] 자동 로그인 성공. 스플래시를 닫고 Lobby 씬으로 이동합니다.");
-                    // 자동 로그인 성공: "Tap to Start"를 거치지 않고 곧바로
-                    // 스플래시 페이드아웃 → 완료 콜백에서 Lobby 씬으로 이동한다.
-                    // 오버레이가 없으면 FadeOut이 즉시 콜백을 호출하므로 흐름이 멈추지 않는다.
+                    Debug.Log("[LoginBootstrapper] 자동 로그인 성공. 'Tap to Start' 후 Lobby 씬으로 이동합니다.");
+                    // 자동 로그인 성공이라도 곧바로 씬을 이동하지 않고 "Tap to Start"를 거친다.
+                    //   탭 콜백으로 GoToNextScene을 주입한 뒤, 로딩 인디케이터를 끄고 "Tap to Start"를 표시한다.
+                    //   → 사용자가 탭하면 오버레이가 페이드아웃되고 그 완료 콜백(GoToNextScene)으로 Lobby 씬으로 이동한다.
+                    //   오버레이가 없으면(개발 중 직접 진입 등) 곧바로 씬을 이동한다.
                     if (_splashOverlay != null)
-                        _splashOverlay.FadeOut(GoToNextScene);
+                    {
+                        _splashOverlay.SetTapCallback(GoToNextScene);
+
+                        // [로딩 인디케이터 끄기] 스플래시가 "Tap to Start" 상태로 화면에 준비되는 시점이다(UI 규칙 L-3).
+                        UIManager.Instance?.ShowLoading(false);
+
+                        _splashOverlay.ShowTapToStart();
+                    }
                     else
+                    {
+                        UIManager.Instance?.ShowLoading(false);
                         GoToNextScene();
+                    }
                     return;
                 }
                 Debug.LogWarning("[LoginBootstrapper] 자동 로그인 실패. 'Tap to Start' 후 로그인 선택 화면을 표시합니다.");
