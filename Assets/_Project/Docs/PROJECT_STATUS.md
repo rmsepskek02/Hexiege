@@ -587,6 +587,13 @@
 
 ---
 
+#### 개발 도구 / 에이전트 인프라
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| document-manager 에이전트 | ✅ 완료 (2026-06-23) | 프로젝트 전체 문서 통합 관리 전담. CLAUDE.md / AGENTS.md / WORKFLOW.md / 설계 문서 / 메모리 파일 / Task 문서 등 전 문서 담당. `.claude/agents/document-manager.md` |
+
+---
+
 ## 기술 스택 현황
 
 | 항목 | 기술 | 버전 |
