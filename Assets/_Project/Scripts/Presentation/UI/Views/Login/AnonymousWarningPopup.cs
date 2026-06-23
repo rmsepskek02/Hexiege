@@ -156,7 +156,7 @@ namespace Hexiege.Presentation
 
             // 중복 클릭 방지
             SetInteractable(false);
-            _bootstrapper.ShowLoading(true);
+            _bootstrapper.ShowLoading(true, "로그인 중...");
 
             try
             {

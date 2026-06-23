@@ -220,3 +220,18 @@ ShowLoading(false) 호출 시 최소 표시 시간(UIManager._loadingMinDuration
 - `ShowLoginSelect()`의 `ShowLoading(false)` 제거.
 - 스플래시가 있는 경우: `_splashOverlay.ShowTapToStart()` 호출 직전에 `ShowLoading(false)` 이동 (스플래시가 화면에 준비된 시점).
 - 스플래시가 없는 경우: `ShowLoginSelect()` 직전에 `ShowLoading(false)`.
+
+### 10.4 버그 3 — 익명 로그인 시 배경/스피너 대비 텍스트 지연 표시 (2026-06-23 추가)
+
+**증상**: 익명 로그인 → 로비 진입 시, 배경과 스피너는 즉시 나타나지만 "로비로 이동 중..." 텍스트가 Firebase 인증 완료 후에야 나타남. 로딩 화면이 켜진 직후 텍스트가 비어있는 상태로 보임.
+
+**원인**: `AnonymousWarningPopup.OnContinueAnonymousClicked()`에서 두 단계로 ShowLoading이 호출됨.
+1. `_bootstrapper.ShowLoading(true)` — 메시지 없음 → 배경+스피너만 켜짐, 텍스트=""
+2. `await SignInAnonymouslyAsync()` 완료 후 → `GoToNextScene()` → `SceneLoader.Load` → `LoadSceneWithDelay` → `ShowLoading(true, "로비로 이동 중...")` — 이 시점에 비로소 텍스트 세팅
+
+두 호출 사이에 Firebase 인증 대기 시간(async)이 존재하여 텍스트가 늦게 나타남.
+
+**수정** (`AnonymousWarningPopup.cs`):
+- `_bootstrapper.ShowLoading(true)` → `_bootstrapper.ShowLoading(true, "로그인 중...")` 으로 변경.
+- 초기 메시지를 지정해 배경·스피너·텍스트가 동시에 나타나도록 함.
+- SceneLoader.Load에서 "로비로 이동 중..."으로 갱신되는 흐름은 유지.
