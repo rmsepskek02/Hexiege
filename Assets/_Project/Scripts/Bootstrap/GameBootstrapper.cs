@@ -49,7 +49,10 @@ using Hexiege.Presentation;
 
 namespace Hexiege.Bootstrap
 {
-    public partial class GameBootstrapper : MonoBehaviour
+    // IGameServices를 구현하여 GameServicesLocator에 등록한다.
+    // Infrastructure/Network 파일들이 Bootstrap에 직접 의존하는 대신
+    // GameServicesLocator.Current(IGameServices)를 통해 접근하도록 한다.
+    public partial class GameBootstrapper : MonoBehaviour, IGameServices
     {
         // ====================================================================
         // Inspector에서 설정할 참조
@@ -307,10 +310,11 @@ namespace Hexiege.Bootstrap
         public TowerCombatUseCase GetTowerCombat() => _towerCombat;
 
         /// <summary>
-        /// UnitFactory 반환.
-        /// NetworkUnitMovementController에서 UnitView 조회(GetUnitObject)에 사용.
+        /// UnitFactory를 IUnitFactory 인터페이스로 반환.
+        /// IGameServices 계약 상 IUnitFactory를 반환하므로,
+        /// Infrastructure(UnitFactory)에 Application이 직접 의존하지 않는다.
         /// </summary>
-        public UnitFactory GetUnitFactory() => _unitFactory;
+        public IUnitFactory GetUnitFactory() => _unitFactory;
 
         /// <summary>
         /// GameEndUI 반환.
@@ -332,8 +336,30 @@ namespace Hexiege.Bootstrap
         public bool IsNetworkGameStarted => _networkGameStarted;
 
         // ====================================================================
-        // Unity 생명주기 — Start / Update
+        // Unity 생명주기 — Awake / Start / Update / OnDestroy
         // ====================================================================
+
+        /// <summary>
+        /// IGameServices를 Application 계층 로케이터에 등록한다.
+        /// Awake()에서 등록하는 이유: NGO가 NetworkObject를 스폰할 때
+        /// OnNetworkSpawn()이 호출되는데, 이는 Start()보다 나중에 일어난다.
+        /// Awake()에서 미리 등록해 두면 OnNetworkSpawn()에서 바로 꺼낼 수 있다.
+        /// 기존 초기화(맵 로드 등)는 Start()에 그대로 두어 순서를 보존한다.
+        /// </summary>
+        private void Awake()
+        {
+            GameServicesLocator.Register(this);
+        }
+
+        /// <summary>
+        /// 씬이 언로드될 때 로케이터 등록을 해제한다.
+        /// 해제하지 않으면 씬 전환 후 파괴된 GameBootstrapper가 Current에 남아
+        /// 다음 씬의 NetworkXxx 파일이 stale 참조를 사용하게 된다.
+        /// </summary>
+        private void OnDestroy()
+        {
+            GameServicesLocator.Unregister();
+        }
 
         /// <summary>
         /// 게임 시작 시 기본 맵 로드.

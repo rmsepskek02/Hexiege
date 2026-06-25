@@ -34,7 +34,10 @@ using Hexiege.Application;
 
 namespace Hexiege.Infrastructure
 {
-    public class UnitFactory : MonoBehaviour
+    // IUnitFactory(Application 계층 인터페이스)를 구현하여
+    // IGameServices가 UnitFactory를 직접 노출하지 않도록 한다.
+    // → Application → Infrastructure 역방향 의존 방지.
+    public class UnitFactory : MonoBehaviour, IUnitFactory
     {
         // ====================================================================
         // 런타임 의존성 주입 — 생산된 유닛에 자동 적용

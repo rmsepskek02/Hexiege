@@ -52,8 +52,8 @@ namespace Hexiege.Infrastructure
         /// <summary> 서버의 이벤트 구독 해제 토큰. </summary>
         private IDisposable _tileOwnerChangedSubscription;
 
-        /// <summary> GameBootstrapper 참조. HexGrid 접근에 사용. </summary>
-        private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
+        /// <summary>게임 서비스 참조. HexGrid 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
+        private IGameServices _services;
 
         // ====================================================================
         // NetworkBehaviour 생명주기
@@ -68,11 +68,11 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
-            // GameBootstrapper 탐색 (HexGrid 접근용)
-            _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-            if (_bootstrapper == null)
+            // GameServicesLocator에서 IGameServices 획득 (Bootstrap 직접 참조 불필요)
+            _services = GameServicesLocator.Current;
+            if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkTileSync: GameBootstrapper를 찾을 수 없습니다. 맵 로드 후 재시도.");
+                Debug.LogWarning("[Network] NetworkTileSync: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
             }
 
             // 서버에서만 타일 변경 이벤트를 구독하여 클라이언트에 전파
@@ -160,15 +160,15 @@ namespace Hexiege.Infrastructure
             HexCoord coord = new HexCoord(q, r);
             TeamId newOwner = (TeamId)teamIndex;
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_services == null)
             {
                 Debug.LogWarning($"[Network] BroadcastTileChangeClientRpc: GameBootstrapper 없음. 좌표=({q},{r})");
                 return;
             }
 
             // 1. 클라이언트의 HexGrid 도메인 상태 갱신
-            HexGrid grid = _bootstrapper.GetGrid();
+            HexGrid grid = _services.GetGrid();
             if (grid != null)
             {
                 grid.SetOwner(coord, newOwner);

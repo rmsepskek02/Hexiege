@@ -68,8 +68,8 @@ namespace Hexiege.Infrastructure
         /// <summary> 서버의 OnResourceChanged 구독 해제 토큰. </summary>
         private IDisposable _resourceChangedSubscription;
 
-        /// <summary> GameBootstrapper 참조. ResourceUseCase 접근에 사용. </summary>
-        private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
+        /// <summary>게임 서비스 참조. ResourceUseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
+        private IGameServices _services;
 
         // ====================================================================
         // NetworkBehaviour 생명주기
@@ -84,11 +84,11 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
-            // GameBootstrapper 탐색 (ResourceUseCase 접근용)
-            _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-            if (_bootstrapper == null)
+            // GameServicesLocator에서 IGameServices 획득 (Bootstrap 직접 참조 불필요)
+            _services = GameServicesLocator.Current;
+            if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkResourceSync: GameBootstrapper를 찾을 수 없습니다.");
+                Debug.LogWarning("[Network] NetworkResourceSync: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
             }
 
             // 서버: 게임 이벤트 구독 → NetworkVariable 갱신
@@ -212,10 +212,10 @@ namespace Hexiege.Infrastructure
         /// <param name="serverGold">서버의 현재 골드 값</param>
         private void ApplyGoldToLocalUseCase(TeamId team, int serverGold)
         {
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null) return;
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_services == null) return;
 
-            ResourceUseCase resource = _bootstrapper.GetResource();
+            ResourceUseCase resource = _services.GetResource();
             if (resource == null)
             {
                 // 맵이 아직 로드되지 않은 상태 — 로그 없이 무시

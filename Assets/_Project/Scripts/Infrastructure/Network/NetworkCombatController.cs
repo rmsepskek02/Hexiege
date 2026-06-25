@@ -52,8 +52,8 @@ namespace Hexiege.Infrastructure
         // 내부 상태
         // ====================================================================
 
-        /// <summary>GameBootstrapper 참조. UseCase 접근에 사용.</summary>
-        private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
+        /// <summary>게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
+        private IGameServices _services;
 
         /// <summary>OnUnitDied 구독 해제용 Disposable. 서버 전용(유닛 사망 → 클라이언트 RPC 전파).</summary>
         private System.IDisposable _unitDiedSubscription;
@@ -102,10 +102,10 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
-            _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-            if (_bootstrapper == null)
+            _services = GameServicesLocator.Current;
+            if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkCombatController: GameBootstrapper를 찾을 수 없습니다.");
+                Debug.LogWarning("[Network] NetworkCombatController: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
             }
 
             // NetworkContext에 네트워크 상태 주입.
@@ -219,11 +219,11 @@ namespace Hexiege.Infrastructure
         /// <param name="elapsed">이번 Tick의 실제 경과 시간 (초). 쿨다운 감소에 사용.</param>
         private void TickCombat(float elapsed)
         {
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null) return;
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_services == null) return;
 
-            UnitSpawnUseCase unitSpawn = _bootstrapper.GetUnitSpawn();
-            UnitCombatUseCase combat = _bootstrapper.GetCombatUseCase();
+            UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
+            UnitCombatUseCase combat = _services.GetCombatUseCase();
 
             if (unitSpawn == null || combat == null) return;
 
@@ -235,7 +235,7 @@ namespace Hexiege.Infrastructure
             // 그 이벤트를 이 컨트롤러가 이미 구독(OnUnitDied)하고 있어
             // EntityDiedClientRpc로 클라이언트에 자동 전파된다.
             // ────────────────────────────────────────────────────────────────
-            TowerCombatUseCase tower = _bootstrapper.GetTowerCombat();
+            TowerCombatUseCase tower = _services.GetTowerCombat();
             tower?.Tick(elapsed);
 
             // Dictionary를 순회하면서 타겟 탐색
@@ -386,8 +386,8 @@ namespace Hexiege.Infrastructure
                 yield return null;
 
             // 딜레이 후 UseCase를 다시 가져와서 데미지 적용
-            // _bootstrapper가 파괴되었을 수 있으므로 null 체크
-            UnitCombatUseCase combat = _bootstrapper?.GetCombatUseCase();
+            // _services가 파괴되었을 수 있으므로 null 체크
+            UnitCombatUseCase combat = _services?.GetCombatUseCase();
             if (combat == null) yield break;
 
             // ApplyAttackDamage 내부에서 공격자 생존, 타겟 생존, 사거리를 모두 재확인
@@ -436,11 +436,11 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void OnUnitEnteredCombatHandler(int unitId)
         {
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null) return;
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_services == null) return;
 
-            UnitSpawnUseCase unitSpawn = _bootstrapper.GetUnitSpawn();
-            UnitCombatUseCase combat = _bootstrapper.GetCombatUseCase();
+            UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
+            UnitCombatUseCase combat = _services.GetCombatUseCase();
             if (unitSpawn == null || combat == null) return;
 
             if (!unitSpawn.Units.TryGetValue(unitId, out UnitData unit)) return;
@@ -535,9 +535,9 @@ namespace Hexiege.Infrastructure
             // 주의: 이 처리는 Infrastructure 레이어 안에서만 NGO API를 사용하므로
             //       레이어 규칙(Presentation에서 Unity.Netcode 직접 참조 금지)을 위반하지 않는다.
             // ────────────────────────────────────────────────────────────────
-            if (_bootstrapper != null)
+            if (_services != null)
             {
-                UnitFactory unitFactory = _bootstrapper.GetUnitFactory();
+                IUnitFactory unitFactory = _services.GetUnitFactory();
                 GameObject unitObj = unitFactory != null
                     ? unitFactory.GetUnitObject(unitId)
                     : null;
@@ -598,8 +598,8 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] EntityDiedClientRpc 수신. Id={entityId}, IsUnit={isUnit}");
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_services == null)
             {
                 Debug.LogError("[Network] EntityDiedClientRpc: GameBootstrapper를 찾을 수 없습니다.");
                 return;
@@ -704,7 +704,7 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void HandleUnitDied(int unitId)
         {
-            UnitSpawnUseCase unitSpawn = _bootstrapper.GetUnitSpawn();
+            UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
             {
                 Debug.LogWarning("[Network] HandleUnitDied: UnitSpawnUseCase가 null.");
@@ -743,7 +743,7 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void HandleBuildingDied(int buildingId)
         {
-            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
+            BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
                 Debug.LogWarning("[Network] HandleBuildingDied: BuildingPlacementUseCase가 null.");
