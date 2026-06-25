@@ -107,49 +107,6 @@ namespace Hexiege.Domain
         public static bool IsProductionBuilding(BuildingType type)
             => _buildingTable.TryGetValue(type, out var meta) && meta.IsProduction;
 
-        // [Phase 2 리팩토링] 기존 switch 본문 — 테스트 통과 후 삭제 예정.
-        /*
-        public static bool IsProductionBuilding(BuildingType type)
-        {
-            switch (type)
-            {
-                // Human 생산건물
-                case BuildingType.TrainingCamp:
-                case BuildingType.WarAcademy:
-                case BuildingType.HumanBarracks:
-                case BuildingType.Gunsmith:
-                case BuildingType.Armory:
-                case BuildingType.WeaponForge:
-                case BuildingType.Garage:
-                case BuildingType.VehicleBay:
-                // Spirit 생산건물
-                case BuildingType.FireSpire:
-                case BuildingType.BlazeConduit:
-                case BuildingType.InfernoCore:
-                case BuildingType.AquaSpring:
-                case BuildingType.TidalNexus:
-                case BuildingType.OceanicHeart:
-                case BuildingType.StoneMound:
-                case BuildingType.TerraForge:
-                case BuildingType.GaeaSanctum:
-                // Transcendence 생산건물
-                case BuildingType.PrimalAltar:
-                case BuildingType.PrimalDen:
-                case BuildingType.PrimalSanctuary:
-                case BuildingType.FeralAltar:
-                case BuildingType.FeralDen:
-                case BuildingType.FeralSanctuary:
-                case BuildingType.SporePatch:
-                case BuildingType.FloralNursery:
-                    return true;
-
-                default:
-                    // Castle, MiningPost, AutoTower 등 비생산건물
-                    return false;
-            }
-        }
-        */
-
         // ====================================================================
         // 단계(Stage) 조회
         // ====================================================================
@@ -163,52 +120,6 @@ namespace Hexiege.Domain
         public static int GetStage(BuildingType type)
             => _buildingTable.TryGetValue(type, out var meta) ? meta.Stage : 0;
 
-        // [Phase 2 리팩토링] 기존 switch 본문 — 테스트 통과 후 삭제 예정.
-        /*
-        public static int GetStage(BuildingType type)
-        {
-            switch (type)
-            {
-                // ---------------- 1단계 ----------------
-                case BuildingType.TrainingCamp:
-                case BuildingType.Gunsmith:
-                case BuildingType.Garage:
-                case BuildingType.FireSpire:
-                case BuildingType.AquaSpring:
-                case BuildingType.StoneMound:
-                case BuildingType.PrimalAltar:
-                case BuildingType.FeralAltar:
-                case BuildingType.SporePatch:
-                    return 1;
-
-                // ---------------- 2단계 ----------------
-                case BuildingType.WarAcademy:
-                case BuildingType.Armory:
-                case BuildingType.VehicleBay:
-                case BuildingType.BlazeConduit:
-                case BuildingType.TidalNexus:
-                case BuildingType.TerraForge:
-                case BuildingType.PrimalDen:
-                case BuildingType.FeralDen:
-                case BuildingType.FloralNursery:
-                    return 2;
-
-                // ---------------- 3단계 ----------------
-                case BuildingType.HumanBarracks:
-                case BuildingType.WeaponForge:
-                case BuildingType.InfernoCore:
-                case BuildingType.OceanicHeart:
-                case BuildingType.GaeaSanctum:
-                case BuildingType.PrimalSanctuary:
-                case BuildingType.FeralSanctuary:
-                    return 3;
-
-                default:
-                    return 0;
-            }
-        }
-        */
-
         // ====================================================================
         // 업그레이드 경로
         // ====================================================================
@@ -220,47 +131,6 @@ namespace Hexiege.Domain
         /// </summary>
         public static BuildingType? GetNextStage(BuildingType type)
             => _buildingTable.TryGetValue(type, out var meta) ? meta.NextStage : null;
-
-        // [Phase 2 리팩토링] 기존 switch 본문 — 테스트 통과 후 삭제 예정.
-        /*
-        public static BuildingType? GetNextStage(BuildingType type)
-        {
-            switch (type)
-            {
-                // Human — 근거리A
-                case BuildingType.TrainingCamp:  return BuildingType.WarAcademy;
-                case BuildingType.WarAcademy:    return BuildingType.HumanBarracks;
-                // Human — 총기류
-                case BuildingType.Gunsmith:      return BuildingType.Armory;
-                case BuildingType.Armory:        return BuildingType.WeaponForge;
-                // Human — 탈것류 (2단계까지만)
-                case BuildingType.Garage:        return BuildingType.VehicleBay;
-
-                // Spirit — 불
-                case BuildingType.FireSpire:     return BuildingType.BlazeConduit;
-                case BuildingType.BlazeConduit:  return BuildingType.InfernoCore;
-                // Spirit — 물
-                case BuildingType.AquaSpring:    return BuildingType.TidalNexus;
-                case BuildingType.TidalNexus:    return BuildingType.OceanicHeart;
-                // Spirit — 땅
-                case BuildingType.StoneMound:    return BuildingType.TerraForge;
-                case BuildingType.TerraForge:    return BuildingType.GaeaSanctum;
-
-                // Transcendence — 동물A
-                case BuildingType.PrimalAltar:   return BuildingType.PrimalDen;
-                case BuildingType.PrimalDen:     return BuildingType.PrimalSanctuary;
-                // Transcendence — 동물B
-                case BuildingType.FeralAltar:    return BuildingType.FeralDen;
-                case BuildingType.FeralDen:      return BuildingType.FeralSanctuary;
-                // Transcendence — 식물 (2단계까지만)
-                case BuildingType.SporePatch:    return BuildingType.FloralNursery;
-
-                // 최고 단계 또는 비생산건물 → 업그레이드 경로 없음
-                default:
-                    return null;
-            }
-        }
-        */
 
         /// <summary>
         /// 해당 건물이 업그레이드 가능한지 여부를 반환한다.

@@ -68,14 +68,6 @@ namespace Hexiege.Bootstrap
                 // 계산 → ViewConverter.Setup → LoadMap 순서는 그대로 유지됨.)
                 ApplyConfig(HexOrientation.FlatTop, oc);
 
-                // 기존 수동 설정 — 테스트 통과 후 삭제 예정.
-                /*
-                HexMetrics.Orientation = HexOrientation.FlatTop;
-                HexOrientationContext.Current = HexOrientation.FlatTop;
-                HexMetrics.TileWidth = oc.TileWidth;
-                HexMetrics.TileHeight = oc.TileHeight;
-                */
-
                 Vector3 mapCenter = HexMetrics.GridCenter(oc.GridWidth, oc.GridHeight);
                 bool isRed = (localTeam == TeamId.Red);
                 ViewConverter.Setup(isRed, mapCenter);
