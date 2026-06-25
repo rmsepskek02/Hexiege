@@ -19,6 +19,7 @@
 //   * Unity 생명주기 메서드를 본 파일에 두지 않는다 — 중복 정의 방지.
 // ============================================================================
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UniRx;
@@ -172,19 +173,12 @@ namespace Hexiege.Bootstrap
             // 단계를 거칠수록 이전 단계의 업그레이드 비용이 누적된다.
             // 팝업이 열릴 때마다 계산하지 않도록 게임 시작 시 1회만 계산하여 캐싱한다.
 
-            // 1단계 생산건물 목록 (BuildingTypeHelper.GetStage() == 1)
-            var stage1Buildings = new BuildingType[]
-            {
-                BuildingType.TrainingCamp,
-                BuildingType.Gunsmith,
-                BuildingType.Garage,
-                BuildingType.FireSpire,
-                BuildingType.AquaSpring,
-                BuildingType.StoneMound,
-                BuildingType.PrimalAltar,
-                BuildingType.FeralAltar,
-                BuildingType.SporePatch,
-            };
+            // 1단계 생산건물 목록 — BuildingTypeHelper lookup table에서 자동 파생.
+            // 손으로 나열하지 않으므로, 신규 1단계 생산건물 추가 시 여기를 수정할 필요가 없다.
+            // (BuildingTypeHelper._buildingTable에 한 줄 추가하면 이 목록에도 자동 반영된다.)
+            var stage1Buildings = Array.FindAll(
+                (BuildingType[])Enum.GetValues(typeof(BuildingType)),
+                t => BuildingTypeHelper.GetStage(t) == 1);
 
             foreach (var race in refundRaces)
             {
@@ -215,15 +209,11 @@ namespace Hexiege.Bootstrap
             //
             // 대상 enum: BuildingType.cs의 "비생산 건물" 섹션과 1:1 일치(Castle 제외):
             //   MiningPost, AutoTower, FlightFacility, Research, MagicBuilding, HealShrine
-            var nonProductionBuildings = new BuildingType[]
-            {
-                BuildingType.MiningPost,
-                BuildingType.AutoTower,
-                BuildingType.FlightFacility,
-                BuildingType.Research,
-                BuildingType.MagicBuilding,
-                BuildingType.HealShrine,
-            };
+            // 비생산 건물 목록(Castle 제외) — lookup table에서 자동 파생.
+            // Castle은 철거 불가이므로 환불 캐시가 불필요하여 명시적으로 제외한다.
+            var nonProductionBuildings = Array.FindAll(
+                (BuildingType[])Enum.GetValues(typeof(BuildingType)),
+                t => !BuildingTypeHelper.IsProductionBuilding(t) && t != BuildingType.Castle);
             foreach (var race in refundRaces)
             {
                 foreach (var type in nonProductionBuildings)
