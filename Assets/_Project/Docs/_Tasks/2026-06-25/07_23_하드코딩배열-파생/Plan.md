@@ -148,3 +148,30 @@ var nonProductionBuildings = Array.FindAll(allTypes,
 1. **안 1 vs 안 2** 중 선택 (권장: 안 2).
 2. 안 2 선택 시: `using System;` 추가 방식 vs `System.Enum`/`System.Array` 전체 경로 방식.
 3. 배열을 곧바로 교체할지(권장), 보수적으로 주석 처리 후 테스트 통과 시 삭제할지.
+
+---
+
+## 사용자 결정 사항 (확정)
+
+1. **안 2 선택** — `BuildingTypeHelper`는 건드리지 않고 Setup.cs 내부에서 기존 공개 API(`GetStage` / `IsProductionBuilding`)로 직접 파생. 도메인 레이어 무변경.
+2. **`using System;` 추가 방식** 채택 — 파일 상단 using 블록(22행)에 `using System;` 추가. `Enum.GetValues` / `Array.FindAll`을 짧은 이름으로 사용.
+3. **곧바로 교체** — 주석 처리(비활성화) 단계 없이 선언부를 바로 파생 코드로 교체. 근거: 파생 목록이 기존 배열과 값 동치이고 환불 캐시 계산이 순서에 무관함을 Research에서 검증 완료.
+
+---
+
+## 구현 결과 (완료)
+
+- 수정 파일: `Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Setup.cs` (1개)
+  - `using System;` 추가
+  - `stage1Buildings` 하드코딩 배열(9개) → `Array.FindAll(..., t => BuildingTypeHelper.GetStage(t) == 1)` 파생 (선언부 + 주석 갱신)
+  - `nonProductionBuildings` 하드코딩 배열(6개) → `Array.FindAll(..., t => !BuildingTypeHelper.IsProductionBuilding(t) && t != BuildingType.Castle)` 파생 (선언부 + 주석 갱신)
+  - 환불 캐시 foreach 루프(단계 체인 순회 + 비생산 누적)는 변경 없음
+- `BuildingTypeHelper.cs`: 무수정 (안 2)
+- 커밋: `8d74e06` (main)
+
+## 테스트 결과 — PASS
+
+사용자 실기 테스트 결과 **PASS**.
+- 생산 건물 철거 시 환불 골드 금액이 변경 전과 동일하게 정상 표시됨.
+- 비생산 건물 철거 시 환불 골드 금액이 변경 전과 동일하게 정상 표시됨.
+- 컴파일 에러 없음 (`Enum`/`Array` 네임스페이스 정상 해결).

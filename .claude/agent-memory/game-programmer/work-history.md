@@ -4,6 +4,22 @@ MEMORY.md의 최근 작업 요약에서 더 오래된/상세한 작업 기록을
 
 ---
 
+## GameBootstrapper.Setup.cs 하드코딩 배열 파생 (2026-06-25) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-25/07_23_하드코딩배열-파생/`
+**커밋**: `8d74e06` (main)
+
+환불 캐시 초기화에 쓰이던 하드코딩 건물 목록 배열 2개를 `BuildingTypeHelper` 공개 API 파생으로 교체. 동작/환불 값 불변, 구조만 단일 소스로 통합. 수정 파일 1개(`GameBootstrapper.Setup.cs`).
+
+- **`stage1Buildings`**: 1단계 생산건물 9개 하드코딩 배열 → `Array.FindAll((BuildingType[])Enum.GetValues(typeof(BuildingType)), t => BuildingTypeHelper.GetStage(t) == 1)` 파생
+- **`nonProductionBuildings`**: 비생산 건물 6개(Castle 제외) 하드코딩 배열 → `Array.FindAll(..., t => !BuildingTypeHelper.IsProductionBuilding(t) && t != BuildingType.Castle)` 파생
+- `using System;` 추가(Enum/Array 짧은 이름 사용). 환불 캐시 foreach 루프(단계 체인 순회 + 비생산 누적)는 변경 없음 — 변수명·타입(`BuildingType[]`) 동일 유지로 그대로 동작
+- **효과**: 신규 생산건물 추가 시 `BuildingTypeHelper._buildingTable` 한 줄 추가만으로 환불 캐시 목록까지 자동 반영(Setup.cs 무수정). Phase 2 lookup table 통합의 연장선 — 건물 목록 단일 소스화 완성
+- **선택지**: 안 1(BuildingTypeHelper에 목록 조회 공개 메서드 추가) vs 안 2(Setup.cs에서 기존 공개 API로 직접 파생). 사용자가 **안 2(도메인 레이어 무변경)** 선택, 곧바로 교체(주석 처리 단계 없음 — 파생 결과가 기존 배열과 값 동치이고 환불 계산이 순서 무관임을 Research에서 검증)
+- **테스트**: 사용자 실기 PASS(2026-06-25) — 생산 건물/비생산 건물 철거 환불 금액 변경 전과 동일하게 정상 표시
+
+---
+
 ## 코드 구조 개선 Phase 2 (2026-06-25) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-23/15_37_구조개선-Phase2/`

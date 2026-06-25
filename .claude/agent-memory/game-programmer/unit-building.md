@@ -89,6 +89,14 @@
 - 환불 누적: 1단계 건설비 + 모든 업그레이드비 합산. `BuildingStats._totalInvestedCostCache`(Set/Get), GameBootstrapper 단계 체인 순회로 채움
 - 비생산 건물 환불 캐시 루프 누락 시 GetTotalInvestedCost → 0 버그
 
+### 환불 캐시 초기화 — 하드코딩 배열 파생 (2026-06-25)
+- `GameBootstrapper.Setup.cs` `InitializeBuildingStatsFromConfig()`의 환불 캐시 초기화 시 사용하는 두 목록이 손으로 적은 배열에서 `BuildingTypeHelper` 공개 API 파생으로 변경됨
+  - `stage1Buildings`(기존 9개 하드코딩) → `Array.FindAll((BuildingType[])Enum.GetValues(...), t => BuildingTypeHelper.GetStage(t) == 1)`
+  - `nonProductionBuildings`(기존 6개 하드코딩) → `Array.FindAll(..., t => !BuildingTypeHelper.IsProductionBuilding(t) && t != BuildingType.Castle)`
+- Setup.cs에 `using System;` 추가(Enum/Array 짧은 이름). 환불 캐시 foreach 루프(단계 체인 순회·비생산 누적)는 변경 없음
+- **신규 생산건물 추가 시 `BuildingTypeHelper._buildingTable`에 한 줄만 추가하면 환불 캐시 목록도 자동 반영** (Setup.cs 무수정)
+- 동작 보존: 파생 목록은 기존 배열과 값 동치, 환불 캐시 계산은 순서 무관 → 결과값 불변. 사용자 테스트 PASS(생산/비생산 건물 철거 환불 금액 정상). 안 2(도메인 무변경) 선택, 곧바로 교체. 커밋 `8d74e06`(main)
+
 ### 업그레이드 시 생산 상태 (ProductionTicker.OnBuildingUpgraded)
 - ProductionTicker는 OnBuildingPlaced + **OnBuildingUpgraded** 둘 다 구독 (업그레이드 새 건물 미등록 시 랠리 마커 미표시)
 - 핸들러 순서(바꾸면 버그): ① savedRallyPoint=GetState(oldId)?.RallyPoint ② CancelAllQueue(oldId) ③ RegisterBarracks(newBuilding) ④ SetRallyPoint 복원
