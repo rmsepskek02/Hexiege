@@ -29,6 +29,13 @@
 - `GridCenter(width, height)` — 맵 중앙. ApplyConfig 이후 호출(준비 완료 후)
 - TileHeight — FlatTop 세로 간격, 사거리 계산 기준 (`AttackRange * TileHeight + Epsilon`)
 
+### HexMetrics 초기화 = ApplyConfig 단일 경로 (Phase 2, 2026-06-25)
+- `GameBootstrapper.Setup.cs`의 `ApplyConfig(orientation, oc)`가 HexMetrics 설정의 단일 소스: Orientation/HexOrientationContext.Current/TileWidth/TileHeight/**UnitYOffset**
+- `StartNetworkGame`(Network.cs): 기존 HexMetrics 수동 설정 4줄 → `ApplyConfig(HexOrientation.FlatTop, oc)` 1줄로 대체. 수동 4줄엔 UnitYOffset이 빠져 있던 부분 중복(partial dup) 해소
+- **ApplyConfig는 멱등** — 멀티 경로에서 StartNetworkGame 1회 + LoadMap 내부 1회 = 총 2회 실행되나 같은 값 재대입이라 부작용 없음
+- 순서 제약 유지 필수: `ApplyConfig(FlatTop) → GridCenter → ViewConverter.Setup → LoadMap`. ViewConverter 사전 설정은 HexMetrics가 FlatTop 준비된 뒤·LoadMap 전에 와야 함
+- 싱글 경로(Map.cs ViewConverter 설정)는 미변경. 수동 4줄은 주석 보존 중(별도 지시 시 삭제)
+
 ---
 
 ## ViewConverter (Red팀 반전)

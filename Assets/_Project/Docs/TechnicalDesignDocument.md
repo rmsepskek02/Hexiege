@@ -869,6 +869,12 @@ if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 //   GetNextStage(type)         — 업그레이드 대상 타입
 //   CanUpgrade(type)           — 업그레이드 가능 여부
 //   CanShowActionPanel(type)   — 비생산 건물 액션 패널 표시 여부
+//
+// 내부 구조 (2026-06-25 Phase 2):
+//   생산건물 메타데이터를 단일 Dictionary<BuildingType, BuildingMeta> lookup table로 보유.
+//   BuildingMeta = { IsProduction, Stage, NextStage }. 위 IsProductionBuilding/GetStage/
+//   GetNextStage는 이 table을 TryGetValue로 조회만 하며(미등록=비생산), 신규 생산건물 추가 시
+//   table에 한 행만 추가하면 세 메서드가 자동 정합. 공개 API 시그니처는 동일.
 ```
 
 #### 건물 데이터 (IDamageable 패턴)
