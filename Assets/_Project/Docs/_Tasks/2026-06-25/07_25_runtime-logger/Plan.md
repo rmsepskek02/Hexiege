@@ -80,3 +80,31 @@ RuntimeLogger.EndSession();
 1. `Assets/_Project/Scripts/Infrastructure/Debug/` 폴더 생성
 2. `RuntimeLogger.cs` 작성
 3. 컴파일 확인
+
+---
+
+## 추가 수정 항목 (2026-06-25)
+
+### [수정] `Assets/_Project/Scripts/Presentation/UI/GameEndUI.cs` — `_networkGameManager` 자동 탐색
+
+**근거**: 디버그 로그로 발견한 로비 복귀 시 NGO Shutdown 누락 버그(Research.md 참조).
+
+**문제**: `_networkGameManager`가 Inspector 미연결로 항상 null → 로비 복귀 시
+`NetworkGameManager.BackToLobby()`(Shutdown 포함)가 호출되지 않음.
+`NetworkGameManager`는 `DontDestroyOnLoad` 오브젝트라 Game 씬 인스펙터에서 연결 불가.
+
+**수정 내용**: `Initialize()` 서두에서 `_networkGameManager`가 null이면
+`FindFirstObjectByType<NetworkGameManager>()`로 자동 탐색.
+멀티플레이(`NetworkContext.IsNetworkActive`)인데도 못 찾으면 `Debug.LogError`로 경고.
+(`LobbyUI.cs` line 97~104의 기존 패턴과 동일)
+
+```csharp
+if (_networkGameManager == null)
+    _networkGameManager = FindFirstObjectByType<NetworkGameManager>();
+
+if (_networkGameManager == null && NetworkContext.IsNetworkActive)
+    Debug.LogError("[Network] GameEndUI: NetworkGameManager를 찾을 수 없습니다. ...");
+```
+
+**주의**: Presentation 레이어이므로 `FindFirstObjectByType` 사용 가능(레이어 규칙 준수).
+수정 파일은 `GameEndUI.cs` 한 개뿐.

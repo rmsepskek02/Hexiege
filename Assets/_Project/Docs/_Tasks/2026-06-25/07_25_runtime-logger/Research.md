@@ -99,3 +99,33 @@ RuntimeLogger.Log(LogLevel.Info, "Network", "NetworkGameManager",
 | 신규 파일 | `Assets/_Project/Scripts/Infrastructure/Debug/RuntimeLogger.cs` |
 | 수정 파일 | 없음 (이번 작업은 유틸리티만 생성) |
 | 첫 사용처 | 랜덤 매칭 디버그 — `NetworkGameManager`, `MatchmakerManager` |
+
+---
+
+## 디버그 로그로 발견한 버그 (2026-06-25)
+
+### 증상
+게임 종료 후 로비로 복귀한 뒤 두 번째 랜덤 매칭을 시도하면 다음 에러 발생:
+```
+Cannot start Host while an instance is already running
+```
+
+### 원인
+- 로비 복귀 시 `NetworkManager.Shutdown()`이 호출되지 않아 NGO 인스턴스가 살아있는 상태로 남는다.
+- 근본 원인은 `GameEndUI._networkGameManager` 필드가 null이라는 점:
+  - 이 필드는 `[SerializeField]`로 선언되어 Inspector 연결을 기대하지만,
+  - `NetworkGameManager`는 `DontDestroyOnLoad` 오브젝트라 Game 씬 인스펙터에서 연결이 불가능하다.
+- 결과적으로 `GameEndUI.ReturnToLobby()`에서:
+  ```csharp
+  if (NetworkContext.IsNetworkActive && _networkGameManager != null)
+  {
+      _networkGameManager.BackToLobby("Lobby"); // ← null이라 진입하지 못함
+      return;
+  }
+  SceneLoader.Load(SceneLoader.Lobby, "..."); // ← Shutdown 없이 씬 전환만 수행
+  ```
+  네트워크 종료 없이 씬만 전환되어, 다음 매칭에서 Host 시작이 거부된다.
+
+### 동일 패턴 선례
+`LobbyUI.cs`(line 97~104)는 이미 `Start()`에서 `FindFirstObjectByType<NetworkGameManager>()`로
+NGM을 런타임 자동 탐색하는 패턴을 사용 중이다. GameEndUI에도 동일 패턴을 적용하면 해결된다.

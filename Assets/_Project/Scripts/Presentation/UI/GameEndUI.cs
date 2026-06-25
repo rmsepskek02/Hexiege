@@ -113,6 +113,20 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Initialize()
         {
+            // NetworkGameManager 자동 탐색 (Inspector에 연결 안 된 경우)
+            // NetworkGameManager는 DontDestroyOnLoad 오브젝트라 Game 씬 인스펙터에서 연결이 불가능하다.
+            // 따라서 미연결 시 런타임에 직접 탐색해야 한다. 미탐색이면 로비 복귀 시 NGO Shutdown이 누락되어
+            // 두 번째 매칭에서 "Cannot start Host while an instance is already running" 에러가 발생한다.
+            // (LobbyUI.cs와 동일한 패턴)
+            if (_networkGameManager == null)
+                _networkGameManager = FindFirstObjectByType<NetworkGameManager>();
+
+            // 멀티플레이에서 NGM을 못 찾으면 로비 복귀 시 네트워크 종료가 누락되므로 경고만 남긴다.
+            // (싱글플레이는 NGM이 없는 것이 정상이므로 NetworkContext.IsNetworkActive로 분기)
+            if (_networkGameManager == null && NetworkContext.IsNetworkActive)
+                Debug.LogError("[Network] GameEndUI: NetworkGameManager를 찾을 수 없습니다. " +
+                               "로비 복귀 시 NGO Shutdown이 누락될 수 있습니다.");
+
             // 이전 구독 정리 (재시작 시 중복 방지)
             _gameEndSubscription?.Dispose();
             _rematchAvailableSubscription?.Dispose();
