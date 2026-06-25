@@ -65,12 +65,12 @@ Phase 1에서 코드 클린업(불필요한 코드 정리)을 끝냈고, 이번 
 | Transcendence | 동물B | FeralAltar | FeralDen | FeralSanctuary |
 | Transcendence | 식물 | SporePatch | FloralNursery | (없음) |
 
-> 주의: `IsProductionBuilding`의 case 목록에는 `PrimalSanctuary`가 **포함되지 않은 것으로 보인다**
-> (BuildingTypeHelper.cs:56~63 확인 결과 PrimalDen 다음이 FeralAltar로 이어짐).
-> 반면 `GetStage`의 3단계 case(:111~118)와 `GetNextStage`의 `PrimalDen → PrimalSanctuary`(:159)에는 존재한다.
-> BuildingType.cs:68에는 `PrimalSanctuary = 26, // 동물A 3단계 (제작 예정)` 로 정의되어 있다.
-> 이 불일치가 의도된 것인지(제작 예정이라 생산 목록 제외) 누락 버그인지 **Plan 작성 시 사용자 확인 필요**.
-> 바로 이 불일치야말로 "세 곳 분산 관리"의 위험을 보여주는 실제 사례다.
+> **[2026-06-25 정정]** 초기 Research에서 `IsProductionBuilding` case 목록에 `PrimalSanctuary`가 누락된 것으로 의심했으나,
+> 이는 사실과 다른 것으로 확인되었다. qa-tester 에이전트의 정적 분석 결과, 기존 `IsProductionBuilding` switch에도
+> `PrimalSanctuary`가 생산 건물 case로 포함되어 있었다(`GetStage` 3단계, `GetNextStage`의 `PrimalDen → PrimalSanctuary`와 정합).
+> 즉 세 switch 모두에 일관되게 존재했으므로 데이터 불일치는 없었다.
+> 따라서 lookup table 전환 시 `PrimalSanctuary`는 기존 동작을 보존하여 `IsProduction=true, Stage=3, NextStage=null`로 명시 포함되었다.
+> BuildingType.cs:68의 `// 동물A 3단계 (제작 예정)` 주석은 3D 에셋 제작 상태에 대한 메모이며 생산 판정과 무관하다.
 
 ### 비생산 건물 (단계 개념 없음, 7종)
 Castle(0), MiningPost(1), AutoTower(2), FlightFacility(3), Research(4), MagicBuilding(5), HealShrine(6).
@@ -138,8 +138,8 @@ HexMetrics.UnitYOffset = _config.UnitYOffset;   // ← (A)에는 없는 항목
 
 ## 작업 시 확인이 필요한 사항 (Plan 단계 결정 대상)
 
-1. `IsProductionBuilding`의 `PrimalSanctuary` 누락이 의도인지 버그인지 — 사용자 확인 필요.
-   (lookup table로 통합하면 이 항목을 "포함/제외" 중 무엇으로 정의할지 명시해야 한다.)
+1. ~~`IsProductionBuilding`의 `PrimalSanctuary` 누락이 의도인지 버그인지 — 사용자 확인 필요.~~
+   **[2026-06-25 해소]** 정적 분석 결과 누락이 아니었음(세 switch 모두에 포함). lookup table에 `IsProduction=true, Stage=3, NextStage=null`로 동작 보존하여 명시 포함됨.
 2. `GameBootstrapper.Setup.cs`의 하드코딩 배열(stage1Buildings, nonProductionBuildings)을
    새 lookup table에서 파생시킬지, 이번 범위에서 제외할지.
 3. HexMetrics 중복 제거 방식: (A)를 `ApplyConfig` 호출로 대체할지, ViewConverter 사전 설정 전용 경량 메서드로 분리할지.

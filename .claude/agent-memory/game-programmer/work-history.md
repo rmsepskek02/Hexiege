@@ -4,6 +4,32 @@ MEMORY.md의 최근 작업 요약에서 더 오래된/상세한 작업 기록을
 
 ---
 
+## 코드 구조 개선 Phase 2 (2026-06-25) ✅ 완료
+
+**task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-23/15_37_구조개선-Phase2/`
+**브랜치**: `claude/code-refactor-phase2-structural` (커밋 3838c4d)
+
+동작 보존 리팩토링(입출력/동작은 변경 전과 동일, 구조만 정리). 수정 파일 2개.
+
+**① BuildingTypeHelper switch → Dictionary lookup table**
+- `BuildingTypeHelper.cs`(Domain): IsProductionBuilding/GetStage/GetNextStage 3개 메서드가 각각 동일 건물 목록을 switch로 중복 나열하던 것을 단일 `Dictionary<BuildingType, BuildingMeta>`(`_buildingTable`)로 통합
+- `BuildingMeta` private readonly struct: IsProduction(bool)/Stage(int)/NextStage(BuildingType?). 값 타입이라 Dictionary 값 저장에 추가 힙 할당 없음
+- 세 메서드는 `_buildingTable.TryGetValue` 단순 조회. 미등록 = 비생산(false/0/null). 비생산 7종은 table 미등록으로 처리(default 동작 일원화)
+- 신규 생산건물 추가 시 table 한 줄만 추가 → 세 질문(생산여부/단계/다음단계) 자동 정합. 한 곳 누락으로 인한 데이터 불일치 위험 제거
+- CanUpgrade/CanShowActionPanel은 위 메서드 호출 기반 → 무수정 자동 반영. 시그니처/반환타입/네임스페이스 동일 → 호출부 무영향
+- PrimalSanctuary(동물A 3단계): 초기 Research에서 IsProductionBuilding 누락 의심했으나 qa-tester 정적분석 결과 기존 switch에도 포함돼 있었음(오판). table에 `(true, 3)` 명시하여 동작 보존
+
+**② HexMetrics 중복 setup 제거**
+- `GameBootstrapper.Network.cs` StartNetworkGame: HexMetrics 수동 설정 4줄(Orientation/Context/TileWidth/TileHeight) → `ApplyConfig(HexOrientation.FlatTop, oc)` 1줄로 대체
+- ApplyConfig는 UnitYOffset까지 설정 → 수동 4줄에 빠져 있던 UnitYOffset 부분중복(partial dup) 해소
+- ApplyConfig 멱등: 멀티 경로에서 StartNetworkGame 1회 + LoadMap 내부 1회 = 2회 실행되나 같은 값 재대입이라 부작용 없음(변경 전에도 동일 값 2회 설정 상태였음)
+- 순서 제약 유지: ApplyConfig(FlatTop) → GridCenter → ViewConverter.Setup → LoadMap. 싱글 경로는 미변경
+
+**테스트**: SINGLE-TC-01~07 + MULTI-TC-01~02 전 항목 사용자 실기 PASS(2026-06-25)
+**보존 코드**: 기존 switch 3개 본문 + 수동 4줄은 주석 처리로 보존 중. 사용자 지침상 별도 삭제 지시 있을 때만 제거(현재 보존)
+
+---
+
 ## 코드 정리(클린업) Phase 1 (2026-06-23)
 - 약 30개 파일에서 히스토리성 주석(`[2026-XX-XX]`/`[Phase X]` 라벨) + 구방식→현재방식 전환 설명 주석 제거
 - 폐기 코드 제거: `GameBootstrapper.cs` `_enableAI` 블록(주석 처리 코드+메모), `_confirmPopup` 전환 설명 블록 / `NetworkGameFlow.cs` 빈 섹션 헤더

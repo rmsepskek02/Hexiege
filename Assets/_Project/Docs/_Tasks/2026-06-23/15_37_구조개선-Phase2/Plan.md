@@ -28,6 +28,10 @@
 | `StartNetworkGame`의 HexMetrics 수동 설정 4줄 | Network.cs:64~67 | `ApplyConfig`가 동일 값 + UnitYOffset까지 설정하므로 중복. 단, 호출 시점(ViewConverter 사전 설정) 제약 유지 필요 | **1차: 대체 메서드로 치환**, 기존 4줄은 주석 처리 → 테스트 통과 후 삭제 |
 
 > 주석 처리된 기존 로직의 **최종 삭제는 [6] 사용자 테스트 통과 후 → [7] 문서/메모리 업데이트 전**에 수행한다.
+>
+> **[2026-06-25 현황]** 사용자 테스트(SINGLE 7 + MULTI 2, 전 항목 PASS) 통과 완료. 단,
+> - `BuildingTypeHelper.cs`의 주석 처리된 switch 3개 본문은 **별도 지시가 있을 경우에만** 삭제(사용자 지침). 현재 보존 중.
+> - `Network.cs`의 주석 처리된 HexMetrics 수동 4줄은 위와 동일하게 보존 중(별도 삭제 지시 시 정리).
 
 ---
 
@@ -35,12 +39,12 @@
 
 아래 3개는 추정으로 진행하지 않고, 구현 시작 전에 사용자에게 확인한다.
 
-1. **`PrimalSanctuary` 생산 건물 포함 여부**
-   현재 `IsProductionBuilding`에는 `PrimalSanctuary`가 빠져 있으나(Research.md 참조), `GetStage`/`GetNextStage`에는 존재한다.
-   BuildingType.cs:68 주석은 `// 동물A 3단계 (제작 예정)`.
-   - 옵션 A: 의도된 제외 → table에서 `IsProduction=false`로 정의 (현 동작 보존)
-   - 옵션 B: 누락 버그 → table에서 `IsProduction=true`로 통일 (동작 변경 발생)
-   → **사용자 결정 필요. 이 결정에 따라 동작 보존 여부가 갈린다.**
+1. **`PrimalSanctuary` 생산 건물 포함 여부** — **[2026-06-25 해소]**
+   초기 Research에서 `IsProductionBuilding`에 `PrimalSanctuary`가 빠진 것으로 의심했으나, qa-tester 정적 분석 결과
+   기존 `IsProductionBuilding` switch에도 포함되어 있었음이 확인되었다(`GetStage`/`GetNextStage`와 정합, 세 곳 모두 존재).
+   따라서 "의도된 제외"/"누락 버그" 판단은 전제 자체가 잘못된 것이었으며, 데이터 불일치는 없었다.
+   → 결론: table에 `IsProduction=true, Stage=3, NextStage=null`로 **기존 동작을 그대로 보존**하여 명시 포함.
+   BuildingType.cs:68 주석 `// 동물A 3단계 (제작 예정)`은 3D 에셋 제작 상태 메모로, 생산 판정과 무관하다.
 
 2. **`GameBootstrapper.Setup.cs` 하드코딩 배열 통합 범위**
    stage1Buildings(:176~187), nonProductionBuildings(:218~226)을 신규 table에서 파생시킬지 여부.

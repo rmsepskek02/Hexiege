@@ -69,6 +69,15 @@
 - `BuildingData.Stage` 파생 프로퍼티 (별도 저장 없음)
 - **주의 — 직렬화**: enum 순서 변경 시 기존 인덱스 직렬화가 다른 값으로 덮어쓰임. Inspector 전체 재검토 필요
 
+### BuildingTypeHelper lookup table 전환 (Phase 2, 2026-06-25)
+- IsProductionBuilding / GetStage / GetNextStage 3개 switch → 단일 `Dictionary<BuildingType, BuildingMeta>` (`_buildingTable`)
+- `BuildingMeta` private readonly struct: `IsProduction`(bool) / `Stage`(int 1·2·3) / `NextStage`(BuildingType?)
+- 세 메서드는 `_buildingTable.TryGetValue` 조회만: 미등록 건물 = 비생산(false/0/null). 비생산 7종(Castle/MiningPost/AutoTower/FlightFacility/Research/MagicBuilding/HealShrine)은 table 미등록
+- **신규 생산건물 추가 시 `_buildingTable`에 한 줄만 추가** → 세 메서드 자동 정합. CanUpgrade(=GetNextStage().HasValue)/CanShowActionPanel은 호출 기반이라 무수정 자동 반영
+- 시그니처/반환타입/네임스페이스 동일 → 호출부 무영향. 동작 보존 리팩토링(SINGLE 7 + MULTI 2 전 항목 PASS)
+- PrimalSanctuary(동물A 3단계): 기존 switch에도 포함돼 있던 항목. table에 `(true, 3)` 명시(동작 보존). "누락 의심"은 오판이었음
+- **기존 switch 3개 본문은 주석으로 보존 중** — 사용자 지침상 별도 지시 있을 때만 삭제(현재 보존). 브랜치 `claude/code-refactor-phase2-structural`(3838c4d)
+
 ### 건물 프리팹 구조
 - Root GO(Transform ONLY) + Child GO(MeshFilter/MeshRenderer). BuildingView 미부착
 - BuildingFactory `_buildingObjects` Dict로 Id→GO 관리 → 이 Dict로 GO 직접 파괴
