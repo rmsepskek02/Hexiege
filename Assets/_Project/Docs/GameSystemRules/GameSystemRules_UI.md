@@ -181,8 +181,8 @@ TextMeshPro 텍스트 컴포넌트에 사용하는 폰트는 아래 두 가지�
 - 직접 LoadingIndicator GameObject를 활성/비활성 금지.
 
 **규칙 L-2. 씬 전환이나 비동기 작업 시작 시 반드시 ShowLoading(true) 호출**
-- 해당하는 상황: 씬 전환(LoginScene/LobbyScene/GameScene), 로그아웃, 게임 포기(멀티), 로비 복귀, 재경기.
-- 싱글플레이 포기는 결과창(GameEndUI)만 표시하므로 해당 없음.
+- 해당하는 상황: 씬 전환(LoginScene/LobbyScene/GameScene), 로그아웃, 로비 복귀, 재경기.
+- 게임 포기(싱글/멀티 모두)는 씬 전환 없이 같은 씬 안에서 GameEndUI만 표시하므로 해당 없음.
 
 **규칙 L-3. ShowLoading(false) 책임은 목적지 씬 Bootstrapper**
 - 씬을 시작하는 호출부는 ShowLoading(true)만 담당한다.
