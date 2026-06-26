@@ -374,29 +374,41 @@ namespace Hexiege.Infrastructure
         {
             _isRandomMatchmaking = true;
             _matchmakingCts = new CancellationTokenSource();
-            _currentTicketId = await _matchmakerManager.CreateTicketAsync();
-            Debug.Log($"[Matchmaker] 티켓 생성: {_currentTicketId}");
 
-            var matchId = await _matchmakerManager.PollUntilMatchedAsync(
-                _currentTicketId, _matchmakingCts.Token, onWaitSecond);
-
-            Debug.Log($"[Matchmaker] 매칭 완료. MatchId: {matchId}");
-
-            // 매칭 성사 콜백 — UI에서 로딩 스크린 표시 등에 활용
-            onMatchFound?.Invoke();
-
-            bool isHost = await _matchmakerManager.DetermineIsHostAsync(matchId);
-            Debug.Log($"[Matchmaker] 역할 결정: {(isHost ? "Host" : "Client")}");
-
-            if (isHost)
+            try
             {
-                // Host: Relay + Lobby 생성 (Lobby 이름에 matchId 포함하여 Client 가 검색 가능)
-                await HostGameAsync($"match_{matchId}", matchId);
+                _currentTicketId = await _matchmakerManager.CreateTicketAsync();
+                Debug.Log($"[Matchmaker] 티켓 생성: {_currentTicketId}");
+
+                var matchId = await _matchmakerManager.PollUntilMatchedAsync(
+                    _currentTicketId, _matchmakingCts.Token, onWaitSecond);
+
+                Debug.Log($"[Matchmaker] 매칭 완료. MatchId: {matchId}");
+
+                // 매칭 성사 콜백 — UI에서 로딩 스크린 표시 등에 활용
+                onMatchFound?.Invoke();
+
+                bool isHost = await _matchmakerManager.DetermineIsHostAsync(matchId);
+                Debug.Log($"[Matchmaker] 역할 결정: {(isHost ? "Host" : "Client")}");
+
+                if (isHost)
+                {
+                    // Host: Relay + Lobby 생성 (Lobby 이름에 matchId 포함하여 Client 가 검색 가능)
+                    await HostGameAsync($"match_{matchId}", matchId);
+                }
+                else
+                {
+                    // Client: Host 가 생성한 Lobby 를 matchId 로 검색하여 참가
+                    await JoinByMatchIdAsync(matchId);
+                }
             }
-            else
+            catch (OperationCanceledException)
             {
-                // Client: Host 가 생성한 Lobby 를 matchId 로 검색하여 참가
-                await JoinByMatchIdAsync(matchId);
+                // 매칭 취소 — 정상 흐름이므로 별도 처리 없음
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Matchmaker] StartMatchmakingAsync 예외: {e.Message}");
             }
         }
 

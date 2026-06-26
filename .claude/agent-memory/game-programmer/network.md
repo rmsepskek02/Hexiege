@@ -25,6 +25,15 @@ NGO 2.9.2 API 제약, RPC 패턴, 멀티플레이 동기화 패턴.
 
 ---
 
+## NetworkGameManager 참조 — 자동 탐색 (CRITICAL)
+
+- NGM은 Lobby에서 생성 후 DontDestroyOnLoad 유지 → **Inspector 직접 연결 불안정**(씬 전환 후 참조 끊김/미연결 발생)
+- NGM을 참조하는 UI는 Inspector 슬롯 대신 `FindFirstObjectByType<NetworkGameManager>()` 자동 탐색을 우선 사용 (LobbyUI / GameEndUI 동일 패턴)
+- **2026-06-25 버그**: GameEndUI `_networkGameManager` 미연결(null) → ReturnToLobby에서 BackToLobby 미호출 → NetworkManager.Shutdown 없이 씬 전환 → 2번째 랜덤 매칭 시 IsListening=True 상태로 StartHost 재호출 → "Cannot start Host while an instance is already running" + 로딩 무한 대기
+- **수정**: GameEndUI.Initialize()에 자동 탐색 추가. 교훈: 로비 복귀 경로에서 NetworkManager.Shutdown() 누락 시 다음 세션 StartHost 실패. DontDestroyOnLoad 매니저 참조는 자동 탐색이 안전.
+
+---
+
 ## 같은 씬 재로드 (재경기)
 
 - `DestroyWithScene = true`는 같은 씬 재로드 시 동작 불보장

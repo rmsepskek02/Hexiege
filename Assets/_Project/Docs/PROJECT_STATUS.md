@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-06-25
-**현재 단계:** 코드 구조 개선 Phase 2 완료 — AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**최종 수정일:** 2026-06-26
+**현재 단계:** 랜덤 매칭 2회차 실패 버그 수정 완료 — AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 
 ---
 
@@ -154,6 +154,12 @@
 | 레이스 컨디션 처리 (`_rematchRequesterId`) | ✅ 완료 | 양측 동시 요청 → 즉시 재경기 |
 | 랜덤매칭 다시하기 버튼 숨김 | ✅ 완료 | `isRandomMatch=true` 시 버튼 비활성화 |
 | 싱글플레이 다시하기 동작 유지 | ✅ 완료 | 변경 없음 |
+
+#### 랜덤 매칭 2회차 실패 버그 수정 + RuntimeLogger (2026-06-25)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 랜덤 매칭 2회차 "Cannot start Host" 버그 수정 | ✅ 완료 (2026-06-25) | 증상: 첫 게임 완료 → 로비 복귀 → 2번째 랜덤 매칭 시 NGO "Cannot start Host while an instance is already running" + 로딩 무한 대기. 원인: `GameEndUI._networkGameManager` Inspector 미연결(null) → ReturnToLobby에서 BackToLobby 미호출 → NetworkManager.Shutdown 없이 씬 전환 → 2번째 매칭 시 IsListening=True로 StartHost 재호출. 수정: `GameEndUI.Initialize()`에 `FindFirstObjectByType<NetworkGameManager>()` 자동 탐색 추가(LobbyUI 동일 패턴). 실기 PASS. task: `_Tasks/2026-06-25/...`(GameEndUI 수정) |
+| RuntimeLogger 유틸리티 생성 | ✅ 완료 (2026-06-25) | `Infrastructure/Debug/RuntimeLogger.cs` 신규. `BeginSession(folderPath, role)` / `Log(level, system, className, message, data)` / `EndSession()` API. `#if UNITY_EDITOR`에서 파일 기록, 항상 `Debug.Log` 출력(Logcat 대응). task: `_Tasks/2026-06-25/07_25_runtime-logger/` |
 
 #### 멀티플레이 로비 복귀 버그 수정 (2026-03-17)
 | 항목 | 상태 | 비고 |
@@ -528,8 +534,8 @@
 | **그룹 7** — GameBootstrapper partial class 분리 | GameBootstrapper.cs / Setup.cs / Map.cs / Network.cs 4파일로 분리 | ✅ 완료 |
 
 **인스펙터 수동 연결 필요** (에디터에서 직접 연결):
-- `GameEndUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결
-- `NetworkStatusUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결
+- ~~`GameEndUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (2026-06-25, `Initialize()`에서 `FindFirstObjectByType` 자동 탐색으로 대체)
+- ~~`NetworkStatusUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (기존 코드에 이미 `FindFirstObjectByType` 자동 탐색 적용됨)
 
 ---
 

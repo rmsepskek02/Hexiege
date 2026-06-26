@@ -1,0 +1,26 @@
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-06-25 17:24:19 ===
+[17:24:19.486] [INFO] [Network/NetworkGameManager] StartMatchmakingAsync 진입 | IsListening=False, IsHost=False, IsClient=False
+[17:24:22.968] [INFO] [Network/MatchmakerManager] DetermineIsHostAsync 플레이어 목록 | totalPlayers=2, hostIndex=1, willBeHost=True
+[17:24:22.971] [INFO] [Network/NetworkGameManager] 역할 결정 완료 | isHost=True, IsListening=False
+[17:24:25.300] [WARN] [Network/NetworkGameManager] StartHost 직전 상태 | IsListening=False, IsHost=False, IsClient=False, IsServer=False
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-06-25 17:25:29 ===
+[17:25:29.499] [INFO] [Network/NetworkGameManager] StartMatchmakingAsync 진입 | IsListening=True, IsHost=True, IsClient=True
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-06-25 17:25:43 ===
+[17:25:43.019] [INFO] [Network/NetworkGameManager] StartMatchmakingAsync 진입 | IsListening=True, IsHost=True, IsClient=True
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-06-25 17:25:52 ===
+[17:25:52.271] [INFO] [Network/NetworkGameManager] StartMatchmakingAsync 진입 | IsListening=True, IsHost=True, IsClient=True
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-06-25 17:27:53 ===
+[17:27:53.355] [INFO] [Network/NetworkGameManager] StartMatchmakingAsync 진입 | IsListening=False, IsHost=False, IsClient=False
+[17:27:55.436] [INFO] [Network/MatchmakerManager] DetermineIsHostAsync 플레이어 목록 | totalPlayers=2, hostIndex=1, willBeHost=True
+[17:27:55.442] [INFO] [Network/NetworkGameManager] 역할 결정 완료 | isHost=True, IsListening=False
+[17:27:57.622] [WARN] [Network/NetworkGameManager] StartHost 직전 상태 | IsListening=False, IsHost=False, IsClient=False, IsServer=False
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-06-25 17:29:08 ===
+[17:29:08.735] [INFO] [Network/NetworkGameManager] StartMatchmakingAsync 진입 | IsListening=True, IsHost=True, IsClient=True
+[17:29:13.189] [INFO] [Network/MatchmakerManager] DetermineIsHostAsync 플레이어 목록 | totalPlayers=2, hostIndex=0, willBeHost=False
+[17:29:13.193] [INFO] [Network/NetworkGameManager] 역할 결정 완료 | isHost=False, IsListening=True
