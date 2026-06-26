@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-06-26
-**현재 단계:** 랜덤 매칭 2회차 실패 버그 수정 완료 — AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**현재 단계:** 게임포기 로딩 인디케이터 미해제 버그 수정 완료 — AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 
 ---
 
@@ -154,6 +154,11 @@
 | 레이스 컨디션 처리 (`_rematchRequesterId`) | ✅ 완료 | 양측 동시 요청 → 즉시 재경기 |
 | 랜덤매칭 다시하기 버튼 숨김 | ✅ 완료 | `isRandomMatch=true` 시 버튼 비활성화 |
 | 싱글플레이 다시하기 동작 유지 | ✅ 완료 | 변경 없음 |
+
+#### 게임포기 로딩 인디케이터 미해제 버그 수정 (2026-06-26)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 게임포기 시 로딩 인디케이터 영구 잔존 버그 수정 | ✅ 완료 (2026-06-26) | 증상: 멀티플레이 게임포기(Forfeit) 시 로딩 인디케이터가 사라지지 않고 화면에 영구히 남음. 원인: `InGameSettingsUI.OnForfeitConfirmed()`에서 `UIManager.ShowLoading(true, "게임을 포기하는 중...")` 호출 후 씬 전환이 없어 `ShowLoading(false)`가 호출되지 않음(규칙 L-3의 해제 책임자는 씬 전환 후 Bootstrapper/RootView). 수정: 포기는 씬 전환 없이 GameEndUI만 표시하므로 ShowLoading 호출 자체를 제거. `GameSystemRules_UI.md` 규칙 L-2에서 "게임 포기(멀티)" 항목 제거 + "게임 포기(싱글/멀티 모두)는 씬 전환 없이 GameEndUI만 표시하므로 해당 없음" 명시. 수정 파일: `Presentation/UI/InGameSettingsUI.cs`, `GameSystemRules/GameSystemRules_UI.md`. 사용자 실기 PASS. 브랜치 `claude/game-quit-loading-indicator-0h3w0u`. task: `_Tasks/2026-06-26/02_16_forfeit-loading-indicator-stuck/` |
 
 #### 랜덤 매칭 2회차 실패 버그 수정 + RuntimeLogger (2026-06-25)
 | 항목 | 상태 | 비고 |
