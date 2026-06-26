@@ -535,7 +535,7 @@
 
 **인스펙터 수동 연결 필요** (에디터에서 직접 연결):
 - ~~`GameEndUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (2026-06-25, `Initialize()`에서 `FindFirstObjectByType` 자동 탐색으로 대체)
-- `NetworkStatusUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결
+- ~~`NetworkStatusUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (기존 코드에 이미 `FindFirstObjectByType` 자동 탐색 적용됨)
 
 ---
 
