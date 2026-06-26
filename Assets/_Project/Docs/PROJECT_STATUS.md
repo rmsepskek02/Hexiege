@@ -534,7 +534,7 @@
 | **그룹 7** — GameBootstrapper partial class 분리 | GameBootstrapper.cs / Setup.cs / Map.cs / Network.cs 4파일로 분리 | ✅ 완료 |
 
 **인스펙터 수동 연결 필요** (에디터에서 직접 연결):
-- `GameEndUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결
+- ~~`GameEndUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (2026-06-25, `Initialize()`에서 `FindFirstObjectByType` 자동 탐색으로 대체)
 - `NetworkStatusUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결
 
 ---
