@@ -184,18 +184,12 @@ namespace Hexiege.Infrastructure
                 .OrderBy(p => p.Id, StringComparer.Ordinal)
                 .ToList();
 
-            // [DEBUG] 플레이어 목록 확인 — 버그 파악 완료 후 제거
-            int hostIndex = sortedPlayers.Count > 0 ? GetStableHash(matchId) % sortedPlayers.Count : -1;
-            bool willBeHost = sortedPlayers.Count > 0 && sortedPlayers[hostIndex].Id == playerId;
-            RuntimeLogger.Log(LogLevel.Info, "Network", "MatchmakerManager",
-                "DetermineIsHostAsync 플레이어 목록",
-                $"totalPlayers={sortedPlayers.Count}, hostIndex={hostIndex}, willBeHost={willBeHost}");
-
             if (sortedPlayers.Count == 0) return false;
 
             // MatchId(UGS 발급 UUID) 안정 해시로 Host 인덱스 결정
             // → 매 매치마다 다른 UUID → 50/50 무작위 분배 보장
             // → 크로스-플랫폼/프로세스에서 동일한 결과 보장
+            int hostIndex = GetStableHash(matchId) % sortedPlayers.Count;
             return sortedPlayers[hostIndex].Id == playerId;
         }
 

@@ -372,12 +372,6 @@ namespace Hexiege.Infrastructure
         /// <param name="onMatchFound">매칭 성사 직후 콜백. 로딩 스크린 표시 등에 활용.</param>
         public async Task StartMatchmakingAsync(Action<int> onWaitSecond = null, Action onMatchFound = null)
         {
-            // [DEBUG] 매칭 디버그 세션 시작 — 버그 파악 완료 후 제거
-            RuntimeLogger.BeginSession("Assets/_Project/Docs/_Logs/2026-06-25/07_25_matchmaking-debug", "host");
-            RuntimeLogger.Log(LogLevel.Info, "Network", "NetworkGameManager",
-                "StartMatchmakingAsync 진입",
-                $"IsListening={NetworkManager.Singleton?.IsListening}, IsHost={NetworkManager.Singleton?.IsHost}, IsClient={NetworkManager.Singleton?.IsClient}");
-
             _isRandomMatchmaking = true;
             _matchmakingCts = new CancellationTokenSource();
 
@@ -397,11 +391,6 @@ namespace Hexiege.Infrastructure
                 bool isHost = await _matchmakerManager.DetermineIsHostAsync(matchId);
                 Debug.Log($"[Matchmaker] 역할 결정: {(isHost ? "Host" : "Client")}");
 
-                // [DEBUG] 역할 결정 결과 — 버그 파악 완료 후 제거
-                RuntimeLogger.Log(LogLevel.Info, "Network", "NetworkGameManager",
-                    "역할 결정 완료",
-                    $"isHost={isHost}, IsListening={NetworkManager.Singleton?.IsListening}");
-
                 if (isHost)
                 {
                     // Host: Relay + Lobby 생성 (Lobby 이름에 matchId 포함하여 Client 가 검색 가능)
@@ -412,21 +401,14 @@ namespace Hexiege.Infrastructure
                     // Client: Host 가 생성한 Lobby 를 matchId 로 검색하여 참가
                     await JoinByMatchIdAsync(matchId);
                 }
-
-                // [DEBUG] 매칭 디버그 세션 종료 — 버그 파악 완료 후 제거
-                RuntimeLogger.EndSession();
             }
             catch (OperationCanceledException)
             {
-                // [DEBUG] 매칭 디버그 세션 종료 — 버그 파악 완료 후 제거
-                RuntimeLogger.EndSession();
+                // 매칭 취소 — 정상 흐름이므로 별도 처리 없음
             }
             catch (Exception e)
             {
                 Debug.LogError($"[Matchmaker] StartMatchmakingAsync 예외: {e.Message}");
-
-                // [DEBUG] 매칭 디버그 세션 종료 — 버그 파악 완료 후 제거
-                RuntimeLogger.EndSession();
             }
         }
 
@@ -581,11 +563,6 @@ namespace Hexiege.Infrastructure
                 Debug.LogError("[Network] StartNetworkHost: NetworkManager.Singleton 이 null 입니다.");
                 return false;
             }
-
-            // [DEBUG] StartHost 직전 상태 확인 — 버그 파악 완료 후 제거
-            RuntimeLogger.Log(LogLevel.Warn, "Network", "NetworkGameManager",
-                "StartHost 직전 상태",
-                $"IsListening={NetworkManager.Singleton.IsListening}, IsHost={NetworkManager.Singleton.IsHost}, IsClient={NetworkManager.Singleton.IsClient}, IsServer={NetworkManager.Singleton.IsServer}");
 
             bool result = NetworkManager.Singleton.StartHost();
             if (result)
