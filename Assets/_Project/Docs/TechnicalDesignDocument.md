@@ -83,7 +83,7 @@ Assets/
     ├── Scripts/
     │   ├── Bootstrap/           # Composition Root (GameBootstrapper partial × 4, LoginBootstrapper)
     │   ├── Domain/              # 순수 C# 엔티티
-    │   ├── Application/         # Use Cases, GameEvents, NetworkContext
+    │   ├── Application/         # Use Cases, GameEvents, NetworkContext, Interfaces
     │   ├── Infrastructure/      # 외부 연동, Network Controllers, Factories
     │   ├── Presentation/        # Unity UI/View, UnitView, CameraController
     │   ├── Core/                # 공통 유틸리티 (HexMetrics, ViewConverter)
@@ -93,6 +93,25 @@ Assets/
     ├── Scenes/
     └── Resources/
 ```
+
+### 의존성 방향 추상화 (Application 인터페이스 패턴)
+
+Clean Architecture에서는 **안쪽 레이어가 바깥쪽 레이어를 알면 안 된다**(역방향 의존 금지).
+이를 지키기 위해, 바깥 레이어가 안쪽에 무언가를 제공해야 할 때는
+**안쪽 레이어에 인터페이스를 선언하고 바깥 레이어가 그 인터페이스를 구현**한다(의존성 역전).
+
+본 프로젝트에서 이 패턴을 적용한 대표 사례:
+
+| 인터페이스 (선언 위치) | 구현체 (위치) | 해소한 역방향 의존 |
+|----------------------|--------------|------------------|
+| `IGameServices` (Application) | `GameBootstrapper` (Bootstrap) | Infrastructure/Network → Bootstrap 직접 참조 제거. NetworkXxx가 `FindFirstObjectByType<GameBootstrapper>()` 대신 `IGameServices`로 UseCase에 접근 |
+| `IUnitFactory` (Application) | `UnitFactory` (Infrastructure) | `IGameServices.GetUnitFactory()`가 구체 클래스 `UnitFactory`(Infrastructure)를 반환하면 생기는 Application → Infrastructure 역방향 의존 제거. 인터페이스를 반환하도록 변경 |
+| `IEntityPositionProvider` (Application) | (Infrastructure 구현) | 전투 거리 판정 시 엔티티 실제 위치 조회 추상화 |
+| `IForfeitService` (Application) | (Infrastructure/Network 구현) | 게임 포기 처리 추상화 |
+
+- **위치 규칙**: 이런 추상화 인터페이스는 `Scripts/Application/Interfaces/`에 둔다.
+- **참조 허용 범위**: Application 레이어는 Domain/Application 타입 참조 가능, `Unity.Netcode` 직접 참조 금지(NetworkContext 정적 홀더 사용). 단 `UnityEngine.GameObject` 등 기본 Unity 타입은 `IUnitFactory`처럼 필요 시 허용.
+- **`IUnitFactory` 멤버**: `GetUnitObject(int)` / `RegisterUnitObject(int, GameObject)` / `InitializeUnitView(UnitData)` — Infrastructure/Network 계층(`NetworkUnit`, `NetworkProductionController`, `NetworkCombatController`, `NetworkUnitMovementController`)이 `IGameServices.GetUnitFactory()`를 통해 `IUnitFactory` 타입으로 접근한다.
 
 ### ViewConverter 시스템 (Core 레이어)
 
@@ -1235,6 +1254,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.20.0 | 2026-06-26 | `IUnitFactory` 인터페이스 도입(Bootstrap/Infrastructure 역방향 의존 제거 리팩토링). `IGameServices.GetUnitFactory()` 반환 타입을 구체 클래스 `UnitFactory`(Infrastructure) → `IUnitFactory`(Application) 인터페이스로 변경. "의존성 방향 추상화(Application 인터페이스 패턴)" 섹션 신규 추가(IGameServices/IUnitFactory/IEntityPositionProvider/IForfeitService 정리). 동작 변경 없음. |
 | 0.19.0 | 2026-06-10 | AI 시나리오 ScriptableObject 3종족 개편. Domain/AI 레이어 신규(DifficultyLevel, BuildOrderStep, AIActionType). 종족별 단일 에셋 구조. |
 | 0.18.0 | 2026-06-05 | Firebase 백엔드 전환 완료 반영 (Firebase SDK v13.11.0 + GPGS v2.1.0 설치 완료, PlayFab → Firebase/Firestore 구조로 교체). 폴더 구조 Bootstrap/Diagnostics 추가. ScriptableObject 기반 UnitStats/BuildingStats 반영. BuildingType 26종 확장 반영. ProductionState PendingQueue 구조 반영. OnEntityDied → OnUnitDied+OnBuildingDied 강타입 분리 반영. |
 | 0.17.0 | 2026-03-19 | 유닛 스탯 코드 예시 재확정 (ATK: Pistoleer=6, Assault=1, Sniper=10 / 사거리: 1.0/2.0/5.0 / epsilon 0.05f 명시 / Sniper MoveSpeed=0.25). Castle HP 50→100. A* 목표 타일 blocked 체크 제거 반영. UIAnimator/AnimatedPanel 패턴 섹션 추가. 개발 로드맵 섹션 삭제 (ROADMAP.md 참조로 대체). |
