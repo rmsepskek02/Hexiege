@@ -254,6 +254,9 @@ namespace Hexiege.Presentation
         private void CancelHosting()
         {
             IsConnecting.Value = false;
+            LobbyCode.Value = "";
+            ConnectedPlayers.Value = 0;
+            ErrorMessage.Value = "";
             CurrentScreen.Value = BattleScreen.Main;
             // DisconnectAsync는 fire-and-forget (UI에서 결과를 기다릴 필요 없음)
             _ = _networkManager.DisconnectAsync();
