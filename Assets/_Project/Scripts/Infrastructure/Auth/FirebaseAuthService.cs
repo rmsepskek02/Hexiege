@@ -224,7 +224,7 @@ namespace Hexiege.Infrastructure
             var tcs = new TaskCompletionSource<string>();
 
             // 1) GPGS 인증 (사용자가 Google 계정을 선택 / 자동 선택)
-            PlayGamesPlatform.Instance.Authenticate(signInStatus =>
+            PlayGamesPlatform.Instance.ManuallyAuthenticate(signInStatus =>
             {
                 // [DEBUG-TEMP] 디버깅 완료 후 제거 — Authenticate 콜백 진입 + 상태값 기록
                 RuntimeLog("INFO", $"GPGS Authenticate 콜백 진입 | signInStatus={signInStatus}");
