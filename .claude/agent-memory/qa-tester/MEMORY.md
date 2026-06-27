@@ -69,6 +69,14 @@
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
 
+## Google 로그인(GPGS) 진단 체크리스트 (2026-06-27 확정)
+- **즉시 Canceled / DEVELOPER_ERROR 증상**(계정 선택 UI 미표시 + 수십 ms 내 `signInStatus=Canceled`): 가장 흔한 원인은 **SHA-1 불일치**.
+- **진단 1순위 — logcat 실제 서명 SHA-1 확인**: Unity 태그 필터 제거 후 `PlayGamesServices[SignInAuthenticator]` 태그의 `Cert SHA1 fingerprint`(또는 `Cert SHA1 fingerprint`) 캡처 → 이것이 APK 실제 서명 SHA-1. Firebase Console / Play Console GPGS 사용자 인증 정보에 등록된 SHA-1과 비교, 불일치 시 즉시 FAIL.
+- **SHA-1 등록 위치 3곳 모두 일치 검증**: ① Firebase Console OAuth 클라이언트 ② Play Console GPGS 사용자 인증 정보 ③ 실제 빌드 키스토어. 한 곳이라도 빠지면 `signIn()` 실패. 키스토어 파일이 등록 시점과 다른 파일일 수 있으니 실제 서명 SHA-1(logcat) 기준으로 역검증.
+- **`serverAuthCode length=0`은 인증 실패 신호**: SHA-1 불일치로 signIn 실패 시 빈 값 반환. 정합되면 `length=73`(정상 발급).
+- **코드 레벨 점검**: 최초 로그인은 `Authenticate()`(=`isAuthenticated()`만, 세션 없으면 Canceled)가 아닌 `ManuallyAuthenticate()`(=`signIn()`) 호출인지 확인(GPGS Plugin 2.1.0).
+- task: `_Tasks/2026-06-27/12_26_google-login-debug/`
+
 ## 아키텍처 패턴 (확인된 사항)
 - Presentation이 Infrastructure(LocalPlayerTeam) 직접 참조: 정적 홀더 패턴으로 허용 범위
 - Assembly Definition 없음 — 물리적 경계 없음, 네임스페이스 규약으로만 관리

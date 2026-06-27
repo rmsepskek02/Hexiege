@@ -24,7 +24,9 @@
 | 🔴 높음 | 신규 유닛 프리팹 실기 테스트 + 후속 작업 (Animation Event 부착, UnitFactory 등록, StatsReference 스탯 확정) | 기능 | 대 |
 | 🔴 높음 | 게임 화면 UI 크기/레이아웃 수정 잔여 (HUD-007, SET-004, SET-007/END-001, MULTI-END-002 — 5항목) | UI | 소 |
 | ✅ 완료 | 전역 UI 시스템 (UIManager + SplashOverlay) | UI | 중 |
-| 🔴 높음 | Login.unity 씬 로그인 UI 조립 + Firebase Console 설정 | UI/인프라 | 소 |
+| ✅ 완료 | Firebase Console 설정 (Google 로그인) — SHA-1 정합 + Play Games 제공업체 활성화, 실기 로그인 성공 (2026-06-27) | 인프라 | 소 |
+| 🔴 높음 | Login.unity 씬 로그인 UI 조립 | UI | 소 |
+| 🔴 높음 | UGS OIDC 브릿지 활성화 — UGS Dashboard OIDC 제공자(`oidc-firebase`) 등록 (현재 `id provider not found`로 멀티플레이 제한) | 인프라 | 소 |
 | 🟡 중간 | BuildFailed/EnqueueFailed UI 피드백 (멀티) | UI | 소 |
 | 🟡 중간 | 게임 내 밸런싱 (골드/HP/생산시간) | 기획 | 중 |
 | 🟡 중간 | 로비 UI 비주얼 폴리싱 (에셋 제작 완료 2026-05-30) | UI | 중 |

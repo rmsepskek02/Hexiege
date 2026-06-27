@@ -1,8 +1,10 @@
 # Research: Google 로그인 실패 디버깅
 
 실제 안드로이드 기기에서 구글 로그인 시도 시 계정 선택 UI가 전혀 나타나지 않고
-즉시 `signInStatus=Canceled`가 반환되는 현상을 조사한 내역입니다.
-어떤 부분이 확인되었고, 어떤 부분이 아직 미해결인지를 정리합니다.
+즉시 `signInStatus=Canceled`가 반환되는 현상을 조사하고 해결한 내역입니다.
+총 3가지 문제(① 잘못된 인증 메서드 호출, ② google-services.json SHA-1 부족,
+③ 실제 빌드 키스토어 SHA-1 미등록 — 근본 원인)를 찾아 해결하여 로그인 성공까지 도달했으며,
+이후 단계인 UGS OIDC 브릿지 실패는 별도 이슈로 남아 있습니다.
 
 ---
 
@@ -108,10 +110,10 @@ Web Client ID (GPGS 인증에 사용): `896888428641-8hl0hiov936ccl7mi7gqkrg0h7f
 
 ---
 
-## 4. 현재 상태 — 2차 문제 (미해결)
+## 4. 2차 문제 (해결 완료)
 
 `ManuallyAuthenticate()` 수정 및 `google-services.json` 업데이트 후 재빌드했으나
-**증상 동일**: 계정 선택 UI 없이 34ms 만에 Canceled 반환.
+초기에 **증상 동일**: 계정 선택 UI 없이 34ms 만에 Canceled 반환.
 
 ### 확인 완료 항목
 
@@ -123,53 +125,77 @@ Web Client ID (GPGS 인증에 사용): `896888428641-8hl0hiov936ccl7mi7gqkrg0h7f
 | 테스터 등록 | Play Console → 테스터 목록 확인 | ✅ 등록됨 |
 | 기기에 Play 게임 앱 설치 및 로그인 | 실기 확인 | ✅ 확인됨 |
 
-### 미확인 항목 1 — `serverAuthCode length=0` 의미 불명확
+---
 
-로그인 실패 시 아래 로그가 함께 출력됨:
+## 5. 문제 3 — 실제 빌드 키스토어 SHA-1 미등록 (근본 원인, 해결 완료)
+
+### 진단 방법
+Unity 태그 필터를 제거하고 로그인 시도 시점의 전체 로그캣을 캡처한 결과,
+`PlayGamesServices[SignInAuthenticator]` 태그에서 **실제 APK 서명에 사용된 SHA-1**을 확인할 수 있었다.
+
 ```
-Info Unity  serverAuthCode 획득 | isNull=False, length=0
+실제 APK 서명 SHA-1 (logcat Cert SHA1 fingerprint):
+18:E0:32:5F:5A:F9:C5:A7:3F:22:34:BE:65:1F:E6:CA:61:2E:DE:3D
 ```
-- `isNull=False` → serverAuthCode 변수 자체는 null이 아님 (값이 존재)
-- `length=0` → 그러나 실제 내용은 빈 문자열
 
-로그인이 실패했음에도 serverAuthCode가 "빈 값으로" 남아 있다는 것이 정상 동작인지,
-아니면 실패 원인과 관련된 단서인지 **아직 분석되지 않음**.
+### 원인
+이 SHA-1은 그동안 등록해 온 3개(`5a0b...` 디버그 / `d548...` 릴리즈 / `4e42...` Play App Signing) 중
+**어느 것과도 일치하지 않았다**.
 
----
+근본 원인은 실제 빌드에 사용한 `hexiege-release.keystore` 파일이
+SHA-1을 등록할 때 사용한 키스토어와 **다른 파일**이었다는 점이다.
+즉 등록된 SHA-1과 실제 서명 SHA-1이 서로 달라, Google Play Games `signIn()`이
+앱을 검증하지 못하고 즉시 Canceled를 반환한 것이다.
 
-### 미확인 항목 2 — Play Console GPGS 사용자 인증 정보 SHA-1 등록 여부
+### 해결
+1. 실제 서명 SHA-1(`18:E0:...:3D`)을 **Firebase Console**에 추가 등록 후 `google-services.json` 재다운로드
+2. 동일 SHA-1을 **Play Console → Play 게임 서비스 → 설정 → 사용자 인증 정보**에 추가 등록 및 게시
+3. **Firebase Authentication에서 Play Games 제공업체 활성화** (Web Client ID + Web Client Secret 입력)
 
-SHA-1을 등록해야 하는 위치는 두 군데이며 **서로 독립적**이다:
-
-| 위치 | 용도 | 확인 여부 |
-|------|------|----------|
-| Firebase 콘솔 (Google Cloud Console) → OAuth 2.0 클라이언트 | Firebase 인증 / google-services.json 생성 | ✅ 3개 확인됨 |
-| Play Console → Play 게임 서비스 → 설정 → 사용자 인증 정보 | GPGS signIn() 인증 | ❓ 미확인 |
-
-GPGS `signIn()`은 Play Console의 GPGS 사용자 인증 정보를 기준으로 앱을 검증한다.
-Firebase 콘솔에 SHA-1이 등록되어 있어도 Play Console GPGS 쪽에 등록되지 않으면
-`signIn()`이 실패할 수 있다. **이 항목이 현재 2차 문제의 유력 원인 후보.**
+> SHA-1은 ① Firebase Console(OAuth 클라이언트), ② Play Console GPGS 사용자 인증 정보,
+> ③ 실제 빌드에 사용된 키스토어 — **세 곳이 모두 일치**해야 GPGS `signIn()`이 성공한다.
 
 ---
 
-### 아직 불명확한 부분 (근본 원인)
+## 6. 최종 결과 (해결 확인)
 
-`signIn()`이 34ms 만에 실패하는 원인이 **Unity 로그만으로는 확인 불가**.  
-Google Play Services 네이티브 레이어(`com.google.android.gms.*`)에서 어떤 에러가 발생하는지
-Unity 필터를 제거한 전체 로그캣을 확인해야 한다.
+실제 서명 SHA-1 등록 + Firebase Play Games 제공업체 활성화 후 재시도한 결과,
+계정 선택 UI가 정상 표시되고 로그인이 성공했다.
 
-**다음 진단 단계 (우선순위 순)**:
-1. Play Console → Play 게임 서비스 → 설정 → 사용자 인증 정보에 SHA-1 3개가 모두 등록되어 있는지 확인
-2. Logcat에서 Unity 태그 필터 제거 → 로그인 시도 시점의 `com.google.android.gms` 또는 `PlayGames` 태그 로그 캡처
+```
+✅ signInStatus=Success
+✅ GPGS Server Auth Code 발급 성공 (length=73)   ← 이전 length=0 → 정상 발급
+✅ Google Firebase 로그인 성공 | UID=xdmWpVNyyvaBe0cB878mSg0URm83
+✅ IsLoggedIn=True, IsAnonymous=False
+```
+
+`serverAuthCode length=0`(3절 미확인 항목 1)은 SHA-1 불일치로 인증이 실패해
+빈 값이 반환된 것이었으며, SHA-1 정합 후 `length=73`으로 정상 발급되어 해소되었다.
 
 ---
 
-## 5. 관련 파일
+## 7. 잔여 이슈 — UGS OIDC 브릿지 실패 (별도 이슈, 미해결)
+
+Google Firebase 로그인 성공 직후 UGS OIDC 브릿지 단계에서 아래 경고가 출력됨:
+
+```
+⚠️ UGS OIDC 브릿지 실패 (id provider not found)
+```
+
+- Firebase 로그인 자체는 성공(UID 발급 완료)이나, Firebase ID Token을 UGS OIDC로 연결하는
+  `SignInWithOpenIdConnectAsync("oidc-firebase")` 단계에서 UGS Dashboard에 OIDC 제공자(`oidc-firebase`)가
+  등록되지 않아 실패.
+- **영향**: UGS PlayerId 미발급 → 멀티플레이(Lobby/Relay) 기능 제한.
+- **이번 작업 범위 밖**의 별도 이슈로, UGS Dashboard OIDC Provider 등록 후 재확인 필요.
+
+---
+
+## 8. 관련 파일
 
 | 파일 | 내용 |
 |------|------|
 | `Assets/_Project/Scripts/Infrastructure/Auth/FirebaseAuthService.cs` | `ManuallyAuthenticate()` 수정 완료 |
-| `Assets/google-services.json` | SHA-1 3개로 업데이트 완료 |
+| `Assets/google-services.json` | 실제 빌드 키스토어 SHA-1(`18:E0:...:3D`) 추가 후 재다운로드 완료 |
 | `Assets/Plugins/Android/FirebaseApp.androidlib/res/values/google-services.xml` | 빌드 시 google-services.json에서 자동 생성됨. `default_android_client_id`에 디버그 SHA-1 클라이언트 ID 저장 (GPGS signIn()에는 직접 영향 없음) |
 | `ProjectSettings/ProjectSettings.asset` | 릴리즈 키스토어 경로 설정 포함 |
 | `Assets/GooglePlayGames/com.google.play.games/Runtime/Scripts/Platforms/Android/AndroidClient.cs` | GPGS Plugin 내부 코드 — `Authenticate()` vs `ManuallyAuthenticate()` 동작 차이 확인에 사용 |

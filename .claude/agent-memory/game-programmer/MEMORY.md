@@ -32,6 +32,12 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### Google 로그인 실기 디버깅 — GPGS signIn (2026-06-27) ✅
+- **`Authenticate()` vs `ManuallyAuthenticate()` (GPGS Plugin 2.1.0)**: `Authenticate()`는 내부적으로 `isAuthenticated()`만 호출 → 기존 로그인 세션이 없으면 무조건 `SignInStatus.Canceled` 반환(계정 선택 UI 미표시). 최초 로그인은 반드시 `PlayGamesPlatform.Instance.ManuallyAuthenticate()`(`signIn()` 호출) 사용. `FirebaseAuthService.cs` 수정.
+- **SHA-1 3곳 일치 필수**: ① Firebase Console(OAuth 클라이언트, google-services.json) ② Play Console GPGS 사용자 인증 정보(signIn() 검증) ③ **실제 빌드 키스토어** — 세 곳이 모두 일치해야 GPGS `signIn()` 성공. 근본 원인은 실제 `hexiege-release.keystore`가 SHA-1 등록 시 키스토어와 다른 파일이어서 실제 서명 SHA-1이 어디에도 등록되지 않았던 것.
+- **실제 서명 SHA-1 확인법**: logcat `PlayGamesServices[SignInAuthenticator]` 태그의 `Cert SHA1 fingerprint`가 APK가 실제 서명에 사용한 SHA-1. 등록된 값과 비교하여 불일치 즉시 진단. SHA-1 불일치 시 `serverAuthCode length=0`(빈 값) → 정합 후 `length=73` 정상 발급.
+- 잔여: Firebase 로그인 성공 후 UGS OIDC 브릿지(`SignInWithOpenIdConnectAsync("oidc-firebase")`) `id provider not found` 실패 — UGS Dashboard OIDC 제공자 미등록(별도 이슈, 멀티플레이 제한). task: `_Tasks/2026-06-27/12_26_google-login-debug/`
+
 ### 게임포기 로딩 인디케이터 미해제 버그 수정 (2026-06-26) ✅
 멀티플레이 포기 시 `OnForfeitConfirmed()`에서 `ShowLoading(true)` 호출 후 씬 전환이 없어 꺼지지 않던 문제. 포기는 씬 전환 없이 GameEndUI만 표시하므로 ShowLoading 호출 자체를 제거. GameSystemRules_UI.md 규칙 L-2에서 "게임 포기(멀티)" 항목도 함께 제거.
 

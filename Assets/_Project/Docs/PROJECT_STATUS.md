@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-06-26
-**현재 단계:** 방 만들기 취소 후 텍스트 잔류 버그 수정 완료 — AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**최종 수정일:** 2026-06-27
+**현재 단계:** Google 로그인 실기 성공(SHA-1 정합 + Play Games 제공업체 활성화) — UGS OIDC 브릿지(멀티플레이 연동)는 별도 미해결 이슈. AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 
 ---
 
@@ -156,6 +156,16 @@
 | 레이스 컨디션 처리 (`_rematchRequesterId`) | ✅ 완료 | 양측 동시 요청 → 즉시 재경기 |
 | 랜덤매칭 다시하기 버튼 숨김 | ✅ 완료 | `isRandomMatch=true` 시 버튼 비활성화 |
 | 싱글플레이 다시하기 동작 유지 | ✅ 완료 | 변경 없음 |
+
+#### Google 로그인 실기 디버깅 (2026-06-27~28)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Google 로그인 즉시 Canceled 버그 수정 | ✅ 완료 (2026-06-27~28) | 실기 기기에서 구글 로그인 시 계정 선택 UI 미표시 + 즉시 `signInStatus=Canceled` 반환 문제. 3가지 원인을 순차 해결하여 로그인 성공(`UID=xdmWpVNyyvaBe0cB878mSg0URm83`, IsLoggedIn=True, IsAnonymous=False). task: `_Tasks/2026-06-27/12_26_google-login-debug/` |
+| [문제 1] `Authenticate()` → `ManuallyAuthenticate()` 코드 수정 | ✅ 완료 | `FirebaseAuthService.cs`. `Authenticate()`는 `isAuthenticated()`만 호출하여 기존 세션 없으면 무조건 Canceled 반환 → `ManuallyAuthenticate()`(`signIn()` 호출)로 변경해야 계정 선택 UI 표시. GPGS Plugin 2.1.0 기준. |
+| [문제 2] google-services.json SHA-1 보강 | ✅ 완료 | Firebase Console에 SHA-1 1개(릴리즈)만 등록돼 있던 것을 디버그 + Play App Signing 추가하여 3개로 업데이트. `Assets/google-services.json` 재다운로드. |
+| [문제 3] 실제 빌드 키스토어 SHA-1 미등록 (근본 원인) | ✅ 완료 | logcat `PlayGamesServices[SignInAuthenticator]`에서 실제 APK 서명 SHA-1(`18:E0:32:5F:5A:F9:C5:A7:3F:22:34:BE:65:1F:E6:CA:61:2E:DE:3D`) 확인 → 등록된 3개 어느 것과도 불일치(`hexiege-release.keystore`가 SHA-1 등록 시 키스토어와 다른 파일). Firebase Console + Play Console GPGS 사용자 인증 정보에 실제 SHA-1 추가 등록·게시 + Firebase Authentication Play Games 제공업체 활성화(Web Client ID/Secret 입력). |
+| GPGS Server Auth Code 발급 정상화 | ✅ 완료 | SHA-1 불일치 시 `serverAuthCode length=0`(빈 값) → SHA-1 정합 후 `length=73` 정상 발급. |
+| UGS OIDC 브릿지 실패 (`id provider not found`) | ❌ 미해결 (별도 이슈) | Firebase 로그인 성공 후 `SignInWithOpenIdConnectAsync("oidc-firebase")` 단계에서 UGS Dashboard OIDC 제공자 미등록으로 실패 → UGS PlayerId 미발급, 멀티플레이 제한. UGS Dashboard OIDC Provider 등록 후 재확인 필요. |
 
 #### 게임포기 로딩 인디케이터 미해제 버그 수정 (2026-06-26)
 | 항목 | 상태 | 비고 |
@@ -408,10 +418,10 @@
 | UnityServicesInitializer.cs (수정) | ✅ 완료 (2026-06-10 갱신) | OIDC 세션 보존 로직으로 교체. 기존 세션 있으면 재로그인 없이 보존, 세션 없을 때만 익명 폴백. 기존 "항상 재로그인" 블록은 주석 처리(테스트 통과 후 최종 삭제 예정) |
 | 컴파일 에러 전체 해결 | ✅ 완료 | CS0103(AuthException/AuthErrorReason using 누락), CS0029(SignInWithCredentialAsync 반환 타입), CS1061(SignInWithCustomIdAsync 미지원), CS0234(Application.Quit 네임스페이스 충돌) 전체 해결 |
 | 기존 UGS 로그인 동작 보존 | ✅ 완료 | Lobby.unity 직접 실행 시 익명 로그인으로 PlayerId 발급 — 멀티플레이 기능 정상 동작. 401 버그 수정 후 커스텀 게임 + 랜덤 매칭 모두 확인 |
-| Firebase Console 설정 | ❌ 미완료 | google-services.json, SHA-1 등록, Authentication 방식 활성화 — 추후 진행 |
-| GPGS 클라이언트 ID 설정 | ❌ 미완료 | Unity > Window > Google Play Games > Setup 에서 Web Client ID 입력 — 추후 진행 |
+| Firebase Console 설정 | ✅ 완료 (2026-06-27) | google-services.json SHA-1 3개 + 실제 빌드 키스토어 SHA-1(`18:E0:...:3D`) 등록, Firebase Authentication Play Games 제공업체 활성화(Web Client ID/Secret). Google 로그인 실기 성공. |
+| GPGS 클라이언트 ID + Play Console 사용자 인증 정보 | ✅ 완료 (2026-06-27) | Web Client ID 입력 완료. Play Console GPGS 사용자 인증 정보에 실제 빌드 키스토어 SHA-1 등록·게시 완료(GPGS `signIn()` 검증 통과). |
 | Login.unity 씬 생성 | 🔵 부분 완료 (2026-06-18) | UIManager + SplashOverlay 배치 완료. 로그인 UI 배치(UIWireframe.md 기반) + Inspector 연결은 미완료 — 추후 진행 |
-| Firebase → UGS OIDC Bridge | ✅ 코드 완료 (2026-06-10) | `SignInWithOpenIdConnectAsync("oidc-firebase", firebaseToken)` 구현. UGS Dashboard OIDC Provider 등록 완료 후 실기 테스트 가능 |
+| Firebase → UGS OIDC Bridge | 🔵 코드 완료 (2026-06-10) / 실기 실패 (2026-06-27) | `SignInWithOpenIdConnectAsync("oidc-firebase", firebaseToken)` 구현 완료. 실기 결과 `id provider not found`로 실패 — UGS Dashboard OIDC 제공자(`oidc-firebase`) 미등록. UGS PlayerId 미발급으로 멀티플레이 제한. UGS Dashboard OIDC Provider 등록 후 재확인 필요. |
 
 ---
 
