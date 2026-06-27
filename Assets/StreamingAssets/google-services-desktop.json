@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "896888428641-jorv57mgbr4posge5rg2infe64bkjfcn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.gorocompany.hexiege",
+            "certificate_hash": "18e0325f5af9c5a73f2234be651fe6ca612ede3d"
+          }
+        },
+        {
           "client_id": "896888428641-rhi13uumlad77a80ef02ftmrqs5afdiq.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
