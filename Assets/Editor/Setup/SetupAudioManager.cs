@@ -104,12 +104,12 @@ namespace HexiegeEditor
             // 5) BGM_A / BGM_B AudioSource 자식 생성.
             // ----------------------------------------------------------------
             var bgmA       = GetOrCreateChild(audioGo.transform, "BGM_A");
-            var bgmSourceA = bgmA.GetComponent<AudioSource>() ?? bgmA.AddComponent<AudioSource>();
+            var bgmSourceA = bgmA.GetComponent<AudioSource>() ?? bgmA.gameObject.AddComponent<AudioSource>();
             bgmSourceA.loop         = true;
             bgmSourceA.playOnAwake  = false;
 
             var bgmB       = GetOrCreateChild(audioGo.transform, "BGM_B");
-            var bgmSourceB = bgmB.GetComponent<AudioSource>() ?? bgmB.AddComponent<AudioSource>();
+            var bgmSourceB = bgmB.GetComponent<AudioSource>() ?? bgmB.gameObject.AddComponent<AudioSource>();
             bgmSourceB.loop         = true;
             bgmSourceB.playOnAwake  = false;
 
