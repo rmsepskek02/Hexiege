@@ -103,8 +103,7 @@ namespace HexiegeEditor
             // ----------------------------------------------------------------
             var mainContainerGo = GetOrCreateUIChild("MainButtonContainer", panelParent);
             StretchFull(mainContainerGo.GetComponent<RectTransform>());
-            var mainContainerCg = mainContainerGo.GetComponent<CanvasGroup>()
-                                  ?? mainContainerGo.AddComponent<CanvasGroup>();
+            var mainContainerCg = GetOrAdd<CanvasGroup>(mainContainerGo);
 
             // VLG가 없으면 추가 — 버튼들을 세로로 정렬한다.
             if (mainContainerGo.GetComponent<VerticalLayoutGroup>() == null)
@@ -128,8 +127,7 @@ namespace HexiegeEditor
             // ----------------------------------------------------------------
             var volumePanelGo = GetOrCreateUIChild("VolumePanel", panelParent);
             StretchFull(volumePanelGo.GetComponent<RectTransform>());
-            var volumePanelCg = volumePanelGo.GetComponent<CanvasGroup>()
-                                ?? volumePanelGo.AddComponent<CanvasGroup>();
+            var volumePanelCg = GetOrAdd<CanvasGroup>(volumePanelGo);
             // 초기 숨김 상태 (ShowVolumePanel 호출 전까지 보이지 않음).
             volumePanelCg.alpha          = 0f;
             volumePanelCg.interactable   = false;
@@ -143,8 +141,7 @@ namespace HexiegeEditor
             scRt.pivot            = new Vector2(0.5f, 0.5f);
             scRt.anchoredPosition = Vector2.zero;
             scRt.sizeDelta        = Vector2.zero;
-            var scVlg = sliderContainerGo.GetComponent<VerticalLayoutGroup>()
-                        ?? sliderContainerGo.AddComponent<VerticalLayoutGroup>();
+            var scVlg = GetOrAdd<VerticalLayoutGroup>(sliderContainerGo);
             scVlg.padding               = new RectOffset(20, 20, 20, 20);
             scVlg.spacing               = 16f;
             scVlg.childAlignment        = TextAnchor.MiddleCenter;
@@ -169,16 +166,15 @@ namespace HexiegeEditor
             backBtnRt.pivot            = new Vector2(0.5f, 0.5f);
             backBtnRt.anchoredPosition = Vector2.zero;
             backBtnRt.sizeDelta        = Vector2.zero;
-            var backBtnImg = backBtnGo.GetComponent<Image>() ?? backBtnGo.AddComponent<Image>();
+            var backBtnImg = GetOrAdd<Image>(backBtnGo);
             backBtnImg.color = new Color(0.7f, 0.7f, 0.9f, 1f);
-            var backBtn = backBtnGo.GetComponent<Button>() ?? backBtnGo.AddComponent<Button>();
+            var backBtn = GetOrAdd<Button>(backBtnGo);
             backBtn.targetGraphic = backBtnImg;
 
             // 뒤로가기 버튼 텍스트 라벨
             var backLabelGo  = GetOrCreateUIChild("Label", backBtnGo.transform);
             StretchFull(backLabelGo.GetComponent<RectTransform>());
-            var backLabelTmp = backLabelGo.GetComponent<TextMeshProUGUI>()
-                               ?? backLabelGo.AddComponent<TextMeshProUGUI>();
+            var backLabelTmp = GetOrAdd<TextMeshProUGUI>(backLabelGo);
             backLabelTmp.text      = "← 뒤로";
             backLabelTmp.fontSize  = 36f;
             backLabelTmp.alignment = TextAlignmentOptions.Center;
@@ -222,11 +218,10 @@ namespace HexiegeEditor
         {
             var rowGo = GetOrCreateUIChild(rowName, parent);
             rowGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
-            var rowLe = rowGo.GetComponent<LayoutElement>() ?? rowGo.AddComponent<LayoutElement>();
+            var rowLe = GetOrAdd<LayoutElement>(rowGo);
             rowLe.preferredHeight  = 80f;
             rowLe.flexibleHeight   = 0f;
-            var hlg = rowGo.GetComponent<HorizontalLayoutGroup>()
-                      ?? rowGo.AddComponent<HorizontalLayoutGroup>();
+            var hlg = GetOrAdd<HorizontalLayoutGroup>(rowGo);
             hlg.spacing                = 12f;
             hlg.childAlignment         = TextAnchor.MiddleCenter;
             hlg.childControlWidth      = true;
@@ -237,11 +232,10 @@ namespace HexiegeEditor
             // Label
             var labelGo  = GetOrCreateUIChild("Label", rowGo.transform);
             labelGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
-            var labelLe  = labelGo.GetComponent<LayoutElement>() ?? labelGo.AddComponent<LayoutElement>();
+            var labelLe  = GetOrAdd<LayoutElement>(labelGo);
             labelLe.preferredWidth = 70f;
             labelLe.flexibleWidth  = 0f;
-            var labelTmp = labelGo.GetComponent<TextMeshProUGUI>()
-                           ?? labelGo.AddComponent<TextMeshProUGUI>();
+            var labelTmp = GetOrAdd<TextMeshProUGUI>(labelGo);
             labelTmp.text      = labelText;
             labelTmp.fontSize  = 32f;
             labelTmp.alignment = TextAlignmentOptions.MidlineLeft;
@@ -253,11 +247,10 @@ namespace HexiegeEditor
             // ValueText
             var valueGo  = GetOrCreateUIChild("ValueText", rowGo.transform);
             valueGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
-            var valueLe  = valueGo.GetComponent<LayoutElement>() ?? valueGo.AddComponent<LayoutElement>();
+            var valueLe  = GetOrAdd<LayoutElement>(valueGo);
             valueLe.preferredWidth = 60f;
             valueLe.flexibleWidth  = 0f;
-            var valueTmp = valueGo.GetComponent<TextMeshProUGUI>()
-                           ?? valueGo.AddComponent<TextMeshProUGUI>();
+            var valueTmp = GetOrAdd<TextMeshProUGUI>(valueGo);
             valueTmp.text      = "100%";
             valueTmp.fontSize  = 28f;
             valueTmp.alignment = TextAlignmentOptions.MidlineRight;
@@ -270,11 +263,11 @@ namespace HexiegeEditor
         {
             var sliderGo = GetOrCreateUIChild(name, parent);
             sliderGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
-            var sliderLe = sliderGo.GetComponent<LayoutElement>() ?? sliderGo.AddComponent<LayoutElement>();
+            var sliderLe = GetOrAdd<LayoutElement>(sliderGo);
             sliderLe.flexibleWidth   = 1f;
             sliderLe.preferredHeight = 40f;
             sliderLe.flexibleHeight  = 0f;
-            var slider = sliderGo.GetComponent<Slider>() ?? sliderGo.AddComponent<Slider>();
+            var slider = GetOrAdd<Slider>(sliderGo);
             slider.minValue = 0f;
             slider.maxValue = 1f;
             slider.value    = 1f;
@@ -285,7 +278,7 @@ namespace HexiegeEditor
             bgRt.anchorMin = new Vector2(0f, 0.25f);
             bgRt.anchorMax = new Vector2(1f, 0.75f);
             bgRt.sizeDelta = Vector2.zero;
-            var bgImg = bgGo.GetComponent<Image>() ?? bgGo.AddComponent<Image>();
+            var bgImg = GetOrAdd<Image>(bgGo);
             bgImg.color = new Color(0.5f, 0.5f, 0.5f, 1f);
 
             // Fill Area — 현재 값을 채운 부분.
@@ -300,7 +293,7 @@ namespace HexiegeEditor
             fillRt.anchorMin = Vector2.zero;
             fillRt.anchorMax = new Vector2(0f, 1f);
             fillRt.sizeDelta = new Vector2(10f, 0f);
-            var fillImg = fillGo.GetComponent<Image>() ?? fillGo.AddComponent<Image>();
+            var fillImg = GetOrAdd<Image>(fillGo);
             fillImg.color   = new Color(0.6f, 0.4f, 0.9f, 1f);
             slider.fillRect = fillRt;
 
@@ -316,7 +309,7 @@ namespace HexiegeEditor
             handleRt.anchorMin = new Vector2(0f, 0f);
             handleRt.anchorMax = new Vector2(0f, 1f);
             handleRt.sizeDelta = new Vector2(20f, 0f);
-            var handleImg = handleGo.GetComponent<Image>() ?? handleGo.AddComponent<Image>();
+            var handleImg = GetOrAdd<Image>(handleGo);
             handleImg.color      = Color.white;
             slider.handleRect    = handleRt;
             slider.targetGraphic = handleImg;
@@ -327,6 +320,16 @@ namespace HexiegeEditor
         // --------------------------------------------------------------------
         // 공통 유틸
         // --------------------------------------------------------------------
+
+        /// <summary>
+        /// GetComponent를 시도하고, Unity null이면 AddComponent한다.
+        /// C# ?? 연산자는 Unity fake-null을 감지하지 못하므로 이 헬퍼를 사용한다.
+        /// </summary>
+        private static T GetOrAdd<T>(GameObject go) where T : Component
+        {
+            var c = go.GetComponent<T>();
+            return c != null ? c : go.AddComponent<T>();
+        }
 
         /// <summary>부모 Transform에서 이름으로 자식을 찾거나 없으면 새로 생성한다.</summary>
         private static GameObject GetOrCreateUIChild(string name, Transform parent)

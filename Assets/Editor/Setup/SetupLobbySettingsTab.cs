@@ -116,8 +116,7 @@ namespace HexiegeEditor
                 settingsViewGo.transform.SetParent(profilePanelGo.transform, false);
             }
             StretchFull(settingsViewGo.GetComponent<RectTransform>());
-            var settingsView = settingsViewGo.GetComponent<LobbySettingsView>()
-                               ?? settingsViewGo.AddComponent<LobbySettingsView>();
+            var settingsView = GetOrAdd<LobbySettingsView>(settingsViewGo);
 
             // ---- BackButton (좌상단 고정, 초기 숨김) ----
             // 로그인 씬 BackButton과 동일한 앵커 비율 사용 (1080×1920 기준 좌측 40px, 상단 40px).
@@ -128,17 +127,16 @@ namespace HexiegeEditor
             backBtnRt.pivot            = new Vector2(0.5f, 0.5f);
             backBtnRt.anchoredPosition = Vector2.zero;
             backBtnRt.sizeDelta        = Vector2.zero;
-            var backBtnImg = backBtnGo.GetComponent<Image>() ?? backBtnGo.AddComponent<Image>();
+            var backBtnImg = GetOrAdd<Image>(backBtnGo);
             ApplySprite(backBtnImg, "ui_icon_back");
-            var backBtn = backBtnGo.GetComponent<Button>() ?? backBtnGo.AddComponent<Button>();
+            var backBtn = GetOrAdd<Button>(backBtnGo);
             backBtn.targetGraphic = backBtnImg;
             backBtnGo.SetActive(false); // 초기 숨김 — 서브 화면 진입 시에만 표시됨.
 
             // ---- MainView (설정 버튼 목록, 초기 표시) ----
             var mainViewGo = GetOrCreateUIChild("MainView", settingsViewGo.transform);
             StretchFull(mainViewGo.GetComponent<RectTransform>());
-            var mainViewCg = mainViewGo.GetComponent<CanvasGroup>()
-                             ?? mainViewGo.AddComponent<CanvasGroup>();
+            var mainViewCg = GetOrAdd<CanvasGroup>(mainViewGo);
             mainViewCg.alpha          = 1f;
             mainViewCg.interactable   = true;
             mainViewCg.blocksRaycasts = true;
@@ -151,8 +149,7 @@ namespace HexiegeEditor
             blRt.pivot            = new Vector2(0.5f, 0.5f);
             blRt.anchoredPosition = Vector2.zero;
             blRt.sizeDelta        = Vector2.zero;
-            var blVlg = btnListGo.GetComponent<VerticalLayoutGroup>()
-                        ?? btnListGo.AddComponent<VerticalLayoutGroup>();
+            var blVlg = GetOrAdd<VerticalLayoutGroup>(btnListGo);
             blVlg.spacing                = 24f;
             blVlg.childAlignment         = TextAnchor.MiddleCenter;
             blVlg.childControlWidth      = true;
@@ -166,8 +163,7 @@ namespace HexiegeEditor
             // ---- SubViewContainer (서브 화면 컨테이너, 초기 숨김) ----
             var subContainerGo = GetOrCreateUIChild("SubViewContainer", settingsViewGo.transform);
             StretchFull(subContainerGo.GetComponent<RectTransform>());
-            var subContainerCg = subContainerGo.GetComponent<CanvasGroup>()
-                                 ?? subContainerGo.AddComponent<CanvasGroup>();
+            var subContainerCg = GetOrAdd<CanvasGroup>(subContainerGo);
             subContainerCg.alpha          = 0f;
             subContainerCg.interactable   = false;
             subContainerCg.blocksRaycasts = false;
@@ -184,8 +180,7 @@ namespace HexiegeEditor
             scRt.pivot            = new Vector2(0.5f, 0.5f);
             scRt.anchoredPosition = Vector2.zero;
             scRt.sizeDelta        = Vector2.zero;
-            var scVlg = sliderContainerGo.GetComponent<VerticalLayoutGroup>()
-                        ?? sliderContainerGo.AddComponent<VerticalLayoutGroup>();
+            var scVlg = GetOrAdd<VerticalLayoutGroup>(sliderContainerGo);
             scVlg.padding                = new RectOffset(20, 20, 20, 20);
             scVlg.spacing                = 16f;
             scVlg.childAlignment         = TextAnchor.MiddleCenter;
@@ -246,18 +241,17 @@ namespace HexiegeEditor
         {
             var go = GetOrCreateUIChild(name, parent);
             go.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
-            var le = go.GetComponent<LayoutElement>() ?? go.AddComponent<LayoutElement>();
+            var le = GetOrAdd<LayoutElement>(go);
             le.preferredHeight = 120f;
             le.flexibleHeight  = 0f;
-            var img = go.GetComponent<Image>() ?? go.AddComponent<Image>();
+            var img = GetOrAdd<Image>(go);
             ApplySprite(img, "ui_btn_lavender");
-            var btn = go.GetComponent<Button>() ?? go.AddComponent<Button>();
+            var btn = GetOrAdd<Button>(go);
             btn.targetGraphic = img;
 
             var labelGo  = GetOrCreateUIChild("Label", go.transform);
             StretchFull(labelGo.GetComponent<RectTransform>());
-            var labelTmp = labelGo.GetComponent<TextMeshProUGUI>()
-                           ?? labelGo.AddComponent<TextMeshProUGUI>();
+            var labelTmp = GetOrAdd<TextMeshProUGUI>(labelGo);
             labelTmp.text      = label;
             labelTmp.fontSize  = 42f;
             labelTmp.alignment = TextAlignmentOptions.Center;
@@ -271,11 +265,10 @@ namespace HexiegeEditor
         {
             var rowGo = GetOrCreateUIChild(rowName, parent);
             rowGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
-            var rowLe = rowGo.GetComponent<LayoutElement>() ?? rowGo.AddComponent<LayoutElement>();
+            var rowLe = GetOrAdd<LayoutElement>(rowGo);
             rowLe.preferredHeight  = 80f;
             rowLe.flexibleHeight   = 0f;
-            var hlg = rowGo.GetComponent<HorizontalLayoutGroup>()
-                      ?? rowGo.AddComponent<HorizontalLayoutGroup>();
+            var hlg = GetOrAdd<HorizontalLayoutGroup>(rowGo);
             hlg.spacing                = 12f;
             hlg.childAlignment         = TextAnchor.MiddleCenter;
             hlg.childControlWidth      = true;
@@ -286,11 +279,10 @@ namespace HexiegeEditor
             // Label
             var labelGo  = GetOrCreateUIChild("Label", rowGo.transform);
             labelGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
-            var labelLe  = labelGo.GetComponent<LayoutElement>() ?? labelGo.AddComponent<LayoutElement>();
+            var labelLe  = GetOrAdd<LayoutElement>(labelGo);
             labelLe.preferredWidth = 70f;
             labelLe.flexibleWidth  = 0f;
-            var labelTmp = labelGo.GetComponent<TextMeshProUGUI>()
-                           ?? labelGo.AddComponent<TextMeshProUGUI>();
+            var labelTmp = GetOrAdd<TextMeshProUGUI>(labelGo);
             labelTmp.text      = labelText;
             labelTmp.fontSize  = 32f;
             labelTmp.alignment = TextAlignmentOptions.MidlineLeft;
@@ -302,11 +294,10 @@ namespace HexiegeEditor
             // ValueText
             var valueGo  = GetOrCreateUIChild("ValueText", rowGo.transform);
             valueGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
-            var valueLe  = valueGo.GetComponent<LayoutElement>() ?? valueGo.AddComponent<LayoutElement>();
+            var valueLe  = GetOrAdd<LayoutElement>(valueGo);
             valueLe.preferredWidth = 60f;
             valueLe.flexibleWidth  = 0f;
-            var valueTmp = valueGo.GetComponent<TextMeshProUGUI>()
-                           ?? valueGo.AddComponent<TextMeshProUGUI>();
+            var valueTmp = GetOrAdd<TextMeshProUGUI>(valueGo);
             valueTmp.text      = "100%";
             valueTmp.fontSize  = 28f;
             valueTmp.alignment = TextAlignmentOptions.MidlineRight;
@@ -319,11 +310,11 @@ namespace HexiegeEditor
         {
             var sliderGo = GetOrCreateUIChild(name, parent);
             sliderGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
-            var sliderLe = sliderGo.GetComponent<LayoutElement>() ?? sliderGo.AddComponent<LayoutElement>();
+            var sliderLe = GetOrAdd<LayoutElement>(sliderGo);
             sliderLe.flexibleWidth   = 1f;
             sliderLe.preferredHeight = 40f;
             sliderLe.flexibleHeight  = 0f;
-            var slider = sliderGo.GetComponent<Slider>() ?? sliderGo.AddComponent<Slider>();
+            var slider = GetOrAdd<Slider>(sliderGo);
             slider.minValue = 0f;
             slider.maxValue = 1f;
             slider.value    = 1f;
@@ -334,7 +325,7 @@ namespace HexiegeEditor
             bgRt.anchorMin = new Vector2(0f, 0.25f);
             bgRt.anchorMax = new Vector2(1f, 0.75f);
             bgRt.sizeDelta = Vector2.zero;
-            var bgImg = bgGo.GetComponent<Image>() ?? bgGo.AddComponent<Image>();
+            var bgImg = GetOrAdd<Image>(bgGo);
             bgImg.color = new Color(0.5f, 0.5f, 0.5f, 1f);
 
             // Fill Area — 현재 값을 채운 부분.
@@ -349,7 +340,7 @@ namespace HexiegeEditor
             fillRt.anchorMin = Vector2.zero;
             fillRt.anchorMax = new Vector2(0f, 1f);
             fillRt.sizeDelta = new Vector2(10f, 0f);
-            var fillImg = fillGo.GetComponent<Image>() ?? fillGo.AddComponent<Image>();
+            var fillImg = GetOrAdd<Image>(fillGo);
             fillImg.color   = new Color(0.6f, 0.4f, 0.9f, 1f);
             slider.fillRect = fillRt;
 
@@ -365,7 +356,7 @@ namespace HexiegeEditor
             handleRt.anchorMin = new Vector2(0f, 0f);
             handleRt.anchorMax = new Vector2(0f, 1f);
             handleRt.sizeDelta = new Vector2(20f, 0f);
-            var handleImg = handleGo.GetComponent<Image>() ?? handleGo.AddComponent<Image>();
+            var handleImg = GetOrAdd<Image>(handleGo);
             handleImg.color      = Color.white;
             slider.handleRect    = handleRt;
             slider.targetGraphic = handleImg;
@@ -383,6 +374,16 @@ namespace HexiegeEditor
             img.sprite = sp;
             img.type   = Image.Type.Simple;
             img.color  = Color.white;
+        }
+
+        /// <summary>
+        /// GetComponent를 시도하고, Unity null이면 AddComponent한다.
+        /// C# ?? 연산자는 Unity fake-null을 감지하지 못하므로 이 헬퍼를 사용한다.
+        /// </summary>
+        private static T GetOrAdd<T>(GameObject go) where T : Component
+        {
+            var c = go.GetComponent<T>();
+            return c != null ? c : go.AddComponent<T>();
         }
 
         /// <summary>부모 Transform에서 이름으로 자식을 찾거나 없으면 새로 생성한다.</summary>
