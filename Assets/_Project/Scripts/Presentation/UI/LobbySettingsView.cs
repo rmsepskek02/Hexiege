@@ -37,8 +37,12 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         [Header("네비게이션")]
-        [Tooltip("좌측 상단 뒤로가기 버튼. 서브 화면에서만 표시되며, 누르면 메인 화면으로 복귀한다.")]
+        [Tooltip("좌측 상단 뒤로가기 버튼. 서브 화면에서만 표시되며, 누르면 메인 화면으로 복귀한다. (클릭 리스너 등록용)")]
         [SerializeField] private Button _backButton;
+
+        [Tooltip("뒤로가기 버튼의 표시/숨김을 담당하는 CanvasGroup. " +
+                 "버튼도 GameObject.SetActive 대신 CanvasGroup으로 숨겨야 규칙 5를 지킨다.")]
+        [SerializeField] private CanvasGroup _backButtonGroup;
 
         [Tooltip("설정 메인 화면(버튼 목록)의 CanvasGroup.")]
         [SerializeField] private CanvasGroup _mainView;
@@ -58,15 +62,21 @@ namespace Hexiege.Presentation
         [SerializeField] private Button _soundButton;
 
         // ====================================================================
-        // Inspector 참조 — 서브 화면 GameObject
+        // Inspector 참조 — 서브 화면 CanvasGroup
+        //
+        // 서브 화면도 표시/숨김을 GameObject.SetActive 대신 CanvasGroup으로 처리한다
+        // (GameSystemRules_UI 규칙 5). SetActive를 쓰면 LayoutGroup 안에서 오브젝트가
+        // 차지하던 공간이 사라져 형제 요소들의 배치가 흔들릴 수 있기 때문이다.
+        // CanvasGroup은 오브젝트를 켜둔 채 alpha만 0으로 만들어 "보이지 않지만 자리는
+        // 유지"하는 상태를 만들 수 있어 레이아웃이 안정적으로 유지된다.
         // ====================================================================
 
         [Header("서브 화면")]
-        [Tooltip("사운드 설정 서브 화면 GameObject (볼륨 슬라이더 포함).")]
-        [SerializeField] private GameObject _soundSubView;
+        [Tooltip("사운드 설정 서브 화면 CanvasGroup (볼륨 슬라이더 포함).")]
+        [SerializeField] private CanvasGroup _soundSubView;
 
-        [Tooltip("프로필 서브 화면 GameObject (기존 ProfileView 내용).")]
-        [SerializeField] private GameObject _profileSubView;
+        [Tooltip("프로필 서브 화면 CanvasGroup (기존 ProfileView 내용).")]
+        [SerializeField] private CanvasGroup _profileSubView;
 
         // ====================================================================
         // Inspector 참조 — 볼륨 슬라이더
@@ -210,9 +220,10 @@ namespace Hexiege.Presentation
             SetGroupVisible(_mainView, true);
             SetGroupVisible(_subViewContainer, false);
 
-            // 모든 서브 화면 비활성(서로 겹치지 않도록).
-            if (_soundSubView != null) _soundSubView.SetActive(false);
-            if (_profileSubView != null) _profileSubView.SetActive(false);
+            // 모든 서브 화면을 CanvasGroup으로 숨긴다(서로 겹치지 않도록).
+            // SetActive(false) 대신 alpha=0으로 처리하여 레이아웃이 흔들리지 않게 한다(규칙 5).
+            SetGroupVisible(_soundSubView, false);
+            SetGroupVisible(_profileSubView, false);
 
             // 메인 화면에서는 뒤로가기 버튼 숨김.
             SetBackButtonVisible(false);
@@ -222,17 +233,18 @@ namespace Hexiege.Presentation
         /// 지정한 서브 화면을 표시한다. 메인 화면은 숨기고 뒤로가기 버튼을 표시한다.
         /// 사운드 서브 화면 진입 시에는 다른 씬에서 변경됐을 수 있는 볼륨을 슬라이더에 다시 반영한다.
         /// </summary>
-        /// <param name="subView">표시할 서브 화면 GameObject. null이면 무시.</param>
-        public void ShowSubView(GameObject subView)
+        /// <param name="subView">표시할 서브 화면 CanvasGroup. null이면 무시.</param>
+        public void ShowSubView(CanvasGroup subView)
         {
             if (subView == null) return;
 
             SetGroupVisible(_mainView, false);
             SetGroupVisible(_subViewContainer, true);
 
-            // 요청한 서브 화면만 켜고 나머지는 끈다.
-            if (_soundSubView != null) _soundSubView.SetActive(subView == _soundSubView);
-            if (_profileSubView != null) _profileSubView.SetActive(subView == _profileSubView);
+            // 요청한 서브 화면만 CanvasGroup으로 표시하고 나머지는 숨긴다.
+            // SetActive 대신 alpha 제어를 사용해 레이아웃을 유지한다(규칙 5).
+            SetGroupVisible(_soundSubView, subView == _soundSubView);
+            SetGroupVisible(_profileSubView, subView == _profileSubView);
 
             // 사운드 화면이면 현재 저장된 볼륨으로 슬라이더 값을 다시 맞춘다.
             if (subView == _soundSubView)
@@ -293,14 +305,14 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 뒤로가기 버튼을 표시/숨김 처리한다.
-        /// 버튼은 단일 오브젝트이므로 GameObject.SetActive로 처리해도 레이아웃 영향이 없다
-        /// (LayoutGroup 자식이 아닌 앵커 고정 배치이기 때문).
+        /// GameObject.SetActive 대신 _backButtonGroup(CanvasGroup)의 alpha/raycast/interactable을
+        /// 제어하여 규칙 5(CanvasGroup 숨김/표시 패턴)를 따른다.
+        /// 숨김 상태(alpha=0, blocksRaycasts=false)에서는 화면에 보이지 않고 클릭도 받지 않는다.
         /// </summary>
         /// <param name="visible">true=표시, false=숨김.</param>
         private void SetBackButtonVisible(bool visible)
         {
-            if (_backButton == null) return;
-            _backButton.gameObject.SetActive(visible);
+            SetGroupVisible(_backButtonGroup, visible);
         }
     }
 }

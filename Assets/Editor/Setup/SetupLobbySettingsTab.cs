@@ -8,21 +8,29 @@
 // 동작 개요:
 //   1) Lobby.unity 열기
 //   2) LobbyRootView에서 _profilePanel(ProfilePanel GO) 탐색
-//   3) 프로필 탭 버튼 아이콘/텍스트를 "설정"으로 교체
-//   4) ProfilePanel 안의 기존 ProfileView GO 비활성화
-//   5) LobbySettingsView GO 구조 생성 + SerializedObject로 필드 연결
-//   6) 씬 저장
+//   3) LobbySettingsView GO 구조 생성 + SerializedObject로 필드 연결
+//   4) 씬 저장
+//
+// 기존 UI 불변 원칙:
+//   - 프로필 탭 버튼의 아이콘/텍스트는 변경하지 않는다.
+//   - 기존 ProfileView GO는 비활성화하지 않는다.
+//   (이 스크립트는 LobbySettingsView 구조 생성에만 관여한다.)
+//
+// 표시/숨김 처리:
+//   초기 숨김이 필요한 모든 요소(BackButton, SubViewContainer, SoundSubView,
+//   ProfileSubView)는 GameObject.SetActive 대신 CanvasGroup
+//   (alpha=0 / interactable=false / blocksRaycasts=false)으로 숨긴다(규칙 5).
 //
 // LobbySettingsView 계층 (생성 결과):
 //   LobbySettingsView
-//     ├── BackButton       (좌상단 고정, 초기 숨김)
-//     ├── MainView         (CanvasGroup, 설정 버튼 목록)
+//     ├── BackButton       (Button + CanvasGroup, 좌상단 고정, 초기 alpha=0)
+//     ├── MainView         (CanvasGroup, 설정 버튼 목록, 초기 alpha=1)
 //     │     └── ButtonList (VerticalLayoutGroup, 화면 중앙)
 //     │           ├── ProfileButton
 //     │           └── SoundButton
-//     └── SubViewContainer (CanvasGroup, 초기 숨김)
-//           ├── SoundSubView (사운드 설정 화면 — 슬라이더 3종)
-//           └── ProfileSubView (프로필 서브 화면 — 빈 GO, 향후 확장)
+//     └── SubViewContainer (CanvasGroup, 초기 alpha=0)
+//           ├── SoundSubView   (CanvasGroup, 사운드 설정 화면 — 슬라이더 3종, 초기 alpha=0)
+//           └── ProfileSubView (CanvasGroup, 프로필 서브 화면 — 빈 GO, 초기 alpha=0)
 //
 // Editor 전용 — 빌드에 포함되지 않는다 (Assets/Editor 폴더).
 // ============================================================================
@@ -77,36 +85,11 @@ namespace HexiegeEditor
             }
 
             // ----------------------------------------------------------------
-            // 3) 프로필 탭 버튼 아이콘/텍스트 교체.
-            // ----------------------------------------------------------------
-            var tabBar = Object.FindFirstObjectByType<TabBarView>();
-            if (tabBar != null)
-            {
-                var tabSo      = new SerializedObject(tabBar);
-                var profileBtn = tabSo.FindProperty("_profileTabButton")?.objectReferenceValue as Button;
-                if (profileBtn != null)
-                {
-                    // 버튼 Image → ui_icon_settings 스프라이트로 교체.
-                    var btnImg = profileBtn.GetComponent<Image>();
-                    if (btnImg != null)
-                        ApplySprite(btnImg, "ui_icon_settings");
-
-                    // 버튼 자식 TMP 텍스트 → "설정"으로 변경.
-                    var labelTmp = profileBtn.GetComponentInChildren<TextMeshProUGUI>();
-                    if (labelTmp != null)
-                        labelTmp.text = "설정";
-                }
-            }
-
-            // ----------------------------------------------------------------
-            // 4) 기존 ProfileView GO 비활성화.
-            // ----------------------------------------------------------------
-            var profileView = profilePanelGo.GetComponentInChildren<ProfileView>(true);
-            if (profileView != null)
-                profileView.gameObject.SetActive(false);
-
-            // ----------------------------------------------------------------
-            // 5) LobbySettingsView GO 생성 (ProfilePanel 직속 자식).
+            // 3) LobbySettingsView GO 생성 (ProfilePanel 직속 자식).
+            //
+            // 주의: 기존 UI 불변 원칙에 따라 프로필 탭 버튼의 아이콘/텍스트 교체와
+            //       기존 ProfileView GO 비활성화는 수행하지 않는다.
+            //       (이 셋업 스크립트는 LobbySettingsView 구조 생성에만 집중한다.)
             // ----------------------------------------------------------------
             // 이미 있으면 재사용.
             var settingsViewGo = profilePanelGo.transform.Find("LobbySettingsView")?.gameObject;
@@ -131,7 +114,13 @@ namespace HexiegeEditor
             ApplySprite(backBtnImg, "ui_icon_back");
             var backBtn = GetOrAdd<Button>(backBtnGo);
             backBtn.targetGraphic = backBtnImg;
-            backBtnGo.SetActive(false); // 초기 숨김 — 서브 화면 진입 시에만 표시됨.
+            // 초기 숨김 — 서브 화면 진입 시에만 표시됨.
+            // GameObject.SetActive(false) 대신 CanvasGroup으로 숨긴다(규칙 5).
+            // alpha=0(투명) + blocksRaycasts=false(클릭 무시) + interactable=false(상호작용 차단).
+            var backBtnCg = GetOrAdd<CanvasGroup>(backBtnGo);
+            backBtnCg.alpha          = 0f;
+            backBtnCg.interactable   = false;
+            backBtnCg.blocksRaycasts = false;
 
             // ---- MainView (설정 버튼 목록, 초기 표시) ----
             var mainViewGo = GetOrCreateUIChild("MainView", settingsViewGo.transform);
@@ -171,7 +160,11 @@ namespace HexiegeEditor
             // SoundSubView — 사운드 설정 서브 화면 (슬라이더 3종).
             var soundSubViewGo = GetOrCreateUIChild("SoundSubView", subContainerGo.transform);
             StretchFull(soundSubViewGo.GetComponent<RectTransform>());
-            soundSubViewGo.SetActive(false);
+            // 초기 숨김 — CanvasGroup으로 처리(규칙 5). SetActive 미사용.
+            var soundSubViewCg = GetOrAdd<CanvasGroup>(soundSubViewGo);
+            soundSubViewCg.alpha          = 0f;
+            soundSubViewCg.interactable   = false;
+            soundSubViewCg.blocksRaycasts = false;
 
             var sliderContainerGo = GetOrCreateUIChild("SliderContainer", soundSubViewGo.transform);
             var scRt              = sliderContainerGo.GetComponent<RectTransform>();
@@ -199,19 +192,27 @@ namespace HexiegeEditor
             // ProfileSubView — 향후 프로필 기능 통합을 위한 빈 GO.
             var profileSubViewGo = GetOrCreateUIChild("ProfileSubView", subContainerGo.transform);
             StretchFull(profileSubViewGo.GetComponent<RectTransform>());
-            profileSubViewGo.SetActive(false);
+            // 초기 숨김 — CanvasGroup으로 처리(규칙 5). SetActive 미사용.
+            var profileSubViewCg = GetOrAdd<CanvasGroup>(profileSubViewGo);
+            profileSubViewCg.alpha          = 0f;
+            profileSubViewCg.interactable   = false;
+            profileSubViewCg.blocksRaycasts = false;
 
             // ----------------------------------------------------------------
             // 6) LobbySettingsView SerializedObject 필드 연결.
             // ----------------------------------------------------------------
             var svSo = new SerializedObject(settingsView);
+            // _backButton은 클릭 리스너 등록용으로 Button을 그대로 연결.
             svSo.FindProperty("_backButton").objectReferenceValue       = backBtn;
+            // _backButtonGroup은 표시/숨김 제어용 CanvasGroup을 연결(규칙 5).
+            svSo.FindProperty("_backButtonGroup").objectReferenceValue  = backBtnCg;
             svSo.FindProperty("_mainView").objectReferenceValue         = mainViewCg;
             svSo.FindProperty("_subViewContainer").objectReferenceValue = subContainerCg;
             svSo.FindProperty("_profileButton").objectReferenceValue    = profileBtn2;
             svSo.FindProperty("_soundButton").objectReferenceValue      = soundBtn2;
-            svSo.FindProperty("_soundSubView").objectReferenceValue     = soundSubViewGo;
-            svSo.FindProperty("_profileSubView").objectReferenceValue   = profileSubViewGo;
+            // 서브 화면은 CanvasGroup 타입으로 변경되었으므로 GameObject가 아닌 CanvasGroup을 연결.
+            svSo.FindProperty("_soundSubView").objectReferenceValue     = soundSubViewCg;
+            svSo.FindProperty("_profileSubView").objectReferenceValue   = profileSubViewCg;
             svSo.FindProperty("_masterSlider").objectReferenceValue     = masterSlider;
             svSo.FindProperty("_bgmSlider").objectReferenceValue        = bgmSlider;
             svSo.FindProperty("_sfxSlider").objectReferenceValue        = sfxSlider;

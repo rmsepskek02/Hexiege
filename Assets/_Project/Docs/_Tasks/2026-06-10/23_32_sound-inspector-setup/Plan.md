@@ -170,34 +170,52 @@ VolumePanel (CanvasGroup, alpha=0, blocksRaycasts=false, interactable=false)
   (탭 자체가 루트이므로)
 ```
 
-#### 3-2. Profile 탭 → 설정 탭 전환
-- 탭 아이콘: `ui_icon_profile` → `ui_icon_settings`
-- 탭 이름: "프로필" → "설정"
-- LobbyRootView의 탭 배열에서 해당 항목 수정
+#### 3-2. Profile 탭 전환 — (제거됨)
 
-#### 3-3. 기존 ProfileView → LobbySettingsView 교체
+> **기존 UI 불변 원칙에 따라 탭 아이콘/텍스트 변경 코드를 제거했다.**
+> 셋업 스크립트는 탭 버튼의 아이콘(`ui_icon_settings`)·텍스트("설정") 교체를 수행하지 않는다.
+> 탭 외형 변경이 필요하면 별도 작업으로 분리한다.
 
-ProfileView GO를 비활성화하고 LobbySettingsView GO를 새로 생성.
-향후 프로필 기능 복원 시 LobbySettingsView의 서브 화면 중 하나로 통합.
+#### 3-3. 기존 ProfileView → LobbySettingsView 교체 — (제거됨)
+
+> **기존 UI 불변 원칙에 따라 기존 ProfileView GO 비활성화 코드를 제거했다.**
+> LobbySettingsView GO는 ProfilePanel 자식으로 새로 생성하되, 기존 ProfileView는 그대로 둔다.
 
 #### 3-4. LobbySettingsView GO 구조
 
+SetupLobbySettingsTab 에디터 스크립트가 생성하는 계층 (CanvasGroup 초기값 포함):
+
 ```
-LobbySettingsView (LobbySettingsView.cs, CanvasGroup)
-  ├── BackButton          (Button, "←", 좌측 상단, 초기 숨김)
-  ├── MainView            (CanvasGroup — 설정 메인 버튼 목록)
-  │     └── ButtonList   (VerticalLayoutGroup, 화면 중앙 배치)
-  │           ├── ProfileButton  (Button, "프로필")
-  │           ├── SoundButton    (Button, "사운드")
-  │           └── (확장 슬롯)
-  └── SubViewContainer    (CanvasGroup — 서브 화면 컨테이너)
-        ├── SoundSubView  (사운드 설정 화면)
+LobbySettingsView (LobbySettingsView.cs)
+  ├── BackButton (Button + CanvasGroup, 초기: alpha=0)
+  ├── MainView (CanvasGroup, 초기: alpha=1)
+  │     └── ButtonList (VerticalLayoutGroup)
+  │           ├── ProfileButton (Button)
+  │           └── SoundButton (Button)
+  └── SubViewContainer (CanvasGroup, 초기: alpha=0)
+        ├── SoundSubView (CanvasGroup, 초기: alpha=0)
         │     └── SliderContainer (VerticalLayoutGroup)
         │           ├── MasterRow (Label + Slider + ValueText)
         │           ├── BGMRow    (Label + Slider + ValueText)
         │           └── SFXRow    (Label + Slider + ValueText)
-        └── ProfileSubView (프로필 화면 — 기존 ProfileView 내용)
+        └── ProfileSubView (CanvasGroup, 초기: alpha=0)
 ```
+
+### LobbySettingsView CanvasGroup 제어 흐름
+
+[메인 화면 ShowMain()]
+  _mainView (CG)        → alpha=1, interactable=true,  blocksRaycasts=true
+  _subViewContainer (CG)→ alpha=0, interactable=false, blocksRaycasts=false
+  _soundSubView (CG)    → alpha=0, interactable=false, blocksRaycasts=false
+  _profileSubView (CG)  → alpha=0, interactable=false, blocksRaycasts=false
+  _backButtonGroup (CG) → alpha=0, interactable=false, blocksRaycasts=false
+
+[사운드 서브 화면 ShowSubView(_soundSubView)]
+  _mainView (CG)        → alpha=0, interactable=false, blocksRaycasts=false
+  _subViewContainer (CG)→ alpha=1, interactable=true,  blocksRaycasts=true
+  _soundSubView (CG)    → alpha=1, interactable=true,  blocksRaycasts=true
+  _profileSubView (CG)  → alpha=0, interactable=false, blocksRaycasts=false
+  _backButtonGroup (CG) → alpha=1, interactable=true,  blocksRaycasts=true
 
 #### 3-5. LobbySettingsView.cs 신규 컴포넌트 (game-programmer 위임)
 
@@ -282,3 +300,31 @@ LobbySettingsView : MonoBehaviour
 | Login.unity에 이미 [Audio] GO 있는 경우 | 중복 생성 방지: 동일 이름 GO 존재 확인 후 재사용 |
 | LobbyRootView Settings 버튼 참조 방식 | FindProperty("_settingsButton")로 탐색 — 없으면 수동 연결 안내 |
 | Game.unity InGameSettingsUI 의 _panel 구조 | `FindFirstObjectByType<InGameSettingsUI>()` 후 SerializedObject로 _panel 참조 탐색 |
+
+---
+
+## UI 규칙 위반 수정 (2차 검토)
+
+### 발견된 위반 사항
+
+GameSystemRules_UI 규칙 5 (CanvasGroup 숨김/표시 패턴) 위반:
+
+| 파일 | 위반 코드 | 수정 |
+|------|---------|------|
+| LobbySettingsView.cs ShowMain() | _soundSubView.SetActive(false) | SetGroupVisible(_soundSubView, false) |
+| LobbySettingsView.cs ShowMain() | _profileSubView.SetActive(false) | SetGroupVisible(_profileSubView, false) |
+| LobbySettingsView.cs ShowSubView() | _soundSubView.SetActive(...) | SetGroupVisible(_soundSubView, ...) |
+| LobbySettingsView.cs ShowSubView() | _profileSubView.SetActive(...) | SetGroupVisible(_profileSubView, ...) |
+| LobbySettingsView.cs SetBackButtonVisible() | _backButton.gameObject.SetActive(visible) | SetGroupVisible(_backButtonGroup, visible) |
+| SetupLobbySettingsTab.cs | backBtnGo.SetActive(false) | CanvasGroup alpha=0 초기화 |
+| SetupLobbySettingsTab.cs | soundSubViewGo.SetActive(false) | CanvasGroup alpha=0 초기화 |
+| SetupLobbySettingsTab.cs | profileSubViewGo.SetActive(false) | CanvasGroup alpha=0 초기화 |
+| SetupLobbySettingsTab.cs | profileView.gameObject.SetActive(false) | 제거 (기존 UI 불변 원칙) |
+| SetupLobbySettingsTab.cs | 탭 버튼 아이콘/텍스트 변경 | 제거 (기존 UI 불변 원칙) |
+
+### 필드 타입 변경
+
+LobbySettingsView.cs:
+- _soundSubView: GameObject → CanvasGroup
+- _profileSubView: GameObject → CanvasGroup
+- _backButtonGroup: (신규) CanvasGroup 추가
