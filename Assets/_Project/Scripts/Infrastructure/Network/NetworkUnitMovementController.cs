@@ -41,8 +41,8 @@ namespace Hexiege.Infrastructure
         // 내부 상태
         // ====================================================================
 
-        /// <summary>GameBootstrapper 참조. UseCase 접근에 사용.</summary>
-        private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
+        /// <summary>게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
+        private IGameServices _services;
 
         // ====================================================================
         // NetworkBehaviour 생명주기
@@ -55,10 +55,10 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
-            _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-            if (_bootstrapper == null)
+            _services = GameServicesLocator.Current;
+            if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkUnitMovementController: GameBootstrapper를 찾을 수 없습니다.");
+                Debug.LogWarning("[Network] NetworkUnitMovementController: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
             }
 
             Debug.Log($"[Network] NetworkUnitMovementController 스폰. IsServer={IsServer}");
@@ -84,7 +84,7 @@ namespace Hexiege.Infrastructure
         public void RequestMove(
             UnitData unit,
             HexCoord target,
-            UnitFactory unitFactory,
+            IUnitFactory unitFactory,
             UnitMovementUseCase movementUseCase)
         {
             if (unit == null) return;
@@ -122,16 +122,16 @@ namespace Hexiege.Infrastructure
             // ----------------------------------------------------------------
             // 1. UseCase 존재 확인
             // ----------------------------------------------------------------
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_services == null)
             {
-                Debug.LogError("[Network] RequestMoveServerRpc: GameBootstrapper를 찾을 수 없습니다.");
+                Debug.LogError("[Network] RequestMoveServerRpc: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
                 return;
             }
 
-            UnitSpawnUseCase unitSpawn = _bootstrapper.GetUnitSpawn();
-            UnitMovementUseCase movement = _bootstrapper.GetMovement();
-            UnitFactory unitFactory = _bootstrapper.GetUnitFactory();
+            UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
+            UnitMovementUseCase movement = _services.GetMovement();
+            IUnitFactory unitFactory = _services.GetUnitFactory();
 
             if (unitSpawn == null || movement == null)
             {

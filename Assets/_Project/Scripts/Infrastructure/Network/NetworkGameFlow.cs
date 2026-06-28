@@ -40,10 +40,6 @@ namespace Hexiege.Infrastructure
     public class NetworkGameFlow : NetworkBehaviour
     {
         // ====================================================================
-        // Inspector 설정
-        // ====================================================================
-
-        // ====================================================================
         // 내부 상태
         // ====================================================================
 
@@ -53,8 +49,8 @@ namespace Hexiege.Infrastructure
         /// <summary>게임 시작 여부 (중복 시작 방지).</summary>
         private bool _gameStarted = false;
 
-        /// <summary>게임 부트스트래퍼 참조 (로컬에서 찾아 사용).</summary>
-        private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
+        /// <summary>게임 서비스 참조. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
+        private IGameServices _services;
 
         /// <summary>Blue 팀(Host)이 선택한 종족. 서버에서만 사용.</summary>
         private int _blueRace = 0;
@@ -74,11 +70,12 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
-            // GameBootstrapper를 씬에서 탐색
-            _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-            if (_bootstrapper == null)
+            // GameServicesLocator에서 IGameServices 획득.
+            // Bootstrap에 직접 의존하지 않으므로 FindFirstObjectByType<GameBootstrapper>() 불필요.
+            _services = GameServicesLocator.Current;
+            if (_services == null)
             {
-                Debug.LogError("[Network] NetworkGameFlow: GameBootstrapper를 씬에서 찾을 수 없습니다.");
+                Debug.LogError("[Network] NetworkGameFlow: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
                 return;
             }
 
@@ -86,7 +83,7 @@ namespace Hexiege.Infrastructure
 
             // 게임이 이미 진행 중이면 재스폰으로 인한 중복 시작 차단
             // (NetworkObject가 Despawn → Respawn될 때 _gameStarted/_readyCount가 리셋되는 것 방지)
-            if (_bootstrapper.IsNetworkGameStarted)
+            if (_services.IsNetworkGameStarted)
             {
                 Debug.LogWarning("[Network] NetworkGameFlow: 게임 이미 진행 중 감지. " +
                                  "재스폰으로 인한 준비 신호 재전송 차단.");
@@ -176,15 +173,15 @@ namespace Hexiege.Infrastructure
             // 양 팀 종족 정보를 전역 홀더에 저장 — 인게임에서 종족별 초기화에 사용
             GameRaceContext.Set((RaceId)blueRace, (RaceId)redRace);
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_services == null)
             {
                 Debug.LogError("[Network] StartGameClientRpc: GameBootstrapper를 찾을 수 없습니다.");
                 return;
             }
 
             // GameBootstrapper를 통해 네트워크 게임 시작 (맵 로드 + UseCase 생성)
-            _bootstrapper.StartNetworkGame(LocalPlayerTeam.Current);
+            _services.StartNetworkGame(LocalPlayerTeam.Current);
 
             // 서버: 맵 로드 후 초기 골드를 NetworkResourceSync를 통해 강제 동기화.
             // ResourceUseCase 생성자에서는 OnResourceChanged 이벤트를 발행하지 않으므로
@@ -202,7 +199,7 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void SyncInitialGold()
         {
-            ResourceUseCase resource = _bootstrapper.GetResource();
+            ResourceUseCase resource = _services.GetResource();
             if (resource == null)
             {
                 Debug.LogWarning("[Network] SyncInitialGold: ResourceUseCase가 null. 초기 골드 동기화 생략.");

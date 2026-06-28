@@ -94,10 +94,9 @@ namespace Hexiege.Presentation
         /// CanvasGroup이 없는 버튼에는 자동으로 부착하고, 초기값을 모두 alpha=0(숨김)으로 둔다.
         ///
         /// [왜 Awake()가 아니라 Initialize()에서 처리하는가?]
-        ///   이 패널 GameObject는 씬 시작 시 비활성(SetActive=false)으로 배치될 수 있다.
-        ///   Unity의 Awake()는 비활성 GameObject에서는 호출되지 않으므로,
-        ///   GameBootstrapper가 직접 호출하는 Initialize()에서 캐시를 구성해야
-        ///   첫 Show() 호출 전에 캐시가 보장된다. (BuildingPlacementUI와 동일한 이유)
+        ///   GameBootstrapper가 UseCase 등 외부 의존성을 주입하는 시점이 Awake() 이후이므로,
+        ///   Initialize()에서 의존성 주입과 캐시 구성을 함께 처리한다.
+        ///   (BuildingPlacementUI와 동일한 이유)
         /// </summary>
         private void BuildSlotCanvasGroups()
         {

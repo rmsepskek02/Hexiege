@@ -8,7 +8,7 @@
 //     (AnimatedPanel.SetUpdate(true)가 적용되어 timeScale=0에서도 페이드 애니메이션이 동작)
 //   - 멀티플레이에서는 일시정지 불가 — 다른 플레이어의 진행이 멈출 수 없으므로
 //     timeScale을 건드리지 않는다.
-//   - 포기 버튼 클릭 시 ConfirmPopup으로 사용자 의사 재확인.
+//   - 포기 버튼 클릭 시 UIManager.ShowConfirm()으로 사용자 의사 재확인.
 //   - 포기 확정 시:
 //       싱글: GameEndUseCase.Forfeit() — Red 승리 처리.
 //       멀티: NetworkGameEndController.RequestForfeit() — 서버가 자기 팀을 패배 처리.
@@ -22,6 +22,7 @@
 // Presentation 레이어 — MonoBehaviour 의존.
 // ============================================================================
 
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -44,11 +45,10 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 박스 본체에 부착된 AnimatedPanel (PopupFade 권장).")]
         [SerializeField] private AnimatedPanel _panel;
 
-        [Tooltip("Canvas 직속 공유 Background. 등록된 콜백을 통해 외부 클릭 시 팝업이 닫힘.")]
-        [SerializeField] private SharedBackgroundButton _sharedBackground;
-
-        [Tooltip("포기 확정용 확인 팝업. 포기 버튼 클릭 시 이 팝업을 열어 사용자 의사 재확인.")]
-        [SerializeField] private ConfirmPopup _confirmPopup;
+        // UIManager가 단일 BlockingOverlay를 소유하여 SafeArea 문제 없이 전체화면 커버.
+        //   테스트 통과 후 삭제 예정.
+        // [Tooltip("Canvas 직속 공유 Background. 등록된 콜백을 통해 외부 클릭 시 팝업이 닫힘.")]
+        // [SerializeField] private SharedBackgroundButton _sharedBackground;
 
         [Header("버튼")]
         [Tooltip("팝업 우측 상단의 X 닫기 버튼.")]
@@ -122,10 +122,6 @@ namespace Hexiege.Presentation
         /// <summary>
         /// GameBootstrapper.LoadMap()에서 호출.
         /// UseCase + 포기 서비스 주입 + 버튼 리스너 등록 + 초기 상태 보장.
-        ///
-        /// [2026-05-20] forfeitService 인자 추가:
-        ///   기존: OnForfeitConfirmed에서 FindFirstObjectByType<NetworkGameEndController> 호출
-        ///   변경: GameBootstrapper가 싱글/멀티 모드에 따라 적합한 IForfeitService 구현체를 주입
         /// </summary>
         /// <param name="gameEndUseCase">싱글플레이 포기 처리에 사용할 UseCase.</param>
         /// <param name="forfeitService">포기 요청을 위임할 서비스. 싱글=GameEndUseCase, 멀티=NetworkGameEndController.</param>
@@ -249,19 +245,18 @@ namespace Hexiege.Presentation
                 _pausedBySettings = true;
             }
 
-            // 공유 Background에 닫기 콜백 등록 — 바깥 영역 클릭 시 Hide() 호출됨.
-            // 이전에 다른 팝업이 등록해뒀더라도 Register()가 덮어쓰므로 안전.
-            if (_sharedBackground != null)
-                _sharedBackground.Register(Hide);
+            // UIManager의 공유 BlockingOverlay를 Popup 모드로 표시.
+            //   Popup 모드: 오버레이를 터치하면 Hide()가 호출되어 팝업이 닫힘.
+            //   (규칙 8: Popup 타입은 배경 탭으로 닫힘)
+            UIManager.Instance?.ShowBlockingOverlay(Hide);
+            // [구로직 — 테스트 통과 후 삭제]
+            // if (_sharedBackground != null)
+            //     _sharedBackground.Register(Hide);
 
-            // 팝업 본체 활성화 후 페이드 인.
-            // AnimatedPanel.Hide()는 완료 시 Panel을 SetActive(false) 처리하므로,
-            // 다음 Show() 직전에 SetActive(true)가 필요.
+            // 팝업 본체 페이드 인.
+            // AnimatedPanel은 CanvasGroup으로 가시성을 제어하므로 오브젝트는 항상 active 상태.
             if (_panel != null)
-            {
-                _panel.gameObject.SetActive(true);
                 _panel.Show();
-            }
         }
 
         /// <summary>
@@ -270,12 +265,11 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
-            // 포기 확인 팝업이 떠 있었다면 함께 닫는다 — 잔류 모달 방지.
-            _confirmPopup?.Hide();
-
-            // SharedBackground 콜백 해제 — 닫힌 후 외부 클릭이 잘못 트리거되는 것을 막음.
-            if (_sharedBackground != null)
-                _sharedBackground.Unregister();
+            // UIManager 공유 BlockingOverlay 숨김(참조 카운터 -1).
+            UIManager.Instance?.HideBlockingOverlay();
+            // [구로직 — 테스트 통과 후 삭제]
+            // if (_sharedBackground != null)
+            //     _sharedBackground.Unregister();
 
             // 이 스크립트가 일시정지를 걸어둔 경우에만 복원.
             // (멀티플레이에서는 _pausedBySettings가 false이므로 건드리지 않음)
@@ -381,20 +375,13 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnForfeitClicked()
         {
-            if (_confirmPopup == null)
-            {
-                // 확인 팝업이 설정되어 있지 않으면 안전을 위해 동작을 막는다.
-                // (Inspector 미연결 시 의도치 않은 즉시 패배 방지)
-                Debug.LogWarning("[InGameSettingsUI] ConfirmPopup이 연결되지 않아 포기 동작을 수행하지 않습니다.");
-                return;
-            }
-
-            _confirmPopup.Show(
+            // UIManager가 null이면(씬 직접 진입 등) 팝업을 띄우지 않고 안전하게 무시한다.
+            UIManager.Instance?.ShowConfirm(
                 message: "정말 포기하시겠습니까?",
-                confirmLabel: "포기",
-                cancelLabel: "취소",
                 onConfirm: OnForfeitConfirmed,
-                onCancel: null);
+                onCancel: null,
+                confirmLabel: "포기",
+                cancelLabel: "취소");
         }
 
         /// <summary>
@@ -403,10 +390,6 @@ namespace Hexiege.Presentation
         /// - 싱글: GameEndUseCase.RequestForfeit() → Red 승리로 즉시 게임 종료.
         /// - 멀티: NetworkGameEndController.RequestForfeit() → 서버가 자기 팀 패배 처리.
         ///
-        /// [2026-05-20] 리팩토링:
-        ///   기존: FindFirstObjectByType&lt;NetworkGameEndController&gt;()로 직접 호출
-        ///   변경: GameBootstrapper에서 주입된 IForfeitService에 위임 (FindFirstObjectByType 제거)
-        ///
         /// _forfeitService가 주입되지 않은 경우의 폴백:
         ///   싱글이면 _gameEndUseCase.Forfeit() 직접 호출. 멀티이면 경고 로그 후 종료.
         /// </summary>
@@ -414,6 +397,8 @@ namespace Hexiege.Presentation
         {
             if (_forfeitService != null)
             {
+                // 포기는 씬 전환 없이 같은 씬 안에서 GameEndUI를 표시하므로 로딩 인디케이터를 띄우지 않는다.
+                // 로딩 인디케이터는 씬 전환(로비 복귀 등)에서만 사용한다(UI 규칙 L-2).
                 _forfeitService.RequestForfeit();
             }
             else if (!NetworkContext.IsNetworkActive)

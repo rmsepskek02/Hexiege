@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-06-10
-**현재 단계:** 사운드 시스템 코드 구현 완료 — Inspector 작업 + 실기 테스트 예정
+**최종 수정일:** 2026-06-27
+**현재 단계:** Google 로그인 실기 성공(SHA-1 정합 + Play Games 제공업체 활성화) — UGS OIDC 브릿지(멀티플레이 연동)는 별도 미해결 이슈. AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 
 ---
 
@@ -61,6 +61,19 @@
 | 전체 유닛 사망 VFX 적용 | ✅ 완료 (2026-06-08) | EffectPreset_Unit_Death_Common.asset 신규 생성(vfx_unit_death+SFX). SetUnitDeathVfxAll 에디터 스크립트로 UnitEffectConfig 전체 24종 deathPreset 일괄 연결. 코드 변경 없음(에셋 작업만). 기존 EffectPreset_Pistoleer_Death.asset 삭제. |
 | 유닛 VFX 디테일 개선 3종 | ✅ 완료 (2026-06-08) | ① VFX 프리팹 3개 ParticleSystem ScalingMode Local→Hierarchy (VfxScalingModeFixer 에디터 스크립트). ② 피스톨러 공격 VFX 스폰 위치 — VfxSpawnPoint GO(총구 위치)로 position 참조, rotation은 `Quaternion.LookRotation(transform.forward)` (스켈레톤 본 하위 배치로 _vfxSpawnPoint.rotation 사용 불가). UnitView + EffectManager 수정. ③ vfx_unit_death 퍼짐 효과 제거 (3개 PS startSpeed→0 YAML 직접 수정). |
 | 사운드 시스템 (AudioManager + SFX/BGM 분리) | 🔵 코드 완료 (2026-06-10) / Inspector 작업 + 실기 테스트 예정 | SoundConfig.cs(Infrastructure) + AudioManager.cs(Presentation, DontDestroyOnLoad) 신규. BGM 크로스페이드(A/B 채널), SFX 풀(8개, 2D), 볼륨 3채널(Master/BGM/SFX, PlayerPrefs). EffectManager VFX 전용 분리(SFX 비활성화). VFX+SFX 쌍 호출 UnitView×2 + NetworkUnit×1 복원. LoginBootstrapper Initialize 추가. InGameSettingsUI 볼륨 슬라이더 연동. Inspector 작업: AudioMixer 에셋·AudioManager Login.unity 배치·SoundConfig 에셋 생성 필요. 로비 볼륨 패널 미구현(별도 작업). |
+| 전역 UI 시스템 (UIManager + SplashOverlay) | ✅ 완료 (2026-06-18) | UIManager(SingletonMonoBehaviour+IUIManager), SplashOverlayView(DOTween 깜빡임+페이드아웃), SpinnerRotator 신규. ConfirmPopup/LoadingIndicator 전역 통합 (Login 씬 1회 생성 → DontDestroyOnLoad). 씬별 중복 ConfirmPopup/LoadingScreen 제거, BattleViewModel LoadingScreen→UIManager 전환. 사용자 실기 TC-01~07 PASS. |
+| LoadingIndicator 최소 표시 시간 보장 | ✅ 완료 (2026-06-22) | `UIManager.ShowLoading(false)` 호출 시 최소 1초 미만이면 코루틴으로 지연(`WaitForSecondsRealtime`). `_loadingMinDuration` SerializeField(기본 1f). 모든 호출부 자동 적용. |
+| LoadingIndicator 독립 Canvas(300) 추가 | ✅ 완료 (2026-06-22) | AnonymousWarningPopup(SortingOrder=200)이 LoadingIndicator를 가리는 문제 해결. `LoginUiSetup.cs` 에디터 스크립트에 메뉴 항목 추가(`Hexiege/Setup/Login UI — LoadingIndicator 독립 Canvas 추가`). LoadingIndicator에 독립 Canvas(SortingOrder=300, overrideSorting=true) + GraphicRaycaster 자동 추가. |
+| ConfirmPopup + NetworkErrorPopup 씬 버그 수정 | ✅ 완료 (2026-06-22) | ① ConfirmPopup: 씬 프리팹 인스턴스 오버라이드로 루트 CanvasGroup이 alpha=0/interactable=0으로 강제된 버그 Inspector 수정. ② NetworkErrorPopup: ConfirmPopup 컴포넌트가 남아있던 것 교체, `_panel` 슬롯 연결, LoginRootView + LoginBootstrapper `_networkErrorPopup` 슬롯 연결. |
+| 로그인 팝업 CloseButton 무반응 버그 수정 | ✅ 완료 (2026-06-23) | AnonymousWarningPopup / NetworkErrorPopup 두 팝업에 `_closeButton` SerializeField 추가 + Inspector 연결. CloseButton GO가 씬에 활성(Active) 상태로 존재했으나 코드 필드 누락으로 리스너 미등록 → 클릭 무반응. AnonymousWarningPopup은 `SetInteractable()`에 `_closeButton` 포함(로그인 진행 중 취소 방지). |
+| 스플래시 화면 로그인 흐름 개선 (skipFade 모드) | ✅ 완료 (2026-06-23) | 로그인된 상태 재실행 시 스플래시 FadeOut으로 로그인 씬 배경이 노출되던 문제 해결. `SplashOverlayView._skipFadeOnTap` 필드 + `SetTapCallback(callback, skipFade=false)` 파라미터 추가. `OnPointerClick` skipFade 분기: true이면 FadeOut 없이 즉시 콜백 호출. `LoginBootstrapper` 자동 로그인 성공 분기에서 `SetTapCallback(GoToNextScene, skipFade:true)` + `ShowLoading(false)` + `ShowTapToStart()` 적용. 로딩 인디케이터(SO=300)가 즉시 화면 커버. 로그인 X 흐름 변화 없음. |
+| 코드 정리(클린업) Phase 1 — 히스토리성 주석 및 폐기 코드 제거 | ✅ 완료 (2026-06-23) | 약 30개 파일에서 `[2026-XX-XX]`/`[Phase X]` 형식 이력 라벨 제거, 구방식→현재방식 전환 설명 주석 제거. 폐기 코드 블록 제거: `GameBootstrapper.cs`의 `_enableAI` 블록(주석 처리 코드+메모)·`_confirmPopup` 전환 설명 블록. `NetworkGameFlow.cs` 빈 섹션 헤더 제거. `GameBootstrapper.Setup.cs` 중복 RaceId 배열 → 지역 변수 1개 통합(동작 동일). 런타임 동작 변경 없음(순수 주석/폐기코드 정리). 브랜치 `claude/code-refactor-cleanup-jsa24o`. task: `_Tasks/2026-06-23/00_00_코드정리-클린업/` |
+| 코드 구조 개선 Phase 2 — switch→Dictionary lookup table + HexMetrics 중복 제거 | ✅ 완료 (2026-06-25) | 동작 보존 리팩토링(SINGLE 7 + MULTI 2 전 항목 PASS). ① `BuildingTypeHelper.cs`: IsProductionBuilding/GetStage/GetNextStage 3개 switch → 단일 `Dictionary<BuildingType, BuildingMeta>` lookup table. `BuildingMeta` struct(IsProduction/Stage/NextStage). 신규 생산건물 추가 시 table 한 줄 추가로 끝(세 메서드 자동 정합). CanUpgrade/CanShowActionPanel 무수정 자동 반영. PrimalSanctuary는 기존 switch에도 포함돼 있던 항목으로 동작 보존(`(true,3)` 명시). ② `GameBootstrapper.Network.cs`: StartNetworkGame HexMetrics 수동 4줄 → `ApplyConfig(FlatTop, oc)` 1줄. ApplyConfig 멱등(멀티서 2회 실행 무해), UnitYOffset 누락 부분중복 해소. 기존 switch/수동4줄은 주석 보존(별도 지시 시 삭제). 브랜치 `claude/code-refactor-phase2-structural`(3838c4d). task: `_Tasks/2026-06-23/15_37_구조개선-Phase2/` |
+| GameBootstrapper.Setup.cs 하드코딩 배열 파생 | ✅ 완료 (2026-06-25) | 환불 캐시 초기화(`InitializeBuildingStatsFromConfig`)에서 손으로 나열하던 건물 목록 배열 2개를 `BuildingTypeHelper` 공개 API 파생으로 교체. ① `stage1Buildings`(1단계 생산건물 9개 하드코딩) → `Array.FindAll((BuildingType[])Enum.GetValues(typeof(BuildingType)), t => BuildingTypeHelper.GetStage(t) == 1)`. ② `nonProductionBuildings`(비생산 건물 6개, Castle 제외 하드코딩) → `Array.FindAll(..., t => !BuildingTypeHelper.IsProductionBuilding(t) && t != BuildingType.Castle)`. Setup.cs에 `using System;` 추가. 환불 캐시 foreach 루프는 변수명·타입(`BuildingType[]`) 동일 유지로 무변경. Phase 2 lookup table 통합의 연장선 — **신규 생산건물 추가 시 `BuildingTypeHelper._buildingTable` 한 줄 추가만으로 환불 캐시 목록까지 자동 반영**(Setup.cs 무수정). 안 2(도메인 레이어 무변경) 선택, 곧바로 교체(파생 목록이 기존 배열과 값 동치·환불 계산 순서 무관임을 Research에서 검증). 동작/환불 값 불변. 사용자 실기 PASS(생산/비생산 건물 철거 환불 금액 정상). 커밋 `8d74e06`(main). task: `_Tasks/2026-06-25/07_23_하드코딩배열-파생/` |
+| IUnitFactory 인터페이스 도입 (Bootstrap 의존성 제거 리팩토링) | ✅ 완료 (2026-06-26) | Application → Infrastructure 역방향 의존 제거. `IGameServices.GetUnitFactory()` 반환 타입을 구체 클래스 `UnitFactory`(Infrastructure) → `IUnitFactory`(Application) 인터페이스로 변경. 신규 파일 `Assets/_Project/Scripts/Application/Interfaces/IUnitFactory.cs` — `GetUnitObject(int)`/`RegisterUnitObject(int, GameObject)`/`InitializeUnitView(UnitData)` 3개 멤버. `UnitFactory.cs`(Infrastructure)에 `IUnitFactory` 구현 추가. 호출부 `GameBootstrapper.cs`/`NetworkProductionController.cs`/`NetworkCombatController.cs`/`NetworkUnitMovementController.cs`/`NetworkUnit.cs`가 `IUnitFactory` 타입으로 수신하도록 업데이트. 기존 `IEntityPositionProvider`/`IForfeitService`와 동일한 의존성 역전 패턴. 동작 변경 없음. 싱글/멀티 실기 PASS(사용자 확인). 브랜치 `claude/code-refactor-cleanup-jsa24o`. |
+| 방 만들기 취소 후 텍스트 잔류 버그 수정 | ✅ 완료 (2026-06-26) | 커스텀 게임 방 만들기 취소 후 CustomHostPanel 재진입 시 이전 LobbyCode/ConnectedPlayers/ErrorMessage 값이 잔류하던 문제. `BattleViewModel.CancelHosting()`에 세 값 초기화 3줄 추가(`LobbyCode.Value=""`, `ConnectedPlayers.Value=0`, `ErrorMessage.Value=""`). main 머지 완료. |
+| ConfirmPopup z-order 버그 수정 (Canvas SO=250) | ✅ 완료 (2026-06-22) | InGameSettings Panel(SO=200)이 ConfirmPopup 위에 렌더링되던 문제. ConfirmPopup.prefab 루트에 Canvas(Override Sorting=true, SO=250) + GraphicRaycaster 추가. Canvas SortingOrder 전체 구조 확정: SO=0/100/200/250/300. GameSystemRules_CanvasSortingOrder.md 작성. |
+| BlockingOverlay 씬 전환 후 미표시 버그 수정 | ✅ 완료 (2026-06-22) | 근본 원인: UIManager가 Login.unity에서 `[UI Systems]` 자식으로 배치되어 DontDestroyOnLoad가 동작하지 않음(Unity 제약: DontDestroyOnLoad는 루트 GO에만 적용). Game 씬 전환 후 UIManager가 파괴되어 `UIManager.Instance=null`. 수정: Login.unity에서 UIManager GO를 계층 루트로 이동(Inspector). Canvas SortingOrder 확정 구조: SO=0(HUD) / SO=100(UIManager BlockingOverlay) / SO=200(패널 Canvas Override) / SO=300(LoadingIndicator). 파일 기반 RuntimeLog(RuntimeLogWriter.cs [DEBUG-TEMP]) 로 흐름 추적 후 원인 확인 → 디버깅 완료 후 로그 코드 제거. |
 
 #### 싱글플레이 AI 시스템 (2026-06-07)
 | 항목 | 상태 | 비고 |
@@ -72,12 +85,13 @@
 | UnitProducedEvent.BarracksId 추가 | ✅ 완료 | `Application/Events/GameEvents.cs` — AI 콜백 기반 연속 생산용. 기존 구독자 ProductionTicker 영향 없음 |
 | ResourceUseCase.SetIncomeMultiplier() | ✅ 완료 | `Application/UseCases/ResourceUseCase.cs` — Red 팀 골드 수입 배율 설정. TickTeamIncome()에 적용 |
 | AIOpponentController.cs (AI 핵심) | ✅ 완료 | `Application/Services/` — 빌드오더 스크립트(Phase 1~4), 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴), BFS 건물 배치, MiningPost 병행 트랙 |
-| AI On/Off 설정 — AIConfig.enableAI | ✅ 완료 | `Infrastructure/Config/AIConfig.cs` — `public bool enableAI = true` 필드. Project 창에서 AIConfig.asset 선택 → Inspector 토글 (Game.unity 씬 접근 불필요). GameBootstrapper._enableAI 주석 처리됨 |
+| AI On/Off 설정 — AIConfig.enableAI | ✅ 완료 | `Infrastructure/Config/AIConfig.cs` — `public bool enableAI = true` 필드. Project 창에서 AIConfig.asset 선택 → Inspector 토글 (Game.unity 씬 접근 불필요). 구 GameBootstrapper._enableAI 주석 처리 블록은 코드 정리 Phase 1(2026-06-23)에서 제거됨 |
 | GameBootstrapper — InitializeAI() | ✅ 완료 | `Bootstrap/GameBootstrapper.Setup.cs` — AIConfig 로드 → enableAI=false면 조기 반환 → 시나리오 랜덤 선택, SetIncomeMultiplier 호출, AIOpponentController 생성·주입 |
 | GameBootstrapper — Map.cs 연동 | ✅ 완료 | `Bootstrap/GameBootstrapper.Map.cs` — SetupProduction() 직후 `if (!NetworkContext.IsNetworkActive) InitializeAI();` (enableAI 체크는 InitializeAI() 내부) |
 | BattleViewModel — SingleplayDifficulty | ✅ 완료 | `BattleViewModel.cs` — BattleScreen.SingleplayDifficulty 추가, CmdSelectDifficulty Subject<DifficultyLevel> 추가, CmdStartSingleplay → 난이도 화면 전환으로 변경 |
 | DifficultySelectView.cs 신규 + UI 구조 | ✅ 완료 | `Presentation/UI/Views/Lobby/Battle/` — 쉬움/보통/어려움/뒤로 버튼 + CanvasGroup 패턴(Rule 5). BattlePanel 상단 절반 배치. VLG Padding 60/60, Spacing 20, preferredHeight=100 (BattleMainPanel 동일 구조) |
 | BattleRootView — DifficultySelectView 바인딩 | ✅ 완료 | `BattleRootView.cs` — _difficultySelectView 필드 + Bind/Unbind 포함 |
+| LogRules.md 작성 | ✅ 완료 (2026-06-20) | 런타임 로그 파일 규칙 문서. 파일 위치/명명, 형식, 레벨 3단계([INFO]/[WARN]/[ERROR]), 카테고리([System/Class]), 금지사항 확정. |
 | AI 시나리오 문서 (전 종족) | ✅ 완료 (2026-06-10) | Human 3개 + Spirit 3개 + Transcendence 3개 — 총 9개 빌드오더 시나리오. 골드 수지 검토 완료. |
 | AI 시나리오 ScriptableObject 3종족 개편 | ✅ 완료 (2026-06-10) | Human/Spirit/Transcendence 각 1파일 × 3시나리오. DifficultyLevel·BuildOrderStep Domain 레이어 분리. |
 | Inspector 작업 | ⏳ 대기 | `Hexiege/Setup/AIConfig 생성` → `AIScenarioConfig_Human_A/B/C 생성` → Spirit/Transcendence 시나리오 에셋 생성 → (Lobby.unity) `Hexiege/Fix/DifficultySelectView 레이아웃 수정` 순서로 실행 |
@@ -114,7 +128,7 @@
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | `UIAnimator.cs` — static 헬퍼 | ✅ 완료 | PopupShow/Hide, SlideFromBottom/Top, ButtonPunch, CountTo, FlashText, FillTo |
-| `AnimatedPanel.cs` — 팝업 컴포넌트 | ✅ 완료 | AnimationType(PopupFade/SlideFromBottom/SlideFromTop), IsVisible, SetUpdate(true), `_backgroundOverlay`(즉시 SetActive) |
+| `AnimatedPanel.cs` — 팝업 컴포넌트 | ✅ 완료 | AnimationType(PopupFade/SlideFromBottom/SlideFromTop), IsVisible, SetUpdate(true), `_backgroundOverlay`(CanvasGroup — Show 시 alpha=1/blocksRaycasts/interactable=true, Hide 시 alpha=0/false/false 즉시 전환) |
 | `AnimatedPanelSetup.cs` — Inspector 자동화 에디터 스크립트 | ✅ 완료 | `Hexiege/Setup/Apply AnimatedPanel Setup` 메뉴 |
 | GameEndPanel → SlideFromTop | ✅ 완료 | 위에서 아래로 슬라이드 인 |
 | ProductionPopup → SlideFromBottom | ✅ 완료 | 하단 슬라이드 업 |
@@ -142,6 +156,27 @@
 | 레이스 컨디션 처리 (`_rematchRequesterId`) | ✅ 완료 | 양측 동시 요청 → 즉시 재경기 |
 | 랜덤매칭 다시하기 버튼 숨김 | ✅ 완료 | `isRandomMatch=true` 시 버튼 비활성화 |
 | 싱글플레이 다시하기 동작 유지 | ✅ 완료 | 변경 없음 |
+
+#### Google 로그인 실기 디버깅 (2026-06-27~28)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Google 로그인 즉시 Canceled 버그 수정 | ✅ 완료 (2026-06-27~28) | 실기 기기에서 구글 로그인 시 계정 선택 UI 미표시 + 즉시 `signInStatus=Canceled` 반환 문제. 3가지 원인을 순차 해결하여 로그인 성공(`UID=xdmWpVNyyvaBe0cB878mSg0URm83`, IsLoggedIn=True, IsAnonymous=False). task: `_Tasks/2026-06-27/12_26_google-login-debug/` |
+| [문제 1] `Authenticate()` → `ManuallyAuthenticate()` 코드 수정 | ✅ 완료 | `FirebaseAuthService.cs`. `Authenticate()`는 `isAuthenticated()`만 호출하여 기존 세션 없으면 무조건 Canceled 반환 → `ManuallyAuthenticate()`(`signIn()` 호출)로 변경해야 계정 선택 UI 표시. GPGS Plugin 2.1.0 기준. |
+| [문제 2] google-services.json SHA-1 보강 | ✅ 완료 | Firebase Console에 SHA-1 1개(릴리즈)만 등록돼 있던 것을 디버그 + Play App Signing 추가하여 3개로 업데이트. `Assets/google-services.json` 재다운로드. |
+| [문제 3] 실제 빌드 키스토어 SHA-1 미등록 (근본 원인) | ✅ 완료 | logcat `PlayGamesServices[SignInAuthenticator]`에서 실제 APK 서명 SHA-1(`18:E0:32:5F:5A:F9:C5:A7:3F:22:34:BE:65:1F:E6:CA:61:2E:DE:3D`) 확인 → 등록된 3개 어느 것과도 불일치(`hexiege-release.keystore`가 SHA-1 등록 시 키스토어와 다른 파일). Firebase Console + Play Console GPGS 사용자 인증 정보에 실제 SHA-1 추가 등록·게시 + Firebase Authentication Play Games 제공업체 활성화(Web Client ID/Secret 입력). |
+| GPGS Server Auth Code 발급 정상화 | ✅ 완료 | SHA-1 불일치 시 `serverAuthCode length=0`(빈 값) → SHA-1 정합 후 `length=73` 정상 발급. |
+| UGS OIDC 브릿지 실패 (`id provider not found`) | ❌ 미해결 (별도 이슈) | Firebase 로그인 성공 후 `SignInWithOpenIdConnectAsync("oidc-firebase")` 단계에서 UGS Dashboard OIDC 제공자 미등록으로 실패 → UGS PlayerId 미발급, 멀티플레이 제한. UGS Dashboard OIDC Provider 등록 후 재확인 필요. |
+
+#### 게임포기 로딩 인디케이터 미해제 버그 수정 (2026-06-26)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 게임포기 시 로딩 인디케이터 영구 잔존 버그 수정 | ✅ 완료 (2026-06-26) | 증상: 멀티플레이 게임포기(Forfeit) 시 로딩 인디케이터가 사라지지 않고 화면에 영구히 남음. 원인: `InGameSettingsUI.OnForfeitConfirmed()`에서 `UIManager.ShowLoading(true, "게임을 포기하는 중...")` 호출 후 씬 전환이 없어 `ShowLoading(false)`가 호출되지 않음(규칙 L-3의 해제 책임자는 씬 전환 후 Bootstrapper/RootView). 수정: 포기는 씬 전환 없이 GameEndUI만 표시하므로 ShowLoading 호출 자체를 제거. `GameSystemRules_UI.md` 규칙 L-2에서 "게임 포기(멀티)" 항목 제거 + "게임 포기(싱글/멀티 모두)는 씬 전환 없이 GameEndUI만 표시하므로 해당 없음" 명시. 수정 파일: `Presentation/UI/InGameSettingsUI.cs`, `GameSystemRules/GameSystemRules_UI.md`. 사용자 실기 PASS. 브랜치 `claude/game-quit-loading-indicator-0h3w0u`. task: `_Tasks/2026-06-26/02_16_forfeit-loading-indicator-stuck/` |
+
+#### 랜덤 매칭 2회차 실패 버그 수정 + RuntimeLogger (2026-06-25)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 랜덤 매칭 2회차 "Cannot start Host" 버그 수정 | ✅ 완료 (2026-06-25) | 증상: 첫 게임 완료 → 로비 복귀 → 2번째 랜덤 매칭 시 NGO "Cannot start Host while an instance is already running" + 로딩 무한 대기. 원인: `GameEndUI._networkGameManager` Inspector 미연결(null) → ReturnToLobby에서 BackToLobby 미호출 → NetworkManager.Shutdown 없이 씬 전환 → 2번째 매칭 시 IsListening=True로 StartHost 재호출. 수정: `GameEndUI.Initialize()`에 `FindFirstObjectByType<NetworkGameManager>()` 자동 탐색 추가(LobbyUI 동일 패턴). 실기 PASS. task: `_Tasks/2026-06-25/...`(GameEndUI 수정) |
+| RuntimeLogger 유틸리티 생성 | ✅ 완료 (2026-06-25) | `Infrastructure/Debug/RuntimeLogger.cs` 신규. `BeginSession(folderPath, role)` / `Log(level, system, className, message, data)` / `EndSession()` API. `#if UNITY_EDITOR`에서 파일 기록, 항상 `Debug.Log` 출력(Logcat 대응). task: `_Tasks/2026-06-25/07_25_runtime-logger/` |
 
 #### 멀티플레이 로비 복귀 버그 수정 (2026-03-17)
 | 항목 | 상태 | 비고 |
@@ -290,6 +325,21 @@
 | 에디터 자동 생성 스크립트 2종 | ✅ 완료 | `Hexiege/Setup/UnitStatsConfig 생성`, `Hexiege/Setup/BuildingStatsConfig 생성` |
 | 에셋 파일 생성 | ✅ 완료 | `Assets/_Project/Resources/Config/UnitStatsConfig.asset`, `BuildingStatsConfig.asset` |
 
+#### Lobby 패널 CanvasGroup 사전 부착 + ProfileView 로그아웃 버튼 (2026-06-22)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| ProfileView 로그아웃 버튼 UI 추가 | ✅ 완료 | `AddLogoutButtonToProfileView.cs` 에디터 스크립트. LogoutButton GO 생성 + ProfileView._logoutButton 연결. 임시 배치(추후 재설계 예정) |
+| Lobby 탭 패널 CanvasGroup 에디터 사전 부착 | ✅ 완료 | `SetupLobbyPanelCanvasGroups.cs` 에디터 스크립트. 4개 패널 활성화 + CanvasGroup 초기값 설정 |
+| LobbyRootView EnsureCanvasGroup → GetComponent 전환 | ✅ 완료 | 런타임 AddComponent 방식 폐기. EnsureCanvasGroup() 헬퍼 제거 |
+
+#### Lobby 씬 UI 규칙 재점검 및 추가 수정 (2026-06-15)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Rule 5: `LobbyUI._lobbyPanel` CanvasGroup 전환 | ✅ 완료 | `GameObject` → `CanvasGroup`, SetActive → alpha/blocksRaycasts/interactable |
+| Rule 6: `LoadingScreen > StatusText` 폰트 교체 | ✅ 완료 | LiberationSans SDF → Maplestory Light SDF. `FixLobbyRuleViolations.cs` 에디터 스크립트 실행 |
+| `BattleRootView.cs` 미사용 `using System;` 제거 | ✅ 완료 | 코드 정리 |
+| 규칙 1~6 전수 재점검 (YAML 173개 GO) | ✅ 완료 | Rule 1/2/4/5/6 전체 준수. Rule 3 실기 확인 권장 |
+
 #### Lobby UI 전체 규칙 준수 수정 (2026-05-30)
 | 항목 | 상태 | 비고 |
 |------|------|------|
@@ -368,10 +418,10 @@
 | UnityServicesInitializer.cs (수정) | ✅ 완료 (2026-06-10 갱신) | OIDC 세션 보존 로직으로 교체. 기존 세션 있으면 재로그인 없이 보존, 세션 없을 때만 익명 폴백. 기존 "항상 재로그인" 블록은 주석 처리(테스트 통과 후 최종 삭제 예정) |
 | 컴파일 에러 전체 해결 | ✅ 완료 | CS0103(AuthException/AuthErrorReason using 누락), CS0029(SignInWithCredentialAsync 반환 타입), CS1061(SignInWithCustomIdAsync 미지원), CS0234(Application.Quit 네임스페이스 충돌) 전체 해결 |
 | 기존 UGS 로그인 동작 보존 | ✅ 완료 | Lobby.unity 직접 실행 시 익명 로그인으로 PlayerId 발급 — 멀티플레이 기능 정상 동작. 401 버그 수정 후 커스텀 게임 + 랜덤 매칭 모두 확인 |
-| Firebase Console 설정 | ❌ 미완료 | google-services.json, SHA-1 등록, Authentication 방식 활성화 — 추후 진행 |
-| GPGS 클라이언트 ID 설정 | ❌ 미완료 | Unity > Window > Google Play Games > Setup 에서 Web Client ID 입력 — 추후 진행 |
-| Login.unity 씬 생성 | ❌ 미완료 | UIWireframe.md 기반 UI 배치 + Inspector 연결 — 추후 진행 |
-| Firebase → UGS OIDC Bridge | ✅ 코드 완료 (2026-06-10) | `SignInWithOpenIdConnectAsync("oidc-firebase", firebaseToken)` 구현. UGS Dashboard OIDC Provider 등록 완료 후 실기 테스트 가능 |
+| Firebase Console 설정 | ✅ 완료 (2026-06-27) | google-services.json SHA-1 3개 + 실제 빌드 키스토어 SHA-1(`18:E0:...:3D`) 등록, Firebase Authentication Play Games 제공업체 활성화(Web Client ID/Secret). Google 로그인 실기 성공. |
+| GPGS 클라이언트 ID + Play Console 사용자 인증 정보 | ✅ 완료 (2026-06-27) | Web Client ID 입력 완료. Play Console GPGS 사용자 인증 정보에 실제 빌드 키스토어 SHA-1 등록·게시 완료(GPGS `signIn()` 검증 통과). |
+| Login.unity 씬 생성 | 🔵 부분 완료 (2026-06-18) | UIManager + SplashOverlay 배치 완료. 로그인 UI 배치(UIWireframe.md 기반) + Inspector 연결은 미완료 — 추후 진행 |
+| Firebase → UGS OIDC Bridge | 🔵 코드 완료 (2026-06-10) / 실기 실패 (2026-06-27) | `SignInWithOpenIdConnectAsync("oidc-firebase", firebaseToken)` 구현 완료. 실기 결과 `id provider not found`로 실패 — UGS Dashboard OIDC 제공자(`oidc-firebase`) 미등록. UGS PlayerId 미발급으로 멀티플레이 제한. UGS Dashboard OIDC Provider 등록 후 재확인 필요. |
 
 ---
 
@@ -501,8 +551,8 @@
 | **그룹 7** — GameBootstrapper partial class 분리 | GameBootstrapper.cs / Setup.cs / Map.cs / Network.cs 4파일로 분리 | ✅ 완료 |
 
 **인스펙터 수동 연결 필요** (에디터에서 직접 연결):
-- `GameEndUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결
-- `NetworkStatusUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결
+- ~~`GameEndUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (2026-06-25, `Initialize()`에서 `FindFirstObjectByType` 자동 탐색으로 대체)
+- ~~`NetworkStatusUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (기존 코드에 이미 `FindFirstObjectByType` 자동 탐색 적용됨)
 
 ---
 
@@ -559,6 +609,13 @@
 | 로그인 시스템 구현 (Login.unity) | 낮음 | Phase 4 |
 | Firebase 백엔드 (랭킹/실시간 리더보드/IAP) | 낮음 | Phase 4 |
 | 카드 수집 시스템 | 낮음 | Phase 4 |
+
+---
+
+#### 개발 도구 / 에이전트 인프라
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| document-manager 에이전트 | ✅ 완료 (2026-06-23) | 프로젝트 전체 문서 통합 관리 전담. CLAUDE.md / AGENTS.md / WORKFLOW.md / 설계 문서 / 메모리 파일 / Task 문서 등 전 문서 담당. `.claude/agents/document-manager.md` |
 
 ---
 

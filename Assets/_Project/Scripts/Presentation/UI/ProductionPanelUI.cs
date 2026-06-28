@@ -59,6 +59,9 @@ namespace Hexiege.Presentation
 
         private Material _instancedAutoMaterial;
 
+        /// <summary>_unitBorderOverlays 각각의 CanvasGroup 캐시. 가시성 제어용.</summary>
+        private List<CanvasGroup> _unitBorderOverlayCgs;
+
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -77,6 +80,29 @@ namespace Hexiege.Presentation
                     foreach (var overlay in _unitBorderOverlays)
                     {
                         if (overlay != null) overlay.material = _instancedAutoMaterial;
+                    }
+                }
+            }
+
+            // ── CanvasGroup 캐시 초기화 ──────────────────────────────────────────
+            // _unitBorderOverlays는 material 할당 때문에 List<Image> 타입을 유지해야 하므로,
+            // 가시성 제어용으로 각 오버레이의 CanvasGroup을 별도 리스트에 1:1로 캐싱한다.
+            // CanvasGroup이 없으면 런타임에 추가하여 안전하게 보장한다.
+            _unitBorderOverlayCgs = new List<CanvasGroup>();
+            if (_unitBorderOverlays != null)
+            {
+                foreach (var overlay in _unitBorderOverlays)
+                {
+                    if (overlay != null)
+                    {
+                        var cg = overlay.gameObject.GetComponent<CanvasGroup>();
+                        if (cg == null) cg = overlay.gameObject.AddComponent<CanvasGroup>();
+                        _unitBorderOverlayCgs.Add(cg);
+                    }
+                    else
+                    {
+                        // 인덱스 정합성을 위해 null 슬롯도 그대로 채운다.
+                        _unitBorderOverlayCgs.Add(null);
                     }
                 }
             }
@@ -107,9 +133,9 @@ namespace Hexiege.Presentation
         #endif
 
         [Header("Lock Indicators")]
-        [Tooltip("각 유닛 버튼 위에 표시되는 잠금 오버레이 GameObject. 버튼 리스트와 1:1 매칭. " +
-                 "현재 건물 단계보다 높은 단계의 유닛에 대해 활성화된다.")]
-        [SerializeField] private List<GameObject> _unitLockIndicators;
+        [Tooltip("각 유닛 버튼 위에 표시되는 잠금 오버레이의 CanvasGroup. 버튼 리스트와 1:1 매칭. " +
+                 "현재 건물 단계보다 높은 단계의 유닛에 대해 alpha=1로 표시된다.")]
+        [SerializeField] private List<CanvasGroup> _unitLockIndicators;
 
         [Header("Unit Button Groups")]
         [Tooltip("각 유닛 버튼 GO에 부착된 CanvasGroup 목록. 유닛 버튼 리스트와 1:1 매칭. " +
@@ -677,10 +703,13 @@ namespace Hexiege.Presentation
 
                     bool isAuto = i < _activeUnitTypes.Count && state.AutoTypes.Contains(_activeUnitTypes[i]);
 
-                    // ── 자동 생산 시각 효과 갱신 (전용 오버레이 활성화) ──
-                    if (_unitBorderOverlays != null && i < _unitBorderOverlays.Count && _unitBorderOverlays[i] != null)
+                    // ── 자동 생산 시각 효과 갱신 ──
+                    // 자동 생산 중이면 alpha=1로 테두리 효과를 보이고, 아니면 alpha=0으로 숨긴다.
+                    // blocksRaycasts는 테두리가 버튼 입력을 가로채지 않도록 가시성과 동일하게 맞춘다.
+                    if (_unitBorderOverlayCgs != null && i < _unitBorderOverlayCgs.Count && _unitBorderOverlayCgs[i] != null)
                     {
-                        _unitBorderOverlays[i].gameObject.SetActive(isAuto);
+                        _unitBorderOverlayCgs[i].alpha = isAuto ? 1f : 0f;
+                        _unitBorderOverlayCgs[i].blocksRaycasts = isAuto;
                     }
 
                     // ── 기존 도트 인디케이터 갱신 ──
@@ -720,8 +749,11 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
                               && slotIndex < _activeUnitTypes.Count
                               && _activeUnitLocks[slotIndex];
 
-                // 자물쇠 아이콘 오버레이 GameObject 표시/숨김 처리.
-                _unitLockIndicators[i].SetActive(locked);
+                // 자물쇠 아이콘 오버레이 표시/숨김 처리.
+                // 잠금 시 alpha=1(표시), 해금 시 alpha=0(숨김).
+                // blocksRaycasts는 가시성과 동일하게 맞춰, 보이지 않는 자물쇠가 버튼 입력을 가로채지 않게 한다.
+                _unitLockIndicators[i].alpha = locked ? 1f : 0f;
+                _unitLockIndicators[i].blocksRaycasts = locked;
 
                 // 초상화 디밍: 잠금 상태면 어둡게, 해금 상태면 원래 색(흰색)으로 복원한다.
                 // 디밍 대상도 슬롯 인덱스(slotIndex)를 기준으로 해야 인디케이터와 같은 슬롯을 가리킨다.

@@ -164,7 +164,7 @@ namespace Hexiege.Presentation
             GameEvents.OnGameStarted.Subscribe(_ => ClearAll()).AddTo(this);
             GameEvents.OnGameEnd.Subscribe(_ => ClearAll()).AddTo(this);
 
-            // [2026-05-20] 토스트 요청 이벤트 구독.
+            // 토스트 요청 이벤트 구독.
             // Infrastructure 레이어(NetworkBuildingController 등)가 ToastUI 정적 호출 대신
             // GameEvents.OnToastRequested를 발행해 Presentation 의존을 끊는다.
             GameEvents.OnToastRequested.Subscribe(Enqueue).AddTo(this);

@@ -22,6 +22,7 @@
 | `Assets/_Project/Docs/UIGuidelines.md` | UI 가이드라인 |
 | `Assets/_Project/Docs/StatsReference.md` | 유닛/건물 스탯 참조표 |
 | `Assets/_Project/Docs/AuthSystemRules.md` | 로그인/인증 시스템 규칙 |
+| `Assets/_Project/Docs/LogRules.md` | 런타임 로그 파일 작성 규칙 (파일 위치, 형식, 레벨, 금지사항) |
 | `Assets/_Project/Docs/GameSystemRules.md` | 게임 시스템 규칙 인덱스 (세부 규칙은 `GameSystemRules/` 하위 파일 참조) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, 건물 배치 패널, 인게임 설정 메뉴 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동, 전투 진입, 전투 연계 |
@@ -66,6 +67,7 @@
 | `.claude/agent-memory/qa-tester/MEMORY.md` | qa-tester 누적 지식 | ❌ 수동 |
 | `.claude/agent-memory/asset-prompt-crafter/MEMORY.md` | asset-prompt-crafter 누적 지식 | ❌ 수동 |
 | `.claude/agent-memory/project-orchestrator/MEMORY.md` | project-orchestrator 누적 지식 | ❌ 수동 |
+| `.claude/agent-memory/document-manager/MEMORY.md` | document-manager 누적 지식 | ❌ 수동 |
 | `C:\Users\rmsep\.claude\projects\...\memory\` | 프로젝트 상태/학습 메모리 | ✅ 항상 |
 
 ---
@@ -79,6 +81,7 @@
 | **qa-tester** | 구현 검증 / 버그 체크 | 구현 완료 후 반드시 | 변경된 파일 목록, 예상 동작 |
 | **asset-prompt-crafter** | 3D 모델 / UI 에셋 생성 | Meshy.ai 또는 이미지 생성 필요 시 | 에셋 스펙, FBX 파이프라인 요구사항 |
 | **project-orchestrator** | 작업 분해 / 에이전트 조율 | 설계+구현 동시, 3파일 이상, 복합 작업 | 전체 컨텍스트 + 각 에이전트 MEMORY 경로 |
+| **document-manager** | 모든 문서 생성·수정·동기화 | 문서 작성/업데이트가 필요한 모든 작업 | 변경 내용, 관련 문서 경로 |
 
 ### project-orchestrator 사용 기준
 
@@ -103,4 +106,5 @@
 | 게임플레이/밸런스 변경 | game-design-lead MEMORY.md |
 | 버그 수정 / 취약점 발견 | qa-tester MEMORY.md |
 | 3D 에셋 작업 | asset-prompt-crafter MEMORY.md |
+| 문서 구조 변경 / 신규 에이전트 추가 | document-manager MEMORY.md |
 | 모든 작업 완료 후 | `C:/Users/rmsep/.claude/projects/.../memory/MEMORY.md` |

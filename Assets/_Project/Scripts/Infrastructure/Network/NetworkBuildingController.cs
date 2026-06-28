@@ -37,24 +37,25 @@ namespace Hexiege.Infrastructure
         // 내부 상태
         // ====================================================================
 
-        /// <summary> GameBootstrapper 참조. UseCase 접근에 사용. </summary>
-        private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
+        /// <summary> 게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화. </summary>
+        private IGameServices _services;
 
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
 
         /// <summary>
-        /// 네트워크 스폰 시 GameBootstrapper 탐색.
+        /// 네트워크 스폰 시 IGameServices 획득.
+        /// GameServicesLocator에서 꺼내므로 Bootstrap에 직접 의존하지 않는다.
         /// </summary>
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
 
-            _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-            if (_bootstrapper == null)
+            _services = GameServicesLocator.Current;
+            if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkBuildingController: GameBootstrapper를 찾을 수 없습니다.");
+                Debug.LogWarning("[Network] NetworkBuildingController: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
             }
 
             Debug.Log($"[Network] NetworkBuildingController 스폰. IsServer={IsServer}");
@@ -134,17 +135,17 @@ namespace Hexiege.Infrastructure
             // ----------------------------------------------------------------
             // 1. 부트스트래퍼 및 UseCase 존재 확인
             // ----------------------------------------------------------------
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            if (_services == null)
             {
                 Debug.LogError("[Network] RequestBuildServerRpc: GameBootstrapper를 찾을 수 없습니다.");
                 SendBuildFailed(senderClientId, "서버 초기화 오류");
                 return;
             }
 
-            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
-            ResourceUseCase resource = _bootstrapper.GetResource();
+            BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
+            ResourceUseCase resource = _services.GetResource();
 
             if (buildingPlacement == null || resource == null)
             {
@@ -238,15 +239,15 @@ namespace Hexiege.Infrastructure
             Debug.Log($"[Network] SpawnBuildingClientRpc 수신. Id={buildingId}, Type={buildingTypeInt}, Team={teamIndex}, Q={q}, R={r}");
 
             // UseCase 접근
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            if (_services == null)
             {
                 Debug.LogError("[Network] SpawnBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");
                 return;
             }
 
-            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
+            BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
                 Debug.LogError("[Network] SpawnBuildingClientRpc: BuildingPlacementUseCase가 null입니다.");
@@ -300,7 +301,7 @@ namespace Hexiege.Infrastructure
         /// 건물 배치 실패 알림. 요청한 클라이언트에게만 전송.
         /// 클라이언트는 GameEvents.OnToastRequested 이벤트를 발행하여 ToastUI에 표시한다.
         ///
-        /// [2026-05-20] reason 문자열을 ToastKey로 매핑하여 토스트 표시:
+        /// reason 문자열을 ToastKey로 매핑하여 토스트 표시:
         ///   "골드 부족" → ToastKey.GoldInsufficient
         ///   그 외(맵 로드 중/팀 불일치/배치 위치 오류/서버 초기화 오류) → 키가 없으므로 로그만 남기고 표시 생략.
         ///   (각 사유별 토스트 키가 추가되면 매핑을 확장한다.)
@@ -358,17 +359,17 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] 건물 업그레이드 요청 수신. ClientId={senderClientId}, BuildingId={buildingId}");
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            if (_services == null)
             {
                 Debug.LogError("[Network] RequestUpgradeServerRpc: GameBootstrapper를 찾을 수 없습니다.");
                 SendBuildFailed(senderClientId, "서버 초기화 오류");
                 return;
             }
 
-            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
-            ResourceUseCase resource = _bootstrapper.GetResource();
+            BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
+            ResourceUseCase resource = _services.GetResource();
 
             if (buildingPlacement == null || resource == null)
             {
@@ -458,15 +459,15 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] UpgradeBuildingClientRpc 수신. oldId={oldBuildingId}, newId={newBuildingId}, newType={newTypeInt}");
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            if (_services == null)
             {
                 Debug.LogError("[Network] UpgradeBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");
                 return;
             }
 
-            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
+            BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
                 Debug.LogError("[Network] UpgradeBuildingClientRpc: BuildingPlacementUseCase가 null입니다.");
@@ -521,17 +522,17 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] 건물 철거 요청 수신. ClientId={senderClientId}, BuildingId={buildingId}");
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            if (_services == null)
             {
                 Debug.LogError("[Network] RequestDemolishServerRpc: GameBootstrapper를 찾을 수 없습니다.");
                 SendBuildFailed(senderClientId, "서버 초기화 오류");
                 return;
             }
 
-            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
-            ResourceUseCase resource = _bootstrapper.GetResource();
+            BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
+            ResourceUseCase resource = _services.GetResource();
 
             if (buildingPlacement == null || resource == null)
             {
@@ -570,7 +571,7 @@ namespace Hexiege.Infrastructure
             // CancelAllQueue 내부에서 골드 환불과 이벤트 발행이 함께 처리된다.
             if (BuildingTypeHelper.IsProductionBuilding(building.Type))
             {
-                UnitProductionUseCase production = _bootstrapper.GetUnitProduction();
+                UnitProductionUseCase production = _services.GetUnitProduction();
                 if (production != null)
                     production.CancelAllQueue(buildingId);
             }
@@ -611,15 +612,15 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] DemolishBuildingClientRpc 수신. Id={buildingId}");
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시.
+            // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            if (_services == null)
             {
                 Debug.LogError("[Network] DemolishBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");
                 return;
             }
 
-            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
+            BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
                 Debug.LogError("[Network] DemolishBuildingClientRpc: BuildingPlacementUseCase가 null입니다.");

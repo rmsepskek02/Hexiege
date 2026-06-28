@@ -61,10 +61,12 @@ namespace Hexiege.Bootstrap
                 // GridCenter() 호출 전에 HexMetrics를 FlatTop 기준으로 사전 설정.
                 // 이렇게 하지 않으면 기본값(PointyTop)으로 중심 좌표가 계산되어
                 // Red팀 반전 위치가 한 칸 이상 틀어지는 버그가 발생.
-                HexMetrics.Orientation = HexOrientation.FlatTop;
-                HexOrientationContext.Current = HexOrientation.FlatTop;
-                HexMetrics.TileWidth = oc.TileWidth;
-                HexMetrics.TileHeight = oc.TileHeight;
+                //
+                // [Phase 2 리팩토링] 기존 수동 설정 4줄을 ApplyConfig() 호출로 대체.
+                // LoadMap() 내부에서도 동일한 ApplyConfig()가 실행되므로, 여기서 먼저
+                // 동일 로직을 재사용해 중복을 제거한다. (HexMetrics 적용 → GridCenter
+                // 계산 → ViewConverter.Setup → LoadMap 순서는 그대로 유지됨.)
+                ApplyConfig(HexOrientation.FlatTop, oc);
 
                 Vector3 mapCenter = HexMetrics.GridCenter(oc.GridWidth, oc.GridHeight);
                 bool isRed = (localTeam == TeamId.Red);
@@ -79,7 +81,7 @@ namespace Hexiege.Bootstrap
         }
 
         // ====================================================================
-        // [2026-04-30] 새 규칙 4 — eager 경로 재계산 트리거 설정
+        // eager 경로 재계산 트리거 설정
         // ====================================================================
 
         /// <summary>

@@ -46,7 +46,7 @@ namespace Hexiege.Domain
         private readonly Dictionary<HexCoord, HexTile> _tiles = new Dictionary<HexCoord, HexTile>();
 
         // ====================================================================
-        // [2026-05-20] 팀별 소유 타일 카운터 (성능 최적화)
+        // 팀별 소유 타일 카운터 (성능 최적화)
         // ====================================================================
         // CountTilesOwnedBy(team) 호출 시 187타일 전체를 순회하지 않도록 캐시.
         // SetOwner 호출 시 이전 팀 -1, 새 팀 +1 갱신.
@@ -80,7 +80,7 @@ namespace Hexiege.Domain
         /// 각각을 큐브 좌표로 변환하여 HexTile 생성.
         /// PointyTop이면 even-r, FlatTop이면 even-q offset 사용.
         ///
-        /// [2026-05-20] 생성 직후 팀별 카운터를 Neutral=총타일수로 초기화한다.
+        /// 생성 직후 팀별 카운터를 Neutral=총타일수로 초기화한다.
         /// 모든 타일이 기본값으로 Neutral 상태이므로.
         /// </summary>
         private void Generate()
@@ -164,7 +164,7 @@ namespace Hexiege.Domain
         /// 타일의 소유자를 변경 (점령). 존재하지 않는 좌표는 무시.
         /// UnitMovementUseCase에서 유닛 이동 시 호출.
         ///
-        /// [2026-05-20] 팀별 소유 타일 카운터(_ownedTileCounts)를 함께 갱신.
+        /// 팀별 소유 타일 카운터(_ownedTileCounts)를 함께 갱신.
         /// 같은 소유자로 재설정하면 카운터는 변하지 않는다.
         /// </summary>
         public void SetOwner(HexCoord coord, TeamId owner)
@@ -229,7 +229,7 @@ namespace Hexiege.Domain
         /// 특정 팀이 소유한 타일 수를 반환.
         /// 인구수 계산에 사용: 총 인구 = 보유 타일 수.
         ///
-        /// [2026-05-20] _ownedTileCounts Dictionary 캐시로 O(187) → O(1) 단축.
+        /// _ownedTileCounts Dictionary 캐시로 O(187) → O(1) 단축.
         /// SetOwner 호출 시점에 증감 갱신되므로 매번 전체 순회할 필요가 없다.
         /// </summary>
         public int CountTilesOwnedBy(TeamId team)

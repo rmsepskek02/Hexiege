@@ -37,7 +37,7 @@ namespace Hexiege.Application
         // 월드↔헥스 좌표 변환기. Core(HexMetrics) 의존을 피하기 위한 인터페이스 주입.
         private readonly IHexCoordinateMapper _mapper;
 
-        // [2026-05-20] 이동 시 위치 역인덱스 동기화를 위해 UnitSpawnUseCase 참조 보관.
+        // 이동 시 위치 역인덱스 동기화를 위해 UnitSpawnUseCase 참조 보관.
         // ProcessStep에서 unit.Position 갱신 직후 _unitSpawn.NotifyUnitMoved(from, to) 호출.
         private readonly UnitSpawnUseCase _unitSpawn;
 
@@ -135,7 +135,7 @@ namespace Hexiege.Application
             // 유닛 위치 업데이트
             unit.Position = to;
 
-            // [2026-05-20] 위치 역인덱스 동기화 — UnitSpawnUseCase._unitsByPosition을 from→to로 갱신.
+            // 위치 역인덱스 동기화 — UnitSpawnUseCase._unitsByPosition을 from→to로 갱신.
             // GetUnitAt(coord) O(1) 조회를 위해 두 자료구조의 무결성을 보장한다.
             _unitSpawn?.NotifyUnitMoved(unit, from, to);
 
@@ -145,7 +145,7 @@ namespace Hexiege.Application
         }
 
         // ====================================================================
-        // [2026-04-30] 새 규칙 11/15 — 전투 종료 후 "앞쪽 가장 가까운 타일" 찾기
+        // 새 규칙 11/15 — 전투 종료 후 "앞쪽 가장 가까운 타일" 찾기
         // ====================================================================
 
         /// <summary>

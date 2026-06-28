@@ -19,10 +19,10 @@
 // Bootstrap 레이어 — 모든 레이어에 접근 가능한 유일한 곳.
 // ============================================================================
 
+using System;                       // [DEBUG-TEMP] 디버깅 완료 후 제거 (DateTime)
 using System.Threading.Tasks;
 using GooglePlayGames;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
 using Hexiege.Presentation;
@@ -60,9 +60,13 @@ namespace Hexiege.Bootstrap
         [Tooltip("익명 로그인 경고 팝업.")]
         [SerializeField] private AnonymousWarningPopup _anonymousWarningPopup;
 
-        [Header("로딩 표시")]
-        [Tooltip("자동 로그인 시도 중 표시할 로딩 인디케이터 GameObject.")]
-        [SerializeField] private GameObject _loadingIndicator;
+        [Tooltip("네트워크 오류 안내 팝업.")]
+        [SerializeField] private NetworkErrorPopup _networkErrorPopup;
+
+        [Header("스플래시 오버레이")]
+        [Tooltip("Login 씬 진입 시 표시되는 스플래시 오버레이. " +
+                 "초기화 중 '로딩 중...' → 완료 후 'Tap to Start' → 탭 시 페이드아웃을 담당한다.")]
+        [SerializeField] private SplashOverlayView _splashOverlay;
 
         [Header("씬 전환 설정")]
         [Tooltip("로그인 성공 후 이동할 씬 이름. 기본값: Lobby")]
@@ -103,11 +107,23 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private async void Start()
         {
-            // 사운드 시스템 초기화 — Firebase 초기화보다 먼저 수행하여
-            // Login 씬 진입 직후 곧바로 로그인 BGM이 재생되도록 한다.
-            // AudioManager는 [Audio] 오브젝트에 부착되어 있으며 DontDestroyOnLoad로 이후 씬까지 유지된다.
-            // Instance가 null일 수 있는 개발 중 직접 진입 상황을 대비해 ?. 연산자로 안전 처리한다 (규칙 5).
+            // 1) 스플래시 오버레이에 "로딩 중..." 상태를 가장 먼저 표시한다.
+            //    초기화가 끝날 때까지 배경 이미지 + 상태 문구로 진행 상황을 안내한다.
+            //    개발 중 오버레이 미연결 상황을 대비해 ?. 로 안전 처리한다.
+            _splashOverlay?.SetStatus("로딩 중...");
+
+            // 2) 사운드 시스템 초기화 — Firebase 초기화보다 먼저 수행하여
+            //    Login 씬 진입 직후 곧바로 로그인 BGM이 재생되도록 한다.
+            //    AudioManager는 [Audio] 오브젝트에 부착되어 있으며 DontDestroyOnLoad로 이후 씬까지 유지된다.
+            //    Instance가 null일 수 있는 개발 중 직접 진입 상황을 대비해 ?. 연산자로 안전 처리한다 (규칙 5).
             AudioManager.Instance?.Initialize(_soundConfig);
+
+            // 3) 전역 UIManager 존재 확인(로그용). UIManager는 이 씬의 [UI Systems] 하위에 배치되어
+            //    Awake에서 Instance 등록 + DontDestroyOnLoad 처리된다.
+            //    개발 중 직접 진입 등으로 null일 수 있으므로 경고만 출력하고 진행한다(규칙 5).
+            if (UIManager.Instance == null)
+                Debug.LogWarning("[LoginBootstrapper] UIManager.Instance가 null입니다. " +
+                                 "[UI Systems]에 UIManager가 배치되어 있는지 확인하세요. 공통 UI 호출은 무시됩니다.");
 
             await InitializeAndDispatchAsync();
         }
@@ -125,7 +141,7 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private async Task InitializeAndDispatchAsync()
         {
-            ShowLoading(true);
+            RuntimeLog("INFO", "초기화 시작"); // [DEBUG-TEMP] 디버깅 완료 후 제거
 
             // 1) Firebase SDK 초기화
             _authService = new FirebaseAuthService();
@@ -134,6 +150,11 @@ namespace Hexiege.Bootstrap
             {
                 Debug.LogError("[LoginBootstrapper] Firebase 초기화 실패. 로그인 선택 화면을 표시합니다.");
                 // 초기화 실패해도 로그인 화면 자체는 표시 — 사용자가 재시도할 수 있도록.
+                RuntimeLog("ERROR", "Firebase 초기화 실패"); // [DEBUG-TEMP] 디버깅 완료 후 제거
+            }
+            else
+            {
+                RuntimeLog("INFO", "Firebase 초기화 성공"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             }
 
             // 2) UseCase 생성
@@ -152,15 +173,69 @@ namespace Hexiege.Bootstrap
                 bool autoOk = await _loginUseCase.TryAutoLoginAsync();
                 if (autoOk)
                 {
-                    Debug.Log("[LoginBootstrapper] 자동 로그인 성공. Lobby 씬으로 이동합니다.");
-                    GoToNextScene();
+                    Debug.Log("[LoginBootstrapper] 자동 로그인 성공. 'Tap to Start' 후 Lobby 씬으로 이동합니다.");
+                    // 자동 로그인 성공이라도 곧바로 씬을 이동하지 않고 "Tap to Start"를 거친다.
+                    //   탭 콜백으로 GoToNextScene을 주입한 뒤, 로딩 인디케이터를 끄고 "Tap to Start"를 표시한다.
+                    //   → 사용자가 탭하면 오버레이가 페이드아웃되고 그 완료 콜백(GoToNextScene)으로 Lobby 씬으로 이동한다.
+                    //   오버레이가 없으면(개발 중 직접 진입 등) 곧바로 씬을 이동한다.
+                    if (_splashOverlay != null)
+                    {
+                        // skipFade: true — 탭 시 FadeOut 없이 즉시 GoToNextScene 호출.
+                        // SceneLoader가 로딩 인디케이터를 표시하므로 Login 씬 배경이 노출되지 않는다.
+                        _splashOverlay.SetTapCallback(GoToNextScene, skipFade: true);
+
+                        // [로딩 인디케이터 끄기] 스플래시가 "Tap to Start" 상태로 화면에 준비되는 시점이다(UI 규칙 L-3).
+                        UIManager.Instance?.ShowLoading(false);
+
+                        _splashOverlay.ShowTapToStart();
+                    }
+                    else
+                    {
+                        UIManager.Instance?.ShowLoading(false);
+                        GoToNextScene();
+                    }
                     return;
                 }
-                Debug.LogWarning("[LoginBootstrapper] 자동 로그인 실패. 로그인 선택 화면을 표시합니다.");
+                Debug.LogWarning("[LoginBootstrapper] 자동 로그인 실패. 'Tap to Start' 후 로그인 선택 화면을 표시합니다.");
             }
 
-            // 자동 로그인 실패 또는 세션 없음 → 로그인 선택 화면 표시
-            ShowLoading(false);
+            // 5) 자동 로그인 실패 또는 세션 없음
+            //    "Tap to Start"를 표시하고, 사용자가 탭하면 오버레이가 페이드아웃된 뒤
+            //    그 완료 콜백(ShowLoginSelect)으로 로그인 선택 화면을 노출한다.
+            //    → 탭 콜백을 먼저 주입(SetTapCallback)한 다음 ShowTapToStart()를 호출한다.
+            //    오버레이가 없으면(개발 중 직접 진입 등) 곧바로 로그인 선택 화면을 표시한다.
+            if (_splashOverlay != null)
+            {
+                _splashOverlay.SetTapCallback(ShowLoginSelect);
+
+                // [로딩 인디케이터 끄기] 스플래시가 "Tap to Start" 상태로 화면에 준비되는 시점이다.
+                //   이 시점에는 Login 씬이 이미 사용자에게 보여줄 준비가 끝났으므로,
+                //   로그아웃 등으로 이전 씬에서 켜둔 전역 로딩 인디케이터를 여기서 끈다(UI 규칙 L-3).
+                //   (ShowLoginSelect는 사용자가 탭한 뒤에야 실행되므로, 거기서 끄면
+                //    탭 전까지 로딩 인디케이터가 계속 떠 있는 버그가 발생한다.)
+                UIManager.Instance?.ShowLoading(false);
+
+                _splashOverlay.ShowTapToStart();
+            }
+            else
+            {
+                // 스플래시가 없으면(개발 중 직접 진입 등) 곧바로 로그인 선택 화면을 표시하기 직전에 끈다.
+                UIManager.Instance?.ShowLoading(false);
+                ShowLoginSelect();
+            }
+        }
+
+        /// <summary>
+        /// 로그인 선택 화면을 노출한다.
+        /// 스플래시 페이드아웃 완료 콜백(탭 이후) 또는 오버레이 미연결 시 직접 호출된다.
+        /// </summary>
+        private void ShowLoginSelect()
+        {
+            // [주의] 로딩 인디케이터 끄기는 더 이상 여기서 하지 않는다.
+            //   ShowLoginSelect는 스플래시 "Tap to Start"를 사용자가 탭한 뒤에야 실행되므로,
+            //   여기서 끄면 탭 전까지 로딩 인디케이터가 계속 떠 있는 버그가 발생한다(TC-04).
+            //   → 로딩 끄기는 스플래시가 화면에 준비된 시점(InitializeAndDispatchAsync)으로 이동했다.
+
             if (_rootView != null)
                 _rootView.ShowLoginSelect();
         }
@@ -192,6 +267,9 @@ namespace Hexiege.Bootstrap
 
             if (_anonymousWarningPopup != null)
                 _anonymousWarningPopup.Initialize(_rootView, _loginUseCase, this);
+
+            if (_networkErrorPopup != null)
+                _networkErrorPopup.Initialize(_rootView);
         }
 
         // ====================================================================
@@ -209,17 +287,35 @@ namespace Hexiege.Bootstrap
                 Debug.LogError("[LoginBootstrapper] _nextSceneName 이 비어 있어 씬 이동을 진행할 수 없습니다.");
                 return;
             }
-            SceneManager.LoadScene(_nextSceneName);
+            // SceneLoader.Load 가 내부에서 로딩 인디케이터를 자동 표시한다.
+            SceneLoader.Load(_nextSceneName);
         }
 
         /// <summary>
         /// 로딩 인디케이터 표시 토글.
-        /// 자동 로그인 / 비동기 요청 중 사용자에게 진행 상황을 안내.
+        /// 로딩 인디케이터는 전역 UIManager로 이동했으므로, 이 메서드는 UIManager에 위임한다.
+        /// (EmailLoginView 등 기존 호출부가 이 시그니처를 그대로 사용하므로 메서드는 유지한다.)
+        /// UIManager.Instance가 null일 수 있는 개발 중 직접 진입 상황을 대비해 ?. 로 안전 처리한다.
         /// </summary>
-        public void ShowLoading(bool show)
+        public void ShowLoading(bool show, string message = "")
         {
-            if (_loadingIndicator != null)
-                _loadingIndicator.SetActive(show);
+            UIManager.Instance?.ShowLoading(show, message);
+        }
+
+        // ====================================================================
+        // [DEBUG-TEMP] 디버깅 완료 후 제거 — RuntimeLog 출력
+        // 실기기(Android)에서 로그인 흐름을 Logcat(Debug.Log)으로 추적하기 위한 임시 로그.
+        // 사용자가 Logcat 출력을 복사해 공유한다.
+        // ====================================================================
+
+        /// <summary>
+        /// [DEBUG-TEMP] 한 줄 로그를 Debug.Log(Logcat)로 출력한다.
+        /// 형식: [HH:MM:SS.ms] [LEVEL] [Bootstrap/LoginBootstrapper] 메시지
+        /// </summary>
+        private void RuntimeLog(string level, string message)
+        {
+            // 에디터 파일 형식과 동일하게 시간/레벨/시스템 태그를 붙여 출력한다.
+            Debug.Log($"[{DateTime.Now:HH:mm:ss.fff}] [{level}] [Bootstrap/LoginBootstrapper] {message}");
         }
     }
 }

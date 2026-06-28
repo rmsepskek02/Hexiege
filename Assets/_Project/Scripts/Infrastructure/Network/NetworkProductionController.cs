@@ -42,8 +42,8 @@ namespace Hexiege.Infrastructure
         // 내부 상태
         // ====================================================================
 
-        /// <summary> GameBootstrapper 참조. UseCase 접근에 사용. </summary>
-        private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
+        /// <summary>게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
+        private IGameServices _services;
 
         /// <summary> OnUnitProduced 구독 해제용 Disposable. </summary>
         private System.IDisposable _unitProducedSubscription;
@@ -66,10 +66,10 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
-            _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-            if (_bootstrapper == null)
+            _services = GameServicesLocator.Current;
+            if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkProductionController: GameBootstrapper를 찾을 수 없습니다.");
+                Debug.LogWarning("[Network] NetworkProductionController: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
             }
 
             Debug.Log($"[Network] NetworkProductionController 스폰. IsServer={IsServer}");
@@ -191,7 +191,7 @@ namespace Hexiege.Infrastructure
         {
             if (!IsServer) return;
 
-            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null) return;
 
             var state = production.GetState(e.BarracksId);
@@ -220,7 +220,7 @@ namespace Hexiege.Infrastructure
         {
             if (!IsServer) return;
 
-            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null) return;
 
             var state = production.GetState(e.BarracksId);
@@ -323,17 +323,17 @@ namespace Hexiege.Infrastructure
             // ----------------------------------------------------------------
             // 1. 부트스트래퍼 및 UseCase 확인
             // ----------------------------------------------------------------
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_services == null)
             {
                 Debug.LogError("[Network] RequestEnqueueServerRpc: GameBootstrapper를 찾을 수 없습니다.");
                 SendEnqueueFailed(senderClientId, "서버 초기화 오류");
                 return;
             }
 
-            UnitProductionUseCase production = _bootstrapper.GetUnitProduction();
-            ResourceUseCase resource = _bootstrapper.GetResource();
-            PopulationUseCase population = _bootstrapper.GetPopulation();
+            UnitProductionUseCase production = _services.GetUnitProduction();
+            ResourceUseCase resource = _services.GetResource();
+            PopulationUseCase population = _services.GetPopulation();
 
             if (production == null || resource == null || population == null)
             {
@@ -453,15 +453,15 @@ namespace Hexiege.Infrastructure
 
             Debug.Log($"[Network] SpawnUnitClientRpc 수신. UnitId={unitId}, Type={unitTypeInt}, Team={teamIndex}, Q={q}, R={r}");
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_services == null)
             {
                 Debug.LogError("[Network] SpawnUnitClientRpc: GameBootstrapper를 찾을 수 없습니다.");
                 return;
             }
 
-            UnitSpawnUseCase unitSpawn = _bootstrapper.GetUnitSpawn();
-            UnitFactory unitFactory = _bootstrapper.GetUnitFactory();
+            UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
+            IUnitFactory unitFactory = _services.GetUnitFactory();
 
             if (unitSpawn == null)
             {
@@ -517,9 +517,9 @@ namespace Hexiege.Infrastructure
         /// NetworkUnit.OnNetworkSpawn()에서 RegisterUnitObject()가 호출될 때까지 대기.
         /// 최대 3초 대기 후 실패 로그 출력.
         /// </summary>
-        /// <param name="unitFactory">UnitFactory 참조</param>
+        /// <param name="unitFactory">IUnitFactory 참조</param>
         /// <param name="unitData">초기화할 UnitData</param>
-        private System.Collections.IEnumerator RetryInitializeUnitView(UnitFactory unitFactory, UnitData unitData)
+        private System.Collections.IEnumerator RetryInitializeUnitView(IUnitFactory unitFactory, UnitData unitData)
         {
             float elapsed = 0f;
             float maxWait = 3f; // 최대 3초 대기
@@ -557,8 +557,8 @@ namespace Hexiege.Infrastructure
         {
             if (IsServer) return;
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null) return;
 
             var state = production.GetState(barracksId);
@@ -621,8 +621,8 @@ namespace Hexiege.Infrastructure
         {
             if (IsServer) return;
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null) return;
 
             var state = production.GetState(barracksId);
@@ -701,8 +701,8 @@ namespace Hexiege.Infrastructure
             }
 
             // 부트스트래퍼 및 UseCase 확인
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null)
             {
                 Debug.LogWarning("[Network] CancelSlotServerRpc: UnitProductionUseCase가 null.");
@@ -769,8 +769,8 @@ namespace Hexiege.Infrastructure
             // 2. 부트스트래퍼 및 UseCase 확인
             //    맵 로드 타이밍 이슈로 초기화가 늦을 수 있으므로 Find로 재시도.
             // ----------------------------------------------------------------
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null)
             {
                 Debug.LogWarning("[Network] SetRallyPointServerRpc: UnitProductionUseCase가 null.");
@@ -818,8 +818,8 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            UnitProductionUseCase production = _bootstrapper?.GetUnitProduction();
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null)
             {
                 Debug.LogWarning("[Network] ToggleAutoServerRpc: UnitProductionUseCase가 null.");
@@ -892,7 +892,7 @@ namespace Hexiege.Infrastructure
         /// 생산 큐 추가 실패 알림. 요청한 클라이언트에게만 전송.
         /// 클라이언트는 GameEvents.OnToastRequested 이벤트를 발행하여 ToastUI에 표시한다.
         ///
-        /// [2026-05-20] reason 문자열을 ToastKey로 매핑:
+        /// reason 문자열을 ToastKey로 매핑:
         ///   "골드 부족" → GoldInsufficient
         ///   "인구 부족"/"인구 한계" → PopulationFull
         ///   "큐 가득" → ProductionQueueFull

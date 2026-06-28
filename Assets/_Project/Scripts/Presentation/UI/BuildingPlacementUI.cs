@@ -49,10 +49,6 @@ namespace Hexiege.Presentation
         [Tooltip("팝업 래퍼 (AnimatedPanel 부착, Show()/Hide()로 토글)")]
         [SerializeField] private AnimatedPanel _popup;
 
-        [Header("Shared Background")]
-        [Tooltip("Canvas 직속 공유 Background (터치 시 팝업 닫기)")]
-        [SerializeField] private SharedBackgroundButton _sharedBackground;
-
         [Header("Dynamic Building Buttons")]
 [Tooltip("건물 배치 버튼 리스트")]
         [SerializeField] private List<Button> _buildingButtons;
@@ -154,19 +150,9 @@ namespace Hexiege.Presentation
         /// UseCase 등 의존성을 주입받고, 버튼별 CanvasGroup 캐시를 함께 구성한다.
         ///
         /// [중요 — 왜 Awake()를 쓰지 않고 Initialize()에서 처리하는가?]
-        ///   BuildingPopup GameObject는 씬 시작 시 비활성(SetActive=false) 상태로 배치된다.
-        ///   Unity의 Awake()는 GameObject가 비활성이면 호출되지 않는다.
-        ///   (정확히는 처음 활성화되는 시점에서야 호출됨)
-        ///
-        ///   따라서 만약 CanvasGroup 캐시 구성을 Awake()에 두면:
-        ///     1. 씬 로드 시 BuildingPopup은 비활성 → Awake() 미호출 → _buttonCanvasGroups = null
-        ///     2. 첫 Show() 호출 시 CanvasGroup 캐시가 null이라 alpha=1 설정이 건너뛰어짐
-        ///     3. _popup.Show() 내부에서 SetActive(true) 발생 → 이 순간 Awake() 실행
-        ///     4. Awake()가 모든 CanvasGroup의 alpha를 0으로 초기화
-        ///     5. 결과: 팝업은 열렸지만 버튼이 전혀 안 보임 (두 번째 클릭부터 정상)
-        ///
-        ///   Initialize()는 GameBootstrapper에서 직접 호출하는 일반 C# 메서드이므로
-        ///   GameObject가 비활성 상태여도 정상 실행된다 → 캐시 구성이 보장됨.
+        ///   GameBootstrapper가 UseCase 등 외부 의존성을 주입하는 시점이 Awake() 이후이므로,
+        ///   의존성이 필요한 초기화 로직은 GameBootstrapper가 직접 호출하는 Initialize()에 둔다.
+        ///   CanvasGroup 캐시 구성도 같은 시점에 함께 처리한다.
         ///
         /// [CanvasGroup 캐시 구성 로직]
         ///   각 건물 버튼 GameObject에 CanvasGroup이 부착되어 있으면 그대로 캐시하고,
@@ -236,8 +222,6 @@ namespace Hexiege.Presentation
                 ? GameRaceContext.BlueRace
                 : GameRaceContext.RedRace;
 
-            Debug.Log($"[BuildingPlacementUI] Show - Team: {team}, Race: {race}");
-
             // 2. 종족별 건물 리스트 가져오기
             var list = GetBuildingList(team, race);
 
@@ -304,7 +288,8 @@ namespace Hexiege.Presentation
             }
 
             _popup?.Show();
-            _sharedBackground?.Register(Close);
+            // UIManager 공유 BlockingOverlay를 Popup 모드로 표시(터치 시 Close 호출).
+            UIManager.Instance?.ShowBlockingOverlay(Close);
 
             // 팝업이 열리는 순간 현재 보유 골드를 기준으로 비용 텍스트 색상을 즉시 평가.
             // (살 수 없는 건물의 비용은 빨간색, 살 수 있는 건물은 흰색으로 표시)
@@ -457,8 +442,8 @@ namespace Hexiege.Presentation
                 }
             }
 
-            // 공유 Background 콜백 해제 (Hide 애니메이션 중 추가 터치 방지)
-            _sharedBackground?.Unregister();
+            // UIManager 공유 BlockingOverlay 숨김.
+            UIManager.Instance?.HideBlockingOverlay();
 
             _popup?.Hide();
         }
@@ -496,10 +481,6 @@ namespace Hexiege.Presentation
         /// 싱글플레이: UseCase 직접 호출 (기존 흐름 유지).
         /// 멀티플레이: NetworkBuildingController.RequestBuild 래퍼를 통해
         ///             서버에 배치 요청을 위임. 골드 차감과 실제 배치는 서버에서 처리.
-        ///
-        /// [2026-05-20] Unity.Netcode 직접 의존 제거:
-        ///   - NetworkManager.Singleton.IsHost/IsClient 체크 → NetworkContext.IsNetworkActive
-        ///   - RequestBuildServerRpc 직접 호출 → RequestBuild() 래퍼 메서드
         /// </summary>
         private void PlaceAndClose(BuildingType type)
         {

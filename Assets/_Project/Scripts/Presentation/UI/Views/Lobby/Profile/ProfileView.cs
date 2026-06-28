@@ -25,7 +25,6 @@
 
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
@@ -69,10 +68,6 @@ namespace Hexiege.Presentation
         [Header("상태 표시")]
         [Tooltip("연동/로그아웃 결과 메시지.")]
         [SerializeField] private TextMeshProUGUI _statusText;
-
-        [Header("팝업 (선택)")]
-        [Tooltip("연동 충돌 등 알림에 재사용할 ConfirmPopup. 미연결 시 _statusText 만 사용.")]
-        [SerializeField] private ConfirmPopup _alertPopup;
 
         [Header("씬 전환")]
         [Tooltip("로그아웃 후 이동할 씬 이름.")]
@@ -299,16 +294,26 @@ namespace Hexiege.Presentation
         {
             SetInteractable(false);
 
+            // 로그아웃은 Firebase/UGS 세션 종료(비동기)가 진행되는 동안 사용자가 멈춘 화면을
+            // 보지 않도록, 세션 종료 시작 시점부터 전역 로딩 인디케이터를 띄운다.
+            // (비동기 대기가 있어 SceneLoader.Load 보다 먼저 로딩을 표시해야 한다.)
+            // 로딩을 끄는 책임은 목적지 씬(Login)의 LoginBootstrapper가 담당한다(UI 규칙 L-3).
+            // UIManager가 null일 수 있는 상황(씬 직접 진입 등)을 대비해 ?. 로 안전 처리한다(규칙 L-4).
+            UIManager.Instance?.ShowLoading(true, "로그아웃 중...");
+
             try
             {
                 await _loginUseCase.SignOutAsync();
-                SceneManager.LoadScene(_loginSceneName);
+                // SceneLoader.Load 가 내부에서 ShowLoading(true)를 다시 호출하므로 메시지가 갱신된다.
+                SceneLoader.Load(_loginSceneName, "로그아웃 중...");
             }
             catch (System.Exception e)
             {
                 Debug.LogError($"[ProfileView] 로그아웃 중 예외: {e.Message}");
                 SetStatus("로그아웃 중 오류가 발생했습니다.");
                 SetInteractable(true);
+                // 예외로 씬 전환이 일어나지 않으므로 여기서 로딩을 직접 끈다(UI 규칙 L-3 예외 경로).
+                UIManager.Instance?.ShowLoading(false);
             }
         }
 
@@ -331,21 +336,22 @@ namespace Hexiege.Presentation
         private void ClearStatus() => SetStatus(string.Empty);
 
         /// <summary>
-        /// 알림 팝업 표시. ConfirmPopup 이 미연결되어 있으면 statusText 로 대체.
+        /// 알림 팝업 표시. UIManager가 없으면 statusText 로 대체.
         /// </summary>
         private void ShowAlert(string message)
         {
-            if (_alertPopup != null)
+            if (UIManager.Instance != null)
             {
-                _alertPopup.Show(
+                UIManager.Instance.ShowConfirm(
                     message: message,
-                    confirmLabel: "확인",
-                    cancelLabel: string.Empty,
                     onConfirm: null,
-                    onCancel: null);
+                    onCancel: null,
+                    confirmLabel: "확인",
+                    cancelLabel: string.Empty);
             }
             else
             {
+                // UIManager 미초기화 상태(씬 직접 진입 등) — statusText로 대체.
                 SetStatus(message);
             }
         }

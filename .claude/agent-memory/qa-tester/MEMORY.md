@@ -69,6 +69,14 @@
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
 
+## Google 로그인(GPGS) 진단 체크리스트 (2026-06-27 확정)
+- **즉시 Canceled / DEVELOPER_ERROR 증상**(계정 선택 UI 미표시 + 수십 ms 내 `signInStatus=Canceled`): 가장 흔한 원인은 **SHA-1 불일치**.
+- **진단 1순위 — logcat 실제 서명 SHA-1 확인**: Unity 태그 필터 제거 후 `PlayGamesServices[SignInAuthenticator]` 태그의 `Cert SHA1 fingerprint`(또는 `Cert SHA1 fingerprint`) 캡처 → 이것이 APK 실제 서명 SHA-1. Firebase Console / Play Console GPGS 사용자 인증 정보에 등록된 SHA-1과 비교, 불일치 시 즉시 FAIL.
+- **SHA-1 등록 위치 3곳 모두 일치 검증**: ① Firebase Console OAuth 클라이언트 ② Play Console GPGS 사용자 인증 정보 ③ 실제 빌드 키스토어. 한 곳이라도 빠지면 `signIn()` 실패. 키스토어 파일이 등록 시점과 다른 파일일 수 있으니 실제 서명 SHA-1(logcat) 기준으로 역검증.
+- **`serverAuthCode length=0`은 인증 실패 신호**: SHA-1 불일치로 signIn 실패 시 빈 값 반환. 정합되면 `length=73`(정상 발급).
+- **코드 레벨 점검**: 최초 로그인은 `Authenticate()`(=`isAuthenticated()`만, 세션 없으면 Canceled)가 아닌 `ManuallyAuthenticate()`(=`signIn()`) 호출인지 확인(GPGS Plugin 2.1.0).
+- task: `_Tasks/2026-06-27/12_26_google-login-debug/`
+
 ## 아키텍처 패턴 (확인된 사항)
 - Presentation이 Infrastructure(LocalPlayerTeam) 직접 참조: 정적 홀더 패턴으로 허용 범위
 - Assembly Definition 없음 — 물리적 경계 없음, 네임스페이스 규약으로만 관리
@@ -266,27 +274,127 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 
 ---
 
-## AI 시나리오 ScriptableObject 개편 QA (2026-06-10)
+## AI 시나리오 ScriptableObject 개편 QA (2026-06-10 → 2차 완료 2026-06-11)
 
-### 종합 판정: CONDITIONAL PASS
+### 종합 판정: CONDITIONAL PASS (정적 분석 전항목 PASS, 실기 대기)
 
-### 검토 항목
-- 컴파일 에러 가능성: PASS
-- 기능 로직: PASS
-- YAML 데이터 오류: CONDITIONAL PASS
-- 아키텍처 위반: CONDITIONAL PASS → 후속 수정으로 완전 해소됨
-
-### 핵심 발견 사항
+### 1차 QA (2026-06-10) 핵심 발견 사항
 - BuildOrderStep/AIActionType이 Infrastructure에 있어 Application→Infrastructure 직접 의존 발생
-  → 후속 작업에서 Domain/AI 레이어로 이동하여 완전 해소
+  → 2차 작업에서 Domain/AI 레이어로 이동하여 해소
 - DifficultyLevel도 Infrastructure에 있어 BuildOrderStep.GetDelaySeconds()로 인한 연쇄 위반
   → DifficultyLevel도 Domain으로 함께 이동하여 해소
-- Human_A phaseIndex 1에서 unitType:0(Pistoleer)를 targetBuildingLine:1(총기류)에 배치 → 설계 의도 확인됨 (Pistoleer는 총기류 유닛)
+
+### 2차 QA (2026-06-11) 핵심 확인 사항
+- BuildOrderStep, AIActionType, DifficultyLevel 모두 Hexiege.Domain 네임스페이스로 이동 완료
+- 세 타입 모두 UnityEngine 의존 없음 ([Serializable]은 System.Serializable — 허용)
+- LoadScenarioBundleForRace(): 3종족 switch 완비, null/빈배열 방어 코드 존재
+- 레거시 Human_A/B/C.asset 실물 삭제 완료 (Glob 결과 0건)
+- 에셋 YAML: 3종족 9개 시나리오 모두 actionType(0~2), phaseIndex(0~3) 범위 내
+- NOTE-001(Minor): AIScenarioConfig.cs 주석/XML doc에 구버전 경로 예시 잔존 — 기능 무영향
+
+### AI 시나리오 현행 구조
+- 종족별 단일 에셋: Human/Spirit/Transcendence 각 1개
+- 각 에셋에 3개 ScenarioBundle 내장
+- Human: Rush/Tech/Balance, Spirit: Inferno/Torrent/Quake, Transcendence: Rush/Flora/Beast
+- 종족 결정: GameRaceContext.RedRace (AI는 항상 Red팀)
 
 ### task 문서
 `Assets/_Project/Docs/_Tasks/2026-06-10/01_06_ai-scenario-scriptableobject-restructure/`
 
 ---
+
+## Login UI 완성도 QA 정적 분석 (2026-06-11)
+
+### 종합 판정: FAIL (CanvasGroup Rule 5 위반)
+
+### 핵심 발견 사항
+- **[Rule 5 위반]** LoginRootView.SetActivePanel() / HideAll()에서 5개 패널 전환에 `SetActive()` 직접 사용 → CanvasGroup 패턴으로 교체 필요
+- **[Inspector 공유 이슈]** `_confirmPopup`(종료 팝업) 과 `_networkErrorPopup`이 동일한 ConfirmPopup 오브젝트(fileID: 422375806) 참조 → 두 팝업이 동시에 호출되면 Show() 재호출로 메시지/콜백 덮어쓰기 발생 가능 (Major)
+- **[Safe Area Rule 4]** Background가 Canvas 직속 자식으로 SafeAreaContainer 밖에 배치됨 → PASS
+- **[Inspector 연결]** LoginBootstrapper 7개 View 슬롯 전부 연결됨, `_loadingIndicator` 연결됨
+- `_headerText: {fileID: 0}` — null 허용(코드에서 Optional 처리됨), 문제 없음
+- AnonymousWarningPopup의 `_blockingOverlay.SetActive()` — Lobby 씬 별도 점검 예정 항목. `_panel.gameObject.SetActive(true)` 는 이미 제거됨(2026-06-15).
+
+### Login 씬 계층 구조 (확인 완료)
+- Canvas → [Background (Canvas 직속), SafeAreaContainer (Canvas 직속)]
+- SafeAreaContainer → [LoginRootView, ConfirmPopup, LoadingIndicator, AnonymousWarningPopup]
+- LoginRootView → [LoginSelectPanel, EmailLoginPanel, SignUpPanel, EmailVerifyPanel, PasswordResetPanel]
+
+### task 문서
+정적 분석만 수행 (플레이모드 실기 불가 — Firebase 미설정)
+
+---
+
+## Login UI CanvasGroup 전환 + NetworkErrorPopup 분리 QA (2026-06-11)
+
+### 종합 판정: CONDITIONAL PASS
+
+### 핵심 발견 사항
+- **[Rule 5 준수 확인]** `LoginRootView.cs` 전체에서 `GameObject.SetActive()` 패널 전환 호출 없음. `ShowGroup()`/`HideGroup()`으로 alpha/blocksRaycasts/interactable 3속성 모두 처리. 완전 준수.
+- **[Inspector 공유 이슈 해소]** `_confirmPopup`(종료 팝업)과 `_networkErrorPopup`이 별도 오브젝트로 분리. LoginUiSetup 에디터 스크립트로 자동 생성/연결.
+- **[Minor Bug-1]** `LoginUiSetup.cs`: `SafeAreaContainer` 미발견 시 NetworkErrorPopup이 씬 루트에 생성된 채 저장됨 — `LogWarning`만 출력, `DisplayDialog` 미사용 (186-190행).
+- **[Minor Bug-2]** `ShowNetworkErrorPopup()`이 `cancelLabel: string.Empty` 전달하지만 `ConfirmPopup.Show()`는 취소 버튼을 숨기지 않아 빈 버튼 노출 가능성 (`ConfirmPopup.cs` 175-179행).
+- **[LoginBootstrapper 호환]** CanvasGroup 타입 변경(GameObject → CanvasGroup)에 대해 LoginBootstrapper가 패널 슬롯 직접 참조 없음 — 영향 없음.
+- **[ConfirmPopup Show() 시그니처]** 5개 인자 모두 일치. LoginRootView 양쪽 호출부 모두 정상.
+
+### ConfirmPopup 재사용 패턴 주의
+- `cancelLabel: string.Empty` 전달 시 취소 버튼이 빈 텍스트로 노출됨 (버튼 숨김 로직 없음)
+- 단독 확인 버튼만 필요한 팝업은 취소 버튼을 Inspector에서 비활성화하거나, ConfirmPopup에 `cancelLabel` 빈 문자열 시 버튼 숨김 로직 추가 필요
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-06-11/00_31_login-ui-canvasgroup-popup-fix/Testcase.md`
+
+---
+
+## 전역 UI 시스템 QA (2026-06-18) ✅ 완료
+
+### 종합 판정: PASS (수정 후)
+
+### 발견 및 수정된 버그
+- **[Major, 수정완료] 규칙 1 위반**: `SetupUIManagerInScene.cs` `CanvasScaler.matchWidthOrHeight = 1f` → `0f` (가로 기준). UIManager Canvas / SplashOverlay Canvas 모두 해당.
+- **[Major, 수정완료] 규칙 4 위반**: SplashOverlay에 SafeAreaContainer 없어 StatusText/TapToStartText가 노치 영역에 가려질 수 있음 → SafeAreaContainer + SafeAreaFitter 추가, 텍스트를 그 안으로 이동. Background는 전체화면 요소이므로 SafeAreaContainer 밖(SplashOverlay 직속) 유지.
+- **[Major, 수정완료] 규칙 6 위반**: `SetupUIManagerInScene.cs`에서 에디터 스크립트로 생성하는 TextMeshProUGUI(StatusText/TapToStartText)에 Maplestory Light SDF 폰트 미적용 → `AssetDatabase.LoadAssetAtPath<TMP_FontAsset>` 로드 후 명시 적용.
+
+### Minor (미수정)
+- `LoginBootstrapper.cs:116` 주석에서 `(규칙 5)` 참조 부정확 — null-safe 패턴 설명인데 CanvasGroup 규칙 번호 기재됨. 기능 무영향.
+- `BattleViewModel.cs:222` `Task.Delay(2000)` 고정 2초 지연 — 씬 로딩 완료 타이밍과 무관한 하드코딩. 이번 작업 범위 외.
+
+### 핵심 교훈
+- 에디터 스크립트로 UI를 생성할 때 **폰트(규칙 6)** 와 **SafeAreaContainer(규칙 4)** 는 반드시 명시 설정
+- `matchWidthOrHeight`는 프로젝트 규칙 상 **0f(가로 기준)** 고정
+
+### task 문서
+`Assets/_Project/Docs/_Tasks/2026-06-16/12_25_global-ui-system/Testcase.md`
+
+---
+
+## BlockingOverlay UIManager 통합 QA (2026-06-21) — CONDITIONAL PASS
+
+### 종합 판정: CONDITIONAL PASS (Inspector 연결 미확인)
+
+### 핵심 구현 패턴 (이후 유사 작업 참조)
+- UIManager 단일 소유: `_blockingOverlay(CanvasGroup)` + `_blockingOverlayButton(Button)`
+- 참조 카운터(`_blockingOverlayRefCount`): 중첩 Show 지원, HideOverlay가 0이 될 때만 실제 숨김
+- 두 모드: Modal(onTap=null) vs Popup(onTap=콜백), Button.onClick으로 분기
+- RematchRequestPopup 전용 패턴: `_overlayShown` bool로 ShowOverlayOnce/HideOverlayOnce — 팝업 전환 시 중복 +1 방지
+
+### 발견된 잠재 문제 (Minor)
+- BUG-001: `BuildingPlacementUI.Show()`에서 `_popup?.Show()` 이후 `UIManager.Instance?.ShowBlockingOverlay(Close)` 호출 순서 — 팝업이 먼저 나타난 직후 오버레이 표시. `InGameSettingsUI.Show()`는 반대 순서(오버레이 먼저). 기능 차이는 없으나 순서 불일치.
+- BUG-002: `BuildingPanelBase.Show()`도 `_popup?.Show()` 이후 `ShowBlockingOverlay` 호출. `ConfirmPopup.Show()`와 `InGameSettingsUI.Show()`와 순서 불일치.
+- BUG-003: `SharedBackgroundButton.cs` 파일 자체는 테스트 통과 전이므로 아직 존재(정상). 그러나 Lobby씬/Game씬 프리팹에서 SharedBackgroundButton 컴포넌트가 완전히 제거됐는지는 Inspector 레벨에서만 확인 가능.
+- `BuildingPlacementUI.cs` line 468 주석이 과거 SharedBackgroundButton 언급 — 코드 주석 일관성 Minor 이슈.
+
+### ShowBlockingOverlay 호출 순서 패턴 (확인 필요)
+- 권장 순서: ShowBlockingOverlay 먼저 → 팝업 패널 Show. (오버레이가 먼저 표시돼야 팝업 아래에 정확히 배치됨)
+- ConfirmPopup, InGameSettingsUI: 오버레이 먼저 호출 (올바름)
+- BuildingPlacementUI, BuildingPanelBase: 팝업 Show 먼저 → 오버레이 나중 (Minor 불일치)
+
+### 에디터 스크립트 주의점
+- `MigrateBlockingOverlayToUIManager.cs`: Login.unity만 BlockingOverlay 생성, Game.unity는 RematchOverlay RaycastTarget만 비활성화
+- `SetSiblingIndex(0)`: BlockingOverlay를 SafeAreaContainer보다 Hierarchy 위에 배치 → 팝업보다 뒤에 렌더링 (올바름)
+
+### task 문서
+분석 대상: `Assets/_Project/Docs/_Tasks/` 내 해당 날짜 폴더
 
 ## 참고 파일
 - [patterns.md](patterns.md) — 버그 패턴 상세

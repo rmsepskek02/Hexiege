@@ -80,11 +80,11 @@ namespace Hexiege.Infrastructure
         public bool IsInitialized { get; private set; }
 
         /// <summary>
-        /// GameBootstrapper 참조.
-        /// OnNetworkSpawn에서 1회만 탐색하여 캐시하고 이후에는 재탐색 없이 사용한다.
-        /// RegisterToFactory에서 씬 전체 탐색을 반복하지 않기 위한 캐시.
+        /// 게임 서비스 참조. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.
+        /// OnNetworkSpawn에서 1회만 획득하여 캐시하고 이후에는 재탐색 없이 사용한다.
+        /// RegisterToFactory에서 반복 접근을 방지하기 위한 캐시.
         /// </summary>
-        private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
+        private IGameServices _services;
 
         // ====================================================================
         // 서버 전용 API
@@ -124,8 +124,8 @@ namespace Hexiege.Infrastructure
             if (IsServer) return;
 
             // 클라이언트 측에서만 RegisterToFactory가 호출되므로, 클라이언트 경로에서만 캐시한다.
-            // OnNetworkSpawn에서 1회만 씬을 탐색하여 이후 재탐색을 방지.
-            _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
+            // GameServicesLocator에서 꺼내므로 FindFirstObjectByType<GameBootstrapper>() 불필요.
+            _services = GameServicesLocator.Current;
 
             // 클라이언트: unitId가 이미 설정되었으면 즉시 딕셔너리에 등록
             if (_unitId.Value != -1)
@@ -203,16 +203,16 @@ namespace Hexiege.Infrastructure
         /// <param name="unitId">서버에서 발급된 유닛 Id</param>
         private void RegisterToFactory(int unitId)
         {
-            // GameBootstrapper를 통해 UnitFactory 접근.
+            // IGameServices를 통해 IUnitFactory 접근.
             // OnNetworkSpawn에서 미리 캐시해 둔 참조를 사용 (매번 씬 탐색하지 않음).
-            var bootstrapper = _bootstrapper;
-            if (bootstrapper == null)
+            var services = _services;
+            if (services == null)
             {
-                Debug.LogWarning($"[NetworkUnit] GameBootstrapper를 찾을 수 없습니다. UnitId={unitId}");
+                Debug.LogWarning($"[NetworkUnit] GameServicesLocator에 IGameServices가 등록되지 않았습니다. UnitId={unitId}");
                 return;
             }
 
-            UnitFactory unitFactory = bootstrapper.GetUnitFactory();
+            IUnitFactory unitFactory = services.GetUnitFactory();
             if (unitFactory == null)
             {
                 Debug.LogWarning($"[NetworkUnit] UnitFactory가 null입니다. UnitId={unitId}");

@@ -28,7 +28,6 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using TMPro;
 using UniRx;
 using Hexiege.Domain;
@@ -58,9 +57,7 @@ namespace Hexiege.Presentation
         [Tooltip("GameBootstrapper (재시작용)")]
         [SerializeField] private GameBootstrapper _bootstrapper;
 
-        // [2026-05-20] Unity.Netcode 직접 의존 제거를 위해 NetworkGameManager를 Inspector 주입으로 변경.
-        // 기존: NetworkManager.Singleton.Shutdown()을 GameEndUI에서 직접 호출
-        // 변경: NetworkGameManager.BackToLobby()에 위임 — Application 레이어 NetworkContext만 사용
+        // NGO 종료는 NetworkGameManager.BackToLobby()에 위임한다(GameEndUI는 Unity.Netcode를 직접 참조하지 않음).
         // (NetworkGameManager는 Infrastructure 레이어 컴포넌트로 NGO를 안전하게 종료하는 책임을 가짐)
         [Tooltip("네트워크 게임 매니저. 멀티플레이 시 로비 복귀 처리 위임용. 싱글플레이면 null이어도 됨.")]
         [SerializeField] private NetworkGameManager _networkGameManager;
@@ -97,6 +94,12 @@ namespace Hexiege.Presentation
         /// <summary> 멀티플레이 재경기 거절 이벤트 구독 해제용. </summary>
         private System.IDisposable _rematchDeclinedSubscription;
 
+        /// <summary> 멀티플레이 재경기 시작(씬 재로드 직전) 이벤트 구독 해제용. </summary>
+        private System.IDisposable _rematchStartingSubscription;
+
+        /// <summary> 네트워크 로비 복귀(씬 전환) 이벤트 구독 해제용. </summary>
+        private System.IDisposable _backToLobbySubscription;
+
         /// <summary> 자동 로비 복귀 카운트다운 코루틴. </summary>
         private Coroutine _countdownCoroutine;
 
@@ -110,24 +113,51 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Initialize()
         {
+            // NetworkGameManager 자동 탐색 (Inspector에 연결 안 된 경우)
+            // NetworkGameManager는 DontDestroyOnLoad 오브젝트라 Game 씬 인스펙터에서 연결이 불가능하다.
+            // 따라서 미연결 시 런타임에 직접 탐색해야 한다. 미탐색이면 로비 복귀 시 NGO Shutdown이 누락되어
+            // 두 번째 매칭에서 "Cannot start Host while an instance is already running" 에러가 발생한다.
+            // (LobbyUI.cs와 동일한 패턴)
+            if (_networkGameManager == null)
+                _networkGameManager = FindFirstObjectByType<NetworkGameManager>();
+
+            // 멀티플레이에서 NGM을 못 찾으면 로비 복귀 시 네트워크 종료가 누락되므로 경고만 남긴다.
+            // (싱글플레이는 NGM이 없는 것이 정상이므로 NetworkContext.IsNetworkActive로 분기)
+            if (_networkGameManager == null && NetworkContext.IsNetworkActive)
+                Debug.LogError("[Network] GameEndUI: NetworkGameManager를 찾을 수 없습니다. " +
+                               "로비 복귀 시 NGO Shutdown이 누락될 수 있습니다.");
+
             // 이전 구독 정리 (재시작 시 중복 방지)
             _gameEndSubscription?.Dispose();
             _rematchAvailableSubscription?.Dispose();
             _rematchDeclinedSubscription?.Dispose();
+            _rematchStartingSubscription?.Dispose();
+            _backToLobbySubscription?.Dispose();
 
             // 게임 종료 이벤트 구독
-            // [2026-05-20] 멀티플레이 흐름 통일: NetworkGameEndController가 GameEvents.OnGameEnd를 발행하므로
-            //   싱글/멀티 모두 본 구독으로 ShowResult 진입한다.
+            // NetworkGameEndController가 GameEvents.OnGameEnd를 발행하므로 싱글/멀티 모두 본 구독으로 ShowResult 진입한다.
             _gameEndSubscription = GameEvents.OnGameEnd
                 .Subscribe(OnGameEnd);
 
-            // [2026-05-20] 멀티 재경기 버튼 활성화 신호 구독.
+            // 멀티 재경기 버튼 활성화 신호 구독.
             _rematchAvailableSubscription = GameEvents.OnNetworkRematchAvailable
                 .Subscribe(e => SetupRematchButton(e.IsRandomMatch));
 
-            // [2026-05-20] 멀티 재경기 거절 신호 구독 — 버튼/카운트다운 상태 복원.
+            // 멀티 재경기 거절 신호 구독 — 버튼/카운트다운 상태 복원.
             _rematchDeclinedSubscription = GameEvents.OnNetworkRematchDeclined
                 .Subscribe(_ => RestoreRematchButton());
+
+            // [재경기 로딩] 서버가 재경기를 시작(씬 재로드 직전)하면 모든 클라이언트가
+            // 전역 로딩 인디케이터를 표시한다. 씬이 재로드되어 새 GameBootstrapper.LoadMap()이
+            // 완료되면 자동으로 꺼진다(UI 규칙 L-3).
+            _rematchStartingSubscription = GameEvents.OnNetworkRematchStarting
+                .Subscribe(_ => UIManager.Instance?.ShowLoading(true, "재경기 준비 중..."));
+
+            // [로비 복귀] NetworkGameManager.BackToLobby(Infrastructure)가 NGO Shutdown 완료 후
+            //   본 이벤트를 발행한다. 씬 전환(SceneLoader)은 Presentation 책임이므로
+            //   Infrastructure가 직접 호출하지 않고 이 구독을 통해 처리한다(UI 규칙 L-4).
+            _backToLobbySubscription = GameEvents.OnNetworkBackToLobby
+                .Subscribe(sceneName => SceneLoader.Load(sceneName));
 
             // 다시하기 버튼 이벤트 (중복 등록 방지)
             if (_restartButton != null)
@@ -153,6 +183,8 @@ namespace Hexiege.Presentation
             _gameEndSubscription?.Dispose();
             _rematchAvailableSubscription?.Dispose();
             _rematchDeclinedSubscription?.Dispose();
+            _rematchStartingSubscription?.Dispose();
+            _backToLobbySubscription?.Dispose();
         }
 
         // ====================================================================
@@ -180,12 +212,9 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 게임 종료 시 호출. 승리/패배 텍스트 표시 + 게임 일시정지.
         ///
-        /// [2026-05-20] 멀티플레이 흐름 통일:
-        ///   기존: 싱글은 OnGameEnd 구독으로 자동 표시되고, 멀티는 NetworkGameEndController가
-        ///         ShowResult를 직접 호출했다.
-        ///   변경: NetworkGameEndController도 GameEvents.OnGameEnd를 발행하므로 본 핸들러로 일원화.
-        ///         로컬 팀 비교는 LocalPlayerTeam.Current(멀티)로 처리하되, 싱글은 LocalPlayerTeam이
-        ///         설정되지 않으므로 Blue 고정 폴백을 사용한다.
+        /// 싱글/멀티 모두 GameEvents.OnGameEnd 발행으로 본 핸들러에서 처리된다.
+        /// 로컬 팀 비교는 LocalPlayerTeam.Current(멀티)로 처리하되, 싱글은 LocalPlayerTeam이
+        /// 설정되지 않으므로 Blue 고정 폴백을 사용한다.
         /// </summary>
         private void OnGameEnd(GameEndEvent e)
         {
@@ -297,7 +326,7 @@ namespace Hexiege.Presentation
         ///   NetworkGameManager.BackToLobby() 호출 — 내부에서 OnClientConnectedCallback 해제,
         ///   Heartbeat 정지, Lobby 퇴장, Shutdown, 씬 전환을 순서대로 안전하게 처리.
         /// 싱글플레이 시:
-        ///   SceneManager.LoadScene("Lobby") 직접 호출.
+        ///   SceneLoader.Load(SceneLoader.Lobby) 호출 (로딩 인디케이터 자동 표시).
         ///
         /// 이전에는 NetworkManager.Singleton.Shutdown()을 직접 호출했으나,
         /// Unity.Netcode 직접 의존을 제거하고자 Application 레이어 NetworkContext로 분기하고,
@@ -309,6 +338,11 @@ namespace Hexiege.Presentation
             Time.timeScale = 1f;
             Hide();
 
+            // 로비 복귀는 씬 전환(멀티는 네트워크 종료 포함)이 일어나므로
+            // 그 사이 사용자가 멈춘 화면을 보지 않도록 전역 로딩 인디케이터를 띄운다.
+            // 로딩을 끄는 책임은 목적지 씬(Lobby)의 LobbyRootView 초기화 완료 시점이 담당한다(UI 규칙 L-3).
+            UIManager.Instance?.ShowLoading(true, "로비로 이동 중...");
+
             // 멀티플레이 활성 + NGM 주입되어 있으면 NGM에 위임 (BackToLobby가 내부에서 씬 전환까지 처리)
             if (NetworkContext.IsNetworkActive && _networkGameManager != null)
             {
@@ -316,8 +350,10 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            // 싱글플레이 또는 NGM 미연결: 씬 전환만 수행
-            SceneManager.LoadScene("Lobby");
+            // 싱글플레이 또는 NGM 미연결: 씬 전환만 수행.
+            // 위에서 이미 ShowLoading(true)를 호출했지만, SceneLoader.Load 가 다시 호출해도
+            // 같은 메시지로 갱신될 뿐이므로 부작용은 없다.
+            SceneLoader.Load(SceneLoader.Lobby, "로비로 이동 중...");
         }
 
         /// <summary>
@@ -355,10 +391,8 @@ namespace Hexiege.Presentation
         /// 랜덤매칭: 다시하기 버튼 숨김 (로비 복귀만 가능) — 현재는 동일 동작으로 유지.
         /// 커스텀게임: 재경기 요청 발행 + 요청 중 상태 표시.
         ///
-        /// [2026-05-20] 리팩토링:
-        ///   기존: NetworkGameEndController가 onRequestRematch 콜백을 직접 주입.
-        ///   변경: GameEvents.OnNetworkRematchAvailable 구독 시 자동 호출 + 콜백 대신
-        ///         OnLocalRematchRequested 이벤트를 발행해 컨트롤러가 ServerRpc로 변환한다.
+        /// GameEvents.OnNetworkRematchAvailable 구독 시 자동 호출되며, 재경기 요청은
+        /// OnLocalRematchRequested 이벤트로 발행해 컨트롤러가 ServerRpc로 변환한다.
         /// </summary>
         /// <param name="isRandomMatch">랜덤 매칭 여부. 현재 미사용 — 랜덤/커스텀 모두 동일 동작.</param>
         public void SetupRematchButton(bool isRandomMatch)

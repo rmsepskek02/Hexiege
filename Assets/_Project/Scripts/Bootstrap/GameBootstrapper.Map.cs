@@ -22,6 +22,7 @@ using Hexiege.Domain;
 using Hexiege.Core;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
+using Hexiege.Presentation; // UIManager(전역 로딩 인디케이터) 호출용
 
 namespace Hexiege.Bootstrap
 {
@@ -126,7 +127,7 @@ namespace Hexiege.Bootstrap
             // _gameEnd(GameEndUseCase)는 CreateUseCases() 내부에서 생성되므로 이 시점이면 준비됨.
             // 싱글플레이 포기 시 _gameEnd.Forfeit()을 호출하도록 주입한다.
             //
-            // [2026-05-20] IForfeitService 주입 추가:
+            // IForfeitService 주입:
             //   싱글플레이: _gameEnd가 IForfeitService를 구현 (RequestForfeit → Forfeit 위임)
             //   멀티플레이: _networkGameEnd가 IForfeitService를 구현 (RequestForfeit → ForfeitServerRpc)
             //   InGameSettingsUI는 FindFirstObjectByType<NetworkGameEndController> 호출이 사라진다.
@@ -163,10 +164,14 @@ namespace Hexiege.Bootstrap
             // UI가 OnGameStarted() 콜백을 안전하게 처리할 수 있도록 보장.
             GameEvents.OnGameStarted.OnNext(Unit.Default);
 
-            // 15. [2026-04-30] 새 규칙 4 — 건물 변경 시 모든 유닛 경로 즉시 재계산.
+            // 15. 새 규칙 4 — 건물 변경 시 모든 유닛 경로 즉시 재계산.
             //     이 시점이면 _unitFactory / _unitMovement / _flowFieldService 모두 준비됨.
             SetupEagerRepathOnBuildingChanges();
 
+            // 16. Game 씬이 완전히 준비된 시점이다.
+            //     게임 시작/재경기 등으로 다른 곳에서 켜둔 전역 로딩 인디케이터를 여기서 끈다(UI 규칙 L-3).
+            //     어디서 켰든 목적지 씬(Game)이 준비되면 자동으로 꺼지도록 책임을 일원화한다.
+            UIManager.Instance?.ShowLoading(false);
         }
 
         // ====================================================================
@@ -187,7 +192,7 @@ namespace Hexiege.Bootstrap
             _buildingPlacement?.Clear();
 
             // ────────────────────────────────────────────────────────────
-            // [2026-05-15] 혼잡도 시스템 정리.
+            // 혼잡도 시스템 정리.
             //   - 누적된 혼잡도 비우기: 다음 게임이 0에서 시작하도록.
             //   - OnUnitEnteredTile 구독 해제: 다음 LoadMap()의 CreateUseCases가 새로 구독한다.
             // ────────────────────────────────────────────────────────────
@@ -200,7 +205,7 @@ namespace Hexiege.Bootstrap
             _gameEnd?.Dispose();
             _gameEnd = null;
 
-            // [2026-05-20] 인구 UseCase 이벤트 구독 해제 — 재경기 시 누적 카운트 방지.
+            // 인구 UseCase 이벤트 구독 해제 — 재경기 시 누적 카운트 방지.
             _population?.Dispose();
             _population = null;
 
@@ -208,7 +213,7 @@ namespace Hexiege.Bootstrap
             if (_gameEndUI != null)
                 _gameEndUI.Hide();
 
-            // [2026-04-30] eager 재경로 트리거 구독 정리. 다음 LoadMap에서 다시 구독한다.
+            // eager 재경로 트리거 구독 정리. 다음 LoadMap에서 다시 구독한다.
             _eagerRepathSubscriptions?.Dispose();
             _eagerRepathSubscriptions = null;
         }

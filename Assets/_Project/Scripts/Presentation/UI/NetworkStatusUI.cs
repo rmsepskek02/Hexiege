@@ -19,8 +19,8 @@
 //
 // 주의:
 //   - NetworkBehaviour 불필요: 로컬 표시 전용 (Presentation 레이어)
-//   - [2026-05-20] Unity.Netcode / UTP 직접 의존 제거 — NetworkGameManager API로 통일
-//   - 씬 전환(SceneManager) 참조: UnityEngine.SceneManagement
+//   - Unity.Netcode / UTP 직접 의존 없음 — NetworkGameManager API로 통일
+//   - 씬 전환: SceneLoader.Load 사용 (로딩 인디케이터 자동 표시)
 //
 // Presentation 레이어 — Unity 의존 (MonoBehaviour).
 // ============================================================================
@@ -28,7 +28,6 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using TMPro;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
@@ -63,12 +62,14 @@ namespace Hexiege.Presentation
         [Tooltip("Ping 갱신 간격 (초)")]
         [SerializeField] private float _pingRefreshInterval = 0.5f;
 
+        // TODO: 재접속(Reconnection) 기능 구현 시, 복구 가능 여부에 따라
+        //       게임 씬(SceneLoader.Game) 또는 로비 씬(SceneLoader.Lobby)으로 분기 처리 필요.
+        //       현재는 항상 로비로 복귀. ROADMAP B-2 참조.
         [Tooltip("연결 끊김 후 복귀할 씬 이름")]
-        [SerializeField] private string _returnSceneName = "SampleScene";
+        [SerializeField] private string _returnSceneName = SceneLoader.Lobby;
 
-        // [2026-05-20] 리팩토링: NetworkGameManager 주입.
-        //   기존: NetworkManager.Singleton + UnityTransport 직접 참조
-        //   변경: NGM의 GetCurrentRttMs / OnServerDisconnected / IsNetworkRunning / ShutdownNetwork 사용.
+        // NetworkGameManager 주입 — NGM의 GetCurrentRttMs / OnServerDisconnected /
+        //   IsNetworkRunning / ShutdownNetwork를 사용한다(NetworkManager.Singleton 직접 참조 회피).
         [Header("의존성")]
         [Tooltip("네트워크 게임 매니저. RTT 조회/연결 끊김 알림/Shutdown 위임용. Inspector 미연결 시 자동 탐색.")]
         [SerializeField] private NetworkGameManager _networkGameManager;
@@ -233,8 +234,11 @@ namespace Hexiege.Presentation
             if (_networkGameManager != null)
                 _networkGameManager.ShutdownNetwork();
 
-            // 복귀 씬 로드
-            SceneManager.LoadScene(_returnSceneName);
+            // 복귀 씬 로드.
+            // SceneLoader.Load 가 내부에서 로딩 인디케이터를 띄우므로 별도 ShowLoading 호출은 제거했다.
+            // 연결 끊김 복귀도 네트워크 종료 + 씬 전환이 일어나므로 그 사이 사용자가 멈춘 화면을 보지 않게 된다.
+            // 로딩을 끄는 책임은 목적지 씬의 초기화 완료 시점이 담당한다(UI 규칙 L-3).
+            SceneLoader.Load(_returnSceneName, "로비로 이동 중...");
         }
     }
 }

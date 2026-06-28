@@ -36,6 +36,7 @@
 // Presentation 레이어 — Unity MonoBehaviour 의존.
 // ============================================================================
 
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -59,9 +60,6 @@ namespace Hexiege.Presentation
         [Header("Popup")]
         [Tooltip("팝업 등장/사라짐 애니메이션을 담당하는 컴포넌트.")]
         [SerializeField] protected AnimatedPanel _popup;
-
-        [Tooltip("팝업 바깥 영역 탭 감지용 컴포넌트. Show 시 Register, Close 시 Unregister.")]
-        [SerializeField] protected SharedBackgroundButton _sharedBackground;
 
         [Header("Header")]
         [Tooltip("팝업 상단에 건물 이름을 표시. Show() 시 BuildingType.ToString()으로 갱신.")]
@@ -167,7 +165,8 @@ namespace Hexiege.Presentation
             _popup?.Show();
 
             // 외부 탭 닫기 콜백 등록 (Close 호출되도록)
-            _sharedBackground?.Register(Close);
+            // UIManager 공유 BlockingOverlay를 Popup 모드로 표시(터치 시 Close 호출).
+            UIManager.Instance?.ShowBlockingOverlay(Close);
 
             // 환불 금액 텍스트 갱신
             // 팀에 따라 해당 종족의 누적 투자 비용을 조회한다.
@@ -204,7 +203,8 @@ namespace Hexiege.Presentation
             ClosedFrame = Time.frameCount;
 
             // 외부 탭 닫기 콜백 해제
-            _sharedBackground?.Unregister();
+            // UIManager 공유 BlockingOverlay 숨김.
+            UIManager.Instance?.HideBlockingOverlay();
 
             // 팝업 사라짐 애니메이션
             _popup?.Hide();

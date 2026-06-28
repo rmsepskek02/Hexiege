@@ -25,6 +25,7 @@ using System.Threading.Tasks;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Hexiege.Application; // GameEvents (씬 전환을 Presentation에 위임하는 이벤트 채널)
 
 namespace Hexiege.Infrastructure
 {
@@ -373,29 +374,41 @@ namespace Hexiege.Infrastructure
         {
             _isRandomMatchmaking = true;
             _matchmakingCts = new CancellationTokenSource();
-            _currentTicketId = await _matchmakerManager.CreateTicketAsync();
-            Debug.Log($"[Matchmaker] 티켓 생성: {_currentTicketId}");
 
-            var matchId = await _matchmakerManager.PollUntilMatchedAsync(
-                _currentTicketId, _matchmakingCts.Token, onWaitSecond);
-
-            Debug.Log($"[Matchmaker] 매칭 완료. MatchId: {matchId}");
-
-            // 매칭 성사 콜백 — UI에서 로딩 스크린 표시 등에 활용
-            onMatchFound?.Invoke();
-
-            bool isHost = await _matchmakerManager.DetermineIsHostAsync(matchId);
-            Debug.Log($"[Matchmaker] 역할 결정: {(isHost ? "Host" : "Client")}");
-
-            if (isHost)
+            try
             {
-                // Host: Relay + Lobby 생성 (Lobby 이름에 matchId 포함하여 Client 가 검색 가능)
-                await HostGameAsync($"match_{matchId}", matchId);
+                _currentTicketId = await _matchmakerManager.CreateTicketAsync();
+                Debug.Log($"[Matchmaker] 티켓 생성: {_currentTicketId}");
+
+                var matchId = await _matchmakerManager.PollUntilMatchedAsync(
+                    _currentTicketId, _matchmakingCts.Token, onWaitSecond);
+
+                Debug.Log($"[Matchmaker] 매칭 완료. MatchId: {matchId}");
+
+                // 매칭 성사 콜백 — UI에서 로딩 스크린 표시 등에 활용
+                onMatchFound?.Invoke();
+
+                bool isHost = await _matchmakerManager.DetermineIsHostAsync(matchId);
+                Debug.Log($"[Matchmaker] 역할 결정: {(isHost ? "Host" : "Client")}");
+
+                if (isHost)
+                {
+                    // Host: Relay + Lobby 생성 (Lobby 이름에 matchId 포함하여 Client 가 검색 가능)
+                    await HostGameAsync($"match_{matchId}", matchId);
+                }
+                else
+                {
+                    // Client: Host 가 생성한 Lobby 를 matchId 로 검색하여 참가
+                    await JoinByMatchIdAsync(matchId);
+                }
             }
-            else
+            catch (OperationCanceledException)
             {
-                // Client: Host 가 생성한 Lobby 를 matchId 로 검색하여 참가
-                await JoinByMatchIdAsync(matchId);
+                // 매칭 취소 — 정상 흐름이므로 별도 처리 없음
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Matchmaker] StartMatchmakingAsync 예외: {e.Message}");
             }
         }
 
@@ -621,8 +634,9 @@ namespace Hexiege.Infrastructure
             // 4. NGO 연결 해제
             ShutdownNetworkManager();
 
-            // 5. 씬 전환
-            SceneManager.LoadScene(lobbySceneName);
+            // 5. 씬 전환 — SceneLoader(Presentation)를 직접 참조하지 않고
+            //    GameEvents(Application)를 경유해 GameEndUI(Presentation)가 처리하도록 한다(UI 규칙 L-4).
+            GameEvents.OnNetworkBackToLobby.OnNext(lobbySceneName);
         }
 
         // ====================================================================

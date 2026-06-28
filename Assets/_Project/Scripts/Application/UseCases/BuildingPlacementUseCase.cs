@@ -29,7 +29,7 @@ namespace Hexiege.Application
         private readonly Dictionary<int, BuildingData> _buildings = new Dictionary<int, BuildingData>();
 
         // ====================================================================
-        // [2026-05-20] 위치 기반 역인덱스 (성능 최적화)
+        // 위치 기반 역인덱스 (성능 최적화)
         // ====================================================================
         // 건물은 한 타일에 최대 1개이므로 List 없이 단일 매핑이면 충분하다.
         // 동기화 책임: PlaceBuilding* / DemolishBuilding / RemoveBuilding / UpgradeBuilding* / Clear
@@ -270,7 +270,7 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 좌표에 있는 건물 조회.
-        /// [2026-05-20] 위치 역인덱스(_buildingsByPosition) 도입으로 O(n) → O(1)로 단축.
+        /// 위치 역인덱스(_buildingsByPosition)로 O(n) → O(1)로 단축.
         /// </summary>
         public BuildingData GetBuildingAt(HexCoord position)
         {

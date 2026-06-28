@@ -27,10 +27,6 @@ namespace Hexiege.Presentation
         // Inspector 설정
         // ====================================================================
 
-        [Header("배경 오버레이")]
-        [Tooltip("반투명 검정 오버레이. 팝업 표시 시 활성화, 숨김 시 비활성화.")]
-        [SerializeField] private GameObject _overlay;
-
         [Header("요청 팝업 (수락/거절)")]
         [Tooltip("재경기 요청 수신 패널. '상대방이 재경기를 요청하였습니다.' 표시.")]
         [SerializeField] private GameObject _requestPanel;
@@ -58,17 +54,11 @@ namespace Hexiege.Presentation
         /// <summary>거절 콜백.</summary>
         private System.Action _onDecline;
 
-        /// <summary>오버레이 CanvasGroup. DOFade 페이드 애니메이션에 사용.</summary>
-        private CanvasGroup _overlayCg;
-
         /// <summary>요청 패널 CanvasGroup. DOFade 페이드 애니메이션에 사용.</summary>
         private CanvasGroup _requestPanelCg;
 
         /// <summary>거절 알림 패널 CanvasGroup. DOFade 페이드 애니메이션에 사용.</summary>
         private CanvasGroup _declinedPanelCg;
-
-        /// <summary>오버레이 페이드 Tween. 패널별 독립 관리하여 동시 페이드 시 서로 Kill하지 않도록 분리.</summary>
-        private Tween _overlayFade;
 
         /// <summary>요청 패널 페이드 Tween. 오버레이와 독립적으로 페이드 애니메이션 실행.</summary>
         private Tween _requestFade;
@@ -79,6 +69,14 @@ namespace Hexiege.Presentation
         /// <summary>OnNetworkRematchRequested / OnNetworkRematchDeclined 이벤트 구독 모음.</summary>
         private CompositeDisposable _eventSubscriptions;
 
+        /// <summary>
+        /// 이 팝업이 현재 UIManager BlockingOverlay 참조를 점유 중인지 추적.
+        /// 요청 팝업 → 거절 팝업으로 전환(ShowRequest 후 ShowDeclined)될 때 오버레이를
+        /// 중복으로 +1 하지 않도록 보장한다. 이 팝업은 항상 오버레이 참조를 0 또는 1개만 보유한다.
+        /// (그렇지 않으면 Hide() 1회로는 카운터가 0이 되지 않아 오버레이가 잔류한다.)
+        /// </summary>
+        private bool _overlayShown;
+
         // ====================================================================
         // Unity 생명주기
         // ====================================================================
@@ -86,7 +84,7 @@ namespace Hexiege.Presentation
         private void Awake()
         {
             // CanvasGroup 캐시: 없으면 자동 추가 — DOFade 애니메이션에 필수
-            _overlayCg = EnsureCanvasGroup(_overlay);
+            // 오버레이는 UIManager가 단일 소유하므로 여기서 캐시하지 않는다.
             _requestPanelCg = EnsureCanvasGroup(_requestPanel);
             _declinedPanelCg = EnsureCanvasGroup(_declinedPanel);
 
@@ -99,11 +97,11 @@ namespace Hexiege.Presentation
                 _declinedConfirmButton.onClick.AddListener(Hide);
 
             // 초기 상태: 즉시 숨김 (애니메이션 없이 — Awake에서 페이드하면 시각적 깜빡임 발생)
-            if (_overlay != null)      _overlay.SetActive(false);
-            if (_requestPanel != null) _requestPanel.SetActive(false);
-            if (_declinedPanel != null) _declinedPanel.SetActive(false);
+            // 오버레이 초기화는 UIManager가 담당한다.
+            if (_requestPanelCg != null) { _requestPanelCg.alpha = 0f; _requestPanelCg.blocksRaycasts = false; _requestPanelCg.interactable = false; }
+            if (_declinedPanelCg != null){ _declinedPanelCg.alpha = 0f; _declinedPanelCg.blocksRaycasts = false; _declinedPanelCg.interactable = false; }
 
-            // [2026-05-20] GameEvents 구독으로 NetworkGameEndController의 직접 호출을 제거.
+            // GameEvents 구독으로 재경기 요청/거절 이벤트를 수신한다.
             //   OnNetworkRematchRequested → ShowRequest() (콜백 없이)
             //   OnNetworkRematchDeclined → ShowDeclined()
             _eventSubscriptions = new CompositeDisposable();
@@ -120,7 +118,6 @@ namespace Hexiege.Presentation
         private void OnDestroy()
         {
             // 패널별 페이드 Tween을 모두 정리 — 씬 전환 시 남은 Tween 에러 방지
-            _overlayFade?.Kill();
             _requestFade?.Kill();
             _declinedFade?.Kill();
 
@@ -149,43 +146,42 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 대상 패널을 SetActive(true) 후 DOFade 0→1 페이드인 실행.
+        /// 대상 패널을 DOFade 0→1 페이드인 실행.
         /// 이전 페이드가 진행 중이면 Kill()로 정리 후 새 페이드 시작.
         /// ref로 Tween을 전달받아 패널별 독립적으로 관리 — 다른 패널의 Tween을 덮어쓰지 않음.
         /// </summary>
-        /// <param name="go">활성화할 GameObject.</param>
+        /// <param name="go">대상 GameObject (null 가드용으로만 사용).</param>
         /// <param name="cg">페이드 대상 CanvasGroup.</param>
         /// <param name="fadeTween">해당 패널의 Tween 참조. Kill/재할당용.</param>
         private void FadeIn(GameObject go, CanvasGroup cg, ref Tween fadeTween)
         {
             if (go == null || cg == null) return;
-            go.SetActive(true);
             cg.alpha = 0f;
             cg.blocksRaycasts = true; // 페이드인 시 레이캐스트 활성화
+            cg.interactable = true;   // 상호작용 활성화
             fadeTween?.Kill();
             fadeTween = cg.DOFade(1f, 0.2f).SetUpdate(true);
         }
 
         /// <summary>
-        /// 대상 패널을 DOFade 1→0 페이드아웃 후 SetActive(false) + blocksRaycasts=false 처리.
+        /// 대상 패널을 DOFade 1→0 페이드아웃 후 CanvasGroup으로 숨김 처리.
         /// ref로 Tween을 전달받아 패널별 독립적으로 관리.
         /// </summary>
-        /// <param name="go">비활성화할 GameObject.</param>
+        /// <param name="go">대상 GameObject (null 가드용으로만 사용).</param>
         /// <param name="cg">페이드 대상 CanvasGroup.</param>
         /// <param name="fadeTween">해당 패널의 Tween 참조. Kill/재할당용.</param>
         private void FadeOut(GameObject go, CanvasGroup cg, ref Tween fadeTween)
         {
             if (go == null || cg == null) return;
-            if (!go.activeSelf) return; // 이미 비활성이면 무시
             fadeTween?.Kill();
             fadeTween = cg.DOFade(0f, 0.15f).SetUpdate(true)
                 .OnComplete(() =>
                 {
-                    // 페이드아웃 완료 후 비활성화 + 레이캐스트 차단
+                    // 페이드아웃 완료 후 레이캐스트/상호작용 차단으로 완전 숨김 처리.
                     // blocksRaycasts=false가 누락되면 보이지 않는 CanvasGroup이 터치를 차단하여
-                    // 게임 UI 전체가 클릭 불가능해지는 버그 발생
+                    // 게임 UI 전체가 클릭 불가능해지는 버그 발생.
                     cg.blocksRaycasts = false;
-                    go.SetActive(false);
+                    cg.interactable = false;
                 });
         }
 
@@ -197,7 +193,7 @@ namespace Hexiege.Presentation
         /// 재경기 요청 수신 팝업 표시 — 콜백 없는 단순 표시.
         /// 수락/거절 시에는 GameEvents.OnLocalRematchAccepted / OnLocalRematchDeclined를 발행한다.
         ///
-        /// [2026-05-20] Awake에서 GameEvents.OnNetworkRematchRequested 구독으로 자동 호출되며,
+        /// Awake에서 GameEvents.OnNetworkRematchRequested 구독으로 자동 호출되며,
         /// 직접 호출도 가능하다.
         /// </summary>
         public void ShowRequest()
@@ -206,11 +202,12 @@ namespace Hexiege.Presentation
             _onAccept = null;
             _onDecline = null;
 
-            // 거절 패널은 즉시 비활성 (페이드 불필요 — 보이지 않는 상태)
-            if (_declinedPanel != null) _declinedPanel.SetActive(false);
+            // 거절 패널은 즉시 숨김 (페이드 불필요 — 보이지 않는 상태)
+            if (_declinedPanelCg != null) { _declinedPanelCg.alpha = 0f; _declinedPanelCg.blocksRaycasts = false; _declinedPanelCg.interactable = false; }
 
-            // 오버레이 + 요청 패널 페이드인 (각각 독립 Tween으로 관리)
-            FadeIn(_overlay, _overlayCg, ref _overlayFade);
+            // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시(터치해도 닫히지 않음).
+            ShowOverlayOnce();
+            // 요청 패널만 페이드인.
             FadeIn(_requestPanel, _requestPanelCg, ref _requestFade);
         }
 
@@ -225,8 +222,9 @@ namespace Hexiege.Presentation
             _onAccept = onAccept;
             _onDecline = onDecline;
 
-            if (_declinedPanel != null) _declinedPanel.SetActive(false);
-            FadeIn(_overlay, _overlayCg, ref _overlayFade);
+            if (_declinedPanelCg != null) { _declinedPanelCg.alpha = 0f; _declinedPanelCg.blocksRaycasts = false; _declinedPanelCg.interactable = false; }
+            // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시.
+            ShowOverlayOnce();
             FadeIn(_requestPanel, _requestPanelCg, ref _requestFade);
         }
 
@@ -236,11 +234,12 @@ namespace Hexiege.Presentation
         /// </summary>
         public void ShowDeclined()
         {
-            // 요청 패널은 즉시 비활성 (페이드 불필요 — 보이지 않는 상태)
-            if (_requestPanel != null) _requestPanel.SetActive(false);
+            // 요청 패널은 즉시 숨김 (페이드 불필요 — 보이지 않는 상태)
+            if (_requestPanelCg != null) { _requestPanelCg.alpha = 0f; _requestPanelCg.blocksRaycasts = false; _requestPanelCg.interactable = false; }
 
-            // 오버레이 + 거절 알림 패널 페이드인 (각각 독립 Tween으로 관리)
-            FadeIn(_overlay, _overlayCg, ref _overlayFade);
+            // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시.
+            ShowOverlayOnce();
+            // 거절 알림 패널만 페이드인.
             FadeIn(_declinedPanel, _declinedPanelCg, ref _declinedFade);
         }
 
@@ -249,9 +248,36 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
-            FadeOut(_overlay, _overlayCg, ref _overlayFade);
+            // 오버레이는 UIManager가 단일 소유 — 점유 중일 때만 1회 해제.
+            HideOverlayOnce();
             FadeOut(_requestPanel, _requestPanelCg, ref _requestFade);
             FadeOut(_declinedPanel, _declinedPanelCg, ref _declinedFade);
+        }
+
+        // ====================================================================
+        // 오버레이 참조 점유 헬퍼 (UIManager 단일 소유 구조)
+        // ====================================================================
+
+        /// <summary>
+        /// UIManager BlockingOverlay를 Modal 모드로 표시하되, 이 팝업이 이미 점유 중이면 중복 +1 하지 않는다.
+        /// 요청 팝업 → 거절 팝업 전환 시(ShowRequest 후 ShowDeclined) 오버레이 참조가 2가 되어
+        /// Hide() 1회로 0이 되지 않는 잔류 문제를 막는다.
+        /// </summary>
+        private void ShowOverlayOnce()
+        {
+            if (_overlayShown) return;     // 이미 점유 중이면 그대로 둔다.
+            _overlayShown = true;
+            UIManager.Instance?.ShowBlockingOverlay(); // Modal 모드(콜백 없음)
+        }
+
+        /// <summary>
+        /// 이 팝업이 점유 중인 오버레이 참조를 1회 해제한다. 점유 중이 아니면 아무 동작도 하지 않는다.
+        /// </summary>
+        private void HideOverlayOnce()
+        {
+            if (!_overlayShown) return;
+            _overlayShown = false;
+            UIManager.Instance?.HideBlockingOverlay();
         }
 
         // ====================================================================

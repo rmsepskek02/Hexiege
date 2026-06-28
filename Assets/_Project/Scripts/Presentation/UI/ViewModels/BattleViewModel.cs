@@ -16,10 +16,8 @@
 using System;
 using System.Threading.Tasks;
 using UniRx;
-using UnityEngine.SceneManagement;
 using Hexiege.Domain;
 using Hexiege.Infrastructure;
-using Hexiege.Presentation.UI;
 
 namespace Hexiege.Presentation
 {
@@ -151,7 +149,7 @@ namespace Hexiege.Presentation
                 .Subscribe(async _ =>
                 {
                     try { await StartHosting(); }
-                    catch (Exception e) { ErrorMessage.Value = e.Message; IsConnecting.Value = false; LoadingScreen.Instance?.Hide(); }
+                    catch (Exception e) { ErrorMessage.Value = e.Message; IsConnecting.Value = false; UIManager.Instance?.ShowLoading(false); }
                 })
                 .AddTo(_disposables);
 
@@ -159,7 +157,7 @@ namespace Hexiege.Presentation
                 .Subscribe(async code =>
                 {
                     try { await JoinGame(code); }
-                    catch (Exception e) { ErrorMessage.Value = e.Message; IsConnecting.Value = false; LoadingScreen.Instance?.Hide(); }
+                    catch (Exception e) { ErrorMessage.Value = e.Message; IsConnecting.Value = false; UIManager.Instance?.ShowLoading(false); }
                 })
                 .AddTo(_disposables);
 
@@ -179,20 +177,20 @@ namespace Hexiege.Presentation
 
                         await _networkManager.StartMatchmakingAsync(
                             onWaitSecond: sec => MatchWaitSeconds.Value = sec,
-                            onMatchFound: () => LoadingScreen.Instance?.Show("게임에 접속하는 중..."));
+                            onMatchFound: () => UIManager.Instance?.ShowLoading(true, "게임에 접속하는 중..."));
                     }
                     catch (OperationCanceledException)
                     {
                         // 사용자가 취소한 경우
                         IsMatchmaking.Value = false;
                         CurrentScreen.Value = BattleScreen.Main;
-                        LoadingScreen.Instance?.Hide();
+                        UIManager.Instance?.ShowLoading(false);
                     }
                     catch (Exception e)
                     {
                         ErrorMessage.Value = e.Message;
                         IsMatchmaking.Value = false;
-                        LoadingScreen.Instance?.Hide();
+                        UIManager.Instance?.ShowLoading(false);
                     }
                 })
                 .AddTo(_disposables);
@@ -221,9 +219,11 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void LoadSingleplayScene()
         {
-            LoadingScreen.Instance?.Show("게임 로딩 중...");
+            // SceneLoader.Load 가 내부에서 ShowLoading(true)를 호출하므로 별도 호출은 제거한다.
+            // 단, 여기서는 로딩 표시 후 2초 대기가 필요하므로 먼저 로딩만 띄우고 대기한 뒤 씬을 로드한다.
+            UIManager.Instance?.ShowLoading(true, "게임 로딩 중...");
             await Task.Delay(2000);
-            SceneManager.LoadScene("Game");
+            SceneLoader.Load(SceneLoader.Game, "게임 로딩 중...");
         }
 
         /// <summary>
@@ -244,7 +244,7 @@ namespace Hexiege.Presentation
         {
             IsConnecting.Value = true;
             ErrorMessage.Value = "";
-            LoadingScreen.Instance?.Show("게임에 참가하는 중...");
+            UIManager.Instance?.ShowLoading(true, "게임에 참가하는 중...");
             await _networkManager.JoinGameAsync(code);
         }
 
@@ -254,6 +254,9 @@ namespace Hexiege.Presentation
         private void CancelHosting()
         {
             IsConnecting.Value = false;
+            LobbyCode.Value = "";
+            ConnectedPlayers.Value = 0;
+            ErrorMessage.Value = "";
             CurrentScreen.Value = BattleScreen.Main;
             // DisconnectAsync는 fire-and-forget (UI에서 결과를 기다릴 필요 없음)
             _ = _networkManager.DisconnectAsync();
@@ -298,7 +301,7 @@ namespace Hexiege.Presentation
             ConnectedPlayers.Value++;
             if (ConnectedPlayers.Value >= 2)
             {
-                LoadingScreen.Instance?.Show("게임에 접속하는 중...");
+                UIManager.Instance?.ShowLoading(true, "게임에 접속하는 중...");
                 _networkManager.LoadGameScene();
             }
         }

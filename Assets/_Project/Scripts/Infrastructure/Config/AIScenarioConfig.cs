@@ -48,8 +48,8 @@ namespace Hexiege.Infrastructure
     [System.Serializable]
     public class ScenarioBundle
     {
-        /// <summary>이 시나리오의 식별 이름(예: Human_A). 디버깅·로깅용.</summary>
-        [Tooltip("이 시나리오의 식별 이름(예: Human_A). 디버깅·로깅용.")]
+        /// <summary>이 시나리오의 식별 이름(예: Human-Rush). 디버깅·로깅용.</summary>
+        [Tooltip("이 시나리오의 식별 이름(예: Human-Rush). 디버깅·로깅용.")]
         public string scenarioName = "Unnamed";
 
         /// <summary>빌드오더 항목 목록. 여러 Phase의 항목을 하나의 평탄 리스트로 보관.</summary>
@@ -58,27 +58,21 @@ namespace Hexiege.Infrastructure
     }
 
     /// <summary>
-    /// 한 종족(시나리오)의 빌드오더 전체를 담는 ScriptableObject.
-    /// 에셋 경로(권장): Assets/_Project/Resources/Config/AIScenarioConfig_Human_A.asset 등
+    /// 한 종족의 AI 빌드오더 시나리오 묶음을 담는 ScriptableObject.
+    /// 에셋 경로: Assets/_Project/Resources/Config/AIScenarioConfig_{종족}.asset
     /// </summary>
     [CreateAssetMenu(fileName = "AIScenarioConfig", menuName = "Hexiege/AIScenarioConfig")]
     public class AIScenarioConfig : ScriptableObject
     {
-        // ---- 레거시 필드 (Human_A/B/C.asset 호환용 — 해당 에셋 삭제 후 제거 가능) ----
-        [Tooltip("이 시나리오를 식별하기 위한 이름(예: Human_A). 디버깅/로깅용.")]
+        /// <summary>이 에셋(종족)의 이름. 디버깅/로깅용.</summary>
+        [Tooltip("이 에셋(종족)의 이름. 디버깅/로깅용.")]
         public string scenarioName = "Unnamed";
 
-        [Tooltip("빌드오더 항목 목록. 여러 Phase의 항목을 하나의 평탄 리스트로 보관. " +
-                 "리스트 순서 = 같은 Phase 내 실행 순서.")]
-        [SerializeField] private List<BuildOrderStep> _steps = new List<BuildOrderStep>();
-
-        /// <summary> 외부에서 읽기 전용으로 빌드오더 항목 목록에 접근할 때 사용. </summary>
-        public IReadOnlyList<BuildOrderStep> Steps => _steps;
-
-        // ---- 신규: 종족 단위 에셋(Human / Spirit / Transcendence)에서 사용 ----
-
-        [Tooltip("종족 에셋이 담는 3개 시나리오 배열. 게임 시작 시 무작위로 하나를 선택한다. " +
-                 "Human_A/B/C 같은 레거시 에셋은 이 필드를 비워두고 _steps를 사용한다.")]
+        /// <summary>
+        /// 이 종족이 보유한 시나리오 배열(3개). 게임 시작 시 무작위로 하나를 선택한다.
+        /// Human: Rush/Tech/Balance / Spirit: Inferno/Torrent/Quake / Transcendence: Rush/Flora/Beast
+        /// </summary>
+        [Tooltip("종족 에셋이 담는 3개 시나리오 배열. 게임 시작 시 무작위로 하나를 선택한다.")]
         public List<ScenarioBundle> scenarios = new List<ScenarioBundle>();
     }
 }

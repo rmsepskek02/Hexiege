@@ -42,8 +42,8 @@ namespace Hexiege.Infrastructure
         // 내부 상태
         // ====================================================================
 
-        /// <summary>GameBootstrapper 참조. UseCase 접근에 사용.</summary>
-        private Hexiege.Bootstrap.GameBootstrapper _bootstrapper;
+        /// <summary>게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
+        private IGameServices _services;
 
         /// <summary>OnEntityDamaged 구독 해제용 Disposable.</summary>
         private System.IDisposable _damagedSubscription;
@@ -60,10 +60,10 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
-            _bootstrapper = FindFirstObjectByType<Hexiege.Bootstrap.GameBootstrapper>();
-            if (_bootstrapper == null)
+            _services = GameServicesLocator.Current;
+            if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkHealthSync: GameBootstrapper를 찾을 수 없습니다.");
+                Debug.LogWarning("[Network] NetworkHealthSync: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
             }
 
             Debug.Log($"[Network] NetworkHealthSync 스폰. IsServer={IsServer}");
@@ -138,8 +138,8 @@ namespace Hexiege.Infrastructure
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
 
-            // _bootstrapper는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
-            if (_bootstrapper == null)
+            // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
+            if (_services == null)
             {
                 Debug.LogError("[Network] SyncHealthClientRpc: GameBootstrapper를 찾을 수 없습니다.");
                 return;
@@ -166,7 +166,7 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void SyncUnitHealth(int unitId, int serverHp)
         {
-            UnitSpawnUseCase unitSpawn = _bootstrapper.GetUnitSpawn();
+            UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
             {
                 Debug.LogWarning("[Network] SyncUnitHealth: UnitSpawnUseCase가 null. 맵 로드 전일 수 있음.");
@@ -199,7 +199,7 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void SyncBuildingHealth(int buildingId, int serverHp)
         {
-            BuildingPlacementUseCase buildingPlacement = _bootstrapper.GetBuildingPlacement();
+            BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
                 Debug.LogWarning("[Network] SyncBuildingHealth: BuildingPlacementUseCase가 null.");

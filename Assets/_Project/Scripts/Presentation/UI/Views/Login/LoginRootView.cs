@@ -4,7 +4,7 @@
 //
 // 역할:
 //   - 모든 하위 View(LoginSelect, EmailLogin, SignUp, EmailVerify, PasswordReset)
-//     GameObject 를 참조로 보유하고 한 번에 한 패널만 활성화.
+//     CanvasGroup 을 참조로 보유하고 한 번에 한 패널만 활성화.
 //   - 패널 전환 시 이전 패널을 Back 스택에 push.
 //   - Android 뒤로가기 입력 처리:
 //       하위 화면 → 이전 화면으로 복귀.
@@ -19,9 +19,8 @@
 // ============================================================================
 
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using Hexiege.Application;
 using Hexiege.Bootstrap;
 
@@ -51,38 +50,31 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
-        // Inspector 참조 — 패널 GameObjects
+        // Inspector 참조 — 패널 CanvasGroups
         // ====================================================================
 
-        [Header("패널 GameObjects")]
-        [Tooltip("로그인 방식 선택 패널.")]
-        [SerializeField] private GameObject _loginSelectPanel;
+        [Header("패널 CanvasGroups")]
+        [Tooltip("로그인 방식 선택 패널. CanvasGroup으로 표시/숨김 처리.")]
+        [SerializeField] private CanvasGroup _loginSelectPanel;
 
-        [Tooltip("이메일 로그인 패널.")]
-        [SerializeField] private GameObject _emailLoginPanel;
+        [Tooltip("이메일 로그인 패널. CanvasGroup으로 표시/숨김 처리.")]
+        [SerializeField] private CanvasGroup _emailLoginPanel;
 
-        [Tooltip("이메일 회원가입 패널.")]
-        [SerializeField] private GameObject _signUpPanel;
+        [Tooltip("이메일 회원가입 패널. CanvasGroup으로 표시/숨김 처리.")]
+        [SerializeField] private CanvasGroup _signUpPanel;
 
-        [Tooltip("이메일 인증 대기 패널.")]
-        [SerializeField] private GameObject _emailVerifyPanel;
+        [Tooltip("이메일 인증 대기 패널. CanvasGroup으로 표시/숨김 처리.")]
+        [SerializeField] private CanvasGroup _emailVerifyPanel;
 
-        [Tooltip("비밀번호 재설정 패널.")]
-        [SerializeField] private GameObject _passwordResetPanel;
+        [Tooltip("비밀번호 재설정 패널. CanvasGroup으로 표시/숨김 처리.")]
+        [SerializeField] private CanvasGroup _passwordResetPanel;
 
         [Header("팝업 (오버레이)")]
         [Tooltip("익명 로그인 경고 팝업. 패널 전환 스택과 무관.")]
         [SerializeField] private AnonymousWarningPopup _anonymousWarningPopup;
 
-        [Tooltip("앱 종료 확인 팝업 (ConfirmPopup 재사용).")]
-        [SerializeField] private ConfirmPopup _confirmPopup;
-
-        [Tooltip("네트워크 오류 팝업 (ConfirmPopup 재사용 또는 단순 메시지).")]
-        [SerializeField] private ConfirmPopup _networkErrorPopup;
-
-        [Header("공통 UI 요소")]
-        [Tooltip("모든 화면 공통의 헤더 텍스트(선택). null 허용.")]
-        [SerializeField] private TextMeshProUGUI _headerText;
+        [Tooltip("네트워크 오류 안내 팝업.")]
+        [SerializeField] private NetworkErrorPopup _networkErrorPopup;
 
         // ====================================================================
         // 내부 상태
@@ -180,11 +172,11 @@ namespace Hexiege.Presentation
         /// </summary>
         public void HideAll()
         {
-            SafeSetActive(_loginSelectPanel, false);
-            SafeSetActive(_emailLoginPanel, false);
-            SafeSetActive(_signUpPanel, false);
-            SafeSetActive(_emailVerifyPanel, false);
-            SafeSetActive(_passwordResetPanel, false);
+            HideGroup(_loginSelectPanel);
+            HideGroup(_emailLoginPanel);
+            HideGroup(_signUpPanel);
+            HideGroup(_emailVerifyPanel);
+            HideGroup(_passwordResetPanel);
             _currentPanel = LoginPanel.None;
         }
 
@@ -223,23 +215,24 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 앱 종료 확인 팝업을 표시한다.
-        /// 기존 ConfirmPopup 을 재사용 — Inspector 에서 _confirmPopup 연결 필수.
+        /// UIManager.ShowConfirm()으로 전역 팝업 사용 — UIManager가 null이면 즉시 종료.
         /// </summary>
         private void ShowQuitConfirm()
         {
-            if (_confirmPopup == null)
+            if (UIManager.Instance == null)
             {
-                Debug.LogWarning("[LoginRootView] _confirmPopup 미연결 — 즉시 종료합니다.");
+                // UIManager 미초기화 상태(씬 직접 진입 등) — 안전을 위해 즉시 종료.
+                Debug.LogWarning("[LoginRootView] UIManager가 없어 즉시 종료합니다.");
                 UnityEngine.Application.Quit();
                 return;
             }
 
-            _confirmPopup.Show(
+            UIManager.Instance.ShowConfirm(
                 message: "앱을 종료하시겠습니까?",
-                confirmLabel: "종료",
-                cancelLabel: "취소",
                 onConfirm: UnityEngine.Application.Quit,
-                onCancel: null);
+                onCancel: null,
+                confirmLabel: "종료",
+                cancelLabel: "취소");
         }
 
         // ====================================================================
@@ -248,9 +241,10 @@ namespace Hexiege.Presentation
 
         private void Update()
         {
-            // 안드로이드 뒤로가기 = KeyCode.Escape
+            // 안드로이드 뒤로가기 = Escape 키 (New Input System).
             //   Editor 에서 ESC 키로 동일 흐름을 테스트할 수 있다.
-            if (Input.GetKeyDown(KeyCode.Escape))
+            //   Keyboard.current가 null이면 키보드 장치가 없는 환경(모바일 실기 등)이므로 건너뛴다.
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 HandleBack();
             }
@@ -266,18 +260,8 @@ namespace Hexiege.Presentation
         /// </summary>
         public void ShowNetworkErrorPopup()
         {
-            if (_networkErrorPopup == null)
-            {
-                Debug.LogWarning("[LoginRootView] _networkErrorPopup 미연결.");
-                return;
-            }
-
-            _networkErrorPopup.Show(
-                message: "네트워크 설정을 확인하고 다시 시도하세요.",
-                confirmLabel: "확인",
-                cancelLabel: string.Empty,
-                onConfirm: null,
-                onCancel: null);
+            if (_networkErrorPopup != null)
+                _networkErrorPopup.Show();
         }
 
         // ====================================================================
@@ -298,18 +282,46 @@ namespace Hexiege.Presentation
         /// </summary>
         private void SetActivePanel(LoginPanel panel)
         {
-            SafeSetActive(_loginSelectPanel, panel == LoginPanel.LoginSelect);
-            SafeSetActive(_emailLoginPanel, panel == LoginPanel.EmailLogin);
-            SafeSetActive(_signUpPanel, panel == LoginPanel.SignUp);
-            SafeSetActive(_emailVerifyPanel, panel == LoginPanel.EmailVerify);
-            SafeSetActive(_passwordResetPanel, panel == LoginPanel.PasswordReset);
+            // 먼저 전체 숨김 (_currentPanel이 LoginPanel.None으로 초기화됨)
+            HideAll();
+            // HideAll() 내부에서 _currentPanel = LoginPanel.None 되므로
+            // 여기서 다시 panel 값으로 덮어쓴다.
             _currentPanel = panel;
+
+            // 지정된 패널만 표시
+            switch (panel)
+            {
+                case LoginPanel.LoginSelect:   ShowGroup(_loginSelectPanel);   break;
+                case LoginPanel.EmailLogin:    ShowGroup(_emailLoginPanel);    break;
+                case LoginPanel.SignUp:        ShowGroup(_signUpPanel);        break;
+                case LoginPanel.EmailVerify:   ShowGroup(_emailVerifyPanel);   break;
+                case LoginPanel.PasswordReset: ShowGroup(_passwordResetPanel); break;
+            }
         }
 
-        /// <summary>null 안전 SetActive.</summary>
-        private static void SafeSetActive(GameObject go, bool active)
+        /// <summary>
+        /// CanvasGroup을 화면에 표시한다.
+        /// alpha를 1로, blocksRaycasts와 interactable을 true로 설정하여 완전히 활성화.
+        /// </summary>
+        private static void ShowGroup(CanvasGroup cg)
         {
-            if (go != null) go.SetActive(active);
+            if (cg == null) return;
+            cg.alpha = 1f;
+            cg.blocksRaycasts = true;
+            cg.interactable = true;
+        }
+
+        /// <summary>
+        /// CanvasGroup을 화면에서 숨긴다.
+        /// alpha를 0으로, blocksRaycasts와 interactable을 false로 설정하여 완전히 비활성화.
+        /// SetActive(false)를 쓰지 않아도 렌더링·입력이 차단된다.
+        /// </summary>
+        private static void HideGroup(CanvasGroup cg)
+        {
+            if (cg == null) return;
+            cg.alpha = 0f;
+            cg.blocksRaycasts = false;
+            cg.interactable = false;
         }
     }
 }

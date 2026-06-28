@@ -582,9 +582,6 @@ namespace Hexiege.Application
         /// 유닛이 A* 이동 중 새 타일에 진입할 때 발행 (서버 전용).
         /// 발행: UnitView (MoveAlongPathV3에서 _isAStarMoving == true인 동안 타일 전환 직후)
         /// 구독: GameBootstrapper → CongestionMap.Increment (혼잡도 누적)
-        ///
-        /// [2026-05-20] Action&lt;int, HexCoord&gt; → Subject&lt;UnitEnteredTileEvent&gt;로 통일.
-        /// 다른 GameEvents와 동일한 패턴이라 GameBootstrapper에서 ActionDisposable 래퍼가 불필요해진다.
         /// </summary>
         public static readonly Subject<UnitEnteredTileEvent> OnUnitEnteredTile
             = new Subject<UnitEnteredTileEvent>();
@@ -808,6 +805,30 @@ namespace Hexiege.Application
         /// 구독: RematchRequestPopup (ShowDeclined 호출), GameEndUI (RestoreRematchButton 호출)
         /// </summary>
         public static readonly Subject<Unit> OnNetworkRematchDeclined = new Subject<Unit>();
+
+        /// <summary>
+        /// 서버가 재경기를 시작(Game 씬 재로드 직전)했음을 모든 클라이언트에 알리는 이벤트.
+        /// 발행: NetworkGameEndController.NotifyRematchStartingClientRpc (서버 → 전체 클라이언트)
+        /// 구독: GameEndUI (전역 로딩 인디케이터 표시 — "재경기 준비 중...")
+        ///
+        /// 왜 이벤트로 보내는가:
+        ///   재경기 씬 전환은 서버(Infrastructure)에서 일어나지만, 로딩 인디케이터(UIManager)는
+        ///   Presentation 레이어 소속이다. Infrastructure가 Presentation을 직접 참조하면
+        ///   레이어 방향이 역행하므로, GameEvents(Application)를 경유하여 Presentation의
+        ///   GameEndUI가 구독해 로딩을 띄우도록 한다(UI 규칙 L-3, L-4).
+        /// </summary>
+        public static readonly Subject<Unit> OnNetworkRematchStarting = new Subject<Unit>();
+
+        /// <summary>
+        /// 네트워크 게임 종료 후 로비로 복귀할 때 발행하는 이벤트.
+        /// 발행: NetworkGameManager.BackToLobby (NGO Shutdown 완료 직후)
+        /// 구독: GameEndUI (SceneLoader.Load 호출)
+        ///
+        /// 왜 이벤트로 보내는가:
+        ///   BackToLobby는 Infrastructure 레이어지만, 씬 전환(SceneLoader)은 Presentation 소속이다.
+        ///   레이어 방향을 보호하기 위해 GameEvents(Application)를 경유한다(UI 규칙 L-4 주석).
+        /// </summary>
+        public static readonly Subject<string> OnNetworkBackToLobby = new Subject<string>();
 
         /// <summary>
         /// 로컬에서 재경기 요청 버튼을 눌렀음을 알리는 이벤트.

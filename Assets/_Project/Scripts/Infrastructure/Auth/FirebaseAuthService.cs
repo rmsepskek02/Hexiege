@@ -93,6 +93,7 @@ namespace Hexiege.Infrastructure
         /// <returns>초기화 성공 여부.</returns>
         public async Task<bool> InitializeAsync()
         {
+            RuntimeLog("INFO", "InitializeAsync 진입"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             try
             {
                 // CheckAndFixDependenciesAsync:
@@ -103,8 +104,11 @@ namespace Hexiege.Infrastructure
                 if (status != DependencyStatus.Available)
                 {
                     Debug.LogError($"[FirebaseAuth] Firebase 의존성 해결 실패: {status}");
+                    RuntimeLog("ERROR", $"DependencyStatus 실패 | status={status}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
                     return false;
                 }
+
+                RuntimeLog("INFO", $"DependencyStatus 성공 | status={status}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
 
                 // DefaultInstance 는 google-services.json 의 설정을 기반으로 생성된 기본 Auth 인스턴스.
                 _auth = FirebaseAuth.DefaultInstance;
@@ -112,11 +116,14 @@ namespace Hexiege.Infrastructure
 
                 Debug.Log($"[FirebaseAuth] 초기화 완료. 기존 세션: " +
                           $"{(IsLoggedIn ? $"있음(UID={FirebaseUID}, Anonymous={IsAnonymous})" : "없음")}");
+                // [DEBUG-TEMP] 디버깅 완료 후 제거 — 초기화 후 세션 상태 기록
+                RuntimeLog("INFO", $"초기화 완료 | IsLoggedIn={IsLoggedIn}, IsAnonymous={IsAnonymous}");
                 return true;
             }
             catch (Exception e)
             {
                 Debug.LogError($"[FirebaseAuth] 초기화 예외: {e.Message}");
+                RuntimeLog("ERROR", $"초기화 예외 | message={e.Message}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
                 return false;
             }
         }
@@ -134,6 +141,7 @@ namespace Hexiege.Infrastructure
         /// <returns>발급된 Firebase UID.</returns>
         public async Task<string> SignInAnonymouslyAsync()
         {
+            RuntimeLog("INFO", "SignInAnonymouslyAsync 진입"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             EnsureInitialized();
             try
             {
@@ -142,10 +150,13 @@ namespace Hexiege.Infrastructure
                 FirebaseUser user = result.User;
 
                 Debug.Log($"[FirebaseAuth] 익명 로그인 성공. UID={user.UserId}");
+                RuntimeLog("INFO", $"익명 로그인 성공 | UID={user.UserId}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
                 return user.UserId;
             }
             catch (FirebaseException e)
             {
+                // [DEBUG-TEMP] 디버깅 완료 후 제거 — FirebaseException 상세 기록
+                RuntimeLog("ERROR", $"익명 로그인 실패 | errorCode={e.ErrorCode}, message={e.Message}");
                 throw ConvertException(e, "익명 로그인");
             }
         }
@@ -170,6 +181,9 @@ namespace Hexiege.Infrastructure
             //    GPGS 콜백은 비동기 콜백 기반이므로, TaskCompletionSource 로 async/await 화한다.
             string serverAuthCode = await RequestGoogleServerAuthCodeAsync();
 
+            // [DEBUG-TEMP] 디버깅 완료 후 제거 — serverAuthCode 내용은 보안상 기록 금지(길이/null 여부만)
+            RuntimeLog("INFO", $"serverAuthCode 획득 | isNull={(serverAuthCode == null)}, length={serverAuthCode?.Length ?? 0}");
+
             if (string.IsNullOrEmpty(serverAuthCode))
             {
                 throw new AuthException(AuthErrorReason.GoogleSignInCancelled,
@@ -188,10 +202,13 @@ namespace Hexiege.Infrastructure
 
                 Debug.Log($"[FirebaseAuth] Google 로그인 성공. UID={user.UserId}, " +
                           $"DisplayName={user.DisplayName}");
+                RuntimeLog("INFO", $"Google Firebase 로그인 성공 | UID={user.UserId}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
                 return user.UserId;
             }
             catch (FirebaseException e)
             {
+                // [DEBUG-TEMP] 디버깅 완료 후 제거 — FirebaseException 상세 기록
+                RuntimeLog("ERROR", $"Google Firebase 로그인 실패 | errorCode={e.ErrorCode}, message={e.Message}");
                 throw ConvertException(e, "Google 로그인");
             }
         }
@@ -207,11 +224,15 @@ namespace Hexiege.Infrastructure
             var tcs = new TaskCompletionSource<string>();
 
             // 1) GPGS 인증 (사용자가 Google 계정을 선택 / 자동 선택)
-            PlayGamesPlatform.Instance.Authenticate(signInStatus =>
+            PlayGamesPlatform.Instance.ManuallyAuthenticate(signInStatus =>
             {
+                // [DEBUG-TEMP] 디버깅 완료 후 제거 — Authenticate 콜백 진입 + 상태값 기록
+                RuntimeLog("INFO", $"GPGS Authenticate 콜백 진입 | signInStatus={signInStatus}");
+
                 if (signInStatus != GooglePlayGames.BasicApi.SignInStatus.Success)
                 {
                     Debug.LogError($"[FirebaseAuth] GPGS 인증 실패: {signInStatus}");
+                    RuntimeLog("ERROR", $"GPGS Authenticate 실패 | signInStatus={signInStatus}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
                     tcs.TrySetResult(string.Empty);
                     return;
                 }
@@ -225,11 +246,13 @@ namespace Hexiege.Infrastructure
                         if (string.IsNullOrEmpty(authCode))
                         {
                             Debug.LogError("[FirebaseAuth] GPGS Server Auth Code 발급 실패.");
+                            RuntimeLog("ERROR", "GPGS RequestServerSideAccess 콜백 실패 | authCode 비어있음"); // [DEBUG-TEMP] 디버깅 완료 후 제거
                             tcs.TrySetResult(string.Empty);
                         }
                         else
                         {
                             Debug.Log("[FirebaseAuth] GPGS Server Auth Code 발급 성공.");
+                            RuntimeLog("INFO", "GPGS RequestServerSideAccess 콜백 성공"); // [DEBUG-TEMP] 디버깅 완료 후 제거
                             tcs.TrySetResult(authCode);
                         }
                     });
@@ -486,6 +509,22 @@ namespace Hexiege.Infrastructure
         // ====================================================================
         // 내부 헬퍼
         // ====================================================================
+
+        // ====================================================================
+        // [DEBUG-TEMP] 디버깅 완료 후 제거 — RuntimeLog 출력
+        // 실기기(Android)에서 로그인 흐름을 Logcat(Debug.Log)으로 추적하기 위한 임시 로그.
+        // 사용자가 Logcat 출력을 복사해 공유한다.
+        // ====================================================================
+
+        /// <summary>
+        /// [DEBUG-TEMP] 한 줄 로그를 Debug.Log(Logcat)로 출력한다.
+        /// 형식: [HH:MM:SS.ms] [LEVEL] [Auth/FirebaseAuthService] 메시지
+        /// </summary>
+        private void RuntimeLog(string level, string message)
+        {
+            // 에디터 파일 형식과 동일하게 시간/레벨/시스템 태그를 붙여 출력한다.
+            Debug.Log($"[{DateTime.Now:HH:mm:ss.fff}] [{level}] [Auth/FirebaseAuthService] {message}");
+        }
 
         /// <summary>
         /// 초기화 검증. InitializeAsync() 호출 전 다른 API 사용 시 즉시 예외 발생.

@@ -83,7 +83,7 @@ Assets/
     ├── Scripts/
     │   ├── Bootstrap/           # Composition Root (GameBootstrapper partial × 4, LoginBootstrapper)
     │   ├── Domain/              # 순수 C# 엔티티
-    │   ├── Application/         # Use Cases, GameEvents, NetworkContext
+    │   ├── Application/         # Use Cases, GameEvents, NetworkContext, Interfaces
     │   ├── Infrastructure/      # 외부 연동, Network Controllers, Factories
     │   ├── Presentation/        # Unity UI/View, UnitView, CameraController
     │   ├── Core/                # 공통 유틸리티 (HexMetrics, ViewConverter)
@@ -93,6 +93,25 @@ Assets/
     ├── Scenes/
     └── Resources/
 ```
+
+### 의존성 방향 추상화 (Application 인터페이스 패턴)
+
+Clean Architecture에서는 **안쪽 레이어가 바깥쪽 레이어를 알면 안 된다**(역방향 의존 금지).
+이를 지키기 위해, 바깥 레이어가 안쪽에 무언가를 제공해야 할 때는
+**안쪽 레이어에 인터페이스를 선언하고 바깥 레이어가 그 인터페이스를 구현**한다(의존성 역전).
+
+본 프로젝트에서 이 패턴을 적용한 대표 사례:
+
+| 인터페이스 (선언 위치) | 구현체 (위치) | 해소한 역방향 의존 |
+|----------------------|--------------|------------------|
+| `IGameServices` (Application) | `GameBootstrapper` (Bootstrap) | Infrastructure/Network → Bootstrap 직접 참조 제거. NetworkXxx가 `FindFirstObjectByType<GameBootstrapper>()` 대신 `IGameServices`로 UseCase에 접근 |
+| `IUnitFactory` (Application) | `UnitFactory` (Infrastructure) | `IGameServices.GetUnitFactory()`가 구체 클래스 `UnitFactory`(Infrastructure)를 반환하면 생기는 Application → Infrastructure 역방향 의존 제거. 인터페이스를 반환하도록 변경 |
+| `IEntityPositionProvider` (Application) | (Infrastructure 구현) | 전투 거리 판정 시 엔티티 실제 위치 조회 추상화 |
+| `IForfeitService` (Application) | (Infrastructure/Network 구현) | 게임 포기 처리 추상화 |
+
+- **위치 규칙**: 이런 추상화 인터페이스는 `Scripts/Application/Interfaces/`에 둔다.
+- **참조 허용 범위**: Application 레이어는 Domain/Application 타입 참조 가능, `Unity.Netcode` 직접 참조 금지(NetworkContext 정적 홀더 사용). 단 `UnityEngine.GameObject` 등 기본 Unity 타입은 `IUnitFactory`처럼 필요 시 허용.
+- **`IUnitFactory` 멤버**: `GetUnitObject(int)` / `RegisterUnitObject(int, GameObject)` / `InitializeUnitView(UnitData)` — Infrastructure/Network 계층(`NetworkUnit`, `NetworkProductionController`, `NetworkCombatController`, `NetworkUnitMovementController`)이 `IGameServices.GetUnitFactory()`를 통해 `IUnitFactory` 타입으로 접근한다.
 
 ### ViewConverter 시스템 (Core 레이어)
 
@@ -413,6 +432,39 @@ UIAnimator.SlideInFromTop(RectTransform rt, CanvasGroup cg, float offset, float 
 UIAnimator.SlideOutToTop(RectTransform rt, CanvasGroup cg, Action onComplete, float offset, float duration);
 ```
 
+#### UIManager — 전역 공통 UI 싱글톤
+
+`Assets/_Project/Scripts/Presentation/UI/UIManager.cs` — Login 씬에서 1회 생성, DontDestroyOnLoad로 모든 씬에서 유지되는 공통 UI 매니저.
+
+```
+[UI Systems] (Login.unity)
+└─ UIManager (SingletonMonoBehaviour<UIManager> + IUIManager)
+    └─ UIManager Canvas (SortingOrder 100)
+        └─ SafeAreaContainer (SafeAreaFitter)
+            ├─ ConfirmPopup     ← _confirmPopup 연결
+            └─ LoadingIndicator ← _loadingIndicator(CanvasGroup) 연결
+
+SplashOverlay Canvas (씬 루트, SortingOrder 200)
+└─ SplashOverlay (CanvasGroup + SplashOverlayView)
+    ├─ Background (SafeArea 밖 — 전체화면)
+    └─ SafeAreaContainer
+        ├─ StatusText ("로딩 중...")
+        └─ TapToStartText ("Tap to Start")
+
+Toast (씬 루트) ← ToastUI 프리팹, 자체 DontDestroyOnLoad
+```
+
+**외부 호출 패턴** (null-safe — Login 씬 직접 진입 시 Instance=null 가능):
+```csharp
+UIManager.Instance?.ShowConfirm("메시지", onConfirm, onCancel);
+UIManager.Instance?.ShowLoading(true, "로딩 중...");
+UIManager.Instance?.ShowLoading(false);
+```
+
+**LoadingIndicator 설계 원칙**: 로딩 사유(씬 전환/Firebase/매칭 등)와 로딩 UI를 분리. 모든 로딩 상황에 `ShowLoading(bool, string)` 단일 API 사용.
+
+---
+
 #### AnimatedPanel 컴포넌트
 
 `Assets/_Project/Scripts/Presentation/UI/Common/AnimatedPanel.cs` — 패널 GameObject에 부착하여 Show()/Hide() 호출만으로 애니메이션 자동 처리.
@@ -430,7 +482,7 @@ _panel.Show();
 _panel.Hide(onComplete: () => { /* 퇴장 완료 후 실행 */ });
 ```
 
-**배경 오버레이 규칙**: `_backgroundOverlay`가 연결된 경우 Show() 시 즉시 SetActive(true), Hide() 완료 후 SetActive(false). 패널 슬라이드 애니메이션과 독립적으로 즉시 처리.
+**배경 오버레이 규칙**: `_backgroundOverlay`(CanvasGroup 타입)가 연결된 경우 Show() 시 즉시 `alpha=1 / blocksRaycasts=true / interactable=true`, Hide() 완료 후 즉시 `alpha=0 / false / false`. 패널 슬라이드 애니메이션과 독립적으로 즉시 처리. 배경 GameObject는 항상 active 상태 유지.
 
 **분류별 애니메이션 기준** → `Assets/_Project/Docs/UIGuidelines.md` 참조.
 
@@ -836,6 +888,12 @@ if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 //   GetNextStage(type)         — 업그레이드 대상 타입
 //   CanUpgrade(type)           — 업그레이드 가능 여부
 //   CanShowActionPanel(type)   — 비생산 건물 액션 패널 표시 여부
+//
+// 내부 구조 (2026-06-25 Phase 2):
+//   생산건물 메타데이터를 단일 Dictionary<BuildingType, BuildingMeta> lookup table로 보유.
+//   BuildingMeta = { IsProduction, Stage, NextStage }. 위 IsProductionBuilding/GetStage/
+//   GetNextStage는 이 table을 TryGetValue로 조회만 하며(미등록=비생산), 신규 생산건물 추가 시
+//   table에 한 행만 추가하면 세 메서드가 자동 정합. 공개 API 시그니처는 동일.
 ```
 
 #### 건물 데이터 (IDamageable 패턴)
@@ -1196,6 +1254,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.20.0 | 2026-06-26 | `IUnitFactory` 인터페이스 도입(Bootstrap/Infrastructure 역방향 의존 제거 리팩토링). `IGameServices.GetUnitFactory()` 반환 타입을 구체 클래스 `UnitFactory`(Infrastructure) → `IUnitFactory`(Application) 인터페이스로 변경. "의존성 방향 추상화(Application 인터페이스 패턴)" 섹션 신규 추가(IGameServices/IUnitFactory/IEntityPositionProvider/IForfeitService 정리). 동작 변경 없음. |
 | 0.19.0 | 2026-06-10 | AI 시나리오 ScriptableObject 3종족 개편. Domain/AI 레이어 신규(DifficultyLevel, BuildOrderStep, AIActionType). 종족별 단일 에셋 구조. |
 | 0.18.0 | 2026-06-05 | Firebase 백엔드 전환 완료 반영 (Firebase SDK v13.11.0 + GPGS v2.1.0 설치 완료, PlayFab → Firebase/Firestore 구조로 교체). 폴더 구조 Bootstrap/Diagnostics 추가. ScriptableObject 기반 UnitStats/BuildingStats 반영. BuildingType 26종 확장 반영. ProductionState PendingQueue 구조 반영. OnEntityDied → OnUnitDied+OnBuildingDied 강타입 분리 반영. |
 | 0.17.0 | 2026-03-19 | 유닛 스탯 코드 예시 재확정 (ATK: Pistoleer=6, Assault=1, Sniper=10 / 사거리: 1.0/2.0/5.0 / epsilon 0.05f 명시 / Sniper MoveSpeed=0.25). Castle HP 50→100. A* 목표 타일 blocked 체크 제거 반영. UIAnimator/AnimatedPanel 패턴 섹션 추가. 개발 로드맵 섹션 삭제 (ROADMAP.md 참조로 대체). |

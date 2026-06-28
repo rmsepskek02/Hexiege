@@ -2,6 +2,8 @@
 
 공통 UI 규칙 및 UI 패널(생산 패널, 건물 배치 패널, 인게임 설정 메뉴)에 적용되는 규칙 모음.
 
+> Canvas SortingOrder 구조 및 씬별 Canvas 목록 → [`GameSystemRules_CanvasSortingOrder.md`](GameSystemRules_CanvasSortingOrder.md) 참조
+
 ---
 
 ## 목차
@@ -73,6 +75,9 @@ SafeAreaContainer에는 SafeAreaFitter 컴포넌트를 부착하여 Safe Area �
 - 실제 UI 요소(팝업, HUD 등)는 전부 SafeAreaContainer 안에 배치한다.
 - 전체화면을 채워야 하는 배경 요소는 SafeAreaContainer 밖(Canvas 직속)에 배치한다.
 - 독립 Canvas를 가진 UI(ToastUI 등)는 해당 Canvas에도 SafeAreaFitter를 적용한다.
+- **반투명 배경 오버레이(BlockingOverlay)도 전체화면 배경과 동일하게 SafeAreaContainer 밖(UIManager Canvas 직속)에 두어야 한다.**
+  팝업 컴포넌트가 직접 소유하지 않고, `UIManager.ShowBlockingOverlay()` / `HideBlockingOverlay()`를 통해 제어한다.
+  (각 팝업이 SafeAreaContainer 안에 개별 오버레이를 소유하면 노치/홈바 영역이 가려지지 않는 구조적 문제가 발생하므로, UIManager가 단일 소유한다.)
 
 **전체화면 배경 오브젝트 구현 방법**
 
@@ -98,6 +103,19 @@ UI 요소를 숨길 때 SetActive(false) 대신 CanvasGroup을 사용한다.
 SetActive(false)를 사용하면 두 가지 문제가 발생한다.
 - Layout Group(버튼들이 나란히 정렬되는 구조) 안에서 해당 요소가 차지하던 공간이 사라져 나머지 요소들이 이동한다.
 - 오브젝트 내부 로직(Update 등)이 함께 멈춘다. DontDestroyOnLoad 오브젝트(ToastUI 등)에서 이 방식을 쓰면 이후 동작이 전혀 일어나지 않는다.
+
+**DOTween / AnimatedPanel 사용 시 추가 주의사항**:
+- DOTween 애니메이션이 진행 중인 오브젝트를 SetActive(false)로 비활성화하면 Tween 시퀀스가 강제 중단되고, 이후 Show() 호출 시 초기화 타이밍이 꼬일 수 있다.
+- `AnimatedPanel` 컴포넌트가 붙은 오브젝트는 **항상 active 상태로 유지**한다. `EnsureInitialized()`에서 CanvasGroup을 `alpha=0 / blocksRaycasts=false / interactable=false`로 초기 설정하여 시각적으로 숨긴다.
+- 배경 오버레이(`_backgroundOverlay`)도 GameObject는 항상 active 상태 유지. Show() 시 `alpha=1 / blocksRaycasts=true / interactable=true`, Hide() 시 `alpha=0 / false / false`로 즉시 전환한다.
+
+**반투명 배경 오버레이(BlockingOverlay) 단일 소유 패턴**:
+- 반투명 배경 오버레이는 **UIManager가 단일 소유**한다. 개별 팝업이 자체 오버레이를 들고 있지 않으며, `UIManager.ShowBlockingOverlay(onTap)` / `UIManager.HideBlockingOverlay()`로만 제어한다.
+- 두 가지 모드로 구분한다.
+  - **Modal 모드** — `ShowBlockingOverlay()` (콜백 없음): 뒤쪽 입력만 차단한다. 오버레이를 터치해도 닫히지 않는다. (ConfirmPopup, AnonymousWarningPopup, RematchRequestPopup)
+  - **Popup 모드** — `ShowBlockingOverlay(() => Close())` (콜백 있음): 오버레이를 터치하면 등록된 콜백(팝업 닫기)이 실행된다. (InGameSettingsUI, BuildingPlacementUI, 생산/건물 패널)
+- 팝업이 중첩될 수 있으므로 UIManager는 **참조 카운터**로 표시 횟수를 누적 관리한다. `HideBlockingOverlay()`가 호출되어 카운터가 0이 될 때에만 실제로 숨겨진다.
+- 호출은 항상 null-safe 패턴 `UIManager.Instance?.ShowBlockingOverlay(...)`를 사용한다 (씬 직접 진입 시 Instance가 null일 수 있음).
 
 ---
 
@@ -153,6 +171,33 @@ TextMeshPro 텍스트 컴포넌트에 사용하는 폰트는 아래 두 가지�
 - 중첩 팝업이 열리면 하위 팝업은 즉시 입력이 차단된다.
 - 닫기 순서는 LIFO (마지막에 열린 팝업부터 순서대로 닫힌다).
 - 배경(Background)은 하나의 공유 배경을 사용한다.
+
+---
+
+### 로딩 인디케이터 (LoadingIndicator)
+
+**규칙 L-1. LoadingIndicator는 UIManager.ShowLoading()으로만 제어**
+- `UIManager.Instance?.ShowLoading(true, "메시지")` / `ShowLoading(false)`
+- 직접 LoadingIndicator GameObject를 활성/비활성 금지.
+
+**규칙 L-2. 씬 전환이나 비동기 작업 시작 시 반드시 ShowLoading(true) 호출**
+- 해당하는 상황: 씬 전환(LoginScene/LobbyScene/GameScene), 로그아웃, 로비 복귀, 재경기.
+- 게임 포기(싱글/멀티 모두)는 씬 전환 없이 같은 씬 안에서 GameEndUI만 표시하므로 해당 없음.
+
+**규칙 L-3. ShowLoading(false) 책임은 목적지 씬 Bootstrapper**
+- 씬을 시작하는 호출부는 ShowLoading(true)만 담당한다.
+- ShowLoading(false)는 각 씬의 초기화 완료 시점에 호출한다.
+  - Login 씬: LoginBootstrapper(ShowLoginSelect / 자동 로그인 분기).
+  - Lobby 씬: LobbyRootView.Start() 완료 시점.
+  - Game 씬: GameBootstrapper.LoadMap() 완료 시점.
+- 어디서 켰든 목적지 씬이 준비되면 자동으로 꺼지므로 ShowLoading(false) 누락 버그를 방지한다.
+- 예외 경로(비동기 작업 실패로 씬 전환이 무산된 경우)에서는 켠 호출부가 직접 ShowLoading(false)로 끈다.
+
+**규칙 L-4. null-safe 패턴 필수**
+- `UIManager.Instance?.ShowLoading(...)` — Lobby/Game 씬 단독 실행 시 Instance가 null일 수 있으므로 null-safe를 보장한다.
+
+> Infrastructure(NetworkBehaviour)에서 발생하는 씬 전환(재경기 등)은 UIManager(Presentation)를 직접 참조하지 않고
+> GameEvents(Application)를 경유해 Presentation(GameEndUI)이 ShowLoading을 호출하도록 한다(레이어 방향 보호).
 
 ---
 

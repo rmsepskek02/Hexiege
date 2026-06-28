@@ -52,8 +52,13 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         [Header("패널")]
-        [Tooltip("로비 패널 루트. 게임 시작 후 비활성화됨.")]
-        [SerializeField] private GameObject _lobbyPanel;
+        // [Rule 5] UI 숨김/표시는 GameObject.SetActive 대신 CanvasGroup으로 제어한다.
+        //   - SetActive(false)는 오브젝트 자체를 끄기 때문에, 그 위의 코루틴/이벤트 구독 등이
+        //     함께 멈출 수 있고, 다시 켤 때 레이아웃 재계산 비용이 든다.
+        //   - CanvasGroup은 오브젝트를 켜둔 채로 alpha(투명도) / blocksRaycasts(클릭 차단) /
+        //     interactable(상호작용)만 끄므로 더 안전하고 일관적이다.
+        [Tooltip("로비 패널 루트 CanvasGroup. alpha/blocksRaycasts/interactable로 표시·숨김 제어.")]
+        [SerializeField] private CanvasGroup _lobbyPanel;
 
         [Header("버튼")]
         [Tooltip("방 만들기(Host) 버튼")]
@@ -90,8 +95,7 @@ namespace Hexiege.Presentation
         private void Start()
         {
             // NetworkGameManager 자동 탐색 (Inspector에 연결 안 된 경우)
-            // [2026-05-20] 리팩토링: FindFirstObjectByType은 유지하되, Unity.Netcode 직접 의존은 제거.
-            //   NetworkManager.OnClientConnectedCallback 구독 → NGM.OnAllPlayersReady 이벤트로 위임.
+            // 플레이어 준비 알림은 NGM.OnAllPlayersReady 이벤트로 받는다(NetworkManager 콜백 직접 구독 회피).
             if (_networkGameManager == null)
                 _networkGameManager = FindFirstObjectByType<NetworkGameManager>();
 
@@ -124,8 +128,15 @@ namespace Hexiege.Presentation
                 _joinButton.onClick.AddListener(OnJoinButtonClicked);
 
             // 로비 패널 표시
+            // [Rule 5] SetActive 대신 CanvasGroup으로 표시한다.
+            //   alpha=1(완전 불투명) / blocksRaycasts=true(뒤 클릭 차단 및 자기 클릭 허용) /
+            //   interactable=true(버튼 등 상호작용 허용).
             if (_lobbyPanel != null)
-                _lobbyPanel.SetActive(true);
+            {
+                _lobbyPanel.alpha = 1f;
+                _lobbyPanel.blocksRaycasts = true;
+                _lobbyPanel.interactable = true;
+            }
 
             SetStatus("방을 만들거나 코드를 입력하여 참가하세요.");
             Debug.Log("[Network] LobbyUI: 초기화 완료. UGS 초기화 시작.");
@@ -334,8 +345,15 @@ namespace Hexiege.Presentation
         /// </summary>
         private void HideLobby()
         {
+            // [Rule 5] SetActive 대신 CanvasGroup으로 숨긴다.
+            //   alpha=0(완전 투명) / blocksRaycasts=false(클릭 통과) /
+            //   interactable=false(상호작용 차단). 오브젝트 자체는 켜진 상태를 유지한다.
             if (_lobbyPanel != null)
-                _lobbyPanel.SetActive(false);
+            {
+                _lobbyPanel.alpha = 0f;
+                _lobbyPanel.blocksRaycasts = false;
+                _lobbyPanel.interactable = false;
+            }
 
             Debug.Log("[Network] LobbyUI: 로비 패널 숨김. 게임 시작 대기.");
         }
