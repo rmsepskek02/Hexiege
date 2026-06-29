@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.19.0
-**최종 수정일:** 2026-06-10
+**버전:** 0.21.0
+**최종 수정일:** 2026-06-29
 **작성자:** HANYONGHEE
 
 ---
@@ -32,9 +32,9 @@
 | **전송 레이어** | Unity Transport (UTP) | - |
 | **NAT 관통** | Unity Relay | - |
 | **매칭** | Unity Lobby | - |
-| **인증** | Firebase Authentication + Google Play Games Plugin | Firebase SDK v13.11.0 + GPGS v2.1.0 설치 완료 (런타임 설정 미완료) |
+| **인증** | Firebase Authentication + Google Play Games Plugin | Firebase SDK v13.11.0 + GPGS v2.1.0 설치 완료 |
 | **경로찾기** | 커스텀 A* (HexPathfinder) | 자체 구현 |
-| **백엔드** | Firebase (Firestore + Functions + Google Play Billing) | - |
+| **백엔드** | Firebase Authentication + GPGS (인증), UGS Cloud Code + Cloud Save + Leaderboard (전적/랭킹) | - |
 | **이벤트 시스템** | UniRx | 7.1.0 |
 | **애니메이션** | Animator (Mecanim) | Walk/Attack/Dead 상태 기반 |
 | **모바일 입력** | Lean Touch+ / Unity Input System | - |
@@ -190,19 +190,79 @@ void ShowEffectClientRpc(Vector3 position) {
 
 ## 🗄️ 백엔드 설계
 
-### Firebase 구조
+### 전체 구조
 
 ```
 Unity 클라이언트
     ↓
-Firebase SDK v13.11.0 + GPGS v2.1.0
+Firebase Authentication + Google Play Games Plugin v2.1.0
+    └─ 인증 전용 (계정 생성, 로그인, 세션 관리)
     ↓
-Firebase Services
-    ├─ Firebase Authentication  (로그인 — 익명 / Google Play Games / 이메일+비밀번호)
-    ├─ Google Play Games Plugin (Google 로그인 OAuth 브릿지)
-    ├─ Firestore               (유저 데이터 / 실시간 리더보드)
-    ├─ Firebase Functions      (경기 결과 처리, IAP 영수증 검증)
-    └─ Google Play Billing     (인앱 결제 — 스킨/배틀패스)
+UGS (Unity Gaming Services)
+    ├─ Lobby              (매칭 대기실 — 기존 구현)
+    ├─ Relay              (NAT 관통 — 기존 구현)
+    ├─ Cloud Save         (플레이어 데이터: 닉네임, 전적, pendingGame)
+    ├─ Leaderboard        (승률 기반 랭킹)
+    └─ Cloud Code         (서버사이드 결과 기록 함수)
+```
+
+### UGS Cloud Save 데이터 스키마
+
+```json
+{
+  "nickname": "전사",
+  "code": "4729",
+  "hasUsedFreeNicknameChange": false,
+  "stats": {
+    "totalGames": 45,
+    "wins": 28,
+    "losses": 17,
+    "lastSessionEndAt": "2026-06-29T15:30:00Z"
+  },
+  "pendingGame": false
+}
+```
+
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| nickname | string | 플레이어 닉네임 (한글 2~12자 또는 영문/숫자 2~24자) |
+| code | string | 4자리 숫자 코드 (닉네임 내 중복 구분) |
+| hasUsedFreeNicknameChange | bool | 무료 닉네임 변경 사용 여부 |
+| stats.totalGames | int | 멀티플레이 총 게임 수 |
+| stats.wins | int | 승리 횟수 |
+| stats.losses | int | 패배 횟수 |
+| stats.lastSessionEndAt | string | 마지막 게임 종료 시각 (ISO 8601) |
+| pendingGame | bool | 게임 진행 중 플래그 (악용 방지용) |
+
+### UGS Leaderboard
+
+- 랭킹 기준: 승률 (wins / totalGames)
+- 최소 노출 조건: totalGames >= 20
+- 점수 저장 방식: 승률 × 1000 (정수 변환, 소수점 3자리 보존)
+
+### UGS Cloud Code 함수 (예정)
+
+| 함수명 | 역할 |
+|--------|------|
+| `recordMatchResult(winnerId, loserId)` | 경기 결과를 Cloud Save에 기록 + Leaderboard 갱신. 클라이언트는 직접 자신의 Cloud Save를 수정할 수 없으며 반드시 이 함수를 통해서만 기록됨 |
+| `initPlayer(nickname, code)` | 최초 로그인 시 Cloud Save 초기화 (닉네임, code, 기본 stats 설정) |
+| `checkPendingGame()` | 로그인 시 pendingGame 플래그 확인. true이면 이전 게임의 패배 처리 후 플래그 해제 |
+
+### 경기 결과 기록 흐름 (서버 권위)
+
+```
+게임 시작 시
+  └─ Cloud Code: 양 플레이어 pendingGame = true
+
+게임 정상 종료 시
+  └─ 호스트 클라이언트 → Cloud Code.recordMatchResult(winnerId, loserId) 호출
+      └─ Cloud Code: 두 플레이어의 Cloud Save 업데이트 (totalGames +1, wins/losses +1, lastSessionEndAt)
+      └─ Cloud Code: Leaderboard 점수 갱신
+      └─ Cloud Code: 두 플레이어 pendingGame = false
+
+비정상 종료 (연결 끊김/포기/이탈) 시
+  └─ 남은 플레이어 → Cloud Code.recordMatchResult(winnerId, loserId) 호출 (이탈자 = 패배)
+  └─ 또는 다음 로그인 시 checkPendingGame()이 자동 패배 처리
 ```
 
 ### UGS 연결 구조 (인게임 멀티플레이)
@@ -240,64 +300,43 @@ NGO 멀티플레이 세션
 | 이메일+비밀번호 | `FirebaseAuthService.cs` | ✅ 코드 완료 (Firebase Console 설정 미완료) |
 | 계정 연동 (익명→실계정) | `AccountLinkUseCase.cs` | ✅ 코드 완료 |
 
-### Firebase Functions 예정 기능
-
-| 함수 | 역할 |
-|------|------|
-| `completeMatch` | 경기 결과 처리 + Firestore 랭킹 갱신 |
-| `verifyPurchase` | Google Play Billing IAP 영수증 검증 |
+> UGS Cloud Code 함수 목록 및 경기 결과 기록 흐름은 위 "백엔드 설계 > UGS Cloud Code 함수 (예정)" 섹션 참조.
 
 ---
 
 ## 💾 데이터베이스 스키마
 
-### Firestore 컬렉션 구조
+### UGS Cloud Save 스키마
 
-#### users/{firebaseUid}
+플레이어 데이터(닉네임, 전적, pendingGame 등)는 UGS Cloud Save에 저장한다.
+
 ```json
 {
-  "displayName": "한용희",
+  "nickname": "전사",
+  "code": "4729",
+  "hasUsedFreeNicknameChange": false,
   "stats": {
-    "totalGames": 120,
-    "wins": 65,
-    "losses": 55,
-    "rankPoints": 1450
+    "totalGames": 45,
+    "wins": 28,
+    "losses": 17,
+    "lastSessionEndAt": "2026-06-29T15:30:00Z"
   },
-  "inventory": {
-    "races": ["human", "spirit"],
-    "skins": []
-  }
+  "pendingGame": false
 }
 ```
 
-#### matches/{matchId}
-```json
-{
-  "mode": "custom",
-  "duration": 635,
-  "players": {
-    "blue": { "userId": "firebase_uid_A", "race": "human" },
-    "red": { "userId": "firebase_uid_B", "race": "spirit" }
-  },
-  "result": {
-    "winner": "blue",
-    "blueStats": { "tilesControlled": 48, "unitsKilled": 35 },
-    "redStats": { "tilesControlled": 32, "unitsKilled": 28 }
-  },
-  "timestamp": "2026-06-05T12:00:00Z"
-}
-```
+| 필드 | 타입 | 설명 |
+|------|------|------|
+| nickname | string | 플레이어 닉네임 (한글 2~12자 또는 영문/숫자 2~24자) |
+| code | string | 4자리 숫자 코드 (닉네임 내 중복 구분) |
+| hasUsedFreeNicknameChange | bool | 무료 닉네임 변경 사용 여부 |
+| stats.totalGames | int | 멀티플레이 총 게임 수 |
+| stats.wins | int | 승리 횟수 |
+| stats.losses | int | 패배 횟수 |
+| stats.lastSessionEndAt | string | 마지막 게임 종료 시각 (ISO 8601) |
+| pendingGame | bool | 게임 진행 중 플래그 (악용 방지용) |
 
-#### leaderboard/{rankId}
-```json
-{
-  "userId": "firebase_uid_A",
-  "displayName": "한용희",
-  "rankPoints": 1450,
-  "wins": 65,
-  "updatedAt": "2026-06-05T12:00:00Z"
-}
-```
+> 랭킹 데이터는 별도 컬렉션이 아닌 UGS Leaderboard에 승률 기준으로 저장한다 (위 "백엔드 설계 > UGS Leaderboard" 참조).
 
 ---
 
@@ -1254,6 +1293,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.21.0 | 2026-06-29 | 백엔드 재설계: Firebase Firestore/Functions → UGS Cloud Code/Cloud Save/Leaderboard. 닉네임 시스템, 전적 통계, 승률 기반 랭킹 설계 추가. pendingGame 플래그 기반 서버 권위 결과 기록 방식 확정. |
 | 0.20.0 | 2026-06-26 | `IUnitFactory` 인터페이스 도입(Bootstrap/Infrastructure 역방향 의존 제거 리팩토링). `IGameServices.GetUnitFactory()` 반환 타입을 구체 클래스 `UnitFactory`(Infrastructure) → `IUnitFactory`(Application) 인터페이스로 변경. "의존성 방향 추상화(Application 인터페이스 패턴)" 섹션 신규 추가(IGameServices/IUnitFactory/IEntityPositionProvider/IForfeitService 정리). 동작 변경 없음. |
 | 0.19.0 | 2026-06-10 | AI 시나리오 ScriptableObject 3종족 개편. Domain/AI 레이어 신규(DifficultyLevel, BuildOrderStep, AIActionType). 종족별 단일 에셋 구조. |
 | 0.18.0 | 2026-06-05 | Firebase 백엔드 전환 완료 반영 (Firebase SDK v13.11.0 + GPGS v2.1.0 설치 완료, PlayFab → Firebase/Firestore 구조로 교체). 폴더 구조 Bootstrap/Diagnostics 추가. ScriptableObject 기반 UnitStats/BuildingStats 반영. BuildingType 26종 확장 반영. ProductionState PendingQueue 구조 반영. OnEntityDied → OnUnitDied+OnBuildingDied 강타입 분리 반영. |
