@@ -11216,7 +11216,7 @@ MonoBehaviour:
   _networkErrorPopup: {fileID: 73106101}
   _splashOverlay: {fileID: 528281121}
   _nextSceneName: Lobby
-  _soundConfig: {fileID: 0}
+  _soundConfig: {fileID: 11400000, guid: 956dfbd25428e3d43aa4f069f31d0e2a, type: 2}
 --- !u!4 &1693386394
 Transform:
   m_ObjectHideFlags: 0
