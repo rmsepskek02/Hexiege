@@ -51,10 +51,10 @@ namespace HexiegeEditor
     {
         private const string ScenePath = "Assets/_Project/Scenes/Lobby.unity";
 
-        // 규칙 6 — 모든 TextMeshProUGUI 폰트는 반드시 Maplestory Light SDF를 사용한다.
-        private const string FontPath = "Assets/_Project/Fonts/Maplestory Light SDF.asset";
+        // 규칙 6 — 모든 TextMeshProUGUI 폰트는 반드시 Maplestory Bold SDF를 사용한다.
+        private const string FontPath = "Assets/_Project/Fonts/Maplestory Bold SDF.asset";
 
-        /// <summary>Maplestory Light SDF 폰트 에셋을 로드한다. 없으면 null(기본 폰트 유지).</summary>
+        /// <summary>Maplestory Bold SDF 폰트 에셋을 로드한다. 없으면 null(기본 폰트 유지).</summary>
         private static TMP_FontAsset LoadProjectFont()
         {
             return AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
@@ -142,8 +142,8 @@ namespace HexiegeEditor
             // ButtonList — 설정 항목 버튼들을 화면 중앙 세로로 배치.
             var btnListGo = GetOrCreateUIChild("ButtonList", mainViewGo.transform);
             var blRt      = btnListGo.GetComponent<RectTransform>();
-            blRt.anchorMin        = new Vector2(0.222f, 0.35f);
-            blRt.anchorMax        = new Vector2(0.778f, 0.65f);
+            blRt.anchorMin        = new Vector2(0.15f, 0.33f);
+            blRt.anchorMax        = new Vector2(0.85f, 0.67f);
             blRt.pivot            = new Vector2(0.5f, 0.5f);
             blRt.anchoredPosition = Vector2.zero;
             blRt.sizeDelta        = Vector2.zero;
@@ -177,14 +177,14 @@ namespace HexiegeEditor
 
             var sliderContainerGo = GetOrCreateUIChild("SliderContainer", soundSubViewGo.transform);
             var scRt              = sliderContainerGo.GetComponent<RectTransform>();
-            scRt.anchorMin        = new Vector2(0f, 0.3f);
-            scRt.anchorMax        = new Vector2(1f, 0.85f);
+            scRt.anchorMin        = new Vector2(0.05f, 0.15f);
+            scRt.anchorMax        = new Vector2(0.95f, 0.85f);
             scRt.pivot            = new Vector2(0.5f, 0.5f);
             scRt.anchoredPosition = Vector2.zero;
             scRt.sizeDelta        = Vector2.zero;
             var scVlg = GetOrAdd<VerticalLayoutGroup>(sliderContainerGo);
-            scVlg.padding                = new RectOffset(20, 20, 20, 20);
-            scVlg.spacing                = 16f;
+            scVlg.padding                = new RectOffset(30, 30, 30, 30);
+            scVlg.spacing                = 24f;
             scVlg.childAlignment         = TextAnchor.MiddleCenter;
             scVlg.childControlWidth      = true;
             scVlg.childForceExpandWidth  = true;
@@ -252,7 +252,7 @@ namespace HexiegeEditor
             var go = GetOrCreateUIChild(name, parent);
             go.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
             var le = GetOrAdd<LayoutElement>(go);
-            le.preferredHeight = 120f;
+            le.preferredHeight = 140f;
             le.flexibleHeight  = 0f;
             var img = GetOrAdd<Image>(go);
             ApplySprite(img, "ui_btn_lavender");
@@ -263,10 +263,10 @@ namespace HexiegeEditor
             StretchFull(labelGo.GetComponent<RectTransform>());
             var labelTmp = GetOrAdd<TextMeshProUGUI>(labelGo);
             labelTmp.text      = label;
-            labelTmp.fontSize  = 42f;
+            labelTmp.fontSize  = 48f;
             labelTmp.alignment = TextAlignmentOptions.Center;
             labelTmp.color     = Color.black;
-            // 규칙 6 — Maplestory Light SDF 폰트 적용.
+            // 규칙 6 — Maplestory Bold SDF 폰트 적용.
             var menuFont = LoadProjectFont();
             if (menuFont != null)
             {
@@ -283,10 +283,10 @@ namespace HexiegeEditor
             var rowGo = GetOrCreateUIChild(rowName, parent);
             rowGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
             var rowLe = GetOrAdd<LayoutElement>(rowGo);
-            rowLe.preferredHeight  = 80f;
+            rowLe.preferredHeight  = 130f;
             rowLe.flexibleHeight   = 0f;
             var hlg = GetOrAdd<HorizontalLayoutGroup>(rowGo);
-            hlg.spacing                = 12f;
+            hlg.spacing                = 20f;
             hlg.childAlignment         = TextAnchor.MiddleCenter;
             hlg.childControlWidth      = true;
             hlg.childForceExpandWidth  = false;
@@ -297,14 +297,14 @@ namespace HexiegeEditor
             var labelGo  = GetOrCreateUIChild("Label", rowGo.transform);
             labelGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
             var labelLe  = GetOrAdd<LayoutElement>(labelGo);
-            labelLe.preferredWidth = 70f;
+            labelLe.preferredWidth = 160f;
             labelLe.flexibleWidth  = 0f;
             var labelTmp = GetOrAdd<TextMeshProUGUI>(labelGo);
             labelTmp.text      = labelText;
-            labelTmp.fontSize  = 32f;
+            labelTmp.fontSize  = 40f;
             labelTmp.alignment = TextAlignmentOptions.MidlineLeft;
             labelTmp.color     = Color.black;
-            // 규칙 6 — Maplestory Light SDF 폰트 적용.
+            // 규칙 6 — Maplestory Bold SDF 폰트 적용.
             var font = LoadProjectFont();
             if (font != null)
             {
@@ -319,14 +319,14 @@ namespace HexiegeEditor
             var valueGo  = GetOrCreateUIChild("ValueText", rowGo.transform);
             valueGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
             var valueLe  = GetOrAdd<LayoutElement>(valueGo);
-            valueLe.preferredWidth = 60f;
+            valueLe.preferredWidth = 100f;
             valueLe.flexibleWidth  = 0f;
             var valueTmp = GetOrAdd<TextMeshProUGUI>(valueGo);
             valueTmp.text      = "100%";
-            valueTmp.fontSize  = 28f;
+            valueTmp.fontSize  = 36f;
             valueTmp.alignment = TextAlignmentOptions.MidlineRight;
             valueTmp.color     = Color.black;
-            // 규칙 6 — Maplestory Light SDF 폰트 적용.
+            // 규칙 6 — Maplestory Bold SDF 폰트 적용.
             if (font != null)
             {
                 valueTmp.font = font;
@@ -342,7 +342,7 @@ namespace HexiegeEditor
             sliderGo.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
             var sliderLe = GetOrAdd<LayoutElement>(sliderGo);
             sliderLe.flexibleWidth   = 1f;
-            sliderLe.preferredHeight = 40f;
+            sliderLe.preferredHeight = 60f;
             sliderLe.flexibleHeight  = 0f;
             var slider = GetOrAdd<Slider>(sliderGo);
             slider.minValue = 0f;
@@ -356,7 +356,7 @@ namespace HexiegeEditor
             bgRt.anchorMax = new Vector2(1f, 0.75f);
             bgRt.sizeDelta = Vector2.zero;
             var bgImg = GetOrAdd<Image>(bgGo);
-            bgImg.color = new Color(0.5f, 0.5f, 0.5f, 1f);
+            bgImg.color = new Color(0.85f, 0.85f, 0.85f, 1f);
 
             // Fill Area — 현재 값을 채운 부분. 앵커 비율 기반 배치(규칙 2), 고정 픽셀 오프셋 제거.
             var fillAreaGo = GetOrCreateUIChild("Fill Area", sliderGo.transform);
@@ -371,7 +371,7 @@ namespace HexiegeEditor
             fillRt.anchorMax = Vector2.one;
             fillRt.sizeDelta = Vector2.zero;
             var fillImg = GetOrAdd<Image>(fillGo);
-            fillImg.color   = new Color(0.6f, 0.4f, 0.9f, 1f);
+            fillImg.color   = new Color(0.45f, 0.25f, 0.85f, 1f);
             slider.fillRect = fillRt;
 
             // Handle Slide Area — 손잡이 드래그 영역. 앵커 비율 기반 배치(규칙 2).
@@ -387,7 +387,7 @@ namespace HexiegeEditor
             // 세로는 앵커 비율로 배치한다. 너비만 터치 영역 확보를 위해 고정한다.
             handleRt.anchorMin = new Vector2(0f, 0.1f);
             handleRt.anchorMax = new Vector2(0f, 0.9f);
-            handleRt.sizeDelta = new Vector2(40f, 0f); // 핸들 너비만 고정(터치 영역)
+            handleRt.sizeDelta = new Vector2(60f, 0f); // 핸들 너비만 고정(터치 영역)
             var handleImg = GetOrAdd<Image>(handleGo);
             handleImg.color      = Color.white;
             slider.handleRect    = handleRt;
