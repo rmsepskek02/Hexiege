@@ -190,7 +190,11 @@ namespace HexiegeEditor
             backLabelTmp.color     = Color.black;
             // 규칙 6 — Maplestory Light SDF 폰트 적용.
             var backFont = LoadProjectFont();
-            if (backFont != null) backLabelTmp.font = backFont;
+            if (backFont != null)
+            {
+                backLabelTmp.font = backFont;
+                EditorUtility.SetDirty(backLabelTmp); // 씬 저장 시 반영되도록 dirty 마크
+            }
 
             // ----------------------------------------------------------------
             // 7) InGameSettingsUI SerializedObject 필드 연결.
@@ -254,7 +258,11 @@ namespace HexiegeEditor
             labelTmp.color     = Color.black;
             // 규칙 6 — Maplestory Light SDF 폰트 적용.
             var font = LoadProjectFont();
-            if (font != null) labelTmp.font = font;
+            if (font != null)
+            {
+                labelTmp.font = font;
+                EditorUtility.SetDirty(labelTmp); // 씬 저장 시 반영되도록 dirty 마크
+            }
 
             // Slider
             slider = CreateSlider(rowGo.transform, rowName + "Slider");
@@ -271,7 +279,11 @@ namespace HexiegeEditor
             valueTmp.alignment = TextAlignmentOptions.MidlineRight;
             valueTmp.color     = Color.black;
             // 규칙 6 — Maplestory Light SDF 폰트 적용.
-            if (font != null) valueTmp.font = font;
+            if (font != null)
+            {
+                valueTmp.font = font;
+                EditorUtility.SetDirty(valueTmp); // 씬 저장 시 반영되도록 dirty 마크
+            }
             valueText = valueTmp;
         }
 
