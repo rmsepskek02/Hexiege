@@ -51,6 +51,15 @@ namespace HexiegeEditor
     {
         private const string ScenePath = "Assets/_Project/Scenes/Lobby.unity";
 
+        // 규칙 6 — 모든 TextMeshProUGUI 폰트는 반드시 Maplestory Light SDF를 사용한다.
+        private const string FontPath = "Assets/_Project/Fonts/Maplestory Light SDF.asset";
+
+        /// <summary>Maplestory Light SDF 폰트 에셋을 로드한다. 없으면 null(기본 폰트 유지).</summary>
+        private static TMP_FontAsset LoadProjectFont()
+        {
+            return AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(FontPath);
+        }
+
         [MenuItem("Hexiege/Setup/사운드 - 로비 설정 탭 구성")]
         public static void Run()
         {
@@ -257,6 +266,9 @@ namespace HexiegeEditor
             labelTmp.fontSize  = 42f;
             labelTmp.alignment = TextAlignmentOptions.Center;
             labelTmp.color     = Color.black;
+            // 규칙 6 — Maplestory Light SDF 폰트 적용.
+            var menuFont = LoadProjectFont();
+            if (menuFont != null) labelTmp.font = menuFont;
             return btn;
         }
 
@@ -288,6 +300,9 @@ namespace HexiegeEditor
             labelTmp.fontSize  = 32f;
             labelTmp.alignment = TextAlignmentOptions.MidlineLeft;
             labelTmp.color     = Color.black;
+            // 규칙 6 — Maplestory Light SDF 폰트 적용.
+            var font = LoadProjectFont();
+            if (font != null) labelTmp.font = font;
 
             // Slider
             slider = CreateSlider(rowGo.transform, rowName + "Slider");
@@ -303,6 +318,8 @@ namespace HexiegeEditor
             valueTmp.fontSize  = 28f;
             valueTmp.alignment = TextAlignmentOptions.MidlineRight;
             valueTmp.color     = Color.black;
+            // 규칙 6 — Maplestory Light SDF 폰트 적용.
+            if (font != null) valueTmp.font = font;
             valueText = valueTmp;
         }
 
@@ -329,34 +346,36 @@ namespace HexiegeEditor
             var bgImg = GetOrAdd<Image>(bgGo);
             bgImg.color = new Color(0.5f, 0.5f, 0.5f, 1f);
 
-            // Fill Area — 현재 값을 채운 부분.
+            // Fill Area — 현재 값을 채운 부분. 앵커 비율 기반 배치(규칙 2), 고정 픽셀 오프셋 제거.
             var fillAreaGo = GetOrCreateUIChild("Fill Area", sliderGo.transform);
             var fillAreaRt = fillAreaGo.GetComponent<RectTransform>();
             fillAreaRt.anchorMin = new Vector2(0f, 0.25f);
             fillAreaRt.anchorMax = new Vector2(1f, 0.75f);
-            fillAreaRt.offsetMin = new Vector2(5f, 0f);
-            fillAreaRt.offsetMax = new Vector2(-15f, 0f);
+            fillAreaRt.offsetMin = Vector2.zero;
+            fillAreaRt.offsetMax = Vector2.zero;
             var fillGo = GetOrCreateUIChild("Fill", fillAreaGo.transform);
             var fillRt = fillGo.GetComponent<RectTransform>();
             fillRt.anchorMin = Vector2.zero;
-            fillRt.anchorMax = new Vector2(0f, 1f);
-            fillRt.sizeDelta = new Vector2(10f, 0f);
+            fillRt.anchorMax = Vector2.one;
+            fillRt.sizeDelta = Vector2.zero;
             var fillImg = GetOrAdd<Image>(fillGo);
             fillImg.color   = new Color(0.6f, 0.4f, 0.9f, 1f);
             slider.fillRect = fillRt;
 
-            // Handle Slide Area — 손잡이 드래그 영역.
+            // Handle Slide Area — 손잡이 드래그 영역. 앵커 비율 기반 배치(규칙 2).
             var handleAreaGo = GetOrCreateUIChild("Handle Slide Area", sliderGo.transform);
             var handleAreaRt = handleAreaGo.GetComponent<RectTransform>();
             handleAreaRt.anchorMin = Vector2.zero;
             handleAreaRt.anchorMax = Vector2.one;
-            handleAreaRt.offsetMin = new Vector2(10f, 0f);
-            handleAreaRt.offsetMax = new Vector2(-10f, 0f);
+            handleAreaRt.offsetMin = Vector2.zero;
+            handleAreaRt.offsetMax = Vector2.zero;
             var handleGo = GetOrCreateUIChild("Handle", handleAreaGo.transform);
             var handleRt = handleGo.GetComponent<RectTransform>();
-            handleRt.anchorMin = new Vector2(0f, 0f);
-            handleRt.anchorMax = new Vector2(0f, 1f);
-            handleRt.sizeDelta = new Vector2(20f, 0f);
+            // 핸들은 슬라이더 값에 따라 x가 이동하므로 anchorMax.x=0을 유지하고,
+            // 세로는 앵커 비율로 배치한다. 너비만 터치 영역 확보를 위해 고정한다.
+            handleRt.anchorMin = new Vector2(0f, 0.1f);
+            handleRt.anchorMax = new Vector2(0f, 0.9f);
+            handleRt.sizeDelta = new Vector2(40f, 0f); // 핸들 너비만 고정(터치 영역)
             var handleImg = GetOrAdd<Image>(handleGo);
             handleImg.color      = Color.white;
             slider.handleRect    = handleRt;
