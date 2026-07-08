@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-06-27
-**현재 단계:** Google 로그인 실기 성공(SHA-1 정합 + Play Games 제공업체 활성화) — UGS OIDC 브릿지(멀티플레이 연동)는 별도 미해결 이슈. AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**최종 수정일:** 2026-07-08
+**현재 단계:** 사운드 시스템 실기 버그 3종(BGM 겹침 / 볼륨 UI 규칙 위반 / SFX 볼륨 진단) 수정 완료. Google 로그인 실기 성공 상태 유지 — UGS OIDC 브릿지(멀티플레이 연동)는 별도 미해결 이슈. AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 
 ---
 
@@ -60,7 +60,8 @@
 | 멀티플레이 유닛 사망 GO 미파괴 + 이펙트 미재생 버그 수정 | ✅ 완료 (2026-06-08) | 근본 원인: 서버 UnitView의 Destroy(gameObject)가 NGO 클라이언트 전파 불보장. 수정: NetworkCombatController(Infrastructure)에서 EntityDiedClientRpc 발행 후 NetworkObject.Despawn(destroy:true) 명시 호출. UnitView에서 Unity.Netcode 직접 참조 완전 제거(레이어 규칙 준수). 런타임 로그 13킬 전체 이펙트 재생 확인. |
 | 전체 유닛 사망 VFX 적용 | ✅ 완료 (2026-06-08) | EffectPreset_Unit_Death_Common.asset 신규 생성(vfx_unit_death+SFX). SetUnitDeathVfxAll 에디터 스크립트로 UnitEffectConfig 전체 24종 deathPreset 일괄 연결. 코드 변경 없음(에셋 작업만). 기존 EffectPreset_Pistoleer_Death.asset 삭제. |
 | 유닛 VFX 디테일 개선 3종 | ✅ 완료 (2026-06-08) | ① VFX 프리팹 3개 ParticleSystem ScalingMode Local→Hierarchy (VfxScalingModeFixer 에디터 스크립트). ② 피스톨러 공격 VFX 스폰 위치 — VfxSpawnPoint GO(총구 위치)로 position 참조, rotation은 `Quaternion.LookRotation(transform.forward)` (스켈레톤 본 하위 배치로 _vfxSpawnPoint.rotation 사용 불가). UnitView + EffectManager 수정. ③ vfx_unit_death 퍼짐 효과 제거 (3개 PS startSpeed→0 YAML 직접 수정). |
-| 사운드 시스템 (AudioManager + SFX/BGM 분리) | 🔵 코드 완료 (2026-06-10) / Inspector 작업 + 실기 테스트 예정 | SoundConfig.cs(Infrastructure) + AudioManager.cs(Presentation, DontDestroyOnLoad) 신규. BGM 크로스페이드(A/B 채널), SFX 풀(8개, 2D), 볼륨 3채널(Master/BGM/SFX, PlayerPrefs). EffectManager VFX 전용 분리(SFX 비활성화). VFX+SFX 쌍 호출 UnitView×2 + NetworkUnit×1 복원. LoginBootstrapper Initialize 추가. InGameSettingsUI 볼륨 슬라이더 연동. Inspector 작업: AudioMixer 에셋·AudioManager Login.unity 배치·SoundConfig 에셋 생성 필요. 로비 볼륨 패널 미구현(별도 작업). |
+| 사운드 시스템 (AudioManager + SFX/BGM 분리) | 🔵 코드 완료 (2026-06-10) + 실기 버그 3종 수정 (2026-07-08) / 로비 볼륨 패널 별도 작업 | SoundConfig.cs(Infrastructure) + AudioManager.cs(Presentation, DontDestroyOnLoad) 신규. BGM 크로스페이드(A/B 채널), SFX 풀(8개, 2D), 볼륨 3채널(Master/BGM/SFX, PlayerPrefs). EffectManager VFX 전용 분리(SFX 비활성화). VFX+SFX 쌍 호출 UnitView×2 + NetworkUnit×1 복원. LoginBootstrapper Initialize 추가. InGameSettingsUI 볼륨 슬라이더 연동. 로비 볼륨 패널 미구현(별도 작업). |
+| 사운드 시스템 실기 버그 3종 수정 | ✅ 완료 (2026-07-08) | **BUG-1** BGM 씬 전환 시 소리 겹침: `AudioManager.StartCrossfade()`에서 `StopCoroutine` 직후 페이드아웃 중이던 stale AudioSource를 즉시 `Stop()`(volume 0/clip null)하도록 수정. GameSystemRules_Sound 규칙 8에 요건 명문화. **BUG-2** 볼륨 UI 규칙 위반: 에디터 스크립트(`SetupInGameVolumePanel.cs`/`SetupLobbySettingsTab.cs`) 슬라이더 서브 요소 고정 픽셀값→앵커 비율(규칙 2), 전 TMP에 Maplestory **Bold** SDF 폰트 적용(규칙 6) + `EditorUtility.SetDirty()`로 씬 저장 반영, 라벨/여백/BackButton lavender 스프라이트/패딩 개선(레이아웃 미세 조정은 사용자 직접). **BUG-3** SFX 볼륨 슬라이더 미작동: Exposed Parameter 이름 3종 정상 확인(불일치 아님), `ApplyVolume()`에 `SetFloat` 실패 감지 디버그 로깅 추가. 브랜치 `claude/sound-system-review-itwt0t`. task: `_Tasks/2026-07-07/12_28_sound-system-bugfix/` |
 | 전역 UI 시스템 (UIManager + SplashOverlay) | ✅ 완료 (2026-06-18) | UIManager(SingletonMonoBehaviour+IUIManager), SplashOverlayView(DOTween 깜빡임+페이드아웃), SpinnerRotator 신규. ConfirmPopup/LoadingIndicator 전역 통합 (Login 씬 1회 생성 → DontDestroyOnLoad). 씬별 중복 ConfirmPopup/LoadingScreen 제거, BattleViewModel LoadingScreen→UIManager 전환. 사용자 실기 TC-01~07 PASS. |
 | LoadingIndicator 최소 표시 시간 보장 | ✅ 완료 (2026-06-22) | `UIManager.ShowLoading(false)` 호출 시 최소 1초 미만이면 코루틴으로 지연(`WaitForSecondsRealtime`). `_loadingMinDuration` SerializeField(기본 1f). 모든 호출부 자동 적용. |
 | LoadingIndicator 독립 Canvas(300) 추가 | ✅ 완료 (2026-06-22) | AnonymousWarningPopup(SortingOrder=200)이 LoadingIndicator를 가리는 문제 해결. `LoginUiSetup.cs` 에디터 스크립트에 메뉴 항목 추가(`Hexiege/Setup/Login UI — LoadingIndicator 독립 Canvas 추가`). LoadingIndicator에 독립 Canvas(SortingOrder=300, overrideSorting=true) + GraphicRaycaster 자동 추가. |

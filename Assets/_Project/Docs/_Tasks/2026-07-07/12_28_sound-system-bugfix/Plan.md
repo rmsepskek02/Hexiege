@@ -129,3 +129,18 @@ AudioMixer Inspector에서 파라미터 이름을 코드 상수와 동일하게 
 - BUG-2 수정 후 에디터 스크립트 재실행 시 기존 씬 구조를 덮어씀 → `GetOrCreate` 패턴으로 기존 요소 재사용하므로 데이터 손실 없음
 - Handle sizeDelta를 Vector2.zero로 하면 핸들이 너무 작아 보일 수 있음 → 실기 확인 후 anchorMax.x 비율 조정
 - BUG-3가 Exposed Parameter 이름 문제가 아닌 경우 추가 조사 필요
+
+---
+
+## 실제 구현 결과 (2026-07-08)
+
+계획 대비 달라진 부분:
+
+1. **BUG-2 폰트**: 계획은 `Maplestory Light SDF`였으나 실제로는 **`Maplestory Bold SDF`** 를 적용. 추가로 `EditorUtility.SetDirty()`를 넣어 씬 저장 시 폰트 반영이 유지되도록 함(이 처리가 없으면 폰트 지정이 씬에 저장되지 않던 문제).
+2. **BUG-2 레이아웃 개선 추가**: 계획에 없던 라벨 너비 확대, 여백/간격 개선, BackButton lavender 스프라이트 적용, MainButtonContainer 패딩 확대(패널 테두리 겹침 해소)를 함께 반영. 최종 레이아웃 미세 조정은 사용자가 직접 수행.
+3. **BUG-3 원인**: 계획에서 의심한 Exposed Parameter 이름 불일치가 아니었음. 세 이름 모두 정상 확인. `ApplyVolume()`에 `SetFloat` 실패 감지용 디버그 로깅 추가로 마무리.
+
+관련 커밋(브랜치 `claude/sound-system-review-itwt0t`):
+- `9143041` BGM 겹침 해소 + 에디터 UI 규칙 준수 + 볼륨 진단 로그
+- `ef67140` EditorUtility.SetDirty 추가(폰트 씬 저장 반영)
+- `e1a4e23` 볼륨 UI 레이아웃 재설계(Bold 폰트, 여백/간격)

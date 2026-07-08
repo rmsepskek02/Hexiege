@@ -93,3 +93,20 @@ Unity에서 `GameAudioMixer` 열기 → Exposed Parameters 탭에서 이름 확�
 - GameSystemRules_Sound 규칙 8 — BGM 크로스페이드: 새 전환 시 기존 코루틴 StopCoroutine 후 재시작
 - GameSystemRules_Sound 규칙 17 — AudioMixerGroup 연결 필수
 - GameSystemRules_Sound 규칙 18 — Exposed Parameter 이름 정확히 일치해야 함
+
+---
+
+## 완료 결과 (2026-07-08)
+
+3가지 버그 모두 해결. 브랜치 `claude/sound-system-review-itwt0t`.
+
+### BUG-1 — ✅ 해결
+`StartCrossfade()`에서 `StopCoroutine` 직후 페이드아웃 중이던 stale AudioSource를 즉시 `Stop()`(+ volume 0, clip null)하도록 수정. 원인 분석대로 코루틴만 중단하면 이전 BGM이 계속 재생되던 문제 해소. GameSystemRules_Sound 규칙 8에 이 요건을 명문화(기존 규칙은 StopCoroutine만 기술하여 버그의 원인이 되었음).
+
+### BUG-2 — ✅ 해결 (레이아웃 미세 조정은 사용자가 직접 수행)
+- 슬라이더 서브 요소 고정 픽셀값 → 앵커 비율 기반으로 교체 (규칙 2 준수).
+- 모든 TextMeshProUGUI에 폰트 명시 적용 — **실제로는 `Maplestory Bold SDF` 폰트를 적용**(Research/Plan의 Light SDF 예상과 다름). `EditorUtility.SetDirty()` 추가로 씬 저장 시 폰트 반영.
+- 라벨 너비 확대, 여백/간격 개선, BackButton lavender 스프라이트 적용, MainButtonContainer 패딩 확대(패널 테두리 겹침 해소).
+
+### BUG-3 — ✅ 해결 (원인은 Exposed Parameter 이름 불일치가 아니었음)
+사전 추정과 달리 AudioMixer Exposed Parameter 이름(`MasterVolume`/`BGMVolume`/`SFXVolume`)은 모두 정상 확인됨. `ApplyVolume()`에 `SetFloat` 실패 감지용 디버그 로깅을 추가하여 진단 경로를 확보하는 방향으로 처리.
