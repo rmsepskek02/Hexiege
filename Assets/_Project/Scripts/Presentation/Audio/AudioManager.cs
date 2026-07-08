@@ -366,8 +366,25 @@ namespace Hexiege.Presentation
                 return;
 
             // 진행 중인 크로스페이드가 있으면 중단.
+            //   StopCoroutine은 코루틴 실행만 멈출 뿐, 페이드아웃 도중이던 AudioSource의
+            //   재생은 멈추지 않는다. 따라서 코루틴을 멈춘 직후 "활성 채널이 아닌 쪽"
+            //   (= 이전 전환에서 페이드아웃 중이던 채널)을 직접 정지시켜야
+            //   이전 BGM이 새 BGM과 겹쳐 계속 재생되는 문제를 막을 수 있다 (규칙 8).
             if (_crossfadeRoutine != null)
+            {
                 StopCoroutine(_crossfadeRoutine);
+
+                // 활성 채널(_activeBgmSource)이 아닌 반대 채널이 페이드아웃 중이던 채널이다.
+                AudioSource staleSource = (_activeBgmSource == _bgmSourceA) ? _bgmSourceB : _bgmSourceA;
+                if (staleSource != null)
+                {
+                    staleSource.volume = 0f;
+                    staleSource.Stop();
+                    staleSource.clip = null;
+                }
+
+                _crossfadeRoutine = null;
+            }
 
             _crossfadeRoutine = StartCoroutine(CrossfadeRoutine(newClip));
         }
@@ -622,11 +639,21 @@ namespace Hexiege.Presentation
         /// <param name="value">0~1 볼륨 값.</param>
         private void ApplyVolume(string param, float value)
         {
-            if (_audioMixer == null) return;
+            // _audioMixer 미연결 시 볼륨 제어 불가 — 원인 추적을 위해 경고 로그 남김.
+            if (_audioMixer == null)
+            {
+                Debug.LogWarning("[AudioManager] _audioMixer가 null입니다.");
+                return;
+            }
 
             // Log10(0) = -무한대 방지를 위해 하한 0.0001을 둔다 (규칙 19).
             float dB = Mathf.Log10(Mathf.Max(value, 0.0001f)) * 20f;
-            _audioMixer.SetFloat(param, dB);
+
+            // SetFloat은 Exposed Parameter 이름이 믹서에 없으면 false를 반환한다.
+            //   SFX 볼륨이 조절되지 않는 원인이 파라미터 이름 불일치인지 확인하기 위해 결과를 검사한다.
+            bool result = _audioMixer.SetFloat(param, dB);
+            if (!result)
+                Debug.LogWarning($"[AudioManager] AudioMixer.SetFloat 실패: param={param}, dB={dB}");
         }
 
         /// <summary>

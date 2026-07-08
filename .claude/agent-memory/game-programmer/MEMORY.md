@@ -32,6 +32,12 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 사운드 시스템 실기 버그 3종 수정 (2026-07-08) ✅
+- **BUG-1 BGM 겹침 (핵심 교훈)**: `AudioManager.StartCrossfade()`에서 새 전환 요청 시 `StopCoroutine(_crossfadeRoutine)`만으로는 페이드아웃 중이던 AudioSource가 계속 재생되어 이전 BGM이 겹친다. **코루틴 중단 직후 페이드아웃 채널(active가 아닌 채널)을 즉시 `Stop()`(+ volume 0, clip null)해야 함**. GameSystemRules_Sound 규칙 8에 명문화.
+- **BUG-2 볼륨 UI 규칙 위반**: 에디터 스크립트(`SetupInGameVolumePanel.cs`/`SetupLobbySettingsTab.cs`)로 생성하는 슬라이더 서브 요소 고정 픽셀값 → 앵커 비율(규칙 2), 전 TMP에 `Maplestory Bold SDF` 폰트 적용(규칙 6). **에디터 스크립트에서 TMP 폰트 지정 후 `EditorUtility.SetDirty()` 필수** — 없으면 씬 저장 시 폰트가 반영되지 않음.
+- **BUG-3 SFX 볼륨 미작동**: Exposed Parameter 이름 불일치가 아니었음(3종 정상). `ApplyVolume()`에 `SetFloat` 실패 감지 디버그 로깅 추가로 진단 경로 확보. AudioMixer `SetFloat`은 실패 시 조용히 false 반환하므로 반환값 로깅이 진단에 유효.
+- 브랜치 `claude/sound-system-review-itwt0t`. task: `_Tasks/2026-07-07/12_28_sound-system-bugfix/`
+
 ### Google 로그인 실기 디버깅 — GPGS signIn (2026-06-27) ✅
 - **`Authenticate()` vs `ManuallyAuthenticate()` (GPGS Plugin 2.1.0)**: `Authenticate()`는 내부적으로 `isAuthenticated()`만 호출 → 기존 로그인 세션이 없으면 무조건 `SignInStatus.Canceled` 반환(계정 선택 UI 미표시). 최초 로그인은 반드시 `PlayGamesPlatform.Instance.ManuallyAuthenticate()`(`signIn()` 호출) 사용. `FirebaseAuthService.cs` 수정.
 - **SHA-1 3곳 일치 필수**: ① Firebase Console(OAuth 클라이언트, google-services.json) ② Play Console GPGS 사용자 인증 정보(signIn() 검증) ③ **실제 빌드 키스토어** — 세 곳이 모두 일치해야 GPGS `signIn()` 성공. 근본 원인은 실제 `hexiege-release.keystore`가 SHA-1 등록 시 키스토어와 다른 파일이어서 실제 서명 SHA-1이 어디에도 등록되지 않았던 것.

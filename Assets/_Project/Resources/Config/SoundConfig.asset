@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95046a4f3b68d5149ad8b803e192153e, type: 3}
+  m_Name: SoundConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.SoundConfig
+  _loginBgm: {fileID: 8300000, guid: 8726cc6d51e004947a2256d1e169527b, type: 3}
+  _lobbyBgm: {fileID: 8300000, guid: b93ad6848b2977e408c8470e6ec4ff71, type: 3}
+  _battleBgm: {fileID: 8300000, guid: 6eaaad4afebb8894f97532a85d48e15a, type: 3}
+  _gameEndBgm: {fileID: 8300000, guid: 4ad62b6998a78d34e802fea759600ea2, type: 3}
+  _bgmCrossfadeDuration: 1
+  _unitSoundEntries:
+  - unitType: 0
+    attackClip: {fileID: 8300000, guid: baf9b0d4d4d4f2a4fad9f54e70d755b9, type: 3}
+    attackVolume: 0.1
+    deathClip: {fileID: 8300000, guid: 809405fcd77b31847af77b294fd7d146, type: 3}
+    deathVolume: 0
+  _buildingSoundEntries:
+  - buildingType: 0
+    placeClip: {fileID: 0}
+    placeVolume: 0
+    destroyClip: {fileID: 0}
+    destroyVolume: 0
+    upgradeClip: {fileID: 0}
+    upgradeVolume: 0

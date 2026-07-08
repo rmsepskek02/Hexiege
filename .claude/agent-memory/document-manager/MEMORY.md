@@ -35,3 +35,6 @@
   - ROADMAP.md: "우선순위 요약" 표 + 헤더 날짜/단계.
   - WORK_HISTORY.md: "마일스톤 이력" 표 최상단(날짜 역순)에 행 추가.
 - 의존성 역전 패턴(인터페이스=Application, 구현=Infrastructure) 사례 모음: IGameServices, IUnitFactory, IEntityPositionProvider, IForfeitService.
+- 사운드 시스템 규칙 문서는 `GameSystemRules/GameSystemRules_Sound.md`에 있음(규칙 번호제). 버그 수정이 기존 규칙의 누락을 드러내면(예: 2026-07-08 BUG-1 — 규칙 8이 StopCoroutine만 기술) WORKFLOW [12] 근거로 해당 규칙에 요건을 보완할 것.
+- Task 문서(Research/Plan)는 히스토리 보존이 원칙 → 본문을 재작성하지 말고 하단에 "완료 결과"/"실제 구현 결과" 섹션을 append하여 계획 대비 달라진 점(예: 폰트 Light→Bold, BUG-3 원인 추정 오류)을 기록.
+- 실기 버그 수정 작업 완료 시 갱신 대상: PROJECT_STATUS(헤더+시스템 표 행 추가), ROADMAP(헤더+우선순위 표), WORK_HISTORY(마일스톤 prepend), game-programmer MEMORY(최근 작업 prepend), qa-tester MEMORY(해당 시스템 QA 섹션에 실기 결과 반영), 공용 .claude/MEMORY.md(교훈), 관련 GameSystemRules. 사용자 MEMORY(Windows 경로)는 Linux 환경에서 접근 불가 → 갱신 불가함을 사용자에게 알릴 것.

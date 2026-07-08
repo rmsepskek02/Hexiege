@@ -66,6 +66,7 @@ BGM은 아래 시점에 전환된다.
 BGM 전환은 항상 크로스페이드로 처리한다. 즉시 전환(Stop → Play)은 금지한다.
 기본 크로스페이드 시간: 1.0초 (SoundConfig의 `bgmCrossfadeDuration`으로 조정 가능).
 크로스페이드 도중 새 전환이 요청되면 기존 코루틴을 StopCoroutine한 뒤 새 크로스페이드를 즉시 시작한다.
+이때 StopCoroutine만으로는 페이드아웃 중이던 채널이 계속 재생되어 이전 BGM이 새 BGM과 겹친다. 따라서 코루틴 중단 직후, 페이드아웃 중이던 채널(active가 아닌 채널)을 즉시 `Stop()`(+ volume 0, clip null)하여 강제 정리해야 한다. (2026-07-08 BUG-1 수정)
 AudioSource A/B 두 채널을 번갈아 사용하여 크로스페이드를 구현한다.
 
 **규칙 9. Game 씬 로딩 중 BGM**
