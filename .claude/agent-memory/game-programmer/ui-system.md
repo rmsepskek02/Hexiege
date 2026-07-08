@@ -117,3 +117,15 @@ SO 300 → LoadingIndicator 독립 Canvas
 - AnimatedPanel m_IsActive: MonoBehaviour(114) GUID 매칭 → m_GameObject fileID → 해당 GO body m_IsActive
 - 폰트: Maplestory Light/Bold SDF (LiberationSans SDF 금지 — Rule 6)
 - Canvas Scaler 1080×1920 ScaleWithScreenSize (Rule 1)
+
+---
+
+## 볼륨/뮤트 UI (VolumeButtonContainer) — 2026-07-08
+
+- **AudioManager 뮤트**: `SetMuted(bool)` / `IsMuted()`. 뮤트=마스터 Exposed Param `MasterVolume`을 -80dB(`MuteDb`) 직접 SetFloat, 언뮤트=`ApplyVolume(ParamMasterVolume, LoadVolume(PrefMasterVolume))` 복원. PlayerPrefs `"IsMuted"`(1/0) 저장. 볼륨 3종 값은 보존(규칙 24)
+- **자동 언뮤트(규칙 26)**: `SetVolume()` 진입부에서 `if(_isMuted) SetMuted(false)` → 슬라이더 조작 시 자동 해제. Initialize는 볼륨 3종 적용 **뒤** 뮤트 복원(순서 중요, 아니면 언뮤트처럼 보임)
+- **UI(InGameSettingsUI + LobbySettingsView)**: `_onButton`(언뮤트)/`_offButton`(뮤트)/`_resetButton`/`_masterFill|Bg`+3종 Image. `RefreshMuteVisuals()`가 Fill+Background 색(초록 `(0.2,0.8,0.3)`/빨강 `(0.9,0.2,0.2)`) + On/Off 토글 표출 갱신. 호출: Initialize끝/ShowVolumePanel(InGame)/ShowSubView 사운드(Lobby)/토글후/리셋후/슬라이더 onValueChanged 후
+- **On/Off 토글 표출**: 같은 자리 겹침(MuteToggleSlot 안 StretchFull 2개) + CanvasGroup alpha로 하나만 표시(규칙 5). 둘을 HLG 각 칸에 두면 숨겨도 빈칸 남음 → 반드시 겹치기
+- **리셋(규칙7)**: 슬라이더 value=1f 세팅 → 기존 onValueChanged 경유(자동 언뮤트 포함). 별도 ResetVolumes 없음
+- **에디터 셋업(증분)**: `SetupInGameSettingsPanel.cs`(메뉴 "사운드 - 인게임 설정 패널(볼륨 버튼) 구성", 뒤로버튼 포함+프로필버튼) / `SetupLobbySettingPanel.cs`(메뉴 "사운드 - 로비 설정 패널(볼륨 버튼) 구성", 뒤로버튼 없음). 기존 SetupInGameVolumePanel/SetupLobbySettingsTab 위에 GetOrCreate로 덧붙임(수정 금지). Fill/Background 초기색 초록. 슬라이더 Fill은 `Find("Fill Area/Fill")`, Bg는 `Find("Background")`
+- **프로필 버튼(InGame)**: 필드 `_profileButton` 연결만, 클릭 이벤트 없음(미구현)
