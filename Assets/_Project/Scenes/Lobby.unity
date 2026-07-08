@@ -3951,7 +3951,7 @@ CanvasGroup:
   m_Enabled: 1
   m_Alpha: 1
   m_Interactable: 1
-  m_BlocksRaycasts: 0
+  m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
 --- !u!1 &580018331
 GameObject:
@@ -11851,7 +11851,6 @@ GameObject:
   m_Component:
   - component: {fileID: 1670590792}
   - component: {fileID: 1670590795}
-  - component: {fileID: 1670590794}
   - component: {fileID: 1670590793}
   m_Layer: 0
   m_Name: SettingPanel
@@ -11890,29 +11889,8 @@ CanvasGroup:
   m_Enabled: 1
   m_Alpha: 1
   m_Interactable: 1
-  m_BlocksRaycasts: 0
+  m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
---- !u!114 &1670590794
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1670590791}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 191e2497053014041bba8fca0f364c86, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.ProfileView
-  _accountInfoText: {fileID: 0}
-  _anonymousSection: {fileID: 0}
-  _linkGoogleButton: {fileID: 0}
-  _linkEmailButton: {fileID: 0}
-  _linkEmailInput: {fileID: 0}
-  _linkPasswordInput: {fileID: 0}
-  _logoutButton: {fileID: 0}
-  _statusText: {fileID: 0}
-  _loginSceneName: Login
 --- !u!222 &1670590795
 CanvasRenderer:
   m_ObjectHideFlags: 0
