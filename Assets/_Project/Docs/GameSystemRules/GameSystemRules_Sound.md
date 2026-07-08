@@ -10,6 +10,7 @@
 - [BGM 규칙](#bgm-규칙)
 - [SFX 규칙](#sfx-규칙)
 - [볼륨 규칙](#볼륨-규칙)
+- [뮤트 규칙](#뮤트-규칙)
 
 ---
 
@@ -145,6 +146,8 @@ MixerGroup이 연결되지 않으면 해당 채널의 볼륨 제어가 적용되
 
 AudioMixer의 Exposed Parameters를 통해 AudioManager가 각 채널 볼륨을 설정한다.
 
+뮤트(전체 음소거)는 위 3개 채널 볼륨과 별개의 상태로 관리한다. 뮤트 시에는 채널별 슬라이더 값을 변경하지 않고, AudioMixer 출력만 -80dB로 낮춘다. 상세 규칙은 [뮤트 규칙](#뮤트-규칙) 참조.
+
 **규칙 19. 볼륨 값 범위 및 dB 변환**
 볼륨은 UI 슬라이더와 PlayerPrefs에서 0~1 범위의 float로 관리한다.
 AudioMixer에 적용할 때는 dB로 변환한다.
@@ -170,11 +173,46 @@ float dB = Mathf.Log10(Mathf.Max(value, 0.0001f)) * 20f;
 `SetXxxVolume()` → AudioMixer 적용 → `PlayerPrefs.Save()` 즉시 호출.
 
 **규칙 22. 볼륨 설정 UI 위치**
-볼륨 슬라이더(Master/BGM/SFX)는 아래 두 곳에 모두 배치한다.
+볼륨 슬라이더(Master/BGM/SFX)와 뮤트/초기화 버튼(VolumeButtonContainer)은 아래 두 곳에 모두 배치한다.
 
 | 씬 | UI 위치 |
 |----|---------|
-| Lobby.unity | 로비 설정 패널 (별도 구현) |
+| Lobby.unity | 로비 설정 탭 → 사운드 화면 |
 | Game.unity | InGameSettingsUI의 사운드 버튼 → 볼륨 조절 패널 |
 
-두 UI 모두 동일한 PlayerPrefs 키를 읽고 쓰므로, 어느 씬에서 설정해도 다른 씬에 자동 반영된다.
+두 UI 모두 동일한 PlayerPrefs 키(볼륨 3종 + `"IsMuted"`)를 읽고 쓰므로, 어느 씬에서 설정해도 다른 씬에 자동 반영된다.
+사운드 설정 UI의 슬라이더 색상, 뮤트 토글 버튼, 초기화 버튼 등 화면 구성 규칙은 [`GameSystemRules_UI.md`](GameSystemRules_UI.md)의 "사운드 설정 UI (VolumeButtonContainer)" 섹션을 참조한다.
+
+---
+
+## 뮤트 규칙
+
+뮤트(전체 음소거)는 개별 채널 볼륨을 건드리지 않고 전체 오디오 출력만 껐다 켜는 기능이다.
+슬라이더로 조절해 둔 값을 잃지 않으면서 한 번의 조작으로 소리를 완전히 껐다가, 다시 켰을 때 원래 볼륨으로 복원되어야 한다.
+
+**규칙 23. 뮤트 담당 주체**
+뮤트 상태(`_isMuted` 플래그)와 뮤트 전환 로직은 전적으로 AudioManager가 소유한다.
+AudioManager는 뮤트 전환을 위한 `SetMuted(bool)` 메서드를 제공하며, UI는 이 메서드를 호출하기만 한다.
+UI가 AudioMixer나 PlayerPrefs를 직접 조작하여 뮤트를 구현하는 것을 금지한다. (UI는 `AudioManager.Instance?.SetMuted(bool)` 한 줄만 호출)
+
+**규칙 24. 뮤트 시 볼륨 보존 원칙**
+뮤트로 전환할 때 AudioMixer 출력을 -80dB(사실상 무음)로 설정한다.
+이때 각 채널의 슬라이더 값과 PlayerPrefs 볼륨 값(`"MasterVolume"`, `"BGMVolume"`, `"SFXVolume"`)은 변경하지 않고 그대로 보존한다.
+언뮤트로 전환할 때는 PlayerPrefs에 저장된 볼륨 값을 다시 읽어 AudioMixer에 복원한다.
+즉, 뮤트/언뮤트는 볼륨 값을 덮어쓰지 않으며, 오직 "출력을 껐다 켜는" 동작만 수행한다.
+
+**규칙 25. 뮤트 상태 저장 및 로드**
+뮤트 상태는 PlayerPrefs `"IsMuted"` 키에 저장하여 게임을 재실행해도 유지된다. (1 = 뮤트, 0 = 언뮤트)
+`Initialize()`에서 저장된 볼륨 값을 로드한 뒤 `"IsMuted"` 값을 읽어, 뮤트 상태였다면 AudioMixer 출력을 -80dB로 적용한다.
+저장된 `"IsMuted"` 값이 없으면 기본값은 0(언뮤트)이다.
+`SetMuted()` 호출 시 AudioMixer 적용 → `"IsMuted"` 저장 → `PlayerPrefs.Save()` 즉시 호출.
+
+**규칙 26. 뮤트 중 슬라이더 조작 시 자동 언뮤트**
+뮤트 상태에서 사용자가 볼륨 슬라이더를 조작하면 자동으로 언뮤트한 뒤 조작한 수치를 반영한다.
+즉, 슬라이더를 움직이는 행위는 "소리를 다시 켜겠다"는 의도로 간주한다.
+이 자동 언뮤트도 규칙 23에 따라 UI가 직접 처리하지 않고, 슬라이더 값 변경 시 AudioManager 측 볼륨 설정 경로에서 뮤트가 해제되도록 한다.
+
+**규칙 27. 볼륨 초기화(리셋) 동작**
+초기화 동작은 Master/BGM/SFX 3개 채널 볼륨을 모두 1.0(100%)으로 리셋한다.
+리셋 시 각 채널의 슬라이더 값, PlayerPrefs 볼륨 값, AudioMixer 적용 값이 모두 1.0으로 갱신된다.
+뮤트 상태에서 초기화하면 규칙 26과 동일하게 언뮤트된 상태로 100% 볼륨이 적용된다.
