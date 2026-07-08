@@ -103,6 +103,10 @@ namespace Hexiege.Presentation
         private const string PrefBgmVolume = "BGMVolume";
         private const string PrefSfxVolume = "SFXVolume";
 
+        // 뮤트(전체 음소거) 상태 저장 키 (규칙 25). 1 = 뮤트, 0 = 언뮤트.
+        //   볼륨 3종 키와 별개로, "소리를 껐다 켜는" 상태만 따로 저장한다.
+        private const string PrefIsMuted = "IsMuted";
+
         // ====================================================================
         // AudioMixer Exposed Parameter 이름 — 믹서에서 노출한 파라미터와 일치해야 함 (규칙 18).
         // ====================================================================
@@ -110,6 +114,15 @@ namespace Hexiege.Presentation
         private const string ParamMasterVolume = "MasterVolume";
         private const string ParamBgmVolume = "BGMVolume";
         private const string ParamSfxVolume = "SFXVolume";
+
+        // ====================================================================
+        // 뮤트 상수 (규칙 24)
+        // ====================================================================
+
+        // 뮤트 시 마스터 채널에 직접 적용할 dB 값.
+        //   -80dB는 사실상 무음이다. 볼륨 값(0~1)을 dB로 변환하는 ApplyVolume을 거치지 않고
+        //   이 값을 마스터 Exposed Parameter에 직접 써서 전체 출력만 껐다 켠다.
+        private const float MuteDb = -80f;
 
         // ====================================================================
         // Inspector 설정
@@ -171,6 +184,13 @@ namespace Hexiege.Presentation
 
         /// <summary> UniRx 구독 묶음. OnDestroy에서 일괄 해제. </summary>
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
+
+        /// <summary>
+        /// 현재 뮤트(전체 음소거) 상태 (규칙 23 — 상태 소유 주체는 AudioManager).
+        /// true면 마스터 출력이 -80dB로 꺼진 상태이며, 채널별 볼륨 값은 그대로 보존된다.
+        /// UI는 이 값을 IsMuted()로 조회하여 슬라이더 색·토글 버튼 표출을 결정한다.
+        /// </summary>
+        private bool _isMuted;
 
         // ====================================================================
         // Unity 생명주기
@@ -271,6 +291,19 @@ namespace Hexiege.Presentation
             ApplyVolume(ParamMasterVolume, LoadVolume(PrefMasterVolume));
             ApplyVolume(ParamBgmVolume, LoadVolume(PrefBgmVolume));
             ApplyVolume(ParamSfxVolume, LoadVolume(PrefSfxVolume));
+
+            // 저장된 뮤트 상태 복원 (규칙 25).
+            //   반드시 위의 볼륨 3종 적용 "뒤"에 수행해야 한다. 볼륨을 나중에 적용하면
+            //   마스터가 정상 볼륨으로 덮어써져 언뮤트처럼 보이는 버그가 생기기 때문이다.
+            //   저장값이 없으면 기본 0(언뮤트)이다.
+            int savedMuted = PlayerPrefs.GetInt(PrefIsMuted, 0);
+            if (savedMuted == 1)
+            {
+                _isMuted = true;
+                // 마스터 출력만 -80dB로 직접 적용 (볼륨 값 3종은 건드리지 않음 — 규칙 24).
+                if (_audioMixer != null)
+                    _audioMixer.SetFloat(ParamMasterVolume, MuteDb);
+            }
 
             // 현재 씬 BGM 즉시 재생 (규칙 7).
             //   activeSceneChanged는 처음 진입한 씬에는 발생하지 않으므로 여기서 직접 처리.
@@ -614,6 +647,50 @@ namespace Hexiege.Presentation
         public float GetSfxVolume() => LoadVolume(PrefSfxVolume);
 
         // ====================================================================
+        // 뮤트 외부 API (규칙 23~26)
+        // ====================================================================
+
+        /// <summary>
+        /// 전체 음소거(뮤트) 상태를 전환한다 (규칙 23, 24, 25).
+        ///
+        /// - muted == true (뮤트): 마스터 출력만 -80dB로 낮춰 전체 소리를 끈다.
+        ///   이때 채널별 슬라이더 값과 PlayerPrefs 볼륨 3종은 변경하지 않고 그대로 보존한다.
+        /// - muted == false (언뮤트): PlayerPrefs에 저장된 마스터 볼륨을 다시 읽어 복원한다.
+        ///
+        /// 즉 뮤트/언뮤트는 볼륨 값을 덮어쓰지 않고 "출력만 껐다 켜는" 동작이다.
+        /// 상태 변경 후 PlayerPrefs "IsMuted"에 즉시 저장하여 재실행 시에도 유지된다 (규칙 25).
+        /// UI는 이 메서드 한 줄만 호출하며 AudioMixer/PlayerPrefs를 직접 만지지 않는다 (규칙 23).
+        /// </summary>
+        /// <param name="muted">true=음소거, false=음소거 해제.</param>
+        public void SetMuted(bool muted)
+        {
+            if (muted)
+            {
+                // 마스터 출력만 -80dB로 직접 적용. 볼륨 값(0~1) → dB 변환을 거치지 않는다.
+                //   BGM/SFX 채널 파라미터와 PlayerPrefs 볼륨은 그대로 유지되므로,
+                //   언뮤트 시 이전 볼륨이 자연히 복원된다 (규칙 24).
+                if (_audioMixer != null)
+                    _audioMixer.SetFloat(ParamMasterVolume, MuteDb);
+            }
+            else
+            {
+                // 저장된 마스터 볼륨을 다시 적용(복원) — 규칙 24.
+                ApplyVolume(ParamMasterVolume, LoadVolume(PrefMasterVolume));
+            }
+
+            _isMuted = muted;
+            PlayerPrefs.SetInt(PrefIsMuted, muted ? 1 : 0);
+            PlayerPrefs.Save(); // 규칙 25 — 즉시 저장.
+        }
+
+        /// <summary>
+        /// 현재 뮤트 상태를 반환한다 (규칙 23).
+        /// UI가 슬라이더 색(초록/빨강)·토글 버튼 표출을 판단하는 데 사용한다.
+        /// </summary>
+        /// <returns>true=음소거 상태, false=언뮤트 상태.</returns>
+        public bool IsMuted() => _isMuted;
+
+        // ====================================================================
         // 볼륨 내부 처리
         // ====================================================================
 
@@ -625,6 +702,14 @@ namespace Hexiege.Presentation
         /// <param name="value">0~1 볼륨 값.</param>
         private void SetVolume(string param, string prefKey, float value)
         {
+            // 뮤트 상태에서 슬라이더를 조작하면 자동으로 언뮤트한다 (규칙 26).
+            //   슬라이더를 움직이는 행위는 "소리를 다시 켜겠다"는 의도로 간주한다.
+            //   SetMuted(false)가 마스터 출력을 저장된 볼륨으로 먼저 복원한다. 그 뒤
+            //   아래에서 요청된 채널 값을 적용하므로, 마스터를 조작한 경우에도 최종적으로
+            //   방금 조작한 값이 올바르게 반영된다.
+            if (_isMuted)
+                SetMuted(false);
+
             float clamped = Mathf.Clamp01(value);
             ApplyVolume(param, clamped);
 

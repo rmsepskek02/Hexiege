@@ -38,6 +38,15 @@ namespace Hexiege.Presentation
     public class InGameSettingsUI : MonoBehaviour, IGameUI
     {
         // ====================================================================
+        // 슬라이더 색상 상수 (GameSystemRules_UI 규칙 3)
+        //   소리가 켜진(언뮤트) 상태는 초록, 음소거(뮤트) 상태는 빨강으로 표시한다.
+        //   Fill과 Background 두 이미지에 동시에 적용한다.
+        // ====================================================================
+
+        private static readonly Color ColorSoundOn  = new Color(0.2f, 0.8f, 0.3f, 1f); // 초록
+        private static readonly Color ColorSoundOff = new Color(0.9f, 0.2f, 0.2f, 1f); // 빨강
+
+        // ====================================================================
         // Inspector 참조
         // ====================================================================
 
@@ -59,6 +68,9 @@ namespace Hexiege.Presentation
 
         [Tooltip("게임 포기 버튼. 클릭 시 ConfirmPopup으로 재확인.")]
         [SerializeField] private Button _forfeitButton;
+
+        [Tooltip("프로필 버튼. 현재는 버튼만 존재하며 클릭 이벤트가 없다(향후 프로필 화면 구현 시 추가). UI 규칙 1-1.")]
+        [SerializeField] private Button _profileButton;
 
         [Header("메인 버튼 그룹")]
         [Tooltip("사운드/포기 등 메인 버튼을 묶은 컨테이너의 CanvasGroup. " +
@@ -90,6 +102,45 @@ namespace Hexiege.Presentation
 
         [Tooltip("SFX 볼륨 퍼센트 표시 텍스트.")]
         [SerializeField] private TextMeshProUGUI _sfxValueText;
+
+        // ====================================================================
+        // VolumeButtonContainer — 뮤트/초기화 버튼 (UI 규칙 2)
+        // ====================================================================
+
+        [Header("VolumeButtonContainer")]
+        [Tooltip("전체 소리켜기(언뮤트) 버튼. 뮤트 상태일 때만 표출된다 (규칙 4).")]
+        [SerializeField] private Button _onButton;
+
+        [Tooltip("전체 음소거(뮤트) 버튼. 언뮤트 상태일 때만 표출된다 (규칙 4).")]
+        [SerializeField] private Button _offButton;
+
+        [Tooltip("초기화 버튼. 슬라이더 3종을 모두 100%로 되돌린다 (규칙 7).")]
+        [SerializeField] private Button _resetButton;
+
+        // ====================================================================
+        // 슬라이더 색상 제어 대상 (UI 규칙 3 — Fill + Background 모두 채색)
+        //   뮤트 상태에 따라 아래 6개 Image의 색을 초록/빨강으로 동시 변경한다.
+        // ====================================================================
+
+        [Header("슬라이더 색상 - Fill")]
+        [Tooltip("마스터 슬라이더 Fill 이미지.")]
+        [SerializeField] private Image _masterFill;
+
+        [Tooltip("BGM 슬라이더 Fill 이미지.")]
+        [SerializeField] private Image _bgmFill;
+
+        [Tooltip("SFX 슬라이더 Fill 이미지.")]
+        [SerializeField] private Image _sfxFill;
+
+        [Header("슬라이더 색상 - Background")]
+        [Tooltip("마스터 슬라이더 트랙 배경 이미지.")]
+        [SerializeField] private Image _masterBackground;
+
+        [Tooltip("BGM 슬라이더 트랙 배경 이미지.")]
+        [SerializeField] private Image _bgmBackground;
+
+        [Tooltip("SFX 슬라이더 트랙 배경 이미지.")]
+        [SerializeField] private Image _sfxBackground;
 
         // ====================================================================
         // 내부 상태
@@ -157,11 +208,37 @@ namespace Hexiege.Presentation
                 _backButton.onClick.AddListener(HideVolumePanel);
             }
 
+            // 전체 소리켜기(언뮤트) 버튼 → AudioManager에 언뮤트 요청 후 화면 갱신 (규칙 4, 6).
+            if (_onButton != null)
+            {
+                _onButton.onClick.RemoveAllListeners();
+                _onButton.onClick.AddListener(OnUnmuteClicked);
+            }
+
+            // 전체 음소거(뮤트) 버튼 → AudioManager에 뮤트 요청 후 화면 갱신 (규칙 4, 6).
+            if (_offButton != null)
+            {
+                _offButton.onClick.RemoveAllListeners();
+                _offButton.onClick.AddListener(OnMuteClicked);
+            }
+
+            // 초기화 버튼 → 슬라이더 3종을 100%로 리셋 (규칙 7).
+            if (_resetButton != null)
+            {
+                _resetButton.onClick.RemoveAllListeners();
+                _resetButton.onClick.AddListener(OnResetClicked);
+            }
+
+            // 프로필 버튼은 향후 구현 예정 — 현재는 클릭 이벤트를 등록하지 않는다(버튼만 존재, UI 규칙 1-1).
+
             // 볼륨 슬라이더 초기화 — 현재 저장된 볼륨을 슬라이더에 반영하고 변경 리스너를 연결한다.
             SetupVolumeSliders();
 
             // 볼륨 패널은 시작 시 숨김.
             HideVolumePanel();
+
+            // 뮤트 상태에 따른 슬라이더 색·토글 버튼 표출을 초기 반영한다.
+            RefreshMuteVisuals();
 
             // 초기 상태는 반드시 숨김으로 시작
             Hide();
@@ -211,6 +288,9 @@ namespace Hexiege.Presentation
             {
                 onChanged?.Invoke(v);
                 UpdateValueText(valueText, v);
+                // 슬라이더 조작은 자동 언뮤트를 유발할 수 있으므로(규칙 26),
+                // 값 반영 직후 슬라이더 색·토글 버튼 표출을 다시 갱신한다.
+                RefreshMuteVisuals();
             });
         }
 
@@ -317,6 +397,9 @@ namespace Hexiege.Presentation
             // 다른 씬(로비 등)에서 볼륨이 바뀌었을 수 있으므로 표시 시점에 슬라이더 값을 다시 동기화.
             RefreshVolumeSliderValues();
 
+            // 뮤트 상태도 다른 씬에서 바뀌었을 수 있으므로 슬라이더 색·토글 버튼을 다시 갱신한다.
+            RefreshMuteVisuals();
+
             _volumePanelGroup.alpha = 1f;
             _volumePanelGroup.interactable = true;
             _volumePanelGroup.blocksRaycasts = true;
@@ -363,6 +446,102 @@ namespace Hexiege.Presentation
                 _bgmSlider.value = AudioManager.Instance?.GetBgmVolume() ?? 1f;
             if (_sfxSlider != null)
                 _sfxSlider.value = AudioManager.Instance?.GetSfxVolume() ?? 1f;
+        }
+
+        // ====================================================================
+        // 뮤트 / 초기화 (VolumeButtonContainer — UI 규칙 4·5·7, Sound 규칙 23·26·27)
+        // ====================================================================
+
+        /// <summary>
+        /// '전체 소리켜기' 버튼 클릭 핸들러. AudioManager에 언뮤트를 요청하고 화면 상태를 갱신한다.
+        /// UI는 AudioMixer/PlayerPrefs를 직접 만지지 않고 SetMuted(false) 한 줄만 호출한다 (규칙 6).
+        /// </summary>
+        private void OnUnmuteClicked()
+        {
+            AudioManager.Instance?.SetMuted(false);
+            RefreshMuteVisuals();
+        }
+
+        /// <summary>
+        /// '전체 음소거' 버튼 클릭 핸들러. AudioManager에 뮤트를 요청하고 화면 상태를 갱신한다.
+        /// </summary>
+        private void OnMuteClicked()
+        {
+            AudioManager.Instance?.SetMuted(true);
+            RefreshMuteVisuals();
+        }
+
+        /// <summary>
+        /// 초기화 버튼 클릭 핸들러 (규칙 7, Sound 규칙 27).
+        /// 슬라이더 3종의 값을 1.0으로 세팅하면 기존 onValueChanged 리스너가
+        /// AudioManager.SetXxxVolume(1)을 호출하고(→ 자동 언뮤트), 퍼센트 텍스트와
+        /// 뮤트 시각 상태(RefreshMuteVisuals)까지 리스너 안에서 함께 갱신된다.
+        /// </summary>
+        private void OnResetClicked()
+        {
+            // 슬라이더 값 세팅 → 각 슬라이더의 onValueChanged가 볼륨 적용/텍스트/색상 갱신을 처리.
+            if (_masterSlider != null) _masterSlider.value = 1f;
+            if (_bgmSlider != null)    _bgmSlider.value    = 1f;
+            if (_sfxSlider != null)    _sfxSlider.value    = 1f;
+
+            // 슬라이더가 하나도 연결되지 않은 예외 상황에서도 화면 상태는 맞춰둔다.
+            RefreshMuteVisuals();
+        }
+
+        /// <summary>
+        /// 현재 뮤트 상태에 따라 슬라이더 색(초록/빨강)과 On/Off 토글 버튼 표출을 갱신한다
+        /// (규칙 3·4·5). AudioManager.Instance가 null이면 언뮤트(소리 켜짐)로 간주한다 (규칙 5).
+        /// </summary>
+        private void RefreshMuteVisuals()
+        {
+            bool muted = AudioManager.Instance?.IsMuted() ?? false;
+
+            // 슬라이더 Fill + Background 색을 동시에 갱신 (규칙 3).
+            Color color = muted ? ColorSoundOff : ColorSoundOn;
+            ApplyImageColor(_masterFill, color);
+            ApplyImageColor(_bgmFill, color);
+            ApplyImageColor(_sfxFill, color);
+            ApplyImageColor(_masterBackground, color);
+            ApplyImageColor(_bgmBackground, color);
+            ApplyImageColor(_sfxBackground, color);
+
+            // 토글 버튼 표출 (규칙 4): 뮤트면 '전체 소리켜기'만, 언뮤트면 '전체 음소거'만 표출한다.
+            SetButtonVisible(_onButton, muted);
+            SetButtonVisible(_offButton, !muted);
+        }
+
+        /// <summary> Image가 연결돼 있으면 지정 색을 적용한다(null이면 무시). </summary>
+        /// <param name="image">대상 Image (null 허용).</param>
+        /// <param name="color">적용할 색.</param>
+        private static void ApplyImageColor(Image image, Color color)
+        {
+            if (image != null)
+                image.color = color;
+        }
+
+        /// <summary>
+        /// 버튼을 표시/숨김 처리한다. SetActive 대신 CanvasGroup을 사용한다 (규칙 5).
+        /// CanvasGroup은 에디터 셋업 스크립트가 각 버튼에 미리 부착한다.
+        /// CanvasGroup이 없는 경우에도 최소한 상호작용은 막도록 interactable을 제어한다.
+        /// </summary>
+        /// <param name="button">대상 버튼 (null 허용).</param>
+        /// <param name="visible">true=표시, false=숨김.</param>
+        private static void SetButtonVisible(Button button, bool visible)
+        {
+            if (button == null) return;
+
+            CanvasGroup cg = button.GetComponent<CanvasGroup>();
+            if (cg != null)
+            {
+                cg.alpha          = visible ? 1f : 0f;
+                cg.blocksRaycasts = visible;
+                cg.interactable   = visible;
+            }
+            else
+            {
+                // CanvasGroup 미부착 폴백 — 규칙 5 준수를 위해 에디터에서 CanvasGroup 부착 권장.
+                button.interactable = visible;
+            }
         }
 
         // ====================================================================
