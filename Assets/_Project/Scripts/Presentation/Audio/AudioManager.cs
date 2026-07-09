@@ -103,6 +103,21 @@ namespace Hexiege.Presentation
         private const string PrefBgmVolume = "BGMVolume";
         private const string PrefSfxVolume = "SFXVolume";
 
+        // 음소거 여부 저장 키. 0=소리 켜짐, 1=음소거 (규칙 26 확정 구현).
+        //   슬라이더 볼륨값(0~1)과 달리 정수(0/1)로 저장한다.
+        private const string PrefMuted = "Muted";
+
+        // ====================================================================
+        // 음소거 무음 dB 값
+        //   음소거는 "저장된 볼륨값(PlayerPrefs)은 그대로 두고, 실제 출력만 무음으로
+        //   강제"하는 방식이다(결정사항 1 — 저장값 보존형). 이를 위해 Master 채널의
+        //   AudioMixer 출력을 -80dB(사실상 완전 무음)로 눌러버린다.
+        //   Master 채널 하나가 전체 출력을 결정하므로, Master만 -80dB로 만들면
+        //   BGM/SFX의 논리 볼륨을 건드리지 않고도 전체가 무음이 된다.
+        // ====================================================================
+
+        private const float MutedDb = -80f;
+
         // ====================================================================
         // AudioMixer Exposed Parameter 이름 — 믹서에서 노출한 파라미터와 일치해야 함 (규칙 18).
         // ====================================================================
@@ -171,6 +186,12 @@ namespace Hexiege.Presentation
 
         /// <summary> UniRx 구독 묶음. OnDestroy에서 일괄 해제. </summary>
         private readonly CompositeDisposable _disposables = new CompositeDisposable();
+
+        /// <summary>
+        /// 현재 음소거 상태인지 여부. Initialize()에서 PlayerPrefs로부터 로드한다.
+        /// true면 Master 채널 출력을 -80dB로 눌러 전체를 무음 처리한다(저장 볼륨값은 보존).
+        /// </summary>
+        private bool _muted;
 
         // ====================================================================
         // Unity 생명주기
@@ -271,6 +292,13 @@ namespace Hexiege.Presentation
             ApplyVolume(ParamMasterVolume, LoadVolume(PrefMasterVolume));
             ApplyVolume(ParamBgmVolume, LoadVolume(PrefBgmVolume));
             ApplyVolume(ParamSfxVolume, LoadVolume(PrefSfxVolume));
+
+            // 저장된 음소거 상태 로드 (규칙 26). 기본값 0 = 소리 켜짐.
+            //   음소거였다면 위에서 적용한 Master 볼륨을 -80dB로 다시 눌러 무음으로 만든다.
+            //   (BGM/SFX의 논리 볼륨값은 그대로 유지 — 음소거 해제 시 그대로 복원됨)
+            _muted = PlayerPrefs.GetInt(PrefMuted, 0) == 1;
+            if (_muted)
+                ApplyDb(ParamMasterVolume, MutedDb);
 
             // 현재 씬 BGM 즉시 재생 (규칙 7).
             //   activeSceneChanged는 처음 진입한 씬에는 발생하지 않으므로 여기서 직접 처리.
@@ -614,22 +642,90 @@ namespace Hexiege.Presentation
         public float GetSfxVolume() => LoadVolume(PrefSfxVolume);
 
         // ====================================================================
+        // 음소거 외부 API (규칙 23~26, 결정사항 1)
+        // ====================================================================
+
+        /// <summary>
+        /// 현재 음소거 상태인지 반환한다.
+        /// </summary>
+        /// <returns>true=음소거, false=소리 켜짐.</returns>
+        public bool IsMuted() => _muted;
+
+        /// <summary>
+        /// 음소거 상태를 설정하고 즉시 반영 + PlayerPrefs에 저장한다 (규칙 23, 24).
+        ///
+        /// 동작 방식(결정사항 1 — 저장값 보존형):
+        ///   - 음소거 ON: 저장된 볼륨값(PlayerPrefs)은 건드리지 않고 Master 채널 출력만
+        ///     -80dB로 눌러 전체를 무음으로 만든다.
+        ///   - 음소거 OFF: 저장된 Master 볼륨값을 다시 적용하여 원래 소리를 복원한다.
+        ///     (BGM/SFX 채널은 애초에 건드리지 않았으므로 그대로 유지된다)
+        /// </summary>
+        /// <param name="muted">true=음소거, false=소리 켜짐.</param>
+        public void SetMuted(bool muted)
+        {
+            _muted = muted;
+
+            // 음소거 여부를 즉시 저장(규칙 21과 동일한 즉시 저장 패턴).
+            PlayerPrefs.SetInt(PrefMuted, muted ? 1 : 0);
+            PlayerPrefs.Save();
+
+            ApplyMuteState();
+        }
+
+        /// <summary>
+        /// 세 볼륨(Master/BGM/SFX)을 모두 기본값 1.0으로 되돌리고 음소거를 해제한다 (규칙 25).
+        /// 볼륨 컨트롤의 "초기화" 버튼이 호출한다.
+        /// 각 값은 PlayerPrefs에도 저장되어 재시작 후에도 유지된다.
+        /// </summary>
+        public void ResetAllVolumes()
+        {
+            // SetMuted(false)를 먼저 호출해도 되지만, 아래 SetXxxVolume이 내부에서
+            // 자동 언뮤트를 수행하므로 볼륨 3종을 1.0으로 설정하는 것만으로 음소거도 풀린다.
+            SetMasterVolume(1f);
+            SetBgmVolume(1f);
+            SetSfxVolume(1f);
+
+            // 슬라이더 조작이 아닌 초기화 경로에서도 확실히 음소거가 풀리도록 명시적으로 한 번 더 보장.
+            SetMuted(false);
+        }
+
+        // ====================================================================
         // 볼륨 내부 처리
         // ====================================================================
 
         /// <summary>
         /// 볼륨을 믹서에 적용하고 PlayerPrefs에 저장한다.
+        /// 음소거 상태에서 볼륨을 조작하면(슬라이더 등) 자동으로 음소거를 해제한다(결정사항 3).
         /// </summary>
         /// <param name="param">AudioMixer Exposed Parameter 이름.</param>
         /// <param name="prefKey">PlayerPrefs 저장 키.</param>
         /// <param name="value">0~1 볼륨 값.</param>
         private void SetVolume(string param, string prefKey, float value)
         {
+            // 음소거 중 볼륨을 조작하면 사용자가 소리를 다시 듣고 싶다는 의도이므로
+            // 먼저 음소거를 해제한다(결정사항 3). SetMuted(false)가 Master 출력을
+            // 저장 볼륨값으로 복원하며, 아래에서 새 값으로 다시 덮어쓴다.
+            if (_muted)
+                SetMuted(false);
+
             float clamped = Mathf.Clamp01(value);
             ApplyVolume(param, clamped);
 
             PlayerPrefs.SetFloat(prefKey, clamped);
             PlayerPrefs.Save(); // 규칙 21 — 즉시 저장.
+        }
+
+        /// <summary>
+        /// 현재 _muted 값에 따라 Master 채널 출력을 갱신한다.
+        ///   음소거 ON  → Master를 -80dB로 눌러 무음.
+        ///   음소거 OFF → 저장된 Master 볼륨값을 다시 적용하여 복원.
+        /// </summary>
+        private void ApplyMuteState()
+        {
+            if (_muted)
+                ApplyDb(ParamMasterVolume, MutedDb);
+            else
+                ApplyVolume(ParamMasterVolume, LoadVolume(PrefMasterVolume));
         }
 
         /// <summary>
@@ -639,6 +735,20 @@ namespace Hexiege.Presentation
         /// <param name="value">0~1 볼륨 값.</param>
         private void ApplyVolume(string param, float value)
         {
+            // Log10(0) = -무한대 방지를 위해 하한 0.0001을 둔다 (규칙 19).
+            float dB = Mathf.Log10(Mathf.Max(value, 0.0001f)) * 20f;
+            ApplyDb(param, dB);
+        }
+
+        /// <summary>
+        /// 계산된 dB 값을 AudioMixer Exposed Parameter에 직접 적용한다.
+        /// 음소거(-80dB)와 일반 볼륨(dB 변환값) 적용 경로가 이 메서드를 공유하여
+        /// SetFloat 실패 진단 로깅(2026-07-08 교훈)을 한 곳에서 처리한다.
+        /// </summary>
+        /// <param name="param">AudioMixer Exposed Parameter 이름.</param>
+        /// <param name="dB">적용할 dB 값.</param>
+        private void ApplyDb(string param, float dB)
+        {
             // _audioMixer 미연결 시 볼륨 제어 불가 — 원인 추적을 위해 경고 로그 남김.
             if (_audioMixer == null)
             {
@@ -646,11 +756,8 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            // Log10(0) = -무한대 방지를 위해 하한 0.0001을 둔다 (규칙 19).
-            float dB = Mathf.Log10(Mathf.Max(value, 0.0001f)) * 20f;
-
             // SetFloat은 Exposed Parameter 이름이 믹서에 없으면 false를 반환한다.
-            //   SFX 볼륨이 조절되지 않는 원인이 파라미터 이름 불일치인지 확인하기 위해 결과를 검사한다.
+            //   볼륨/음소거가 적용되지 않는 원인이 파라미터 이름 불일치인지 확인하기 위해 결과를 검사한다.
             bool result = _audioMixer.SetFloat(param, dB);
             if (!result)
                 Debug.LogWarning($"[AudioManager] AudioMixer.SetFloat 실패: param={param}, dB={dB}");

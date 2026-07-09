@@ -55,8 +55,11 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         [Header("설정 버튼")]
-        [Tooltip("프로필 서브 화면으로 진입하는 버튼.")]
-        [SerializeField] private Button _profileButton;
+        // [비활성화 — 테스트 통과 후 삭제 예정]
+        //   프로필 기능은 별도 ProfilePanel(ProfileView.cs)로 완전히 분리되었으므로
+        //   (GameSystemRules_UI 로비 규칙 1) SettingPanel에는 더 이상 프로필 버튼이 없다.
+        // [Tooltip("프로필 서브 화면으로 진입하는 버튼.")]
+        // [SerializeField] private Button _profileButton;
 
         [Tooltip("사운드 서브 화면으로 진입하는 버튼.")]
         [SerializeField] private Button _soundButton;
@@ -75,8 +78,10 @@ namespace Hexiege.Presentation
         [Tooltip("사운드 설정 서브 화면 CanvasGroup (볼륨 슬라이더 포함).")]
         [SerializeField] private CanvasGroup _soundSubView;
 
-        [Tooltip("프로필 서브 화면 CanvasGroup (기존 ProfileView 내용).")]
-        [SerializeField] private CanvasGroup _profileSubView;
+        // [비활성화 — 테스트 통과 후 삭제 예정]
+        //   프로필 서브 화면은 별도 ProfilePanel로 분리되어 SettingPanel에는 존재하지 않는다.
+        // [Tooltip("프로필 서브 화면 CanvasGroup (기존 ProfileView 내용).")]
+        // [SerializeField] private CanvasGroup _profileSubView;
 
         // ====================================================================
         // Inspector 참조 — 볼륨 슬라이더
@@ -101,6 +106,34 @@ namespace Hexiege.Presentation
 
         [Tooltip("SFX 볼륨 퍼센트 표시 텍스트.")]
         [SerializeField] private TextMeshProUGUI _sfxValueText;
+
+        // ====================================================================
+        // Inspector 참조 — 볼륨 컨트롤 버튼 (VolumeButtonContainer, 규칙 23~26)
+        // ====================================================================
+
+        [Header("볼륨 컨트롤 버튼")]
+        [Tooltip("전체 소리켜기 버튼(음소거 해제). 음소거 상태일 때만 표시된다(규칙 24).")]
+        [SerializeField] private Button _soundOnButton;
+
+        [Tooltip("전체 음소거 버튼. 소리 켜짐 상태일 때만 표시된다(규칙 24).")]
+        [SerializeField] private Button _muteButton;
+
+        [Tooltip("초기화 버튼. 세 볼륨을 100%로 되돌리고 음소거를 해제한다(규칙 25).")]
+        [SerializeField] private Button _resetButton;
+
+        [Header("색상 설정")]
+        [Tooltip("슬라이더 음소거 색상 토큰(규칙 26). Resources/Config/UIColorConfig 연결.")]
+        [SerializeField] private Hexiege.Infrastructure.UIColorConfig _colorConfig;
+
+        // ====================================================================
+        // 내부 상태
+        // ====================================================================
+
+        /// <summary>
+        /// 볼륨 슬라이더 3종 + 전체 소리켜기/음소거/초기화 버튼의 공통 로직을 담당하는 Binder.
+        /// 인게임 설정 메뉴와 동일한 동작을 보장하기 위해 공통 클래스로 분리했다(규칙 22).
+        /// </summary>
+        private readonly VolumeControlBinder _volumeBinder = new VolumeControlBinder();
 
         // ====================================================================
         // Unity 생명주기
@@ -131,11 +164,12 @@ namespace Hexiege.Presentation
                 _soundButton.onClick.RemoveAllListeners();
                 _soundButton.onClick.AddListener(() => ShowSubView(_soundSubView));
             }
-            if (_profileButton != null)
-            {
-                _profileButton.onClick.RemoveAllListeners();
-                _profileButton.onClick.AddListener(() => ShowSubView(_profileSubView));
-            }
+            // [비활성화 — 테스트 통과 후 삭제 예정] 프로필 버튼은 ProfilePanel로 분리되어 제거됨.
+            // if (_profileButton != null)
+            // {
+            //     _profileButton.onClick.RemoveAllListeners();
+            //     _profileButton.onClick.AddListener(() => ShowSubView(_profileSubView));
+            // }
 
             // 뒤로가기 → 메인 화면 복귀.
             if (_backButton != null)
@@ -144,69 +178,35 @@ namespace Hexiege.Presentation
                 _backButton.onClick.AddListener(OnBackClicked);
             }
 
-            // 볼륨 슬라이더 초기값/리스너 설정.
-            SetupVolumeSliders();
+            // 볼륨 슬라이더 + 전체 소리켜기/음소거/초기화 버튼을 공통 Binder에 위임(규칙 22~26).
+            _volumeBinder.Bind(new VolumeControlBinder.Refs
+            {
+                MasterSlider = _masterSlider,
+                BgmSlider = _bgmSlider,
+                SfxSlider = _sfxSlider,
+                MasterValueText = _masterValueText,
+                BgmValueText = _bgmValueText,
+                SfxValueText = _sfxValueText,
+                SoundOnButton = _soundOnButton,
+                MuteButton = _muteButton,
+                ResetButton = _resetButton,
+                ColorConfig = _colorConfig,
+            });
 
             // 시작은 항상 메인 화면.
             ShowMain();
         }
 
-        /// <summary>
-        /// 볼륨 슬라이더 3종의 초기값을 AudioManager에서 읽어 반영하고,
-        /// 값 변경 시 AudioManager에 즉시 전달 + 퍼센트 텍스트를 갱신하는 리스너를 등록한다.
-        /// AudioManager.Instance가 null일 수 있으므로 ?. 와 ?? 1f로 안전 처리한다(규칙 5).
-        /// </summary>
-        private void SetupVolumeSliders()
-        {
-            SetupOneSlider(
-                _masterSlider, _masterValueText,
-                AudioManager.Instance?.GetMasterVolume() ?? 1f,
-                v => AudioManager.Instance?.SetMasterVolume(v));
-
-            SetupOneSlider(
-                _bgmSlider, _bgmValueText,
-                AudioManager.Instance?.GetBgmVolume() ?? 1f,
-                v => AudioManager.Instance?.SetBgmVolume(v));
-
-            SetupOneSlider(
-                _sfxSlider, _sfxValueText,
-                AudioManager.Instance?.GetSfxVolume() ?? 1f,
-                v => AudioManager.Instance?.SetSfxVolume(v));
-        }
-
-        /// <summary>
-        /// 슬라이더 한 개의 초기값/리스너/퍼센트 텍스트를 설정하는 공통 헬퍼.
-        /// </summary>
-        /// <param name="slider">대상 슬라이더 (null 허용).</param>
-        /// <param name="valueText">퍼센트 표시 텍스트 (null 허용).</param>
-        /// <param name="initialValue">초기 슬라이더 값 (0~1).</param>
-        /// <param name="onChanged">값 변경 시 AudioManager에 전달할 콜백.</param>
-        private void SetupOneSlider(Slider slider, TextMeshProUGUI valueText,
-            float initialValue, System.Action<float> onChanged)
-        {
-            if (slider == null) return;
-
-            slider.onValueChanged.RemoveAllListeners();
-            slider.value = initialValue;
-            UpdateValueText(valueText, initialValue);
-
-            slider.onValueChanged.AddListener(v =>
-            {
-                onChanged?.Invoke(v);
-                UpdateValueText(valueText, v);
-            });
-        }
-
-        /// <summary>
-        /// 0~1 슬라이더 값을 "100%" 형태의 정수 퍼센트 문자열로 텍스트에 반영한다.
-        /// </summary>
-        /// <param name="valueText">갱신할 텍스트 (null이면 무시).</param>
-        /// <param name="value">0~1 볼륨 값.</param>
-        private void UpdateValueText(TextMeshProUGUI valueText, float value)
-        {
-            if (valueText == null) return;
-            valueText.text = $"{Mathf.RoundToInt(value * 100f)}%";
-        }
+        // ─────────────────────────────────────────────────────────────────
+        // [비활성화 — 테스트 통과 후 삭제 예정]
+        // 볼륨 슬라이더 초기화/리스너/퍼센트 텍스트 로직은 VolumeControlBinder로 이관되었다.
+        // (인게임/로비 공통 동작 보장 — 규칙 22). 아래 구 헬퍼들은 더 이상 호출되지 않는다.
+        //
+        // private void SetupVolumeSliders() { ... }
+        // private void SetupOneSlider(Slider slider, TextMeshProUGUI valueText,
+        //     float initialValue, System.Action<float> onChanged) { ... }
+        // private void UpdateValueText(TextMeshProUGUI valueText, float value) { ... }
+        // ─────────────────────────────────────────────────────────────────
 
         // ====================================================================
         // 화면 전환
@@ -223,7 +223,8 @@ namespace Hexiege.Presentation
             // 모든 서브 화면을 CanvasGroup으로 숨긴다(서로 겹치지 않도록).
             // SetActive(false) 대신 alpha=0으로 처리하여 레이아웃이 흔들리지 않게 한다(규칙 5).
             SetGroupVisible(_soundSubView, false);
-            SetGroupVisible(_profileSubView, false);
+            // [비활성화 — 테스트 통과 후 삭제 예정] 프로필 서브 화면은 ProfilePanel로 분리됨.
+            // SetGroupVisible(_profileSubView, false);
 
             // 메인 화면에서는 뒤로가기 버튼 숨김.
             SetBackButtonVisible(false);
@@ -244,11 +245,12 @@ namespace Hexiege.Presentation
             // 요청한 서브 화면만 CanvasGroup으로 표시하고 나머지는 숨긴다.
             // SetActive 대신 alpha 제어를 사용해 레이아웃을 유지한다(규칙 5).
             SetGroupVisible(_soundSubView, subView == _soundSubView);
-            SetGroupVisible(_profileSubView, subView == _profileSubView);
+            // [비활성화 — 테스트 통과 후 삭제 예정] 프로필 서브 화면은 ProfilePanel로 분리됨.
+            // SetGroupVisible(_profileSubView, subView == _profileSubView);
 
-            // 사운드 화면이면 현재 저장된 볼륨으로 슬라이더 값을 다시 맞춘다.
+            // 사운드 화면이면 현재 저장된 볼륨/음소거로 슬라이더·버튼·색상을 다시 맞춘다.
             if (subView == _soundSubView)
-                RefreshVolumeSliderValues();
+                _volumeBinder.RefreshFromAudioManager();
 
             // 서브 화면에서는 좌측 상단 뒤로가기 버튼 표시.
             SetBackButtonVisible(true);
@@ -262,28 +264,12 @@ namespace Hexiege.Presentation
             ShowMain();
         }
 
-        /// <summary>
-        /// 슬라이더 값만 현재 저장 볼륨으로 다시 맞춘다(리스너 재등록 없음).
-        /// onValueChanged가 다시 호출되더라도 동일 값이라 부작용은 없으며, 퍼센트 텍스트도 함께 갱신된다.
-        /// </summary>
-        private void RefreshVolumeSliderValues()
-        {
-            if (_masterSlider != null)
-            {
-                _masterSlider.value = AudioManager.Instance?.GetMasterVolume() ?? 1f;
-                UpdateValueText(_masterValueText, _masterSlider.value);
-            }
-            if (_bgmSlider != null)
-            {
-                _bgmSlider.value = AudioManager.Instance?.GetBgmVolume() ?? 1f;
-                UpdateValueText(_bgmValueText, _bgmSlider.value);
-            }
-            if (_sfxSlider != null)
-            {
-                _sfxSlider.value = AudioManager.Instance?.GetSfxVolume() ?? 1f;
-                UpdateValueText(_sfxValueText, _sfxSlider.value);
-            }
-        }
+        // ─────────────────────────────────────────────────────────────────
+        // [비활성화 — 테스트 통과 후 삭제 예정]
+        // 슬라이더 재동기화 로직은 VolumeControlBinder.RefreshFromAudioManager()로 이관되었다.
+        //
+        // private void RefreshVolumeSliderValues() { ... }
+        // ─────────────────────────────────────────────────────────────────
 
         // ====================================================================
         // CanvasGroup 표시/숨김 헬퍼 (GameSystemRules_UI 규칙 5)

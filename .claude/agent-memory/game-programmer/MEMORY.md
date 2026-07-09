@@ -32,6 +32,16 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 인게임/로비 볼륨·프로필 UI 로직 연결 + 음소거 기능 (2026-07-09) ✅
+- **음소거 구현(저장값 보존형)**: `AudioManager`에 `SetMuted(bool)`/`IsMuted()`/`ResetAllVolumes()` 추가. PlayerPrefs 키 `"Muted"`(0/1). 뮤트는 **Master 채널만 -80dB(`MutedDb`)로 눌러** 전체 무음(BGM/SFX 논리 볼륨값은 보존). `ApplyVolume`을 `ApplyDb(param,dB)`로 리팩터(무음 -80dB와 볼륨 변환값이 SetFloat 진단 로깅 경로 공유). `SetVolume`에 자동 언뮤트(슬라이더 조작 시 `if(_muted) SetMuted(false)`).
+- **VolumeControlBinder(신규, 순수 C#)**: `Presentation/UI/Common/VolumeControlBinder.cs`. 인게임/로비 볼륨 UI 공통 로직(슬라이더3+On/Off/Reset버튼+색상)을 캡슐화. `Bind(Refs)` 구조체 주입, `RefreshFromAudioManager()`로 패널 표시 시 재동기화. On/Off 버튼은 CanvasGroup 상호배타(규칙24), 슬라이더 Fill 색상은 `slider.fillRect`의 Image로 처리(규칙26, UIColorConfig `soundOnColor`/`soundMutedColor`).
+- **핵심 교훈 — 프로그램 슬라이더 값 설정은 `SetValueWithoutNotify` 사용**: `slider.value=` 는 onValueChanged 발화 → SetXxxVolume → 자동 언뮤트 부작용. 패널 열 때 값 동기화가 뮤트를 풀어버리는 버그를 막으려면 반드시 `SetValueWithoutNotify`. (기존 View들의 `slider.value=` 패턴을 이걸로 대체)
+- **InGameSettingsUI**: `_profileButton`/`_profileSubViewGroup`/`_profileBackButton` 추가(사운드 버튼과 동일 CanvasGroup 열기/닫기, 규칙6). 구 슬라이더 헬퍼는 Binder로 이관 후 주석 비활성화. **주의: Game.unity엔 프로필 서브패널 오브젝트 아직 없음** — ProfileButton만 존재, 서브패널은 별도 작업.
+- **LobbySettingsView**: 클래스명 유지. Profile 필드/로직 제거(주석). 컴포넌트를 SettingPanel 자식→루트로 이동 필요(다른 탭패널 컨벤션). 코드상 `LobbySettingsView` 외부 참조 없음(이동 안전).
+- **Editor 1회성**: `Scripts/Editor/SetupVolumeProfileUI_20260709.cs`, 메뉴 `Hexiege/Setup/...`. 컴포넌트 이동은 `UnityEditorInternal.ComponentUtility.CopyComponent`+`PasteComponentAsNew`(모든 참조 보존)→원본 `DestroyImmediate`. 필드 배선은 `SerializedObject.FindProperty(name).objectReferenceValue`. 씬 저장 전 `EditorUtility.SetDirty`+`MarkSceneDirty`+`SaveScene` 필수(2026-07-08 교훈). Lobby VolumeButtonContainer 앵커: anchorMin(0.15,0)/anchorMax(0.85,0.15)/sizeDelta0/anchoredPos0.
+- task: `_Tasks/2026-07-09/06_09_ingame-lobby-volume-profile-ui/`. **실기 테스트 대기 중** — 주석 비활성화 코드는 통과 후 삭제 예정.
+
+
 ### 사운드 시스템 실기 버그 3종 수정 (2026-07-08) ✅
 - **BUG-1 BGM 겹침 (핵심 교훈)**: `AudioManager.StartCrossfade()`에서 새 전환 요청 시 `StopCoroutine(_crossfadeRoutine)`만으로는 페이드아웃 중이던 AudioSource가 계속 재생되어 이전 BGM이 겹친다. **코루틴 중단 직후 페이드아웃 채널(active가 아닌 채널)을 즉시 `Stop()`(+ volume 0, clip null)해야 함**. GameSystemRules_Sound 규칙 8에 명문화.
 - **BUG-2 볼륨 UI 규칙 위반**: 에디터 스크립트(`SetupInGameVolumePanel.cs`/`SetupLobbySettingsTab.cs`)로 생성하는 슬라이더 서브 요소 고정 픽셀값 → 앵커 비율(규칙 2), 전 TMP에 `Maplestory Bold SDF` 폰트 적용(규칙 6). **에디터 스크립트에서 TMP 폰트 지정 후 `EditorUtility.SetDirty()` 필수** — 없으면 씬 저장 시 폰트가 반영되지 않음.
