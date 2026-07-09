@@ -79,20 +79,39 @@ namespace HexiegeEditor
 
             // ----------------------------------------------------------------
             // 3) 기존 참조(사운드 서브 화면, 슬라이더) 가져오기.
+            //    _soundSubView가 Inspector에 연결되어 있지 않은 경우,
+            //    계층구조에서 "SoundSubView" 이름으로 직접 탐색한다.
+            //    기존 에디터 스크립트를 재실행하지 않아도 동작하도록 안전 처리.
             // ----------------------------------------------------------------
             var soundSubViewCg = so.FindProperty("_soundSubView")?.objectReferenceValue as CanvasGroup;
-            var masterSlider   = so.FindProperty("_masterSlider")?.objectReferenceValue as Slider;
-            var bgmSlider      = so.FindProperty("_bgmSlider")?.objectReferenceValue    as Slider;
-            var sfxSlider      = so.FindProperty("_sfxSlider")?.objectReferenceValue    as Slider;
-
             if (soundSubViewCg == null)
             {
-                EditorUtility.DisplayDialog("_soundSubView 없음",
-                    "LobbySettingsView._soundSubView가 연결되어 있지 않습니다.\n" +
-                    "먼저 'Hexiege/Setup/사운드 - 로비 설정 탭 구성'을 실행해주세요.",
-                    "확인");
-                return;
+                // 계층구조에서 "SoundSubView" GO를 이름으로 탐색한다.
+                var found = FindChildRecursive(settingsView.transform, "SoundSubView");
+                if (found != null)
+                    soundSubViewCg = found.GetComponent<CanvasGroup>();
+
+                if (soundSubViewCg == null)
+                {
+                    EditorUtility.DisplayDialog("SoundSubView 없음",
+                        "SoundSubView GO를 찾을 수 없습니다.\n" +
+                        "먼저 'Hexiege/Setup/사운드 - 로비 설정 탭 구성'을 실행해주세요.",
+                        "확인");
+                    return;
+                }
+
+                // 찾은 CanvasGroup을 _soundSubView 필드에 연결해둔다.
+                SetRef(so, "_soundSubView", soundSubViewCg);
             }
+
+            var masterSlider = so.FindProperty("_masterSlider")?.objectReferenceValue as Slider;
+            var bgmSlider    = so.FindProperty("_bgmSlider")?.objectReferenceValue    as Slider;
+            var sfxSlider    = so.FindProperty("_sfxSlider")?.objectReferenceValue    as Slider;
+
+            // 슬라이더도 연결 안 된 경우 계층구조에서 탐색한다.
+            if (masterSlider == null) masterSlider = FindSliderInHierarchy(soundSubViewCg.transform, "MasterSlider");
+            if (bgmSlider    == null) bgmSlider    = FindSliderInHierarchy(soundSubViewCg.transform, "BGMSlider");
+            if (sfxSlider    == null) sfxSlider    = FindSliderInHierarchy(soundSubViewCg.transform, "SFXSlider");
 
             // ----------------------------------------------------------------
             // 4) VolumeButtonContainer 생성 — SoundSubView 하단, 가로 배치 (뒤로 버튼 없음).
@@ -306,6 +325,35 @@ namespace HexiegeEditor
             rt.pivot            = new Vector2(0.5f, 0.5f);
             rt.anchoredPosition = Vector2.zero;
             rt.sizeDelta        = Vector2.zero;
+        }
+
+        /// <summary>
+        /// 자식 계층을 재귀 탐색하여 이름이 일치하는 Transform을 반환한다.
+        /// 없으면 null.
+        /// </summary>
+        private static Transform FindChildRecursive(Transform parent, string name)
+        {
+            foreach (Transform child in parent)
+            {
+                if (child.name == name) return child;
+                var found = FindChildRecursive(child, name);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 주어진 Transform 계층에서 이름이 포함된 Slider를 탐색한다.
+        /// 없으면 null.
+        /// </summary>
+        private static Slider FindSliderInHierarchy(Transform root, string nameKeyword)
+        {
+            foreach (var slider in root.GetComponentsInChildren<Slider>(true))
+            {
+                if (slider.name.IndexOf(nameKeyword, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return slider;
+            }
+            return null;
         }
     }
 }
