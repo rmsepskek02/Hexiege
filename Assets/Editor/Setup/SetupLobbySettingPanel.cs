@@ -64,9 +64,11 @@ namespace HexiegeEditor
 
             // ----------------------------------------------------------------
             // 2) LobbySettingsView 컴포넌트 탐색.
+            //    씬에 여러 인스턴스가 있을 수 있으므로 전체를 가져와서,
+            //    _soundSubView가 연결된 것 또는 계층에 SoundSubView가 있는 것을 선택한다.
             // ----------------------------------------------------------------
-            var settingsView = Object.FindFirstObjectByType<LobbySettingsView>();
-            if (settingsView == null)
+            var allViews = Object.FindObjectsByType<LobbySettingsView>(FindObjectsSortMode.None);
+            if (allViews == null || allViews.Length == 0)
             {
                 EditorUtility.DisplayDialog("컴포넌트 없음",
                     "LobbySettingsView 컴포넌트를 Lobby.unity에서 찾을 수 없습니다.\n" +
@@ -75,40 +77,52 @@ namespace HexiegeEditor
                 return;
             }
 
-            var so = new SerializedObject(settingsView);
-
-            // ----------------------------------------------------------------
-            // 3) 기존 참조(사운드 서브 화면, 슬라이더) 가져오기.
-            //    _soundSubView가 Inspector에 연결되어 있지 않은 경우,
-            //    계층구조에서 "SoundSubView" 이름으로 직접 탐색한다.
-            //    기존 에디터 스크립트를 재실행하지 않아도 동작하도록 안전 처리.
-            // ----------------------------------------------------------------
-            var soundSubViewCg = so.FindProperty("_soundSubView")?.objectReferenceValue as CanvasGroup;
-            if (soundSubViewCg == null)
+            // _soundSubView가 연결된 인스턴스를 우선 선택, 없으면 SoundSubView 자식이 있는 것 선택.
+            LobbySettingsView settingsView = null;
+            CanvasGroup soundSubViewCg = null;
+            foreach (var view in allViews)
             {
-                // 계층구조에서 "SoundSubView" GO를 이름으로 탐색한다.
-                var found = FindChildRecursive(settingsView.transform, "SoundSubView");
-                if (found != null)
-                    soundSubViewCg = found.GetComponent<CanvasGroup>();
-
-                if (soundSubViewCg == null)
+                var candidate = new SerializedObject(view).FindProperty("_soundSubView")?.objectReferenceValue as CanvasGroup;
+                if (candidate != null)
                 {
-                    EditorUtility.DisplayDialog("SoundSubView 없음",
-                        "SoundSubView GO를 찾을 수 없습니다.\n" +
-                        "먼저 'Hexiege/Setup/사운드 - 로비 설정 탭 구성'을 실행해주세요.",
-                        "확인");
-                    return;
+                    settingsView  = view;
+                    soundSubViewCg = candidate;
+                    break;
                 }
-
-                // 찾은 CanvasGroup을 _soundSubView 필드에 연결해둔다.
-                SetRef(so, "_soundSubView", soundSubViewCg);
+                // 필드는 null이지만 계층에 SoundSubView GO가 있는 경우.
+                var childT = FindChildRecursive(view.transform, "SoundSubView");
+                if (childT != null)
+                {
+                    var cg = childT.GetComponent<CanvasGroup>();
+                    if (cg != null)
+                    {
+                        settingsView   = view;
+                        soundSubViewCg = cg;
+                        break;
+                    }
+                }
             }
 
+            if (settingsView == null || soundSubViewCg == null)
+            {
+                EditorUtility.DisplayDialog("SoundSubView 없음",
+                    "SoundSubView GO를 찾을 수 없습니다.\n" +
+                    "먼저 'Hexiege/Setup/사운드 - 로비 설정 탭 구성'을 실행해주세요.",
+                    "확인");
+                return;
+            }
+
+            var so = new SerializedObject(settingsView);
+            // _soundSubView가 비어 있었다면 방금 찾은 CanvasGroup으로 연결해둔다.
+            SetRef(so, "_soundSubView", soundSubViewCg);
+
+            // ----------------------------------------------------------------
+            // 3) 슬라이더 참조 가져오기 (연결 안 된 경우 계층구조에서 탐색).
+            // ----------------------------------------------------------------
             var masterSlider = so.FindProperty("_masterSlider")?.objectReferenceValue as Slider;
             var bgmSlider    = so.FindProperty("_bgmSlider")?.objectReferenceValue    as Slider;
             var sfxSlider    = so.FindProperty("_sfxSlider")?.objectReferenceValue    as Slider;
 
-            // 슬라이더도 연결 안 된 경우 계층구조에서 탐색한다.
             if (masterSlider == null) masterSlider = FindSliderInHierarchy(soundSubViewCg.transform, "MasterSlider");
             if (bgmSlider    == null) bgmSlider    = FindSliderInHierarchy(soundSubViewCg.transform, "BGMSlider");
             if (sfxSlider    == null) sfxSlider    = FindSliderInHierarchy(soundSubViewCg.transform, "SFXSlider");
