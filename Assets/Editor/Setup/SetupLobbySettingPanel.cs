@@ -130,14 +130,21 @@ namespace HexiegeEditor
             // ----------------------------------------------------------------
             // 4) VolumeButtonContainer 생성 — SoundSubView 하단, 가로 배치 (뒤로 버튼 없음).
             // ----------------------------------------------------------------
+            Debug.Log($"[SetupLobbySettingPanel] soundSubViewCg GO: {soundSubViewCg.gameObject.name}, transform: {soundSubViewCg.transform}");
+
             var containerGo = GetOrCreateUIChild("VolumeButtonContainer", soundSubViewCg.transform);
+            if (containerGo == null) { Debug.LogError("[SetupLobbySettingPanel] containerGo is null"); return; }
+
             var containerRt = containerGo.GetComponent<RectTransform>();
+            if (containerRt == null) { Debug.LogError("[SetupLobbySettingPanel] containerRt is null"); return; }
+
             containerRt.anchorMin        = new Vector2(0.05f, 0.02f);
             containerRt.anchorMax        = new Vector2(0.95f, 0.13f);
             containerRt.pivot            = new Vector2(0.5f, 0.5f);
             containerRt.anchoredPosition = Vector2.zero;
             containerRt.sizeDelta        = Vector2.zero;
             var hlg = GetOrAdd<HorizontalLayoutGroup>(containerGo);
+            if (hlg == null) { Debug.LogError("[SetupLobbySettingPanel] HorizontalLayoutGroup 추가 실패"); return; }
             hlg.spacing                = 20f;
             hlg.childAlignment         = TextAnchor.MiddleCenter;
             hlg.childControlWidth      = true;
