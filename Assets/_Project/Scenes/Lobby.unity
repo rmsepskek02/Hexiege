@@ -3949,9 +3949,9 @@ CanvasGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 576258266}
   m_Enabled: 1
-  m_Alpha: 1
-  m_Interactable: 1
-  m_BlocksRaycasts: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
   m_IgnoreParentGroups: 0
 --- !u!1 &580018331
 GameObject:
@@ -5017,9 +5017,9 @@ RectTransform:
   m_Father: {fileID: 1316763634}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.15, y: 0}
-  m_AnchorMax: {x: 0.85, y: 0.55}
-  m_AnchoredPosition: {x: 0, y: -685.23834}
-  m_SizeDelta: {x: 0, y: 587.3472}
+  m_AnchorMax: {x: 0.85, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &715259137
 MonoBehaviour:
@@ -8155,8 +8155,8 @@ CanvasGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1115304630}
   m_Enabled: 1
-  m_Alpha: 1
-  m_Interactable: 1
+  m_Alpha: 0
+  m_Interactable: 0
   m_BlocksRaycasts: 0
   m_IgnoreParentGroups: 0
 --- !u!1 &1116477406
@@ -9122,8 +9122,8 @@ RectTransform:
   - {fileID: 715259136}
   m_Father: {fileID: 1115304631}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 0.55}
-  m_AnchorMax: {x: 1, y: 0.95}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -9342,9 +9342,9 @@ CanvasGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1336313287}
   m_Enabled: 1
-  m_Alpha: 1
-  m_Interactable: 1
-  m_BlocksRaycasts: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
   m_IgnoreParentGroups: 0
 --- !u!1 &1351999585
 GameObject:
@@ -11825,6 +11825,7 @@ GameObject:
   - component: {fileID: 1670590792}
   - component: {fileID: 1670590795}
   - component: {fileID: 1670590793}
+  - component: {fileID: 1670590796}
   m_Layer: 0
   m_Name: SettingPanel
   m_TagString: Untagged
@@ -11860,9 +11861,9 @@ CanvasGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1670590791}
   m_Enabled: 1
-  m_Alpha: 1
-  m_Interactable: 1
-  m_BlocksRaycasts: 1
+  m_Alpha: 0
+  m_Interactable: 0
+  m_BlocksRaycasts: 0
   m_IgnoreParentGroups: 0
 --- !u!222 &1670590795
 CanvasRenderer:
@@ -11872,6 +11873,34 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1670590791}
   m_CullTransparentMesh: 1
+--- !u!114 &1670590796
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1670590791}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95915b52a5c56844b9b7da60bb307b72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.LobbySettingsView
+  _backButton: {fileID: 790816437}
+  _backButtonGroup: {fileID: 790816436}
+  _mainView: {fileID: 1336313289}
+  _subViewContainer: {fileID: 1115304632}
+  _soundButton: {fileID: 1932955970}
+  _soundSubView: {fileID: 1316763635}
+  _masterSlider: {fileID: 2108341396}
+  _bgmSlider: {fileID: 771037357}
+  _sfxSlider: {fileID: 801326944}
+  _masterValueText: {fileID: 1187195382}
+  _bgmValueText: {fileID: 1796569466}
+  _sfxValueText: {fileID: 737636846}
+  _soundOnButton: {fileID: 845935778}
+  _muteButton: {fileID: 344355640}
+  _resetButton: {fileID: 882684710}
+  _colorConfig: {fileID: 0}
 --- !u!1 &1712998796
 GameObject:
   m_ObjectHideFlags: 0
@@ -11906,8 +11935,8 @@ RectTransform:
   - {fileID: 2092444906}
   m_Father: {fileID: 1316763634}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.05, y: 0.15}
-  m_AnchorMax: {x: 0.95, y: 0.85}
+  m_AnchorMin: {x: 0.05, y: 0.5}
+  m_AnchorMax: {x: 0.95, y: 0.95}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
@@ -12117,7 +12146,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1759104648}
-  - component: {fileID: 1759104649}
   m_Layer: 0
   m_Name: LobbySettingsView
   m_TagString: Untagged
@@ -12147,32 +12175,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1759104649
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1759104647}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 95915b52a5c56844b9b7da60bb307b72, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.LobbySettingsView
-  _backButton: {fileID: 790816437}
-  _backButtonGroup: {fileID: 790816436}
-  _mainView: {fileID: 1336313289}
-  _subViewContainer: {fileID: 1115304632}
-  _profileButton: {fileID: 0}
-  _soundButton: {fileID: 1932955970}
-  _soundSubView: {fileID: 1316763635}
-  _profileSubView: {fileID: 0}
-  _masterSlider: {fileID: 2108341396}
-  _bgmSlider: {fileID: 771037357}
-  _sfxSlider: {fileID: 801326944}
-  _masterValueText: {fileID: 1187195382}
-  _bgmValueText: {fileID: 1796569466}
-  _sfxValueText: {fileID: 737636846}
 --- !u!1 &1774378368
 GameObject:
   m_ObjectHideFlags: 0
