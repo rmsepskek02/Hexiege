@@ -21,8 +21,8 @@
 //     - 이동된 컴포넌트의 신규 필드 자동 연결:
 //         _soundOnButton(OnButton), _muteButton(OffButton), _resetButton(ResetButton),
 //         _colorConfig(UIColorConfig 에셋).
-//     - SettingPanel > ... > VolumeButtonContainer 의 앵커 정리(겹침 해소):
-//         anchorMin=(0.15, 0.0), anchorMax=(0.85, 0.15), sizeDelta=(0,0), anchoredPosition=(0,0).
+//       ※ VolumeButtonContainer의 RectTransform 앵커/사이즈/포지션은 사용자가 에디터에서
+//         직접 조정했으므로 이 스크립트가 절대 덮어쓰지 않는다(필드 배선만 수행).
 //
 // 사용법:
 //   Unity 상단 메뉴 → Hexiege/Setup/볼륨·프로필 UI 자동 연결 (2026-07-09)
@@ -34,7 +34,7 @@
 //   - Game.unity: 프로필 서브 패널 오브젝트가 아직 없으므로 _profileSubViewGroup 경고는 정상.
 //     추후 프로필 서브 패널 오브젝트를 만들면 해당 필드를 수동 연결하거나 이 스크립트를 확장한다.
 //   - Lobby.unity: SettingPanel 루트에 LobbySettingsView가 있고, 예전 자식 오브젝트의
-//     컴포넌트는 제거되었는지 확인. VolumeButtonContainer가 SliderContainer와 겹치지 않는지 확인.
+//     컴포넌트는 제거되었는지 확인.
 //
 // Editor 전용 — Editor 폴더에 위치하므로 빌드에 포함되지 않는다.
 // ============================================================================
@@ -67,7 +67,6 @@ namespace Hexiege.EditorTools
         private const string NameOffButton = "OffButton";     // 전체 음소거
         private const string NameResetButton = "ResetButton"; // 초기화
         private const string NameProfileButton = "ProfileButton";
-        private const string NameVolumeButtonContainer = "VolumeButtonContainer";
         private const string NameSettingPanel = "SettingPanel";
         private const string NameProfileSubView = "ProfileSubView"; // 프로필 서브 패널(빈 껍데기)
         private const string NameVolumePanel = "VolumePanel";       // ProfileSubView를 형제로 만들 기준 오브젝트
@@ -197,7 +196,7 @@ namespace Hexiege.EditorTools
         }
 
         // ================================================================
-        // Lobby.unity — LobbySettingsView 이동 + 신규 필드 연결 + 앵커 정리
+        // Lobby.unity — LobbySettingsView 이동 + 신규 필드 연결
         // ================================================================
 
         private static void SetupLobbyScene(UIColorConfig colorConfig)
@@ -268,42 +267,13 @@ namespace Hexiege.EditorTools
             so.ApplyModifiedProperties();
             EditorUtility.SetDirty(movedView);
 
-            // 6) VolumeButtonContainer 앵커 정리(겹침 해소).
-            FixVolumeButtonContainerAnchors(root);
+            // VolumeButtonContainer의 RectTransform 앵커는 사용자가 에디터에서 직접 조정했으므로
+            // 이 스크립트가 건드리지 않는다(과거의 앵커 강제 정리 로직은 제거됨). 필드 배선만 수행한다.
+            Debug.Log("[SetupVolumeProfileUI][Lobby] VolumeButtonContainer 앵커는 사용자가 직접 조정했으므로 건드리지 않습니다.");
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene);
             Debug.Log("[SetupVolumeProfileUI][Lobby] LobbySettingsView 이동/연결 및 저장 완료.");
-        }
-
-        /// <summary>
-        /// Lobby SettingPanel의 VolumeButtonContainer 앵커를 정리한다.
-        /// 고정 픽셀 보정(sizeDelta/anchoredPosition)을 제거하고, SliderContainer(anchorMin.y=0.15)와
-        /// 겹치지 않도록 anchorMax.y=0.15로 맞춘다(공통 UI 규칙 2).
-        /// </summary>
-        private static void FixVolumeButtonContainerAnchors(Transform settingPanelRoot)
-        {
-            GameObject container = FindDeep(settingPanelRoot, NameVolumeButtonContainer);
-            if (container == null)
-            {
-                Debug.LogWarning("[SetupVolumeProfileUI][Lobby] VolumeButtonContainer를 찾지 못해 앵커 정리를 건너뜁니다.");
-                return;
-            }
-
-            var rt = container.GetComponent<RectTransform>();
-            if (rt == null)
-            {
-                Debug.LogWarning("[SetupVolumeProfileUI][Lobby] VolumeButtonContainer에 RectTransform이 없습니다.");
-                return;
-            }
-
-            rt.anchorMin = new Vector2(0.15f, 0.0f);
-            rt.anchorMax = new Vector2(0.85f, 0.15f);
-            rt.sizeDelta = Vector2.zero;
-            rt.anchoredPosition = Vector2.zero;
-            EditorUtility.SetDirty(rt);
-            Debug.Log("[SetupVolumeProfileUI][Lobby] VolumeButtonContainer 앵커를 정리했습니다 " +
-                      "(anchorMin=(0.15,0), anchorMax=(0.85,0.15), sizeDelta=0, anchoredPosition=0).");
         }
 
         // ================================================================
