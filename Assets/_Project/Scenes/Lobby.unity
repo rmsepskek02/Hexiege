@@ -7460,7 +7460,7 @@ GameObject:
   - component: {fileID: 1030340522}
   - component: {fileID: 1030340523}
   m_Layer: 0
-  m_Name: LobbySettingsView
+  m_Name: LobbyProfileView
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7514,6 +7514,15 @@ MonoBehaviour:
   _masterValueText: {fileID: 0}
   _bgmValueText: {fileID: 0}
   _sfxValueText: {fileID: 0}
+  _onButton: {fileID: 0}
+  _offButton: {fileID: 0}
+  _resetButton: {fileID: 0}
+  _masterFill: {fileID: 0}
+  _bgmFill: {fileID: 0}
+  _sfxFill: {fileID: 0}
+  _masterBackground: {fileID: 0}
+  _bgmBackground: {fileID: 0}
+  _sfxBackground: {fileID: 0}
 --- !u!1 &1075408175
 GameObject:
   m_ObjectHideFlags: 0
@@ -12200,6 +12209,15 @@ MonoBehaviour:
   _masterValueText: {fileID: 1187195382}
   _bgmValueText: {fileID: 1796569466}
   _sfxValueText: {fileID: 737636846}
+  _onButton: {fileID: 0}
+  _offButton: {fileID: 0}
+  _resetButton: {fileID: 0}
+  _masterFill: {fileID: 0}
+  _bgmFill: {fileID: 0}
+  _sfxFill: {fileID: 0}
+  _masterBackground: {fileID: 0}
+  _bgmBackground: {fileID: 0}
+  _sfxBackground: {fileID: 0}
 --- !u!1 &1774378368
 GameObject:
   m_ObjectHideFlags: 0
