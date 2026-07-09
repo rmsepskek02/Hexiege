@@ -7458,9 +7458,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1030340522}
-  - component: {fileID: 1030340523}
   m_Layer: 0
-  m_Name: LobbySettingsView
+  m_Name: LobbyProfileView
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -7488,32 +7487,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1030340523
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1030340521}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 95915b52a5c56844b9b7da60bb307b72, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.LobbySettingsView
-  _backButton: {fileID: 830687134}
-  _backButtonGroup: {fileID: 830687133}
-  _mainView: {fileID: 1828005918}
-  _subViewContainer: {fileID: 1432559013}
-  _profileButton: {fileID: 505563292}
-  _soundButton: {fileID: 0}
-  _soundSubView: {fileID: 0}
-  _profileSubView: {fileID: 816525871}
-  _masterSlider: {fileID: 0}
-  _bgmSlider: {fileID: 0}
-  _sfxSlider: {fileID: 0}
-  _masterValueText: {fileID: 0}
-  _bgmValueText: {fileID: 0}
-  _sfxValueText: {fileID: 0}
 --- !u!1 &1075408175
 GameObject:
   m_ObjectHideFlags: 0
