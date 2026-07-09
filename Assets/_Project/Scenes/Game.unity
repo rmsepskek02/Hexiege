@@ -26075,7 +26075,7 @@ MonoBehaviour:
   _forfeitButton: {fileID: 1331427701}
   _mainButtonContainer: {fileID: 460842793}
   _volumePanelGroup: {fileID: 772283736}
-  _backButton: {fileID: 1748682331}
+  _backButton: {fileID: 1533283544}
   _masterSlider: {fileID: 452921942}
   _bgmSlider: {fileID: 1846345735}
   _sfxSlider: {fileID: 1412043033}

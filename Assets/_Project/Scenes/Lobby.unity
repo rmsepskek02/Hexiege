@@ -11900,7 +11900,7 @@ MonoBehaviour:
   _soundOnButton: {fileID: 845935778}
   _muteButton: {fileID: 344355640}
   _resetButton: {fileID: 882684710}
-  _colorConfig: {fileID: 0}
+  _colorConfig: {fileID: 11400000, guid: ce7db35dba9189c4e9d9c510f0a3bbce, type: 2}
 --- !u!1 &1712998796
 GameObject:
   m_ObjectHideFlags: 0
