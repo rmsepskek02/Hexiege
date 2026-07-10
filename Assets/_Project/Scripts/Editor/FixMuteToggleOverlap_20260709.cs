@@ -123,12 +123,14 @@ namespace Hexiege.EditorTools
 
             // 4.5) VolumeButtonContainer의 "직속 자식 전체"(MuteToggleSlot / ResetButton /
             //      Game씬에만 있는 BackButton)의 세로 높이를 모두 동일하게 맞춘다.
-            //      방식: VerticalLayoutGroup의 ChildForceExpandHeight를 켠다.
-            //      이 VLG는 ChildControlHeight=1 상태이므로, ChildForceExpandHeight까지 켜면
-            //      Unity가 컨테이너의 가용 세로 공간을 모든 직속 자식에게 "균등 분배"한다.
-            //      → 고정 픽셀값(LayoutElement.preferredHeight)을 박지 않아도 자식들이 같은
-            //        높이를 갖게 되어, 해상도별 반응형(공통 UI 규칙 2: 고정 픽셀 금지)이 유지된다.
-            //      매 실행마다 idempotent하게 true로 설정한다.
+            //      방식: 각 직속 자식의 LayoutElement에 preferredHeight=0 / flexibleHeight=1을 준다.
+            //      (직전 시도였던 ChildForceExpandHeight 단독 방식은 실기에서 MuteToggleSlot 행만
+            //       찌그러졌다. 원인: ChildControlHeight=1 + ChildForceExpandHeight=1 조합은
+            //       "각 자식의 선호 높이(preferred height)를 먼저 배정하고 남는 공간을 추가 분배"하는데,
+            //       MuteToggleSlot은 자체 Image가 없는 빈 RectTransform이라 선호 높이가 0으로 보고되고,
+            //       ResetButton/BackButton은 Image가 선호 높이를 보고해 '0+추가분' vs '선호높이+추가분'으로
+            //       불균등해진다. 그래서 모든 자식의 선호 높이 주장을 0으로 통일해 출발선을 맞추고,
+            //       남는 세로 공간을 flexibleHeight 1:1:...:1 비율로 균등 분배한다.)
             EnableUniformChildExpansion(containerTf, tag);
 
             // 5) 변경 표시 + 저장.
@@ -205,21 +207,32 @@ namespace Hexiege.EditorTools
         }
 
         /// <summary>
-        /// VolumeButtonContainer의 VerticalLayoutGroup에서 ChildForceExpandHeight를 켜서
-        /// 직속 자식 전체(MuteToggleSlot / ResetButton / Game씬의 BackButton)가 컨테이너의
-        /// 가용 세로 공간을 "균등 분배"받아 동일한 높이를 갖게 한다.
+        /// VolumeButtonContainer의 "직속 자식 전체"(MuteToggleSlot / ResetButton / Game씬의
+        /// BackButton)가 컨테이너의 가용 세로 공간을 서로 "똑같이" 나눠 갖게 만든다.
         ///
-        /// 왜 이 방식인가(공통 UI 규칙 2 준수):
-        ///   LayoutElement.preferredHeight에 고정 픽셀값을 박으면 해상도별 반응형이 깨진다.
-        ///   반면 ChildControlHeight=1(이미 켜짐) + ChildForceExpandHeight=1 조합은 CellSize
-        ///   같은 고정값 없이 Unity가 남는 세로 공간을 자식들에게 자동으로 똑같이 나눠주므로,
-        ///   해상도가 달라져도 자식 높이가 항상 서로 같게 유지된다.
+        /// 왜 이 방식인가(직전 버그의 교훈 + 공통 UI 규칙 2 준수):
+        ///   직전 시도는 VerticalLayoutGroup.ChildForceExpandHeight만 켰는데, 실기에서
+        ///   MuteToggleSlot 행만 찌그러졌다. ChildControlHeight=1 + ChildForceExpandHeight=1
+        ///   조합은 "각 자식의 선호 높이(preferred height)를 먼저 배정한 뒤 남는 공간을 추가
+        ///   분배"하기 때문이다. 그런데 MuteToggleSlot은 자체 Image가 없는 빈 RectTransform이라
+        ///   선호 높이가 0으로 보고되고, ResetButton/BackButton은 Image가 선호 높이를 보고한다.
+        ///   결과적으로 '0+추가분' vs '선호높이+추가분'이 되어 여전히 불균등했다.
+        ///
+        ///   그래서 각 직속 자식의 LayoutElement에:
+        ///     - preferredHeight = 0f  → 모든 자식의 "선호 높이 주장"을 0으로 통일(출발선 정렬)
+        ///     - flexibleHeight  = 1f  → 남는 세로 공간을 1:1:...:1 비율로 균등 분배
+        ///   을 적용한다. 이 값들은 "고정 픽셀"이 아니라 "비율 가중치"이므로 해상도가 달라져도
+        ///   자식 높이가 항상 서로 같게 유지된다(공통 UI 규칙 2: 고정 픽셀 금지 취지에 부합).
+        ///   preferredHeight를 0으로 통일해도 flexibleHeight로 실제 높이를 확보하므로 안전하다.
         ///
         /// 동작:
         ///   1) 컨테이너에서 VerticalLayoutGroup을 가져온다(없으면 경고만 남기고 건너뜀).
-        ///   2) childForceExpandHeight를 true로 설정한다(public bool 프로퍼티라 직접 대입).
-        ///      childControlHeight는 이미 true(1)로 확인됐으므로 그대로 둔다.
-        ///   3) 레이아웃 재계산 표시 + SetDirty로 변경을 저장 대상에 반영한다. idempotent.
+        ///   2) childForceExpandHeight를 true로 유지한다. flexibleHeight를 명시하면 실질 영향은
+        ///      거의 없지만, 자식에 LayoutElement가 없는 예외 상황에서도 자식이 세로로 늘어나도록
+        ///      하는 안전장치이므로 켠 채로 둔다.
+        ///   3) 컨테이너의 직속 자식을 이름 하드코딩 없이 전부 순회하며 각 자식의 LayoutElement를
+        ///      확보(없으면 AddComponent)하고 preferredHeight=0 / flexibleHeight=1을 적용한다.
+        ///   4) 레이아웃 재계산 표시 + SetDirty로 변경을 저장 대상에 반영한다. idempotent.
         /// </summary>
         /// <param name="containerTf">VolumeButtonContainer의 Transform.</param>
         /// <param name="tag">로그 접두사.</param>
@@ -240,16 +253,43 @@ namespace Hexiege.EditorTools
                 return;
             }
 
-            // 2) ChildForceExpandHeight를 켠다. childControlHeight(=true)와 함께 동작해
-            //    가용 세로 공간을 모든 직속 자식에게 균등 분배 → 자식 높이가 서로 같아진다.
-            //    (고정 픽셀값을 쓰지 않으므로 해상도 반응형 유지.)
+            // 2) ChildForceExpandHeight는 true로 유지한다.
+            //    아래에서 각 자식에 flexibleHeight=1을 직접 명시하므로 이 플래그의 실질 영향은
+            //    거의 없지만, LayoutElement를 붙이지 못한 예외 자식까지 세로로 늘려주는
+            //    안전장치 역할을 하므로 굳이 끄지 않고 둔다.
             vlg.childForceExpandHeight = true;
 
-            // 3) 레이아웃 재계산 표시 + 변경을 저장 대상에 반영.
+            // 3) 컨테이너의 직속 자식(바로 아래 한 단계)을 이름 하드코딩 없이 전부 순회한다.
+            //    각 자식의 선호 높이 주장을 0으로 통일하고, 남는 공간을 1:1 비율로 균등 분배시킨다.
+            int childCount = containerTf.childCount;
+            for (int i = 0; i < childCount; i++)
+            {
+                Transform childTf = containerTf.GetChild(i);
+
+                // LayoutElement 확보: 없으면 새로 붙인다(있으면 재사용 → idempotent).
+                var le = childTf.GetComponent<LayoutElement>();
+                if (le == null)
+                {
+                    le = childTf.gameObject.AddComponent<LayoutElement>();
+                }
+
+                // preferredHeight=0 : 모든 자식의 "선호 높이" 출발선을 0으로 통일.
+                // flexibleHeight=1  : 남는 세로 공간을 자식들에게 1:1:...:1로 균등 분배(비율 가중치).
+                //                     고정 픽셀이 아니라 비율이므로 해상도가 바뀌어도 균등 유지.
+                le.preferredHeight = 0f;
+                le.flexibleHeight = 1f;
+
+                EditorUtility.SetDirty(le);
+                Debug.Log($"{tag} 직속 자식 '{childTf.name}'(index {i}) LayoutElement 적용 — " +
+                          $"preferredHeight=0, flexibleHeight=1 (남는 높이 균등 분배).");
+            }
+
+            // 4) 레이아웃 재계산 표시 + 변경을 저장 대상에 반영.
             LayoutRebuilder.MarkLayoutForRebuild(containerRt);
             EditorUtility.SetDirty(vlg);
             EditorUtility.SetDirty(containerRt.gameObject);
-            Debug.Log($"{tag} VerticalLayoutGroup.ChildForceExpandHeight를 true로 설정 — 직속 자식 높이가 균등 분배됩니다.");
+            Debug.Log($"{tag} 직속 자식 {childCount}개에 preferredHeight=0 / flexibleHeight=1 적용 완료 — " +
+                      "모든 행이 같은 높이로 균등 분배됩니다.");
         }
 
         // ================================================================
