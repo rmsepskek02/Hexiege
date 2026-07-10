@@ -58,6 +58,17 @@ namespace Hexiege.Presentation
         private static readonly int AnimIsDead = Animator.StringToHash("IsDead");
 
         // ====================================================================
+        // 원거리/근접 판정 경계
+        // ====================================================================
+
+        /// <summary>
+        /// 원거리 유닛 판정 경계. AttackRange가 이 값 이상이면 원거리 유닛으로 간주하여
+        /// 공격 시 트레이서(발사체) 연출을 재생한다. 미만이면 근접 유닛으로 즉시 피격 연출한다.
+        /// UnitCombatUseCase의 근접 판정(AttackRange &lt; 1.0f)과 동일한 경계값이다.
+        /// </summary>
+        private const float RangedAttackThreshold = 1.0f;
+
+        // ====================================================================
         // HexDirection → Y축 회전 각도 매핑
         // NE(0)=60, E(1)=120, SE(2)=180, SW(3)=240, W(4)=300, NW(5)=0
         // FlatTop 헥스에서 각 방향의 실제 Unity 월드 각도 (atan2 기반).
@@ -1493,12 +1504,42 @@ namespace Hexiege.Presentation
             EffectManager.Instance?.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot);  // VFX
             AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                    // SFX (규칙 15 — VFX와 짝)
 
-            // 로컬 타격 프레임 신호 발행 — 이 유닛(공격자)이 실제로 칼을 휘두른 순간이다.
-            // HitPresentationQueue가 이 신호를 받아 해당 공격자의 보류 큐에서 피격 연출 1건을 방출한다.
-            // 모든 클라이언트에서 로컬로 실행되므로 각 화면이 자기 애니메이션 타이밍에 맞춰 연출된다.
-            // (전투 타격 타이밍 동기화 Phase 2 — 축 3)
-            GameEvents.OnLocalAttackHit.OnNext(_unitData.Id);
+            // ────────────────────────────────────────────────────────────────
+            // 피격 연출 방출 타이밍 결정 (전투 타격 타이밍 동기화 Phase 3 — 축 4 / 3-2)
+            //
+            //   근접 유닛 : 이 자리(타격 프레임)에서 OnLocalAttackHit을 즉시 발행 → 즉시 피격 연출. (기존 동작)
+            //   원거리 유닛: 트레이서(발사체)를 발사하고, 그 발사체가 "착탄"하는 순간에 OnLocalAttackHit을
+            //               발행한다. 즉 트레이서 비행 시간만큼 피격 연출이 지연되어, 화살/탄환이
+            //               실제로 맞는 순간과 피격 연출(HP 텍스트·피격 VFX·타격 반응)이 일치한다.
+            //
+            //   ※ 데미지 타이밍(서버 권위)은 여기서 전혀 건드리지 않는다. 트레이서는 순수 시각 표현이다.
+            // ────────────────────────────────────────────────────────────────
+            int attackerId = _unitData.Id;
+            EffectManager em = EffectManager.Instance;
+
+            if (_unitData.AttackRange >= RangedAttackThreshold && em != null)
+            {
+                // 도착 지점 = 발사 시점의 타겟 월드 위치(값으로 복사).
+                //   비행 중 타겟이 파괴되어도 트레이서는 이 좌표까지 그대로 날아가 소멸한다(댕글링 참조 없음).
+                //   _combatTargetTransform이 있으면 그 위치를, 없으면 백업 ID로 재조회(둘 다 실패 시 전방 폴백).
+                Vector3 targetPos = _combatTargetTransform != null
+                    ? _combatTargetTransform.position
+                    : GetTargetWorldPos(_combatTargetId, _combatTargetIsUnit);
+
+                // 트레이서 발사. 착탄 콜백에서 OnLocalAttackHit을 발행하여 피격 연출을 착탄 시점에 방출한다.
+                //   트레이서 프리셋이 없으면 PlayTracer가 콜백을 "즉시" 실행하므로 기존 즉시 방출로 폴백된다.
+                em.PlayTracer(_unitData.Type, spawnPos, targetPos,
+                    () => GameEvents.OnLocalAttackHit.OnNext(attackerId));
             }
+            else
+            {
+                // 근접 유닛(또는 EffectManager 부재 시): 발사 순간 = 타격 순간이므로 즉시 신호를 발행한다.
+                // HitPresentationQueue가 이 신호를 받아 해당 공격자의 보류 큐에서 피격 연출 1건을 방출한다.
+                // 모든 클라이언트에서 로컬로 실행되므로 각 화면이 자기 애니메이션 타이밍에 맞춰 연출된다.
+                // (전투 타격 타이밍 동기화 Phase 2 — 축 3)
+                GameEvents.OnLocalAttackHit.OnNext(attackerId);
+            }
+        }
 
             // ====================================================================
         // Walk 애니메이션 — 클라이언트 전용 (NetworkCombatController의 ClientRpc에서 호출)

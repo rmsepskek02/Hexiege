@@ -32,6 +32,11 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 전투 타격 타이밍 동기화 Phase 3 (2026-07-10) — 구현완료/실기미검증
+- **타워 발사 VFX(3-1)**: `BuildingEffectConfig.attackPreset`+`GetAttack`, `EffectManager.PlayBuildingAttack(type,pos,rot)`. 재생 트리거는 **HitPresentationQueue의 타워 즉시 방출 경로**(`!AttackerIsUnit` 분기)에 통합 — 별도 구독자 신설 X. 위치=BuildingFactory 타워GO, 회전=타워→타겟 LookRotation(XZ), 타입=BuildingPlacementUseCase.GetBuilding(id).Type. 큐 Initialize에 `BuildingPlacementUseCase` 인자 추가. **이중재생 없음 검증**: 호스트=UseCase 1회(ClientRpc는 `if(IsServer)return`), 클라=NetworkHealthSync 재발행 1회 → 각 머신 정확히 1회.
+- **원거리 트레이서(3-2)**: 신규 `Presentation/Effects/TracerProjectile.cs`(VfxPoolItem 풀링 패턴 미러, Setup+Launch+반환콜백, Update Lerp 비행). `UnitEffectConfig.tracerPreset`+`GetTracer`, `EffectManager.PlayTracer(type,start,target,onArrive)`+트레이서 전용 풀. **핵심 설계**: 큐를 건드리지 않고 UnitView.OnAttackHit에서 원거리(AttackRange>=1.0f)면 **OnLocalAttackHit 발행을 트레이서 착탄 콜백으로 지연**. 근접은 기존대로 즉시 발행. → 큐는 신호가 늦게 올 뿐 로직 불변, 비행시간=피격연출 지연이 자동 동기화(중복 flight-time 계산 없음). 프리셋 미설정 시 PlayTracer가 onArrive 즉시 호출→즉시방출 폴백. 사망flush(FlushTarget)는 트레이서 대기 없이 즉시 방출(엔트리 제거→착탄 콜백은 빈 큐 discard, 이중방출 없음). 타겟 좌표는 발사 시점 값 복사(비행 중 파괴돼도 댕글링 없음).
+- 트레이서 판정 경계 상수 `UnitView.RangedAttackThreshold=1.0f`(UnitCombatUseCase 근접판정 `<1.0f`와 동일). 신규 .cs.meta는 리포 관례(2줄: fileFormatVersion+guid)로 수동 생성.
+
 ### 인게임/로비 볼륨·프로필 UI 로직 연결 + 음소거 기능 (2026-07-09) ✅
 - **음소거 구현(저장값 보존형)**: `AudioManager`에 `SetMuted(bool)`/`IsMuted()`/`ResetAllVolumes()` 추가. PlayerPrefs 키 `"Muted"`(0/1). 뮤트는 **Master 채널만 -80dB(`MutedDb`)로 눌러** 전체 무음(BGM/SFX 논리 볼륨값은 보존). `ApplyVolume`을 `ApplyDb(param,dB)`로 리팩터(무음 -80dB와 볼륨 변환값이 SetFloat 진단 로깅 경로 공유). `SetVolume`에 자동 언뮤트(슬라이더 조작 시 `if(_muted) SetMuted(false)`).
 - **VolumeControlBinder(신규, 순수 C#)**: `Presentation/UI/Common/VolumeControlBinder.cs`. 인게임/로비 볼륨 UI 공통 로직(슬라이더3+On/Off/Reset버튼+색상)을 캡슐화. `Bind(Refs)` 구조체 주입, `RefreshFromAudioManager()`로 패널 표시 시 재동기화. On/Off 버튼은 CanvasGroup 상호배타(규칙24), 슬라이더 Fill 색상은 `slider.fillRect`의 Image로 처리(규칙26, UIColorConfig `soundOnColor`/`soundMutedColor`).
