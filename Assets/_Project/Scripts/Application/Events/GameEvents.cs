@@ -147,6 +147,11 @@ namespace Hexiege.Application
     /// <summary>
     /// 피격 이벤트 데이터. 데미지 적용 후 현재 HP 포함.
     /// NetworkHealthSync에서 HP를 모든 클라이언트에 동기화할 때 사용.
+    ///
+    /// 공격자 정보(AttackerId / AttackerIsUnit)는 피격 표현 큐(HitPresentationQueue)가
+    /// "누가 때렸는지"를 알아야 공격자의 로컬 타격 프레임(OnAttackHit) 신호에 맞춰
+    /// 피격 연출(HP 텍스트·피격 VFX·타격 반응)을 방출하기 위해 함께 실어 나른다.
+    /// (전투 타격 타이밍 동기화 Phase 2 — 축 3)
     /// </summary>
     public readonly struct EntityDamagedEvent
     {
@@ -159,11 +164,27 @@ namespace Hexiege.Application
         /// <summary> 피격 엔티티가 유닛인지 여부. false면 건물. </summary>
         public readonly bool IsUnit;
 
-        public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit)
+        /// <summary>
+        /// 공격자의 Id. 유닛이면 UnitData.Id, 건물(타워)이면 BuildingData.Id.
+        /// 피격 표현 큐가 이 값을 키로 공격자별 FIFO 큐를 관리한다.
+        /// </summary>
+        public readonly int AttackerId;
+
+        /// <summary>
+        /// 공격자가 유닛인지 여부. false면 타워(건물).
+        /// 타워 공격은 타격 애니메이션 프레임이 없으므로, 피격 표현 큐가
+        /// 보류 없이 즉시 방출하는 분기(안전망 ⓒ)를 타게 하는 판별에 쓰인다.
+        /// </summary>
+        public readonly bool AttackerIsUnit;
+
+        public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
+            int attackerId, bool attackerIsUnit)
         {
             Entity = entity;
             CurrentHp = currentHp;
             IsUnit = isUnit;
+            AttackerId = attackerId;
+            AttackerIsUnit = attackerIsUnit;
         }
     }
 
@@ -603,6 +624,18 @@ namespace Hexiege.Application
         /// 구독: NetworkHealthSync (HP를 모든 클라이언트에 동기화)
         /// </summary>
         public static readonly Subject<EntityDamagedEvent> OnEntityDamaged = new();
+
+        /// <summary>
+        /// 공격자(유닛)의 로컬 타격 프레임(Animation Event OnAttackHit)이 발생했을 때 발행. 유닛 Id를 전달.
+        /// 발행: UnitView.OnAttackHit (모든 클라이언트에서 로컬로 실행되는 Animation Event)
+        /// 구독: HitPresentationQueue (해당 공격자의 보류 큐에서 피격 연출 1건을 방출)
+        ///
+        /// 왜 필요한가:
+        ///   데미지·HP는 서버 권위로 즉시 갱신되지만, "맞는 화면"의 연출(HP 텍스트·피격 VFX·타격 반응)은
+        ///   공격자가 실제로 칼을 휘두르는 순간(로컬 애니메이션의 타격 프레임)에 맞춰 터뜨려야 자연스럽다.
+        ///   이 이벤트가 그 "타격 순간" 신호 역할을 한다. (전투 타격 타이밍 동기화 Phase 2 — 축 3)
+        /// </summary>
+        public static readonly Subject<int> OnLocalAttackHit = new Subject<int>();
 
         /// <summary>
         /// 유닛이 사망했을 때 발행.

@@ -795,9 +795,12 @@ namespace Hexiege.Application
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
 
             // 피격 이벤트 발행 — NetworkHealthSync가 구독하여 HP를 모든 클라이언트에 동기화
+            // 공격자는 유닛이므로 AttackerId=attacker.Id, AttackerIsUnit=true를 함께 실어
+            // 피격 표현 큐가 공격자별 큐를 구성할 수 있게 한다. (Phase 2 — 축 3)
             bool targetIsUnit = target is UnitData;
             GameEvents.OnEntityDamaged.OnNext(
-                new EntityDamagedEvent(target, target.Hp, targetIsUnit));
+                new EntityDamagedEvent(target, target.Hp, targetIsUnit,
+                    attackerId: attacker.Id, attackerIsUnit: true));
 
             // 타겟 사망 처리
             if (!target.IsAlive)

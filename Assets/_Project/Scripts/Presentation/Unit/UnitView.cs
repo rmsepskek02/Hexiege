@@ -1492,6 +1492,12 @@ namespace Hexiege.Presentation
             Quaternion spawnRot = Quaternion.LookRotation(transform.forward);
             EffectManager.Instance?.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot);  // VFX
             AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                    // SFX (규칙 15 — VFX와 짝)
+
+            // 로컬 타격 프레임 신호 발행 — 이 유닛(공격자)이 실제로 칼을 휘두른 순간이다.
+            // HitPresentationQueue가 이 신호를 받아 해당 공격자의 보류 큐에서 피격 연출 1건을 방출한다.
+            // 모든 클라이언트에서 로컬로 실행되므로 각 화면이 자기 애니메이션 타이밍에 맞춰 연출된다.
+            // (전투 타격 타이밍 동기화 Phase 2 — 축 3)
+            GameEvents.OnLocalAttackHit.OnNext(_unitData.Id);
             }
 
             // ====================================================================

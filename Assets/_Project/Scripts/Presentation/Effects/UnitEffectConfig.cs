@@ -44,6 +44,9 @@ namespace Hexiege.Presentation
 
         [Tooltip("사망 시 재생할 이펙트 (VFX + SFX). 없으면 비워둠")]
         public EffectPreset deathPreset;
+
+        [Tooltip("피격(맞았을 때) 시 재생할 이펙트 (VFX). 없으면 비워둠 — 조용히 스킵됨")]
+        public EffectPreset hitPreset;
     }
 
     // ========================================================================
@@ -101,6 +104,18 @@ namespace Hexiege.Presentation
         {
             if (_cache == null) return null;
             return _cache.TryGetValue(type, out UnitEffectEntry entry) ? entry.deathPreset : null;
+        }
+
+        /// <summary>
+        /// 지정한 유닛 타입의 피격 이펙트 프리셋을 반환.
+        /// 항목이 없거나 프리셋이 비어있으면 null (호출부에서 조용히 스킵).
+        /// </summary>
+        /// <param name="type">조회할(피격당한) 유닛 타입.</param>
+        /// <returns>피격 EffectPreset 또는 null.</returns>
+        public EffectPreset GetHit(UnitType type)
+        {
+            if (_cache == null) return null;
+            return _cache.TryGetValue(type, out UnitEffectEntry entry) ? entry.hitPreset : null;
         }
     }
 }

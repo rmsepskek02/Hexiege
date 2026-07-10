@@ -180,6 +180,23 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
+        /// 유닛 피격 이펙트 재생. HitPresentationQueue가 피격 연출 방출 시점에 호출.
+        /// 피격 VFX는 방향성이 없으므로 회전 없이(identity) 재생 — PlayUnitDeath와 동일 패턴.
+        /// 프리셋이 미설정(GetHit == null)이면 Play(null)이 조용히 스킵한다.
+        /// </summary>
+        /// <param name="type">피격당한 유닛의 타입.</param>
+        /// <param name="pos">재생할 월드 좌표 (보통 피격 유닛 위치).</param>
+        public void PlayUnitHit(UnitType type, Vector3 pos)
+        {
+            // 피격 VFX는 방향성이 없으므로 회전 없이(identity) 재생.
+            Play(_unitConfig?.GetHit(type), pos, Quaternion.identity);
+
+            // 피격 SFX 없음 — SoundConfig에 피격 SFX 엔트리가 아직 없어 이번 작업에서 추가하지 않는다.
+            //   추후 피격 효과음 에셋 확보 시, 이 줄 바로 아래에 AudioManager.Instance?.PlayUnitHitSfx(type)
+            //   짝을 추가한다 (GameSystemRules_Sound 규칙 15 — VFX+SFX 쌍).
+        }
+
+        /// <summary>
         /// 건물 파괴 이펙트 재생.
         /// </summary>
         /// <param name="type">파괴된 건물의 타입.</param>

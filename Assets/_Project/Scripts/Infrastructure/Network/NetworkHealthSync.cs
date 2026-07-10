@@ -116,8 +116,11 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            // 모든 클라이언트에 HP 동기화 전송
-            SyncHealthClientRpc(entityId, e.IsUnit, e.CurrentHp);
+            // 모든 클라이언트에 HP 동기화 전송.
+            // 공격자 정보(AttackerId / AttackerIsUnit)도 함께 실어 보내야
+            // 클라이언트의 피격 표현 큐가 "누가 때렸는지"를 알고 공격자별 큐를 구성할 수 있다.
+            // (Phase 2 — 축 3)
+            SyncHealthClientRpc(entityId, e.IsUnit, e.CurrentHp, e.AttackerId, e.AttackerIsUnit);
         }
 
         // ====================================================================
@@ -132,8 +135,11 @@ namespace Hexiege.Infrastructure
         /// <param name="entityId">피격된 엔티티 Id</param>
         /// <param name="isUnit">true=유닛, false=건물</param>
         /// <param name="serverHp">서버 기준 현재 HP</param>
+        /// <param name="attackerId">공격자 Id (유닛이면 UnitData.Id, 타워면 BuildingData.Id)</param>
+        /// <param name="attackerIsUnit">공격자가 유닛인지 여부. false면 타워(건물).</param>
         [ClientRpc]
-        private void SyncHealthClientRpc(int entityId, bool isUnit, int serverHp)
+        private void SyncHealthClientRpc(int entityId, bool isUnit, int serverHp,
+            int attackerId, bool attackerIsUnit)
         {
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
@@ -147,11 +153,11 @@ namespace Hexiege.Infrastructure
 
             if (isUnit)
             {
-                SyncUnitHealth(entityId, serverHp);
+                SyncUnitHealth(entityId, serverHp, attackerId, attackerIsUnit);
             }
             else
             {
-                SyncBuildingHealth(entityId, serverHp);
+                SyncBuildingHealth(entityId, serverHp, attackerId, attackerIsUnit);
             }
         }
 
@@ -164,7 +170,7 @@ namespace Hexiege.Infrastructure
         /// UnitData.Hp는 TakeDamage를 통해서만 변경 가능하므로
         /// 현재 HP와 서버 HP의 차이를 데미지로 적용.
         /// </summary>
-        private void SyncUnitHealth(int unitId, int serverHp)
+        private void SyncUnitHealth(int unitId, int serverHp, int attackerId, bool attackerIsUnit)
         {
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
@@ -187,9 +193,12 @@ namespace Hexiege.Infrastructure
                 unit.TakeDamage(diff);
                 Debug.Log($"[Network] 유닛 HP 동기화. UnitId={unitId}, 적용 데미지={diff}, 현재HP={unit.Hp}");
 
-                // 클라이언트에서도 FloatingHpTextSpawner가 반응할 수 있도록 이벤트 재발행.
+                // 클라이언트에서도 피격 표현 큐/HP 텍스트가 반응할 수 있도록 이벤트 재발행.
                 // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
-                GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(unit, serverHp, isUnit: true));
+                // RPC로 받은 공격자 정보를 그대로 전달하여, 클라이언트 큐가 공격자의 로컬
+                // OnAttackHit 신호에 맞춰 연출을 방출할 수 있게 한다. (Phase 2 — 축 3)
+                GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(unit, serverHp, isUnit: true,
+                    attackerId: attackerId, attackerIsUnit: attackerIsUnit));
             }
         }
 
@@ -197,7 +206,7 @@ namespace Hexiege.Infrastructure
         /// 클라이언트 측 건물 HP를 서버 값에 맞춤.
         /// BuildingData.Hp도 TakeDamage를 통해서만 변경 가능.
         /// </summary>
-        private void SyncBuildingHealth(int buildingId, int serverHp)
+        private void SyncBuildingHealth(int buildingId, int serverHp, int attackerId, bool attackerIsUnit)
         {
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
@@ -219,9 +228,11 @@ namespace Hexiege.Infrastructure
                 building.TakeDamage(diff);
                 Debug.Log($"[Network] 건물 HP 동기화. BuildingId={buildingId}, 적용 데미지={diff}, 현재HP={building.Hp}");
 
-                // 클라이언트에서도 FloatingHpTextSpawner가 반응할 수 있도록 이벤트 재발행.
+                // 클라이언트에서도 피격 표현 큐/HP 텍스트가 반응할 수 있도록 이벤트 재발행.
                 // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
-                GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(building, serverHp, isUnit: false));
+                // RPC로 받은 공격자 정보를 그대로 전달한다. (Phase 2 — 축 3)
+                GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(building, serverHp, isUnit: false,
+                    attackerId: attackerId, attackerIsUnit: attackerIsUnit));
             }
         }
     }
