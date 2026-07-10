@@ -159,3 +159,37 @@
 7. (사용자 실기 → 필요 시 앵커/무음 방식 조정) → 주석 처리 코드 최종 삭제 → 문서/규칙 반영.
 
 > 실제 구현 착수는 **사용자의 Plan.md 명시적 승인 이후**에만 진행한다(WORKFLOW [4], CLAUDE.md 규칙 11).
+
+---
+
+## 완료 결과 (2026-07-10, 사용자 실기 PASS)
+
+> 실제 구현이 위 계획과 달라진 점 및 계획에 없던 반응형 작업(실기 발견 버그 수정)을 기록한다. 커밋 범위 `66c66797..87a1dd6d`.
+
+### 계획대로 구현된 항목
+
+- **AudioManager 음소거(A)**: 계획대로 `SetMuted(bool)`/`IsMuted()`/`ResetAllVolumes()` 추가. 무음 방식은 계획의 제안(Master 채널만 -80dB)이 그대로 채택됨 — 3채널 모두 제어하지 않고 Master만 `MutedDb`(-80f)로 눌러 전체 무음. `ApplyVolume`을 `ApplyDb(param, dB)`로 리팩터하여 무음·볼륨변환이 SetFloat 진단 로깅 경로를 공유. PlayerPrefs 키는 제안값 `"Muted"` 확정. `Initialize()`에서 저장된 뮤트 상태 로드·적용.
+- **VolumeControlBinder(B)**: 계획대로 `Presentation/UI/Common/VolumeControlBinder.cs` 순수 C# 클래스로 신규. `Bind(Refs)` 구조체 주입 + `RefreshFromAudioManager()` 재동기화. On/Off 버튼 CanvasGroup 상호배타, 슬라이더 Fill 색상 처리.
+- **UIColorConfig(C)**: `soundOnColor`/`soundMutedColor` 계획대로 추가.
+- **InGameSettingsUI(D)**: 프로필 버튼을 사운드 버튼과 동일 패턴으로 연결(내부 콘텐츠는 범위 밖 빈 토글). VolumeControlBinder 연동.
+- **LobbySettingsView(E)**: Profile 필드/로직 제거, VolumeControlBinder 연동, 컴포넌트를 `SettingPanel` 루트로 이동. 클래스명은 기존 `LobbySettingsView` 유지(제안했던 개명 미채택).
+- **Editor 1회성(F)**: `SetupVolumeProfileUI_20260709.cs`로 구현 — 신규 필드 자동 배선, LobbySettingsView 컴포넌트 이동, UIColorConfig 참조 연결, ProfileSubView 없으면 자동 생성. 사용자가 Unity에서 직접 실행하여 `Game.unity`/`Lobby.unity` 반영.
+
+### 계획과 달라진 점 / 추가된 반응형 작업
+
+1. **핵심 교훈 — `SetValueWithoutNotify`**: 패널 표시 시 슬라이더 값을 동기화할 때 `slider.value =`를 쓰면 onValueChanged가 발화 → 자동 언뮤트되어 뮤트가 풀리는 버그가 있었다. Binder에서 프로그램적 값 설정은 반드시 `SetValueWithoutNotify`를 사용하도록 확정(계획서에 없던 구현 세부).
+2. **[버그 — 설정 닫힘 화면 깜빡임]** (계획에 없던 실기 발견 버그): `InGameSettingsUI.Hide()`가 닫힐 때 서브패널을 메인 화면으로 복원하는 부수효과가 있어 닫히는 순간 메인 화면이 잠깐 비쳤다. `Hide()`는 현재 화면 그대로 페이드아웃하도록 수정하고, 화면 복원은 `Show()`/`Initialize()`에서 호출하는 `ResetToMainView()`로 통합.
+3. **[버그 — On/Off 버튼 위치·크기 불균등]** (계획에 없던 실기 발견 버그, 여러 차례 반복 수정): 전체소리켜기/전체음소거 버튼이 VerticalLayoutGroup에서 서로 다른 슬롯을 차지해 위치가 달랐다. `MuteToggleSlot` 래퍼로 재부모화(`Transform.SetParent()` — 파괴/재생성 없이 fileID 참조 보존)하여 완전히 겹치게 함. 이후 실기에서 **추가 발견된 높이 불균등**(빈 슬롯이 선호 높이 0으로 계산되어 다른 버튼과 크기가 다름) 문제를 `LayoutElement.preferredHeight=0f`/`flexibleHeight=1f` **비율 가중치 방식**으로 최종 해결(고정 픽셀 대신 비율 분배 — 공통 규칙 2 준수). 여러 차례 반복 수정 끝에 확정. Editor 스크립트 `FixMuteToggleOverlap_20260709.cs`.
+4. **UIColorConfig 죽은 코드 정리(별개 건)**: 미사용 `confirmButtonColor`/`cancelButtonColor` 필드 제거에 따라 `ConfirmPopup.cs`의 `Awake()`/`_colorConfig` 필드도 함께 제거(ConfirmPopup이 이미지 에셋 기반으로 전환됨). Research 서두에서 별개 선행 정리로 기록했던 항목이 이번 커밋에서 최종 반영됨.
+5. **Editor 자동 배선 오연결 사례**: `SetupVolumeProfileUI_20260709.cs`의 이름 기반 자동 매칭에서 `_backButton`이 `OffButton`에 잘못 연결되는 실수가 있었다 → 참조가 적은 경우 수동 배선이 오히려 안전하다는 교훈(다음 task의 배선 방식 결정에 반영됨).
+6. **규칙 문서 반영**: `GameSystemRules_Sound.md` 규칙 26의 "음소거 내부 구현 미정" 노트를 삭제하고, 확정된 "저장값 보존 + Master 채널 -80dB 무음 강제 + PlayerPrefs `Muted`" 방식을 **규칙 27**로 신설(WORKFLOW [12]).
+
+### 실기 확인 결과 (사용자, 2026-07-10 PASS)
+
+- 인게임/로비 사운드 슬라이더 + 뮤트 토글 + 초기화 정상 동작
+- 인게임 프로필 버튼 열기/닫기 정상
+- 로비 프로필/설정 탭 분리 및 설정 탭 정상 반응
+- 닫힘 시 화면 깜빡임 버그 해결
+- On/Off 버튼 위치·크기 완전 균등화 확인
+
+> Testcase.md는 작성하지 않음 — 사용자가 TC/QA를 명시적으로 요청하지 않았으며(WORKFLOW 규칙), 실기 결과는 본 "완료 결과" 섹션으로 대체 기록한다.

@@ -130,3 +130,20 @@ WORKFLOW [5-2]에 따라 Inspector 수동 작업은 1회성 Editor 스크립트�
 | 씬 배선 방식 (수동 방식 A vs 자동 Editor 스크립트 방식 B) | **미정** — 사용자 결정 필요 (방식 A 기본 제안) |
 | `(int)LobbyTab` 캐스팅 사용처 존재 여부 | 현재 확인된 사용처 없음 — 구현 시 game-programmer가 재확인 |
 | GameSystemRules 문서 수정 | 불필요로 판단(기존 규칙 5 및 로비 규칙 1 준수 작업) |
+
+---
+
+## 완료 결과 (2026-07-10, 사용자 실기 PASS)
+
+계획대로 3파일 배선을 **추가**하여 설정 탭이 나머지 네 탭과 동일하게 동작하도록 완성했다. 기존 로직 제거는 없었다.
+
+- **`LobbyViewModel.cs`**: `LobbyTab` enum에 `Setting` 값을 계획대로 `Profile`과 `Ranking` 사이에 추가 → `{ Battle, Shop, Profile, Setting, Ranking }`. (씬 탭바 배치 순서와 일치)
+- **`TabBarView.cs`**: `_settingTabButton` 필드 추가, `Bind()`에 `BindButton(_settingTabButton, vm, LobbyTab.Setting)` + 색상 갱신 `UpdateButtonVisual(_settingTabButton, tab == LobbyTab.Setting)` 추가. → 클릭 무반응 및 "항상 선택된 것처럼" 보이던 증상 해소.
+- **`LobbyRootView.cs`**: `_settingPanel` 필드 + `_settingPanelGroup` CanvasGroup 캐시 + `SetPanelVisible(_settingPanelGroup, tab == LobbyTab.Setting)` 전환 추가. → 설정 화면이 표시되지 않던 문제 해소.
+- **씬 배선**: 계획에서 제안한 방식(수동 vs Editor 스크립트) 중, 이 작업의 참조 2개는 이전 task(`06_09`)에서 도입한 `SetupVolumeProfileUI_20260709.cs` Editor 배선 흐름과 함께 `Lobby.unity`에 반영되었다. (이전 task에서 이름 기반 자동 매칭이 `_backButton`을 `OffButton`에 오연결한 사례가 있었던 만큼, 참조가 적은 배선은 수동 확인을 병행하는 것이 안전하다는 교훈을 재확인.)
+
+**GameSystemRules 문서 수정 없음** — 계획대로 기존 공통 규칙 5(CanvasGroup) 및 로비 규칙 1(ProfilePanel/SettingPanel 분리)을 준수하는 배선 작업으로, 신규 규칙 불필요.
+
+**실기 확인(사용자, 2026-07-10 PASS)**: 로비 하단 설정 탭 버튼 클릭 시 설정 화면 정상 전환, 탭 버튼 색상 강조 정상(선택된 탭만 밝게), 나머지 네 탭 동작 무영향.
+
+> Testcase.md는 작성하지 않음 — 사용자가 TC/QA를 명시적으로 요청하지 않았으며, 실기 결과는 본 섹션으로 대체 기록한다.
