@@ -254,8 +254,25 @@ namespace Hexiege.Infrastructure
 
                 // 쿨다운 감소 — 고정값(_attackInterval)이 아닌 실제 경과 시간(elapsed)으로 감소.
                 // 프레임레이트가 낮아도 공격 주기가 애니메이션 클립 길이와 일치.
+                //
+                // [축 2 — 서버 데미지 타이밍 정밀화]
+                //   TickCombat은 50ms 격자(_attackInterval)에서만 쿨다운 만료를 감지한다.
+                //   실제 쿨다운이 0이 되는 순간은 두 Tick 사이 어딘가일 수 있는데,
+                //   그 만료 순간부터 이번 Tick까지 이미 초과 경과한 시간을 "오버슈트(overshoot)"라 한다.
+                //   이 오버슈트를 뒤에서 ExecuteAttack의 데미지 딜레이(hitTime)에서 빼주면
+                //   격자 오차가 데미지 시점에 누적되는 것을 막을 수 있다(최대 50ms 오차 제거).
+                //
+                //   계산: 차감 전 남은 쿨다운(R)이 이번 elapsed보다 작으면, R만큼 지난 시점에 만료된 것이므로
+                //         만료 후 초과 경과 = elapsed - R (= elapsed 차감 시 0 아래로 내려갔을 크기).
+                //         R >= elapsed(이번 Tick에도 만료 안 됨) 또는 R이 이미 0이면 오버슈트는 0.
+                float overshoot = 0f;
                 if (unit.AttackCooldownRemaining > 0f)
+                {
+                    if (unit.AttackCooldownRemaining < elapsed)
+                        overshoot = elapsed - unit.AttackCooldownRemaining;
+
                     unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldownRemaining - elapsed);
+                }
 
                 // TryFindTarget: 쿨다운이 0이고 사거리 내 적이 있을 때만 타겟 반환.
                 // HasEnemyInRange: 쿨다운과 무관하게 사거리 내 적 존재 여부만 체크.
@@ -317,7 +334,8 @@ namespace Hexiege.Infrastructure
 
                         // 데미지 코루틴 실행 (쿨다운 0일 때만 여기까지 도달)
                         // damageTargetId: 기존 타겟이 유효하면 기존 타겟, 아니면 새 타겟
-                        ExecuteAttack(unit, damageTargetId, damageTargetIsUnit);
+                        // overshoot: 이번 Tick에서 쿨다운이 만료되며 초과 경과한 시간 → 데미지 딜레이에서 차감(축 2)
+                        ExecuteAttack(unit, damageTargetId, damageTargetIsUnit, overshoot);
                     }
                     else
                     {
@@ -401,17 +419,43 @@ namespace Hexiege.Infrastructure
         /// <param name="unit">공격하는 유닛의 데이터</param>
         /// <param name="targetId">타겟 엔티티의 Id</param>
         /// <param name="targetIsUnit">true=유닛, false=건물</param>
-        private void ExecuteAttack(UnitData unit, int targetId, bool targetIsUnit)
+        /// <param name="overshoot">
+        /// [축 2] 이번 Tick에서 쿨다운이 만료되며 초과 경과한 시간(초). 두 곳에서 함께 차감된다:
+        ///   ① 쿨다운 리셋값(AttackCooldown - overshoot) → 다음 사이클 경계를 애니메이션 루프에 고정(드리프트 방지),
+        ///   ② 각 히트 딜레이(hitTime - overshoot) → 이번 사이클 내 타격 시점 보정(50ms 격자 오차 제거).
+        /// 첫 공격(OnUnitEnteredCombatHandler)처럼 T=0에 정확히 맞춘 경로는 0f로 호출한다.
+        /// </param>
+        private void ExecuteAttack(UnitData unit, int targetId, bool targetIsUnit, float overshoot)
         {
-            // 1. 쿨다운 즉시 리셋 — TryFindTarget()은 쿨다운을 건드리지 않으므로 여기서 처리
-            unit.AttackCooldownRemaining = unit.AttackCooldown;
+            // 1. 쿨다운 즉시 리셋 — TryFindTarget()은 쿨다운을 건드리지 않으므로 여기서 처리.
+            //
+            // [축 2 — 사이클 드리프트(누적 밀림) 방지]
+            //   쿨다운을 전체 값(AttackCooldown)으로 그냥 리셋하면 문제가 생긴다.
+            //   이번 공격은 오버슈트(50ms 격자 지연)만큼 "늦게 감지"되어 실행됐는데,
+            //   여기서 전체 값 C로 리셋하면 "다음 공격 사이클의 시작점"도 그 지연만큼 뒤로 밀린다.
+            //   이 밀림은 사이클마다 계속 더해지므로(o_1 + o_2 + ...) 서버 공격 사이클이
+            //   클라이언트 Attack 애니메이션 루프(StartCombat 시점 T0 기준, 주기 C로 계속 회전)에서
+            //   점점 벌어진다 → 장기 전투(성 공격 등)에서 수백 ms까지 어긋나는 "드리프트".
+            //
+            //   해결: 리셋 값에서도 오버슈트만큼 앞당긴다 → (AttackCooldown - overshoot).
+            //   그러면 (감지 시점) + (C - overshoot) = (실제 만료 시점) + C 가 되어,
+            //   다음 만료가 항상 애니메이션 루프 경계(T0 + k×C)에 정확히 고정된다.
+            //   → 딜레이(hitTime) 차감 = "이번 사이클 내 타격 시점 보정",
+            //     이 리셋 보정 = "사이클 경계를 루프에 고정" — 둘이 짝을 이뤄야 격자 오차가 누적되지 않는다.
+            //   (OnUnitEnteredCombatHandler의 첫 공격은 overshoot=0f이므로 기존과 동일하게 전체 값 C로 리셋된다.)
+            unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldown - overshoot);
 
             // 2. 각 히트 프레임 시간마다 독립 코루틴을 실행하여 데미지 타이밍 동기화.
             // 단일 히트 유닛: HitFrameTimes 원소가 1개 → 기존과 동일하게 코루틴 1개 실행.
             // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트): 원소 수만큼 코루틴 실행.
             // 각 코루틴은 독립적으로 동작하며, 타겟 사망 시 ApplyAttackDamage 내 IsAlive 체크로 자동 취소.
             foreach (float hitTime in unit.HitFrameTimes)
-                StartCoroutine(DelayedAttackDamage(unit, targetId, targetIsUnit, hitTime));
+            {
+                // [축 2] 오버슈트(격자 만료 지연)만큼 딜레이를 앞당겨 실제 타격 시점을 보정한다.
+                // 오버슈트가 hitTime보다 크면 이미 지난 것이므로 하한 0(다음 프레임 즉시 적용).
+                float delay = Mathf.Max(0f, hitTime - overshoot);
+                StartCoroutine(DelayedAttackDamage(unit, targetId, targetIsUnit, delay));
+            }
         }
 
         // ====================================================================
@@ -480,7 +524,9 @@ namespace Hexiege.Infrastructure
             // ExecuteAttack 즉시 실행 — 서버 공격 사이클을 애니메이션 시작(T=0)과 동기화.
             // TickCombat에서 처음 실행되면 T≈50ms 오프셋이 생겨 쿨다운 만료 타이밍이
             // 애니메이션 루프 경계와 어긋남 → 타겟 소멸 후 애니메이션이 루프 직후 도중에 전환되는 현상.
-            ExecuteAttack(unit, targetId, targetIsUnit);
+            //
+            // [축 2] 이 경로는 적 감지 즉시(T=0) 실행되므로 격자 오버슈트가 없다 → overshoot=0f.
+            ExecuteAttack(unit, targetId, targetIsUnit, 0f);
         }
 
         /// <summary>
