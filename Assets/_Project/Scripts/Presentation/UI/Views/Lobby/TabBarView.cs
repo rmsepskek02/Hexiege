@@ -1,6 +1,6 @@
 // ============================================================================
 // TabBarView.cs
-// 로비 하단 탭 바. 탭 버튼 4개의 이벤트를 ViewModel 커맨드로 연결.
+// 로비 하단 탭 바. 탭 버튼 5개의 이벤트를 ViewModel 커맨드로 연결.
 //
 // 역할:
 //   - 버튼 클릭 → vm.SelectTab.OnNext(탭)
@@ -28,6 +28,9 @@ namespace Hexiege.Presentation
         [SerializeField] private Button _battleTabButton;
         [SerializeField] private Button _shopTabButton;
         [SerializeField] private Button _profileTabButton;
+        // 설정 탭 버튼. 씬 계층에서는 SettingTabBtn 오브젝트의 Button 컴포넌트를 연결한다.
+        // (탭바 배치 순서상 프로필 버튼과 랭킹 버튼 사이에 위치)
+        [SerializeField] private Button _settingTabButton;
         [SerializeField] private Button _rankingTabButton;
 
         [Header("선택 표시")]
@@ -57,6 +60,7 @@ namespace Hexiege.Presentation
             BindButton(_battleTabButton, vm, LobbyViewModel.LobbyTab.Battle);
             BindButton(_shopTabButton, vm, LobbyViewModel.LobbyTab.Shop);
             BindButton(_profileTabButton, vm, LobbyViewModel.LobbyTab.Profile);
+            BindButton(_settingTabButton, vm, LobbyViewModel.LobbyTab.Setting);
             BindButton(_rankingTabButton, vm, LobbyViewModel.LobbyTab.Ranking);
 
             // 현재 탭 → 버튼 시각 강조
@@ -66,6 +70,7 @@ namespace Hexiege.Presentation
                     UpdateButtonVisual(_battleTabButton, tab == LobbyViewModel.LobbyTab.Battle);
                     UpdateButtonVisual(_shopTabButton, tab == LobbyViewModel.LobbyTab.Shop);
                     UpdateButtonVisual(_profileTabButton, tab == LobbyViewModel.LobbyTab.Profile);
+                    UpdateButtonVisual(_settingTabButton, tab == LobbyViewModel.LobbyTab.Setting);
                     UpdateButtonVisual(_rankingTabButton, tab == LobbyViewModel.LobbyTab.Ranking);
                 })
                 .AddTo(_disposables);

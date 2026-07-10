@@ -14,6 +14,7 @@
 //          ├─ BattlePanel (BattleRootView)
 //          ├─ ShopPanel (ShopView)
 //          ├─ ProfilePanel (ProfileView)
+//          ├─ SettingPanel (LobbySettingsView)
 //          └─ RankingPanel (RankingView)
 //
 // Presentation 레이어 — MonoBehaviour.
@@ -51,6 +52,9 @@ namespace Hexiege.Presentation
         [Tooltip("프로필 탭 패널")]
         [SerializeField] private GameObject _profilePanel;
 
+        [Tooltip("설정 탭 패널 (LobbySettingsView 부착 오브젝트)")]
+        [SerializeField] private GameObject _settingPanel;
+
         [Tooltip("랭킹 탭 패널")]
         [SerializeField] private GameObject _rankingPanel;
 
@@ -71,6 +75,7 @@ namespace Hexiege.Presentation
         private CanvasGroup _battlePanelGroup;
         private CanvasGroup _shopPanelGroup;
         private CanvasGroup _profilePanelGroup;
+        private CanvasGroup _settingPanelGroup;
         private CanvasGroup _rankingPanelGroup;
 
         // ====================================================================
@@ -84,6 +89,7 @@ namespace Hexiege.Presentation
             _battlePanelGroup  = _battlePanel?.GetComponent<CanvasGroup>();
             _shopPanelGroup    = _shopPanel?.GetComponent<CanvasGroup>();
             _profilePanelGroup = _profilePanel?.GetComponent<CanvasGroup>();
+            _settingPanelGroup = _settingPanel?.GetComponent<CanvasGroup>();
             _rankingPanelGroup = _rankingPanel?.GetComponent<CanvasGroup>();
         }
 
@@ -120,6 +126,7 @@ namespace Hexiege.Presentation
                     SetPanelVisible(_battlePanelGroup, tab == LobbyViewModel.LobbyTab.Battle);
                     SetPanelVisible(_shopPanelGroup, tab == LobbyViewModel.LobbyTab.Shop);
                     SetPanelVisible(_profilePanelGroup, tab == LobbyViewModel.LobbyTab.Profile);
+                    SetPanelVisible(_settingPanelGroup, tab == LobbyViewModel.LobbyTab.Setting);
                     SetPanelVisible(_rankingPanelGroup, tab == LobbyViewModel.LobbyTab.Ranking);
                 })
                 .AddTo(this);

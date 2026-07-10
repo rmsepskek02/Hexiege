@@ -217,11 +217,11 @@ namespace Hexiege.Presentation
                 ColorConfig = _colorConfig,
             });
 
-            // 볼륨 패널/프로필 패널은 시작 시 숨김.
-            HideVolumePanel();
-            HideProfilePanel();
+            // 시작 시 화면 상태를 "메인 버튼 그룹만 보이는" 기본 상태로 정리한다.
+            // (볼륨/프로필 서브 패널은 숨기고, 메인 버튼 그룹만 표시)
+            ResetToMainView();
 
-            // 초기 상태는 반드시 숨김으로 시작
+            // 초기 상태는 반드시 숨김으로 시작 — 팝업 자체는 닫힌 채로 시작한다.
             Hide();
         }
 
@@ -242,12 +242,18 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 설정 팝업을 표시.
+        /// - 팝업을 열 때는 항상 "메인 버튼 그룹" 화면부터 시작한다(ResetToMainView).
+        ///   이전에 볼륨/프로필 서브 패널을 보던 상태로 닫혔더라도, 다시 열면 메인부터 보이도록 초기화한다.
         /// - 싱글플레이: Time.timeScale=0으로 일시정지.
         /// - 멀티플레이: 다른 플레이어가 멈춰서는 안 되므로 timeScale 건드리지 않음.
         /// - SharedBackground에 Hide 콜백을 등록하여 바깥 클릭으로 닫을 수 있게 함.
         /// </summary>
         public void Show()
         {
+            // 팝업이 페이드 인되기 전에 화면 상태를 메인 버튼 그룹으로 리셋한다.
+            // (페이드 인 도중 이전 서브 패널이 잠깐 비치는 것을 방지 — 항상 메인부터 시작)
+            ResetToMainView();
+
             // 싱글플레이만 일시정지 — 멀티플레이는 절대 timeScale을 0으로 설정하지 않음.
             // NetworkContext.IsNetworkActive == false → 싱글플레이.
             if (!NetworkContext.IsNetworkActive)
@@ -271,8 +277,13 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 설정 팝업을 닫는다. 열려 있던 확인 팝업도 함께 닫고, 일시정지를 복원한다.
+        /// 설정 팝업을 닫는다. 오버레이 해제 + 일시정지 복원 + 팝업 본체 페이드 아웃만 담당한다.
         /// 중복 호출에 안전 — 이미 닫힌 상태라면 AnimatedPanel.Hide()가 조용히 무시.
+        ///
+        /// 중요: 여기서는 볼륨/프로필 서브 패널을 강제로 닫지 않는다.
+        ///   현재 어떤 화면(메인/볼륨/프로필)이 보이고 있든, 그 상태 그대로 페이드 아웃되어야
+        ///   "닫는 도중 메인 버튼 그룹이 잠깐 비치는" 시각적 결함이 생기지 않는다.
+        ///   다음 번에 Show()로 다시 열 때 ResetToMainView()가 메인 화면으로 초기화해 준다.
         /// </summary>
         public void Hide()
         {
@@ -290,13 +301,46 @@ namespace Hexiege.Presentation
                 _pausedBySettings = false;
             }
 
-            // 볼륨 패널/프로필 패널도 함께 닫는다 — 설정 메뉴가 닫히면 하위 패널이 잔류하지 않도록.
-            HideVolumePanel();
-            HideProfilePanel();
-
             // 팝업 본체 페이드 아웃.
+            // (볼륨/프로필 서브 패널 상태는 건드리지 않음 — 현재 보이던 화면 그대로 사라진다)
             if (_panel != null)
                 _panel.Hide();
+        }
+
+        /// <summary>
+        /// 팝업 내부 화면을 "메인 버튼 그룹만 보이는" 기본 상태로 초기화한다.
+        /// 볼륨 패널과 프로필 서브 패널을 모두 숨기고, 메인 버튼 그룹(사운드/프로필/포기)을 표시한다.
+        ///
+        /// 팝업을 "여는" 시점(Show)과 최초 초기화(Initialize)에서만 호출한다.
+        /// 팝업을 "닫는"(Hide) 흐름에서는 호출하지 않는다 — 닫을 때는 현재 보이던 화면을
+        /// 그대로 유지한 채 페이드 아웃해야 하기 때문이다.
+        /// (HideVolumePanel/HideProfilePanel과 달리 페이드 애니메이션 없이 즉시 상태만 세팅한다)
+        /// </summary>
+        private void ResetToMainView()
+        {
+            // 볼륨 패널 숨김 (alpha=0 + 입력 차단).
+            if (_volumePanelGroup != null)
+            {
+                _volumePanelGroup.alpha = 0f;
+                _volumePanelGroup.interactable = false;
+                _volumePanelGroup.blocksRaycasts = false;
+            }
+
+            // 프로필 서브 패널 숨김 (alpha=0 + 입력 차단).
+            if (_profileSubViewGroup != null)
+            {
+                _profileSubViewGroup.alpha = 0f;
+                _profileSubViewGroup.interactable = false;
+                _profileSubViewGroup.blocksRaycasts = false;
+            }
+
+            // 메인 버튼 그룹 표시 (alpha=1 + 입력 허용).
+            if (_mainButtonContainer != null)
+            {
+                _mainButtonContainer.alpha = 1f;
+                _mainButtonContainer.interactable = true;
+                _mainButtonContainer.blocksRaycasts = true;
+            }
         }
 
         // ====================================================================
