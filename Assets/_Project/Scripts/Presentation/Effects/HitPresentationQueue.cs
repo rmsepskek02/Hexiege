@@ -67,17 +67,11 @@ namespace Hexiege.Presentation
         /// <summary> 유닛 GameObject 조회용(VFX 위치 + 스케일 펀치 대상). </summary>
         private UnitFactory _unitFactory;
 
-        /// <summary> 건물 GameObject 조회용(스케일 펀치 대상 + 타워 발사 VFX 위치). </summary>
+        /// <summary> 건물 GameObject 조회용(스케일 펀치 대상). </summary>
         private BuildingFactory _buildingFactory;
 
         /// <summary> 공격자 AttackCooldown 조회용(타임아웃 계산). </summary>
         private UnitSpawnUseCase _unitSpawn;
-
-        /// <summary>
-        /// 건물 데이터 조회용(타워 발사 VFX의 BuildingType 해석).
-        /// 타워가 공격할 때 어떤 타입의 발사 이펙트를 재생할지 결정하는 데 쓴다.
-        /// </summary>
-        private BuildingPlacementUseCase _buildingPlacement;
 
         // ====================================================================
         // 보류 큐 상태
@@ -101,19 +95,16 @@ namespace Hexiege.Presentation
         /// <param name="unitFactory">유닛 GameObject 조회 팩토리.</param>
         /// <param name="buildingFactory">건물 GameObject 조회 팩토리.</param>
         /// <param name="unitSpawn">공격자 쿨다운 조회용 UseCase.</param>
-        /// <param name="buildingPlacement">타워 발사 VFX의 BuildingType 해석용 UseCase.</param>
         public void Initialize(
             FloatingHpTextSpawner hpTextSpawner,
             UnitFactory unitFactory,
             BuildingFactory buildingFactory,
-            UnitSpawnUseCase unitSpawn,
-            BuildingPlacementUseCase buildingPlacement)
+            UnitSpawnUseCase unitSpawn)
         {
             _hpTextSpawner = hpTextSpawner;
             _unitFactory = unitFactory;
             _buildingFactory = buildingFactory;
             _unitSpawn = unitSpawn;
-            _buildingPlacement = buildingPlacement;
 
             // 재초기화(맵 재로드) 대비 — 이전 보류 항목 정리.
             _pendingByAttacker.Clear();
@@ -152,12 +143,6 @@ namespace Hexiege.Presentation
             // ⓒ 공격자가 유닛이 아니면(타워) 타격 애니메이션 프레임이 없다 → 보류 없이 즉시 방출.
             if (!evt.AttackerIsUnit)
             {
-                // 타워 발사 연출(3-1): 타워가 즉발로 데미지를 주는 순간, 각 클라이언트 로컬에서
-                //   발사 VFX(총구 화염 등)를 재생한다. 데미지 흐름은 그대로 두고 연출만 얹는다.
-                //   (이 OnEntityDamaged는 호스트=UseCase 발행 1회, 클라=NetworkHealthSync 재발행 1회로
-                //    각 머신에서 정확히 1번씩만 도달하므로 이중 재생이 없다.)
-                PlayTowerAttackVfx(evt);
-
                 Emit(evt);
                 return;
             }
@@ -304,43 +289,6 @@ namespace Hexiege.Presentation
                         queue.Enqueue(item);
                 }
             }
-        }
-
-        /// <summary>
-        /// 타워(건물) 공격 시 발사 VFX를 재생한다(3-1). 타워 위치에서, 타겟 방향을 바라보게 재생한다.
-        ///
-        /// 재생 위치: 타워 GameObject 위치(BuildingFactory 조회). 없으면 재생을 스킵한다.
-        /// 재생 회전: 타워 → 타겟 방향(XZ 평면 기준 LookRotation). 타겟 GameObject가 없으면 회전 없음(identity).
-        /// BuildingType: BuildingPlacementUseCase에서 해석. 해석 실패 시 스킵(어떤 발사 프리셋을 쓸지 알 수 없음).
-        /// </summary>
-        /// <param name="evt">피격 이벤트(AttackerId=타워 Id, Entity=피격 유닛).</param>
-        private void PlayTowerAttackVfx(EntityDamagedEvent evt)
-        {
-            // 타워 GameObject 조회 — 없으면(스폰 전/파괴 등) 발사 VFX를 스킵한다.
-            GameObject towerGo = _buildingFactory != null ? _buildingFactory.GetBuildingObject(evt.AttackerId) : null;
-            if (towerGo == null) return;
-
-            // 타워 타입 해석 — 어떤 발사 프리셋을 쓸지 결정하는 데 필요. 해석 실패 시 스킵.
-            BuildingData tower = _buildingPlacement != null ? _buildingPlacement.GetBuilding(evt.AttackerId) : null;
-            if (tower == null) return;
-
-            Vector3 towerPos = towerGo.transform.position;
-
-            // 회전 = 타워 → 타겟 방향(XZ 평면). 타겟 GameObject가 있으면 그 방향을 바라보게,
-            //   없으면 회전 없이(identity) 재생한다.
-            Quaternion rot = Quaternion.identity;
-            GameObject targetGo = evt.Entity != null && evt.IsUnit && _unitFactory != null
-                ? _unitFactory.GetUnitObject(evt.Entity.Id)
-                : null;
-            if (targetGo != null)
-            {
-                Vector3 dir = targetGo.transform.position - towerPos;
-                dir.y = 0f; // XZ 평면 기준 — 높이 차이는 발사 방향에서 제외(수평 조준).
-                if (dir.sqrMagnitude > 0.0001f)
-                    rot = Quaternion.LookRotation(dir);
-            }
-
-            EffectManager.Instance?.PlayBuildingAttack(tower.Type, towerPos, rot);
         }
 
         /// <summary>

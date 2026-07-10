@@ -157,7 +157,7 @@ namespace Hexiege.Bootstrap
             //   EffectManager.Initialize 이후에 두어야 GetHit(피격 프리셋 조회)가 정상 동작한다.
             if (_hitPresentationQueue == null)
                 _hitPresentationQueue = gameObject.AddComponent<HitPresentationQueue>();
-            _hitPresentationQueue.Initialize(_floatingHpTextSpawner, _unitFactory, _buildingFactory, _unitSpawn, _buildingPlacement);
+            _hitPresentationQueue.Initialize(_floatingHpTextSpawner, _unitFactory, _buildingFactory, _unitSpawn);
 
             // 11. Castle 자동 배치
             PlaceCastles(orientation, oc);
