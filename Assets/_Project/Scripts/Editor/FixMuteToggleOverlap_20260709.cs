@@ -47,7 +47,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI; // LayoutElement / LayoutRebuilder / VerticalLayoutGroup 사용
+using UnityEngine.UI; // LayoutRebuilder / VerticalLayoutGroup 사용
 
 namespace Hexiege.EditorTools
 {
@@ -66,7 +66,6 @@ namespace Hexiege.EditorTools
         private const string NameMuteToggleSlot = "MuteToggleSlot"; // 새로 만드는 래퍼
         private const string NameOnButton = "OnButton";             // 전체 소리켜기
         private const string NameOffButton = "OffButton";           // 전체 음소거
-        private const string NameResetButton = "ResetButton";       // 초기화 버튼(슬롯 높이 기준으로 사용)
 
         [MenuItem("Hexiege/Setup/On-Off 버튼 겹치기 수정 (2026-07-09)")]
         public static void Run()
@@ -122,16 +121,15 @@ namespace Hexiege.EditorTools
             ReparentAndStretch(onButton.transform, slot, tag, NameOnButton);
             ReparentAndStretch(offButton.transform, slot, tag, NameOffButton);
 
-            // 4.5) MuteToggleSlot의 세로 크기를 형제 ResetButton 높이에 맞춰 보정한다.
-            //      VolumeButtonContainer의 VerticalLayoutGroup은 ChildControlHeight=1 /
-            //      ChildForceExpandHeight=0 설정이라, 자식의 세로 크기를 "각 자식의
-            //      LayoutElement.preferredHeight"로 결정한다. 그런데 새로 만든 빈 슬롯에는
-            //      LayoutElement가 없어 preferredHeight가 0으로 계산되고, 그 결과 슬롯이
-            //      찌그러지면서 버튼과 초기화 버튼 사이에 큰 빈 공간이 생겼다.
-            //      → 슬롯에 LayoutElement를 붙이고, 아직 손대지 않은 ResetButton의 실제
-            //        렌더링 높이를 preferredHeight로 지정해 "정답" 높이를 강제한다.
-            //      신규/재사용 여부와 무관하게 매 실행마다 보정한다(이전에 잘못 생성된 슬롯 대비).
-            ApplySlotHeightFromResetButton(containerTf, slot, tag);
+            // 4.5) VolumeButtonContainer의 "직속 자식 전체"(MuteToggleSlot / ResetButton /
+            //      Game씬에만 있는 BackButton)의 세로 높이를 모두 동일하게 맞춘다.
+            //      방식: VerticalLayoutGroup의 ChildForceExpandHeight를 켠다.
+            //      이 VLG는 ChildControlHeight=1 상태이므로, ChildForceExpandHeight까지 켜면
+            //      Unity가 컨테이너의 가용 세로 공간을 모든 직속 자식에게 "균등 분배"한다.
+            //      → 고정 픽셀값(LayoutElement.preferredHeight)을 박지 않아도 자식들이 같은
+            //        높이를 갖게 되어, 해상도별 반응형(공통 UI 규칙 2: 고정 픽셀 금지)이 유지된다.
+            //      매 실행마다 idempotent하게 true로 설정한다.
+            EnableUniformChildExpansion(containerTf, tag);
 
             // 5) 변경 표시 + 저장.
             EditorUtility.SetDirty(container);
@@ -207,75 +205,51 @@ namespace Hexiege.EditorTools
         }
 
         /// <summary>
-        /// MuteToggleSlot의 세로 크기를, 아직 손대지 않은 형제 ResetButton의 실제
-        /// 렌더링 높이에 맞춰 보정한다. On/Off 버튼은 원래 ResetButton과 같은 행 높이를
-        /// 가진 형제였으므로 ResetButton이 "정답" 높이의 기준이 된다.
+        /// VolumeButtonContainer의 VerticalLayoutGroup에서 ChildForceExpandHeight를 켜서
+        /// 직속 자식 전체(MuteToggleSlot / ResetButton / Game씬의 BackButton)가 컨테이너의
+        /// 가용 세로 공간을 "균등 분배"받아 동일한 높이를 갖게 한다.
+        ///
+        /// 왜 이 방식인가(공통 UI 규칙 2 준수):
+        ///   LayoutElement.preferredHeight에 고정 픽셀값을 박으면 해상도별 반응형이 깨진다.
+        ///   반면 ChildControlHeight=1(이미 켜짐) + ChildForceExpandHeight=1 조합은 CellSize
+        ///   같은 고정값 없이 Unity가 남는 세로 공간을 자식들에게 자동으로 똑같이 나눠주므로,
+        ///   해상도가 달라져도 자식 높이가 항상 서로 같게 유지된다.
         ///
         /// 동작:
-        ///   1) 컨테이너 하위에서 ResetButton을 찾는다(못 찾으면 경고만 남기고 보정 생략).
-        ///   2) 편집 중에는 레이아웃이 최신이 아닐 수 있으므로 컨테이너에 대해
-        ///      ForceRebuildLayoutImmediate를 호출해 최신 레이아웃을 강제 계산한 뒤
-        ///      ResetButton의 rect.height를 읽는다.
-        ///   3) 슬롯에 LayoutElement를 부착(없으면 추가)하고 preferredHeight를 그 높이로,
-        ///      flexibleHeight를 0으로 설정해 이 높이를 강제한다.
-        ///      (폭은 VLG가 ChildControlWidth=1 / ChildForceExpandWidth=1로 가로를 꽉
-        ///       채우므로 preferredWidth는 건드리지 않는다.)
-        ///   4) 컨테이너 레이아웃을 재계산하도록 MarkLayoutForRebuild로 표시한다.
+        ///   1) 컨테이너에서 VerticalLayoutGroup을 가져온다(없으면 경고만 남기고 건너뜀).
+        ///   2) childForceExpandHeight를 true로 설정한다(public bool 프로퍼티라 직접 대입).
+        ///      childControlHeight는 이미 true(1)로 확인됐으므로 그대로 둔다.
+        ///   3) 레이아웃 재계산 표시 + SetDirty로 변경을 저장 대상에 반영한다. idempotent.
         /// </summary>
         /// <param name="containerTf">VolumeButtonContainer의 Transform.</param>
-        /// <param name="slot">높이를 보정할 MuteToggleSlot의 RectTransform.</param>
         /// <param name="tag">로그 접두사.</param>
-        private static void ApplySlotHeightFromResetButton(Transform containerTf, RectTransform slot, string tag)
+        private static void EnableUniformChildExpansion(Transform containerTf, string tag)
         {
             var containerRt = containerTf as RectTransform;
             if (containerRt == null)
             {
-                Debug.LogWarning($"{tag} 컨테이너에 RectTransform이 없어 슬롯 높이 보정을 건너뜁니다.");
+                Debug.LogWarning($"{tag} 컨테이너에 RectTransform이 없어 자식 높이 균등화를 건너뜁니다.");
                 return;
             }
 
-            // 1) ResetButton 찾기(비활성 포함, 깊은 탐색). 못 찾으면 예외 없이 건너뛴다.
-            GameObject resetButton = FindDeep(containerTf, NameResetButton);
-            if (resetButton == null)
+            // 1) VerticalLayoutGroup 확보. 없으면 이 컨테이너는 세로 배치 그룹이 아니므로 건너뛴다.
+            var vlg = containerTf.GetComponent<VerticalLayoutGroup>();
+            if (vlg == null)
             {
-                Debug.LogWarning($"{tag} {NameResetButton}를 찾지 못해 슬롯 높이 보정을 건너뜁니다. " +
-                                 "슬롯 세로 크기가 기본값으로 남아 레이아웃이 어긋날 수 있습니다.");
+                Debug.LogWarning($"{tag} {NameVolumeButtonContainer}에 VerticalLayoutGroup이 없어 자식 높이 균등화를 건너뜁니다.");
                 return;
             }
 
-            var resetRt = resetButton.transform as RectTransform;
-            if (resetRt == null)
-            {
-                Debug.LogWarning($"{tag} {NameResetButton}에 RectTransform이 없어 슬롯 높이 보정을 건너뜁니다.");
-                return;
-            }
+            // 2) ChildForceExpandHeight를 켠다. childControlHeight(=true)와 함께 동작해
+            //    가용 세로 공간을 모든 직속 자식에게 균등 분배 → 자식 높이가 서로 같아진다.
+            //    (고정 픽셀값을 쓰지 않으므로 해상도 반응형 유지.)
+            vlg.childForceExpandHeight = true;
 
-            // 2) 최신 레이아웃을 강제 계산한 뒤 ResetButton의 실제 높이를 읽는다.
-            LayoutRebuilder.ForceRebuildLayoutImmediate(containerRt);
-            float targetHeight = resetRt.rect.height;
-            if (targetHeight <= 0f)
-            {
-                // 레이아웃이 아직 유효하지 않아 0 이하가 나오면, 잘못된 0 높이를 강제하지 않고 건너뛴다.
-                Debug.LogWarning($"{tag} {NameResetButton}의 계산된 높이가 {targetHeight}(0 이하)라 슬롯 높이 보정을 건너뜁니다. " +
-                                 "씬을 한 번 연 상태에서 다시 실행하면 유효한 높이가 잡힐 수 있습니다.");
-                return;
-            }
-
-            // 3) 슬롯에 LayoutElement를 확보하고 preferredHeight를 ResetButton 높이로 강제한다.
-            var layoutElement = slot.GetComponent<LayoutElement>();
-            if (layoutElement == null)
-            {
-                layoutElement = slot.gameObject.AddComponent<LayoutElement>();
-            }
-            layoutElement.preferredHeight = targetHeight; // 이 높이를 슬롯의 목표 높이로 사용.
-            layoutElement.flexibleHeight = 0f;            // 남는 공간을 나눠 갖지 않도록(고정 높이 유지).
-
-            // 4) 컨테이너가 다음 프레임/저장 시 레이아웃을 다시 계산하도록 표시.
+            // 3) 레이아웃 재계산 표시 + 변경을 저장 대상에 반영.
             LayoutRebuilder.MarkLayoutForRebuild(containerRt);
-
-            EditorUtility.SetDirty(layoutElement);
-            EditorUtility.SetDirty(slot.gameObject);
-            Debug.Log($"{tag} MuteToggleSlot 높이를 {NameResetButton} 기준 {targetHeight:0.##}로 보정함(LayoutElement.preferredHeight).");
+            EditorUtility.SetDirty(vlg);
+            EditorUtility.SetDirty(containerRt.gameObject);
+            Debug.Log($"{tag} VerticalLayoutGroup.ChildForceExpandHeight를 true로 설정 — 직속 자식 높이가 균등 분배됩니다.");
         }
 
         // ================================================================
