@@ -1322,6 +1322,7 @@ GameObject:
   - component: {fileID: 78161654}
   - component: {fileID: 78161653}
   - component: {fileID: 78161652}
+  - component: {fileID: 78161655}
   m_Layer: 0
   m_Name: ResetButton
   m_TagString: Untagged
@@ -1431,6 +1432,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 78161650}
   m_CullTransparentMesh: 1
+--- !u!114 &78161655
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 78161650}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &90576260
 GameObject:
   m_ObjectHideFlags: 0
@@ -15602,9 +15623,9 @@ MonoBehaviour:
   m_MinWidth: -1
   m_MinHeight: -1
   m_PreferredWidth: -1
-  m_PreferredHeight: 179.18066
+  m_PreferredHeight: 0
   m_FlexibleWidth: -1
-  m_FlexibleHeight: 0
+  m_FlexibleHeight: 1
   m_LayoutPriority: 1
 --- !u!1 &1014335113
 GameObject:
@@ -22938,6 +22959,7 @@ GameObject:
   - component: {fileID: 1533283546}
   - component: {fileID: 1533283545}
   - component: {fileID: 1533283544}
+  - component: {fileID: 1533283547}
   m_Layer: 0
   m_Name: BackButton
   m_TagString: Untagged
@@ -23047,6 +23069,26 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1533283542}
   m_CullTransparentMesh: 1
+--- !u!114 &1533283547
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1533283542}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 306cc8c2b49d7114eaa3623786fc2126, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.LayoutElement
+  m_IgnoreLayout: 0
+  m_MinWidth: -1
+  m_MinHeight: -1
+  m_PreferredWidth: -1
+  m_PreferredHeight: 0
+  m_FlexibleWidth: -1
+  m_FlexibleHeight: 1
+  m_LayoutPriority: 1
 --- !u!1 &1534373521
 GameObject:
   m_ObjectHideFlags: 0
