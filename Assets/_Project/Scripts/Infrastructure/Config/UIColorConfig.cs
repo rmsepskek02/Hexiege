@@ -80,16 +80,22 @@ namespace Hexiege.Infrastructure
         public Color demolishRefundColor = Color.green;
 
         // ====================================================================
-        // 확인 팝업 버튼
+        // 사운드 볼륨 슬라이더 색상 (GameSystemRules_Sound 규칙 26)
+        //
+        // 인게임/로비 볼륨 조절 UI의 슬라이더는 현재 음소거 여부를 색상으로 구분한다.
+        //   - 소리 켜짐 상태  → soundOnColor (초록색)
+        //   - 음소거 상태      → soundMutedColor (빨간색)
+        // 두 위치(인게임 설정, 로비 설정 패널)가 동일한 색상 토큰을 참조하므로
+        // 여기 한 곳만 바꾸면 양쪽 UI 색상이 함께 바뀐다.
         // ====================================================================
 
-        [Header("확인 팝업 버튼")]
-        [Tooltip("확인(또는 위험 행동 수행) 버튼의 배경 색상. " +
-                 "예: 포기 확인 팝업의 '포기' 버튼.")]
-        public Color confirmButtonColor = Color.green;
+        [Header("사운드 볼륨 슬라이더")]
+        [Tooltip("소리가 켜져 있을 때(음소거 아님) 볼륨 슬라이더의 색상. " +
+                 "GameSystemRules_Sound 규칙 26에 따라 초록색 톤을 사용한다.")]
+        public Color soundOnColor = Color.green;
 
-        [Tooltip("취소 버튼의 배경 색상. " +
-                 "예: 포기 확인 팝업의 '취소' 버튼.")]
-        public Color cancelButtonColor = Color.red;
+        [Tooltip("음소거 상태일 때 볼륨 슬라이더의 색상. " +
+                 "GameSystemRules_Sound 규칙 26에 따라 빨간색 톤을 사용한다.")]
+        public Color soundMutedColor = Color.red;
     }
 }

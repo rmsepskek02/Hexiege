@@ -11,7 +11,7 @@
 
 | 파일 | 포함 시스템 |
 |------|------------|
-| [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴 |
+| [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
 | [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계 |
 | [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템 |
 | [GameSystemRules_AI.md](GameSystemRules/GameSystemRules_AI.md) | AI 난이도 시스템, 빌드오더 스크립트, 반응 시스템, 건물 배치 로직, 가드 메커니즘 |
@@ -30,6 +30,7 @@
 - SFX 2D 고정, 동시 재생 한도 8개
 - VFX+SFX 쌍 호출 규칙
 - 볼륨 채널 (Master/BGM/SFX), PlayerPrefs 저장
+- 볼륨 컨트롤 버튼 (전체 소리켜기/음소거/초기화/뒤로), 슬라이더 색상
 
 ---
 
@@ -41,7 +42,8 @@
 - 폰트, 골드 부족 표시, 팝업/모달 타입 구분
 - 생산 패널: 큐 구조, 골드 차감 시점, 자동 생산, 토스트 메시지
 - 건물 배치 패널: 비용 표시, 실패 피드백
-- 인게임 설정 메뉴: 일시정지, 포기 처리
+- 인게임 설정 메뉴: 일시정지, 포기 처리, 프로필 서브 패널
+- 로비 설정/프로필 UI: ProfilePanel/SettingPanel 탭 분리
 
 ### 유닛 관련 작업
 → [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md)

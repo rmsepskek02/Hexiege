@@ -3,7 +3,7 @@
 // 로비 화면의 탭 전환 상태를 관리하는 ViewModel.
 //
 // 역할:
-//   - CurrentTab: 현재 활성화된 탭 (Battle, Shop, Profile, Ranking)
+//   - CurrentTab: 현재 활성화된 탭 (Battle, Shop, Profile, Setting, Ranking)
 //   - SelectTab: View에서 탭 선택 커맨드를 전달받아 CurrentTab 갱신
 //
 // 순수 C# 클래스 — MonoBehaviour 아님, IDisposable로 구독 정리.
@@ -24,7 +24,10 @@ namespace Hexiege.Presentation
         // 탭 정의
         // ====================================================================
 
-        public enum LobbyTab { Battle, Shop, Profile, Ranking }
+        // 씬 하단 탭바의 실제 버튼 배치 순서(Battle → Shop → Profile → Setting → Ranking)와
+        // 동일하게 나열한다. enum 값 비교는 이름 기준(예: tab == LobbyTab.Setting)이라
+        // 순서 자체는 로직에 영향을 주지 않지만, 씬 배치와 코드를 일치시켜 유지보수 혼동을 줄인다.
+        public enum LobbyTab { Battle, Shop, Profile, Setting, Ranking }
 
         // ====================================================================
         // 상태 (View가 구독)

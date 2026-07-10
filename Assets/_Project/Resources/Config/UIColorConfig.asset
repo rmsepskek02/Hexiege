@@ -18,5 +18,5 @@ MonoBehaviour:
   winColor: {r: 0.3, g: 0.5, b: 0.9, a: 1}
   loseColor: {r: 0.9, g: 0.3, b: 0.3, a: 1}
   demolishRefundColor: {r: 0, g: 1, b: 0, a: 1}
-  confirmButtonColor: {r: 0, g: 0.87169814, b: 0, a: 1}
-  cancelButtonColor: {r: 1, g: 0, b: 0.896935, a: 1}
+  soundOnColor: {r: 0, g: 1, b: 0, a: 1}
+  soundMutedColor: {r: 1, g: 0, b: 0, a: 1}
