@@ -269,8 +269,14 @@ QA 수정 사항 (3건):
 - Initialize() 재호출 시 SFX 풀 중복 생성 방지 코드 추가
 - 무음 전환 후 _activeBgmSource = fadeIn으로 상태 명확화
 
-실기 테스트: 미진행 (Inspector 작업 완료 후 진행 예정)
+실기 테스트: 완료 (2026-07-08) — 실기에서 버그 3종 발견 및 수정 (아래 참조)
 TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.md`
+
+### 실기 버그 3종 (2026-07-08 수정 완료)
+- **BUG-1 BGM 씬 전환 시 겹침**: `StartCrossfade()`가 `StopCoroutine`만 하고 페이드아웃 중이던 AudioSource를 `Stop()`하지 않아 이전 BGM이 계속 재생. → stale 채널 즉시 Stop으로 수정. **사운드/오디오 QA 시 크로스페이드 중단 경로에서 이전 채널의 AudioSource가 확실히 정지되는지 확인할 것.**
+- **BUG-2 볼륨 UI 규칙 위반**: 에디터 스크립트 생성 슬라이더의 고정 픽셀값(규칙 2 위반) + TMP 폰트 미지정(규칙 6 위반). → 앵커 비율 + Maplestory Bold SDF + `EditorUtility.SetDirty()`. **에디터 스크립트로 UI 생성하는 작업 QA 시 규칙 2(앵커)/규칙 6(폰트) + SetDirty 호출 여부 점검(전역 UI 시스템 QA 2026-06-18과 동일 패턴).**
+- **BUG-3 SFX 볼륨 미작동**: Exposed Parameter 이름은 정상이었음(추정 오류). `SetFloat` 실패 감지 로깅 추가. **AudioMixer.SetFloat은 실패 시 조용히 false 반환 → 반환값 확인 로직 유무 점검.**
+- task: `_Tasks/2026-07-07/12_28_sound-system-bugfix/`
 
 ---
 

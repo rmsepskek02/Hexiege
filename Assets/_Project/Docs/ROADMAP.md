@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-06-26
-**현재 단계:** IUnitFactory 인터페이스 도입(Bootstrap 의존성 제거) 완료 — 사운드/AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**최종 수정일:** 2026-07-10
+**현재 단계:** 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 완료(실기 PASS, 로비 볼륨 패널 포함) + 실기 버그 3건 수정 — AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -32,8 +32,8 @@
 | 🟡 중간 | 로비 UI 비주얼 폴리싱 (에셋 제작 완료 2026-05-30) | UI | 중 |
 | 🟢 낮음 | 재접속 실제 구현 | 기능 | 중 |
 | ✅ 완료 | 방어 타워(AutoTower) 공격 기능 | 기능 | 대 |
-| 🔵 구현완료 | 사운드 시스템 — 코드 완료. AudioMixer Inspector 작업 + 실기 테스트 대기. 로비 볼륨 패널 미구현(별도 작업) | 기능 | 중 |
-| 🔴 높음 | 사운드 시스템 — Inspector 작업 (AudioMixer 에셋 생성, Login.unity AudioManager 배치, SoundConfig 에셋 생성) | 기능/Inspector | 소 |
+| ✅ 완료 | 사운드 시스템 — 코드 완료 + Inspector 작업 + 실기 버그 3종(BGM 겹침/볼륨 UI 규칙/SFX 진단) 수정 (2026-07-08) | 기능 | 중 |
+| ✅ 완료 | 사운드 시스템 — 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 (AudioManager 음소거 + 공용 VolumeControlBinder + 로비 설정 탭 배선 + 실기 버그 3건 수정, 2026-07-09 실기 PASS) | 기능/UI | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
 | ⬜ 백로그 | Firebase 백엔드 (랭킹/IAP) | 기능 | 대 |
 

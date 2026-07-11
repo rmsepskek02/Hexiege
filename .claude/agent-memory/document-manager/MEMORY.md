@@ -35,3 +35,10 @@
   - ROADMAP.md: "우선순위 요약" 표 + 헤더 날짜/단계.
   - WORK_HISTORY.md: "마일스톤 이력" 표 최상단(날짜 역순)에 행 추가.
 - 의존성 역전 패턴(인터페이스=Application, 구현=Infrastructure) 사례 모음: IGameServices, IUnitFactory, IEntityPositionProvider, IForfeitService.
+- 사운드 시스템 규칙 문서는 `GameSystemRules/GameSystemRules_Sound.md`에 있음(규칙 번호제). 버그 수정이 기존 규칙의 누락을 드러내면(예: 2026-07-08 BUG-1 — 규칙 8이 StopCoroutine만 기술) WORKFLOW [12] 근거로 해당 규칙에 요건을 보완할 것.
+- Task 문서(Research/Plan)는 히스토리 보존이 원칙 → 본문을 재작성하지 말고 하단에 "완료 결과"/"실제 구현 결과" 섹션을 append하여 계획 대비 달라진 점(예: 폰트 Light→Bold, BUG-3 원인 추정 오류)을 기록.
+- 실기 버그 수정 작업 완료 시 갱신 대상: PROJECT_STATUS(헤더+시스템 표 행 추가), ROADMAP(헤더+우선순위 표), WORK_HISTORY(마일스톤 prepend), game-programmer MEMORY(최근 작업 prepend), qa-tester MEMORY(해당 시스템 QA 섹션에 실기 결과 반영), 공용 .claude/MEMORY.md(교훈), 관련 GameSystemRules. 사용자 MEMORY(Windows 경로)는 Linux 환경에서 접근 불가 → 갱신 불가함을 사용자에게 알릴 것.
+- game-programmer MEMORY "최근 작업"에 **이미 해당 작업 항목이 존재하나 "실기 테스트 대기 중" 상태로 남아 있을 수 있음**(구현 세션에서 선반영). 이 경우 새 항목 prepend가 아니라 **기존 항목을 in-place로 갱신**(대기 중→PASS, 발견 버그·교훈 추가)하는 것이 중복을 막는다. prepend 전에 기존 항목 존재 여부부터 확인할 것.
+- "완료 결과" append 위치: 히스토리 보존을 위해 각 task 폴더의 **Plan.md 하단**에 append(Research는 원상태 유지). 계획대로 된 항목 / 계획과 달라진 점(범위 확장·반복 수정) / 실기 확인 결과를 구분해 기록. TC/QA를 사용자가 명시적으로 요청하지 않았으면 Testcase.md는 만들지 말고 "완료 결과"로 대체(그 취지를 한 줄 명시).
+- GameSystemRules에 "미정 노트"가 달린 규칙(예: Sound 규칙 26 음소거 내부 구현)은, 해당 작업이 그 방식을 **확정하고 실기 통과하면** 노트를 삭제하고 확정 내용을 규칙(신규 규칙 번호 부여 가능)으로 보완하는 것이 WORKFLOW [12] 후속 반영. Plan.md의 "규칙 문서 후속 반영" 섹션에 이 지시가 미리 적혀 있을 수 있으니 확인.
+- Docs 트리에 GameSystemRules_Sound.md는 `GameSystemRules/` 하위(규칙 번호제, 현재 규칙 27까지). GameSystemRules_UI.md에 인게임 프로필 서브패널(규칙 6)·로비 ProfilePanel/SettingPanel 분리 섹션 존재.

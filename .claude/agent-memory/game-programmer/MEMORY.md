@@ -32,6 +32,24 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 인게임/로비 볼륨·프로필 UI 로직 연결 + 음소거 기능 (2026-07-09) ✅
+- **음소거 구현(저장값 보존형)**: `AudioManager`에 `SetMuted(bool)`/`IsMuted()`/`ResetAllVolumes()` 추가. PlayerPrefs 키 `"Muted"`(0/1). 뮤트는 **Master 채널만 -80dB(`MutedDb`)로 눌러** 전체 무음(BGM/SFX 논리 볼륨값은 보존). `ApplyVolume`을 `ApplyDb(param,dB)`로 리팩터(무음 -80dB와 볼륨 변환값이 SetFloat 진단 로깅 경로 공유). `SetVolume`에 자동 언뮤트(슬라이더 조작 시 `if(_muted) SetMuted(false)`).
+- **VolumeControlBinder(신규, 순수 C#)**: `Presentation/UI/Common/VolumeControlBinder.cs`. 인게임/로비 볼륨 UI 공통 로직(슬라이더3+On/Off/Reset버튼+색상)을 캡슐화. `Bind(Refs)` 구조체 주입, `RefreshFromAudioManager()`로 패널 표시 시 재동기화. On/Off 버튼은 CanvasGroup 상호배타(규칙24), 슬라이더 Fill 색상은 `slider.fillRect`의 Image로 처리(규칙26, UIColorConfig `soundOnColor`/`soundMutedColor`).
+- **핵심 교훈 — 프로그램 슬라이더 값 설정은 `SetValueWithoutNotify` 사용**: `slider.value=` 는 onValueChanged 발화 → SetXxxVolume → 자동 언뮤트 부작용. 패널 열 때 값 동기화가 뮤트를 풀어버리는 버그를 막으려면 반드시 `SetValueWithoutNotify`. (기존 View들의 `slider.value=` 패턴을 이걸로 대체)
+- **InGameSettingsUI**: `_profileButton`/`_profileSubViewGroup`/`_profileBackButton` 추가(사운드 버튼과 동일 CanvasGroup 열기/닫기, 규칙6, 내부는 빈 토글). ProfileSubView는 Editor 스크립트가 자동 생성. **버그 수정**: `Hide()`가 서브패널을 메인으로 복원하는 부수효과로 닫힐 때 메인 화면이 잠깐 비침 → `Hide()`는 현재 화면 그대로 페이드아웃, 화면 복원은 `Show()`/`Initialize()`의 `ResetToMainView()`로 통합.
+- **LobbySettingsView**: 클래스명 유지. Profile 필드/로직 제거. 컴포넌트를 SettingPanel 자식→루트로 이동(탭패널 컨벤션 통일).
+- **로비 설정 탭 배선 버그 수정**: 하단 탭바가 "설정" 탭 미인식(클릭 무반응+항상 선택된 것처럼 표시). `LobbyViewModel.LobbyTab` enum에 `Setting` 추가(Profile↔Ranking 사이), `TabBarView._settingTabButton`+바인딩+색상갱신, `LobbyRootView._settingPanel`+CanvasGroup 캐시+`SetPanelVisible` 전환 완성. enum은 이름 비교라 순서 무관(`(int)LobbyTab` 사용처 없음 확인). task: `_Tasks/2026-07-09/09_58_lobby-setting-tab-wiring/`.
+- **버그 수정 — VerticalLayoutGroup 형제 크기 불균등**: On/Off(전체소리켜기/전체음소거) 버튼이 서로 다른 슬롯 차지. `MuteToggleSlot` 래퍼로 `Transform.SetParent()` **재부모화(파괴/재생성 없이 fileID 참조 보존)** 하여 완전 겹침. 이후 발견된 높이 불균등(빈 슬롯 선호높이 0)은 `ChildForceExpandHeight`만으론 부족 → `LayoutElement.preferredHeight=0f`/`flexibleHeight=1f` **비율 가중치**로 최종 해결(고정 픽셀 금지, 공통 규칙 2). Editor 스크립트 `FixMuteToggleOverlap_20260709.cs`.
+- **Editor 1회성**: `SetupVolumeProfileUI_20260709.cs`. 필드 자동 배선·LobbySettingsView 컴포넌트 이동·UIColorConfig 참조 연결·ProfileSubView 자동 생성. 씬 저장 전 `EditorUtility.SetDirty`+`MarkSceneDirty`+`SaveScene` 필수. **교훈: 이름 기반 자동 매칭 오연결 위험**(`_backButton`이 `OffButton`에 잘못 연결된 사례) → 참조 적으면 수동 배선이 안전.
+- task: `_Tasks/2026-07-09/06_09_ingame-lobby-volume-profile-ui/`. **사용자 실기 PASS(2026-07-10)** — 슬라이더/뮤트/초기화, 프로필 열기·닫기, 로비 탭 분리·전환, 닫힘 깜빡임 해소, On/Off 버튼 균등화 전부 확인. 커밋 범위 `66c66797..87a1dd6d`.
+
+
+### 사운드 시스템 실기 버그 3종 수정 (2026-07-08) ✅
+- **BUG-1 BGM 겹침 (핵심 교훈)**: `AudioManager.StartCrossfade()`에서 새 전환 요청 시 `StopCoroutine(_crossfadeRoutine)`만으로는 페이드아웃 중이던 AudioSource가 계속 재생되어 이전 BGM이 겹친다. **코루틴 중단 직후 페이드아웃 채널(active가 아닌 채널)을 즉시 `Stop()`(+ volume 0, clip null)해야 함**. GameSystemRules_Sound 규칙 8에 명문화.
+- **BUG-2 볼륨 UI 규칙 위반**: 에디터 스크립트(`SetupInGameVolumePanel.cs`/`SetupLobbySettingsTab.cs`)로 생성하는 슬라이더 서브 요소 고정 픽셀값 → 앵커 비율(규칙 2), 전 TMP에 `Maplestory Bold SDF` 폰트 적용(규칙 6). **에디터 스크립트에서 TMP 폰트 지정 후 `EditorUtility.SetDirty()` 필수** — 없으면 씬 저장 시 폰트가 반영되지 않음.
+- **BUG-3 SFX 볼륨 미작동**: Exposed Parameter 이름 불일치가 아니었음(3종 정상). `ApplyVolume()`에 `SetFloat` 실패 감지 디버그 로깅 추가로 진단 경로 확보. AudioMixer `SetFloat`은 실패 시 조용히 false 반환하므로 반환값 로깅이 진단에 유효.
+- 브랜치 `claude/sound-system-review-itwt0t`. task: `_Tasks/2026-07-07/12_28_sound-system-bugfix/`
+
 ### Google 로그인 실기 디버깅 — GPGS signIn (2026-06-27) ✅
 - **`Authenticate()` vs `ManuallyAuthenticate()` (GPGS Plugin 2.1.0)**: `Authenticate()`는 내부적으로 `isAuthenticated()`만 호출 → 기존 로그인 세션이 없으면 무조건 `SignInStatus.Canceled` 반환(계정 선택 UI 미표시). 최초 로그인은 반드시 `PlayGamesPlatform.Instance.ManuallyAuthenticate()`(`signIn()` 호출) 사용. `FirebaseAuthService.cs` 수정.
 - **SHA-1 3곳 일치 필수**: ① Firebase Console(OAuth 클라이언트, google-services.json) ② Play Console GPGS 사용자 인증 정보(signIn() 검증) ③ **실제 빌드 키스토어** — 세 곳이 모두 일치해야 GPGS `signIn()` 성공. 근본 원인은 실제 `hexiege-release.keystore`가 SHA-1 등록 시 키스토어와 다른 파일이어서 실제 서명 SHA-1이 어디에도 등록되지 않았던 것.

@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-06-27
-**현재 단계:** Google 로그인 실기 성공(SHA-1 정합 + Play Games 제공업체 활성화) — UGS OIDC 브릿지(멀티플레이 연동)는 별도 미해결 이슈. AI/사운드 Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**최종 수정일:** 2026-07-10
+**현재 단계:** 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 완료(실기 PASS) — AudioManager 음소거 기능 + 공용 VolumeControlBinder 도입, 로비 설정 탭 배선 완성, 실기 발견 버그 3건(설정탭 배선 누락 / 설정 닫힘 화면 깜빡임 / On·Off 버튼 위치·크기 불균등) 수정. 사운드 시스템 실기 버그 3종(2026-07-08) 수정 완료 상태 유지. Google 로그인 실기 성공 유지 — UGS OIDC 브릿지(멀티플레이 연동)는 별도 미해결 이슈. AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 
 ---
 
@@ -60,7 +60,8 @@
 | 멀티플레이 유닛 사망 GO 미파괴 + 이펙트 미재생 버그 수정 | ✅ 완료 (2026-06-08) | 근본 원인: 서버 UnitView의 Destroy(gameObject)가 NGO 클라이언트 전파 불보장. 수정: NetworkCombatController(Infrastructure)에서 EntityDiedClientRpc 발행 후 NetworkObject.Despawn(destroy:true) 명시 호출. UnitView에서 Unity.Netcode 직접 참조 완전 제거(레이어 규칙 준수). 런타임 로그 13킬 전체 이펙트 재생 확인. |
 | 전체 유닛 사망 VFX 적용 | ✅ 완료 (2026-06-08) | EffectPreset_Unit_Death_Common.asset 신규 생성(vfx_unit_death+SFX). SetUnitDeathVfxAll 에디터 스크립트로 UnitEffectConfig 전체 24종 deathPreset 일괄 연결. 코드 변경 없음(에셋 작업만). 기존 EffectPreset_Pistoleer_Death.asset 삭제. |
 | 유닛 VFX 디테일 개선 3종 | ✅ 완료 (2026-06-08) | ① VFX 프리팹 3개 ParticleSystem ScalingMode Local→Hierarchy (VfxScalingModeFixer 에디터 스크립트). ② 피스톨러 공격 VFX 스폰 위치 — VfxSpawnPoint GO(총구 위치)로 position 참조, rotation은 `Quaternion.LookRotation(transform.forward)` (스켈레톤 본 하위 배치로 _vfxSpawnPoint.rotation 사용 불가). UnitView + EffectManager 수정. ③ vfx_unit_death 퍼짐 효과 제거 (3개 PS startSpeed→0 YAML 직접 수정). |
-| 사운드 시스템 (AudioManager + SFX/BGM 분리) | 🔵 코드 완료 (2026-06-10) / Inspector 작업 + 실기 테스트 예정 | SoundConfig.cs(Infrastructure) + AudioManager.cs(Presentation, DontDestroyOnLoad) 신규. BGM 크로스페이드(A/B 채널), SFX 풀(8개, 2D), 볼륨 3채널(Master/BGM/SFX, PlayerPrefs). EffectManager VFX 전용 분리(SFX 비활성화). VFX+SFX 쌍 호출 UnitView×2 + NetworkUnit×1 복원. LoginBootstrapper Initialize 추가. InGameSettingsUI 볼륨 슬라이더 연동. Inspector 작업: AudioMixer 에셋·AudioManager Login.unity 배치·SoundConfig 에셋 생성 필요. 로비 볼륨 패널 미구현(별도 작업). |
+| 사운드 시스템 (AudioManager + SFX/BGM 분리) | 🔵 코드 완료 (2026-06-10) + 실기 버그 3종 수정 (2026-07-08) / 로비 볼륨 패널 별도 작업 | SoundConfig.cs(Infrastructure) + AudioManager.cs(Presentation, DontDestroyOnLoad) 신규. BGM 크로스페이드(A/B 채널), SFX 풀(8개, 2D), 볼륨 3채널(Master/BGM/SFX, PlayerPrefs). EffectManager VFX 전용 분리(SFX 비활성화). VFX+SFX 쌍 호출 UnitView×2 + NetworkUnit×1 복원. LoginBootstrapper Initialize 추가. InGameSettingsUI 볼륨 슬라이더 연동. 로비 볼륨 패널 미구현(별도 작업). |
+| 사운드 시스템 실기 버그 3종 수정 | ✅ 완료 (2026-07-08) | **BUG-1** BGM 씬 전환 시 소리 겹침: `AudioManager.StartCrossfade()`에서 `StopCoroutine` 직후 페이드아웃 중이던 stale AudioSource를 즉시 `Stop()`(volume 0/clip null)하도록 수정. GameSystemRules_Sound 규칙 8에 요건 명문화. **BUG-2** 볼륨 UI 규칙 위반: 에디터 스크립트(`SetupInGameVolumePanel.cs`/`SetupLobbySettingsTab.cs`) 슬라이더 서브 요소 고정 픽셀값→앵커 비율(규칙 2), 전 TMP에 Maplestory **Bold** SDF 폰트 적용(규칙 6) + `EditorUtility.SetDirty()`로 씬 저장 반영, 라벨/여백/BackButton lavender 스프라이트/패딩 개선(레이아웃 미세 조정은 사용자 직접). **BUG-3** SFX 볼륨 슬라이더 미작동: Exposed Parameter 이름 3종 정상 확인(불일치 아님), `ApplyVolume()`에 `SetFloat` 실패 감지 디버그 로깅 추가. 브랜치 `claude/sound-system-review-itwt0t`. task: `_Tasks/2026-07-07/12_28_sound-system-bugfix/` |
 | 전역 UI 시스템 (UIManager + SplashOverlay) | ✅ 완료 (2026-06-18) | UIManager(SingletonMonoBehaviour+IUIManager), SplashOverlayView(DOTween 깜빡임+페이드아웃), SpinnerRotator 신규. ConfirmPopup/LoadingIndicator 전역 통합 (Login 씬 1회 생성 → DontDestroyOnLoad). 씬별 중복 ConfirmPopup/LoadingScreen 제거, BattleViewModel LoadingScreen→UIManager 전환. 사용자 실기 TC-01~07 PASS. |
 | LoadingIndicator 최소 표시 시간 보장 | ✅ 완료 (2026-06-22) | `UIManager.ShowLoading(false)` 호출 시 최소 1초 미만이면 코루틴으로 지연(`WaitForSecondsRealtime`). `_loadingMinDuration` SerializeField(기본 1f). 모든 호출부 자동 적용. |
 | LoadingIndicator 독립 Canvas(300) 추가 | ✅ 완료 (2026-06-22) | AnonymousWarningPopup(SortingOrder=200)이 LoadingIndicator를 가리는 문제 해결. `LoginUiSetup.cs` 에디터 스크립트에 메뉴 항목 추가(`Hexiege/Setup/Login UI — LoadingIndicator 독립 Canvas 추가`). LoadingIndicator에 독립 Canvas(SortingOrder=300, overrideSorting=true) + GraphicRaycaster 자동 추가. |
@@ -166,6 +167,20 @@
 | [문제 3] 실제 빌드 키스토어 SHA-1 미등록 (근본 원인) | ✅ 완료 | logcat `PlayGamesServices[SignInAuthenticator]`에서 실제 APK 서명 SHA-1(`18:E0:32:5F:5A:F9:C5:A7:3F:22:34:BE:65:1F:E6:CA:61:2E:DE:3D`) 확인 → 등록된 3개 어느 것과도 불일치(`hexiege-release.keystore`가 SHA-1 등록 시 키스토어와 다른 파일). Firebase Console + Play Console GPGS 사용자 인증 정보에 실제 SHA-1 추가 등록·게시 + Firebase Authentication Play Games 제공업체 활성화(Web Client ID/Secret 입력). |
 | GPGS Server Auth Code 발급 정상화 | ✅ 완료 | SHA-1 불일치 시 `serverAuthCode length=0`(빈 값) → SHA-1 정합 후 `length=73` 정상 발급. |
 | UGS OIDC 브릿지 실패 (`id provider not found`) | ❌ 미해결 (별도 이슈) | Firebase 로그인 성공 후 `SignInWithOpenIdConnectAsync("oidc-firebase")` 단계에서 UGS Dashboard OIDC 제공자 미등록으로 실패 → UGS PlayerId 미발급, 멀티플레이 제한. UGS Dashboard OIDC Provider 등록 후 재확인 필요. |
+
+#### 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 (2026-07-09, 실기 PASS)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| AudioManager 음소거 기능 신규 | ✅ 완료 (2026-07-09) | `SetMuted(bool)`/`IsMuted()`/`ResetAllVolumes()` 추가. 뮤트는 **Master 채널만 -80dB(`MutedDb`)** 로 눌러 전체 무음(BGM/SFX 논리 볼륨값 보존). `ApplyVolume`을 `ApplyDb(param,dB)`로 리팩터하여 무음·볼륨변환이 SetFloat 진단 로깅 경로 공유. 슬라이더 조작 시 자동 언뮤트. PlayerPrefs 키 `"Muted"`(0/1) 영속화. `Initialize()`에서 저장된 뮤트 상태 로드·적용. |
+| VolumeControlBinder 신규 (공용 순수 C#) | ✅ 완료 (2026-07-09) | `Presentation/UI/Common/VolumeControlBinder.cs`. 인게임/로비 공통 볼륨 UI 로직(슬라이더3 + On/Off/Reset/Back 버튼 + 색상) 캡슐화. `Bind(Refs)` 참조 주입, `RefreshFromAudioManager()`로 패널 표시 시 재동기화. On/Off 버튼 CanvasGroup 상호배타(규칙24), 슬라이더 Fill 색상(규칙26, `soundOnColor`/`soundMutedColor`). 프로그램 값 설정은 `SetValueWithoutNotify`로 자동 언뮤트 부작용 차단. |
+| UIColorConfig 색상 토큰 추가 | ✅ 완료 (2026-07-09) | `soundOnColor`(초록)/`soundMutedColor`(빨강) 추가. **별개 정리**: 미사용 `confirmButtonColor`/`cancelButtonColor` 죽은 코드 제거(ConfirmPopup이 이미지 에셋 기반으로 전환됨) → `ConfirmPopup.cs`의 `Awake()`/`_colorConfig` 필드도 제거. |
+| InGameSettingsUI 프로필 버튼 + 볼륨 연동 | ✅ 완료 (2026-07-09) | 프로필 버튼 추가(사운드 버튼과 동일 CanvasGroup 열기/닫기, 규칙6, 내부 콘텐츠는 범위 밖 빈 토글). VolumeControlBinder 연동. **버그 수정**: `Hide()`가 서브패널 복원 부수효과 없이 현재 화면 그대로 페이드아웃(닫힘 시 메인 화면 깜빡임 해소), `Show()`/`Initialize()`는 `ResetToMainView()`로 통합. |
+| LobbySettingsView Setting 전용 정리 | ✅ 완료 (2026-07-09) | Profile 관련 필드/로직 제거(비활성화 후 삭제), VolumeControlBinder 연동. 스크립트 컴포넌트를 자식 오브젝트 → `SettingPanel` 패널 루트로 이동(탭 패널 컨벤션 통일). |
+| 로비 설정 탭 배선 완성 (버그 수정) | ✅ 완료 (2026-07-09) | 증상: 로비 하단 탭바가 "설정" 탭을 인식 못 함(클릭 무반응 + 항상 선택된 것처럼 표시). 원인: `LobbyViewModel.LobbyTab` enum에 `Setting` 부재, `TabBarView`/`LobbyRootView`에 설정 버튼·패널 참조 부재. 수정: enum에 `Setting` 추가(Profile↔Ranking 사이), 탭 버튼 바인딩·색상 갱신·패널 CanvasGroup 전환 완성. task: `_Tasks/2026-07-09/09_58_lobby-setting-tab-wiring/` |
+| On/Off 버튼 위치·크기 균등화 (버그 수정) | ✅ 완료 (2026-07-09) | 증상: 전체소리켜기/전체음소거 버튼이 VerticalLayoutGroup에서 서로 다른 슬롯·크기를 차지. 수정: `MuteToggleSlot` 래퍼로 재부모화(파괴/재생성 없이 `SetParent`)하여 완전히 겹침. 추가 발견된 높이 불균등(빈 슬롯 선호높이 0)은 `LayoutElement.preferredHeight=0f`/`flexibleHeight=1f` 비율 가중치 방식으로 최종 해결(고정 픽셀 금지, 공통 규칙 2 준수). Editor 스크립트 `FixMuteToggleOverlap_20260709.cs`. |
+| Editor 1회성 배선 스크립트 | ✅ 완료 (2026-07-09) | `SetupVolumeProfileUI_20260709.cs`(신규 Serialized 필드 자동 연결, LobbySettingsView 컴포넌트 이동, UIColorConfig 참조 연결, ProfileSubView 자동 생성). 사용자가 Unity에서 직접 실행하여 `Game.unity`/`Lobby.unity`에 반영. |
+| 규칙 문서 반영 | ✅ 완료 (2026-07-09) | `GameSystemRules_UI.md` 규칙6(인게임 프로필 버튼)·로비 ProfilePanel/SettingPanel 분리, `GameSystemRules_Sound.md` 규칙23~26(볼륨 버튼 구성/상호배타/리셋/색상) + 규칙26 음소거 내부 구현 확정 반영. |
+| 실기 테스트 | ✅ PASS (2026-07-10) | 인게임/로비 슬라이더+뮤트+초기화, 인게임 프로필 버튼 열기/닫기, 로비 프로필/설정 탭 분리·전환, 닫힘 화면 깜빡임 해소, On/Off 버튼 위치·크기 균등화 전부 확인. task: `_Tasks/2026-07-09/06_09_ingame-lobby-volume-profile-ui/` |
 
 #### 게임포기 로딩 인디케이터 미해제 버그 수정 (2026-06-26)
 | 항목 | 상태 | 비고 |

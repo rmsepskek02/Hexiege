@@ -60,9 +60,17 @@ namespace Hexiege.Presentation
         [Tooltip("게임 포기 버튼. 클릭 시 ConfirmPopup으로 재확인.")]
         [SerializeField] private Button _forfeitButton;
 
+        [Header("메인 버튼 그룹")]
+        [Tooltip("사운드/포기 등 메인 버튼을 묶은 컨테이너의 CanvasGroup. " +
+                 "볼륨 사이드바를 열면 이 그룹을 숨기고, 뒤로가기 시 다시 표시한다 (UI 규칙 5).")]
+        [SerializeField] private CanvasGroup _mainButtonContainer;
+
         [Header("볼륨 패널")]
         [Tooltip("볼륨 슬라이더를 담은 패널의 CanvasGroup. Show/Hide를 CanvasGroup으로 처리 (UI 규칙 5).")]
         [SerializeField] private CanvasGroup _volumePanelGroup;
+
+        [Tooltip("볼륨 사이드바 → 메인 버튼 그룹으로 복귀하는 뒤로가기 버튼.")]
+        [SerializeField] private Button _backButton;
 
         [Tooltip("마스터 볼륨 슬라이더 (0~1).")]
         [SerializeField] private Slider _masterSlider;
@@ -73,9 +81,50 @@ namespace Hexiege.Presentation
         [Tooltip("SFX 볼륨 슬라이더 (0~1).")]
         [SerializeField] private Slider _sfxSlider;
 
+        [Header("볼륨 퍼센트 텍스트 (선택)")]
+        [Tooltip("마스터 볼륨 퍼센트 표시 텍스트. 슬라이더 값에 따라 '100%' 형태로 갱신된다.")]
+        [SerializeField] private TextMeshProUGUI _masterValueText;
+
+        [Tooltip("BGM 볼륨 퍼센트 표시 텍스트.")]
+        [SerializeField] private TextMeshProUGUI _bgmValueText;
+
+        [Tooltip("SFX 볼륨 퍼센트 표시 텍스트.")]
+        [SerializeField] private TextMeshProUGUI _sfxValueText;
+
+        [Header("볼륨 컨트롤 버튼 (VolumeButtonContainer)")]
+        [Tooltip("전체 소리켜기 버튼(음소거 해제). 음소거 상태일 때만 표시된다(규칙 24).")]
+        [SerializeField] private Button _soundOnButton;
+
+        [Tooltip("전체 음소거 버튼. 소리 켜짐 상태일 때만 표시된다(규칙 24).")]
+        [SerializeField] private Button _muteButton;
+
+        [Tooltip("초기화 버튼. 세 볼륨을 100%로 되돌리고 음소거를 해제한다(규칙 25).")]
+        [SerializeField] private Button _resetButton;
+
+        [Header("색상 설정")]
+        [Tooltip("슬라이더 음소거 색상 토큰(규칙 26). Resources/Config/UIColorConfig 연결.")]
+        [SerializeField] private UIColorConfig _colorConfig;
+
+        [Header("프로필 서브 패널 (규칙 6)")]
+        [Tooltip("메인 버튼 그룹의 프로필 버튼. 클릭 시 프로필 서브 패널로 전환한다.")]
+        [SerializeField] private Button _profileButton;
+
+        [Tooltip("프로필 서브 패널의 CanvasGroup. 사운드 버튼과 동일한 열기/닫기 패턴으로 토글한다. " +
+                 "내부 콘텐츠는 이번 범위 밖(빈 상태 토글만).")]
+        [SerializeField] private CanvasGroup _profileSubViewGroup;
+
+        [Tooltip("프로필 서브 패널 → 메인 버튼 그룹으로 복귀하는 뒤로가기 버튼.")]
+        [SerializeField] private Button _profileBackButton;
+
         // ====================================================================
         // 내부 상태
         // ====================================================================
+
+        /// <summary>
+        /// 볼륨 슬라이더 3종 + 전체 소리켜기/음소거/초기화 버튼의 공통 로직을 담당하는 Binder.
+        /// 로비 설정 패널과 동일한 동작을 보장하기 위해 공통 클래스로 분리했다(규칙 22).
+        /// </summary>
+        private readonly VolumeControlBinder _volumeBinder = new VolumeControlBinder();
 
         /// <summary>
         /// 이 스크립트가 Time.timeScale을 0으로 설정한 상태인지 추적.
@@ -125,50 +174,67 @@ namespace Hexiege.Presentation
                 _forfeitButton.onClick.AddListener(OnForfeitClicked);
             }
 
-            // 사운드 버튼 → 볼륨 패널 토글.
+            // 사운드 버튼 → 볼륨 사이드바 표시(메인 버튼 그룹 숨김).
             if (_soundButton != null)
             {
                 _soundButton.onClick.RemoveAllListeners();
                 _soundButton.onClick.AddListener(OnSoundButtonClicked);
             }
 
-            // 볼륨 슬라이더 초기화 — 현재 저장된 볼륨을 슬라이더에 반영하고 변경 리스너를 연결한다.
-            SetupVolumeSliders();
+            // 뒤로가기 버튼 → 볼륨 사이드바 숨김(메인 버튼 그룹 복원).
+            if (_backButton != null)
+            {
+                _backButton.onClick.RemoveAllListeners();
+                _backButton.onClick.AddListener(HideVolumePanel);
+            }
 
-            // 볼륨 패널은 시작 시 숨김.
-            HideVolumePanel();
+            // 프로필 버튼 → 프로필 서브 패널 표시(사운드 버튼과 동일한 패턴 — 규칙 6).
+            if (_profileButton != null)
+            {
+                _profileButton.onClick.RemoveAllListeners();
+                _profileButton.onClick.AddListener(ShowProfilePanel);
+            }
 
-            // 초기 상태는 반드시 숨김으로 시작
+            // 프로필 서브 패널 뒤로가기 → 메인 버튼 그룹 복원.
+            if (_profileBackButton != null)
+            {
+                _profileBackButton.onClick.RemoveAllListeners();
+                _profileBackButton.onClick.AddListener(HideProfilePanel);
+            }
+
+            // 볼륨 슬라이더 + 전체 소리켜기/음소거/초기화 버튼을 공통 Binder에 위임(규칙 22~26).
+            _volumeBinder.Bind(new VolumeControlBinder.Refs
+            {
+                MasterSlider = _masterSlider,
+                BgmSlider = _bgmSlider,
+                SfxSlider = _sfxSlider,
+                MasterValueText = _masterValueText,
+                BgmValueText = _bgmValueText,
+                SfxValueText = _sfxValueText,
+                SoundOnButton = _soundOnButton,
+                MuteButton = _muteButton,
+                ResetButton = _resetButton,
+                ColorConfig = _colorConfig,
+            });
+
+            // 시작 시 화면 상태를 "메인 버튼 그룹만 보이는" 기본 상태로 정리한다.
+            // (볼륨/프로필 서브 패널은 숨기고, 메인 버튼 그룹만 표시)
+            ResetToMainView();
+
+            // 초기 상태는 반드시 숨김으로 시작 — 팝업 자체는 닫힌 채로 시작한다.
             Hide();
         }
 
-        /// <summary>
-        /// 볼륨 슬라이더 3종의 초기값을 AudioManager에서 읽어 반영하고,
-        /// 값 변경 시 AudioManager에 즉시 전달하는 리스너를 등록한다.
-        /// Initialize는 재경기 시 재호출될 수 있으므로 RemoveAllListeners로 중복 등록을 방지한다.
-        /// AudioManager.Instance가 null일 수 있으므로(개발 중 직접 진입) ?. 와 ?? 1f로 안전 처리한다 (규칙 5).
-        /// </summary>
-        private void SetupVolumeSliders()
-        {
-            if (_masterSlider != null)
-            {
-                _masterSlider.onValueChanged.RemoveAllListeners();
-                _masterSlider.value = AudioManager.Instance?.GetMasterVolume() ?? 1f;
-                _masterSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetMasterVolume(v));
-            }
-            if (_bgmSlider != null)
-            {
-                _bgmSlider.onValueChanged.RemoveAllListeners();
-                _bgmSlider.value = AudioManager.Instance?.GetBgmVolume() ?? 1f;
-                _bgmSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetBgmVolume(v));
-            }
-            if (_sfxSlider != null)
-            {
-                _sfxSlider.onValueChanged.RemoveAllListeners();
-                _sfxSlider.value = AudioManager.Instance?.GetSfxVolume() ?? 1f;
-                _sfxSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetSfxVolume(v));
-            }
-        }
+        // ─────────────────────────────────────────────────────────────────
+        // [비활성화 — 테스트 통과 후 삭제 예정]
+        // 볼륨 슬라이더 초기화/리스너/퍼센트 텍스트 로직은 VolumeControlBinder로 이관되었다.
+        // (인게임/로비 공통 동작 보장 — 규칙 22). 아래 구 헬퍼들은 더 이상 호출되지 않는다.
+        //
+        // private void SetupVolumeSliders() { ... }
+        // private void SetupOneSlider(Slider slider, TextMeshProUGUI valueText,
+        //     float initialValue, System.Action<float> onChanged) { ... }
+        // private void UpdateValueText(TextMeshProUGUI valueText, float value) { ... }
+        // ─────────────────────────────────────────────────────────────────
 
         // ====================================================================
         // 표시 / 숨김
@@ -176,12 +242,18 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 설정 팝업을 표시.
+        /// - 팝업을 열 때는 항상 "메인 버튼 그룹" 화면부터 시작한다(ResetToMainView).
+        ///   이전에 볼륨/프로필 서브 패널을 보던 상태로 닫혔더라도, 다시 열면 메인부터 보이도록 초기화한다.
         /// - 싱글플레이: Time.timeScale=0으로 일시정지.
         /// - 멀티플레이: 다른 플레이어가 멈춰서는 안 되므로 timeScale 건드리지 않음.
         /// - SharedBackground에 Hide 콜백을 등록하여 바깥 클릭으로 닫을 수 있게 함.
         /// </summary>
         public void Show()
         {
+            // 팝업이 페이드 인되기 전에 화면 상태를 메인 버튼 그룹으로 리셋한다.
+            // (페이드 인 도중 이전 서브 패널이 잠깐 비치는 것을 방지 — 항상 메인부터 시작)
+            ResetToMainView();
+
             // 싱글플레이만 일시정지 — 멀티플레이는 절대 timeScale을 0으로 설정하지 않음.
             // NetworkContext.IsNetworkActive == false → 싱글플레이.
             if (!NetworkContext.IsNetworkActive)
@@ -205,8 +277,13 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 설정 팝업을 닫는다. 열려 있던 확인 팝업도 함께 닫고, 일시정지를 복원한다.
+        /// 설정 팝업을 닫는다. 오버레이 해제 + 일시정지 복원 + 팝업 본체 페이드 아웃만 담당한다.
         /// 중복 호출에 안전 — 이미 닫힌 상태라면 AnimatedPanel.Hide()가 조용히 무시.
+        ///
+        /// 중요: 여기서는 볼륨/프로필 서브 패널을 강제로 닫지 않는다.
+        ///   현재 어떤 화면(메인/볼륨/프로필)이 보이고 있든, 그 상태 그대로 페이드 아웃되어야
+        ///   "닫는 도중 메인 버튼 그룹이 잠깐 비치는" 시각적 결함이 생기지 않는다.
+        ///   다음 번에 Show()로 다시 열 때 ResetToMainView()가 메인 화면으로 초기화해 준다.
         /// </summary>
         public void Hide()
         {
@@ -224,12 +301,46 @@ namespace Hexiege.Presentation
                 _pausedBySettings = false;
             }
 
-            // 볼륨 패널도 함께 닫는다 — 설정 메뉴가 닫히면 하위 패널도 잔류하지 않도록.
-            HideVolumePanel();
-
             // 팝업 본체 페이드 아웃.
+            // (볼륨/프로필 서브 패널 상태는 건드리지 않음 — 현재 보이던 화면 그대로 사라진다)
             if (_panel != null)
                 _panel.Hide();
+        }
+
+        /// <summary>
+        /// 팝업 내부 화면을 "메인 버튼 그룹만 보이는" 기본 상태로 초기화한다.
+        /// 볼륨 패널과 프로필 서브 패널을 모두 숨기고, 메인 버튼 그룹(사운드/프로필/포기)을 표시한다.
+        ///
+        /// 팝업을 "여는" 시점(Show)과 최초 초기화(Initialize)에서만 호출한다.
+        /// 팝업을 "닫는"(Hide) 흐름에서는 호출하지 않는다 — 닫을 때는 현재 보이던 화면을
+        /// 그대로 유지한 채 페이드 아웃해야 하기 때문이다.
+        /// (HideVolumePanel/HideProfilePanel과 달리 페이드 애니메이션 없이 즉시 상태만 세팅한다)
+        /// </summary>
+        private void ResetToMainView()
+        {
+            // 볼륨 패널 숨김 (alpha=0 + 입력 차단).
+            if (_volumePanelGroup != null)
+            {
+                _volumePanelGroup.alpha = 0f;
+                _volumePanelGroup.interactable = false;
+                _volumePanelGroup.blocksRaycasts = false;
+            }
+
+            // 프로필 서브 패널 숨김 (alpha=0 + 입력 차단).
+            if (_profileSubViewGroup != null)
+            {
+                _profileSubViewGroup.alpha = 0f;
+                _profileSubViewGroup.interactable = false;
+                _profileSubViewGroup.blocksRaycasts = false;
+            }
+
+            // 메인 버튼 그룹 표시 (alpha=1 + 입력 허용).
+            if (_mainButtonContainer != null)
+            {
+                _mainButtonContainer.alpha = 1f;
+                _mainButtonContainer.interactable = true;
+                _mainButtonContainer.blocksRaycasts = true;
+            }
         }
 
         // ====================================================================
@@ -259,12 +370,20 @@ namespace Hexiege.Presentation
         {
             if (_volumePanelGroup == null) return;
 
-            // 다른 씬(로비 등)에서 볼륨이 바뀌었을 수 있으므로 표시 시점에 슬라이더 값을 다시 동기화.
-            RefreshVolumeSliderValues();
+            // 다른 씬(로비 등)에서 볼륨/음소거가 바뀌었을 수 있으므로 표시 시점에 슬라이더/버튼/색상을 다시 동기화.
+            _volumeBinder.RefreshFromAudioManager();
 
             _volumePanelGroup.alpha = 1f;
             _volumePanelGroup.interactable = true;
             _volumePanelGroup.blocksRaycasts = true;
+
+            // 메인 버튼 그룹(사운드/포기)을 숨긴다 — 볼륨 패널과 동시에 표시되지 않도록 (UI 규칙 5).
+            if (_mainButtonContainer != null)
+            {
+                _mainButtonContainer.alpha = 0f;
+                _mainButtonContainer.interactable = false;
+                _mainButtonContainer.blocksRaycasts = false;
+            }
         }
 
         /// <summary>
@@ -277,21 +396,69 @@ namespace Hexiege.Presentation
             _volumePanelGroup.alpha = 0f;
             _volumePanelGroup.interactable = false;
             _volumePanelGroup.blocksRaycasts = false;
+
+            // 볼륨 패널이 닫히면 메인 버튼 그룹(사운드/포기)을 다시 표시한다.
+            if (_mainButtonContainer != null)
+            {
+                _mainButtonContainer.alpha = 1f;
+                _mainButtonContainer.interactable = true;
+                _mainButtonContainer.blocksRaycasts = true;
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // [비활성화 — 테스트 통과 후 삭제 예정]
+        // 슬라이더 재동기화 로직은 VolumeControlBinder.RefreshFromAudioManager()로 이관되었다.
+        //
+        // private void RefreshVolumeSliderValues() { ... }
+        // ─────────────────────────────────────────────────────────────────
+
+        // ====================================================================
+        // 프로필 서브 패널 토글 (규칙 6 — 사운드 버튼과 동일한 CanvasGroup 패턴)
+        // ====================================================================
+
+        /// <summary>
+        /// 프로필 서브 패널을 표시한다 (CanvasGroup alpha=1 + 입력 활성화).
+        /// 메인 버튼 그룹(사운드/프로필/포기)은 숨겨 서로 겹치지 않게 한다(규칙 5, 6).
+        /// 내부 콘텐츠는 이번 범위 밖이며, 빈 패널을 열고 닫는 동작만 제공한다.
+        /// </summary>
+        private void ShowProfilePanel()
+        {
+            if (_profileSubViewGroup == null) return;
+
+            _profileSubViewGroup.alpha = 1f;
+            _profileSubViewGroup.interactable = true;
+            _profileSubViewGroup.blocksRaycasts = true;
+
+            // 메인 버튼 그룹 숨김 — 볼륨 패널과 동일한 방식(규칙 5).
+            if (_mainButtonContainer != null)
+            {
+                _mainButtonContainer.alpha = 0f;
+                _mainButtonContainer.interactable = false;
+                _mainButtonContainer.blocksRaycasts = false;
+            }
         }
 
         /// <summary>
-        /// 슬라이더 값만 현재 저장 볼륨으로 다시 맞춘다 (리스너 재등록 없음).
-        /// onValueChanged 리스너가 이미 붙어 있으므로, 값만 갱신하면 SetXxxVolume이
-        /// 다시 호출될 수 있으나 동일 값이라 부작용은 없다.
+        /// 프로필 서브 패널을 숨긴다 (CanvasGroup alpha=0 + 입력 비활성화).
+        /// 숨김 시 메인 버튼 그룹을 다시 표시한다.
         /// </summary>
-        private void RefreshVolumeSliderValues()
+        private void HideProfilePanel()
         {
-            if (_masterSlider != null)
-                _masterSlider.value = AudioManager.Instance?.GetMasterVolume() ?? 1f;
-            if (_bgmSlider != null)
-                _bgmSlider.value = AudioManager.Instance?.GetBgmVolume() ?? 1f;
-            if (_sfxSlider != null)
-                _sfxSlider.value = AudioManager.Instance?.GetSfxVolume() ?? 1f;
+            if (_profileSubViewGroup == null) return;
+
+            _profileSubViewGroup.alpha = 0f;
+            _profileSubViewGroup.interactable = false;
+            _profileSubViewGroup.blocksRaycasts = false;
+
+            // 프로필 패널이 닫히면 메인 버튼 그룹을 다시 표시한다.
+            // (단, 볼륨 패널이 열려 있는 상태에서 프로필을 닫는 경우는 없다 — 서로 배타적으로 열림)
+            if (_mainButtonContainer != null)
+            {
+                _mainButtonContainer.alpha = 1f;
+                _mainButtonContainer.interactable = true;
+                _mainButtonContainer.blocksRaycasts = true;
+            }
         }
 
         // ====================================================================
