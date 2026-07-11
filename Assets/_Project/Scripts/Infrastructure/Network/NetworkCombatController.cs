@@ -427,6 +427,11 @@ namespace Hexiege.Infrastructure
         /// </param>
         private void ExecuteAttack(UnitData unit, int targetId, bool targetIsUnit, float overshoot)
         {
+            // [TIMING-LOG] 공격 사이클 시작 계측 — 검증 완료 후 제거([TIMING-LOG] 마커 일괄 삭제)
+            if (CombatTimingLog.Enabled)
+                CombatTimingLog.Info("Combat/NetworkCombatController",
+                    $"공격 사이클 시작 | attacker={unit.Id}({unit.Type}), overshoot={overshoot:0.000}, cooldown={unit.AttackCooldown}");
+
             // 1. 쿨다운 즉시 리셋 — TryFindTarget()은 쿨다운을 건드리지 않으므로 여기서 처리.
             //
             // [축 2 — 사이클 드리프트(누적 밀림) 방지]

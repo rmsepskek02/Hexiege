@@ -33,6 +33,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Hexiege.Domain;
+using Hexiege.Application; // [TIMING-LOG] CombatTimingLog 참조용 — 검증 완료 후 제거
 
 namespace Hexiege.Presentation
 {
@@ -51,6 +52,10 @@ namespace Hexiege.Presentation
         /// Instance가 null일 수 있으므로 호출 측은 항상 ?. 연산자로 안전 처리해야 함.
         /// </summary>
         public static EffectManager Instance { get; private set; }
+
+        // [TIMING-LOG] 피격 VFX 프리셋 미연결 WARN을 타입당 1회만 남기기 위한 중복 방지 집합.
+        //   검증 완료 후 이 필드와 PlayUnitHit 내 사용부를 함께 제거([TIMING-LOG] 마커 일괄 삭제).
+        private static readonly HashSet<UnitType> _timingLogMissingHitTypes = new HashSet<UnitType>();
 
         // ====================================================================
         // Inspector 설정
@@ -196,8 +201,13 @@ namespace Hexiege.Presentation
         /// <param name="pos">재생할 월드 좌표 (보통 피격 유닛 위치).</param>
         public void PlayUnitHit(UnitType type, Vector3 pos)
         {
+            // [TIMING-LOG] 피격 VFX 프리셋 미연결 감지 — 타입당 1회만 WARN. 검증 완료 후 제거([TIMING-LOG] 마커 일괄 삭제)
+            EffectPreset hitPreset = _unitConfig?.GetHit(type);
+            if (CombatTimingLog.Enabled && hitPreset == null && _timingLogMissingHitTypes.Add(type))
+                CombatTimingLog.Warn("Combat/EffectManager", $"피격 VFX 프리셋 미연결 | type={type}");
+
             // 피격 VFX는 방향성이 없으므로 회전 없이(identity) 재생.
-            Play(_unitConfig?.GetHit(type), pos, Quaternion.identity);
+            Play(hitPreset, pos, Quaternion.identity);
 
             // 피격 SFX 없음 — SoundConfig에 피격 SFX 엔트리가 아직 없어 이번 작업에서 추가하지 않는다.
             //   추후 피격 효과음 에셋 확보 시, 이 줄 바로 아래에 AudioManager.Instance?.PlayUnitHitSfx(type)

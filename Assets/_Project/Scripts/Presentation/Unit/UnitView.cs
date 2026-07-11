@@ -1489,6 +1489,11 @@ namespace Hexiege.Presentation
         {
             if (_unitData == null || !_unitData.IsAlive) return;
 
+            // [TIMING-LOG] OnAttackHit 발생 계측 — 검증 완료 후 제거([TIMING-LOG] 마커 일괄 삭제)
+            if (CombatTimingLog.Enabled)
+                CombatTimingLog.Info("Combat/UnitView",
+                    $"OnAttackHit 발생 | unit={_unitData.Id}({_unitData.Type})");
+
             // 공격 이펙트 재생 (VFX + SFX 동시).
             // OnAttackHit은 모든 클라이언트에서 로컬로 실행되는 Animation Event이므로
             // 멀티플레이에서도 양쪽 화면에 공격 이펙트가 정상 재생된다.
