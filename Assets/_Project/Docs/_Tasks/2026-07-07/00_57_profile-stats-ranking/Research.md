@@ -47,8 +47,13 @@ UI는 기존 프로젝트의 uGUI(CanvasGroup) 패턴을 그대로 활용하고,
 - `LobbyViewModel.CurrentTab` 구독으로 패널 표시/숨김 처리
 
 **LobbyViewModel.cs**
-- `LobbyTab.Ranking` 탭 열거값 이미 정의됨
+- `LobbyTab` 열거값: `Battle, Shop, Profile, Setting, Ranking` (5탭)
+  - **[2026-07-09 main 병합 반영]** 기존 4탭(Battle/Shop/Profile/Ranking)에 **Setting 탭 신규 추가**됨
+  - Profile 탭과 Setting 탭이 **완전히 분리된 별도 최상위 탭**으로 구성됨 (GameSystemRules_UI.md "로비 설정/프로필 UI" 규칙 1)
+  - Profile 탭 = 전적/계정 관리, Setting 탭 = 사운드 등 게임 설정
+- `LobbyTab.Ranking`, `LobbyTab.Profile` 모두 정의됨 — 본 작업의 타겟 탭
 - UniRx `ReactiveProperty`, `Subject` 패턴 사용
+- **본 작업은 LobbyViewModel을 수정하지 않음** (Setting 탭은 main에서 이미 추가 완료)
 
 ### 3. Lobby 씬 — RankingView 완전 비어있음
 
@@ -120,3 +125,28 @@ public class RankingView : MonoBehaviour
 2. **UGS Dashboard 설정**: Cloud Code 함수(`recordMatchResult`, `initPlayer`, `checkPendingGame`) 등록 여부
 3. **UGS Leaderboard 생성 여부**: Dashboard에서 Leaderboard ID 생성 여부
 4. **기존 PlayerProfile 데이터**: 이미 Cloud Save에 저장된 플레이어 데이터가 있는지 (마이그레이션 필요 여부)
+
+---
+
+## [2026-07-09] main 병합 후 재검토 결과
+
+origin/main(사운드 시스템 + 로비 설정/프로필 UI 분리 작업)을 현재 브랜치에 병합한 뒤 계획 영향도를 재확인했다.
+
+### 타겟 파일 충돌 없음 (핵심)
+본 작업이 수정할 파일 중 main이 변경한 파일은 **하나도 없다**. 모두 온전하다.
+- `ProfileView.cs` — main 미변경
+- `RankingView.cs` — main 미변경
+- `LoginRootView.cs` / `LoginBootstrapper.cs` / `LoginSelectView.cs` / `SignUpView.cs` — main 미변경
+
+### 문서 충돌 해결
+- `GameSystemRules_UI.md` 에서 충돌 발생 → 해결 완료
+  - 양쪽 추가분(본 작업: 닉네임/Profile/Ranking 섹션, main: 프로필 서브패널/로비 설정·프로필 UI 섹션)을 모두 보존
+
+### 계획에 영향을 주는 main 변경 사항
+1. **로비 탭 구조 변경 (4탭 → 5탭)**: Setting 탭 신규 추가. Profile은 여전히 독립 탭으로 유지 → 본 작업의 Profile 탭 UI 계획과 **정합**함.
+2. **Lobby.unity / Login.unity 씬 대폭 변경**: Inspector 작업(ProfileView 필드 생성, RankingPanel 구성, NicknameSetupPanel 생성)은 **새 씬 상태 위에서** 진행해야 함. SettingPanel이 ProfilePanel의 형제로 이미 존재.
+3. **Editor 셋업 스크립트 다수 삭제**: `SetupLobbyPanelCanvasGroups.cs`, `AddLogoutButtonToProfileView.cs` 등 1회성 스크립트 삭제됨. CanvasGroup은 이미 씬에 셋업된 상태로 간주.
+4. **인게임 설정 메뉴에 "프로필 서브 패널" 추가 (main)**: 이는 **인게임(Game 씬) 설정 메뉴** 안의 프로필 버튼으로, 내부 구성은 "미정" 상태. 본 작업의 **로비(Lobby 씬) Profile 탭 전적 표시**와는 별개 화면이다. 혼동 주의.
+
+### 결론
+main 병합으로 인한 **코드 레벨 충돌·재작업은 없음**. 계획은 그대로 유효하며, Inspector 작업만 갱신된 씬 기준으로 진행하면 된다.

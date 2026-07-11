@@ -237,6 +237,8 @@ Inspector 필드:
 
 ### D. Inspector 작업 (에디터 스크립트)
 
+> **[2026-07-09 main 병합 반영]** Lobby.unity / Login.unity 씬이 main에서 대폭 변경되었다(사운드 시스템 + Setting 탭 분리). 아래 Inspector 작업은 **갱신된 씬 상태 위에서** 진행한다. 특히 로비는 이제 5탭(Battle/Shop/Profile/Setting/Ranking)이며, SettingPanel이 ProfilePanel의 형제로 이미 존재한다. Profile 탭은 전적/계정 전용으로 유지된다.
+
 아래 항목은 에디터 스크립트로 자동 처리하거나 사용자 수동 작업이 필요하다.
 
 1. **Login.unity** — NicknameSetupPanel 오브젝트 생성 및 NicknameSetupView 부착
