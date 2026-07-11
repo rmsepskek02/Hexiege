@@ -143,3 +143,29 @@
 - `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs`, `UnitEffectView.cs`, `AnimationEventRelay.cs`
 - `Assets/_Project/Scripts/Presentation/Effects/EffectManager.cs`, `BuildingEffectConfig.cs`
 - `Assets/_Project/Scripts/Presentation/UI/FloatingHpTextSpawner.cs`
+
+---
+
+## 7. 검증 로그 분석 (2026-07-11)
+
+Phase 1~3 구현 및 Attack 클립 이벤트 주입을 마친 뒤, 실제로 계획한 타이밍이 맞아떨어지는지 확인하기 위해 임시 계측 로그를 심어 1회 실기 플레이를 수집했다. 대상 로그는 `_Logs/2026-07-09/01_12_combat-hit-timing-sync/RuntimeLog_host.txt`(총 4,111줄, 공격 사이클 894회 기록)이며, 아래는 그 분석 결과다. 계측 로그는 검증용 임시 코드이므로 결론 도출 후 제거 대상이다.
+
+### 7-1. 정상 확인 (설계대로 동작)
+
+- **축 1 (타격 타이밍 단일화) 정상**: 유닛별로 측정한 "사이클 시작 → 데미지 적용" 오프셋이 클립에 찍힌 `OnAttackHit` 이벤트 시간과 정확히 일치했다.
+  - Pistoleer 평균 786ms(≈0.8s), Tank / CannonCart / Assault ≈0.167s, SpearMan ≈0.24s, LittleKnight는 2히트(0.25s / 1.15s)가 모두 발화. 클립 이벤트 시간이 데이터 데미지 시점에 그대로 반영됨을 확인.
+- **피격 표현 큐 방출 경로 정상**: 총 방출 796건의 내역은 타격프레임 방출 553건(70%) + 사망 시 방출 199건(25%) + 타임아웃 방출 43건(5.4%) + 기타 1건. 대부분이 정상 경로(타격프레임)로 방출됨.
+- **타겟 락 정상**: 공격 사이클 894회 대비 데미지 적용 796건 — 차이 98건은 히트 딜레이 도중 타겟이 사망하여 취소된 케이스로, Research 1-1에서 기술한 타겟 락 설계(공격자/타겟 사망 시에만 취소)와 일치.
+
+### 7-2. 발견 버그 (BUG — 이번 작업 이전부터 존재한 기존 코드 결함)
+
+**Tick 경과 시간 이중 계산** — `Infrastructure/Network/NetworkCombatController.cs`의 `Update()`
+
+- 현재 구조는 `float elapsed = _attackTimer; _attackTimer -= _attackInterval;` 형태로, `_attackTimer`에서 `_attackInterval`을 뺀 **이월 잔여분이 다음 Tick의 `elapsed`에 다시 포함**된다. 그 결과 쿨다운이 실제 경과 시간보다 빠르게 소진되며, 소진 속도가 프레임레이트에 따라 약 15~25% 빨라진다.
+- **로그 증거**: 쿨다운 2.0초여야 할 Pistoleer의 실측 사이클 간격이 1.71초로 관측됨. 서버 공격 주기가 애니메이션 루프 주기보다 빨라져 위상이 매 사이클마다 밀린다.
+- **영향**: 위상이 밀리면서 타격프레임 방출까지의 대기 시간이 중앙값 69ms 수준이나 꼬리가 835ms~2초까지 늘어졌고, 이 한계를 넘긴 43건이 타임아웃 방출로 처리됐다. 이는 이번 작업의 원 목표였던 **"데미지-연출 불일치"의 숨은 근본 원인 중 하나**다. (Research 원인 ②의 50ms 격자 오차와는 별개의, 더 큰 크기의 오차원.)
+
+### 7-3. 부가 발견
+
+- **피격 VFX 프리셋 미연결 6종**: 계측 중 Assault, CannonCart, LittleKnight, Pistoleer, SpearMan, Tank의 Hit 프리셋이 `UnitEffectConfig`에 연결되지 않은 것이 자동 검출됐다. Inspector에서 각 유닛의 Hit Preset 연결 작업이 필요하다(코드 아님, 에셋 연결 작업).
+- **Sniper 데미지 오프셋 이상치 1건**: 9.9초 이상의 오프셋이 1회 관측됐으나, 에디터 히치 또는 일시정지로 추정된다. 상기 Tick 버그 수정 후 재측정에서 관찰 대상으로 남긴다.

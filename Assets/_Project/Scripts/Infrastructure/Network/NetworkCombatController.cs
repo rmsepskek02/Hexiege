@@ -90,6 +90,13 @@ namespace Hexiege.Infrastructure
         /// <summary>다음 전투 판정까지 남은 시간.</summary>
         private float _attackTimer = 0f;
 
+        /// <summary>
+        /// 직전 Tick에서 인터벌(_attackInterval)을 초과하여 다음 Tick으로 넘긴 이월분(초).
+        /// TickCombat에 넘길 실제 경과 시간(realElapsed)을 계산할 때 이 값을 빼서
+        /// 이월분이 두 번 세어지는 이중 계산을 막는다. (자세한 이유는 Update() 주석 참조.)
+        /// </summary>
+        private float _lastCarry = 0f;
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -117,6 +124,11 @@ namespace Hexiege.Infrastructure
             // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
             {
+                // 전투 Tick 타이머/이월분 초기화 — NGO 씬 오브젝트가 다음 게임에서 재스폰될 때
+                // 이전 게임의 잔여 이월분이 남아 첫 Tick의 경과 시간이 부풀지 않도록 리셋.
+                _attackTimer = 0f;
+                _lastCarry = 0f;
+
                 // 사망 이벤트는 OnUnitDied / OnBuildingDied 두 갈래로 분리되었으므로
                 // 서버 측에서도 각각 구독한다.
                 // 분리 이유: 구독 측에서 매번 is 캐스트로 타입을 분기하지 않도록 강타입 DTO를 사용.
@@ -167,6 +179,10 @@ namespace Hexiege.Infrastructure
             _unitCombatTargets.Clear();
             _combatAnimationSent.Clear();
 
+            // 전투 Tick 타이머/이월분도 초기화 — 다음 게임 스폰 시 깨끗한 상태에서 시작.
+            _attackTimer = 0f;
+            _lastCarry = 0f;
+
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
         }
@@ -184,11 +200,20 @@ namespace Hexiege.Infrastructure
         ///
         /// _attackInterval마다 Tick을 발행하여 매 프레임 처리 비용을 줄임.
         ///
-        /// 타이밍 정확도:
-        ///   _attackTimer -= _attackInterval 으로 오버슈트를 다음 Tick에 이월.
-        ///   (0f로 리셋하면 오버슈트가 버려져 Tick 간격이 평균적으로 길어짐)
-        ///   쿨다운 감소는 _attackInterval(고정값)이 아닌 실제 경과 시간(elapsed)으로 처리.
-        ///   → 프레임레이트(30fps/60fps)에 무관하게 공격 주기가 애니메이션 클립 길이와 일치.
+        /// 타이밍 정확도 — Tick 발화 주기(cadence)와 경과 시간(elapsed)은 분리한다:
+        ///   • Tick 발화 주기: _attackTimer에서 _attackInterval만큼만 빼서 이월분을 다음 Tick으로 넘긴다.
+        ///     (0f로 리셋하면 이월분이 버려져 Tick 간격이 평균적으로 길어짐)
+        ///   • 경과 시간: TickCombat에 넘기는 elapsed는 "직전 Tick 이후 실제로 새로 흐른 시간"만.
+        ///     쿨다운 감소는 이 elapsed로 처리하므로 프레임레이트(30fps/60fps)에 무관하게
+        ///     공격 주기가 애니메이션 클립 길이와 일치한다.
+        ///
+        ///   [과거 버그 — 이월분 이중 계산, 2026-07-11 수정]
+        ///     예전에는 elapsed에 _attackTimer(이월분 포함) 전체를 넘기면서 동시에
+        ///     _attackTimer에도 이월분을 남겼다. 그 이월분이 이번 elapsed에 들어갔는데
+        ///     타이머에도 남아 "다음 Tick elapsed"에 또 포함됐다(같은 시간을 두 번 계산).
+        ///     프레임 시간이 인터벌과 어긋날수록 elapsed 합이 실제 경과 시간보다 커져
+        ///     쿨다운이 실제보다 빨리 소진됐다(관측: Pistoleer 2.0초 쿨다운이 1.71초 간격으로 발화).
+        ///     → 아래처럼 직전 이월분(_lastCarry)을 빼서 순수 경과분만 넘기도록 고쳤다.
         /// </summary>
         private void Update()
         {
@@ -198,12 +223,18 @@ namespace Hexiege.Infrastructure
             _attackTimer += Time.deltaTime;
             if (_attackTimer < _attackInterval) return;
 
-            // 실제 경과 시간 캡처 후 오버슈트 이월
-            // (예: 60fps에서 16.7ms 프레임 3개 = 50.1ms → elapsed=50.1ms, 다음 Tick까지 0.1ms 이월)
-            float elapsed = _attackTimer;
-            _attackTimer -= _attackInterval;
+            // ── 경과 시간 계산 (이월분 이중 계산 방지) ──
+            // realElapsed = 이번 _attackTimer에서 "직전 Tick이 남긴 이월분(_lastCarry)"을 뺀 값
+            //   = 직전 Tick 이후 실제로 새로 흐른 시간.
+            // 예) 30fps(프레임 33.3ms), 인터벌 50ms:
+            //     Tick A에서 _attackTimer=60ms → 남긴 이월분 10ms(_lastCarry).
+            //     다음 프레임 두 번 뒤 _attackTimer=10+33.3+33.3=76.6ms →
+            //     realElapsed = 76.6 - 10 = 66.6ms(정확히 프레임 2개분). 이월분 10ms는 중복되지 않음.
+            float realElapsed = _attackTimer - _lastCarry;   // 새로 흐른 순수 시간만
+            _lastCarry = _attackTimer - _attackInterval;     // 다음 Tick 계산에서 제외할 이월분
+            _attackTimer = _lastCarry;                        // 타이머엔 이월분만 남김(발화 주기 유지)
 
-            TickCombat(elapsed);
+            TickCombat(realElapsed);
         }
 
         /// <summary>

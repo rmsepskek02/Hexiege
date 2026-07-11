@@ -20,6 +20,9 @@
 //      (사망 연출 전 마지막 피격 표시 보장).
 //   ⓒ 즉시 방출 — 공격자가 유닛이 아니거나(타워: 타격 프레임 없음) 공격자 GameObject가 없으면
 //      보류하지 않고 곧바로 방출한다.
+//   ⓓ 공격자 소멸 — 공격자가 죽거나(OnUnitDied) 전투를 중단하면(OnCombat/OnNetworkCombatStopped)
+//      그 공격자는 다음 타격 프레임(OnLocalAttackHit)을 영영 보내지 않는다. 그 공격자 큐에 남은
+//      항목을 즉시 방출하여 타임아웃(쿨다운 1회분)까지 HP 텍스트가 지연되는 것을 막는다.
 //
 // 싱글플레이:
 //   서버=로컬이라 데미지 이벤트와 로컬 OnAttackHit이 거의 동시에 발생 → 보류가 매우 짧거나
@@ -130,11 +133,26 @@ namespace Hexiege.Presentation
                 .AddTo(this);
 
             // 타겟 사망 → 그 타겟을 겨눈 잔여 항목 즉시 방출(안전망 ⓑ).
+            // ※ OnUnitDied는 "공격자 사망"(안전망 ⓓ) 처리도 겸한다 — OnUnitDied 핸들러 참조.
             GameEvents.OnUnitDied
                 .Subscribe(OnUnitDied)
                 .AddTo(this);
             GameEvents.OnBuildingDied
                 .Subscribe(OnBuildingDied)
+                .AddTo(this);
+
+            // 공격자 전투 중단 → 그 공격자의 잔여 보류 항목 즉시 방출(안전망 ⓓ).
+            //   멀티: OnNetworkCombatStopped(서버 StopCombatClientRpc 경유), 싱글: OnCombatStopped.
+            //
+            // ※ 안전성 근거: StopCombat 신호는 "진행 중 사이클의 타격 프레임"보다 먼저 도착할 수 있으나,
+            //   그 시점엔 해당 사이클의 데미지가 아직 적용되지 않아(=큐가 비어 있어) flush가 no-op이므로 안전하다.
+            //   실제로 위험한 케이스는 "이미 등록된 항목이 있는데 다음 OnLocalAttackHit이 영영 오지 않는" 경우이며,
+            //   이 구독이 바로 그 케이스를 커버한다(타임아웃까지 기다리지 않고 즉시 방출).
+            GameEvents.OnNetworkCombatStopped
+                .Subscribe(e => FlushAttacker(e.UnitId, "전투중단"))
+                .AddTo(this);
+            GameEvents.OnCombatStopped
+                .Subscribe(unitId => FlushAttacker(unitId, "전투중단"))
                 .AddTo(this);
         }
 
@@ -209,11 +227,18 @@ namespace Hexiege.Presentation
         // 이벤트 핸들러 — 사망 시 즉시 방출 (안전망 ⓑ)
         // ====================================================================
 
-        /// <summary> 유닛 사망 시 그 유닛을 겨눈 잔여 항목을 즉시 방출. </summary>
+        /// <summary>
+        /// 유닛 사망 처리. 두 가지 안전망을 겸한다:
+        ///   ⓑ 이 유닛을 "타겟"으로 겨눈 잔여 항목을 즉시 방출(사망 연출 전 마지막 피격 표시 보장).
+        ///   ⓓ 이 유닛이 "공격자"였던 큐의 잔여 항목을 즉시 방출 — 죽은 공격자는 다음 타격 프레임을
+        ///      보내지 않으므로 타임아웃까지 방치하지 않고 지금 방출한다.
+        /// 두 큐는 서로 독립적이다(같은 유닛이 자신을 공격하는 경우는 없음).
+        /// </summary>
         private void OnUnitDied(UnitDiedEvent e)
         {
             if (e.Unit == null) return;
-            FlushTarget(e.Unit.Id, targetIsUnit: true);
+            FlushTarget(e.Unit.Id, targetIsUnit: true);   // ⓑ 타겟으로서
+            FlushAttacker(e.Unit.Id, "공격자사망");        // ⓓ 공격자로서
         }
 
         /// <summary> 건물 사망 시 그 건물을 겨눈 잔여 항목을 즉시 방출. </summary>
@@ -265,7 +290,7 @@ namespace Hexiege.Presentation
         /// (원거리 유닛의 트레이서 지연 방출도 큐 입장에선 "타격프레임" 사유로 찍힌다 — 로거 주석 참조.)
         /// </summary>
         /// <param name="evt">방출되는 피격 이벤트.</param>
-        /// <param name="reason">방출 사유(타격프레임/타임아웃/사망방출/타워즉시/즉시(공격자GO없음)).</param>
+        /// <param name="reason">방출 사유(타격프레임/타임아웃/사망방출/공격자사망/전투중단/타워즉시/즉시(공격자GO없음)).</param>
         /// <param name="waitMs">큐 등록~방출까지 대기 시간(ms). 즉시 방출 경로는 0.</param>
         private void LogEmit(EntityDamagedEvent evt, string reason, float waitMs)
         {
@@ -338,6 +363,35 @@ namespace Hexiege.Presentation
                         queue.Enqueue(item);
                 }
             }
+        }
+
+        /// <summary>
+        /// 특정 "공격자"의 큐에 남은 모든 보류 항목을 즉시 방출하고 그 큐를 제거한다(안전망 ⓓ).
+        ///
+        /// 사용처: 공격자 사망(공격자사망) / 공격자 전투 중단(전투중단).
+        /// 두 경우 모두 그 공격자는 더 이상 타격 프레임(OnLocalAttackHit)을 보내지 않으므로,
+        /// 잔여 항목을 지금 방출하지 않으면 타임아웃(쿨다운 1회분)까지 HP 텍스트가 지연된다.
+        /// 큐가 없으면(보류 항목 없음) 아무것도 하지 않는다(no-op) — StopCombat이 타격 프레임보다
+        /// 먼저 도착한 정상 케이스가 여기에 해당하며 안전하다.
+        /// </summary>
+        /// <param name="attackerId">방출 대상 공격자 Id(=_pendingByAttacker의 키).</param>
+        /// <param name="reason">[TIMING-LOG] 방출 사유 라벨(공격자사망/전투중단).</param>
+        private void FlushAttacker(int attackerId, string reason)
+        {
+            if (!_pendingByAttacker.TryGetValue(attackerId, out Queue<PendingHit> queue))
+                return;
+
+            // FIFO 순서 그대로 앞에서부터 전부 방출.
+            while (queue.Count > 0)
+            {
+                PendingHit item = queue.Dequeue();
+                LogEmit(item.Event, reason, (Time.time - item.EnqueueTime) * 1000f); // [TIMING-LOG]
+                Emit(item.Event);
+            }
+
+            // 공격자 큐 자체를 제거 — 이 공격자는 이번 전투에서 더 이상 항목을 쌓지 않는다.
+            // (재교전 시 GetOrCreateQueue가 새 큐를 다시 만든다.)
+            _pendingByAttacker.Remove(attackerId);
         }
 
         /// <summary>
