@@ -46,7 +46,8 @@ namespace Hexiege.Presentation
             EmailLogin,
             SignUp,
             EmailVerify,
-            PasswordReset
+            PasswordReset,
+            NicknameSetup
         }
 
         // ====================================================================
@@ -68,6 +69,12 @@ namespace Hexiege.Presentation
 
         [Tooltip("비밀번호 재설정 패널. CanvasGroup으로 표시/숨김 처리.")]
         [SerializeField] private CanvasGroup _passwordResetPanel;
+
+        [Tooltip("닉네임 설정 패널. CanvasGroup으로 표시/숨김 처리.")]
+        [SerializeField] private CanvasGroup _nicknameSetupPanel;
+
+        [Tooltip("닉네임 설정 View. 화면을 열 때 완료 경로(Google/이메일)를 전달하기 위해 참조한다.")]
+        [SerializeField] private NicknameSetupView _nicknameSetupView;
 
         [Header("팝업 (오버레이)")]
         [Tooltip("익명 로그인 경고 팝업. 패널 전환 스택과 무관.")]
@@ -157,6 +164,23 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
+        /// 닉네임 설정 화면을 표시한다.
+        /// 완료 후 이동 경로(Google/이메일)를 NicknameSetupView 에 먼저 전달한 뒤 패널을 전환한다.
+        ///   Google 경로(isGooglePath=true)  → 닉네임 완료 시 Lobby 씬 이동
+        ///   이메일 경로(isGooglePath=false) → 닉네임 완료 시 이메일 인증 화면 이동
+        /// </summary>
+        /// <param name="isGooglePath">true=Google 로그인 경로, false=이메일 회원가입 경로.</param>
+        public void ShowNicknameSetup(bool isGooglePath)
+        {
+            // View 에 경로를 먼저 알려 준다(입력/상태 초기화도 함께 수행됨).
+            if (_nicknameSetupView != null)
+                _nicknameSetupView.PrepareForShow(isGooglePath);
+
+            PushCurrentToStack();
+            SetActivePanel(LoginPanel.NicknameSetup);
+        }
+
+        /// <summary>
         /// 익명 경고 팝업을 표시한다.
         /// 별도 오버레이로 동작하며 Back 스택과 무관 — 팝업이 자체적으로 닫힘 처리한다.
         /// </summary>
@@ -177,6 +201,7 @@ namespace Hexiege.Presentation
             HideGroup(_signUpPanel);
             HideGroup(_emailVerifyPanel);
             HideGroup(_passwordResetPanel);
+            HideGroup(_nicknameSetupPanel);
             _currentPanel = LoginPanel.None;
         }
 
@@ -296,6 +321,7 @@ namespace Hexiege.Presentation
                 case LoginPanel.SignUp:        ShowGroup(_signUpPanel);        break;
                 case LoginPanel.EmailVerify:   ShowGroup(_emailVerifyPanel);   break;
                 case LoginPanel.PasswordReset: ShowGroup(_passwordResetPanel); break;
+                case LoginPanel.NicknameSetup: ShowGroup(_nicknameSetupPanel); break;
             }
         }
 

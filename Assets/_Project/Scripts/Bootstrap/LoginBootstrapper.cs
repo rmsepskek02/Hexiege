@@ -57,6 +57,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("비밀번호 재설정 View.")]
         [SerializeField] private PasswordResetView _passwordResetView;
 
+        [Tooltip("닉네임 설정 View.")]
+        [SerializeField] private NicknameSetupView _nicknameSetupView;
+
         [Tooltip("익명 로그인 경고 팝업.")]
         [SerializeField] private AnonymousWarningPopup _anonymousWarningPopup;
 
@@ -83,6 +86,11 @@ namespace Hexiege.Bootstrap
         private FirebaseAuthService _authService;
         private LoginUseCase _loginUseCase;
         private AccountLinkUseCase _accountLinkUseCase;
+
+        // 프로필/닉네임 UseCase. IsFirstLogin 판정과 닉네임 저장에 사용한다.
+        //   구현체(PlayerProfileService, UGS Cloud Save)는 Infrastructure 이지만,
+        //   Bootstrap 은 모든 레이어에 접근 가능한 조합 루트이므로 여기서 생성해 주입한다.
+        private PlayerProfileUseCase _playerProfileUseCase;
 
         // ====================================================================
         // Unity 생명주기
@@ -160,6 +168,12 @@ namespace Hexiege.Bootstrap
             // 2) UseCase 생성
             _loginUseCase = new LoginUseCase(_authService);
             _accountLinkUseCase = new AccountLinkUseCase(_authService);
+
+            // 프로필/닉네임 UseCase 생성.
+            //   IPlayerProfileService 구현체는 UGS Cloud Save 기반 PlayerProfileService(Infrastructure).
+            //   인터페이스(Application)에 의존하도록 구성해 Application → Infrastructure 역참조를 막는다.
+            IPlayerProfileService playerProfileService = new PlayerProfileService();
+            _playerProfileUseCase = new PlayerProfileUseCase(playerProfileService);
 
             // 3) View 의존성 주입
             InjectDependencies();
@@ -251,7 +265,7 @@ namespace Hexiege.Bootstrap
                 _rootView.Initialize(this, _loginUseCase);
 
             if (_loginSelectView != null)
-                _loginSelectView.Initialize(_rootView, _loginUseCase, this);
+                _loginSelectView.Initialize(_rootView, _loginUseCase, this, _playerProfileUseCase);
 
             if (_emailLoginView != null)
                 _emailLoginView.Initialize(_rootView, _loginUseCase, this);
@@ -264,6 +278,9 @@ namespace Hexiege.Bootstrap
 
             if (_passwordResetView != null)
                 _passwordResetView.Initialize(_rootView, _loginUseCase);
+
+            if (_nicknameSetupView != null)
+                _nicknameSetupView.Initialize(_rootView, _playerProfileUseCase, this);
 
             if (_anonymousWarningPopup != null)
                 _anonymousWarningPopup.Initialize(_rootView, _loginUseCase, this);

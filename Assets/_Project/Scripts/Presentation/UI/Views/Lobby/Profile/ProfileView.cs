@@ -44,6 +44,33 @@ namespace Hexiege.Presentation
         [Tooltip("계정 정보(이름/이메일 또는 '익명 사용자') 텍스트.")]
         [SerializeField] private TextMeshProUGUI _accountInfoText;
 
+        [Header("닉네임/코드")]
+        [Tooltip("닉네임#코드 표시 텍스트(예: 전사#4729).")]
+        [SerializeField] private TextMeshProUGUI _nicknameText;
+
+        [Tooltip("닉네임 변경 버튼. 실계정에서만 표시(익명 계정은 숨김).")]
+        [SerializeField] private Button _changeNicknameButton;
+
+        [Header("전적")]
+        [Tooltip("총 게임 수 텍스트.")]
+        [SerializeField] private TextMeshProUGUI _totalGamesText;
+
+        [Tooltip("승리 횟수 텍스트.")]
+        [SerializeField] private TextMeshProUGUI _winsText;
+
+        [Tooltip("패배 횟수 텍스트.")]
+        [SerializeField] private TextMeshProUGUI _lossesText;
+
+        [Tooltip("승률 텍스트(총게임수 0이면 '-').")]
+        [SerializeField] private TextMeshProUGUI _winRateText;
+
+        [Tooltip("마지막 접속 종료 날짜/시각 텍스트(예: 2026-06-29 15:30).")]
+        [SerializeField] private TextMeshProUGUI _lastSessionText;
+
+        [Header("내 랭킹")]
+        [Tooltip("내 순위 텍스트('N위' 또는 '순위 없음').")]
+        [SerializeField] private TextMeshProUGUI _myRankText;
+
         [Header("연동 버튼 (익명 계정 전용)")]
         [Tooltip("익명 계정 전용 영역 — Google/이메일 연동 버튼을 묶은 부모 GameObject.")]
         [SerializeField] private GameObject _anonymousSection;
@@ -80,6 +107,16 @@ namespace Hexiege.Presentation
         private FirebaseAuthService _authService;
         private LoginUseCase _loginUseCase;
         private AccountLinkUseCase _accountLinkUseCase;
+
+        // 프로필(닉네임/전적) 조회 UseCase. 구현체는 Infrastructure(UGS Cloud Save) —
+        //   Presentation 은 Infrastructure 보다 바깥 레이어이므로 참조/생성 허용.
+        private PlayerProfileUseCase _profileUseCase;
+
+        // 내 순위 조회 UseCase. 구현체는 Infrastructure(UGS Leaderboards).
+        private RankingUseCase _rankingUseCase;
+
+        // 닉네임 변경 버튼의 표시/숨김을 CanvasGroup 으로 처리하기 위한 캐시(공통 UI 규칙 5).
+        private CanvasGroup _changeNicknameButtonGroup;
 
         // 익명 전용 영역(_anonymousSection)에 부착된 CanvasGroup 캐시.
         // 공통 UI 규칙 Rule 5: SetActive 대신 CanvasGroup으로 표시/숨김 처리.
@@ -118,13 +155,29 @@ namespace Hexiege.Presentation
             _loginUseCase = new LoginUseCase(_authService);
             _accountLinkUseCase = new AccountLinkUseCase(_authService);
 
+            // 프로필/랭킹 UseCase 생성(구현체는 Infrastructure — Presentation 에서 생성 허용).
+            IPlayerProfileService profileService = new PlayerProfileService();
+            _profileUseCase = new PlayerProfileUseCase(profileService);
+
+            ILeaderboardService leaderboardService = new LeaderboardService();
+            _rankingUseCase = new RankingUseCase(leaderboardService);
+
+            // 닉네임 변경 버튼의 CanvasGroup 확보(없으면 추가) — 표시/숨김에 사용.
+            if (_changeNicknameButton != null &&
+                !_changeNicknameButton.TryGetComponent(out _changeNicknameButtonGroup))
+            {
+                _changeNicknameButtonGroup = _changeNicknameButton.gameObject.AddComponent<CanvasGroup>();
+            }
+
             // 버튼 리스너 등록
             if (_linkGoogleButton != null) _linkGoogleButton.onClick.AddListener(OnLinkGoogleClicked);
             if (_linkEmailButton != null) _linkEmailButton.onClick.AddListener(OnLinkEmailClicked);
             if (_logoutButton != null) _logoutButton.onClick.AddListener(OnLogoutClicked);
+            if (_changeNicknameButton != null) _changeNicknameButton.onClick.AddListener(OnChangeNicknameClicked);
 
-            // 최초 UI 갱신
+            // 최초 UI 갱신(계정 상태 + Cloud Save 프로필/랭킹)
             RefreshUI();
+            _ = RefreshProfileDataAsync();
         }
 
         private void OnDestroy()
@@ -132,6 +185,7 @@ namespace Hexiege.Presentation
             if (_linkGoogleButton != null) _linkGoogleButton.onClick.RemoveAllListeners();
             if (_linkEmailButton != null) _linkEmailButton.onClick.RemoveAllListeners();
             if (_logoutButton != null) _logoutButton.onClick.RemoveAllListeners();
+            if (_changeNicknameButton != null) _changeNicknameButton.onClick.RemoveAllListeners();
         }
 
         /// <summary>
@@ -141,7 +195,10 @@ namespace Hexiege.Presentation
         {
             // _authService 초기화 전에 OnEnable 이 먼저 호출될 수 있으므로 null 가드.
             if (_authService != null && _authService.IsInitialized)
+            {
                 RefreshUI();
+                _ = RefreshProfileDataAsync();
+            }
         }
 
         // ====================================================================
@@ -160,6 +217,8 @@ namespace Hexiege.Presentation
                 if (_accountInfoText != null)
                     _accountInfoText.text = "로그인 정보가 없습니다.";
                 SetAnonymousSectionVisible(false);
+                // 로그인 정보가 없으면 닉네임 변경 버튼도 숨긴다.
+                SetChangeNicknameVisible(false);
                 return;
             }
 
@@ -172,9 +231,13 @@ namespace Hexiege.Presentation
                         "계정을 연동하면 기기 변경 시에도 데이터를 유지할 수 있습니다.";
                 }
                 SetAnonymousSectionVisible(true);
+                // 익명 계정에는 닉네임 변경 버튼을 표시하지 않는다(UI 규칙 3).
+                SetChangeNicknameVisible(false);
             }
             else
             {
+                // 실계정 → 닉네임 변경 버튼 표시.
+                SetChangeNicknameVisible(true);
                 // 실계정(Google 또는 이메일).
                 //   Google 로그인은 DisplayName 이 채워지고, 이메일 로그인은 Email 만 채워지는 경향.
                 string label = !string.IsNullOrWhiteSpace(_authService.DisplayName)
@@ -186,6 +249,112 @@ namespace Hexiege.Presentation
 
                 SetAnonymousSectionVisible(false);
             }
+        }
+
+        // ====================================================================
+        // 닉네임 / 전적 / 내 랭킹 (Cloud Save + Leaderboard)
+        // ====================================================================
+
+        /// <summary>
+        /// Cloud Save 프로필(닉네임/전적)과 Leaderboard 내 순위를 로드해 각 텍스트에 바인딩한다.
+        /// 탭이 활성화될 때마다 호출되어 최신 데이터를 반영한다(UI 규칙 6).
+        /// </summary>
+        private async System.Threading.Tasks.Task RefreshProfileDataAsync()
+        {
+            if (_profileUseCase == null)
+                return;
+
+            PlayerProfileData profile = await _profileUseCase.LoadProfileAsync();
+            if (profile == null)
+                return;
+
+            // 닉네임#코드 (없으면 '게스트' 표기 — 익명/미설정 계정 대비).
+            if (_nicknameText != null)
+                _nicknameText.text = profile.HasNickname ? profile.DisplayName : "게스트";
+
+            // 전적.
+            if (_totalGamesText != null) _totalGamesText.text = profile.TotalGames.ToString();
+            if (_winsText != null) _winsText.text = profile.Wins.ToString();
+            if (_lossesText != null) _lossesText.text = profile.Losses.ToString();
+
+            // 승률: 총게임수 0이면 '-' (UI 규칙 4).
+            if (_winRateText != null)
+                _winRateText.text = profile.TotalGames > 0 ? $"{profile.WinRate:F1}%" : "-";
+
+            // 마지막 접속 종료 날짜/시각.
+            if (_lastSessionText != null)
+                _lastSessionText.text = FormatLastSession(profile.LastSessionEndAt);
+
+            // 내 랭킹.
+            await RefreshMyRankAsync(profile.TotalGames);
+        }
+
+        /// <summary>
+        /// 내 순위를 조회해 텍스트에 바인딩한다.
+        ///   총게임수 20 미만: "랭킹: 순위 없음 (20판 이상 필요)"
+        ///   20 이상 & 순위 있음: "랭킹: N위"
+        ///   20 이상 & 순위 없음: "랭킹: 순위 없음"
+        /// (UI 규칙 5)
+        /// </summary>
+        private async System.Threading.Tasks.Task RefreshMyRankAsync(int totalGames)
+        {
+            if (_myRankText == null)
+                return;
+
+            if (totalGames < RankingUseCase.MinGamesForRank)
+            {
+                _myRankText.text = $"랭킹: 순위 없음 ({RankingUseCase.MinGamesForRank}판 이상 필요)";
+                return;
+            }
+
+            int rank = _rankingUseCase != null ? await _rankingUseCase.GetMyRankAsync() : -1;
+            _myRankText.text = rank > 0 ? $"랭킹: {rank}위" : "랭킹: 순위 없음";
+        }
+
+        /// <summary>
+        /// ISO 문자열을 "yyyy-MM-dd HH:mm" 로 변환한다. 파싱 실패/빈 값이면 "-".
+        /// </summary>
+        private static string FormatLastSession(string iso)
+        {
+            if (string.IsNullOrWhiteSpace(iso))
+                return "-";
+
+            if (System.DateTime.TryParse(iso, out System.DateTime dt))
+                return dt.ToString("yyyy-MM-dd HH:mm");
+
+            return "-";
+        }
+
+        /// <summary>
+        /// 닉네임 변경 버튼 클릭.
+        /// 실제 닉네임 변경 UI 는 본 작업 범위 밖이므로, 현재는 안내 메시지만 표시한다.
+        /// hasUsedFreeNicknameChange 값에 따라 무료/유료 안내를 구분한다(UI 규칙 3).
+        /// // TODO: 닉네임 변경 UI(입력/검증/결제 분기) 별도 구현 필요
+        /// </summary>
+        private async void OnChangeNicknameClicked()
+        {
+            if (_profileUseCase == null)
+                return;
+
+            PlayerProfileData profile = await _profileUseCase.LoadProfileAsync();
+            bool usedFree = profile != null && profile.HasUsedFreeNicknameChange;
+
+            SetStatus(usedFree
+                ? "닉네임 변경은 인앱 결제로 가능합니다. (준비 중)"
+                : "최초 1회 닉네임 변경은 무료입니다. (준비 중)");
+        }
+
+        /// <summary>
+        /// 닉네임 변경 버튼 표시/숨김(CanvasGroup 기반, 공통 UI 규칙 5).
+        /// </summary>
+        private void SetChangeNicknameVisible(bool visible)
+        {
+            if (_changeNicknameButtonGroup == null)
+                return;
+
+            _changeNicknameButtonGroup.alpha = visible ? 1f : 0f;
+            _changeNicknameButtonGroup.blocksRaycasts = visible;
+            _changeNicknameButtonGroup.interactable = visible;
         }
 
         // ====================================================================

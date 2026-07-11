@@ -140,8 +140,14 @@ namespace Hexiege.Presentation
                 switch (result)
                 {
                     case LoginResult.NeedsEmailVerification:
-                        // 회원가입 직후의 정상 흐름 — 인증 대기 화면으로 이동.
-                        _rootView.ShowEmailVerify();
+                        // 회원가입 직후의 정상 흐름.
+                        //   [변경 — 닉네임 설정 경유] 기존에는 곧바로 이메일 인증 화면으로 이동했으나,
+                        //   이제 닉네임 설정 화면(이메일 경로)을 먼저 표시한다.
+                        //   닉네임 설정/스킵 완료 후 NicknameSetupView 가 ShowEmailVerify() 를 호출한다.
+                        //   (AuthSystemRules.md 이메일 회원가입 규칙: 가입 → 닉네임 설정 → 이메일 인증)
+                        // === [구 로직 — 비활성화] 이메일 인증 화면 직행 ===
+                        // _rootView.ShowEmailVerify();
+                        _rootView.ShowNicknameSetup(isGooglePath: false);
                         return;
 
                     case LoginResult.Success:
