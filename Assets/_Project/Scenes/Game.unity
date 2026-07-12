@@ -25709,13 +25709,13 @@ MonoBehaviour:
     red: {fileID: 6630118796036342330, guid: 25de86da518b1574b9f19dce36ceddd1, type: 3}
   - type: 3
     blue: {fileID: 706557163707619843, guid: 3610a3acac634d542a0b010cf4f494cc, type: 3}
-    red: {fileID: 706557163707619843, guid: 3610a3acac634d542a0b010cf4f494cc, type: 3}
+    red: {fileID: 2875750089628736822, guid: 256fe9d1d991f24479401c151dedb259, type: 3}
   - type: 4
     blue: {fileID: 7399617787143926463, guid: 0ccbe86e05acded448d0dab522d79418, type: 3}
-    red: {fileID: 7399617787143926463, guid: 0ccbe86e05acded448d0dab522d79418, type: 3}
+    red: {fileID: 8321662859141158923, guid: 73b703117e11b2a4da17ddb7ee460bd9, type: 3}
   - type: 5
     blue: {fileID: 5596701579882278624, guid: 2cdfd4876bc5886499d7325922884c8c, type: 3}
-    red: {fileID: 5596701579882278624, guid: 2cdfd4876bc5886499d7325922884c8c, type: 3}
+    red: {fileID: 8604469531852510740, guid: c899264d189155a4394e9fdb39280d55, type: 3}
   - type: 7
     blue: {fileID: 571444110236257184, guid: 9f24c93cf4803914fb9524ad5aa3bb68, type: 3}
     red: {fileID: 571444110236257184, guid: cb3bc2727d390fa43a8aefd4f3310a2e, type: 3}
