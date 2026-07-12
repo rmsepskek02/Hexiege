@@ -3344,3 +3344,1748 @@
 [18:28:43.840] [INFO] [Move/UnitView] Walk 적용 | unit=425, animator상태=Walk
 [18:28:43.915] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=451, isServer=False
 [18:28:43.915] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=425, isServer=False
+[07:48:48.515] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=0, prev=None, new=Walk
+[07:48:48.517] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:48:48.535] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=0
+[07:48:48.535] [INFO] [Move/UnitFactory] 유닛 생성 | unit=0(Pistoleer), isServer=False
+[07:48:48.803] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=None, new=Walk
+[07:48:48.804] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:48:48.805] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=1
+[07:48:48.805] [INFO] [Move/UnitFactory] 유닛 생성 | unit=1(Pistoleer), isServer=False
+[07:48:53.464] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=2, prev=None, new=Walk
+[07:48:53.464] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:48:53.466] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=2
+[07:48:53.466] [INFO] [Move/UnitFactory] 유닛 생성 | unit=2(Pistoleer), isServer=False
+[07:48:53.800] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=None, new=Walk
+[07:48:53.800] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:48:53.809] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=3
+[07:48:53.809] [INFO] [Move/UnitFactory] 유닛 생성 | unit=3(Pistoleer), isServer=False
+[07:48:55.487] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=4, prev=None, new=Walk
+[07:48:55.487] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:48:55.489] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=4
+[07:48:55.489] [INFO] [Move/UnitFactory] 유닛 생성 | unit=4(LittleKnight), isServer=False
+[07:48:58.474] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=5, prev=None, new=Walk
+[07:48:58.474] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:48:58.475] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=5
+[07:48:58.475] [INFO] [Move/UnitFactory] 유닛 생성 | unit=5(Pistoleer), isServer=False
+[07:48:58.808] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=None, new=Walk
+[07:48:58.808] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:48:58.809] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=6
+[07:48:58.809] [INFO] [Move/UnitFactory] 유닛 생성 | unit=6(Pistoleer), isServer=False
+[07:49:00.475] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=7, prev=None, new=Walk
+[07:49:00.475] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:00.476] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=7
+[07:49:00.476] [INFO] [Move/UnitFactory] 유닛 생성 | unit=7(LittleKnight), isServer=False
+[07:49:02.355] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=0, isServer=False
+[07:49:02.355] [INFO] [Move/UnitView] Attack 적용 | unit=0, target=4, animator상태=Walk
+[07:49:02.373] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=0, prev=Walk, new=Attack
+[07:49:02.374] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=0, animator상태=Walk
+[07:49:03.016] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=4, isServer=False
+[07:49:03.016] [INFO] [Move/UnitView] Attack 적용 | unit=4, target=0, animator상태=Walk
+[07:49:03.047] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=4, prev=Walk, new=Attack
+[07:49:03.047] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=4, animator상태=Walk
+[07:49:03.482] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=8, prev=None, new=Walk
+[07:49:03.482] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:03.483] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=8
+[07:49:03.483] [INFO] [Move/UnitFactory] 유닛 생성 | unit=8(Pistoleer), isServer=False
+[07:49:03.848] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=None, new=Walk
+[07:49:03.848] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:03.849] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=9
+[07:49:03.849] [INFO] [Move/UnitFactory] 유닛 생성 | unit=9(Pistoleer), isServer=False
+[07:49:04.742] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=1, isServer=False
+[07:49:04.742] [INFO] [Move/UnitView] Attack 적용 | unit=1, target=0, animator상태=Walk
+[07:49:04.755] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Walk, new=Attack
+[07:49:04.755] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Walk
+[07:49:04.989] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=2, isServer=False
+[07:49:04.989] [INFO] [Move/UnitView] Attack 적용 | unit=2, target=4, animator상태=Walk
+[07:49:05.046] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=2, prev=Walk, new=Attack
+[07:49:05.046] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=2, animator상태=Walk
+[07:49:05.491] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=None, new=Walk
+[07:49:05.491] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:05.498] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=10
+[07:49:05.499] [INFO] [Move/UnitFactory] 유닛 생성 | unit=10(LittleKnight), isServer=False
+[07:49:08.505] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=11, prev=None, new=Walk
+[07:49:08.507] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:08.513] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=11
+[07:49:08.514] [INFO] [Move/UnitFactory] 유닛 생성 | unit=11(Pistoleer), isServer=False
+[07:49:08.823] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=12, prev=None, new=Walk
+[07:49:08.823] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:08.825] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=12
+[07:49:08.825] [INFO] [Move/UnitFactory] 유닛 생성 | unit=12(Pistoleer), isServer=False
+[07:49:09.096] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=7, isServer=False
+[07:49:09.102] [INFO] [Move/UnitView] Attack 적용 | unit=7, target=0, animator상태=Walk
+[07:49:09.102] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=7, prev=Walk, new=Attack
+[07:49:09.102] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=7, animator상태=Walk
+[07:49:09.256] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=2, isServer=False
+[07:49:09.428] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=1, isServer=False
+[07:49:09.428] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=7, isServer=False
+[07:49:10.499] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=13, prev=None, new=Walk
+[07:49:10.499] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:10.500] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=13
+[07:49:10.500] [INFO] [Move/UnitFactory] 유닛 생성 | unit=13(LittleKnight), isServer=False
+[07:49:10.829] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Walk
+[07:49:10.829] [INFO] [Move/UnitView] Walk 적용 | unit=1, animator상태=Attack
+[07:49:11.041] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=2, prev=Attack, new=Walk
+[07:49:11.041] [INFO] [Move/UnitView] Walk 적용 | unit=2, animator상태=Attack
+[07:49:11.069] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=5, isServer=False
+[07:49:11.069] [INFO] [Move/UnitView] Attack 적용 | unit=5, target=7, animator상태=Walk
+[07:49:11.069] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=3, isServer=False
+[07:49:11.069] [INFO] [Move/UnitView] Attack 적용 | unit=3, target=5, animator상태=Walk
+[07:49:11.093] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=5, prev=Walk, new=Attack
+[07:49:11.093] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=5, animator상태=Walk
+[07:49:11.093] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Walk, new=Attack
+[07:49:11.093] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Walk
+[07:49:11.740] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=2, prev=Walk, new=Attack
+[07:49:11.740] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=2, animator상태=Walk
+[07:49:11.827] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=None, new=Walk
+[07:49:11.827] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:11.829] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=14
+[07:49:11.829] [INFO] [Move/UnitFactory] 유닛 생성 | unit=14(Assault), isServer=False
+[07:49:12.131] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Walk, new=Attack
+[07:49:12.131] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Walk
+[07:49:12.131] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=7, prev=Attack, new=Walk
+[07:49:12.131] [INFO] [Move/UnitView] Walk 적용 | unit=7, animator상태=Attack
+[07:49:12.643] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=2, isServer=False
+[07:49:12.643] [INFO] [Move/UnitView] Attack 적용 | unit=2, target=7, animator상태=Attack
+[07:49:12.643] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=1, isServer=False
+[07:49:12.643] [INFO] [Move/UnitView] Attack 적용 | unit=1, target=5, animator상태=Attack
+[07:49:12.663] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=2, prev=Attack, new=Attack
+[07:49:12.663] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=2, animator상태=Attack
+[07:49:12.663] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Attack
+[07:49:12.663] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Attack
+[07:49:12.806] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=7, isServer=False
+[07:49:12.806] [INFO] [Move/UnitView] Attack 적용 | unit=7, target=5, animator상태=Walk
+[07:49:12.836] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=7, prev=Walk, new=Attack
+[07:49:12.836] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=7, animator상태=Walk
+[07:49:13.495] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=15, prev=None, new=Walk
+[07:49:13.495] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:13.495] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=15
+[07:49:13.495] [INFO] [Move/UnitFactory] 유닛 생성 | unit=15(Pistoleer), isServer=False
+[07:49:13.743] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=10, isServer=False
+[07:49:13.743] [INFO] [Move/UnitView] Attack 적용 | unit=10, target=5, animator상태=Walk
+[07:49:13.764] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=Walk, new=Attack
+[07:49:13.764] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=10, animator상태=Walk
+[07:49:13.834] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=16, prev=None, new=Walk
+[07:49:13.834] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:13.834] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=16
+[07:49:13.834] [INFO] [Move/UnitFactory] 유닛 생성 | unit=16(Pistoleer), isServer=False
+[07:49:14.103] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=6, isServer=False
+[07:49:14.103] [INFO] [Move/UnitView] Attack 적용 | unit=6, target=2, animator상태=Walk
+[07:49:14.110] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:14.110] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:14.110] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=7, isServer=False
+[07:49:14.110] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=10, isServer=False
+[07:49:14.648] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=8, isServer=False
+[07:49:14.648] [INFO] [Move/UnitView] Attack 적용 | unit=8, target=7, animator상태=Walk
+[07:49:14.661] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=8, prev=Walk, new=Attack
+[07:49:14.661] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=8, animator상태=Walk
+[07:49:15.492] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=17, prev=None, new=Walk
+[07:49:15.492] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:15.493] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=17
+[07:49:15.493] [INFO] [Move/UnitFactory] 유닛 생성 | unit=17(LittleKnight), isServer=False
+[07:49:15.845] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=7, prev=Attack, new=Walk
+[07:49:15.845] [INFO] [Move/UnitView] Walk 적용 | unit=7, animator상태=Attack
+[07:49:16.134] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=7, isServer=False
+[07:49:16.134] [INFO] [Move/UnitView] Attack 적용 | unit=7, target=2, animator상태=Walk
+[07:49:16.134] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=7, prev=Walk, new=Attack
+[07:49:16.134] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=7, animator상태=Walk
+[07:49:16.736] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=Attack, new=Walk
+[07:49:16.736] [INFO] [Move/UnitView] Walk 적용 | unit=10, animator상태=Attack
+[07:49:16.999] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=7, isServer=False
+[07:49:16.999] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=3, isServer=False
+[07:49:16.999] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=1, isServer=False
+[07:49:16.999] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:17.039] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Attack, new=Walk
+[07:49:17.039] [INFO] [Move/UnitView] Walk 적용 | unit=3, animator상태=Attack
+[07:49:17.435] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=10, isServer=False
+[07:49:17.435] [INFO] [Move/UnitView] Attack 적용 | unit=10, target=8, animator상태=Walk
+[07:49:17.490] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=Walk, new=Attack
+[07:49:17.490] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=10, animator상태=Walk
+[07:49:18.026] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:18.026] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:18.136] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Walk
+[07:49:18.136] [INFO] [Move/UnitView] Walk 적용 | unit=1, animator상태=Attack
+[07:49:18.330] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Walk, new=Attack
+[07:49:18.330] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Walk
+[07:49:18.498] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=18, prev=None, new=Walk
+[07:49:18.498] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:18.499] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=18
+[07:49:18.499] [INFO] [Move/UnitFactory] 유닛 생성 | unit=18(Pistoleer), isServer=False
+[07:49:18.643] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=3, isServer=False
+[07:49:18.646] [INFO] [Move/UnitView] Attack 적용 | unit=3, target=8, animator상태=Attack
+[07:49:18.689] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Attack, new=Attack
+[07:49:18.689] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Attack
+[07:49:18.743] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=14, isServer=False
+[07:49:18.743] [INFO] [Move/UnitView] Attack 적용 | unit=14, target=8, animator상태=Walk
+[07:49:18.766] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Walk, new=Attack
+[07:49:18.766] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Walk
+[07:49:18.871] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=19, prev=None, new=Walk
+[07:49:18.871] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:18.879] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=19
+[07:49:18.879] [INFO] [Move/UnitFactory] 유닛 생성 | unit=19(Pistoleer), isServer=False
+[07:49:19.135] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Walk, new=Attack
+[07:49:19.135] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Walk
+[07:49:19.303] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=11, isServer=False
+[07:49:19.303] [INFO] [Move/UnitView] Attack 적용 | unit=11, target=13, animator상태=Walk
+[07:49:19.333] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:19.333] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:19.333] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=11, prev=Walk, new=Attack
+[07:49:19.333] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=11, animator상태=Walk
+[07:49:19.435] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=13, isServer=False
+[07:49:19.435] [INFO] [Move/UnitView] Attack 적용 | unit=13, target=8, animator상태=Walk
+[07:49:19.435] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=13, prev=Walk, new=Attack
+[07:49:19.435] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=13, animator상태=Walk
+[07:49:19.650] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=1, isServer=False
+[07:49:19.650] [INFO] [Move/UnitView] Attack 적용 | unit=1, target=8, animator상태=Attack
+[07:49:19.650] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=6, isServer=False
+[07:49:19.650] [INFO] [Move/UnitView] Attack 적용 | unit=6, target=8, animator상태=Attack
+[07:49:19.663] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Attack
+[07:49:19.663] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Attack
+[07:49:19.663] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Attack
+[07:49:19.663] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Attack
+[07:49:20.207] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:20.207] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=1, isServer=False
+[07:49:20.207] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=14, isServer=False
+[07:49:20.207] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=3, isServer=False
+[07:49:20.207] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=10, isServer=False
+[07:49:20.207] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=13, isServer=False
+[07:49:20.335] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Attack, new=Walk
+[07:49:20.335] [INFO] [Move/UnitView] Walk 적용 | unit=3, animator상태=Attack
+[07:49:20.441] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Walk
+[07:49:20.441] [INFO] [Move/UnitView] Walk 적용 | unit=14, animator상태=Attack
+[07:49:20.441] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=Attack, new=Walk
+[07:49:20.441] [INFO] [Move/UnitView] Walk 적용 | unit=10, animator상태=Attack
+[07:49:20.497] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=20, prev=None, new=Walk
+[07:49:20.497] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:20.497] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=20
+[07:49:20.498] [INFO] [Move/UnitFactory] 유닛 생성 | unit=20(LittleKnight), isServer=False
+[07:49:20.733] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Walk, new=Attack
+[07:49:20.733] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Walk
+[07:49:20.809] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=9, isServer=False
+[07:49:20.809] [INFO] [Move/UnitView] Attack 적용 | unit=9, target=11, animator상태=Walk
+[07:49:20.830] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Walk, new=Attack
+[07:49:20.830] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Walk
+[07:49:20.948] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Walk, new=Attack
+[07:49:20.948] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Walk
+[07:49:21.135] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Walk
+[07:49:21.135] [INFO] [Move/UnitView] Walk 적용 | unit=1, animator상태=Attack
+[07:49:21.241] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=10, isServer=False
+[07:49:21.241] [INFO] [Move/UnitView] Attack 적용 | unit=10, target=11, animator상태=Walk
+[07:49:21.267] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=Walk, new=Attack
+[07:49:21.267] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=10, animator상태=Walk
+[07:49:21.336] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:21.336] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:21.647] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=3, isServer=False
+[07:49:21.647] [INFO] [Move/UnitView] Attack 적용 | unit=3, target=11, animator상태=Attack
+[07:49:21.647] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=14, isServer=False
+[07:49:21.647] [INFO] [Move/UnitView] Attack 적용 | unit=14, target=11, animator상태=Attack
+[07:49:21.688] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Attack, new=Attack
+[07:49:21.688] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Attack
+[07:49:21.688] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Attack
+[07:49:21.688] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Attack
+[07:49:21.743] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:21.743] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:21.763] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=None, new=Walk
+[07:49:21.763] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:21.764] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=21
+[07:49:21.764] [INFO] [Move/UnitFactory] 유닛 생성 | unit=21(Assault), isServer=False
+[07:49:22.301] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=15, isServer=False
+[07:49:22.301] [INFO] [Move/UnitView] Attack 적용 | unit=15, target=10, animator상태=Walk
+[07:49:22.339] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=15, prev=Walk, new=Attack
+[07:49:22.339] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=15, animator상태=Walk
+[07:49:22.438] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=13, prev=Attack, new=Walk
+[07:49:22.438] [INFO] [Move/UnitView] Walk 적용 | unit=13, animator상태=Attack
+[07:49:22.609] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:22.609] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=10, isServer=False
+[07:49:22.609] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=14, isServer=False
+[07:49:22.609] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=9, isServer=False
+[07:49:22.609] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=3, isServer=False
+[07:49:22.642] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Walk
+[07:49:22.642] [INFO] [Move/UnitView] Walk 적용 | unit=14, animator상태=Attack
+[07:49:22.665] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:22.665] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:22.737] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Attack, new=Walk
+[07:49:22.737] [INFO] [Move/UnitView] Walk 적용 | unit=3, animator상태=Attack
+[07:49:22.843] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Walk
+[07:49:22.843] [INFO] [Move/UnitView] Walk 적용 | unit=9, animator상태=Attack
+[07:49:23.332] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Walk, new=Attack
+[07:49:23.333] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Walk
+[07:49:23.508] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=22, prev=None, new=Walk
+[07:49:23.508] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:23.509] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=1, isServer=False
+[07:49:23.509] [INFO] [Move/UnitView] Attack 적용 | unit=1, target=15, animator상태=Walk
+[07:49:23.509] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=22
+[07:49:23.509] [INFO] [Move/UnitFactory] 유닛 생성 | unit=22(Pistoleer), isServer=False
+[07:49:23.537] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Walk, new=Attack
+[07:49:23.537] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Walk
+[07:49:23.648] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=14, isServer=False
+[07:49:23.648] [INFO] [Move/UnitView] Attack 적용 | unit=14, target=15, animator상태=Attack
+[07:49:23.665] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Attack
+[07:49:23.665] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Attack
+[07:49:23.861] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=None, new=Walk
+[07:49:23.863] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:23.864] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=23
+[07:49:23.864] [INFO] [Move/UnitFactory] 유닛 생성 | unit=23(Pistoleer), isServer=False
+[07:49:23.932] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=6, isServer=False
+[07:49:23.933] [INFO] [Move/UnitView] Attack 적용 | unit=6, target=15, animator상태=Walk
+[07:49:23.941] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:23.942] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:24.230] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=13, isServer=False
+[07:49:24.230] [INFO] [Move/UnitView] Attack 적용 | unit=13, target=15, animator상태=Walk
+[07:49:24.239] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=13, prev=Walk, new=Attack
+[07:49:24.239] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=13, animator상태=Walk
+[07:49:24.239] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Walk, new=Attack
+[07:49:24.239] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Walk
+[07:49:24.239] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=Attack, new=Walk
+[07:49:24.239] [INFO] [Move/UnitView] Walk 적용 | unit=10, animator상태=Attack
+[07:49:24.680] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=3, isServer=False
+[07:49:24.680] [INFO] [Move/UnitView] Attack 적용 | unit=3, target=15, animator상태=Attack
+[07:49:24.688] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Attack, new=Attack
+[07:49:24.689] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Attack
+[07:49:24.739] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Walk, new=Attack
+[07:49:24.739] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Walk
+[07:49:24.914] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=10, isServer=False
+[07:49:24.914] [INFO] [Move/UnitView] Attack 적용 | unit=10, target=15, animator상태=Walk
+[07:49:24.951] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=Walk, new=Attack
+[07:49:24.951] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=10, animator상태=Walk
+[07:49:25.218] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=3, isServer=False
+[07:49:25.218] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=13, isServer=False
+[07:49:25.218] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:25.218] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=1, isServer=False
+[07:49:25.218] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=10, isServer=False
+[07:49:25.218] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=9, isServer=False
+[07:49:25.218] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=14, isServer=False
+[07:49:25.343] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Walk
+[07:49:25.343] [INFO] [Move/UnitView] Walk 적용 | unit=14, animator상태=Attack
+[07:49:25.509] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=24, prev=None, new=Walk
+[07:49:25.509] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:25.510] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=24
+[07:49:25.511] [INFO] [Move/UnitFactory] 유닛 생성 | unit=24(LittleKnight), isServer=False
+[07:49:25.542] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Walk
+[07:49:25.542] [INFO] [Move/UnitView] Walk 적용 | unit=1, animator상태=Attack
+[07:49:25.675] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Walk
+[07:49:25.675] [INFO] [Move/UnitView] Walk 적용 | unit=9, animator상태=Attack
+[07:49:25.842] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=18, isServer=False
+[07:49:25.842] [INFO] [Move/UnitView] Attack 적용 | unit=18, target=17, animator상태=Walk
+[07:49:25.882] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=18, prev=Walk, new=Attack
+[07:49:25.882] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=18, animator상태=Walk
+[07:49:25.948] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:25.949] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:26.245] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Attack, new=Walk
+[07:49:26.245] [INFO] [Move/UnitView] Walk 적용 | unit=3, animator상태=Attack
+[07:49:26.667] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=9, isServer=False
+[07:49:26.667] [INFO] [Move/UnitView] Attack 적용 | unit=9, target=18, animator상태=Walk
+[07:49:26.676] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Walk, new=Attack
+[07:49:26.676] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Walk
+[07:49:26.790] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=14, isServer=False
+[07:49:26.790] [INFO] [Move/UnitView] Attack 적용 | unit=14, target=18, animator상태=Walk
+[07:49:26.813] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Walk, new=Attack
+[07:49:26.813] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Walk
+[07:49:27.242] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=17, isServer=False
+[07:49:27.242] [INFO] [Move/UnitView] Attack 적용 | unit=17, target=18, animator상태=Walk
+[07:49:27.250] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=17, prev=Walk, new=Attack
+[07:49:27.250] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=17, animator상태=Walk
+[07:49:27.250] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=13, prev=Attack, new=Walk
+[07:49:27.250] [INFO] [Move/UnitView] Walk 적용 | unit=13, animator상태=Attack
+[07:49:27.447] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=6, isServer=False
+[07:49:27.447] [INFO] [Move/UnitView] Attack 적용 | unit=6, target=18, animator상태=Walk
+[07:49:27.475] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:27.475] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:27.945] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=Attack, new=Walk
+[07:49:27.945] [INFO] [Move/UnitView] Walk 적용 | unit=10, animator상태=Attack
+[07:49:28.508] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=25, prev=None, new=Walk
+[07:49:28.508] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:28.508] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=25
+[07:49:28.508] [INFO] [Move/UnitFactory] 유닛 생성 | unit=25(Pistoleer), isServer=False
+[07:49:28.681] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=13, isServer=False
+[07:49:28.681] [INFO] [Move/UnitView] Attack 적용 | unit=13, target=18, animator상태=Walk
+[07:49:28.731] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=13, prev=Walk, new=Attack
+[07:49:28.731] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=13, animator상태=Walk
+[07:49:28.850] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=26, prev=None, new=Walk
+[07:49:28.850] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:28.850] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=1, isServer=False
+[07:49:28.851] [INFO] [Move/UnitView] Attack 적용 | unit=1, target=18, animator상태=Walk
+[07:49:28.851] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=26
+[07:49:28.851] [INFO] [Move/UnitFactory] 유닛 생성 | unit=26(Pistoleer), isServer=False
+[07:49:28.888] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Walk, new=Attack
+[07:49:28.888] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Walk
+[07:49:28.919] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=22, isServer=False
+[07:49:28.919] [INFO] [Move/UnitView] Attack 적용 | unit=22, target=10, animator상태=Walk
+[07:49:28.943] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=22, prev=Walk, new=Attack
+[07:49:28.943] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=22, animator상태=Walk
+[07:49:29.039] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=1, isServer=False
+[07:49:29.039] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=13, isServer=False
+[07:49:29.039] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:29.039] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=17, isServer=False
+[07:49:29.040] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=14, isServer=False
+[07:49:29.040] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=9, isServer=False
+[07:49:29.147] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Walk
+[07:49:29.147] [INFO] [Move/UnitView] Walk 적용 | unit=14, animator상태=Attack
+[07:49:29.442] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Walk, new=Attack
+[07:49:29.442] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Walk
+[07:49:29.442] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:29.442] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:29.651] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=14, isServer=False
+[07:49:29.651] [INFO] [Move/UnitView] Attack 적용 | unit=14, target=22, animator상태=Attack
+[07:49:29.651] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=10, isServer=False
+[07:49:29.651] [INFO] [Move/UnitView] Attack 적용 | unit=10, target=22, animator상태=Walk
+[07:49:29.674] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Attack
+[07:49:29.674] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Attack
+[07:49:29.674] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=Walk, new=Attack
+[07:49:29.674] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=10, animator상태=Walk
+[07:49:29.745] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=3, isServer=False
+[07:49:29.745] [INFO] [Move/UnitView] Attack 적용 | unit=3, target=22, animator상태=Walk
+[07:49:29.784] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Walk, new=Attack
+[07:49:29.784] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Walk
+[07:49:30.251] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=17, prev=Attack, new=Walk
+[07:49:30.251] [INFO] [Move/UnitView] Walk 적용 | unit=17, animator상태=Attack
+[07:49:30.529] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=27, prev=None, new=Walk
+[07:49:30.529] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:30.530] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=27
+[07:49:30.530] [INFO] [Move/UnitFactory] 유닛 생성 | unit=27(LittleKnight), isServer=False
+[07:49:30.755] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Walk
+[07:49:30.755] [INFO] [Move/UnitView] Walk 적용 | unit=9, animator상태=Attack
+[07:49:30.858] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Walk
+[07:49:30.858] [INFO] [Move/UnitView] Walk 적용 | unit=1, animator상태=Attack
+[07:49:30.991] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Walk, new=Attack
+[07:49:30.991] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Walk
+[07:49:31.227] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=6, isServer=False
+[07:49:31.227] [INFO] [Move/UnitView] Attack 적용 | unit=6, target=22, animator상태=Walk
+[07:49:31.292] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:31.292] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:31.292] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=17, isServer=False
+[07:49:31.292] [INFO] [Move/UnitView] Attack 적용 | unit=17, target=22, animator상태=Walk
+[07:49:31.326] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=17, prev=Walk, new=Attack
+[07:49:31.326] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=17, animator상태=Walk
+[07:49:31.653] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=21, isServer=False
+[07:49:31.653] [INFO] [Move/UnitView] Attack 적용 | unit=21, target=22, animator상태=Walk
+[07:49:31.687] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=28, prev=None, new=Attack
+[07:49:31.687] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=-1, animator상태=기타
+[07:49:31.687] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Walk, new=Attack
+[07:49:31.687] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=21, animator상태=Walk
+[07:49:31.687] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=13, prev=Attack, new=Walk
+[07:49:31.687] [INFO] [Move/UnitView] Walk 적용 | unit=13, animator상태=Attack
+[07:49:31.687] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=1, isServer=False
+[07:49:31.687] [INFO] [Move/UnitView] Attack 적용 | unit=1, target=22, animator상태=Attack
+[07:49:31.694] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=28
+[07:49:31.695] [INFO] [Move/UnitFactory] 유닛 생성 | unit=28(Sniper), isServer=False
+[07:49:31.744] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Attack
+[07:49:31.744] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Attack
+[07:49:31.787] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=29, prev=None, new=Walk
+[07:49:31.787] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:31.787] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=29
+[07:49:31.787] [INFO] [Move/UnitFactory] 유닛 생성 | unit=29(Assault), isServer=False
+[07:49:31.832] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=17, isServer=False
+[07:49:31.832] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:31.832] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=1, isServer=False
+[07:49:31.832] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=3, isServer=False
+[07:49:31.832] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=10, isServer=False
+[07:49:31.832] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=14, isServer=False
+[07:49:31.832] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=21, isServer=False
+[07:49:31.879] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Walk
+[07:49:31.879] [INFO] [Move/UnitView] Walk 적용 | unit=14, animator상태=Attack
+[07:49:31.919] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=30, prev=None, new=Walk
+[07:49:31.920] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:31.920] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=30
+[07:49:31.920] [INFO] [Move/UnitFactory] 유닛 생성 | unit=30(Assault), isServer=False
+[07:49:32.059] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Attack, new=Walk
+[07:49:32.059] [INFO] [Move/UnitView] Walk 적용 | unit=21, animator상태=Attack
+[07:49:32.638] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=25, isServer=False
+[07:49:32.638] [INFO] [Move/UnitView] Attack 적용 | unit=25, target=13, animator상태=Walk
+[07:49:32.657] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=25, prev=Walk, new=Attack
+[07:49:32.657] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=25, animator상태=Walk
+[07:49:32.657] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=10, prev=Attack, new=Walk
+[07:49:32.657] [INFO] [Move/UnitView] Walk 적용 | unit=10, animator상태=Attack
+[07:49:32.930] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=14, isServer=False
+[07:49:32.930] [INFO] [Move/UnitView] Attack 적용 | unit=14, target=8, animator상태=Walk
+[07:49:32.958] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Walk
+[07:49:32.958] [INFO] [Move/UnitView] Walk 적용 | unit=1, animator상태=Attack
+[07:49:32.958] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Walk, new=Attack
+[07:49:32.958] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Walk
+[07:49:33.097] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Walk, new=Attack
+[07:49:33.097] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=21, animator상태=Walk
+[07:49:33.239] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=13, isServer=False
+[07:49:33.239] [INFO] [Move/UnitView] Attack 적용 | unit=13, target=25, animator상태=Walk
+[07:49:33.252] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=13, prev=Walk, new=Attack
+[07:49:33.252] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=13, animator상태=Walk
+[07:49:33.252] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:33.252] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:33.531] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=31, prev=None, new=Walk
+[07:49:33.531] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:33.540] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=31
+[07:49:33.540] [INFO] [Move/UnitFactory] 유닛 생성 | unit=31(Pistoleer), isServer=False
+[07:49:33.689] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=21, isServer=False
+[07:49:33.689] [INFO] [Move/UnitView] Attack 적용 | unit=21, target=25, animator상태=Attack
+[07:49:33.695] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Attack, new=Attack
+[07:49:33.695] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=21, animator상태=Attack
+[07:49:33.755] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Attack, new=Walk
+[07:49:33.755] [INFO] [Move/UnitView] Walk 적용 | unit=3, animator상태=Attack
+[07:49:33.855] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=32, prev=None, new=Walk
+[07:49:33.855] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:33.856] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=32
+[07:49:33.857] [INFO] [Move/UnitFactory] 유닛 생성 | unit=32(Pistoleer), isServer=False
+[07:49:33.936] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=9, isServer=False
+[07:49:33.936] [INFO] [Move/UnitView] Attack 적용 | unit=9, target=25, animator상태=Walk
+[07:49:33.992] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Walk, new=Attack
+[07:49:33.992] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Walk
+[07:49:33.992] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=20, isServer=False
+[07:49:33.992] [INFO] [Move/UnitView] Attack 적용 | unit=20, target=25, animator상태=Walk
+[07:49:33.999] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=20, prev=Walk, new=Attack
+[07:49:33.999] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=20, animator상태=Walk
+[07:49:34.207] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=12, isServer=False
+[07:49:34.207] [INFO] [Move/UnitView] Attack 적용 | unit=12, target=25, animator상태=Walk
+[07:49:34.235] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=12, prev=Walk, new=Attack
+[07:49:34.235] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=12, animator상태=Walk
+[07:49:34.282] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=17, prev=Attack, new=Walk
+[07:49:34.282] [INFO] [Move/UnitView] Walk 적용 | unit=17, animator상태=Attack
+[07:49:34.689] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:34.689] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:34.689] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=6, isServer=False
+[07:49:34.689] [INFO] [Move/UnitView] Attack 적용 | unit=6, target=25, animator상태=Walk
+[07:49:34.768] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Attack
+[07:49:34.768] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Attack
+[07:49:35.102] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:35.102] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=12, isServer=False
+[07:49:35.102] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=20, isServer=False
+[07:49:35.102] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=9, isServer=False
+[07:49:35.102] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=13, isServer=False
+[07:49:35.102] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=21, isServer=False
+[07:49:35.127] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Attack, new=Walk
+[07:49:35.127] [INFO] [Move/UnitView] Walk 적용 | unit=21, animator상태=Attack
+[07:49:35.524] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=33, prev=None, new=Walk
+[07:49:35.524] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:35.524] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=33
+[07:49:35.526] [INFO] [Move/UnitFactory] 유닛 생성 | unit=33(LittleKnight), isServer=False
+[07:49:35.561] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=1, isServer=False
+[07:49:35.561] [INFO] [Move/UnitView] Attack 적용 | unit=1, target=8, animator상태=Walk
+[07:49:35.591] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Walk, new=Attack
+[07:49:35.591] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Walk
+[07:49:35.640] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Walk, new=Attack
+[07:49:35.640] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=21, animator상태=Walk
+[07:49:35.669] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=21, isServer=False
+[07:49:35.669] [INFO] [Move/UnitView] Attack 적용 | unit=21, target=8, animator상태=Walk
+[07:49:35.690] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Attack, new=Attack
+[07:49:35.690] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=21, animator상태=Walk
+[07:49:36.055] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Walk
+[07:49:36.055] [INFO] [Move/UnitView] Walk 적용 | unit=9, animator상태=Attack
+[07:49:36.229] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=12, prev=Attack, new=Walk
+[07:49:36.229] [INFO] [Move/UnitView] Walk 적용 | unit=12, animator상태=Attack
+[07:49:36.263] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=17, isServer=False
+[07:49:36.263] [INFO] [Move/UnitView] Attack 적용 | unit=17, target=8, animator상태=Walk
+[07:49:36.296] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=17, prev=Walk, new=Attack
+[07:49:36.296] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=17, animator상태=Walk
+[07:49:36.327] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=13, prev=Attack, new=Walk
+[07:49:36.327] [INFO] [Move/UnitView] Walk 적용 | unit=13, animator상태=Attack
+[07:49:36.381] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=3, isServer=False
+[07:49:36.381] [INFO] [Move/UnitView] Attack 적용 | unit=3, target=8, animator상태=Walk
+[07:49:36.391] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Walk, new=Attack
+[07:49:36.391] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Walk
+[07:49:36.730] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:36.730] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:37.032] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=20, prev=Attack, new=Walk
+[07:49:37.033] [INFO] [Move/UnitView] Walk 적용 | unit=20, animator상태=Attack
+[07:49:37.278] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=31, isServer=False
+[07:49:37.278] [INFO] [Move/UnitView] Attack 적용 | unit=31, target=17, animator상태=Walk
+[07:49:37.311] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=31, prev=Walk, new=Attack
+[07:49:37.311] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=31, animator상태=Walk
+[07:49:37.632] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Walk, new=Attack
+[07:49:37.632] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Walk
+[07:49:37.675] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=9, isServer=False
+[07:49:37.675] [INFO] [Move/UnitView] Attack 적용 | unit=9, target=8, animator상태=Walk
+[07:49:37.722] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Attack
+[07:49:37.727] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Attack
+[07:49:38.188] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=34, prev=None, new=Walk
+[07:49:38.188] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:38.190] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=34
+[07:49:38.191] [INFO] [Move/UnitFactory] 유닛 생성 | unit=34(SpearMan), isServer=False
+[07:49:38.326] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=20, isServer=False
+[07:49:38.326] [INFO] [Move/UnitView] Attack 적용 | unit=20, target=31, animator상태=Walk
+[07:49:38.327] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:38.327] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:38.327] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=20, prev=Walk, new=Attack
+[07:49:38.327] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=20, animator상태=Walk
+[07:49:38.327] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=12, prev=Walk, new=Attack
+[07:49:38.327] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=12, animator상태=Walk
+[07:49:38.530] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=35, prev=None, new=Walk
+[07:49:38.530] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:38.532] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=35
+[07:49:38.532] [INFO] [Move/UnitFactory] 유닛 생성 | unit=35(Pistoleer), isServer=False
+[07:49:38.678] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=6, isServer=False
+[07:49:38.678] [INFO] [Move/UnitView] Attack 적용 | unit=6, target=8, animator상태=Attack
+[07:49:38.678] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=12, isServer=False
+[07:49:38.678] [INFO] [Move/UnitView] Attack 적용 | unit=12, target=31, animator상태=Attack
+[07:49:38.715] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Attack
+[07:49:38.715] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Attack
+[07:49:38.715] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=12, prev=Attack, new=Attack
+[07:49:38.715] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=12, animator상태=Attack
+[07:49:38.716] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=35, isServer=False
+[07:49:38.716] [INFO] [Move/UnitView] Attack 적용 | unit=35, target=20, animator상태=Walk
+[07:49:38.740] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=35, prev=Walk, new=Attack
+[07:49:38.740] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=35, animator상태=Walk
+[07:49:38.862] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=36, prev=None, new=Walk
+[07:49:38.862] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:38.864] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=36
+[07:49:38.864] [INFO] [Move/UnitFactory] 유닛 생성 | unit=36(Pistoleer), isServer=False
+[07:49:40.529] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=37, prev=None, new=Walk
+[07:49:40.529] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:40.529] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=37
+[07:49:40.529] [INFO] [Move/UnitFactory] 유닛 생성 | unit=37(LittleKnight), isServer=False
+[07:49:40.742] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=24, isServer=False
+[07:49:40.742] [INFO] [Move/UnitView] Attack 적용 | unit=24, target=26, animator상태=Walk
+[07:49:40.763] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=24, prev=Walk, new=Attack
+[07:49:40.764] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=24, animator상태=Walk
+[07:49:41.210] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=9, isServer=False
+[07:49:41.210] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=3, isServer=False
+[07:49:41.210] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=21, isServer=False
+[07:49:41.210] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=1, isServer=False
+[07:49:41.210] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=14, isServer=False
+[07:49:41.210] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:41.334] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Attack, new=Walk
+[07:49:41.334] [INFO] [Move/UnitView] Walk 적용 | unit=21, animator상태=Attack
+[07:49:41.334] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Walk
+[07:49:41.334] [INFO] [Move/UnitView] Walk 적용 | unit=14, animator상태=Attack
+[07:49:41.510] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=16, isServer=False
+[07:49:41.510] [INFO] [Move/UnitView] Attack 적용 | unit=16, target=26, animator상태=Walk
+[07:49:41.526] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Walk
+[07:49:41.526] [INFO] [Move/UnitView] Walk 적용 | unit=1, animator상태=Attack
+[07:49:41.526] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=16, prev=Walk, new=Attack
+[07:49:41.526] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=16, animator상태=Walk
+[07:49:41.640] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=38, prev=None, new=Walk
+[07:49:41.640] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:41.641] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Walk
+[07:49:41.641] [INFO] [Move/UnitView] Walk 적용 | unit=9, animator상태=Attack
+[07:49:41.643] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=38
+[07:49:41.644] [INFO] [Move/UnitFactory] 유닛 생성 | unit=38(LittleKnight), isServer=False
+[07:49:41.670] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=39, prev=None, new=Walk
+[07:49:41.670] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:41.671] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=39
+[07:49:41.671] [INFO] [Move/UnitFactory] 유닛 생성 | unit=39(Assault), isServer=False
+[07:49:41.809] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=None, new=Walk
+[07:49:41.809] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:41.809] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=40
+[07:49:41.809] [INFO] [Move/UnitFactory] 유닛 생성 | unit=40(Assault), isServer=False
+[07:49:41.931] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=None, new=Walk
+[07:49:41.931] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:41.932] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Walk, new=Attack
+[07:49:41.932] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Walk
+[07:49:41.932] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Walk, new=Attack
+[07:49:41.932] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Walk
+[07:49:41.932] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Walk, new=Attack
+[07:49:41.932] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=21, animator상태=Walk
+[07:49:41.940] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=41
+[07:49:41.942] [INFO] [Move/UnitFactory] 유닛 생성 | unit=41(Assault), isServer=False
+[07:49:42.168] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=30, isServer=False
+[07:49:42.168] [INFO] [Move/UnitView] Attack 적용 | unit=30, target=38, animator상태=Walk
+[07:49:42.236] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=30, prev=Walk, new=Attack
+[07:49:42.236] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=30, animator상태=Walk
+[07:49:42.237] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=38, isServer=False
+[07:49:42.237] [INFO] [Move/UnitView] Attack 적용 | unit=38, target=24, animator상태=Walk
+[07:49:42.258] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=38, prev=Walk, new=Attack
+[07:49:42.258] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=38, animator상태=Walk
+[07:49:42.328] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Attack, new=Walk
+[07:49:42.328] [INFO] [Move/UnitView] Walk 적용 | unit=3, animator상태=Attack
+[07:49:42.410] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=35, isServer=False
+[07:49:42.439] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Walk, new=Attack
+[07:49:42.439] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Walk
+[07:49:42.439] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:42.439] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:42.737] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:42.737] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:42.834] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=21, isServer=False
+[07:49:42.834] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=9, isServer=False
+[07:49:42.834] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=14, isServer=False
+[07:49:42.834] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=1, isServer=False
+[07:49:42.834] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=12, isServer=False
+[07:49:42.834] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:42.848] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Attack, new=Walk
+[07:49:42.848] [INFO] [Move/UnitView] Walk 적용 | unit=1, animator상태=Attack
+[07:49:42.848] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:42.848] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:42.848] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Walk
+[07:49:42.848] [INFO] [Move/UnitView] Walk 적용 | unit=14, animator상태=Attack
+[07:49:42.848] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Walk
+[07:49:42.848] [INFO] [Move/UnitView] Walk 적용 | unit=9, animator상태=Attack
+[07:49:42.848] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Attack, new=Walk
+[07:49:42.848] [INFO] [Move/UnitView] Walk 적용 | unit=21, animator상태=Attack
+[07:49:42.848] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=35, prev=Attack, new=Walk
+[07:49:42.848] [INFO] [Move/UnitView] Walk 적용 | unit=35, animator상태=Attack
+[07:49:43.170] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=21, isServer=False
+[07:49:43.170] [INFO] [Move/UnitView] Attack 적용 | unit=21, target=7, animator상태=Walk
+[07:49:43.198] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Walk, new=Attack
+[07:49:43.198] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=21, animator상태=Walk
+[07:49:43.335] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=1, isServer=False
+[07:49:43.335] [INFO] [Move/UnitView] Attack 적용 | unit=1, target=35, animator상태=Walk
+[07:49:43.335] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=9, isServer=False
+[07:49:43.335] [INFO] [Move/UnitView] Attack 적용 | unit=9, target=35, animator상태=Walk
+[07:49:43.367] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=1, prev=Walk, new=Attack
+[07:49:43.367] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=1, animator상태=Walk
+[07:49:43.367] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Walk, new=Attack
+[07:49:43.367] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Walk
+[07:49:43.367] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=6, isServer=False
+[07:49:43.367] [INFO] [Move/UnitView] Attack 적용 | unit=6, target=35, animator상태=Walk
+[07:49:43.435] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:43.435] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:43.436] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=35, prev=Walk, new=Attack
+[07:49:43.436] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=35, animator상태=Walk
+[07:49:43.575] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=42, prev=None, new=Walk
+[07:49:43.575] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:43.576] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=42
+[07:49:43.577] [INFO] [Move/UnitFactory] 유닛 생성 | unit=42(Pistoleer), isServer=False
+[07:49:43.847] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=35, isServer=False
+[07:49:43.847] [INFO] [Move/UnitView] Attack 적용 | unit=35, target=6, animator상태=Attack
+[07:49:43.888] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=35, prev=Attack, new=Attack
+[07:49:43.888] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=35, animator상태=Attack
+[07:49:43.906] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=43, prev=None, new=Walk
+[07:49:43.906] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:43.907] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=43
+[07:49:43.907] [INFO] [Move/UnitFactory] 유닛 생성 | unit=43(Pistoleer), isServer=False
+[07:49:44.100] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=29, isServer=False
+[07:49:44.101] [INFO] [Move/UnitView] Attack 적용 | unit=29, target=38, animator상태=Walk
+[07:49:44.145] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=29, prev=Walk, new=Attack
+[07:49:44.145] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=29, animator상태=Walk
+[07:49:44.210] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=14, isServer=False
+[07:49:44.210] [INFO] [Move/UnitView] Attack 적용 | unit=14, target=7, animator상태=Walk
+[07:49:44.232] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Walk, new=Attack
+[07:49:44.232] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Walk
+[07:49:44.332] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Walk, new=Attack
+[07:49:44.332] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Walk
+[07:49:44.429] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=12, prev=Attack, new=Walk
+[07:49:44.429] [INFO] [Move/UnitView] Walk 적용 | unit=12, animator상태=Attack
+[07:49:44.878] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=3, isServer=False
+[07:49:44.878] [INFO] [Move/UnitView] Attack 적용 | unit=3, target=35, animator상태=Attack
+[07:49:44.931] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=3, prev=Attack, new=Attack
+[07:49:44.931] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=3, animator상태=Attack
+[07:49:45.572] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=44, prev=None, new=Walk
+[07:49:45.572] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:45.572] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=44
+[07:49:45.572] [INFO] [Move/UnitFactory] 유닛 생성 | unit=44(LittleKnight), isServer=False
+[07:49:45.732] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=12, prev=Walk, new=Attack
+[07:49:45.732] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=12, animator상태=Walk
+[07:49:45.907] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=12, isServer=False
+[07:49:45.909] [INFO] [Move/UnitView] Attack 적용 | unit=12, target=35, animator상태=Attack
+[07:49:45.934] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=12, prev=Attack, new=Attack
+[07:49:45.934] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=12, animator상태=Attack
+[07:49:46.601] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:46.601] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=9, isServer=False
+[07:49:46.662] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=45, prev=None, new=Walk
+[07:49:46.662] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:46.663] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=45, isServer=False
+[07:49:46.663] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=45
+[07:49:46.663] [INFO] [Move/UnitFactory] 유닛 생성 | unit=45(LittleKnight), isServer=False
+[07:49:46.727] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=45, prev=Walk, new=Attack
+[07:49:46.727] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=45, animator상태=Walk
+[07:49:46.831] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:46.831] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:47.030] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=38, isServer=False
+[07:49:47.030] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=45, isServer=False
+[07:49:47.031] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:47.031] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:47.325] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=27, isServer=False
+[07:49:47.325] [INFO] [Move/UnitView] Attack 적용 | unit=27, target=45, animator상태=Walk
+[07:49:47.325] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=27, prev=Walk, new=Attack
+[07:49:47.325] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=27, animator상태=Walk
+[07:49:47.430] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=46, prev=None, new=Walk
+[07:49:47.430] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:47.432] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=46
+[07:49:47.432] [INFO] [Move/UnitFactory] 유닛 생성 | unit=46(LittleKnight), isServer=False
+[07:49:47.959] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=6, isServer=False
+[07:49:47.959] [INFO] [Move/UnitView] Attack 적용 | unit=6, target=7, animator상태=Attack
+[07:49:47.992] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Attack
+[07:49:47.992] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Attack
+[07:49:48.076] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Walk
+[07:49:48.076] [INFO] [Move/UnitView] Walk 적용 | unit=9, animator상태=Attack
+[07:49:48.233] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=None, new=Walk
+[07:49:48.233] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:48.233] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=47
+[07:49:48.233] [INFO] [Move/UnitFactory] 유닛 생성 | unit=47(SpearMan), isServer=False
+[07:49:48.379] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Walk, new=Attack
+[07:49:48.379] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Walk
+[07:49:48.379] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=38, prev=Attack, new=Walk
+[07:49:48.379] [INFO] [Move/UnitView] Walk 적용 | unit=38, animator상태=Attack
+[07:49:48.580] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=38, isServer=False
+[07:49:48.580] [INFO] [Move/UnitView] Attack 적용 | unit=38, target=27, animator상태=Walk
+[07:49:48.595] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=48, prev=None, new=Walk
+[07:49:48.595] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:48.595] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=38, prev=Walk, new=Attack
+[07:49:48.595] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=38, animator상태=Walk
+[07:49:48.596] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=48
+[07:49:48.596] [INFO] [Move/UnitFactory] 유닛 생성 | unit=48(Pistoleer), isServer=False
+[07:49:48.929] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=49, prev=None, new=Walk
+[07:49:48.929] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:48.930] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=49
+[07:49:48.930] [INFO] [Move/UnitFactory] 유닛 생성 | unit=49(Pistoleer), isServer=False
+[07:49:49.003] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=9, isServer=False
+[07:49:49.003] [INFO] [Move/UnitView] Attack 적용 | unit=9, target=7, animator상태=Attack
+[07:49:49.028] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Attack
+[07:49:49.028] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Attack
+[07:49:49.132] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=34, isServer=False
+[07:49:49.132] [INFO] [Move/UnitView] Attack 적용 | unit=34, target=45, animator상태=Walk
+[07:49:49.159] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=34, prev=Walk, new=Attack
+[07:49:49.159] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=34, animator상태=Walk
+[07:49:49.534] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=46, isServer=False
+[07:49:49.534] [INFO] [Move/UnitView] Attack 적용 | unit=46, target=27, animator상태=Walk
+[07:49:49.573] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=46, prev=Walk, new=Attack
+[07:49:49.573] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=46, animator상태=Walk
+[07:49:49.573] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=39, isServer=False
+[07:49:49.573] [INFO] [Move/UnitView] Attack 적용 | unit=39, target=44, animator상태=Walk
+[07:49:49.602] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=39, prev=Walk, new=Attack
+[07:49:49.602] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=39, animator상태=Walk
+[07:49:50.620] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=50, prev=None, new=Walk
+[07:49:50.620] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:50.621] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=50
+[07:49:50.621] [INFO] [Move/UnitFactory] 유닛 생성 | unit=50(LittleKnight), isServer=False
+[07:49:50.806] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=46, isServer=False
+[07:49:50.806] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=45, isServer=False
+[07:49:50.932] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=19, isServer=False
+[07:49:50.932] [INFO] [Move/UnitView] Attack 적용 | unit=19, target=45, animator상태=Walk
+[07:49:50.964] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=19, prev=Walk, new=Attack
+[07:49:50.964] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=19, animator상태=Walk
+[07:49:51.409] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=34, isServer=False
+[07:49:51.409] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=19, isServer=False
+[07:49:51.525] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=44, isServer=False
+[07:49:51.525] [INFO] [Move/UnitView] Attack 적용 | unit=44, target=39, animator상태=Walk
+[07:49:51.527] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=44, prev=Walk, new=Attack
+[07:49:51.527] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=44, animator상태=Walk
+[07:49:51.700] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=51, prev=None, new=Walk
+[07:49:51.701] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:51.701] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=52, prev=None, new=Walk
+[07:49:51.701] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:51.701] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=51
+[07:49:51.702] [INFO] [Move/UnitFactory] 유닛 생성 | unit=51(Assault), isServer=False
+[07:49:51.702] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=52
+[07:49:51.702] [INFO] [Move/UnitFactory] 유닛 생성 | unit=52(LittleKnight), isServer=False
+[07:49:51.826] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=None, new=Walk
+[07:49:51.826] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:51.844] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=53
+[07:49:51.844] [INFO] [Move/UnitFactory] 유닛 생성 | unit=53(Assault), isServer=False
+[07:49:51.978] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=None, new=Walk
+[07:49:51.978] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:51.979] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=54
+[07:49:51.979] [INFO] [Move/UnitFactory] 유닛 생성 | unit=54(Assault), isServer=False
+[07:49:52.460] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=55, prev=None, new=Walk
+[07:49:52.460] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:52.461] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=55
+[07:49:52.461] [INFO] [Move/UnitFactory] 유닛 생성 | unit=55(LittleKnight), isServer=False
+[07:49:52.499] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=33, isServer=False
+[07:49:52.499] [INFO] [Move/UnitView] Attack 적용 | unit=33, target=46, animator상태=Walk
+[07:49:52.532] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=33, prev=Walk, new=Attack
+[07:49:52.532] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=33, animator상태=Walk
+[07:49:52.743] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=52, isServer=False
+[07:49:52.743] [INFO] [Move/UnitView] Attack 적용 | unit=52, target=16, animator상태=Walk
+[07:49:52.744] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=52, prev=Walk, new=Attack
+[07:49:52.744] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=52, animator상태=Walk
+[07:49:53.204] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=9, isServer=False
+[07:49:53.204] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=14, isServer=False
+[07:49:53.204] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:53.204] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=21, isServer=False
+[07:49:53.204] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=3, isServer=False
+[07:49:53.229] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Attack, new=Walk
+[07:49:53.229] [INFO] [Move/UnitView] Walk 적용 | unit=21, animator상태=Attack
+[07:49:53.327] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Walk
+[07:49:53.327] [INFO] [Move/UnitView] Walk 적용 | unit=14, animator상태=Attack
+[07:49:53.422] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Walk, new=Attack
+[07:49:53.422] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=21, animator상태=Walk
+[07:49:53.524] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Walk, new=Attack
+[07:49:53.524] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Walk
+[07:49:53.628] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=56, prev=None, new=Walk
+[07:49:53.628] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:53.640] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=56
+[07:49:53.640] [INFO] [Move/UnitFactory] 유닛 생성 | unit=56(Pistoleer), isServer=False
+[07:49:53.660] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=23, isServer=False
+[07:49:53.660] [INFO] [Move/UnitView] Attack 적용 | unit=23, target=52, animator상태=Walk
+[07:49:53.693] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Walk, new=Attack
+[07:49:53.693] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=23, animator상태=Walk
+[07:49:53.769] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=41, isServer=False
+[07:49:53.770] [INFO] [Move/UnitView] Attack 적용 | unit=41, target=29, animator상태=Walk
+[07:49:53.794] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Walk, new=Attack
+[07:49:53.794] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=41, animator상태=Walk
+[07:49:53.979] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=57, prev=None, new=Walk
+[07:49:53.979] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:53.980] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=57
+[07:49:53.981] [INFO] [Move/UnitFactory] 유닛 생성 | unit=57(Pistoleer), isServer=False
+[07:49:54.138] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=14, isServer=False
+[07:49:54.138] [INFO] [Move/UnitView] Attack 적용 | unit=14, target=56, animator상태=Attack
+[07:49:54.138] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=28, isServer=False
+[07:49:54.138] [INFO] [Move/UnitView] Attack 적용 | unit=28, target=3, animator상태=Attack
+[07:49:54.138] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=21, isServer=False
+[07:49:54.138] [INFO] [Move/UnitView] Attack 적용 | unit=21, target=56, animator상태=Attack
+[07:49:54.163] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=14, prev=Attack, new=Attack
+[07:49:54.164] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=14, animator상태=Attack
+[07:49:54.164] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=28, prev=Attack, new=Attack
+[07:49:54.164] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=28, animator상태=Attack
+[07:49:54.164] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=21, prev=Attack, new=Attack
+[07:49:54.164] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=21, animator상태=Attack
+[07:49:54.234] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=56, isServer=False
+[07:49:54.234] [INFO] [Move/UnitView] Attack 적용 | unit=56, target=3, animator상태=Walk
+[07:49:54.265] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=56, prev=Walk, new=Attack
+[07:49:54.265] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=56, animator상태=Walk
+[07:49:54.395] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=56, isServer=False
+[07:49:54.428] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Walk
+[07:49:54.428] [INFO] [Move/UnitView] Walk 적용 | unit=9, animator상태=Attack
+[07:49:54.467] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=55, isServer=False
+[07:49:54.467] [INFO] [Move/UnitView] Attack 적용 | unit=55, target=33, animator상태=Walk
+[07:49:54.521] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=55, prev=Walk, new=Attack
+[07:49:54.521] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=55, animator상태=Walk
+[07:49:54.594] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=40, isServer=False
+[07:49:54.594] [INFO] [Move/UnitView] Attack 적용 | unit=40, target=29, animator상태=Walk
+[07:49:54.631] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Walk, new=Attack
+[07:49:54.631] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Walk
+[07:49:54.631] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Walk, new=Attack
+[07:49:54.631] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=40, animator상태=Walk
+[07:49:55.126] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Walk
+[07:49:55.126] [INFO] [Move/UnitView] Walk 적용 | unit=6, animator상태=Attack
+[07:49:55.160] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=9, isServer=False
+[07:49:55.160] [INFO] [Move/UnitView] Attack 적용 | unit=9, target=56, animator상태=Attack
+[07:49:55.215] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Attack
+[07:49:55.215] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Attack
+[07:49:55.335] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Walk, new=Attack
+[07:49:55.335] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Walk
+[07:49:55.627] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=58, prev=None, new=Walk
+[07:49:55.627] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:55.628] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=58
+[07:49:55.629] [INFO] [Move/UnitFactory] 유닛 생성 | unit=58(LittleKnight), isServer=False
+[07:49:55.794] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=23, isServer=False
+[07:49:55.794] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=34, isServer=False
+[07:49:56.176] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=6, isServer=False
+[07:49:56.177] [INFO] [Move/UnitView] Attack 적용 | unit=6, target=56, animator상태=Attack
+[07:49:56.192] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=6, prev=Attack, new=Attack
+[07:49:56.192] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=6, animator상태=Attack
+[07:49:56.366] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=43, isServer=False
+[07:49:56.366] [INFO] [Move/UnitView] Attack 적용 | unit=43, target=39, animator상태=Walk
+[07:49:56.392] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=43, prev=Walk, new=Attack
+[07:49:56.392] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=43, animator상태=Walk
+[07:49:56.629] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=59, isServer=False
+[07:49:56.630] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=59, prev=None, new=Attack
+[07:49:56.630] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=-1, animator상태=기타
+[07:49:56.642] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=59
+[07:49:56.642] [INFO] [Move/UnitFactory] 유닛 생성 | unit=59(Pistoleer), isServer=False
+[07:49:56.736] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=60, prev=None, new=Walk
+[07:49:56.736] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:56.737] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=60
+[07:49:56.738] [INFO] [Move/UnitFactory] 유닛 생성 | unit=60(LittleKnight), isServer=False
+[07:49:57.295] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=9, isServer=False
+[07:49:57.295] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=6, isServer=False
+[07:49:57.371] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=60, isServer=False
+[07:49:57.371] [INFO] [Move/UnitView] Attack 적용 | unit=60, target=33, animator상태=Walk
+[07:49:57.406] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=60, prev=Walk, new=Attack
+[07:49:57.406] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=60, animator상태=Walk
+[07:49:57.523] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=61, prev=None, new=Walk
+[07:49:57.523] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:57.523] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=37, isServer=False
+[07:49:57.523] [INFO] [Move/UnitView] Attack 적용 | unit=37, target=59, animator상태=Walk
+[07:49:57.524] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=61
+[07:49:57.524] [INFO] [Move/UnitFactory] 유닛 생성 | unit=61(LittleKnight), isServer=False
+[07:49:57.539] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=37, prev=Walk, new=Attack
+[07:49:57.539] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=37, animator상태=Walk
+[07:49:57.694] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=55, isServer=False
+[07:49:57.694] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=60, isServer=False
+[07:49:57.719] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Attack, new=Walk
+[07:49:57.719] [INFO] [Move/UnitView] Walk 적용 | unit=23, animator상태=Attack
+[07:49:57.719] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=51, isServer=False
+[07:49:57.719] [INFO] [Move/UnitView] Attack 적용 | unit=51, target=44, animator상태=Walk
+[07:49:57.767] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=51, prev=Walk, new=Attack
+[07:49:57.767] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=51, animator상태=Walk
+[07:49:57.816] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Walk, new=Attack
+[07:49:57.816] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=23, animator상태=Attack
+[07:49:58.230] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=62, prev=None, new=Walk
+[07:49:58.230] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:49:58.230] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=23, isServer=False
+[07:49:58.230] [INFO] [Move/UnitView] Attack 적용 | unit=23, target=59, animator상태=Attack
+[07:49:58.232] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=62
+[07:49:58.232] [INFO] [Move/UnitFactory] 유닛 생성 | unit=62(SpearMan), isServer=False
+[07:49:58.284] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Attack, new=Attack
+[07:49:58.284] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=23, animator상태=Attack
+[07:49:58.660] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=63, prev=None, new=Walk
+[07:49:58.660] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:58.662] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=63
+[07:49:58.662] [INFO] [Move/UnitFactory] 유닛 생성 | unit=63(Pistoleer), isServer=False
+[07:49:58.729] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Walk
+[07:49:58.729] [INFO] [Move/UnitView] Walk 적용 | unit=9, animator상태=Attack
+[07:49:58.882] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=26, isServer=False
+[07:49:58.882] [INFO] [Move/UnitView] Attack 적용 | unit=26, target=59, animator상태=Walk
+[07:49:58.890] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=26, prev=Walk, new=Attack
+[07:49:58.892] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=26, animator상태=Walk
+[07:49:58.926] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=63, isServer=False
+[07:49:58.926] [INFO] [Move/UnitView] Attack 적용 | unit=63, target=9, animator상태=Walk
+[07:49:58.982] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=63, prev=Walk, new=Attack
+[07:49:58.982] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=63, animator상태=Walk
+[07:49:59.053] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=64, prev=None, new=Walk
+[07:49:59.053] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:49:59.053] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Walk, new=Attack
+[07:49:59.053] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Walk
+[07:49:59.054] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=64
+[07:49:59.055] [INFO] [Move/UnitFactory] 유닛 생성 | unit=64(Pistoleer), isServer=False
+[07:49:59.279] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=9, isServer=False
+[07:49:59.279] [INFO] [Move/UnitView] Attack 적용 | unit=9, target=63, animator상태=Attack
+[07:49:59.323] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=9, prev=Attack, new=Attack
+[07:49:59.323] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=9, animator상태=Attack
+[07:49:59.396] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=23, isServer=False
+[07:49:59.396] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=34, isServer=False
+[07:49:59.396] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=26, isServer=False
+[07:49:59.396] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=37, isServer=False
+[07:49:59.396] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=51, isServer=False
+[07:49:59.430] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=51, prev=Attack, new=Walk
+[07:49:59.430] [INFO] [Move/UnitView] Walk 적용 | unit=51, animator상태=Attack
+[07:49:59.962] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=61, isServer=False
+[07:49:59.962] [INFO] [Move/UnitView] Attack 적용 | unit=61, target=37, animator상태=Walk
+[07:50:00.002] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=61, prev=Walk, new=Attack
+[07:50:00.002] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=61, animator상태=Walk
+[07:50:00.067] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=51, prev=Walk, new=Attack
+[07:50:00.067] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=51, animator상태=Walk
+[07:50:00.068] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=47, isServer=False
+[07:50:00.068] [INFO] [Move/UnitView] Attack 적용 | unit=47, target=61, animator상태=Walk
+[07:50:00.093] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Walk, new=Attack
+[07:50:00.093] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=47, animator상태=Walk
+[07:50:00.314] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=51, isServer=False
+[07:50:00.314] [INFO] [Move/UnitView] Attack 적용 | unit=51, target=43, animator상태=Attack
+[07:50:00.324] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=51, prev=Attack, new=Attack
+[07:50:00.324] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=51, animator상태=Attack
+[07:50:00.388] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=65, prev=None, new=Walk
+[07:50:00.388] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:00.389] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=65
+[07:50:00.389] [INFO] [Move/UnitFactory] 유닛 생성 | unit=65(Pistoleer), isServer=False
+[07:50:00.429] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=60, prev=Attack, new=Walk
+[07:50:00.429] [INFO] [Move/UnitView] Walk 적용 | unit=60, animator상태=Attack
+[07:50:00.670] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=66, prev=None, new=Walk
+[07:50:00.670] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:50:00.671] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=66
+[07:50:00.671] [INFO] [Move/UnitFactory] 유닛 생성 | unit=66(LittleKnight), isServer=False
+[07:50:00.699] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=60, isServer=False
+[07:50:00.699] [INFO] [Move/UnitView] Attack 적용 | unit=60, target=37, animator상태=Walk
+[07:50:00.741] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=60, prev=Walk, new=Attack
+[07:50:00.741] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=60, animator상태=Walk
+[07:50:01.196] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=43, isServer=False
+[07:50:01.417] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=47, isServer=False
+[07:50:01.647] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=67, isServer=False
+[07:50:01.659] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=67, prev=None, new=Attack
+[07:50:01.659] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=-1, animator상태=기타
+[07:50:01.660] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=67
+[07:50:01.660] [INFO] [Move/UnitFactory] 유닛 생성 | unit=67(Pistoleer), isServer=False
+[07:50:01.732] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=68, prev=None, new=Walk
+[07:50:01.733] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:01.735] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=68
+[07:50:01.735] [INFO] [Move/UnitFactory] 유닛 생성 | unit=68(Assault), isServer=False
+[07:50:01.797] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=63, isServer=False
+[07:50:01.878] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=69, prev=None, new=Walk
+[07:50:01.878] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:01.887] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=69
+[07:50:01.887] [INFO] [Move/UnitFactory] 유닛 생성 | unit=69(Assault), isServer=False
+[07:50:02.024] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=70, prev=None, new=Walk
+[07:50:02.024] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:02.025] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=70
+[07:50:02.026] [INFO] [Move/UnitFactory] 유닛 생성 | unit=70(Assault), isServer=False
+[07:50:02.134] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Attack, new=Walk
+[07:50:02.134] [INFO] [Move/UnitView] Walk 적용 | unit=47, animator상태=Attack
+[07:50:02.265] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=47, isServer=False
+[07:50:02.265] [INFO] [Move/UnitView] Attack 적용 | unit=47, target=60, animator상태=Walk
+[07:50:02.317] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Walk, new=Attack
+[07:50:02.318] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=47, animator상태=Walk
+[07:50:02.396] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=41, isServer=False
+[07:50:02.396] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=12, isServer=False
+[07:50:02.396] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=40, isServer=False
+[07:50:02.429] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=43, prev=Attack, new=Walk
+[07:50:02.429] [INFO] [Move/UnitView] Walk 적용 | unit=43, animator상태=Attack
+[07:50:02.429] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Attack, new=Walk
+[07:50:02.429] [INFO] [Move/UnitView] Walk 적용 | unit=41, animator상태=Attack
+[07:50:02.507] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=60, isServer=False
+[07:50:02.524] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=71, prev=None, new=Walk
+[07:50:02.524] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:50:02.524] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Walk, new=Attack
+[07:50:02.525] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=41, animator상태=Attack
+[07:50:02.525] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=71
+[07:50:02.525] [INFO] [Move/UnitFactory] 유닛 생성 | unit=71(LittleKnight), isServer=False
+[07:50:02.726] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Attack, new=Walk
+[07:50:02.726] [INFO] [Move/UnitView] Walk 적용 | unit=40, animator상태=Attack
+[07:50:02.836] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Walk, new=Attack
+[07:50:02.836] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=40, animator상태=Walk
+[07:50:02.836] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=54, isServer=False
+[07:50:02.836] [INFO] [Move/UnitView] Attack 적용 | unit=54, target=67, animator상태=Walk
+[07:50:02.868] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Walk, new=Attack
+[07:50:02.868] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=54, animator상태=Walk
+[07:50:03.041] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=63, prev=Attack, new=Walk
+[07:50:03.041] [INFO] [Move/UnitView] Walk 적용 | unit=63, animator상태=Attack
+[07:50:03.407] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=40, isServer=False
+[07:50:03.407] [INFO] [Move/UnitView] Attack 적용 | unit=40, target=67, animator상태=Attack
+[07:50:03.407] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=41, isServer=False
+[07:50:03.407] [INFO] [Move/UnitView] Attack 적용 | unit=41, target=67, animator상태=Attack
+[07:50:03.407] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=47, isServer=False
+[07:50:03.425] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Attack, new=Attack
+[07:50:03.425] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=40, animator상태=Attack
+[07:50:03.425] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Attack, new=Attack
+[07:50:03.425] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=41, animator상태=Attack
+[07:50:03.702] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=72, prev=None, new=Walk
+[07:50:03.702] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:03.704] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=53, isServer=False
+[07:50:03.704] [INFO] [Move/UnitView] Attack 적용 | unit=53, target=67, animator상태=Walk
+[07:50:03.704] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=72
+[07:50:03.705] [INFO] [Move/UnitFactory] 유닛 생성 | unit=72(Pistoleer), isServer=False
+[07:50:03.750] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Walk, new=Attack
+[07:50:03.750] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=53, animator상태=Walk
+[07:50:03.825] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=12, prev=Attack, new=Walk
+[07:50:03.825] [INFO] [Move/UnitView] Walk 적용 | unit=12, animator상태=Attack
+[07:50:04.053] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=73, prev=None, new=Walk
+[07:50:04.053] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:04.055] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=73
+[07:50:04.055] [INFO] [Move/UnitFactory] 유닛 생성 | unit=73(Pistoleer), isServer=False
+[07:50:04.337] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=12, prev=Walk, new=Attack
+[07:50:04.337] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=12, animator상태=Walk
+[07:50:04.338] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Attack, new=Walk
+[07:50:04.338] [INFO] [Move/UnitView] Walk 적용 | unit=47, animator상태=Attack
+[07:50:04.367] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=47, isServer=False
+[07:50:04.367] [INFO] [Move/UnitView] Attack 적용 | unit=47, target=67, animator상태=Attack
+[07:50:04.433] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Walk, new=Attack
+[07:50:04.433] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=47, animator상태=Attack
+[07:50:04.434] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=41, isServer=False
+[07:50:04.434] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=47, isServer=False
+[07:50:04.434] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=34, isServer=False
+[07:50:04.434] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=40, isServer=False
+[07:50:04.434] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=16, isServer=False
+[07:50:04.434] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=26, isServer=False
+[07:50:04.434] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=19, isServer=False
+[07:50:04.434] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=53, isServer=False
+[07:50:04.434] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=54, isServer=False
+[07:50:04.434] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=23, isServer=False
+[07:50:04.434] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Attack, new=Walk
+[07:50:04.434] [INFO] [Move/UnitView] Walk 적용 | unit=53, animator상태=Attack
+[07:50:04.528] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Attack, new=Walk
+[07:50:04.528] [INFO] [Move/UnitView] Walk 적용 | unit=40, animator상태=Attack
+[07:50:04.528] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Attack, new=Walk
+[07:50:04.528] [INFO] [Move/UnitView] Walk 적용 | unit=54, animator상태=Attack
+[07:50:04.566] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=43, isServer=False
+[07:50:04.566] [INFO] [Move/UnitView] Attack 적용 | unit=43, target=51, animator상태=Walk
+[07:50:04.602] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=43, prev=Walk, new=Attack
+[07:50:04.602] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=43, animator상태=Walk
+[07:50:04.630] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Attack, new=Walk
+[07:50:04.630] [INFO] [Move/UnitView] Walk 적용 | unit=41, animator상태=Attack
+[07:50:04.724] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Walk, new=Attack
+[07:50:04.724] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=40, animator상태=Walk
+[07:50:04.724] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Walk, new=Attack
+[07:50:04.724] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=53, animator상태=Walk
+[07:50:04.724] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Walk, new=Attack
+[07:50:04.724] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=54, animator상태=Walk
+[07:50:04.831] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Walk, new=Attack
+[07:50:04.831] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=41, animator상태=Walk
+[07:50:05.039] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=32, isServer=False
+[07:50:05.039] [INFO] [Move/UnitView] Attack 적용 | unit=32, target=71, animator상태=Walk
+[07:50:05.066] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=32, prev=Walk, new=Attack
+[07:50:05.066] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=32, animator상태=Walk
+[07:50:05.170] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=71, isServer=False
+[07:50:05.170] [INFO] [Move/UnitView] Attack 적용 | unit=71, target=19, animator상태=Walk
+[07:50:05.170] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=71, prev=Walk, new=Attack
+[07:50:05.170] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=71, animator상태=Walk
+[07:50:05.369] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=63, isServer=False
+[07:50:05.369] [INFO] [Move/UnitView] Attack 적용 | unit=63, target=14, animator상태=Walk
+[07:50:05.404] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=63, prev=Walk, new=Attack
+[07:50:05.404] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=63, animator상태=Walk
+[07:50:05.434] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=74, prev=None, new=Walk
+[07:50:05.434] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:05.436] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=74
+[07:50:05.436] [INFO] [Move/UnitFactory] 유닛 생성 | unit=74(Pistoleer), isServer=False
+[07:50:05.479] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=40, isServer=False
+[07:50:05.479] [INFO] [Move/UnitView] Attack 적용 | unit=40, target=71, animator상태=Attack
+[07:50:05.479] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=53, isServer=False
+[07:50:05.479] [INFO] [Move/UnitView] Attack 적용 | unit=53, target=71, animator상태=Attack
+[07:50:05.479] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=41, isServer=False
+[07:50:05.479] [INFO] [Move/UnitView] Attack 적용 | unit=41, target=71, animator상태=Attack
+[07:50:05.479] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=54, isServer=False
+[07:50:05.480] [INFO] [Move/UnitView] Attack 적용 | unit=54, target=71, animator상태=Attack
+[07:50:05.496] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Attack, new=Attack
+[07:50:05.496] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=40, animator상태=Attack
+[07:50:05.496] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Attack, new=Attack
+[07:50:05.496] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=53, animator상태=Attack
+[07:50:05.496] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Attack, new=Attack
+[07:50:05.496] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=41, animator상태=Attack
+[07:50:05.496] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Attack, new=Attack
+[07:50:05.496] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=54, animator상태=Attack
+[07:50:05.708] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=75, prev=None, new=Walk
+[07:50:05.708] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=34, isServer=False
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=30, isServer=False
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=29, isServer=False
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=32, isServer=False
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=19, isServer=False
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=26, isServer=False
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=41, isServer=False
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=54, isServer=False
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=53, isServer=False
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=40, isServer=False
+[07:50:05.708] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=16, isServer=False
+[07:50:05.709] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=75
+[07:50:05.709] [INFO] [Move/UnitFactory] 유닛 생성 | unit=75(LittleKnight), isServer=False
+[07:50:05.828] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Attack, new=Walk
+[07:50:05.828] [INFO] [Move/UnitView] Walk 적용 | unit=40, animator상태=Attack
+[07:50:05.830] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Attack, new=Walk
+[07:50:05.830] [INFO] [Move/UnitView] Walk 적용 | unit=53, animator상태=Attack
+[07:50:05.830] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Attack, new=Walk
+[07:50:05.830] [INFO] [Move/UnitView] Walk 적용 | unit=54, animator상태=Attack
+[07:50:05.830] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=30, prev=Attack, new=Walk
+[07:50:05.830] [INFO] [Move/UnitView] Walk 적용 | unit=30, animator상태=Attack
+[07:50:05.830] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=29, prev=Attack, new=Walk
+[07:50:05.830] [INFO] [Move/UnitView] Walk 적용 | unit=29, animator상태=Attack
+[07:50:05.932] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Attack, new=Walk
+[07:50:05.932] [INFO] [Move/UnitView] Walk 적용 | unit=41, animator상태=Attack
+[07:50:05.932] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Attack, new=Walk
+[07:50:05.932] [INFO] [Move/UnitView] Walk 적용 | unit=23, animator상태=Attack
+[07:50:06.426] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Attack, new=Walk
+[07:50:06.426] [INFO] [Move/UnitView] Walk 적용 | unit=47, animator상태=Attack
+[07:50:06.930] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=26, prev=Attack, new=Walk
+[07:50:06.930] [INFO] [Move/UnitView] Walk 적용 | unit=26, animator상태=Attack
+[07:50:06.971] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=30, isServer=False
+[07:50:06.971] [INFO] [Move/UnitView] Attack 적용 | unit=30, target=28, animator상태=Walk
+[07:50:06.999] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=30, prev=Walk, new=Attack
+[07:50:07.000] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=30, animator상태=Walk
+[07:50:07.000] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=29, isServer=False
+[07:50:07.000] [INFO] [Move/UnitView] Attack 적용 | unit=29, target=28, animator상태=Walk
+[07:50:07.030] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=29, prev=Walk, new=Attack
+[07:50:07.030] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=29, animator상태=Walk
+[07:50:07.030] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=19, prev=Attack, new=Walk
+[07:50:07.030] [INFO] [Move/UnitView] Walk 적용 | unit=19, animator상태=Attack
+[07:50:07.058] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=40, isServer=False
+[07:50:07.059] [INFO] [Move/UnitView] Attack 적용 | unit=40, target=25, animator상태=Walk
+[07:50:07.059] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=53, isServer=False
+[07:50:07.059] [INFO] [Move/UnitView] Attack 적용 | unit=53, target=25, animator상태=Walk
+[07:50:07.115] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Walk, new=Attack
+[07:50:07.115] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=40, animator상태=Walk
+[07:50:07.115] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Walk, new=Attack
+[07:50:07.115] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=53, animator상태=Walk
+[07:50:07.122] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=32, prev=Attack, new=Walk
+[07:50:07.122] [INFO] [Move/UnitView] Walk 적용 | unit=32, animator상태=Attack
+[07:50:07.213] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=54, isServer=False
+[07:50:07.213] [INFO] [Move/UnitView] Attack 적용 | unit=54, target=25, animator상태=Walk
+[07:50:07.227] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Walk, new=Attack
+[07:50:07.229] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=54, animator상태=Walk
+[07:50:07.229] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=34, prev=Attack, new=Walk
+[07:50:07.229] [INFO] [Move/UnitView] Walk 적용 | unit=34, animator상태=Attack
+[07:50:07.229] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=68, isServer=False
+[07:50:07.229] [INFO] [Move/UnitView] Attack 적용 | unit=68, target=43, animator상태=Walk
+[07:50:07.267] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=68, prev=Walk, new=Attack
+[07:50:07.267] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=68, animator상태=Walk
+[07:50:07.299] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=41, isServer=False
+[07:50:07.299] [INFO] [Move/UnitView] Attack 적용 | unit=41, target=25, animator상태=Walk
+[07:50:07.329] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Walk, new=Attack
+[07:50:07.329] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=41, animator상태=Walk
+[07:50:07.574] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=76, prev=None, new=Walk
+[07:50:07.574] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:50:07.582] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=76
+[07:50:07.582] [INFO] [Move/UnitFactory] 유닛 생성 | unit=76(LittleKnight), isServer=False
+[07:50:07.627] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=16, prev=Attack, new=Walk
+[07:50:07.627] [INFO] [Move/UnitView] Walk 적용 | unit=16, animator상태=Attack
+[07:50:07.801] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=51, isServer=False
+[07:50:07.801] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=68, isServer=False
+[07:50:07.934] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=68, prev=Attack, new=Walk
+[07:50:07.934] [INFO] [Move/UnitView] Walk 적용 | unit=68, animator상태=Attack
+[07:50:08.010] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=47, isServer=False
+[07:50:08.010] [INFO] [Move/UnitView] Attack 적용 | unit=47, target=27, animator상태=Walk
+[07:50:08.034] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Walk, new=Attack
+[07:50:08.034] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=47, animator상태=Walk
+[07:50:08.126] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=51, prev=Attack, new=Walk
+[07:50:08.126] [INFO] [Move/UnitView] Walk 적용 | unit=51, animator상태=Attack
+[07:50:08.262] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=77, prev=None, new=Walk
+[07:50:08.262] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:50:08.264] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=77
+[07:50:08.264] [INFO] [Move/UnitFactory] 유닛 생성 | unit=77(SpearMan), isServer=False
+[07:50:08.568] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=76, isServer=False
+[07:50:08.568] [INFO] [Move/UnitView] Attack 적용 | unit=76, target=50, animator상태=Walk
+[07:50:08.568] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=50, isServer=False
+[07:50:08.568] [INFO] [Move/UnitView] Attack 적용 | unit=50, target=76, animator상태=Walk
+[07:50:08.611] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=76, prev=Walk, new=Attack
+[07:50:08.611] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=76, animator상태=Walk
+[07:50:08.611] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=50, prev=Walk, new=Attack
+[07:50:08.611] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=50, animator상태=Walk
+[07:50:08.727] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=78, prev=None, new=Walk
+[07:50:08.727] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:08.728] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=78
+[07:50:08.728] [INFO] [Move/UnitFactory] 유닛 생성 | unit=78(Pistoleer), isServer=False
+[07:50:09.066] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=34, isServer=False
+[07:50:09.066] [INFO] [Move/UnitView] Attack 적용 | unit=34, target=27, animator상태=Walk
+[07:50:09.067] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=79, prev=None, new=Walk
+[07:50:09.067] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:09.067] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=34, prev=Walk, new=Attack
+[07:50:09.067] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=34, animator상태=Walk
+[07:50:09.079] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=79
+[07:50:09.082] [INFO] [Move/UnitFactory] 유닛 생성 | unit=79(Pistoleer), isServer=False
+[07:50:09.100] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=23, isServer=False
+[07:50:09.100] [INFO] [Move/UnitView] Attack 적용 | unit=23, target=27, animator상태=Walk
+[07:50:09.129] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Walk, new=Attack
+[07:50:09.129] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=23, animator상태=Walk
+[07:50:09.517] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=51, isServer=False
+[07:50:09.517] [INFO] [Move/UnitView] Attack 적용 | unit=51, target=65, animator상태=Walk
+[07:50:09.535] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=16, prev=Walk, new=Attack
+[07:50:09.535] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=16, animator상태=Walk
+[07:50:09.535] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=51, prev=Walk, new=Attack
+[07:50:09.535] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=51, animator상태=Walk
+[07:50:09.605] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=16, isServer=False
+[07:50:09.605] [INFO] [Move/UnitView] Attack 적용 | unit=16, target=27, animator상태=Walk
+[07:50:09.668] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=16, prev=Attack, new=Attack
+[07:50:09.668] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=16, animator상태=Attack
+[07:50:09.830] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=68, isServer=False
+[07:50:09.830] [INFO] [Move/UnitView] Attack 적용 | unit=68, target=65, animator상태=Walk
+[07:50:09.840] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=68, prev=Walk, new=Attack
+[07:50:09.840] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=68, animator상태=Walk
+[07:50:10.034] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=32, isServer=False
+[07:50:10.034] [INFO] [Move/UnitView] Attack 적용 | unit=32, target=76, animator상태=Walk
+[07:50:10.059] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=32, prev=Walk, new=Attack
+[07:50:10.059] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=32, animator상태=Walk
+[07:50:10.438] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=62, isServer=False
+[07:50:10.439] [INFO] [Move/UnitView] Attack 적용 | unit=62, target=76, animator상태=Walk
+[07:50:10.457] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=80, prev=None, new=Walk
+[07:50:10.457] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:10.457] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=62, prev=Walk, new=Attack
+[07:50:10.457] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=62, animator상태=Walk
+[07:50:10.458] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=80
+[07:50:10.458] [INFO] [Move/UnitFactory] 유닛 생성 | unit=80(Pistoleer), isServer=False
+[07:50:10.606] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=26, isServer=False
+[07:50:10.606] [INFO] [Move/UnitView] Attack 적용 | unit=26, target=76, animator상태=Walk
+[07:50:10.606] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=19, isServer=False
+[07:50:10.606] [INFO] [Move/UnitView] Attack 적용 | unit=19, target=76, animator상태=Walk
+[07:50:10.637] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=26, prev=Walk, new=Attack
+[07:50:10.637] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=26, animator상태=Walk
+[07:50:10.637] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=19, prev=Walk, new=Attack
+[07:50:10.637] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=19, animator상태=Walk
+[07:50:10.727] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=81, prev=None, new=Walk
+[07:50:10.727] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:50:10.729] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=81
+[07:50:10.730] [INFO] [Move/UnitFactory] 유닛 생성 | unit=81(LittleKnight), isServer=False
+[07:50:11.094] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=42, isServer=False
+[07:50:11.094] [INFO] [Move/UnitView] Attack 적용 | unit=42, target=65, animator상태=Walk
+[07:50:11.175] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=42, prev=Walk, new=Attack
+[07:50:11.175] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=42, animator상태=Walk
+[07:50:11.175] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=65, isServer=False
+[07:50:11.175] [INFO] [Move/UnitView] Attack 적용 | unit=65, target=42, animator상태=Walk
+[07:50:11.175] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=65, prev=Walk, new=Attack
+[07:50:11.175] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=65, animator상태=Walk
+[07:50:11.331] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=16, isServer=False
+[07:50:11.331] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=23, isServer=False
+[07:50:11.331] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=34, isServer=False
+[07:50:11.331] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=47, isServer=False
+[07:50:11.500] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=78, isServer=False
+[07:50:11.500] [INFO] [Move/UnitView] Attack 적용 | unit=78, target=14, animator상태=Walk
+[07:50:11.551] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=78, prev=Walk, new=Attack
+[07:50:11.551] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=78, animator상태=Walk
+[07:50:11.551] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=32, isServer=False
+[07:50:11.551] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=62, isServer=False
+[07:50:11.551] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=19, isServer=False
+[07:50:11.551] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=26, isServer=False
+[07:50:11.551] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=50, isServer=False
+[07:50:11.560] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=16, prev=Attack, new=Walk
+[07:50:11.560] [INFO] [Move/UnitView] Walk 적용 | unit=16, animator상태=Attack
+[07:50:11.560] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=50, prev=Attack, new=Walk
+[07:50:11.560] [INFO] [Move/UnitView] Walk 적용 | unit=50, animator상태=Attack
+[07:50:11.666] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=16, prev=Walk, new=Attack
+[07:50:11.666] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=16, animator상태=Walk
+[07:50:11.666] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=16, isServer=False
+[07:50:11.666] [INFO] [Move/UnitView] Attack 적용 | unit=16, target=25, animator상태=Walk
+[07:50:11.695] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=16, prev=Attack, new=Attack
+[07:50:11.695] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=16, animator상태=Walk
+[07:50:11.767] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=82, prev=None, new=Walk
+[07:50:11.767] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:11.778] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=82
+[07:50:11.778] [INFO] [Move/UnitFactory] 유닛 생성 | unit=82(Assault), isServer=False
+[07:50:11.928] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=83, prev=None, new=Walk
+[07:50:11.928] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:11.929] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=83
+[07:50:11.930] [INFO] [Move/UnitFactory] 유닛 생성 | unit=83(Assault), isServer=False
+[07:50:12.035] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=84, prev=None, new=Walk
+[07:50:12.035] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:12.036] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=84
+[07:50:12.036] [INFO] [Move/UnitFactory] 유닛 생성 | unit=84(Assault), isServer=False
+[07:50:12.078] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Attack, new=Walk
+[07:50:12.078] [INFO] [Move/UnitView] Walk 적용 | unit=47, animator상태=Attack
+[07:50:12.078] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=32, prev=Attack, new=Walk
+[07:50:12.078] [INFO] [Move/UnitView] Walk 적용 | unit=32, animator상태=Attack
+[07:50:12.302] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=50, isServer=False
+[07:50:12.302] [INFO] [Move/UnitView] Attack 적용 | unit=50, target=28, animator상태=Walk
+[07:50:12.368] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=50, prev=Walk, new=Attack
+[07:50:12.369] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=50, animator상태=Walk
+[07:50:12.399] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=47, isServer=False
+[07:50:12.399] [INFO] [Move/UnitView] Attack 적용 | unit=47, target=25, animator상태=Walk
+[07:50:12.435] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Walk, new=Attack
+[07:50:12.435] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=47, animator상태=Walk
+[07:50:12.435] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=82, isServer=False
+[07:50:12.435] [INFO] [Move/UnitView] Attack 적용 | unit=82, target=21, animator상태=Walk
+[07:50:12.466] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=82, prev=Walk, new=Attack
+[07:50:12.466] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=82, animator상태=Walk
+[07:50:12.466] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=62, prev=Attack, new=Walk
+[07:50:12.466] [INFO] [Move/UnitView] Walk 적용 | unit=62, animator상태=Attack
+[07:50:12.607] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=85, prev=None, new=Walk
+[07:50:12.607] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:50:12.609] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=85
+[07:50:12.609] [INFO] [Move/UnitFactory] 유닛 생성 | unit=85(LittleKnight), isServer=False
+[07:50:12.661] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=26, prev=Attack, new=Walk
+[07:50:12.661] [INFO] [Move/UnitView] Walk 적용 | unit=26, animator상태=Attack
+[07:50:12.661] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=19, prev=Attack, new=Walk
+[07:50:12.661] [INFO] [Move/UnitView] Walk 적용 | unit=19, animator상태=Attack
+[07:50:13.061] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=34, prev=Attack, new=Walk
+[07:50:13.061] [INFO] [Move/UnitView] Walk 적용 | unit=34, animator상태=Attack
+[07:50:13.165] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Attack, new=Walk
+[07:50:13.165] [INFO] [Move/UnitView] Walk 적용 | unit=23, animator상태=Attack
+[07:50:13.165] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=62, isServer=False
+[07:50:13.165] [INFO] [Move/UnitView] Attack 적용 | unit=62, target=85, animator상태=Walk
+[07:50:13.203] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=62, prev=Walk, new=Attack
+[07:50:13.203] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=62, animator상태=Walk
+[07:50:13.261] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=85, isServer=False
+[07:50:13.261] [INFO] [Move/UnitView] Attack 적용 | unit=85, target=50, animator상태=Walk
+[07:50:13.268] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=85, prev=Walk, new=Attack
+[07:50:13.268] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=85, animator상태=Walk
+[07:50:13.360] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=32, prev=Walk, new=Attack
+[07:50:13.360] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=32, animator상태=Walk
+[07:50:13.412] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=34, isServer=False
+[07:50:13.412] [INFO] [Move/UnitView] Attack 적용 | unit=34, target=25, animator상태=Walk
+[07:50:13.430] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=34, prev=Walk, new=Attack
+[07:50:13.430] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=34, animator상태=Walk
+[07:50:13.561] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Walk, new=Attack
+[07:50:13.561] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=23, animator상태=Walk
+[07:50:13.713] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=23, isServer=False
+[07:50:13.713] [INFO] [Move/UnitView] Attack 적용 | unit=23, target=25, animator상태=Attack
+[07:50:13.713] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=32, isServer=False
+[07:50:13.713] [INFO] [Move/UnitView] Attack 적용 | unit=32, target=28, animator상태=Attack
+[07:50:13.713] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=26, isServer=False
+[07:50:13.713] [INFO] [Move/UnitView] Attack 적용 | unit=26, target=28, animator상태=Walk
+[07:50:13.713] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=19, isServer=False
+[07:50:13.713] [INFO] [Move/UnitView] Attack 적용 | unit=19, target=28, animator상태=Walk
+[07:50:13.729] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Attack, new=Attack
+[07:50:13.729] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=23, animator상태=Attack
+[07:50:13.729] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=32, prev=Attack, new=Attack
+[07:50:13.729] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=32, animator상태=Attack
+[07:50:13.729] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=26, prev=Walk, new=Attack
+[07:50:13.729] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=26, animator상태=Walk
+[07:50:13.729] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=19, prev=Walk, new=Attack
+[07:50:13.729] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=19, animator상태=Walk
+[07:50:13.732] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=68, isServer=False
+[07:50:13.732] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=51, isServer=False
+[07:50:13.732] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=42, isServer=False
+[07:50:13.761] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=86, prev=None, new=Walk
+[07:50:13.761] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:13.763] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=86
+[07:50:13.763] [INFO] [Move/UnitFactory] 유닛 생성 | unit=86(Pistoleer), isServer=False
+[07:50:13.875] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=68, prev=Attack, new=Walk
+[07:50:13.875] [INFO] [Move/UnitView] Walk 적용 | unit=68, animator상태=Attack
+[07:50:13.956] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=51, prev=Attack, new=Walk
+[07:50:13.956] [INFO] [Move/UnitView] Walk 적용 | unit=51, animator상태=Attack
+[07:50:14.124] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=87, prev=None, new=Walk
+[07:50:14.124] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:14.124] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=58, isServer=False
+[07:50:14.124] [INFO] [Move/UnitView] Attack 적용 | unit=58, target=85, animator상태=Walk
+[07:50:14.124] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=36, isServer=False
+[07:50:14.124] [INFO] [Move/UnitView] Attack 적용 | unit=36, target=85, animator상태=Walk
+[07:50:14.125] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=87
+[07:50:14.125] [INFO] [Move/UnitFactory] 유닛 생성 | unit=87(Pistoleer), isServer=False
+[07:50:14.133] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=58, prev=Walk, new=Attack
+[07:50:14.133] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=58, animator상태=Walk
+[07:50:14.133] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=36, prev=Walk, new=Attack
+[07:50:14.133] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=36, animator상태=Walk
+[07:50:14.638] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=70, isServer=False
+[07:50:14.638] [INFO] [Move/UnitView] Attack 적용 | unit=70, target=85, animator상태=Walk
+[07:50:14.638] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=68, isServer=False
+[07:50:14.638] [INFO] [Move/UnitView] Attack 적용 | unit=68, target=74, animator상태=Walk
+[07:50:14.664] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=70, prev=Walk, new=Attack
+[07:50:14.664] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=70, animator상태=Walk
+[07:50:14.664] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=68, prev=Walk, new=Attack
+[07:50:14.664] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=68, animator상태=Walk
+[07:50:14.968] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=51, isServer=False
+[07:50:14.968] [INFO] [Move/UnitView] Attack 적용 | unit=51, target=74, animator상태=Walk
+[07:50:14.997] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=51, prev=Walk, new=Attack
+[07:50:14.998] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=51, animator상태=Walk
+[07:50:15.168] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=42, prev=Attack, new=Walk
+[07:50:15.170] [INFO] [Move/UnitView] Walk 적용 | unit=42, animator상태=Attack
+[07:50:15.439] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=70, isServer=False
+[07:50:15.439] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=36, isServer=False
+[07:50:15.439] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=58, isServer=False
+[07:50:15.526] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=88, prev=None, new=Walk
+[07:50:15.526] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:15.529] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=88
+[07:50:15.529] [INFO] [Move/UnitFactory] 유닛 생성 | unit=88(Pistoleer), isServer=False
+[07:50:15.769] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=89, prev=None, new=Walk
+[07:50:15.769] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:50:15.769] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=70, prev=Attack, new=Walk
+[07:50:15.769] [INFO] [Move/UnitView] Walk 적용 | unit=70, animator상태=Attack
+[07:50:15.770] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=89
+[07:50:15.770] [INFO] [Move/UnitFactory] 유닛 생성 | unit=89(LittleKnight), isServer=False
+[07:50:15.834] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=74, isServer=False
+[07:50:15.834] [INFO] [Move/UnitView] Attack 적용 | unit=74, target=42, animator상태=Walk
+[07:50:15.847] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=74, prev=Walk, new=Attack
+[07:50:15.847] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=74, animator상태=Walk
+[07:50:15.868] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=42, prev=Walk, new=Attack
+[07:50:15.868] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=42, animator상태=Walk
+[07:50:15.868] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=70, prev=Walk, new=Attack
+[07:50:15.868] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=70, animator상태=Attack
+[07:50:16.162] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=36, prev=Attack, new=Walk
+[07:50:16.163] [INFO] [Move/UnitView] Walk 적용 | unit=36, animator상태=Attack
+[07:50:16.335] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=82, isServer=False
+[07:50:16.336] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=78, isServer=False
+[07:50:16.578] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=62, isServer=False
+[07:50:16.578] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=70, isServer=False
+[07:50:16.578] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=19, isServer=False
+[07:50:16.578] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=29, isServer=False
+[07:50:16.578] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=30, isServer=False
+[07:50:16.578] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=32, isServer=False
+[07:50:16.578] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=50, isServer=False
+[07:50:16.578] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=26, isServer=False
+[07:50:16.578] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=82, prev=Attack, new=Walk
+[07:50:16.578] [INFO] [Move/UnitView] Walk 적용 | unit=82, animator상태=Attack
+[07:50:16.610] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=48, isServer=False
+[07:50:16.610] [INFO] [Move/UnitView] Attack 적용 | unit=48, target=74, animator상태=Walk
+[07:50:16.639] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=48, prev=Walk, new=Attack
+[07:50:16.639] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=48, animator상태=Walk
+[07:50:16.639] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=23, isServer=False
+[07:50:16.639] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=34, isServer=False
+[07:50:16.639] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=47, isServer=False
+[07:50:16.639] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=41, isServer=False
+[07:50:16.639] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=54, isServer=False
+[07:50:16.639] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=53, isServer=False
+[07:50:16.639] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=16, isServer=False
+[07:50:16.639] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=40, isServer=False
+[07:50:16.662] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Attack, new=Walk
+[07:50:16.662] [INFO] [Move/UnitView] Walk 적용 | unit=54, animator상태=Attack
+[07:50:16.662] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=30, prev=Attack, new=Walk
+[07:50:16.662] [INFO] [Move/UnitView] Walk 적용 | unit=30, animator상태=Attack
+[07:50:16.764] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Attack, new=Walk
+[07:50:16.764] [INFO] [Move/UnitView] Walk 적용 | unit=40, animator상태=Attack
+[07:50:16.764] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Attack, new=Walk
+[07:50:16.764] [INFO] [Move/UnitView] Walk 적용 | unit=53, animator상태=Attack
+[07:50:16.764] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Attack, new=Walk
+[07:50:16.764] [INFO] [Move/UnitView] Walk 적용 | unit=41, animator상태=Attack
+[07:50:16.765] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=29, prev=Attack, new=Walk
+[07:50:16.765] [INFO] [Move/UnitView] Walk 적용 | unit=29, animator상태=Attack
+[07:50:16.817] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=42, isServer=False
+[07:50:16.817] [INFO] [Move/UnitView] Attack 적용 | unit=42, target=74, animator상태=Attack
+[07:50:16.875] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=70, prev=Attack, new=Walk
+[07:50:16.875] [INFO] [Move/UnitView] Walk 적용 | unit=70, animator상태=Attack
+[07:50:16.875] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=42, prev=Attack, new=Attack
+[07:50:16.875] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=42, animator상태=Attack
+[07:50:16.957] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Walk, new=Attack
+[07:50:16.957] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=54, animator상태=Walk
+[07:50:17.064] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Walk, new=Attack
+[07:50:17.064] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=40, animator상태=Walk
+[07:50:17.064] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Walk, new=Attack
+[07:50:17.064] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=41, animator상태=Walk
+[07:50:17.064] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Walk, new=Attack
+[07:50:17.065] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=53, animator상태=Walk
+[07:50:17.160] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=58, prev=Attack, new=Walk
+[07:50:17.160] [INFO] [Move/UnitView] Walk 적용 | unit=58, animator상태=Attack
+[07:50:17.260] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=62, prev=Attack, new=Walk
+[07:50:17.261] [INFO] [Move/UnitView] Walk 적용 | unit=62, animator상태=Attack
+[07:50:17.474] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=32, prev=Attack, new=Walk
+[07:50:17.474] [INFO] [Move/UnitView] Walk 적용 | unit=32, animator상태=Attack
+[07:50:17.474] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=34, prev=Attack, new=Walk
+[07:50:17.474] [INFO] [Move/UnitView] Walk 적용 | unit=34, animator상태=Attack
+[07:50:17.557] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=78, prev=Attack, new=Walk
+[07:50:17.557] [INFO] [Move/UnitView] Walk 적용 | unit=78, animator상태=Attack
+[07:50:17.659] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Attack, new=Walk
+[07:50:17.659] [INFO] [Move/UnitView] Walk 적용 | unit=23, animator상태=Attack
+[07:50:17.764] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=26, prev=Attack, new=Walk
+[07:50:17.764] [INFO] [Move/UnitView] Walk 적용 | unit=26, animator상태=Attack
+[07:50:17.764] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=19, prev=Attack, new=Walk
+[07:50:17.764] [INFO] [Move/UnitView] Walk 적용 | unit=19, animator상태=Attack
+[07:50:17.764] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=16, prev=Attack, new=Walk
+[07:50:17.764] [INFO] [Move/UnitView] Walk 적용 | unit=16, animator상태=Attack
+[07:50:17.848] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=42, isServer=False
+[07:50:17.848] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=53, isServer=False
+[07:50:17.848] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=41, isServer=False
+[07:50:17.848] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=40, isServer=False
+[07:50:17.848] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=54, isServer=False
+[07:50:17.848] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=48, isServer=False
+[07:50:17.866] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Attack, new=Walk
+[07:50:17.866] [INFO] [Move/UnitView] Walk 적용 | unit=40, animator상태=Attack
+[07:50:17.866] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Attack, new=Walk
+[07:50:17.866] [INFO] [Move/UnitView] Walk 적용 | unit=53, animator상태=Attack
+[07:50:17.866] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Attack, new=Walk
+[07:50:17.866] [INFO] [Move/UnitView] Walk 적용 | unit=41, animator상태=Attack
+[07:50:17.866] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Attack, new=Walk
+[07:50:17.866] [INFO] [Move/UnitView] Walk 적용 | unit=54, animator상태=Attack
+[07:50:17.965] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=42, prev=Attack, new=Walk
+[07:50:17.965] [INFO] [Move/UnitView] Walk 적용 | unit=42, animator상태=Attack
+[07:50:18.238] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=80, isServer=False
+[07:50:18.238] [INFO] [Move/UnitView] Attack 적용 | unit=80, target=51, animator상태=Walk
+[07:50:18.268] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=80, prev=Walk, new=Attack
+[07:50:18.268] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=80, animator상태=Walk
+[07:50:18.294] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=90, prev=None, new=Walk
+[07:50:18.294] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:50:18.294] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=90
+[07:50:18.295] [INFO] [Move/UnitFactory] 유닛 생성 | unit=90(SpearMan), isServer=False
+[07:50:18.377] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=50, prev=Attack, new=Walk
+[07:50:18.378] [INFO] [Move/UnitView] Walk 적용 | unit=50, animator상태=Attack
+[07:50:18.464] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Attack, new=Walk
+[07:50:18.464] [INFO] [Move/UnitView] Walk 적용 | unit=47, animator상태=Attack
+[07:50:18.525] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=70, isServer=False
+[07:50:18.525] [INFO] [Move/UnitView] Attack 적용 | unit=70, target=1, animator상태=Walk
+[07:50:18.556] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=70, prev=Walk, new=Attack
+[07:50:18.556] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=70, animator상태=Walk
+[07:50:18.669] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=48, prev=Attack, new=Walk
+[07:50:18.669] [INFO] [Move/UnitView] Walk 적용 | unit=48, animator상태=Attack
+[07:50:18.669] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=30, isServer=False
+[07:50:18.669] [INFO] [Move/UnitView] Attack 적용 | unit=30, target=1, animator상태=Walk
+[07:50:18.699] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=30, prev=Walk, new=Attack
+[07:50:18.699] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=30, animator상태=Walk
+[07:50:18.699] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=69, isServer=False
+[07:50:18.699] [INFO] [Move/UnitView] Attack 적용 | unit=69, target=1, animator상태=Walk
+[07:50:18.730] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=69, prev=Walk, new=Attack
+[07:50:18.730] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=69, animator상태=Walk
+[07:50:18.766] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=29, isServer=False
+[07:50:18.766] [INFO] [Move/UnitView] Attack 적용 | unit=29, target=1, animator상태=Walk
+[07:50:18.824] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=91, prev=None, new=Walk
+[07:50:18.824] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:18.824] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=29, prev=Walk, new=Attack
+[07:50:18.824] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=29, animator상태=Walk
+[07:50:18.825] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=91
+[07:50:18.825] [INFO] [Move/UnitFactory] 유닛 생성 | unit=91(Pistoleer), isServer=False
+[07:50:19.134] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=92, prev=None, new=Walk
+[07:50:19.134] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:19.137] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=92
+[07:50:19.137] [INFO] [Move/UnitFactory] 유닛 생성 | unit=92(Pistoleer), isServer=False
+[07:50:19.268] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=62, isServer=False
+[07:50:19.268] [INFO] [Move/UnitView] Attack 적용 | unit=62, target=1, animator상태=Walk
+[07:50:19.291] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=62, prev=Walk, new=Attack
+[07:50:19.291] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=62, animator상태=Walk
+[07:50:19.331] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=34, isServer=False
+[07:50:19.331] [INFO] [Move/UnitView] Attack 적용 | unit=34, target=1, animator상태=Walk
+[07:50:19.364] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=34, prev=Walk, new=Attack
+[07:50:19.364] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=34, animator상태=Walk
+[07:50:19.496] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=93, prev=None, new=Walk
+[07:50:19.496] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:19.498] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=93
+[07:50:19.498] [INFO] [Move/UnitFactory] 유닛 생성 | unit=93(CannonCart), isServer=False
+[07:50:19.516] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=40, isServer=False
+[07:50:19.516] [INFO] [Move/UnitView] Attack 적용 | unit=40, target=91, animator상태=Walk
+[07:50:19.516] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=53, isServer=False
+[07:50:19.516] [INFO] [Move/UnitView] Attack 적용 | unit=53, target=91, animator상태=Walk
+[07:50:19.516] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=41, isServer=False
+[07:50:19.516] [INFO] [Move/UnitView] Attack 적용 | unit=41, target=91, animator상태=Walk
+[07:50:19.516] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=54, isServer=False
+[07:50:19.516] [INFO] [Move/UnitView] Attack 적용 | unit=54, target=91, animator상태=Walk
+[07:50:19.569] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Walk, new=Attack
+[07:50:19.569] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=40, animator상태=Walk
+[07:50:19.569] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Walk, new=Attack
+[07:50:19.569] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=53, animator상태=Walk
+[07:50:19.569] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Walk, new=Attack
+[07:50:19.569] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=41, animator상태=Walk
+[07:50:19.569] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Walk, new=Attack
+[07:50:19.569] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=54, animator상태=Walk
+[07:50:19.659] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Walk, new=Attack
+[07:50:19.659] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=23, animator상태=Walk
+[07:50:19.775] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=42, prev=Walk, new=Attack
+[07:50:19.775] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=42, animator상태=Walk
+[07:50:19.806] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=93, isServer=False
+[07:50:19.806] [INFO] [Move/UnitView] Attack 적용 | unit=93, target=51, animator상태=Walk
+[07:50:19.859] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=93, prev=Walk, new=Attack
+[07:50:19.859] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=93, animator상태=Walk
+[07:50:19.880] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=23, isServer=False
+[07:50:19.880] [INFO] [Move/UnitView] Attack 적용 | unit=23, target=1, animator상태=Attack
+[07:50:19.880] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=42, isServer=False
+[07:50:19.880] [INFO] [Move/UnitView] Attack 적용 | unit=42, target=80, animator상태=Attack
+[07:50:19.897] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=23, prev=Attack, new=Attack
+[07:50:19.897] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=23, animator상태=Attack
+[07:50:19.897] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=42, prev=Attack, new=Attack
+[07:50:19.897] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=42, animator상태=Attack
+[07:50:19.927] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=54, isServer=False
+[07:50:19.927] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=41, isServer=False
+[07:50:19.927] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=53, isServer=False
+[07:50:19.927] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=40, isServer=False
+[07:50:20.167] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Attack, new=Walk
+[07:50:20.167] [INFO] [Move/UnitView] Walk 적용 | unit=40, animator상태=Attack
+[07:50:20.167] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Attack, new=Walk
+[07:50:20.167] [INFO] [Move/UnitView] Walk 적용 | unit=53, animator상태=Attack
+[07:50:20.167] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Attack, new=Walk
+[07:50:20.167] [INFO] [Move/UnitView] Walk 적용 | unit=41, animator상태=Attack
+[07:50:20.167] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Attack, new=Walk
+[07:50:20.167] [INFO] [Move/UnitView] Walk 적용 | unit=54, animator상태=Attack
+[07:50:20.258] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Walk, new=Attack
+[07:50:20.258] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=40, animator상태=Attack
+[07:50:20.258] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Walk, new=Attack
+[07:50:20.258] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=41, animator상태=Attack
+[07:50:20.258] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Walk, new=Attack
+[07:50:20.258] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=53, animator상태=Attack
+[07:50:20.259] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Walk, new=Attack
+[07:50:20.259] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=54, animator상태=Attack
+[07:50:20.329] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=47, isServer=False
+[07:50:20.329] [INFO] [Move/UnitView] Attack 적용 | unit=47, target=1, animator상태=Walk
+[07:50:20.361] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=47, prev=Walk, new=Attack
+[07:50:20.361] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=47, animator상태=Walk
+[07:50:20.402] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=58, isServer=False
+[07:50:20.402] [INFO] [Move/UnitView] Attack 적용 | unit=58, target=1, animator상태=Walk
+[07:50:20.426] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=58, prev=Walk, new=Attack
+[07:50:20.426] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=58, animator상태=Walk
+[07:50:20.525] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=94, prev=None, new=Walk
+[07:50:20.525] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:20.527] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=94
+[07:50:20.527] [INFO] [Move/UnitFactory] 유닛 생성 | unit=94(Pistoleer), isServer=False
+[07:50:20.662] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=84, isServer=False
+[07:50:20.662] [INFO] [Move/UnitView] Attack 적용 | unit=84, target=86, animator상태=Walk
+[07:50:20.698] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=84, prev=Walk, new=Attack
+[07:50:20.698] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=84, animator상태=Walk
+[07:50:20.805] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=95, prev=None, new=Walk
+[07:50:20.806] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=Walk
+[07:50:20.807] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=95
+[07:50:20.807] [INFO] [Move/UnitFactory] 유닛 생성 | unit=95(LittleKnight), isServer=False
+[07:50:20.878] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=48, prev=Walk, new=Attack
+[07:50:20.878] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=48, animator상태=Walk
+[07:50:20.927] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=40, isServer=False
+[07:50:20.927] [INFO] [Move/UnitView] Attack 적용 | unit=40, target=1, animator상태=Attack
+[07:50:20.927] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=53, isServer=False
+[07:50:20.927] [INFO] [Move/UnitView] Attack 적용 | unit=53, target=1, animator상태=Attack
+[07:50:20.927] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=41, isServer=False
+[07:50:20.927] [INFO] [Move/UnitView] Attack 적용 | unit=41, target=1, animator상태=Attack
+[07:50:20.927] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=54, isServer=False
+[07:50:20.927] [INFO] [Move/UnitView] Attack 적용 | unit=54, target=1, animator상태=Attack
+[07:50:20.927] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=48, isServer=False
+[07:50:20.927] [INFO] [Move/UnitView] Attack 적용 | unit=48, target=80, animator상태=Walk
+[07:50:20.937] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=40, prev=Attack, new=Attack
+[07:50:20.937] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=40, animator상태=Attack
+[07:50:20.937] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=53, prev=Attack, new=Attack
+[07:50:20.937] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=53, animator상태=Attack
+[07:50:20.937] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=41, prev=Attack, new=Attack
+[07:50:20.937] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=41, animator상태=Attack
+[07:50:20.937] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=54, prev=Attack, new=Attack
+[07:50:20.937] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=54, animator상태=Attack
+[07:50:20.937] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=48, prev=Attack, new=Attack
+[07:50:20.937] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=48, animator상태=Walk
+[07:50:21.009] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=36, isServer=False
+[07:50:21.009] [INFO] [Move/UnitView] Attack 적용 | unit=36, target=1, animator상태=Walk
+[07:50:21.058] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=36, prev=Walk, new=Attack
+[07:50:21.058] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=36, animator상태=Walk
+[07:50:21.130] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=93, isServer=False
+[07:50:21.272] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=32, isServer=False
+[07:50:21.272] [INFO] [Move/UnitView] Attack 적용 | unit=32, target=1, animator상태=Walk
+[07:50:21.299] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=32, prev=Walk, new=Attack
+[07:50:21.299] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=32, animator상태=Walk
+[07:50:21.370] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=50, isServer=False
+[07:50:21.370] [INFO] [Move/UnitView] Attack 적용 | unit=50, target=1, animator상태=Walk
+[07:50:21.395] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=50, prev=Walk, new=Attack
+[07:50:21.395] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=50, animator상태=Walk
+[07:50:21.434] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=66, isServer=False
+[07:50:21.434] [INFO] [Move/UnitView] Attack 적용 | unit=66, target=1, animator상태=Walk
+[07:50:21.457] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=66, prev=Walk, new=Attack
+[07:50:21.457] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=66, animator상태=Walk
+[07:50:21.519] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=26, isServer=False
+[07:50:21.519] [INFO] [Move/UnitView] Attack 적용 | unit=26, target=1, animator상태=Walk
+[07:50:21.519] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=19, isServer=False
+[07:50:21.519] [INFO] [Move/UnitView] Attack 적용 | unit=19, target=1, animator상태=Walk
+[07:50:21.529] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=26, prev=Walk, new=Attack
+[07:50:21.529] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=26, animator상태=Walk
+[07:50:21.529] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=19, prev=Walk, new=Attack
+[07:50:21.529] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=19, animator상태=Walk
+[07:50:21.737] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=48, isServer=False
+[07:50:21.737] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=42, isServer=False
+[07:50:21.737] [INFO] [Move/NetworkCombatController] StopCombat RPC 수신 | unit=68, isServer=False
+[07:50:21.765] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=68, prev=Attack, new=Walk
+[07:50:21.765] [INFO] [Move/UnitView] Walk 적용 | unit=68, animator상태=Attack
+[07:50:21.827] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=96, prev=None, new=Walk
+[07:50:21.827] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:21.828] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=96
+[07:50:21.828] [INFO] [Move/UnitFactory] 유닛 생성 | unit=96(Assault), isServer=False
+[07:50:21.867] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=42, prev=Attack, new=Walk
+[07:50:21.867] [INFO] [Move/UnitView] Walk 적용 | unit=42, animator상태=Attack
+[07:50:21.927] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=97, prev=None, new=Walk
+[07:50:21.927] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:21.929] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=97
+[07:50:21.929] [INFO] [Move/UnitFactory] 유닛 생성 | unit=97(Assault), isServer=False
+[07:50:22.071] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=98, prev=None, new=Walk
+[07:50:22.071] [INFO] [Move/UnitView] Walk 적용 | unit=-1, animator상태=기타
+[07:50:22.072] [INFO] [Move/UnitView] 이벤트 구독 완료 | unit=98
+[07:50:22.073] [INFO] [Move/UnitFactory] 유닛 생성 | unit=98(Assault), isServer=False
+[07:50:22.169] [INFO] [Move/NetworkCombatController] Combat RPC 수신 | unit=82, isServer=False
+[07:50:22.170] [INFO] [Move/UnitView] Attack 적용 | unit=82, target=79, animator상태=Walk
+[07:50:22.205] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=82, prev=Walk, new=Attack
+[07:50:22.205] [INFO] [Move/UnitView] Attack 적용(레벨) | unit=82, animator상태=Walk
+[07:50:22.986] [INFO] [Move/NetworkUnit] AnimState 수신(변경) | unit=48, prev=Attack, new=Walk
+[07:50:22.986] [INFO] [Move/UnitView] Walk 적용 | unit=48, animator상태=Attack
