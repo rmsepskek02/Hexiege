@@ -32,6 +32,18 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 이동/Walk 애니메이션 레벨 동기화 Phase 2 (2026-07-12) — 🔨 구현 완료, 검증 대기
+- **핵심 패턴 — 애니메이션 상태를 NetworkVariable로 단일화(엣지 트리거 RPC → 레벨 동기화)**: 갓 스폰 유닛이 첫 Walk/Attack RPC를 스폰 레이스(구독 전 도착)로 유실하던 근본 결함 해결. `NetworkUnit._animState`(`NetworkVariable<byte>`, enum `UnitAnimState{None,Walk,Attack}`, Read=Everyone/Write=Server, `_unitId`와 동일 관례) 신설. 클라 `OnNetworkSpawn`에서 **현재 값 즉시 적용(ApplySpawnAnimState)** + `OnValueChanged` 구독 → 스폰 레이스 구조적 소멸. NGO는 같은 값 재설정 시 미전송이라 애니메이션 목적의 중복 가드 불필요.
+- **레이어 연결**: 서버 쓰기=Infrastructure(NetworkCombatController → `SetUnitAnimState(unitId,state)` 헬퍼 → `GetUnitObject().GetComponent<NetworkUnit>().SetAnimState()`, OnUnitDied Despawn과 동일 관례). 클라 적용=NetworkUnit이 같은 GO의 `GetComponent<UnitView>()` 캐시로 `StartWalkAnimation()`/`PlayAttackAnimation()`(신규) 직접 호출. **호스트는 OnNetworkSpawn IsServer early-return이라 _animState 미구독 → 적용 스킵**(서버가 Animator 직접 제어 관례 유지).
+- **서버 쓰기 지점**: Walk=`OnUnitWalkStartedHandler`, Attack=`OnUnitEnteredCombatHandler`(2경로) + `TickCombat` 신규 전투 등록 else-branch(백업). 
+- **Attack CrossFade 책임 분리(핵심 설계 결정)**: `UnitView.StartCombatAnimation`의 CrossFade를 `!IsNetworkActive || IsNetworkServer`(싱글+호스트)만 실행하도록 가드 → **클라만** NetworkVariable(PlayAttackAnimation)로 이관. StartCombatClientRpc는 유지(타겟 전달=회전추적/원거리 트레이서 조준 `_combatTargetTransform`). **T=0 동기화 우려 무의미**: 클라 타격 타이밍은 로컬 Attack 애니 히트프레임(OnAttackHit→HitPresentationQueue, 규칙 19)이 게이팅하므로 CrossFade 시작 위상 미세 오프셋은 큐가 흡수. "상태+진입 서버시각" 병행은 과설계라 회피.
+- **⚠️ 계획 deviation(플랜 item 5-D 미이행)**: `_combatAnimationSent` 가드는 **주석 처리 안 함**. 플랜은 "애니메이션 재전송 가드라 레벨 동기화로 불필요"로 봤으나, 실제로는 `OnUnitEnteredCombatHandler`의 **ExecuteAttack(데미지)** 및 StartCombatClientRpc 재전송을 게이팅하는 기능 가드(메모리 상단 combat-hit-timing 교훈과 일치). 제거 시 매 쿨다운 사이클 OnUnitEnteredCombat 재발행마다 ExecuteAttack 이중 발화→데미지 붕괴. 유지 필수.
+- **비활성화(주석)한 엣지 경로(검증 후 삭제)**: StartWalkAnimationClientRpc **호출**(정의는 [Phase2 대체] 주석 남김), UnitView `OnNetworkWalkStarted` 구독, GameEvents `OnNetworkWalkStarted` 필드(주석 노트만). StopCombatAnimation은 이미 애니 no-op이라 무변경(타겟 정리는 기능이라 유지).
+- **싱글플레이 무영향**: NGO 미스폰이라 NetworkUnit._animState 경로 자체가 안 돎. StartCombatAnimation 가드가 싱글(`!IsNetworkActive`=true)에서 CrossFade 실행. MoveAlongPathV3/EnterCombatLoopV3 싱글 Walk CrossFade 무변경.
+- **[MOVESYNC-LOG] 유지**(재검증용): NetworkUnit에 서버쓰기/OnValueChanged수신/스폰초기적용 3지점 로그 추가. 재검증 기대: 유실 RPC 0, "AnimState 쓰기"↔"수신/초기적용" 짝 일치.
+- task: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`. 파일: NetworkUnit.cs, NetworkCombatController.cs, UnitView.cs, GameEvents.cs.
+
+
 ### 전투 타격 타이밍 동기화 (Phase 1~3 + 수정 1~3) (2026-07-10) — ✅ 검증 완료(4차 로그+실기 PASS, 2026-07-12)
 - **타워 발사 VFX(3-1)**: `BuildingEffectConfig.attackPreset`+`GetAttack`, `EffectManager.PlayBuildingAttack(type,pos,rot)`. 재생 트리거는 **HitPresentationQueue의 타워 즉시 방출 경로**(`!AttackerIsUnit` 분기)에 통합. 위치=BuildingFactory 타워GO, 회전=타워→타겟 LookRotation(XZ), 타입=BuildingPlacementUseCase.GetBuilding(id).Type. **이중재생 없음**: 호스트=UseCase 1회, 클라=NetworkHealthSync 재발행 1회 → 각 머신 정확히 1회.
 - **원거리 트레이서(3-2)**: `Presentation/Effects/TracerProjectile.cs`(VfxPoolItem 풀링 미러). **핵심 설계**: 큐 무변경, UnitView.OnAttackHit에서 원거리(AttackRange>=1.0f)면 OnLocalAttackHit 발행을 트레이서 착탄 콜백으로 지연 → 비행시간=피격연출 지연 자동 동기화. 사망flush는 트레이서 대기 없이 즉시 방출(착탄 콜백은 빈 큐 discard). 판정 상수 `UnitView.RangedAttackThreshold=1.0f`.

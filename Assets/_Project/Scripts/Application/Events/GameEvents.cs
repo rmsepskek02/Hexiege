@@ -800,9 +800,13 @@ namespace Hexiege.Application
             = new Subject<NetworkCombatStoppedEvent>();
 
         /// <summary>
-        /// 멀티플레이 서버에서 클라이언트에 Walk 시작 명령 전파 시 발행.
-        /// 발행: NetworkCombatController.StartWalkAnimationClientRpc → ApplyStartWalkWithRetry
-        /// 구독: UnitView (자기 Id에 해당하면 StartWalkAnimation 호출)
+        /// [Phase 2 대체 — 발행/구독 모두 주석 처리됨, 검증 후 이 필드 삭제 예정]
+        /// 멀티플레이 서버에서 클라이언트에 Walk 시작 명령 전파 시 발행하던 엣지 트리거 이벤트.
+        ///
+        /// 애니메이션 상태 레벨 동기화(NetworkUnit._animState = Walk)로 대체되어 현재 발행자/구독자가 없다.
+        ///   - 발행: NetworkCombatController.StartWalkAnimationClientRpc (호출 주석 처리됨)
+        ///   - 구독: UnitView.SetDependencies의 멀티플레이 Walk 구독 (주석 처리됨)
+        /// 필드는 지금 삭제하지 않고 남겨 둔다(다른 참조가 없음을 확인했으나 [6] 통과 후 일괄 삭제).
         /// </summary>
         public static readonly Subject<NetworkWalkStartedEvent> OnNetworkWalkStarted
             = new Subject<NetworkWalkStartedEvent>();

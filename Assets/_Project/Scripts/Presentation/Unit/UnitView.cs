@@ -428,16 +428,22 @@ namespace Hexiege.Presentation
                     })
                     .AddTo(this);
 
-                // 멀티플레이 Walk 시작 (서버 ClientRpc → 클라이언트 Walk 애니메이션 동기화)
-                GameEvents.OnNetworkWalkStarted
-                    .Subscribe(e =>
-                    {
-                        if (_unitData != null && e.UnitId == _unitData.Id)
-                        {
-                            StartWalkAnimation();
-                        }
-                    })
-                    .AddTo(this);
+                // [Phase 2 대체 — 검증 후 삭제 예정]
+                //   멀티플레이 Walk 시작은 이제 애니메이션 상태 레벨 동기화로 처리한다.
+                //   서버가 NetworkUnit._animState = Walk로 쓰면, 클라이언트 NetworkUnit이
+                //   값 변경(OnValueChanged) 및 스폰 시 현재 값을 읽어 UnitView.StartWalkAnimation()을
+                //   직접 호출한다(스폰 레이스로 신호가 유실될 수 없음).
+                //   따라서 아래 엣지 트리거 이벤트 구독은 불필요해졌다. StartWalkAnimation() 메서드 자체는
+                //   NetworkUnit이 호출하므로 유지된다.
+                // GameEvents.OnNetworkWalkStarted
+                //     .Subscribe(e =>
+                //     {
+                //         if (_unitData != null && e.UnitId == _unitData.Id)
+                //         {
+                //             StartWalkAnimation();
+                //         }
+                //     })
+                //     .AddTo(this);
             }
 
             // 사망 이벤트 구독 — 이 유닛이 사망하면 GameObject 파괴.
@@ -1648,25 +1654,56 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// Walk 애니메이션 시작. NetworkCombatController의 StartWalkAnimationClientRpc에서 호출.
-        /// 클라이언트 전용 — 서버는 MoveAlongPath에서 직접 Animator를 제어.
+        /// Walk 애니메이션 시작(CrossFade). 클라이언트 전용 — 서버는 MoveAlongPath에서 직접 제어.
+        ///
+        /// [Phase 2] 호출 경로가 바뀌었다:
+        ///   기존: NetworkCombatController.StartWalkAnimationClientRpc → OnNetworkWalkStarted 구독 → 여기.
+        ///   현재: NetworkUnit._animState(=Walk) 값 변경/스폰 시 → NetworkUnit.ApplyAnimState → 여기.
+        ///   메서드 시그니처/동작은 동일하며, 호출 주체만 "엣지 RPC"에서 "레벨 동기화 값"으로 바뀌었다.
         /// 이미 Walk 상태면 리셋하지 않고 speed만 복원.
         /// </summary>
         public void StartWalkAnimation()
         {
-            // _animator가 null이면 lazy-init 시도 (Initialize() 전에 RPC가 도착한 경우 대응)
+            // _animator가 null이면 lazy-init 시도 (Initialize() 전에 상태 값이 적용되는 경우 대응 — 스폰 레이스)
             if (_animator == null)
                 _animator = GetComponentInChildren<Animator>();
             if (_animator == null) return;
 
             // [MOVESYNC-LOG] Walk 실제 적용 지점 — CrossFade 직전 상태(전환 전)를 기록.
-            // 대응하는 "Walk RPC 수신" 로그가 있는데 이 로그가 없으면 구독 전 도착(유실)이다.
+            // NetworkUnit의 "AnimState 수신/초기적용" 로그와 짝을 이룬다.
             if (MoveAnimSyncLog.Enabled)
                 MoveAnimSyncLog.Info("Move/UnitView",
                     $"Walk 적용 | unit={(_unitData != null ? _unitData.Id : -1)}, animator상태={DescribeAnimatorState()}");
 
             _animator.speed = 1f;
             _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
+        }
+
+        /// <summary>
+        /// [Phase 2 신규] 공격(Attack) 애니메이션 루프를 재생한다 — CrossFade만 수행.
+        ///
+        /// 클라이언트에서 NetworkUnit의 애니메이션 상태 NetworkVariable(=Attack)이 적용될 때 호출된다
+        /// (값 변경 및 스폰 시 현재 값 적용). Attack 클립은 Loop Time=ON이므로 1회 CrossFade로 무한 루프.
+        ///
+        /// 회전/타겟 추적은 StartCombatAnimation(StartCombatClientRpc 경로)이 담당하므로, 이 메서드는
+        /// 타겟 정보를 받지 않고 순수하게 "Attack 상태 전환"만 담당한다(애니메이션과 조준의 책임 분리).
+        /// _unitData/Initialize보다 먼저 호출될 수 있어 animator를 지연 초기화한다(스폰 레이스 대응).
+        /// </summary>
+        public void PlayAttackAnimation()
+        {
+            // _animator가 null이면 lazy-init 시도 (Initialize() 전에 상태 값이 적용되는 경우 대응 — 스폰 레이스)
+            if (_animator == null)
+                _animator = GetComponentInChildren<Animator>();
+            if (_animator == null) return;
+
+            // [MOVESYNC-LOG] Attack 실제 적용 지점(레벨 동기화) — 스폰 레이스 유실 판별용.
+            // NetworkUnit의 "AnimState 수신/초기적용" 로그와 짝을 이룬다.
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/UnitView",
+                    $"Attack 적용(레벨) | unit={(_unitData != null ? _unitData.Id : -1)}, animator상태={DescribeAnimatorState()}");
+
+            _animator.speed = 1f;
+            _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0);
         }
 
         // StopWalkAnimation() 제거 — Idle 상태가 없으므로 Walk 정지 전용 메서드 불필요.
@@ -1707,14 +1744,27 @@ namespace Hexiege.Presentation
             float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
             transform.rotation = Quaternion.Euler(0f, angle, 0f);
 
-            // Attack CrossFade 시작 — Loop Time=ON이므로 자동 루프
-            if (_animator != null)
+            // ────────────────────────────────────────────────────────────────
+            // [Phase 2 대체] Attack CrossFade 책임 분리.
+            //   멀티플레이 "클라이언트"의 Attack 전환은 이제 애니메이션 상태 레벨 동기화가 담당한다
+            //   (NetworkUnit._animState = Attack → PlayAttackAnimation). 스폰 레이스로 유실될 수 없다.
+            //   여기서는 "싱글플레이" 또는 "호스트(서버)"만 직접 CrossFade한다:
+            //     - 싱글플레이: NGO가 없어 레벨 동기화 경로가 없으므로 직접 재생해야 한다.
+            //     - 호스트(서버): 서버가 Animator를 직접 제어하는 기존 관례를 유지한다
+            //       (StartWalkAnimationClientRpc의 IsServer 스킵과 동일한 취지).
+            //   클라이언트가 여기서도 CrossFade하면 레벨 동기화와 이중 적용되므로 스킵한다.
+            //   검증 후 이 분기를 정리(레벨 동기화로 완전 일원화)할지 결정한다.
+            // ────────────────────────────────────────────────────────────────
+            bool applyCrossFadeHere = !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
+            if (applyCrossFadeHere && _animator != null)
             {
                 _animator.speed = 1f;
                 _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0);
             }
 
-            // 공격 중 타겟 Transform 참조 저장 → Update()에서 매 프레임 추적
+            // 공격 중 타겟 Transform 참조 저장 → Update()에서 매 프레임 추적.
+            // [Phase 2] 이 타겟 참조/회전 추적은 애니메이션과 분리해 "유지"한다(클라이언트도 필요):
+            //   원거리 유닛의 트레이서 조준(OnAttackHit)이 _combatTargetTransform/_combatTargetId를 사용한다.
             _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
 
             // 멀티플레이 타이밍 문제 대비: Transform 참조가 나중에 null이 되더라도

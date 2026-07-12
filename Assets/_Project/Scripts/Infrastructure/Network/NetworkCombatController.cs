@@ -364,6 +364,13 @@ namespace Hexiege.Infrastructure
                             // 새로 전투 진입 — Dictionary 등록만 수행.
                             // StartCombatClientRpc는 OnUnitEnteredCombatHandler에서 단독 담당.
                             _unitCombatTargets[id] = (targetId, isUnit);
+
+                            // [Phase 2] 애니메이션 상태 Attack 백업 쓰기(레벨 동기화).
+                            //   OnUnitEnteredCombatHandler(즉시 경로)가 코루틴 타이밍상 아직 실행되지
+                            //   않은 채 TickCombat이 먼저 전투를 등록하는 경우를 대비한 안전망이다.
+                            //   NGO는 같은 값을 다시 써도 전송하지 않으므로 즉시 경로와 중복돼도 무해하다.
+                            //   전투 등록 전이(transition) 시점에만 1회 실행되므로 매 틱 비용이 아니다.
+                            SetUnitAnimState(id, UnitAnimState.Attack);
                         }
 
                         // 데미지 코루틴 실행 (쿨다운 0일 때만 여기까지 도달)
@@ -542,16 +549,42 @@ namespace Hexiege.Infrastructure
         /// <param name="unitId">Walk를 시작한 유닛의 Id</param>
         private void OnUnitWalkStartedHandler(int unitId)
         {
-            // [MOVESYNC-LOG] Walk RPC 송신 직전(서버) — 수신/적용 로그와 대조해 유실 판별.
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/NetworkCombatController", $"Walk RPC 송신 | unit={unitId}");
+            // 1) [Phase 2] 애니메이션 상태를 Walk로 설정(레벨 동기화).
+            //    클라이언트는 값 변경(OnValueChanged) 및 스폰 시 현재 값을 자동 적용하므로
+            //    엣지 트리거 Walk RPC와 달리 스폰 레이스로 신호가 유실될 수 없다.
+            //    (SetUnitAnimState 내부에서 서버 쓰기 [MOVESYNC-LOG]를 남긴다.)
+            SetUnitAnimState(unitId, UnitAnimState.Walk);
 
-            // 1) 클라이언트에 Walk 애니메이션 재생 명령 전송.
-            StartWalkAnimationClientRpc(unitId);
+            // 2) [Phase 2 대체] 엣지 트리거 Walk RPC는 위 레벨 동기화로 대체됨 — 검증 후 삭제 예정.
+            //    (StartWalkAnimationClientRpc + OnNetworkWalkStarted 구독 체인 전체가 대체 대상)
+            // StartWalkAnimationClientRpc(unitId);
 
-            // 2) 전투 애니메이션 재전송 가드 해제 — 다음 전투 재진입 시 StartCombatClientRpc가
-            //    반드시 재전송되도록 보장(경쟁 조건 봉합). 전투 중이 아니면 no-op.
+            // 3) 전투 애니메이션 재전송 가드 해제 — 유지.
+            //    _combatAnimationSent는 "애니메이션"이 아니라 OnUnitEnteredCombatHandler의
+            //    ExecuteAttack(데미지 재발화)과 StartCombatClientRpc(타겟 전달) 재전송을 게이팅하는
+            //    "기능" 가드다. 전투 이탈(Walk) 시 해제해야 다음 전투 재진입에서 첫 공격이 재실행된다.
+            //    (Phase 2의 애니메이션 레벨 동기화와는 별개의 목적이므로 그대로 둔다.)
             _combatAnimationSent.Remove(unitId);
+        }
+
+        /// <summary>
+        /// [Phase 2] 유닛 Id로 같은 GameObject의 NetworkUnit을 찾아 애니메이션 상태를 설정한다(서버 전용).
+        /// 실제 NetworkVariable 쓰기는 NetworkUnit.SetAnimState가 담당한다(NGO 허용 위치=Infrastructure).
+        /// 팩토리 조회 → GetComponent&lt;NetworkUnit&gt;() 패턴은 OnUnitDied의 Despawn 경로와 동일한 관례.
+        /// </summary>
+        /// <param name="unitId">상태를 설정할 유닛의 Id.</param>
+        /// <param name="state">설정할 애니메이션 상태(Walk / Attack).</param>
+        private void SetUnitAnimState(int unitId, UnitAnimState state)
+        {
+            if (_services == null) return;
+
+            IUnitFactory unitFactory = _services.GetUnitFactory();
+            GameObject unitObj = unitFactory != null ? unitFactory.GetUnitObject(unitId) : null;
+            if (unitObj == null) return;
+
+            NetworkUnit networkUnit = unitObj.GetComponent<NetworkUnit>();
+            if (networkUnit != null)
+                networkUnit.SetAnimState(state);
         }
 
         /// <summary>
@@ -601,10 +634,15 @@ namespace Hexiege.Infrastructure
                 // 규칙 1: 적 감지 즉시 클라이언트에 알려야 하며, 쿨다운은 데미지 타이밍과 무관.
                 _unitCombatTargets[unitId] = (nearestResult.Value.id, nearestResult.Value.isUnit);
                 _combatAnimationSent.Add(unitId);
+                // [Phase 2] 애니메이션 상태를 Attack로 설정(레벨 동기화). 클라이언트 값 변경/스폰 시 자동 적용.
+                SetUnitAnimState(unitId, UnitAnimState.Attack);
                 // [MOVESYNC-LOG] StartCombat RPC 송신 직전(서버, 쿨다운 중 경로).
                 if (MoveAnimSyncLog.Enabled)
                     MoveAnimSyncLog.Info("Move/NetworkCombatController",
                         $"Combat RPC 송신 | unit={unitId}, target={nearestResult.Value.id}");
+                // StartCombatClientRpc는 유지 — 클라이언트 타겟 전달(회전 추적/원거리 트레이서 조준)용.
+                // [Phase 2 대체] 이 RPC가 유발하던 Attack CrossFade 책임은 위 레벨 동기화로 이관됨
+                //   (UnitView.StartCombatAnimation의 CrossFade는 클라이언트에서 스킵되도록 분기됨).
                 StartCombatClientRpc(unitId, nearestResult.Value.id, nearestResult.Value.isUnit);
                 return;
             }
@@ -615,10 +653,14 @@ namespace Hexiege.Infrastructure
             // 전투 상태 등록 + StartCombatClientRpc 즉시 전송
             _unitCombatTargets[unitId] = (targetId, targetIsUnit);
             _combatAnimationSent.Add(unitId);
+            // [Phase 2] 애니메이션 상태를 Attack로 설정(레벨 동기화). 클라이언트 값 변경/스폰 시 자동 적용.
+            SetUnitAnimState(unitId, UnitAnimState.Attack);
             // [MOVESYNC-LOG] StartCombat RPC 송신 직전(서버, 일반 경로).
             if (MoveAnimSyncLog.Enabled)
                 MoveAnimSyncLog.Info("Move/NetworkCombatController",
                     $"Combat RPC 송신 | unit={unitId}, target={targetId}");
+            // StartCombatClientRpc는 유지 — 클라이언트 타겟 전달(회전 추적/원거리 트레이서 조준)용.
+            // [Phase 2 대체] 이 RPC가 유발하던 Attack CrossFade 책임은 위 레벨 동기화로 이관됨.
             StartCombatClientRpc(unitId, targetId, targetIsUnit);
 
             // ExecuteAttack 즉시 실행 — 서버 공격 사이클을 애니메이션 시작(T=0)과 동기화.
@@ -827,12 +869,15 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
+        /// [Phase 2 대체 — 호출 제거됨, 검증 후 삭제 예정]
         /// 서버가 유닛 Walk 시작을 감지하여 모든 클라이언트에 Walk 애니메이션 재생 명령 전송.
-        /// 서버(HOST)는 MoveAlongPath에서 이미 Animator를 직접 제어하므로 스킵.
-        /// 클라이언트는 NetworkTransform으로 위치만 동기화받고,
-        /// Walk 애니메이션은 이 RPC를 통해 별도로 동기화.
         ///
-        /// 서버(HOST) 스킵 분기는 RPC 차원에서 유지하여 호스트의 중복 애니메이션 호출을 막는다.
+        /// 이 엣지 트리거 RPC는 애니메이션 상태 레벨 동기화(NetworkUnit._animState = Walk)로 대체되었다.
+        /// OnUnitWalkStartedHandler에서 이 RPC 호출을 주석 처리했으므로 현재 어디서도 호출되지 않는다.
+        /// (짝을 이루는 GameEvents.OnNetworkWalkStarted 구독도 UnitView에서 주석 처리됨.)
+        /// 검증([6] 통과) 후 이 메서드와 OnNetworkWalkStarted 이벤트를 함께 삭제한다.
+        ///
+        /// 서버(HOST)는 MoveAlongPath에서 이미 Animator를 직접 제어하므로 스킵(IsServer return) 유지.
         /// </summary>
         /// <param name="unitId">Walk를 시작한 유닛의 Id</param>
         [ClientRpc]
