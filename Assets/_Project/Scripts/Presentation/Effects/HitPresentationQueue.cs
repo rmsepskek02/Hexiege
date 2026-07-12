@@ -181,10 +181,10 @@ namespace Hexiege.Presentation
             //   실제로 위험한 케이스는 "이미 등록된 항목이 있는데 다음 OnLocalAttackHit이 영영 오지 않는" 경우이며,
             //   이 구독이 바로 그 케이스를 커버한다(타임아웃까지 기다리지 않고 즉시 방출).
             GameEvents.OnNetworkCombatStopped
-                .Subscribe(e => FlushAttacker(e.UnitId, "전투중단"))
+                .Subscribe(e => FlushAttacker(e.UnitId))
                 .AddTo(this);
             GameEvents.OnCombatStopped
-                .Subscribe(unitId => FlushAttacker(unitId, "전투중단"))
+                .Subscribe(unitId => FlushAttacker(unitId))
                 .AddTo(this);
         }
 
@@ -208,7 +208,6 @@ namespace Hexiege.Presentation
                 //    각 머신에서 정확히 1번씩만 도달하므로 이중 재생이 없다.)
                 PlayTowerAttackVfx(evt);
 
-                LogEmit(evt, "타워즉시", 0f); // [TIMING-LOG]
                 Emit(evt);
                 return;
             }
@@ -217,7 +216,6 @@ namespace Hexiege.Presentation
             GameObject attackerGo = _unitFactory != null ? _unitFactory.GetUnitObject(evt.AttackerId) : null;
             if (attackerGo == null)
             {
-                LogEmit(evt, "즉시(공격자GO없음)", 0f); // [TIMING-LOG]
                 Emit(evt);
                 return;
             }
@@ -226,11 +224,6 @@ namespace Hexiege.Presentation
             float timeout = ResolveTimeout(evt.AttackerId);
             Queue<PendingHit> queue = GetOrCreateQueue(evt.AttackerId);
             queue.Enqueue(new PendingHit(evt, Time.time, timeout));
-
-            // [TIMING-LOG] 보류 등록 계측 — 검증 완료 후 제거([TIMING-LOG] 마커 일괄 삭제)
-            if (CombatTimingLog.Enabled)
-                CombatTimingLog.Info("Combat/HitPresentationQueue",
-                    $"보류 등록 | attacker={evt.AttackerId}, target={evt.Entity.Id}, hp={evt.CurrentHp}");
         }
 
         /// <summary>
@@ -240,10 +233,8 @@ namespace Hexiege.Presentation
         {
             if (_pendingByAttacker.TryGetValue(attackerId, out Queue<PendingHit> queue) && queue.Count > 0)
             {
-                // [TIMING-LOG] 대기시간 계측을 위해 항목을 지역 변수로 받는다(동작 동일: 1건 dequeue 후 방출).
-                PendingHit dequeued = queue.Dequeue();
-                LogEmit(dequeued.Event, "타격프레임", (Time.time - dequeued.EnqueueTime) * 1000f); // [TIMING-LOG]
-                Emit(dequeued.Event);
+                // FIFO — 가장 오래된 항목 1건을 꺼내 방출한다.
+                Emit(queue.Dequeue().Event);
                 return;
             }
 
@@ -270,7 +261,7 @@ namespace Hexiege.Presentation
         {
             if (e.Unit == null) return;
             FlushTarget(e.Unit.Id, targetIsUnit: true);   // ⓑ 타겟으로서
-            FlushAttacker(e.Unit.Id, "공격자사망");        // ⓓ 공격자로서
+            FlushAttacker(e.Unit.Id);                      // ⓓ 공격자로서
         }
 
         /// <summary> 건물 사망 시 그 건물을 겨눈 잔여 항목을 즉시 방출. </summary>
@@ -305,7 +296,6 @@ namespace Hexiege.Presentation
                         break; // 앞이 아직 안 지났으면 뒤도 안 지났음 → 이 큐는 종료.
 
                     queue.Dequeue();
-                    LogEmit(head.Event, "타임아웃", (now - head.EnqueueTime) * 1000f); // [TIMING-LOG]
                     Emit(head.Event);
                 }
             }
@@ -314,26 +304,6 @@ namespace Hexiege.Presentation
         // ====================================================================
         // 방출 — 실제 표현 재생
         // ====================================================================
-
-        /// <summary>
-        /// [TIMING-LOG] 연출 방출 계측 헬퍼 — 검증 완료 후 제거([TIMING-LOG] 마커 일괄 삭제).
-        /// 방출 경로별 사유와 큐 대기시간(ms)을 기록한다.
-        /// 타임아웃 방출은 발생 자체가 이상 신호이므로 WARN, 그 외 경로는 INFO로 남긴다.
-        /// (원거리 유닛의 트레이서 지연 방출도 큐 입장에선 "타격프레임" 사유로 찍힌다 — 로거 주석 참조.)
-        /// </summary>
-        /// <param name="evt">방출되는 피격 이벤트.</param>
-        /// <param name="reason">방출 사유(타격프레임/타임아웃/사망방출/공격자사망/전투중단/타워즉시/즉시(공격자GO없음)).</param>
-        /// <param name="waitMs">큐 등록~방출까지 대기 시간(ms). 즉시 방출 경로는 0.</param>
-        private void LogEmit(EntityDamagedEvent evt, string reason, float waitMs)
-        {
-            if (!CombatTimingLog.Enabled) return;
-            int targetId = evt.Entity != null ? evt.Entity.Id : -1;
-            string msg = $"연출 방출 | attacker={evt.AttackerId}, target={targetId}, 사유={reason}, 대기={waitMs:0}ms";
-            if (reason == "타임아웃")
-                CombatTimingLog.Warn("Combat/HitPresentationQueue", msg);
-            else
-                CombatTimingLog.Info("Combat/HitPresentationQueue", msg);
-        }
 
         /// <summary>
         /// 피격 표현을 실제로 재생한다: ① HP 텍스트 ② 피격 VFX ③ 타격 반응(스케일 펀치).
@@ -387,10 +357,7 @@ namespace Hexiege.Presentation
                                  && item.Event.Entity != null
                                  && item.Event.Entity.Id == targetId;
                     if (match)
-                    {
-                        LogEmit(item.Event, "사망방출", (Time.time - item.EnqueueTime) * 1000f); // [TIMING-LOG]
                         Emit(item.Event);   // 사망 연출 전 마지막 피격 표시 보장.
-                    }
                     else
                         queue.Enqueue(item);
                 }
@@ -407,19 +374,14 @@ namespace Hexiege.Presentation
         /// 먼저 도착한 정상 케이스가 여기에 해당하며 안전하다.
         /// </summary>
         /// <param name="attackerId">방출 대상 공격자 Id(=_pendingByAttacker의 키).</param>
-        /// <param name="reason">[TIMING-LOG] 방출 사유 라벨(공격자사망/전투중단).</param>
-        private void FlushAttacker(int attackerId, string reason)
+        private void FlushAttacker(int attackerId)
         {
             if (!_pendingByAttacker.TryGetValue(attackerId, out Queue<PendingHit> queue))
                 return;
 
             // FIFO 순서 그대로 앞에서부터 전부 방출.
             while (queue.Count > 0)
-            {
-                PendingHit item = queue.Dequeue();
-                LogEmit(item.Event, reason, (Time.time - item.EnqueueTime) * 1000f); // [TIMING-LOG]
-                Emit(item.Event);
-            }
+                Emit(queue.Dequeue().Event);
 
             // 공격자 큐 자체를 제거 — 이 공격자는 이번 전투에서 더 이상 항목을 쌓지 않는다.
             // (재교전 시 GetOrCreateQueue가 새 큐를 다시 만든다.)

@@ -791,11 +791,6 @@ namespace Hexiege.Application
             // 데미지 적용 (인터페이스의 메서드 호출)
             target.TakeDamage(attacker.AttackPower);
 
-            // [TIMING-LOG] 데미지 적용 계측 — 검증 완료 후 제거([TIMING-LOG] 마커 일괄 삭제)
-            if (CombatTimingLog.Enabled)
-                CombatTimingLog.Info("Combat/UnitCombatUseCase",
-                    $"데미지 적용 | attacker={attacker.Id}({attacker.Type}), target={target.Id}, targetIsUnit={target is UnitData}, dmg={attacker.AttackPower}, hp={target.Hp}");
-
             // 일반화된 공격 이벤트 발행
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
 

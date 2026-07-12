@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-07-10
-**현재 단계:** 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 완료(실기 PASS, 로비 볼륨 패널 포함) + 실기 버그 3건 수정 — AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**최종 수정일:** 2026-07-12
+**현재 단계:** 전투 타격 타이밍 동기화 완료(실기/로그 검증 PASS) — 타격 프레임 단일 소스화 + 서버 Tick 정밀화 + 피격 표현 큐 + 타워 발사 VFX/원거리 트레이서. 검증 중 기존 버그 3건 수정. 후속: 이동/Walk 애니메이션 동기화 버그, 빌드 에셋 용량 최적화, 피격 VFX 프리셋 연결, AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -34,6 +34,11 @@
 | ✅ 완료 | 방어 타워(AutoTower) 공격 기능 | 기능 | 대 |
 | ✅ 완료 | 사운드 시스템 — 코드 완료 + Inspector 작업 + 실기 버그 3종(BGM 겹침/볼륨 UI 규칙/SFX 진단) 수정 (2026-07-08) | 기능 | 중 |
 | ✅ 완료 | 사운드 시스템 — 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 (AudioManager 음소거 + 공용 VolumeControlBinder + 로비 설정 탭 배선 + 실기 버그 3건 수정, 2026-07-09 실기 PASS) | 기능/UI | 중 |
+| ✅ 완료 | 전투 타격 타이밍 동기화 — 타격 프레임 클립 이벤트 단일 소스화 + 서버 Tick 정밀화 + 피격 표현 큐 + 타워 발사 VFX/원거리 트레이서 + 기존 버그 3건 수정 (2026-07-12 실기/로그 검증 PASS) | 기능 | 대 |
+| 🔴 높음 | 이동/Walk 애니메이션 동기화 버그 — 걷기 애니메이션 미재생·뒤로 밀림 + 전투 타이밍 잔여 타임아웃 2.7%(동일 뿌리 추정: 전투 상태 RPC 갭) | QA/버그 | 중 |
+| 🟡 중간 | 빌드 에셋 용량 최적화 — base 모듈 360MB. Split Application Binary(OBB 분리) + 텍스처 압축/해상도 최적화 | 플랫폼 | 중 |
+| 🟡 중간 | 피격 VFX 프리셋 연결 — `UnitEffectConfig.hitPreset` Inspector 배선(Human 6종 등 미연결) | 에셋 | 소 |
+| 🟢 낮음 | 미구현 특수 타격 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 구현 시 Attack 클립 `OnAttackHit` 이벤트 주입 | 기능/에셋 | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
 | ⬜ 백로그 | Firebase 백엔드 (랭킹/IAP) | 기능 | 대 |
 
@@ -140,3 +145,26 @@
 - LoginUI (익명/Google Play Games/이메일+비밀번호 선택 화면)
 - ProfileView 계정 연동 탭 구현 (익명 → 실계정 전환)
 - AuthSystemRules.md 기준 구현
+
+---
+
+## Phase F — 전투 타격 타이밍 동기화 후속 (2026-07-12 등록)
+
+전투 타격 타이밍 동기화 작업(`_Tasks/2026-07-09/01_12_combat-hit-timing-sync/`) 완료 후 남은 후속 항목.
+
+### F-1. 이동/Walk 애니메이션 동기화 버그 🔴 높음
+- **현황**: 걷기 애니메이션이 재생되지 않거나 유닛이 뒤로 밀려 보이는 현상. 전투 타이밍 작업의 잔여 타임아웃 2.7%(타겟 전환 순간 표시 ~0.5초 지연)와 **동일한 뿌리(서버-클라 전투 상태 RPC 갭)로 추정**된다.
+- **근거**: Research 8-2절 — 서버는 전투 중인데 클라이언트만 Walk 상태에 갇히는 경쟁 조건. 수정 3(규칙 U-21)으로 고착은 해소했으나 표시 지연 잔여.
+
+### F-2. 빌드 에셋 용량 최적화 🟡 중간
+- **현황**: base 모듈 360MB.
+- **작업**: Split Application Binary(OBB 분리) 적용 + 텍스처 압축/해상도 최적화.
+- **비고**: 이번 태스크와 별개의 플랫폼 작업.
+
+### F-3. 피격 VFX 프리셋 연결 🟡 중간
+- **작업**: `UnitEffectConfig.hitPreset`을 Inspector에서 각 유닛에 배선. Human 6종 등 미연결.
+- **비고**: 코드 아님, 에셋 연결 작업.
+
+### F-4. 미구현 특수 타격 5종 클립 이벤트 주입 🟢 낮음
+- **대상**: BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy.
+- **작업**: 해당 유닛 구현 시점에 Attack 클립 `OnAttackHit` 이벤트를 `CombatHitEventInjector` 메뉴로 주입(규칙 U-17).

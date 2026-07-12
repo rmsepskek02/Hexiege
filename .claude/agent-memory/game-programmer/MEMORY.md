@@ -32,10 +32,16 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
-### 전투 타격 타이밍 동기화 Phase 3 (2026-07-10) — 구현완료/실기미검증
-- **타워 발사 VFX(3-1)**: `BuildingEffectConfig.attackPreset`+`GetAttack`, `EffectManager.PlayBuildingAttack(type,pos,rot)`. 재생 트리거는 **HitPresentationQueue의 타워 즉시 방출 경로**(`!AttackerIsUnit` 분기)에 통합 — 별도 구독자 신설 X. 위치=BuildingFactory 타워GO, 회전=타워→타겟 LookRotation(XZ), 타입=BuildingPlacementUseCase.GetBuilding(id).Type. 큐 Initialize에 `BuildingPlacementUseCase` 인자 추가. **이중재생 없음 검증**: 호스트=UseCase 1회(ClientRpc는 `if(IsServer)return`), 클라=NetworkHealthSync 재발행 1회 → 각 머신 정확히 1회.
-- **원거리 트레이서(3-2)**: 신규 `Presentation/Effects/TracerProjectile.cs`(VfxPoolItem 풀링 패턴 미러, Setup+Launch+반환콜백, Update Lerp 비행). `UnitEffectConfig.tracerPreset`+`GetTracer`, `EffectManager.PlayTracer(type,start,target,onArrive)`+트레이서 전용 풀. **핵심 설계**: 큐를 건드리지 않고 UnitView.OnAttackHit에서 원거리(AttackRange>=1.0f)면 **OnLocalAttackHit 발행을 트레이서 착탄 콜백으로 지연**. 근접은 기존대로 즉시 발행. → 큐는 신호가 늦게 올 뿐 로직 불변, 비행시간=피격연출 지연이 자동 동기화(중복 flight-time 계산 없음). 프리셋 미설정 시 PlayTracer가 onArrive 즉시 호출→즉시방출 폴백. 사망flush(FlushTarget)는 트레이서 대기 없이 즉시 방출(엔트리 제거→착탄 콜백은 빈 큐 discard, 이중방출 없음). 타겟 좌표는 발사 시점 값 복사(비행 중 파괴돼도 댕글링 없음).
-- 트레이서 판정 경계 상수 `UnitView.RangedAttackThreshold=1.0f`(UnitCombatUseCase 근접판정 `<1.0f`와 동일). 신규 .cs.meta는 리포 관례(2줄: fileFormatVersion+guid)로 수동 생성.
+### 전투 타격 타이밍 동기화 (Phase 1~3 + 수정 1~3) (2026-07-10) — ✅ 검증 완료(4차 로그+실기 PASS, 2026-07-12)
+- **타워 발사 VFX(3-1)**: `BuildingEffectConfig.attackPreset`+`GetAttack`, `EffectManager.PlayBuildingAttack(type,pos,rot)`. 재생 트리거는 **HitPresentationQueue의 타워 즉시 방출 경로**(`!AttackerIsUnit` 분기)에 통합. 위치=BuildingFactory 타워GO, 회전=타워→타겟 LookRotation(XZ), 타입=BuildingPlacementUseCase.GetBuilding(id).Type. **이중재생 없음**: 호스트=UseCase 1회, 클라=NetworkHealthSync 재발행 1회 → 각 머신 정확히 1회.
+- **원거리 트레이서(3-2)**: `Presentation/Effects/TracerProjectile.cs`(VfxPoolItem 풀링 미러). **핵심 설계**: 큐 무변경, UnitView.OnAttackHit에서 원거리(AttackRange>=1.0f)면 OnLocalAttackHit 발행을 트레이서 착탄 콜백으로 지연 → 비행시간=피격연출 지연 자동 동기화. 사망flush는 트레이서 대기 없이 즉시 방출(착탄 콜백은 빈 큐 discard). 판정 상수 `UnitView.RangedAttackThreshold=1.0f`.
+- **HitPresentationQueue 안전망**: ⓐ타임아웃(쿨다운×1.5), ⓑ타겟사망 FlushTarget, ⓒ즉시방출(타워/GO없음), ⓓ공격자소멸 FlushAttacker(수정2·3 — 공격자사망/전투중단 시 잔여 큐 즉시 방출). 이 flush 경로들은 순수 기능이므로 로그 제거와 무관하게 보존.
+- **핵심 교훈 — Tick 경과 시간 이월분 이중 계산 버그(수정1)**: 타이머 이월 패턴에서 elapsed에 이월분을 포함시키면서 타이머에도 잔존분을 남기면 쿨다운이 15~25% 조기 소진된다. **실제 경과 시간과 타이머 잔량을 반드시 분리**할 것.
+- **핵심 교훈 — 상태 기반 RPC 경쟁 조건**: 클라이언트 Attack 이탈(Walk RPC)과 서버 전송 가드(`_combatAnimationSent`, NetworkCombatController)의 불일치 → Walk 전송 시 가드를 해제하여 봉합. `_combatAnimationSent`는 기능 필드이므로 로그 제거와 무관하게 유지.
+- **핵심 교훈 — 로그 계측 검증 방법론**: 타임아웃 방출 WARN을 "상태 불일치 자동 탐지기"로 사용 → 육안 불가능한 버그 2건을 특정. `[TIMING-LOG]` 마커+`CombatTimingLog`(임시 로거)로 계측 후 검증 완료 시 마커 일괄 grep 삭제(2026-07-12 제거 완료, LogRules).
+- **잔여 한계(후속 이관)**: 타겟 전환 순간 서버 판정↔애니메이션 상태 틈새로 ~0.5초 지연 표시 2.7% 잔존 → 이동/Walk 동기화 후속 태스크로 이관.
+- **[TIMING-LOG] 계측 코드 전량 제거(2026-07-12)**: CombatTimingLog.cs + Debugging 폴더 삭제, 5개 파일(NetworkCombatController/UnitCombatUseCase/UnitView/HitPresentationQueue/EffectManager) 마커 블록 제거. **주의점**: 기능 코드(FlushAttacker flush 로직, EnqueueTime 타임아웃, EffectManager.GetHit 프리셋, _combatAnimationSent)는 로그 위해 도입됐어도 유지. 로그 전용 `reason` string 파라미터는 FlushAttacker에서 제거. EffectManager는 `using Hexiege.Application`도 제거(로그 전용), NetworkCombat/UnitView는 다른 용도로 유지. 로그 txt는 `_Logs/`에 영구 보존.
+- **UnitEffectView.cs 삭제(2026-07-12)**: 프리팹/씬/코드 참조 0건 확인 후 제거.
 
 ### 인게임/로비 볼륨·프로필 UI 로직 연결 + 음소거 기능 (2026-07-09) ✅
 - **음소거 구현(저장값 보존형)**: `AudioManager`에 `SetMuted(bool)`/`IsMuted()`/`ResetAllVolumes()` 추가. PlayerPrefs 키 `"Muted"`(0/1). 뮤트는 **Master 채널만 -80dB(`MutedDb`)로 눌러** 전체 무음(BGM/SFX 논리 볼륨값은 보존). `ApplyVolume`을 `ApplyDb(param,dB)`로 리팩터(무음 -80dB와 볼륨 변환값이 SetFloat 진단 로깅 경로 공유). `SetVolume`에 자동 언뮤트(슬라이더 조작 시 `if(_muted) SetMuted(false)`).

@@ -262,3 +262,33 @@ Phase 1~3 구현과 클립 이벤트 주입을 마친 뒤, 임시 계측 로그(
 - 특정 유닛의 장시간(수십 초) 연쇄 타임아웃이 **소멸**할 것.
 
 3차 재검증 통과 후 임시 계측 로그 코드 제거, 제거 대상 A/B 최종 정리, 신설 규칙(U-17~U-21, B-12) GameSystemRules 반영을 진행한다.
+
+---
+
+## 최종 검증 및 완료 (2026-07-12)
+
+Phase 1~3 + 수정 1·2·3까지 전 항목이 실기/로그 검증을 통과하여 작업을 완료했다. (검증 수치 상세는 Research.md 9절 참조)
+
+### 계획대로 완료된 항목
+
+- **축 1 (타이밍 소스 단일화)**: `UnitFactory`가 Attack 클립 `OnAttackHit` 이벤트에서 `HitFrameTimes`를 자동 추출. 검증 메뉴(`CombatHitEventValidator`) + 주입 메뉴(`CombatHitEventInjector`)로 13종 클립에 이벤트 주입 완료. 미구현 특수 타격 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy)은 의도적 제외.
+- **축 2 (서버 데미지 정밀화)**: `TickCombat` 오버슈트를 데미지 딜레이 + 쿨다운 리셋 양쪽에서 차감.
+- **축 3 (피격 표현 큐)**: `EntityDamagedEvent`/`SyncHealthClientRpc`에 공격자 정보 추가, `HitPresentationQueue` 신설(HP 텍스트/피격 VFX/스케일 펀치를 공격자 로컬 타격 프레임에 동기화, 도메인 HP는 즉시 갱신=서버 권위). `EffectManager.PlayUnitHit` + `UnitEffectConfig.hitPreset`, `HitReactionPunch`, `FloatingHpTextSpawner`는 `ShowDamage` 단일 진입점화.
+- **축 4 (연출 공백 보강)**: 타워 발사 VFX(`BuildingEffectConfig.attackPreset` + `PlayBuildingAttack`, 큐 타워 즉시 방출 경로 통합), 원거리 트레이서(`TracerProjectile` + `UnitEffectConfig.tracerPreset`, 착탄 시 피격 연출 방출, 데미지 타이밍 불변).
+
+### 계획 대비 확장된 부분 (검증 중 발견·수정)
+
+- **기존 버그 3건 수정**: ① Tick 경과 시간 이월분 이중 계산(쿨다운 15~25% 조기 소진 — 원 목표였던 불일치의 숨은 근본 원인, 수정 1). ② 피격 큐 공격자 사망/전투 중단 시 방출 부재(수정 2). ③ 클라이언트 Attack 이탈(Walk RPC) 시 StartCombat 재전송 억제로 유닛이 굳어 보이던 시각 버그(수정 3). 세 건 모두 이번 작업 이전부터 존재하던 기존 코드 결함으로, 이번 계측이 처음 가시화했다.
+- **튜닝 1건**: 큐 타임아웃을 쿨다운 × 1.5로 조정.
+
+### 실기 확인 결과
+
+- 최종 4차 로그(16,014줄): 사이클 간격 오차 평균 -0.7ms(1프레임 이내), 타격 프레임 방출 85.7%, 유닛 고착 소멸(실기 확인).
+- 잔여 한계: 타겟 전환 순간 표시 ~0.5초 지연(타임아웃 2.7%) → 이동/Walk 애니메이션 동기화 후속 태스크로 이관.
+
+### 정리 완료
+
+- 임시 계측 로그 코드 전량 제거. `Presentation/Unit/UnitEffectView.cs` 최종 삭제(제거 대상 B 완료). 제거 대상 A(수동 입력 폴백)는 안전망으로 존치(자동 추출 실패 유닛 대비).
+- 신설 규칙 U-17~U-21은 `GameSystemRules_Units.md`에, B-12는 `GameSystemRules_Buildings.md`에 정식 반영.
+
+> Testcase.md는 사용자가 명시적으로 요청하지 않아 작성하지 않았으며, 위 로그 기반 검증(Research 7~9절)으로 대체되었다.

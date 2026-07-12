@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-07-10
-**현재 단계:** 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 완료(실기 PASS) — AudioManager 음소거 기능 + 공용 VolumeControlBinder 도입, 로비 설정 탭 배선 완성, 실기 발견 버그 3건(설정탭 배선 누락 / 설정 닫힘 화면 깜빡임 / On·Off 버튼 위치·크기 불균등) 수정. 사운드 시스템 실기 버그 3종(2026-07-08) 수정 완료 상태 유지. Google 로그인 실기 성공 유지 — UGS OIDC 브릿지(멀티플레이 연동)는 별도 미해결 이슈. AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**최종 수정일:** 2026-07-12
+**현재 단계:** 전투 타격 타이밍 동기화 완료(실기/로그 검증 PASS) — 타격 프레임을 Attack 클립 `OnAttackHit` 이벤트 단일 소스로 통일(자동 추출), 서버 Tick 데미지 타이밍 정밀화, 피격 표현 큐(HP텍스트/피격VFX/스케일펀치를 공격자 로컬 타격 프레임에 동기화, 도메인 HP는 즉시=서버 권위) 신설, 타워 발사 VFX + 원거리 트레이서 추가. 검증 중 기존 버그 3건(Tick 경과시간 이중계산 / 피격 큐 공격자 사망·전투중단 방출 부재 / 클라 Attack 이탈 시 StartCombat 재전송 억제로 유닛 고착) 수정. 최종 4차 로그(16,014줄) 사이클 오차 평균 -0.7ms·타격프레임 방출 85.7%·유닛 고착 소멸. 잔여 타임아웃 2.7%(타겟 전환 표시 ~0.5초 지연)는 이동/Walk 동기화 후속 태스크로 이관. 사운드 시스템(2026-07-08~10) 수정 완료 상태 유지. Google 로그인 실기 성공 유지 — UGS OIDC 브릿지(멀티플레이 연동)는 별도 미해결 이슈. AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 
 ---
 
@@ -26,6 +26,8 @@
 | 전투 애니메이션 시스템 (멀티플레이) | ✅ 완료 (2026-04-04) | 3-신호 RPC, 6가지 규칙, _combatAnimationSent 경쟁조건 수정, 사이클 동기화 |
 | Walk 애니메이션 연속 재생 | ✅ 완료 (2026-03-09) | 매 스텝 0f 리셋 제거 → 이미 Walk 상태이면 클립 유지 |
 | 공격 애니메이션-타격 시각 동기화 | ✅ 완료 (2026-03-14) | Animation Event + AnimationEventRelay → scale punch (데미지 타이밍 무변경) |
+| 전투 타격 타이밍 동기화 | ✅ 완료 (2026-07-12) | 실기/로그 검증 PASS. **[타이밍 단일 소스]** `HitFrameTimes`를 Attack 클립 `OnAttackHit` 이벤트에서 자동 추출(UnitFactory), 검증 메뉴 `CombatHitEventValidator` + 주입 메뉴 `CombatHitEventInjector`로 13종 클립 이벤트 주입(특수 타격 5종 의도적 제외). **[서버 정밀화]** `NetworkCombatController.TickCombat` 오버슈트를 데미지 딜레이+쿨다운 리셋 양쪽 차감. **[피격 표현 큐]** `EntityDamagedEvent`/`SyncHealthClientRpc`에 공격자 정보 추가, `HitPresentationQueue` 신설(HP텍스트/피격VFX/스케일펀치를 공격자 로컬 타격 프레임에 동기화, 도메인 HP는 즉시=서버 권위), `EffectManager.PlayUnitHit`+`UnitEffectConfig.hitPreset`, `HitReactionPunch`, `FloatingHpTextSpawner` `ShowDamage` 단일 진입점화. **[연출 공백]** 타워 발사 VFX(`BuildingEffectConfig.attackPreset`+`PlayBuildingAttack`), 원거리 트레이서(`TracerProjectile`+`tracerPreset`, 데미지 타이밍 불변). `UnitEffectView.cs` 최종 삭제. 규칙 U-17~U-21(Units)/B-12(Buildings) 등재. task: `_Tasks/2026-07-09/01_12_combat-hit-timing-sync/` |
+| 전투 타이밍 검증 중 기존 버그 3건 수정 | ✅ 완료 (2026-07-12) | **[버그1]** `NetworkCombatController.Update()` Tick 이월 잔여분이 다음 Tick의 경과 시간에 이중 계산되어 쿨다운 15~25% 조기 소진(Pistoleer 2.0초 대비 실측 1.71초) → 실제 경과 시간 1:1 감소로 수정. **[버그2]** 피격 표현 큐가 공격자 사망/전투 중단(StopCombat) 시 잔여 항목 미방출 → 즉시 방출 경로 추가. **[버그3]** 클라 Attack 루프 이탈(Walk RPC) 시 `_combatAnimationSent` 잔존으로 StartCombat 재전송 억제 → 유닛이 굳어 보이는 시각 버그(실기 75초 Assault 사례). Walk RPC 전송 시 가드 해제로 수정. 3건 모두 이번 작업 이전부터 존재한 기존 결함으로, 이번 계측이 처음 가시화. 승패 무관. |
 | 유닛 메시 방향 보정 | ✅ 완료 (2026-04-29 갱신) | 전 유닛 Mesh Y=0, _meshYOffset 제거, 이동 anim offset=0, DirectionAngles={60,120,180,240,300,0} (FlatTop 월드 각도 기준) |
 | 유닛 회전 시스템 (RotateTowards 통일) | ✅ 완료 (2026-05-14 개편) | 모든 회전 Quaternion.RotateTowards 통일. 방향 계산 Atan2(현재 월드 위치→목적지) 기반. [SerializeField] _rotationSpeed = 270f Inspector 조정 가능 |
 | 공격 후 Walk 복귀 버그 수정 | ✅ 완료 (2026-03-14) | 타겟 소멸 후 이동 재개 시 Play(StateWalk) 명시 호출 (멀티/싱글 공통) |
