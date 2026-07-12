@@ -635,6 +635,22 @@ namespace Hexiege.Presentation
                 _moveCoroutine = null;
             }
 
+            // ────────────────────────────────────────────────────────────
+            // [Phase 3 이동 보정] 경로 출발점을 유닛의 실제 transform 위치와 정합.
+            //
+            //   왜 필요한가:
+            //     RequestMove는 경로를 "도메인 타일"(_unitData.Position) 기준으로 계산한다.
+            //     그런데 유닛이 두 타일 사이를 이동하는 도중(transform이 도메인 타일보다 목적지 쪽으로
+            //     앞서 있음)에 새 경로가 발급되면, 경로 첫 타일(path[1])이 실제 위치보다 "뒤"에 놓여
+            //     첫 걸음이 목적지 역방향으로 향한다("뒤로 밀림", 규칙 11 위반).
+            //
+            //   동작:
+            //     AlignPathStartToTransform이 이 "역방향 첫 스텝" 케이스만 감지해 앞쪽 타일 기준으로
+            //     경로를 재발급한다. 정방향/정합 상태는 원본 path를 그대로 반환하므로 일반 이동은
+            //     전혀 건드리지 않는다.
+            // ────────────────────────────────────────────────────────────
+            path = AlignPathStartToTransform(path);
+
             // 외부에서 이 유닛이 어디로 가는지 알 수 있도록 최종 목적지를 저장.
             // 빈 경로/null 안전 처리: path가 비정상이면 코루틴 동작이 알아서 종료된다.
             if (path != null && path.Count > 0)
@@ -647,6 +663,96 @@ namespace Hexiege.Presentation
             //   - GameSystemRules.md 규칙 1~18을 그대로 따른다.
             //   - 외부 while 안에 타일 순회를 직접 인라인하여 가독성을 높였다.
             _moveCoroutine = StartCoroutine(MoveAlongPathV3(path));
+        }
+
+        /// <summary>
+        /// [Phase 3 이동 보정] 새 경로의 출발점을 유닛의 실제 transform 위치와 정합시킨다.
+        ///
+        /// 배경(왜 필요한가 — 초급자용 설명):
+        ///   경로 계산(RequestMove)은 항상 "도메인 타일"(_unitData.Position)을 출발점으로 삼는다.
+        ///   그런데 유닛의 도메인 위치는 "타일 중심에 도착했을 때"만 갱신되므로, 유닛이 두 타일
+        ///   사이를 이동하는 도중(=transform이 도메인 타일보다 목적지 쪽으로 앞서 있음)에 새 경로가
+        ///   발급되면, 경로의 첫 타일(path[1])이 실제 위치보다 "뒤"에 놓일 수 있다. 이 경우 유닛이
+        ///   첫 걸음을 목적지 반대 방향(뒤)으로 내딛어 "뒤로 밀리는" 것처럼 보인다.
+        ///   (규칙 11: A* 재개 시 뒤쪽 타일로 복귀 금지 — 이 위반을 강제로 바로잡는다.)
+        ///
+        /// 동작:
+        ///   1) 첫 스텝(transform → path[1])이 최종 목적지 기준 "역방향"(XZ 내적&lt;0)인지 판정한다.
+        ///      역방향이 아니면(정상) 원본 path를 그대로 반환 — 일반 이동은 전혀 건드리지 않는다.
+        ///   2) 역방향이면: 실제 transform 위치 기준 "앞쪽 가장 가까운 타일"을 FindForwardClosestTile로
+        ///      구하고, 도메인 위치도 그 타일로 정합(ProcessStep)시킨 뒤, 그 출발점에서 목적지까지
+        ///      경로를 재발급(RequestMove)한다.
+        ///      (전투 종료 정렬의 ResumeFromForwardTileV3에서 이미 검증된 패턴을 그대로 재사용한다.)
+        ///
+        /// 반환: 보정된 경로(역방향 케이스) 또는 원본 경로(정상/보정 불가 케이스).
+        /// </summary>
+        /// <param name="path">MoveTo가 받은 원본 경로(시작점 포함).</param>
+        /// <returns>보정 경로 또는 원본 경로.</returns>
+        private List<HexCoord> AlignPathStartToTransform(List<HexCoord> path)
+        {
+            // 방어: 경로 비정상 / 의존성 없음 / 유닛 사망 → 원본 그대로.
+            if (path == null || path.Count < 2) return path;
+            if (_movementUseCase == null || _unitData == null || !_unitData.IsAlive) return path;
+
+            // 최종 목적지 — "앞쪽/뒤쪽" 판정의 기준.
+            HexCoord finalTarget = path[path.Count - 1];
+
+            // path[1] 중심과 최종 목적지 중심을 뷰 좌표로 변환.
+            Vector3 step1View = TileCenterView(path[1]);
+            Vector3 finalView = TileCenterView(finalTarget);
+
+            // 첫 스텝 방향(transform → path[1])과 목적지 방향(transform → finalTarget)의 XZ 내적.
+            //   내적 ≥ 0 : 정방향(또는 옆) — 정상 이동이므로 보정하지 않는다.
+            //   내적 < 0 : 첫 스텝이 목적지 반대쪽 — "뒤로 밀림" 버그이므로 보정 대상.
+            //   ※ 이 판정은 MoveAlongPathV3 for 루프 첫 스텝의 [MOVESYNC-LOG] 역방향 WARN 조건과
+            //     동일하다. 따라서 여기서 보정이 발동하면 그 WARN이 사라지도록 설계되어 있다.
+            Vector3 toStep1 = step1View - transform.position; toStep1.y = 0f;
+            Vector3 toFinal = finalView - transform.position; toFinal.y = 0f;
+            float dot = toStep1.x * toFinal.x + toStep1.z * toFinal.z;
+            if (dot >= 0f) return path;   // 정방향 — 원본 그대로.
+
+            // ── 여기부터 역방향(보정) 케이스 ──
+
+            // 실제 transform 위치 → 도메인 좌표 → 앞쪽 가장 가까운 타일.
+            //   (ResumeFromForwardTileV3의 forwardTile 계산과 동일한 방식.)
+            Vector3 domainPos = ViewConverter.FromView(transform.position);
+            HexCoord forwardTile = _movementUseCase.FindForwardClosestTile(domainPos, finalTarget);
+
+            // 로그용: 보정 전 도메인 타일(path[0])과 현재 transform의 실제 거리(얼마나 뒤처졌는지).
+            float realDist = Vector3.Distance(transform.position, TileCenterView(path[0]));
+
+            // 도메인 위치 정합 — forwardTile이 현재 도메인과 다를 때만 ProcessStep.
+            //   (같은 타일이면 생략 — ResumeFromForwardTileV3와 동일 규약.)
+            //   ProcessStep은 위치 역인덱스(NotifyUnitMoved) 갱신과 OnUnitMoved 이벤트 발행만 하며,
+            //   혼잡도 누적 이벤트(OnUnitEnteredTile)는 발행하지 않는다. 따라서 혼잡도/점유 부작용이 없다.
+            if (forwardTile != _unitData.Position)
+                _movementUseCase.ProcessStep(_unitData, _unitData.Position, forwardTile);
+
+            // 앞쪽 타일에서 목적지까지 경로 재발급.
+            List<HexCoord> corrected = _movementUseCase.RequestMove(_unitData, finalTarget);
+
+            // [MOVESYNC-LOG] 보정 발동 기록 — 재검증에서 "보정 발동 빈도"와 "역방향 WARN 0 수렴"을
+            // 함께 판정하기 위한 로그. (Phase 1의 역방향 WARN 281건이 이 로그로 대체되는지 확인.)
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/UnitView",
+                    $"경로 출발점 보정 | unit={_unitData.Id}, 도메인타일={path[0].Q},{path[0].R} → " +
+                    $"보정타일={forwardTile.Q},{forwardTile.R}, 실거리={realDist:F2}");
+
+            // 재발급 실패(도착/경로 없음) 시 원본 유지 — 최소한 기존 동작을 보존한다.
+            if (corrected == null || corrected.Count < 2) return path;
+            return corrected;
+        }
+
+        /// <summary>
+        /// 타일 좌표를 유닛이 서는 뷰 좌표(타일 중심 + 유닛 높이 보정)로 변환하는 소형 헬퍼.
+        /// (도메인 → 월드(HexToWorld) → 뷰(ToView) + UnitYOffset. 반복되던 3줄 변환을 모은 것.)
+        /// </summary>
+        private static Vector3 TileCenterView(HexCoord coord)
+        {
+            Vector3 world = HexMetrics.HexToWorld(coord);
+            Vector3 view = ViewConverter.ToView(world);
+            view.y += HexMetrics.UnitYOffset;
+            return view;
         }
 
         /// <summary>

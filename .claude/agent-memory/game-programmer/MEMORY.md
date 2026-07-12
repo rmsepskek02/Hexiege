@@ -32,6 +32,15 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 이동/Walk 애니메이션 Phase 3 (이동 보정 — 경로 출발점 통일) (2026-07-12) — 🔨 구현 완료, 검증 대기
+- **원인(Phase 1 실증)**: 역방향 이동 WARN 282건 전부 서버, 281건이 "새 경로 발급 직후 첫 타일 스텝". `RequestMove`가 경로를 **도메인 타일(`_unitData.Position`)** 기준으로 계산 → 유닛이 타일 사이 이동 중(transform이 도메인보다 앞섬)에 새 경로 발급되면 `path[1]`이 실제 위치보다 뒤에 놓여 첫 걸음이 역방향(뒤로 밀림). 정렬 Lerp(460건)는 전부 정방향(무죄).
+- **수정(단일 지점 = MoveTo)**: 모든 이동 시작이 `UnitView.MoveTo`로 수렴 → 여기 한 곳에 `AlignPathStartToTransform(path)` 삽입. **역방향 첫 스텝만 감지해 보정**: `(path[1]-transform)·(finalTarget-transform)` XZ 내적<0일 때만 발동(MoveAlongPathV3 for루프 첫스텝 WARN 조건과 동일 → 보정 발동 시 그 WARN 소멸). 정방향/정합은 원본 path 그대로 반환 → **일반 이동 무변경**.
+- **보정 로직**: `ViewConverter.FromView(transform.position)` → `FindForwardClosestTile(domainPos, finalTarget)`(ResumeFromForwardTileV3와 동일 패턴 재사용) → `forwardTile != Position`이면 `ProcessStep`으로 도메인 정합 → `RequestMove(finalTarget)` 재발급. 실패 시 원본 유지.
+- **도메인 정합 부작용 검증**: `ProcessStep`은 `NotifyUnitMoved`(위치 역인덱스)+`OnUnitMoved` 이벤트만 발행. **OnUnitMoved 구독자 0건(grep 확인)**, 혼잡도(`OnUnitEnteredTile`)는 MoveAlongPathV3에서 별도 발행이라 미발동 → 부작용 없음.
+- **무변경 보존**: ResumeFromForwardTileV3(정렬, 무죄 460건)·EnterCombatPursuitV3(추격)·OnPathInvalidated의 IsInCombat 조기반환·_pendingPath 슬라이스·Phase2 레벨 동기화 전부 미변경. 신규 `TileCenterView(HexCoord)→Vector3` static 헬퍼(내 코드 전용, 기존 3줄 변환 모음).
+- **[MOVESYNC-LOG] 추가**: `경로 출발점 보정 | unit=, 도메인타일= → 보정타일=, 실거리=`. 재검증 기대: 역방향 WARN 281→0, 보정 로그가 그 자리 대체.
+- 파일: `Presentation/Unit/UnitView.cs`(MoveTo 655~L, AlignPathStartToTransform/TileCenterView 신규). UnitMovementUseCase.cs는 읽기만(FindForwardClosestTile/RequestMove/ProcessStep 재사용, 무변경).
+
 ### 이동/Walk 애니메이션 레벨 동기화 Phase 2 (2026-07-12) — 🔨 구현 완료, 검증 대기
 - **핵심 패턴 — 애니메이션 상태를 NetworkVariable로 단일화(엣지 트리거 RPC → 레벨 동기화)**: 갓 스폰 유닛이 첫 Walk/Attack RPC를 스폰 레이스(구독 전 도착)로 유실하던 근본 결함 해결. `NetworkUnit._animState`(`NetworkVariable<byte>`, enum `UnitAnimState{None,Walk,Attack}`, Read=Everyone/Write=Server, `_unitId`와 동일 관례) 신설. 클라 `OnNetworkSpawn`에서 **현재 값 즉시 적용(ApplySpawnAnimState)** + `OnValueChanged` 구독 → 스폰 레이스 구조적 소멸. NGO는 같은 값 재설정 시 미전송이라 애니메이션 목적의 중복 가드 불필요.
 - **레이어 연결**: 서버 쓰기=Infrastructure(NetworkCombatController → `SetUnitAnimState(unitId,state)` 헬퍼 → `GetUnitObject().GetComponent<NetworkUnit>().SetAnimState()`, OnUnitDied Despawn과 동일 관례). 클라 적용=NetworkUnit이 같은 GO의 `GetComponent<UnitView>()` 캐시로 `StartWalkAnimation()`/`PlayAttackAnimation()`(신규) 직접 호출. **호스트는 OnNetworkSpawn IsServer early-return이라 _animState 미구독 → 적용 스킵**(서버가 Animator 직접 제어 관례 유지).
