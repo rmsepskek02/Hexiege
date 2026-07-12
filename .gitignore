@@ -105,6 +105,10 @@ mono_crash.*
 
 # Unity IL2CPP build backup (빌드 시 자동 생성, 커밋 불필요)
 Build_BackUpThisFolder_ButDontShipItWithYourGame/
+apk_BackUpThisFolder_ButDontShipItWithYourGame/
+
+# Unity Burst debug output (빌드/디버그 시 자동 생성, 커밋 불필요)
+Hexiege_BurstDebugInformation_DoNotShip/
 
 # Unity 퍼포먼스 테스트 자동 기록 (실행할 때마다 자동 갱신)
 Assets/Resources/PerformanceTestRunInfo.json
