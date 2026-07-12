@@ -494,6 +494,45 @@ namespace Hexiege.Presentation
                     }
                 })
                 .AddTo(this);
+
+            // [MOVESYNC-LOG] 이벤트 구독 완료 시점 기록 — 이 시점 "이전"에 도착한 RPC는
+            // 구독자가 없어 유실된다. RPC 수신 로그 시각과 이 로그 시각을 비교해 레이스를 판별한다.
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/UnitView",
+                    $"이벤트 구독 완료 | unit={(_unitData != null ? _unitData.Id : -1)}");
+        }
+
+        // ====================================================================
+        // [MOVESYNC-LOG] 진단 헬퍼 — 검증 후 제거.
+        // ====================================================================
+
+        /// <summary>
+        /// [MOVESYNC-LOG] 현재 Animator(레이어 0) 상태를 사람이 읽을 문자열로 변환.
+        /// Walk/Attack 해시와 비교하여 "Walk"/"Attack"/"기타"/"animator없음"을 반환한다.
+        /// </summary>
+        private string DescribeAnimatorState()
+        {
+            if (_animator == null) return "animator없음";
+            int hash = _animator.GetCurrentAnimatorStateInfo(0).shortNameHash;
+            if (hash == StateWalk) return "Walk";
+            if (hash == StateAttack) return "Attack";
+            return "기타";
+        }
+
+        /// <summary>
+        /// [MOVESYNC-LOG] 재경로 발생 시 새 출발 타일(newPath[0])과 현재 transform의 거리를 기록.
+        /// OnPathInvalidated의 "예약/즉시" 두 경로에서 공통으로 호출한다.
+        /// </summary>
+        private void LogRepath(string mode, List<HexCoord> newPath)
+        {
+            if (newPath == null || newPath.Count == 0 || _unitData == null) return;
+            HexCoord start = newPath[0];
+            Vector3 world = HexMetrics.HexToWorld(start);
+            Vector3 view = ViewConverter.ToView(world);
+            view.y += HexMetrics.UnitYOffset;
+            float dist = Vector3.Distance(transform.position, view);
+            MoveAnimSyncLog.Info("Move/UnitView",
+                $"재경로 | unit={_unitData.Id}, 방식={mode}, 새출발타일={start.Q},{start.R}, 현재transform과의거리={dist:F2}");
         }
 
         // ====================================================================
@@ -680,10 +719,18 @@ namespace Hexiege.Presentation
             if (_currentNextTileCoord.HasValue
                 && !_movementUseCase.IsWalkable(_currentNextTileCoord.Value))
             {
+                // [MOVESYNC-LOG] 재경로(즉시 재시작) — 새 출발 타일과 현재 transform의 거리 기록.
+                if (MoveAnimSyncLog.Enabled)
+                    LogRepath("즉시", newPath);
+
                 // 다음 도착 타일이 막혔으므로 부드러운 교체 불가 — 즉시 코루틴 재시작.
                 MoveTo(newPath);
                 return;
             }
+
+            // [MOVESYNC-LOG] 재경로(예약) — 새 출발 타일과 현재 transform의 거리 기록.
+            if (MoveAnimSyncLog.Enabled)
+                LogRepath("예약", newPath);
 
             // 그 외 일반 케이스: 코루틴을 그대로 두고 새 path만 예약.
             // 이후 매 타일 도착 시점에 MoveAlongPathV3가 이 값을 소비한다.
@@ -796,6 +843,11 @@ namespace Hexiege.Presentation
             // 최종 목적지(외부 while 동안 변하지 않음). 우회/재경로 모두 이 좌표를 기준.
             HexCoord finalTarget = path[path.Count - 1];
 
+            // [MOVESYNC-LOG] 이동 코루틴 시작(서버 전용 경로) — 뒤로 밀림 판별의 기준선.
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/UnitView",
+                    $"이동 시작 | unit={_unitData.Id}, path길이={path.Count}, 목적지={finalTarget.Q},{finalTarget.R}");
+
             // 유닛별 개별 이동 속도 (MoveSpeed 칸/초 → 1칸 이동 시간(초) 변환).
             float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
 
@@ -856,6 +908,23 @@ namespace Hexiege.Presentation
                     // 타일 중심 = 도메인 좌표 → 뷰 좌표 변환 + 유닛 높이 보정.
                     Vector3 toPos = ViewConverter.ToView(toDomain);
                     toPos.y += HexMetrics.UnitYOffset;
+
+                    // [MOVESYNC-LOG] 일반 타일 이동 벡터가 최종 목적지와 역방향(내적<0)이면 WARN.
+                    // 고빈도 지점이므로 정방향은 로그를 생략하고, 뒤로 가는 경우만 기록한다(스팸 방지).
+                    if (MoveAnimSyncLog.Enabled)
+                    {
+                        Vector3 flt_finalWorld = HexMetrics.HexToWorld(finalTarget);
+                        Vector3 flt_finalView = ViewConverter.ToView(flt_finalWorld);
+                        flt_finalView.y += HexMetrics.UnitYOffset;
+                        // XZ 평면에서만 방향 판정(Y=높이는 무시).
+                        Vector3 flt_move = toPos - fromPos; flt_move.y = 0f;
+                        Vector3 flt_toFinal = flt_finalView - fromPos; flt_toFinal.y = 0f;
+                        float flt_dot = flt_move.x * flt_toFinal.x + flt_move.z * flt_toFinal.z;
+                        if (flt_dot < 0f)
+                            MoveAnimSyncLog.Warn("Move/UnitView",
+                                $"역방향 타일 이동 | unit={_unitData.Id}, from={fromPos.x:F2},{fromPos.z:F2}, " +
+                                $"to={toPos.x:F2},{toPos.z:F2}, 목적지={finalTarget.Q},{finalTarget.R}, dot={flt_dot:F3}");
+                    }
 
                     // ──────────────────────────────────────────────────────
                     // [회전 시스템 변경 — 2026-05-14] 목표 각도 계산 — toPos 정의 직후 1회만.
@@ -981,6 +1050,26 @@ namespace Hexiege.Presentation
 
                             float alignTargetAngle = CalculateAttackAngle(alignView);
                             Quaternion alignTargetRot = Quaternion.Euler(0f, alignTargetAngle, 0f);
+
+                            // [MOVESYNC-LOG] 전투 종료 정렬 Lerp 시작 직전 — 정렬 이동 방향과
+                            // 최종 목적지(성) 방향의 내적 판정. 내적<0이면 "뒤로 밀림"이므로 WARN, 정방향은 INFO.
+                            if (MoveAnimSyncLog.Enabled)
+                            {
+                                Vector3 alg_finalWorld = HexMetrics.HexToWorld(finalTarget);
+                                Vector3 alg_finalView = ViewConverter.ToView(alg_finalWorld);
+                                alg_finalView.y += HexMetrics.UnitYOffset;
+                                // XZ 평면에서만 방향 판정(Y=높이는 무시).
+                                Vector3 alg_move = alignView - alignFromPos; alg_move.y = 0f;
+                                Vector3 alg_toFinal = alg_finalView - alignFromPos; alg_toFinal.y = 0f;
+                                float alg_dot = alg_move.x * alg_toFinal.x + alg_move.z * alg_toFinal.z;
+                                string alg_msg =
+                                    $"정렬 이동 | unit={_unitData.Id}, from={alignFromPos.x:F2},{alignFromPos.z:F2}, " +
+                                    $"to={alignView.x:F2},{alignView.z:F2}, 거리={alignDist:F2}, dot={alg_dot:F3}";
+                                if (alg_dot < 0f)
+                                    MoveAnimSyncLog.Warn("Move/UnitView", "역방향 " + alg_msg);
+                                else
+                                    MoveAnimSyncLog.Info("Move/UnitView", "정방향 " + alg_msg);
+                            }
 
                             if (alignDuration > 0.0001f)
                             {
@@ -1414,6 +1503,19 @@ namespace Hexiege.Presentation
             if (_movementUseCase == null || _unitData == null || !_unitData.IsAlive)
                 return null;
 
+            // [MOVESYNC-LOG] 이동 재개 출발 타일과 현재 transform의 관계 — 뒤로 밀림 판별용.
+            // forwardTile(재개 출발점)이 현재 렌더 위치에서 얼마나 떨어져 있는지(실거리) 기록.
+            if (MoveAnimSyncLog.Enabled)
+            {
+                Vector3 rft_world = HexMetrics.HexToWorld(forwardTile);
+                Vector3 rft_view = ViewConverter.ToView(rft_world);
+                rft_view.y += HexMetrics.UnitYOffset;
+                float rft_dist = Vector3.Distance(transform.position, rft_view);
+                MoveAnimSyncLog.Info("Move/UnitView",
+                    $"재개 출발 타일 | unit={_unitData.Id}, forwardTile={forwardTile.Q},{forwardTile.R}, " +
+                    $"현재도메인={_unitData.Position.Q},{_unitData.Position.R}, 실거리={rft_dist:F2}");
+            }
+
             // 같은 타일이면 도메인 갱신 불필요. 다른 타일이면 ProcessStep만 호출.
             // [2026-05-11 비활성화] RegisterOccupancyMove는 점유 시스템 폐기로 인해 호출 제거됨.
             if (forwardTile != _unitData.Position)
@@ -1557,6 +1659,12 @@ namespace Hexiege.Presentation
                 _animator = GetComponentInChildren<Animator>();
             if (_animator == null) return;
 
+            // [MOVESYNC-LOG] Walk 실제 적용 지점 — CrossFade 직전 상태(전환 전)를 기록.
+            // 대응하는 "Walk RPC 수신" 로그가 있는데 이 로그가 없으면 구독 전 도착(유실)이다.
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/UnitView",
+                    $"Walk 적용 | unit={(_unitData != null ? _unitData.Id : -1)}, animator상태={DescribeAnimatorState()}");
+
             _animator.speed = 1f;
             _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
         }
@@ -1587,6 +1695,12 @@ namespace Hexiege.Presentation
         public void StartCombatAnimation(int targetId, bool targetIsUnit)
         {
             if (_unitData == null || !_unitData.IsAlive) return;
+
+            // [MOVESYNC-LOG] Attack 실제 적용 지점 — CrossFade 직전 상태(전환 전)를 기록.
+            // 대응하는 "Combat RPC 수신" 로그가 있는데 이 로그가 없으면 구독 전 도착(유실)이다.
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/UnitView",
+                    $"Attack 적용 | unit={_unitData.Id}, target={targetId}, animator상태={DescribeAnimatorState()}");
 
             // 타겟 방향으로 즉시 스냅 회전
             // 서버에서 즉시 스냅 → NetworkTransform이 클라이언트에 보간 전달

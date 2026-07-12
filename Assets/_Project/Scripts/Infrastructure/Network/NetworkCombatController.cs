@@ -408,6 +408,9 @@ namespace Hexiege.Infrastructure
             {
                 _unitCombatTargets.Remove(id);
                 _combatAnimationSent.Remove(id); // RPC 전송 추적도 함께 정리
+                // [MOVESYNC-LOG] StopCombat RPC 송신 직전(서버).
+                if (MoveAnimSyncLog.Enabled)
+                    MoveAnimSyncLog.Info("Move/NetworkCombatController", $"StopCombat RPC 송신 | unit={id}");
                 StopCombatClientRpc(id);
             }
         }
@@ -539,6 +542,10 @@ namespace Hexiege.Infrastructure
         /// <param name="unitId">Walk를 시작한 유닛의 Id</param>
         private void OnUnitWalkStartedHandler(int unitId)
         {
+            // [MOVESYNC-LOG] Walk RPC 송신 직전(서버) — 수신/적용 로그와 대조해 유실 판별.
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/NetworkCombatController", $"Walk RPC 송신 | unit={unitId}");
+
             // 1) 클라이언트에 Walk 애니메이션 재생 명령 전송.
             StartWalkAnimationClientRpc(unitId);
 
@@ -594,6 +601,10 @@ namespace Hexiege.Infrastructure
                 // 규칙 1: 적 감지 즉시 클라이언트에 알려야 하며, 쿨다운은 데미지 타이밍과 무관.
                 _unitCombatTargets[unitId] = (nearestResult.Value.id, nearestResult.Value.isUnit);
                 _combatAnimationSent.Add(unitId);
+                // [MOVESYNC-LOG] StartCombat RPC 송신 직전(서버, 쿨다운 중 경로).
+                if (MoveAnimSyncLog.Enabled)
+                    MoveAnimSyncLog.Info("Move/NetworkCombatController",
+                        $"Combat RPC 송신 | unit={unitId}, target={nearestResult.Value.id}");
                 StartCombatClientRpc(unitId, nearestResult.Value.id, nearestResult.Value.isUnit);
                 return;
             }
@@ -604,6 +615,10 @@ namespace Hexiege.Infrastructure
             // 전투 상태 등록 + StartCombatClientRpc 즉시 전송
             _unitCombatTargets[unitId] = (targetId, targetIsUnit);
             _combatAnimationSent.Add(unitId);
+            // [MOVESYNC-LOG] StartCombat RPC 송신 직전(서버, 일반 경로).
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/NetworkCombatController",
+                    $"Combat RPC 송신 | unit={unitId}, target={targetId}");
             StartCombatClientRpc(unitId, targetId, targetIsUnit);
 
             // ExecuteAttack 즉시 실행 — 서버 공격 사이클을 애니메이션 시작(T=0)과 동기화.
@@ -764,6 +779,12 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void StartCombatClientRpc(int unitId, int targetId, bool targetIsUnit)
         {
+            // [MOVESYNC-LOG] Combat RPC 본문 진입(수신 측) — 이벤트 발행 전에 기록.
+            // 이 로그는 있는데 UnitView "Attack 적용" 로그가 없으면 구독 전 도착(유실)로 판별한다.
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/NetworkCombatController",
+                    $"Combat RPC 수신 | unit={unitId}, isServer={IsServer}");
+
             // 주의: IsServer 분기를 추가하지 않는다.
             // 서버(Host)도 이 RPC를 수신하여 동일한 애니메이션 처리가 필요하기 때문.
             //
@@ -797,6 +818,11 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void StopCombatClientRpc(int unitId)
         {
+            // [MOVESYNC-LOG] StopCombat RPC 본문 진입(수신 측) — 이벤트 발행 전에 기록.
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/NetworkCombatController",
+                    $"StopCombat RPC 수신 | unit={unitId}, isServer={IsServer}");
+
             GameEvents.OnNetworkCombatStopped.OnNext(new NetworkCombatStoppedEvent(unitId));
         }
 
@@ -812,6 +838,12 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void StartWalkAnimationClientRpc(int unitId)
         {
+            // [MOVESYNC-LOG] Walk RPC 본문 진입(수신 측) — IsServer 가드 전에 기록해
+            // 호스트/클라이언트 양쪽 수신을 모두 관측한다. (이벤트 발행은 클라이언트에서만 일어남)
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/NetworkCombatController",
+                    $"Walk RPC 수신 | unit={unitId}, isServer={IsServer}");
+
             // 서버(HOST)는 MoveAlongPath에서 이미 Walk 애니메이션을 직접 제어함 → 중복 방지
             if (IsServer) return;
 
