@@ -140,8 +140,11 @@ namespace Hexiege.Infrastructure
                 // 서버 UnitView의 Walk 시작/정지 이벤트를 수신하여 클라이언트에 전파.
                 // UnitView.MoveAlongPath()는 서버에서만 실행되므로,
                 // Walk 애니메이션 상태를 ClientRpc로 클라이언트에 동기화.
+                // 람다 대신 명명 핸들러(OnUnitWalkStartedHandler)로 분리한 이유:
+                //   Walk RPC 전송과 함께 전투 애니메이션 재전송 가드(_combatAnimationSent)를
+                //   해제해야 하는데, 이 두 동작을 한 곳에 명확히 모아두기 위함.
                 _walkStartedSubscription = GameEvents.OnUnitWalkStarted
-                    .Subscribe(unitId => StartWalkAnimationClientRpc(unitId));
+                    .Subscribe(OnUnitWalkStartedHandler);
 
                 // MoveAlongPath에서 적 감지 즉시 StartCombatClientRpc 전송 (TickCombat 50ms 대기 없이)
                 _enteredCombatSubscription = GameEvents.OnUnitEnteredCombat
@@ -497,6 +500,57 @@ namespace Hexiege.Infrastructure
         // ====================================================================
         // 이벤트 핸들러 (서버 전용)
         // ====================================================================
+
+        /// <summary>
+        /// 서버 UnitView가 Walk(이동) 애니메이션을 시작했을 때 호출되는 핸들러.
+        ///
+        /// 하는 일 두 가지:
+        ///   1) StartWalkAnimationClientRpc(unitId) — 모든 클라이언트에 Walk 애니메이션 재생 명령 전송.
+        ///   2) _combatAnimationSent.Remove(unitId) — 전투 애니메이션 재전송 가드를 해제.
+        ///
+        /// [핵심 — 왜 여기서 가드를 해제하는가 (초급자용 상세 설명)]
+        ///   서버 UnitView의 전투 루프는 매 프레임 돌면서, 타겟이 사망해 교체되는 "찰나의 순간"에
+        ///   사거리 내 적을 못 본 것으로 착각하고 Walk 경로로 잠깐 빠질 수 있다.
+        ///   그 순간 OnUnitWalkStarted가 발행되고, 그 결과 StartWalkAnimationClientRpc가 나가
+        ///   "클라이언트 애니메이터는 Attack 루프를 벗어나 Walk로 전환"된다.
+        ///
+        ///   문제는 서버의 전투 판정(TickCombat, 50ms 격자)은 같은 기간 사거리 내 "다른 적"을
+        ///   계속 발견하기 때문에 StopCombat을 보내지 않는다는 점이다.
+        ///   → StopCombat이 안 나가면 _combatAnimationSent에 이 유닛이 그대로 남는다.
+        ///   → 이후 전투에 다시 진입(OnUnitEnteredCombatHandler)할 때
+        ///     `_combatAnimationSent.Contains(unitId)` 가드에 걸려 StartCombatClientRpc가
+        ///     재전송되지 않는다.
+        ///   → 서버는 계속 공격(데미지 정상)하는데, 클라이언트만 Walk 애니메이션에 갇혀
+        ///     화면에서 공격 모션 없이 굳어 보이는 버그가 발생한다(유닛 62 사례, 75초 지속).
+        ///
+        ///   Walk RPC가 나가는 이 시점은 "클라이언트 애니메이터가 Attack 루프를 벗어난다"는 것을
+        ///   서버가 알 수 있는 유일한 지점이다. 바로 이 지점에서 재전송 가드를 풀어두면,
+        ///   다음 전투 재진입 시 StartCombatClientRpc가 반드시 다시 전송되어
+        ///   클라이언트가 Attack 루프로 정확히 복귀한다.
+        ///
+        /// [부작용 없음]
+        ///   비전투 유닛의 일반 이동에서도 이 핸들러가 호출되지만, 그 유닛은 애초에
+        ///   _combatAnimationSent에 없으므로 Remove는 아무 일도 하지 않는(no-op) 안전한 호출이다.
+        ///
+        /// [_unitCombatTargets는 건드리지 않는다]
+        ///   서버 전투 로직(타겟 추적)은 그대로 두고, 오직 애니메이션 재전송 가드만 해제한다.
+        ///   서버 데미지 흐름에는 어떤 영향도 주지 않는다.
+        ///
+        /// [재진입 시 Attack 루프 T=0 재시작은 의도된 동작]
+        ///   재진입 시 StartCombatClientRpc가 Attack CrossFade를 다시 걸어 클라이언트 Attack 루프가
+        ///   T=0부터 재시작되는데, 이는 OnUnitEnteredCombatHandler가 ExecuteAttack도 함께 실행하여
+        ///   서버 공격 사이클과 T=0에서 동기화되므로 어긋나지 않는다.
+        /// </summary>
+        /// <param name="unitId">Walk를 시작한 유닛의 Id</param>
+        private void OnUnitWalkStartedHandler(int unitId)
+        {
+            // 1) 클라이언트에 Walk 애니메이션 재생 명령 전송.
+            StartWalkAnimationClientRpc(unitId);
+
+            // 2) 전투 애니메이션 재전송 가드 해제 — 다음 전투 재진입 시 StartCombatClientRpc가
+            //    반드시 재전송되도록 보장(경쟁 조건 봉합). 전투 중이 아니면 no-op.
+            _combatAnimationSent.Remove(unitId);
+        }
 
         /// <summary>
         /// MoveAlongPath에서 적을 처음 감지했을 때 호출.
