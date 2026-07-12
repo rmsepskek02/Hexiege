@@ -24108,3 +24108,13 @@
 [16:11:45.808] [INFO] [Combat/HitPresentationQueue] 연출 방출 | attacker=35, target=1, 사유=사망방출, 대기=0ms
 [16:11:45.809] [INFO] [Combat/HitPresentationQueue] 연출 방출 | attacker=124, target=1, 사유=사망방출, 대기=0ms
 [16:11:45.809] [INFO] [Combat/HitPresentationQueue] 연출 방출 | attacker=108, target=1, 사유=사망방출, 대기=132ms
+[16:12:16.181] [INFO] [Combat/NetworkCombatController] 공격 사이클 시작 | attacker=108(Assault), overshoot=0.015, cooldown=0.3333333
+[16:12:16.182] [INFO] [Combat/UnitView] OnAttackHit 발생 | unit=35(Assault)
+[16:12:16.185] [INFO] [Combat/UnitView] OnAttackHit 발생 | unit=47(Assault)
+[16:12:16.187] [INFO] [Combat/UnitView] OnAttackHit 발생 | unit=62(Assault)
+[16:12:16.189] [INFO] [Combat/UnitView] OnAttackHit 발생 | unit=108(Assault)
+[16:12:16.193] [INFO] [Combat/UnitView] OnAttackHit 발생 | unit=124(Assault)
+[16:12:16.195] [INFO] [Combat/UnitView] OnAttackHit 발생 | unit=137(Assault)
+[16:12:16.198] [INFO] [Combat/UnitView] OnAttackHit 발생 | unit=151(Assault)
+[16:12:16.350] [INFO] [Combat/UnitCombatUseCase] 데미지 적용 | attacker=108(Assault), target=186, targetIsUnit=True, dmg=1, hp=29
+[16:12:16.350] [INFO] [Combat/HitPresentationQueue] 연출 방출 | attacker=108, target=186, 사유=즉시(공격자GO없음), 대기=0ms
