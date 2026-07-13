@@ -266,6 +266,47 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
+        /// [Phase 2 후속 — 적용 순서 틈 봉합] 현재 애니메이션 상태 값을 UnitView에 "다시 한 번" 적용한다.
+        ///
+        /// 왜 필요한가 (초급자용 설명):
+        ///   클라이언트에서 이 NetworkUnit은 스폰되는 순간(OnNetworkSpawn)에 서버의 현재 애니메이션
+        ///   상태를 즉시 적용한다(ApplySpawnAnimState). 그런데 이 시점은 같은 GameObject의
+        ///   UnitView.Initialize(=Animator를 캐시하는 지점)보다 "먼저" 실행될 수 있다. 그 순간 아직
+        ///   메시/Animator가 준비되지 않았으면 StartWalkAnimation이 조용히 반환(early-return)하고,
+        ///   레벨 값(NetworkVariable)은 그대로라 OnValueChanged가 다시 호출되지 않아 "재시도"가 없다.
+        ///   → 간헐적으로 걷기/공격 애니메이션이 무음 실패(적용 누락)한다.
+        ///
+        /// 해결:
+        ///   UnitView.Initialize가 Animator를 캐시한 "직후"에 이 메서드를 호출하면, 준비된 Animator로
+        ///   현재 값을 반드시 재적용하여 조기 적용 실패로 벌어진 틈을 닫는다.
+        ///
+        /// 멱등성(안전):
+        ///   레벨(값 기반) 동기화이므로 "현재 값 재적용"은 무해하다. 이미 올바르게 적용된 유닛에 다시
+        ///   호출해도 같은 상태로 CrossFade가 한 번 더 걸리는 정도이며, StartWalkAnimation은 이미 Walk
+        ///   재생 중이면 speed만 복원하는 식으로 흡수한다. 값이 None이면 아무것도 하지 않는다.
+        ///
+        /// 스킵 대상:
+        ///   - 싱글플레이: NGO 미스폰이라 IsSpawned=false → 즉시 반환(_animState 동기화 경로 자체가 없음).
+        ///   - 호스트/서버: 서버는 Animator를 직접 제어하는 기존 관례이므로 재적용하면 안 됨(IsServer 스킵).
+        ///     (OnNetworkSpawn에서 IsServer일 때 구독/초기적용을 하지 않는 것과 동일한 취지.)
+        /// </summary>
+        public void ReapplyAnimStateToView()
+        {
+            // IsSpawned 먼저 검사(|| 단락 평가) — 싱글플레이(미스폰)에서는 IsServer를 건드리지 않고 반환.
+            if (!IsSpawned || IsServer) return;
+
+            byte current = _animState.Value;
+            if (current == (byte)UnitAnimState.None) return;
+
+            // [MOVESYNC-LOG] Initialize 완료 직후 재적용 — 재검증 시 unit=-1 감소·재적용 발동 확인용.
+            if (MoveAnimSyncLog.Enabled)
+                MoveAnimSyncLog.Info("Move/NetworkUnit",
+                    $"Initialize 후 재적용 | unit={_unitId.Value}, state={(UnitAnimState)current}");
+
+            ApplyAnimState(current);
+        }
+
+        /// <summary>
         /// [Phase 2] 서버가 애니메이션 상태를 바꿀 때 NGO가 호출하는 콜백(클라이언트 전용).
         /// 새 값으로 애니메이션을 즉시 적용한다.
         /// </summary>

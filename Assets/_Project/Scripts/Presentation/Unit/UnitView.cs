@@ -333,6 +333,26 @@ namespace Hexiege.Presentation
                 float spawnAngle = DirectionAngles[index];
                 transform.rotation = Quaternion.Euler(0f, spawnAngle, 0f);
             }
+
+            // ────────────────────────────────────────────────────────────────
+            // [Phase 2 후속 — 적용 순서 틈 봉합] Initialize 완료 직후 애니메이션 상태 재적용.
+            //
+            //   왜 필요한가 (초급자용 설명):
+            //     클라이언트에서 같은 GameObject의 NetworkUnit이 스폰되는 순간(OnNetworkSpawn) 서버의
+            //     현재 애니메이션 상태를 즉시 적용하는데, 그 시점이 이 Initialize(=위에서 _animator를
+            //     캐시한 지점)보다 "먼저" 실행될 수 있다. 그때 메시/Animator가 아직 준비되지 않았으면
+            //     StartWalkAnimation이 조용히 반환하고, 레벨 값(NetworkVariable)은 그대로라 다시 통지가
+            //     오지 않아 재시도가 없다 → 간헐적으로 걷기 애니메이션이 무음 실패한다.
+            //
+            //   해결:
+            //     _animator를 캐시한 "지금" 같은 GameObject의 NetworkUnit에서 현재 상태 값을 한 번 더
+            //     읽어 재적용한다. 조기 적용이 실패했더라도 준비된 Animator로 반드시 재적용되어 틈이 닫힌다.
+            //     레벨(값 기반) 동기화라 "현재 값 재적용"은 멱등하여 무해하고, 서버(호스트)/싱글플레이는
+            //     ReapplyAnimStateToView 내부 가드(IsSpawned/IsServer)로 스킵된다.
+            //     (UnitView→NetworkUnit은 같은 프리팹 컴포넌트 접근 — 기존 관례이며 레이어 위반이 아니다.)
+            // ────────────────────────────────────────────────────────────────
+            var networkUnit = GetComponent<NetworkUnit>();
+            if (networkUnit != null) networkUnit.ReapplyAnimStateToView();
         }
 
         /// <summary>
