@@ -1440,17 +1440,6 @@ namespace Hexiege.Presentation
                 }
 
                 // 이동 재개 애니메이션 — Walk CrossFade.
-                // [비활성화 — 검증 후 최종 삭제] Animator 상태 조회 기반 기존 블록.
-                // Animator.GetCurrentAnimatorStateInfo는 CrossFade 블렌딩 중 출발 상태를 반환할 수 있어
-                // 로컬 추적 상태 기반 ResumeWalkAnimation()으로 대체한다.
-                // if (_animator != null)
-                // {
-                //     var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
-                //     if (stateInfo.shortNameHash == StateWalk)
-                //         _animator.speed = 1f;
-                //     else
-                //         _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
-                // }
                 ResumeWalkAnimation();
                 GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
             }
@@ -1478,16 +1467,6 @@ namespace Hexiege.Presentation
 
                 _combatUseCase.ClearCombatState(_unitData.Id);
 
-                // [비활성화 — 검증 후 최종 삭제] Animator 상태 조회 기반 기존 블록.
-                // 로컬 추적 상태 기반 ResumeWalkAnimation()으로 대체한다.
-                // if (_animator != null)
-                // {
-                //     var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
-                //     if (stateInfo.shortNameHash == StateWalk)
-                //         _animator.speed = 1f;
-                //     else
-                //         _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
-                // }
                 ResumeWalkAnimation();
             }
         }
@@ -1543,16 +1522,6 @@ namespace Hexiege.Presentation
             // ────────────────────────────────────────────────────────────
 
             // Walk 애니메이션 재개 — 전투 중 Attack 상태였을 수 있음.
-            // [비활성화 — 검증 후 최종 삭제] Animator 상태 조회 기반 기존 블록.
-            // 로컬 추적 상태 기반 ResumeWalkAnimation()으로 대체한다.
-            // if (_animator != null)
-            // {
-            //     var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
-            //     if (stateInfo.shortNameHash == StateWalk)
-            //         _animator.speed = 1f;
-            //     else
-            //         _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
-            // }
             ResumeWalkAnimation();
             if (NetworkContext.IsNetworkActive)
                 GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);

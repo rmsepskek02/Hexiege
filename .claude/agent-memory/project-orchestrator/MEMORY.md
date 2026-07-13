@@ -6,6 +6,14 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
+## 프로젝트 현재 상태 (2026-07-13)
+
+### 2026-07-13 완료 — 코드 정리 3건 (실기 통과, main 반영)
+- **죽은 코드 제거**: `UnitView.StopMovement()` 삭제(호출 0건 Grep 전수). 런타임 불변. 커밋 `8840798`.
+- **Animator 상태 의존 제거(리팩토링)**: 전투 종료 후 Walk 재개 3곳(`EnterCombatLoopV3` 멀티서버/싱글, `ResumeFromForwardTileV3`)의 `GetCurrentAnimatorStateInfo` 질의 → 로컬 추적 필드 `_currentAnimStateHash` + 헬퍼 `ResumeWalkAnimation`. CrossFade 4곳에서 필드 갱신. 서버/호스트/싱글 한정, 겉보기 불변. 주석 처리 후 실기 통과 시 최종 삭제. 커밋 `97adaad`+후속. task `_Tasks/2026-07-13/09_28_anim-resume-state-tracking/`.
+- **Firebase 인증 게이트 제거**: `#if HEXIEGE_ENABLE_FIREBASE_AUTH`(main 528c7c6 도입)가 심볼 미정의 시 스텁 컴파일 → 로그인 무조건 실패. Firebase SDK는 로컬 임포트(`.gitignore`) 정책이라 게이트 제거로 실제 코드 무조건 컴파일 복원. 파일: FirebaseAuthService.cs / LoginBootstrapper.cs(GPGS 가드 2곳) / mainTemplate.gradle. 사용자 로컬 임포트(Firebase 13.11.0+GPGS 2.1.0) 후 PASS. 커밋 `4fe1cf0`. 잔여: 에디터 "Firebase 초기화 실패" 런타임 로그(별도).
+- 최신 전체 현황은 `Assets/_Project/Docs/PROJECT_STATUS.md` 참조.
+
 ## 프로젝트 현재 상태 (2026-06-23)
 
 ### 2026-06-23 완료

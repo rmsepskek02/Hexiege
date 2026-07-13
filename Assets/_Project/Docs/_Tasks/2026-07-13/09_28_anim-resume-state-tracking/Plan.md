@@ -151,3 +151,27 @@ private void ResumeWalkAnimation()
 - `StartWalkAnimation`의 XML 주석과 코드 불일치(Research.md 부가 이슈)는 이번 범위 밖 — 수정하지 않는다.
 - `Testcase.md`는 사용자가 명시적으로 요청하지 않았으므로 작성하지 않는다(WORKFLOW [5-1]).
 - 코드 구현은 사용자 승인 후 game-programmer 에이전트에 위임한다(CLAUDE.md 규칙 3·11).
+
+---
+
+## 완료 결과 (2026-07-13, 실기 통과 · main 반영)
+
+> 이 절은 계획 대비 실제 구현 결과를 기록한다(히스토리 보존 — 위 계획 본문은 원안 유지).
+
+### 계획대로 반영된 항목
+- **신규 필드 `_currentAnimStateHash`** 추가(초기값 0). `UnitView.cs`에 배치 확인.
+- **공통 헬퍼 `ResumeWalkAnimation()`** 신설(speed=1 복원 → `_currentAnimStateHash==StateWalk`면 재-CrossFade 생략, 아니면 Walk로 CrossFade + 필드 갱신).
+- **CrossFade 발생 4곳 필드 갱신**: `MoveAlongPathV3` Walk 시작 / `StartWalkAnimation` / `PlayAttackAnimation` / `StartCombatAnimation`(`applyCrossFadeHere` 블록) 각 지점에서 `_currentAnimStateHash`를 지시 상태로 설정.
+- **위반 3곳 대체**: `EnterCombatLoopV3`(멀티 서버 분기·싱글 분기), `ResumeFromForwardTileV3`의 `GetCurrentAnimatorStateInfo` 기반 분기 블록을 `ResumeWalkAnimation()` 호출로 대체. Animator 런타임 상태 질의 제거.
+- **겉보기 동작 불변**: 실행 컨텍스트가 서버/호스트/싱글 한정(멀티 클라이언트 미실행), 재개 직전 로컬 상태가 항상 Attack이라 기존과 동일하게 Walk로 CrossFade.
+
+### 기존 로직 최종 삭제 완료
+- WORKFLOW [4] 기존 로직 제거 규칙에 따라 비활성화(주석 처리)로 먼저 반영 → **사용자 실기 통과 후 주석 처리했던 기존 `GetCurrentAnimatorStateInfo` 블록 3곳을 최종 삭제 완료**. 현재 `GetCurrentAnimatorStateInfo`는 설계 의도를 설명하는 주석 문구에만 잔존(런타임 질의 코드 0건, Grep 확인).
+
+### 범위 밖으로 남긴 항목(계획대로)
+- `StartWalkAnimation`의 XML 주석과 코드 불일치(Research.md 부가 이슈)는 이번 범위 밖 — 미수정 유지.
+- `Testcase.md` 미작성(겉보기 동작 불변 리팩토링, 사용자 명시 요청 없음).
+
+### 커밋 / 참고
+- 커밋 `97adaad`(구현) + 후속(주석 블록 최종 삭제), main 반영.
+- 신규 규칙 미도입 — 기존 `GameSystemRules_Units` 규칙 18/22와 프로젝트 자체 원칙에 코드를 일치시킨 리팩토링.
