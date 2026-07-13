@@ -563,23 +563,6 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 현재 이동을 즉시 중단. 현재 위치에서 정지.
-        /// 멀티플레이 서버에서 호출 시 OnUnitWalkStopped 이벤트를 발행하여
-        /// NetworkCombatController가 클라이언트에 Walk 정지를 전파.
-        /// </summary>
-        public void StopMovement()
-        {
-            if (_moveCoroutine != null)
-            {
-                StopCoroutine(_moveCoroutine);
-                _moveCoroutine = null;
-            }
-
-            // Walk 정지 — speed=0으로 프레임 고정
-            if (_animator != null) _animator.speed = 0f;
-        }
-
-        /// <summary>
         /// 경로를 따라 유닛을 시각적으로 이동시킴.
         /// 멀티플레이에서는 서버만 실행 — 클라이언트는 NetworkTransform이
         /// 서버 위치를 자동으로 보간·동기화하므로 이동 로직을 실행하지 않음.
