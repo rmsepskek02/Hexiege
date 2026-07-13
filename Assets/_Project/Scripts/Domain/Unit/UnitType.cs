@@ -41,7 +41,7 @@ namespace Hexiege.Domain
         // ── 초월계 (Transcendence) ──
         BearGuard       = 20,  // 곰 근위병: 근접(0.5), 탱커
         FoxMagician     = 21,  // 여우 마법사: 원거리(3.0), 느린 이동
-        LionKnight      = 22,  // 사자 기사: 근접(0.5), 빠른 이동, 4히트 공격
+        LionKnight      = 22,  // 사자 기사: 근접(0.5), 빠른 이동, 2히트 공격
         RhinoBreaker    = 23,  // 돌진 탱커
         EagleArcher     = 24,  // 원거리 궁수
         RabbitTrickster = 25,  // 민첩 근접

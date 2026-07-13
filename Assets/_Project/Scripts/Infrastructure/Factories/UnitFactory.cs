@@ -259,6 +259,14 @@ namespace Hexiege.Infrastructure
                 if (attackClipLength > 0f)
                     unitData.AttackCooldown = attackClipLength;
 
+                // [축 1] 타격 시점(HitFrameTimes)을 Attack 클립의 OnAttackHit Animation Event에서 자동 추출.
+                // 이벤트가 1개 이상 있으면 수동 입력값(UnitStatsConfig)을 실제 클립 값으로 덮어쓴다.
+                // 이벤트가 하나도 없으면(빈 배열) 기존 수동/안전망 값(UnitStats.GetHitFrameTimes)을
+                // 그대로 유지한다 — 아직 클립에 OnAttackHit이 찍히지 않은 유닛을 위한 폴백(안전망).
+                float[] hitFrameTimes = GetHitFrameTimes(animator);
+                if (hitFrameTimes.Length > 0)
+                    unitData.HitFrameTimes = hitFrameTimes;
+
                 // 런타임 의존성 자동 주입 (생산된 유닛도 즉시 동작 가능)
                 if (_hasDependencies)
                     unitView.SetDependencies(_depMovement, _depCombat,
@@ -347,6 +355,14 @@ namespace Hexiege.Infrastructure
                 if (attackClipLength > 0f)
                     unitData.AttackCooldown = attackClipLength;
 
+                // [축 1] 타격 시점(HitFrameTimes)을 Attack 클립의 OnAttackHit Animation Event에서 자동 추출.
+                // (멀티플레이 클라이언트 경로 — 서버와 동일한 프리팹/클립을 쓰므로 결과값도 서버와 일치.)
+                // 이벤트가 1개 이상 있으면 수동 입력값을 실제 클립 값으로 덮어쓰고,
+                // 하나도 없으면(빈 배열) 기존 수동/안전망 값을 그대로 유지한다(폴백).
+                float[] hitFrameTimes = GetHitFrameTimes(animator);
+                if (hitFrameTimes.Length > 0)
+                    unitData.HitFrameTimes = hitFrameTimes;
+
                 // 런타임 의존성 자동 주입
                 if (_hasDependencies)
                     unitView.SetDependencies(_depMovement, _depCombat,
@@ -359,6 +375,7 @@ namespace Hexiege.Infrastructure
                 networkUnit.MarkInitialized();
 
             Debug.Log($"[UnitFactory] 클라이언트: UnitView 초기화 완료. UnitId={unitData.Id}, Type={unitData.Type}, Team={unitData.Team}");
+
             return true;
         }
 
@@ -423,6 +440,57 @@ namespace Hexiege.Infrastructure
                 if (clip.name.Contains("Attack"))
                     return clip.length;
             return 0f;
+        }
+
+        /// <summary>
+        /// Animator에서 "Attack"이 포함된 첫 번째 클립의 타격 프레임 시간(초)들을 오름차순으로 반환.
+        ///
+        /// [축 1 — 타격 타이밍 소스 단일화]
+        ///   기존에는 데미지 타이밍(HitFrameTimes)을 UnitStatsConfig에 "수동 입력"했기 때문에
+        ///   실제 화면 애니메이션의 타격 순간(Attack 클립에 찍힌 OnAttackHit 이벤트)과 어긋날 수 있었다.
+        ///   이 메서드는 GetAttackClipLength()가 쿨다운을 클립 길이에서 자동으로 읽어 오는 것과
+        ///   똑같은 방식으로, 타격 시점 역시 클립에 실제로 찍힌 값에서 자동으로 뽑아낸다.
+        ///
+        /// 동작:
+        ///   1. 이름에 "Attack"이 포함된 첫 클립을 찾는다(GetAttackClipLength와 동일한 클립).
+        ///   2. 그 클립의 Animation Event(AnimationClip.events) 중 함수 이름이 "OnAttackHit"인
+        ///      이벤트들의 time(초)을 모두 수집한다.
+        ///   3. 오름차순으로 정렬하여 반환한다.
+        ///      → 다중 히트 유닛(FlameSpirit 6히트, LionKnight 등)은 클립에 OnAttackHit이 여러 번
+        ///        찍혀 있으므로 그 시간들이 모두 순서대로 수집된다.
+        ///
+        /// 반환:
+        ///   OnAttackHit 이벤트가 하나라도 있으면 그 시간 배열(오름차순).
+        ///   Animator가 null이거나, Attack 클립이 없거나, OnAttackHit 이벤트가 하나도 없으면
+        ///   빈 배열을 반환한다. (호출 측은 빈 배열이면 기존 수동값을 폴백으로 그대로 유지)
+        /// </summary>
+        private float[] GetHitFrameTimes(Animator animator)
+        {
+            if (animator == null || animator.runtimeAnimatorController == null)
+                return System.Array.Empty<float>();
+
+            foreach (var clip in animator.runtimeAnimatorController.animationClips)
+            {
+                // GetAttackClipLength와 동일하게 "Attack"이 포함된 첫 클립만 대상으로 한다.
+                if (clip == null || !clip.name.Contains("Attack")) continue;
+
+                // 이 클립의 Animation Event 중 함수 이름이 "OnAttackHit"인 것들의 time을 수집.
+                // AnimationEvent.functionName: 이벤트가 호출하는 함수 이름(UnitView.OnAttackHit).
+                // AnimationEvent.time: 클립 시작(0초) 기준 이벤트 발생 시각(초).
+                var hitTimes = new List<float>();
+                foreach (var evt in clip.events)
+                {
+                    if (evt.functionName == "OnAttackHit")
+                        hitTimes.Add(evt.time);
+                }
+
+                // 에디터에서 이벤트가 반드시 시간순으로 저장돼 있다는 보장은 없으므로 오름차순 정렬.
+                hitTimes.Sort();
+                return hitTimes.ToArray();
+            }
+
+            // "Attack" 클립 자체가 없는 경우.
+            return System.Array.Empty<float>();
         }
 
         /// <summary>

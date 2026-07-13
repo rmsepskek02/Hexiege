@@ -32,6 +32,32 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 이동/Walk 애니메이션 동기화 (Phase 2 레벨 동기화 + Phase 3 경로 출발점 보정) (2026-07-12) — ✅ 검증 완료(무귀속 유닛 15기→0기, 로그 PASS 2026-07-13)
+- **핵심 패턴 — 애니메이션 상태를 NetworkVariable로 단일화(엣지 트리거 RPC → 레벨 동기화)**: 갓 스폰 유닛이 첫 Walk/Attack RPC를 스폰 레이스(구독 전 도착)로 유실하던 근본 결함 해결. `NetworkUnit._animState`(`NetworkVariable<byte>`, enum `UnitAnimState{None,Walk,Attack}`, Read=Everyone/Write=Server, `_unitId`와 동일 관례). 클라 `OnNetworkSpawn`에서 **현재 값 즉시 적용(ApplySpawnAnimState)** + `OnValueChanged` 구독 → 스폰 레이스 구조적 소멸. NGO는 같은 값 재설정 시 미전송이라 애니메이션 중복 가드 불필요.
+- **교훈 — 레벨 동기화도 "적용 시점이 컴포넌트 초기화보다 이르면" 무음 실패**: OnNetworkSpawn(=ApplySpawnAnimState)이 UnitView.Initialize(Animator 캐시)보다 먼저 돌면 StartWalkAnimation이 조용히 early-return, 레벨값 그대로라 OnValueChanged 재호출 없어 재시도 부재 → 간헐 애니 누락. **봉합**: Initialize 직후 `ReapplyAnimStateToView()`로 현재값 재적용(멱등 — 레벨 기반이라 재적용 무해, IsSpawned/IsServer 스킵).
+- **레이어 연결**: 서버 쓰기=Infrastructure(NetworkCombatController→`SetUnitAnimState(unitId,state)`→`GetComponent<NetworkUnit>().SetAnimState()`). 클라 적용=NetworkUnit이 같은 GO `UnitView`로 `StartWalkAnimation()`/`PlayAttackAnimation()` 직접 호출. **호스트는 OnNetworkSpawn IsServer early-return이라 _animState 미구독**(서버가 Animator 직접 제어 관례).
+- **서버 쓰기 지점**: Walk=`OnUnitWalkStartedHandler`, Attack=`OnUnitEnteredCombatHandler`(2경로).
+- **Attack CrossFade 책임 분리(핵심 설계 결정, 유지 확정)**: `UnitView.StartCombatAnimation`의 CrossFade를 `!IsNetworkActive || IsNetworkServer`(싱글+호스트)만 실행하도록 가드 → **클라만** NetworkVariable(PlayAttackAnimation)로 이관. StartCombatClientRpc는 유지(타겟 전달=회전추적/원거리 트레이서 조준 `_combatTargetTransform`). 클라 타격 타이밍은 로컬 히트프레임(HitPresentationQueue, 규칙19)이 게이팅하므로 CrossFade 위상 오프셋을 큐가 흡수.
+- **⚠️ `_combatAnimationSent` 가드 유지 필수**: 레벨 동기화로 "애니메이션 재전송"엔 불필요해 보이나, 실제로는 `OnUnitEnteredCombatHandler`의 **ExecuteAttack(데미지)**·StartCombatClientRpc 재전송을 게이팅하는 기능 가드. 제거 시 쿨다운 사이클마다 ExecuteAttack 이중 발화→데미지 붕괴.
+- **Phase 3 경로 출발점 보정(뒤로 밀림)**: `RequestMove`가 경로를 **도메인 타일(`_unitData.Position`)** 기준 계산 → 유닛이 타일 사이 이동 중(transform이 도메인보다 앞섬)에 새 경로 발급되면 `path[1]`이 실제 위치보다 뒤 → 첫 걸음 역방향. **수정(단일 지점=MoveTo)**: `AlignPathStartToTransform(path)` — 첫 스텝이 최종목적지 기준 XZ 내적<0(역방향)일 때만 발동, `FindForwardClosestTile`로 실제 transform 기준 전방 타일 구해 `ProcessStep` 도메인 정합 후 `RequestMove` 재발급. 정방향은 원본 그대로 → **일반 이동 무변경**. 신규 static 헬퍼 `TileCenterView(HexCoord)→Vector3`.
+- **교훈 — 로그 계측(무귀속 유닛 자동 탐지)로 육안 불가 잔여 버그 특정**: `MoveAnimSyncLog`(임시 로거) + `[MOVESYNC-LOG]` 마커로 서버/클라 AnimState 쓰기↔수신 짝, 역방향 WARN을 계측. 검증 통과 후 전량 제거(2026-07-13, 아래).
+- **잔여(코드 무수정)**: Phase 3 잔여 역방향 41건은 "최종 목적지 직선 기준 판정"이 정상 우회 경로를 오탐한 것 → 실제 버그 아님, 미수정 유지.
+- **[MOVESYNC-LOG] 계측 코드 전량 제거(2026-07-13)**: `MoveAnimSyncLog.cs`+`Debugging` 폴더(+.meta) 삭제. 5개 파일(UnitView/NetworkUnit/NetworkCombatController/UnitFactory/GameEvents) 마커·로그 호출·로그전용 헬퍼(DescribeAnimatorState/LogRepath)·로그전용 지역변수(realDist/flt_*/alg_*/rft_*) 제거. **기능 코드 전부 보존**(AlignPathStartToTransform 보정·AnimState 레벨 동기화·ReapplyAnimStateToView 재적용·_combatAnimationSent·StartCombatClientRpc). 로그 txt는 `_Logs/2026-07-12/07_55_movement-walk-anim-sync/` 영구 보존.
+- **엣지 경로 최종 삭제(2026-07-13, 검증 통과 조건 충족)**: `StartWalkAnimationClientRpc` 메서드·호출, UnitView `OnNetworkWalkStarted` 구독, GameEvents `OnNetworkWalkStarted` Subject+`NetworkWalkStartedEvent` struct 전부 삭제(grep 전수 확인=0). **주의**: `OnUnitWalkStarted`(int Subject)는 서버 이동시작→SetUnitAnimState 체인의 발행원이라 유지. StartCombat/ChangeTarget/StopCombatClientRpc는 타겟·회전·전투상태용이라 유지.
+- task: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`. 파일: NetworkUnit.cs, NetworkCombatController.cs, UnitView.cs, GameEvents.cs, UnitFactory.cs.
+
+
+### 전투 타격 타이밍 동기화 (Phase 1~3 + 수정 1~3) (2026-07-10) — ✅ 검증 완료(4차 로그+실기 PASS, 2026-07-12)
+- **타워 발사 VFX(3-1)**: `BuildingEffectConfig.attackPreset`+`GetAttack`, `EffectManager.PlayBuildingAttack(type,pos,rot)`. 재생 트리거는 **HitPresentationQueue의 타워 즉시 방출 경로**(`!AttackerIsUnit` 분기)에 통합. 위치=BuildingFactory 타워GO, 회전=타워→타겟 LookRotation(XZ), 타입=BuildingPlacementUseCase.GetBuilding(id).Type. **이중재생 없음**: 호스트=UseCase 1회, 클라=NetworkHealthSync 재발행 1회 → 각 머신 정확히 1회.
+- **원거리 트레이서(3-2)**: `Presentation/Effects/TracerProjectile.cs`(VfxPoolItem 풀링 미러). **핵심 설계**: 큐 무변경, UnitView.OnAttackHit에서 원거리(AttackRange>=1.0f)면 OnLocalAttackHit 발행을 트레이서 착탄 콜백으로 지연 → 비행시간=피격연출 지연 자동 동기화. 사망flush는 트레이서 대기 없이 즉시 방출(착탄 콜백은 빈 큐 discard). 판정 상수 `UnitView.RangedAttackThreshold=1.0f`.
+- **HitPresentationQueue 안전망**: ⓐ타임아웃(쿨다운×1.5), ⓑ타겟사망 FlushTarget, ⓒ즉시방출(타워/GO없음), ⓓ공격자소멸 FlushAttacker(수정2·3 — 공격자사망/전투중단 시 잔여 큐 즉시 방출). 이 flush 경로들은 순수 기능이므로 로그 제거와 무관하게 보존.
+- **핵심 교훈 — Tick 경과 시간 이월분 이중 계산 버그(수정1)**: 타이머 이월 패턴에서 elapsed에 이월분을 포함시키면서 타이머에도 잔존분을 남기면 쿨다운이 15~25% 조기 소진된다. **실제 경과 시간과 타이머 잔량을 반드시 분리**할 것.
+- **핵심 교훈 — 상태 기반 RPC 경쟁 조건**: 클라이언트 Attack 이탈(Walk RPC)과 서버 전송 가드(`_combatAnimationSent`, NetworkCombatController)의 불일치 → Walk 전송 시 가드를 해제하여 봉합. `_combatAnimationSent`는 기능 필드이므로 로그 제거와 무관하게 유지.
+- **핵심 교훈 — 로그 계측 검증 방법론**: 타임아웃 방출 WARN을 "상태 불일치 자동 탐지기"로 사용 → 육안 불가능한 버그 2건을 특정. `[TIMING-LOG]` 마커+`CombatTimingLog`(임시 로거)로 계측 후 검증 완료 시 마커 일괄 grep 삭제(2026-07-12 제거 완료, LogRules).
+- **잔여 한계(후속 이관)**: 타겟 전환 순간 서버 판정↔애니메이션 상태 틈새로 ~0.5초 지연 표시 2.7% 잔존 → 이동/Walk 동기화 후속 태스크로 이관.
+- **[TIMING-LOG] 계측 코드 전량 제거(2026-07-12)**: CombatTimingLog.cs + Debugging 폴더 삭제, 5개 파일(NetworkCombatController/UnitCombatUseCase/UnitView/HitPresentationQueue/EffectManager) 마커 블록 제거. **주의점**: 기능 코드(FlushAttacker flush 로직, EnqueueTime 타임아웃, EffectManager.GetHit 프리셋, _combatAnimationSent)는 로그 위해 도입됐어도 유지. 로그 전용 `reason` string 파라미터는 FlushAttacker에서 제거. EffectManager는 `using Hexiege.Application`도 제거(로그 전용), NetworkCombat/UnitView는 다른 용도로 유지. 로그 txt는 `_Logs/`에 영구 보존.
+- **UnitEffectView.cs 삭제(2026-07-12)**: 프리팹/씬/코드 참조 0건 확인 후 제거.
+
 ### 인게임/로비 볼륨·프로필 UI 로직 연결 + 음소거 기능 (2026-07-09) ✅
 - **음소거 구현(저장값 보존형)**: `AudioManager`에 `SetMuted(bool)`/`IsMuted()`/`ResetAllVolumes()` 추가. PlayerPrefs 키 `"Muted"`(0/1). 뮤트는 **Master 채널만 -80dB(`MutedDb`)로 눌러** 전체 무음(BGM/SFX 논리 볼륨값은 보존). `ApplyVolume`을 `ApplyDb(param,dB)`로 리팩터(무음 -80dB와 볼륨 변환값이 SetFloat 진단 로깅 경로 공유). `SetVolume`에 자동 언뮤트(슬라이더 조작 시 `if(_muted) SetMuted(false)`).
 - **VolumeControlBinder(신규, 순수 C#)**: `Presentation/UI/Common/VolumeControlBinder.cs`. 인게임/로비 볼륨 UI 공통 로직(슬라이더3+On/Off/Reset버튼+색상)을 캡슐화. `Bind(Refs)` 구조체 주입, `RefreshFromAudioManager()`로 패널 표시 시 재동기화. On/Off 버튼은 CanvasGroup 상호배타(규칙24), 슬라이더 Fill 색상은 `slider.fillRect`의 Image로 처리(규칙26, UIColorConfig `soundOnColor`/`soundMutedColor`).

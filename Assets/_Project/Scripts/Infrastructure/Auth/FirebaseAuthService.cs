@@ -28,10 +28,14 @@
 
 using System;
 using System.Threading.Tasks;
+#if HEXIEGE_ENABLE_FIREBASE_AUTH
 using Firebase;
 using Firebase.Auth;
 using Firebase.Extensions;
+#if UNITY_ANDROID
 using GooglePlayGames;
+#endif
+#endif
 using UnityEngine;
 
 namespace Hexiege.Infrastructure
@@ -41,6 +45,7 @@ namespace Hexiege.Infrastructure
     /// 상위 레이어(Application/Presentation)가 Firebase SDK 에 직접 의존하지 않도록 차단한다.
     /// 모든 로그인 흐름의 단일 진입점.
     /// </summary>
+    #if HEXIEGE_ENABLE_FIREBASE_AUTH
     public class FirebaseAuthService
     {
         // ====================================================================
@@ -221,6 +226,10 @@ namespace Hexiege.Infrastructure
         private Task<string> RequestGoogleServerAuthCodeAsync()
         {
             // TaskCompletionSource: 콜백 결과를 Task 의 결과로 전달하기 위한 표준 헬퍼.
+#if !UNITY_ANDROID
+            Debug.LogWarning("[FirebaseAuth] Google Play Games login is only available on Android.");
+            return Task.FromResult(string.Empty);
+#else
             var tcs = new TaskCompletionSource<string>();
 
             // 1) GPGS 인증 (사용자가 Google 계정을 선택 / 자동 선택)
@@ -259,6 +268,7 @@ namespace Hexiege.Infrastructure
             });
 
             return tcs.Task;
+#endif
         }
 
         // ====================================================================
@@ -594,6 +604,55 @@ namespace Hexiege.Infrastructure
             _ => "일시적인 오류가 발생했습니다. 잠시 후 다시 시도하세요."
         };
     }
+
+    #else
+    public class FirebaseAuthService
+    {
+        public bool IsInitialized { get; private set; }
+        public bool IsLoggedIn => false;
+        public bool IsAnonymous => false;
+        public string FirebaseUID => string.Empty;
+        public string DisplayName => string.Empty;
+        public string Email => string.Empty;
+        public bool IsEmailVerified => false;
+
+        public Task<bool> InitializeAsync()
+        {
+            Debug.LogWarning("[FirebaseAuth] Firebase SDK is not installed or HEXIEGE_ENABLE_FIREBASE_AUTH is not defined.");
+            IsInitialized = false;
+            return Task.FromResult(false);
+        }
+
+        public Task<string> SignInAnonymouslyAsync() => ThrowAuthDisabled<string>();
+        public Task<string> SignInWithGoogleAsync() => ThrowAuthDisabled<string>();
+        public Task<string> SignInWithEmailAsync(string email, string password) => ThrowAuthDisabled<string>();
+        public Task SignUpWithEmailAsync(string email, string password, string displayName = null) => ThrowAuthDisabled();
+        public Task SendEmailVerificationAsync() => ThrowAuthDisabled();
+        public Task<bool> CheckEmailVerifiedAsync() => ThrowAuthDisabled<bool>();
+        public Task SendPasswordResetEmailAsync(string email) => ThrowAuthDisabled();
+        public Task LinkWithGoogleAsync() => ThrowAuthDisabled();
+        public Task LinkWithEmailAsync(string email, string password) => ThrowAuthDisabled();
+        public Task SignOutAsync() => Task.CompletedTask;
+        public Task<string> GetIdTokenAsync(bool forceRefresh = false) => ThrowAuthDisabled<string>();
+
+        private static Task ThrowAuthDisabled()
+        {
+            throw CreateDisabledException();
+        }
+
+        private static Task<T> ThrowAuthDisabled<T>()
+        {
+            throw CreateDisabledException();
+        }
+
+        private static AuthException CreateDisabledException()
+        {
+            return new AuthException(
+                AuthErrorReason.NotInitialized,
+                "Firebase SDK is not available in this build.");
+        }
+    }
+    #endif
 
     // ========================================================================
     // 도메인 예외 — Firebase SDK 의존을 차단하기 위한 1차 변환 결과

@@ -140,7 +140,8 @@ namespace Hexiege.Bootstrap
             }
 
             // 10-2. 부유 HP 텍스트 스포너 초기화
-            // OnEntityDamaged 이벤트 구독 → 피격 시 남은 HP를 머리 위에 표시
+            // 표시의 진입점은 public ShowDamage() — 아래 10-4의 HitPresentationQueue가 방출 시점에 호출한다.
+            // (예전처럼 OnEntityDamaged를 직접 구독하지 않는다 — 이중 표시 방지, Phase 2 — 축 3)
             if (_floatingHpTextSpawner != null)
                 _floatingHpTextSpawner.Initialize(_positionProvider, _floatingTextContainer, _floatingHpTextPrefab);
 
@@ -148,6 +149,15 @@ namespace Hexiege.Bootstrap
             // 각 Config의 List → Dictionary 변환과 SFX Pool 사전 생성이 여기서 수행된다.
             if (_effectManager != null)
                 _effectManager.Initialize(_unitEffectConfig, _buildingEffectConfig, _uiEffectConfig);
+
+            // 10-4. 피격 표현 큐 초기화 (Phase 2 — 축 3).
+            //   피격 연출(HP 텍스트·피격 VFX·타격 반응)을 공격자의 로컬 타격 프레임(OnAttackHit)에 맞춰 방출.
+            //   씬에 수동 배치하지 않고 조합 루트인 이 GameObject에 AddComponent하여 Inspector 작업을 없앤다.
+            //   맵 재로드 시 이미 부착돼 있으면 재사용(중복 AddComponent 방지)하고 Initialize만 다시 호출한다.
+            //   EffectManager.Initialize 이후에 두어야 GetHit(피격 프리셋 조회)가 정상 동작한다.
+            if (_hitPresentationQueue == null)
+                _hitPresentationQueue = gameObject.AddComponent<HitPresentationQueue>();
+            _hitPresentationQueue.Initialize(_floatingHpTextSpawner, _unitFactory, _buildingFactory, _unitSpawn, _buildingPlacement);
 
             // 11. Castle 자동 배치
             PlaceCastles(orientation, oc);

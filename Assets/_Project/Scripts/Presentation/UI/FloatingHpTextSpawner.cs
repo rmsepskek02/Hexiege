@@ -1,12 +1,16 @@
 // ============================================================================
 // FloatingHpTextSpawner.cs
-// 피격 이벤트 수신 시 부유 HP 텍스트를 생성하고 관리하는 컴포넌트.
+// 피격 시 부유 HP 텍스트를 생성하고 관리하는 컴포넌트.
 //
 // 역할:
-//   1. GameEvents.OnEntityDamaged 이벤트를 구독하여 피격 발생 감지.
+//   1. public ShowDamage(evt) 호출 시 피격 발생 처리 (표시의 유일한 진입점).
 //   2. 피격 오브젝트의 월드 좌표를 IEntityPositionProvider로 조회.
 //   3. 오브젝트 풀에서 FloatingHpText를 꺼내 월드 좌표에 배치 후 애니메이션 재생.
 //   4. 애니메이션 완료 후 풀에 반환하여 재사용.
+//
+// [Phase 2 변경] 예전에는 GameEvents.OnEntityDamaged를 직접 구독해 "데미지 도착 즉시" 표시했다.
+//   지금은 HitPresentationQueue가 공격자의 로컬 타격 프레임(OnAttackHit)에 맞춰 방출 시점에
+//   ShowDamage()를 호출한다. 직접 구독을 제거해 "즉시 표시"와 "방출 시점 표시"의 이중 표시를 없앴다.
 //
 // 오브젝트 풀링 설명:
 //   매번 Instantiate/Destroy를 하면 GC(가비지 컬렉션) 부하가 발생.
@@ -15,11 +19,10 @@
 //
 // 부착 위치: 씬의 아무 GameObject (GameBootstrapper에서 Initialize 호출)
 //
-// Presentation 레이어 — UniRx, Application 이벤트 의존.
+// Presentation 레이어 — Application 이벤트 데이터(EntityDamagedEvent) 의존.
 // ============================================================================
 
 using System.Collections.Generic;
-using UniRx;
 using UnityEngine;
 using Hexiege.Application;
 using Hexiege.Domain;
@@ -121,25 +124,24 @@ namespace Hexiege.Presentation
                 _pool.Enqueue(instance);
             }
 
-            // 피격 이벤트 구독.
-            // AddTo(this): 이 MonoBehaviour가 파괴될 때 자동으로 구독 해제.
-            // 구독 해제하지 않으면 파괴된 오브젝트의 메서드가 호출되어 NullReferenceException 발생.
-            GameEvents.OnEntityDamaged
-                .Subscribe(OnEntityDamaged)
-                .AddTo(this);
+            // NOTE(Phase 2 — 축 3): 과거에는 여기서 GameEvents.OnEntityDamaged를 직접 구독하여
+            //   데미지가 도착한 "즉시" HP 텍스트를 띄웠다. 이제는 HitPresentationQueue가
+            //   공격자의 로컬 타격 프레임(OnAttackHit)에 맞춰 방출 시점에 ShowDamage()를 호출한다.
+            //   → 직접 구독을 제거하여 "즉시 표시"와 "방출 시점 표시"가 중복되지 않게 한다(이중 표시 방지).
+            //   HP 텍스트 표시의 유일한 진입점은 이제 public ShowDamage() 뿐이다.
         }
 
         // ====================================================================
-        // 이벤트 핸들러
+        // 표시 API (HitPresentationQueue가 방출 시점에 호출)
         // ====================================================================
 
         /// <summary>
-        /// 피격 이벤트 핸들러.
-        /// 피격 오브젝트의 월드 좌표에 직접 World Space 텍스트를 배치.
+        /// 피격 HP 텍스트를 표시한다. HitPresentationQueue가 피격 연출을 방출하는 시점에 호출한다.
+        /// 피격 오브젝트의 월드 좌표에 직접 World Space 텍스트를 배치한다.
         /// 텍스트는 다른 월드 오브젝트(유닛, 건물)와 동일하게 줌에 비례해 커지고 작아진다.
         /// </summary>
         /// <param name="evt">피격 이벤트 데이터. Entity(피격 대상), CurrentHp, IsUnit 포함.</param>
-        private void OnEntityDamaged(EntityDamagedEvent evt)
+        public void ShowDamage(EntityDamagedEvent evt)
         {
             if (_positionProvider == null || _container == null) return;
 

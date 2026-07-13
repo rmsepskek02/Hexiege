@@ -58,6 +58,17 @@ namespace Hexiege.Presentation
         private static readonly int AnimIsDead = Animator.StringToHash("IsDead");
 
         // ====================================================================
+        // 원거리/근접 판정 경계
+        // ====================================================================
+
+        /// <summary>
+        /// 원거리 유닛 판정 경계. AttackRange가 이 값 이상이면 원거리 유닛으로 간주하여
+        /// 공격 시 트레이서(발사체) 연출을 재생한다. 미만이면 근접 유닛으로 즉시 피격 연출한다.
+        /// UnitCombatUseCase의 근접 판정(AttackRange &lt; 1.0f)과 동일한 경계값이다.
+        /// </summary>
+        private const float RangedAttackThreshold = 1.0f;
+
+        // ====================================================================
         // HexDirection → Y축 회전 각도 매핑
         // NE(0)=60, E(1)=120, SE(2)=180, SW(3)=240, W(4)=300, NW(5)=0
         // FlatTop 헥스에서 각 방향의 실제 Unity 월드 각도 (atan2 기반).
@@ -322,6 +333,26 @@ namespace Hexiege.Presentation
                 float spawnAngle = DirectionAngles[index];
                 transform.rotation = Quaternion.Euler(0f, spawnAngle, 0f);
             }
+
+            // ────────────────────────────────────────────────────────────────
+            // [Phase 2 후속 — 적용 순서 틈 봉합] Initialize 완료 직후 애니메이션 상태 재적용.
+            //
+            //   왜 필요한가 (초급자용 설명):
+            //     클라이언트에서 같은 GameObject의 NetworkUnit이 스폰되는 순간(OnNetworkSpawn) 서버의
+            //     현재 애니메이션 상태를 즉시 적용하는데, 그 시점이 이 Initialize(=위에서 _animator를
+            //     캐시한 지점)보다 "먼저" 실행될 수 있다. 그때 메시/Animator가 아직 준비되지 않았으면
+            //     StartWalkAnimation이 조용히 반환하고, 레벨 값(NetworkVariable)은 그대로라 다시 통지가
+            //     오지 않아 재시도가 없다 → 간헐적으로 걷기 애니메이션이 무음 실패한다.
+            //
+            //   해결:
+            //     _animator를 캐시한 "지금" 같은 GameObject의 NetworkUnit에서 현재 상태 값을 한 번 더
+            //     읽어 재적용한다. 조기 적용이 실패했더라도 준비된 Animator로 반드시 재적용되어 틈이 닫힌다.
+            //     레벨(값 기반) 동기화라 "현재 값 재적용"은 멱등하여 무해하고, 서버(호스트)/싱글플레이는
+            //     ReapplyAnimStateToView 내부 가드(IsSpawned/IsServer)로 스킵된다.
+            //     (UnitView→NetworkUnit은 같은 프리팹 컴포넌트 접근 — 기존 관례이며 레이어 위반이 아니다.)
+            // ────────────────────────────────────────────────────────────────
+            var networkUnit = GetComponent<NetworkUnit>();
+            if (networkUnit != null) networkUnit.ReapplyAnimStateToView();
         }
 
         /// <summary>
@@ -417,16 +448,10 @@ namespace Hexiege.Presentation
                     })
                     .AddTo(this);
 
-                // 멀티플레이 Walk 시작 (서버 ClientRpc → 클라이언트 Walk 애니메이션 동기화)
-                GameEvents.OnNetworkWalkStarted
-                    .Subscribe(e =>
-                    {
-                        if (_unitData != null && e.UnitId == _unitData.Id)
-                        {
-                            StartWalkAnimation();
-                        }
-                    })
-                    .AddTo(this);
+                // 멀티플레이 Walk 시작은 애니메이션 상태 레벨 동기화로 처리한다.
+                //   서버가 NetworkUnit._animState = Walk로 쓰면, 클라이언트 NetworkUnit이
+                //   값 변경(OnValueChanged) 및 스폰 시 현재 값을 읽어 UnitView.StartWalkAnimation()을
+                //   직접 호출한다(스폰 레이스로 신호가 유실될 수 없음).
             }
 
             // 사망 이벤트 구독 — 이 유닛이 사망하면 GameObject 파괴.
@@ -579,6 +604,22 @@ namespace Hexiege.Presentation
                 _moveCoroutine = null;
             }
 
+            // ────────────────────────────────────────────────────────────
+            // [Phase 3 이동 보정] 경로 출발점을 유닛의 실제 transform 위치와 정합.
+            //
+            //   왜 필요한가:
+            //     RequestMove는 경로를 "도메인 타일"(_unitData.Position) 기준으로 계산한다.
+            //     그런데 유닛이 두 타일 사이를 이동하는 도중(transform이 도메인 타일보다 목적지 쪽으로
+            //     앞서 있음)에 새 경로가 발급되면, 경로 첫 타일(path[1])이 실제 위치보다 "뒤"에 놓여
+            //     첫 걸음이 목적지 역방향으로 향한다("뒤로 밀림", 규칙 11 위반).
+            //
+            //   동작:
+            //     AlignPathStartToTransform이 이 "역방향 첫 스텝" 케이스만 감지해 앞쪽 타일 기준으로
+            //     경로를 재발급한다. 정방향/정합 상태는 원본 path를 그대로 반환하므로 일반 이동은
+            //     전혀 건드리지 않는다.
+            // ────────────────────────────────────────────────────────────
+            path = AlignPathStartToTransform(path);
+
             // 외부에서 이 유닛이 어디로 가는지 알 수 있도록 최종 목적지를 저장.
             // 빈 경로/null 안전 처리: path가 비정상이면 코루틴 동작이 알아서 종료된다.
             if (path != null && path.Count > 0)
@@ -591,6 +632,84 @@ namespace Hexiege.Presentation
             //   - GameSystemRules.md 규칙 1~18을 그대로 따른다.
             //   - 외부 while 안에 타일 순회를 직접 인라인하여 가독성을 높였다.
             _moveCoroutine = StartCoroutine(MoveAlongPathV3(path));
+        }
+
+        /// <summary>
+        /// [Phase 3 이동 보정] 새 경로의 출발점을 유닛의 실제 transform 위치와 정합시킨다.
+        ///
+        /// 배경(왜 필요한가 — 초급자용 설명):
+        ///   경로 계산(RequestMove)은 항상 "도메인 타일"(_unitData.Position)을 출발점으로 삼는다.
+        ///   그런데 유닛의 도메인 위치는 "타일 중심에 도착했을 때"만 갱신되므로, 유닛이 두 타일
+        ///   사이를 이동하는 도중(=transform이 도메인 타일보다 목적지 쪽으로 앞서 있음)에 새 경로가
+        ///   발급되면, 경로의 첫 타일(path[1])이 실제 위치보다 "뒤"에 놓일 수 있다. 이 경우 유닛이
+        ///   첫 걸음을 목적지 반대 방향(뒤)으로 내딛어 "뒤로 밀리는" 것처럼 보인다.
+        ///   (규칙 11: A* 재개 시 뒤쪽 타일로 복귀 금지 — 이 위반을 강제로 바로잡는다.)
+        ///
+        /// 동작:
+        ///   1) 첫 스텝(transform → path[1])이 최종 목적지 기준 "역방향"(XZ 내적&lt;0)인지 판정한다.
+        ///      역방향이 아니면(정상) 원본 path를 그대로 반환 — 일반 이동은 전혀 건드리지 않는다.
+        ///   2) 역방향이면: 실제 transform 위치 기준 "앞쪽 가장 가까운 타일"을 FindForwardClosestTile로
+        ///      구하고, 도메인 위치도 그 타일로 정합(ProcessStep)시킨 뒤, 그 출발점에서 목적지까지
+        ///      경로를 재발급(RequestMove)한다.
+        ///      (전투 종료 정렬의 ResumeFromForwardTileV3에서 이미 검증된 패턴을 그대로 재사용한다.)
+        ///
+        /// 반환: 보정된 경로(역방향 케이스) 또는 원본 경로(정상/보정 불가 케이스).
+        /// </summary>
+        /// <param name="path">MoveTo가 받은 원본 경로(시작점 포함).</param>
+        /// <returns>보정 경로 또는 원본 경로.</returns>
+        private List<HexCoord> AlignPathStartToTransform(List<HexCoord> path)
+        {
+            // 방어: 경로 비정상 / 의존성 없음 / 유닛 사망 → 원본 그대로.
+            if (path == null || path.Count < 2) return path;
+            if (_movementUseCase == null || _unitData == null || !_unitData.IsAlive) return path;
+
+            // 최종 목적지 — "앞쪽/뒤쪽" 판정의 기준.
+            HexCoord finalTarget = path[path.Count - 1];
+
+            // path[1] 중심과 최종 목적지 중심을 뷰 좌표로 변환.
+            Vector3 step1View = TileCenterView(path[1]);
+            Vector3 finalView = TileCenterView(finalTarget);
+
+            // 첫 스텝 방향(transform → path[1])과 목적지 방향(transform → finalTarget)의 XZ 내적.
+            //   내적 ≥ 0 : 정방향(또는 옆) — 정상 이동이므로 보정하지 않는다.
+            //   내적 < 0 : 첫 스텝이 목적지 반대쪽 — "뒤로 밀림" 버그이므로 보정 대상.
+            Vector3 toStep1 = step1View - transform.position; toStep1.y = 0f;
+            Vector3 toFinal = finalView - transform.position; toFinal.y = 0f;
+            float dot = toStep1.x * toFinal.x + toStep1.z * toFinal.z;
+            if (dot >= 0f) return path;   // 정방향 — 원본 그대로.
+
+            // ── 여기부터 역방향(보정) 케이스 ──
+
+            // 실제 transform 위치 → 도메인 좌표 → 앞쪽 가장 가까운 타일.
+            //   (ResumeFromForwardTileV3의 forwardTile 계산과 동일한 방식.)
+            Vector3 domainPos = ViewConverter.FromView(transform.position);
+            HexCoord forwardTile = _movementUseCase.FindForwardClosestTile(domainPos, finalTarget);
+
+            // 도메인 위치 정합 — forwardTile이 현재 도메인과 다를 때만 ProcessStep.
+            //   (같은 타일이면 생략 — ResumeFromForwardTileV3와 동일 규약.)
+            //   ProcessStep은 위치 역인덱스(NotifyUnitMoved) 갱신과 OnUnitMoved 이벤트 발행만 하며,
+            //   혼잡도 누적 이벤트(OnUnitEnteredTile)는 발행하지 않는다. 따라서 혼잡도/점유 부작용이 없다.
+            if (forwardTile != _unitData.Position)
+                _movementUseCase.ProcessStep(_unitData, _unitData.Position, forwardTile);
+
+            // 앞쪽 타일에서 목적지까지 경로 재발급.
+            List<HexCoord> corrected = _movementUseCase.RequestMove(_unitData, finalTarget);
+
+            // 재발급 실패(도착/경로 없음) 시 원본 유지 — 최소한 기존 동작을 보존한다.
+            if (corrected == null || corrected.Count < 2) return path;
+            return corrected;
+        }
+
+        /// <summary>
+        /// 타일 좌표를 유닛이 서는 뷰 좌표(타일 중심 + 유닛 높이 보정)로 변환하는 소형 헬퍼.
+        /// (도메인 → 월드(HexToWorld) → 뷰(ToView) + UnitYOffset. 반복되던 3줄 변환을 모은 것.)
+        /// </summary>
+        private static Vector3 TileCenterView(HexCoord coord)
+        {
+            Vector3 world = HexMetrics.HexToWorld(coord);
+            Vector3 view = ViewConverter.ToView(world);
+            view.y += HexMetrics.UnitYOffset;
+            return view;
         }
 
         /// <summary>
@@ -765,7 +884,7 @@ namespace Hexiege.Presentation
             }
 
             // 멀티플레이 서버: 이동 시작 이벤트 발행 → NetworkCombatController가
-            // StartWalkAnimationClientRpc로 모든 클라이언트에 Walk 시작 전파.
+            // _animState(=Walk) 레벨 동기화로 모든 클라이언트에 Walk 시작 전파.
             if (NetworkContext.IsNetworkActive)
                 GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
 
@@ -1492,26 +1611,86 @@ namespace Hexiege.Presentation
             Quaternion spawnRot = Quaternion.LookRotation(transform.forward);
             EffectManager.Instance?.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot);  // VFX
             AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                    // SFX (규칙 15 — VFX와 짝)
+
+            // ────────────────────────────────────────────────────────────────
+            // 피격 연출 방출 타이밍 결정 (전투 타격 타이밍 동기화 Phase 3 — 축 4 / 3-2)
+            //
+            //   근접 유닛 : 이 자리(타격 프레임)에서 OnLocalAttackHit을 즉시 발행 → 즉시 피격 연출. (기존 동작)
+            //   원거리 유닛: 트레이서(발사체)를 발사하고, 그 발사체가 "착탄"하는 순간에 OnLocalAttackHit을
+            //               발행한다. 즉 트레이서 비행 시간만큼 피격 연출이 지연되어, 화살/탄환이
+            //               실제로 맞는 순간과 피격 연출(HP 텍스트·피격 VFX·타격 반응)이 일치한다.
+            //
+            //   ※ 데미지 타이밍(서버 권위)은 여기서 전혀 건드리지 않는다. 트레이서는 순수 시각 표현이다.
+            // ────────────────────────────────────────────────────────────────
+            int attackerId = _unitData.Id;
+            EffectManager em = EffectManager.Instance;
+
+            if (_unitData.AttackRange >= RangedAttackThreshold && em != null)
+            {
+                // 도착 지점 = 발사 시점의 타겟 월드 위치(값으로 복사).
+                //   비행 중 타겟이 파괴되어도 트레이서는 이 좌표까지 그대로 날아가 소멸한다(댕글링 참조 없음).
+                //   _combatTargetTransform이 있으면 그 위치를, 없으면 백업 ID로 재조회(둘 다 실패 시 전방 폴백).
+                Vector3 targetPos = _combatTargetTransform != null
+                    ? _combatTargetTransform.position
+                    : GetTargetWorldPos(_combatTargetId, _combatTargetIsUnit);
+
+                // 트레이서 발사. 착탄 콜백에서 OnLocalAttackHit을 발행하여 피격 연출을 착탄 시점에 방출한다.
+                //   트레이서 프리셋이 없으면 PlayTracer가 콜백을 "즉시" 실행하므로 기존 즉시 방출로 폴백된다.
+                em.PlayTracer(_unitData.Type, spawnPos, targetPos,
+                    () => GameEvents.OnLocalAttackHit.OnNext(attackerId));
             }
+            else
+            {
+                // 근접 유닛(또는 EffectManager 부재 시): 발사 순간 = 타격 순간이므로 즉시 신호를 발행한다.
+                // HitPresentationQueue가 이 신호를 받아 해당 공격자의 보류 큐에서 피격 연출 1건을 방출한다.
+                // 모든 클라이언트에서 로컬로 실행되므로 각 화면이 자기 애니메이션 타이밍에 맞춰 연출된다.
+                // (전투 타격 타이밍 동기화 Phase 2 — 축 3)
+                GameEvents.OnLocalAttackHit.OnNext(attackerId);
+            }
+        }
 
             // ====================================================================
         // Walk 애니메이션 — 클라이언트 전용 (NetworkCombatController의 ClientRpc에서 호출)
         // ====================================================================
 
         /// <summary>
-        /// Walk 애니메이션 시작. NetworkCombatController의 StartWalkAnimationClientRpc에서 호출.
-        /// 클라이언트 전용 — 서버는 MoveAlongPath에서 직접 Animator를 제어.
+        /// Walk 애니메이션 시작(CrossFade). 클라이언트 전용 — 서버는 MoveAlongPath에서 직접 제어.
+        ///
+        /// [Phase 2] 호출 경로:
+        ///   NetworkUnit._animState(=Walk) 값 변경/스폰 시 → NetworkUnit.ApplyAnimState → 여기.
+        ///   (과거의 엣지 트리거 Walk RPC를 레벨 동기화 값으로 대체 — 스폰 레이스 유실 방지.)
         /// 이미 Walk 상태면 리셋하지 않고 speed만 복원.
         /// </summary>
         public void StartWalkAnimation()
         {
-            // _animator가 null이면 lazy-init 시도 (Initialize() 전에 RPC가 도착한 경우 대응)
+            // _animator가 null이면 lazy-init 시도 (Initialize() 전에 상태 값이 적용되는 경우 대응 — 스폰 레이스)
             if (_animator == null)
                 _animator = GetComponentInChildren<Animator>();
             if (_animator == null) return;
 
             _animator.speed = 1f;
             _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
+        }
+
+        /// <summary>
+        /// [Phase 2 신규] 공격(Attack) 애니메이션 루프를 재생한다 — CrossFade만 수행.
+        ///
+        /// 클라이언트에서 NetworkUnit의 애니메이션 상태 NetworkVariable(=Attack)이 적용될 때 호출된다
+        /// (값 변경 및 스폰 시 현재 값 적용). Attack 클립은 Loop Time=ON이므로 1회 CrossFade로 무한 루프.
+        ///
+        /// 회전/타겟 추적은 StartCombatAnimation(StartCombatClientRpc 경로)이 담당하므로, 이 메서드는
+        /// 타겟 정보를 받지 않고 순수하게 "Attack 상태 전환"만 담당한다(애니메이션과 조준의 책임 분리).
+        /// _unitData/Initialize보다 먼저 호출될 수 있어 animator를 지연 초기화한다(스폰 레이스 대응).
+        /// </summary>
+        public void PlayAttackAnimation()
+        {
+            // _animator가 null이면 lazy-init 시도 (Initialize() 전에 상태 값이 적용되는 경우 대응 — 스폰 레이스)
+            if (_animator == null)
+                _animator = GetComponentInChildren<Animator>();
+            if (_animator == null) return;
+
+            _animator.speed = 1f;
+            _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0);
         }
 
         // StopWalkAnimation() 제거 — Idle 상태가 없으므로 Walk 정지 전용 메서드 불필요.
@@ -1546,14 +1725,26 @@ namespace Hexiege.Presentation
             float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
             transform.rotation = Quaternion.Euler(0f, angle, 0f);
 
-            // Attack CrossFade 시작 — Loop Time=ON이므로 자동 루프
-            if (_animator != null)
+            // ────────────────────────────────────────────────────────────────
+            // [Phase 2 대체] Attack CrossFade 책임 분리.
+            //   멀티플레이 "클라이언트"의 Attack 전환은 이제 애니메이션 상태 레벨 동기화가 담당한다
+            //   (NetworkUnit._animState = Attack → PlayAttackAnimation). 스폰 레이스로 유실될 수 없다.
+            //   여기서는 "싱글플레이" 또는 "호스트(서버)"만 직접 CrossFade한다:
+            //     - 싱글플레이: NGO가 없어 레벨 동기화 경로가 없으므로 직접 재생해야 한다.
+            //     - 호스트(서버): 서버가 Animator를 직접 제어하는 기존 관례를 유지한다
+            //       (서버가 애니메이션을 직접 제어하는 다른 경로들과 동일한 취지).
+            //   클라이언트가 여기서도 CrossFade하면 레벨 동기화와 이중 적용되므로 스킵한다.
+            // ────────────────────────────────────────────────────────────────
+            bool applyCrossFadeHere = !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
+            if (applyCrossFadeHere && _animator != null)
             {
                 _animator.speed = 1f;
                 _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0);
             }
 
-            // 공격 중 타겟 Transform 참조 저장 → Update()에서 매 프레임 추적
+            // 공격 중 타겟 Transform 참조 저장 → Update()에서 매 프레임 추적.
+            // [Phase 2] 이 타겟 참조/회전 추적은 애니메이션과 분리해 "유지"한다(클라이언트도 필요):
+            //   원거리 유닛의 트레이서 조준(OnAttackHit)이 _combatTargetTransform/_combatTargetId를 사용한다.
             _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
 
             // 멀티플레이 타이밍 문제 대비: Transform 참조가 나중에 null이 되더라도
@@ -1592,11 +1783,11 @@ namespace Hexiege.Presentation
         ///   싱글플레이 → GameEvents.OnCombatStopped → UnitView.StopCombatAnimation
         ///
         /// 비어있는 이유 (멀티플레이):
-        ///   Walk 전환은 서버가 이동을 재개할 때 StartWalkAnimationClientRpc로 명시적으로 신호를 보냄.
+        ///   Walk 전환은 서버가 이동을 재개할 때 _animState(=Walk) 레벨 동기화로 명시적으로 신호를 보냄.
         ///   StopCombatClientRpc 도착 시점과 서버의 실제 이동 재개 시점이 다를 수 있으므로,
         ///   여기서 Walk CrossFade를 즉시 호출하면 서버가 아직 쿨다운(최대 3초) 대기 중인 동안
         ///   클라이언트만 Walk 애니메이션이 재생되고 유닛이 실제로 이동하지 않는 불일치가 발생.
-        ///   → Walk 전환 타이밍은 StartWalkAnimationClientRpc에 완전히 위임.
+        ///   → Walk 전환 타이밍은 _animState 레벨 동기화에 완전히 위임.
         ///
         /// 싱글플레이:
         ///   MoveAlongPath 내부에서 Walk CrossFade를 직접 호출하므로 이 메서드 불필요.

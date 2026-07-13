@@ -210,8 +210,12 @@ namespace Hexiege.Application
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(tower, target));
 
             // 피격 이벤트 발행 — NetworkHealthSync가 구독하여 HP를 모든 클라이언트에 동기화.
+            // 공격자는 타워(건물)이므로 AttackerId=tower.Id, AttackerIsUnit=false를 실어 보낸다.
+            // 타워는 타격 애니메이션 프레임이 없으므로, 피격 표현 큐가 이 값을 보고
+            // 보류 없이 "즉시 방출"(안전망 ⓒ) 경로를 타게 된다. (Phase 2 — 축 3)
             GameEvents.OnEntityDamaged.OnNext(
-                new EntityDamagedEvent(target, target.Hp, true));
+                new EntityDamagedEvent(target, target.Hp, true,
+                    attackerId: tower.Id, attackerIsUnit: false));
 
             // 타겟 사망 처리.
             if (!target.IsAlive)

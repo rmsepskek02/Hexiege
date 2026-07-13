@@ -90,6 +90,13 @@ namespace Hexiege.Infrastructure
         /// <summary>다음 전투 판정까지 남은 시간.</summary>
         private float _attackTimer = 0f;
 
+        /// <summary>
+        /// 직전 Tick에서 인터벌(_attackInterval)을 초과하여 다음 Tick으로 넘긴 이월분(초).
+        /// TickCombat에 넘길 실제 경과 시간(realElapsed)을 계산할 때 이 값을 빼서
+        /// 이월분이 두 번 세어지는 이중 계산을 막는다. (자세한 이유는 Update() 주석 참조.)
+        /// </summary>
+        private float _lastCarry = 0f;
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -117,6 +124,11 @@ namespace Hexiege.Infrastructure
             // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
             {
+                // 전투 Tick 타이머/이월분 초기화 — NGO 씬 오브젝트가 다음 게임에서 재스폰될 때
+                // 이전 게임의 잔여 이월분이 남아 첫 Tick의 경과 시간이 부풀지 않도록 리셋.
+                _attackTimer = 0f;
+                _lastCarry = 0f;
+
                 // 사망 이벤트는 OnUnitDied / OnBuildingDied 두 갈래로 분리되었으므로
                 // 서버 측에서도 각각 구독한다.
                 // 분리 이유: 구독 측에서 매번 is 캐스트로 타입을 분기하지 않도록 강타입 DTO를 사용.
@@ -128,8 +140,11 @@ namespace Hexiege.Infrastructure
                 // 서버 UnitView의 Walk 시작/정지 이벤트를 수신하여 클라이언트에 전파.
                 // UnitView.MoveAlongPath()는 서버에서만 실행되므로,
                 // Walk 애니메이션 상태를 ClientRpc로 클라이언트에 동기화.
+                // 람다 대신 명명 핸들러(OnUnitWalkStartedHandler)로 분리한 이유:
+                //   Walk RPC 전송과 함께 전투 애니메이션 재전송 가드(_combatAnimationSent)를
+                //   해제해야 하는데, 이 두 동작을 한 곳에 명확히 모아두기 위함.
                 _walkStartedSubscription = GameEvents.OnUnitWalkStarted
-                    .Subscribe(unitId => StartWalkAnimationClientRpc(unitId));
+                    .Subscribe(OnUnitWalkStartedHandler);
 
                 // MoveAlongPath에서 적 감지 즉시 StartCombatClientRpc 전송 (TickCombat 50ms 대기 없이)
                 _enteredCombatSubscription = GameEvents.OnUnitEnteredCombat
@@ -167,6 +182,10 @@ namespace Hexiege.Infrastructure
             _unitCombatTargets.Clear();
             _combatAnimationSent.Clear();
 
+            // 전투 Tick 타이머/이월분도 초기화 — 다음 게임 스폰 시 깨끗한 상태에서 시작.
+            _attackTimer = 0f;
+            _lastCarry = 0f;
+
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
         }
@@ -184,11 +203,20 @@ namespace Hexiege.Infrastructure
         ///
         /// _attackInterval마다 Tick을 발행하여 매 프레임 처리 비용을 줄임.
         ///
-        /// 타이밍 정확도:
-        ///   _attackTimer -= _attackInterval 으로 오버슈트를 다음 Tick에 이월.
-        ///   (0f로 리셋하면 오버슈트가 버려져 Tick 간격이 평균적으로 길어짐)
-        ///   쿨다운 감소는 _attackInterval(고정값)이 아닌 실제 경과 시간(elapsed)으로 처리.
-        ///   → 프레임레이트(30fps/60fps)에 무관하게 공격 주기가 애니메이션 클립 길이와 일치.
+        /// 타이밍 정확도 — Tick 발화 주기(cadence)와 경과 시간(elapsed)은 분리한다:
+        ///   • Tick 발화 주기: _attackTimer에서 _attackInterval만큼만 빼서 이월분을 다음 Tick으로 넘긴다.
+        ///     (0f로 리셋하면 이월분이 버려져 Tick 간격이 평균적으로 길어짐)
+        ///   • 경과 시간: TickCombat에 넘기는 elapsed는 "직전 Tick 이후 실제로 새로 흐른 시간"만.
+        ///     쿨다운 감소는 이 elapsed로 처리하므로 프레임레이트(30fps/60fps)에 무관하게
+        ///     공격 주기가 애니메이션 클립 길이와 일치한다.
+        ///
+        ///   [과거 버그 — 이월분 이중 계산, 2026-07-11 수정]
+        ///     예전에는 elapsed에 _attackTimer(이월분 포함) 전체를 넘기면서 동시에
+        ///     _attackTimer에도 이월분을 남겼다. 그 이월분이 이번 elapsed에 들어갔는데
+        ///     타이머에도 남아 "다음 Tick elapsed"에 또 포함됐다(같은 시간을 두 번 계산).
+        ///     프레임 시간이 인터벌과 어긋날수록 elapsed 합이 실제 경과 시간보다 커져
+        ///     쿨다운이 실제보다 빨리 소진됐다(관측: Pistoleer 2.0초 쿨다운이 1.71초 간격으로 발화).
+        ///     → 아래처럼 직전 이월분(_lastCarry)을 빼서 순수 경과분만 넘기도록 고쳤다.
         /// </summary>
         private void Update()
         {
@@ -198,12 +226,18 @@ namespace Hexiege.Infrastructure
             _attackTimer += Time.deltaTime;
             if (_attackTimer < _attackInterval) return;
 
-            // 실제 경과 시간 캡처 후 오버슈트 이월
-            // (예: 60fps에서 16.7ms 프레임 3개 = 50.1ms → elapsed=50.1ms, 다음 Tick까지 0.1ms 이월)
-            float elapsed = _attackTimer;
-            _attackTimer -= _attackInterval;
+            // ── 경과 시간 계산 (이월분 이중 계산 방지) ──
+            // realElapsed = 이번 _attackTimer에서 "직전 Tick이 남긴 이월분(_lastCarry)"을 뺀 값
+            //   = 직전 Tick 이후 실제로 새로 흐른 시간.
+            // 예) 30fps(프레임 33.3ms), 인터벌 50ms:
+            //     Tick A에서 _attackTimer=60ms → 남긴 이월분 10ms(_lastCarry).
+            //     다음 프레임 두 번 뒤 _attackTimer=10+33.3+33.3=76.6ms →
+            //     realElapsed = 76.6 - 10 = 66.6ms(정확히 프레임 2개분). 이월분 10ms는 중복되지 않음.
+            float realElapsed = _attackTimer - _lastCarry;   // 새로 흐른 순수 시간만
+            _lastCarry = _attackTimer - _attackInterval;     // 다음 Tick 계산에서 제외할 이월분
+            _attackTimer = _lastCarry;                        // 타이머엔 이월분만 남김(발화 주기 유지)
 
-            TickCombat(elapsed);
+            TickCombat(realElapsed);
         }
 
         /// <summary>
@@ -254,8 +288,25 @@ namespace Hexiege.Infrastructure
 
                 // 쿨다운 감소 — 고정값(_attackInterval)이 아닌 실제 경과 시간(elapsed)으로 감소.
                 // 프레임레이트가 낮아도 공격 주기가 애니메이션 클립 길이와 일치.
+                //
+                // [축 2 — 서버 데미지 타이밍 정밀화]
+                //   TickCombat은 50ms 격자(_attackInterval)에서만 쿨다운 만료를 감지한다.
+                //   실제 쿨다운이 0이 되는 순간은 두 Tick 사이 어딘가일 수 있는데,
+                //   그 만료 순간부터 이번 Tick까지 이미 초과 경과한 시간을 "오버슈트(overshoot)"라 한다.
+                //   이 오버슈트를 뒤에서 ExecuteAttack의 데미지 딜레이(hitTime)에서 빼주면
+                //   격자 오차가 데미지 시점에 누적되는 것을 막을 수 있다(최대 50ms 오차 제거).
+                //
+                //   계산: 차감 전 남은 쿨다운(R)이 이번 elapsed보다 작으면, R만큼 지난 시점에 만료된 것이므로
+                //         만료 후 초과 경과 = elapsed - R (= elapsed 차감 시 0 아래로 내려갔을 크기).
+                //         R >= elapsed(이번 Tick에도 만료 안 됨) 또는 R이 이미 0이면 오버슈트는 0.
+                float overshoot = 0f;
                 if (unit.AttackCooldownRemaining > 0f)
+                {
+                    if (unit.AttackCooldownRemaining < elapsed)
+                        overshoot = elapsed - unit.AttackCooldownRemaining;
+
                     unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldownRemaining - elapsed);
+                }
 
                 // TryFindTarget: 쿨다운이 0이고 사거리 내 적이 있을 때만 타겟 반환.
                 // HasEnemyInRange: 쿨다운과 무관하게 사거리 내 적 존재 여부만 체크.
@@ -313,11 +364,19 @@ namespace Hexiege.Infrastructure
                             // 새로 전투 진입 — Dictionary 등록만 수행.
                             // StartCombatClientRpc는 OnUnitEnteredCombatHandler에서 단독 담당.
                             _unitCombatTargets[id] = (targetId, isUnit);
+
+                            // [Phase 2] 애니메이션 상태 Attack 백업 쓰기(레벨 동기화).
+                            //   OnUnitEnteredCombatHandler(즉시 경로)가 코루틴 타이밍상 아직 실행되지
+                            //   않은 채 TickCombat이 먼저 전투를 등록하는 경우를 대비한 안전망이다.
+                            //   NGO는 같은 값을 다시 써도 전송하지 않으므로 즉시 경로와 중복돼도 무해하다.
+                            //   전투 등록 전이(transition) 시점에만 1회 실행되므로 매 틱 비용이 아니다.
+                            SetUnitAnimState(id, UnitAnimState.Attack);
                         }
 
                         // 데미지 코루틴 실행 (쿨다운 0일 때만 여기까지 도달)
                         // damageTargetId: 기존 타겟이 유효하면 기존 타겟, 아니면 새 타겟
-                        ExecuteAttack(unit, damageTargetId, damageTargetIsUnit);
+                        // overshoot: 이번 Tick에서 쿨다운이 만료되며 초과 경과한 시간 → 데미지 딜레이에서 차감(축 2)
+                        ExecuteAttack(unit, damageTargetId, damageTargetIsUnit, overshoot);
                     }
                     else
                     {
@@ -401,22 +460,125 @@ namespace Hexiege.Infrastructure
         /// <param name="unit">공격하는 유닛의 데이터</param>
         /// <param name="targetId">타겟 엔티티의 Id</param>
         /// <param name="targetIsUnit">true=유닛, false=건물</param>
-        private void ExecuteAttack(UnitData unit, int targetId, bool targetIsUnit)
+        /// <param name="overshoot">
+        /// [축 2] 이번 Tick에서 쿨다운이 만료되며 초과 경과한 시간(초). 두 곳에서 함께 차감된다:
+        ///   ① 쿨다운 리셋값(AttackCooldown - overshoot) → 다음 사이클 경계를 애니메이션 루프에 고정(드리프트 방지),
+        ///   ② 각 히트 딜레이(hitTime - overshoot) → 이번 사이클 내 타격 시점 보정(50ms 격자 오차 제거).
+        /// 첫 공격(OnUnitEnteredCombatHandler)처럼 T=0에 정확히 맞춘 경로는 0f로 호출한다.
+        /// </param>
+        private void ExecuteAttack(UnitData unit, int targetId, bool targetIsUnit, float overshoot)
         {
-            // 1. 쿨다운 즉시 리셋 — TryFindTarget()은 쿨다운을 건드리지 않으므로 여기서 처리
-            unit.AttackCooldownRemaining = unit.AttackCooldown;
+            // 1. 쿨다운 즉시 리셋 — TryFindTarget()은 쿨다운을 건드리지 않으므로 여기서 처리.
+            //
+            // [축 2 — 사이클 드리프트(누적 밀림) 방지]
+            //   쿨다운을 전체 값(AttackCooldown)으로 그냥 리셋하면 문제가 생긴다.
+            //   이번 공격은 오버슈트(50ms 격자 지연)만큼 "늦게 감지"되어 실행됐는데,
+            //   여기서 전체 값 C로 리셋하면 "다음 공격 사이클의 시작점"도 그 지연만큼 뒤로 밀린다.
+            //   이 밀림은 사이클마다 계속 더해지므로(o_1 + o_2 + ...) 서버 공격 사이클이
+            //   클라이언트 Attack 애니메이션 루프(StartCombat 시점 T0 기준, 주기 C로 계속 회전)에서
+            //   점점 벌어진다 → 장기 전투(성 공격 등)에서 수백 ms까지 어긋나는 "드리프트".
+            //
+            //   해결: 리셋 값에서도 오버슈트만큼 앞당긴다 → (AttackCooldown - overshoot).
+            //   그러면 (감지 시점) + (C - overshoot) = (실제 만료 시점) + C 가 되어,
+            //   다음 만료가 항상 애니메이션 루프 경계(T0 + k×C)에 정확히 고정된다.
+            //   → 딜레이(hitTime) 차감 = "이번 사이클 내 타격 시점 보정",
+            //     이 리셋 보정 = "사이클 경계를 루프에 고정" — 둘이 짝을 이뤄야 격자 오차가 누적되지 않는다.
+            //   (OnUnitEnteredCombatHandler의 첫 공격은 overshoot=0f이므로 기존과 동일하게 전체 값 C로 리셋된다.)
+            unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldown - overshoot);
 
             // 2. 각 히트 프레임 시간마다 독립 코루틴을 실행하여 데미지 타이밍 동기화.
             // 단일 히트 유닛: HitFrameTimes 원소가 1개 → 기존과 동일하게 코루틴 1개 실행.
             // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트): 원소 수만큼 코루틴 실행.
             // 각 코루틴은 독립적으로 동작하며, 타겟 사망 시 ApplyAttackDamage 내 IsAlive 체크로 자동 취소.
             foreach (float hitTime in unit.HitFrameTimes)
-                StartCoroutine(DelayedAttackDamage(unit, targetId, targetIsUnit, hitTime));
+            {
+                // [축 2] 오버슈트(격자 만료 지연)만큼 딜레이를 앞당겨 실제 타격 시점을 보정한다.
+                // 오버슈트가 hitTime보다 크면 이미 지난 것이므로 하한 0(다음 프레임 즉시 적용).
+                float delay = Mathf.Max(0f, hitTime - overshoot);
+                StartCoroutine(DelayedAttackDamage(unit, targetId, targetIsUnit, delay));
+            }
         }
 
         // ====================================================================
         // 이벤트 핸들러 (서버 전용)
         // ====================================================================
+
+        /// <summary>
+        /// 서버 UnitView가 Walk(이동) 애니메이션을 시작했을 때 호출되는 핸들러.
+        ///
+        /// 하는 일 두 가지:
+        ///   1) SetUnitAnimState(unitId, Walk) — 애니메이션 상태를 Walk로 레벨 동기화하여
+        ///      모든 클라이언트가 Walk 애니메이션을 재생하도록 한다.
+        ///   2) _combatAnimationSent.Remove(unitId) — 전투 애니메이션 재전송 가드를 해제.
+        ///
+        /// [핵심 — 왜 여기서 가드를 해제하는가 (초급자용 상세 설명)]
+        ///   서버 UnitView의 전투 루프는 매 프레임 돌면서, 타겟이 사망해 교체되는 "찰나의 순간"에
+        ///   사거리 내 적을 못 본 것으로 착각하고 Walk 경로로 잠깐 빠질 수 있다.
+        ///   그 순간 OnUnitWalkStarted가 발행되고, 그 결과 애니메이션 상태가 Walk로 동기화되어
+        ///   "클라이언트 애니메이터는 Attack 루프를 벗어나 Walk로 전환"된다.
+        ///
+        ///   문제는 서버의 전투 판정(TickCombat, 50ms 격자)은 같은 기간 사거리 내 "다른 적"을
+        ///   계속 발견하기 때문에 StopCombat을 보내지 않는다는 점이다.
+        ///   → StopCombat이 안 나가면 _combatAnimationSent에 이 유닛이 그대로 남는다.
+        ///   → 이후 전투에 다시 진입(OnUnitEnteredCombatHandler)할 때
+        ///     `_combatAnimationSent.Contains(unitId)` 가드에 걸려 StartCombatClientRpc가
+        ///     재전송되지 않는다.
+        ///   → 서버는 계속 공격(데미지 정상)하는데, 클라이언트만 Walk 애니메이션에 갇혀
+        ///     화면에서 공격 모션 없이 굳어 보이는 버그가 발생한다(유닛 62 사례, 75초 지속).
+        ///
+        ///   Walk 상태로 전환되는 이 시점은 "클라이언트 애니메이터가 Attack 루프를 벗어난다"는 것을
+        ///   서버가 알 수 있는 유일한 지점이다. 바로 이 지점에서 재전송 가드를 풀어두면,
+        ///   다음 전투 재진입 시 StartCombatClientRpc가 반드시 다시 전송되어
+        ///   클라이언트가 Attack 루프로 정확히 복귀한다.
+        ///
+        /// [부작용 없음]
+        ///   비전투 유닛의 일반 이동에서도 이 핸들러가 호출되지만, 그 유닛은 애초에
+        ///   _combatAnimationSent에 없으므로 Remove는 아무 일도 하지 않는(no-op) 안전한 호출이다.
+        ///
+        /// [_unitCombatTargets는 건드리지 않는다]
+        ///   서버 전투 로직(타겟 추적)은 그대로 두고, 오직 애니메이션 재전송 가드만 해제한다.
+        ///   서버 데미지 흐름에는 어떤 영향도 주지 않는다.
+        ///
+        /// [재진입 시 Attack 루프 T=0 재시작은 의도된 동작]
+        ///   재진입 시 StartCombatClientRpc가 Attack CrossFade를 다시 걸어 클라이언트 Attack 루프가
+        ///   T=0부터 재시작되는데, 이는 OnUnitEnteredCombatHandler가 ExecuteAttack도 함께 실행하여
+        ///   서버 공격 사이클과 T=0에서 동기화되므로 어긋나지 않는다.
+        /// </summary>
+        /// <param name="unitId">Walk를 시작한 유닛의 Id</param>
+        private void OnUnitWalkStartedHandler(int unitId)
+        {
+            // 1) [Phase 2] 애니메이션 상태를 Walk로 설정(레벨 동기화).
+            //    클라이언트는 값 변경(OnValueChanged) 및 스폰 시 현재 값을 자동 적용하므로
+            //    엣지 트리거 Walk RPC와 달리 스폰 레이스로 신호가 유실될 수 없다.
+            SetUnitAnimState(unitId, UnitAnimState.Walk);
+
+            // 2) 전투 애니메이션 재전송 가드 해제 — 유지.
+            //    _combatAnimationSent는 "애니메이션"이 아니라 OnUnitEnteredCombatHandler의
+            //    ExecuteAttack(데미지 재발화)과 StartCombatClientRpc(타겟 전달) 재전송을 게이팅하는
+            //    "기능" 가드다. 전투 이탈(Walk) 시 해제해야 다음 전투 재진입에서 첫 공격이 재실행된다.
+            //    (Phase 2의 애니메이션 레벨 동기화와는 별개의 목적이므로 그대로 둔다.)
+            _combatAnimationSent.Remove(unitId);
+        }
+
+        /// <summary>
+        /// [Phase 2] 유닛 Id로 같은 GameObject의 NetworkUnit을 찾아 애니메이션 상태를 설정한다(서버 전용).
+        /// 실제 NetworkVariable 쓰기는 NetworkUnit.SetAnimState가 담당한다(NGO 허용 위치=Infrastructure).
+        /// 팩토리 조회 → GetComponent&lt;NetworkUnit&gt;() 패턴은 OnUnitDied의 Despawn 경로와 동일한 관례.
+        /// </summary>
+        /// <param name="unitId">상태를 설정할 유닛의 Id.</param>
+        /// <param name="state">설정할 애니메이션 상태(Walk / Attack).</param>
+        private void SetUnitAnimState(int unitId, UnitAnimState state)
+        {
+            if (_services == null) return;
+
+            IUnitFactory unitFactory = _services.GetUnitFactory();
+            GameObject unitObj = unitFactory != null ? unitFactory.GetUnitObject(unitId) : null;
+            if (unitObj == null) return;
+
+            NetworkUnit networkUnit = unitObj.GetComponent<NetworkUnit>();
+            if (networkUnit != null)
+                networkUnit.SetAnimState(state);
+        }
 
         /// <summary>
         /// MoveAlongPath에서 적을 처음 감지했을 때 호출.
@@ -465,6 +627,11 @@ namespace Hexiege.Infrastructure
                 // 규칙 1: 적 감지 즉시 클라이언트에 알려야 하며, 쿨다운은 데미지 타이밍과 무관.
                 _unitCombatTargets[unitId] = (nearestResult.Value.id, nearestResult.Value.isUnit);
                 _combatAnimationSent.Add(unitId);
+                // [Phase 2] 애니메이션 상태를 Attack로 설정(레벨 동기화). 클라이언트 값 변경/스폰 시 자동 적용.
+                SetUnitAnimState(unitId, UnitAnimState.Attack);
+                // StartCombatClientRpc는 유지 — 클라이언트 타겟 전달(회전 추적/원거리 트레이서 조준)용.
+                // [Phase 2 대체] 이 RPC가 유발하던 Attack CrossFade 책임은 위 레벨 동기화로 이관됨
+                //   (UnitView.StartCombatAnimation의 CrossFade는 클라이언트에서 스킵되도록 분기됨).
                 StartCombatClientRpc(unitId, nearestResult.Value.id, nearestResult.Value.isUnit);
                 return;
             }
@@ -475,12 +642,18 @@ namespace Hexiege.Infrastructure
             // 전투 상태 등록 + StartCombatClientRpc 즉시 전송
             _unitCombatTargets[unitId] = (targetId, targetIsUnit);
             _combatAnimationSent.Add(unitId);
+            // [Phase 2] 애니메이션 상태를 Attack로 설정(레벨 동기화). 클라이언트 값 변경/스폰 시 자동 적용.
+            SetUnitAnimState(unitId, UnitAnimState.Attack);
+            // StartCombatClientRpc는 유지 — 클라이언트 타겟 전달(회전 추적/원거리 트레이서 조준)용.
+            // [Phase 2 대체] 이 RPC가 유발하던 Attack CrossFade 책임은 위 레벨 동기화로 이관됨.
             StartCombatClientRpc(unitId, targetId, targetIsUnit);
 
             // ExecuteAttack 즉시 실행 — 서버 공격 사이클을 애니메이션 시작(T=0)과 동기화.
             // TickCombat에서 처음 실행되면 T≈50ms 오프셋이 생겨 쿨다운 만료 타이밍이
             // 애니메이션 루프 경계와 어긋남 → 타겟 소멸 후 애니메이션이 루프 직후 도중에 전환되는 현상.
-            ExecuteAttack(unit, targetId, targetIsUnit);
+            //
+            // [축 2] 이 경로는 적 감지 즉시(T=0) 실행되므로 격자 오버슈트가 없다 → overshoot=0f.
+            ExecuteAttack(unit, targetId, targetIsUnit, 0f);
         }
 
         /// <summary>
@@ -660,7 +833,7 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 유닛이 전투 상태 종료. 클라이언트에서 Attack → Idle 전환.
         /// TickCombat에서 유닛의 타겟이 사라졌을 때 전송.
-        /// Idle로 전환하는 이유: 이동 재개 시 StartWalkAnimationClientRpc가 별도로 도착하므로.
+        /// Idle로 전환하는 이유: 이동 재개 시 애니메이션 상태(_animState)가 Walk로 동기화되므로.
         /// </summary>
         /// <param name="unitId">전투를 종료하는 유닛의 Id</param>
         [ClientRpc]
@@ -669,27 +842,9 @@ namespace Hexiege.Infrastructure
             GameEvents.OnNetworkCombatStopped.OnNext(new NetworkCombatStoppedEvent(unitId));
         }
 
-        /// <summary>
-        /// 서버가 유닛 Walk 시작을 감지하여 모든 클라이언트에 Walk 애니메이션 재생 명령 전송.
-        /// 서버(HOST)는 MoveAlongPath에서 이미 Animator를 직접 제어하므로 스킵.
-        /// 클라이언트는 NetworkTransform으로 위치만 동기화받고,
-        /// Walk 애니메이션은 이 RPC를 통해 별도로 동기화.
-        ///
-        /// 서버(HOST) 스킵 분기는 RPC 차원에서 유지하여 호스트의 중복 애니메이션 호출을 막는다.
-        /// </summary>
-        /// <param name="unitId">Walk를 시작한 유닛의 Id</param>
-        [ClientRpc]
-        private void StartWalkAnimationClientRpc(int unitId)
-        {
-            // 서버(HOST)는 MoveAlongPath에서 이미 Walk 애니메이션을 직접 제어함 → 중복 방지
-            if (IsServer) return;
-
-            GameEvents.OnNetworkWalkStarted.OnNext(new NetworkWalkStartedEvent(unitId));
-        }
-
-        // StopWalkAnimationClientRpc 제거 — Idle 상태가 없으므로 Walk 정지 RPC 불필요.
-        // Walk→Attack: StartCombatClientRpc에서 Attack CrossFade 직접 전환.
-        // Walk→Walk: StartWalkAnimationClientRpc에서 처리.
+        // Walk 애니메이션 전파는 엣지 트리거 RPC가 아니라 NetworkUnit._animState 레벨 동기화로 처리한다
+        // (스폰 레이스 유실 방지). Walk→Attack 전환은 StartCombatClientRpc가 타겟 정보를 전달하고,
+        // Attack CrossFade는 클라이언트에서 _animState=Attack 값 변경으로 재생된다.
 
         // ====================================================================
         // 사망 처리 헬퍼 (클라이언트 전용)

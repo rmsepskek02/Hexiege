@@ -909,6 +909,28 @@ if (e.Unit.Id == _unitData.Id) { /* 이 유닛이 사망 */ }
 if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 ```
 
+#### 피격 표현 큐 (Hit Presentation Queue, 2026-07-12 전투 타격 타이밍 동기화)
+
+데이터(HP)는 서버 시계를, 연출(HP 텍스트·피격 VFX·타격 반응)은 각 클라이언트의 로컬 타격 프레임을 따르도록 역할을 분리한다.
+
+- `EntityDamagedEvent` / `SyncHealthClientRpc`에 **공격자 정보(Id + 유닛 여부)** 를 추가했다. 도메인 HP는 서버 값 도착 즉시 갱신(서버 권위 유지)하되, 연출은 보류한다.
+- `HitPresentationQueue`(Presentation 신규)가 피격 정보를 공격자별로 큐에 보류하고, 공격자의 로컬 `UnitView.OnAttackHit` 시점에 FIFO 방출한다. 타임아웃(쿨다운×1.5)·타겟 사망·공격자 사망·공격자 전투 중단 시 즉시 방출한다.
+- `HitFrameTimes`(데미지 타격 시점)는 Attack 클립 `OnAttackHit` Animation Event 시간에서 `UnitFactory`가 자동 추출한다(수동 입력은 폴백). 데미지는 항상 서버 타이머로 적용하며 Animator 상태에 종속시키지 않는다.
+- 연출 API: `EffectManager.PlayUnitHit`(+`UnitEffectConfig.hitPreset`), `PlayBuildingAttack`(타워 발사, +`BuildingEffectConfig.attackPreset`), `TracerProjectile`(원거리 트레이서, +`tracerPreset`). HP 텍스트는 `FloatingHpTextSpawner.ShowDamage` 단일 진입점으로 통합.
+- 상세 규칙: `GameSystemRules_Units.md` 규칙 17~21, `GameSystemRules_Buildings.md` 규칙 12.
+- 구 `UnitEffectView.cs`(DEPRECATED)는 이 파이프라인이 역할을 대체하여 삭제됨.
+
+#### 유닛 애니메이션 상태 동기화 (2026-07-13 엣지 RPC → NetworkVariable 레벨 동기화)
+
+멀티플레이에서 유닛 애니메이션 상태(Walk / Attack)의 동기화 방식을 **"상태가 바뀌는 순간에만 1회성으로 쏘는 엣지 트리거 RPC"** 에서 **"현재 상태 값 자체를 공유하는 레벨 동기화(NetworkVariable)"** 로 전환했다.
+
+- **전(엣지 RPC):** `StartWalkAnimationClientRpc` / `GameEvents.OnUnitWalkStarted` 등 1회성 신호로 클라이언트에 상태 변화를 통지. 신규 유닛이 구독을 완료하기 전에 첫 신호가 도착하면 유실되고 이후 바로잡을 수단이 없었다(스폰 레이스 — 클라 스폰 223기 중 222기에서 첫 Walk RPC 유실 실측). 갓 생산된 유닛에서 걷기 모션이 안 나오는 원인.
+- **후(레벨 동기화):** `NetworkUnit`에 `UnitAnimState`(None / Walk / Attack) `NetworkVariable`(ReadPermission=Everyone / WritePermission=Server, `_unitId` 패턴 재사용)을 두고 서버가 상태 진입 지점에서 값을 쓴다. 클라이언트는 `OnValueChanged` + **스폰 시 현재 값 자동 적용**으로 항상 서버의 현재 상태를 받으므로 신호 유실이 구조적으로 불가능하다. 호스트/싱글플레이는 기존 로컬 Animator 직접 제어를 유지.
+- **적용 시점 봉합:** 애니메이션 적용이 `UnitView.Initialize`(애니메이터 준비)보다 이르면 무음 실패하므로, `UnitView.Initialize` 말미에서 `NetworkUnit.ReapplyAnimStateToView()`로 현재 값을 **멱등 재적용**한다.
+- **역할 분리 유지:** 데미지 판정은 서버 타이머(규칙 18), 조준 회전은 별도 타겟 참조(규칙 12·15)로 애니메이션 상태 값과 분리. `_combatAnimationSent`는 애니메이션이 아니라 데미지(`ExecuteAttack`)·타겟 RPC 게이팅 가드로 유지.
+- **부수 위치 보정:** 재경로 재발급 시 첫 스텝이 최종 목적지 역방향으로 향하던 "뒤로 밀림"(서버 경로 자체가 원인, 클라 보간 무죄)은 `MoveTo`의 `AlignPathStartToTransform`로 실제 `transform` 전방 타일(`FindForwardClosestTile`)에서 재발급하여 보정(규칙 11 강제).
+- 상세 규칙: `GameSystemRules_Units.md` 규칙 22(규칙 21을 상위 대체). task: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`.
+
 ### 건물 배치 시스템 (MVP Phase 1)
 
 프로토타입 완료 후 첫 MVP 기능. 건물 배치 + 시각화만 구현 (자원/생산 시스템 미포함).
@@ -1293,6 +1315,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.22.0 | 2026-07-13 | 유닛 애니메이션 상태 동기화를 엣지 트리거 RPC(`StartWalkAnimationClientRpc` 등)에서 `NetworkUnit`의 NetworkVariable(`UnitAnimState` None/Walk/Attack) **레벨 동기화**로 전환. 클라 스폰 시 현재 값 자동 적용으로 스폰 레이스 유실 소멸, `UnitView.Initialize` 후 `ReapplyAnimStateToView` 멱등 재적용 봉합, 재경로 첫 스텝 역방향은 `AlignPathStartToTransform`로 보정. "유닛 애니메이션 상태 동기화" 서브섹션 신규 추가. 규칙 U-22 등재(규칙 21 상위 대체). |
 | 0.21.0 | 2026-06-29 | 백엔드 재설계: Firebase Firestore/Functions → UGS Cloud Code/Cloud Save/Leaderboard. 닉네임 시스템, 전적 통계, 승률 기반 랭킹 설계 추가. pendingGame 플래그 기반 서버 권위 결과 기록 방식 확정. |
 | 0.20.0 | 2026-06-26 | `IUnitFactory` 인터페이스 도입(Bootstrap/Infrastructure 역방향 의존 제거 리팩토링). `IGameServices.GetUnitFactory()` 반환 타입을 구체 클래스 `UnitFactory`(Infrastructure) → `IUnitFactory`(Application) 인터페이스로 변경. "의존성 방향 추상화(Application 인터페이스 패턴)" 섹션 신규 추가(IGameServices/IUnitFactory/IEntityPositionProvider/IForfeitService 정리). 동작 변경 없음. |
 | 0.19.0 | 2026-06-10 | AI 시나리오 ScriptableObject 3종족 개편. Domain/AI 레이어 신규(DifficultyLevel, BuildOrderStep, AIActionType). 종족별 단일 에셋 구조. |
