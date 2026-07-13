@@ -54,6 +54,13 @@ namespace Hexiege.Presentation
         private static readonly int StateAttack = Animator.StringToHash("Attack");
         // StateIdle 제거 — 이 게임에서 유닛은 항상 이동 또는 공격 중이므로 Idle 상태가 존재하지 않음.
 
+        // 마지막으로 CrossFade를 지시한 애니메이션 상태 해시(StateWalk 또는 StateAttack)를 기억한다.
+        // Animator.GetCurrentAnimatorStateInfo는 CrossFade 블렌딩 도중 "출발" 상태를 반환할 수 있어
+        // 상태 판별이 어긋날 수 있으므로(이 클래스 상단 원칙 — Animator 상태 의존 제거),
+        // 우리가 직접 지시한 상태를 로컬로 추적해 판별의 단일 출처로 삼는다.
+        // 0 = 미설정(아직 어떤 CrossFade도 지시하지 않음). StringToHash 결과는 0이 될 수 없어 안전.
+        private int _currentAnimStateHash = 0;
+
         // 사망은 bool 파라미터로 유지 (Animator 트랜지션 조건)
         private static readonly int AnimIsDead = Animator.StringToHash("IsDead");
 
@@ -877,6 +884,7 @@ namespace Hexiege.Presentation
             {
                 _animator.speed = 1f;
                 _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
+                _currentAnimStateHash = StateWalk;
             }
 
             // 혼잡도 기여 활성화 — 본 코루틴이 도는 동안 새 타일 진입 시
@@ -1432,14 +1440,18 @@ namespace Hexiege.Presentation
                 }
 
                 // 이동 재개 애니메이션 — Walk CrossFade.
-                if (_animator != null)
-                {
-                    var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
-                    if (stateInfo.shortNameHash == StateWalk)
-                        _animator.speed = 1f;
-                    else
-                        _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
-                }
+                // [비활성화 — 검증 후 최종 삭제] Animator 상태 조회 기반 기존 블록.
+                // Animator.GetCurrentAnimatorStateInfo는 CrossFade 블렌딩 중 출발 상태를 반환할 수 있어
+                // 로컬 추적 상태 기반 ResumeWalkAnimation()으로 대체한다.
+                // if (_animator != null)
+                // {
+                //     var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
+                //     if (stateInfo.shortNameHash == StateWalk)
+                //         _animator.speed = 1f;
+                //     else
+                //         _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
+                // }
+                ResumeWalkAnimation();
                 GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
             }
             else
@@ -1466,14 +1478,17 @@ namespace Hexiege.Presentation
 
                 _combatUseCase.ClearCombatState(_unitData.Id);
 
-                if (_animator != null)
-                {
-                    var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
-                    if (stateInfo.shortNameHash == StateWalk)
-                        _animator.speed = 1f;
-                    else
-                        _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
-                }
+                // [비활성화 — 검증 후 최종 삭제] Animator 상태 조회 기반 기존 블록.
+                // 로컬 추적 상태 기반 ResumeWalkAnimation()으로 대체한다.
+                // if (_animator != null)
+                // {
+                //     var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
+                //     if (stateInfo.shortNameHash == StateWalk)
+                //         _animator.speed = 1f;
+                //     else
+                //         _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
+                // }
+                ResumeWalkAnimation();
             }
         }
 
@@ -1528,14 +1543,17 @@ namespace Hexiege.Presentation
             // ────────────────────────────────────────────────────────────
 
             // Walk 애니메이션 재개 — 전투 중 Attack 상태였을 수 있음.
-            if (_animator != null)
-            {
-                var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
-                if (stateInfo.shortNameHash == StateWalk)
-                    _animator.speed = 1f;
-                else
-                    _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
-            }
+            // [비활성화 — 검증 후 최종 삭제] Animator 상태 조회 기반 기존 블록.
+            // 로컬 추적 상태 기반 ResumeWalkAnimation()으로 대체한다.
+            // if (_animator != null)
+            // {
+            //     var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
+            //     if (stateInfo.shortNameHash == StateWalk)
+            //         _animator.speed = 1f;
+            //     else
+            //         _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
+            // }
+            ResumeWalkAnimation();
             if (NetworkContext.IsNetworkActive)
                 GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
 
@@ -1653,6 +1671,7 @@ namespace Hexiege.Presentation
 
             _animator.speed = 1f;
             _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
+            _currentAnimStateHash = StateWalk;
         }
 
         /// <summary>
@@ -1674,6 +1693,22 @@ namespace Hexiege.Presentation
 
             _animator.speed = 1f;
             _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0);
+            _currentAnimStateHash = StateAttack;
+        }
+
+        /// <summary>
+        /// 전투 종료 후 Walk 재개 공통 처리.
+        /// Animator.GetCurrentAnimatorStateInfo는 CrossFade 블렌딩 도중 출발 상태를 반환해
+        /// 상태 판별이 어긋날 수 있으므로(이 클래스 상단 원칙 — Animator 상태 의존 제거),
+        /// Animator를 조회하지 않고 로컬 추적 상태(_currentAnimStateHash)로 이미 Walk인지 판별한다.
+        /// </summary>
+        private void ResumeWalkAnimation()
+        {
+            if (_animator == null) return;
+            _animator.speed = 1f;
+            if (_currentAnimStateHash == StateWalk) return; // 이미 Walk — 재-CrossFade로 블렌드 리셋 방지
+            _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
+            _currentAnimStateHash = StateWalk;
         }
 
         // StopWalkAnimation() 제거 — Idle 상태가 없으므로 Walk 정지 전용 메서드 불필요.
@@ -1723,6 +1758,7 @@ namespace Hexiege.Presentation
             {
                 _animator.speed = 1f;
                 _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0);
+                _currentAnimStateHash = StateAttack;
             }
 
             // 공격 중 타겟 Transform 참조 저장 → Update()에서 매 프레임 추적.
