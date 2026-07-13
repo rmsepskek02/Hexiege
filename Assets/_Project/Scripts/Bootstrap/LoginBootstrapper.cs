@@ -21,7 +21,7 @@
 
 using System;                       // [DEBUG-TEMP] 디버깅 완료 후 제거 (DateTime)
 using System.Threading.Tasks;
-#if UNITY_ANDROID && HEXIEGE_ENABLE_FIREBASE_AUTH
+#if UNITY_ANDROID
 using GooglePlayGames;
 #endif
 using UnityEngine;
@@ -99,7 +99,7 @@ namespace Hexiege.Bootstrap
             // GPGS 활성화 — 이후 PlayGamesPlatform.Instance 가 정상 동작한다.
             //   GooglePlayGames 플러그인이 설치되지 않은 상태에서 컴파일하면 에러가 나므로,
             //   SDK 설치 후 빌드해야 한다.
-#if UNITY_ANDROID && HEXIEGE_ENABLE_FIREBASE_AUTH
+#if UNITY_ANDROID
             PlayGamesPlatform.Activate();
             Debug.Log("[LoginBootstrapper] GooglePlayGames 플랫폼 활성화 완료.");
 #else
