@@ -31,7 +31,9 @@ using System.Threading.Tasks;
 using Firebase;
 using Firebase.Auth;
 using Firebase.Extensions;
+#if UNITY_ANDROID
 using GooglePlayGames;
+#endif
 using UnityEngine;
 
 namespace Hexiege.Infrastructure
@@ -221,6 +223,10 @@ namespace Hexiege.Infrastructure
         private Task<string> RequestGoogleServerAuthCodeAsync()
         {
             // TaskCompletionSource: 콜백 결과를 Task 의 결과로 전달하기 위한 표준 헬퍼.
+#if !UNITY_ANDROID
+            Debug.LogWarning("[FirebaseAuth] Google Play Games login is only available on Android.");
+            return Task.FromResult(string.Empty);
+#else
             var tcs = new TaskCompletionSource<string>();
 
             // 1) GPGS 인증 (사용자가 Google 계정을 선택 / 자동 선택)
@@ -259,6 +265,7 @@ namespace Hexiege.Infrastructure
             });
 
             return tcs.Task;
+#endif
         }
 
         // ====================================================================
