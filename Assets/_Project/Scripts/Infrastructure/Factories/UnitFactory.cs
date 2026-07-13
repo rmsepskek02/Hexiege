@@ -275,11 +275,6 @@ namespace Hexiege.Infrastructure
 
             // 내부 딕셔너리에 등록 (나중에 삭제 시 사용)
             _unitObjects[unitData.Id] = unitObj;
-
-            // [MOVESYNC-LOG] 유닛 생성 완료(로컬/서버 경로) — 스폰/구독 레이스 판별용.
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/UnitFactory",
-                    $"유닛 생성 | unit={unitData.Id}({unitData.Type}), isServer={NetworkContext.IsNetworkServer}");
         }
 
         /// <summary>
@@ -380,11 +375,6 @@ namespace Hexiege.Infrastructure
                 networkUnit.MarkInitialized();
 
             Debug.Log($"[UnitFactory] 클라이언트: UnitView 초기화 완료. UnitId={unitData.Id}, Type={unitData.Type}, Team={unitData.Team}");
-
-            // [MOVESYNC-LOG] 유닛 생성 완료(네트워크 클라이언트 경로) — 스폰/구독 레이스 판별용.
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/UnitFactory",
-                    $"유닛 생성 | unit={unitData.Id}({unitData.Type}), isServer={NetworkContext.IsNetworkServer}");
 
             return true;
         }

@@ -503,22 +503,6 @@ namespace Hexiege.Application
         }
     }
 
-    /// <summary>
-    /// 멀티플레이 전용 Walk 시작 이벤트 데이터.
-    /// 서버 NetworkCombatController가 StartWalkAnimationClientRpc 흐름에서 발행.
-    /// UnitView는 OnNetworkWalkStarted 구독으로 StartWalkAnimation() 호출.
-    /// </summary>
-    public readonly struct NetworkWalkStartedEvent
-    {
-        /// <summary> Walk를 시작한 유닛의 Id. </summary>
-        public readonly int UnitId;
-
-        public NetworkWalkStartedEvent(int unitId)
-        {
-            UnitId = unitId;
-        }
-    }
-
     // ====================================================================
     // 멀티플레이 재경기 관련 이벤트
     // ====================================================================
@@ -726,7 +710,7 @@ namespace Hexiege.Application
         /// 유닛이 이동(Walk)을 시작했을 때 발행. 유닛 Id를 전달.
         /// 멀티플레이 서버 전용 — 싱글플레이에서는 발행하지 않음.
         /// 발행: UnitView.MoveAlongPath (서버에서 이동 코루틴 시작/재개 시)
-        /// 구독: NetworkCombatController (StartWalkAnimationClientRpc로 클라이언트에 Walk 시작 전파)
+        /// 구독: NetworkCombatController (SetUnitAnimState로 _animState=Walk 레벨 동기화 전파)
         /// </summary>
         public static readonly Subject<int> OnUnitWalkStarted = new Subject<int>();
 
@@ -799,17 +783,8 @@ namespace Hexiege.Application
         public static readonly Subject<NetworkCombatStoppedEvent> OnNetworkCombatStopped
             = new Subject<NetworkCombatStoppedEvent>();
 
-        /// <summary>
-        /// [Phase 2 대체 — 발행/구독 모두 주석 처리됨, 검증 후 이 필드 삭제 예정]
-        /// 멀티플레이 서버에서 클라이언트에 Walk 시작 명령 전파 시 발행하던 엣지 트리거 이벤트.
-        ///
-        /// 애니메이션 상태 레벨 동기화(NetworkUnit._animState = Walk)로 대체되어 현재 발행자/구독자가 없다.
-        ///   - 발행: NetworkCombatController.StartWalkAnimationClientRpc (호출 주석 처리됨)
-        ///   - 구독: UnitView.SetDependencies의 멀티플레이 Walk 구독 (주석 처리됨)
-        /// 필드는 지금 삭제하지 않고 남겨 둔다(다른 참조가 없음을 확인했으나 [6] 통과 후 일괄 삭제).
-        /// </summary>
-        public static readonly Subject<NetworkWalkStartedEvent> OnNetworkWalkStarted
-            = new Subject<NetworkWalkStartedEvent>();
+        // Walk 시작의 멀티플레이 전파는 별도 엣지 트리거 이벤트가 아니라
+        // NetworkUnit._animState(=Walk) 레벨 동기화로 처리한다(스폰 레이스 유실 방지).
 
         // ====================================================================
         // 멀티플레이 재경기(Rematch) 이벤트

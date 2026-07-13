@@ -415,9 +415,6 @@ namespace Hexiege.Infrastructure
             {
                 _unitCombatTargets.Remove(id);
                 _combatAnimationSent.Remove(id); // RPC 전송 추적도 함께 정리
-                // [MOVESYNC-LOG] StopCombat RPC 송신 직전(서버).
-                if (MoveAnimSyncLog.Enabled)
-                    MoveAnimSyncLog.Info("Move/NetworkCombatController", $"StopCombat RPC 송신 | unit={id}");
                 StopCombatClientRpc(id);
             }
         }
@@ -510,13 +507,14 @@ namespace Hexiege.Infrastructure
         /// 서버 UnitView가 Walk(이동) 애니메이션을 시작했을 때 호출되는 핸들러.
         ///
         /// 하는 일 두 가지:
-        ///   1) StartWalkAnimationClientRpc(unitId) — 모든 클라이언트에 Walk 애니메이션 재생 명령 전송.
+        ///   1) SetUnitAnimState(unitId, Walk) — 애니메이션 상태를 Walk로 레벨 동기화하여
+        ///      모든 클라이언트가 Walk 애니메이션을 재생하도록 한다.
         ///   2) _combatAnimationSent.Remove(unitId) — 전투 애니메이션 재전송 가드를 해제.
         ///
         /// [핵심 — 왜 여기서 가드를 해제하는가 (초급자용 상세 설명)]
         ///   서버 UnitView의 전투 루프는 매 프레임 돌면서, 타겟이 사망해 교체되는 "찰나의 순간"에
         ///   사거리 내 적을 못 본 것으로 착각하고 Walk 경로로 잠깐 빠질 수 있다.
-        ///   그 순간 OnUnitWalkStarted가 발행되고, 그 결과 StartWalkAnimationClientRpc가 나가
+        ///   그 순간 OnUnitWalkStarted가 발행되고, 그 결과 애니메이션 상태가 Walk로 동기화되어
         ///   "클라이언트 애니메이터는 Attack 루프를 벗어나 Walk로 전환"된다.
         ///
         ///   문제는 서버의 전투 판정(TickCombat, 50ms 격자)은 같은 기간 사거리 내 "다른 적"을
@@ -528,7 +526,7 @@ namespace Hexiege.Infrastructure
         ///   → 서버는 계속 공격(데미지 정상)하는데, 클라이언트만 Walk 애니메이션에 갇혀
         ///     화면에서 공격 모션 없이 굳어 보이는 버그가 발생한다(유닛 62 사례, 75초 지속).
         ///
-        ///   Walk RPC가 나가는 이 시점은 "클라이언트 애니메이터가 Attack 루프를 벗어난다"는 것을
+        ///   Walk 상태로 전환되는 이 시점은 "클라이언트 애니메이터가 Attack 루프를 벗어난다"는 것을
         ///   서버가 알 수 있는 유일한 지점이다. 바로 이 지점에서 재전송 가드를 풀어두면,
         ///   다음 전투 재진입 시 StartCombatClientRpc가 반드시 다시 전송되어
         ///   클라이언트가 Attack 루프로 정확히 복귀한다.
@@ -552,14 +550,9 @@ namespace Hexiege.Infrastructure
             // 1) [Phase 2] 애니메이션 상태를 Walk로 설정(레벨 동기화).
             //    클라이언트는 값 변경(OnValueChanged) 및 스폰 시 현재 값을 자동 적용하므로
             //    엣지 트리거 Walk RPC와 달리 스폰 레이스로 신호가 유실될 수 없다.
-            //    (SetUnitAnimState 내부에서 서버 쓰기 [MOVESYNC-LOG]를 남긴다.)
             SetUnitAnimState(unitId, UnitAnimState.Walk);
 
-            // 2) [Phase 2 대체] 엣지 트리거 Walk RPC는 위 레벨 동기화로 대체됨 — 검증 후 삭제 예정.
-            //    (StartWalkAnimationClientRpc + OnNetworkWalkStarted 구독 체인 전체가 대체 대상)
-            // StartWalkAnimationClientRpc(unitId);
-
-            // 3) 전투 애니메이션 재전송 가드 해제 — 유지.
+            // 2) 전투 애니메이션 재전송 가드 해제 — 유지.
             //    _combatAnimationSent는 "애니메이션"이 아니라 OnUnitEnteredCombatHandler의
             //    ExecuteAttack(데미지 재발화)과 StartCombatClientRpc(타겟 전달) 재전송을 게이팅하는
             //    "기능" 가드다. 전투 이탈(Walk) 시 해제해야 다음 전투 재진입에서 첫 공격이 재실행된다.
@@ -636,10 +629,6 @@ namespace Hexiege.Infrastructure
                 _combatAnimationSent.Add(unitId);
                 // [Phase 2] 애니메이션 상태를 Attack로 설정(레벨 동기화). 클라이언트 값 변경/스폰 시 자동 적용.
                 SetUnitAnimState(unitId, UnitAnimState.Attack);
-                // [MOVESYNC-LOG] StartCombat RPC 송신 직전(서버, 쿨다운 중 경로).
-                if (MoveAnimSyncLog.Enabled)
-                    MoveAnimSyncLog.Info("Move/NetworkCombatController",
-                        $"Combat RPC 송신 | unit={unitId}, target={nearestResult.Value.id}");
                 // StartCombatClientRpc는 유지 — 클라이언트 타겟 전달(회전 추적/원거리 트레이서 조준)용.
                 // [Phase 2 대체] 이 RPC가 유발하던 Attack CrossFade 책임은 위 레벨 동기화로 이관됨
                 //   (UnitView.StartCombatAnimation의 CrossFade는 클라이언트에서 스킵되도록 분기됨).
@@ -655,10 +644,6 @@ namespace Hexiege.Infrastructure
             _combatAnimationSent.Add(unitId);
             // [Phase 2] 애니메이션 상태를 Attack로 설정(레벨 동기화). 클라이언트 값 변경/스폰 시 자동 적용.
             SetUnitAnimState(unitId, UnitAnimState.Attack);
-            // [MOVESYNC-LOG] StartCombat RPC 송신 직전(서버, 일반 경로).
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/NetworkCombatController",
-                    $"Combat RPC 송신 | unit={unitId}, target={targetId}");
             // StartCombatClientRpc는 유지 — 클라이언트 타겟 전달(회전 추적/원거리 트레이서 조준)용.
             // [Phase 2 대체] 이 RPC가 유발하던 Attack CrossFade 책임은 위 레벨 동기화로 이관됨.
             StartCombatClientRpc(unitId, targetId, targetIsUnit);
@@ -821,12 +806,6 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void StartCombatClientRpc(int unitId, int targetId, bool targetIsUnit)
         {
-            // [MOVESYNC-LOG] Combat RPC 본문 진입(수신 측) — 이벤트 발행 전에 기록.
-            // 이 로그는 있는데 UnitView "Attack 적용" 로그가 없으면 구독 전 도착(유실)로 판별한다.
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/NetworkCombatController",
-                    $"Combat RPC 수신 | unit={unitId}, isServer={IsServer}");
-
             // 주의: IsServer 분기를 추가하지 않는다.
             // 서버(Host)도 이 RPC를 수신하여 동일한 애니메이션 처리가 필요하기 때문.
             //
@@ -854,50 +833,18 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 유닛이 전투 상태 종료. 클라이언트에서 Attack → Idle 전환.
         /// TickCombat에서 유닛의 타겟이 사라졌을 때 전송.
-        /// Idle로 전환하는 이유: 이동 재개 시 StartWalkAnimationClientRpc가 별도로 도착하므로.
+        /// Idle로 전환하는 이유: 이동 재개 시 애니메이션 상태(_animState)가 Walk로 동기화되므로.
         /// </summary>
         /// <param name="unitId">전투를 종료하는 유닛의 Id</param>
         [ClientRpc]
         private void StopCombatClientRpc(int unitId)
         {
-            // [MOVESYNC-LOG] StopCombat RPC 본문 진입(수신 측) — 이벤트 발행 전에 기록.
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/NetworkCombatController",
-                    $"StopCombat RPC 수신 | unit={unitId}, isServer={IsServer}");
-
             GameEvents.OnNetworkCombatStopped.OnNext(new NetworkCombatStoppedEvent(unitId));
         }
 
-        /// <summary>
-        /// [Phase 2 대체 — 호출 제거됨, 검증 후 삭제 예정]
-        /// 서버가 유닛 Walk 시작을 감지하여 모든 클라이언트에 Walk 애니메이션 재생 명령 전송.
-        ///
-        /// 이 엣지 트리거 RPC는 애니메이션 상태 레벨 동기화(NetworkUnit._animState = Walk)로 대체되었다.
-        /// OnUnitWalkStartedHandler에서 이 RPC 호출을 주석 처리했으므로 현재 어디서도 호출되지 않는다.
-        /// (짝을 이루는 GameEvents.OnNetworkWalkStarted 구독도 UnitView에서 주석 처리됨.)
-        /// 검증([6] 통과) 후 이 메서드와 OnNetworkWalkStarted 이벤트를 함께 삭제한다.
-        ///
-        /// 서버(HOST)는 MoveAlongPath에서 이미 Animator를 직접 제어하므로 스킵(IsServer return) 유지.
-        /// </summary>
-        /// <param name="unitId">Walk를 시작한 유닛의 Id</param>
-        [ClientRpc]
-        private void StartWalkAnimationClientRpc(int unitId)
-        {
-            // [MOVESYNC-LOG] Walk RPC 본문 진입(수신 측) — IsServer 가드 전에 기록해
-            // 호스트/클라이언트 양쪽 수신을 모두 관측한다. (이벤트 발행은 클라이언트에서만 일어남)
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/NetworkCombatController",
-                    $"Walk RPC 수신 | unit={unitId}, isServer={IsServer}");
-
-            // 서버(HOST)는 MoveAlongPath에서 이미 Walk 애니메이션을 직접 제어함 → 중복 방지
-            if (IsServer) return;
-
-            GameEvents.OnNetworkWalkStarted.OnNext(new NetworkWalkStartedEvent(unitId));
-        }
-
-        // StopWalkAnimationClientRpc 제거 — Idle 상태가 없으므로 Walk 정지 RPC 불필요.
-        // Walk→Attack: StartCombatClientRpc에서 Attack CrossFade 직접 전환.
-        // Walk→Walk: StartWalkAnimationClientRpc에서 처리.
+        // Walk 애니메이션 전파는 엣지 트리거 RPC가 아니라 NetworkUnit._animState 레벨 동기화로 처리한다
+        // (스폰 레이스 유실 방지). Walk→Attack 전환은 StartCombatClientRpc가 타겟 정보를 전달하고,
+        // Attack CrossFade는 클라이언트에서 _animState=Attack 값 변경으로 재생된다.
 
         // ====================================================================
         // 사망 처리 헬퍼 (클라이언트 전용)

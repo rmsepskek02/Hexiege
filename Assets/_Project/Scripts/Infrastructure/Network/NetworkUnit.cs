@@ -102,7 +102,7 @@ namespace Hexiege.Infrastructure
         /// ReadPermission: Everyone / WritePermission: Server — _unitId와 완전히 동일한 관례.
         ///
         /// [엣지 트리거 RPC 대비 핵심 장점 — 스폰 레이스 구조적 해소]
-        ///   StartWalkAnimationClientRpc / StartCombatClientRpc는 "상태가 바뀌는 순간 1회"만 쏘므로
+        ///   과거의 엣지 트리거 RPC 방식은 "상태가 바뀌는 순간 1회"만 쏘므로
         ///   그 순간 클라이언트가 아직 이벤트 구독 전이면 신호가 유실되어 틀린 애니메이션에 갇혔다.
         ///   NetworkVariable은 "현재 값"을 항상 보관하므로 클라이언트가 스폰(OnNetworkSpawn)하는
         ///   순간 현재 값을 즉시 읽어(ApplySpawnAnimState) 적용할 수 있어 유실이 불가능하다.
@@ -165,12 +165,6 @@ namespace Hexiege.Infrastructure
         {
             // 방어적 가드 — WritePermission=Server이므로 클라이언트에서 호출되면 무시.
             if (!IsServer) return;
-
-            // [MOVESYNC-LOG] 애니메이션 상태 쓰기(서버) — 클라이언트 수신/적용 로그와 대조해
-            // "유실 0"을 판정하는 기준선. 검증 후 이 마커는 제거한다.
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/NetworkUnit",
-                    $"AnimState 쓰기(서버) | unit={_unitId.Value}, state={state}");
 
             _animState.Value = (byte)state;
         }
@@ -257,11 +251,6 @@ namespace Hexiege.Infrastructure
             byte current = _animState.Value;
             if (current == (byte)UnitAnimState.None) return;
 
-            // [MOVESYNC-LOG] 스폰 시 초기값 적용(클라) — 재검증 시 "유실 0" 판정용.
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/NetworkUnit",
-                    $"AnimState 초기적용(스폰) | unit={_unitId.Value}, state={(UnitAnimState)current}");
-
             ApplyAnimState(current);
         }
 
@@ -298,11 +287,6 @@ namespace Hexiege.Infrastructure
             byte current = _animState.Value;
             if (current == (byte)UnitAnimState.None) return;
 
-            // [MOVESYNC-LOG] Initialize 완료 직후 재적용 — 재검증 시 unit=-1 감소·재적용 발동 확인용.
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/NetworkUnit",
-                    $"Initialize 후 재적용 | unit={_unitId.Value}, state={(UnitAnimState)current}");
-
             ApplyAnimState(current);
         }
 
@@ -314,11 +298,6 @@ namespace Hexiege.Infrastructure
         /// <param name="newValue">변경 후 상태(byte).</param>
         private void OnAnimStateChanged(byte previousValue, byte newValue)
         {
-            // [MOVESYNC-LOG] 상태 변경 수신(클라) — 서버 쓰기 로그와 대조해 유실 판별.
-            if (MoveAnimSyncLog.Enabled)
-                MoveAnimSyncLog.Info("Move/NetworkUnit",
-                    $"AnimState 수신(변경) | unit={_unitId.Value}, prev={(UnitAnimState)previousValue}, new={(UnitAnimState)newValue}");
-
             ApplyAnimState(newValue);
         }
 

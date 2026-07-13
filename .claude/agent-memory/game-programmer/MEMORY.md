@@ -32,25 +32,19 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
-### 이동/Walk 애니메이션 Phase 3 (이동 보정 — 경로 출발점 통일) (2026-07-12) — 🔨 구현 완료, 검증 대기
-- **원인(Phase 1 실증)**: 역방향 이동 WARN 282건 전부 서버, 281건이 "새 경로 발급 직후 첫 타일 스텝". `RequestMove`가 경로를 **도메인 타일(`_unitData.Position`)** 기준으로 계산 → 유닛이 타일 사이 이동 중(transform이 도메인보다 앞섬)에 새 경로 발급되면 `path[1]`이 실제 위치보다 뒤에 놓여 첫 걸음이 역방향(뒤로 밀림). 정렬 Lerp(460건)는 전부 정방향(무죄).
-- **수정(단일 지점 = MoveTo)**: 모든 이동 시작이 `UnitView.MoveTo`로 수렴 → 여기 한 곳에 `AlignPathStartToTransform(path)` 삽입. **역방향 첫 스텝만 감지해 보정**: `(path[1]-transform)·(finalTarget-transform)` XZ 내적<0일 때만 발동(MoveAlongPathV3 for루프 첫스텝 WARN 조건과 동일 → 보정 발동 시 그 WARN 소멸). 정방향/정합은 원본 path 그대로 반환 → **일반 이동 무변경**.
-- **보정 로직**: `ViewConverter.FromView(transform.position)` → `FindForwardClosestTile(domainPos, finalTarget)`(ResumeFromForwardTileV3와 동일 패턴 재사용) → `forwardTile != Position`이면 `ProcessStep`으로 도메인 정합 → `RequestMove(finalTarget)` 재발급. 실패 시 원본 유지.
-- **도메인 정합 부작용 검증**: `ProcessStep`은 `NotifyUnitMoved`(위치 역인덱스)+`OnUnitMoved` 이벤트만 발행. **OnUnitMoved 구독자 0건(grep 확인)**, 혼잡도(`OnUnitEnteredTile`)는 MoveAlongPathV3에서 별도 발행이라 미발동 → 부작용 없음.
-- **무변경 보존**: ResumeFromForwardTileV3(정렬, 무죄 460건)·EnterCombatPursuitV3(추격)·OnPathInvalidated의 IsInCombat 조기반환·_pendingPath 슬라이스·Phase2 레벨 동기화 전부 미변경. 신규 `TileCenterView(HexCoord)→Vector3` static 헬퍼(내 코드 전용, 기존 3줄 변환 모음).
-- **[MOVESYNC-LOG] 추가**: `경로 출발점 보정 | unit=, 도메인타일= → 보정타일=, 실거리=`. 재검증 기대: 역방향 WARN 281→0, 보정 로그가 그 자리 대체.
-- 파일: `Presentation/Unit/UnitView.cs`(MoveTo 655~L, AlignPathStartToTransform/TileCenterView 신규). UnitMovementUseCase.cs는 읽기만(FindForwardClosestTile/RequestMove/ProcessStep 재사용, 무변경).
-
-### 이동/Walk 애니메이션 레벨 동기화 Phase 2 (2026-07-12) — 🔨 구현 완료, 검증 대기
-- **핵심 패턴 — 애니메이션 상태를 NetworkVariable로 단일화(엣지 트리거 RPC → 레벨 동기화)**: 갓 스폰 유닛이 첫 Walk/Attack RPC를 스폰 레이스(구독 전 도착)로 유실하던 근본 결함 해결. `NetworkUnit._animState`(`NetworkVariable<byte>`, enum `UnitAnimState{None,Walk,Attack}`, Read=Everyone/Write=Server, `_unitId`와 동일 관례) 신설. 클라 `OnNetworkSpawn`에서 **현재 값 즉시 적용(ApplySpawnAnimState)** + `OnValueChanged` 구독 → 스폰 레이스 구조적 소멸. NGO는 같은 값 재설정 시 미전송이라 애니메이션 목적의 중복 가드 불필요.
-- **레이어 연결**: 서버 쓰기=Infrastructure(NetworkCombatController → `SetUnitAnimState(unitId,state)` 헬퍼 → `GetUnitObject().GetComponent<NetworkUnit>().SetAnimState()`, OnUnitDied Despawn과 동일 관례). 클라 적용=NetworkUnit이 같은 GO의 `GetComponent<UnitView>()` 캐시로 `StartWalkAnimation()`/`PlayAttackAnimation()`(신규) 직접 호출. **호스트는 OnNetworkSpawn IsServer early-return이라 _animState 미구독 → 적용 스킵**(서버가 Animator 직접 제어 관례 유지).
-- **서버 쓰기 지점**: Walk=`OnUnitWalkStartedHandler`, Attack=`OnUnitEnteredCombatHandler`(2경로) + `TickCombat` 신규 전투 등록 else-branch(백업). 
-- **Attack CrossFade 책임 분리(핵심 설계 결정)**: `UnitView.StartCombatAnimation`의 CrossFade를 `!IsNetworkActive || IsNetworkServer`(싱글+호스트)만 실행하도록 가드 → **클라만** NetworkVariable(PlayAttackAnimation)로 이관. StartCombatClientRpc는 유지(타겟 전달=회전추적/원거리 트레이서 조준 `_combatTargetTransform`). **T=0 동기화 우려 무의미**: 클라 타격 타이밍은 로컬 Attack 애니 히트프레임(OnAttackHit→HitPresentationQueue, 규칙 19)이 게이팅하므로 CrossFade 시작 위상 미세 오프셋은 큐가 흡수. "상태+진입 서버시각" 병행은 과설계라 회피.
-- **⚠️ 계획 deviation(플랜 item 5-D 미이행)**: `_combatAnimationSent` 가드는 **주석 처리 안 함**. 플랜은 "애니메이션 재전송 가드라 레벨 동기화로 불필요"로 봤으나, 실제로는 `OnUnitEnteredCombatHandler`의 **ExecuteAttack(데미지)** 및 StartCombatClientRpc 재전송을 게이팅하는 기능 가드(메모리 상단 combat-hit-timing 교훈과 일치). 제거 시 매 쿨다운 사이클 OnUnitEnteredCombat 재발행마다 ExecuteAttack 이중 발화→데미지 붕괴. 유지 필수.
-- **비활성화(주석)한 엣지 경로(검증 후 삭제)**: StartWalkAnimationClientRpc **호출**(정의는 [Phase2 대체] 주석 남김), UnitView `OnNetworkWalkStarted` 구독, GameEvents `OnNetworkWalkStarted` 필드(주석 노트만). StopCombatAnimation은 이미 애니 no-op이라 무변경(타겟 정리는 기능이라 유지).
-- **싱글플레이 무영향**: NGO 미스폰이라 NetworkUnit._animState 경로 자체가 안 돎. StartCombatAnimation 가드가 싱글(`!IsNetworkActive`=true)에서 CrossFade 실행. MoveAlongPathV3/EnterCombatLoopV3 싱글 Walk CrossFade 무변경.
-- **[MOVESYNC-LOG] 유지**(재검증용): NetworkUnit에 서버쓰기/OnValueChanged수신/스폰초기적용 3지점 로그 추가. 재검증 기대: 유실 RPC 0, "AnimState 쓰기"↔"수신/초기적용" 짝 일치.
-- task: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`. 파일: NetworkUnit.cs, NetworkCombatController.cs, UnitView.cs, GameEvents.cs.
+### 이동/Walk 애니메이션 동기화 (Phase 2 레벨 동기화 + Phase 3 경로 출발점 보정) (2026-07-12) — ✅ 검증 완료(무귀속 유닛 15기→0기, 로그 PASS 2026-07-13)
+- **핵심 패턴 — 애니메이션 상태를 NetworkVariable로 단일화(엣지 트리거 RPC → 레벨 동기화)**: 갓 스폰 유닛이 첫 Walk/Attack RPC를 스폰 레이스(구독 전 도착)로 유실하던 근본 결함 해결. `NetworkUnit._animState`(`NetworkVariable<byte>`, enum `UnitAnimState{None,Walk,Attack}`, Read=Everyone/Write=Server, `_unitId`와 동일 관례). 클라 `OnNetworkSpawn`에서 **현재 값 즉시 적용(ApplySpawnAnimState)** + `OnValueChanged` 구독 → 스폰 레이스 구조적 소멸. NGO는 같은 값 재설정 시 미전송이라 애니메이션 중복 가드 불필요.
+- **교훈 — 레벨 동기화도 "적용 시점이 컴포넌트 초기화보다 이르면" 무음 실패**: OnNetworkSpawn(=ApplySpawnAnimState)이 UnitView.Initialize(Animator 캐시)보다 먼저 돌면 StartWalkAnimation이 조용히 early-return, 레벨값 그대로라 OnValueChanged 재호출 없어 재시도 부재 → 간헐 애니 누락. **봉합**: Initialize 직후 `ReapplyAnimStateToView()`로 현재값 재적용(멱등 — 레벨 기반이라 재적용 무해, IsSpawned/IsServer 스킵).
+- **레이어 연결**: 서버 쓰기=Infrastructure(NetworkCombatController→`SetUnitAnimState(unitId,state)`→`GetComponent<NetworkUnit>().SetAnimState()`). 클라 적용=NetworkUnit이 같은 GO `UnitView`로 `StartWalkAnimation()`/`PlayAttackAnimation()` 직접 호출. **호스트는 OnNetworkSpawn IsServer early-return이라 _animState 미구독**(서버가 Animator 직접 제어 관례).
+- **서버 쓰기 지점**: Walk=`OnUnitWalkStartedHandler`, Attack=`OnUnitEnteredCombatHandler`(2경로).
+- **Attack CrossFade 책임 분리(핵심 설계 결정, 유지 확정)**: `UnitView.StartCombatAnimation`의 CrossFade를 `!IsNetworkActive || IsNetworkServer`(싱글+호스트)만 실행하도록 가드 → **클라만** NetworkVariable(PlayAttackAnimation)로 이관. StartCombatClientRpc는 유지(타겟 전달=회전추적/원거리 트레이서 조준 `_combatTargetTransform`). 클라 타격 타이밍은 로컬 히트프레임(HitPresentationQueue, 규칙19)이 게이팅하므로 CrossFade 위상 오프셋을 큐가 흡수.
+- **⚠️ `_combatAnimationSent` 가드 유지 필수**: 레벨 동기화로 "애니메이션 재전송"엔 불필요해 보이나, 실제로는 `OnUnitEnteredCombatHandler`의 **ExecuteAttack(데미지)**·StartCombatClientRpc 재전송을 게이팅하는 기능 가드. 제거 시 쿨다운 사이클마다 ExecuteAttack 이중 발화→데미지 붕괴.
+- **Phase 3 경로 출발점 보정(뒤로 밀림)**: `RequestMove`가 경로를 **도메인 타일(`_unitData.Position`)** 기준 계산 → 유닛이 타일 사이 이동 중(transform이 도메인보다 앞섬)에 새 경로 발급되면 `path[1]`이 실제 위치보다 뒤 → 첫 걸음 역방향. **수정(단일 지점=MoveTo)**: `AlignPathStartToTransform(path)` — 첫 스텝이 최종목적지 기준 XZ 내적<0(역방향)일 때만 발동, `FindForwardClosestTile`로 실제 transform 기준 전방 타일 구해 `ProcessStep` 도메인 정합 후 `RequestMove` 재발급. 정방향은 원본 그대로 → **일반 이동 무변경**. 신규 static 헬퍼 `TileCenterView(HexCoord)→Vector3`.
+- **교훈 — 로그 계측(무귀속 유닛 자동 탐지)로 육안 불가 잔여 버그 특정**: `MoveAnimSyncLog`(임시 로거) + `[MOVESYNC-LOG]` 마커로 서버/클라 AnimState 쓰기↔수신 짝, 역방향 WARN을 계측. 검증 통과 후 전량 제거(2026-07-13, 아래).
+- **잔여(코드 무수정)**: Phase 3 잔여 역방향 41건은 "최종 목적지 직선 기준 판정"이 정상 우회 경로를 오탐한 것 → 실제 버그 아님, 미수정 유지.
+- **[MOVESYNC-LOG] 계측 코드 전량 제거(2026-07-13)**: `MoveAnimSyncLog.cs`+`Debugging` 폴더(+.meta) 삭제. 5개 파일(UnitView/NetworkUnit/NetworkCombatController/UnitFactory/GameEvents) 마커·로그 호출·로그전용 헬퍼(DescribeAnimatorState/LogRepath)·로그전용 지역변수(realDist/flt_*/alg_*/rft_*) 제거. **기능 코드 전부 보존**(AlignPathStartToTransform 보정·AnimState 레벨 동기화·ReapplyAnimStateToView 재적용·_combatAnimationSent·StartCombatClientRpc). 로그 txt는 `_Logs/2026-07-12/07_55_movement-walk-anim-sync/` 영구 보존.
+- **엣지 경로 최종 삭제(2026-07-13, 검증 통과 조건 충족)**: `StartWalkAnimationClientRpc` 메서드·호출, UnitView `OnNetworkWalkStarted` 구독, GameEvents `OnNetworkWalkStarted` Subject+`NetworkWalkStartedEvent` struct 전부 삭제(grep 전수 확인=0). **주의**: `OnUnitWalkStarted`(int Subject)는 서버 이동시작→SetUnitAnimState 체인의 발행원이라 유지. StartCombat/ChangeTarget/StopCombatClientRpc는 타겟·회전·전투상태용이라 유지.
+- task: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`. 파일: NetworkUnit.cs, NetworkCombatController.cs, UnitView.cs, GameEvents.cs, UnitFactory.cs.
 
 
 ### 전투 타격 타이밍 동기화 (Phase 1~3 + 수정 1~3) (2026-07-10) — ✅ 검증 완료(4차 로그+실기 PASS, 2026-07-12)
