@@ -3,16 +3,20 @@
 // 닉네임 설정 화면. (Login.unity 내 패널)
 //
 // 역할:
-//   - 이메일 회원가입 직후 또는 Google 최초 로그인 후 닉네임을 1회 설정한다.
-//   - 확인 버튼: 입력 검증 → 저장 → 다음 화면.
-//   - 스킵 버튼: 자동 생성 닉네임으로 저장 → 다음 화면.
-//   - 다음 화면 분기(경로별):
-//       Google 경로   → LoginBootstrapper.GoToNextScene() (Lobby 씬)
-//       이메일 경로   → LoginRootView.ShowEmailVerify()  (이메일 인증 화면)
+//   - "UGS 세션이 있는 첫 로그인 성공 직후" 닉네임을 1회 설정한다.
+//     (Google 최초 로그인 후 = LoginSelectView, 이메일 최초 로그인 후 = EmailLoginView)
+//   - 확인 버튼: 입력 검증 → 저장 → 로비 이동.
+//   - 스킵 버튼: 자동 생성 닉네임으로 저장 → 로비 이동.
+//   - 완료 후 흐름은 경로와 무관하게 항상 로비(GoToNextScene)로 통일되었다.
+//     (과거에는 이메일 경로만 이메일 인증 화면으로 분기했으나, 닉네임 설정 시점을
+//      "첫 로그인 성공 직후"로 통일하면서 이 분기가 사라졌다.)
 //
-// 경로(isGooglePath)는 화면을 여는 쪽(LoginSelectView / SignUpView)이
-// LoginRootView.ShowNicknameSetup(isGooglePath) 를 통해 지정하며,
-// LoginRootView 가 본 View 의 PrepareForShow(isGooglePath) 를 호출해 전달한다.
+// isGooglePath 파라미터의 의미(축소됨):
+//   더 이상 "완료 후 이동 경로(라우팅)"를 뜻하지 않는다.
+//   이제는 스킵 시 자동 생성 닉네임의 접두사 구분("구글" vs "사용자")에만 사용한다.
+//   화면을 여는 쪽(LoginSelectView / EmailLoginView)이
+//   LoginRootView.ShowNicknameSetup(isGooglePath) 로 지정하고,
+//   LoginRootView 가 본 View 의 PrepareForShow(isGooglePath) 를 호출해 전달한다.
 //
 // AuthSystemRules.md 닉네임 규칙 1~6 / GameSystemRules_UI.md 닉네임 설정 화면 규칙 1~4.
 //
@@ -59,8 +63,11 @@ namespace Hexiege.Presentation
         private PlayerProfileUseCase _profileUseCase;
         private LoginBootstrapper _bootstrapper;
 
-        // 완료 후 이동 경로. true = Google 경로(→ Lobby), false = 이메일 경로(→ EmailVerify).
-        // PrepareForShow() 로 화면을 열 때마다 갱신된다.
+        // 자동 생성 닉네임 접두사 구분 플래그.
+        //   true = Google 경로(스킵 시 "구글_"), false = 이메일 경로(스킵 시 "사용자_").
+        //   [의미 축소] 과거에는 완료 후 이동 경로(라우팅)로도 쓰였으나,
+        //   이제 완료 후 흐름은 경로 무관하게 항상 로비이므로 접두사 구분 용도만 남았다.
+        //   PrepareForShow() 로 화면을 열 때마다 갱신된다.
         private bool _isGooglePath;
 
         // ====================================================================
@@ -95,9 +102,12 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 화면을 표시하기 직전에 호출된다(LoginRootView.ShowNicknameSetup 이 호출).
-        /// 완료 후 이동 경로를 설정하고 입력/상태를 초기화한다.
+        /// 자동닉네임 접두사 구분값을 설정하고 입력/상태를 초기화한다.
         /// </summary>
-        /// <param name="isGooglePath">true=Google 경로(→Lobby), false=이메일 경로(→EmailVerify).</param>
+        /// <param name="isGooglePath">
+        /// 스킵 시 자동 생성 닉네임 접두사 구분. true=Google("구글_"), false=이메일("사용자_").
+        /// (완료 후 이동 경로는 경로 무관하게 항상 로비이므로 이 값은 접두사 구분에만 쓰인다.)
+        /// </param>
         public void PrepareForShow(bool isGooglePath)
         {
             _isGooglePath = isGooglePath;
@@ -186,20 +196,27 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 닉네임 저장 완료 후 경로에 따라 다음 화면으로 이동한다.
-        ///   Google 경로  → Lobby 씬 이동
-        ///   이메일 경로  → 이메일 인증 대기 화면
+        /// 닉네임 저장 완료 후 다음 화면으로 이동한다.
+        ///   [흐름 통일] 이제 닉네임 설정은 Google/이메일 모두 "세션 있는 첫 로그인 성공 직후"에만
+        ///   일어나므로, 완료 후에는 경로와 무관하게 항상 로비(Lobby 씬)로 이동한다.
         /// </summary>
         private void GoToNextStep()
         {
-            if (_isGooglePath)
-            {
-                _bootstrapper.GoToNextScene();
-            }
-            else
-            {
-                if (_rootView != null) _rootView.ShowEmailVerify();
-            }
+            // 항상 로비로 이동 (경로 분기 없음).
+            _bootstrapper.GoToNextScene();
+
+            // === [구 로직 — 비활성화] 경로별 분기 (이메일 경로 → 이메일 인증 화면) ===
+            //   과거에는 이메일 가입 직후 닉네임을 설정했기에 완료 후 인증 화면으로 보냈다.
+            //   이제 닉네임은 "인증 후 첫 로그인 성공 직후"에 설정되므로 인증 분기가 불필요하다.
+            //   실기 통과 후 아래 블록은 최종 삭제 예정(WORKFLOW 기존 로직 제거 규칙).
+            // if (_isGooglePath)
+            // {
+            //     _bootstrapper.GoToNextScene();
+            // }
+            // else
+            // {
+            //     if (_rootView != null) _rootView.ShowEmailVerify();
+            // }
         }
 
         // ====================================================================

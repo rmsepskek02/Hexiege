@@ -274,7 +274,9 @@ namespace Hexiege.Bootstrap
                 _loginSelectView.Initialize(_rootView, _loginUseCase, this, _playerProfileUseCase);
 
             if (_emailLoginView != null)
-                _emailLoginView.Initialize(_rootView, _loginUseCase, this);
+                // 이메일 로그인도 로그인 성공 후 "최초 로그인" 판정 → 닉네임 설정으로 분기하므로
+                //   Google 경로와 동일하게 _playerProfileUseCase 를 주입한다.
+                _emailLoginView.Initialize(_rootView, _loginUseCase, this, _playerProfileUseCase);
 
             if (_signUpView != null)
                 _signUpView.Initialize(_rootView, _loginUseCase, this);

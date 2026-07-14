@@ -165,11 +165,14 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 닉네임 설정 화면을 표시한다.
-        /// 완료 후 이동 경로(Google/이메일)를 NicknameSetupView 에 먼저 전달한 뒤 패널을 전환한다.
-        ///   Google 경로(isGooglePath=true)  → 닉네임 완료 시 Lobby 씬 이동
-        ///   이메일 경로(isGooglePath=false) → 닉네임 완료 시 이메일 인증 화면 이동
+        /// isGooglePath 값을 NicknameSetupView 에 먼저 전달한 뒤 패널을 전환한다.
+        ///   [의미 축소] 이 값은 더 이상 완료 후 이동 경로(라우팅)를 뜻하지 않는다.
+        ///   닉네임 설정은 Google/이메일 모두 "첫 로그인 성공 직후"에만 열리고 완료 시 항상 로비로 가므로,
+        ///   isGooglePath 는 스킵 시 자동닉네임 접두사 구분("구글" vs "사용자")에만 사용된다.
         /// </summary>
-        /// <param name="isGooglePath">true=Google 로그인 경로, false=이메일 회원가입 경로.</param>
+        /// <param name="isGooglePath">
+        /// true=Google 로그인 경로(스킵 접두사 "구글"), false=이메일 로그인 경로(스킵 접두사 "사용자").
+        /// </param>
         public void ShowNicknameSetup(bool isGooglePath)
         {
             // View 에 경로를 먼저 알려 준다(입력/상태 초기화도 함께 수행됨).
