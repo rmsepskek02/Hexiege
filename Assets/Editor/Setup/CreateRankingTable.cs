@@ -49,11 +49,22 @@ namespace Hexiege.EditorTools
             // ── 1) RankingView 탐색 ──────────────────────────────────────
             RankingView rankingView =
                 Object.FindFirstObjectByType<RankingView>(FindObjectsInactive.Include);
+
+            // RankingView 컴포넌트가 씬에 아직 없을 수 있다.
+            //   RankingPanel 은 존재하지만 RankingView 스크립트가 부착되지 않은 placeholder 상태일 때.
+            //   이 경우 LobbyRootView 가 참조하는 RankingPanel(또는 이름 탐색)에 컴포넌트를 새로 붙인다.
             if (rankingView == null)
             {
-                Debug.LogError("[Setup] RankingView 를 씬에서 찾지 못했습니다. " +
-                               "Lobby.unity 씬을 연 상태에서 실행하세요.");
-                return;
+                GameObject rankingPanel = FindRankingPanel();
+                if (rankingPanel == null)
+                {
+                    Debug.LogError("[Setup] RankingView 컴포넌트도, RankingPanel 오브젝트도 찾지 못했습니다. " +
+                                   "Lobby.unity 씬을 연 상태에서 실행하세요.");
+                    return;
+                }
+                rankingView = rankingPanel.AddComponent<RankingView>();
+                EditorUtility.SetDirty(rankingView);
+                Debug.Log($"[Setup] RankingPanel('{rankingPanel.name}')에 RankingView 컴포넌트를 새로 추가했습니다.");
             }
 
             // ── 2) 폰트 로드 ─────────────────────────────────────────────
@@ -164,6 +175,39 @@ namespace Hexiege.EditorTools
 
             Debug.Log("[Setup] RankingView 테이블 구성 및 RankRow 프리팹 연결 완료. 씬을 저장하세요(Ctrl+S).");
             Selection.activeGameObject = table;
+        }
+
+        // ====================================================================
+        // RankingPanel 탐색 (RankingView 미부착 대비)
+        // ====================================================================
+
+        /// <summary>
+        /// RankingView 를 붙일 RankingPanel GameObject 를 찾는다.
+        ///   1순위: LobbyRootView 의 [SerializeField] _rankingPanel 참조.
+        ///   2순위: 씬에서 이름 "RankingPanel" 로 탐색(비활성 포함).
+        /// 못 찾으면 null.
+        /// </summary>
+        private static GameObject FindRankingPanel()
+        {
+            // 1순위 — LobbyRootView._rankingPanel 직렬화 참조.
+            LobbyRootView lobbyRoot =
+                Object.FindFirstObjectByType<LobbyRootView>(FindObjectsInactive.Include);
+            if (lobbyRoot != null)
+            {
+                var so = new SerializedObject(lobbyRoot);
+                SerializedProperty prop = so.FindProperty("_rankingPanel");
+                if (prop != null && prop.objectReferenceValue is GameObject panel && panel != null)
+                    return panel;
+            }
+
+            // 2순위 — 이름으로 탐색(비활성 오브젝트 포함, 씬에 속한 것만).
+            foreach (Transform t in Resources.FindObjectsOfTypeAll<Transform>())
+            {
+                if (t != null && t.name == "RankingPanel" && t.gameObject.scene.IsValid())
+                    return t.gameObject;
+            }
+
+            return null;
         }
 
         // ====================================================================
