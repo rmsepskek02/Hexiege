@@ -32,6 +32,12 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 닉네임 설정 흐름 통일(C안) + UGS OIDC 브릿지 해결 (2026-07-14) — ✅ 실기 PASS
+- **문제**: 이메일 회원가입 직후 닉네임 저장 시 "Access token is missing"(Cloud Save). 원인 ① 가입 시점엔 UGS 세션 없음, ② 실계정이 애초에 UGS 세션을 못 받던 미해결 OIDC 브릿지 이슈.
+- **코드 흐름 수정(C안)**: 닉네임 저장은 반드시 "UGS 세션이 있는 첫 로그인 성공 직후"에만 수행. 이메일 가입=닉네임 없이 인증 화면 직행(`SignUpView`), 이메일 인증 후 첫 로그인 성공 시 `IsFirstLogin` 분기로 닉네임(`EmailLoginView`에 분기+`PlayerProfileUseCase` 주입, Google `LoginSelectView.OnGoogleLoginClicked`와 동일 패턴), 닉네임 완료 후 경로 무관 항상 로비(`NicknameSetupView`), `LoginBootstrapper`가 `EmailLoginView`에 UseCase 주입. Google/익명 무변경.
+- **⚠️ 교훈 — OIDC 없이는 실계정 Cloud Save 불가**: 코드 흐름만 고쳐선 부족. 실계정(Google/이메일)은 UGS OIDC 브릿지(`SignInWithOpenIdConnectAsync("oidc-firebase", token)`)가 UGS Dashboard 제공자 미등록으로 실패해 access token 자체를 못 받았음. **UGS Dashboard에 OIDC 제공자 등록**(OIDC Name=`firebase`→id `oidc-firebase`, Client ID=`hexiege`, Issuer=`https://securetoken.google.com/hexiege`, Enabled)해야 세션 획득 → 저장 성공. 익명은 `SignInAnonymouslyAsync`라 무관. **계정 귀속 데이터(닉네임 등) 저장은 UGS 세션이 있는 로그인 성공 이후에만.**
+- task: `_Tasks/2026-07-14/12_09_nickname-flow-timing-fix/`. 파일: `SignUpView.cs`, `EmailLoginView.cs`, `NicknameSetupView.cs`, `LoginBootstrapper.cs`(+ 필요 시 `LoginRootView.cs`).
+
 ### 이동/Walk 애니메이션 동기화 (Phase 2 레벨 동기화 + Phase 3 경로 출발점 보정) (2026-07-12) — ✅ 검증 완료(무귀속 유닛 15기→0기, 로그 PASS 2026-07-13)
 - **핵심 패턴 — 애니메이션 상태를 NetworkVariable로 단일화(엣지 트리거 RPC → 레벨 동기화)**: 갓 스폰 유닛이 첫 Walk/Attack RPC를 스폰 레이스(구독 전 도착)로 유실하던 근본 결함 해결. `NetworkUnit._animState`(`NetworkVariable<byte>`, enum `UnitAnimState{None,Walk,Attack}`, Read=Everyone/Write=Server, `_unitId`와 동일 관례). 클라 `OnNetworkSpawn`에서 **현재 값 즉시 적용(ApplySpawnAnimState)** + `OnValueChanged` 구독 → 스폰 레이스 구조적 소멸. NGO는 같은 값 재설정 시 미전송이라 애니메이션 중복 가드 불필요.
 - **교훈 — 레벨 동기화도 "적용 시점이 컴포넌트 초기화보다 이르면" 무음 실패**: OnNetworkSpawn(=ApplySpawnAnimState)이 UnitView.Initialize(Animator 캐시)보다 먼저 돌면 StartWalkAnimation이 조용히 early-return, 레벨값 그대로라 OnValueChanged 재호출 없어 재시도 부재 → 간헐 애니 누락. **봉합**: Initialize 직후 `ReapplyAnimStateToView()`로 현재값 재적용(멱등 — 레벨 기반이라 재적용 무해, IsSpawned/IsServer 스킵).

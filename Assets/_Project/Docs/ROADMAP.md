@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-07-13
-**현재 단계:** 이동/Walk 애니메이션 동기화 완료(레벨 동기화 전환, 실기/로그 검증 PASS) — 애니메이션 상태를 엣지 RPC → NetworkVariable 레벨 동기화로 전환(스폰 레이스 유실 소멸), Initialize 후 재적용 봉합, 재경로 첫 스텝 역방향 보정(282→41, 잔여는 계측 오탐). 규칙 U-22 등재. 후속(Phase F): 빌드 에셋 용량 최적화, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트
+**최종 수정일:** 2026-07-14
+**현재 단계:** 로그인 3경로 실기 성공 + 닉네임 흐름 통일(C안) + UGS OIDC 브릿지 해결 (2026-07-14 실기 PASS) — 닉네임 설정을 "UGS 세션이 있는 첫 로그인 성공 직후"로 통일해 "Access token is missing" 에러 해소, UGS Dashboard OIDC 제공자 등록(`oidc-firebase`)으로 실계정 UGS 세션 획득. **후속(높음): 프로필 전적/랭킹 표시** — 전적 축적(`recordMatchResult` 서버 연결)·`initPlayer`·랭킹·닉네임 변경 UI·닉네임 패널 스프라이트는 진행 중/미완. 직전: 이동/Walk 애니메이션 동기화 완료(레벨 동기화 전환, 실기/로그 검증 PASS) — 애니메이션 상태를 엣지 RPC → NetworkVariable 레벨 동기화로 전환(스폰 레이스 유실 소멸), Initialize 후 재적용 봉합, 재경로 첫 스텝 역방향 보정(282→41, 잔여는 계측 오탐). 규칙 U-22 등재. 후속(Phase F): 빌드 에셋 용량 최적화, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -26,7 +26,9 @@
 | ✅ 완료 | 전역 UI 시스템 (UIManager + SplashOverlay) | UI | 중 |
 | ✅ 완료 | Firebase Console 설정 (Google 로그인) — SHA-1 정합 + Play Games 제공업체 활성화, 실기 로그인 성공 (2026-06-27) | 인프라 | 소 |
 | 🔴 높음 | Login.unity 씬 로그인 UI 조립 | UI | 소 |
-| 🔴 높음 | UGS OIDC 브릿지 활성화 — UGS Dashboard OIDC 제공자(`oidc-firebase`) 등록 (현재 `id provider not found`로 멀티플레이 제한) | 인프라 | 소 |
+| ✅ 완료 | UGS OIDC 브릿지 활성화 (2026-07-14) — UGS Dashboard OIDC 제공자 등록(OIDC Name=`firebase`→`oidc-firebase`, Client ID=`hexiege`, Issuer=`https://securetoken.google.com/hexiege`, Enabled)으로 `id provider not found` 해결. 실계정이 UGS 세션(access token) 정상 획득 → Cloud Save 저장 성공 | 인프라 | 소 |
+| ✅ 완료 | 닉네임 설정 흐름 통일 (C안, 2026-07-14 실기 PASS) — 닉네임 설정 시점을 "UGS 세션이 있는 첫 로그인 성공 직후"로 통일(이메일 가입은 인증 화면 직행, 인증 후 첫 로그인 시 닉네임). 로그인 3경로(Google/익명/이메일) 실기 전부 성공, "Access token is missing" 에러 해소 | 기능 | 소 |
+| 🔴 높음 | 프로필 전적/랭킹 표시 (후속) — 전적 데이터 실제 축적(`recordMatchResult` 서버 연결)·`initPlayer` 서버 연결·랭킹 표시·닉네임 변경 UI·닉네임 패널 UI 스프라이트 개선 (현재 진행 중/미완) | 기능/UI | 중 |
 | 🟡 중간 | BuildFailed/EnqueueFailed UI 피드백 (멀티) | UI | 소 |
 | 🟡 중간 | 게임 내 밸런싱 (골드/HP/생산시간) | 기획 | 중 |
 | 🟡 중간 | 로비 UI 비주얼 폴리싱 (에셋 제작 완료 2026-05-30) | UI | 중 |

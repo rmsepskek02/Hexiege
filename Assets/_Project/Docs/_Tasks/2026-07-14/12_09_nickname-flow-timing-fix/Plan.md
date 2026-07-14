@@ -147,3 +147,26 @@ if (_emailLoginView != null)
 
 - **닉네임 패널 UI 개선(스프라이트 적용)**: 사용자 지시로 기능 완료 후 진행.
 - **initPlayer/recordMatchResult Cloud Code 연결(서버 권위)**: 별도 후속 작업.
+
+---
+
+## 완료 결과 (실기 검증 — 2026-07-14 PASS)
+
+### 계획대로 진행된 항목
+- ① `SignUpView` — 가입 시 닉네임 제거, 이메일 인증 화면 직행.
+- ② `EmailLoginView` — 로그인 성공 시 `IsFirstLogin` 분기 추가, `PlayerProfileUseCase` 주입받아 최초 로그인 시 닉네임 설정.
+- ③ `NicknameSetupView` — 완료 후 경로 무관 항상 로비.
+- ④ `LoginBootstrapper` — `EmailLoginView`에 `PlayerProfileUseCase` 주입.
+- ⑤ 문서(`AuthSystemRules.md`/`GameSystemRules_UI.md`)는 구현 세션에서 이미 C안 흐름으로 갱신 완료 — 실제 구현과 일치함을 재확인(추가 수정 없음).
+
+### 계획과 달라진 점 / 계획에 없던 추가 작업
+- **UGS OIDC 제공자 등록이 추가로 필요했음(계획 시 미포함)**: 코드 흐름 수정(C안)만으로는 실계정이 UGS 세션 자체를 받지 못해 여전히 저장 불가였다. 2026-06-27부터 미해결이던 UGS OIDC 브릿지 `id provider not found`를 **UGS Dashboard에 OIDC 제공자 등록**으로 해결해야 비로소 닉네임 저장이 성공했다.
+  - 등록값: OIDC Name=`firebase`(→ 최종 id `oidc-firebase`), Client ID=`hexiege`, Issuer=`https://securetoken.google.com/hexiege`, Enabled. (상세: Research.md 완료 결과 참조)
+  - 이는 코드 변경이 아닌 외부 대시보드 설정 작업이며, 이번 작업 완결의 필수 조건이었다.
+
+### 실기 검증 결과
+- 세 로그인 경로(Google/익명/이메일) 전부 성공. Testcase.md SINGLE-001~004 전부 PASS.
+- 이메일 인증 메일은 스팸함에서 확인 후 인증 완료 → 첫 로그인 시 닉네임 저장 성공(토큰 에러 없음) → 로비.
+
+### 남은 후속 작업 (미완)
+- 프로필 전적/랭킹 데이터 실제 축적(`recordMatchResult` 서버 연결)·`initPlayer` 서버 연결·닉네임 변경 UI·닉네임 패널 UI 스프라이트 개선. (`[DEBUG-TEMP]` 로그 제거는 이번 범위 밖, 별도 판단)

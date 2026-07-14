@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-07-13
-**현재 단계:** 이동/Walk 애니메이션 동기화 완료(레벨 동기화 전환, 실기/로그 검증 PASS) — 유닛 애니메이션 상태(None/Walk/Attack)를 "바뀌는 순간 1회성 RPC(엣지 트리거)"에서 NetworkUnit의 **NetworkVariable(서버 권위 값) 레벨 동기화**로 전환. 클라이언트는 값 변경(OnValueChanged) + 스폰 시 현재 값 자동 적용 → 첫 Walk RPC 스폰 레이스 유실(클라 222/223기 실측) 구조적 소멸. 적용이 `UnitView.Initialize`보다 이르면 애니메이터 미준비로 무음 실패하던 문제는 Initialize 말미 `ReapplyAnimStateToView()`(멱등) 재적용으로 봉합. 재경로 첫 스텝 역방향(뒤로 밀림, 서버 282건 실측)은 `MoveTo` `AlignPathStartToTransform`(첫 스텝이 목적지 역방향일 때만 실제 transform 전방 타일 `FindForwardClosestTile`에서 재발급)으로 282→41 급감. 최종 3차 로그(15,316줄) 생성 634기 전원 애니메이션 상태 적용 보장(무귀속 15→0기)·Initialize 후 재적용 634회·육안 걷기 미재생/뒤로 밀림 소멸. 잔여 41건은 스폰 직후 우회 경로를 판정 지표가 오탐한 것으로 코드 무수정 종결. 규칙 U-22(애니메이션 상태 값 기반 동기화) 등재. 전투 타격 타이밍 동기화(2026-07-12)·사운드 시스템(2026-07-08~10) 수정 완료 상태 유지. Google 로그인 실기 성공 유지 — UGS OIDC 브릿지(멀티플레이 연동)는 별도 미해결 이슈. AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**최종 수정일:** 2026-07-14
+**현재 단계:** 로그인 3경로(Google/익명/이메일) 실기 성공 + 닉네임 설정 흐름 통일(C안) + UGS OIDC 브릿지 해결 (2026-07-14 실기 PASS) — 이메일 회원가입 직후 닉네임 저장 시 "Access token is missing" 에러를 흐름 재설계로 해결. 닉네임 설정 시점을 **"UGS 세션이 있는 첫 로그인 성공 직후"로 통일**(이메일 가입은 닉네임 없이 인증 화면 직행 → 인증 후 첫 로그인 시 IsFirstLogin 분기로 닉네임 설정, Google과 동일 패턴). 미해결로 남아 있던 **UGS OIDC 브릿지 `id provider not found`** 는 UGS Dashboard에 OIDC 제공자 등록(OIDC Name=`firebase`→`oidc-firebase`, Client ID=`hexiege`, Issuer=`https://securetoken.google.com/hexiege`)으로 해결 → 실계정이 UGS 세션(access token) 정상 획득, Cloud Save 저장 성공. **단, 프로필 전적/랭킹 표시 기능 전체는 진행 중**(전적 축적 `recordMatchResult` 서버 연결·`initPlayer`·랭킹·닉네임 변경 UI·닉네임 패널 스프라이트는 미완/후속). 직전: 이동/Walk 애니메이션 동기화 완료(레벨 동기화 전환, 실기/로그 검증 PASS) — 유닛 애니메이션 상태(None/Walk/Attack)를 "바뀌는 순간 1회성 RPC(엣지 트리거)"에서 NetworkUnit의 **NetworkVariable(서버 권위 값) 레벨 동기화**로 전환. 클라이언트는 값 변경(OnValueChanged) + 스폰 시 현재 값 자동 적용 → 첫 Walk RPC 스폰 레이스 유실(클라 222/223기 실측) 구조적 소멸. 적용이 `UnitView.Initialize`보다 이르면 애니메이터 미준비로 무음 실패하던 문제는 Initialize 말미 `ReapplyAnimStateToView()`(멱등) 재적용으로 봉합. 재경로 첫 스텝 역방향(뒤로 밀림, 서버 282건 실측)은 `MoveTo` `AlignPathStartToTransform`(첫 스텝이 목적지 역방향일 때만 실제 transform 전방 타일 `FindForwardClosestTile`에서 재발급)으로 282→41 급감. 최종 3차 로그(15,316줄) 생성 634기 전원 애니메이션 상태 적용 보장(무귀속 15→0기)·Initialize 후 재적용 634회·육안 걷기 미재생/뒤로 밀림 소멸. 잔여 41건은 스폰 직후 우회 경로를 판정 지표가 오탐한 것으로 코드 무수정 종결. 규칙 U-22(애니메이션 상태 값 기반 동기화) 등재. 전투 타격 타이밍 동기화(2026-07-12)·사운드 시스템(2026-07-08~10) 수정 완료 상태 유지. Google 로그인 실기 성공 유지 — UGS OIDC 브릿지(멀티플레이 연동)는 별도 미해결 이슈. AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
 
 ---
 
@@ -169,7 +169,7 @@
 | [문제 2] google-services.json SHA-1 보강 | ✅ 완료 | Firebase Console에 SHA-1 1개(릴리즈)만 등록돼 있던 것을 디버그 + Play App Signing 추가하여 3개로 업데이트. `Assets/google-services.json` 재다운로드. |
 | [문제 3] 실제 빌드 키스토어 SHA-1 미등록 (근본 원인) | ✅ 완료 | logcat `PlayGamesServices[SignInAuthenticator]`에서 실제 APK 서명 SHA-1(`18:E0:32:5F:5A:F9:C5:A7:3F:22:34:BE:65:1F:E6:CA:61:2E:DE:3D`) 확인 → 등록된 3개 어느 것과도 불일치(`hexiege-release.keystore`가 SHA-1 등록 시 키스토어와 다른 파일). Firebase Console + Play Console GPGS 사용자 인증 정보에 실제 SHA-1 추가 등록·게시 + Firebase Authentication Play Games 제공업체 활성화(Web Client ID/Secret 입력). |
 | GPGS Server Auth Code 발급 정상화 | ✅ 완료 | SHA-1 불일치 시 `serverAuthCode length=0`(빈 값) → SHA-1 정합 후 `length=73` 정상 발급. |
-| UGS OIDC 브릿지 실패 (`id provider not found`) | ❌ 미해결 (별도 이슈) | Firebase 로그인 성공 후 `SignInWithOpenIdConnectAsync("oidc-firebase")` 단계에서 UGS Dashboard OIDC 제공자 미등록으로 실패 → UGS PlayerId 미발급, 멀티플레이 제한. UGS Dashboard OIDC Provider 등록 후 재확인 필요. |
+| UGS OIDC 브릿지 실패 (`id provider not found`) | ✅ 해결 (2026-07-14) | Firebase 로그인 성공 후 `SignInWithOpenIdConnectAsync("oidc-firebase")`가 UGS Dashboard OIDC 제공자 미등록으로 실패하던 문제. **UGS Dashboard → Player Authentication → Identity Providers → OpenID Connect에 제공자 등록으로 해결** (OIDC Name=`firebase` → 최종 id `oidc-firebase`, Client ID=`hexiege`, Issuer=`https://securetoken.google.com/hexiege`, Enabled). 실계정(Google/이메일)이 UGS 세션(access token) 정상 획득 → Cloud Save "Access token is missing" 에러 해소. task: `_Tasks/2026-07-14/12_09_nickname-flow-timing-fix/` |
 
 #### 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 (2026-07-09, 실기 PASS)
 | 항목 | 상태 | 비고 |
@@ -439,7 +439,9 @@
 | Firebase Console 설정 | ✅ 완료 (2026-06-27) | google-services.json SHA-1 3개 + 실제 빌드 키스토어 SHA-1(`18:E0:...:3D`) 등록, Firebase Authentication Play Games 제공업체 활성화(Web Client ID/Secret). Google 로그인 실기 성공. |
 | GPGS 클라이언트 ID + Play Console 사용자 인증 정보 | ✅ 완료 (2026-06-27) | Web Client ID 입력 완료. Play Console GPGS 사용자 인증 정보에 실제 빌드 키스토어 SHA-1 등록·게시 완료(GPGS `signIn()` 검증 통과). |
 | Login.unity 씬 생성 | 🔵 부분 완료 (2026-06-18) | UIManager + SplashOverlay 배치 완료. 로그인 UI 배치(UIWireframe.md 기반) + Inspector 연결은 미완료 — 추후 진행 |
-| Firebase → UGS OIDC Bridge | 🔵 코드 완료 (2026-06-10) / 실기 실패 (2026-06-27) | `SignInWithOpenIdConnectAsync("oidc-firebase", firebaseToken)` 구현 완료. 실기 결과 `id provider not found`로 실패 — UGS Dashboard OIDC 제공자(`oidc-firebase`) 미등록. UGS PlayerId 미발급으로 멀티플레이 제한. UGS Dashboard OIDC Provider 등록 후 재확인 필요. |
+| Firebase → UGS OIDC Bridge | ✅ 완료 (2026-07-14 실기 성공) | `SignInWithOpenIdConnectAsync("oidc-firebase", firebaseToken)` 구현 완료. 2026-06-27 실기 시 `id provider not found`(UGS Dashboard OIDC 제공자 미등록)로 실패했으나, **2026-07-14 UGS Dashboard에 OIDC 제공자 등록으로 해결**(OIDC Name=`firebase`→`oidc-firebase`, Client ID=`hexiege`, Issuer=`https://securetoken.google.com/hexiege`, Enabled). 실계정이 UGS PlayerId·access token 정상 획득 → Cloud Save 저장 성공(닉네임 실기 PASS). |
+| 닉네임 설정 흐름 통일 (C안) | ✅ 완료 (2026-07-14 실기 PASS) | 이메일 회원가입 직후 닉네임 저장 시 "Access token is missing" 에러(가입 시점엔 UGS 세션 없음)를 흐름 재설계로 해결. 닉네임 설정 시점을 **"UGS 세션이 있는 첫 로그인 성공 직후"로 통일**: 이메일 가입은 닉네임 없이 인증 화면 직행 → 인증 후 첫 로그인 시 IsFirstLogin 분기로 닉네임 설정(Google과 동일 패턴). 세 경로(Google/익명/이메일) 실기 전부 성공. 수정: `SignUpView`(닉네임 제거→인증 화면 직행), `EmailLoginView`(IsFirstLogin 분기 추가+PlayerProfileUseCase 주입), `NicknameSetupView`(완료 후 항상 로비), `LoginBootstrapper`. task: `_Tasks/2026-07-14/12_09_nickname-flow-timing-fix/` |
+| 프로필 전적/랭킹 표시 (전적 축적·랭킹) | 🔵 진행 중 | Profile 탭 UI 골격·닉네임 표시는 있으나, 전적 데이터 실제 축적(`recordMatchResult` 서버 연결)·`initPlayer` 서버 연결·랭킹 표시·닉네임 변경 UI·닉네임 패널 스프라이트 개선은 미완(후속 작업). |
 
 ---
 

@@ -112,3 +112,26 @@ Cloud Save는 UGS access token이 있어야 쓸 수 있는데, 이 시점엔 세
 1. **설계 변경 문서화**: C는 "가입 직후 닉네임" → "인증 후 첫 로그인 시 닉네임"으로 흐름이 바뀐다. AuthSystemRules.md / GameSystemRules_UI.md 갱신 필요.
 2. **자동닉네임 접두사**: 스킵 시 `구글_xxx` vs `사용자_xxx` 구분이 있었음. 라우팅용 isGooglePath는 제거하되, 접두사 구분은 유지해야 함(접두사만 전달하거나 provider에서 판단).
 3. **UI 개선(별도)**: 닉네임 패널 스프라이트 적용은 본 작업과 분리(기능 우선, 사용자 지시).
+
+---
+
+## 완료 결과 (실기 검증 후 보강 — 2026-07-14)
+
+### 발견된 부가 이슈: 흐름 수정만으로는 부족, UGS OIDC 등록이 추가로 필요했음
+
+당초 Research는 "닉네임 저장 시점에 UGS 세션이 없어서" 토큰 에러가 난다고 분석했고, C안(닉네임 시점을 로그인 후로 통일)으로 세션이 있는 상태에서 저장하도록 흐름을 고쳤다.
+그러나 실기 검증 과정에서, **흐름을 고쳐 로그인 후로 옮겨도 실계정(Google/이메일)은 애초에 UGS 세션(access token) 자체를 받지 못하는** 더 근본적인 문제가 남아 있었음이 드러났다.
+
+- 원인: 2026-06-27부터 미해결로 남아 있던 **UGS OIDC 브릿지 `id provider not found`** — `SignInWithOpenIdConnectAsync("oidc-firebase", token)`가 UGS Dashboard에 OIDC 제공자가 등록되지 않아 실패. 실계정이 UGS PlayerId·access token을 발급받지 못했다.
+- 해결: **UGS Dashboard → Player Authentication → Identity Providers → OpenID Connect에 제공자 등록**.
+  - OIDC Name = `firebase` (UGS가 `oidc-` 접두사 자동 부착 → 최종 provider id = `oidc-firebase`, 코드와 일치)
+  - Client ID = `hexiege` (Firebase project_id = ID 토큰 aud)
+  - OIDC Issuer(URL) = `https://securetoken.google.com/hexiege` (ID 토큰 iss)
+  - Status = Enabled
+- 결과: 실계정이 UGS 세션(access token)을 정상 획득 → Cloud Save "Access token is missing" 에러 최종 해소.
+- 익명 로그인은 OIDC가 아닌 UGS 익명 로그인(`SignInAnonymouslyAsync`)을 쓰므로 이 이슈와 무관하게 이미 정상 동작했다.
+
+즉 이번 작업의 완결에는 **① 코드 흐름 수정(C안) + ② UGS Dashboard OIDC 제공자 등록** 두 가지가 모두 필요했다.
+
+### 실기 검증
+세 로그인 경로(Google/익명/이메일) 전부 성공. 이메일 인증 메일은 스팸함에서 확인 후 인증 완료. 상세 결과는 `Testcase.md`(SINGLE-001~004, 전부 PASS) 참조.
