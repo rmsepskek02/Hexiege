@@ -58,10 +58,13 @@ memory: project
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | UI 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동/전투 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md` | 건물 규칙 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_CanvasSortingOrder.md` | Canvas SortingOrder 규칙 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Sound.md` | 사운드 시스템 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_AI.md` | AI 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_AI_Scenario_Human.md` | Human AI 시나리오 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_AI_Scenario_Spirit.md` | Spirit AI 시나리오 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_AI_Scenario_Transcendence.md` | Transcendence AI 시나리오 |
+| `Assets/_Project/Docs/Skills/SKILLS_GUIDE.md` | Claude Code 스킬 사용 가이드 |
 
 ### 5. 에셋 문서
 | 파일 | 설명 |
@@ -70,6 +73,8 @@ memory: project
 | `Assets/_Project/Docs/Assets/3DAssetCreationGuide.md` | 3D 에셋 제작 가이드 |
 | `Assets/_Project/Docs/Assets/CommonAssetGuide.md` | 공통 에셋 가이드 |
 | `Assets/_Project/Docs/Assets/UIAssetGuide.md` | UI 에셋 가이드 |
+| `Assets/_Project/Docs/Assets/VFXSFXGuide.md` | VFX/SFX 제작 가이드 |
+| `Assets/_Project/Docs/Assets/VFXSFXList.md` | VFX/SFX 에셋 목록 |
 
 ### 6. 프로젝트 관리
 | 파일 | 설명 |
@@ -77,6 +82,9 @@ memory: project
 | `Assets/_Project/Docs/PROJECT_STATUS.md` | 현재 진행 상태, 완료 항목 |
 | `Assets/_Project/Docs/ROADMAP.md` | 미완성/예정 작업 우선순위 |
 | `Assets/_Project/Docs/WORK_HISTORY.md` | 완료된 작업 시간순 이력 |
+| `Assets/_Project/Docs/AABSizeOptimization.md` | Android AAB 용량 최적화 기록 |
+| `Assets/_Project/Docs/BuildAssetOptimizationReport.md` | 빌드 에셋 최적화 감사/중간 리포트 |
+| `Assets/_Project/Docs/UnusedAssetAudit.md` | 미사용 에셋 감사 및 정리 기록 |
 
 ### 7. 작업 사이클 문서 (Task)
 ```

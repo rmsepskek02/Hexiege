@@ -4,7 +4,7 @@
 - 전환 범위: UI 제외 모든 오브젝트(타일/건물/유닛) 전체 3D
 - 카메라 방식: Orthographic + X축 틸트 (각도는 구현 후 테스트로 결정)
 - 좌표 평면: XZ 평면(Y=0, Y=높이)으로 전환 — **Phase 1 완료**
-- 헥스 타일 및 건물(Castle/Barracks/MiningPost): Meshy.ai로 제작 예정
+- 헥스 타일 및 건물(Castle/Barracks/MiningPost): 3D 전환 완료. 헥스 타일은 ProBuilder + SG_HexTile, 건물 3종은 Meshy.ai Image-to-3D 기반 프리팹으로 연동됨
 - 타이밍: 3D 전환 먼저, 이후 3종족/AI 기능 추가
 
 ## Phase 1 수정 파일 (XZ 좌표계 전환 — 완료)

@@ -27,10 +27,13 @@
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, 건물 배치 패널, 인게임 설정 메뉴 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동, 전투 진입, 전투 연계 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md` | 랠리포인트, 건물 철거, 방어 타워 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_CanvasSortingOrder.md` | Canvas SortingOrder 구조 및 씬별 Canvas 계층 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Sound.md` | BGM 전환, SFX 정책, 볼륨 제어, AudioManager 아키텍처 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_AI.md` | AI 난이도, 빌드오더 스크립트, 반응 시스템, 건물 배치 로직, 가드 메커니즘 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_AI_Scenario_Human.md` | Human 종족 AI 빌드오더 시나리오 A/B/C (물량형·테크형·균형형) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_AI_Scenario_Spirit.md` | Spirit 종족 AI 빌드오더 시나리오 (Inferno·Torrent·Quake) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_AI_Scenario_Transcendence.md` | Transcendence 종족 AI 빌드오더 시나리오 (Rush·Flora·Beast) |
+| `Assets/_Project/Docs/Skills/SKILLS_GUIDE.md` | Claude Code 스킬 사용 가이드 |
 
 ### 에셋 문서
 
@@ -40,6 +43,8 @@
 | `Assets/_Project/Docs/Assets/3DAssetCreationGuide.md` | 3D 에셋 제작 가이드 |
 | `Assets/_Project/Docs/Assets/CommonAssetGuide.md` | 공통 에셋 가이드 |
 | `Assets/_Project/Docs/Assets/UIAssetGuide.md` | UI 에셋 가이드 |
+| `Assets/_Project/Docs/Assets/VFXSFXGuide.md` | VFX/SFX 제작 가이드 |
+| `Assets/_Project/Docs/Assets/VFXSFXList.md` | VFX/SFX 에셋 목록 |
 
 ### 프로젝트 관리
 
@@ -49,6 +54,8 @@
 | `Assets/_Project/Docs/ROADMAP.md` | 미완성/예정 작업 우선순위 |
 | `Assets/_Project/Docs/WORK_HISTORY.md` | 완료된 작업 시간순 이력 |
 | `Assets/_Project/Docs/AABSizeOptimization.md` | Android AAB 용량 최적화 기록, 적용 변경, 테스트 체크리스트 |
+| `Assets/_Project/Docs/BuildAssetOptimizationReport.md` | 빌드 에셋 최적화 감사/중간 리포트 |
+| `Assets/_Project/Docs/UnusedAssetAudit.md` | 미사용 에셋 감사 및 정리 기록 |
 
 ### 작업 사이클 (Task)
 

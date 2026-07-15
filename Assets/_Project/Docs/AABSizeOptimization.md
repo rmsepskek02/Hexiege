@@ -1,10 +1,11 @@
 # AAB 용량 최적화 기록
 
 작성일: 2026-07-15
+최신 상태: 2026-07-15 main 병합 완료
 
 ## 요약
 
-`codex/asset-size-optimization` 브랜치에서 Android AAB 빌드 용량을 **190.66 MB**에서 **125.30 MB**로 줄였다.
+`codex/asset-size-optimization` 브랜치에서 Android AAB 빌드 용량을 **190.66 MB**에서 **125.30 MB**로 줄였고, 해당 작업은 main에 병합됐다.
 
 총 감소량은 **65.36 MB**다.
 

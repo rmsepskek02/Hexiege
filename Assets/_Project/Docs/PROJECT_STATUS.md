@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-07-13
-**현재 단계:** 코드 정리 3건 완료(실기 통과, main 반영) — ① `UnitView.StopMovement()` 죽은 코드 삭제(호출 0건, 커밋 8840798), ② 전투 종료 후 Walk 재개의 Animator 런타임 상태 의존 제거(`GetCurrentAnimatorStateInfo` 질의 3곳 → 로컬 추적 필드 `_currentAnimStateHash` + 공통 헬퍼 `ResumeWalkAnimation`, 겉보기 동작 불변 리팩토링, 커밋 97adaad + 후속 주석 블록 최종 삭제), ③ Firebase 인증 게이트(`#if HEXIEGE_ENABLE_FIREBASE_AUTH`) 제거로 심볼 미정의 시 스텁이 컴파일돼 로그인 무조건 실패하던 버그 해소(커밋 4fe1cf0, Firebase Unity SDK 13.11.0 + GPGS 2.1.0 로컬 임포트 전제, mainTemplate.gradle 의존성 복원). 직전 이동/Walk 애니메이션 동기화(2026-07-13)·전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. Google 로그인 실기 성공 유지 — 에디터 "Firebase 초기화 실패" 런타임 로그·UGS OIDC 브릿지는 별도 미해결. AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트 예정
+**최종 수정일:** 2026-07-16
+**현재 단계:** Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트.
 
 ---
 
@@ -47,6 +47,11 @@
 | `UnitView.StopMovement()` 죽은 코드 삭제 | ✅ 완료 (2026-07-13) | 호출 0건(코드베이스 Grep 전수 확인)인 미사용 메서드 삭제. 함께 있던 주석이 이미 제거된 `OnUnitWalkStopped` 이벤트를 언급하던 문서 불일치도 해소. 순수 삭제로 런타임 동작 불변. 커밋 `8840798`(main). |
 | 전투 종료 후 Walk 재개 Animator 상태 의존 제거 (리팩토링) | ✅ 완료 (2026-07-13) | 전투 종료 후 Walk 재개 3곳(`EnterCombatLoopV3` 멀티 서버 분기/싱글 분기, `ResumeFromForwardTileV3`)이 `Animator.GetCurrentAnimatorStateInfo`로 "이미 Walk인지"를 판별하던 것 → CrossFade 블렌딩 도중 출발 상태 반환으로 판별이 어긋날 수 있는 잠재 취약점(프로젝트 자체 원칙 "Animator 런타임 상태 의존 제거", 규칙 U-18·U-22와 동일 방향). **해결**: 신규 필드 `_currentAnimStateHash`(마지막 지시한 상태 해시 로컬 추적, 초기값 0) + 공통 헬퍼 `ResumeWalkAnimation()`. CrossFade 4곳(MoveAlongPathV3 Walk 시작 / StartWalkAnimation / PlayAttackAnimation / StartCombatAnimation)에서 필드 갱신, 위반 3곳을 헬퍼 호출로 대체, Animator 런타임 상태 질의 제거. 실행 컨텍스트가 서버/호스트/싱글 한정이라 클라 애니메이션(규칙 U-22 값 기반 경로) 무영향. 겉보기 동작 불변. 비활성화(주석 처리)했던 기존 블록은 실기 통과 후 최종 삭제 완료. 커밋 `97adaad`+후속. task: `_Tasks/2026-07-13/09_28_anim-resume-state-tracking/`. |
 | Firebase 인증 게이트 제거 (로그인 무조건 실패 버그 수정) | ✅ 완료 (2026-07-13) | main 커밋 `528c7c6`이 도입한 `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 게이트가 심볼 미정의 환경에서 스텁 `FirebaseAuthService`를 컴파일시켜 로그인이 무조건 실패하던 문제. Firebase Unity SDK는 `.gitignore` 정책상 git 미포함(용량 대형 — 각자 로컬 임포트)이므로, 게이트를 제거해 실제 Firebase 코드가 무조건 컴파일되도록 복원(검증된 `combat-system-visuals` 브랜치 상태와 동일). 파일: `FirebaseAuthService.cs`(게이트+스텁 제거), `LoginBootstrapper.cs`(GPGS 가드 2곳), `Assets/Plugins/Android/mainTemplate.gradle`(firebase-auth 24.1.0 / firebase-app-unity 13.11.0 / gpgs-plugin-support 2.1.0 등 Android 의존성 복원). 사용자가 Firebase Unity SDK 13.11.0 + GooglePlayGames v2.1.0 로컬 임포트 후 컴파일/테스트 통과. 커밋 `4fe1cf0`(main). **잔여(별도 이슈)**: 에디터 "Firebase 초기화 실패" 런타임 로그(코드 게이트와 무관), Firebase/EDM 저장소 버전 관리 방침 정리(ROADMAP Phase F-5). |
+
+#### 플랫폼 / 빌드 최적화 (2026-07-15)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Android AAB 용량 최적화 | ✅ 완료 (2026-07-15) | `codex/asset-size-optimization` 작업 main 병합. AAB 용량 **190.66 MB → 125.30 MB**(65.36 MB 절감). 핵심 변경: `Assets/_Project/Texture/Buildings/**`, `Assets/_Project/Texture/Units/**` Android max texture size `1024 → 512`. `_Old` 미사용 에셋 7개 디렉터리 정리, 93개 normal-map PNG + 84개 roughness PNG 정리, 보수적 FBX import 조정 적용. TMP Font Atlas 축소 테스트는 AAB 효과가 작아 되돌림. 상세: `AABSizeOptimization.md`, `BuildAssetOptimizationReport.md`, `UnusedAssetAudit.md`. |
 
 #### 팀별 피아식별 + 신규 유닛 에셋 (2026-03-13)
 | 항목 | 상태 | 비고 |

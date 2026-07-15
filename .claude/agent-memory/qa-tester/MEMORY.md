@@ -87,6 +87,7 @@
 - LocalPlayerTeam.Current 기본값 = Blue → 싱글플레이 동작 항상 확인
 - 팀 기반 로직 변경 시 StartAutoMove의 하드코딩 Blue/Red 확인
 - ViewConverter.IsFlipped 상태가 올바르게 초기화/리셋 되는지 확인
+- **AAB 최적화 후 기기 QA (2026-07-15)**: 3D 건물/유닛 텍스처 Android max size가 512로 낮아짐. 설치/실행, 로그인, 로비 UI 가독성, 인게임 유닛/건물 텍스처 뭉개짐, Blue/Red 팀 색상 변형, emission/공격 이펙트 품질을 우선 확인. 최종 수치/롤백 기준은 `AABSizeOptimization.md`.
 - **CanvasGroup Rule 5 검사**: UI 뷰의 Show/Hide에서 `SetActive(false/true)` 잔존 여부 확인 → 반드시 `CanvasGroup.alpha=0/1 + blocksRaycasts=false/true + interactable=false/true` 패턴으로 구현되어야 함 (DontDestroyOnLoad 오브젝트의 Awake 미호출 버그 + LayoutGroup 레이아웃 깨짐 방지)
 - **Safe Area Rule 4 검사**: 전체화면 배경 요소(`Image`로 화면 전체를 채우는 오브젝트)가 `SafeAreaContainer` 밖(`Canvas` 직속)에 배치되어 있는지 확인 → 배경이 `SafeAreaContainer` 안에 있으면 노치/홈바 기기에서 Safe Area 경계에서 잘려 보임
 

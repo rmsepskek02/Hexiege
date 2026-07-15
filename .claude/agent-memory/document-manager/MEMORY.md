@@ -27,7 +27,7 @@
 - 표준 완료 작업 항목 형식: 시스템 분류 표(`| 항목 | 상태 | 비고 |`)에 행 추가. WORK_HISTORY는 마일스톤 표 상단에 날짜 역순 prepend.
 
 ## 누적 교훈
-- 환경 주의: `.claude/MEMORY.md`의 절대 경로는 Windows(`d:/Dmain/...`)로 적혀 있으나 실제 작업 환경은 Linux(`/home/user/Hexiege/`). 파일 접근은 항상 `/home/user/Hexiege/` 기준.
+- 환경 주의: 작업 환경은 세션마다 Windows/원격 경로가 달라질 수 있음. 현재 프로젝트 루트는 세션의 `cwd`/workspace root를 기준으로 확인하고, 문서에는 기존 Windows 경로(`d:/Dmain/...`) 표기가 남아 있을 수 있음을 감안한다.
 - PROJECT_STATUS.md는 길어서(약 680줄) Read가 truncate됨 → 부분 read한 줄은 Edit 전 해당 위치를 다시 Read해야 편집 가능. 헤더(날짜/단계)는 첫 5줄만 다시 읽으면 됨.
 - 아키텍처 리팩토링 문서화 위치 (2026-06-26 IUnitFactory 작업 기준):
   - TechnicalDesignDocument.md: "Clean Architecture 구조" 섹션 아래 "의존성 방향 추상화(Application 인터페이스 패턴)" 서브섹션 + 맨 끝 "변경 이력" 표.
@@ -52,3 +52,5 @@
 - 한 세션에 독립적인 소규모 작업 여러 건(예: 2026-07-13 죽은 코드 제거+Animator 상태 의존 제거+Firebase 게이트 제거)을 문서화할 때: PROJECT_STATUS/WORK_HISTORY는 **묶어서 1개 dated 서브섹션/마일스톤**으로 기록(각 건은 개별 행/불릿으로 구분), ROADMAP 우선순위 표는 **건별 ✅ 완료 행**으로 분리. game-programmer/qa/orchestrator MEMORY도 묶음 1개 항목으로 prepend. task 폴더가 있는 건(anim-resume)만 해당 Plan.md에 "완료 결과" append(Research 원상태 유지). 신규 규칙이 없는 순수 리팩토링/버그수정은 GameSystemRules·TDD·GDD 무수정(불일치 없으면 건드리지 않음).
 - 로컬 임포트 대형 SDK를 `#if SYMBOL` 게이트로 감싸면 심볼 미정의 시 스텁이 조용히 대체돼 기능 무조건 실패 — 이 교훈은 game-programmer/qa MEMORY + AuthSystemRules("기술 구성" 절의 SDK 저장소 방침 노트) + ROADMAP F-5에 분산 기록. AuthSystemRules는 로그인 SDK 의존 문서라 SDK 저장소/게이트 방침 노트를 "기술 구성" 절에 두는 것이 적절.
 - 원격(Linux) 세션에서는 사용자 MEMORY(`C:/Users/rmsep/...`) 접근 불가 → WORKFLOW [10] 사용자 MEMORY 갱신은 건너뛰고 그 사실을 보고에 명시. 커밋 해시는 git 미사용 방침이라 사용자가 프롬프트로 제공한 값을 그대로 기재(직접 조회하지 않음).
+- 문서 인덱스 동기화 감사(2026-07-16): `_Tasks`/`_Logs` 제외 상시 Docs Markdown 목록을 실제 파일 목록 기준으로 확인하고, AGENTS.md / document-manager.md / GameSystemRules.md의 누락을 보정. 누락되기 쉬운 문서: `GameSystemRules_CanvasSortingOrder.md`, `GameSystemRules_Sound.md`, `Assets/VFXSFXGuide.md`, `Assets/VFXSFXList.md`, `Skills/SKILLS_GUIDE.md`, `AABSizeOptimization.md`, `BuildAssetOptimizationReport.md`, `UnusedAssetAudit.md`.
+- AAB 최적화 문서 관계(2026-07-16 정리): 최종 수치/적용 변경/롤백 기준은 `AABSizeOptimization.md`가 권위 문서. `BuildAssetOptimizationReport.md`는 빌드 에셋 import 감사/중간 리포트, `UnusedAssetAudit.md`는 미사용 에셋 탐지와 삭제 판단 근거 기록으로 둔다.

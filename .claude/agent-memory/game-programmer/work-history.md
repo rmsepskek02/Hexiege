@@ -4,6 +4,21 @@ MEMORY.md의 최근 작업 요약에서 더 오래된/상세한 작업 기록을
 
 ---
 
+## Android AAB 빌드 용량 최적화 (2026-07-15) ✅ 완료
+
+**상세 문서**: `Assets/_Project/Docs/AABSizeOptimization.md`, `BuildAssetOptimizationReport.md`, `UnusedAssetAudit.md`
+
+Android AAB 용량을 **190.66 MB → 125.30 MB**로 줄여 총 **65.36 MB** 절감. 작업 브랜치 `codex/asset-size-optimization`이 main에 병합됨.
+
+- **핵심 절감**: `Assets/_Project/Texture/Buildings/**`, `Assets/_Project/Texture/Units/**` Android max texture size `1024 → 512`
+- **정리**: `_Old` 미사용 에셋 디렉터리 7개, normal-map PNG 93개, roughness PNG 84개 삭제
+- **FBX import**: 건물 및 명확한 장비/무기 FBX에 mesh compression, blend shape import off, animation import off, animation type none 등 보수적 설정 적용. 최종 AAB 감소 효과는 텍스처보다 작음
+- **되돌린 실험**: TMP Font Atlas 축소는 패킹 기준 절감은 있었지만 최종 AAB 효과가 작아 원복
+- **유지한 영역**: UI 배경, 유닛 초상화, 건물 아이콘, UI 스프라이트, TextMeshPro 폰트 에셋
+- **후속 QA**: 기기에서 설치/실행, 로그인, 로비 UI 가독성, 인게임 유닛/건물 텍스처 품질, 팀 색상 변형, 공격 이펙트/emission 품질 확인
+
+---
+
 ## GameBootstrapper.Setup.cs 하드코딩 배열 파생 (2026-06-25) ✅ 완료
 
 **task 문서**: `Assets/_Project/Docs/_Tasks/2026-06-25/07_23_하드코딩배열-파생/`

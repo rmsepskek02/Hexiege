@@ -55,7 +55,7 @@
 | Barracks | 30 | 100골드 | 유닛 생산 |
 | MiningPost | 20 | 50골드 | 채굴소, 금광 타일 전용 |
 
-**3D 모델**: Meshy.ai로 제작 예정 (Castle/Barracks/MiningPost)
+**3D 모델**: Castle/Barracks/MiningPost는 Meshy.ai Image-to-3D 제작 및 Blue/Red 팀별 프리팹 연동 완료. 신규 유닛/건물은 `AssetList.md`와 `PROJECT_STATUS.md` 기준으로 상태 확인 후 기획한다.
 
 ### 자원 시스템
 - 시작 골드: 500

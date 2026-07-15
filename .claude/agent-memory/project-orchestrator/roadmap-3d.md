@@ -1,8 +1,10 @@
 # 3D 전환 + 네트워크 점검 로드맵 (2026-02-27 확정)
 
+> 이 문서는 3D 전환 당시의 실행 로드맵이다. 2026-03-01 기준 3D 전환은 완료됐으며, 최신 상태는 `PROJECT_STATUS.md`와 `.claude/agent-memory/project-orchestrator/MEMORY.md`를 우선한다.
+
 ## 전제 확정 사항
-- 헥스 타일: Meshy.ai 3D 에셋 제작
-- 건물(Castle/Barracks/MiningPost): Meshy.ai 3D 에셋 제작
+- 헥스 타일: ProBuilder Cylinder + SG_HexTile Shader Graph 제작 완료
+- 건물(Castle/Barracks/MiningPost): Meshy.ai Image-to-3D 제작 및 Blue/Red 프리팹 연동 완료
 - 카메라: Orthographic + X축 틸트 (각도는 Phase 3에서 테스트)
 - 좌표 평면: XZ 평면 (Y=높이)
 - 우선순위: 3D 전환 먼저 → 이후 3종족/AI 기능 추가
@@ -173,9 +175,8 @@ Meshy.ai에서 제작한 FBX 에셋을 Unity에 임포트하고
 프리팹과 연결하여 최종 비주얼 완성.
 
 ### 에셋 현황
-- 현재 위치: `Assets/Resources/3DModel/`
-- 존재 파일: Idle/Walk/Dead/Running FBX 5종 + pistol.controller
-- 미제작: 헥스 타일 3D 메시, Castle, Barracks, MiningPost
+- 현재 최신 상태: 3D 전환 완료. 헥스 타일, Castle, Barracks, MiningPost, GoldMineTile, RallyPointMarker 프리팹 연동 완료.
+- 이 절 아래의 연동 작업 목록은 당시 계획 기록이며, 최신 신규 에셋 상태는 `Assets/_Project/Docs/Assets/AssetList.md`를 기준으로 확인한다.
 
 ### 연동 작업 목록
 1. Meshy.ai에서 헥스 타일 FBX 익스포트 → Unity 임포트

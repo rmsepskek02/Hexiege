@@ -25,13 +25,13 @@ Unity 6 기반 헥스 RTS 게임. **2D → 3D 전환 완료 (2026-02-27)**
 - **UI만 2D**, 타일/건물/유닛은 모두 3D 메시
 
 ### 3D 에셋 현황
-- **유닛**: Pistoleer (Meshy.ai 제작 완료)
+- **유닛**: Pistoleer/Assault/Sniper 및 신규 유닛 프리팹 라인 확장 진행
   - 메시: `Assets/_Project/Models/Units/Pistoleer/Pistoleer.fbx`
   - 애니메이션: `Assets/_Project/Animations/Units/Pistoleer/` (Pistoleer_Idle/Walk/Run/Dead/Attack.anim)
   - Animator 파라미터: `IsWalking`(bool), `IsDead`(bool), `Attack`(trigger)
   - Avatar: Pistoleer.fbx 기준 (추가 유닛은 Copy From Other Avatar)
-- **건물**: Castle/Barracks/MiningPost — **Meshy.ai 제작 예정**
-- **타일**: HexTile_FlatTop — **Meshy.ai 제작 예정**
+- **건물**: Castle/Barracks/MiningPost — Meshy.ai Image-to-3D 제작 완료, Blue/Red 팀별 프리팹 연동 완료
+- **타일**: HexTile_FlatTop — ProBuilder Cylinder + SG_HexTile Shader Graph 제작 완료
 
 ### 헥스 그리드 스펙
 - **기본 맵**: FlatTop 10×29
@@ -44,7 +44,7 @@ Assets/_Project/
 ├── Models/Buildings/Castle/, Barracks/, MiningPost/
 ├── Models/Tiles/HexTile/
 ├── Animations/Units/Pistoleer/Pistoleer_[State].anim
-├── Textures/  → tex_[name]_albedo.png
+├── Texture/  → tex_[name]_[channel].png
 ├── Materials/ → mat_[name].mat
 └── Prefabs/Units/, Buildings/, Tiles/, Misc/
 ```

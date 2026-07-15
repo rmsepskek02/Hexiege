@@ -14,11 +14,12 @@
 | [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
 | [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계 |
 | [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템 |
+| [GameSystemRules_CanvasSortingOrder.md](GameSystemRules/GameSystemRules_CanvasSortingOrder.md) | Canvas SortingOrder 구조, 씬별 Canvas 계층, 전역 UI z-order |
+| [GameSystemRules_Sound.md](GameSystemRules/GameSystemRules_Sound.md) | BGM 전환 규칙, SFX 정책, 볼륨 제어, AudioManager 아키텍처 |
 | [GameSystemRules_AI.md](GameSystemRules/GameSystemRules_AI.md) | AI 난이도 시스템, 빌드오더 스크립트, 반응 시스템, 건물 배치 로직, 가드 메커니즘 |
 | [GameSystemRules_AI_Scenario_Human.md](GameSystemRules/GameSystemRules_AI_Scenario_Human.md) | Human 종족 AI 빌드오더 시나리오 A/B/C |
 | [GameSystemRules_AI_Scenario_Spirit.md](GameSystemRules/GameSystemRules_AI_Scenario_Spirit.md) | Spirit 종족 AI 빌드오더 시나리오 A/B/C |
 | [GameSystemRules_AI_Scenario_Transcendence.md](GameSystemRules/GameSystemRules_AI_Scenario_Transcendence.md) | Transcendence 종족 AI 빌드오더 시나리오 A/B/C |
-| [GameSystemRules_Sound.md](GameSystemRules/GameSystemRules_Sound.md) | BGM 전환 규칙, SFX 정책, 볼륨 제어, AudioManager 아키텍처 |
 
 ---
 
@@ -38,6 +39,7 @@
 
 ### UI 관련 작업
 → [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md)
+- Canvas SortingOrder 구조는 [GameSystemRules_CanvasSortingOrder.md](GameSystemRules/GameSystemRules_CanvasSortingOrder.md)를 함께 확인
 - Canvas Scaler, 앵커 기반 배치, Safe Area, CanvasGroup 숨김/표시
 - 폰트, 골드 부족 표시, 팝업/모달 타입 구분
 - 생산 패널: 큐 구조, 골드 차감 시점, 자동 생산, 토스트 메시지

@@ -32,9 +32,16 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### Android AAB 빌드 용량 최적화 (2026-07-15) ✅ main 반영
+- **결과**: `codex/asset-size-optimization` 작업으로 Android AAB **190.66 MB → 125.30 MB**(65.36 MB 절감).
+- **핵심 효과**: 3D 모델 텍스처 Android import max texture size 조정이 가장 큼. `Assets/_Project/Texture/Buildings/**`, `Assets/_Project/Texture/Units/**`를 `1024 → 512`로 낮춤.
+- **정리 범위**: `_Old` 미사용 에셋 디렉터리 7개, normal-map PNG 93개, roughness PNG 84개 정리. 건물/장비 FBX는 mesh compression + blend shape/animation import 비활성화 등 보수적 import 조정.
+- **교훈**: 원본 PNG/FBX 파일 크기와 최종 AAB 패킹 크기는 다르다. 빌드 용량은 Android import override와 실제 참조/패킹 결과 기준으로 판단해야 함. TMP Font Atlas 축소는 패킹 기준 절감은 있었지만 최종 AAB 효과가 작아 되돌림.
+- **후속**: 기기 QA에서 3D 유닛/건물 텍스처 품질, 팀 색상 변형, emission/공격 이펙트 품질 확인. 상세/롤백 기준은 `Assets/_Project/Docs/AABSizeOptimization.md`.
+
 ### 코드 정리 3건 — 죽은 코드 제거 / Animator 상태 의존 제거 / Firebase 게이트 제거 (2026-07-13) ✅ 실기 통과·main 반영
 - **StopMovement() 삭제(죽은 코드)**: `UnitView.StopMovement()` 호출 0건(Grep 전수) → 삭제. 주석이 이미 제거된 `OnUnitWalkStopped` 이벤트를 언급하던 불일치도 해소. 런타임 불변. 커밋 `8840798`.
-- **Animator 상태 의존 제거(리팩토링, 패턴)**: 전투 종료 후 Walk 재개 3곳(`EnterCombatLoopV3` 멀티서버/싱글, `ResumeFromForwardTileV3`)이 `Animator.GetCurrentAnimatorStateInfo`로 "이미 Walk?"를 판별 → CrossFade 블렌딩 중 **출발 상태 반환**으로 어긋날 잠재 취약점(자체 원칙 "Animator 런타임 상태 의존 금지", `WaitForAttackCycleEnd` 제거 시 확립, 규칙 U-18/U-22와 동일 방향). **해결**: 신규 `_currentAnimStateHash`(마지막 지시한 상태 해시 로컬 추적, 초기값 0≠어떤 해시) + 헬퍼 `ResumeWalkAnimation()`(speed=1 후 `_currentAnimStateHash==StateWalk`면 skip, 아니면 Walk CrossFade). **CrossFade 발생 4곳 전부**(MoveAlongPathV3 Walk시작/StartWalkAnimation/PlayAttackAnimation/StartCombatAnimation)에서 필드 갱신해야 정합 — 한 곳 누락 시 로컬상태-실애니 불일치. 3곳은 `MoveAlongPathV3` 서버 가드 이후라 서버/호스트/싱글 한정, 클라(규칙22 값기반) 무영향. 겉보기 불변. 주석 처리 후 실기 통과 시 최종 삭제. 커밋 `97adaad`+후속. task `_Tasks/2026-07-13/09_28_anim-resume-state-tracking/`.
+- **Animator 상태 의존 제거(리팩토링, 패턴)**: 전투 종료 후 Walk 재개 3곳(`EnterCombatLoopV3` 멀티서버/싱글, `ResumeFromForwardTileV3`)이 `Animator.GetCurrentAnimatorStateInfo`로 "이미 Walk?"를 판별 → CrossFade 블렌딩 중 **출발 상태 반환**으로 어긋날 잠재 취약점(자체 원칙 "Animator 런타임 상태 의존 금지", `WaitForAttackCycleEnd` 제거 시 확립, 규칙 U-18/U-22와 동일 방향). **해결**: 신규 `_currentAnimStateHash`(마지막 지시한 상태 해시 로컬 추적, 초기값 0≠어떤 해시) + 헬퍼 `ResumeWalkAnimation()`(speed=1 후 `_currentAnimStateHash==StateWalk`면 skip, 아니면 Walk CrossFade). **CrossFade 발생 4곳 전부**(MoveAlongPathV3 Walk시작/StartWalkAnimation/PlayAttackAnimation/StartCombatAnimation)에서 필드 갱신해야 정합 — 한 곳 누락 시 로컬상태-실애니 불일치. 3곳은 `MoveAlongPathV3` 서버 가드 이후라 서버/호스트/싱글 한정, 클라(규칙22 값기반) 무영향. 겉보기 불변. 실기 통과 후 주석 처리 블록 최종 삭제 완료. 커밋 `97adaad`+후속. task `_Tasks/2026-07-13/09_28_anim-resume-state-tracking/`.
 - **교훈 — "이미 X 상태인가"는 로컬 논리상태 추적으로 판별**: `GetCurrentAnimatorStateInfo`는 CrossFade 진행 중 출발 상태를 반환하므로 블렌딩 도중 질의 시 오판. 마지막으로 지시한 상태를 필드로 기억할 것. 새 CrossFade 지점 추가 시 필드 갱신도 함께(설계 규약).
 - **Firebase 인증 게이트 제거(로그인 무조건 실패 버그)**: main `528c7c6`의 `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 게이트가 심볼 미정의 시 **스텁 FirebaseAuthService 컴파일** → 로그인 항상 실패. Firebase Unity SDK는 `.gitignore`로 git 미포함(대형, 로컬 임포트 정책) → 게이트 제거로 실제 Firebase 코드 무조건 컴파일 복원(검증된 `combat-system-visuals`와 동일). 파일: FirebaseAuthService.cs(게이트+스텁 제거), LoginBootstrapper.cs(GPGS 가드 2곳), `Assets/Plugins/Android/mainTemplate.gradle`(firebase-auth 24.1.0/firebase-app-unity 13.11.0/gpgs-plugin-support 2.1.0 등 복원). 사용자 로컬 임포트(Firebase 13.11.0+GPGS 2.1.0) 후 컴파일/테스트 PASS. 커밋 `4fe1cf0`. **교훈**: 로컬 임포트 대형 SDK를 `#if SYMBOL` 게이트로 감싸면 심볼 누락 시 스텁이 조용히 대체돼 기능 무조건 실패 — 게이트 없이 임포트 자체로 존재 판단. 잔여: 에디터 "Firebase 초기화 실패" 런타임 로그(게이트와 무관, 별도).
 

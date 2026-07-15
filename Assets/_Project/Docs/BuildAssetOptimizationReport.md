@@ -2,6 +2,8 @@
 
 Generated during the `codex/build-asset-size-optimization` branch audit.
 
+> 최종 AAB 용량 결과와 적용/롤백 기준은 `AABSizeOptimization.md`를 권위 문서로 본다. 이 문서는 빌드 에셋 최적화 과정의 감사 및 중간 리포트다.
+
 ## Applied Scope
 
 - Target roots: `Assets/_Project/Texture`, `Assets/_Project/Sprites`

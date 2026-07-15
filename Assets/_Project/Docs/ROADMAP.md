@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-07-13
-**현재 단계:** 코드 정리 3건 완료(실기 통과, main 반영) — ① `UnitView.StopMovement()` 죽은 코드 삭제(커밋 8840798), ② 전투 종료 후 Walk 재개 Animator 상태 의존 제거(로컬 추적 필드 `_currentAnimStateHash`+헬퍼 `ResumeWalkAnimation`, 겉보기 동작 불변, 커밋 97adaad), ③ Firebase 인증 게이트 제거로 로그인 무조건 실패 버그 해소(커밋 4fe1cf0, SDK 로컬 임포트 전제). 직전 이동/Walk 애니메이션 동기화(2026-07-13) 완료 유지. 후속(Phase F): 빌드 에셋 용량 최적화, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트
+**최종 수정일:** 2026-07-16
+**현재 단계:** Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업으로 AAB 용량 **190.66 MB → 125.30 MB** 절감. 3D 건물/유닛 텍스처 Android max texture size `1024 → 512`, `_Old` 미사용 에셋 정리, normal/roughness PNG 정리, 보수적 FBX import 조정 적용. 후속(Phase F): 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -39,7 +39,7 @@
 | ✅ 완료 | 죽은 코드 제거 — `UnitView.StopMovement()` 미사용 메서드 삭제(호출 0건, 커밋 8840798) (2026-07-13) | 코드 정리 | 소 |
 | ✅ 완료 | Animator 상태 의존 제거 — 전투 종료 후 Walk 재개 3곳의 `GetCurrentAnimatorStateInfo` 질의 → 로컬 추적 필드 기반 판별 리팩토링(겉보기 동작 불변, 커밋 97adaad) (2026-07-13) | 코드 정리 | 소 |
 | ✅ 완료 | Firebase 인증 게이트 제거 — `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 스텁이 로그인 무조건 실패시키던 버그 수정, 실제 Firebase 코드 무조건 컴파일 복원(커밋 4fe1cf0) (2026-07-13) | QA/버그 | 소 |
-| 🟡 중간 | 빌드 에셋 용량 최적화 — base 모듈 360MB. Split Application Binary(OBB 분리) + 텍스처 압축/해상도 최적화 | 플랫폼 | 중 |
+| ✅ 완료 | 빌드 에셋 용량 최적화 — Android AAB 190.66 MB → 125.30 MB 절감(2026-07-15). 3D 건물/유닛 텍스처 Android max size 512 적용, 미사용 `_Old` 에셋/normal/roughness PNG 정리, FBX import 조정 | 플랫폼 | 중 |
 | 🟡 중간 | 피격 VFX 프리셋 연결 — `UnitEffectConfig.hitPreset` Inspector 배선(Human 6종 등 미연결) | 에셋 | 소 |
 | 🟢 낮음 | 미구현 특수 타격 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 구현 시 Attack 클립 `OnAttackHit` 이벤트 주입 | 기능/에셋 | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
@@ -160,10 +160,12 @@
 - **검증**: 3차 로그 15,316줄 — 생성 634기 전원 상태 적용 보장, 육안 걷기 미재생/뒤로 밀림 소멸. 잔여 41건은 스폰 직후 우회 경로를 판정 지표가 오탐한 계측 한계로 코드 무수정 종결. 규칙 U-22 등재.
 - **task**: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`.
 
-### F-2. 빌드 에셋 용량 최적화 🟡 중간
-- **현황**: base 모듈 360MB.
-- **작업**: Split Application Binary(OBB 분리) 적용 + 텍스처 압축/해상도 최적화.
-- **비고**: 이번 태스크와 별개의 플랫폼 작업.
+### F-2. 빌드 에셋 용량 최적화 ✅ 완료 (2026-07-15)
+- **결과**: Android AAB 용량 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 작업 브랜치 `codex/asset-size-optimization`이 main에 병합됨.
+- **주요 변경**: `Assets/_Project/Texture/Buildings/**`, `Assets/_Project/Texture/Units/**` Android max texture size `1024 → 512`. `_Old` 미사용 에셋 디렉터리 7개 정리, normal-map PNG 93개 + roughness PNG 84개 정리, 건물/장비 FBX import를 보수적으로 조정.
+- **유지한 영역**: UI 배경, 유닛 초상화, 건물 아이콘, UI 스프라이트, TextMeshPro 폰트 에셋은 품질 확인 전 유지. TMP Font Atlas 축소 테스트는 AAB 효과가 작아 되돌림.
+- **후속 확인**: 기기 QA에서 설치/실행, 로그인, 로비 UI 가독성, 인게임 유닛/건물 텍스처 품질, 팀 색상 변형, emission/공격 이펙트 품질을 확인한다.
+- **상세 문서**: `AABSizeOptimization.md`, `BuildAssetOptimizationReport.md`, `UnusedAssetAudit.md`.
 
 ### F-3. 피격 VFX 프리셋 연결 🟡 중간
 - **작업**: `UnitEffectConfig.hitPreset`을 Inspector에서 각 유닛에 배선. Human 6종 등 미연결.

@@ -2,6 +2,8 @@
 
 Generated during the build asset optimization pass.
 
+> 최종 AAB 용량 결과와 기기 QA 체크리스트는 `AABSizeOptimization.md`를 권위 문서로 본다. 이 문서는 미사용 에셋 탐지와 정리 판단의 근거 기록이다.
+
 ## Scan Method
 
 - Scanned PNG assets under `Assets/_Project/Texture` and `Assets/_Project/Sprites`.
