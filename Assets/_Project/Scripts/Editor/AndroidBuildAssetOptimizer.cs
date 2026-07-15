@@ -230,6 +230,8 @@ namespace Hexiege.EditorTools
             bool isUiBackground = ContainsIgnoreCase(normalized, "/Sprites/UI/Backgrounds/");
             bool isStoreGraphic = ContainsIgnoreCase(normalized, "/Sprites/UI/store_");
             bool isUiSprite = normalized.StartsWith("Assets/_Project/Sprites/", StringComparison.OrdinalIgnoreCase);
+            bool isModelTexture = normalized.StartsWith("Assets/_Project/Texture/Buildings/", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("Assets/_Project/Texture/Units/", StringComparison.OrdinalIgnoreCase);
 
             if (isUiBackground || isStoreGraphic)
             {
@@ -239,6 +241,11 @@ namespace Hexiege.EditorTools
             if (isUiSprite)
             {
                 return new TextureRule(defaultMaxTextureSize: 2048, androidMaxTextureSize: 1024, compressionQuality: 50);
+            }
+
+            if (isModelTexture)
+            {
+                return new TextureRule(defaultMaxTextureSize: 2048, androidMaxTextureSize: 512, compressionQuality: 50);
             }
 
             return new TextureRule(defaultMaxTextureSize: 2048, androidMaxTextureSize: 1024, compressionQuality: 50);
