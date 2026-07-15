@@ -48,6 +48,7 @@
 | `Assets/_Project/Docs/PROJECT_STATUS.md` | 현재 진행 상태, 완료 항목 |
 | `Assets/_Project/Docs/ROADMAP.md` | 미완성/예정 작업 우선순위 |
 | `Assets/_Project/Docs/WORK_HISTORY.md` | 완료된 작업 시간순 이력 |
+| `Assets/_Project/Docs/AABSizeOptimization.md` | Android AAB 용량 최적화 기록, 적용 변경, 테스트 체크리스트 |
 
 ### 작업 사이클 (Task)
 
