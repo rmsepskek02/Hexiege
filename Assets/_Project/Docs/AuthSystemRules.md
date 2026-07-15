@@ -36,6 +36,8 @@
 | Firebase Authentication SDK | 로그인 시스템 전체 (계정 생성, 인증, 세션 관리) |
 | Google Play Games Plugin for Unity | Google 로그인 시 Google idToken 발급 |
 
+> **SDK 저장소 방침 (2026-07-13 확정)**: Firebase Unity SDK / Google Play Games Plugin은 용량이 커 프로젝트 `.gitignore` 정책상 git에 커밋하지 않고 각 개발자가 로컬에서 임포트한다(기준: Firebase Unity SDK 13.11.0, GooglePlayGames v2.1.0). 과거 `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 컴파일 게이트가 심볼 미정의 시 스텁 `FirebaseAuthService`를 컴파일해 로그인이 무조건 실패하는 문제가 있어 게이트를 제거했다(커밋 4fe1cf0). **SDK 존재 여부는 컴파일 심볼이 아니라 임포트 자체로 판단하며, 별도 컴파일 게이트를 두지 않는다.** Android 의존성은 `Assets/Plugins/Android/mainTemplate.gradle`에 명시된다. SDK/EDM 자체의 버전 관리(커밋/제외) 방침 확정은 별도 과제(ROADMAP Phase F-5). (참고: 게이트 제거와 별개로 에디터 "Firebase 초기화 실패" 런타임 로그가 남아 있을 수 있으며 이는 미해결 이슈다.)
+
 ### 레이어별 구성
 
 | 레이어 | 구성 요소 |

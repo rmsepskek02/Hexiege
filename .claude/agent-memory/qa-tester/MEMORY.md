@@ -96,6 +96,9 @@
 - IsPointerOverUI의 Debug.Log — 매 클릭마다 콘솔 출력, 프로덕션 전 제거 필요
 - **3D 전환 후**: 신규 Factory 작성 시 Z-depth 기반 배치 확인 (sortingOrder 미사용)
   - 올바른 렌더 순서: 타일(Y=0) < 건물(Y=높이) < 유닛 (카메라에서 멀→가까운 순)
+- **Animator 런타임 상태 질의(`GetCurrentAnimatorStateInfo`)로 "이미 X 상태?" 판별**: CrossFade 블렌딩 도중 출발 상태를 반환해 판별이 어긋날 수 있음. 프로젝트 원칙상 로컬 논리상태 추적으로 대체해야 함(2026-07-13 UnitView 3곳 제거 완료 — `_currentAnimStateHash`/`ResumeWalkAnimation`). **신규 애니메이션 전환 코드 리뷰 시 `GetCurrentAnimatorStateInfo` 잔존 여부를 Grep으로 점검**할 것.
+- **로컬 임포트 대형 SDK를 `#if SYMBOL` 컴파일 게이트로 감싸는 패턴 위험**: 심볼 미정의 시 스텁이 조용히 대체돼 기능이 무조건 실패(2026-07-13 Firebase `#if HEXIEGE_ENABLE_FIREBASE_AUTH` → 로그인 항상 실패, 게이트 제거로 해소). Firebase/GPGS 등 `.gitignore`로 git 미포함·로컬 임포트하는 SDK 관련 작업 QA 시, 컴파일 게이트/스텁 존재 여부를 확인.
+- **죽은 코드 삭제 검증 패턴**: 미사용 메서드 삭제 시 Grep 전수로 호출 0건 확인(2026-07-13 `UnitView.StopMovement()`).
 
 ## 터치 입력 구조
 - CameraController: EnhancedTouch 기반, OnEnable/OnDisable에서 Enable/Disable

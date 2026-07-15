@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-07-13
-**현재 단계:** 이동/Walk 애니메이션 동기화 완료(레벨 동기화 전환, 실기/로그 검증 PASS) — 애니메이션 상태를 엣지 RPC → NetworkVariable 레벨 동기화로 전환(스폰 레이스 유실 소멸), Initialize 후 재적용 봉합, 재경로 첫 스텝 역방향 보정(282→41, 잔여는 계측 오탐). 규칙 U-22 등재. 후속(Phase F): 빌드 에셋 용량 최적화, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트
+**현재 단계:** 코드 정리 3건 완료(실기 통과, main 반영) — ① `UnitView.StopMovement()` 죽은 코드 삭제(커밋 8840798), ② 전투 종료 후 Walk 재개 Animator 상태 의존 제거(로컬 추적 필드 `_currentAnimStateHash`+헬퍼 `ResumeWalkAnimation`, 겉보기 동작 불변, 커밋 97adaad), ③ Firebase 인증 게이트 제거로 로그인 무조건 실패 버그 해소(커밋 4fe1cf0, SDK 로컬 임포트 전제). 직전 이동/Walk 애니메이션 동기화(2026-07-13) 완료 유지. 후속(Phase F): 빌드 에셋 용량 최적화, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -36,6 +36,9 @@
 | ✅ 완료 | 사운드 시스템 — 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 (AudioManager 음소거 + 공용 VolumeControlBinder + 로비 설정 탭 배선 + 실기 버그 3건 수정, 2026-07-09 실기 PASS) | 기능/UI | 중 |
 | ✅ 완료 | 전투 타격 타이밍 동기화 — 타격 프레임 클립 이벤트 단일 소스화 + 서버 Tick 정밀화 + 피격 표현 큐 + 타워 발사 VFX/원거리 트레이서 + 기존 버그 3건 수정 (2026-07-12 실기/로그 검증 PASS) | 기능 | 대 |
 | ✅ 완료 | 이동/Walk 애니메이션 동기화 (2026-07-13) — 애니메이션 상태를 엣지 RPC → NetworkVariable 레벨 동기화 전환(스폰 레이스 유실 소멸) + Initialize 후 재적용 봉합 + 재경로 첫 스텝 역방향 보정. 규칙 U-22 등재 | QA/버그 | 중 |
+| ✅ 완료 | 죽은 코드 제거 — `UnitView.StopMovement()` 미사용 메서드 삭제(호출 0건, 커밋 8840798) (2026-07-13) | 코드 정리 | 소 |
+| ✅ 완료 | Animator 상태 의존 제거 — 전투 종료 후 Walk 재개 3곳의 `GetCurrentAnimatorStateInfo` 질의 → 로컬 추적 필드 기반 판별 리팩토링(겉보기 동작 불변, 커밋 97adaad) (2026-07-13) | 코드 정리 | 소 |
+| ✅ 완료 | Firebase 인증 게이트 제거 — `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 스텁이 로그인 무조건 실패시키던 버그 수정, 실제 Firebase 코드 무조건 컴파일 복원(커밋 4fe1cf0) (2026-07-13) | QA/버그 | 소 |
 | 🟡 중간 | 빌드 에셋 용량 최적화 — base 모듈 360MB. Split Application Binary(OBB 분리) + 텍스처 압축/해상도 최적화 | 플랫폼 | 중 |
 | 🟡 중간 | 피격 VFX 프리셋 연결 — `UnitEffectConfig.hitPreset` Inspector 배선(Human 6종 등 미연결) | 에셋 | 소 |
 | 🟢 낮음 | 미구현 특수 타격 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 구현 시 Attack 클립 `OnAttackHit` 이벤트 주입 | 기능/에셋 | 중 |
@@ -174,3 +177,4 @@
 - **현황**: 이번 세션에서 발견 — 신규 환경에 저장소를 클론하면 Firebase/EDM(External Dependency Manager) 관련 임포트가 누락되어 재임포트가 필요한 문제.
 - **작업**: Firebase/EDM 패키지·플러그인을 저장소에 어떻게 커밋/제외할지(버전 관리 방침)를 정리하여 신규 클론 시 재임포트 없이 빌드 가능하도록 정비.
 - **비고**: 인프라/저장소 관리 작업(코드 아님).
+- **2026-07-13 진행**: 관련하여 `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 컴파일 게이트를 제거(커밋 4fe1cf0)해 SDK 로컬 임포트 시 실제 Firebase 코드가 무조건 컴파일되도록 복원(스텁 컴파일로 로그인 무조건 실패하던 버그 해소). **남은 작업은 SDK/EDM 자체의 버전 관리(커밋/제외) 방침 확정**으로, 게이트 제거와 별개.
