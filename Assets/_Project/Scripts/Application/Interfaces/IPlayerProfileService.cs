@@ -34,5 +34,16 @@ namespace Hexiege.Application
         /// <param name="nickname">저장할 닉네임(검증은 UseCase 에서 선행).</param>
         /// <param name="code">4자리 숫자 코드.</param>
         Task SaveNicknameAsync(string nickname, string code);
+
+        /// <summary>
+        /// 닉네임/코드와 함께 "무료 닉네임 변경 사용 여부(hasUsedFreeNicknameChange)"를 저장한다.
+        ///   - 닉네임 변경(무료 1회) 흐름에서 사용한다. 변경을 저장하는 동시에
+        ///     무료 소진 플래그를 true 로 함께 기록하기 위한 오버로드다.
+        ///   - 기존 2인자 오버로드는 최초 닉네임 설정(플래그 변경 불필요)용으로 그대로 유지된다.
+        /// </summary>
+        /// <param name="nickname">저장할 닉네임(검증은 UseCase 에서 선행).</param>
+        /// <param name="code">4자리 숫자 코드(변경 시에도 기존 값을 유지해 전달).</param>
+        /// <param name="hasUsedFreeNicknameChange">무료 닉네임 변경을 사용했는지 여부.</param>
+        Task SaveNicknameAsync(string nickname, string code, bool hasUsedFreeNicknameChange);
     }
 }

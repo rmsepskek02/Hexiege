@@ -40,8 +40,16 @@ namespace Hexiege.EditorTools
         private const string BoldFontPath = "Assets/_Project/Fonts/Maplestory Bold SDF.asset";
         private const string RowPrefabPath = "Assets/_Project/Prefabs/UI/RankRow.prefab";
 
+        // 스프라이트 경로(확정 결정 4·5).
+        private const string PanelDarkSpritePath = "Assets/_Project/Sprites/UI/Panels/ui_panel_dark.png";
+        private const string BtnSkySpritePath = "Assets/_Project/Sprites/UI/Buttons/ui_btn_sky.png";
+
         // 헤더/행 열 순서(좌→우). RankingView 정렬 매핑과 일치해야 한다.
         private static readonly string[] ColumnLabels = { "순위", "닉네임", "승률", "게임수", "승", "패" };
+
+        // 열별 폭 비율(고정 픽셀 대신 flexibleWidth 비율, UI 규칙 2). ColumnLabels 와 같은 순서.
+        //   순위 0.6 / 닉네임 2.0 / 승률 1.0 / 게임수 1.0 / 승 0.8 / 패 0.8
+        private static readonly float[] ColumnWidths = { 0.6f, 2.0f, 1.0f, 1.0f, 0.8f, 0.8f };
 
         [MenuItem("Hexiege/Setup/Create Ranking Table (Lobby)")]
         public static void Run()
@@ -67,15 +75,33 @@ namespace Hexiege.EditorTools
                 Debug.Log($"[Setup] RankingPanel('{rankingPanel.name}')에 RankingView 컴포넌트를 새로 추가했습니다.");
             }
 
-            // ── 2) 폰트 로드 ─────────────────────────────────────────────
+            // ── 2) 폰트/스프라이트 로드 ──────────────────────────────────
             TMP_FontAsset lightFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(LightFontPath);
             TMP_FontAsset boldFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(BoldFontPath);
             if (lightFont == null)
                 Debug.LogWarning($"[Setup] 기본 폰트를 찾지 못했습니다: {LightFontPath}");
+            Sprite panelSprite = LoadSprite(PanelDarkSpritePath);
+            Sprite skySprite = LoadSprite(BtnSkySpritePath);
 
-            // ── 3) 전체 테이블 컨테이너(세로 3분할) ──────────────────────
+            // ── 3) 전체 테이블 컨테이너(세로 3분할 + 패널 배경) ──────────
             GameObject table = FindOrCreateChild(rankingView.transform, "RankingTable");
             SetStretch(table.GetComponent<RectTransform>());
+
+            // 테이블 전체 패널 배경(ui_panel_dark). 로비 배경 위 시인성 확보(확정 결정 4).
+            if (!table.TryGetComponent(out Image tableBg))
+                tableBg = table.AddComponent<Image>();
+            if (panelSprite != null)
+            {
+                tableBg.sprite = panelSprite;
+                tableBg.type = Image.Type.Sliced;
+                tableBg.color = Color.white;
+            }
+            else
+            {
+                tableBg.color = new Color(0.10f, 0.12f, 0.16f, 0.92f);
+            }
+            tableBg.raycastTarget = true;
+
             VerticalLayoutGroup tableVlg = EnsureVLG(table);
             tableVlg.spacing = 8f;
             tableVlg.padding = new RectOffset(8, 8, 8, 8);
@@ -94,6 +120,8 @@ namespace Hexiege.EditorTools
                 GameObject colGo = FindOrCreateChild(headerRow.transform, $"Col{i}_{ColumnLabels[i]}");
                 colGo.transform.SetSiblingIndex(i);
                 EnsureButton(colGo, boldFont, ColumnLabels[i], new Color(0.18f, 0.22f, 0.30f, 1f), 28);
+                // 열 폭 차등(flexibleWidth 비율). 헤더와 행이 같은 비율을 써야 열이 어긋나지 않는다.
+                SetLayoutFlexibleWidth(colGo, ColumnWidths[i]);
             }
 
             // ── 5) 스크롤 영역(Viewport + Content) ───────────────────────
@@ -101,7 +129,8 @@ namespace Hexiege.EditorTools
             SetLayoutFlexibleHeight(scrollGo, 8f);    // 비율 8 (가장 넓게)
             if (!scrollGo.TryGetComponent(out Image scrollBg))
                 scrollBg = scrollGo.AddComponent<Image>();
-            scrollBg.color = new Color(0.10f, 0.12f, 0.16f, 0.85f);
+            // 패널 배경(table)이 이미 배경을 제공하므로 스크롤 영역 배경은 거의 투명하게 낮춘다(Plan 3-1).
+            scrollBg.color = new Color(0f, 0f, 0f, 0.10f);
             if (!scrollGo.TryGetComponent(out ScrollRect scrollRect))
                 scrollRect = scrollGo.AddComponent<ScrollRect>();
 
@@ -157,7 +186,31 @@ namespace Hexiege.EditorTools
             nextGo.transform.SetSiblingIndex(2);
             Button nextButton = EnsureButton(nextGo, boldFont, "다음", new Color(0.30f, 0.34f, 0.42f, 1f), 28);
 
-            // ── 7) RankRow 프리팹 확보(멱등) ─────────────────────────────
+            // 새로고침 버튼(확정 결정 4). 아이콘 에셋 부재(Research 4-2) → 텍스트/기호로 대체.
+            GameObject refreshGo = FindOrCreateChild(pageRow.transform, "RefreshButton");
+            refreshGo.transform.SetSiblingIndex(3);
+            Button refreshButton =
+                EnsureButton(refreshGo, boldFont, "새로고침 ⟳", new Color(0.30f, 0.60f, 0.80f, 1f), 26, skySprite);
+
+            // ── 6-1) 빈 상태 안내 텍스트(오버레이) ───────────────────────
+            // 등재 인원 0명일 때만 표시(RankingView 가 CanvasGroup 으로 토글).
+            //   LayoutElement.ignoreLayout=true 로 테이블 VLG 흐름에서 제외하고 전체를 덮는 오버레이로 둔다
+            //   → 숨김(alpha=0) 상태에서도 목록/페이지 레이아웃을 밀지 않는다.
+            GameObject emptyGo = FindOrCreateChild(table.transform, "EmptyStateText");
+            SetStretch(emptyGo.GetComponent<RectTransform>());
+            TextMeshProUGUI emptyStateText = EnsureText(
+                emptyGo, lightFont, "아직 랭킹이 없습니다 (20판 이상 필요)", 30, TextAlignmentOptions.Center);
+            if (!emptyGo.TryGetComponent(out LayoutElement emptyLe))
+                emptyLe = emptyGo.AddComponent<LayoutElement>();
+            emptyLe.ignoreLayout = true;
+            // 초기엔 숨김(RefreshAsync 가 데이터 로드 후 표시 여부를 결정).
+            if (!emptyGo.TryGetComponent(out CanvasGroup emptyCg))
+                emptyCg = emptyGo.AddComponent<CanvasGroup>();
+            emptyCg.alpha = 0f;
+            emptyCg.blocksRaycasts = false;
+            emptyCg.interactable = false;
+
+            // ── 7) RankRow 프리팹 확보(멱등, 매 실행 재빌드) ─────────────
             RankRowView rowPrefab = EnsureRankRowPrefab(lightFont);
 
             // ── 8) 슬롯 연결 ─────────────────────────────────────────────
@@ -168,6 +221,8 @@ namespace Hexiege.EditorTools
             Connect(rankingView, "_nextPageButton", nextButton);
             Connect(rankingView, "_pageText", pageText);
             Connect(rankingView, "_rowPrefab", rowPrefab);
+            Connect(rankingView, "_refreshButton", refreshButton);
+            Connect(rankingView, "_emptyStateText", emptyStateText);
 
             // ── 9) Dirty 처리 ────────────────────────────────────────────
             EditorUtility.SetDirty(rankingView);
@@ -215,15 +270,13 @@ namespace Hexiege.EditorTools
         // ====================================================================
 
         /// <summary>
-        /// RankRow 프리팹을 확보한다. 이미 있으면 로드해서 재사용하고, 없으면 임시 GameObject 로
-        /// 만들어 슬롯을 연결한 뒤 프리팹으로 저장한다(멱등).
+        /// RankRow 프리팹을 구성해 저장한다(멱등 — 매 실행 재빌드하여 같은 경로에 덮어쓴다).
+        ///   경로 기반이라 GUID 가 유지되므로 씬의 _rowPrefab 참조가 깨지지 않는다.
+        ///   기존 프리팹이 있어도 배경 Image(_rowBackground)/열 폭 비율 등 최신 변경을 반영하기 위해
+        ///   항상 새로 만들어 덮어쓴다.
         /// </summary>
         private static RankRowView EnsureRankRowPrefab(TMP_FontAsset font)
         {
-            RankRowView existing = AssetDatabase.LoadAssetAtPath<RankRowView>(RowPrefabPath);
-            if (existing != null)
-                return existing;
-
             // 임시 씬 오브젝트로 행을 구성한다(프리팹 저장 후 파괴).
             var rowGo = new GameObject("RankRow", typeof(RectTransform));
 
@@ -233,6 +286,12 @@ namespace Hexiege.EditorTools
             le.minHeight = 60f;
             le.preferredHeight = 60f;
             le.flexibleWidth = 1f;
+
+            // 행 배경 Image(_rowBackground — 짝수행 얼룩용). 기본은 투명.
+            if (!rowGo.TryGetComponent(out Image rowBg))
+                rowBg = rowGo.AddComponent<Image>();
+            rowBg.color = new Color(0f, 0f, 0f, 0f);
+            rowBg.raycastTarget = false;
 
             // 6열 가로 배치.
             EnsureHLG(rowGo, 4f);
@@ -244,15 +303,16 @@ namespace Hexiege.EditorTools
             if (!rowGo.TryGetComponent(out RankRowView rowView))
                 rowView = rowGo.AddComponent<RankRowView>();
 
-            // 6개 열 텍스트 생성(좌→우 순서 고정).
-            TextMeshProUGUI rankT = CreateCell(rowGo.transform, "RankText", font, 0);
-            TextMeshProUGUI nickT = CreateCell(rowGo.transform, "NicknameText", font, 1);
-            TextMeshProUGUI winRateT = CreateCell(rowGo.transform, "WinRateText", font, 2);
-            TextMeshProUGUI gamesT = CreateCell(rowGo.transform, "GamesText", font, 3);
-            TextMeshProUGUI winsT = CreateCell(rowGo.transform, "WinsText", font, 4);
-            TextMeshProUGUI lossesT = CreateCell(rowGo.transform, "LossesText", font, 5);
+            // 6개 열 텍스트 생성(좌→우 순서 고정, 열 폭 비율은 헤더와 동일하게 적용).
+            TextMeshProUGUI rankT = CreateCell(rowGo.transform, "RankText", font, 0, ColumnWidths[0]);
+            TextMeshProUGUI nickT = CreateCell(rowGo.transform, "NicknameText", font, 1, ColumnWidths[1]);
+            TextMeshProUGUI winRateT = CreateCell(rowGo.transform, "WinRateText", font, 2, ColumnWidths[2]);
+            TextMeshProUGUI gamesT = CreateCell(rowGo.transform, "GamesText", font, 3, ColumnWidths[3]);
+            TextMeshProUGUI winsT = CreateCell(rowGo.transform, "WinsText", font, 4, ColumnWidths[4]);
+            TextMeshProUGUI lossesT = CreateCell(rowGo.transform, "LossesText", font, 5, ColumnWidths[5]);
 
             // RankRowView 슬롯 연결(프리팹 저장 전, 자식 내부 참조로 직렬화됨).
+            Connect(rowView, "_rowBackground", rowBg);
             Connect(rowView, "_rankText", rankT);
             Connect(rowView, "_nicknameText", nickT);
             Connect(rowView, "_winRateText", winRateT);
@@ -260,7 +320,7 @@ namespace Hexiege.EditorTools
             Connect(rowView, "_winsText", winsT);
             Connect(rowView, "_lossesText", lossesT);
 
-            // 프리팹 저장 후 임시 오브젝트 파괴.
+            // 프리팹 저장(덮어쓰기) 후 임시 오브젝트 파괴.
             EnsureFolder(RowPrefabPath);
             GameObject savedPrefab = PrefabUtility.SaveAsPrefabAsset(rowGo, RowPrefabPath);
             Object.DestroyImmediate(rowGo);
@@ -274,11 +334,13 @@ namespace Hexiege.EditorTools
             return savedPrefab.GetComponent<RankRowView>();
         }
 
-        /// <summary>한 열(셀) 텍스트를 만든다.</summary>
-        private static TextMeshProUGUI CreateCell(Transform parent, string name, TMP_FontAsset font, int siblingIndex)
+        /// <summary>한 열(셀) 텍스트를 만들고 열 폭 비율(flexibleWidth)을 지정한다.</summary>
+        private static TextMeshProUGUI CreateCell(
+            Transform parent, string name, TMP_FontAsset font, int siblingIndex, float widthWeight)
         {
             GameObject go = FindOrCreateChild(parent, name);
             go.transform.SetSiblingIndex(siblingIndex);
+            SetLayoutFlexibleWidth(go, widthWeight);
             return EnsureText(go, font, string.Empty, 26, TextAlignmentOptions.Center);
         }
 
@@ -346,11 +408,21 @@ namespace Hexiege.EditorTools
             return t;
         }
 
-        private static Button EnsureButton(GameObject go, TMP_FontAsset font, string label, Color bg, int fontSize)
+        private static Button EnsureButton(
+            GameObject go, TMP_FontAsset font, string label, Color bg, int fontSize, Sprite sprite = null)
         {
             if (!go.TryGetComponent(out Image img))
                 img = go.AddComponent<Image>();
-            img.color = bg;
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.type = Image.Type.Sliced;
+                img.color = Color.white;
+            }
+            else
+            {
+                img.color = bg;
+            }
 
             if (!go.TryGetComponent(out Button btn))
                 btn = go.AddComponent<Button>();
@@ -360,6 +432,23 @@ namespace Hexiege.EditorTools
             SetStretch(labelGo.GetComponent<RectTransform>());
             EnsureText(labelGo, font, label, fontSize, TextAlignmentOptions.Center);
             return btn;
+        }
+
+        /// <summary>LayoutGroup 자식으로서의 가로 폭 비율을 지정한다(flexibleWidth, UI 규칙 2).</summary>
+        private static void SetLayoutFlexibleWidth(GameObject go, float weight)
+        {
+            if (!go.TryGetComponent(out LayoutElement le))
+                le = go.AddComponent<LayoutElement>();
+            le.flexibleWidth = weight;
+        }
+
+        /// <summary>스프라이트를 로드한다. 없으면 경고 후 null(단색 폴백).</summary>
+        private static Sprite LoadSprite(string path)
+        {
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s == null)
+                Debug.LogWarning($"[Setup] 스프라이트를 찾지 못해 단색으로 대체합니다: {path}");
+            return s;
         }
 
         /// <summary>프리팹 저장 경로의 폴더가 없으면 생성한다.</summary>

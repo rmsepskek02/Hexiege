@@ -87,6 +87,13 @@ namespace Hexiege.Presentation
             if (_confirmButton != null) _confirmButton.onClick.AddListener(OnConfirmClicked);
             if (_skipButton != null) _skipButton.onClick.AddListener(OnSkipClicked);
 
+            // 입력 값이 바뀔 때마다 확인 버튼 활성/비활성을 실시간 갱신한다
+            // (닉네임 설정 화면 규칙 2 "빈 값이면 확인 버튼 클릭 불가" 방식 채택).
+            if (_nicknameInput != null) _nicknameInput.onValueChanged.AddListener(OnInputChanged);
+
+            // 초기 상태: 입력이 비어 있으므로 확인 버튼을 비활성으로 시작한다.
+            if (_confirmButton != null) _confirmButton.interactable = false;
+
             ClearStatus();
         }
 
@@ -94,6 +101,21 @@ namespace Hexiege.Presentation
         {
             if (_confirmButton != null) _confirmButton.onClick.RemoveAllListeners();
             if (_skipButton != null) _skipButton.onClick.RemoveAllListeners();
+            if (_nicknameInput != null) _nicknameInput.onValueChanged.RemoveListener(OnInputChanged);
+        }
+
+        /// <summary>
+        /// 입력 필드 값 변경 콜백. 현재 입력이 검증을 통과하면 확인 버튼을 활성화한다.
+        /// (버튼을 상시 활성화해 두고 클릭 후 검증하는 기존 방식 대신, 빈 값/무효 값에서는
+        ///  아예 클릭이 불가능하도록 실시간으로 잠근다.)
+        /// </summary>
+        private void OnInputChanged(string text)
+        {
+            if (_confirmButton == null) return;
+
+            bool valid = _profileUseCase != null &&
+                         _profileUseCase.ValidateNickname(text) == NicknameValidation.Valid;
+            _confirmButton.interactable = valid;
         }
 
         // ====================================================================
@@ -112,6 +134,10 @@ namespace Hexiege.Presentation
         {
             _isGooglePath = isGooglePath;
             if (_nicknameInput != null) _nicknameInput.text = string.Empty;
+
+            // 입력을 비웠으므로 확인 버튼도 비활성으로 초기화한다(빈 값 = 클릭 불가).
+            if (_confirmButton != null) _confirmButton.interactable = false;
+
             ClearStatus();
         }
 

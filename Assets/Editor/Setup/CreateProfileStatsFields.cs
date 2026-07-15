@@ -37,6 +37,10 @@ namespace Hexiege.EditorTools
         private const string LightFontPath = "Assets/_Project/Fonts/Maplestory Light SDF.asset";
         private const string BoldFontPath = "Assets/_Project/Fonts/Maplestory Bold SDF.asset";
 
+        // 스프라이트 경로(확정 결정 5).
+        private const string BtnGoldSpritePath = "Assets/_Project/Sprites/UI/Buttons/ui_btn_gold.png";
+        private const string BtnSkySpritePath = "Assets/_Project/Sprites/UI/Buttons/ui_btn_sky.png";
+
         [MenuItem("Hexiege/Setup/Create Profile Stats Fields (Lobby)")]
         public static void Run()
         {
@@ -50,17 +54,34 @@ namespace Hexiege.EditorTools
                 return;
             }
 
-            // ── 2) 폰트 로드 ─────────────────────────────────────────────
+            // ── 2) 폰트/스프라이트 로드 ──────────────────────────────────
             TMP_FontAsset lightFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(LightFontPath);
             TMP_FontAsset boldFont = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(BoldFontPath);
             if (lightFont == null)
                 Debug.LogWarning($"[Setup] 기본 폰트를 찾지 못했습니다: {LightFontPath}");
+            Sprite goldSprite = LoadSprite(BtnGoldSpritePath);
+            Sprite skySprite = LoadSprite(BtnSkySpritePath);
 
-            // ── 3) 세로 배치 컨테이너 생성(멱등) ─────────────────────────
-            GameObject container = FindOrCreateChild(profileView.transform, "ProfileStatsContainer");
+            // ── 3) 생성 부모 결정: LobbyProfileView/MainView 하위 ─────────
+            // 기존에는 겹침(Research 2-1)이 있던 ProfileView 직속에 생성했으나,
+            // 이번에는 기존 수작업 UI 트리인 MainView 하위로 재배치해 두 트리를 통합한다.
+            Transform generateParent = FindDeep(profileView.transform, "MainView");
+            if (generateParent == null)
+            {
+                Debug.LogWarning("[Setup] 'MainView' 를 찾지 못해 ProfileView 하위에 생성합니다. " +
+                                 "(기존 트리와 겹칠 수 있으니 수동 확인 권장.)");
+                generateParent = profileView.transform;
+            }
+
+            // ── 3-1) 세로 배치 컨테이너 생성(멱등) ───────────────────────
+            GameObject container = FindOrCreateChild(generateParent, "ProfileStatsContainer");
             RectTransform containerRt = container.GetComponent<RectTransform>();
-            // ProfileView 상단 절반 영역을 비율 앵커로 차지(고정 픽셀 대신 비율, UI 규칙 2).
-            SetAnchors(containerRt, new Vector2(0.08f, 0.45f), new Vector2(0.92f, 0.95f));
+            // MainView 하위의 중상단 밴드를 비율 앵커로 차지(고정 픽셀 대신 비율, UI 규칙 2).
+            //   주의: MainView 에는 기존 수작업 UI(계정 정보/로그아웃 등)가 이미 배치돼 있다.
+            //   전체 스트레치로 두면 그 위를 덮을 수 있어 밴드로 제한한다. 정확한 위치는
+            //   실기에서 사용자가 미세 조정한다(확정 결정 5). 완전 통합(기존 요소까지 한 VLG로
+            //   재배치)은 기존 직렬화 참조를 옮기는 별도 작업이 필요하다.
+            SetAnchors(containerRt, new Vector2(0.06f, 0.30f), new Vector2(0.94f, 0.93f));
 
             VerticalLayoutGroup vlg = EnsureVLG(container);
             vlg.spacing = 12f;
@@ -68,17 +89,30 @@ namespace Hexiege.EditorTools
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
             vlg.childForceExpandWidth = true;
-            vlg.childForceExpandHeight = true;
+            // childForceExpandHeight=false + 자식 LayoutElement 로 높이 배분(규칙 2, 메모리 교훈).
+            vlg.childForceExpandHeight = false;
 
             // ── 4) 항목 생성 ─────────────────────────────────────────────
             // 닉네임 행: 값 텍스트 + 변경 버튼을 한 줄에 둔다.
             GameObject nickRow = FindOrCreateChild(container.transform, "NicknameRow");
             EnsureHLG(nickRow, 12f);
+            SetLayoutElement(nickRow, 90f, 0f);
             TextMeshProUGUI nicknameText = CreateValueOnly(
                 nickRow.transform, "NicknameValue", lightFont, lightFont, "닉네임", "-");
             GameObject changeBtnGo = FindOrCreateChild(nickRow.transform, "ChangeNicknameButton");
             Button changeNicknameButton =
-                EnsureButton(changeBtnGo, boldFont, "닉네임 변경", new Color(0.30f, 0.50f, 0.75f, 1f));
+                EnsureButton(changeBtnGo, boldFont, "닉네임 변경", new Color(0.30f, 0.50f, 0.75f, 1f), goldSprite);
+
+            // 전적 헤더 행: "전적" 라벨 + 새로고침 버튼(확정 결정 2).
+            GameObject statsHeaderRow = FindOrCreateChild(container.transform, "StatsHeaderRow");
+            EnsureHLG(statsHeaderRow, 12f);
+            SetLayoutElement(statsHeaderRow, 70f, 0f);
+            GameObject statsLabelGo = FindOrCreateChild(statsHeaderRow.transform, "StatsLabel");
+            EnsureText(statsLabelGo, boldFont, "전적", 30, TextAlignmentOptions.Left);
+            GameObject refreshBtnGo = FindOrCreateChild(statsHeaderRow.transform, "RefreshButton");
+            // 아이콘 에셋이 없어(Research 4-2) 우선 텍스트/기호로 대체한다.
+            Button refreshButton =
+                EnsureButton(refreshBtnGo, boldFont, "새로고침 ⟳", new Color(0.30f, 0.60f, 0.80f, 1f), skySprite);
 
             // 전적 항목들("라벨: 값" 행).
             TextMeshProUGUI totalGamesText =
@@ -97,6 +131,7 @@ namespace Hexiege.EditorTools
             // ── 5) 슬롯 연결 ─────────────────────────────────────────────
             Connect(profileView, "_nicknameText", nicknameText);
             Connect(profileView, "_changeNicknameButton", changeNicknameButton);
+            Connect(profileView, "_refreshButton", refreshButton);
             Connect(profileView, "_totalGamesText", totalGamesText);
             Connect(profileView, "_winsText", winsText);
             Connect(profileView, "_lossesText", lossesText);
@@ -123,6 +158,7 @@ namespace Hexiege.EditorTools
         {
             GameObject row = FindOrCreateChild(parent, rowName);
             EnsureHLG(row, 12f);
+            SetLayoutElement(row, 60f, 0f); // 전적 행 선호높이(균등 큰 높이 방지, 규칙 2).
             return CreateValueOnly(row.transform, "Value", valueFont, labelFont, label, defaultValue);
         }
 
@@ -208,11 +244,20 @@ namespace Hexiege.EditorTools
             return t;
         }
 
-        private static Button EnsureButton(GameObject go, TMP_FontAsset font, string label, Color bg)
+        private static Button EnsureButton(GameObject go, TMP_FontAsset font, string label, Color bg, Sprite sprite)
         {
             if (!go.TryGetComponent(out Image img))
                 img = go.AddComponent<Image>();
-            img.color = bg;
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.type = Image.Type.Sliced;
+                img.color = Color.white;
+            }
+            else
+            {
+                img.color = bg;
+            }
 
             if (!go.TryGetComponent(out Button btn))
                 btn = go.AddComponent<Button>();
@@ -222,6 +267,38 @@ namespace Hexiege.EditorTools
             SetStretch(labelGo.GetComponent<RectTransform>());
             EnsureText(labelGo, font, label, 28, TextAlignmentOptions.Center);
             return btn;
+        }
+
+        /// <summary>
+        /// LayoutGroup 자식으로서의 선호높이/유연높이 지정(고정 픽셀 대신 비율/선호값, UI 규칙 2).
+        /// </summary>
+        private static void SetLayoutElement(GameObject go, float preferredHeight, float flexibleHeight)
+        {
+            if (!go.TryGetComponent(out LayoutElement le))
+                le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = preferredHeight;
+            le.flexibleHeight = flexibleHeight;
+        }
+
+        /// <summary>이름으로 자손(재귀)을 찾는다. 없으면 null.</summary>
+        private static Transform FindDeep(Transform root, string name)
+        {
+            if (root == null) return null;
+            foreach (Transform child in root.GetComponentsInChildren<Transform>(includeInactive: true))
+            {
+                if (child != null && child.name == name)
+                    return child;
+            }
+            return null;
+        }
+
+        /// <summary>스프라이트를 로드한다. 없으면 경고 후 null(단색 폴백).</summary>
+        private static Sprite LoadSprite(string path)
+        {
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s == null)
+                Debug.LogWarning($"[Setup] 스프라이트를 찾지 못해 단색으로 대체합니다: {path}");
+            return s;
         }
 
         /// <summary>

@@ -18,6 +18,7 @@
 
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Hexiege.Presentation
 {
@@ -27,8 +28,13 @@ namespace Hexiege.Presentation
     public class RankRowView : MonoBehaviour
     {
         // ====================================================================
-        // Inspector 참조 — 열별 텍스트
+        // Inspector 참조 — 행 배경 / 열별 텍스트
         // ====================================================================
+
+        [Header("행 배경 (짝수행 얼룩)")]
+        [Tooltip("행 배경 Image. 짝수 인덱스 행에만 옅은 얼룩색을 칠해 가독성을 높인다(확정 결정 4, 선택). " +
+                 "미연결이면 얼룩 처리를 건너뛴다(안전).")]
+        [SerializeField] private Image _rowBackground;
 
         [Header("행 텍스트 (좌→우 열 순서)")]
         [Tooltip("순위 텍스트.")]
@@ -57,7 +63,8 @@ namespace Hexiege.Presentation
         /// 랭킹 엔트리 데이터를 각 텍스트에 바인딩하고 행을 표시한다.
         /// </summary>
         /// <param name="entry">표시할 랭킹 1건.</param>
-        public void Bind(Hexiege.Application.LeaderboardEntry entry)
+        /// <param name="rowIndex">현재 페이지 내 행 슬롯 인덱스(0-base). 짝수행 얼룩 처리에 사용한다.</param>
+        public void Bind(Hexiege.Application.LeaderboardEntry entry, int rowIndex)
         {
             if (entry == null)
             {
@@ -66,6 +73,7 @@ namespace Hexiege.Presentation
             }
 
             SetVisible(true);
+            ApplyStripe(rowIndex);
 
             SetText(_rankText, entry.Rank.ToString());
             SetText(_nicknameText, entry.DisplayName);
@@ -88,12 +96,29 @@ namespace Hexiege.Presentation
             SetText(_winsText, string.Empty);
             SetText(_lossesText, string.Empty);
 
+            // 빈 행은 배경 얼룩도 지운다(투명).
+            if (_rowBackground != null)
+                _rowBackground.color = new Color(0f, 0f, 0f, 0f);
+
             SetVisible(false);
         }
 
         // ====================================================================
         // 내부 헬퍼
         // ====================================================================
+
+        /// <summary>
+        /// 짝수 인덱스 행에만 옅은 얼룩색을 칠한다(홀수행은 투명).
+        /// _rowBackground 가 연결되지 않았으면 아무 것도 하지 않는다(선택 기능, 안전 가드).
+        /// </summary>
+        private void ApplyStripe(int rowIndex)
+        {
+            if (_rowBackground == null) return;
+
+            _rowBackground.color = (rowIndex % 2 == 0)
+                ? new Color(1f, 1f, 1f, 0.06f)   // 짝수행: 아주 옅은 흰색 얼룩
+                : new Color(0f, 0f, 0f, 0f);      // 홀수행: 투명
+        }
 
         /// <summary>
         /// 행 전체의 표시/숨김을 CanvasGroup 으로 처리한다(공통 UI 규칙 5).

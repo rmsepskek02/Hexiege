@@ -89,6 +89,14 @@ namespace Hexiege.Presentation
         [Tooltip("현재 페이지 표시 텍스트(예: 1 / 10).")]
         [SerializeField] private TextMeshProUGUI _pageText;
 
+        [Header("새로고침 / 빈 상태")]
+        [Tooltip("랭킹 목록을 수동으로 다시 불러오는 새로고침 버튼(확정 결정 4).")]
+        [SerializeField] private Button _refreshButton;
+
+        [Tooltip("등재 인원이 0명일 때 표시하는 빈 상태 안내 텍스트(확정 결정 4). " +
+                 "표시/숨김은 CanvasGroup 으로 처리한다(공통 UI 규칙 5).")]
+        [SerializeField] private TextMeshProUGUI _emptyStateText;
+
         // ====================================================================
         // 런타임 상태
         // ====================================================================
@@ -103,6 +111,16 @@ namespace Hexiege.Presentation
 
         // 헤더 버튼(좌→우 순서). _headerRow 자식에서 자동 수집.
         private Button[] _headerButtons;
+
+        // 헤더 열의 원본 라벨(정렬 화살표를 붙이기 전 텍스트). 좌→우 순서로,
+        // CreateRankingTable.ColumnLabels 와 동일하게 유지해야 한다.
+        private static readonly string[] _columnLabels = { "순위", "닉네임", "승률", "게임수", "승", "패" };
+
+        // 빈 상태 안내 / 목록 / 페이지네이션의 표시·숨김을 CanvasGroup 으로 처리하기 위한 캐시.
+        // (공통 UI 규칙 5: SetActive 대신 CanvasGroup alpha/blocksRaycasts/interactable 사용)
+        private CanvasGroup _emptyStateGroup;   // 빈 상태 안내 텍스트
+        private CanvasGroup _listGroup;         // ScrollView(행 목록)
+        private CanvasGroup _paginationGroup;   // PaginationRow(이전/페이지/다음)
 
         private SortColumn _sortColumn = SortColumn.WinRate; // 기본: 승률
         private bool _sortAscending = false;                 // 기본: 내림차순
@@ -134,6 +152,7 @@ namespace Hexiege.Presentation
         {
             if (_prevPageButton != null) _prevPageButton.onClick.RemoveAllListeners();
             if (_nextPageButton != null) _nextPageButton.onClick.RemoveAllListeners();
+            if (_refreshButton != null) _refreshButton.onClick.RemoveAllListeners();
 
             if (_headerButtons != null)
             {
@@ -160,11 +179,45 @@ namespace Hexiege.Presentation
 
             BuildRowPool();
             BindHeaderButtons();
+            AcquireVisibilityGroups();
 
             if (_prevPageButton != null) _prevPageButton.onClick.AddListener(OnPrevPage);
             if (_nextPageButton != null) _nextPageButton.onClick.AddListener(OnNextPage);
+            if (_refreshButton != null) _refreshButton.onClick.AddListener(OnRefreshClicked);
+
+            // 빈 상태 안내 문구를 1회 세팅해 둔다(표시 여부는 RefreshAsync 에서 토글).
+            if (_emptyStateText != null)
+                _emptyStateText.text = $"아직 랭킹이 없습니다 ({RankingUseCase.MinGamesForRank}판 이상 필요)";
 
             _initialized = true;
+        }
+
+        /// <summary>
+        /// 빈 상태 안내/목록/페이지네이션의 표시·숨김에 쓸 CanvasGroup 을 확보한다(없으면 추가).
+        ///   - 목록(ScrollView)과 페이지네이션(PaginationRow)은 기존 참조에서 GameObject 를
+        ///     역으로 찾아 CanvasGroup 을 얻는다(별도 슬롯을 추가하지 않기 위함).
+        ///   - PaginationRow 는 이전 버튼의 부모(에디터 셋업 기준 직속 부모)로 판단한다.
+        /// </summary>
+        private void AcquireVisibilityGroups()
+        {
+            _emptyStateGroup = EnsureGroup(_emptyStateText);
+            _listGroup = EnsureGroup(_scrollRect);
+
+            if (_prevPageButton != null && _prevPageButton.transform.parent != null)
+            {
+                GameObject pagRow = _prevPageButton.transform.parent.gameObject;
+                if (!pagRow.TryGetComponent(out _paginationGroup))
+                    _paginationGroup = pagRow.AddComponent<CanvasGroup>();
+            }
+        }
+
+        /// <summary>지정 컴포넌트의 GameObject 에서 CanvasGroup 을 확보한다(없으면 추가). null 안전.</summary>
+        private static CanvasGroup EnsureGroup(Component target)
+        {
+            if (target == null) return null;
+            if (!target.TryGetComponent(out CanvasGroup group))
+                group = target.gameObject.AddComponent<CanvasGroup>();
+            return group;
         }
 
         /// <summary>
@@ -234,14 +287,47 @@ namespace Hexiege.Presentation
                 _sortColumn = SortColumn.WinRate;
                 _sortAscending = false;
                 ApplySort();
+                UpdateHeaderLabels();
 
                 _currentPage = 0;
                 RenderCurrentPage();
+
+                // 등재 인원이 0명이면 빈 상태 안내를 표시하고 목록/페이지네이션을 숨긴다.
+                SetEmptyStateVisible(_entries.Count == 0);
             }
             finally
             {
                 UIManager.Instance?.ShowLoading(false);
             }
+        }
+
+        /// <summary>
+        /// 새로고침 버튼 클릭 → 랭킹을 다시 로드한다(RefreshAsync 재사용, 확정 결정 4).
+        /// RefreshAsync 내부에서 로딩 인디케이터를 표시하므로 별도 처리는 필요 없다.
+        /// </summary>
+        private void OnRefreshClicked()
+        {
+            _ = RefreshAsync();
+        }
+
+        /// <summary>
+        /// 빈 상태 안내/목록/페이지네이션의 표시를 토글한다(공통 UI 규칙 5, CanvasGroup 기반).
+        /// </summary>
+        /// <param name="empty">true면 빈 상태 안내 표시(+목록/페이지 숨김), false면 반대.</param>
+        private void SetEmptyStateVisible(bool empty)
+        {
+            ApplyGroupVisibility(_emptyStateGroup, empty);
+            ApplyGroupVisibility(_listGroup, !empty);
+            ApplyGroupVisibility(_paginationGroup, !empty);
+        }
+
+        /// <summary>CanvasGroup 표시/숨김을 alpha/blocksRaycasts/interactable 로 적용한다(null 안전).</summary>
+        private static void ApplyGroupVisibility(CanvasGroup group, bool visible)
+        {
+            if (group == null) return;
+            group.alpha = visible ? 1f : 0f;
+            group.blocksRaycasts = visible;
+            group.interactable = visible;
         }
 
         // ====================================================================
@@ -282,8 +368,49 @@ namespace Hexiege.Presentation
             }
 
             ApplySort();
+            UpdateHeaderLabels();
             _currentPage = 0;
             RenderCurrentPage();
+        }
+
+        /// <summary>
+        /// 현재 정렬 기준/방향을 헤더 라벨에 반영한다.
+        ///   - 활성 정렬 열에는 "라벨 ▲/▼"(오름차순 ▲, 내림차순 ▼)로 표시.
+        ///   - 나머지 열은 원본 라벨로 되돌린다.
+        /// 열 인덱스(좌→우): 0 순위(고정) / 1 닉네임 / 2 승률 / 3 게임수 / 4 승 / 5 패.
+        /// </summary>
+        private void UpdateHeaderLabels()
+        {
+            if (_headerButtons == null) return;
+
+            int activeIndex = SortColumnToHeaderIndex(_sortColumn);
+            string arrow = _sortAscending ? "▲" : "▼";
+
+            for (int i = 0; i < _headerButtons.Length; i++)
+            {
+                if (_headerButtons[i] == null) continue;
+
+                // 버튼 하위 라벨 텍스트(비활성 포함)를 찾아 갱신한다.
+                TextMeshProUGUI label = _headerButtons[i].GetComponentInChildren<TextMeshProUGUI>(true);
+                if (label == null) continue;
+
+                string baseLabel = i < _columnLabels.Length ? _columnLabels[i] : label.text;
+                label.text = (i == activeIndex) ? $"{baseLabel} {arrow}" : baseLabel;
+            }
+        }
+
+        /// <summary>정렬 기준 열 → 헤더 버튼 인덱스 매핑(순위 열은 정렬 대상 아님 → -1).</summary>
+        private static int SortColumnToHeaderIndex(SortColumn column)
+        {
+            return column switch
+            {
+                SortColumn.Nickname => 1,
+                SortColumn.WinRate => 2,
+                SortColumn.Games => 3,
+                SortColumn.Wins => 4,
+                SortColumn.Losses => 5,
+                _ => -1
+            };
         }
 
         /// <summary>
@@ -353,7 +480,7 @@ namespace Hexiege.Presentation
             {
                 int dataIndex = startIndex + i;
                 if (dataIndex < _entries.Count)
-                    _rows[i].Bind(_entries[dataIndex]);
+                    _rows[i].Bind(_entries[dataIndex], i); // i = 페이지 내 행 슬롯 인덱스(짝수행 얼룩용)
                 else
                     _rows[i].Clear();
             }

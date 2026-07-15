@@ -39,6 +39,12 @@ namespace Hexiege.EditorTools
         private const string LightFontPath = "Assets/_Project/Fonts/Maplestory Light SDF.asset";
         private const string BoldFontPath = "Assets/_Project/Fonts/Maplestory Bold SDF.asset";
 
+        // 스프라이트 경로(확정 결정 5 — 스프라이트 적용). 미세 조정은 사용자가 실기에서 진행.
+        private const string PanelDarkSpritePath = "Assets/_Project/Sprites/UI/Panels/ui_panel_dark.png";
+        private const string InputLightSpritePath = "Assets/_Project/Sprites/UI/ui_input_light.png";
+        private const string BtnGoldSpritePath = "Assets/_Project/Sprites/UI/Buttons/ui_btn_gold.png";
+        private const string BtnSilverSpritePath = "Assets/_Project/Sprites/UI/Buttons/ui_btn_silver.png";
+
         [MenuItem("Hexiege/Setup/Create Nickname Setup Panel (Login)")]
         public static void Run()
         {
@@ -70,6 +76,12 @@ namespace Hexiege.EditorTools
             if (boldFont == null)
                 Debug.LogWarning($"[Setup] Bold 폰트를 찾지 못했습니다: {BoldFontPath}");
 
+            // 스프라이트 로드(없으면 경고만 하고 단색 폴백으로 진행).
+            Sprite panelSprite = LoadSprite(PanelDarkSpritePath);
+            Sprite inputSprite = LoadSprite(InputLightSpritePath);
+            Sprite goldSprite = LoadSprite(BtnGoldSpritePath);
+            Sprite silverSprite = LoadSprite(BtnSilverSpritePath);
+
             // ── 3) 새 패널의 부모 결정 ────────────────────────────────────
             // 기존 회원가입 패널(_signUpPanel)의 부모와 같은 곳에 형제로 만든다.
             Transform panelParent = rootView.transform;
@@ -92,10 +104,19 @@ namespace Hexiege.EditorTools
             if (!panel.TryGetComponent(out CanvasGroup panelGroup))
                 panelGroup = panel.AddComponent<CanvasGroup>();
 
-            // 반투명 어두운 배경(흰색 텍스트 가독성 확보용, 사용자가 이후 조정).
+            // 배경: ui_panel_dark 스프라이트(Sliced) 적용. 스프라이트가 없으면 단색 폴백.
             if (!panel.TryGetComponent(out Image panelBg))
                 panelBg = panel.AddComponent<Image>();
-            panelBg.color = new Color(0.08f, 0.09f, 0.12f, 0.96f);
+            if (panelSprite != null)
+            {
+                panelBg.sprite = panelSprite;
+                panelBg.type = Image.Type.Sliced;
+                panelBg.color = Color.white; // 스프라이트 원색을 그대로 보이게 함.
+            }
+            else
+            {
+                panelBg.color = new Color(0.08f, 0.09f, 0.12f, 0.96f);
+            }
             panelBg.raycastTarget = true;
 
             if (!panel.TryGetComponent(out NicknameSetupView view))
@@ -113,31 +134,38 @@ namespace Hexiege.EditorTools
             vlg.childControlWidth = true;
             vlg.childControlHeight = true;
             vlg.childForceExpandWidth = true;
-            vlg.childForceExpandHeight = true;
+            // childForceExpandHeight=false 로 두고, 자식별 LayoutElement 비율/선호높이로 높이를 배분한다.
+            //   (규칙 2 + 메모리 교훈: ChildForceExpandHeight 만으론 형제 높이 불균등을 못 잡는다.)
+            vlg.childForceExpandHeight = false;
 
-            // 제목(선택)
+            // 제목(선호높이 80)
             GameObject titleGo = FindOrCreateChild(content.transform, "Title");
             EnsureText(titleGo, boldFont, "닉네임 설정", 44, TextAlignmentOptions.Center);
+            SetLayoutElement(titleGo, 80f, 0f);
 
-            // 닉네임 입력 필드
+            // 닉네임 입력 필드(선호높이 90, ui_input_light)
             GameObject inputGo = FindOrCreateChild(content.transform, "NicknameInput");
-            TMP_InputField nicknameInput = EnsureInputField(inputGo, lightFont, "닉네임을 입력하세요");
+            TMP_InputField nicknameInput = EnsureInputField(inputGo, lightFont, "닉네임을 입력하세요", inputSprite);
+            SetLayoutElement(inputGo, 90f, 0f);
 
-            // 확인 버튼
+            // 확인 버튼(선호높이 90, ui_btn_gold)
             GameObject confirmGo = FindOrCreateChild(content.transform, "ConfirmButton");
             Button confirmButton = EnsureButton(confirmGo, boldFont, "확인",
-                new Color(0.20f, 0.45f, 0.85f, 1f));
+                new Color(0.20f, 0.45f, 0.85f, 1f), goldSprite);
+            SetLayoutElement(confirmGo, 90f, 0f);
 
-            // 스킵 버튼
+            // 스킵 버튼(선호높이 70, ui_btn_silver)
             GameObject skipGo = FindOrCreateChild(content.transform, "SkipButton");
             Button skipButton = EnsureButton(skipGo, boldFont, "건너뛰기",
-                new Color(0.35f, 0.35f, 0.40f, 1f));
+                new Color(0.35f, 0.35f, 0.40f, 1f), silverSprite);
+            SetLayoutElement(skipGo, 70f, 0f);
 
-            // 상태 텍스트
+            // 상태 텍스트(남는 공간 흡수 — flexibleHeight=1)
             GameObject statusGo = FindOrCreateChild(content.transform, "StatusText");
             TextMeshProUGUI statusText =
                 EnsureText(statusGo, lightFont, string.Empty, 28, TextAlignmentOptions.Center);
             statusText.color = new Color(1f, 0.55f, 0.55f, 1f);
+            SetLayoutElement(statusGo, 0f, 1f);
 
             // ── 6) 슬롯 연결 ─────────────────────────────────────────────
             // NicknameSetupView
@@ -204,6 +232,27 @@ namespace Hexiege.EditorTools
             return vlg;
         }
 
+        /// <summary>
+        /// LayoutGroup 자식으로서의 선호높이/유연높이를 지정한다(고정 픽셀 대신 비율 가중치, UI 규칙 2).
+        /// preferredHeight 는 기본 크기, flexibleHeight 는 남는 공간 배분 비율이다.
+        /// </summary>
+        private static void SetLayoutElement(GameObject go, float preferredHeight, float flexibleHeight)
+        {
+            if (!go.TryGetComponent(out LayoutElement le))
+                le = go.AddComponent<LayoutElement>();
+            le.preferredHeight = preferredHeight;
+            le.flexibleHeight = flexibleHeight;
+        }
+
+        /// <summary>스프라이트를 로드한다. 없으면 경고 후 null(단색 폴백).</summary>
+        private static Sprite LoadSprite(string path)
+        {
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s == null)
+                Debug.LogWarning($"[Setup] 스프라이트를 찾지 못해 단색으로 대체합니다: {path}");
+            return s;
+        }
+
         /// <summary>TextMeshProUGUI 를 확보하고 폰트/문구/정렬을 설정한다.</summary>
         private static TextMeshProUGUI EnsureText(
             GameObject go, TMP_FontAsset font, string text, int fontSize, TextAlignmentOptions align)
@@ -219,12 +268,21 @@ namespace Hexiege.EditorTools
             return t;
         }
 
-        /// <summary>Image + Button + 자식 라벨을 갖춘 버튼을 확보한다.</summary>
-        private static Button EnsureButton(GameObject go, TMP_FontAsset font, string label, Color bg)
+        /// <summary>Image + Button + 자식 라벨을 갖춘 버튼을 확보한다. sprite 가 있으면 Sliced 로 적용.</summary>
+        private static Button EnsureButton(GameObject go, TMP_FontAsset font, string label, Color bg, Sprite sprite)
         {
             if (!go.TryGetComponent(out Image img))
                 img = go.AddComponent<Image>();
-            img.color = bg;
+            if (sprite != null)
+            {
+                img.sprite = sprite;
+                img.type = Image.Type.Sliced;
+                img.color = Color.white;
+            }
+            else
+            {
+                img.color = bg;
+            }
 
             if (!go.TryGetComponent(out Button btn))
                 btn = go.AddComponent<Button>();
@@ -239,13 +297,23 @@ namespace Hexiege.EditorTools
         /// <summary>
         /// 기능적으로 동작하는 최소 구성의 TMP_InputField 를 확보한다.
         /// 계층: InputField(Image) → Text Area(RectMask2D) → Placeholder / Text.
+        /// sprite 가 있으면 배경에 Sliced 로 적용한다.
         /// </summary>
         private static TMP_InputField EnsureInputField(
-            GameObject go, TMP_FontAsset font, string placeholderText)
+            GameObject go, TMP_FontAsset font, string placeholderText, Sprite sprite)
         {
             if (!go.TryGetComponent(out Image bg))
                 bg = go.AddComponent<Image>();
-            bg.color = Color.white;
+            if (sprite != null)
+            {
+                bg.sprite = sprite;
+                bg.type = Image.Type.Sliced;
+                bg.color = Color.white;
+            }
+            else
+            {
+                bg.color = Color.white;
+            }
 
             if (!go.TryGetComponent(out TMP_InputField input))
                 input = go.AddComponent<TMP_InputField>();

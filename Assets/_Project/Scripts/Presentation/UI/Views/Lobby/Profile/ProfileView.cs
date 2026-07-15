@@ -67,6 +67,13 @@ namespace Hexiege.Presentation
         [Tooltip("마지막 접속 종료 날짜/시각 텍스트(예: 2026-06-29 15:30).")]
         [SerializeField] private TextMeshProUGUI _lastSessionText;
 
+        [Tooltip("전적/내 랭킹을 수동으로 다시 불러오는 새로고침 버튼(확정 결정 2).")]
+        [SerializeField] private Button _refreshButton;
+
+        [Header("닉네임 변경 모달")]
+        [Tooltip("닉네임 변경 모달 팝업(확정 결정 3). 같은 Lobby 씬에 배치되며, 본 View 가 참조로 보유한다.")]
+        [SerializeField] private NicknameChangePopup _nicknameChangePopup;
+
         [Header("내 랭킹")]
         [Tooltip("내 순위 텍스트('N위' 또는 '순위 없음').")]
         [SerializeField] private TextMeshProUGUI _myRankText;
@@ -174,6 +181,13 @@ namespace Hexiege.Presentation
             if (_linkEmailButton != null) _linkEmailButton.onClick.AddListener(OnLinkEmailClicked);
             if (_logoutButton != null) _logoutButton.onClick.AddListener(OnLogoutClicked);
             if (_changeNicknameButton != null) _changeNicknameButton.onClick.AddListener(OnChangeNicknameClicked);
+            if (_refreshButton != null) _refreshButton.onClick.AddListener(OnRefreshClicked);
+
+            // 닉네임 변경 모달 초기화 — 이미 생성해 둔 _profileUseCase 를 그대로 주입한다.
+            //   (Presentation 은 Infrastructure 바깥 레이어이므로 UseCase 공유에 문제없다.)
+            //   변경 성공 시 콜백으로 프로필 화면을 다시 갱신한다(확정 결정 3).
+            if (_nicknameChangePopup != null)
+                _nicknameChangePopup.Initialize(_profileUseCase, () => { _ = RefreshProfileDataAsync(); });
 
             // 최초 UI 갱신(계정 상태 + Cloud Save 프로필/랭킹)
             RefreshUI();
@@ -186,6 +200,7 @@ namespace Hexiege.Presentation
             if (_linkEmailButton != null) _linkEmailButton.onClick.RemoveAllListeners();
             if (_logoutButton != null) _logoutButton.onClick.RemoveAllListeners();
             if (_changeNicknameButton != null) _changeNicknameButton.onClick.RemoveAllListeners();
+            if (_refreshButton != null) _refreshButton.onClick.RemoveAllListeners();
         }
 
         /// <summary>
@@ -326,10 +341,9 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 닉네임 변경 버튼 클릭.
-        /// 실제 닉네임 변경 UI 는 본 작업 범위 밖이므로, 현재는 안내 메시지만 표시한다.
-        /// hasUsedFreeNicknameChange 값에 따라 무료/유료 안내를 구분한다(UI 규칙 3).
-        /// // TODO: 닉네임 변경 UI(입력/검증/결제 분기) 별도 구현 필요
+        /// 닉네임 변경 버튼 클릭 → 닉네임 변경 모달을 연다(확정 결정 3).
+        /// 무료 사용 여부(hasUsedFreeNicknameChange)와 현재 닉네임을 먼저 조회해 모달에 전달하면,
+        /// 모달이 무료(입력) UI 와 유료(안내) UI 중 무엇을 보여줄지 결정한다.
         /// </summary>
         private async void OnChangeNicknameClicked()
         {
@@ -338,10 +352,42 @@ namespace Hexiege.Presentation
 
             PlayerProfileData profile = await _profileUseCase.LoadProfileAsync();
             bool usedFree = profile != null && profile.HasUsedFreeNicknameChange;
+            string currentNickname = profile != null && profile.HasNickname ? profile.Nickname : string.Empty;
 
-            SetStatus(usedFree
-                ? "닉네임 변경은 인앱 결제로 가능합니다. (준비 중)"
-                : "최초 1회 닉네임 변경은 무료입니다. (준비 중)");
+            if (_nicknameChangePopup != null)
+            {
+                _nicknameChangePopup.Show(usedFree, currentNickname);
+            }
+            else
+            {
+                // 모달이 연결되지 않은 예외적 상황(씬 미배선 등) — 안내만 표시.
+                SetStatus("닉네임 변경 창을 열 수 없습니다. (설정 필요)");
+            }
+
+            // === [구 로직 — 비활성화] 모달 없이 상태 텍스트로만 안내하던 방식 ===
+            //   확정 결정 3 에 따라 실제 입력/검증/저장이 가능한 모달로 대체되었다.
+            //   실기 통과 후 아래 주석 블록은 최종 삭제 예정(WORKFLOW 기존 로직 제거 규칙).
+            // SetStatus(usedFree
+            //     ? "닉네임 변경은 인앱 결제로 가능합니다. (준비 중)"
+            //     : "최초 1회 닉네임 변경은 무료입니다. (준비 중)");
+        }
+
+        /// <summary>
+        /// 새로고침 버튼 클릭 → 전적/내 랭킹을 다시 불러온다(확정 결정 2).
+        /// 기존 RefreshProfileDataAsync() 를 재사용하며, 갱신 동안 전역 로딩 인디케이터를 표시한다.
+        /// (UIManager 가 null 일 수 있는 상황 대비 ?. null-safe 패턴 — 규칙 L-4.)
+        /// </summary>
+        private async void OnRefreshClicked()
+        {
+            UIManager.Instance?.ShowLoading(true, "갱신 중...");
+            try
+            {
+                await RefreshProfileDataAsync();
+            }
+            finally
+            {
+                UIManager.Instance?.ShowLoading(false);
+            }
         }
 
         /// <summary>

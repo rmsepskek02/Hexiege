@@ -121,6 +121,35 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// 닉네임을 변경한다(무료 1회 변경 흐름 전용).
+        ///   - 확정 결정 3: "코드(#4729)는 변경해도 유지" → 기존 프로필을 먼저 로드해
+        ///     NicknameCode 를 그대로 재사용한다(SaveNicknameAsync(nickname) 처럼 매번 새
+        ///     코드를 생성하지 않는다).
+        ///   - 저장 시 hasUsedFreeNicknameChange=true 를 함께 기록해 무료 소진을 남긴다.
+        ///   - 무료 소진 여부의 사전 판정은 호출부(NicknameChangePopup)가 담당하므로,
+        ///     이 메서드는 방어적 재확인을 하지 않는다(서버 강제는 후속 과제 — 범위 밖).
+        /// </summary>
+        /// <param name="newNickname">변경할 새 닉네임.</param>
+        /// <returns>검증 결과. Valid 이면 저장까지 완료된 것이다.</returns>
+        public async Task<NicknameValidation> ChangeNicknameAsync(string newNickname)
+        {
+            NicknameValidation validation = ValidateNickname(newNickname);
+            if (validation != NicknameValidation.Valid)
+                return validation;
+
+            // 기존 코드를 유지하기 위해 현재 프로필을 먼저 로드한다.
+            //   코드가 비어 있으면(예외적 상황) 새로 생성해 최소한 유효한 코드를 보장한다.
+            PlayerProfileData current = await _profileService.LoadProfileAsync();
+            string existingCode = current != null && !string.IsNullOrEmpty(current.NicknameCode)
+                ? current.NicknameCode
+                : GenerateCode();
+
+            await _profileService.SaveNicknameAsync(
+                newNickname.Trim(), existingCode, hasUsedFreeNicknameChange: true);
+            return NicknameValidation.Valid;
+        }
+
+        /// <summary>
         /// 자동 생성 닉네임(스킵용)을 만들어 저장한다.
         /// 형식: {prefix}_{임의문자숫자} (예: 구글_a3F9kd)
         /// </summary>

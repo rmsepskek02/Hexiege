@@ -124,6 +124,35 @@ namespace Hexiege.Infrastructure
             }
         }
 
+        /// <summary>
+        /// 닉네임/코드와 함께 "무료 닉네임 변경 사용 여부"를 Cloud Save 에 저장한다.
+        ///   - 닉네임 변경(무료 1회) 흐름에서 호출된다.
+        ///   - KeyHasUsedFreeNicknameChange 는 그동안 읽기(LoadProfileAsync)만 되고
+        ///     저장 경로가 없던 키였다(Research 2-3). 이 오버로드에서 처음으로 함께 저장한다.
+        /// </summary>
+        public async Task SaveNicknameAsync(string nickname, string code, bool hasUsedFreeNicknameChange)
+        {
+            try
+            {
+                var data = new Dictionary<string, object>
+                {
+                    { KeyNickname, nickname },
+                    { KeyNicknameCode, code },
+                    { KeyHasUsedFreeNicknameChange, hasUsedFreeNicknameChange }
+                };
+
+                // TODO: UGS SDK API 시그니처 실기 검증 필요
+                //   3.4.1 기준: Data.Player.SaveAsync(IDictionary<string, object>)
+                await CloudSaveService.Instance.Data.Player.SaveAsync(data);
+                Debug.Log($"[PlayerProfileService] 닉네임 저장 완료(무료변경 플래그={hasUsedFreeNicknameChange}): {nickname}#{code}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[PlayerProfileService] 닉네임 저장 실패: {e.Message}");
+                throw; // 상위(UseCase/View)가 실패를 인지하고 안내하도록 재던진다.
+            }
+        }
+
         // ====================================================================
         // Cloud Save Item 파싱 헬퍼
         // ====================================================================

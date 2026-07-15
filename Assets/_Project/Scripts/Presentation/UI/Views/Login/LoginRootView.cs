@@ -218,6 +218,13 @@ namespace Hexiege.Presentation
         /// </summary>
         public void HandleBack()
         {
+            // [확정 결정 1] 닉네임 설정 화면은 반드시 통과해야 하는 필수 게이트 화면이다.
+            //   Android 백버튼(=Escape)과 UI 백 버튼이 모두 이 HandleBack() 한 곳을 경유하므로,
+            //   여기서 최상단에 분기를 두면 두 경로의 뒤로가기를 동시에 완전 차단할 수 있다.
+            //   (별도 안내 토스트는 넣지 않는다 — 확정 결정 1은 "무시"만 요구, Plan 1-2.)
+            if (_currentPanel == LoginPanel.NicknameSetup)
+                return;
+
             // 스택에 화면이 있으면 이전 화면으로 복귀
             if (_backStack.Count > 0)
             {
