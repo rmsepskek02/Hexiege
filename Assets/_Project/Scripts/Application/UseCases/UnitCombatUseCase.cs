@@ -43,6 +43,12 @@ namespace Hexiege.Application
         // 월드↔헥스 좌표 변환기. Core(HexMetrics / ViewConverter) 의존을 피하기 위한 인터페이스 주입.
         private readonly IHexCoordinateMapper _mapper;
 
+        // 유닛 타입별 특수 공격(범위/파도 등) 핸들러 테이블.
+        // 외부 의존이 없는 순수 전략 테이블이므로(정적 스탯 테이블과 같은 성격)
+        // composition root를 거치지 않고 여기서 직접 생성한다.
+        // 등록되지 않은 일반 유닛은 TryGet이 null → 특수 공격 없음(기존 동작 무변경).
+        private readonly SpecialAttackRegistry _specialAttacks = new SpecialAttackRegistry();
+
         /// <summary>
         /// 싱글플레이 전용 전투 상태 추적.
         /// key=유닛Id, value=(타겟Id, 타겟이 유닛인지).
@@ -780,13 +786,48 @@ namespace Hexiege.Application
         }
 
         /// <summary>
-        /// 공격 실행. 데미지 적용 후 이벤트 발행.
+        /// 공격 실행. 주 타깃 방향으로 Facing을 갱신하고 단일 피해를 적용한 뒤,
+        /// 도끼병 등 특수 공격 유닛이면 등록된 핸들러(범위 공격 등)를 이어서 실행한다.
+        ///
+        /// 이 메서드는 싱글/멀티 공통 수렴점이므로, 여기에 특수 공격 훅을 걸면
+        /// 두 모드 모두에 동일하게 반영된다.
         /// </summary>
         private void ExecuteAttack(UnitData attacker, IDamageable target)
         {
-            // 공격 방향 계산
+            // 공격 방향 계산 — 주 타깃을 향하도록 Facing 갱신.
+            // 특수 공격(휩쓸기)의 "전방 5타일" 판정도 이 갱신된 Facing을 기준으로 하므로,
+            // 반드시 주 타깃 피해 전에 여기서 한 번만 갱신한다(AoE 피해마다 갱신 금지).
             HexDirection attackDir = FacingDirection.FromCoords(attacker.Position, target.Position);
             attacker.Facing = attackDir;
+
+            // 주 타깃 단일 피해 — 기존 경로. 재사용 헬퍼로 처리.
+            ApplyDamageToVictim(attacker, target);
+
+            // 특수 공격 훅 — 등록된 유닛(도끼병 등)만 실행, 일반 유닛은 null이라 무동작.
+            // 주 타깃 피해 "직후"에 실행하므로, 핸들러는 주 타깃을 중복 타격하지 않도록 제외한다(D-3).
+            ISpecialAttackBehavior special = _specialAttacks.TryGet(attacker.Type);
+            if (special != null)
+            {
+                var ctx = new SpecialAttackContext(
+                    attacker, target, _unitSpawn.Units, ApplyDamageToVictim);
+                special.Apply(ctx);
+            }
+        }
+
+        /// <summary>
+        /// 단일 피해 대상 1명에게 "피해 적용 + 이벤트 발행 + 사망 처리 + 싱글 전투 상태 정리"를
+        /// 한 번에 수행하는 재사용 헬퍼.
+        ///
+        /// 주 타깃 경로(ExecuteAttack)와 AoE 경로(SweepAttackBehavior)가 이 동일 헬퍼를 공유하여,
+        /// 멀티플레이 HP 동기화(OnEntityDamaged 발행 형식)의 일관성을 보장한다.
+        ///
+        /// 주의: 이 헬퍼는 Facing을 갱신하지 않는다(방향은 주 타깃 기준으로 ExecuteAttack에서 1회만 갱신).
+        /// </summary>
+        /// <param name="attacker">공격자 유닛.</param>
+        /// <param name="target">피해를 받을 대상(유닛 또는 건물).</param>
+        private void ApplyDamageToVictim(UnitData attacker, IDamageable target)
+        {
+            if (attacker == null || target == null) return;
 
             // 데미지 적용 (인터페이스의 메서드 호출)
             target.TakeDamage(attacker.AttackPower);
