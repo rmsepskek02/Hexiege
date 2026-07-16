@@ -233,3 +233,8 @@
 - 스타일: 카툰/스타일라이즈드, 밝고 선명한 색상
 - 뷰: Orthographic 55도 탑다운 이소메트릭
 - 모바일 최적화: 로우~미드폴리 3D 모델
+### 2026-07-16 - Profile/ranking UX policy update
+
+- Lobby Profile/Ranking cloud slice is complete from a UX-policy perspective: verified email/Google users should have a nickname code, Profile shows account/profile/stats/rank, and Ranking lists only eligible leaderboard entries.
+- Nickname setup remains mandatory for first verified login before entering Lobby; nickname change is available from Profile as a modal flow.
+- Next UX decision: email verification abandonment. Fresh sign-up verification and existing unverified-login retry should be treated as separate states so the player understands whether going back cancels sign-up or only exits verification retry.
