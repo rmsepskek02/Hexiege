@@ -42,6 +42,10 @@ namespace Hexiege.Presentation
         [Tooltip("전투 탭 루트 View")]
         [SerializeField] private BattleRootView _battleRootView;
 
+        [SerializeField] private ProfileView _profileView;
+
+        [SerializeField] private RankingView _rankingView;
+
         [Header("탭 패널")]
         [Tooltip("전투 탭 패널 (BattleRootView 부착 오브젝트)")]
         [SerializeField] private GameObject _battlePanel;
@@ -120,6 +124,11 @@ namespace Hexiege.Presentation
                 _battleRootView.Bind(_battleViewModel);
 
             // 탭 전환 구독 — 탭에 따라 패널 표시/숨김 (CanvasGroup 기반)
+            if (_profileView == null && _profilePanel != null)
+                _profileView = _profilePanel.GetComponent<ProfileView>();
+            if (_rankingView == null && _rankingPanel != null)
+                _rankingView = _rankingPanel.GetComponent<RankingView>();
+
             _lobbyViewModel.CurrentTab
                 .Subscribe(tab =>
                 {
@@ -128,6 +137,15 @@ namespace Hexiege.Presentation
                     SetPanelVisible(_profilePanelGroup, tab == LobbyViewModel.LobbyTab.Profile);
                     SetPanelVisible(_settingPanelGroup, tab == LobbyViewModel.LobbyTab.Setting);
                     SetPanelVisible(_rankingPanelGroup, tab == LobbyViewModel.LobbyTab.Ranking);
+
+                    if (tab == LobbyViewModel.LobbyTab.Profile)
+                    {
+                        _profileView?.OnProfileTabShown();
+                    }
+                    else if (tab == LobbyViewModel.LobbyTab.Ranking)
+                    {
+                        _ = _rankingView?.RefreshAsync();
+                    }
                 })
                 .AddTo(this);
 
