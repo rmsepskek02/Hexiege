@@ -94,7 +94,10 @@ namespace Hexiege.Presentation
         private void BindButton(Button button, LobbyViewModel vm, LobbyViewModel.LobbyTab tab)
         {
             if (button == null) return;
-            button.onClick.AddListener(() => vm.SelectTab.OnNext(tab));
+            button.onClick.AddListener(() =>
+            {
+                vm.SelectTab.OnNext(tab);
+            });
         }
 
         /// <summary>

@@ -66,15 +66,31 @@ namespace Hexiege.Presentation
         private LoginUseCase _loginUseCase;
         private LoginBootstrapper _bootstrapper;
 
+        // 프로필/닉네임 UseCase. 로그인 성공 후 "최초 로그인" 여부(IsFirstLogin) 판정에 사용한다.
+        //   최초면 닉네임 설정 화면을 먼저 표시하고, 아니면 곧바로 로비로 이동한다.
+        //   (LoginSelectView 의 Google 로그인 경로와 동일한 패턴)
+        private PlayerProfileUseCase _profileUseCase;
+
         // ====================================================================
         // 초기화
         // ====================================================================
 
-        public void Initialize(LoginRootView rootView, LoginUseCase loginUseCase, LoginBootstrapper bootstrapper)
+        /// <summary>
+        /// LoginBootstrapper 에서 호출. 의존성 주입 + 버튼 리스너 등록.
+        /// </summary>
+        /// <param name="profileUseCase">
+        /// 최초 로그인 판정(IsFirstLogin)에 사용하는 프로필 UseCase.
+        /// 이메일 로그인은 로그인 성공 시점에 이미 UGS 브릿지가 끝나 있어 토큰이 존재하므로,
+        /// 이 시점에 닉네임을 저장해도 토큰 에러가 발생하지 않는다.
+        /// </param>
+        public void Initialize(
+            LoginRootView rootView, LoginUseCase loginUseCase, LoginBootstrapper bootstrapper,
+            PlayerProfileUseCase profileUseCase)
         {
             _rootView = rootView;
             _loginUseCase = loginUseCase;
             _bootstrapper = bootstrapper;
+            _profileUseCase = profileUseCase;
 
             if (_loginButton != null) _loginButton.onClick.AddListener(OnLoginClicked);
             if (_signUpButton != null) _signUpButton.onClick.AddListener(() => _rootView.ShowSignUp());
@@ -123,7 +139,18 @@ namespace Hexiege.Presentation
                 switch (result)
                 {
                     case LoginResult.Success:
-                        _bootstrapper.GoToNextScene();
+                        // 로그인 성공 = UGS 브릿지까지 완료된 상태(토큰 존재).
+                        //   최초 로그인(Cloud Save 에 닉네임 없음)이면 닉네임 설정 화면을 먼저 표시하고,
+                        //   재로그인이면 곧바로 로비로 이동한다. (Google 경로와 동일 패턴)
+                        //   _profileUseCase 가 주입되지 않은 개발 환경을 대비해 null 검사를 함께 둔다.
+                        bool isFirst = _profileUseCase != null && await _profileUseCase.IsFirstLogin();
+                        if (isFirst)
+                            // 이메일 경로 최초 로그인 → 닉네임 화면.
+                            //   isGooglePath 는 이제 "라우팅"이 아니라 스킵 시 자동닉네임 접두사 구분용이다.
+                            //   이메일 경로이므로 false → 스킵 시 "사용자_" 접두사가 사용된다.
+                            _rootView.ShowNicknameSetup(isGooglePath: false);
+                        else
+                            _bootstrapper.GoToNextScene();
                         return;
 
                     case LoginResult.NeedsEmailVerification:

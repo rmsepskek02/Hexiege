@@ -54,3 +54,7 @@
 - 원격(Linux) 세션에서는 사용자 MEMORY(`C:/Users/rmsep/...`) 접근 불가 → WORKFLOW [10] 사용자 MEMORY 갱신은 건너뛰고 그 사실을 보고에 명시. 커밋 해시는 git 미사용 방침이라 사용자가 프롬프트로 제공한 값을 그대로 기재(직접 조회하지 않음).
 - 문서 인덱스 동기화 감사(2026-07-16): `_Tasks`/`_Logs` 제외 상시 Docs Markdown 목록을 실제 파일 목록 기준으로 확인하고, AGENTS.md / document-manager.md / GameSystemRules.md의 누락을 보정. 누락되기 쉬운 문서: `GameSystemRules_CanvasSortingOrder.md`, `GameSystemRules_Sound.md`, `Assets/VFXSFXGuide.md`, `Assets/VFXSFXList.md`, `Skills/SKILLS_GUIDE.md`, `AABSizeOptimization.md`, `BuildAssetOptimizationReport.md`, `UnusedAssetAudit.md`.
 - AAB 최적화 문서 관계(2026-07-16 정리): 최종 수치/적용 변경/롤백 기준은 `AABSizeOptimization.md`가 권위 문서. `BuildAssetOptimizationReport.md`는 빌드 에셋 import 감사/중간 리포트, `UnusedAssetAudit.md`는 미사용 에셋 탐지와 삭제 판단 근거 기록으로 둔다.
+### 2026-07-16 - Profile/ranking cloud task documentation
+
+- Updated project status, roadmap, work history, and task testcase for `Assets/_Project/Docs/_Tasks/2026-07-16/12_10_main-profile-cloudsave-leaderboard-port/`.
+- Documented that profile/ranking cloud integration is complete and email verification abandonment is the next follow-up task.

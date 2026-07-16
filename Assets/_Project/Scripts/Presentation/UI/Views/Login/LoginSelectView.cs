@@ -54,6 +54,7 @@ namespace Hexiege.Presentation
         private LoginRootView _rootView;
         private LoginUseCase _loginUseCase;
         private LoginBootstrapper _bootstrapper;
+        private PlayerProfileUseCase _profileUseCase;
 
         // ====================================================================
         // 초기화
@@ -62,11 +63,14 @@ namespace Hexiege.Presentation
         /// <summary>
         /// LoginBootstrapper 에서 호출. 의존성 + 버튼 리스너 등록.
         /// </summary>
-        public void Initialize(LoginRootView rootView, LoginUseCase loginUseCase, LoginBootstrapper bootstrapper)
+        public void Initialize(
+            LoginRootView rootView, LoginUseCase loginUseCase, LoginBootstrapper bootstrapper,
+            PlayerProfileUseCase profileUseCase)
         {
             _rootView = rootView;
             _loginUseCase = loginUseCase;
             _bootstrapper = bootstrapper;
+            _profileUseCase = profileUseCase;
 
             if (_googleLoginButton != null)
                 _googleLoginButton.onClick.AddListener(OnGoogleLoginClicked);
@@ -107,7 +111,15 @@ namespace Hexiege.Presentation
 
                 if (result == LoginResult.Success)
                 {
-                    _bootstrapper.GoToNextScene();
+                    // 최초 로그인(Cloud Save 에 닉네임 없음) 여부를 확인해 분기한다.
+                    //   최초  → 닉네임 설정 화면(Google 경로) 표시
+                    //   재로그인 → 곧바로 Lobby 씬 이동
+                    // (AuthSystemRules.md Google 로그인 규칙 3)
+                    bool isFirst = _profileUseCase != null && await _profileUseCase.IsFirstLogin();
+                    if (isFirst)
+                        _rootView.ShowNicknameSetup(isGooglePath: true);
+                    else
+                        _bootstrapper.GoToNextScene();
                     return;
                 }
 

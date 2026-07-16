@@ -409,3 +409,9 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 ## 참고 파일
 - [patterns.md](patterns.md) — 버그 패턴 상세
 - [qa_history.md](qa_history.md) — 완료된 QA 상세 내역 (생산시스템/DOTween/카메라/재경기/로비/로딩/랜덤매칭)
+### 2026-07-16 - Profile/Ranking Cloud UI QA notes
+
+- User confirmed email sign-up reaches nickname setup after verification path changes.
+- User confirmed Profile tab click path and ProfileView enable path with temporary debug logs; debug logs were removed afterward.
+- Ranking/Profile/NicknameChangePopup UI is functionally visible; final fine layout tuning remains manual Inspector work.
+- Regression focus for next pass: Unity console compile errors, Profile tab refresh, Ranking tab refresh/empty state, nickname change validation, and email verification abandonment.

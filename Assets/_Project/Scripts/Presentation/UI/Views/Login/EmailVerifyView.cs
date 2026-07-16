@@ -54,16 +54,22 @@ namespace Hexiege.Presentation
         private LoginRootView _rootView;
         private LoginUseCase _loginUseCase;
         private LoginBootstrapper _bootstrapper;
+        private PlayerProfileUseCase _profileUseCase;
 
         // ====================================================================
         // 초기화
         // ====================================================================
 
-        public void Initialize(LoginRootView rootView, LoginUseCase loginUseCase, LoginBootstrapper bootstrapper)
+        public void Initialize(
+            LoginRootView rootView,
+            LoginUseCase loginUseCase,
+            LoginBootstrapper bootstrapper,
+            PlayerProfileUseCase profileUseCase)
         {
             _rootView = rootView;
             _loginUseCase = loginUseCase;
             _bootstrapper = bootstrapper;
+            _profileUseCase = profileUseCase;
 
             if (_checkVerifyButton != null) _checkVerifyButton.onClick.AddListener(OnCheckVerifyClicked);
             if (_resendButton != null) _resendButton.onClick.AddListener(OnResendClicked);
@@ -111,7 +117,15 @@ namespace Hexiege.Presentation
 
                 if (verified)
                 {
-                    _bootstrapper.GoToNextScene();
+                    bool isFirst = _profileUseCase != null && await _profileUseCase.IsFirstLogin();
+                    if (isFirst)
+                    {
+                        _rootView.ShowNicknameSetup(isGooglePath: false);
+                    }
+                    else
+                    {
+                        _bootstrapper.GoToNextScene();
+                    }
                     return;
                 }
 

@@ -140,8 +140,17 @@ namespace Hexiege.Presentation
                 switch (result)
                 {
                     case LoginResult.NeedsEmailVerification:
-                        // 회원가입 직후의 정상 흐름 — 인증 대기 화면으로 이동.
+                        // 회원가입 직후의 정상 흐름 — 곧바로 이메일 인증 화면으로 이동한다.
+                        //   [흐름 통일 — 닉네임 설정 시점 변경] 이 시점에는 아직 UGS 로그인 세션이 없다.
+                        //   (이메일 가입은 Firebase 계정만 만들고 UGS 브릿지를 하지 않기 때문)
+                        //   따라서 여기서 닉네임을 저장하면 "Access token is missing" 토큰 에러가 난다.
+                        //   → 닉네임 수집을 "인증 후 첫 로그인 성공 직후"(EmailLoginView)로 이관했다.
+                        //     이제 가입 성공 시엔 닉네임 화면을 거치지 않고 인증 화면으로 직행한다.
+                        //   (AuthSystemRules.md 이메일 회원가입 규칙: 가입 → 인증 → 로그인 → (최초) 닉네임 → 로비)
                         _rootView.ShowEmailVerify();
+                        // === [구 로직 — 비활성화] 가입 직후 닉네임 설정 경유 (토큰 세션 부재로 저장 실패) ===
+                        //   실기 통과 후 아래 한 줄은 최종 삭제 예정(WORKFLOW 기존 로직 제거 규칙).
+                        // _rootView.ShowNicknameSetup(isGooglePath: false);
                         return;
 
                     case LoginResult.Success:

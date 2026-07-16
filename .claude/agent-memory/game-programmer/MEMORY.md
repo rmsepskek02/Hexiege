@@ -169,3 +169,11 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 ### 미사용 코드 정리
 - 미사용 필드 확인 시 주석 언급만 믿지 말고 코드베이스 전체 Grep 필수
 - 비활성화(주석) 우선, 테스트 통과 후 삭제 (WORKFLOW 규칙)
+### 2026-07-16 - Profile/Ranking Cloud Save + Leaderboard port
+
+- Added UGS Cloud Save profile layer: `PlayerProfileData`, `LeaderboardEntry`, `IPlayerProfileService`, `ILeaderboardService`, `PlayerProfileUseCase`, `RankingUseCase`, `PlayerProfileService`, `LeaderboardService`.
+- Login flow now routes first verified email login through `NicknameSetupView`; Google/email first-login nickname setup uses `PlayerProfileUseCase`.
+- Lobby Profile tab now binds nickname code, email/account info, stats, my rank, nickname change popup, refresh, and logout.
+- Lobby Ranking tab now uses `RankingView` + `RankRowView` with UGS Leaderboards. Hidden RankingView no longer loads data on lobby entry; `LobbyRootView` calls `RefreshAsync()` only when Ranking tab is shown.
+- Runtime UI polish was added for Profile, Ranking, NicknameSetup, and NicknameChangePopup while preserving CanvasGroup-based visibility rules.
+- Follow-up: email verification pending state needs explicit email propagation and cancellation/cleanup handling for unverified Firebase users.
