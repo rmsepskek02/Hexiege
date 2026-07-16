@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-07-16
-**현재 단계:** Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트.
+**현재 단계:** Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트.
 
 ---
 
@@ -110,8 +110,8 @@
 | LogRules.md 작성 | ✅ 완료 (2026-06-20) | 런타임 로그 파일 규칙 문서. 파일 위치/명명, 형식, 레벨 3단계([INFO]/[WARN]/[ERROR]), 카테고리([System/Class]), 금지사항 확정. |
 | AI 시나리오 문서 (전 종족) | ✅ 완료 (2026-06-10) | Human 3개 + Spirit 3개 + Transcendence 3개 — 총 9개 빌드오더 시나리오. 골드 수지 검토 완료. |
 | AI 시나리오 ScriptableObject 3종족 개편 | ✅ 완료 (2026-06-10) | Human/Spirit/Transcendence 각 1파일 × 3시나리오. DifficultyLevel·BuildOrderStep Domain 레이어 분리. |
-| Inspector 작업 | ⏳ 대기 | `Hexiege/Setup/AIConfig 생성` → `AIScenarioConfig_Human_A/B/C 생성` → Spirit/Transcendence 시나리오 에셋 생성 → (Lobby.unity) `Hexiege/Fix/DifficultySelectView 레이아웃 수정` 순서로 실행 |
-| 실기 테스트 | ⏳ 대기 | Inspector 에셋 작업 완료 후 싱글플레이 AI 동작 확인 예정 |
+| Inspector 작업 | ✅ 완료 (2026-07-16) | `Hexiege/Setup/AIConfig 생성` → `AIScenarioConfig_Human_A/B/C 생성` → Spirit/Transcendence 시나리오 에셋 생성 → (Lobby.unity) `Hexiege/Fix/DifficultySelectView 레이아웃 수정` 실행 완료. AIConfig 에셋, AIScenarioConfig 3종족 에셋, DifficultySelectView 레이아웃 배치 모두 반영됨(실기 테스트가 진행된 사실로 확인). |
+| 실기 테스트 | 🔵 조건부 완료 (2026-07-16) | 핵심 흐름(유닛 생산, 건물 업그레이드 등)을 반복 실기로 확인 — PASS, 특별한 문제 미발견. 단, 세부 정밀 검증은 미완: 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴)의 트리거·동작, 3종족(Human/Spirit/Transcendence) 시나리오 무작위 선택 동작은 아직 정밀 확인하지 않음. 후속으로 정밀 검증 필요. |
 
 ---
 

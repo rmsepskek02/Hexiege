@@ -19,8 +19,8 @@
 | ✅ 완료 | 게임 화면 UI TC 62개 실기기 테스트 + END UI 버그 수정 | QA/버그 | 중 |
 | ✅ 완료 | BuildingPlacementUI 씬 계층 재설계 (BP-001/BP-002 해결) | UI | 중 |
 | ✅ 완료 | 패널 버튼 크기 불일치 수정 (PRD-001, BAP-001) — LayoutElement 균등화 | UI | 소 |
-| 🔵 구현완료 | AI 시스템 — 코드 완료. Inspector 연결 + 실기 테스트 대기 | 기능 | 대 |
-| 🔴 높음 | AI 시스템 — Inspector 작업 (AIConfig/Scenario에셋 생성, DifficultySelectView GO 배치) | UI/기능 | 소 |
+| 🔵 조건부 완료 | AI 시스템 — 코드 + Inspector 작업(AIConfig/Scenario 3종족 에셋 생성, DifficultySelectView GO 배치) 완료. 핵심 흐름(유닛 생산/건물 업그레이드) 실기 조건부 완료(2026-07-16, PASS·특별한 문제 미발견). 후속: 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 정밀 검증 | 기능 | 대 |
+| 🔴 높음 | AI 시스템 — 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴) 트리거·동작 + 3종족(Human/Spirit/Transcendence) 시나리오 무작위 선택 동작 정밀 실기 검증 (핵심 흐름은 확인됨, 세부 정밀 검증만 잔여) | 기능 | 소 |
 | 🔴 높음 | 신규 유닛 프리팹 실기 테스트 + 후속 작업 (Animation Event 부착, UnitFactory 등록, StatsReference 스탯 확정) | 기능 | 대 |
 | 🔴 높음 | 게임 화면 UI 크기/레이아웃 수정 잔여 (HUD-007, SET-004, SET-007/END-001, MULTI-END-002 — 5항목) | UI | 소 |
 | ✅ 완료 | 전역 UI 시스템 (UIManager + SplashOverlay) | UI | 중 |
@@ -73,8 +73,13 @@
 ### C-0. 싱글플레이 AI 시스템
 **🔵 코드 구현 완료 (2026-06-07)**: LocalPlayerDifficulty / AIConfig / AIScenarioConfig ScriptableObject / AIOpponentController(빌드오더+반응시스템+BFS) / GameBootstrapper 연동 / 로비 난이도 선택 UI(DifficultySelectView) 전체 완료. 3종족 시나리오 에셋 개편 완료 (2026-06-10): Human/Spirit/Transcendence 각 1개 에셋 × 3시나리오, Domain 레이어 아키텍처 정리.
 
-**남은 작업**:
-1. 싱글플레이 실기 테스트 (AI 동작, 난이도 선택, 3종족 시나리오 무작위 동작 확인)
+**✅ Inspector 작업 완료 (2026-07-16)**: AIConfig 에셋 생성, AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치 반영(실기 테스트가 진행된 사실로 확인).
+
+**🔵 핵심 흐름 실기 조건부 완료 (2026-07-16)**: 유닛 생산·건물 업그레이드 등 핵심 흐름을 반복 실기로 확인 — PASS, 특별한 문제 미발견.
+
+**남은 작업 (세부 정밀 검증)**:
+1. 반응 시스템(R1 유닛열세 / R2 골드과잉 / R3 채굴소 파괴)의 트리거·동작 정밀 검증
+2. 3종족(Human/Spirit/Transcendence) 시나리오 무작위 선택 동작 확인
 
 ---
 

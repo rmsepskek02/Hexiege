@@ -58,3 +58,5 @@
 
 - Updated project status, roadmap, work history, and task testcase for `Assets/_Project/Docs/_Tasks/2026-07-16/12_10_main-profile-cloudsave-leaderboard-port/`.
 - Documented that profile/ranking cloud integration is complete and email verification abandonment is the next follow-up task.
+
+- 싱글플레이 AI 시스템 실기 "조건부 완료" 반영(2026-07-16): 사용자가 핵심 흐름(유닛 생산/건물 업그레이드)만 적당히 실기 확인(PASS, 문제 미발견)하고 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 정밀 검증은 미완인 경우의 기록 패턴. **완료(✅)로 소거하지 말고 조건부 완료(🔵) + "후속 정밀 검증" 잔여를 명시**. 갱신처: PROJECT_STATUS(싱글플레이 AI 시스템 표의 "Inspector 작업"⏳→✅ / "실기 테스트"⏳→🔵 조건부 완료 + 헤더 현재 단계에 한 줄), ROADMAP(우선순위 표 2행 조건부 완료 전환 + Phase C-0 "남은 작업"을 세부 정밀 검증 항목으로 재기술). 실기 진행 사실이 곧 전제 Inspector 작업 완료를 함의 → 대기였던 Inspector 항목도 함께 완료 처리. 이번엔 코드/버그 변경이 없어 game-programmer/qa MEMORY·GameSystemRules·TDD·GDD는 무수정(지시 범위=문서 3종만).
