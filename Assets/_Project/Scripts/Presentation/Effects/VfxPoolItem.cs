@@ -33,8 +33,17 @@ namespace Hexiege.Presentation
     /// </summary>
     public class VfxPoolItem : MonoBehaviour
     {
-        /// <summary> 이 오브젝트가 제어하는 파티클 시스템. Awake에서 캐시. </summary>
+        /// <summary> 루트에 있는 파티클 시스템. 있으면 이것만 Play(하위 포함)로 재생. Awake에서 캐시. </summary>
         private ParticleSystem _ps;
+
+        /// <summary>
+        /// 루트에 파티클 시스템이 없고 "여러 형제 시스템"으로 구성된 프리팹을 위한 직속 자식 시스템 목록.
+        /// 예: TorrentSpirit 파도(vfx_torrentspirit_attack) — 빈 루트 아래
+        ///     Main_Water_Surge / Ground_Impact_Ripples / Front_Foam_Crest 3개가 형제로 붙어 있다.
+        /// ParticleSystem.Play()는 "형제" 시스템을 재생하지 않으므로, 이 경우 각 형제를 개별 재생해야
+        /// 한다. (안 그러면 첫 번째 하나만 보이고 나머지는 안 나온다.)
+        /// </summary>
+        private ParticleSystem[] _childSystems;
 
         /// <summary>
         /// 이 인스턴스가 어떤 원본 프리팹에서 만들어졌는지.
@@ -61,9 +70,30 @@ namespace Hexiege.Presentation
         /// </summary>
         private void Awake()
         {
+            // 1순위: 루트에 파티클 시스템이 있으면 그것으로 충분(Play(true)가 하위 시스템까지 재생).
             _ps = GetComponent<ParticleSystem>();
+
+            // 루트에 없으면: 빈 루트 아래 여러 형제 파티클 시스템으로 구성된 프리팹이다.
+            //   GetComponentInChildren는 "첫 번째" 하나만 반환하고 Play()도 형제는 재생하지 않으므로,
+            //   직속 자식 파티클 시스템을 전부 모아 각각 재생해야 한다(안 그러면 일부만 보인다).
             if (_ps == null)
-                _ps = GetComponentInChildren<ParticleSystem>();
+            {
+                var list = new System.Collections.Generic.List<ParticleSystem>();
+                foreach (Transform child in transform)
+                {
+                    var childPs = child.GetComponent<ParticleSystem>();
+                    if (childPs != null) list.Add(childPs);
+                }
+
+                // 직속 자식에도 없으면(더 깊이 중첩된 구조) 마지막 폴백으로 하위 전체에서 하나 탐색.
+                if (list.Count == 0)
+                {
+                    var nested = GetComponentInChildren<ParticleSystem>();
+                    if (nested != null) list.Add(nested);
+                }
+
+                _childSystems = list.ToArray();
+            }
         }
 
         /// <summary>
@@ -92,11 +122,23 @@ namespace Hexiege.Presentation
             gameObject.SetActive(true);
             _active = true;
 
+            // 루트 PS가 있으면 그것만(하위 포함) 재생. 없으면 형제 시스템을 전부 재생.
             if (_ps != null)
             {
-                // 이전 재생 잔여 파티클을 제거하고 처음부터 재생.
+                // 이전 재생 잔여 파티클을 제거하고 처음부터 재생. Play()=Play(true)로 하위까지 함께.
                 _ps.Clear();
                 _ps.Play();
+            }
+            else if (_childSystems != null)
+            {
+                // 형제 파티클 시스템을 각각 개별 재생(각자의 하위 포함). 하나만 재생하면 나머지가 안 보인다.
+                for (int i = 0; i < _childSystems.Length; i++)
+                {
+                    var cs = _childSystems[i];
+                    if (cs == null) continue;
+                    cs.Clear();
+                    cs.Play();
+                }
             }
         }
 
@@ -109,11 +151,32 @@ namespace Hexiege.Presentation
         {
             if (!_active) return;
 
-            // _ps가 없으면(프리팹에 파티클이 없는 비정상 케이스) 즉시 반환하여 영구 점유 방지.
-            if (_ps == null || !_ps.IsAlive(true))
+            // 파티클이 모두 소멸했으면 Pool에 반환. 루트 PS든 형제 시스템 묶음이든 "하나라도 살아있으면" 유지.
+            // 파티클 시스템이 아예 없는 비정상 케이스는 AnyAlive가 false → 즉시 반환하여 영구 점유 방지.
+            if (!AnyAlive())
             {
                 Return();
             }
+        }
+
+        /// <summary>
+        /// 이 VFX의 파티클이 하나라도 살아있는지 검사. 루트 PS(_ps) 또는 형제 시스템(_childSystems)
+        /// 전체를 확인하여, 전부 소멸하면 false(= Pool 반환 시점)를 반환한다.
+        /// </summary>
+        private bool AnyAlive()
+        {
+            if (_ps != null) return _ps.IsAlive(true);
+
+            if (_childSystems != null)
+            {
+                for (int i = 0; i < _childSystems.Length; i++)
+                {
+                    if (_childSystems[i] != null && _childSystems[i].IsAlive(true))
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
