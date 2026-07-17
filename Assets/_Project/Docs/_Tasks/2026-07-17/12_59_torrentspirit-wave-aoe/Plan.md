@@ -99,10 +99,17 @@ TorrentSpirit이 전방으로 물의 파도를 일으켜, 파도가 지나가며
 ### D. 컨텍스트 / 설정 확장
 - **`SpecialAttackContext`**: 힐 헬퍼(`Action<UnitData,int>` 또는 유사) + 공격자 팀 + 파도 파라미터 전달.
   기존 피해 헬퍼·월드좌표 델리게이트 유지.
-- **`SpecialAttackConfig`**: 파도 값 추가 — `waveWidth`(3)·`waveLength`(3)·`waveDamage`(20)·`waveHeal`(10)·
-  `waveTravelTime`(튜닝). 도끼병 sweep 값과 공존하므로 **유닛별/특수별 파라미터 그룹으로 구조화**(규칙 25 연장).
-  GameBootstrapper가 float로 주입(레이어 규칙). **에셋 생성+GameBootstrapper 배선 필수**(규칙 25 교훈 —
-  `CreateSpecialAttackConfigAsset.cs` 재사용/확장).
+- **`SpecialAttackConfig`**: 파도 세부값을 **전부 Inspector에서 편집 가능**하게 추가(사용자 요구 —
+  세부 스탯 인스펙터 조정). 파라미터:
+  - `waveWidth`(가로, 기본 3) · `waveLength`(전방 길이, 기본 3) · `waveTravelTime`(파도 이동 시간, 튜닝) ·
+    `waveHeal`(아군 힐량, 기본 10).
+  - **피해량은 `attackPower`(UnitStatsConfig, 이미 Inspector 편집) 재사용**(20) — 전 유닛 일관(도끼병도
+    attackPower 사용). 즉 피해=UnitStatsConfig, 힐·형태·이동시간=SpecialAttackConfig, **둘 다 Inspector**.
+  - 도끼병 sweep 값과 공존하므로 **유닛별/특수별 파라미터 그룹으로 구조화**(규칙 25 연장) —
+    한 SO 안에서 각 특수 유닛 항목을 Tooltip과 함께 명확히 구분.
+  - GameBootstrapper가 값을 float로 주입(레이어 규칙 — Application이 SO 직접 참조 금지).
+  - **에셋 생성 + GameBootstrapper 배선 필수**(규칙 25 교훈). `CreateSpecialAttackConfigAsset.cs`
+    셋업 스크립트를 TorrentSpirit 필드까지 커버하도록 확장(또는 기존 에셋에 값 반영).
 
 ### E. 이펙트 배선
 - `vfx_torrentspirit_attack.prefab`을 TorrentSpirit 파도 파티클로 사용. `UnitEffectConfig`의 TorrentSpirit
