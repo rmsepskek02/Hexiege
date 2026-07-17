@@ -415,3 +415,12 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - User confirmed Profile tab click path and ProfileView enable path with temporary debug logs; debug logs were removed afterward.
 - Ranking/Profile/NicknameChangePopup UI is functionally visible; final fine layout tuning remains manual Inspector work.
 - Regression focus for next pass: Unity console compile errors, Profile tab refresh, Ranking tab refresh/empty state, nickname change validation, and email verification abandonment.
+
+### 2026-07-17 - TorrentSpirit 파도 AoE + 힐 서브시스템 QA (정적 분석, CONDITIONAL PASS)
+- 로직/이벤트/서버권위/레이어 규칙: 전부 PASS (TickWaves 이중 틱 없음, 힐 멀티 동기화 정상, Domain 순수성 유지).
+- **BUG-001급 발견 — "코드는 맞는데 데이터가 안 채워짐" 패턴**: UnitStatsConfig.asset에 unitType 18 항목 없음(범용 폴백로 동작) +
+  TorrentSpirit_Attack.anim에 OnAttackHit 이벤트 미주입(규칙 27) + UnitEffectConfig.asset의 attackPreset이 fileID 0(고아 VFX 프리팹).
+  신규 유닛 QA 시 항상 이 3종 데이터 배선을 grep으로 직접 확인할 것 — 상세 검사 루틴은 patterns.md 참조.
+- **구조적 버그 발견**: ReplacesPrimaryAttack=true(special-only) 유닛은 주 타깃이 건물이면 그 공격 사이클에 피해가 전혀 발생하지 않음
+  (주 타깃 단일피해 스킵 + AoE가 유닛만 순회). Castle 파괴가 승리조건인데 해당 유닛은 건물을 절대 못 부숨 — Major.
+- 상세: patterns.md "세션: 2026-07-17" 참조. task: `_Tasks/2026-07-17/12_59_torrentspirit-wave-aoe/`

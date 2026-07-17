@@ -72,6 +72,8 @@ namespace Hexiege.Application
         // 파도가 닿은 유닛을 먼저 수집한 뒤 일괄 적용한다(피해로 사망 시 Dictionary 변경 예외 방지).
         private readonly List<UnitData> _waveDamageBuffer = new List<UnitData>(8);
         private readonly List<UnitData> _waveHealBuffer = new List<UnitData>(8);
+        // 파도가 닿은 "적 건물"을 담는 버퍼(BUG-002 — special-only 유닛도 공성 가능하도록). 유닛과 분리 수집.
+        private readonly List<BuildingData> _waveBuildingBuffer = new List<BuildingData>(4);
 
         /// <summary>
         /// 싱글플레이 전용 전투 상태 추적.
@@ -1091,6 +1093,7 @@ namespace Hexiege.Application
                 // 1) 닿은 유닛 선수집(피해로 사망 시 Dictionary 변경 예외 방지 — 수집/적용 2단계 분리).
                 _waveDamageBuffer.Clear();
                 _waveHealBuffer.Clear();
+                _waveBuildingBuffer.Clear();
 
                 foreach (var unit in _unitSpawn.Units.Values)
                 {
@@ -1115,6 +1118,26 @@ namespace Hexiege.Application
                         _waveDamageBuffer.Add(unit); // 적 → 피해
                 }
 
+                // 적 건물도 파도 경로에 들어오면 피해 대상(BUG-002 — special-only 공성 가능).
+                // 건물은 정적이라 유닛과 동일한 직사각형/전선 판정을 적용한다. 단 힐 대상은 아니다(적 건물만 피해).
+                foreach (var building in _buildingPlacement.Buildings.Values)
+                {
+                    if (building == null || !building.IsAlive) continue;
+                    if (building.Team == wave.AttackerTeam) continue;        // 아군 건물 제외(적 건물만)
+                    if (wave.HitBuildings.Contains(building.Id)) continue;   // 이미 맞음 → 제외(각 건물 1회)
+
+                    Vector3 relB = Flatten(ResolveWorldPosition(building)) - wave.Origin;
+                    float pB = Vector3.Dot(relB, wave.Forward);             // 전방 성분
+                    if (pB < 0f || pB > wave.Length) continue;              // 직사각형 전후 범위 밖
+                    if (pB > wave.FrontDistance) continue;                  // 아직 전선이 도달하지 않음(다음 틱)
+
+                    float lateralB = Vector3.Dot(relB, wave.Right);         // 좌우 성분
+                    if (Mathf.Abs(lateralB) > wave.HalfWidth) continue;     // 폭 밖
+
+                    wave.HitBuildings.Add(building.Id);
+                    _waveBuildingBuffer.Add(building);
+                }
+
                 // 2) 적용 — 피해는 파도 전용 즉시 연출(immediatePresentation=true)로 방출.
                 //    공격자(시전자)가 파도 도중 사망했을 수 있으나, AttackPower/Id는 유효하므로 그대로 사용.
                 for (int i = 0; i < _waveDamageBuffer.Count; i++)
@@ -1128,6 +1151,13 @@ namespace Hexiege.Application
                     UnitData ally = _waveHealBuffer[i];
                     if (ally == null || !ally.IsAlive) continue;
                     ApplyHealToUnit(wave.Caster, ally, wave.Heal);
+                }
+                // 적 건물 피해 — 유닛 피해와 동일하게 즉시 연출(immediatePresentation=true)로 방출.
+                for (int i = 0; i < _waveBuildingBuffer.Count; i++)
+                {
+                    BuildingData bVictim = _waveBuildingBuffer[i];
+                    if (bVictim == null || !bVictim.IsAlive) continue;
+                    ApplyDamageToVictim(wave.Caster, bVictim, immediatePresentation: true);
                 }
 
                 // 3) 완주 판정 — 전선이 끝까지 갔고 이동 시간도 지났으면 제거.
@@ -1181,6 +1211,11 @@ namespace Hexiege.Application
             public float Elapsed;
             /// <summary> 이미 효과를 받은 유닛 Id 집합(중복 방지 — 각 유닛 1회). </summary>
             public readonly HashSet<int> Hit = new HashSet<int>();
+            /// <summary>
+            /// 이미 피해를 받은 "건물" Id 집합(중복 방지 — 각 건물 1회).
+            /// 유닛 Id와 건물 Id는 서로 다른 카운터라 값이 겹칠 수 있으므로 유닛 Hit과 분리한 집합을 쓴다.
+            /// </summary>
+            public readonly HashSet<int> HitBuildings = new HashSet<int>();
         }
     }
 }

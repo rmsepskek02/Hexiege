@@ -199,6 +199,18 @@ MonoBehaviour:
     productionTime: 10
     goldCost: 100
     populationCost: 1
+  - unitType: 18
+    maxHp: 100
+    attackPower: 20
+    attackRange: 3
+    detectRange: 3
+    moveSpeed: 0.5
+    attackCooldown: 4
+    hitFrameTimes:
+    - 0.5
+    productionTime: 30
+    goldCost: 400
+    populationCost: 1
   - unitType: 20
     maxHp: 100
     attackPower: 6
