@@ -68,6 +68,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("건물 HP/골드비용/공격력 ScriptableObject. BuildingStats의 소스.")]
         [SerializeField] private BuildingStatsConfig _buildingStatsConfig;
 
+        [Tooltip("특수 공격(도끼병 휩쓸기 등) 튜닝값 ScriptableObject. 미연결 시 코드 기본값(1.0/120) 사용.")]
+        [SerializeField] private SpecialAttackConfig _specialAttackConfig;
+
         [Header("Scene References")]
         [Tooltip("[World]/HexGrid 오브젝트의 HexGridRenderer")]
         [SerializeField] private HexGridRenderer _gridRenderer;

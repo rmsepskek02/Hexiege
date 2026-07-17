@@ -275,7 +275,16 @@ namespace Hexiege.Bootstrap
             _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn, _flowFieldService, hexMapper);
             _buildingPlacement = new BuildingPlacementUseCase(_grid);
             _positionProvider = new UnitWorldPositionProvider(_unitFactory, _buildingFactory);
-            _unitCombat = new UnitCombatUseCase(_grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper);
+
+            // 특수 공격(도끼병 휩쓸기) 튜닝값 — SpecialAttackConfig(SO)에서 float로 읽어 주입.
+            // SO가 연결되지 않았으면 코드 기본값(반경 1.0 / 반각 120°)을 폴백으로 사용하여
+            // 미주입 상태에서도 휩쓸기가 동작하게 한다. (Application이 SO를 직접 참조하지 않음)
+            float sweepReach = _specialAttackConfig != null ? _specialAttackConfig.SweepReach : 1.0f;
+            float sweepArcHalfAngle = _specialAttackConfig != null ? _specialAttackConfig.SweepArcHalfAngle : 120f;
+
+            _unitCombat = new UnitCombatUseCase(
+                _grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper,
+                sweepReach, sweepArcHalfAngle);
 
             // 방어 타워 전투 UseCase.
             // Application 레이어가 GameRaceContext(Infrastructure)에 직접 의존하지 않도록,

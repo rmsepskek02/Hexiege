@@ -1,0 +1,59 @@
+// ============================================================================
+// SpecialAttackConfig.cs
+// 특수 공격(도끼병 휩쓸기 등)의 튜닝 수치를 Unity Inspector에서 편집 가능하게
+// 만드는 ScriptableObject.
+//
+// ScriptableObject란?
+//   Unity의 데이터 컨테이너 에셋. 씬에 붙이지 않고 .asset 파일로 저장되며,
+//   Inspector에서 값을 편집할 수 있다. 코드(재컴파일) 없이 수치를 조정 가능하므로
+//   밸런싱 작업에 유용하다. (UnitStatsConfig와 동일한 패턴)
+//
+// 이 에셋의 역할:
+//   도끼병(BattleAxe)의 "휩쓸기형 AoE" 판정에 쓰이는 두 값을 담는다.
+//     - sweepReach      : 전방 부채꼴 판정의 월드 반경(공격자로부터의 XZ 평면 거리 한계)
+//     - sweepArcHalfAngle: 전방 부채꼴의 반각(도 단위). forward(주 타깃 방향)와 이루는
+//                          각도가 이 값 이하이면 부채꼴 안으로 판정.
+//   게임 시작 시 GameBootstrapper가 이 에셋의 값을 읽어 UnitCombatUseCase에
+//   float 원시값으로 주입한다. (Application 레이어는 Infrastructure의 SO를 직접
+//   참조하지 않는다 — MEMORY 레이어 규칙: UnitStatsConfig→UnitStats.Initialize와 동일 패턴.)
+//
+// 생성 방법:
+//   Project 창에서 우클릭 → Create → Hexiege → SpecialAttackConfig
+//   (또는 CreateAssetMenu 경로). 권장 저장 위치는
+//   Assets/_Project/Resources/Config/SpecialAttackConfig.asset.
+//   에셋을 만든 뒤 GameBootstrapper의 Config 섹션 필드에 연결한다.
+//   ※ 에셋을 연결하지 않아도 코드 기본값(1.0 / 120)이 폴백으로 동작한다.
+//
+// Infrastructure 레이어 — Unity 의존 허용 (ScriptableObject).
+// ============================================================================
+
+using UnityEngine;
+
+namespace Hexiege.Infrastructure
+{
+    // ========================================================================
+    // SpecialAttackConfig
+    // 특수 공격 튜닝 수치를 담는 ScriptableObject.
+    // 향후 QuakeSpirit 착탄 반경 등 다른 특수 유닛 파라미터의 공용 자리로 확장 가능.
+    // ========================================================================
+    [CreateAssetMenu(fileName = "SpecialAttackConfig", menuName = "Hexiege/SpecialAttackConfig")]
+    public class SpecialAttackConfig : ScriptableObject
+    {
+        // ── 도끼병(BattleAxe) 휩쓸기형 AoE ─────────────────────────────
+        [Header("BattleAxe Sweep (휩쓸기)")]
+
+        [Tooltip("휩쓸기 전방 부채꼴 판정의 월드 반경. 공격자로부터의 XZ 평면 거리가 이 값 이하인 적만 대상. " +
+                 "인접 타일 중심 간 거리(≈0.9~1.0)를 기준으로 조정. 기본값 1.0")]
+        [SerializeField] private float _sweepReach = 1.0f;
+
+        [Tooltip("휩쓸기 전방 부채꼴의 반각(도 단위). forward(주 타깃 방향)와 적이 이루는 각도가 " +
+                 "이 값 이하이면 피격. 120이면 전방 240° 범위(등 뒤 60° 제외). 기본값 120")]
+        [SerializeField] private float _sweepArcHalfAngle = 120f;
+
+        /// <summary> 휩쓸기 전방 부채꼴 판정의 월드 반경(XZ 평면 거리 한계). </summary>
+        public float SweepReach => _sweepReach;
+
+        /// <summary> 휩쓸기 전방 부채꼴의 반각(도 단위). </summary>
+        public float SweepArcHalfAngle => _sweepArcHalfAngle;
+    }
+}

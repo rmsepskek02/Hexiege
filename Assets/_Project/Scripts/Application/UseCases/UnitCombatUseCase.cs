@@ -49,6 +49,12 @@ namespace Hexiege.Application
         // 등록되지 않은 일반 유닛은 TryGet이 null → 특수 공격 없음(기존 동작 무변경).
         private readonly SpecialAttackRegistry _specialAttacks = new SpecialAttackRegistry();
 
+        // 특수 공격(도끼병 휩쓸기) 튜닝값 — SpecialAttackConfig(SO)에서 GameBootstrapper가
+        // 읽어 float로 주입한다. SO가 없으면 생성자 기본값(1.0 / 120)이 폴백으로 쓰인다.
+        // Application이 Infrastructure의 SO를 직접 참조하지 않도록 원시값만 보관한다.
+        private readonly float _sweepReach;
+        private readonly float _sweepArcHalfAngle;
+
         /// <summary>
         /// 싱글플레이 전용 전투 상태 추적.
         /// key=유닛Id, value=(타겟Id, 타겟이 유닛인지).
@@ -88,18 +94,30 @@ namespace Hexiege.Application
         /// </summary>
         private readonly List<PendingHit> _pendingHits = new List<PendingHit>();
 
+        /// <param name="sweepReach">
+        ///   도끼병 휩쓸기 전방 부채꼴 판정의 월드 반경. SpecialAttackConfig에서 주입.
+        ///   미주입 시 기본값 1.0(코드 폴백) 사용.
+        /// </param>
+        /// <param name="sweepArcHalfAngle">
+        ///   도끼병 휩쓸기 전방 부채꼴의 반각(도 단위). SpecialAttackConfig에서 주입.
+        ///   미주입 시 기본값 120(코드 폴백) 사용.
+        /// </param>
         public UnitCombatUseCase(
             HexGrid grid,
             UnitSpawnUseCase unitSpawn,
             BuildingPlacementUseCase buildingPlacement,
             IEntityPositionProvider positionProvider,
-            IHexCoordinateMapper mapper)
+            IHexCoordinateMapper mapper,
+            float sweepReach = 1.0f,
+            float sweepArcHalfAngle = 120f)
         {
             _grid = grid;
             _unitSpawn = unitSpawn;
             _buildingPlacement = buildingPlacement;
             _positionProvider = positionProvider;
             _mapper = mapper;
+            _sweepReach = sweepReach;
+            _sweepArcHalfAngle = sweepArcHalfAngle;
         }
 
         // ====================================================================
@@ -795,7 +813,8 @@ namespace Hexiege.Application
         private void ExecuteAttack(UnitData attacker, IDamageable target)
         {
             // 공격 방향 계산 — 주 타깃을 향하도록 Facing 갱신.
-            // 특수 공격(휩쓸기)의 "전방 5타일" 판정도 이 갱신된 Facing을 기준으로 하므로,
+            // 특수 공격(휩쓸기)의 전방 부채꼴 판정은 "공격자 → 주 타깃" 월드 방향을 forward로
+            // 쓰지만, 이 Facing 갱신도 회전 연출 등과 정합을 유지하도록 함께 갱신한다.
             // 반드시 주 타깃 피해 전에 여기서 한 번만 갱신한다(AoE 피해마다 갱신 금지).
             HexDirection attackDir = FacingDirection.FromCoords(attacker.Position, target.Position);
             attacker.Facing = attackDir;
@@ -809,9 +828,40 @@ namespace Hexiege.Application
             if (special != null)
             {
                 var ctx = new SpecialAttackContext(
-                    attacker, target, _unitSpawn.Units, ApplyDamageToVictim);
+                    attacker, target, _unitSpawn.Units,
+                    ApplyDamageToVictim, ResolveWorldPosition,
+                    _sweepReach, _sweepArcHalfAngle);
                 special.Apply(ctx);
             }
+        }
+
+        /// <summary>
+        /// 엔티티(유닛/건물)의 실제 월드 좌표를 반환한다. 특수 공격 핸들러(휩쓸기)의
+        /// 월드 좌표 부채꼴 판정에 사용하며, SpecialAttackContext에 델리게이트로 주입된다.
+        ///
+        /// IsTargetInRange / FindFirstEnemyInDetectRange와 동일한 조회 규칙을 따른다:
+        ///   1) _positionProvider로 실제 GameObject 위치(뷰 좌표)를 얻는다(Lerp 중에도 정확).
+        ///   2) GameObject가 없어 Vector3.zero면 도메인 좌표(HexToWorld) 폴백을 쓴다.
+        /// </summary>
+        /// <param name="entity">월드 좌표를 구할 엔티티(유닛 또는 건물).</param>
+        /// <returns>엔티티의 월드 좌표. 조회 불가 시 도메인 좌표 폴백값.</returns>
+        private Vector3 ResolveWorldPosition(IDamageable entity)
+        {
+            if (entity == null) return Vector3.zero;
+
+            Vector3 worldPos = Vector3.zero;
+            if (_positionProvider != null)
+            {
+                worldPos = entity is UnitData
+                    ? _positionProvider.GetUnitWorldPosition(entity.Id)
+                    : _positionProvider.GetBuildingWorldPosition(entity.Id);
+            }
+
+            // 미등록(GameObject 없음)이면 도메인 좌표 → 월드 좌표 변환으로 폴백.
+            if (worldPos == Vector3.zero)
+                worldPos = _mapper.HexToWorld(entity.Position);
+
+            return worldPos;
         }
 
         /// <summary>
