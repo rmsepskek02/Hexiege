@@ -52,6 +52,8 @@
 - A* 이동, 공유 타일 상태, 경로 재계산
 - 상태 머신 (A* 이동 / 전투 이동 / 공격)
 - 감지/공격 사거리, 타겟 선택, AoE
+- 전투 연출 동기화 (타격 프레임 단일 소스, 피격 표현 큐, 원거리 트레이서, 애니메이션 상태 값 기반 동기화)
+- 특수 공격 시스템 (전략 핸들러 구조, 휩쓸기 월드 부채꼴 판정, SpecialAttackConfig 튜닝, AoE 연출 동시 방출)
 
 ### 건물 관련 작업
 → [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md)

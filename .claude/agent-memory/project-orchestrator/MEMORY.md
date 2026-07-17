@@ -6,7 +6,17 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
-## 프로젝트 현재 상태 (2026-07-16)
+## 프로젝트 현재 상태 (2026-07-17)
+
+### 2026-07-17 완료 — 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 아키텍처 (사용자 실기 PASS)
+- 특수 유닛 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 중 **첫 구현**. 이후 4종의 특수 공격 처리 기반 구조 확립.
+- **전략 핸들러 아키텍처**: `ISpecialAttackBehavior`(계약) + `SpecialAttackContext` + `SpecialAttackRegistry`(UnitType 키) + `SweepAttackBehavior`. 모두 `Scripts/Application/Combat/`. 신규 유닛=핸들러+등록 1줄, `ExecuteAttack` 재수정 불필요.
+- **피해 수렴점 단일화**: `UnitCombatUseCase.ExecuteAttack` 인라인 피해→`ApplyDamageToVictim` 헬퍼(주 타깃/AoE 공용, 멀티 HP 동기화 일관) + 특수 공격 훅 1줄.
+- **휩쓸기 판정 = 월드 좌표 전방 부채꼴**: 초기 타일 기준→실기 후 변경. forward=공격자→주 타깃, XZ거리 ≤ `sweepReach`(실기 0.75) AND 각도 ≤ `sweepArcHalfAngle`(120°). `IEntityPositionProvider` 서버 권위.
+- **튜닝 SO `SpecialAttackConfig`**(Infrastructure/Config), GameBootstrapper가 float 주입. 에디터 툴 `CreateSpecialAttackConfigAsset.cs` 멱등 자동화. ⚠️ 에셋 생성 ≠ 씬 배선(미배선 시 폴백 함정).
+- **AoE 연출 동시 방출**: `HitPresentationQueue`가 `HitFrameTimes.Length≤1`이면 큐 전부 방출(휩쓸기 동시 표시), `>1`이면 1건.
+- BattleAxe attackRange 0.5→0.75, Attack 클립 OnAttackHit 1.1667s 주입. main 최신화 병합 완료. 규칙 23~27, TDD 0.22.0. task `_Tasks/2026-07-16/18_06_battleaxe-aoe/`.
+- 최신 전체 현황은 `Assets/_Project/Docs/PROJECT_STATUS.md` 참조.
 
 ### 2026-07-15 완료 — Android AAB 빌드 용량 최적화(main 반영)
 - `codex/asset-size-optimization` 작업이 main에 병합됨. AAB 용량 **190.66 MB → 125.30 MB**(65.36 MB 절감).

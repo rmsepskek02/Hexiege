@@ -32,6 +32,17 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 아키텍처 (2026-07-17) ✅ 사용자 실기 PASS
+- **특수 공격 전략 핸들러 구조(신규 패턴)**: `ISpecialAttackBehavior.Apply(SpecialAttackContext)` + `SpecialAttackContext`(공격자·주 타깃·유닛 목록·재사용 피해 헬퍼·월드 좌표 조회 수단·reach/arc) + `SpecialAttackRegistry`(`UnitType→핸들러`, 현재 BattleAxe→`SweepAttackBehavior`만) + 유닛별 핸들러. 모두 `Scripts/Application/Combat/`. `UnitType` 키 매핑이라 인스펙터 배선 불필요. **신규 특수 유닛 = 핸들러 추가 + 레지스트리 1줄**, `ExecuteAttack` 재수정 불필요.
+- **피해 수렴점 단일화**: 싱글/멀티 공통 `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해(피해+이벤트+사망 처리)를 `ApplyDamageToVictim` 헬퍼로 추출 → 주 타깃/AoE가 같은 경로 사용(멀티 HP 동기화 일관). 말미에 특수 공격 훅 1줄.
+- **휩쓸기 판정 = 월드 좌표 전방 부채꼴(SweepAttackBehavior)**: 초기 "전방 5타일 타일 기준"에서 실기 후 변경. forward=공격자→주 타깃 방향(월드 XZ), 각 적 **XZ 거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`**이면 피격. Y(UnitYOffset) 무시, 겹친 적(거리≈0) 포함, 아군/사망/공격자/주 타깃 제외, 건물 미대상. 월드 좌표=`IEntityPositionProvider`(서버 권위). 순회 중 사망 컬렉션 변경 회피 위해 대상 선수집 후 일괄 적용.
+- **튜닝 SO `SpecialAttackConfig`(Infrastructure/Config)**: `sweepReach`(기본 1.0, 실기값 0.75)·`sweepArcHalfAngle`(기본 120). GameBootstrapper가 SO값을 **float로 UnitCombatUseCase 생성자에 주입**(Application→Infrastructure 역참조 회피, 미연결 시 코드 폴백). 에셋 `Resources/Config/SpecialAttackConfig.asset` + `_specialAttackConfig` 배선 완료. 에디터 툴 `Assets/Editor/Setup/CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)로 에셋 생성+배선 멱등 자동화.
+- **⚠️ 교훈 — SO 튜닝값은 "에셋 생성 ≠ 씬 배선"**: `SpecialAttackConfig.asset`에 0.75를 넣어도 GameBootstrapper `_specialAttackConfig`에 연결 안 되면 런타임은 폴백(1.0)을 씀 → 값 미반영 함정. 신규 SO 튜닝값은 배선까지 확인(또는 셋업 스크립트로 자동 배선).
+- **⚠️ 교훈 — "리치" 2종 구분**: 유닛 `attackRange`(주 타깃 공격/추격, UnitStatsConfig) vs 특수 AoE `sweepReach`(SpecialAttackConfig)는 별개 값. 혼동 주의. 헥스 인접 타일 중심 간 거리 ≈ 0.9~1.0 월드(FlatTop, TileWidth/Height=1.0)라 상대 유닛 사거리(피스톨러 1.0 등)와의 관계 고려 필요.
+- **AoE 피격 연출 동시 방출**: `HitPresentationQueue.OnLocalAttackHit`이 공격자 `HitFrameTimes.Length≤1`이면 보류 큐 전부 방출(휩쓸기 N마리 동시 표시), `>1`(LionKnight 2타·FlameSpirit 6타)이면 기존대로 1건(회귀 없음). 타격 프레임 수=`_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`. **교훈 — HitPresentationQueue는 "타격 프레임 1개=피해 1건" 전제** → AoE(1프레임 N피해)는 `HitFrameTimes.Length` 분기로 해결. 파일 `Presentation/Effects/HitPresentationQueue.cs`.
+- **타격 타이밍/스탯**: BattleAxe `hitFrameTimes=1.1667s`(클립 타격모션 종료 프레임 35f/30fps), `OnAttackHit` 애니 이벤트를 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 주입(특수 유닛 5종은 클립에 이벤트 없어 F-4 잔여였음 — 나머지 4종은 구현 시 주입 필수). UnitStatsConfig(unitType 5): HP80/공격력15/attackRange 0.75(0.5→조정)/detectRange1/moveSpeed1/attackCooldown3.05/생산20s/골드200/인구1.
+- **병합**: main 최신화 병합 완료(폰트 에셋 충돌은 main 버전으로 정리). 규칙 `GameSystemRules_Units.md` 23~27, TDD 0.22.0. task `_Tasks/2026-07-16/18_06_battleaxe-aoe/`.
+
 ### Android AAB 빌드 용량 최적화 (2026-07-15) ✅ main 반영
 - **결과**: `codex/asset-size-optimization` 작업으로 Android AAB **190.66 MB → 125.30 MB**(65.36 MB 절감).
 - **핵심 효과**: 3D 모델 텍스처 Android import max texture size 조정이 가장 큼. `Assets/_Project/Texture/Buildings/**`, `Assets/_Project/Texture/Units/**`를 `1024 → 512`로 낮춤.

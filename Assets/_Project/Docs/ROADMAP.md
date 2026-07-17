@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-07-16
-**현재 단계:** Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업으로 AAB 용량 **190.66 MB → 125.30 MB** 절감. 3D 건물/유닛 텍스처 Android max texture size `1024 → 512`, `_Old` 미사용 에셋 정리, normal/roughness PNG 정리, 보수적 FBX import 조정 적용. 후속(Phase F): 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI Inspector 작업 + 신규 유닛 프리팹 실기 테스트
+**최종 수정일:** 2026-07-17
+**현재 단계:** 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 구현 완료(2026-07-17, 사용자 실기 PASS) — 특수 유닛 5종 중 첫 구현. 신규 유닛은 핸들러 + 레지스트리 1줄로 확장하는 구조 확립, 휩쓸기 판정은 월드 좌표 전방 부채꼴(`SpecialAttackConfig` SO 튜닝, 실기값 reach 0.75/반각 120°). 직전 Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업으로 AAB 용량 **190.66 MB → 125.30 MB** 절감. 후속(Phase F): 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격 4종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·시나리오 정밀 검증 + 잔여 신규 유닛 프리팹 실기 테스트
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -40,8 +40,9 @@
 | ✅ 완료 | Animator 상태 의존 제거 — 전투 종료 후 Walk 재개 3곳의 `GetCurrentAnimatorStateInfo` 질의 → 로컬 추적 필드 기반 판별 리팩토링(겉보기 동작 불변, 커밋 97adaad) (2026-07-13) | 코드 정리 | 소 |
 | ✅ 완료 | Firebase 인증 게이트 제거 — `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 스텁이 로그인 무조건 실패시키던 버그 수정, 실제 Firebase 코드 무조건 컴파일 복원(커밋 4fe1cf0) (2026-07-13) | QA/버그 | 소 |
 | ✅ 완료 | 빌드 에셋 용량 최적화 — Android AAB 190.66 MB → 125.30 MB 절감(2026-07-15). 3D 건물/유닛 텍스처 Android max size 512 적용, 미사용 `_Old` 에셋/normal/roughness PNG 정리, FBX import 조정 | 플랫폼 | 중 |
+| ✅ 완료 | 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 — 특수 유닛 5종 중 첫 구현. 월드 좌표 전방 부채꼴 판정 + `SpecialAttackConfig` 튜닝 SO + `ApplyDamageToVictim` 피해 수렴점 단일화 + AoE 연출 동시 방출 + BattleAxe 스탯/클립 이벤트 확정 (2026-07-17 실기 PASS) | 기능 | 중 |
 | 🟡 중간 | 피격 VFX 프리셋 연결 — `UnitEffectConfig.hitPreset` Inspector 배선(Human 6종 등 미연결) | 에셋 | 소 |
-| 🟢 낮음 | 미구현 특수 타격 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 구현 시 Attack 클립 `OnAttackHit` 이벤트 주입 | 기능/에셋 | 중 |
+| 🟢 낮음 | 미구현 특수 타격 4종(QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 구현 시 Attack 클립 `OnAttackHit` 이벤트 주입 + 특수 공격 핸들러 확장 (BattleAxe는 2026-07-17 완료) | 기능/에셋 | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
 | ⬜ 백로그 | Firebase 백엔드 (랭킹/IAP) | 기능 | 대 |
 
@@ -124,6 +125,8 @@
 ### D-4. 신규 유닛 프리팹 완성 (16종)
 **🔧 에디터 스크립트 완료 (2026-06-05)**: Human 5종(LittleKnight/SpearMan/BattleAxe/Tank/CannonCart)·Spirit 6종(DustSpirit/BoulderSpirit/QuakeSpirit/TideSpirit/StreamSpirit/TorrentSpirit)·Transcendence 5종(RabbitTrickster/RhinoBreaker 등) × Blue/Red 총 32개 프리팹 자동 컴포넌트 부착. `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`
 
+**진행 (2026-07-17)**: 도끼병(BattleAxe)이 특수 유닛 5종 중 **첫 구현 완료** — 휩쓸기형 AoE(월드 좌표 전방 부채꼴), 스탯 확정(HP80/공격력15/attackRange 0.75), UnitStatsConfig 입력, Attack 클립 `OnAttackHit` 이벤트 주입(1.1667s), 특수 공격 전략 핸들러 아키텍처 신설. 상세: `PROJECT_STATUS.md` / `WORK_HISTORY.md`, task `_Tasks/2026-07-16/18_06_battleaxe-aoe/`.
+
 **남은 작업**:
 1. 실기 테스트 — 프리팹 컴포넌트 부착 정상 동작 확인
 2. Animation Event 부착 (각 유닛 공격 애니메이션 타이밍)
@@ -176,9 +179,10 @@
 - **작업**: `UnitEffectConfig.hitPreset`을 Inspector에서 각 유닛에 배선. Human 6종 등 미연결.
 - **비고**: 코드 아님, 에셋 연결 작업.
 
-### F-4. 미구현 특수 타격 5종 클립 이벤트 주입 🟢 낮음
-- **대상**: BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy.
-- **작업**: 해당 유닛 구현 시점에 Attack 클립 `OnAttackHit` 이벤트를 `CombatHitEventInjector` 메뉴로 주입(규칙 U-17).
+### F-4. 미구현 특수 타격 클립 이벤트 주입 🟢 낮음
+- **✅ BattleAxe 완료 (2026-07-17)**: 휩쓸기형 AoE 구현과 함께 Attack 클립 `OnAttackHit` 이벤트 주입 완료(`hitFrameTimes=1.1667s`, 클립 타격모션 종료 프레임 35f/30fps). `Hexiege/Combat/Inject OnAttackHit Events` 인젝터 사용.
+- **남은 대상**: QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy.
+- **작업**: 각 유닛 구현 시점에 Attack 클립 `OnAttackHit` 이벤트를 주입(규칙 17·27). 특수 공격 로직은 규칙 23~27의 전략 핸들러 구조 위에 핸들러 + 레지스트리 1줄로 확장.
 
 ### F-5. Firebase/EDM 저장소 방침 정리 🟡 중간 (2026-07-13 등록)
 - **현황**: 이번 세션에서 발견 — 신규 환경에 저장소를 클론하면 Firebase/EDM(External Dependency Manager) 관련 임포트가 누락되어 재임포트가 필요한 문제.

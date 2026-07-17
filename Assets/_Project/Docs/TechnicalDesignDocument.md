@@ -892,6 +892,17 @@ if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 - **부수 위치 보정:** 재경로 재발급 시 첫 스텝이 최종 목적지 역방향으로 향하던 "뒤로 밀림"(서버 경로 자체가 원인, 클라 보간 무죄)은 `MoveTo`의 `AlignPathStartToTransform`로 실제 `transform` 전방 타일(`FindForwardClosestTile`)에서 재발급하여 보정(규칙 11 강제).
 - 상세 규칙: `GameSystemRules_Units.md` 규칙 22(규칙 21을 상위 대체). task: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`.
 
+#### 특수 공격 전략 핸들러 구조 (2026-07-17 도끼병 휩쓸기형 AoE)
+
+일반 유닛의 단일 타깃 피해와 별개로, 특수 능력(휩쓸기 / 착탄 / 파도 / DoT / 힐)을 가진 유닛의 추가 피해·효과를 **전략(핸들러) 패턴**으로 분리했다. 특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy) 중 도끼병이 첫 구현.
+
+- **계약/구성:** `ISpecialAttackBehavior.Apply(SpecialAttackContext)` 인터페이스 + `SpecialAttackContext`(공격자·주 타깃·유닛 목록·재사용 피해 헬퍼·월드 좌표 조회 수단·reach/arc) + `SpecialAttackRegistry`(`UnitType → 핸들러` 매핑, 현재 `BattleAxe → SweepAttackBehavior`만) + 유닛별 핸들러. 모두 `Scripts/Application/Combat/`. `UnitType` 키 매핑이라 인스펙터 배선 불필요.
+- **피해 수렴점 단일화:** `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해 로직을 `ApplyDamageToVictim` 헬퍼로 추출하여 주 타깃과 AoE 대상이 **같은 피해·이벤트·사망 처리 경로**를 쓰게 했다(멀티플레이 HP 동기화 일관). `ExecuteAttack` 말미에 특수 공격 훅 1줄만 추가 → 신규 특수 유닛은 핸들러 + 레지스트리 1줄로 확장하며 `ExecuteAttack` 재수정 불필요.
+- **휩쓸기 판정(SweepAttackBehavior):** 타일 소속이 아니라 **월드 좌표 전방 부채꼴**(forward = 공격자 → 주 타깃, XZ 거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`). 월드 좌표는 `IEntityPositionProvider`(서버 권위). 아군/사망/공격자/주 타깃 제외, 건물 미대상.
+- **튜닝 SO:** `SpecialAttackConfig`(Infrastructure/Config, `sweepReach`·`sweepArcHalfAngle`). GameBootstrapper가 SO 값을 읽어 핸들러에 **float로 주입**(Application → Infrastructure 역참조 회피). 에셋 생성 + 배선은 `CreateSpecialAttackConfigAsset.cs`가 멱등 자동화. ⚠️ 에셋 생성 ≠ 씬 배선 — 미배선 시 폴백값 사용.
+- **AoE 연출 동시 방출:** `HitPresentationQueue`가 공격자 `HitFrameTimes.Length ≤ 1`이면 보류 큐 전부 방출(휩쓸기 N마리 동시 표시), `> 1`이면 신호당 1건(다중 히트 유닛 회귀 없음).
+- 상세 규칙: `GameSystemRules_Units.md` 규칙 23~27. task: `_Tasks/2026-07-16/18_06_battleaxe-aoe/`.
+
 ### 건물 배치 시스템 (MVP Phase 1)
 
 프로토타입 완료 후 첫 MVP 기능. 건물 배치 + 시각화만 구현 (자원/생산 시스템 미포함).
@@ -1276,6 +1287,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.22.0 | 2026-07-17 | 도끼병(BattleAxe) 휩쓸기형 AoE 구현 — 특수 유닛 5종 중 첫 구현. 특수 공격 전략 핸들러 구조(`ISpecialAttackBehavior` + `SpecialAttackContext` + `SpecialAttackRegistry` + `SweepAttackBehavior`, `Scripts/Application/Combat/`) 신설, `UnitCombatUseCase.ExecuteAttack` 피해 로직을 `ApplyDamageToVictim` 헬퍼로 추출 후 특수 공격 훅 1줄 추가. 휩쓸기 판정 = 월드 좌표 전방 부채꼴(reach/arc), 튜닝 SO `SpecialAttackConfig`(Infrastructure/Config) 신규. "특수 공격 전략 핸들러 구조" 서브섹션 추가. `GameSystemRules_Units.md` 규칙 23~27 등재. BattleAxe attackRange 0.5→0.75, 타격 1.1667s(클립 OnAttackHit 주입). |
 | 0.21.0 | 2026-07-13 | 유닛 애니메이션 상태 동기화를 엣지 트리거 RPC(`StartWalkAnimationClientRpc` 등)에서 `NetworkUnit`의 NetworkVariable(`UnitAnimState` None/Walk/Attack) **레벨 동기화**로 전환. 클라 스폰 시 현재 값 자동 적용으로 스폰 레이스 유실 소멸, `UnitView.Initialize` 후 `ReapplyAnimStateToView` 멱등 재적용 봉합, 재경로 첫 스텝 역방향은 `AlignPathStartToTransform`로 보정. "유닛 애니메이션 상태 동기화" 서브섹션 신규 추가. 규칙 U-22 등재(규칙 21 상위 대체). |
 | 0.20.0 | 2026-06-26 | `IUnitFactory` 인터페이스 도입(Bootstrap/Infrastructure 역방향 의존 제거 리팩토링). `IGameServices.GetUnitFactory()` 반환 타입을 구체 클래스 `UnitFactory`(Infrastructure) → `IUnitFactory`(Application) 인터페이스로 변경. "의존성 방향 추상화(Application 인터페이스 패턴)" 섹션 신규 추가(IGameServices/IUnitFactory/IEntityPositionProvider/IForfeitService 정리). 동작 변경 없음. |
 | 0.19.0 | 2026-06-10 | AI 시나리오 ScriptableObject 3종족 개편. Domain/AI 레이어 신규(DifficultyLevel, BuildOrderStep, AIActionType). 종족별 단일 에셋 구조. |

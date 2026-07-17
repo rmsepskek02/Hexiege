@@ -42,6 +42,13 @@
   - Pistoleer 1.0: 인접 타일(0.866 world units) 범위
   - Assault 2.0: 2타일 범위 (약 1.73 world units)
   - Sniper 5.0: 5타일 원거리 (약 4.33 world units)
+### 특수 유닛 AoE 밸런스 (2026-07-17, 도끼병 첫 구현·실기 PASS)
+- **도끼병(BattleAxe)**: HP 80 / 공격력 15 / **attackRange 0.75**(0.5에서 사용자 실기 조정) / detectRange 1.0 / moveSpeed 1 / attackCooldown 3.05 / 생산 20초·200골드·인구 1. 근거리A 라인 3단계(HumanBarracks) 생산.
+- **휩쓸기형 AoE 밸런스 값 2종(별개, 혼동 주의)**: 유닛 `attackRange`(주 타깃 공격/추격 거리, UnitStatsConfig) vs 특수 AoE `sweepReach`(부채꼴 반경, SpecialAttackConfig SO, **현재 실기값 0.75**, 반각 `sweepArcHalfAngle` 120°).
+- **판정 방식 확정**: 초기 "전방 5타일" 타일 기준에서 **월드 좌표 전방 부채꼴**(공격자→주 타깃 방향 기준 XZ 거리 ≤ reach AND 각도 ≤ 반각)로 변경. 아군/주 타깃/공격자/사망 제외, 건물 미대상. 겹친 적 포함. 상세: GameSystemRules_Units 규칙 23~27.
+- **튜닝 caveat**: 헥스 인접 타일 중심 간 거리 ≈ 0.9~1.0 월드(FlatTop, TileWidth/Height=1.0). sweepReach 튜닝 시 이 값 + 상대 유닛 사거리(예: 피스톨러 1.0)와의 관계 고려 — reach가 크면 전방 원거리 유닛까지 휩쓸림. SpecialAttackConfig.asset은 Inspector 편집(코드 재컴파일 불필요)이나 GameBootstrapper `_specialAttackConfig` 배선 확인 필수.
+- **잔여 특수 유닛 4종(QuakeSpirit 착탄형/TorrentSpirit 파도형/MushroomBomber 착탄형/BloomFairy 힐)**: StatsReference.md 설계 그대로 미구현. 동일한 전략 핸들러 구조 위에서 확장 예정.
+
 - **팀별 피아식별**: Blue/Red 각각 별도 프리팹 사용, 에셋+코드 연동 완료 (2026-03-14)
 - **3D 모델**: Meshy.ai 제작, Mixamo 애니메이션 (Walk/Attack/Dead)
 - **Animator**: Walk/Attack/Dead 스테이트, IsDead bool 파라미터 (Animator.Play() 직접 호출)

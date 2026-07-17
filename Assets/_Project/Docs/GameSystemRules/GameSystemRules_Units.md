@@ -177,3 +177,44 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 **적용 시점 봉합:** 애니메이션 상태 적용이 `UnitView.Initialize`(애니메이터 준비 완료)보다 이르면 무음 실패할 수 있으므로, `UnitView.Initialize` 말미에서 현재 상태 값을 **멱등하게 재적용**한다(`NetworkUnit.ReapplyAnimStateToView`). 재적용은 값 기반이라 몇 번 호출되어도 안전하다.
 
 데미지 판정은 규칙 18에 따라 서버 타이머로만 적용하며 애니메이션 상태 값과 분리한다. 조준 회전(타겟 방향 추적)은 애니메이션 상태와 별개의 타겟 참조로 처리한다(규칙 12·15). 규칙 19의 피격 표현 큐는 이 규칙으로 클라이언트 Attack 루프가 안정화되어 공격자 로컬 타격 프레임 방출이 정상 작동한다. (규칙 21의 재전송 가드 해제는 본 규칙의 값 기반 동기화로 대체된다.)
+
+---
+
+### 특수 공격 시스템 규칙
+
+특수 능력(휩쓸기 / 착탄 / 파도 / DoT / 힐 등)을 가진 유닛의 추가 피해·효과 처리 규칙 모음. (2026-07-17 신설, 도끼병 휩쓸기형 AoE 구현 작업 — 특수 유닛 5종 중 첫 구현) 기본 규칙 16(범위 공격은 대미지 계산 방식의 차이, 이동/상태 전환은 동일, 아군 무피해)을 전제로 한다.
+
+**규칙 23. 특수 공격의 전략 핸들러 구조**
+특수 공격은 유닛별 독립 핸들러 클래스로 구현하고 `UnitType` 키 레지스트리로 매핑한다.
+- 계약: `ISpecialAttackBehavior.Apply(SpecialAttackContext)` — 특수 공격 1종 = 이 인터페이스를 구현한 클래스 1개.
+- 컨텍스트 `SpecialAttackContext`: 공격자, 주 타깃, 유닛 목록, 재사용 피해 헬퍼, 월드 좌표 조회 수단, reach/arc 값을 담아 핸들러에 전달한다.
+- 레지스트리 `SpecialAttackRegistry`: `UnitType → ISpecialAttackBehavior` 매핑(현재 `BattleAxe → SweepAttackBehavior`만 등록). 미등록 유닛은 특수 공격 없이 일반 단일 타깃 공격만 수행한다. `UnitType` 키 매핑이라 인스펙터 배선이 필요 없다.
+- 피해 수렴점 `UnitCombatUseCase.ExecuteAttack`은 단일 타깃 피해 직후 특수 공격 훅 1줄(레지스트리 조회 후 `Apply`)만 호출한다. 신규 특수 유닛은 **핸들러 추가 + 레지스트리 등록 1줄**로 끝내며 `ExecuteAttack`을 다시 수정하지 않는다.
+- 피해 로직 단일화: `ExecuteAttack`의 인라인 단일 피해(피해 적용 + 이벤트 발행 + 사망 처리)를 `ApplyDamageToVictim` 헬퍼로 추출하여 **주 타깃과 AoE 대상이 같은 경로**를 쓰게 한다(멀티플레이 HP 동기화 일관성 보장).
+- 파일 위치: 계약 / 컨텍스트 / 레지스트리 / 핸들러 모두 `Scripts/Application/Combat/`.
+
+**규칙 24. 휩쓸기형 AoE 판정 = 월드 좌표 전방 부채꼴**
+휩쓸기형(도끼병) AoE는 타일 소속이 아니라 **월드 좌표 기준 전방 부채꼴**로 대상을 판정한다.
+- 기준 방향(forward) = 공격자 → 주 타깃 방향(월드 XZ). `ExecuteAttack`이 공격 순간 공격자를 주 타깃 방향으로 향하게 하므로 주 타깃은 항상 전방에 포함된다(이동 중의 옛 방향이 아니라 타겟 방향이 기준).
+- 피격 조건: 각 적 유닛에 대해 공격자로부터의 **XZ 평면 거리 ≤ `sweepReach`** 이고 forward와 이루는 **각도 ≤ `sweepArcHalfAngle`(반각)** 이면 피격. Y축(UnitYOffset)은 무시한다.
+- 겹쳐 붙은 적(거리≈0)은 자연 포함되고, 등 뒤 적은 각도로 자연 제외된다.
+- 제외 대상: 아군, 사망 유닛, 공격자 자신, 주 타깃(규칙 16 아군 제외 + 주 타깃 중복 피해 방지). 건물은 AoE 대상이 아니며 주 타깃일 때만 단일 피해를 받는다.
+- 월드 좌표는 `IEntityPositionProvider`(서버 권위)로 조회한다(전투 사거리 판정 규칙 6과 동일 소스).
+- 순회 중 사망 유닛으로 인한 컬렉션 변경을 피하기 위해 대상을 **먼저 리스트로 수집**한 뒤 일괄 적용한다.
+
+**규칙 25. 특수 공격 튜닝 파라미터 (SpecialAttackConfig)**
+특수 공격 수치는 `SpecialAttackConfig` ScriptableObject(`Infrastructure/Config`)로 Inspector에서 편집한다.
+- `sweepReach`(월드 반경, 기본 1.0 — 현재 실기값 0.75), `sweepArcHalfAngle`(부채꼴 반각, 단위 도, 기본 120).
+- 유닛 `attackRange`(주 타깃 공격/추격 거리, UnitStatsConfig)와 특수 AoE `sweepReach`(SpecialAttackConfig)는 **별개 값**이다(혼동 주의).
+- GameBootstrapper가 시작 시 SO 값을 읽어 특수 공격 핸들러에 **float 값으로 주입**한다(Application이 Infrastructure SO를 직접 참조하지 않음 — 레이어 규칙 준수). SO 미연결 시 코드 폴백값을 사용한다.
+- ⚠️ **에셋 생성 ≠ 씬 배선**: `SpecialAttackConfig.asset`을 만들어 값을 넣어도 GameBootstrapper `_specialAttackConfig`에 연결하지 않으면 런타임은 폴백값을 쓴다. 신규 SO 튜닝값은 배선까지 확인할 것. 셋업 스크립트 `CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)가 에셋 생성 + GameBootstrapper 배선을 멱등 자동화한다.
+
+**규칙 26. AoE 피격 연출 동시 방출**
+`HitPresentationQueue`는 규칙 19에 따라 공격자의 로컬 타격 신호(`OnLocalAttackHit`) 1회당 큐에서 보류 항목을 방출한다. AoE(한 타격 프레임에 다수 피해)는 공격자의 **타격 프레임 수(`HitFrameTimes.Length`)** 로 방출량을 분기한다.
+- **단일 타격 프레임(Length ≤ 1)**: 그 스윙의 모든 피해가 한 타격 프레임에 속하므로 해당 공격자 큐의 **보류 항목을 전부 방출** → 휩쓸기 N마리 연출이 타격 모션에 맞춰 **동시에** 표시된다. (일반 단일 타깃 유닛은 스윙당 큐 1건뿐이라 "전부 방출 = 1건 방출"로 동작 동일 — 회귀 없음.)
+- **다중 타격 프레임(Length > 1, 예: LionKnight 2타·FlameSpirit 6타)**: 기존대로 **신호당 1건** 방출(각 타격 프레임이 각자의 피해에 대응) → 다중 히트 유닛 연출 타이밍 회귀 없음.
+- 데미지·HP는 서버에서 모든 대상에 정확히 적용되며(규칙 18), 이 규칙은 **연출 표시 타이밍**만 다룬다. 향후 단일 타격 프레임 AoE(Quake/Torrent/Mushroom 착탄 등)에도 동일 적용된다.
+- 타격 프레임 수는 `_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`로 조회. 영향 파일: `Presentation/Effects/HitPresentationQueue.cs`.
+
+**규칙 27. 특수 유닛 Attack 클립 OnAttackHit 이벤트 주입**
+특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)의 Attack 클립에는 `OnAttackHit` Animation Event가 없어(전투 타격 타이밍 동기화 작업에서 의도적 제외) 데미지·피격 연출 시점이 폴백값으로 어긋난다. 각 유닛 구현 시 `hitFrameTimes`를 실제 타격 프레임으로 확정하고 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 이벤트를 주입한다(규칙 17). BattleAxe는 `hitFrameTimes = 1.1667s`(클립 타격모션 종료 프레임 35f / 30fps)로 확정·주입 완료(2026-07-17). 잔여 4종(QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)은 구현 시점에 처리한다.

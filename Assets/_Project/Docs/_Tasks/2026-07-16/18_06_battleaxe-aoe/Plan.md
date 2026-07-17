@@ -210,3 +210,28 @@ _specialAttacks.TryGet(attacker.Type)?.Apply(context);
   (타격 신호가 피해 이벤트보다 먼저 도착)은 기존과 동일하게 다음 신호/타임아웃이 커버.
 - **영향 파일**: `Presentation/Effects/HitPresentationQueue.cs`(`OnLocalAttackHit` 분기 추가).
   공격자 타격 프레임 수는 `_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`로 조회(이미 주입된 `_unitSpawn` 사용).
+
+---
+
+## 완료 결과 (2026-07-17, 사용자 실기 PASS)
+
+> TC/QA는 사용자 명시 지시가 없어 Testcase.md를 만들지 않고 이 절로 완료 결과를 대체함(WORKFLOW [5-1~5-3]).
+
+### 계획대로 구현된 항목
+- 특수 공격 전략 핸들러 구조(방식 C, D-4): `ISpecialAttackBehavior` + `SpecialAttackContext` + `SpecialAttackRegistry`(UnitType 키) + `SweepAttackBehavior`. 모두 `Scripts/Application/Combat/`. 신규 유닛 = 핸들러 + 등록 1줄, `ExecuteAttack` 재수정 불필요.
+- 피해 수렴점 단일화: `UnitCombatUseCase.ExecuteAttack` 인라인 피해 → `ApplyDamageToVictim` 헬퍼(주 타깃/AoE 공용) + 특수 공격 훅 1줄.
+- 아군/사망/공격자/주 타깃 제외(D-2·D-3), 건물 미대상 유지.
+
+### 계획과 달라진(설계 변경 이력에서 확정된) 항목
+- 판정 방식: 초기 "전방 5타일 + 자기 타일"(D-1) → **월드 좌표 전방 부채꼴**(reach/arc, IEntityPositionProvider 서버 권위)로 대체(변경 2).
+- 타격 타이밍: BattleAxe `hitFrameTimes = 1.1667s`로 보정 + `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립 이벤트 주입(변경 1).
+- 튜닝 SO 신규 `SpecialAttackConfig`(sweepReach 기본 1.0·**실기값 0.75**, sweepArcHalfAngle 120) + 셋업 스크립트 `CreateSpecialAttackConfigAsset.cs`(변경 3).
+- AoE 피격 연출 동시 방출: `HitPresentationQueue`가 `HitFrameTimes.Length` 분기(변경 4).
+- 스탯: BattleAxe attackRange 0.5 → **0.75**(사용자 실기 조정).
+
+### 실기 확인
+- 사용자 실기 PASS(도끼병 전방 부채꼴 범위 적 전원 피해 + 연출 동시 표시 확인). main 최신화 병합 완료(폰트 에셋 충돌은 main 버전으로 정리).
+
+### 문서 반영(2026-07-17)
+- StatsReference.md, GameSystemRules_Units.md(규칙 23~27), GameSystemRules.md 인덱스, TechnicalDesignDocument.md(0.22.0), PROJECT_STATUS.md, ROADMAP.md, WORK_HISTORY.md.
+- MEMORY: game-programmer / project-orchestrator / game-design-lead / document-manager.

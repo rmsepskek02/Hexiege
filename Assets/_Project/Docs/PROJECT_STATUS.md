@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-07-16
-**현재 단계:** Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트.
+**최종 수정일:** 2026-07-17
+**현재 단계:** 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 구현 완료(2026-07-17, 사용자 실기 PASS) — 특수 유닛 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 중 첫 구현. `ISpecialAttackBehavior` + `SpecialAttackRegistry`(UnitType 키) + `SweepAttackBehavior` 신설, `UnitCombatUseCase.ExecuteAttack`을 `ApplyDamageToVictim` 헬퍼로 정리 후 특수 공격 훅 1줄 추가(신규 유닛 = 핸들러 + 등록 1줄). 휩쓸기 판정은 월드 좌표 전방 부채꼴(반경 `sweepReach` 실기값 0.75 · 반각 120°, `SpecialAttackConfig` SO 튜닝), AoE 피격 연출 동시 방출(HitFrameTimes.Length 분기). BattleAxe attackRange 0.5→0.75, Attack 클립 OnAttackHit 1.1667s 주입. 규칙 23~27 등재. 직전 Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트.
 
 ---
 
@@ -40,6 +40,17 @@
 | 공성 시스템 | ✅ 완료 | 랠리→Castle 방향 자동 진군 |
 | 유닛 분산 이동 (혼잡도 기반) | ✅ 완료 (2026-05-15) | CongestionMap + CongestionAwarePathfinder — 타일 혼잡도 가중 A*로 경로 자연 분산. GameConfig에 DecayInterval/CongestionWeight 통합 |
 | 승패 판정 (Castle 파괴) | ✅ 완료 | GameEndUseCase, UI 표시 |
+
+#### 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 아키텍처 (2026-07-17)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 특수 공격 전략 핸들러 아키텍처 | ✅ 완료 (2026-07-17) | `ISpecialAttackBehavior`(계약) + `SpecialAttackContext`(공격자·주 타깃·유닛목록·피해헬퍼·월드좌표 조회·reach/arc) + `SpecialAttackRegistry`(UnitType→핸들러, 현재 BattleAxe만) + `SweepAttackBehavior`. 모두 `Scripts/Application/Combat/`. 신규 특수 유닛 = 핸들러 추가 + 레지스트리 1줄, `ExecuteAttack` 재수정 불필요. |
+| 피해 수렴점 단일화 (ApplyDamageToVictim) | ✅ 완료 (2026-07-17) | 싱글/멀티 공통 `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해 로직을 `ApplyDamageToVictim` 헬퍼로 추출(주 타깃/AoE 공용 → 멀티 HP 동기화 일관). `ExecuteAttack` 말미에 특수 공격 훅 1줄 추가. |
+| 도끼병 휩쓸기형 AoE (SweepAttackBehavior) | ✅ 완료 (2026-07-17) | 판정 = 월드 좌표 전방 부채꼴. forward=공격자→주 타깃 방향(XZ), 각 적 XZ거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`이면 피격. Y 무시, 겹친 적 포함, 아군/사망/공격자/주 타깃 제외, 건물 미대상. 월드 좌표는 `IEntityPositionProvider`(서버 권위). 초기 "전방 5타일 타일 기준"에서 실기 후 변경. |
+| SpecialAttackConfig 튜닝 SO + 셋업 스크립트 | ✅ 완료 (2026-07-17) | `SpecialAttackConfig`(Infrastructure/Config) — `sweepReach`(기본 1.0, 실기값 0.75)·`sweepArcHalfAngle`(기본 120). GameBootstrapper가 SO값을 float로 UnitCombatUseCase 생성자에 주입(미연결 시 코드 폴백). 에셋 `Resources/Config/SpecialAttackConfig.asset` + `_specialAttackConfig` 배선 완료. 에디터 툴 `Assets/Editor/Setup/CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)로 에셋 생성+배선 멱등 자동화. |
+| BattleAxe 스탯·타격 타이밍 확정 | ✅ 완료 (2026-07-17) | UnitStatsConfig(unitType 5): HP80/공격력15/attackRange 0.75(0.5→조정)/detectRange1/moveSpeed1/attackCooldown3.05/hitFrameTimes[1.1667]/생산20s/골드200/인구1. Attack 클립에 `OnAttackHit` 이벤트를 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 주입(1.1667s=클립 타격모션 종료 프레임 35f/30fps). 근거리A 라인(TrainingCamp/WarAcademy/HumanBarracks) requiredStage 3 생산(기존 확인). |
+| AoE 피격 연출 동시 방출 | ✅ 완료 (2026-07-17) | `HitPresentationQueue.OnLocalAttackHit`이 공격자 `HitFrameTimes.Length≤1`(단일 타격 프레임)이면 보류 큐 전부 방출(휩쓸기 N마리 동시 표시), `>1`(LionKnight 2타·FlameSpirit 6타)이면 기존대로 1건(회귀 없음). 데미지·HP는 서버에서 전원 정확 적용, 이 변경은 연출 타이밍만. |
+| 실기 테스트 | ✅ PASS (2026-07-17) | 사용자 실기 통과. 도끼병 전방 부채꼴 범위 적 전원 피해·연출 동시 표시 확인. main 최신화 병합 완료(폰트 에셋 충돌은 main 버전으로 정리). |
 
 #### 코드 정리 3건 — 죽은 코드 제거 / Animator 상태 의존 제거 / Firebase 게이트 제거 (2026-07-13)
 | 항목 | 상태 | 비고 |
