@@ -14,3 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.SpecialAttackConfig
   _sweepReach: 0.75
   _sweepArcHalfAngle: 120
+  _waveWidth: 3
+  _waveLength: 3
+  _waveTravelTime: 0.5
+  _waveHeal: 10
