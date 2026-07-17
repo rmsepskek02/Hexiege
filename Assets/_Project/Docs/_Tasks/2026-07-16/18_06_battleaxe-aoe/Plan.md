@@ -190,3 +190,23 @@ _specialAttacks.TryGet(attacker.Type)?.Apply(context);
   **reach/arc 값**을 추가 전달. `SweepAttackBehavior`가 이를 사용해 부채꼴 판정 수행.
 - 판정 로직(전방 부채꼴 유닛 수집)은 순수 계산이므로 Domain 순수 함수로 분리 가능(선택, 테스트 용이).
   단, `Vector3` 사용 시 Domain의 UnityEngine 참조 금지 제약 확인 필요 — 제약에 걸리면 Application에 둔다.
+
+### 변경 4. AoE 피격 연출(HP 텍스트·피격 VFX·타격 반응) 동시 방출 (실기 후 발견)
+- **문제**: `HitPresentationQueue`는 공격자의 타격 신호(`OnLocalAttackHit`) 1회당 보류 큐에서 **딱 1건만**
+  방출한다(`OnLocalAttackHit` 핸들러). 이는 "타격 프레임 1개 = 피해 이벤트 1건" 전제로 설계된 것이다.
+  그런데 휩쓸기는 **한 스윙(타격 프레임 1개)에 N마리 피해 이벤트**를 발생시키므로, N마리 중 1마리만
+  타격 순간에 연출이 뜨고 나머지 N-1마리는 다음 스윙/타임아웃(쿨다운×1.5)까지 지연된다.
+  (데미지·HP 자체는 서버에서 N마리 모두 정확히 적용됨 — 어긋나는 것은 "연출" 표시뿐.)
+- **변경 (사용자 승인 — 방식 A)**: `OnLocalAttackHit`에서 공격자의 **타격 프레임 수(`HitFrameTimes.Length`)** 로 분기.
+  - **단일 타격 프레임(Length ≤ 1)**: 그 스윙의 모든 피해가 한 타격 프레임에 속하므로, 해당 공격자 큐의
+    **보류 항목을 전부 방출**한다 → 휩쓸기 N마리가 타격 모션에 맞춰 **동시에** 표시.
+    (일반 단일 타깃 유닛도 스윙당 큐에 1건뿐이라 "전부 방출 = 1건 방출"로 동작 동일 — 회귀 없음. 오히려
+    순서 역전으로 지연된 이전 건이 있으면 함께 따라잡아 방출.)
+  - **다중 타격 프레임(Length > 1, 예: LionKnight 2타·FlameSpirit 6타)**: 기존대로 **신호당 1건** 방출
+    (각 타격 프레임이 각자의 피해에 대응) → 다중 히트 유닛 연출 타이밍 회귀 없음.
+- **근거**: 이 규칙은 "한 애니메이션 타격 = 여러 피해 이벤트"라는 AoE의 본질을 일반화한 것으로,
+  향후 단일 타격 프레임 AoE(Quake/Torrent/Mushroom 착탄 등)에도 그대로 적용된다.
+- **안전망 유지**: 타임아웃(ⓐ)·타겟 사망(ⓑ)·공격자 소멸(ⓓ) 안전망은 그대로. 드문 순서 역전
+  (타격 신호가 피해 이벤트보다 먼저 도착)은 기존과 동일하게 다음 신호/타임아웃이 커버.
+- **영향 파일**: `Presentation/Effects/HitPresentationQueue.cs`(`OnLocalAttackHit` 분기 추가).
+  공격자 타격 프레임 수는 `_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`로 조회(이미 주입된 `_unitSpawn` 사용).

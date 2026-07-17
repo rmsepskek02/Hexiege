@@ -227,14 +227,50 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 공격자의 로컬 타격 프레임 신호 수신. 해당 공격자 큐에서 가장 오래된 1건을 방출한다.
+        /// 공격자의 로컬 타격 프레임 신호 수신. 공격자의 "타격 프레임 수"에 따라
+        /// 큐에서 1건만(다중 히트) 또는 전부(단일 히트) 방출한다.
         /// </summary>
         private void OnLocalAttackHit(int attackerId)
         {
             if (_pendingByAttacker.TryGetValue(attackerId, out Queue<PendingHit> queue) && queue.Count > 0)
             {
-                // FIFO — 가장 오래된 항목 1건을 꺼내 방출한다.
-                Emit(queue.Dequeue().Event);
+                // ── 왜 공격자의 HitFrameTimes.Length로 분기하는가? (유니티 초급자 설명) ──
+                //
+                // OnLocalAttackHit은 공격자 애니메이션의 "타격 프레임(칼/도끼가 실제로 닿는 순간)"이
+                // 지나갈 때마다 정확히 1번씩 온다. HitFrameTimes 배열은 그 타격 프레임이 한 스윙에
+                // 몇 개 있는지를 나타낸다(원소 1개 = 타격 순간 1번, 원소 N개 = 타격 순간 N번).
+                //
+                //  · 단일 타격 프레임(Length <= 1): 한 스윙에 타격 순간이 딱 1번뿐이다.
+                //      일반 단일 타깃 유닛은 그 1번의 타격으로 1마리만 때리므로 큐에도 1건뿐이다.
+                //      그러나 휩쓸기(도끼병)는 "그 1번의 스윙"으로 여러 적을 동시에 벤다 →
+                //      한 타격 프레임에 대응하는 피해 이벤트가 큐에 N건 쌓인다. 이 N건은 모두
+                //      "같은 타격 순간"에 속하므로 이번 신호에서 전부 방출해야 N마리 피격 연출이
+                //      타격 모션에 맞춰 '동시에' 뜬다.
+                //
+                //  · 다중 타격 프레임(Length > 1, 예: LionKnight 2타 / FlameSpirit 6타):
+                //      한 스윙 안에 타격 순간이 여러 번이고 각 타격 프레임이 각자의 피해 1건에
+                //      1:1로 대응한다. 따라서 신호당 1건씩만 방출해야 "N번째 타격 모션 = N번째 피격
+                //      연출"로 위상이 맞는다(기존 동작 그대로 → 다중 히트 유닛 회귀 없음).
+                //
+                // 공격자 조회 실패(null)나 HitFrameTimes 미설정 등 '판별 불가' 시에는 값을 신뢰할 수
+                // 없으므로 보수적으로 기존 동작(1건 방출)으로 폴백한다.
+                UnitData attacker = _unitSpawn != null ? _unitSpawn.GetUnit(attackerId) : null;
+                bool singleHitFrame = attacker?.HitFrameTimes != null && attacker.HitFrameTimes.Length <= 1;
+
+                if (singleHitFrame)
+                {
+                    // 단일 타격 프레임 → 이번 스윙의 보류 항목을 전부 방출(휩쓸기 N마리 동시 표시).
+                    // 일반 단일 타깃 유닛은 스윙당 큐에 1건뿐이라 "전부 방출 == 1건 방출"로 동작이
+                    // 완전히 같다(회귀 없음). 순서 역전으로 이전 스윙 건이 남아 있었다면 함께 따라잡아
+                    // 방출되므로 오히려 지연이 줄어든다.
+                    while (queue.Count > 0)
+                        Emit(queue.Dequeue().Event);
+                }
+                else
+                {
+                    // 다중 타격 프레임(또는 판별 불가 폴백) → 기존대로 FIFO 가장 오래된 1건만 방출.
+                    Emit(queue.Dequeue().Event);
+                }
                 return;
             }
 
