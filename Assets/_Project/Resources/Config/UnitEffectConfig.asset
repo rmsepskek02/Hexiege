@@ -16,75 +16,125 @@ MonoBehaviour:
   - unitType: 0
     attackPreset: {fileID: 11400000, guid: 60d8c8cb91a39e44b9fe26824fd6a283, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 1
     attackPreset: {fileID: 11400000, guid: 60d8c8cb91a39e44b9fe26824fd6a283, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 2
     attackPreset: {fileID: 11400000, guid: 60d8c8cb91a39e44b9fe26824fd6a283, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 3
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 4
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 5
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 6
     attackPreset: {fileID: 11400000, guid: 095cc46d480685541b8bba45e6db723b, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 7
     attackPreset: {fileID: 11400000, guid: 095cc46d480685541b8bba45e6db723b, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 10
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 11
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 12
     attackPreset: {fileID: 11400000, guid: f87a957ad29c6b84c91a10de1bf97fe4, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 13
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 14
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 15
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 16
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 17
-    attackPreset: {fileID: 0}
+    attackPreset: {fileID: 11400000, guid: 381cd1a1fe7f6e34497904a1ffbe495c, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 18
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 20
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 21
     attackPreset: {fileID: 11400000, guid: b32662a6201b75c49bc2c1fa466d4fdc, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 22
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 23
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 24
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 25
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 26
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
   - unitType: 27
     attackPreset: {fileID: 0}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
+    hitPreset: {fileID: 0}
+    tracerPreset: {fileID: 0}
