@@ -77,7 +77,7 @@ MonoBehaviour:
   - unitType: 5
     maxHp: 80
     attackPower: 15
-    attackRange: 0.5
+    attackRange: 0.75
     detectRange: 1
     moveSpeed: 1
     attackCooldown: 3.05
