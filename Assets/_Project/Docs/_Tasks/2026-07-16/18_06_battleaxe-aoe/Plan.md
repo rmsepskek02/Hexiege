@@ -147,3 +147,46 @@ _specialAttacks.TryGet(attacker.Type)?.Apply(context);
 
 - 코드 구현: **game-programmer** 에이전트 (규칙 3). `.claude/MEMORY.md` 컨텍스트 전달.
 - 밸런스/설계 확정이 추가로 필요하면: game-design-lead.
+
+---
+
+## 설계 변경 이력 (2026-07-16, 실기 피드백 반영)
+
+초기 구현(타일 기준 판정 + 폴백 타격 시점)을 실기한 결과 두 가지 문제가 확인되어 아래와 같이 변경한다.
+
+### 변경 1. 타격 시점 보정 (데미지-애니메이션 불일치)
+- **문제**: BattleAxe_Attack 클립에 `OnAttackHit` 이벤트가 없어(특수 유닛 5종 공통) 데미지 시점이
+  Config 폴백값(계획값 1.02s)으로 동작 → 실제 도끼 내리치는 프레임과 어긋남. 또한 피격 연출(규칙 19
+  표현 큐)이 클립 이벤트를 못 받아 타임아웃(쿨다운×1.5) 후 늦게 방출됨.
+- **변경**: 타격모션 구간(Unity Animation `초:프레임`, 30fps: `0:28`=28f=0.933s ~ `1:05`=35f=1.1667s)의
+  **종료 시점 1.1667s**로 `hitFrameTimes` 보정(UnitStatsConfig, 커밋 `c03409a`).
+  Unity에서 `Hexiege/Combat/Inject OnAttackHit Events (From Config)` 실행 시 클립 이벤트로 주입 →
+  데미지·피격 연출 모두 클립 이벤트에 정렬.
+
+### 변경 2. 판정 방식: 타일 기준 → 월드 좌표 전방 부채꼴 (D-1 대체)
+- **문제**: 타일 소속(`unit.Position`) 기준 판정은 유닛이 타일 사이를 이어 움직이고 겹치며, 도끼 스윙이
+  연속 반경/호를 그리는 것과 시각적으로 어긋남.
+- **변경 (사용자 승인)**: **월드 좌표 기반 전방 부채꼴 판정**으로 교체. 기존 "전방 5타일 + 자기 타일
+  (등 뒤 제외)"(D-1) 정의를 대체한다.
+  - **기준 방향(forward)** = 도끼병 → 주 타깃 방향(월드). `ExecuteAttack`이 공격 순간 타겟을 향하게 하므로
+    주 타깃 월드 좌표로 forward를 구한다.
+  - **판정**: 각 적에 대해 도끼병으로부터의 **XZ 평면 거리 ≤ reach** 이고, forward와 이루는
+    **각도 ≤ 부채꼴 반각(±120°)** 이면 피격. (Y는 UnitYOffset 때문에 무시 — XZ 거리 사용.)
+  - **월드 좌표**는 `IEntityPositionProvider`(서버 권위)로 조회 — 기존 전투 사거리 판정(규칙 6)과 일관.
+  - 겹쳐 붙은 적(거리≈0)은 자연 포함(자기 타일 겹침 취지 유지), 등 뒤는 각도로 자연 제외.
+  - **아군/사망/공격자/주 타깃 제외(D-2·D-3)** 규칙은 그대로 유지.
+
+### 변경 3. 튜닝 파라미터 Inspector 노출 — `SpecialAttackConfig`(신규 SO)
+- `SweepAttackBehavior`는 순수 C#(Application)이라 인스펙터 편집 불가 → `UnitStatsConfig`와 동일 패턴의
+  **신규 ScriptableObject `SpecialAttackConfig`(Infrastructure/Config)** 를 만들어 값을 Inspector에서 편집.
+  - `sweepReach`(월드 반경, **기본값 1.0**) — 이 맵 인접 타일 중심 간 거리 ≈ 0.9~1.0 기준.
+  - `sweepArcHalfAngle`(부채꼴 반각, 단위 도, **기본값 120**).
+- GameBootstrapper가 시작 시 이 SO 값을 읽어 특수 공격 레지스트리/핸들러에 **float 값으로 주입**
+  (Application이 Infrastructure SO를 직접 참조하지 않음 — MEMORY 레이어 규칙 준수).
+- 향후 QuakeSpirit 반경 등 다른 특수 유닛 파라미터의 공용 자리로 확장 가능.
+
+### 컨텍스트 확장
+- `SpecialAttackContext`에 **월드 좌표 조회 수단**(`IEntityPositionProvider` 또는 `int id → Vector3` 델리게이트)과
+  **reach/arc 값**을 추가 전달. `SweepAttackBehavior`가 이를 사용해 부채꼴 판정 수행.
+- 판정 로직(전방 부채꼴 유닛 수집)은 순수 계산이므로 Domain 순수 함수로 분리 가능(선택, 테스트 용이).
+  단, `Vector3` 사용 시 Domain의 UnityEngine 참조 금지 제약 확인 필요 — 제약에 걸리면 Application에 둔다.
