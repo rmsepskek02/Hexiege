@@ -16461,6 +16461,7 @@ MonoBehaviour:
   _config: {fileID: 11400000, guid: 7cca7135ba1fd4b4cb646e723c248995, type: 2}
   _unitStatsConfig: {fileID: 11400000, guid: 802548ed3a8262149b5e3252a6916407, type: 2}
   _buildingStatsConfig: {fileID: 11400000, guid: d7b6bea86b98d354b8d19851830d2678, type: 2}
+  _specialAttackConfig: {fileID: 11400000, guid: f859831499fb2d24e9ab0ed088755aea, type: 2}
   _gridRenderer: {fileID: 1534373523}
   _cameraController: {fileID: 330585548}
   _inputHandler: {fileID: 2140535622}
@@ -32640,7 +32641,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 0
+  m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
   m_SortingOrder: 250
