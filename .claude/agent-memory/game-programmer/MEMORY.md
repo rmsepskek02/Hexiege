@@ -32,6 +32,14 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 매치메이킹 404 수정 — 호스트 결정을 Lobby CreateOrJoin으로 전환 (A방식) (2026-07-17) 🔵 초기 정상·지속 관찰 중
+- **핵심 교훈 (재발 방지)**: **P2P(Relay) 매칭에서 호스트 결정은 `MatchmakerService.GetMatchmakingResultsAsync`(전용 서버/Multiplay용 서버 지향 API — P2P 클라가 호출하면 조회 대상 리소스 없어 404)가 아니라, 모든 플레이어가 같은 `matchId`를 키로 Lobby `CreateOrJoin`(matchId=lobbyId) 원자 선점으로 해야 한다.** 먼저 만든 쪽=호스트, 있으면 참가=클라. 서버 원자 처리로 정확히 한 명만 호스트 → race condition 원천 차단. **매칭 자체(티켓/폴링/MatchId 발급)는 정상이었고 호스트 결정 단계만 404**였다.
+- **SDK 시그니처 (com.unity.services.multiplayer@2.0.0)**: `LobbyService.Instance.CreateOrJoinLobbyAsync(string lobbyId, string lobbyName, int maxPlayers, CreateLobbyOptions options = null)`. **matchId를 lobbyId로 직접 사용 가능**(별도 키 매핑 불필요). `options.Data`(MatchIdKey S1 인덱스)는 **"생성" 시에만 반영, "참가" 시 무시**. 공식 문서 기준 확정 — 에디터 컴파일로 최종 확인 권장.
+- **RelayJoinCode 공유 타이밍**: 호스트가 CreateOrJoin으로 Lobby 생성 직후 Relay 할당 → `UpdateRelayJoinCodeAsync`로 JoinCode 기록까지 시간차 존재. **`CurrentLobby`는 참가 시점 스냅샷이라 나중에 채워진 JoinCode 미반영** → 클라는 신규 `RefreshCurrentLobbyAsync()`(내부 `GetLobbyAsync`로 재조회)로 최신화하며 최대 15회(~15초) 폴링 대기 후 Relay 참가.
+- **변경 파일(3개, Infrastructure/Network)**: `LobbyManager.cs`[추가: `CreateOrJoinLobbyByMatchIdAsync`, `RefreshCurrentLobbyAsync`], `MatchmakerManager.cs`[비활성화 주석: `DetermineIsHostAsync`/`GetStableHash`], `NetworkGameManager.cs`[추가: `StartMatchmadeGameAsync`/`HostMatchmadeGameAsync`/`JoinMatchmadeGameAsync`, `StartMatchmakingAsync` 분기 교체, 구 클라 참가 경로 `JoinByMatchIdAsync`/`JoinGameByIdAsync` 비활성화 주석].
+- **비활성화 우선 원칙 준수**: 폐기 로직은 즉시 삭제가 아니라 블록 주석(`/* */`). `LobbyManager.FindLobbyByMatchIdAsync`는 미사용화됐으나 구 경로가 주석 상태라 함께 보존. **간헐(intermittent) 버그라 지속 테스트 중 → 초기 실기 404 없이 정상 확인, 확정 PASS 아님. 최종 삭제는 지속 테스트 확정 후 별도 단계.**
+- 브랜치 `claude/matchmaker-404-error-pi9qdn`, 커밋 `a3dbc73`. task: `_Tasks/2026-07-16/19_09_matchmaker-404-host-determination/`.
+
 ### Android AAB 빌드 용량 최적화 (2026-07-15) ✅ main 반영
 - **결과**: `codex/asset-size-optimization` 작업으로 Android AAB **190.66 MB → 125.30 MB**(65.36 MB 절감).
 - **핵심 효과**: 3D 모델 텍스처 Android import max texture size 조정이 가장 큼. `Assets/_Project/Texture/Buildings/**`, `Assets/_Project/Texture/Units/**`를 `1024 → 512`로 낮춤.

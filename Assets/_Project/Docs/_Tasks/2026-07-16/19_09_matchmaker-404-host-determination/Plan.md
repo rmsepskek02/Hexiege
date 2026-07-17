@@ -116,3 +116,52 @@ Unity 공식 P2P 정석대로, 호스트 결정을 **매치 결과 조회가 아
 - Assets/_Project/Docs/_Tasks/2026-07-16/19_09_matchmaker-404-host-determination/Research.md
 - Assets/_Project/Docs/_Tasks/2026-07-16/19_09_matchmaker-404-host-determination/Plan.md
 ```
+
+---
+
+## 실제 구현 결과 (2026-07-17 추가 — 계획 대비 확정/변경 기록)
+
+> 이 절은 위 계획을 실제로 구현한 뒤, 계획과 달라졌거나 계획 시점에 미확정이던 부분을 사실 기준으로 기록한 것입니다. Research/Plan 본문은 히스토리 보존을 위해 원래대로 두고, 확정 내용만 여기에 덧붙입니다.
+>
+> **진행 상태(정확히 이대로):** A방식 구현을 완료하여 브랜치 `claude/matchmaker-404-error-pi9qdn` 커밋 `a3dbc73`으로 푸시했다. **초기 매칭 실기에서 404 없이 정상 연결되는 것을 확인**했으나, 이 버그는 **간헐적(intermittent)** 이라 사용자가 **지속 테스트 중**이다. 따라서 "완전 검증 PASS"가 아니라 **"초기 정상, 지속 관찰 중"** 상태이며, 비활성화(주석 처리)한 레거시 코드는 **아직 최종 삭제하지 않고 유지**한다(지속 테스트 확정 후 별도 단계에서 삭제).
+
+### 계획대로 구현된 항목
+- **호스트 결정 방식 전환(A방식)**: 매치 결과 조회(404 원인)를 폐기하고, 모든 플레이어가 같은 `matchId`를 키로 Lobby CreateOrJoin 선점 → 먼저 만든 쪽이 호스트. 계획과 동일.
+- **`LobbyManager.CreateOrJoinLobbyByMatchIdAsync(matchId, lobbyName, maxPlayers = 2)` 신규**: 계획대로 추가. 생성 시에만 `MatchIdKey`를 S1 인덱스로 저장(기존 `CreateLobbyAsync` 저장 규칙 준수), RelayJoinCode는 호스트가 이후 `UpdateRelayJoinCodeAsync`로 채우는 기존 방식 유지.
+- **`MatchmakerManager.DetermineIsHostAsync` / `GetStableHash` 비활성화**: 계획대로 즉시 삭제가 아니라 블록 주석(`/* */`)으로 비활성화. 상단에 폐기 사유와 참조 task 경로를 주석으로 명시.
+- **호스트/클라이언트 판별**: 기존 `LobbyManager.IsHost`(`CurrentLobby.HostId == 내 PlayerId`) 재사용. 계획과 동일.
+
+### 계획 시점 미확정 → 이번에 확정된 항목
+- **[Research §8 / 위험요소 1 해소] CreateOrJoin SDK 시그니처 확정**: `com.unity.services.multiplayer@2.0.0`에서 `LobbyService.Instance.CreateOrJoinLobbyAsync(string lobbyId, string lobbyName, int maxPlayers, CreateLobbyOptions options = null)` 형태로 확정. **`matchId`를 `lobbyId`로 직접 사용 가능**함을 확인(별도 키 매핑 불필요). 다만 이는 공식 문서 기준으로 확정한 것으로, **에디터 컴파일로 최종 확인하는 것을 권장**(잔여 리스크 ①).
+- **[위험요소 3 해소] 클라이언트 참가 경로 일원화**: 구 클라 참가 경로(`NetworkGameManager.JoinByMatchIdAsync` → `FindLobbyByMatchIdAsync` 폴링 → `JoinGameByIdAsync`)를 **비활성화(블록 주석)** 하고, 클라이언트 참가를 CreateOrJoin 한 번으로 일원화. CreateOrJoin으로 이미 Lobby에 참가되므로 별도 로비 검색 폴링이 불필요. 남은 대기는 "RelayJoinCode 채워짐 대기"뿐.
+  - **`LobbyManager.FindLobbyByMatchIdAsync`는 미사용화되었으나 삭제하지 않음**(구 경로가 아직 주석으로만 비활성화 상태이므로 함께 보존).
+- **[위험요소 2 반영] RelayJoinCode 대기 로직 신규 + `RefreshCurrentLobbyAsync` 추가**: 클라이언트가 호스트의 RelayJoinCode 기록을 기다리도록 폴링 대기 구현. `LobbyManager.RefreshCurrentLobbyAsync()`(내부 `LobbyService.Instance.GetLobbyAsync`로 `CurrentLobby` 최신화) 신규 추가. `CurrentLobby`는 참가 시점 스냅샷이라 나중에 채워진 RelayJoinCode가 반영되지 않으므로 재조회가 필요. 대기 상한은 **최대 15회(약 15초) 폴링**, 초과 시 에러 처리(잔여 리스크 ③).
+
+### NetworkGameManager 구조 변경(계획의 "흐름 재구성" 구체화)
+- **신규 `StartMatchmadeGameAsync(matchId)`**: 매칭 성사 후 진입점. CreateOrJoin 호출 → `IsHost`로 분기.
+- **신규 `HostMatchmadeGameAsync(lobbyCode)`**: 호스트 경로. Relay 할당(`_relayManager.CreateRelayAsync`) → `UpdateRelayJoinCodeAsync`로 JoinCode를 Lobby에 기록 → Host 시작.
+- **신규 `JoinMatchmadeGameAsync()`**: 클라이언트 경로. RelayJoinCode 채워짐 대기(위 15회 폴링) → Relay 참가 → Client 시작.
+- **`StartMatchmakingAsync` 분기 교체**: 기존 `DetermineIsHostAsync` 호출 + `HostGameAsync`/`JoinByMatchIdAsync` 분기를 `StartMatchmadeGameAsync(matchId)` 단일 호출로 대체.
+
+### 실제 변경 파일 (3개, 모두 Infrastructure/Network)
+```
+[수정]
+- Assets/_Project/Scripts/Infrastructure/Network/LobbyManager.cs
+    · [추가] CreateOrJoinLobbyByMatchIdAsync, RefreshCurrentLobbyAsync
+    · FindLobbyByMatchIdAsync 는 미사용화(삭제 안 함)
+- Assets/_Project/Scripts/Infrastructure/Network/MatchmakerManager.cs
+    · [비활성화] DetermineIsHostAsync, GetStableHash (블록 주석)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkGameManager.cs
+    · [추가] StartMatchmadeGameAsync, HostMatchmadeGameAsync, JoinMatchmadeGameAsync
+    · [수정] StartMatchmakingAsync 분기 교체
+    · [비활성화] 구 클라 참가 경로(JoinByMatchIdAsync/JoinGameByIdAsync) 블록 주석
+```
+브랜치 `claude/matchmaker-404-error-pi9qdn`, 커밋 `a3dbc73`.
+
+### 남은 잔여 리스크 (지속 테스트로 확인 필요)
+1. **SDK 시그니처 최종 확인**: 공식 문서 기준으로 확정했으나, 에디터 컴파일로 최종 검증 권장.
+2. **"정확히 한 명만 호스트" 및 간헐 재현**: CreateOrJoin 서버 원자성 전제는 맞으나, 실제 동시 요청 시 한쪽이 반드시 참가로 귀결되는지 + 간헐 404 재발 여부는 **지속 멀티 실기(Host+Client) 검증 필요**.
+3. **클라 RelayJoinCode 대기 15초 타임아웃**: 호스트 Relay 할당이 지연되면 15초 내 미수신으로 실패할 수 있음.
+
+> ⚠️ 지속 테스트가 확정 PASS로 마무리되면: ① 비활성화(주석)한 레거시 코드(`DetermineIsHostAsync`/`GetStableHash`, 구 클라 참가 경로)와 미사용 `FindLobbyByMatchIdAsync`의 최종 삭제 여부 결정, ② 본 task 상태를 "확정 완료"로 갱신하는 후속 문서 반영을 진행한다.
+> **참고(환경):** 로컬 사용자 MEMORY(`C:/Users/rmsep/.claude/...`)는 원격(Linux) 세션에서 접근 불가하여 이번 갱신에서 미접근.

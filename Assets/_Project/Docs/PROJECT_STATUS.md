@@ -1,7 +1,7 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-07-16
-**현재 단계:** Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트.
+**최종 수정일:** 2026-07-17
+**현재 단계:** 매치메이킹 404(호스트 결정 단계) 수정 진행 중 — 랜덤 매칭 후 호스트 결정을 매치 결과 조회(P2P 클라 호출 시 404 발생)에서 **Lobby CreateOrJoin(matchId=lobbyId) 원자 선점(A방식)** 으로 전환. 브랜치 `claude/matchmaker-404-error-pi9qdn` 커밋 `a3dbc73`. **초기 매칭 실기에서 404 없이 정상 연결 확인**했으나 이 버그는 **간헐적(intermittent)** 이라 **지속 테스트 중**(확정 PASS 아님) — 비활성화(주석)한 레거시 코드는 지속 테스트 확정 후 삭제 예정. 직전 Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 미구현 특수 타격 5종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트.
 
 ---
 
@@ -201,6 +201,11 @@
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | 게임포기 시 로딩 인디케이터 영구 잔존 버그 수정 | ✅ 완료 (2026-06-26) | 증상: 멀티플레이 게임포기(Forfeit) 시 로딩 인디케이터가 사라지지 않고 화면에 영구히 남음. 원인: `InGameSettingsUI.OnForfeitConfirmed()`에서 `UIManager.ShowLoading(true, "게임을 포기하는 중...")` 호출 후 씬 전환이 없어 `ShowLoading(false)`가 호출되지 않음(규칙 L-3의 해제 책임자는 씬 전환 후 Bootstrapper/RootView). 수정: 포기는 씬 전환 없이 GameEndUI만 표시하므로 ShowLoading 호출 자체를 제거. `GameSystemRules_UI.md` 규칙 L-2에서 "게임 포기(멀티)" 항목 제거 + "게임 포기(싱글/멀티 모두)는 씬 전환 없이 GameEndUI만 표시하므로 해당 없음" 명시. 수정 파일: `Presentation/UI/InGameSettingsUI.cs`, `GameSystemRules/GameSystemRules_UI.md`. 사용자 실기 PASS. 브랜치 `claude/game-quit-loading-indicator-0h3w0u`. task: `_Tasks/2026-06-26/02_16_forfeit-loading-indicator-stuck/` |
+
+#### 매치메이킹 404 수정 — 호스트 결정 Lobby CreateOrJoin 전환 (2026-07-17)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 매치메이킹 404(호스트 결정 단계) 수정 — A방식 | 🔵 초기 정상·지속 관찰 중 (2026-07-17) | 증상: 랜덤 매칭은 성사되나 직후 **호스트 결정 단계에서 HTTP 404** 발생 → 게임 연결 끊김. 원인: `MatchmakerManager.DetermineIsHostAsync` 내부 `GetMatchmakingResultsAsync`가 **전용 서버(Multiplay)용 서버 지향 API**인데 P2P(Relay) 클라이언트가 호출 → 조회 대상 리소스 없어 404(매칭 자체는 정상, 호스트 결정만 실패). 해결(A방식): 호스트 결정을 매치 결과 조회 → **Lobby CreateOrJoin 원자 선점**으로 전환. 모든 플레이어가 같은 `matchId`를 `lobbyId`로 `LobbyService.Instance.CreateOrJoinLobbyAsync(lobbyId, lobbyName, maxPlayers, options)`(com.unity.services.multiplayer@2.0.0) 호출 → 없으면 생성=호스트 / 있으면 참가=클라이언트. 서버 원자 처리로 정확히 한 명만 호스트 → race condition 원천 차단. 호스트/클라 판별은 기존 `LobbyManager.IsHost` 재사용. **수정 파일(3개, Infrastructure/Network)**: `LobbyManager.cs`[추가: `CreateOrJoinLobbyByMatchIdAsync`, `RefreshCurrentLobbyAsync`; `FindLobbyByMatchIdAsync` 미사용화·삭제 안 함], `MatchmakerManager.cs`[비활성화 주석: `DetermineIsHostAsync`/`GetStableHash`], `NetworkGameManager.cs`[추가: `StartMatchmadeGameAsync`/`HostMatchmadeGameAsync`/`JoinMatchmadeGameAsync`, `StartMatchmakingAsync` 분기 교체, 구 클라 참가 경로 `JoinByMatchIdAsync`/`JoinGameByIdAsync` 비활성화 주석]. 클라 참가 경로는 CreateOrJoin 한 곳으로 일원화, RelayJoinCode 채워짐만 대기(`RefreshCurrentLobbyAsync` 최대 15회 폴링). **상태**: 초기 매칭 실기에서 404 없이 정상 연결 확인. 단 **간헐(intermittent) 버그라 지속 테스트 중** — 확정 PASS 아님, 비활성화(주석)한 레거시 코드는 지속 테스트 확정 후 삭제. 잔여 리스크: ① SDK 시그니처 에디터 컴파일 최종 확인 권장, ② "정확히 한 명만 호스트"·간헐 재현 지속 멀티 실기 검증, ③ 클라 RelayJoinCode 대기 15초 타임아웃. 브랜치 `claude/matchmaker-404-error-pi9qdn`, 커밋 `a3dbc73`. task: `_Tasks/2026-07-16/19_09_matchmaker-404-host-determination/` |
 
 #### 랜덤 매칭 2회차 실패 버그 수정 + RuntimeLogger (2026-06-25)
 | 항목 | 상태 | 비고 |
