@@ -52,6 +52,12 @@ namespace Hexiege.Application
         private readonly List<UnitData> _victims = new List<UnitData>(8);
 
         /// <summary>
+        /// 휩쓸기는 "기본 단일 공격에 얹는" 즉발 범위 피해이므로 주 타깃 단일 피해를 대체하지 않는다.
+        /// (special-only가 아님 — 주 타깃 단일 피해 후 Apply가 실행됨.)
+        /// </summary>
+        public bool ReplacesPrimaryAttack => false;
+
+        /// <summary>
         /// 전방 부채꼴 판정 후 대상 적 유닛 전원에게 피해를 적용한다.
         /// </summary>
         /// <param name="ctx">공격자·주 타깃·유닛 목록·피해 헬퍼·좌표 조회·튜닝값 컨텍스트.</param>

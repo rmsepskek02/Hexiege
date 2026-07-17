@@ -24,6 +24,7 @@
 
 using System.Collections.Generic;
 using UnityEngine;
+using UniRx;
 using Hexiege.Application;
 using Hexiege.Domain;
 
@@ -88,6 +89,12 @@ namespace Hexiege.Presentation
         [Tooltip("Red 팀 엔티티가 피격당할 때 표시되는 텍스트 색상.")]
         [SerializeField] private Color _redTeamColor = new Color(255f / 255f, 220f / 255f, 30f / 255f);
 
+        [Tooltip("회복(힐)될 때 표시되는 텍스트 색상. 피격과 구분되는 치유 색상(기본: 청록/시안).")]
+        [SerializeField] private Color _healColor = new Color(60f / 255f, 220f / 255f, 220f / 255f);
+
+        /// <summary>OnEntityHealed 구독 해제용 Disposable. 재초기화/파괴 시 정리.</summary>
+        private System.IDisposable _healedSubscription;
+
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -129,6 +136,13 @@ namespace Hexiege.Presentation
             //   공격자의 로컬 타격 프레임(OnAttackHit)에 맞춰 방출 시점에 ShowDamage()를 호출한다.
             //   → 직접 구독을 제거하여 "즉시 표시"와 "방출 시점 표시"가 중복되지 않게 한다(이중 표시 방지).
             //   HP 텍스트 표시의 유일한 진입점은 이제 public ShowDamage() 뿐이다.
+
+            // 힐(회복)은 피격과 달리 공격자 타격 프레임에 맞출 필요가 없다(파도가 아군에 닿는 서버 시각에 즉시 표시).
+            //   따라서 HitPresentationQueue를 거치지 않고 여기서 OnEntityHealed를 직접 구독해 치유 텍스트를 띄운다.
+            //   각 머신에서 정확히 1회 표시된다: 싱글=UseCase 1회 / 호스트=UseCase 1회 / 클라=NetworkHealthSync 재발행 1회.
+            //   재초기화(맵 재로드)로 Initialize가 다시 불릴 수 있으므로, 기존 구독을 먼저 해제하고 재구독한다(중복 방지).
+            _healedSubscription?.Dispose();
+            _healedSubscription = GameEvents.OnEntityHealed.Subscribe(ShowHeal);
         }
 
         // ====================================================================
@@ -178,6 +192,42 @@ namespace Hexiege.Presentation
                 color: textColor);
         }
 
+        /// <summary>
+        /// 회복(힐) 텍스트를 표시한다. GameEvents.OnEntityHealed 구독으로 회복 시점에 호출된다.
+        /// 피격 텍스트와 오브젝트 풀·배치 로직을 그대로 재사용하되, 치유 색상(_healColor)과
+        /// "+회복량" 형식으로 피격과 시각적으로 구분한다.
+        ///
+        /// 힐 VFX: 현재 전용 힐 VFX(파티클) 프리셋이 없어 텍스트만 표시한다.
+        ///   추후 힐 VFX 에셋이 확보되면 EffectManager에 PlayUnitHeal 경로를 추가해 여기서 함께 재생한다
+        ///   (사운드 규칙 15 — VFX+SFX 쌍, 미확보 시 텍스트 연출만).
+        /// </summary>
+        /// <param name="evt">회복 이벤트 데이터. Entity(회복 대상), CurrentHp 포함.</param>
+        public void ShowHeal(EntityHealedEvent evt)
+        {
+            if (_positionProvider == null || _container == null) return;
+            if (evt.Entity == null) return;
+
+            // 회복 엔티티의 월드 좌표 조회 — 현재 힐 대상은 유닛만.
+            Vector3 worldPos = evt.IsUnit
+                ? _positionProvider.GetUnitWorldPosition(evt.Entity.Id)
+                : _positionProvider.GetBuildingWorldPosition(evt.Entity.Id);
+
+            // Vector3.zero = GameObject가 이미 파괴된 경우
+            if (worldPos == Vector3.zero) return;
+
+            Vector3 spawnPos = worldPos + Vector3.up * _yOffset;
+
+            FloatingHpText hpText = GetFromPool();
+            hpText.transform.SetParent(_container, false);
+
+            // 회복 후 현재 HP를 치유 색상으로 표시(피격과 구분). 텍스트는 회복량이 아닌 현재 HP를 보여
+            //   피격 표시("남은 HP")와 형식을 통일한다.
+            hpText.Play(
+                $"{evt.CurrentHp}",
+                spawnPos,
+                color: _healColor);
+        }
+
         // ====================================================================
         // 오브젝트 풀 관리
         // ====================================================================
@@ -219,6 +269,15 @@ namespace Hexiege.Presentation
             FloatingHpText instance = Instantiate(_prefab, _container);
             instance.SetReturnCallback(ReturnToPool);
             return instance;
+        }
+
+        /// <summary>
+        /// 파괴 시 OnEntityHealed 구독을 해제하여 누수를 방지한다.
+        /// </summary>
+        private void OnDestroy()
+        {
+            _healedSubscription?.Dispose();
+            _healedSubscription = null;
         }
     }
 }

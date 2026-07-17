@@ -435,6 +435,9 @@ namespace Hexiege.Bootstrap
                 // 각 PendingHit의 타이머를 감소시키고 만료된 항목의 데미지를 적용.
                 // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트)의 2번째 이후 히트가 여기서 처리됨.
                 _unitCombat.TickPendingHits(Time.deltaTime);
+                // TorrentSpirit 파도(이동 전선)를 전진시키고 닿은 유닛에 피해/힐을 1회 적용.
+                // 싱글플레이 전용 — 멀티플레이에서는 NetworkCombatController가 서버 틱에서 호출한다.
+                _unitCombat.TickWaves(Time.deltaTime);
             }
 
             // ────────────────────────────────────────────────────────────────

@@ -272,6 +272,14 @@ namespace Hexiege.Infrastructure
             TowerCombatUseCase tower = _services.GetTowerCombat();
             tower?.Tick(elapsed);
 
+            // ────────────────────────────────────────────────────────────────
+            // TorrentSpirit 파도(이동 전선) 진행 — 서버 권위(규칙 18).
+            // IsServer 가드 이후이므로 서버에서만 전선이 전진하고 피해/힐이 적용된다.
+            // 데미지는 OnEntityDamaged → NetworkHealthSync가, 힐은 OnEntityHealed → NetworkHealthSync가
+            // 각각 클라이언트에 HP를 동기화한다.
+            // ────────────────────────────────────────────────────────────────
+            combat.TickWaves(elapsed);
+
             // Dictionary를 순회하면서 타겟 탐색
             // 전투 중 RemoveUnit이 호출될 수 있으므로 키를 미리 복사
             var unitIds = new System.Collections.Generic.List<int>(unitSpawn.Units.Keys);

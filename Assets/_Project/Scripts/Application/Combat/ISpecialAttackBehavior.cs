@@ -23,11 +23,25 @@ namespace Hexiege.Application
     public interface ISpecialAttackBehavior
     {
         /// <summary>
-        /// 특수 공격을 실행한다.
-        /// 호출 시점: 주 타깃에 대한 기존 단일 피해가 이미 1회 적용된 "직후".
-        /// 따라서 구현체는 주 타깃을 중복 타격하지 않도록 주의해야 한다(중복 방지는 각 핸들러 책임).
+        /// 이 특수 공격이 "주 타깃에 대한 기본 단일 피해"를 대체하는지 여부.
+        ///
+        ///   - false(도끼병 휩쓸기): 기존처럼 주 타깃 단일 피해가 먼저 적용되고, 그 "직후" Apply가 실행된다.
+        ///     따라서 구현체는 주 타깃을 중복 타격하지 않도록 제외해야 한다.
+        ///   - true(TorrentSpirit 파도): 이 유닛은 단일 대상 공격이 아예 없다(special-only).
+        ///     UnitCombatUseCase.ExecuteAttack이 주 타깃 단일 피해(ApplyDamageToVictim)를 "건너뛰고"
+        ///     Apply만 실행한다. 주 타깃은 파도가 지나며 다른 유닛과 동일하게 처리된다(중복 제외 불필요).
+        ///
+        /// 일반 유닛은 레지스트리에 없어 이 플래그를 조회하지 않으므로 동작이 완전히 동일하다(무변경).
         /// </summary>
-        /// <param name="ctx">공격자·주 타깃·유닛 목록·피해 헬퍼를 담은 실행 컨텍스트.</param>
+        bool ReplacesPrimaryAttack { get; }
+
+        /// <summary>
+        /// 특수 공격을 실행한다.
+        /// 호출 시점(ReplacesPrimaryAttack에 따라 다름):
+        ///   - false: 주 타깃 단일 피해가 이미 1회 적용된 "직후"(구현체가 주 타깃 중복 타격 제외).
+        ///   - true : 주 타깃 단일 피해를 건너뛴 뒤 곧바로(주 타깃도 이 핸들러가 처리).
+        /// </summary>
+        /// <param name="ctx">공격자·주 타깃·유닛 목록·피해/힐 헬퍼·파도 파라미터를 담은 실행 컨텍스트.</param>
         void Apply(SpecialAttackContext ctx);
     }
 }

@@ -39,12 +39,14 @@ namespace Hexiege.Application
         /// </summary>
         public SpecialAttackRegistry()
         {
-            // 도끼병: 휩쓸기형 AoE.
+            // 도끼병: 휩쓸기형 AoE(주 타깃 단일 피해에 얹는 즉발 부채꼴).
             _behaviors[UnitType.BattleAxe] = new SweepAttackBehavior();
+
+            // 물의 상급 정령: 파도형 이동 AoE(special-only — 단일 공격 없음, 적 피해 + 아군 힐).
+            _behaviors[UnitType.TorrentSpirit] = new TorrentAttackBehavior();
 
             // TODO(특수 유닛 확장): 아래처럼 핸들러를 추가 등록한다.
             //   _behaviors[UnitType.QuakeSpirit]    = new QuakeAttackBehavior();
-            //   _behaviors[UnitType.TorrentSpirit]  = new TorrentAttackBehavior();
             //   _behaviors[UnitType.MushroomBomber] = new BlastAttackBehavior();
             //   _behaviors[UnitType.BloomFairy]     = new HealBehavior();
         }

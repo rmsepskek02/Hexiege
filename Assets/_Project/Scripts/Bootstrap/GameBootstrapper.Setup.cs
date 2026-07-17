@@ -282,9 +282,16 @@ namespace Hexiege.Bootstrap
             float sweepReach = _specialAttackConfig != null ? _specialAttackConfig.SweepReach : 1.0f;
             float sweepArcHalfAngle = _specialAttackConfig != null ? _specialAttackConfig.SweepArcHalfAngle : 120f;
 
+            // TorrentSpirit 파도 튜닝값 — 마찬가지로 SO에서 float로 읽어 주입(미연결 시 코드 폴백).
+            float waveWidth = _specialAttackConfig != null ? _specialAttackConfig.WaveWidth : 3f;
+            float waveLength = _specialAttackConfig != null ? _specialAttackConfig.WaveLength : 3f;
+            float waveTravelTime = _specialAttackConfig != null ? _specialAttackConfig.WaveTravelTime : 0.5f;
+            float waveHeal = _specialAttackConfig != null ? _specialAttackConfig.WaveHeal : 10f;
+
             _unitCombat = new UnitCombatUseCase(
                 _grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper,
-                sweepReach, sweepArcHalfAngle);
+                sweepReach, sweepArcHalfAngle,
+                waveWidth, waveLength, waveTravelTime, waveHeal);
 
             // 방어 타워 전투 UseCase.
             // Application 레이어가 GameRaceContext(Infrastructure)에 직접 의존하지 않도록,

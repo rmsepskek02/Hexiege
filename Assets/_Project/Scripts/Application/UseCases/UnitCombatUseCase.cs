@@ -55,6 +55,24 @@ namespace Hexiege.Application
         private readonly float _sweepReach;
         private readonly float _sweepArcHalfAngle;
 
+        // 특수 공격(TorrentSpirit 파도) 튜닝값 — 마찬가지로 SO에서 float로 주입(미주입 시 코드 폴백).
+        private readonly float _waveWidth;
+        private readonly float _waveLength;
+        private readonly float _waveTravelTime;
+        private readonly float _waveHeal;
+
+        /// <summary>
+        /// 현재 진행 중인 파도(이동 전선) 목록. TorrentSpirit이 공격할 때 하나씩 추가되고,
+        /// TickWaves()가 매 서버 틱마다 전진시키며 닿은 유닛에 효과를 1회 적용한 뒤 완료되면 제거한다.
+        /// 서버(싱글=로컬 서버 / 멀티=서버)에서만 채워지고 소비된다.
+        /// </summary>
+        private readonly List<ActiveWave> _activeWaves = new List<ActiveWave>(4);
+
+        // TickWaves 재사용 버퍼(모바일 GC 절감 + 순회 중 컬렉션 변경 회피).
+        // 파도가 닿은 유닛을 먼저 수집한 뒤 일괄 적용한다(피해로 사망 시 Dictionary 변경 예외 방지).
+        private readonly List<UnitData> _waveDamageBuffer = new List<UnitData>(8);
+        private readonly List<UnitData> _waveHealBuffer = new List<UnitData>(8);
+
         /// <summary>
         /// 싱글플레이 전용 전투 상태 추적.
         /// key=유닛Id, value=(타겟Id, 타겟이 유닛인지).
@@ -102,6 +120,10 @@ namespace Hexiege.Application
         ///   도끼병 휩쓸기 전방 부채꼴의 반각(도 단위). SpecialAttackConfig에서 주입.
         ///   미주입 시 기본값 120(코드 폴백) 사용.
         /// </param>
+        /// <param name="waveWidth">TorrentSpirit 파도 가로 폭(월드). 미주입 시 기본값 3.</param>
+        /// <param name="waveLength">TorrentSpirit 파도 전방 길이(월드). 미주입 시 기본값 3.</param>
+        /// <param name="waveTravelTime">TorrentSpirit 파도 이동 시간(초). 미주입 시 기본값 0.5.</param>
+        /// <param name="waveHeal">TorrentSpirit 파도 아군 회복량. 미주입 시 기본값 10.</param>
         public UnitCombatUseCase(
             HexGrid grid,
             UnitSpawnUseCase unitSpawn,
@@ -109,7 +131,11 @@ namespace Hexiege.Application
             IEntityPositionProvider positionProvider,
             IHexCoordinateMapper mapper,
             float sweepReach = 1.0f,
-            float sweepArcHalfAngle = 120f)
+            float sweepArcHalfAngle = 120f,
+            float waveWidth = 3f,
+            float waveLength = 3f,
+            float waveTravelTime = 0.5f,
+            float waveHeal = 10f)
         {
             _grid = grid;
             _unitSpawn = unitSpawn;
@@ -118,6 +144,10 @@ namespace Hexiege.Application
             _mapper = mapper;
             _sweepReach = sweepReach;
             _sweepArcHalfAngle = sweepArcHalfAngle;
+            _waveWidth = waveWidth;
+            _waveLength = waveLength;
+            _waveTravelTime = waveTravelTime;
+            _waveHeal = waveHeal;
         }
 
         // ====================================================================
@@ -819,18 +849,29 @@ namespace Hexiege.Application
             HexDirection attackDir = FacingDirection.FromCoords(attacker.Position, target.Position);
             attacker.Facing = attackDir;
 
-            // 주 타깃 단일 피해 — 기존 경로. 재사용 헬퍼로 처리.
-            ApplyDamageToVictim(attacker, target);
-
-            // 특수 공격 훅 — 등록된 유닛(도끼병 등)만 실행, 일반 유닛은 null이라 무동작.
-            // 주 타깃 피해 "직후"에 실행하므로, 핸들러는 주 타깃을 중복 타격하지 않도록 제외한다(D-3).
+            // 특수 공격 핸들러 조회 — 등록된 유닛(도끼병/물정령 등)만 존재, 일반 유닛은 null.
             ISpecialAttackBehavior special = _specialAttacks.TryGet(attacker.Type);
+
+            // special-only 유닛(TorrentSpirit 파도)은 단일 대상 공격이 없다 →
+            // 주 타깃 단일 피해를 "건너뛰고" 핸들러(파도)만 실행한다.
+            // 그 외(일반/도끼병)는 기존과 동일하게 주 타깃 단일 피해를 먼저 적용한다(무변경).
+            bool replacesPrimary = special != null && special.ReplacesPrimaryAttack;
+            if (!replacesPrimary)
+            {
+                // 주 타깃 단일 피해 — 기존 경로. 재사용 헬퍼로 처리.
+                ApplyDamageToVictim(attacker, target);
+            }
+
+            // 특수 공격 훅.
+            //   - 도끼병(ReplacesPrimaryAttack=false): 주 타깃 피해 "직후" 실행 → 핸들러가 주 타깃 중복 제외.
+            //   - 물정령(ReplacesPrimaryAttack=true): 주 타깃 피해를 건너뛴 뒤 파도만 실행.
             if (special != null)
             {
                 var ctx = new SpecialAttackContext(
                     attacker, target, _unitSpawn.Units,
-                    ApplyDamageToVictim, ResolveWorldPosition,
-                    _sweepReach, _sweepArcHalfAngle);
+                    ApplyDamageToVictim, ResolveWorldPosition, SpawnWave,
+                    _sweepReach, _sweepArcHalfAngle,
+                    _waveWidth, _waveLength, _waveTravelTime, _waveHeal);
                 special.Apply(ctx);
             }
         }
@@ -876,6 +917,20 @@ namespace Hexiege.Application
         /// <param name="attacker">공격자 유닛.</param>
         /// <param name="target">피해를 받을 대상(유닛 또는 건물).</param>
         private void ApplyDamageToVictim(UnitData attacker, IDamageable target)
+            => ApplyDamageToVictim(attacker, target, immediatePresentation: false);
+
+        /// <summary>
+        /// <see cref="ApplyDamageToVictim(UnitData, IDamageable)"/>의 확장 오버로드.
+        /// 피격 연출을 공격자 타격 프레임에 맞출지(false, 일반/휩쓸기) 즉시 방출할지(true, 파도)를 지정한다.
+        /// 2-인자 오버로드가 SpecialAttackContext의 피해 델리게이트로 전달되므로(휩쓸기),
+        /// 시그니처를 나눠 도끼병 경로는 immediatePresentation=false로 유지된다(회귀 없음).
+        /// </summary>
+        /// <param name="attacker">공격자 유닛.</param>
+        /// <param name="target">피해를 받을 대상(유닛 또는 건물).</param>
+        /// <param name="immediatePresentation">
+        ///   true면 피격 표현 큐가 공격자 타격 프레임을 기다리지 않고 즉시 방출(파도 전용 경로 — 규칙 26).
+        /// </param>
+        private void ApplyDamageToVictim(UnitData attacker, IDamageable target, bool immediatePresentation)
         {
             if (attacker == null || target == null) return;
 
@@ -888,10 +943,12 @@ namespace Hexiege.Application
             // 피격 이벤트 발행 — NetworkHealthSync가 구독하여 HP를 모든 클라이언트에 동기화
             // 공격자는 유닛이므로 AttackerId=attacker.Id, AttackerIsUnit=true를 함께 실어
             // 피격 표현 큐가 공격자별 큐를 구성할 수 있게 한다. (Phase 2 — 축 3)
+            // 파도(immediatePresentation=true)는 공격자 타격 프레임에 종속하지 않고 즉시 방출된다.
             bool targetIsUnit = target is UnitData;
             GameEvents.OnEntityDamaged.OnNext(
                 new EntityDamagedEvent(target, target.Hp, targetIsUnit,
-                    attackerId: attacker.Id, attackerIsUnit: true));
+                    attackerId: attacker.Id, attackerIsUnit: true,
+                    immediatePresentation: immediatePresentation));
 
             // 타겟 사망 처리
             if (!target.IsAlive)
@@ -932,6 +989,198 @@ namespace Hexiege.Application
                 else if (target is BuildingData b)
                     _buildingPlacement.RemoveBuilding(b.Id);
             }
+        }
+
+        // ====================================================================
+        // 힐(회복) 적용 — TorrentSpirit 파도 / 향후 BloomFairy 공용
+        // ====================================================================
+
+        /// <summary>
+        /// 아군 유닛 1명에게 회복을 적용하고 OnEntityHealed 이벤트를 발행한다.
+        /// 피해(ApplyDamageToVictim)와 대칭 구조의 "회복 수렴점"이며, 파도/힐 시스템이 공유한다.
+        ///
+        /// 멀티플레이: 서버에서 도메인 Hp를 즉시 올리고 이벤트를 발행하면, NetworkHealthSync가
+        ///   절대 HP를 클라이언트에 전파(SyncHealClientRpc)하여 각 화면의 HP/치유 텍스트가 맞춰진다.
+        /// </summary>
+        /// <param name="healer">힐을 시전한 유닛(연출이 힐러를 알 수 있게 Id를 실어 보냄).</param>
+        /// <param name="target">회복 대상 아군 유닛.</param>
+        /// <param name="amount">회복량(양수).</param>
+        private void ApplyHealToUnit(UnitData healer, UnitData target, int amount)
+        {
+            if (target == null || amount <= 0) return;
+            if (!target.IsAlive) return; // 죽은 유닛은 회복 대상 아님(Heal 내부에서도 재확인).
+
+            target.Heal(amount);
+
+            int healerId = healer != null ? healer.Id : -1;
+            GameEvents.OnEntityHealed.OnNext(
+                new EntityHealedEvent(target, target.Hp, isUnit: true,
+                    healerId: healerId, healerIsUnit: true));
+        }
+
+        // ====================================================================
+        // TorrentSpirit 파도(이동 전선) 서버 시뮬레이션
+        // ====================================================================
+
+        /// <summary>
+        /// 파도(이동 전선)를 생성해 시뮬레이션 목록에 등록한다.
+        /// SpecialAttackContext의 SpawnWave 델리게이트로 TorrentAttackBehavior가 호출한다.
+        ///
+        /// 서버 권위: 이 메서드는 데미지 판정과 동일한 수렴점(ExecuteAttack)에서만 호출되므로
+        /// 싱글=로컬 서버 / 멀티=서버에서만 파도가 등록된다.
+        /// </summary>
+        /// <param name="req">파도 모양/방향/파라미터.</param>
+        private void SpawnWave(WaveSpawnRequest req)
+        {
+            if (req.Caster == null) return;
+
+            // 전선 진행 속도 = 전방 길이 / 이동 시간. travelTime이 0 이하(오설정)면 0 나눗셈을 막고 즉시 완주.
+            float travelTime = req.TravelTime > 0.0001f ? req.TravelTime : 0.0001f;
+            float speed = req.Length / travelTime;
+
+            // 좌우 판정을 위한 우측 벡터(XZ 평면에서 forward에 수직). forward가 정규화돼 있으므로 크기 1.
+            Vector3 right = new Vector3(req.Forward.z, 0f, -req.Forward.x);
+
+            _activeWaves.Add(new ActiveWave
+            {
+                Caster = req.Caster,
+                AttackerTeam = req.Caster.Team,
+                CasterId = req.Caster.Id,
+                Origin = req.Origin,
+                Forward = req.Forward,
+                Right = right,
+                HalfWidth = req.Width * 0.5f,
+                Length = req.Length,
+                Speed = speed,
+                TravelTime = travelTime,
+                Heal = req.Heal,
+                FrontDistance = 0f,
+                Elapsed = 0f
+            });
+        }
+
+        /// <summary>
+        /// 진행 중인 모든 파도의 전선을 dt만큼 전진시키고, 이번 틱에 새로 닿은(아직 안 맞은) 유닛에
+        /// 효과를 1회 적용한다. 완주한 파도는 목록에서 제거한다.
+        ///
+        /// 호출 위치(서버 전용):
+        ///   - 싱글플레이: GameBootstrapper.Update()에서 매 프레임 Time.deltaTime으로 호출.
+        ///   - 멀티플레이: NetworkCombatController.TickCombat()에서 서버 경과 시간으로 호출.
+        ///   (클라이언트는 파도를 시뮬레이션하지 않는다 — 데미지/힐은 서버 권위, HP는 동기화로 수신.)
+        ///
+        /// 판정(월드 좌표 직사각형 + hit-set):
+        ///   유닛의 공격자 기준 상대 벡터를 전방 성분 p / 좌우 성분 lateral로 분해하여,
+        ///   0 ≤ p ≤ Length(직사각형 안) AND |lateral| ≤ HalfWidth(폭 안) AND p ≤ FrontDistance(전선이 지남)
+        ///   이면 닿은 것으로 본다. 이미 맞은 유닛(hit-set)은 제외해 "각 유닛 1회"를 보장한다(D-5).
+        ///   전선이 지난 유닛만 즉시 처리하므로, 파도 도중 진입/이동한 유닛도 다음 틱에 자연히 반영된다.
+        /// </summary>
+        /// <param name="dt">이번 서버 틱의 경과 시간(초).</param>
+        public void TickWaves(float dt)
+        {
+            if (_activeWaves.Count == 0) return;
+
+            // 역순 순회 — 완주한 파도를 그 자리에서 제거해도 남은 인덱스가 흔들리지 않음.
+            for (int w = _activeWaves.Count - 1; w >= 0; w--)
+            {
+                ActiveWave wave = _activeWaves[w];
+
+                wave.Elapsed += dt;
+                // 전선 전진(전방 길이를 넘지 않도록 상한).
+                wave.FrontDistance = Mathf.Min(wave.Length, wave.FrontDistance + wave.Speed * dt);
+
+                // 1) 닿은 유닛 선수집(피해로 사망 시 Dictionary 변경 예외 방지 — 수집/적용 2단계 분리).
+                _waveDamageBuffer.Clear();
+                _waveHealBuffer.Clear();
+
+                foreach (var unit in _unitSpawn.Units.Values)
+                {
+                    if (unit == null || !unit.IsAlive) continue;
+                    if (unit.Id == wave.CasterId) continue;          // 시전자 자신 제외(D-7)
+                    if (wave.Hit.Contains(unit.Id)) continue;        // 이미 맞음 → 제외(D-5)
+
+                    // 공격자 기준 상대 위치를 XZ 평면에서 전방/좌우 성분으로 분해.
+                    Vector3 rel = Flatten(ResolveWorldPosition(unit)) - wave.Origin;
+                    float p = Vector3.Dot(rel, wave.Forward);        // 전방 성분(진행 방향 거리)
+                    if (p < 0f || p > wave.Length) continue;         // 직사각형 전후 범위 밖
+                    if (p > wave.FrontDistance) continue;            // 아직 전선이 도달하지 않음(다음 틱)
+
+                    float lateral = Vector3.Dot(rel, wave.Right);    // 좌우 성분
+                    if (Mathf.Abs(lateral) > wave.HalfWidth) continue; // 폭 밖
+
+                    // 닿음 확정 → 1회만 적용되도록 hit-set에 기록하고 팀에 따라 버퍼 분류.
+                    wave.Hit.Add(unit.Id);
+                    if (unit.Team == wave.AttackerTeam)
+                        _waveHealBuffer.Add(unit);   // 아군 → 힐
+                    else
+                        _waveDamageBuffer.Add(unit); // 적 → 피해
+                }
+
+                // 2) 적용 — 피해는 파도 전용 즉시 연출(immediatePresentation=true)로 방출.
+                //    공격자(시전자)가 파도 도중 사망했을 수 있으나, AttackPower/Id는 유효하므로 그대로 사용.
+                for (int i = 0; i < _waveDamageBuffer.Count; i++)
+                {
+                    UnitData victim = _waveDamageBuffer[i];
+                    if (victim == null || !victim.IsAlive) continue;
+                    ApplyDamageToVictim(wave.Caster, victim, immediatePresentation: true);
+                }
+                for (int i = 0; i < _waveHealBuffer.Count; i++)
+                {
+                    UnitData ally = _waveHealBuffer[i];
+                    if (ally == null || !ally.IsAlive) continue;
+                    ApplyHealToUnit(wave.Caster, ally, wave.Heal);
+                }
+
+                // 3) 완주 판정 — 전선이 끝까지 갔고 이동 시간도 지났으면 제거.
+                //    (FrontDistance가 Length에 도달하면 p ≤ Length 유닛은 모두 커버됨.)
+                if (wave.FrontDistance >= wave.Length && wave.Elapsed >= wave.TravelTime)
+                {
+                    _activeWaves.RemoveAt(w);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 벡터의 Y 성분을 0으로 눌러 XZ 평면 벡터로 만든다(높이 무시). 파도 판정 공용.
+        /// </summary>
+        private static Vector3 Flatten(Vector3 v)
+        {
+            return new Vector3(v.x, 0f, v.z);
+        }
+
+        /// <summary>
+        /// 진행 중인 파도 1개의 서버 상태(데이터 전용).
+        /// 전선 위치(FrontDistance)와 이미 맞은 유닛 집합(Hit)을 들고 매 틱 갱신된다.
+        /// </summary>
+        private sealed class ActiveWave
+        {
+            /// <summary> 시전자(피해 공격자/힐 시전자). 사망해도 AttackPower/Id는 유효. </summary>
+            public UnitData Caster;
+            /// <summary> 시전자 팀(적/아군 구분 기준). </summary>
+            public TeamId AttackerTeam;
+            /// <summary> 시전자 Id(시전자 자신 제외 판정). </summary>
+            public int CasterId;
+            /// <summary> 전선 시작 지점(월드 XZ). </summary>
+            public Vector3 Origin;
+            /// <summary> 진행 방향(정규화된 XZ). </summary>
+            public Vector3 Forward;
+            /// <summary> 좌우 판정용 우측 벡터(정규화된 XZ, Forward에 수직). </summary>
+            public Vector3 Right;
+            /// <summary> 폭의 절반(좌우 각각 허용 거리). </summary>
+            public float HalfWidth;
+            /// <summary> 전방 길이. </summary>
+            public float Length;
+            /// <summary> 전선 진행 속도(Length / TravelTime). </summary>
+            public float Speed;
+            /// <summary> 이동 시간(초). </summary>
+            public float TravelTime;
+            /// <summary> 아군 회복량. </summary>
+            public int Heal;
+            /// <summary> 현재 전선이 시작 지점에서 나아간 거리. </summary>
+            public float FrontDistance;
+            /// <summary> 생성 후 누적 경과 시간(초). </summary>
+            public float Elapsed;
+            /// <summary> 이미 효과를 받은 유닛 Id 집합(중복 방지 — 각 유닛 1회). </summary>
+            public readonly HashSet<int> Hit = new HashSet<int>();
         }
     }
 }

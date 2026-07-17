@@ -165,5 +165,24 @@ namespace Hexiege.Domain
             Hp -= damage;
             if (Hp < 0) Hp = 0;
         }
+
+        /// <summary>
+        /// 유닛의 체력을 회복한다. TorrentSpirit 파도/BloomFairy 힐 등 아군 회복에 사용.
+        ///
+        /// 규칙(순수 C# — Domain 레이어이므로 UnityEngine/Core 의존 없이 직접 클램프):
+        ///   - 죽은 유닛(!IsAlive)에는 아무 것도 하지 않는다(부활 금지).
+        ///   - 회복량이 0 이하이면 무동작(방어적).
+        ///   - 회복 후 Hp는 MaxHp를 넘지 않도록 상한을 씌운다.
+        ///
+        /// TakeDamage와 대칭 구조이며, Hp의 private set을 통해서만 값이 변경되도록 유지한다.
+        /// </summary>
+        /// <param name="amount">회복량(양수). 0 이하이면 무시.</param>
+        public void Heal(int amount)
+        {
+            if (!IsAlive) return;
+            if (amount <= 0) return;
+            Hp += amount;
+            if (Hp > MaxHp) Hp = MaxHp;
+        }
     }
 }

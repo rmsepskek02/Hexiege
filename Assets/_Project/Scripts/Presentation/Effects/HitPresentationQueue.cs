@@ -199,6 +199,16 @@ namespace Hexiege.Presentation
         {
             if (evt.Entity == null) return;
 
+            // 파도 등 이동형 AoE(규칙 26): 공격자 타격 프레임에 종속하지 않고 "닿는 시점"에 즉시 방출.
+            //   파도 피해는 공격자 스윙(OnLocalAttackHit)보다 한참 뒤(파도 이동 중)에 발생하므로,
+            //   공격자 큐에 보류하면 다음 사이클/타임아웃까지 HP 텍스트가 지연된다 → 즉시 방출로 우회한다.
+            //   (VFX/HP텍스트/펀치는 Emit이 그대로 처리하며, 타워 VFX 경로는 타지 않는다 — 공격자가 유닛이므로.)
+            if (evt.ImmediatePresentation)
+            {
+                Emit(evt);
+                return;
+            }
+
             // ⓒ 공격자가 유닛이 아니면(타워) 타격 애니메이션 프레임이 없다 → 보류 없이 즉시 방출.
             if (!evt.AttackerIsUnit)
             {

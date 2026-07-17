@@ -50,10 +50,38 @@ namespace Hexiege.Infrastructure
                  "이 값 이하이면 피격. 120이면 전방 240° 범위(등 뒤 60° 제외). 기본값 120")]
         [SerializeField] private float _sweepArcHalfAngle = 120f;
 
+        // ── 물의 상급 정령(TorrentSpirit) 파도형 이동 AoE ─────────────
+        [Header("TorrentSpirit Wave (파도)")]
+
+        [Tooltip("파도 가로 폭(월드 단위). 전선이 좌우로 이만큼 훑는다(절반씩 좌우 판정). 기본값 3")]
+        [SerializeField] private float _waveWidth = 3f;
+
+        [Tooltip("파도 전방 길이(월드 단위). 전선이 공격자 앞에서 이 거리만큼 전진하며 훑는다. 기본값 3")]
+        [SerializeField] private float _waveLength = 3f;
+
+        [Tooltip("파도 전선이 전방 길이를 전부 지나가는 데 걸리는 시간(초). 연출(파티클)과 시각적으로 맞추는 튜닝값. " +
+                 "작을수록 파도가 빠르게 훑는다. 기본값 0.5")]
+        [SerializeField] private float _waveTravelTime = 0.5f;
+
+        [Tooltip("파도가 아군에 닿을 때의 회복량(HP). 적에게는 대신 attackPower만큼 피해. 기본값 10")]
+        [SerializeField] private float _waveHeal = 10f;
+
         /// <summary> 휩쓸기 전방 부채꼴 판정의 월드 반경(XZ 평면 거리 한계). </summary>
         public float SweepReach => _sweepReach;
 
         /// <summary> 휩쓸기 전방 부채꼴의 반각(도 단위). </summary>
         public float SweepArcHalfAngle => _sweepArcHalfAngle;
+
+        /// <summary> TorrentSpirit 파도 가로 폭(월드 단위). </summary>
+        public float WaveWidth => _waveWidth;
+
+        /// <summary> TorrentSpirit 파도 전방 길이(월드 단위). </summary>
+        public float WaveLength => _waveLength;
+
+        /// <summary> TorrentSpirit 파도 전선이 전방 길이를 지나가는 시간(초). </summary>
+        public float WaveTravelTime => _waveTravelTime;
+
+        /// <summary> TorrentSpirit 파도 아군 회복량(HP). </summary>
+        public float WaveHeal => _waveHeal;
     }
 }

@@ -58,6 +58,18 @@ namespace Hexiege.Application
         /// </summary>
         public float SweepArcHalfAngle { get; }
 
+        /// <summary> TorrentSpirit 파도 가로 폭(월드). SpecialAttackConfig.WaveWidth에서 주입. </summary>
+        public float WaveWidth { get; }
+
+        /// <summary> TorrentSpirit 파도 전방 길이(월드). SpecialAttackConfig.WaveLength에서 주입. </summary>
+        public float WaveLength { get; }
+
+        /// <summary> TorrentSpirit 파도가 전방 길이를 전부 지나가는 시간(초). SpecialAttackConfig.WaveTravelTime에서 주입. </summary>
+        public float WaveTravelTime { get; }
+
+        /// <summary> TorrentSpirit 파도가 아군에 닿을 때의 회복량. SpecialAttackConfig.WaveHeal에서 주입. </summary>
+        public float WaveHeal { get; }
+
         // 단일 대상 1회 피해 절차(피해+이벤트+사망 처리)를 수행하는 재사용 헬퍼.
         // UnitCombatUseCase.ApplyDamageToVictim을 그대로 넘겨받는다.
         private readonly Action<UnitData, IDamageable> _applyDamage;
@@ -67,6 +79,11 @@ namespace Hexiege.Application
         // (내부적으로 IEntityPositionProvider 우선, 미등록 시 HexToWorld 폴백)
         private readonly Func<IDamageable, Vector3> _worldPositionOf;
 
+        // 파도(이동 전선)를 서버 시뮬레이터에 등록하는 델리게이트.
+        // UnitCombatUseCase.SpawnWave를 그대로 넘겨받는다. 핸들러는 모양/방향만 계산해 요청을 넘기고,
+        // 전선 전진·닿은 유닛 판정·피해/힐 적용은 UseCase 내부 시뮬레이터가 담당한다(서버 권위).
+        private readonly Action<WaveSpawnRequest> _spawnWave;
+
         /// <summary>
         /// 컨텍스트 생성.
         /// </summary>
@@ -75,24 +92,39 @@ namespace Hexiege.Application
         /// <param name="units">전체 유닛 읽기 전용 목록.</param>
         /// <param name="applyDamage">단일 대상 피해 헬퍼(피해+이벤트+사망 처리).</param>
         /// <param name="worldPositionOf">엔티티(유닛/건물)의 월드 좌표를 반환하는 델리게이트.</param>
+        /// <param name="spawnWave">파도(이동 전선) 생성 요청 델리게이트.</param>
         /// <param name="sweepReach">휩쓸기 부채꼴 판정 반경(월드).</param>
         /// <param name="sweepArcHalfAngle">휩쓸기 부채꼴 반각(도).</param>
+        /// <param name="waveWidth">파도 가로 폭(월드).</param>
+        /// <param name="waveLength">파도 전방 길이(월드).</param>
+        /// <param name="waveTravelTime">파도 전선이 전방 길이를 지나가는 시간(초).</param>
+        /// <param name="waveHeal">파도 아군 회복량.</param>
         public SpecialAttackContext(
             UnitData attacker,
             IDamageable primaryTarget,
             IReadOnlyDictionary<int, UnitData> units,
             Action<UnitData, IDamageable> applyDamage,
             Func<IDamageable, Vector3> worldPositionOf,
+            Action<WaveSpawnRequest> spawnWave,
             float sweepReach,
-            float sweepArcHalfAngle)
+            float sweepArcHalfAngle,
+            float waveWidth,
+            float waveLength,
+            float waveTravelTime,
+            float waveHeal)
         {
             Attacker = attacker;
             PrimaryTarget = primaryTarget;
             Units = units;
             _applyDamage = applyDamage;
             _worldPositionOf = worldPositionOf;
+            _spawnWave = spawnWave;
             SweepReach = sweepReach;
             SweepArcHalfAngle = sweepArcHalfAngle;
+            WaveWidth = waveWidth;
+            WaveLength = waveLength;
+            WaveTravelTime = waveTravelTime;
+            WaveHeal = waveHeal;
         }
 
         /// <summary>
@@ -115,6 +147,16 @@ namespace Hexiege.Application
         public Vector3 WorldPositionOf(IDamageable entity)
         {
             return _worldPositionOf != null ? _worldPositionOf(entity) : Vector3.zero;
+        }
+
+        /// <summary>
+        /// 파도(이동 전선)를 서버 시뮬레이터에 생성 요청한다.
+        /// 실제 전선 전진·닿은 유닛 판정·피해/힐 적용은 UnitCombatUseCase가 매 서버 틱마다 처리한다.
+        /// </summary>
+        /// <param name="request">파도 모양/방향/파라미터.</param>
+        public void SpawnWave(WaveSpawnRequest request)
+        {
+            _spawnWave?.Invoke(request);
         }
     }
 }

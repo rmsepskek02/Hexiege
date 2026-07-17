@@ -177,14 +177,75 @@ namespace Hexiege.Application
         /// </summary>
         public readonly bool AttackerIsUnit;
 
+        /// <summary>
+        /// "피격 연출을 공격자 타격 프레임(OnLocalAttackHit)에 맞추지 말고 즉시 방출하라"는 신호.
+        ///
+        /// 왜 필요한가(파도형 AoE 전용 경로 — 규칙 26):
+        ///   일반 유닛/휩쓸기 피해는 공격자가 칼을 휘두르는 순간(타격 프레임)에 맞춰 연출을 터뜨린다.
+        ///   그러나 TorrentSpirit 파도는 "전선이 각 유닛에 닿는 시점"이 유닛마다 다르고, 그 시점은
+        ///   공격자 타격 프레임보다 한참 뒤(파도 이동 시간)일 수 있다. 이 피해를 공격자 큐에 보류하면
+        ///   다음 공격 사이클(또는 타임아웃)까지 HP 텍스트가 지연되어 어긋난다.
+        ///   → 파도 피해는 이 플래그를 true로 실어, 피격 표현 큐가 보류 없이 즉시 방출하게 한다.
+        ///
+        /// 기본 생성자(5-인자)는 이 값을 false로 두므로 기존 경로(일반/휩쓸기/타워)는 동작이 완전히 같다.
+        /// 멀티플레이에서 클라이언트가 같은 즉시 방출을 하도록 NetworkHealthSync가 이 값을 RPC로 전파한다.
+        /// </summary>
+        public readonly bool ImmediatePresentation;
+
         public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
             int attackerId, bool attackerIsUnit)
+            : this(entity, currentHp, isUnit, attackerId, attackerIsUnit, immediatePresentation: false)
+        {
+        }
+
+        public EntityDamagedEvent(IDamageable entity, int currentHp, bool isUnit,
+            int attackerId, bool attackerIsUnit, bool immediatePresentation)
         {
             Entity = entity;
             CurrentHp = currentHp;
             IsUnit = isUnit;
             AttackerId = attackerId;
             AttackerIsUnit = attackerIsUnit;
+            ImmediatePresentation = immediatePresentation;
+        }
+    }
+
+    /// <summary>
+    /// 회복(힐) 이벤트 데이터. 회복 적용 후 현재 HP 포함.
+    ///
+    /// 피격(EntityDamagedEvent)과 별도 채널로 둔 이유(규칙 — 연출/색상 분리):
+    ///   힐은 피격과 색상·연출이 달라야 하며(치유 색상), 피격 표현 큐의 "공격자 타격 프레임 동기화"
+    ///   대상도 아니다(힐은 파도가 아군에 닿는 서버 시각에 즉시 표시). 부호 섞기(음수 데미지)로
+    ///   구현하면 구독 측 분기가 복잡해지므로 전용 이벤트로 분리한다.
+    ///
+    /// 멀티플레이 동기화: 서버가 힐로 HP를 올린 뒤 NetworkHealthSync가 절대 HP를 클라이언트에 전파하고,
+    ///   클라이언트가 이 이벤트를 재발행하여 각 화면에서 치유 텍스트가 뜨게 한다.
+    /// </summary>
+    public readonly struct EntityHealedEvent
+    {
+        /// <summary> 회복된 엔티티(현재는 유닛만 사용). </summary>
+        public readonly IDamageable Entity;
+
+        /// <summary> 회복 적용 후 현재 HP. </summary>
+        public readonly int CurrentHp;
+
+        /// <summary> 회복된 엔티티가 유닛인지 여부. false면 건물(현재 미사용). </summary>
+        public readonly bool IsUnit;
+
+        /// <summary> 회복을 시전한 힐러의 Id. 없으면 -1. </summary>
+        public readonly int HealerId;
+
+        /// <summary> 힐러가 유닛인지 여부. </summary>
+        public readonly bool HealerIsUnit;
+
+        public EntityHealedEvent(IDamageable entity, int currentHp, bool isUnit,
+            int healerId, bool healerIsUnit)
+        {
+            Entity = entity;
+            CurrentHp = currentHp;
+            IsUnit = isUnit;
+            HealerId = healerId;
+            HealerIsUnit = healerIsUnit;
         }
     }
 
@@ -608,6 +669,16 @@ namespace Hexiege.Application
         /// 구독: NetworkHealthSync (HP를 모든 클라이언트에 동기화)
         /// </summary>
         public static readonly Subject<EntityDamagedEvent> OnEntityDamaged = new();
+
+        /// <summary>
+        /// 엔티티(유닛)가 회복(힐)되어 HP가 증가했을 때 발행.
+        /// 발행: UnitCombatUseCase(파도 힐 적용 직후 — 서버/싱글), NetworkHealthSync(클라이언트 재발행).
+        /// 구독: NetworkHealthSync(서버 → 힐 HP를 모든 클라이언트에 동기화),
+        ///       FloatingHpTextSpawner(치유 색상 텍스트 표시).
+        ///
+        /// 피격(OnEntityDamaged)과 분리된 별도 채널이다(연출/색상 구분 명확화 — EntityHealedEvent 주석 참조).
+        /// </summary>
+        public static readonly Subject<EntityHealedEvent> OnEntityHealed = new();
 
         /// <summary>
         /// 공격자(유닛)의 로컬 타격 프레임(Animation Event OnAttackHit)이 발생했을 때 발행. 유닛 Id를 전달.

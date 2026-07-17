@@ -9,7 +9,11 @@
 // 무엇을 하는가:
 //   1) Assets/_Project/Resources/Config/SpecialAttackConfig.asset 을 생성한다.
 //      (폴더가 없으면 단계별로 만든다. 이미 에셋이 있으면 그대로 재사용 — 멱등.)
-//      값은 SO 코드 기본값(SweepReach 1.0 / SweepArcHalfAngle 120)을 그대로 둔다.
+//      값은 SO 코드 기본값을 그대로 둔다:
+//        · 도끼병 휩쓸기: SweepReach 1.0 / SweepArcHalfAngle 120
+//        · TorrentSpirit 파도: WaveWidth 3 / WaveLength 3 / WaveTravelTime 0.5 / WaveHeal 10
+//      ※ 기존 .asset이 이미 있으면 파도 필드는 SO 필드 초기값이 그대로 반영된다(Unity 직렬화가
+//        누락 필드에 C# 초기값을 적용). Inspector에서 값을 조정하려면 이 에셋을 선택해 편집한다.
 //   2) Game 씬에서 GameBootstrapper 를 찾아 private [SerializeField]
 //      _specialAttackConfig 슬롯에 위 에셋을 SerializedObject 로 연결한다.
 //   3) Console 에 생성/재사용·연결 결과·경로를 리포트한다.
