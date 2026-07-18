@@ -89,6 +89,7 @@ namespace Hexiege.Presentation
 
         private LoginBootstrapper _bootstrapper;
         private LoginUseCase _loginUseCase;
+        private EmailVerifyView _emailVerifyView;
 
         /// <summary>
         /// 화면 이동 이력을 담는 스택. Back 처리 시 pop 한 화면으로 이동.
@@ -114,10 +115,11 @@ namespace Hexiege.Presentation
         /// <summary>
         /// LoginBootstrapper 에서 호출. 의존성 주입.
         /// </summary>
-        public void Initialize(LoginBootstrapper bootstrapper, LoginUseCase loginUseCase)
+        public void Initialize(LoginBootstrapper bootstrapper, LoginUseCase loginUseCase, EmailVerifyView emailVerifyView = null)
         {
             _bootstrapper = bootstrapper;
             _loginUseCase = loginUseCase;
+            _emailVerifyView = emailVerifyView;
             HideAll();
         }
 
@@ -152,8 +154,34 @@ namespace Hexiege.Presentation
         /// <summary>이메일 인증 대기 화면을 표시한다.</summary>
         public void ShowEmailVerify()
         {
+            ShowEmailVerify(_loginUseCase != null ? _loginUseCase.Email : string.Empty,
+                EmailVerificationOrigin.ExistingUnverifiedLogin);
+        }
+
+        /// <summary>Shows the email verification panel with explicit display context.</summary>
+        public void ShowEmailVerify(string email, EmailVerificationOrigin origin)
+        {
+            if (_emailVerifyView != null)
+                _emailVerifyView.PrepareForShow(email, origin);
+
             PushCurrentToStack();
             SetActivePanel(LoginPanel.EmailVerify);
+        }
+
+        /// <summary>
+        /// Returns to the previous login panel, or to the login select panel when there is no history.
+        /// Used after email verification cancellation or sign-out cleanup.
+        /// </summary>
+        public void ReturnToPreviousPanelOrLoginSelect()
+        {
+            if (_backStack.Count > 0)
+            {
+                LoginPanel prev = _backStack.Pop();
+                SetActivePanel(prev);
+                return;
+            }
+
+            ShowLoginSelect();
         }
 
         /// <summary>비밀번호 재설정 화면을 표시한다.</summary>
@@ -224,6 +252,13 @@ namespace Hexiege.Presentation
             //   (별도 안내 토스트는 넣지 않는다 — 확정 결정 1은 "무시"만 요구, Plan 1-2.)
             if (_currentPanel == LoginPanel.NicknameSetup)
                 return;
+
+            if (_currentPanel == LoginPanel.EmailVerify &&
+                _emailVerifyView != null &&
+                _emailVerifyView.TryHandleBack())
+            {
+                return;
+            }
 
             // 스택에 화면이 있으면 이전 화면으로 복귀
             if (_backStack.Count > 0)

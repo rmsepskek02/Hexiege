@@ -195,3 +195,15 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - Lobby Ranking tab now uses `RankingView` + `RankRowView` with UGS Leaderboards. Hidden RankingView no longer loads data on lobby entry; `LobbyRootView` calls `RefreshAsync()` only when Ranking tab is shown.
 - Runtime UI polish was added for Profile, Ranking, NicknameSetup, and NicknameChangePopup while preserving CanvasGroup-based visibility rules.
 - Follow-up: email verification pending state needs explicit email propagation and cancellation/cleanup handling for unverified Firebase users.
+### 2026-07-16 - Email verification flow cleanup
+
+- Added explicit email verification origin flow: signup pending vs existing unverified login.
+- `EmailVerifyView` must not rely on `OnEnable()` for display email because login panels use `CanvasGroup` show/hide.
+- New guarded delete path: `LoginUseCase.DeleteCurrentUnverifiedEmailUserAsync()` -> `FirebaseAuthService.DeleteCurrentUserAsync()`.
+- Existing unverified-login back path signs out only; it must not delete the account.
+
+### 2026-07-18 - Email verification auto-login gates complete
+
+- `LoginUseCase.TryAutoLoginAsync()` now returns an explicit auto-login result so unverified email sessions can return to verification instead of entering Lobby.
+- `LoginBootstrapper` checks Cloud Save nickname after auto-login success; verified email accounts with no nickname return to `NicknameSetupView`.
+- `SplashOverlay.SetTapCallback(skipFade:true)` is only safe for scene transitions. Login-scene panel transitions must use fade out to release the overlay raycast block.

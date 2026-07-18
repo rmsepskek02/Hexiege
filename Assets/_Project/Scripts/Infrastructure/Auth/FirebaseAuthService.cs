@@ -472,6 +472,25 @@ namespace Hexiege.Infrastructure
             return Task.CompletedTask;
         }
 
+        public async Task DeleteCurrentUserAsync()
+        {
+            EnsureInitialized();
+            if (_auth.CurrentUser == null)
+                throw new AuthException(AuthErrorReason.NotLoggedIn,
+                    "로그인된 사용자가 없어 계정을 삭제할 수 없습니다.");
+
+            try
+            {
+                string uid = _auth.CurrentUser.UserId;
+                await _auth.CurrentUser.DeleteAsync();
+                Debug.Log($"[FirebaseAuth] Current user deleted. UID={uid}");
+            }
+            catch (FirebaseException e)
+            {
+                throw ConvertException(e, "계정 삭제");
+            }
+        }
+
         // ====================================================================
         // ID Token 발급 (UGS OIDC 브릿지용)
         // ====================================================================
@@ -562,6 +581,7 @@ namespace Hexiege.Infrastructure
                 AuthError.CredentialAlreadyInUse => AuthErrorReason.CredentialAlreadyInUse,
                 AuthError.NetworkRequestFailed => AuthErrorReason.NetworkError,
                 AuthError.TooManyRequests => AuthErrorReason.TooManyRequests,
+                AuthError.RequiresRecentLogin => AuthErrorReason.RequiresRecentLogin,
                 _ => AuthErrorReason.Unknown
             };
 
@@ -590,6 +610,8 @@ namespace Hexiege.Infrastructure
                 "네트워크 설정을 확인하고 다시 시도하세요.",
             AuthErrorReason.TooManyRequests =>
                 "요청이 너무 잦습니다. 잠시 후 다시 시도하세요.",
+            AuthErrorReason.RequiresRecentLogin =>
+                "보안을 위해 다시 로그인한 뒤 계정 삭제를 시도해 주세요.",
             AuthErrorReason.GoogleSignInCancelled =>
                 "Google 로그인이 취소되었습니다.",
             AuthErrorReason.NotInitialized =>
@@ -622,6 +644,7 @@ namespace Hexiege.Infrastructure
         CredentialAlreadyInUse,
         NetworkError,
         TooManyRequests,
+        RequiresRecentLogin,
         GoogleSignInCancelled
     }
 

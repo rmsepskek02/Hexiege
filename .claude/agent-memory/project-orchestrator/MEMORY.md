@@ -295,3 +295,14 @@ Assets/_Project/
 - Profile/Ranking cloud integration is ready to merge to main as a completed vertical slice: Firebase verified login -> nickname setup -> lobby profile/ranking display.
 - Scope includes Cloud Save profile, Leaderboards ranking, nickname setup/change UI, editor setup scripts, scene wiring, package additions, and default UI layout pass.
 - Known deferred item: email verification flow robustness. The verification screen currently relies on current Firebase user email and lacks explicit handling for sign-up users who abandon verification. Next task should add explicit email display state, distinguish fresh sign-up vs existing unverified login, and define account deletion/sign-out behavior.
+### 2026-07-16 - Email verification flow cleanup
+
+- Current branch: `codex/email-verification-flow-cleanup`.
+- Scope: email verification display/context/back behavior, not UI layout polish and not server-side stale unverified account cleanup.
+- Manual verification needed in Unity Editor: compile, signup email display, signup cancel deletes unverified Firebase user, existing unverified login back signs out without deletion.
+
+### 2026-07-18 - Email verification flow completed
+
+- User device PASS: email display, signup cancel popup, Firebase unverified user deletion, continue verification, verification relaunch, nickname setup relaunch.
+- Completion docs updated in task Plan/Testcase, `AuthSystemRules.md`, `PROJECT_STATUS.md`, `ROADMAP.md`, and `WORK_HISTORY.md`.
+- Remaining separate concern: long-term stale `emailVerified=false` account cleanup policy is not implemented in this slice.

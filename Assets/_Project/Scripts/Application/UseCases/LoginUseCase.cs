@@ -44,6 +44,14 @@ namespace Hexiege.Application
         Failed
     }
 
+    public enum AutoLoginResult
+    {
+        NoSession,
+        Success,
+        NeedsEmailVerification,
+        Failed
+    }
+
     /// <summary>
     /// 로그인 흐름 조율 UseCase.
     /// View → UseCase → FirebaseAuthService → Firebase SDK 흐름의 중간 레이어.
@@ -101,17 +109,25 @@ namespace Hexiege.Application
         /// 앱 시작 시 Firebase 세션이 남아있는지 확인한다.
         /// 세션이 유효하면 UGS 브릿지까지 자동 수행한다.
         /// </summary>
-        /// <returns>자동 로그인 성공 여부.</returns>
-        public async Task<bool> TryAutoLoginAsync()
+        /// <returns>자동 로그인 결과.</returns>
+        public async Task<AutoLoginResult> TryAutoLoginAsync()
         {
             if (!_authService.IsLoggedIn)
             {
                 Debug.Log("[LoginUseCase] 자동 로그인: 세션 없음.");
-                return false;
+                return AutoLoginResult.NoSession;
             }
 
             try
             {
+                if (!_authService.IsAnonymous &&
+                    !string.IsNullOrWhiteSpace(_authService.Email) &&
+                    !_authService.IsEmailVerified)
+                {
+                    Debug.Log("[LoginUseCase] 자동 로그인: 이메일 미인증 계정 → 인증 대기 필요.");
+                    return AutoLoginResult.NeedsEmailVerification;
+                }
+
                 Debug.Log($"[LoginUseCase] 자동 로그인: 세션 발견 (UID={_authService.FirebaseUID}). UGS 브릿지 진행.");
 
                 // UGS 브릿지 성공 여부를 받아 둔다. false 여도 로그인 자체는 성공 처리(규칙 3).
@@ -120,12 +136,12 @@ namespace Hexiege.Application
                 {
                     Debug.LogWarning("[LoginUseCase] 자동 로그인: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
                 }
-                return true;
+                return AutoLoginResult.Success;
             }
             catch (Exception e)
             {
                 Debug.LogError($"[LoginUseCase] 자동 로그인 중 UGS 브릿지 실패: {e.Message}");
-                return false;
+                return AutoLoginResult.Failed;
             }
         }
 
@@ -317,6 +333,33 @@ namespace Hexiege.Application
             {
                 // AuthSystemRules.md 규칙: 가입되지 않은 이메일도 동일 메시지("이메일을 확인하세요")
                 //   → 호출자(View)가 LastError 무시하고 항상 성공 메시지를 표시.
+                LastError = e;
+                return false;
+            }
+        }
+
+        public async Task<bool> DeleteCurrentUnverifiedEmailUserAsync()
+        {
+            LastError = null;
+
+            if (!_authService.IsLoggedIn)
+                return true;
+
+            if (_authService.IsEmailVerified)
+            {
+                LastError = new AuthException(
+                    AuthErrorReason.Unknown,
+                    "이미 인증이 완료된 계정은 가입 취소로 삭제할 수 없습니다.");
+                return false;
+            }
+
+            try
+            {
+                await _authService.DeleteCurrentUserAsync();
+                return true;
+            }
+            catch (AuthException e)
+            {
                 LastError = e;
                 return false;
             }
