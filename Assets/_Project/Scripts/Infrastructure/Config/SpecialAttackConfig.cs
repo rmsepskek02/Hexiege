@@ -66,6 +66,16 @@ namespace Hexiege.Infrastructure
         [Tooltip("파도가 아군에 닿을 때의 회복량(HP). 적에게는 대신 attackPower만큼 피해. 기본값 10")]
         [SerializeField] private float _waveHeal = 10f;
 
+        // ── 꽃요정(BloomFairy) 힐러 HoT(지속 회복) ────────────────────
+        [Header("BloomFairy Heal (지속 회복 HoT)")]
+
+        [Tooltip("BloomFairy가 부상 아군에게 거는 지속 회복(HoT) 총 회복량(HP). " +
+                 "지속시간 동안 서버 틱으로 나눠 회복되며 최종적으로 정확히 이 값에 도달. 기본값 20")]
+        [SerializeField] private float _bloomHealAmount = 20f;
+
+        [Tooltip("BloomFairy 지속 회복(HoT)의 지속시간(초). 이 시간 동안 총 회복량이 서서히 적용된다. 기본값 3")]
+        [SerializeField] private float _bloomHealDuration = 3f;
+
         /// <summary> 휩쓸기 전방 부채꼴 판정의 월드 반경(XZ 평면 거리 한계). </summary>
         public float SweepReach => _sweepReach;
 
@@ -83,5 +93,11 @@ namespace Hexiege.Infrastructure
 
         /// <summary> TorrentSpirit 파도 아군 회복량(HP). </summary>
         public float WaveHeal => _waveHeal;
+
+        /// <summary> BloomFairy 지속 회복(HoT) 총 회복량(HP). </summary>
+        public float BloomHealAmount => _bloomHealAmount;
+
+        /// <summary> BloomFairy 지속 회복(HoT) 지속시간(초). </summary>
+        public float BloomHealDuration => _bloomHealDuration;
     }
 }

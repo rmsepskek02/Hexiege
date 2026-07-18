@@ -284,3 +284,16 @@ MonoBehaviour:
     productionTime: 5
     goldCost: 50
     populationCost: 1
+  - unitType: 27
+    maxHp: 50
+    attackPower: 0
+    attackRange: 4
+    detectRange: 4
+    moveSpeed: 1
+    attackCooldown: 3
+    hitFrameTimes:
+    - 1
+    productionTime: 20
+    goldCost: 150
+    populationCost: 1
+    isHealer: 1

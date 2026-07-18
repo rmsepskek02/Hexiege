@@ -77,6 +77,13 @@ namespace Hexiege.Infrastructure
 
         [Tooltip("생산 인구 비용")]
         public int populationCost;
+
+        // ── 역할(Role) 플래그 ──────────────────────────────────────
+        [Header("Role")]
+
+        [Tooltip("힐러(지원) 역할 유닛인지 여부. 체크하면 적을 공격하지 않고 " +
+                 "부상 아군을 자동으로 회복한다(예: BloomFairy). 상태머신이 이 값으로 힐 루프 진입을 결정.")]
+        public bool isHealer;
     }
 
     // ========================================================================

@@ -90,6 +90,13 @@ namespace Hexiege.Domain
         /// <summary> 유닛이 살아있는지 여부. </summary>
         public bool IsAlive => Hp > 0;
 
+        /// <summary>
+        /// 힐러(지원) 역할 유닛인지 여부. 생성 시 UnitStats에서 타입별 플래그를 읽어 고정한다.
+        /// true면 적을 공격하지 않고 부상 아군을 회복한다(BloomFairy).
+        /// UnitView 상태머신이 이 값으로 "적 감지 전투 루프" 대신 "부상 아군 힐 루프"를 탄다.
+        /// </summary>
+        public bool IsHealer { get; }
+
         // 유닛 Id 자동 발급용 정적 카운터.
         // 첫 유닛은 Id=0, 다음은 Id=1, ...
         private static int _nextId;
@@ -151,6 +158,8 @@ namespace Hexiege.Domain
             AttackCooldown = UnitStats.GetAttackCooldown(type);
             AttackCooldownRemaining = 0f;
             HitFrameTimes = UnitStats.GetHitFrameTimes(type);
+            // 힐러 여부는 타입별 정적 스탯에서 읽어 생성 시 고정(런타임 변경 없음).
+            IsHealer = UnitStats.GetIsHealer(type);
             Facing = facing;
 
             // 지정 Id 이후로 자동 발급 카운터를 앞당겨 충돌 방지

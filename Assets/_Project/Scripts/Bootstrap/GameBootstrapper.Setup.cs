@@ -74,7 +74,9 @@ namespace Hexiege.Bootstrap
                     DetectRange = entry.detectRange,
                     MoveSpeed = entry.moveSpeed,
                     AttackCooldown = entry.attackCooldown,
-                    HitFrameTimes = entry.hitFrameTimes
+                    HitFrameTimes = entry.hitFrameTimes,
+                    // 역할 플래그(방식 A) — 힐러(BloomFairy) 여부를 Domain 스탯으로 전달.
+                    IsHealer = entry.isHealer
                 };
 
                 prodDict[entry.unitType] = new UnitProductionStats.ProductionValues
@@ -288,10 +290,16 @@ namespace Hexiege.Bootstrap
             float waveTravelTime = _specialAttackConfig != null ? _specialAttackConfig.WaveTravelTime : 0.5f;
             float waveHeal = _specialAttackConfig != null ? _specialAttackConfig.WaveHeal : 10f;
 
+            // BloomFairy 지속 회복(HoT) 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
+            // 총 회복량 20HP / 지속 3초가 기본값(설계 확정값).
+            float bloomHealAmount = _specialAttackConfig != null ? _specialAttackConfig.BloomHealAmount : 20f;
+            float bloomHealDuration = _specialAttackConfig != null ? _specialAttackConfig.BloomHealDuration : 3f;
+
             _unitCombat = new UnitCombatUseCase(
                 _grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper,
                 sweepReach, sweepArcHalfAngle,
-                waveWidth, waveLength, waveTravelTime, waveHeal);
+                waveWidth, waveLength, waveTravelTime, waveHeal,
+                bloomHealAmount, bloomHealDuration);
 
             // 방어 타워 전투 UseCase.
             // Application 레이어가 GameRaceContext(Infrastructure)에 직접 의존하지 않도록,

@@ -49,6 +49,12 @@ namespace Hexiege.Domain
             public float MoveSpeed;
             public float AttackCooldown;
             public float[] HitFrameTimes;
+
+            /// <summary>
+            /// 힐러(지원) 역할 유닛인지 여부. true면 적을 공격하지 않고 부상 아군을 회복한다(BloomFairy).
+            /// 상태머신(UnitView)이 이 값으로 "적 감지" 대신 "부상 아군 감지" 힐 루프에 진입한다.
+            /// </summary>
+            public bool IsHealer;
         }
 
         // 내부 Dictionary. Initialize()가 호출되기 전에는 null.
@@ -154,5 +160,15 @@ namespace Hexiege.Domain
             }
             return new[] { 0.2f };
         }
+
+        /// <summary>
+        /// 유닛 타입이 힐러(지원) 역할인지 반환한다.
+        /// Config에 값이 없으면 false(일반 전투 유닛)로 폴백한다.
+        ///
+        /// 사용처: UnitData.IsHealer가 생성 시 이 값을 복사하고,
+        /// UnitView 상태머신이 그 값으로 "부상 아군 힐 루프" 진입 여부를 결정한다.
+        /// </summary>
+        public static bool GetIsHealer(UnitType type)
+            => TryGet(type, out var v) && v.IsHealer;
     }
 }

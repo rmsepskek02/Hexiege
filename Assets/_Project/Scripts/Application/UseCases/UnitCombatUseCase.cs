@@ -61,6 +61,11 @@ namespace Hexiege.Application
         private readonly float _waveTravelTime;
         private readonly float _waveHeal;
 
+        // 특수 유닛(BloomFairy 힐러) 지속 회복(HoT) 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
+        // _bloomHealAmount: 지속 회복 총량(HP, 기본 20). _bloomHealDuration: 지속시간(초, 기본 3).
+        private readonly int _bloomHealAmount;
+        private readonly float _bloomHealDuration;
+
         /// <summary>
         /// 현재 진행 중인 파도(이동 전선) 목록. TorrentSpirit이 공격할 때 하나씩 추가되고,
         /// TickWaves()가 매 서버 틱마다 전진시키며 닿은 유닛에 효과를 1회 적용한 뒤 완료되면 제거한다.
@@ -126,6 +131,8 @@ namespace Hexiege.Application
         /// <param name="waveLength">TorrentSpirit 파도 전방 길이(월드). 미주입 시 기본값 3.</param>
         /// <param name="waveTravelTime">TorrentSpirit 파도 이동 시간(초). 미주입 시 기본값 0.5.</param>
         /// <param name="waveHeal">TorrentSpirit 파도 아군 회복량. 미주입 시 기본값 10.</param>
+        /// <param name="bloomHealAmount">BloomFairy 지속 회복(HoT) 총량(HP). 미주입 시 기본값 20.</param>
+        /// <param name="bloomHealDuration">BloomFairy 지속 회복(HoT) 지속시간(초). 미주입 시 기본값 3.</param>
         public UnitCombatUseCase(
             HexGrid grid,
             UnitSpawnUseCase unitSpawn,
@@ -137,7 +144,9 @@ namespace Hexiege.Application
             float waveWidth = 3f,
             float waveLength = 3f,
             float waveTravelTime = 0.5f,
-            float waveHeal = 10f)
+            float waveHeal = 10f,
+            float bloomHealAmount = 20f,
+            float bloomHealDuration = 3f)
         {
             _grid = grid;
             _unitSpawn = unitSpawn;
@@ -150,6 +159,9 @@ namespace Hexiege.Application
             _waveLength = waveLength;
             _waveTravelTime = waveTravelTime;
             _waveHeal = waveHeal;
+            // 회복 총량은 정수 HP로 다룬다(반올림). 지속시간은 초 단위 실수.
+            _bloomHealAmount = Mathf.Max(0, Mathf.RoundToInt(bloomHealAmount));
+            _bloomHealDuration = bloomHealDuration;
         }
 
         // ====================================================================
@@ -554,6 +566,97 @@ namespace Hexiege.Application
 
             // 폴백: positionProvider가 없거나 GameObject가 미등록 → 도메인 위치 사용
             return target.Position;
+        }
+
+        // ====================================================================
+        // 부상 아군 탐색 — BloomFairy(힐러) 전용 (규칙: 적 탐색과 팀 필터 반대)
+        // ⚠️ 위쪽 적 탐색 메서드들은 이 힐러 경로와 무관하게 무변경(회귀 방지).
+        // ====================================================================
+
+        /// <summary>
+        /// 힐러(BloomFairy)의 힐 사거리(DetectRange) 안에 회복이 필요한 부상 아군이 있는지 판정한다.
+        /// 상태머신(UnitView)이 "적 감지" 대신 이 판정으로 힐 루프 진입 여부를 결정한다.
+        /// </summary>
+        /// <param name="healer">힐러 유닛.</param>
+        /// <returns>사거리 내에 부상 아군(Hp &lt; MaxHp)이 하나라도 있으면 true.</returns>
+        public bool HasInjuredAllyInHealRange(UnitData healer)
+        {
+            if (healer == null || !healer.IsAlive) return false;
+            return FindInjuredAllyToHeal(healer).HasValue;
+        }
+
+        /// <summary>
+        /// 힐 사거리(DetectRange) 안에서 "가장 회복이 급한" 부상 아군 1명의 Id를 반환한다.
+        ///
+        /// 적 탐색(FindFirstEnemyInDetectRange 등)과의 차이(팀 필터를 정반대로):
+        ///   - 적 탐색: `unit.Team == attacker.Team → 제외`(적만 탐색).
+        ///   - 힐 탐색: `unit.Team == healer.Team`인 아군만, 그중 `Hp &lt; MaxHp`(부상)만.
+        ///
+        /// 규칙(설계 확정):
+        ///   1) 대상 = 아군 유닛(건물 제외) + 살아있음 + 부상(Hp &lt; MaxHp).
+        ///   2) 본인 포함(자가 회복 허용) — 적 탐색과 달리 self를 제외하지 않는다.
+        ///   3) 우선순위 = 잃은 체력 비율((MaxHp-Hp)/MaxHp)이 최대인 대상.
+        ///   4) 동률이면 거리(월드 XZ)가 가까운 대상.
+        ///
+        /// 사거리 판정 소스는 적 감지와 동일(IEntityPositionProvider 월드 좌표, DetectRange×TileHeight).
+        /// </summary>
+        /// <param name="healer">힐러 유닛(본인도 후보에 포함).</param>
+        /// <returns>회복할 부상 아군의 Id. 없으면 null.</returns>
+        public int? FindInjuredAllyToHeal(UnitData healer)
+        {
+            if (healer == null || !healer.IsAlive) return null;
+
+            // 힐러의 월드 좌표. 미등록(Vector3.zero)이면 도메인 좌표로 폴백해 거리 판정에 사용.
+            Vector3 healerPos = _positionProvider != null
+                ? _positionProvider.GetUnitWorldPosition(healer.Id)
+                : Vector3.zero;
+            if (healerPos == Vector3.zero)
+                healerPos = _mapper.HexToWorld(healer.Position);
+
+            // 힐 사거리 = 적 감지와 동일 공식(DetectRange × TileHeight + Epsilon). 유닛 거리만 사용.
+            var (healMaxDist, _) = CalculateRangeLimits(healer, isDetect: true);
+
+            UnitData best = null;
+            float bestLostRatio = -1f;   // 잃은 체력 비율(클수록 우선)
+            float bestDist = float.MaxValue; // 동률 시 거리(작을수록 우선)
+
+            foreach (var unit in _unitSpawn.Units.Values)
+            {
+                if (unit == null || !unit.IsAlive) continue;
+                if (unit.Team != healer.Team) continue;           // 아군만(적 제외)
+                if (unit.Hp >= unit.MaxHp) continue;              // 부상 아군만(풀피 제외)
+                // ⚠️ 본인(self) 제외하지 않음 — 자가 회복 허용(적 탐색과 반대).
+
+                // 대상 월드 좌표(미등록이면 도메인 좌표 폴백).
+                Vector3 targetPos = _positionProvider != null
+                    ? _positionProvider.GetUnitWorldPosition(unit.Id)
+                    : Vector3.zero;
+                if (targetPos == Vector3.zero)
+                    targetPos = _mapper.HexToWorld(unit.Position);
+
+                float dist = Vector3.Distance(healerPos, targetPos);
+                if (dist > healMaxDist) continue;                 // 사거리 밖
+
+                // 잃은 체력 비율. MaxHp가 0인 비정상 데이터는 0으로 처리(방어적).
+                float lostRatio = unit.MaxHp > 0
+                    ? (float)(unit.MaxHp - unit.Hp) / unit.MaxHp
+                    : 0f;
+
+                // 우선순위: 잃은 비율 최대 → 동률(거의 같음)이면 거리 최소.
+                // 부동소수점 동률 판정에 작은 Epsilon(0.0001)을 사용한다.
+                bool better =
+                    lostRatio > bestLostRatio + 0.0001f ||
+                    (Mathf.Abs(lostRatio - bestLostRatio) <= 0.0001f && dist < bestDist);
+
+                if (better)
+                {
+                    bestLostRatio = lostRatio;
+                    bestDist = dist;
+                    best = unit;
+                }
+            }
+
+            return best != null ? (int?)best.Id : null;
         }
 
         /// <summary>
@@ -1018,6 +1121,238 @@ namespace Hexiege.Application
             GameEvents.OnEntityHealed.OnNext(
                 new EntityHealedEvent(target, target.Hp, isUnit: true,
                     healerId: healerId, healerIsUnit: true));
+        }
+
+        // ====================================================================
+        // HoT/DoT 시간 지속 효과 공용 시스템 [핵심 신규]
+        //   "유닛에 붙는 시간 지속 효과"를 서버 권위로 관리한다.
+        //   - HoT(회복): BloomFairy가 부상 아군에 3초간 총 20HP 회복 버프를 건다.
+        //   - DoT(피해): 후속 QuakeSpirit·MushroomBomber가 동일 구조를 재사용한다
+        //               (이번 작업에서는 Heal만 실제 배선, Damage 분기는 구조로 수용).
+        //   서버 틱 진입점: 싱글=GameBootstrapper.Update / 멀티=NetworkCombatController(IsServer).
+        //   파도(TickWaves)와 동일한 소유·틱 패턴을 따른다(이중 틱 금지 — 호출부 가드).
+        // ====================================================================
+
+        /// <summary>
+        /// 시간 지속 효과의 종류. Heal=지속 회복(HoT), Damage=지속 피해(DoT).
+        /// 하나의 레코드/틱 로직이 두 종류를 모두 처리하도록 하여 후속 DoT 유닛이 그대로 재사용한다.
+        /// </summary>
+        public enum TimedEffectKind
+        {
+            /// <summary>지속 회복(HoT) — 매 틱 대상 Hp를 올린다. </summary>
+            Heal,
+            /// <summary>지속 피해(DoT) — 매 틱 대상 Hp를 깎는다(후속 유닛용). </summary>
+            Damage
+        }
+
+        /// <summary>
+        /// 진행 중인 시간 지속 효과 목록(대상별·종류별 1개). 서버(싱글=로컬 서버/멀티=서버)에서만
+        /// 채워지고 TickTimedEffects()가 소비한다. 파도(_activeWaves)와 동일한 소유 패턴.
+        /// </summary>
+        private readonly List<ActiveTimedEffect> _activeTimedEffects = new List<ActiveTimedEffect>(8);
+
+        /// <summary>
+        /// BloomFairy 힐 시전 진입점. 상태머신(UnitView.EnterHealLoopV3)이 힐 타격 타이밍에 호출한다.
+        /// 대상에게 "3초간 총 20HP 회복" HoT를 1회 부여(갱신 규칙 적용 — 아래 ApplyTimedEffect 참조).
+        ///
+        /// 서버 권위: UnitView의 이동/전투 코루틴은 서버(싱글=로컬 서버/멀티=서버)에서만 도므로
+        /// 이 메서드도 서버에서만 호출된다. 클라이언트는 HP/치유 텍스트를 NetworkHealthSync로 수신한다.
+        /// </summary>
+        /// <param name="healer">힐을 시전한 힐러 유닛(연출/이벤트에 healerId로 실림).</param>
+        /// <param name="targetId">회복 대상 아군 유닛의 Id.</param>
+        public void CastHeal(UnitData healer, int targetId)
+        {
+            if (healer == null) return;
+            if (!_unitSpawn.Units.TryGetValue(targetId, out UnitData target)) return;
+            if (target == null || !target.IsAlive) return;
+
+            // [이슈 3 수정 — 2026-07-18] 캐스트 대기(HitFrameTimes ≒ 1초) 사이에 대상이 이미
+            //   풀피가 됐다면 HoT를 부여하지 않고 조용히 반환한다.
+            //   왜 필요한가(초급자용 설명):
+            //     힐러는 대상을 정한 뒤 힐 타격 타이밍(약 1초)까지 기다렸다가 이 CastHeal을 호출한다.
+            //     그 1초 사이에 다른 힐이 대상을 MaxHp까지 채웠을 수 있는데, 그럼에도 HoT 레코드를
+            //     만들면 다음 서버 틱에서 "이미 풀피" 판정으로 곧바로 제거되어 한 힐 사이클이 낭비된다.
+            //     (데이터가 깨지지는 않지만 힐이 헛돌게 된다.) 여기서 미리 걸러 두면 상태머신이
+            //     다음 재탐색에서 실제로 부상당한 다른 아군을 고르게 된다.
+            //   (대상 사망/제거 시 무시하는 기존 동작은 위 IsAlive 가드가 그대로 담당한다.)
+            if (target.Hp >= target.MaxHp) return;
+
+            ApplyTimedEffect(healer, target, TimedEffectKind.Heal, _bloomHealAmount, _bloomHealDuration);
+        }
+
+        /// <summary>
+        /// 대상 유닛에 시간 지속 효과(HoT/DoT)를 부여한다.
+        ///
+        /// 갱신 규칙(중첩 없음 — 설계 확정 8):
+        ///   같은 대상에 같은 종류(Heal/Damage) 효과가 이미 있으면 새 레코드를 추가하지 않고
+        ///   기존 레코드의 남은 시간·총량·누적량을 리셋(재부여)한다. → 대상별 동종 효과는 항상 1개.
+        ///
+        /// 총량 정확성(분할 오차 방지):
+        ///   틱마다 "지금까지 적용됐어야 할 누적량 − 이미 적용한 량"의 차이(diff)만 적용하므로,
+        ///   프레임 수·프레임레이트와 무관하게 지속시간이 끝나면 정확히 totalAmount에 도달한다.
+        /// </summary>
+        /// <param name="source">효과를 건 유닛(healer/attacker). 연출 attribution에 Id로 사용.</param>
+        /// <param name="target">효과가 붙는 대상 유닛.</param>
+        /// <param name="kind">Heal(HoT) 또는 Damage(DoT).</param>
+        /// <param name="totalAmount">지속시간 동안 적용할 총량(HP, 양수).</param>
+        /// <param name="duration">지속시간(초, 양수).</param>
+        public void ApplyTimedEffect(UnitData source, UnitData target,
+            TimedEffectKind kind, int totalAmount, float duration)
+        {
+            if (target == null || !target.IsAlive) return;
+            if (totalAmount <= 0) return;
+
+            int sourceId = source != null ? source.Id : -1;
+
+            // 같은 대상 + 같은 종류 효과가 이미 있으면 리셋(중첩 방지).
+            for (int i = 0; i < _activeTimedEffects.Count; i++)
+            {
+                ActiveTimedEffect e = _activeTimedEffects[i];
+                if (e.TargetId == target.Id && e.Kind == kind)
+                {
+                    e.SourceId = sourceId;
+                    e.TotalAmount = totalAmount;
+                    e.Duration = duration;
+                    e.Elapsed = 0f;
+                    e.AppliedAmount = 0;
+                    return;
+                }
+            }
+
+            // 신규 레코드 추가.
+            _activeTimedEffects.Add(new ActiveTimedEffect
+            {
+                TargetId = target.Id,
+                SourceId = sourceId,
+                Kind = kind,
+                TotalAmount = totalAmount,
+                Duration = duration,
+                Elapsed = 0f,
+                AppliedAmount = 0
+            });
+        }
+
+        /// <summary>
+        /// 진행 중인 모든 시간 지속 효과(HoT/DoT)를 dt만큼 진행시키고 이번 틱 적용분을 반영한다.
+        /// 완료/무효(대상 사망·풀피(HoT)·만료)된 레코드는 목록에서 제거한다.
+        ///
+        /// 호출 위치(서버 전용, 이중 틱 금지):
+        ///   - 싱글플레이: GameBootstrapper.Update()에서 TickWaves 바로 옆에서 매 프레임 호출.
+        ///   - 멀티플레이: NetworkCombatController.TickCombat()에서 서버 경과 시간으로 호출.
+        /// </summary>
+        /// <param name="dt">이번 서버 틱의 경과 시간(초).</param>
+        public void TickTimedEffects(float dt)
+        {
+            if (_activeTimedEffects.Count == 0) return;
+
+            // 역순 순회 — 만료/무효 레코드를 그 자리에서 제거해도 인덱스가 흔들리지 않음.
+            for (int i = _activeTimedEffects.Count - 1; i >= 0; i--)
+            {
+                ActiveTimedEffect effect = _activeTimedEffects[i];
+
+                // 대상 재확인 — 지속 도중 다른 원인으로 사망/제거됐을 수 있음.
+                if (!_unitSpawn.Units.TryGetValue(effect.TargetId, out UnitData target)
+                    || target == null || !target.IsAlive)
+                {
+                    _activeTimedEffects.RemoveAt(i);
+                    continue;
+                }
+
+                // 경과 시간 진행(지속시간 상한). Duration이 비정상(0 이하)이면 즉시 완료로 처리.
+                effect.Elapsed = Mathf.Min(effect.Duration, effect.Elapsed + dt);
+                float ratio = effect.Duration > 0.0001f
+                    ? effect.Elapsed / effect.Duration
+                    : 1f;
+
+                // "지금까지 적용됐어야 할 누적량"(반올림) − "이미 적용한 량" = 이번 틱 적용분.
+                // 지속시간 종료 시 ratio=1 → 누적 목표=TotalAmount → 정확히 총량 도달.
+                int cumulativeTarget = Mathf.RoundToInt(effect.TotalAmount * ratio);
+                int diff = cumulativeTarget - effect.AppliedAmount;
+
+                if (diff > 0)
+                {
+                    if (effect.Kind == TimedEffectKind.Heal)
+                    {
+                        // Heal → 기존 회복 수렴점 재사용(규칙 30). healer는 살아있으면 attribution용으로 전달.
+                        _unitSpawn.Units.TryGetValue(effect.SourceId, out UnitData healer);
+                        ApplyHealToUnit(healer, target, diff);
+                    }
+                    else
+                    {
+                        // Damage(DoT) → 후속 유닛용. 임의 량 피해를 적용한다(파도와 동일하게 즉시 연출).
+                        _unitSpawn.Units.TryGetValue(effect.SourceId, out UnitData attacker);
+                        ApplyTimedDamageToUnit(attacker, target, diff);
+                    }
+                    effect.AppliedAmount = cumulativeTarget;
+                }
+
+                // 종료 판정 — 만료(총량 적용 완료) / 대상 풀피(HoT는 더 회복할 것 없음) / 대상 사망.
+                bool expired = effect.Elapsed >= effect.Duration;
+                bool fullyHealed = effect.Kind == TimedEffectKind.Heal && target.Hp >= target.MaxHp;
+                bool targetDead = !target.IsAlive; // DoT가 대상을 죽였을 수 있음
+
+                if (expired || fullyHealed || targetDead)
+                {
+                    _activeTimedEffects.RemoveAt(i);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 시간 지속 피해(DoT) 1틱 적용 — 후속 특수 유닛(QuakeSpirit·MushroomBomber)이 재사용할
+        /// "임의 량 피해" 경로. 주 타깃 단일 피해(ApplyDamageToVictim)는 attackPower 고정이라
+        /// DoT의 틱별 임의 량에는 쓸 수 없으므로, 사망 처리까지 포함한 자체 경로를 둔다.
+        ///
+        /// 파도 피해와 동일하게 즉시 연출(immediatePresentation=true)로 방출한다(대상별 타이밍 상이).
+        /// ⚠️ 이번 BloomFairy 작업에서는 호출되지 않는다(Heal 전용) — DoT 유닛 구현 시 활성 경로가 된다.
+        /// </summary>
+        /// <param name="attacker">피해 원인 유닛(없으면 null — attribution만 영향).</param>
+        /// <param name="target">피해 대상 유닛.</param>
+        /// <param name="amount">이번 틱 피해량(양수).</param>
+        private void ApplyTimedDamageToUnit(UnitData attacker, UnitData target, int amount)
+        {
+            if (target == null || !target.IsAlive || amount <= 0) return;
+
+            target.TakeDamage(amount);
+
+            int attackerId = attacker != null ? attacker.Id : -1;
+            GameEvents.OnEntityDamaged.OnNext(
+                new EntityDamagedEvent(target, target.Hp, isUnit: true,
+                    attackerId: attackerId, attackerIsUnit: true,
+                    immediatePresentation: true));
+
+            // 사망 처리 — ApplyDamageToVictim의 유닛 사망 경로와 동일 순서(이벤트 → 상태 정리 → 제거).
+            if (!target.IsAlive)
+            {
+                GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(target));
+
+                if (!NetworkContext.IsNetworkActive)
+                    _combatTargets.Remove(target.Id);
+
+                _unitSpawn.RemoveUnit(target.Id);
+            }
+        }
+
+        /// <summary>
+        /// 진행 중인 시간 지속 효과 1개의 서버 상태(데이터 전용).
+        /// 대상별·종류별로 1개만 유지되며(갱신 규칙), 매 틱 Elapsed/AppliedAmount가 갱신된다.
+        /// </summary>
+        private sealed class ActiveTimedEffect
+        {
+            /// <summary> 효과가 붙은 대상 유닛 Id. </summary>
+            public int TargetId;
+            /// <summary> 효과를 건 원인 유닛 Id(연출 attribution용, 없으면 -1). </summary>
+            public int SourceId;
+            /// <summary> 효과 종류(Heal=HoT / Damage=DoT). </summary>
+            public TimedEffectKind Kind;
+            /// <summary> 지속시간 동안 적용할 총량(HP). </summary>
+            public int TotalAmount;
+            /// <summary> 지속시간(초). </summary>
+            public float Duration;
+            /// <summary> 부여 후 누적 경과 시간(초, 상한=Duration). </summary>
+            public float Elapsed;
+            /// <summary> 지금까지 실제로 적용한 누적량(HP). diff 계산 기준. </summary>
+            public int AppliedAmount;
         }
 
         // ====================================================================

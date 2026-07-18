@@ -67,6 +67,9 @@ namespace Hexiege.Infrastructure
         /// <summary>OnUnitEnteredCombat 구독 해제용 Disposable. 서버 전용.</summary>
         private System.IDisposable _enteredCombatSubscription;
 
+        /// <summary>OnUnitHealCastStarted 구독 해제용 Disposable. 서버 전용(힐러 힐 애니메이션 동기화).</summary>
+        private System.IDisposable _healCastSubscription;
+
         /// <summary>
         /// 유닛별 현재 전투 타겟 추적. key=유닛Id, value=(타겟Id, 타겟이 유닛인지).
         /// 전투 중이 아닌 유닛은 Dictionary에 없음.
@@ -150,7 +153,12 @@ namespace Hexiege.Infrastructure
                 _enteredCombatSubscription = GameEvents.OnUnitEnteredCombat
                     .Subscribe(OnUnitEnteredCombatHandler);
 
-                Debug.Log("[Network] NetworkCombatController: 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat 이벤트 구독 완료.");
+                // 힐러(BloomFairy) 힐 시전 → 애니메이션 상태를 Attack(=힐 클립)으로 레벨 동기화.
+                // 데미지 유발 없이 클라이언트에 힐 애니메이션만 보여주기 위한 별도 경로.
+                _healCastSubscription = GameEvents.OnUnitHealCastStarted
+                    .Subscribe(OnUnitHealCastStartedHandler);
+
+                Debug.Log("[Network] NetworkCombatController: 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast 이벤트 구독 완료.");
             }
         }
 
@@ -177,6 +185,10 @@ namespace Hexiege.Infrastructure
             // EnteredCombat 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _enteredCombatSubscription?.Dispose();
             _enteredCombatSubscription = null;
+
+            // HealCast 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
+            _healCastSubscription?.Dispose();
+            _healCastSubscription = null;
 
             // 전투 상태 초기화 — 씬 전환 시 이전 게임의 상태가 남지 않도록
             _unitCombatTargets.Clear();
@@ -280,6 +292,13 @@ namespace Hexiege.Infrastructure
             // ────────────────────────────────────────────────────────────────
             combat.TickWaves(elapsed);
 
+            // ────────────────────────────────────────────────────────────────
+            // BloomFairy HoT(지속 회복) 등 시간 지속 효과 진행 — 서버 권위(규칙 18/29 계승).
+            // IsServer 가드 이후이므로 서버에서만 회복/피해가 적용된다. 회복은 OnEntityHealed →
+            // NetworkHealthSync가 클라이언트에 HP를 동기화한다(이중 적용 없음 — 클라는 틱을 돌리지 않음).
+            // ────────────────────────────────────────────────────────────────
+            combat.TickTimedEffects(elapsed);
+
             // Dictionary를 순회하면서 타겟 탐색
             // 전투 중 RemoveUnit이 호출될 수 있으므로 키를 미리 복사
             var unitIds = new System.Collections.Generic.List<int>(unitSpawn.Units.Keys);
@@ -315,6 +334,16 @@ namespace Hexiege.Infrastructure
 
                     unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldownRemaining - elapsed);
                 }
+
+                // ────────────────────────────────────────────────────────────
+                // 힐러(BloomFairy)는 적을 공격하지 않는다 → 여기서 적 전투 흐름을 건너뛴다.
+                //   위의 쿨다운 감소는 반드시 통과시켜야(=continue를 여기 두어야) 힐 루프의 재시전
+                //   타이밍(AttackCooldownRemaining 대기)이 정상 진행된다.
+                //   힐 판정/애니메이션은 서버 UnitView.EnterHealLoopV3 + OnUnitHealCastStarted 경로가,
+                //   회복 틱은 TickTimedEffects(위)가 담당한다. 여기서 healer를 combat.TryFindTarget에
+                //   넣으면 attackRange(4.0)로 적을 잡아 잘못된 공격 전투에 진입하므로 반드시 제외한다.
+                // ────────────────────────────────────────────────────────────
+                if (unit.IsHealer) continue;
 
                 // TryFindTarget: 쿨다운이 0이고 사거리 내 적이 있을 때만 타겟 반환.
                 // HasEnemyInRange: 쿨다운과 무관하게 사거리 내 적 존재 여부만 체크.
@@ -566,6 +595,18 @@ namespace Hexiege.Infrastructure
             //    "기능" 가드다. 전투 이탈(Walk) 시 해제해야 다음 전투 재진입에서 첫 공격이 재실행된다.
             //    (Phase 2의 애니메이션 레벨 동기화와는 별개의 목적이므로 그대로 둔다.)
             _combatAnimationSent.Remove(unitId);
+        }
+
+        /// <summary>
+        /// 힐러(BloomFairy) 힐 시전 시작 이벤트 핸들러(서버 전용).
+        /// 애니메이션 상태만 Attack(=힐 클립)으로 레벨 동기화하여 클라이언트가 힐 모션을 재생하게 한다.
+        /// 데미지/타겟 RPC는 전송하지 않는다(힐러는 적 공격 흐름과 분리 — 규칙 28 확장).
+        /// 회복 자체는 서버 TickTimedEffects가 처리하고 HP는 NetworkHealthSync가 동기화한다.
+        /// </summary>
+        /// <param name="unitId">힐 시전을 시작한 힐러 유닛의 Id.</param>
+        private void OnUnitHealCastStartedHandler(int unitId)
+        {
+            SetUnitAnimState(unitId, UnitAnimState.Attack);
         }
 
         /// <summary>

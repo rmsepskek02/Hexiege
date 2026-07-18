@@ -802,6 +802,14 @@ namespace Hexiege.Application
         public static readonly Subject<int> OnUnitEnteredCombat = new Subject<int>();
 
         /// <summary>
+        /// 힐러(BloomFairy)가 힐 시전을 시작했을 때 서버 UnitView가 발행. 유닛 Id를 전달.
+        /// NetworkCombatController(서버)가 구독하여 애니메이션 상태를 Attack(=힐 클립)으로 레벨 동기화한다.
+        /// OnUnitEnteredCombat과 달리 데미지(ExecuteAttack)는 유발하지 않는다 — 순수 힐 애니메이션 동기화용.
+        /// (싱글플레이에서는 UnitView가 Animator를 직접 CrossFade하므로 이 이벤트를 구독하지 않는다.)
+        /// </summary>
+        public static readonly Subject<int> OnUnitHealCastStarted = new Subject<int>();
+
+        /// <summary>
         /// 유닛이 전투 상태에 진입했을 때 발행.
         /// 발행: UnitCombatUseCase (싱글플레이에서 TryAttack 성공 시, 이전에 전투 중이 아니었던 경우)
         /// 구독: UnitView (StartCombatAnimation 호출)

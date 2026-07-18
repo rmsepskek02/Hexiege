@@ -438,6 +438,9 @@ namespace Hexiege.Bootstrap
                 // TorrentSpirit 파도(이동 전선)를 전진시키고 닿은 유닛에 피해/힐을 1회 적용.
                 // 싱글플레이 전용 — 멀티플레이에서는 NetworkCombatController가 서버 틱에서 호출한다.
                 _unitCombat.TickWaves(Time.deltaTime);
+                // BloomFairy HoT(지속 회복) 등 시간 지속 효과를 진행. 파도와 동일하게 서버 권위 틱.
+                // 싱글플레이 전용 — 멀티플레이에서는 NetworkCombatController가 호출(이중 틱 금지).
+                _unitCombat.TickTimedEffects(Time.deltaTime);
             }
 
             // ────────────────────────────────────────────────────────────────

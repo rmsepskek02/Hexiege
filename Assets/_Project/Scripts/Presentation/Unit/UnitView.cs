@@ -811,6 +811,25 @@ namespace Hexiege.Presentation
             return _combatTargetTransform != null || _isInCombatPursuit;
         }
 
+        /// <summary>
+        /// 이동 중 "멈춰서 무언가를 해야 하는 대상"이 사거리 안에 있는지 판정한다(상태머신 진입 조건).
+        ///
+        /// 일반 전투 유닛: 감지 사거리 내 "적"이 있으면 true → 전투 이동/공격 흐름 진입.
+        /// 힐러(IsHealer): 힐 사거리 내 "부상 아군"이 있으면 true → 힐 루프 진입.
+        ///   힐러는 적을 감지/공격하지 않으므로 적 탐색을 아예 타지 않는다(적 공격 흐름과 분리).
+        ///
+        /// 이 한 메서드로 두 종류의 진입 판정을 통일하여, 이동 코루틴의 감지 지점들이
+        /// 유닛 역할에 맞는 올바른 대상을 검사하도록 한다.
+        /// </summary>
+        private bool ShouldEngage()
+        {
+            if (_combatUseCase == null || _unitData == null || !_unitData.IsAlive) return false;
+
+            return _unitData.IsHealer
+                ? _combatUseCase.HasInjuredAllyInHealRange(_unitData)
+                : _combatUseCase.HasEnemyInDetectRange(_unitData);
+        }
+
         // ====================================================================
         // MoveAlongPathV3 — 단일 상태 머신
         // ====================================================================
@@ -995,11 +1014,10 @@ namespace Hexiege.Presentation
                         transform.rotation = Quaternion.RotateTowards(
                             transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
 
-                        // ── [A* 이동] → [전투 이동] 전환 ──
-                        // 감지 사거리 안에 적이 있으면 즉시 전투 이동으로 위임.
-                        // 근접/원거리 분기 없음. 두 종류 모두 동일하게 적을 향해 직선 이동 시작.
-                        if (_combatUseCase != null && _unitData.IsAlive
-                            && _combatUseCase.HasEnemyInDetectRange(_unitData))
+                        // ── [A* 이동] → [전투 이동 / 힐] 전환 ──
+                        // 감지 사거리 안에 대상(일반=적 / 힐러=부상 아군)이 있으면 즉시 위임.
+                        // ShouldEngage()가 유닛 역할에 맞는 대상을 검사한다(힐러는 적을 타지 않음).
+                        if (ShouldEngage())
                         {
                             // 혼잡도 기여 일시 중단 — 추격 단계는 타일을 거치지 않는
                             // 직선 이동이므로 OnUnitEnteredTile 발행을 막는다. resumePath에서 다시 true.
@@ -1011,13 +1029,22 @@ namespace Hexiege.Presentation
                             //  방어적으로 정합 상태 유지.)
                             _currentNextTileCoord = null;
 
-                            // [전투 이동] → [공격] 흐름을 EnterCombatPursuitV3에 전부 위임.
-                            yield return EnterCombatPursuitV3();
+                            if (_unitData.IsHealer)
+                            {
+                                // [힐러] 부상 아군 힐 루프에 위임 — 적 공격 흐름과 완전히 분리된 경로.
+                                //   정지 → 힐 애니 → HoT 부여 → 쿨다운 → 재탐색을 EnterHealLoopV3가 담당한다.
+                                yield return EnterHealLoopV3();
+                            }
+                            else
+                            {
+                                // [전투 이동] → [공격] 흐름을 EnterCombatPursuitV3에 전부 위임.
+                                yield return EnterCombatPursuitV3();
 
-                            // 전투 종료 후 회전 정합성 유지.
-                            // _combatTargetTransform이 null이 아닌 동안 Update()가 매 프레임 회전을 덮어쓰므로
-                            // StopCombatAnimation()을 직접 호출하여 즉시 추적을 끊습니다.
-                            StopCombatAnimation();
+                                // 전투 종료 후 회전 정합성 유지.
+                                // _combatTargetTransform이 null이 아닌 동안 Update()가 매 프레임 회전을 덮어쓰므로
+                                // StopCombatAnimation()을 직접 호출하여 즉시 추적을 끊습니다.
+                                StopCombatAnimation();
+                            }
 
                             if (_unitData == null || !_unitData.IsAlive) break;
 
@@ -1097,9 +1124,8 @@ namespace Hexiege.Presentation
                                     transform.rotation = Quaternion.RotateTowards(
                                         transform.rotation, alignTargetRot, _rotationSpeed * Time.deltaTime);
 
-                                    // 정렬 도중에도 새 적 감지 시 즉시 다음 추격 사이클로 넘긴다.
-                                    if (_combatUseCase != null && _unitData.IsAlive
-                                        && _combatUseCase.HasEnemyInDetectRange(_unitData))
+                                    // 정렬 도중에도 새 대상(일반=적 / 힐러=부상 아군) 감지 시 즉시 다음 사이클로 넘긴다.
+                                    if (ShouldEngage())
                                     {
                                         alignInterruptedByCombat = true;
                                         break;
@@ -1250,7 +1276,34 @@ namespace Hexiege.Presentation
 
             cleanup:
             // 정상/사망/완주/RESUME 실패 등 모든 종료 경로에서 공통 cleanup.
+            //   여기서 _moveCoroutine을 null로 비우고 OnMoveComplete 콜백(랠리→성 자동 이동/공성 체인)을
+            //   발행한다. 콜백이 새 이동(MoveTo)을 시작하면 _moveCoroutine이 다시 non-null이 된다.
             MoveCleanupAndCompleteV3();
+
+            // ────────────────────────────────────────────────────────────────
+            // [이슈 2 수정 — 2026-07-18] 힐러(BloomFairy) 유휴 감시 진입.
+            //
+            //   왜 필요한가(초급자용 설명):
+            //     힐러는 적 성을 공격하지 않으므로, 부상 아군 없이 경로 끝(성 인접 타일)에 도달하면
+            //     위 cleanup에서 이동 코루틴이 "완전히 끝나" 버렸다. 그 뒤에는 근처 아군이 다쳐도
+            //     힐러가 다시 반응하지 못하는 "영구 유휴" 상태가 됐다(일반 유닛은 성 앞에서 무한 전투
+            //     루프를 돌기 때문에 이 함정이 없다 — 힐러만 구조적으로 노출됐다).
+            //
+            //   해결:
+            //     힐러가 "살아있는 동안 부상 아군을 계속 지켜보도록" 별도의 유휴 감시 코루틴을 시작해
+            //     _moveCoroutine으로 계속 추적한다. 감시 중 부상 아군이 생기면 힐 루프로 재진입하고,
+            //     이동을 재개할 새 경로(_pendingPath)가 예약되면 이동으로 돌아간다(아래 코루틴 참조).
+            //
+            //   비힐러 회귀 방지:
+            //     - 아래 조건에 IsHealer가 있어 일반 유닛은 이 분기를 절대 타지 않는다(기존 종료 동작 그대로).
+            //     - OnMoveComplete 콜백이 이미 새 이동을 시작한 경우(_moveCoroutine != null)에는 진입하지
+            //       않는다. 즉 랠리 도착·공성 진행처럼 "다음 이동이 이어지는 중간 구간"에서는 감시가 끼어들지
+            //       않아 기존 랠리/공성 체인이 그대로 보존된다. 순수 종착(더 이동할 곳 없음)일 때만 감시한다.
+            // ────────────────────────────────────────────────────────────────
+            if (_moveCoroutine == null && _unitData != null && _unitData.IsAlive && _unitData.IsHealer)
+            {
+                _moveCoroutine = StartCoroutine(HealerIdleWatchV3());
+            }
         }
 
         /// <summary>
@@ -1469,6 +1522,189 @@ namespace Hexiege.Presentation
 
                 ResumeWalkAnimation();
             }
+        }
+
+        /// <summary>
+        /// [V3 신규] 힐러(BloomFairy) 전용 힐 루프 — 적 공격 흐름과 완전히 분리된 경로.
+        ///
+        /// 동작(설계 확정 6):
+        ///   1) FindInjuredAllyToHeal로 힐 사거리 내 "가장 급한 부상 아군"을 선택.
+        ///      없으면 Walk 애니메이션 재개 후 종료(→ 호출 측이 A* 이동을 재개).
+        ///   2) 대상을 향해 회전 + 힐 애니메이션 재생(시전 중 이동 없음).
+        ///   3) 힐 타격 타이밍(HitFrameTimes[0]) 대기 후 대상에 HoT(3초 20HP) 1회 부여(CastHeal).
+        ///   4) 쿨다운(AttackCooldown, 3초) 대기.
+        ///   5) 다시 재탐색(1로 반복). 대상이 풀피/사거리 이탈이면 자연히 다른 부상 아군으로 전환.
+        ///
+        /// 서버 권위: 이 코루틴은 서버(싱글=로컬 서버/멀티=서버)에서만 도는 MoveAlongPathV3에서만
+        ///   호출되므로 CastHeal(HoT 부여)도 서버에서만 실행된다. 클라이언트는 HP/치유 텍스트를
+        ///   NetworkHealthSync로 수신하고, 힐 애니메이션은 _animState(Attack) 레벨 동기화로 재생한다.
+        ///
+        /// HoT 부여 타이밍(설계 결정):
+        ///   실제 회복 발동은 애니메이션 이벤트(OnAttackHit)가 아니라 이 코루틴의 HitFrameTimes 타이머로
+        ///   구동한다. 이유 — 기존 데미지 시스템도 애니 이벤트가 아니라 HitFrameTimes 타이머로 데미지를
+        ///   적용하며(코드베이스 관례), 애니 이벤트 의존은 클립에 이벤트가 주입되기 전까지 회복이 아예
+        ///   발동하지 않는 취약점이 있기 때문이다. 타이밍(=HitFrameTimes[0])은 동일하다.
+        ///   (OnAttackHit 애니 이벤트는 힐 이펙트/사운드 연출 용도로만 남는다.)
+        /// </summary>
+        private IEnumerator EnterHealLoopV3()
+        {
+            // 필수 의존성 가드 — _positionProvider는 대상 방향 회전에 사용.
+            if (_combatUseCase == null || _positionProvider == null || _unitData == null)
+                yield break;
+
+            // 힐 시전 중임을 표시 — IsInCombat()가 true를 반환하도록 하여, 건물 변화로 인한
+            //   RepathAllAliveUnits → OnPathInvalidated가 힐 도중 코루틴을 끊지 않게 한다(추격과 동일 취지).
+            //   Unity 코루틴은 try/finally가 동작하지 않으므로 각 yield break 직전에 false로 명시 리셋한다.
+            _isInCombatPursuit = true;
+
+            while (_unitData != null && _unitData.IsAlive)
+            {
+                // 1) 부상 아군 재탐색.
+                int? target = _combatUseCase.FindInjuredAllyToHeal(_unitData);
+                if (!target.HasValue)
+                {
+                    // 더 힐할 아군 없음 → Walk 애니메이션 재개 후 종료(호출 측이 A* 이동 재개).
+                    ResumeWalkAnimation();
+                    if (NetworkContext.IsNetworkActive)
+                        GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
+                    _isInCombatPursuit = false;
+                    yield break;
+                }
+
+                int targetId = target.Value;
+
+                // 2) 대상을 향해 회전 + 힐 애니메이션 재생(시전 중 이동 없음).
+                PlayHealCastAnimation(targetId);
+
+                // 3) 힐 타격 타이밍까지 대기(공격 유닛의 타격 프레임 재해석). 시전 중 이동 없음.
+                float hitDelay = (_unitData.HitFrameTimes != null && _unitData.HitFrameTimes.Length > 0)
+                    ? _unitData.HitFrameTimes[0]
+                    : 0.2f;
+                float t = 0f;
+                while (t < hitDelay && _unitData != null && _unitData.IsAlive)
+                {
+                    t += Time.deltaTime;
+                    yield return null;
+                }
+                if (_unitData == null || !_unitData.IsAlive) { _isInCombatPursuit = false; yield break; }
+
+                // HoT 1회 부여(서버 권위). 대상이 시전 도중 사망/제거됐으면 CastHeal 내부에서 무시된다.
+                _combatUseCase.CastHeal(_unitData, targetId);
+
+                // 4) 쿨다운 시작 후 만료까지 대기.
+                //    쿨다운 감소는 싱글=GameBootstrapper.TickCooldowns / 멀티=NetworkCombatController가 담당.
+                _unitData.AttackCooldownRemaining = _unitData.AttackCooldown;
+                while (_unitData != null && _unitData.IsAlive && _unitData.AttackCooldownRemaining > 0f)
+                    yield return null;
+                if (_unitData == null || !_unitData.IsAlive) { _isInCombatPursuit = false; yield break; }
+
+                // 5) while 상단으로 돌아가 재탐색(부상 아군 있으면 반복, 없으면 위에서 종료).
+            }
+
+            // while 자연 종료(_unitData null/사망) 안전망 리셋.
+            _isInCombatPursuit = false;
+        }
+
+        /// <summary>
+        /// [이슈 2 수정 — 2026-07-18] 힐러(BloomFairy) 전용 유휴 감시 코루틴.
+        ///
+        /// 목적:
+        ///   힐러가 이동 경로 끝(적 성 인접 등 더 이상 이동할 곳이 없는 지점)에 도달했을 때
+        ///   코루틴을 영구히 끝내지 않고, "살아있는 동안 부상 아군을 계속 지켜보게" 한다.
+        ///   이 코루틴은 MoveAlongPathV3의 cleanup에서 힐러일 때만 시작되며 _moveCoroutine으로 추적된다.
+        ///
+        /// 동작(짧은 주기 감시):
+        ///   1) 힐 사거리 내 부상 아군이 있으면(ShouldEngage → HasInjuredAllyInHealRange) 즉시
+        ///      EnterHealLoopV3(힐 루프)로 재진입한다. 힐 루프가 끝나면 다시 이 감시 상단으로 돌아온다.
+        ///   2) 이동을 재개할 새 경로가 예약되면(_pendingPath — OnPathInvalidated가 건물 변화 등으로 예약)
+        ///      그 경로로 MoveTo하여 기존 이동 로직으로 자연스럽게 복귀한다(감시 코루틴은 종료).
+        ///   3) 둘 다 아니면 watchInterval(0.4초)마다 재확인하며 대기한다(매 프레임 탐색 비용 회피).
+        ///
+        /// 서버 권위 / 이중 틱 원칙:
+        ///   이 감시 루프는 서버(싱글=로컬 서버/멀티=서버)에서만 도는 MoveAlongPathV3에서만 시작되며,
+        ///   상태머신(코루틴) 레벨의 "지켜보기"일 뿐 회복을 직접 적용하지 않는다. 실제 힐 발동은
+        ///   EnterHealLoopV3 → CastHeal(서버 권위) 경로가 그대로 담당한다(감시가 힐 로직을 바꾸지 않음).
+        ///
+        /// 기존 흐름과의 정합:
+        ///   - 감시 중에는 _isInCombatPursuit이 false이므로 OnPathInvalidated가 정상적으로 _pendingPath를
+        ///     예약할 수 있다(감시가 이를 소비해 이동 재개). 힐 루프 진입 중에는 EnterHealLoopV3가
+        ///     _isInCombatPursuit=true로 두어 OnPathInvalidated가 힐을 끊지 않는다(추격과 동일 보호).
+        ///   - 외부/공성 시스템이 새 MoveTo를 호출하면 _moveCoroutine이 교체되며 이 코루틴은 정지된다.
+        /// </summary>
+        private IEnumerator HealerIdleWatchV3()
+        {
+            // 부상 아군 재확인 주기(초). 너무 짧으면 매 프레임 탐색 비용, 너무 길면 반응이 굼떠진다.
+            const float watchInterval = 0.4f;
+
+            while (_unitData != null && _unitData.IsAlive)
+            {
+                // (1) 부상 아군 감지 → 즉시 힐 루프 재진입. 힐 루프 종료 후에도 계속 지켜보기 위해 continue.
+                if (ShouldEngage())
+                {
+                    yield return EnterHealLoopV3();
+                    continue;
+                }
+
+                // (2) 이동 재개용 새 경로가 예약됐으면(OnPathInvalidated) 그 경로로 이동을 재개한다.
+                //     MoveTo가 _moveCoroutine을 새 이동 코루틴으로 교체하므로 이 감시 코루틴은 여기서 종료한다.
+                if (_pendingPath != null)
+                {
+                    List<HexCoord> resumePath = _pendingPath;
+                    _pendingPath = null;
+                    MoveTo(resumePath);
+                    yield break;
+                }
+
+                // (3) 대기 — watchInterval 동안 프레임을 넘기며 대기하되, 대기 중 새 경로가 예약되면
+                //     즉시 상단으로 돌아가 (2)에서 이동을 재개하도록 안쪽 루프를 빠져나온다.
+                float waited = 0f;
+                while (waited < watchInterval && _unitData != null && _unitData.IsAlive)
+                {
+                    if (_pendingPath != null) break;
+                    waited += Time.deltaTime;
+                    yield return null;
+                }
+            }
+
+            // 유닛 사망 등으로 감시가 자연 종료된 경우 — 이동 코루틴 추적을 해제한다.
+            //   (이동 재개(2번 경로)로 빠져나갈 때는 위에서 yield break하므로 이 지점에 도달하지 않는다.
+            //    따라서 여기서 _moveCoroutine을 비워도 새 이동 코루틴을 잘못 지우지 않는다.)
+            if (_moveCoroutine != null) _moveCoroutine = null;
+        }
+
+        /// <summary>
+        /// 힐러가 힐 시전을 시작할 때 호출 — 대상 방향으로 회전하고 힐 애니메이션을 재생한다.
+        ///
+        /// 애니메이션은 공격 유닛과 동일한 Attack 상태(BloomFairy의 Attack 클립 = 힐 모션)를 사용한다.
+        ///   - 싱글플레이/호스트(서버): Animator를 직접 CrossFade(StartCombatAnimation과 동일 가드).
+        ///   - 멀티플레이 클라이언트: 서버가 OnUnitHealCastStarted를 발행 → NetworkCombatController가
+        ///     _animState(Attack)로 레벨 동기화하여 각 클라이언트가 힐 모션을 재생한다.
+        /// </summary>
+        /// <param name="targetId">회복 대상 아군 유닛의 Id(회전 방향 계산에 사용).</param>
+        private void PlayHealCastAnimation(int targetId)
+        {
+            // 대상 방향으로 즉시 스냅 회전(서버/싱글). NetworkTransform이 클라이언트에 보간 전달.
+            Vector3 targetPos = _positionProvider != null
+                ? _positionProvider.GetUnitWorldPosition(targetId)
+                : Vector3.zero;
+            if (targetPos != Vector3.zero)
+            {
+                float angle = CalculateAttackAngle(targetPos);
+                transform.rotation = Quaternion.Euler(0f, angle, 0f);
+            }
+
+            // Attack(=힐) 애니메이션 CrossFade — 싱글/호스트만 직접 재생(클라는 레벨 동기화가 담당).
+            bool applyCrossFadeHere = !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
+            if (applyCrossFadeHere && _animator != null)
+            {
+                _animator.speed = 1f;
+                _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0);
+                _currentAnimStateHash = StateAttack;
+            }
+
+            // 멀티플레이: 서버가 힐 시전 이벤트를 발행 → 클라이언트 힐 애니메이션 동기화.
+            if (NetworkContext.IsNetworkActive)
+                GameEvents.OnUnitHealCastStarted.OnNext(_unitData.Id);
         }
 
         /// <summary>
