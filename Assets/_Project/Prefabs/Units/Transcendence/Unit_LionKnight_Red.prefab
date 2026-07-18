@@ -290,7 +290,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2065821143
+  GlobalObjectIdHash: 1660116211
   InScenePlacedSourceGlobalObjectIdHash: 156391786
   DeferredDespawnTick: 0
   Ownership: 1
@@ -403,6 +403,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2310746739078931726}
   - component: {fileID: 5032789128940834808}
+  - component: {fileID: 7582574871656837629}
   m_Layer: 0
   m_Name: Unit_LionKnight_Red_Mesh
   m_TagString: Untagged
@@ -449,6 +450,18 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &7582574871656837629
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3764059948886262206}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b74fadfb97679cff2665b8c6c2481eae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.AnimationEventRelay
 --- !u!1 &4002071685795108209
 GameObject:
   m_ObjectHideFlags: 0

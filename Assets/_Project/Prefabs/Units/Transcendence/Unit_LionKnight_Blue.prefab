@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8157931029157600472}
   - component: {fileID: 5189224677345576659}
+  - component: {fileID: 1409504541254374282}
   m_Layer: 0
   m_Name: Unit_LionKnight_Blue_Mesh
   m_TagString: Untagged
@@ -56,6 +57,18 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &1409504541254374282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 28705330516821797}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b74fadfb97679cff2665b8c6c2481eae, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.AnimationEventRelay
 --- !u!1 &54269360562597282
 GameObject:
   m_ObjectHideFlags: 0
@@ -561,7 +574,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 451810171
+  GlobalObjectIdHash: 3306007644
   InScenePlacedSourceGlobalObjectIdHash: 570308009
   DeferredDespawnTick: 0
   Ownership: 1

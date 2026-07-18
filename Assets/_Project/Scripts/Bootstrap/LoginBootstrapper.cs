@@ -190,9 +190,13 @@ namespace Hexiege.Bootstrap
             //      - 익명 로그인 상태도 자동 로그인 대상에 포함.
             if (fbReady && _authService.IsLoggedIn)
             {
-                bool autoOk = await _loginUseCase.TryAutoLoginAsync();
-                if (autoOk)
+                AutoLoginResult autoResult = await _loginUseCase.TryAutoLoginAsync();
+                if (autoResult == AutoLoginResult.Success)
                 {
+                    bool isFirst = !_loginUseCase.IsAnonymous &&
+                                   _playerProfileUseCase != null &&
+                                   await _playerProfileUseCase.IsFirstLogin();
+
                     Debug.Log("[LoginBootstrapper] 자동 로그인 성공. 'Tap to Start' 후 Lobby 씬으로 이동합니다.");
                     // 자동 로그인 성공이라도 곧바로 씬을 이동하지 않고 "Tap to Start"를 거친다.
                     //   탭 콜백으로 GoToNextScene을 주입한 뒤, 로딩 인디케이터를 끄고 "Tap to Start"를 표시한다.
@@ -200,9 +204,13 @@ namespace Hexiege.Bootstrap
                     //   오버레이가 없으면(개발 중 직접 진입 등) 곧바로 씬을 이동한다.
                     if (_splashOverlay != null)
                     {
-                        // skipFade: true — 탭 시 FadeOut 없이 즉시 GoToNextScene 호출.
-                        // SceneLoader가 로딩 인디케이터를 표시하므로 Login 씬 배경이 노출되지 않는다.
-                        _splashOverlay.SetTapCallback(GoToNextScene, skipFade: true);
+                        // Lobby 씬으로 넘어갈 때만 FadeOut을 생략한다.
+                        // Login 씬 안의 닉네임 설정 화면을 보여줄 때는 SplashOverlay가 FadeOut되어야
+                        // 화면을 가리지 않고 raycast 차단도 해제된다.
+                        if (isFirst)
+                            _splashOverlay.SetTapCallback(ShowEmailNicknameSetup);
+                        else
+                            _splashOverlay.SetTapCallback(GoToNextScene, skipFade: true);
 
                         // [로딩 인디케이터 끄기] 스플래시가 "Tap to Start" 상태로 화면에 준비되는 시점이다(UI 규칙 L-3).
                         UIManager.Instance?.ShowLoading(false);
@@ -212,10 +220,31 @@ namespace Hexiege.Bootstrap
                     else
                     {
                         UIManager.Instance?.ShowLoading(false);
-                        GoToNextScene();
+                        if (isFirst)
+                            ShowEmailNicknameSetup();
+                        else
+                            GoToNextScene();
                     }
                     return;
                 }
+
+                if (autoResult == AutoLoginResult.NeedsEmailVerification)
+                {
+                    Debug.Log("[LoginBootstrapper] 자동 로그인: 이메일 미인증 계정. 'Tap to Start' 후 인증 화면으로 이동합니다.");
+                    if (_splashOverlay != null)
+                    {
+                        _splashOverlay.SetTapCallback(ShowExistingEmailVerification);
+                        UIManager.Instance?.ShowLoading(false);
+                        _splashOverlay.ShowTapToStart();
+                    }
+                    else
+                    {
+                        UIManager.Instance?.ShowLoading(false);
+                        ShowExistingEmailVerification();
+                    }
+                    return;
+                }
+
                 Debug.LogWarning("[LoginBootstrapper] 자동 로그인 실패. 'Tap to Start' 후 로그인 선택 화면을 표시합니다.");
             }
 
@@ -260,6 +289,20 @@ namespace Hexiege.Bootstrap
                 _rootView.ShowLoginSelect();
         }
 
+        private void ShowExistingEmailVerification()
+        {
+            if (_rootView == null) return;
+            _rootView.ShowEmailVerify(
+                _loginUseCase != null ? _loginUseCase.Email : string.Empty,
+                EmailVerificationOrigin.ExistingUnverifiedLogin);
+        }
+
+        private void ShowEmailNicknameSetup()
+        {
+            if (_rootView == null) return;
+            _rootView.ShowNicknameSetup(isGooglePath: false);
+        }
+
         /// <summary>
         /// 모든 View 에 UseCase / 자기 자신(LoginBootstrapper) 참조를 주입한다.
         /// View 는 Inspector 에서 다른 View 를 직접 참조하지 않고, LoginRootView 를 통해서만
@@ -268,7 +311,7 @@ namespace Hexiege.Bootstrap
         private void InjectDependencies()
         {
             if (_rootView != null)
-                _rootView.Initialize(this, _loginUseCase);
+                _rootView.Initialize(this, _loginUseCase, _emailVerifyView);
 
             if (_loginSelectView != null)
                 _loginSelectView.Initialize(_rootView, _loginUseCase, this, _playerProfileUseCase);

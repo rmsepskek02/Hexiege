@@ -64,3 +64,13 @@
 - 규칙 번호 이어붙이기 재확인: GameSystemRules_Units.md는 2026-07-13 시점 규칙 22까지 → 이번에 23~27 부여. 신설 규칙은 항상 파일 마지막 규칙 번호를 Read로 확인 후 이어서 부여(규칙 간 상호 참조 명시: 24가 규칙 16·6 참조, 26이 규칙 18·19 참조, 27이 규칙 17 참조).
 - SO 튜닝값 함정 교훈(에셋 생성 ≠ 씬 배선)은 규칙 문안(규칙 25)·game-programmer/project-orchestrator/game-design-lead MEMORY에 분산 기록. "유닛 attackRange vs 특수 sweepReach 별개" 혼동 주의도 규칙·밸런스 메모 양쪽.
 - 싱글플레이 AI 시스템 실기 "조건부 완료" 반영(2026-07-16): 사용자가 핵심 흐름(유닛 생산/건물 업그레이드)만 적당히 실기 확인(PASS, 문제 미발견)하고 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 정밀 검증은 미완인 경우의 기록 패턴. **완료(✅)로 소거하지 말고 조건부 완료(🔵) + "후속 정밀 검증" 잔여를 명시**. 갱신처: PROJECT_STATUS(싱글플레이 AI 시스템 표의 "Inspector 작업"⏳→✅ / "실기 테스트"⏳→🔵 조건부 완료 + 헤더 현재 단계에 한 줄), ROADMAP(우선순위 표 2행 조건부 완료 전환 + Phase C-0 "남은 작업"을 세부 정밀 검증 항목으로 재기술). 실기 진행 사실이 곧 전제 Inspector 작업 완료를 함의 → 대기였던 Inspector 항목도 함께 완료 처리. 이번엔 코드/버그 변경이 없어 game-programmer/qa MEMORY·GameSystemRules·TDD·GDD는 무수정(지시 범위=문서 3종만).
+
+### 2026-07-16 - Email verification flow docs
+
+- Added task docs at `Assets/_Project/Docs/_Tasks/2026-07-16/14_20_email-verification-flow-cleanup/`
+- Updated `AuthSystemRules.md`, `PROJECT_STATUS.md`, `ROADMAP.md`, and `WORK_HISTORY.md` with email verification cancellation policy.
+
+### 2026-07-18 - Email verification flow completion docs
+
+- Completion update pattern: append task `Plan.md` completion result, add PASS results to task `Testcase.md`, update `PROJECT_STATUS.md`/`ROADMAP.md` progress sections from in-progress to complete, and replace the `WORK_HISTORY.md` in-progress entry with completed device verification results.
+- Keep stale unverified account cleanup as a long-term policy item, not part of the completed client flow slice.
