@@ -32,6 +32,13 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### TorrentSpirit 파도형 이동 AoE + 힐 서브시스템 (2026-07-17) ✅ 코드/QA 완료(VFX 튜닝 사용자 진행)
+- **special-only**: `ISpecialAttackBehavior.ReplacesPrimaryAttack`=true면 `ExecuteAttack`이 주 타깃 단일 피해 생략, 핸들러만 실행. ⚠️ special-only는 특수 판정이 **건물도 순회**해야 성 파괴(승리조건) 가능 — `TickWaves`가 `_buildingPlacement.Buildings`도 순회(유닛/건물 Id 카운터 달라 hit-set 분리). BUG-002 교훈.
+- **서버 권위 이동 파도**: `TorrentAttackBehavior`(+`WaveSpawnRequest`)는 모양/방향만 계산→`SpawnWave`, 전선 전진·판정·효과는 `UnitCombatUseCase.TickWaves`(`ActiveWave`). 월드 직사각형(폭×전방, forward=주 타깃), 닿는 대상 1회. 틱: 싱글=GameBootstrapper(`!IsNetworkMode` 가드)/멀티=NetworkCombatController(IsServer), 이중 틱 금지. 파도 피해는 `EntityDamagedEvent.ImmediatePresentation`으로 HitPresentationQueue 우회 즉시 방출.
+- **힐 서브시스템(BloomFairy 공용)**: `UnitData.Heal`(MaxHp 클램프, 죽으면 무동작), `OnEntityHealed`/`EntityHealedEvent`(피격과 분리 채널). **NetworkHealthSync는 HP 감소만 동기화했었음** → 증가(힐) 분기 + `SyncHealClientRpc` 신설, `FloatingHpTextSpawner` 치유 색상 텍스트.
+- **VfxPoolItem 교훈**: "빈 루트 + 형제 파티클 여러 개"(예: 파도 3종) 프리팹은 `ParticleSystem.Play()`가 형제를 재생 안 해 첫 하나만 보임 → 루트에 PS 없으면 직속 자식 시스템 전부 재생하도록 수정(루트-PS 프리팹 불변). `EffectPreset`은 vfx 프리팹 감싸는 SO → `UnitEffectConfig` attackPreset에 연결.
+- 튜닝: `SpecialAttackConfig` waveWidth/Length/TravelTime/Heal(Inspector), 피해=attackPower. 데이터 배선(스탯18/EffectPreset+meta/UnitEffectConfig/OnAttackHit 0.5s 임시/SpecialAttackConfig 파도필드)은 YAML 직접 편집으로 처리. 규칙 28~31. **세션 한도로 game-programmer/document-manager 서브에이전트 반복 실패 → 메인 세션이 검증·버그수정·문서 직접 수행.** task: `_Tasks/2026-07-17/12_59_torrentspirit-wave-aoe/`.
+
 ### 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 아키텍처 (2026-07-17) ✅ 사용자 실기 PASS
 - **특수 공격 전략 핸들러 구조(신규 패턴)**: `ISpecialAttackBehavior.Apply(SpecialAttackContext)` + `SpecialAttackContext`(공격자·주 타깃·유닛 목록·재사용 피해 헬퍼·월드 좌표 조회 수단·reach/arc) + `SpecialAttackRegistry`(`UnitType→핸들러`, 현재 BattleAxe→`SweepAttackBehavior`만) + 유닛별 핸들러. 모두 `Scripts/Application/Combat/`. `UnitType` 키 매핑이라 인스펙터 배선 불필요. **신규 특수 유닛 = 핸들러 추가 + 레지스트리 1줄**, `ExecuteAttack` 재수정 불필요.
 - **피해 수렴점 단일화**: 싱글/멀티 공통 `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해(피해+이벤트+사망 처리)를 `ApplyDamageToVictim` 헬퍼로 추출 → 주 타깃/AoE가 같은 경로 사용(멀티 HP 동기화 일관). 말미에 특수 공격 훅 1줄.

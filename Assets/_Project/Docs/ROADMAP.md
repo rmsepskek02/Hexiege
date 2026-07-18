@@ -41,8 +41,9 @@
 | ✅ 완료 | Firebase 인증 게이트 제거 — `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 스텁이 로그인 무조건 실패시키던 버그 수정, 실제 Firebase 코드 무조건 컴파일 복원(커밋 4fe1cf0) (2026-07-13) | QA/버그 | 소 |
 | ✅ 완료 | 빌드 에셋 용량 최적화 — Android AAB 190.66 MB → 125.30 MB 절감(2026-07-15). 3D 건물/유닛 텍스처 Android max size 512 적용, 미사용 `_Old` 에셋/normal/roughness PNG 정리, FBX import 조정 | 플랫폼 | 중 |
 | ✅ 완료 | 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 — 특수 유닛 5종 중 첫 구현. 월드 좌표 전방 부채꼴 판정 + `SpecialAttackConfig` 튜닝 SO + `ApplyDamageToVictim` 피해 수렴점 단일화 + AoE 연출 동시 방출 + BattleAxe 스탯/클립 이벤트 확정 (2026-07-17 실기 PASS) | 기능 | 중 |
+| ✅ 완료 | TorrentSpirit 파도형 이동 AoE + 힐 서브시스템 — 특수 유닛 5종 중 2번째. special-only(`ReplacesPrimaryAttack`) 서버 권위 이동 파도(`TickWaves`, 월드 직사각형, 적 유닛·건물 피해/아군 힐 각 1회) + 힐 서브시스템(`UnitData.Heal`/`OnEntityHealed`/NetworkHealthSync 힐 동기화/치유 텍스트, BloomFairy 공용) + `VfxPoolItem` 다중 파티클 재생 수정 + 데이터 배선(스탯/EffectPreset/OnAttackHit). QA CONDITIONAL PASS(BUG-002 건물 공격 수정). 규칙 28~31. VFX 튜닝은 사용자 진행 (2026-07-17) | 기능 | 중 |
 | 🟡 중간 | 피격 VFX 프리셋 연결 — `UnitEffectConfig.hitPreset` Inspector 배선(Human 6종 등 미연결) | 에셋 | 소 |
-| 🟢 낮음 | 미구현 특수 타격 4종(QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 구현 시 Attack 클립 `OnAttackHit` 이벤트 주입 + 특수 공격 핸들러 확장 (BattleAxe는 2026-07-17 완료) | 기능/에셋 | 중 |
+| 🟢 낮음 | 미구현 특수 타격 3종(QuakeSpirit/MushroomBomber/BloomFairy) 구현 시 Attack 클립 `OnAttackHit` 이벤트 주입 + 특수 공격 핸들러 확장 (BattleAxe·TorrentSpirit 2026-07-17 완료) | 기능/에셋 | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
 | ⬜ 백로그 | Firebase 백엔드 (랭킹/IAP) | 기능 | 대 |
 
@@ -181,8 +182,9 @@
 
 ### F-4. 미구현 특수 타격 클립 이벤트 주입 🟢 낮음
 - **✅ BattleAxe 완료 (2026-07-17)**: 휩쓸기형 AoE 구현과 함께 Attack 클립 `OnAttackHit` 이벤트 주입 완료(`hitFrameTimes=1.1667s`, 클립 타격모션 종료 프레임 35f/30fps). `Hexiege/Combat/Inject OnAttackHit Events` 인젝터 사용.
-- **남은 대상**: QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy.
-- **작업**: 각 유닛 구현 시점에 Attack 클립 `OnAttackHit` 이벤트를 주입(규칙 17·27). 특수 공격 로직은 규칙 23~27의 전략 핸들러 구조 위에 핸들러 + 레지스트리 1줄로 확장.
+- **✅ TorrentSpirit 완료 (2026-07-17)**: 파도형 이동 AoE + 힐 서브시스템 구현과 함께 `OnAttackHit` 주입(`0.5s`, 임시 — 실제 파도 발동 프레임 튜닝 대상). 규칙 28~31 신설.
+- **남은 대상**: QuakeSpirit / MushroomBomber / BloomFairy.
+- **작업**: 각 유닛 구현 시점에 Attack 클립 `OnAttackHit` 이벤트를 주입(규칙 17·27). 특수 공격 로직은 규칙 23~31의 전략 핸들러 구조 위에 핸들러 + 레지스트리 1줄로 확장.
 
 ### F-5. Firebase/EDM 저장소 방침 정리 🟡 중간 (2026-07-13 등록)
 - **현황**: 이번 세션에서 발견 — 신규 환경에 저장소를 클론하면 Firebase/EDM(External Dependency Manager) 관련 임포트가 누락되어 재임포트가 필요한 문제.

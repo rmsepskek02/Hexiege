@@ -217,4 +217,36 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 - 타격 프레임 수는 `_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`로 조회. 영향 파일: `Presentation/Effects/HitPresentationQueue.cs`.
 
 **규칙 27. 특수 유닛 Attack 클립 OnAttackHit 이벤트 주입**
-특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)의 Attack 클립에는 `OnAttackHit` Animation Event가 없어(전투 타격 타이밍 동기화 작업에서 의도적 제외) 데미지·피격 연출 시점이 폴백값으로 어긋난다. 각 유닛 구현 시 `hitFrameTimes`를 실제 타격 프레임으로 확정하고 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 이벤트를 주입한다(규칙 17). BattleAxe는 `hitFrameTimes = 1.1667s`(클립 타격모션 종료 프레임 35f / 30fps)로 확정·주입 완료(2026-07-17). 잔여 4종(QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)은 구현 시점에 처리한다.
+특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)의 Attack 클립에는 `OnAttackHit` Animation Event가 없어(전투 타격 타이밍 동기화 작업에서 의도적 제외) 데미지·피격 연출 시점이 폴백값으로 어긋난다. 각 유닛 구현 시 `hitFrameTimes`를 실제 타격 프레임으로 확정하고 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 이벤트를 주입한다(규칙 17). BattleAxe는 `1.1667s`, TorrentSpirit은 `0.5s`(임시 — 실제 파도 발동 프레임에 맞춰 튜닝)로 주입 완료(2026-07-17). 잔여 3종(QuakeSpirit / MushroomBomber / BloomFairy)은 구현 시점에 처리한다. ⚠️ 파도류(TorrentSpirit)는 OnAttackHit **1개만** 둘 것 — 2개 이상이면 한 공격에 파도가 중복 생성된다.
+
+---
+
+### 특수 공격 시스템 규칙 — 확장 (2026-07-17, TorrentSpirit 파도형 이동 AoE + 힐 구현)
+
+**규칙 28. special-only 공격(단일 대상 공격이 없는 유닛)**
+일부 특수 유닛은 단일 대상 기본 공격이 아예 없고 특수 로직이 공격 전체를 담당한다(예: TorrentSpirit 파도).
+- `ISpecialAttackBehavior.ReplacesPrimaryAttack`가 true이면 `ExecuteAttack`이 주 타깃 단일 피해(`ApplyDamageToVictim`)를 **건너뛰고** 핸들러만 실행한다. false(도끼병 등)면 기존대로 주 타깃 단일 피해 후 핸들러.
+- 주 타깃은 특수 로직(파도 등)이 다른 대상과 동일하게 처리하므로 별도 단일 피해가 필요 없다.
+- 일반 유닛은 레지스트리에 없어 이 플래그를 조회하지 않으므로 무변경.
+
+**규칙 29. 이동 파도형 AoE(서버 권위 전선 시뮬레이션)**
+전방으로 이동하는 파도(TorrentSpirit)는 서버가 전선을 진행시키며 닿는 대상에 효과를 적용한다(규칙 18 준수 — 클라 파티클 위치에 종속 금지).
+- 핸들러(`TorrentAttackBehavior`)는 파도 모양·방향(공격자→주 타깃, 월드 XZ)만 계산해 `SpawnWave`로 요청하고, 실제 전선 전진·판정·효과는 `UnitCombatUseCase.SpawnWave`/`TickWaves`(`ActiveWave`)가 담당한다.
+- 판정 = **월드 좌표 직사각형**(폭 `waveWidth` × 전방 `waveLength`, 타겟 방향). 전선이 `waveTravelTime` 동안 전방 전진하며, 전방 성분 `p ≤ FrontDistance`(전선이 지남) AND `0 ≤ p ≤ Length` AND `|좌우| ≤ HalfWidth`인 대상을 닿음으로 본다.
+- **각 대상 1회만**(유닛·건물 각각 별도 hit-set — 유닛 Id와 건물 Id는 카운터가 달라 값 충돌 가능하므로 분리).
+- 대상: **적 유닛·적 건물 = 피해(공격력)**, **아군 유닛 = 힐**(건물은 힐 대상 아님). 시전자 자신·죽은 대상 제외.
+- ⚠️ special-only 유닛은 반드시 파도 판정이 **건물도 순회**해야 한다 — 안 그러면 성 파괴(승리조건) 기여 불가. (도끼병류는 주 타깃 단일 피해가 건물을 처리하므로 무관.)
+- 파도 피해/힐 연출은 대상별 닿는 시점이 달라 `HitPresentationQueue` 보류 큐를 우회해 **즉시 방출**한다(`EntityDamagedEvent.ImmediatePresentation` = true, 규칙 26 연장).
+- 틱 호출: 싱글=`GameBootstrapper.Update`(`!IsNetworkMode` 가드), 멀티=`NetworkCombatController`(IsServer 가드). 이중 틱 금지.
+
+**규칙 30. 힐(회복) 서브시스템**
+아군 회복은 피격과 대칭 구조로 처리한다(TorrentSpirit·BloomFairy 공용).
+- `UnitData.Heal(amount)`: `Hp = Min(Hp+amount, MaxHp)`, 죽은 유닛엔 무동작.
+- 힐 이벤트 `GameEvents.OnEntityHealed`(`EntityHealedEvent`) — 피격(OnEntityDamaged)과 **분리된 채널**(연출/색상 구분).
+- 멀티 동기화: `NetworkHealthSync`가 HP **증가(힐)** 도 동기화한다(`SyncHealClientRpc` + 클라 `OnEntityHealed` 재발행). 기존엔 HP 감소만 동기화했으므로 힐 방향을 반드시 함께 열어야 한다.
+- 연출: `FloatingHpTextSpawner`가 치유 색상(`_healColor`)으로 표시. 피격 텍스트와 풀·배치 로직 공유.
+
+**규칙 31. 다중 파티클 시스템 VFX 재생**
+VFX 프리팹이 "빈 루트 + 여러 형제 파티클 시스템"으로 구성된 경우(예: TorrentSpirit 파도 — Main_Water_Surge / Ground_Impact_Ripples / Front_Foam_Crest), `ParticleSystem.Play()`는 형제를 재생하지 않으므로 풀 아이템(`VfxPoolItem`)이 **직속 자식 시스템 전부를 각각 재생**해야 한다(하나만 재생하면 일부만 보인다). 루트에 파티클이 있는 프리팹은 기존대로 루트 하나만 `Play(true)`로 하위까지 재생한다. 유닛 공격 VFX는 `EffectPreset`(vfx 프리팹을 감싸는 ScriptableObject)을 만들어 `UnitEffectConfig`의 해당 UnitType `attackPreset`에 연결한다.
+
+> **참고 (미완/후속)**: 파도 VFX는 현재 시전자 위치에서 1회 재생되며 서버 전선처럼 전방 이동하지는 않는다(시각적 이동감은 파티클 프리팹 튜닝 또는 별도 이동 로직으로 보강 가능). 규칙 29의 **데미지/힐 판정은 서버 전선**이 권위이며 VFX와 독립적이다.
