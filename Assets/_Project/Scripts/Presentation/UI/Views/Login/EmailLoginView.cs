@@ -155,7 +155,7 @@ namespace Hexiege.Presentation
 
                     case LoginResult.NeedsEmailVerification:
                         // 이메일 미인증 — 인증 화면으로 이동하여 재발송/완료 확인 안내.
-                        _rootView.ShowEmailVerify();
+                        _rootView.ShowEmailVerify(email, EmailVerificationOrigin.ExistingUnverifiedLogin);
                         return;
 
                     case LoginResult.Failed:

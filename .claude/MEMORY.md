@@ -88,3 +88,15 @@
 - `codex/profile-cloudsave-leaderboard-port` completes the first lobby profile/ranking cloud slice and is intended for merge to main.
 - Completed: UGS Cloud Save profile service/use case, UGS Leaderboards ranking service/use case, ProfileView stats/nickname/rank UI, NicknameSetupView, NicknameChangePopup, RankingView/RankRowView, editor setup scripts, scene/package wiring.
 - Next task: email verification flow cleanup. EmailVerifyView should receive the attempted email explicitly and handle unverified sign-up abandonment separately from existing unverified-login retry.
+### 2026-07-16 - Email verification flow cleanup
+
+- Email verification screen now receives explicit context via `LoginRootView.ShowEmailVerify(email, origin)`.
+- `EmailVerificationOrigin.SignUpPending` means a just-created Firebase email user is waiting for verification; back/cancel should confirm and delete the current unverified Firebase user.
+- `EmailVerificationOrigin.ExistingUnverifiedLogin` means an existing unverified account attempted login; back should sign out and return to login without deleting the Firebase user.
+- Task docs: `Assets/_Project/Docs/_Tasks/2026-07-16/14_20_email-verification-flow-cleanup/`.
+
+### 2026-07-18 - Email verification flow complete
+
+- User device verification passed: explicit email display, signup cancel confirmation, Firebase unverified user deletion, continue verification staying on screen, relaunch from verification returning to verification, and relaunch from nickname setup returning to nickname setup.
+- Auto login now gates unverified email accounts back to verification and verified-but-no-nickname accounts back to nickname setup before Lobby.
+- `SplashOverlay` must skip fade only for Lobby scene transition; Login-scene panel callbacks need fade out so the overlay stops blocking UI.

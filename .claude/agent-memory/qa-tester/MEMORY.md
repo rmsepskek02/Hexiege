@@ -424,3 +424,17 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - **구조적 버그 발견**: ReplacesPrimaryAttack=true(special-only) 유닛은 주 타깃이 건물이면 그 공격 사이클에 피해가 전혀 발생하지 않음
   (주 타깃 단일피해 스킵 + AoE가 유닛만 순회). Castle 파괴가 승리조건인데 해당 유닛은 건물을 절대 못 부숨 — Major.
 - 상세: patterns.md "세션: 2026-07-17" 참조. task: `_Tasks/2026-07-17/12_59_torrentspirit-wave-aoe/`
+
+### 2026-07-16 - Email verification flow cleanup QA
+
+- Required checks:
+  - signup verification screen shows the typed email instead of the placeholder.
+  - signup verification back -> confirm -> Firebase unverified user deleted.
+  - signup verification back -> continue verification -> stays on screen.
+  - existing unverified email login back -> Firebase sign-out and previous login panel, account remains.
+  - verified first login still routes through nickname setup.
+
+### 2026-07-18 - Email verification flow QA result
+
+- User confirmed PASS for signup email display, signup cancel popup, Firebase unverified user deletion, continue verification staying on screen, relaunch from verification returning to verification, and relaunch from nickname setup returning to nickname setup.
+- Regression focus if revisited: verified complete button path, existing unverified-login back sign-out path, and long-term stale unverified account cleanup remain policy/test follow-ups rather than current blockers.

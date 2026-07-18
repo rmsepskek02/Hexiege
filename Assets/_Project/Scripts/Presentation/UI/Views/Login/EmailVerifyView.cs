@@ -24,6 +24,12 @@ using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
 {
+    public enum EmailVerificationOrigin
+    {
+        ExistingUnverifiedLogin,
+        SignUpPending
+    }
+
     /// <summary>
     /// 이메일 인증 대기 View.
     /// </summary>
@@ -55,6 +61,8 @@ namespace Hexiege.Presentation
         private LoginUseCase _loginUseCase;
         private LoginBootstrapper _bootstrapper;
         private PlayerProfileUseCase _profileUseCase;
+        private string _pendingEmail = string.Empty;
+        private EmailVerificationOrigin _origin = EmailVerificationOrigin.ExistingUnverifiedLogin;
 
         // ====================================================================
         // 초기화
@@ -93,8 +101,30 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnEnable()
         {
-            if (_emailText != null && _loginUseCase != null)
-                _emailText.text = _loginUseCase.Email;
+            RefreshEmailText();
+        }
+
+        public void PrepareForShow(string email, EmailVerificationOrigin origin)
+        {
+            _pendingEmail = !string.IsNullOrWhiteSpace(email)
+                ? email.Trim()
+                : (_loginUseCase != null ? _loginUseCase.Email : string.Empty);
+            _origin = origin;
+
+            ClearStatus();
+            RefreshEmailText();
+        }
+
+        public bool TryHandleBack()
+        {
+            if (_origin == EmailVerificationOrigin.SignUpPending)
+            {
+                ShowSignUpCancelConfirm();
+                return true;
+            }
+
+            _ = SignOutAndReturnAsync();
+            return true;
         }
 
         // ====================================================================
@@ -179,6 +209,75 @@ namespace Hexiege.Presentation
         {
             if (_checkVerifyButton != null) _checkVerifyButton.interactable = on;
             if (_resendButton != null) _resendButton.interactable = on;
+        }
+
+        private void RefreshEmailText()
+        {
+            if (_emailText == null) return;
+
+            string email = !string.IsNullOrWhiteSpace(_pendingEmail)
+                ? _pendingEmail
+                : (_loginUseCase != null ? _loginUseCase.Email : string.Empty);
+
+            _emailText.text = string.IsNullOrWhiteSpace(email) ? "Checking email address" : email;
+        }
+
+        private void ShowSignUpCancelConfirm()
+        {
+            if (UIManager.Instance == null)
+            {
+                _ = DeletePendingUserAndReturnAsync();
+                return;
+            }
+
+            UIManager.Instance.ShowConfirm(
+                message: "이메일 인증을 취소하면 방금 만든 계정이 삭제됩니다. 가입을 취소할까요?",
+                onConfirm: () => _ = DeletePendingUserAndReturnAsync(),
+                onCancel: null,
+                confirmLabel: "가입 취소",
+                cancelLabel: "계속 인증");
+        }
+
+        private async System.Threading.Tasks.Task DeletePendingUserAndReturnAsync()
+        {
+            ClearStatus();
+            SetInteractable(false);
+            _bootstrapper.ShowLoading(true, "가입 취소 중...");
+
+            try
+            {
+                bool ok = await _loginUseCase.DeleteCurrentUnverifiedEmailUserAsync();
+                if (!ok)
+                {
+                    ShowError(_loginUseCase.LastError);
+                    return;
+                }
+
+                _rootView.ReturnToPreviousPanelOrLoginSelect();
+            }
+            finally
+            {
+                _bootstrapper.ShowLoading(false);
+                SetInteractable(true);
+            }
+        }
+
+        private async System.Threading.Tasks.Task SignOutAndReturnAsync()
+        {
+            ClearStatus();
+            SetInteractable(false);
+            _bootstrapper.ShowLoading(true);
+
+            try
+            {
+                await _loginUseCase.SignOutAsync();
+                _rootView.ReturnToPreviousPanelOrLoginSelect();
+            }
+            finally
+            {
+                _bootstrapper.ShowLoading(false);
+                SetInteractable(true);
+            }
         }
 
         private void SetStatus(string text)
