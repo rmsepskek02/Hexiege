@@ -45,10 +45,12 @@ namespace Hexiege.Application
             // 물의 상급 정령: 파도형 이동 AoE(special-only — 단일 공격 없음, 적 피해 + 아군 힐).
             _behaviors[UnitType.TorrentSpirit] = new TorrentAttackBehavior();
 
+            // 버섯폭격기: 착탄형 범위 DoT(직접 10은 주 타깃 단일 피해가 담당, 핸들러는 반경 내 적 유닛 DoT만).
+            _behaviors[UnitType.MushroomBomber] = new BlastAttackBehavior();
+
             // TODO(특수 유닛 확장): 아래처럼 핸들러를 추가 등록한다.
-            //   _behaviors[UnitType.QuakeSpirit]    = new QuakeAttackBehavior();
-            //   _behaviors[UnitType.MushroomBomber] = new BlastAttackBehavior();
-            //   _behaviors[UnitType.BloomFairy]     = new HealBehavior();
+            //   _behaviors[UnitType.QuakeSpirit] = new QuakeAttackBehavior();
+            //   _behaviors[UnitType.BloomFairy]  = new HealBehavior();
         }
 
         /// <summary>

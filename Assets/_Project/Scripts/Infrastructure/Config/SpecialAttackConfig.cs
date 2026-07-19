@@ -76,6 +76,19 @@ namespace Hexiege.Infrastructure
         [Tooltip("BloomFairy 지속 회복(HoT)의 지속시간(초). 이 시간 동안 총 회복량이 서서히 적용된다. 기본값 3")]
         [SerializeField] private float _bloomHealDuration = 3f;
 
+        // ── 버섯폭격기(MushroomBomber) 착탄형 범위 DoT ─────────────────
+        [Header("MushroomBomber Blast (착탄 DoT)")]
+
+        [Tooltip("착탄 폭발의 월드 반경. 착탄 중심(주 타깃 위치)에서 XZ 평면 거리가 이 값 이하인 " +
+                 "적 유닛에게 DoT를 부여한다. 기본값 = '인접 1칸' 타일 거리(≈1.0). 기본값 1.0")]
+        [SerializeField] private float _blastRadius = 1.0f;
+
+        [Tooltip("착탄 DoT의 초당 피해량(HP/초). 매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 2")]
+        [SerializeField] private float _blastDotPerSecond = 2f;
+
+        [Tooltip("착탄 DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 2×3 = 6). 기본값 3")]
+        [SerializeField] private float _blastDotDuration = 3f;
+
         /// <summary> 휩쓸기 전방 부채꼴 판정의 월드 반경(XZ 평면 거리 한계). </summary>
         public float SweepReach => _sweepReach;
 
@@ -99,5 +112,14 @@ namespace Hexiege.Infrastructure
 
         /// <summary> BloomFairy 지속 회복(HoT) 지속시간(초). </summary>
         public float BloomHealDuration => _bloomHealDuration;
+
+        /// <summary> MushroomBomber 착탄 폭발 판정의 월드 반경(중심으로부터 XZ 거리 한계). </summary>
+        public float BlastRadius => _blastRadius;
+
+        /// <summary> MushroomBomber 착탄 DoT의 초당 피해량(HP/초). </summary>
+        public float BlastDotPerSecond => _blastDotPerSecond;
+
+        /// <summary> MushroomBomber 착탄 DoT의 지속시간(초). </summary>
+        public float BlastDotDuration => _blastDotDuration;
     }
 }

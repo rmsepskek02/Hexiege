@@ -66,6 +66,17 @@ namespace Hexiege.Application
         private readonly int _bloomHealAmount;
         private readonly float _bloomHealDuration;
 
+        // 특수 유닛(MushroomBomber 버섯폭격기) 착탄 DoT 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
+        // _blastRadius: 착탄 폭발 판정 반경(월드, 기본 1.0 = 인접 1칸 거리, 핸들러가 읽음).
+        // _blastDotPerSecond: DoT 초당 피해(기본 2). _blastDotDuration: DoT 지속시간(초, 기본 3).
+        private readonly float _blastRadius;
+        private readonly float _blastDotPerSecond;
+        private readonly float _blastDotDuration;
+
+        // 착탄 DoT의 틱 간격(초). "매초 뚝뚝" — 1초마다 discrete하게 피해가 들어간다.
+        // (힐(HoT)의 "프레임마다 부드러운 diff"와 대비되는 값. SO 튜닝 대상이 아니라 설계 고정값 1초.)
+        private const float BlastDotTickInterval = 1.0f;
+
         /// <summary>
         /// 현재 진행 중인 파도(이동 전선) 목록. TorrentSpirit이 공격할 때 하나씩 추가되고,
         /// TickWaves()가 매 서버 틱마다 전진시키며 닿은 유닛에 효과를 1회 적용한 뒤 완료되면 제거한다.
@@ -133,6 +144,9 @@ namespace Hexiege.Application
         /// <param name="waveHeal">TorrentSpirit 파도 아군 회복량. 미주입 시 기본값 10.</param>
         /// <param name="bloomHealAmount">BloomFairy 지속 회복(HoT) 총량(HP). 미주입 시 기본값 20.</param>
         /// <param name="bloomHealDuration">BloomFairy 지속 회복(HoT) 지속시간(초). 미주입 시 기본값 3.</param>
+        /// <param name="blastRadius">MushroomBomber 착탄 폭발 판정 반경(월드). 미주입 시 기본값 1.0.</param>
+        /// <param name="blastDotPerSecond">MushroomBomber 착탄 DoT 초당 피해(HP/초). 미주입 시 기본값 2.</param>
+        /// <param name="blastDotDuration">MushroomBomber 착탄 DoT 지속시간(초). 미주입 시 기본값 3.</param>
         public UnitCombatUseCase(
             HexGrid grid,
             UnitSpawnUseCase unitSpawn,
@@ -146,7 +160,10 @@ namespace Hexiege.Application
             float waveTravelTime = 0.5f,
             float waveHeal = 10f,
             float bloomHealAmount = 20f,
-            float bloomHealDuration = 3f)
+            float bloomHealDuration = 3f,
+            float blastRadius = 1.0f,
+            float blastDotPerSecond = 2f,
+            float blastDotDuration = 3f)
         {
             _grid = grid;
             _unitSpawn = unitSpawn;
@@ -162,6 +179,10 @@ namespace Hexiege.Application
             // 회복 총량은 정수 HP로 다룬다(반올림). 지속시간은 초 단위 실수.
             _bloomHealAmount = Mathf.Max(0, Mathf.RoundToInt(bloomHealAmount));
             _bloomHealDuration = bloomHealDuration;
+            // 착탄 DoT 튜닝값 — 반경/초당 피해/지속. 실제 계산(총량·틱당 피해)은 ApplyBlastDot에서 수행.
+            _blastRadius = blastRadius;
+            _blastDotPerSecond = blastDotPerSecond;
+            _blastDotDuration = blastDotDuration;
         }
 
         // ====================================================================
@@ -976,7 +997,8 @@ namespace Hexiege.Application
                     attacker, target, _unitSpawn.Units,
                     ApplyDamageToVictim, ResolveWorldPosition, SpawnWave,
                     _sweepReach, _sweepArcHalfAngle,
-                    _waveWidth, _waveLength, _waveTravelTime, _waveHeal);
+                    _waveWidth, _waveLength, _waveTravelTime, _waveHeal,
+                    ApplyBlastDot, _blastRadius);
                 special.Apply(ctx);
             }
         }
@@ -1206,6 +1228,75 @@ namespace Hexiege.Application
         public void ApplyTimedEffect(UnitData source, UnitData target,
             TimedEffectKind kind, int totalAmount, float duration)
         {
+            // 연속(프레임 diff) 모드 — HoT가 쓰는 기존 방식. 틱 간격 0 = "매 프레임 부드럽게" 진행.
+            AddOrRefreshTimedEffect(source, target, kind, totalAmount, duration,
+                tickInterval: 0f, tickAmount: 0);
+        }
+
+        /// <summary>
+        /// 대상 유닛에 "초 단위 discrete 틱" DoT(지속 피해)를 부여한다(MushroomBomber 착탄 DoT 등).
+        ///
+        /// 힐(HoT)의 연속 모드와 다른 점(요구 7):
+        ///   - HoT는 매 프레임 조금씩 부드럽게 회복(diff 방식)하고 완료 시 텍스트 1회.
+        ///   - DoT는 <b>틱 간격(예: 1초)마다 한 번씩 뚝뚝</b> 피해가 들어가고, 매 틱 데미지 텍스트(남은 체력)가 뜬다.
+        ///
+        /// 틱당 피해 = 초당 피해 × 틱 간격을 <b>올림</b>(CeilToInt)한다(예: ceil(2×1)=2).
+        /// 총량 = 초당 피해 × 지속을 반올림해 상한으로 두어(예: 2×3=6), 올림 때문에 총 피해가 6을 넘지 않도록 클램프한다.
+        /// </summary>
+        /// <param name="source">DoT를 건 공격자(없으면 null — attribution만 영향).</param>
+        /// <param name="target">DoT를 받을 대상 유닛.</param>
+        /// <param name="perSecond">초당 피해량(HP/초, 양수).</param>
+        /// <param name="duration">지속시간(초, 양수).</param>
+        /// <param name="tickInterval">틱 간격(초, 양수). 이 간격마다 한 번씩 피해가 들어간다.</param>
+        public void ApplyDamageOverTime(UnitData source, UnitData target,
+            float perSecond, float duration, float tickInterval)
+        {
+            if (target == null || !target.IsAlive) return;
+            if (perSecond <= 0f || duration <= 0f) return;
+
+            // 방어적: 틱 간격이 비정상(0 이하)이면 1초로 보정(0 나눗셈/무한 루프 방지).
+            float interval = tickInterval > 0.0001f ? tickInterval : 1f;
+
+            // 총량 상한(올림 초과 방지 클램프) = 초당 피해 × 지속(반올림). 예: 2×3=6.
+            int totalAmount = Mathf.Max(0, Mathf.RoundToInt(perSecond * duration));
+            if (totalAmount <= 0) return;
+
+            // 틱당 피해 = 초당 피해 × 틱 간격(올림). 예: ceil(2×1)=2. 최소 1 보장.
+            int tickAmount = Mathf.Max(1, Mathf.CeilToInt(perSecond * interval));
+
+            AddOrRefreshTimedEffect(source, target, TimedEffectKind.Damage, totalAmount, duration,
+                tickInterval: interval, tickAmount: tickAmount);
+        }
+
+        /// <summary>
+        /// MushroomBomber 착탄 DoT 부여 진입점. SpecialAttackContext.ApplyDot 델리게이트로 주입되어
+        /// BlastAttackBehavior가 반경 판정으로 고른 각 적 유닛에 대해 호출한다.
+        /// DoT의 초당 피해/지속/틱 간격은 이 UseCase에 캡슐화돼 있으므로 핸들러는 대상만 넘긴다.
+        /// </summary>
+        /// <param name="attacker">DoT를 건 공격자(버섯폭격기).</param>
+        /// <param name="victim">DoT를 받을 적 유닛.</param>
+        private void ApplyBlastDot(UnitData attacker, UnitData victim)
+        {
+            ApplyDamageOverTime(attacker, victim, _blastDotPerSecond, _blastDotDuration, BlastDotTickInterval);
+        }
+
+        /// <summary>
+        /// 시간 지속 효과(HoT/DoT) 1개를 목록에 추가하거나, 같은 대상·종류가 이미 있으면 리셋(갱신)한다.
+        /// ApplyTimedEffect(연속 HoT)와 ApplyDamageOverTime(discrete DoT)이 공유하는 내부 upsert.
+        ///
+        /// 갱신 규칙(중첩 없음 — 설계 확정): 같은 대상에 같은 종류 효과가 있으면 새 레코드를 추가하지 않고
+        /// 기존 레코드의 남은 시간·총량·누적량·틱 상태를 전부 리셋한다. → 대상별 동종 효과는 항상 1개.
+        /// </summary>
+        /// <param name="source">효과를 건 유닛(healer/attacker). 없으면 null.</param>
+        /// <param name="target">효과가 붙는 대상 유닛.</param>
+        /// <param name="kind">Heal(HoT) 또는 Damage(DoT).</param>
+        /// <param name="totalAmount">지속시간 동안 적용할 총량(HP, 양수).</param>
+        /// <param name="duration">지속시간(초, 양수).</param>
+        /// <param name="tickInterval">틱 간격(초). 0 이하면 연속(프레임 diff) 모드, 양수면 discrete 틱 모드.</param>
+        /// <param name="tickAmount">discrete 틱 모드에서 틱당 적용량(올림값). 연속 모드에서는 0.</param>
+        private void AddOrRefreshTimedEffect(UnitData source, UnitData target,
+            TimedEffectKind kind, int totalAmount, float duration, float tickInterval, int tickAmount)
+        {
             if (target == null || !target.IsAlive) return;
             if (totalAmount <= 0) return;
 
@@ -1222,7 +1313,10 @@ namespace Hexiege.Application
                     e.Duration = duration;
                     e.Elapsed = 0f;
                     e.AppliedAmount = 0;
-                    e.ActualHealed = 0; // 갱신(재부여) → 누적 회복량도 리셋. 다음 완료 시 이 생애의 총량만 표시.
+                    e.ActualHealed = 0;   // 갱신(재부여) → 누적 회복량도 리셋. 다음 완료 시 이 생애의 총량만 표시.
+                    e.TickInterval = tickInterval;
+                    e.TickAmount = tickAmount;
+                    e.TickAccumulator = 0f;
                     return;
                 }
             }
@@ -1237,7 +1331,10 @@ namespace Hexiege.Application
                 Duration = duration,
                 Elapsed = 0f,
                 AppliedAmount = 0,
-                ActualHealed = 0
+                ActualHealed = 0,
+                TickInterval = tickInterval,
+                TickAmount = tickAmount,
+                TickAccumulator = 0f
             });
         }
 
@@ -1267,6 +1364,19 @@ namespace Hexiege.Application
                     continue;
                 }
 
+                // ── DoT "초 단위 discrete 틱" 모드 분기 ──────────────────────────
+                //   TickInterval > 0 이면(ApplyDamageOverTime로 부여된 DoT) 힐의 프레임 diff와 완전히 다른
+                //   경로를 탄다: 누적 시간이 틱 간격을 넘길 때마다 그 틱 피해를 "한 번에" 적용하고,
+                //   매 틱 OnEntityDamaged가 발행되어 남은 체력이 데미지 텍스트로 뜬다(억제하지 않음 — 요구 7).
+                //   힐(HoT)은 TickInterval을 설정하지 않으므로 항상 아래 연속 경로로 가서 회귀가 없다.
+                if (effect.TickInterval > 0.0001f)
+                {
+                    if (TickDiscreteDamageEffect(effect, target, dt))
+                        _activeTimedEffects.RemoveAt(i);
+                    continue;
+                }
+
+                // ── 연속(프레임 diff) 모드 — HoT 전용(무변경) ───────────────────
                 // 경과 시간 진행(지속시간 상한). Duration이 비정상(0 이하)이면 즉시 완료로 처리.
                 effect.Elapsed = Mathf.Min(effect.Duration, effect.Elapsed + dt);
                 float ratio = effect.Duration > 0.0001f
@@ -1324,12 +1434,77 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// DoT(지속 피해)의 "초 단위 discrete 틱"을 1 서버 틱(dt)만큼 진행한다.
+        /// 힐(HoT)의 "프레임마다 부드러운 diff"와 달리, 누적 시간이 틱 간격(예: 1초)을 넘을 때마다
+        /// 그 틱의 피해를 한 번에 적용한다(그때 OnEntityDamaged가 발행되어 남은 체력 텍스트가 뜬다).
+        ///
+        /// 총량 정확성(요구 7 — 총 6 정확, 초과 없음):
+        ///   - 정기 틱: 누적 시간이 틱 간격을 넘긴 만큼 TickAmount(올림값)를 적용하되, 남은 총량(TotalAmount−AppliedAmount)을 넘지 않게 클램프.
+        ///   - 마지막 정산: 지속시간이 끝났는데 프레임 타이밍상 마지막 틱이 아직 안 들어갔으면(누적 시간이
+        ///     틱 간격에 살짝 못 미쳐 정기 틱이 스킵된 경우) 남은 총량을 마지막 한 틱으로 정산한다.
+        ///     → 이렇게 하면 프레임레이트와 무관하게 정확히 3틱(1s/2s/3s 부근)·총 6이 보장된다.
+        /// </summary>
+        /// <param name="effect">진행할 DoT 레코드(참조 타입이라 필드 변경이 그대로 반영됨).</param>
+        /// <param name="target">DoT 대상 유닛(호출부에서 생존 확인 완료).</param>
+        /// <param name="dt">이번 서버 틱의 경과 시간(초).</param>
+        /// <returns>이 효과를 목록에서 제거해야 하면 true(지속 만료 / 총량 소진 / 대상 사망).</returns>
+        private bool TickDiscreteDamageEffect(ActiveTimedEffect effect, UnitData target, float dt)
+        {
+            // 경과/누적 시간 진행. Elapsed는 지속시간 상한, TickAccumulator는 틱 발화 판정용(상한 없음).
+            effect.Elapsed = Mathf.Min(effect.Duration, effect.Elapsed + dt);
+            effect.TickAccumulator += dt;
+
+            // 1) 누적 시간이 틱 간격을 넘긴 만큼 "정기 틱"을 적용한다.
+            //    (느린 프레임에서 dt가 커 여러 틱이 밀렸어도 한 번에 따라잡는다.)
+            while (effect.TickAccumulator >= effect.TickInterval
+                   && effect.AppliedAmount < effect.TotalAmount)
+            {
+                effect.TickAccumulator -= effect.TickInterval;
+                if (!ApplyOneDamageTick(effect, target))
+                    return true; // 이 틱으로 대상 사망 → 제거
+            }
+
+            // 2) 지속시간이 끝났으면 남은 총량을 마지막 한 틱으로 정산(위 주석의 "마지막 정산").
+            bool expired = effect.Elapsed >= effect.Duration;
+            if (expired && effect.AppliedAmount < effect.TotalAmount)
+            {
+                if (!ApplyOneDamageTick(effect, target))
+                    return true; // 이 틱으로 대상 사망 → 제거
+            }
+
+            // 3) 종료 판정 — 지속시간 만료 또는 총량 소진.
+            return expired || effect.AppliedAmount >= effect.TotalAmount;
+        }
+
+        /// <summary>
+        /// DoT 정기 틱 1회를 적용한다. 이번 틱 피해 = TickAmount(올림값)이되,
+        /// 남은 총량(TotalAmount − AppliedAmount)을 넘지 않도록 클램프한다(총량 초과 방지).
+        /// </summary>
+        /// <param name="effect">진행 중인 DoT 레코드.</param>
+        /// <param name="target">DoT 대상 유닛.</param>
+        /// <returns>대상이 여전히 살아있으면 true, 이 틱으로 사망했으면 false.</returns>
+        private bool ApplyOneDamageTick(ActiveTimedEffect effect, UnitData target)
+        {
+            int remaining = effect.TotalAmount - effect.AppliedAmount;
+            int tickAmount = Mathf.Min(effect.TickAmount, remaining);
+            if (tickAmount <= 0) return true; // 더 넣을 것 없음(대상 생존).
+
+            // 공격자(원인 유닛)는 사망했을 수 있으나, attribution용으로만 쓰이므로 null 허용.
+            _unitSpawn.Units.TryGetValue(effect.SourceId, out UnitData attacker);
+            ApplyTimedDamageToUnit(attacker, target, tickAmount);
+            effect.AppliedAmount += tickAmount;
+
+            return target.IsAlive;
+        }
+
+        /// <summary>
         /// 시간 지속 피해(DoT) 1틱 적용 — 후속 특수 유닛(QuakeSpirit·MushroomBomber)이 재사용할
         /// "임의 량 피해" 경로. 주 타깃 단일 피해(ApplyDamageToVictim)는 attackPower 고정이라
         /// DoT의 틱별 임의 량에는 쓸 수 없으므로, 사망 처리까지 포함한 자체 경로를 둔다.
         ///
         /// 파도 피해와 동일하게 즉시 연출(immediatePresentation=true)로 방출한다(대상별 타이밍 상이).
-        /// ⚠️ 이번 BloomFairy 작업에서는 호출되지 않는다(Heal 전용) — DoT 유닛 구현 시 활성 경로가 된다.
+        /// MushroomBomber 착탄 DoT의 매 틱(ApplyOneDamageTick)이 이 경로로 피해를 넣으며,
+        /// OnEntityDamaged 발행으로 매 틱 남은 체력이 데미지 텍스트로 표시된다.
         /// </summary>
         /// <param name="attacker">피해 원인 유닛(없으면 null — attribution만 영향).</param>
         /// <param name="target">피해 대상 유닛.</param>
@@ -1412,6 +1587,21 @@ namespace Hexiege.Application
             /// 정상 종료 시 이 값이 0보다 크면 완료 텍스트(현재 HP)를 1회 표시할지 판정하는 데 쓴다(표시값은 아님). 갱신(재부여) 시 0으로 리셋.
             /// </summary>
             public int ActualHealed;
+
+            /// <summary>
+            /// 틱 간격(초). 0 이하면 "연속(프레임 diff)" 모드(HoT), 양수면 "초 단위 discrete 틱" 모드(DoT).
+            /// 이 값 하나로 힐(연속)과 착탄 DoT(discrete)의 틱 경로가 갈린다.
+            /// </summary>
+            public float TickInterval;
+
+            /// <summary> discrete 틱 모드에서 틱당 적용량(올림값). 연속 모드에서는 사용하지 않음(0). </summary>
+            public int TickAmount;
+
+            /// <summary>
+            /// discrete 틱 모드에서 "다음 틱까지 누적된 시간(초)". 이 값이 TickInterval을 넘을 때마다
+            /// 한 틱 피해를 적용하고 그만큼 뺀다. 연속 모드에서는 사용하지 않음. 갱신(재부여) 시 0으로 리셋.
+            /// </summary>
+            public float TickAccumulator;
         }
 
         // ====================================================================

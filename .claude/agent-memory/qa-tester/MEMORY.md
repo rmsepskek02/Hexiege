@@ -440,3 +440,31 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 
 - User confirmed PASS for signup email display, signup cancel popup, Firebase unverified user deletion, continue verification staying on screen, relaunch from verification returning to verification, and relaunch from nickname setup returning to nickname setup.
 - Regression focus if revisited: verified complete button path, existing unverified-login back sign-out path, and long-term stale unverified account cleanup remain policy/test follow-ups rather than current blockers.
+
+### 2026-07-19 - MushroomBomber(버섯폭격기) 착탄형 DoT QA (정적 분석, PASS)
+- 검증 범위: BlastAttackBehavior(신규), SpecialAttackRegistry/Context, UnitCombatUseCase의 DoT 초단위 틱 모드
+  (ActiveTimedEffect.TickInterval/TickAccumulator, TickDiscreteDamageEffect, ApplyOneDamageTick), SpecialAttackConfig
+  blast 필드, GameBootstrapper.Setup.cs 주입, UnitStatsConfig(26), 에디터 스크립트 2종. 이슈 0건 — 전 항목 PASS.
+- **DoT 초단위 틱 시스템의 정확성 보장 메커니즘(향후 InfernoSpirit/QuakeSpirit도 재사용 — 반드시 재확인)**:
+  `TickInterval>0`(discrete DoT) vs `TickInterval<=0`(연속 HoT diff)로 완전히 분기(같은 `TickTimedEffects` 루프
+  안에서 `if (effect.TickInterval > 0.0001f)`로 조기 분기 후 `continue`) — 힐 경로 회귀 없음.
+  discrete 틱은 "따라잡기 while 루프"(저프레임 대응) + "만료 시 잔여 1틱 강제 정산"(고프레임/누락 대응) 이중 안전망으로
+  프레임레이트 무관 총량 정확 보장. `ApplyOneDamageTick`이 `Min(TickAmount, remaining)`로 클램프하므로
+  총량 초과 불가능 — 이 두 안전망 존재 여부를 신규 DoT 유닛 QA 시 항상 확인.
+- **DoT 텍스트가 OnAttackHit 애니 이벤트 미주입과 무관하게 정상 동작하는 이유**: `ApplyTimedDamageToUnit`이
+  DoT 매틱마다 `EntityDamagedEvent(immediatePresentation: true)`를 발행 → `HitPresentationQueue.OnEntityDamaged`가
+  `evt.ImmediatePresentation` 체크로 큐잉을 완전히 우회하고 즉시 `Emit()`(규칙 26 확장, 파도와 동일 경로).
+  따라서 "매초 텍스트" 요구사항은 Attack 클립의 `OnAttackHit` 이벤트 주입 여부와 **무관**하게 항상 충족된다
+  (직접 단일 피해 쪽만 OnAttackHit 타이밍에 의존 — 미주입 시 타임아웃 안전망(쿨다운×1.5)까지 지연되나 이는
+  "연출 타이밍" 문제이지 DoT 로직 문제 아님. 향후 이런 착탄형 유닛 QA 시 "OnAttackHit 미주입 = 직접타격 텍스트만 지연,
+  DoT/파도류 즉시연출 텍스트는 영향 없음"을 구분해서 판단할 것).
+- **에디터 스크립트 필드명 검증 패턴 확인(기존 패턴 재확인)**: `RegisterMushroomBomberPrefabs.cs`/`WireFloraProductionLine.cs`
+  모두 `SerializedProperty.FindPropertyRelative` 대상 필드명(`type`/`blue`/`red`, `buildingType`/`blueUnits`/`redUnits`/
+  `type`/`portrait`/`requiredStage`)이 실제 struct 정의(`UnitFactory.UnitPrefabEntry`, `ProductionPanelUI.
+  BuildingUnitMapping`/`UnitPortraitEntry`)와 정확히 일치함을 grep으로 대조 완료. 멱등성(이미 있으면 no-op, 값
+  다르면 보정)도 코드상 확인됨 — 다만 Unity 에디터 부재로 실제 메뉴 실행/씬 반영 여부는 미검증(에디터 작업 영역,
+  task 지시상 범위 외).
+- **직접 10 + DoT 이중 적용/사망 시 배제 로직**: `ExecuteAttack`이 `ApplyDamageToVictim`(직접, 죽으면 `_unitSpawn`에서
+  즉시 제거) 실행 후 `special.Apply(ctx)` 호출 — `BlastAttackBehavior`는 `ctx.Units.Values`(생존자만)를 순회하므로
+  직접타격으로 죽은 주 타깃은 자연스럽게 DoT 수집에서 제외됨(별도 방어 코드 불필요, 데이터 흐름상 자동 보장).
+- task: `_Tasks/2026-07-19/01_42_mushroombomber-impact-dot/`

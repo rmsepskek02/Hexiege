@@ -70,6 +70,13 @@ namespace Hexiege.Application
         /// <summary> TorrentSpirit 파도가 아군에 닿을 때의 회복량. SpecialAttackConfig.WaveHeal에서 주입. </summary>
         public float WaveHeal { get; }
 
+        /// <summary>
+        /// MushroomBomber 착탄 폭발의 월드 반경. 착탄 중심(주 타깃 위치)에서 XZ 평면 거리가
+        /// 이 값 이하인 적 유닛에게 DoT를 부여한다. SpecialAttackConfig.BlastRadius에서 주입.
+        /// (DoT의 초당 피해/지속/틱 간격은 UseCase 내부에 있고, 핸들러는 "누구에게" 걸지만 결정한다.)
+        /// </summary>
+        public float BlastRadius { get; }
+
         // 단일 대상 1회 피해 절차(피해+이벤트+사망 처리)를 수행하는 재사용 헬퍼.
         // UnitCombatUseCase.ApplyDamageToVictim을 그대로 넘겨받는다.
         private readonly Action<UnitData, IDamageable> _applyDamage;
@@ -83,6 +90,12 @@ namespace Hexiege.Application
         // UnitCombatUseCase.SpawnWave를 그대로 넘겨받는다. 핸들러는 모양/방향만 계산해 요청을 넘기고,
         // 전선 전진·닿은 유닛 판정·피해/힐 적용은 UseCase 내부 시뮬레이터가 담당한다(서버 권위).
         private readonly Action<WaveSpawnRequest> _spawnWave;
+
+        // 대상 유닛에 착탄 DoT(지속 피해)를 부여하는 델리게이트. 인자는 (공격자, 피해 대상).
+        // UnitCombatUseCase.ApplyBlastDot을 그대로 넘겨받는다. DoT의 초당 피해/지속/틱 간격은
+        // UseCase 내부에 캡슐화돼 있고, 핸들러는 반경 판정으로 "누구에게" 걸지만 결정한다
+        // (파도의 SpawnWave와 같은 역할 분담 — 서버 권위 효과는 UseCase 소유).
+        private readonly Action<UnitData, UnitData> _applyDot;
 
         /// <summary>
         /// 컨텍스트 생성.
@@ -99,6 +112,8 @@ namespace Hexiege.Application
         /// <param name="waveLength">파도 전방 길이(월드).</param>
         /// <param name="waveTravelTime">파도 전선이 전방 길이를 지나가는 시간(초).</param>
         /// <param name="waveHeal">파도 아군 회복량.</param>
+        /// <param name="applyDot">대상 유닛에 착탄 DoT를 부여하는 델리게이트(공격자, 대상).</param>
+        /// <param name="blastRadius">착탄 폭발 판정의 월드 반경(중심으로부터 XZ 거리 한계).</param>
         public SpecialAttackContext(
             UnitData attacker,
             IDamageable primaryTarget,
@@ -111,7 +126,9 @@ namespace Hexiege.Application
             float waveWidth,
             float waveLength,
             float waveTravelTime,
-            float waveHeal)
+            float waveHeal,
+            Action<UnitData, UnitData> applyDot,
+            float blastRadius)
         {
             Attacker = attacker;
             PrimaryTarget = primaryTarget;
@@ -125,6 +142,8 @@ namespace Hexiege.Application
             WaveLength = waveLength;
             WaveTravelTime = waveTravelTime;
             WaveHeal = waveHeal;
+            _applyDot = applyDot;
+            BlastRadius = blastRadius;
         }
 
         /// <summary>
@@ -157,6 +176,17 @@ namespace Hexiege.Application
         public void SpawnWave(WaveSpawnRequest request)
         {
             _spawnWave?.Invoke(request);
+        }
+
+        /// <summary>
+        /// 대상 유닛에 착탄 DoT(지속 피해)를 부여한다. 실제 초당 피해/지속/틱 간격은
+        /// UnitCombatUseCase 내부에 캡슐화돼 있으며, 이 델리게이트는 "누구에게 걸지"만 전달한다.
+        /// </summary>
+        /// <param name="attacker">DoT를 건 공격자(보통 <see cref="Attacker"/>와 동일).</param>
+        /// <param name="victim">DoT를 받을 적 유닛.</param>
+        public void ApplyDot(UnitData attacker, UnitData victim)
+        {
+            _applyDot?.Invoke(attacker, victim);
         }
     }
 }
