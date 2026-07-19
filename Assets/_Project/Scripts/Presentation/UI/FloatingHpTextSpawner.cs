@@ -194,8 +194,8 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 회복(힐) 텍스트를 표시한다. GameEvents.OnEntityHealed 구독으로 회복 시점에 호출된다.
-        /// 피격 텍스트와 오브젝트 풀·배치 로직을 그대로 재사용하되, 치유 색상(_healColor)과
-        /// "+회복량" 형식으로 피격과 시각적으로 구분한다.
+        /// 피격 텍스트와 오브젝트 풀·배치 로직을 그대로 재사용하되, 치유 색상(_healColor)으로 피격과 구분한다.
+        /// 표시 문자열은 즉발/파도/HoT 완료 모두 "회복 후 현재 HP"로 통일한다(사용자 결정 B).
         ///
         /// 힐 VFX: 현재 전용 힐 VFX(파티클) 프리셋이 없어 텍스트만 표시한다.
         ///   추후 힐 VFX 에셋이 확보되면 EffectManager에 PlayUnitHeal 경로를 추가해 여기서 함께 재생한다
@@ -206,6 +206,11 @@ namespace Hexiege.Presentation
         {
             if (_positionProvider == null || _container == null) return;
             if (evt.Entity == null) return;
+
+            // [힐 텍스트 정리 — 2026-07-19] 텍스트 억제 이벤트(HoT 틱 등)는 여기서 걸러 낸다.
+            //   ShowText=false인 이벤트는 오직 HP 적용/동기화(ApplyHealToUnit·NetworkHealthSync)만을 위해
+            //   발행된 것이므로, 부유 텍스트는 그리지 않는다. HoT는 완료 시 ShowText=true 이벤트로 1회만 표시된다.
+            if (!evt.ShowText) return;
 
             // 회복 엔티티의 월드 좌표 조회 — 현재 힐 대상은 유닛만.
             Vector3 worldPos = evt.IsUnit
@@ -220,10 +225,14 @@ namespace Hexiege.Presentation
             FloatingHpText hpText = GetFromPool();
             hpText.transform.SetParent(_container, false);
 
-            // 회복 후 현재 HP를 치유 색상으로 표시(피격과 구분). 텍스트는 회복량이 아닌 현재 HP를 보여
-            //   피격 표시("남은 HP")와 형식을 통일한다.
+            // 표시 문자열 결정:
+            //   즉발/파도/HoT 완료 모두 동일하게 "회복 후 현재 HP"를 보여 준다(사용자 결정 B — 형식 통일).
+            //   HoT 완료도 여러 틱을 요약한 "+총량"이 아니라, 다른 힐과 같은 절대값(현재 HP)으로 표시한다.
+            string label = $"{evt.CurrentHp}";
+
+            // 치유 색상으로 표시(피격과 구분).
             hpText.Play(
-                $"{evt.CurrentHp}",
+                label,
                 spawnPos,
                 color: _healColor);
         }

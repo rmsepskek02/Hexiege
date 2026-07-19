@@ -146,7 +146,11 @@ namespace Hexiege.Infrastructure
             if (!e.IsUnit || !(e.Entity is UnitData unit)) return;
 
             // 모든 클라이언트에 회복 후 절대 HP를 전송(힐러 정보도 함께 실어 연출이 힐러를 알 수 있게).
-            SyncHealClientRpc(unit.Id, e.CurrentHp, e.HealerId, e.HealerIsUnit);
+            //   ShowText도 그대로 전파한다:
+            //     - HoT 틱(ShowText=false): 클라도 HP만 동기화하고 텍스트는 안 뜬다.
+            //     - HoT 완료(ShowText=true): 클라도 "현재 HP" 텍스트를 1회 뜨게 한다(HP 차이가 0이어도).
+            SyncHealClientRpc(unit.Id, e.CurrentHp, e.HealerId, e.HealerIsUnit,
+                e.ShowText);
         }
 
         // ====================================================================
@@ -197,8 +201,10 @@ namespace Hexiege.Infrastructure
         /// <param name="serverHp">서버 기준 회복 후 현재 HP</param>
         /// <param name="healerId">힐러 Id(없으면 -1)</param>
         /// <param name="healerIsUnit">힐러가 유닛인지 여부</param>
+        /// <param name="showText">부유 힐 텍스트 표시 여부(HoT 틱=false, 즉발/파도/HoT 완료=true). 표시 형식은 모두 현재 HP.</param>
         [ClientRpc]
-        private void SyncHealClientRpc(int unitId, int serverHp, int healerId, bool healerIsUnit)
+        private void SyncHealClientRpc(int unitId, int serverHp, int healerId, bool healerIsUnit,
+            bool showText)
         {
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
@@ -209,7 +215,7 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            SyncUnitHeal(unitId, serverHp, healerId, healerIsUnit);
+            SyncUnitHeal(unitId, serverHp, healerId, healerIsUnit, showText);
         }
 
         // ====================================================================
@@ -259,9 +265,11 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 클라이언트 측 유닛 HP를 서버 회복 값까지 끌어올린다(힐 전용).
         /// UnitData.Hp는 Heal을 통해서만 증가하므로 서버 HP와의 양(+) 차이만큼 Heal을 적용한다.
-        /// 힐은 피격 표현 큐를 거치지 않고 OnEntityHealed 재발행으로 치유 텍스트를 즉시 띄운다.
+        /// 부유 힐 텍스트는 showText=true일 때만 OnEntityHealed 재발행으로 띄운다(HoT 틱은 텍스트 억제).
+        /// HoT 완료 텍스트는 HP 차이가 0이어도 표시해야 하므로, HP 동기화와 텍스트 재발행을 분리해 처리한다.
         /// </summary>
-        private void SyncUnitHeal(int unitId, int serverHp, int healerId, bool healerIsUnit)
+        private void SyncUnitHeal(int unitId, int serverHp, int healerId, bool healerIsUnit,
+            bool showText)
         {
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
@@ -277,16 +285,24 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            // 서버 HP가 현재보다 높으면 그 차이만큼 회복(절대값 동기화 — 방향만 반대).
+            // (1) HP 동기화 — 서버 HP가 현재보다 높으면 그 차이만큼 회복(절대값 동기화 — 방향만 반대).
+            //     HoT 틱(showText=false)이라도 여기서 HP는 매번 올라간다 → 클라 HP바가 서서히 차오른다.
             int diff = serverHp - unit.Hp;
             if (diff > 0)
             {
                 unit.Heal(diff);
                 Debug.Log($"[Network] 유닛 힐 동기화. UnitId={unitId}, 적용 회복={diff}, 현재HP={unit.Hp}");
+            }
 
-                // 클라이언트에서도 치유 텍스트가 뜨도록 이벤트 재발행(클라이언트 전용).
+            // (2) 부유 힐 텍스트 — ShowText가 true일 때만 이벤트를 재발행하여 텍스트를 띄운다(클라이언트 전용).
+            //     ⚠️ HoT 완료 텍스트는 HP 차이가 0(이미 매 틱 동기화 완료)이어도 떠야 하므로,
+            //        위 diff>0 블록 밖에서 showText만 보고 재발행한다.
+            //     ⚠️ HoT 틱(showText=false)은 재발행하지 않아 틱마다 텍스트가 뜨지 않는다(이번 변경의 핵심).
+            if (showText)
+            {
                 GameEvents.OnEntityHealed.OnNext(new EntityHealedEvent(unit, unit.Hp, isUnit: true,
-                    healerId: healerId, healerIsUnit: healerIsUnit));
+                    healerId: healerId, healerIsUnit: healerIsUnit,
+                    showText: true));
             }
         }
 

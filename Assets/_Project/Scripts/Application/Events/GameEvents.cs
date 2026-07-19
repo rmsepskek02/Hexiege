@@ -220,6 +220,14 @@ namespace Hexiege.Application
     ///
     /// 멀티플레이 동기화: 서버가 힐로 HP를 올린 뒤 NetworkHealthSync가 절대 HP를 클라이언트에 전파하고,
     ///   클라이언트가 이 이벤트를 재발행하여 각 화면에서 치유 텍스트가 뜨게 한다.
+    ///
+    /// ── 부유 힐 텍스트 표시 제어(2026-07-19 — BloomFairy HoT 정리) ──
+    ///   힐은 "HP 적용/동기화"와 "부유 힐 텍스트 표시" 두 가지를 겸해 왔다. HoT(지속 회복)는 3초 동안
+    ///   여러 틱으로 나눠 회복하는데, 매 틱 텍스트가 떠서 화면이 지저분해졌다. 그래서 ShowText 플래그를 두어
+    ///   "HP 동기화는 매 틱 유지 / 부유 텍스트는 완료 시 1회"로 분리한다.
+    ///     - ShowText : false면 FloatingHpTextSpawner가 텍스트를 그리지 않는다(HP 동기화는 그대로).
+    ///                  HoT 틱은 false, 즉발/파도/HoT 완료 이벤트는 true.
+    ///   ※ 표시 형식은 즉발/파도/HoT 완료 모두 동일하게 "회복 후 현재 HP"(CurrentHp)로 통일한다(사용자 결정 B).
     /// </summary>
     public readonly struct EntityHealedEvent
     {
@@ -238,14 +246,41 @@ namespace Hexiege.Application
         /// <summary> 힐러가 유닛인지 여부. </summary>
         public readonly bool HealerIsUnit;
 
+        /// <summary>
+        /// 부유 힐 텍스트를 표시할지 여부.
+        /// false면 FloatingHpTextSpawner가 텍스트를 건너뛴다(HP 적용/동기화는 별개로 그대로 진행).
+        /// HoT(지속 회복)의 매 틱 이벤트는 false로 실려 틱마다 텍스트가 뜨는 것을 막는다.
+        /// 기본값(하위호환)은 true — 기존 즉발/파도 힐은 종전과 동일하게 텍스트가 뜬다.
+        /// </summary>
+        public readonly bool ShowText;
+
+        /// <summary>
+        /// 하위호환 생성자(5-인자). 기존 호출부는 이 시그니처를 그대로 쓰며,
+        /// ShowText=true(텍스트 표시)로 동작이 종전과 완전히 같다.
+        /// </summary>
         public EntityHealedEvent(IDamageable entity, int currentHp, bool isUnit,
             int healerId, bool healerIsUnit)
+            : this(entity, currentHp, isUnit, healerId, healerIsUnit,
+                   showText: true)
+        {
+        }
+
+        /// <summary>
+        /// 전체 생성자(6-인자). 텍스트 표시 여부(showText)를 명시한다.
+        /// - HoT 틱:    showText=false → 텍스트 없음, HP만 동기화.
+        /// - HoT 완료:  showText=true  → "회복 후 현재 HP" 텍스트 1회.
+        /// - 즉발/파도: showText=true  → "회복 후 현재 HP" 텍스트(기존과 동일).
+        /// 표시 문자열은 모두 CurrentHp로 통일한다(사용자 결정 B — 형식 통일).
+        /// </summary>
+        public EntityHealedEvent(IDamageable entity, int currentHp, bool isUnit,
+            int healerId, bool healerIsUnit, bool showText)
         {
             Entity = entity;
             CurrentHp = currentHp;
             IsUnit = isUnit;
             HealerId = healerId;
             HealerIsUnit = healerIsUnit;
+            ShowText = showText;
         }
     }
 

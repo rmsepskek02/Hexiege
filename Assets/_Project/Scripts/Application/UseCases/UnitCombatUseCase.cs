@@ -1110,7 +1110,11 @@ namespace Hexiege.Application
         /// <param name="healer">힐을 시전한 유닛(연출이 힐러를 알 수 있게 Id를 실어 보냄).</param>
         /// <param name="target">회복 대상 아군 유닛.</param>
         /// <param name="amount">회복량(양수).</param>
-        private void ApplyHealToUnit(UnitData healer, UnitData target, int amount)
+        /// <param name="showText">
+        /// 부유 힐 텍스트를 띄울지 여부. 기본 true(즉발/파도 힐은 종전대로 텍스트 표시).
+        /// HoT(지속 회복) 틱은 false로 호출하여 매 틱 텍스트가 뜨는 것을 막는다(HP 적용/동기화는 그대로 진행).
+        /// </summary>
+        private void ApplyHealToUnit(UnitData healer, UnitData target, int amount, bool showText = true)
         {
             if (target == null || amount <= 0) return;
             if (!target.IsAlive) return; // 죽은 유닛은 회복 대상 아님(Heal 내부에서도 재확인).
@@ -1118,9 +1122,12 @@ namespace Hexiege.Application
             target.Heal(amount);
 
             int healerId = healer != null ? healer.Id : -1;
+            // showText=false여도 이벤트는 발행한다 — NetworkHealthSync가 이 이벤트로 HP를 클라에 동기화하기 때문.
+            //   (FloatingHpTextSpawner만 ShowText 플래그를 보고 텍스트 표시를 건너뛴다.)
             GameEvents.OnEntityHealed.OnNext(
                 new EntityHealedEvent(target, target.Hp, isUnit: true,
-                    healerId: healerId, healerIsUnit: true));
+                    healerId: healerId, healerIsUnit: true,
+                    showText: showText));
         }
 
         // ====================================================================
@@ -1215,6 +1222,7 @@ namespace Hexiege.Application
                     e.Duration = duration;
                     e.Elapsed = 0f;
                     e.AppliedAmount = 0;
+                    e.ActualHealed = 0; // 갱신(재부여) → 누적 회복량도 리셋. 다음 완료 시 이 생애의 총량만 표시.
                     return;
                 }
             }
@@ -1228,7 +1236,8 @@ namespace Hexiege.Application
                 TotalAmount = totalAmount,
                 Duration = duration,
                 Elapsed = 0f,
-                AppliedAmount = 0
+                AppliedAmount = 0,
+                ActualHealed = 0
             });
         }
 
@@ -1275,7 +1284,13 @@ namespace Hexiege.Application
                     {
                         // Heal → 기존 회복 수렴점 재사용(규칙 30). healer는 살아있으면 attribution용으로 전달.
                         _unitSpawn.Units.TryGetValue(effect.SourceId, out UnitData healer);
-                        ApplyHealToUnit(healer, target, diff);
+
+                        // [힐 텍스트 정리] 틱 회복은 텍스트를 억제(showText:false)한다 — HP 적용/동기화만 수행.
+                        //   또한 이 효과가 "실제로 올린 HP"를 누적한다(회복이 MaxHp에서 상한에 걸리면
+                        //   실제 증가분은 diff보다 작을 수 있으므로 Heal 전후 Hp 차이로 정확히 잰다).
+                        int hpBefore = target.Hp;
+                        ApplyHealToUnit(healer, target, diff, showText: false);
+                        effect.ActualHealed += target.Hp - hpBefore;
                     }
                     else
                     {
@@ -1293,6 +1308,16 @@ namespace Hexiege.Application
 
                 if (expired || fullyHealed || targetDead)
                 {
+                    // [힐 텍스트 정리] HoT가 "정상 종료"(만료 또는 완전 회복)되고 실제로 회복시킨 양이 있으면
+                    //   그 효과의 총 회복량으로 부유 힐 텍스트를 딱 1회 표시한다.
+                    //   ⚠️ 회복 도중 대상이 사망(targetDead)한 경우에는 텍스트를 생략한다(요구사항 3).
+                    //   ⚠️ 위쪽 "대상 없음/사망" 조기 제거 경로(TryGetValue 실패)도 텍스트 없이 제거되므로 일관된다.
+                    if (effect.Kind == TimedEffectKind.Heal && !targetDead && effect.ActualHealed > 0)
+                    {
+                        _unitSpawn.Units.TryGetValue(effect.SourceId, out UnitData healer);
+                        PublishHealCompletionText(healer, target, effect.ActualHealed);
+                    }
+
                     _activeTimedEffects.RemoveAt(i);
                 }
             }
@@ -1334,6 +1359,34 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// HoT(지속 회복)가 정상 종료될 때, 부유 힐 텍스트를 딱 1회 표시한다.
+        /// 표시 형식은 즉발/파도 힐과 동일하게 "회복 후 현재 HP"(절대값)로 통일한다(사용자 결정 B).
+        ///
+        /// 텍스트 전용 경로(중요):
+        ///   여기서는 target.Heal()을 호출하지 않는다 — HP는 이미 매 틱 ApplyHealToUnit으로 올려 두었으므로,
+        ///   완료 텍스트가 HP를 다시 올리면 이중 회복이 된다. 따라서 OnEntityHealed만 ShowText=true로 발행해
+        ///   현재 HP(target.Hp)를 실은 "텍스트만" 뜨게 한다.
+        ///
+        /// 멀티플레이 경로 일관성:
+        ///   서버에서 이 이벤트를 발행하면 → (호스트 화면) FloatingHpTextSpawner가 직접 현재 HP를 그리고,
+        ///   → NetworkHealthSync(서버)가 SyncHealClientRpc로 ShowText를 전파하여
+        ///   클라이언트도 완료 텍스트를 1회만 그린다(HP가 이미 동기화돼 차이가 0이어도 텍스트는 표시).
+        /// </summary>
+        /// <param name="healer">힐을 시전한 힐러 유닛(없으면 null — attribution만 영향).</param>
+        /// <param name="target">회복 대상 유닛.</param>
+        /// <param name="totalHealed">이 효과가 실제로 회복시킨 총 HP(양수). 표시 여부 판정용 가드로만 쓰며, 텍스트에는 현재 HP를 표시한다.</param>
+        private void PublishHealCompletionText(UnitData healer, UnitData target, int totalHealed)
+        {
+            if (target == null || totalHealed <= 0) return;
+
+            int healerId = healer != null ? healer.Id : -1;
+            GameEvents.OnEntityHealed.OnNext(
+                new EntityHealedEvent(target, target.Hp, isUnit: true,
+                    healerId: healerId, healerIsUnit: true,
+                    showText: true));
+        }
+
+        /// <summary>
         /// 진행 중인 시간 지속 효과 1개의 서버 상태(데이터 전용).
         /// 대상별·종류별로 1개만 유지되며(갱신 규칙), 매 틱 Elapsed/AppliedAmount가 갱신된다.
         /// </summary>
@@ -1353,6 +1406,12 @@ namespace Hexiege.Application
             public float Elapsed;
             /// <summary> 지금까지 실제로 적용한 누적량(HP). diff 계산 기준. </summary>
             public int AppliedAmount;
+            /// <summary>
+            /// 이 효과가 실제로 회복시킨 총 HP(HoT 전용). 매 틱 Heal 전후 Hp 차이를 누적한다.
+            /// (MaxHp 상한 등으로 실제 증가분이 diff보다 작을 수 있어 AppliedAmount와 별개로 정확히 잰다.)
+            /// 정상 종료 시 이 값이 0보다 크면 완료 텍스트(현재 HP)를 1회 표시할지 판정하는 데 쓴다(표시값은 아님). 갱신(재부여) 시 0으로 리셋.
+            /// </summary>
+            public int ActualHealed;
         }
 
         // ====================================================================

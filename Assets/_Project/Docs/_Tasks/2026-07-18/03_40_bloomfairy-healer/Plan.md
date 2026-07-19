@@ -191,3 +191,10 @@ BloomFairy 이후: QuakeSpirit, MushroomBomber — **둘 다 (a) HoT/DoT 공용 
 
 - `GameSystemRules_Units.md` 규칙 32~36 신설(힐러 전용 경로 / 부상 아군 탐색 / HoT·DoT 공용 시간 지속 효과 시스템 / 힐러 유휴 감시 / 힐러 쿨다운 예외).
 - `StatsReference.md` BloomFairy 행 쿨다운 표기에 4.0s 주기·예외 명시.
+
+### 추가 반영 (2026-07-19) — HoT 힐 텍스트 집계 표시
+
+구현 항목 (a) HoT 시스템 + (c) 힐 루프의 **힐 텍스트 연출 부분**을 실기 확정에 맞춰 조정. HoT 회복은 종전대로 틱마다 서서히 오르되(규칙 30 힐 인프라·규칙 34 diff 틱 무변경), **힐 플로팅 텍스트만** 틱마다 억제하고 효과 정상 종료 시 회복 후 현재 HP(절대값)로 1회 표시하며(기존 즉발/파도 힐과 동일 형식), 회복 도중 대상 사망 시엔 텍스트를 생략한다. TorrentSpirit 파도 즉발 힐·기타 즉발 힐·데미지 텍스트는 무변경(HoT 경로 한정).
+
+- 구현 수단: `EntityHealedEvent`에 `ShowText` 플래그 추가(HoT 틱 `ShowText=false`, 종료 시 `ShowText=true`로 1회 발행 — 표시값은 기존 즉발/파도 힐과 동일한 현재 HP, 표시 전용 `HealAmount` 플래그는 두지 않음) → `NetworkHealthSync`가 `SyncHealClientRpc`로 `ShowText` 전파(멀티도 완료 시 1회) → 실제 회복량은 `ActiveTimedEffect.ActualHealed`에 누적(완료 텍스트 표시 여부 `>0` 판정)하고 재부여(갱신) 시 리셋.
+- 규칙 문서: `GameSystemRules_Units.md` **규칙 37 신설**(규칙 30 연출 항목·규칙 34 종료 처리 항목에 상호참조 포인터 추가).
