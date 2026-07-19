@@ -1,0 +1,158 @@
+<div id="canyon-hourglass-visual">
+  <div class="hourglass-layout">
+    <div class="hourglass-map" role="img" aria-label="양쪽 기지에서 중앙으로 좁아지는 11열 21행 모래시계형 협곡 맵"></div>
+    <div class="hourglass-legend text-small" aria-label="범례">
+      <span><i class="legend-tile blocked"></i>완전 차단 지형</span>
+      <span><i class="legend-tile open"></i>이동·일반 건설 가능</span>
+      <span><i class="legend-tile route"></i>보호 통로 · 건설 불가</span>
+      <span><i class="legend-tile castle"></i>성</span>
+      <span><i class="legend-tile mine"></i>중립 광산 · 채굴소만 가능</span>
+    </div>
+  </div>
+
+  <div class="viz-grid hourglass-stats">
+    <div class="card viz-stat">
+      <span class="text-muted">기지 쪽 폭</span>
+      <span class="viz-stat-value">11타일</span>
+    </div>
+    <div class="card viz-stat">
+      <span class="text-muted">중앙 최소 폭</span>
+      <span class="viz-stat-value">3타일</span>
+    </div>
+    <div class="card viz-stat">
+      <span class="text-muted">대칭</span>
+      <span class="viz-stat-value">180°</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  #canyon-hourglass-visual {
+    display: grid;
+    gap: 14px;
+    color: var(--foreground);
+  }
+
+  #canyon-hourglass-visual .hourglass-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(190px, 0.55fr);
+    gap: 18px;
+    align-items: center;
+  }
+
+  #canyon-hourglass-visual .hourglass-map {
+    display: grid;
+    grid-template-columns: repeat(11, minmax(18px, 32px));
+    gap: 3px;
+    justify-content: center;
+  }
+
+  #canyon-hourglass-visual .hex {
+    aspect-ratio: 1.15;
+    display: grid;
+    place-items: center;
+    clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+    background: color-mix(in srgb, var(--muted-foreground) 36%, var(--muted));
+    color: var(--card-foreground);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  #canyon-hourglass-visual .hex.open {
+    background: color-mix(in srgb, var(--viz-series-1) 23%, var(--card));
+  }
+
+  #canyon-hourglass-visual .hex.route {
+    background: color-mix(in srgb, var(--viz-series-2) 38%, var(--card));
+  }
+
+  #canyon-hourglass-visual .hex.castle {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  #canyon-hourglass-visual .hex.mine {
+    background: color-mix(in srgb, var(--viz-series-4) 68%, var(--card));
+  }
+
+  #canyon-hourglass-visual .hourglass-legend {
+    display: grid;
+    gap: 10px;
+  }
+
+  #canyon-hourglass-visual .hourglass-legend span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #canyon-hourglass-visual .legend-tile {
+    width: 20px;
+    height: 17px;
+    flex: 0 0 auto;
+    clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+    background: color-mix(in srgb, var(--muted-foreground) 36%, var(--muted));
+  }
+
+  #canyon-hourglass-visual .legend-tile.open {
+    background: color-mix(in srgb, var(--viz-series-1) 23%, var(--card));
+  }
+
+  #canyon-hourglass-visual .legend-tile.route {
+    background: color-mix(in srgb, var(--viz-series-2) 38%, var(--card));
+  }
+
+  #canyon-hourglass-visual .legend-tile.castle {
+    background: var(--primary);
+  }
+
+  #canyon-hourglass-visual .legend-tile.mine {
+    background: color-mix(in srgb, var(--viz-series-4) 68%, var(--card));
+  }
+
+  #canyon-hourglass-visual .hourglass-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @media (max-width: 560px) {
+    #canyon-hourglass-visual .hourglass-layout {
+      grid-template-columns: 1fr;
+    }
+
+    #canyon-hourglass-visual .hourglass-map {
+      grid-template-columns: repeat(11, minmax(14px, 1fr));
+      gap: 2px;
+    }
+
+    #canyon-hourglass-visual .hourglass-stats {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  (() => {
+    const root = document.getElementById('canyon-hourglass-visual');
+    const map = root.querySelector('.hourglass-map');
+    const widths = [11, 11, 11, 9, 9, 7, 7, 5, 5, 3, 3, 3, 5, 5, 7, 7, 9, 9, 11, 11, 11];
+
+    for (let row = 0; row < 21; row += 1) {
+      const halfWidth = Math.floor(widths[row] / 2);
+      for (let column = 0; column < 11; column += 1) {
+        const tile = document.createElement('span');
+        const inMap = Math.abs(column - 5) <= halfWidth;
+        let type = inMap ? 'open' : 'blocked';
+
+        if (inMap && row >= 3 && row <= 17 && Math.abs(column - 5) <= 1) type = 'route';
+        if ((row === 1 || row === 19) && column === 5) type = 'castle';
+        if (row === 10 && column === 5) type = 'mine';
+
+        tile.className = `hex ${type}`;
+        tile.setAttribute('aria-hidden', 'true');
+        if (type === 'castle') tile.textContent = '성';
+        if (type === 'mine') tile.textContent = '광';
+        map.appendChild(tile);
+      }
+    }
+  })();
+</script>
