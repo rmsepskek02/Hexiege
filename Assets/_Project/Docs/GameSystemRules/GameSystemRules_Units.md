@@ -217,7 +217,7 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 - 타격 프레임 수는 `_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`로 조회. 영향 파일: `Presentation/Effects/HitPresentationQueue.cs`.
 
 **규칙 27. 특수 유닛 Attack 클립 OnAttackHit 이벤트 주입**
-특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)의 Attack 클립에는 `OnAttackHit` Animation Event가 없어(전투 타격 타이밍 동기화 작업에서 의도적 제외) 데미지·피격 연출 시점이 폴백값으로 어긋난다. 각 유닛 구현 시 `hitFrameTimes`를 실제 타격 프레임으로 확정하고 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 이벤트를 주입한다(규칙 17). BattleAxe는 `1.1667s`, TorrentSpirit은 `0.5s`(임시 — 실제 파도 발동 프레임에 맞춰 튜닝)로 주입 완료(2026-07-17). 잔여 3종(QuakeSpirit / MushroomBomber / BloomFairy)은 구현 시점에 처리한다. ⚠️ 파도류(TorrentSpirit)는 OnAttackHit **1개만** 둘 것 — 2개 이상이면 한 공격에 파도가 중복 생성된다.
+특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)의 Attack 클립에는 `OnAttackHit` Animation Event가 없어(전투 타격 타이밍 동기화 작업에서 의도적 제외) 데미지·피격 연출 시점이 폴백값으로 어긋난다. 각 유닛 구현 시 `hitFrameTimes`를 실제 타격 프레임으로 확정하고 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 이벤트를 주입한다(규칙 17). BattleAxe는 `1.1667s`, TorrentSpirit은 `0.5s`(임시 — 실제 파도 발동 프레임에 맞춰 튜닝)로 주입 완료(2026-07-17). BloomFairy는 힐 발동을 `HitFrameTimes` 타이머로 구동하고 `OnAttackHit`은 힐 연출 전용으로 처리 완료(2026-07-18, 규칙 32). MushroomBomber는 클립에 `OnAttackHit` **1개** 주입 완료(2026-07-19, 규칙 38~40). 잔여 1종(QuakeSpirit)은 구현 시점에 처리한다. ⚠️ 파도류(TorrentSpirit)는 OnAttackHit **1개만** 둘 것 — 2개 이상이면 한 공격에 파도가 중복 생성된다.
 
 ---
 
@@ -275,7 +275,7 @@ BloomFairy는 지금까지의 특수 유닛과 근본적으로 다른 **힐러**
 "유닛에 붙는 시간 지속 효과"(회복 HoT / 피해 DoT)를 서버 권위로 관리하는 공용 시스템. BloomFairy(HoT) + 후속 DoT 유닛이 공용으로 재사용한다.
 - 배치 레이어: `Application`(규칙 29 파도 틱과 대칭). 파도(`ActiveWave`/`TickWaves`)와 동일한 소유·틱 패턴을 따른다.
 - 효과 레코드(대상별): 대상 UnitId, 종류(Heal/Damage), 남은 시간, 총량/지속, 누적 적용량. **대상별 동종 효과 1개만** 유지한다.
-- **diff 틱 방식**: 매 틱 "지금까지 적용됐어야 할 누적량 − 이미 적용한 량"을 이번 틱 적용량으로 계산 → 분할·반올림 오차 없이 **총량 정확히** 도달(마지막 틱 잔량 정산). 예: 3초 20HP HoT는 정확히 20HP 회복.
+- **diff 틱 방식**: 매 틱 "지금까지 적용됐어야 할 누적량 − 이미 적용한 량"을 이번 틱 적용량으로 계산 → 분할·반올림 오차 없이 **총량 정확히** 도달(마지막 틱 잔량 정산). 예: 3초 20HP HoT는 정확히 20HP 회복. (이 diff 방식은 HoT의 "매 프레임 부드럽게" 연속 모드다. DoT는 `TickInterval` 양수로 분기되는 **초 단위 discrete 틱 모드**를 쓴다 — 규칙 40.)
 - Heal → `UnitData.Heal` + `OnEntityHealed`(규칙 30 인프라 재사용). Damage(후속 DoT) → 기존 피해 경로(`ApplyDamageToVictim` 계열) + `OnEntityDamaged`.
 - **갱신 = 리셋(중첩 없음)**: 동일 대상에 동종 효과가 이미 있으면 남은 시간·총량을 리셋한다(스택 X).
 - 종료 처리: 대상 사망 / 풀피 도달(HoT) / 지속 만료 시 레코드 제거. (HoT의 힐 플로팅 텍스트는 이 종료 시점에 회복 후 현재 HP로 1회 표시하되 대상 사망 시엔 생략 — 규칙 37.)
@@ -300,3 +300,40 @@ HoT(예: BloomFairy 3초간 20HP 회복)의 **HP 회복은 종전과 동일하�
 - **사망 시 생략**: 회복 도중 대상 유닛이 **사망**하면(규칙 34 종료 사유 중 대상 사망) 힐 텍스트를 **표시하지 않는다**.
 - **적용 범위 = HoT 경로 한정**: TorrentSpirit 파도의 즉발 힐, 기타 즉발 힐, 그리고 모든 데미지 텍스트는 **무변경**이다(종전대로 발생 즉시 표시). 이 집계 규칙은 시간 지속 회복(HoT) 경로에만 적용된다.
 - 구현(참고): 힐 이벤트 `EntityHealedEvent`에 `ShowText` 플래그를 둔다 — HoT 각 틱은 `ShowText=false`(HP 동기화 이벤트는 발행하되 텍스트 skip), 효과 정상 종료 시 `ShowText=true`로 1회 발행하며 **표시값은 기존 즉발/파도 힐과 동일하게 회복 후 현재 HP(절대값)** 다(표시 전용 `HealAmount` 플래그는 두지 않는다). `NetworkHealthSync`가 이 `ShowText` 플래그를 `SyncHealClientRpc`로 전파해 멀티에서도 완료 시 1회만 표시. 실제 회복량은 `ActiveTimedEffect.ActualHealed`에 틱마다 누적하며, 이 값이 **`>0`일 때만(실제 회복이 있었을 때만) 완료 텍스트를 표시**하고 **재부여(갱신) 시 리셋**한다(규칙 34 "갱신 = 리셋"과 정합 — 리셋된 새 효과가 끝날 때만 완료 텍스트).
+
+---
+
+### 특수 공격 시스템 규칙 — 착탄형 DoT 확장 (2026-07-19, MushroomBomber 버섯폭격기 착탄형 범위 딜러 구현)
+
+MushroomBomber는 **폭탄(포자)을 적에게 던져 착탄 지점에서 폭발**하는 착탄형 범위 딜러다. 폭발은 두 가지 피해를 동시에 준다 — 폭탄을 맞은 **딱 1마리(주 타깃)** 에게 즉시 들어가는 **직접 10**, 그리고 착탄 지점 주변 반경 안의 **적 유닛 전원**에게 3초간 초당 2씩(총 6) **1초마다 뚝뚝** 들어가는 **DoT(지속 피해)**. 지금까지의 특수 유닛과 다른 신규 요소는 두 가지다 — ① 착탄 지점을 중심으로 한 **월드 좌표 원형 반경** 판정(도끼병 부채꼴에서 arc를 뺀 형태, 향후 QuakeSpirit 재사용), ② BloomFairy에서 만든 HoT/DoT 공용 시스템(규칙 34)에 힐과 반대로 **1초 간격 discrete 피해 + 매초 데미지 텍스트**를 넣는 **DoT 초 단위 틱 모드**. 직접 10은 기존 단일 타깃 공격 경로(`ExecuteAttack`)를 그대로 쓰고 DoT AoE만 특수 핸들러(`BlastAttackBehavior`)로 얹는다(도끼병식 `ReplacesPrimaryAttack=false`). 규칙 23~27(전략 핸들러·월드 좌표 판정·튜닝 파라미터·연출 동시 방출·`OnAttackHit` 주입)과 규칙 34(HoT/DoT 공용 시스템)를 전제로 한다. (핸들러 `BlastAttackBehavior`, 레지스트리에 `MushroomBomber → BlastAttackBehavior` 1줄 등록, `Scripts/Application/Combat/`.)
+
+**규칙 38. 착탄형 AoE 판정 = 월드 좌표 원형 반경 (도끼병 부채꼴의 arc 없는 버전)**
+착탄형(MushroomBomber) AoE는 타일 소속이 아니라 **착탄 중심 기준 월드 좌표 원형 반경**으로 대상을 판정한다. 휩쓸기형(규칙 24)과 판정 소스·안전 패턴은 같고 **모양만 부채꼴 → 원형**으로 다르다.
+- **판정 중심 = 주 타깃(착탄 지점) 월드 위치** — 도끼병(공격자 위치 중심)과 달리 폭탄이 떨어진 자리(주 타깃)가 중심이다. 주 타깃은 유닛/건물 무관하게 착탄 중심 좌표를 제공한다.
+- 피격 조건: 각 적 유닛에 대해 착탄 중심으로부터의 **XZ 평면 거리 ≤ `blastRadius`(월드 반경)** 이면 피격. Y축(UnitYOffset)은 무시하며, 각도(arc) 판정은 없다.
+- **주 타깃 미제외** — 도끼병은 주 타깃을 중복 제외하지만, MushroomBomber는 주 타깃도 반경 안(거리 0)이라 DoT 대상에 **포함**한다(주 타깃 유닛은 직접 10 + DoT 둘 다 — 규칙 39). 제외 대상은 아군·사망 유닛·공격자 자신(아군 팀 필터로 자동 제외)이다.
+- **건물은 순회 대상이 아님** — 핸들러가 유닛 목록만 순회하므로 건물은 자동 제외된다(DoT 없음 — 규칙 39).
+- 월드 좌표는 `IEntityPositionProvider`(서버 권위, 규칙 6·24와 동일 소스). 순회 중 사망으로 인한 컬렉션 변경을 피하기 위해 대상을 **먼저 리스트로 수집한 뒤 일괄 적용**한다(규칙 24와 동일).
+- 반경 판정 수집부(`CollectEnemyUnitsInRadius`)는 **static 헬퍼로 분리**되어 있어, 향후 QuakeSpirit(또 다른 착탄형 — 중심 100%/인접 50% 감쇠) 이 수집 결과 위에 거리 기반 배율을 얹어 재사용할 수 있다(순수 "수집"만 공용화).
+
+**규칙 39. 직접 10(주 타깃 단일 피해) + DoT AoE(특수 핸들러)의 역할 분담**
+MushroomBomber의 두 피해는 **별개 경로**로 적용되어, 대상 종류(유닛/건물)에 따라 결과가 갈린다.
+- **직접 10 = 주 타깃 단일 피해** — 기존 `ExecuteAttack` 단일 타깃 피해(`ApplyDamageToVictim`)가 담당한다. `BlastAttackBehavior.ReplacesPrimaryAttack=false`이므로 도끼병처럼 **주 타깃 단일 피해를 먼저 적용한 뒤 특수 핸들러(DoT AoE)를 실행**한다. 주 타깃이 건물이어도 직접 10이 그대로 들어가므로 **건물 공성(성 파괴 기여)이 자연히 성립**한다.
+- **DoT AoE = 특수 핸들러** — 착탄 반경 내 **적 유닛만** DoT를 받는다(건물 DoT 제외 — 규칙 38 순회 대상 유닛 한정).
+- 대상별 결과:
+  - **주 타깃이 유닛**: 직접 10 + DoT(반경 0으로 포함).
+  - **주 타깃 반경 내 다른 적 유닛**: DoT만.
+  - **주 타깃이 건물**: 건물은 직접 10만(공성). 그래도 **핸들러는 주 타깃 종류와 무관하게 실행**되어 폭발 반경 내 주변 적 유닛에게는 DoT를 건다(도끼병과 동일 — AoE는 항상 실행).
+  - **아군**: 직접·DoT 모두 무피해(규칙 16).
+
+**규칙 40. DoT "초 단위 틱" 모드 (HoT/DoT 공용 시스템 규칙 34 확장)**
+규칙 34의 시간 지속 효과 시스템에, 힐(HoT)의 "프레임마다 부드럽게 diff" 방식과 **분기되는** DoT용 "1초 간격 discrete 틱" 모드를 추가한다. 힐 연속 경로는 **무변경**(회귀 없음)이며, `ActiveTimedEffect.TickInterval` 값으로 두 모드를 가른다(`0` = 연속 HoT / 양수 = discrete DoT).
+- **1초 간격 discrete 적용**: 누적 시간이 틱 간격(MushroomBomber = `BlastDotTickInterval` 1.0s)을 넘을 때마다 그 틱의 피해를 한 번에 적용한다(매 프레임 조금씩이 아니라 뚝뚝). 서버 틱 진입점은 규칙 34와 동일(`TickTimedEffects` — 싱글=`GameBootstrapper.Update` `!IsNetworkMode` / 멀티=`NetworkCombatController` IsServer, **이중 틱 금지**).
+- **틱당 피해 = 초당 피해 × 틱 간격을 올림(`Mathf.CeilToInt`)**, 최소 1 보장. 예: `ceil(2×1)=2`.
+- **총량 클램프 = 초당 피해 × 지속(반올림)**. 예: `2×3=6`. 올림 때문에 틱당 피해가 커져도 **총 피해가 상한(6)을 넘지 않도록** 클램프한다(3틱×2=6 정확).
+- **매초 데미지 텍스트**: 힐(HoT 규칙 37)이 완료 시 1회만 억제 표시하는 것과 **정반대로**, DoT는 각 틱이 기존 피해 경로(`OnEntityDamaged`)를 그대로 발행해 **매초 남은 체력(현재 HP)을 데미지 텍스트로 표시**한다(피격 데미지 텍스트 재사용 — 억제하지 않음). 파도/일반 데미지 텍스트도 무변경.
+- **서버 권위**: 착탄 판정·DoT 틱 피해 모두 서버 타이머로만 적용(규칙 18). 멀티에서 클라는 HP·데미지 텍스트를 동기화로 수신(이중 적용 없음). VFX(폭탄 투사체·폭발)는 사용자 별도 제작.
+- **갱신 = 리셋(중첩 없음)**: 같은 대상에 DoT가 겹치면 남은 시간·총량·누적량·틱 상태를 리셋한다(규칙 34 "갱신 = 리셋"). DoT 틱 피해로 대상 사망 시 기존 사망 처리(이벤트/제거) 후 레코드 제거.
+- 튜닝값(규칙 25): `SpecialAttackConfig`의 `blastRadius`(월드 반경, 기본 1.0 = 인접 1칸 거리) / `blastDotPerSecond`(2) / `blastDotDuration`(3)을 GameBootstrapper가 float로 주입(미연결 시 코드 폴백 — "에셋 생성 ≠ 씬 배선" 교훈). 진입점: 핸들러가 반경 판정으로 고른 각 적 유닛에 `ApplyDamageOverTime`(→ `ApplyBlastDot`) 호출.
+
+> **참고 (규칙 34 상호참조):** 규칙 34는 원래 HoT(연속 diff)만 실제 배선했고 Damage(DoT) 분기는 구조로만 수용해 두었다. 규칙 40이 그 DoT 분기를 **초 단위 discrete 틱 모드**로 실제 구현했다. 향후 InfernoSpirit(지속 피해) 등 DoT 유닛은 이 초 단위 틱 모드를 재사용할 수 있다.

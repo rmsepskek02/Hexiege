@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-07-18
-**현재 단계:** 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 구현 완료(2026-07-17, 사용자 실기 PASS) — 특수 유닛 5종 중 첫 구현. 신규 유닛은 핸들러 + 레지스트리 1줄로 확장하는 구조 확립, 휩쓸기 판정은 월드 좌표 전방 부채꼴(`SpecialAttackConfig` SO 튜닝, 실기값 reach 0.75/반각 120°). 직전 Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업으로 AAB 용량 **190.66 MB → 125.30 MB** 절감. 후속(Phase F): 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격 4종 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·시나리오 정밀 검증 + 잔여 신규 유닛 프리팹 실기 테스트
+**최종 수정일:** 2026-07-19
+**현재 단계:** MushroomBomber(버섯폭격기) 착탄형 범위 DoT 딜러 구현 완료(2026-07-19, QA PASS·실기 완료) — 특수 유닛 5종 중 **4번째**. 착탄 중심 월드 원형 반경 내 적 유닛 DoT(초 단위 discrete 틱 모드 신설, 규칙 34 확장) + 주 타깃 직접 10(기존 단일 피해, 건물 공성). 직전 BloomFairy(꽃요정 힐러) 구현·실기 완료(2026-07-18) — 5종 중 3번째. 힐러 전용 경로 + HoT/DoT 공용 시스템 + 쿨다운 예외(실제 힐 주기 4.0s). **잔여 특수 유닛(코드 확인 결과 핸들러 미등록 = 미구현)**: QuakeSpirit(착탄형 — 원형 반경 헬퍼 재사용 예정), InfernoSpirit(DoT — 초 단위 틱 재사용 예정). 후속(Phase F): 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격(QuakeSpirit/InfernoSpirit) 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·시나리오 정밀 검증 + 잔여 신규 유닛 프리팹 실기 테스트
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -43,8 +43,10 @@
 | ✅ 완료 | 빌드 에셋 용량 최적화 — Android AAB 190.66 MB → 125.30 MB 절감(2026-07-15). 3D 건물/유닛 텍스처 Android max size 512 적용, 미사용 `_Old` 에셋/normal/roughness PNG 정리, FBX import 조정 | 플랫폼 | 중 |
 | ✅ 완료 | 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 — 특수 유닛 5종 중 첫 구현. 월드 좌표 전방 부채꼴 판정 + `SpecialAttackConfig` 튜닝 SO + `ApplyDamageToVictim` 피해 수렴점 단일화 + AoE 연출 동시 방출 + BattleAxe 스탯/클립 이벤트 확정 (2026-07-17 실기 PASS) | 기능 | 중 |
 | ✅ 완료 | TorrentSpirit 파도형 이동 AoE + 힐 서브시스템 — 특수 유닛 5종 중 2번째. special-only(`ReplacesPrimaryAttack`) 서버 권위 이동 파도(`TickWaves`, 월드 직사각형, 적 유닛·건물 피해/아군 힐 각 1회) + 힐 서브시스템(`UnitData.Heal`/`OnEntityHealed`/NetworkHealthSync 힐 동기화/치유 텍스트, BloomFairy 공용) + `VfxPoolItem` 다중 파티클 재생 수정 + 데이터 배선(스탯/EffectPreset/OnAttackHit). QA CONDITIONAL PASS(BUG-002 건물 공격 수정). 규칙 28~31. VFX 튜닝은 사용자 진행 (2026-07-17) | 기능 | 중 |
+| ✅ 완료 | BloomFairy(꽃요정) 힐러 — 특수 유닛 5종 중 3번째. 힐러 전용 경로(적 공격 흐름·레지스트리 분리) + 부상 아군 탐색(팀 필터 반대·본인 포함) + HoT/DoT 공용 시간 지속 효과 시스템(서버 권위 diff 틱, 규칙 34) + 힐 유휴 감시 + 쿨다운 예외(발동 준비 1.0s 미포함 → 실제 힐 주기 4.0s, 프로젝트 유일) + HoT 힐 텍스트 완료 시 1회 표시(사망 시 생략). 규칙 32~37. 실기 완료 (2026-07-18) | 기능 | 중 |
+| ✅ 완료 | MushroomBomber(버섯폭격기) 착탄형 범위 DoT — 특수 유닛 5종 중 4번째. 착탄 중심 월드 원형 반경(`BlastAttackBehavior`, arc 없는 도끼병 부채꼴, QuakeSpirit 재사용 헬퍼) 내 적 유닛 DoT + 주 타깃 직접 10(기존 단일 피해 `ReplacesPrimaryAttack=false`, 건물 공성). DoT 초 단위 discrete 틱 모드 신설(규칙 34 확장 — 1초 간격·틱당 올림·총량 클램프·매초 데미지 텍스트). 식물 라인 생산 배선(SporePatch=MushroomBomber, FloralNursery=BloomFairy). 규칙 38~40. QA PASS·실기 완료 (2026-07-19) | 기능 | 중 |
 | 🟡 중간 | 피격 VFX 프리셋 연결 — `UnitEffectConfig.hitPreset` Inspector 배선(Human 6종 등 미연결) | 에셋 | 소 |
-| 🟢 낮음 | 미구현 특수 타격 3종(QuakeSpirit/MushroomBomber/BloomFairy) 구현 시 Attack 클립 `OnAttackHit` 이벤트 주입 + 특수 공격 핸들러 확장 (BattleAxe·TorrentSpirit 2026-07-17 완료) | 기능/에셋 | 중 |
+| 🟢 낮음 | 잔여 특수 유닛 2종(QuakeSpirit/InfernoSpirit) 구현 시 Attack 클립 `OnAttackHit` 이벤트 주입 + 특수 공격 핸들러 확장. QuakeSpirit=착탄형(MushroomBomber 원형 반경 헬퍼 재사용), InfernoSpirit=DoT(초 단위 틱 재사용). (BattleAxe·TorrentSpirit 2026-07-17, BloomFairy 2026-07-18, MushroomBomber 2026-07-19 완료) | 기능/에셋 | 중 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
 | ⬜ 백로그 | Firebase 백엔드 (랭킹/IAP) | 기능 | 대 |
 
@@ -127,7 +129,7 @@
 ### D-4. 신규 유닛 프리팹 완성 (16종)
 **🔧 에디터 스크립트 완료 (2026-06-05)**: Human 5종(LittleKnight/SpearMan/BattleAxe/Tank/CannonCart)·Spirit 6종(DustSpirit/BoulderSpirit/QuakeSpirit/TideSpirit/StreamSpirit/TorrentSpirit)·Transcendence 5종(RabbitTrickster/RhinoBreaker 등) × Blue/Red 총 32개 프리팹 자동 컴포넌트 부착. `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`
 
-**진행 (2026-07-17)**: 도끼병(BattleAxe)이 특수 유닛 5종 중 **첫 구현 완료** — 휩쓸기형 AoE(월드 좌표 전방 부채꼴), 스탯 확정(HP80/공격력15/attackRange 0.75), UnitStatsConfig 입력, Attack 클립 `OnAttackHit` 이벤트 주입(1.1667s), 특수 공격 전략 핸들러 아키텍처 신설. 상세: `PROJECT_STATUS.md` / `WORK_HISTORY.md`, task `_Tasks/2026-07-16/18_06_battleaxe-aoe/`.
+**진행 (2026-07-19)**: 특수 유닛 5종 중 **4종 구현 완료** — BattleAxe(휩쓸기형 부채꼴, 2026-07-17), TorrentSpirit(파도형 이동 AoE + 힐 서브시스템, 2026-07-17), BloomFairy(힐러 전용 경로 + HoT/DoT 공용 시스템, 2026-07-18), MushroomBomber(착탄형 원형 반경 DoT + DoT 초 단위 틱 모드 + 식물 라인 생산 배선, 2026-07-19). 특수 공격 전략 핸들러 아키텍처(핸들러 + 레지스트리 1줄) 확립. **잔여**: QuakeSpirit(착탄형), InfernoSpirit(DoT) — 코드 확인 결과 특수 공격 핸들러 미등록(미구현). 상세: `PROJECT_STATUS.md` / `WORK_HISTORY.md`, task `_Tasks/2026-07-16/18_06_battleaxe-aoe/` · `_Tasks/2026-07-17/12_59_torrentspirit-wave-aoe/` · `_Tasks/2026-07-18/03_40_bloomfairy-healer/` · `_Tasks/2026-07-19/01_42_mushroombomber-impact-dot/`.
 
 **남은 작업**:
 1. 실기 테스트 — 프리팹 컴포넌트 부착 정상 동작 확인
@@ -184,8 +186,10 @@
 ### F-4. 미구현 특수 타격 클립 이벤트 주입 🟢 낮음
 - **✅ BattleAxe 완료 (2026-07-17)**: 휩쓸기형 AoE 구현과 함께 Attack 클립 `OnAttackHit` 이벤트 주입 완료(`hitFrameTimes=1.1667s`, 클립 타격모션 종료 프레임 35f/30fps). `Hexiege/Combat/Inject OnAttackHit Events` 인젝터 사용.
 - **✅ TorrentSpirit 완료 (2026-07-17)**: 파도형 이동 AoE + 힐 서브시스템 구현과 함께 `OnAttackHit` 주입(`0.5s`, 임시 — 실제 파도 발동 프레임 튜닝 대상). 규칙 28~31 신설.
-- **남은 대상**: QuakeSpirit / MushroomBomber / BloomFairy.
-- **작업**: 각 유닛 구현 시점에 Attack 클립 `OnAttackHit` 이벤트를 주입(규칙 17·27). 특수 공격 로직은 규칙 23~31의 전략 핸들러 구조 위에 핸들러 + 레지스트리 1줄로 확장.
+- **✅ BloomFairy 완료 (2026-07-18)**: 힐러 전용 경로 구현과 함께 힐 발동 타이밍을 `HitFrameTimes` 타이머로 구동(`OnAttackHit`은 힐 연출 전용). HoT/DoT 공용 시스템 신설. 규칙 32~37 신설.
+- **✅ MushroomBomber 완료 (2026-07-19)**: 착탄형 범위 DoT 구현과 함께 Attack 클립 `OnAttackHit` 주입(규칙 27, 1개). DoT 초 단위 discrete 틱 모드(규칙 34 확장) 신설. 규칙 38~40 신설.
+- **남은 대상**: QuakeSpirit / InfernoSpirit (코드 확인 결과 특수 공격 핸들러 미등록 = 미구현).
+- **작업**: 각 유닛 구현 시점에 Attack 클립 `OnAttackHit` 이벤트를 주입(규칙 17·27). 특수 공격 로직은 규칙 23~40의 전략 핸들러 구조 위에 핸들러 + 레지스트리 1줄로 확장(QuakeSpirit=착탄형 원형 반경 헬퍼 재사용, InfernoSpirit=DoT 초 단위 틱 재사용).
 
 ### F-5. Firebase/EDM 저장소 방침 정리 🟡 중간 (2026-07-13 등록)
 - **현황**: 이번 세션에서 발견 — 신규 환경에 저장소를 클론하면 Firebase/EDM(External Dependency Manager) 관련 임포트가 누락되어 재임포트가 필요한 문제.
