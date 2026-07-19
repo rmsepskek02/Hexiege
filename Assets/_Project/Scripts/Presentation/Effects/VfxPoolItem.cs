@@ -61,6 +61,17 @@ namespace Hexiege.Presentation
         /// </summary>
         private bool _active;
 
+        /// <summary>프리팹이 가진 원본 로컬 스케일. 풀 재사용 때 이전 프리셋 배율이 누적되지 않도록 기준으로 사용한다.</summary>
+        private Vector3 _originalLocalScale;
+
+        /// <summary>현재 재생의 전진 이동 시작 위치와 방향.</summary>
+        private Vector3 _travelStartPosition;
+        private Vector3 _travelDirection;
+        private float _travelDistance;
+        private float _travelDuration;
+        private float _travelElapsed;
+        private bool _isTravelling;
+
         /// <summary> EffectManager가 Pool 반환 시 키로 사용하는 원본 프리팹. </summary>
         public GameObject SourcePrefab => _sourcePrefab;
 
@@ -70,6 +81,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void Awake()
         {
+            _originalLocalScale = transform.localScale;
             // 1순위: 루트에 파티클 시스템이 있으면 그것으로 충분(Play(true)가 하위 시스템까지 재생).
             _ps = GetComponent<ParticleSystem>();
 
@@ -114,10 +126,32 @@ namespace Hexiege.Presentation
         /// </summary>
         /// <param name="pos">재생할 월드 좌표.</param>
         /// <param name="rot">재생할 회전.</param>
-        public void Play(Vector3 pos, Quaternion rot)
+        /// <param name="localPositionOffset">rot을 기준으로 월드 변환할 로컬 위치 보정값.</param>
+        /// <param name="eulerRotationOffset">rot 뒤에 추가로 적용할 Euler 회전 보정값(도).</param>
+        /// <param name="scaleMultiplier">프리팹 원본 로컬 스케일에 곱할 재생별 배율.</param>
+        /// <param name="forwardTravelDistance">rot의 forward 방향으로 이동할 연출 거리. 0이면 이동하지 않음.</param>
+        /// <param name="forwardTravelDuration">전진 거리에 도달할 시간(초). 0이면 이동하지 않음.</param>
+        public void Play(
+            Vector3 pos,
+            Quaternion rot,
+            Vector3 localPositionOffset,
+            Vector3 eulerRotationOffset,
+            Vector3 scaleMultiplier,
+            float forwardTravelDistance,
+            float forwardTravelDuration)
         {
-            transform.position = pos;
-            transform.rotation = rot;
+            // 풀에서 직전에 사용한 프리셋의 위치/회전/스케일/이동 상태가 남지 않도록
+            // 모든 재생별 상태를 원본 기준으로 명시 초기화한다.
+            ResetTravelState();
+            transform.position = pos + rot * localPositionOffset;
+            transform.rotation = rot * Quaternion.Euler(eulerRotationOffset);
+            transform.localScale = Vector3.Scale(_originalLocalScale, scaleMultiplier);
+
+            _travelStartPosition = transform.position;
+            _travelDirection = rot * Vector3.forward;
+            _travelDistance = Mathf.Max(0f, forwardTravelDistance);
+            _travelDuration = Mathf.Max(0f, forwardTravelDuration);
+            _isTravelling = _travelDistance > 0f && _travelDuration > 0f;
 
             gameObject.SetActive(true);
             _active = true;
@@ -151,12 +185,41 @@ namespace Hexiege.Presentation
         {
             if (!_active) return;
 
+            UpdateForwardTravel();
+
             // 파티클이 모두 소멸했으면 Pool에 반환. 루트 PS든 형제 시스템 묶음이든 "하나라도 살아있으면" 유지.
             // 파티클 시스템이 아예 없는 비정상 케이스는 AnyAlive가 false → 즉시 반환하여 영구 점유 방지.
             if (!AnyAlive())
             {
                 Return();
             }
+        }
+
+        /// <summary>
+        /// 현재 VFX를 공격 당시 forward 방향으로 선형 이동시킨다.
+        /// 이 이동은 화면 연출에만 사용되며 게임의 피해/힐 판정이나 유닛 위치를 변경하지 않는다.
+        /// </summary>
+        private void UpdateForwardTravel()
+        {
+            if (!_isTravelling) return;
+
+            _travelElapsed = Mathf.Min(_travelElapsed + Time.deltaTime, _travelDuration);
+            float progress = _travelElapsed / _travelDuration;
+            transform.position = _travelStartPosition + _travelDirection * (_travelDistance * progress);
+
+            if (_travelElapsed >= _travelDuration)
+                _isTravelling = false;
+        }
+
+        /// <summary>풀 반환 또는 새 재생 전에 모든 전진 이동 상태를 기본값으로 되돌린다.</summary>
+        private void ResetTravelState()
+        {
+            _travelStartPosition = Vector3.zero;
+            _travelDirection = Vector3.zero;
+            _travelDistance = 0f;
+            _travelDuration = 0f;
+            _travelElapsed = 0f;
+            _isTravelling = false;
         }
 
         /// <summary>
@@ -187,6 +250,9 @@ namespace Hexiege.Presentation
         {
             if (!_active) return;
             _active = false;
+
+            ResetTravelState();
+            transform.localScale = _originalLocalScale;
 
             gameObject.SetActive(false);
             _onReturn?.Invoke(this);

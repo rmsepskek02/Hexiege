@@ -310,7 +310,14 @@ namespace Hexiege.Presentation
             if (preset.VfxPrefab != null)
             {
                 VfxPoolItem item = GetOrCreateVfx(preset.VfxPrefab);
-                item.Play(pos, rot);
+                item.Play(
+                    pos,
+                    rot,
+                    preset.LocalPositionOffset,
+                    preset.EulerRotationOffset,
+                    preset.ScaleMultiplier,
+                    preset.ForwardTravelDistance,
+                    preset.ForwardTravelDuration);
             }
 
             // SOUND_SYSTEM_REFACTOR: SFX 재생은 AudioManager로 이전 완료. 검증 후 삭제 예정.
