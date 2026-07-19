@@ -1,0 +1,187 @@
+<div id="canyon-map-visual">
+  <div class="viz-controls" role="group" aria-label="협곡 형태 선택">
+    <button type="button" class="btn btn-primary" data-mode="straight" aria-pressed="true">직선형</button>
+    <button type="button" class="btn" data-mode="curved" aria-pressed="false">완만한 굴곡형</button>
+  </div>
+
+  <div class="canyon-layout">
+    <div class="canyon-map" role="img" aria-label="11열 21행 협곡형 맵 도식"></div>
+    <div class="canyon-legend text-small" aria-label="범례">
+      <span><i class="legend-tile blocked"></i>완전 차단 지형</span>
+      <span><i class="legend-tile route"></i>폭 3의 핵심 통로 · 건설 불가</span>
+      <span><i class="legend-tile safe"></i>기지 안전구역 · 일반 건설 가능</span>
+      <span><i class="legend-tile castle"></i>성</span>
+      <span><i class="legend-tile mine"></i>중립 광산 · 채굴소만 가능</span>
+    </div>
+  </div>
+
+  <div class="card canyon-note text-small" aria-live="polite"></div>
+</div>
+
+<style>
+  #canyon-map-visual {
+    display: grid;
+    gap: 14px;
+    color: var(--foreground);
+  }
+
+  #canyon-map-visual .canyon-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(190px, 0.55fr);
+    gap: 18px;
+    align-items: center;
+  }
+
+  #canyon-map-visual .canyon-map {
+    display: grid;
+    grid-template-columns: repeat(11, minmax(18px, 32px));
+    gap: 3px;
+    justify-content: center;
+  }
+
+  #canyon-map-visual .hex {
+    aspect-ratio: 1.15;
+    display: grid;
+    place-items: center;
+    clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+    background: color-mix(in srgb, var(--muted) 72%, transparent);
+    color: var(--muted-foreground);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  #canyon-map-visual .hex.blocked {
+    background: color-mix(in srgb, var(--muted-foreground) 36%, var(--muted));
+  }
+
+  #canyon-map-visual .hex.route {
+    background: color-mix(in srgb, var(--viz-series-2) 36%, var(--card));
+    color: var(--card-foreground);
+  }
+
+  #canyon-map-visual .hex.safe {
+    background: color-mix(in srgb, var(--viz-series-1) 26%, var(--card));
+    color: var(--card-foreground);
+  }
+
+  #canyon-map-visual .hex.castle {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  #canyon-map-visual .hex.mine {
+    background: color-mix(in srgb, var(--viz-series-4) 65%, var(--card));
+    color: var(--card-foreground);
+  }
+
+  #canyon-map-visual .canyon-legend {
+    display: grid;
+    gap: 10px;
+    color: var(--foreground);
+  }
+
+  #canyon-map-visual .canyon-legend span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  #canyon-map-visual .legend-tile {
+    width: 20px;
+    height: 17px;
+    flex: 0 0 auto;
+    clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+    background: var(--muted);
+  }
+
+  #canyon-map-visual .legend-tile.blocked {
+    background: color-mix(in srgb, var(--muted-foreground) 36%, var(--muted));
+  }
+
+  #canyon-map-visual .legend-tile.route {
+    background: color-mix(in srgb, var(--viz-series-2) 36%, var(--card));
+  }
+
+  #canyon-map-visual .legend-tile.safe {
+    background: color-mix(in srgb, var(--viz-series-1) 26%, var(--card));
+  }
+
+  #canyon-map-visual .legend-tile.castle {
+    background: var(--primary);
+  }
+
+  #canyon-map-visual .legend-tile.mine {
+    background: color-mix(in srgb, var(--viz-series-4) 65%, var(--card));
+  }
+
+  #canyon-map-visual .canyon-note {
+    padding: 12px;
+  }
+
+  @media (max-width: 560px) {
+    #canyon-map-visual .canyon-layout {
+      grid-template-columns: 1fr;
+    }
+
+    #canyon-map-visual .canyon-map {
+      grid-template-columns: repeat(11, minmax(14px, 1fr));
+      gap: 2px;
+    }
+  }
+</style>
+
+<script>
+  (() => {
+    const root = document.getElementById('canyon-map-visual');
+    const map = root.querySelector('.canyon-map');
+    const note = root.querySelector('.canyon-note');
+    const buttons = [...root.querySelectorAll('[data-mode]')];
+    const rows = 21;
+    const columns = 11;
+
+    const curvedCenters = [5, 5, 5, 5, 4, 4, 4, 5, 6, 6, 5, 4, 4, 5, 6, 6, 6, 5, 5, 5, 5];
+
+    function tileType(row, column, mode) {
+      if ((row === 1 || row === 19) && column === 5) return 'castle';
+      if (row === 10 && column === 5) return 'mine';
+
+      const distanceFromBase = Math.min(row, 20 - row);
+      if (distanceFromBase <= 2) return 'safe';
+
+      const center = mode === 'straight' ? 5 : curvedCenters[row];
+      const halfWidth = distanceFromBase === 3 ? 2 : 1;
+      return Math.abs(column - center) <= halfWidth ? 'route' : 'blocked';
+    }
+
+    function render(mode) {
+      map.replaceChildren();
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          const type = tileType(row, column, mode);
+          const tile = document.createElement('span');
+          tile.className = `hex ${type}`;
+          tile.setAttribute('aria-hidden', 'true');
+          if (type === 'castle') tile.textContent = '성';
+          if (type === 'mine') tile.textContent = '광';
+          map.appendChild(tile);
+        }
+      }
+
+      note.textContent = mode === 'straight'
+        ? '직선형: 양측 성을 중앙의 폭 3 통로가 가장 짧게 연결합니다. 이해하기 쉽고 전투가 중앙 한 축에 집중됩니다.'
+        : '굴곡형: 폭 3은 그대로 유지하면서 통로 중심만 좌우로 이동합니다. 이동거리는 180도 대칭으로 같지만 교전 지점과 시야 구도가 달라집니다.';
+
+      buttons.forEach((button) => {
+        const selected = button.dataset.mode === mode;
+        button.setAttribute('aria-pressed', String(selected));
+        button.classList.toggle('btn-primary', selected);
+      });
+    }
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => render(button.dataset.mode));
+    });
+
+    render('straight');
+  })();
+</script>
