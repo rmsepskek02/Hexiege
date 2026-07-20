@@ -12,6 +12,7 @@
 |------|------|----------|
 | `CLAUDE.md` | 절대 규칙 | ✅ 항상 |
 | `AGENTS.md` (이 파일) | 에이전트 역할 + 문서 인덱스 | ✅ 항상 |
+| `CONTEXT.md` | 프로젝트 핵심 도메인 용어집 | ❌ 수동 |
 
 ### 기획 / 설계 문서
 
@@ -24,6 +25,8 @@
 | `Assets/_Project/Docs/AuthSystemRules.md` | 로그인/인증 시스템 규칙 |
 | `Assets/_Project/Docs/LogRules.md` | 런타임 로그 파일 작성 규칙 (파일 위치, 형식, 레벨, 금지사항) |
 | `Assets/_Project/Docs/GameSystemRules.md` | 게임 시스템 규칙 인덱스 (세부 규칙은 `GameSystemRules/` 하위 파일 참조) |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Map.md` | 대전 맵 전체 180도 대칭, 광산 공정성 및 정적 최단 접근거리 규칙 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md` | FlatTop 11×21 무작위 대전 맵 5종 생성·검증 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, 건물 배치 패널, 인게임 설정 메뉴 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동, 전투 진입, 전투 연계 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md` | 랠리포인트, 건물 철거, 방어 타워 |

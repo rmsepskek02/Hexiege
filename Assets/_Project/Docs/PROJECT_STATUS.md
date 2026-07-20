@@ -1,11 +1,24 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-07-19
+**최종 수정일:** 2026-07-20
 **현재 단계:** MushroomBomber(버섯폭격기) 착탄형 범위 딜러 구현 완료(2026-07-19, QA PASS·사용자 실기 테스트 완료) — 특수 유닛 5종 중 **4번째**. 착탄형 AoE: 주 타깃 1마리 **직접 10**(건물 공성 포함, 기존 `ExecuteAttack` 단일 피해 `ReplacesPrimaryAttack=false`) + 착탄 중심 **월드 원형 반경**(`blastRadius` 기본 1.0=인접 1칸) 내 적 유닛 **DoT 2/초×3초(총 6)**. DoT는 HoT/DoT 공용 시스템(규칙 34)에 신설한 **초 단위 discrete 틱 모드** — 1초 간격·틱당 올림(CeilToInt)·총량 6 클램프·매초 남은 체력 데미지 텍스트(힐과 반대로 억제 안 함), 서버 권위. 핸들러 `BlastAttackBehavior`(원형 반경 수집 static 헬퍼 — QuakeSpirit 재사용 여지) + 레지스트리 `MushroomBomber → BlastAttackBehavior` 1줄. 식물 라인 생산 배선 완료(SporePatch 1단계=MushroomBomber, FloralNursery 2단계=BloomFairy). 규칙 38~40 등재. VFX(투사체·폭발)는 사용자 별도 제작. 직전 **BloomFairy(꽃요정 힐러)** 구현·실기 테스트 완료(2026-07-18) — 특수 유닛 5종 중 **3번째**. 적을 때리지 않고 부상 아군을 회복하는 **힐러 전용 경로**(적 공격 흐름·`SpecialAttackRegistry`와 분리), 부상 아군 탐색(팀 필터 반대·본인 포함), HoT 공용 시스템(규칙 34 diff 틱)·힐 유휴 감시·쿨다운 예외(발동 준비 1.0s 미포함 → 실제 힐 주기 4.0s, 프로젝트 유일 예외)·HoT 힐 텍스트 완료 시 1회 표시(사망 시 생략). 규칙 32~37 등재. **잔여 특수 유닛(코드 확인 결과 특수 공격 핸들러 미등록 = 미구현)**: QuakeSpirit(착탄형 — MushroomBomber 원형 반경 헬퍼 재사용 예정), InfernoSpirit(DoT — 초 단위 틱 재사용 예정). 그 이전 TorrentSpirit(물의 상급 정령) 파도형 이동 AoE + 힐 서브시스템 구현 완료(2026-07-17) — 특수 유닛 5종 중 **2번째**. special-only(단일 공격 없음, `ReplacesPrimaryAttack`) 파도가 전방으로 이동(서버 권위 전선 `SpawnWave`/`TickWaves`)하며 월드 직사각형 안 **적 유닛·적 건물 피해 / 아군 유닛 힐**(각 1회, hit-set). **힐 서브시스템 신설**(`UnitData.Heal`·`OnEntityHealed`·NetworkHealthSync 힐 동기화·치유 색상 텍스트 — BloomFairy 공용). `SpecialAttackConfig` 파도 파라미터(폭 3·전방 3·이동시간 0.5·힐 10) Inspector. `VfxPoolItem` 다중 파티클 시스템(빈 루트+형제) 재생 수정. UnitStatsConfig(18)/EffectPreset/OnAttackHit(0.5s 임시) 배선. QA CONDITIONAL PASS(BUG-002 건물 공격 수정 완료). 규칙 28~31 등재. VFX 세부 튜닝은 사용자 진행. — 직전 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 구현 완료(2026-07-17, 사용자 실기 PASS) — 특수 유닛 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 중 첫 구현. `ISpecialAttackBehavior` + `SpecialAttackRegistry`(UnitType 키) + `SweepAttackBehavior` 신설, `UnitCombatUseCase.ExecuteAttack`을 `ApplyDamageToVictim` 헬퍼로 정리 후 특수 공격 훅 1줄 추가(신규 유닛 = 핸들러 + 등록 1줄). 휩쓸기 판정은 월드 좌표 전방 부채꼴(반경 `sweepReach` 실기값 0.75 · 반각 120°, `SpecialAttackConfig` SO 튜닝), AoE 피격 연출 동시 방출(HitFrameTimes.Length 분기). BattleAxe attackRange 0.5→0.75, Attack 클립 OnAttackHit 1.1667s 주입. 규칙 23~27 등재. 직전 Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격(QuakeSpirit/InfernoSpirit) 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트.
 
 ---
 
 ## 전체 구현 현황
+
+### 📐 확정 설계 — 구현 예정
+
+#### FlatTop 11×21 무작위 대전 맵 (2026-07-19 기획 확정)
+
+- 다섯 유형(완전개방형/장애물 개방형/협곡형/외곽형/3갈래형), 각각 20%
+- 모든 생성 요소와 장식 exact 180° 대칭, 팀별 즉시 건설 가능 고유 타일 10개
+- 유형별 중립 광산 1~6개와 정상 모드 광산 수별 초기 골드 700~200
+- 초기 골드 전용 `MapTestModeEnabled` 확정: ON=5000, OFF=광산 수 표. 멀티플레이는 Host 표식·실제 골드 권위
+- 국소 건설 불가 구역, 완전 차단 지형, 결정적 seed·독립 PRNG 스트림·100회 재시도·검증된 폴백 규칙 확정
+- canonical binary + SHA-256, persistent chunk 전송, `SameMap`/`NewMap`, 임시 `MapVersion=1` 계약 확정
+- `GameSystemRules_Map.md`, `GameSystemRules_RandomMap.md`, GDD, TDD, 작업 Research/Plan 반영 완료
+- **상태:** 문서 설계 완료, 런타임 생성기·검증기·전송·테스트 모드·건설 불가/차단 지형·경로 완전 차단 대응은 미구현
 
 ### ✅ 완료된 시스템
 
