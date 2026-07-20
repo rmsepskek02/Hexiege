@@ -264,10 +264,10 @@ namespace Hexiege.Bootstrap
         {
             if (_grid == null) return;
 
-            int centerCol = oc.GridWidth / 2; // 5
-            int blueRow = oc.GridHeight - 2;  // 27 (Blue Castle row)
-            int redRow = 1;                    // Red Castle row
-            int midRow = oc.GridHeight / 2;   // 14 (중앙)
+            int centerCol = oc.GridWidth / 2; // 맵 중앙 열
+            int blueRow = oc.GridHeight - 2;  // Blue Castle 행
+            int redRow = 1;                   // Red Castle 행
+            int midRow = oc.GridHeight / 2;   // 맵 중앙 행
 
             // 시작 금광 (각 팀 Castle 횡 2칸, 채굴소 자동 건설)
             int[][] startingMines = new int[][]
@@ -279,8 +279,8 @@ namespace Hexiege.Bootstrap
             // 중립 금광 (맵 중앙 부근 2개)
             int[][] neutralMines = new int[][]
             {
-                new int[] { 3, midRow },
-                new int[] { 7, midRow },
+                new int[] { 2, midRow },
+                new int[] { 8, midRow },
             };
 
             // 모든 금광 타일 설정 (HasGoldMine + IsWalkable=false)

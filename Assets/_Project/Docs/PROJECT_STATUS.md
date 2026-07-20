@@ -7,6 +7,19 @@
 
 ## 전체 구현 현황
 
+### 📐 확정 설계 — 구현 예정
+
+#### FlatTop 11×21 무작위 대전 맵 (2026-07-19 기획 확정)
+
+- 다섯 유형(완전개방형/장애물 개방형/협곡형/외곽형/3갈래형), 각각 20%
+- 모든 생성 요소와 장식 exact 180° 대칭, 팀별 즉시 건설 가능 고유 타일 10개
+- 유형별 중립 광산 1~6개와 정상 모드 광산 수별 초기 골드 700~200
+- 초기 골드 전용 `MapTestModeEnabled` 확정: ON=5000, OFF=광산 수 표. 멀티플레이는 Host 표식·실제 골드 권위
+- 국소 건설 불가 구역, 완전 차단 지형, 결정적 seed·독립 PRNG 스트림·100회 재시도·검증된 폴백 규칙 확정
+- canonical binary + SHA-256, persistent chunk 전송, `SameMap`/`NewMap`, 임시 `MapVersion=1` 계약 확정
+- `GameSystemRules_Map.md`, `GameSystemRules_RandomMap.md`, GDD, TDD, 작업 Research/Plan 반영 완료
+- **상태:** 문서 설계 완료, 런타임 생성기·검증기·전송·테스트 모드·건설 불가/차단 지형·경로 완전 차단 대응은 미구현
+
 ### ✅ 완료된 시스템
 
 #### 코어 게임플레이

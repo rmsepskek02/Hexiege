@@ -11,6 +11,8 @@
 
 | 파일 | 포함 시스템 |
 |------|------------|
+| [GameSystemRules_Map.md](GameSystemRules/GameSystemRules_Map.md) | 대전 맵 전체 180도 대칭, 중앙/대응쌍 광산 공정성, 정적 최단 접근거리 검증 |
+| [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md) | FlatTop 11×21 무작위 대전 맵 5종 생성·광산·건설 제한·seed·폴백·검증 |
 | [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
 | [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계 |
 | [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템 |
@@ -36,6 +38,20 @@
 ---
 
 ## 시스템별 빠른 참조
+
+### 맵 관련 작업
+→ [GameSystemRules_Map.md](GameSystemRules/GameSystemRules_Map.md)
+- 모든 맵 생성 요소와 장식의 정확한 180도 대칭
+- 중앙 단독 광산 직접 대칭 / 180도 대응 광산 쌍의 교차 거리·접근성 대칭
+- 팀별 시작 광산 개수·거리·초기 채굴소 상태·경제 효과 대칭
+- 정적 장애물과 초기 건물을 포함한 성 인접 영역→광산 인접 영역 최단 접근거리 대칭 및 도달 가능성
+- 새 맵 또는 성·광산·정적 장애물 배치 변경 시 재검증
+
+→ [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md)
+- FlatTop 11×21, 다섯 맵 유형 동일 확률
+- 유형별 지형·통로·중립 광산 수·건설 불가 구역
+- 광산 수별 초기 골드, 시작 공간 10타일
+- 결정적 seed, 최대 100회 재시도, 동일 조건 폴백과 생성 로그
 
 ### UI 관련 작업
 → [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md)
