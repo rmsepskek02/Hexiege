@@ -1,11 +1,24 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-07-20
+**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2 문서 개정 완료, 런타임 구현 미착수. 기존의 이동/Walk·전투 타격 동기화 완료 기록은 당시 범위의 이력으로 보존하되, 멀티플레이에서 ① 이동방향/바라보기 ② 타겟/공격방향 ③ 시각 Impact/서버 피해 시점 불일치가 재현되어 **P0로 재오픈**했다.
+**현재 단계 (규칙 v2):** P0 Unit ActionSequence 구현 계획 수립 전. 아래의 기존 `현재 단계` 장문은 2026-07-19 Legacy 작업 스냅샷이다.
 **현재 단계:** MushroomBomber(버섯폭격기) 착탄형 범위 딜러 구현 완료(2026-07-19, QA PASS·사용자 실기 테스트 완료) — 특수 유닛 5종 중 **4번째**. 착탄형 AoE: 주 타깃 1마리 **직접 10**(건물 공성 포함, 기존 `ExecuteAttack` 단일 피해 `ReplacesPrimaryAttack=false`) + 착탄 중심 **월드 원형 반경**(`blastRadius` 기본 1.0=인접 1칸) 내 적 유닛 **DoT 2/초×3초(총 6)**. DoT는 HoT/DoT 공용 시스템(규칙 34)에 신설한 **초 단위 discrete 틱 모드** — 1초 간격·틱당 올림(CeilToInt)·총량 6 클램프·매초 남은 체력 데미지 텍스트(힐과 반대로 억제 안 함), 서버 권위. 핸들러 `BlastAttackBehavior`(원형 반경 수집 static 헬퍼 — QuakeSpirit 재사용 여지) + 레지스트리 `MushroomBomber → BlastAttackBehavior` 1줄. 식물 라인 생산 배선 완료(SporePatch 1단계=MushroomBomber, FloralNursery 2단계=BloomFairy). 규칙 38~40 등재. VFX(투사체·폭발)는 사용자 별도 제작. 직전 **BloomFairy(꽃요정 힐러)** 구현·실기 테스트 완료(2026-07-18) — 특수 유닛 5종 중 **3번째**. 적을 때리지 않고 부상 아군을 회복하는 **힐러 전용 경로**(적 공격 흐름·`SpecialAttackRegistry`와 분리), 부상 아군 탐색(팀 필터 반대·본인 포함), HoT 공용 시스템(규칙 34 diff 틱)·힐 유휴 감시·쿨다운 예외(발동 준비 1.0s 미포함 → 실제 힐 주기 4.0s, 프로젝트 유일 예외)·HoT 힐 텍스트 완료 시 1회 표시(사망 시 생략). 규칙 32~37 등재. **잔여 특수 유닛(코드 확인 결과 특수 공격 핸들러 미등록 = 미구현)**: QuakeSpirit(착탄형 — MushroomBomber 원형 반경 헬퍼 재사용 예정), InfernoSpirit(DoT — 초 단위 틱 재사용 예정). 그 이전 TorrentSpirit(물의 상급 정령) 파도형 이동 AoE + 힐 서브시스템 구현 완료(2026-07-17) — 특수 유닛 5종 중 **2번째**. special-only(단일 공격 없음, `ReplacesPrimaryAttack`) 파도가 전방으로 이동(서버 권위 전선 `SpawnWave`/`TickWaves`)하며 월드 직사각형 안 **적 유닛·적 건물 피해 / 아군 유닛 힐**(각 1회, hit-set). **힐 서브시스템 신설**(`UnitData.Heal`·`OnEntityHealed`·NetworkHealthSync 힐 동기화·치유 색상 텍스트 — BloomFairy 공용). `SpecialAttackConfig` 파도 파라미터(폭 3·전방 3·이동시간 0.5·힐 10) Inspector. `VfxPoolItem` 다중 파티클 시스템(빈 루트+형제) 재생 수정. UnitStatsConfig(18)/EffectPreset/OnAttackHit(0.5s 임시) 배선. QA CONDITIONAL PASS(BUG-002 건물 공격 수정 완료). 규칙 28~31 등재. VFX 세부 튜닝은 사용자 진행. — 직전 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 구현 완료(2026-07-17, 사용자 실기 PASS) — 특수 유닛 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 중 첫 구현. `ISpecialAttackBehavior` + `SpecialAttackRegistry`(UnitType 키) + `SweepAttackBehavior` 신설, `UnitCombatUseCase.ExecuteAttack`을 `ApplyDamageToVictim` 헬퍼로 정리 후 특수 공격 훅 1줄 추가(신규 유닛 = 핸들러 + 등록 1줄). 휩쓸기 판정은 월드 좌표 전방 부채꼴(반경 `sweepReach` 실기값 0.75 · 반각 120°, `SpecialAttackConfig` SO 튜닝), AoE 피격 연출 동시 방출(HitFrameTimes.Length 분기). BattleAxe attackRange 0.5→0.75, Attack 클립 OnAttackHit 1.1667s 주입. 규칙 23~27 등재. 직전 Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격(QuakeSpirit/InfernoSpirit) 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트.
+
+> 위 `현재 단계`의 특수 유닛 완료 서술은 2026-07-19 당시 범위의 이력이다. 규칙 v2 기준 Complete 판정으로 사용하지 않으며, 실제 현재 상태는 바로 위 `정밀 동기화 상태`와 `UnitCombatAssetMatrix.md`를 따른다.
 
 ---
 
 ## 전체 구현 현황
+
+### 🔴 P0 재오픈 — 서버 권위 유닛 ActionSequence
+
+- 규칙 v2 완료: `GameSystemRules_Units.md`, `GameSystemRules_UnitCombatSynchronization.md`
+- 25종 에셋 감사 완료: `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`
+- 목표: Simulation Root/Visual Root 분리, `AttackSequenceId + HitIndex`, 서버 시간 Impact, FIFO 대체
+- 런타임: 기존 Network Root Red 보정, Walk/Attack 상태 분리, 공격자 FIFO가 남아 있어 **미완료**
+- 중요 사실: QuakeSpirit UnitStatsConfig 누락, 기본 Attack marker 누락 4종, BattleAxe marker/설정 불일치, hit/tracer preset 25종 전부 미연결
+- 코드 구현은 별도 Research/Plan 및 명시 승인 후 진행
 
 ### 📐 확정 설계 — 구현 예정
 
@@ -28,7 +41,7 @@
 | 헥스 그리드 (FlatTop/PointyTop) | ✅ 완료 | 듀얼 Orientation 지원, 런타임 전환 |
 | 타일 소유권/점령 | ✅ 완료 (2026-04-26 갱신) | TileOwnershipService — Phase 0/1/2 모든 이동 방식에서 매 프레임 물리 위치 기반 실시간 점령 |
 | 금광 타일 시스템 | ✅ 완료 (2026-04-08 갱신) | HasGoldMine, 채굴소 건설 조건, 건물 배치 시 광산 숨김/파괴 시 재표시+타일 중립 복원 |
-| A* 경로탐색 | ✅ 완료 (2026-03-18 갱신) | ClaimedTile 기반 아군 차단 (중간 타일만), 목표 타일 blocked 체크 제거 |
+| A* 경로탐색 | ✅ 현행 동작 / v2 문서 정정 | 정적 지형·건물 차단, 유닛 겹침 허용. `ClaimedTile` 아군 차단 설명은 Legacy이며 TDD·Units v2에서 폐기됨. |
 | 카메라 줌 보간 | ✅ 완료 (2026-03-19) | DOTween.To + Ease.OutCubic, _targetZoom 누적, _zoomDuration(0.25f) SerializeField |
 | 유닛 이동 (Lerp) | ✅ 완료 | Per-step 가용성 체크, 재탐색 |
 | 전투 시스템 | ✅ 완료 | IDamageable, 이동 중 자동 공격 |
@@ -39,9 +52,9 @@
 | 전투 애니메이션 시스템 (멀티플레이) | ✅ 완료 (2026-04-04) | 3-신호 RPC, 6가지 규칙, _combatAnimationSent 경쟁조건 수정, 사이클 동기화 |
 | Walk 애니메이션 연속 재생 | ✅ 완료 (2026-03-09) | 매 스텝 0f 리셋 제거 → 이미 Walk 상태이면 클립 유지 |
 | 공격 애니메이션-타격 시각 동기화 | ✅ 완료 (2026-03-14) | Animation Event + AnimationEventRelay → scale punch (데미지 타이밍 무변경) |
-| 전투 타격 타이밍 동기화 | ✅ 완료 (2026-07-12) | 실기/로그 검증 PASS. **[타이밍 단일 소스]** `HitFrameTimes`를 Attack 클립 `OnAttackHit` 이벤트에서 자동 추출(UnitFactory), 검증 메뉴 `CombatHitEventValidator` + 주입 메뉴 `CombatHitEventInjector`로 13종 클립 이벤트 주입(특수 타격 5종 의도적 제외). **[서버 정밀화]** `NetworkCombatController.TickCombat` 오버슈트를 데미지 딜레이+쿨다운 리셋 양쪽 차감. **[피격 표현 큐]** `EntityDamagedEvent`/`SyncHealthClientRpc`에 공격자 정보 추가, `HitPresentationQueue` 신설(HP텍스트/피격VFX/스케일펀치를 공격자 로컬 타격 프레임에 동기화, 도메인 HP는 즉시=서버 권위), `EffectManager.PlayUnitHit`+`UnitEffectConfig.hitPreset`, `HitReactionPunch`, `FloatingHpTextSpawner` `ShowDamage` 단일 진입점화. **[연출 공백]** 타워 발사 VFX(`BuildingEffectConfig.attackPreset`+`PlayBuildingAttack`), 원거리 트레이서(`TracerProjectile`+`tracerPreset`, 데미지 타이밍 불변). `UnitEffectView.cs` 최종 삭제. 규칙 U-17~U-21(Units)/B-12(Buildings) 등재. task: `_Tasks/2026-07-09/01_12_combat-hit-timing-sync/` |
+| 전투 타격 타이밍 동기화 | ⚠️ Legacy 완료 / v2 재오픈 | 2026-07-12 당시 FIFO·Animation Event 범위는 실기 PASS였으나 정상 방출 85.7%, 타임아웃 2.7%가 남았다. 규칙 v2에서 AttackProfile·AttackSequenceId+HitIndex·CombatPresentationDelay로 대체 예정. 당시 task: `_Tasks/2026-07-09/01_12_combat-hit-timing-sync/`. |
 | 전투 타이밍 검증 중 기존 버그 3건 수정 | ✅ 완료 (2026-07-12) | **[버그1]** `NetworkCombatController.Update()` Tick 이월 잔여분이 다음 Tick의 경과 시간에 이중 계산되어 쿨다운 15~25% 조기 소진(Pistoleer 2.0초 대비 실측 1.71초) → 실제 경과 시간 1:1 감소로 수정. **[버그2]** 피격 표현 큐가 공격자 사망/전투 중단(StopCombat) 시 잔여 항목 미방출 → 즉시 방출 경로 추가. **[버그3]** 클라 Attack 루프 이탈(Walk RPC) 시 `_combatAnimationSent` 잔존으로 StartCombat 재전송 억제 → 유닛이 굳어 보이는 시각 버그(실기 75초 Assault 사례). Walk RPC 전송 시 가드 해제로 수정. 3건 모두 이번 작업 이전부터 존재한 기존 결함으로, 이번 계측이 처음 가시화. 승패 무관. |
-| 이동/Walk 애니메이션 동기화 (레벨 동기화 전환) | ✅ 완료 (2026-07-13) | 실기/로그 검증 PASS. **[레벨 동기화]** 유닛 애니메이션 상태(`UnitAnimState` None/Walk/Attack)를 1회성 엣지 RPC(`StartWalkAnimationClientRpc`/`OnUnitWalkStarted` 등)에서 **NetworkUnit의 NetworkVariable(서버 쓰기 / 클라 읽기)** 로 전환. 클라는 `OnValueChanged` + 스폰 시 현재 값 자동 적용 → 갓 생성 유닛의 첫 Walk RPC 스폰 레이스 유실(클라 222/223기 실측) 구조적 소멸. 호스트/싱글플레이는 기존 로컬 직접 제어 유지. **[초기화 후 재적용]** 상태 적용이 `UnitView.Initialize`보다 이르면 애니메이터 미준비로 무음 실패(unit=-1 125건/무귀속 15기) → Initialize 말미 `NetworkUnit.ReapplyAnimStateToView()`(멱등)로 재적용해 봉합. **[위치 보정]** 재경로 첫 스텝이 최종 목적지 역방향으로 향하던 뒤로 밀림(서버 282건 실측) → `MoveTo` `AlignPathStartToTransform`로 첫 스텝이 역방향일 때만 실제 `transform` 전방 타일(`FindForwardClosestTile`)에서 경로 재발급(규칙 11 강제). **[최종 3차 검증]** 로그 15,316줄 — 생성 634기 전원 애니메이션 상태 적용 보장(무귀속 15→0기), Initialize 후 재적용 634회, 역방향 282→41(보정 353건/실이동 278). 잔여 41건은 전부 스폰 직후 우회 경로를 "첫 걸음이 먼 성 직선 방향인가" 지표가 오탐한 계측 한계로 코드 무수정 종결(육안 밀림 없음). **[정리]** `[MOVESYNC-LOG]` 계측 코드 전량 제거, 엣지 Walk 경로 최종 삭제. Plan 대비: `_combatAnimationSent`는 애니메이션이 아니라 데미지(ExecuteAttack)·타겟 RPC 게이팅 가드로 확인돼 주석 처리하지 않고 유지. 규칙 U-22 등재. task: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/` |
+| 이동/Walk 애니메이션 동기화 (레벨 동기화 전환) | ⚠️ Legacy 완료 / v2 재검증 (2026-07-13) | 당시 실기/로그 검증 PASS. 유닛 애니메이션 상태(`UnitAnimState` None/Walk/Attack)를 1회성 엣지 RPC에서 NetworkVariable로 전환하고 스폰 레이스와 재경로 역방향 첫 스텝을 줄였다. 다만 이 완료 판정은 Simulation Root/Visual Root와 U-MOV-ALIGN 도입 전 기준이며, 현 클라이언트 root 회전 쓰기와 이동 전 정렬 부재는 P0에서 다시 교정한다. 상세 이력과 수치는 `WORK_HISTORY.md`, task `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/` 참조. |
 | 유닛 메시 방향 보정 | ✅ 완료 (2026-04-29 갱신) | 전 유닛 Mesh Y=0, _meshYOffset 제거, 이동 anim offset=0, DirectionAngles={60,120,180,240,300,0} (FlatTop 월드 각도 기준) |
 | 유닛 회전 시스템 (RotateTowards 통일) | ✅ 완료 (2026-05-14 개편) | 모든 회전 Quaternion.RotateTowards 통일. 방향 계산 Atan2(현재 월드 위치→목적지) 기반. [SerializeField] _rotationSpeed = 270f Inspector 조정 가능 |
 | 공격 후 Walk 복귀 버그 수정 | ✅ 완료 (2026-03-14) | 타겟 소멸 후 이동 재개 시 Play(StateWalk) 명시 호출 (멀티/싱글 공통) |
@@ -57,11 +70,11 @@
 #### 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 아키텍처 (2026-07-17)
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| 특수 공격 전략 핸들러 아키텍처 | ✅ 완료 (2026-07-17) | `ISpecialAttackBehavior`(계약) + `SpecialAttackContext`(공격자·주 타깃·유닛목록·피해헬퍼·월드좌표 조회·reach/arc) + `SpecialAttackRegistry`(UnitType→핸들러, 현재 BattleAxe만) + `SweepAttackBehavior`. 모두 `Scripts/Application/Combat/`. 신규 특수 유닛 = 핸들러 추가 + 레지스트리 1줄, `ExecuteAttack` 재수정 불필요. |
+| 특수 공격 전략 핸들러 아키텍처 | ✅ 현행 기반 / v2 이전 필요 | 현재 등록: BattleAxe, TorrentSpirit, MushroomBomber. BloomFairy는 별도 힐러 경로, QuakeSpirit·InfernoSpirit는 미구현. ActionSequence 결과로 이전 필요. |
 | 피해 수렴점 단일화 (ApplyDamageToVictim) | ✅ 완료 (2026-07-17) | 싱글/멀티 공통 `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해 로직을 `ApplyDamageToVictim` 헬퍼로 추출(주 타깃/AoE 공용 → 멀티 HP 동기화 일관). `ExecuteAttack` 말미에 특수 공격 훅 1줄 추가. |
 | 도끼병 휩쓸기형 AoE (SweepAttackBehavior) | ✅ 완료 (2026-07-17) | 판정 = 월드 좌표 전방 부채꼴. forward=공격자→주 타깃 방향(XZ), 각 적 XZ거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`이면 피격. Y 무시, 겹친 적 포함, 아군/사망/공격자/주 타깃 제외, 건물 미대상. 월드 좌표는 `IEntityPositionProvider`(서버 권위). 초기 "전방 5타일 타일 기준"에서 실기 후 변경. |
 | SpecialAttackConfig 튜닝 SO + 셋업 스크립트 | ✅ 완료 (2026-07-17) | `SpecialAttackConfig`(Infrastructure/Config) — `sweepReach`(기본 1.0, 실기값 0.75)·`sweepArcHalfAngle`(기본 120). GameBootstrapper가 SO값을 float로 UnitCombatUseCase 생성자에 주입(미연결 시 코드 폴백). 에셋 `Resources/Config/SpecialAttackConfig.asset` + `_specialAttackConfig` 배선 완료. 에디터 툴 `Assets/Editor/Setup/CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)로 에셋 생성+배선 멱등 자동화. |
-| BattleAxe 스탯·타격 타이밍 확정 | ✅ 완료 (2026-07-17) | UnitStatsConfig(unitType 5): HP80/공격력15/attackRange 0.75(0.5→조정)/detectRange1/moveSpeed1/attackCooldown3.05/hitFrameTimes[1.1667]/생산20s/골드200/인구1. Attack 클립에 `OnAttackHit` 이벤트를 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 주입(1.1667s=클립 타격모션 종료 프레임 35f/30fps). 근거리A 라인(TrainingCamp/WarAcademy/HumanBarracks) requiredStage 3 생산(기존 확인). |
+| BattleAxe 스탯·타격 타이밍 | ⚠️ 불일치 재오픈 | UnitStatsConfig HitOffset 1.1667s, 실제 기본 Attack marker 1.02s. 권위 AttackTimeline 확정 전 Complete 판정 금지. |
 | AoE 피격 연출 동시 방출 | ✅ 완료 (2026-07-17) | `HitPresentationQueue.OnLocalAttackHit`이 공격자 `HitFrameTimes.Length≤1`(단일 타격 프레임)이면 보류 큐 전부 방출(휩쓸기 N마리 동시 표시), `>1`(LionKnight 2타·FlameSpirit 6타)이면 기존대로 1건(회귀 없음). 데미지·HP는 서버에서 전원 정확 적용, 이 변경은 연출 타이밍만. |
 | 실기 테스트 | ✅ PASS (2026-07-17) | 사용자 실기 통과. 도끼병 전방 부채꼴 범위 적 전원 피해·연출 동시 표시 확인. main 최신화 병합 완료(폰트 에셋 충돌은 main 버전으로 정리). |
 

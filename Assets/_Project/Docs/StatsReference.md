@@ -1,6 +1,8 @@
 # Hexiege — 스탯 레퍼런스
 
-**최종 수정일:** 2026-07-19
+**최종 수정일:** 2026-07-20
+
+이 문서는 사람이 읽는 스탯 미러다. 런타임 수치의 원본은 `Assets/_Project/Resources/Config/UnitStatsConfig.asset`이며, 공격 의미는 `GameSystemRules_Units.md`, 유닛별 에셋·구현 상태는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다. 문서와 런타임 에셋이 다르면 에셋을 무조건 정답으로 간주하지 말고 불일치로 기록해 게임 의도를 확인한다.
 
 ---
 
@@ -14,34 +16,52 @@
 
 ---
 
-## 범위 공격 규칙
+## 공격 프로필 수치 표기
 
-같은 타일에 유닛이 여러 마리 겹쳐 있는 경우, 공격 타입에 따라 피해 적용 방식이 다르다.
+공격은 다음 축을 별도로 가진다.
 
-### 착탄형 (MushroomBomber, QuakeSpirit)
-- **주 타깃 타일**: 유닛 1마리만 직접(착탄) 피해 적용. 나머지 겹친 유닛은 범위(스플래시) 피해만 적용
-- **범위 타일**: 해당 타일의 모든 유닛에게 범위 피해 적용
-- **MushroomBomber 구현 확정 (2026-07-19)**: 판정 범위는 타일 소속이 아니라 **착탄 중심(주 타깃 위치) 기준 월드 좌표 원형 반경**이다(도끼병 부채꼴에서 arc를 뺀 형태). 착탄 중심으로부터 XZ 평면 거리 ≤ `blastRadius`(SpecialAttackConfig, 기본 1.0 = 인접 1칸 거리)인 **적 유닛 전원**(주 타깃 포함)에게 DoT를 부여한다. **직접 10**은 기존 단일 타깃 공격(`ReplacesPrimaryAttack=false`)이 주 타깃 1마리에게 적용하며(건물 공성 포함), **DoT는 적 유닛만**(건물 제외 — 단 주 타깃이 건물이어도 주변 적 유닛엔 DoT). 아군 무피해. 상세: `GameSystemRules_Units.md` 규칙 38~40. (QuakeSpirit는 미구현 — 위 타일 기준 설계 그대로. MushroomBomber의 원형 반경 수집 헬퍼를 향후 재사용 예정.)
+- Delivery: MeleeContact / Hitscan / ProjectileImpact / TravelingArea
+- TargetScope: Single / Area
+- AreaShape: Cone / Circle / Rectangle 등
+- Effect: Damage / Heal / Status
+- ApplicationSchedule: Instant / MultiImpact / Periodic / ImpactThenPeriodic / ContactOncePerTarget
 
-### 파도형 / 휩쓸기형 (TorrentSpirit, 도끼병)
-- 범위 내 **모든 유닛**에게 동일 피해 적용 (같은 타일 겹침 여부 무관)
-- **도끼병(BattleAxe) 구현 확정 (2026-07-17)**: 판정 범위는 타일 소속이 아니라 **월드 좌표 전방 부채꼴**이다. 공격자 → 주 타깃 방향(forward) 기준으로 XZ 평면 거리 ≤ `sweepReach`(SpecialAttackConfig, 현재 실기값 0.75) **AND** 각도 ≤ `sweepArcHalfAngle`(반각, 기본 120°)인 적 유닛 전원에 동일 피해(공격력 15)를 적용한다. 아군/사망/공격자/주 타깃은 제외하며 건물은 AoE 대상이 아니다(주 타깃일 때만 단일 피해). 상세: `GameSystemRules_Units.md` 규칙 23~27. (TorrentSpirit는 미구현 — 파도형 설계 그대로.)
+“착탄형 AoE”처럼 전달 방식과 범위를 합친 과거 용어는 사용하지 않는다. 범위는 같은 타일 소속이 아니라 권위 AimDirection 또는 ImpactPoint 기준 XZ 월드 좌표로 계산한다.
+
+### 사거리
+
+```text
+AttackRange ≤ AcquireRange < LoseRange
+```
+
+- 현재 표의 `감지 사거리`는 AcquireRange다.
+- 공격 사거리와 감지 사거리가 같은 값도 유효하다.
+- LoseRange 기본값은 AcquireRange를 월드 단위로 변환한 값에 0.25 world unit을 더한다.
+- 공격 판정 공통 `RangeEpsilon = 0.05 world unit`, Legacy 건물 대상 반경은 `0.20 world unit`이다. 타겟 유지용 LoseRange 여유값과 혼용하지 않는다.
+
+### 공격 시간
+
+- `행동 마커 시점`: 권위 AttackTimeline에서 Windup 시작부터 MeleeContact/Hitscan의 결과 Impact 또는 Projectile/TravelingArea의 Launch/Activation까지의 `ActionMarkerOffset`
+- Projectile/TravelingArea의 실제 결과 도착 시점(`ResultImpactTime`)은 발사·발동 마커와 별도이며, 비행·이동 판정으로 결정한다.
+- `공격 쿨다운`: 일반 유닛은 Windup 커밋부터 다음 Windup 커밋 가능 시점까지의 전체 주기
+- Animation Event는 표현·검증 marker이며 타격시점의 권위 원본이 아니다.
+- 완성 유닛은 권위 `ActionMarkerOffset`과 실제 Attack state clip marker가 1 animation frame 이내로 일치해야 한다.
+- 표의 기존 값과 클립이 다르면 `UnitCombatAssetMatrix.md`에 불일치로 기록한다.
 
 ---
 
 ## 유닛 — 인간계 (Human)
 
-> **공격 쿨다운 컬럼 표기**: `타격시점(쿨다운)` — 콜론은 소수점(초 단위). 예: `0:25, 1:15(3:00)` = 타격 0.25초·1.15초, 쿨다운 3.0초.
-> 타격시점 = 공격 애니메이션 시작부터 대미지가 들어가는 순간까지의 시간. 애니메이션 클립의 OnAttackHit 이벤트 시간과 일치해야 한다 (Unity Animation 창의 `초:프레임` 표기와 다르니 주의 — 프레임 값은 30fps 기준 초로 환산해 기록).
+> **공격 쿨다운 컬럼 표기**: `행동 마커 시점(쿨다운)` — 콜론은 소수점(초 단위). 예: `0:25, 1:15(3:00)` = 권위 결과 Impact 또는 Launch/Activation 마커 0.25초·1.15초, 전체 주기 3.0초. Projectile/TravelingArea의 실제 결과 도착은 별도다. 클립 marker와의 실제 일치 여부는 에셋 매트릭스를 확인한다.
 
 | 유닛 | HP | 공격력 | 공격 사거리 (타일) | 감지 사거리 (타일) | 이동속도 (칸/초) | 공격 쿨다운 (초) | 생산 시간 | 골드 비용 | 인구 | 비고 |
 |------|----|--------|--------------------|--------------------|------------------|------------------|-----------|-----------|------|------|
 | 권총병 (Pistoleer) | 30 | 6 | 1.0 | 1.0 | 0.5 | 0:80(2:00) | 5초 | 50 | 1 | |
-| 돌격소총병 (Assault) | 40 | 1 | 2.0 | 2.0 | 1 | 0:17(0:33) | 10초 | 100 | 1 | |
+| 돌격소총병 (Assault) | 40 | 1 | 2.0 | 2.0 | 1 | 0:20(0:20) ⚠️ | 10초 | 100 | 1 | 런타임 UnitStatsConfig 값. 기존 문서 0.17(0.33)과 충돌하며 Attack marker 0.1667s는 30fps 1 frame 경계 — 의도 주기 재확정 필요. |
 | 저격총병 (Sniper) | 30 | 18 | 5.0 | 5.0 | 0.25 | 1:73(3:00) | 20초 | 200 | 1 | |
 | 근접기사 (LittleKnight) | 35 | 4 | 0.5 | 1.0 | 1 | 0:25, 1:15(3:00) | 5초 | 50 | 1 | 2히트 공격 |
 | 창병 (SpearMan) | 50 | 10 | 1.0 | 1.5 | 1 | 0:24(2:00) | 10초 | 100 | 1 | |
-| 도끼병 (BattleAxe) | 80 | 15 | 0.75 | 1.0 | 1 | 1:17(3:05) | 20초 | 200 | 1 | 휩쓸기형 AoE — 월드 좌표 전방 부채꼴(반경 `sweepReach` 실기값 0.75 · 반각 `sweepArcHalfAngle` 120°) 내 모든 적 유닛 동일 피해. 타격 1.1667s(클립 종료 프레임 35f/30fps). 상세: GameSystemRules_Units 규칙 23~27 |
+| 도끼병 (BattleAxe) | 80 | 15 | 0.75 | 1.0 | 1 | 1:17(3:05) | 20초 | 200 | 1 | MeleeContact · Area/Cone. 설정 1.1667s와 실제 기본 Attack marker 1.02s가 불일치하므로 타임라인 교정 필요. |
 | 전차 (Tank) | 100 | 30 | 3.0 | 4.0 | 1 | 0:17(4:00) | 30초 | 400 | 1 | 건물에 2배 대미지 |
 | 포격수레 (CannonCart) | 50 | 20 | 3.0 | 4.0 | 1 | 0:17(4:00) | 20초 | 150 | 1 | 건물에 2배 대미지 |
 
@@ -51,13 +71,13 @@
 |------|----|--------|--------------------|--------------------|------------------|------------------|-----------|-----------|------|------|
 | EmberSpirit | 35 | 6 | 0.5 | 1.0 | 0.5 | 1:00(2:20) | 5초 | 50 | 1 | |
 | FlameSpirit | 35 | 3 | 0.5 | 1 | 2 | 0:20,1:05,1:13,1:20,1:28,2:03(3:00) | 10초 | 100 | 1 | 6히트 공격 |
-| InfernoSpirit | 60 | 25 | 4.0 | 4.0 | 1 | 1:15(3:00) | 30초 | 400 | 1 | 피격 유닛에 DoT 5/초 × 3초 추가 피해 (유닛 대상만 적용) |
+| InfernoSpirit | 60 | 25 | 4.0 | 4.0 | 1 | 1:15(3:00) | 30초 | 400 | 1 | 목표: 직접 피해 + DoT 5/초×3초. 특수 핸들러 미등록, 설정 1.15s와 Attack marker 0.50s 불일치 — Incomplete. |
 | DustSpirit | 40 | 6 | 0.5 | 1.0 | 0.5 | 1:04(3:00) | 5초 | 50 | 1 | |
 | BoulderSpirit | 90 | 8 | 0.5 | 1.0 | 0.5 | 1:15(4:00) | 15초 | 100 | 1 | |
-| QuakeSpirit | 250 | 20 | 0.5 | 1.0 | 0.5 | 1:20(5:00) | 30초 | 400 | 1 | 착탄형 AoE — 중심 타일 1마리 100% 피해, 중심 타일 나머지 유닛 + 인접 6타일 전체 50% 피해 |
+| QuakeSpirit | 250 | 20 | 0.5 | 1.0 | 0.5 | 1:20(5:00) | 30초 | 400 | 1 | 목표: MeleeContact GroundImpact · Area/Circle, 중심 100%·주변 50%. **UnitStatsConfig 항목과 Attack marker가 모두 없어 현재 런타임 수치가 이 표와 다를 수 있음 — Critical Incomplete.** |
 | TideSpirit | 30 | 7 | 0.5 | 1.0 | 1 | 1:15(3:00) | 5초 | 50 | 1 | |
 | StreamSpirit | 30 | 6 | 3.0 | 3.0 | 0.5 | 0:17(1:15) | 10초 | 100 | 1 | |
-| TorrentSpirit | 100 | 20 | 3.0 | 3.0 | 0.5 | 0:50(4:00) | 30초 | 400 | 1 | 파도형 이동 AoE(구현 완료) — 전방으로 이동하는 월드 좌표 직사각형(폭 `waveWidth` 3 × 전방 `waveLength` 3, 타겟 방향) 전선이 닿는 **적 유닛·적 건물 20 피해 / 아군 유닛 10 힐**, 각 대상 1회. special-only(단일 공격 없음). 힐량·파도 파라미터는 SpecialAttackConfig, 피해는 공격력. 타격 0.5s는 임시(클립 튜닝 대상). 상세: GameSystemRules_Units 규칙 28~31 |
+| TorrentSpirit | 100 | 20 | 3.0 | 3.0 | 0.5 | 0:50(4:00) | 30초 | 400 | 1 | TravelingArea · Area/Rectangle · 적 피해+아군 회복 · ContactOncePerTarget. 현재 서버 전선 로직은 유지하되 ActionSequence·접촉 ID로 이전 필요 — MigrationRequired. |
 
 ## 유닛 — 초월계 (Transcendence)
 
@@ -69,8 +89,8 @@
 | RhinoBreaker | 60 | 10 | 0.5 | 1.0 | 2 | 1:05(2:00) | 20초 | 200 | 1 | |
 | EagleArcher | 35 | 6 | 3.0 | 3.0 | 1 | 0:10(1:00) | 15초 | 150 | 1 | |
 | RabbitTrickster | 20 | 6 | 0.5 | 1.0 | 2 | 0:18(2:00) | 5초 | 50 | 1 | |
-| MushroomBomber | 40 | 10 | 2.0 | 2.0 | 1 | 1:00(3:00) | 15초 | 200 | 1 | 착탄형 AoE(구현 완료) — 착탄 대상 1마리 **직접 10**(주 타깃 단일 피해, 건물 공성 포함) + 착탄 중심 **월드 원형 반경**(`blastRadius` 기본 1.0=인접 1칸) 내 **적 유닛** DoT 2/초×3초(총 6). DoT는 **1초 간격 discrete**·**매초 남은 체력 데미지 텍스트**·틱당 올림(총량 6 클램프). 건물은 직접만·DoT 제외(주 타깃 건물이어도 주변 유닛 DoT), 주 타깃 유닛은 직접+DoT, 아군 무피해. 서버 권위. special-only 아님(`ReplacesPrimaryAttack=false`). 생산: SporePatch(식물 1단계). 상세: GameSystemRules_Units 규칙 38~40 |
-| BloomFairy | 50 | - | 4.0 | 4.0 | 1 | 1:00(3:00) ⚠️예외 | 20초 | 150 | 1 | 아군 단일 지정 힐 20 HP/3초 (공격 불가, 구현 완료). 생산: FloralNursery(식물 2단계). ⚠️ **힐 주기 = 발동 준비 1.0초(`HitFrameTimes[0]`) + 발동 후 쿨다운 3.0초 = 실제 주기 4.0초**. **쿨다운 예외**: 다른 모든 유닛은 쿨다운이 발동 준비를 포함한 전체 주기(공격 시작 시 쿨다운 시작, `TryAttack` 패턴 — 위 표기 관례상 `(3:00)`=전체 3초)지만, **BloomFairy만 쿨다운(3.0s)이 힐 발동 준비(1.0s)를 미포함** → 발동 후부터 쿨다운 카운트라 실제 주기 4.0초. **의도된 설계(버그 아님) — 다른 유닛과 같게 되돌리지 말 것.** 회복 발동은 애니 이벤트 `OnAttackHit`이 아니라 상태머신 `HitFrameTimes` 타이머로 구동(`OnAttackHit`은 연출 전용). 상세: GameSystemRules_Units 규칙 32~36 |
+| MushroomBomber | 40 | 10 | 2.0 | 2.0 | 1 | 1:00(3:00) | 15초 | 200 | 1 | 목표: ProjectileImpact/LockedPoint · Single direct + Area/Circle. 주 타겟 직접 10 + 반경 적 유닛 DoT 2/초×3초. 권위 비행·착탄, ImpactHitRadius, Attack marker, 투사체·폭발 VFX가 없어 **Incomplete**이며 v2 Migration도 필요. |
+| BloomFairy | 50 | - | 4.0 | 4.0 | 1 | 1:00(3:00) ⚠️예외 | 20초 | 150 | 1 | 목표: Hitscan cast · Single Heal · Periodic HoT 20/3초. 성공 주기만 Windup 1.0초 + Impact 후 쿨다운 3.0초 = 4.0초. 현재 회복 로직은 있으나 Attack marker가 없어 표현 교정 및 규칙 v2 이전 필요. |
 
 ---
 

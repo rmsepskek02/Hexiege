@@ -14,7 +14,9 @@
 | [GameSystemRules_Map.md](GameSystemRules/GameSystemRules_Map.md) | 대전 맵 전체 180도 대칭, 중앙/대응쌍 광산 공정성, 정적 최단 접근거리 검증 |
 | [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md) | FlatTop 11×21 무작위 대전 맵 5종 생성·광산·건설 제한·seed·폴백·검증 |
 | [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
-| [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계 |
+| [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동·정렬·타겟·공격·피해의 게임플레이 불변 규칙 |
+| [GameSystemRules_UnitCombatSynchronization.md](GameSystemRules/GameSystemRules_UnitCombatSynchronization.md) | 서버 권위 행동 회차, 시간, 방향, 타격 결과 및 멀티플레이 표현 동기화 계약 |
+| [UnitCombatAssetMatrix.md](Assets/UnitCombatAssetMatrix.md) | 25종 유닛 공격 프로필·클립·이벤트·VFX·구현 및 검증 상태 감사표 |
 | [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템 |
 | [GameSystemRules_CanvasSortingOrder.md](GameSystemRules/GameSystemRules_CanvasSortingOrder.md) | Canvas SortingOrder 구조, 씬별 Canvas 계층, 전역 UI z-order |
 | [GameSystemRules_Sound.md](GameSystemRules/GameSystemRules_Sound.md) | BGM 전환 규칙, SFX 정책, 볼륨 제어, AudioManager 아키텍처 |
@@ -65,11 +67,21 @@
 
 ### 유닛 관련 작업
 → [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md)
-- A* 이동, 공유 타일 상태, 경로 재계산
-- 상태 머신 (A* 이동 / 전투 이동 / 공격)
-- 감지/공격 사거리, 타겟 선택, AoE
-- 전투 연출 동기화 (타격 프레임 단일 소스, 피격 표현 큐, 원거리 트레이서, 애니메이션 상태 값 기반 동기화)
-- 특수 공격 시스템 (전략 핸들러 구조, 휩쓸기 월드 부채꼴 판정, SpecialAttackConfig 튜닝, AoE 연출 동시 방출)
+- A* 이동, AlignToMove, 경로 재계산, 유닛 겹침 허용
+- Acquire/Align/Windup/Impact/Recovery 상태와 결정적 타겟 선택
+- MeleeContact / Hitscan / ProjectileImpact / TravelingArea
+- AttackTimeline, 쿨다운, 범위·다중 타격·HoT/DoT 및 특수 유닛 의미
+
+→ [GameSystemRules_UnitCombatSynchronization.md](GameSystemRules/GameSystemRules_UnitCombatSynchronization.md)
+- Simulation Root / Visual Root 책임 분리
+- AttackSequenceId + HitIndex + 서버 시간 기반 결과·표현 상관관계
+- 늦은 참가, 순서 역전, 중복, 취소, 사망, 발사체·파도 동기화
+- 기존 공격자 FIFO와 클라이언트 Network Root 보정의 대체 계약
+
+→ [UnitCombatAssetMatrix.md](Assets/UnitCombatAssetMatrix.md)
+- 25종 Blue/Red 프리팹, Controller, Attack 클립과 Animation Event 감사
+- 설계 목표와 현재 런타임 전달 방식 분리
+- 미완성·마이그레이션·멀티 검증 상태
 
 ### 건물 관련 작업
 → [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md)

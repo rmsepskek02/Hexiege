@@ -468,3 +468,10 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
   즉시 제거) 실행 후 `special.Apply(ctx)` 호출 — `BlastAttackBehavior`는 `ctx.Units.Values`(생존자만)를 순회하므로
   직접타격으로 죽은 주 타깃은 자연스럽게 DoT 수집에서 제외됨(별도 방어 코드 불필요, 데이터 흐름상 자동 보장).
 - task: `_Tasks/2026-07-19/01_42_mushroombomber-impact-dot/`
+
+### 2026-07-20 - 유닛 전투 동기화 규칙 감사
+
+- 규칙 v2 완료 기준은 서버 ActionSequence/ImpactResult, Simulation Root/Visual Root, ActionMarkerOffset, Host/Client·Blue/Red·지연/지터/순서 역전/중복/늦은 스폰 검증을 모두 포함한다. Animation Event 존재만으로 PASS 처리하지 않는다.
+- 현재 25종 모두 v2 최종 멀티 검증 전이다. QuakeSpirit은 UnitStatsConfig 누락(Critical), QuakeSpirit/RhinoBreaker/MushroomBomber/BloomFairy는 기본 Attack marker 누락이다.
+- BattleAxe 1.1667/1.02, Pistoleer 2.0/0.8, Sniper 3.0/1.7333, Tank·Cannon 4.0/0.1667, Inferno 1.15/0.5, Stream 0.17/0.5, Fox 2.25/1.0 등 설정·marker 불일치를 구현 전 기준선으로 사용한다.
+- `hitPreset`과 `tracerPreset`은 0/25, `attackPreset`은 9/25다. 상세 단일 감사표는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`다.

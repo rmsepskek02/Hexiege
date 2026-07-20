@@ -1,6 +1,6 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.43.0
+**버전:** 0.44.0
 **최종 수정일:** 2026-07-20
 **작성자:** HANYONGHEE
 
@@ -121,7 +121,8 @@ Clean Architecture에서는 **안쪽 레이어가 바깥쪽 레이어를 알면 
 - **역할**: 서버/도메인 좌표계(Blue 기준 단일)를 Red 클라이언트 뷰 좌표로 반전
 - **반전 공식**: `Flip(pos) = 2 * mapCenter - pos` (맵 중심 기준 180° 반전)
 - **제공 API**: `IsFlipped`, `ToView()`, `FromView()`, `FlipDirection()`
-- **특징**: 스프라이트/메시 자체는 뒤집히지 않음 — 위치(Position)만 반전
+- **목표 경계(유닛 규칙 v2)**: 서버 좌표·NetworkTransform이 있는 Simulation Root는 반전하지 않는다. Red 클라이언트의 위치·방향 변환은 자식 Visual Root에만 적용한다.
+- **현재 런타임 주의**: `NetworkUnit.LateUpdate`가 Red 클라이언트에서 NetworkTransform 대상 Root 위치·회전을 직접 보정하는 Legacy 구조가 남아 있다. 이는 목표 경계와 불일치하며 ActionSequence 구현 단계에서 Visual Root로 이전한다.
 - **입력 역변환**: `ScreenToWorldPoint` 결과도 `FromView()`로 역변환 필요
 - **방향 반전**: 유닛 FacingDirection도 Red팀에서 FlipDirection() 적용 (NE↔SW, E↔W, SE↔NW)
 
@@ -179,7 +180,9 @@ void ShowEffectClientRpc(Vector3 position) {
 | **타일 점령** | NetworkList<TileOwnership> | 변경 시 |
 | **자원** | NetworkVariable<int> | 변경 시 |
 | **본기지 체력** | NetworkVariable<int> | 변경 시 |
-| **유닛 이동** | 클라이언트 예측 (AI 동일 로직) | - |
+| **유닛 이동·SimulationFacing** | Host 서버 권위 Simulation Root + NetworkTransform 결과 동기화 | 연속 |
+| **유닛 행동 상태** | 목표: 값 기반 `UnitActionSnapshot`; 현재: 위치/회전 + `UnitAnimState`와 개별 RPC 혼합 | 상태 변경 시 |
+| **공격 타격 결과** | 목표: `AttackImpactResult` (`AttackSequenceId + HitIndex`); 현재: HP 동기화 + 공격자 FIFO 표현 큐 | Impact 시 |
 
 #### 무작위 맵 시작 동기화 (확정 설계, 미구현)
 
@@ -1008,28 +1011,16 @@ public struct HexCoord {
 List<HexCoord> path = HexPathfinder.FindPath(grid, start, goal, blockedCoords);
 ```
 
-**경로 차단 (blockedCoords)**:
-- 모든 다른 유닛(아군/적군 무관)의 현재 Position을 이동 불가로 처리
-- **같은 팀** 유닛의 ClaimedTile(이동 중 선점 타일)도 차단 목록에 포함 → 아군끼리 겹침 방지
-- **적 팀**의 ClaimedTile은 차단하지 않음 → 적과의 타일 경합은 전투로 해결
-- UnitMovementUseCase가 RequestMove() 시 자기 자신을 제외한 모든 살아있는 유닛 좌표 + 같은 팀 ClaimedTile을 HashSet으로 구성하여 전달
-- **목표 타일은 차단 체크 제외** (2026-03-18 수정): 경로 중간 타일에만 blocked 적용. 목표 타일도 blocked 체크 시, 인접 타일이 모두 선점되면 Castle에 도달 불가한 교착 상태 발생 가능
-
-**ClaimedTile (이동 중 타일 선점)**:
-- UnitData.ClaimedTile (HexCoord?) — Lerp 시작 전 설정, Lerp 완료 후 해제
-- 같은 팀 유닛만 이 타일을 이동 불가로 인식 (경로탐색 시 우회)
-- 적 팀에게는 투과 → 같은 타일에 적이 진입 시 전투 발생
-
-**Per-step 타일 가용성 체크 (이동 중 실시간 검증)**:
-- MoveAlongPath에서 각 스텝 시작 전 `IsTileBlockedBySameTeam()` 호출
-- 같은 팀 유닛의 Position 또는 ClaimedTile이 다음 타일과 겹치면 차단 판정
-- 차단 시 현재 위치에서 최종 목적지까지 재탐색 (RequestMove) → 새 경로로 교체
-- 재탐색 실패 시 이동 중단 (Idle 복귀)
-- 적 팀은 체크하지 않음 — 전투로 해결
+**현행 경로 차단 규칙 (2026-05-11 이후)**:
+- 정적 이동 불가 지형과 건물만 경로를 차단한다.
+- 유닛 Position과 `ClaimedTile`은 `blockedCoords`에 넣지 않는다.
+- 같은 타일의 아군·적군 유닛 겹침을 허용한다.
+- 다음 타일이 건물 생성 등으로 이동 불가가 되면 서버가 현재 위치에서 목적지까지 재탐색한다.
+- 과거의 유닛 점유·같은 팀 `ClaimedTile` 차단 설계는 Legacy이며 현행 게임 규칙이 아니다.
 
 **유닛 스폰 검증**:
-- UnitSpawnUseCase.SpawnUnit()에서 계산된 타일 `IsWalkable` 검증 + 유닛 점유 검증 (GetUnitAt)
-- 건물이 있거나 다른 유닛이 이미 있는 타일에는 유닛 생성 불가
+- 정적 이동 가능 여부와 건물 점유를 검증한다.
+- 유닛 점유만으로 스폰을 거부하지 않는다.
 
 ---
 
@@ -1070,9 +1061,9 @@ public class UnitAI : MonoBehaviour {
 }
 ```
 
-### 현재 구현: 전투 시스템 (프로토타입)
+### Legacy: 초기 전투 프로토타입
 
-프로토타입에서는 State 패턴 대신 코루틴 기반으로 이동→공격 흐름 구현.
+아래 `IDamageable` 설명은 공통 피해 대상이라는 역사적 구조를 설명한다. 초기 코루틴 기반 이동→즉시 공격 흐름은 2026-07-20 유닛 규칙 v2의 Align/Windup/Impact/Recovery 및 서버 ActionSequence 목표 계약으로 대체되었으며 현행 설계 기준으로 사용하지 않는다.
 
 #### IDamageable 인터페이스
 
@@ -1143,7 +1134,7 @@ public class UnitData : IDamageable {
     public int AttackPower { get; }    // UnitStats에서 결정
     public int AttackRange { get; }    // UnitStats에서 결정
     public bool IsAlive => Hp > 0;
-    public HexCoord? ClaimedTile { get; set; } // 이동 중 선점 타일 (같은 팀만 차단)
+    public HexCoord? ClaimedTile { get; set; } // Legacy 필드: 현행 경로 차단 권위로 사용하지 않음
 }
 ```
 
@@ -1156,41 +1147,25 @@ public class BuildingData : IDamageable {
 }
 ```
 
-#### 전투 흐름 (이동 중 거리 기반 전투)
-```
-유닛 이동 명령 (InputHandler / AutoMove)
-  ↓
-A* 경로 계산 (아군/적군 Position 우회 + 같은 팀 ClaimedTile 우회)
-  ↓
-각 스텝마다:
-  ↓
-다음 타일 가용성 체크 (IsTileBlockedBySameTeam)
-  ↓ 차단됨
-현재 위치 → 최종 목적지 재탐색 (RequestMove) → 새 경로로 교체
-  ↓ 통과
-ClaimedTile = 다음 타일 (같은 팀 겹침 방지)
-  ↓
-타일→타일 Lerp 이동 (UnitView 코루틴)
-  ↓ Lerp 중 매 프레임
-사거리 내 적(유닛/건물) 탐색 (UnitCombatUseCase.TryAttack)
-  ↓ 적 발견
-이동 중단 → 공격 방향 계산 → IDamageable.TakeDamage() → 이벤트 발행
-  ↓
-적 HP ≤ 0? → EntityDied 이벤트 → View 파괴 + Dictionary 제거
-  ↓
-사거리 내 적이 남아있으면 반복 공격
-  ↓
-전투 승리 → 남은 Lerp 계속 → 타일 중앙 도착 = 점령
-  ↓
-ClaimedTile 해제, ProcessStep(Position 갱신 + SetOwner)
-  ↓
-모든 경로 이동 완료 → Idle 상태 복귀
+#### 목표 전투 흐름 — 유닛 규칙 v2
+
+```text
+서버 이동 명령
+  → A* Navigate
+  → AlignToMove(10° 진입 / 15° 이탈)
+  → Move
+  → AcquireTarget(거리 → 대상 종류 → 안정 ID)
+  → Chase 또는 AlignToAttack(5° 진입 / 8° 유지)
+  → AttackSequence 커밋
+  → Windup
+  → 서버 ImpactResult(0..N)
+  → Recovery
+  → 타겟 유지·재탐색 또는 A* 이동 재개
 ```
 
-**핵심 규칙: 타일 중앙 도착 = 전투 승리 = 점령**
-- 전투는 Lerp 이동 중에 거리 기반으로 발동 (타일 중앙 도착 전)
-- 패배한 유닛은 타일 중앙에 도달하지 못하므로 점령 불가
-- SetOwner는 Lerp 완료 후 ProcessStep에서만 호출 (변경 없음)
+- 타일 중심 도착 시 점령하는 기존 의미는 유지한다.
+- 이동·타겟·방향·Impact·HP는 서버가 결정한다.
+- AttackSequence 구현 전까지 현재 코루틴·NetworkCombatController 경로가 런타임을 담당하지만, 신규 구현은 위 흐름과 `GameSystemRules_UnitCombatSynchronization.md`를 기준으로 한다.
 
 #### 사망 처리 (Dead Entity Cleanup, 2026-05-18 강타입 분리 / 2026-06-08 NGO Despawn 패턴 수정)
 ```
@@ -1259,38 +1234,70 @@ if (e.Unit.Id == _unitData.Id) { /* 이 유닛이 사망 */ }
 if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 ```
 
-#### 피격 표현 큐 (Hit Presentation Queue, 2026-07-12 전투 타격 타이밍 동기화)
+#### 서버 권위 Unit ActionSequence 목표 구조 (2026-07-20 규칙 v2, 런타임 미구현)
 
-데이터(HP)는 서버 시계를, 연출(HP 텍스트·피격 VFX·타격 반응)은 각 클라이언트의 로컬 타격 프레임을 따르도록 역할을 분리한다.
+상태 보유형 `UnitActionSnapshot`과 실제 판정 결과인 `AttackImpactResult`를 분리한다.
 
-- `EntityDamagedEvent` / `SyncHealthClientRpc`에 **공격자 정보(Id + 유닛 여부)** 를 추가했다. 도메인 HP는 서버 값 도착 즉시 갱신(서버 권위 유지)하되, 연출은 보류한다.
-- `HitPresentationQueue`(Presentation 신규)가 피격 정보를 공격자별로 큐에 보류하고, 공격자의 로컬 `UnitView.OnAttackHit` 시점에 FIFO 방출한다. 타임아웃(쿨다운×1.5)·타겟 사망·공격자 사망·공격자 전투 중단 시 즉시 방출한다.
-- `HitFrameTimes`(데미지 타격 시점)는 Attack 클립 `OnAttackHit` Animation Event 시간에서 `UnitFactory`가 자동 추출한다(수동 입력은 폴백). 데미지는 항상 서버 타이머로 적용하며 Animator 상태에 종속시키지 않는다.
-- 연출 API: `EffectManager.PlayUnitHit`(+`UnitEffectConfig.hitPreset`), `PlayBuildingAttack`(타워 발사, +`BuildingEffectConfig.attackPreset`), `TracerProjectile`(원거리 트레이서, +`tracerPreset`). HP 텍스트는 `FloatingHpTextSpawner.ShowDamage` 단일 진입점으로 통합.
-- 상세 규칙: `GameSystemRules_Units.md` 규칙 17~21, `GameSystemRules_Buildings.md` 규칙 12.
-- 구 `UnitEffectView.cs`(DEPRECATED)는 이 파이프라인이 역할을 대체하여 삭제됨.
+**UnitActionSnapshot — 유닛별 현재 상태 값**
 
-#### 유닛 애니메이션 상태 동기화 (2026-07-13 엣지 RPC → NetworkVariable 레벨 동기화)
+- SchemaRevision, SequenceId, Revision
+- ActionKind, AttackProfileId, Phase
+- TargetKind + TargetId 또는 권위 ImpactPoint
+- StartServerTick, NextImpactIndex + NextImpactServerTick, RecoveryEndServerTick
+- AuthoritativeFacing, CancelReason
+
+가변 길이 전체 Hit schedule은 NetworkVariable에 넣지 않는다. 정적 AttackProfile ID와 revision/hash로 양측 데이터 동일성을 확인하고, 스냅샷은 늦은 참가에 필요한 현재·다음 상태만 가진다.
+
+**AttackImpactResult — 서버 판정 후 신뢰 가능한 결과**
+
+- AttackerId + AttackerInstanceId, SequenceId, Revision, HitIndex
+- VictimKind + VictimId + ResultOrdinal
+- ImpactServerTick, ImpactPoint, AuthoritativeFacing
+- EffectKind, Amount, ResultingHp, Killed
+- Periodic 효과는 EffectInstanceId + TickIndex
+
+표현 상관키는 `(AttackerInstanceId, SequenceId, HitIndex, VictimKind, VictimId, EffectKind, ResultOrdinal)`다. Periodic은 `(EffectInstanceId, TickIndex, VictimKind, VictimId, EffectKind)`를 사용한다. 중복은 멱등하게 무시하고, 순서가 뒤바뀐 결과는 제한된 버퍼에서 같은 회차와 결합한다.
+
+**레이어 배치**
+
+- Domain: SequenceId, ActionPhase, Delivery, CancelReason 등 NGO 비의존 값
+- Application: UnitActionSequencer, AttackScheduler, 타겟·방향·Impact 결정 및 기존 피해 수렴점
+- Infrastructure: Network DTO, Snapshot NetworkVariable, ImpactResult 전송 어댑터
+- Presentation: UnitActionPresenter, VisualRootProjector, sequence-keyed ImpactPresentationBuffer
+- Bootstrap: clock, profile registry, sequencer, replication adapter 조합
+
+Application은 Unity.Netcode/Infrastructure를 역참조하지 않는다. 상세 규칙은 `GameSystemRules_UnitCombatSynchronization.md`를 따른다.
+
+#### Legacy 피격 표현 큐 (2026-07-12, 대체 예정)
+
+현재 런타임의 `HitPresentationQueue`는 공격자별 FIFO와 로컬 `OnAttackHit`으로 표현을 연결한다. 순서 역전 시 빈 신호를 버려 다음 공격 또는 타임아웃에 표현이 붙을 수 있으므로 규칙 v2에서는 정상 동기화 방식으로 금지한다.
+
+- 도메인 HP 즉시 수렴 원칙과 EffectManager/FloatingHpText API는 유지한다.
+- FIFO, 쿨다운×1.5 타임아웃, 단일 Hit AoE 큐 전체 방출은 `AttackSequenceId + HitIndex` 기반 PresentationBuffer로 대체한다.
+- 신규 경로를 shadow mode로 비교하기 전에는 기존 큐를 제거하지 않는다.
+- 구 `UnitEffectView.cs`가 삭제된 과거 이력은 유지한다.
+
+#### 현재 유닛 애니메이션 상태 어댑터 (2026-07-13, 규칙 v2 이전 대상)
 
 멀티플레이에서 유닛 애니메이션 상태(Walk / Attack)의 동기화 방식을 **"상태가 바뀌는 순간에만 1회성으로 쏘는 엣지 트리거 RPC"** 에서 **"현재 상태 값 자체를 공유하는 레벨 동기화(NetworkVariable)"** 로 전환했다.
 
 - **전(엣지 RPC):** `StartWalkAnimationClientRpc` / `GameEvents.OnUnitWalkStarted` 등 1회성 신호로 클라이언트에 상태 변화를 통지. 신규 유닛이 구독을 완료하기 전에 첫 신호가 도착하면 유실되고 이후 바로잡을 수단이 없었다(스폰 레이스 — 클라 스폰 223기 중 222기에서 첫 Walk RPC 유실 실측). 갓 생산된 유닛에서 걷기 모션이 안 나오는 원인.
 - **후(레벨 동기화):** `NetworkUnit`에 `UnitAnimState`(None / Walk / Attack) `NetworkVariable`(ReadPermission=Everyone / WritePermission=Server, `_unitId` 패턴 재사용)을 두고 서버가 상태 진입 지점에서 값을 쓴다. 클라이언트는 `OnValueChanged` + **스폰 시 현재 값 자동 적용**으로 항상 서버의 현재 상태를 받으므로 신호 유실이 구조적으로 불가능하다. 호스트/싱글플레이는 기존 로컬 Animator 직접 제어를 유지.
 - **적용 시점 봉합:** 애니메이션 적용이 `UnitView.Initialize`(애니메이터 준비)보다 이르면 무음 실패하므로, `UnitView.Initialize` 말미에서 `NetworkUnit.ReapplyAnimStateToView()`로 현재 값을 **멱등 재적용**한다.
-- **역할 분리 유지:** 데미지 판정은 서버 타이머(규칙 18), 조준 회전은 별도 타겟 참조(규칙 12·15)로 애니메이션 상태 값과 분리. `_combatAnimationSent`는 애니메이션이 아니라 데미지(`ExecuteAttack`)·타겟 RPC 게이팅 가드로 유지.
-- **부수 위치 보정:** 재경로 재발급 시 첫 스텝이 최종 목적지 역방향으로 향하던 "뒤로 밀림"(서버 경로 자체가 원인, 클라 보간 무죄)은 `MoveTo`의 `AlignPathStartToTransform`로 실제 `transform` 전방 타일(`FindForwardClosestTile`)에서 재발급하여 보정(규칙 11 강제).
-- 상세 규칙: `GameSystemRules_Units.md` 규칙 22(규칙 21을 상위 대체). task: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`.
+- **한계:** Walk/Attack 값은 Animator 재생 상태만 복원하며 타겟·권위 방향·공격 회차·Impact 시각을 원자적으로 묶지 못한다. 규칙 v2에서는 `UnitActionSnapshot`의 Presentation adapter로 축소하고 공격 권위로 사용하지 않는다.
+- **부수 위치 보정:** 재경로 재발급 시 첫 스텝이 최종 목적지 역방향으로 향하던 "뒤로 밀림"(서버 경로 자체가 원인, 클라 보간 무죄)은 `MoveTo`의 `AlignPathStartToTransform`로 실제 `transform` 전방 타일(`FindForwardClosestTile`)에서 재발급하여 보정(`GameSystemRules_Units.md`의 U-MOV-PATH 계약).
+- 당시 작업 이력: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`. 목표 계약: `GameSystemRules_UnitCombatSynchronization.md`.
 
 #### 특수 공격 전략 핸들러 구조 (2026-07-17 도끼병 휩쓸기형 AoE)
 
-일반 유닛의 단일 타깃 피해와 별개로, 특수 능력(휩쓸기 / 착탄 / 파도 / DoT / 힐)을 가진 유닛의 추가 피해·효과를 **전략(핸들러) 패턴**으로 분리했다. 특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy) 중 도끼병이 첫 구현.
+일반 유닛의 단일 타깃 피해와 별개로, 특수 능력의 추가 피해·효과를 **전략(핸들러) 패턴**으로 분리한다. 현재 등록은 BattleAxe, TorrentSpirit, MushroomBomber이며 BloomFairy는 별도 힐러 경로다. QuakeSpirit과 InfernoSpirit 특수 로직은 미구현이다.
 
-- **계약/구성:** `ISpecialAttackBehavior.Apply(SpecialAttackContext)` 인터페이스 + `SpecialAttackContext`(공격자·주 타깃·유닛 목록·재사용 피해 헬퍼·월드 좌표 조회 수단·reach/arc) + `SpecialAttackRegistry`(`UnitType → 핸들러` 매핑, 현재 `BattleAxe → SweepAttackBehavior`만) + 유닛별 핸들러. 모두 `Scripts/Application/Combat/`. `UnitType` 키 매핑이라 인스펙터 배선 불필요.
+- **계약/구성:** `ISpecialAttackBehavior.Apply(SpecialAttackContext)` 인터페이스 + `SpecialAttackContext`(공격자·주 타깃·유닛 목록·재사용 피해 헬퍼·월드 좌표 조회 수단·reach/arc) + `SpecialAttackRegistry`(`UnitType → 핸들러`) + 유닛별 핸들러. 현재 등록은 `BattleAxe → SweepAttackBehavior`, `TorrentSpirit → TorrentAttackBehavior`, `MushroomBomber → BlastAttackBehavior`다. 모두 `Scripts/Application/Combat/`. `UnitType` 키 매핑이라 인스펙터 배선 불필요.
 - **피해 수렴점 단일화:** `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해 로직을 `ApplyDamageToVictim` 헬퍼로 추출하여 주 타깃과 AoE 대상이 **같은 피해·이벤트·사망 처리 경로**를 쓰게 했다(멀티플레이 HP 동기화 일관). `ExecuteAttack` 말미에 특수 공격 훅 1줄만 추가 → 신규 특수 유닛은 핸들러 + 레지스트리 1줄로 확장하며 `ExecuteAttack` 재수정 불필요.
 - **휩쓸기 판정(SweepAttackBehavior):** 타일 소속이 아니라 **월드 좌표 전방 부채꼴**(forward = 공격자 → 주 타깃, XZ 거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`). 월드 좌표는 `IEntityPositionProvider`(서버 권위). 아군/사망/공격자/주 타깃 제외, 건물 미대상.
 - **튜닝 SO:** `SpecialAttackConfig`(Infrastructure/Config, `sweepReach`·`sweepArcHalfAngle`). GameBootstrapper가 SO 값을 읽어 핸들러에 **float로 주입**(Application → Infrastructure 역참조 회피). 에셋 생성 + 배선은 `CreateSpecialAttackConfigAsset.cs`가 멱등 자동화. ⚠️ 에셋 생성 ≠ 씬 배선 — 미배선 시 폴백값 사용.
-- **AoE 연출 동시 방출:** `HitPresentationQueue`가 공격자 `HitFrameTimes.Length ≤ 1`이면 보류 큐 전부 방출(휩쓸기 N마리 동시 표시), `> 1`이면 신호당 1건(다중 히트 유닛 회귀 없음).
-- 상세 규칙: `GameSystemRules_Units.md` 규칙 23~27. task: `_Tasks/2026-07-16/18_06_battleaxe-aoe/`.
+- **규칙 v2 상관관계:** 같은 AoE Impact의 대상별 결과는 동일 SequenceId+HitIndex로 묶는다. 공격자 FIFO 큐 전체 방출은 Legacy이며 대체 대상이다.
+- 게임플레이 의미는 `GameSystemRules_Units.md`, 상태는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`, 당시 작업은 `_Tasks/2026-07-16/18_06_battleaxe-aoe/`를 참조한다.
 
 ### 건물 배치 시스템 (MVP Phase 1)
 
@@ -1677,6 +1684,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.44.0 | 2026-07-20 | 멀티플레이 유닛 이동·공격 규칙 v2 목표 아키텍처 반영. 서버 권위 `UnitActionSnapshot` + `AttackImpactResult`, AttackSequenceId/HitIndex 상관관계, Simulation Root/Visual Root 분리, 늦은 참가·순서 역전·중복 처리와 Clean Architecture 배치를 정의했다. 클라이언트 이동 예측, 유닛 점유 경로 차단, 공격자 FIFO 피격 표현은 Legacy로 정정했다. **문서 설계 완료이며 런타임 구현은 미완료다.** |
 | 0.43.0 | 2026-07-20 | `MapTestModeEnabled`를 초기 골드 전용 설정으로 확정. 정상 모드는 광산 수 표, 테스트 모드는 `TestStartingGold=5000`을 사용하며 멀티플레이에서는 Host 표식·실제 골드가 권위값이다. 표식(0/1)과 실제 골드를 canonical bytes·SHA-256·로그에 포함하고 NewMap 준비에도 동일 권한 경계를 적용하도록 명문화. |
 | 0.42.0 | 2026-07-19 | reliable map transfer의 10초 timeout, incomplete 한정 동일 nonce/package 전체 1회 재전송과 두 번째 실패 종료, version/size/SHA/deserialize/semantic/disconnect 즉시 실패를 확정. 최초·NewMap·싱글 실패 복구 UI/state, idempotent Retry와 새 seed 재준비, 내부 정보 비공개를 명문화. |
 | 0.41.0 | 2026-07-19 | canonical 180 orbit 기반 중립 광산 균등 sampling, 유형별 zone/lane 제약, spacing filter 없음과 repair 없는 attempt reject 확정. castle-neighbor→mine-neighbor multi-source BFS access metric, center/pair 교차·HexCoord 거리, mine 전후 corridor 폭과 start-to-end continuity validator를 명문화. |

@@ -235,6 +235,14 @@
 - PlayFab 백엔드 연동 (계정/랭킹/인앱결제)
 - 멀티플레이 로비 UI 완성
 
+### 2026-07-20 - 유닛 이동·공격 규칙 v2 확정
+
+- 서버 권위를 유지한 공통 행동 단계를 AlignToMove / Move / Acquire·Chase / AlignToAttack / Windup / Impact / Recovery로 확정했다.
+- 이동은 10° 이내에서 시작하고 이동 중 15°를 넘으면 재정렬한다. 공격은 5° 진입·8° 유지 기준이며, 커밋 전 취소는 무비용이고 커밋 후에는 쿨다운을 환불하지 않는다.
+- 공격 전달 방식은 MeleeContact / Hitscan / ProjectileImpact / TravelingArea로 분리하고 TargetScope·AreaShape·Effect·Schedule은 독립 축으로 둔다.
+- BloomFairy의 성공 발동 후 3초, Windup 포함 총 4초 예외는 유지했다. 구체 규칙은 `GameSystemRules_Units.md`와 `GameSystemRules_UnitCombatSynchronization.md`가 권위다.
+- 문서 설계만 완료했으며 25종 런타임 구현·멀티 검증은 아직 0/25다.
+
 ## 비주얼 목표
 - 레퍼런스: Clash of Clans, Clash Royale
 - 스타일: 카툰/스타일라이즈드, 밝고 선명한 색상

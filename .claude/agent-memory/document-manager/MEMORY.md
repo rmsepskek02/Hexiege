@@ -74,3 +74,10 @@
 
 - Completion update pattern: append task `Plan.md` completion result, add PASS results to task `Testcase.md`, update `PROJECT_STATUS.md`/`ROADMAP.md` progress sections from in-progress to complete, and replace the `WORK_HISTORY.md` in-progress entry with completed device verification results.
 - Keep stale unverified account cleanup as a long-term policy item, not part of the completed client flow slice.
+
+### 2026-07-20 - 유닛 전투 규칙 문서 구조 개정
+
+- `GameSystemRules_Units.md`는 게임플레이 불변 조건, 신규 `GameSystemRules_UnitCombatSynchronization.md`는 멀티플레이 복제·시간·순서 계약, 신규 `Assets/UnitCombatAssetMatrix.md`는 25종 구현·에셋 감사 상태를 담당한다.
+- `GameSystemRules.md`, `AGENTS.md`, `CONTEXT.md`, TDD, StatsReference, PROJECT_STATUS, ROADMAP, WORK_HISTORY와 작업 Research/Plan을 한 배치로 동기화했다.
+- 과거 완료 기록은 삭제하지 않고 Legacy 이력으로 보존하되 현재 상태 표에서는 v2 재검증으로 명시한다. 문서 설계 완료와 런타임 완료를 혼동하지 않는다.
+- 신규 문서 링크와 변경 문서의 로컬 Markdown 링크를 검사했고 `git diff --check`를 통과했다.

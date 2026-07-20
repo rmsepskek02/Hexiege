@@ -28,7 +28,9 @@
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Map.md` | 대전 맵 전체 180도 대칭, 광산 공정성 및 정적 최단 접근거리 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md` | FlatTop 11×21 무작위 대전 맵 5종 생성·검증 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, 건물 배치 패널, 인게임 설정 메뉴 |
-| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동, 전투 진입, 전투 연계 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동·정렬·타겟·공격·피해 게임플레이 불변 규칙 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UnitCombatSynchronization.md` | 서버 권위 행동 회차·타격 결과·멀티플레이 표현 동기화 계약 |
+| `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md` | 25종 유닛 공격 에셋·설정·구현·검증 상태 감사표 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md` | 랠리포인트, 건물 철거, 방어 타워 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_CanvasSortingOrder.md` | Canvas SortingOrder 구조 및 씬별 Canvas 계층 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Sound.md` | BGM 전환, SFX 정책, 볼륨 제어, AudioManager 아키텍처 |

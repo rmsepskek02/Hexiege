@@ -1,339 +1,370 @@
 # Game System Rules — 유닛
 
-유닛 이동, 전투 진입, 전투 연계에 관한 규칙 모음.
+유닛의 이동, 방향 정렬, 타겟, 공격, 피해·회복 및 특수 효과에 관한 게임플레이 불변 규칙이다.
+
+이 문서는 **게임에서 무엇이 참이어야 하는지**를 정의한다. 멀티플레이 복제와 순서 역전 처리는 `GameSystemRules_UnitCombatSynchronization.md`, 클래스·RPC·레이어 배치는 `TechnicalDesignDocument.md`, 런타임 수치는 검증된 `UnitStatsConfig`와 향후 `AttackProfile`, 사람이 읽는 수치 미러는 `StatsReference.md`, 유닛별 에셋·구현 감사 스냅샷은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`가 담당한다.
+
+> **상태:** 2026-07-20 규칙 v2 개정 완료. 런타임 구현은 아직 기존 구조이며 이 문서의 완료를 의미하지 않는다.
 
 ---
 
-## 목차
+## 1. 공통 권위와 좌표
 
-- [유닛 이동 시스템](#유닛-이동-시스템)
+### U-AUTH-SERVER. 서버 권위
 
----
+멀티플레이에서 서버는 이동, 경로 진행, 타겟, SimulationFacing, 공격 회차, 타격 시각·위치·결과, HP, 회복, 지속 효과 및 사망의 유일한 권위자다.
 
-## 유닛 이동 시스템
+클라이언트는 서버 결과를 재생하고 보간할 뿐, Animator·Animation Event·VFX·로컬 충돌로 게임 결과를 만들지 않는다.
 
-### 작업 배경
+### U-COORD-WORLD. 판정 좌표
 
-**초기 설계 (2026-04-29):**
-기존 이동/전투 로직(Phase 0/1/2)을 반복 패치하는 과정에서 고칠수록 다른 부분이 망가지는 현상이 반복됐다.
-이동 슬롯(삼각형 배치)과 공격 슬롯(동적 각도 기반)으로 유닛 겹침을 방지하는 방식으로 재설계했으나,
-수십 개의 유닛이 동시에 동작하는 환경에서 슬롯 배정 로직이 지나치게 복잡해져 버그가 잦아지는 문제가 재발했다.
+이동, 감지, 사거리, 방향, 범위 판정은 서버의 XZ 월드 좌표를 사용한다. Blue/Red 화면 관점 변환은 판정 좌표를 변경하지 않는다.
 
-**재설계 (2026-05-11):**
-슬롯 기반 분산 방식을 전면 폐기하고, 겹침을 허용하는 단순한 구조로 전환했다.
-- 이동 슬롯, 공격 슬롯, 타일 점유 한도 제거
-- 근접/원거리 구분 없이 모든 유닛이 동일한 상태 전환 로직을 공유
-- 규칙의 수와 복잡도를 최소화하여 구현 안정성 확보
+사거리 임계값은 공격 프로필의 `RangeMetric`으로 단일 계산한다. 기존 동작을 보존하는 초기 프로필은 다음과 같다.
 
----
+- AttackRange ≤ 0.5인 근접 공격: `MeleeContactDistance = 0.63 world unit`
+- 그 외 중심 거리 공격: `AttackRange × TileHeight`
+- 공통 경계 오차: `RangeEpsilon = 0.05 world unit`
+- 건물 대상 중심점 보정: `TargetRadius = 0.20 world unit`
 
-### 이동 규칙
+향후 콜라이더 또는 유닛별 TargetRadius를 도입할 때는 AttackProfile의 명시적 값으로 이전하고 방향별 인접 타일 테스트를 통과해야 한다. 공격별 범위 모양은 타일 소속이 아니라 월드 좌표로 계산한다.
 
-**규칙 1. 기본 목표**
-유닛은 스폰된 순간부터 상대방 성을 향해 이동한다.
+### U-ROOT-SEPARATION. 시뮬레이션과 표현 분리
 
-**규칙 2. 이동 방식**
-A*로 경로를 계산하고, 타일 중심에서 타일 중심으로 이동한다.
-같은 타일에 여러 유닛이 위치할 수 있으며, 겹침은 허용한다.
+- **Simulation Root:** 서버 위치·방향, NetworkTransform, 충돌·사거리·판정
+- **Visual Root:** 진영별 화면 변환, 모델 오프셋, Animator, VFX·SFX
 
-**규칙 3. 공유 타일 상태 (Shared Tile State)**
-모든 유닛이 접근할 수 있는 타일맵 상태를 서버에서 중앙 관리한다.
-유닛이 이동하면 즉시 업데이트되며, 경로 탐색 시 이 정보를 기반으로 판단한다.
-
-담고 있는 정보:
-- 어떤 엔티티가 있는가 (건물 / 성)
-- 어느 팀인가 (블루 / 레드)
-- 점령 상태 (누구 영역인가)
-
-유닛 점유 정보는 경로 탐색에 사용하지 않으므로 공유 타일 상태에 포함하지 않는다.
-
-멀티플레이: 서버에만 존재. 유닛 이동 결정은 서버에서만 이루어지며 클라이언트는 NetworkTransform으로 결과를 받는다.
-싱글플레이: 로컬에서 동일한 구조로 동작. 서버/클라이언트 구분 없이 단일 인스턴스로 실행된다.
-
-**규칙 4. 경로 재계산 및 적용 시점**
-건물 건설 / 건물 파괴 시 해당 시점에 모든 유닛의 경로를 즉시 재계산한다.
-
-계산된 경로는 유닛이 다음 타일에 도착하는 시점에 교체된다 (Pending Path 방식).
-이동 코루틴을 재시작하지 않으므로 유닛이 멈추지 않는다.
-
-예외: 유닛이 현재 이동 중인 타겟 타일 위에 건물이 생성된 경우,
-해당 타일이 더 이상 이동 가능하지 않으므로 즉시 코루틴을 재시작한다.
-
-**규칙 5. 이동 속도**
-이동 속도는 유닛별 스탯으로 개별 관리한다.
-A* 타일 이동과 전투 이동(월드 좌표 직선 이동) 모두 동일한 이동 속도 스탯을 사용한다.
-
-**규칙 6. 전투 사거리 판정 기준**
-전투 사거리 판정은 타일 기준이 아닌 월드 좌표 기준으로 처리한다.
-
-**규칙 7. A* 이동 중 회전**
-A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으로 바라본다.
-타일 전환 시 다음 타일 방향으로 서서히 회전한다.
-
-**규칙 8. A* 재개 시 회전**
-전투 종료 후 A* 이동을 재개할 때, 이동을 시작하기 전 첫 번째 이동 방향으로 서서히 회전한다.
-뒤를 바라본 채로 이동하는 경우는 허용하지 않는다.
+Red 화면의 180도 반전은 Visual Root에만 적용한다. 클라이언트가 NetworkTransform 대상 Root를 직접 이동·회전하지 않는다.
 
 ---
 
-### 전투 진입 규칙
+## 2. 이동
 
-**규칙 9. 감지 사거리와 공격 사거리**
-모든 유닛(근접/원거리 불문)은 감지 사거리와 공격 사거리를 별도로 가진다.
-감지 사거리는 항상 공격 사거리보다 길다.
-근접/원거리 유닛의 차이는 공격 사거리 수치와 공격 방식에만 있으며, 상태 전환 로직은 동일하다.
+### U-MOV-PATH. 경로와 점유
 
-**규칙 10. 유닛 상태 머신**
-유닛은 다음 세 가지 상태 중 하나에 있다:
+서버는 A*로 현재 위치에서 목적지까지 경로를 계산하고 타일 중심 사이를 이동시킨다.
 
-1. **A* 이동**: 상대방 성을 향해 타일 중심으로 이동 중
-2. **전투 이동**: 타겟을 향해 월드 좌표로 직선 이동 중
-3. **공격**: 멈추고 타겟을 공격 중
+- 정적 이동 불가 지형과 건물은 경로를 차단한다.
+- 다른 유닛의 현재 타일·선점 타일은 경로 차단 정보로 사용하지 않는다.
+- 같은 타일에 여러 유닛이 겹칠 수 있다.
+- 경로의 다음 타일이 건물 생성 등으로 이동 불가가 되면 서버가 현재 위치에서 재탐색한다.
+- 모든 유닛은 `MoveSpeed`(tiles/second)를 사용하며 한 타일 이동 시간은 `1 / MoveSpeed`다.
 
-상태 전환 조건:
+### U-MOV-PHASE. 이동 단계
 
-| 현재 상태 | 전환 조건 | 다음 상태 |
-|-----------|-----------|-----------|
-| A* 이동 | 감지 사거리 내 적 진입 | 전투 이동 |
-| 전투 이동 | 타겟이 공격 사거리 내 도달 | 공격 |
-| 전투 이동 | 타겟이 감지 사거리 이탈 | A* 이동 재개 |
-| 공격 | 타겟이 공격 사거리 이탈 + 감지 사거리 내 | 전투 이동 |
-| 공격 | 타겟이 감지 사거리 이탈 | A* 이동 재개 |
-| 공격 (타겟 처치 후) | 감지 사거리 내 다른 적 + 공격 사거리 내 | 공격 (새 타겟) |
-| 공격 (타겟 처치 후) | 감지 사거리 내 다른 적 + 공격 사거리 밖 | 전투 이동 |
-| 공격 (타겟 처치 후) | 감지 사거리 내 적 없음 | A* 이동 재개 |
+유닛 이동은 다음 의미 단계를 가진다.
 
-**규칙 11. A* 이동 재개 방식**
-전투 종료 또는 타겟 이탈로 A* 이동을 재개할 때:
-현재 월드 위치 기준으로 성 방향 앞쪽에 있는 타일 중 가장 가까운 타일의 중심으로 이동한 뒤 A*를 재개한다.
-뒤쪽 타일로 복귀하는 경우는 허용하지 않는다.
+```text
+Idle → Navigate → AlignToMove → Move
+                         ├─ 적 감지 → AcquireTarget
+                         └─ 경로 차단 → Navigate
+```
 
-**규칙 12. 전투 이동 중 회전**
-전투 이동(추격) 중 유닛은 항상 타겟 방향을 정면으로 바라본다.
-타겟 방향으로 서서히 회전하며, 타겟이 이동해도 지속적으로 타겟 방향을 유지한다.
+구현 enum은 다를 수 있지만, 이동 전 정렬과 실제 이동을 구분해야 한다.
 
----
+### U-MOV-ALIGN. 이동 방향 정렬
 
-### 전투 연계 규칙
+1. 서버는 다음 이동 목표의 XZ 벡터로 `DesiredMoveDirection`을 계산한다.
+2. 새 이동 방향을 받았을 때 방향 오차가 10°를 초과하면 속도를 0으로 하고 `AlignToMove`에서 제자리 회전한다.
+3. 최단 Yaw 방향으로 회전해 오차가 10° 이하가 된 서버 틱부터 이동한다.
+4. 이동 중 오차가 다시 15°를 초과하면 즉시 정지하고 재정렬한다.
+5. 10° 진입 / 15° 이탈의 히스테리시스로 경계에서 정지와 이동이 반복되지 않게 한다.
+6. 뒤를 보거나 옆을 본 채 다음 타일로 이동하지 않는다.
+7. 전투 종료 후 A* 이동을 재개할 때도 같은 규칙을 적용하며 위치를 스냅하지 않는다.
+8. 정렬 중 적이 AcquireRange에 들어오면 이동 정렬을 중단하고 타겟 획득을 우선한다.
 
-**규칙 13. 타겟 선택**
-처음 감지된 적을 타겟으로 삼는다.
-타겟을 처치한 후에는 감지 사거리 내에서 가장 가까운 적을 다음 타겟으로 선택한다.
-감지 사거리 내에 적이 없으면 A* 이동을 재개한다.
-
-**규칙 14. 공격 중 이동 금지**
-모든 유닛은 공격 중 이동하지 않는다.
-
-**규칙 15. 공격 중 회전**
-공격 중 유닛은 항상 타겟 방향을 정면으로 바라본다.
-타겟 방향으로 서서히 회전하며, 공격이 끝날 때까지 타겟 방향을 유지한다.
-
-**규칙 16. 범위 공격 (AoE)**
-범위 공격은 대미지 계산 방식의 차이이며, 이동 및 상태 전환 규칙은 동일하게 적용된다.
-아군에게는 대미지를 주지 않는다.
+각도는 초기 공통값이며 멀티플레이 실기 검증 후 `StatsReference.md`에서 조정할 수 있다.
 
 ---
 
-### 전투 연출 동기화 규칙
+## 3. 감지와 타겟
 
-데미지 판정(데이터)은 서버 권위로 유지하되, 화면 연출(애니메이션·이펙트)은 각 플레이어의 로컬 타격 프레임에 맞추기 위한 규칙 모음. (2026-07-12 신설, 전투 타격 타이밍 동기화 작업)
+### U-TARGET-RANGE. 획득·공격·이탈 거리
 
-**규칙 17. 타격 프레임 타이밍의 단일 출처**
-공격의 타격 시점(HitFrameTimes)은 유닛 Attack 애니메이션 클립의 `OnAttackHit` Animation Event 시간을 유일한 출처로 한다.
-유닛 생성 시 클립 이벤트에서 자동 추출하며, 수동 입력값은 클립에 이벤트가 없을 때만 폴백으로 사용한다.
-다중 히트 유닛은 클립의 여러 `OnAttackHit` 이벤트 시간을 오름차순으로 모두 수집한다.
+거리 관계는 다음을 만족한다.
 
-**규칙 18. 서버 데미지 타이밍 정밀화**
-멀티플레이 서버의 전투 Tick(50ms 격자)에서 쿨다운 만료를 감지할 때, 만료 후 초과 경과한 시간(오버슈트)을 데미지 딜레이에서 차감하여 격자 오차 누적을 제거한다.
-쿨다운 감소는 실제 경과 시간과 1:1로 처리한다(이월 잔여분을 다음 Tick의 경과 시간에 다시 포함하지 않는다).
-데미지는 항상 서버 타이머로만 적용하며, Animator 상태(`OnAttackHit`)에 종속시키지 않는다.
+```text
+AttackRange ≤ AcquireRange < LoseRange
+```
 
-**규칙 19. 피격 표현 큐**
-도메인 HP는 서버 값 도착 즉시 갱신한다(서버 권위 유지).
-단 피격 연출(HP 텍스트·피격 VFX·타격 반응)은 공격자의 로컬 `OnAttackHit` 시점까지 보류했다가 방출한다.
-다음 경우에는 잔여 연출을 즉시 방출한다: ① 공격 사이클 1회분 경과(타임아웃) ② 타겟 사망 ③ 공격자 사망 ④ 공격자의 전투 중단(StopCombat).
-피격 VFX에는 사운드 규칙 15에 따라 대응 SFX를 짝으로 두거나, 없을 경우 주석으로 명시한다.
+- 기존 `DetectRange`는 `AcquireRange`로 해석한다.
+- 현재 `DetectRange == AttackRange`인 유닛도 유효하다.
+- 기본 `LoseRangeWorld`는 `AcquireRange`를 프로필의 RangeMetric으로 월드 단위 변환한 값에 `0.25 world unit`을 더하며 유닛별로 조정할 수 있다.
+- LoseRange 여유값은 타겟 유지 히스테리시스이며 공격 사거리 오차와 다르다.
 
-**규칙 20. 원거리 유닛 트레이서**
-원거리 유닛은 `OnAttackHit` 시점에 연출 전용 발사체(트레이서: 발사→비행→착탄)를 재생한다.
-트레이서는 순수 시각 표현이며 데미지 판정 타이밍(서버)에 영향을 주지 않는다.
-착탄 시점에 피격 표현 큐를 방출한다.
+### U-TARGET-SELECT. 결정적 타겟 선정
 
-**규칙 21. Attack 루프 이탈 시 전투 애니메이션 재전송 가드 해제**
-클라이언트가 Attack 애니메이션 루프를 이탈(서버가 Walk RPC를 전송)한 시점에, 서버는 해당 유닛의 StartCombat 재전송 가드(`_combatAnimationSent`)를 해제한다.
-이는 서버는 전투를 계속하는데 클라이언트만 Walk 상태에 갇혀 공격 모션이 재생되지 않는 경쟁 조건을 방지하기 위함이다. 규칙 19의 피격 표현 큐가 공격자의 로컬 타격 프레임을 통해 정상 방출되도록 보장하는 전제 조건이다.
+서버는 AcquireRange 안의 살아 있고 공격 가능한 적을 다음 순서로 고른다.
 
-> **참고 (2026-07-13):** 규칙 21은 애니메이션 상태를 1회성 엣지 RPC로 전달하던 구조에서 발생한 경쟁 조건의 봉합책이었다. 규칙 22의 값 기반(NetworkVariable) 레벨 동기화가 그 전제(클라이언트가 항상 서버의 현재 상태를 자동 수신)를 구조적으로 보장하므로, 규칙 22가 규칙 21을 **상위 대체**한다. 재전송 가드(`_combatAnimationSent`) 자체는 애니메이션이 아니라 데미지(`ExecuteAttack`)·타겟 RPC 게이팅 기능으로 유지된다.
+1. XZ 제곱 거리를 `0.001 world unit²` 단위로 양자화한 값의 오름차순
+2. 같은 거리에서는 대상 종류의 안정 순서: Unit → Building
+3. 같은 종류에서는 안정 EntityId 오름차순
+
+순회 순서나 클라이언트 프레임에 의존하는 “처음 발견된 적”을 사용하지 않는다. 성 공성이나 경로 차단 건물처럼 별도 강제 타겟 규칙이 필요한 경우 해당 정책을 일반 우선순위보다 먼저 명시한다.
+
+### U-TARGET-HOLD. 타겟 유지
+
+한 번 획득한 타겟은 살아 있고 유효하며 LoseRange 안에 있는 동안 유지한다. 더 가까운 적이 새로 들어왔다는 이유만으로 즉시 변경하지 않는다. 타겟 사망·무효화·LoseRange 이탈 시 해제한 뒤 결정적 규칙으로 다시 찾는다.
 
 ---
 
-### 애니메이션 상태 동기화 규칙
+## 4. 전투 상태와 방향
 
-**규칙 22. 유닛 애니메이션 상태의 값 기반 동기화** (2026-07-13 신설, 이동/Walk 애니메이션 동기화 작업)
-멀티플레이에서 유닛의 애니메이션 상태(Walk / Attack 등)는 서버가 쓰고 모든 클라이언트가 읽는 **NetworkVariable(서버 권위 값)** 로 동기화한다. `NetworkUnit`에 `UnitAnimState`(None / Walk / Attack) NetworkVariable을 두고(ReadPermission=Everyone / WritePermission=Server), 클라이언트는 값이 변경될 때(`OnValueChanged`) 및 유닛 스폰 시 현재 값으로 애니메이션을 적용한다.
+### U-COMBAT-PHASE. 공격 단계
 
-상태가 바뀌는 순간에만 쏘는 1회성 RPC(엣지 트리거)에 애니메이션 상태를 의존시키지 않는다 — 스폰 레이스(신규 유닛이 구독을 완료하기 전에 첫 신호가 도착)나 신호 유실 시 클라이언트가 틀린 상태에 갇히는 것을 구조적으로 방지하기 위함이다. 호스트/싱글플레이는 기존 로컬 Animator 직접 제어를 유지한다.
+공격은 다음 의미 단계를 가진다.
 
-**적용 시점 봉합:** 애니메이션 상태 적용이 `UnitView.Initialize`(애니메이터 준비 완료)보다 이르면 무음 실패할 수 있으므로, `UnitView.Initialize` 말미에서 현재 상태 값을 **멱등하게 재적용**한다(`NetworkUnit.ReapplyAnimStateToView`). 재적용은 값 기반이라 몇 번 호출되어도 안전하다.
+```text
+AcquireTarget → Chase → AlignToAttack → Windup → Impact(s) → Recovery
+```
 
-데미지 판정은 규칙 18에 따라 서버 타이머로만 적용하며 애니메이션 상태 값과 분리한다. 조준 회전(타겟 방향 추적)은 애니메이션 상태와 별개의 타겟 참조로 처리한다(규칙 12·15). 규칙 19의 피격 표현 큐는 이 규칙으로 클라이언트 Attack 루프가 안정화되어 공격자 로컬 타격 프레임 방출이 정상 작동한다. (규칙 21의 재전송 가드 해제는 본 규칙의 값 기반 동기화로 대체된다.)
+- Chase: AcquireRange 안의 타겟이 AttackRange 밖이면 타겟 방향으로 이동한다.
+- AlignToAttack: AttackRange 안에서 이동을 멈추고 공격 방향을 맞춘다.
+- Windup: 공격이 커밋된 후 첫 Impact 전 준비 구간이다.
+- Impact: 서버가 타격별 결과를 확정하는 순간이다.
+- Recovery: 마지막 Impact 후 다음 행동이 가능해질 때까지의 구간이다.
 
----
+공격 중에는 이동하지 않는다. 예외적인 이동 공격은 별도 공격 프로필로 명시해야 한다.
 
-### 특수 공격 시스템 규칙
+### U-ATK-ALIGN. 공격 방향 정렬
 
-특수 능력(휩쓸기 / 착탄 / 파도 / DoT / 힐 등)을 가진 유닛의 추가 피해·효과 처리 규칙 모음. (2026-07-17 신설, 도끼병 휩쓸기형 AoE 구현 작업 — 특수 유닛 5종 중 첫 구현) 기본 규칙 16(범위 공격은 대미지 계산 방식의 차이, 이동/상태 전환은 동일, 아군 무피해)을 전제로 한다.
+1. 타겟이 유효하고 AttackRange 안이며 공격 사용 가능 상태여도 방향 오차가 5°를 초과하면 공격을 시작하지 않는다.
+2. 유닛은 정지한 채 `AlignToAttack`에서 회전한다. 이때 쿨다운과 Windup을 시작하지 않는다.
+3. 오차가 5° 이하가 된 서버 틱에 공격을 커밋하고 Windup을 시작한다.
+4. Windup 중 잠긴 타겟을 서버가 계속 추적 회전한다.
+5. MeleeContact와 Hitscan은 각 결과 Impact 순간 방향 오차가 8°를 초과하면 해당 타격이 빗나간다. ProjectileImpact와 TravelingArea는 Launch 또는 Activation 순간에 8°를 검사하고, 이후 착탄·접촉은 저장된 권위 방향과 위치를 사용한다.
+6. 5° 진입 / 8° 유지의 히스테리시스를 사용한다.
+7. MeleeContact·Hitscan은 Impact 순간, ProjectileImpact·TravelingArea는 Launch·Activation 순간의 SimulationFacing을 권위 AimDirection으로 기록해 판정과 표현이 같은 방향을 사용한다.
 
-**규칙 23. 특수 공격의 전략 핸들러 구조**
-특수 공격은 유닛별 독립 핸들러 클래스로 구현하고 `UnitType` 키 레지스트리로 매핑한다.
-- 계약: `ISpecialAttackBehavior.Apply(SpecialAttackContext)` — 특수 공격 1종 = 이 인터페이스를 구현한 클래스 1개.
-- 컨텍스트 `SpecialAttackContext`: 공격자, 주 타깃, 유닛 목록, 재사용 피해 헬퍼, 월드 좌표 조회 수단, reach/arc 값을 담아 핸들러에 전달한다.
-- 레지스트리 `SpecialAttackRegistry`: `UnitType → ISpecialAttackBehavior` 매핑(현재 `BattleAxe → SweepAttackBehavior`만 등록). 미등록 유닛은 특수 공격 없이 일반 단일 타깃 공격만 수행한다. `UnitType` 키 매핑이라 인스펙터 배선이 필요 없다.
-- 피해 수렴점 `UnitCombatUseCase.ExecuteAttack`은 단일 타깃 피해 직후 특수 공격 훅 1줄(레지스트리 조회 후 `Apply`)만 호출한다. 신규 특수 유닛은 **핸들러 추가 + 레지스트리 등록 1줄**로 끝내며 `ExecuteAttack`을 다시 수정하지 않는다.
-- 피해 로직 단일화: `ExecuteAttack`의 인라인 단일 피해(피해 적용 + 이벤트 발행 + 사망 처리)를 `ApplyDamageToVictim` 헬퍼로 추출하여 **주 타깃과 AoE 대상이 같은 경로**를 쓰게 한다(멀티플레이 HP 동기화 일관성 보장).
-- 파일 위치: 계약 / 컨텍스트 / 레지스트리 / 핸들러 모두 `Scripts/Application/Combat/`.
+### U-TARGET-COMMIT. 타겟 잠금과 공격 커밋
 
-**규칙 24. 휩쓸기형 AoE 판정 = 월드 좌표 전방 부채꼴**
-휩쓸기형(도끼병) AoE는 타일 소속이 아니라 **월드 좌표 기준 전방 부채꼴**로 대상을 판정한다.
-- 기준 방향(forward) = 공격자 → 주 타깃 방향(월드 XZ). `ExecuteAttack`이 공격 순간 공격자를 주 타깃 방향으로 향하게 하므로 주 타깃은 항상 전방에 포함된다(이동 중의 옛 방향이 아니라 타겟 방향이 기준).
-- 피격 조건: 각 적 유닛에 대해 공격자로부터의 **XZ 평면 거리 ≤ `sweepReach`** 이고 forward와 이루는 **각도 ≤ `sweepArcHalfAngle`(반각)** 이면 피격. Y축(UnitYOffset)은 무시한다.
-- 겹쳐 붙은 적(거리≈0)은 자연 포함되고, 등 뒤 적은 각도로 자연 제외된다.
-- 제외 대상: 아군, 사망 유닛, 공격자 자신, 주 타깃(규칙 16 아군 제외 + 주 타깃 중복 피해 방지). 건물은 AoE 대상이 아니며 주 타깃일 때만 단일 피해를 받는다.
-- 월드 좌표는 `IEntityPositionProvider`(서버 권위)로 조회한다(전투 사거리 판정 규칙 6과 동일 소스).
-- 순회 중 사망 유닛으로 인한 컬렉션 변경을 피하기 위해 대상을 **먼저 리스트로 수집**한 뒤 일괄 적용한다.
+- 커밋 전 Acquire·Align 단계에서는 타겟을 변경할 수 있다.
+- Windup 시작과 함께 AttackSequenceId와 TargetId를 고정한다.
+- 같은 공격 회차의 타격을 다른 타겟으로 이전하지 않는다.
+- 커밋 전 타겟 사망·무효화·LoseRange 이탈은 타겟을 해제하고 비용 없이 취소한다. AttackRange만 벗어난 경우에는 타겟을 유지한 채 Chase로 돌아가며 쿨다운을 소비하지 않는다.
+- 커밋 후 취소·빗나감·타겟 사망은 일반 쿨다운을 환불하지 않는다.
+- 새 타겟 공격은 반드시 새 AttackSequenceId를 사용한다.
 
-**규칙 25. 특수 공격 튜닝 파라미터 (SpecialAttackConfig)**
-특수 공격 수치는 `SpecialAttackConfig` ScriptableObject(`Infrastructure/Config`)로 Inspector에서 편집한다.
-- `sweepReach`(월드 반경, 기본 1.0 — 현재 실기값 0.75), `sweepArcHalfAngle`(부채꼴 반각, 단위 도, 기본 120).
-- 유닛 `attackRange`(주 타깃 공격/추격 거리, UnitStatsConfig)와 특수 AoE `sweepReach`(SpecialAttackConfig)는 **별개 값**이다(혼동 주의).
-- GameBootstrapper가 시작 시 SO 값을 읽어 특수 공격 핸들러에 **float 값으로 주입**한다(Application이 Infrastructure SO를 직접 참조하지 않음 — 레이어 규칙 준수). SO 미연결 시 코드 폴백값을 사용한다.
-- ⚠️ **에셋 생성 ≠ 씬 배선**: `SpecialAttackConfig.asset`을 만들어 값을 넣어도 GameBootstrapper `_specialAttackConfig`에 연결하지 않으면 런타임은 폴백값을 쓴다. 신규 SO 튜닝값은 배선까지 확인할 것. 셋업 스크립트 `CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)가 에셋 생성 + GameBootstrapper 배선을 멱등 자동화한다.
-
-**규칙 26. AoE 피격 연출 동시 방출**
-`HitPresentationQueue`는 규칙 19에 따라 공격자의 로컬 타격 신호(`OnLocalAttackHit`) 1회당 큐에서 보류 항목을 방출한다. AoE(한 타격 프레임에 다수 피해)는 공격자의 **타격 프레임 수(`HitFrameTimes.Length`)** 로 방출량을 분기한다.
-- **단일 타격 프레임(Length ≤ 1)**: 그 스윙의 모든 피해가 한 타격 프레임에 속하므로 해당 공격자 큐의 **보류 항목을 전부 방출** → 휩쓸기 N마리 연출이 타격 모션에 맞춰 **동시에** 표시된다. (일반 단일 타깃 유닛은 스윙당 큐 1건뿐이라 "전부 방출 = 1건 방출"로 동작 동일 — 회귀 없음.)
-- **다중 타격 프레임(Length > 1, 예: LionKnight 2타·FlameSpirit 6타)**: 기존대로 **신호당 1건** 방출(각 타격 프레임이 각자의 피해에 대응) → 다중 히트 유닛 연출 타이밍 회귀 없음.
-- 데미지·HP는 서버에서 모든 대상에 정확히 적용되며(규칙 18), 이 규칙은 **연출 표시 타이밍**만 다룬다. 향후 단일 타격 프레임 AoE(Quake/Torrent/Mushroom 착탄 등)에도 동일 적용된다.
-- 타격 프레임 수는 `_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`로 조회. 영향 파일: `Presentation/Effects/HitPresentationQueue.cs`.
-
-**규칙 27. 특수 유닛 Attack 클립 OnAttackHit 이벤트 주입**
-특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)의 Attack 클립에는 `OnAttackHit` Animation Event가 없어(전투 타격 타이밍 동기화 작업에서 의도적 제외) 데미지·피격 연출 시점이 폴백값으로 어긋난다. 각 유닛 구현 시 `hitFrameTimes`를 실제 타격 프레임으로 확정하고 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 이벤트를 주입한다(규칙 17). BattleAxe는 `1.1667s`, TorrentSpirit은 `0.5s`(임시 — 실제 파도 발동 프레임에 맞춰 튜닝)로 주입 완료(2026-07-17). BloomFairy는 힐 발동을 `HitFrameTimes` 타이머로 구동하고 `OnAttackHit`은 힐 연출 전용으로 처리 완료(2026-07-18, 규칙 32). MushroomBomber는 클립에 `OnAttackHit` **1개** 주입 완료(2026-07-19, 규칙 38~40). 잔여 1종(QuakeSpirit)은 구현 시점에 처리한다. ⚠️ 파도류(TorrentSpirit)는 OnAttackHit **1개만** 둘 것 — 2개 이상이면 한 공격에 파도가 중복 생성된다.
+타겟 잠금과 방향 잠금은 다르다. 일반 공격은 TargetId를 잠근 채 Windup 중 방향을 갱신하고, LockedPoint 공격만 발사 시 AimDirection과 ImpactPoint를 고정한다.
 
 ---
 
-### 특수 공격 시스템 규칙 — 확장 (2026-07-17, TorrentSpirit 파도형 이동 AoE + 힐 구현)
+## 5. 공격 전달과 결과
 
-**규칙 28. special-only 공격(단일 대상 공격이 없는 유닛)**
-일부 특수 유닛은 단일 대상 기본 공격이 아예 없고 특수 로직이 공격 전체를 담당한다(예: TorrentSpirit 파도).
-- `ISpecialAttackBehavior.ReplacesPrimaryAttack`가 true이면 `ExecuteAttack`이 주 타깃 단일 피해(`ApplyDamageToVictim`)를 **건너뛰고** 핸들러만 실행한다. false(도끼병 등)면 기존대로 주 타깃 단일 피해 후 핸들러.
-- 주 타깃은 특수 로직(파도 등)이 다른 대상과 동일하게 처리하므로 별도 단일 피해가 필요 없다.
-- 일반 유닛은 레지스트리에 없어 이 플래그를 조회하지 않으므로 무변경.
+### U-COMBAT-DELIVERY. 전달 방식
 
-**규칙 29. 이동 파도형 AoE(서버 권위 전선 시뮬레이션)**
-전방으로 이동하는 파도(TorrentSpirit)는 서버가 전선을 진행시키며 닿는 대상에 효과를 적용한다(규칙 18 준수 — 클라 파티클 위치에 종속 금지).
-- 핸들러(`TorrentAttackBehavior`)는 파도 모양·방향(공격자→주 타깃, 월드 XZ)만 계산해 `SpawnWave`로 요청하고, 실제 전선 전진·판정·효과는 `UnitCombatUseCase.SpawnWave`/`TickWaves`(`ActiveWave`)가 담당한다.
-- 판정 = **월드 좌표 직사각형**(폭 `waveWidth` × 전방 `waveLength`, 타겟 방향). 전선이 `waveTravelTime` 동안 전방 전진하며, 전방 성분 `p ≤ FrontDistance`(전선이 지남) AND `0 ≤ p ≤ Length` AND `|좌우| ≤ HalfWidth`인 대상을 닿음으로 본다.
-- **각 대상 1회만**(유닛·건물 각각 별도 hit-set — 유닛 Id와 건물 Id는 카운터가 달라 값 충돌 가능하므로 분리).
-- 대상: **적 유닛·적 건물 = 피해(공격력)**, **아군 유닛 = 힐**(건물은 힐 대상 아님). 시전자 자신·죽은 대상 제외.
-- ⚠️ special-only 유닛은 반드시 파도 판정이 **건물도 순회**해야 한다 — 안 그러면 성 파괴(승리조건) 기여 불가. (도끼병류는 주 타깃 단일 피해가 건물을 처리하므로 무관.)
-- 파도 피해/힐 연출은 대상별 닿는 시점이 달라 `HitPresentationQueue` 보류 큐를 우회해 **즉시 방출**한다(`EntityDamagedEvent.ImmediatePresentation` = true, 규칙 26 연장).
-- 틱 호출: 싱글=`GameBootstrapper.Update`(`!IsNetworkMode` 가드), 멀티=`NetworkCombatController`(IsServer 가드). 이중 틱 금지.
+공격 프로필은 다음 전달 방식 중 하나를 가진다.
 
-**규칙 30. 힐(회복) 서브시스템**
-아군 회복은 피격과 대칭 구조로 처리한다(TorrentSpirit·BloomFairy 공용).
-- `UnitData.Heal(amount)`: `Hp = Min(Hp+amount, MaxHp)`, 죽은 유닛엔 무동작.
-- 힐 이벤트 `GameEvents.OnEntityHealed`(`EntityHealedEvent`) — 피격(OnEntityDamaged)과 **분리된 채널**(연출/색상 구분).
-- 멀티 동기화: `NetworkHealthSync`가 HP **증가(힐)** 도 동기화한다(`SyncHealClientRpc` + 클라 `OnEntityHealed` 재발행). 기존엔 HP 감소만 동기화했으므로 힐 방향을 반드시 함께 열어야 한다.
-- 연출: `FloatingHpTextSpawner`가 치유 색상(`_healColor`)으로 표시. 피격 텍스트와 풀·배치 로직 공유. (⚠️ 예외: HoT 누적 회복의 힐 텍스트는 틱마다가 아니라 효과 종료 시 1회만 표시하며 표시값은 즉발 힐과 동일한 현재 HP 형식 — 규칙 37. 즉발 힐은 종전대로 즉시 표시.)
+- **MeleeContact:** 서버 접촉 Impact에 결과 확정
+- **Hitscan:** 서버 발사 Impact에 즉시 결과 확정
+- **ProjectileImpact:** 서버 권위 발사체의 착탄 Impact에 결과 확정
+- **TravelingArea:** 서버 이동 판정 영역이 대상과 접촉할 때 결과 확정
 
-**규칙 31. 다중 파티클 시스템 VFX 재생**
-VFX 프리팹이 "빈 루트 + 여러 형제 파티클 시스템"으로 구성된 경우(예: TorrentSpirit 파도 — Main_Water_Surge / Ground_Impact_Ripples / Front_Foam_Crest), `ParticleSystem.Play()`는 형제를 재생하지 않으므로 풀 아이템(`VfxPoolItem`)이 **직속 자식 시스템 전부를 각각 재생**해야 한다(하나만 재생하면 일부만 보인다). 루트에 파티클이 있는 프리팹은 기존대로 루트 하나만 `Play(true)`로 하위까지 재생한다. 유닛 공격 VFX는 `EffectPreset`(vfx 프리팹을 감싸는 ScriptableObject)을 만들어 `UnitEffectConfig`의 해당 UnitType `attackPreset`에 연결한다.
+원거리라는 이유만으로 모두 Hitscan 또는 시각 트레이서로 취급하지 않는다.
 
-> **참고 (미완/후속)**: 파도 VFX는 현재 시전자 위치에서 1회 재생되며 서버 전선처럼 전방 이동하지는 않는다(시각적 이동감은 파티클 프리팹 튜닝 또는 별도 이동 로직으로 보강 가능). 규칙 29의 **데미지/힐 판정은 서버 전선**이 권위이며 VFX와 독립적이다.
+### U-COMBAT-AXES. 독립 공격 속성
 
----
+전달 방식과 다음 속성을 분리한다.
 
-### 특수 공격 시스템 규칙 — 힐러 확장 (2026-07-18, BloomFairy 꽃요정 힐러 구현)
+- **TargetScope:** Single / Area
+- **AreaShape:** Cone / Circle / Rectangle 등
+- **Effect:** Damage / Heal / Status
+- **ApplicationSchedule:** Instant / MultiImpact / Periodic / ImpactThenPeriodic / ContactOncePerTarget
 
-BloomFairy는 지금까지의 특수 유닛과 근본적으로 다른 **힐러**다. 적을 때리지 않고 부상당한 아군을 회복시킨다. 기존 전투 흐름(적 감지 → 공격)에 얹을 수 없어 **힐러 전용 경로**를 신설했고, 그 과정에서 만든 시간 지속 효과 시스템(HoT/DoT)은 이후 지속 피해(DoT) 유닛(InfernoSpirit·MushroomBomber 등)이 공용으로 재사용한다. 규칙 28~31(TorrentSpirit 파도·힐 서브시스템)을 전제로 한다.
+한 공격 회차가 주 타겟 직접 결과와 범위 결과를 함께 가지면 `ImpactComponent[]`로 각 구성요소의 TargetScope·AreaShape·Effect·Schedule을 따로 선언한다.
 
-**규칙 32. 힐러 전용 경로 (적 공격 흐름과 분리)**
-힐러(BloomFairy)는 적 주 타깃이 없어 `ExecuteAttack`/`ISpecialAttackBehavior`(적 공격 흐름)·`SpecialAttackRegistry`에 **등록하지 않는다**. 대신 상태머신이 "이 유닛은 힐러"임을 데이터로 인식하고 힐 루프를 타는 **독립 경로**로 처리한다.
-- special-only(단일 대상 공격 없음)이지만 TorrentSpirit(규칙 28, special-only이나 적을 때림)과 달리 **대상이 아군**이라 적 공격 파이프라인과 완전히 분리된다.
-- 힐러 식별은 UnitType 하드코딩이 아니라 데이터(역할/힐러 플래그)로 분기하여 향후 지원 유닛이 재사용할 수 있게 한다.
-- 힐 발동은 애니 이벤트 `OnAttackHit`이 아니라 상태머신의 `HitFrameTimes` 타이머로 구동한다(데미지와 동일 관례 — `OnAttackHit()`은 이 코드베이스에서 데미지를 발동하지 않고 VFX/SFX·피격 연출만 담당하며, 실제 데미지도 서버 권위로 `HitFrameTimes` 타이밍에 적용된다). `OnAttackHit`을 힐 발동에 쓰면 데미지와 메커니즘이 갈리고 클립에 이벤트 미주입 시 회복이 영영 발동 안 되는 취약점이 생기므로, `OnAttackHit`은 힐 연출용으로만 남긴다.
+“착탄형 AoE”는 전달 방식과 범위를 혼합한 Legacy 용어이므로 신규 프로필에서 사용하지 않는다.
 
-**규칙 33. 부상 아군 탐색 (팀 필터 반대)**
-힐 대상은 기존 적 탐색(`unit.Team == self.Team || !IsAlive → 제외`)의 **팀 필터를 반대로** 한 아군 탐색으로 찾는다(기존 적 탐색 메서드는 무변경 — 회귀 방지, 아군 탐색은 별도 메서드로 신설).
-- 조건: **같은 팀** AND **살아있음** AND **부상(`Hp < MaxHp`)**.
-- **본인 포함**(자가 회복 허용) — 적 탐색과 달리 self를 후보에서 제외하지 않는다.
-- **아군 유닛만** — 건물은 힐 대상이 아니다.
-- 사거리: 힐/감지 사거리 4.0, 월드 좌표(`IEntityPositionProvider`, 규칙 6과 동일 소스).
-- 우선순위: **잃은 체력 비율 `(MaxHp − Hp) / MaxHp` 최대** 우선, **동률이면 거리 최소**.
+### U-IMPACT-MELEE. 근접 타격
 
-**규칙 34. HoT/DoT 공용 시간 지속 효과 시스템 (서버 권위 diff 틱)**
-"유닛에 붙는 시간 지속 효과"(회복 HoT / 피해 DoT)를 서버 권위로 관리하는 공용 시스템. BloomFairy(HoT) + 후속 DoT 유닛이 공용으로 재사용한다.
-- 배치 레이어: `Application`(규칙 29 파도 틱과 대칭). 파도(`ActiveWave`/`TickWaves`)와 동일한 소유·틱 패턴을 따른다.
-- 효과 레코드(대상별): 대상 UnitId, 종류(Heal/Damage), 남은 시간, 총량/지속, 누적 적용량. **대상별 동종 효과 1개만** 유지한다.
-- **diff 틱 방식**: 매 틱 "지금까지 적용됐어야 할 누적량 − 이미 적용한 량"을 이번 틱 적용량으로 계산 → 분할·반올림 오차 없이 **총량 정확히** 도달(마지막 틱 잔량 정산). 예: 3초 20HP HoT는 정확히 20HP 회복. (이 diff 방식은 HoT의 "매 프레임 부드럽게" 연속 모드다. DoT는 `TickInterval` 양수로 분기되는 **초 단위 discrete 틱 모드**를 쓴다 — 규칙 40.)
-- Heal → `UnitData.Heal` + `OnEntityHealed`(규칙 30 인프라 재사용). Damage(후속 DoT) → 기존 피해 경로(`ApplyDamageToVictim` 계열) + `OnEntityDamaged`.
-- **갱신 = 리셋(중첩 없음)**: 동일 대상에 동종 효과가 이미 있으면 남은 시간·총량을 리셋한다(스택 X).
-- 종료 처리: 대상 사망 / 풀피 도달(HoT) / 지속 만료 시 레코드 제거. (HoT의 힐 플로팅 텍스트는 이 종료 시점에 회복 후 현재 HP로 1회 표시하되 대상 사망 시엔 생략 — 규칙 37.)
-- 서버 틱 진입점(규칙 29 계승): 싱글=`GameBootstrapper.Update`(`!IsNetworkMode` 가드), 멀티=`NetworkCombatController`(IsServer 가드). **이중 틱 금지** — 파도 `TickWaves` 호출 지점 옆에 추가한다.
+MeleeContact는 각 Impact에 타겟 생존, AttackRange, 방향 오차 8° 이하를 다시 확인한다. 조건을 만족하지 않으면 해당 HitIndex만 빗나간다. MultiImpact는 타격별로 독립 검증하되 TargetId는 유지한다.
 
-**규칙 35. 힐러 유휴 감시 (경로 끝 도달 후 지속 감시)**
-힐러는 A* 경로의 끝(적 진영 앞)에 도달해 더 이동할 곳이 없어도 **부상 아군을 계속 감시**해야 한다.
-- 일반 공격 유닛은 경로 끝에서 적을 감지하면 전투에 들어가지만, 힐러가 경로 끝에서 감시를 멈추면 **최전선에서 아무 일도 안 하고 서 있는 유휴 상태**가 된다(QA 이슈2에서 발견).
-- 경로 종료 후에도 유휴 감시 루프(`HealerIdleWatchV3`)를 돌려, 사거리 내 부상 아군이 생기면 즉시 힐 루프로 진입한다. 부상 아군이 없으면 대기, 생기면 힐 → 이 사이클을 반복한다.
+### U-IMPACT-HITSCAN. 즉발 타격
 
-**규칙 36. 힐러 쿨다운 예외 — 발동 준비 미포함 (총 힐 주기 4.0s)**
-⚠️ **이 프로젝트의 유일한 쿨다운 예외다. 되돌리지 말 것.**
-- **다른 모든 유닛**: `AttackCooldown`은 **발동 준비를 포함한 전체 주기**다. 공격이 시작되는 순간 쿨다운이 시작되며(`TryAttack` 패턴), 타격 프레임(`HitFrameTimes`)은 그 쿨다운 구간 안에 들어간다. 예: LittleKnight `0:25, 1:15(3:00)`은 전체 주기가 3.0초다.
-- **BloomFairy(힐러)만 예외**: `AttackCooldown`(3.0s)이 힐 발동 준비(1.0s)를 **포함하지 않는다**. 힐이 실제로 발동(`HitFrameTimes[0]`=1.0s)된 **뒤에** 쿨다운 3.0s가 시작된다. → **실제 힐 주기 = 발동 준비 1.0s + 발동 후 쿨다운 3.0s = 4.0s**.
-- 이것은 **의도된 설계이며 버그가 아니다.** 힐러는 "힐을 한 번 걸고 나서 다음 힐까지 3초를 쉰다"는 체감이 핵심이라, 발동 준비를 쿨다운에 포함시키지 않고 발동 후부터 카운트한다.
-- ⚠️ 향후 누군가(사람 또는 AI)가 "BloomFairy만 다른 유닛과 쿨다운 계산이 다르다"고 오인해 다른 유닛과 똑같이(발동 준비 포함) 되돌리면 힐 주기가 3.0s로 짧아져 밸런스가 깨진다. **이 예외는 확정 설계이므로 유지한다.** (StatsReference.md BloomFairy 행 비고와 동일 내용.)
+Hitscan은 각 발사 Impact에 타겟 생존, AttackRange, 방향 오차 8° 이하를 확인하고 즉시 결과를 확정한다. 확정 뒤 타겟 이동이나 사망은 이미 적용된 결과에 영향을 주지 않는다. 트레이서는 표현일 뿐 판정을 지연하지 않는다.
 
-**규칙 37. HoT 힐 텍스트 집계 (완료 시 1회 표시·사망 시 생략)** (2026-07-19 신설, BloomFairy HoT 힐 텍스트 표시 방식 변경 — 실기 확정)
-HoT(예: BloomFairy 3초간 20HP 회복)의 **HP 회복은 종전과 동일하게 틱마다 서서히** 오른다(HP바 상승·멀티 동기화 유지 — 규칙 34 diff 틱, 규칙 30 힐 인프라 무변경). 이번에 바뀐 것은 **플로팅 힐 텍스트를 언제·어떤 값으로 띄우느냐**뿐이다. 틱마다 작은 회복 숫자가 연달아 뜨던 것을, **효과가 끝날 때 회복 후 현재 HP(절대값)로 1회만** 띄우도록 바꾼다(회복량이 여러 번 흩어져 보이지 않고, 표시 형식도 기존 즉발/파도 힐과 통일하기 위함).
-- **틱 힐 텍스트 억제**: HoT의 각 회복 틱은 힐 플로팅 텍스트를 띄우지 않는다. 단 HP바 갱신·멀티 동기화를 위한 힐 이벤트는 종전대로 발행한다(회복 자체·HP바 상승·멀티 반영은 전혀 바뀌지 않는다 — 오직 텍스트만 skip).
-- **완료 시 1회 표시**: HoT가 **정상 종료**(대상 풀피 도달 또는 지속시간 만료 — 규칙 34 종료 처리)될 때, **회복 후 현재 HP(절대값)로** 힐 텍스트를 **1회** 띄운다(기존 즉발/파도 힐과 동일한 표시 형식).
-- **사망 시 생략**: 회복 도중 대상 유닛이 **사망**하면(규칙 34 종료 사유 중 대상 사망) 힐 텍스트를 **표시하지 않는다**.
-- **적용 범위 = HoT 경로 한정**: TorrentSpirit 파도의 즉발 힐, 기타 즉발 힐, 그리고 모든 데미지 텍스트는 **무변경**이다(종전대로 발생 즉시 표시). 이 집계 규칙은 시간 지속 회복(HoT) 경로에만 적용된다.
-- 구현(참고): 힐 이벤트 `EntityHealedEvent`에 `ShowText` 플래그를 둔다 — HoT 각 틱은 `ShowText=false`(HP 동기화 이벤트는 발행하되 텍스트 skip), 효과 정상 종료 시 `ShowText=true`로 1회 발행하며 **표시값은 기존 즉발/파도 힐과 동일하게 회복 후 현재 HP(절대값)** 다(표시 전용 `HealAmount` 플래그는 두지 않는다). `NetworkHealthSync`가 이 `ShowText` 플래그를 `SyncHealClientRpc`로 전파해 멀티에서도 완료 시 1회만 표시. 실제 회복량은 `ActiveTimedEffect.ActualHealed`에 틱마다 누적하며, 이 값이 **`>0`일 때만(실제 회복이 있었을 때만) 완료 텍스트를 표시**하고 **재부여(갱신) 시 리셋**한다(규칙 34 "갱신 = 리셋"과 정합 — 리셋된 새 효과가 끝날 때만 완료 텍스트).
+### U-IMPACT-PROJECTILE. 투사체 착탄
+
+ProjectileImpact는 발사 시 타겟·사거리·방향을 검증해 서버 권위 발사체를 생성한다.
+
+- **LockedPoint:** 발사 시 ImpactPoint와 AimDirection을 고정한다. Single은 Impact 때 원래 타겟이 살아 있고 프로필의 `ImpactHitRadius` 안에 있을 때만 적중한다. Area는 원래 타겟의 이동·사망과 무관하게 권위 착탄점에서 범위를 판정한다.
+- **Homing:** 서버가 TargetId를 추적한다. 타겟 사망·Despawn 시 빗나가며 다른 타겟으로 자동 이전하지 않는다.
+- 발사 후 공격자가 사망해도 이미 생성된 발사체는 프로필에 별도 취소 규칙이 없는 한 계속 진행한다.
+
+### U-IMPACT-TRAVELING. 이동 영역
+
+TravelingArea는 발사 후 서버의 독립 영역으로 진행한다. 공격자나 최초 타겟 사망으로 취소하지 않으며, 각 대상의 첫 접촉 시 결과를 확정한다. 같은 영역이 같은 대상에 여러 번 적용되지 않도록 대상별 접촉 기록을 가진다.
+
+### U-IMPACT-FRIENDLY. 아군과 사망 대상
+
+공격 프로필이 명시적으로 아군 회복을 제공하지 않는 한 아군에게 피해·상태 이상을 적용하지 않는다. 사망 대상에는 새 결과를 적용하지 않는다.
 
 ---
 
-### 특수 공격 시스템 규칙 — 착탄형 DoT 확장 (2026-07-19, MushroomBomber 버섯폭격기 착탄형 범위 딜러 구현)
+## 6. 공격 시간과 쿨다운
 
-MushroomBomber는 **폭탄(포자)을 적에게 던져 착탄 지점에서 폭발**하는 착탄형 범위 딜러다. 폭발은 두 가지 피해를 동시에 준다 — 폭탄을 맞은 **딱 1마리(주 타깃)** 에게 즉시 들어가는 **직접 10**, 그리고 착탄 지점 주변 반경 안의 **적 유닛 전원**에게 3초간 초당 2씩(총 6) **1초마다 뚝뚝** 들어가는 **DoT(지속 피해)**. 지금까지의 특수 유닛과 다른 신규 요소는 두 가지다 — ① 착탄 지점을 중심으로 한 **월드 좌표 원형 반경** 판정(도끼병 부채꼴에서 arc를 뺀 형태, 향후 QuakeSpirit 재사용), ② BloomFairy에서 만든 HoT/DoT 공용 시스템(규칙 34)에 힐과 반대로 **1초 간격 discrete 피해 + 매초 데미지 텍스트**를 넣는 **DoT 초 단위 틱 모드**. 직접 10은 기존 단일 타깃 공격 경로(`ExecuteAttack`)를 그대로 쓰고 DoT AoE만 특수 핸들러(`BlastAttackBehavior`)로 얹는다(도끼병식 `ReplacesPrimaryAttack=false`). 규칙 23~27(전략 핸들러·월드 좌표 판정·튜닝 파라미터·연출 동시 방출·`OnAttackHit` 주입)과 규칙 34(HoT/DoT 공용 시스템)를 전제로 한다. (핸들러 `BlastAttackBehavior`, 레지스트리에 `MushroomBomber → BlastAttackBehavior` 1줄 등록, `Scripts/Application/Combat/`.)
+### U-ATK-TIMELINE. 권위 AttackTimeline
 
-**규칙 38. 착탄형 AoE 판정 = 월드 좌표 원형 반경 (도끼병 부채꼴의 arc 없는 버전)**
-착탄형(MushroomBomber) AoE는 타일 소속이 아니라 **착탄 중심 기준 월드 좌표 원형 반경**으로 대상을 판정한다. 휩쓸기형(규칙 24)과 판정 소스·안전 패턴은 같고 **모양만 부채꼴 → 원형**으로 다르다.
-- **판정 중심 = 주 타깃(착탄 지점) 월드 위치** — 도끼병(공격자 위치 중심)과 달리 폭탄이 떨어진 자리(주 타깃)가 중심이다. 주 타깃은 유닛/건물 무관하게 착탄 중심 좌표를 제공한다.
-- 피격 조건: 각 적 유닛에 대해 착탄 중심으로부터의 **XZ 평면 거리 ≤ `blastRadius`(월드 반경)** 이면 피격. Y축(UnitYOffset)은 무시하며, 각도(arc) 판정은 없다.
-- **주 타깃 미제외** — 도끼병은 주 타깃을 중복 제외하지만, MushroomBomber는 주 타깃도 반경 안(거리 0)이라 DoT 대상에 **포함**한다(주 타깃 유닛은 직접 10 + DoT 둘 다 — 규칙 39). 제외 대상은 아군·사망 유닛·공격자 자신(아군 팀 필터로 자동 제외)이다.
-- **건물은 순회 대상이 아님** — 핸들러가 유닛 목록만 순회하므로 건물은 자동 제외된다(DoT 없음 — 규칙 39).
-- 월드 좌표는 `IEntityPositionProvider`(서버 권위, 규칙 6·24와 동일 소스). 순회 중 사망으로 인한 컬렉션 변경을 피하기 위해 대상을 **먼저 리스트로 수집한 뒤 일괄 적용**한다(규칙 24와 동일).
-- 반경 판정 수집부(`CollectEnemyUnitsInRadius`)는 **static 헬퍼로 분리**되어 있어, 향후 QuakeSpirit(또 다른 착탄형 — 중심 100%/인접 50% 감쇠) 이 수집 결과 위에 거리 기반 배율을 얹어 재사용할 수 있다(순수 "수집"만 공용화).
+서버가 읽는 검증된 AttackTimeline 또는 AttackProfile이 Windup, ActionMarkerOffset, Recovery의 정규 원본이다.
 
-**규칙 39. 직접 10(주 타깃 단일 피해) + DoT AoE(특수 핸들러)의 역할 분담**
-MushroomBomber의 두 피해는 **별개 경로**로 적용되어, 대상 종류(유닛/건물)에 따라 결과가 갈린다.
-- **직접 10 = 주 타깃 단일 피해** — 기존 `ExecuteAttack` 단일 타깃 피해(`ApplyDamageToVictim`)가 담당한다. `BlastAttackBehavior.ReplacesPrimaryAttack=false`이므로 도끼병처럼 **주 타깃 단일 피해를 먼저 적용한 뒤 특수 핸들러(DoT AoE)를 실행**한다. 주 타깃이 건물이어도 직접 10이 그대로 들어가므로 **건물 공성(성 파괴 기여)이 자연히 성립**한다.
-- **DoT AoE = 특수 핸들러** — 착탄 반경 내 **적 유닛만** DoT를 받는다(건물 DoT 제외 — 규칙 38 순회 대상 유닛 한정).
-- 대상별 결과:
-  - **주 타깃이 유닛**: 직접 10 + DoT(반경 0으로 포함).
-  - **주 타깃 반경 내 다른 적 유닛**: DoT만.
-  - **주 타깃이 건물**: 건물은 직접 10만(공성). 그래도 **핸들러는 주 타깃 종류와 무관하게 실행**되어 폭발 반경 내 주변 적 유닛에게는 DoT를 건다(도끼병과 동일 — AoE는 항상 실행).
-  - **아군**: 직접·DoT 모두 무피해(규칙 16).
+- `OnAttackHit` Animation Event는 표현·에셋 검증용이며 서버 결과를 발생시키지 않는다.
+- 완성 유닛의 이벤트와 권위 `ActionMarkerOffset`은 1 animation frame 이내로 일치해야 한다.
+- MeleeContact·Hitscan의 결과 Impact와 ProjectileImpact·TravelingArea의 Launch·Activation은 오름차순 `ActionMarkerOffset`과 고유 HitIndex를 가진다.
+- ProjectileImpact의 착탄 `ResultImpactTime`과 TravelingArea의 접촉 시각은 서버 시뮬레이션 결과이며 ActionMarkerOffset과 분리한다.
+- 필수 데이터가 없거나 불일치하면 완성 상태로 판정하지 않는다.
+- 임시 폴백은 미완성 유닛에만 허용하며 출시 검증을 통과할 수 없다.
 
-**규칙 40. DoT "초 단위 틱" 모드 (HoT/DoT 공용 시스템 규칙 34 확장)**
-규칙 34의 시간 지속 효과 시스템에, 힐(HoT)의 "프레임마다 부드럽게 diff" 방식과 **분기되는** DoT용 "1초 간격 discrete 틱" 모드를 추가한다. 힐 연속 경로는 **무변경**(회귀 없음)이며, `ActiveTimedEffect.TickInterval` 값으로 두 모드를 가른다(`0` = 연속 HoT / 양수 = discrete DoT).
-- **1초 간격 discrete 적용**: 누적 시간이 틱 간격(MushroomBomber = `BlastDotTickInterval` 1.0s)을 넘을 때마다 그 틱의 피해를 한 번에 적용한다(매 프레임 조금씩이 아니라 뚝뚝). 서버 틱 진입점은 규칙 34와 동일(`TickTimedEffects` — 싱글=`GameBootstrapper.Update` `!IsNetworkMode` / 멀티=`NetworkCombatController` IsServer, **이중 틱 금지**).
-- **틱당 피해 = 초당 피해 × 틱 간격을 올림(`Mathf.CeilToInt`)**, 최소 1 보장. 예: `ceil(2×1)=2`.
-- **총량 클램프 = 초당 피해 × 지속(반올림)**. 예: `2×3=6`. 올림 때문에 틱당 피해가 커져도 **총 피해가 상한(6)을 넘지 않도록** 클램프한다(3틱×2=6 정확).
-- **매초 데미지 텍스트**: 힐(HoT 규칙 37)이 완료 시 1회만 억제 표시하는 것과 **정반대로**, DoT는 각 틱이 기존 피해 경로(`OnEntityDamaged`)를 그대로 발행해 **매초 남은 체력(현재 HP)을 데미지 텍스트로 표시**한다(피격 데미지 텍스트 재사용 — 억제하지 않음). 파도/일반 데미지 텍스트도 무변경.
-- **서버 권위**: 착탄 판정·DoT 틱 피해 모두 서버 타이머로만 적용(규칙 18). 멀티에서 클라는 HP·데미지 텍스트를 동기화로 수신(이중 적용 없음). VFX(폭탄 투사체·폭발)는 사용자 별도 제작.
-- **갱신 = 리셋(중첩 없음)**: 같은 대상에 DoT가 겹치면 남은 시간·총량·누적량·틱 상태를 리셋한다(규칙 34 "갱신 = 리셋"). DoT 틱 피해로 대상 사망 시 기존 사망 처리(이벤트/제거) 후 레코드 제거.
-- 튜닝값(규칙 25): `SpecialAttackConfig`의 `blastRadius`(월드 반경, 기본 1.0 = 인접 1칸 거리) / `blastDotPerSecond`(2) / `blastDotDuration`(3)을 GameBootstrapper가 float로 주입(미연결 시 코드 폴백 — "에셋 생성 ≠ 씬 배선" 교훈). 진입점: 핸들러가 반경 판정으로 고른 각 적 유닛에 `ApplyDamageOverTime`(→ `ApplyBlastDot`) 호출.
+### U-ATK-COOLDOWN. 일반 공격 주기
 
-> **참고 (규칙 34 상호참조):** 규칙 34는 원래 HoT(연속 diff)만 실제 배선했고 Damage(DoT) 분기는 구조로만 수용해 두었다. 규칙 40이 그 DoT 분기를 **초 단위 discrete 틱 모드**로 실제 구현했다. 향후 InfernoSpirit(지속 피해) 등 DoT 유닛은 이 초 단위 틱 모드를 재사용할 수 있다.
+- 일반 AttackCooldown은 Windup 커밋부터 다음 Windup 커밋 가능 시점까지의 전체 주기다.
+- Align 시간은 AttackCooldown에 포함하지 않는다.
+- 커밋과 동시에 쿨다운을 소비하며 이후 빗나감·취소에도 환불하지 않는다.
+- 모든 MeleeContact·Hitscan Impact marker 및 ProjectileImpact·TravelingArea Launch/Activation marker는 `0 ≤ ActionMarkerOffset < AttackCooldown`을 만족해야 한다. 발사 후 비행·영역 진행으로 생기는 ResultImpactTime은 이 제한을 받지 않는다.
+- MultiImpact도 공격 회차당 쿨다운을 한 번만 소비한다.
+- Projectile 비행 시간은 공격 주기와 독립적이며 이전 발사체 비행 중에도 쿨다운이 끝나면 다음 회차를 시작할 수 있다.
+- 다음 행동 가능 시각은 쿨다운 종료와 Recovery 종료 중 늦은 시각이다.
+
+### U-ATK-COOLDOWN-BLOOM. BloomFairy 예외
+
+BloomFairy는 기존 확정 의도를 유지한다.
+
+```text
+Align 완료 → Windup 1.0초 → HoT 부여 Impact → 쿨다운 3.0초
+성공 공격의 총 주기 = 4.0초
+```
+
+Impact 전에 타겟이 무효화되면 발동 후 3초 쿨다운은 시작하지 않지만, 현재 시전 애니메이션의 취소 Recovery가 끝날 때까지 새 시전을 시작하지 않는다.
+
+---
+
+## 7. 피해·회복·지속 효과
+
+### U-EFFECT-AUTH. 결과 적용
+
+피해, 회복, 상태 효과와 사망은 서버 Impact에 적용한다. 클라이언트는 복제된 현재 HP로 즉시 수렴한다. 표현 시점과 상관관계는 `GameSystemRules_UnitCombatSynchronization.md`를 따른다.
+
+### U-EFFECT-AOE. 범위 결과
+
+범위 공격은 권위 AimDirection 또는 ImpactPoint를 중심으로 XZ 월드 좌표에서 대상을 먼저 수집한 뒤 결과를 적용한다. 순회 중 사망이나 컬렉션 변경을 피하기 위해 판정 대상 목록을 확정한 후 적용한다.
+
+같은 Impact의 여러 피해자는 동일 AttackSequenceId와 HitIndex를 공유한다. 공격자별 FIFO 전체 방출을 사용하지 않는다.
+
+### U-EFFECT-TIMED. HoT·DoT
+
+- 서버가 효과 인스턴스와 틱 시각을 관리한다.
+- 같은 대상의 같은 종류 효과 재적용은 기본적으로 남은 시간·총량·틱 상태를 갱신하며 중첩하지 않는다.
+- Periodic은 명시된 간격마다 적용하고, 연속형은 누적 목표량과 실제 적용량의 차이를 적용해 프레임 오차를 누적하지 않는다.
+- 각 틱은 효과 인스턴스 ID와 TickIndex로 한 번만 적용한다.
+- 대상 사망, 효과 완료 또는 지속 시간 만료 시 제거한다.
+
+### U-EFFECT-PRESENT. HP 텍스트
+
+- 일반 피해·회복은 각 권위 Impact 결과에 맞춰 표시한다.
+- Periodic DoT는 각 틱의 결과를 표시한다.
+- 연속형 HoT는 중간 틱 텍스트를 억제하고 정상 종료 시 실제 총 회복량을 한 번 표시한다.
+- 대상이 사망한 경우 HoT 종료 텍스트를 표시하지 않는다.
+
+---
+
+## 8. 확정된 특수 유닛 의미
+
+이 섹션은 게임플레이 의미만 정의한다. 현재 구현 감사 상태는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
+
+### U-SPECIAL-BATTLEAXE. BattleAxe
+
+- Delivery: MeleeContact
+- TargetScope: Area, AreaShape: Cone
+- Effect: Damage, Schedule: Instant
+- 공격자 권위 위치와 AimDirection을 기준으로 XZ 거리 `sweepReach` 및 반각 `sweepArcHalfAngle` 안의 적 유닛에 동일 피해를 적용한다.
+- 주 타겟 직접 피해와 범위 피해가 중복 적용되지 않게 한다. 건물은 주 타겟 직접 피해만 받는다.
+
+### U-SPECIAL-TORRENT. TorrentSpirit
+
+- Delivery: TravelingArea
+- TargetScope: Area, AreaShape: Rectangle
+- Effect: 적 유닛·건물 Damage + 아군 유닛 Heal
+- Schedule: ContactOncePerTarget
+- 파도는 서버가 전선을 이동시키며 대상별 첫 접촉에 한 번만 결과를 적용한다.
+
+### U-SPECIAL-MUSHROOM. MushroomBomber
+
+- 목표 Delivery: ProjectileImpact, LockedPoint
+- TargetScope: Area, AreaShape: Circle
+- Effect: Damage
+- Schedule: 주 타겟 직접 Instant + 범위 적 유닛 ImpactThenPeriodic DoT
+- 서버 발사체의 권위 착탄점에서 원형 반경 DoT 부여를 확정한다. 주 타겟 직접 피해는 대상이 살아 있고 프로필의 `ImpactHitRadius` 안에 있을 때만 적용한다.
+- 현재 런타임은 서버 비행·착탄 시뮬레이션 없이 공통 타이머에 결과를 적용하므로 **마이그레이션 미완료**다.
+
+### U-SPECIAL-QUAKE. QuakeSpirit
+
+- 목표 Delivery: MeleeContact 기반 Ground Impact
+- TargetScope: Area, AreaShape: Circle
+- Effect: Damage, Schedule: Instant
+- 중심 대상 100%, 주변 대상 50%라는 기존 의도를 유지한다.
+- 공격 프로필·범위 판정·에셋 타격점이 미완성이므로 최종 전달 방식은 실기 확인 전 `잠정`이다.
+
+### U-SPECIAL-BLOOM. BloomFairy
+
+- 목표 Delivery: Hitscan cast
+- TargetScope: Single
+- Effect: Heal, Schedule: Periodic HoT
+- 같은 팀의 살아 있는 부상 유닛을 대상으로 하며 본인도 대상이 될 수 있다.
+- 우선순위는 손실 체력 비율 내림차순, 동률이면 거리와 안정 EntityId 순이다.
+
+### U-SPECIAL-INFERNO. InfernoSpirit
+
+- 목표 Effect: 직접 Damage 후 Periodic DoT
+- DoT 게임 의미는 유지하되 전달 방식과 특수 핸들러가 미완성이므로 완성 상태로 표시하지 않는다.
+
+---
+
+## 9. 멀티플레이 표현 계약
+
+### U-PRESENT-SEQUENCE. 회차 기반 표현
+
+공격 애니메이션, 발사, 비행, 착탄, 피격 VFX·SFX·HP 텍스트는 같은 `AttackSequenceId + HitIndex`를 사용한다. 공격자 FIFO, 다음 로컬 타격 프레임 또는 타임아웃에 정상 연출을 연결하지 않는다.
+
+### U-PRESENT-LATE. 지연 처리
+
+미래 Impact는 서버 시각에 예약하고, 이미 지난 결과는 현재 상태를 즉시 수렴한 뒤 핵심 표현을 한 번만 따라잡는다. 네트워크 지연을 숨기기 위해 다른 공격 회차에 결과를 붙이지 않는다.
+
+상세 계약은 `GameSystemRules_UnitCombatSynchronization.md`가 권위다.
+
+---
+
+## 10. 완성도 판정
+
+### U-READINESS-STATUS. 상태 구분
+
+모든 유닛은 다음 중 하나로 표시한다.
+
+- **Complete:** 규칙·AttackProfile·에셋·싱글·멀티 검증 완료
+- **MigrationRequired:** 기존 런타임은 동작하지만 규칙 v2 구조로 이전 필요
+- **Incomplete:** 필수 공격 로직 또는 에셋 미완성
+- **Provisional:** 전달 방식이나 게임 감각의 실기 확인 필요
+
+Animation Event 존재만으로 Complete가 되지 않는다. 구체적인 상태와 근거는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`에 기록한다.
+
+---
+
+## 11. Legacy 규칙 매핑
+
+2026-07-20 이전 번호는 과거 작업 문서 참조를 위해 아래 별칭으로 보존한다. 아래 번호는 현행 권위가 아니다.
+
+| Legacy | 상태 | 현행 규칙 |
+|---:|---|---|
+| 1~6, 11, 14, 16 | 의미 유지·정제 | `U-AUTH-*`, `U-COORD-*`, `U-MOV-PATH`, `U-COMBAT-PHASE`, `U-EFFECT-*` |
+| 7, 8, 12, 15 | 대체 | `U-MOV-ALIGN`, `U-ATK-ALIGN` |
+| 9 | 대체 | `U-TARGET-RANGE` |
+| 10, 13 | 대체 | `U-MOV-PHASE`, `U-COMBAT-PHASE`, `U-TARGET-SELECT`, `U-TARGET-HOLD` |
+| 17 | 대체 | `U-ATK-TIMELINE` |
+| 18 | 원칙 유지·구현 세부 제거 | `U-AUTH-SERVER`, `U-ATK-TIMELINE` |
+| 19, 26 | 폐기 | `U-PRESENT-SEQUENCE`, `NET-ACTION-SEQ`, `NET-PRESENT-003` |
+| 20 | 대체 | `U-COMBAT-DELIVERY`, `U-COMBAT-AXES` |
+| 21 | 폐기 | 값 기반 행동 스냅샷으로 대체 |
+| 22 | 확장 대체 | `NET-ACTION-STATE`, `NET-ACTION-SEQ` |
+| 23~25 | 게임 의미만 유지 | `U-EFFECT-AOE`, `U-SPECIAL-*`; 클래스·파일은 TDD |
+| 27, 31 | 에셋 상태 분리 | `UnitCombatAssetMatrix.md` |
+| 28~40 | 게임 의미 정제 | `U-SPECIAL-*`, `U-EFFECT-TIMED`, `U-ATK-COOLDOWN-BLOOM` |
+
+기존 FIFO, 모든 원거리 트레이서, 50ms 전투 Tick, 클래스·메서드·파일명은 게임플레이 규칙이 아니라 Legacy 구현 기록이다.
