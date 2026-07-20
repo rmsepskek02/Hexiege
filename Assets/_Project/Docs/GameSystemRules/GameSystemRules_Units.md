@@ -337,3 +337,27 @@ MushroomBomber의 두 피해는 **별개 경로**로 적용되어, 대상 종류
 - 튜닝값(규칙 25): `SpecialAttackConfig`의 `blastRadius`(월드 반경, 기본 1.0 = 인접 1칸 거리) / `blastDotPerSecond`(2) / `blastDotDuration`(3)을 GameBootstrapper가 float로 주입(미연결 시 코드 폴백 — "에셋 생성 ≠ 씬 배선" 교훈). 진입점: 핸들러가 반경 판정으로 고른 각 적 유닛에 `ApplyDamageOverTime`(→ `ApplyBlastDot`) 호출.
 
 > **참고 (규칙 34 상호참조):** 규칙 34는 원래 HoT(연속 diff)만 실제 배선했고 Damage(DoT) 분기는 구조로만 수용해 두었다. 규칙 40이 그 DoT 분기를 **초 단위 discrete 틱 모드**로 실제 구현했다. 향후 InfernoSpirit(지속 피해) 등 DoT 유닛은 이 초 단위 틱 모드를 재사용할 수 있다.
+>
+> **재사용 사례 (2026-07-20):** InfernoSpirit(규칙 41~42)이 이 초 단위 틱 모드를 **단일 대상**(반경 없음)으로 재사용해 구현됐다. MushroomBomber(2/3, `ApplyBlastDot`)와 InfernoSpirit(5/3, `ApplyInfernoDot`)은 초당 피해·지속이 다른 **별도 진입점**으로 분리돼 서로의 값에 영향을 주지 않는다(규칙 42).
+
+---
+
+### 특수 공격 시스템 규칙 — 단일 대상 DoT 확장 (2026-07-20, InfernoSpirit 지옥불 정령 단일 대상 지속 피해 구현)
+
+InfernoSpirit는 **원거리로 적을 포격**하는 이미 완성된 원거리 유닛(에셋·VFX·생산·`OnAttackHit` 완비)에 **지속 피해(DoT) 특수만** 얹은 유닛이다. 일반 원거리 공격이 주 타깃에게 **직접 25**를 넣고(기존 단일 공격 경로), 그 위에 **때린 그 1마리에게만** 3초간 초당 5(총 15) DoT를 추가로 건다. MushroomBomber(규칙 38~40)와 달리 **착탄 반경이 없다** — AoE가 아니라 주 타깃 1명 단일 대상이다. 그래서 새 판정 로직은 없고, MushroomBomber에서 만든 **DoT 초 단위 틱 시스템(규칙 40)** 을 단일 대상으로 재사용한다. 규칙 23(전략 핸들러)·25(튜닝 파라미터)·34/40(HoT/DoT 공용 시스템·초 단위 틱)을 전제로 한다. (핸들러 `InfernoAttackBehavior`, 레지스트리에 `InfernoSpirit → InfernoAttackBehavior` 1줄 등록, `Scripts/Application/Combat/`.)
+
+**규칙 41. InfernoSpirit 단일 대상 on-hit DoT (직접 25 + DoT 특수 핸들러)**
+InfernoSpirit의 두 피해는 MushroomBomber(규칙 39)와 같은 **역할 분담** 구조이되, DoT가 **AoE가 아니라 주 타깃 1명 단일 대상**이라는 점만 다르다.
+- **직접 25 = 주 타깃 단일 피해** — 기존 `ExecuteAttack` 단일 타깃 피해(`ApplyDamageToVictim`, 공격력 25)가 담당한다. `InfernoAttackBehavior.ReplacesPrimaryAttack=false`이므로 도끼병·MushroomBomber처럼 **주 타깃 단일 피해를 먼저 적용한 뒤 특수 핸들러(DoT)를 실행**한다. 주 타깃이 건물이어도 직접 25가 그대로 들어가므로 **건물 공성(성 파괴 기여)이 성립**한다.
+- **DoT = 특수 핸들러, 주 타깃 1명 한정** — 핸들러는 반경 수집을 하지 않고 **주 타깃 1마리만** 판정한다(AoE 아님). 착탄 중심·반경 개념이 없다.
+- **DoT 대상 = 적 유닛만** — 주 타깃을 유닛으로 캐스팅해 성공하면(적 유닛) DoT 부여, 실패하면(건물 등) 아무것도 안 한다(**건물 DoT 제외 — 건물은 직접 25만**). 직접 25로 주 타깃이 이미 사망(제거)했으면 `IsAlive` 확인으로 DoT 스킵, 아군은 방어적으로 팀 필터 제외(규칙 16).
+- 대상별 결과:
+  - **주 타깃이 적 유닛**: 직접 25 + DoT(둘 다).
+  - **주 타깃이 건물**: 직접 25만(공성), DoT 없음.
+  - **아군**: 직접·DoT 모두 무피해(규칙 16).
+- **DoT 수치·거동 = 규칙 40 초 단위 틱 재사용**: 5/초 × 3초(총 15), **1초 간격 discrete**·틱당 올림(`CeilToInt`, 최소 1)·총량 15 클램프·매초 `OnEntityDamaged`로 **남은 체력(현재 HP) 데미지 텍스트 표시**(힐과 반대로 억제 안 함)·서버 권위·이중 틱 금지·**갱신 = 리셋(중첩 없음)**. 틱 간격은 MushroomBomber와 동일한 `BlastDotTickInterval`(1.0s)을 쓴다.
+
+**규칙 42. 유닛별 DoT 값 분리 (별도 필드·델리게이트·진입점)**
+같은 규칙 40 초 단위 틱 시스템을 쓰지만 InfernoSpirit(5/3)과 MushroomBomber(2/3)는 **초당 피해·지속이 다르므로 서로의 값에 영향을 주지 않도록 진입점을 분리**한다.
+- 진입점 분리: MushroomBomber = `ApplyBlastDot`(`SpecialAttackContext.ApplyDot` 델리게이트), InfernoSpirit = `ApplyInfernoDot`(`SpecialAttackContext.ApplyInfernoDot` 델리게이트). `UnitCombatUseCase`가 각자 자기 필드(`_blastDot*` / `_infernoDot*`)로 `ApplyDamageOverTime`을 호출한다. 한 유닛의 값 변경이 다른 유닛으로 새지 않는다(**MushroomBomber 회귀 없음**).
+- 튜닝값(규칙 25): `SpecialAttackConfig`의 `_infernoDotPerSecond`(기본 5) / `_infernoDotDuration`(기본 3)을 GameBootstrapper가 float로 주입한다(미연결 시 코드 폴백 5/3 — "에셋 생성 ≠ 씬 배선" 교훈). 반경 튜닝값은 없다(AoE 아님).
