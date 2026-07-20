@@ -73,8 +73,16 @@ namespace Hexiege.Application
         private readonly float _blastDotPerSecond;
         private readonly float _blastDotDuration;
 
-        // 착탄 DoT의 틱 간격(초). "매초 뚝뚝" — 1초마다 discrete하게 피해가 들어간다.
+        // 특수 유닛(InfernoSpirit 지옥불 정령) 단일 대상 DoT 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
+        // _infernoDotPerSecond: DoT 초당 피해(기본 5). _infernoDotDuration: DoT 지속시간(초, 기본 3).
+        // ⚠️ MushroomBomber(_blastDotPerSecond=2/3초)와 값이 다른 "별도" 필드다.
+        //    두 유닛이 같은 DoT 초 단위 틱 시스템(규칙 40)을 재사용하되 값은 완전히 분리한다.
+        private readonly float _infernoDotPerSecond;
+        private readonly float _infernoDotDuration;
+
+        // DoT의 틱 간격(초). "매초 뚝뚝" — 1초마다 discrete하게 피해가 들어간다.
         // (힐(HoT)의 "프레임마다 부드러운 diff"와 대비되는 값. SO 튜닝 대상이 아니라 설계 고정값 1초.)
+        // MushroomBomber 착탄 DoT와 InfernoSpirit DoT가 공유하는 규칙 40의 "초 단위 틱" 상수다.
         private const float BlastDotTickInterval = 1.0f;
 
         /// <summary>
@@ -147,6 +155,8 @@ namespace Hexiege.Application
         /// <param name="blastRadius">MushroomBomber 착탄 폭발 판정 반경(월드). 미주입 시 기본값 1.0.</param>
         /// <param name="blastDotPerSecond">MushroomBomber 착탄 DoT 초당 피해(HP/초). 미주입 시 기본값 2.</param>
         /// <param name="blastDotDuration">MushroomBomber 착탄 DoT 지속시간(초). 미주입 시 기본값 3.</param>
+        /// <param name="infernoDotPerSecond">InfernoSpirit 단일 대상 DoT 초당 피해(HP/초). 미주입 시 기본값 5.</param>
+        /// <param name="infernoDotDuration">InfernoSpirit 단일 대상 DoT 지속시간(초). 미주입 시 기본값 3.</param>
         public UnitCombatUseCase(
             HexGrid grid,
             UnitSpawnUseCase unitSpawn,
@@ -163,7 +173,9 @@ namespace Hexiege.Application
             float bloomHealDuration = 3f,
             float blastRadius = 1.0f,
             float blastDotPerSecond = 2f,
-            float blastDotDuration = 3f)
+            float blastDotDuration = 3f,
+            float infernoDotPerSecond = 5f,
+            float infernoDotDuration = 3f)
         {
             _grid = grid;
             _unitSpawn = unitSpawn;
@@ -183,6 +195,9 @@ namespace Hexiege.Application
             _blastRadius = blastRadius;
             _blastDotPerSecond = blastDotPerSecond;
             _blastDotDuration = blastDotDuration;
+            // InfernoSpirit 단일 대상 DoT 튜닝값(초당 피해/지속). MushroomBomber와 값 분리(회귀 방지).
+            _infernoDotPerSecond = infernoDotPerSecond;
+            _infernoDotDuration = infernoDotDuration;
         }
 
         // ====================================================================
@@ -998,7 +1013,7 @@ namespace Hexiege.Application
                     ApplyDamageToVictim, ResolveWorldPosition, SpawnWave,
                     _sweepReach, _sweepArcHalfAngle,
                     _waveWidth, _waveLength, _waveTravelTime, _waveHeal,
-                    ApplyBlastDot, _blastRadius);
+                    ApplyBlastDot, _blastRadius, ApplyInfernoDot);
                 special.Apply(ctx);
             }
         }
@@ -1278,6 +1293,20 @@ namespace Hexiege.Application
         private void ApplyBlastDot(UnitData attacker, UnitData victim)
         {
             ApplyDamageOverTime(attacker, victim, _blastDotPerSecond, _blastDotDuration, BlastDotTickInterval);
+        }
+
+        /// <summary>
+        /// InfernoSpirit 단일 대상 DoT 부여 진입점. SpecialAttackContext.ApplyInfernoDot 델리게이트로 주입되어
+        /// InfernoAttackBehavior가 주 타깃(적 유닛 1명)에 대해 호출한다.
+        /// ⚠️ MushroomBomber의 <see cref="ApplyBlastDot"/>(초당 2/3초)와는 "별도" 진입점으로,
+        ///    InfernoSpirit 자기 튜닝값(초당 5/3초)을 사용한다. 두 유닛은 같은 DoT 초 단위 틱 시스템(규칙 40)을
+        ///    재사용하되 초당 피해/지속 값은 완전히 분리되어 서로 영향을 주지 않는다.
+        /// </summary>
+        /// <param name="attacker">DoT를 건 공격자(지옥불 정령).</param>
+        /// <param name="victim">DoT를 받을 적 유닛(주 타깃).</param>
+        private void ApplyInfernoDot(UnitData attacker, UnitData victim)
+        {
+            ApplyDamageOverTime(attacker, victim, _infernoDotPerSecond, _infernoDotDuration, BlastDotTickInterval);
         }
 
         /// <summary>

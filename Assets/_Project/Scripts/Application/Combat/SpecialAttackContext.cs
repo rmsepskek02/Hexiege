@@ -97,6 +97,13 @@ namespace Hexiege.Application
         // (파도의 SpawnWave와 같은 역할 분담 — 서버 권위 효과는 UseCase 소유).
         private readonly Action<UnitData, UnitData> _applyDot;
 
+        // 대상 유닛에 InfernoSpirit 단일 대상 DoT를 부여하는 델리게이트. 인자는 (공격자, 피해 대상).
+        // UnitCombatUseCase.ApplyInfernoDot을 그대로 넘겨받는다.
+        // ⚠️ MushroomBomber의 _applyDot(→ApplyBlastDot, 초당 2/3초)와는 "별도" 진입점이다.
+        //    InfernoSpirit은 자기 튜닝값(초당 5/3초)을 써야 하므로 델리게이트를 분리해
+        //    MushroomBomber 값이 섞이지 않도록 한다(값 회귀 방지).
+        private readonly Action<UnitData, UnitData> _applyInfernoDot;
+
         /// <summary>
         /// 컨텍스트 생성.
         /// </summary>
@@ -114,6 +121,7 @@ namespace Hexiege.Application
         /// <param name="waveHeal">파도 아군 회복량.</param>
         /// <param name="applyDot">대상 유닛에 착탄 DoT를 부여하는 델리게이트(공격자, 대상).</param>
         /// <param name="blastRadius">착탄 폭발 판정의 월드 반경(중심으로부터 XZ 거리 한계).</param>
+        /// <param name="applyInfernoDot">대상 유닛에 InfernoSpirit 단일 대상 DoT를 부여하는 델리게이트(공격자, 대상). MushroomBomber와 값이 다른 별도 진입점.</param>
         public SpecialAttackContext(
             UnitData attacker,
             IDamageable primaryTarget,
@@ -128,7 +136,8 @@ namespace Hexiege.Application
             float waveTravelTime,
             float waveHeal,
             Action<UnitData, UnitData> applyDot,
-            float blastRadius)
+            float blastRadius,
+            Action<UnitData, UnitData> applyInfernoDot)
         {
             Attacker = attacker;
             PrimaryTarget = primaryTarget;
@@ -144,6 +153,7 @@ namespace Hexiege.Application
             WaveHeal = waveHeal;
             _applyDot = applyDot;
             BlastRadius = blastRadius;
+            _applyInfernoDot = applyInfernoDot;
         }
 
         /// <summary>
@@ -187,6 +197,19 @@ namespace Hexiege.Application
         public void ApplyDot(UnitData attacker, UnitData victim)
         {
             _applyDot?.Invoke(attacker, victim);
+        }
+
+        /// <summary>
+        /// 대상 유닛에 InfernoSpirit 단일 대상 DoT(지속 피해)를 부여한다.
+        /// MushroomBomber의 <see cref="ApplyDot"/>(초당 2/3초)와 값이 다른 "별도" 진입점으로,
+        /// InfernoSpirit 자기 튜닝값(초당 5/3초)을 사용한다. 초당 피해/지속/틱 간격은
+        /// UnitCombatUseCase 내부에 캡슐화돼 있고, 이 델리게이트는 "누구에게 걸지"만 전달한다.
+        /// </summary>
+        /// <param name="attacker">DoT를 건 공격자(보통 <see cref="Attacker"/>와 동일).</param>
+        /// <param name="victim">DoT를 받을 적 유닛.</param>
+        public void ApplyInfernoDot(UnitData attacker, UnitData victim)
+        {
+            _applyInfernoDot?.Invoke(attacker, victim);
         }
     }
 }

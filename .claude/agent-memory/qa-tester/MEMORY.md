@@ -468,3 +468,30 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
   즉시 제거) 실행 후 `special.Apply(ctx)` 호출 — `BlastAttackBehavior`는 `ctx.Units.Values`(생존자만)를 순회하므로
   직접타격으로 죽은 주 타깃은 자연스럽게 DoT 수집에서 제외됨(별도 방어 코드 불필요, 데이터 흐름상 자동 보장).
 - task: `_Tasks/2026-07-19/01_42_mushroombomber-impact-dot/`
+
+### 2026-07-20 - InfernoSpirit(지옥불 정령) 단일 대상 DoT QA (정적 분석, PASS)
+- 검증 범위: InfernoAttackBehavior(신규), SpecialAttackRegistry 등록, SpecialAttackContext.ApplyInfernoDot 델리게이트,
+  UnitCombatUseCase(_infernoDotPerSecond/_infernoDotDuration/ApplyInfernoDot), SpecialAttackConfig(inferno 필드),
+  GameBootstrapper.Setup.cs 주입. 이슈 0건 — 전 항목 PASS.
+- **MushroomBomber 원형에서 "AoE→단일 대상"으로 축소할 때의 정합성 패턴(향후 QuakeSpirit 등 재확인 기준)**:
+  BlastAttackBehavior는 반경 수집(`CollectEnemyUnitsInRadius`) 후 각 대상에 `ctx.ApplyDot` 호출, InfernoAttackBehavior는
+  반경 수집 코드 자체를 없애고 `ctx.PrimaryTarget as UnitData` 캐스팅 1회로 대체 — 구조적으로 안전(반경 로직 잔존 없음 확인 완료).
+- **유닛별 DoT 값 분리 검증 패턴**: 같은 `TimedEffectKind.Damage`를 공유하는 두 유닛(MushroomBomber 2/3, InfernoSpirit 5/3)이
+  "같은 파이프라인, 다른 값"을 안전하게 공유하는 근거 — `ApplyDamageOverTime(source, target, perSecond, duration, tickInterval)`가
+  호출 시점 인자로 totalAmount/tickAmount를 계산해 레코드에 저장하므로 전역 필드 공유가 없다. 델리게이트도
+  `ApplyBlastDot`/`ApplyInfernoDot`으로 완전히 분리(같은 시그니처 `Action<UnitData,UnitData>`를 공유 델리게이트 1개로
+  합치지 않고 SpecialAttackContext에 별도 필드 `_applyDot`/`_applyInfernoDot`로 이원화) — 값 회귀 위험을 코드 구조로 원천 차단.
+  향후 세 번째 DoT 유닛이 추가되면 이 "값별 델리게이트 분리" 패턴이 유지되는지 확인할 것(공용 델리게이트에 유닛별 값을
+  런타임 파라미터로 넘기는 방식으로 리팩터링되면 그 시점에 값 혼입 여부를 재검증해야 함).
+- **건물 제외 확인 근거**: `ctx.PrimaryTarget as UnitData`가 건물(BuildingData)이면 null → 캐스팅 실패로 자연 제외
+  (별도 `is BuildingData` 분기 불필요, 데이터 흐름상 자동 보장 — MushroomBomber의 "Units만 순회" 방식과 다른 축소판 구현이지만
+  결과는 동일하게 안전).
+- **사망 시 DoT 스킵 근거**: `UnitData.IsAlive`가 `Hp > 0` 계산 프로퍼티라 `ApplyDamageToVictim`(직접 25) 직후 즉시 반영됨 —
+  타이밍 갭 없이 `!victim.IsAlive` 가드가 정확히 작동.
+- **단일 히트 프레임 확인**: `UnitStatsConfig.asset`(unitType 12) `hitFrameTimes: [1.15]` 1개뿐 + `attackCooldown: 3` →
+  공격 사이클당 `ExecuteAttack` 1회만 호출되므로 DoT 갱신(리셋)이 3초 주기당 1회만 발생, 총량(15) 도달 전 재갱신 없음(설계 의도와 일치).
+- **이중 틱 가드 재확인**: `TickTimedEffects` 호출부가 싱글(`GameBootstrapper.cs:443`, `!IsNetworkMode` 가드)·멀티
+  (`NetworkCombatController.cs:300`, `IsServer` 가드 이후) 단 두 곳뿐 — InfernoSpirit 추가로 신규 호출부 생기지 않음(공용 로직 재사용).
+- **레이어 규칙 재확인**: `InfernoAttackBehavior.cs`는 `using Hexiege.Domain;`만 사용(Infrastructure 미참조),
+  `UnitCombatUseCase.cs`도 `using Hexiege.Domain;`만(SO는 GameBootstrapper가 float로 변환해 생성자 인자로 주입).
+- task: `_Tasks/2026-07-20/03_22_infernospirit-dot-and-attack-facing/` (파트 1 DoT만 — 공격 방향 버그는 별도 보류 범위)

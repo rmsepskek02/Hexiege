@@ -89,6 +89,16 @@ namespace Hexiege.Infrastructure
         [Tooltip("착탄 DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 2×3 = 6). 기본값 3")]
         [SerializeField] private float _blastDotDuration = 3f;
 
+        // ── 지옥불 정령(InfernoSpirit) 피격 대상 DoT ──────────────────
+        [Header("InfernoSpirit DoT (단일 대상 지속 피해)")]
+
+        [Tooltip("InfernoSpirit이 때린 적 유닛 1명에게 거는 DoT의 초당 피해량(HP/초). " +
+                 "매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 5")]
+        [SerializeField] private float _infernoDotPerSecond = 5f;
+
+        [Tooltip("InfernoSpirit DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 5×3 = 15). 기본값 3")]
+        [SerializeField] private float _infernoDotDuration = 3f;
+
         /// <summary> 휩쓸기 전방 부채꼴 판정의 월드 반경(XZ 평면 거리 한계). </summary>
         public float SweepReach => _sweepReach;
 
@@ -121,5 +131,11 @@ namespace Hexiege.Infrastructure
 
         /// <summary> MushroomBomber 착탄 DoT의 지속시간(초). </summary>
         public float BlastDotDuration => _blastDotDuration;
+
+        /// <summary> InfernoSpirit 단일 대상 DoT의 초당 피해량(HP/초). </summary>
+        public float InfernoDotPerSecond => _infernoDotPerSecond;
+
+        /// <summary> InfernoSpirit 단일 대상 DoT의 지속시간(초). </summary>
+        public float InfernoDotDuration => _infernoDotDuration;
     }
 }

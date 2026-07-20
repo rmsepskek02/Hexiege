@@ -301,12 +301,18 @@ namespace Hexiege.Bootstrap
             float blastDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.BlastDotPerSecond : 2f;
             float blastDotDuration = _specialAttackConfig != null ? _specialAttackConfig.BlastDotDuration : 3f;
 
+            // InfernoSpirit 단일 대상 DoT 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
+            // 초당 피해 5 / 지속 3초(총 15)가 기본값(설계 확정값). MushroomBomber(2/3)와 별개 값.
+            float infernoDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.InfernoDotPerSecond : 5f;
+            float infernoDotDuration = _specialAttackConfig != null ? _specialAttackConfig.InfernoDotDuration : 3f;
+
             _unitCombat = new UnitCombatUseCase(
                 _grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper,
                 sweepReach, sweepArcHalfAngle,
                 waveWidth, waveLength, waveTravelTime, waveHeal,
                 bloomHealAmount, bloomHealDuration,
-                blastRadius, blastDotPerSecond, blastDotDuration);
+                blastRadius, blastDotPerSecond, blastDotDuration,
+                infernoDotPerSecond, infernoDotDuration);
 
             // 방어 타워 전투 UseCase.
             // Application 레이어가 GameRaceContext(Infrastructure)에 직접 의존하지 않도록,
