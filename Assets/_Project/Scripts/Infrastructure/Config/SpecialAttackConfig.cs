@@ -99,6 +99,17 @@ namespace Hexiege.Infrastructure
         [Tooltip("InfernoSpirit DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 5×3 = 15). 기본값 3")]
         [SerializeField] private float _infernoDotDuration = 3f;
 
+        // ── 대지의 정령(QuakeSpirit) 착탄형 즉발 AoE ──────────────────
+        [Header("QuakeSpirit Impact (착탄 즉발 스플래시)")]
+
+        [Tooltip("착탄 즉발 스플래시의 월드 반경. 착탄 중심(주 타깃 위치)에서 XZ 평면 거리가 이 값 이하인 " +
+                 "적 유닛·적 건물에 스플래시 피해를 준다. 기본값 = '인접 1칸' 타일 거리(≈1.0). 기본값 1.0")]
+        [SerializeField] private float _quakeRadius = 1.0f;
+
+        [Tooltip("착탄 즉발 스플래시의 피해 비율(공격력 대비). 스플래시 피해 = 올림(공격력 × 이 값). " +
+                 "예: 공격력 20 × 0.5 = 10. 주 타깃은 100%(스플래시 제외)만 받는다. 기본값 0.5")]
+        [SerializeField] private float _quakeSplashRatio = 0.5f;
+
         /// <summary> 휩쓸기 전방 부채꼴 판정의 월드 반경(XZ 평면 거리 한계). </summary>
         public float SweepReach => _sweepReach;
 
@@ -137,5 +148,11 @@ namespace Hexiege.Infrastructure
 
         /// <summary> InfernoSpirit 단일 대상 DoT의 지속시간(초). </summary>
         public float InfernoDotDuration => _infernoDotDuration;
+
+        /// <summary> QuakeSpirit 착탄 즉발 스플래시 판정의 월드 반경(중심으로부터 XZ 거리 한계). </summary>
+        public float QuakeRadius => _quakeRadius;
+
+        /// <summary> QuakeSpirit 착탄 즉발 스플래시의 피해 비율(공격력 대비, 올림 적용). </summary>
+        public float QuakeSplashRatio => _quakeSplashRatio;
     }
 }

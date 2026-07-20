@@ -18,3 +18,5 @@ MonoBehaviour:
   _waveLength: 3
   _waveTravelTime: 0.5
   _waveHeal: 10
+  _quakeRadius: 1
+  _quakeSplashRatio: 0.5

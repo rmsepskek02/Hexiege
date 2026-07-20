@@ -105,7 +105,11 @@ namespace Hexiege.Application
         /// <param name="center">착탄 중심 월드 좌표(XZ 평면).</param>
         /// <param name="radiusSqr">반경의 제곱(거리 비교 시 제곱근을 피하려고 제곱값 사용).</param>
         /// <param name="result">수집 결과를 담을 리스트(호출자가 Clear 후 넘긴다).</param>
-        private static void CollectEnemyUnitsInRadius(
+        // ⚠️ 접근성 참고: QuakeAttackBehavior(또 다른 착탄형)가 "반경 내 적 유닛 수집"을
+        //    그대로 재사용하도록 private → internal로 공개한다(로직/시그니처 무변경 → MushroomBomber 동작 불변).
+        //    단 이 헬퍼는 주 타깃을 제외하지 않으므로, 주 타깃 제외가 필요한 호출자(QuakeSpirit)는
+        //    수집 후 적용 단계에서 주 타깃을 걸러낸다.
+        internal static void CollectEnemyUnitsInRadius(
             SpecialAttackContext ctx, UnitData attacker, Vector3 center,
             float radiusSqr, List<UnitData> result)
         {

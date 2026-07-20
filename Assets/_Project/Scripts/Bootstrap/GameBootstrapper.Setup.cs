@@ -306,13 +306,19 @@ namespace Hexiege.Bootstrap
             float infernoDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.InfernoDotPerSecond : 5f;
             float infernoDotDuration = _specialAttackConfig != null ? _specialAttackConfig.InfernoDotDuration : 3f;
 
+            // QuakeSpirit 착탄 즉발 스플래시 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
+            // 착탄 반경 1.0(인접 1칸) / 스플래시 비율 0.5(공격력의 50%, 올림)가 기본값(설계 확정값).
+            float quakeRadius = _specialAttackConfig != null ? _specialAttackConfig.QuakeRadius : 1.0f;
+            float quakeSplashRatio = _specialAttackConfig != null ? _specialAttackConfig.QuakeSplashRatio : 0.5f;
+
             _unitCombat = new UnitCombatUseCase(
                 _grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper,
                 sweepReach, sweepArcHalfAngle,
                 waveWidth, waveLength, waveTravelTime, waveHeal,
                 bloomHealAmount, bloomHealDuration,
                 blastRadius, blastDotPerSecond, blastDotDuration,
-                infernoDotPerSecond, infernoDotDuration);
+                infernoDotPerSecond, infernoDotDuration,
+                quakeRadius, quakeSplashRatio);
 
             // 방어 타워 전투 UseCase.
             // Application 레이어가 GameRaceContext(Infrastructure)에 직접 의존하지 않도록,
