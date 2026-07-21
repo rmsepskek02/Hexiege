@@ -388,19 +388,10 @@ namespace Hexiege.Infrastructure
                 // 매칭 성사 콜백 — UI에서 로딩 스크린 표시 등에 활용
                 onMatchFound?.Invoke();
 
-                bool isHost = await _matchmakerManager.DetermineIsHostAsync(matchId);
-                Debug.Log($"[Matchmaker] 역할 결정: {(isHost ? "Host" : "Client")}");
-
-                if (isHost)
-                {
-                    // Host: Relay + Lobby 생성 (Lobby 이름에 matchId 포함하여 Client 가 검색 가능)
-                    await HostGameAsync($"match_{matchId}", matchId);
-                }
-                else
-                {
-                    // Client: Host 가 생성한 Lobby 를 matchId 로 검색하여 참가
-                    await JoinByMatchIdAsync(matchId);
-                }
+                // [A방식 — 2026-07-17] 호스트를 "계산"하지 않고 Lobby CreateOrJoin 으로 "선점"한다.
+                // 기존 DetermineIsHostAsync(매치 결과 조회) 호출은 P2P 환경에서 404 를 유발하여 제거.
+                // 모든 플레이어가 동일 matchId 로 CreateOrJoin → 먼저 만든 쪽이 호스트가 된다.
+                await StartMatchmadeGameAsync(matchId);
             }
             catch (OperationCanceledException)
             {
@@ -412,6 +403,164 @@ namespace Hexiege.Infrastructure
             }
         }
 
+        // ====================================================================
+        // A방식 — Lobby CreateOrJoin 기반 매칭 게임 시작 (2026-07-17 추가)
+        // ====================================================================
+
+        /// <summary>
+        /// 매칭 성사 후 실제 게임을 시작한다 (A방식: Lobby CreateOrJoin 선점).
+        ///
+        /// 흐름:
+        ///   1) 모든 플레이어가 동일 matchId 를 키로 Lobby 에 CreateOrJoin 요청.
+        ///      - 먼저 만든 쪽 → Lobby "생성" → 호스트(IsHost == true)
+        ///      - 나중에 온 쪽 → 기존 Lobby "참가" → 클라이언트(IsHost == false)
+        ///   2) 호스트/클라이언트 각자 후속 처리로 분기.
+        /// </summary>
+        /// <param name="matchId">매칭된 Match ID (Lobby 고유 ID 로도 사용).</param>
+        private async Task StartMatchmadeGameAsync(string matchId)
+        {
+            // Lobby CreateOrJoin — 서버가 원자적으로 처리하여 정확히 한 명만 호스트가 된다.
+            var lobby = await _lobbyManager.CreateOrJoinLobbyByMatchIdAsync(
+                matchId, $"match_{matchId}", maxPlayers: 2);
+
+            if (lobby == null)
+            {
+                OnError?.Invoke("매칭 방 생성/참가에 실패했습니다. 다시 시도해주세요.");
+                return;
+            }
+
+            bool isHost = _lobbyManager.IsHost;
+            Debug.Log($"[Matchmaker] CreateOrJoin 결과 역할: {(isHost ? "Host" : "Client")}");
+
+            if (isHost)
+                await HostMatchmadeGameAsync(lobby.LobbyCode);
+            else
+                await JoinMatchmadeGameAsync();
+        }
+
+        /// <summary>
+        /// 매칭 호스트 후속 처리.
+        /// Lobby 는 이미 CreateOrJoin 으로 생성됐으므로, Relay 할당 → JoinCode 를 Lobby 에 기록 →
+        /// StartHost → Heartbeat 순으로 진행한다.
+        /// (기존 HostGameAsync 의 Relay·Host 로직을 매칭 경로에 맞게 재구성 — Lobby 생성 단계는 제외)
+        /// </summary>
+        /// <param name="lobbyCode">CreateOrJoin 으로 만든 Lobby 의 참가 코드 (OnHostStarted 전달용).</param>
+        private async Task HostMatchmadeGameAsync(string lobbyCode)
+        {
+            try
+            {
+                // 1. Relay 서버 할당 + Join Code 발급
+                string relayJoinCode = await _relayManager.CreateRelayAsync();
+                if (string.IsNullOrEmpty(relayJoinCode))
+                {
+                    OnError?.Invoke("Relay 할당 실패. 네트워크 상태를 확인하세요.");
+                    return;
+                }
+
+                // 2. 발급받은 Relay Join Code 를 Lobby Data 에 기록 → 클라이언트가 읽어감
+                await _lobbyManager.UpdateRelayJoinCodeAsync(relayJoinCode);
+
+                // 3. Client 접속/끊김 감지 콜백 — StartHost() 이전에 등록 (레이스 컨디션 방지)
+                NetworkManager.Singleton.OnClientConnectedCallback += HandleClientConnected;
+                NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+
+                // 4. NetworkManager Host 시작
+                if (!StartNetworkHost())
+                {
+                    NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
+                    NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                    OnError?.Invoke("NetworkManager.StartHost() 실패.");
+                    return;
+                }
+
+                // 5. Host Heartbeat 시작 (Lobby 활성 유지)
+                StartHeartbeat();
+
+                Debug.Log($"[Network] 매칭 Host 게임 시작 완료. Lobby Code: {lobbyCode}");
+                OnHostStarted?.Invoke(lobbyCode);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Network] 매칭 Host 시작 예외: {e.Message}");
+                OnError?.Invoke($"Host 시작 오류: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 매칭 클라이언트 후속 처리.
+        /// Lobby 는 이미 CreateOrJoin 으로 참가된 상태다. 다만 호스트가 Relay 를 할당하고
+        /// JoinCode 를 Lobby 에 기록하기까지 시간차가 있으므로, RelayJoinCode 가 채워질 때까지
+        /// Lobby 를 폴링하며 대기한 뒤 Relay 참가 → StartClient 를 진행한다.
+        /// (기존 JoinGameByIdAsync 의 참가 로직 + JoinCode 대기 폴링을 반영)
+        /// </summary>
+        private async Task JoinMatchmadeGameAsync()
+        {
+            try
+            {
+                // 1. 호스트가 RelayJoinCode 를 Lobby 에 기록할 때까지 폴링 대기
+                const int maxRetries = 15;   // 최대 약 15초 대기
+                const int retryDelayMs = 1000;
+                string relayJoinCode = null;
+
+                for (int i = 0; i < maxRetries; i++)
+                {
+                    // 최신 Lobby Data 를 서버에서 다시 받아온 뒤 JoinCode 확인
+                    await _lobbyManager.RefreshCurrentLobbyAsync();
+                    relayJoinCode = _lobbyManager.GetRelayJoinCode();
+
+                    if (!string.IsNullOrEmpty(relayJoinCode))
+                        break;
+
+                    Debug.Log($"[Matchmaker] RelayJoinCode 대기 중... ({i + 1}/{maxRetries})");
+                    await Task.Delay(retryDelayMs);
+                }
+
+                if (string.IsNullOrEmpty(relayJoinCode))
+                {
+                    OnError?.Invoke("호스트의 Relay 준비를 기다리지 못했습니다. 다시 시도해주세요.");
+                    return;
+                }
+
+                // 2. Relay 서버 참가 + UnityTransport 설정
+                bool relayJoined = await _relayManager.JoinRelayAsync(relayJoinCode);
+                if (!relayJoined) { OnError?.Invoke("Relay 참가 실패."); return; }
+
+                // 3. NetworkManager Client 시작 — 끊김 콜백을 StartClient 이전에 등록
+                NetworkManager.Singleton.OnClientDisconnectCallback += HandleClientDisconnected;
+
+                if (!StartNetworkClient())
+                {
+                    NetworkManager.Singleton.OnClientDisconnectCallback -= HandleClientDisconnected;
+                    OnError?.Invoke("StartClient() 실패.");
+                    return;
+                }
+
+                Debug.Log("[Network] Client 게임 참가 완료 (매칭 — CreateOrJoin).");
+                OnClientConnected?.Invoke();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[Network] 매칭 Client 참가 예외: {e.Message}");
+                OnError?.Invoke($"참가 오류: {e.Message}");
+            }
+        }
+
+        // ====================================================================
+        // [비활성화됨] 2026-07-17 — 구 매칭 클라이언트 참가 경로 (A방식으로 대체)
+        // ====================================================================
+        //
+        // 아래 JoinByMatchIdAsync / JoinGameByIdAsync 는 "호스트가 만든 Lobby 를 matchId 로
+        // 검색(FindLobbyByMatchIdAsync)해서 참가"하던 구방식이다. A방식(CreateOrJoin)에서는
+        // 클라이언트도 CreateOrJoin 한 번으로 곧바로 Lobby 에 참가되므로 별도 검색 폴링이
+        // 필요 없어졌다. 클라이언트 참가 경로는 위 JoinMatchmadeGameAsync 로 일원화되었고,
+        // 남은 대기는 "RelayJoinCode 채워짐 대기"뿐이다.
+        //
+        // ⚠️ 즉시 삭제가 아니라 "비활성화(주석)"다. 사용자 실기 테스트 통과 후 별도 단계에서
+        //    최종 삭제한다 (WORKFLOW [4] 규칙).
+        //    (LobbyManager.FindLobbyByMatchIdAsync 도 이 경로 전용이라 함께 미사용 상태가 됨)
+        // ====================================================================
+
+        /*
         /// <summary>
         /// 매칭된 MatchId 로 Host 가 만든 Lobby 를 검색하여 참가.
         /// Host 의 Lobby 생성에 시간이 걸릴 수 있으므로 재시도 폴링.
@@ -463,6 +612,7 @@ namespace Hexiege.Infrastructure
                 OnError?.Invoke($"참가 오류: {e.Message}");
             }
         }
+        */
 
         /// <summary>
         /// 진행 중인 매칭을 취소.

@@ -164,9 +164,32 @@ namespace Hexiege.Infrastructure
         }
 
         // ====================================================================
-        // Host 역할 결정
+        // Host 역할 결정 — [비활성화됨] 2026-07-17 매치메이킹 404 수정 (A방식 전환)
+        // ====================================================================
+        //
+        // 아래 DetermineIsHostAsync / GetStableHash 두 메서드는 "매치 결과 조회 후
+        // 해시로 호스트를 계산"하던 기존 방식이다. 이 방식은 다음 이유로 폐기되어
+        // 호스트 결정 경로에서 제거되었다.
+        //
+        //   1) DetermineIsHostAsync 내부의 GetMatchmakingResultsAsync 호출은
+        //      전용 서버(Multiplay)가 매치 결과를 조회할 때 쓰는 서버 지향 API다.
+        //      우리 게임은 P2P(Relay) 구조라 일반 플레이어가 호출하면 조회 대상
+        //      리소스가 없어 404(Not Found)가 반환되고, 그 지점에서 연결이 끊겼다.
+        //   2) 이 API가 주던 "전체 플레이어 목록"이 사라지면 해시 방식은 입력을
+        //      잃어 성립 자체가 불가능하다.
+        //
+        // 대체 방식(A방식): 모든 플레이어가 같은 matchId를 키로 Lobby에
+        // CreateOrJoin(없으면 생성=호스트 / 있으면 참가=클라이언트)을 요청한다.
+        // 서버가 원자적으로 처리하므로 정확히 한 명만 호스트가 된다.
+        // (구현 위치: LobbyManager.CreateOrJoinLobbyByMatchIdAsync +
+        //  NetworkGameManager.StartMatchmadeGameAsync)
+        //
+        // ⚠️ 즉시 삭제가 아니라 "비활성화(주석)"다. 사용자 실기 테스트 통과 후
+        //    별도 단계에서 최종 삭제한다 (WORKFLOW [4] 규칙).
+        //    참고 문서: Docs/_Tasks/2026-07-16/19_09_matchmaker-404-host-determination/
         // ====================================================================
 
+        /*
         /// <summary>
         /// 매칭 결과에서 플레이어 목록을 조회하여 결정론적으로 Host 를 선택.
         /// 양쪽 클라이언트가 동일한 정렬 순서와 해시 인덱스로 동일 결과를 도출.
@@ -207,5 +230,6 @@ namespace Hexiege.Infrastructure
                 return Math.Abs(hash);
             }
         }
+        */
     }
 }
