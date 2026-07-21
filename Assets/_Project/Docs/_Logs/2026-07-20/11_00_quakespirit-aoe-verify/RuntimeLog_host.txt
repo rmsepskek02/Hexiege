@@ -1,0 +1,707 @@
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-07-21 16:48:50 ===
+[16:48:50.080] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 시작 === | role=host, IsServer=True
+[16:50:07.123] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=10, 대상Id=23, 종류=Unit, 피해량=20, 전HP=15, 후HP=0
+[16:50:07.129] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=10, 중심X=3.421, 중심Z=-8.109, 반경=1, 주타깃Id=23, 주타깃종류=Unit
+[16:50:07.132] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=32, 종류=Unit, 거리=0.383, 반경=1
+[16:50:07.134] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=32, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:50:07.135] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:13.760] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=10, 대상Id=30, 종류=Unit, 피해량=20, 전HP=28, 후HP=8
+[16:50:13.761] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=10, 중심X=3.622, 중심Z=-7.840, 반경=1, 주타깃Id=30, 주타깃종류=Unit
+[16:50:13.762] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=30, 종류=Unit
+[16:50:13.763] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=39, 종류=Unit, 거리=0.798, 반경=1
+[16:50:13.763] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=39, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:50:13.764] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=28, 종류=Unit, 거리=0.794, 반경=1
+[16:50:13.765] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=28, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:50:13.766] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=2, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:16.733] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=16, 대상Id=38, 종류=Unit, 피해량=20, 전HP=12, 후HP=0
+[16:50:16.735] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=16, 중심X=4.692, 중심Z=-10.589, 반경=1, 주타깃Id=38, 주타깃종류=Unit
+[16:50:16.736] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=36, 종류=Unit, 거리=0.002, 반경=1
+[16:50:16.737] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=16, 대상Id=36, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:50:16.738] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:18.874] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=10, 대상Id=28, 종류=Unit, 피해량=20, 전HP=22, 후HP=2
+[16:50:18.875] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=10, 중심X=3.803, 중심Z=-8.316, 반경=1, 주타깃Id=28, 주타깃종류=Unit
+[16:50:18.877] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=21, 종류=Unit, 거리=0.776, 반경=1
+[16:50:18.878] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=21, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:50:18.878] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=1, 종류=Unit, 거리=0.911, 반경=1
+[16:50:18.879] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=1, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=17, 후HP=7
+[16:50:18.879] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=37, 종류=Unit, 거리=0.706, 반경=1
+[16:50:18.880] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=37, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:50:18.880] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=39, 종류=Unit, 거리=0.334, 반경=1
+[16:50:18.880] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=39, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:50:18.881] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=28, 종류=Unit
+[16:50:18.881] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=48, 종류=Unit, 거리=0.598, 반경=1
+[16:50:18.883] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=48, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:50:18.883] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=27, 종류=Unit, 거리=0.778, 반경=1
+[16:50:18.884] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=27, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:50:18.885] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=33, 종류=Unit, 거리=0.698, 반경=1
+[16:50:18.886] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=33, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:50:18.886] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=35, 종류=Unit, 거리=0.798, 반경=1
+[16:50:18.887] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=35, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:50:18.888] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=44, 종류=Unit, 거리=0.771, 반경=1
+[16:50:18.889] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=44, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:50:18.890] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=9, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:23.875] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=47, 대상Id=35, 종류=Unit, 피해량=20, 전HP=25, 후HP=5
+[16:50:23.876] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=47, 중심X=4.105, 중심Z=-12.218, 반경=1, 주타깃Id=35, 주타깃종류=Unit
+[16:50:23.877] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=20, 종류=Unit, 거리=0.996, 반경=1
+[16:50:23.878] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=20, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:50:23.879] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=35, 종류=Unit
+[16:50:23.879] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:23.932] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=10, 대상Id=48, 종류=Unit, 피해량=20, 전HP=5, 후HP=0
+[16:50:23.933] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=10, 중심X=3.519, 중심Z=-7.790, 반경=1, 주타깃Id=48, 주타깃종류=Unit
+[16:50:23.933] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=44, 종류=Unit, 거리=0.281, 반경=1
+[16:50:23.939] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=44, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=6, 후HP=0
+[16:50:23.940] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=50, 종류=Unit, 거리=0.981, 반경=1
+[16:50:23.940] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=50, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:50:23.941] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=2, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:29.329] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=47, 대상Id=52, 종류=Unit, 피해량=20, 전HP=30, 후HP=10
+[16:50:29.330] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=47, 중심X=4.044, 중심Z=-11.930, 반경=1, 주타깃Id=52, 주타깃종류=Unit
+[16:50:29.331] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=21, 종류=Unit, 거리=0.135, 반경=1
+[16:50:29.332] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=21, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:50:29.333] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=37, 종류=Unit, 거리=0.137, 반경=1
+[16:50:29.334] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=37, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=40, 후HP=30
+[16:50:29.335] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=6, 종류=Unit, 거리=0.010, 반경=1
+[16:50:29.339] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=6, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=5, 후HP=0
+[16:50:29.339] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=9, 종류=Unit, 거리=0.137, 반경=1
+[16:50:29.340] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=9, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=21, 후HP=11
+[16:50:29.340] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=12, 종류=Unit, 거리=0.009, 반경=1
+[16:50:29.341] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=12, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=38, 후HP=28
+[16:50:29.341] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=15, 종류=Unit, 거리=0.007, 반경=1
+[16:50:29.341] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=15, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:50:29.342] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=16, 종류=Unit, 거리=0.302, 반경=1
+[16:50:29.342] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=16, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=250, 후HP=240
+[16:50:29.342] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=18, 종류=Unit, 거리=0.008, 반경=1
+[16:50:29.344] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=18, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:50:29.344] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=20, 종류=Unit, 거리=0.005, 반경=1
+[16:50:29.344] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=20, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=14, 후HP=4
+[16:50:29.345] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=27, 종류=Unit, 거리=0.010, 반경=1
+[16:50:29.345] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=27, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:50:29.346] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=33, 종류=Unit, 거리=0.136, 반경=1
+[16:50:29.346] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=33, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:50:29.348] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=52, 종류=Unit
+[16:50:29.348] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=11, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:29.722] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=10, 대상Id=50, 종류=Unit, 피해량=20, 전HP=40, 후HP=20
+[16:50:29.722] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=10, 중심X=4.116, 중심Z=-8.045, 반경=1, 주타깃Id=50, 주타깃종류=Unit
+[16:50:29.723] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=58, 종류=Unit, 거리=0.711, 반경=1
+[16:50:29.723] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=58, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=14, 후HP=4
+[16:50:29.723] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=50, 종류=Unit
+[16:50:29.725] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:36.110] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=16, 대상Id=47, 종류=Unit, 피해량=20, 전HP=226, 후HP=206
+[16:50:36.110] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=16, 중심X=3.908, 중심Z=-12.247, 반경=1, 주타깃Id=47, 주타깃종류=Unit
+[16:50:36.112] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=67, 종류=Unit, 거리=0.909, 반경=1
+[16:50:36.112] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=16, 대상Id=67, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:50:36.113] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=47, 종류=Unit
+[16:50:36.114] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:37.815] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=10, 대상Id=53, 종류=Unit, 피해량=20, 전HP=6, 후HP=0
+[16:50:37.816] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=10, 중심X=3.951, 중심Z=-6.425, 반경=1, 주타깃Id=53, 주타깃종류=Unit
+[16:50:37.817] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=70, 종류=Unit, 거리=0.435, 반경=1
+[16:50:37.818] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=70, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:50:37.819] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=73, 종류=Unit, 거리=0.302, 반경=1
+[16:50:37.820] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=73, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:50:37.820] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=68, 종류=Unit, 거리=0.435, 반경=1
+[16:50:37.822] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=68, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:50:37.823] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=19, 종류=Building, 거리=0.821, 반경=1
+[16:50:37.824] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=19, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=60, 후HP=50
+[16:50:37.825] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=3, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:39.337] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=47, 대상Id=27, 종류=Unit, 피해량=20, 전HP=10, 후HP=0
+[16:50:39.338] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=47, 중심X=4.041, 중심Z=-11.935, 반경=1, 주타깃Id=27, 주타깃종류=Unit
+[16:50:39.339] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=21, 종류=Unit, 거리=0.079, 반경=1
+[16:50:39.339] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=21, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=15, 후HP=5
+[16:50:39.340] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=37, 종류=Unit, 거리=0.076, 반경=1
+[16:50:39.341] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=37, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:50:39.341] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=9, 종류=Unit, 거리=0.078, 반경=1
+[16:50:39.343] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=9, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=11, 후HP=1
+[16:50:39.343] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=12, 종류=Unit, 거리=0.006, 반경=1
+[16:50:39.344] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=12, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=28, 후HP=18
+[16:50:39.345] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=15, 종류=Unit, 거리=0.004, 반경=1
+[16:50:39.346] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=15, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:50:39.347] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=16, 종류=Unit, 거리=0.064, 반경=1
+[16:50:39.347] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=16, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=240, 후HP=230
+[16:50:39.349] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=18, 종류=Unit, 거리=0.005, 반경=1
+[16:50:39.349] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=18, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=40, 후HP=30
+[16:50:39.351] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=33, 종류=Unit, 거리=0.076, 반경=1
+[16:50:39.351] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=33, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=15, 후HP=5
+[16:50:39.352] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=8, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:41.035] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=16, 대상Id=47, 종류=Unit, 피해량=20, 전HP=127, 후HP=107
+[16:50:41.036] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=16, 중심X=3.908, 중심Z=-12.247, 반경=1, 주타깃Id=47, 주타깃종류=Unit
+[16:50:41.036] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=74, 종류=Unit, 거리=0.120, 반경=1
+[16:50:41.036] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=16, 대상Id=74, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:50:41.037] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=47, 종류=Unit
+[16:50:41.037] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:43.776] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=10, 대상Id=68, 종류=Unit, 피해량=20, 전HP=2, 후HP=0
+[16:50:43.777] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=10, 중심X=4.016, 중심Z=-5.995, 반경=1, 주타깃Id=68, 주타깃종류=Unit
+[16:50:43.778] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=70, 종류=Unit, 거리=0.001, 반경=1
+[16:50:43.778] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=70, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:50:43.778] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=75, 종류=Unit, 거리=0.208, 반경=1
+[16:50:43.780] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=75, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:50:43.781] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=63, 종류=Unit, 거리=0.941, 반경=1
+[16:50:43.782] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=63, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=11, 후HP=1
+[16:50:43.783] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=19, 종류=Building, 거리=0.452, 반경=1
+[16:50:43.783] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=19, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:50:43.784] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=3, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:44.341] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=47, 대상Id=15, 종류=Unit, 피해량=20, 전HP=15, 후HP=0
+[16:50:44.342] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=47, 중심X=4.043, 중심Z=-11.932, 반경=1, 주타깃Id=15, 주타깃종류=Unit
+[16:50:44.342] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=21, 종류=Unit, 거리=0.080, 반경=1
+[16:50:44.347] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=21, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=5, 후HP=0
+[16:50:44.348] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=37, 종류=Unit, 거리=0.077, 반경=1
+[16:50:44.348] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=37, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=14, 후HP=4
+[16:50:44.348] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=9, 종류=Unit, 거리=0.079, 반경=1
+[16:50:44.355] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=9, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=1, 후HP=0
+[16:50:44.355] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=12, 종류=Unit, 거리=0.002, 반경=1
+[16:50:44.356] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=12, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=18, 후HP=8
+[16:50:44.357] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=16, 종류=Unit, 거리=0.065, 반경=1
+[16:50:44.358] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=16, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=230, 후HP=220
+[16:50:44.358] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=18, 종류=Unit, 거리=0.002, 반경=1
+[16:50:44.360] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=18, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:50:44.361] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=6, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:46.045] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=16, 대상Id=47, 종류=Unit, 피해량=20, 전HP=53, 후HP=33
+[16:50:46.045] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=16, 중심X=3.908, 중심Z=-12.247, 반경=1, 주타깃Id=47, 주타깃종류=Unit
+[16:50:46.046] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=79, 종류=Unit, 거리=0.529, 반경=1
+[16:50:46.048] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=16, 대상Id=79, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:50:46.049] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=74, 종류=Unit, 거리=0.120, 반경=1
+[16:50:46.049] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=16, 대상Id=74, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=40, 후HP=30
+[16:50:46.050] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=81, 종류=Unit, 거리=0.386, 반경=1
+[16:50:46.051] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=16, 대상Id=81, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:50:46.051] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=47, 종류=Unit
+[16:50:46.053] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=3, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:48.747] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=10, 대상Id=86, 종류=Unit, 피해량=20, 전HP=35, 후HP=15
+[16:50:48.747] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=10, 중심X=4.277, 중심Z=-6.195, 반경=1, 주타깃Id=86, 주타깃종류=Unit
+[16:50:48.748] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=75, 종류=Unit, 거리=0.143, 반경=1
+[16:50:48.749] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=75, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=40, 후HP=30
+[16:50:48.750] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=78, 종류=Unit, 거리=0.188, 반경=1
+[16:50:48.751] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=78, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:50:48.753] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=86, 종류=Unit
+[16:50:48.753] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=80, 종류=Unit, 거리=0.182, 반경=1
+[16:50:48.754] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=80, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:50:48.755] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=19, 종류=Building, 거리=0.773, 반경=1
+[16:50:48.755] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=10, 대상Id=19, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:50:48.756] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=3, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:49.344] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=47, 대상Id=18, 종류=Unit, 피해량=20, 전HP=20, 후HP=0
+[16:50:49.345] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=47, 중심X=4.043, 중심Z=-11.930, 반경=1, 주타깃Id=18, 주타깃종류=Unit
+[16:50:49.345] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=12, 종류=Unit, 거리=0.000, 반경=1
+[16:50:49.350] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=12, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=8, 후HP=0
+[16:50:49.352] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=16, 종류=Unit, 거리=0.064, 반경=1
+[16:50:49.353] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=47, 대상Id=16, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=214, 후HP=204
+[16:50:49.353] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=2, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:50:56.767] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 종료 === | IsServer=True
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-07-21 16:52:45 ===
+[16:52:45.935] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 시작 === | role=host, IsServer=True
+[16:53:48.202] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=104, 종류=Unit, 피해량=20, 전HP=17, 후HP=0
+[16:53:48.202] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.250, 중심Z=-8.310, 반경=1, 주타깃Id=104, 주타깃종류=Unit
+[16:53:48.202] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=100, 종류=Unit, 거리=0.750, 반경=1
+[16:53:48.206] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=100, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=6, 후HP=0
+[16:53:48.207] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=102, 종류=Unit, 거리=0.001, 반경=1
+[16:53:48.207] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=102, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=23, 후HP=13
+[16:53:48.207] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=107, 종류=Unit, 거리=0.546, 반경=1
+[16:53:48.207] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=107, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=250, 후HP=240
+[16:53:48.207] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=108, 종류=Unit, 거리=0.216, 반경=1
+[16:53:48.208] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=108, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=18, 후HP=8
+[16:53:48.208] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=110, 종류=Unit, 거리=0.298, 반경=1
+[16:53:48.208] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=110, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:53:48.209] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=118, 종류=Unit, 거리=0.750, 반경=1
+[16:53:48.209] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=118, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:53:48.209] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=6, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:53:50.156] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=107, 대상Id=105, 종류=Unit, 피해량=20, 전HP=9, 후HP=0
+[16:53:50.156] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=107, 중심X=5.643, 중심Z=-8.168, 반경=1, 주타깃Id=105, 주타깃종류=Unit
+[16:53:50.156] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=106, 종류=Unit, 거리=0.443, 반경=1
+[16:53:50.157] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=106, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=250, 후HP=240
+[16:53:50.157] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=111, 종류=Unit, 거리=0.443, 반경=1
+[16:53:50.157] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=111, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:53:50.157] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=97, 종류=Unit, 거리=0.443, 반경=1
+[16:53:50.159] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=97, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:53:50.159] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=109, 종류=Unit, 거리=0.444, 반경=1
+[16:53:50.161] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=109, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=4, 후HP=0
+[16:53:50.162] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=4, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:53:53.126] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=102, 종류=Unit, 피해량=20, 전HP=1, 후HP=0
+[16:53:53.127] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.250, 중심Z=-8.311, 반경=1, 주타깃Id=102, 주타깃종류=Unit
+[16:53:53.127] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=107, 종류=Unit, 거리=0.298, 반경=1
+[16:53:53.128] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=107, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=240, 후HP=230
+[16:53:53.129] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=108, 종류=Unit, 거리=0.238, 반경=1
+[16:53:53.130] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=108, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=2, 후HP=0
+[16:53:53.131] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=110, 종류=Unit, 거리=0.302, 반경=1
+[16:53:53.131] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=110, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=18, 후HP=8
+[16:53:53.132] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=116, 종류=Unit, 거리=0.750, 반경=1
+[16:53:53.132] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=116, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:53:53.132] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=118, 종류=Unit, 거리=0.750, 반경=1
+[16:53:53.134] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=118, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=5, 후HP=0
+[16:53:53.135] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=5, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:53:55.376] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=107, 대상Id=121, 종류=Unit, 피해량=20, 전HP=24, 후HP=4
+[16:53:55.376] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=107, 중심X=5.719, 중심Z=-8.145, 반경=1, 주타깃Id=121, 주타깃종류=Unit
+[16:53:55.376] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=121, 종류=Unit
+[16:53:55.377] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=106, 종류=Unit, 거리=0.503, 반경=1
+[16:53:55.377] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=106, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=240, 후HP=230
+[16:53:55.377] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=111, 종류=Unit, 거리=0.452, 반경=1
+[16:53:55.378] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=111, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:53:55.378] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=97, 종류=Unit, 거리=0.504, 반경=1
+[16:53:55.378] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=97, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:53:55.378] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=3, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:53:58.677] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=107, 종류=Unit, 피해량=20, 전HP=218, 후HP=198
+[16:53:58.677] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.527, 중심Z=-8.432, 반경=1, 주타깃Id=107, 주타깃종류=Unit
+[16:53:58.678] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=107, 종류=Unit
+[16:53:58.679] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=110, 종류=Unit, 거리=0.004, 반경=1
+[16:53:58.681] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=110, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=8, 후HP=0
+[16:53:58.681] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:00.320] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=107, 대상Id=123, 종류=Unit, 피해량=20, 전HP=35, 후HP=15
+[16:54:00.321] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=107, 중심X=5.706, 중심Z=-8.136, 반경=1, 주타깃Id=123, 주타깃종류=Unit
+[16:54:00.321] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=106, 종류=Unit, 거리=0.357, 반경=1
+[16:54:00.322] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=106, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=230, 후HP=220
+[16:54:00.322] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=111, 종류=Unit, 거리=0.356, 반경=1
+[16:54:00.325] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=111, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=9, 후HP=0
+[16:54:00.325] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=97, 종류=Unit, 거리=0.357, 반경=1
+[16:54:00.325] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=97, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=15, 후HP=5
+[16:54:00.326] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=123, 종류=Unit
+[16:54:00.326] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=130, 종류=Unit, 거리=0.490, 반경=1
+[16:54:00.327] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=130, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=80, 후HP=70
+[16:54:00.327] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=133, 종류=Unit, 거리=0.935, 반경=1
+[16:54:00.327] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=133, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:54:00.327] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=5, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:03.623] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=107, 종류=Unit, 피해량=20, 전HP=153, 후HP=133
+[16:54:03.623] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.527, 중심Z=-8.432, 반경=1, 주타깃Id=107, 주타깃종류=Unit
+[16:54:03.623] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=122, 종류=Unit, 거리=0.724, 반경=1
+[16:54:03.624] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=122, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:54:03.624] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=107, 종류=Unit
+[16:54:03.624] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=114, 종류=Unit, 거리=0.587, 반경=1
+[16:54:03.626] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=114, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=9, 후HP=0
+[16:54:03.627] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=2, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:05.327] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=107, 대상Id=123, 종류=Unit, 피해량=20, 전HP=9, 후HP=0
+[16:54:05.328] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=107, 중심X=5.706, 중심Z=-8.136, 반경=1, 주타깃Id=123, 주타깃종류=Unit
+[16:54:05.328] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=106, 종류=Unit, 거리=0.357, 반경=1
+[16:54:05.328] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=106, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=220, 후HP=210
+[16:54:05.328] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=97, 종류=Unit, 거리=0.357, 반경=1
+[16:54:05.332] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=97, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=5, 후HP=0
+[16:54:05.333] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=130, 종류=Unit, 거리=0.287, 반경=1
+[16:54:05.333] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=130, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=70, 후HP=60
+[16:54:05.333] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=133, 종류=Unit, 거리=0.286, 반경=1
+[16:54:05.333] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=133, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:54:05.333] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=135, 종류=Unit, 거리=0.850, 반경=1
+[16:54:05.334] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=135, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:54:05.335] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=5, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:08.621] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=107, 종류=Unit, 피해량=20, 전HP=99, 후HP=79
+[16:54:08.622] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.527, 중심Z=-8.432, 반경=1, 주타깃Id=107, 주타깃종류=Unit
+[16:54:08.622] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=120, 종류=Unit, 거리=0.383, 반경=1
+[16:54:08.622] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=120, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=24, 후HP=14
+[16:54:08.624] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=124, 종류=Unit, 거리=0.587, 반경=1
+[16:54:08.624] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=124, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=16, 후HP=6
+[16:54:08.625] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=122, 종류=Unit, 거리=0.589, 반경=1
+[16:54:08.625] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=122, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:54:08.625] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=107, 종류=Unit
+[16:54:08.626] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=3, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:13.643] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=107, 종류=Unit, 피해량=20, 전HP=71, 후HP=51
+[16:54:13.643] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.527, 중심Z=-8.432, 반경=1, 주타깃Id=107, 주타깃종류=Unit
+[16:54:13.644] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=120, 종류=Unit, 거리=0.383, 반경=1
+[16:54:13.647] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=120, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=2, 후HP=0
+[16:54:13.647] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=122, 종류=Unit, 거리=0.589, 반경=1
+[16:54:13.649] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=122, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=1, 후HP=0
+[16:54:13.650] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=144, 종류=Unit, 거리=0.972, 반경=1
+[16:54:13.650] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=144, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:54:13.650] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=107, 종류=Unit
+[16:54:13.650] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=138, 종류=Unit, 거리=0.221, 반경=1
+[16:54:13.650] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=138, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:54:13.651] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=4, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:15.325] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=107, 대상Id=130, 종류=Unit, 피해량=20, 전HP=60, 후HP=40
+[16:54:15.327] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=107, 중심X=5.421, 중심Z=-8.099, 반경=1, 주타깃Id=130, 주타깃종류=Unit
+[16:54:15.327] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=106, 종류=Unit, 거리=0.079, 반경=1
+[16:54:15.327] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=106, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=204, 후HP=194
+[16:54:15.327] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=137, 종류=Unit, 거리=0.671, 반경=1
+[16:54:15.330] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=137, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=5, 후HP=0
+[16:54:15.331] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=145, 종류=Unit, 거리=0.909, 반경=1
+[16:54:15.331] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=145, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=23, 후HP=13
+[16:54:15.331] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=130, 종류=Unit
+[16:54:15.331] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=135, 종류=Unit, 거리=0.119, 반경=1
+[16:54:15.332] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=135, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=18, 후HP=8
+[16:54:15.332] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=4, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:18.628] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=107, 종류=Unit, 피해량=20, 전HP=29, 후HP=9
+[16:54:18.629] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.527, 중심Z=-8.432, 반경=1, 주타깃Id=107, 주타깃종류=Unit
+[16:54:18.629] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=149, 종류=Unit, 거리=0.221, 반경=1
+[16:54:18.629] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=149, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=80, 후HP=70
+[16:54:18.630] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=107, 종류=Unit
+[16:54:18.630] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=138, 종류=Unit, 거리=0.221, 반경=1
+[16:54:18.630] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=138, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:54:18.630] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=150, 종류=Unit, 거리=0.219, 반경=1
+[16:54:18.631] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=150, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:54:18.631] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=3, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:20.322] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=107, 대상Id=130, 종류=Unit, 피해량=20, 전HP=40, 후HP=20
+[16:54:20.323] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=107, 중심X=5.421, 중심Z=-8.099, 반경=1, 주타깃Id=130, 주타깃종류=Unit
+[16:54:20.323] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=106, 종류=Unit, 거리=0.079, 반경=1
+[16:54:20.324] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=106, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=160, 후HP=150
+[16:54:20.324] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=145, 종류=Unit, 거리=0.900, 반경=1
+[16:54:20.326] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=145, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=6, 후HP=0
+[16:54:20.327] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=130, 종류=Unit
+[16:54:20.327] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=135, 종류=Unit, 거리=0.119, 반경=1
+[16:54:20.329] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=135, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=8, 후HP=0
+[16:54:20.330] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=151, 종류=Unit, 거리=0.426, 반경=1
+[16:54:20.330] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=107, 대상Id=151, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:54:20.330] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=4, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:22.025] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=132, 종류=Unit, 피해량=20, 전HP=30, 후HP=10
+[16:54:22.026] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=4.374, 중심Z=-8.021, 반경=1, 주타깃Id=132, 주타깃종류=Unit
+[16:54:22.026] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=154, 종류=Unit, 거리=0.257, 반경=1
+[16:54:22.026] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=154, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=32, 후HP=22
+[16:54:22.027] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=132, 종류=Unit
+[16:54:22.027] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=131, 종류=Unit, 거리=0.006, 반경=1
+[16:54:22.028] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=131, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=80, 후HP=70
+[16:54:22.028] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=136, 종류=Unit, 거리=0.001, 반경=1
+[16:54:22.028] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=136, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:54:22.028] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=146, 종류=Unit, 거리=0.038, 반경=1
+[16:54:22.028] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=146, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:54:22.030] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=4, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:23.481] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=143, 대상Id=153, 종류=Unit, 피해량=20, 전HP=35, 후HP=15
+[16:54:23.481] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=143, 중심X=6.232, 중심Z=-7.797, 반경=1, 주타깃Id=153, 주타깃종류=Unit
+[16:54:23.481] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=106, 종류=Unit, 거리=0.944, 반경=1
+[16:54:23.483] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=106, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=123, 후HP=113
+[16:54:23.484] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=157, 종류=Unit, 거리=0.802, 반경=1
+[16:54:23.485] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=157, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:54:23.485] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=130, 종류=Unit, 거리=0.865, 반경=1
+[16:54:23.486] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=130, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:54:23.486] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=153, 종류=Unit
+[16:54:23.486] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=151, 종류=Unit, 거리=0.738, 반경=1
+[16:54:23.487] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=151, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:54:23.487] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=4, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:23.629] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=150, 종류=Unit, 피해량=20, 전HP=13, 후HP=0
+[16:54:23.630] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.312, 중심Z=-8.471, 반경=1, 주타깃Id=150, 주타깃종류=Unit
+[16:54:23.630] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=149, 종류=Unit, 거리=0.007, 반경=1
+[16:54:23.630] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=149, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=70, 후HP=60
+[16:54:23.630] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=152, 종류=Unit, 거리=0.007, 반경=1
+[16:54:23.631] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=152, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:54:23.631] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=138, 종류=Unit, 거리=0.007, 반경=1
+[16:54:23.631] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=138, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=15, 후HP=5
+[16:54:23.631] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=3, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:27.025] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=164, 종류=Unit, 피해량=20, 전HP=35, 후HP=15
+[16:54:27.025] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=4.316, 중심Z=-8.034, 반경=1, 주타깃Id=164, 주타깃종류=Unit
+[16:54:27.026] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=131, 종류=Unit, 거리=0.061, 반경=1
+[16:54:27.026] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=131, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=70, 후HP=60
+[16:54:27.026] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=136, 종류=Unit, 거리=0.060, 반경=1
+[16:54:27.029] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=136, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=10, 후HP=0
+[16:54:27.030] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=160, 종류=Unit, 거리=0.135, 반경=1
+[16:54:27.032] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=160, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:54:27.032] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=164, 종류=Unit
+[16:54:27.033] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=146, 종류=Unit, 거리=0.027, 반경=1
+[16:54:27.033] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=146, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:54:27.033] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=4, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:28.424] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=143, 대상Id=153, 종류=Unit, 피해량=20, 전HP=1, 후HP=0
+[16:54:28.424] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=143, 중심X=6.232, 중심Z=-7.797, 반경=1, 주타깃Id=153, 주타깃종류=Unit
+[16:54:28.424] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=106, 종류=Unit, 거리=0.944, 반경=1
+[16:54:28.425] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=106, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=87, 후HP=77
+[16:54:28.426] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=159, 종류=Unit, 거리=0.400, 반경=1
+[16:54:28.426] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=159, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:54:28.426] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=157, 종류=Unit, 거리=0.811, 반경=1
+[16:54:28.426] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=157, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:54:28.426] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=130, 종류=Unit, 거리=0.893, 반경=1
+[16:54:28.430] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=130, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=10, 후HP=0
+[16:54:28.430] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=151, 종류=Unit, 거리=0.807, 반경=1
+[16:54:28.433] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=151, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=10, 후HP=0
+[16:54:28.433] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=5, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:28.626] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=152, 종류=Unit, 피해량=20, 전HP=18, 후HP=0
+[16:54:28.627] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.311, 중심Z=-8.478, 반경=1, 주타깃Id=152, 주타깃종류=Unit
+[16:54:28.627] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=149, 종류=Unit, 거리=0.000, 반경=1
+[16:54:28.627] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=149, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=60, 후HP=50
+[16:54:28.628] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=160, 종류=Unit, 거리=0.969, 반경=1
+[16:54:28.628] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=160, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:54:28.628] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=2, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:32.028] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=146, 종류=Unit, 피해량=20, 전HP=3, 후HP=0
+[16:54:32.028] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=4.342, 중심Z=-8.042, 반경=1, 주타깃Id=146, 주타깃종류=Unit
+[16:54:32.029] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=131, 종류=Unit, 거리=0.038, 반경=1
+[16:54:32.029] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=131, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=29, 후HP=19
+[16:54:32.029] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=160, 종류=Unit, 거리=0.109, 반경=1
+[16:54:32.033] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=160, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=4, 후HP=0
+[16:54:32.033] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=162, 종류=Unit, 거리=0.144, 반경=1
+[16:54:32.033] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=162, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:54:32.034] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=3, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:33.422] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=143, 대상Id=159, 종류=Unit, 피해량=20, 전HP=6, 후HP=0
+[16:54:33.423] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=143, 중심X=6.607, 중심Z=-7.658, 반경=1, 주타깃Id=159, 주타깃종류=Unit
+[16:54:33.423] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:33.630] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=149, 종류=Unit, 피해량=20, 전HP=36, 후HP=16
+[16:54:33.630] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.311, 중심Z=-8.478, 반경=1, 주타깃Id=149, 주타깃종류=Unit
+[16:54:33.630] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=149, 종류=Unit
+[16:54:33.631] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=168, 종류=Unit, 거리=0.137, 반경=1
+[16:54:33.631] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=168, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:54:33.631] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:37.392] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=176, 종류=Unit, 피해량=20, 전HP=29, 후HP=9
+[16:54:37.394] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=3.948, 중심Z=-8.142, 반경=1, 주타깃Id=176, 주타깃종류=Unit
+[16:54:37.394] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=167, 종류=Unit, 거리=0.015, 반경=1
+[16:54:37.395] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=167, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=80, 후HP=70
+[16:54:37.395] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=170, 종류=Unit, 거리=0.998, 반경=1
+[16:54:37.395] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=170, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:54:37.396] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=176, 종류=Unit
+[16:54:37.396] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=2, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:38.630] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=156, 종류=Unit, 피해량=20, 전HP=2, 후HP=0
+[16:54:38.630] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.696, 중심Z=-8.105, 반경=1, 주타깃Id=156, 주타깃종류=Unit
+[16:54:38.631] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=143, 종류=Unit, 거리=0.852, 반경=1
+[16:54:38.631] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=143, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=226, 후HP=216
+[16:54:38.631] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=172, 종류=Unit, 거리=0.516, 반경=1
+[16:54:38.631] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=172, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:54:38.632] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=168, 종류=Unit, 거리=0.461, 반경=1
+[16:54:38.632] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=168, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:54:38.632] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=3, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:38.918] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=143, 대상Id=173, 종류=Unit, 피해량=20, 전HP=24, 후HP=4
+[16:54:38.919] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=143, 중심X=6.439, 중심Z=-7.448, 반경=1, 주타깃Id=173, 주타깃종류=Unit
+[16:54:38.919] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=173, 종류=Unit
+[16:54:38.920] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:42.378] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=167, 종류=Unit, 피해량=20, 전HP=26, 후HP=6
+[16:54:42.378] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=3.945, 중심Z=-8.157, 반경=1, 주타깃Id=167, 주타깃종류=Unit
+[16:54:42.379] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=167, 종류=Unit
+[16:54:42.379] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:43.622] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=174, 종류=Unit, 피해량=20, 전HP=32, 후HP=12
+[16:54:43.622] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=5.312, 중심Z=-8.477, 반경=1, 주타깃Id=174, 주타깃종류=Unit
+[16:54:43.623] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=172, 종류=Unit, 거리=0.104, 반경=1
+[16:54:43.623] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=172, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=14, 후HP=4
+[16:54:43.623] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=174, 종류=Unit
+[16:54:43.624] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:43.821] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=143, 대상Id=181, 종류=Unit, 피해량=20, 전HP=24, 후HP=4
+[16:54:43.822] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=143, 중심X=6.306, 중심Z=-7.504, 반경=1, 주타깃Id=181, 주타깃종류=Unit
+[16:54:43.822] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=183, 종류=Unit, 거리=0.398, 반경=1
+[16:54:43.823] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=183, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:54:43.824] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=175, 종류=Unit, 거리=0.004, 반경=1
+[16:54:43.824] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=175, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:54:43.824] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=181, 종류=Unit
+[16:54:43.825] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=2, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:48.826] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=143, 대상Id=175, 종류=Unit, 피해량=20, 전HP=6, 후HP=0
+[16:54:48.827] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=143, 중심X=6.303, 중심Z=-7.500, 반경=1, 주타깃Id=175, 주타깃종류=Unit
+[16:54:48.827] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=183, 종류=Unit, 거리=0.150, 반경=1
+[16:54:48.827] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=183, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:54:48.827] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:49.838] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=185, 종류=Unit, 피해량=20, 전HP=3, 후HP=0
+[16:54:49.838] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=4.453, 중심Z=-9.075, 반경=1, 주타깃Id=185, 주타깃종류=Unit
+[16:54:49.838] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=188, 종류=Unit, 거리=0.293, 반경=1
+[16:54:49.839] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=188, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=29, 후HP=19
+[16:54:49.839] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:51.222] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=178, 대상Id=188, 종류=Unit, 피해량=20, 전HP=16, 후HP=0
+[16:54:51.223] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=178, 중심X=4.667, 중심Z=-9.274, 반경=1, 주타깃Id=188, 주타깃종류=Unit
+[16:54:51.223] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:54:57.886] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=196, 종류=Unit, 피해량=20, 전HP=2, 후HP=0
+[16:54:57.887] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=3.750, 중심Z=-9.809, 반경=1, 주타깃Id=196, 주타깃종류=Unit
+[16:54:57.887] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=199, 종류=Unit, 거리=0.963, 반경=1
+[16:54:57.888] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=199, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=80, 후HP=70
+[16:54:57.888] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:00.046] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=199, 종류=Unit, 피해량=20, 전HP=14, 후HP=0
+[16:55:00.047] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=4.568, 중심Z=-10.317, 반경=1, 주타깃Id=199, 주타깃종류=Unit
+[16:55:00.047] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=200, 종류=Unit, 거리=0.031, 반경=1
+[16:55:00.048] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=200, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:55:00.048] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:04.227] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=179, 대상Id=189, 종류=Unit, 피해량=20, 전HP=15, 후HP=0
+[16:55:04.228] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=179, 중심X=6.672, 중심Z=-7.287, 반경=1, 주타깃Id=189, 주타깃종류=Unit
+[16:55:04.228] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=195, 종류=Unit, 거리=0.076, 반경=1
+[16:55:04.229] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=179, 대상Id=195, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:55:04.229] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:07.922] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=41, 종류=Building, 피해량=20, 전HP=93, 후HP=73
+[16:55:07.923] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=3.750, 중심Z=-11.691, 반경=1, 주타깃Id=41, 주타깃종류=Building
+[16:55:07.923] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=37, 종류=Building, 거리=0.866, 반경=1
+[16:55:07.923] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=37, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=100, 후HP=90
+[16:55:07.924] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 건물 스플래시 제외 | 대상Id=41, 종류=Building
+[16:55:07.924] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:08.923] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=41, 종류=Building, 피해량=20, 전HP=67, 후HP=47
+[16:55:08.924] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=3.750, 중심Z=-11.691, 반경=1, 주타깃Id=41, 주타깃종류=Building
+[16:55:08.924] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=37, 종류=Building, 거리=0.866, 반경=1
+[16:55:08.925] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=37, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=90, 후HP=80
+[16:55:08.925] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 건물 스플래시 제외 | 대상Id=41, 종류=Building
+[16:55:08.926] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:08.926] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=178, 대상Id=41, 종류=Building, 피해량=20, 전HP=47, 후HP=27
+[16:55:08.926] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=178, 중심X=3.750, 중심Z=-11.691, 반경=1, 주타깃Id=41, 주타깃종류=Building
+[16:55:08.927] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=37, 종류=Building, 거리=0.866, 반경=1
+[16:55:08.928] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=178, 대상Id=37, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=80, 후HP=70
+[16:55:08.928] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 건물 스플래시 제외 | 대상Id=41, 종류=Building
+[16:55:08.928] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:09.384] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=179, 대상Id=195, 종류=Unit, 피해량=20, 전HP=4, 후HP=0
+[16:55:09.384] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=179, 중심X=6.606, 중심Z=-7.252, 반경=1, 주타깃Id=195, 주타깃종류=Unit
+[16:55:09.385] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:11.610] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=205, 대상Id=187, 종류=Unit, 피해량=20, 전HP=30, 후HP=10
+[16:55:11.611] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=205, 중심X=3.785, 중심Z=-12.016, 반경=1, 주타깃Id=187, 주타깃종류=Unit
+[16:55:11.611] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=142, 종류=Unit, 거리=0.866, 반경=1
+[16:55:11.611] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=142, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=88, 후HP=78
+[16:55:11.612] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=106, 종류=Unit, 거리=0.862, 반경=1
+[16:55:11.612] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=106, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=54, 후HP=44
+[16:55:11.613] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=187, 종류=Unit
+[16:55:11.613] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=148, 종류=Unit, 거리=0.866, 반경=1
+[16:55:11.613] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=148, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=73, 후HP=63
+[16:55:11.614] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=191, 종류=Unit, 거리=0.423, 반경=1
+[16:55:11.614] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=191, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=28, 후HP=18
+[16:55:11.614] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=163, 종류=Unit, 거리=0.499, 반경=1
+[16:55:11.615] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=163, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:55:11.615] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=161, 종류=Unit, 거리=0.009, 반경=1
+[16:55:11.615] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=161, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:55:11.616] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=197, 종류=Unit, 거리=0.536, 반경=1
+[16:55:11.616] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=197, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:55:11.616] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=177, 종류=Unit, 거리=0.422, 반경=1
+[16:55:11.617] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=177, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=21, 후HP=11
+[16:55:11.618] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=166, 종류=Unit, 거리=0.865, 반경=1
+[16:55:11.618] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=166, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=73, 후HP=63
+[16:55:11.618] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=178, 종류=Unit, 거리=0.867, 반경=1
+[16:55:11.618] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=178, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=250, 후HP=240
+[16:55:11.618] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=147, 종류=Unit, 거리=0.430, 반경=1
+[16:55:11.622] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=147, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=2, 후HP=0
+[16:55:11.623] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=171, 종류=Unit, 거리=0.497, 반경=1
+[16:55:11.623] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=171, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=35, 후HP=25
+[16:55:11.624] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=12, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:12.110] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=204, 대상Id=190, 종류=Unit, 피해량=20, 전HP=7, 후HP=0
+[16:55:12.111] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=204, 중심X=3.607, 중심Z=-5.264, 반경=1, 주타깃Id=190, 주타깃종류=Unit
+[16:55:12.111] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:14.962] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=205, 종류=Unit, 피해량=20, 전HP=181, 후HP=161
+[16:55:14.962] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=4.131, 중심Z=-12.008, 반경=1, 주타깃Id=205, 주타깃종류=Unit
+[16:55:14.962] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=205, 종류=Unit
+[16:55:14.963] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=37, 종류=Building, 거리=0.668, 반경=1
+[16:55:14.963] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=37, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=42, 후HP=32
+[16:55:14.964] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:15.195] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=205, 종류=Unit, 피해량=20, 전HP=161, 후HP=141
+[16:55:15.195] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=4.131, 중심Z=-12.008, 반경=1, 주타깃Id=205, 주타깃종류=Unit
+[16:55:15.196] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=205, 종류=Unit
+[16:55:15.196] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=37, 종류=Building, 거리=0.668, 반경=1
+[16:55:15.196] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=37, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=32, 후HP=22
+[16:55:15.196] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:15.235] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=178, 대상Id=205, 종류=Unit, 피해량=20, 전HP=141, 후HP=121
+[16:55:15.235] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=178, 중심X=4.131, 중심Z=-12.008, 반경=1, 주타깃Id=205, 주타깃종류=Unit
+[16:55:15.235] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=205, 종류=Unit
+[16:55:15.236] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=37, 종류=Building, 거리=0.668, 반경=1
+[16:55:15.236] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=178, 대상Id=37, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=22, 후HP=12
+[16:55:15.236] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:16.527] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=205, 대상Id=187, 종류=Unit, 피해량=20, 전HP=10, 후HP=0
+[16:55:16.529] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=205, 중심X=3.785, 중심Z=-12.016, 반경=1, 주타깃Id=187, 주타깃종류=Unit
+[16:55:16.529] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=142, 종류=Unit, 거리=0.399, 반경=1
+[16:55:16.529] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=142, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=78, 후HP=68
+[16:55:16.530] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=106, 종류=Unit, 거리=0.417, 반경=1
+[16:55:16.530] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=106, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=44, 후HP=34
+[16:55:16.530] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=148, 종류=Unit, 거리=0.412, 반경=1
+[16:55:16.530] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=148, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=63, 후HP=53
+[16:55:16.531] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=191, 종류=Unit, 거리=0.423, 반경=1
+[16:55:16.531] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=191, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=18, 후HP=8
+[16:55:16.532] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=163, 종류=Unit, 거리=0.412, 반경=1
+[16:55:16.532] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=163, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:55:16.532] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=161, 종류=Unit, 거리=0.009, 반경=1
+[16:55:16.533] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=161, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:55:16.534] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=197, 종류=Unit, 거리=0.475, 반경=1
+[16:55:16.534] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=197, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:55:16.534] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=177, 종류=Unit, 거리=0.422, 반경=1
+[16:55:16.534] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=177, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=11, 후HP=1
+[16:55:16.534] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=166, 종류=Unit, 거리=0.412, 반경=1
+[16:55:16.535] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=166, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=63, 후HP=53
+[16:55:16.536] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=178, 종류=Unit, 거리=0.406, 반경=1
+[16:55:16.536] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=178, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=240, 후HP=230
+[16:55:16.537] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=171, 종류=Unit, 거리=0.425, 반경=1
+[16:55:16.537] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=205, 대상Id=171, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=25, 후HP=15
+[16:55:16.538] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=11, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:19.005] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=179, 대상Id=209, 종류=Unit, 피해량=20, 전HP=16, 후HP=0
+[16:55:19.007] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=179, 중심X=5.485, 중심Z=-5.579, 반경=1, 주타깃Id=209, 주타깃종류=Unit
+[16:55:19.007] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:20.798] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=178, 대상Id=210, 종류=Unit, 피해량=20, 전HP=24, 후HP=4
+[16:55:20.799] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=178, 중심X=4.049, 중심Z=-12.226, 반경=1, 주타깃Id=210, 주타깃종류=Unit
+[16:55:20.800] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=212, 종류=Unit, 거리=0.439, 반경=1
+[16:55:20.800] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=178, 대상Id=212, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:55:20.800] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=210, 종류=Unit
+[16:55:20.800] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:27.665] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=179, 대상Id=213, 종류=Unit, 피해량=20, 전HP=16, 후HP=0
+[16:55:27.665] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=179, 중심X=4.731, 중심Z=-4.318, 반경=1, 주타깃Id=213, 주타깃종류=Unit
+[16:55:27.667] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=215, 종류=Unit, 거리=0.126, 반경=1
+[16:55:27.667] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=179, 대상Id=215, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:55:27.667] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:28.015] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=33, 종류=Building, 피해량=20, 전HP=37, 후HP=17
+[16:55:28.015] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=3.750, 중심Z=-13.423, 반경=1, 주타깃Id=33, 주타깃종류=Building
+[16:55:28.015] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=214, 종류=Unit, 거리=0.699, 반경=1
+[16:55:28.016] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=214, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=16, 후HP=6
+[16:55:28.016] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=30, 종류=Building, 거리=0.866, 반경=1
+[16:55:28.016] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=30, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=50, 후HP=40
+[16:55:28.016] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 건물 스플래시 제외 | 대상Id=33, 종류=Building
+[16:55:28.017] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:28.018] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=33, 종류=Building, 피해량=20, 전HP=17, 후HP=0
+[16:55:28.019] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=3.750, 중심Z=-13.423, 반경=1, 주타깃Id=33, 주타깃종류=Building
+[16:55:28.019] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=214, 종류=Unit, 거리=0.699, 반경=1
+[16:55:28.022] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=214, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=6, 후HP=0
+[16:55:28.022] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=30, 종류=Building, 거리=0.866, 반경=1
+[16:55:28.023] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=30, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=40, 후HP=30
+[16:55:28.023] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:32.629] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=179, 대상Id=217, 종류=Unit, 피해량=20, 전HP=30, 후HP=10
+[16:55:32.630] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=179, 중심X=4.765, 중심Z=-4.298, 반경=1, 주타깃Id=217, 주타깃종류=Unit
+[16:55:32.630] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=215, 종류=Unit, 거리=0.074, 반경=1
+[16:55:32.630] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=179, 대상Id=215, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=20, 후HP=10
+[16:55:32.631] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=217, 종류=Unit
+[16:55:32.631] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:32.827] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=143, 대상Id=217, 종류=Unit, 피해량=20, 전HP=10, 후HP=0
+[16:55:32.828] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=143, 중심X=4.765, 중심Z=-4.298, 반경=1, 주타깃Id=217, 주타깃종류=Unit
+[16:55:32.829] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=215, 종류=Unit, 거리=0.074, 반경=1
+[16:55:32.832] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=143, 대상Id=215, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=10, 후HP=0
+[16:55:32.832] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:35.036] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=30, 종류=Building, 피해량=20, 전HP=3, 후HP=0
+[16:55:35.036] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=3.750, 중심Z=-14.289, 반경=1, 주타깃Id=30, 주타깃종류=Building
+[16:55:35.036] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(유닛) | 대상Id=218, 종류=Unit, 거리=0.880, 반경=1
+[16:55:35.036] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=218, 종류=Unit, 공격력=20, 비율=0.5, 피해량=10, 전HP=30, 후HP=20
+[16:55:35.038] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=28, 종류=Building, 거리=0.866, 반경=1
+[16:55:35.038] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=28, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=400, 후HP=390
+[16:55:35.039] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=1, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:35.299] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=204, 대상Id=218, 종류=Unit, 피해량=20, 전HP=20, 후HP=0
+[16:55:35.300] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=204, 중심X=4.468, 중심Z=-13.781, 반경=1, 주타깃Id=218, 주타깃종류=Unit
+[16:55:35.300] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:37.630] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=179, 대상Id=219, 종류=Unit, 피해량=20, 전HP=30, 후HP=10
+[16:55:37.630] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=179, 중심X=4.768, 중심Z=-4.301, 반경=1, 주타깃Id=219, 주타깃종류=Unit
+[16:55:37.630] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=219, 종류=Unit
+[16:55:37.631] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:37.835] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=143, 대상Id=219, 종류=Unit, 피해량=20, 전HP=10, 후HP=0
+[16:55:37.835] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=143, 중심X=4.768, 중심Z=-4.301, 반경=1, 주타깃Id=219, 주타깃종류=Unit
+[16:55:37.835] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:39.059] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=178, 대상Id=28, 종류=Building, 피해량=20, 전HP=377, 후HP=357
+[16:55:39.059] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=178, 중심X=3.750, 중심Z=-15.155, 반경=1, 주타깃Id=28, 주타깃종류=Building
+[16:55:39.060] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=20, 종류=Building, 거리=0.866, 반경=1
+[16:55:39.060] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=178, 대상Id=20, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=150, 후HP=140
+[16:55:39.060] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 건물 스플래시 제외 | 대상Id=28, 종류=Building
+[16:55:39.061] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:42.080] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=28, 종류=Building, 피해량=20, 전HP=252, 후HP=232
+[16:55:42.081] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=3.750, 중심Z=-15.155, 반경=1, 주타깃Id=28, 주타깃종류=Building
+[16:55:42.081] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=20, 종류=Building, 거리=0.866, 반경=1
+[16:55:42.081] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=20, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=140, 후HP=130
+[16:55:42.082] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 건물 스플래시 제외 | 대상Id=28, 종류=Building
+[16:55:42.082] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:42.083] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=106, 대상Id=28, 종류=Building, 피해량=20, 전HP=232, 후HP=212
+[16:55:42.083] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=106, 중심X=3.750, 중심Z=-15.155, 반경=1, 주타깃Id=28, 주타깃종류=Building
+[16:55:42.083] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=20, 종류=Building, 거리=0.866, 반경=1
+[16:55:42.084] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=106, 대상Id=20, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=130, 후HP=120
+[16:55:42.084] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 건물 스플래시 제외 | 대상Id=28, 종류=Building
+[16:55:42.084] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:42.629] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=179, 대상Id=220, 종류=Unit, 피해량=20, 전HP=30, 후HP=10
+[16:55:42.630] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=179, 중심X=4.767, 중심Z=-4.301, 반경=1, 주타깃Id=220, 주타깃종류=Unit
+[16:55:42.630] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=220, 종류=Unit
+[16:55:42.630] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:42.840] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=143, 대상Id=220, 종류=Unit, 피해량=20, 전HP=10, 후HP=0
+[16:55:42.840] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=143, 중심X=4.767, 중심Z=-4.301, 반경=1, 주타깃Id=220, 주타깃종류=Unit
+[16:55:42.840] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:44.022] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=178, 대상Id=28, 종류=Building, 피해량=20, 전HP=124, 후HP=104
+[16:55:44.022] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=178, 중심X=3.750, 중심Z=-15.155, 반경=1, 주타깃Id=28, 주타깃종류=Building
+[16:55:44.023] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=20, 종류=Building, 거리=0.866, 반경=1
+[16:55:44.024] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=178, 대상Id=20, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=120, 후HP=110
+[16:55:44.024] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 건물 스플래시 제외 | 대상Id=28, 종류=Building
+[16:55:44.024] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:44.088] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=204, 대상Id=28, 종류=Building, 피해량=20, 전HP=104, 후HP=84
+[16:55:44.088] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=204, 중심X=3.750, 중심Z=-15.155, 반경=1, 주타깃Id=28, 주타깃종류=Building
+[16:55:44.089] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=20, 종류=Building, 거리=0.866, 반경=1
+[16:55:44.089] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=204, 대상Id=20, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=110, 후HP=100
+[16:55:44.090] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 건물 스플래시 제외 | 대상Id=28, 종류=Building
+[16:55:44.090] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:47.030] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=142, 대상Id=28, 종류=Building, 피해량=20, 전HP=1, 후HP=0
+[16:55:47.031] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=142, 중심X=3.750, 중심Z=-15.155, 반경=1, 주타깃Id=28, 주타깃종류=Building
+[16:55:47.031] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 대상 수집(건물) | 대상Id=20, 종류=Building, 거리=0.866, 반경=1
+[16:55:47.031] [INFO] [Combat/UnitCombatUseCase] [host] 스플래시 50% 적용 | 공격자Id=142, 대상Id=20, 종류=Building, 공격력=20, 비율=0.5, 피해량=10, 전HP=100, 후HP=90
+[16:55:47.032] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=1, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:47.623] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=179, 대상Id=221, 종류=Unit, 피해량=20, 전HP=30, 후HP=10
+[16:55:47.624] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=179, 중심X=4.766, 중심Z=-4.297, 반경=1, 주타깃Id=221, 주타깃종류=Unit
+[16:55:47.624] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 유닛 스플래시 제외 | 대상Id=221, 종류=Unit
+[16:55:47.624] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:47.831] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=143, 대상Id=221, 종류=Unit, 피해량=20, 전HP=10, 후HP=0
+[16:55:47.831] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=143, 중심X=4.766, 중심Z=-4.297, 반경=1, 주타깃Id=221, 주타깃종류=Unit
+[16:55:47.832] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:51.134] [INFO] [Combat/UnitCombatUseCase] [host] 주 타깃 100% 적용 | 공격자Id=178, 대상Id=20, 종류=Building, 피해량=20, 전HP=62, 후HP=42
+[16:55:51.135] [INFO] [Combat/QuakeAttackBehavior] [host] 착탄 파라미터 | 공격자Id=178, 중심X=3.750, 중심Z=-16.021, 반경=1, 주타깃Id=20, 주타깃종류=Building
+[16:55:51.136] [INFO] [Combat/QuakeAttackBehavior] [host] 주 타깃 건물 스플래시 제외 | 대상Id=20, 종류=Building
+[16:55:51.136] [INFO] [Combat/QuakeAttackBehavior] [host] 스플래시 수집 요약 | 스플래시유닛=0, 스플래시건물=0, 주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨
+[16:55:56.673] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 종료 === | IsServer=True
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-07-21 16:56:14 ===
+[16:56:14.890] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 시작 === | role=host, IsServer=True
+[16:56:21.064] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 종료 === | IsServer=True
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-07-21 16:56:35 ===
+[16:56:35.254] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 시작 === | role=host, IsServer=True
+[16:56:40.216] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 종료 === | IsServer=True
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-07-21 16:56:56 ===
+[16:56:56.332] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 시작 === | role=host, IsServer=True
+[16:57:03.312] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 종료 === | IsServer=True
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-07-21 16:57:16 ===
+[16:57:16.271] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 시작 === | role=host, IsServer=True
+[16:57:21.461] [INFO] [Combat/NetworkCombatController] === QuakeSpirit AoE 검증 로그 종료 === | IsServer=True
