@@ -72,6 +72,7 @@
 ---
 
 ## 공통 중요 교훈
+- P2P(Relay) 매칭 호스트 결정은 `GetMatchmakingResults`(전용 서버/Multiplay용, P2P 클라 호출 시 404)가 아니라 **Lobby CreateOrJoin(matchId=lobbyId) 원자 선점**으로 해야 함 — 먼저 만든 쪽=호스트. 매칭 자체는 정상, 호스트 결정만 404였음 (2026-07-17, A방식, 커밋 `a3dbc73`). **간헐 버그라 초기 정상 확인·지속 테스트 중(확정 PASS 아님)**, 레거시 코드 비활성화만·미삭제. task: `_Tasks/2026-07-16/19_09_matchmaker-404-host-determination/`
 - Y Scale 0.4 on tile prefabs is INTENTIONAL (등각 효과) — 절대 변경 금지
 - Inspector 값이 코드 기본값보다 우선 (ScriptableObject overrides code)
 - QA 에이전트 제안 → 반드시 컴파일 확인 후 적용

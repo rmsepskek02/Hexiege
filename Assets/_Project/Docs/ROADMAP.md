@@ -1,7 +1,7 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-07-20
-**현재 단계:** InfernoSpirit(지옥불 정령) 단일 대상 지속 피해(DoT) 구현 완료(2026-07-20, QA PASS·실기 완료) — 특수 유닛 5종 중 **5번째**. 이미 완성된 원거리 유닛에 DoT 특수만 추가: 주 타깃 1마리 직접 25(기존 단일 피해 `ReplacesPrimaryAttack=false`, 건물 공성) + 그 주 타깃 1마리에게만 DoT 5/초×3초(총 15, AoE 아님·반경 없음, 적 유닛만). MushroomBomber의 규칙 40 초 단위 틱을 단일 대상으로 재사용, 값은 별도 진입점(`ApplyInfernoDot` 5/3)으로 분리(MushroomBomber 2/3 회귀 없음). 규칙 41~42. 직전 MushroomBomber(버섯폭격기) 착탄형 범위 DoT 딜러 구현 완료(2026-07-19) — 5종 중 4번째. 착탄 중심 월드 원형 반경 내 적 유닛 DoT(초 단위 discrete 틱 모드 신설, 규칙 34 확장) + 주 타깃 직접 10. **잔여 특수 유닛(레지스트리 확인 결과 QuakeSpirit이 유일 미구현 — BattleAxe/TorrentSpirit/MushroomBomber/InfernoSpirit 등록됨, BloomFairy는 힐러 전용 경로로 의도적 미등록)**: QuakeSpirit(착탄형 — MushroomBomber 원형 반경 헬퍼 재사용 예정). **알려진 이슈(보류)**: 멀티 원거리 공격 facing 버그(에셋 아닌 공유 회전 로직 추정, 사용자 결정으로 별도 작업 보류). 후속(Phase F): 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격(QuakeSpirit) 클립 이벤트, 멀티 원거리 facing 버그 수정, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·시나리오 정밀 검증 + 잔여 신규 유닛 프리팹 실기 테스트
+**현재 단계:** InfernoSpirit(지옥불 정령) 단일 대상 지속 피해(DoT) 구현 완료(2026-07-20, QA PASS·실기 완료) — 특수 유닛 5종 중 **5번째**. 이미 완성된 원거리 유닛에 DoT 특수만 추가: 주 타깃 1마리 직접 25(기존 단일 피해 `ReplacesPrimaryAttack=false`, 건물 공성) + 그 주 타깃 1마리에게만 DoT 5/초×3초(총 15, AoE 아님·반경 없음, 적 유닛만). MushroomBomber의 규칙 40 초 단위 틱을 단일 대상으로 재사용, 값은 별도 진입점(`ApplyInfernoDot` 5/3)으로 분리(MushroomBomber 2/3 회귀 없음). 규칙 41~42. 직전 MushroomBomber(버섯폭격기) 착탄형 범위 DoT 딜러 구현 완료(2026-07-19) — 5종 중 4번째. 착탄 중심 월드 원형 반경 내 적 유닛 DoT(초 단위 discrete 틱 모드 신설, 규칙 34 확장) + 주 타깃 직접 10. **잔여 특수 유닛(레지스트리 확인 결과 QuakeSpirit이 유일 미구현 — BattleAxe/TorrentSpirit/MushroomBomber/InfernoSpirit 등록됨, BloomFairy는 힐러 전용 경로로 의도적 미등록)**: QuakeSpirit(착탄형 — MushroomBomber 원형 반경 헬퍼 재사용 예정). **알려진 이슈(보류)**: 멀티 원거리 공격 facing 버그(에셋 아닌 공유 회전 로직 추정, 사용자 결정으로 별도 작업 보류). 후속(Phase F): 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격(QuakeSpirit) 클립 이벤트, 멀티 원거리 facing 버그 수정, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·시나리오 정밀 검증 + 잔여 신규 유닛 프리팹 실기 테스트. **병행 관찰 항목 — 매치메이킹 404(호스트 결정 단계) 수정(A방식, 2026-07-17, 브랜치 `claude/matchmaker-404-error-pi9qdn` 커밋 `a3dbc73`)**: 랜덤 매칭 후 호스트 결정을 매치 결과 조회(P2P 클라 호출 시 404) → Lobby CreateOrJoin(matchId=lobbyId) 원자 선점으로 전환. 초기 매칭 실기에서 404 없이 정상 연결 확인했으나 간헐(intermittent) 버그라 지속 테스트 중(확정 PASS 아님) — 비활성화(주석)한 레거시 코드는 지속 테스트 확정 후 삭제 예정. 상세는 우선순위 표 및 Phase A-2 참조
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 ---
@@ -10,6 +10,7 @@
 
 | 우선순위 | 작업 | 카테고리 | 예상 규모 |
 |---------|------|---------|---------|
+| 🔵 초기 정상·지속 관찰 중 | 매치메이킹 404(호스트 결정 단계) 수정 — 호스트 결정을 매치 결과 조회(P2P 클라 404) → Lobby CreateOrJoin 원자 선점(A방식)으로 전환 (2026-07-17, 커밋 `a3dbc73`). 초기 실기 정상, 간헐 버그라 지속 멀티 실기 검증 필요 | QA/버그 | 중 |
 | ✅ 완료 | 코드 리팩토링 7개 그룹 전체 | 아키텍처 | 대 |
 | ✅ 완료 | 코드 정리(클린업) Phase 1 — 히스토리성 주석/폐기 코드 제거 (약 30개 파일) | 코드 정리 | 소 |
 | ✅ 완료 | 코드 구조 개선 Phase 2 — switch→Dictionary lookup table(BuildingTypeHelper) + HexMetrics 중복 setup 제거 (2026-06-25) | 코드 정리 | 중 |
@@ -61,6 +62,15 @@
 ### ✅ A-1. BuildFailed/EnqueueFailed UI 피드백 (멀티플레이 분기) — 완료 (2026-05-24)
 - **완료 내용**: `GameEvents.OnToastRequested` Subject 패턴 도입. NetworkBuildingController / NetworkProductionController RPC 핸들러에서 Subject 발행 → ToastUI 구독. Presentation이 Infrastructure를 직접 참조하지 않는 구조 완성.
 - **파일**: `NetworkBuildingController.cs`, `NetworkProductionController.cs`, `GameEvents.cs`, `ToastKey.cs`
+
+### 🔵 A-2. 매치메이킹 404 수정 — 호스트 결정 Lobby CreateOrJoin 전환 (A방식) — 초기 정상·지속 관찰 중 (2026-07-17)
+- **증상**: 랜덤 매칭은 성사되나 **직후 호스트 결정 단계에서 HTTP 404** → 게임 연결 끊김.
+- **원인**: `MatchmakerManager.DetermineIsHostAsync` 내부 `GetMatchmakingResultsAsync`가 전용 서버(Multiplay)용 서버 지향 API인데 P2P(Relay) 클라이언트가 호출 → 조회 대상 리소스 없어 404. 매칭 자체는 정상, 호스트 결정 단계만 실패.
+- **해결(A방식)**: 호스트 결정을 매치 결과 조회 → **Lobby CreateOrJoin 원자 선점**으로 전환. 모든 플레이어가 같은 `matchId`를 `lobbyId`로 `CreateOrJoinLobbyAsync` 호출 → 없으면 생성=호스트 / 있으면 참가=클라. 서버 원자 처리로 정확히 한 명만 호스트.
+- **변경 파일(3개, Infrastructure/Network)**: `LobbyManager.cs`(추가: `CreateOrJoinLobbyByMatchIdAsync`, `RefreshCurrentLobbyAsync`), `MatchmakerManager.cs`(비활성화 주석: `DetermineIsHostAsync`/`GetStableHash`), `NetworkGameManager.cs`(추가: `StartMatchmadeGameAsync`/`HostMatchmadeGameAsync`/`JoinMatchmadeGameAsync`, `StartMatchmakingAsync` 분기 교체, 구 클라 참가 경로 비활성화 주석). 클라 참가는 CreateOrJoin으로 일원화, RelayJoinCode 채워짐만 폴링 대기(최대 15회).
+- **상태**: 초기 매칭 실기에서 404 없이 정상 연결 확인. 단 **간헐(intermittent) 버그라 지속 테스트 중** — 확정 PASS 아님. 비활성화(주석)한 레거시 코드(`DetermineIsHostAsync`/`GetStableHash`, 구 클라 참가 경로)와 미사용 `FindLobbyByMatchIdAsync`의 최종 삭제는 지속 테스트 확정 후.
+- **잔여 리스크**: ① SDK 시그니처 에디터 컴파일 최종 확인 권장, ② "정확히 한 명만 호스트"·간헐 재현 지속 멀티 실기(Host+Client) 검증, ③ 클라 RelayJoinCode 대기 15초 타임아웃.
+- **브랜치/커밋**: `claude/matchmaker-404-error-pi9qdn` / `a3dbc73`. task: `_Tasks/2026-07-16/19_09_matchmaker-404-host-determination/`.
 
 ---
 
