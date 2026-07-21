@@ -251,17 +251,6 @@ namespace Hexiege.Infrastructure
                 unit.TakeDamage(diff);
                 Debug.Log($"[Network] 유닛 HP 동기화. UnitId={unitId}, 적용 데미지={diff}, 현재HP={unit.Hp}");
 
-                // [임시 로그 — QuakeSpirit 검증, 제거 예정]
-                // 클라이언트가 서버로부터 받은 HP 변화를 파일에 기록해 host(서버 권위) 분포와 대조한다.
-                // 공격자가 QuakeSpirit인 피격만 남겨 무관한 전투 로그로 파일이 오염되지 않게 필터링한다
-                // (주 타깃 100%·스플래시 50% 모두 공격자가 QuakeSpirit이므로 둘 다 잡힌다).
-                if (IsQuakeSpiritAttacker(attackerIsUnit, attackerId, unitSpawn))
-                {
-                    RuntimeLogger.Log(LogLevel.Info, "Combat", "NetworkHealthSync",
-                        "[client 수신] 유닛 HP 동기화",
-                        $"victimId={unitId}, 종류=Unit, 적용데미지={diff}, 현재HP={unit.Hp}, 공격자Id={attackerId}");
-                }
-
                 // 클라이언트에서도 피격 표현 큐/HP 텍스트가 반응할 수 있도록 이벤트 재발행.
                 // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
                 // RPC로 받은 공격자 정보를 그대로 전달하여, 클라이언트 큐가 공격자의 로컬
@@ -343,34 +332,12 @@ namespace Hexiege.Infrastructure
                 building.TakeDamage(diff);
                 Debug.Log($"[Network] 건물 HP 동기화. BuildingId={buildingId}, 적용 데미지={diff}, 현재HP={building.Hp}");
 
-                // [임시 로그 — QuakeSpirit 검증, 제거 예정]
-                // 클라이언트가 받은 건물 HP 변화를 기록. QuakeSpirit 스플래시(건물 대상)만 필터링해 남긴다.
-                if (IsQuakeSpiritAttacker(attackerIsUnit, attackerId, _services.GetUnitSpawn()))
-                {
-                    RuntimeLogger.Log(LogLevel.Info, "Combat", "NetworkHealthSync",
-                        "[client 수신] 건물 HP 동기화",
-                        $"victimId={buildingId}, 종류=Building, 적용데미지={diff}, 현재HP={building.Hp}, 공격자Id={attackerId}");
-                }
-
                 // 클라이언트에서도 피격 표현 큐/HP 텍스트가 반응할 수 있도록 이벤트 재발행.
                 // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
                 // RPC로 받은 공격자 정보를 그대로 전달한다. (Phase 2 — 축 3)
                 GameEvents.OnEntityDamaged.OnNext(new EntityDamagedEvent(building, serverHp, isUnit: false,
                     attackerId: attackerId, attackerIsUnit: attackerIsUnit));
             }
-        }
-
-        // [임시 로그 — QuakeSpirit 검증, 제거 예정]
-        /// <summary>
-        /// 이번 피격의 공격자가 QuakeSpirit인지 판정한다(클라 로그 필터용).
-        /// 공격자가 유닛이고, 현재 클라이언트에 그 유닛이 존재하며, 타입이 QuakeSpirit일 때만 true.
-        /// (공격자가 이미 사망/미스폰이면 확정할 수 없으므로 false → 무관 로그를 남기지 않는다.)
-        /// </summary>
-        private static bool IsQuakeSpiritAttacker(bool attackerIsUnit, int attackerId, UnitSpawnUseCase unitSpawn)
-        {
-            if (!attackerIsUnit || unitSpawn == null) return false;
-            UnitData attacker = unitSpawn.GetUnit(attackerId);
-            return attacker != null && attacker.Type == UnitType.QuakeSpirit;
         }
     }
 }

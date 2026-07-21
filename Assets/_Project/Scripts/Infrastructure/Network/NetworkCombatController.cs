@@ -124,19 +124,6 @@ namespace Hexiege.Infrastructure
             NetworkContext.Set(isServer: IsServer, isActive: true);
             Debug.Log($"[Network] NetworkCombatController 스폰. IsServer={IsServer}. NetworkContext 설정 완료.");
 
-            // [임시 로그 — QuakeSpirit 검증, 제거 예정]
-            // QuakeSpirit 착탄 AoE 분포를 멀티플레이 실기에서 파일로 계측하기 위한 로그 세션 시작.
-            // role은 서버(Host)면 "host", 클라면 "client" — RuntimeLogger가 파일명을 자동 분기한다.
-            //   host → RuntimeLog_host.txt / client → RuntimeLog_client.txt
-            // 피해 적용은 서버 권위(Host)이므로 분포 검증의 핵심 로그는 host 파일이다.
-            // ⚠️ 이 세션 배선과 이하 모든 검증 로그는 작업 완료 후 제거 예정.
-            string quakeLogRole = IsServer ? "host" : "client";
-            RuntimeLogger.BeginSession(
-                "Assets/_Project/Docs/_Logs/2026-07-20/11_00_quakespirit-aoe-verify", quakeLogRole);
-            // BeginSession의 기본 헤더는 범용 문구이므로, LogRules의 작업 헤더를 첫 로그로 남긴다.
-            RuntimeLogger.Log(LogLevel.Info, "Combat", "NetworkCombatController",
-                "=== QuakeSpirit AoE 검증 로그 시작 ===", $"role={quakeLogRole}, IsServer={IsServer}");
-
             // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
             {
@@ -213,12 +200,6 @@ namespace Hexiege.Infrastructure
 
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
-
-            // [임시 로그 — QuakeSpirit 검증, 제거 예정]
-            // 게임 종료(디스폰) 시 로그 파일 스트림을 닫아 마지막 줄까지 디스크에 기록되게 한다.
-            RuntimeLogger.Log(LogLevel.Info, "Combat", "NetworkCombatController",
-                "=== QuakeSpirit AoE 검증 로그 종료 ===", $"IsServer={IsServer}");
-            RuntimeLogger.EndSession();
         }
 
         // ====================================================================

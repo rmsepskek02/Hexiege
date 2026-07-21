@@ -217,7 +217,7 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 - 타격 프레임 수는 `_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`로 조회. 영향 파일: `Presentation/Effects/HitPresentationQueue.cs`.
 
 **규칙 27. 특수 유닛 Attack 클립 OnAttackHit 이벤트 주입**
-특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)의 Attack 클립에는 `OnAttackHit` Animation Event가 없어(전투 타격 타이밍 동기화 작업에서 의도적 제외) 데미지·피격 연출 시점이 폴백값으로 어긋난다. 각 유닛 구현 시 `hitFrameTimes`를 실제 타격 프레임으로 확정하고 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 이벤트를 주입한다(규칙 17). BattleAxe는 `1.1667s`, TorrentSpirit은 `0.5s`(임시 — 실제 파도 발동 프레임에 맞춰 튜닝)로 주입 완료(2026-07-17). BloomFairy는 힐 발동을 `HitFrameTimes` 타이머로 구동하고 `OnAttackHit`은 힐 연출 전용으로 처리 완료(2026-07-18, 규칙 32). MushroomBomber는 클립에 `OnAttackHit` **1개** 주입 완료(2026-07-19, 규칙 38~40). 잔여 1종(QuakeSpirit)은 구현 시점에 처리한다. ⚠️ 파도류(TorrentSpirit)는 OnAttackHit **1개만** 둘 것 — 2개 이상이면 한 공격에 파도가 중복 생성된다.
+특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)의 Attack 클립에는 `OnAttackHit` Animation Event가 없어(전투 타격 타이밍 동기화 작업에서 의도적 제외) 데미지·피격 연출 시점이 폴백값으로 어긋난다. 각 유닛 구현 시 `hitFrameTimes`를 실제 타격 프레임으로 확정하고 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 이벤트를 주입한다(규칙 17). BattleAxe는 `1.1667s`, TorrentSpirit은 `0.5s`(임시 — 실제 파도 발동 프레임에 맞춰 튜닝)로 주입 완료(2026-07-17). BloomFairy는 힐 발동을 `HitFrameTimes` 타이머로 구동하고 `OnAttackHit`은 힐 연출 전용으로 처리 완료(2026-07-18, 규칙 32). MushroomBomber는 클립에 `OnAttackHit` **1개** 주입 완료(2026-07-19, 규칙 38~40). QuakeSpirit는 특수 공격 로직(규칙 43)은 구현·검증 완료됐으나 Attack 클립 `OnAttackHit`은 **아직 미주입**(placeholder `hitFrameTimes` 1.0s) — 이로 인해 타격 애니↔데미지 텍스트 타이밍이 어긋나며, 사용자 결정으로 **별도 후속 task로 분리**(규칙 43 참고 노트). 이 잔여 주입은 그 후속 task에서 처리한다. ⚠️ 파도류(TorrentSpirit)는 OnAttackHit **1개만** 둘 것 — 2개 이상이면 한 공격에 파도가 중복 생성된다.
 
 ---
 
@@ -314,7 +314,7 @@ MushroomBomber는 **폭탄(포자)을 적에게 던져 착탄 지점에서 폭�
 - **주 타깃 미제외** — 도끼병은 주 타깃을 중복 제외하지만, MushroomBomber는 주 타깃도 반경 안(거리 0)이라 DoT 대상에 **포함**한다(주 타깃 유닛은 직접 10 + DoT 둘 다 — 규칙 39). 제외 대상은 아군·사망 유닛·공격자 자신(아군 팀 필터로 자동 제외)이다.
 - **건물은 순회 대상이 아님** — 핸들러가 유닛 목록만 순회하므로 건물은 자동 제외된다(DoT 없음 — 규칙 39).
 - 월드 좌표는 `IEntityPositionProvider`(서버 권위, 규칙 6·24와 동일 소스). 순회 중 사망으로 인한 컬렉션 변경을 피하기 위해 대상을 **먼저 리스트로 수집한 뒤 일괄 적용**한다(규칙 24와 동일).
-- 반경 판정 수집부(`CollectEnemyUnitsInRadius`)는 **static 헬퍼로 분리**되어 있어, 향후 QuakeSpirit(또 다른 착탄형 — 중심 100%/인접 50% 감쇠) 이 수집 결과 위에 거리 기반 배율을 얹어 재사용할 수 있다(순수 "수집"만 공용화).
+- 반경 판정 수집부(`CollectEnemyUnitsInRadius`)는 **static 헬퍼로 분리**되어 있어, QuakeSpirit(또 다른 착탄형)이 이 수집 결과 위에 배율을 얹어 재사용한다(순수 "수집"만 공용화). **재사용 사례(2026-07-20):** QuakeSpirit(규칙 43)이 이 헬퍼를 `internal static`으로 공용화해 반경 내 적 유닛 수집에 그대로 재사용하고(MushroomBomber 유닛만 로직 무변경), 그 위에 주 타깃 100%/나머지 50%(올림) **고정 배율**을 얹었다(거리 감쇠 아님). 건물용 `CollectEnemyBuildingsInRadius`는 신설해 유닛/건물 hit-set을 분리한다(규칙 29 계승).
 
 **규칙 39. 직접 10(주 타깃 단일 피해) + DoT AoE(특수 핸들러)의 역할 분담**
 MushroomBomber의 두 피해는 **별개 경로**로 적용되어, 대상 종류(유닛/건물)에 따라 결과가 갈린다.
@@ -361,3 +361,23 @@ InfernoSpirit의 두 피해는 MushroomBomber(규칙 39)와 같은 **역할 분�
 같은 규칙 40 초 단위 틱 시스템을 쓰지만 InfernoSpirit(5/3)과 MushroomBomber(2/3)는 **초당 피해·지속이 다르므로 서로의 값에 영향을 주지 않도록 진입점을 분리**한다.
 - 진입점 분리: MushroomBomber = `ApplyBlastDot`(`SpecialAttackContext.ApplyDot` 델리게이트), InfernoSpirit = `ApplyInfernoDot`(`SpecialAttackContext.ApplyInfernoDot` 델리게이트). `UnitCombatUseCase`가 각자 자기 필드(`_blastDot*` / `_infernoDot*`)로 `ApplyDamageOverTime`을 호출한다. 한 유닛의 값 변경이 다른 유닛으로 새지 않는다(**MushroomBomber 회귀 없음**).
 - 튜닝값(규칙 25): `SpecialAttackConfig`의 `_infernoDotPerSecond`(기본 5) / `_infernoDotDuration`(기본 3)을 GameBootstrapper가 float로 주입한다(미연결 시 코드 폴백 5/3 — "에셋 생성 ≠ 씬 배선" 교훈). 반경 튜닝값은 없다(AoE 아님).
+
+---
+
+### 특수 공격 시스템 규칙 — 착탄형 즉발 AoE 확장 (2026-07-20, QuakeSpirit 대지의 정령 착탄형 즉발 범위 딜러 구현 — 특수 유닛 5종 전량 완료)
+
+QuakeSpirit는 **폭발형 즉발 범위 딜러**다. 적에게 공격이 착탄하는 순간, 그 자리를 중심으로 즉시 한 번 폭발이 터진다(지속 피해 DoT가 아니라 **즉발** — 시간에 걸쳐 뚝뚝 들어가는 InfernoSpirit/MushroomBomber DoT와 근본적으로 다르다). 피해는 두 단계다 — 폭탄을 정통으로 맞은 **딱 1마리(주 타깃)** 에게 **100%(공격력 20)**, 그리고 폭발 반경 안의 **다른 적 유닛과 적 건물**에게 **50%(올림 10)**. 지금까지의 착탄형(MushroomBomber)과 판정 소스(월드 좌표 원형 반경)는 같지만 두 가지가 다르다 — ① 피해가 **즉발 2단계 고정 배율**(주 타깃 100% / 나머지 50%)이고 DoT가 아니며, ② 스플래시가 **건물도 포함**한다(MushroomBomber·BattleAxe의 AoE는 유닛만 때린다 — QuakeSpirit만의 차별점). 규칙 23~27(전략 핸들러·월드 좌표 판정·튜닝 파라미터·연출 동시 방출·`OnAttackHit` 주입)과 규칙 38(원형 반경 수집 헬퍼)을 전제로 한다. (핸들러 `QuakeAttackBehavior`, 레지스트리에 `QuakeSpirit → QuakeAttackBehavior` 1줄 등록, `Scripts/Application/Combat/`.) **2026-07-20 멀티플레이(Host/Client) 실기 로그로 100%=20·스플래시=10·건물 스플래시·주 타깃 제외·반경 이내·아군 무피해·서버↔클라 동기화 전부 정상 검증 완료**(로그: `_Logs/2026-07-20/11_00_quakespirit-aoe-verify/`).
+
+**규칙 43. QuakeSpirit 착탄형 즉발 2단계 AoE (직접 100% + 스플래시 50%, 건물 포함)**
+QuakeSpirit의 폭발은 MushroomBomber(규칙 38~39)와 같은 **직접 피해 + 특수 핸들러 AoE** 역할 분담 구조이되, AoE가 DoT가 아니라 **즉발**이고 **건물까지 스플래시로 때린다**는 점이 다르다.
+- **직접 100%(공격력 20) = 주 타깃 단일 피해** — 기존 `ExecuteAttack` 단일 타깃 피해(`ApplyDamageToVictim`)가 담당한다. `QuakeAttackBehavior.ReplacesPrimaryAttack=false`이므로 도끼병·MushroomBomber처럼 **주 타깃 단일 피해를 먼저 적용한 뒤 특수 핸들러(스플래시 AoE)를 실행**한다. 주 타깃이 건물이어도 100%가 그대로 들어가므로 **건물 공성(성 파괴 기여)이 성립**한다.
+- **스플래시 50% = 특수 핸들러, 즉발** — 착탄 중심(주 타깃 위치) 기준 **월드 좌표 원형 반경**(`_quakeRadius`, 기본 1.0=인접 1칸, XZ 거리 ≤ 반경, arc 없음 — 규칙 38 판정과 동일)으로 대상을 모아 **한 번에 즉시** 50% 피해를 준다(DoT 아님, 시간 지속 없음).
+- **배율 = 고정 2단계**(거리 감쇠 아님): 주 타깃 100%, 반경 내 나머지 전원 50%. 스플래시 피해량은 **올림** `Mathf.CeilToInt(공격력 × _quakeSplashRatio)` = `CeilToInt(20 × 0.5)` = **10**(MushroomBomber DoT 틱과 같은 올림 관례).
+- **주 타깃 제외** — 주 타깃은 직접 100%로 이미 맞았으므로 스플래시 대상에서 뺀다(중복 피해 방지 — 도끼병 규칙 24와 동일 처리, MushroomBomber가 주 타깃을 반경에 포함시키던 것과 반대다).
+- ⚠️ **스플래시가 적 건물도 포함** — MushroomBomber·BattleAxe의 AoE는 유닛만 순회하지만, QuakeSpirit은 반경 내 **적 건물에도 50%**를 준다(폭발이 주변 건물까지 무너뜨리는 광역 공성 성격). 이를 위해 규칙 38의 유닛 수집 헬퍼 `CollectEnemyUnitsInRadius`를 `internal static`으로 **공용화**해 재사용(MushroomBomber의 "유닛만" 로직은 무변경 — 회귀 없음)하고, 건물용 `CollectEnemyBuildingsInRadius`를 **신설**한다.
+- **유닛/건물 hit-set 분리**(규칙 29 계승) — 유닛 Id와 건물 Id는 카운터가 달라 값이 충돌할 수 있으므로 유닛·건물을 각각 별도 집합으로 수집·적용한다.
+- **제외 대상**: 아군, 사망 유닛, 공격자 자신(아군 팀 필터로 자동 제외), 주 타깃(위 중복 방지). 아군 유닛·아군 건물 무피해(규칙 16).
+- **서버 권위·즉시 방출**: 착탄 판정·피해 모두 서버 타이머로만 적용(규칙 18). 멀티에서 클라는 HP·데미지 텍스트를 동기화로 수신(이중 적용 없음). AoE 피격 연출은 규칙 26(단일 타격 프레임이면 보류 큐 전부 방출)에 따라 폭발과 함께 동시 표시된다.
+- 튜닝값(규칙 25): `SpecialAttackConfig`의 `_quakeRadius`(월드 반경, 기본 1.0=인접 1칸) / `_quakeSplashRatio`(스플래시 배율, 기본 0.5)를 GameBootstrapper가 float로 주입한다(미연결 시 코드 폴백 1.0/0.5 — "에셋 생성 ≠ 씬 배선" 교훈). 진입점: 핸들러가 유닛·건물 수집 결과 각각에 스플래시 피해(`ApplyDamageToVictim` 계열)를 적용.
+
+> **참고 — 알려진 이슈(보류, 2026-07-20):** QuakeSpirit의 **타격 애니메이션과 데미지 텍스트 타이밍이 어긋난다**. 원인은 QuakeSpirit Attack 클립에 `OnAttackHit` 이벤트가 아직 **미주입**(규칙 27의 잔여 대상)이고 `hitFrameTimes`가 placeholder(1.0s)라, 스플래시 데미지 텍스트가 공격자 로컬 타격 프레임 대신 `HitPresentationQueue` 타임아웃(쿨다운×1.5 = 7.5s)까지 지연되어 방출되기 때문이다. **피해·판정·동기화 자체는 정상**(로그 검증 완료)이며 연출 표시 시점만 어긋난다. 사용자 결정으로 **별도 task로 분리**(이번 작업 미수정). 멀티플레이 원거리 유닛 facing 버그(InfernoSpirit 작업에서 진단)와 함께 "알려진 이슈"로 남긴다. 규칙 27의 "잔여 1종(QuakeSpirit) OnAttackHit 미주입"은 이 후속 task에서 처리한다.

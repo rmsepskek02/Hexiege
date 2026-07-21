@@ -1,6 +1,6 @@
 # Hexiege — 스탯 레퍼런스
 
-**최종 수정일:** 2026-07-20
+**최종 수정일:** 2026-07-21
 
 ---
 
@@ -21,7 +21,8 @@
 ### 착탄형 (MushroomBomber, QuakeSpirit)
 - **주 타깃 타일**: 유닛 1마리만 직접(착탄) 피해 적용. 나머지 겹친 유닛은 범위(스플래시) 피해만 적용
 - **범위 타일**: 해당 타일의 모든 유닛에게 범위 피해 적용
-- **MushroomBomber 구현 확정 (2026-07-19)**: 판정 범위는 타일 소속이 아니라 **착탄 중심(주 타깃 위치) 기준 월드 좌표 원형 반경**이다(도끼병 부채꼴에서 arc를 뺀 형태). 착탄 중심으로부터 XZ 평면 거리 ≤ `blastRadius`(SpecialAttackConfig, 기본 1.0 = 인접 1칸 거리)인 **적 유닛 전원**(주 타깃 포함)에게 DoT를 부여한다. **직접 10**은 기존 단일 타깃 공격(`ReplacesPrimaryAttack=false`)이 주 타깃 1마리에게 적용하며(건물 공성 포함), **DoT는 적 유닛만**(건물 제외 — 단 주 타깃이 건물이어도 주변 적 유닛엔 DoT). 아군 무피해. 상세: `GameSystemRules_Units.md` 규칙 38~40. (QuakeSpirit는 미구현 — 위 타일 기준 설계 그대로. MushroomBomber의 원형 반경 수집 헬퍼를 향후 재사용 예정.)
+- **MushroomBomber 구현 확정 (2026-07-19)**: 판정 범위는 타일 소속이 아니라 **착탄 중심(주 타깃 위치) 기준 월드 좌표 원형 반경**이다(도끼병 부채꼴에서 arc를 뺀 형태). 착탄 중심으로부터 XZ 평면 거리 ≤ `blastRadius`(SpecialAttackConfig, 기본 1.0 = 인접 1칸 거리)인 **적 유닛 전원**(주 타깃 포함)에게 DoT를 부여한다. **직접 10**은 기존 단일 타깃 공격(`ReplacesPrimaryAttack=false`)이 주 타깃 1마리에게 적용하며(건물 공성 포함), **DoT는 적 유닛만**(건물 제외 — 단 주 타깃이 건물이어도 주변 적 유닛엔 DoT). 아군 무피해. 상세: `GameSystemRules_Units.md` 규칙 38~40. (QuakeSpirit도 이 원형 반경 수집 헬퍼를 재사용해 구현 완료 — 아래 QuakeSpirit 항목 참조.)
+- **QuakeSpirit 구현 확정 (2026-07-20, 멀티플레이 로그 검증)**: 착탄형 **즉발** AoE(DoT 아님)다. MushroomBomber와 동일하게 **착탄 중심(주 타깃 위치) 기준 월드 좌표 원형 반경**(`_quakeRadius`, SpecialAttackConfig, 기본 1.0 = 인접 1칸)으로 판정하되, 감쇠가 아니라 **2단계 고정 배율**이다: **주 타깃 1마리 = 100%(공격력 20)만**(스플래시 제외 — 건물이 주 타깃이면 100%로 공성), **착탄 반경 내 다른 적 유닛 + 적 건물 = 50%**(올림 `CeilToInt(공격력×0.5)`=10, 주 타깃 제외). ⚠️ **MushroomBomber/BattleAxe와 달리 스플래시가 건물도 포함**한다(그쪽 두 유닛의 AoE는 유닛만 — 차별점). 아군 무피해, 서버 권위. 구현: MushroomBomber 원형 반경 수집 헬퍼(`CollectEnemyUnitsInRadius`)를 `internal static`으로 공용화해 유닛 수집에 재사용(MushroomBomber 유닛만 로직 무변경) + 건물 수집 `CollectEnemyBuildingsInRadius` 신설, **유닛/건물 hit-set 분리**(규칙 29 계승). 핸들러 `QuakeAttackBehavior`(`ReplacesPrimaryAttack=false`) + 레지스트리 1줄. 튜닝 `SpecialAttackConfig` `_quakeRadius`/`_quakeSplashRatio`(1.0/0.5). 상세: `GameSystemRules_Units.md` 규칙 43.
 
 ### 파도형 / 휩쓸기형 (TorrentSpirit, 도끼병)
 - 범위 내 **모든 유닛**에게 동일 피해 적용 (같은 타일 겹침 여부 무관)
@@ -54,7 +55,7 @@
 | InfernoSpirit | 60 | 25 | 4.0 | 4.0 | 1 | 1:15(3:00) | 30초 | 400 | 1 | 단일 대상 on-hit DoT(구현 완료) — 원거리 공격이 주 타깃 1마리에 **직접 25**(기존 단일 피해 `ReplacesPrimaryAttack=false`, 건물 공성 포함) + 그 **주 타깃 1마리에게만** DoT 5/초×3초(총 15). AoE 아님(반경 없음). DoT는 **적 유닛만**(건물 제외 — 건물은 직접 25만), 주 타깃 유닛은 직접+DoT, 아군 무피해. DoT는 규칙 40 초 단위 discrete 틱 재사용(1초 간격·틱당 올림·총량 15 클램프·매초 남은 체력 데미지 텍스트·갱신 리셋·서버 권위). DoT 값은 MushroomBomber(2/3)와 별도 진입점(`ApplyInfernoDot`)으로 분리. 상세: GameSystemRules_Units 규칙 41~42 |
 | DustSpirit | 40 | 6 | 0.5 | 1.0 | 0.5 | 1:04(3:00) | 5초 | 50 | 1 | |
 | BoulderSpirit | 90 | 8 | 0.5 | 1.0 | 0.5 | 1:15(4:00) | 15초 | 100 | 1 | |
-| QuakeSpirit | 250 | 20 | 0.5 | 1.0 | 0.5 | 1:20(5:00) | 30초 | 400 | 1 | 착탄형 AoE — 중심 타일 1마리 100% 피해, 중심 타일 나머지 유닛 + 인접 6타일 전체 50% 피해 |
+| QuakeSpirit | 250 | 20 | 0.5 | 1.0 | 0.5 | 1:20(5:00) | 30초 | 400 | 1 | 착탄형 즉발 AoE(구현 완료, 2026-07-20 멀티플레이 로그 검증) — 주 타깃 1마리 **직접 100%(공격력 20)**(스플래시 제외, 건물이면 100% 공성) + 착탄 **월드 좌표 원형 반경**(`_quakeRadius` 기본 1.0=인접 1칸) 내 **다른 적 유닛·적 건물 50%**(올림 `CeilToInt(20×0.5)`=10, 주 타깃 제외). DoT 아님(즉발). ⚠️ **MushroomBomber/BattleAxe와 달리 스플래시가 건물도 포함**. 아군 무피해, 서버 권위. MushroomBomber 원형 반경 헬퍼(`CollectEnemyUnitsInRadius`, `internal static`) 재사용 + 건물 순회(`CollectEnemyBuildingsInRadius`) 신설, 유닛/건물 hit-set 분리. `SpecialAttackConfig` `_quakeRadius`/`_quakeSplashRatio`(1.0/0.5), GameBootstrapper 주입. 핸들러 `QuakeAttackBehavior`(`ReplacesPrimaryAttack=false`) + 레지스트리 1줄. ⚠️ 알려진 이슈(보류): 타격 애니↔데미지 텍스트 타이밍 어긋남(Attack 클립 OnAttackHit 미주입 — 별도 task). 상세: GameSystemRules_Units 규칙 43 |
 | TideSpirit | 30 | 7 | 0.5 | 1.0 | 1 | 1:15(3:00) | 5초 | 50 | 1 | |
 | StreamSpirit | 30 | 6 | 3.0 | 3.0 | 0.5 | 0:17(1:15) | 10초 | 100 | 1 | |
 | TorrentSpirit | 100 | 20 | 3.0 | 3.0 | 0.5 | 0:50(4:00) | 30초 | 400 | 1 | 파도형 이동 AoE(구현 완료) — 전방으로 이동하는 월드 좌표 직사각형(폭 `waveWidth` 3 × 전방 `waveLength` 3, 타겟 방향) 전선이 닿는 **적 유닛·적 건물 20 피해 / 아군 유닛 10 힐**, 각 대상 1회. special-only(단일 공격 없음). 힐량·파도 파라미터는 SpecialAttackConfig, 피해는 공격력. 타격 0.5s는 임시(클립 튜닝 대상). 상세: GameSystemRules_Units 규칙 28~31 |
