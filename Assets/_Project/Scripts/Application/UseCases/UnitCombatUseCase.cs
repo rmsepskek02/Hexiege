@@ -1013,8 +1013,26 @@ namespace Hexiege.Application
             bool replacesPrimary = special != null && special.ReplacesPrimaryAttack;
             if (!replacesPrimary)
             {
+                // [임시 로그 — QuakeSpirit 검증, 제거 예정]
+                // 주 타깃 100% 적용(공격력 그대로)의 전/후 HP를 계측한다. QuakeSpirit일 때만 기록.
+                // 이 값이 스플래시(50%)에서는 제외되는지(이중 피해 금지)를 host 로그로 대조한다.
+                bool logQuakePrimary = attacker != null && target != null
+                    && attacker.Type == UnitType.QuakeSpirit;
+                int quakePrimaryBeforeHp = logQuakePrimary ? target.Hp : 0;
+
                 // 주 타깃 단일 피해 — 기존 경로. 재사용 헬퍼로 처리.
                 ApplyDamageToVictim(attacker, target);
+
+                // [임시 로그 — QuakeSpirit 검증, 제거 예정]
+                if (logQuakePrimary)
+                {
+                    string primaryKind = target is UnitData ? "Unit" : "Building";
+                    Hexiege.Infrastructure.RuntimeLogger.Log(
+                        Hexiege.Infrastructure.LogLevel.Info, "Combat", "UnitCombatUseCase",
+                        "[host] 주 타깃 100% 적용",
+                        $"공격자Id={attacker.Id}, 대상Id={target.Id}, 종류={primaryKind}, " +
+                        $"피해량={attacker.AttackPower}, 전HP={quakePrimaryBeforeHp}, 후HP={target.Hp}");
+                }
             }
 
             // 특수 공격 훅.
@@ -1343,10 +1361,24 @@ namespace Hexiege.Application
             int amount = Mathf.CeilToInt(attacker.AttackPower * _quakeSplashRatio);
             if (amount <= 0) return;
 
+            // [임시 로그 — QuakeSpirit 검증, 제거 예정]
+            // 스플래시 대상별 50% 피해량(올림 계산 결과)과 적용 전/후 HP를 host 로그로 계측한다.
+            // 거리 정보는 QuakeAttackBehavior(착탄 중심 보유)가 같은 victimId로 별도 남긴다.
+            int quakeSplashBeforeHp = victim.Hp;
+
             // 즉발 피해(DoT 아님). 도끼병 휩쓸기와 동일하게 immediatePresentation=false로 주어
             // 피격 연출이 공격자 타격 프레임에 맞춰 방출되도록 한다(규칙 26 — AoE 동시 방출은
             // HitPresentationQueue의 단일 타격 프레임 분기가 처리).
             ApplyFixedDamageToVictim(attacker, victim, amount, immediatePresentation: false);
+
+            // [임시 로그 — QuakeSpirit 검증, 제거 예정]
+            string splashKind = victim is UnitData ? "Unit" : "Building";
+            Hexiege.Infrastructure.RuntimeLogger.Log(
+                Hexiege.Infrastructure.LogLevel.Info, "Combat", "UnitCombatUseCase",
+                "[host] 스플래시 50% 적용",
+                $"공격자Id={attacker.Id}, 대상Id={victim.Id}, 종류={splashKind}, " +
+                $"공격력={attacker.AttackPower}, 비율={_quakeSplashRatio}, 피해량={amount}, " +
+                $"전HP={quakeSplashBeforeHp}, 후HP={victim.Hp}");
         }
 
         /// <summary>

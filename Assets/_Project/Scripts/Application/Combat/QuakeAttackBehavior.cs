@@ -89,6 +89,22 @@ namespace Hexiege.Application
             bool hasPrimaryBuilding = primaryBuilding != null;
             int primaryBuildingId = hasPrimaryBuilding ? primaryBuilding.Id : 0;
 
+            // [임시 로그 — QuakeSpirit 검증, 제거 예정]
+            // 착탄 1회의 기준 파라미터를 host 로그로 남긴다: 공격자·착탄 중심(XZ)·반경·주 타깃 식별.
+            // 이 헤더로 이후 스플래시 대상별 거리(≤반경)와 주 타깃 제외를 대조한다.
+            string quakePrimaryKind = hasPrimaryUnit ? "Unit" : (hasPrimaryBuilding ? "Building" : "None");
+            int quakePrimaryId = hasPrimaryUnit ? primaryUnitId : (hasPrimaryBuilding ? primaryBuildingId : 0);
+            Hexiege.Infrastructure.RuntimeLogger.Log(
+                Hexiege.Infrastructure.LogLevel.Info, "Combat", "QuakeAttackBehavior",
+                "[host] 착탄 파라미터",
+                $"공격자Id={attacker.Id}, 중심X={center.x:F3}, 중심Z={center.z:F3}, " +
+                $"반경={radius}, 주타깃Id={quakePrimaryId}, 주타깃종류={quakePrimaryKind}");
+
+            // [임시 로그 — QuakeSpirit 검증, 제거 예정]
+            // 실제 스플래시가 적용된 유닛/건물 수를 세어 마지막에 요약으로 남기기 위한 카운터.
+            int quakeAppliedUnits = 0;
+            int quakeAppliedBuildings = 0;
+
             // 1) 반경 내 적 유닛 선수집 — 버섯폭격기와 동일한 공용 헬퍼 재사용(주 타깃 미제외 상태로 수집됨).
             _unitVictims.Clear();
             if (ctx.Units != null)
@@ -103,8 +119,25 @@ namespace Hexiege.Application
             {
                 UnitData victim = _unitVictims[i];
                 if (victim == null || !victim.IsAlive) continue;          // 방어적 재확인
-                if (hasPrimaryUnit && victim.Id == primaryUnitId) continue; // 주 타깃 유닛 스플래시 제외(이중 피해 금지)
+                if (hasPrimaryUnit && victim.Id == primaryUnitId)
+                {
+                    // [임시 로그 — QuakeSpirit 검증, 제거 예정] 주 타깃 유닛이 스플래시에서 제외됨을 확인.
+                    Hexiege.Infrastructure.RuntimeLogger.Log(
+                        Hexiege.Infrastructure.LogLevel.Info, "Combat", "QuakeAttackBehavior",
+                        "[host] 주 타깃 유닛 스플래시 제외", $"대상Id={victim.Id}, 종류=Unit");
+                    continue; // 주 타깃 유닛 스플래시 제외(이중 피해 금지)
+                }
+
+                // [임시 로그 — QuakeSpirit 검증, 제거 예정]
+                // 스플래시가 적용될 유닛의 착탄 중심 거리(≤반경 확인)를 남긴다. 피해량/HP는 ApplyQuakeSplash가 같은 대상Id로 기록.
+                float quakeUnitDist = (Flatten(ctx.WorldPositionOf(victim)) - center).magnitude;
+                Hexiege.Infrastructure.RuntimeLogger.Log(
+                    Hexiege.Infrastructure.LogLevel.Info, "Combat", "QuakeAttackBehavior",
+                    "[host] 스플래시 대상 수집(유닛)",
+                    $"대상Id={victim.Id}, 종류=Unit, 거리={quakeUnitDist:F3}, 반경={radius}");
+
                 ctx.ApplyQuakeSplash(attacker, victim);
+                quakeAppliedUnits++; // [임시 로그 — QuakeSpirit 검증, 제거 예정]
             }
 
             // 4) 수집된 적 건물에 즉발 스플래시 적용 — 단, 주 타깃 건물은 제외(주 타깃은 100%만 받음).
@@ -112,9 +145,35 @@ namespace Hexiege.Application
             {
                 BuildingData victim = _buildingVictims[i];
                 if (victim == null || !victim.IsAlive) continue;              // 방어적 재확인
-                if (hasPrimaryBuilding && victim.Id == primaryBuildingId) continue; // 주 타깃 건물 스플래시 제외
+                if (hasPrimaryBuilding && victim.Id == primaryBuildingId)
+                {
+                    // [임시 로그 — QuakeSpirit 검증, 제거 예정] 주 타깃 건물이 스플래시에서 제외됨을 확인.
+                    Hexiege.Infrastructure.RuntimeLogger.Log(
+                        Hexiege.Infrastructure.LogLevel.Info, "Combat", "QuakeAttackBehavior",
+                        "[host] 주 타깃 건물 스플래시 제외", $"대상Id={victim.Id}, 종류=Building");
+                    continue; // 주 타깃 건물 스플래시 제외
+                }
+
+                // [임시 로그 — QuakeSpirit 검증, 제거 예정]
+                float quakeBuildingDist = (Flatten(ctx.WorldPositionOf(victim)) - center).magnitude;
+                Hexiege.Infrastructure.RuntimeLogger.Log(
+                    Hexiege.Infrastructure.LogLevel.Info, "Combat", "QuakeAttackBehavior",
+                    "[host] 스플래시 대상 수집(건물)",
+                    $"대상Id={victim.Id}, 종류=Building, 거리={quakeBuildingDist:F3}, 반경={radius}");
+
                 ctx.ApplyQuakeSplash(attacker, victim);
+                quakeAppliedBuildings++; // [임시 로그 — QuakeSpirit 검증, 제거 예정]
             }
+
+            // [임시 로그 — QuakeSpirit 검증, 제거 예정]
+            // 착탄 1회 수집 요약: 실제 스플래시가 적용된 유닛/건물 수 + 주 타깃 제외/아군 제외 확인.
+            // (아군 제외는 수집 헬퍼 CollectEnemyUnitsInRadius/CollectEnemyBuildingsInRadius가
+            //  attacker.Team과 같은 대상을 담지 않는 것으로 보장 — 규칙 16.)
+            Hexiege.Infrastructure.RuntimeLogger.Log(
+                Hexiege.Infrastructure.LogLevel.Info, "Combat", "QuakeAttackBehavior",
+                "[host] 스플래시 수집 요약",
+                $"스플래시유닛={quakeAppliedUnits}, 스플래시건물={quakeAppliedBuildings}, " +
+                $"주타깃제외=완료, 아군제외=수집단계에서_attacker.Team_제외됨");
         }
 
         /// <summary>
