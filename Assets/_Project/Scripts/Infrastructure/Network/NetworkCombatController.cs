@@ -31,6 +31,7 @@ using UniRx;
 using Hexiege.Core;
 using Hexiege.Domain;
 using Hexiege.Application;
+using Hexiege.Application.Combat.Sequencing;
 
 namespace Hexiege.Infrastructure
 {
@@ -100,6 +101,24 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private float _lastCarry = 0f;
 
+        /// <summary>
+        /// Tracer A 진단 로그에만 사용하는 공격 회차 번호 발급기다.
+        /// 피해, RPC, 애니메이션, 타겟 선택에는 관여하지 않으며 현재는 SpearMan만 관측한다.
+        /// </summary>
+        private readonly AttackSequenceAllocator _shadowAttackSequences = new AttackSequenceAllocator();
+
+        /// <summary>
+        /// Tracer A가 서버 프로세스 안에서 관측한 UnitData 참조를 생성 개체 식별자에 연결한다.
+        /// UnitData의 일반 Id가 재사용되더라도 이전 공격 결과와 섞이지 않도록 값은 1부터 단조 증가한다.
+        /// 현재는 네트워크 복제 계약이 없는 진단용 seam이며, 후속 Tracer에서는 서버가 스폰 시점에 발급해
+        /// snapshot으로 전달하는 정식 AttackerInstanceId로 교체해야 한다. 이 매핑은 전투 판정에 사용하지 않는다.
+        /// </summary>
+        private readonly System.Collections.Generic.Dictionary<UnitData, AttackerInstanceId> _shadowAttackerInstances
+            = new System.Collections.Generic.Dictionary<UnitData, AttackerInstanceId>();
+
+        /// <summary>마지막으로 발급한 Tracer A 서버 프로세스 내 생성 개체 번호다. 0은 None으로 비워 둔다.</summary>
+        private static ulong _lastShadowAttackerInstanceValue;
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -111,6 +130,14 @@ namespace Hexiege.Infrastructure
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
+
+            // RuntimeLogger는 프로세스 전역 writer 하나만 가진다. 이 연결은 씬에
+            // NetworkCombatController가 정확히 한 개 존재한다는 기존 배치 규칙을 전제로 한다.
+            // Tracer A는 서버의 schedule/dispatch만 기록하므로 client 파일에는 세션 헤더만 남으며,
+            // 클라이언트 presentation 계측은 후속 Tracer에서 추가한다.
+            RuntimeLogger.BeginSession(
+                "Assets/_Project/Docs/_Logs/2026-07-22/13_26_unit-action-sequence-implementation",
+                IsServer ? "host" : "client");
 
             _services = GameServicesLocator.Current;
             if (_services == null)
@@ -193,6 +220,8 @@ namespace Hexiege.Infrastructure
             // 전투 상태 초기화 — 씬 전환 시 이전 게임의 상태가 남지 않도록
             _unitCombatTargets.Clear();
             _combatAnimationSent.Clear();
+            _shadowAttackerInstances.Clear();
+            _shadowAttackSequences.Clear();
 
             // 전투 Tick 타이머/이월분도 초기화 — 다음 게임 스폰 시 깨끗한 상태에서 시작.
             _attackTimer = 0f;
@@ -200,6 +229,9 @@ namespace Hexiege.Infrastructure
 
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
+
+            // BeginSession과 마찬가지로 컨트롤러가 씬에 하나라는 전제에서 전역 writer를 닫는다.
+            RuntimeLogger.EndSession();
         }
 
         // ====================================================================
@@ -472,7 +504,15 @@ namespace Hexiege.Infrastructure
         /// <param name="targetId">타겟 엔티티의 Id</param>
         /// <param name="targetIsUnit">true=유닛, false=건물</param>
         /// <param name="delay">데미지 적용까지의 대기 시간 (초). Attack.anim의 타격 프레임 시간.</param>
-        private IEnumerator DelayedAttackDamage(UnitData attacker, int targetId, bool targetIsUnit, float delay)
+        private IEnumerator DelayedAttackDamage(
+            UnitData attacker,
+            int targetId,
+            bool targetIsUnit,
+            float delay,
+            AttackerInstanceId shadowAttackerInstanceId,
+            AttackSequenceId shadowSequenceId,
+            int shadowHitIndex,
+            double shadowScheduledImpactTime)
         {
             // hitFrameTime > 0이면 해당 시간만큼 대기
             // hitFrameTime == 0이면 최소 1프레임 대기 (Inspector 미설정 시 즉시 적용 방지)
@@ -485,6 +525,22 @@ namespace Hexiege.Infrastructure
             // _services가 파괴되었을 수 있으므로 null 체크
             UnitCombatUseCase combat = _services?.GetCombatUseCase();
             if (combat == null) yield break;
+
+            if (shadowSequenceId.IsValid)
+            {
+                // 이 시점은 ApplyAttackDamage 호출 직전의 dispatch 계측이다.
+                // ApplyAttackDamage 내부 조건에 따라 피해가 거절될 수 있으므로 피해 성공으로 기록하지 않는다.
+                RuntimeLogger.Log(
+                    LogLevel.Info,
+                    "Combat",
+                    "NetworkCombatController",
+                    "[UAS-DIAG] Legacy 피해 호출 직전 dispatch",
+                    $"event=legacy-impact-dispatch, unit={attacker.Id}, " +
+                    $"attackerInstance={shadowAttackerInstanceId.Value}, sequence={shadowSequenceId.Value}, " +
+                    $"hit={shadowHitIndex}, targetKind={(targetIsUnit ? "unit" : "building")}, target={targetId}, " +
+                    $"scheduledImpact={shadowScheduledImpactTime:F6}, dispatchTime={GetAuthoritativeServerTime():F6}, " +
+                    $"aimDirection=unavailable-tracer-a, simulationFacing={attacker.Facing}");
+            }
 
             // ApplyAttackDamage 내부에서 공격자 생존, 타겟 생존, 사거리를 모두 재확인
             combat.ApplyAttackDamage(attacker, targetId, targetIsUnit);
@@ -523,17 +579,82 @@ namespace Hexiege.Infrastructure
             //   (OnUnitEnteredCombatHandler의 첫 공격은 overshoot=0f이므로 기존과 동일하게 전체 값 C로 리셋된다.)
             unit.AttackCooldownRemaining = Mathf.Max(0f, unit.AttackCooldown - overshoot);
 
+            bool traceShadowSequence = unit.Type == UnitType.SpearMan;
+            AttackerInstanceId shadowAttackerInstanceId = traceShadowSequence
+                ? GetOrCreateShadowAttackerInstance(unit)
+                : AttackerInstanceId.None;
+            AttackSequenceId shadowSequenceId = shadowAttackerInstanceId.IsValid
+                ? _shadowAttackSequences.Next(shadowAttackerInstanceId)
+                : AttackSequenceId.None;
+            double shadowNow = traceShadowSequence ? GetAuthoritativeServerTime() : 0d;
+            double shadowCommitTime = shadowNow - overshoot;
+
             // 2. 각 히트 프레임 시간마다 독립 코루틴을 실행하여 데미지 타이밍 동기화.
             // 단일 히트 유닛: HitFrameTimes 원소가 1개 → 기존과 동일하게 코루틴 1개 실행.
             // 다중 히트 유닛(FlameSpirit 6히트, LionKnight 2히트): 원소 수만큼 코루틴 실행.
             // 각 코루틴은 독립적으로 동작하며, 타겟 사망 시 ApplyAttackDamage 내 IsAlive 체크로 자동 취소.
-            foreach (float hitTime in unit.HitFrameTimes)
+            for (int hitIndex = 0; hitIndex < unit.HitFrameTimes.Length; hitIndex++)
             {
+                float hitTime = unit.HitFrameTimes[hitIndex];
                 // [축 2] 오버슈트(격자 만료 지연)만큼 딜레이를 앞당겨 실제 타격 시점을 보정한다.
                 // 오버슈트가 hitTime보다 크면 이미 지난 것이므로 하한 0(다음 프레임 즉시 적용).
                 float delay = Mathf.Max(0f, hitTime - overshoot);
-                StartCoroutine(DelayedAttackDamage(unit, targetId, targetIsUnit, delay));
+                double scheduledImpactTime = shadowCommitTime + hitTime;
+
+                if (traceShadowSequence)
+                {
+                    RuntimeLogger.Log(
+                        LogLevel.Info,
+                        "Combat",
+                        "NetworkCombatController",
+                        "[UAS-DIAG] 공격 타격 일정 예약",
+                        $"event=attack-scheduled, unit={unit.Id}, " +
+                        $"attackerInstance={shadowAttackerInstanceId.Value}, sequence={shadowSequenceId.Value}, " +
+                        $"phase={UnitActionPhase.Windup}, hit={hitIndex}, " +
+                        $"targetKind={(targetIsUnit ? "unit" : "building")}, target={targetId}, " +
+                        $"commit={shadowCommitTime:F6}, scheduledImpact={scheduledImpactTime:F6}, " +
+                        $"aimDirection=unavailable-tracer-a, simulationFacing={unit.Facing}");
+                }
+
+                StartCoroutine(DelayedAttackDamage(
+                    unit,
+                    targetId,
+                    targetIsUnit,
+                    delay,
+                    shadowAttackerInstanceId,
+                    shadowSequenceId,
+                    hitIndex,
+                    scheduledImpactTime));
             }
+        }
+
+        /// <summary>
+        /// SpearMan UnitData 참조에 대응하는 Tracer A 생성 개체 식별자를 반환한다.
+        /// 처음 관측한 참조에만 새 번호를 발급하며, 이 값은 서버 프로세스 내부 진단용이므로
+        /// 게임플레이 상태나 네트워크 메시지에는 기록하지 않는다.
+        /// </summary>
+        private AttackerInstanceId GetOrCreateShadowAttackerInstance(UnitData unit)
+        {
+            if (_shadowAttackerInstances.TryGetValue(unit, out AttackerInstanceId existing))
+                return existing;
+
+            if (_lastShadowAttackerInstanceValue == ulong.MaxValue)
+                return AttackerInstanceId.None;
+
+            var created = new AttackerInstanceId(++_lastShadowAttackerInstanceValue);
+            _shadowAttackerInstances.Add(unit, created);
+            return created;
+        }
+
+        /// <summary>
+        /// 서버에서 기록하는 Tracer A schedule/dispatch 시각의 기준인 NGO 서버 시간을 반환한다.
+        /// 네트워크가 아직 시작되지 않은 경우에만 Unity 실행 시간을 사용하며, 게임 판정에는 사용하지 않는다.
+        /// </summary>
+        private double GetAuthoritativeServerTime()
+        {
+            return NetworkManager != null && NetworkManager.IsListening
+                ? NetworkManager.ServerTime.Time
+                : Time.timeAsDouble;
         }
 
         // ====================================================================
@@ -730,6 +851,13 @@ namespace Hexiege.Infrastructure
             //   ChangeTargetClientRpc 또는 StopCombatClientRpc가 자연스럽게 발행됨.
             _unitCombatTargets.Remove(unitId);
             _combatAnimationSent.Remove(unitId);
+            // Tracer A의 참조 매핑만 정리한다. 이미 예약된 코루틴은 값 형식 식별자를 별도로
+            // 보관하므로 기존 Legacy 피해 처리와 진단 correlation 모두 영향을 받지 않는다.
+            if (_shadowAttackerInstances.TryGetValue(e.Unit, out AttackerInstanceId deadAttackerInstanceId))
+            {
+                _shadowAttackSequences.Forget(deadAttackerInstanceId);
+                _shadowAttackerInstances.Remove(e.Unit);
+            }
 
             Debug.Log($"[Network] 서버: 유닛 사망. Id={unitId}");
 

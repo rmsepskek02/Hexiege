@@ -9,6 +9,7 @@
 
 | 날짜 | 마일스톤 |
 |------|---------|
+| 2026-07-22 | Unit ActionSequence Tracer A Shadow Melee Sequence 구현·사용자 멀티 계측 통과 — `UnitActionSequencing.cs` 순수 계약과 `RunUnitActionSelfValidation.cs` Editor 검증기를 추가하고, `NetworkCombatController.cs`에 SpearMan Shadow 진단을 연결했다. Editor self-validation PASS. Host 로그는 scheduled 204 / dispatch 204 / unique 204, missing 0, duplicate 0, target mismatch 0, schedule↔dispatch facing change 0, Windup 전건 240ms였다. dispatch 지연은 min 0.013ms / avg 9.105ms / p50 8.226ms / p95 19.862ms / max 29.386ms이며 16.667ms 초과 27건, 33.333ms·50ms 초과 0건이었다. Client 로그는 현 계측 범위상 header only. 기존 서버 피해·HP·RPC·VFX를 변경하지 않은 Shadow 통과이며 이동/공격 방향 및 시각 Impact 문제 해결 완료나 v2 권위 전환 완료를 뜻하지 않는다. task: `_Tasks/2026-07-22/13_26_unit-action-sequence-implementation/`. |
 | 2026-07-22 | 최신 main 반영 후 유닛 전투 문서 재감사 — InfernoSpirit 직접 25 + 유닛 전용 DoT 5/초×3초의 사용자 실기 결과와 QuakeSpirit 직접 20 + 주변 적 유닛·건물 10의 Host/Client 피해 로그를 반영했다. 두 구현을 Legacy 기능 확인으로 분류하고, Quake `OnAttackHit` 누락·1.00초 placeholder·최대 7.5초 표현 지연 가능성, Inferno marker 0.50/설정 1.15 불일치, 권위 AttackSequence/ImpactPoint 부재와 Quake 별도 피해 writer를 v2 차단 항목으로 기록했다. 코드·에셋은 변경하지 않았다. |
 | 2026-07-20 | InfernoSpirit Legacy 특수 공격 반영 — 주 타깃 직접 25 후 적 유닛에만 DoT 5/초×3초(총 15), 건물은 직접 피해만 적용. 사용자 실기 범위에서 기능 확인. 공격 방향 공통 수정은 사용자 결정으로 별도 보류했다. |
 | 2026-07-20 | QuakeSpirit Legacy 즉발 AoE 반영 — 주 타깃 20, 반경 내 다른 적 유닛·적 건물 10(50% 올림)을 서버에서 적용하고 Host/Client HP 로그를 확인. 기본 Attack marker와 규칙 v2 sequence/ImpactPoint는 미완료로 유지했다. |

@@ -1,11 +1,11 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-07-22
-**최우선 작업:** 서버 권위 유닛 ActionSequence 전환. 규칙 v2 문서와 25종 에셋 감사는 완료했지만 런타임 구현·멀티플레이 검증은 미완료다.
-**현재 단계:** 최신 main의 InfernoSpirit·QuakeSpirit 특수 피해 로직은 Legacy 경로에 반영됐다. 기능 의미는 보존하되 Quake marker 누락, Inferno marker 불일치, 별도 피해 writer, 권위 ImpactPoint/sequence 부재 때문에 v2 완료로 승격하지 않는다.
+**최우선 작업:** 서버 권위 유닛 ActionSequence 전환. 규칙 v2 문서와 25종 에셋 감사, Tracer A Shadow 진단은 완료했지만 실제 권위 전환·멀티플레이 전체 검증은 미완료다.
+**현재 단계:** SpearMan Shadow Melee Sequence의 Editor self-validation과 사용자 멀티플레이 Host 계측을 통과했다. 기존 피해·RPC·VFX는 유지 중이며, 다음은 후속 tracer와 실제 sequencer·Root 분리·Snapshot/ImpactResult 복제 단계다.
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
-> 위 `현재 단계`는 2026-07-19 기능 작업의 역사적 요약이다. 규칙 v2 기준 현재 우선순위와 유닛별 상태는 아래 P0 항목 및 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
+> Tracer A 통과는 Shadow 계측 범위의 이정표다. 규칙 v2 완료나 세 사용자 증상의 해결 완료를 뜻하지 않으며, 현재 우선순위와 유닛별 상태는 아래 P0 항목 및 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
 
 ---
 
@@ -14,6 +14,8 @@
 | 우선순위 | 작업 | 카테고리 | 예상 규모 |
 |---------|------|---------|---------|
 | 🔴 P0 | 서버 권위 Unit ActionSequence 구현 — 계측/shadow → Simulation/Visual Root 분리 → Snapshot/ImpactResult 복제 → FIFO 대체 → 25종 이전 → 지연·지터·손실·부하 멀티 QA → Legacy 제거 | 전투/네트워크 | 특대 |
+| ✅ Tracer A | Shadow Melee Sequence — 순수 계약·Editor self-validation PASS, SpearMan Host scheduled/dispatch 204/204·고유 204·누락/중복/타겟/facing 불일치 0. Client는 header only이며 실제 문제 해결 완료가 아님 (2026-07-22) | 전투/계측 | 중 |
+| 🔴 P0 다음 | 후속 tracer 및 실제 sequencer — Simulation/Visual Root 분리, Snapshot/ImpactResult 복제, 결과 키 기반 Presentation, Host/Client·Blue/Red 및 네트워크 조건 검증 | 전투/네트워크 | 특대 |
 | ✅ 설계 완료 | 유닛 이동·공격 규칙 v2 일괄 개정 + 25종 공격 에셋 감사. 런타임 완료를 의미하지 않음 (2026-07-20) | 설계/문서 | 대 |
 | ✅ Legacy 반영 | QuakeSpirit UnitStatsConfig 등록 — HP250/ATK20/range0.5/detect1.0/move0.5/cooldown5.0. 단 hitFrameTimes 1.00초는 placeholder | 데이터/전투 | 중 |
 | 🔴 P0 | AttackTimeline 교정 — 기본 Attack marker 누락 4종(Quake 포함), BattleAxe·Inferno·Stream 등 설정/클립 불일치, 복수 Attack 클립 선택 순서 제거 | 애니메이션/전투 | 대 |

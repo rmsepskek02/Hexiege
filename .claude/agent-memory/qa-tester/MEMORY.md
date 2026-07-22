@@ -482,3 +482,10 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - QuakeSpirit 직접 20 + 주변 적 유닛·적 건물 10은 Host/Client HP 로그 범위에서 PASS다. 기본 `OnAttackHit`이 없어 직접 피해 표현이 쿨다운×1.5 안전망(최대 7.5초)을 기다릴 수 있으므로 시각 동기화는 FAIL/Incomplete다.
 - Quake의 `ApplyFixedDamageToVictim`은 기존 공용 피해 경로와 별도 진입점이다. v2 QA 전 피해·이벤트·사망·네트워크 결과가 단일 writer/emitter에서 한 번만 발생하는지 반드시 검증한다.
 - `SpecialAttackConfig.asset` YAML에는 Quake 필드만 명시되고 Inferno/Blast 필드는 C# 폴백에 의존한다. Inspector 직렬화·씬 주입을 에디터에서 확인하기 전 데이터 배선을 PASS로 판정하지 않는다.
+
+### 2026-07-22 - Unit ActionSequence Tracer A Shadow 검증 기준선
+
+- Editor self-validation PASS. 사용자 멀티 Host 로그는 scheduled 204 / dispatch 204 / unique 204, missing 0, duplicate 0, target mismatch 0, schedule↔dispatch facing change 0, Windup 전건 240ms다.
+- dispatch-scheduled는 min 0.013ms / avg 9.105ms / p50 8.226ms / p95 19.862ms / max 29.386ms. >16.667ms 27건, >33.333ms·50ms 0건이다.
+- Client 로그는 현재 계측 범위상 header only이므로 Host/Client 상관관계 PASS로 확대하지 않는다.
+- 판정은 “Tracer A Shadow 계측 통과”다. 기존 피해·RPC·VFX가 유지됐으며 이동/공격 방향, 시각 Impact, 실제 sequencer·Root 분리·결과 복제는 미검증/미완료다.

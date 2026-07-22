@@ -242,3 +242,10 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - `LoginUseCase.TryAutoLoginAsync()` now returns an explicit auto-login result so unverified email sessions can return to verification instead of entering Lobby.
 - `LoginBootstrapper` checks Cloud Save nickname after auto-login success; verified email accounts with no nickname return to `NicknameSetupView`.
 - `SplashOverlay.SetTapCallback(skipFade:true)` is only safe for scene transitions. Login-scene panel transitions must use fade out to release the overlay raycast block.
+
+### 2026-07-22 - Unit ActionSequence Tracer A Shadow 통과
+
+- 신규 순수 계약 `Application/Combat/Sequencing/UnitActionSequencing.cs`, Editor 검증기 `RunUnitActionSelfValidation.cs`, `NetworkCombatController` SpearMan Shadow 진단을 추가했다. 기존 피해·HP·RPC·VFX는 유일 writer/emitter로 유지한다.
+- Editor self-validation PASS. 사용자 멀티 Host는 scheduled/dispatch/unique 204/204/204, missing·duplicate·target mismatch·schedule↔dispatch facing change 0, Windup 240ms 전건 일치다.
+- dispatch 지연은 min 0.013ms / avg 9.105ms / p50 8.226ms / p95 19.862ms / max 29.386ms, >16.667ms 27, >33.333ms·50ms 0. Client는 header only다.
+- Shadow 계측 게이트만 통과했다. 실제 sequencer, Root 분리, 결과 복제·Presentation 및 세 사용자 증상 해결은 후속 tracer 범위다.
