@@ -1,6 +1,6 @@
 # Hexiege — 스탯 레퍼런스
 
-**최종 수정일:** 2026-07-20
+**최종 수정일:** 2026-07-22
 
 이 문서는 사람이 읽는 스탯 미러다. 런타임 수치의 원본은 `Assets/_Project/Resources/Config/UnitStatsConfig.asset`이며, 공격 의미는 `GameSystemRules_Units.md`, 유닛별 에셋·구현 상태는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다. 문서와 런타임 에셋이 다르면 에셋을 무조건 정답으로 간주하지 말고 불일치로 기록해 게임 의도를 확인한다.
 
@@ -71,10 +71,10 @@ AttackRange ≤ AcquireRange < LoseRange
 |------|----|--------|--------------------|--------------------|------------------|------------------|-----------|-----------|------|------|
 | EmberSpirit | 35 | 6 | 0.5 | 1.0 | 0.5 | 1:00(2:20) | 5초 | 50 | 1 | |
 | FlameSpirit | 35 | 3 | 0.5 | 1 | 2 | 0:20,1:05,1:13,1:20,1:28,2:03(3:00) | 10초 | 100 | 1 | 6히트 공격 |
-| InfernoSpirit | 60 | 25 | 4.0 | 4.0 | 1 | 1:15(3:00) | 30초 | 400 | 1 | 목표: 직접 피해 + DoT 5/초×3초. 특수 핸들러 미등록, 설정 1.15s와 Attack marker 0.50s 불일치 — Incomplete. |
+| InfernoSpirit | 60 | 25 | 4.0 | 4.0 | 1 | 1:15(3:00) | 30초 | 400 | 1 | Legacy 구현: 주 타겟 직접 25 + 적 유닛에만 DoT 5/초×3초(건물은 직접 피해만), `InfernoAttackBehavior`와 별도 `ApplyInfernoDot` 경로. 사용자 실기 확인 완료. 설정 1.15s와 Attack marker 0.50s 불일치, 권위 발사/착탄·sequence 없음. `SpecialAttackConfig.asset` YAML에는 Inferno 필드가 명시되지 않아 현재 코드 기본값/폴백 5/3에 의존 — Provisional + MigrationRequired. |
 | DustSpirit | 40 | 6 | 0.5 | 1.0 | 0.5 | 1:04(3:00) | 5초 | 50 | 1 | |
 | BoulderSpirit | 90 | 8 | 0.5 | 1.0 | 0.5 | 1:15(4:00) | 15초 | 100 | 1 | |
-| QuakeSpirit | 250 | 20 | 0.5 | 1.0 | 0.5 | 1:20(5:00) | 30초 | 400 | 1 | 목표: MeleeContact GroundImpact · Area/Circle, 중심 100%·주변 50%. **UnitStatsConfig 항목과 Attack marker가 모두 없어 현재 런타임 수치가 이 표와 다를 수 있음 — Critical Incomplete.** |
+| QuakeSpirit | 250 | 20 | 0.5 | 1.0 | 0.5 | 1:00(5:00) ⚠️placeholder | 30초 | 400 | 1 | Legacy 구현: 주 타겟 직접 20 + 현재 타겟 위치 반경 내 다른 적 유닛·적 건물 10(50% 올림), `QuakeAttackBehavior`. Host/Client 피해·아군 무피해 로그 검증 완료. `UnitStatsConfig`는 추가됐으나 기본 Attack `OnAttackHit` 미주입으로 표현이 최대 7.5초 지연되고 권위 ImpactPoint/sequence가 없음 — Incomplete + MigrationRequired. |
 | TideSpirit | 30 | 7 | 0.5 | 1.0 | 1 | 1:15(3:00) | 5초 | 50 | 1 | |
 | StreamSpirit | 30 | 6 | 3.0 | 3.0 | 0.5 | 0:17(1:15) | 10초 | 100 | 1 | |
 | TorrentSpirit | 100 | 20 | 3.0 | 3.0 | 0.5 | 0:50(4:00) | 30초 | 400 | 1 | TravelingArea · Area/Rectangle · 적 피해+아군 회복 · ContactOncePerTarget. 현재 서버 전선 로직은 유지하되 ActionSequence·접촉 ID로 이전 필요 — MigrationRequired. |

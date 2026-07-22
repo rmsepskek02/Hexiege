@@ -114,6 +114,79 @@ namespace Hexiege.Infrastructure
         }
 
         // ====================================================================
+        // Lobby CreateOrJoin (매칭 호스트 선점) — 2026-07-17 추가
+        // ====================================================================
+
+        /// <summary>
+        /// matchId 를 Lobby 의 고유 ID(lobbyId)로 사용하여 "없으면 생성 / 있으면 참가"를
+        /// 서버측에서 한 번에(원자적으로) 처리한다. 랜덤 매칭 후 호스트 결정용.
+        ///
+        /// 동작 원리:
+        ///   - 두 플레이어가 매칭 폴링으로 받는 matchId 는 동일한 값이다.
+        ///   - 그 matchId 를 lobbyId 로 넘겨 CreateOrJoin 을 호출하면,
+        ///     먼저 도착한 쪽은 Lobby 를 "생성"하여 호스트가 되고,
+        ///     나중에 도착한 쪽은 같은 ID 의 Lobby 가 이미 있으므로 "참가"하여 클라이언트가 된다.
+        ///   - 이 선점 처리는 UGS 서버가 원자적으로 보장하므로, 두 클라이언트가 동시에
+        ///     호출해도 정확히 한 명만 호스트가 되어 race condition 이 원천 차단된다.
+        ///
+        /// 호스트 여부 판별은 이 호출 이후 <see cref="IsHost"/>(CurrentLobby.HostId == 내 PlayerId)로 한다.
+        ///
+        /// 사용한 SDK 시그니처 (com.unity.services.multiplayer@2.0.0):
+        ///   Task&lt;Lobby&gt; ILobbyService.CreateOrJoinLobbyAsync(
+        ///       string lobbyId, string lobbyName, int maxPlayers, CreateLobbyOptions options = null)
+        ///   - lobbyId: 호출자가 지정하는 커스텀 Lobby 고유 ID. 같은 ID 가 이미 있으면 참가.
+        ///
+        /// 주의: options.Data(아래 MatchId 저장)는 "생성" 시에만 반영되고 "참가" 시에는 무시된다.
+        ///       (참가하는 쪽은 이미 존재하는 Lobby 의 Data 를 그대로 받는다.)
+        ///       RelayJoinCode 는 호스트가 생성 직후 <see cref="UpdateRelayJoinCodeAsync"/>로 채우는
+        ///       기존 방식을 그대로 유지한다.
+        /// </summary>
+        /// <param name="matchId">Matchmaker 가 발급한 Match ID. Lobby 의 고유 ID 로 사용.</param>
+        /// <param name="lobbyName">표시될 방 이름 (생성 시에만 사용).</param>
+        /// <param name="maxPlayers">최대 플레이어 수 (기본 2인).</param>
+        /// <returns>생성 또는 참가한 Lobby 객체. 실패 시 null.</returns>
+        public async Task<Lobby> CreateOrJoinLobbyByMatchIdAsync(
+            string matchId, string lobbyName, int maxPlayers = 2)
+        {
+            if (string.IsNullOrEmpty(matchId))
+            {
+                Debug.LogError("[Network] CreateOrJoinLobbyByMatchId: matchId 가 비어 있습니다.");
+                return null;
+            }
+
+            try
+            {
+                // 생성 시 적용될 옵션. MatchId 를 S1 인덱스 필드로 저장 —
+                // 기존 CreateLobbyAsync(91~99행)의 저장 규칙을 동일하게 준수.
+                var options = new CreateLobbyOptions
+                {
+                    IsPrivate = false,
+                    Data = new Dictionary<string, DataObject>
+                    {
+                        [MatchIdKey] = new DataObject(
+                            DataObject.VisibilityOptions.Public,
+                            matchId,
+                            DataObject.IndexOptions.S1)
+                    }
+                };
+
+                // matchId 를 lobbyId 로 직접 사용 → "없으면 생성 / 있으면 참가" 원자 처리
+                CurrentLobby = await LobbyService.Instance.CreateOrJoinLobbyAsync(
+                    matchId, lobbyName, maxPlayers, options);
+
+                Debug.Log($"[Network] CreateOrJoin 완료. matchId={matchId}, " +
+                          $"LobbyId={CurrentLobby.Id}, HostId={CurrentLobby.HostId}, IsHost={IsHost}");
+
+                return CurrentLobby;
+            }
+            catch (LobbyServiceException e)
+            {
+                Debug.LogError($"[Network] CreateOrJoin 실패 (matchId={matchId}): {e.Message}");
+                return null;
+            }
+        }
+
+        // ====================================================================
         // Lobby 조회
         // ====================================================================
 
@@ -306,6 +379,35 @@ namespace Hexiege.Infrastructure
             catch (LobbyServiceException e)
             {
                 Debug.LogError($"[Network] Relay Join Code 업데이트 실패: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 서버에서 현재 Lobby 의 최신 상태를 다시 받아와 <see cref="CurrentLobby"/>를 갱신한다.
+        ///
+        /// CurrentLobby 는 참가/생성 시점의 스냅샷이라, 호스트가 나중에
+        /// <see cref="UpdateRelayJoinCodeAsync"/>로 기록한 RelayJoinCode 가 반영돼 있지 않다.
+        /// 클라이언트가 RelayJoinCode 가 채워질 때까지 폴링할 때 이 메서드로 최신 Data 를 받아온 뒤
+        /// <see cref="GetRelayJoinCode"/>로 값을 확인한다.
+        /// </summary>
+        /// <returns>갱신 성공 여부. 실패해도 기존 CurrentLobby 는 유지.</returns>
+        public async Task<bool> RefreshCurrentLobbyAsync()
+        {
+            if (CurrentLobby == null)
+            {
+                Debug.LogWarning("[Network] RefreshCurrentLobby: 현재 참가 중인 Lobby 가 없습니다.");
+                return false;
+            }
+
+            try
+            {
+                CurrentLobby = await LobbyService.Instance.GetLobbyAsync(CurrentLobby.Id);
+                return true;
+            }
+            catch (LobbyServiceException e)
+            {
+                Debug.LogWarning($"[Network] Lobby 갱신 실패 (id={CurrentLobby.Id}): {e.Message}");
+                return false;
             }
         }
 

@@ -48,8 +48,15 @@ namespace Hexiege.Application
             // 버섯폭격기: 착탄형 범위 DoT(직접 10은 주 타깃 단일 피해가 담당, 핸들러는 반경 내 적 유닛 DoT만).
             _behaviors[UnitType.MushroomBomber] = new BlastAttackBehavior();
 
+            // 지옥불 정령: 단일 대상 DoT(직접 25는 주 타깃 단일 피해가 담당, 핸들러는 주 타깃 1명에게 DoT만).
+            //   MushroomBomber와 달리 반경 없음(AoE 아님) — 때린 그 1명에게만. DoT 값도 분리(초당 5/3초).
+            _behaviors[UnitType.InfernoSpirit] = new InfernoAttackBehavior();
+
+            // 대지의 정령: 착탄형 즉발 AoE(직접 100%는 주 타깃 단일 피해가 담당, 핸들러는 반경 내
+            //   다른 적 유닛 + 적 건물에 즉발 스플래시 50%(올림)만. 주 타깃은 스플래시 제외).
+            _behaviors[UnitType.QuakeSpirit] = new QuakeAttackBehavior();
+
             // TODO(특수 유닛 확장): 아래처럼 핸들러를 추가 등록한다.
-            //   _behaviors[UnitType.QuakeSpirit] = new QuakeAttackBehavior();
             //   _behaviors[UnitType.BloomFairy]  = new HealBehavior();
         }
 

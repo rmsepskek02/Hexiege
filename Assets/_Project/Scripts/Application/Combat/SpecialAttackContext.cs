@@ -47,6 +47,13 @@ namespace Hexiege.Application
         public IReadOnlyDictionary<int, UnitData> Units { get; }
 
         /// <summary>
+        /// 현재 배치된 모든 건물(읽기 전용). QuakeSpirit 착탄 스플래시가 반경 내 "적 건물"도
+        /// 대상으로 삼으므로 건물 목록도 순회할 수 있도록 함께 전달한다.
+        /// (유닛만 대상인 도끼병/버섯폭격기 핸들러는 이 목록을 사용하지 않는다 — 회귀 없음.)
+        /// </summary>
+        public IReadOnlyDictionary<int, BuildingData> Buildings { get; }
+
+        /// <summary>
         /// 휩쓸기 전방 부채꼴 판정의 월드 반경(공격자로부터의 XZ 평면 거리 한계).
         /// SpecialAttackConfig.SweepReach에서 주입(미주입 시 코드 기본값 1.0).
         /// </summary>
@@ -77,6 +84,14 @@ namespace Hexiege.Application
         /// </summary>
         public float BlastRadius { get; }
 
+        /// <summary>
+        /// QuakeSpirit 착탄 즉발 스플래시의 월드 반경. 착탄 중심(주 타깃 위치)에서 XZ 평면 거리가
+        /// 이 값 이하인 "적 유닛 + 적 건물"에게 즉발 스플래시 피해를 준다. SpecialAttackConfig.QuakeRadius에서 주입.
+        /// (실제 스플래시 피해량 = 올림(공격력 × quakeSplashRatio) 계산은 UseCase 내부에 있고,
+        ///  핸들러는 반경 판정으로 "누구에게" 줄지만 결정한다.)
+        /// </summary>
+        public float QuakeRadius { get; }
+
         // 단일 대상 1회 피해 절차(피해+이벤트+사망 처리)를 수행하는 재사용 헬퍼.
         // UnitCombatUseCase.ApplyDamageToVictim을 그대로 넘겨받는다.
         private readonly Action<UnitData, IDamageable> _applyDamage;
@@ -97,6 +112,20 @@ namespace Hexiege.Application
         // (파도의 SpawnWave와 같은 역할 분담 — 서버 권위 효과는 UseCase 소유).
         private readonly Action<UnitData, UnitData> _applyDot;
 
+        // 대상 유닛에 InfernoSpirit 단일 대상 DoT를 부여하는 델리게이트. 인자는 (공격자, 피해 대상).
+        // UnitCombatUseCase.ApplyInfernoDot을 그대로 넘겨받는다.
+        // ⚠️ MushroomBomber의 _applyDot(→ApplyBlastDot, 초당 2/3초)와는 "별도" 진입점이다.
+        //    InfernoSpirit은 자기 튜닝값(초당 5/3초)을 써야 하므로 델리게이트를 분리해
+        //    MushroomBomber 값이 섞이지 않도록 한다(값 회귀 방지).
+        private readonly Action<UnitData, UnitData> _applyInfernoDot;
+
+        // 대상(적 유닛 또는 적 건물)에 QuakeSpirit 착탄 즉발 스플래시 피해를 적용하는 델리게이트.
+        // 인자는 (공격자, 피해 대상). UnitCombatUseCase.ApplyQuakeSplash를 그대로 넘겨받는다.
+        // ⚠️ DoT(ApplyDot/ApplyInfernoDot)와 달리 "즉발 1회 피해"이며, 대상이 유닛뿐 아니라
+        //    건물일 수도 있어 인자 타입이 IDamageable이다. 스플래시 피해량(올림(공격력×비율)) 계산은
+        //    UseCase 내부에 캡슐화돼 있고, 핸들러는 반경 판정으로 "누구에게" 줄지만 결정한다.
+        private readonly Action<UnitData, IDamageable> _applyQuakeSplash;
+
         /// <summary>
         /// 컨텍스트 생성.
         /// </summary>
@@ -114,6 +143,10 @@ namespace Hexiege.Application
         /// <param name="waveHeal">파도 아군 회복량.</param>
         /// <param name="applyDot">대상 유닛에 착탄 DoT를 부여하는 델리게이트(공격자, 대상).</param>
         /// <param name="blastRadius">착탄 폭발 판정의 월드 반경(중심으로부터 XZ 거리 한계).</param>
+        /// <param name="applyInfernoDot">대상 유닛에 InfernoSpirit 단일 대상 DoT를 부여하는 델리게이트(공격자, 대상). MushroomBomber와 값이 다른 별도 진입점.</param>
+        /// <param name="buildings">전체 건물 읽기 전용 목록. QuakeSpirit 착탄 스플래시의 "적 건물" 수집에 사용.</param>
+        /// <param name="quakeRadius">QuakeSpirit 착탄 즉발 스플래시 판정의 월드 반경(중심으로부터 XZ 거리 한계).</param>
+        /// <param name="applyQuakeSplash">대상(적 유닛/적 건물)에 QuakeSpirit 착탄 즉발 스플래시 피해를 적용하는 델리게이트(공격자, 대상).</param>
         public SpecialAttackContext(
             UnitData attacker,
             IDamageable primaryTarget,
@@ -128,7 +161,11 @@ namespace Hexiege.Application
             float waveTravelTime,
             float waveHeal,
             Action<UnitData, UnitData> applyDot,
-            float blastRadius)
+            float blastRadius,
+            Action<UnitData, UnitData> applyInfernoDot,
+            IReadOnlyDictionary<int, BuildingData> buildings,
+            float quakeRadius,
+            Action<UnitData, IDamageable> applyQuakeSplash)
         {
             Attacker = attacker;
             PrimaryTarget = primaryTarget;
@@ -144,6 +181,10 @@ namespace Hexiege.Application
             WaveHeal = waveHeal;
             _applyDot = applyDot;
             BlastRadius = blastRadius;
+            _applyInfernoDot = applyInfernoDot;
+            Buildings = buildings;
+            QuakeRadius = quakeRadius;
+            _applyQuakeSplash = applyQuakeSplash;
         }
 
         /// <summary>
@@ -187,6 +228,32 @@ namespace Hexiege.Application
         public void ApplyDot(UnitData attacker, UnitData victim)
         {
             _applyDot?.Invoke(attacker, victim);
+        }
+
+        /// <summary>
+        /// 대상 유닛에 InfernoSpirit 단일 대상 DoT(지속 피해)를 부여한다.
+        /// MushroomBomber의 <see cref="ApplyDot"/>(초당 2/3초)와 값이 다른 "별도" 진입점으로,
+        /// InfernoSpirit 자기 튜닝값(초당 5/3초)을 사용한다. 초당 피해/지속/틱 간격은
+        /// UnitCombatUseCase 내부에 캡슐화돼 있고, 이 델리게이트는 "누구에게 걸지"만 전달한다.
+        /// </summary>
+        /// <param name="attacker">DoT를 건 공격자(보통 <see cref="Attacker"/>와 동일).</param>
+        /// <param name="victim">DoT를 받을 적 유닛.</param>
+        public void ApplyInfernoDot(UnitData attacker, UnitData victim)
+        {
+            _applyInfernoDot?.Invoke(attacker, victim);
+        }
+
+        /// <summary>
+        /// 대상(적 유닛 또는 적 건물)에 QuakeSpirit 착탄 즉발 스플래시 피해를 적용한다.
+        /// DoT(ApplyDot/ApplyInfernoDot)와 달리 "즉발 1회 피해"이며, 실제 피해량
+        /// (올림(공격력 × quakeSplashRatio)) 계산은 UnitCombatUseCase 내부에 캡슐화돼 있다.
+        /// 이 델리게이트는 "누구에게 줄지"만 전달한다.
+        /// </summary>
+        /// <param name="attacker">스플래시를 준 공격자(보통 <see cref="Attacker"/>와 동일).</param>
+        /// <param name="victim">스플래시 피해를 받을 적 유닛 또는 적 건물.</param>
+        public void ApplyQuakeSplash(UnitData attacker, IDamageable victim)
+        {
+            _applyQuakeSplash?.Invoke(attacker, victim);
         }
     }
 }

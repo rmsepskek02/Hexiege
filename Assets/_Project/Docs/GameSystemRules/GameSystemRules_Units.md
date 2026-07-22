@@ -293,15 +293,16 @@ Impact 전에 타겟이 무효화되면 발동 후 3초 쿨다운은 시작하�
 - Effect: Damage
 - Schedule: 주 타겟 직접 Instant + 범위 적 유닛 ImpactThenPeriodic DoT
 - 서버 발사체의 권위 착탄점에서 원형 반경 DoT 부여를 확정한다. 주 타겟 직접 피해는 대상이 살아 있고 프로필의 `ImpactHitRadius` 안에 있을 때만 적용한다.
-- 현재 런타임은 서버 비행·착탄 시뮬레이션 없이 공통 타이머에 결과를 적용하므로 **마이그레이션 미완료**다.
+- 현재 Legacy 런타임은 `BlastAttackBehavior`가 ActionMarker 시점의 주 타겟 현재 위치를 중심으로 적 유닛에게 DoT를 부여한다. 서버 비행·착탄 시뮬레이션과 고정 `ImpactPoint`가 없으므로 **v2 마이그레이션 미완료**다.
 
 ### U-SPECIAL-QUAKE. QuakeSpirit
 
 - 목표 Delivery: MeleeContact 기반 Ground Impact
 - TargetScope: Area, AreaShape: Circle
 - Effect: Damage, Schedule: Instant
-- 중심 대상 100%, 주변 대상 50%라는 기존 의도를 유지한다.
-- 공격 프로필·범위 판정·에셋 타격점이 미완성이므로 최종 전달 방식은 실기 확인 전 `잠정`이다.
+- 주 타겟은 직접 100%, 주 타겟을 제외한 반경 내 적 유닛·적 건물은 50% 올림 피해를 받는다. 아군은 피해를 받지 않는다.
+- Legacy 런타임의 `QuakeAttackBehavior`는 ActionMarker 시점의 주 타겟 현재 위치를 중심으로 이 판정을 수행하며 Host/Client 피해 결과는 로그 검증됐다.
+- 이 Legacy 판정은 권위 `ImpactPoint`, `AttackSequenceId + HitIndex`, 검증된 Animation marker를 가지지 않는다. 기본 Attack 클립의 `OnAttackHit`도 미주입이고 `hitFrameTimes=1.0s`는 placeholder이므로 **Incomplete + MigrationRequired**다.
 
 ### U-SPECIAL-BLOOM. BloomFairy
 
@@ -313,8 +314,12 @@ Impact 전에 타겟이 무효화되면 발동 후 3초 쿨다운은 시작하�
 
 ### U-SPECIAL-INFERNO. InfernoSpirit
 
-- 목표 Effect: 직접 Damage 후 Periodic DoT
-- DoT 게임 의미는 유지하되 전달 방식과 특수 핸들러가 미완성이므로 완성 상태로 표시하지 않는다.
+- 목표 Delivery: ProjectileImpact 잠정
+- TargetScope: Single
+- Effect: 주 타겟 직접 Damage 후 적 유닛에만 Periodic DoT
+- Schedule: 직접 Instant + DoT 5/초 × 3초, 1초 discrete tick, 갱신 시 리셋
+- Legacy 런타임의 `InfernoAttackBehavior`는 주 타겟 유닛에게만 DoT를 부여하고 건물에는 직접 피해만 적용한다. MushroomBomber와 별도 `ApplyInfernoDot` 진입점을 사용하며 사용자 실기 확인을 완료했다.
+- 현재는 발사·착탄 분리와 회차 기반 결과가 없는 공통 타이머 경로이고 설정 1.15s와 실제 marker 0.50s도 불일치하므로 **MigrationRequired + Provisional**이다.
 
 ---
 
@@ -365,6 +370,6 @@ Animation Event 존재만으로 Complete가 되지 않는다. 구체적인 상�
 | 22 | 확장 대체 | `NET-ACTION-STATE`, `NET-ACTION-SEQ` |
 | 23~25 | 게임 의미만 유지 | `U-EFFECT-AOE`, `U-SPECIAL-*`; 클래스·파일은 TDD |
 | 27, 31 | 에셋 상태 분리 | `UnitCombatAssetMatrix.md` |
-| 28~40 | 게임 의미 정제 | `U-SPECIAL-*`, `U-EFFECT-TIMED`, `U-ATK-COOLDOWN-BLOOM` |
+| 28~43 | 게임 의미 정제 | `U-SPECIAL-*`, `U-EFFECT-TIMED`, `U-ATK-COOLDOWN-BLOOM` |
 
 기존 FIFO, 모든 원거리 트레이서, 50ms 전투 Tick, 클래스·메서드·파일명은 게임플레이 규칙이 아니라 Legacy 구현 기록이다.

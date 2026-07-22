@@ -73,8 +73,23 @@ namespace Hexiege.Application
         private readonly float _blastDotPerSecond;
         private readonly float _blastDotDuration;
 
-        // 착탄 DoT의 틱 간격(초). "매초 뚝뚝" — 1초마다 discrete하게 피해가 들어간다.
+        // 특수 유닛(InfernoSpirit 지옥불 정령) 단일 대상 DoT 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
+        // _infernoDotPerSecond: DoT 초당 피해(기본 5). _infernoDotDuration: DoT 지속시간(초, 기본 3).
+        // ⚠️ MushroomBomber(_blastDotPerSecond=2/3초)와 값이 다른 "별도" 필드다.
+        //    두 유닛이 같은 DoT 초 단위 틱 시스템(규칙 40)을 재사용하되 값은 완전히 분리한다.
+        private readonly float _infernoDotPerSecond;
+        private readonly float _infernoDotDuration;
+
+        // 특수 유닛(QuakeSpirit 대지의 정령) 착탄형 즉발 스플래시 튜닝값 — SO에서 float로 주입(미주입 시 코드 폴백).
+        // _quakeRadius: 착탄 스플래시 판정 반경(월드, 기본 1.0 = 인접 1칸 거리, 핸들러가 읽음).
+        // _quakeSplashRatio: 스플래시 피해 비율(공격력 대비, 기본 0.5). 스플래시 피해 = 올림(공격력 × 이 값).
+        // ⚠️ DoT가 아니라 "즉발 1회 피해"이며, 반경 내 적 유닛 + 적 건물이 모두 대상이다(주 타깃 제외).
+        private readonly float _quakeRadius;
+        private readonly float _quakeSplashRatio;
+
+        // DoT의 틱 간격(초). "매초 뚝뚝" — 1초마다 discrete하게 피해가 들어간다.
         // (힐(HoT)의 "프레임마다 부드러운 diff"와 대비되는 값. SO 튜닝 대상이 아니라 설계 고정값 1초.)
+        // MushroomBomber 착탄 DoT와 InfernoSpirit DoT가 공유하는 규칙 40의 "초 단위 틱" 상수다.
         private const float BlastDotTickInterval = 1.0f;
 
         /// <summary>
@@ -147,6 +162,10 @@ namespace Hexiege.Application
         /// <param name="blastRadius">MushroomBomber 착탄 폭발 판정 반경(월드). 미주입 시 기본값 1.0.</param>
         /// <param name="blastDotPerSecond">MushroomBomber 착탄 DoT 초당 피해(HP/초). 미주입 시 기본값 2.</param>
         /// <param name="blastDotDuration">MushroomBomber 착탄 DoT 지속시간(초). 미주입 시 기본값 3.</param>
+        /// <param name="infernoDotPerSecond">InfernoSpirit 단일 대상 DoT 초당 피해(HP/초). 미주입 시 기본값 5.</param>
+        /// <param name="infernoDotDuration">InfernoSpirit 단일 대상 DoT 지속시간(초). 미주입 시 기본값 3.</param>
+        /// <param name="quakeRadius">QuakeSpirit 착탄 즉발 스플래시 판정 반경(월드). 미주입 시 기본값 1.0.</param>
+        /// <param name="quakeSplashRatio">QuakeSpirit 착탄 스플래시 피해 비율(공격력 대비, 올림 적용). 미주입 시 기본값 0.5.</param>
         public UnitCombatUseCase(
             HexGrid grid,
             UnitSpawnUseCase unitSpawn,
@@ -163,7 +182,11 @@ namespace Hexiege.Application
             float bloomHealDuration = 3f,
             float blastRadius = 1.0f,
             float blastDotPerSecond = 2f,
-            float blastDotDuration = 3f)
+            float blastDotDuration = 3f,
+            float infernoDotPerSecond = 5f,
+            float infernoDotDuration = 3f,
+            float quakeRadius = 1.0f,
+            float quakeSplashRatio = 0.5f)
         {
             _grid = grid;
             _unitSpawn = unitSpawn;
@@ -183,6 +206,12 @@ namespace Hexiege.Application
             _blastRadius = blastRadius;
             _blastDotPerSecond = blastDotPerSecond;
             _blastDotDuration = blastDotDuration;
+            // InfernoSpirit 단일 대상 DoT 튜닝값(초당 피해/지속). MushroomBomber와 값 분리(회귀 방지).
+            _infernoDotPerSecond = infernoDotPerSecond;
+            _infernoDotDuration = infernoDotDuration;
+            // QuakeSpirit 착탄 즉발 스플래시 튜닝값(반경/비율). 실제 피해량은 ApplyQuakeSplash에서 올림 계산.
+            _quakeRadius = quakeRadius;
+            _quakeSplashRatio = quakeSplashRatio;
         }
 
         // ====================================================================
@@ -998,7 +1027,8 @@ namespace Hexiege.Application
                     ApplyDamageToVictim, ResolveWorldPosition, SpawnWave,
                     _sweepReach, _sweepArcHalfAngle,
                     _waveWidth, _waveLength, _waveTravelTime, _waveHeal,
-                    ApplyBlastDot, _blastRadius);
+                    ApplyBlastDot, _blastRadius, ApplyInfernoDot,
+                    _buildingPlacement.Buildings, _quakeRadius, ApplyQuakeSplash);
                 special.Apply(ctx);
             }
         }
@@ -1278,6 +1308,104 @@ namespace Hexiege.Application
         private void ApplyBlastDot(UnitData attacker, UnitData victim)
         {
             ApplyDamageOverTime(attacker, victim, _blastDotPerSecond, _blastDotDuration, BlastDotTickInterval);
+        }
+
+        /// <summary>
+        /// InfernoSpirit 단일 대상 DoT 부여 진입점. SpecialAttackContext.ApplyInfernoDot 델리게이트로 주입되어
+        /// InfernoAttackBehavior가 주 타깃(적 유닛 1명)에 대해 호출한다.
+        /// ⚠️ MushroomBomber의 <see cref="ApplyBlastDot"/>(초당 2/3초)와는 "별도" 진입점으로,
+        ///    InfernoSpirit 자기 튜닝값(초당 5/3초)을 사용한다. 두 유닛은 같은 DoT 초 단위 틱 시스템(규칙 40)을
+        ///    재사용하되 초당 피해/지속 값은 완전히 분리되어 서로 영향을 주지 않는다.
+        /// </summary>
+        /// <param name="attacker">DoT를 건 공격자(지옥불 정령).</param>
+        /// <param name="victim">DoT를 받을 적 유닛(주 타깃).</param>
+        private void ApplyInfernoDot(UnitData attacker, UnitData victim)
+        {
+            ApplyDamageOverTime(attacker, victim, _infernoDotPerSecond, _infernoDotDuration, BlastDotTickInterval);
+        }
+
+        /// <summary>
+        /// QuakeSpirit 착탄 즉발 스플래시 피해 부여 진입점. SpecialAttackContext.ApplyQuakeSplash 델리게이트로
+        /// 주입되어 QuakeAttackBehavior가 반경 판정으로 고른 각 적(유닛/건물)에 대해 호출한다.
+        ///
+        /// ⚠️ DoT(ApplyBlastDot/ApplyInfernoDot)와 달리 "즉발 1회 피해"다.
+        ///    스플래시 피해량 = 올림(공격력 × _quakeSplashRatio). 예: 공격력 20 × 0.5 = 10.
+        ///    주 타깃은 이미 ExecuteAttack에서 100%(공격력 그대로)를 받았으므로 여기 스플래시에서 제외된다
+        ///    (제외는 핸들러 QuakeAttackBehavior가 담당 — 이 메서드는 넘어온 대상에만 피해를 준다).
+        /// </summary>
+        /// <param name="attacker">스플래시를 준 공격자(대지의 정령).</param>
+        /// <param name="victim">스플래시 피해를 받을 적 유닛 또는 적 건물.</param>
+        private void ApplyQuakeSplash(UnitData attacker, IDamageable victim)
+        {
+            if (attacker == null || victim == null || !victim.IsAlive) return;
+
+            // 스플래시 피해량 = 올림(공격력 × 비율). 소수점은 항상 올려(예: 15×0.5=7.5 → 8) 최소 손실을 보장.
+            int amount = Mathf.CeilToInt(attacker.AttackPower * _quakeSplashRatio);
+            if (amount <= 0) return;
+
+            // 즉발 피해(DoT 아님). 도끼병 휩쓸기와 동일하게 immediatePresentation=false로 주어
+            // 피격 연출이 공격자 타격 프레임에 맞춰 방출되도록 한다(규칙 26 — AoE 동시 방출은
+            // HitPresentationQueue의 단일 타격 프레임 분기가 처리).
+            ApplyFixedDamageToVictim(attacker, victim, amount, immediatePresentation: false);
+        }
+
+        /// <summary>
+        /// 지정한 "임의 량(amount)"의 즉발 피해를 대상(유닛/건물)에 1회 적용하고 사망까지 처리하는 헬퍼.
+        ///
+        /// <see cref="ApplyDamageToVictim(UnitData, IDamageable, bool)"/>는 피해량이 attacker.AttackPower로
+        /// 고정이라 스플래시(공격력의 50%)처럼 "임의 량"에는 쓸 수 없다. 그래서 피해량만 파라미터로 받는
+        /// 별도 경로를 둔다(기존 주 타깃 단일 피해 경로는 무변경 — 회귀 방지). 피해 적용 + 이벤트 발행 +
+        /// 사망 처리 순서는 <see cref="ApplyDamageToVictim(UnitData, IDamageable, bool)"/>와 동일하게 맞춰
+        /// 멀티플레이 HP 동기화(OnEntityDamaged 발행 형식)의 일관성을 보장한다.
+        /// </summary>
+        /// <param name="attacker">공격자 유닛(피해 attribution).</param>
+        /// <param name="target">피해를 받을 대상(유닛 또는 건물).</param>
+        /// <param name="amount">이번에 적용할 피해량(양수).</param>
+        /// <param name="immediatePresentation">
+        ///   true면 피격 표현 큐가 공격자 타격 프레임을 기다리지 않고 즉시 방출(파도/DoT 계열).
+        ///   QuakeSpirit 즉발 스플래시는 false(공격자 타격 프레임에 맞춤).
+        /// </param>
+        private void ApplyFixedDamageToVictim(UnitData attacker, IDamageable target, int amount, bool immediatePresentation)
+        {
+            if (attacker == null || target == null || amount <= 0) return;
+
+            // 피해 적용(임의 량).
+            target.TakeDamage(amount);
+
+            // 일반화된 공격 이벤트 발행(주 타깃 단일 피해 경로와 동일).
+            GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
+
+            // 피격 이벤트 발행 — NetworkHealthSync가 구독해 모든 클라이언트에 HP를 동기화한다.
+            bool targetIsUnit = target is UnitData;
+            GameEvents.OnEntityDamaged.OnNext(
+                new EntityDamagedEvent(target, target.Hp, targetIsUnit,
+                    attackerId: attacker.Id, attackerIsUnit: true,
+                    immediatePresentation: immediatePresentation));
+
+            // 사망 처리 — ApplyDamageToVictim(3-인자)의 사망 경로와 동일 순서(이벤트 → 상태 정리 → 제거).
+            if (!target.IsAlive)
+            {
+                if (target is UnitData diedUnit)
+                {
+                    GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(diedUnit));
+                }
+                else if (target is BuildingData diedBuilding)
+                {
+                    GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(diedBuilding));
+                }
+
+                // 싱글플레이: 사망한 유닛 자체의 전투 상태 정리(멀티는 EntityDiedClientRpc가 담당).
+                if (!NetworkContext.IsNetworkActive && target is UnitData deadUnit)
+                {
+                    _combatTargets.Remove(deadUnit.Id);
+                }
+
+                // 데이터 정리 — 도메인 Dictionary에서 제거.
+                if (target is UnitData u)
+                    _unitSpawn.RemoveUnit(u.Id);
+                else if (target is BuildingData b)
+                    _buildingPlacement.RemoveBuilding(b.Id);
+            }
         }
 
         /// <summary>
