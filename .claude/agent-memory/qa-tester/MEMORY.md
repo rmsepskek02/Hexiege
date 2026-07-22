@@ -472,6 +472,13 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 ### 2026-07-20 - 유닛 전투 동기화 규칙 감사
 
 - 규칙 v2 완료 기준은 서버 ActionSequence/ImpactResult, Simulation Root/Visual Root, ActionMarkerOffset, Host/Client·Blue/Red·지연/지터/순서 역전/중복/늦은 스폰 검증을 모두 포함한다. Animation Event 존재만으로 PASS 처리하지 않는다.
-- 현재 25종 모두 v2 최종 멀티 검증 전이다. QuakeSpirit은 UnitStatsConfig 누락(Critical), QuakeSpirit/RhinoBreaker/MushroomBomber/BloomFairy는 기본 Attack marker 누락이다.
+- 현재 25종 모두 v2 최종 멀티 검증 전이다. UnitStatsConfig는 QuakeSpirit 추가로 25/25가 됐지만 QuakeSpirit/RhinoBreaker/MushroomBomber/BloomFairy는 기본 Attack marker가 없다.
 - BattleAxe 1.1667/1.02, Pistoleer 2.0/0.8, Sniper 3.0/1.7333, Tank·Cannon 4.0/0.1667, Inferno 1.15/0.5, Stream 0.17/0.5, Fox 2.25/1.0 등 설정·marker 불일치를 구현 전 기준선으로 사용한다.
 - `hitPreset`과 `tracerPreset`은 0/25, `attackPreset`은 9/25다. 상세 단일 감사표는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`다.
+
+### 2026-07-22 - InfernoSpirit/QuakeSpirit main 반영 재감사
+
+- InfernoSpirit 직접 25 + 유닛 전용 DoT 5/초×3초는 사용자 실기 확인 범위에서 Legacy PASS다. 공격 방향 수정은 해당 작업에서 보류됐으며, 0.50초 marker/1.15초 설정 불일치와 권위 착탄·sequence 부재 때문에 v2 PASS가 아니다.
+- QuakeSpirit 직접 20 + 주변 적 유닛·적 건물 10은 Host/Client HP 로그 범위에서 PASS다. 기본 `OnAttackHit`이 없어 직접 피해 표현이 쿨다운×1.5 안전망(최대 7.5초)을 기다릴 수 있으므로 시각 동기화는 FAIL/Incomplete다.
+- Quake의 `ApplyFixedDamageToVictim`은 기존 공용 피해 경로와 별도 진입점이다. v2 QA 전 피해·이벤트·사망·네트워크 결과가 단일 writer/emitter에서 한 번만 발생하는지 반드시 검증한다.
+- `SpecialAttackConfig.asset` YAML에는 Quake 필드만 명시되고 Inferno/Blast 필드는 C# 폴백에 의존한다. Inspector 직렬화·씬 주입을 에디터에서 확인하기 전 데이터 배선을 PASS로 판정하지 않는다.

@@ -260,6 +260,8 @@ HP 텍스트, 피격 VFX, SFX와 타격 반응은 공격자 FIFO가 아니라 `N
 
 기존 `HitPresentationQueue`의 공격자별 FIFO, 로컬 `OnAttackHit` 빈 신호 폐기, 타임아웃 기반 다음 주기 방출은 이 문서로 대체 대상이다. 기존 경로는 신규 회차 경로를 shadow mode로 검증하기 전까지 제거하지 않는다.
 
+InfernoSpirit의 `InfernoAttackBehavior`와 QuakeSpirit의 `QuakeAttackBehavior`는 2026-07-20 main에 반영된 **Legacy authority adapter**다. 두 핸들러의 서버 피해 결과와 특수 효과 의미는 보존하되, 현재 `ExecuteAttack`/공격자 FIFO 결과를 v2 완료로 간주하지 않는다. 이전 시 각각 `AttackProfile`의 Effect/Area 구성요소로 옮기고 동일한 `AttackSequenceId + HitIndex + ResultOrdinal` 결과를 방출해야 한다.
+
 전환 순서는 다음과 같다.
 
 1. 서버 회차와 타격 ID를 기존 결과 옆에서 **기록만** 한다. Shadow 경로는 피해, RPC, VFX를 발생시키지 않는다.

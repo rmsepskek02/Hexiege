@@ -2,9 +2,9 @@
 
 유닛별 공격 설계 목표와 현재 런타임·애니메이션·VFX 준비 상태를 분리해 추적하는 감사 표다.
 
-**감사 기준일:** 2026-07-20  
+**감사 기준일:** 2026-07-22
 **브랜치:** `codex/unit-movement-attack-sync-audit`  
-**범위:** 정적 에셋·설정·코드 연결 감사. 멀티플레이 실기 검증은 수행하지 않음.
+**범위:** 정적 에셋·설정·코드 연결 감사 + main에 반영된 InfernoSpirit 사용자 실기 결과와 QuakeSpirit Host/Client 피해 로그 재검토. 규칙 v2 멀티플레이 검증은 수행하지 않음.
 
 이 문서는 상태 스냅샷이며 게임 규칙 권위가 아니다. 공격 의미는 `GameSystemRules_Units.md`, 동기화 계약은 `GameSystemRules_UnitCombatSynchronization.md`, 런타임 수치 원본은 `Resources/Config/UnitStatsConfig.asset`을 따른다.
 
@@ -33,7 +33,9 @@
 | 기본 `{Unit}_Attack.anim` | 25종 모두 존재하고 Controller에 연결 |
 | 기본 Attack 클립 `OnAttackHit` | 21/25 보유 |
 | 기본 Attack 이벤트 누락 | QuakeSpirit, RhinoBreaker, MushroomBomber, BloomFairy |
-| UnitStatsConfig | 24/25 존재 — QuakeSpirit 누락 |
+| UnitStatsConfig | 25/25 존재 — QuakeSpirit 항목 추가됨 |
+| SpecialAttackRegistry | 5종 등록 — BattleAxe, TorrentSpirit, MushroomBomber, InfernoSpirit, QuakeSpirit. BloomFairy는 별도 Healer 경로 |
+| SpecialAttackConfig 직렬화 | Quake 2필드는 asset에 존재. Inferno·Blast 필드는 C# 선언/폴백은 있으나 현재 asset YAML에 명시되지 않음 |
 | `attackPreset` | 9/25 연결 |
 | `hitPreset` | 0/25 연결 |
 | `tracerPreset` | 0/25 연결 |
@@ -59,10 +61,10 @@
 | CannonCart | ProjectileImpact 잠정 · Single · Damage · Instant | TimerImpact | 1 @ 0.1667s / 4.00s | 없음 | Provisional + MigrationRequired — 서버 발사체 없음, 실기 분류 확인 필요 |
 | EmberSpirit | MeleeContact · Single · Damage · Instant | TimerImpact | 1 @ 1.00s / 동일 | 없음 | MigrationRequired — 규칙 v2 멀티 검증 필요 |
 | FlameSpirit | MeleeContact · Single · Damage · MultiImpact(6) | TimerImpact | 6 @ 0.20, 1.05, 1.13, 1.20, 1.28, 2.03s / 동일 | 없음 | MigrationRequired — 다중 타격 상관관계 검증 필요 |
-| InfernoSpirit | ProjectileImpact 잠정 · Single · Damage · ImpactThenPeriodic | TimerImpact, DoT 미구현 | 1 @ 0.50s / 1.15s | Registry 미등록 | **Incomplete** — delivery·DoT 핸들러·타임라인 불일치 |
+| InfernoSpirit | ProjectileImpact 잠정 · Single · Damage · ImpactThenPeriodic | TimerImpact + 단일 대상 DoT 구현 | 1 @ 0.50s / 1.15s | InfernoAttackBehavior | Provisional + MigrationRequired — 직접 25+유닛 전용 DoT 5/초×3초는 실기 확인, 발사/착탄 분리 없음, marker 불일치, Inferno 필드가 SpecialAttackConfig asset YAML에 미직렬화 |
 | DustSpirit | MeleeContact · Single · Damage · Instant | TimerImpact | 기본 1 @ 1.04s / 동일; Attack2 0 | 없음 | Provisional + MigrationRequired — 복수 Attack 클립 선택 순서 위험 |
 | BoulderSpirit | MeleeContact · Single · Damage · Instant | TimerImpact | 1 @ 1.15s / 동일 | 없음 | MigrationRequired — 규칙 v2 멀티 검증 필요 |
-| QuakeSpirit | MeleeContact GroundImpact 잠정 · Area/Circle · Damage · Instant | 폴백 가능성, AoE 미구현 | 기본 0 / **UnitStatsConfig 없음** | Registry 미등록 | **Incomplete / Critical** — 런타임 폴백 스탯 위험, 타격점·범위 로직 누락 |
+| QuakeSpirit | MeleeContact GroundImpact 잠정 · **Single direct + Area/Circle** · Damage · Instant | TimerImpact + 즉발 스플래시 구현 | 기본 0 / 1.00s placeholder | QuakeAttackBehavior | **Incomplete + MigrationRequired** — 직접 20·주변 유닛/건물 10과 서버↔클라 HP는 로그 검증, `OnAttackHit` 미주입으로 표현 최대 7.5s 지연, 권위 ImpactPoint/sequence 없음 |
 | TideSpirit | MeleeContact · Single · Damage · Instant | TimerImpact | 1 @ 1.15s / 동일 | 없음 | MigrationRequired — 규칙 v2 멀티 검증 필요 |
 | StreamSpirit | ProjectileImpact 잠정 · Single · Damage · Instant | TimerImpact | 1 @ 0.50s / 0.17s | 없음 | Provisional + MigrationRequired — 서버 발사체·타임라인 교정 필요 |
 | TorrentSpirit | TravelingArea · Area/Rectangle · Damage+Heal · ContactOncePerTarget | 서버 ActiveWave | 1 @ 0.50s / 동일 | TorrentAttackBehavior | MigrationRequired — 서버 전선은 유지, sequence/contact ID 이전 필요 |
@@ -75,7 +77,7 @@
 | MushroomBomber | ProjectileImpact/LockedPoint · **Single direct + Area/Circle** · Damage · Instant+Periodic | **TimerImpact + 즉시 Blast/DoT 부여** | 기본 0 / 1.00s | BlastAttackBehavior | **Incomplete** — 문서상 착탄 의도와 현재 서버 판정 불일치, ImpactHitRadius·투사체·폭발 VFX 없음; v2 Migration도 필요 |
 | BloomFairy | Hitscan cast 잠정 · Single · Heal · Periodic | Timer 기반 HoT | 기본 0 / 1.00s | 별도 Healer 경로 | Provisional + MigrationRequired — 회복은 동작, 표현 marker 없음, 4초 예외 유지 |
 
-> 표의 설정값은 2026-07-20 `UnitStatsConfig.asset` 정적 감사값이다. 값이 이벤트 시간과 다른 항목은 의도된 폴백인지 잘못된 타임라인인지 실기·에디터 검증 전 확정하지 않는다.
+> 표의 설정값은 2026-07-22 `UnitStatsConfig.asset` 재감사값이다. 값이 이벤트 시간과 다른 항목은 의도된 폴백인지 잘못된 타임라인인지 실기·에디터 검증 전 확정하지 않는다. QuakeSpirit의 로그 PASS는 Legacy 피해 판정 범위에 한정하며 규칙 v2 Complete를 의미하지 않는다.
 
 ---
 

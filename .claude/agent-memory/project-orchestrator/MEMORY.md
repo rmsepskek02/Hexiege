@@ -313,3 +313,9 @@ Assets/_Project/
 - 구현 순서는 계측 기준선 → Simulation/Visual Root 분리 → 서버 UnitActionSnapshot/AttackImpactResult → Legacy FIFO와 shadow 비교 → 25종 AttackProfile 이전 → 멀티 검증 → Legacy 제거다.
 - 전환 중 경기 단위 `CombatSchemaRevision + AttackProfileHash + CombatPipelineMode`를 고정하고 single-writer/single-emitter를 지킨다. 같은 경기에서 유닛별 Legacy/v2 권위를 혼합하거나 진행 중 rollback하지 않는다.
 - 권위 규칙은 `GameSystemRules_Units.md`와 `GameSystemRules_UnitCombatSynchronization.md`, 구현·에셋 차단 상태는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
+
+### 2026-07-22 - Inferno/Quake 병합 후 전투 기준선
+
+- main의 InfernoSpirit/QuakeSpirit 핸들러는 서버 피해 의미를 구현한 Legacy adapter다. v2 구현 완료 수는 여전히 0/25다.
+- 우선순위는 Quake marker 주입/실측, Inferno marker 교정, 단일 피해 writer 복구, 권위 ActionSequence/ImpactResult 이전, Simulation/Visual Root 분리, 멀티 지연 QA 순으로 유지한다.
+- 사용자 폰트 변경과 Quake 로그 `.meta`는 전투 문서 작업 범위 밖이므로 보존한다.

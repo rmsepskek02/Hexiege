@@ -305,11 +305,11 @@
 - **Sniper** (15초): 원거리 5.0타일, 고화력 저속
 - LittleKnight / SpearMan / BattleAxe / Tank / CannonCart: 스탯 미확정
 
-**정령계 (Spirit)** — 3종 스탯 확정, 6종 추가 예정:
+**정령계 (Spirit)** — 9종 `UnitStatsConfig` 등록 완료(세부 완성도는 AssetMatrix 참조):
 - **EmberSpirit** (5초): 근접 0.5타일, 단발
 - **FlameSpirit** (15초): 근접 0.5타일, 6히트 연속 공격
 - **InfernoSpirit** (30초): 원거리 4.0타일, 고화력 고비용
-- DustSpirit / BoulderSpirit / QuakeSpirit / TideSpirit / StreamSpirit / TorrentSpirit: 스탯 미확정
+- **DustSpirit / BoulderSpirit / QuakeSpirit / TideSpirit / StreamSpirit / TorrentSpirit**: 런타임 스탯 등록. QuakeSpirit은 HP250/공격20/사거리0.5/감지1.0/이동0.5/쿨다운5.0이며 행동 marker 1.0초는 placeholder다.
 
 **초월계 (Transcendence)** — 3종 스탯 확정, 2종 추가 예정:
 - **FoxMagician** (5초): 원거리 3.0타일, 마법 공격
@@ -321,7 +321,7 @@
 
 ### 특수 유닛 능력 설계
 
-일반 유닛은 "타겟 1마리를 때린다"가 전부지만, **특수 유닛**은 그 위에 고유한 능력(범위 피해, 지속 피해, 회복 등)을 더한다. 이 절은 그 6종의 **능력이 무엇을·어떻게·왜 작동하는지를 기획 관점에서** 정리한 것이다. 정확한 판정 알고리즘·코드 구조·동기화 처리 같은 **구현 규칙**은 `GameSystemRules/GameSystemRules_Units.md`(규칙 23~42)가 단일 권위 소스이며, 이 절은 그 규칙 번호를 참조로 연결한다. 수치는 `StatsReference.md`(스탯 권위 소스)와 일치한다.
+일반 유닛은 "타겟 1마리를 때린다"가 전부지만, **특수 유닛**은 그 위에 고유한 능력(범위 피해, 지속 피해, 회복 등)을 더한다. 이 절은 그 6종의 **능력이 무엇을·어떻게·왜 작동하는지를 기획 관점에서** 정리한 것이다. 정확한 판정 의미는 `GameSystemRules/GameSystemRules_Units.md`의 `U-SPECIAL-*`, 멀티플레이 계약은 `GameSystemRules/GameSystemRules_UnitCombatSynchronization.md`가 권위다. 과거 규칙 23~43 번호는 Legacy 작업 이력으로만 사용한다. 수치는 `StatsReference.md`와 런타임 설정의 불일치 여부를 함께 확인한다.
 
 특수 유닛은 능력의 판정 형태로 나누면 다음과 같다.
 
@@ -342,7 +342,7 @@
 - **판정 형태**: 공격자 → 주 타깃 방향을 기준으로 한 **전방 부채꼴**. 반경 `sweepReach`(실기값 0.75), 부채꼴 반각 120°. 부채꼴 안의 적 유닛 전원에게 **동일 피해(공격력 15)**를 즉시 적용한다.
 - **주 타깃 vs 부채꼴**: 주 타깃은 기본 단일 피해로 처리하고, 부채꼴은 그 외의 적 유닛을 추가로 쓸어담는다(주 타깃 중복 피해 없음).
 - **제외 대상**: 아군·사망 유닛·공격자 자신·등 뒤의 적(각도로 자연 제외). **건물은 부채꼴 대상이 아니며**, 건물이 주 타깃일 때만 단일 피해를 받는다.
-- 상세 규칙: 규칙 23~27.
+- 상세 규칙: `U-SPECIAL-BATTLEAXE`.
 
 ---
 
@@ -354,7 +354,7 @@
 - **대상별 효과**: **적 유닛·적 건물 = 피해 20**, **아군 유닛 = 힐 10**. 각 대상은 한 번의 파도로 **1회만** 영향을 받는다(아군 건물은 힐 대상 아님).
 - **special-only의 의미**: 단일 공격이 없으므로 파도 판정이 **건물도 반드시 훑어야** 성(승리 조건)을 깎을 수 있다.
 - **힐 서브시스템**: 이 유닛을 위해 "아군 회복" 채널을 신설했다(피해와 분리된 별도 연출·동기화). 이후 BloomFairy가 공유한다.
-- 상세 규칙: 규칙 28~31.
+- 상세 규칙: `U-SPECIAL-TORRENT`.
 
 ---
 
@@ -365,7 +365,7 @@
 - **회복 방식**: 사거리(4.0타일) 안의 부상 아군 중 **잃은 체력 비율이 가장 큰 대상**(동률이면 가장 가까운 대상)을 골라, **3초에 걸쳐 총 20 HP를 서서히 회복**시킨다(HoT). **본인도 회복 대상에 포함**되며, 회복 대상은 **아군 유닛만**(건물 제외)이다.
 - **유휴 감시**: A* 경로 끝(최전선)에 도달해 더 갈 곳이 없어도 멈추지 않고, 사거리 안에 부상 아군이 생기면 즉시 다시 힐한다.
 - **⚠️ 쿨다운 예외(의도된 설계)**: 다른 모든 유닛은 쿨다운이 "발동 준비 시간을 포함한 전체 주기"지만, **BloomFairy만** 힐이 실제로 발동된 **뒤부터** 쿨다운(3.0초)을 센다. 그래서 실제 힐 주기는 **발동 준비 1.0초 + 쿨다운 3.0초 = 4.0초**다. "힐 한 번 걸고 3초 쉰다"는 체감이 핵심이므로, 이 예외는 확정 설계이며 다른 유닛과 같게 되돌리지 않는다.
-- 상세 규칙: 규칙 32~37.
+- 상세 규칙: `U-SPECIAL-BLOOM`.
 
 ---
 
@@ -376,7 +376,7 @@
 - **직접 피해**: 주 타깃 1마리에게 **직접 10**(기본 단일 피해, 건물 공성 포함).
 - **범위 DoT**: 착탄 중심 기준 **월드 원형 반경**(기본 1.0 = 인접 1칸) 안의 **적 유닛 전원**에게 **초당 2씩 3초간(총 6)** DoT를 건다. DoT는 **1초 간격으로 뚝뚝** 들어가며, 매초 남은 체력이 데미지 텍스트로 표시된다.
 - **건물 처리**: **건물은 DoT를 받지 않는다**(직접 피해만). 단, 주 타깃이 건물이어도 폭발은 항상 터지므로 반경 안의 주변 적 유닛에게는 DoT가 걸린다.
-- 상세 규칙: 규칙 38~40.
+- 상세 규칙: `U-SPECIAL-MUSHROOM`.
 
 ---
 
@@ -387,7 +387,7 @@
 - **직접 피해**: 원거리 공격이 주 타깃에게 **직접 25**(기본 단일 피해, 건물 공성 포함).
 - **단일 DoT**: 그 **주 타깃 1마리에게만** **초당 5씩 3초간(총 15)** DoT를 추가로 건다(반경 없음). DoT 거동(1초 간격·매초 남은 체력 텍스트·갱신 시 리셋)은 MushroomBomber와 공유하되, 수치는 별도로 분리 관리된다.
 - **대상 제한**: DoT는 **적 유닛만** 받는다. 건물이 주 타깃이면 직접 25만 들어가고 DoT는 걸리지 않는다.
-- 상세 규칙: 규칙 41~42.
+- 상세 규칙: `U-SPECIAL-INFERNO`.
 
 ---
 
@@ -399,7 +399,7 @@
 - **스플래시(50%)**: 착탄 중심 기준 **월드 원형 반경**(`_quakeRadius` 기본 1.0 = 인접 1칸) 안의 **다른 적 유닛 + 적 건물**에게 **10(공격력의 50%, 올림)**을 즉시 적용한다.
 - **⚠️ 건물도 스플래시 대상**: BattleAxe·MushroomBomber는 스플래시/부채꼴에서 건물을 제외하지만, QuakeSpirit은 반경 안 적 건물도 50% 스플래시를 받는다(공성 기여). 아군 유닛·건물은 무피해.
 - **즉발**: DoT가 아니라 한 타격에 즉시 적용되는 2단계(100%/50%) 피해다.
-- 구현 task: `_Tasks/2026-07-20/10_24_quakespirit-impact-aoe/`. 상세 규칙은 구현 후 `GameSystemRules_Units.md`에 별도 등재 예정.
+- Legacy 구현 task: `_Tasks/2026-07-20/10_24_quakespirit-impact-aoe/`. Host/Client 피해 결과는 검증됐지만 Attack marker와 규칙 v2 회차·ImpactPoint는 미완료다. 상세 규칙: `U-SPECIAL-QUAKE`.
 
 ---
 
@@ -427,7 +427,7 @@
 - EmberSpirit: 근접 단발 공격
 - FlameSpirit: 근접 6히트 연속 공격
 - InfernoSpirit: 원거리 고화력 정령
-- DustSpirit / BoulderSpirit / QuakeSpirit / TideSpirit / StreamSpirit / TorrentSpirit: 스탯 미확정
+- DustSpirit / BoulderSpirit / QuakeSpirit / TideSpirit / StreamSpirit / TorrentSpirit: 런타임 스탯 등록 완료. 각 유닛의 marker·VFX·v2 검증 상태는 `Assets/UnitCombatAssetMatrix.md` 참조
 
 **건물 라인**: AncientGrove 1/2/3단계 (고대 신목 스타일)
 **방어 타워**: Spirit MagicTower — 쿨다운 3.5s (전 종족 중 최단)
@@ -816,7 +816,8 @@ Castle 바로 옆(인접 1칸)에 도달하면 공성 완료 → 정지
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
-| 1.9.0 | 2026-07-20 | 유닛 시스템에 '특수 유닛 능력 설계' 절 신설. 특수 유닛 6종(BattleAxe 휩쓸기형 / TorrentSpirit 파도형+힐 / BloomFairy 힐러 / MushroomBomber 착탄형 DoT / InfernoSpirit 단일 DoT / QuakeSpirit 착탄형 즉발 2단계 AoE)의 능력·판정 형태·수치를 기획 관점 자연어로 기록. 구현 규칙은 GameSystemRules_Units 규칙 23~42 참조로 연결(역할 분리). QuakeSpirit은 건물도 스플래시 타격하는 차별점, BloomFairy 쿨다운 예외(실제 힐 주기 4.0s) 명문화. |
+| 1.9.1 | 2026-07-22 | InfernoSpirit·QuakeSpirit main 반영 후 특수 로직 구현 상태와 규칙 v2 완성도를 분리. Quake 스탯 등록·Legacy 피해 로그 PASS를 반영하되 marker/ImpactPoint/sequence 미완료를 명시하고 안정 규칙 ID `U-SPECIAL-*`로 참조 전환. |
+| 1.9.0 | 2026-07-20 | 유닛 시스템에 특수 유닛 능력 설계 절 신설. 6종 능력·판정·수치를 기획 관점에서 기록하고 당시 Legacy 규칙 23~43과 연결. QuakeSpirit의 건물 스플래시와 BloomFairy 쿨다운 예외를 명문화. |
 | 1.8.0 | 2026-07-20 | 무작위 맵 문서 구현 계약 감사. `MapTestModeEnabled`가 초기 골드만 제어하고 ON=5000/OFF=광산 수 표를 사용하도록 확정했으며, 멀티 Host 권위와 양측 동일 실제 골드 적용을 명문화. 전체 내용은 확정 설계·미구현 상태. |
 | 1.7.0 | 2026-07-19 | 맵 전송 10초 timeout과 불완전 수신 한정 동일 nonce 전체 package 1회 재전송, 검증/버전/용량/연결 오류 즉시 실패를 확정. 최초 준비 실패 Retry/Leave 및 새 seed 재준비, NewMap 실패 시 이전 맵·결과 UI·전체 countdown·선택지 복원, 내부 정보 UI 비공개를 명문화. |
 | 1.6.0 | 2026-07-19 | GridInteraction 입력 계약 확정. Blocked/빈 공간 클릭은 deselect+건설 패널 닫기, 무토스트·새 선택 이벤트 없음. 소유 NoBuild는 선택·highlight+stale 패널 닫기+BuildingNotAllowed 토스트, 중립/적 NoBuild는 선택만 수행하며 building action/MiningPost 분기를 우선하도록 명문화. |

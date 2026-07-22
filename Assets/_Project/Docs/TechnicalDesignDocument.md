@@ -1290,13 +1290,14 @@ Application은 Unity.Netcode/Infrastructure를 역참조하지 않는다. 상세
 
 #### 특수 공격 전략 핸들러 구조 (2026-07-17 도끼병 휩쓸기형 AoE)
 
-일반 유닛의 단일 타깃 피해와 별개로, 특수 능력의 추가 피해·효과를 **전략(핸들러) 패턴**으로 분리한다. 현재 등록은 BattleAxe, TorrentSpirit, MushroomBomber이며 BloomFairy는 별도 힐러 경로다. QuakeSpirit과 InfernoSpirit 특수 로직은 미구현이다.
+일반 유닛의 단일 타깃 피해와 별개로, 특수 능력의 추가 피해·효과를 **전략(핸들러) 패턴**으로 분리한다. 현재 등록은 BattleAxe, TorrentSpirit, MushroomBomber, InfernoSpirit, QuakeSpirit 5종이며 BloomFairy는 별도 힐러 경로다. 이 등록 상태는 Legacy 런타임 구현 현황이며 규칙 v2 ActionSequence 완료를 의미하지 않는다.
 
-- **계약/구성:** `ISpecialAttackBehavior.Apply(SpecialAttackContext)` 인터페이스 + `SpecialAttackContext`(공격자·주 타깃·유닛 목록·재사용 피해 헬퍼·월드 좌표 조회 수단·reach/arc) + `SpecialAttackRegistry`(`UnitType → 핸들러`) + 유닛별 핸들러. 현재 등록은 `BattleAxe → SweepAttackBehavior`, `TorrentSpirit → TorrentAttackBehavior`, `MushroomBomber → BlastAttackBehavior`다. 모두 `Scripts/Application/Combat/`. `UnitType` 키 매핑이라 인스펙터 배선 불필요.
-- **피해 수렴점 단일화:** `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해 로직을 `ApplyDamageToVictim` 헬퍼로 추출하여 주 타깃과 AoE 대상이 **같은 피해·이벤트·사망 처리 경로**를 쓰게 했다(멀티플레이 HP 동기화 일관). `ExecuteAttack` 말미에 특수 공격 훅 1줄만 추가 → 신규 특수 유닛은 핸들러 + 레지스트리 1줄로 확장하며 `ExecuteAttack` 재수정 불필요.
+- **계약/구성:** `ISpecialAttackBehavior.Apply(SpecialAttackContext)` 인터페이스 + `SpecialAttackContext`(공격자·주 타깃·유닛/건물 목록·재사용 피해/DoT 헬퍼·월드 좌표 조회 수단·유닛별 튜닝값) + `SpecialAttackRegistry`(`UnitType → 핸들러`) + 유닛별 핸들러. 등록은 `BattleAxe → SweepAttackBehavior`, `TorrentSpirit → TorrentAttackBehavior`, `MushroomBomber → BlastAttackBehavior`, `InfernoSpirit → InfernoAttackBehavior`, `QuakeSpirit → QuakeAttackBehavior`다. 모두 `Scripts/Application/Combat/`에 둔다.
+- **Legacy 피해 수렴점 상태:** 기본 피해와 기존 AoE는 `ApplyDamageToVictim`을 공유한다. Quake의 50% 고정 피해를 위해 `ApplyFixedDamageToVictim`이 별도 복제 경로로 추가돼 현재는 완전한 단일 수렴점이 아니다. v2 이전 시 피해량을 인자로 받는 하나의 authority result writer로 통합하고 두 경로가 직접 이벤트를 각각 방출하지 않게 한다.
 - **휩쓸기 판정(SweepAttackBehavior):** 타일 소속이 아니라 **월드 좌표 전방 부채꼴**(forward = 공격자 → 주 타깃, XZ 거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`). 월드 좌표는 `IEntityPositionProvider`(서버 권위). 아군/사망/공격자/주 타깃 제외, 건물 미대상.
 - **튜닝 SO:** `SpecialAttackConfig`(Infrastructure/Config, `sweepReach`·`sweepArcHalfAngle`). GameBootstrapper가 SO 값을 읽어 핸들러에 **float로 주입**(Application → Infrastructure 역참조 회피). 에셋 생성 + 배선은 `CreateSpecialAttackConfigAsset.cs`가 멱등 자동화. ⚠️ 에셋 생성 ≠ 씬 배선 — 미배선 시 폴백값 사용.
 - **규칙 v2 상관관계:** 같은 AoE Impact의 대상별 결과는 동일 SequenceId+HitIndex로 묶는다. 공격자 FIFO 큐 전체 방출은 Legacy이며 대체 대상이다.
+- **신규 Legacy 핸들러 경계:** Inferno는 주 타겟 유닛에 5/초×3초 DoT, Quake는 ActionMarker 시점 주 타겟 위치를 중심으로 직접 100%+주변 유닛/건물 50% 즉발 피해를 적용한다. 둘 다 `AttackSequenceId`, 고정 `ImpactPoint`, `ResultOrdinal`을 아직 방출하지 않는다.
 - 게임플레이 의미는 `GameSystemRules_Units.md`, 상태는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`, 당시 작업은 `_Tasks/2026-07-16/18_06_battleaxe-aoe/`를 참조한다.
 
 ### 건물 배치 시스템 (MVP Phase 1)

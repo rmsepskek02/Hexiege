@@ -4,6 +4,8 @@
 **작업 브랜치:** `codex/unit-movement-attack-sync-audit`  
 **현재 단계:** 규칙 감사 및 개정 계획 수립 — 코드 수정 전
 
+**2026-07-22 post-main 재감사:** InfernoSpirit·QuakeSpirit 특수 피해 로직과 QuakeSpirit 스탯이 main에 추가됐다. 그러나 둘 다 기존 `ExecuteAttack`/FIFO 계열의 Legacy 구현이며 권위 `AttackSequenceId`, `ImpactPoint`, 결과 순번을 제공하지 않는다. QuakeSpirit은 기본 Attack marker가 없고 별도 고정 피해 진입점을 사용한다. 따라서 아래 구조적 진단과 v2 전환 필요성은 그대로 유효하다.
+
 ---
 
 ## 이 작업을 왜 하는가
@@ -222,7 +224,7 @@ MushroomBomber는 문서에서 “착탄 지점에서 폭발”하는 유닛으�
 
 - 25종 모두 Blue/Red 프리팹, Controller, 기본 Attack 클립이 존재한다.
 - 기본 Attack 클립 marker 누락은 QuakeSpirit, RhinoBreaker, MushroomBomber, BloomFairy 4종이다.
-- QuakeSpirit은 `UnitStatsConfig.asset` 항목 자체가 없다.
+- 2026-07-20 감사 당시 QuakeSpirit은 `UnitStatsConfig.asset` 항목이 없었다. 2026-07-22 main 재감사에서는 항목이 추가됐지만 1.00초 hitFrameTimes가 placeholder로 남아 있다.
 - BattleAxe 기본 Attack marker는 1.02초지만 설정·기존 문서는 1.1667초다.
 - 25종 모두 `hitPreset`과 `tracerPreset`이 비어 있고 `attackPreset`은 9종만 연결됐다.
 - 복수 Attack 클립을 가진 DustSpirit, RhinoBreaker, EagleArcher, RabbitTrickster는 이름에 Attack이 포함된 첫 클립을 고르는 현재 추출 방식에 순서 의존 위험이 있다.

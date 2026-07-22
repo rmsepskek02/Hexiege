@@ -1,11 +1,12 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-07-20
-**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2 문서 개정 완료, 런타임 구현 미착수. 기존의 이동/Walk·전투 타격 동기화 완료 기록은 당시 범위의 이력으로 보존하되, 멀티플레이에서 ① 이동방향/바라보기 ② 타겟/공격방향 ③ 시각 Impact/서버 피해 시점 불일치가 재현되어 **P0로 재오픈**했다.
-**현재 단계 (규칙 v2):** P0 Unit ActionSequence 구현 계획 수립 전. 아래의 기존 `현재 단계` 장문은 2026-07-19 Legacy 작업 스냅샷이다.
-**현재 단계:** MushroomBomber(버섯폭격기) 착탄형 범위 딜러 구현 완료(2026-07-19, QA PASS·사용자 실기 테스트 완료) — 특수 유닛 5종 중 **4번째**. 착탄형 AoE: 주 타깃 1마리 **직접 10**(건물 공성 포함, 기존 `ExecuteAttack` 단일 피해 `ReplacesPrimaryAttack=false`) + 착탄 중심 **월드 원형 반경**(`blastRadius` 기본 1.0=인접 1칸) 내 적 유닛 **DoT 2/초×3초(총 6)**. DoT는 HoT/DoT 공용 시스템(규칙 34)에 신설한 **초 단위 discrete 틱 모드** — 1초 간격·틱당 올림(CeilToInt)·총량 6 클램프·매초 남은 체력 데미지 텍스트(힐과 반대로 억제 안 함), 서버 권위. 핸들러 `BlastAttackBehavior`(원형 반경 수집 static 헬퍼 — QuakeSpirit 재사용 여지) + 레지스트리 `MushroomBomber → BlastAttackBehavior` 1줄. 식물 라인 생산 배선 완료(SporePatch 1단계=MushroomBomber, FloralNursery 2단계=BloomFairy). 규칙 38~40 등재. VFX(투사체·폭발)는 사용자 별도 제작. 직전 **BloomFairy(꽃요정 힐러)** 구현·실기 테스트 완료(2026-07-18) — 특수 유닛 5종 중 **3번째**. 적을 때리지 않고 부상 아군을 회복하는 **힐러 전용 경로**(적 공격 흐름·`SpecialAttackRegistry`와 분리), 부상 아군 탐색(팀 필터 반대·본인 포함), HoT 공용 시스템(규칙 34 diff 틱)·힐 유휴 감시·쿨다운 예외(발동 준비 1.0s 미포함 → 실제 힐 주기 4.0s, 프로젝트 유일 예외)·HoT 힐 텍스트 완료 시 1회 표시(사망 시 생략). 규칙 32~37 등재. **잔여 특수 유닛(코드 확인 결과 특수 공격 핸들러 미등록 = 미구현)**: QuakeSpirit(착탄형 — MushroomBomber 원형 반경 헬퍼 재사용 예정), InfernoSpirit(DoT — 초 단위 틱 재사용 예정). 그 이전 TorrentSpirit(물의 상급 정령) 파도형 이동 AoE + 힐 서브시스템 구현 완료(2026-07-17) — 특수 유닛 5종 중 **2번째**. special-only(단일 공격 없음, `ReplacesPrimaryAttack`) 파도가 전방으로 이동(서버 권위 전선 `SpawnWave`/`TickWaves`)하며 월드 직사각형 안 **적 유닛·적 건물 피해 / 아군 유닛 힐**(각 1회, hit-set). **힐 서브시스템 신설**(`UnitData.Heal`·`OnEntityHealed`·NetworkHealthSync 힐 동기화·치유 색상 텍스트 — BloomFairy 공용). `SpecialAttackConfig` 파도 파라미터(폭 3·전방 3·이동시간 0.5·힐 10) Inspector. `VfxPoolItem` 다중 파티클 시스템(빈 루트+형제) 재생 수정. UnitStatsConfig(18)/EffectPreset/OnAttackHit(0.5s 임시) 배선. QA CONDITIONAL PASS(BUG-002 건물 공격 수정 완료). 규칙 28~31 등재. VFX 세부 튜닝은 사용자 진행. — 직전 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 구현 완료(2026-07-17, 사용자 실기 PASS) — 특수 유닛 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 중 첫 구현. `ISpecialAttackBehavior` + `SpecialAttackRegistry`(UnitType 키) + `SweepAttackBehavior` 신설, `UnitCombatUseCase.ExecuteAttack`을 `ApplyDamageToVictim` 헬퍼로 정리 후 특수 공격 훅 1줄 추가(신규 유닛 = 핸들러 + 등록 1줄). 휩쓸기 판정은 월드 좌표 전방 부채꼴(반경 `sweepReach` 실기값 0.75 · 반각 120°, `SpecialAttackConfig` SO 튜닝), AoE 피격 연출 동시 방출(HitFrameTimes.Length 분기). BattleAxe attackRange 0.5→0.75, Attack 클립 OnAttackHit 1.1667s 주입. 규칙 23~27 등재. 직전 Android AAB 빌드 용량 최적화 완료(2026-07-15, main 반영) — `codex/asset-size-optimization` 작업이 main에 병합되어 AAB 용량을 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 핵심 변경은 3D 건물/유닛 텍스처 Android max texture size `1024 → 512` 적용이며, `_Old` 미사용 에셋 정리와 보수적 FBX import 조정도 함께 수행. UI 스프라이트/초상화/건물 아이콘/UI 배경/TMP 폰트는 최종 품질 확인 전 유지. 직전 코드 정리 3건(2026-07-13), 이동/Walk 애니메이션 동기화(2026-07-13), 전투 타격 타이밍 동기화(2026-07-12) 완료 상태 유지. 싱글플레이 AI 시스템은 Inspector 작업(AIConfig/AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치)이 완료되었고, 핵심 흐름(유닛 생산/건물 업그레이드) 실기가 조건부 완료(2026-07-16, PASS·특별한 문제 미발견)됨 — 단 반응 시스템(R1~R3)·3종족 시나리오 무작위 동작 등 세부 정밀 검증은 미완. 후속은 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, 잔여 특수 타격(QuakeSpirit/InfernoSpirit) 클립 이벤트, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·3종족 시나리오 정밀 검증, 신규 유닛 프리팹 실기 테스트.
+**최종 수정일:** 2026-07-22
+**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2와 25종 감사 문서는 확정됐지만 런타임 ActionSequence·Simulation/Visual Root 분리·멀티플레이 검증은 미완료다. 기존 이동/Walk·타격 동기화 PASS는 Legacy 범위의 이력으로만 보존하며, 세 불일치 문제는 **P0 재오픈** 상태다.
+**최신 main 반영:** InfernoSpirit은 직접 25 + 유닛 전용 DoT 5/초×3초가 Legacy 경로에서 사용자 실기 확인됐고, QuakeSpirit은 직접 20 + 주변 적 유닛·건물 10 및 Host/Client HP 결과가 로그로 확인됐다. 다만 Inferno는 marker 0.50초/설정 1.15초가 불일치하며, Quake는 기본 `OnAttackHit`이 없고 1.00초 placeholder를 사용한다. 두 구현 모두 권위 `AttackSequenceId`, `ImpactPoint`, 결과 순번이 없어 v2 Complete가 아니다.
+**현재 단계 (규칙 v2):** P0 Unit ActionSequence 구현 계획 수립 전. 아래 Legacy 스냅샷은 현재 판정에 사용하지 않는다.
+**Legacy 스냅샷 (2026-07-19):** BattleAxe·TorrentSpirit·BloomFairy·MushroomBomber의 당시 기능 완료 기록은 `WORK_HISTORY.md`로 이관해 보존한다. 이후 반영된 InfernoSpirit·QuakeSpirit 상태와 v2 판정은 위 최신 상태 및 AssetMatrix를 따른다.
 
-> 위 `현재 단계`의 특수 유닛 완료 서술은 2026-07-19 당시 범위의 이력이다. 규칙 v2 기준 Complete 판정으로 사용하지 않으며, 실제 현재 상태는 바로 위 `정밀 동기화 상태`와 `UnitCombatAssetMatrix.md`를 따른다.
+> Legacy 기능 PASS는 규칙 v2 Complete가 아니다. 실제 현재 상태는 위 `정밀 동기화 상태`와 `UnitCombatAssetMatrix.md`를 따른다.
 
 ---
 
@@ -17,7 +18,7 @@
 - 25종 에셋 감사 완료: `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`
 - 목표: Simulation Root/Visual Root 분리, `AttackSequenceId + HitIndex`, 서버 시간 Impact, FIFO 대체
 - 런타임: 기존 Network Root Red 보정, Walk/Attack 상태 분리, 공격자 FIFO가 남아 있어 **미완료**
-- 중요 사실: QuakeSpirit UnitStatsConfig 누락, 기본 Attack marker 누락 4종, BattleAxe marker/설정 불일치, hit/tracer preset 25종 전부 미연결
+- 중요 사실: UnitStatsConfig는 25/25 등록됐으나 기본 Attack marker 누락 4종, BattleAxe·Inferno 등 marker/설정 불일치, hit/tracer preset 0/25, Quake의 표현 최대 7.5초 지연 가능성이 남아 있다.
 - 코드 구현은 별도 Research/Plan 및 명시 승인 후 진행
 
 ### 📐 확정 설계 — 구현 예정
@@ -70,8 +71,10 @@
 #### 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 아키텍처 (2026-07-17)
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| 특수 공격 전략 핸들러 아키텍처 | ✅ 현행 기반 / v2 이전 필요 | 현재 등록: BattleAxe, TorrentSpirit, MushroomBomber. BloomFairy는 별도 힐러 경로, QuakeSpirit·InfernoSpirit는 미구현. ActionSequence 결과로 이전 필요. |
-| 피해 수렴점 단일화 (ApplyDamageToVictim) | ✅ 완료 (2026-07-17) | 싱글/멀티 공통 `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해 로직을 `ApplyDamageToVictim` 헬퍼로 추출(주 타깃/AoE 공용 → 멀티 HP 동기화 일관). `ExecuteAttack` 말미에 특수 공격 훅 1줄 추가. |
+| 특수 공격 전략 핸들러 아키텍처 | ⚠️ Legacy 구현 / v2 이전 필요 | 현재 등록: BattleAxe, TorrentSpirit, MushroomBomber, InfernoSpirit, QuakeSpirit. BloomFairy는 별도 힐러 경로다. 모든 결과를 ActionSequence로 이전해야 한다. |
+| 피해 수렴점 단일화 | ⚠️ 재오픈 | 기존 `ApplyDamageToVictim` 공용화 이후 Quake가 `ApplyFixedDamageToVictim` 경로를 추가했다. 피해·이벤트·사망 처리의 단일 writer/emitter를 v2 결과 적용기로 다시 수렴해야 한다. |
+| InfernoSpirit 직접+DoT | ⚠️ Legacy PASS / v2 재검증 | 직접 25 + 유닛 전용 DoT 5/초×3초는 사용자 실기 확인. 건물은 직접 피해만. marker 0.50/설정 1.15 불일치와 권위 착탄·sequence 부재가 남아 있다. |
+| QuakeSpirit 즉발 원형 AoE | ⚠️ 피해 로그 PASS / 표현·v2 미완료 | 주 타깃 20, 반경 내 다른 적 유닛·건물 10의 Host/Client HP는 확인. `OnAttackHit` 누락, 1.00초 placeholder, 권위 ImpactPoint/sequence 부재로 Complete 금지. |
 | 도끼병 휩쓸기형 AoE (SweepAttackBehavior) | ✅ 완료 (2026-07-17) | 판정 = 월드 좌표 전방 부채꼴. forward=공격자→주 타깃 방향(XZ), 각 적 XZ거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`이면 피격. Y 무시, 겹친 적 포함, 아군/사망/공격자/주 타깃 제외, 건물 미대상. 월드 좌표는 `IEntityPositionProvider`(서버 권위). 초기 "전방 5타일 타일 기준"에서 실기 후 변경. |
 | SpecialAttackConfig 튜닝 SO + 셋업 스크립트 | ✅ 완료 (2026-07-17) | `SpecialAttackConfig`(Infrastructure/Config) — `sweepReach`(기본 1.0, 실기값 0.75)·`sweepArcHalfAngle`(기본 120). GameBootstrapper가 SO값을 float로 UnitCombatUseCase 생성자에 주입(미연결 시 코드 폴백). 에셋 `Resources/Config/SpecialAttackConfig.asset` + `_specialAttackConfig` 배선 완료. 에디터 툴 `Assets/Editor/Setup/CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)로 에셋 생성+배선 멱등 자동화. |
 | BattleAxe 스탯·타격 타이밍 | ⚠️ 불일치 재오픈 | UnitStatsConfig HitOffset 1.1667s, 실제 기본 Attack marker 1.02s. 권위 AttackTimeline 확정 전 Complete 판정 금지. |

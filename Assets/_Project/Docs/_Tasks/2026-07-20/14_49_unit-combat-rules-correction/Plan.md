@@ -4,6 +4,8 @@
 **Research 참조:** `Research.md`  
 **계획 범위:** 규칙 문서 개정까지만 — 코드·프리팹·애니메이션 에셋 수정 제외
 
+**2026-07-22 재감사:** main에 InfernoSpirit·QuakeSpirit Legacy 핸들러와 Quake 스탯이 추가됐다. 해당 피해 의미는 v2 설계 입력으로 보존하지만 marker·ImpactPoint·sequence·단일 writer가 미완료이므로 구현 완료 수에는 포함하지 않는다.
+
 ---
 
 ## 이 계획으로 무엇을 하는가
