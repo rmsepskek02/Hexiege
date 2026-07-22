@@ -243,9 +243,16 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - `LoginBootstrapper` checks Cloud Save nickname after auto-login success; verified email accounts with no nickname return to `NicknameSetupView`.
 - `SplashOverlay.SetTapCallback(skipFade:true)` is only safe for scene transitions. Login-scene panel transitions must use fade out to release the overlay raycast block.
 
-### 2026-07-22 - Unit ActionSequence Tracer A Shadow 통과
+### 2026-07-22 - Unit ActionSequence Tracer A0 Shadow 통과
 
 - 신규 순수 계약 `Application/Combat/Sequencing/UnitActionSequencing.cs`, Editor 검증기 `RunUnitActionSelfValidation.cs`, `NetworkCombatController` SpearMan Shadow 진단을 추가했다. 기존 피해·HP·RPC·VFX는 유일 writer/emitter로 유지한다.
 - Editor self-validation PASS. 사용자 멀티 Host는 scheduled/dispatch/unique 204/204/204, missing·duplicate·target mismatch·schedule↔dispatch facing change 0, Windup 240ms 전건 일치다.
 - dispatch 지연은 min 0.013ms / avg 9.105ms / p50 8.226ms / p95 19.862ms / max 29.386ms, >16.667ms 27, >33.333ms·50ms 0. Client는 header only다.
-- Shadow 계측 게이트만 통과했다. 실제 sequencer, Root 분리, 결과 복제·Presentation 및 세 사용자 증상 해결은 후속 tracer 범위다.
+- A0 Shadow 계측 게이트만 통과했다. 당시 reducer와 런타임 seam은 후속 범위였으며, 아래 A1에서 순수 reducer까지 완료됐다.
+
+### 2026-07-22 - Unit ActionSequence Tracer A1 순수 계약·stateful reducer 완료
+
+- `Application/Combat/Sequencing/UnitActionContracts.cs`와 `UnitActionSequencer.cs`에 NGO·Animator·씬·피해 writer 비의존 값 계약과 revision/서버 시간 기반 stateful reducer를 구현했다.
+- 상태 전이는 AlignToAttack→Windup→Impact→Recovery, commit/cancel/dead, multi-hit 결정·확인, 회차·revision 고갈 원자적 거부를 포함한다.
+- C# 9/Application compile PASS, Editor compile PASS, Unity Editor 메뉴 self-validation PASS, reflection `Validate*` 10개 PASS, 최종 Standards/Spec P0~P3 지적 0건이다.
+- 런타임 pose/result seam과 피해·RPC·VFX는 미연결이다. 다음 구현은 A2 server-authoritative pose seam shadow이며 기존 writer/emitter를 유지한다.

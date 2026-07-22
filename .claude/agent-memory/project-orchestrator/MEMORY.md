@@ -320,9 +320,16 @@ Assets/_Project/
 - 우선순위는 Quake marker 주입/실측, Inferno marker 교정, 단일 피해 writer 복구, 권위 ActionSequence/ImpactResult 이전, Simulation/Visual Root 분리, 멀티 지연 QA 순으로 유지한다.
 - 사용자 폰트 변경과 Quake 로그 `.meta`는 전투 문서 작업 범위 밖이므로 보존한다.
 
-### 2026-07-22 - Unit ActionSequence Tracer A 게이트
+### 2026-07-22 - Unit ActionSequence Tracer A0 게이트
 
 - Shadow Melee Sequence 구현과 사용자 멀티 Host 계측 완료. Editor self-validation PASS, scheduled/dispatch/unique 204/204/204, 누락·중복·타겟·facing 불일치 0, Windup 240ms 전건 일치다.
 - dispatch 지연은 min 0.013ms / avg 9.105ms / p50 8.226ms / p95 19.862ms / max 29.386ms이고 33.333ms 이상은 0이다. Client 로그는 header only다.
-- 기존 서버 피해·RPC·VFX를 유지한 Shadow 단계다. 다음 조율 대상은 후속 tracer, 실제 sequencer, Simulation/Visual Root, Snapshot/ImpactResult, 결과 키 Presentation이다.
+- 기존 서버 피해·RPC·VFX를 유지한 Shadow 단계다. 당시 순수 sequencer는 후속이었으며 아래 A1에서 완료됐다.
 - 이동/공격 방향과 시각 Impact 문제를 해결 완료로 승격하지 않는다.
+
+### 2026-07-22 - Unit ActionSequence Tracer A1 게이트
+
+- Pure Application `UnitActionContracts`와 stateful `UnitActionSequencer` 구현 완료. runtime-independent 상태·타임라인·사거리·결과 권한 계약과 revision/time fail-closed reducer를 제공한다.
+- 사용자 Unity Editor 메뉴 PASS, C# 9/Application 및 Editor compile PASS, reflection `Validate*` 10 PASS, 최종 Standards/Spec P0~P3 지적 0건이다.
+- 런타임 pose/result seam 및 피해·RPC·VFX는 미연결이므로 세 사용자 증상과 v2 전환은 미완료다.
+- 다음 조율 게이트는 A2 server-authoritative pose seam shadow다. 기존 피해·RPC·VFX single-writer/single-emitter를 유지한다.

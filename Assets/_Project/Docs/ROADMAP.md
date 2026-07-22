@@ -1,11 +1,11 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-07-22
-**최우선 작업:** 서버 권위 유닛 ActionSequence 전환. 규칙 v2 문서와 25종 에셋 감사, Tracer A Shadow 진단은 완료했지만 실제 권위 전환·멀티플레이 전체 검증은 미완료다.
-**현재 단계:** SpearMan Shadow Melee Sequence의 Editor self-validation과 사용자 멀티플레이 Host 계측을 통과했다. 기존 피해·RPC·VFX는 유지 중이며, 다음은 후속 tracer와 실제 sequencer·Root 분리·Snapshot/ImpactResult 복제 단계다.
+**최우선 작업:** 서버 권위 유닛 ActionSequence 전환. 규칙 v2, 25종 감사, A0 Shadow 진단과 A1 pure Application 계약·stateful reducer는 완료했지만 런타임 seam·권위 전환·멀티플레이 전체 검증은 미완료다.
+**현재 단계:** A1 Unity Editor self-validation을 통과했다. 런타임 pose/result seam과 피해·RPC·VFX는 미연결이며, 다음은 A2 server-authoritative pose seam shadow다.
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
-> Tracer A 통과는 Shadow 계측 범위의 이정표다. 규칙 v2 완료나 세 사용자 증상의 해결 완료를 뜻하지 않으며, 현재 우선순위와 유닛별 상태는 아래 P0 항목 및 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
+> A1 통과는 순수 Application 경계의 이정표다. 런타임 행동 교정이나 세 사용자 증상의 해결 완료를 뜻하지 않으며, 현재 우선순위와 유닛별 상태는 아래 P0 항목 및 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
 
 ---
 
@@ -13,9 +13,10 @@
 
 | 우선순위 | 작업 | 카테고리 | 예상 규모 |
 |---------|------|---------|---------|
-| 🔴 P0 | 서버 권위 Unit ActionSequence 구현 — 계측/shadow → Simulation/Visual Root 분리 → Snapshot/ImpactResult 복제 → FIFO 대체 → 25종 이전 → 지연·지터·손실·부하 멀티 QA → Legacy 제거 | 전투/네트워크 | 특대 |
-| ✅ Tracer A | Shadow Melee Sequence — 순수 계약·Editor self-validation PASS, SpearMan Host scheduled/dispatch 204/204·고유 204·누락/중복/타겟/facing 불일치 0. Client는 header only이며 실제 문제 해결 완료가 아님 (2026-07-22) | 전투/계측 | 중 |
-| 🔴 P0 다음 | 후속 tracer 및 실제 sequencer — Simulation/Visual Root 분리, Snapshot/ImpactResult 복제, 결과 키 기반 Presentation, Host/Client·Blue/Red 및 네트워크 조건 검증 | 전투/네트워크 | 특대 |
+| 🔴 P0 | 서버 권위 Unit ActionSequence 구현 — A0/A1 완료 → A2 pose seam shadow → Simulation/Visual Root 분리 → Snapshot/ImpactResult 복제 → FIFO 대체 → 25종 이전 → 지연·지터·손실·부하 멀티 QA → Legacy 제거 | 전투/네트워크 | 특대 |
+| ✅ Tracer A0 | SpearMan schedule/dispatch Shadow — Host 204/204·고유 204·누락/중복/타겟/facing 불일치 0. Client는 header only이며 실제 피해 결과 검증이 아님 (2026-07-22) | 전투/계측 | 중 |
+| ✅ Tracer A1 | Pure Application UnitAction 계약+stateful reducer — C# 9/Application·Editor compile PASS, Unity Editor 메뉴 PASS, reflection Validate* 10 PASS, Standards/Spec P0~P3 0 (2026-07-22) | 아키텍처/전투 | 중 |
+| 🔴 P0 다음 | A2 server-authoritative pose seam shadow — 런타임 pose를 reducer 입력에 연결하되 기존 피해·RPC·VFX 권위 유지, 비교 계측 후 Root 분리로 진행 | 전투/네트워크 | 대 |
 | ✅ 설계 완료 | 유닛 이동·공격 규칙 v2 일괄 개정 + 25종 공격 에셋 감사. 런타임 완료를 의미하지 않음 (2026-07-20) | 설계/문서 | 대 |
 | ✅ Legacy 반영 | QuakeSpirit UnitStatsConfig 등록 — HP250/ATK20/range0.5/detect1.0/move0.5/cooldown5.0. 단 hitFrameTimes 1.00초는 placeholder | 데이터/전투 | 중 |
 | 🔴 P0 | AttackTimeline 교정 — 기본 Attack marker 누락 4종(Quake 포함), BattleAxe·Inferno·Stream 등 설정/클립 불일치, 복수 Attack 클립 선택 순서 제거 | 애니메이션/전투 | 대 |

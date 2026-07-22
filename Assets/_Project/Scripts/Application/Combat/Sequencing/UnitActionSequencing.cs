@@ -94,6 +94,14 @@ namespace Hexiege.Application.Combat.Sequencing
         public int EffectKind { get; }
         public int ResultOrdinal { get; }
 
+        public bool IsValid => AttackerInstanceId.IsValid
+            && SequenceId.IsValid
+            && HitIndex >= 0
+            && (VictimKind == 1 || VictimKind == 2)
+            && VictimId >= 0
+            && EffectKind >= 0
+            && ResultOrdinal >= 0;
+
         public AttackResultKey(
             AttackerInstanceId attackerInstanceId,
             AttackSequenceId sequenceId,
@@ -200,19 +208,38 @@ namespace Hexiege.Application.Combat.Sequencing
     {
         private readonly Dictionary<AttackerInstanceId, ulong> _lastByAttacker
             = new Dictionary<AttackerInstanceId, ulong>();
+        private readonly ulong _initialValue;
+
+        public AttackSequenceAllocator(ulong initialValue = 0UL)
+        {
+            _initialValue = initialValue;
+        }
 
         public AttackSequenceId Next(AttackerInstanceId attackerInstanceId)
         {
-            if (!attackerInstanceId.IsValid)
-                throw new ArgumentException("공격 회차를 발급하려면 유효한 공격자 개체 식별자가 필요하다.", nameof(attackerInstanceId));
+            return TryNext(attackerInstanceId, out AttackSequenceId sequenceId)
+                ? sequenceId
+                : AttackSequenceId.None;
+        }
 
-            _lastByAttacker.TryGetValue(attackerInstanceId, out ulong last);
-            if (last == ulong.MaxValue)
-                throw new InvalidOperationException($"공격자 개체 {attackerInstanceId}의 공격 회차 번호를 더 발급할 수 없다.");
+        /// <summary>
+        /// 공격 회차가 고갈되면 예외나 0 래핑 대신 false를 반환한다. 실패 시 내부 상태를 변경하지 않아
+        /// 호출자가 전체 액션 전이를 원자적으로 거부할 수 있다.
+        /// </summary>
+        public bool TryNext(AttackerInstanceId attackerInstanceId, out AttackSequenceId sequenceId)
+        {
+            sequenceId = AttackSequenceId.None;
+            if (!attackerInstanceId.IsValid) return false;
+
+            ulong last = _lastByAttacker.TryGetValue(attackerInstanceId, out ulong allocated)
+                ? allocated
+                : _initialValue;
+            if (last == ulong.MaxValue) return false;
 
             ulong next = last + 1UL;
             _lastByAttacker[attackerInstanceId] = next;
-            return new AttackSequenceId(next);
+            sequenceId = new AttackSequenceId(next);
+            return true;
         }
 
         /// <summary>더 이상 존재하지 않는 공격자 개체의 회차 상태를 제거한다.</summary>
@@ -235,7 +262,8 @@ namespace Hexiege.Application.Combat.Sequencing
         Duplicate,
         ScopeMismatch,
         CapacityExceeded,
-        Expired
+        Expired,
+        InvalidKey
     }
 
     /// <summary>
@@ -284,6 +312,8 @@ namespace Hexiege.Application.Combat.Sequencing
         {
             if (DiscardIfExpired(synchronizedServerTime))
                 return AttackResultBufferAddStatus.Expired;
+            if (!key.IsValid)
+                return AttackResultBufferAddStatus.InvalidKey;
             if (key.AttackerInstanceId != _attackerInstanceId || key.SequenceId != _sequenceId)
                 return AttackResultBufferAddStatus.ScopeMismatch;
             if (_seen.Contains(key))

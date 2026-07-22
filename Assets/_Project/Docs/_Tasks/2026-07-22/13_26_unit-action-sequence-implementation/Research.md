@@ -4,16 +4,25 @@
 
 멀티플레이에서 유닛이 가는 방향과 보는 방향이 다르고, 공격 대상과 공격 방향이 어긋나며, 화면의 타격 순간과 실제 피해 시점이 맞지 않는 세 문제를 하나의 서버 권위 행동 흐름으로 교정한다. 기존 전투 수치와 특수 유닛의 능력 의미는 보존하고, 위치·방향·타겟·타격 결과를 같은 행동 회차로 묶어 서로 다른 시점의 정보가 섞이지 않게 만드는 것이 목적이다.
 
-이 문서의 본문은 구현 전 코드 조사 결과이며, 2026-07-22 Tracer A 구현·검증 결과는 아래 진행 기록에 추가한다.
+이 문서의 본문은 구현 전 코드 조사 결과이며, 2026-07-22 Tracer A0/A1 구현·검증 결과는 아래 진행 기록에 추가한다.
 
-## 2026-07-22 Tracer A — Shadow Melee Sequence 진행 결과
+## 2026-07-22 Tracer A0/A1 진행 결과
 
-- enum·값 식별자와 계약 유틸리티(각도 히스테리시스·회차 발급·bounded 결과 버퍼)를 `UnitActionSequencing.cs`로 추가하고, asmdef 변경 없이 실행하는 `RunUnitActionSelfValidation.cs`를 추가했다. Editor self-validation은 PASS했다. 실제 reducer와 `UnitActionSequencer`는 후속 단계다.
+### A0 — SpearMan schedule/dispatch Shadow
+
+- enum·값 식별자와 계약 유틸리티(각도 히스테리시스·회차 발급·bounded 결과 버퍼)를 `UnitActionSequencing.cs`로 추가하고, asmdef 변경 없이 실행하는 `RunUnitActionSelfValidation.cs`의 초기 검증 기반을 추가했다.
 - `NetworkCombatController.cs`에는 SpearMan만 관측하는 Shadow 진단을 연결했다. 신규 경로는 공격 회차와 예약·방출 비교 로그만 만들며 기존 피해, HP, RPC, VFX를 쓰거나 변경하지 않는다.
 - 사용자 멀티플레이 Host 로그에서 204회 예약과 204회 방출이 관측됐다. 고유 회차도 204개였고 누락 0, 중복 0, 타겟 불일치 0, 예약과 방출 사이 facing 변경 0이었다.
 - Windup은 전 회차에서 정확히 240ms였다. `dispatch - scheduled` 지연은 최소 0.013ms, 평균 9.105ms, 중앙값 8.226ms, p95 19.862ms, 최대 29.386ms였다. 16.667ms 초과는 27건이었고 33.333ms 및 50ms 초과는 0건이었다.
 - Client 로그는 현재 계측 범위상 header만 기록됐다. 따라서 이번 통과는 서버 Shadow 예약·방출의 일관성에 대한 계측 기반 통과이며 Host/Client 양방향 ActionSequence 복제 검증이 아니다.
-- 이동 방향/바라보기, 타겟/공격 방향, 시각 Impact/실제 피해 시점의 세 문제는 아직 해결 완료가 아니다. Simulation/Visual Root 분리, 실제 sequencer, Snapshot/ImpactResult 복제, Presentation 전환과 전체 유닛 검증이 남아 있다.
+
+### A1 — Pure Application 계약과 stateful reducer
+
+- `UnitActionContracts.cs`와 `UnitActionSequencer.cs`를 추가해 NGO·Animator·씬·피해 writer에 의존하지 않는 값 계약, 스냅샷, 타임라인·사거리 계약과 stateful reducer를 구현했다.
+- reducer는 revision·서버 시간 fail-closed, AlignToAttack→Windup→Impact→Recovery, commit/cancel/dead, 다중 타격 결정·확인, 회차·revision 고갈 시 원자적 거부를 순수 상태 전이로 처리한다.
+- Unity Editor 메뉴 self-validation PASS를 사용자가 확인했다. C# 9/Application 컴파일 PASS, Editor 컴파일 PASS, reflection 기반 `Validate*` 10개 PASS, 최종 Standards/Spec 리뷰 P0~P3 지적 0건이다.
+- A1은 순수 Application 경계의 완료다. 런타임 pose/result seam과 피해·RPC·VFX는 연결하지 않았으며, 이동 방향/바라보기, 타겟/공격 방향, 시각 Impact/실제 피해 시점의 세 문제는 아직 해결 완료가 아니다.
+- 다음 단계는 **A2 server-authoritative pose seam shadow**다.
 
 ---
 
@@ -139,19 +148,21 @@ NGO·Animator·씬 없이 Application 수준에서 다음을 결정적으로 재
 - 실행 가능한 Unity CLI가 현재 셸에서 발견되지 않아 자동 테스트 실행은 Editor 경로 확인 또는 사용자 Editor 실행이 필요하다.
 - 최초 수직 슬라이스는 씬·NGO와 무관한 enum·값 식별자 및 계약 유틸리티로 잡아 빠른 테스트 seam을 만든다.
 - 프리팹 Root 분리는 코드 변경보다 직렬화 위험이 크므로 멱등 Editor migration과 검증 리포트를 함께 제공해야 한다.
-- 현행 “Assembly Definitions 없음” 제약 때문에 첫 슬라이스에서 테스트 asmdef를 성급히 추가하지 않는다. Editor self-validation runner는 enum·값 식별자, 각도 히스테리시스, 공격 회차 발급기, bounded 결과 버퍼 계약을 검증한다. 실제 reducer와 `UnitActionSequencer` 검증은 후속 단계이며, 독립 테스트 assembly 도입도 경계 분리 효과를 확인한 뒤 별도 판단한다.
+- 현행 “Assembly Definitions 없음” 제약 때문에 첫 슬라이스에서 테스트 asmdef를 추가하지 않았다. Editor self-validation runner는 enum·값 식별자, 각도 히스테리시스, 공격 회차 발급기, bounded 결과 버퍼와 A1 stateful reducer의 revision/time·commit/cancel/dead·multi-hit·result confirmation 계약을 검증한다. 독립 테스트 assembly 도입은 런타임 경계 분리 효과를 확인한 뒤 별도 판단한다.
 
 ---
 
 ## 7. 첫 안전 수직 슬라이스
 
-첫 구현은 **Shadow Melee Sequence**로 제한한다.
+첫 구현은 A0 **Shadow Melee Sequence**와 A1 **Pure Application stateful reducer**로 제한했다.
 
 - marker와 설정이 모두 0.24초로 일치하는 SpearMan을 관측 대상으로 삼는다.
 - 서버 Shadow 진단은 `AttackSequenceId`, TargetId, CommitServerTime, HitIndex 0, 예약 Impact 시각과 예약 시점 facing을 기록한다. 현재 `aimDirection`은 unavailable이다.
 - 신규 경로는 피해·HP·RPC·VFX를 만들지 않고 예약(`schedule`)과 Legacy 피해 호출 직전 방출(`dispatch`)만 비교한다. `dispatch`는 `ApplyAttackDamage` 직전 관측점이며 실제 피해 성공이나 HP 결과를 뜻하지 않는다. Snapshot/ImpactResult와 실제 피해 결과 비교는 후속 단계다.
 - SpearMan 필터는 shadow 관측에만 허용한다. 실제 권위 전환은 모든 adapter가 준비된 뒤 경기 전체 mode로만 수행한다.
 - 불일치가 발생해도 Legacy가 유일 writer/emitter이므로 게임 결과는 변하지 않는다.
+- A1 reducer는 순수 Application 값만 받아 상태를 전진시키며 런타임 pose, 결과 writer, RPC, VFX를 호출하지 않는다.
+- A2에서 서버 권위 pose seam을 Shadow로 연결해 reducer 입력과 기존 Transform/도메인 방향을 비교한다.
 
 ---
 
@@ -159,4 +170,4 @@ NGO·Animator·씬 없이 Application 수준에서 다음을 결정적으로 재
 
 세 현상은 독립 버그가 아니라 같은 원인군에서 발생한다. Simulation과 Visual이 같은 루트를 쓰고, 이동·타겟·공격·피해 표현이 공통 행동 회차 없이 각각 진행되는 것이 핵심이다.
 
-전면 재작성이나 Legacy 즉시 삭제는 필요하지 않다. 계측 → 순수 Sequencer와 테스트 → Root 분리 → 이동/방향 shadow → 공격 결과 shadow → 표현 전환 → 권위 전환 → 25종 이전 순으로 진행하면 서버 권위와 아키텍처를 유지하면서 안전하게 교정할 수 있다.
+전면 재작성이나 Legacy 즉시 삭제는 필요하지 않다. A0 계측과 A1 순수 계약·reducer 완료 → A2 서버 권위 pose seam shadow → Root 분리 → 공격 결과 shadow → 표현 전환 → 권위 전환 → 25종 이전 순으로 진행하면 서버 권위와 아키텍처를 유지하면서 안전하게 교정할 수 있다.

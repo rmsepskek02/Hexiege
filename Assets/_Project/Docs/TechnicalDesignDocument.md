@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.44.0
-**최종 수정일:** 2026-07-20
+**버전:** 0.45.0
+**최종 수정일:** 2026-07-22
 **작성자:** HANYONGHEE
 
 ---
@@ -181,8 +181,8 @@ void ShowEffectClientRpc(Vector3 position) {
 | **자원** | NetworkVariable<int> | 변경 시 |
 | **본기지 체력** | NetworkVariable<int> | 변경 시 |
 | **유닛 이동·SimulationFacing** | Host 서버 권위 Simulation Root + NetworkTransform 결과 동기화 | 연속 |
-| **유닛 행동 상태** | 목표: 값 기반 `UnitActionSnapshot`; 현재: 위치/회전 + `UnitAnimState`와 개별 RPC 혼합 | 상태 변경 시 |
-| **공격 타격 결과** | 목표: `AttackImpactResult` (`AttackSequenceId + HitIndex`); 현재: HP 동기화 + 공격자 FIFO 표현 큐 | Impact 시 |
+| **유닛 행동 상태** | 목표: 값 기반 `UnitActionSnapshot` 복제; 현재: A1 순수 Snapshot/reducer 구현, 런타임은 위치/회전 + `UnitAnimState`와 개별 RPC 혼합 | 상태 변경 시 |
+| **공격 타격 결과** | 목표: `AttackImpactResult` (`AttackerInstanceId + SequenceId + HitIndex` 기반 정규 키); 현재: HP 동기화 + 공격자 FIFO 표현 큐 | Impact 시 |
 
 #### 무작위 맵 시작 동기화 (확정 설계, 미구현)
 
@@ -1234,9 +1234,11 @@ if (e.Unit.Id == _unitData.Id) { /* 이 유닛이 사망 */ }
 if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 ```
 
-#### 서버 권위 Unit ActionSequence 목표 구조 (2026-07-20 규칙 v2, 런타임 미구현)
+#### 서버 권위 Unit ActionSequence 목표 구조 (2026-07-22 A1 순수 경계 구현, 런타임 seam 미연결)
 
 상태 보유형 `UnitActionSnapshot`과 실제 판정 결과인 `AttackImpactResult`를 분리한다.
+
+**A1 구현 상태:** Application의 `UnitActionContracts`와 `UnitActionSequencer`에 NGO·Animator·씬·피해 writer 비의존 값 계약과 stateful reducer를 구현했다. C# 9/Application 및 Editor 컴파일, Unity Editor self-validation, reflection `Validate*` 10개가 PASS했고 최종 Standards/Spec P0~P3 지적은 0건이다. 런타임 pose/result seam과 피해·RPC·VFX는 연결하지 않았으며 다음 단계는 A2 server-authoritative pose seam shadow다.
 
 **UnitActionSnapshot — 유닛별 현재 상태 값**
 
@@ -1685,6 +1687,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.45.0 | 2026-07-22 | Unit ActionSequence A1 순수 Application 경계 구현 상태 반영. `UnitActionContracts`·stateful `UnitActionSequencer`와 self-validation PASS를 기록하고, 런타임 pose/result seam·피해·RPC·VFX 미연결 및 다음 A2 server-authoritative pose seam shadow를 명시했다. |
 | 0.44.0 | 2026-07-20 | 멀티플레이 유닛 이동·공격 규칙 v2 목표 아키텍처 반영. 서버 권위 `UnitActionSnapshot` + `AttackImpactResult`, AttackSequenceId/HitIndex 상관관계, Simulation Root/Visual Root 분리, 늦은 참가·순서 역전·중복 처리와 Clean Architecture 배치를 정의했다. 클라이언트 이동 예측, 유닛 점유 경로 차단, 공격자 FIFO 피격 표현은 Legacy로 정정했다. **문서 설계 완료이며 런타임 구현은 미완료다.** |
 | 0.43.0 | 2026-07-20 | `MapTestModeEnabled`를 초기 골드 전용 설정으로 확정. 정상 모드는 광산 수 표, 테스트 모드는 `TestStartingGold=5000`을 사용하며 멀티플레이에서는 Host 표식·실제 골드가 권위값이다. 표식(0/1)과 실제 골드를 canonical bytes·SHA-256·로그에 포함하고 NewMap 준비에도 동일 권한 경계를 적용하도록 명문화. |
 | 0.42.0 | 2026-07-19 | reliable map transfer의 10초 timeout, incomplete 한정 동일 nonce/package 전체 1회 재전송과 두 번째 실패 종료, version/size/SHA/deserialize/semantic/disconnect 즉시 실패를 확정. 최초·NewMap·싱글 실패 복구 UI/state, idempotent Retry와 새 seed 재준비, 내부 정보 비공개를 명문화. |

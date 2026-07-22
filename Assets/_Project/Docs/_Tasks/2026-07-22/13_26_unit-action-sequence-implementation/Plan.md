@@ -50,7 +50,7 @@
 - Runtime 실기가 필요한 항목은 실행 절차와 기대 로그가 문서화된다.
 - 계측 자체가 피해·RPC·VFX를 발생시키지 않는다.
 
-### Phase 1 — 순수 UnitActionSequence 계약과 테스트 seam
+### Phase 1 — 순수 UnitActionSequence 계약과 테스트 seam (A1 완료)
 
 NGO·Animator·씬과 분리된 Application 모듈을 만든다.
 
@@ -72,7 +72,7 @@ Application port:
 - `IUnitActionReplicationSink`
 - `ICombatResultSink`
 
-기존 A*와 피해 writer는 이 단계에서 바꾸지 않는다. 신규 모듈은 순수 계산과 shadow 결과만 만든다.
+`UnitActionContracts.cs`, `UnitActionSequencer.cs`, `UnitActionSequencing.cs`에 순수 값 계약과 stateful reducer를 구현했다. 기존 A*와 피해 writer는 바꾸지 않았으며, 런타임 pose/result seam과 피해·RPC·VFX 연결은 A1 범위가 아니다.
 
 근거 규칙: `U-MOV-PHASE`, `U-COMBAT-PHASE`, `U-TARGET-COMMIT`, `U-ATK-TIMELINE`, `NET-ACTION-*`, `NET-TIME-*`.
 
@@ -231,14 +231,13 @@ AttackProfileHash
 
 실제 이름은 구현 중 기존 namespace와 충돌 여부를 확인해 확정한다.
 
-### 신규 예상
+### 신규 구현 및 예상
 
 | 계층 | 예상 경로 | 책임 |
 |---|---|---|
-| Application | `Scripts/Application/Combat/Sequence/UnitActionSequencer.cs` | phase·타겟·방향·commit·Impact 상태 머신 |
-| Application | `Scripts/Application/Combat/Sequence/UnitActionSnapshot.cs` | 현재 행동 복제 계약 |
-| Application | `Scripts/Application/Combat/Sequence/AttackImpactResult.cs` | 정규 결과 계약 |
-| Application | `Scripts/Application/Combat/Sequence/AttackResultKey.cs` | 멱등 결과 키 |
+| Application | `Scripts/Application/Combat/Sequencing/UnitActionSequencing.cs` | A0 값 ID·각도 히스테리시스·회차 발급·bounded 결과 버퍼 — 구현 완료 |
+| Application | `Scripts/Application/Combat/Sequencing/UnitActionContracts.cs` | A1 현재 행동 스냅샷·타임라인·사거리·타겟·결과 권한 계약 — 구현 완료 |
+| Application | `Scripts/Application/Combat/Sequencing/UnitActionSequencer.cs` | A1 phase·타겟·방향·commit·Impact stateful reducer — 구현 완료 |
 | Application | `Scripts/Application/Interfaces/IUnitAction*.cs` | 시간·pose·motion·replication·result port |
 | Infrastructure | `Scripts/Infrastructure/Network/NetworkUnitActionReplicator.cs` | NGO Snapshot/Result adapter |
 | Infrastructure | `Scripts/Infrastructure/Config/CombatPipelineConfig.cs` | 경기 단위 mode/schema/profile 계약 |
@@ -247,7 +246,7 @@ AttackProfileHash
 | Presentation | `Scripts/Presentation/Effects/ImpactPresentationBuffer.cs` | 결과 역순·중복·catch-up 처리 |
 | Editor | `Scripts/Editor/Combat/SetupUnitVisualRoots.cs` | 멱등 프리팹 migration |
 | Editor | `Scripts/Editor/Combat/ValidateUnitCombatSetup.cs` | root/profile/marker 검증 리포트 |
-| Editor | `Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` | asmdef 추가 없이 enum·값 식별자, 각도 히스테리시스, 공격 회차 발급기, bounded 결과 버퍼 계약 검증. 실제 reducer·`UnitActionSequencer` 검증은 후속 |
+| Editor | `Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` | A0 계약 유틸리티와 A1 stateful reducer 검증 — Unity Editor 메뉴 PASS |
 
 ### 주요 수정 예상
 
@@ -270,11 +269,13 @@ AttackProfileHash
 
 작업량보다 완성도를 우선하되 한 번의 거대한 diff로 만들지 않는다.
 
-1. **Tracer A:** Phase 0~1 첫 슬라이스 — 계약 유틸리티와 SpearMan schedule/dispatch Shadow 완료. 실제 reducer·`UnitActionSequencer`와 Snapshot/ImpactResult는 후속 게이트
-2. **Tracer B:** Phase 2~3 — Root 분리와 이동/방향
-3. **Tracer C:** Phase 4~5 — 공격 shadow와 Presentation
-4. **Tracer D:** Phase 6 — 서버 권위 writer 전환
-5. **Tracer E:** Phase 7~8 — 공격 유형·25종 이전
+1. **Tracer A0:** SpearMan schedule/dispatch Shadow — 완료
+2. **Tracer A1:** Pure Application 계약과 stateful reducer — 완료
+3. **Tracer A2:** Server-authoritative pose seam shadow — 다음 단계
+4. **Tracer B:** Phase 2~3 — Root 분리와 이동/방향
+5. **Tracer C:** Phase 4~5 — 공격 shadow와 Presentation
+6. **Tracer D:** Phase 6 — 서버 권위 writer 전환
+7. **Tracer E:** Phase 7~8 — 공격 유형·25종 이전
 
 각 tracer는 이전 게이트를 통과해야 다음으로 간다. 실패하면 새 코드를 지우지 않고 다음 경기 Legacy mode로 rollback하며 차이를 계측한다.
 
@@ -308,9 +309,9 @@ Testcase 작성과 qa-tester 실행은 사용자가 명시적으로 요청할 �
 
 ---
 
-## 7. 첫 구현 범위
+## 7. Tracer A0/A1 실제 구현 범위
 
-사용자가 승인했고 실제로 구현한 범위는 **Tracer A의 계약 유틸리티와 SpearMan schedule/dispatch Shadow 관측**이다.
+사용자가 승인했고 실제로 구현한 범위는 **A0 SpearMan schedule/dispatch Shadow**와 **A1 Pure Application 계약·stateful reducer**다.
 
 - enum·값 식별자와 계약 유틸리티: 각도 히스테리시스, 공격 회차 발급기, bounded 결과 버퍼
 - 현행 asmdef 구조를 건드리지 않는 Editor self-validation runner
@@ -318,19 +319,20 @@ Testcase 작성과 qa-tester 실행은 사용자가 명시적으로 요청할 �
 - `AttackSequenceId`, TargetId, CommitServerTime, HitIndex 0, 예약 Impact 시각과 예약 시점 facing을 `schedule`에 기록
 - Legacy `ApplyAttackDamage` 호출 직전에 `dispatch`를 기록해 schedule/dispatch의 회차·타겟·facing·시간을 비교
 - 현재 `aimDirection`은 unavailable이며, `dispatch`는 실제 피해 성공이나 HP 결과를 뜻하지 않음
-- Snapshot/ImpactResult, 실제 reducer·`UnitActionSequencer`, AimDirection 제공, 실제 피해 결과 비교는 후속 범위
+- `UnitActionContracts`와 `UnitActionSequencer` stateful reducer: revision/time fail-closed, 정렬·commit·Impact·Recovery, cancel/dead, multi-hit 결정·확인
+- Snapshot/ImpactResult 런타임 복제, AimDirection·pose 입력 seam, 실제 피해 결과 비교는 후속 범위
 - Legacy 동작 변경 없음. 피해·HP·RPC·VFX 신규 발행 없음
 
-Tracer A 결과를 기준선으로 삼아 남은 실제 reducer·`UnitActionSequencer`와 Snapshot/ImpactResult 계약을 후속 게이트에서 완성한 뒤 Tracer B의 프리팹 Root migration을 진행한다. 이 순서가 실제 게임을 깨뜨리지 않고 대규모 교정을 이어가는 가장 안전한 진입점이다.
+A1 결과를 기준선으로 삼아 A2 server-authoritative pose seam을 Shadow로 연결한다. 이후 Tracer B의 프리팹 Root migration을 진행한다. 이 순서가 실제 게임을 깨뜨리지 않고 대규모 교정을 이어가는 가장 안전한 진입점이다.
 
 ---
 
 ## 8. 구현·검증 진행 기록
 
-### 2026-07-22 — Tracer A Shadow Melee Sequence 통과
+### 2026-07-22 — Tracer A0 Shadow Melee Sequence 통과
 
-- [x] `Assets/_Project/Scripts/Application/Combat/Sequencing/UnitActionSequencing.cs` 신규 — enum·값 식별자와 계약 유틸리티(각도 히스테리시스·회차 발급·bounded 결과 버퍼). 실제 reducer와 `UnitActionSequencer`는 후속 단계
-- [x] `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` 신규 — Editor self-validation PASS
+- [x] `Assets/_Project/Scripts/Application/Combat/Sequencing/UnitActionSequencing.cs` 신규 — enum·값 식별자와 계약 유틸리티(각도 히스테리시스·회차 발급·bounded 결과 버퍼)
+- [x] `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` 신규 — A0 초기 self-validation PASS
 - [x] `Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs` 수정 — SpearMan Shadow 예약·방출 진단 연결
 - [x] 기존 서버 권위 피해, HP 동기화, RPC, VFX를 유일 writer/emitter로 유지
 - [x] 사용자 멀티플레이 Host 계측 — scheduled 204 / dispatch 204 / unique 204, missing 0, duplicate 0, target mismatch 0, schedule↔dispatch facing change 0
@@ -342,4 +344,18 @@ Tracer A 결과를 기준선으로 삼아 남은 실제 reducer·`UnitActionSequ
 - [ ] 서버 Impact와 클라이언트 시각 표현의 결과 키 기반 결합
 - [ ] 25종 및 지연·지터·손실·다수 유닛 검증
 
-**판정:** Tracer A의 Shadow 진단 게이트는 계측 기반으로 통과했다. 이는 세 사용자 증상의 해결 완료 또는 v2 권위 전환 완료를 뜻하지 않는다. 다음 작업은 위 계획의 후속 tracer와 실제 sequencer 단계다.
+**A0 판정:** schedule/dispatch Shadow 진단 게이트는 계측 기반으로 통과했다. 이는 실제 피해 성공, 세 사용자 증상의 해결 완료 또는 v2 권위 전환 완료를 뜻하지 않는다.
+
+### 2026-07-22 — Tracer A1 Pure Application 계약·stateful reducer 통과
+
+- [x] `UnitActionContracts.cs` — Entity/Target/Delivery/Timeline/Range/Direction/Snapshot/Impact authorization 값 계약
+- [x] `UnitActionSequencer.cs` — revision과 서버 시간을 사용하는 stateful reducer, commit/cancel/dead, multi-hit 결정·확인, 고갈 시 원자적 거부
+- [x] C# 9/Application 컴파일 PASS
+- [x] Editor 컴파일 PASS
+- [x] Unity Editor 메뉴 `Hexiege/Combat/Run Unit Action Self Validation` PASS
+- [x] reflection 기반 `Validate*` 10개 PASS
+- [x] 최종 Standards/Spec 리뷰 P0~P3 지적 0건
+- [ ] 런타임 pose/result seam 연결
+- [ ] 피해·RPC·VFX 연결 — A1에서는 의도적으로 미연결
+
+**A1 판정:** 순수 Application UnitAction 계약과 stateful reducer는 완료됐다. 런타임 행동 교정 완료가 아니며, 다음 단계는 **A2 server-authoritative pose seam shadow**다.
