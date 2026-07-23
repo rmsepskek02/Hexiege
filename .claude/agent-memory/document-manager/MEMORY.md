@@ -71,6 +71,15 @@
 - Added task docs at `Assets/_Project/Docs/_Tasks/2026-07-16/14_20_email-verification-flow-cleanup/`
 - Updated `AuthSystemRules.md`, `PROJECT_STATUS.md`, `ROADMAP.md`, and `WORK_HISTORY.md` with email verification cancellation policy.
 
+### 2026-07-23 - 밸런스 확정 설계 반영(연구소 유닛 강화 + 전투 ×10) — "설계 확정 / 구현 예정"
+
+- 코드 미착수 상태의 밸런스 확정 설계를 문서에 일괄 반영한 사례(구현/테스트 전이므로 **WORK_HISTORY.md는 추가 금지** — 완료 이력용). 갱신처: StatsReference(전면 재작성 — 최상단 배너 + 전 전투 수치 ×10 + 신규 강화 스탯 섹션), GDD(연구소 섹션 교체 + 유닛 스탯 표 ×10 + 헤더 버전/날짜), **신규 `GameSystemRules/GameSystemRules_Upgrade.md`**(RandomMap식 "상태: 확정 설계/미구현" 규칙 문서, 규칙 1~11), GameSystemRules_Units.md 규칙 44(방어력 감쇄, 규칙 43 뒤 신규 섹션), GameSystemRules.md 인덱스 + AGENTS.md 인덱스에 신규 파일 등록, task Research/Plan(초기안→확정값 in-place 갱신 + 최상단 "확정값 갱신" 배너), ROADMAP/PROJECT_STATUS(🔷 설계 확정/구현 예정 항목·섹션 추가, 헤더 날짜+설계확정 라인).
+- **SSOT 인용 원칙**: 수치는 task 폴더 `BalanceReview.md`(old/new 대조표)에서 그대로 인용, 추정 금지. 개별 ×10 값의 권위 소스는 StatsReference로 일원화하고 다른 문서는 참조로 연결.
+- **"구현 완료" 태그 + ×10 설계값 공존 처리**: StatsReference 비고의 특수공격 "구현 완료/확정"은 메커니즘 구현을 뜻하고 숫자는 ×10 설계 목표값임을 **최상단 배너에서 전역 명시** → 개별 태그 재작성 없이 정합. 비고 내 명시 수치(직접/DoT/힐/스플래시)는 ×10로 갱신하되 "로그 검증"은 "메커니즘 검증"으로 문구 조정.
+- **task 계획문서는 예외적으로 in-place 갱신**: 보통 Research/Plan 본문은 히스토리 보존(하단 append)이지만, 이번은 "구현 계획 문서라 최종 확정 수치 기준으로 정리" 지시 → 본문 stale 값(K=20→120, 830→1000, 자연회복 0.5~2.5→3~15 등)을 직접 교체하고 최상단에 "확정값 갱신" 배너로 변경 이력만 남김.
+- 신규 GameSystemRules 파일 등록 3곳: `GameSystemRules.md`(파일 목록 표 + 시스템별 빠른참조 블록), `AGENTS.md`(기획/설계 문서 인덱스 표). GDD 헤더는 버전 bump(1.9.0→1.10.0)+날짜+변경 노트.
+- GDD 유닛 스탯 표에 **기존 stale 값**(Assault HP 50 vs StatsReference 40, Sniper atk 10 vs 18) 존재 → ×10 반영 시 StatsReference 권위값의 ×10(400·180)으로 정합화(GDD가 "StatsReference 권위" 명시했으므로 정당). 생산시간 등 불변 stale 항목은 표에서 제거하고 StatsReference 참조로 위임.
+
 ### 2026-07-18 - Email verification flow completion docs
 
 - Completion update pattern: append task `Plan.md` completion result, add PASS results to task `Testcase.md`, update `PROJECT_STATUS.md`/`ROADMAP.md` progress sections from in-progress to complete, and replace the `WORK_HISTORY.md` in-progress entry with completed device verification results.
