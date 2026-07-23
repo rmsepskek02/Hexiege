@@ -39,8 +39,8 @@
 - 최소 데미지 **1 보장(floor)** 필수.
 - 감쇄율 **하드캡 60~65%** 를 미래 확장 안전장치로 코드에 포함(현 Lv5는 25%로 미도달).
 - 방어 40 → 감쇄율 40/(40+120) = 25% (실효 HP +33%).
-- 방어력 감쇄는 **direct / 스플래시 / DoT 등 모든 최종 데미지 지점에 일괄 적용**.
-- 단, 공격력 연구는 고정 수치 DoT(MushroomBomber 20/s, InfernoSpirit 50/s)에는 **반영 안 함**(DoT 틱값 고정). 방어력 감쇄는 DoT에도 적용.
+- 방어력 감쇄는 **직격 / 스플래시에만 적용**(타워→유닛 데미지 포함), **DoT 틱값에는 미적용**(2026-07-23 확정 — 기존 "DoT에도 적용"을 뒤집음).
+- 공격력 연구도 고정 수치 DoT(MushroomBomber 20/s, InfernoSpirit 50/s)에는 **반영 안 함**(DoT 틱값 고정). 즉 DoT는 공격력 연구·방어력 연구 어느 쪽에도 영향받지 않는 고정 틱값이다.
 
 ### 종족별 트랙 구조
 | 종족 | 그룹 × 스탯 | 트랙 수 |
@@ -74,7 +74,7 @@
 - **건물 업그레이드 없음** — 단일 등급 연구소에서 모든 트랙 Lv1~5(최종치)까지 연구 가능. 스테이지 게이트는 추후 확장(이번 도입 안 함).
 - 복수 건설 가능(서로 다른 트랙 병렬 연구), 연구 시간 소요.
 - 진행 중 트랙은 UI에서 숨김 → 팀당 트랙 단위 잠금(중복 연구 차단).
-- 연구소 파괴 시 진행 중 연구 취소(완료분 영구 유지), 상대 팀 연구 내용 비공개.
+- 연구소 파괴 시 진행 중 연구 취소(완료분 영구 유지). **비공개 = 진행 중 연구 UI만 비공개** — 진행 중 연구(트랙·타이머)는 소유 플레이어에게만 표시하되, **완료된 업그레이드 레벨(효과)은 양 클라에 동기화되어 양쪽에 적용**된다(2026-07-23 확정, 기존 "전면 비공개" 재정의). 완료 레벨은 양 클라 브로드캐스트(`NetworkResourceSync` `ReadPermission=Everyone` 선례), 진행 상태는 소유 클라 대상(`BuildFailedClientRpc` 타겟 패턴 선례).
 - 서버 권위 우선. AI도 시나리오 일부 수정으로 업그레이드 사용.
 
 ### 비용·시간 (스탯 1종 Lv1~5, 기본 그룹)
@@ -117,8 +117,9 @@
 ### 5) 전투 데미지 적용 지점 — 무감쇄 직격
 - `Application/UseCases/UnitCombatUseCase.cs:1095` — `target.TakeDamage(attacker.AttackPower)`. **현재 방어력 감쇄가 전혀 없는 직격**이다. 이 라인이 단일 타깃 피해 수렴점(`ApplyDamageToVictim`)이다.
 - 임의 수치 피해 경로 `ApplyFixedDamageToVictim`(1352행~)도 존재 — 스플래시/특수용. QuakeSpirit 스플래시는 `ApplyQuakeSplash`(1338행)에서 `Mathf.CeilToInt(attacker.AttackPower * _quakeSplashRatio)` 계산 후 `ApplyFixedDamageToVictim`로 적용(1343·1349행).
-- DoT 경로(`ApplyBlastDot` / `ApplyInfernoDot`, GameSystemRules_Units 규칙 40~42)는 별도 진입점으로 고정 틱값을 적용.
-- → 방어력 감쇄는 이 **모든 최종 데미지 지점(직격·스플래시·DoT 틱)에 일괄 삽입**해야 한다. 공격력 배율은 "공격력을 쓰는" 직격·스플래시에는 적용하되, 고정 DoT 틱값에는 미적용(사용자 결정 4).
+- **타워→유닛 데미지 경로 (qa Major — 감쇄 대상 포함):** `Application/UseCases/TowerCombatUseCase.cs:200` `ExecuteTowerAttack` → `:206` `target.TakeDamage(damage)`(코드 확인). 방어 타워가 유닛에게 주는 직격이며 **현재 감쇄 없음**. 타워→유닛은 유닛 방어 감쇄 대상이므로 이 경로도 동일 감쇄 헬퍼를 삽입해야 한다.
+- DoT 경로(`ApplyBlastDot` / `ApplyInfernoDot`, GameSystemRules_Units 규칙 40~42)는 별도 진입점으로 고정 틱값을 적용 — **방어력 감쇄 미적용 대상**(아래).
+- → 방어력 감쇄는 **직격·스플래시·타워→유닛 최종 데미지 지점에 일괄 삽입**하고, **DoT 틱값에는 미적용**한다(2026-07-23 확정 — 기존 "DoT에도 적용"을 뒤집음, DoT 삽입 지점 이슈 소멸). 공격력 배율도 "공격력을 쓰는" 직격·스플래시에만 적용하고 고정 DoT 틱값에는 미적용.
 
 ### 6) 팀별 배율 레이어의 기존 선례 — ResourceUseCase
 - `Application/UseCases/ResourceUseCase.cs:41` — `Dictionary<TeamId, float> _incomeMultipliers`, `76`행 `SetIncomeMultiplier(team, mult)`. AI 난이도별 채굴소 수입 배율을 **팀별로 곱하는 기존 선례**(규칙 34). 기본값 1.0이라 일반 플레이 무영향(60~65행).
@@ -128,6 +129,7 @@
 - GameSystemRules_Units 규칙 34(HoT/DoT 공용 시간 지속 효과, 서버 권위 diff 틱)·규칙 40(DoT 1초 간격 discrete 틱)·규칙 30(힐 서브시스템 `UnitData.Heal` + `OnEntityHealed` + `NetworkHealthSync` 힐 동기화)이 이미 구현·검증됨(BloomFairy 힐 / MushroomBomber DoT / InfernoSpirit DoT).
 - 서버 틱 진입점: 싱글=`GameBootstrapper.Update`(`!IsNetworkMode` 가드), 멀티=`NetworkCombatController`(IsServer 가드). **이중 틱 금지**(규칙 34·40).
 - → 자연회복은 이 인프라 위에 "초월계 전 유닛 대상 상시 HoT(고정 HP/s)"로 얹을 수 있다. 최대 HP를 안 건드리고 `Heal`로 클램프.
+- **⚠️ 자연회복 ↔ 힐 충돌 지점 (qa Critical):** 현재 공용 시스템은 `UnitCombatUseCase.AddOrRefreshTimedEffect`가 효과를 **`(TargetId, Kind)` 키**로 관리하며(코드 확인 — `e.TargetId == target.Id && e.Kind == kind`이면 리셋/덮어쓰기), 힐은 `TimedEffectKind.Heal` 버킷 **하나뿐**이다(BloomFairy 힐이 이 버킷 사용). 자연회복을 같은 Heal 버킷에 넣으면 같은 대상에서 BloomFairy 힐과 **서로 덮어써(갱신=리셋) 한쪽이 소멸**한다. → 자연회복은 Heal 버킷과 **분리된 독립 채널**(신규 `TimedEffectKind` 또는 별도 자료구조)로 구현해야 상호 간섭이 없다(Plan 항목 7).
 
 ### 8) 연구소 UI·네트워크의 참조 패턴
 - 생산 패널: `GameSystemRules_UI.md` 생산 패널 UI 규칙(팝업 열기/닫기, 큐, 골드 차감 시점, 토스트, 비용 텍스트 색상 규칙 7·14). 연구 패널은 이 패턴을 참고.
