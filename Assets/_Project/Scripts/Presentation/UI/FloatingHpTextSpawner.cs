@@ -41,10 +41,10 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 유닛/건물의 월드 좌표를 반환하는 프로바이더.
-        /// UnitWorldPositionProvider가 구현체이며, GameBootstrapper에서 생성.
+        /// 로컬 화면에 그려지는 유닛/건물 좌표를 반환하는 프로바이더.
+        /// Simulation용 IEntityPositionProvider와 분리하여 전투 계산 좌표를 변경하지 않는다.
         /// </summary>
-        private IEntityPositionProvider _positionProvider;
+        private IPresentationPoseProvider _presentationPoseProvider;
 
         /// <summary>
         /// 부유 텍스트 오브젝트들의 부모 컨테이너(월드 공간의 빈 GameObject).
@@ -103,23 +103,23 @@ namespace Hexiege.Presentation
         /// 스포너 초기화. GameBootstrapper에서 호출.
         /// 의존성 저장, 풀 사전 생성, 이벤트 구독을 순서대로 수행.
         /// </summary>
-        /// <param name="positionProvider">유닛/건물 월드 좌표 제공자.</param>
+        /// <param name="presentationPoseProvider">유닛/건물 표현 좌표 제공자.</param>
         /// <param name="container">부유 텍스트가 배치될 월드 공간 부모 Transform.</param>
         /// <param name="prefab">FloatingHpText 프리팹.</param>
         public void Initialize(
-            IEntityPositionProvider positionProvider,
+            IPresentationPoseProvider presentationPoseProvider,
             Transform container,
             FloatingHpText prefab)
         {
             // 필수 의존성 null 체크 — Inspector 미연결 시 CreateInstance()에서 크래시 방지
-            if (positionProvider == null || container == null || prefab == null)
+            if (presentationPoseProvider == null || container == null || prefab == null)
             {
                 Debug.LogError("[FloatingHpTextSpawner] Initialize() 실패: 필수 의존성이 null입니다. " +
                                "GameBootstrapper Inspector에서 모든 슬롯이 연결되었는지 확인하세요.");
                 return;
             }
 
-            _positionProvider = positionProvider;
+            _presentationPoseProvider = presentationPoseProvider;
             _container = container;
             _prefab = prefab;
 
@@ -157,12 +157,12 @@ namespace Hexiege.Presentation
         /// <param name="evt">피격 이벤트 데이터. Entity(피격 대상), CurrentHp, IsUnit 포함.</param>
         public void ShowDamage(EntityDamagedEvent evt)
         {
-            if (_positionProvider == null || _container == null) return;
+            if (_presentationPoseProvider == null || _container == null) return;
 
             // 피격 엔티티의 월드 좌표 조회 — IsUnit이면 유닛, 아니면 건물
             Vector3 worldPos = evt.IsUnit
-                ? _positionProvider.GetUnitWorldPosition(evt.Entity.Id)
-                : _positionProvider.GetBuildingWorldPosition(evt.Entity.Id);
+                ? _presentationPoseProvider.GetUnitPosition(evt.Entity.Id)
+                : _presentationPoseProvider.GetBuildingPosition(evt.Entity.Id);
 
             // Vector3.zero = GameObject가 이미 파괴된 경우 (소멸 후 이벤트 도달)
             if (worldPos == Vector3.zero) return;
@@ -204,7 +204,7 @@ namespace Hexiege.Presentation
         /// <param name="evt">회복 이벤트 데이터. Entity(회복 대상), CurrentHp 포함.</param>
         public void ShowHeal(EntityHealedEvent evt)
         {
-            if (_positionProvider == null || _container == null) return;
+            if (_presentationPoseProvider == null || _container == null) return;
             if (evt.Entity == null) return;
 
             // [힐 텍스트 정리 — 2026-07-19] 텍스트 억제 이벤트(HoT 틱 등)는 여기서 걸러 낸다.
@@ -214,8 +214,8 @@ namespace Hexiege.Presentation
 
             // 회복 엔티티의 월드 좌표 조회 — 현재 힐 대상은 유닛만.
             Vector3 worldPos = evt.IsUnit
-                ? _positionProvider.GetUnitWorldPosition(evt.Entity.Id)
-                : _positionProvider.GetBuildingWorldPosition(evt.Entity.Id);
+                ? _presentationPoseProvider.GetUnitPosition(evt.Entity.Id)
+                : _presentationPoseProvider.GetBuildingPosition(evt.Entity.Id);
 
             // Vector3.zero = GameObject가 이미 파괴된 경우
             if (worldPos == Vector3.zero) return;

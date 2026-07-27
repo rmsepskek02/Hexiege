@@ -65,7 +65,7 @@ Transform:
   m_Children:
   - {fileID: 7178342698655825349}
   - {fileID: 3362185660375381185}
-  m_Father: {fileID: 337329965225382844}
+  m_Father: {fileID: 3249940883892326123}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &7131891186851180487
 Animator:
@@ -322,6 +322,38 @@ Transform:
   m_Children:
   - {fileID: 7729275234469397634}
   m_Father: {fileID: 4565401015502397398}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2685423637832648270
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3249940883892326123}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3249940883892326123
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2685423637832648270}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6106646982175069515}
+  m_Father: {fileID: 337329965225382844}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2843010652713459371
 GameObject:
@@ -781,6 +813,7 @@ GameObject:
   - component: {fileID: 6407429318270003983}
   - component: {fileID: 4131580552732513891}
   - component: {fileID: 6988894298575631638}
+  - component: {fileID: 3446045686359520789}
   m_Layer: 0
   m_Name: Unit_SpearMan_Blue
   m_TagString: Untagged
@@ -801,7 +834,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6106646982175069515}
+  - {fileID: 3249940883892326123}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &9043890435852988932
@@ -819,6 +852,7 @@ MonoBehaviour:
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
   _attackToWalkBlend: 0.1
+  _vfxSpawnPoint: {fileID: 0}
   _rotationSpeed: 270
 --- !u!114 &6407429318270003983
 MonoBehaviour:
@@ -904,6 +938,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &3446045686359520789
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7399617787143926463}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 3249940883892326123}
 --- !u!1 &7689324043874137202
 GameObject:
   m_ObjectHideFlags: 0

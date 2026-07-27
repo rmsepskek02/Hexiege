@@ -143,7 +143,10 @@ namespace Hexiege.Bootstrap
             // 표시의 진입점은 public ShowDamage() — 아래 10-4의 HitPresentationQueue가 방출 시점에 호출한다.
             // (예전처럼 OnEntityDamaged를 직접 구독하지 않는다 — 이중 표시 방지, Phase 2 — 축 3)
             if (_floatingHpTextSpawner != null)
-                _floatingHpTextSpawner.Initialize(_positionProvider, _floatingTextContainer, _floatingHpTextPrefab);
+                _floatingHpTextSpawner.Initialize(
+                    _presentationPoseProvider,
+                    _floatingTextContainer,
+                    _floatingHpTextPrefab);
 
             // 10-3. EffectManager 초기화 — VFX/SFX Pool 구성 및 Config 연결
             // 각 Config의 List → Dictionary 변환과 SFX Pool 사전 생성이 여기서 수행된다.
@@ -157,7 +160,13 @@ namespace Hexiege.Bootstrap
             //   EffectManager.Initialize 이후에 두어야 GetHit(피격 프리셋 조회)가 정상 동작한다.
             if (_hitPresentationQueue == null)
                 _hitPresentationQueue = gameObject.AddComponent<HitPresentationQueue>();
-            _hitPresentationQueue.Initialize(_floatingHpTextSpawner, _unitFactory, _buildingFactory, _unitSpawn, _buildingPlacement);
+            _hitPresentationQueue.Initialize(
+                _floatingHpTextSpawner,
+                _unitFactory,
+                _buildingFactory,
+                _unitSpawn,
+                _buildingPlacement,
+                _presentationPoseProvider);
 
             // 11. Castle 자동 배치
             PlaceCastles(orientation, oc);

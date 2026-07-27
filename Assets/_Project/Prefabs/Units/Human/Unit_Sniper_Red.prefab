@@ -223,7 +223,7 @@ Transform:
   m_Children:
   - {fileID: 276108608517541702}
   - {fileID: 8248241562193468929}
-  m_Father: {fileID: 3226224472716302074}
+  m_Father: {fileID: 4856794458092947903}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &5785088818680350925
 Animator:
@@ -543,6 +543,38 @@ Transform:
   - {fileID: 8039706521985618026}
   m_Father: {fileID: 1209912158110579855}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &4143960571256639016
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4856794458092947903}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4856794458092947903
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4143960571256639016}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 7497198353361795213}
+  m_Father: {fileID: 3226224472716302074}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5294142934013270206
 GameObject:
   m_ObjectHideFlags: 0
@@ -714,6 +746,7 @@ GameObject:
   - component: {fileID: 6112621790546395569}
   - component: {fileID: 1399742279142246906}
   - component: {fileID: 4219786767701892078}
+  - component: {fileID: 6075482820283796186}
   m_Layer: 0
   m_Name: Unit_Sniper_Red
   m_TagString: Untagged
@@ -734,7 +767,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 7497198353361795213}
+  - {fileID: 4856794458092947903}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &5074346306173475633
@@ -838,6 +871,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &6075482820283796186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6630118796036342330}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 4856794458092947903}
 --- !u!1 &7243797603951794329
 GameObject:
   m_ObjectHideFlags: 0

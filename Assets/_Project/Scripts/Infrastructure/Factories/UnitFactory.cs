@@ -189,7 +189,9 @@ namespace Hexiege.Infrastructure
             Vector3 worldPos = HexMetrics.HexToWorld(unitData.Position);
 
             // 도메인 좌표 → 뷰 좌표 변환 (Red팀이면 맵 중심 기준 Y 반전)
-            Vector3 viewPos = ViewConverter.ToView(worldPos);
+            Vector3 viewPos = NetworkContext.IsNetworkActive
+                ? worldPos
+                : ViewConverter.ToView(worldPos);
 
             // ToView 이후에 Y 오프셋 적용 — ToView 이전에 적용하면 Red팀에서 오프셋 방향이 반전됨
             viewPos.y += HexMetrics.UnitYOffset;

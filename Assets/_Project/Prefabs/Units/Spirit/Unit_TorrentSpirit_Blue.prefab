@@ -192,6 +192,38 @@ Transform:
   - {fileID: 349824187947229677}
   m_Father: {fileID: 896841438167837817}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1295012282227335862
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2941473242450511099}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2941473242450511099
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1295012282227335862}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6917030781485760307}
+  m_Father: {fileID: 4893338901302415178}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2238101313427043067
 GameObject:
   m_ObjectHideFlags: 0
@@ -468,7 +500,7 @@ Transform:
   m_Children:
   - {fileID: 2229245569214185088}
   - {fileID: 2809183658539134829}
-  m_Father: {fileID: 4893338901302415178}
+  m_Father: {fileID: 2941473242450511099}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &2523504032023403191
 Animator:
@@ -644,6 +676,7 @@ GameObject:
   - component: {fileID: 2638087596750509250}
   - component: {fileID: 2227475797085769781}
   - component: {fileID: 5313260955037202625}
+  - component: {fileID: 1720736176095206760}
   m_Layer: 0
   m_Name: Unit_TorrentSpirit_Blue
   m_TagString: Untagged
@@ -664,7 +697,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6917030781485760307}
+  - {fileID: 2941473242450511099}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &3481445291260013882
@@ -768,6 +801,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &1720736176095206760
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3536031145536561663}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 2941473242450511099}
 --- !u!1 &3786620730421717759
 GameObject:
   m_ObjectHideFlags: 0

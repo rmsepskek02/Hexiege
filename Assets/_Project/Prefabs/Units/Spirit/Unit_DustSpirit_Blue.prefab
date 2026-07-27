@@ -770,6 +770,7 @@ GameObject:
   - component: {fileID: 2192618627012899867}
   - component: {fileID: 3698916156042604328}
   - component: {fileID: 2141875566314071354}
+  - component: {fileID: 1178367510284040560}
   m_Layer: 0
   m_Name: Unit_DustSpirit_Blue
   m_TagString: Untagged
@@ -790,7 +791,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6722990923351314830}
+  - {fileID: 4559783560856336540}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6709001216378324585
@@ -894,6 +895,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &1178367510284040560
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7341887392386187503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 4559783560856336540}
 --- !u!1 &7363786077289780797
 GameObject:
   m_ObjectHideFlags: 0
@@ -927,7 +941,7 @@ Transform:
   m_Children:
   - {fileID: 3847888767399724570}
   - {fileID: 4023438040267072146}
-  m_Father: {fileID: 9013772037001746142}
+  m_Father: {fileID: 4559783560856336540}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &1997506130638020234
 Animator:
@@ -1088,6 +1102,38 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4870045099273600448}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &8665643442902571039
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4559783560856336540}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4559783560856336540
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8665643442902571039}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6722990923351314830}
+  m_Father: {fileID: 9013772037001746142}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &8665711901748212097
 GameObject:

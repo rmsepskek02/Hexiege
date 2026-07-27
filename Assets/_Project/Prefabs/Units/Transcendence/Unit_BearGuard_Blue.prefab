@@ -65,7 +65,7 @@ Transform:
   m_Children:
   - {fileID: 4937179642748915166}
   - {fileID: 5930653457581026231}
-  m_Father: {fileID: 6501435999533600827}
+  m_Father: {fileID: 6434827300592612844}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &8545678423704631131
 Animator:
@@ -507,6 +507,38 @@ Transform:
   m_Children: []
   m_Father: {fileID: 5820451007567332260}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &4953194588467780277
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6434827300592612844}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6434827300592612844
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4953194588467780277}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 8465361164202898812}
+  m_Father: {fileID: 6501435999533600827}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5478310507604524601
 GameObject:
   m_ObjectHideFlags: 0
@@ -520,6 +552,7 @@ GameObject:
   - component: {fileID: 2135629150654459364}
   - component: {fileID: 6373533250436819140}
   - component: {fileID: 7890250558853999681}
+  - component: {fileID: 6940765276591157148}
   m_Layer: 0
   m_Name: Unit_BearGuard_Blue
   m_TagString: Untagged
@@ -540,7 +573,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 8465361164202898812}
+  - {fileID: 6434827300592612844}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8275613802332242373
@@ -644,6 +677,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &6940765276591157148
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5478310507604524601}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 6434827300592612844}
 --- !u!1 &5680206865885066484
 GameObject:
   m_ObjectHideFlags: 0

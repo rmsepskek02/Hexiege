@@ -24,12 +24,10 @@
 //   3. SpawnUnitClientRpc 수신 시 UnitData 생성 + UnitView 초기화
 //      → RegisterClientUnit()으로 UnitView를 UnitFactory에 등록
 //
-// LateUpdate 역할:
-//   Red 클라이언트 전용 좌표/회전 보정.
-//   NetworkTransform이 동기화한 서버(Blue) 도메인 좌표와 Y축 회전을
-//   ViewConverter로 반전하여 Red팀 뷰에 맞게 보정.
-//   - Position: X, Z를 맵 중심 기준으로 반전.
-//   - Rotation: Y축에 +180° 적용 (시각적 이동 방향과 일치하도록).
+// 표현 좌표 계약:
+//   NetworkUnit은 Simulation Root를 보정하거나 덮어쓰지 않는다.
+//   NetworkTransform이 canonical 서버 position/rotation의 유일한 client writer다.
+//   Red 관점 반전은 같은 root의 VisualRootProjector가 Visual Root에만 적용한다.
 //
 // 배치:
 //   유닛 프리팹 루트 오브젝트에 부착.
@@ -40,7 +38,6 @@
 
 using Unity.Netcode;
 using UnityEngine;
-using Hexiege.Core;
 using Hexiege.Application;
 using Hexiege.Presentation;
 
@@ -73,7 +70,7 @@ namespace Hexiege.Infrastructure
     /// 유닛 프리팹의 네트워크 동기화 컴포넌트.
     /// unitId를 NetworkVariable로 서버→클라이언트 동기화.
     /// 클라이언트 OnNetworkSpawn에서 UnitView 초기화를 위한 연결 지점 역할.
-    /// Red 클라이언트에서는 LateUpdate에서 위치/회전을 반전 보정.
+    /// canonical Simulation Root는 읽기만 하며 관점 반전은 VisualRootProjector에 위임한다.
     /// </summary>
     public class NetworkUnit : NetworkBehaviour
     {
@@ -356,9 +353,13 @@ namespace Hexiege.Infrastructure
 
                 if (unitView != null && unitView.UnitData != null)
                 {
+                    VisualRootProjector projector = GetComponent<VisualRootProjector>();
+                    Vector3 deathPosition = projector != null
+                        ? projector.PresentationPosition
+                        : transform.position;
                     EffectManager.Instance?.PlayUnitDeath(
                         unitView.UnitData.Type,
-                        transform.position);                                // VFX
+                        deathPosition);                                     // VFX
                     AudioManager.Instance?.PlayUnitDeathSfx(unitView.UnitData.Type); // SFX (규칙 15 — VFX와 짝)
                 }
             }
@@ -411,49 +412,5 @@ namespace Hexiege.Infrastructure
             IsInitialized = true;
         }
 
-        // ====================================================================
-        // Red 클라이언트 좌표/회전 보정
-        // ====================================================================
-
-        /// <summary>
-        /// 클라이언트 전용 LateUpdate 처리:
-        ///
-        /// Red 클라이언트 좌표/회전 보정:
-        ///   NetworkTransform이 동기화한 서버(Blue) 도메인 좌표와 Y축 회전을
-        ///   ViewConverter로 반전하여 Red팀 뷰에 맞게 보정.
-        ///   Position: X, Z를 맵 중심 기준으로 반전.
-        ///   Rotation: Y축에 +180° 적용 (시각적 이동 방향과 일치하도록).
-        ///
-        ///   예시: Blue팀에서 "남동쪽(SE=150°)"을 바라보는 유닛은
-        ///         Red팀에서는 "북서쪽(NW=330°)"을 바라봐야 시각적으로 올바름.
-        ///         150° + 180° = 330° → 정확히 반대 방향.
-        ///
-        /// Blue 클라이언트(Host)에서는 서버가 직접 제어하므로 보정 불필요.
-        /// 싱글플레이에서도 서버로 동작하므로 처리 불필요.
-        ///
-        /// 타이밍:
-        ///   NetworkTransform이 Update()에서 서버 값을 적용한 뒤,
-        ///   LateUpdate()에서 Red 보정을 덮어씌움.
-        ///   이 순서가 보장되므로 매 프레임 올바른 Red 뷰가 렌더링됨.
-        /// </summary>
-        private void LateUpdate()
-        {
-            // 서버(Blue Host)와 싱글플레이에서는 처리 불필요
-            if (IsServer || !NetworkContext.IsNetworkActive) return;
-
-            // Red 클라이언트: 서버(Blue) 좌표/회전을 Red 뷰로 반전
-            if (ViewConverter.IsFlipped)
-            {
-                // Position 반전: 맵 중심 기준으로 X, Z를 뒤집어 Red팀 관점의 위치로 변환
-                transform.position = ViewConverter.ToView(transform.position);
-
-                // Rotation 반전: 서버(Blue)의 Y축 회전에 +180° 적용
-                // Blue팀에서 "남쪽(SE=150°)"을 바라보는 유닛은
-                // Red팀에서는 "북쪽(NW=330°)"을 바라봐야 시각적으로 올바름
-                Vector3 euler = transform.eulerAngles;
-                euler.y = (euler.y + 180f) % 360f;
-                transform.rotation = Quaternion.Euler(euler);
-            }
-        }
     }
 }

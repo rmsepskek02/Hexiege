@@ -509,3 +509,10 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - 사용자 dry-run 연속 두 실행의 `[END][PASS]`가 모두 `prefabsLogged=50/50`, `errorsLogged=0`, `assetsModified=0`이다. aggregate manifest SHA-256도 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 일치했다.
 - prefab/scene Git diff와 mutation API 호출은 0이다. B0 QA 판정은 “결정적 read-only migration readiness PASS”이며 실제 migration·런타임 writer·세 증상은 미검증이다.
 - B1 QA는 50/50 원자적 적용, NetworkObject/NetworkTransform 식별자 보존, missing script/깨진 참조 0, 2회차 diff 0, 부분 저장 0과 rollback을 별도 검증해야 한다.
+
+### 2026-07-27 - Unit ActionSequence Tracer B1 asset 적용 QA 경계
+
+- 사용자 Apply 재실행은 50개 모두 migrated state `[NO-OP]`이고 `SaveAsPrefabAsset`/`SaveAssets` 호출 0이다. migration journal completed와 함께 asset 적용·멱등성 범위는 PASS다.
+- 신규 구조의 필수 정적 검사: direct identity VisualRoot 1개, valid root projector 1개, root Animator/Renderer 0, Collider는 Simulation Root만, VisualRoot descendant Collider 0, Animator Root Motion off, Animator별 동일 GO `AnimationEventRelay` 1개, relay/Animator count 일치.
+- 아직 실제 failure-injection rollback과 Host/Client·Blue/Red runtime smoke를 수행하지 않았다. B1 전체 PASS와 이동 방향/바라보기 문제 해결 판정은 보류한다.
+- 신규 타입 추가 시 50 고정 validator가 실패하는 것은 정상 fail-closed다. Blue/Red pair, Matrix roster, 종족 수와 VFX 기준선을 의도적으로 함께 갱신한 뒤 전체 Validate/Dry Run·멀티 smoke를 수행한다.

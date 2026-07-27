@@ -5,7 +5,7 @@
 // 회전 동기화 방식:
 //   - 회전은 즉시 스냅(Quaternion.Euler)으로 적용한다.
 //   - 멀티플레이에서는 서버가 즉시 스냅한 rotation을 NetworkTransform이 클라이언트에 보간 전달한다.
-//   - Red 클라이언트 rotation 보정은 NetworkUnit.LateUpdate()에서 일괄 처리한다.
+//   - Red 클라이언트 관점 반전은 VisualRootProjector가 Visual Root에만 적용한다.
 //
 // 프리팹 구조:
 //   Unit_{Type} (GameObject)
@@ -113,6 +113,12 @@ namespace Hexiege.Presentation
 
         /// <summary> 이 유닛에 연결된 Domain 데이터. </summary>
         private UnitData _unitData;
+
+        /// <summary>
+        /// VFX/SFX 등 표현 소비자만 사용하는 Visual Root projector.
+        /// 이동, 사거리, 타겟, A2 pose source는 계속 Simulation Root(transform)를 사용한다.
+        /// </summary>
+        private VisualRootProjector _visualRootProjector;
 
         /// <summary> NetworkUnit.OnNetworkDespawn에서 클라이언트 이펙트 재생 시 타입 참조용. </summary>
         public UnitData UnitData => _unitData;
@@ -328,23 +334,25 @@ namespace Hexiege.Presentation
         ///
         /// 스폰 시 즉시 rotation 스냅:
         ///   서버: 즉시 스냅 → NetworkTransform이 클라이언트에 보간 전달.
-        ///   클라이언트: NetworkTransform이 서버 rotation을 자동 동기화하므로
-        ///             여기서 설정한 값은 곧 서버 값으로 덮어씌워짐.
-        ///             Red 클라이언트는 NetworkUnit.LateUpdate()에서 +180° 보정.
+        ///   클라이언트: 여기서 Simulation Root를 쓰지 않고 NetworkTransform 결과만 사용.
+        ///             Red 관점 반전은 VisualRootProjector가 Visual Root에만 적용.
         /// </summary>
         /// <param name="unitData">이 유닛의 Domain 데이터</param>
         public void Initialize(UnitData unitData)
         {
             _unitData = unitData;
+            _visualRootProjector = GetComponent<VisualRootProjector>();
 
             // Animator 캐시 — 자식 오브젝트에 있을 수 있으므로 GetComponentInChildren 사용
             _animator = GetComponentInChildren<Animator>();
 
             // 스폰 시 Facing 방향으로 즉시 rotation 설정.
             // 서버에서 즉시 스냅하면 NetworkTransform이 이 값을 클라이언트에 자동 보간 전달.
-            // ViewConverter.IsFlipped 보정은 NetworkUnit.LateUpdate()에서 일괄 처리하므로 불필요.
+            // 순수 클라이언트는 canonical Simulation Root를 NetworkTransform에서만 받으므로 쓰지 않는다.
             int index = (int)_unitData.Facing;
-            if (index >= 0 && index < DirectionAngles.Length)
+            bool canWriteSimulationRoot =
+                !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
+            if (canWriteSimulationRoot && index >= 0 && index < DirectionAngles.Length)
             {
                 float spawnAngle = DirectionAngles[index];
                 transform.rotation = Quaternion.Euler(0f, spawnAngle, 0f);
@@ -511,7 +519,9 @@ namespace Hexiege.Presentation
 
                         // 서버 또는 싱글플레이: 사망 이펙트를 여기서 즉시 재생.
                         // EffectManager/AudioManager가 아직 없는 경우를 대비해 ?. 연산자로 안전 처리.
-                        EffectManager.Instance?.PlayUnitDeath(_unitData.Type, transform.position);   // VFX
+                        EffectManager.Instance?.PlayUnitDeath(
+                            _unitData.Type,
+                            PresentationTransform.position);                                        // VFX
                         AudioManager.Instance?.PlayUnitDeathSfx(_unitData.Type);                     // SFX (규칙 15 — VFX와 짝)
 
                         // GameObject 파괴 경로 분기:
@@ -575,6 +585,42 @@ namespace Hexiege.Presentation
                 ? _unitFactory?.GetUnitObject(targetId)
                 : _buildingFactory?.GetBuildingObject(targetId);
             return obj != null ? obj.transform : null;
+        }
+
+        /// <summary>
+        /// 로컬 화면에 그려지는 절대 pose. 표현 소비자만 사용하며 Simulation Root를 변경하지 않는다.
+        /// migration 전 프리팹은 projector가 없으므로 기존 root pose로 안전하게 폴백한다.
+        /// </summary>
+        private Transform PresentationTransform
+        {
+            get
+            {
+                if (_visualRootProjector == null)
+                    _visualRootProjector = GetComponent<VisualRootProjector>();
+                return _visualRootProjector != null
+                    ? _visualRootProjector.PresentationTransform
+                    : transform;
+            }
+        }
+
+        private static Transform GetPresentationTransform(Transform simulationTransform)
+        {
+            if (simulationTransform == null) return null;
+            VisualRootProjector projector =
+                simulationTransform.GetComponent<VisualRootProjector>();
+            return projector != null
+                ? projector.PresentationTransform
+                : simulationTransform;
+        }
+
+        private Vector3 GetTargetPresentationWorldPos(int targetId, bool targetIsUnit)
+        {
+            Transform simulationTransform = GetTargetTransform(targetId, targetIsUnit);
+            Transform presentationTransform =
+                GetPresentationTransform(simulationTransform);
+            return presentationTransform != null
+                ? presentationTransform.position
+                : PresentationTransform.position + PresentationTransform.forward;
         }
 
         /// <summary>
@@ -1768,7 +1814,9 @@ namespace Hexiege.Presentation
             Vector3 targetPos = _positionProvider != null
                 ? _positionProvider.GetUnitWorldPosition(targetId)
                 : Vector3.zero;
-            if (targetPos != Vector3.zero)
+            bool canWriteSimulationRoot =
+                !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
+            if (canWriteSimulationRoot && targetPos != Vector3.zero)
             {
                 float angle = CalculateAttackAngle(targetPos);
                 transform.rotation = Quaternion.Euler(0f, angle, 0f);
@@ -1895,8 +1943,11 @@ namespace Hexiege.Presentation
             //   VfxSpawnPoint가 스켈레톤 본(손 부위) 하위에 배치되어 있어,
             //   월드 회전에 본 고유 회전(약 0, -90, -90도)이 섞여 VFX가 엉뚱한 방향으로 발사되기 때문이다.
             //   위치는 본 덕분에 정확하므로 유지하고, 회전만 유닛 루트의 정면 방향으로 교체한다.
-            Vector3 spawnPos = _vfxSpawnPoint != null ? _vfxSpawnPoint.position : transform.position;
-            Quaternion spawnRot = Quaternion.LookRotation(transform.forward);
+            Transform presentationTransform = PresentationTransform;
+            Vector3 spawnPos = _vfxSpawnPoint != null
+                ? _vfxSpawnPoint.position
+                : presentationTransform.position;
+            Quaternion spawnRot = Quaternion.LookRotation(presentationTransform.forward);
             EffectManager.Instance?.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot);  // VFX
             AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                    // SFX (규칙 15 — VFX와 짝)
 
@@ -1918,9 +1969,13 @@ namespace Hexiege.Presentation
                 // 도착 지점 = 발사 시점의 타겟 월드 위치(값으로 복사).
                 //   비행 중 타겟이 파괴되어도 트레이서는 이 좌표까지 그대로 날아가 소멸한다(댕글링 참조 없음).
                 //   _combatTargetTransform이 있으면 그 위치를, 없으면 백업 ID로 재조회(둘 다 실패 시 전방 폴백).
-                Vector3 targetPos = _combatTargetTransform != null
-                    ? _combatTargetTransform.position
-                    : GetTargetWorldPos(_combatTargetId, _combatTargetIsUnit);
+                Transform presentationTarget =
+                    GetPresentationTransform(_combatTargetTransform);
+                Vector3 targetPos = presentationTarget != null
+                    ? presentationTarget.position
+                    : GetTargetPresentationWorldPos(
+                        _combatTargetId,
+                        _combatTargetIsUnit);
 
                 // 트레이서 발사. 착탄 콜백에서 OnLocalAttackHit을 발행하여 피격 연출을 착탄 시점에 방출한다.
                 //   트레이서 프리셋이 없으면 PlayTracer가 콜백을 "즉시" 실행하므로 기존 즉시 방출로 폴백된다.
@@ -2025,10 +2080,14 @@ namespace Hexiege.Presentation
         {
             if (_unitData == null || !_unitData.IsAlive) return;
 
-            // 타겟 방향으로 즉시 스냅 회전
-            // 서버에서 즉시 스냅 → NetworkTransform이 클라이언트에 보간 전달
-            float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
-            transform.rotation = Quaternion.Euler(0f, angle, 0f);
+            // 순수 클라이언트는 canonical Simulation Root를 NetworkTransform에서만 받으므로 쓰지 않는다.
+            bool canWriteSimulationRoot =
+                !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
+            if (canWriteSimulationRoot)
+            {
+                float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
+                transform.rotation = Quaternion.Euler(0f, angle, 0f);
+            }
 
             // ────────────────────────────────────────────────────────────────
             // [Phase 2 대체] Attack CrossFade 책임 분리.

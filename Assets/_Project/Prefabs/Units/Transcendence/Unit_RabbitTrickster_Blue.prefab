@@ -244,6 +244,38 @@ SkinnedMeshRenderer:
     m_Center: {x: -0.12300706, y: 0.5830504, z: 0.015232861}
     m_Extent: {x: 0.73500824, y: 0.9371891, z: 0.72745746}
   m_DirtyAABB: 0
+--- !u!1 &2813106105085729847
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8264942845855708099}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8264942845855708099
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2813106105085729847}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 3099112773026734244}
+  m_Father: {fileID: 3401019634756317182}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2981856665323119702
 GameObject:
   m_ObjectHideFlags: 0
@@ -624,7 +656,7 @@ Transform:
   m_Children:
   - {fileID: 2409451900554545646}
   - {fileID: 209611846946607017}
-  m_Father: {fileID: 3401019634756317182}
+  m_Father: {fileID: 8264942845855708099}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &5653860658546411933
 Animator:
@@ -958,6 +990,7 @@ GameObject:
   - component: {fileID: 5056219733498972386}
   - component: {fileID: 7284445658424138781}
   - component: {fileID: 5539040685290201222}
+  - component: {fileID: 3759235804287925785}
   m_Layer: 0
   m_Name: Unit_RabbitTrickster_Blue
   m_TagString: Untagged
@@ -978,7 +1011,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 3099112773026734244}
+  - {fileID: 8264942845855708099}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4574375023079892859
@@ -1082,6 +1115,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &3759235804287925785
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7760243811753235212}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 8264942845855708099}
 --- !u!1 &7762155547442875440
 GameObject:
   m_ObjectHideFlags: 0

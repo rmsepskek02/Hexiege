@@ -191,6 +191,39 @@ Transform:
   - {fileID: 7625661919693326924}
   m_Father: {fileID: 487827292697008166}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &3167924357620641617
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8826776607362988385}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8826776607362988385
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3167924357620641617}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 4119711718639637203}
+  - {fileID: 8702546504636344121}
+  m_Father: {fileID: 1071848446903559731}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4308225956990093909
 GameObject:
   m_ObjectHideFlags: 0
@@ -236,6 +269,7 @@ GameObject:
   - component: {fileID: 5414483238609257678}
   - component: {fileID: 3407998590916609033}
   - component: {fileID: 1552794745500990995}
+  - component: {fileID: 96833899055940073}
   m_Layer: 0
   m_Name: Unit_StreamSpirit_Red
   m_TagString: Untagged
@@ -256,8 +290,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 4119711718639637203}
-  - {fileID: 8702546504636344121}
+  - {fileID: 8826776607362988385}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7117455686934641323
@@ -361,6 +394,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &96833899055940073
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4514012868270751666}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 8826776607362988385}
 --- !u!1 &4854915085404329000
 GameObject:
   m_ObjectHideFlags: 0
@@ -390,7 +436,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1071848446903559731}
+  m_Father: {fileID: 8826776607362988385}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4973125727999229146
 GameObject:
@@ -519,7 +565,7 @@ Transform:
   m_Children:
   - {fileID: 9201567721112474524}
   - {fileID: 2536354215245158540}
-  m_Father: {fileID: 1071848446903559731}
+  m_Father: {fileID: 8826776607362988385}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &9207816815275419032
 Animator:

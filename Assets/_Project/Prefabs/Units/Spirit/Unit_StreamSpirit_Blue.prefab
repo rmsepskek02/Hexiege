@@ -29,7 +29,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1071848446903559731}
+  m_Father: {fileID: 2354811499692737401}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &531457491907536209
 GameObject:
@@ -267,6 +267,7 @@ GameObject:
   - component: {fileID: 2438630629389562967}
   - component: {fileID: 3526571824483141877}
   - component: {fileID: 6268186773199634540}
+  - component: {fileID: 1973553085540676179}
   m_Layer: 0
   m_Name: Unit_StreamSpirit_Blue
   m_TagString: Untagged
@@ -287,8 +288,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 4119711718639637203}
-  - {fileID: 6860401018277721511}
+  - {fileID: 2354811499692737401}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4980080917692236225
@@ -392,6 +392,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &1973553085540676179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4514012868270751666}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 2354811499692737401}
 --- !u!1 &4973125727999229146
 GameObject:
   m_ObjectHideFlags: 0
@@ -519,7 +532,7 @@ Transform:
   m_Children:
   - {fileID: 9201567721112474524}
   - {fileID: 2536354215245158540}
-  m_Father: {fileID: 1071848446903559731}
+  m_Father: {fileID: 2354811499692737401}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &9207816815275419032
 Animator:
@@ -555,6 +568,39 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b74fadfb97679cff2665b8c6c2481eae, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.AnimationEventRelay
+--- !u!1 &6154026800936566631
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2354811499692737401}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2354811499692737401
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6154026800936566631}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 4119711718639637203}
+  - {fileID: 6860401018277721511}
+  m_Father: {fileID: 1071848446903559731}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6252060435289101491
 GameObject:
   m_ObjectHideFlags: 0

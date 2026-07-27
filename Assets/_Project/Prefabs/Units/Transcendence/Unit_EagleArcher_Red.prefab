@@ -1,5 +1,37 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!1 &323709981865863110
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2520186927648324095}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2520186927648324095
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 323709981865863110}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 958992367918576707}
+  m_Father: {fileID: 3831398351100541409}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &840594230792676736
 GameObject:
   m_ObjectHideFlags: 0
@@ -603,7 +635,7 @@ Transform:
   m_Children:
   - {fileID: 8415308465842847845}
   - {fileID: 4772032932222596676}
-  m_Father: {fileID: 3831398351100541409}
+  m_Father: {fileID: 2520186927648324095}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &618694077164875332
 Animator:
@@ -748,6 +780,7 @@ GameObject:
   - component: {fileID: 7343549212641205038}
   - component: {fileID: 938127432125953874}
   - component: {fileID: 8075572305219914366}
+  - component: {fileID: 592427894250565535}
   m_Layer: 0
   m_Name: Unit_EagleArcher_Red
   m_TagString: Untagged
@@ -768,7 +801,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 958992367918576707}
+  - {fileID: 2520186927648324095}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6095478184092223974
@@ -872,6 +905,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &592427894250565535
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6828605627732116859}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 2520186927648324095}
 --- !u!1 &6941576311728607919
 GameObject:
   m_ObjectHideFlags: 0

@@ -101,3 +101,11 @@
 - 결정성 근거는 연속 두 dry-run의 50/50, errors 0, assetsModified 0과 동일 aggregate manifest SHA-256이다. 최초 불안정 해시는 임시 native bookkeeping을 포함한 진단기 문제였고 NGO 의미 설정 allowlist로 교정했다.
 - 계약·게임플레이 수치 변경이 없어 GameSystemRules/TDD/GDD는 무수정이다. Task Research/Plan, PROJECT_STATUS, ROADMAP, WORK_HISTORY와 game-programmer/project-orchestrator/qa-tester/document-manager MEMORY를 갱신했다. Testcase는 사용자 요청이 없어 생성하지 않았다.
 - 다음 상태는 B1 50개 프리팹 원자적 migration이며, 완료 문구에는 NetworkObject/NetworkTransform 식별자 보존·부분 저장 0·rollback·2회차 diff 0 검증 전까지 “Root 분리 완료”를 쓰지 않는다.
+
+### 2026-07-27 - Unit ActionSequence B1 문서 동기화
+
+- B1은 `asset migration + journal completed + Apply 재실행 NO-OP`까지만 PASS로 기록한다. 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke는 미완료로 분리하며 B1 전체 완료나 세 증상 해결로 확대하지 않는다.
+- 신규·교체 프리팹 영구 계약은 `GameSystemRules_UnitCombatSynchronization.md`의 `NET-ROOT-004`, 실무 체크리스트는 `Assets/UnitCombatAssetMatrix.md`, 구현 검증은 `ValidateUnitCombatSetup.cs`가 담당한다.
+- 기존 50개용 `SetupUnitVisualRoots.Apply`는 일회성 migration이다. 신규 프리팹은 migrated 템플릿으로 만들고 UnitType/Blue·Red pair/Matrix/validator 고정 roster·종족·VFX 기준선을 함께 갱신한다.
+- 현행 validator 계약에는 파일명, direct identity VisualRoot, root projector, root Animator/Renderer 0, Collider의 Simulation Root 한정, Animator Root Motion off와 Animator별 동일 GO relay가 포함된다.
+- ROADMAP의 과거 `SetupNewUnitPrefabs.cs` 참조는 실제 파일이 없으므로 Legacy 이력으로 표시하고 현행 authoring 권위를 명시한다.

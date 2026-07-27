@@ -346,3 +346,10 @@ Assets/_Project/
 - 사용자 dry-run 연속 2회가 각각 50/50, errors 0, assetsModified 0이며 aggregate manifest SHA-256 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 일치했다. prefab/scene Git diff와 mutation API 호출은 0이다.
 - 전체 직렬화 상태가 아니라 NGO 의미 설정 allowlist를 결정적으로 해시하고, Unity Console 절단에 견디도록 프리팹별 로그와 종합 digest를 분리한다.
 - B1은 50개 프리팹 원자적 migration과 rollback 검증이며, B2 Shadow/B3 경기 단위 writer 전환 전에 완료해야 한다. B0 PASS를 실제 Root 분리나 세 증상 해결로 확대하지 않는다.
+
+### 2026-07-27 - Unit ActionSequence Tracer B1 조건부 게이트
+
+- 50개 프리팹 asset migration, journal completed와 Apply 재실행 `[NO-OP]`는 PASS다. `VisualRootProjector`/`PresentationPoseProvider` seam과 클라이언트 Simulation Root write 제거도 구현됐다.
+- 현재 B1 전체 게이트는 열려 있다. 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke가 미완료이며, 이를 확인하기 전 B2 서버 이동·방향 Shadow를 시작하지 않는다.
+- 신규·교체 프리팹 authoring 권위는 `NET-ROOT-004` + Asset Matrix 체크리스트 + fail-closed validator다. 50개용 bulk migration은 반복하지 않으며, 존재하지 않는 Legacy `SetupNewUnitPrefabs.cs`를 현행 도구로 안내하지 않는다.
+- validator와 동일하게 Collider는 Simulation Root만, root Animator/Renderer는 0, Animator별 동일 GO relay와 Root Motion off, 파일명과 Blue/Red pair·roster 기준을 강제한다.

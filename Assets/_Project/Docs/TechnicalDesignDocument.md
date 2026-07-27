@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.45.0
-**최종 수정일:** 2026-07-22
+**버전:** 0.46.0
+**최종 수정일:** 2026-07-27
 **작성자:** HANYONGHEE
 
 ---
@@ -121,10 +121,22 @@ Clean Architecture에서는 **안쪽 레이어가 바깥쪽 레이어를 알면 
 - **역할**: 서버/도메인 좌표계(Blue 기준 단일)를 Red 클라이언트 뷰 좌표로 반전
 - **반전 공식**: `Flip(pos) = 2 * mapCenter - pos` (맵 중심 기준 180° 반전)
 - **제공 API**: `IsFlipped`, `ToView()`, `FromView()`, `FlipDirection()`
-- **목표 경계(유닛 규칙 v2)**: 서버 좌표·NetworkTransform이 있는 Simulation Root는 반전하지 않는다. Red 클라이언트의 위치·방향 변환은 자식 Visual Root에만 적용한다.
-- **현재 런타임 주의**: `NetworkUnit.LateUpdate`가 Red 클라이언트에서 NetworkTransform 대상 Root 위치·회전을 직접 보정하는 Legacy 구조가 남아 있다. 이는 목표 경계와 불일치하며 ActionSequence 구현 단계에서 Visual Root로 이전한다.
+- **현재 경계(Tracer B1)**: 서버 좌표·NetworkTransform이 있는 Simulation Root는 반전하지 않는다. `NetworkUnit`의 클라이언트 Root 보정을 제거했고, Red 클라이언트의 위치·방향 변환은 자식 Visual Root에 있는 표현으로만 적용한다.
+- **표현 투영**: Simulation Root의 `VisualRootProjector`가 직접 자식 `VisualRoot`를 참조하고 렌더 직전 canonical Root pose를 투영한다. `PresentationPoseProvider`는 VFX·피격 반응·플로팅 텍스트 같은 표현 소비자에 presentation pose를 제공한다.
+- **생성 좌표**: 멀티플레이 `UnitFactory`는 서버 canonical world position으로 NetworkObject를 생성한다. 화면 관점 변환은 생성 좌표가 아니라 Visual Root 표현 단계에서만 수행한다.
 - **입력 역변환**: `ScreenToWorldPoint` 결과도 `FromView()`로 역변환 필요
 - **방향 반전**: 유닛 FacingDirection도 Red팀에서 FlipDirection() 적용 (NE↔SW, E↔W, SE↔NW)
+
+#### 유닛 Simulation Root / Visual Root 런타임 seam
+
+- Simulation Root는 `NetworkObject`, `NetworkTransform`, `NetworkUnit`, `UnitView`, `VisualRootProjector`와 서버 위치·회전 writer를 보유한다.
+- 직접 자식 `VisualRoot`는 identity transform으로 시작하며 모델, Animator, Renderer, VFX/socket을 포함한다. Animator Root Motion은 비활성화한다.
+- Collider는 Simulation Root에만 유지하고 Visual Root 하위에는 두지 않아 충돌·선택 경계를 화면 관점 변환과 분리한다. 이는 서버 피해 판정 구현이 Collider 기반이라는 의미가 아니다.
+- Simulation Root에는 Animator와 Renderer를 두지 않는다. 각 Animator와 동일 GameObject에 `AnimationEventRelay` 하나를 두며 relay와 Animator 개수가 일치해야 한다.
+- `VisualRootProjector`는 자신의 Simulation Root를 수정하지 않고 참조된 `VisualRoot`만 투영한다. Presentation pose getter도 같은 프레임의 canonical Root를 먼저 투영해 Animation Event와 `LateUpdate` 사이의 한 프레임 pose 지연을 피한다.
+- `HitPresentationQueue`, `FloatingHpTextSpawner`, 사망 VFX와 피격 punch는 `PresentationPoseProvider` 또는 projector pose를 사용한다. A2 `IUnitActionPoseSource`는 계속 Simulation Root를 읽어 서버 판정과 표현 pose가 섞이지 않게 한다.
+- Bootstrap은 Simulation 위치 공급자와 Presentation pose 공급자를 별도 의존성으로 조합한다. Application의 서버 권위 계약은 Presentation 구현을 역참조하지 않는다.
+- 프리팹 제작·승인 규격은 `GameSystemRules_UnitCombatSynchronization.md`의 `NET-ROOT-004`가 권위다.
 
 ---
 
@@ -1687,6 +1699,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.46.0 | 2026-07-27 | Unit ActionSequence Tracer B1 Simulation/Visual Root seam 반영. `NetworkUnit`의 클라이언트 Simulation Root 보정을 제거하고 `VisualRootProjector`·`PresentationPoseProvider`로 표현 pose를 분리했다. 멀티플레이 UnitFactory의 canonical world position 생성, presentation 소비자 전환, 신규·교체 프리팹 승인 규격을 기록했다. 50개 프리팹 migration과 재실행 NO-OP는 확인됐지만 Host/Client runtime smoke와 실제 rollback failure injection은 아직 미완료다. |
 | 0.45.0 | 2026-07-22 | Unit ActionSequence A1 순수 Application 경계 구현 상태 반영. `UnitActionContracts`·stateful `UnitActionSequencer`와 self-validation PASS를 기록하고, 런타임 pose/result seam·피해·RPC·VFX 미연결 및 다음 A2 server-authoritative pose seam shadow를 명시했다. |
 | 0.44.0 | 2026-07-20 | 멀티플레이 유닛 이동·공격 규칙 v2 목표 아키텍처 반영. 서버 권위 `UnitActionSnapshot` + `AttackImpactResult`, AttackSequenceId/HitIndex 상관관계, Simulation Root/Visual Root 분리, 늦은 참가·순서 역전·중복 처리와 Clean Architecture 배치를 정의했다. 클라이언트 이동 예측, 유닛 점유 경로 차단, 공격자 FIFO 피격 표현은 Legacy로 정정했다. **문서 설계 완료이며 런타임 구현은 미완료다.** |
 | 0.43.0 | 2026-07-20 | `MapTestModeEnabled`를 초기 골드 전용 설정으로 확정. 정상 모드는 광산 수 표, 테스트 모드는 `TestStartingGold=5000`을 사용하며 멀티플레이에서는 Host 표식·실제 골드가 권위값이다. 표식(0/1)과 실제 골드를 canonical bytes·SHA-256·로그에 포함하고 NewMap 준비에도 동일 권한 경계를 적용하도록 명문화. |

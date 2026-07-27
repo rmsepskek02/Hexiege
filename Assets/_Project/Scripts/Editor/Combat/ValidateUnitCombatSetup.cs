@@ -51,6 +51,9 @@ namespace Hexiege.Editor.Combat
         public int NullVfxReferenceCount;
         public int DirectVfxSpawnPointCount;
         public int NestedVfxSpawnPointCount;
+        public int ProjectorCount;
+        public int ValidProjectorReferenceCount;
+        public int AnimatorApplyRootMotionTrueCount;
 
         public bool Passed => Errors.Count == 0;
 
@@ -65,6 +68,8 @@ namespace Hexiege.Editor.Combat
                 $"Transcendence={TranscendenceCount}), errors={Errors.Count}");
             summary.AppendLine(
                 $"visualRootExisting={ExistingVisualRootCount}, " +
+                $"projector={ProjectorCount}, projectorRefValid={ValidProjectorReferenceCount}, " +
+                $"animatorApplyRootMotionTrue={AnimatorApplyRootMotionTrueCount}, " +
                 $"vfxAssigned={AssignedVfxReferenceCount}, vfxNullFallback={NullVfxReferenceCount}, " +
                 $"vfxDirect={DirectVfxSpawnPointCount}, vfxNested={NestedVfxSpawnPointCount}");
 
@@ -144,6 +149,12 @@ namespace Hexiege.Editor.Combat
         public bool WouldCreateVisualRoot;
         public bool WouldReuseVisualRoot;
         public bool Passed;
+
+        // B1 migration이 문자열 rollback manifest를 다시 파싱하지 않고 비교할 수 있는
+        // 구조화된 네트워크 identity/config baseline이다.
+        public string NetworkObjectGlobalObjectIdHash;
+        public string NetworkObjectSerializedSha256;
+        public string NetworkTransformSerializedSha256;
     }
 
     /// <summary>
@@ -155,7 +166,7 @@ namespace Hexiege.Editor.Combat
         private const string UnitsPrefabFolder = "Assets/_Project/Prefabs/Units";
         private const string VisualRootName = "VisualRoot";
         private const string VfxSpawnPointName = "VfxSpawnPoint";
-        private const int ExpectedPrefabCount = 50;
+        internal const int ExpectedPrefabCount = 50;
         private const int ExpectedHumanCount = 16;
         private const int ExpectedSpiritCount = 18;
         private const int ExpectedTranscendenceCount = 16;
@@ -308,11 +319,27 @@ namespace Hexiege.Editor.Combat
                 report.ExistingVisualRootCount == 0
                 || report.ExistingVisualRootCount == ExpectedPrefabCount,
                 $"partial VisualRoot migration detected: existing={report.ExistingVisualRootCount}");
+            Require(
+                report,
+                report.ProjectorCount == 0
+                || report.ProjectorCount == ExpectedPrefabCount,
+                $"partial VisualRootProjector migration detected: projector={report.ProjectorCount}");
+            Require(
+                report, report.ProjectorCount == report.ExistingVisualRootCount,
+                $"VisualRoot/projector count mismatch: roots={report.ExistingVisualRootCount}, " +
+                $"projectors={report.ProjectorCount}");
+            Require(
+                report, report.ValidProjectorReferenceCount == report.ProjectorCount,
+                $"invalid VisualRootProjector._visualRoot references: valid=" +
+                $"{report.ValidProjectorReferenceCount}/{report.ProjectorCount}");
             if (report.ExistingVisualRootCount == 0)
             {
                 Require(
                     report, report.PlannedVisualRootCreateCount == ExpectedPrefabCount,
                     $"initial dry-run must create {ExpectedPrefabCount} VisualRoots");
+                Require(
+                    report, report.ProjectorCount == 0,
+                    "initial baseline must contain zero VisualRootProjectors");
                 Require(
                     report, report.DirectVfxSpawnPointCount == 8
                     && report.NestedVfxSpawnPointCount == 8,
@@ -327,8 +354,19 @@ namespace Hexiege.Editor.Combat
             {
                 Require(
                     report,
-                    report.PlannedVisualRootCreateCount == 0 && report.PlannedMoveCount == 0,
-                    "idempotent rerun must plan create=0 and move=0");
+                    report.PlannedVisualRootCreateCount == 0
+                    && report.PlannedVisualRootReuseCount == ExpectedPrefabCount
+                    && report.PlannedMoveCount == 0,
+                    $"idempotent rerun must plan create=0, reuse={ExpectedPrefabCount}, move=0");
+                Require(
+                    report,
+                    report.ProjectorCount == ExpectedPrefabCount
+                    && report.ValidProjectorReferenceCount == ExpectedPrefabCount,
+                    $"migrated baseline must contain {ExpectedPrefabCount} valid projectors");
+                Require(
+                    report, report.AnimatorApplyRootMotionTrueCount == 0,
+                    $"migrated Animators must have applyRootMotion=false; true=" +
+                    $"{report.AnimatorApplyRootMotionTrueCount}");
                 Require(
                     report, report.DirectVfxSpawnPointCount == 0
                     && report.NestedVfxSpawnPointCount == ExpectedTotalVfxSpawnPointCount,
@@ -339,7 +377,7 @@ namespace Hexiege.Editor.Combat
             return report;
         }
 
-        private static List<string> FindUnitPrefabPaths()
+        internal static List<string> FindUnitPrefabPaths()
         {
             string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] { UnitsPrefabFolder });
             var paths = new List<string>(guids.Length);
@@ -444,9 +482,12 @@ namespace Hexiege.Editor.Combat
                 Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
                 Collider[] colliders = root.GetComponentsInChildren<Collider>(true);
                 AnimationEventRelay[] relays = root.GetComponentsInChildren<AnimationEventRelay>(true);
+                VisualRootProjector[] projectors =
+                    root.GetComponentsInChildren<VisualRootProjector>(true);
                 audit.AnimatorCount = animators.Length;
                 audit.RendererCount = renderers.Length;
                 audit.RelayCount = relays.Length;
+                report.ProjectorCount += projectors.Length;
 
                 Require(report, root.transform.childCount > 0, $"{path}: visual child is missing");
                 Require(report, animators.Length > 0, $"{path}: descendant Animator is missing");
@@ -465,6 +506,9 @@ namespace Hexiege.Editor.Combat
                 UnitView rootUnitView = allUnitViews.Length == 1 ? allUnitViews[0] : null;
                 foreach (Animator animator in animators)
                 {
+                    if (animator.applyRootMotion)
+                        report.AnimatorApplyRootMotionTrueCount++;
+
                     AnimationEventRelay relay = animator.GetComponent<AnimationEventRelay>();
                     Require(
                         report, relay != null,
@@ -517,6 +561,42 @@ namespace Hexiege.Editor.Combat
                     report.Errors.Add(
                         $"{path}: expected zero or one direct {VisualRootName}, found {visualRoots.Length} " +
                         "(nested or duplicate roots are fail-closed)");
+                }
+
+                if (visualRoot == null)
+                {
+                    Require(
+                        report, projectors.Length == 0,
+                        $"{path}: pre-migration prefab must contain zero VisualRootProjectors");
+                }
+                else
+                {
+                    Require(
+                        report, projectors.Length == 1,
+                        $"{path}: migrated prefab must contain exactly one VisualRootProjector, " +
+                        $"found {projectors.Length}");
+                    if (projectors.Length == 1)
+                    {
+                        VisualRootProjector projector = projectors[0];
+                        Require(
+                            report, projector.gameObject == root,
+                            $"{path}: VisualRootProjector must be attached to Simulation Root");
+
+                        var serializedProjector = new SerializedObject(projector);
+                        serializedProjector.UpdateIfRequiredOrScript();
+                        SerializedProperty visualRootProperty =
+                            serializedProjector.FindProperty("_visualRoot");
+                        bool validReference =
+                            visualRootProperty != null
+                            && visualRootProperty.propertyType
+                            == SerializedPropertyType.ObjectReference
+                            && visualRootProperty.objectReferenceValue == visualRoot;
+                        Require(
+                            report, validReference,
+                            $"{path}: VisualRootProjector._visualRoot must reference the direct VisualRoot");
+                        if (validReference)
+                            report.ValidProjectorReferenceCount++;
+                    }
                 }
 
                 List<Transform> directVfxSpawnPoints = GetDirectChildren(root.transform)
@@ -572,6 +652,7 @@ namespace Hexiege.Editor.Combat
                     allNetworkObjects.Length == 1 ? allNetworkObjects[0] : null,
                     allNetworkTransforms.Length == 1 ? allNetworkTransforms[0] : null,
                     allNetworkUnits.Length == 1 ? allNetworkUnits[0] : null,
+                    audit,
                     report);
                 Require(
                     report, !string.IsNullOrEmpty(audit.RollbackManifest),
@@ -744,6 +825,7 @@ namespace Hexiege.Editor.Combat
             NetworkObject networkObject,
             NetworkTransform networkTransform,
             NetworkUnit networkUnit,
+            UnitVisualRootPrefabAudit audit,
             UnitVisualRootAuditReport report)
         {
             if (unitView == null || networkObject == null
@@ -812,6 +894,10 @@ namespace Hexiege.Editor.Combat
                     report.Errors.Add($"{path}: serialized network config SHA-256 failed");
                     return null;
                 }
+
+                audit.NetworkObjectGlobalObjectIdHash = globalObjectIdHash;
+                audit.NetworkObjectSerializedSha256 = networkObjectHash;
+                audit.NetworkTransformSerializedSha256 = networkTransformHash;
 
                 return
                     $"beforeDirect=[{beforeHierarchy}]|" +

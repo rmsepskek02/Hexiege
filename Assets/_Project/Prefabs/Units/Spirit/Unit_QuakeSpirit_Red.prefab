@@ -193,6 +193,7 @@ GameObject:
   - component: {fileID: 8038127842895618843}
   - component: {fileID: 4572202920284526720}
   - component: {fileID: 6795519999512660230}
+  - component: {fileID: 8187409199649604263}
   m_Layer: 0
   m_Name: Unit_QuakeSpirit_Red
   m_TagString: Untagged
@@ -213,7 +214,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6770955737482807665}
+  - {fileID: 56760186571336146}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2751416379692841371
@@ -317,6 +318,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &8187409199649604263
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1327493637489527210}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 56760186571336146}
 --- !u!1 &1575063357082111503
 GameObject:
   m_ObjectHideFlags: 0
@@ -350,7 +364,7 @@ Transform:
   m_Children:
   - {fileID: 6464146480490909019}
   - {fileID: 1460341621109379910}
-  m_Father: {fileID: 6797984771518965809}
+  m_Father: {fileID: 56760186571336146}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &5360404373843175765
 Animator:
@@ -365,7 +379,7 @@ Animator:
   m_Controller: {fileID: 9100000, guid: aaaa3b1c11a444f4a965c443b80dd260, type: 2}
   m_CullingMode: 1
   m_UpdateMode: 0
-  m_ApplyRootMotion: 1
+  m_ApplyRootMotion: 0
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
@@ -704,6 +718,38 @@ Transform:
   m_Children:
   - {fileID: 8776690249493797287}
   m_Father: {fileID: 1307508837354494230}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &5238906423193226796
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 56760186571336146}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &56760186571336146
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5238906423193226796}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6770955737482807665}
+  m_Father: {fileID: 6797984771518965809}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5313992505357782044
 GameObject:

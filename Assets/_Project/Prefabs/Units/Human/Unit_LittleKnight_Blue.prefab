@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 7276106192260871327}
   - component: {fileID: 7174683472223532030}
   - component: {fileID: 8218468356027552255}
+  - component: {fileID: 488978062455843606}
   m_Layer: 0
   m_Name: Unit_LittleKnight_Blue
   m_TagString: Untagged
@@ -33,7 +34,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 8225981058509353477}
+  - {fileID: 8947171373983155069}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &5919731976156203893
@@ -51,6 +52,7 @@ MonoBehaviour:
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
   _attackToWalkBlend: 0.1
+  _vfxSpawnPoint: {fileID: 0}
   _rotationSpeed: 270
 --- !u!114 &7276106192260871327
 MonoBehaviour:
@@ -136,6 +138,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &488978062455843606
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 706557163707619843}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 8947171373983155069}
 --- !u!1 &1078653848647002859
 GameObject:
   m_ObjectHideFlags: 0
@@ -169,7 +184,7 @@ Transform:
   m_Children:
   - {fileID: 1313972025202486402}
   - {fileID: 4495687772037573417}
-  m_Father: {fileID: 7514501250809967387}
+  m_Father: {fileID: 8947171373983155069}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &5049372239885808215
 Animator:
@@ -697,6 +712,38 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 9206890328281592639}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &4203729124054494973
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8947171373983155069}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8947171373983155069
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4203729124054494973}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 8225981058509353477}
+  m_Father: {fileID: 7514501250809967387}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4228714856553590332
 GameObject:

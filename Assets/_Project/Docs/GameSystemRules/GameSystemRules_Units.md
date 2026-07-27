@@ -36,6 +36,8 @@
 
 Red 화면의 180도 반전은 Visual Root에만 적용한다. 클라이언트가 NetworkTransform 대상 Root를 직접 이동·회전하지 않는다.
 
+이 분리는 기존 유닛뿐 아니라 신규·교체 프리팹에도 예외 없이 적용한다. 이동, 타겟 탐색, 사거리, SimulationFacing, 공격 방향과 착탄 결과는 Simulation Root만 기준으로 삼고, 모델·Animator·무기 발사점·VFX·SFX·피격 반응은 Visual Root의 presentation pose만 사용한다. 신규 프리팹의 필수 계층·컴포넌트·검증 절차는 `GameSystemRules_UnitCombatSynchronization.md`의 `NET-ROOT-004`를 따른다.
+
 ---
 
 ## 2. 이동

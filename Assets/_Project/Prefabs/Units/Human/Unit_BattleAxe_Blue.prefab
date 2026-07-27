@@ -250,7 +250,7 @@ Transform:
   m_Children:
   - {fileID: 670540415566820654}
   - {fileID: 5193379972388454378}
-  m_Father: {fileID: 7224072599309141479}
+  m_Father: {fileID: 4571234234520598988}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &2959087061296154054
 Animator:
@@ -755,6 +755,38 @@ Transform:
   - {fileID: 6298745004712126519}
   m_Father: {fileID: 7224955547606104250}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &5506229288934705301
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4571234234520598988}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4571234234520598988
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5506229288934705301}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 5535372954951595871}
+  m_Father: {fileID: 7224072599309141479}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &5558937899159356552
 GameObject:
   m_ObjectHideFlags: 0
@@ -800,6 +832,7 @@ GameObject:
   - component: {fileID: 4542084116190213978}
   - component: {fileID: 8504592601299878838}
   - component: {fileID: 2728321570487192837}
+  - component: {fileID: 8995435175520227634}
   m_Layer: 0
   m_Name: Unit_BattleAxe_Blue
   m_TagString: Untagged
@@ -820,7 +853,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 5535372954951595871}
+  - {fileID: 4571234234520598988}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4985445794879340201
@@ -838,6 +871,7 @@ MonoBehaviour:
   _idleToWalkBlend: 0.1
   _toAttackBlend: 0.08
   _attackToWalkBlend: 0.1
+  _vfxSpawnPoint: {fileID: 0}
   _rotationSpeed: 270
 --- !u!114 &4542084116190213978
 MonoBehaviour:
@@ -923,6 +957,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &8995435175520227634
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5596701579882278624}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 4571234234520598988}
 --- !u!1 &5927830326865738959
 GameObject:
   m_ObjectHideFlags: 0

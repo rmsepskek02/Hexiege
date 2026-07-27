@@ -587,4 +587,18 @@ B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 `Comb
 
 **B0 판정:** 실제 에셋을 바꾸지 않는 migration readiness 게이트만 PASS다. 아직 50개 프리팹에 Visual Root를 생성하지 않았고 이동·바라보기, 타겟·공격 방향, 시각 Impact·실제 피해 시점의 세 증상도 해결 완료가 아니다. 다음 단계는 **B1 50개 프리팹 원자적 Root migration과 Presentation seam 적용**이다.
 
-사용자가 Testcase 작성을 요청하지 않았으므로 별도 `Testcase.md`는 생성하지 않았으며, 이번 실기 결과는 이 진행 기록에 보존한다.
+### 2026-07-27 — Tracer B1 asset migration과 Presentation seam 적용
+
+- [x] `VisualRootProjector`와 `PresentationPoseProvider`를 추가해 Simulation pose와 presentation pose의 소비 경계를 분리
+- [x] `NetworkUnit`의 Red 클라이언트 Simulation Root 보정 제거, 멀티플레이 `UnitFactory`의 canonical world position 생성
+- [x] `HitPresentationQueue`, `FloatingHpTextSpawner`, 사망 VFX·피격 반응을 presentation pose로 전환
+- [x] Blue/Red 25종, 총 50개 프리팹에 직접 자식 `VisualRoot`와 root `VisualRootProjector` 적용
+- [x] migration journal completed
+- [x] Apply 재실행 `[NO-OP]`: 50개 모두 migrated state, `SaveAsPrefabAsset`/`SaveAssets` 호출 0
+- [x] 신규·교체 프리팹의 영구 승인 계약과 Asset Matrix 등록 체크리스트 문서화
+- [ ] 실제 rollback failure injection으로 50개 프리팹과 `.meta` 원상복구 검증
+- [ ] Host/Client·Blue/Red runtime smoke에서 Simulation Root 동일성과 Visual Root 전용 관점 변환 검증
+
+**B1 현재 판정:** asset migration, journal 완료와 멱등 재실행은 PASS다. 실제 rollback failure injection과 Host/Client runtime smoke가 남아 있으므로 B1 전체 완료 게이트는 아직 열려 있다. B2 서버 이동·방향 Shadow는 두 잔여 게이트를 확인한 뒤 진행한다. 공격 Impact·피해 writer와 결과 기반 표현 결합은 여전히 후속 Tracer C/D 범위다.
+
+사용자가 Testcase 작성을 요청하지 않았으므로 별도 `Testcase.md`는 생성하지 않았으며, 이번 실행 결과는 이 진행 기록에 보존한다.

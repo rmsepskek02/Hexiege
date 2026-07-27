@@ -181,6 +181,7 @@ namespace Hexiege.Bootstrap
         private UnitProductionUseCase _unitProduction;
         private GameEndUseCase _gameEnd;
         private IEntityPositionProvider _positionProvider;
+        private IPresentationPoseProvider _presentationPoseProvider;
 
         // [피격 표현 큐] 피격 연출(HP 텍스트·VFX·타격 반응)을 공격자의 로컬 타격 프레임에 맞춰 방출.
         // 씬 수동 배치 없이 LoadMap()에서 이 GameObject에 AddComponent 후 Initialize한다.

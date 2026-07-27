@@ -28,6 +28,7 @@ using Hexiege.Core;
 using Hexiege.Application;
 using Hexiege.Application.Services;
 using Hexiege.Infrastructure;
+using Hexiege.Presentation;
 
 namespace Hexiege.Bootstrap
 {
@@ -277,6 +278,8 @@ namespace Hexiege.Bootstrap
             _unitMovement = new UnitMovementUseCase(_grid, _unitSpawn, _flowFieldService, hexMapper);
             _buildingPlacement = new BuildingPlacementUseCase(_grid);
             _positionProvider = new UnitWorldPositionProvider(_unitFactory, _buildingFactory);
+            _presentationPoseProvider =
+                new PresentationPoseProvider(_unitFactory, _buildingFactory);
 
             // 특수 공격(도끼병 휩쓸기) 튜닝값 — SpecialAttackConfig(SO)에서 float로 읽어 주입.
             // SO가 연결되지 않았으면 코드 기본값(반경 1.0 / 반각 120°)을 폴백으로 사용하여

@@ -1,9 +1,9 @@
 # Hexiege - 프로젝트 진행 현황
 
 **최종 수정일:** 2026-07-27
-**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2와 25종 감사 문서는 확정됐고, Tracer A0 schedule/dispatch Shadow, A1 pure Application UnitAction 계약·stateful reducer, A2 server-authoritative pose seam shadow, B0 read-only Visual Root migration readiness가 검증을 통과했다. 다만 실제 Root migration, result seam, 피해·RPC·VFX, Snapshot/ImpactResult 복제·표현 전환은 미연결이다. 기존 이동/Walk·타격 동기화 PASS는 Legacy 범위의 이력으로만 보존하며, 세 불일치 문제는 **P0 진행 중** 상태다.
+**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2와 25종 감사 문서는 확정됐고, Tracer A0/A1/A2, B0 read-only readiness와 B1의 50개 asset migration·journal 완료·재실행 NO-OP가 검증됐다. Simulation/Visual Root presentation seam은 구현됐지만 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke, result seam, 피해·RPC·VFX 권위 전환, Snapshot/ImpactResult 복제는 미완료다. 기존 이동/Walk·타격 동기화 PASS는 Legacy 범위의 이력으로만 보존하며, 세 불일치 문제는 **P0 진행 중** 상태다.
 **최신 main 반영:** InfernoSpirit은 직접 25 + 유닛 전용 DoT 5/초×3초가 Legacy 경로에서 사용자 실기 확인됐고, QuakeSpirit은 직접 20 + 주변 적 유닛·건물 10 및 Host/Client HP 결과가 로그로 확인됐다. 다만 Inferno는 marker 0.50초/설정 1.15초가 불일치하며, Quake는 기본 `OnAttackHit`이 없고 1.00초 placeholder를 사용한다. 두 구현 모두 권위 `AttackSequenceId`, `ImpactPoint`, 결과 순번이 없어 v2 Complete가 아니다.
-**현재 단계 (규칙 v2):** B0 read-only migration readiness PASS. 다음은 **B1 50개 프리팹 원자적 Simulation Root / Visual Root migration**이며, 아래 Legacy 스냅샷은 현재 판정에 사용하지 않는다.
+**현재 단계 (규칙 v2):** B1 asset migration·journal·NO-OP PASS. **rollback failure injection과 Host/Client·Blue/Red runtime smoke를 완료한 뒤 B2 서버 이동·방향 Shadow로 진행**하며, 아래 Legacy 스냅샷은 현재 판정에 사용하지 않는다.
 **Legacy 스냅샷 (2026-07-19):** BattleAxe·TorrentSpirit·BloomFairy·MushroomBomber의 당시 기능 완료 기록은 `WORK_HISTORY.md`로 이관해 보존한다. 이후 반영된 InfernoSpirit·QuakeSpirit 상태와 v2 판정은 위 최신 상태 및 AssetMatrix를 따른다.
 
 > Legacy 기능 PASS는 규칙 v2 Complete가 아니다. 실제 현재 상태는 위 `정밀 동기화 상태`와 `UnitCombatAssetMatrix.md`를 따른다.
@@ -26,9 +26,12 @@
 - 사용자 런타임 검증: Host(2026-07-27 18:04:04) schedule 429 / dispatch 428이며 마지막 1건은 로그 종료 당시 Impact 전 in-flight다. 완료 회차 누락·중복 0, attacker-dead 2건 정상 terminal, capacity eviction·예외 0. Client(18:09:48) `[UAS-POSE]` 0.
 - Tracer B0 완료: 50개 프리팹(Human 16 / Spirit 18 / Transcendence 16)의 read-only 구조 감사와 migration dry-run을 통과했다. 예상치는 VisualRoot create 50 / reuse 0 / direct-child move 58이며 실제 에셋 변경은 0이다.
 - B0 결정성 검증: 연속 두 실행 모두 50/50, errors 0, assetsModified 0이며 aggregate manifest SHA-256은 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 동일했다.
-- B0 미연결 경계: 실제 VisualRoot 생성·참조 재배선·writer 전환은 하지 않았다. 다음은 B1 50개 프리팹 원자적 migration이다.
+- Tracer B1 적용: 50/50 프리팹에 `VisualRoot`와 `VisualRootProjector`를 적용하고 migration journal을 완료했다. 재실행은 50개 모두 migrated state로 `[NO-OP]` 종료해 prefab 저장 호출 0을 확인했다.
+- B1 런타임 seam: 클라이언트 Simulation Root 관점 보정을 제거하고 `VisualRootProjector`·`PresentationPoseProvider`로 표현 pose를 분리했다. 기존 서버 피해·HP·RPC·VFX 권위와 A2 Simulation pose 관측은 유지한다.
+- B1 잔여 게이트: 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke는 미완료다. 이를 통과하기 전에는 B1 전체 완료 또는 이동·바라보기 문제 해결로 판정하지 않는다.
+- 신규·교체 프리팹은 migrated 템플릿과 `NET-ROOT-004` 승인 게이트를 사용한다. B1 50개 일괄 migration을 반복하지 않으며 Asset Matrix와 fail-closed validator roster·기준선을 함께 갱신한다.
 - 목표: Simulation Root/Visual Root 분리, `AttackerInstanceId + AttackSequenceId + HitIndex` 기반 정규 결과 키, 서버 시간 Impact, FIFO 대체
-- 런타임: A2에서 pose→reducer 관측 입력 seam까지 연결했지만 결과 seam은 미연결이고 기존 Network Root Red 보정, Walk/Attack 상태 분리, 공격자 FIFO가 남아 있어 **미완료**
+- 런타임: A2 pose→reducer 관측 입력 seam과 B1 Simulation/Visual Root 표현 seam까지 연결했고 기존 Network Root Red 보정은 제거했다. Walk/Attack 상태 분리, 공격자 FIFO, result seam과 권위 Snapshot/ImpactResult 전환이 남아 있어 **미완료**
 - 중요 사실: UnitStatsConfig는 25/25 등록됐으나 기본 Attack marker 누락 4종, BattleAxe·Inferno 등 marker/설정 불일치, hit/tracer preset 0/25, Quake의 표현 최대 7.5초 지연 가능성이 남아 있다.
 - 후속 구현과 검증은 현재 task Plan의 A2 이후 게이트를 따른다.
 

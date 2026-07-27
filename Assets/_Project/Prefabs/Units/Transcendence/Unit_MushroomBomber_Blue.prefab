@@ -641,7 +641,7 @@ Transform:
   m_Children:
   - {fileID: 1059891114521091950}
   - {fileID: 7133733802690914812}
-  m_Father: {fileID: 7311094755094981865}
+  m_Father: {fileID: 3583733176192143662}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &4228477497317093904
 Animator:
@@ -857,6 +857,38 @@ Transform:
   - {fileID: 1463485565735195111}
   m_Father: {fileID: 26871562558887587}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &7673750274780947997
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3583733176192143662}
+  m_Layer: 0
+  m_Name: VisualRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3583733176192143662
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7673750274780947997}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6703432779439243509}
+  m_Father: {fileID: 7311094755094981865}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &7710827832351617236
 GameObject:
   m_ObjectHideFlags: 0
@@ -870,6 +902,7 @@ GameObject:
   - component: {fileID: 1983197474773278282}
   - component: {fileID: 8275378539205052829}
   - component: {fileID: 8456197801535308215}
+  - component: {fileID: 261393807837618199}
   m_Layer: 0
   m_Name: Unit_MushroomBomber_Blue
   m_TagString: Untagged
@@ -890,7 +923,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 6703432779439243509}
+  - {fileID: 3583733176192143662}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6747688280904820542
@@ -994,6 +1027,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkUnit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &261393807837618199
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7710827832351617236}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c807c9860f24f9b921bd4990a434ee0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.VisualRootProjector
+  _visualRoot: {fileID: 3583733176192143662}
 --- !u!1 &8056988098335598414
 GameObject:
   m_ObjectHideFlags: 0

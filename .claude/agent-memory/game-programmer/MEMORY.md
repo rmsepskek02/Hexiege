@@ -271,3 +271,11 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - `LoadPrefabContents`가 생성하는 native bookkeeping 때문에 전체 `SerializedProperty` 해시는 결정적이지 않다. NetworkObject/NetworkTransform의 의미 설정 allowlist만 invariant 형식으로 해시해야 한다.
 - 16KB Unity Console 절단을 고려해 runId가 있는 프리팹별 manifest와 종합 SHA-256 `[END]`를 분리한다. 사용자 연속 2회 dry-run은 50/50, errors 0, assetsModified 0, 동일 SHA-256 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 PASS했다.
 - 다음은 B1 50개 프리팹 원자적 migration이다. B0는 실제 VisualRoot 생성·writer 전환이나 세 동기화 증상 해결 완료가 아니다.
+
+### 2026-07-27 - Unit ActionSequence Tracer B1 asset migration 적용
+
+- `VisualRootProjector`/`PresentationPoseProvider`로 Simulation pose와 presentation pose를 분리하고 `NetworkUnit`의 클라이언트 Simulation Root 보정을 제거했다. 멀티 `UnitFactory`는 canonical world position을 사용하며 A2 pose observer와 기존 서버 피해 권위는 유지한다.
+- 50개 프리팹에 직접 자식 `VisualRoot`와 root projector를 적용했고 migration journal completed를 확인했다. 사용자 재실행은 50개 모두 migrated state `[NO-OP]`, prefab 저장 호출 0이다.
+- 현행 validator 계약: root Animator/Renderer 0, Collider는 Simulation Root에만 존재, VisualRoot descendant Collider 0, 모든 Animator Root Motion off, 각 Animator와 동일 GO의 `AnimationEventRelay` 1개, projector 참조 유효.
+- 신규 프리팹은 B1 bulk migration을 반복하지 않고 migrated 템플릿과 `NET-ROOT-004`를 사용한다. UnitType/Blue·Red pair/Matrix/validator roster와 VFX baseline을 원자적으로 갱신한다.
+- 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke는 미완료다. 통과 전 B1 전체 완료·세 증상 해결 또는 B2 진입으로 확대하지 않는다.

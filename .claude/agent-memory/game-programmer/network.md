@@ -64,12 +64,13 @@ ServerRpc 검증 패턴: 소유권(팀) + 대상 존재 + (Castle 아님) + 골�
 
 ---
 
-## 회전/위치 동기화 (유닛, 최종 2026-03-29)
+## 회전/위치 동기화 (유닛, 2026-07-27 B1 갱신)
 
 - 위치: NGO NetworkTransform (서버 position → 클라 자동 보간)
 - 회전: NetworkTransform SyncRotAngleY=true (서버 즉시 스냅 → 클라 보간)
 - Walk/공격/사망: ClientRpc (이벤트 기반)
-- Red 클라 보정: NetworkUnit.LateUpdate() (위치 반전 + Y축 +180°)
+- Red 클라 현행 보정: `VisualRootProjector`가 자식 `VisualRoot`만 위치 반전 + Y축 180°로 투영한다. NetworkTransform 대상 Simulation Root는 서버 canonical pose를 유지한다.
+- Legacy 이력: B1 이전에는 `NetworkUnit.LateUpdate()`가 Red 클라이언트의 Simulation Root를 직접 보정했으나 현재는 제거됐다.
 - **이중 보간 금지**: 서버 DORotate(0.3) + NetworkTransform(0.1) = ~1초 딜레이. 서버 즉시 스냅하면 NetworkTransform 보간만 적용
 
 ---

@@ -105,6 +105,12 @@ namespace Hexiege.Presentation
         /// <summary> 건물 GameObject 조회용(스케일 펀치 대상 + 타워 발사 VFX 위치). </summary>
         private BuildingFactory _buildingFactory;
 
+        /// <summary>
+        /// 로컬 화면에 그려지는 유닛/건물 pose 조회용.
+        /// Simulation용 IEntityPositionProvider와 분리하여 전투 권위 좌표를 오염시키지 않는다.
+        /// </summary>
+        private IPresentationPoseProvider _presentationPoseProvider;
+
         /// <summary> 공격자 AttackCooldown 조회용(타임아웃 계산). </summary>
         private UnitSpawnUseCase _unitSpawn;
 
@@ -142,13 +148,15 @@ namespace Hexiege.Presentation
             UnitFactory unitFactory,
             BuildingFactory buildingFactory,
             UnitSpawnUseCase unitSpawn,
-            BuildingPlacementUseCase buildingPlacement)
+            BuildingPlacementUseCase buildingPlacement,
+            IPresentationPoseProvider presentationPoseProvider)
         {
             _hpTextSpawner = hpTextSpawner;
             _unitFactory = unitFactory;
             _buildingFactory = buildingFactory;
             _unitSpawn = unitSpawn;
             _buildingPlacement = buildingPlacement;
+            _presentationPoseProvider = presentationPoseProvider;
 
             // 재초기화(맵 재로드) 대비 — 이전 보류 항목 정리.
             _pendingByAttacker.Clear();
@@ -365,18 +373,25 @@ namespace Hexiege.Presentation
             GameObject targetGo = evt.IsUnit
                 ? (_unitFactory != null ? _unitFactory.GetUnitObject(evt.Entity.Id) : null)
                 : (_buildingFactory != null ? _buildingFactory.GetBuildingObject(evt.Entity.Id) : null);
+            Transform targetPresentation = evt.IsUnit
+                ? _presentationPoseProvider?.GetUnitTransform(evt.Entity.Id)
+                : _presentationPoseProvider?.GetBuildingTransform(evt.Entity.Id);
+            if (targetPresentation == null && targetGo != null)
+                targetPresentation = targetGo.transform;
 
             // ② 피격 VFX — 유닛 타겟만 재생(PlayUnitHit은 UnitType 기반). 프리셋 미설정이면 내부에서 조용히 스킵.
             //    (건물 피격 VFX는 이번 범위 아님 — Phase 2는 유닛 피격 VFX만 다룬다.)
-            if (evt.IsUnit && targetGo != null && evt.Entity is UnitData targetUnit)
+            if (evt.IsUnit && targetPresentation != null && evt.Entity is UnitData targetUnit)
             {
-                EffectManager.Instance?.PlayUnitHit(targetUnit.Type, targetGo.transform.position);
+                EffectManager.Instance?.PlayUnitHit(
+                    targetUnit.Type,
+                    targetPresentation.position);
             }
 
             // ③ 타격 반응 — 유닛/건물 GameObject에 짧은 스케일 펀치(원 스케일 캐시 후 복원 보장).
-            if (targetGo != null)
+            if (targetPresentation != null)
             {
-                HitReactionPunch.Play(targetGo);
+                HitReactionPunch.Play(targetPresentation.gameObject);
             }
         }
 
@@ -452,17 +467,26 @@ namespace Hexiege.Presentation
             BuildingData tower = _buildingPlacement != null ? _buildingPlacement.GetBuilding(evt.AttackerId) : null;
             if (tower == null) return;
 
-            Vector3 towerPos = towerGo.transform.position;
+            Transform towerPresentation =
+                _presentationPoseProvider?.GetBuildingTransform(evt.AttackerId);
+            Vector3 towerPos = towerPresentation != null
+                ? towerPresentation.position
+                : towerGo.transform.position;
 
             // 회전 = 타워 → 타겟 방향(XZ 평면). 타겟 GameObject가 있으면 그 방향을 바라보게,
             //   없으면 회전 없이(identity) 재생한다.
             Quaternion rot = Quaternion.identity;
-            GameObject targetGo = evt.Entity != null && evt.IsUnit && _unitFactory != null
-                ? _unitFactory.GetUnitObject(evt.Entity.Id)
+            Transform targetPresentation = evt.Entity != null && evt.IsUnit
+                ? _presentationPoseProvider?.GetUnitTransform(evt.Entity.Id)
                 : null;
-            if (targetGo != null)
+            if (targetPresentation == null && evt.Entity != null && evt.IsUnit && _unitFactory != null)
             {
-                Vector3 dir = targetGo.transform.position - towerPos;
+                GameObject targetGo = _unitFactory.GetUnitObject(evt.Entity.Id);
+                targetPresentation = targetGo != null ? targetGo.transform : null;
+            }
+            if (targetPresentation != null)
+            {
+                Vector3 dir = targetPresentation.position - towerPos;
                 dir.y = 0f; // XZ 평면 기준 — 높이 차이는 발사 방향에서 제외(수평 조준).
                 if (dir.sqrMagnitude > 0.0001f)
                     rot = Quaternion.LookRotation(dir);

@@ -55,6 +55,23 @@ Red 관점의 180도 변환은 Visual Root에만 적용한다. 서버 Simulation
 
 VisualFacing은 SimulationFacing을 재생한 결과이며 판정 원본이 아니다.
 
+### NET-ROOT-004. 신규·교체 유닛 프리팹 승인 게이트
+
+이 계약은 현재 등록된 프리팹뿐 아니라 앞으로 추가하거나 교체하는 모든 유닛 프리팹에 적용한다. 신규 유닛 타입은 Blue/Red 프리팹 쌍이 모두 아래 조건을 통과하기 전에는 생산 목록이나 빌드에 등록하지 않는다.
+
+- 프리팹 최상위 오브젝트를 Simulation Root로 사용하고 `NetworkObject`, `NetworkTransform`, `NetworkUnit`, `UnitView`, `VisualRootProjector` 등 네트워크·권위 컴포넌트를 이 Root에 둔다.
+- Simulation Root의 직접 자식 표현 계층은 로컬 위치 `(0,0,0)`, 로컬 회전 identity, 로컬 스케일 `(1,1,1)`인 `VisualRoot` 하나로 구성한다.
+- 모델, Renderer, Animator, 무기 발사점, `VfxSpawnPoint`와 그 밖의 표현 전용 오브젝트는 모두 `VisualRoot` 아래에 둔다. `NetworkObject`와 `NetworkTransform`은 `VisualRoot`로 이동하지 않는다.
+- Collider는 Simulation Root에만 두고 `VisualRoot` 하위에는 두지 않는다. 이는 Simulation Root의 충돌·선택 경계를 화면 관점 반전과 분리하는 authoring 계약이며, 서버 피해 판정이 Collider에 의존한다는 뜻은 아니다.
+- Simulation Root에는 Animator와 Renderer를 두지 않는다. 각 Animator와 같은 GameObject에 `AnimationEventRelay` 하나를 두고, 프리팹 전체 relay 수가 Animator 수와 일치해야 한다.
+- 모든 Animator의 Root Motion을 비활성화한다. Animator가 Simulation Root 또는 Visual Root를 별도의 이동 writer로 만들 수 없다.
+- `VisualRootProjector._visualRoot`는 해당 프리팹의 직접 자식 `VisualRoot`를 참조해야 하며 누락·중복 projector를 허용하지 않는다.
+- 사거리·타겟·방향·착탄·피해 판정은 Simulation Root pose만 읽는다. VFX·SFX·플로팅 텍스트·피격 반응 등 표현 소비자는 presentation pose를 읽으며 Simulation Root에 쓰지 않는다.
+- 신규 타입은 `UnitType`, `Unit_<UnitType>_<Blue|Red>` 형식의 Blue/Red 파일명과 등록, 스탯·공격 프로필, Animator·VFX 연결, 에셋 감사표와 구조 검증기의 예상 roster·기준선을 함께 갱신한다. 검증 상수를 완화하거나 검증기를 우회하여 프리팹을 승인하지 않는다.
+- 전체 구조 검증과 Host/Client·Blue/Red smoke를 통과해야 한다. 어느 한쪽 프리팹만 통과한 부분 상태는 실패로 처리한다.
+
+기존 50개 프리팹을 전환한 B1 일괄 migration은 과거 자산을 위한 일회성 도구다. 신규 프리팹은 검증된 migrated 템플릿에서 처음부터 위 구조로 만들고 전체 검증을 실행한다. Legacy 구조의 외부 프리팹을 가져오면 별도 단일 프리팹 설정 절차 또는 수동 규격화 후 검증하며, 이미 전환된 전체 프리팹에 B1 일괄 migration을 다시 적용하지 않는다.
+
 ---
 
 ## 3. 서버 행동 상태

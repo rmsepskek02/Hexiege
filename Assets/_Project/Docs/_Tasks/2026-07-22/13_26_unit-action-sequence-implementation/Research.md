@@ -193,3 +193,15 @@ NGO·Animator·씬 없이 Application 수준에서 다음을 결정적으로 재
 - 초기 전체 `SerializedProperty` 해시는 `LoadPrefabContents`가 만드는 native bookkeeping까지 포함해 실행 간 불안정했다. NGO 의미 설정 allowlist만 해시하도록 교정했고, 16KB Console 절단에 대비해 runId·프리팹별 로그와 종합 digest를 분리했다.
 
 이 결과는 B1 migration의 입력과 rollback 기준이 결정적이라는 뜻이다. 실제 VisualRoot 생성, 참조 재배선, 이동·회전 writer 변경은 아직 수행하지 않았으므로 세 사용자 증상의 해결 근거로 사용하지 않는다.
+
+---
+
+## 10. 2026-07-27 Tracer B1 적용 결과
+
+- `VisualRootProjector`와 `PresentationPoseProvider`를 추가해 서버 판정용 Simulation pose와 VFX·피격 반응·플로팅 텍스트용 presentation pose를 분리했다.
+- `NetworkUnit`의 Red 클라이언트 Simulation Root 위치·회전 보정을 제거하고, 멀티플레이 `UnitFactory`는 서버 canonical world position으로 유닛을 생성하도록 교정했다. A2 pose observer는 계속 Simulation Root를 읽으며 기존 피해·HP·RPC·VFX 권위는 변경하지 않았다.
+- B0 manifest를 입력으로 50개 프리팹에 직접 자식 `VisualRoot`와 root `VisualRootProjector`를 적용했다. 네트워크 설정 기준선과 projector 참조, Animator Root Motion 비활성화, 저장 후 재로드 구조를 검사하는 Editor migration을 사용했다.
+- migration 저널의 완료가 확인됐고, 사용자가 Apply를 다시 실행했을 때 `[UAS-ROOT][apply][NO-OP] 50개 프리팹이 이미 migrated state`가 기록됐다. 두 번째 실행은 `SaveAsPrefabAsset`과 `SaveAssets`를 호출하지 않아 멱등 적용을 확인했다.
+- 신규·교체 프리팹은 이 50개 일괄 migration을 반복하지 않는다. 검증된 migrated 템플릿에서 처음부터 Root 계약을 만족시키고, roster·감사표·검증기의 고정 예상 수와 VFX 기준선을 함께 갱신한 뒤 전체 검증을 통과시킨다.
+
+현재 근거로 확정할 수 있는 범위는 **50개 asset migration + journal completed + 재실행 NO-OP PASS**다. 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke는 아직 미완료이므로 B1 전체 완료나 이동·바라보기 문제 해결 완료로 판정하지 않는다.

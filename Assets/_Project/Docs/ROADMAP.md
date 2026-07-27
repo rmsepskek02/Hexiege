@@ -1,11 +1,11 @@
 # Hexiege - 작업 로드맵
 
 **최종 수정일:** 2026-07-27
-**최우선 작업:** 서버 권위 유닛 ActionSequence 전환. 규칙 v2, 25종 감사, A0/A1/A2와 B0 read-only migration readiness는 완료했지만 실제 Root migration, result seam·권위 전환·멀티플레이 전체 검증은 미완료다.
-**현재 단계:** B0가 50개 프리팹의 결정적 read-only manifest와 mutation 0을 확인했다. 기존 피해·RPC·VFX 권위는 유지하며, 다음은 B1 50개 프리팹 원자적 Simulation Root / Visual Root migration이다.
+**최우선 작업:** 서버 권위 유닛 ActionSequence 전환. 규칙 v2, 25종 감사, A0/A1/A2, B0와 B1 asset migration·journal·NO-OP는 완료했지만 B1 rollback/runtime smoke, result seam·권위 전환·멀티플레이 전체 검증은 미완료다.
+**현재 단계:** 50개 프리팹의 Simulation/Visual Root 구조와 presentation seam을 적용했다. 실제 rollback failure injection과 Host/Client·Blue/Red smoke를 통과한 뒤 B2 서버 이동·방향 Shadow로 진행한다.
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
-> B0 통과는 실제 에셋 변경 전 migration readiness 이정표다. 런타임 행동 교정이나 세 사용자 증상의 해결 완료를 뜻하지 않으며, 현재 우선순위와 유닛별 상태는 아래 P0 항목 및 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
+> B1 asset 적용과 재실행 NO-OP는 Root 구조 전환 이정표다. rollback/runtime smoke와 이동·공격·Impact 권위 전환 완료를 뜻하지 않으며, 현재 우선순위와 유닛별 상태는 아래 P0 항목 및 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
 
 ---
 
@@ -13,12 +13,13 @@
 
 | 우선순위 | 작업 | 카테고리 | 예상 규모 |
 |---------|------|---------|---------|
-| 🔴 P0 | 서버 권위 Unit ActionSequence 구현 — A0/A1/A2/B0 완료 → B1 Simulation/Visual Root 원자적 migration → B2 Shadow → B3 경기 단위 writer 전환 → Snapshot/ImpactResult 복제 → FIFO 대체 → 25종 이전 → 멀티 QA → Legacy 제거 | 전투/네트워크 | 특대 |
+| 🔴 P0 | 서버 권위 Unit ActionSequence 구현 — A0/A1/A2/B0 완료 → B1 asset 적용 완료·rollback/runtime smoke 잔여 → B2 Shadow → B3 경기 단위 writer 전환 → Snapshot/ImpactResult 복제 → FIFO 대체 → 25종 이전 → 멀티 QA → Legacy 제거 | 전투/네트워크 | 특대 |
 | ✅ Tracer A0 | SpearMan schedule/dispatch Shadow — Host 204/204·고유 204·누락/중복/타겟/facing 불일치 0. Client는 header only이며 실제 피해 결과 검증이 아님 (2026-07-22) | 전투/계측 | 중 |
 | ✅ Tracer A1 | Pure Application UnitAction 계약+stateful reducer — C# 9/Application·Editor compile PASS, Unity Editor 메뉴 PASS, reflection Validate* 10 PASS, Standards/Spec P0~P3 0 (2026-07-22) | 아키텍처/전투 | 중 |
 | ✅ Tracer A2 | Server-authoritative pose seam shadow — Host 완료 회차 상관관계 누락·중복 0, attacker-dead 2건 DeadTerminal, capacity eviction·예외 0, Client observer 0. 기존 피해·RPC·VFX 권위 유지 (2026-07-27) | 전투/네트워크 | 대 |
 | ✅ Tracer B0 | Visual Root migration readiness — 50/50 read-only 감사, errors 0, mutation/assetsModified 0, 연속 실행 aggregate manifest 동일 (2026-07-27) | 에셋/검증 | 중 |
-| 🔴 P0 다음 | Tracer B1 50개 프리팹 원자적 Simulation Root / Visual Root migration — 네트워크 root 식별자 보존, presentation seam과 rollback 검증 | 전투/네트워크 | 대 |
+| 🟡 Tracer B1 | 50개 프리팹 Simulation Root / Visual Root asset migration·journal·재실행 NO-OP PASS. 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke 후 전체 완료 판정 | 전투/네트워크 | 대 |
+| 🔴 P0 다음 | Tracer B2 서버 이동·방향 Shadow — B1 잔여 게이트 통과 후 시작 | 전투/네트워크 | 대 |
 | ✅ 설계 완료 | 유닛 이동·공격 규칙 v2 일괄 개정 + 25종 공격 에셋 감사. 런타임 완료를 의미하지 않음 (2026-07-20) | 설계/문서 | 대 |
 | ✅ Legacy 반영 | QuakeSpirit UnitStatsConfig 등록 — HP250/ATK20/range0.5/detect1.0/move0.5/cooldown5.0. 단 hitFrameTimes 1.00초는 placeholder | 데이터/전투 | 중 |
 | 🔴 P0 | AttackTimeline 교정 — 기본 Attack marker 누락 4종(Quake 포함), BattleAxe·Inferno·Stream 등 설정/클립 불일치, 복수 Attack 클립 선택 순서 제거 | 애니메이션/전투 | 대 |
@@ -148,7 +149,9 @@
 - 추가 목표: Idle → Patrol → Retreat 상태 확장 (현재 미구현)
 
 ### D-4. 신규 유닛 프리팹 완성 (16종)
-**🔧 에디터 스크립트 완료 (2026-06-05)**: Human 5종(LittleKnight/SpearMan/BattleAxe/Tank/CannonCart)·Spirit 6종(DustSpirit/BoulderSpirit/QuakeSpirit/TideSpirit/StreamSpirit/TorrentSpirit)·Transcendence 5종(RabbitTrickster/RhinoBreaker 등) × Blue/Red 총 32개 프리팹 자동 컴포넌트 부착. `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`
+**Legacy 기록 (2026-06-05):** Human 5종(LittleKnight/SpearMan/BattleAxe/Tank/CannonCart)·Spirit 6종(DustSpirit/BoulderSpirit/QuakeSpirit/TideSpirit/StreamSpirit/TorrentSpirit)·Transcendence 5종(RabbitTrickster/RhinoBreaker 등) × Blue/Red 총 32개 프리팹 자동 컴포넌트 부착 작업이 기록돼 있다. 당시 문서가 가리키는 `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`는 현재 저장소에 존재하지 않으므로 현행 도구나 신규 authoring 절차로 사용하지 않는다.
+
+**현행 신규 authoring 권위 (2026-07-27):** `GameSystemRules_UnitCombatSynchronization.md`의 `NET-ROOT-004`, `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`의 신규·교체 프리팹 체크리스트, `ValidateUnitCombatSetup.cs`의 fail-closed 검증을 따른다. 기존 50개용 B1 bulk migration은 신규 프리팹마다 반복하지 않는다.
 
 **Legacy 구현 이력 (2026-07-22 재감사, v2 재검증 필요)**: 레지스트리 기반 공격 핸들러는 BattleAxe, TorrentSpirit, MushroomBomber, InfernoSpirit, QuakeSpirit 5종이며 BloomFairy는 별도 힐러 경로다. Inferno 직접+DoT는 사용자 실기, Quake 직접+스플래시는 Host/Client 피해 로그 범위에서 확인됐다. 이는 Legacy 기능 확인이며 v2 ActionSequence·ImpactPoint·표현 타임라인 완료가 아니다. 각 유닛의 완성 판정은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
 
