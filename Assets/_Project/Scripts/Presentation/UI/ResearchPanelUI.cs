@@ -151,20 +151,40 @@ namespace Hexiege.Presentation
         {
             if (lab == null || lab.Type != BuildingType.Research) return;
 
+            // 이미 열려 있던 상태인지 미리 기록한다.
+            // (닫힘→열림 전이에서만 오버레이 참조 카운터를 1 올려, Open 중복 호출로
+            //  카운터가 어긋나 오버레이가 끝까지 안 닫히는 문제를 방지 — ProductionPanelUI/BuildingPanelBase 정합.)
+            bool wasOpen = IsOpen;
+
             _currentLab = lab;
             _team = lab.Team;
             _hasLocalProgress = false;
 
             ShowPanel();
+
+            // 규칙 8·9: 연구 패널은 조작(Popup) 타입 → 배경(반투명 오버레이) 탭 시 Close.
+            // 오버레이는 UIManager 단일 소유(개별 팝업이 자체 오버레이를 만들지 않는다).
+            // Popup 모드: ShowBlockingOverlay에 Close 콜백을 넘겨 배경 탭 = 닫기로 동작하게 한다.
+            // null-safe: UIManager는 Login 씬에서 생성되므로 씬 직접 진입 시 Instance가 null일 수 있다.
+            if (!wasOpen)
+                UIManager.Instance?.ShowBlockingOverlay(Close);
+
             RefreshRequested?.Invoke();
         }
 
         /// <summary> 패널을 닫는다. </summary>
         public void Close()
         {
+            // 이미 닫혀 있으면(=오버레이를 이 패널이 올린 적 없으면) 중복 Hide로
+            // 공유 참조 카운터가 어긋나 다른 팝업의 오버레이까지 사라지는 것을 막기 위해 조기 반환한다.
+            if (!IsOpen) return;
+
             _currentLab = null;
             _hasLocalProgress = false;
             HidePanel();
+
+            // 규칙 9: Popup 오버레이 해제(참조 카운터 -1). null-safe 준수.
+            UIManager.Instance?.HideBlockingOverlay();
         }
 
         private void ShowPanel()

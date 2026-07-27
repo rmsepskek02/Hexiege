@@ -505,12 +505,13 @@ namespace Hexiege.Bootstrap
         {
             if (_inputHandler != null)
             {
-                // 비생산 건물 액션 패널(_buildingActionPanelUI)을 마지막 인자로 함께 주입.
-                // 싱글/멀티 모드 모두 동일 — 멀티는 액션 패널 내부에서 ServerRpc 분기 처리.
+                // 비생산 건물 액션 패널(_buildingActionPanelUI)과 연구소 강화 패널(_researchPanelUI)을 함께 주입.
+                // 싱글/멀티 모드 모두 동일 — 멀티는 각 패널 내부에서 ServerRpc 분기 처리.
+                // _researchPanelUI 가 씬에 미배선(null)이면 연구소 클릭은 기존 액션 패널로 폴백된다.
                 _inputHandler.Initialize(
                     _gridInteraction, _mainCamera,
                     _buildingPlacement, _buildingUI, _productionUI,
-                    _buildingActionPanelUI);
+                    _buildingActionPanelUI, _researchPanelUI);
             }
         }
 
