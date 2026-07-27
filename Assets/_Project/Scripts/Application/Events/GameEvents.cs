@@ -330,6 +330,28 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// 연구 착수가 서버에서 확정되어 "소유 클라"에게만 진행 표시를 시작하라고 알리는 이벤트.
+    /// 멀티플레이 순수 클라이언트(Red)는 진행 상태를 UseCase에 두지 않으므로(서버 권위 틱),
+    /// 이 이벤트의 Total로 UI가 로컬 카운트다운을 그린다. 완료는 OnUpgradeChanged(레벨 반영)로 확정.
+    /// </summary>
+    public readonly struct ResearchStartedLocalEvent
+    {
+        /// <summary> 착수한 강화 그룹(Regen은 그룹 무시). </summary>
+        public readonly UpgradeGroup Group;
+        /// <summary> 착수한 강화 스탯. </summary>
+        public readonly UnitUpgradeStat Stat;
+        /// <summary> 전체 연구 시간(초). UI 진행 바 카운트다운 기준. </summary>
+        public readonly float Total;
+
+        public ResearchStartedLocalEvent(UpgradeGroup group, UnitUpgradeStat stat, float total)
+        {
+            Group = group;
+            Stat = stat;
+            Total = total;
+        }
+    }
+
+    /// <summary>
     /// 건물 배치 이벤트 데이터.
     /// BuildingPlacementUseCase에서 건물 배치 시 발행 → BuildingFactory가 프리팹 생성.
     /// </summary>
@@ -779,6 +801,22 @@ namespace Hexiege.Application
         /// 구독: ProductionPanelUI (골드 표시 갱신)
         /// </summary>
         public static readonly Subject<ResourceChangedEvent> OnResourceChanged = new Subject<ResourceChangedEvent>();
+
+        /// <summary>
+        /// 연구소 유닛 강화(업그레이드) 상태가 바뀔 때 발행(팀 단위).
+        /// 발행: UnitUpgradeUseCase(연구 착수/완료/취소/레벨 동기화 시)
+        /// 구독: ResearchPanelUI(트랙 레벨/진행 상태/버튼 활성 갱신)
+        /// 값: 상태가 바뀐 팀 Id. 구독자는 이 팀의 트랙 상태를 UseCase에서 다시 읽어 갱신한다.
+        /// </summary>
+        public static readonly Subject<TeamId> OnUpgradeChanged = new Subject<TeamId>();
+
+        /// <summary>
+        /// 멀티플레이에서 서버가 연구 착수를 확정해 "소유 클라"에게 진행 표시를 시작시키는 이벤트.
+        /// 발행: NetworkUpgradeController.ResearchStartedClientRpc(요청 클라 한정)
+        /// 구독: ResearchPanelUI(로컬 진행 바 카운트다운 시작)
+        /// </summary>
+        public static readonly Subject<ResearchStartedLocalEvent> OnResearchStartedLocal
+            = new Subject<ResearchStartedLocalEvent>();
 
         /// <summary>
         /// 생산 시작 시 발행.

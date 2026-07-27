@@ -55,6 +55,13 @@ namespace Hexiege.Domain
             /// 상태머신(UnitView)이 이 값으로 "적 감지" 대신 "부상 아군 감지" 힐 루프에 진입한다.
             /// </summary>
             public bool IsHealer;
+
+            /// <summary>
+            /// 기본 방어력(신규 스탯). 받는 피해를 비율로 감쇄한다(DamageCalculator.ApplyDefense).
+            /// 전 유닛 기본 0이며, Phase 1에서는 항상 0으로 동작한다(연구로 올리는 부분은 Phase 2).
+            /// Config(UnitStatEntry.defense)에 값이 없으면 0으로 폴백된다.
+            /// </summary>
+            public int Defense;
         }
 
         // 내부 Dictionary. Initialize()가 호출되기 전에는 null.
@@ -170,5 +177,15 @@ namespace Hexiege.Domain
         /// </summary>
         public static bool GetIsHealer(UnitType type)
             => TryGet(type, out var v) && v.IsHealer;
+
+        /// <summary>
+        /// 유닛 타입별 기본 방어력을 반환한다. Config에 값이 없으면 0(무방어)으로 폴백한다.
+        ///
+        /// 사용처: UnitData.Defense가 생성 시 이 값을 복사(스폰 스냅샷)하고,
+        /// 데미지 계산(DamageCalculator.ApplyDefense)이 그 값으로 피해를 감쇄한다.
+        /// Phase 1에서는 전 유닛 0이라 실질 무감쇄(하위호환).
+        /// </summary>
+        public static int GetDefense(UnitType type)
+            => TryGet(type, out var v) ? v.Defense : 0;
     }
 }

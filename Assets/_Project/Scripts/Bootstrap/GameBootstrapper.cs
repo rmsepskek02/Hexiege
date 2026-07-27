@@ -96,6 +96,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("비생산 건물 공용 액션 패널 UI (MiningPost / Tower / 특수건물 클릭 시 표시).")]
         [SerializeField] private BuildingActionPanelUI _buildingActionPanelUI;
 
+        [Tooltip("연구소(Research) 강화 패널 UI (연구소 클릭 시 표시). 프리팹/씬 배선은 사용자 Unity 작업.")]
+        [SerializeField] private ResearchPanelUI _researchPanelUI;
+
         [Tooltip("생산 티커")]
         [SerializeField] private ProductionTicker _productionTicker;
 
@@ -114,6 +117,9 @@ namespace Hexiege.Bootstrap
 
         [Tooltip("네트워크 건물 배치 컨트롤러 (씬에 NetworkBuildingController NetworkObject 배치 후 연결)")]
         [SerializeField] private Hexiege.Infrastructure.NetworkBuildingController _networkBuildingController;
+
+        [Tooltip("네트워크 연구소 강화 컨트롤러 (씬에 NetworkUpgradeController NetworkObject 배치 후 연결)")]
+        [SerializeField] private Hexiege.Infrastructure.NetworkUpgradeController _networkUpgradeController;
 
         [Tooltip("네트워크 유닛 생산 컨트롤러 (씬에 NetworkProductionController NetworkObject 배치 후 연결)")]
         [SerializeField] private Hexiege.Infrastructure.NetworkProductionController _networkProductionController;
@@ -175,6 +181,7 @@ namespace Hexiege.Bootstrap
         private UnitSpawnUseCase _unitSpawn;
         private UnitCombatUseCase _unitCombat;
         private TowerCombatUseCase _towerCombat;
+        private UnitUpgradeUseCase _unitUpgrade;
         private BuildingPlacementUseCase _buildingPlacement;
         private ResourceUseCase _resource;
         private PopulationUseCase _population;
@@ -221,6 +228,9 @@ namespace Hexiege.Bootstrap
         private CongestionMap _congestionMap;
         private CongestionAwarePathfinder _congestionPathfinder;
         private System.IDisposable _congestionSub;
+
+        // [Phase 4] 연구소 파괴 시 진행 중 연구 취소·환불 구독(서버/싱글 전용). ClearAll에서 정리.
+        private System.IDisposable _labDestroyedSub;
 
         /// <summary>
         /// StartNetworkGame() 중복 호출 방지 플래그.
@@ -316,6 +326,13 @@ namespace Hexiege.Bootstrap
         /// 맵 로드 전이면 null 반환.
         /// </summary>
         public TowerCombatUseCase GetTowerCombat() => _towerCombat;
+
+        /// <summary>
+        /// 현재 UnitUpgradeUseCase 반환(연구소 강화 팀별 상태).
+        /// NetworkUpgradeController에서 서버 측 연구 요청/타이머/브로드캐스트에 사용.
+        /// 맵 로드 전이면 null.
+        /// </summary>
+        public UnitUpgradeUseCase GetUpgradeUseCase() => _unitUpgrade;
 
         /// <summary>
         /// UnitFactory를 IUnitFactory 인터페이스로 반환.
@@ -441,6 +458,15 @@ namespace Hexiege.Bootstrap
                 // BloomFairy HoT(지속 회복) 등 시간 지속 효과를 진행. 파도와 동일하게 서버 권위 틱.
                 // 싱글플레이 전용 — 멀티플레이에서는 NetworkCombatController가 호출(이중 틱 금지).
                 _unitCombat.TickTimedEffects(Time.deltaTime);
+                // [Phase 3] 자연회복(초월 전용 상시 HoT) — BloomFairy 힐과 분리된 독립 채널. 서버 권위 틱.
+                _unitCombat.TickNaturalRegen(Time.deltaTime);
+            }
+
+            // [Phase 4] 연구 진행 타이머(연구소 강화). 싱글플레이 전용 — 멀티는 NetworkCombatController가 구동.
+            //   완료 시 UnitUpgradeUseCase가 레벨을 올리고 OnUpgradeChanged를 발행하여 UI가 갱신된다.
+            if (!IsNetworkMode() && _unitUpgrade != null)
+            {
+                _unitUpgrade.TickResearch(Time.deltaTime);
             }
 
             // ────────────────────────────────────────────────────────────────

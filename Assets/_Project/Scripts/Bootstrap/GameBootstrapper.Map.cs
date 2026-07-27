@@ -211,6 +211,11 @@ namespace Hexiege.Bootstrap
             _congestionSub?.Dispose();
             _congestionSub = null;
 
+            // [Phase 4] 연구소 파괴 구독 해제 + 연구 강화 상태 리셋(재경기/맵 전환 시 잔여 레벨 차단).
+            _labDestroyedSub?.Dispose();
+            _labDestroyedSub = null;
+            _unitUpgrade?.Reset();
+
             // 이전 게임 종료 UseCase 정리
             _gameEnd?.Dispose();
             _gameEnd = null;

@@ -66,6 +66,10 @@ namespace Hexiege.Infrastructure
         [Tooltip("공격 애니 내 타격 프레임 시간(초) 배열. 다중 히트는 오름차순")]
         public float[] hitFrameTimes;
 
+        [Tooltip("기본 방어력(신규 스탯). 받는 피해를 비율로 감쇄한다. " +
+                 "전 유닛 기본 0(Phase 1). 값이 없으면 0으로 폴백되어 기존 .asset과 호환된다.")]
+        public int defense;
+
         // ── 생산 스탯 ──────────────────────────────────────────────
         [Header("Production")]
 

@@ -38,7 +38,14 @@ namespace Hexiege.Domain
         UpgradeBuilding,
 
         /// <summary>유닛 생산 시작 (unitType 사용). 콜백 기반 연속 생산 시드.</summary>
-        StartProduction
+        StartProduction,
+
+        /// <summary>
+        /// 연구소 강화 착수 (upgradeGroup / upgradeStat 사용).
+        /// AI가 보유한 연구소(BuildingType.Research)에서 지정 트랙을 1레벨 연구한다.
+        /// (연구는 특정 연구소 종속이 아니라 팀 트랙 단위 — 아무 연구소나 있으면 착수 가능.)
+        /// </summary>
+        StartResearch
     }
 
     /// <summary>
@@ -59,6 +66,12 @@ namespace Hexiege.Domain
 
         // 생산할 유닛 타입 (StartProduction 시 사용).
         public UnitType unitType;
+
+        // 연구할 강화 그룹 (StartResearch 시 사용). Regen 스탯이면 그룹은 무시된다.
+        public UpgradeGroup upgradeGroup;
+
+        // 연구할 강화 스탯 (StartResearch 시 사용). Attack/Defense/MoveSpeed/Regen.
+        public UnitUpgradeStat upgradeStat;
 
         // 대상 건물 라인 인덱스. 0=근거리A, 1=총기류, 2=탈것류.
         // 같은 라인의 PlaceBuilding이 만든 배럭(생산 건물)에 이후 항목이 연결된다.

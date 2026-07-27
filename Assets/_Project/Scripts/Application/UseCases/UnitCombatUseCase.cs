@@ -87,6 +87,22 @@ namespace Hexiege.Application
         private readonly float _quakeRadius;
         private readonly float _quakeSplashRatio;
 
+        // ====================================================================
+        // [Phase 2] 연구소 유닛 강화 — 팀별 강화 레벨 조회 UseCase(생성 후 주입)
+        //   데미지(공격보너스·방어감쇄)·이동배율·힐 스케일·자연회복이 이 UseCase를 통해
+        //   "기본값 × 팀 연구 레벨"을 실시간으로 반영한다((B) 방식).
+        //   GameBootstrapper가 SetUpgradeUseCase로 주입한다(미주입 시 전부 기본값=Lv0 동작 — 하위호환).
+        //   Application 내 UseCase 간 참조는 허용된다(레이어 위반 아님).
+        // ====================================================================
+        private UnitUpgradeUseCase _upgrade;
+
+        // 자연회복(초월 전용) 팀별 소수점 누적기 — 매초 정수 HP로 반영(ResourceUseCase 수입 누적과 동일 패턴).
+        // 힐(_activeTimedEffects)과 완전히 분리된 독립 채널이다(규칙 7 — 상호 덮어쓰기 금지).
+        private float _regenAccumBlue;
+        private float _regenAccumRed;
+        // 자연회복 적용 대상 선수집 버퍼(순회 중 컬렉션 변경 회피 + GC 절감).
+        private readonly List<UnitData> _regenBuffer = new List<UnitData>(16);
+
         // DoT의 틱 간격(초). "매초 뚝뚝" — 1초마다 discrete하게 피해가 들어간다.
         // (힐(HoT)의 "프레임마다 부드러운 diff"와 대비되는 값. SO 튜닝 대상이 아니라 설계 고정값 1초.)
         // MushroomBomber 착탄 DoT와 InfernoSpirit DoT가 공유하는 규칙 40의 "초 단위 틱" 상수다.
@@ -212,6 +228,97 @@ namespace Hexiege.Application
             // QuakeSpirit 착탄 즉발 스플래시 튜닝값(반경/비율). 실제 피해량은 ApplyQuakeSplash에서 올림 계산.
             _quakeRadius = quakeRadius;
             _quakeSplashRatio = quakeSplashRatio;
+        }
+
+        // ====================================================================
+        // [Phase 2] 연구소 강화 UseCase 주입 및 조회 헬퍼
+        // ====================================================================
+
+        /// <summary>
+        /// 팀별 강화 레벨 UseCase를 주입한다. GameBootstrapper(조합 루트)에서 게임 시작 시 1회 호출.
+        /// 미주입(null) 상태에서는 모든 강화 조회가 기본값(Lv0)으로 동작하여 기존 전투와 동일하다(하위호환).
+        /// </summary>
+        /// <param name="upgrade">팀별 강화 상태 UseCase.</param>
+        public void SetUpgradeUseCase(UnitUpgradeUseCase upgrade)
+        {
+            _upgrade = upgrade;
+        }
+
+        /// <summary>
+        /// 공격자의 "유효 공격력" = 기본 공격력 + 팀 공격 연구 증가치.
+        /// _upgrade 미주입 시 기본 공격력 그대로(하위호환).
+        /// </summary>
+        private int EffectiveAttack(UnitData attacker)
+        {
+            if (attacker == null) return 0;
+            return _upgrade != null
+                ? _upgrade.GetEffectiveAttack(attacker.Team, attacker.Type)
+                : attacker.AttackPower;
+        }
+
+        /// <summary>
+        /// 유닛의 이동속도 배율(연구 기반)을 반환한다. Presentation(UnitView)이 실제 이동 속도 산출에 곱한다.
+        /// _upgrade 미주입 시 1.0(무배율 — 기존 동작).
+        /// </summary>
+        /// <param name="unit">이동 중인 유닛.</param>
+        /// <returns>기본 이동속도에 곱할 배율(1.000 ~ 1.320).</returns>
+        public float GetUnitMoveSpeedMultiplier(UnitData unit)
+        {
+            if (unit == null || _upgrade == null) return 1f;
+            return _upgrade.GetMoveSpeedMultiplier(unit.Team, unit.Type);
+        }
+
+        /// <summary>
+        /// 자연회복(초월계 전용 상시 HoT)을 서버 틱마다 적용한다. BloomFairy 힐(_activeTimedEffects)과
+        /// 완전히 분리된 독립 채널로, 서로 덮어쓰지 않는다(규칙 7).
+        ///
+        /// 동작: 팀별 회복량(HP/s = 3×레벨)을 소수점 누적(ResourceUseCase 수입 누적과 동일 패턴)하고,
+        ///   정수 HP가 쌓일 때마다 그 팀의 살아있는 초월 유닛 전체를 그만큼 회복(MaxHp 클램프)한다.
+        ///   레벨 0이면 무동작. 풀피 유닛은 자연 무동작.
+        ///
+        /// 호출 위치(서버 전용, 이중 틱 금지):
+        ///   - 싱글플레이: GameBootstrapper.Update()(!IsNetworkMode).
+        ///   - 멀티플레이: NetworkCombatController.TickCombat()(IsServer).
+        /// </summary>
+        /// <param name="dt">경과 시간(초).</param>
+        public void TickNaturalRegen(float dt)
+        {
+            if (_upgrade == null || _unitSpawn == null) return;
+            ApplyTeamRegen(TeamId.Blue, ref _regenAccumBlue, dt);
+            ApplyTeamRegen(TeamId.Red, ref _regenAccumRed, dt);
+        }
+
+        // 팀 하나의 자연회복 누적·적용. 정수 HP가 쌓이면 그 팀 초월 유닛 전체에 일괄 회복.
+        private void ApplyTeamRegen(TeamId team, ref float accum, float dt)
+        {
+            int perSecond = _upgrade.GetRegenPerSecond(team);
+            if (perSecond <= 0)
+            {
+                accum = 0f; // 레벨 0이면 누적도 리셋(다음 연구 시 깔끔히 시작).
+                return;
+            }
+
+            accum += perSecond * dt;
+            int wholeHp = (int)accum;
+            if (wholeHp <= 0) return;
+            accum -= wholeHp;
+
+            // 회복 대상(살아있고 풀피 아닌 초월 유닛) 선수집 후 일괄 적용(순회 중 변경 회피).
+            _regenBuffer.Clear();
+            foreach (var unit in _unitSpawn.Units.Values)
+            {
+                if (unit == null || !unit.IsAlive) continue;
+                if (unit.Team != team) continue;
+                if (!UpgradeGroupHelper.IsTranscendence(unit.Type)) continue;
+                if (unit.Hp >= unit.MaxHp) continue;
+                _regenBuffer.Add(unit);
+            }
+
+            for (int i = 0; i < _regenBuffer.Count; i++)
+            {
+                // healer=null(자연회복은 시전자 없음). showText=false로 매 틱 힐 텍스트 스팸 방지.
+                ApplyHealToUnit(null, _regenBuffer[i], wholeHp, showText: false);
+            }
         }
 
         // ====================================================================
@@ -1077,6 +1184,47 @@ namespace Hexiege.Application
             => ApplyDamageToVictim(attacker, target, immediatePresentation: false);
 
         /// <summary>
+        /// 최종 피해량 산출 공용 헬퍼. raw 피해에 두 단계를 적용한다:
+        ///   ① Tank/CannonCart가 건물을 때리면 데미지 2배(StatsReference 비고 "건물에 2배").
+        ///   ② 대상의 방어력으로 감쇄(DamageCalculator.ApplyDefense — 유닛/건물 통일 공식).
+        ///
+        /// 직격(ApplyDamageToVictim)·스플래시(ApplyFixedDamageToVictim)가 모두 이 헬퍼를 거쳐
+        /// 동일한 규칙을 쓰도록 한다. 건물은 방어력 0이라 감쇄는 무의미하고 2배만 적용된다.
+        ///
+        /// 하위호환: 방어력 0 + 공격자가 Tank/CannonCart가 아니면 결과 = rawDamage(회귀 없음).
+        /// ⚠️ DoT 틱 경로(ApplyBlastDot/ApplyInfernoDot)는 이 헬퍼를 거치지 않는다(규칙 6 — DoT 무감쇄).
+        /// </summary>
+        /// <param name="attacker">공격자 유닛(2배 판정에 UnitType 사용).</param>
+        /// <param name="target">피격 대상(유닛/건물 — 방어력·건물 판정에 사용).</param>
+        /// <param name="rawDamage">감쇄·배수 이전의 원본 피해량(공격력 또는 스플래시 산출값).</param>
+        /// <returns>2배·감쇄가 반영된 최종 피해량.</returns>
+        private int ComputeFinalDamage(UnitData attacker, IDamageable target, int rawDamage)
+        {
+            int damage = rawDamage;
+
+            // ① Tank/CannonCart → 건물 대상 2배. 유닛 대상에는 적용하지 않는다.
+            if (target is BuildingData &&
+                (attacker.Type == UnitType.Tank || attacker.Type == UnitType.CannonCart))
+            {
+                damage *= 2;
+            }
+
+            // ② 대상 방어력으로 감쇄. [Phase 2] 방어력은 "피격 대상 팀"의 연구 레벨로 결정된다(규칙 5).
+            //    _upgrade 미주입 시에는 스냅샷 필드(UnitData.Defense — Phase 1: 0)로 폴백한다(하위호환).
+            //    건물은 방어 트랙이 없어 항상 0(무감쇄, 2배만 반영).
+            int defense = 0;
+            if (target is UnitData u)
+            {
+                defense = _upgrade != null
+                    ? _upgrade.GetDefense(u.Team, u.Type)
+                    : u.Defense;
+            }
+            // 건물(BuildingData)은 defense 0 유지.
+
+            return DamageCalculator.ApplyDefense(damage, defense);
+        }
+
+        /// <summary>
         /// <see cref="ApplyDamageToVictim(UnitData, IDamageable)"/>의 확장 오버로드.
         /// 피격 연출을 공격자 타격 프레임에 맞출지(false, 일반/휩쓸기) 즉시 방출할지(true, 파도)를 지정한다.
         /// 2-인자 오버로드가 SpecialAttackContext의 피해 델리게이트로 전달되므로(휩쓸기),
@@ -1091,8 +1239,11 @@ namespace Hexiege.Application
         {
             if (attacker == null || target == null) return;
 
-            // 데미지 적용 (인터페이스의 메서드 호출)
-            target.TakeDamage(attacker.AttackPower);
+            // 데미지 적용 (인터페이스의 메서드 호출).
+            // [Phase 2] raw = 공격자 팀 공격 연구가 반영된 "유효 공격력"(직격 대상).
+            //   이후 ComputeFinalDamage가 ① Tank/CannonCart 건물 2배, ② 피격 대상 팀 방어 감쇄를 적용한다.
+            //   연구 미적용(Lv0)이면 EffectiveAttack=기본 공격력 → 기존과 정확히 동일(하위호환).
+            target.TakeDamage(ComputeFinalDamage(attacker, target, EffectiveAttack(attacker)));
 
             // 일반화된 공격 이벤트 발행
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
@@ -1236,7 +1387,14 @@ namespace Hexiege.Application
             //   (대상 사망/제거 시 무시하는 기존 동작은 위 IsAlive 가드가 그대로 담당한다.)
             if (target.Hp >= target.MaxHp) return;
 
-            ApplyTimedEffect(healer, target, TimedEffectKind.Heal, _bloomHealAmount, _bloomHealDuration);
+            // [Phase 2] BloomFairy 힐량은 초월 "식물" 그룹의 공격력 트랙 레벨을 따라 스케일한다(규칙 6).
+            //   BloomFairy는 순수 힐러(AttackPower 없음)라 AttackPower 경로가 없으므로, 그룹 공격 레벨을 직접 조회한다.
+            //   _upgrade 미주입 시 기본 힐량(_bloomHealAmount)으로 폴백(하위호환).
+            int healAmount = _upgrade != null
+                ? _upgrade.ScaleByGroupAttack(healer.Team, UpgradeGroup.TransPlant, _bloomHealAmount)
+                : _bloomHealAmount;
+
+            ApplyTimedEffect(healer, target, TimedEffectKind.Heal, healAmount, _bloomHealDuration);
         }
 
         /// <summary>
@@ -1339,8 +1497,9 @@ namespace Hexiege.Application
         {
             if (attacker == null || victim == null || !victim.IsAlive) return;
 
-            // 스플래시 피해량 = 올림(공격력 × 비율). 소수점은 항상 올려(예: 15×0.5=7.5 → 8) 최소 손실을 보장.
-            int amount = Mathf.CeilToInt(attacker.AttackPower * _quakeSplashRatio);
+            // 스플래시 피해량 = 올림(유효 공격력 × 비율). 소수점은 항상 올려(예: 15×0.5=7.5 → 8) 최소 손실을 보장.
+            // [Phase 2] 공격력 파생 피해(스플래시)도 공격 연구에 따라 커진다 → EffectiveAttack 사용.
+            int amount = Mathf.CeilToInt(EffectiveAttack(attacker) * _quakeSplashRatio);
             if (amount <= 0) return;
 
             // 즉발 피해(DoT 아님). 도끼병 휩쓸기와 동일하게 immediatePresentation=false로 주어
@@ -1369,8 +1528,9 @@ namespace Hexiege.Application
         {
             if (attacker == null || target == null || amount <= 0) return;
 
-            // 피해 적용(임의 량).
-            target.TakeDamage(amount);
+            // 피해 적용(임의 량). 스플래시도 직격과 동일하게 방어력 감쇄(+건물 2배 판정)를 거친다.
+            // 방어력 0(Phase 1)이면 ComputeFinalDamage(amount)=amount → 기존과 동일(하위호환).
+            target.TakeDamage(ComputeFinalDamage(attacker, target, amount));
 
             // 일반화된 공격 이벤트 발행(주 타깃 단일 피해 경로와 동일).
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
@@ -1755,6 +1915,13 @@ namespace Hexiege.Application
             // 좌우 판정을 위한 우측 벡터(XZ 평면에서 forward에 수직). forward가 정규화돼 있으므로 크기 1.
             Vector3 right = new Vector3(req.Forward.z, 0f, -req.Forward.x);
 
+            // [Phase 2] TorrentSpirit 아군 힐 = 물 "유효 공격력" × 0.5(규칙 6). 물 공격 연구에 따라 커진다.
+            //   유효 공격력 = 기본(200) + 물 공격 보너스. Lv0이면 200×0.5=100(= 기본 파도 힐과 동일, 하위호환).
+            //   _upgrade 미주입 시 파도 요청에 실린 기본 힐량(req.Heal)으로 폴백.
+            int waveHeal = _upgrade != null
+                ? Mathf.RoundToInt(EffectiveAttack(req.Caster) * 0.5f)
+                : Mathf.RoundToInt(req.Heal);
+
             _activeWaves.Add(new ActiveWave
             {
                 Caster = req.Caster,
@@ -1767,7 +1934,7 @@ namespace Hexiege.Application
                 Length = req.Length,
                 Speed = speed,
                 TravelTime = travelTime,
-                Heal = req.Heal,
+                Heal = waveHeal,
                 FrontDistance = 0f,
                 Elapsed = 0f
             });

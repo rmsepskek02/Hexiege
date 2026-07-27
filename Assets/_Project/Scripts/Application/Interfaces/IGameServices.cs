@@ -88,6 +88,13 @@ namespace Hexiege.Application
         TowerCombatUseCase GetTowerCombat();
 
         /// <summary>
+        /// 연구소 유닛 강화(업그레이드) UseCase. 팀별 트랙 레벨·진행 상태 조회/구동에 사용.
+        /// 서버(Infrastructure)가 연구 요청 처리·타이머 구동·완료 브로드캐스트에 참조한다.
+        /// 맵 로드 전이면 null.
+        /// </summary>
+        UnitUpgradeUseCase GetUpgradeUseCase();
+
+        /// <summary>
         /// 유닛 팩토리. 유닛 GameObject 생성·조회·뷰 초기화에 사용.
         /// IUnitFactory로 추상화하여 Infrastructure.UnitFactory에 직접 의존하지 않는다.
         /// </summary>

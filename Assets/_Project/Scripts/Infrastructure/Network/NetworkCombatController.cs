@@ -299,6 +299,18 @@ namespace Hexiege.Infrastructure
             // ────────────────────────────────────────────────────────────────
             combat.TickTimedEffects(elapsed);
 
+            // ────────────────────────────────────────────────────────────────
+            // [Phase 3] 자연회복(초월 전용 상시 HoT) — BloomFairy 힐과 분리된 독립 채널. 서버 권위 틱.
+            //   회복은 OnEntityHealed → NetworkHealthSync가 HP를 클라에 동기화(이중 적용 없음).
+            // ────────────────────────────────────────────────────────────────
+            combat.TickNaturalRegen(elapsed);
+
+            // ────────────────────────────────────────────────────────────────
+            // [Phase 4] 연구 진행 타이머(연구소 강화) — 서버 권위. 완료 시 UnitUpgradeUseCase가
+            //   레벨을 올리고 OnResearchCompleted 훅을 호출하여 NetworkUpgradeController가 양 클라에 브로드캐스트한다.
+            // ────────────────────────────────────────────────────────────────
+            _services?.GetUpgradeUseCase()?.TickResearch(elapsed);
+
             // Dictionary를 순회하면서 타겟 탐색
             // 전투 중 RemoveUnit이 호출될 수 있으므로 키를 미리 복사
             var unitIds = new System.Collections.Generic.List<int>(unitSpawn.Units.Keys);
