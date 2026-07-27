@@ -4,9 +4,9 @@
 
 멀티플레이에서 유닛이 가는 방향과 보는 방향이 다르고, 공격 대상과 공격 방향이 어긋나며, 화면의 타격 순간과 실제 피해 시점이 맞지 않는 세 문제를 하나의 서버 권위 행동 흐름으로 교정한다. 기존 전투 수치와 특수 유닛의 능력 의미는 보존하고, 위치·방향·타겟·타격 결과를 같은 행동 회차로 묶어 서로 다른 시점의 정보가 섞이지 않게 만드는 것이 목적이다.
 
-이 문서의 본문은 구현 전 코드 조사 결과이며, 2026-07-22 Tracer A0/A1 구현·검증 결과는 아래 진행 기록에 추가한다.
+이 문서의 본문은 구현 전 코드 조사 결과이며, 2026-07-22 Tracer A0/A1 및 2026-07-27 Tracer A2 구현·검증 결과는 아래 진행 기록에 추가한다.
 
-## 2026-07-22 Tracer A0/A1 진행 결과
+## 2026-07-22~27 Tracer A0/A1/A2 진행 결과
 
 ### A0 — SpearMan schedule/dispatch Shadow
 
@@ -23,6 +23,15 @@
 - Unity Editor 메뉴 self-validation PASS를 사용자가 확인했다. C# 9/Application 컴파일 PASS, Editor 컴파일 PASS, reflection 기반 `Validate*` 10개 PASS, 최종 Standards/Spec 리뷰 P0~P3 지적 0건이다.
 - A1은 순수 Application 경계의 완료다. 런타임 pose/result seam과 피해·RPC·VFX는 연결하지 않았으며, 이동 방향/바라보기, 타겟/공격 방향, 시각 Impact/실제 피해 시점의 세 문제는 아직 해결 완료가 아니다.
 - 다음 단계는 **A2 server-authoritative pose seam shadow**다.
+
+### A2 — Server-authoritative pose seam shadow
+
+- 순수 Application 계약 `IUnitActionPoseSource`와 `UnitActionPoseSample`을 추가하고, `UnitView`의 read-only Legacy adapter가 현재 root pose, 타겟 pose, optional 이동 의도와 공격 목표 방향을 제공하도록 연결했다.
+- `NetworkCombatController`는 서버의 SpearMan `TargetLocked + MeleeContact + 1-hit` 공격만 A1 reducer의 one-cycle Shadow로 관측한다. 위치·회전·타겟·피해·HP·RPC·VFX·path writer는 추가하지 않았으며 기존 Legacy 분기가 경기 결과의 유일한 권위다.
+- 첫 런타임 감사에서 공격자 사망 경계의 pending observer 조기 삭제 가능성을 발견해, `OnUnitDied`에서 관측을 삭제하지 않고 reducer를 `DeadTerminal`로 전환하도록 교정했다. bounded 관측 용량 초과도 무음 삭제 대신 full canonical key를 가진 `capacity-evicted` terminal skip으로 남긴다.
+- 사용자가 Unity Editor self-validation PASS를 확인했다. Host 최신 검증 세션(2026-07-27 18:04:04)은 schedule 429 / dispatch 428이며, 차이 1건은 로그 종료 당시 Impact 예정 시각 전의 in-flight 회차다. 완료 회차의 상관관계 누락·중복은 없고, 공격자 사망 2건은 `MarkDead=Accepted`와 `DeadTerminal`로 종료됐으며 `capacity-evicted`와 예외는 0건이다.
+- 원격 Client 최신 세션(2026-07-27 18:09:48)은 `[UAS-POSE]` 0건으로 서버 전용 실행 경계를 지켰다. 따라서 A2 런타임 게이트는 PASS다.
+- A2 PASS는 서버 권위 pose 관측 seam의 검증 완료만 뜻한다. 이동/바라보기·타겟/공격 방향·시각 Impact/실제 피해 시점 교정과 권위 전환은 아직 완료되지 않았으며, 다음 단계는 **Tracer B Simulation Root / Visual Root 분리**다.
 
 ---
 

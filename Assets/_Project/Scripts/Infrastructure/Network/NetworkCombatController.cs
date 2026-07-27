@@ -119,6 +119,49 @@ namespace Hexiege.Infrastructure
         /// <summary>마지막으로 발급한 Tracer A 서버 프로세스 내 생성 개체 번호다. 0은 None으로 비워 둔다.</summary>
         private static ulong _lastShadowAttackerInstanceValue;
 
+        // A2는 SpearMan의 단일 직접 피해 결과 하나만 관측한다. 1은 direct damage 의미이고,
+        // ordinal 0은 그 hit에서 유일한 첫 결과라는 명시 값이다. 두 값은 canonical key에 반드시 들어간다.
+        private const int PoseDirectDamageEffectKind = 1;
+        private const int PoseSingleDirectResultOrdinal = 0;
+        private const int MaximumPoseObservationCount = 256;
+
+        /// <summary>Unity interface는 GetComponent&lt;T&gt;의 Component 제약을 만족하지 않으므로 함께 보관할 adapter cache.</summary>
+        private sealed class PoseAdapterCacheEntry
+        {
+            public GameObject Owner;
+            public MonoBehaviour Component;
+            public IUnitActionPoseSource Source;
+        }
+
+        /// <summary>schedule 표본과 A1 one-cycle reducer를 dispatch까지 묶어 두는 bounded 관측 레코드.</summary>
+        private sealed class PoseObservation
+        {
+            public AttackResultKey Key;
+            public int AttackerId;
+            public UnitActionSequencer Sequencer;
+            public UnitActionPoseSample ScheduleSample;
+            public double ScheduleServerTime;
+            public double ScheduledImpactServerTime;
+            public AttackTargetBinding TargetBinding;
+            public float AttackRange;
+            public bool UsesMeleeContactRange;
+            public double MaximumDistanceWorld;
+            public UnitActionReducerStatus BeginStatus;
+            public UnitActionReducerStatus CommitStatus;
+            public string CommitExecutionStatus;
+            public bool Committed;
+            public bool AttackerDead;
+            public UnitActionReducerStatus MarkDeadStatus;
+            public string MarkDeadExecutionStatus;
+        }
+
+        private readonly System.Collections.Generic.Dictionary<int, PoseAdapterCacheEntry> _poseAdapters
+            = new System.Collections.Generic.Dictionary<int, PoseAdapterCacheEntry>();
+        private readonly System.Collections.Generic.Dictionary<AttackResultKey, PoseObservation> _poseObservations
+            = new System.Collections.Generic.Dictionary<AttackResultKey, PoseObservation>();
+        private readonly System.Collections.Generic.Queue<AttackResultKey> _poseObservationOrder
+            = new System.Collections.Generic.Queue<AttackResultKey>();
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -222,6 +265,9 @@ namespace Hexiege.Infrastructure
             _combatAnimationSent.Clear();
             _shadowAttackerInstances.Clear();
             _shadowAttackSequences.Clear();
+            _poseAdapters.Clear();
+            _poseObservations.Clear();
+            _poseObservationOrder.Clear();
 
             // 전투 Tick 타이머/이월분도 초기화 — 다음 게임 스폰 시 깨끗한 상태에서 시작.
             _attackTimer = 0f;
@@ -512,7 +558,8 @@ namespace Hexiege.Infrastructure
             AttackerInstanceId shadowAttackerInstanceId,
             AttackSequenceId shadowSequenceId,
             int shadowHitIndex,
-            double shadowScheduledImpactTime)
+            double shadowScheduledImpactTime,
+            AttackResultKey poseObservationKey)
         {
             // hitFrameTime > 0이면 해당 시간만큼 대기
             // hitFrameTime == 0이면 최소 1프레임 대기 (Inspector 미설정 시 즉시 적용 방지)
@@ -524,7 +571,15 @@ namespace Hexiege.Infrastructure
             // 딜레이 후 UseCase를 다시 가져와서 데미지 적용
             // _services가 파괴되었을 수 있으므로 null 체크
             UnitCombatUseCase combat = _services?.GetCombatUseCase();
-            if (combat == null) yield break;
+            if (combat == null)
+            {
+                TryAbandonPoseObservation(poseObservationKey, "combat-use-case-missing");
+                yield break;
+            }
+
+            // observer는 Legacy 피해 호출 직전에만 실행한다. 내부 실패는 모두 잡아서 아래의
+            // 기존 A0 로그와 ApplyAttackDamage 호출 순서 및 인자에 영향을 주지 않는다.
+            TryDispatchPoseObservation(poseObservationKey);
 
             if (shadowSequenceId.IsValid)
             {
@@ -588,6 +643,14 @@ namespace Hexiege.Infrastructure
                 : AttackSequenceId.None;
             double shadowNow = traceShadowSequence ? GetAuthoritativeServerTime() : 0d;
             double shadowCommitTime = shadowNow - overshoot;
+            AttackResultKey poseObservationKey = default;
+            if (traceShadowSequence)
+            {
+                poseObservationKey = TrySchedulePoseObservation(
+                    unit, targetId, targetIsUnit,
+                    shadowAttackerInstanceId, shadowSequenceId,
+                    shadowCommitTime, shadowNow);
+            }
 
             // 2. 각 히트 프레임 시간마다 독립 코루틴을 실행하여 데미지 타이밍 동기화.
             // 단일 히트 유닛: HitFrameTimes 원소가 1개 → 기존과 동일하게 코루틴 1개 실행.
@@ -624,9 +687,434 @@ namespace Hexiege.Infrastructure
                     shadowAttackerInstanceId,
                     shadowSequenceId,
                     hitIndex,
-                    scheduledImpactTime));
+                    scheduledImpactTime,
+                    poseObservationKey));
             }
         }
+
+        /// <summary>
+        /// 적격 SpearMan 한 공격에 A1 reducer 하나를 만들고 Begin+Commit까지만 shadow 실행한다.
+        /// 반환 키는 Legacy 코루틴 correlation 용도이며 유효하지 않으면 observer가 schedule되지 않았다는 뜻이다.
+        /// </summary>
+        private AttackResultKey TrySchedulePoseObservation(
+            UnitData unit,
+            int targetId,
+            bool targetIsUnit,
+            AttackerInstanceId attackerInstanceId,
+            AttackSequenceId sequenceId,
+            double commitServerTime,
+            double observedServerTime)
+        {
+            // 서버 외 또는 SpearMan 외 경로에서는 로그조차 남기지 않아 A2 실행 횟수를 정확히 0으로 유지한다.
+            if (!IsServer || unit == null || unit.Type != UnitType.SpearMan)
+                return default;
+
+            try
+            {
+                if (!attackerInstanceId.IsValid || !sequenceId.IsValid)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "invalid-a0-correlation");
+                if (unit.HitFrameTimes == null || unit.HitFrameTimes.Length != 1)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "not-targetlocked-melee-single-hit");
+                if (!IsFinite(commitServerTime) || !IsFinite(observedServerTime)
+                    || commitServerTime > observedServerTime)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "invalid-server-time");
+
+                EntityRef target = new EntityRef(targetIsUnit ? EntityKind.Unit : EntityKind.Building, targetId);
+                var binding = new AttackTargetBinding(AttackTargetMode.TargetLocked, target);
+                if (!binding.IsValid)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "invalid-target-binding");
+
+                IUnitActionPoseSource source = GetPoseSource(unit.Id);
+                if (source == null)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "pose-adapter-missing");
+                if (!source.TryCaptureUnitActionPose(target, out UnitActionPoseSample sample) || !sample.IsValid)
+                    return LogPoseScheduleSkip(unit.Id, attackerInstanceId, sequenceId, "invalid-schedule-sample");
+
+                // Commit 입력을 만들기 전에 도메인 컬렉션의 실제 타겟 상태를 읽는다.
+                // 조회 자체가 불가능하면 true를 추측하지 않고 Commit을 실행하지 않는다.
+                ReadTargetState(target, out bool targetValid, out bool targetAlive, out string targetState);
+                bool targetStateObserved = targetState != "unobserved";
+                double hitOffset = unit.HitFrameTimes[0];
+                double cooldown = unit.AttackCooldown;
+                var key = new AttackResultKey(
+                    attackerInstanceId, sequenceId, 0, (int)target.Kind, target.Id,
+                    PoseDirectDamageEffectKind, PoseSingleDirectResultOrdinal);
+                bool timelineValid = AttackTimelinePlan.TryCreate(
+                    cooldown, cooldown, new[] { hitOffset }, out AttackTimelinePlan timeline);
+                bool rangeValid = AttackRangeProfile.TryCreate(
+                    unit.AttackRange, HexMetrics.TileHeight, out AttackRangeProfile range);
+                bool factoryValid = UnitActionSequencer.TryCreateShadowCycle(
+                    attackerInstanceId, unit.Id, sequenceId, out UnitActionSequencer sequencer);
+                UnitActionReducerStatus begin = UnitActionReducerStatus.InvalidInput;
+                UnitActionReducerStatus commit = UnitActionReducerStatus.InvalidInput;
+                string commitExecutionStatus = "not-run-prerequisite-rejected";
+                if (timelineValid && rangeValid && factoryValid)
+                {
+                    begin = sequencer.BeginAttackAlignment(
+                        sequencer.Snapshot.Revision, binding, AttackDeliveryKind.MeleeContact,
+                        timeline, range, sample.SimulationFacing, commitServerTime);
+                    if (begin == UnitActionReducerStatus.Accepted)
+                    {
+                        if (targetStateObserved)
+                        {
+                            commit = sequencer.CommitAttack(
+                                sequencer.Snapshot.Revision, binding,
+                                unit.IsAlive, targetAlive, targetValid,
+                                sample.TargetSquaredDistance, sample.FacingToAimYawDegrees,
+                                commitServerTime, observedServerTime);
+                            commitExecutionStatus = "executed";
+                        }
+                        else
+                        {
+                            commitExecutionStatus = "not-run-target-unobserved";
+                        }
+                    }
+                }
+
+                bool committed = commit == UnitActionReducerStatus.Accepted
+                    && sequencer != null && sequencer.Snapshot.SequenceId == sequenceId;
+                var observation = new PoseObservation
+                {
+                    Key = key,
+                    AttackerId = unit.Id,
+                    Sequencer = sequencer,
+                    ScheduleSample = sample,
+                    ScheduleServerTime = observedServerTime,
+                    ScheduledImpactServerTime = commitServerTime + hitOffset,
+                    TargetBinding = binding,
+                    AttackRange = unit.AttackRange,
+                    UsesMeleeContactRange = rangeValid && range.UsesMeleeContact,
+                    MaximumDistanceWorld = rangeValid ? range.GetMaximumDistance(target.Kind) : double.NaN,
+                    BeginStatus = begin,
+                    CommitStatus = commit,
+                    CommitExecutionStatus = commitExecutionStatus,
+                    Committed = committed,
+                    MarkDeadStatus = UnitActionReducerStatus.NoChange,
+                    MarkDeadExecutionStatus = "not-run-attacker-alive"
+                };
+                AddPoseObservation(observation);
+                UnitActionPhase phase = sequencer != null
+                    ? sequencer.Snapshot.Phase
+                    : UnitActionPhase.Idle;
+                ulong revision = sequencer != null ? sequencer.Snapshot.Revision : 0UL;
+                LogPose(
+                    "schedule", unit.Id, attackerInstanceId, sequenceId,
+                    revision, target, 0, sample, unit.AttackRange,
+                    observedServerTime, phase, commit, committed ? "accepted" : "commit-rejected",
+                    $"effectKind={PoseDirectDamageEffectKind}, resultOrdinal={PoseSingleDirectResultOrdinal}, scheduledImpact={observation.ScheduledImpactServerTime:F6}, rangeMode={(observation.UsesMeleeContactRange ? "fixed-contact" : "scaled-center")}, usesMeleeContact={observation.UsesMeleeContactRange}, maximumDistanceWorld={observation.MaximumDistanceWorld:F6}, beginStatus={begin}, commitStatus={commit}, commitExecutionStatus={commitExecutionStatus}, advanceStatus=not-run-schedule, evaluateStatus=not-run-schedule, targetValid={targetValid}, targetAlive={targetAlive}, targetStateObserved={targetStateObserved}, targetState={targetState}");
+                return key;
+            }
+            catch (System.Exception exception)
+            {
+                LogPoseSafe($"event=skip, reason=schedule-exception, attackerId={unit.Id}, exception={exception.GetType().Name}");
+                return default;
+            }
+        }
+
+        /// <summary>Legacy ApplyAttackDamage 직전 pose를 같은 key의 schedule 표본과 비교한다.</summary>
+        private void TryDispatchPoseObservation(AttackResultKey key)
+        {
+            if (!IsServer || !key.IsValid) return;
+            if (!_poseObservations.TryGetValue(key, out PoseObservation observation)) return;
+
+            try
+            {
+                double now = GetAuthoritativeServerTime();
+                ReadTargetState(
+                    observation.TargetBinding.Target,
+                    out bool targetValid,
+                    out bool targetAlive,
+                    out string targetState);
+                bool targetStateObserved = targetState != "unobserved";
+                IUnitActionPoseSource source = GetPoseSource(observation.AttackerId);
+                if (source == null
+                    || !source.TryCaptureUnitActionPose(observation.TargetBinding.Target, out UnitActionPoseSample dispatchSample)
+                    || !dispatchSample.IsValid)
+                {
+                    bool attackerDead = observation.AttackerDead;
+                    LogPose(
+                        "dispatch", observation.AttackerId, key.AttackerInstanceId, key.SequenceId,
+                        observation.Sequencer != null ? observation.Sequencer.Snapshot.Revision : 0UL,
+                        observation.TargetBinding.Target, 0, observation.ScheduleSample,
+                        observation.AttackRange, now,
+                        observation.Sequencer != null ? observation.Sequencer.Snapshot.Phase : UnitActionPhase.Idle,
+                        attackerDead ? UnitActionReducerStatus.DeadTerminal : UnitActionReducerStatus.InvalidInput,
+                        attackerDead ? "attacker-dead" : "invalid-dispatch-sample",
+                        $"effectKind={key.EffectKind}, resultOrdinal={key.ResultOrdinal}, facingDeltaDegrees=NaN, aimDeltaDegrees=NaN, targetMoveDistanceWorld=NaN, dispatchDeltaMs={(now - observation.ScheduledImpactServerTime) * 1000d:F3}, maximumDistanceWorld={observation.MaximumDistanceWorld:F6}, beginStatus={observation.BeginStatus}, commitStatus={observation.CommitStatus}, commitExecutionStatus={observation.CommitExecutionStatus}, markDeadStatus={observation.MarkDeadStatus}, markDeadExecutionStatus={observation.MarkDeadExecutionStatus}, advanceStatus={(attackerDead ? "not-run-attacker-dead" : "not-run-invalid-pose")}, evaluateStatus={(attackerDead ? "not-run-attacker-dead" : "not-run-invalid-pose")}, targetValid={targetValid}, targetAlive={targetAlive}, targetStateObserved={targetStateObserved}, targetState={targetState}, dispatchPose=unavailable");
+                    return;
+                }
+
+                string advanceStatus = observation.AttackerDead
+                    ? "not-run-attacker-dead"
+                    : observation.Committed
+                    ? "not-run"
+                    : "not-run-commit-rejected";
+                string evaluateStatus = observation.AttackerDead
+                    ? "not-run-attacker-dead"
+                    : observation.Committed
+                    ? "not-run"
+                    : "not-run-commit-rejected";
+                UnitActionReducerStatus evaluate = observation.AttackerDead
+                    ? UnitActionReducerStatus.DeadTerminal
+                    : UnitActionReducerStatus.InvalidInput;
+                if (!observation.AttackerDead && observation.Committed && observation.Sequencer != null)
+                {
+                    UnitActionReducerStatus advance = observation.Sequencer.Advance(
+                        observation.Sequencer.Snapshot.Revision, now);
+                    advanceStatus = advance.ToString();
+                    if (advance == UnitActionReducerStatus.Accepted && targetState != "unobserved")
+                    {
+                        evaluate = observation.Sequencer.EvaluateImpact(
+                            observation.Sequencer.Snapshot.Revision, 0,
+                            PoseDirectDamageEffectKind, PoseSingleDirectResultOrdinal,
+                            observation.TargetBinding, targetAlive, targetValid,
+                            dispatchSample.TargetSquaredDistance, dispatchSample.FacingToAimYawDegrees,
+                            dispatchSample.TargetAimDirection, now, out ImpactAuthorization authorization);
+                        evaluateStatus = evaluate == UnitActionReducerStatus.Accepted
+                            && !authorization.Key.Equals(key)
+                            ? "ScopeMismatch-canonical-key"
+                            : evaluate.ToString();
+                    }
+                    else if (targetState == "unobserved")
+                    {
+                        evaluateStatus = "not-run-target-unobserved";
+                    }
+                    else
+                    {
+                        evaluateStatus = "not-run-advance-rejected";
+                    }
+                }
+
+                double facingDelta = UnitActionPoseSample.GetYawDegrees(
+                    observation.ScheduleSample.SimulationFacing, dispatchSample.SimulationFacing);
+                double aimDelta = UnitActionPoseSample.GetYawDegrees(
+                    observation.ScheduleSample.TargetAimDirection, dispatchSample.TargetAimDirection);
+                double targetDeltaX = dispatchSample.TargetPosition.X - observation.ScheduleSample.TargetPosition.X;
+                double targetDeltaZ = dispatchSample.TargetPosition.Z - observation.ScheduleSample.TargetPosition.Z;
+                double targetMoveDistance = System.Math.Sqrt(targetDeltaX * targetDeltaX + targetDeltaZ * targetDeltaZ);
+                double dispatchDeltaMs = (now - observation.ScheduledImpactServerTime) * 1000d;
+                UnitActionPhase phase = observation.Sequencer != null
+                    ? observation.Sequencer.Snapshot.Phase
+                    : UnitActionPhase.Idle;
+                ulong revision = observation.Sequencer != null
+                    ? observation.Sequencer.Snapshot.Revision
+                    : 0UL;
+                LogPose(
+                    "dispatch", observation.AttackerId,
+                    key.AttackerInstanceId, key.SequenceId, revision,
+                    observation.TargetBinding.Target, 0, dispatchSample, observation.AttackRange,
+                    now, phase, evaluate,
+                    observation.AttackerDead
+                        ? "attacker-dead"
+                        : observation.Committed ? "observed" : "commit-rejected-observed",
+                    $"effectKind={key.EffectKind}, resultOrdinal={key.ResultOrdinal}, facingDeltaDegrees={facingDelta:F3}, aimDeltaDegrees={aimDelta:F3}, targetMoveDistanceWorld={targetMoveDistance:F6}, dispatchDeltaMs={dispatchDeltaMs:F3}, rangeMode={(observation.UsesMeleeContactRange ? "fixed-contact" : "scaled-center")}, usesMeleeContact={observation.UsesMeleeContactRange}, maximumDistanceWorld={observation.MaximumDistanceWorld:F6}, beginStatus={observation.BeginStatus}, commitStatus={observation.CommitStatus}, commitExecutionStatus={observation.CommitExecutionStatus}, markDeadStatus={observation.MarkDeadStatus}, markDeadExecutionStatus={observation.MarkDeadExecutionStatus}, advanceStatus={advanceStatus}, evaluateStatus={evaluateStatus}, targetValid={targetValid}, targetAlive={targetAlive}, targetStateObserved={targetStateObserved}, targetState={targetState}");
+            }
+            catch (System.Exception exception)
+            {
+                LogPoseSafe($"event=skip, reason=dispatch-exception, attackerInstanceId={key.AttackerInstanceId.Value}, sequenceId={key.SequenceId.Value}, exception={exception.GetType().Name}");
+            }
+            finally
+            {
+                _poseObservations.Remove(key);
+            }
+        }
+
+        private IUnitActionPoseSource GetPoseSource(int unitId)
+        {
+            if (unitId < 0 || _services == null) return null;
+            GameObject owner = _services.GetUnitFactory()?.GetUnitObject(unitId);
+            if (owner == null)
+            {
+                _poseAdapters.Remove(unitId);
+                return null;
+            }
+
+            if (_poseAdapters.TryGetValue(unitId, out PoseAdapterCacheEntry cached)
+                && cached.Owner == owner && cached.Component != null && cached.Source != null)
+                return cached.Source;
+
+            // Unity의 GetComponent<T>()는 T가 Component여야 하므로 interface generic 호출 대신
+            // MonoBehaviour 배열을 한 번 훑고 interface 구현자를 찾는다. 이후 hot path는 위 cache를 사용한다.
+            MonoBehaviour[] components = owner.GetComponents<MonoBehaviour>();
+            for (int index = 0; index < components.Length; index++)
+            {
+                MonoBehaviour component = components[index];
+                if (component is IUnitActionPoseSource source)
+                {
+                    _poseAdapters[unitId] = new PoseAdapterCacheEntry
+                    {
+                        Owner = owner,
+                        Component = component,
+                        Source = source
+                    };
+                    return source;
+                }
+            }
+
+            _poseAdapters.Remove(unitId);
+            return null;
+        }
+
+        /// <summary>피해 판정 함수를 호출하지 않고 도메인 컬렉션에서 타겟 존재와 생존을 분리해 읽는다.</summary>
+        private void ReadTargetState(
+            EntityRef target,
+            out bool targetValid,
+            out bool targetAlive,
+            out string targetState)
+        {
+            targetValid = false;
+            targetAlive = false;
+            targetState = "unobserved";
+            if (_services == null || !target.IsValid) return;
+
+            if (target.Kind == EntityKind.Unit)
+            {
+                UnitSpawnUseCase spawn = _services.GetUnitSpawn();
+                if (spawn == null) return;
+                targetState = "observed";
+                targetValid = spawn.Units.TryGetValue(target.Id, out UnitData unit) && unit != null;
+                targetAlive = targetValid && unit.IsAlive;
+                return;
+            }
+
+            BuildingPlacementUseCase placement = _services.GetBuildingPlacement();
+            if (placement == null) return;
+            targetState = "observed";
+            targetValid = placement.Buildings.TryGetValue(target.Id, out BuildingData building)
+                && building != null;
+            targetAlive = targetValid && building.IsAlive;
+        }
+
+        private void AddPoseObservation(PoseObservation observation)
+        {
+            // 완료된 key도 queue에는 순서 표식으로 남을 수 있으므로 Dictionary 개수가 아니라
+            // queue 자체를 제한한다. 그래야 정상 dispatch가 계속되는 장기 경기에서도 메모리가 bounded다.
+            while (_poseObservationOrder.Count >= MaximumPoseObservationCount)
+            {
+                AttackResultKey oldest = _poseObservationOrder.Dequeue();
+                // 정상 dispatch가 이미 Dictionary에서 제거한 stale queue 표식은 조용히 버린다.
+                // 아직 pending인 실제 observation을 용량 때문에 제거할 때는 상관관계가 사라진
+                // 이유를 canonical full key와 함께 반드시 terminal skip으로 남긴다.
+                if (_poseObservations.TryGetValue(oldest, out PoseObservation evicted))
+                {
+                    LogPoseTerminalSkip(oldest, evicted, "capacity-evicted");
+                    _poseObservations.Remove(oldest);
+                }
+            }
+
+            _poseObservations[observation.Key] = observation;
+            _poseObservationOrder.Enqueue(observation.Key);
+        }
+
+        private void TryAbandonPoseObservation(AttackResultKey key, string reason)
+        {
+            if (!key.IsValid
+                || !_poseObservations.TryGetValue(key, out PoseObservation observation))
+                return;
+
+            LogPoseTerminalSkip(key, observation, reason);
+            _poseObservations.Remove(key);
+        }
+
+        private static void LogPoseTerminalSkip(
+            AttackResultKey key,
+            PoseObservation observation,
+            string reason)
+        {
+            LogPoseSafe(
+                $"event=skip, reason={reason}, attackerId={observation.AttackerId}, " +
+                $"attackerInstanceId={key.AttackerInstanceId.Value}, sequenceId={key.SequenceId.Value}, " +
+                $"hitIndex={key.HitIndex}, targetKind={(EntityKind)key.VictimKind}, targetId={key.VictimId}, " +
+                $"effectKind={key.EffectKind}, resultOrdinal={key.ResultOrdinal}");
+        }
+
+        private void MarkPoseObservationsDead(AttackerInstanceId attackerInstanceId)
+        {
+            if (!attackerInstanceId.IsValid || _poseObservations.Count == 0) return;
+
+            // 값은 reference type이므로 Dictionary 열거 중 key를 추가·삭제하지 않고도
+            // pending observation의 reducer만 Dead terminal로 전환할 수 있다.
+            foreach (PoseObservation observation in _poseObservations.Values)
+            {
+                if (observation.Key.AttackerInstanceId != attackerInstanceId) continue;
+
+                observation.AttackerDead = true;
+                if (observation.Sequencer == null)
+                {
+                    observation.MarkDeadStatus = UnitActionReducerStatus.InvalidInput;
+                    observation.MarkDeadExecutionStatus = "not-run-sequencer-missing";
+                    continue;
+                }
+
+                try
+                {
+                    observation.MarkDeadStatus = observation.Sequencer.MarkDead(
+                        observation.Sequencer.Snapshot.Revision);
+                    observation.MarkDeadExecutionStatus = "executed";
+                }
+                catch (System.Exception exception)
+                {
+                    // 진단 observer 예외가 기존 사망·피해 경로를 막아서는 안 된다.
+                    observation.MarkDeadStatus = UnitActionReducerStatus.InvalidInput;
+                    observation.MarkDeadExecutionStatus = $"exception-{exception.GetType().Name}";
+                }
+            }
+        }
+
+        private AttackResultKey LogPoseScheduleSkip(
+            int attackerId,
+            AttackerInstanceId instanceId,
+            AttackSequenceId sequenceId,
+            string reason)
+        {
+            LogPoseSafe($"event=skip, reason={reason}, attackerId={attackerId}, attackerInstanceId={instanceId.Value}, sequenceId={sequenceId.Value}");
+            return default;
+        }
+
+        private void LogPose(
+            string eventName,
+            int attackerId,
+            AttackerInstanceId instanceId,
+            AttackSequenceId sequenceId,
+            ulong revision,
+            EntityRef target,
+            int hitIndex,
+            UnitActionPoseSample sample,
+            float attackRange,
+            double serverTime,
+            UnitActionPhase phase,
+            UnitActionReducerStatus status,
+            string reason,
+            string extra)
+        {
+            double distance = System.Math.Sqrt(sample.TargetSquaredDistance);
+            string desiredDirection = sample.HasDesiredMoveDirection
+                ? $"({sample.DesiredMoveDirection.X:F4},{sample.DesiredMoveDirection.Z:F4})"
+                : "none";
+            LogPoseSafe(
+                $"event={eventName}, serverTime={serverTime:F6}, attackerId={attackerId}, attackerInstanceId={instanceId.Value}, sequenceId={sequenceId.Value}, revision={revision}, " +
+                $"targetKind={target.Kind}, targetId={target.Id}, delivery={AttackDeliveryKind.MeleeContact}, hitIndex={hitIndex}, " +
+                $"attackerPositionXZ=({sample.AttackerPosition.X:F4},{sample.AttackerPosition.Z:F4}), currentFacingXZ=({sample.SimulationFacing.X:F4},{sample.SimulationFacing.Z:F4}), " +
+                $"targetPositionXZ=({sample.TargetPosition.X:F4},{sample.TargetPosition.Z:F4}), targetAimDirectionXZ=({sample.TargetAimDirection.X:F4},{sample.TargetAimDirection.Z:F4}), hasDesiredMoveDirection={sample.HasDesiredMoveDirection}, desiredMoveDirectionXZ={desiredDirection}, " +
+                $"yawErrorDegrees={sample.FacingToAimYawDegrees:F3}, distanceWorld={distance:F6}, attackRangeStat={attackRange:F4}, phase={phase}, reducerStatus={status}, reason={reason}, {extra}");
+        }
+
+        private static void LogPoseSafe(string details)
+        {
+            try
+            {
+                RuntimeLogger.Log(
+                    LogLevel.Info, "Combat", "NetworkCombatController",
+                    "[UAS-POSE] server pose observer", details);
+            }
+            catch (System.Exception)
+            {
+                // 진단 writer 실패는 Legacy 공격을 막아서는 안 된다.
+            }
+        }
+
+        private static bool IsFinite(double value)
+            => !double.IsNaN(value) && !double.IsInfinity(value);
 
         /// <summary>
         /// SpearMan UnitData 참조에 대응하는 Tracer A 생성 개체 식별자를 반환한다.
@@ -851,13 +1339,24 @@ namespace Hexiege.Infrastructure
             //   ChangeTargetClientRpc 또는 StopCombatClientRpc가 자연스럽게 발행됨.
             _unitCombatTargets.Remove(unitId);
             _combatAnimationSent.Remove(unitId);
-            // Tracer A의 참조 매핑만 정리한다. 이미 예약된 코루틴은 값 형식 식별자를 별도로
-            // 보관하므로 기존 Legacy 피해 처리와 진단 correlation 모두 영향을 받지 않는다.
+            // 죽은 공격자의 adapter와 새 회차 발급 상태만 정리한다.
+            //
+            // 이미 예약된 A2 observation은 여기서 지우면 안 된다. 피해 지연 코루틴은
+            // 이 NetworkCombatController가 소유하므로 공격자 GameObject가 사라져도 계속 실행된다.
+            // observation을 먼저 지우면 코루틴의 TryDispatchPoseObservation은 조용히 끝나지만
+            // 바로 뒤 A0 Legacy dispatch는 기록되어 같은 공격 회차의 schedule/dispatch 쌍이 깨진다.
+            //
+            // pending observation은 먼저 reducer를 Dead terminal로 바꾸고, 코루틴이
+            // reason=attacker-dead dispatch를 기록한 뒤 finally에서 제거한다. GameObject가
+            // 프레임 끝까지 남아 유효한 pose가 읽혀도 Advance/Evaluate는 실행하지 않는다.
+            // 실제 Legacy 피해는 기존 ApplyAttackDamage의 attacker.IsAlive 가드가 그대로 차단한다.
             if (_shadowAttackerInstances.TryGetValue(e.Unit, out AttackerInstanceId deadAttackerInstanceId))
             {
+                MarkPoseObservationsDead(deadAttackerInstanceId);
                 _shadowAttackSequences.Forget(deadAttackerInstanceId);
                 _shadowAttackerInstances.Remove(e.Unit);
             }
+            _poseAdapters.Remove(unitId);
 
             Debug.Log($"[Network] 서버: 유닛 사망. Id={unitId}");
 

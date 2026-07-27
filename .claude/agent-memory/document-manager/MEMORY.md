@@ -88,3 +88,9 @@
 - InfernoSpirit·QuakeSpirit의 Legacy 구현 사실과 규칙 v2 완성도를 반드시 분리한다. 피해 기능/로그 PASS를 ActionSequence·표현 동기화 Complete로 승격하지 않는다.
 - QuakeSpirit 스탯은 25번째 항목으로 추가됐지만 기본 Attack marker는 여전히 없고 1.00초 값은 placeholder다. Inferno는 marker 0.50초/설정 1.15초 불일치가 남는다.
 - 상태 문서의 오래된 “Quake/Inferno 미구현”, “Quake UnitStats 누락” 문구를 현재 상태로 교정하고 과거 기록은 날짜가 있는 Legacy 이력으로만 보존한다.
+
+### 2026-07-27 - Unit ActionSequence A2 완료 문서 동기화
+
+- A2 완료는 “서버 권위 pose 관측 seam PASS”로만 기록하고 이동/공격/Impact 세 증상 해결이나 v2 권위 전환 완료로 확대하지 않는다.
+- 로그 종료 당시 Impact 전 in-flight 회차는 누락으로 세지 않는다. 이번 Host 수치는 schedule 429 / dispatch 428, in-flight 1이며 완료 회차 누락·중복 0이다.
+- 규칙·TDD의 계약 변경은 없었다. 기존 서버 권위와 Legacy writer/emitter를 유지한 구현·검증 상태 변경이므로 Task Research/Plan, PROJECT_STATUS, ROADMAP, WORK_HISTORY와 관련 에이전트 MEMORY만 갱신했다. 사용자 요청으로 생성된 Testcase.md가 없어 새로 만들지 않았다.

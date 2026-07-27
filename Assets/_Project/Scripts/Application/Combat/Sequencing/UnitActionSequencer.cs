@@ -81,6 +81,27 @@ namespace Hexiege.Application.Combat.Sequencing
                 attackerInstanceId, attackerId, initialRevision, initialSequenceValue);
         }
 
+        /// <summary>
+        /// 이미 외부에서 정한 다음 공격 회차와 정확히 같은 번호를 발급하는 runtime shadow cycle을 만든다.
+        /// revision은 항상 1에서 시작하며 잘못된 식별자나 공격자 ID는 예외 없이 false로 거부한다.
+        /// </summary>
+        public static bool TryCreateShadowCycle(
+            AttackerInstanceId attackerInstanceId,
+            int attackerId,
+            AttackSequenceId nextSequenceId,
+            out UnitActionSequencer sequencer)
+        {
+            sequencer = null;
+            if (!attackerInstanceId.IsValid || attackerId < 0 || !nextSequenceId.IsValid)
+                return false;
+
+            // nextSequenceId는 1 이상이므로 -1은 underflow하지 않는다. MaxValue도 MaxValue-1 seed에서
+            // 정확히 한 번 발급할 수 있고, 그 다음 발급만 allocator가 Exhausted로 막는다.
+            sequencer = new UnitActionSequencer(
+                attackerInstanceId, attackerId, 1UL, nextSequenceId.Value - 1UL);
+            return true;
+        }
+
         /// <summary>유효한 타겟과 공격 계획을 고정하기 전 AlignToAttack 단계에 진입한다.</summary>
         public UnitActionReducerStatus BeginAttackAlignment(
             ulong expectedRevision,

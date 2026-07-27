@@ -256,3 +256,10 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - 상태 전이는 AlignToAttack→Windup→Impact→Recovery, commit/cancel/dead, multi-hit 결정·확인, 회차·revision 고갈 원자적 거부를 포함한다.
 - C# 9/Application compile PASS, Editor compile PASS, Unity Editor 메뉴 self-validation PASS, reflection `Validate*` 10개 PASS, 최종 Standards/Spec P0~P3 지적 0건이다.
 - 런타임 pose/result seam과 피해·RPC·VFX는 미연결이다. 다음 구현은 A2 server-authoritative pose seam shadow이며 기존 writer/emitter를 유지한다.
+
+### 2026-07-27 - Unit ActionSequence Tracer A2 pose seam runtime PASS
+
+- pure `IUnitActionPoseSource`/`UnitActionPoseSample`, `UnitView` read-only adapter와 `NetworkCombatController` 서버/SpearMan one-cycle reducer Shadow를 연결했다. A2는 pose와 reducer 전이만 관측하며 Legacy 피해·HP·RPC·VFX·이동 writer를 바꾸지 않는다.
+- 공격자 사망 시 pending observer를 조기 삭제하지 않고 reducer `MarkDead`로 `DeadTerminal` 종료한다. bounded 관측 용량 초과는 무음 삭제 대신 full canonical key의 `capacity-evicted` terminal skip으로 남긴다.
+- 사용자 Editor self-validation PASS. Host 18:04:04는 schedule 429 / dispatch 428이며 마지막 1건은 종료 시 Impact 전 in-flight, 완료 회차 누락·중복 0, attacker-dead 2건 terminal, eviction·예외 0이다. Client 18:09:48 `[UAS-POSE]` 0이다.
+- 다음 구현은 Tracer B Simulation Root / Visual Root 분리다. A2 PASS를 세 불일치 해결이나 result seam/권위 전환 완료로 확대하지 않는다.

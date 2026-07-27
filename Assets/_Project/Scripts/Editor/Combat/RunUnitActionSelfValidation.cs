@@ -23,7 +23,7 @@ namespace Hexiege.Editor.Combat
             ValidateDuplicateAndReorderedResults();
             ValidateA1ContractsAndReducer();
 
-            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, phase vocabulary/ordinal, revision/time fail-closed, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
+            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, phase vocabulary/ordinal, revision/time fail-closed, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
         }
 
         /// <summary>
@@ -180,6 +180,80 @@ namespace Hexiege.Editor.Combat
             ValidateA1ReducerRevisionCommitAndMultiHit();
             ValidateA1ReducerCancellationAndDeath();
             ValidateA1OverflowAndAtomicReset();
+            CheckA2PoseContracts();
+        }
+
+        /// <summary>A2 pose 값은 Unity 없이 원점·정규화·거리·yaw와 optional 이동 방향을 검증한다.</summary>
+        private static void CheckA2PoseContracts()
+        {
+            var target = new EntityRef(EntityKind.Unit, 0);
+            Require(UnitActionPoseSample.TryCreate(
+                    target,
+                    0d, 0d,
+                    0d, 2d,
+                    0d, 2d,
+                    false, double.NaN, double.NaN,
+                    out UnitActionPoseSample withoutDesired),
+                "World origin attacker and optional missing desired direction must remain valid.");
+            Require(withoutDesired.IsValid
+                && !withoutDesired.HasDesiredMoveDirection
+                && !withoutDesired.DesiredMoveDirection.IsValid
+                && Math.Abs(withoutDesired.SimulationFacing.Z - 1d) < 0.000001d
+                && Math.Abs(withoutDesired.TargetAimDirection.Z - 1d) < 0.000001d
+                && Math.Abs(withoutDesired.TargetSquaredDistance - 4d) < 0.000001d
+                && Math.Abs(withoutDesired.FacingToAimYawDegrees) < 0.000001d,
+                "Pose must normalize facing/aim and calculate squared distance and zero yaw.");
+
+            Require(UnitActionPoseSample.TryCreate(
+                    target,
+                    0d, 0d,
+                    0d, 1d,
+                    2d, 0d,
+                    true, 3d, 4d,
+                    out UnitActionPoseSample withDesired),
+                "Finite pose with an explicit desired move target must be valid.");
+            Require(withDesired.HasDesiredMoveDirection
+                && Math.Abs(withDesired.DesiredMoveDirection.X - 0.6d) < 0.000001d
+                && Math.Abs(withDesired.DesiredMoveDirection.Z - 0.8d) < 0.000001d
+                && Math.Abs(withDesired.FacingToAimYawDegrees - 90d) < 0.000001d
+                && Math.Abs(withDesired.TargetSquaredDistance - 4d) < 0.000001d,
+                "Desired direction must normalize and facing-to-aim yaw must be 90 degrees.");
+
+            Require(!UnitActionPoseSample.TryCreate(
+                    target, 0d, 0d, 0d, 0d, 1d, 0d, false, 0d, 0d, out _),
+                "Zero facing must fail closed.");
+            Require(!UnitActionPoseSample.TryCreate(
+                    target, 0d, 0d, 0d, 1d, 0d, 0d, false, 0d, 0d, out _),
+                "A target at the attacker XZ must fail closed because aim is undefined.");
+            Require(!UnitActionPoseSample.TryCreate(
+                    target, 0d, 0d, 0d, 1d, double.NaN, 1d, false, 0d, 0d, out _),
+                "NaN target position must fail closed.");
+            Require(!UnitActionPoseSample.TryCreate(
+                    target, 0d, 0d, 0d, 1d, 1d, 0d, true, 0d, 0d, out _),
+                "An explicitly present zero desired direction must fail closed.");
+            Require(!UnitActionPoseSample.TryCreate(
+                    EntityRef.None, 0d, 0d, 0d, 1d, 1d, 0d, false, 0d, 0d, out _)
+                && !UnitActionPoseSample.TryCreate(
+                    new EntityRef((EntityKind)999, 1), 0d, 0d, 0d, 1d, 1d, 0d, false, 0d, 0d, out _),
+                "None and unknown target kinds must fail closed.");
+            Require(!UnitActionPoseSample.TryCreate(
+                    target, double.NaN, 0d, 0d, 1d, 1d, 0d, false, 0d, 0d, out _)
+                && !UnitActionPoseSample.TryCreate(
+                    target, double.PositiveInfinity, 0d, 0d, 1d, 1d, 0d, false, 0d, 0d, out _),
+                "NaN and infinite attacker coordinates must fail closed.");
+            Require(!UnitActionPoseSample.TryCreate(
+                    target, 0d, 0d, 0d, 1d, 1e200d, 1e200d, false, 0d, 0d, out _),
+                "Squared target distance overflow must fail closed.");
+            Require(!UnitActionPoseSample.TryCreate(
+                    target, 0d, 0d, 0d, 1d, 1d, 0d, true, double.NaN, 1d, out _)
+                && !UnitActionPoseSample.TryCreate(
+                    target, 0d, 0d, 0d, 1d, 1d, 0d, true, double.PositiveInfinity, 1d, out _),
+                "Present desired target NaN and infinity must fail closed.");
+            Require(UnitActionPoseSample.TryCreate(
+                    target, 0d, 0d, 0d, 1d, 0d, -2d, false, 0d, 0d,
+                    out UnitActionPoseSample opposite)
+                && Math.Abs(opposite.FacingToAimYawDegrees - 180d) < 0.000001d,
+                "Opposite facing-to-aim yaw must be 180 degrees.");
         }
 
         private static void ValidateA1ValueContractsAndRange()
@@ -230,6 +304,10 @@ namespace Hexiege.Editor.Combat
             Require(AttackRangeProfile.TryCreate(0.5001d, 1d, out AttackRangeProfile classifierConflict)
                 && !classifierConflict.UsesMeleeContact && 0.5001d < 1d,
                 "AttackRange 0.5001 must expose the v2 <=0.5 versus Legacy <1 classifier conflict.");
+            Require(AttackRangeProfile.TryCreate(1d, 1d, out AttackRangeProfile spearRange)
+                && !spearRange.UsesMeleeContact
+                && Math.Abs(spearRange.GetMaximumDistance(EntityKind.Unit) - 1.05d) < 0.000001d,
+                "Actual SpearMan AttackRange 1 must use the scaled-center v2 range mode.");
             Require(!AttackRangeProfile.TryCreate(double.MaxValue, 2d, out _),
                 "Range multiplication overflow must fail closed.");
             Require(!AttackRangeProfile.TryCreate(1e200d, 1d, out _),
@@ -658,6 +736,35 @@ namespace Hexiege.Editor.Combat
             Require(!allocator.TryNext(new AttackerInstanceId(402UL), out AttackSequenceId exhaustedId)
                 && !exhaustedId.IsValid,
                 "Allocator TryNext must expose exhaustion without an exception.");
+
+            Require(!UnitActionSequencer.TryCreateShadowCycle(
+                    AttackerInstanceId.None, 8, new AttackSequenceId(1UL), out _)
+                && !UnitActionSequencer.TryCreateShadowCycle(
+                    new AttackerInstanceId(403UL), -1, new AttackSequenceId(1UL), out _)
+                && !UnitActionSequencer.TryCreateShadowCycle(
+                    new AttackerInstanceId(403UL), 8, AttackSequenceId.None, out _),
+                "Runtime shadow factory must reject every invalid identity input.");
+            Require(UnitActionSequencer.TryCreateShadowCycle(
+                    new AttackerInstanceId(404UL), 8, new AttackSequenceId(1UL), out UnitActionSequencer firstCycle)
+                && firstCycle.BeginAttackAlignment(
+                    firstCycle.Snapshot.Revision, target, AttackDeliveryKind.MeleeContact,
+                    timeline, range, facing, 3d) == UnitActionReducerStatus.Accepted
+                && firstCycle.CommitAttack(
+                    firstCycle.Snapshot.Revision, target, true, true, true,
+                    0.25d, 0d, 3d, 3d) == UnitActionReducerStatus.Accepted
+                && firstCycle.Snapshot.SequenceId.Value == 1UL,
+                "Runtime shadow factory must allocate exact sequence 1.");
+            Require(UnitActionSequencer.TryCreateShadowCycle(
+                    new AttackerInstanceId(405UL), 8, new AttackSequenceId(ulong.MaxValue),
+                    out UnitActionSequencer maximumCycle)
+                && maximumCycle.BeginAttackAlignment(
+                    maximumCycle.Snapshot.Revision, target, AttackDeliveryKind.MeleeContact,
+                    timeline, range, facing, 4d) == UnitActionReducerStatus.Accepted
+                && maximumCycle.CommitAttack(
+                    maximumCycle.Snapshot.Revision, target, true, true, true,
+                    0.25d, 0d, 4d, 4d) == UnitActionReducerStatus.Accepted
+                && maximumCycle.Snapshot.SequenceId.Value == ulong.MaxValue,
+                "Runtime shadow factory must allocate exact maximum sequence without overflow.");
         }
 
         private static void Require(bool condition, string message)

@@ -271,8 +271,8 @@ AttackProfileHash
 
 1. **Tracer A0:** SpearMan schedule/dispatch Shadow — 완료
 2. **Tracer A1:** Pure Application 계약과 stateful reducer — 완료
-3. **Tracer A2:** Server-authoritative pose seam shadow — 다음 단계
-4. **Tracer B:** Phase 2~3 — Root 분리와 이동/방향
+3. **Tracer A2:** Server-authoritative pose seam shadow — 완료
+4. **Tracer B:** Phase 2~3 — Root 분리와 이동/방향 — 다음 단계
 5. **Tracer C:** Phase 4~5 — 공격 shadow와 Presentation
 6. **Tracer D:** Phase 6 — 서버 권위 writer 전환
 7. **Tracer E:** Phase 7~8 — 공격 유형·25종 이전
@@ -327,7 +327,112 @@ A1 결과를 기준선으로 삼아 A2 server-authoritative pose seam을 Shadow�
 
 ---
 
-## 8. 구현·검증 진행 기록
+## 8. Tracer A2 — Server-authoritative pose seam shadow
+
+### 8.1 목적과 고정 범위
+
+A2는 **SpearMan 멀티플레이 서버 전용 관측 seam**이다. 서버가 이미 보유한 현재 root pose, 타겟 pose, optional 이동 의도와 공격 목표 방향을 순수 A1 reducer 입력으로 전달해 한 공격 주기의 schedule/dispatch Shadow를 비교한다.
+
+- 대상은 `TargetLocked + MeleeContact + 1-hit` SpearMan만 허용한다.
+- 서버에서만 observer를 실행한다. Host의 클라이언트 표현 경로와 원격 Client에서는 A2 reducer를 실행하지 않는다.
+- 한 Legacy 공격 주기마다 독립된 A1 reducer 회차 하나만 만들고 schedule/dispatch를 관측한다.
+- A2는 pose를 읽고 로그를 남기는 observer다. 위치·회전·타겟·피해·표현을 쓰지 않는다.
+- A2는 세 사용자 증상을 해결하는 단계가 아니며 Simulation Root/Visual Root 분리 완료도 아니다.
+
+### 8.2 좁은 Pure Application pose 계약
+
+신규 pure 계약은 `IUnitActionPoseSource`와 `UnitActionPoseSample`이다.
+
+- `IUnitActionPoseSource`: Unity `Transform`, `GameObject`, NGO 타입을 노출하지 않고 유효한 공격자/타겟 pose sample을 읽는 read-only port
+- `UnitActionPoseSample`: 공격자 현재 XZ 위치·SimulationFacing, 타겟 XZ 위치, optional `DesiredMoveDirection`, 공격 목표를 향하는 `TargetAimDirection`, 타겟 참조와 sample 유효성을 담는 순수 값
+- `DesiredMoveDirection`: 이동 명령이나 추격이 제공하는 optional 이동 의도다. 값이 없으면 공격 조준 방향으로 대체하지 않는다.
+- `TargetAimDirection`: 공격자 현재 위치에서 현재 타겟 pose를 향하는 공격 목표 방향이다. 이동 의도와 별도로 계산·기록한다.
+- `targetValid`와 `targetAlive`: Domain의 read-only 상태로 관측한다. 해당 상태를 관측하지 못한 sample에서는 값을 추정하지 않고 reducer의 Evaluate를 호출하지 않는다.
+- 서버 시간과 A1 회차/revision은 observer가 별도 공급하며 sample이 권위 결과나 HP를 포함하지 않는다.
+
+기존 광범위 예정안 `IEntityPoseProvider` 대신 이 좁은 인터페이스를 사용한다. A2가 필요한 것은 “현재 공격 한 회차의 공격자와 타겟 pose를 읽는 기능”뿐이다. 전체 엔티티 조회·검색·쓰기 기능을 노출하면 Application 계약이 불필요하게 커지고 기존 위치 제공자와 책임이 겹치며, 향후 adapter 교체와 rollback 범위도 넓어진다. 좁은 port는 서버 전용 read-only 관측임을 타입 경계로 제한하고 A2 제거 시 영향 범위를 최소화한다.
+
+### 8.3 Legacy adapter와 observer 연결
+
+- `UnitView`는 Legacy adapter로서 현재 root 위치·facing, 현재 타겟 pose, optional `DesiredMoveDirection`과 `TargetAimDirection`을 분리해 제공한다.
+- adapter는 기존 이동·회전·Animator·타겟 선택 흐름을 변경하지 않고 순수 `UnitActionPoseSample`만 반환한다.
+- `NetworkCombatController`는 `IUnitFactory`가 반환한 유닛 `GameObject`에서 `IUnitActionPoseSource` interface adapter를 찾는다. 구체 `UnitView` 타입으로 새 의존성을 만들지 않는다.
+- 적격 Legacy 공격이 시작되면 A1 reducer로 one-cycle Shadow를 schedule하고, 기존 `ApplyAttackDamage` 직전에 같은 회차를 dispatch 관측한다.
+- dispatch는 여전히 “Legacy 피해 호출 직전”을 의미하며 실제 적중, 피해 성공, ResultingHp 또는 `AttackImpactResult` 생성 완료를 의미하지 않는다.
+- reducer commit이 yaw 5° 초과, 사거리 이탈 또는 다른 규칙으로 거부돼도 적격 Legacy 공격의 schedule/dispatch pose 상관관계는 반드시 유지한다. 이때 reducer 단계만 `not-run` 또는 거부 상태로 기록하며 Legacy 공격 흐름에는 영향을 주지 않는다.
+
+### 8.4 `[UAS-POSE]` 핵심 로그 스키마
+
+상태 전이 경계에서만 다음 상관 필드를 기록한다.
+
+- `event`: `schedule`, `dispatch`, `skip`
+- `serverTime`, `attackerId`, `attackerInstanceId`, `sequenceId`, `revision`
+- `targetKind`, `targetId`, `delivery`, `hitIndex`
+- `attackerPositionXZ`, `currentFacingXZ`, `targetPositionXZ`, `desiredMoveDirectionXZ`(optional), `targetAimDirectionXZ`
+- `targetStateObserved`, `targetValid`, `targetAlive`, `phase`, `reducerStatus`
+- `facingDeltaDegrees`, `aimDeltaDegrees`, `targetMoveDistanceWorld`
+- `distanceWorld`, `maximumDistanceWorld`, `dispatchDeltaMs`
+- `reason`: adapter 없음, invalid sample, 범위 밖 공격 유형, 타겟 변경, 시간·revision 거부 등 fail-closed 사유
+
+로그에는 실제 피해량·HP 성공 판정을 기록하지 않는다. A2의 목적은 pose 입력과 reducer 전이 상관관계를 검증하는 것이다.
+
+### 8.5 변경 금지 경계와 fail-closed
+
+A2에서는 기존 **damage, RPC, VFX, HP, path, NetworkTransform, NetworkUnit, prefab, GameBootstrapper, UnitCombatUseCase**를 수정하지 않는다. 기존 writer/emitter와 Legacy 분기가 계속 경기 결과의 유일한 권위다.
+
+다음 조건에서는 observer만 `skip`하고 즉시 기존 Legacy 분기로 돌아간다.
+
+- 서버가 아님
+- SpearMan이 아니거나 `TargetLocked + MeleeContact + 1-hit`이 아님
+- `IUnitActionPoseSource` adapter를 찾지 못함
+- 공격자/타겟 pose, desired direction 또는 서버 시간이 유효하지 않음
+- schedule 이후 타겟·회차 scope가 달라짐
+- observer 내부 예외 또는 로그 실패
+
+어떤 skip·거부·예외도 Legacy 공격 예약, `ApplyAttackDamage`, RPC, HP, VFX, 이동·회전 또는 타겟 유지에 영향을 주지 않는다. observer의 반환값을 Legacy 분기 조건으로 사용하지 않는다.
+
+적격 Legacy 공격에서 pose sample과 상관키가 유효하다면 reducer의 commit/Evaluate 결과는 `skip` 사유가 아니다. reducer가 거부하거나 target Domain 상태가 관측되지 않아 Evaluate를 실행할 수 없어도 observer는 같은 회차의 `schedule`과 `dispatch`를 남기고, `reducerStatus`와 `reason`에 `rejected` 또는 `not-run`을 기록한다.
+
+### 8.6 롤백
+
+- `NetworkCombatController`의 A2 observer 호출을 비활성화하거나 제거하면 즉시 A1 이전 Legacy 실행과 동일해진다.
+- `UnitView`의 read-only adapter와 pure pose 계약은 writer를 갖지 않으므로 제거해도 직렬화·씬·프리팹 migration이 필요 없다.
+- A2 실패 시 신규 seam을 다음 단계로 확장하지 않고 A0/A1 코드와 Legacy 권위를 유지한다.
+
+### 8.7 완료 게이트
+
+**정적 게이트**
+
+- `IUnitActionPoseSource`와 `UnitActionPoseSample`은 Application의 pure C# 계약이며 UnityEngine/NGO 참조가 0이다.
+- `NetworkCombatController`는 `IUnitFactory`의 `GameObject`에서 interface로 adapter를 찾고 구체 `UnitView` 의존성을 추가하지 않는다.
+- 런타임 sequencer factory는 `CreateForValidation` 등 validation 전용 API를 호출하지 않고 정상 생성자·런타임 계약만 사용한다.
+- A2 observer에서 damage/RPC/VFX/HP/path/Transform writer 호출이 0이다.
+- 변경 금지 파일·프리팹·씬의 변경이 0이다.
+- TargetLocked Melee 1-hit 이외 입력은 모두 fail-closed `skip`이다.
+- `targetValid`/`targetAlive`는 Domain read-only state에서만 채우며 `targetStateObserved=false`이면 reducer Evaluate 호출이 0이다.
+
+**Unity 게이트**
+
+- C# 9/Application 컴파일 PASS, Editor 컴파일 PASS
+- 기존 A1 self-validation 전체 PASS 및 A2 pose 계약 검증 PASS
+- Game 씬 로드 시 missing script/직렬화 오류 0
+- A2 비활성 상태에서 기존 SpearMan 동작과 로그 기준선이 유지됨
+
+**멀티플레이 게이트**
+
+- Host 서버에서만 `[UAS-POSE]`가 기록되고 원격 Client의 observer 실행은 0
+- 적격 SpearMan 공격마다 reducer commit 수락·거부와 무관하게 one-cycle schedule/dispatch pose 상관관계가 정확히 하나이며 누락·중복·타겟 scope 불일치 0
+- reducer가 yaw 5° 초과·사거리 이탈 등으로 거부하면 schedule/dispatch는 유지되고 reducer 단계만 `rejected` 또는 `not-run`으로 기록됨
+- current facing, optional desired move direction, target aim direction, target pose와 reducer phase/revision을 같은 회차로 추적 가능
+- `targetStateObserved=false`인 회차는 Evaluate 없이 `not-run`으로 기록되고 Legacy dispatch 상관관계는 유지됨
+- adapter 없음·invalid sample·비적격 공격에서 명시적 `skip`이 기록되고 Legacy 피해·HP·RPC·VFX 결과는 기준선과 동일
+- 사용자 멀티플레이 검증 전에는 A2 완료 또는 다음 Root 분리 단계로 승격하지 않음
+
+**A2 판정 경계:** 위 게이트를 통과해도 “서버 권위 pose 관측 seam 검증 완료”일 뿐이다. 이동 방향/바라보기, 타겟/공격 방향, 시각 Impact/실제 피해 시점 문제 해결이나 Simulation Root/Visual Root 분리 완료로 판정하지 않는다. 게임 규칙 변경은 필요 없다.
+
+---
+
+## 9. 구현·검증 진행 기록
 
 ### 2026-07-22 — Tracer A0 Shadow Melee Sequence 통과
 
@@ -359,3 +464,22 @@ A1 결과를 기준선으로 삼아 A2 server-authoritative pose seam을 Shadow�
 - [ ] 피해·RPC·VFX 연결 — A1에서는 의도적으로 미연결
 
 **A1 판정:** 순수 Application UnitAction 계약과 stateful reducer는 완료됐다. 런타임 행동 교정 완료가 아니며, 다음 단계는 **A2 server-authoritative pose seam shadow**다.
+
+### 2026-07-27 — Tracer A2 Server-authoritative pose seam shadow 통과
+
+- [x] `UnitActionPoseContracts.cs` — pure Application `IUnitActionPoseSource`와 `UnitActionPoseSample`
+- [x] `UnitView.cs` — 기존 Transform·타겟·이동 의도를 읽기만 하는 Legacy pose adapter
+- [x] `NetworkCombatController.cs` — 서버/SpearMan/TargetLocked Melee 1-hit 한정 one-cycle reducer Shadow와 `[UAS-POSE]` schedule/dispatch/skip
+- [x] 런타임 sequencer 생성 경로를 validation 전용 factory와 분리
+- [x] 공격자 사망 시 pending observer 조기 삭제 제거, reducer `MarkDead`를 통한 `DeadTerminal` 종료
+- [x] bounded 관측 용량 초과 시 full canonical key의 `capacity-evicted` terminal skip 기록
+- [x] 사용자 Unity Editor self-validation PASS
+- [x] Host 최신 검증(2026-07-27 18:04:04): schedule 429 / dispatch 428. 마지막 1건은 로그 종료 당시 Impact 예정 전 in-flight이며 완료 회차 누락·중복 0
+- [x] Host 공격자 사망 2건: `MarkDead=Accepted`, `DeadTerminal`; `capacity-evicted` 0, 예외 0
+- [x] Client 최신 검증(2026-07-27 18:09:48): `[UAS-POSE]` 0 — 서버 전용 observer 경계 PASS
+- [x] 기존 피해·HP·RPC·VFX·이동·회전·타겟 writer와 서버 권위 Legacy 분기 변경 없음
+- [ ] Simulation Root / Visual Root 분리와 이동·바라보기 방향 교정
+- [ ] 서버 Impact와 클라이언트 시각 표현의 결과 키 기반 결합
+- [ ] 25종 및 지연·지터·손실·다수 유닛 검증
+
+**A2 판정:** 서버 권위 pose 관측 seam의 정적·Editor·멀티플레이 런타임 게이트는 PASS다. 이는 세 사용자 증상의 해결 완료나 v2 권위 전환 완료를 뜻하지 않는다. 다음 단계는 **Tracer B Simulation Root / Visual Root 분리**다.

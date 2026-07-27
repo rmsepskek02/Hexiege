@@ -333,3 +333,9 @@ Assets/_Project/
 - 사용자 Unity Editor 메뉴 PASS, C# 9/Application 및 Editor compile PASS, reflection `Validate*` 10 PASS, 최종 Standards/Spec P0~P3 지적 0건이다.
 - 런타임 pose/result seam 및 피해·RPC·VFX는 미연결이므로 세 사용자 증상과 v2 전환은 미완료다.
 - 다음 조율 게이트는 A2 server-authoritative pose seam shadow다. 기존 피해·RPC·VFX single-writer/single-emitter를 유지한다.
+
+### 2026-07-27 - Unit ActionSequence Tracer A2 게이트
+
+- pure pose 계약, `UnitView` read-only Legacy adapter와 서버/SpearMan one-cycle reducer Shadow를 구현·검증했다. 공격자 사망은 pending observer 삭제가 아니라 `MarkDead`/`DeadTerminal`, 용량 초과는 canonical `capacity-evicted` terminal skip으로 닫는다.
+- 사용자 Editor self-validation PASS. Host 18:04:04 완료 회차 상관관계 누락·중복 0, attacker-dead 2건 terminal, eviction·예외 0. schedule 429 / dispatch 428의 차이 1건은 로그 종료 시 Impact 전 in-flight다. Client 18:09:48 observer 0.
+- 기존 피해·HP·RPC·VFX·이동 writer와 서버 권위 Legacy 분기는 유지했다. A2 런타임 게이트 PASS 후 다음 조율 게이트는 Tracer B Simulation Root / Visual Root 분리다.

@@ -1,9 +1,9 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-07-22
-**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2와 25종 감사 문서는 확정됐고, Tracer A0 schedule/dispatch Shadow와 A1 pure Application UnitAction 계약·stateful reducer가 검증을 통과했다. 다만 런타임 pose/result seam, 피해·RPC·VFX, Simulation/Visual Root 분리·Snapshot/ImpactResult 복제·표현 전환은 미연결이다. 기존 이동/Walk·타격 동기화 PASS는 Legacy 범위의 이력으로만 보존하며, 세 불일치 문제는 **P0 진행 중** 상태다.
+**최종 수정일:** 2026-07-27
+**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2와 25종 감사 문서는 확정됐고, Tracer A0 schedule/dispatch Shadow, A1 pure Application UnitAction 계약·stateful reducer, A2 server-authoritative pose seam shadow가 검증을 통과했다. 다만 result seam, 피해·RPC·VFX, Simulation/Visual Root 분리·Snapshot/ImpactResult 복제·표현 전환은 미연결이다. 기존 이동/Walk·타격 동기화 PASS는 Legacy 범위의 이력으로만 보존하며, 세 불일치 문제는 **P0 진행 중** 상태다.
 **최신 main 반영:** InfernoSpirit은 직접 25 + 유닛 전용 DoT 5/초×3초가 Legacy 경로에서 사용자 실기 확인됐고, QuakeSpirit은 직접 20 + 주변 적 유닛·건물 10 및 Host/Client HP 결과가 로그로 확인됐다. 다만 Inferno는 marker 0.50초/설정 1.15초가 불일치하며, Quake는 기본 `OnAttackHit`이 없고 1.00초 placeholder를 사용한다. 두 구현 모두 권위 `AttackSequenceId`, `ImpactPoint`, 결과 순번이 없어 v2 Complete가 아니다.
-**현재 단계 (규칙 v2):** A1 순수 계약·stateful reducer 완료. 다음은 **A2 server-authoritative pose seam shadow**이며, 아래 Legacy 스냅샷은 현재 판정에 사용하지 않는다.
+**현재 단계 (규칙 v2):** A2 서버 권위 pose 관측 seam 런타임 PASS. 다음은 **Tracer B Simulation Root / Visual Root 분리**이며, 아래 Legacy 스냅샷은 현재 판정에 사용하지 않는다.
 **Legacy 스냅샷 (2026-07-19):** BattleAxe·TorrentSpirit·BloomFairy·MushroomBomber의 당시 기능 완료 기록은 `WORK_HISTORY.md`로 이관해 보존한다. 이후 반영된 InfernoSpirit·QuakeSpirit 상태와 v2 판정은 위 최신 상태 및 AssetMatrix를 따른다.
 
 > Legacy 기능 PASS는 규칙 v2 Complete가 아니다. 실제 현재 상태는 위 `정밀 동기화 상태`와 `UnitCombatAssetMatrix.md`를 따른다.
@@ -21,9 +21,12 @@
 - 방출 지연: min 0.013ms / avg 9.105ms / p50 8.226ms / p95 19.862ms / max 29.386ms. 16.667ms 초과 27건, 33.333ms·50ms 초과 0건.
 - Client 로그는 현재 계측 범위상 header only이므로 Host/Client 상관관계 검증 완료로 판정하지 않는다.
 - Tracer A1 완료: `UnitActionContracts`와 `UnitActionSequencer` 순수 Application 계약·stateful reducer. C# 9/Application 및 Editor 컴파일 PASS, Unity Editor 메뉴 PASS, reflection `Validate*` 10개 PASS, 최종 Standards/Spec P0~P3 지적 0건.
-- A1 미연결 경계: 런타임 pose/result seam과 피해·RPC·VFX는 연결하지 않았다. 다음은 A2 server-authoritative pose seam shadow다.
+- Tracer A2 완료: pure `IUnitActionPoseSource`/`UnitActionPoseSample`, `UnitView` read-only adapter, 서버 SpearMan one-cycle reducer Shadow를 연결했다. 기존 위치·회전·타겟·피해·HP·RPC·VFX·path writer는 변경하지 않았다.
+- 공격자 사망 경계는 pending observer 삭제 대신 `MarkDead=Accepted`와 `DeadTerminal`로 닫고, bounded 용량 초과는 canonical `capacity-evicted` terminal skip으로 기록한다.
+- 사용자 런타임 검증: Host(2026-07-27 18:04:04) schedule 429 / dispatch 428이며 마지막 1건은 로그 종료 당시 Impact 전 in-flight다. 완료 회차 누락·중복 0, attacker-dead 2건 정상 terminal, capacity eviction·예외 0. Client(18:09:48) `[UAS-POSE]` 0.
+- A2 미연결 경계: result seam과 피해·RPC·VFX는 연결하지 않았다. 다음은 Tracer B Simulation Root / Visual Root 분리다.
 - 목표: Simulation Root/Visual Root 분리, `AttackerInstanceId + AttackSequenceId + HitIndex` 기반 정규 결과 키, 서버 시간 Impact, FIFO 대체
-- 런타임: A0 진단 외에는 reducer 입력·결과 seam이 미연결이고 기존 Network Root Red 보정, Walk/Attack 상태 분리, 공격자 FIFO가 남아 있어 **미완료**
+- 런타임: A2에서 pose→reducer 관측 입력 seam까지 연결했지만 결과 seam은 미연결이고 기존 Network Root Red 보정, Walk/Attack 상태 분리, 공격자 FIFO가 남아 있어 **미완료**
 - 중요 사실: UnitStatsConfig는 25/25 등록됐으나 기본 Attack marker 누락 4종, BattleAxe·Inferno 등 marker/설정 불일치, hit/tracer preset 0/25, Quake의 표현 최대 7.5초 지연 가능성이 남아 있다.
 - 후속 구현과 검증은 현재 task Plan의 A2 이후 게이트를 따른다.
 

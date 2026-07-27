@@ -36,6 +36,7 @@ using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
 using Hexiege.Application;
+using Hexiege.Application.Combat.Sequencing;
 using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
@@ -43,7 +44,7 @@ namespace Hexiege.Presentation
     // IUnitView 인터페이스 구현.
     //   UnitFactory(Infrastructure)가 Presentation 구체 타입 대신 인터페이스로 Initialize를 호출하도록.
     //   SetDependencies는 Infrastructure 구체 타입을 받으므로 인터페이스에 포함하지 않음.
-    public class UnitView : MonoBehaviour, Hexiege.Application.IUnitView
+    public class UnitView : MonoBehaviour, Hexiege.Application.IUnitView, IUnitActionPoseSource
     {
         // ====================================================================
         // Animator 파라미터 해시 (문자열 비교 방지)
@@ -169,6 +170,14 @@ namespace Hexiege.Presentation
         /// 타겟 오브젝트 파괴 시 Unity가 자동으로 null 처리.
         /// </summary>
         private Transform _combatTargetTransform = null;
+
+        /// <summary>
+        /// Legacy 이동·정렬·추격 코드가 마지막으로 실제 선택한 월드 목표다.
+        /// A2는 이 값을 읽기만 하며 이동 경로, transform, UnitData.Facing을 절대 수정하지 않는다.
+        /// bool을 따로 두는 이유는 월드 원점도 Vector3 값으로는 표현 가능하기 때문이다.
+        /// </summary>
+        private Vector3 _unitActionShadowDesiredTarget;
+        private bool _hasUnitActionShadowDesiredTarget;
 
         // 회전 속도 (초당 각도) — 인스펙터에서 조정 가능.
         // 전투 중 타겟 추적, A* 이동 중 방향 전환, 전투 종료 후 정렬 모두 동일한 속도로 회전한다.
@@ -471,6 +480,9 @@ namespace Hexiege.Presentation
                     // 다른 유닛의 사망 이벤트는 무시.
                     if (_unitData != null && e.Unit == _unitData)
                     {
+                        // 사망한 root의 마지막 이동/공격 목표가 adapter에 남아 다음 관측으로 재사용되지 않게 한다.
+                        ClearUnitActionShadowDesiredTarget();
+
                         // 사망 시 speed 복원 후 IsDead bool 설정 (Animator 트랜지션)
                         if (_animator != null)
                         {
@@ -563,6 +575,69 @@ namespace Hexiege.Presentation
                 ? _unitFactory?.GetUnitObject(targetId)
                 : _buildingFactory?.GetBuildingObject(targetId);
             return obj != null ? obj.transform : null;
+        }
+
+        /// <summary>
+        /// A2 observer가 요청한 타겟과 현재 root pose를 한 번에 읽는다.
+        /// transform.position/forward는 이미 Legacy와 NetworkTransform이 사용하는 좌표이므로
+        /// ViewConverter를 다시 적용하지 않는다. 제공자가 타겟을 찾지 못해 zero를 반환하거나
+        /// 마지막 Legacy 목표가 정리된 상태라면 오래된 방향을 추측하지 않고 false로 끝낸다.
+        /// </summary>
+        public bool TryCaptureUnitActionPose(EntityRef target, out UnitActionPoseSample sample)
+        {
+            sample = default;
+            if (_unitData == null || !_unitData.IsAlive || !target.IsValid)
+                return false;
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer)
+                return false;
+
+            // provider의 Vector3.zero sentinel은 실제 월드 원점과 구분할 수 없다. 따라서 요청한
+            // EntityRef로 factory 오브젝트가 존재하는지 직접 확인한 뒤 raw Transform 위치를 읽는다.
+            Transform targetTransform = GetTargetTransform(target.Id, target.Kind == EntityKind.Unit);
+            if (targetTransform == null) return false;
+            Vector3 targetPosition = targetTransform.position;
+
+            Vector3 attackerPosition = transform.position;
+            Vector3 facing = transform.forward;
+            if (!IsFiniteXZ(attackerPosition) || !IsFiniteXZ(facing)
+                || !IsFiniteXZ(targetPosition) || !IsFiniteXZ(_unitActionShadowDesiredTarget))
+                return false;
+
+            return UnitActionPoseSample.TryCreate(
+                target,
+                attackerPosition.x, attackerPosition.z,
+                facing.x, facing.z,
+                targetPosition.x, targetPosition.z,
+                _hasUnitActionShadowDesiredTarget,
+                _unitActionShadowDesiredTarget.x, _unitActionShadowDesiredTarget.z,
+                out sample);
+        }
+
+        /// <summary>
+        /// Legacy가 이미 계산한 실제 목표만 복사한다. A2를 위해 새 경로나 좌표 변환을 만들지 않는다.
+        /// </summary>
+        private void CaptureUnitActionShadowDesiredTarget(Vector3 target)
+        {
+            if (!IsFiniteXZ(target))
+            {
+                ClearUnitActionShadowDesiredTarget();
+                return;
+            }
+
+            _unitActionShadowDesiredTarget = target;
+            _hasUnitActionShadowDesiredTarget = true;
+        }
+
+        private void ClearUnitActionShadowDesiredTarget()
+        {
+            _unitActionShadowDesiredTarget = default;
+            _hasUnitActionShadowDesiredTarget = false;
+        }
+
+        private static bool IsFiniteXZ(Vector3 value)
+        {
+            return !float.IsNaN(value.x) && !float.IsInfinity(value.x)
+                && !float.IsNaN(value.z) && !float.IsInfinity(value.z);
         }
 
         // ====================================================================
@@ -974,6 +1049,7 @@ namespace Hexiege.Presentation
                     // 타일 중심 = 도메인 좌표 → 뷰 좌표 변환 + 유닛 높이 보정.
                     Vector3 toPos = ViewConverter.ToView(toDomain);
                     toPos.y += HexMetrics.UnitYOffset;
+                    CaptureUnitActionShadowDesiredTarget(toPos);
 
                     // ──────────────────────────────────────────────────────
                     // [회전 시스템 변경 — 2026-05-14] 목표 각도 계산 — toPos 정의 직후 1회만.
@@ -1076,6 +1152,7 @@ namespace Hexiege.Presentation
                             Vector3 forwardWorld = HexMetrics.HexToWorld(forwardTile);
                             Vector3 alignView = ViewConverter.ToView(forwardWorld);
                             alignView.y += HexMetrics.UnitYOffset;
+                            CaptureUnitActionShadowDesiredTarget(alignView);
 
                             Vector3 alignFromPos = transform.position;
                             float alignDist = Vector3.Distance(alignFromPos, alignView);
@@ -1429,6 +1506,7 @@ namespace Hexiege.Presentation
                 // 회전: 시각적으로 자연스럽게 적을 바라보며 추적.
                 Vector3 moveDir = enemyViewPos - transform.position;
                 moveDir.y = 0f;
+                CaptureUnitActionShadowDesiredTarget(enemyViewPos);
                 float dist = moveDir.magnitude;
                 if (dist > 0.01f)
                 {
@@ -1467,6 +1545,9 @@ namespace Hexiege.Presentation
         {
             if (_combatUseCase == null || _unitData == null) yield break;
             if (!_combatUseCase.HasEnemyInRange(_unitData)) yield break;
+            // 공격 중에는 실제 이동 목표가 없다. 마지막 추격 목적지를 남기면 A2가 이를
+            // 현재 공격 desired로 오해하므로 전투 정지 경계에서 optional 값을 명시적으로 비운다.
+            ClearUnitActionShadowDesiredTarget();
 
             if (NetworkContext.IsNetworkActive)
             {
@@ -1774,6 +1855,7 @@ namespace Hexiege.Presentation
         private void MoveCleanupAndCompleteV3()
         {
             _moveCoroutine = null;
+            ClearUnitActionShadowDesiredTarget();
 
             // 혼잡도 기여 종료 — 이동이 끝났으니 새 코루틴 전까지는 발행하지 않는다.
             _isAStarMoving = false;
@@ -1970,6 +2052,7 @@ namespace Hexiege.Presentation
             // [Phase 2] 이 타겟 참조/회전 추적은 애니메이션과 분리해 "유지"한다(클라이언트도 필요):
             //   원거리 유닛의 트레이서 조준(OnAttackHit)이 _combatTargetTransform/_combatTargetId를 사용한다.
             _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
+            ClearUnitActionShadowDesiredTarget();
 
             // 멀티플레이 타이밍 문제 대비: Transform 참조가 나중에 null이 되더라도
             // 백업 ID로 재조회할 수 있도록 ID를 저장한다.
@@ -1993,6 +2076,7 @@ namespace Hexiege.Presentation
 
             // 추적 대상을 새 타겟으로 교체 → Update()가 새 타겟 방향 추적 시작
             _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
+            ClearUnitActionShadowDesiredTarget();
 
             // 새 타겟의 ID로 백업을 갱신한다.
             _combatTargetId = targetId;
@@ -2023,6 +2107,7 @@ namespace Hexiege.Presentation
 
             // Transform 참조와 함께 백업 ID도 초기화하여 Update()의 재조회 시도를 차단한다.
             _combatTargetId = -1;
+            ClearUnitActionShadowDesiredTarget();
 
             // 의도적으로 비워둠 — 위 summary 참조.
         }

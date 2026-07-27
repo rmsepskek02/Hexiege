@@ -496,3 +496,9 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - C# 9/Application compile PASS, Editor compile PASS, reflection `Validate*` 10개 PASS, 최종 Standards/Spec 리뷰 P0~P3 지적 0건이다.
 - 검증 범위는 revision/time fail-closed, phase vocabulary, 5°/8° 공격 정렬, commit/cancel/dead, multi-hit 결정·확인, bounded dedupe/reorder, 사거리 규칙 차이 탐지다.
 - 런타임 pose/result seam과 피해·RPC·VFX는 연결하지 않았으므로 멀티플레이 행동 교정 PASS로 확대하지 않는다. 다음 QA 기준선은 A2 server-authoritative pose seam shadow다.
+
+### 2026-07-27 - Unit ActionSequence Tracer A2 런타임 PASS
+
+- 사용자 Unity Editor self-validation PASS. Host 최신 세션(18:04:04)은 `[UAS-POSE]` schedule 429 / dispatch 428이며 마지막 1건은 로그 종료 당시 Impact 예정 전 in-flight다. 완료 회차의 누락·중복은 0이다.
+- 공격자 사망 2건은 `MarkDead=Accepted`와 `DeadTerminal`로 닫혔고 `capacity-evicted` 및 예외는 0이다. Client 최신 세션(18:09:48)은 `[UAS-POSE]` 0으로 서버 전용 observer 경계를 통과했다.
+- A2 판정은 서버 권위 pose 관측 seam PASS다. 이동/바라보기·타겟/공격 방향·시각 Impact/실제 피해 시점 해결이나 권위 전환 PASS가 아니다. 다음 QA 기준선은 Tracer B Simulation Root / Visual Root 분리다.
