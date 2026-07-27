@@ -339,3 +339,10 @@ Assets/_Project/
 - pure pose 계약, `UnitView` read-only Legacy adapter와 서버/SpearMan one-cycle reducer Shadow를 구현·검증했다. 공격자 사망은 pending observer 삭제가 아니라 `MarkDead`/`DeadTerminal`, 용량 초과는 canonical `capacity-evicted` terminal skip으로 닫는다.
 - 사용자 Editor self-validation PASS. Host 18:04:04 완료 회차 상관관계 누락·중복 0, attacker-dead 2건 terminal, eviction·예외 0. schedule 429 / dispatch 428의 차이 1건은 로그 종료 시 Impact 전 in-flight다. Client 18:09:48 observer 0.
 - 기존 피해·HP·RPC·VFX·이동 writer와 서버 권위 Legacy 분기는 유지했다. A2 런타임 게이트 PASS 후 다음 조율 게이트는 Tracer B Simulation Root / Visual Root 분리다.
+
+### 2026-07-27 - Unit ActionSequence Tracer B0 게이트
+
+- 50개 프리팹(Human 16 / Spirit 18 / Transcendence 16)의 read-only 구조 감사와 rollback manifest 생성이 PASS했다. 예상 migration은 VisualRoot create 50 / reuse 0 / direct-child move 58이다.
+- 사용자 dry-run 연속 2회가 각각 50/50, errors 0, assetsModified 0이며 aggregate manifest SHA-256 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 일치했다. prefab/scene Git diff와 mutation API 호출은 0이다.
+- 전체 직렬화 상태가 아니라 NGO 의미 설정 allowlist를 결정적으로 해시하고, Unity Console 절단에 견디도록 프리팹별 로그와 종합 digest를 분리한다.
+- B1은 50개 프리팹 원자적 migration과 rollback 검증이며, B2 Shadow/B3 경기 단위 writer 전환 전에 완료해야 한다. B0 PASS를 실제 Root 분리나 세 증상 해결로 확대하지 않는다.

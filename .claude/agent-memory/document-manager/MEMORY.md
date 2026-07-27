@@ -94,3 +94,10 @@
 - A2 완료는 “서버 권위 pose 관측 seam PASS”로만 기록하고 이동/공격/Impact 세 증상 해결이나 v2 권위 전환 완료로 확대하지 않는다.
 - 로그 종료 당시 Impact 전 in-flight 회차는 누락으로 세지 않는다. 이번 Host 수치는 schedule 429 / dispatch 428, in-flight 1이며 완료 회차 누락·중복 0이다.
 - 규칙·TDD의 계약 변경은 없었다. 기존 서버 권위와 Legacy writer/emitter를 유지한 구현·검증 상태 변경이므로 Task Research/Plan, PROJECT_STATUS, ROADMAP, WORK_HISTORY와 관련 에이전트 MEMORY만 갱신했다. 사용자 요청으로 생성된 Testcase.md가 없어 새로 만들지 않았다.
+
+### 2026-07-27 - Unit ActionSequence B0 완료 문서 동기화
+
+- B0는 “read-only Visual Root migration readiness PASS”로만 기록한다. 50개 프리팹의 실제 migration, Presentation seam, writer 전환이나 세 동기화 증상 해결 완료로 확대하지 않는다.
+- 결정성 근거는 연속 두 dry-run의 50/50, errors 0, assetsModified 0과 동일 aggregate manifest SHA-256이다. 최초 불안정 해시는 임시 native bookkeeping을 포함한 진단기 문제였고 NGO 의미 설정 allowlist로 교정했다.
+- 계약·게임플레이 수치 변경이 없어 GameSystemRules/TDD/GDD는 무수정이다. Task Research/Plan, PROJECT_STATUS, ROADMAP, WORK_HISTORY와 game-programmer/project-orchestrator/qa-tester/document-manager MEMORY를 갱신했다. Testcase는 사용자 요청이 없어 생성하지 않았다.
+- 다음 상태는 B1 50개 프리팹 원자적 migration이며, 완료 문구에는 NetworkObject/NetworkTransform 식별자 보존·부분 저장 0·rollback·2회차 diff 0 검증 전까지 “Root 분리 완료”를 쓰지 않는다.

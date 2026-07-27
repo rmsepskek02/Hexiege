@@ -180,3 +180,16 @@ NGO·Animator·씬 없이 Application 수준에서 다음을 결정적으로 재
 세 현상은 독립 버그가 아니라 같은 원인군에서 발생한다. Simulation과 Visual이 같은 루트를 쓰고, 이동·타겟·공격·피해 표현이 공통 행동 회차 없이 각각 진행되는 것이 핵심이다.
 
 전면 재작성이나 Legacy 즉시 삭제는 필요하지 않다. A0 계측과 A1 순수 계약·reducer 완료 → A2 서버 권위 pose seam shadow → Root 분리 → 공격 결과 shadow → 표현 전환 → 권위 전환 → 25종 이전 순으로 진행하면 서버 권위와 아키텍처를 유지하면서 안전하게 교정할 수 있다.
+
+---
+
+## 9. 2026-07-27 Tracer B0 구조 감사 결과
+
+- Blue/Red 25종, 총 50개 프리팹을 Human 16 / Spirit 18 / Transcendence 16으로 식별했다.
+- 현재 VisualRoot는 0개이며 migration 예상치는 생성 50, 재사용 0, root 직속 자식 이동 58이다.
+- VFX/socket은 직렬화 할당 16 / null 34, root 직속 8 / 중첩 8이다.
+- read-only 검증기와 dry-run은 prefab/scene/runtime을 수정하지 않았고 Git 에셋 diff 0, mutation API 호출 0, `assetsModified=0`을 유지했다.
+- Unity dry-run을 연속 두 번 실행한 결과 모두 `prefabsLogged=50/50`, `errorsLogged=0`, `assetsModified=0`으로 PASS했다. 종합 manifest 해시는 두 실행 모두 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`였다.
+- 초기 전체 `SerializedProperty` 해시는 `LoadPrefabContents`가 만드는 native bookkeeping까지 포함해 실행 간 불안정했다. NGO 의미 설정 allowlist만 해시하도록 교정했고, 16KB Console 절단에 대비해 runId·프리팹별 로그와 종합 digest를 분리했다.
+
+이 결과는 B1 migration의 입력과 rollback 기준이 결정적이라는 뜻이다. 실제 VisualRoot 생성, 참조 재배선, 이동·회전 writer 변경은 아직 수행하지 않았으므로 세 사용자 증상의 해결 근거로 사용하지 않는다.

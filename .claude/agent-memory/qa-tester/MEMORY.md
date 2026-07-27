@@ -502,3 +502,10 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - 사용자 Unity Editor self-validation PASS. Host 최신 세션(18:04:04)은 `[UAS-POSE]` schedule 429 / dispatch 428이며 마지막 1건은 로그 종료 당시 Impact 예정 전 in-flight다. 완료 회차의 누락·중복은 0이다.
 - 공격자 사망 2건은 `MarkDead=Accepted`와 `DeadTerminal`로 닫혔고 `capacity-evicted` 및 예외는 0이다. Client 최신 세션(18:09:48)은 `[UAS-POSE]` 0으로 서버 전용 observer 경계를 통과했다.
 - A2 판정은 서버 권위 pose 관측 seam PASS다. 이동/바라보기·타겟/공격 방향·시각 Impact/실제 피해 시점 해결이나 권위 전환 PASS가 아니다. 다음 QA 기준선은 Tracer B Simulation Root / Visual Root 분리다.
+
+### 2026-07-27 - Unit ActionSequence Tracer B0 read-only QA PASS
+
+- 대상 50개 프리팹은 Human 16 / Spirit 18 / Transcendence 16이고, 중복·누락 identity와 구조 오류는 0이다. 현재 VisualRoot 0, migration 예상 create 50 / reuse 0 / direct-child move 58이다.
+- 사용자 dry-run 연속 두 실행의 `[END][PASS]`가 모두 `prefabsLogged=50/50`, `errorsLogged=0`, `assetsModified=0`이다. aggregate manifest SHA-256도 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 일치했다.
+- prefab/scene Git diff와 mutation API 호출은 0이다. B0 QA 판정은 “결정적 read-only migration readiness PASS”이며 실제 migration·런타임 writer·세 증상은 미검증이다.
+- B1 QA는 50/50 원자적 적용, NetworkObject/NetworkTransform 식별자 보존, missing script/깨진 참조 0, 2회차 diff 0, 부분 저장 0과 rollback을 별도 검증해야 한다.

@@ -263,3 +263,11 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - 공격자 사망 시 pending observer를 조기 삭제하지 않고 reducer `MarkDead`로 `DeadTerminal` 종료한다. bounded 관측 용량 초과는 무음 삭제 대신 full canonical key의 `capacity-evicted` terminal skip으로 남긴다.
 - 사용자 Editor self-validation PASS. Host 18:04:04는 schedule 429 / dispatch 428이며 마지막 1건은 종료 시 Impact 전 in-flight, 완료 회차 누락·중복 0, attacker-dead 2건 terminal, eviction·예외 0이다. Client 18:09:48 `[UAS-POSE]` 0이다.
 - 다음 구현은 Tracer B Simulation Root / Visual Root 분리다. A2 PASS를 세 불일치 해결이나 result seam/권위 전환 완료로 확대하지 않는다.
+
+### 2026-07-27 - Unit ActionSequence Tracer B0 migration readiness PASS
+
+- `ValidateUnitCombatSetup`과 `SetupUnitVisualRoots` dry-run은 50개 유닛 프리팹의 구조·정체성·네트워크 root·이동 후보·직렬화 참조·rollback manifest를 읽기만 한다. prefab/scene/runtime mutation API와 에셋 변경은 0이다.
+- 기준선은 Human 16 / Spirit 18 / Transcendence 16, VisualRoot 0, create 50 / reuse 0 / direct-child move 58, VFX assigned 16 / null 34 / direct 8 / nested 8이다.
+- `LoadPrefabContents`가 생성하는 native bookkeeping 때문에 전체 `SerializedProperty` 해시는 결정적이지 않다. NetworkObject/NetworkTransform의 의미 설정 allowlist만 invariant 형식으로 해시해야 한다.
+- 16KB Unity Console 절단을 고려해 runId가 있는 프리팹별 manifest와 종합 SHA-256 `[END]`를 분리한다. 사용자 연속 2회 dry-run은 50/50, errors 0, assetsModified 0, 동일 SHA-256 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 PASS했다.
+- 다음은 B1 50개 프리팹 원자적 migration이다. B0는 실제 VisualRoot 생성·writer 전환이나 세 동기화 증상 해결 완료가 아니다.

@@ -432,7 +432,96 @@ A2에서는 기존 **damage, RPC, VFX, HP, path, NetworkTransform, NetworkUnit, 
 
 ---
 
-## 9. 구현·검증 진행 기록
+## 9. Tracer B — Simulation Root / Visual Root와 이동·방향 전환
+
+### 9.1 공통 경계와 규칙 근거
+
+Tracer B는 A2에서 검증한 read-only pose seam을 기준으로 Root 소유권과 서버 이동·방향 writer를 교정한다. 공격 Impact·피해 writer 전환은 Tracer D의 범위로 남긴다.
+
+- `U-ROOT-SEPARATION`, `NET-ROOT-001~003`: NetworkObject·NetworkTransform·충돌·사거리·판정은 Simulation Root에 남기고, 모델·Animator·VFX/SFX·진영별 화면 변환은 Visual Root로 분리한다.
+- `U-MOV-PATH`, `U-MOV-PHASE`, `U-MOV-ALIGN`: 기존 A* 경로 의미를 보존하고 서버 `DesiredMoveDirection`과 `SimulationFacing`을 기준으로 10° 진입 / 15° 이탈 히스테리시스를 적용한다.
+- `NET-FACING-001`, `NET-FACING-002`: 클라이언트는 위치 변화량이나 현재 타겟 위치로 권위 방향을 재추정하지 않는다. 이동·공격 표현은 서버 SimulationFacing과 이후 권위 Aim 결과를 재생한다.
+- `GameSystemRules_UnitCombatSynchronization.md` 10장의 전환 규칙에 따라 경기마다 `CombatPipelineMode`를 고정하고 `single-writer / single-emitter`를 지킨다. 같은 경기에서 SpearMan만 신규 권위 writer로 전환하고 나머지 유닛을 Legacy 권위로 두는 혼합은 금지한다.
+- B0→B1→B2→B3 순서를 고정한다. **B1의 50개 프리팹 원자적 migration과 참조 검증 전에는 B2 Shadow와 B3 writer 전환을 시작하지 않는다.**
+
+### 9.2 B0 — 구조 검증기와 migration dry-run
+
+런타임 동작과 프리팹을 변경하지 않는 read-only 사전 감사 단계다.
+
+- Blue/Red 25종, 총 50개 프리팹에서 NetworkObject, NetworkTransform, `UnitView`, `NetworkUnit`, Animator, 모델 root, VFX/socket과 직렬화 참조를 수집한다.
+- 목표 Simulation Root / Visual Root 계층, 이동 대상 컴포넌트, 유지할 네트워크 컴포넌트와 누락·중복·비정상 참조를 프리팹별 manifest로 산출한다.
+- migration을 실행했을 때의 변경 예상과 rollback 대상을 보고하되 AssetDatabase 저장, 프리팹 수정, 씬 수정, 런타임 writer 연결을 하지 않는다.
+- dry-run 결과가 50/50이고 자동 이동할 수 없는 참조가 모두 명시되기 전에는 B1을 승인하지 않는다.
+
+**B0 완료 게이트**
+
+- 대상 프리팹 50/50 식별, 중복 UnitType/진영 매핑 0
+- NetworkObject·NetworkTransform을 Simulation Root에서 이동시키는 계획 0
+- Animator·모델·VFX/socket의 Visual Root 이동 계획과 직렬화 재배선 목록 누락 0
+- 실행 전후 예상 계층과 rollback manifest 생성
+- prefab/scene/runtime mutation 0
+
+### 9.3 B1 — 50개 프리팹 원자적 Root 분리와 Presentation seam
+
+B0 manifest를 입력으로 사용하는 멱등 Editor migration 한 번으로 Blue/Red 50개 프리팹을 같은 규칙으로 전환한다. 일부 프리팹만 저장되면 전체 배치를 실패 처리하고 원자적으로 원상 복구한다.
+
+- 기존 NetworkObject와 NetworkTransform이 있는 루트를 Simulation Root로 유지한다.
+- 모델·Animator·VFX/socket·모델 고유 방향 오프셋을 Visual Root 자식으로 옮기고 기존 직렬화 참조를 재배선한다.
+- `NetworkUnit`의 Red 관점 position/rotation 보정과 `UnitView`의 클라이언트 root 회전 쓰기를 Visual Root projector/presentation seam으로 대체할 수 있는 명시적 참조를 제공한다.
+- 서버 Simulation Root writer와 클라이언트 Visual Root projector의 소유권 assertion을 추가하되, B1에서는 이동·공격 권위 writer 자체를 전환하지 않는다.
+- migration 재실행은 변경 0이어야 하며, 실패 시 50개 전체가 migration 전 상태로 복구돼야 한다.
+
+**B1 완료 게이트**
+
+- 50/50 프리팹에 동일한 Simulation Root / Visual Root 계약 적용
+- missing script, 깨진 직렬화 참조, Animator·VFX/socket 누락 0
+- NetworkObject·NetworkTransform 위치와 네트워크 식별자 변경 0
+- migration 2회차 diff 0, 부분 저장 0, rollback 검증 PASS
+- Host/Client·Blue/Red smoke에서 Simulation Root 값은 동일하고 관점 반전은 Visual Root에만 존재
+
+### 9.4 B2 — 서버 이동·방향 Shadow
+
+B1을 통과한 50개 프리팹에서 기존 이동 writer는 그대로 유지하고, 신규 서버 이동 reducer가 같은 입력으로 계산한 phase·방향·이동 허용 결과만 비교 기록한다.
+
+- 다음 A* 목표로 서버 `DesiredMoveDirection`을 계산한다.
+- 방향 오차가 10°를 초과하면 Shadow는 `AlignToMove`, 10° 이하이면 `Move` 진입을 판정한다.
+- 이동 중 오차가 15°를 초과하면 Shadow는 즉시 정지·재정렬을 판정한다.
+- 재경로, 추격, 타겟 획득 우선, 전투 종료 후 이동 재개의 기존 입력과 신규 phase를 동일 UnitInstance/명령 회차로 상관시킨다.
+- Shadow 결과는 위치·회전·Animator·NetworkTransform·path를 쓰지 않으며 Legacy writer의 분기 조건으로 사용하지 않는다.
+
+**B2 완료 게이트**
+
+- Host 서버에서 10° 진입 / 15° 이탈 판정과 Legacy 위치 변화의 상관 로그 수집
+- 신규 판정이 `AlignToMove`인 표본에서 이동 허용 오판 0
+- 재경로·추격·전투 종료 복귀의 회차 누락·중복·scope 불일치 0
+- Client에서 서버 이동 reducer 실행 및 Simulation Root write 0
+- 25종·Blue/Red 표본을 확보하고 유닛별 불일치 원인을 분류
+
+### 9.5 B3 — 경기 단위 25종 이동·방향 writer 전환
+
+B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 `CombatPipelineMode`에 따라 **25종 전체의 이동·SimulationFacing writer를 한 번에 전환**한다.
+
+- 신규 모드에서는 서버 reducer만 이동 phase, SimulationFacing과 Simulation Root 위치를 쓴다. Legacy `UnitView` 이동/회전 writer는 전 유닛에서 비활성화한다.
+- Legacy 모드에서는 기존 writer만 사용하며 신규 reducer는 진단 외 write를 하지 않는다.
+- SpearMan 단독 authoritative canary 또는 유닛별 Legacy/v2 writer 혼합을 금지한다. 한 유닛에서 두 writer가 동시에 활성화되는 상태도 금지한다.
+- 클라이언트는 Visual Root projector와 presentation seam만 실행하며 Simulation Root, 권위 phase 또는 SimulationFacing을 쓰지 않는다.
+- rollback은 진행 중 경기의 유닛별 전환이 아니라 다음 경기 시작 시 전체 `CombatPipelineMode`를 Legacy로 선택하는 방식으로만 수행한다.
+- 공격 타겟·Impact·피해 writer와 Presentation emitter는 이 단계에서 기존 권위를 유지하며 Tracer C/D에서 별도 전환한다.
+
+**B3 완료 게이트**
+
+- 경기별 활성 이동·방향 writer가 Legacy 또는 신규 중 정확히 하나
+- 신규 모드에서 25종 전체가 동일 권위 경로를 사용하고 SpearMan 포함 유닛별 혼합 0
+- 위치 변화 시작 시 방향 오차 ≤10°, 이동 중 >15° 표본의 위치 증가 0
+- Host/Client·Blue/Red의 동일 UnitId Simulation position/rotation/phase 수렴
+- 재경로·추격·전투 종료 복귀에서 위치 스냅, 중복 이동, 정지/이동 진동 0
+- 기존 피해·HP·RPC·VFX single-writer/single-emitter와 게임플레이 수치 변경 0
+
+**Tracer B 판정 경계:** B3까지 통과해야 이동 방향과 바라보기 방향 교정을 완료로 판정한다. 타겟/공격 방향과 시각 Impact/실제 피해 시점은 Tracer C/D 이후 게이트이며 B 단계 PASS로 완료 처리하지 않는다.
+
+---
+
+## 10. 구현·검증 진행 기록
 
 ### 2026-07-22 — Tracer A0 Shadow Melee Sequence 통과
 
@@ -483,3 +572,19 @@ A2에서는 기존 **damage, RPC, VFX, HP, path, NetworkTransform, NetworkUnit, 
 - [ ] 25종 및 지연·지터·손실·다수 유닛 검증
 
 **A2 판정:** 서버 권위 pose 관측 seam의 정적·Editor·멀티플레이 런타임 게이트는 PASS다. 이는 세 사용자 증상의 해결 완료나 v2 권위 전환 완료를 뜻하지 않는다. 다음 단계는 **Tracer B Simulation Root / Visual Root 분리**다.
+
+### 2026-07-27 — Tracer B0 Visual Root migration readiness 통과
+
+- [x] Blue/Red 25종, 총 50개 유닛 프리팹 식별: Human 16 / Spirit 18 / Transcendence 16
+- [x] 현재 구조 감사: VisualRoot 0, 신규 생성 계획 50, 재사용 계획 0, 직속 자식 이동 계획 58
+- [x] VFX/socket 기준선: 직렬화 할당 16 / null 34, root 직속 8 / 중첩 8
+- [x] NetworkObject·NetworkTransform·`UnitView`·`NetworkUnit`의 Simulation Root 잔류와 rollback manifest를 read-only로 검증
+- [x] prefab/scene Git diff 0, mutation API 호출 0, `assetsModified=0`
+- [x] Unity dry-run 연속 2회 `[END][PASS]`: 각각 `prefabsLogged=50/50`, `errorsLogged=0`
+- [x] 두 실행의 `aggregateManifestSha256`가 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 동일
+- [x] 전체 `SerializedProperty` 해시에 임시 `LoadPrefabContents` native bookkeeping이 섞여 실행 간 해시가 달라지는 진단기 문제를 발견하고 NGO 의미 설정 allowlist 해시로 교정
+- [x] Unity Console 16KB 절단에 대비해 runId·프리팹별 manifest와 종합 digest를 분리하고 `[END]` 요약에서 50/50 기록 여부를 검증
+
+**B0 판정:** 실제 에셋을 바꾸지 않는 migration readiness 게이트만 PASS다. 아직 50개 프리팹에 Visual Root를 생성하지 않았고 이동·바라보기, 타겟·공격 방향, 시각 Impact·실제 피해 시점의 세 증상도 해결 완료가 아니다. 다음 단계는 **B1 50개 프리팹 원자적 Root migration과 Presentation seam 적용**이다.
+
+사용자가 Testcase 작성을 요청하지 않았으므로 별도 `Testcase.md`는 생성하지 않았으며, 이번 실기 결과는 이 진행 기록에 보존한다.
