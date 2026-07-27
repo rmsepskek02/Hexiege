@@ -56,6 +56,14 @@ namespace Hexiege.Infrastructure
         /// <summary>게임 서비스 참조. UseCase 접근에 사용. Bootstrap에 직접 의존하지 않도록 IGameServices로 추상화.</summary>
         private IGameServices _services;
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        /// <summary>
+        /// Read-only multiplayer pose observer. It exists only in development/editor builds,
+        /// reuses this controller's RuntimeLogger session, and is stopped before that session.
+        /// </summary>
+        private UnitRootPoseConsistencyObserver _rootPoseConsistencyObserver;
+#endif
+
         /// <summary>OnUnitDied 구독 해제용 Disposable. 서버 전용(유닛 사망 → 클라이언트 RPC 전파).</summary>
         private System.IDisposable _unitDiedSubscription;
 
@@ -194,6 +202,22 @@ namespace Hexiege.Infrastructure
             NetworkContext.Set(isServer: IsServer, isActive: true);
             Debug.Log($"[Network] NetworkCombatController 스폰. IsServer={IsServer}. NetworkContext 설정 완료.");
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // OnNetworkSpawn implies a live NGO multiplayer controller. Starting here (after
+            // BeginSession) prevents single-player observation and avoids a second log writer.
+            if (NetworkManager != null && NetworkManager.IsListening)
+            {
+                _rootPoseConsistencyObserver =
+                    GetComponent<UnitRootPoseConsistencyObserver>();
+                if (_rootPoseConsistencyObserver == null)
+                {
+                    _rootPoseConsistencyObserver =
+                        gameObject.AddComponent<UnitRootPoseConsistencyObserver>();
+                }
+                _rootPoseConsistencyObserver.Initialize(NetworkManager, IsServer);
+            }
+#endif
+
             // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
             {
@@ -275,6 +299,13 @@ namespace Hexiege.Infrastructure
 
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // Flush the bounded evidence summary while the existing RuntimeLogger session is
+            // still open. The observer never owns or replaces that session.
+            _rootPoseConsistencyObserver?.StopAndLogSummary();
+            _rootPoseConsistencyObserver = null;
+#endif
 
             // BeginSession과 마찬가지로 컨트롤러가 씬에 하나라는 전제에서 전역 writer를 닫는다.
             RuntimeLogger.EndSession();

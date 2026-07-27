@@ -14,6 +14,14 @@ namespace Hexiege.Presentation
         [SerializeField] private Transform _visualRoot;
 
         /// <summary>
+        /// Read-only diagnostic seam for the development observer.
+        /// Unlike the public presentation getters, this accessor deliberately does not call
+        /// ProjectNow: sampling it can therefore never repair or otherwise hide a bad pose.
+        /// The returned Transform must be treated as immutable by every caller.
+        /// </summary>
+        internal Transform ObservedVisualRoot => _visualRoot;
+
+        /// <summary>
         /// Update/Animation Event 중 표현 pose를 읽는 소비자는 LateUpdate보다 먼저 실행될 수 있다.
         /// getter에서 현재 canonical root를 즉시 투영하여 같은 프레임의 절대 pose를 반환한다.
         /// </summary>
