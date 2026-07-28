@@ -233,6 +233,33 @@ namespace Hexiege.Application
         public bool CanResearch(TeamId team, UpgradeGroup group, UnitUpgradeStat stat)
             => GetLevel(team, group, stat) < MaxLevel && !IsResearching(team, group, stat);
 
+        /// <summary>
+        /// 특정 연구소(건물 Id)가 현재 진행 중인 연구의 그룹/스탯을 조회한다.
+        /// 연구 패널의 "매트릭스 ↔ 진행 레이어" 전환을 연구소 단위로 하기 위한 매핑 API다.
+        ///   - 착수 시 각 진행 연구는 자신을 착수한 연구소 Id(BuildingId)를 기억하므로,
+        ///     그 Id와 일치하는 첫 진행 연구를 돌려준다.
+        ///   - UI가 "이 연구소는 한 번에 하나의 연구만" 규칙을 강제하므로 보통 최대 1개다.
+        /// 싱글플레이/호스트에서만 유효하다(순수 클라이언트는 _active가 비어 있어 항상 false).
+        /// </summary>
+        /// <param name="buildingId">조회할 연구소 건물 Id.</param>
+        /// <param name="group">진행 중이면 그 그룹.</param>
+        /// <param name="stat">진행 중이면 그 스탯.</param>
+        /// <returns>해당 연구소가 진행 중인 연구를 가지고 있으면 true.</returns>
+        public bool TryGetActiveResearchByBuilding(int buildingId,
+            out UpgradeGroup group, out UnitUpgradeStat stat)
+        {
+            foreach (var kv in _active)
+            {
+                if (kv.Value.BuildingId != buildingId) continue;
+                group = kv.Key.group;
+                stat = kv.Key.stat;
+                return true;
+            }
+            group = default;
+            stat = default;
+            return false;
+        }
+
         // ====================================================================
         // 라이프사이클 — 착수 / 진행 / 완료 / 취소(환불)
         // ====================================================================
@@ -327,7 +354,31 @@ namespace Hexiege.Application
         /// <param name="resource">환불 지급용 자원 UseCase.</param>
         public void OnLabDestroyed(int buildingId, ResourceUseCase resource)
         {
-            if (_active.Count == 0) return;
+            CancelActiveForBuilding(buildingId, resource);
+        }
+
+        /// <summary>
+        /// 연구 "취소"(건물은 유지) — 진행 본문의 [취소] 버튼이 호출한다.
+        /// 해당 연구소가 진행 중인 연구를 중단하고 투입 골드를 100% 환불한다.
+        /// 철거(OnLabDestroyed)와 동일한 취소·환불 로직을 쓰되, 건물은 파괴하지 않는다.
+        /// (위치가 분리되어 있어 오조작을 막는다 — 철거는 하단, 취소는 진행 본문.)
+        /// </summary>
+        /// <param name="buildingId">연구를 취소할 연구소 건물 Id.</param>
+        /// <param name="resource">환불 지급용 자원 UseCase.</param>
+        /// <returns>취소된 연구가 하나라도 있으면 true.</returns>
+        public bool CancelResearchByBuilding(int buildingId, ResourceUseCase resource)
+        {
+            return CancelActiveForBuilding(buildingId, resource) > 0;
+        }
+
+        /// <summary>
+        /// 특정 연구소가 착수한 진행 중 연구를 모두 취소하고 투입 골드를 100% 환불하는 공용 내부 헬퍼.
+        /// OnLabDestroyed(철거)와 CancelResearchByBuilding(연구 취소)이 공유한다.
+        /// </summary>
+        /// <returns>취소된 연구 개수.</returns>
+        private int CancelActiveForBuilding(int buildingId, ResourceUseCase resource)
+        {
+            if (_active.Count == 0) return 0;
 
             _cancelBuffer.Clear();
             foreach (var kv in _active)
@@ -348,6 +399,8 @@ namespace Hexiege.Application
 
                 GameEvents.OnUpgradeChanged.OnNext(key.Item1);
             }
+
+            return _cancelBuffer.Count;
         }
 
         /// <summary>

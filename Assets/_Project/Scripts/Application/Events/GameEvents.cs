@@ -342,12 +342,20 @@ namespace Hexiege.Application
         public readonly UnitUpgradeStat Stat;
         /// <summary> 전체 연구 시간(초). UI 진행 바 카운트다운 기준. </summary>
         public readonly float Total;
+        /// <summary>
+        /// 착수한 연구소 건물 Id.
+        /// 멀티플레이 순수 클라이언트는 UseCase에 진행 상태(_active)가 없어 "이 연구소가 연구 중인가"를
+        /// 직접 조회할 수 없다. 연구 패널의 매트릭스/진행 레이어 전환을 연구소 단위로 하기 위해
+        /// 서버가 착수를 확정할 때 이 Id를 함께 내려보내, 클라가 로컬 진행을 연구소에 귀속시킨다.
+        /// </summary>
+        public readonly int BuildingId;
 
-        public ResearchStartedLocalEvent(UpgradeGroup group, UnitUpgradeStat stat, float total)
+        public ResearchStartedLocalEvent(UpgradeGroup group, UnitUpgradeStat stat, float total, int buildingId)
         {
             Group = group;
             Stat = stat;
             Total = total;
+            BuildingId = buildingId;
         }
     }
 

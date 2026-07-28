@@ -101,6 +101,17 @@ namespace Hexiege.Infrastructure
             RequestResearchServerRpc((int)group, (int)stat, buildingId, (int)team);
         }
 
+        /// <summary>
+        /// 연구 취소 요청 — UI 래퍼(진행 본문의 [취소] 버튼). 실제로는 RequestCancelResearchServerRpc로 위임된다.
+        /// 건물은 유지하고, 해당 연구소가 진행 중인 연구만 중단·환불한다.
+        /// </summary>
+        /// <param name="buildingId">연구를 취소할 연구소 건물 Id.</param>
+        /// <param name="team">요청 팀.</param>
+        public void RequestCancelResearch(int buildingId, TeamId team)
+        {
+            RequestCancelResearchServerRpc(buildingId, (int)team);
+        }
+
         // ====================================================================
         // ServerRpc — 클라이언트 → 서버
         // ====================================================================
@@ -150,9 +161,45 @@ namespace Hexiege.Infrastructure
             }
 
             // 성공: 요청 클라에게만 진행 상태(트랙·타이머) 전송(진행 UI는 소유 클라만 — 규칙 8).
-            //   착수 직후 _active에 기록된 전체 시간을 읽어 보낸다.
+            //   착수 직후 _active에 기록된 전체 시간을 읽어 보낸다. buildingId도 함께 보내
+            //   클라가 "이 연구소가 연구 중"임을 알고 진행 레이어로 전환할 수 있게 한다.
             upgrade.TryGetProgress(team, group, stat, out _, out float total);
-            SendResearchStarted(senderClientId, groupInt, statInt, total);
+            SendResearchStarted(senderClientId, groupInt, statInt, buildingId, total);
+        }
+
+        // ====================================================================
+        // ServerRpc — 연구 취소(건물 유지)
+        // ====================================================================
+
+        /// <summary>
+        /// 연구 취소 요청. 서버가 팀 소유권을 검증하고, 해당 연구소가 진행 중인 연구를
+        /// 중단·환불한다(건물은 유지). 성공 시 요청 클라에게 취소를 통지해 진행 표시를 정리한다.
+        /// RequireOwnership=false: 어느 클라이언트든 호출 가능(팀 검증은 내부에서 수행).
+        /// </summary>
+        [ServerRpc(RequireOwnership = false)]
+        public void RequestCancelResearchServerRpc(int buildingId, int teamIndex,
+            ServerRpcParams rpcParams = default)
+        {
+            ulong senderClientId = rpcParams.Receive.SenderClientId;
+
+            if (_services == null) return;
+
+            UnitUpgradeUseCase upgrade = _services.GetUpgradeUseCase();
+            ResourceUseCase resource = _services.GetResource();
+            if (upgrade == null || resource == null) return;
+
+            var team = (TeamId)teamIndex;
+
+            // 팀 소유권 검증: Host(ClientId=0)=Blue, Client(그 외)=Red.
+            TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
+            if (team != expectedTeam) return;
+
+            // 서버 권위: 취소 + 골드 100% 환불(NetworkResourceSync가 클라에 골드 반영).
+            bool canceled = upgrade.CancelResearchByBuilding(buildingId, resource);
+            if (!canceled) return;
+
+            // 요청 클라의 로컬 진행 표시를 정리하도록 통지(소유 클라만 진행 표시를 갖는다).
+            SendResearchCanceled(senderClientId, teamIndex);
         }
 
         // ====================================================================
@@ -180,25 +227,48 @@ namespace Hexiege.Infrastructure
         }
 
         // 진행 시작 알림 — 요청 클라에게만.
-        private void SendResearchStarted(ulong targetClientId, int groupInt, int statInt, float total)
+        private void SendResearchStarted(ulong targetClientId, int groupInt, int statInt, int buildingId, float total)
         {
             ClientRpcParams p = new ClientRpcParams
             {
                 Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { targetClientId } }
             };
-            ResearchStartedClientRpc(groupInt, statInt, total, p);
+            ResearchStartedClientRpc(groupInt, statInt, buildingId, total, p);
         }
 
         /// <summary>
         /// 연구 착수 성공을 요청 클라에게만 알린다(진행 UI 표시용). 서버(호스트)는 로컬 상태로 이미 안다.
-        /// UI는 이 값으로 진행 바/트랙 잠금을 표시한다. 실제 완료는 ResearchLevelClientRpc가 확정한다.
+        /// UI는 이 값으로 진행 바/트랙 잠금을 표시하고, buildingId로 진행 레이어를 연구소에 귀속시킨다.
+        /// 실제 완료는 ResearchLevelClientRpc가 확정한다.
         /// </summary>
         [ClientRpc]
-        private void ResearchStartedClientRpc(int groupInt, int statInt, float total, ClientRpcParams p = default)
+        private void ResearchStartedClientRpc(int groupInt, int statInt, int buildingId, float total, ClientRpcParams p = default)
         {
             // UI가 로컬 진행 표시를 시작하도록 이벤트를 발행한다.
             GameEvents.OnResearchStartedLocal.OnNext(
-                new ResearchStartedLocalEvent((UpgradeGroup)groupInt, (UnitUpgradeStat)statInt, total));
+                new ResearchStartedLocalEvent((UpgradeGroup)groupInt, (UnitUpgradeStat)statInt, total, buildingId));
+        }
+
+        // 취소 통지 — 요청 클라에게만.
+        private void SendResearchCanceled(ulong targetClientId, int teamIndex)
+        {
+            ClientRpcParams p = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { targetClientId } }
+            };
+            ResearchCanceledClientRpc(teamIndex, p);
+        }
+
+        /// <summary>
+        /// 연구 취소를 요청 클라에게 통지한다. 클라는 OnUpgradeChanged를 로컬 발행해
+        /// 로컬 진행 표시를 소거하고 매트릭스 레이어로 되돌린다(골드 환불은 NetworkResourceSync가 반영).
+        /// 서버(호스트)는 CancelResearchByBuilding 내부에서 이미 OnUpgradeChanged를 발행했으므로 스킵한다.
+        /// </summary>
+        [ClientRpc]
+        private void ResearchCanceledClientRpc(int teamIndex, ClientRpcParams p = default)
+        {
+            if (IsServer) return; // 호스트는 서버 측에서 이미 처리됨(이중 발행 방지).
+            GameEvents.OnUpgradeChanged.OnNext((TeamId)teamIndex);
         }
 
         // 실패 알림 — 요청 클라에게만.

@@ -564,7 +564,13 @@ namespace Hexiege.Bootstrap
                 bool isNetworkMode = IsNetworkMode();
                 Hexiege.Infrastructure.NetworkUpgradeController upgradeController =
                     isNetworkMode ? _networkUpgradeController : null;
-                _researchPanelUI.Initialize(_unitUpgrade, _resource, upgradeController);
+                // 연구 패널이 BuildingPanelBase를 상속하므로 철거(하단 버튼)용 의존성도 함께 주입한다.
+                //   - _buildingPlacement: 건물 제거(철거).
+                //   - networkBuildingController: 멀티플레이 철거 요청 중계(싱글은 null).
+                Hexiege.Infrastructure.NetworkBuildingController buildingController =
+                    isNetworkMode ? _networkBuildingController : null;
+                _researchPanelUI.Initialize(_unitUpgrade, _resource, upgradeController,
+                    _buildingPlacement, buildingController);
             }
         }
 
