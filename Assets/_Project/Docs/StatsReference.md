@@ -145,7 +145,7 @@
 
 | 건물 | BuildingType | HP | 건설 비용 | 힐량 | 효과 |
 |------|-------------|-----|-----------|------|------|
-| 마법건물 (MagicSpirit) | MagicBuilding | 100 | 200 | - | - |
+| 스킬건물 (MagicSpirit) | MagicBuilding | 100 | 200 | - | - |
 | 연구건물 (AstronomicalSpirit) | Research | 100 | 200 | - | - |
 
 ---
@@ -183,5 +183,5 @@
 | 건물 | BuildingType | HP | 건설 비용 | 힐량 | 효과 |
 |------|-------------|-----|-----------|------|------|
 | 힐 건물 (MistShrine) | HealShrine | 50 | 100 | 1 HP/s (범위 3) | - |
-| 마법건물 (WillowShrine) | MagicBuilding | 150 | 200 | - | - |
+| 스킬건물 (WillowShrine) | MagicBuilding | 150 | 200 | - | - |
 | 연구건물 (AncientGrove) | Research | 150 | 200 | - | - |

@@ -114,7 +114,7 @@ Negative 키워드: multiple objects in frame, background objects
 | 건물명 | 역할 | 외형 특징 | 게임 스탯 |
 |--------|------|----------|----------|
 | RuneSpire | 방어 타워 — 마법 공격 자동 포탑 | 화이트 마블/실버 재질 첨탑, 상단 수정구 | TBD |
-| MagicSpirit | 마법 건물 | 거대 단일 크리스탈 구조 | TBD |
+| MagicSpirit | 스킬 건물 | 거대 단일 크리스탈 구조 | TBD |
 | AstronomicalSpirit | 업그레이드 건물 | 마법 아스트롤라베 형태, 회전 은색 고리 + 부유 수정구 | TBD |
 
 #### 초월계 (Transcendence)
@@ -124,7 +124,7 @@ Negative 키워드: multiple objects in frame, background objects
 | VineTower | 방어 타워 — 덩굴 지하 공격 | 지면에 낮게 퍼진 거대 덩굴 군집, 넓적한 실루엣 | TBD |
 | PrimalAltar | 유닛 생산 건물 (Barracks 역할) | 돌 사원 + 동물 뼈 + 덩굴이 감긴 사원 | TBD |
 | MistShrine | 힐 건물 — 아군 체력 회복 | 유기적 분수, 물 넘치는 포자 식물 + 낮은 연꽃 구조 | TBD |
-| WillowShrine | 마법 건물 | 은색 버드나무 + 고대 비석 성소, 수평 실루엣 | TBD |
+| WillowShrine | 스킬 건물 | 은색 버드나무 + 고대 비석 성소, 수평 실루엣 | TBD |
 
 ---
 

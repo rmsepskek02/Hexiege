@@ -81,7 +81,7 @@
 1. **건물 건설**: 타일 선택 → 건물 타입 선택 → 건설
 2. **유닛 생산**: 생산 건물 선택 → 유닛 타입 설정 (자동/수동)
 3. **랠리 포인트**: 생산 건물 → 타일 지정
-4. **마법 사용**: 마법 건물 → 마법 선택 → 타겟 지정
+4. **마법 사용**: 스킬 건물 → 마법 선택 → 타겟 지정
 5. **건물 업그레이드**: 건물 선택 → 업그레이드 버튼
 
 ### 인구수 시스템
@@ -180,24 +180,22 @@
 
 ---
 
-### 3. 마법 건물 (Magic Tower)
-**기능**:
-- 액티브 스킬 사용
-- 쿨다운 관리
-- 건물 업그레이드
+### 3. 스킬 건물 (Skill Building)
 
-**마법 종류**:
-- **번개 공격**: 단일 타겟 높은 데미지
-- **지역 회복**: 범위 내 아군 체력 회복
-- **버프**: 공격력/방어력 증가
-- **디버프**: 이동속도/공격속도 감소
+각 종족의 액티브 스킬을 사용하는 특수 건물. 종족별 자산명은 Human `FlightFacility`, Spirit `MagicSpirit`, Transcendence `WillowShrine`. (Spirit·Transcendence는 enum `MagicBuilding`을 공유하며 스킬셋은 종족 키로 분기.)
 
-**업그레이드 효과**:
-- 마법 위력 증가
-- 쿨다운 감소
-- 범위 확대
+**핵심 설계 (요약)**:
+- 자원: **마나 없음, 쿨다운만**. 쿨다운은 **건물별 글로벌**(스킬 1개 사용 시 그 건물의 모든 스킬 버튼이 함께 잠김).
+- 건물당 **최대 5개** 스킬. **건물 업그레이드 없음** → 건설 즉시 전부 사용 가능.
+- UI: 범용 `BuildingActionPanelUI` 3×3 그리드 재사용(스킬 1~5 / 철거 6 / 예약 7~9).
+- 스킬 타입 3종: ① 즉발 범위 피해 ② 범위 지속 피해(장판 DoT) ③ 전역 상태변경(버프·디버프·제어·회복 통합).
+- 발동: 즉시 발동(타입 ③) / 지점 지정(타입 ①·②, 모바일 드래그 조준).
+- 멀티플레이: 서버 권위(좌표만 RPC 전송 후 서버 재검증).
 
-**비용**: 150 골드
+**비용**: 200 골드 (세 스킬 건물 공통 — 권위 소스 `Resources/Config/BuildingStatsConfig.asset` 런타임 실제값)
+
+> **상세 규칙은 단일 소스 문서 참조:** [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md)
+> **구현 상태: 기획 확정 / 미구현** (구체 스킬 목록·수치는 추후 데이터로 확정). 현재는 배치·피격만 되는 시각 오브젝트 + 철거 버튼 공유 상태.
 
 ---
 
@@ -210,12 +208,12 @@
 
 **종족별 스탯**:
 - Human(CannonTower): 공격력 15 / 쿨다운 5.0s / 상대 진영 방향 초기 회전
-- Spirit(MagicTower): 공격력 15 / 쿨다운 3.5s (전 종족 중 최단)
+- Spirit(RuneSpire): 공격력 15 / 쿨다운 3.5s (전 종족 중 최단)
 - Transcendence(MistShrine): 공격력 15 / 쿨다운 5.0s / 범위 힐 기능 (1 HP/s, 범위 3타일)
 
 **공통 사거리**: 4.0타일
 
-> **미구현**: 업그레이드(단계 확장), 마법 타워(Magic Tower) 범위 공격 기능은 별도 작업 예정
+> **미구현**: 방어 타워 업그레이드(단계 확장)는 별도 작업 예정. (스킬 건물의 스킬 기능은 위 §3 스킬 건물 및 [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md) 참조 — 방어 타워 `RuneSpire`와 스킬 건물 `MagicSpirit`은 별개 건물.)
 
 ---
 
@@ -430,7 +428,7 @@
 - DustSpirit / BoulderSpirit / QuakeSpirit / TideSpirit / StreamSpirit / TorrentSpirit: 스탯 미확정
 
 **건물 라인**: AncientGrove 1/2/3단계 (고대 신목 스타일)
-**방어 타워**: Spirit MagicTower — 쿨다운 3.5s (전 종족 중 최단)
+**방어 타워**: Spirit RuneSpire — 쿨다운 3.5s (전 종족 중 최단) (스킬 건물 `MagicSpirit`과 별개)
 
 ---
 

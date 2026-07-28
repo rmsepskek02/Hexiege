@@ -33,7 +33,7 @@
 | Spirit | SpiritNexus | Castle ★ | Blue / Red | 본기지 |
 | Spirit | ManaRift | MiningPost ★ | Blue / Red | 금광 위 건설 |
 | Spirit | RuneSpire | AutoTower ★ | Blue / Red | 방어 타워 |
-| Spirit | MagicSpirit | MagicBuilding ★ | Blue / Red | 마법 건물 |
+| Spirit | MagicSpirit | MagicBuilding ★ | Blue / Red | 스킬 건물 |
 | Spirit | AstronomicalSpirit | Research ★ | Blue / Red | 업그레이드 건물 |
 | Spirit | FireSpire | FireSpire | Blue / Red | 유닛 생산 건물 (불 속성 1단계) |
 | Spirit | BlazeConduit | BlazeConduit | Blue / Red | 유닛 생산 건물 (불 속성 2단계) |
@@ -48,7 +48,7 @@
 | Transcendence | FungalNode | MiningPost ★ | Blue / Red | 금광 위 건설 |
 | Transcendence | VineTower | AutoTower ★ | Blue / Red | 방어 타워 |
 | Transcendence | MistShrine | HealShrine ★ | Blue / Red | 힐 건물 |
-| Transcendence | WillowShrine | MagicBuilding ★ | Blue / Red | 마법 건물 |
+| Transcendence | WillowShrine | MagicBuilding ★ | Blue / Red | 스킬 건물 |
 | Transcendence | AncientGrove | Research ★ | Blue / Red | 업그레이드 건물 |
 | Transcendence | PrimalAltar | PrimalAltar | Blue / Red | 유닛 생산 건물 (동물A 1단계) |
 | Transcendence | PrimalDen | PrimalDen | Blue / Red | 유닛 생산 건물 (동물A 2단계) |

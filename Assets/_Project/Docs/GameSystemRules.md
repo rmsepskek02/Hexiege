@@ -16,6 +16,7 @@
 | [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
 | [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계 |
 | [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템 |
+| [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md) | 스킬 건물 3종, 쿨다운/스킬 수 공통 규칙, 3×3 스킬 UI, 스킬 타입 3종, 모바일 지점 조준 UX, 서버 권위 (기획 확정/미구현) |
 | [GameSystemRules_CanvasSortingOrder.md](GameSystemRules/GameSystemRules_CanvasSortingOrder.md) | Canvas SortingOrder 구조, 씬별 Canvas 계층, 전역 UI z-order |
 | [GameSystemRules_Sound.md](GameSystemRules/GameSystemRules_Sound.md) | BGM 전환 규칙, SFX 정책, 볼륨 제어, AudioManager 아키텍처 |
 | [GameSystemRules_AI.md](GameSystemRules/GameSystemRules_AI.md) | AI 난이도 시스템, 빌드오더 스크립트, 반응 시스템, 건물 배치 로직, 가드 메커니즘 |
@@ -76,6 +77,15 @@
 - 랠리포인트 표시/숨김
 - 철거 처리, 골드 환불, 연쇄 처리
 - 방어 타워: 타겟 선택, 쿨다운, 서버 권위 처리
+
+### 스킬 건물 관련 작업
+→ [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md)
+- 스킬 건물 3종(FlightFacility / MagicSpirit / WillowShrine), enum `MagicBuilding` 공유 + 종족 키 분기
+- 자원 없음(쿨다운만), 건물별 글로벌 쿨다운, 건물당 최대 5개, 업그레이드 없음
+- 범용 `BuildingActionPanelUI` 3×3 그리드(스킬 1~5 / 철거 6 / 예약 7~9), 쿨다운 시계방향 오버레이
+- 스킬 타입 3종(즉발 범위 피해 / 장판 DoT / 전역 상태변경), 발동 경로 2종
+- 모바일 지점 조준 UX(누른 채 드래그, 엣지 스크롤, 손 떼면 발동, X 취소, 맵 clamp)
+- 서버 권위(좌표만 RPC 전송 + 서버 재검증), 기획 확정 / 미구현
 
 ### AI 시스템 관련 작업
 → [GameSystemRules_AI.md](GameSystemRules/GameSystemRules_AI.md)

@@ -135,7 +135,7 @@
 
 ### D-1. 방어/마법 타워
 **✅ 방어 타워 완료 (2026-06-01~02)**: TowerCombatUseCase 신규 구현. 종족별 스탯(사거리 4.0/공격력 15, 쿨다운 Human·Trans 5.0s/Spirit 3.5s). 서버 권위 처리. Human CannonTower 초기 방향(내 진영 0도/상대 진영 180도) 구현 완료.
-- 마법 타워: 범위 공격, 마나 자원 추가 필요 가능성 — 미구현
+- 스킬 건물(FlightFacility / MagicSpirit / WillowShrine): **기획 확정 / 미구현**. **마나 미도입** — 자원 없이 건물별 글로벌 쿨다운만 사용. 건물당 최대 5개 스킬, 스킬 타입 3종(즉발 범위 피해 / 장판 DoT / 전역 상태변경), 모바일 지점 조준 UX, 서버 권위. 상세: [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md). 구체 스킬·수치는 추후 데이터로 확정.
 
 ### D-2. 건물 업그레이드 시스템
 **✅ 완료 (2026-05-17~18)**: 종족별 단계 BuildingType 26종 확장, BuildingPlacementUseCase.UpgradeBuilding(), NetworkBuildingController RPC, ProductionPopup 업그레이드 버튼/아이콘, 철거 환불 누적 계산 완료. 전 종족 테스트 통과.

@@ -1301,7 +1301,7 @@ if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 // BuildingType enum — 26종
 // Castle×3종족, MiningPost×3종족
 // 종족별 생산라인 3단계: HumanBarracks1/2/3, AncientGrove1/2/3, PrimalSanctuary1/2/3
-// AutoTower×3종족 (Human=CannonTower, Spirit=MagicTower, Trans=MistShrine)
+// AutoTower×3종족 (Human=CannonTower, Spirit=RuneSpire, Trans=MistShrine)
 // 추가: ResearchLab (미구현)
 //
 // BuildingTypeHelper.cs (Domain 레이어):
