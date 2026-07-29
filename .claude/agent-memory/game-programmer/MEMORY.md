@@ -278,4 +278,11 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - 50개 프리팹에 직접 자식 `VisualRoot`와 root projector를 적용했고 migration journal completed를 확인했다. 사용자 재실행은 50개 모두 migrated state `[NO-OP]`, prefab 저장 호출 0이다.
 - 현행 validator 계약: root Animator/Renderer 0, Collider는 Simulation Root에만 존재, VisualRoot descendant Collider 0, 모든 Animator Root Motion off, 각 Animator와 동일 GO의 `AnimationEventRelay` 1개, projector 참조 유효.
 - 신규 프리팹은 B1 bulk migration을 반복하지 않고 migrated 템플릿과 `NET-ROOT-004`를 사용한다. UnitType/Blue·Red pair/Matrix/validator roster와 VFX baseline을 원자적으로 갱신한다.
-- 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke는 미완료다. 통과 전 B1 전체 완료·세 증상 해결 또는 B2 진입으로 확대하지 않는다.
+- 2026-07-27 당시 rollback failure injection과 Host/Client·Blue/Red runtime smoke는 미완료였다. 후속 rollback 판정은 아래 2026-07-29 항목을 따른다.
+
+### 2026-07-29 - Unit ActionSequence Tracer B1 rollback 검증
+
+- graceful failure injection index 0/24/49는 각각 journal 복구, primary 100파일 검증과 초기 analyzer를 통과했다.
+- crash index 24는 강제 종료 시 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25를 만든 뒤 별도 `RecoverCrash` 프로세스에서 primary 50 prefab + 50 meta를 100/100 복구했다.
+- primary Unity compile Tundra success, `[UAS-DIAG]` self-validation PASS다.
+- 구현 변경 없이 rollback 내구성만 통과했다. Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사가 남아 있어 B1 overall은 OPEN이고 B2 진입은 금지한다.

@@ -104,8 +104,15 @@
 
 ### 2026-07-27 - Unit ActionSequence B1 문서 동기화
 
-- B1은 `asset migration + journal completed + Apply 재실행 NO-OP`까지만 PASS로 기록한다. 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke는 미완료로 분리하며 B1 전체 완료나 세 증상 해결로 확대하지 않는다.
+- 2026-07-27 당시 B1은 `asset migration + journal completed + Apply 재실행 NO-OP`까지만 PASS로 기록했다. 후속 rollback 판정은 아래 2026-07-29 항목을 따른다.
 - 신규·교체 프리팹 영구 계약은 `GameSystemRules_UnitCombatSynchronization.md`의 `NET-ROOT-004`, 실무 체크리스트는 `Assets/UnitCombatAssetMatrix.md`, 구현 검증은 `ValidateUnitCombatSetup.cs`가 담당한다.
 - 기존 50개용 `SetupUnitVisualRoots.Apply`는 일회성 migration이다. 신규 프리팹은 migrated 템플릿으로 만들고 UnitType/Blue·Red pair/Matrix/validator 고정 roster·종족·VFX 기준선을 함께 갱신한다.
 - 현행 validator 계약에는 파일명, direct identity VisualRoot, root projector, root Animator/Renderer 0, Collider의 Simulation Root 한정, Animator Root Motion off와 Animator별 동일 GO relay가 포함된다.
 - ROADMAP의 과거 `SetupNewUnitPrefabs.cs` 참조는 실제 파일이 없으므로 Legacy 이력으로 표시하고 현행 authoring 권위를 명시한다.
+
+### 2026-07-29 - Unit ActionSequence B1 rollback 문서 동기화
+
+- B1 rollback은 graceful index 0/24/49와 crash index 24 별도 복구를 구분해 기록한다. graceful 공통 근거는 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`이고 crash는 복구 전 mismatch/VisualRoot/projector 25건과 복구 후 100/100을 함께 남긴다.
+- primary Unity compile Tundra success와 `[UAS-DIAG]` self-validation PASS는 보조 검증으로 기록한다.
+- Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사가 pending이므로 B1 overall은 OPEN, B2 시작 금지 문구를 유지한다.
+- Task Plan, PROJECT_STATUS, ROADMAP, WORK_HISTORY와 project-orchestrator/game-programmer/qa-tester/document-manager MEMORY를 동기화했다. 규칙·코드·프리팹 계약은 변경하지 않았다.

@@ -350,6 +350,13 @@ Assets/_Project/
 ### 2026-07-27 - Unit ActionSequence Tracer B1 조건부 게이트
 
 - 50개 프리팹 asset migration, journal completed와 Apply 재실행 `[NO-OP]`는 PASS다. `VisualRootProjector`/`PresentationPoseProvider` seam과 클라이언트 Simulation Root write 제거도 구현됐다.
-- 현재 B1 전체 게이트는 열려 있다. 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke가 미완료이며, 이를 확인하기 전 B2 서버 이동·방향 Shadow를 시작하지 않는다.
+- 2026-07-27 당시 B1 전체 게이트는 열려 있었다. rollback failure injection과 Host/Client·Blue/Red runtime smoke가 미완료였으며, 후속 판정은 아래 2026-07-29 항목을 따른다.
 - 신규·교체 프리팹 authoring 권위는 `NET-ROOT-004` + Asset Matrix 체크리스트 + fail-closed validator다. 50개용 bulk migration은 반복하지 않으며, 존재하지 않는 Legacy `SetupNewUnitPrefabs.cs`를 현행 도구로 안내하지 않는다.
 - validator와 동일하게 Collider는 Simulation Root만, root Animator/Renderer는 0, Animator별 동일 GO relay와 Root Motion off, 파일명과 Blue/Red pair·roster 기준을 강제한다.
+
+### 2026-07-29 - Unit ActionSequence Tracer B1 rollback 게이트 PASS
+
+- graceful failure injection index 0/24/49는 모두 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`다.
+- crash index 24 강제 종료 후 별도 프로세스 `RecoverCrash`가 PASS했다. 복구 전 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25였고 복구 후 primary 50 prefab + 50 meta가 100/100 원상복구됐다.
+- primary Unity compile Tundra success와 `[UAS-DIAG]` self-validation PASS를 함께 확인했다.
+- B1 overall은 아직 OPEN이다. Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사 전에는 B2 서버 이동·방향 Shadow를 시작하지 않는다.

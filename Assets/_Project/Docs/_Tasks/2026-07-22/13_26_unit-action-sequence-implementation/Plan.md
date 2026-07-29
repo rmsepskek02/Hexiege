@@ -596,9 +596,13 @@ B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 `Comb
 - [x] migration journal completed
 - [x] Apply 재실행 `[NO-OP]`: 50개 모두 migrated state, `SaveAsPrefabAsset`/`SaveAssets` 호출 0
 - [x] 신규·교체 프리팹의 영구 승인 계약과 Asset Matrix 등록 체크리스트 문서화
-- [ ] 실제 rollback failure injection으로 50개 프리팹과 `.meta` 원상복구 검증
+- [x] graceful failure injection index 0/24/49 모두 PASS: 각 실행 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`
+- [x] crash index 24 강제 종료 후 별도 프로세스 `RecoverCrash` PASS: 복구 전 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25, 복구 후 prefab과 `.meta` 100/100 원상복구
+- [x] primary Unity compile Tundra success, `[UAS-DIAG]` self-validation PASS
 - [ ] Host/Client·Blue/Red runtime smoke에서 Simulation Root 동일성과 Visual Root 전용 관점 변환 검증
 
-**B1 현재 판정:** asset migration, journal 완료와 멱등 재실행은 PASS다. 실제 rollback failure injection과 Host/Client runtime smoke가 남아 있으므로 B1 전체 완료 게이트는 아직 열려 있다. B2 서버 이동·방향 Shadow는 두 잔여 게이트를 확인한 뒤 진행한다. 공격 Impact·피해 writer와 결과 기반 표현 결합은 여전히 후속 Tracer C/D 범위다.
+**2026-07-29 rollback 판정:** graceful index 0/24/49와 crash index 24 별도 복구가 모두 PASS했고, 각 시험 뒤 primary 50개 prefab + 50개 `.meta`가 검증됐다. primary Unity compile과 `[UAS-DIAG]` 자체 검증도 PASS다.
+
+**B1 현재 판정:** asset migration, journal 완료, 멱등 재실행과 rollback 게이트는 PASS다. 다만 Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사가 남아 있으므로 B1 전체 완료 게이트는 아직 열려 있다. 이 런타임 게이트를 통과하기 전에는 B2 서버 이동·방향 Shadow를 시작하지 않는다. 공격 Impact·피해 writer와 결과 기반 표현 결합은 여전히 후속 Tracer C/D 범위다.
 
 사용자가 Testcase 작성을 요청하지 않았으므로 별도 `Testcase.md`는 생성하지 않았으며, 이번 실행 결과는 이 진행 기록에 보존한다.

@@ -1,11 +1,11 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-07-27
-**최우선 작업:** 서버 권위 유닛 ActionSequence 전환. 규칙 v2, 25종 감사, A0/A1/A2, B0와 B1 asset migration·journal·NO-OP는 완료했지만 B1 rollback/runtime smoke, result seam·권위 전환·멀티플레이 전체 검증은 미완료다.
-**현재 단계:** 50개 프리팹의 Simulation/Visual Root 구조와 presentation seam을 적용했다. 실제 rollback failure injection과 Host/Client·Blue/Red smoke를 통과한 뒤 B2 서버 이동·방향 Shadow로 진행한다.
+**최종 수정일:** 2026-07-29
+**최우선 작업:** 서버 권위 유닛 ActionSequence 전환. 규칙 v2, 25종 감사, A0/A1/A2, B0와 B1 asset migration·journal·NO-OP·rollback은 완료했지만 B1 Host/Client runtime smoke, result seam·권위 전환·멀티플레이 전체 검증은 미완료다.
+**현재 단계:** 50개 프리팹의 Simulation/Visual Root 구조와 presentation seam을 적용하고 graceful/crash rollback을 검증했다. Host/Client `[UAS-ROOT-POSE]` smoke와 Blue/Red 교차 감사를 통과한 뒤 B2 서버 이동·방향 Shadow로 진행한다.
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
-> B1 asset 적용과 재실행 NO-OP는 Root 구조 전환 이정표다. rollback/runtime smoke와 이동·공격·Impact 권위 전환 완료를 뜻하지 않으며, 현재 우선순위와 유닛별 상태는 아래 P0 항목 및 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
+> B1 asset 적용·재실행 NO-OP·rollback은 Root 구조 전환 이정표다. Host/Client runtime smoke와 이동·공격·Impact 권위 전환 완료를 뜻하지 않으며, 현재 우선순위와 유닛별 상태는 아래 P0 항목 및 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`를 따른다.
 
 ---
 
@@ -13,12 +13,12 @@
 
 | 우선순위 | 작업 | 카테고리 | 예상 규모 |
 |---------|------|---------|---------|
-| 🔴 P0 | 서버 권위 Unit ActionSequence 구현 — A0/A1/A2/B0 완료 → B1 asset 적용 완료·rollback/runtime smoke 잔여 → B2 Shadow → B3 경기 단위 writer 전환 → Snapshot/ImpactResult 복제 → FIFO 대체 → 25종 이전 → 멀티 QA → Legacy 제거 | 전투/네트워크 | 특대 |
+| 🔴 P0 | 서버 권위 Unit ActionSequence 구현 — A0/A1/A2/B0 완료 → B1 asset 적용·rollback 완료/runtime smoke 잔여 → B2 Shadow → B3 경기 단위 writer 전환 → Snapshot/ImpactResult 복제 → FIFO 대체 → 25종 이전 → 멀티 QA → Legacy 제거 | 전투/네트워크 | 특대 |
 | ✅ Tracer A0 | SpearMan schedule/dispatch Shadow — Host 204/204·고유 204·누락/중복/타겟/facing 불일치 0. Client는 header only이며 실제 피해 결과 검증이 아님 (2026-07-22) | 전투/계측 | 중 |
 | ✅ Tracer A1 | Pure Application UnitAction 계약+stateful reducer — C# 9/Application·Editor compile PASS, Unity Editor 메뉴 PASS, reflection Validate* 10 PASS, Standards/Spec P0~P3 0 (2026-07-22) | 아키텍처/전투 | 중 |
 | ✅ Tracer A2 | Server-authoritative pose seam shadow — Host 완료 회차 상관관계 누락·중복 0, attacker-dead 2건 DeadTerminal, capacity eviction·예외 0, Client observer 0. 기존 피해·RPC·VFX 권위 유지 (2026-07-27) | 전투/네트워크 | 대 |
 | ✅ Tracer B0 | Visual Root migration readiness — 50/50 read-only 감사, errors 0, mutation/assetsModified 0, 연속 실행 aggregate manifest 동일 (2026-07-27) | 에셋/검증 | 중 |
-| 🟡 Tracer B1 | 50개 프리팹 Simulation Root / Visual Root asset migration·journal·재실행 NO-OP PASS. 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke 후 전체 완료 판정 | 전투/네트워크 | 대 |
+| 🟡 Tracer B1 | 50개 프리팹 Simulation Root / Visual Root asset migration·journal·재실행 NO-OP·rollback PASS. Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사 후 전체 완료 판정 | 전투/네트워크 | 대 |
 | 🔴 P0 다음 | Tracer B2 서버 이동·방향 Shadow — B1 잔여 게이트 통과 후 시작 | 전투/네트워크 | 대 |
 | ✅ 설계 완료 | 유닛 이동·공격 규칙 v2 일괄 개정 + 25종 공격 에셋 감사. 런타임 완료를 의미하지 않음 (2026-07-20) | 설계/문서 | 대 |
 | ✅ Legacy 반영 | QuakeSpirit UnitStatsConfig 등록 — HP250/ATK20/range0.5/detect1.0/move0.5/cooldown5.0. 단 hitFrameTimes 1.00초는 placeholder | 데이터/전투 | 중 |
