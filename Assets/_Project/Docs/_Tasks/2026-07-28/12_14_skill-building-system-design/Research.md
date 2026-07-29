@@ -70,7 +70,7 @@ Hexiege의 세 종족(Human / Spirit / Transcendence)에는 각각 **스킬 건�
   - `OnShow(BuildingData)` 오버라이드에서 전체 슬롯 alpha=0 → 활성 슬롯만 alpha=1. **CanvasGroup.alpha 제어**를 쓰는 이유: `SetActive(false)`는 GridLayoutGroup 레이아웃에서 제외돼 정렬이 깨지므로 alpha/interactable/blocksRaycasts만 0으로.
 - 베이스 `Assets/_Project/Scripts/Presentation/UI/BuildingPanelBase.cs`
   - `Show(BuildingData)`/`Close()` 생명주기 + `OnShow`/`OnBeforeClose`/`BeforeDemolish` 훅, `_headerText`, 철거/환불, `ClosedFrame`(같은 프레임 클릭 차단), `IGameUI`(OnGameStarted/OnGameEnded에서 Close).
-- **확장 지점:** 스킬 건물은 슬롯 1~5에 스킬 버튼, 슬롯 6 철거(고정), 7~9 예약(규칙 9). 현재 `_activeSlotButtons`가 정적 리스트라 **건물 타입/종족별로 동적으로 채우는 로직**이 신규 필요. 스킬 건물 전용 패널로 분리하거나 `BuildingActionPanelUI`에 스킬 모드를 추가하는 두 안이 있음(Plan에서 결정 제안).
+- **확장 지점:** 스킬 건물은 슬롯 1~5에 스킬 버튼, 슬롯 6 철거(고정), 7~9 예약(규칙 9). 현재 `_activeSlotButtons`가 정적 리스트라 **건물 타입/종족별로 동적으로 채우는 로직**이 신규 필요. **결정 확정: 전용 `BuildingSkillPanelUI : BuildingPanelBase` 신설**(기존 `BuildingActionPanelUI`는 비스킬 건물 전용으로 유지, 변경 없음). `BuildingPanelBase`의 Show/Close/철거/헤더/`ClosedFrame`/`IGameUI`는 재사용.
 
 ### 2-6. 서버 권위 전투/RPC 패턴 → 스킬 발동 RPC 참고 (규칙 25, 26)
 
@@ -84,7 +84,8 @@ Hexiege의 세 종족(Human / Spirit / Transcendence)에는 각각 **스킬 건�
 ### 2-7. 건물 스탯·타입 데이터
 
 - `Assets/_Project/Scripts/Domain/Building/BuildingType.cs` — enum(위 1장).
-- `Assets/_Project/Scripts/Domain/Building/BuildingData.cs` — `IDamageable`. `Id/Type/Team/Position/MaxHp/Hp(private set)/IsAlive`. **`float AttackCooldownRemaining { get; set; }`**(현재 AutoTower 전용, `TowerCombatUseCase`만 사용) — 스킬 글로벌 쿨다운을 여기에 추가할지, UseCase 딕셔너리로 둘지 결정 필요(Plan).
+- `Assets/_Project/Scripts/Domain/Building/BuildingData.cs` — `IDamageable`. `Id/Type/Team/Position/MaxHp/Hp(private set)/IsAlive`. **`float AttackCooldownRemaining { get; set; }`**(현재 AutoTower 전용, `TowerCombatUseCase`만 사용). **결정 확정: 스킬 글로벌 쿨다운은 `BuildingData`가 아니라 `SkillActivationUseCase`의 `Dictionary<int,float>`로 보관**(BuildingData 변경 없음).
+- **건설 진입점은 이미 가능**: 세 스킬 건물은 현재도 정상 배치·건설된다(범용 건물 배치 경로 공유) → 배치/건설 로직 추가 작업 없음.
 - `Assets/_Project/Scripts/Domain/Building/BuildingStats.cs` + `Assets/_Project/Resources/Config/BuildingStatsConfig.asset` — 건설 비용(세 건물 모두 200 골드, Inspector 값 우선), `BuildingStats.GetTotalInvestedCost(type, race)`(철거 환불).
 
 ### 2-8. 카메라 조작(팬/줌) → 엣지 스크롤 확장 대상 (규칙 18, 23)
@@ -110,6 +111,9 @@ Hexiege의 세 종족(Human / Spirit / Transcendence)에는 각각 **스킬 건�
 ---
 
 ## 3. 신규로 만들어야 하는 영역 (요약 — 상세 설계는 Plan.md)
+
+> **확정 결정(사용자 논의 반영):** ① UI = 전용 `BuildingSkillPanelUI` 신설. ② 글로벌 쿨다운 = `SkillActivationUseCase` 딕셔너리. ③ **AI도 스킬 사용** → 발동 진입점을 입력과 분리해 플레이어/AI가 `SkillActivationUseCase.Activate` 공유(AI 실제 판단 로직은 별도 후속 task). ④ 스탯 변경 = 유효 스탯 오버레이. ⑤ 아트 = 플레이스홀더(단 하단 X 취소 버튼은 기존 UI 에셋 재사용). ⑥ 건설 진입점은 이미 가능. 구현은 **2페이즈**(Phase 1: 타입 A·B 지점 피해 / Phase 2: 타입 C 상태변경), 각 페이즈 끝에 사용자 실기 테스트. (상세는 Plan.md 6장.)
+
 
 | 영역 | 왜 신규인가 | 관련 규칙 |
 |------|-------------|-----------|

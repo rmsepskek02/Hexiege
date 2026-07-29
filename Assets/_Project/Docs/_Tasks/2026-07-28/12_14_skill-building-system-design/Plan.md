@@ -17,57 +17,63 @@
 - `BuildingType` enum·`BuildingStatsConfig.asset`은 **변경하지 않습니다**(규칙 1 — 직렬화·RPC 안정성).
 - 기존 특수공격/DoT/HoT/랠리/카메라 코드는 **시그니처 유지 + 확장**만 합니다(회귀 방지).
 - 만약 구현 중 불가피하게 기존 분기를 대체해야 할 경우, **삭제 대신 주석 처리(비활성화)를 기본**으로 하고, 그 근거와 함께 이 절에 추가 기재한 뒤 [6] 사용자 테스트 통과 후에만 최종 삭제합니다.
+- **건설 진입점은 이미 가능**: 스킬 건물(FlightFacility / MagicSpirit / WillowShrine)은 현재도 정상 배치·건설된다. 따라서 **배치/건설 로직 추가 작업은 없으며**, 이 계획은 "건설된 스킬 건물에 UI + 스킬 발동 로직을 얹는" 것에 한정된다.
 
 ---
 
 ## 1. 신규 파일 목록 (레이어별, 경로 제안)
 
+> **[P1]/[P2] 표기**: 각 파일이 Phase 1(타입 A·B 지점 피해) 산출물인지, Phase 2(타입 C 전역 상태변경) 산출물인지 표시한다. Phase 정의는 6장 참조.
+
 ### Domain (순수 C#, Core/Unity 참조 금지)
-- `Scripts/Domain/Skill/SkillMechanicType.cs` — enum `{ InstantAreaDamage(A), AreaDotDamage(B), GlobalStatusChange(C) }`. → 규칙 11~13
-- `Scripts/Domain/Skill/SkillAimType.cs` — enum `{ Instant, PointTarget }`. → 규칙 15, 16
-- `Scripts/Domain/Status/StatusEffectKind.cs` — enum `{ MoveSpeedMul, AttackDisabled, AttackPowerMul, ... , HealOverTime }`(제어·버프·디버프·회복 통합 표현). → 규칙 13
-- `Scripts/Domain/Status/StatusEffect.cs` — 값 객체(Kind/Magnitude/RemainingDuration/SourceTeam). 부여 시각·잔여시간 관리 단위.
-- `Scripts/Domain/Status/UnitStatusState.cs` — 한 유닛의 활성 상태효과 목록 + **유효 스탯 계산**(기본 스탯 + 활성 효과 → EffectiveMoveSpeed/CanAttack/EffectiveAttackPower 등). Domain 순수.
+- `Scripts/Domain/Skill/SkillMechanicType.cs` **[P1]** — enum `{ InstantAreaDamage(A), AreaDotDamage(B), GlobalStatusChange(C) }`(C 멤버는 선언만, 실행은 P2). → 규칙 11~13
+- `Scripts/Domain/Skill/SkillAimType.cs` **[P1]** — enum `{ Instant, PointTarget }`. → 규칙 15, 16
+- `Scripts/Domain/Status/StatusEffectKind.cs` **[P2]** — enum `{ MoveSpeedMul, AttackDisabled, AttackPowerMul, ... , HealOverTime }`(제어·버프·디버프·회복 통합 표현). → 규칙 13
+- `Scripts/Domain/Status/StatusEffect.cs` **[P2]** — 값 객체(Kind/Magnitude/RemainingDuration/SourceTeam). 부여 시각·잔여시간 관리 단위.
+- `Scripts/Domain/Status/UnitStatusState.cs` **[P2]** — 한 유닛의 활성 상태효과 목록 + **유효 스탯 계산**(기본 스탯 + 활성 효과 → EffectiveMoveSpeed/CanAttack/EffectiveAttackPower 등). Domain 순수.
 
 ### Application (유스케이스/실행기/인터페이스, Netcode 직접 참조 금지)
-- `Scripts/Application/Skill/ISkillExecutor.cs` — `void Execute(SkillActivationContext ctx)` 전략 계약(특수공격 `ISpecialAttackBehavior` 패턴 원용). → 규칙 7
-- `Scripts/Application/Skill/InstantAreaDamageExecutor.cs` — 타입 A. → 규칙 11
-- `Scripts/Application/Skill/AreaDotDamageExecutor.cs` — 타입 B. → 규칙 12
-- `Scripts/Application/Skill/GlobalStatusChangeExecutor.cs` — 타입 C. → 규칙 13
-- `Scripts/Application/Skill/SkillExecutorRegistry.cs` — `SkillMechanicType → ISkillExecutor`(UseCase 내부 생성, `SpecialAttackRegistry`와 동일 성격). → 규칙 7
-- `Scripts/Application/Skill/SkillActivationContext.cs` — 실행기에 넘길 컨텍스트(시전 건물·팀·조준 좌표·유닛/건물 목록·좌표 조회·재사용 피해/DoT/힐/상태부여 델리게이트·스킬 파라미터). `SpecialAttackContext`와 유사.
-- `Scripts/Application/UseCases/SkillActivationUseCase.cs` — **서버 권위 발동 오케스트레이션**: 재검증(건물 생존·글로벌 쿨다운·유효 타일) → 실행기 호출 → 글로벌 쿨다운 설정 → 결과 이벤트. → 규칙 25, 26
-- `Scripts/Application/Services/StatusEffectSystem.cs` — 상태효과 부여/해제/지속시간 틱(서버 권위). `_activeTimedEffects`(HoT/DoT)와 병렬 소유·틱 패턴. → 규칙 13
-- `Scripts/Application/Interfaces/ISkillDataProvider.cs` — 종족 키(RaceId) + 슬롯 → 스킬 정의 조회 인터페이스(의존성 역전: 구현은 Infrastructure). → 규칙 1, 6, 7
-- `Scripts/Application/Interfaces/INetworkSkillController.cs` (조건부) — 멀티에서 발동 요청 래퍼 인터페이스(Presentation→Application, 구현은 Infrastructure). NGO 직접 의존 회피.
+- `Scripts/Application/Skill/ISkillExecutor.cs` **[P1]** — `void Execute(SkillActivationContext ctx)` 전략 계약(특수공격 `ISpecialAttackBehavior` 패턴 원용). → 규칙 7
+- `Scripts/Application/Skill/InstantAreaDamageExecutor.cs` **[P1]** — 타입 A. → 규칙 11
+- `Scripts/Application/Skill/AreaDotDamageExecutor.cs` **[P1]** — 타입 B. → 규칙 12
+- `Scripts/Application/Skill/GlobalStatusChangeExecutor.cs` **[P2]** — 타입 C. → 규칙 13
+- `Scripts/Application/Skill/SkillExecutorRegistry.cs` **[P1]** — `SkillMechanicType → ISkillExecutor`(UseCase 내부 생성, `SpecialAttackRegistry`와 동일 성격). P1엔 A·B만 등록, C는 P2에서 1줄 추가. → 규칙 7
+- `Scripts/Application/Skill/SkillActivationContext.cs` **[P1]** — 실행기에 넘길 컨텍스트(시전 건물·팀·조준 좌표·유닛/건물 목록·좌표 조회·재사용 피해/DoT/힐/상태부여 델리게이트·스킬 파라미터). `SpecialAttackContext`와 유사. 상태부여 델리게이트는 P2에서 연결.
+- `Scripts/Application/UseCases/SkillActivationUseCase.cs` **[P1]** — **발동 오케스트레이션의 단일 진입점**: 재검증(건물 생존·글로벌 쿨다운·유효 타일) → 실행기 호출 → 글로벌 쿨다운 설정 → 결과 이벤트. **글로벌 쿨다운 상태를 이 UseCase가 `Dictionary<int,float>`로 보관**(3-5 확정). **플레이어 터치 입력과 AI가 공유하는 발동 API**(아래 3-8 AI 발동 지원). → 규칙 3, 25, 26
+- `Scripts/Application/Services/StatusEffectSystem.cs` **[P2]** — 상태효과 부여/해제/지속시간 틱(서버 권위). `_activeTimedEffects`(HoT/DoT)와 병렬 소유·틱 패턴. → 규칙 13
+- `Scripts/Application/Interfaces/ISkillDataProvider.cs` **[P1]** — 종족 키(RaceId) + 슬롯 → 스킬 정의 조회 인터페이스(의존성 역전: 구현은 Infrastructure). → 규칙 1, 6, 7
+- `Scripts/Application/Interfaces/INetworkSkillController.cs` **[P1]** — 멀티에서 발동 요청 래퍼 인터페이스(Presentation→Application, 구현은 Infrastructure). NGO 직접 의존 회피.
 
 ### Infrastructure (Config SO / NetworkBehaviour)
-- `Scripts/Infrastructure/Config/SkillDefinition.cs` — `ScriptableObject`. 아이콘/조준방식/쿨다운/타입/파라미터(아래 5장 스키마). → 규칙 7
-- `Scripts/Infrastructure/Config/SkillLoadoutConfig.cs` — `ScriptableObject`. **RaceId → SkillDefinition[]**(최대 5). `ISkillDataProvider` 구현 제공. → 규칙 1, 4, 6
-- `Scripts/Infrastructure/Network/NetworkSkillController.cs` — `NetworkBehaviour`. `RequestActivateSkill(...)` 래퍼 → `...ServerRpc` → 서버 재검증·실행 → `...ClientRpc`(VFX/오버레이). → 규칙 25, 26
+- `Scripts/Infrastructure/Config/SkillDefinition.cs` **[P1]** — `ScriptableObject`. 아이콘/조준방식/쿨다운/타입/파라미터(아래 5장 스키마). C용 필드(StatusKind/Magnitude/TargetsAllies)는 스키마에 함께 두되 사용은 P2. → 규칙 7
+- `Scripts/Infrastructure/Config/SkillLoadoutConfig.cs` **[P1]** — `ScriptableObject`. **RaceId → SkillDefinition[]**(최대 5). `ISkillDataProvider` 구현 제공. → 규칙 1, 4, 6
+- `Scripts/Infrastructure/Network/NetworkSkillController.cs` **[P1]** — `NetworkBehaviour`. `RequestActivateSkill(...)` 래퍼 → `...ServerRpc` → 서버 재검증·실행 → `...ClientRpc`(VFX/오버레이). → 규칙 25, 26
 
 ### Presentation (MonoBehaviour/UI)
-- `Scripts/Presentation/Input/SkillAimController.cs` — 지점 조준 모드(press→드래그 추적→조준점 이동→엣지 스크롤→release 발동/취소) 상태 머신. → 규칙 17~24
-- `Scripts/Presentation/Effects/SkillAimReticle.cs` — 조준점(범위 원) 월드 표시(반경 시각화). → 규칙 17
-- `Scripts/Presentation/UI/SkillCooldownOverlay.cs` — 슬롯 위 radial(clockwise) fill + 남은초 텍스트. → 규칙 10
-- `Scripts/Presentation/UI/SkillCancelButton.cs` (또는 기존 HUD에 배치) — 하단 중앙 X 취소 영역. → 규칙 20, 21
+- `Scripts/Presentation/UI/BuildingSkillPanelUI.cs` **[P1]** — 스킬 건물 전용 패널(`: BuildingPanelBase`). 슬롯 1~5 동적 채움(종족 로드아웃), 슬롯 6 철거(고정), 쿨다운 오버레이 바인딩. → 규칙 8, 9
+- `Scripts/Presentation/Input/SkillAimController.cs` **[P1]** — 지점 조준 모드(press→드래그 추적→조준점 이동→엣지 스크롤→release 발동/취소) 상태 머신. → 규칙 17~24
+- `Scripts/Presentation/Effects/SkillAimReticle.cs` **[P1]** — 조준점(범위 원) 월드 표시(반경 시각화). 아트는 플레이스홀더. → 규칙 17
+- `Scripts/Presentation/UI/SkillCooldownOverlay.cs` **[P1]** — 슬롯 위 radial(clockwise) fill + 남은초 텍스트. 아트는 플레이스홀더. → 규칙 10
 
-> **패널 확장 방식 결정 제안**: 스킬 건물 슬롯 1~5의 동적 구성 + 쿨다운 오버레이는 (안 A) `BuildingActionPanelUI`에 "스킬 모드"를 추가하거나, (안 B) `BuildingSkillPanelUI : BuildingPanelBase` 전용 클래스를 신설하는 두 안이 있습니다. **완성도 우선 원칙(절대규칙 7)** 관점에서 스킬 특유의 동적 슬롯·오버레이·조준 연동이 많으므로 **안 B(전용 패널 신설, `BuildingPanelBase` 재사용)**를 권장합니다. 최종 채택은 사용자 승인으로 확정합니다.
+> **패널 방식 확정(안 B)**: 스킬 UI는 **전용 `BuildingSkillPanelUI : BuildingPanelBase` 신설**로 확정한다(기존 `BuildingActionPanelUI` 확장안은 폐기). 스킬 특유의 동적 슬롯·쿨다운 오버레이·조준 연동이 많아 전용 패널이 응집도·완성도(절대규칙 7)에서 유리하다. `BuildingPanelBase`의 Show/Close/철거/헤더/`ClosedFrame`/`IGameUI`는 그대로 재사용한다.
+>
+> **하단 X(취소) 버튼 = 기존 UI 에셋 재사용**: 취소용 X 버튼은 **신규 제작하지 않고 기존 UI 에셋을 재사용**한다(규칙 20). 별도 `SkillCancelButton.cs`를 신설하기보다, HUD에 기존 X 에셋을 배치하고 `SkillAimController`가 release 시 그 영역 히트를 취소로 판정한다(규칙 21 겹침 회피는 배치·여백 튜닝으로 처리).
 
 ---
 
 ## 2. 수정 파일 목록 (전부 추가적 확장)
 
-| 파일 | 변경 내용 | 근거 규칙 |
-|------|-----------|-----------|
-| `Presentation/Input/InputHandler.cs` | `HandleClick` 최상단 랠리 분기 옆에 스킬 조준 모드 가드 추가, 또는 `SkillAimController`에 입력 위임 | 16, 17 |
-| `Presentation/UI/BuildingActionPanelUI.cs` | 스킬 건물 클릭 시 전용 패널로 라우팅(안 B 채택 시) / 또는 슬롯 동적 채움(안 A) | 8, 9 |
-| `Presentation/Camera/CameraController.cs` | `EdgeScroll(screenPos, dt)` 신규 메서드 추가(이동 후 기존 `ClampPosition()` 재사용) | 18, 23 |
-| `Domain/Unit/UnitData.cs` | `UnitStatusState` 참조 + 유효 스탯 접근자(EffectiveMoveSpeed/CanAttack 등) 노출 | 13 |
-| `Application/UseCases/UnitCombatUseCase.cs` | 타입 B 반경 DoT 부여 진입점(반경 수집 + `ApplyDamageOverTime`), 타입 C 회복 진입점(HoT 재사용)을 `SkillActivationContext`에 델리게이트로 노출 | 12, 13 |
-| `Application/UseCases`(전투 틱 진입점) | 서버 틱에 `StatusEffectSystem.Tick(dt)`·글로벌 쿨다운 틱 추가(`GameBootstrapper.Update` 싱글 / `NetworkCombatController.TickCombat` 멀티, 이중 틱 금지) | 3, 13, 25 |
-| `Domain/Building/BuildingData.cs` (조건부) | 글로벌 쿨다운을 BuildingData에 둘 경우 `SkillCooldownRemaining` 필드 추가(대안: UseCase 딕셔너리) | 3 |
-| `Bootstrap/GameBootstrapper*.cs` | 스킬 UseCase·실행기·`SkillLoadoutConfig`·`StatusEffectSystem`·`SkillAimController`·`NetworkSkillController` 생성·주입·배선(유일 조합 루트) | 아키텍처 |
+| 파일 | Phase | 변경 내용 | 근거 규칙 |
+|------|-------|-----------|-----------|
+| `Presentation/Input/InputHandler.cs` | P1 | `HandleClick` 최상단 랠리 분기 옆에 스킬 조준 모드 가드 추가(또는 `SkillAimController`에 입력 위임) + 스킬 건물 클릭 시 `BuildingSkillPanelUI`로 라우팅 | 8, 16, 17 |
+| `Presentation/Camera/CameraController.cs` | P1 | `EdgeScroll(screenPos, dt)` 신규 메서드 추가(이동 후 기존 `ClampPosition()` 재사용) | 18, 23 |
+| `Application/UseCases/UnitCombatUseCase.cs` | P1(B)·P2(C) | 타입 B 반경 DoT 부여 진입점(반경 수집 + `ApplyDamageOverTime`)은 P1, 타입 C 회복 진입점(HoT 재사용)은 P2 — `SkillActivationContext`에 델리게이트로 노출 | 12, 13 |
+| `Application/UseCases`(전투 틱 진입점) | P1(쿨다운)·P2(상태) | 서버 틱에 글로벌 쿨다운 틱(P1) + `StatusEffectSystem.Tick(dt)`(P2) 추가(`GameBootstrapper.Update` 싱글 / `NetworkCombatController.TickCombat` 멀티, 이중 틱 금지) | 3, 13, 25 |
+| `Domain/Unit/UnitData.cs` | P2 | `UnitStatusState` 참조 + 유효 스탯 접근자(EffectiveMoveSpeed/CanAttack 등) 노출 | 13 |
+| `Bootstrap/GameBootstrapper*.cs` | P1·P2 | P1: 스킬 UseCase·실행기(A·B)·`SkillLoadoutConfig`·`SkillAimController`·`BuildingSkillPanelUI`·`NetworkSkillController` 생성·주입·배선. P2: `StatusEffectSystem`·타입 C 실행기 추가 배선 | 아키텍처 |
+
+> **`Domain/Building/BuildingData.cs`는 변경하지 않는다** — 글로벌 쿨다운 상태는 `SkillActivationUseCase`가 `Dictionary<int,float>`로 보관하기로 확정(3-5). 도메인 확장 없음.
+> **`Presentation/UI/BuildingActionPanelUI.cs`는 변경하지 않는다** — 스킬 UI는 전용 `BuildingSkillPanelUI` 신설(안 B 확정). 기존 액션 패널은 비스킬 건물 전용으로 그대로 둔다. (스킬 건물 클릭 라우팅 분기만 `InputHandler`에서 추가.)
 
 ---
 
@@ -110,18 +116,18 @@
   - 조준 없음(전역 즉시). `TargetsAllies`에 따라 아군/적 유닛 전체 순회 → `StatusEffectSystem.Apply(unit, StatusEffect)`.
   - 회복은 `StatusEffectKind.HealOverTime`으로 표현하고 내부적으로 기존 `ApplyTimedEffect(Heal)`(HoT) 재사용 → 회복은 우선 전역 즉시(규칙 13, 추후 지점형 전환 여지).
 
-### 3-4. 상태변경 시스템 (버프 개념 최초 도입) → 규칙 13
+### 3-4. 상태변경 시스템 (버프 개념 최초 도입) [Phase 2] → 규칙 13
 
-**최대 신규 덩어리.** `UnitData`의 이동/공격/사거리 스탯이 전부 **readonly(get-only)**(근거: `Domain/Unit/UnitData.cs` L52~72)이므로 원본을 직접 못 바꿈. 따라서 **유효 스탯 오버레이** 방식을 도입:
+**최대 신규 덩어리.** `UnitData`의 이동/공격/사거리 스탯이 전부 **readonly(get-only)**(근거: `Domain/Unit/UnitData.cs` L52~72)이므로 원본을 직접 못 바꿈. **유효 스탯 오버레이 방식으로 확정**(직접 mutable 변경안은 폐기 — 효과 중첩·만료 시 원복이 어렵고 회귀 위험이 큼). 기본 스탯은 readonly로 유지하고, base + 활성 효과를 합성한 유효 스탯을 계산해 사용한다:
 
 - **Domain**: `UnitStatusState`(유닛별 활성 `StatusEffect` 목록). 기본 스탯 + 활성 효과를 합성해 **유효 스탯 계산**을 제공(`EffectiveMoveSpeed`, `CanAttack`, `EffectiveAttackPower`, `EffectiveDetectRange`…). 순수 계산, Core/Unity 미참조.
 - **Application**: `StatusEffectSystem`이 부여/해제/지속시간 감소를 서버 권위로 관리(`_activeTimedEffects`와 동일 소유·틱 패턴). 빙결=`MoveSpeedMul 0` + `AttackDisabled`, 둔화=`MoveSpeedMul <1`, 버프=`AttackPowerMul >1` 등으로 **하나의 시스템으로 통합**(규칙 13).
 - **읽기 지점 연결**: 이동 속도(`UnitView` 이동/A*), 공격 가능·공격력·쿨다운(`UnitCombatUseCase`), 감지(`DetectRange` 사용처)가 **유효 스탯을 읽도록** 갈아끼움. 조사 다음 단계에서 스탯 읽기 지점 전수 파악 필요(Research 5-1).
 - **배치 판단**: 값 객체·유효 스탯 계산=Domain, 부여/틱/해제 오케스트레이션=Application(서버 권위). 멀티 동기화는 상태 부여/해제를 ClientRpc로 전파(연출·유효 스탯 재현).
 
-### 3-5. 건물 글로벌 쿨다운 상태 + UI 오버레이 → 규칙 3, 10
+### 3-5. 건물 글로벌 쿨다운 상태 + UI 오버레이 [Phase 1] → 규칙 3, 10
 
-- **상태 보관 위치(제안)**: 스킬 발동/판정이 서버 권위 UseCase에 있으므로, **`SkillActivationUseCase`가 `Dictionary<int(buildingId), float remaining>`로 보유**하고 서버 틱에서 감소시키는 안을 권장(도메인 `BuildingData`에 스킬 전용 필드를 늘리지 않아 응집도 유지). 대안(BuildingData `SkillCooldownRemaining` 필드)은 AutoTower `AttackCooldownRemaining`와 대칭이라 단순하지만 도메인 확장이 큼 → 사용자 승인으로 택1.
+- **상태 보관 위치 = `SkillActivationUseCase` 딕셔너리(확정)**: 스킬 발동/판정이 서버 권위 UseCase에 있으므로, **`SkillActivationUseCase`가 `Dictionary<int(buildingId), float remaining>`로 보유**하고 서버 틱에서 감소시킨다. 도메인 `BuildingData`에 스킬 전용 필드를 늘리지 않아 응집도 유지(`BuildingData` 변경 없음). (대안이던 BuildingData 필드 방식은 폐기.)
 - **글로벌**: 한 건물의 어느 스킬을 써도 그 건물 슬롯 1~5 전부 잠금(규칙 3).
 - **UI 오버레이**: `SkillCooldownOverlay` — `Image.fillMethod = Radial360`, `fillClockwise = true`, 발동 시각 기준 로컬 카운트다운으로 `fillAmount` 감소 + 남은초 TMP 텍스트(규칙 10). 쿨다운 값·발동 시각은 서버가 ClientRpc로 전파(권위=서버, 규칙 25). 오버레이는 패널이 열려 있는 동안만 갱신.
 
@@ -147,6 +153,22 @@
 - **전파(서버→클라)**: `ActivateSkillClientRpc(...)`로 VFX·쿨다운 오버레이 시작·상태효과 재현. 조준점 이동/범위 미리보기/엣지 스크롤은 **로컬 표현일 뿐**(게임 상태 미변경, 규칙 25).
 - **메서드명**: `...ServerRpc`/`...ClientRpc` 접미사 필수(아키텍처 제약).
 
+### 3-8. AI 발동 지원 — 발동 진입점을 입력과 분리 (확정 요구사항) [Phase 1] → 규칙 25
+
+**AI도 스킬을 사용한다**(시나리오 변경 예정). 따라서 스킬 발동 로직이 플레이어 터치 입력에 종속되면 안 되며, **플레이어와 AI가 동일한 발동 요청 API를 공유**하도록 설계한다.
+
+- **단일 발동 진입점 = `SkillActivationUseCase.Activate(buildingId, skillSlot, HexCoord? aimCoord)`.** 재검증·실행·쿨다운·상태변경이 모두 여기서 일어난다. "누가 요청했는지"(플레이어/AI)와 무관하게 동일 경로.
+- **플레이어 경로**: `SkillAimController`(조준·좌표 확정) → (멀티) `NetworkSkillController.RequestActivateSkill` → 서버 → `SkillActivationUseCase.Activate` / (싱글) 직접 `Activate`.
+- **AI 경로**: AI 판단 로직(예: `AIOpponentController`)이 대상 건물·슬롯·조준 좌표를 골라 **같은 `SkillActivationUseCase.Activate`를 서버에서 직접 호출**. AI는 이미 서버 권위 컨텍스트에서 도므로 RPC 왕복 없이 UseCase를 직접 호출하면 된다(규칙 25 — 서버 실행).
+- **입력/조준 계층(`SkillAimController`)은 "좌표를 만드는 어댑터"일 뿐**, 발동의 본체가 아니다. AI는 이 어댑터를 거치지 않고 좌표를 직접 계산해 넣는다.
+- **범위 주의**: 실제 AI의 스킬 판단 로직(언제·어떤 스킬을 쓸지)과 AI 시나리오 문서 변경은 **별도 후속 task**다. 이번엔 **시스템이 AI 발동을 지원하도록 진입점을 분리·개방**하는 것까지가 요구사항이다.
+
+### 3-9. 자산(아트) 정책 — 플레이스홀더 (확정)
+
+- 스킬 **아이콘·VFX·조준 범위 원(`SkillAimReticle`)·쿨다운 오버레이 아트**는 **플레이스홀더로 구현**한다(단색 스프라이트/기본 도형 등). 실제 아트는 개별 스킬 기획 확정 후 제작 예정.
+- **예외 — 하단 X(취소) 버튼은 기존 UI 에셋 재사용**: 신규 제작하지 않는다(규칙 20). HUD에 기존 X 에셋을 배치하고 `SkillAimController`가 release 시 그 히트 영역을 취소로 판정(규칙 21 겹침 회피는 배치·여백 튜닝).
+- 플레이스홀더라도 규칙 10(radial clockwise + 남은초 숫자)·규칙 17(범위 원)의 **동작 요건은 충족**해야 한다(아트만 임시, 로직은 정식).
+
 ---
 
 ## 4. 아키텍처 제약 준수 방법 (MEMORY 제약별)
@@ -171,20 +193,42 @@
 
 ---
 
-## 6. 구현 순서 (단계마다 컴파일 유지)
+## 6. 구현 단계 (2페이즈 확정 — 각 페이즈 끝에 사용자 실기 테스트)
 
-1. **Domain 값 객체·enum**(`SkillMechanicType`/`SkillAimType`/`StatusEffectKind`/`StatusEffect`/`UnitStatusState`) — 독립, 컴파일 안전.
-2. **상태변경 시스템 골격**(`StatusEffectSystem` + `UnitData` 유효 스탯 접근자) — 아직 읽기 지점 미연결(부여해도 무효과), 컴파일 안전.
-3. **읽기 지점 연결**(이동/전투/감지가 유효 스탯 참조) — 스탯 읽기 지점 전수 반영. 상태효과 없으면 기존과 동일(무변경 보장).
-4. **스킬 데이터 SO·로드아웃**(`SkillDefinition`/`SkillLoadoutConfig`/`ISkillDataProvider`) + 에셋 생성.
-5. **실행기 A/B/C + 레지스트리 + `SkillActivationContext`/`SkillActivationUseCase`** — 기존 AoE/DoT/HoT 델리게이트 재사용.
-6. **글로벌 쿨다운 상태·틱** — 서버 틱 진입점에 추가.
-7. **UI: 전용 패널(안 B) + 슬롯 1~5 동적 채움 + 쿨다운 오버레이** — 즉시형(타입 C) 먼저 end-to-end 연결.
-8. **지점 조준 입력**(`SkillAimController`/`SkillAimReticle` + `CameraController.EdgeScroll` + X 취소) — 타입 A/B 연결.
-9. **멀티: `NetworkSkillController`(ServerRpc/ClientRpc) + 서버 재검증** — 싱글 검증 후 멀티 배선.
-10. **GameBootstrapper 배선** — 각 단계와 함께 점진 주입.
+전체를 **2페이즈로 나눠 각 페이즈 끝에 사용자 실기 테스트**를 둔다. Phase 1은 스탯을 전혀 건드리지 않는 **순수 추가분**만이라 기존 유닛/전투에 회귀 위험이 없고, Phase 2는 스탯 읽기 지점을 교체하므로 회귀 검증을 별도로 붙인다.
 
-> 각 단계 종료 시 컴파일 가능 상태 유지. 상태효과·조준·RPC는 서로 독립이라 순서 조정 가능하되, 3(읽기 지점 연결)은 무변경 보장을 반드시 실기 확인.
+> `Testcase.md`는 이번에 작성하지 않는다(사용자 미지시, WORKFLOW [5-1]). 각 페이즈 끝의 "사용자 실기 테스트"는 사용자가 직접 확인하는 [6] 단계를 뜻한다.
+
+### Phase 1 — 타입 A·B(지점 피해) + 프레임워크 골격 (스탯 무변경, 순수 추가분)
+
+산출물(전부 [P1]): 스킬 데이터 SO/로드아웃, 타입 A·B 실행기, 전용 스킬 패널 UI, 지점 조준 입력(드래그+엣지스크롤+clamp+X취소), 건물 글로벌 쿨다운+오버레이, 서버 발동 RPC, AI 발동 지원 진입점.
+
+1. **Domain(P1)**: `SkillMechanicType`(C 멤버는 선언만)·`SkillAimType`.
+2. **스킬 데이터 SO·로드아웃(P1)**: `SkillDefinition`(스키마 전체, C 필드 포함)·`SkillLoadoutConfig`·`ISkillDataProvider` + 플레이스홀더 에셋.
+3. **발동 코어(P1)**: `SkillActivationContext` + `SkillActivationUseCase`(재검증·쿨다운 딕셔너리·**AI/플레이어 공유 `Activate` 진입점**) + `SkillExecutorRegistry`(A·B 등록).
+4. **실행기 A·B(P1)**: `InstantAreaDamageExecutor`·`AreaDotDamageExecutor` — 기존 반경 수집(`CollectEnemyUnitsInRadius`/`CollectEnemyBuildingsInRadius`) + `ApplyFixedDamageToVictim`(A)/`ApplyDamageOverTime`(B) 재사용. `UnitCombatUseCase`에 타입 B 진입점 노출.
+5. **글로벌 쿨다운 틱(P1)**: 서버 틱 진입점에 쿨다운 감소 추가(이중 틱 금지).
+6. **UI(P1)**: `BuildingSkillPanelUI`(전용, `BuildingPanelBase` 재사용) 슬롯 1~5 동적 채움 + `SkillCooldownOverlay`(radial clockwise + 숫자, 플레이스홀더 아트).
+7. **지점 조준 입력(P1)**: `SkillAimController`·`SkillAimReticle`(플레이스홀더) + `CameraController.EdgeScroll` + 하단 X(기존 UI 에셋 재사용) + 조준점 맵 clamp.
+8. **멀티(P1)**: `NetworkSkillController`(ServerRpc/ClientRpc) + 서버 재검증. 싱글 검증 후 멀티 배선.
+9. **GameBootstrapper 배선(P1)** — 각 단계와 함께 점진 주입.
+
+→ **[6] Phase 1 사용자 실기 테스트**(타입 A·B 발동·조준·쿨다운·멀티 동기화 확인).
+
+### Phase 2 — 타입 C(전역 상태변경) + 유효 스탯 오버레이
+
+산출물(전부 [P2]): Domain 상태값 객체·유효 스탯 계산, `StatusEffectSystem`, 타입 C 실행기, `UnitData` 유효 스탯 접근자 + 이동/전투/감지 읽기 지점 전수 교체.
+
+1. **Domain(P2)**: `StatusEffectKind`·`StatusEffect`·`UnitStatusState`(유효 스탯 계산).
+2. **상태 시스템 골격(P2)**: `StatusEffectSystem`(부여/해제/틱) + `UnitData` 유효 스탯 접근자 — 아직 읽기 지점 미연결(부여해도 무효과), 컴파일 안전.
+3. **읽기 지점 전수 교체(P2)**: 이동(`UnitView`)·전투/공격/쿨다운(`UnitCombatUseCase`)·감지(`DetectRange`)가 유효 스탯을 읽도록 변경. **상태효과가 없으면 기존과 완전히 동일**(무변경 보장) — 회귀 검증 대상.
+4. **타입 C 실행기(P2)**: `GlobalStatusChangeExecutor` + 레지스트리에 C 등록. 회복은 기존 HoT(`ApplyTimedEffect(Heal)`) 재사용. `SkillActivationContext` 상태부여 델리게이트 연결.
+5. **상태 틱(P2)**: 서버 틱에 `StatusEffectSystem.Tick(dt)` 추가(이중 틱 금지). 멀티 상태 동기화(부여/해제 ClientRpc).
+6. **GameBootstrapper 배선(P2)** — 상태 시스템·타입 C 실행기 추가 주입.
+
+→ **[6] Phase 2 사용자 실기 테스트**(버프·디버프·둔화·빙결·회복 확인 + **기존 유닛 무변경 회귀 검증**).
+
+> 각 단계 종료 시 컴파일 가능 상태 유지. Phase 1 완료 후 사용자 테스트 통과를 확인하고 Phase 2에 착수한다.
 
 ---
 
@@ -200,11 +244,13 @@
 | 멀티 좌표 신뢰 | 치트/맵 밖 발동 | 서버가 좌표 유효 타일 재확인 + clamp 재적용(규칙 26) |
 | enum/직렬화 변경 유혹 | 서버/클라 정합성 붕괴 | `BuildingType` 불변, RaceId 종족 키 분기(규칙 1) |
 | 상태효과 멀티 동기화 누락 | 클라에서 버프/제어 미재현 | 부여/해제 ClientRpc 전파, 유효 스탯 클라 재계산(서버 권위 값 기준) |
+| 발동 진입점이 입력에 종속되면 AI 재사용 불가 | 후속 AI 스킬 작업 시 경로 이원화 | 발동 본체를 `SkillActivationUseCase.Activate`로 단일화, 조준/입력은 좌표 어댑터로 분리(3-8). AI는 어댑터 없이 서버에서 직접 호출 |
 
 ---
 
 ## 8. 이번 범위 명시
 
-- **수행(계획):** 스킬 프레임워크(데이터 SO 스키마 / 타입별 실행기 / 상태변경 시스템 / 글로벌 쿨다운·오버레이 / 지점 조준 입력 / 서버 RPC)의 구현 계획.
-- **범위 밖:** 개별 스킬 목록·수치(데이터로 별도), 회복의 지점형 전환(추후 재결정), 개별 스킬 쿨다운(현재 건물 글로벌만), `Testcase.md`(미구현·미지시).
+- **수행(계획):** 스킬 프레임워크(데이터 SO 스키마 / 타입별 실행기 / 상태변경 시스템 / 글로벌 쿨다운·오버레이 / 지점 조준 입력 / 서버 RPC / AI 발동 지원 진입점)의 2페이즈 구현 계획.
+- **확정 결정 반영:** ① UI = 전용 `BuildingSkillPanelUI` 신설(안 B). ② 글로벌 쿨다운 = `SkillActivationUseCase` 딕셔너리 보관(안 A). ③ AI 발동 지원(발동 진입점을 입력과 분리, 공유 API). ④ 스탯 변경 = 유효 스탯 오버레이. ⑤ 자산 = 플레이스홀더(단, 하단 X는 기존 UI 에셋 재사용). ⑥ 건설 진입점은 이미 가능(배치/건설 추가 작업 없음).
+- **범위 밖:** 개별 스킬 목록·수치(데이터로 별도), 회복의 지점형 전환(추후 재결정), 개별 스킬 쿨다운(현재 건물 글로벌만), **AI의 실제 스킬 판단 로직·AI 시나리오 문서 변경**(별도 후속 task — 이번엔 시스템이 AI 발동을 지원하는 진입점까지), 정식 아트(아이콘/VFX/조준 원/오버레이), `Testcase.md`(미지시).
 - 실제 코드/프리팹/에셋 변경은 **사용자 명시 승인 후** 별도 진행(현재는 계획 단계).
