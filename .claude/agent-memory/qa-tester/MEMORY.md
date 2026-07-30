@@ -513,7 +513,7 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 ### 2026-07-27 - Unit ActionSequence Tracer B1 asset 적용 QA 경계
 
 - 사용자 Apply 재실행은 50개 모두 migrated state `[NO-OP]`이고 `SaveAsPrefabAsset`/`SaveAssets` 호출 0이다. migration journal completed와 함께 asset 적용·멱등성 범위는 PASS다.
-- 신규 구조의 필수 정적 검사: direct identity VisualRoot 1개, valid root projector 1개, root Animator/Renderer 0, Collider는 Simulation Root만, VisualRoot descendant Collider 0, Animator Root Motion off, Animator별 동일 GO `AnimationEventRelay` 1개, relay/Animator count 일치.
+- 신규 구조의 필수 정적 검사: direct identity VisualRoot 1개, valid root projector 1개, root Animator/Renderer 0, Animator Root Motion off, Animator별 동일 GO `AnimationEventRelay` 1개, relay/Animator count 일치. Collider는 B1 검증 범위가 아니다.
 - 2026-07-27 당시 failure-injection rollback과 Host/Client·Blue/Red runtime smoke는 미수행이었다. 후속 rollback 판정은 아래 2026-07-29 항목을 따른다.
 - 신규 타입 추가 시 50 고정 validator가 실패하는 것은 정상 fail-closed다. Blue/Red pair, Matrix roster, 종족 수와 VFX 기준선을 의도적으로 함께 갱신한 뒤 전체 Validate/Dry Run·멀티 smoke를 수행한다.
 
@@ -522,4 +522,17 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - graceful failure injection index 0/24/49 모두 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`로 PASS했다.
 - crash index 24는 복구 전 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25를 확인했고, 별도 프로세스 `RecoverCrash` 뒤 primary 50 prefab + 50 meta가 100/100 복구되어 PASS했다.
 - primary Unity compile Tundra success, `[UAS-DIAG]` self-validation PASS다.
-- 판정 범위는 B1 rollback 게이트 PASS다. Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사는 pending이므로 B1 overall은 OPEN이며 B2를 시작하면 안 된다.
+- 판정 범위는 B1 rollback 게이트 PASS다. Android 1대와 Unity Editor counterpart의 역할교대 Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사는 pending이므로 B1 overall은 OPEN이며 B2를 시작하면 안 된다.
+
+### 2026-07-29 - Unit ActionSequence B1 Collider 가정 제거와 모바일 QA
+
+- Collider 존재·배치 조건은 B1 out-of-scope이며 공통 계약·runtime observer·Editor validator·self-validation에서 완전히 제거한다. optional/root-only 판정도 하지 않는다.
+- 같은 코드 리비전의 Unity Editor counterpart와 Android Development Build를 같은 실기 세션에서 역할교대한다. Match A는 Editor Host Blue `RuntimeLog_host.txt` + Android Client Red Logcat, Match B는 Android Host Blue Logcat + Editor Client Red `RuntimeLog_client.txt` 쌍이다.
+- 각 경기 sharedSessionKey는 동일하고 `unavailable`이 아니어야 하며 role/isFlipped가 배치와 일치해야 한다. 180초 안에 Blue/Red·2 types·2 moved units·3초 stable을 확보하고 양쪽 END coverage PASS/errors 0과 외부 stable cross-audit를 확인한다.
+- Unity Editor는 기존 test harness/counterpart로 허용한다. Windows/Standalone build는 사용하지 않으며 Android 2대는 release E2E·성능·호환성 권장 항목이지 B1 필수는 아니다. B1 overall은 OPEN이며 두 경기 교차 감사 전 B2를 시작하지 않는다.
+
+### 2026-07-30 - Unit ActionSequence B1 양방향 QA PASS
+
+- Match A는 34/39 coverage `0.872`, Match B는 29/38 coverage `0.763158`이며 겹치는 stable pose mismatch는 모두 0이다. Match B 양쪽 END PASS, drop/error 0을 확인했다.
+- 최대 축 오차는 Match A `0.000767m`, Match B `0.000491m`로 1mm 허용치 안이다. cross-audit self-validation은 비중첩·한쪽 누락을 union coverage로 처리하고 실제 pose mismatch만 FAIL한다.
+- B1 최종 판정은 PASS다. 이 판정은 공격 방향·Impact/피해 시점·ActionSequence 권위 전환 QA를 포함하지 않는다.

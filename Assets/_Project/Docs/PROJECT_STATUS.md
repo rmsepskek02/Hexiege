@@ -1,9 +1,9 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-07-29
-**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2와 25종 감사 문서는 확정됐고, Tracer A0/A1/A2, B0 read-only readiness와 B1의 50개 asset migration·journal 완료·재실행 NO-OP·rollback이 검증됐다. Simulation/Visual Root presentation seam은 구현됐지만 Host/Client·Blue/Red runtime smoke, result seam, 피해·RPC·VFX 권위 전환, Snapshot/ImpactResult 복제는 미완료다. 기존 이동/Walk·타격 동기화 PASS는 Legacy 범위의 이력으로만 보존하며, 세 불일치 문제는 **P0 진행 중** 상태다.
+**최종 수정일:** 2026-07-30
+**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2와 25종 감사 문서는 확정됐고, Tracer A0/A1/A2, B0과 B1이 완료됐다. B1은 50개 asset migration·journal·NO-OP·rollback뿐 아니라 Android/Editor 역할교대 양방향 Simulation/Visual Root와 NetworkTransform 보간 실기까지 PASS했다. 공격 방향, 공격 Impact·피해 적용 시점, result seam, 피해·RPC·VFX 권위 전환과 Snapshot/ImpactResult 복제는 미완료다. 기존 타격 동기화 PASS는 Legacy 범위의 이력으로만 보존하며 ActionSequence 전환은 **P0 진행 중**이다.
 **최신 main 반영:** InfernoSpirit은 직접 25 + 유닛 전용 DoT 5/초×3초가 Legacy 경로에서 사용자 실기 확인됐고, QuakeSpirit은 직접 20 + 주변 적 유닛·건물 10 및 Host/Client HP 결과가 로그로 확인됐다. 다만 Inferno는 marker 0.50초/설정 1.15초가 불일치하며, Quake는 기본 `OnAttackHit`이 없고 1.00초 placeholder를 사용한다. 두 구현 모두 권위 `AttackSequenceId`, `ImpactPoint`, 결과 순번이 없어 v2 Complete가 아니다.
-**현재 단계 (규칙 v2):** B1 asset migration·journal·NO-OP·rollback PASS. **Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사를 완료한 뒤 B2 서버 이동·방향 Shadow로 진행**하며, 아래 Legacy 스냅샷은 현재 판정에 사용하지 않는다.
+**현재 단계 (규칙 v2):** B1 양방향 이동 pose 검증 완료. 다음 단계는 미구현 상태인 B2 서버 이동·방향 Shadow이며, 공격 방향·Impact·피해 시점은 후속 게이트에서 별도로 검증한다.
 **Legacy 스냅샷 (2026-07-19):** BattleAxe·TorrentSpirit·BloomFairy·MushroomBomber의 당시 기능 완료 기록은 `WORK_HISTORY.md`로 이관해 보존한다. 이후 반영된 InfernoSpirit·QuakeSpirit 상태와 v2 판정은 위 최신 상태 및 AssetMatrix를 따른다.
 
 > Legacy 기능 PASS는 규칙 v2 Complete가 아니다. 실제 현재 상태는 위 `정밀 동기화 상태`와 `UnitCombatAssetMatrix.md`를 따른다.
@@ -30,7 +30,10 @@
 - B1 런타임 seam: 클라이언트 Simulation Root 관점 보정을 제거하고 `VisualRootProjector`·`PresentationPoseProvider`로 표현 pose를 분리했다. 기존 서버 피해·HP·RPC·VFX 권위와 A2 Simulation pose 관측은 유지한다.
 - B1 rollback PASS: graceful failure injection index 0/24/49는 각각 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`다. crash index 24는 별도 프로세스 `RecoverCrash`로 복구했으며, 복구 전 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25에서 복구 후 100/100 원상복구를 확인했다.
 - B1 보조 검증: primary Unity compile Tundra success, `[UAS-DIAG]` self-validation PASS.
-- B1 잔여 게이트: Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사는 미완료다. 이를 통과하기 전에는 B1 전체 완료 또는 이동·바라보기 문제 해결로 판정하지 않으며 B2를 시작하지 않는다.
+- 잘못된 진단 가정 제거: 2026-07-27 B1에서 근거 없이 도입된 Collider 존재·배치 조건은 B1 범위가 아니므로 공통 계약·runtime observer·Editor validator·self-validation에서 완전히 제거했다. B1 구조 권위는 network component placement, identity VisualRoot, root Animator/Renderer 0, projector/ref, Root Motion off, Animator별 relay, 서버 single-writer와 client Simulation Root write 금지다.
+- B1 Match A PASS: Editor Host Blue + Android Client Red에서 stable endpoint exact match 34/39(`0.872`), pose mismatch 0, 최대 축 오차 `0.000767m`, 최대 회전 오차 `0.000362°`.
+- B1 Match B PASS: Android Host Blue + Editor Client Red 양쪽 완전 END PASS. endpoint 36/33, union 38, exact match 29(`0.763158`), temporal-only 2, host-only 5, client-only 2, pose mismatch 0, 최대 축/거리 오차 `0.000491m`, 최대 회전 오차 `0.000159196°`, drop/error 0. self-validation도 overlap/non-overlap·union coverage·실제 match shape를 포함해 PASS했다.
+- B1 범위 판정: 이동 Simulation Root/Visual Root와 NetworkTransform 보간 양방향 멀티 검증 완료. 공격 방향·Impact·피해 적용 시점, result seam과 B2 이후는 미완료다.
 - 신규·교체 프리팹은 migrated 템플릿과 `NET-ROOT-004` 승인 게이트를 사용한다. B1 50개 일괄 migration을 반복하지 않으며 Asset Matrix와 fail-closed validator roster·기준선을 함께 갱신한다.
 - 목표: Simulation Root/Visual Root 분리, `AttackerInstanceId + AttackSequenceId + HitIndex` 기반 정규 결과 키, 서버 시간 Impact, FIFO 대체
 - 런타임: A2 pose→reducer 관측 입력 seam과 B1 Simulation/Visual Root 표현 seam까지 연결했고 기존 Network Root Red 보정은 제거했다. Walk/Attack 상태 분리, 공격자 FIFO, result seam과 권위 Snapshot/ImpactResult 전환이 남아 있어 **미완료**

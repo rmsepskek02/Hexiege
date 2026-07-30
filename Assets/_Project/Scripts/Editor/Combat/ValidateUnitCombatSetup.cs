@@ -475,12 +475,17 @@ namespace Hexiege.Editor.Combat
                 RequireExactAuthoritativeRootComponent(
                     path, nameof(NetworkUnit), allNetworkUnits, root, report);
 
+                if (allNetworkTransforms.Length == 1
+                    && allNetworkTransforms[0].gameObject == root)
+                {
+                    ValidateNetworkTransformContract(path, allNetworkTransforms[0], report);
+                }
+
                 Require(report, root.GetComponent<Animator>() == null, $"{path}: root Animator is forbidden");
                 Require(report, root.GetComponent<Renderer>() == null, $"{path}: root Renderer is forbidden");
 
                 Animator[] animators = root.GetComponentsInChildren<Animator>(true);
                 Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
-                Collider[] colliders = root.GetComponentsInChildren<Collider>(true);
                 AnimationEventRelay[] relays = root.GetComponentsInChildren<AnimationEventRelay>(true);
                 VisualRootProjector[] projectors =
                     root.GetComponentsInChildren<VisualRootProjector>(true);
@@ -492,13 +497,6 @@ namespace Hexiege.Editor.Combat
                 Require(report, root.transform.childCount > 0, $"{path}: visual child is missing");
                 Require(report, animators.Length > 0, $"{path}: descendant Animator is missing");
                 Require(report, renderers.Length > 0, $"{path}: descendant Renderer is missing");
-                foreach (Collider collider in colliders)
-                {
-                    Require(
-                        report, collider.transform == root.transform,
-                        $"{path}: Collider '{GetHierarchyPath(collider.transform, root.transform)}' " +
-                        "must remain on Simulation Root");
-                }
                 Require(
                     report, relays.Length == animators.Length,
                     $"{path}: AnimationEventRelay count {relays.Length} does not match Animator count {animators.Length}");
@@ -811,9 +809,50 @@ namespace Hexiege.Editor.Combat
             Require(
                 report, visualRoot.GetComponentsInChildren<NetworkUnit>(true).Length == 0,
                 $"{path}: {VisualRootName} descendants must not contain NetworkUnit");
+        }
+
+        private static void ValidateNetworkTransformContract(
+            string path,
+            NetworkTransform networkTransform,
+            UnitVisualRootAuditReport report)
+        {
             Require(
-                report, visualRoot.GetComponentsInChildren<Collider>(true).Length == 0,
-                $"{path}: {VisualRootName} descendants must not contain Collider");
+                report,
+                networkTransform.AuthorityMode == NetworkTransform.AuthorityModes.Server,
+                $"{path}: NetworkTransform must use server authority");
+            Require(
+                report,
+                networkTransform.Interpolate,
+                $"{path}: NetworkTransform.Interpolate must be enabled");
+            Require(
+                report,
+                !networkTransform.PositionLerpSmoothing,
+                $"{path}: NetworkTransform.PositionLerpSmoothing must be disabled " +
+                "to prevent NGO Vector3 interpolation from retaining a millimeter-scale endpoint residual");
+            Require(
+                report,
+                networkTransform.PositionInterpolationType
+                == NetworkTransform.InterpolationTypes.LegacyLerp,
+                $"{path}: NetworkTransform position interpolation must remain LegacyLerp");
+            Require(
+                report,
+                networkTransform.SyncPositionX
+                && networkTransform.SyncPositionY
+                && networkTransform.SyncPositionZ,
+                $"{path}: NetworkTransform must synchronize all position axes");
+            Require(
+                report,
+                !networkTransform.InLocalSpace,
+                $"{path}: NetworkTransform position must use canonical world space");
+            Require(
+                report,
+                !networkTransform.UseHalfFloatPrecision,
+                $"{path}: NetworkTransform position must use full precision");
+            Require(
+                report,
+                networkTransform.PositionThreshold > 0f
+                && networkTransform.PositionThreshold <= 0.001f,
+                $"{path}: NetworkTransform.PositionThreshold must be in (0, 0.001m]");
         }
 
         private static string BuildRollbackManifest(

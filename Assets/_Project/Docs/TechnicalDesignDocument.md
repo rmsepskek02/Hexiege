@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.46.0
-**최종 수정일:** 2026-07-27
+**버전:** 0.47.0
+**최종 수정일:** 2026-07-30
 **작성자:** HANYONGHEE
 
 ---
@@ -130,8 +130,8 @@ Clean Architecture에서는 **안쪽 레이어가 바깥쪽 레이어를 알면 
 #### 유닛 Simulation Root / Visual Root 런타임 seam
 
 - Simulation Root는 `NetworkObject`, `NetworkTransform`, `NetworkUnit`, `UnitView`, `VisualRootProjector`와 서버 위치·회전 writer를 보유한다.
+- `NetworkTransform`은 서버 권위와 canonical world-space를 유지하며 `Interpolate=true`, `PositionLerpSmoothing=false`를 사용한다. 전체 보간은 유지하되 NGO LegacyLerp의 millimeter-scale 종료 잔차가 안정 pose에 남지 않게 한다.
 - 직접 자식 `VisualRoot`는 identity transform으로 시작하며 모델, Animator, Renderer, VFX/socket을 포함한다. Animator Root Motion은 비활성화한다.
-- Collider는 Simulation Root에만 유지하고 Visual Root 하위에는 두지 않아 충돌·선택 경계를 화면 관점 변환과 분리한다. 이는 서버 피해 판정 구현이 Collider 기반이라는 의미가 아니다.
 - Simulation Root에는 Animator와 Renderer를 두지 않는다. 각 Animator와 동일 GameObject에 `AnimationEventRelay` 하나를 두며 relay와 Animator 개수가 일치해야 한다.
 - `VisualRootProjector`는 자신의 Simulation Root를 수정하지 않고 참조된 `VisualRoot`만 투영한다. Presentation pose getter도 같은 프레임의 canonical Root를 먼저 투영해 Animation Event와 `LateUpdate` 사이의 한 프레임 pose 지연을 피한다.
 - `HitPresentationQueue`, `FloatingHpTextSpawner`, 사망 VFX와 피격 punch는 `PresentationPoseProvider` 또는 projector pose를 사용한다. A2 `IUnitActionPoseSource`는 계속 Simulation Root를 읽어 서버 판정과 표현 pose가 섞이지 않게 한다.
@@ -1699,6 +1699,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.47.0 | 2026-07-30 | Tracer B1 최종 게이트 반영. 50개 프리팹의 `Interpolate=true`, `PositionLerpSmoothing=false`와 서버 권위/canonical world-space 불변을 기록하고, Android 1대와 Unity Editor counterpart의 Host/Client 역할교대 root-pose 교차 검증 및 rollback을 PASS로 확정했다. B2 서버 이동·SimulationFacing Shadow, 공격 방향, Impact/피해 시점, result seam과 권위 전환은 미완료다. |
 | 0.46.0 | 2026-07-27 | Unit ActionSequence Tracer B1 Simulation/Visual Root seam 반영. `NetworkUnit`의 클라이언트 Simulation Root 보정을 제거하고 `VisualRootProjector`·`PresentationPoseProvider`로 표현 pose를 분리했다. 멀티플레이 UnitFactory의 canonical world position 생성, presentation 소비자 전환, 신규·교체 프리팹 승인 규격을 기록했다. 50개 프리팹 migration과 재실행 NO-OP는 확인됐지만 Host/Client runtime smoke와 실제 rollback failure injection은 아직 미완료다. |
 | 0.45.0 | 2026-07-22 | Unit ActionSequence A1 순수 Application 경계 구현 상태 반영. `UnitActionContracts`·stateful `UnitActionSequencer`와 self-validation PASS를 기록하고, 런타임 pose/result seam·피해·RPC·VFX 미연결 및 다음 A2 server-authoritative pose seam shadow를 명시했다. |
 | 0.44.0 | 2026-07-20 | 멀티플레이 유닛 이동·공격 규칙 v2 목표 아키텍처 반영. 서버 권위 `UnitActionSnapshot` + `AttackImpactResult`, AttackSequenceId/HitIndex 상관관계, Simulation Root/Visual Root 분리, 늦은 참가·순서 역전·중복 처리와 Clean Architecture 배치를 정의했다. 클라이언트 이동 예측, 유닛 점유 경로 차단, 공격자 FIFO 피격 표현은 Legacy로 정정했다. **문서 설계 완료이며 런타임 구현은 미완료다.** |

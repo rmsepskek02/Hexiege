@@ -438,7 +438,7 @@ A2에서는 기존 **damage, RPC, VFX, HP, path, NetworkTransform, NetworkUnit, 
 
 Tracer B는 A2에서 검증한 read-only pose seam을 기준으로 Root 소유권과 서버 이동·방향 writer를 교정한다. 공격 Impact·피해 writer 전환은 Tracer D의 범위로 남긴다.
 
-- `U-ROOT-SEPARATION`, `NET-ROOT-001~003`: NetworkObject·NetworkTransform·충돌·사거리·판정은 Simulation Root에 남기고, 모델·Animator·VFX/SFX·진영별 화면 변환은 Visual Root로 분리한다.
+- `U-ROOT-SEPARATION`, `NET-ROOT-001~003`: NetworkObject·NetworkTransform·사거리·판정은 Simulation Root에 남기고, 모델·Animator·VFX/SFX·진영별 화면 변환은 Visual Root로 분리한다.
 - `U-MOV-PATH`, `U-MOV-PHASE`, `U-MOV-ALIGN`: 기존 A* 경로 의미를 보존하고 서버 `DesiredMoveDirection`과 `SimulationFacing`을 기준으로 10° 진입 / 15° 이탈 히스테리시스를 적용한다.
 - `NET-FACING-001`, `NET-FACING-002`: 클라이언트는 위치 변화량이나 현재 타겟 위치로 권위 방향을 재추정하지 않는다. 이동·공격 표현은 서버 SimulationFacing과 이후 권위 Aim 결과를 재생한다.
 - `GameSystemRules_UnitCombatSynchronization.md` 10장의 전환 규칙에 따라 경기마다 `CombatPipelineMode`를 고정하고 `single-writer / single-emitter`를 지킨다. 같은 경기에서 SpearMan만 신규 권위 writer로 전환하고 나머지 유닛을 Legacy 권위로 두는 혼합은 금지한다.
@@ -599,10 +599,35 @@ B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 `Comb
 - [x] graceful failure injection index 0/24/49 모두 PASS: 각 실행 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`
 - [x] crash index 24 강제 종료 후 별도 프로세스 `RecoverCrash` PASS: 복구 전 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25, 복구 후 prefab과 `.meta` 100/100 원상복구
 - [x] primary Unity compile Tundra success, `[UAS-DIAG]` self-validation PASS
-- [ ] Host/Client·Blue/Red runtime smoke에서 Simulation Root 동일성과 Visual Root 전용 관점 변환 검증
+- [x] Android 1대와 Unity Editor counterpart의 역할교대 Host/Client·Blue/Red runtime smoke에서 Simulation Root 동일성과 Visual Root 전용 관점 변환 검증
 
 **2026-07-29 rollback 판정:** graceful index 0/24/49와 crash index 24 별도 복구가 모두 PASS했고, 각 시험 뒤 primary 50개 prefab + 50개 `.meta`가 검증됐다. primary Unity compile과 `[UAS-DIAG]` 자체 검증도 PASS다.
 
-**B1 현재 판정:** asset migration, journal 완료, 멱등 재실행과 rollback 게이트는 PASS다. 다만 Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사가 남아 있으므로 B1 전체 완료 게이트는 아직 열려 있다. 이 런타임 게이트를 통과하기 전에는 B2 서버 이동·방향 Shadow를 시작하지 않는다. 공격 Impact·피해 writer와 결과 기반 표현 결합은 여전히 후속 Tracer C/D 범위다.
+**2026-07-29 잘못된 Collider 진단 가정 제거:**
+
+- [x] 2026-07-27 B1에서 근거 없이 도입된 Collider 존재·배치 가정을 B1 계약 밖으로 재분류
+- [x] 공통 Collider 계약, runtime observer 조건, Editor validator 조건과 self-validation 회귀를 코드·검증에서 완전 제거
+- [x] B1 구조 권위를 network component placement, identity VisualRoot, root Animator/Renderer 0, projector/ref, Root Motion off, Animator별 relay, 서버 single-writer와 client Simulation Root write 금지로 복원
+- [x] 정적 runtime compile 및 diff-check PASS
+
+**B1 Android + Unity Editor counterpart 역할교대 실기 절차:**
+
+1. 같은 코드 리비전이 열린 Unity Editor와 Android 1대에 설치한 Android Development Build를 준비한다. Unity Editor는 PC target build가 아니라 기존 테스트 harness/counterpart로 사용하며 Windows/Standalone build는 사용하지 않는다.
+2. 같은 실기 세션에서 두 경기를 역할교대한다.
+   - Match A: Editor Host·Blue + Android Client·Red. `RuntimeLog_host.txt`와 Android client Logcat을 짝지어 분석한다.
+   - Match B: Android Host·Blue + Editor Client·Red. Android host Logcat과 `RuntimeLog_client.txt`를 짝지어 분석한다.
+3. 각 경기의 `[UAS-ROOT-POSE]` 로그 쌍은 `sharedSessionKey`가 서로 같고 `unavailable`이 아니어야 한다. `role`과 `isFlipped`는 Match A/B의 Host/Client·Blue/Red 배치와 일치해야 한다.
+4. 각 경기에서 180초 안에 Blue/Red 양 진영, 서로 다른 유닛 타입 2종 이상, 실제 이동한 유닛 2기 이상, 이동 후 3초 stable 표본을 확보한다.
+5. 각 경기 양쪽 `[END]`가 coverage PASS와 errors 0인지 확인하고, 파일 로그와 Logcat 쌍을 외부 stable cross-audit한다.
+
+이 절차는 `WORKFLOW.md`의 `MULTI-` Host+Client 표준과 `LogRules.md`의 Editor 파일 로그/실기기 Logcat 규칙을 함께 적용한다. 물리 Android 2대 검증은 release E2E·성능·호환성 QA에 권장할 수 있지만 B1 필수 게이트는 아니다.
+
+**2026-07-29 B1 양방향 실기 판정:**
+
+- Match A(Editor Host·Android Client)는 stable endpoint 34/39를 exact match해 coverage `0.872`, pose mismatch 0, 최대 축 오차 `0.000767m`, 최대 회전 오차 `0.000362°`로 PASS했다.
+- Match B(Android Host·Editor Client)는 양쪽 완전 END PASS, endpoint 36/33, union 38, exact match 29(`0.763158`), temporal-only 2, host-only 5, client-only 2였다. exact match의 pose mismatch는 0, 최대 축/거리 오차 `0.000491m`, 최대 회전 오차 `0.000159196°`, drop/error는 0이다.
+- `[UAS-DIAG]` self-validation은 overlap/non-overlap, union coverage와 실제 match shape를 포함해 PASS했다.
+
+**B1 최종 판정:** 50개 asset migration·journal·멱등 재실행·rollback과 Android/Editor 역할교대 양방향 Simulation Root/Visual Root·NetworkTransform 보간 교차 검증이 모두 PASS했다. B1은 완료다. 이 완료는 이동 pose와 관점 표현 경계에만 해당한다. 공격 방향·공격 Impact·피해 적용 시점, result seam, B2 서버 이동·방향 Shadow와 이후 단계는 미완료이며 별도 게이트를 통과해야 한다.
 
 사용자가 Testcase 작성을 요청하지 않았으므로 별도 `Testcase.md`는 생성하지 않았으며, 이번 실행 결과는 이 진행 기록에 보존한다.

@@ -2,9 +2,9 @@
 
 유닛별 공격 설계 목표와 현재 런타임·애니메이션·VFX 준비 상태를 분리해 추적하는 감사 표다.
 
-**감사 기준일:** 2026-07-27
+**감사 기준일:** 2026-07-30
 **브랜치:** `codex/unit-movement-attack-sync-audit`  
-**범위:** 정적 에셋·설정·코드 연결 감사 + main에 반영된 InfernoSpirit 사용자 실기 결과와 QuakeSpirit Host/Client 피해 로그 재검토 + B1 50개 프리팹 Visual Root migration·재실행 NO-OP. 규칙 v2 전체 멀티플레이 검증은 수행하지 않음.
+**범위:** 정적 에셋·설정·코드 연결 감사 + main에 반영된 InfernoSpirit 사용자 실기 결과와 QuakeSpirit Host/Client 피해 로그 재검토 + B1 50개 프리팹 Visual Root migration·재실행 NO-OP·rollback + Android/Unity Editor 역할교대 양방향 root-pose 검증. B1은 완료했지만 공격 방향·Impact/피해 시점·25종 규칙 v2 전체 멀티플레이 검증은 수행하지 않음.
 
 이 문서는 상태 스냅샷이며 게임 규칙 권위가 아니다. 공격 의미는 `GameSystemRules_Units.md`, 동기화 계약은 `GameSystemRules_UnitCombatSynchronization.md`, 런타임 수치 원본은 `Resources/Config/UnitStatsConfig.asset`을 따른다.
 
@@ -52,14 +52,14 @@
 - [ ] `UnitType`과 Blue/Red 쌍을 추가하고 파일명을 `Unit_<UnitType>_<Blue|Red>`로 맞춘다.
 - [ ] 검증된 migrated 유닛 템플릿에서 생성한다. Simulation Root 직접 자식은 identity `VisualRoot` 하나이며 모든 모델·Animator·Renderer·VFX/socket은 그 아래에 둔다.
 - [ ] Simulation Root에 `NetworkObject`, `NetworkTransform`, `NetworkUnit`, `UnitView`, `VisualRootProjector`를 유지하고, projector가 직접 자식 `VisualRoot`를 참조하게 한다.
+- [ ] `NetworkTransform`의 서버 권위와 `Interpolate=true`, `PositionLerpSmoothing=false`를 유지한다. 전체 보간 비활성화로 오해하거나 클라이언트 Simulation Root writer를 추가하지 않는다.
 - [ ] 모든 Animator의 Root Motion을 끄고, 네트워크·판정 컴포넌트를 `VisualRoot` 아래로 이동하지 않는다.
-- [ ] Collider는 Simulation Root에만 두고 `VisualRoot` 하위에는 두지 않는다. 전체 검증에서 root collider 존재와 visual descendant collider 0을 확인한다.
 - [ ] Simulation Root의 Animator·Renderer가 0인지 확인한다. 각 Animator와 같은 GameObject에 `AnimationEventRelay` 하나를 두고 relay 수와 Animator 수를 일치시킨다.
 - [ ] UnitFactory 등록, `UnitStatsConfig`, AttackProfile/Timeline, 실제 Animator Attack state clip, Animation Event와 VFX/SFX 연결을 함께 확인한다.
 - [ ] 이 문서의 유닛 행, UnitType·프리팹·Animator·프리셋 집계, 감사 기준일을 갱신한다.
 - [ ] `ValidateUnitCombatSetup.cs`의 `ExpectedPrefabCount`, 종족별 예상 수, UnitType 예상 수와 VFX/socket 기준선을 새 roster의 실제 의도에 맞춰 갱신한다. 단순히 검증을 느슨하게 하거나 오류를 무시하지 않는다.
 - [ ] 전체 Validate/Dry Run에서 누락·중복 identity, 부분 migration, projector 참조, Animator Root Motion, 네트워크 설정 변화가 모두 0인지 확인한다.
-- [ ] Host/Client·Blue/Red에서 Simulation Root 값의 일치와 Visual Root에만 적용되는 관점 변환을 확인한다.
+- [ ] 같은 코드 리비전의 Unity Editor counterpart와 Android Development Build를 역할교대해 Host/Client·Blue/Red에서 Simulation Root 값의 일치와 Visual Root에만 적용되는 관점 변환을 확인한다.
 
 B1 `SetupUnitVisualRoots.Apply`는 기존 50개 Legacy 프리팹을 한 번에 전환하기 위한 일회성 migration이다. 신규 프리팹마다 이 일괄 Apply를 다시 실행하지 않는다. 신규 프리팹은 처음부터 migrated 구조로 만들며, Legacy 구조를 가져온 경우 별도 단일 프리팹 설정 또는 수동 규격화 후 전체 검증을 통과시킨다. 고정 예상 수 때문에 신규 프리팹 추가 직후 검증기가 실패하는 것은 정상적인 fail-closed 동작이며, roster 문서와 검증 기준을 함께 검토하라는 신호다.
 

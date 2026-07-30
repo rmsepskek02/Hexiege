@@ -95,7 +95,7 @@ NGO·Animator·씬 없이 Application 수준에서 다음을 결정적으로 재
 
 ### 사용자 실기 피드백 루프
 
-자동 테스트 후 Editor Host + 빌드 Client에서 동일 UnitId를 추적하는 구조화 로그를 사용한다. 서버 tick, phase, target, desired direction, SimulationFacing, sequence, scheduled/applied impact, presentation release, root writer를 한 행으로 기록한다. Blue/Red 양쪽 영상 또는 로그 시간으로 세 증상을 재현하고 수정 전후를 비교한다.
+자동 테스트 후 같은 코드 리비전의 Unity Editor counterpart와 Android Development Build를 사용해 Host/Client 역할을 교대하는 두 경기를 실행한다. Editor의 `RuntimeLog_host.txt`/`RuntimeLog_client.txt`와 Android Logcat의 구조화 로그로 동일 UnitId를 추적한다. 서버 tick, phase, target, desired direction, SimulationFacing, sequence, scheduled/applied impact, presentation release, root writer를 한 행으로 기록한다. Blue/Red 양쪽 로그 시간으로 세 증상을 재현하고 수정 전후를 비교한다.
 
 일반 로그를 무차별 추가하지 않고 고유 접두사 `[UAS-DIAG]`를 사용하며 작업 종료 전에 제거하거나 정식 계측 채널로 승격한다.
 
@@ -204,4 +204,26 @@ NGO·Animator·씬 없이 Application 수준에서 다음을 결정적으로 재
 - migration 저널의 완료가 확인됐고, 사용자가 Apply를 다시 실행했을 때 `[UAS-ROOT][apply][NO-OP] 50개 프리팹이 이미 migrated state`가 기록됐다. 두 번째 실행은 `SaveAsPrefabAsset`과 `SaveAssets`를 호출하지 않아 멱등 적용을 확인했다.
 - 신규·교체 프리팹은 이 50개 일괄 migration을 반복하지 않는다. 검증된 migrated 템플릿에서 처음부터 Root 계약을 만족시키고, roster·감사표·검증기의 고정 예상 수와 VFX 기준선을 함께 갱신한 뒤 전체 검증을 통과시킨다.
 
-현재 근거로 확정할 수 있는 범위는 **50개 asset migration + journal completed + 재실행 NO-OP PASS**다. 실제 rollback failure injection과 Host/Client·Blue/Red runtime smoke는 아직 미완료이므로 B1 전체 완료나 이동·바라보기 문제 해결 완료로 판정하지 않는다.
+현재 근거로 확정할 수 있는 범위는 **50개 asset migration + journal completed + 재실행 NO-OP + rollback PASS**다. Android 1대와 Unity Editor counterpart의 역할교대 Host/Client·Blue/Red runtime smoke는 아직 미완료이므로 B1 전체 완료나 이동·바라보기 문제 해결 완료로 판정하지 않는다.
+
+---
+
+## 11. 2026-07-29 잘못된 Collider 진단 가정 제거
+
+- 2026-07-27 B1 문서와 검증에 근거 없이 Collider 배치 가정이 도입됐다. 프로젝트 감사 결과 Collider는 B1 Simulation Root/Visual Root 분리 범위가 아니며 서버 single-writer, 클라이언트 Simulation Root write 금지, 표현 계층 분리의 완료 조건도 아니다.
+- 따라서 Collider 존재 여부나 배치를 검사하는 공통 계약·런타임 observer 조건·Editor validator 조건·self-validation 회귀를 코드와 B1 검증 범위에서 완전히 제거했다.
+- B1 구조 권위는 NetworkObject/NetworkTransform 등 네트워크 컴포넌트의 Simulation Root 잔류, identity VisualRoot, root Animator/Renderer 0, projector 참조, Root Motion 비활성화, Animator별 relay, 서버 single-writer와 client Simulation Root write 금지다.
+- 정적 runtime compile과 diff-check는 PASS다. B1 실기는 Android 1대와 Unity Editor counterpart가 Host/Client 역할을 교대하며 Editor 파일 로그와 Android Logcat을 짝지어 재검증한다.
+
+이 교정은 잘못 추가된 진단 가정을 제거한 것이며 Collider에 관한 신규 authoring 계약을 만들지 않는다. 이 시점에는 B1 overall이 OPEN이었으며, 아래 양방향 실기 결과가 최신 판정을 대체한다.
+
+---
+
+## 12. 2026-07-29 B1 양방향 이동 pose 실기 완료
+
+- Match A는 Unity Editor Host·Blue와 Android Client·Red 구성이다. stable endpoint 34/39를 exact match해 coverage `0.872`, pose mismatch 0, 최대 축 오차 `0.000767m`, 최대 회전 오차 `0.000362°`를 기록했다.
+- Match B는 Android Host·Blue와 Unity Editor Client·Red 구성이다. 양쪽 완전 END가 PASS했고 endpoint 36/33, union 38, exact match 29(`0.763158`), temporal-only 2, host-only 5, client-only 2였다. exact match pose mismatch 0, 최대 축/거리 오차 `0.000491m`, 최대 회전 오차 `0.000159196°`, drop/error 0이다.
+- non-overlap은 서로 다른 stable 관측 시점과 endpoint 집합을 별도로 분류한 결과이며 exact match pose mismatch로 계산하지 않는다. self-validation은 overlap/non-overlap, union coverage와 실제 match shape를 포함해 PASS했다.
+- NGO 2.9.2 Vector3 LegacyLerp의 millimeter-scale 종료 잔차를 피하도록 `Interpolate=true`, `PositionLerpSmoothing=false`, server authority와 canonical world-space 위치 동기화 계약을 검증한다.
+
+위 근거로 **B1의 이동 Simulation Root/Visual Root 분리와 NetworkTransform 보간 양방향 멀티 검증은 완료**다. 공격 방향, 공격 Impact·피해 적용 시점, result seam과 B2 이후 ActionSequence 전환은 이번 증거로 검증하지 않았으며 계속 미완료다.

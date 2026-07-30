@@ -33,7 +33,7 @@
 
 ### NET-ROOT-001. Simulation Root
 
-Simulation Root는 서버 좌표계의 위치와 방향을 보유한다. NetworkTransform, 사거리, 충돌, 타겟 탐색, 공격 방향 및 착탄 판정은 이 Root만 참조한다.
+Simulation Root는 서버 좌표계의 위치와 방향을 보유한다. NetworkTransform, 사거리, 타겟 탐색, 공격 방향 및 착탄 판정은 이 Root만 참조한다.
 
 클라이언트는 Simulation Root에 팀별 화면 반전이나 Animator 보정을 직접 쓰지 않는다.
 
@@ -62,7 +62,7 @@ VisualFacing은 SimulationFacing을 재생한 결과이며 판정 원본이 아�
 - 프리팹 최상위 오브젝트를 Simulation Root로 사용하고 `NetworkObject`, `NetworkTransform`, `NetworkUnit`, `UnitView`, `VisualRootProjector` 등 네트워크·권위 컴포넌트를 이 Root에 둔다.
 - Simulation Root의 직접 자식 표현 계층은 로컬 위치 `(0,0,0)`, 로컬 회전 identity, 로컬 스케일 `(1,1,1)`인 `VisualRoot` 하나로 구성한다.
 - 모델, Renderer, Animator, 무기 발사점, `VfxSpawnPoint`와 그 밖의 표현 전용 오브젝트는 모두 `VisualRoot` 아래에 둔다. `NetworkObject`와 `NetworkTransform`은 `VisualRoot`로 이동하지 않는다.
-- Collider는 Simulation Root에만 두고 `VisualRoot` 하위에는 두지 않는다. 이는 Simulation Root의 충돌·선택 경계를 화면 관점 반전과 분리하는 authoring 계약이며, 서버 피해 판정이 Collider에 의존한다는 뜻은 아니다.
+- `NetworkTransform`은 서버 권위와 canonical world-space 동기화를 유지하고 `Interpolate=true`, `PositionLerpSmoothing=false`를 사용한다. 이는 전체 보간을 끄는 계약이 아니라 NGO LegacyLerp의 종료 잔차가 Simulation Root의 안정 pose에 남지 않게 하는 설정이다.
 - Simulation Root에는 Animator와 Renderer를 두지 않는다. 각 Animator와 같은 GameObject에 `AnimationEventRelay` 하나를 두고, 프리팹 전체 relay 수가 Animator 수와 일치해야 한다.
 - 모든 Animator의 Root Motion을 비활성화한다. Animator가 Simulation Root 또는 Visual Root를 별도의 이동 writer로 만들 수 없다.
 - `VisualRootProjector._visualRoot`는 해당 프리팹의 직접 자식 `VisualRoot`를 참조해야 하며 누락·중복 projector를 허용하지 않는다.

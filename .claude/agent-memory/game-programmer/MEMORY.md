@@ -276,7 +276,7 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 
 - `VisualRootProjector`/`PresentationPoseProvider`로 Simulation pose와 presentation pose를 분리하고 `NetworkUnit`의 클라이언트 Simulation Root 보정을 제거했다. 멀티 `UnitFactory`는 canonical world position을 사용하며 A2 pose observer와 기존 서버 피해 권위는 유지한다.
 - 50개 프리팹에 직접 자식 `VisualRoot`와 root projector를 적용했고 migration journal completed를 확인했다. 사용자 재실행은 50개 모두 migrated state `[NO-OP]`, prefab 저장 호출 0이다.
-- 현행 validator 계약: root Animator/Renderer 0, Collider는 Simulation Root에만 존재, VisualRoot descendant Collider 0, 모든 Animator Root Motion off, 각 Animator와 동일 GO의 `AnimationEventRelay` 1개, projector 참조 유효.
+- 현행 validator 계약: root Animator/Renderer 0, 모든 Animator Root Motion off, 각 Animator와 동일 GO의 `AnimationEventRelay` 1개, projector 참조 유효. Collider는 B1 구조·런타임 검증 범위가 아니다.
 - 신규 프리팹은 B1 bulk migration을 반복하지 않고 migrated 템플릿과 `NET-ROOT-004`를 사용한다. UnitType/Blue·Red pair/Matrix/validator roster와 VFX baseline을 원자적으로 갱신한다.
 - 2026-07-27 당시 rollback failure injection과 Host/Client·Blue/Red runtime smoke는 미완료였다. 후속 rollback 판정은 아래 2026-07-29 항목을 따른다.
 
@@ -285,4 +285,17 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - graceful failure injection index 0/24/49는 각각 journal 복구, primary 100파일 검증과 초기 analyzer를 통과했다.
 - crash index 24는 강제 종료 시 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25를 만든 뒤 별도 `RecoverCrash` 프로세스에서 primary 50 prefab + 50 meta를 100/100 복구했다.
 - primary Unity compile Tundra success, `[UAS-DIAG]` self-validation PASS다.
-- 구현 변경 없이 rollback 내구성만 통과했다. Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사가 남아 있어 B1 overall은 OPEN이고 B2 진입은 금지한다.
+- 구현 변경 없이 rollback 내구성만 통과했다. Android 1대와 Unity Editor counterpart의 역할교대 Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사가 남아 있어 B1 overall은 OPEN이고 B2 진입은 금지한다.
+
+### 2026-07-29 - Unit ActionSequence B1 Collider 진단 가정 제거
+
+- 2026-07-27 B1에서 근거 없이 추가된 Collider 존재·배치 조건을 공통 계약, runtime observer, Editor validator와 self-validation에서 완전히 제거했다. optional/root-only 계약도 남기지 않는다.
+- B1 구조 권위는 network component placement, identity VisualRoot, root Animator/Renderer 0, projector/ref, Root Motion off와 Animator별 relay다. 런타임 권위는 서버 single-writer와 client Simulation Root write 금지다.
+- 최종 실기는 같은 코드 리비전의 Unity Editor counterpart와 Android Development Build를 역할교대한다. Match A는 Editor Host Blue file + Android Client Red Logcat, Match B는 Android Host Blue Logcat + Editor Client Red file 쌍을 분석한다.
+- Windows/Standalone build는 사용하지 않는다. Android 2대는 release E2E·성능·호환성에 권장할 수 있지만 B1 필수는 아니며, 두 경기 cross-audit 전 B2 시작 금지를 유지한다.
+
+### 2026-07-30 - Unit ActionSequence B1 최종 PASS
+
+- 50개 프리팹은 서버 권위와 `Interpolate=true`를 유지하고 `PositionLerpSmoothing=false`로 통일했다. migration·NO-OP·graceful/crash rollback과 validator가 PASS했다.
+- Match A(Editor Host/Android Client)와 Match B(Android Host/Editor Client)의 겹치는 stable pose에서 mismatch 0을 확인해 B1을 완료했다. 다음 구현은 B2 서버 이동·SimulationFacing Shadow다.
+- 공격 방향, 서버 Impact와 실제 피해 시점, result seam, Snapshot/ImpactResult 전환은 아직 구현·검증하지 않았다.

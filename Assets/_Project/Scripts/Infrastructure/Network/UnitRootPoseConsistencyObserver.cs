@@ -31,6 +31,7 @@ namespace Hexiege.Infrastructure
     internal sealed class UnitRootPoseConsistencyObserver : MonoBehaviour
     {
         private const double SampleIntervalSeconds = 1d;
+        private const double StableDurationSeconds = 3d;
         private const double SummaryIntervalSeconds = 10d;
         private const double MaximumDurationSeconds = 180d;
         private const int MaximumTrackedUnits = 64;
@@ -47,6 +48,7 @@ namespace Hexiege.Infrastructure
         private NetworkManager _networkManager;
         private Coroutine _routine;
         private bool _isServer;
+        private bool _beginWritten;
         private bool _summaryWritten;
         private bool _overflowReported;
         private double _startedAt;
@@ -54,6 +56,11 @@ namespace Hexiege.Infrastructure
         private double _lastSummaryAt = double.NegativeInfinity;
         private long _lastBucket = long.MinValue;
         private int _logCount;
+        private int _logDropCount;
+        private int _stableEndpointEventsObserved;
+        private int _stableEndpointLogsWritten;
+        private int _stableEvidenceDropCount;
+        private int _movementEvidenceDropCount;
         private int _sampleCount;
         private int _errorCount;
         private int _structureErrorCount;
@@ -72,11 +79,17 @@ namespace Hexiege.Infrastructure
             StopInternal(writeSummary: false);
             _networkManager = networkManager;
             _isServer = isServer;
+            _beginWritten = false;
             _summaryWritten = false;
             _overflowReported = false;
             _states.Clear();
             _observedTypes.Clear();
             _logCount = 0;
+            _logDropCount = 0;
+            _stableEndpointEventsObserved = 0;
+            _stableEndpointLogsWritten = 0;
+            _stableEvidenceDropCount = 0;
+            _movementEvidenceDropCount = 0;
             _sampleCount = 0;
             _errorCount = 0;
             _structureErrorCount = 0;
@@ -98,12 +111,6 @@ namespace Hexiege.Infrastructure
                 (long)System.Math.Floor(_startedAt / SampleIntervalSeconds);
             _lastSampleAt = double.NegativeInfinity;
             _lastSummaryAt = _startedAt;
-            Log(
-                LogLevel.Info,
-                "BEGIN",
-                $"role={(_isServer ? "host" : "client")}, " +
-                $"isFlipped={ViewConverter.IsFlipped}, " +
-                $"serverTime={FormatDouble(_startedAt)}");
             _routine = StartCoroutine(Observe());
         }
 
@@ -163,6 +170,18 @@ namespace Hexiege.Infrastructure
             System.Array.Sort(
                 units,
                 (left, right) => left.NetworkObjectId.CompareTo(right.NetworkObjectId));
+
+            if (!_beginWritten
+                && units.Any(unit => unit != null && unit.IsSpawned && unit.UnitId >= 0)
+                && (_isServer ? !ViewConverter.IsFlipped : ViewConverter.IsFlipped))
+            {
+                _beginWritten = Log(
+                    LogLevel.Info,
+                    "BEGIN",
+                    $"role={(_isServer ? "host" : "client")}, " +
+                    $"isFlipped={ViewConverter.IsFlipped}, " +
+                    $"serverTime={FormatDouble(serverTime)}");
+            }
 
             foreach (NetworkUnit unit in units)
             {
@@ -259,22 +278,46 @@ namespace Hexiege.Infrastructure
             if (state.HasPrevious)
             {
                 movedSincePrevious =
-                    Vector3.Distance(state.PreviousSimulationPosition, simulationPositionBefore)
-                        > PositionTolerance
+                    PositionAxesExceedTolerance(
+                        state.PreviousSimulationPosition,
+                        simulationPositionBefore)
                     || Quaternion.Angle(
                             state.PreviousSimulationRotation,
                             simulationRotationBefore)
                         > RotationToleranceDegrees;
-                state.ConsecutiveStableSamples =
-                    movedSincePrevious ? 0 : state.ConsecutiveStableSamples + 1;
-                if (movedSincePrevious)
+                bool driftedOutsideStableAnchor =
+                    state.HasStableSince
+                    && (PositionAxesExceedTolerance(
+                            state.StableAnchorPosition,
+                            simulationPositionBefore)
+                        || Quaternion.Angle(
+                                state.StableAnchorRotation,
+                                simulationRotationBefore)
+                            > RotationToleranceDegrees);
+                if (movedSincePrevious || driftedOutsideStableAnchor)
+                {
+                    movedSincePrevious = true;
+                    state.HasStableSince = false;
                     state.AwaitingStableEndpoint = true;
+                }
+                else if (!state.HasStableSince)
+                {
+                    state.HasStableSince = true;
+                    state.StableSince = state.PreviousSampleServerTime;
+                    state.StableAnchorPosition = state.PreviousSimulationPosition;
+                    state.StableAnchorRotation = state.PreviousSimulationRotation;
+                }
             }
             state.HasPrevious = true;
             state.PreviousSimulationPosition = simulationPositionBefore;
             state.PreviousSimulationRotation = simulationRotationBefore;
+            state.PreviousSampleServerTime = serverTime;
             state.EverMoved |= movedSincePrevious;
-            state.EverStable |= state.ConsecutiveStableSamples >= 2;
+            double stableDuration = state.HasStableSince
+                ? serverTime - state.StableSince
+                : 0d;
+            bool stable = stableDuration >= StableDurationSeconds;
+            state.EverStable |= stable;
             state.SampleCount++;
             _sampleCount++;
 
@@ -344,28 +387,40 @@ namespace Hexiege.Infrastructure
             if (movedSincePrevious && !state.MovedLogged)
             {
                 state.MovedLogged = true;
-                Log(
-                    LogLevel.Info,
-                    "movement-coverage",
-                    $"{correlation}, team={state.Team}, type={state.Type}, " +
-                    "moved=true, crossPeerExactEligible=false");
+                if (!Log(
+                        LogLevel.Info,
+                        "movement-coverage",
+                        $"{correlation}, team={state.Team}, type={state.Type}, " +
+                        "moved=true, crossPeerExactEligible=false"))
+                {
+                    _movementEvidenceDropCount++;
+                }
             }
 
-            if (state.ConsecutiveStableSamples >= 2
-                && (!state.InitialStableEndpointLogged || state.AwaitingStableEndpoint))
+            if (stable
+                && state.AwaitingStableEndpoint
+                && !state.StableAfterMoveEndpointObserved)
             {
-                bool stableAfterMove = state.AwaitingStableEndpoint;
-                state.StableEndpoint++;
-                state.InitialStableEndpointLogged = true;
+                _stableEndpointEventsObserved++;
                 state.AwaitingStableEndpoint = false;
-                state.StableAfterMoveEndpointObserved |= stableAfterMove;
-                Log(
-                    LogLevel.Info,
-                    "stable-coverage",
-                    $"{correlation}, team={state.Team}, type={state.Type}, " +
-                    $"stable=true, stableEndpoint={state.StableEndpoint}, " +
-                    $"stableAfterMove={stableAfterMove}, " +
-                    $"crossPeerExactEligible=true, {poses}");
+                state.StableAfterMoveEndpointObserved = true;
+                if (Log(
+                        LogLevel.Info,
+                        "stable-coverage",
+                        $"{correlation}, team={state.Team}, type={state.Type}, " +
+                        $"stable=true, stableWindowStartServerTime=" +
+                        $"{FormatDouble(state.StableSince)}, " +
+                        $"stableQualifiedServerTime={FormatDouble(serverTime)}, " +
+                        $"stableDurationSeconds={FormatDouble(stableDuration)}, " +
+                        "stableEndpoint=1, stableAfterMove=true, " +
+                        $"crossPeerExactEligible=true, {poses}"))
+                {
+                    _stableEndpointLogsWritten++;
+                }
+                else
+                {
+                    _stableEvidenceDropCount++;
+                }
             }
 
             if (hasError && !state.ErrorActive)
@@ -376,7 +431,7 @@ namespace Hexiege.Infrastructure
                     "mismatch",
                     $"{correlation}, team={state.Team}, type={state.Type}, " +
                     $"moving={movedSincePrevious}, crossPeerExactEligible=" +
-                    $"{(!movedSincePrevious && state.ConsecutiveStableSamples >= 2).ToString().ToLowerInvariant()}, " +
+                    $"{stable.ToString().ToLowerInvariant()}, " +
                     $"structureValid={structureValid}, " +
                     $"structure={state.StructureDetails}, " +
                     $"positionError={FormatFloat(positionError)}, " +
@@ -433,14 +488,6 @@ namespace Hexiege.Infrastructure
             int visualNetworkBehaviourCount = visualRoot != null
                 ? visualRoot.GetComponentsInChildren<NetworkBehaviour>(true).Length
                 : -1;
-            int visualColliderCount = visualRoot != null
-                ? visualRoot.GetComponentsInChildren<Collider>(true).Length
-                : -1;
-            Collider[] allColliders = unit.GetComponentsInChildren<Collider>(true);
-            int rootColliderCount =
-                allColliders.Count(collider => collider.transform == root);
-            int nonRootColliderCount =
-                allColliders.Count(collider => collider.transform != root);
             int rootAnimatorCount = unit.GetComponents<Animator>().Length;
             int rootRendererCount = unit.GetComponents<Renderer>().Length;
 
@@ -454,9 +501,6 @@ namespace Hexiege.Infrastructure
                 && directVisualRootCount == 1
                 && visualNetworkObjectCount == 0
                 && visualNetworkBehaviourCount == 0
-                && visualColliderCount == 0
-                && allColliders.Length > 0
-                && nonRootColliderCount == 0
                 && rootAnimatorCount == 0
                 && rootRendererCount == 0;
             details =
@@ -468,9 +512,6 @@ namespace Hexiege.Infrastructure
                 $"directVisualRootCount={directVisualRootCount};" +
                 $"visualNetworkObjects={visualNetworkObjectCount};" +
                 $"visualNetworkBehaviours={visualNetworkBehaviourCount};" +
-                $"visualColliders={visualColliderCount};" +
-                $"rootColliders={rootColliderCount};" +
-                $"nonRootColliders={nonRootColliderCount};" +
                 $"rootAnimators={rootAnimatorCount};rootRenderers={rootRendererCount}";
             return valid;
         }
@@ -499,6 +540,7 @@ namespace Hexiege.Infrastructure
                     _sharedSessionKey,
                     "unavailable",
                     System.StringComparison.Ordinal);
+            bool evidenceComplete = _logDropCount == 0;
             bool coveragePassed =
                 trackedCoverage
                 && bothTeamsCoverage
@@ -506,7 +548,9 @@ namespace Hexiege.Infrastructure
                 && movedCoverage
                 && stableCoverage
                 && stableAfterMoveCoverage
-                && sharedSessionKeyAvailable;
+                && sharedSessionKeyAvailable
+                && evidenceComplete
+                && _beginWritten;
             bool roleFlipValid =
                 _isServer
                     ? !ViewConverter.IsFlipped
@@ -525,7 +569,9 @@ namespace Hexiege.Infrastructure
                             : "stableAfterMoveEndpointUnits<2",
                         sharedSessionKeyAvailable
                             ? null
-                            : "sharedSessionKeyUnavailable"
+                            : "sharedSessionKeyUnavailable",
+                        evidenceComplete ? null : "logDropped",
+                        _beginWritten ? null : "beginMissing"
                     }
                     .Where(value => value != null));
             string verdict = _errorCount > 0
@@ -537,7 +583,8 @@ namespace Hexiege.Infrastructure
             string summary =
                 $"reason={reason}, role={(_isServer ? "host" : "client")}, " +
                 $"isFlipped={ViewConverter.IsFlipped}, " +
-                $"roleFlipValid={roleFlipValid}, verdict={verdict}, " +
+                $"roleFlipValid={roleFlipValid}, beginWritten={_beginWritten}, " +
+                $"verdict={verdict}, " +
                 $"trackedUnits={_states.Count}, samples={_sampleCount}, errors={_errorCount}, " +
                 $"structureErrors={_structureErrorCount}, " +
                 $"projectionErrors={_projectionErrorCount}, " +
@@ -551,15 +598,23 @@ namespace Hexiege.Infrastructure
                 $"movedUnits={movedUnits}, stableUnits={stableUnits}, " +
                 $"stableAfterMoveEndpointUnits={stableAfterMoveEndpointUnits}, " +
                 $"stableAfterMoveCoverage={stableAfterMoveCoverage}, " +
+                $"stableDurationRequiredSeconds={FormatDouble(StableDurationSeconds)}, " +
                 $"sharedSessionKeyAvailable={sharedSessionKeyAvailable}, " +
+                $"stableEndpointEventsObserved={_stableEndpointEventsObserved}, " +
+                $"stableEndpointLogsWritten={_stableEndpointLogsWritten}, " +
+                $"logDropCount={_logDropCount}, " +
+                $"stableEvidenceDropCount={_stableEvidenceDropCount}, " +
+                $"movementEvidenceDropCount={_movementEvidenceDropCount}, " +
+                $"evidenceComplete={evidenceComplete}, " +
                 $"coveragePassed={coveragePassed}, coverageErrors={coverageErrors}, " +
                 $"maxPositionError={FormatFloat(_maximumPositionError)}, " +
                 $"maxRotationErrorDeg={FormatFloat(_maximumRotationError)}, " +
                 $"movingCrossPeerExactComparisons=0, " +
                 $"crossAuditRequired=true, b1OverallPass=false, " +
                 $"crossJoin=sharedSessionKey+unitId+networkObjectId+" +
-                $"nearestStableServerTime, " +
-                $"postProcessRule=stableEndpointMissingOrOrphanIsError, " +
+                $"overlappingStableServerTimeWindows, " +
+                $"postProcessRule=overlapPoseMismatchIsError+" +
+                $"temporalOrphanIsCoverage, " +
                 $"logsWritten={_logCount}";
 
             if (terminal)
@@ -600,6 +655,16 @@ namespace Hexiege.Infrastructure
                 $"visualRotation={FormatQuaternion(visualRotation)}, " +
                 $"expectedVisualPosition={FormatVector(expectedVisualPosition)}, " +
                 $"expectedVisualRotation={FormatQuaternion(expectedVisualRotation)}";
+        }
+
+        private static bool PositionAxesExceedTolerance(
+            Vector3 left,
+            Vector3 right)
+        {
+            Vector3 delta = left - right;
+            return Mathf.Abs(delta.x) > PositionTolerance
+                   || Mathf.Abs(delta.y) > PositionTolerance
+                   || Mathf.Abs(delta.z) > PositionTolerance;
         }
 
         private static string FormatVector(Vector3 value)
@@ -644,12 +709,15 @@ namespace Hexiege.Infrastructure
             }
         }
 
-        private void Log(LogLevel level, string message, string data)
+        private bool Log(LogLevel level, string message, string data)
         {
             // Reserve one line for the terminal summary. Even a saturated sampling budget must
             // leave a joinable END record before NetworkCombatController closes RuntimeLogger.
             if (_logCount >= MaximumNonTerminalLogLines)
-                return;
+            {
+                _logDropCount++;
+                return false;
+            }
             _logCount++;
             RuntimeLogger.Log(
                 level,
@@ -657,12 +725,11 @@ namespace Hexiege.Infrastructure
                 nameof(UnitRootPoseConsistencyObserver),
                 $"[UAS-ROOT-POSE] {message}",
                 DecorateData(data));
+            return true;
         }
 
         private void LogTerminalSummary(LogLevel level, string message, string data)
         {
-            if (_logCount >= MaximumLogLines)
-                return;
             _logCount++;
             RuntimeLogger.Log(
                 level,
@@ -688,14 +755,16 @@ namespace Hexiege.Infrastructure
             public bool HasPrevious;
             public Vector3 PreviousSimulationPosition;
             public Quaternion PreviousSimulationRotation;
-            public int ConsecutiveStableSamples;
+            public double PreviousSampleServerTime;
+            public bool HasStableSince;
+            public double StableSince;
+            public Vector3 StableAnchorPosition;
+            public Quaternion StableAnchorRotation;
             public bool EverMoved;
             public bool EverStable;
             public bool InitialLogged;
             public bool MovedLogged;
-            public bool InitialStableEndpointLogged;
             public bool AwaitingStableEndpoint;
-            public int StableEndpoint;
             public bool ErrorActive;
             public bool TeamCounted;
             public int SampleCount;

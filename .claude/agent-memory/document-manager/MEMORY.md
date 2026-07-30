@@ -107,12 +107,25 @@
 - 2026-07-27 당시 B1은 `asset migration + journal completed + Apply 재실행 NO-OP`까지만 PASS로 기록했다. 후속 rollback 판정은 아래 2026-07-29 항목을 따른다.
 - 신규·교체 프리팹 영구 계약은 `GameSystemRules_UnitCombatSynchronization.md`의 `NET-ROOT-004`, 실무 체크리스트는 `Assets/UnitCombatAssetMatrix.md`, 구현 검증은 `ValidateUnitCombatSetup.cs`가 담당한다.
 - 기존 50개용 `SetupUnitVisualRoots.Apply`는 일회성 migration이다. 신규 프리팹은 migrated 템플릿으로 만들고 UnitType/Blue·Red pair/Matrix/validator 고정 roster·종족·VFX 기준선을 함께 갱신한다.
-- 현행 validator 계약에는 파일명, direct identity VisualRoot, root projector, root Animator/Renderer 0, Collider의 Simulation Root 한정, Animator Root Motion off와 Animator별 동일 GO relay가 포함된다.
+- 현행 validator 계약에는 파일명, direct identity VisualRoot, root projector, root Animator/Renderer 0, Animator Root Motion off와 Animator별 동일 GO relay가 포함된다. Collider는 B1 검증 범위가 아니다.
 - ROADMAP의 과거 `SetupNewUnitPrefabs.cs` 참조는 실제 파일이 없으므로 Legacy 이력으로 표시하고 현행 authoring 권위를 명시한다.
 
 ### 2026-07-29 - Unit ActionSequence B1 rollback 문서 동기화
 
 - B1 rollback은 graceful index 0/24/49와 crash index 24 별도 복구를 구분해 기록한다. graceful 공통 근거는 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`이고 crash는 복구 전 mismatch/VisualRoot/projector 25건과 복구 후 100/100을 함께 남긴다.
 - primary Unity compile Tundra success와 `[UAS-DIAG]` self-validation PASS는 보조 검증으로 기록한다.
-- Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사가 pending이므로 B1 overall은 OPEN, B2 시작 금지 문구를 유지한다.
+- Android 1대와 Unity Editor counterpart의 역할교대 Host/Client `[UAS-ROOT-POSE]` runtime smoke와 Blue/Red 교차 감사가 pending이므로 B1 overall은 OPEN, B2 시작 금지 문구를 유지한다.
 - Task Plan, PROJECT_STATUS, ROADMAP, WORK_HISTORY와 project-orchestrator/game-programmer/qa-tester/document-manager MEMORY를 동기화했다. 규칙·코드·프리팹 계약은 변경하지 않았다.
+
+### 2026-07-29 - Unit ActionSequence B1 Collider 가정 제거 재교정
+
+- 2026-07-27 B1에서 근거 없이 추가된 Collider 존재·배치 가정은 B1 범위가 아니다. optional/root-only 같은 대체 계약도 만들지 않고 Rule/TDD/AssetMatrix/상태 문서와 MEMORY에서 제거한다.
+- B1 권위는 network component placement, identity VisualRoot, root Animator/Renderer 0, projector/ref, Root Motion off, Animator별 relay, 서버 single-writer와 client Simulation Root write 금지다.
+- 최종 실기 권위는 Android 1대와 같은 코드 리비전의 Unity Editor counterpart가 역할교대하는 두 경기다. Match A는 Editor Host Blue file + Android Client Red Logcat, Match B는 Android Host Blue Logcat + Editor Client Red file을 짝지어 분석한다.
+- 각 경기에서 sharedSessionKey 동일·available, role/isFlipped, 180초 내 Blue/Red·2 types·2 moved units·3초 stable, 양쪽 END coverage PASS/errors 0과 외부 stable cross-audit를 확인한다. Windows/Standalone build는 사용하지 않으며 Android 2대는 release E2E·성능·호환성 권장 항목이지 B1 필수는 아니다.
+
+### 2026-07-30 - Unit ActionSequence B1 최종 문서 동기화
+
+- Match A/B 역할교대 root-pose 교차 감사에서 pose mismatch 0과 양쪽 로컬 PASS를 확인해 B1을 COMPLETE로 전환했다. 다음 구현 게이트는 B2 서버 이동·SimulationFacing Shadow다.
+- 규칙·TDD·Asset Matrix의 현행 NetworkTransform 계약은 서버 권위/canonical world-space, `Interpolate=true`, `PositionLerpSmoothing=false`다. 전체 보간 비활성화로 기록하지 않는다.
+- B1 완료는 Simulation/Visual Root, migration·멱등성·rollback과 안정 pose 수렴 범위다. 공격 방향·Impact/피해 시점·result seam·권위 전환·25종 멀티 QA는 미완료다.
