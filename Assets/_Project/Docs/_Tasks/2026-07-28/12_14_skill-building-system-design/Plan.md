@@ -97,7 +97,7 @@ origin/main이 병합되며 **연구소 유닛 강화 시스템 · 전투 스탯
 | `Application/UseCases/UnitCombatUseCase.cs` | P1(B)·P2(C) | P1: 타입 B 반경 DoT 진입점(반경 수집 + `ApplyDamageOverTime`) + **건물/스킬 출처 즉발 피해 경로**(타입 A, `DamageCalculator.ApplyDefense` 직접 호출, §0-2). P2: 타입 C 회복(HoT) + 기존 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`)에 상태 배율 합성 + `CanAttack` 게이트 신설. `SkillActivationContext`에 델리게이트로 노출 | 11, 12, 13 |
 | `Application/Interfaces/IGameServices.cs` | P1 | `GetSkillActivationUseCase()` 추가(기존 `GetUpgradeUseCase()`와 동일 방식) | 아키텍처 |
 | `Application/UseCases`(전투 틱 진입점) | P1(쿨다운)·P2(상태) | 서버 틱의 **`TickResearch(elapsed)` 호출 바로 옆에** 글로벌 쿨다운 틱(P1) + `StatusEffectSystem.Tick(dt)`(P2) 추가(싱글=`GameBootstrapper.Update`, 멀티=`NetworkCombatController.TickCombat` L312, 이중 틱 금지) | 3, 13, 25 |
-| `Domain/Unit/UnitData.cs` | P2(조건부) | **원칙적으로 변경 없음**(스탯 readonly 유지, 합성은 UseCase 접근자에서). `CanAttack` 등을 도메인에 두는 합성안(9-1) 채택 시에만 `UnitStatusState` 참조 추가 | 13 |
+| `Domain/Unit/UnitData.cs` | P2 | **변경 없음 확정**(스탯 readonly 유지) — 9-1=A로 합성은 `UnitCombatUseCase` 접근자에서, `CanAttack` 게이트는 Application/UnitView에 둠(도메인 무변경) | 13 |
 | `Bootstrap/GameBootstrapper*.cs` | P1·P2 | P1: 스킬 UseCase·실행기(A·B)·`SkillLoadoutConfig`·`SkillAimController`·`BuildingSkillPanelUI`·`NetworkSkillController` 생성·주입·배선(연구 시스템 배선 `_unitUpgrade`/`_networkUpgradeController` 옆). P2: `StatusEffectSystem`·타입 C 실행기 추가 배선 | 아키텍처 |
 
 > **`Domain/Building/BuildingData.cs`는 변경하지 않는다** — 글로벌 쿨다운 상태는 `SkillActivationUseCase`가 `Dictionary<int,float>`로 보관하기로 확정(3-5). 도메인 확장 없음.
