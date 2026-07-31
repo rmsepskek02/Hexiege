@@ -218,3 +218,22 @@ WORKFLOW.md [4] "기존 로직 제거 규칙"에 따라 문서 최상단에 명�
 - **확정값 단일 진실 소스**: `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md`(old→new 전수 대조) / **구현 계약**: `GameSystemRules/GameSystemRules_Upgrade.md`
 - `CLAUDE.md`, `Assets/_Project/Docs/WORKFLOW.md`(특히 [5-2] Inspector 에디터 스크립트), `.claude/MEMORY.md`(Inspector 우선 교훈), `AGENTS.md`
 - `GameSystemRules.md`(인덱스) / `GameSystemRules_Units.md`(규칙 5·16·18·30·34·40·42) / `GameSystemRules_Buildings.md`(규칙 4·5·9) / `GameSystemRules_UI.md`(공통·생산 패널) / `GameSystemRules_AI.md` + 종족별 시나리오 문서
+
+---
+
+## 완료 결과 (실제 구현 — 기능·멀티플레이 실기 PASS, 2026-07-31)
+
+> WORKFLOW [12] 문서 반영. 히스토리 보존 원칙에 따라 위 계획 본문은 그대로 두고, 실제 구현에서 계획과 달라진 점만 아래에 기록한다. Testcase.md는 사용자 지시로 미작성.
+
+### 계획대로 구현된 항목
+- **항목 0~7·10 전부 구현·멀티 실기 PASS.** 방어력 필드/감쇄 공식(K=120, floor 1, 하드캡 65%), 유닛별 고정 정수 공격력 증가, 이동속도 배율, 힐량 트랙(그룹 공격력 트랙 조회), 초월 자연회복(별개 채널), Tank/CannonCart 건물 2배, ×10 config, (B) 팀 배율 소급 강화, 서버 권위 네트워크 동기화 모두 계획대로.
+- **신규 파일(확정)**: `Domain/Combat/DamageCalculator.cs`(계획엔 "Domain 순수 함수 헬퍼"로만 표기 → 별도 클래스 `DamageCalculator.ApplyDefense`로 확정), `Domain/Unit/UpgradeGroup.cs`(+`UpgradeGroupHelper`), `Application/UseCases/UnitUpgradeUseCase.cs`, `Infrastructure/Network/NetworkUpgradeController.cs`.
+- **최종 데미지 수렴 헬퍼**: `UnitCombatUseCase.ComputeFinalDamage(attacker, target, rawDamage)`(private static)로 방어 감쇄 + Tank/CannonCart 건물 2배를 한 곳에 모음(계획 항목 2·10을 단일 헬퍼로 통합). 삽입 지점은 계획대로 `ApplyDamageToVictim`(직격)·`ApplyFixedDamageToVictim`(스플래시/파도)·`TowerCombatUseCase.ExecuteTowerAttack`(타워→유닛). DoT는 미경유(무감쇄) — 계획대로.
+
+### 계획과 달라진 점 (정정)
+- **⭐ 연구 패널 UI (항목 8) — "생산 패널 패턴" → "매트릭스 + BuildingPanelBase 2-레이어"로 확정 변경.** 계획은 "생산 패널 패턴, 트랙별 버튼"이었으나, 실제 구현은 **`ResearchPanelUI : BuildingPanelBase`**(공통 헤더·닫기·**철거+환불** 상속) + 본문 2-레이어 — **매트릭스**(그룹 행 × 공/방/속 열; 인간·정령 3×3, 초월 2×3 + 자연회복 전체폭 버튼 1개; 셀=Lv X/5+눈금+비용, `ResearchMatrixView`/`ResearchCellView`) ↔ **진행 게이지**(이름·Lv X→X+1·게이지·남은시간·취소, `ResearchProgressView`)로 확정. **연구소 단위 전환**(연구 중=진행 레이어, 유휴=매트릭스), 진행 중 트랙 잠금(팀 중복 방지), 배경 탭 닫기(Popup 규칙 8·9). 아이콘 대신 텍스트 라벨. 최종 설계는 `GameSystemRules_Upgrade.md` 규칙 13에 등재.
+- **멀티플레이 완료 처리 서비스 스폰 레이스 버그 발견·수정**: `NetworkUpgradeController`가 `OnNetworkSpawn` 시점에 `IGameServices`가 아직 미등록일 수 있어(스폰 레이스), 사용 시점 지연 재조회 `ResolveServices()`로 복구하도록 구현. (계획엔 없던 실기 발견 버그 — qa-tester MEMORY에도 기록.)
+- **AI 시나리오 연구 착수(항목 9)**: 코드(`AIOpponentController`/`BuildOrderStep` 관련)는 반영됐으나 **실기 미검증**(후속 보류). 계획대로 "방향만" 범위였고, 실기 확인은 별도 작업.
+
+### 후속 보류 (미완/미검증 — 별도 작업, 과대 표기 금지)
+① 연구 패널 UI 레이아웃 다듬기(현재 에디터 스크립트 자동생성 골격 — 사용자가 Unity에서 직접 다듬을 예정) ② 매트릭스 헤더 아이콘(공/방/속·그룹) 에셋 ③ AI 시나리오 연구 사용 실기 검증 ④ MistShrine(HealShrine) 힐 미구현(항목 0에서 이번 범위 밖으로 확정된 대로 유지) ⑤ 싱글플레이 자연회복 실기 미검증(코드상 정상 예상). ×10 적용·배선·디버그에 쓰였던 에디터·디버그 스크립트는 config `.asset` 커밋·씬 배선 반영 후 역할 종료로 제거됨.

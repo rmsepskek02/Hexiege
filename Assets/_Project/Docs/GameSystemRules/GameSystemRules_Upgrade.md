@@ -2,7 +2,9 @@
 
 연구소(Research 건물)로 팀 단위 유닛을 강화하는 신규 시스템과, 함께 진행하는 전투 수치 ×10 스케일 개편의 구현 계약이다.
 
-> **상태: 확정 설계 / 미구현.** 이 문서는 구현 계약이며, 런타임 적용 완료를 뜻하지 않는다. 아직 코드 미반영이라 현재 빌드는 구 수치(1/10 스케일)로 동작한다.
+> **상태: 구현 완료 (기능·멀티플레이 실기 PASS, 2026-07-31).** 강화 시스템(공/방/속 + 초월 자연회복)·전투 스탯 ×10 스케일·연구 패널 UI가 모두 구현되어 멀티플레이 실기 테스트를 통과했다. 아래 "구현 상태" 섹션에서 완료 범위와 후속 보류 항목(UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용·MistShrine 힐·싱글 자연회복 실기)을 구분한다. 규칙 1~12는 구현 계약이자 현재 구현의 계약이며, 규칙 13이 연구 패널 UI 최종 설계다.
+>
+> **×10 config 반영(중요):** 전투 수치 ×10은 config `.asset`(UnitStatsConfig/BuildingStatsConfig/SpecialAttackConfig)에 **값이 커밋되어 저장소 기본값이 ×10**이다(코드 폴백 기본값도 ×10, Inspector 값 우선). ×10 적용에 쓰였던 셋업 에디터 스크립트는 역할 종료 후 제거되어, 더 이상 별도 실행이 필요 없다. 개별 ×10 값의 권위 소스는 `StatsReference.md`.
 
 ---
 
@@ -16,6 +18,26 @@
 
 ---
 
+## 구현 상태 (2026-07-31 — 기능·멀티플레이 실기 PASS)
+
+### ✅ 구현 완료 (멀티플레이 실기 검증)
+- **전투 스탯 ×10 스케일** — config `.asset`에 ×10 값 커밋 반영(저장소 기본값이 ×10, 별도 실행 불필요). 코드 폴백 기본값도 ×10.
+- **방어력 신규 스탯 + 비율 감쇄 공식(K=120)** — 순수 함수 `Domain/Combat/DamageCalculator.ApplyDefense(raw, defense)`(floor 1, 감쇄율 하드캡 65%, 방어 0이면 무감쇄 하위호환). 직격·스플래시·타워→유닛 최종 데미지 지점 일괄 적용, DoT 틱값 미적용(규칙 5·6).
+- **유닛별 고정 정수 공격력 증가 / 이동속도 배율 / 힐량 트랙 / 초월 자연회복** — Application `UseCases/UnitUpgradeUseCase.cs`가 팀별 트랙 레벨을 보관하고 사용 지점에서 (B) 실시간 배율/증가치를 조회(`GetEffectiveAttack`/`GetMoveSpeedMultiplier`/`GetDefense`/`GetRegenPerSecond`/`ScaleByGroupAttack`). 그룹 매핑 `Domain/Unit/UpgradeGroup.cs`(`UpgradeGroup`·`UnitUpgradeStat`·`UpgradeGroupHelper`). 자연회복은 BloomFairy 힐과 별개 채널(규칙 7).
+- **Tank/CannonCart 건물 대상 2배** — `UnitCombatUseCase.ComputeFinalDamage`에서 대상이 건물이고 공격자가 Tank/CannonCart면 ×2.
+- **팀별 강화 상태 + 서버 권위 + 소급 강화(B)** — 유닛 스냅샷 미변경, 이미 전장에 나온 유닛도 연구 완료 즉시 강화.
+- **네트워크 동기화** — Infrastructure `Network/NetworkUpgradeController.cs`. 연구 완료 레벨은 양 클라 브로드캐스트(효과 양쪽 적용), 진행 중 연구는 소유자에게만, 연구소 파괴 시 진행 연구 취소·투입 골드 100% 환불. **MP 완료 처리의 서비스 스폰 레이스 버그는 `ResolveServices()`(지연 재조회)로 수정 완료.**
+- **연구 패널 UI** — 규칙 13 참조(`ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어). 초기 배선·디버그에 쓰였던 에디터·디버그 스크립트는 역할 종료 후 제거됨(배선은 씬에 반영 완료).
+
+### ⏳ 후속 / 보류 (별도 작업, 과대 표기 금지)
+- **UI 레이아웃 다듬기** — 현재 UI는 에디터 스크립트 자동생성 골격이라 비주얼 미완성. 사용자가 Unity에서 직접 다듬을 예정.
+- **매트릭스 헤더 아이콘**(공/방/속·그룹) — 텍스트 라벨로 대체 중, 아이콘 에셋 작업 별도.
+- **AI 시나리오 연구 사용** — 코드는 있으나 실기 미검증(규칙 11, 별도 작업).
+- **MistShrine(HealShrine) 힐** — 미구현(보류, 규칙 1 주석·§참고).
+- **싱글플레이 자연회복** — 실기 미검증(코드상 정상 예상).
+
+---
+
 ## 규칙 1. 전투 스탯 ×10 스케일 (강화의 전제)
 
 아래 항목을 **전부 ×10** 한다: 유닛 HP·공격력, 건물 HP, 타워 HP·공격력, DoT 틱값(MushroomBomber 2→20/s, InfernoSpirit 5→50/s), 힐량(BloomFairy 20→200, TorrentSpirit 아군 힐 10→100, MistShrine 1→10/s).
@@ -23,7 +45,7 @@
 **×10 하지 않는 것(불변):** 공격/감지 사거리(타일), 이동속도(칸/초), 공격 쿨다운·생산 시간·연구 시간, 모든 골드 비용, 채굴 수입(10골드/초), 스플래시/특수 **비율**(QuakeSpirit 50%, Tank/CannonCart 건물 2배, 부채꼴/원형 반경, TorrentSpirit 힐=공격력×0.5 등).
 
 - HP·공격력을 같은 배율로 키웠으므로 TTK 불변 → 상대 밸런스·컨셉·매치업 불변.
-- 개별 ×10 값은 `StatsReference.md`가 권위 소스(구현 예정 표기). 이 규칙은 원리·불변 대상만 정의한다.
+- 개별 ×10 값은 `StatsReference.md`가 권위 소스(구현 완료 — config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨)). 이 규칙은 원리·불변 대상만 정의한다.
 
 ## 규칙 2. 강화 스탯과 트랙 구조
 
@@ -143,14 +165,28 @@
 - **F-2 (확정: 8~40 / K=120)** — 방어력 트랙 표기는 **Lv0~5 = 0/8/16/24/32/40, 감쇄 상수 K=120**으로 확정(규칙 5). 대안(80~400 / K=1200)은 미채택 — 감쇄율은 두 표기가 수학적으로 동일하다.
 - **F-3 (확정: ×1.0)** — 초월 식물 그룹 비용 배율 = **×1.0(합 1,000)** 확정(규칙 10). 대안(×0.7 / 합 700)은 미채택.
 
+## 규칙 13. 연구 패널 UI 최종 설계 (구현 완료 — 매트릭스 · BuildingPanelBase · 2-레이어)
+
+연구소 클릭 시 뜨는 연구 패널의 최종 구현 설계다(초기 계획의 "생산 패널 패턴"에서 **매트릭스 + 공통 건물 패널 프레임**으로 확정). 코드: `Presentation/UI/ResearchPanelUI.cs`(로직 코어·레이어 오케스트레이션) + `ResearchMatrixView.cs`·`ResearchCellView.cs`(매트릭스) + `ResearchProgressView.cs`(진행 게이지).
+
+- **공통 프레임 = `ResearchPanelUI : BuildingPanelBase`** — 헤더 제목 + 닫기[X] + **하단 철거 버튼(건설비 환불)** 을 비생산 건물 패널·생산 패널과 동일한 위치·스타일로 상속한다(기존 독립 MonoBehaviour → BuildingPanelBase 전환). 철거 시 진행 중 연구도 취소·환불(GameBootstrapper `OnBuildingDied`→연구소 파괴 구독이 담당, 규칙 8·9).
+- **본문 2-레이어 (연구소 단위 전환):** 공통 프레임은 고정, 본문만 두 레이어로 전환한다.
+  - **(a) 매트릭스 레이어** — 행 = 현재 종족의 강화 그룹, 열 = 공격력/방어력/이동속도. **인간·정령 = 3×3**(근접·원거리·탈것 / 불·물·땅), **초월 = 2×3(동물·식물) + 자연회복 전체폭 버튼 1개**. 각 셀 = 현재 레벨(Lv X/5 + 눈금) + 다음 레벨 비용. 연구 유휴 상태의 연구소에서 표시.
+  - **(b) 진행 게이지 레이어** — 해당 연구소가 연구 중일 때 표시. 트랙 이름 + `Lv X→X+1` + 진행 게이지 + 남은 시간 + [취소](연구만 취소·투입 골드 환불, 건물 유지).
+  - 전환은 `Open(building)` 시점 + 상태 변화 시 `UpdateLayerVisibility()`가 결정한다. **연구소 단위** — 연구 중인 연구소는 진행 레이어, 유휴 연구소는 매트릭스 레이어를 본다(복수 연구소 각각 독립).
+- **진행 중 트랙 잠금(팀 단위 중복 방지)** — 팀이 어떤 트랙을 연구 중이면 그 트랙 셀은 잠긴다(규칙 8 — 복수 연구소가 같은 트랙 동시 연구 불가).
+- **닫기 규칙** — 배경 탭 시 닫힘(Popup 공통 규칙 8·9, `GameSystemRules_UI.md`).
+- **라벨 표기** — 현재는 아이콘 대신 텍스트 라벨 사용. **매트릭스 헤더 아이콘(공/방/속·그룹)과 전체 UI 레이아웃 비주얼 다듬기는 후속 보류**(에디터 스크립트 자동생성 골격 상태 — "구현 상태" 섹션 참조).
+- **buildingId ↔ 진행 연구 매핑** — 싱글/호스트는 `UnitUpgradeUseCase.TryGetActiveResearchByBuilding(buildingId)`로 조회, 멀티 순수 클라는 서버가 착수 확정 시 내려준 buildingId를 로컬 진행에 귀속해 판정.
+
 ---
 
 ## 참고 문서
 
 - 수치 단일 진실 소스(old/new 대조): `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md`
-- 개별 스탯 값(×10, 구현 예정): `StatsReference.md`
-- 조사/계획: `_Tasks/2026-07-22/10_08_unit-upgrade-system/Research.md`, `Plan.md`
+- 개별 스탯 값(×10, 구현 완료): `StatsReference.md`
+- 조사/계획: `_Tasks/2026-07-22/10_08_unit-upgrade-system/Research.md`, `Plan.md`(하단 "완료 결과" 절에 실제 구현 대비 정정 기록)
 - 전투·데미지·HoT/DoT 규칙: `GameSystemRules_Units.md`(규칙 5·16·18·30·34·40·42·44)
 - 서버 권위·환불: `GameSystemRules_Buildings.md`(규칙 4·5·9)
-- 연구 패널 UI: `GameSystemRules_UI.md`(생산 패널 패턴)
+- 연구 패널 UI: 규칙 13(`ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어). 공통 팝업/닫기 규칙은 `GameSystemRules_UI.md`
 - AI 빌드오더: `GameSystemRules_AI.md` + 종족별 시나리오 문서

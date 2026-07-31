@@ -14,9 +14,9 @@
 | [GameSystemRules_Map.md](GameSystemRules/GameSystemRules_Map.md) | 대전 맵 전체 180도 대칭, 중앙/대응쌍 광산 공정성, 정적 최단 접근거리 검증 |
 | [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md) | FlatTop 11×21 무작위 대전 맵 5종 생성·광산·건설 제한·seed·폴백·검증 |
 | [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
-| [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계, 방어력 데미지 감쇄(구현 예정) |
+| [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계, 방어력 데미지 감쇄(구현 완료) |
 | [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템 |
-| [GameSystemRules_Upgrade.md](GameSystemRules/GameSystemRules_Upgrade.md) | 연구소 기반 유닛 강화(공/방/속 + 자연회복) + 전투 스탯 ×10 스케일 (설계 확정 / 구현 예정) |
+| [GameSystemRules_Upgrade.md](GameSystemRules/GameSystemRules_Upgrade.md) | 연구소 기반 유닛 강화(공/방/속 + 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI (구현 완료 / 멀티 실기 PASS) |
 | [GameSystemRules_CanvasSortingOrder.md](GameSystemRules/GameSystemRules_CanvasSortingOrder.md) | Canvas SortingOrder 구조, 씬별 Canvas 계층, 전역 UI z-order |
 | [GameSystemRules_Sound.md](GameSystemRules/GameSystemRules_Sound.md) | BGM 전환 규칙, SFX 정책, 볼륨 제어, AudioManager 아키텍처 |
 | [GameSystemRules_AI.md](GameSystemRules/GameSystemRules_AI.md) | AI 난이도 시스템, 빌드오더 스크립트, 반응 시스템, 건물 배치 로직, 가드 메커니즘 |
@@ -78,12 +78,14 @@
 - 철거 처리, 골드 환불, 연쇄 처리
 - 방어 타워: 타겟 선택, 쿨다운, 서버 권위 처리
 
-### 유닛 강화(연구소) 시스템 (설계 확정 / 구현 예정)
+### 유닛 강화(연구소) 시스템 (구현 완료 / 멀티 실기 PASS)
 → [GameSystemRules_Upgrade.md](GameSystemRules/GameSystemRules_Upgrade.md)
-- 전투 스탯 ×10 스케일(HP·공격력·건물·타워·DoT·힐), 불변 항목(사거리·이동속도·쿨다운·비용·비율)
+- 전투 스탯 ×10 스케일(HP·공격력·건물·타워·DoT·힐), 불변 항목(사거리·이동속도·쿨다운·비용·비율). ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨)
 - 강화 스탯 3종(공/방/속) + 초월 자연회복, 종족별 그룹×스탯 트랙, 유닛→그룹 매핑
-- (B) 팀 배율 실시간 소급 적용, 방어력 감쇄 공식(K=120, floor 1, 모든 데미지 지점 일괄)
+- (B) 팀 배율 실시간 소급 적용, 방어력 감쇄 공식(K=120, floor 1, 직격·스플래시·타워→유닛 일괄, DoT 미적용)
 - 연구소 운영(복수 건설·연구 시간·진행 중 트랙 잠금·파괴 시 100% 환불·서버 권위), 비용·시간·그룹 배율
+- 연구 패널 UI(규칙 13): `ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어(연구소 단위)
+- 후속 보류: UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐(미구현)·싱글 자연회복 실기
 
 ### AI 시스템 관련 작업
 → [GameSystemRules_AI.md](GameSystemRules/GameSystemRules_AI.md)

@@ -80,6 +80,14 @@
 - 신규 GameSystemRules 파일 등록 3곳: `GameSystemRules.md`(파일 목록 표 + 시스템별 빠른참조 블록), `AGENTS.md`(기획/설계 문서 인덱스 표). GDD 헤더는 버전 bump(1.9.0→1.10.0)+날짜+변경 노트.
 - GDD 유닛 스탯 표에 **기존 stale 값**(Assault HP 50 vs StatsReference 40, Sniper atk 10 vs 18) 존재 → ×10 반영 시 StatsReference 권위값의 ×10(400·180)으로 정합화(GDD가 "StatsReference 권위" 명시했으므로 정당). 생산시간 등 불변 stale 항목은 표에서 제거하고 StatsReference 참조로 위임.
 
+### 2026-07-31 - 연구소 유닛 강화 시스템 구현·멀티 실기 완료 반영 ("설계 확정/구현 예정" → "구현 완료")
+- **선행 세션이 "설계 확정/구현 예정"으로 반영한 시스템(2026-07-23)이 구현·멀티 실기 완료된 경우의 일괄 상태 전환 사례.** 이번엔 구현·테스트 완료이므로 **WORK_HISTORY.md에 마일스톤 추가**(2026-07-23 설계 확정 때는 완료 이력이 아니라 추가 금지였던 것과 대비 — 완료 여부가 WORK_HISTORY 추가 기준).
+- **갱신처(전량)**: `GameSystemRules_Upgrade.md`(상태 배너 구현 완료+×10 config 커밋 반영 고지, "구현 상태" 섹션 신설 = 완료/후속 보류 구분, **규칙 13 신설 = 연구 패널 UI 최종 설계**, 참고문서 링크 갱신) · `GameSystemRules_Units.md` 규칙 44(구현 완료+`DamageCalculator` 명시) · `GameSystemRules.md` 인덱스·빠른참조 · `AGENTS.md` 인덱스 · `StatsReference.md`(배너 "구현 완료 — ×10 config `.asset` 커밋 반영" + Tank/CannonCart 2배·×10·강화 섹션 태그 정정) · `GameDesignDocument.md`(버전 1.11.0·헤더 노트·연구소 섹션 구현 완료+UI 문단) · `PROJECT_STATUS.md`(헤더·"구현 예정"에서 완료 섹션으로 이동·미구현 표 연구소 행 완료) · `ROADMAP.md`(헤더·우선순위 행·C-2 완료) · `WORK_HISTORY.md`(2026-07-31 마일스톤 prepend) · task `Plan.md`(하단 "완료 결과" append — 히스토리 보존)·`BalanceReview.md`/`Research.md`(상단 상태 배너만 갱신, 수치 SSOT 유지) · MEMORY 5종(game-programmer 기존 Phase 1 항목 in-place 갱신+Phase 2 완료 prepend / qa-tester 스폰 레이스·MP PASS / game-design-lead 밸런스+구현 / project-orchestrator 완료 / 공용 `.claude/MEMORY.md`).
+- **핵심 정정 = UI 설계 확정 변경**: 계획 "생산 패널 패턴" → 실제 "`ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어(연구소 단위)". Plan "완료 결과"·규칙 13·GDD·PROJECT_STATUS·ROADMAP에 일관 반영.
+- **과대 표기 금지 원칙**: 사용자가 "구현 완료 vs 후속 보류"를 명시 구분 지시 → 모든 문서에 후속 보류 5종(UI 레이아웃·매트릭스 헤더 아이콘·AI 연구 실기·MistShrine 힐 미구현·싱글 자연회복 실기)을 완료 표기와 나란히 명시. AI/MistShrine/싱글회복/UI레이아웃을 "완료"로 소거하지 말 것.
+- **×10 커밋 반영**: config `.asset`(UnitStatsConfig·BuildingStatsConfig·SpecialAttackConfig)에 ×10 값이 커밋되어 저장소 기본값이 ×10(코드 폴백도 ×10, Inspector 값 우선). ×10 적용에 쓰였던 셋업 에디터 스크립트는 역할 종료 후 제거됨(더 이상 실행 불필요).
+- Testcase.md는 사용자 지시로 미작성. 사용자 MEMORY(Windows 경로)는 Linux 세션에서 접근 불가 → 보고에 명시.
+
 ### 2026-07-18 - Email verification flow completion docs
 
 - Completion update pattern: append task `Plan.md` completion result, add PASS results to task `Testcase.md`, update `PROJECT_STATUS.md`/`ROADMAP.md` progress sections from in-progress to complete, and replace the `WORK_HISTORY.md` in-progress entry with completed device verification results.
