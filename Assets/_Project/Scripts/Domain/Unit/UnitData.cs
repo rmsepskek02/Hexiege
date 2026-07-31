@@ -97,6 +97,15 @@ namespace Hexiege.Domain
         /// </summary>
         public bool IsHealer { get; }
 
+        /// <summary>
+        /// 방어력(신규 스탯). 받는 피해를 비율로 감쇄한다(DamageCalculator.ApplyDefense).
+        /// 생성 시 UnitStats.GetDefense(type)로 타입별 기본값을 읽어 스냅샷으로 고정한다.
+        ///
+        /// Phase 1 범위에서는 전 유닛 0이라 실질 무감쇄(하위호환) — 연구로 방어력을 올리는
+        /// 로직은 Phase 2에서 팀 연구 레벨 조회로 별도 구현한다(스냅샷 필드는 기본 골격만 제공).
+        /// </summary>
+        public int Defense { get; }
+
         // 유닛 Id 자동 발급용 정적 카운터.
         // 첫 유닛은 Id=0, 다음은 Id=1, ...
         private static int _nextId;
@@ -160,6 +169,8 @@ namespace Hexiege.Domain
             HitFrameTimes = UnitStats.GetHitFrameTimes(type);
             // 힐러 여부는 타입별 정적 스탯에서 읽어 생성 시 고정(런타임 변경 없음).
             IsHealer = UnitStats.GetIsHealer(type);
+            // 방어력도 타입별 정적 스탯에서 읽어 생성 시 스냅샷으로 고정(Phase 1: 전 유닛 0).
+            Defense = UnitStats.GetDefense(type);
             Facing = facing;
 
             // 지정 Id 이후로 자동 발급 카운터를 앞당겨 충돌 방지

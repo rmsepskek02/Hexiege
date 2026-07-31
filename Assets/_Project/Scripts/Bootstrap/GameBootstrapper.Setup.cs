@@ -76,7 +76,9 @@ namespace Hexiege.Bootstrap
                     AttackCooldown = entry.attackCooldown,
                     HitFrameTimes = entry.hitFrameTimes,
                     // 역할 플래그(방식 A) — 힐러(BloomFairy) 여부를 Domain 스탯으로 전달.
-                    IsHealer = entry.isHealer
+                    IsHealer = entry.isHealer,
+                    // 방어력(신규) — 전 유닛 0(Phase 1). 구 .asset은 필드가 없어 자동으로 0 폴백.
+                    Defense = entry.defense
                 };
 
                 prodDict[entry.unitType] = new UnitProductionStats.ProductionValues
@@ -288,22 +290,22 @@ namespace Hexiege.Bootstrap
             float waveWidth = _specialAttackConfig != null ? _specialAttackConfig.WaveWidth : 3f;
             float waveLength = _specialAttackConfig != null ? _specialAttackConfig.WaveLength : 3f;
             float waveTravelTime = _specialAttackConfig != null ? _specialAttackConfig.WaveTravelTime : 0.5f;
-            float waveHeal = _specialAttackConfig != null ? _specialAttackConfig.WaveHeal : 10f;
+            float waveHeal = _specialAttackConfig != null ? _specialAttackConfig.WaveHeal : 100f;
 
             // BloomFairy 지속 회복(HoT) 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
-            // 총 회복량 20HP / 지속 3초가 기본값(설계 확정값).
-            float bloomHealAmount = _specialAttackConfig != null ? _specialAttackConfig.BloomHealAmount : 20f;
+            // 총 회복량 200HP(×10 스케일) / 지속 3초가 기본값(설계 확정값).
+            float bloomHealAmount = _specialAttackConfig != null ? _specialAttackConfig.BloomHealAmount : 200f;
             float bloomHealDuration = _specialAttackConfig != null ? _specialAttackConfig.BloomHealDuration : 3f;
 
             // MushroomBomber 착탄 DoT 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
-            // 착탄 반경 1.0(인접 1칸) / 초당 피해 2 / 지속 3초가 기본값(설계 확정값).
+            // 착탄 반경 1.0(인접 1칸) / 초당 피해 20(×10 스케일) / 지속 3초가 기본값(설계 확정값).
             float blastRadius = _specialAttackConfig != null ? _specialAttackConfig.BlastRadius : 1.0f;
-            float blastDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.BlastDotPerSecond : 2f;
+            float blastDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.BlastDotPerSecond : 20f;
             float blastDotDuration = _specialAttackConfig != null ? _specialAttackConfig.BlastDotDuration : 3f;
 
             // InfernoSpirit 단일 대상 DoT 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
-            // 초당 피해 5 / 지속 3초(총 15)가 기본값(설계 확정값). MushroomBomber(2/3)와 별개 값.
-            float infernoDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.InfernoDotPerSecond : 5f;
+            // 초당 피해 50(×10 스케일) / 지속 3초(총 150)가 기본값(설계 확정값). MushroomBomber(20/3)와 별개 값.
+            float infernoDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.InfernoDotPerSecond : 50f;
             float infernoDotDuration = _specialAttackConfig != null ? _specialAttackConfig.InfernoDotDuration : 3f;
 
             // QuakeSpirit 착탄 즉발 스플래시 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
@@ -333,6 +335,15 @@ namespace Hexiege.Bootstrap
                 team => team == TeamId.Blue
                     ? GameRaceContext.BlueRace
                     : GameRaceContext.RedRace);
+
+            // ────────────────────────────────────────────────────────────
+            // [Phase 2] 연구소 유닛 강화 UseCase — 팀별 트랙 레벨/진행 상태 보관.
+            //   데미지(공격보너스·방어감쇄)·이동배율·힐 스케일·자연회복 조회를 전투/이동/타워가 참조하도록 주입.
+            //   (B) 방식: 유닛 스냅샷은 그대로 두고 사용 지점에서 팀 레벨을 곱한다 → 소급 강화 자동 성립.
+            // ────────────────────────────────────────────────────────────
+            _unitUpgrade = new UnitUpgradeUseCase();
+            _unitCombat.SetUpgradeUseCase(_unitUpgrade);
+            _towerCombat.SetUpgradeUseCase(_unitUpgrade);
 
             // TileOwnershipService 초기화.
             // _grid, _unitSpawn, _positionProvider, hexMapper가 모두 준비된 직후에 생성한다.
@@ -368,6 +379,20 @@ namespace Hexiege.Bootstrap
 
             // 게임 종료 판정
             _gameEnd = new GameEndUseCase();
+
+            // ────────────────────────────────────────────────────────────
+            // [Phase 4] 연구소(Research) 파괴 시 진행 중 연구 취소 + 투입 골드 100% 환불(규칙 8).
+            //   서버(또는 싱글플레이)에서만 처리 — 클라이언트는 골드/레벨을 동기화로 수신하므로 이중 환불 금지.
+            //   연구는 특정 연구소에 종속되지 않지만, 각 진행 연구는 착수한 연구소 Id를 기억하므로
+            //   그 연구소가 파괴되면 해당 연구만 취소·환불한다(다른 연구소의 병렬 연구는 유지).
+            // ────────────────────────────────────────────────────────────
+            _labDestroyedSub?.Dispose();
+            _labDestroyedSub = GameEvents.OnBuildingDied.Subscribe(e =>
+            {
+                if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+                if (e.Building == null || e.Building.Type != BuildingType.Research) return;
+                _unitUpgrade?.OnLabDestroyed(e.Building.Id, _resource);
+            });
         }
 
         // ====================================================================
@@ -480,12 +505,13 @@ namespace Hexiege.Bootstrap
         {
             if (_inputHandler != null)
             {
-                // 비생산 건물 액션 패널(_buildingActionPanelUI)을 마지막 인자로 함께 주입.
-                // 싱글/멀티 모드 모두 동일 — 멀티는 액션 패널 내부에서 ServerRpc 분기 처리.
+                // 비생산 건물 액션 패널(_buildingActionPanelUI)과 연구소 강화 패널(_researchPanelUI)을 함께 주입.
+                // 싱글/멀티 모드 모두 동일 — 멀티는 각 패널 내부에서 ServerRpc 분기 처리.
+                // _researchPanelUI 가 씬에 미배선(null)이면 연구소 클릭은 기존 액션 패널로 폴백된다.
                 _inputHandler.Initialize(
                     _gridInteraction, _mainCamera,
                     _buildingPlacement, _buildingUI, _productionUI,
-                    _buildingActionPanelUI);
+                    _buildingActionPanelUI, _researchPanelUI);
             }
         }
 
@@ -526,6 +552,25 @@ namespace Hexiege.Bootstrap
                 Hexiege.Infrastructure.NetworkBuildingController controller =
                     isNetworkMode ? _networkBuildingController : null;
                 _buildingActionPanelUI.Initialize(_buildingPlacement, _resource, controller);
+            }
+
+            // ────────────────────────────────────────────────────────────
+            // [Phase 4] 연구소 강화 패널 초기화(있을 때만 — 프리팹/씬 배선은 사용자 Unity 작업).
+            //   멀티플레이면 NetworkUpgradeController를 주입해 ServerRpc 경유 연구 착수.
+            //   연구소 클릭 → _researchPanelUI.Open(building) 라우팅은 InputHandler/액션 패널에서 배선 필요(사용자 작업).
+            // ────────────────────────────────────────────────────────────
+            if (_researchPanelUI != null)
+            {
+                bool isNetworkMode = IsNetworkMode();
+                Hexiege.Infrastructure.NetworkUpgradeController upgradeController =
+                    isNetworkMode ? _networkUpgradeController : null;
+                // 연구 패널이 BuildingPanelBase를 상속하므로 철거(하단 버튼)용 의존성도 함께 주입한다.
+                //   - _buildingPlacement: 건물 제거(철거).
+                //   - networkBuildingController: 멀티플레이 철거 요청 중계(싱글은 null).
+                Hexiege.Infrastructure.NetworkBuildingController buildingController =
+                    isNetworkMode ? _networkBuildingController : null;
+                _researchPanelUI.Initialize(_unitUpgrade, _resource, upgradeController,
+                    _buildingPlacement, buildingController);
             }
         }
 
@@ -647,7 +692,8 @@ namespace Hexiege.Bootstrap
                 aiParams,
                 scenarioSteps,
                 scenarioName,
-                difficulty);
+                difficulty,
+                _unitUpgrade); // [Phase 5] 연구 스텝(StartResearch) 실행용. null이면 연구 스텝은 스킵.
 
             Debug.Log($"[GameBootstrapper] AI 초기화 완료. 난이도={difficulty}, " +
                       $"시나리오={scenarioName}, 수입배율={aiParams.goldIncomeMultiplier}");

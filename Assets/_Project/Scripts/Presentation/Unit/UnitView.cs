@@ -915,7 +915,11 @@ namespace Hexiege.Presentation
             HexCoord finalTarget = path[path.Count - 1];
 
             // 유닛별 개별 이동 속도 (MoveSpeed 칸/초 → 1칸 이동 시간(초) 변환).
-            float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
+            // [Phase 2] 실제 속도 = 기본 MoveSpeed × 팀 이동 연구 배율(스냅샷 필드 불변, 사용 지점 배율).
+            //   _combatUseCase 미주입/미연구 시 배율 1.0 → 기존과 동일.
+            float moveSpeedMul = _combatUseCase != null ? _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData) : 1f;
+            float effectiveMoveSpeed = _unitData.MoveSpeed * moveSpeedMul;
+            float moveSeconds = effectiveMoveSpeed > 0f ? 1f / effectiveMoveSpeed : 1.0f;
 
             // ────────────────────────────────────────────────────────────────
             // 외부 while — path가 새로 발급될 때마다 위로 돌아와 새 path로 순회.
@@ -1355,7 +1359,10 @@ namespace Hexiege.Presentation
 
             // 이동 속도 (A* 이동과 동일 스탯 사용).
             // worldSpeed = TileHeight / moveSeconds → 1초당 약 한 칸 거리 이동.
-            float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
+            // [Phase 2] 전투 이동도 A*와 동일하게 팀 이동 연구 배율을 곱한다(규칙 Units 5).
+            float moveSpeedMul = _combatUseCase != null ? _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData) : 1f;
+            float effectiveMoveSpeed = _unitData.MoveSpeed * moveSpeedMul;
+            float moveSeconds = effectiveMoveSpeed > 0f ? 1f / effectiveMoveSpeed : 1.0f;
             float worldSpeed = HexMetrics.TileHeight / moveSeconds;
 
             // 매 프레임 루프 — 적 상태 확인 + 전투 이동 또는 공격으로 분기.

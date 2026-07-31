@@ -63,15 +63,15 @@ namespace Hexiege.Infrastructure
                  "작을수록 파도가 빠르게 훑는다. 기본값 0.5")]
         [SerializeField] private float _waveTravelTime = 0.5f;
 
-        [Tooltip("파도가 아군에 닿을 때의 회복량(HP). 적에게는 대신 attackPower만큼 피해. 기본값 10")]
-        [SerializeField] private float _waveHeal = 10f;
+        [Tooltip("파도가 아군에 닿을 때의 회복량(HP). 적에게는 대신 attackPower만큼 피해. 기본값 100(×10 스케일)")]
+        [SerializeField] private float _waveHeal = 100f;
 
         // ── 꽃요정(BloomFairy) 힐러 HoT(지속 회복) ────────────────────
         [Header("BloomFairy Heal (지속 회복 HoT)")]
 
         [Tooltip("BloomFairy가 부상 아군에게 거는 지속 회복(HoT) 총 회복량(HP). " +
-                 "지속시간 동안 서버 틱으로 나눠 회복되며 최종적으로 정확히 이 값에 도달. 기본값 20")]
-        [SerializeField] private float _bloomHealAmount = 20f;
+                 "지속시간 동안 서버 틱으로 나눠 회복되며 최종적으로 정확히 이 값에 도달. 기본값 200(×10 스케일)")]
+        [SerializeField] private float _bloomHealAmount = 200f;
 
         [Tooltip("BloomFairy 지속 회복(HoT)의 지속시간(초). 이 시간 동안 총 회복량이 서서히 적용된다. 기본값 3")]
         [SerializeField] private float _bloomHealDuration = 3f;
@@ -83,8 +83,8 @@ namespace Hexiege.Infrastructure
                  "적 유닛에게 DoT를 부여한다. 기본값 = '인접 1칸' 타일 거리(≈1.0). 기본값 1.0")]
         [SerializeField] private float _blastRadius = 1.0f;
 
-        [Tooltip("착탄 DoT의 초당 피해량(HP/초). 매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 2")]
-        [SerializeField] private float _blastDotPerSecond = 2f;
+        [Tooltip("착탄 DoT의 초당 피해량(HP/초). 매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 20(×10 스케일)")]
+        [SerializeField] private float _blastDotPerSecond = 20f;
 
         [Tooltip("착탄 DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 2×3 = 6). 기본값 3")]
         [SerializeField] private float _blastDotDuration = 3f;
@@ -93,8 +93,8 @@ namespace Hexiege.Infrastructure
         [Header("InfernoSpirit DoT (단일 대상 지속 피해)")]
 
         [Tooltip("InfernoSpirit이 때린 적 유닛 1명에게 거는 DoT의 초당 피해량(HP/초). " +
-                 "매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 5")]
-        [SerializeField] private float _infernoDotPerSecond = 5f;
+                 "매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 50(×10 스케일)")]
+        [SerializeField] private float _infernoDotPerSecond = 50f;
 
         [Tooltip("InfernoSpirit DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 5×3 = 15). 기본값 3")]
         [SerializeField] private float _infernoDotDuration = 3f;

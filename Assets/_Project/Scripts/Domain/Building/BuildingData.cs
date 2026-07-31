@@ -46,6 +46,13 @@ namespace Hexiege.Domain
         public bool IsAlive => Hp > 0;
 
         /// <summary>
+        /// 방어력. 데미지 감쇄 공식(DamageCalculator.ApplyDefense)을 유닛·건물에 통일 적용하기 위해
+        /// 건물에도 두는 필드다. 단 건물은 방어력 업그레이드 트랙이 없어 **항상 0**(실질 무감쇄)이며,
+        /// 건물 방어 트랙은 이번 범위 밖(향후 확장 보류. GameSystemRules_Upgrade.md 규칙 5).
+        /// </summary>
+        public int Defense => 0;
+
+        /// <summary>
         /// 방어 타워(AutoTower)의 남은 공격 쿨다운(초).
         /// 0 이하면 공격 가능, 공격 직후 AttackCooldown 값으로 리셋된다.
         ///

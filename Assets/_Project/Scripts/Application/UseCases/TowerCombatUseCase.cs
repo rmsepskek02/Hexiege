@@ -58,6 +58,10 @@ namespace Hexiege.Application
         // composition root(GameBootstrapper)에서 변환 함수를 주입받는다.
         private readonly Func<TeamId, RaceId> _raceResolver;
 
+        // [Phase 2] 연구소 강화 UseCase(생성 후 주입). 타워→유닛 방어 감쇄를 "피격 유닛 팀"의
+        //   방어 연구 레벨로 조회하기 위해 사용한다. 미주입 시 스냅샷 필드(target.Defense)로 폴백(하위호환).
+        private UnitUpgradeUseCase _upgrade;
+
         /// <summary>
         /// TowerCombatUseCase 생성. 모든 의존성을 생성자 주입으로 받는다.
         /// </summary>
@@ -78,6 +82,15 @@ namespace Hexiege.Application
             _mapper = mapper;
             _positionProvider = positionProvider;
             _raceResolver = raceResolver;
+        }
+
+        /// <summary>
+        /// 팀별 강화 레벨 UseCase를 주입한다(GameBootstrapper에서 1회). 미주입 시 방어 감쇄는 스냅샷 0으로 동작.
+        /// </summary>
+        /// <param name="upgrade">팀별 강화 상태 UseCase.</param>
+        public void SetUpgradeUseCase(UnitUpgradeUseCase upgrade)
+        {
+            _upgrade = upgrade;
         }
 
         /// <summary>
@@ -200,9 +213,15 @@ namespace Hexiege.Application
         private void ExecuteTowerAttack(BuildingData tower, UnitData target)
         {
             RaceId race = ResolveRace(tower.Team);
-            int damage = BuildingStats.GetAttackPower(tower.Type, race);
+            int rawDamage = BuildingStats.GetAttackPower(tower.Type, race);
 
-            // 데미지 적용.
+            // 데미지 적용. 타워→유닛 피해도 유닛 방어력 감쇄 대상이다(규칙 44 / 규칙 5).
+            // [Phase 2] 방어력은 "피격 유닛 팀"의 방어 연구 레벨로 조회한다(_upgrade 미주입 시 스냅샷 0 폴백).
+            // (공격자는 유닛이 아니라 타워이므로 Tank/CannonCart 건물 2배 판정과는 무관.)
+            int defense = _upgrade != null
+                ? _upgrade.GetDefense(target.Team, target.Type)
+                : target.Defense;
+            int damage = DamageCalculator.ApplyDefense(rawDamage, defense);
             target.TakeDamage(damage);
 
             // 공격 이벤트 발행 (공격자=타워, 타겟=유닛).

@@ -72,6 +72,7 @@
 ---
 
 ## 공통 중요 교훈
+- 연구소 유닛 강화 시스템 + 전투 스탯 ×10 + 연구 패널 UI 구현·멀티 실기 완료 (2026-07-31). ① 방어 감쇄 = 순수 함수 `Domain/Combat/DamageCalculator.ApplyDefense`(K=120, floor 1, 하드캡 65%, `raw<=0`·`defense<=0`이면 원본 반환→하위호환). ② 팀 배율 상태 = Application `UnitUpgradeUseCase`(선례 `ResourceUseCase._incomeMultipliers`), (B) 소급 강화 = 유닛 스냅샷 미변경·사용 지점 조회. ③ 네트워크 `Infrastructure/NetworkUpgradeController` — 완료 레벨 양 클라 브로드캐스트/진행 소유자만/파괴 100% 환불, **`OnNetworkSpawn` 서비스 미등록 스폰 레이스는 `ResolveServices()` 지연 재조회로 수정**. ④ **연구 패널 UI = `ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어(연구소 단위)** — 초기 "생산 패널 패턴"에서 확정 변경(규칙 13). ⑤ **×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨)**(1회 실행 필요, Inspector 값 우선). 후속 보류(과대 표기 금지): UI 레이아웃·헤더 아이콘·AI 연구 실기·MistShrine 힐(미구현)·싱글 자연회복 실기. task `_Tasks/2026-07-22/10_08_unit-upgrade-system/`, 규칙 `GameSystemRules_Upgrade.md`.
 - P2P(Relay) 매칭 호스트 결정은 `GetMatchmakingResults`(전용 서버/Multiplay용, P2P 클라 호출 시 404)가 아니라 **Lobby CreateOrJoin(matchId=lobbyId) 원자 선점**으로 해야 함 — 먼저 만든 쪽=호스트. 매칭 자체는 정상, 호스트 결정만 404였음 (2026-07-17, A방식, 커밋 `a3dbc73`). **간헐 버그라 초기 정상 확인·지속 테스트 중(확정 PASS 아님)**, 레거시 코드 비활성화만·미삭제. task: `_Tasks/2026-07-16/19_09_matchmaker-404-host-determination/`
 - Y Scale 0.4 on tile prefabs is INTENTIONAL (등각 효과) — 절대 변경 금지
 - Inspector 값이 코드 기본값보다 우선 (ScriptableObject overrides code)

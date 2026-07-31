@@ -56,6 +56,9 @@ namespace Hexiege.Presentation
         /// <summary> 비생산 건물(MiningPost/Tower/특수건물) 클릭 시 표시되는 공용 액션 패널. </summary>
         private BuildingActionPanelUI _actionPanelUI;
 
+        /// <summary> 연구소(Research) 클릭 시 표시되는 유닛 강화(연구) 패널. </summary>
+        private ResearchPanelUI _researchPanelUI;
+
         /// <summary> 메인 카메라 참조 (ScreenToWorldPoint 변환용). </summary>
         private Camera _mainCamera;
 
@@ -88,7 +91,8 @@ namespace Hexiege.Presentation
             BuildingPlacementUseCase buildingPlacement,
             BuildingPlacementUI buildingUI,
             ProductionPanelUI productionUI,
-            BuildingActionPanelUI actionPanelUI)
+            BuildingActionPanelUI actionPanelUI,
+            ResearchPanelUI researchPanelUI = null)
         {
             _gridInteraction = gridInteraction;
             _mainCamera = mainCamera;
@@ -97,6 +101,8 @@ namespace Hexiege.Presentation
             _productionUI = productionUI;
             // 비생산 건물용 공용 액션 패널 — Castle 제외, MiningPost/Tower/특수건물 클릭 시 표시.
             _actionPanelUI = actionPanelUI;
+            // 연구소(Research) 클릭 라우팅용 강화 패널 — 없으면(null) 연구소는 기존 액션 패널로 폴백.
+            _researchPanelUI = researchPanelUI;
         }
 
         // ====================================================================
@@ -244,13 +250,22 @@ namespace Hexiege.Presentation
                             // (1) 생산 건물 → 생산 패널 (유닛 버튼, 큐, 업그레이드 포함 풀스펙)
                             _productionUI.Show(buildingAtPos);
                         }
+                        else if (buildingAtPos.Type == BuildingType.Research
+                            && _researchPanelUI != null)
+                        {
+                            // (2) 연구소(Research) → 유닛 강화(연구) 패널.
+                            //   연구는 특정 연구소 종속이 아니라 팀 트랙 단위지만, 착수한 연구소 Id는
+                            //   파괴 시 취소·환불 기준으로 기록되므로 클릭한 건물을 그대로 넘긴다.
+                            //   (_researchPanelUI 미배선 시엔 아래 액션 패널 분기로 폴백된다.)
+                            _researchPanelUI.Open(buildingAtPos);
+                        }
                         else if (BuildingTypeHelper.CanShowActionPanel(buildingAtPos.Type)
                             && _actionPanelUI != null)
                         {
-                            // (2) 비생산 건물 (Castle 제외) → 공용 액션 패널 (건물 이름 + 철거)
+                            // (3) 비생산 건물 (Castle 제외) → 공용 액션 패널 (건물 이름 + 철거)
                             _actionPanelUI.Show(buildingAtPos);
                         }
-                        // (3) Castle: CanShowActionPanel이 false 반환 → 어느 분기도 해당 없음 → 클릭 무반응
+                        // (4) Castle: CanShowActionPanel이 false 반환 → 어느 분기도 해당 없음 → 클릭 무반응
                     }
                     // 적 건물 클릭: 어떤 팝업도 띄우지 않음 (기존 동작 유지)
 

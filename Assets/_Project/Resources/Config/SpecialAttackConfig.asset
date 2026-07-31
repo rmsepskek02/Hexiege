@@ -17,6 +17,13 @@ MonoBehaviour:
   _waveWidth: 3
   _waveLength: 3
   _waveTravelTime: 0.5
-  _waveHeal: 10
+  _waveHeal: 100
+  _bloomHealAmount: 200
+  _bloomHealDuration: 3
+  _blastRadius: 1
+  _blastDotPerSecond: 20
+  _blastDotDuration: 3
+  _infernoDotPerSecond: 50
+  _infernoDotDuration: 3
   _quakeRadius: 1
   _quakeSplashRatio: 0.5

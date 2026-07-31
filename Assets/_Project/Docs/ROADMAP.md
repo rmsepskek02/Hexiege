@@ -1,6 +1,7 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-07-21
+**최종 수정일:** 2026-07-31
+**구현 완료 (2026-07-31):** 연구소 유닛 강화 시스템(공/방/속 + 초월 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI **구현 완료 · 멀티플레이 실기 PASS**. ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨). 후속 보류: UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐·싱글 자연회복 실기. 상세: `GameSystemRules/GameSystemRules_Upgrade.md`, `StatsReference.md`, `_Tasks/2026-07-22/10_08_unit-upgrade-system/`.
 **현재 단계:** QuakeSpirit(대지의 정령) 착탄형 즉발 범위 딜러 구현 완료(2026-07-20, QA PASS·**멀티플레이 실기 로그 검증 완료**) — 마지막 남은 특수 유닛으로, **특수 유닛 5종(BattleAxe/TorrentSpirit/BloomFairy/MushroomBomber/QuakeSpirit) 전량 + InfernoSpirit DoT까지 전부 완료**. 착탄형 **즉발** AoE(DoT 아님): 주 타깃 1마리 직접 100%(공격력 20, 건물이면 100% 공성) + 착탄 월드 원형 반경(`_quakeRadius` 기본 1.0=인접 1칸) 내 다른 적 유닛·**적 건물** 50%(올림 `CeilToInt(20×0.5)`=10, 주 타깃 제외). ⚠️ MushroomBomber/BattleAxe와 달리 스플래시가 건물도 포함. 아군 무피해, 서버 권위. 핸들러 `QuakeAttackBehavior`(`ReplacesPrimaryAttack=false`)+레지스트리 1줄, MushroomBomber 원형 반경 헬퍼(`internal static` 공용화)+건물 순회 신설+유닛/건물 hit-set 분리(규칙 29), `SpecialAttackConfig` `_quakeRadius`/`_quakeSplashRatio`(1.0/0.5). 멀티 로그로 전 항목 정상 검증(로그 `_Logs/2026-07-20/11_00_quakespirit-aoe-verify/`). 규칙 43. 직전 InfernoSpirit(지옥불 정령) 단일 대상 DoT 구현 완료(2026-07-20) — 이미 완성된 원거리 유닛에 DoT 특수만 추가(주 타깃 1마리 직접 25 + 그 1마리에게만 DoT 5/초×3초, AoE 아님). 규칙 40 초 단위 틱을 단일 대상 재사용, 별도 진입점(`ApplyInfernoDot` 5/3) 분리. 규칙 41~42. **알려진 이슈(보류, 별도 task 분리)**: ① QuakeSpirit 타격 애니↔데미지 텍스트 타이밍 어긋남(Attack 클립 `OnAttackHit` 미주입+placeholder hitFrameTimes → 스플래시 텍스트 타임아웃 7.5s 지연, 피해·동기화 자체는 정상), ② 멀티 원거리 공격 facing 버그(에셋 아닌 공유 회전 로직 추정). 후속(Phase F): 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, QuakeSpirit `OnAttackHit` 클립 이벤트 주입(타이밍 이슈 해소), 멀티 원거리 facing 버그 수정, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·시나리오 정밀 검증 + 잔여 신규 유닛 프리팹 실기 테스트. **병행 관찰 항목 — 매치메이킹 404(호스트 결정 단계) 수정(A방식, 2026-07-17, 브랜치 `claude/matchmaker-404-error-pi9qdn` 커밋 `a3dbc73`)**: 랜덤 매칭 후 호스트 결정을 매치 결과 조회(P2P 클라 호출 시 404) → Lobby CreateOrJoin(matchId=lobbyId) 원자 선점으로 전환. 초기 매칭 실기에서 404 없이 정상 연결 확인했으나 간헐(intermittent) 버그라 지속 테스트 중(확정 PASS 아님) — 비활성화(주석)한 레거시 코드는 지속 테스트 확정 후 삭제 예정. 상세는 우선순위 표 및 Phase A-2 참조
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
@@ -25,6 +26,7 @@
 | 🔴 높음 | 신규 유닛 프리팹 실기 테스트 + 후속 작업 (Animation Event 부착, UnitFactory 등록, StatsReference 스탯 확정) | 기능 | 대 |
 | 🔴 높음 | 게임 화면 UI 크기/레이아웃 수정 잔여 (HUD-007, SET-004, SET-007/END-001, MULTI-END-002 — 5항목) | UI | 소 |
 | 🔴 높음 | FlatTop 11×21 무작위 대전 맵 구현 — 5종 생성 전략, exact 180° 대칭, 광산/초기 골드, 초기 골드 전용 테스트 모드(멀티 Host 권위), 건설 불가·차단 지형, 결정적 seed/검증/폴백, canonical chunk 전송, SameMap/NewMap, 경로 완전 차단 대응 (설계 확정·문서 동기화 2026-07-20) | 기능/맵 | 대 |
+| ✅ 완료 (2026-07-31, 멀티 실기 PASS) | 연구소 유닛 강화 시스템 + 전투 스탯 ×10 개편 + 연구 패널 UI — 공/방(신규)/속 3스탯 + 초월 자연회복, 종족별 그룹×스탯 트랙, (B) 팀 배율 실시간 소급 적용, 방어력 감쇄(K=120), 연구소 운영(복수 건설·트랙 잠금·파괴 100% 환불·서버 권위), 전투 수치 ×10(TTK 불변), 매트릭스 2-레이어 UI. 후속 보류: UI 레이아웃·헤더 아이콘·AI 연구·MistShrine 힐·싱글 자연회복 | 기능/기획 | 대 |
 | 🔴 높음 | 전역 GameProtocolVersion/build 호환성 관리 — matchmaking 동일 버전 필터, custom lobby Relay 전 검사, NGO connection approval/rejection, reconnect 버전 검증, update-required UX | 네트워크/호환성 | 대 |
 | ✅ 완료 | 전역 UI 시스템 (UIManager + SplashOverlay) | UI | 중 |
 | ✅ 완료 | Firebase Console 설정 (Google 로그인) — SHA-1 정합 + Play Games 제공업체 활성화, 실기 로그인 성공 (2026-06-27) | 인프라 | 소 |
@@ -128,6 +130,19 @@
 | AutoTower 공격력/쿨다운 (Spirit) | 15 / 3.5s | 확정 — 가장 강한 타워 |
 | AutoTower 공격력/쿨다운 (Trans) | 15 / 5.0s | 확정 |
 | MistShrine 힐량/범위 (Trans) | 1 HP/s / 범위 3 | 확정 — 플레이테스트 후 조정 |
+
+---
+
+### C-2. 연구소 유닛 강화 시스템 + 전투 스탯 ×10 개편 + 연구 패널 UI ✅ 구현 완료 · 멀티플레이 실기 PASS (2026-07-31)
+
+연구소(Research 건물)로 팀 단위 유닛을 강화하는 신규 시스템 + 함께 진행하는 전투 수치 ×10 스케일 개편 + 연구 패널 UI. **구현 완료, 멀티플레이 실기 테스트 통과.**
+
+- **전투 스탯 ×10 스케일**: 유닛 HP·공격력, 건물 HP, 타워 HP·공격력, DoT 틱값, 힐량 전부 ×10. HP·공격력 동일 배율로 **TTK 불변**(상성·매치업 불변). ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨)(1회 실행).
+- **강화 스탯**: 공격력(유닛별 고정 정수 증가) / 방어력(신규, K=120 감쇄) / 이동속도 배율 + 초월 자연회복(3~15 HP/s). `UnitUpgradeUseCase`가 (B) 실시간 배율/증가치 조회 → 소급 강화.
+- **네트워크**: 완료 레벨 양 클라 브로드캐스트(효과 양쪽 적용), 진행 중은 소유자만, 파괴 시 취소·100% 환불. `NetworkUpgradeController`. MP 완료 처리 서비스 스폰 레이스 버그 `ResolveServices()`로 수정.
+- **연구 패널 UI**: `ResearchPanelUI : BuildingPanelBase`(헤더·닫기·철거+환불) + 매트릭스/진행 2-레이어(연구소 단위 전환, 진행 트랙 잠금). 규칙 13.
+- **후속 보류(미완/미검증 — 별도 작업)**: ① UI 레이아웃 다듬기(자동생성 골격) ② 매트릭스 헤더 아이콘 ③ AI 연구 사용 실기 ④ MistShrine 힐(미구현) ⑤ 싱글 자연회복 실기.
+- **문서**: `GameSystemRules/GameSystemRules_Upgrade.md`(구현 계약·구현 상태·규칙 13 UI), `StatsReference.md`(×10 값·업그레이드 표), `GameSystemRules_Units.md` 규칙 44(방어력 감쇄), GDD 연구소 섹션. old/new 대조: `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md`·`Research.md`·`Plan.md`(하단 "완료 결과").
 
 ---
 

@@ -47,6 +47,10 @@ namespace Hexiege.Application.Services
         private readonly UnitSpawnUseCase _unitSpawn;
         private readonly HexGrid _grid;
 
+        // [Phase 5] 연구소 강화 UseCase(선택 주입). StartResearch 스텝 실행에 사용.
+        // null이면 연구 스텝은 조용히 무시(하위호환 — 연구 미도입 빌드에서도 안전).
+        private readonly UnitUpgradeUseCase _upgrade;
+
         // 난이도 파라미터(값 복사본)와 시나리오 데이터.
         private readonly DifficultyParams _params;
         // 선택된 시나리오의 빌드오더 항목 목록.
@@ -154,13 +158,15 @@ namespace Hexiege.Application.Services
             DifficultyParams aiParams,
             IReadOnlyList<BuildOrderStep> scenarioSteps,
             string scenarioName,
-            DifficultyLevel difficulty)
+            DifficultyLevel difficulty,
+            UnitUpgradeUseCase upgrade = null)
         {
             _buildingPlacement = buildingPlacement;
             _unitProduction = unitProduction;
             _resource = resource;
             _unitSpawn = unitSpawn;
             _grid = grid;
+            _upgrade = upgrade;
             _params = aiParams;
             _scenarioSteps = scenarioSteps;
             _scenarioName  = scenarioName;
@@ -363,9 +369,55 @@ namespace Hexiege.Application.Services
                     return ExecuteUpgradeBuilding(step);
                 case AIActionType.StartProduction:
                     return ExecuteStartProduction(step);
+                case AIActionType.StartResearch:
+                    return ExecuteStartResearch(step);
                 default:
                     return true; // 알 수 없는 액션은 건너뜀(스킵으로 처리)
             }
+        }
+
+        /// <summary>
+        /// [Phase 5] 연구소 강화 착수 항목 실행. AI가 보유한 연구소에서 지정 트랙을 1레벨 연구한다.
+        ///
+        /// 성공 조건: 살아있는 AI 소유 연구소가 존재 + 트랙이 연구 가능(최대레벨 미만·진행중 아님) + 골드 충분.
+        /// 하나라도 안 되면 false를 반환하여 재시도 대상으로 둔다(예: 연구소 건설 완료 전이면 다음 틱 재시도).
+        /// _upgrade 미주입(연구 미도입 빌드)이면 조용히 성공 처리하여 스텝을 넘긴다(하위호환).
+        /// </summary>
+        private bool ExecuteStartResearch(BuildOrderStep step)
+        {
+            // 연구 시스템 미주입 빌드에서는 스텝을 소비만 하고 넘어간다(막힘 방지).
+            if (_upgrade == null) return true;
+
+            // AI 소유의 살아있는 연구소를 찾는다(연구는 연구소 종속이 아니지만, 취소·환불 기준으로 Id를 기록).
+            int labId = FindOwnedResearchLabId();
+            if (labId < 0) return false; // 연구소가 아직 없음 → 다음 틱 재시도(선행 PlaceBuilding 필요).
+
+            // 트랙이 연구 가능한지(최대레벨/진행중) + 골드 충분 여부 사전 확인 → 착수.
+            if (!_upgrade.CanResearch(AiTeam, step.upgradeGroup, step.upgradeStat)) return true; // 이미 진행중/완료면 스텝 소비.
+
+            int cost = _upgrade.GetNextLevelCost(AiTeam, step.upgradeGroup, step.upgradeStat);
+            if (cost < 0) return true;                         // 최대 레벨 → 스텝 소비.
+            if (!_resource.CanAfford(AiTeam, cost)) return false; // 골드 부족 → 재시도.
+
+            // 착수(내부에서 골드 검증·차감·타이머 시작). 싱글플레이 서버 권위 흐름과 동일.
+            return _upgrade.TryStartResearch(AiTeam, step.upgradeGroup, step.upgradeStat, labId, _resource);
+        }
+
+        /// <summary>
+        /// AI(Red) 소유의 살아있는 연구소(BuildingType.Research) 하나의 Id를 반환한다. 없으면 -1.
+        /// </summary>
+        private int FindOwnedResearchLabId()
+        {
+            foreach (var kvp in _buildingPlacement.Buildings)
+            {
+                BuildingData b = kvp.Value;
+                if (b == null) continue;
+                if (b.Team != AiTeam) continue;
+                if (b.Type != BuildingType.Research) continue;
+                if (!b.IsAlive) continue;
+                return b.Id;
+            }
+            return -1;
         }
 
         /// <summary>
