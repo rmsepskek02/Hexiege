@@ -256,6 +256,14 @@ namespace Hexiege.Presentation
         /// </summary>
         private void HandlePan()
         {
+            // 스킬 지점 조준 중에는 카메라 드래그 팬을 억제한다(입력 소유권 — 조준 컨트롤러가 엣지 스크롤로만 이동).
+            // 랠리 모드가 InputHandler 타일 선택을 억제하는 것과 동일한 우선순위 가드다.
+            if (SkillAimController.IsAiming)
+            {
+                _isDragging = false;
+                return;
+            }
+
             // 2터치(핀치 줌) 중에는 팬 비활성화 (마우스/터치 공통 가드)
             var activeTouches = UnityEngine.InputSystem.EnhancedTouch.Touch.activeTouches;
             if (activeTouches.Count >= 2)
@@ -371,6 +379,46 @@ namespace Hexiege.Presentation
             pos.x = lookAtX;
             pos.z = lookAtZ - zOffset;
             transform.position = pos;
+        }
+
+        // ====================================================================
+        // 엣지 스크롤 (스킬 조준 시 화면 가장자리 자동 팬 — 규칙 18·23)
+        // ====================================================================
+
+        /// <summary>
+        /// 조준점(스크린 좌표)이 화면 가장자리 여백 안에 들어오면 그 방향으로 카메라를 팬한다.
+        /// 이동 후 기존 <see cref="ClampPosition"/>이 맵 경계 정지를 그대로 처리한다(규칙 23 자동 충족).
+        ///
+        /// 방향 규약:
+        ///   카메라는 X축 틸트만 있고 Y 회전이 없으므로 화면-오른쪽=월드 +X, 화면-위=월드 +Z다.
+        ///   따라서 오른쪽 가장자리 → +X, 위쪽 가장자리 → +Z로 이동한다.
+        /// </summary>
+        /// <param name="screenPos">현재 조준점의 스크린 좌표.</param>
+        /// <param name="dt">경과 시간(초). 프레임레이트 무관 이동을 위해 곱한다.</param>
+        /// <param name="edgeMarginPx">화면 가장자리에서 이 픽셀 여백 안이면 스크롤 발동.</param>
+        /// <param name="speed">스크롤 속도(월드 단위/초).</param>
+        public void EdgeScroll(Vector2 screenPos, float dt, float edgeMarginPx, float speed)
+        {
+            if (edgeMarginPx <= 0f || speed <= 0f || dt <= 0f) return;
+
+            float w = Screen.width;
+            float h = Screen.height;
+
+            float dirX = 0f;
+            float dirZ = 0f;
+
+            if (screenPos.x < edgeMarginPx) dirX = -1f;           // 왼쪽 가장자리 → -X
+            else if (screenPos.x > w - edgeMarginPx) dirX = 1f;    // 오른쪽 가장자리 → +X
+
+            if (screenPos.y < edgeMarginPx) dirZ = -1f;            // 아래쪽 가장자리 → -Z
+            else if (screenPos.y > h - edgeMarginPx) dirZ = 1f;    // 위쪽 가장자리 → +Z
+
+            if (dirX == 0f && dirZ == 0f) return; // 가장자리 밖 — 이동 없음.
+
+            transform.position += new Vector3(dirX, 0f, dirZ) * speed * dt;
+
+            // 맵 경계 정지(규칙 23) — 팬/줌과 동일하게 즉시 보정.
+            ClampPosition();
         }
 
         // ====================================================================

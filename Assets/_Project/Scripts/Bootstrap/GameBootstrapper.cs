@@ -71,6 +71,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("특수 공격(도끼병 휩쓸기 등) 튜닝값 ScriptableObject. 미연결 시 코드 기본값(1.0/120) 사용.")]
         [SerializeField] private SpecialAttackConfig _specialAttackConfig;
 
+        [Tooltip("스킬 건물 종족별 로드아웃(슬롯 1~5) ScriptableObject. 미연결 시 스킬 발동/패널이 비활성(빈 로드아웃).")]
+        [SerializeField] private SkillLoadoutConfig _skillLoadoutConfig;
+
         [Header("Scene References")]
         [Tooltip("[World]/HexGrid 오브젝트의 HexGridRenderer")]
         [SerializeField] private HexGridRenderer _gridRenderer;
@@ -99,6 +102,12 @@ namespace Hexiege.Bootstrap
         [Tooltip("연구소(Research) 강화 패널 UI (연구소 클릭 시 표시). 프리팹/씬 배선은 사용자 Unity 작업.")]
         [SerializeField] private ResearchPanelUI _researchPanelUI;
 
+        [Tooltip("스킬 건물(FlightFacility/MagicBuilding) 전용 스킬 패널 UI. 프리팹/씬 배선은 사용자 Unity 작업.")]
+        [SerializeField] private BuildingSkillPanelUI _buildingSkillPanelUI;
+
+        [Tooltip("스킬 지점 조준 컨트롤러(press→드래그→엣지스크롤→release). 프리팹/씬 배선은 사용자 Unity 작업.")]
+        [SerializeField] private SkillAimController _skillAimController;
+
         [Tooltip("생산 티커")]
         [SerializeField] private ProductionTicker _productionTicker;
 
@@ -120,6 +129,9 @@ namespace Hexiege.Bootstrap
 
         [Tooltip("네트워크 연구소 강화 컨트롤러 (씬에 NetworkUpgradeController NetworkObject 배치 후 연결)")]
         [SerializeField] private Hexiege.Infrastructure.NetworkUpgradeController _networkUpgradeController;
+
+        [Tooltip("네트워크 스킬 발동 컨트롤러 (씬에 NetworkSkillController NetworkObject 배치 후 연결)")]
+        [SerializeField] private Hexiege.Infrastructure.NetworkSkillController _networkSkillController;
 
         [Tooltip("네트워크 유닛 생산 컨트롤러 (씬에 NetworkProductionController NetworkObject 배치 후 연결)")]
         [SerializeField] private Hexiege.Infrastructure.NetworkProductionController _networkProductionController;
@@ -182,6 +194,7 @@ namespace Hexiege.Bootstrap
         private UnitCombatUseCase _unitCombat;
         private TowerCombatUseCase _towerCombat;
         private UnitUpgradeUseCase _unitUpgrade;
+        private SkillActivationUseCase _skillActivation;
         private BuildingPlacementUseCase _buildingPlacement;
         private ResourceUseCase _resource;
         private PopulationUseCase _population;
@@ -335,6 +348,13 @@ namespace Hexiege.Bootstrap
         public UnitUpgradeUseCase GetUpgradeUseCase() => _unitUpgrade;
 
         /// <summary>
+        /// 현재 SkillActivationUseCase 반환(스킬 발동/글로벌 쿨다운).
+        /// NetworkSkillController에서 서버 측 스킬 발동 재검증/실행/쿨다운 브로드캐스트에 사용.
+        /// 맵 로드 전이면 null.
+        /// </summary>
+        public SkillActivationUseCase GetSkillActivationUseCase() => _skillActivation;
+
+        /// <summary>
         /// UnitFactory를 IUnitFactory 인터페이스로 반환.
         /// IGameServices 계약 상 IUnitFactory를 반환하므로,
         /// Infrastructure(UnitFactory)에 Application이 직접 의존하지 않는다.
@@ -467,6 +487,17 @@ namespace Hexiege.Bootstrap
             if (!IsNetworkMode() && _unitUpgrade != null)
             {
                 _unitUpgrade.TickResearch(Time.deltaTime);
+            }
+
+            // [스킬] 건물 글로벌 쿨다운 감소(규칙 3).
+            //   - 싱글: 여기서 감소(권위).
+            //   - 멀티 서버(호스트): NetworkCombatController.TickCombat이 감소(권위) → 여기선 스킵.
+            //   - 멀티 순수 클라: 서버 전투 틱이 없으므로 오버레이 표시용 로컬 미러를 여기서 감소.
+            //   가드: 싱글(!IsNetworkMode) 또는 순수 클라(!IsNetworkServer)일 때만 → 이중 틱 금지.
+            if (_skillActivation != null &&
+                (!IsNetworkMode() || !NetworkContext.IsNetworkServer))
+            {
+                _skillActivation.TickCooldowns(Time.deltaTime);
             }
 
             // ────────────────────────────────────────────────────────────────

@@ -1568,6 +1568,185 @@ namespace Hexiege.Application
             }
         }
 
+        // ====================================================================
+        // 스킬(건물) 출처 범위 피해 — 타입 A(즉발) · 타입 B(장판 DoT) [Phase 1]
+        //
+        //   스킬 건물이 시전자라 UnitData 공격자가 없다(§9-2). 기존 유닛 공격 경로
+        //   (ComputeFinalDamage/ApplyFixedDamageToVictim)는 UnitData attacker를 요구하므로
+        //   그대로 쓸 수 없다. → 건물/스킬 출처 전용 피해 경로를 신설한다(기존 경로 무변경 — 회귀 없음).
+        //     · Tank/CannonCart 건물 2배는 미적용(§9-2 — 건물 출처).
+        //     · 타입 A는 방어 감쇄 O(DamageCalculator.ApplyDefense), 타입 B DoT는 무감쇄(기존 DoT 구조).
+        //     · 아군 제외.
+        //
+        //   좌표계 주의(왜 SpecialAttackContext 헬퍼를 재사용하지 않는가):
+        //     기존 CollectEnemyUnitsInRadius(SpecialAttackContext)는 UnitData attacker와
+        //     positionProvider(뷰 좌표)를 요구한다. 스킬은 UnitData 공격자가 없고, 조준 중심이
+        //     "맵 지점"이라 뷰 좌표 기준이 없다. 그래서 도메인 월드(_mapper.HexToWorld) 기준으로
+        //     중심·대상 좌표를 일관 처리하는 전용 수집 헬퍼를 둔다(양 팀 좌표계 정합).
+        //     ViewConverter는 위치를 중심 대칭 반전만 하므로 거리 스케일은 뷰/도메인이 동일하다.
+        // ====================================================================
+
+        // 스킬 반경 수집용 재사용 버퍼(GC 절감). 서버/싱글 단일 스레드에서만 사용되므로 재사용 안전.
+        //   유닛/건물은 Id 카운터가 달라 값이 겹칠 수 있으므로 버퍼를 분리한다(규칙 29 교훈).
+        private readonly List<UnitData> _skillUnitVictims = new List<UnitData>(16);
+        private readonly List<BuildingData> _skillBuildingVictims = new List<BuildingData>(8);
+
+        /// <summary>
+        /// 타입 A — 스킬(건물) 출처 즉발 범위 피해. 조준 중심의 원형 반경 안 적 유닛·적 건물에게
+        /// 방어 감쇄를 적용한 1회 피해를 준다(Tank 2배 미적용). 아군 제외.
+        /// </summary>
+        /// <param name="casterTeam">시전 팀(아군/적 판정 기준).</param>
+        /// <param name="center">조준 중심(도메인 HexCoord).</param>
+        /// <param name="radius">원형 반경(월드 단위).</param>
+        /// <param name="rawDamage">감쇄 전 원본 피해(×10 스케일).</param>
+        /// <param name="sourceBuildingId">시전 건물 Id(피격 연출 attribution).</param>
+        public void ApplySkillInstantAreaDamage(TeamId casterTeam, HexCoord center, float radius, int rawDamage, int sourceBuildingId)
+        {
+            if (rawDamage <= 0 || radius <= 0f) return;
+
+            Vector3 centerWorld = Flatten(_mapper.HexToWorld(center));
+            float radiusSqr = radius * radius;
+
+            // 1) 반경 내 적 유닛/건물 선수집(순회 중 사망 제거로 인한 컬렉션 변경 회피 — 2단계).
+            _skillUnitVictims.Clear();
+            CollectEnemyUnitsInRadiusDomain(casterTeam, centerWorld, radiusSqr, _skillUnitVictims);
+            _skillBuildingVictims.Clear();
+            CollectEnemyBuildingsInRadiusDomain(casterTeam, centerWorld, radiusSqr, _skillBuildingVictims);
+
+            // 2) 즉발 피해 적용(방어 감쇄 O, 2배 미적용).
+            for (int i = 0; i < _skillUnitVictims.Count; i++)
+                ApplySkillInstantDamageToVictim(_skillUnitVictims[i], rawDamage, sourceBuildingId);
+            for (int i = 0; i < _skillBuildingVictims.Count; i++)
+                ApplySkillInstantDamageToVictim(_skillBuildingVictims[i], rawDamage, sourceBuildingId);
+        }
+
+        /// <summary>
+        /// 타입 B — 스킬(건물) 출처 범위 지속 피해(장판). 조준 중심의 원형 반경 안 적 유닛에게
+        /// 지속시간 동안 DoT(무감쇄, 초 단위 discrete 틱)를 부여한다. 틱은 TickTimedEffects가 소비.
+        /// 건물은 대상이 아니다(DoT 시스템은 유닛 대상 — 기존 구조 그대로).
+        /// </summary>
+        /// <param name="casterTeam">시전 팀(아군/적 판정 기준).</param>
+        /// <param name="center">조준 중심(도메인 HexCoord).</param>
+        /// <param name="radius">원형 반경(월드 단위).</param>
+        /// <param name="damagePerSecond">초당 피해(×10 스케일).</param>
+        /// <param name="duration">지속시간(초).</param>
+        public void ApplySkillAreaDot(TeamId casterTeam, HexCoord center, float radius, float damagePerSecond, float duration)
+        {
+            if (damagePerSecond <= 0f || duration <= 0f || radius <= 0f) return;
+
+            Vector3 centerWorld = Flatten(_mapper.HexToWorld(center));
+            float radiusSqr = radius * radius;
+
+            _skillUnitVictims.Clear();
+            CollectEnemyUnitsInRadiusDomain(casterTeam, centerWorld, radiusSqr, _skillUnitVictims);
+
+            for (int i = 0; i < _skillUnitVictims.Count; i++)
+            {
+                UnitData victim = _skillUnitVictims[i];
+                if (victim == null || !victim.IsAlive) continue;
+                // 건물 출처라 source=null(UnitData 공격자 없음 — AddOrRefreshTimedEffect가 SourceId=-1로 안전 처리).
+                // 무감쇄 DoT — ApplyDamageOverTime은 ComputeFinalDamage를 우회하므로 자동으로 방어 미적용.
+                ApplyDamageOverTime(null, victim, damagePerSecond, duration, BlastDotTickInterval);
+            }
+        }
+
+        /// <summary>
+        /// 스킬(건물) 출처 즉발 피해 1회를 대상(유닛/건물)에 적용하고 사망까지 처리하는 전용 헬퍼.
+        /// UnitData 공격자가 없다는 점을 빼면 ApplyFixedDamageToVictim과 동일한 순서
+        /// (피해 → 이벤트 → 사망 처리)를 따라 멀티플레이 HP 동기화 형식을 일관되게 유지한다.
+        ///
+        /// 방어 감쇄:
+        ///   유닛은 피격 대상 팀 방어 연구(_upgrade.GetDefense) 또는 스냅샷(UnitData.Defense)으로 감쇄.
+        ///   건물은 방어 트랙이 없어 0(무감쇄). Tank 2배는 건물 출처라 적용하지 않는다(§9-2).
+        /// </summary>
+        /// <param name="target">피해를 받을 대상(유닛/건물).</param>
+        /// <param name="rawDamage">감쇄 전 원본 피해(양수).</param>
+        /// <param name="sourceBuildingId">시전 건물 Id(피격 연출 attribution).</param>
+        private void ApplySkillInstantDamageToVictim(IDamageable target, int rawDamage, int sourceBuildingId)
+        {
+            if (target == null || !target.IsAlive || rawDamage <= 0) return;
+
+            // 방어력 산출 — 유닛만 방어 감쇄, 건물은 0(무감쇄).
+            int defense = 0;
+            if (target is UnitData u)
+            {
+                defense = _upgrade != null
+                    ? _upgrade.GetDefense(u.Team, u.Type)
+                    : u.Defense;
+            }
+
+            int finalDamage = DamageCalculator.ApplyDefense(rawDamage, defense);
+            target.TakeDamage(finalDamage);
+
+            // 피격 이벤트 발행 — NetworkHealthSync가 구독해 모든 클라이언트에 HP를 동기화한다.
+            //   공격자가 건물이므로 attackerIsUnit=false(피격 표현 큐의 타워형 즉시 방출 경로),
+            //   immediatePresentation=true로 공격자 타격 프레임을 기다리지 않고 즉시 방출한다.
+            bool targetIsUnit = target is UnitData;
+            GameEvents.OnEntityDamaged.OnNext(
+                new EntityDamagedEvent(target, target.Hp, targetIsUnit,
+                    attackerId: sourceBuildingId, attackerIsUnit: false,
+                    immediatePresentation: true));
+
+            // 사망 처리 — ApplyFixedDamageToVictim의 사망 경로와 동일 순서(이벤트 → 상태 정리 → 제거).
+            if (!target.IsAlive)
+            {
+                if (target is UnitData diedUnit)
+                {
+                    GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(diedUnit));
+                }
+                else if (target is BuildingData diedBuilding)
+                {
+                    GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(diedBuilding));
+                }
+
+                if (!NetworkContext.IsNetworkActive && target is UnitData deadUnit)
+                {
+                    _combatTargets.Remove(deadUnit.Id);
+                }
+
+                if (target is UnitData ru)
+                    _unitSpawn.RemoveUnit(ru.Id);
+                else if (target is BuildingData rb)
+                    _buildingPlacement.RemoveBuilding(rb.Id);
+            }
+        }
+
+        /// <summary>
+        /// 조준 중심(도메인 월드)에서 원형 반경 안의 적 유닛을 수집한다(스킬 전용, 도메인 좌표 기준).
+        /// 아군/사망 유닛은 제외한다(규칙 16). BlastAttackBehavior.CollectEnemyUnitsInRadius와 같은
+        /// 알고리즘이지만, UnitData 공격자·뷰 좌표 대신 TeamId·도메인 좌표(_mapper.HexToWorld)를 쓴다.
+        /// </summary>
+        private void CollectEnemyUnitsInRadiusDomain(TeamId casterTeam, Vector3 centerWorld, float radiusSqr, List<UnitData> result)
+        {
+            foreach (var unit in _unitSpawn.Units.Values)
+            {
+                if (unit == null || !unit.IsAlive) continue;
+                if (unit.Team == casterTeam) continue; // 아군 제외(규칙 16).
+
+                Vector3 rel = Flatten(_mapper.HexToWorld(unit.Position)) - centerWorld;
+                if (rel.sqrMagnitude <= radiusSqr)
+                    result.Add(unit);
+            }
+        }
+
+        /// <summary>
+        /// 조준 중심(도메인 월드)에서 원형 반경 안의 적 건물을 수집한다(스킬 전용, 도메인 좌표 기준).
+        /// 아군 건물은 제외한다(규칙 16). QuakeAttackBehavior.CollectEnemyBuildingsInRadius와 같은
+        /// 알고리즘이지만, TeamId·도메인 좌표 기준이다.
+        /// </summary>
+        private void CollectEnemyBuildingsInRadiusDomain(TeamId casterTeam, Vector3 centerWorld, float radiusSqr, List<BuildingData> result)
+        {
+            foreach (var building in _buildingPlacement.Buildings.Values)
+            {
+                if (building == null || !building.IsAlive) continue;
+                if (building.Team == casterTeam) continue; // 아군 건물 제외(규칙 16).
+
+                Vector3 rel = Flatten(_mapper.HexToWorld(building.Position)) - centerWorld;
+                if (rel.sqrMagnitude <= radiusSqr)
+                    result.Add(building);
+            }
+        }
+
         /// <summary>
         /// 시간 지속 효과(HoT/DoT) 1개를 목록에 추가하거나, 같은 대상·종류가 이미 있으면 리셋(갱신)한다.
         /// ApplyTimedEffect(연속 HoT)와 ApplyDamageOverTime(discrete DoT)이 공유하는 내부 upsert.

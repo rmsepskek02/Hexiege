@@ -311,6 +311,13 @@ namespace Hexiege.Infrastructure
             // ────────────────────────────────────────────────────────────────
             _services?.GetUpgradeUseCase()?.TickResearch(elapsed);
 
+            // ────────────────────────────────────────────────────────────────
+            // [스킬] 건물 글로벌 쿨다운 감소 — 서버 권위(규칙 3·25). 연구 틱 바로 옆.
+            //   싱글은 GameBootstrapper.Update, 멀티 서버는 여기서만 감소한다(이중 틱 금지).
+            //   멀티 순수 클라의 쿨다운 미러는 GameBootstrapper.Update(클라 분기)가 별도로 감소시킨다.
+            // ────────────────────────────────────────────────────────────────
+            _services?.GetSkillActivationUseCase()?.TickCooldowns(elapsed);
+
             // Dictionary를 순회하면서 타겟 탐색
             // 전투 중 RemoveUnit이 호출될 수 있으므로 키를 미리 복사
             var unitIds = new System.Collections.Generic.List<int>(unitSpawn.Units.Keys);

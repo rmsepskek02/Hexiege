@@ -95,6 +95,12 @@ namespace Hexiege.Application
         UnitUpgradeUseCase GetUpgradeUseCase();
 
         /// <summary>
+        /// 스킬 건물 발동(SkillActivationUseCase). 서버(Infrastructure)가 스킬 발동 요청 재검증·실행·
+        /// 글로벌 쿨다운 구동에 참조한다. 맵 로드 전이면 null.
+        /// </summary>
+        SkillActivationUseCase GetSkillActivationUseCase();
+
+        /// <summary>
         /// 유닛 팩토리. 유닛 GameObject 생성·조회·뷰 초기화에 사용.
         /// IUnitFactory로 추상화하여 Infrastructure.UnitFactory에 직접 의존하지 않는다.
         /// </summary>

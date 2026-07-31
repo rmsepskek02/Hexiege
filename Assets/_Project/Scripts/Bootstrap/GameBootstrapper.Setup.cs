@@ -345,6 +345,21 @@ namespace Hexiege.Bootstrap
             _unitCombat.SetUpgradeUseCase(_unitUpgrade);
             _towerCombat.SetUpgradeUseCase(_unitUpgrade);
 
+            // ────────────────────────────────────────────────────────────
+            // [스킬 건물] 스킬 발동 UseCase — 발동 재검증·실행·글로벌 쿨다운 보관(서버 권위).
+            //   데이터 제공자(_skillLoadoutConfig)는 미연결 시 null → Activate가 조용히 실패(안전).
+            //   팀 → 종족 변환은 TowerCombatUseCase와 동일 규칙(Blue→BlueRace, Red→RedRace).
+            //   피해/DoT 실제 적용은 _unitCombat의 "건물/스킬 출처 전용 경로"가 담당한다.
+            // ────────────────────────────────────────────────────────────
+            _skillActivation = new SkillActivationUseCase(
+                _buildingPlacement,
+                _grid,
+                _unitCombat,
+                _skillLoadoutConfig, // ISkillDataProvider (SkillLoadoutConfig SO). null 허용.
+                team => team == TeamId.Blue
+                    ? GameRaceContext.BlueRace
+                    : GameRaceContext.RedRace);
+
             // TileOwnershipService 초기화.
             // _grid, _unitSpawn, _positionProvider, hexMapper가 모두 준비된 직후에 생성한다.
             // 매 프레임 GameBootstrapper.Update()에서 Tick()이 호출되며,
@@ -511,7 +526,19 @@ namespace Hexiege.Bootstrap
                 _inputHandler.Initialize(
                     _gridInteraction, _mainCamera,
                     _buildingPlacement, _buildingUI, _productionUI,
-                    _buildingActionPanelUI, _researchPanelUI);
+                    _buildingActionPanelUI, _researchPanelUI,
+                    // 스킬 건물 라우팅 패널 + 조준 컨트롤러(미배선 시 null → 기존 액션 패널로 폴백/조준 억제 없음).
+                    _buildingSkillPanelUI, _skillAimController);
+            }
+
+            // 스킬 지점 조준 컨트롤러 초기화(있을 때만 — 프리팹/씬 배선은 사용자 Unity 작업).
+            //   맵 타일 유효성은 현재 _grid.HasTile로 판정한다(맵 재로드 시에도 현재 _grid를 읽도록 람다 캡처).
+            if (_skillAimController != null)
+            {
+                _skillAimController.Initialize(
+                    _mainCamera,
+                    _cameraController,
+                    coord => _grid != null && _grid.HasTile(coord));
             }
         }
 
@@ -571,6 +598,29 @@ namespace Hexiege.Bootstrap
                     isNetworkMode ? _networkBuildingController : null;
                 _researchPanelUI.Initialize(_unitUpgrade, _resource, upgradeController,
                     _buildingPlacement, buildingController);
+            }
+
+            // ────────────────────────────────────────────────────────────
+            // [스킬 건물] 전용 스킬 패널 초기화(있을 때만 — 프리팹/씬 배선은 사용자 Unity 작업).
+            //   멀티플레이면 NetworkSkillController(발동 중계)·NetworkBuildingController(철거 중계)를 주입한다.
+            //   스킬 로드아웃(_skillLoadoutConfig)은 ISkillDataProvider로 주입되어 슬롯 1~5를 채운다.
+            // ────────────────────────────────────────────────────────────
+            if (_buildingSkillPanelUI != null)
+            {
+                bool isNetworkMode = IsNetworkMode();
+                Hexiege.Infrastructure.NetworkSkillController skillController =
+                    isNetworkMode ? _networkSkillController : null;
+                Hexiege.Infrastructure.NetworkBuildingController buildingControllerForSkill =
+                    isNetworkMode ? _networkBuildingController : null;
+
+                _buildingSkillPanelUI.Initialize(
+                    _buildingPlacement,
+                    _resource,
+                    buildingControllerForSkill,
+                    _skillActivation,
+                    _skillLoadoutConfig, // ISkillDataProvider (null 허용).
+                    _skillAimController,
+                    skillController);     // INetworkSkillController (null=싱글).
             }
         }
 

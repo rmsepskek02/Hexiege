@@ -59,6 +59,12 @@ namespace Hexiege.Presentation
         /// <summary> 연구소(Research) 클릭 시 표시되는 유닛 강화(연구) 패널. </summary>
         private ResearchPanelUI _researchPanelUI;
 
+        /// <summary> 스킬 건물(FlightFacility/MagicBuilding) 클릭 시 표시되는 전용 스킬 패널. </summary>
+        private BuildingSkillPanelUI _skillPanelUI;
+
+        /// <summary> 스킬 지점 조준 컨트롤러. 조준 중이면 타일 선택 입력을 억제한다. </summary>
+        private SkillAimController _skillAimController;
+
         /// <summary> 메인 카메라 참조 (ScreenToWorldPoint 변환용). </summary>
         private Camera _mainCamera;
 
@@ -92,7 +98,9 @@ namespace Hexiege.Presentation
             BuildingPlacementUI buildingUI,
             ProductionPanelUI productionUI,
             BuildingActionPanelUI actionPanelUI,
-            ResearchPanelUI researchPanelUI = null)
+            ResearchPanelUI researchPanelUI = null,
+            BuildingSkillPanelUI skillPanelUI = null,
+            SkillAimController skillAimController = null)
         {
             _gridInteraction = gridInteraction;
             _mainCamera = mainCamera;
@@ -103,6 +111,10 @@ namespace Hexiege.Presentation
             _actionPanelUI = actionPanelUI;
             // 연구소(Research) 클릭 라우팅용 강화 패널 — 없으면(null) 연구소는 기존 액션 패널로 폴백.
             _researchPanelUI = researchPanelUI;
+            // 스킬 건물(FlightFacility/MagicBuilding) 클릭 라우팅용 전용 패널 — 없으면(null) 기존 액션 패널로 폴백.
+            _skillPanelUI = skillPanelUI;
+            // 스킬 지점 조준 컨트롤러 — 조준 중 타일 선택 억제 가드에 사용.
+            _skillAimController = skillAimController;
         }
 
         // ====================================================================
@@ -185,6 +197,11 @@ namespace Hexiege.Presentation
             //    팝업이 닫힌 상태에서 타일을 선택해야 하므로
             //    IsPointerOverUI보다 먼저 처리해야 함.
             // --------------------------------------------------------
+            // 스킬 지점 조준 중에는 타일 선택/건물 팝업을 억제한다(조준 컨트롤러가 입력을 소유).
+            // 조준은 SkillAimController가 press/drag/release를 자체 처리하므로 여기서는 통과만 막는다.
+            if (SkillAimController.IsAiming)
+                return;
+
             if (_productionUI != null && _productionUI.IsSettingRallyPoint
                 && Time.frameCount != _productionUI.RallyPointSetFrame)
             {
@@ -258,6 +275,15 @@ namespace Hexiege.Presentation
                             //   파괴 시 취소·환불 기준으로 기록되므로 클릭한 건물을 그대로 넘긴다.
                             //   (_researchPanelUI 미배선 시엔 아래 액션 패널 분기로 폴백된다.)
                             _researchPanelUI.Open(buildingAtPos);
+                        }
+                        else if ((buildingAtPos.Type == BuildingType.FlightFacility
+                                  || buildingAtPos.Type == BuildingType.MagicBuilding)
+                            && _skillPanelUI != null)
+                        {
+                            // (2b) 스킬 건물(FlightFacility=Human / MagicBuilding=Spirit·Trans 공유) →
+                            //   전용 스킬 패널. 종족 로드아웃으로 슬롯 1~5를 동적으로 채운다(규칙 1·6·8·9).
+                            //   (_skillPanelUI 미배선 시엔 아래 액션 패널 분기로 폴백된다.)
+                            _skillPanelUI.Show(buildingAtPos);
                         }
                         else if (BuildingTypeHelper.CanShowActionPanel(buildingAtPos.Type)
                             && _actionPanelUI != null)
