@@ -51,10 +51,11 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
-            _services = GameServicesLocator.Current;
-            if (_services == null)
+            // 스폰 시점에 1차 캐시. 아직 GameServicesLocator 등록 전이면 null 일 수 있는데,
+            // 그 경우 이후 RPC 처리에서 ResolveServices()가 지연 재조회로 복구한다(스폰 레이스 방지).
+            if (ResolveServices() == null)
             {
-                Debug.LogWarning("[Network] NetworkUpgradeController: GameServicesLocator에 IGameServices가 없습니다.");
+                Debug.LogWarning("[Network] NetworkUpgradeController: GameServicesLocator에 IGameServices가 없습니다(스폰 레이스 가능 — 사용 시점 재조회로 복구 시도).");
                 return;
             }
 
@@ -83,6 +84,27 @@ namespace Hexiege.Infrastructure
                 _completedHandler = null;
             }
             base.OnNetworkDespawn();
+        }
+
+        /// <summary>
+        /// IGameServices 를 지연 해석한다.
+        ///
+        /// 왜 필요한가(핵심):
+        ///   _services 는 OnNetworkSpawn 에서 1회만 캐시된다. 그런데 이 컨트롤러가
+        ///   GameServicesLocator.Register(GameBootstrapper) 보다 먼저 스폰되면(씬 오브젝트 스폰 레이스)
+        ///   _services 가 null 로 굳어 버린다. 그러면 특히 클라이언트에서 완료 브로드캐스트
+        ///   (ResearchLevelClientRpc)가 _services 의존 때문에 조기 반환되어, 레벨 반영과
+        ///   OnUpgradeChanged 발행이 누락된다 → 소유 클라의 연구 패널이 진행 레이어에 갇힌다(버그 B / 멀티 자연회복).
+        ///   착수 알림(ResearchStartedClientRpc)·취소 알림(ResearchCanceledClientRpc)은 GameEvents 를
+        ///   직접 발행해 _services 의존이 없으므로 정상 동작하는데, 완료만 _services 를 타서 비대칭으로 깨졌던 것.
+        ///
+        /// 따라서 캐시가 null 이면 사용 시점(연구 완료는 게임 시작 후 최소 15초 뒤이므로 이미 등록됨)에
+        /// GameServicesLocator.Current 로 재조회해 복구한다.
+        /// </summary>
+        private IGameServices ResolveServices()
+        {
+            if (_services == null) _services = GameServicesLocator.Current;
+            return _services;
         }
 
         // ====================================================================
@@ -126,14 +148,15 @@ namespace Hexiege.Infrastructure
         {
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
-            if (_services == null)
+            IGameServices services = ResolveServices();
+            if (services == null)
             {
                 SendResearchFailed(senderClientId, "서버 초기화 오류");
                 return;
             }
 
-            UnitUpgradeUseCase upgrade = _services.GetUpgradeUseCase();
-            ResourceUseCase resource = _services.GetResource();
+            UnitUpgradeUseCase upgrade = services.GetUpgradeUseCase();
+            ResourceUseCase resource = services.GetResource();
             if (upgrade == null || resource == null)
             {
                 SendResearchFailed(senderClientId, "맵 로드 중");
@@ -182,10 +205,11 @@ namespace Hexiege.Infrastructure
         {
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
-            if (_services == null) return;
+            IGameServices services = ResolveServices();
+            if (services == null) return;
 
-            UnitUpgradeUseCase upgrade = _services.GetUpgradeUseCase();
-            ResourceUseCase resource = _services.GetResource();
+            UnitUpgradeUseCase upgrade = services.GetUpgradeUseCase();
+            ResourceUseCase resource = services.GetResource();
             if (upgrade == null || resource == null) return;
 
             var team = (TeamId)teamIndex;
@@ -214,16 +238,35 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 완료된 강화 레벨을 모든 클라이언트에 반영(브로드캐스트). 서버는 이미 반영됨 → 스킵.
+        ///
+        /// 버그 수정(완료 후 진행 레이어→매트릭스 복귀 실패 / 멀티 자연회복 미완료·취소불가):
+        ///   과거에는 _services 가 null(스폰 레이스)이면 여기서 조기 반환하여 SetLevel(→OnUpgradeChanged)이
+        ///   누락되었고, 소유 클라의 연구 패널이 진행 레이어에 갇혔다(그 사이 서버는 이미 완료 → 이후 취소도 불가).
+        ///   착수/취소 알림은 GameEvents 를 직접 발행해 정상 동작했으나 완료만 _services 를 타서 비대칭으로 깨졌다.
+        ///   → (1) ResolveServices()로 서비스를 지연 재조회하여 레벨을 정상 반영하고,
+        ///     (2) 서비스가 끝내 null 이어도 UI 가 갇히지 않도록 완료를 직접 통지(OnUpgradeChanged)한다.
         /// </summary>
         [ClientRpc]
         private void ResearchLevelClientRpc(int teamIndex, int groupInt, int statInt, int level)
         {
             if (IsServer) return; // 서버는 TickResearch에서 이미 레벨을 올렸다.
 
-            UnitUpgradeUseCase upgrade = _services != null ? _services.GetUpgradeUseCase() : null;
-            if (upgrade == null) return;
+            var team = (TeamId)teamIndex;
 
-            upgrade.SetLevel((TeamId)teamIndex, (UpgradeGroup)groupInt, (UnitUpgradeStat)statInt, level);
+            // 서비스 지연 해석(스폰 레이스로 _services가 null일 수 있음).
+            UnitUpgradeUseCase upgrade = ResolveServices()?.GetUpgradeUseCase();
+            if (upgrade != null)
+            {
+                // SetLevel 내부에서 진행 레코드 제거 + OnUpgradeChanged 발행
+                //   → 소유 클라의 연구 패널이 진행 레이어를 비우고 매트릭스로 복귀한다.
+                upgrade.SetLevel(team, (UpgradeGroup)groupInt, (UnitUpgradeStat)statInt, level);
+            }
+            else
+            {
+                // 서비스 미해결 시에도 UI 가 진행 레이어에 갇히지 않도록 완료를 직접 통지한다
+                //   (취소 통지 ResearchCanceledClientRpc 와 동일한 안전장치 — 서비스 의존 없음).
+                GameEvents.OnUpgradeChanged.OnNext(team);
+            }
         }
 
         // 진행 시작 알림 — 요청 클라에게만.

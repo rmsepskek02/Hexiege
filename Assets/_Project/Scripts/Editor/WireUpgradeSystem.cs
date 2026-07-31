@@ -335,6 +335,9 @@ namespace Hexiege.EditorTools
                 Debug.LogWarning("[UpgradeSetup] 생산 패널 유닛 버튼 스프라이트를 못 읽었습니다. 셀/버튼 배경은 단색 폴백 사용. 스크린샷 확인 필요.");
 
             // ── 철거 버튼(하단, BuildingPanelBase) ──
+            //   룩(스프라이트/색)은 하베스트하되, 앵커는 "스트레치 사각형"일 때만 채택한다.
+            //   생산 패널의 철거 버튼이 포인트 앵커(min==max, 고정 크기)면 우리의 SetRect(sizeDelta=0)가
+            //   0×0 로 접어 버려 철거 버튼이 안 보이는 버그가 난다(버그 C). 그런 경우 하단 폴백 앵커를 유지한다.
             var demolishBtn = GetPrivateField(prod, "_demolishButton") as Button;
             if (demolishBtn != null)
             {
@@ -342,7 +345,15 @@ namespace Hexiege.EditorTools
                 if (di == null) demolishBtn.TryGetComponent(out di);
                 if (di != null) { s.demolishSprite = di.sprite; s.demolishColor = di.color; }
                 var drt = demolishBtn.GetComponent<RectTransform>();
-                if (drt != null) { s.demolishAnchorMin = drt.anchorMin; s.demolishAnchorMax = drt.anchorMax; s.demolishPivot = drt.pivot; }
+                if (drt != null && IsUsableStretchAnchors(drt.anchorMin, drt.anchorMax))
+                {
+                    s.demolishAnchorMin = drt.anchorMin; s.demolishAnchorMax = drt.anchorMax; s.demolishPivot = drt.pivot;
+                }
+                else if (drt != null)
+                {
+                    Debug.LogWarning("[UpgradeSetup] 생산 패널 철거 버튼 앵커가 포인트 앵커(고정 크기)라 채택하지 않고 " +
+                                     "하단 폴백 앵커를 사용합니다(0 크기 버튼 방지 — 버그 C).");
+                }
             }
             else
             {
@@ -356,11 +367,24 @@ namespace Hexiege.EditorTools
                 s.refundFont = refundText.font;
                 s.refundColor = refundText.color;
                 var rrt = refundText.GetComponent<RectTransform>();
-                if (rrt != null) { s.refundAnchorMin = rrt.anchorMin; s.refundAnchorMax = rrt.anchorMax; s.refundPivot = rrt.pivot; }
+                if (rrt != null && IsUsableStretchAnchors(rrt.anchorMin, rrt.anchorMax))
+                {
+                    s.refundAnchorMin = rrt.anchorMin; s.refundAnchorMax = rrt.anchorMax; s.refundPivot = rrt.pivot;
+                }
             }
             if (s.refundFont == null) s.refundFont = s.bodyFont;
 
             return s;
+        }
+
+        /// <summary>
+        /// 하베스트한 앵커가 우리의 스트레치 기반 SetRect(sizeDelta/offset=0)에 쓰기 적합한지 검사한다.
+        /// min==max(포인트 앵커, 고정 크기 레이아웃)면 SetRect 가 0 크기로 접어 요소가 안 보이므로,
+        /// 가로/세로 모두 유의미한 폭이 있을 때만 true(채택). 아니면 호출부가 폴백 앵커를 유지한다.
+        /// </summary>
+        private static bool IsUsableStretchAnchors(Vector2 min, Vector2 max)
+        {
+            return (max.x - min.x) > 0.001f && (max.y - min.y) > 0.001f;
         }
 
         private static Image FindFrameImage(GameObject root)

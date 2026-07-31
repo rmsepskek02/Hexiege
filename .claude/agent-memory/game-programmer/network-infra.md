@@ -123,3 +123,16 @@ type: project
 - 씬 배치 NetworkObject는 StartHost() 시 자동 스폰
 - Domain 최소 수정 원칙: ID 지정 생성자 오버로드 패턴
 - 서버 PlaceBuilding() 시 이미 GameEvents 발행 → SpawnBuildingClientRpc에서 IsServer 체크 필수
+
+## 연구소 강화(Research/Upgrade) 네트워크 동기화 — 버그 패턴 (2026-07-31)
+- 구조: `NetworkUpgradeController`(Infra) ↔ `UnitUpgradeUseCase`(App, `_active`=진행중, `_levels`=팀별 트랙 레벨).
+  - 착수: 클라 `TryResearch`→`RequestResearchServerRpc`→서버 `TryStartResearch`→`ResearchStartedClientRpc`(요청 클라만, `OnResearchStartedLocal` 직접 발행).
+  - 완료: 서버 `TickResearch`→`OnResearchCompleted` 훅→`ResearchLevelClientRpc`(양 클라 브로드캐스트)→클라 `SetLevel`→`OnUpgradeChanged`.
+  - 취소: `RequestCancelResearchServerRpc`→`CancelResearchByBuilding`(buildingId 기준)→`ResearchCanceledClientRpc`(`OnUpgradeChanged` 직접 발행).
+- **핵심 버그(고침)**: MP 클라에서 "완료 후 진행 레이어→매트릭스 복귀 안 됨". 착수/취소 ClientRpc는 `GameEvents`를 **직접** 발행해 서비스 의존이 없지만, 완료(`ResearchLevelClientRpc`)만 `_services.GetUpgradeUseCase().SetLevel()`을 타서 비대칭. `_services`가 스폰 레이스로 null이면 완료만 조용히 조기 반환→패널이 진행 레이어에 갇힘. MP는 데미지가 서버 권위라 클라 `_levels`가 UI 표시에만 쓰여 이 null이 이 버그로만 드러남.
+  - 진단 지문: **착수 표시는 되는데 완료만 안 되면** → 그 경로만 `_services`(캐시)에 의존하는지 의심.
+  - 수정: `ResolveServices()`(=`_services ??= GameServicesLocator.Current`)로 지연 재조회 + 서비스 끝내 null이어도 `OnUpgradeChanged` 직접 발행(취소 경로와 대칭).
+- **씬 NetworkObject 스폰 레이스**: `OnNetworkSpawn`에서 `GameServicesLocator.Current`를 1회만 캐시하면, 컨트롤러가 `GameBootstrapper.Register` 전에 스폰될 때 null로 굳음. 사용 시점 지연 재조회가 안전 패턴.
+- **자연회복(Regen)**: 그룹 무관 트랙. `UnitUpgradeUseCase.Key()`가 `stat==Regen`이면 그룹을 `UpgradeGroupHelper.RegenCanonicalGroup(=TransPlant)`로 정규화. UI(`ResearchMatrixView`)도 Regen 셀을 group=RegenCanonicalGroup로 바인딩. 서버가 Regen을 거부하는 별도 경로는 **없음**(공/방/속과 동일). "MP Regen 안 됨"은 위 완료-클리어 버그가 패시브 효과라 "업그레이드 안 됨"처럼 보인 것 + 서버 완료 후 취소 시도라 `_active` 비어 "취소 불가".
+- **건물 배치 아이콘(BuildingPlacementUI)**: `_blue/redTranscendenceBuildings` 등 6개 `List<BuildingPortraitEntry>{type,icon}`는 **Inspector 직렬화 데이터**. `UpdateButtonPortraits`가 `icon.sprite=entry.icon` 대입만 함. 아이콘 누락=순수 Inspector(코드 아님). AncientGrove=BuildingType.Research(=4), 초월 연구소도 같은 타입.
+- **WireUpgradeSystem 하베스트 함정**: 생산 패널에서 앵커를 하베스트해 `SetRect`(sizeDelta=0)로 적용 → 원본이 포인트 앵커(min==max)면 0×0 무형 요소가 됨. `IsUsableStretchAnchors`로 가드(철거 버튼/환불 텍스트). 철거 버튼 배선(`_demolishButton`/`_demolishRefundText`)은 `BuildPanel`에 이미 존재 → 안 보이면 Wire 재실행 필요할 수 있음.
