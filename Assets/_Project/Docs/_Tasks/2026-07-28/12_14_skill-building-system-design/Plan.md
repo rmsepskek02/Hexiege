@@ -42,13 +42,13 @@ origin/main이 병합되며 **연구소 유닛 강화 시스템 · 전투 스탯
 
 - **`InputHandler`가 바뀌었다.** `Initialize(...)` 마지막 인자로 `ResearchPanelUI researchPanelUI = null`이 추가됐고, `HandleClick`에 `buildingAtPos.Type == BuildingType.Research → _researchPanelUI.Open(...)` 분기가 생겼다(랠리 분기와 `CanShowActionPanel` 폴백 사이). → **우리 스킬 건물 라우팅은 이 Research 분기 바로 옆에 추가**하고, `Initialize` 시그니처는 이미 확장돼 있으니 우리 스킬 패널 인자를 뒤에 더 붙인다.
 - **`IGameServices`에 `GetUpgradeUseCase()` 추가 + `GameServicesLocator.Current` 신설.** 우리는 `GetSkillActivationUseCase()`를 같은 방식으로 추가하고, `NetworkSkillController`는 `GameServicesLocator.Current`로 서비스를 지연 해석한다(구 `NetworkBuildingController._services` OnNetworkSpawn 캐시보다 이 최신 패턴을 따른다).
-- **스킬 데미지는 "UnitData 공격자"가 없다.** `ComputeFinalDamage(attacker, target, raw)`/`ApplyFixedDamageToVictim(attacker,...)`는 **`UnitData attacker`를 요구**한다(Tank/CannonCart 건물 2배 판정·이벤트 attribution). 스킬은 건물이 시전자라 이 경로를 그대로 못 쓴다. → **건물/스킬 출처 전용 피해 경로**가 필요(§0-3, 결정 필요 항목 9-2).
+- **스킬 데미지는 "UnitData 공격자"가 없다.** `ComputeFinalDamage(attacker, target, raw)`/`ApplyFixedDamageToVictim(attacker,...)`는 **`UnitData attacker`를 요구**한다(Tank/CannonCart 건물 2배 판정·이벤트 attribution). 스킬은 건물이 시전자라 이 경로를 그대로 못 쓴다. → **건물/스킬 출처 전용 피해 경로를 신설**한다(§9-1 확정 9-2: `DamageCalculator.ApplyDefense` 직접 호출, Tank 2배 미적용, 기존 유닛 공격 경로 무변경).
 
-### 0-3. 새로 맞출 것 (통합 작업)
+### 0-3. 새로 맞출 것 (통합 작업 — 방식 확정)
 
 - **×10 스케일 데이터 주의.** 전투 스탯이 ×10로 커졌고 `DamageCalculator` K=120이 그 스케일에 맞춰졌다. → **`SkillDefinition`의 피해·힐 수치는 반드시 ×10 스케일로 저작**한다(구 "10 피해" ≈ 신 100). 3-1 스키마에 주의 명시.
-- **타입 A 즉발 피해 → `DamageCalculator.ApplyDefense` 통과(방어 감쇄됨).** 타입 B DoT → 무감쇄(위 0-1). 두 타입의 방어 상호작용이 **다르다** — 밸런스 함의라 사용자 확인 대상(9-3).
-- **상태효과 × 연구 배율 합성 지점·연산.** 버프/디버프가 연구 배율과 **곱연산인지 합연산인지**는 밸런스 결정(9-4). 합성 위치는 위 세 접근자로 권장(9-1).
+- **타입 A 즉발 피해 → `DamageCalculator.ApplyDefense` 통과(방어 감쇄됨). 타입 B DoT → 무감쇄**(§9 확정 9-3). 두 타입의 방어 상호작용이 다른 것은 의도된 설계.
+- **상태효과 × 연구 배율 = 곱연산, 합성 위치 = 기존 세 접근자**(§9 확정 9-1·9-4).
 
 > **[P1]/[P2] 표기**: 각 파일이 Phase 1(타입 A·B 지점 피해) 산출물인지, Phase 2(타입 C 전역 상태변경) 산출물인지 표시한다. Phase 정의는 6장 참조.
 
@@ -139,19 +139,19 @@ origin/main이 병합되며 **연구소 유닛 강화 시스템 · 전투 스탯
 
 - **타입 A — 즉발 범위 피해** (`InstantAreaDamageExecutor`) → 규칙 11
   - 조준 좌표를 중심으로 `BlastAttackBehavior.CollectEnemyUnitsInRadius`(유닛) + `QuakeAttackBehavior.CollectEnemyBuildingsInRadius`(건물) 재사용(2단계 선수집→적용).
-  - **피해는 `DamageCalculator.ApplyDefense(raw, defense)`(방어 감쇄)를 통과**한다: `raw`=SkillDefinition 피해값(×10 스케일), `defense`=피격 대상 팀 방어(`UnitUpgradeUseCase.GetDefense`, 건물은 0). → 유닛/타워 데미지와 동일한 감쇄 공식.
-  - ⚠️ **출처가 건물(시전 건물)이라 `UnitData attacker`가 없다.** 기존 `ApplyFixedDamageToVictim(attacker,...)`/`ComputeFinalDamage`는 UnitData 공격자를 요구하므로 그대로 재사용 불가 → **건물/스킬 출처 전용 즉발 피해 경로**를 UseCase에 추가(§0-2, 결정 9-2). 이 경로가 `DamageCalculator.ApplyDefense`를 직접 호출하고 `OnEntityDamaged`를 발행(Tank 2배는 미적용). 아군 제외.
+  - **피해는 `DamageCalculator.ApplyDefense(raw, defense)`(방어 감쇄)를 통과**한다(확정 9-3): `raw`=SkillDefinition 피해값(×10 스케일), `defense`=피격 대상 팀 방어(`UnitUpgradeUseCase.GetDefense`, 건물은 0). → 유닛/타워 데미지와 동일한 감쇄 공식.
+  - **출처가 건물(시전 건물)이라 `UnitData attacker`가 없다** → **건물/스킬 출처 전용 즉발 피해 경로를 UseCase에 신설**한다(확정 9-2). 이 경로가 `DamageCalculator.ApplyDefense`를 직접 호출하고 `OnEntityDamaged`를 발행(Tank 2배 미적용, 기존 유닛 공격 경로 무변경). 아군 제외.
 - **타입 B — 범위 지속 피해(장판)** (`AreaDotDamageExecutor`) → 규칙 12
   - 반경 수집(위와 동일) → 각 적 유닛에 `UnitCombatUseCase.ApplyDamageOverTime`(discrete 초 단위 틱) 부여. 신규 진입점(스킬 전용 튜닝값)으로 `ApplyBlastDot`/`ApplyInfernoDot`처럼 값 분리.
   - 틱은 기존 `TickTimedEffects(dt)`가 그대로 소비(추가 틱 루프 불필요).
-  - **DoT는 방어력 미적용(무감쇄)**: DoT 틱 sink `ApplyTimedDamageToUnit`이 `ComputeFinalDamage`를 우회해 `TakeDamage`를 직접 호출하므로, 타입 B는 자동으로 무감쇄가 된다(규칙과 일치). 타입 A(감쇄)와 방어 상호작용이 다른 점은 밸런스 함의 → 결정 9-3.
+  - **DoT는 방어력 미적용(무감쇄)**(확정 9-3): DoT 틱 sink `ApplyTimedDamageToUnit`이 `ComputeFinalDamage`를 우회해 `TakeDamage`를 직접 호출하므로, 타입 B는 자동으로 무감쇄가 된다(규칙과 일치). 타입 A(감쇄)와 방어 상호작용이 다른 것은 의도된 설계.
 - **타입 C — 전역 상태변경** (`GlobalStatusChangeExecutor`) → 규칙 13, 15
   - 조준 없음(전역 즉시). `TargetsAllies`에 따라 아군/적 유닛 전체 순회 → `StatusEffectSystem.Apply(unit, StatusEffect)`.
   - 회복은 `StatusEffectKind.HealOverTime`으로 표현하고 내부적으로 기존 `ApplyTimedEffect(Heal)`(HoT) 재사용 → 회복은 우선 전역 즉시(규칙 13, 추후 지점형 전환 여지).
 
 ### 3-4. 상태변경 시스템 (버프 개념 최초 도입) [Phase 2] → 규칙 13
 
-**버프 개념 최초 도입이지만, main 병합으로 "유효 스탯 접근자"가 이미 존재**하여 초기 계획보다 작업이 준다(§0-1). `UnitData` 스탯은 여전히 readonly이며(직접 mutable 변경안은 폐기 — 중첩·만료 원복 문제), **기존 연구 배율 레이어(`UnitUpgradeUseCase`)와 동일한 읽기 지점에 상태 배율을 합성**한다:
+**버프 개념 최초 도입이지만, main 병합으로 "유효 스탯 접근자"가 이미 존재**하여 초기 계획보다 작업이 준다(§0-1). `UnitData` 스탯은 여전히 readonly이며(직접 mutable 변경안은 폐기 — 중첩·만료 원복 문제), **기존 연구 배율 레이어(`UnitUpgradeUseCase`)와 동일한 읽기 지점(`UnitCombatUseCase` 접근자)에 상태 배율을 곱연산으로 합성**한다(확정 9-1·9-4 — 별도 오버레이 미도입):
 
 - **기존 단일 읽기 지점(재사용)**:
   - 공격력 → `UnitCombatUseCase.EffectiveAttack(attacker)` (이미 연구 배율 반영).
@@ -160,11 +160,11 @@ origin/main이 병합되며 **연구소 유닛 강화 시스템 · 전투 스탯
   - → **버프(공격↑)·디버프(공격↓)·둔화(이속↓)·방어 변화는 위 세 접근자에 상태 배율을 곱/합**하는 것으로 처리. 새 읽기 지점 전수 교체 불필요.
 - **여전히 신규가 필요한 것**(연구 레이어에 대응 훅이 없는 상태):
   - **공격 불가(빙결/기절)** — 공격 게이팅 훅이 없음. `UnitCombatUseCase`/`UnitView` 전투 진입에 `CanAttack(unit)` 게이트 신설.
-  - **이동 완전 정지(빙결=이속 0)** — `GetUnitMoveSpeedMultiplier`가 0을 반환하도록 상태 반영(정지 자체는 배율 0으로 표현 가능하나, A* 이동 코루틴이 0 배율을 안전히 처리하는지 확인 필요).
+  - **이동 완전 정지(빙결=이속 0)** — `GetUnitMoveSpeedMultiplier`가 0을 반환하도록 상태 반영(확정 9-5: 배율 0 우선. 구현 중 A* 이동 코루틴이 0 배율을 안전 처리하는지 검증 → 문제 시에만 별도 게이트 추가).
   - **감지 사거리 변화(DetectRange)** — 대응 훅 없음(변경 스킬을 넣을 경우에만 신규).
-- **Domain**: `UnitStatusState`(유닛별 활성 `StatusEffect` 목록) — 순수 계산. Core/Unity 미참조.
+- **Domain**: `UnitStatusState`(유닛별 활성 `StatusEffect` 목록) — 순수 계산(상태 배율 산출). Core/Unity 미참조.
 - **Application**: `StatusEffectSystem`이 부여/해제/지속시간 감소를 서버 권위로 관리(`_activeTimedEffects`·`UnitUpgradeUseCase._active`와 동일 딕셔너리 소유·틱 패턴). 회복은 기존 HoT(`ApplyTimedEffect(Heal)`) 재사용.
-- **합성 위치 결정 필요(9-1)**: 상태 배율을 (권장) `UnitCombatUseCase`의 기존 접근자 안에서 `_upgrade` 값과 함께 접어 넣을지, 별도 `UnitStatusState` 오버레이로 독립 계산할지. 연구 배율 × 상태 배율의 **연산 방식(곱/합)**도 밸런스 결정(9-4).
+- **합성(확정 9-1·9-4)**: 상태 배율은 `UnitCombatUseCase`의 기존 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`) 안에서 `_upgrade` 배율과 **곱연산**으로 합성한다(예: 공격력 = 기본 × 연구배율 × 상태배율). `StatusEffectSystem`은 대상별 상태 배율을 이 접근자에 제공한다.
 - **멀티 동기화**: 상태 부여/해제를 ClientRpc로 전파(연출·유효 스탯 재현). 값 권위는 서버.
 
 ### 3-5. 건물 글로벌 쿨다운 상태 + UI 오버레이 [Phase 1] → 규칙 3, 10
@@ -265,7 +265,7 @@ origin/main이 병합되며 **연구소 유닛 강화 시스템 · 전투 스탯
 
 1. **Domain(P2)**: `StatusEffectKind`·`StatusEffect`·`UnitStatusState`.
 2. **상태 시스템 골격(P2)**: `StatusEffectSystem`(부여/해제/틱). 아직 읽기 지점 미연결(부여해도 무효과), 컴파일 안전.
-3. **상태 배율 합성(P2)**: 기존 단일 접근자에 상태 배율을 접어 넣는다 — `EffectiveAttack`(공격 버프/디버프), `GetUnitMoveSpeedMultiplier`(둔화/빙결=0), 방어는 `ComputeFinalDamage`/`DamageCalculator` 경로. **신규 게이트**: `CanAttack(unit)`(빙결/기절 시 공격 불가), 필요 시 `DetectRange` 변경. **상태효과가 없으면 기존과 완전히 동일**(무변경 보장) — 회귀 검증 대상. 합성 위치·연산(곱/합)은 9-1·9-4 결정 반영.
+3. **상태 배율 합성(P2, 확정 9-1·9-4)**: 기존 단일 접근자에 상태 배율을 **곱연산**으로 접어 넣는다 — `EffectiveAttack`(공격 버프/디버프), `GetUnitMoveSpeedMultiplier`(둔화/빙결=배율 0, 확정 9-5), 방어는 `ComputeFinalDamage`/`DamageCalculator` 경로. **신규 게이트**: `CanAttack(unit)`(빙결/기절 시 공격 불가), 필요 시 `DetectRange` 변경. **상태효과가 없으면 기존과 완전히 동일**(무변경 보장) — 회귀 검증 대상.
 4. **타입 C 실행기(P2)**: `GlobalStatusChangeExecutor` + 레지스트리에 C 등록. 회복은 기존 HoT(`ApplyTimedEffect(Heal)`) 재사용. `SkillActivationContext` 상태부여 델리게이트 연결.
 5. **상태 틱(P2)**: 서버 틱의 `TickResearch`/`TickTimedEffects` 옆에 `StatusEffectSystem.Tick(dt)` 추가(이중 틱 금지). 멀티 상태 동기화(부여/해제 ClientRpc).
 6. **GameBootstrapper 배선(P2)** — 상태 시스템·타입 C 실행기 추가 주입.
@@ -281,10 +281,11 @@ origin/main이 병합되며 **연구소 유닛 강화 시스템 · 전투 스탯
 | 위험 | 영향 | 완화책 |
 |------|------|--------|
 | 상태 배율을 기존 접근자에 접을 때 일부 지점 누락 | 둔화/빙결/버프가 일부만 적용 | main이 이미 단일화한 3접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`)에만 합성 → 누락 위험 축소. 신규 게이트(`CanAttack`)·이속 0 A* 처리만 별도 검증 |
-| 상태 배율 × 연구 배율 합성 오류 | 강화 유닛에 스킬 걸면 수치 붕괴 | 합성 위치·연산(9-1·9-4) 확정 후 단위 검증. 연구만/상태만/둘 다 3케이스 회귀 확인 |
-| 스킬 데미지가 방어 파이프라인을 안 타면 방어력 무시 | 밸런스 붕괴 | 타입 A는 `DamageCalculator.ApplyDefense` 통과 필수, 타입 B는 의도적 무감쇄(규칙 일치) 명시 |
+| 상태 배율 × 연구 배율 합성 오류 | 강화 유닛에 스킬 걸면 수치 붕괴 | 곱연산으로 확정(9-4). 연구만/상태만/둘 다 3케이스 회귀 확인 |
+| 스킬 데미지가 방어 파이프라인을 안 타면 방어력 무시 | 밸런스 붕괴 | 타입 A는 `DamageCalculator.ApplyDefense` 통과, 타입 B는 의도적 무감쇄(확정 9-3) |
 | ×10 스케일 미인지 데이터 저작 | 스킬 피해가 1/10로 무의미 | `SkillDefinition` 수치는 ×10 스케일 저작(3-1 주의), 유닛 공격력과 같은 축 |
-| 건물 출처 피해에 UnitData attacker 강제 재사용 | 컴파일/NRE 또는 잘못된 2배 | 건물/스킬 출처 전용 피해 경로 신설(§0-2, 9-2), Tank 2배 미적용 |
+| 건물 출처 피해에 UnitData attacker 강제 재사용 | 컴파일/NRE 또는 잘못된 2배 | 건물/스킬 출처 전용 피해 경로 신설(확정 9-2), Tank 2배 미적용 |
+| 빙결 배율 0을 A* 이동 코루틴이 오처리 | 유닛이 얼지 않거나 예외 | 확정 9-5 — 구현 중 0 배율 안전 처리 검증, 문제 시에만 별도 정지 게이트 |
 | 조준 입력과 카메라 팬·타일 선택 입력 소유권 충돌 | 조준 중 오작동(팬/선택) | 조준 모드 플래그를 `CameraController`/`InputHandler`가 우선 가드(랠리 모드 우선순위 패턴 재사용) |
 | 글로벌 쿨다운 권위-표시 불일치 | 클라 오버레이가 서버와 어긋남 | 쿨다운은 서버 권위, 클라는 발동 ClientRpc의 시각·쿨다운값으로 로컬 카운트다운(규칙 10, 25) |
 | DoT/HoT 이중 틱 | 피해·회복 2배 | 서버 틱 단일화(`GameBootstrapper.Update` 싱글 / `NetworkCombatController.TickCombat` 멀티) — 기존 `TickTimedEffects`/`TickWaves` 옆에만 추가 |
@@ -299,22 +300,25 @@ origin/main이 병합되며 **연구소 유닛 강화 시스템 · 전투 스탯
 ## 8. 이번 범위 명시
 
 - **수행(계획):** 스킬 프레임워크(데이터 SO 스키마 / 타입별 실행기 / 상태변경 시스템 / 글로벌 쿨다운·오버레이 / 지점 조준 입력 / 서버 RPC / AI 발동 지원 진입점)의 2페이즈 구현 계획.
-- **확정 결정 반영:** ① UI = 전용 `BuildingSkillPanelUI` 신설(안 B). ② 글로벌 쿨다운 = `SkillActivationUseCase` 딕셔너리 보관(안 A). ③ AI 발동 지원(발동 진입점을 입력과 분리, 공유 API). ④ 스탯 변경 = 유효 스탯 오버레이. ⑤ 자산 = 플레이스홀더(단, 하단 X는 기존 UI 에셋 재사용). ⑥ 건설 진입점은 이미 가능(배치/건설 추가 작업 없음).
+- **확정 결정 반영(설계):** ① UI = 전용 `BuildingSkillPanelUI` 신설(안 B). ② 글로벌 쿨다운 = `SkillActivationUseCase` 딕셔너리 보관(안 A). ③ AI 발동 지원(발동 진입점을 입력과 분리, 공유 API). ④ 스탯 변경 = 유효 스탯 오버레이. ⑤ 자산 = 플레이스홀더(단, 하단 X는 기존 UI 에셋 재사용). ⑥ 건설 진입점은 이미 가능(배치/건설 추가 작업 없음).
+- **확정 결정 반영(main 병합 통합, §9):** 9-1 상태 배율 = 기존 접근자 합성 / 9-2 스킬 피해 = 건물 전용 경로 신설(`DamageCalculator` 직접) / 9-3 타입 A 감쇄·타입 B 무감쇄 / 9-4 곱연산 / 9-5 빙결 = 이속 배율 0 우선.
 - **범위 밖:** 개별 스킬 목록·수치(데이터로 별도), 회복의 지점형 전환(추후 재결정), 개별 스킬 쿨다운(현재 건물 글로벌만), **AI의 실제 스킬 판단 로직·AI 시나리오 문서 변경**(별도 후속 task — 이번엔 시스템이 AI 발동을 지원하는 진입점까지), 정식 아트(아이콘/VFX/조준 원/오버레이), `Testcase.md`(미지시).
 - 실제 코드/프리팹/에셋 변경은 **사용자 명시 승인 후** 별도 진행(현재는 계획 단계).
 
+> **착수 준비 상태:** §9 통합 결정 5건이 모두 확정됨으로써 Plan에 미결정 분기가 남아 있지 않다. **Phase 1(타입 A·B + 프레임워크 골격)은 대안 분기 없이 곧바로 착수 가능**하며, Phase 2도 합성 방식(9-1·9-4·9-5)이 확정되어 구현 경로가 단일하다. 남은 실기 확인 항목은 9-5의 "A* 0 배율 안전 처리"뿐(Phase 2 구현 중 검증). 실제 착수는 사용자 명시 승인 시점에 시작한다.
+
 ---
 
-## 9. 사용자 결정 필요 지점 (main 병합 후 신규 — 임의 결정하지 않음)
+## 9. 통합 방식 확정 (main 병합 후 신규 — 사용자 승인 완료, 권장안 채택)
 
-아래는 통합 방식에 설계 선택이 갈리는 지점이다. 권장안을 붙였으나 **확정은 사용자 승인 후**에 한다.
+아래 5건은 main 병합으로 생긴 통합 설계 선택 지점이며, **사용자가 권장안대로 전부 확정**했다. 선택 근거는 유지한다. 이 확정으로 **Phase 1은 대안 분기 없이 곧바로 착수 가능**하다.
 
-| # | 결정 지점 | 선택지 | 권장 |
-|---|-----------|--------|------|
-| 9-1 | **상태 배율 합성 위치** | (A) 기존 `UnitCombatUseCase` 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`) 안에서 `_upgrade` 값과 함께 상태 배율을 접어 넣기 / (B) 별도 `UnitStatusState` 오버레이로 독립 계산 후 합성 | **(A)** — 이미 단일 읽기 지점이라 배선·회귀 위험 최소 |
-| 9-2 | **스킬(건물) 출처 피해 경로** | (A) 건물/스킬 출처 전용 즉발 피해 경로 신설(`DamageCalculator.ApplyDefense` 직접 호출, Tank 2배 미적용) / (B) 가짜 UnitData 공격자 합성해 기존 경로 재사용 | **(A)** — 의미상 명확, 기존 경로 무변경(회귀 없음) |
-| 9-3 | **타입별 방어 상호작용 확정** | 타입 A 즉발 = 방어 감쇄 O, 타입 B 장판 DoT = 무감쇄(기존 DoT 관례). 이대로 확정할지 | 규칙(DoT 무감쇄)과 일치 → **현행 유지** 권장(밸런스 확인만) |
-| 9-4 | **상태 배율 × 연구 배율 연산** | 곱연산(둘 다 배율) / 합연산 / 스탯별 상이 | **곱연산**(둔화 0.5 × 이속연구 1.32 등 직관적) 권장, 최종은 밸런스 |
-| 9-5 | **빙결 시 이동 완전 정지 표현** | `GetUnitMoveSpeedMultiplier`=0 반환 / 별도 `IsRooted` 게이트 | 우선 **배율 0** 시도, A* 이동 코루틴이 0 배율을 안전 처리하는지 검증 후 필요 시 게이트 |
+| # | 결정 지점 | 확정 | 근거 |
+|---|-----------|------|------|
+| 9-1 | **상태 배율 합성 위치** | **(A) 기존 `UnitCombatUseCase` 접근자에 합성** — `EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage` 안에서 연구 배율(`_upgrade`)과 상태 배율을 함께 접는다. 별도 오버레이 미도입 | 이미 단일 읽기 지점이라 배선·회귀 위험 최소 |
+| 9-2 | **스킬(건물) 출처 피해 경로** | **(A) 건물/스킬 출처 전용 즉발 피해 경로 신설** — `DamageCalculator.ApplyDefense` 직접 호출, Tank 2배 미적용. **기존 유닛 공격 경로(`ComputeFinalDamage`/`ApplyFixedDamageToVictim`)는 무변경** | 의미상 명확, 기존 경로 회귀 없음 |
+| 9-3 | **타입별 방어 상호작용** | **현행 유지** — 타입 A 즉발 = 방어 감쇄 O, 타입 B 장판 DoT = 무감쇄 | 규칙(DoT 무감쇄)과 일치, 기존 DoT 구조 그대로 |
+| 9-4 | **상태 배율 × 연구 배율 연산** | **곱연산** — 예: 둔화 0.5 × 이속연구 1.32 = 0.66배 | 직관적, 각 레이어 독립 |
+| 9-5 | **빙결 시 이동 정지 표현** | **이동속도 배율 0 우선** — `GetUnitMoveSpeedMultiplier`가 0 반환. 구현 중 A* 이동 코루틴이 0 배율을 안전 처리하는지 검증 → 문제 시에만 별도 게이트 추가 | 최소 추가로 표현 가능, 배율 경로 재사용 |
 
-> 위 결정들은 대부분 **Phase 2** 착수 전에 필요(9-2·9-3은 Phase 1 타입 A/B 착수 전 필요). 9-4·밸런스성 항목은 데이터 확정 단계와 함께 조정 가능.
+> 위 확정은 Phase 1·Phase 2 산출물에 반영됨(§0, 3-3, 3-4, 6, 7). 9-5의 "A* 0 배율 검증"만 Phase 2 구현 중 실기 확인 항목으로 남고, 나머지는 계획 확정.

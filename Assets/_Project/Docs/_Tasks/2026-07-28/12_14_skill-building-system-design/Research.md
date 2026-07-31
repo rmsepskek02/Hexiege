@@ -127,7 +127,7 @@ origin/main 병합으로 우리 스킬 구현과 직접 겹치는 시스템이 �
 - **배선**: `Bootstrap/GameBootstrapper.Setup.cs` L344~346 `_unitUpgrade = new UnitUpgradeUseCase(); _unitCombat.SetUpgradeUseCase(_unitUpgrade); _towerCombat.SetUpgradeUseCase(_unitUpgrade);`, L508~514 InputHandler에 `_researchPanelUI` 주입. 우리 스킬 배선은 여기 옆에.
 - **×10 스케일**: 전투 스탯이 ×10로 커졌고 `DamageCalculator` K=120이 그 스케일 기준. → **스킬 피해·힐 데이터도 ×10 스케일로 저작**(유닛 공격력과 같은 축).
 
-> **델타 결론:** 우리가 Phase 2에 만들려던 "유효 스탯 오버레이"는 이미 존재하는 소급 배율 레이어(`UnitUpgradeUseCase`) + 단일 읽기 접근자와 **같은 패턴**이다. 따라서 상태효과는 새 저장을 두되 **기존 3접근자에 합성**하는 것으로 대부분 해결되어 Phase 2 작업이 준다. 다만 **공격 불가(빙결)·DetectRange 변경**은 대응 훅이 없어 신규가 필요하고, **스킬(건물) 출처 피해**는 UnitData 공격자를 요구하는 기존 경로를 못 써 전용 경로가 필요하다. 결정 필요 항목은 Plan.md §9.
+> **델타 결론:** 우리가 Phase 2에 만들려던 "유효 스탯 오버레이"는 이미 존재하는 소급 배율 레이어(`UnitUpgradeUseCase`) + 단일 읽기 접근자와 **같은 패턴**이다. 따라서 상태효과는 새 저장을 두되 **기존 3접근자에 곱연산 합성**하는 것으로 대부분 해결되어 Phase 2 작업이 준다. 다만 **공격 불가(빙결)·DetectRange 변경**은 대응 훅이 없어 신규가 필요하고, **스킬(건물) 출처 피해**는 UnitData 공격자를 요구하는 기존 경로를 못 써 전용 경로를 신설한다. 통합 방식 5건은 **Plan.md §9에서 모두 확정**(9-1 접근자 합성 / 9-2 건물 전용 피해 경로 / 9-3 A 감쇄·B 무감쇄 / 9-4 곱연산 / 9-5 빙결 배율 0).
 
 ---
 
@@ -147,7 +147,7 @@ origin/main 병합으로 우리 스킬 구현과 직접 겹치는 시스템이 �
 
 ### 핵심 기술 제약 (구현 시 반드시 고려)
 
-- **`UnitData`의 이동/공격/사거리 스탯은 readonly(get-only).** (근거: `Domain/Unit/UnitData.cs` L52~72 — `MaxHp`/`AttackPower`/`AttackRange`/`DetectRange`/`MoveSpeed`, 그리고 신규 `Defense`(L107)까지 모두 setter 없음. 변경 가능한 것은 `Hp`(private set)·`Facing`·`AttackCooldown(Remaining)`뿐.) → 타입 C의 둔화/빙결/버프는 원본을 직접 못 바꾸므로 유효 스탯 합성이 필요하지만, **main 병합으로 그 합성 지점(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`)이 이미 존재**한다(§2-11). 상태 배율을 이 접근자에 접어 넣는 방식이 유력(Plan §9-1). 신규는 공격 게이트·이속0 A* 처리·DetectRange 변경으로 국한.
+- **`UnitData`의 이동/공격/사거리 스탯은 readonly(get-only).** (근거: `Domain/Unit/UnitData.cs` L52~72 — `MaxHp`/`AttackPower`/`AttackRange`/`DetectRange`/`MoveSpeed`, 그리고 신규 `Defense`(L107)까지 모두 setter 없음. 변경 가능한 것은 `Hp`(private set)·`Facing`·`AttackCooldown(Remaining)`뿐.) → 타입 C의 둔화/빙결/버프는 원본을 직접 못 바꾸므로 유효 스탯 합성이 필요하지만, **main 병합으로 그 합성 지점(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`)이 이미 존재**한다(§2-11). 상태 배율을 이 접근자에 접어 넣는 방식으로 **확정**(Plan §9-1 = A안). 신규는 공격 게이트·이속0 A* 처리·DetectRange 변경으로 국한.
 - **스킬(건물) 출처 피해는 `UnitData attacker`가 없다.** `ComputeFinalDamage`/`ApplyFixedDamageToVictim`가 UnitData 공격자를 요구하므로 스킬 타입 A는 **건물/스킬 출처 전용 피해 경로**(`DamageCalculator.ApplyDefense` 직접 호출)가 필요(Plan §0-2, §9-2). 타입 B DoT는 무감쇄(기존 구조 그대로).
 - **×10 스케일 데이터**: `SkillDefinition` 피해·힐 수치는 ×10 스케일로 저작(§2-11).
 - **enum 미변경**(규칙 1): `MagicBuilding`을 Spirit/Trans가 공유 → 스킬 로드아웃은 enum이 아닌 **종족 키(RaceId, `building.Team`→`GameRaceContext.BlueRace/RedRace`)로 분기**. 각 종족은 스킬 건물이 정확히 1종이므로 RaceId 키로 로드아웃이 유일하게 결정됨.
@@ -165,7 +165,7 @@ origin/main 병합으로 우리 스킬 구현과 직접 겹치는 시스템이 �
 | `Application/Interfaces/IGameServices.cs` | `GetSkillActivationUseCase()` 추가(main `GetUpgradeUseCase()`와 동일 방식) |
 | `Application/UseCases/UnitCombatUseCase.cs` | P1: 타입 B 반경 DoT + **건물/스킬 출처 즉발 피해 경로**(`DamageCalculator.ApplyDefense`). P2: 기존 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`)에 상태 배율 합성 + `CanAttack` 게이트 |
 | `Application/UseCases/`(전투/틱 진입점) | 서버 틱의 **`TickResearch` 호출 옆**에 쿨다운·상태 틱 추가(`GameBootstrapper.Update` / `NetworkCombatController.TickCombat` L312) |
-| `Domain/Unit/UnitData.cs` (조건부) | 원칙 무변경(readonly 유지). 합성을 도메인에 두는 안(§9-1) 채택 시에만 `UnitStatusState` 참조 |
+| `Domain/Unit/UnitData.cs` | **무변경 확정**(readonly 유지) — 9-1=A로 합성은 `UnitCombatUseCase` 접근자에서 수행, `CanAttack` 게이트도 Application/UnitView에 둠 |
 
 > **변경 없이 재사용만 하는 신규 파일**: `Domain/Combat/DamageCalculator.cs`(스킬 A 데미지), `Application/UseCases/UnitUpgradeUseCase.cs`(유효 스탯 접근자·힐 스케일), `Infrastructure/Network/NetworkUpgradeController.cs`(RPC 패턴 미러 참고).
 > **변경 없음**: `BuildingType` enum·`BuildingStatsConfig.asset`(규칙 1, 건설비 200), `BuildingData.cs`(쿨다운=UseCase 딕셔너리 확정), `BuildingActionPanelUI.cs`(전용 패널 신설). 위 표의 변경은 전부 **추가(additive)**이며 제거·비활성화 대상은 **없음**.
@@ -174,7 +174,7 @@ origin/main 병합으로 우리 스킬 구현과 직접 겹치는 시스템이 �
 
 ## 5. 조사 중 발견한 주의점
 
-1. **[main 병합으로 완화]** readonly 스탯이라 "MoveSpeed=0" 대입은 여전히 불가하지만, 이동(`UnitView`→`GetUnitMoveSpeedMultiplier`)·공격력(`EffectiveAttack`)·방어(`ComputeFinalDamage`)의 **읽기 지점이 이미 단일화**돼 있어(§2-11), 상태 배율을 이 접근자에 접어 넣으면 대부분 해결된다. 남은 신규는 **공격 불가 게이트(`CanAttack`)·이속 0 시 A* 처리·DetectRange 변경**뿐. 상태 배율 × 연구 배율 합성 연산은 밸런스 결정(Plan §9-4).
+1. **[main 병합으로 완화]** readonly 스탯이라 "MoveSpeed=0" 대입은 여전히 불가하지만, 이동(`UnitView`→`GetUnitMoveSpeedMultiplier`)·공격력(`EffectiveAttack`)·방어(`ComputeFinalDamage`)의 **읽기 지점이 이미 단일화**돼 있어(§2-11), 상태 배율을 이 접근자에 접어 넣으면 대부분 해결된다. 남은 신규는 **공격 불가 게이트(`CanAttack`)·이속 0 시 A* 처리·DetectRange 변경**뿐. 상태 배율 × 연구 배율은 **곱연산으로 확정**(Plan §9-4).
 2. **지점 조준의 입력 흐름이 랠리보다 무겁다.** 랠리는 release 한 번이면 끝이지만, 스킬은 press→매 프레임 드래그 추적→엣지 스크롤/조준점 이동→release 분기(발동/취소)라 프레임 단위 상태 머신이 필요. `CameraController.HandlePan`·`InputHandler.Update`가 이미 press/drag/release를 각자 소비하므로 **입력 소유권 충돌**(조준 중 카메라 팬·타일 선택 억제)에 주의.
 3. **글로벌 쿨다운 오버레이는 "패널 열려 있는 동안"만 갱신하면 충분**(규칙 10은 버튼 위 표시). 매 프레임 남은 시간을 `SkillActivationUseCase` 딕셔너리에서 읽어 radial fill + 숫자 갱신. 다만 쿨다운 상태 자체는 **서버 권위**(규칙 25)라 클라 오버레이는 서버가 전파한 발동 시각/쿨다운으로 로컬 카운트다운.
 4. **하단 X 취소와 하단 엣지 스크롤 겹침**(규칙 21)은 실기 튜닝 대상 — X는 화면 끝보다 안쪽, 엣지 스크롤은 진짜 가장자리 여백만. 여백 폭은 Plan에서 상수로 두되 값은 실기 조정.
