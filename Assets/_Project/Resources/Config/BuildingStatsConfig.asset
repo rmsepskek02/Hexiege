@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.BuildingStatsConfig
   _stats:
   - buildingType: 0
-    humanMaxHp: 200
-    spiritMaxHp: 150
-    transcendenceMaxHp: 300
+    humanMaxHp: 2000
+    spiritMaxHp: 1500
+    transcendenceMaxHp: 3000
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 0
@@ -31,9 +31,9 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 0
   - buildingType: 1
-    humanMaxHp: 100
-    spiritMaxHp: 50
-    transcendenceMaxHp: 150
+    humanMaxHp: 1000
+    spiritMaxHp: 500
+    transcendenceMaxHp: 1500
     humanGoldCost: 50
     spiritGoldCost: 50
     transcendenceGoldCost: 100
@@ -48,15 +48,15 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 0
   - buildingType: 2
-    humanMaxHp: 50
-    spiritMaxHp: 150
-    transcendenceMaxHp: 100
+    humanMaxHp: 500
+    spiritMaxHp: 1500
+    transcendenceMaxHp: 1000
     humanGoldCost: 150
     spiritGoldCost: 200
     transcendenceGoldCost: 175
-    humanAttackPower: 15
-    spiritAttackPower: 15
-    transcendenceAttackPower: 15
+    humanAttackPower: 150
+    spiritAttackPower: 150
+    transcendenceAttackPower: 150
     humanAttackCooldown: 5
     spiritAttackCooldown: 3.5
     transcendenceAttackCooldown: 5
@@ -65,7 +65,7 @@ MonoBehaviour:
     transcendenceAttackRange: 4
     upgradeCost: 0
   - buildingType: 3
-    humanMaxHp: 100
+    humanMaxHp: 1000
     spiritMaxHp: 0
     transcendenceMaxHp: 0
     humanGoldCost: 200
@@ -82,9 +82,9 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 0
   - buildingType: 4
-    humanMaxHp: 100
-    spiritMaxHp: 100
-    transcendenceMaxHp: 150
+    humanMaxHp: 1000
+    spiritMaxHp: 1000
+    transcendenceMaxHp: 1500
     humanGoldCost: 200
     spiritGoldCost: 200
     transcendenceGoldCost: 200
@@ -100,8 +100,8 @@ MonoBehaviour:
     upgradeCost: 0
   - buildingType: 5
     humanMaxHp: 0
-    spiritMaxHp: 100
-    transcendenceMaxHp: 150
+    spiritMaxHp: 1000
+    transcendenceMaxHp: 1500
     humanGoldCost: 0
     spiritGoldCost: 200
     transcendenceGoldCost: 200
@@ -118,7 +118,7 @@ MonoBehaviour:
   - buildingType: 6
     humanMaxHp: 0
     spiritMaxHp: 0
-    transcendenceMaxHp: 50
+    transcendenceMaxHp: 500
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 100
@@ -133,7 +133,7 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 0
   - buildingType: 7
-    humanMaxHp: 100
+    humanMaxHp: 1000
     spiritMaxHp: 0
     transcendenceMaxHp: 0
     humanGoldCost: 100
@@ -150,7 +150,7 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 100
   - buildingType: 8
-    humanMaxHp: 200
+    humanMaxHp: 2000
     spiritMaxHp: 0
     transcendenceMaxHp: 0
     humanGoldCost: 0
@@ -167,7 +167,7 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 200
   - buildingType: 9
-    humanMaxHp: 300
+    humanMaxHp: 3000
     spiritMaxHp: 0
     transcendenceMaxHp: 0
     humanGoldCost: 0
@@ -184,7 +184,7 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 0
   - buildingType: 10
-    humanMaxHp: 100
+    humanMaxHp: 1000
     spiritMaxHp: 0
     transcendenceMaxHp: 0
     humanGoldCost: 100
@@ -201,7 +201,7 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 100
   - buildingType: 11
-    humanMaxHp: 200
+    humanMaxHp: 2000
     spiritMaxHp: 0
     transcendenceMaxHp: 0
     humanGoldCost: 0
@@ -218,7 +218,7 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 200
   - buildingType: 12
-    humanMaxHp: 300
+    humanMaxHp: 3000
     spiritMaxHp: 0
     transcendenceMaxHp: 0
     humanGoldCost: 0
@@ -235,7 +235,7 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 0
   - buildingType: 13
-    humanMaxHp: 100
+    humanMaxHp: 1000
     spiritMaxHp: 0
     transcendenceMaxHp: 0
     humanGoldCost: 100
@@ -252,7 +252,7 @@ MonoBehaviour:
     transcendenceAttackRange: 0
     upgradeCost: 100
   - buildingType: 14
-    humanMaxHp: 200
+    humanMaxHp: 2000
     spiritMaxHp: 0
     transcendenceMaxHp: 0
     humanGoldCost: 0
@@ -270,7 +270,7 @@ MonoBehaviour:
     upgradeCost: 0
   - buildingType: 15
     humanMaxHp: 0
-    spiritMaxHp: 50
+    spiritMaxHp: 500
     transcendenceMaxHp: 0
     humanGoldCost: 0
     spiritGoldCost: 75
@@ -287,7 +287,7 @@ MonoBehaviour:
     upgradeCost: 200
   - buildingType: 16
     humanMaxHp: 0
-    spiritMaxHp: 100
+    spiritMaxHp: 1000
     transcendenceMaxHp: 0
     humanGoldCost: 0
     spiritGoldCost: 0
@@ -304,7 +304,7 @@ MonoBehaviour:
     upgradeCost: 400
   - buildingType: 17
     humanMaxHp: 0
-    spiritMaxHp: 400
+    spiritMaxHp: 4000
     transcendenceMaxHp: 0
     humanGoldCost: 0
     spiritGoldCost: 0
@@ -321,7 +321,7 @@ MonoBehaviour:
     upgradeCost: 0
   - buildingType: 18
     humanMaxHp: 0
-    spiritMaxHp: 50
+    spiritMaxHp: 500
     transcendenceMaxHp: 0
     humanGoldCost: 0
     spiritGoldCost: 75
@@ -338,7 +338,7 @@ MonoBehaviour:
     upgradeCost: 200
   - buildingType: 19
     humanMaxHp: 0
-    spiritMaxHp: 100
+    spiritMaxHp: 1000
     transcendenceMaxHp: 0
     humanGoldCost: 0
     spiritGoldCost: 0
@@ -355,7 +355,7 @@ MonoBehaviour:
     upgradeCost: 400
   - buildingType: 20
     humanMaxHp: 0
-    spiritMaxHp: 400
+    spiritMaxHp: 4000
     transcendenceMaxHp: 0
     humanGoldCost: 0
     spiritGoldCost: 0
@@ -372,7 +372,7 @@ MonoBehaviour:
     upgradeCost: 0
   - buildingType: 21
     humanMaxHp: 0
-    spiritMaxHp: 50
+    spiritMaxHp: 500
     transcendenceMaxHp: 0
     humanGoldCost: 0
     spiritGoldCost: 75
@@ -389,7 +389,7 @@ MonoBehaviour:
     upgradeCost: 200
   - buildingType: 22
     humanMaxHp: 0
-    spiritMaxHp: 100
+    spiritMaxHp: 1000
     transcendenceMaxHp: 0
     humanGoldCost: 0
     spiritGoldCost: 0
@@ -406,7 +406,7 @@ MonoBehaviour:
     upgradeCost: 400
   - buildingType: 23
     humanMaxHp: 0
-    spiritMaxHp: 400
+    spiritMaxHp: 4000
     transcendenceMaxHp: 0
     humanGoldCost: 0
     spiritGoldCost: 0
@@ -424,7 +424,7 @@ MonoBehaviour:
   - buildingType: 24
     humanMaxHp: 0
     spiritMaxHp: 0
-    transcendenceMaxHp: 150
+    transcendenceMaxHp: 1500
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 125
@@ -441,7 +441,7 @@ MonoBehaviour:
   - buildingType: 25
     humanMaxHp: 0
     spiritMaxHp: 0
-    transcendenceMaxHp: 300
+    transcendenceMaxHp: 3000
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 0
@@ -458,7 +458,7 @@ MonoBehaviour:
   - buildingType: 26
     humanMaxHp: 0
     spiritMaxHp: 0
-    transcendenceMaxHp: 400
+    transcendenceMaxHp: 4000
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 0
@@ -475,7 +475,7 @@ MonoBehaviour:
   - buildingType: 27
     humanMaxHp: 0
     spiritMaxHp: 0
-    transcendenceMaxHp: 150
+    transcendenceMaxHp: 1500
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 125
@@ -492,7 +492,7 @@ MonoBehaviour:
   - buildingType: 28
     humanMaxHp: 0
     spiritMaxHp: 0
-    transcendenceMaxHp: 300
+    transcendenceMaxHp: 3000
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 0
@@ -509,7 +509,7 @@ MonoBehaviour:
   - buildingType: 29
     humanMaxHp: 0
     spiritMaxHp: 0
-    transcendenceMaxHp: 400
+    transcendenceMaxHp: 4000
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 0
@@ -526,7 +526,7 @@ MonoBehaviour:
   - buildingType: 30
     humanMaxHp: 0
     spiritMaxHp: 0
-    transcendenceMaxHp: 150
+    transcendenceMaxHp: 1500
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 125
@@ -543,7 +543,7 @@ MonoBehaviour:
   - buildingType: 31
     humanMaxHp: 0
     spiritMaxHp: 0
-    transcendenceMaxHp: 300
+    transcendenceMaxHp: 3000
     humanGoldCost: 0
     spiritGoldCost: 0
     transcendenceGoldCost: 0

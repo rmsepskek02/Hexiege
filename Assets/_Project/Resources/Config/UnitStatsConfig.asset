@@ -14,44 +14,50 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.UnitStatsConfig
   _stats:
   - unitType: 0
-    maxHp: 30
-    attackPower: 6
+    maxHp: 300
+    attackPower: 60
     attackRange: 1
     detectRange: 1
     moveSpeed: 0.5
     attackCooldown: 2
     hitFrameTimes:
     - 2
+    defense: 0
     productionTime: 5
     goldCost: 50
     populationCost: 1
+    isHealer: 0
   - unitType: 1
-    maxHp: 40
-    attackPower: 1
+    maxHp: 400
+    attackPower: 10
     attackRange: 2
     detectRange: 2
     moveSpeed: 1
     attackCooldown: 0.2
     hitFrameTimes:
     - 0.2
+    defense: 0
     productionTime: 10
     goldCost: 100
     populationCost: 1
+    isHealer: 0
   - unitType: 2
-    maxHp: 30
-    attackPower: 18
+    maxHp: 300
+    attackPower: 180
     attackRange: 5
     detectRange: 5
     moveSpeed: 0.25
     attackCooldown: 3
     hitFrameTimes:
     - 3
+    defense: 0
     productionTime: 20
     goldCost: 200
     populationCost: 1
+    isHealer: 0
   - unitType: 3
-    maxHp: 35
-    attackPower: 4
+    maxHp: 350
+    attackPower: 40
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 1
@@ -59,60 +65,70 @@ MonoBehaviour:
     hitFrameTimes:
     - 0.25
     - 1.15
+    defense: 0
     productionTime: 5
     goldCost: 50
     populationCost: 1
+    isHealer: 0
   - unitType: 4
-    maxHp: 50
-    attackPower: 10
+    maxHp: 500
+    attackPower: 100
     attackRange: 1
     detectRange: 1.5
     moveSpeed: 1
     attackCooldown: 2
     hitFrameTimes:
     - 0.24
+    defense: 0
     productionTime: 10
     goldCost: 100
     populationCost: 1
+    isHealer: 0
   - unitType: 5
-    maxHp: 80
-    attackPower: 15
+    maxHp: 800
+    attackPower: 150
     attackRange: 0.75
     detectRange: 1
     moveSpeed: 1
     attackCooldown: 3.05
     hitFrameTimes:
     - 1.1667
+    defense: 0
     productionTime: 20
     goldCost: 200
     populationCost: 1
+    isHealer: 0
   - unitType: 6
-    maxHp: 100
-    attackPower: 30
+    maxHp: 1000
+    attackPower: 300
     attackRange: 3
     detectRange: 4
     moveSpeed: 1
     attackCooldown: 4
     hitFrameTimes:
     - 4
+    defense: 0
     productionTime: 30
     goldCost: 400
     populationCost: 1
+    isHealer: 0
   - unitType: 7
-    maxHp: 50
-    attackPower: 20
+    maxHp: 500
+    attackPower: 200
     attackRange: 3
     detectRange: 4
     moveSpeed: 1
     attackCooldown: 4
     hitFrameTimes:
     - 4
+    defense: 0
     productionTime: 20
     goldCost: 150
     populationCost: 1
+    isHealer: 0
   - unitType: 10
-    maxHp: 35
-    attackPower: 3
+    maxHp: 350
+    attackPower: 30
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 2
@@ -124,120 +140,140 @@ MonoBehaviour:
     - 1.2
     - 1.28
     - 2.03
+    defense: 0
     productionTime: 10
     goldCost: 100
     populationCost: 1
+    isHealer: 0
   - unitType: 11
-    maxHp: 35
-    attackPower: 6
+    maxHp: 350
+    attackPower: 60
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 0.5
     attackCooldown: 2.2
     hitFrameTimes:
     - 1
+    defense: 0
     productionTime: 5
     goldCost: 50
     populationCost: 1
+    isHealer: 0
   - unitType: 12
-    maxHp: 60
-    attackPower: 25
+    maxHp: 600
+    attackPower: 250
     attackRange: 4
     detectRange: 4
     moveSpeed: 1
     attackCooldown: 3
     hitFrameTimes:
     - 1.15
+    defense: 0
     productionTime: 30
     goldCost: 400
     populationCost: 1
+    isHealer: 0
   - unitType: 13
-    maxHp: 50
-    attackPower: 6
+    maxHp: 500
+    attackPower: 60
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 0.5
     attackCooldown: 3
     hitFrameTimes:
     - 1.04
+    defense: 0
     productionTime: 5
     goldCost: 50
     populationCost: 1
+    isHealer: 0
   - unitType: 14
-    maxHp: 80
-    attackPower: 8
+    maxHp: 800
+    attackPower: 80
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 0.5
     attackCooldown: 4
     hitFrameTimes:
     - 1.15
+    defense: 0
     productionTime: 15
     goldCost: 100
     populationCost: 1
+    isHealer: 0
   - unitType: 16
-    maxHp: 30
-    attackPower: 7
+    maxHp: 300
+    attackPower: 70
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 1
     attackCooldown: 3
     hitFrameTimes:
     - 1.15
+    defense: 0
     productionTime: 5
     goldCost: 50
     populationCost: 1
+    isHealer: 0
   - unitType: 17
-    maxHp: 30
-    attackPower: 6
+    maxHp: 300
+    attackPower: 60
     attackRange: 3
     detectRange: 3
     moveSpeed: 0.5
     attackCooldown: 1.15
     hitFrameTimes:
     - 0.17
+    defense: 0
     productionTime: 10
     goldCost: 100
     populationCost: 1
+    isHealer: 0
   - unitType: 18
-    maxHp: 100
-    attackPower: 20
+    maxHp: 1000
+    attackPower: 200
     attackRange: 3
     detectRange: 3
     moveSpeed: 0.5
     attackCooldown: 4
     hitFrameTimes:
     - 0.5
+    defense: 0
     productionTime: 30
     goldCost: 400
     populationCost: 1
+    isHealer: 0
   - unitType: 20
-    maxHp: 100
-    attackPower: 6
+    maxHp: 1000
+    attackPower: 60
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 1
     attackCooldown: 1.2
     hitFrameTimes:
     - 0.2
+    defense: 0
     productionTime: 25
     goldCost: 300
     populationCost: 1
+    isHealer: 0
   - unitType: 21
-    maxHp: 20
-    attackPower: 15
+    maxHp: 200
+    attackPower: 150
     attackRange: 3
     detectRange: 3
     moveSpeed: 0.5
     attackCooldown: 4
     hitFrameTimes:
     - 2.25
+    defense: 0
     productionTime: 5
     goldCost: 70
     populationCost: 1
+    isHealer: 0
   - unitType: 22
-    maxHp: 50
-    attackPower: 9
+    maxHp: 500
+    attackPower: 90
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 2
@@ -245,47 +281,55 @@ MonoBehaviour:
     hitFrameTimes:
     - 0.22
     - 1.08
+    defense: 0
     productionTime: 15
     goldCost: 200
     populationCost: 1
+    isHealer: 0
   - unitType: 23
-    maxHp: 60
-    attackPower: 10
+    maxHp: 600
+    attackPower: 100
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 2
     attackCooldown: 2
     hitFrameTimes:
     - 1.05
+    defense: 0
     productionTime: 20
     goldCost: 200
     populationCost: 1
+    isHealer: 0
   - unitType: 24
-    maxHp: 35
-    attackPower: 6
+    maxHp: 350
+    attackPower: 60
     attackRange: 3
     detectRange: 3
     moveSpeed: 1
     attackCooldown: 1
     hitFrameTimes:
     - 0.1
+    defense: 0
     productionTime: 15
     goldCost: 150
     populationCost: 1
+    isHealer: 0
   - unitType: 25
-    maxHp: 20
-    attackPower: 10
+    maxHp: 200
+    attackPower: 100
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 2
     attackCooldown: 2
     hitFrameTimes:
     - 0.18
+    defense: 0
     productionTime: 5
     goldCost: 50
     populationCost: 1
+    isHealer: 0
   - unitType: 27
-    maxHp: 50
+    maxHp: 500
     attackPower: 0
     attackRange: 4
     detectRange: 4
@@ -293,31 +337,36 @@ MonoBehaviour:
     attackCooldown: 3
     hitFrameTimes:
     - 1
+    defense: 0
     productionTime: 20
     goldCost: 150
     populationCost: 1
     isHealer: 1
   - unitType: 26
-    maxHp: 40
-    attackPower: 10
+    maxHp: 400
+    attackPower: 100
     attackRange: 2
     detectRange: 2
     moveSpeed: 1
     attackCooldown: 3
     hitFrameTimes:
     - 1
+    defense: 0
     productionTime: 15
     goldCost: 200
     populationCost: 1
+    isHealer: 0
   - unitType: 15
-    maxHp: 250
-    attackPower: 20
+    maxHp: 2500
+    attackPower: 200
     attackRange: 0.5
     detectRange: 1
     moveSpeed: 0.5
     attackCooldown: 5
     hitFrameTimes:
     - 1
+    defense: 0
     productionTime: 30
     goldCost: 400
     populationCost: 1
+    isHealer: 0
