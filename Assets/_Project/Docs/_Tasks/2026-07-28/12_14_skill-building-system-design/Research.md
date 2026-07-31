@@ -108,6 +108,27 @@ Hexiege의 세 종족(Human / Spirit / Transcendence)에는 각각 **스킬 건�
 - `Assets/_Project/Scripts/Infrastructure/Config/SpecialAttackConfig.cs` + `Resources/Config/SpecialAttackConfig.asset` — Infrastructure Config SO 패턴(스킬 데이터 SO의 참고).
 - `Assets/_Project/Scripts/Application/Combat/ISpecialAttackBehavior.cs` + `SpecialAttackRegistry.cs` — **전략(Strategy) + 키 레지스트리** 패턴. 스킬 타입 A/B/C 실행기를 `SkillMechanicType → ISkillExecutor`로 매핑하는 데 그대로 원용 가능.
 
+### 2-11. main 병합 신규 시스템 (2026-07-31 — 연구 강화 / ×10 스케일 / 방어력 / DamageCalculator)
+
+origin/main 병합으로 우리 스킬 구현과 직접 겹치는 시스템이 들어왔다. 파일 경로·재사용 지점:
+
+- **소급 배율 레이어 = `Application/UseCases/UnitUpgradeUseCase.cs`(신규).** 스탯 재계산 없이 "쓰는 순간" 배율/증가치를 곱하는 `(B)`방식. 중앙 접근자: `GetEffectiveAttack(team,type)`, `GetMoveSpeedMultiplier(team,type)`, `GetDefense(team,type)`, `GetRegenPerSecond(team)`, `ScaleByGroupAttack(team,group,base)`. **키는 (팀,그룹,스탯) — 팀 전체·영구·기간 없음.** 우리 상태효과(유닛 인스턴스별·기간·중첩)는 저장을 공유하지 않되, **같은 읽기 지점에서 합성**해야 한다.
+- **유효 스탯 단일 읽기 지점(이미 배선됨):**
+  - 공격력: `Application/UseCases/UnitCombatUseCase.cs` `EffectiveAttack(attacker)`(L254~255) — 직격 L1246·스플래시 L1502.
+  - 이동속도: `UnitCombatUseCase.GetUnitMoveSpeedMultiplier(unit)`(L265~268), **`Presentation/Unit/UnitView.cs` 이동이 읽음**(L920·L1363).
+  - 방어 감쇄: `UnitCombatUseCase.ComputeFinalDamage(...)`(L1201~1225) → `DamageCalculator.ApplyDefense`.
+- **`Domain/Combat/DamageCalculator.cs`(신규, 순수).** `ApplyDefense(raw, defense)`, K=120, 최소 1, **방어 0이면 무감쇄(하위호환)**. 직격/스플래시가 `ComputeFinalDamage` 경유로 공유. → 스킬 타입 A가 통과할 방어 파이프라인.
+- **DoT 무감쇄 확인**: `UnitCombatUseCase.ApplyTimedDamageToUnit`(L1800~1822)이 `ComputeFinalDamage`를 우회해 `target.TakeDamage(amount)` 직접 호출 → **DoT는 방어력 미적용**. 타입 B(장판)가 `ApplyDamageOverTime`를 재사용하면 자동으로 무감쇄.
+- **방어력 스냅샷 = `Domain/Unit/UnitData.cs` `int Defense { get; }`(신규, readonly).** 생성 시 `UnitStats.GetDefense(type)` 스냅샷(Phase 1 전 유닛 0). 실제 방어는 `_upgrade.GetDefense`로 소급 조회. → **`UnitData` 스탯 readonly 가정 여전히 유효**.
+- **그룹 정의 = `Domain/Unit/UpgradeGroup.cs`(신규).** `enum UpgradeGroup`(인간/정령/초월 그룹), `enum UnitUpgradeStat{Attack,Defense,MoveSpeed,Regen}`, `UpgradeGroupHelper.GetGroup(type)`. 스킬은 유닛 그룹과 무관하나, 힐 스케일(`ScaleByGroupAttack`) 참고.
+- **서버 권위 RPC 최신 참고 = `Infrastructure/Network/NetworkUpgradeController.cs`(신규).** 래퍼→ServerRpc, 팀 소유권(SenderClientId), targeted 실패/브로드캐스트 완료 ClientRpc, `OnResearchCompleted` 훅(App→Infra 역전), **`GameServicesLocator.Current` 지연 해석**(스폰 레이스 방지). `IGameServices.GetUpgradeUseCase()`(신규, `Application/Interfaces/IGameServices.cs` L95).
+- **서버 틱 진입점**: 멀티=`Infrastructure/Network/NetworkCombatController.cs` L312 `_services?.GetUpgradeUseCase()?.TickResearch(elapsed)`, 싱글=`GameBootstrapper.Update`. 우리 쿨다운/상태 틱이 붙을 자리.
+- **InputHandler 변경**: `Presentation/Input/InputHandler.cs` `Initialize(...)` 마지막에 `ResearchPanelUI researchPanelUI = null` 추가, `HandleClick`에 `BuildingType.Research → _researchPanelUI.Open` 분기(L253~260). 우리 스킬 건물 라우팅은 이 분기 옆에 추가.
+- **배선**: `Bootstrap/GameBootstrapper.Setup.cs` L344~346 `_unitUpgrade = new UnitUpgradeUseCase(); _unitCombat.SetUpgradeUseCase(_unitUpgrade); _towerCombat.SetUpgradeUseCase(_unitUpgrade);`, L508~514 InputHandler에 `_researchPanelUI` 주입. 우리 스킬 배선은 여기 옆에.
+- **×10 스케일**: 전투 스탯이 ×10로 커졌고 `DamageCalculator` K=120이 그 스케일 기준. → **스킬 피해·힐 데이터도 ×10 스케일로 저작**(유닛 공격력과 같은 축).
+
+> **델타 결론:** 우리가 Phase 2에 만들려던 "유효 스탯 오버레이"는 이미 존재하는 소급 배율 레이어(`UnitUpgradeUseCase`) + 단일 읽기 접근자와 **같은 패턴**이다. 따라서 상태효과는 새 저장을 두되 **기존 3접근자에 합성**하는 것으로 대부분 해결되어 Phase 2 작업이 준다. 다만 **공격 불가(빙결)·DetectRange 변경**은 대응 훅이 없어 신규가 필요하고, **스킬(건물) 출처 피해**는 UnitData 공격자를 요구하는 기존 경로를 못 써 전용 경로가 필요하다. 결정 필요 항목은 Plan.md §9.
+
 ---
 
 ## 3. 신규로 만들어야 하는 영역 (요약 — 상세 설계는 Plan.md)
@@ -119,14 +140,16 @@ Hexiege의 세 종족(Human / Spirit / Transcendence)에는 각각 **스킬 건�
 |------|-------------|-----------|
 | 스킬 데이터 SO(`SkillDefinition`) + 종족별 로드아웃 | 스킬 정의(아이콘/조준방식/쿨다운/타입/파라미터)와 건물별 스킬셋 데이터가 전무 | 7, 8 |
 | 타입별 실행기(A/B/C) + 레지스트리 | 기존 특수공격 레지스트리는 유닛용(`UnitType`), 스킬용(`SkillMechanicType`)은 없음 | 11~13 |
-| **상태변경(버프/디버프/제어/회복) 시스템** | **버프 개념이 게임 내 최초.** 게다가 `UnitData.MoveSpeed`/`AttackPower`/`AttackRange`/`DetectRange`가 **전부 get-only(readonly)** → 둔화/빙결(이속0·공격불가)/버프를 위한 "유효 스탯 오버레이" 또는 상태 홀더가 없음 | 13 |
+| **상태변경(버프/디버프/제어/회복) 시스템** | **버프 개념이 게임 내 최초.** 단 main 병합으로 유효 스탯 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`)가 이미 존재 → 버프/디버프/둔화는 이 접근자에 **상태 배율 합성**으로 축소(§2-11). **공격 불가(빙결)·DetectRange 변경**만 대응 훅이 없어 신규 필요. `UnitData` 스탯은 여전히 readonly | 13 |
 | 건물 글로벌 쿨다운 상태 + UI 오버레이 | 건물 단위 쿨다운 잠금·틱·해제 + 시계방향(radial) 오버레이+숫자 표시가 전무 | 3, 10 |
 | 지점 조준 입력 모드 | 누른 채 드래그·조준점(범위 원)·엣지 스크롤·조준점 맵 clamp·하단 X 취소(겹침 회피)가 전무 | 17~24 |
 | 스킬 발동 서버 RPC | 좌표만 전송 + 서버 재검증(생존·쿨다운·유효 타일) 경로가 전무 | 25, 26 |
 
 ### 핵심 기술 제약 (구현 시 반드시 고려)
 
-- **`UnitData`의 이동/공격/사거리 스탯은 readonly(get-only).** (근거: `Domain/Unit/UnitData.cs` L52~72 — `MaxHp`/`AttackPower`/`AttackRange`/`DetectRange`/`MoveSpeed` 모두 setter 없음. 변경 가능한 것은 `Hp`(private set, Heal/TakeDamage 경유)·`Facing`·`AttackCooldown(Remaining)`뿐.) → 타입 C의 둔화/빙결/버프는 원본 스탯을 직접 못 바꾸므로, **"기본 스탯 + 활성 상태효과 → 유효 스탯" 계산 레이어**를 새로 도입해야 함. 이동/전투 로직(`UnitView`, `UnitCombatUseCase`)이 스탯을 읽는 지점이 유효 스탯을 참조하도록 연결하는 것이 이번 최대 신규 덩어리(규칙 13이 예고한 지점).
+- **`UnitData`의 이동/공격/사거리 스탯은 readonly(get-only).** (근거: `Domain/Unit/UnitData.cs` L52~72 — `MaxHp`/`AttackPower`/`AttackRange`/`DetectRange`/`MoveSpeed`, 그리고 신규 `Defense`(L107)까지 모두 setter 없음. 변경 가능한 것은 `Hp`(private set)·`Facing`·`AttackCooldown(Remaining)`뿐.) → 타입 C의 둔화/빙결/버프는 원본을 직접 못 바꾸므로 유효 스탯 합성이 필요하지만, **main 병합으로 그 합성 지점(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`)이 이미 존재**한다(§2-11). 상태 배율을 이 접근자에 접어 넣는 방식이 유력(Plan §9-1). 신규는 공격 게이트·이속0 A* 처리·DetectRange 변경으로 국한.
+- **스킬(건물) 출처 피해는 `UnitData attacker`가 없다.** `ComputeFinalDamage`/`ApplyFixedDamageToVictim`가 UnitData 공격자를 요구하므로 스킬 타입 A는 **건물/스킬 출처 전용 피해 경로**(`DamageCalculator.ApplyDefense` 직접 호출)가 필요(Plan §0-2, §9-2). 타입 B DoT는 무감쇄(기존 구조 그대로).
+- **×10 스케일 데이터**: `SkillDefinition` 피해·힐 수치는 ×10 스케일로 저작(§2-11).
 - **enum 미변경**(규칙 1): `MagicBuilding`을 Spirit/Trans가 공유 → 스킬 로드아웃은 enum이 아닌 **종족 키(RaceId, `building.Team`→`GameRaceContext.BlueRace/RedRace`)로 분기**. 각 종족은 스킬 건물이 정확히 1종이므로 RaceId 키로 로드아웃이 유일하게 결정됨.
 - **Domain → Core 참조 금지 / Application → Netcode 직접 참조 금지 / NetworkBehaviour는 Infrastructure만.** 상태효과 값 객체는 Domain, 판정·틱은 Application, RPC는 Infrastructure로 분리.
 
@@ -136,23 +159,23 @@ Hexiege의 세 종족(Human / Spirit / Transcendence)에는 각각 **스킬 건�
 
 | 파일 | 예상 변경 성격 |
 |------|----------------|
-| `Presentation/Input/InputHandler.cs` | 스킬 조준 모드 진입/전달 훅 연결(랠리 분기 옆에 추가) 또는 조준 컨트롤러로 위임 |
-| `Presentation/UI/BuildingActionPanelUI.cs` | 스킬 건물 시 슬롯 1~5 동적 채움 + 쿨다운 오버레이 바인딩(또는 전용 패널 신설) |
+| `Presentation/Input/InputHandler.cs` | 스킬 조준 모드 훅 + 스킬 건물 라우팅 분기(**main 신규 `Research` 분기 옆**). `Initialize`는 main에서 `ResearchPanelUI` 인자가 이미 붙음 → 뒤에 스킬 패널 인자 확장 |
 | `Presentation/Camera/CameraController.cs` | 엣지 스크롤 팬 메서드 추가(기존 `ClampPosition` 재사용) |
-| `Bootstrap/GameBootstrapper*.cs` | 스킬 UseCase/실행기/데이터 SO/조준 컨트롤러/신규 NetworkSkillController 주입·배선 |
-| `Domain/Unit/UnitData.cs` | 유효 스탯 오버레이 연동(상태효과 홀더 참조 또는 유효 스탯 접근자) — 설계안에 따라 |
-| `Application/UseCases/UnitCombatUseCase.cs` | 타입 B 반경 DoT·타입 C 회복 진입점 재사용/추가(기존 DoT/HoT 경로 확장) |
-| `Domain/Building/BuildingData.cs` (조건부) | 글로벌 쿨다운 상태를 BuildingData에 둘 경우 필드 추가(대안: UseCase 딕셔너리) |
-| `Application/UseCases/`(전투/틱 진입점) | 서버 틱에 상태효과·쿨다운 틱 추가(`GameBootstrapper.Update` / `NetworkCombatController.TickCombat` 옆) |
+| `Bootstrap/GameBootstrapper*.cs` | 스킬 UseCase/실행기/데이터 SO/조준 컨트롤러/신규 NetworkSkillController 주입·배선(**`_unitUpgrade`/`_networkUpgradeController`/`_researchPanelUI` 배선 옆**) |
+| `Application/Interfaces/IGameServices.cs` | `GetSkillActivationUseCase()` 추가(main `GetUpgradeUseCase()`와 동일 방식) |
+| `Application/UseCases/UnitCombatUseCase.cs` | P1: 타입 B 반경 DoT + **건물/스킬 출처 즉발 피해 경로**(`DamageCalculator.ApplyDefense`). P2: 기존 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`)에 상태 배율 합성 + `CanAttack` 게이트 |
+| `Application/UseCases/`(전투/틱 진입점) | 서버 틱의 **`TickResearch` 호출 옆**에 쿨다운·상태 틱 추가(`GameBootstrapper.Update` / `NetworkCombatController.TickCombat` L312) |
+| `Domain/Unit/UnitData.cs` (조건부) | 원칙 무변경(readonly 유지). 합성을 도메인에 두는 안(§9-1) 채택 시에만 `UnitStatusState` 참조 |
 
-> **enum(`BuildingType`)·`BuildingStatsConfig.asset`은 변경 없음**(규칙 1, 건설비 200 유지). 위 표의 변경은 전부 **추가(additive)**이며, 기존 로직 제거·비활성화 대상은 조사 시점 기준 **없음**(Plan.md 최상단에 명시).
+> **변경 없이 재사용만 하는 신규 파일**: `Domain/Combat/DamageCalculator.cs`(스킬 A 데미지), `Application/UseCases/UnitUpgradeUseCase.cs`(유효 스탯 접근자·힐 스케일), `Infrastructure/Network/NetworkUpgradeController.cs`(RPC 패턴 미러 참고).
+> **변경 없음**: `BuildingType` enum·`BuildingStatsConfig.asset`(규칙 1, 건설비 200), `BuildingData.cs`(쿨다운=UseCase 딕셔너리 확정), `BuildingActionPanelUI.cs`(전용 패널 신설). 위 표의 변경은 전부 **추가(additive)**이며 제거·비활성화 대상은 **없음**.
 
 ---
 
 ## 5. 조사 중 발견한 주의점
 
-1. **readonly 스탯이 상태변경 시스템의 최대 난관.** 단순히 "MoveSpeed=0" 대입이 불가하므로, 유효 스탯 레이어를 어디에 두고(도메인 계산 vs 상태 홀더) 어느 읽기 지점을 갈아끼울지가 설계 핵심. 이동(`UnitView` A* 이동 속도), 전투(`UnitCombatUseCase` 공격 판정/쿨다운), 감지(DetectRange) 각각의 스탯 읽기 지점을 전수 파악해야 함(다음 단계).
+1. **[main 병합으로 완화]** readonly 스탯이라 "MoveSpeed=0" 대입은 여전히 불가하지만, 이동(`UnitView`→`GetUnitMoveSpeedMultiplier`)·공격력(`EffectiveAttack`)·방어(`ComputeFinalDamage`)의 **읽기 지점이 이미 단일화**돼 있어(§2-11), 상태 배율을 이 접근자에 접어 넣으면 대부분 해결된다. 남은 신규는 **공격 불가 게이트(`CanAttack`)·이속 0 시 A* 처리·DetectRange 변경**뿐. 상태 배율 × 연구 배율 합성 연산은 밸런스 결정(Plan §9-4).
 2. **지점 조준의 입력 흐름이 랠리보다 무겁다.** 랠리는 release 한 번이면 끝이지만, 스킬은 press→매 프레임 드래그 추적→엣지 스크롤/조준점 이동→release 분기(발동/취소)라 프레임 단위 상태 머신이 필요. `CameraController.HandlePan`·`InputHandler.Update`가 이미 press/drag/release를 각자 소비하므로 **입력 소유권 충돌**(조준 중 카메라 팬·타일 선택 억제)에 주의.
-3. **글로벌 쿨다운 오버레이는 "패널 열려 있는 동안"만 갱신하면 충분**(규칙 10은 버튼 위 표시). 매 프레임 남은 시간을 UseCase/BuildingData에서 읽어 radial fill + 숫자 갱신. 다만 쿨다운 상태 자체는 **서버 권위**(규칙 25)라 클라 오버레이는 서버가 전파한 발동 시각/쿨다운으로 로컬 카운트다운.
+3. **글로벌 쿨다운 오버레이는 "패널 열려 있는 동안"만 갱신하면 충분**(규칙 10은 버튼 위 표시). 매 프레임 남은 시간을 `SkillActivationUseCase` 딕셔너리에서 읽어 radial fill + 숫자 갱신. 다만 쿨다운 상태 자체는 **서버 권위**(규칙 25)라 클라 오버레이는 서버가 전파한 발동 시각/쿨다운으로 로컬 카운트다운.
 4. **하단 X 취소와 하단 엣지 스크롤 겹침**(규칙 21)은 실기 튜닝 대상 — X는 화면 끝보다 안쪽, 엣지 스크롤은 진짜 가장자리 여백만. 여백 폭은 Plan에서 상수로 두되 값은 실기 조정.
 5. **어셈블리 분리 없음(Assembly-CSharp 단일)** 덕분에 `internal static` AoE 헬퍼를 스킬 실행기가 바로 재사용 가능(추가 public 노출 불필요) — 회귀 위험 최소.

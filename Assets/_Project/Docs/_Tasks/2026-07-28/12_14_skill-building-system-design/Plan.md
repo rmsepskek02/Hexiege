@@ -21,7 +21,34 @@
 
 ---
 
-## 1. 신규 파일 목록 (레이어별, 경로 제안)
+## 0. main 병합 델타 대조 (2026-07-31 — 연구 강화 시스템 + ×10 스케일 + 방어력 + DamageCalculator)
+
+origin/main이 병합되며 **연구소 유닛 강화 시스템 · 전투 스탯 ×10 스케일 · 방어력(Defense) 신규 스탯 · DamageCalculator**가 들어왔다. 이는 우리 스킬 Plan(특히 Phase 2 유효 스탯, 스킬 데미지)과 직접 겹친다. 아래는 병합 전 가정 대비 **어긋난 것 / 재사용 가능해진 것 / 새로 맞출 것**의 대조 결과다(상세 근거는 Research.md §6).
+
+### 0-1. 재사용 가능해진 것 (우리 작업이 줄어든 부분)
+
+- **"유효 스탯" 중앙 접근자가 이미 존재한다.** main은 스탯을 재계산하지 않고 **쓰는 순간 배율/증가치를 곱하는 소급 레이어**(`UnitUpgradeUseCase`, `(B)`방식)를 도입했다. 우리가 Phase 2에 만들려던 유효 스탯 오버레이와 **같은 철학**이다. 실제 단일 읽기 지점이 이미 배선돼 있다:
+  - 공격력: `UnitCombatUseCase.EffectiveAttack(attacker)` → `_upgrade.GetEffectiveAttack(team,type)` (직격 L1246·스플래시 L1502에서 사용).
+  - 이동속도: `UnitCombatUseCase.GetUnitMoveSpeedMultiplier(unit)` → `_upgrade.GetMoveSpeedMultiplier(...)`, **`UnitView` 이동이 이미 이 훅을 읽는다**(L920·L1363).
+  - 방어 감쇄: `UnitCombatUseCase.ComputeFinalDamage(...)` → `DamageCalculator.ApplyDefense(raw, defense)` (직격·스플래시 공용).
+  - → **따라서 상태효과(버프/디버프/둔화)는 새 읽기 지점을 전수 교체할 필요 없이, 이 세 접근자에 "상태 배율"을 얹는 것**으로 대부분 해결된다. Phase 2의 최대 위험(readonly 스탯 → 읽기 지점 누락)이 크게 완화됨. `UnitData` 스탯이 readonly라는 우리 가정도 **여전히 유효**(main도 `Defense`를 readonly 스냅샷으로 추가).
+- **`DamageCalculator`(Domain 순수) — 스킬 데미지가 통과할 방어 감쇄 공식이 준비됨.** `ApplyDefense(raw, defense)`, K=120, 최소 1, 방어 0이면 무감쇄(하위호환). 타입 A 즉발 피해가 이 파이프라인을 재사용한다.
+- **DoT는 방어력 미적용이 이미 구조로 보장됨.** DoT 틱 sink `ApplyTimedDamageToUnit`은 `ComputeFinalDamage`를 거치지 않고 `target.TakeDamage(amount)`를 직접 호출한다(규칙: DoT 무감쇄). → **타입 B(장판)가 기존 `ApplyDamageOverTime`를 재사용하면 자동으로 "무감쇄 DoT"**가 된다.
+- **`NetworkUpgradeController`(신규) = `NetworkSkillController`가 미러링할 최신 참고 패턴.** 래퍼→ServerRpc, 팀 소유권(SenderClientId), 대상 지정/브로드캐스트 ClientRpc, `OnResearchCompleted` 훅(App→Infra 의존성 역전), **`GameServicesLocator.Current` 지연 해석**(스폰 레이스 방지)까지 우리가 그대로 따를 골격.
+- **연구 서버 틱 진입점 확정** — 우리 스킬 쿨다운/상태 틱이 붙을 정확한 자리: 싱글=`GameBootstrapper.Update`(`!IsNetworkMode`), 멀티=`NetworkCombatController.TickCombat`(서버, `TickResearch(elapsed)` 호출 L312) 바로 옆.
+- **UseCase 딕셔너리 상태 보관 = 검증된 관례.** `UnitUpgradeUseCase`가 (팀,그룹,스탯)→레벨·진행중을 딕셔너리로 보관 → 우리 `SkillActivationUseCase`의 글로벌 쿨다운 `Dictionary<int,float>`(3-5)와 동일 성격.
+
+### 0-2. 어긋난 것 (Plan 가정 수정 필요)
+
+- **`InputHandler`가 바뀌었다.** `Initialize(...)` 마지막 인자로 `ResearchPanelUI researchPanelUI = null`이 추가됐고, `HandleClick`에 `buildingAtPos.Type == BuildingType.Research → _researchPanelUI.Open(...)` 분기가 생겼다(랠리 분기와 `CanShowActionPanel` 폴백 사이). → **우리 스킬 건물 라우팅은 이 Research 분기 바로 옆에 추가**하고, `Initialize` 시그니처는 이미 확장돼 있으니 우리 스킬 패널 인자를 뒤에 더 붙인다.
+- **`IGameServices`에 `GetUpgradeUseCase()` 추가 + `GameServicesLocator.Current` 신설.** 우리는 `GetSkillActivationUseCase()`를 같은 방식으로 추가하고, `NetworkSkillController`는 `GameServicesLocator.Current`로 서비스를 지연 해석한다(구 `NetworkBuildingController._services` OnNetworkSpawn 캐시보다 이 최신 패턴을 따른다).
+- **스킬 데미지는 "UnitData 공격자"가 없다.** `ComputeFinalDamage(attacker, target, raw)`/`ApplyFixedDamageToVictim(attacker,...)`는 **`UnitData attacker`를 요구**한다(Tank/CannonCart 건물 2배 판정·이벤트 attribution). 스킬은 건물이 시전자라 이 경로를 그대로 못 쓴다. → **건물/스킬 출처 전용 피해 경로**가 필요(§0-3, 결정 필요 항목 9-2).
+
+### 0-3. 새로 맞출 것 (통합 작업)
+
+- **×10 스케일 데이터 주의.** 전투 스탯이 ×10로 커졌고 `DamageCalculator` K=120이 그 스케일에 맞춰졌다. → **`SkillDefinition`의 피해·힐 수치는 반드시 ×10 스케일로 저작**한다(구 "10 피해" ≈ 신 100). 3-1 스키마에 주의 명시.
+- **타입 A 즉발 피해 → `DamageCalculator.ApplyDefense` 통과(방어 감쇄됨).** 타입 B DoT → 무감쇄(위 0-1). 두 타입의 방어 상호작용이 **다르다** — 밸런스 함의라 사용자 확인 대상(9-3).
+- **상태효과 × 연구 배율 합성 지점·연산.** 버프/디버프가 연구 배율과 **곱연산인지 합연산인지**는 밸런스 결정(9-4). 합성 위치는 위 세 접근자로 권장(9-1).
 
 > **[P1]/[P2] 표기**: 각 파일이 Phase 1(타입 A·B 지점 피해) 산출물인지, Phase 2(타입 C 전역 상태변경) 산출물인지 표시한다. Phase 정의는 6장 참조.
 
@@ -65,15 +92,17 @@
 
 | 파일 | Phase | 변경 내용 | 근거 규칙 |
 |------|-------|-----------|-----------|
-| `Presentation/Input/InputHandler.cs` | P1 | `HandleClick` 최상단 랠리 분기 옆에 스킬 조준 모드 가드 추가(또는 `SkillAimController`에 입력 위임) + 스킬 건물 클릭 시 `BuildingSkillPanelUI`로 라우팅 | 8, 16, 17 |
+| `Presentation/Input/InputHandler.cs` | P1 | `HandleClick`의 **신규 Research 라우팅 분기 바로 옆에** 스킬 건물(FlightFacility/MagicBuilding) → `BuildingSkillPanelUI.Open` 분기 추가. 최상단 랠리 분기 옆에 스킬 조준 모드 가드 추가(또는 `SkillAimController`에 위임). **`Initialize(...)` 시그니처는 main에서 `ResearchPanelUI` 인자가 이미 추가됨 → 그 뒤에 스킬 패널 인자 확장** | 8, 16, 17 |
 | `Presentation/Camera/CameraController.cs` | P1 | `EdgeScroll(screenPos, dt)` 신규 메서드 추가(이동 후 기존 `ClampPosition()` 재사용) | 18, 23 |
-| `Application/UseCases/UnitCombatUseCase.cs` | P1(B)·P2(C) | 타입 B 반경 DoT 부여 진입점(반경 수집 + `ApplyDamageOverTime`)은 P1, 타입 C 회복 진입점(HoT 재사용)은 P2 — `SkillActivationContext`에 델리게이트로 노출 | 12, 13 |
-| `Application/UseCases`(전투 틱 진입점) | P1(쿨다운)·P2(상태) | 서버 틱에 글로벌 쿨다운 틱(P1) + `StatusEffectSystem.Tick(dt)`(P2) 추가(`GameBootstrapper.Update` 싱글 / `NetworkCombatController.TickCombat` 멀티, 이중 틱 금지) | 3, 13, 25 |
-| `Domain/Unit/UnitData.cs` | P2 | `UnitStatusState` 참조 + 유효 스탯 접근자(EffectiveMoveSpeed/CanAttack 등) 노출 | 13 |
-| `Bootstrap/GameBootstrapper*.cs` | P1·P2 | P1: 스킬 UseCase·실행기(A·B)·`SkillLoadoutConfig`·`SkillAimController`·`BuildingSkillPanelUI`·`NetworkSkillController` 생성·주입·배선. P2: `StatusEffectSystem`·타입 C 실행기 추가 배선 | 아키텍처 |
+| `Application/UseCases/UnitCombatUseCase.cs` | P1(B)·P2(C) | P1: 타입 B 반경 DoT 진입점(반경 수집 + `ApplyDamageOverTime`) + **건물/스킬 출처 즉발 피해 경로**(타입 A, `DamageCalculator.ApplyDefense` 직접 호출, §0-2). P2: 타입 C 회복(HoT) + 기존 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`)에 상태 배율 합성 + `CanAttack` 게이트 신설. `SkillActivationContext`에 델리게이트로 노출 | 11, 12, 13 |
+| `Application/Interfaces/IGameServices.cs` | P1 | `GetSkillActivationUseCase()` 추가(기존 `GetUpgradeUseCase()`와 동일 방식) | 아키텍처 |
+| `Application/UseCases`(전투 틱 진입점) | P1(쿨다운)·P2(상태) | 서버 틱의 **`TickResearch(elapsed)` 호출 바로 옆에** 글로벌 쿨다운 틱(P1) + `StatusEffectSystem.Tick(dt)`(P2) 추가(싱글=`GameBootstrapper.Update`, 멀티=`NetworkCombatController.TickCombat` L312, 이중 틱 금지) | 3, 13, 25 |
+| `Domain/Unit/UnitData.cs` | P2(조건부) | **원칙적으로 변경 없음**(스탯 readonly 유지, 합성은 UseCase 접근자에서). `CanAttack` 등을 도메인에 두는 합성안(9-1) 채택 시에만 `UnitStatusState` 참조 추가 | 13 |
+| `Bootstrap/GameBootstrapper*.cs` | P1·P2 | P1: 스킬 UseCase·실행기(A·B)·`SkillLoadoutConfig`·`SkillAimController`·`BuildingSkillPanelUI`·`NetworkSkillController` 생성·주입·배선(연구 시스템 배선 `_unitUpgrade`/`_networkUpgradeController` 옆). P2: `StatusEffectSystem`·타입 C 실행기 추가 배선 | 아키텍처 |
 
 > **`Domain/Building/BuildingData.cs`는 변경하지 않는다** — 글로벌 쿨다운 상태는 `SkillActivationUseCase`가 `Dictionary<int,float>`로 보관하기로 확정(3-5). 도메인 확장 없음.
 > **`Presentation/UI/BuildingActionPanelUI.cs`는 변경하지 않는다** — 스킬 UI는 전용 `BuildingSkillPanelUI` 신설(안 B 확정). 기존 액션 패널은 비스킬 건물 전용으로 그대로 둔다. (스킬 건물 클릭 라우팅 분기만 `InputHandler`에서 추가.)
+> **`Domain/Combat/DamageCalculator.cs`·`Application/UseCases/UnitUpgradeUseCase.cs`는 변경하지 않고 재사용만 한다**(스킬 데미지·상태 배율이 이들을 호출/합성).
 
 ---
 
@@ -97,6 +126,8 @@
 | `TargetsAllies` | `bool` | (C) 아군(긍정)/적(부정) 대상 | 13 |
 
 > **코드는 타입별 실행기만 구현하고 수치는 SO 주입.** 새 스킬 추가 시 원칙적으로 SO만 추가(규칙 7). 개별 스킬 목록·수치는 데이터로 별도 확정(범위 밖).
+>
+> **⚠️ ×10 스케일 주의(main 병합):** 전투 스탯이 ×10로 스케일됐고 `DamageCalculator`(K=120)가 그 스케일에 맞춰졌다. `DamagePerSecond`/`TotalDamage`/힐 수치는 **반드시 ×10 스케일로 저작**한다(구 감각 "10 피해" ≈ 신 100). 데이터 저작 시 유닛 공격력(`UnitStatsConfig`, ×10 반영값)과 같은 축으로 맞출 것.
 
 ### 3-2. 종족 키 분기 로드아웃 (`SkillLoadoutConfig`) → 규칙 1, 6
 
@@ -108,22 +139,33 @@
 
 - **타입 A — 즉발 범위 피해** (`InstantAreaDamageExecutor`) → 규칙 11
   - 조준 좌표를 중심으로 `BlastAttackBehavior.CollectEnemyUnitsInRadius`(유닛) + `QuakeAttackBehavior.CollectEnemyBuildingsInRadius`(건물) 재사용(2단계 선수집→적용).
-  - 피해 적용은 `UnitCombatUseCase.ApplyFixedDamageToVictim`(임의 량 즉발, 이미 존재) 델리게이트 재사용. 아군 제외.
+  - **피해는 `DamageCalculator.ApplyDefense(raw, defense)`(방어 감쇄)를 통과**한다: `raw`=SkillDefinition 피해값(×10 스케일), `defense`=피격 대상 팀 방어(`UnitUpgradeUseCase.GetDefense`, 건물은 0). → 유닛/타워 데미지와 동일한 감쇄 공식.
+  - ⚠️ **출처가 건물(시전 건물)이라 `UnitData attacker`가 없다.** 기존 `ApplyFixedDamageToVictim(attacker,...)`/`ComputeFinalDamage`는 UnitData 공격자를 요구하므로 그대로 재사용 불가 → **건물/스킬 출처 전용 즉발 피해 경로**를 UseCase에 추가(§0-2, 결정 9-2). 이 경로가 `DamageCalculator.ApplyDefense`를 직접 호출하고 `OnEntityDamaged`를 발행(Tank 2배는 미적용). 아군 제외.
 - **타입 B — 범위 지속 피해(장판)** (`AreaDotDamageExecutor`) → 규칙 12
   - 반경 수집(위와 동일) → 각 적 유닛에 `UnitCombatUseCase.ApplyDamageOverTime`(discrete 초 단위 틱) 부여. 신규 진입점(스킬 전용 튜닝값)으로 `ApplyBlastDot`/`ApplyInfernoDot`처럼 값 분리.
   - 틱은 기존 `TickTimedEffects(dt)`가 그대로 소비(추가 틱 루프 불필요).
+  - **DoT는 방어력 미적용(무감쇄)**: DoT 틱 sink `ApplyTimedDamageToUnit`이 `ComputeFinalDamage`를 우회해 `TakeDamage`를 직접 호출하므로, 타입 B는 자동으로 무감쇄가 된다(규칙과 일치). 타입 A(감쇄)와 방어 상호작용이 다른 점은 밸런스 함의 → 결정 9-3.
 - **타입 C — 전역 상태변경** (`GlobalStatusChangeExecutor`) → 규칙 13, 15
   - 조준 없음(전역 즉시). `TargetsAllies`에 따라 아군/적 유닛 전체 순회 → `StatusEffectSystem.Apply(unit, StatusEffect)`.
   - 회복은 `StatusEffectKind.HealOverTime`으로 표현하고 내부적으로 기존 `ApplyTimedEffect(Heal)`(HoT) 재사용 → 회복은 우선 전역 즉시(규칙 13, 추후 지점형 전환 여지).
 
 ### 3-4. 상태변경 시스템 (버프 개념 최초 도입) [Phase 2] → 규칙 13
 
-**최대 신규 덩어리.** `UnitData`의 이동/공격/사거리 스탯이 전부 **readonly(get-only)**(근거: `Domain/Unit/UnitData.cs` L52~72)이므로 원본을 직접 못 바꿈. **유효 스탯 오버레이 방식으로 확정**(직접 mutable 변경안은 폐기 — 효과 중첩·만료 시 원복이 어렵고 회귀 위험이 큼). 기본 스탯은 readonly로 유지하고, base + 활성 효과를 합성한 유효 스탯을 계산해 사용한다:
+**버프 개념 최초 도입이지만, main 병합으로 "유효 스탯 접근자"가 이미 존재**하여 초기 계획보다 작업이 준다(§0-1). `UnitData` 스탯은 여전히 readonly이며(직접 mutable 변경안은 폐기 — 중첩·만료 원복 문제), **기존 연구 배율 레이어(`UnitUpgradeUseCase`)와 동일한 읽기 지점에 상태 배율을 합성**한다:
 
-- **Domain**: `UnitStatusState`(유닛별 활성 `StatusEffect` 목록). 기본 스탯 + 활성 효과를 합성해 **유효 스탯 계산**을 제공(`EffectiveMoveSpeed`, `CanAttack`, `EffectiveAttackPower`, `EffectiveDetectRange`…). 순수 계산, Core/Unity 미참조.
-- **Application**: `StatusEffectSystem`이 부여/해제/지속시간 감소를 서버 권위로 관리(`_activeTimedEffects`와 동일 소유·틱 패턴). 빙결=`MoveSpeedMul 0` + `AttackDisabled`, 둔화=`MoveSpeedMul <1`, 버프=`AttackPowerMul >1` 등으로 **하나의 시스템으로 통합**(규칙 13).
-- **읽기 지점 연결**: 이동 속도(`UnitView` 이동/A*), 공격 가능·공격력·쿨다운(`UnitCombatUseCase`), 감지(`DetectRange` 사용처)가 **유효 스탯을 읽도록** 갈아끼움. 조사 다음 단계에서 스탯 읽기 지점 전수 파악 필요(Research 5-1).
-- **배치 판단**: 값 객체·유효 스탯 계산=Domain, 부여/틱/해제 오케스트레이션=Application(서버 권위). 멀티 동기화는 상태 부여/해제를 ClientRpc로 전파(연출·유효 스탯 재현).
+- **기존 단일 읽기 지점(재사용)**:
+  - 공격력 → `UnitCombatUseCase.EffectiveAttack(attacker)` (이미 연구 배율 반영).
+  - 이동속도 → `UnitCombatUseCase.GetUnitMoveSpeedMultiplier(unit)` (`UnitView` 이동이 읽음 L920·L1363).
+  - 방어/피해 → `ComputeFinalDamage` → `DamageCalculator.ApplyDefense`.
+  - → **버프(공격↑)·디버프(공격↓)·둔화(이속↓)·방어 변화는 위 세 접근자에 상태 배율을 곱/합**하는 것으로 처리. 새 읽기 지점 전수 교체 불필요.
+- **여전히 신규가 필요한 것**(연구 레이어에 대응 훅이 없는 상태):
+  - **공격 불가(빙결/기절)** — 공격 게이팅 훅이 없음. `UnitCombatUseCase`/`UnitView` 전투 진입에 `CanAttack(unit)` 게이트 신설.
+  - **이동 완전 정지(빙결=이속 0)** — `GetUnitMoveSpeedMultiplier`가 0을 반환하도록 상태 반영(정지 자체는 배율 0으로 표현 가능하나, A* 이동 코루틴이 0 배율을 안전히 처리하는지 확인 필요).
+  - **감지 사거리 변화(DetectRange)** — 대응 훅 없음(변경 스킬을 넣을 경우에만 신규).
+- **Domain**: `UnitStatusState`(유닛별 활성 `StatusEffect` 목록) — 순수 계산. Core/Unity 미참조.
+- **Application**: `StatusEffectSystem`이 부여/해제/지속시간 감소를 서버 권위로 관리(`_activeTimedEffects`·`UnitUpgradeUseCase._active`와 동일 딕셔너리 소유·틱 패턴). 회복은 기존 HoT(`ApplyTimedEffect(Heal)`) 재사용.
+- **합성 위치 결정 필요(9-1)**: 상태 배율을 (권장) `UnitCombatUseCase`의 기존 접근자 안에서 `_upgrade` 값과 함께 접어 넣을지, 별도 `UnitStatusState` 오버레이로 독립 계산할지. 연구 배율 × 상태 배율의 **연산 방식(곱/합)**도 밸런스 결정(9-4).
+- **멀티 동기화**: 상태 부여/해제를 ClientRpc로 전파(연출·유효 스탯 재현). 값 권위는 서버.
 
 ### 3-5. 건물 글로벌 쿨다운 상태 + UI 오버레이 [Phase 1] → 규칙 3, 10
 
@@ -145,12 +187,14 @@
 
 ### 3-7. 서버 권위 발동 RPC (`NetworkSkillController`, Infrastructure) → 규칙 25, 26
 
-`NetworkBuildingController`의 래퍼+ServerRpc+ClientRpc 템플릿을 그대로 따름.
+**최신 참고 = `NetworkUpgradeController`(main 병합).** `NetworkBuildingController`보다 이쪽의 최신 관례를 미러링한다.
 
 - **요청(클라→서버)**: `RequestActivateSkill(int buildingId, int skillSlot, int q, int r)` 래퍼 → `RequestActivateSkillServerRpc(...)`(`[ServerRpc(RequireOwnership=false)]`). 즉시형(타입 C)은 좌표 없이 `slot`만.
-- **서버 재검증**(클라 입력 불신뢰, 규칙 26): ① `_services`(IGameServices) null → ② 발신자 팀 소유권(`SenderClientId`→Blue/Red) + 건물 소유 → ③ **건물 생존** → ④ **글로벌 쿨다운 만료** → ⑤ (지점형) 전송 좌표가 **유효 맵 타일**인지 재확인(규칙 22 clamp를 서버에서 재적용).
-- **실행**: 재검증 통과 시 `SkillActivationUseCase.Activate(...)` → 실행기(A/B/C) → 판정·피해·상태변경 **서버 실행**(규칙 25) → 글로벌 쿨다운 설정.
-- **전파(서버→클라)**: `ActivateSkillClientRpc(...)`로 VFX·쿨다운 오버레이 시작·상태효과 재현. 조준점 이동/범위 미리보기/엣지 스크롤은 **로컬 표현일 뿐**(게임 상태 미변경, 규칙 25).
+- **서비스 해석 = `GameServicesLocator.Current` 지연 해석**(`NetworkUpgradeController.ResolveServices()` 미러 — 씬 오브젝트 스폰 레이스로 `_services`가 null로 굳는 버그 방지). `IGameServices`에 **`GetSkillActivationUseCase()` 신규 추가**(기존 `GetUpgradeUseCase()`와 동일 방식).
+- **서버 재검증**(클라 입력 불신뢰, 규칙 26): ① 서비스/UseCase null → ② 발신자 팀 소유권(`SenderClientId`→Host=Blue/Client=Red) + 건물 소유 → ③ **건물 생존** → ④ **글로벌 쿨다운 만료** → ⑤ (지점형) 전송 좌표가 **유효 맵 타일**인지 재확인(규칙 22 clamp를 서버에서 재적용).
+- **실행**: 재검증 통과 시 `SkillActivationUseCase.Activate(...)`(플레이어/AI 공유 진입점 §3-8) → 실행기(A/B/C) → 판정·피해(DamageCalculator)·상태변경 **서버 실행**(규칙 25) → 글로벌 쿨다운 설정.
+- **전파(서버→클라)**: 실패는 요청 클라에게만 targeted ClientRpc, 발동 성공(VFX·쿨다운 오버레이 시작·상태효과 재현)은 **양 클라 브로드캐스트**(상대 스킬 효과가 내 화면에도 재현돼야 함 — `ResearchLevelClientRpc` 브로드캐스트와 동일 사유). 조준점 이동/범위 미리보기/엣지 스크롤은 **로컬 표현일 뿐**(규칙 25).
+- **AI 발동**: 서버 컨텍스트의 AI는 RPC 왕복 없이 `SkillActivationUseCase.Activate`를 직접 호출(§3-8).
 - **메서드명**: `...ServerRpc`/`...ClientRpc` 접미사 필수(아키텍처 제약).
 
 ### 3-8. AI 발동 지원 — 발동 진입점을 입력과 분리 (확정 요구사항) [Phase 1] → 규칙 25
@@ -206,7 +250,7 @@
 1. **Domain(P1)**: `SkillMechanicType`(C 멤버는 선언만)·`SkillAimType`.
 2. **스킬 데이터 SO·로드아웃(P1)**: `SkillDefinition`(스키마 전체, C 필드 포함)·`SkillLoadoutConfig`·`ISkillDataProvider` + 플레이스홀더 에셋.
 3. **발동 코어(P1)**: `SkillActivationContext` + `SkillActivationUseCase`(재검증·쿨다운 딕셔너리·**AI/플레이어 공유 `Activate` 진입점**) + `SkillExecutorRegistry`(A·B 등록).
-4. **실행기 A·B(P1)**: `InstantAreaDamageExecutor`·`AreaDotDamageExecutor` — 기존 반경 수집(`CollectEnemyUnitsInRadius`/`CollectEnemyBuildingsInRadius`) + `ApplyFixedDamageToVictim`(A)/`ApplyDamageOverTime`(B) 재사용. `UnitCombatUseCase`에 타입 B 진입점 노출.
+4. **실행기 A·B(P1)**: `InstantAreaDamageExecutor`·`AreaDotDamageExecutor` — 기존 반경 수집(`CollectEnemyUnitsInRadius`/`CollectEnemyBuildingsInRadius`) 재사용. A = **건물/스킬 출처 즉발 피해 경로 신설**(`DamageCalculator.ApplyDefense` 통과, ×10 데이터). B = `ApplyDamageOverTime`(무감쇄 DoT) 진입점을 `UnitCombatUseCase`에 노출. `IGameServices.GetSkillActivationUseCase()` 추가.
 5. **글로벌 쿨다운 틱(P1)**: 서버 틱 진입점에 쿨다운 감소 추가(이중 틱 금지).
 6. **UI(P1)**: `BuildingSkillPanelUI`(전용, `BuildingPanelBase` 재사용) 슬롯 1~5 동적 채움 + `SkillCooldownOverlay`(radial clockwise + 숫자, 플레이스홀더 아트).
 7. **지점 조준 입력(P1)**: `SkillAimController`·`SkillAimReticle`(플레이스홀더) + `CameraController.EdgeScroll` + 하단 X(기존 UI 에셋 재사용) + 조준점 맵 clamp.
@@ -215,18 +259,18 @@
 
 → **[6] Phase 1 사용자 실기 테스트**(타입 A·B 발동·조준·쿨다운·멀티 동기화 확인).
 
-### Phase 2 — 타입 C(전역 상태변경) + 유효 스탯 오버레이
+### Phase 2 — 타입 C(전역 상태변경) + 상태 배율 합성
 
-산출물(전부 [P2]): Domain 상태값 객체·유효 스탯 계산, `StatusEffectSystem`, 타입 C 실행기, `UnitData` 유효 스탯 접근자 + 이동/전투/감지 읽기 지점 전수 교체.
+산출물(전부 [P2]): Domain 상태값 객체, `StatusEffectSystem`, 타입 C 실행기, **기존 유효 스탯 접근자에 상태 배율 합성** + 공격 게이트(`CanAttack`) 신설. (main 병합으로 이동/공격/방어 읽기 지점이 이미 단일화돼 있어 "전수 교체"가 아니라 "기존 접근자 합성"으로 축소 — §0-1.)
 
-1. **Domain(P2)**: `StatusEffectKind`·`StatusEffect`·`UnitStatusState`(유효 스탯 계산).
-2. **상태 시스템 골격(P2)**: `StatusEffectSystem`(부여/해제/틱) + `UnitData` 유효 스탯 접근자 — 아직 읽기 지점 미연결(부여해도 무효과), 컴파일 안전.
-3. **읽기 지점 전수 교체(P2)**: 이동(`UnitView`)·전투/공격/쿨다운(`UnitCombatUseCase`)·감지(`DetectRange`)가 유효 스탯을 읽도록 변경. **상태효과가 없으면 기존과 완전히 동일**(무변경 보장) — 회귀 검증 대상.
+1. **Domain(P2)**: `StatusEffectKind`·`StatusEffect`·`UnitStatusState`.
+2. **상태 시스템 골격(P2)**: `StatusEffectSystem`(부여/해제/틱). 아직 읽기 지점 미연결(부여해도 무효과), 컴파일 안전.
+3. **상태 배율 합성(P2)**: 기존 단일 접근자에 상태 배율을 접어 넣는다 — `EffectiveAttack`(공격 버프/디버프), `GetUnitMoveSpeedMultiplier`(둔화/빙결=0), 방어는 `ComputeFinalDamage`/`DamageCalculator` 경로. **신규 게이트**: `CanAttack(unit)`(빙결/기절 시 공격 불가), 필요 시 `DetectRange` 변경. **상태효과가 없으면 기존과 완전히 동일**(무변경 보장) — 회귀 검증 대상. 합성 위치·연산(곱/합)은 9-1·9-4 결정 반영.
 4. **타입 C 실행기(P2)**: `GlobalStatusChangeExecutor` + 레지스트리에 C 등록. 회복은 기존 HoT(`ApplyTimedEffect(Heal)`) 재사용. `SkillActivationContext` 상태부여 델리게이트 연결.
-5. **상태 틱(P2)**: 서버 틱에 `StatusEffectSystem.Tick(dt)` 추가(이중 틱 금지). 멀티 상태 동기화(부여/해제 ClientRpc).
+5. **상태 틱(P2)**: 서버 틱의 `TickResearch`/`TickTimedEffects` 옆에 `StatusEffectSystem.Tick(dt)` 추가(이중 틱 금지). 멀티 상태 동기화(부여/해제 ClientRpc).
 6. **GameBootstrapper 배선(P2)** — 상태 시스템·타입 C 실행기 추가 주입.
 
-→ **[6] Phase 2 사용자 실기 테스트**(버프·디버프·둔화·빙결·회복 확인 + **기존 유닛 무변경 회귀 검증**).
+→ **[6] Phase 2 사용자 실기 테스트**(버프·디버프·둔화·빙결·회복 확인 + **기존 유닛/연구 강화 무변경 회귀 검증** — 상태 배율이 연구 배율과 올바르게 합성되는지 포함).
 
 > 각 단계 종료 시 컴파일 가능 상태 유지. Phase 1 완료 후 사용자 테스트 통과를 확인하고 Phase 2에 착수한다.
 
@@ -236,7 +280,11 @@
 
 | 위험 | 영향 | 완화책 |
 |------|------|--------|
-| readonly 스탯 → 유효 스탯 레이어 도입 시 이동/전투 읽기 지점 누락 | 둔화/빙결/버프가 일부만 적용 | 스탯 읽기 지점 전수 grep(MoveSpeed/AttackPower/AttackRange/DetectRange) 후 체크리스트로 반영, 3단계 무변경 실기 검증 |
+| 상태 배율을 기존 접근자에 접을 때 일부 지점 누락 | 둔화/빙결/버프가 일부만 적용 | main이 이미 단일화한 3접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`)에만 합성 → 누락 위험 축소. 신규 게이트(`CanAttack`)·이속 0 A* 처리만 별도 검증 |
+| 상태 배율 × 연구 배율 합성 오류 | 강화 유닛에 스킬 걸면 수치 붕괴 | 합성 위치·연산(9-1·9-4) 확정 후 단위 검증. 연구만/상태만/둘 다 3케이스 회귀 확인 |
+| 스킬 데미지가 방어 파이프라인을 안 타면 방어력 무시 | 밸런스 붕괴 | 타입 A는 `DamageCalculator.ApplyDefense` 통과 필수, 타입 B는 의도적 무감쇄(규칙 일치) 명시 |
+| ×10 스케일 미인지 데이터 저작 | 스킬 피해가 1/10로 무의미 | `SkillDefinition` 수치는 ×10 스케일 저작(3-1 주의), 유닛 공격력과 같은 축 |
+| 건물 출처 피해에 UnitData attacker 강제 재사용 | 컴파일/NRE 또는 잘못된 2배 | 건물/스킬 출처 전용 피해 경로 신설(§0-2, 9-2), Tank 2배 미적용 |
 | 조준 입력과 카메라 팬·타일 선택 입력 소유권 충돌 | 조준 중 오작동(팬/선택) | 조준 모드 플래그를 `CameraController`/`InputHandler`가 우선 가드(랠리 모드 우선순위 패턴 재사용) |
 | 글로벌 쿨다운 권위-표시 불일치 | 클라 오버레이가 서버와 어긋남 | 쿨다운은 서버 권위, 클라는 발동 ClientRpc의 시각·쿨다운값으로 로컬 카운트다운(규칙 10, 25) |
 | DoT/HoT 이중 틱 | 피해·회복 2배 | 서버 틱 단일화(`GameBootstrapper.Update` 싱글 / `NetworkCombatController.TickCombat` 멀티) — 기존 `TickTimedEffects`/`TickWaves` 옆에만 추가 |
@@ -254,3 +302,19 @@
 - **확정 결정 반영:** ① UI = 전용 `BuildingSkillPanelUI` 신설(안 B). ② 글로벌 쿨다운 = `SkillActivationUseCase` 딕셔너리 보관(안 A). ③ AI 발동 지원(발동 진입점을 입력과 분리, 공유 API). ④ 스탯 변경 = 유효 스탯 오버레이. ⑤ 자산 = 플레이스홀더(단, 하단 X는 기존 UI 에셋 재사용). ⑥ 건설 진입점은 이미 가능(배치/건설 추가 작업 없음).
 - **범위 밖:** 개별 스킬 목록·수치(데이터로 별도), 회복의 지점형 전환(추후 재결정), 개별 스킬 쿨다운(현재 건물 글로벌만), **AI의 실제 스킬 판단 로직·AI 시나리오 문서 변경**(별도 후속 task — 이번엔 시스템이 AI 발동을 지원하는 진입점까지), 정식 아트(아이콘/VFX/조준 원/오버레이), `Testcase.md`(미지시).
 - 실제 코드/프리팹/에셋 변경은 **사용자 명시 승인 후** 별도 진행(현재는 계획 단계).
+
+---
+
+## 9. 사용자 결정 필요 지점 (main 병합 후 신규 — 임의 결정하지 않음)
+
+아래는 통합 방식에 설계 선택이 갈리는 지점이다. 권장안을 붙였으나 **확정은 사용자 승인 후**에 한다.
+
+| # | 결정 지점 | 선택지 | 권장 |
+|---|-----------|--------|------|
+| 9-1 | **상태 배율 합성 위치** | (A) 기존 `UnitCombatUseCase` 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`/`ComputeFinalDamage`) 안에서 `_upgrade` 값과 함께 상태 배율을 접어 넣기 / (B) 별도 `UnitStatusState` 오버레이로 독립 계산 후 합성 | **(A)** — 이미 단일 읽기 지점이라 배선·회귀 위험 최소 |
+| 9-2 | **스킬(건물) 출처 피해 경로** | (A) 건물/스킬 출처 전용 즉발 피해 경로 신설(`DamageCalculator.ApplyDefense` 직접 호출, Tank 2배 미적용) / (B) 가짜 UnitData 공격자 합성해 기존 경로 재사용 | **(A)** — 의미상 명확, 기존 경로 무변경(회귀 없음) |
+| 9-3 | **타입별 방어 상호작용 확정** | 타입 A 즉발 = 방어 감쇄 O, 타입 B 장판 DoT = 무감쇄(기존 DoT 관례). 이대로 확정할지 | 규칙(DoT 무감쇄)과 일치 → **현행 유지** 권장(밸런스 확인만) |
+| 9-4 | **상태 배율 × 연구 배율 연산** | 곱연산(둘 다 배율) / 합연산 / 스탯별 상이 | **곱연산**(둔화 0.5 × 이속연구 1.32 등 직관적) 권장, 최종은 밸런스 |
+| 9-5 | **빙결 시 이동 완전 정지 표현** | `GetUnitMoveSpeedMultiplier`=0 반환 / 별도 `IsRooted` 게이트 | 우선 **배율 0** 시도, A* 이동 코루틴이 0 배율을 안전 처리하는지 검증 후 필요 시 게이트 |
+
+> 위 결정들은 대부분 **Phase 2** 착수 전에 필요(9-2·9-3은 Phase 1 타입 A/B 착수 전 필요). 9-4·밸런스성 항목은 데이터 확정 단계와 함께 조정 가능.
