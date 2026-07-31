@@ -102,6 +102,11 @@
 - **죽은 코드 삭제 검증 패턴**: 미사용 메서드 삭제 시 Grep 전수로 호출 0건 확인(2026-07-13 `UnitView.StopMovement()`).
 - **특수 유닛 쿨다운 컨벤션(중요, 2026-07-18 BloomFairy QA에서 확정)**: `StatsReference.md`의 "X:XX(Y:YY)" 표기는 "타격시간(전체쿨다운)" — Y가 **사이클 총 길이**이고 X는 그 안에서 타격이 발생하는 시점이다(예: BattleAxe 1:17(3:05), TorrentSpirit 0:50(4:00)). `UnitCombatUseCase.TryAttack`은 `attacker.AttackCooldownRemaining = attacker.AttackCooldown`을 히트 타이머 등록과 **동시에**(캐스트/스윙 시작 시점) 설정한다 — 쿨다운이 타격 딜레이를 포함한다. 신규 특수 유닛(힐/캐스트형)의 상태머신 코루틴을 볼 때는 **쿨다운 설정 위치**를 반드시 확인할 것: "타격 대기 → 효과 적용 → 그 다음에 쿨다운 설정"으로 짜면 실제 사이클이 (타격시간 + 전체쿨다운)만큼 되어 설계보다 길어지는 회귀가 생긴다(BloomFairy `EnterHealLoopV3`에서 발견 — 설계 3.0s인데 실제 4.0s). 쿨다운은 캐스트/스윙 **시작 시점**에 설정해야 한다.
 - **비전투(지원형) 상태머신의 "영구 유휴" 위험 패턴**: `MoveAlongPathV3`는 A* 경로 순회 중 `ShouldEngage()`가 감지될 때만 전투/힐 루프로 분기하고, 감지 없이 경로 끝(적 성채 인접 타일)에 도달하면 `MoveCleanupAndCompleteV3()`로 코루틴이 완전히 끝난다. 일반 공격 유닛은 성채도 감지 대상이라 `EnterCombatLoopV3`가 성이 죽을 때까지 무한 루프를 돌아 사실상 "코루틴 종료"가 없다(항상 재감지). 반면 **건물을 감지하지 않는 지원형 유닛(BloomFairy 등)**은 경로 끝에서 대상이 없으면 코루틴이 완전 종료되고, 이후 재감지를 트리거하는 주기적 재스캔이 전혀 없다(건물 변경 시 `RepathAllAliveUnits`가 가끔 우연히 재기동시킬 수 있으나 신뢰 불가). 향후 힐/지원/논컴뱃 유닛(예: 버프 유닛) QA 시 "목표 없이 최전선 도달 → 이후 부상 아군이 나타나도 영구 방치"를 항상 재현 시나리오로 체크할 것.
+- **NetworkBehaviour `OnNetworkSpawn` 시점 `IGameServices`(GameServicesLocator) 미등록 스폰 레이스**: 씬 NetworkObject의 `OnNetworkSpawn`이 GameBootstrapper의 서비스 등록보다 먼저 돌 수 있어, 스폰 시점 캐시가 null이면 이후 RPC 처리에서 조용히 무동작할 위험. **해결 패턴 = 사용 시점 지연 재조회**(2026-07-31 `NetworkUpgradeController.ResolveServices()` — 멀티 연구 완료 레벨이 클라에 반영 안 되던 실기 버그를 이걸로 수정). 신규 Infrastructure NetworkBehaviour QA 시 "서비스 참조를 `OnNetworkSpawn`에서만 캐시하고 null 복구 경로가 없는가"를 점검할 것.
+
+## 연구소 유닛 강화 시스템 — 멀티플레이 실기 PASS (2026-07-31)
+- **결과**: 강화 시스템(공/방/속+초월 자연회복)·전투 스탯 ×10·연구 패널 UI 멀티플레이 실기 PASS. 방어 감쇄 순수 함수 `DamageCalculator.ApplyDefense`(K=120, floor 1, 하드캡 65%, `raw<=0`·`defense<=0`이면 원본 반환)로 하위호환(방어 0=회귀 없음).
+- **QA 점검 포인트(향후 재검증)**: ① ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨) — **미실행 환경은 구 수치로 동작**하므로 실기 전 스크립트 실행 여부 확인(Unit/Building은 곱셈이라 2회 실행=×100 주의). ② 완료 레벨=양 클라 브로드캐스트(양쪽 효과)·진행 중=소유자만. ③ 자연회복↔BloomFairy 힐 별개 채널(상호 덮어쓰기 없음). ④ 미검증/미완: AI 연구 사용 실기·싱글 자연회복 실기·MistShrine 힐(미구현)·UI 레이아웃. task: `_Tasks/2026-07-22/10_08_unit-upgrade-system/`.
 
 ## 터치 입력 구조
 - CameraController: EnhancedTouch 기반, OnEnable/OnDisable에서 Enable/Disable

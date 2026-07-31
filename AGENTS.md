@@ -30,6 +30,7 @@
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, 건물 배치 패널, 인게임 설정 메뉴 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동, 전투 진입, 전투 연계 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md` | 랠리포인트, 건물 철거, 방어 타워 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Upgrade.md` | 연구소 유닛 강화(공/방/속 + 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI (구현 완료 / 멀티 실기 PASS) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_CanvasSortingOrder.md` | Canvas SortingOrder 구조 및 씬별 Canvas 계층 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Sound.md` | BGM 전환, SFX 정책, 볼륨 제어, AudioManager 아키텍처 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_AI.md` | AI 난이도, 빌드오더 스크립트, 반응 시스템, 건물 배치 로직, 가드 메커니즘 |

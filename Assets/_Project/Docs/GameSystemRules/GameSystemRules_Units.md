@@ -381,3 +381,21 @@ QuakeSpirit의 폭발은 MushroomBomber(규칙 38~39)와 같은 **직접 피해 
 - 튜닝값(규칙 25): `SpecialAttackConfig`의 `_quakeRadius`(월드 반경, 기본 1.0=인접 1칸) / `_quakeSplashRatio`(스플래시 배율, 기본 0.5)를 GameBootstrapper가 float로 주입한다(미연결 시 코드 폴백 1.0/0.5 — "에셋 생성 ≠ 씬 배선" 교훈). 진입점: 핸들러가 유닛·건물 수집 결과 각각에 스플래시 피해(`ApplyDamageToVictim` 계열)를 적용.
 
 > **참고 — 알려진 이슈(보류, 2026-07-20):** QuakeSpirit의 **타격 애니메이션과 데미지 텍스트 타이밍이 어긋난다**. 원인은 QuakeSpirit Attack 클립에 `OnAttackHit` 이벤트가 아직 **미주입**(규칙 27의 잔여 대상)이고 `hitFrameTimes`가 placeholder(1.0s)라, 스플래시 데미지 텍스트가 공격자 로컬 타격 프레임 대신 `HitPresentationQueue` 타임아웃(쿨다운×1.5 = 7.5s)까지 지연되어 방출되기 때문이다. **피해·판정·동기화 자체는 정상**(로그 검증 완료)이며 연출 표시 시점만 어긋난다. 사용자 결정으로 **별도 task로 분리**(이번 작업 미수정). 멀티플레이 원거리 유닛 facing 버그(InfernoSpirit 작업에서 진단)와 함께 "알려진 이슈"로 남긴다. 규칙 27의 "잔여 1종(QuakeSpirit) OnAttackHit 미주입"은 이 후속 task에서 처리한다.
+
+---
+
+### 전투 규칙 — 방어력 데미지 감쇄 (연구소 유닛 강화 시스템, 구현 완료 / 멀티 실기 PASS)
+
+> **상태: 구현 완료 (기능·멀티플레이 실기 PASS, 2026-07-31).** 아래 규칙은 연구소 기반 유닛 강화 시스템(신규 방어력 스탯)의 전투 데미지 계약이며 순수 함수 `Domain/Combat/DamageCalculator.ApplyDefense`로 구현되었다. 시스템 전체 계약·구현 상태(후속 보류 포함)는 `GameSystemRules_Upgrade.md` 참조.
+
+연구소 강화의 신규 스탯 **방어력**은 받는 피해를 비율로 줄인다. 모든 유닛은 방어력 0에서 시작하며(연구 전에는 감쇄 0% → 기존과 완전히 동일), 오직 연구로만 올린다. 방어력 감쇄는 유닛이 피해를 받는 **직격·스플래시 최종 데미지 지점**(타워→유닛 데미지 포함)에 동일하게 삽입되며, **DoT 틱값에는 미적용**한다(2026-07-23 확정).
+
+**규칙 44. 방어력 데미지 감쇄 공식 — 모든 최종 데미지 지점 일괄 적용 (구현 완료)**
+전투 최종 데미지를 피격 대상의 방어력으로 비율 감쇄한 뒤 적용한다. 구현: 순수 함수 `Domain/Combat/DamageCalculator.ApplyDefense(rawDamage, defense)`.
+- **공식:** `데미지 = Max(1, Round(공격력 × (1 − 방어력 / (방어력 + 120))))`. K = 120(`DamageCalculator.DefenseConstantK`), 방어력 트랙 Lv0~5 = 0/8/16/24/32/40.
+- **최소 데미지 1 보장(floor) 필수.** 감쇄율 하드캡 65%(`DamageCalculator.MaxMitigationRate`)를 미래 확장 안전장치로 코드에 포함(현 Lv5는 25%로 미도달). `rawDamage<=0`이면 그대로 반환(0공격력 유닛 회귀 방지).
+- **삽입 지점 = 직격·스플래시 최종 데미지 수렴점 일괄** — 직격(`ApplyDamageToVictim`), 스플래시/파도(`ApplyFixedDamageToVictim` 경유 — QuakeSpirit·TorrentSpirit·BattleAxe), 그리고 **타워→유닛 데미지**(`TowerCombatUseCase.ExecuteTowerAttack`)까지 전부. 유닛 수렴 헬퍼는 `UnitCombatUseCase.ComputeFinalDamage`(Tank/CannonCart 건물 2배 분기 포함). **DoT 틱(`ApplyBlastDot`/`ApplyInfernoDot`, 규칙 40·42)에는 미적용**(아래 참조).
+- **방어력은 피격 대상 팀의 연구 레벨로 결정** — 데미지 계산 시 대상(`UnitData`)의 팀·그룹으로 방어 레벨을 조회해 감쇄를 적용한다((B) 실시간 배율, `GameSystemRules_Upgrade.md` 규칙 4).
+- **DoT 틱값에는 미적용 (2026-07-23 확정 — 기존 "DoT에도 적용"을 뒤집음):** 방어력 감쇄는 **직격·스플래시에만** 적용하고 DoT 틱값(MushroomBomber·InfernoSpirit)에는 적용하지 않는다. 공격력 연구도 고정 DoT 틱값에는 미반영이므로(규칙 6, Upgrade), DoT는 공격력 연구·방어력 연구 어느 쪽에도 영향받지 않는 고정 틱값이다.
+- **타워 데미지 경로 (포함 확정):** 방어 타워가 유닛에게 주는 피해(`TowerCombatUseCase.cs` `ExecuteTowerAttack` → `target.TakeDamage`, 현재 감쇄 없음)도 **유닛 방어 감쇄 대상**이다 — 유닛 대상 피해이므로 직격과 동일 헬퍼를 쓴다(`GameSystemRules_Buildings.md` 규칙 9 방어 타워 서버 권위 데미지와 접점).
+- **하위호환:** 방어력 0이면 `방어력/(방어력+120)=0` → 감쇄 0% → `Max(1, Round(공격력×1))=공격력`으로 연구 이전의 모든 전투가 회귀 없이 기존과 동일하다(`DamageCalculator.ApplyDefense`는 `defense<=0`이면 계산 없이 원본 반환). 멀티플레이 실기에서 직격·스플래시·타워 등 모든 경로(DoT 제외)의 회귀 없음 확인 완료.

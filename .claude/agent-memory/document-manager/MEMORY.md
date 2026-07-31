@@ -71,6 +71,23 @@
 - Added task docs at `Assets/_Project/Docs/_Tasks/2026-07-16/14_20_email-verification-flow-cleanup/`
 - Updated `AuthSystemRules.md`, `PROJECT_STATUS.md`, `ROADMAP.md`, and `WORK_HISTORY.md` with email verification cancellation policy.
 
+### 2026-07-23 - 밸런스 확정 설계 반영(연구소 유닛 강화 + 전투 ×10) — "설계 확정 / 구현 예정"
+
+- 코드 미착수 상태의 밸런스 확정 설계를 문서에 일괄 반영한 사례(구현/테스트 전이므로 **WORK_HISTORY.md는 추가 금지** — 완료 이력용). 갱신처: StatsReference(전면 재작성 — 최상단 배너 + 전 전투 수치 ×10 + 신규 강화 스탯 섹션), GDD(연구소 섹션 교체 + 유닛 스탯 표 ×10 + 헤더 버전/날짜), **신규 `GameSystemRules/GameSystemRules_Upgrade.md`**(RandomMap식 "상태: 확정 설계/미구현" 규칙 문서, 규칙 1~11), GameSystemRules_Units.md 규칙 44(방어력 감쇄, 규칙 43 뒤 신규 섹션), GameSystemRules.md 인덱스 + AGENTS.md 인덱스에 신규 파일 등록, task Research/Plan(초기안→확정값 in-place 갱신 + 최상단 "확정값 갱신" 배너), ROADMAP/PROJECT_STATUS(🔷 설계 확정/구현 예정 항목·섹션 추가, 헤더 날짜+설계확정 라인).
+- **SSOT 인용 원칙**: 수치는 task 폴더 `BalanceReview.md`(old/new 대조표)에서 그대로 인용, 추정 금지. 개별 ×10 값의 권위 소스는 StatsReference로 일원화하고 다른 문서는 참조로 연결.
+- **"구현 완료" 태그 + ×10 설계값 공존 처리**: StatsReference 비고의 특수공격 "구현 완료/확정"은 메커니즘 구현을 뜻하고 숫자는 ×10 설계 목표값임을 **최상단 배너에서 전역 명시** → 개별 태그 재작성 없이 정합. 비고 내 명시 수치(직접/DoT/힐/스플래시)는 ×10로 갱신하되 "로그 검증"은 "메커니즘 검증"으로 문구 조정.
+- **task 계획문서는 예외적으로 in-place 갱신**: 보통 Research/Plan 본문은 히스토리 보존(하단 append)이지만, 이번은 "구현 계획 문서라 최종 확정 수치 기준으로 정리" 지시 → 본문 stale 값(K=20→120, 830→1000, 자연회복 0.5~2.5→3~15 등)을 직접 교체하고 최상단에 "확정값 갱신" 배너로 변경 이력만 남김.
+- 신규 GameSystemRules 파일 등록 3곳: `GameSystemRules.md`(파일 목록 표 + 시스템별 빠른참조 블록), `AGENTS.md`(기획/설계 문서 인덱스 표). GDD 헤더는 버전 bump(1.9.0→1.10.0)+날짜+변경 노트.
+- GDD 유닛 스탯 표에 **기존 stale 값**(Assault HP 50 vs StatsReference 40, Sniper atk 10 vs 18) 존재 → ×10 반영 시 StatsReference 권위값의 ×10(400·180)으로 정합화(GDD가 "StatsReference 권위" 명시했으므로 정당). 생산시간 등 불변 stale 항목은 표에서 제거하고 StatsReference 참조로 위임.
+
+### 2026-07-31 - 연구소 유닛 강화 시스템 구현·멀티 실기 완료 반영 ("설계 확정/구현 예정" → "구현 완료")
+- **선행 세션이 "설계 확정/구현 예정"으로 반영한 시스템(2026-07-23)이 구현·멀티 실기 완료된 경우의 일괄 상태 전환 사례.** 이번엔 구현·테스트 완료이므로 **WORK_HISTORY.md에 마일스톤 추가**(2026-07-23 설계 확정 때는 완료 이력이 아니라 추가 금지였던 것과 대비 — 완료 여부가 WORK_HISTORY 추가 기준).
+- **갱신처(전량)**: `GameSystemRules_Upgrade.md`(상태 배너 구현 완료+×10 config 커밋 반영 고지, "구현 상태" 섹션 신설 = 완료/후속 보류 구분, **규칙 13 신설 = 연구 패널 UI 최종 설계**, 참고문서 링크 갱신) · `GameSystemRules_Units.md` 규칙 44(구현 완료+`DamageCalculator` 명시) · `GameSystemRules.md` 인덱스·빠른참조 · `AGENTS.md` 인덱스 · `StatsReference.md`(배너 "구현 완료 — ×10 config `.asset` 커밋 반영" + Tank/CannonCart 2배·×10·강화 섹션 태그 정정) · `GameDesignDocument.md`(버전 1.11.0·헤더 노트·연구소 섹션 구현 완료+UI 문단) · `PROJECT_STATUS.md`(헤더·"구현 예정"에서 완료 섹션으로 이동·미구현 표 연구소 행 완료) · `ROADMAP.md`(헤더·우선순위 행·C-2 완료) · `WORK_HISTORY.md`(2026-07-31 마일스톤 prepend) · task `Plan.md`(하단 "완료 결과" append — 히스토리 보존)·`BalanceReview.md`/`Research.md`(상단 상태 배너만 갱신, 수치 SSOT 유지) · MEMORY 5종(game-programmer 기존 Phase 1 항목 in-place 갱신+Phase 2 완료 prepend / qa-tester 스폰 레이스·MP PASS / game-design-lead 밸런스+구현 / project-orchestrator 완료 / 공용 `.claude/MEMORY.md`).
+- **핵심 정정 = UI 설계 확정 변경**: 계획 "생산 패널 패턴" → 실제 "`ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어(연구소 단위)". Plan "완료 결과"·규칙 13·GDD·PROJECT_STATUS·ROADMAP에 일관 반영.
+- **과대 표기 금지 원칙**: 사용자가 "구현 완료 vs 후속 보류"를 명시 구분 지시 → 모든 문서에 후속 보류 5종(UI 레이아웃·매트릭스 헤더 아이콘·AI 연구 실기·MistShrine 힐 미구현·싱글 자연회복 실기)을 완료 표기와 나란히 명시. AI/MistShrine/싱글회복/UI레이아웃을 "완료"로 소거하지 말 것.
+- **×10 커밋 반영**: config `.asset`(UnitStatsConfig·BuildingStatsConfig·SpecialAttackConfig)에 ×10 값이 커밋되어 저장소 기본값이 ×10(코드 폴백도 ×10, Inspector 값 우선). ×10 적용에 쓰였던 셋업 에디터 스크립트는 역할 종료 후 제거됨(더 이상 실행 불필요).
+- Testcase.md는 사용자 지시로 미작성. 사용자 MEMORY(Windows 경로)는 Linux 세션에서 접근 불가 → 보고에 명시.
+
 ### 2026-07-18 - Email verification flow completion docs
 
 - Completion update pattern: append task `Plan.md` completion result, add PASS results to task `Testcase.md`, update `PROJECT_STATUS.md`/`ROADMAP.md` progress sections from in-progress to complete, and replace the `WORK_HISTORY.md` in-progress entry with completed device verification results.
