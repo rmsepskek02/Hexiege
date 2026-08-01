@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3414ea8195ca18444964d90ad0d6da32, type: 3}
+  m_Name: SkillLoadoutConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.SkillLoadoutConfig
+  _entries:
+  - race: 0
+    skills:
+    - {fileID: 11400000, guid: c6c7bc9aa55758d41b9fa4e464089ca9, type: 2}
+    - {fileID: 11400000, guid: b021672431573a74bb2e3ae0c21c34df, type: 2}
+  - race: 1
+    skills:
+    - {fileID: 11400000, guid: 1923e9fdc9af9394dbc942bf60e14b71, type: 2}
+    - {fileID: 11400000, guid: d2258cf4053939a49afe42d0a18a4424, type: 2}
+  - race: 2
+    skills:
+    - {fileID: 11400000, guid: 0c8986bde9ef9054e906495b8fa23494, type: 2}
+    - {fileID: 11400000, guid: e2460b77f72a97b418045b12192c33dc, type: 2}
