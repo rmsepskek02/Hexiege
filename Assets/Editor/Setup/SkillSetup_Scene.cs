@@ -10,12 +10,14 @@
 // 무엇을 하는가(유니티 초급자 기준):
 //   스킬 건물 Phase 1을 실기로 돌리는 데 필요한 "씬 골격"을 자동으로 만들고 배선한다.
 //   손으로 프리팹을 만들고 SerializeField를 연결하는 번거로운 작업을 대신한다.
-//     A) BuildingSkillPanel(전용 스킬 패널) — 헤더/닫기/철거 + 스킬 슬롯 5개(아이콘+쿨다운 오버레이).
+//     A) BuildingSkillPanel — 기존 BuildingActionPanel을 "복제"해 룩·구조를 그대로 물려받고,
+//        스킬 슬롯 1~5에만 아이콘 Image + 쿨다운 오버레이를 추가한다(하드코딩으로 새로 그리지 않음).
 //     B) SkillAimReticle(조준 범위 원) + SkillAimController(조준 입력) + 하단 X(취소) 버튼.
 //     C) NetworkSkillController(멀티 발동 중계) 씬 오브젝트(NetworkObject 포함, 자동 스폰).
 //     D) GameBootstrapper의 신규 슬롯 배선:
 //          _skillLoadoutConfig / _buildingSkillPanelUI / _skillAimController / _networkSkillController.
-//   아트는 전부 "플레이스홀더"(단색/기본 도형)다. 참조 배선까지 끝내 실기 동작이 가능한 상태로 만든다.
+//   패널 룩은 기존 BuildingActionPanel 복제라 프로젝트 UI와 일치한다. 스킬 아이콘/조준 원/쿨다운 fill
+//   스프라이트만 임시(내장 스프라이트 또는 미지정)이며, 참조 배선까지 끝내 실기 동작이 가능한 상태로 만든다.
 //
 // 멱등성(여러 번 실행해도 안전):
 //   이름으로 기존 오브젝트를 찾아 재사용한다(FindOrCreateChild/TryGetComponent). 중복 생성하지 않는다.
@@ -127,8 +129,8 @@ namespace Hexiege.EditorTools
 
             Debug.Log(
                 "[Skill Setup] 씬 골격 생성·배선 완료(플레이스홀더 아트).\n" +
-                "  · BuildingSkillPanel(= [UI] 루트 형제, 오버라이드 Canvas SO 200) / SkillAimReticle / SkillAimController / SkillCancelButton / NetworkSkillController 생성.\n" +
-                "  · (교정) 이전에 BuildingActionPanel 자식으로 잘못 만들어진 BuildingSkillPanel이 있으면 [UI] 루트 형제로 자동 재부모화합니다.\n" +
+                "  · BuildingSkillPanel(= BuildingActionPanel 복제, [UI] 루트 형제·오버라이드 Canvas SO 200) / SkillAimReticle / SkillAimController / SkillCancelButton / NetworkSkillController 생성.\n" +
+                "  · (교정) 기존 BuildingSkillPanel(하드코딩/이전 클론)은 제거 후 BuildingActionPanel 복제로 재생성됩니다(항상 1개).\n" +
                 "  · GameBootstrapper 슬롯 4종 연결(_skillLoadoutConfig/_buildingSkillPanelUI/_skillAimController/_networkSkillController).\n" +
                 (sceneOpenedByThis ? "  · 씬 자동 저장 완료.\n" : "  · 열린 씬 dirty 표시 — Ctrl+S로 저장하세요.\n") +
                 "  · 쿨다운 fill·조준 원에 Unity 내장 스프라이트를 임시 지정(테스트용) — 이미 셋업된 씬이면 이 메뉴를 다시 실행하면 반영됩니다.\n" +
@@ -142,123 +144,134 @@ namespace Hexiege.EditorTools
         // ====================================================================
 
         /// <summary>
-        /// BuildingSkillPanel(전용 스킬 패널)을 캔버스 하위에 멱등 생성하고 필드를 배선한다.
-        /// AnimatedPanel(자체 CanvasGroup)·헤더/닫기/철거 + 스킬 슬롯 5개(아이콘+쿨다운 오버레이)를 구성한다.
+        /// BuildingSkillPanel을 "기존 BuildingActionPanel 복제 기반"으로 만든다(룩·구조 그대로).
+        ///
+        /// 왜 복제인가(핵심):
+        ///   처음부터 하드코딩으로 그리면 기존 패널과 룩이 전혀 안 맞는다(조잡한 박스). 그래서 씬의 실제
+        ///   BuildingActionPanel GameObject를 통째로 Object.Instantiate로 복제해 배경/크기/앵커/헤더/닫기/철거/
+        ///   AnimatedPanel/오버라이드 Canvas(SO 200)/GraphicRaycaster/CanvasGroup을 전부 그대로 물려받는다.
+        ///   Unity의 Instantiate는 계층 내부 참조(_popup/_headerText/_allSlotButtons 등)를 복제본 자식으로
+        ///   자동 remap하므로, 그 값을 읽어 BuildingSkillPanelUI에 그대로 옮겨 배선한다.
+        ///
+        /// 슬롯 매핑(BuildingActionPanel의 _allSlotButtons 9개 재사용):
+        ///   index 0~4 = 스킬 버튼(각 슬롯에 Icon Image + SkillCooldownOverlay만 신규 추가),
+        ///   index 5   = 철거(기존 _demolishButton 그대로),
+        ///   index 6~8 = 예약(기존처럼 CanvasGroup alpha 0으로 숨김).
+        ///
+        /// 멱등: 재실행 시 기존 BuildingSkillPanel(하드코딩/이전 클론)을 먼저 제거하고 새로 복제한다(정확히 1개).
         /// </summary>
         private static BuildingSkillPanelUI BuildSkillPanel(Transform panelParent, TMP_FontAsset font, UIColorConfig colorConfig)
         {
-            // ── 기존 잘못된 인스턴스 정리(중요) ───────────────────────────────
-            // 이전 버전 스크립트가 BuildingActionPanel "자식"으로 잘못 만든 BuildingSkillPanel이
-            // 씬에 남아 있을 수 있다. 재실행 시 올바른 부모에서 못 찾아 중복 생성되지 않도록,
-            // 씬 어디에 있든 먼저 찾아 올바른 부모로 재부모화한다(worldPositionStays=false로 로컬값 보존).
-            // 이렇게 옮겨두면 아래 FindOrCreateChild가 이 인스턴스를 그대로 재사용한다(정확히 1개 유지).
-            GameObject stray = FindExistingSkillPanel();
-            if (stray != null && stray.transform.parent != panelParent)
+            // ── 0) 복제 원본(BuildingActionPanel) 확보 ─────────────────────────
+            var srcAction = Object.FindFirstObjectByType<BuildingActionPanelUI>(FindObjectsInactive.Include);
+            if (srcAction == null)
             {
-                stray.transform.SetParent(panelParent, false);
-                Debug.Log("[Skill Setup] 잘못된 부모에 있던 기존 BuildingSkillPanel을 [UI] 루트 형제로 재부모화했습니다.");
+                Debug.LogError("[Skill Setup] 복제 원본 BuildingActionPanel(BuildingActionPanelUI)을 씬에서 찾지 못했습니다.");
+                return null;
+            }
+            GameObject srcGo = srcAction.gameObject;
+
+            // ── 1) 기존 스킬 패널(하드코딩/이전 클론) 제거 → 정확히 1개 보장 ──
+            GameObject existing = FindExistingSkillPanel();
+            if (existing != null)
+            {
+                Object.DestroyImmediate(existing);
+                Debug.Log("[Skill Setup] 기존 BuildingSkillPanel을 제거하고 BuildingActionPanel 복제로 재생성합니다.");
             }
 
-            // 루트(패널). 화면 하단 중앙 밴드에 배치(모바일 9:16 가정, 실기 튜닝 대상).
-            GameObject root = FindOrCreateChild(panelParent, "BuildingSkillPanel");
-            RectTransform rootRt = root.GetComponent<RectTransform>();
-            SetAnchors(rootRt, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.42f));
+            // ── 2) 복제(로컬 rect 보존 — instantiateInWorldSpace=false) ───────
+            GameObject clone = Object.Instantiate(srcGo, panelParent, false);
+            clone.name = "BuildingSkillPanel";
 
-            // ── Canvas 정렬 오버라이드(필수) ──────────────────────────────
-            // GameSystemRules_CanvasSortingOrder: 패널 본체는 OverrideSorting=true, SortingOrder=200.
-            // (BuildingActionPanel/ProductionPopup 등과 동일 대역.)
-            // 이게 없으면 패널이 SO=0으로 그려져 BlockingOverlay(SO=100, 반투명 배경)에 덮여
-            // "배경만 보이고 패널은 안 보이는" 버그가 난다.
-            if (!root.TryGetComponent(out Canvas panelCanvas))
-                panelCanvas = root.AddComponent<Canvas>();
-            panelCanvas.overrideSorting = true;
-            panelCanvas.sortingOrder = 200;
-            // Canvas Override에는 GraphicRaycaster가 반드시 함께 있어야 버튼 입력이 동작한다
-            // (CanvasSortingOrder 규칙 1). 없으면 스킬 버튼이 눌리지 않는다.
-            if (!root.TryGetComponent(out GraphicRaycaster _))
-                root.AddComponent<GraphicRaycaster>();
-
-            // 배경 이미지(플레이스홀더 반투명 어두운 색).
-            Image bg = EnsureImage(root, new Color(0.08f, 0.10f, 0.16f, 0.92f), null);
-            bg.raycastTarget = true;
-
-            // AnimatedPanel(팝업 등장/사라짐 — CanvasGroup 자동 추가).
-            if (!root.TryGetComponent(out AnimatedPanel popup))
-                popup = root.AddComponent<AnimatedPanel>();
-
-            // 헤더(건물 이름).
-            GameObject headerGo = FindOrCreateChild(root.transform, "Header");
-            SetAnchors(headerGo.GetComponent<RectTransform>(), new Vector2(0.05f, 0.82f), new Vector2(0.95f, 0.98f));
-            TextMeshProUGUI headerText = EnsureText(headerGo, font, "Skill Building", 30, TextAlignmentOptions.Center);
-
-            // 닫기(X) 버튼 — 우상단.
-            GameObject cancelGo = FindOrCreateChild(root.transform, "CloseButton");
-            SetAnchors(cancelGo.GetComponent<RectTransform>(), new Vector2(0.88f, 0.84f), new Vector2(0.99f, 0.99f));
-            Button cancelButton = EnsureButton(cancelGo, font, "X", new Color(0.5f, 0.2f, 0.2f, 1f));
-
-            // 슬롯 그리드(3열) — 스킬 5 + 철거 1 = 6칸.
-            GameObject grid = FindOrCreateChild(root.transform, "SlotGrid");
-            SetAnchors(grid.GetComponent<RectTransform>(), new Vector2(0.05f, 0.06f), new Vector2(0.95f, 0.78f));
-            EnsureGrid(grid);
-
-            // 스킬 슬롯 5개(아이콘 + 쿨다운 오버레이).
-            var slotButtons = new List<Button>(SkillSlotCount);
-            var slotIcons = new List<Image>(SkillSlotCount);
-            var slotOverlays = new List<SkillCooldownOverlay>(SkillSlotCount);
-
-            for (int i = 0; i < SkillSlotCount; i++)
+            // ── 3) 복제본의 액션 패널 컴포넌트에서 remap된 참조 읽기 ──────────
+            //   (Instantiate가 계층 내부 참조를 복제본 자식으로 자동 remap한 상태이다.)
+            var cloneAction = clone.GetComponent<BuildingActionPanelUI>();
+            if (cloneAction == null)
             {
-                GameObject slot = FindOrCreateChild(grid.transform, $"SkillSlot{i + 1}");
-                Image slotBg = EnsureImage(slot, new Color(0.20f, 0.24f, 0.34f, 1f), null);
-                if (!slot.TryGetComponent(out Button slotBtn)) slotBtn = slot.AddComponent<Button>();
-                slotBtn.targetGraphic = slotBg;
+                Debug.LogError("[Skill Setup] 복제본에 BuildingActionPanelUI가 없습니다(원본 구조 확인 필요).");
+                return null;
+            }
+            var srcSo = new SerializedObject(cloneAction);
+            Object popupRef = GetRef(srcSo, "_popup");
+            Object headerRef = GetRef(srcSo, "_headerText");
+            Object cancelRef = GetRef(srcSo, "_cancelButton");
+            Object demolishRef = GetRef(srcSo, "_demolishButton");
+            Object refundRef = GetRef(srcSo, "_demolishRefundText");
+            Object colorRef = GetRef(srcSo, "_colorConfig");
 
-                // 아이콘(스킬 스프라이트가 들어갈 자리 — 플레이스홀더는 비활성).
-                GameObject iconGo = FindOrCreateChild(slot.transform, "Icon");
+            // _allSlotButtons(9) 읽기.
+            var allSlots = new List<Button>(9);
+            SerializedProperty slotsProp = srcSo.FindProperty("_allSlotButtons");
+            if (slotsProp != null)
+            {
+                for (int i = 0; i < slotsProp.arraySize; i++)
+                    allSlots.Add(slotsProp.GetArrayElementAtIndex(i).objectReferenceValue as Button);
+            }
+
+            // ── 4) 액션 컴포넌트 제거 → 스킬 컴포넌트 추가 ─────────────────────
+            Object.DestroyImmediate(cloneAction);
+            var panel = clone.AddComponent<BuildingSkillPanelUI>();
+
+            // ── 5) base 필드 배선(복제본 자식을 가리키는 remap된 참조 그대로) ──
+            //   _colorConfig는 외부 에셋 참조라 복제본에서도 동일(공유). 인자로 받은 colorConfig가 있으면 우선 사용.
+            Connect(panel, "_popup", popupRef);
+            Connect(panel, "_headerText", headerRef);
+            Connect(panel, "_cancelButton", cancelRef);
+            Connect(panel, "_demolishButton", demolishRef);
+            Connect(panel, "_demolishRefundText", refundRef);
+            Connect(panel, "_colorConfig", colorConfig != null ? colorConfig : colorRef);
+
+            // ── 6) 스킬 슬롯(0~4)에 Icon + CooldownOverlay 추가 후 수집 ───────
+            var skillButtons = new List<Object>(SkillSlotCount);
+            var skillIcons = new List<Object>(SkillSlotCount);
+            var skillOverlays = new List<Object>(SkillSlotCount);
+
+            for (int i = 0; i < SkillSlotCount && i < allSlots.Count; i++)
+            {
+                Button slotBtn = allSlots[i];
+                if (slotBtn == null) continue;
+                Transform slot = slotBtn.transform;
+
+                // 아이콘(스킬 스프라이트 자리) — 슬롯 위에 겹치는 자식. 런타임에 SkillData.Icon로 켜진다.
+                GameObject iconGo = FindOrCreateChild(slot, "Icon");
                 SetStretch(iconGo.GetComponent<RectTransform>());
                 Image icon = EnsureImage(iconGo, Color.white, null);
-                icon.raycastTarget = false;
-                icon.enabled = false; // 아이콘 스프라이트 미지정 → 숨김(런타임에 SkillData.Icon로 켜짐).
+                icon.raycastTarget = false;   // 버튼 클릭을 막지 않도록.
+                icon.enabled = false;         // 스프라이트 미지정 → 숨김(런타임에 켜짐).
 
-                // 쿨다운 오버레이(시계방향 radial fill + 남은초 숫자).
-                SkillCooldownOverlay overlay = BuildCooldownOverlay(slot.transform, font);
+                // 쿨다운 오버레이(시계방향 radial + 남은초). 슬롯의 마지막 자식이라 아이콘 위에 그려진다.
+                SkillCooldownOverlay overlay = BuildCooldownOverlay(slot, font);
 
-                slotButtons.Add(slotBtn);
-                slotIcons.Add(icon);
-                slotOverlays.Add(overlay);
+                skillButtons.Add(slotBtn);
+                skillIcons.Add(icon);
+                skillOverlays.Add(overlay);
             }
 
-            // 철거(6번째 칸) — BuildingPanelBase._demolishButton.
-            GameObject demolishGo = FindOrCreateChild(grid.transform, "DemolishSlot");
-            Image demolishBg = EnsureImage(demolishGo, new Color(0.45f, 0.20f, 0.20f, 1f), null);
-            if (!demolishGo.TryGetComponent(out Button demolishButton)) demolishButton = demolishGo.AddComponent<Button>();
-            demolishButton.targetGraphic = demolishBg;
-            GameObject demolishLabelGo = FindOrCreateChild(demolishGo.transform, "Label");
-            SetStretch(demolishLabelGo.GetComponent<RectTransform>());
-            EnsureText(demolishLabelGo, font, "철거", 24, TextAlignmentOptions.Center);
-            // 환불 금액 텍스트(철거 칸 하단).
-            GameObject refundGo = FindOrCreateChild(demolishGo.transform, "RefundText");
-            SetAnchors(refundGo.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 0.35f));
-            TextMeshProUGUI refundText = EnsureText(refundGo, font, "0", 20, TextAlignmentOptions.Center);
+            // ── 7) 스킬 슬롯 리스트 배선 ─────────────────────────────────────
+            ConnectList(panel, "_skillSlotButtons", skillButtons);
+            ConnectList(panel, "_skillSlotIcons", skillIcons);
+            ConnectList(panel, "_skillSlotOverlays", skillOverlays);
 
-            // 컴포넌트 확보(BuildingSkillPanelUI).
-            if (!root.TryGetComponent(out BuildingSkillPanelUI panel))
-                panel = root.AddComponent<BuildingSkillPanelUI>();
-
-            // ── 필드 배선(base + skill) ──
-            // BuildingPanelBase(protected serialized) 필드.
-            Connect(panel, "_popup", popup);
-            Connect(panel, "_headerText", headerText);
-            Connect(panel, "_cancelButton", cancelButton);
-            Connect(panel, "_demolishButton", demolishButton);
-            Connect(panel, "_demolishRefundText", refundText);
-            Connect(panel, "_colorConfig", colorConfig);
-            // BuildingSkillPanelUI 스킬 슬롯 리스트.
-            ConnectList(panel, "_skillSlotButtons", slotButtons.ConvertAll(b => (Object)b));
-            ConnectList(panel, "_skillSlotIcons", slotIcons.ConvertAll(im => (Object)im));
-            ConnectList(panel, "_skillSlotOverlays", slotOverlays.ConvertAll(o => (Object)o));
+            // ── 8) 예약 슬롯(6~8) 숨김 — 기존 액션 패널이 비활성 슬롯을 감추던 방식(CanvasGroup alpha 0) ──
+            for (int i = SkillSlotCount + 1; i < allSlots.Count; i++) // index 6,7,8 (5=철거는 유지)
+            {
+                Button reserved = allSlots[i];
+                if (reserved == null) continue;
+                GameObject go = reserved.gameObject;
+                if (!go.TryGetComponent(out CanvasGroup cg)) cg = go.AddComponent<CanvasGroup>();
+                cg.alpha = 0f;
+                cg.interactable = false;
+                cg.blocksRaycasts = false;
+            }
 
             return panel;
+        }
+
+        /// <summary> SerializedObject에서 objectReference 값을 읽는다(없으면 null). </summary>
+        private static Object GetRef(SerializedObject so, string field)
+        {
+            SerializedProperty p = so.FindProperty(field);
+            return p != null ? p.objectReferenceValue : null;
         }
 
         /// <summary>
@@ -468,17 +481,6 @@ namespace Hexiege.EditorTools
             rt.anchorMax = max;
             rt.offsetMin = Vector2.zero;
             rt.offsetMax = Vector2.zero;
-        }
-
-        private static GridLayoutGroup EnsureGrid(GameObject go)
-        {
-            if (!go.TryGetComponent(out GridLayoutGroup grid)) grid = go.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(120f, 120f);
-            grid.spacing = new Vector2(12f, 12f);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 3;
-            grid.childAlignment = TextAnchor.MiddleCenter;
-            return grid;
         }
 
         /// <summary>
