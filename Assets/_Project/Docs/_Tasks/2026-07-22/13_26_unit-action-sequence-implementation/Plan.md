@@ -630,4 +630,33 @@ B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 `Comb
 
 **B1 최종 판정:** 50개 asset migration·journal·멱등 재실행·rollback과 Android/Editor 역할교대 양방향 Simulation Root/Visual Root·NetworkTransform 보간 교차 검증이 모두 PASS했다. B1은 완료다. 이 완료는 이동 pose와 관점 표현 경계에만 해당한다. 공격 방향·공격 Impact·피해 적용 시점, result seam, B2 서버 이동·방향 Shadow와 이후 단계는 미완료이며 별도 게이트를 통과해야 한다.
 
+### 2026-08-03 — Tracer B2 서버 이동·SimulationFacing Shadow 통과
+
+- [x] `UnitMovementContracts.cs` — NGO·Animator·Transform·피해 writer에 의존하지 않는 이동 입력/상태/결정 계약과 `UnitMovementReducer`
+- [x] command/segment scope, revision 단조 증가, duplicate/stale/invalid fail-closed
+- [x] 이동 정렬 10° 진입 / 15° 이탈 히스테리시스와 target-acquire priority
+- [x] 목표점 도착에서 desired XZ 거리와 expected writer delta가 모두 epsilon 이하인 경우에만 `NoIntent`로 정규화
+- [x] `UnitMovementShadowObserver` — 서버 read-only reducer/Legacy writer 비교와 클라이언트 sentinel. 신규 경로의 Simulation Root·SimulationFacing write 0
+- [x] Android-safe lossless coverage manifest — entry 경계 청크, 청크별 문자/UTF-8 byte 메타데이터, SHA-256, 최대 29청크와 terminal 3줄 예약, preflight fail-closed
+- [x] Unity Editor self-validation PASS — scope lifecycle, 10°/15° 경계, endpoint `NoIntent`, target priority, duplicate/stale/invalid, 29청크/30청크 경계 포함
+- [x] Android 1대 + Unity Editor counterpart 역할교대 멀티플레이에서 25/25종·Blue/Red 표본 확보
+- [x] 모든 인정 세션에서 invalid·duplicate·stale·illegal·scope·unknown mismatch 0
+- [x] Client reducer invocation, Simulation Root write attempt, exception, dropped log, manifest preflight failure, terminal overflow 0
+- [x] 각 인정 세션의 manifest ordinal·entry count·SHA-256 일치
+
+**25종 커버리지 그룹:**
+
+1. Editor Host / Android Client — Assault, LittleKnight, Pistoleer, SpearMan
+2. Editor Host / Android Client — BattleAxe, CannonCart, Sniper, Tank
+3. Android Host / Editor Client — BearGuard, MushroomBomber, RabbitTrickster, RhinoBreaker
+4. Android Host / Editor Client — BloomFairy, EagleArcher, FoxMagician, LionKnight
+5. Editor Host / Android Client — DustSpirit, EmberSpirit, FlameSpirit, InfernoSpirit, TideSpirit
+6. Editor Host / Android Client — BoulderSpirit, QuakeSpirit, StreamSpirit, TorrentSpirit
+
+6개 인정 경기의 accepted reducer decision은 합계 545,190회이고 manifest entry는 합계 420개다. 그룹 5는 host reducer 200,291회, manifest 20/20청크·87항목·SHA-256 `16f57a6d8ac2383f4d41365511f835ecd68d8779e9e2c329ac42ded7fbb31a16`으로 종료했다. 그룹 6은 host reducer 113,236회, manifest 13/13청크·58항목·SHA-256 `771a8b22a4ef023d64815f1754bc006e205894bb45a6e9baa25758ccbde16853`으로 종료했다.
+
+**진단 교정 이력:** 초기 Android 로그 손실은 v4의 byte-bounded 청크와 reserved terminal로 제거했다. 목표점에서 위치·목표·expected delta가 모두 0인 정상 상태를 invalid로 보던 진단기 오류는 v5 endpoint `NoIntent` 정규화로 교정하고 재시험했다. 잘못된 브랜치에서 실행돼 B2 로그가 없었던 5종 시험과 교정 전 실패 세션은 완료 증거에서 제외했다. 첫 4종은 observer v4, 나머지 21종은 v5 증거이며 reducer schema는 모두 `b2-movement-reducer-v1`이다.
+
+**B2 최종 판정:** 서버 이동·SimulationFacing Shadow와 25/25종·Blue/Red 누적 증거 게이트는 PASS다. `legacyMovedWhileShadowAlign`은 신규 계약과 기존 Legacy writer의 분류된 차이이며 실제 writer 교정이 B3에 남았다는 근거다. 각 유닛을 Host와 Client 역할 양쪽에서 각각 시험한 것은 아니며, 역할교대는 전체 경기 집합에서 검증했다. 실제 writer는 계속 Legacy이므로 이동 방향과 바라보기 방향 교정 완료로 판정하지 않는다. 다음 단계는 **B3 경기 단위 25종 이동·SimulationFacing writer 전환**이다. 공격 방향과 시각 Impact/실제 피해 시점은 Tracer C/D까지 계속 미완료다.
+
 사용자가 Testcase 작성을 요청하지 않았으므로 별도 `Testcase.md`는 생성하지 않았으며, 이번 실행 결과는 이 진행 기록에 보존한다.

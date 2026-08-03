@@ -215,6 +215,7 @@ namespace Hexiege.Infrastructure
                         gameObject.AddComponent<UnitRootPoseConsistencyObserver>();
                 }
                 _rootPoseConsistencyObserver.Initialize(NetworkManager, IsServer);
+                UnitMovementShadowObserver.BeginSession(NetworkManager, IsServer);
             }
 #endif
 
@@ -303,6 +304,7 @@ namespace Hexiege.Infrastructure
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             // Flush the bounded evidence summary while the existing RuntimeLogger session is
             // still open. The observer never owns or replaces that session.
+            UnitMovementShadowObserver.EndSession("network-despawn");
             _rootPoseConsistencyObserver?.StopAndLogSummary();
             _rootPoseConsistencyObserver = null;
 #endif
@@ -1429,6 +1431,13 @@ namespace Hexiege.Infrastructure
                     // (이미 다른 경로로 Despawn된 경우 중복 호출 시 NGO가 경고를 출력하므로 가드)
                     if (netObj != null && netObj.IsSpawned)
                     {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        // Retire B2 diagnostic state before NGO changes IsSpawned or recycles
+                        // NetworkObjectId. This is read-only observer lifecycle bookkeeping.
+                        UnitMovementShadowObserver.RetireUnit(
+                            unitId,
+                            netObj.NetworkObjectId);
+#endif
                         netObj.Despawn(destroy: true);
                     }
                 }

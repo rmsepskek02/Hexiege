@@ -536,3 +536,10 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - Match A는 34/39 coverage `0.872`, Match B는 29/38 coverage `0.763158`이며 겹치는 stable pose mismatch는 모두 0이다. Match B 양쪽 END PASS, drop/error 0을 확인했다.
 - 최대 축 오차는 Match A `0.000767m`, Match B `0.000491m`로 1mm 허용치 안이다. cross-audit self-validation은 비중첩·한쪽 누락을 union coverage로 처리하고 실제 pose mismatch만 FAIL한다.
 - B1 최종 판정은 PASS다. 이 판정은 공격 방향·Impact/피해 시점·ActionSequence 권위 전환 QA를 포함하지 않는다.
+
+### 2026-08-03 - Unit ActionSequence B2 모바일 QA PASS
+
+- 초기 Android 로그 유실 `droppedLogs=1233`은 lossless UTF-8 manifest v4로 교정했고, CannonCart endpoint false invalid 1건은 v5 `NoIntent` 정규화 뒤 재시험했다. 잘못된 브랜치 빌드로 B2 로그가 없던 5종 시험도 폐기하고 올바른 빌드로 재시험했다.
+- 6개 인정 경기에서 25/25종 Blue/Red를 확인했다. accepted decision 545,190회, manifest entry 420개이며 모든 인정 세션의 invalid/duplicate/stale/illegal/scope/unknown/client reducer/root write/exception/drop/preflight/overflow는 0, manifest와 SHA는 완전 일치했다.
+- 첫 4종은 observer v4, 나머지 21종은 v5다. Android Host 그룹의 근거는 수집 당시 Logcat 직접 검산이며 Editor RuntimeLog만으로 전체 25종을 재구성할 수 없다.
+- B2 QA 판정은 read-only Shadow/증거 PASS다. Legacy Align 중 이동 차이는 B3 전환 대상이며 실제 이동 방향 교정, 공격 방향, Impact/피해 적용 시점은 미완료다.

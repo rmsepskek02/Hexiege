@@ -1,9 +1,9 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-07-30
-**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2와 25종 감사 문서는 확정됐고, Tracer A0/A1/A2, B0과 B1이 완료됐다. B1은 50개 asset migration·journal·NO-OP·rollback뿐 아니라 Android/Editor 역할교대 양방향 Simulation/Visual Root와 NetworkTransform 보간 실기까지 PASS했다. 공격 방향, 공격 Impact·피해 적용 시점, result seam, 피해·RPC·VFX 권위 전환과 Snapshot/ImpactResult 복제는 미완료다. 기존 타격 동기화 PASS는 Legacy 범위의 이력으로만 보존하며 ActionSequence 전환은 **P0 진행 중**이다.
+**최종 수정일:** 2026-08-03
+**정밀 동기화 상태:** 유닛 이동·공격 규칙 v2와 25종 감사 문서는 확정됐고, Tracer A0/A1/A2와 B0/B1/B2가 완료됐다. B2는 서버 전용 pure 이동 reducer와 read-only Shadow observer를 연결하고 Android 1대·Unity Editor counterpart 멀티플레이에서 25/25종·Blue/Red의 이동 의도와 Legacy writer 상관 증거를 확보했다. 이는 진단 게이트 완료이며 실제 이동·SimulationFacing writer는 아직 Legacy다. 공격 방향, 공격 Impact·피해 적용 시점, result seam, 피해·RPC·VFX 권위 전환과 Snapshot/ImpactResult 복제도 미완료다. 기존 타격 동기화 PASS는 Legacy 범위의 이력으로만 보존하며 ActionSequence 전환은 **P0 진행 중**이다.
 **최신 main 반영:** InfernoSpirit은 직접 25 + 유닛 전용 DoT 5/초×3초가 Legacy 경로에서 사용자 실기 확인됐고, QuakeSpirit은 직접 20 + 주변 적 유닛·건물 10 및 Host/Client HP 결과가 로그로 확인됐다. 다만 Inferno는 marker 0.50초/설정 1.15초가 불일치하며, Quake는 기본 `OnAttackHit`이 없고 1.00초 placeholder를 사용한다. 두 구현 모두 권위 `AttackSequenceId`, `ImpactPoint`, 결과 순번이 없어 v2 Complete가 아니다.
-**현재 단계 (규칙 v2):** B1 양방향 이동 pose 검증 완료. 다음 단계는 미구현 상태인 B2 서버 이동·방향 Shadow이며, 공격 방향·Impact·피해 시점은 후속 게이트에서 별도로 검증한다.
+**현재 단계 (규칙 v2):** B2 서버 이동·SimulationFacing Shadow와 25/25종·Blue/Red 실기 증거 수집 완료. 다음 단계는 B3 경기 단위 25종 이동·방향 writer 전환이며, 공격 방향·Impact·피해 시점은 후속 게이트에서 별도로 검증한다.
 **Legacy 스냅샷 (2026-07-19):** BattleAxe·TorrentSpirit·BloomFairy·MushroomBomber의 당시 기능 완료 기록은 `WORK_HISTORY.md`로 이관해 보존한다. 이후 반영된 InfernoSpirit·QuakeSpirit 상태와 v2 판정은 위 최신 상태 및 AssetMatrix를 따른다.
 
 > Legacy 기능 PASS는 규칙 v2 Complete가 아니다. 실제 현재 상태는 위 `정밀 동기화 상태`와 `UnitCombatAssetMatrix.md`를 따른다.
@@ -33,10 +33,14 @@
 - 잘못된 진단 가정 제거: 2026-07-27 B1에서 근거 없이 도입된 Collider 존재·배치 조건은 B1 범위가 아니므로 공통 계약·runtime observer·Editor validator·self-validation에서 완전히 제거했다. B1 구조 권위는 network component placement, identity VisualRoot, root Animator/Renderer 0, projector/ref, Root Motion off, Animator별 relay, 서버 single-writer와 client Simulation Root write 금지다.
 - B1 Match A PASS: Editor Host Blue + Android Client Red에서 stable endpoint exact match 34/39(`0.872`), pose mismatch 0, 최대 축 오차 `0.000767m`, 최대 회전 오차 `0.000362°`.
 - B1 Match B PASS: Android Host Blue + Editor Client Red 양쪽 완전 END PASS. endpoint 36/33, union 38, exact match 29(`0.763158`), temporal-only 2, host-only 5, client-only 2, pose mismatch 0, 최대 축/거리 오차 `0.000491m`, 최대 회전 오차 `0.000159196°`, drop/error 0. self-validation도 overlap/non-overlap·union coverage·실제 match shape를 포함해 PASS했다.
-- B1 범위 판정: 이동 Simulation Root/Visual Root와 NetworkTransform 보간 양방향 멀티 검증 완료. 공격 방향·Impact·피해 적용 시점, result seam과 B2 이후는 미완료다.
+- B1 범위 판정: 이동 Simulation Root/Visual Root와 NetworkTransform 보간 양방향 멀티 검증 완료. 후속 B2 Shadow는 아래와 같이 완료했지만 B3 실제 writer 전환, 공격 방향·Impact·피해 적용 시점과 result seam은 미완료다.
+- Tracer B2 구현: pure Application `UnitMovementReducer`(`b2-movement-reducer-v1`)에 command/segment scope, 10° 진입·15° 이탈 히스테리시스, target-acquire priority, revision fail-closed와 endpoint `NoIntent` 정규화를 구현했다. `UnitMovementShadowObserver`(`b2-movement-shadow-v5`)는 서버 read-only 비교와 클라이언트 sentinel만 수행한다.
+- B2 진단 내구성: Android 로그 절단을 막기 위해 손실 없는 entry-boundary manifest, 청크별 문자/UTF-8 byte 메타데이터, SHA-256, terminal 예약과 fail-closed preflight를 적용했다. self-validation은 endpoint lifecycle과 최대 29청크 경계를 포함해 PASS했다.
+- B2 멀티플레이 검증: Android 1대와 Unity Editor counterpart에서 역할을 교대하며 6개 경기 그룹으로 25/25종을 Blue/Red 모두 관측했다. 첫 4종은 observer v4, 나머지 21종은 endpoint `NoIntent`가 보강된 v5 누적 증거다. 모든 인정 세션의 invalid·duplicate·stale·illegal·scope·unknown·client reducer·Simulation Root write·exception·drop·preflight·overflow 카운터는 0이고 manifest 청크·entry count·SHA-256이 일치했다.
+- B2 범위 판정: Legacy가 Shadow `AlignToMove` 중에도 이동한 표본은 신규 계약과 기존 writer의 분류된 차이이며 B3 전환 근거다. B2는 Shadow/증거 게이트만 완료했으며 이동·바라보기 방향 교정 완료는 B3 신규 writer 전환과 멀티 검증 뒤에만 판정한다.
 - 신규·교체 프리팹은 migrated 템플릿과 `NET-ROOT-004` 승인 게이트를 사용한다. B1 50개 일괄 migration을 반복하지 않으며 Asset Matrix와 fail-closed validator roster·기준선을 함께 갱신한다.
 - 목표: Simulation Root/Visual Root 분리, `AttackerInstanceId + AttackSequenceId + HitIndex` 기반 정규 결과 키, 서버 시간 Impact, FIFO 대체
-- 런타임: A2 pose→reducer 관측 입력 seam과 B1 Simulation/Visual Root 표현 seam까지 연결했고 기존 Network Root Red 보정은 제거했다. Walk/Attack 상태 분리, 공격자 FIFO, result seam과 권위 Snapshot/ImpactResult 전환이 남아 있어 **미완료**
+- 런타임: A2 pose seam, B1 Simulation/Visual Root 표현 seam과 B2 이동 reducer Shadow까지 연결했고 기존 Network Root Red 보정은 제거했다. B3 이동 writer 전환, Walk/Attack 상태 분리, 공격자 FIFO, result seam과 권위 Snapshot/ImpactResult 전환이 남아 있어 **미완료**
 - 중요 사실: UnitStatsConfig는 25/25 등록됐으나 기본 Attack marker 누락 4종, BattleAxe·Inferno 등 marker/설정 불일치, hit/tracer preset 0/25, Quake의 표현 최대 7.5초 지연 가능성이 남아 있다.
 - 후속 구현과 검증은 현재 task Plan의 A2 이후 게이트를 따른다.
 

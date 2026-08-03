@@ -227,3 +227,19 @@ NGO·Animator·씬 없이 Application 수준에서 다음을 결정적으로 재
 - NGO 2.9.2 Vector3 LegacyLerp의 millimeter-scale 종료 잔차를 피하도록 `Interpolate=true`, `PositionLerpSmoothing=false`, server authority와 canonical world-space 위치 동기화 계약을 검증한다.
 
 위 근거로 **B1의 이동 Simulation Root/Visual Root 분리와 NetworkTransform 보간 양방향 멀티 검증은 완료**다. 공격 방향, 공격 Impact·피해 적용 시점, result seam과 B2 이후 ActionSequence 전환은 이번 증거로 검증하지 않았으며 계속 미완료다.
+
+---
+
+## 13. 2026-08-03 Tracer B2 관측 결과
+
+B2는 기존 이동 writer를 교체하지 않고 서버가 같은 입력을 pure `UnitMovementReducer`로 판정해 Legacy 이동 결과와 비교하는 Shadow 단계로 구현했다. reducer는 command/segment scope와 revision을 사용하며, 이동 방향 오차가 10° 이하일 때 이동에 진입하고 이동 중 15°를 초과하면 재정렬한다. 타겟 획득은 같은 scope 안에서 기존 이동 의도보다 우선한다.
+
+실기 중 목표점에 정확히 도착해 desired 방향과 expected writer delta가 모두 0인 정상 프레임이 invalid로 분류되는 진단기 문제가 발견됐다. 이는 실제 이동 구현 오류가 아니라 관측 입력의 “이동 의도 없음” 표현 누락이었다. 두 값이 모두 epsilon 이하일 때만 `NoIntent`로 정규화하고, 먼 목표인데 expected delta만 0인 상태와 endpoint인데 material delta가 있는 상태는 계속 fail-closed로 유지했다.
+
+Android Logcat은 긴 단일 manifest가 잘릴 수 있으므로 entry 경계를 보존한 채 UTF-8 byte 제한 아래로 청크화했다. 청크 순번, 문자 수, byte 수, 전체 SHA-256과 terminal 로그 예약을 self-validation 및 실기 로그로 검증했다. 이 보정은 진단 증거의 손실을 막기 위한 것이며 게임플레이 writer를 변경하지 않는다.
+
+Android 1대와 Unity Editor counterpart의 Host/Client 역할을 경기 집합에서 교대해 6개 성공 그룹에서 25/25종의 Blue/Red를 모두 관측했다. 첫 4종은 observer v4, 나머지 21종은 endpoint adapter가 보강된 v5 증거이며 reducer schema는 모두 `b2-movement-reducer-v1`이다. 각 유닛을 Host와 Client 역할 양쪽에서 각각 시험한 것은 아니다. 인정 세션 합계는 accepted decision 545,190회, manifest entry 420개다. Android Host인 그룹 3·4는 대화 중 직접 수집·검산한 Logcat이 근거이며 저장된 Editor RuntimeLog만으로 25종 전체를 재구성할 수 없다.
+
+최종 성공 세션은 invalid·duplicate·stale·illegal·scope·unknown mismatch, client reducer invocation, Simulation Root write attempt, exception, dropped log, manifest preflight failure와 terminal overflow가 모두 0이었다. 모든 manifest는 청크 ordinal·entry count·SHA-256이 일치했다.
+
+B2에서 관측된 `legacyMovedWhileShadowAlign`은 신규 reducer 오류가 아니라, 방향 정렬 전에 이동할 수 있는 기존 writer와 규칙 v2 10° 정렬 계약 사이의 분류된 차이다. B3에서 신규 writer를 경기 단위로 단독 활성화해 제거해야 할 대상이며, B2 단계에서 Legacy 동작을 수정하거나 결과 권위를 혼합하지 않는다. 따라서 B2 Shadow/증거 게이트는 완료하지만 실제 이동 방향과 바라보기 방향의 교정 완료는 B3 writer 전환과 멀티 검증 전까지 선언하지 않는다. 공격 타겟·공격 방향과 시각 Impact·실제 피해 시점도 이번 범위 밖이다.

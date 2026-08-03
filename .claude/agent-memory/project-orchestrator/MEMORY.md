@@ -373,3 +373,10 @@ Assets/_Project/
 - Android 1대와 Unity Editor counterpart의 Host/Client 역할교대 두 경기에서 양쪽 로컬 PASS와 cross-pose mismatch 0을 확인했다. B1은 COMPLETE이며 B2 서버 이동·SimulationFacing Shadow가 다음 활성 게이트다.
 - B1 완료 범위는 Root 분리, NetworkTransform 안정 수렴, 50개 프리팹 migration·멱등성·rollback이다.
 - B3 writer 전환, 공격 방향, Impact/피해 타이밍, result seam, 25종 이전·멀티 QA와 Legacy 제거는 계속 P0 미완료다.
+
+### 2026-08-03 - Unit ActionSequence B2 게이트 종료
+
+- B2 서버 이동·SimulationFacing read-only Shadow는 6개 인정 멀티플레이 경기에서 25/25 UnitType의 Blue/Red 누적 표본을 확보해 COMPLETE다. accepted decision 545,190회, manifest entry 420개이며 인정 세션의 decision/scope/authority/log-integrity 오류 카운터는 모두 0이다.
+- 첫 4종은 observer v4, 나머지 21종은 endpoint `NoIntent`가 보강된 v5다. reducer schema는 모두 `b2-movement-reducer-v1`이며 각 유닛을 Host/Client 양 역할에서 각각 검증한 것은 아니다.
+- B2는 진단·분류 완료다. 실제 이동·바라보기 writer 교정은 B3 전까지 미완료이고, `legacyMovedWhileShadowAlign`은 B3가 필요한 직접 근거다.
+- 다음 활성 게이트는 B3 경기 단위 25종 이동·SimulationFacing single-writer 전환이다. 공격 방향과 Impact/피해 타이밍은 Tracer C/D 이후까지 미완료다.

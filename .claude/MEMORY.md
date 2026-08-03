@@ -101,3 +101,9 @@
 - User device verification passed: explicit email display, signup cancel confirmation, Firebase unverified user deletion, continue verification staying on screen, relaunch from verification returning to verification, and relaunch from nickname setup returning to nickname setup.
 - Auto login now gates unverified email accounts back to verification and verified-but-no-nickname accounts back to nickname setup before Lobby.
 - `SplashOverlay` must skip fade only for Lobby scene transition; Login-scene panel callbacks need fade out so the overlay stops blocking UI.
+
+### 2026-08-03 - Unit ActionSequence B2 milestone
+
+- Branch `codex/unit-movement-attack-sync-audit`: B2 server read-only movement/SimulationFacing Shadow passed cumulative 25/25 UnitType Blue/Red multiplayer evidence across six accepted matches.
+- This completes diagnosis only. Legacy remains the movement writer; B3 match-wide 25-unit writer transition is next. Attack direction and visual Impact versus authoritative damage timing remain incomplete.
+- Evidence and QA-fix history: `Assets/_Project/Docs/_Tasks/2026-07-22/13_26_unit-action-sequence-implementation/Plan.md` and matching `_Logs/.../Log.md`.

@@ -299,3 +299,10 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - 50개 프리팹은 서버 권위와 `Interpolate=true`를 유지하고 `PositionLerpSmoothing=false`로 통일했다. migration·NO-OP·graceful/crash rollback과 validator가 PASS했다.
 - Match A(Editor Host/Android Client)와 Match B(Android Host/Editor Client)의 겹치는 stable pose에서 mismatch 0을 확인해 B1을 완료했다. 다음 구현은 B2 서버 이동·SimulationFacing Shadow다.
 - 공격 방향, 서버 Impact와 실제 피해 시점, result seam, Snapshot/ImpactResult 전환은 아직 구현·검증하지 않았다.
+
+### 2026-08-03 - Unit ActionSequence B2 이동 Shadow 구현 완료
+
+- pure Application `UnitMovementReducer`는 command/segment scope, revision fail-closed, 10° 진입/15° 이탈 히스테리시스, target-acquire priority와 endpoint `NoIntent` 정규화를 담당한다.
+- `UnitMovementShadowObserver` v5는 서버 read-only 비교와 client sentinel만 수행한다. Legacy 이동·SimulationFacing writer와 피해·RPC·VFX 권위는 유지하며 신규 root write는 0이어야 한다.
+- Android manifest는 entry-boundary 청크, UTF-8 byte 메타데이터, SHA-256, terminal 예약/preflight를 사용한다. 첫 4종 v4 + 나머지 21종 v5로 25/25종 Blue/Red 누적 증거를 확보했다.
+- `legacyMovedWhileShadowAlign`은 B2 오류가 아니라 규칙 v2와 Legacy writer의 분류된 차이다. 다음 구현은 경기 시작 시 고정한 mode로 25종 writer를 한 번에 전환하는 B3이며 유닛별 혼합을 금지한다.

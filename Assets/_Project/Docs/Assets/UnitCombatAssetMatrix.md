@@ -2,9 +2,9 @@
 
 유닛별 공격 설계 목표와 현재 런타임·애니메이션·VFX 준비 상태를 분리해 추적하는 감사 표다.
 
-**감사 기준일:** 2026-07-30
+**감사 기준일:** 2026-08-03
 **브랜치:** `codex/unit-movement-attack-sync-audit`  
-**범위:** 정적 에셋·설정·코드 연결 감사 + main에 반영된 InfernoSpirit 사용자 실기 결과와 QuakeSpirit Host/Client 피해 로그 재검토 + B1 50개 프리팹 Visual Root migration·재실행 NO-OP·rollback + Android/Unity Editor 역할교대 양방향 root-pose 검증. B1은 완료했지만 공격 방향·Impact/피해 시점·25종 규칙 v2 전체 멀티플레이 검증은 수행하지 않음.
+**범위:** 정적 공격 에셋·설정·코드 연결 감사 + main에 반영된 InfernoSpirit 사용자 실기 결과와 QuakeSpirit Host/Client 피해 로그 재검토 + B1 Simulation/Visual Root 검증 + B2 서버 이동·SimulationFacing Shadow 25종 Blue/Red 누적 멀티플레이 검증. B2 이동 진단은 완료했지만 실제 이동 writer 전환, 공격 방향·Impact/피해 시점과 25종 규칙 v2 공격 전체 멀티플레이 검증은 수행하지 않음.
 
 이 문서는 상태 스냅샷이며 게임 규칙 권위가 아니다. 공격 의미는 `GameSystemRules_Units.md`, 동기화 계약은 `GameSystemRules_UnitCombatSynchronization.md`, 런타임 수치 원본은 `Resources/Config/UnitStatsConfig.asset`을 따른다.
 
@@ -39,7 +39,8 @@
 | `attackPreset` | 9/25 연결 |
 | `hitPreset` | 0/25 연결 |
 | `tracerPreset` | 0/25 연결 |
-| 규칙 v2 멀티 검증 완료 | 0/25 — 런타임 구현 전 |
+| B2 이동 Shadow Blue/Red 표본 | 25/25 — read-only 진단 완료, 실제 writer 전환은 B3 미완료 |
+| 규칙 v2 공격 전체 멀티 검증 완료 | 0/25 — 공격 권위 런타임 구현 전 |
 
 `attackPreset` 연결 9종: Pistoleer, Assault, Sniper, Tank, CannonCart, InfernoSpirit, StreamSpirit, TorrentSpirit, FoxMagician.
 

@@ -185,6 +185,17 @@ namespace Hexiege.Presentation
         private Vector3 _unitActionShadowDesiredTarget;
         private bool _hasUnitActionShadowDesiredTarget;
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        // B2 diagnostic scope only. These values correlate Legacy movement writers with the
+        // production movement reducer; they never select a gameplay branch or write a pose.
+        private NetworkUnit _movementShadowNetworkUnit;
+        private ulong _movementShadowCommandRevision;
+        private ulong _movementShadowSegmentRevision;
+        private UnitMovementIntentReason _movementShadowIntentReason;
+        private bool _movementShadowPendingCommand;
+        private bool _movementShadowPendingSegment;
+#endif
+
         // 회전 속도 (초당 각도) — 인스펙터에서 조정 가능.
         // 전투 중 타겟 추적, A* 이동 중 방향 전환, 전투 종료 후 정렬 모두 동일한 속도로 회전한다.
         // 270도/s 기준: 반대 방향(180도)에서도 약 0.67초 내 전환 완료.
@@ -342,6 +353,14 @@ namespace Hexiege.Presentation
         {
             _unitData = unitData;
             _visualRootProjector = GetComponent<VisualRootProjector>();
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            _movementShadowNetworkUnit = GetComponent<NetworkUnit>();
+            _movementShadowCommandRevision = 0UL;
+            _movementShadowSegmentRevision = 0UL;
+            _movementShadowIntentReason = UnitMovementIntentReason.None;
+            _movementShadowPendingCommand = false;
+            _movementShadowPendingSegment = false;
+#endif
 
             // Animator 캐시 — 자식 오브젝트에 있을 수 있으므로 GetComponentInChildren 사용
             _animator = GetComponentInChildren<Animator>();
@@ -488,6 +507,9 @@ namespace Hexiege.Presentation
                     // 다른 유닛의 사망 이벤트는 무시.
                     if (_unitData != null && e.Unit == _unitData)
                     {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        RetireMovementShadowUnit();
+#endif
                         // 사망한 root의 마지막 이동/공격 목표가 adapter에 남아 다음 관측으로 재사용되지 않게 한다.
                         ClearUnitActionShadowDesiredTarget();
 
@@ -678,6 +700,9 @@ namespace Hexiege.Presentation
         {
             _unitActionShadowDesiredTarget = default;
             _hasUnitActionShadowDesiredTarget = false;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            _movementShadowIntentReason = UnitMovementIntentReason.None;
+#endif
         }
 
         private static bool IsFiniteXZ(Vector3 value)
@@ -685,6 +710,119 @@ namespace Hexiege.Presentation
             return !float.IsNaN(value.x) && !float.IsInfinity(value.x)
                 && !float.IsNaN(value.z) && !float.IsInfinity(value.z);
         }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private void BeginMovementShadowCommand(UnitMovementIntentReason intentReason)
+        {
+            // Commit diagnostic revisions only when a Legacy writer is actually observed.
+            // Empty or rejected commands therefore cannot create reducer-visible gaps.
+            _movementShadowPendingCommand = true;
+            _movementShadowPendingSegment = false;
+            _movementShadowIntentReason = intentReason;
+        }
+
+        private void BeginMovementShadowSegment(UnitMovementIntentReason intentReason)
+        {
+            if (_movementShadowCommandRevision == 0UL || _movementShadowPendingCommand)
+            {
+                _movementShadowPendingCommand = true;
+                _movementShadowPendingSegment = false;
+                _movementShadowIntentReason = intentReason;
+                return;
+            }
+
+            _movementShadowPendingSegment = true;
+            _movementShadowIntentReason = intentReason;
+        }
+
+        private void CommitMovementShadowScope()
+        {
+            if (_movementShadowPendingCommand)
+            {
+                _movementShadowCommandRevision =
+                    _movementShadowCommandRevision == ulong.MaxValue
+                        ? 0UL
+                        : _movementShadowCommandRevision + 1UL;
+                _movementShadowSegmentRevision = 1UL;
+                _movementShadowPendingCommand = false;
+                _movementShadowPendingSegment = false;
+                return;
+            }
+
+            if (!_movementShadowPendingSegment)
+                return;
+
+            _movementShadowSegmentRevision =
+                _movementShadowSegmentRevision == ulong.MaxValue
+                    ? 0UL
+                    : _movementShadowSegmentRevision + 1UL;
+            _movementShadowPendingSegment = false;
+        }
+
+        private void RetireMovementShadowUnit()
+        {
+            if (_unitData == null
+                || _movementShadowNetworkUnit == null
+                || !_movementShadowNetworkUnit.IsSpawned)
+                return;
+
+            UnitMovementShadowObserver.RetireUnit(
+                _unitData.Id,
+                _movementShadowNetworkUnit.NetworkObjectId);
+        }
+
+        private static float CalculateMovementShadowPositionDeltaXZ(
+            Vector3 from,
+            Vector3 to)
+        {
+            float deltaX = to.x - from.x;
+            float deltaZ = to.z - from.z;
+            return Mathf.Sqrt(deltaX * deltaX + deltaZ * deltaZ);
+        }
+
+        private UnitMovementShadowObserver.LegacyFrameToken BeginMovementShadowLegacyFrame(
+            Vector3 desiredTarget,
+            UnitMovementIntentReason fallbackIntentReason,
+            float expectedPositionDeltaWorld)
+        {
+            if (!NetworkContext.IsNetworkActive
+                || !NetworkContext.IsNetworkServer
+                || _unitData == null
+                || !_unitData.IsAlive
+                || _movementShadowNetworkUnit == null
+                || !_movementShadowNetworkUnit.IsSpawned)
+            {
+                return default;
+            }
+
+            if (_movementShadowIntentReason == UnitMovementIntentReason.None)
+                BeginMovementShadowSegment(fallbackIntentReason);
+
+            CommitMovementShadowScope();
+            return UnitMovementShadowObserver.BeginLegacyFrame(
+                _unitData.Id,
+                _movementShadowNetworkUnit.NetworkObjectId,
+                _unitData.Type,
+                _unitData.Team,
+                _movementShadowCommandRevision,
+                _movementShadowSegmentRevision,
+                _movementShadowIntentReason,
+                transform.position,
+                transform.rotation,
+                desiredTarget,
+                targetAcquirePriority: false,
+                expectedPositionDeltaWorld: expectedPositionDeltaWorld);
+        }
+
+        private void CompleteMovementShadowLegacyFrame(
+            UnitMovementShadowObserver.LegacyFrameToken token)
+        {
+            UnitMovementShadowObserver.CompleteLegacyFrame(
+                token,
+                transform.position,
+                transform.rotation);
+        }
+#endif
 
         // ====================================================================
         // 이동
@@ -698,9 +836,28 @@ namespace Hexiege.Presentation
         /// <param name="path">A* 경로 (시작점 포함)</param>
         public void MoveTo(List<HexCoord> path)
         {
+            MoveToInternal(path, UnitMovementIntentReason.AStarPath, startNewCommand: true);
+        }
+
+        /// <summary>
+        /// Starts or restarts the existing Legacy coroutine while keeping B2 command/segment
+        /// correlation explicit. The diagnostic scope does not affect the path or writer.
+        /// </summary>
+        private void MoveToInternal(
+            List<HexCoord> path,
+            UnitMovementIntentReason intentReason,
+            bool startNewCommand)
+        {
             // 멀티플레이에서는 서버만 이동 로직을 실행.
             // 클라이언트는 NetworkTransform이 서버 위치를 자동으로 보간·동기화.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (startNewCommand)
+                BeginMovementShadowCommand(intentReason);
+            else
+                BeginMovementShadowSegment(intentReason);
+#endif
 
             // 새 코루틴을 시작하므로, OnPathInvalidated가 예약해 둔
             // _pendingPath는 더 이상 유효하지 않다(이미 새 path가 들어왔기 때문).
@@ -900,7 +1057,10 @@ namespace Hexiege.Presentation
                 && !_movementUseCase.IsWalkable(_currentNextTileCoord.Value))
             {
                 // 다음 도착 타일이 막혔으므로 부드러운 교체 불가 — 즉시 코루틴 재시작.
-                MoveTo(newPath);
+                MoveToInternal(
+                    newPath,
+                    UnitMovementIntentReason.BlockedRepath,
+                    startNewCommand: false);
                 return;
             }
 
@@ -1127,6 +1287,15 @@ namespace Hexiege.Presentation
                     {
                         elapsed += Time.deltaTime;
                         float t = Mathf.Clamp01(elapsed / targetDuration);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        UnitMovementShadowObserver.LegacyFrameToken movementShadowToken =
+                            BeginMovementShadowLegacyFrame(
+                                toPos,
+                                UnitMovementIntentReason.AStarPath,
+                                CalculateMovementShadowPositionDeltaXZ(
+                                    transform.position,
+                                    Vector3.Lerp(fromPos, toPos, t)));
+#endif
                         transform.position = Vector3.Lerp(fromPos, toPos, t);
 
                         // [회전 시스템 변경 — 2026-05-14] 매 프레임 RotateTowards로 점진 회전.
@@ -1135,12 +1304,19 @@ namespace Hexiege.Presentation
                         //   서버에서만 실행되며, NetworkTransform이 클라이언트로 회전 보간 전달.
                         transform.rotation = Quaternion.RotateTowards(
                             transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        CompleteMovementShadowLegacyFrame(movementShadowToken);
+#endif
 
                         // ── [A* 이동] → [전투 이동 / 힐] 전환 ──
                         // 감지 사거리 안에 대상(일반=적 / 힐러=부상 아군)이 있으면 즉시 위임.
                         // ShouldEngage()가 유닛 역할에 맞는 대상을 검사한다(힐러는 적을 타지 않음).
                         if (ShouldEngage())
                         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                            UnitMovementShadowObserver.ObserveTargetAcquirePriority(
+                                movementShadowToken);
+#endif
                             // 혼잡도 기여 일시 중단 — 추격 단계는 타일을 거치지 않는
                             // 직선 이동이므로 OnUnitEnteredTile 발행을 막는다. resumePath에서 다시 true.
                             _isAStarMoving = false;
@@ -1170,6 +1346,9 @@ namespace Hexiege.Presentation
 
                             if (_unitData == null || !_unitData.IsAlive) break;
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                            BeginMovementShadowSegment(UnitMovementIntentReason.PostCombatResume);
+#endif
                             // ──────────────────────────────────────────────────────────
                             // [BUG-002 수정 — 2026-05-13] 전투 종료 → 앞쪽 타일까지 "걸어서" 정렬.
                             //
@@ -1238,6 +1417,18 @@ namespace Hexiege.Presentation
                                 {
                                     alignElapsed += Time.deltaTime;
                                     float at = Mathf.Clamp01(alignElapsed / alignDuration);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                                    UnitMovementShadowObserver.LegacyFrameToken resumeShadowToken =
+                                        BeginMovementShadowLegacyFrame(
+                                            alignView,
+                                            UnitMovementIntentReason.PostCombatResume,
+                                            CalculateMovementShadowPositionDeltaXZ(
+                                                transform.position,
+                                                Vector3.Lerp(
+                                                    alignFromPos,
+                                                    alignView,
+                                                    at)));
+#endif
                                     transform.position = Vector3.Lerp(alignFromPos, alignView, at);
 
                                     // [회전 시스템 변경 — 2026-05-14] 매 프레임 RotateTowards로 점진 회전.
@@ -1246,10 +1437,17 @@ namespace Hexiege.Presentation
                                     //   서버에서만 실행되며, NetworkTransform이 클라이언트로 회전 보간 전달.
                                     transform.rotation = Quaternion.RotateTowards(
                                         transform.rotation, alignTargetRot, _rotationSpeed * Time.deltaTime);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                                    CompleteMovementShadowLegacyFrame(resumeShadowToken);
+#endif
 
                                     // 정렬 도중에도 새 대상(일반=적 / 힐러=부상 아군) 감지 시 즉시 다음 사이클로 넘긴다.
                                     if (ShouldEngage())
                                     {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                                        UnitMovementShadowObserver.ObserveTargetAcquirePriority(
+                                            resumeShadowToken);
+#endif
                                         alignInterruptedByCombat = true;
                                         break;
                                     }
@@ -1361,6 +1559,9 @@ namespace Hexiege.Presentation
 
                         if (startIdx >= 0 && startIdx < pending.Count - 1)
                         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                            BeginMovementShadowSegment(UnitMovementIntentReason.PendingRepath);
+#endif
                             // 정상 케이스: 현재 위치를 새 path의 startIdx로 두고,
                             // 그 다음 타일(startIdx+1)부터 진행하도록 path 교체.
                             // path[0]은 항상 시작점(현재 위치) — 슬라이스 후에도 이 규약 유지.
@@ -1383,7 +1584,10 @@ namespace Hexiege.Presentation
                             // 안전망: 현재 위치를 새 path에서 찾지 못함 → 코루틴 재시작.
                             // MoveTo 안에서 _pendingPath / _currentNextTileCoord가 초기화되고
                             // 기존 코루틴이 정지된 뒤 새 코루틴이 시작된다.
-                            MoveTo(pending);
+                            MoveToInternal(
+                                pending,
+                                UnitMovementIntentReason.PendingRepath,
+                                startNewCommand: false);
                             yield break;
                         }
                     }
@@ -1457,6 +1661,9 @@ namespace Hexiege.Presentation
             //   각 yield break 직전 + 함수 끝에서 false로 명시적 리셋해야 한다.
             // ────────────────────────────────────────────────────────────
             _isInCombatPursuit = true;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            BeginMovementShadowSegment(UnitMovementIntentReason.Chase);
+#endif
 
             // 필수 의존성 가드 — _positionProvider는 적 월드 좌표 조회에 사용.
             if (_combatUseCase == null || _positionProvider == null || _unitData == null)
@@ -1558,11 +1765,26 @@ namespace Hexiege.Presentation
                 {
                     float pursuitAngle = CalculateAttackAngle(enemyViewPos);
                     Quaternion targetRot = Quaternion.Euler(0f, pursuitAngle, 0f);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitMovementShadowObserver.LegacyFrameToken pursuitShadowToken =
+                        BeginMovementShadowLegacyFrame(
+                            enemyViewPos,
+                            UnitMovementIntentReason.Chase,
+                            CalculateMovementShadowPositionDeltaXZ(
+                                transform.position,
+                                transform.position
+                                    + moveDir.normalized
+                                    * worldSpeed
+                                    * Time.deltaTime));
+#endif
                     transform.rotation = Quaternion.RotateTowards(
                         transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
 
                     // 적 방향으로 직선 이동 (한 프레임 이동량 = worldSpeed × dt).
                     transform.position += moveDir.normalized * worldSpeed * Time.deltaTime;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    CompleteMovementShadowLegacyFrame(pursuitShadowToken);
+#endif
                 }
 
                 yield return null;
@@ -1778,7 +2000,10 @@ namespace Hexiege.Presentation
                 {
                     List<HexCoord> resumePath = _pendingPath;
                     _pendingPath = null;
-                    MoveTo(resumePath);
+                    MoveToInternal(
+                        resumePath,
+                        UnitMovementIntentReason.HealerResume,
+                        startNewCommand: false);
                     yield break;
                 }
 

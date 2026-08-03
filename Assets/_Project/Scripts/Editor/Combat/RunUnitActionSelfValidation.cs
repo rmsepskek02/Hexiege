@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Text;
 using Hexiege.Application.Combat.Sequencing;
 using UnityEditor;
 using UnityEngine;
@@ -19,11 +22,14 @@ namespace Hexiege.Editor.Combat
             ValidatePhaseVocabularyAndOrdinals();
             ValidateMonotonicSequences();
             ValidateMovementHysteresis();
+            ValidateB2MovementReducer();
+            ValidateB2MovementEndpointAdapter();
+            ValidateB2MovementManifestChunking();
             ValidateAttackHysteresis();
             ValidateDuplicateAndReorderedResults();
             ValidateA1ContractsAndReducer();
 
-            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, phase vocabulary/ordinal, revision/time fail-closed, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
+            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and reserved-terminal preflight, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
         }
 
         /// <summary>
@@ -87,6 +93,851 @@ namespace Hexiege.Editor.Combat
                 "350 degrees must normalize to the 10-degree movement entry boundary.");
             Require(!UnitActionAngleHysteresis.AllowsMovement(double.PositiveInfinity, true),
                 "Infinite movement error must fail closed.");
+        }
+
+        /// <summary>
+        /// B2 이동 reducer가 Unity나 NGO 없이 명령·구간 회차, 10°/15° 경계,
+        /// 타겟 획득 우선권과 잘못된 입력의 무변경 거부를 지키는지 검증한다.
+        /// </summary>
+        private static void ValidateB2MovementReducer()
+        {
+            Require(ActionDirectionXZ.TryCreate(0d, 1d, out ActionDirectionXZ forward),
+                "B2 forward fixture must be valid.");
+            ActionDirectionXZ yaw10 = CreateMovementDirection(10d);
+            ActionDirectionXZ yaw10Over = CreateMovementDirection(10.001d);
+            ActionDirectionXZ yaw12 = CreateMovementDirection(12d);
+            ActionDirectionXZ yaw15 = CreateMovementDirection(15d);
+            ActionDirectionXZ yaw15Over = CreateMovementDirection(15.001d);
+
+            var entry = new UnitMovementReducer();
+            Require(entry.Snapshot.Revision == 1UL
+                && entry.Snapshot.Phase == UnitMovementPhase.NoIntent
+                && !entry.Snapshot.HasAcceptedObservation,
+                "B2 reducer must start at revision 1 with no accepted movement intent.");
+            Require(entry.Evaluate(
+                    entry.Snapshot.Revision, 1UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, yaw10, false, 1d,
+                    out UnitMovementDecision entryAtTen)
+                == UnitMovementReducerStatus.Accepted,
+                "B2 movement must enter exactly at 10 degrees.");
+            Require(entryAtTen.IsValid
+                && entryAtTen.Phase == UnitMovementPhase.Move
+                && entryAtTen.AllowsMovement
+                && entryAtTen.HasYawError
+                && Math.Abs(entryAtTen.YawErrorDegrees - 10d) < 0.000001d,
+                "The 10-degree B2 decision must be a valid Move.");
+
+            UnitMovementSnapshot beforeDuplicate = entry.Snapshot;
+            Require(entry.Evaluate(
+                    beforeDuplicate.Revision, 1UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, yaw10, false, 1d,
+                    out UnitMovementDecision duplicateDecision)
+                == UnitMovementReducerStatus.Duplicate,
+                "An exact same-time B2 observation must be classified as duplicate.");
+            Require(duplicateDecision.IsValid
+                && duplicateDecision.Phase == UnitMovementPhase.Move
+                && entry.Snapshot.Revision == beforeDuplicate.Revision,
+                "A duplicate must reproduce the current decision without mutation.");
+
+            Require(entry.Evaluate(
+                    entry.Snapshot.Revision, 1UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, yaw15, false, 2d,
+                    out UnitMovementDecision remainAtFifteen)
+                == UnitMovementReducerStatus.Accepted
+                && remainAtFifteen.Phase == UnitMovementPhase.Move,
+                "An active B2 Move must remain active exactly at 15 degrees.");
+            Require(entry.Evaluate(
+                    entry.Snapshot.Revision, 1UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, yaw15Over, false, 3d,
+                    out UnitMovementDecision exitAboveFifteen)
+                == UnitMovementReducerStatus.Accepted
+                && exitAboveFifteen.Phase == UnitMovementPhase.AlignToMove
+                && !exitAboveFifteen.AllowsMovement,
+                "An active B2 Move must stop above 15 degrees.");
+
+            var aboveEntry = new UnitMovementReducer();
+            Require(aboveEntry.Evaluate(
+                    aboveEntry.Snapshot.Revision, 1UL, 1UL,
+                    UnitMovementIntentReason.Chase, true,
+                    forward, yaw10Over, false, 1d,
+                    out UnitMovementDecision alignAboveTen)
+                == UnitMovementReducerStatus.Accepted
+                && alignAboveTen.Phase == UnitMovementPhase.AlignToMove
+                && !alignAboveTen.AllowsMovement,
+                "A new B2 movement scope must align above 10 degrees.");
+            Require(aboveEntry.Evaluate(
+                    aboveEntry.Snapshot.Revision, 1UL, 1UL,
+                    UnitMovementIntentReason.Chase, true,
+                    forward, yaw10, false, 2d,
+                    out UnitMovementDecision enterAfterAlign)
+                == UnitMovementReducerStatus.Accepted
+                && enterAfterAlign.Phase == UnitMovementPhase.Move,
+                "AlignToMove must enter Move once error reaches 10 degrees.");
+
+            Require(aboveEntry.Evaluate(
+                    aboveEntry.Snapshot.Revision, 1UL, 2UL,
+                    UnitMovementIntentReason.PostCombatResume, true,
+                    forward, yaw12, false, 3d,
+                    out UnitMovementDecision newSegment)
+                == UnitMovementReducerStatus.Accepted
+                && newSegment.Phase == UnitMovementPhase.AlignToMove,
+                "A new segment must use the 10-degree entry threshold instead of inheriting Move.");
+            Require(aboveEntry.Snapshot.CommandRevision == 1UL
+                && aboveEntry.Snapshot.SegmentRevision == 2UL
+                && aboveEntry.Snapshot.IntentReason == UnitMovementIntentReason.PostCombatResume,
+                "B2 snapshot must retain exact command, segment, and intent-reason scope.");
+
+            Require(aboveEntry.Evaluate(
+                    aboveEntry.Snapshot.Revision, 1UL, 2UL,
+                    UnitMovementIntentReason.PostCombatResume, true,
+                    forward, forward, true, 4d,
+                    out UnitMovementDecision targetPriority)
+                == UnitMovementReducerStatus.Accepted
+                && targetPriority.IsValid
+                && targetPriority.IsTargetAcquirePriority
+                && targetPriority.Phase == UnitMovementPhase.NoIntent
+                && !targetPriority.AllowsMovement
+                && !targetPriority.HasYawError,
+                "Target acquisition must override even a perfectly aligned movement intent.");
+
+            Require(aboveEntry.Evaluate(
+                    aboveEntry.Snapshot.Revision, 2UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, forward, false, 5d,
+                    out UnitMovementDecision nextCommand)
+                == UnitMovementReducerStatus.Accepted
+                && nextCommand.Phase == UnitMovementPhase.Move
+                && aboveEntry.Snapshot.CommandRevision == 2UL
+                && aboveEntry.Snapshot.SegmentRevision == 1UL,
+                "The next command must restart at segment 1 and evaluate independently.");
+
+            UnitMovementSnapshot stable = aboveEntry.Snapshot;
+            Require(aboveEntry.Evaluate(
+                    stable.Revision - 1UL, 2UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, forward, false, 6d, out UnitMovementDecision staleRevision)
+                == UnitMovementReducerStatus.StaleRevision
+                && staleRevision.Phase == UnitMovementPhase.Invalid
+                && !staleRevision.IsValid,
+                "A stale reducer revision must fail closed.");
+            Require(aboveEntry.Evaluate(
+                    stable.Revision, 1UL, 2UL,
+                    UnitMovementIntentReason.PostCombatResume, true,
+                    forward, forward, false, 6d, out _)
+                == UnitMovementReducerStatus.StaleCommandRevision,
+                "An old command revision must be rejected.");
+            Require(aboveEntry.Evaluate(
+                    stable.Revision, 2UL, 0UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, forward, false, 6d, out _)
+                == UnitMovementReducerStatus.InvalidInput,
+                "Segment revision zero must be rejected.");
+            Require(aboveEntry.Evaluate(
+                    stable.Revision, 2UL, 3UL,
+                    UnitMovementIntentReason.PendingRepath, true,
+                    forward, forward, false, 6d, out _)
+                == UnitMovementReducerStatus.InvalidInput,
+                "A skipped segment revision must fail closed.");
+            Require(aboveEntry.Evaluate(
+                    stable.Revision, 4UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, forward, false, 6d, out _)
+                == UnitMovementReducerStatus.InvalidInput,
+                "A skipped command revision must fail closed.");
+
+            var staleSegmentReducer = new UnitMovementReducer();
+            Require(staleSegmentReducer.Evaluate(
+                    staleSegmentReducer.Snapshot.Revision, 1UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, forward, false, 1d, out _)
+                == UnitMovementReducerStatus.Accepted
+                && staleSegmentReducer.Evaluate(
+                    staleSegmentReducer.Snapshot.Revision, 1UL, 2UL,
+                    UnitMovementIntentReason.PendingRepath, true,
+                    forward, forward, false, 2d, out _)
+                == UnitMovementReducerStatus.Accepted
+                && staleSegmentReducer.Evaluate(
+                    staleSegmentReducer.Snapshot.Revision, 1UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, forward, false, 3d, out _)
+                == UnitMovementReducerStatus.StaleSegmentRevision,
+                "An old segment in the current command must be rejected.");
+
+            UnitMovementSnapshot beforeInvalid = aboveEntry.Snapshot;
+            Require(aboveEntry.Evaluate(
+                    beforeInvalid.Revision, 2UL, 1UL,
+                    (UnitMovementIntentReason)999, true,
+                    forward, forward, false, 6d,
+                    out UnitMovementDecision unknownReason)
+                == UnitMovementReducerStatus.InvalidInput
+                && unknownReason.Phase == UnitMovementPhase.Invalid
+                && !unknownReason.AllowsMovement,
+                "An unknown movement intent reason must fail closed.");
+            Require(aboveEntry.Evaluate(
+                    beforeInvalid.Revision, 2UL, 1UL,
+                    UnitMovementIntentReason.None, true,
+                    forward, forward, false, 6d, out _)
+                == UnitMovementReducerStatus.InvalidInput,
+                "A present intent cannot use the None reason.");
+            Require(aboveEntry.Evaluate(
+                    beforeInvalid.Revision, 2UL, 1UL,
+                    UnitMovementIntentReason.None, false,
+                    forward, forward, false, 6d, out _)
+                == UnitMovementReducerStatus.InvalidInput,
+                "NoIntent must not carry a desired direction.");
+            Require(aboveEntry.Evaluate(
+                    beforeInvalid.Revision, 2UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    default, forward, false, 6d, out _)
+                == UnitMovementReducerStatus.InvalidInput,
+                "An invalid SimulationFacing must fail closed.");
+            Require(aboveEntry.Evaluate(
+                    beforeInvalid.Revision, 2UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, default, false, 6d, out _)
+                == UnitMovementReducerStatus.InvalidInput,
+                "An invalid DesiredMoveDirection must fail closed.");
+            Require(aboveEntry.Evaluate(
+                    beforeInvalid.Revision, 2UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, forward, false, double.NaN, out _)
+                == UnitMovementReducerStatus.InvalidTime,
+                "NaN server time must fail closed.");
+            Require(aboveEntry.Evaluate(
+                    beforeInvalid.Revision, 2UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, yaw10, false, 5d,
+                    out UnitMovementDecision sameTimeChangedPose)
+                == UnitMovementReducerStatus.Accepted
+                && sameTimeChangedPose.Phase == UnitMovementPhase.Move,
+                "Distinct pre/post writer samples at the same server time must both be accepted.");
+            UnitMovementSnapshot afterSameTimeChangedPose = aboveEntry.Snapshot;
+            Require(aboveEntry.Evaluate(
+                    afterSameTimeChangedPose.Revision, 2UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, forward, false, 4.999d, out _)
+                == UnitMovementReducerStatus.InvalidTime,
+                "Backward server time must fail closed.");
+            Require(aboveEntry.Snapshot.Revision == afterSameTimeChangedPose.Revision
+                && aboveEntry.Snapshot.CommandRevision == afterSameTimeChangedPose.CommandRevision
+                && aboveEntry.Snapshot.SegmentRevision == afterSameTimeChangedPose.SegmentRevision
+                && aboveEntry.Snapshot.Phase == afterSameTimeChangedPose.Phase,
+                "Every rejected B2 observation must leave the latest accepted snapshot unchanged.");
+
+            var noIntent = new UnitMovementReducer();
+            Require(noIntent.Evaluate(
+                    noIntent.Snapshot.Revision, 1UL, 1UL,
+                    UnitMovementIntentReason.None, false,
+                    forward, default, false, 1d,
+                    out UnitMovementDecision noIntentDecision)
+                == UnitMovementReducerStatus.Accepted
+                && noIntentDecision.Phase == UnitMovementPhase.NoIntent
+                && noIntentDecision.IsValid
+                && !noIntentDecision.AllowsMovement,
+                "An explicit absence of movement intent must be a valid movement-forbidden decision.");
+
+            UnitMovementReducer exhausted =
+                UnitMovementReducer.CreateForValidation(ulong.MaxValue);
+            Require(exhausted.Evaluate(
+                    exhausted.Snapshot.Revision, 1UL, 1UL,
+                    UnitMovementIntentReason.AStarPath, true,
+                    forward, forward, false, 1d, out _)
+                == UnitMovementReducerStatus.Exhausted
+                && exhausted.Snapshot.Revision == ulong.MaxValue
+                && !exhausted.Snapshot.HasAcceptedObservation,
+                "B2 reducer revision exhaustion must fail closed without wrapping.");
+        }
+
+        private static void ValidateB2MovementManifestChunking()
+        {
+            Type observerType = null;
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (int index = 0; index < assemblies.Length; index++)
+            {
+                observerType = assemblies[index].GetType(
+                    "Hexiege.Infrastructure.UnitMovementShadowObserver",
+                    throwOnError: false);
+                if (observerType != null)
+                    break;
+            }
+
+            Require(observerType != null,
+                "B2 movement shadow observer type was not loaded.");
+            const BindingFlags flags =
+                BindingFlags.Static | BindingFlags.NonPublic;
+            MethodInfo buildPayloads = observerType.GetMethod(
+                "BuildCoverageManifestPayloadsForValidation",
+                flags);
+            MethodInfo buildCompletedLine = observerType.GetMethod(
+                "BuildCoverageManifestCompletedLineForValidation",
+                flags);
+            PropertyInfo payloadLimitProperty = observerType.GetProperty(
+                "CoverageManifestPayloadLimitForValidation",
+                flags);
+            PropertyInfo chunkLimitProperty = observerType.GetProperty(
+                "MaximumCoverageManifestChunksForValidation",
+                flags);
+            Require(buildPayloads != null
+                && buildCompletedLine != null
+                && payloadLimitProperty != null
+                && chunkLimitProperty != null,
+                "B2 movement manifest validation seam is incomplete.");
+
+            int payloadLimit = (int)payloadLimitProperty.GetValue(null);
+            int maximumChunks = (int)chunkLimitProperty.GetValue(null);
+            List<string> expectedEntries =
+                BuildRealMatchMovementManifestFixture(4);
+            var payloads = (IReadOnlyList<string>)buildPayloads.Invoke(
+                null,
+                new object[] { expectedEntries });
+            Require(payloads.Count > 1 && payloads.Count <= maximumChunks,
+                "Four-unit-type manifest exceeded reserved terminal capacity.");
+
+            var reconstructed = new List<string>(expectedEntries.Count);
+            for (int index = 0; index < payloads.Count; index++)
+            {
+                string payload = payloads[index];
+                int payloadBytes = Encoding.UTF8.GetByteCount(payload);
+                Require(payload.Length <= payloadLimit
+                    && payloadBytes <= payloadLimit,
+                    "Coverage manifest payload exceeded its safe limit.");
+                Require(
+                    payload.Contains($"chunk={index + 1}/{payloads.Count}"),
+                    "Coverage manifest chunk ordinal is invalid.");
+                Require(
+                    payload.Contains($"payloadChars={payload.Length}"),
+                    "Coverage manifest character metadata is invalid.");
+                Require(
+                    payload.Contains($"payloadUtf8Bytes={payloadBytes}"),
+                    "Coverage manifest UTF-8 metadata is invalid.");
+
+                string completedLine = (string)buildCompletedLine.Invoke(
+                    null,
+                    new object[] { payload });
+                Require(Encoding.UTF8.GetByteCount(completedLine) < 1000,
+                    "Completed Android coverage-manifest line reached 1000 UTF-8 bytes.");
+
+                const string entriesMarker = ", entries=";
+                int entriesIndex = payload.IndexOf(
+                    entriesMarker,
+                    StringComparison.Ordinal);
+                Require(entriesIndex >= 0,
+                    "Coverage manifest entries marker is missing.");
+                string entries = payload.Substring(
+                    entriesIndex + entriesMarker.Length);
+                reconstructed.AddRange(entries.Split(';'));
+            }
+
+            Require(reconstructed.Count == expectedEntries.Count,
+                "Coverage manifest reconstruction changed the entry count.");
+            for (int index = 0; index < expectedEntries.Count; index++)
+            {
+                Require(
+                    string.Equals(
+                        reconstructed[index],
+                        expectedEntries[index],
+                        StringComparison.Ordinal),
+                    $"Coverage manifest entry {index} was lost, duplicated, or reordered.");
+            }
+
+            var emptyPayloads = (IReadOnlyList<string>)buildPayloads.Invoke(
+                null,
+                new object[] { Array.Empty<string>() });
+            Require(emptyPayloads.Count == 1
+                && emptyPayloads[0].EndsWith(
+                    ", entries=none",
+                    StringComparison.Ordinal)
+                && Encoding.UTF8.GetByteCount(
+                    (string)buildCompletedLine.Invoke(
+                        null,
+                        new object[] { emptyPayloads[0] })) < 1000,
+                "Empty coverage manifest is not Android-safe.");
+
+            var fiveTypePayloads =
+                (IReadOnlyList<string>)buildPayloads.Invoke(
+                    null,
+                    new object[]
+                    {
+                        BuildRealMatchMovementManifestFixture(5)
+                    });
+            Require(fiveTypePayloads.Count <= maximumChunks,
+                "A five-unit-type manifest that fits the terminal budget was rejected.");
+
+            var exactBoundaryEntries = new List<string>();
+            for (int index = 0; index < maximumChunks; index++)
+            {
+                exactBoundaryEntries.Add(
+                    $"stats|BoundaryUnit{index:D2}|Blue|AStarPath|" +
+                    new string('x', 580));
+            }
+
+            var exactBoundaryPayloads =
+                (IReadOnlyList<string>)buildPayloads.Invoke(
+                    null,
+                    new object[] { exactBoundaryEntries });
+            Require(exactBoundaryPayloads.Count == maximumChunks,
+                "The exact reserved-terminal boundary must produce 29 chunks.");
+            for (int index = 0; index < exactBoundaryPayloads.Count; index++)
+            {
+                string payload = exactBoundaryPayloads[index];
+                int payloadBytes = Encoding.UTF8.GetByteCount(payload);
+                Require(
+                    payload.Contains(
+                        $"chunk={index + 1}/{maximumChunks}"),
+                    "Boundary coverage manifest chunk ordinal is invalid.");
+                Require(
+                    payload.Contains($"payloadChars={payload.Length}"),
+                    "Boundary coverage manifest character metadata is invalid.");
+                Require(
+                    payload.Contains($"payloadUtf8Bytes={payloadBytes}"),
+                    "Boundary coverage manifest UTF-8 metadata is invalid.");
+                Require(payload.Length <= payloadLimit
+                    && payloadBytes <= payloadLimit,
+                    "Boundary coverage manifest payload exceeded its safe limit.");
+                string completedLine = (string)buildCompletedLine.Invoke(
+                    null,
+                    new object[] { payload });
+                Require(Encoding.UTF8.GetByteCount(completedLine) < 1000,
+                    "Boundary coverage-manifest line reached 1000 UTF-8 bytes.");
+            }
+
+            var oversizedEntries = new List<string>();
+            for (int index = 0; index < maximumChunks + 1; index++)
+            {
+                oversizedEntries.Add(
+                    $"stats|OverflowUnit{index:D2}|Blue|AStarPath|" +
+                    new string('x', 580));
+            }
+
+            bool oversizedRejected = false;
+            try
+            {
+                buildPayloads.Invoke(
+                    null,
+                    new object[] { oversizedEntries });
+            }
+            catch (TargetInvocationException exception)
+                when (exception.InnerException is InvalidOperationException)
+            {
+                oversizedRejected = true;
+            }
+
+            Require(oversizedRejected,
+                "A manifest requiring more than the reserved chunks must fail closed.");
+            RequireB2ManifestRejected(
+                buildPayloads,
+                new List<string> { new string('x', payloadLimit + 1) },
+                "A single oversized coverage entry must fail closed.");
+            RequireB2ManifestRejected(
+                buildPayloads,
+                null,
+                "A null coverage entry list must fail closed.");
+            RequireB2ManifestRejected(
+                buildPayloads,
+                new List<string> { string.Empty },
+                "An empty coverage entry must fail closed.");
+            RequireB2ManifestRejected(
+                buildPayloads,
+                new List<string> { "coverage|Unit;injected" },
+                "A coverage entry containing a semicolon must fail closed.");
+            RequireB2ManifestRejected(
+                buildPayloads,
+                new List<string> { "coverage|Unit\rinjected" },
+                "A coverage entry containing CR must fail closed.");
+            RequireB2ManifestRejected(
+                buildPayloads,
+                new List<string> { "coverage|Unit\ninjected" },
+                "A coverage entry containing LF must fail closed.");
+        }
+
+        private static void ValidateB2MovementEndpointAdapter()
+        {
+            Type observerType = FindMovementShadowObserverType();
+            const BindingFlags staticFlags =
+                BindingFlags.Static | BindingFlags.NonPublic;
+            MethodInfo evaluateEndpoint = observerType.GetMethod(
+                "EvaluateEndpointAdapterForValidation",
+                staticFlags);
+            MethodInfo evaluateLifecycle = observerType.GetMethod(
+                "EvaluateEndpointLifecycleForValidation",
+                staticFlags);
+            PropertyInfo toleranceProperty = observerType.GetProperty(
+                "PositionDeltaToleranceForValidation",
+                staticFlags);
+            Require(evaluateEndpoint != null
+                && evaluateLifecycle != null
+                && toleranceProperty != null,
+                "B2 endpoint adapter validation seam is incomplete.");
+            float tolerance = (float)toleranceProperty.GetValue(null);
+
+            object cannonEndpoint = evaluateEndpoint.Invoke(
+                null,
+                new object[] { 4.5f, -12.99f, 4.5f, -12.99f, 0f, false });
+            Require(
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    cannonEndpoint, "Status")
+                    == UnitMovementReducerStatus.Accepted
+                && ReadValidationProperty<UnitMovementPhase>(
+                    cannonEndpoint, "Phase")
+                    == UnitMovementPhase.NoIntent
+                && ReadValidationProperty<bool>(
+                    cannonEndpoint, "DecisionIsValid")
+                && ReadValidationProperty<bool>(
+                    cannonEndpoint, "EndpointNormalized")
+                && ReadValidationProperty<UnitMovementIntentReason>(
+                    cannonEndpoint, "EvaluatedIntentReason")
+                    == UnitMovementIntentReason.None
+                && !ReadValidationProperty<bool>(
+                    cannonEndpoint, "EvaluatedHasIntent")
+                && !ReadValidationProperty<bool>(
+                    cannonEndpoint, "EvaluatedDesiredDirectionIsValid")
+                && ReadValidationProperty<ulong>(
+                    cannonEndpoint, "RevisionAfterInitial") == 2UL
+                && ReadValidationProperty<ulong>(
+                    cannonEndpoint, "CommandRevisionAfterInitial") == 1UL
+                && ReadValidationProperty<ulong>(
+                    cannonEndpoint, "SegmentRevisionAfterInitial") == 1UL,
+                "Captured CannonCart endpoint must normalize to explicit NoIntent.");
+
+            object targetEndpoint = evaluateEndpoint.Invoke(
+                null,
+                new object[] { 4.5f, -12.99f, 4.5f, -12.99f, 0f, true });
+            Require(
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    targetEndpoint, "TargetStatus")
+                    == UnitMovementReducerStatus.Accepted
+                && ReadValidationProperty<UnitMovementPhase>(
+                    targetEndpoint, "TargetPhase")
+                    == UnitMovementPhase.NoIntent
+                && ReadValidationProperty<bool>(
+                    targetEndpoint, "TargetDecisionIsValid")
+                && ReadValidationProperty<bool>(
+                    targetEndpoint, "TargetAcquirePriority")
+                && ReadValidationProperty<UnitMovementIntentReason>(
+                    targetEndpoint, "TargetSnapshotIntentReason")
+                    == UnitMovementIntentReason.None
+                && !ReadValidationProperty<bool>(
+                    targetEndpoint, "TargetSnapshotHasIntent")
+                && !ReadValidationProperty<bool>(
+                    targetEndpoint, "TargetSnapshotDesiredDirectionIsValid"),
+                "Endpoint target acquisition must preserve None/false/default input shape.");
+
+            object normalMovement = evaluateEndpoint.Invoke(
+                null,
+                new object[] { 0f, 0f, 0f, 1f, 0.1f, false });
+            Require(
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    normalMovement, "Status")
+                    == UnitMovementReducerStatus.Accepted
+                && ReadValidationProperty<UnitMovementPhase>(
+                    normalMovement, "Phase")
+                    == UnitMovementPhase.Move
+                && !ReadValidationProperty<bool>(
+                    normalMovement, "EndpointNormalized")
+                && ReadValidationProperty<UnitMovementIntentReason>(
+                    normalMovement, "EvaluatedIntentReason")
+                    == UnitMovementIntentReason.AStarPath
+                && ReadValidationProperty<bool>(
+                    normalMovement, "EvaluatedHasIntent")
+                && ReadValidationProperty<bool>(
+                    normalMovement, "EvaluatedDesiredDirectionIsValid"),
+                "Normal movement input shape must remain unchanged.");
+
+            object zeroExpectedFarTarget = evaluateEndpoint.Invoke(
+                null,
+                new object[] { 0f, 0f, 0f, 1f, 0f, false });
+            Require(
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    zeroExpectedFarTarget, "Status")
+                    == UnitMovementReducerStatus.Accepted
+                && ReadValidationProperty<UnitMovementPhase>(
+                    zeroExpectedFarTarget, "Phase")
+                    == UnitMovementPhase.Move
+                && !ReadValidationProperty<bool>(
+                    zeroExpectedFarTarget, "EndpointNormalized"),
+                "A distant target with zero writer delta must remain a valid movement intent.");
+
+            object toleranceBoundary = evaluateEndpoint.Invoke(
+                null,
+                new object[]
+                {
+                    0f, 0f, tolerance, 0f, tolerance, false
+                });
+            Require(
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    toleranceBoundary, "Status")
+                    == UnitMovementReducerStatus.Accepted
+                && ReadValidationProperty<UnitMovementPhase>(
+                    toleranceBoundary, "Phase")
+                    == UnitMovementPhase.NoIntent
+                && ReadValidationProperty<bool>(
+                    toleranceBoundary, "EndpointNormalized"),
+                "Both endpoint values exactly at tolerance must normalize.");
+
+            RequireEndpointAdapterInvalid(
+                evaluateEndpoint,
+                new object[]
+                {
+                    0f, 0f, tolerance * 0.5f, 0f,
+                    tolerance * 2f, false
+                },
+                "Near endpoint with material expected delta must fail closed.");
+            RequireEndpointAdapterInvalid(
+                evaluateEndpoint,
+                new object[] { 0f, 0f, 0f, 0f, tolerance * 2f, false },
+                "Exact endpoint with material expected delta must fail closed.");
+            RequireEndpointAdapterInvalid(
+                evaluateEndpoint,
+                new object[] { 0f, 0f, 0f, 0f, float.NaN, false },
+                "NaN expected delta must fail closed.");
+            RequireEndpointAdapterInvalid(
+                evaluateEndpoint,
+                new object[] { 0f, 0f, 0f, 0f, float.PositiveInfinity, false },
+                "Infinite expected delta must fail closed.");
+            RequireEndpointAdapterInvalid(
+                evaluateEndpoint,
+                new object[] { 0f, 0f, 0f, 0f, -0.001f, false },
+                "Negative expected delta must fail closed.");
+
+            object lifecycle = evaluateLifecycle.Invoke(null, null);
+            UnitMovementReducerStatus moveStatus =
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    lifecycle, "MoveStatus");
+            UnitMovementPhase movePhase =
+                ReadValidationProperty<UnitMovementPhase>(
+                    lifecycle, "MovePhase");
+            UnitMovementReducerStatus endpointStatus =
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    lifecycle, "EndpointStatus");
+            UnitMovementPhase endpointPhase =
+                ReadValidationProperty<UnitMovementPhase>(
+                    lifecycle, "EndpointPhase");
+            bool endpointNormalized =
+                ReadValidationProperty<bool>(
+                    lifecycle, "EndpointNormalized");
+            UnitMovementReducerStatus duplicateEndpointStatus =
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    lifecycle, "DuplicateEndpointStatus");
+            UnitMovementReducerStatus priorityStatus =
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    lifecycle, "PriorityStatus");
+            UnitMovementPhase priorityPhase =
+                ReadValidationProperty<UnitMovementPhase>(
+                    lifecycle, "PriorityPhase");
+            bool priorityIsTargetAcquire =
+                ReadValidationProperty<bool>(
+                    lifecycle, "PriorityIsTargetAcquire");
+            UnitMovementReducerStatus resumeAlignStatus =
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    lifecycle, "ResumeAlignStatus");
+            UnitMovementPhase resumeAlignPhase =
+                ReadValidationProperty<UnitMovementPhase>(
+                    lifecycle, "ResumeAlignPhase");
+            double resumeAlignYaw =
+                ReadValidationProperty<double>(
+                    lifecycle, "ResumeAlignYawErrorDegrees");
+            UnitMovementReducerStatus resumeMoveStatus =
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    lifecycle, "ResumeMoveStatus");
+            UnitMovementPhase resumeMovePhase =
+                ReadValidationProperty<UnitMovementPhase>(
+                    lifecycle, "ResumeMovePhase");
+            double resumeMoveYaw =
+                ReadValidationProperty<double>(
+                    lifecycle, "ResumeMoveYawErrorDegrees");
+            ulong revisionAfterMove =
+                ReadValidationProperty<ulong>(
+                    lifecycle, "RevisionAfterMove");
+            ulong revisionAfterEndpoint =
+                ReadValidationProperty<ulong>(
+                    lifecycle, "RevisionAfterEndpoint");
+            ulong revisionAfterDuplicate =
+                ReadValidationProperty<ulong>(
+                    lifecycle, "RevisionAfterDuplicate");
+            ulong revisionAfterPriority =
+                ReadValidationProperty<ulong>(
+                    lifecycle, "RevisionAfterPriority");
+            ulong revisionAfterResumeAlign =
+                ReadValidationProperty<ulong>(
+                    lifecycle, "RevisionAfterResumeAlign");
+            ulong revisionAfterResumeMove =
+                ReadValidationProperty<ulong>(
+                    lifecycle, "RevisionAfterResumeMove");
+            ulong finalCommandRevision =
+                ReadValidationProperty<ulong>(
+                    lifecycle, "FinalCommandRevision");
+            ulong finalSegmentRevision =
+                ReadValidationProperty<ulong>(
+                    lifecycle, "FinalSegmentRevision");
+            string lifecycleValues =
+                $"move={moveStatus}/{movePhase}, " +
+                $"endpoint={endpointStatus}/{endpointPhase}/normalized={endpointNormalized}, " +
+                $"duplicate={duplicateEndpointStatus}, " +
+                $"priority={priorityStatus}/{priorityPhase}/acquire={priorityIsTargetAcquire}, " +
+                $"resumeAlign={resumeAlignStatus}/{resumeAlignPhase}/yaw={resumeAlignYaw:F9}, " +
+                $"resumeMove={resumeMoveStatus}/{resumeMovePhase}/yaw={resumeMoveYaw:F9}, " +
+                $"revisions={revisionAfterMove}/{revisionAfterEndpoint}/" +
+                $"{revisionAfterDuplicate}/{revisionAfterPriority}/" +
+                $"{revisionAfterResumeAlign}/{revisionAfterResumeMove}, " +
+                $"scope={finalCommandRevision}/{finalSegmentRevision}";
+            Require(
+                moveStatus == UnitMovementReducerStatus.Accepted
+                && movePhase == UnitMovementPhase.Move
+                && endpointStatus == UnitMovementReducerStatus.Accepted
+                && endpointPhase == UnitMovementPhase.NoIntent
+                && endpointNormalized
+                && duplicateEndpointStatus
+                    == UnitMovementReducerStatus.Duplicate
+                && priorityStatus == UnitMovementReducerStatus.Accepted
+                && priorityPhase == UnitMovementPhase.NoIntent
+                && priorityIsTargetAcquire
+                && resumeAlignStatus
+                    == UnitMovementReducerStatus.Accepted
+                && resumeAlignPhase == UnitMovementPhase.AlignToMove
+                && resumeMoveStatus == UnitMovementReducerStatus.Accepted
+                && resumeMovePhase == UnitMovementPhase.Move,
+                "Move -> endpoint -> priority -> same-scope resume lifecycle is invalid. "
+                + lifecycleValues);
+            Require(
+                revisionAfterMove == 2UL
+                && revisionAfterEndpoint == 3UL
+                && revisionAfterDuplicate == 3UL
+                && revisionAfterPriority == 4UL
+                && revisionAfterResumeAlign == 5UL
+                && revisionAfterResumeMove == 6UL
+                && finalCommandRevision == 1UL
+                && finalSegmentRevision == 1UL
+                && Math.Abs(resumeAlignYaw - 12d) < 0.001d
+                && Math.Abs(resumeMoveYaw - 9d) < 0.001d,
+                "Endpoint lifecycle revisions, scope, or 12-to-9 degree entry restart changed. "
+                + lifecycleValues);
+        }
+
+        private static void RequireEndpointAdapterInvalid(
+            MethodInfo evaluateEndpoint,
+            object[] arguments,
+            string message)
+        {
+            object result = evaluateEndpoint.Invoke(null, arguments);
+            Require(
+                ReadValidationProperty<UnitMovementReducerStatus>(
+                    result, "Status")
+                    == UnitMovementReducerStatus.InvalidInput
+                && !ReadValidationProperty<bool>(
+                    result, "DecisionIsValid")
+                && !ReadValidationProperty<bool>(
+                    result, "EndpointNormalized"),
+                message);
+        }
+
+        private static T ReadValidationProperty<T>(
+            object value,
+            string propertyName)
+        {
+            PropertyInfo property = value.GetType().GetProperty(
+                propertyName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Require(property != null,
+                $"Validation property {propertyName} is missing.");
+            return (T)property.GetValue(value);
+        }
+
+        private static Type FindMovementShadowObserverType()
+        {
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (int index = 0; index < assemblies.Length; index++)
+            {
+                Type type = assemblies[index].GetType(
+                    "Hexiege.Infrastructure.UnitMovementShadowObserver",
+                    throwOnError: false);
+                if (type != null)
+                    return type;
+            }
+
+            throw new InvalidOperationException(
+                "B2 movement shadow observer type was not loaded.");
+        }
+
+        private static void RequireB2ManifestRejected(
+            MethodInfo buildPayloads,
+            IReadOnlyList<string> entries,
+            string message)
+        {
+            bool rejected = false;
+            try
+            {
+                buildPayloads.Invoke(
+                    null,
+                    new object[] { entries });
+            }
+            catch (TargetInvocationException exception)
+                when (exception.InnerException is InvalidOperationException)
+            {
+                rejected = true;
+            }
+
+            Require(rejected, message);
+        }
+
+        private static List<string> BuildRealMatchMovementManifestFixture(
+            int unitTypeCount)
+        {
+            string[] unitTypes =
+            {
+                "LittleKnight",
+                "Pistoleer",
+                "SpearMan",
+                "RhinoBreaker",
+                "AncientGuardian"
+            };
+            string[] teams = { "Blue", "Red" };
+            string[] reasons =
+            {
+                "AStarPath",
+                "Chase",
+                "PendingRepath",
+                "PostCombatResume"
+            };
+            var entries = new List<string>();
+            for (int unitIndex = 0; unitIndex < unitTypeCount; unitIndex++)
+            {
+                for (int teamIndex = 0; teamIndex < teams.Length; teamIndex++)
+                {
+                    for (int reasonIndex = 0;
+                        reasonIndex < reasons.Length;
+                        reasonIndex++)
+                    {
+                        string key =
+                            $"{unitTypes[unitIndex]}|{teams[teamIndex]}|" +
+                            reasons[reasonIndex];
+                        entries.Add("coverage|" + key);
+                        entries.Add(
+                            $"stats|{key}|frames=31693,align=4364,move=27329," +
+                            "targetPriority=107,writerExpectedAdvance=24259," +
+                            "writerExpectedNoAdvance=3070,legacyMovedWhileAlign=1294," +
+                            "legacyStoppedWhileMove=0");
+                        if (reasonIndex != 1)
+                            entries.Add("target-priority|" + key);
+                    }
+                }
+            }
+
+            entries.Sort(StringComparer.Ordinal);
+            return entries;
+        }
+
+        private static ActionDirectionXZ CreateMovementDirection(double yawDegrees)
+        {
+            double radians = yawDegrees * (Math.PI / 180d);
+            Require(ActionDirectionXZ.TryCreate(
+                    Math.Sin(radians), Math.Cos(radians),
+                    out ActionDirectionXZ direction),
+                $"B2 direction fixture at {yawDegrees} degrees must be valid.");
+            return direction;
         }
 
         private static void ValidateAttackHysteresis()

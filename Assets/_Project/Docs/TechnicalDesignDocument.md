@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.47.0
-**최종 수정일:** 2026-07-30
+**버전:** 0.48.0
+**최종 수정일:** 2026-08-03
 **작성자:** HANYONGHEE
 
 ---
@@ -192,8 +192,8 @@ void ShowEffectClientRpc(Vector3 position) {
 | **타일 점령** | NetworkList<TileOwnership> | 변경 시 |
 | **자원** | NetworkVariable<int> | 변경 시 |
 | **본기지 체력** | NetworkVariable<int> | 변경 시 |
-| **유닛 이동·SimulationFacing** | Host 서버 권위 Simulation Root + NetworkTransform 결과 동기화 | 연속 |
-| **유닛 행동 상태** | 목표: 값 기반 `UnitActionSnapshot` 복제; 현재: A1 순수 Snapshot/reducer 구현, 런타임은 위치/회전 + `UnitAnimState`와 개별 RPC 혼합 | 상태 변경 시 |
+| **유닛 이동·SimulationFacing** | 현재: Legacy 서버 writer + B2 서버 전용 read-only `UnitMovementReducer` Shadow; 다음: B3 경기 단위 신규 writer 전환. Client reducer·Simulation Root write 금지 | 연속 |
+| **유닛 행동 상태** | 목표: 값 기반 `UnitActionSnapshot` 복제; 현재: A1/A2 계약·pose seam과 B2 이동 Shadow 구현, 권위 런타임은 위치/회전 + `UnitAnimState`와 개별 RPC 혼합 | 상태 변경 시 |
 | **공격 타격 결과** | 목표: `AttackImpactResult` (`AttackerInstanceId + SequenceId + HitIndex` 기반 정규 키); 현재: HP 동기화 + 공격자 FIFO 표현 큐 | Impact 시 |
 
 #### 무작위 맵 시작 동기화 (확정 설계, 미구현)
@@ -1246,11 +1246,11 @@ if (e.Unit.Id == _unitData.Id) { /* 이 유닛이 사망 */ }
 if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 ```
 
-#### 서버 권위 Unit ActionSequence 목표 구조 (2026-07-22 A1 순수 경계 구현, 런타임 seam 미연결)
+#### 서버 권위 Unit ActionSequence 목표 구조 (2026-08-03 B2 이동 Shadow까지 구현, 권위 전환 미완료)
 
 상태 보유형 `UnitActionSnapshot`과 실제 판정 결과인 `AttackImpactResult`를 분리한다.
 
-**A1 구현 상태:** Application의 `UnitActionContracts`와 `UnitActionSequencer`에 NGO·Animator·씬·피해 writer 비의존 값 계약과 stateful reducer를 구현했다. C# 9/Application 및 Editor 컴파일, Unity Editor self-validation, reflection `Validate*` 10개가 PASS했고 최종 Standards/Spec P0~P3 지적은 0건이다. 런타임 pose/result seam과 피해·RPC·VFX는 연결하지 않았으며 다음 단계는 A2 server-authoritative pose seam shadow다.
+**현재 구현 상태:** A1의 `UnitActionContracts`·`UnitActionSequencer`, A2 서버 pose seam, B1 Simulation/Visual Root seam에 이어 B2 pure `UnitMovementReducer`와 서버 read-only Shadow observer를 연결했다. B2는 10°/15° 이동 정렬, command/segment scope, target priority와 endpoint `NoIntent`를 25/25종 Blue/Red 누적 표본으로 검증했지만 위치·SimulationFacing을 쓰지 않는다. 실제 이동 writer는 Legacy이며 다음 단계는 B3 경기 단위 writer 전환이다. 공격 result seam과 피해·RPC·VFX 권위 전환은 계속 미완료다.
 
 **UnitActionSnapshot — 유닛별 현재 상태 값**
 
@@ -1699,6 +1699,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.48.0 | 2026-08-03 | Tracer B2 서버 이동·SimulationFacing Shadow와 25종 Blue/Red 누적 멀티플레이 검증을 반영했다. 신규 reducer는 10°/15° 히스테리시스와 이동 scope를 서버에서만 판정하고 위치·회전·Animator·NetworkTransform·path를 쓰지 않는다. 6개 인정 세션의 오류 카운터와 Client reducer·Simulation Root write는 0이다. 실제 이동·SimulationFacing single-writer 전환은 B3 미완료다. |
 | 0.47.0 | 2026-07-30 | Tracer B1 최종 게이트 반영. 50개 프리팹의 `Interpolate=true`, `PositionLerpSmoothing=false`와 서버 권위/canonical world-space 불변을 기록하고, Android 1대와 Unity Editor counterpart의 Host/Client 역할교대 root-pose 교차 검증 및 rollback을 PASS로 확정했다. B2 서버 이동·SimulationFacing Shadow, 공격 방향, Impact/피해 시점, result seam과 권위 전환은 미완료다. |
 | 0.46.0 | 2026-07-27 | Unit ActionSequence Tracer B1 Simulation/Visual Root seam 반영. `NetworkUnit`의 클라이언트 Simulation Root 보정을 제거하고 `VisualRootProjector`·`PresentationPoseProvider`로 표현 pose를 분리했다. 멀티플레이 UnitFactory의 canonical world position 생성, presentation 소비자 전환, 신규·교체 프리팹 승인 규격을 기록했다. 50개 프리팹 migration과 재실행 NO-OP는 확인됐지만 Host/Client runtime smoke와 실제 rollback failure injection은 아직 미완료다. |
 | 0.45.0 | 2026-07-22 | Unit ActionSequence A1 순수 Application 경계 구현 상태 반영. `UnitActionContracts`·stateful `UnitActionSequencer`와 self-validation PASS를 기록하고, 런타임 pose/result seam·피해·RPC·VFX 미연결 및 다음 A2 server-authoritative pose seam shadow를 명시했다. |
