@@ -115,6 +115,18 @@ namespace Hexiege.Presentation
             if (camera != null) _camera = camera;
             if (cameraController != null) _cameraController = cameraController;
             _isValidTile = isValidTile;
+
+            // 취소(X) 버튼은 평소 숨김 — 지점 조준을 시작할 때만 켠다(규칙 20).
+            SetCancelButtonVisible(false);
+        }
+
+        /// <summary>
+        /// 하단 취소(X) 버튼의 표시/숨김을 토글한다. 조준 중에만 보이도록 BeginAim/EndAim에서 호출한다.
+        /// </summary>
+        private void SetCancelButtonVisible(bool visible)
+        {
+            if (_cancelZone != null && _cancelZone.gameObject.activeSelf != visible)
+                _cancelZone.gameObject.SetActive(visible);
         }
 
         // ====================================================================
@@ -144,6 +156,9 @@ namespace Hexiege.Presentation
             IsAiming = true;
 
             if (_camera == null) _camera = Camera.main;
+
+            // 취소(X) 버튼을 조준하는 동안만 표시한다(규칙 20).
+            SetCancelButtonVisible(true);
 
             // 시작 즉시 현재 포인터 위치로 조준점을 1회 갱신(첫 프레임에도 보이도록).
             UpdateAimPoint(GetPointerScreenPos());
@@ -238,6 +253,8 @@ namespace Hexiege.Presentation
             _isAiming = false;
             IsAiming = false;
             _reticle?.Hide();
+            // 조준 종료(발동/취소/강제취소) 시 취소 버튼을 숨긴다(규칙 20).
+            SetCancelButtonVisible(false);
         }
 
         // ====================================================================

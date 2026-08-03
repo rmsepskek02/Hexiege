@@ -132,6 +132,7 @@ namespace Hexiege.EditorTools
                 "  · BuildingSkillPanel(= BuildingActionPanel 복제, [UI] 루트 형제·오버라이드 Canvas SO 200) / SkillAimReticle / SkillAimController / SkillCancelButton / NetworkSkillController 생성.\n" +
                 "  · (교정) 기존 BuildingSkillPanel(하드코딩/이전 클론)은 제거 후 BuildingActionPanel 복제로 재생성됩니다(항상 1개).\n" +
                 "  · GameBootstrapper 슬롯 4종 연결(_skillLoadoutConfig/_buildingSkillPanelUI/_skillAimController/_networkSkillController).\n" +
+                "  · (스펙) 스킬 버튼=아이콘만(슬롯 CostContainer/라벨 비활성) · 쿨다운 오버레이=유휴 시 숨김(시전 중만 표시) · 취소 X=ui_btn_cancel 이미지 버튼·평소 숨김(조준 중만).\n" +
                 (sceneOpenedByThis ? "  · 씬 자동 저장 완료.\n" : "  · 열린 씬 dirty 표시 — Ctrl+S로 저장하세요.\n") +
                 "  · 쿨다운 fill·조준 원에 Unity 내장 스프라이트를 임시 지정(테스트용) — 이미 셋업된 씬이면 이 메뉴를 다시 실행하면 반영됩니다.\n" +
                 "  · 후속: 아이콘/조준원/오버레이/취소X 정식 아트로 교체, 레이아웃·엣지스크롤 여백 튜닝, 멀티 NetworkObject 확인.");
@@ -232,14 +233,29 @@ namespace Hexiege.EditorTools
                 if (slotBtn == null) continue;
                 Transform slot = slotBtn.transform;
 
-                // 아이콘(스킬 스프라이트 자리) — 슬롯 위에 겹치는 자식. 런타임에 SkillData.Icon로 켜진다.
-                GameObject iconGo = FindOrCreateChild(slot, "Icon");
-                SetStretch(iconGo.GetComponent<RectTransform>());
-                Image icon = EnsureImage(iconGo, Color.white, null);
+                // ── 부가요소 제거(규칙 2 — 마나·비용 없음) ─────────────────────
+                //   BuildingActionPanel 슬롯 템플릿 = IconImage + CostContainer(GoldIcon/CostText).
+                //   스킬 버튼은 "아이콘만" 있어야 하므로 비용/골드/라벨 하위 오브젝트를 비활성화한다.
+                //   (슬롯 6 철거 버튼은 skill 슬롯이 아니라 건드리지 않아 환불 골드 표시가 유지된다.)
+                DisableChild(slot, "CostContainer");
+                DisableChild(slot, "Label");
+
+                // ── 스킬 아이콘 = 슬롯의 기존 IconImage 재사용(없으면 Icon 생성) ──
+                //   기존 아이콘 자리를 그대로 써 룩을 맞춘다. 런타임에 BuildingSkillPanelUI.OnShow가
+                //   SkillData.Icon을 넣고 enabled를 켠다(스킬 있는 슬롯만).
+                Image icon = FindImageChild(slot, "IconImage");
+                if (icon == null)
+                {
+                    GameObject iconGo = FindOrCreateChild(slot, "Icon");
+                    SetStretch(iconGo.GetComponent<RectTransform>());
+                    icon = EnsureImage(iconGo, Color.white, null);
+                }
                 icon.raycastTarget = false;   // 버튼 클릭을 막지 않도록.
+                icon.sprite = null;
                 icon.enabled = false;         // 스프라이트 미지정 → 숨김(런타임에 켜짐).
 
-                // 쿨다운 오버레이(시계방향 radial + 남은초). 슬롯의 마지막 자식이라 아이콘 위에 그려진다.
+                // ── 쿨다운 오버레이(시전 중에만 표시) ─────────────────────────
+                //   슬롯의 마지막 자식이라 아이콘 위에 그려진다. 유휴 시엔 alpha 0로 완전히 숨김(규칙 10).
                 SkillCooldownOverlay overlay = BuildCooldownOverlay(slot, font);
 
                 skillButtons.Add(slotBtn);
@@ -272,6 +288,20 @@ namespace Hexiege.EditorTools
         {
             SerializedProperty p = so.FindProperty(field);
             return p != null ? p.objectReferenceValue : null;
+        }
+
+        /// <summary> 직속 자식을 이름으로 찾아 비활성화한다(없으면 no-op). 슬롯의 비용/라벨 제거에 사용. </summary>
+        private static void DisableChild(Transform parent, string childName)
+        {
+            Transform t = parent.Find(childName);
+            if (t != null && t.gameObject.activeSelf) t.gameObject.SetActive(false);
+        }
+
+        /// <summary> 직속 자식(이름)의 Image 컴포넌트를 반환한다. 없으면 null. </summary>
+        private static Image FindImageChild(Transform parent, string childName)
+        {
+            Transform t = parent.Find(childName);
+            return t != null ? t.GetComponent<Image>() : null;
         }
 
         /// <summary>
@@ -360,9 +390,13 @@ namespace Hexiege.EditorTools
             return reticle;
         }
 
+        // 취소(X) 버튼 스프라이트 경로(정식 아트).
+        private const string CancelSpritePath = "Assets/_Project/Sprites/UI/Buttons/ui_btn_cancel.png";
+
         /// <summary>
-        /// 하단 중앙 X(취소) 버튼(플레이스홀더)을 멱등 생성하고 RectTransform을 반환한다(규칙 20·21).
-        /// 화면 맨 끝보다 살짝 안쪽(하단 중앙)에 둔다.
+        /// 하단 중앙 X(취소) 이미지 버튼을 멱등 생성하고 RectTransform을 반환한다(규칙 20·21).
+        /// ui_btn_cancel 스프라이트를 쓰는 "이미지 버튼"이며(텍스트 라벨 없음),
+        /// 평소에는 숨겨두고(SetActive false) 조준 중에만 SkillAimController가 켠다.
         /// </summary>
         private static RectTransform BuildCancelButton(Transform canvas, TMP_FontAsset font)
         {
@@ -370,7 +404,26 @@ namespace Hexiege.EditorTools
             RectTransform rt = go.GetComponent<RectTransform>();
             // 하단 중앙(맨 끝보다 안쪽 — 엣지 스크롤 영역과 겹치지 않도록, 규칙 21).
             SetAnchors(rt, new Vector2(0.40f, 0.06f), new Vector2(0.60f, 0.14f));
-            EnsureButton(go, font, "✕ 취소", new Color(0.5f, 0.2f, 0.2f, 0.9f));
+
+            // 정식 취소 스프라이트 지정(이미지 버튼). 없으면 경고 후 단색 폴백.
+            Sprite cancelSprite = AssetDatabase.LoadAssetAtPath<Sprite>(CancelSpritePath);
+            if (cancelSprite == null)
+                Debug.LogWarning($"[Skill Setup] 취소 버튼 스프라이트를 찾지 못했습니다({CancelSpritePath}). 단색으로 대체합니다.");
+
+            Image img = EnsureImage(go, cancelSprite != null ? Color.white : new Color(0.5f, 0.2f, 0.2f, 0.9f), cancelSprite);
+            img.type = Image.Type.Simple;   // 아이콘이므로 9-슬라이스 대신 단순 표시.
+            img.preserveAspect = true;
+            img.raycastTarget = true;
+
+            if (!go.TryGetComponent(out Button btn)) btn = go.AddComponent<Button>();
+            btn.targetGraphic = img;
+
+            // 이전 버전이 만든 텍스트 라벨(자식)이 있으면 제거 — 이미지 버튼이므로 라벨 없음.
+            Transform label = go.transform.Find("Label");
+            if (label != null) Object.DestroyImmediate(label.gameObject);
+
+            // 평소 숨김 — 조준 시작 시 SkillAimController가 켠다(규칙 20).
+            go.SetActive(false);
             return rt;
         }
 
@@ -522,17 +575,6 @@ namespace Hexiege.EditorTools
             t.color = Color.white;
             t.raycastTarget = false;
             return t;
-        }
-
-        private static Button EnsureButton(GameObject go, TMP_FontAsset font, string label, Color bg)
-        {
-            Image img = EnsureImage(go, bg, null);
-            if (!go.TryGetComponent(out Button btn)) btn = go.AddComponent<Button>();
-            btn.targetGraphic = img;
-            GameObject labelGo = FindOrCreateChild(go.transform, "Label");
-            SetStretch(labelGo.GetComponent<RectTransform>());
-            EnsureText(labelGo, font, label, 24, TextAlignmentOptions.Center);
-            return btn;
         }
 
         // ====================================================================

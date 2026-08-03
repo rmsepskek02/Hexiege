@@ -43,7 +43,11 @@ namespace Hexiege.Presentation
 
         private void Awake()
         {
-            // 시작 시 숨김.
+            // 시작 시 완전히 숨김 + 초기값 초기화.
+            //   씬에 남아 있을 수 있는 잔여 표기(예: 오서링 시 넣어 둔 "999")를 지워, 쿨다운이 아닐 때
+            //   숫자/채움이 상시 떠 있는 것을 막는다(규칙 10 — 시전 중일 때만 표시).
+            if (_remainingText != null) _remainingText.text = string.Empty;
+            if (_fillImage != null) _fillImage.fillAmount = 0f;
             ApplyVisible(false);
         }
 
