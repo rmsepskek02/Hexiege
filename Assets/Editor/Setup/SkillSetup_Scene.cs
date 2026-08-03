@@ -89,20 +89,25 @@ namespace Hexiege.EditorTools
             if (loadout == null)
                 Debug.LogWarning("[Skill Setup] SkillLoadoutConfig 에셋이 없습니다. 먼저 '1. Create Skill Data Assets'를 실행하세요.");
 
-            // ── UI 부모 Canvas 결정(기존 액션 패널이 붙은 캔버스 재사용) ──────
-            Canvas canvas = ResolveUiCanvas();
-            if (canvas == null)
+            // ── UI 부모 결정(기존 패널들이 형제로 있는 [UI] 루트) ─────────────
+            // ⚠️ 스킬 패널은 반드시 BuildingActionPanel "안"이 아니라 그 "형제"로 둔다.
+            //   BuildingActionPanel은 자체 오버라이드 Canvas(SO 200)를 가진 독립 패널이라,
+            //   그 GetComponentInParent<Canvas>()는 자기 자신의 Canvas를 돌려준다 → 스킬 패널이
+            //   BuildingActionPanel 자식으로 중첩되면 부모가 닫힘(alpha 0)일 때 함께 안 보인다.
+            //   그래서 BuildingActionPanel의 "부모"(다른 패널들과 같은 컨테이너)를 부모로 잡는다.
+            Transform panelParent = ResolveSkillPanelParent();
+            if (panelParent == null)
             {
-                Debug.LogError("[Skill Setup] UI Canvas를 찾지 못했습니다. 씬에 Canvas가 있는지 확인하세요.");
+                Debug.LogError("[Skill Setup] 스킬 패널을 붙일 부모(UI 루트)를 찾지 못했습니다. 씬에 Canvas/패널이 있는지 확인하세요.");
                 return;
             }
 
             // ── A) 스킬 패널 생성/배선 ─────────────────────────────────────
-            BuildingSkillPanelUI skillPanel = BuildSkillPanel(canvas.transform, boldFont, colorConfig);
+            BuildingSkillPanelUI skillPanel = BuildSkillPanel(panelParent, boldFont, colorConfig);
 
             // ── B) 조준 원 + 조준 컨트롤러 + 취소 X 버튼 ──────────────────
             SkillAimReticle reticle = BuildReticle();
-            RectTransform cancelZone = BuildCancelButton(canvas.transform, boldFont);
+            RectTransform cancelZone = BuildCancelButton(panelParent, boldFont);
             SkillAimController aimController = BuildAimController(reticle, cancelZone);
 
             // ── C) NetworkSkillController 씬 오브젝트 ──────────────────────
@@ -122,7 +127,8 @@ namespace Hexiege.EditorTools
 
             Debug.Log(
                 "[Skill Setup] 씬 골격 생성·배선 완료(플레이스홀더 아트).\n" +
-                "  · BuildingSkillPanel / SkillAimReticle / SkillAimController / SkillCancelButton / NetworkSkillController 생성.\n" +
+                "  · BuildingSkillPanel(= [UI] 루트 형제, 오버라이드 Canvas SO 200) / SkillAimReticle / SkillAimController / SkillCancelButton / NetworkSkillController 생성.\n" +
+                "  · (교정) 이전에 BuildingActionPanel 자식으로 잘못 만들어진 BuildingSkillPanel이 있으면 [UI] 루트 형제로 자동 재부모화합니다.\n" +
                 "  · GameBootstrapper 슬롯 4종 연결(_skillLoadoutConfig/_buildingSkillPanelUI/_skillAimController/_networkSkillController).\n" +
                 (sceneOpenedByThis ? "  · 씬 자동 저장 완료.\n" : "  · 열린 씬 dirty 표시 — Ctrl+S로 저장하세요.\n") +
                 "  · 쿨다운 fill·조준 원에 Unity 내장 스프라이트를 임시 지정(테스트용) — 이미 셋업된 씬이면 이 메뉴를 다시 실행하면 반영됩니다.\n" +
@@ -139,10 +145,22 @@ namespace Hexiege.EditorTools
         /// BuildingSkillPanel(전용 스킬 패널)을 캔버스 하위에 멱등 생성하고 필드를 배선한다.
         /// AnimatedPanel(자체 CanvasGroup)·헤더/닫기/철거 + 스킬 슬롯 5개(아이콘+쿨다운 오버레이)를 구성한다.
         /// </summary>
-        private static BuildingSkillPanelUI BuildSkillPanel(Transform canvas, TMP_FontAsset font, UIColorConfig colorConfig)
+        private static BuildingSkillPanelUI BuildSkillPanel(Transform panelParent, TMP_FontAsset font, UIColorConfig colorConfig)
         {
+            // ── 기존 잘못된 인스턴스 정리(중요) ───────────────────────────────
+            // 이전 버전 스크립트가 BuildingActionPanel "자식"으로 잘못 만든 BuildingSkillPanel이
+            // 씬에 남아 있을 수 있다. 재실행 시 올바른 부모에서 못 찾아 중복 생성되지 않도록,
+            // 씬 어디에 있든 먼저 찾아 올바른 부모로 재부모화한다(worldPositionStays=false로 로컬값 보존).
+            // 이렇게 옮겨두면 아래 FindOrCreateChild가 이 인스턴스를 그대로 재사용한다(정확히 1개 유지).
+            GameObject stray = FindExistingSkillPanel();
+            if (stray != null && stray.transform.parent != panelParent)
+            {
+                stray.transform.SetParent(panelParent, false);
+                Debug.Log("[Skill Setup] 잘못된 부모에 있던 기존 BuildingSkillPanel을 [UI] 루트 형제로 재부모화했습니다.");
+            }
+
             // 루트(패널). 화면 하단 중앙 밴드에 배치(모바일 9:16 가정, 실기 튜닝 대상).
-            GameObject root = FindOrCreateChild(canvas, "BuildingSkillPanel");
+            GameObject root = FindOrCreateChild(panelParent, "BuildingSkillPanel");
             RectTransform rootRt = root.GetComponent<RectTransform>();
             SetAnchors(rootRt, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.42f));
 
@@ -388,16 +406,43 @@ namespace Hexiege.EditorTools
         // 공통 헬퍼(UI/씬)
         // ====================================================================
 
-        /// <summary> 기존 액션 패널이 붙은 Canvas를 우선 재사용, 없으면 씬의 첫 Canvas. </summary>
-        private static Canvas ResolveUiCanvas()
+        /// <summary>
+        /// 스킬 패널을 붙일 부모(다른 패널들이 형제로 있는 [UI] 루트)를 결정한다.
+        ///
+        /// 견고한 방식(BuildingActionPanel의 "부모"를 사용):
+        ///   BuildingActionPanel은 자체 오버라이드 Canvas를 가진 독립 패널이므로 그 자신을 부모로 삼으면
+        ///   중첩된다. 대신 BuildingActionPanel.transform.parent(= 다른 패널들과 같은 컨테이너, [UI] 루트)를
+        ///   반환해 스킬 패널을 "형제"로 만든다. 다른 패널(ProductionPopup/GameEndPanel)이 놓인 위치와 동일.
+        ///   폴백: 액션 패널이 없으면 씬의 첫 Canvas 트랜스폼.
+        /// </summary>
+        private static Transform ResolveSkillPanelParent()
         {
             var action = Object.FindFirstObjectByType<BuildingActionPanelUI>(FindObjectsInactive.Include);
-            if (action != null)
+            if (action != null && action.transform.parent != null)
+                return action.transform.parent; // 다른 패널들과 같은 컨테이너(형제로 배치).
+
+            // 폴백: 씬의 첫 Canvas([UI] 루트)를 부모로.
+            Canvas canvas = Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+            return canvas != null ? canvas.transform : null;
+        }
+
+        /// <summary>
+        /// 씬에 이미 존재하는 BuildingSkillPanel을 찾는다(컴포넌트 우선, 없으면 이름 기반 폴백).
+        /// 잘못된 부모에 만들어진 잔재를 정리·재부모화하기 위해 사용한다. 없으면 null.
+        /// </summary>
+        private static GameObject FindExistingSkillPanel()
+        {
+            var comp = Object.FindFirstObjectByType<BuildingSkillPanelUI>(FindObjectsInactive.Include);
+            if (comp != null) return comp.gameObject;
+
+            // 컴포넌트가 없는(잘못된) 잔재 대비 — 이름으로도 탐색.
+            var all = Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < all.Length; i++)
             {
-                Canvas c = action.GetComponentInParent<Canvas>();
-                if (c != null) return c;
+                if (all[i] != null && all[i].name == "BuildingSkillPanel")
+                    return all[i].gameObject;
             }
-            return Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+            return null;
         }
 
         private static GameObject FindOrCreateChild(Transform parent, string childName)
