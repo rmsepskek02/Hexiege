@@ -80,6 +80,9 @@ namespace Hexiege.Presentation
         [Tooltip("손가락이 취소(X) 버튼 위에 있을 때 버튼을 몇 배로 확대할지(예고 피드백).")]
         [SerializeField] private float _cancelHoverScale = 1.25f;
 
+        [Tooltip("취소 버튼 확대/복귀 보간 속도(클수록 빠름). 프레임 독립 보간(1-exp(-speed*dt))에 쓰인다.")]
+        [SerializeField] private float _cancelHoverLerpSpeed = 14f;
+
         // ====================================================================
         // 런타임 상태
         // ====================================================================
@@ -113,6 +116,9 @@ namespace Hexiege.Presentation
         // 취소(X) 버튼의 기준(원래) 스케일. hover 시 이 값의 배수로 확대한다.
         private Vector3 _cancelBaseScale = Vector3.one;
 
+        // 취소 버튼 스케일 보간 목표. ApplyCancelHover가 목표만 세우고, TickCancelHover가 매 프레임 보간한다.
+        private Vector3 _cancelTargetScale = Vector3.one;
+
         // XZ 평면(Y=0) 레이캐스트용.
         private static readonly Plane _xzPlane = new Plane(Vector3.up, Vector3.zero);
 
@@ -133,7 +139,11 @@ namespace Hexiege.Presentation
             _isValidTile = isValidTile;
 
             // 취소(X) 버튼 기준 스케일 기억(hover 확대의 기준값) + 평소 숨김(조준 중에만 표시, 규칙 20).
-            if (_cancelZone != null) _cancelBaseScale = _cancelZone.localScale;
+            if (_cancelZone != null)
+            {
+                _cancelBaseScale = _cancelZone.localScale;
+                _cancelTargetScale = _cancelBaseScale;
+            }
             SetCancelButtonVisible(false);
         }
 
@@ -194,6 +204,9 @@ namespace Hexiege.Presentation
         private void Update()
         {
             if (!_isAiming) return;
+
+            // 취소(X) 버튼 스케일을 목표값으로 매 프레임 부드럽게 보간(규칙 20-1). 1·2단계 모두에서 실행.
+            TickCancelHover();
 
             // ── 1단계 유지 구간: 아직 화면 드래그가 시작되지 않음 ──────────────
             if (!_dragging)
@@ -302,8 +315,9 @@ namespace Hexiege.Presentation
             _pendingButtonRelease = false;
             _dragging = false;
             _reticle?.Hide();
-            // 취소 버튼 스케일 원복 후 숨김(규칙 20·20-1).
-            ApplyCancelHover(false);
+            // 취소 버튼 스케일 즉시 기준값으로 원복(잔여 없게) 후 숨김(규칙 20·20-1).
+            _cancelTargetScale = _cancelBaseScale;
+            if (_cancelZone != null) _cancelZone.localScale = _cancelBaseScale;
             SetCancelButtonVisible(false);
         }
 
@@ -343,12 +357,23 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 취소(X) 버튼을 손가락이 위에 있으면 확대(예고), 아니면 원래 크기로(규칙 20-1).
+        /// 취소(X) 버튼 확대의 "목표 스케일"만 설정한다(규칙 20-1). 실제 스케일은 TickCancelHover가 매 프레임
+        /// 목표로 부드럽게 보간한다(즉시 적용 아님). over=true면 기준×hover배, false면 기준으로 복귀.
         /// </summary>
         private void ApplyCancelHover(bool over)
         {
+            _cancelTargetScale = over ? _cancelBaseScale * _cancelHoverScale : _cancelBaseScale;
+        }
+
+        /// <summary>
+        /// 취소(X) 버튼 스케일을 목표(_cancelTargetScale)로 프레임 독립 보간한다.
+        /// t = 1 - exp(-speed·dt) 는 프레임레이트에 무관하게 같은 감쇠(부드러운 확대/복귀)를 준다.
+        /// </summary>
+        private void TickCancelHover()
+        {
             if (_cancelZone == null) return;
-            _cancelZone.localScale = over ? _cancelBaseScale * _cancelHoverScale : _cancelBaseScale;
+            float t = 1f - Mathf.Exp(-_cancelHoverLerpSpeed * Time.deltaTime);
+            _cancelZone.localScale = Vector3.Lerp(_cancelZone.localScale, _cancelTargetScale, t);
         }
 
         // ====================================================================

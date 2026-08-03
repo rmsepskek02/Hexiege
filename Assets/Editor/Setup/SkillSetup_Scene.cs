@@ -331,9 +331,15 @@ namespace Hexiege.EditorTools
             Image fill = EnsureImage(fillGo, new Color(0f, 0f, 0f, 0.6f), null);
             fill.type = Image.Type.Filled;
             fill.fillMethod = Image.FillMethod.Radial360;
-            fill.fillOrigin = (int)Image.Origin360.Top;
-            fill.fillClockwise = true;
-            fill.fillAmount = 1f;
+            fill.fillOrigin = (int)Image.Origin360.Top;   // 12시에서 시작.
+            // ⚠️ "어두운 오버레이가 12시부터 시계방향으로 걷혀 사라지는" 표준 쿨다운 스윕 방향 설정(근거):
+            //   Unity Filled 이미지는 [fillOrigin에서 fillClockwise 방향으로 fillAmount만큼]을 "보이게(어둡게)" 그린다.
+            //   SetCooldown이 fillAmount = remaining/total(남은 비율=어두운 비율)로 감소시키므로,
+            //   fillClockwise=false(반시계로 그림)로 두면 → 드러나는(밝아지는) 경계가 12시부터 "시계방향"으로
+            //   전진한다. 즉 어둠이 12시→3시→6시→9시 순서(시계방향)로 걷힌다.
+            //   (fillClockwise=true면 반대로 반시계로 걷혀 요구와 어긋난다 — 이전 버그.)
+            fill.fillClockwise = false;
+            fill.fillAmount = 1f;                         // 초기 = 전부 어두움(쿨다운 시작 시 버튼 전체 덮음).
             fill.raycastTarget = false;
             // 임시 내장 스프라이트 — 정식 아트로 교체 전, radial fill이 화면에 실제로 렌더되게 한다.
             //   Filled 타입 Image는 스프라이트가 없으면 아무것도 그리지 않으므로, Unity 내장 UISprite를 임시로 넣는다.
