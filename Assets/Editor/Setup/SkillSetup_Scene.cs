@@ -125,7 +125,8 @@ namespace Hexiege.EditorTools
                 "  · BuildingSkillPanel / SkillAimReticle / SkillAimController / SkillCancelButton / NetworkSkillController 생성.\n" +
                 "  · GameBootstrapper 슬롯 4종 연결(_skillLoadoutConfig/_buildingSkillPanelUI/_skillAimController/_networkSkillController).\n" +
                 (sceneOpenedByThis ? "  · 씬 자동 저장 완료.\n" : "  · 열린 씬 dirty 표시 — Ctrl+S로 저장하세요.\n") +
-                "  · 후속: 아이콘/조준원/오버레이/취소X 아트, 레이아웃·엣지스크롤 여백 튜닝, 멀티 NetworkObject 확인.");
+                "  · 쿨다운 fill·조준 원에 Unity 내장 스프라이트를 임시 지정(테스트용) — 이미 셋업된 씬이면 이 메뉴를 다시 실행하면 반영됩니다.\n" +
+                "  · 후속: 아이콘/조준원/오버레이/취소X 정식 아트로 교체, 레이아웃·엣지스크롤 여백 튜닝, 멀티 NetworkObject 확인.");
 
             Selection.activeObject = skillPanel != null ? (Object)skillPanel.gameObject : bootstrapper;
         }
@@ -253,6 +254,11 @@ namespace Hexiege.EditorTools
             fill.fillClockwise = true;
             fill.fillAmount = 1f;
             fill.raycastTarget = false;
+            // 임시 내장 스프라이트 — 정식 아트로 교체 전, radial fill이 화면에 실제로 렌더되게 한다.
+            //   Filled 타입 Image는 스프라이트가 없으면 아무것도 그리지 않으므로, Unity 내장 UISprite를 임시로 넣는다.
+            //   (버전에 따라 경로가 다를 수 있어 방어적으로 로드 — 실패 시 조용히 스킵.)
+            Sprite cooldownSprite = LoadBuiltinSprite("UI/Skin/UISprite.psd", "UI/Skin/Background.psd");
+            if (cooldownSprite != null) fill.sprite = cooldownSprite;
 
             // 남은 초 숫자.
             GameObject textGo = FindOrCreateChild(overlayGo.transform, "Remaining");
@@ -288,10 +294,19 @@ namespace Hexiege.EditorTools
             {
                 ring = new GameObject("Ring");
                 ring.transform.SetParent(root.transform, false);
-                // 플레이스홀더: 스프라이트 없는 SpriteRenderer(사용자가 원형 스프라이트 지정).
                 ring.AddComponent<SpriteRenderer>();
             }
             else ring = ringT.gameObject;
+
+            // 임시 내장 스프라이트 — 정식 조준 원 아트로 교체 전, 화면에 실제로 보이게 한다.
+            //   Unity 내장 Knob(채워진 원)을 임시로 넣는다. 테스트용이라 링이 아니어도 무방하며,
+            //   반투명 색으로 두면 조준 범위를 가늠할 수 있다. (내장 스프라이트 로드 실패 시 조용히 스킵.)
+            if (!ring.TryGetComponent(out SpriteRenderer ringRenderer))
+                ringRenderer = ring.AddComponent<SpriteRenderer>();
+            Sprite reticleSprite = LoadBuiltinSprite("UI/Skin/Knob.psd", "UI/Skin/UISprite.psd");
+            if (reticleSprite != null) ringRenderer.sprite = reticleSprite;
+            // 눈에 띄되 아래 지형이 비치도록 반투명 붉은 톤(임시).
+            ringRenderer.color = new Color(1f, 0.35f, 0.35f, 0.4f);
 
             if (!root.TryGetComponent(out SkillAimReticle reticle))
                 reticle = root.AddComponent<SkillAimReticle>();
@@ -405,6 +420,25 @@ namespace Hexiege.EditorTools
             grid.constraintCount = 3;
             grid.childAlignment = TextAnchor.MiddleCenter;
             return grid;
+        }
+
+        /// <summary>
+        /// Unity 내장(빌트인) 스프라이트를 방어적으로 로드한다(임시 테스트 아트용).
+        /// primaryPath가 없으면 fallbackPath를 시도하고, 둘 다 실패하면 경고 후 null을 반환한다.
+        /// (에디터/Unity 버전에 따라 내장 리소스 경로가 다를 수 있으므로 실패해도 셋업은 계속 진행된다.)
+        /// </summary>
+        /// <param name="primaryPath">우선 시도할 내장 리소스 경로(예: "UI/Skin/UISprite.psd").</param>
+        /// <param name="fallbackPath">실패 시 대체 경로(없으면 null 전달).</param>
+        private static Sprite LoadBuiltinSprite(string primaryPath, string fallbackPath)
+        {
+            Sprite s = AssetDatabase.GetBuiltinExtraResource<Sprite>(primaryPath);
+            if (s == null && !string.IsNullOrEmpty(fallbackPath))
+                s = AssetDatabase.GetBuiltinExtraResource<Sprite>(fallbackPath);
+            if (s == null)
+                Debug.LogWarning(
+                    $"[Skill Setup] 내장 스프라이트를 찾지 못했습니다('{primaryPath}'). " +
+                    "임시 아트 없이 진행합니다(정식 아트로 교체 필요).");
+            return s;
         }
 
         private static Image EnsureImage(GameObject go, Color color, Sprite sprite)

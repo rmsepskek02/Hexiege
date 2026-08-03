@@ -53,6 +53,8 @@ namespace Hexiege.Bootstrap
                 // 스킬 건물 전용 패널도 IGameUI(BuildingPanelBase) 구현체 — 게임 시작/종료 시 자동 닫힘 보장.
                 //   (미등록 시 OnGameStarted/OnGameEnded가 호출되지 않아 시작/종료 후에도 스킬 패널이 남는다.)
                 _uiManager.Register(_buildingSkillPanelUI);
+                // 연구소 강화 패널도 IGameUI(BuildingPanelBase) 구현체 — 동일하게 게임 시작/종료 시 자동 닫힘 보장.
+                _uiManager.Register(_researchPanelUI);
                 // 인게임 설정 메뉴도 IGameUI — 재경기/게임 종료 시 자동 닫힘 보장을 위해 등록.
                 _uiManager.Register(_inGameSettingsUI);
                 _uiManager.Register(_gameEndUI);
