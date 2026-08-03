@@ -146,6 +146,20 @@ namespace Hexiege.EditorTools
             RectTransform rootRt = root.GetComponent<RectTransform>();
             SetAnchors(rootRt, new Vector2(0.08f, 0.06f), new Vector2(0.92f, 0.42f));
 
+            // ── Canvas 정렬 오버라이드(필수) ──────────────────────────────
+            // GameSystemRules_CanvasSortingOrder: 패널 본체는 OverrideSorting=true, SortingOrder=200.
+            // (BuildingActionPanel/ProductionPopup 등과 동일 대역.)
+            // 이게 없으면 패널이 SO=0으로 그려져 BlockingOverlay(SO=100, 반투명 배경)에 덮여
+            // "배경만 보이고 패널은 안 보이는" 버그가 난다.
+            if (!root.TryGetComponent(out Canvas panelCanvas))
+                panelCanvas = root.AddComponent<Canvas>();
+            panelCanvas.overrideSorting = true;
+            panelCanvas.sortingOrder = 200;
+            // Canvas Override에는 GraphicRaycaster가 반드시 함께 있어야 버튼 입력이 동작한다
+            // (CanvasSortingOrder 규칙 1). 없으면 스킬 버튼이 눌리지 않는다.
+            if (!root.TryGetComponent(out GraphicRaycaster _))
+                root.AddComponent<GraphicRaycaster>();
+
             // 배경 이미지(플레이스홀더 반투명 어두운 색).
             Image bg = EnsureImage(root, new Color(0.08f, 0.10f, 0.16f, 0.92f), null);
             bg.raycastTarget = true;
