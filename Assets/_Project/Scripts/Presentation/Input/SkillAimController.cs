@@ -1,12 +1,14 @@
 // ============================================================================
 // SkillAimController.cs
-// 스킬 "지점 조준" 입력 상태 머신 — press(버튼) → 드래그 추적 → 조준점 이동 →
-// 엣지 스크롤 → release 발동/취소(규칙 17~24).
+// 스킬 "지점 조준" 입력 상태 머신 — 탭 기반 2단계(규칙 17~20·20-1).
 //
-// 무엇을 하나(초급자용 설명):
-//   지점 지정 스킬(타입 A·B) 버튼을 누른 채 드래그하면, 손가락을 따라 조준점(범위 원)이 이동한다.
-//   화면 가장자리로 끌면 카메라가 그 방향으로 자동 팬(엣지 스크롤)되어 맵 구석까지 조준할 수 있고,
-//   손을 떼면 그 지점에 스킬이 발동한다. 화면 하단 중앙의 X(취소) 위에서 떼면 취소한다.
+// 무엇을 하나(초급자용 설명 — 2단계):
+//   [1단계] 스킬 버튼을 "탭"하면 조준 모드로 진입한다. 진입 즉시 범위(조준 원)가 지도 위(기본:
+//           화면 중앙의 유효 타일, 없으면 시전 건물 타일)에 나타나고, 하단 취소(X) 버튼이 켜진다.
+//           **버튼에서 손을 떼도 발동/종료되지 않는다**(그 버튼 gesture는 무시). 조준 모드는 유지된다.
+//   [2단계] 이후 화면을 새로 눌러 드래그하면 범위가 손가락을 따라 이동한다(엣지 스크롤·맵 clamp 포함).
+//           손을 떼면 그 위치에 발동한다. 드래그 중 손가락을 하단 X 위로 가져가면 취소 버튼이 확대되어
+//           예고(규칙 20-1)되고, X 위에서 떼면 취소된다.
 //
 // 발동 본체와의 분리(§3-8 — AI 공용):
 //   이 컨트롤러는 "좌표를 만드는 어댑터"일 뿐이다. 실제 발동은 콜백(onConfirm)으로 상위(스킬 패널)에
@@ -74,12 +76,23 @@ namespace Hexiege.Presentation
         [Tooltip("엣지 스크롤 속도(월드 단위/초).")]
         [SerializeField] private float _edgeScrollSpeed = 8f;
 
+        [Header("취소 버튼 hover 피드백(규칙 20-1)")]
+        [Tooltip("손가락이 취소(X) 버튼 위에 있을 때 버튼을 몇 배로 확대할지(예고 피드백).")]
+        [SerializeField] private float _cancelHoverScale = 1.25f;
+
         // ====================================================================
         // 런타임 상태
         // ====================================================================
 
-        // 조준 중 여부(인스턴스). IsAiming(정적)과 함께 갱신한다.
+        // 조준 모드 활성 여부(인스턴스). IsAiming(정적)과 함께 갱신한다.
+        //   탭 기반 2단계: BeginAim(버튼 탭)으로 켜지고, 화면 드래그-release(발동/취소)로 꺼진다.
         private bool _isAiming;
+
+        // 2단계 상태:
+        //   _pendingButtonRelease = true : 버튼 탭 gesture(스킬 버튼 press)가 아직 안 끝남 → 이 gesture는 무시.
+        //   _dragging            = true : 버튼을 뗀 뒤 새로 시작한 "화면 드래그" 진행 중(이때 조준 이동/발동).
+        private bool _pendingButtonRelease;
+        private bool _dragging;
 
         // 조준 대상 스킬 식별.
         private int _buildingId;
@@ -96,6 +109,9 @@ namespace Hexiege.Presentation
 
         // 맵 타일 유효성 판정(grid.HasTile 주입). null이면 항상 유효로 간주.
         private Func<HexCoord, bool> _isValidTile;
+
+        // 취소(X) 버튼의 기준(원래) 스케일. hover 시 이 값의 배수로 확대한다.
+        private Vector3 _cancelBaseScale = Vector3.one;
 
         // XZ 평면(Y=0) 레이캐스트용.
         private static readonly Plane _xzPlane = new Plane(Vector3.up, Vector3.zero);
@@ -116,7 +132,8 @@ namespace Hexiege.Presentation
             if (cameraController != null) _cameraController = cameraController;
             _isValidTile = isValidTile;
 
-            // 취소(X) 버튼은 평소 숨김 — 지점 조준을 시작할 때만 켠다(규칙 20).
+            // 취소(X) 버튼 기준 스케일 기억(hover 확대의 기준값) + 평소 숨김(조준 중에만 표시, 규칙 20).
+            if (_cancelZone != null) _cancelBaseScale = _cancelZone.localScale;
             SetCancelButtonVisible(false);
         }
 
@@ -130,19 +147,21 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
-        // 조준 시작 — 스킬 버튼 PointerDown에서 호출
+        // 1단계 — 스킬 버튼 탭으로 조준 모드 진입(유지). 스킬 버튼 PointerDown에서 호출
         // ====================================================================
 
         /// <summary>
-        /// 지점 조준을 시작한다(스킬 버튼을 누른 순간). 이후 매 프레임 조준점을 갱신하다가
-        /// 손을 떼면 onConfirm(발동) 또는 onCancel(취소)을 호출한다.
+        /// 스킬 버튼을 "탭"한 순간 조준 모드로 진입한다(규칙 17). 진입 즉시 범위(조준 원)를 화면에 표시하고
+        /// 취소(X) 버튼을 켠다. **버튼의 release로는 종료/발동하지 않는다**(그 gesture는 무시).
+        /// 이후 사용자가 화면을 새로 눌러 드래그하면 범위가 손가락을 따라 이동하고, 손을 떼면 발동한다(2단계).
         /// </summary>
         /// <param name="buildingId">발동할 스킬 건물 Id.</param>
         /// <param name="skillSlot">발동할 슬롯 번호(0-based).</param>
         /// <param name="radius">조준 범위 반경(월드 단위, 조준점 표시용).</param>
+        /// <param name="fallbackCoord">화면 중앙이 유효 타일이 아닐 때 쓸 기본 좌표(보통 시전 건물 타일).</param>
         /// <param name="onConfirm">발동 확정 콜백(buildingId, slot, 도메인 좌표).</param>
         /// <param name="onCancel">취소 콜백.</param>
-        public void BeginAim(int buildingId, int skillSlot, float radius,
+        public void BeginAim(int buildingId, int skillSlot, float radius, HexCoord fallbackCoord,
             Action<int, int, HexCoord> onConfirm, Action onCancel)
         {
             _buildingId = buildingId;
@@ -151,41 +170,69 @@ namespace Hexiege.Presentation
             _onConfirm = onConfirm;
             _onCancel = onCancel;
 
-            _hasValidCoord = false;
             _isAiming = true;
             IsAiming = true;
+            // 버튼 탭 gesture(현재 눌린 스킬 버튼 press)는 무시한다 — 이 gesture가 끝날 때까지 드래그로 넘어가지 않는다.
+            _pendingButtonRelease = true;
+            _dragging = false;
 
             if (_camera == null) _camera = Camera.main;
 
-            // 취소(X) 버튼을 조준하는 동안만 표시한다(규칙 20).
-            SetCancelButtonVisible(true);
+            // 조준 원 기본 위치 = 화면 중앙의 유효 타일(없으면 시전 건물 타일). 진입 즉시 지도 위에 표시.
+            HexCoord start = ResolveDefaultCoord(fallbackCoord);
+            ShowReticleAtCoord(start);
 
-            // 시작 즉시 현재 포인터 위치로 조준점을 1회 갱신(첫 프레임에도 보이도록).
-            UpdateAimPoint(GetPointerScreenPos());
+            // 취소(X) 버튼을 조준하는 동안만 표시(규칙 20). 기준 스케일로 리셋.
+            SetCancelButtonVisible(true);
+            ApplyCancelHover(false);
         }
 
         // ====================================================================
-        // 매 프레임 — 조준점 추적 / 엣지 스크롤 / release 분기
+        // 매 프레임 — 2단계(화면 드래그로 범위 이동 → release 발동/취소)
         // ====================================================================
 
         private void Update()
         {
             if (!_isAiming) return;
 
+            // ── 1단계 유지 구간: 아직 화면 드래그가 시작되지 않음 ──────────────
+            if (!_dragging)
+            {
+                // 스킬 버튼 탭 gesture가 끝날 때까지(포인터가 떨어질 때까지) 기다렸다가,
+                // 그 다음에 오는 "새 press"부터 드래그(조준 이동)로 인정한다.
+                if (_pendingButtonRelease)
+                {
+                    if (!IsPointerPressed()) _pendingButtonRelease = false; // 버튼에서 손을 뗌 → 대기 해제.
+                    return; // 버튼 gesture 동안은 아무 것도 하지 않음(range/취소버튼은 이미 표시됨).
+                }
+
+                // 버튼을 뗀 뒤, 화면을 새로 누르면 그 순간부터 드래그 시작(규칙 17·19).
+                if (WasPointerPressedThisFrame())
+                {
+                    _dragging = true;
+                    Vector2 p = GetPointerScreenPos();
+                    UpdateAimPoint(p);
+                    ApplyCancelHover(IsOverCancelZone(p));
+                }
+                return;
+            }
+
+            // ── 2단계: 드래그 중 — 범위 이동 + 엣지 스크롤 + X hover + release 발동/취소 ──
             Vector2 screenPos = GetPointerScreenPos();
 
-            // 1) 조준점(범위 원) 위치·유효 좌표 갱신.
+            // 1) 조준점(범위 원) 위치·유효 좌표 갱신(맵 밖은 마지막 유효 위치로 clamp — 규칙 22).
             UpdateAimPoint(screenPos);
 
             // 2) 엣지 스크롤(조준점이 화면 가장자리 여백 안이면 카메라 팬 — 규칙 18·23).
             if (_cameraController != null)
                 _cameraController.EdgeScroll(screenPos, Time.deltaTime, _edgeMarginPx, _edgeScrollSpeed);
 
-            // 3) release 감지 → 발동/취소 분기(규칙 19·20).
+            // 3) 취소 버튼 위 hover면 확대 예고(규칙 20-1), 벗어나면 원래 크기.
+            ApplyCancelHover(IsOverCancelZone(screenPos));
+
+            // 4) 손을 떼면 발동/취소 분기(규칙 19·20).
             if (WasPointerReleasedThisFrame())
-            {
                 ResolveRelease(screenPos);
-            }
         }
 
         /// <summary>
@@ -252,9 +299,56 @@ namespace Hexiege.Presentation
         {
             _isAiming = false;
             IsAiming = false;
+            _pendingButtonRelease = false;
+            _dragging = false;
             _reticle?.Hide();
-            // 조준 종료(발동/취소/강제취소) 시 취소 버튼을 숨긴다(규칙 20).
+            // 취소 버튼 스케일 원복 후 숨김(규칙 20·20-1).
+            ApplyCancelHover(false);
             SetCancelButtonVisible(false);
+        }
+
+        // ====================================================================
+        // 기본 좌표 / 조준점 표시 / 취소 버튼 hover
+        // ====================================================================
+
+        /// <summary>
+        /// 조준 진입 시 조준 원의 기본 위치를 정한다 — 화면 중앙을 지도 좌표로 변환한 유효 타일,
+        /// 없으면 <paramref name="fallbackCoord"/>(보통 시전 건물 타일)를 쓴다.
+        /// </summary>
+        private HexCoord ResolveDefaultCoord(HexCoord fallbackCoord)
+        {
+            if (_camera == null) _camera = Camera.main;
+            if (_camera == null) return fallbackCoord;
+
+            Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            Vector3 viewPos = ScreenToXZPlane(screenCenter);
+            Vector3 domainWorld = ViewConverter.FromView(viewPos);
+            HexCoord coord = HexMetrics.WorldToHex(domainWorld);
+
+            return (_isValidTile == null || _isValidTile(coord)) ? coord : fallbackCoord;
+        }
+
+        /// <summary>
+        /// 지정 도메인 좌표를 마지막 유효 좌표로 삼고 조준 원을 그 타일 중심(뷰 좌표)에 표시한다.
+        /// </summary>
+        private void ShowReticleAtCoord(HexCoord coord)
+        {
+            _lastValidCoord = coord;
+            _hasValidCoord = true;
+            if (_reticle != null)
+            {
+                Vector3 view = ViewConverter.ToView(HexMetrics.HexToWorld(coord));
+                _reticle.Show(view, _radius);
+            }
+        }
+
+        /// <summary>
+        /// 취소(X) 버튼을 손가락이 위에 있으면 확대(예고), 아니면 원래 크기로(규칙 20-1).
+        /// </summary>
+        private void ApplyCancelHover(bool over)
+        {
+            if (_cancelZone == null) return;
+            _cancelZone.localScale = over ? _cancelBaseScale * _cancelHoverScale : _cancelBaseScale;
         }
 
         // ====================================================================
@@ -308,6 +402,39 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
+        /// 이번 프레임에 포인터(터치/마우스 왼쪽 버튼)를 새로 눌렀는지 여부.
+        /// </summary>
+        private bool WasPointerPressedThisFrame()
+        {
+            var touch = Touchscreen.current;
+            if (touch != null && touch.primaryTouch.press.wasPressedThisFrame)
+                return true;
+
+            var mouse = Mouse.current;
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame)
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// 지금 포인터(터치/마우스 왼쪽 버튼)가 눌린 상태인지 여부.
+        /// 버튼 탭 gesture가 끝났는지(손을 뗐는지) 판정하는 데 쓴다.
+        /// </summary>
+        private bool IsPointerPressed()
+        {
+            var touch = Touchscreen.current;
+            if (touch != null && touch.primaryTouch.press.isPressed)
+                return true;
+
+            var mouse = Mouse.current;
+            if (mouse != null && mouse.leftButton.isPressed)
+                return true;
+
+            return false;
+        }
+
+        /// <summary>
         /// 스크린 좌표 → XZ 평면(Y=0) 위 월드 좌표(뷰 좌표계).
         /// </summary>
         private Vector3 ScreenToXZPlane(Vector2 screenPos)
@@ -322,12 +449,7 @@ namespace Hexiege.Presentation
         private void OnDisable()
         {
             // 비활성화 시 조준 상태가 남아 입력이 잠기는 것을 방지(안전장치).
-            if (_isAiming)
-            {
-                _isAiming = false;
-                IsAiming = false;
-                _reticle?.Hide();
-            }
+            if (_isAiming) EndAim();
         }
     }
 }

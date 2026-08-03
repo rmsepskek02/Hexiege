@@ -313,6 +313,12 @@ namespace Hexiege.EditorTools
             GameObject overlayGo = FindOrCreateChild(slot, "CooldownOverlay");
             SetStretch(overlayGo.GetComponent<RectTransform>());
 
+            // ⚠️ 슬롯 버튼에 LayoutGroup(아이콘+비용 배치용)이 있으면 자식인 오버레이도 레이아웃에 눌려
+            //   얇은 한 줄로 찌그러진다. LayoutElement.ignoreLayout=true로 레이아웃에서 제외해야
+            //   위 SetStretch(앵커 0~1)가 그대로 적용되어 오버레이가 "버튼 전체"를 덮는다.
+            if (!overlayGo.TryGetComponent(out LayoutElement le)) le = overlayGo.AddComponent<LayoutElement>();
+            le.ignoreLayout = true;
+
             // CanvasGroup(오버레이 전체 토글).
             if (!overlayGo.TryGetComponent(out CanvasGroup cg)) cg = overlayGo.AddComponent<CanvasGroup>();
             cg.alpha = 0f;
@@ -400,6 +406,15 @@ namespace Hexiege.EditorTools
         /// </summary>
         private static RectTransform BuildCancelButton(Transform canvas, TMP_FontAsset font)
         {
+            // 잔여/중복 정리: 다른 부모(이전 버전이 잘못 붙인 위치)에 있는 SkillCancelButton을 모두 제거한다.
+            //   재실행 시 정확히 1개만(이 부모 밑) 남도록 하여 "취소 버튼이 상시 떠 있는" 중복 잔재를 없앤다.
+            Transform[] all = Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i] != null && all[i].name == "SkillCancelButton" && all[i].parent != canvas)
+                    Object.DestroyImmediate(all[i].gameObject);
+            }
+
             GameObject go = FindOrCreateChild(canvas, "SkillCancelButton");
             RectTransform rt = go.GetComponent<RectTransform>();
             // 하단 중앙(맨 끝보다 안쪽 — 엣지 스크롤 영역과 겹치지 않도록, 규칙 21).

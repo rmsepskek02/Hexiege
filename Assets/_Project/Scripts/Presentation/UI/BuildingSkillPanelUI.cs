@@ -274,8 +274,9 @@ namespace Hexiege.Presentation
 
                 if (_skillAimController != null)
                 {
+                    // fallbackCoord = 시전 건물 타일(화면 중앙이 유효 타일이 아닐 때 조준 원 기본 위치).
                     _skillAimController.BeginAim(buildingId, slotIndex, skill.Radius,
-                        OnAimConfirm, OnAimCancel);
+                        _currentBuilding.Position, OnAimConfirm, OnAimCancel);
                 }
                 else
                 {
