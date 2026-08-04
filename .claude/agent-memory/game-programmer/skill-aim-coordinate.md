@@ -45,6 +45,16 @@ task: `_Tasks/2026-08-04/04_46_skill-aim-coordinate-based/`. 코드-only(규칙�
 - **씬 재셋업 필요**: `Hexiege/Skill/2. Setup Scene` 재실행해야 머티리얼 생성·배선(좌표 변경은 코드-only 재셋업 불필요).
   잔여 z-fight 시 Inspector `SkillAimReticle._yOffset` 미세 상향으로 튜닝.
 
+## 취소 버그 근본 수정 (실기 Android, 커밋 2e88dfa 1차 → 4e5da5e 근본)
+- 증상: 취소 X 위에서 손을 떼도 스킬이 발동되고 쿨다운이 걸림.
+- 원인: 손 뗀(release) 프레임에 `SkillAimController`가 포인터 좌표를 라이브로 읽는데, `TryGetPointerScreenPos`의 **마우스 분기가 터치 종료 후 합성 마우스 좌표(0,0)를 "유효"로 반환**해 캐시된 마지막 드래그 좌표 폴백을 가로챔 → (0,0)은 화면 좌하단이라 취소 X를 벗어난 것으로 판정돼 발동.
+- 수정: **release 프레임엔 라이브 좌표를 읽지 않고 캐시된 마지막 드래그 좌표(`_lastDragScreenPos`)로만 취소/발동 판정.**
+- 교훈: 터치 종료 프레임의 마우스 좌표 폴링은 (0,0) 합성값이 유효처럼 샐 수 있음 → release 판정은 라이브 폴링이 아니라 마지막 유효 드래그 좌표 캐시 기준.
+
+## 쿨다운 안내 토스트 (커밋 4e5da5e)
+- 쿨다운 중 스킬 탭을 조용히 무시하던 것을 안내로. 기존 ToastUI(에셋 기반) 재사용: `Application/Events/ToastKey.cs`에 `SkillOnCooldown` 추가 + `Resources/Config/ToastMessageConfig.asset` key:4 "스킬이 쿨다운 중입니다". `BuildingSkillPanelUI`에서 쿨다운 상태면 `ToastUI.Show(ToastKey.SkillOnCooldown)`.
+
 ## 주의
-- 제거 대상 3곳은 **주석 비활성화**(삭제 아님, 사용자 테스트 통과 후 삭제).
-- 컴파일 미검증(Unity 환경 없음). NGO Vector3 RPC·URP unlit CG 셰이더는 표준 지원.
+- 제거 대상 3곳은 주석 비활성화 → **실기 통과 후 삭제** 대상.
+- **상태: 사용자 실기기 테스트 PASS**(좌표화·렌더링·취소버그·토스트 전부). 이전 "컴파일 미검증" 해소. NGO Vector3 RPC·URP unlit CG 셰이더 표준 지원 확인.
+- 브랜치 `claude/building-skills-discussion-3v8d5k`: 규칙정정 13bb7c1 · 좌표화+렌더링 9e79a2f · 취소 1차 2e88dfa · 취소 근본+토스트 4e5da5e.

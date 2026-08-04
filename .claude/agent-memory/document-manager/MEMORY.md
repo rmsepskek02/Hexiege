@@ -88,6 +88,14 @@
 - **×10 커밋 반영**: config `.asset`(UnitStatsConfig·BuildingStatsConfig·SpecialAttackConfig)에 ×10 값이 커밋되어 저장소 기본값이 ×10(코드 폴백도 ×10, Inspector 값 우선). ×10 적용에 쓰였던 셋업 에디터 스크립트는 역할 종료 후 제거됨(더 이상 실행 불필요).
 - Testcase.md는 사용자 지시로 미작성. 사용자 MEMORY(Windows 경로)는 Linux 세션에서 접근 불가 → 보고에 명시.
 
+### 2026-08-04 - 스킬 건물 시스템 Phase 1 조준 좌표화·렌더링·버그수정 실기 PASS 반영
+- **선행 세션이 "코드 완료·컴파일 미검증"으로만 남겨둔 대형 시스템(스킬 건물 Phase 1)이 이번 사이클(조준 좌표화·지면 데칼·취소버그·토스트)로 컴파일·씬 배선·실기 PASS된 경우.** PROJECT_STATUS.md에는 스킬 관련 내용이 **전무했음**(grep 0건 — 07-28 설계·07-31 구현이 미반영) → 이번에 Phase 1 완료 섹션을 **처음으로** 추가(완료된 시스템 최상단 신규 `####` 12행 표 + 후속/미완 blockquote 3종). WORK_HISTORY 마일스톤 prepend(완료라 추가 기준 충족).
+- **과대 표기 금지가 이번 핵심**: 모든 문서에 완료(타입 A·B + 조준/UI/좌표화/렌더링/버그수정)와 미완(타입 C=enum만 선언·실행기 미구현 Phase 2 / 건물 파괴 시 UI 원복 / 구체 스킬 목록·수치 기획)을 나란히 명시. 타입 C·건물파괴 UI·기획을 완료로 소거하지 말 것.
+- **핵심 서사(비개발자 설명 재사용)**: ① 좌표화 = "반경 판정은 원래 연속 원이라 무변경, 중심 입력만 타일 스냅→연속화" ② 조준원 데칼 = coplanar z-fighting을 ZTest LEqual+Offset로(ZTest Always 금지 — 유닛/건물까지 덮어 규칙 22-1 위반) ③ 취소버그 = 손 뗀 프레임 합성 마우스 좌표(0,0)가 캐시 폴백 가로챔 → release는 캐시 좌표만 ④ 토스트 = 기존 ToastUI 에셋 방식 재사용.
+- **GameSystemRules_Skills.md 처리**: 규칙 본문(17·19·22·22-1·24·26)은 이미 확정안이 구현과 일치 → **무수정**. 다만 "구현 상태" 최상단 블록 + 규칙 17 위 "구현 상태 주의(설계 정정)" 주석은 "미구현/코드 미반영"이라 **stale** → "Phase 1 구현 완료·실기 PASS / 타입 C Phase 2 미구현"으로 갱신. 규칙 번호제 파일에서 규칙 본문이 아닌 **구현 상태 주석/블록**이 실기 완료로 stale해질 수 있으니 함께 검토(불일치 시 수정 = 이번 task 지시 범위).
+- **task 문서**: 지시로 Research/Plan **둘 다** 하단에 "완료 결과"/"구현 후 사실 보강" append(Testcase.md 미생성). Plan은 확정 항목 / **계획과 달라진 점**(조준원 렌더링이 유력안 ZTest Always가 아니라 ZTest LEqual+Offset 데칼로 확정, 취소버그·토스트가 계획에 없던 후속) 구분 기록. Research는 §D 추정(depth 충돌)의 실제 원인(coplanar z-fighting) 보강.
+- **에이전트 MEMORY(이번 갱신 범위 = 지시로 document-manager + game-programmer 2종만)**: game-programmer는 skill-aim 항목 in-place 갱신(헤더 실기 PASS + 취소버그·토스트 불릿 추가) / Phase 1 항목 헤더 실기 PASS 전환 / 토픽 파일 skill-aim-coordinate.md에 취소버그·토스트 절 추가. project-orchestrator는 논리상 대상이나 이번 지시 범위 밖이라 미수정(코드 변경 시 원래 갱신 대상 — 다음에 통합 반영 권장). qa-tester는 별도 QA/버그 발견 없어(실기 사용자 확인) 무수정. 커밋 해시는 사용자 제공값 그대로. 사용자 MEMORY(Windows) 접근 불가.
+
 ### 2026-07-18 - Email verification flow completion docs
 
 - Completion update pattern: append task `Plan.md` completion result, add PASS results to task `Testcase.md`, update `PROJECT_STATUS.md`/`ROADMAP.md` progress sections from in-progress to complete, and replace the `WORK_HISTORY.md` in-progress entry with completed device verification results.

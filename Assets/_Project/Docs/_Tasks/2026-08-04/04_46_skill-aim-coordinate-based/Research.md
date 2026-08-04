@@ -143,3 +143,14 @@
 - **조준원 렌더링 규칙 부재:** "범위 미리보기가 지형과 겹쳐도 항상 위에 선명하게"라는 요구를 담은 규칙이 SSoT에 없다. 신규 규칙 추가가 필요(Plan 참조).
 - **AI 경로 영향:** `Activate`는 플레이어/AI 공용 진입점(SkillActivationUseCase 16~20행 주석). 중심 좌표 타입을 바꾸면 AI가 좌표를 직접 계산해 넘기는 경로도 함께 타입을 맞춰야 한다(현재 AI 스킬 사용은 미구현이므로 시그니처만 정렬).
 - **셋업 스크립트 재실행 필요 가능성:** 조준원 머티리얼을 오버레이 방식으로 바꾸면 `SkillSetup_Scene.cs`의 `EnsureReticlePart`가 커스텀 머티리얼을 배선하도록 수정하고 씬 셋업을 재실행해야 할 수 있다(Inspector 작업). — Plan 단계에서 확정.
+
+---
+
+## 구현 후 사실 보강 (2026-08-04, 실기 PASS)
+
+> Research는 조사 문서라 본문(A~D)은 조사 시점 그대로 보존하고, 실제 구현으로 확정/판명된 사실만 아래에 보강한다.
+
+- **§D 추정(depth 충돌)의 실제 원인 = coplanar z-fighting.** §D는 "타일 지오메트리가 조준 원보다 카메라에 가깝게 앞을 가려 파묻힌다"고 추정했으나, 실측 결과 실제 원인은 조준원(y=0.05)과 HexTile(ProBuilder 실린더 상면)이 **거의 같은 높이에 겹쳐 발생하는 z-fighting**이었다. 해결은 §D가 예로 든 `ZTest Always`(전 오브젝트 위 무조건 오버레이)가 **아니라**, 신규 셰이더 `Assets/_Project/Shaders/SkillAimOverlay.shader`(**ZTest LEqual + Offset -1,-1** + ZWrite Off + Cull Off)의 **지면 데칼** — coplanar 지형은 이기되 불투명 유닛/건물 뒤에는 정상 가려짐(규칙 22-1에 부합). ZTest Always는 유닛/건물까지 덮어 규칙 위반이라 배제.
+- **§C·영향범위 #4 RPC 타입 = NGO 2.9.2 Vector3 기본 직렬화로 확정** — int q,r 분해 폐지, `Vector3 aimWorld` 직접 전송.
+- **영향범위 #5 맵 경계 헬퍼 위치 = `Core/HexMetrics`로 확정** — `ComputeMapWorldBounds`/`IsWithinMapBounds`/`ClampToMapBounds`(최외곽 타일 중심 극값 + 반칸 AABB). §"헬퍼 부재"에서 후보로 남겼던 "`WorldToHex` 후 `HasTile` 재사용" 근사는 반칸 여유가 생겨 규칙 22의 엄밀 경계에 어긋나므로 배제, 월드 AABB clamp 채택. HexGrid(Domain) Vector3 불가 → Core 수학 + 클로저 주입(GameBootstrapper `_grid` 캡처).
+- **조사에 없던 후속 실기 이슈 2건이 이 사이클에서 함께 해결됨:** ① 실기(Android) 취소 버그 — 손 뗀 프레임에 `TryGetPointerScreenPos` 마우스 분기가 합성 마우스 좌표(0,0)를 유효로 반환해 캐시 폴백을 가로챔 → release 프레임엔 캐시된 마지막 드래그 좌표(`_lastDragScreenPos`)로만 판정. ② 쿨다운 중 스킬 탭 무시 → `ToastKey.SkillOnCooldown` + `ToastMessageConfig` key:4 안내 토스트. (상세는 Plan.md "완료 결과" 참조.)

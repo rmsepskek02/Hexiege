@@ -123,3 +123,27 @@ Research에서 확인했듯이, 지금 스킬 조준은 손가락 위치를 가�
 ```
 
 > 위 목록은 **예정**이며, 실제 구현은 사용자 승인 후 전문 에이전트(game-programmer / game-design-lead) 위임으로 진행한다.
+
+---
+
+## 완료 결과 (실기기 테스트 PASS · 2026-08-04)
+
+> 히스토리 보존을 위해 본문(1~3부)은 계획 상태 그대로 두고, 실제 구현에서 확정/달라진 점만 아래에 append한다. Testcase.md는 사용자가 TC/QA를 명시적으로 요청하지 않아 생성하지 않았고, 실기 결과는 이 절로 대체한다.
+
+**결과:** 조준 지점 연속 좌표화 + 조준원 지면 데칼 렌더링을 구현하고, 이어서 실기기(Android)에서 발견된 취소 버그를 근본 수정하고 쿨다운 안내 토스트를 추가하여 **사용자 실기기 테스트 PASS**. 이로써 스킬 건물 시스템 Phase 1(타입 A·B + 프레임워크 + UI + 조준/좌표화/렌더링/버그수정)이 완료되었다.
+
+### 계획대로 확정된 항목
+- **연속 좌표 타입 = 도메인 월드 `Vector3`** (3부 확정 1) — 계획대로. 전 계층 시그니처 Vector3화(SkillAimController/BuildingSkillPanelUI/`SkillActivationUseCase.Activate(Vector3?)`/`SkillActivationContext.AimWorld`/`UnitCombatUseCase.ApplySkill*(Vector3 center)`/`INetworkSkillController`·`NetworkSkillController` RPC). `UnitCombatUseCase`의 `_mapper.HexToWorld(center)` 변환은 주석 비활성화 후 `Flatten(center)`로 대체. `CollectEnemy{Units,Buildings}InRadiusDomain`은 무변경(이미 Vector3 + 유클리드) — 계획의 핵심 이점 그대로 실현.
+- **RPC 좌표 = NGO 2.9.2 Vector3 기본 직렬화** (2-4) — 계획의 "float 2개 또는 Vector2/Vector3" 중 **Vector3**로 확정, int q,r 분해 폐지.
+- **맵 경계 판정 = 최외곽 타일 바깥선까지 엄밀 clamp** (3부 확정 2) — 계획대로 "최근접 타일 HasTile 근사"를 배제. **신규 헬퍼는 `Core/HexMetrics`에 배치**(잔여 조사였던 "HexGrid vs Application 인터페이스" 결정): `ComputeMapWorldBounds`/`IsWithinMapBounds`/`ClampToMapBounds`(최외곽 타일 중심 극값 + 반칸 AABB). HexGrid(Domain)는 Vector3 불가라 Core에 경계 수학을 두고 **클로저로 Application에 주입**(GameBootstrapper가 현재 `_grid` 캡처 → 맵 재로드에도 최신 크기 반영). 서버 재검증(규칙 26)은 HasTile → `IsWithinMapBounds`로 교체.
+
+### 계획과 달라진 점 (실제 구현 확정)
+- **조준원 렌더링 = ZTest Always가 아니라 ZTest LEqual + Offset 지면 데칼로 확정.** 2-6·3부 확정 3의 "유력안 `ZTest Always`"는 **채택하지 않았다.** 실제 원인은 조준원(y=0.05)과 HexTile(ProBuilder 실린더)의 **coplanar z-fighting**이었고, 신규 셰이더 `Assets/_Project/Shaders/SkillAimOverlay.shader`(Transparent + ZWrite Off + **ZTest LEqual + Offset -1,-1** + Cull Off)로 coplanar 지형은 이기고 불투명 유닛/건물 뒤에는 정상 가려지는 데칼을 구현했다(규칙 22-1 = "지형엔 안 가려지고 유닛/건물엔 가려짐"에 정확히 부합, ZTest Always는 유닛/건물까지 덮어 규칙 위반이라 금지). 머티리얼 `Assets/_Project/Materials/SkillAimOverlay.mat`은 `SkillSetup_Scene.EnsureOverlayMaterial()`가 생성하고 3겹 SpriteRenderer + `SkillAimReticle._overlayMaterial`(신규 SerializeField)에 배선 → **씬 재셋업(`Hexiege/Skill/2. Setup Scene`) 필요**(좌표 변경은 코드-only라 재셋업 불필요).
+- **[후속 추가 — 계획에 없던 실기 버그수정] 취소 버그 근본 수정.** 좌표화·렌더링 반영 후 실기(Android) 터치에서 **취소 X 위에서 손을 떼도 스킬이 발동되고 쿨다운이 걸리던** 버그가 드러났다(1차 수정 커밋 `2e88dfa` 후 재발 → 근본 수정 `4e5da5e`). 원인 = 손 뗀 프레임에 포인터 좌표를 읽는 마우스 분기(`TryGetPointerScreenPos`)가 터치가 이미 끝난 뒤 합성 마우스 좌표(0,0)를 "유효"로 반환해, 캐시된 마지막 드래그 좌표 폴백을 가로챘던 것. 수정 = **release 프레임엔 라이브 좌표를 읽지 않고 캐시된 마지막 드래그 좌표(`_lastDragScreenPos`)로만 취소/발동 판정.**
+- **[후속 추가 — 계획에 없던 UX 개선] 쿨다운 스킬 안내 토스트.** 쿨다운 중 스킬을 탭하면 조용히 무시하던 것을, 기존 ToastUI(에셋 기반)에 `ToastKey.SkillOnCooldown`(`Application/Events/ToastKey.cs`) 추가 + `Resources/Config/ToastMessageConfig.asset` key:4 "스킬이 쿨다운 중입니다"로 안내(`BuildingSkillPanelUI`에서 `ToastUI.Show(ToastKey.SkillOnCooldown)`).
+
+### 규칙 문서 반영 결과
+- `GameSystemRules_Skills.md`: 규칙 17~22-1의 "구현 상태 주의" 주석을 **"실기 PASS·구현 완료"**로 갱신, 최상단 "구현 상태" 블록을 **"Phase 1 구현 완료·타입 C Phase 2 미구현"**으로 갱신. 규칙 본문(17·19·22·22-1·24·26)은 이미 확정안이 구현과 일치하여 무수정.
+
+### 관련 커밋 (브랜치 `claude/building-skills-discussion-3v8d5k`)
+- `13bb7c1` 규칙 정정(17·19·22·26 + 렌더링 규칙 22-1) · `9e79a2f` 좌표화 + 조준원 지면 데칼 렌더링 · `2e88dfa` 취소 1차 · `4e5da5e` 취소 근본 + 쿨다운 토스트.
