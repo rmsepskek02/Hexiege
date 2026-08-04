@@ -103,6 +103,22 @@ namespace Hexiege.Application
         // ====================================================================
         private StatusEffectSystem _statusSystem;
 
+        // ====================================================================
+        // [테스트 진단 로그 — 제거 예정] 상태효과가 실제 곱해지는지/게이트되는지 판별용.
+        //   프레임 스팸을 피하기 위해 "값이 바뀌는 순간"에만 로깅한다(유닛별 마지막 값 기억).
+        //   서버/클라 역할은 DbgRole()로 태깅. 이 블록과 각 사용처를 지우면 원상복구된다.
+        // ====================================================================
+        private readonly Dictionary<int, float> _dbgLastMoveMul = new Dictionary<int, float>();
+        private readonly Dictionary<int, float> _dbgLastAtkMul = new Dictionary<int, float>();
+        private readonly Dictionary<int, bool> _dbgLastCanAtk = new Dictionary<int, bool>();
+
+        // [테스트 진단 로그 — 제거 예정] 서버/클라/싱글 역할 태그.
+        private static string DbgRole()
+        {
+            if (!NetworkContext.IsNetworkActive) return "[Single]";
+            return NetworkContext.IsNetworkServer ? "[Server]" : "[Client]";
+        }
+
         // 타입 C 상태를 서버 권위로 부여했을 때 발화되는 이벤트(멀티 클라 재현용).
         //   NetworkSkillController(서버)가 구독해 상태 부여를 양 클라에 브로드캐스트한다
         //   (UnitUpgradeUseCase.OnResearchCompleted와 동일한 App→Infra 의존성 역전 패턴).
@@ -282,6 +298,17 @@ namespace Hexiege.Application
             // [스킬] 상태 공격 배율 합성(버프 m>1 / 디버프 m<1). 무상태면 1 → baseAttack 그대로.
             if (_statusSystem == null) return baseAttack;
             float statusMul = _statusSystem.GetAttackMultiplier(attacker.Id);
+
+            // [테스트 진단 로그 — 제거 예정] 공격 배율이 실제 곱해지는 지점. 값 변화 시에만 로깅(스팸 방지).
+            if (!_dbgLastAtkMul.TryGetValue(attacker.Id, out float prevAtk) || !Mathf.Approximately(prevAtk, statusMul))
+            {
+                _dbgLastAtkMul[attacker.Id] = statusMul;
+                if (statusMul != 1f)
+                    UnityEngine.Debug.Log(
+                        $"[Skill/Status]{DbgRole()} EffectiveAttack: unit={attacker.Id} statusMul={statusMul:F2} " +
+                        $"base={baseAttack} → {Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul))}");
+            }
+
             if (statusMul == 1f) return baseAttack; // 무변경 보장(부동소수 개입 없음).
             return Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul));
         }
@@ -300,7 +327,22 @@ namespace Hexiege.Application
             float mul = _upgrade != null ? _upgrade.GetMoveSpeedMultiplier(unit.Team, unit.Type) : 1f;
 
             // [스킬] 상태 이동 배율 합성(둔화 0<m<1 / 빙결 0). 무상태면 1 → 연구 배율 그대로.
-            if (_statusSystem != null) mul *= _statusSystem.GetMoveSpeedMultiplier(unit.Id);
+            if (_statusSystem != null)
+            {
+                float statusMoveMul = _statusSystem.GetMoveSpeedMultiplier(unit.Id);
+                mul *= statusMoveMul;
+
+                // [테스트 진단 로그 — 제거 예정] 이 접근자는 매 프레임(라이브 이동) 호출되므로
+                //   반드시 "값 변화 시에만" 로깅해 스팸을 막는다. 둔화 시작(→0.5)/빙결(→0)/해제(→1)만 찍힌다.
+                if (!_dbgLastMoveMul.TryGetValue(unit.Id, out float prevMove) || !Mathf.Approximately(prevMove, statusMoveMul))
+                {
+                    _dbgLastMoveMul[unit.Id] = statusMoveMul;
+                    if (statusMoveMul != 1f)
+                        UnityEngine.Debug.Log(
+                            $"[Skill/Status]{DbgRole()} MoveSpeedMul: unit={unit.Id} statusMul={statusMoveMul:F2} " +
+                            $"(0=빙결/0<m<1=둔화) → 유효배율 {mul:F2}");
+                }
+            }
             return mul;
         }
 
@@ -313,7 +355,19 @@ namespace Hexiege.Application
         public bool CanAttack(UnitData unit)
         {
             if (unit == null) return false;
-            return _statusSystem == null || _statusSystem.CanAttack(unit.Id);
+            if (_statusSystem == null) return true;
+
+            bool can = _statusSystem.CanAttack(unit.Id);
+
+            // [테스트 진단 로그 — 제거 예정] 공격 게이트가 실제로 막는지(빙결/기절). 값 변화 시에만 로깅.
+            if (!_dbgLastCanAtk.TryGetValue(unit.Id, out bool prevCan) || prevCan != can)
+            {
+                _dbgLastCanAtk[unit.Id] = can;
+                if (!can)
+                    UnityEngine.Debug.Log($"[Skill/Status]{DbgRole()} CanAttack=false: unit={unit.Id} (빙결/기절로 공격 봉쇄)");
+            }
+
+            return can;
         }
 
         /// <summary>
@@ -1724,6 +1778,10 @@ namespace Hexiege.Application
         {
             if (duration <= 0f || kind == StatusEffectKind.None) return;
 
+            // [테스트 진단 로그 — 제거 예정] 이번 발동으로 실제 상태를 받은 대상 수/회복량 집계용.
+            int dbgApplied = 0;
+            int dbgHealPerTarget = 0;
+
             // 대상 팀의 살아있는 유닛 전체 순회.
             foreach (var unit in _unitSpawn.Units.Values)
             {
@@ -1736,14 +1794,29 @@ namespace Hexiege.Application
                     //   HP는 OnEntityHealed → NetworkHealthSync가 동기화하므로 상태 시스템에 담지 않는다.
                     int healAmount = Mathf.Max(0, Mathf.RoundToInt(magnitude));
                     if (healAmount > 0)
+                    {
                         ApplyTimedEffect(null, unit, TimedEffectKind.Heal, healAmount, duration);
+                        dbgApplied++;
+                        dbgHealPerTarget = healAmount;
+                    }
                 }
                 else
                 {
                     // 버프/디버프/제어 — 상태 시스템에 부여(유효 스탯 접근자가 배율/게이트로 합성).
                     _statusSystem?.Apply(unit.Id, new StatusEffect(kind, magnitude, duration, team));
+                    dbgApplied++;
                 }
             }
+
+            // [테스트 진단 로그 — 제거 예정] 발동 요약: 역할·대상 팀·종류·대상 수(둔화/빙결/버프)·회복량(HoT).
+            if (kind == StatusEffectKind.HealOverTime)
+                UnityEngine.Debug.Log(
+                    $"[Skill/Status]{DbgRole()} ApplyGlobal(HoT): team={team} 대상={dbgApplied}명 " +
+                    $"각 회복량={dbgHealPerTarget}HP dur={duration:F2} (raiseNet={raiseNetworkEvent})");
+            else
+                UnityEngine.Debug.Log(
+                    $"[Skill/Status]{DbgRole()} ApplyGlobal: team={team} kind={kind} 대상={dbgApplied}명 " +
+                    $"mag={magnitude} dur={duration:F2} (raiseNet={raiseNetworkEvent})");
 
             // 멀티 클라 재현용 브로드캐스트 트리거(서버 권위 발동만). 회복은 HP 동기화로 충분해 발화하지 않는다.
             if (raiseNetworkEvent && kind != StatusEffectKind.HealOverTime)

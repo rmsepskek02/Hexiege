@@ -236,12 +236,24 @@ namespace Hexiege.EditorTools
                 if (slotBtn == null) continue;
                 Transform slot = slotBtn.transform;
 
-                // ── 부가요소 제거(규칙 2 — 마나·비용 없음) ─────────────────────
+                // ── 부가요소 숨김(규칙 2 — 마나·비용 없음) ─────────────────────
                 //   BuildingActionPanel 슬롯 템플릿 = IconImage + CostContainer(GoldIcon/CostText).
-                //   스킬 버튼은 "아이콘만" 있어야 하므로 비용/골드/라벨 하위 오브젝트를 비활성화한다.
-                //   (슬롯 6 철거 버튼은 skill 슬롯이 아니라 건드리지 않아 환불 골드 표시가 유지된다.)
-                DisableChild(slot, "CostContainer");
-                DisableChild(slot, "Label");
+                //   스킬 버튼은 "아이콘만" 보여야 하므로 비용/골드 표시를 감춘다.
+                //
+                //   ⚠️ [버튼 크기 불균일 버그 수정 — 원인·해결]
+                //     원인: 예전 코드는 CostContainer를 SetActive(false)로 "레이아웃에서 제거"했다.
+                //       슬롯이 속한 Row/Grid는 HorizontalLayoutGroup(childForceExpand)로 배치되는데,
+                //       force-expand는 "여유 공간만 균등 분배"할 뿐 각 행의 preferred 높이(=자식 슬롯의
+                //       최대 높이)가 다르면 행 높이가 달라진다. CostContainer를 끄면 스킬 슬롯의 preferred
+                //       높이가 확 낮아지는데, 같은 행에 있는 철거 버튼(슬롯 6)·예약 슬롯은 CostContainer를
+                //       유지하므로 그 행만 높아진다 → 순수 스킬 행(0~2번 슬롯)보다 4~5번 슬롯이 더 커져
+                //       "버튼 크기가 서로 불균일"해졌다. (원본 액션 패널은 모든 슬롯이 CostContainer를
+                //       유지해 행 높이가 같아 균일했다.)
+                //     해결: SetActive(false)로 "빼지" 말고, CanvasGroup alpha=0으로 "보이지 않게만" 한다.
+                //       레이아웃 footprint(preferred 높이)가 원본 슬롯과 동일하게 유지되어 모든 행 높이가
+                //       같아지고, 버튼이 원본처럼 균일해진다. (하드코딩 크기 대신 원본 레이아웃 규칙 준수.)
+                HideChildKeepLayout(slot, "CostContainer");
+                // "Label"은 이 슬롯 템플릿에 존재하지 않는 자식이라 별도 처리가 필요 없다(원본 구조 확인 완료).
 
                 // ── 스킬 아이콘 = 슬롯의 기존 IconImage 재사용(없으면 Icon 생성) ──
                 //   기존 아이콘 자리를 그대로 써 룩을 맞춘다. 런타임에 BuildingSkillPanelUI.OnShow가
@@ -305,6 +317,35 @@ namespace Hexiege.EditorTools
         {
             Transform t = parent.Find(childName);
             if (t != null && t.gameObject.activeSelf) t.gameObject.SetActive(false);
+        }
+
+        /// <summary>
+        /// 직속 자식을 "레이아웃에는 남기고 화면에서만" 숨긴다(CanvasGroup alpha=0). 없으면 no-op.
+        ///
+        /// SetActive(false)와의 결정적 차이:
+        ///   SetActive(false)는 자식을 레이아웃 계산에서 완전히 제거해 부모 슬롯의 preferred 크기를 바꾼다.
+        ///   그러면 이 자식을 끈 슬롯과 켜둔 슬롯의 크기가 달라져 버튼 크기가 불균일해진다(버그).
+        ///   이 메서드는 GameObject를 켜둔 채 CanvasGroup.alpha=0으로 그래픽만 감추므로
+        ///   RectTransform/LayoutElement가 그대로 레이아웃에 기여 → 원본 슬롯과 크기가 동일하게 유지된다.
+        ///
+        /// 멱등: 재실행 시 복제본이 원본에서 새로 만들어져 자식이 다시 켜진 상태로 시작하므로,
+        ///   여기서 alpha=0으로 다시 감추면 항상 같은 결과가 된다.
+        /// </summary>
+        /// <param name="parent">자식을 가진 부모(슬롯) Transform.</param>
+        /// <param name="childName">숨길 직속 자식 이름(예: "CostContainer").</param>
+        private static void HideChildKeepLayout(Transform parent, string childName)
+        {
+            Transform t = parent.Find(childName);
+            if (t == null) return;
+
+            // 레이아웃에는 남겨야 하므로 GameObject는 반드시 활성 상태로 둔다(이전 셋업이 꺼놨을 수 있음).
+            if (!t.gameObject.activeSelf) t.gameObject.SetActive(true);
+
+            GameObject go = t.gameObject;
+            if (!go.TryGetComponent(out CanvasGroup cg)) cg = go.AddComponent<CanvasGroup>();
+            cg.alpha = 0f;            // 그래픽만 완전히 숨김(비용/골드 텍스트 안 보임).
+            cg.interactable = false;
+            cg.blocksRaycasts = false; // 버튼 클릭을 가리지 않도록.
         }
 
         /// <summary> 직속 자식(이름)의 Image 컴포넌트를 반환한다. 없으면 null. </summary>

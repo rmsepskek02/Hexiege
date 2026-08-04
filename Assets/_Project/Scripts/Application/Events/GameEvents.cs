@@ -92,6 +92,26 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// [스킬 - 빙결] 유닛의 "빙결(이동 정지) 상태 전환"을 알리는 이벤트 데이터.
+    /// 서버 전용 이동 코루틴(UnitView)이 빙결 진입/해제 순간에 1회씩 발행한다.
+    /// NetworkCombatController(서버)가 구독해 애니메이션 상태를 Frozen/Walk로 레벨 동기화한다
+    /// (호스트는 UnitView가 Animator.speed를 직접 제어하므로, 이 이벤트는 순수 클라 동기화가 목적).
+    /// </summary>
+    public readonly struct UnitFreezeChangedEvent
+    {
+        /// <summary> 상태가 바뀐 유닛 Id. </summary>
+        public readonly int UnitId;
+        /// <summary> true=빙결(걷기 정지) 진입, false=빙결 해제(걷기 재개). </summary>
+        public readonly bool Frozen;
+
+        public UnitFreezeChangedEvent(int unitId, bool frozen)
+        {
+            UnitId = unitId;
+            Frozen = frozen;
+        }
+    }
+
+    /// <summary>
     /// 유닛 이동 이벤트 데이터.
     /// 유닛이 타일 하나를 이동할 때마다 발행.
     /// </summary>
@@ -865,6 +885,15 @@ namespace Hexiege.Application
         /// 구독: NetworkCombatController (SetUnitAnimState로 _animState=Walk 레벨 동기화 전파)
         /// </summary>
         public static readonly Subject<int> OnUnitWalkStarted = new Subject<int>();
+
+        /// <summary>
+        /// [스킬 - 빙결] 유닛이 빙결(이동 정지) 상태로 들어가거나 빠져나올 때 발행. (UnitId, Frozen).
+        /// 멀티플레이 서버 전용 — 서버 이동 코루틴(UnitView)이 빙결 진입/해제 순간에 1회씩 발행한다.
+        /// 발행: UnitView.SetFrozenAnimation(상태 전환 시에만)
+        /// 구독: NetworkCombatController(서버) → SetUnitAnimState로 Frozen/Walk 레벨 동기화(순수 클라 걷기 정지).
+        /// 싱글플레이/호스트는 UnitView가 Animator.speed를 직접 제어하므로 이 이벤트에 의존하지 않는다.
+        /// </summary>
+        public static readonly Subject<UnitFreezeChangedEvent> OnUnitFreezeChanged = new Subject<UnitFreezeChangedEvent>();
 
         // OnUnitWalkStopped 제거 — Idle 상태가 없으므로 Walk 정지 이벤트 불필요.
         // Walk→Attack: StartCombatClientRpc에서 직접 처리.

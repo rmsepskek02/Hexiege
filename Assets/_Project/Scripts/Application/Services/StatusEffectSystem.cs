@@ -54,6 +54,19 @@ namespace Hexiege.Application
                 _states[unitId] = state;
             }
             state.ApplyOrRefresh(effect);
+
+            // [테스트 진단 로그 — 제거 예정] 상태 "부여" 시점. 서버/클라 역할을 구분해 실제 적용 여부를 판별.
+            //   UnityEngine.Debug로 완전 정규화(순수 C# 유지 — using 추가 없이 제거만 하면 됨).
+            UnityEngine.Debug.Log(
+                $"[Skill/Status]{DbgRole()} Apply: unit={unitId} kind={effect.Kind} " +
+                $"mag={effect.Magnitude} dur={effect.RemainingDuration:F2} team={effect.SourceTeam}");
+        }
+
+        // [테스트 진단 로그 — 제거 예정] 서버/클라/싱글 역할 태그. NetworkContext(Application 홀더)만 참조.
+        private static string DbgRole()
+        {
+            if (!NetworkContext.IsNetworkActive) return "[Single]";
+            return NetworkContext.IsNetworkServer ? "[Server]" : "[Client]";
         }
 
         /// <summary>
@@ -74,7 +87,13 @@ namespace Hexiege.Application
                 int id = _tickKeyBuffer[i];
                 UnitStatusState state = _states[id];
                 state.TickAndPrune(dt);
-                if (state.IsEmpty) _emptyKeyBuffer.Add(id);
+                if (state.IsEmpty)
+                {
+                    _emptyKeyBuffer.Add(id);
+                    // [테스트 진단 로그 — 제거 예정] 이 유닛의 마지막 상태가 만료됨(Expire). 틱마다 찍지 않고
+                    //   "빈 상태가 되는 전이"에서만 1회 — 스팸 없이 상태가 실제로 풀렸는지 확인 가능.
+                    UnityEngine.Debug.Log($"[Skill/Status]{DbgRole()} Expire: unit={id} (모든 상태 만료)");
+                }
             }
 
             for (int i = 0; i < _emptyKeyBuffer.Count; i++)

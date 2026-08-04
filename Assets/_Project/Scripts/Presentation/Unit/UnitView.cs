@@ -953,15 +953,10 @@ namespace Hexiege.Presentation
                     // 사망/소실 체크 — 매 타일 진입 시 안전 장치.
                     if (_unitData == null || !_unitData.IsAlive) break;
 
-                    // [스킬 - 빙결] 이동 배율이 0(빙결)이면 이 타일 경계에서 멈춰 대기한다(규칙 13 · 9-5).
-                    //   유닛은 타일 중심(from)에 정지한 채로 상태가 풀릴 때까지 대기하므로 A* 경로 정합이 유지된다.
-                    //   상태가 없으면 배율은 항상 >0이라 이 while은 절대 진입하지 않는다(무변경 보장).
-                    while (_combatUseCase != null && _unitData != null && _unitData.IsAlive
-                           && _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData) <= MoveFreezeEpsilon)
-                    {
-                        yield return null;
-                    }
-                    if (_unitData == null || !_unitData.IsAlive) break;
+                    // [스킬 - 빙결/둔화 통합] 과거의 "타일 경계 전용" 빙결 대기 게이트는 제거했다.
+                    //   대신 아래 Lerp 루프가 매 프레임 "현재(라이브)" 이동 배율을 읽어
+                    //   빙결(배율 0)=진행 정지 + 걷기 애니 정지, 둔화(0<m<1)=느린 진행을 즉시 반영한다.
+                    //   (타일 경계에서 빙결돼도 Lerp 진입 즉시 t=0에서 멈추므로 위치가 타일 중심에 고정된다.)
 
                     HexCoord from = prevActualTile;
                     HexCoord to = path[i];
@@ -1009,8 +1004,14 @@ namespace Hexiege.Presentation
                     //   - detect 진입 → EnterCombatPursuitV3로 [전투 이동] 위임.
                     //   - 근접/원거리 구분 없음. 차이는 EnterCombatPursuitV3 내부의 사거리 수치뿐.
                     // ──────────────────────────────────────────────────────
-                    float elapsed = 0f;
-                    float targetDuration = moveSeconds;
+                    // [라이브 이동 — 둔화/빙결 즉시 반영] 고정 시간(moveSeconds) 대신 "진행도 t"를
+                    //   매 프레임 현재 이동 배율로 전진시킨다.
+                    //   - t: 이 타일 스텝의 진행도(0=출발 fromPos, 1=도착 toPos).
+                    //   - 한 칸 이동을 t:0→1로 볼 때, 초당 진행 속도 = 유효 이동속도(칸/초)이다
+                    //     (기존 moveSeconds = 1/유효속도 와 역수 관계 — 무상태면 완전히 동일 속도).
+                    //   경로 발급 시 1회 캡처하던 방식과 달리, 배율이 바뀌면 다음 프레임부터 즉시 반영된다.
+                    // ──────────────────────────────────────────────────────
+                    float t = 0f;
 
                     // [전투 이동]으로 전환되었음을 표시. true면 Lerp while 탈출 후
                     // toPos 강제 스냅과 ProcessStep을 모두 건너뛰고 새 path로 외부 while 재진입.
@@ -1021,10 +1022,35 @@ namespace Hexiege.Presentation
                     // 즉시 코루틴을 재시작해야 하므로 외부에서 검사할 수 있도록 노출한다.
                     _currentNextTileCoord = to;
 
-                    while (elapsed < targetDuration && _unitData != null && _unitData.IsAlive)
+                    while (t < 1f && _unitData != null && _unitData.IsAlive)
                     {
-                        elapsed += Time.deltaTime;
-                        float t = Mathf.Clamp01(elapsed / targetDuration);
+                        // 현재(라이브) 유효 이동 배율 — 매 프레임 다시 읽는다(둔화/빙결 즉시 반영).
+                        //   _combatUseCase 미주입/무상태면 1 → 기존과 동일 속도(회귀 안전).
+                        float liveMul = _combatUseCase != null
+                            ? _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData)
+                            : 1f;
+
+                        // [스킬 - 빙결] 배율이 0(빙결)이면 진행을 멈추고(위치 고정) 걷기 애니메이션도 정지한다.
+                        //   무상태면 배율은 항상 >0이라 이 분기에 절대 들어오지 않는다(무변경 보장).
+                        if (liveMul <= MoveFreezeEpsilon)
+                        {
+                            SetFrozenAnimation(true);   // 걷기 정지(호스트 speed=0 / 클라 Frozen 동기화).
+                            yield return null;
+                            continue;                   // t 전진 없음 → transform.position 유지(제자리 고정).
+                        }
+
+                        // 빙결이 아니면(또는 애초에 무빙결) 걷기 애니메이션을 정상 속도로 복원한다.
+                        //   무상태 유닛은 _isFrozenAnim가 계속 false라 이 호출이 즉시 반환된다(부작용 없음).
+                        SetFrozenAnimation(false);
+
+                        // 유효 이동속도(칸/초) = 기본 이동속도 × 라이브 배율.
+                        //   MoveSpeed<=0인 비정상 데이터는 기존 폴백(1칸/초)로 진행해 무한 루프를 막는다.
+                        float liveSpeed = _unitData.MoveSpeed * liveMul;
+                        float progressRate = liveSpeed > 0f ? liveSpeed : 1f;
+
+                        // 진행도 전진 — 둔화면 progressRate가 작아져 자연히 느리게 이동한다.
+                        t += Time.deltaTime * progressRate;
+                        if (t > 1f) t = 1f;
                         transform.position = Vector3.Lerp(fromPos, toPos, t);
 
                         // [회전 시스템 변경 — 2026-05-14] 매 프레임 RotateTowards로 점진 회전.
@@ -1373,13 +1399,10 @@ namespace Hexiege.Presentation
             int targetId = firstTarget.Value.id;
             bool targetIsUnit = firstTarget.Value.isUnit;
 
-            // 이동 속도 (A* 이동과 동일 스탯 사용).
-            // worldSpeed = TileHeight / moveSeconds → 1초당 약 한 칸 거리 이동.
-            // [Phase 2] 전투 이동도 A*와 동일하게 팀 이동 연구 배율을 곱한다(규칙 Units 5).
-            float moveSpeedMul = _combatUseCase != null ? _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData) : 1f;
-            float effectiveMoveSpeed = _unitData.MoveSpeed * moveSpeedMul;
-            float moveSeconds = effectiveMoveSpeed > 0f ? 1f / effectiveMoveSpeed : 1.0f;
-            float worldSpeed = HexMetrics.TileHeight / moveSeconds;
+            // 이동 속도는 아래 루프에서 "매 프레임 라이브"로 계산한다(둔화/빙결 즉시 반영).
+            //   과거엔 여기서 worldSpeed를 1회 캡처했으나, 둔화가 다음 repath 전까지 반영되지 않는 한계가 있어
+            //   A* 이동과 동일하게 사용 지점(아래 이동 라인)에서 현재 배율로 산출하도록 바꿨다.
+            //   무상태(배율 1)면 기존 worldSpeed(=TileHeight × MoveSpeed)와 완전히 동일하다(회귀 안전).
 
             // 매 프레임 루프 — 적 상태 확인 + 전투 이동 또는 공격으로 분기.
             while (_unitData != null && _unitData.IsAlive)
@@ -1460,14 +1483,24 @@ namespace Hexiege.Presentation
                     transform.rotation = Quaternion.RotateTowards(
                         transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
 
-                    // [스킬 - 빙결] 이동 배율이 0(빙결)이면 이번 프레임 전투 이동을 건너뛴다(정지, 회전은 유지).
-                    //   상태가 없으면 배율은 항상 >0이라 항상 이동한다(무변경 보장).
+                    // [스킬 - 빙결/둔화 라이브] 현재(라이브) 이동 배율을 매 프레임 읽어 즉시 반영한다.
+                    //   상태가 없으면 배율은 항상 >0(연구 1.0~1.32)이라 기존과 동일하게 이동한다(무변경 보장).
                     float pursuitMoveMul = _combatUseCase != null
                         ? _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData) : 1f;
-                    if (pursuitMoveMul > MoveFreezeEpsilon)
+                    if (pursuitMoveMul <= MoveFreezeEpsilon)
                     {
-                        // 적 방향으로 직선 이동 (한 프레임 이동량 = worldSpeed × dt).
-                        transform.position += moveDir.normalized * worldSpeed * Time.deltaTime;
+                        // 빙결: 전투 이동 정지 + 걷기 애니메이션 정지("제자리걸음" 제거). 회전은 위에서 이미 갱신됨.
+                        SetFrozenAnimation(true);
+                    }
+                    else
+                    {
+                        // 빙결 아님: 걷기 재개 + 라이브 유효 속도로 직선 이동(둔화면 느리게).
+                        //   worldSpeed = TileHeight × 유효이동속도(칸/초)와 동치. 무상태면 기존 값과 동일.
+                        SetFrozenAnimation(false);
+                        float liveEff = _unitData.MoveSpeed * pursuitMoveMul;                    // 칸/초
+                        float liveWorldSpeed = liveEff > 0f ? HexMetrics.TileHeight * liveEff     // 월드/초
+                                                            : HexMetrics.TileHeight;             // MoveSpeed<=0 폴백(기존과 동일)
+                        transform.position += moveDir.normalized * liveWorldSpeed * Time.deltaTime;
                     }
                 }
 
@@ -1907,6 +1940,63 @@ namespace Hexiege.Presentation
             _animator.speed = 1f;
             _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
             _currentAnimStateHash = StateWalk;
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // [스킬 - 빙결] 걷기 애니메이션 정지/재개.
+        // ────────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 지금 이 유닛이 빙결 애니메이션(걷기 정지) 상태인지 여부.
+        /// 상태 전환(정지↔재개)에서만 Animator/이벤트를 건드려 프레임 스팸을 막기 위한 로컬 추적 플래그.
+        /// 무상태 유닛은 항상 false로 유지되어 기존 동작과 완전히 동일하다(회귀 안전).
+        /// </summary>
+        private bool _isFrozenAnim = false;
+
+        /// <summary>
+        /// [스킬 - 빙결] 걷기 클립을 유지한 채 Animator를 정지(speed=0)시킨다 — "제자리걸음" 제거.
+        ///
+        /// 호출 경로:
+        ///   클라이언트: NetworkUnit._animState(=Frozen) 적용 시 → NetworkUnit.ApplyAnimState → 여기.
+        ///   (호스트/싱글은 SetFrozenAnimation이 Animator.speed를 직접 제어하므로 이 경로를 타지 않는다.)
+        /// 새 CrossFade를 걸지 않고 speed만 0으로 만들어 현재 걷기 포즈에서 멈춘다.
+        /// </summary>
+        public void FreezeWalkAnimation()
+        {
+            if (_animator == null)
+                _animator = GetComponentInChildren<Animator>();
+            if (_animator == null) return;
+
+            // 걷기 클립을 유지한 채 프레임만 고정(speed=0). 클립 전환이 없어 자연스럽게 멈춰 보인다.
+            _animator.speed = 0f;
+        }
+
+        /// <summary>
+        /// [스킬 - 빙결] 빙결 애니메이션 상태를 설정한다(서버 이동 코루틴에서만 호출됨 — 코루틴은 서버 전용).
+        ///
+        /// 두 가지를 함께 처리한다(상태가 실제로 바뀔 때만 — 프레임 스팸 방지):
+        ///   1) 호스트/싱글: Animator.speed를 직접 0(정지)/1(재개)로 제어한다.
+        ///   2) 멀티: GameEvents.OnUnitFreezeChanged를 발행해 서버가 순수 클라의 _animState를 Frozen/Walk로
+        ///      레벨 동기화하게 한다(NetworkCombatController 구독). 싱글에는 구독자가 없어 무해하다.
+        ///
+        /// 무상태 유닛은 이 메서드에 frozen=false만 반복 전달되고 _isFrozenAnim 가드로 즉시 반환되어
+        /// 어떤 부작용도 없다(기존 동작과 완전히 동일 — 회귀 안전).
+        /// </summary>
+        /// <param name="frozen">true=걷기 정지(빙결 진입), false=걷기 재개(빙결 해제/무상태).</param>
+        private void SetFrozenAnimation(bool frozen)
+        {
+            // 상태 변화가 없으면 아무것도 하지 않는다(매 프레임 호출되지만 전환에서만 동작).
+            if (_isFrozenAnim == frozen) return;
+            _isFrozenAnim = frozen;
+
+            // 1) 호스트/싱글: Animator를 직접 제어. (멀티 클라는 코루틴 자체가 안 도므로 여기 도달하지 않는다.)
+            if (_animator != null)
+                _animator.speed = frozen ? 0f : 1f; // 0=현재 걷기 포즈에서 정지, 1=걷기 재개.
+
+            // 2) 멀티: 순수 클라 동기화용 이벤트(서버 컨텍스트에서만 발행 — 이 코루틴은 서버 전용).
+            //    싱글플레이는 구독자가 없어 발행해도 무해하지만, 불필요한 발행을 피하려 네트워크 활성 시에만 쏜다.
+            if (NetworkContext.IsNetworkActive && _unitData != null)
+                GameEvents.OnUnitFreezeChanged.OnNext(new UnitFreezeChangedEvent(_unitData.Id, frozen));
         }
 
         /// <summary>

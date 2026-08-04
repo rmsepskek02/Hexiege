@@ -70,6 +70,9 @@ namespace Hexiege.Infrastructure
         /// <summary>OnUnitHealCastStarted 구독 해제용 Disposable. 서버 전용(힐러 힐 애니메이션 동기화).</summary>
         private System.IDisposable _healCastSubscription;
 
+        /// <summary>[스킬 - 빙결] OnUnitFreezeChanged 구독 해제용 Disposable. 서버 전용(빙결 걷기 정지 동기화).</summary>
+        private System.IDisposable _freezeChangedSubscription;
+
         /// <summary>
         /// 유닛별 현재 전투 타겟 추적. key=유닛Id, value=(타겟Id, 타겟이 유닛인지).
         /// 전투 중이 아닌 유닛은 Dictionary에 없음.
@@ -158,7 +161,12 @@ namespace Hexiege.Infrastructure
                 _healCastSubscription = GameEvents.OnUnitHealCastStarted
                     .Subscribe(OnUnitHealCastStartedHandler);
 
-                Debug.Log("[Network] NetworkCombatController: 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast 이벤트 구독 완료.");
+                // [스킬 - 빙결] 서버 이동 코루틴이 빙결 진입/해제 시 발행하는 이벤트를 받아
+                // 애니메이션 상태를 Frozen/Walk로 레벨 동기화한다(순수 클라의 "제자리걸음" 제거).
+                _freezeChangedSubscription = GameEvents.OnUnitFreezeChanged
+                    .Subscribe(OnUnitFreezeChangedHandler);
+
+                Debug.Log("[Network] NetworkCombatController: 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged 이벤트 구독 완료.");
             }
         }
 
@@ -189,6 +197,10 @@ namespace Hexiege.Infrastructure
             // HealCast 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _healCastSubscription?.Dispose();
             _healCastSubscription = null;
+
+            // [스킬 - 빙결] FreezeChanged 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
+            _freezeChangedSubscription?.Dispose();
+            _freezeChangedSubscription = null;
 
             // 전투 상태 초기화 — 씬 전환 시 이전 게임의 상태가 남지 않도록
             _unitCombatTargets.Clear();
@@ -636,6 +648,18 @@ namespace Hexiege.Infrastructure
         private void OnUnitHealCastStartedHandler(int unitId)
         {
             SetUnitAnimState(unitId, UnitAnimState.Attack);
+        }
+
+        /// <summary>
+        /// [스킬 - 빙결] 서버 이동 코루틴이 빙결 진입/해제를 알릴 때 호출(서버 전용).
+        /// 빙결이면 애니메이션 상태를 Frozen(걷기 정지)으로, 해제면 Walk(걷기 재개)로 레벨 동기화한다.
+        /// 순수 클라이언트는 이 값을 받아 걷기 애니메이션을 멈추거나(제자리걸음 제거) 재개한다.
+        /// 호스트(서버)는 UnitView가 Animator.speed를 직접 제어하므로 별도 처리가 필요 없다.
+        /// </summary>
+        /// <param name="e">(유닛 Id, 빙결 여부).</param>
+        private void OnUnitFreezeChangedHandler(UnitFreezeChangedEvent e)
+        {
+            SetUnitAnimState(e.UnitId, e.Frozen ? UnitAnimState.Frozen : UnitAnimState.Walk);
         }
 
         /// <summary>
