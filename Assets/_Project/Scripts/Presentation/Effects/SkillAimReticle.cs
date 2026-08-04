@@ -48,6 +48,12 @@ namespace Hexiege.Presentation
         [Tooltip("중앙 점 스프라이트.")]
         [SerializeField] private SpriteRenderer _dotRenderer;
 
+        [Header("오버레이 머티리얼(지형 관통 표시)")]
+        [Tooltip("조준원이 3D 지형·타일에 파묻히지 않도록 하는 전용 머티리얼(셋업 스크립트가 자동 배선). " +
+                 "ZTest LEqual + Offset -1,-1 로 지면 z-fighting을 이겨 항상 위에 그려지되, 유닛·건물(불투명·더 앞)에는 가려진다. " +
+                 "비어 있으면 SpriteRenderer 기본 머티리얼(Sprites/Default)로 폴백(지형에 파묻힐 수 있음).")]
+        [SerializeField] private Material _overlayMaterial;
+
         // ====================================================================
         // 색상 — Inspector 조절(기본 = 도식 붉은)
         // ====================================================================
@@ -141,15 +147,21 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 한 겹 렌더러의 스케일(XY = 월드 XZ, 루트 90도 회전 상태)·색·정렬순서를 적용한다.
+        /// 한 겹 렌더러의 스케일(XY = 월드 XZ, 루트 90도 회전 상태)·색·정렬순서를 적용하고,
+        /// 오버레이 머티리얼이 배선돼 있으면 그것으로 렌더되게 보장한다(지형 관통 표시).
         /// </summary>
-        private static void ApplyRenderer(SpriteRenderer r, Vector2 scaleXY, Color color, int sortingOrder)
+        private void ApplyRenderer(SpriteRenderer r, Vector2 scaleXY, Color color, int sortingOrder)
         {
             if (r == null) return;
             // 루트가 X축 90도로 눕어 있으므로 자식의 로컬 X→월드 X, 로컬 Y→월드 Z가 된다(타원 가로/세로).
             r.transform.localScale = new Vector3(scaleXY.x, scaleXY.y, 1f);
             r.color = color;
             r.sortingOrder = sortingOrder;
+
+            // 오버레이 머티리얼 자가 배선(셋업 스크립트가 못 물린 경우 대비 — 런타임 안전장치).
+            //   지형·타일에 파묻히지 않고 항상 선명하게 보이도록 하는 전용 셰이더(ZTest LEqual + Offset -1,-1).
+            if (_overlayMaterial != null && r.sharedMaterial != _overlayMaterial)
+                r.sharedMaterial = _overlayMaterial;
         }
     }
 }

@@ -382,9 +382,12 @@ namespace Hexiege.EditorTools
             //   3겹(Ring/Fill/Dot) 모두 같은 원 스프라이트를 쓰고, 크기·색은 컴포넌트가 구분해 적용한다.
             Sprite circle = LoadBuiltinSprite("UI/Skin/Knob.psd", "UI/Skin/UISprite.psd");
 
-            SpriteRenderer ring = EnsureReticlePart(root.transform, "Ring", circle);
-            SpriteRenderer fill = EnsureReticlePart(root.transform, "Fill", circle);
-            SpriteRenderer dot = EnsureReticlePart(root.transform, "Dot", circle);
+            // 지형에 파묻히지 않는 오버레이 머티리얼(전용 셰이더). 없으면 생성해 에셋으로 저장한다.
+            Material overlayMat = EnsureOverlayMaterial();
+
+            SpriteRenderer ring = EnsureReticlePart(root.transform, "Ring", circle, overlayMat);
+            SpriteRenderer fill = EnsureReticlePart(root.transform, "Fill", circle, overlayMat);
+            SpriteRenderer dot = EnsureReticlePart(root.transform, "Dot", circle, overlayMat);
 
             if (!root.TryGetComponent(out SkillAimReticle reticle))
                 reticle = root.AddComponent<SkillAimReticle>();
@@ -393,19 +396,59 @@ namespace Hexiege.EditorTools
             Connect(reticle, "_ringRenderer", ring);
             Connect(reticle, "_fillRenderer", fill);
             Connect(reticle, "_dotRenderer", dot);
+            // 오버레이 머티리얼 컴포넌트 배선(런타임 자가 배선용 — ApplyRenderer가 재적용).
+            Connect(reticle, "_overlayMaterial", overlayMat);
             return reticle;
         }
 
+        // 조준원 오버레이 셰이더/머티리얼 경로.
+        private const string OverlayShaderName = "Hexiege/SkillAimOverlay";
+        private const string OverlayMaterialPath = "Assets/_Project/Materials/SkillAimOverlay.mat";
+
         /// <summary>
-        /// 조준원 한 겹(SpriteRenderer 자식)을 이름으로 멱등 확보하고 스프라이트를 물린다.
+        /// 조준원 오버레이 머티리얼(전용 셰이더 기반)을 멱등 확보한다.
+        /// 이미 에셋이 있으면 그대로 쓰고, 없으면 셰이더로 생성해 에셋으로 저장한다.
+        /// 셰이더를 못 찾으면(임포트 전 등) 경고 후 null(폴백: SpriteRenderer 기본 머티리얼).
         /// </summary>
-        private static SpriteRenderer EnsureReticlePart(Transform parent, string name, Sprite sprite)
+        private static Material EnsureOverlayMaterial()
+        {
+            Material existing = AssetDatabase.LoadAssetAtPath<Material>(OverlayMaterialPath);
+            if (existing != null) return existing;
+
+            Shader shader = Shader.Find(OverlayShaderName);
+            if (shader == null)
+            {
+                Debug.LogWarning(
+                    $"[Skill Setup] 오버레이 셰이더('{OverlayShaderName}')를 찾지 못했습니다. " +
+                    "조준원이 지형에 파묻힐 수 있습니다(기본 머티리얼 폴백). " +
+                    "SkillAimOverlay.shader가 임포트됐는지 확인 후 이 메뉴를 다시 실행하세요.");
+                return null;
+            }
+
+            // 머티리얼 폴더 보장.
+            string dir = System.IO.Path.GetDirectoryName(OverlayMaterialPath);
+            if (!AssetDatabase.IsValidFolder(dir))
+                AssetDatabase.CreateFolder("Assets/_Project", "Materials");
+
+            Material mat = new Material(shader) { name = "SkillAimOverlay" };
+            AssetDatabase.CreateAsset(mat, OverlayMaterialPath);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Skill Setup] 조준원 오버레이 머티리얼 생성: {OverlayMaterialPath}");
+            return mat;
+        }
+
+        /// <summary>
+        /// 조준원 한 겹(SpriteRenderer 자식)을 이름으로 멱등 확보하고 스프라이트·오버레이 머티리얼을 물린다.
+        /// </summary>
+        private static SpriteRenderer EnsureReticlePart(Transform parent, string name, Sprite sprite, Material overlayMat)
         {
             Transform t = parent.Find(name);
             GameObject go = t != null ? t.gameObject : new GameObject(name);
             if (t == null) go.transform.SetParent(parent, false);
             if (!go.TryGetComponent(out SpriteRenderer sr)) sr = go.AddComponent<SpriteRenderer>();
             if (sprite != null) sr.sprite = sprite;
+            // 지형 관통 표시용 오버레이 머티리얼(없으면 기본 머티리얼 유지 — 폴백).
+            if (overlayMat != null) sr.sharedMaterial = overlayMat;
             return sr;
         }
 

@@ -32,6 +32,11 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 스킬 지점 조준 좌표화 + 조준원 오버레이 렌더링 (2026-08-04) — 코드 완료·컴파일 미검증 (상세: skill-aim-coordinate.md)
+- 조준 중심 **HexCoord(타일 스냅) → 연속 도메인 월드 Vector3**. 전 계층 시그니처 Vector3화: SkillAimController/BuildingSkillPanelUI/SkillActivationUseCase.Activate(Vector3?)/SkillActivationContext(AimWorld)/UnitCombatUseCase.ApplySkill*(Vector3 center)/INetworkSkillController·NetworkSkillController RPC(**NGO Vector3 기본 직렬화**, int q,r 폐지).
+- **맵 경계 헬퍼 신규**: `HexMetrics.{ComputeMapWorldBounds,IsWithinMapBounds,ClampToMapBounds}(pt,w,h)` — 최외곽 타일 중심 극값+반칸 AABB(도메인 좌표). HexGrid(Domain)는 Vector3 불가 → Core 수학+클로저 주입(GameBootstrapper `_grid` 캡처=맵 재로드 대응). 서버 재검증 HasTile→맵경계 안 점.
+- **조준원 렌더링**: coplanar z-fight 원인 → 신규 셰이더 `Hexiege/SkillAimOverlay`(`Assets/_Project/Shaders/`) = Transparent+ZWrite Off+**ZTest LEqual+Offset -1,-1**+Cull Off. 지형엔 안 파묻히고 유닛/건물(불투명)엔 가려짐. **ZTest Always 금지**. 머티리얼은 `SkillSetup_Scene.EnsureOverlayMaterial`가 생성·배선, `SkillAimReticle._overlayMaterial`(신규 필드) 런타임 자가배선. **씬 재셋업(Hexiege/Skill/2. Setup Scene) 필요**(머티리얼 생성·배선). 제거 3곳은 주석 비활성화(삭제 아님).
+
 ### 스킬 건물 시스템 Phase 1 — 코드 구현 완료(컴파일 미검증·씬 배선 잔여) (2026-07-31)
 - **범위**: 타입 A(즉발 범위 피해)·B(장판 DoT) + 프레임워크 골격. 타입 C(전역 상태변경)는 enum 멤버만 선언, 실행기 미구현(Phase 2). task `_Tasks/2026-07-28/12_14_skill-building-system-design/`(Plan §6 Phase 1), 규칙 `GameSystemRules_Skills.md`(1~26).
 - **신규 파일(19)**: Domain `Skill/SkillMechanicType.cs`(A/B/C, C 선언만)·`Skill/SkillAimType.cs`(Instant/PointTarget). Application `Skill/SkillData.cs`(값객체, Sprite 허용)·`Skill/{ISkillExecutor,SkillActivationContext,InstantAreaDamageExecutor,AreaDotDamageExecutor,SkillExecutorRegistry}.cs`·`Interfaces/{ISkillDataProvider,INetworkSkillController}.cs`·`UseCases/SkillActivationUseCase.cs`. Infrastructure `Config/{SkillDefinition,SkillLoadoutConfig}.cs`(SO)·`Network/NetworkSkillController.cs`. Presentation `UI/{BuildingSkillPanelUI,SkillCooldownOverlay}.cs`·`Input/SkillAimController.cs`·`Effects/SkillAimReticle.cs`.

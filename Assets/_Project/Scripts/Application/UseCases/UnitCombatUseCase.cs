@@ -1596,15 +1596,17 @@ namespace Hexiege.Application
         /// 방어 감쇄를 적용한 1회 피해를 준다(Tank 2배 미적용). 아군 제외.
         /// </summary>
         /// <param name="casterTeam">시전 팀(아군/적 판정 기준).</param>
-        /// <param name="center">조준 중심(도메인 HexCoord).</param>
+        /// <param name="center">조준 중심(도메인 월드 좌표, 연속 Vector3, XZ·Y=0).</param>
         /// <param name="radius">원형 반경(월드 단위).</param>
         /// <param name="rawDamage">감쇄 전 원본 피해(×10 스케일).</param>
         /// <param name="sourceBuildingId">시전 건물 Id(피격 연출 attribution).</param>
-        public void ApplySkillInstantAreaDamage(TeamId casterTeam, HexCoord center, float radius, int rawDamage, int sourceBuildingId)
+        public void ApplySkillInstantAreaDamage(TeamId casterTeam, Vector3 center, float radius, int rawDamage, int sourceBuildingId)
         {
             if (rawDamage <= 0 || radius <= 0f) return;
 
-            Vector3 centerWorld = Flatten(_mapper.HexToWorld(center));
+            // [비활성화 — 좌표화] 중심이 이미 도메인 월드 좌표로 들어오므로 HexToWorld 재변환은 불필요·왜곡 요인.
+            //   Vector3 centerWorld = Flatten(_mapper.HexToWorld(center));
+            Vector3 centerWorld = Flatten(center); // Y=0 정규화만 수행(center는 이미 도메인 월드 XZ).
             float radiusSqr = radius * radius;
 
             // 1) 반경 내 적 유닛/건물 선수집(순회 중 사망 제거로 인한 컬렉션 변경 회피 — 2단계).
@@ -1626,15 +1628,17 @@ namespace Hexiege.Application
         /// 건물은 대상이 아니다(DoT 시스템은 유닛 대상 — 기존 구조 그대로).
         /// </summary>
         /// <param name="casterTeam">시전 팀(아군/적 판정 기준).</param>
-        /// <param name="center">조준 중심(도메인 HexCoord).</param>
+        /// <param name="center">조준 중심(도메인 월드 좌표, 연속 Vector3, XZ·Y=0).</param>
         /// <param name="radius">원형 반경(월드 단위).</param>
         /// <param name="damagePerSecond">초당 피해(×10 스케일).</param>
         /// <param name="duration">지속시간(초).</param>
-        public void ApplySkillAreaDot(TeamId casterTeam, HexCoord center, float radius, float damagePerSecond, float duration)
+        public void ApplySkillAreaDot(TeamId casterTeam, Vector3 center, float radius, float damagePerSecond, float duration)
         {
             if (damagePerSecond <= 0f || duration <= 0f || radius <= 0f) return;
 
-            Vector3 centerWorld = Flatten(_mapper.HexToWorld(center));
+            // [비활성화 — 좌표화] 중심이 이미 도메인 월드 좌표로 들어오므로 HexToWorld 재변환은 불필요·왜곡 요인.
+            //   Vector3 centerWorld = Flatten(_mapper.HexToWorld(center));
+            Vector3 centerWorld = Flatten(center); // Y=0 정규화만 수행(center는 이미 도메인 월드 XZ).
             float radiusSqr = radius * radius;
 
             _skillUnitVictims.Clear();

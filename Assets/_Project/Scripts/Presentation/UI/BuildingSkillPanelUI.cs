@@ -28,6 +28,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using Hexiege.Domain;
+using Hexiege.Core;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
 
@@ -274,9 +275,11 @@ namespace Hexiege.Presentation
 
                 if (_skillAimController != null)
                 {
-                    // fallbackCoord = 시전 건물 타일(화면 중앙이 유효 타일이 아닐 때 조준 원 기본 위치).
+                    // fallback = 시전 건물 위치(화면 중앙이 맵 밖일 때 조준 원 기본 위치).
+                    //   조준은 연속 도메인 월드 좌표로 다루므로, 건물 타일(HexCoord)을 도메인 월드로 변환해 넘긴다.
+                    Vector3 fallbackDomain = HexMetrics.HexToWorld(_currentBuilding.Position);
                     _skillAimController.BeginAim(buildingId, slotIndex, skill.Radius,
-                        _currentBuilding.Position, OnAimConfirm, OnAimCancel);
+                        fallbackDomain, OnAimConfirm, OnAimCancel);
                 }
                 else
                 {
@@ -293,11 +296,11 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 조준 확정(손을 뗌) 콜백 — 확정 좌표에 스킬을 발동하고 패널을 닫는다.
+        /// 조준 확정(손을 뗌) 콜백 — 확정 좌표(도메인 월드, 연속)에 스킬을 발동하고 패널을 닫는다.
         /// </summary>
-        private void OnAimConfirm(int buildingId, int slotIndex, HexCoord aimCoord)
+        private void OnAimConfirm(int buildingId, int slotIndex, Vector3 aimWorld)
         {
-            ActivateSkill(buildingId, slotIndex, aimCoord, true);
+            ActivateSkill(buildingId, slotIndex, aimWorld, true);
             Close();
         }
 
@@ -314,21 +317,21 @@ namespace Hexiege.Presentation
         /// </summary>
         /// <param name="buildingId">스킬 건물 Id.</param>
         /// <param name="slotIndex">슬롯 번호.</param>
-        /// <param name="aimCoord">조준 좌표(지점 지정에서만 유효).</param>
+        /// <param name="aimWorld">조준 좌표(도메인 월드 Vector3, 지점 지정에서만 유효).</param>
         /// <param name="hasAim">조준 좌표 유효 여부.</param>
-        private void ActivateSkill(int buildingId, int slotIndex, HexCoord aimCoord, bool hasAim)
+        private void ActivateSkill(int buildingId, int slotIndex, Vector3 aimWorld, bool hasAim)
         {
             bool isNetworkMode = _networkSkillController != null && NetworkContext.IsNetworkActive;
 
             if (isNetworkMode)
             {
                 // 서버가 재검증·실행·쿨다운 브로드캐스트를 담당한다(규칙 25·26).
-                _networkSkillController.RequestActivateSkill(buildingId, slotIndex, aimCoord, hasAim);
+                _networkSkillController.RequestActivateSkill(buildingId, slotIndex, aimWorld, hasAim);
             }
             else
             {
                 // 싱글플레이: 로컬 서버 권위로 직접 발동.
-                _skillActivation?.Activate(buildingId, slotIndex, hasAim ? aimCoord : (HexCoord?)null);
+                _skillActivation?.Activate(buildingId, slotIndex, hasAim ? aimWorld : (Vector3?)null);
             }
         }
     }

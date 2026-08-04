@@ -43,7 +43,7 @@ namespace Hexiege.Application
             float radius = Mathf.Max(0f, ctx.Skill.Radius);
 
             // 실제 반경 수집·감쇄·피해·사망은 UnitCombatUseCase가 담당(서버 권위).
-            ctx.ApplyInstantAreaDamage(ctx.AimCoord, radius, rawDamage);
+            ctx.ApplyInstantAreaDamage(ctx.AimWorld, radius, rawDamage);
         }
     }
 }

@@ -79,11 +79,12 @@ namespace Hexiege.Infrastructure
         /// </summary>
         /// <param name="buildingId">발동한 스킬 건물 Id.</param>
         /// <param name="skillSlot">발동한 슬롯 번호(0-based).</param>
-        /// <param name="aimCoord">조준 좌표(도메인 HexCoord). 지점 지정에서만 사용.</param>
+        /// <param name="aimWorld">조준 좌표(도메인 월드 Vector3, 연속). 지점 지정에서만 사용.</param>
         /// <param name="hasAim">조준 좌표 유효 여부(즉시 발동이면 false).</param>
-        public void RequestActivateSkill(int buildingId, int skillSlot, HexCoord aimCoord, bool hasAim)
+        public void RequestActivateSkill(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim)
         {
-            RequestActivateSkillServerRpc(buildingId, skillSlot, aimCoord.Q, aimCoord.R, hasAim);
+            // NGO 2.9.2는 Vector3를 기본 직렬화하므로 연속 좌표를 그대로 전송한다(정수 분해 불필요).
+            RequestActivateSkillServerRpc(buildingId, skillSlot, aimWorld, hasAim);
         }
 
         // ====================================================================
@@ -96,7 +97,7 @@ namespace Hexiege.Infrastructure
         /// RequireOwnership=false: 어느 클라이언트든 호출 가능(팀 검증은 내부에서 수행).
         /// </summary>
         [ServerRpc(RequireOwnership = false)]
-        public void RequestActivateSkillServerRpc(int buildingId, int skillSlot, int q, int r, bool hasAim,
+        public void RequestActivateSkillServerRpc(int buildingId, int skillSlot, Vector3 aimWorld, bool hasAim,
             ServerRpcParams rpcParams = default)
         {
             ulong senderClientId = rpcParams.Receive.SenderClientId;
@@ -115,8 +116,8 @@ namespace Hexiege.Infrastructure
             TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
             if (building.Team != expectedTeam) return;
 
-            // 조준 좌표 구성(지점 지정만). 서버 Activate가 유효 타일을 재확인한다.
-            HexCoord? aim = hasAim ? new HexCoord(q, r) : (HexCoord?)null;
+            // 조준 좌표 구성(지점 지정만). 서버 Activate가 맵 경계 안 점인지 재확인한다(규칙 26).
+            Vector3? aim = hasAim ? aimWorld : (Vector3?)null;
 
             // 서버 권위 발동(재검증 포함). 성공 시 쿨다운 총량을 읽어 양 클라 브로드캐스트.
             bool activated = skill.Activate(buildingId, skillSlot, aim);

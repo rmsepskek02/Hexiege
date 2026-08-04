@@ -28,6 +28,7 @@
 
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using Hexiege.Domain;
 
 namespace Hexiege.Application
@@ -39,7 +40,10 @@ namespace Hexiege.Application
     {
         // ── 의존성(조합 루트에서 주입) ──────────────────────────────────────
         private readonly BuildingPlacementUseCase _buildingPlacement;
-        private readonly HexGrid _grid;
+        // 조준 연속 좌표(도메인 월드)가 맵 경계 안인지 판정하는 함수(규칙 22·26 서버 재검증).
+        //   좌표화 이전에는 HexGrid.HasTile(정수 타일)로 판정했으나, 연속 좌표에는 "맵 경계 안 점" 판정이 필요하다.
+        //   경계 계산(HexMetrics.IsWithinMapBounds)은 Core에 있고, 조합 루트가 클로저로 주입한다(Core→Application 역전).
+        private readonly Func<Vector3, bool> _isWithinMapBounds;
         private readonly UnitCombatUseCase _combat;
         private readonly ISkillDataProvider _dataProvider;
         // 팀 → 종족 변환(로드아웃 조회용). 조합 루트가 GameRaceContext 매핑을 주입(TowerCombatUseCase 선례).
@@ -58,19 +62,19 @@ namespace Hexiege.Application
         /// 스킬 발동 유스케이스 생성.
         /// </summary>
         /// <param name="buildingPlacement">건물 조회(생존/타입/좌표) UseCase.</param>
-        /// <param name="grid">맵 타일 유효성 검증용 그리드(HasTile).</param>
+        /// <param name="isWithinMapBounds">조준 연속 좌표(도메인 월드)가 맵 경계 안인지 판정(규칙 22·26). null 허용(항상 통과).</param>
         /// <param name="combat">피해/DoT 실제 적용을 담당하는 전투 UseCase.</param>
         /// <param name="dataProvider">종족별 스킬 로드아웃 제공자(Infrastructure 구현).</param>
         /// <param name="teamToRace">팀 → 종족 변환 함수(로드아웃 분기, 규칙 1·6).</param>
         public SkillActivationUseCase(
             BuildingPlacementUseCase buildingPlacement,
-            HexGrid grid,
+            Func<Vector3, bool> isWithinMapBounds,
             UnitCombatUseCase combat,
             ISkillDataProvider dataProvider,
             Func<TeamId, RaceId> teamToRace)
         {
             _buildingPlacement = buildingPlacement;
-            _grid = grid;
+            _isWithinMapBounds = isWithinMapBounds;
             _combat = combat;
             _dataProvider = dataProvider;
             _teamToRace = teamToRace;
@@ -85,9 +89,9 @@ namespace Hexiege.Application
         /// </summary>
         /// <param name="buildingId">발동한 스킬 건물의 Id.</param>
         /// <param name="skillSlot">발동한 슬롯 번호(0-based, 0~4).</param>
-        /// <param name="aimCoord">지점 지정 스킬의 조준 좌표(도메인). 즉시 발동이면 null.</param>
+        /// <param name="aimWorld">지점 지정 스킬의 조준 좌표(도메인 월드 Vector3, 연속). 즉시 발동이면 null.</param>
         /// <returns>발동에 성공하면 true(호출자가 쿨다운 브로드캐스트에 사용), 재검증 실패면 false.</returns>
-        public bool Activate(int buildingId, int skillSlot, HexCoord? aimCoord)
+        public bool Activate(int buildingId, int skillSlot, Vector3? aimWorld)
         {
             // ① 건물 생존 재검증(규칙 26).
             BuildingData building = _buildingPlacement?.GetBuilding(buildingId);
@@ -107,14 +111,16 @@ namespace Hexiege.Application
             // ④ 글로벌 쿨다운 만료 재검증(규칙 3·26).
             if (GetCooldownRemaining(buildingId) > 0f) return false;
 
-            // ⑤ 지점 지정 스킬이면 조준 좌표가 유효한 맵 타일인지 재확인(규칙 22·26).
+            // ⑤ 지점 지정 스킬이면 조준 좌표(연속)가 맵 경계 안 점인지 재확인(규칙 22·26).
+            //   좌표화 이전의 "유효 타일(HasTile)" 판정 → "맵 경계 안 점(point-in-bounds)" 판정으로 교체.
+            //   (재검증 자체는 유지 — 클라 입력 불신뢰 원칙 존속. 판정 기준만 연속 좌표에 맞게 바뀐다.)
             bool hasAim = false;
-            HexCoord aim = default;
+            Vector3 aim = default;
             if (skill.AimType == SkillAimType.PointTarget)
             {
-                if (!aimCoord.HasValue) return false;             // 지점 지정인데 좌표 없음 → 실패
-                aim = aimCoord.Value;
-                if (_grid != null && !_grid.HasTile(aim)) return false; // 맵 밖 좌표 → 실패(서버 재검증)
+                if (!aimWorld.HasValue) return false;             // 지점 지정인데 좌표 없음 → 실패
+                aim = aimWorld.Value;
+                if (_isWithinMapBounds != null && !_isWithinMapBounds(aim)) return false; // 맵 밖 점 → 실패(서버 재검증)
                 hasAim = true;
             }
 
@@ -139,12 +145,13 @@ namespace Hexiege.Application
         }
 
         // 실행기 → UnitCombatUseCase 다리(델리게이트). 건물/스킬 출처 전용 피해 경로를 호출한다.
-        private void ApplyInstantAreaDamageBridge(TeamId team, HexCoord center, float radius, int rawDamage, int sourceBuildingId)
+        //   center는 도메인 월드 좌표(연속 Vector3)다 — UnitCombatUseCase가 뷰 변환 없이 그대로 판정에 쓴다.
+        private void ApplyInstantAreaDamageBridge(TeamId team, Vector3 center, float radius, int rawDamage, int sourceBuildingId)
         {
             _combat?.ApplySkillInstantAreaDamage(team, center, radius, rawDamage, sourceBuildingId);
         }
 
-        private void ApplyAreaDotBridge(TeamId team, HexCoord center, float radius, float dps, float duration)
+        private void ApplyAreaDotBridge(TeamId team, Vector3 center, float radius, float dps, float duration)
         {
             _combat?.ApplySkillAreaDot(team, center, radius, dps, duration);
         }

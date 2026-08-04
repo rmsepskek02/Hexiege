@@ -43,7 +43,7 @@ namespace Hexiege.Application
             float radius = Mathf.Max(0f, ctx.Skill.Radius);
 
             // 실제 반경 수집·DoT 부여는 UnitCombatUseCase가 담당(서버 권위). 틱은 TickTimedEffects가 소비.
-            ctx.ApplyAreaDot(ctx.AimCoord, radius, dps, duration);
+            ctx.ApplyAreaDot(ctx.AimWorld, radius, dps, duration);
         }
     }
 }

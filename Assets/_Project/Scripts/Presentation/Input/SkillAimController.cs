@@ -18,10 +18,10 @@
 // 입력 소유권(랠리 모드 우선순위 패턴 재사용):
 //   조준 중에는 정적 플래그 IsAiming을 켜서 CameraController 드래그 팬·InputHandler 타일 선택을 억제한다.
 //
-// 좌표계:
-//   화면 → XZ 평면(뷰 좌표) → ViewConverter.FromView → HexMetrics.WorldToHex 로 "도메인 좌표"를 만든다
-//   (랠리 모드와 동일). 서버로는 이 도메인 좌표를 보낸다. 조준점(reticle)은 손가락 위치(뷰 좌표)에
-//   맞춰 스냅 표시한다(유효 타일 중심으로 스냅 → 맵 밖 clamp 느낌, 규칙 22).
+// 좌표계(좌표화 이후 — 타일 스냅 폐지):
+//   화면 → XZ 평면(뷰 좌표) → ViewConverter.FromView 로 "연속 도메인 좌표"를 만든다(타일 스냅 없음).
+//   서버로는 이 연속 도메인 좌표(Vector3, XZ·Y=0)를 보낸다. 조준점(reticle)은 손가락 위치를 그대로
+//   따라가며, 맵 밖으로 나갈 때만 맵 경계(최외곽 타일 바깥선) 안으로 clamp된다(규칙 22).
 //
 // Presentation 레이어 — Unity 의존.
 // ============================================================================
@@ -102,16 +102,19 @@ namespace Hexiege.Presentation
         private int _skillSlot;
         private float _radius;
 
-        // 마지막으로 유효(맵 안)했던 도메인 좌표. 맵 밖으로 나가면 이 좌표를 유지(규칙 22 clamp 느낌).
-        private HexCoord _lastValidCoord;
+        // 마지막 조준 도메인 좌표(연속). 좌표화 이후 정수 타일이 아니라 손가락을 그대로 따라가는
+        //   연속 월드 좌표다. 맵 밖으로 나가면 맵 경계 안으로 clamp된 값이 담긴다(규칙 22).
+        private Vector3 _lastValidDomain;
         private bool _hasValidCoord;
 
-        // 발동/취소 콜백. onConfirm(buildingId, skillSlot, aimCoord).
-        private Action<int, int, HexCoord> _onConfirm;
+        // 발동/취소 콜백. onConfirm(buildingId, skillSlot, 도메인 월드 좌표(연속)).
+        private Action<int, int, Vector3> _onConfirm;
         private Action _onCancel;
 
-        // 맵 타일 유효성 판정(grid.HasTile 주입). null이면 항상 유효로 간주.
-        private Func<HexCoord, bool> _isValidTile;
+        // 연속 도메인 좌표를 맵 경계 안으로 clamp하는 함수(주입). null이면 clamp 없이 그대로 사용.
+        private Func<Vector3, Vector3> _clampToBounds;
+        // 연속 도메인 좌표가 맵 경계 안인지 판정하는 함수(주입). 기본 조준 위치 결정에만 사용. null이면 항상 유효.
+        private Func<Vector3, bool> _isWithinBounds;
 
         // 취소(X) 버튼의 기준(원래) 스케일. hover 시 이 값의 배수로 확대한다.
         private Vector3 _cancelBaseScale = Vector3.one;
@@ -131,12 +134,15 @@ namespace Hexiege.Presentation
         /// </summary>
         /// <param name="camera">스크린→월드 변환 카메라.</param>
         /// <param name="cameraController">엣지 스크롤 위임 대상.</param>
-        /// <param name="isValidTile">도메인 좌표가 유효한 맵 타일인지 판정(grid.HasTile). null 허용.</param>
-        public void Initialize(Camera camera, CameraController cameraController, Func<HexCoord, bool> isValidTile)
+        /// <param name="clampToBounds">연속 도메인 좌표를 맵 경계 안으로 clamp하는 함수(규칙 22). null 허용.</param>
+        /// <param name="isWithinBounds">연속 도메인 좌표가 맵 경계 안인지 판정하는 함수(기본 위치 결정용). null 허용.</param>
+        public void Initialize(Camera camera, CameraController cameraController,
+            Func<Vector3, Vector3> clampToBounds, Func<Vector3, bool> isWithinBounds)
         {
             if (camera != null) _camera = camera;
             if (cameraController != null) _cameraController = cameraController;
-            _isValidTile = isValidTile;
+            _clampToBounds = clampToBounds;
+            _isWithinBounds = isWithinBounds;
 
             // 취소(X) 버튼 기준 스케일 기억(hover 확대의 기준값) + 평소 숨김(조준 중에만 표시, 규칙 20).
             if (_cancelZone != null)
@@ -168,11 +174,11 @@ namespace Hexiege.Presentation
         /// <param name="buildingId">발동할 스킬 건물 Id.</param>
         /// <param name="skillSlot">발동할 슬롯 번호(0-based).</param>
         /// <param name="radius">조준 범위 반경(월드 단위, 조준점 표시용).</param>
-        /// <param name="fallbackCoord">화면 중앙이 유효 타일이 아닐 때 쓸 기본 좌표(보통 시전 건물 타일).</param>
-        /// <param name="onConfirm">발동 확정 콜백(buildingId, slot, 도메인 좌표).</param>
+        /// <param name="fallbackDomain">화면 중앙이 맵 밖일 때 쓸 기본 도메인 월드 좌표(보통 시전 건물 위치).</param>
+        /// <param name="onConfirm">발동 확정 콜백(buildingId, slot, 도메인 월드 좌표(연속)).</param>
         /// <param name="onCancel">취소 콜백.</param>
-        public void BeginAim(int buildingId, int skillSlot, float radius, HexCoord fallbackCoord,
-            Action<int, int, HexCoord> onConfirm, Action onCancel)
+        public void BeginAim(int buildingId, int skillSlot, float radius, Vector3 fallbackDomain,
+            Action<int, int, Vector3> onConfirm, Action onCancel)
         {
             _buildingId = buildingId;
             _skillSlot = skillSlot;
@@ -188,9 +194,9 @@ namespace Hexiege.Presentation
 
             if (_camera == null) _camera = Camera.main;
 
-            // 조준 원 기본 위치 = 화면 중앙의 유효 타일(없으면 시전 건물 타일). 진입 즉시 지도 위에 표시.
-            HexCoord start = ResolveDefaultCoord(fallbackCoord);
-            ShowReticleAtCoord(start);
+            // 조준 원 기본 위치 = 화면 중앙(맵 밖이면 시전 건물 위치). 진입 즉시 지도 위에 표시.
+            Vector3 start = ResolveDefaultDomain(fallbackDomain);
+            ShowReticleAtDomain(start);
 
             // 취소(X) 버튼을 조준하는 동안만 표시(규칙 20). 기준 스케일로 리셋.
             SetCancelButtonVisible(true);
@@ -249,8 +255,8 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 조준점 위치와 마지막 유효 도메인 좌표를 갱신한다.
-        /// 맵 안이면 유효 타일 중심(뷰 좌표)에 조준점을 스냅하고, 맵 밖이면 마지막 유효 위치를 유지한다(규칙 22).
+        /// 조준점 위치와 마지막 조준 도메인 좌표(연속)를 갱신한다.
+        /// 손가락을 그대로 따라가되(타일 스냅 없음), 맵 밖으로 나가면 맵 경계 안으로 clamp한다(규칙 22).
         /// </summary>
         private void UpdateAimPoint(Vector2 screenPos)
         {
@@ -259,20 +265,25 @@ namespace Hexiege.Presentation
             // 화면 → XZ 평면(뷰 좌표) → 도메인 좌표(랠리 모드와 동일 변환).
             Vector3 viewPos = ScreenToXZPlane(screenPos);
             Vector3 domainWorld = ViewConverter.FromView(viewPos);
-            HexCoord coord = HexMetrics.WorldToHex(domainWorld);
 
-            bool valid = _isValidTile == null || _isValidTile(coord);
-            if (valid)
-            {
-                _lastValidCoord = coord;
-                _hasValidCoord = true;
-            }
+            // [비활성화 — 좌표화] 타일 스냅 제거: 연속 도메인 좌표(domainWorld)를 그대로 채택한다.
+            //   착탄 판정이 이미 연속 원(유클리드 거리)이라 타일 스냅은 표시·전송 정밀도만 낮추는 잉여 단계였다.
+            // HexCoord coord = HexMetrics.WorldToHex(domainWorld);
 
-            // 조준점은 "마지막 유효 타일 중심"(뷰 좌표)에 스냅해 표시한다(맵 밖 clamp 느낌).
-            if (_reticle != null && _hasValidCoord)
+            // 맵 경계 안으로 연속 좌표를 clamp한다(규칙 22 — 최외곽 타일 바깥선 기준). clamp 함수가 없으면 원본 사용.
+            Vector3 clampedDomain = _clampToBounds != null ? _clampToBounds(domainWorld) : domainWorld;
+            _lastValidDomain = clampedDomain;
+            _hasValidCoord = true;
+
+            // 조준점 표시: 타일 중심 되돌림 없이 "연속 좌표를 그대로" 뷰로 변환해 표시한다.
+            //   [비활성화 — 좌표화] 아래 타일 중심 스냅 표시를 제거.
+            //   ToView(FromView(v)) == v(자기 역함수)이므로, 맵 안에서는 손가락 위치(뷰)와 정확히 일치하고,
+            //   맵 밖일 때만 clamp된 경계 지점(뷰)이 표시된다 → 스냅이 아니라 연속 추종 + 경계 clamp.
+            // Vector3 snappedView = ViewConverter.ToView(HexMetrics.HexToWorld(_lastValidCoord));
+            if (_reticle != null)
             {
-                Vector3 snappedView = ViewConverter.ToView(HexMetrics.HexToWorld(_lastValidCoord));
-                _reticle.Show(snappedView, _radius);
+                Vector3 view = ViewConverter.ToView(clampedDomain);
+                _reticle.Show(view, _radius);
             }
         }
 
@@ -292,7 +303,7 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            _onConfirm?.Invoke(_buildingId, _skillSlot, _lastValidCoord);
+            _onConfirm?.Invoke(_buildingId, _skillSlot, _lastValidDomain);
         }
 
         /// <summary>
@@ -326,32 +337,32 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 조준 진입 시 조준 원의 기본 위치를 정한다 — 화면 중앙을 지도 좌표로 변환한 유효 타일,
-        /// 없으면 <paramref name="fallbackCoord"/>(보통 시전 건물 타일)를 쓴다.
+        /// 조준 진입 시 조준 원의 기본 위치(도메인 월드, 연속)를 정한다 — 화면 중앙이 맵 안이면 그 연속 좌표,
+        /// 맵 밖이면 <paramref name="fallbackDomain"/>(보통 시전 건물 위치)를 쓴다.
         /// </summary>
-        private HexCoord ResolveDefaultCoord(HexCoord fallbackCoord)
+        private Vector3 ResolveDefaultDomain(Vector3 fallbackDomain)
         {
             if (_camera == null) _camera = Camera.main;
-            if (_camera == null) return fallbackCoord;
+            if (_camera == null) return fallbackDomain;
 
             Vector2 screenCenter = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
             Vector3 viewPos = ScreenToXZPlane(screenCenter);
             Vector3 domainWorld = ViewConverter.FromView(viewPos);
-            HexCoord coord = HexMetrics.WorldToHex(domainWorld);
 
-            return (_isValidTile == null || _isValidTile(coord)) ? coord : fallbackCoord;
+            // 화면 중앙이 맵 안이면 그 연속 좌표를, 밖이면 시전 건물 위치를 기본값으로 쓴다.
+            return (_isWithinBounds == null || _isWithinBounds(domainWorld)) ? domainWorld : fallbackDomain;
         }
 
         /// <summary>
-        /// 지정 도메인 좌표를 마지막 유효 좌표로 삼고 조준 원을 그 타일 중심(뷰 좌표)에 표시한다.
+        /// 지정 도메인 월드 좌표(연속)를 마지막 조준 좌표로 삼고 조준 원을 그 위치(뷰 좌표)에 표시한다.
         /// </summary>
-        private void ShowReticleAtCoord(HexCoord coord)
+        private void ShowReticleAtDomain(Vector3 domain)
         {
-            _lastValidCoord = coord;
+            _lastValidDomain = domain;
             _hasValidCoord = true;
             if (_reticle != null)
             {
-                Vector3 view = ViewConverter.ToView(HexMetrics.HexToWorld(coord));
+                Vector3 view = ViewConverter.ToView(domain);
                 _reticle.Show(view, _radius);
             }
         }

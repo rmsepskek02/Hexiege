@@ -353,7 +353,10 @@ namespace Hexiege.Bootstrap
             // ────────────────────────────────────────────────────────────
             _skillActivation = new SkillActivationUseCase(
                 _buildingPlacement,
-                _grid,
+                // 조준 연속 좌표(도메인 월드)가 맵 경계 안 점인지 재검증(규칙 22·26).
+                //   좌표화 이후 HasTile(정수 타일) 대신 맵 월드 경계(최외곽 타일 바깥선) 판정을 쓴다.
+                //   람다가 현재 _grid를 읽으므로 맵 재로드에도 최신 그리드 크기를 반영한다.
+                aimWorld => _grid != null && HexMetrics.IsWithinMapBounds(aimWorld, _grid.Width, _grid.Height),
                 _unitCombat,
                 _skillLoadoutConfig, // ISkillDataProvider (SkillLoadoutConfig SO). null 허용.
                 team => team == TeamId.Blue
@@ -532,13 +535,17 @@ namespace Hexiege.Bootstrap
             }
 
             // 스킬 지점 조준 컨트롤러 초기화(있을 때만 — 프리팹/씬 배선은 사용자 Unity 작업).
-            //   맵 타일 유효성은 현재 _grid.HasTile로 판정한다(맵 재로드 시에도 현재 _grid를 읽도록 람다 캡처).
+            //   좌표화 이후: 타일 유효성(HasTile) 대신 "연속 좌표 clamp + 맵 경계 안 점 판정"을 주입한다.
+            //   두 람다 모두 현재 _grid를 읽으므로 맵 재로드 시에도 최신 그리드 크기를 반영한다.
             if (_skillAimController != null)
             {
                 _skillAimController.Initialize(
                     _mainCamera,
                     _cameraController,
-                    coord => _grid != null && _grid.HasTile(coord));
+                    // 연속 도메인 좌표를 맵 경계 안으로 clamp(규칙 22 — 최외곽 타일 바깥선 기준).
+                    domain => _grid != null ? HexMetrics.ClampToMapBounds(domain, _grid.Width, _grid.Height) : domain,
+                    // 연속 도메인 좌표가 맵 경계 안인지 판정(기본 조준 위치 결정용).
+                    domain => _grid == null || HexMetrics.IsWithinMapBounds(domain, _grid.Width, _grid.Height));
             }
         }
 
