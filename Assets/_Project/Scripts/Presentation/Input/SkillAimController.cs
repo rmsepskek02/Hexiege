@@ -246,19 +246,45 @@ namespace Hexiege.Presentation
             }
 
             // ── 2단계: 드래그 중 — 범위 이동 + 엣지 스크롤 + X hover + release 발동/취소 ──
+
+            // [핵심 — 실기기 취소 버그 근본 수정]
+            //   ★ 손을 뗀 프레임(release)에는 "라이브 포인터를 절대 읽지 않는다".
+            //
+            //   왜냐하면(실기기 Android 터치에서만 재현되던 원인):
+            //     - 손을 뗀 프레임엔 터치의 press.isPressed가 그 프레임에 false로 떨어진다.
+            //     - 이때 InputSystem이 터치를 마우스로 합성하거나 시스템 포인터를 보고해서
+            //       Mouse.current가 non-null인 경우가 많다. 그 합성 마우스 좌표는 (0,0)이거나
+            //       지연/고정된 잘못된 값이다.
+            //     - 그런데 TryGetPointerScreenPos는 "터치가 안 눌렸으면 마우스 좌표를 무조건
+            //       유효(true)"로 반환하므로, 이 잘못된 (0,0)이 유효 좌표인 척 흘러들어온다.
+            //     - 결과: (0,0)은 하단 취소(X) 영역 밖이라 IsOverCancelZone=false → 취소가 아니라
+            //       발동(_onConfirm)이 실행되어 건물 글로벌 쿨다운이 걸린다.
+            //
+            //   그래서 release 프레임에는 라이브 좌표/ TryGetPointerScreenPos 결과를 완전히 무시하고,
+            //   "드래그 중 매 프레임 캐시해 둔 마지막 유효 좌표(_lastDragScreenPos)"로만 취소/발동을
+            //   판정한다. 그 캐시값 = 마지막으로 손가락이 눌려 있던 위치 = 실제로 손을 뗀 위치이므로
+            //   취소 버튼 위에서 뗐다면 정확히 취소로 판정된다.
+            //   (에디터 마우스도 동일하게 동작: 드래그 중 매 프레임 커서 위치가 캐시되고, 마우스는
+            //    손을 떼도 좌표가 튀지 않으므로 캐시값 = 실제 뗀 커서 위치 → 회귀 없음.)
+            if (WasPointerReleasedThisFrame())
+            {
+                ResolveRelease(_lastDragScreenPos);
+                return;
+            }
+
+            // ── 여기부터는 "손을 아직 안 뗀" 드래그 지속 프레임 ──
             // 이번 프레임의 포인터 좌표를 얻는다.
             //   • 유효하면(터치가 눌린 상태 또는 에디터 마우스) 그 값을 쓰고, 캐시(_lastDragScreenPos)에 저장.
-            //   • 유효하지 않으면(실기기에서 손을 뗀 release 프레임 등) 마지막으로 캐시한 드래그 좌표를 쓴다.
-            //     → release 프레임에 (0,0)으로 오염되어 "취소 버튼 위에서 뗐는데도 발동"되던 버그를 막는다.
+            //   • 유효하지 않으면 마지막으로 캐시한 드래그 좌표를 쓴다(표시/스크롤이 튀지 않도록).
             Vector2 screenPos;
             if (TryGetPointerScreenPos(out Vector2 livePos))
             {
                 screenPos = livePos;
-                _lastDragScreenPos = livePos; // 유효 좌표를 매 프레임 캐시(다음 release 프레임 대비).
+                _lastDragScreenPos = livePos; // 유효 좌표를 매 프레임 캐시(다음 release 프레임 대비 — 핵심).
             }
             else
             {
-                screenPos = _lastDragScreenPos; // 유효 좌표 없음 → 마지막 드래그 좌표로 취소/발동을 판정.
+                screenPos = _lastDragScreenPos; // 유효 좌표 없음 → 마지막 드래그 좌표 유지.
             }
 
             // 1) 조준점(범위 원) 위치·유효 좌표 갱신(맵 밖은 마지막 유효 위치로 clamp — 규칙 22).
@@ -270,10 +296,6 @@ namespace Hexiege.Presentation
 
             // 3) 취소 버튼 위 hover면 확대 예고(규칙 20-1), 벗어나면 원래 크기.
             ApplyCancelHover(IsOverCancelZone(screenPos));
-
-            // 4) 손을 떼면 발동/취소 분기(규칙 19·20).
-            if (WasPointerReleasedThisFrame())
-                ResolveRelease(screenPos);
         }
 
         /// <summary>

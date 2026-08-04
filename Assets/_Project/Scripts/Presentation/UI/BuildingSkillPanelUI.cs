@@ -257,7 +257,13 @@ namespace Hexiege.Presentation
             int buildingId = _currentBuilding.Id;
 
             // 글로벌 쿨다운 중이면 발동 불가(규칙 3). (오버레이 raycast 차단과 이중 가드.)
-            if (_skillActivation != null && _skillActivation.IsOnCooldown(buildingId)) return;
+            //   조용히 return하지 않고, 사용자가 왜 안 되는지 알 수 있도록 토스트로 안내한다.
+            //   이 가드는 즉시발동/지점지정 진입보다 앞에 있으므로 두 스킬 타입 모두를 커버한다.
+            if (_skillActivation != null && _skillActivation.IsOnCooldown(buildingId))
+            {
+                ToastUI.Show(ToastKey.SkillOnCooldown);
+                return;
+            }
 
             SkillData skill = _currentLoadout[slotIndex];
             if (skill == null) return;
