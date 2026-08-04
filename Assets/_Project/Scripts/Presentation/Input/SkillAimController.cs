@@ -122,6 +122,13 @@ namespace Hexiege.Presentation
         // 취소 버튼 스케일 보간 목표. ApplyCancelHover가 목표만 세우고, TickCancelHover가 매 프레임 보간한다.
         private Vector3 _cancelTargetScale = Vector3.one;
 
+        // 드래그 중 "마지막으로 확인된 유효 포인터 스크린 좌표".
+        //   실기기(터치)에서 손을 뗀 프레임에는 primaryTouch.press.isPressed가 그 프레임에 false가 되어
+        //   포인터 좌표를 신뢰할 수 없다(마우스 폴백도 없으므로 (0,0)이 나옴). 그 (0,0)으로 취소/발동을
+        //   판정하면 "취소 버튼 위에서 뗐는데도 발동"되는 버그가 생긴다. 이를 막기 위해 드래그 중 매 프레임
+        //   유효 좌표를 여기에 캐시해 두고, release 프레임처럼 유효 좌표가 없을 때 이 값으로 판정한다.
+        private Vector2 _lastDragScreenPos;
+
         // XZ 평면(Y=0) 레이캐스트용.
         private static readonly Plane _xzPlane = new Plane(Vector3.up, Vector3.zero);
 
@@ -229,7 +236,9 @@ namespace Hexiege.Presentation
                 if (WasPointerPressedThisFrame())
                 {
                     _dragging = true;
-                    Vector2 p = GetPointerScreenPos();
+                    // 방금 눌린 프레임이라 포인터가 유효하다 → 좌표를 얻어 캐시 초기값으로 삼는다.
+                    Vector2 p = TryGetPointerScreenPos(out Vector2 pressPos) ? pressPos : _lastDragScreenPos;
+                    _lastDragScreenPos = p;
                     UpdateAimPoint(p);
                     ApplyCancelHover(IsOverCancelZone(p));
                 }
@@ -237,7 +246,20 @@ namespace Hexiege.Presentation
             }
 
             // ── 2단계: 드래그 중 — 범위 이동 + 엣지 스크롤 + X hover + release 발동/취소 ──
-            Vector2 screenPos = GetPointerScreenPos();
+            // 이번 프레임의 포인터 좌표를 얻는다.
+            //   • 유효하면(터치가 눌린 상태 또는 에디터 마우스) 그 값을 쓰고, 캐시(_lastDragScreenPos)에 저장.
+            //   • 유효하지 않으면(실기기에서 손을 뗀 release 프레임 등) 마지막으로 캐시한 드래그 좌표를 쓴다.
+            //     → release 프레임에 (0,0)으로 오염되어 "취소 버튼 위에서 뗐는데도 발동"되던 버그를 막는다.
+            Vector2 screenPos;
+            if (TryGetPointerScreenPos(out Vector2 livePos))
+            {
+                screenPos = livePos;
+                _lastDragScreenPos = livePos; // 유효 좌표를 매 프레임 캐시(다음 release 프레임 대비).
+            }
+            else
+            {
+                screenPos = _lastDragScreenPos; // 유효 좌표 없음 → 마지막 드래그 좌표로 취소/발동을 판정.
+            }
 
             // 1) 조준점(범위 원) 위치·유효 좌표 갱신(맵 밖은 마지막 유효 위치로 clamp — 규칙 22).
             UpdateAimPoint(screenPos);
@@ -406,19 +428,37 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 현재 포인터(터치 우선, 없으면 마우스)의 스크린 좌표.
+        /// 현재 포인터(터치 우선, 없으면 마우스)의 스크린 좌표를 "신뢰할 수 있을 때만" 반환한다.
+        /// 반환값 true면 <paramref name="screenPos"/>가 유효한 좌표, false면 신뢰할 수 없어 호출부가
+        /// 캐시(마지막 유효 좌표)로 대체해야 한다.
+        ///
+        /// 왜 Try 형태인가:
+        ///   실기기(마우스 없음)에서 손을 뗀 프레임에는 primaryTouch.press.isPressed가 false가 되어
+        ///   터치 좌표를 신뢰할 수 없다. 예전처럼 무조건 (0,0)을 돌려주면 그 프레임의 취소/발동 판정이
+        ///   화면 좌하단(0,0) 기준으로 잘못 계산된다. 그래서 "유효할 때만 true"로 명확히 구분한다.
+        ///   - 터치가 눌린 상태  → 터치 좌표(유효).
+        ///   - 마우스 존재(에디터) → 마우스 좌표는 버튼과 무관하게 항상 유효하므로 그대로 사용.
+        ///   - 그 외(실기기 release 등) → false(캐시로 대체).
         /// </summary>
-        private Vector2 GetPointerScreenPos()
+        private bool TryGetPointerScreenPos(out Vector2 screenPos)
         {
             var touch = Touchscreen.current;
             if (touch != null && touch.primaryTouch.press.isPressed)
-                return touch.primaryTouch.position.ReadValue();
+            {
+                screenPos = touch.primaryTouch.position.ReadValue();
+                return true;
+            }
 
             var mouse = Mouse.current;
             if (mouse != null)
-                return mouse.position.ReadValue();
+            {
+                // 마우스 좌표는 버튼을 떼도 항상 현재 커서 위치가 유효하다(에디터 정상 동작 유지).
+                screenPos = mouse.position.ReadValue();
+                return true;
+            }
 
-            return Vector2.zero;
+            screenPos = Vector2.zero;
+            return false;
         }
 
         /// <summary>
