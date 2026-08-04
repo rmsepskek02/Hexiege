@@ -24,6 +24,7 @@
 // ============================================================================
 
 using System.Collections.Generic;
+using TMPro;                       // 테스트용 임시 라벨(TMP_Text) — 정식 아이콘 도입 시 제거.
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -52,6 +53,15 @@ namespace Hexiege.Presentation
 
         [Tooltip("각 스킬 슬롯의 쿨다운 오버레이(버튼과 1:1). 글로벌 쿨다운을 표시.")]
         [SerializeField] private List<SkillCooldownOverlay> _skillSlotOverlays = new List<SkillCooldownOverlay>(5);
+
+        // ⚠️ 테스트용 임시 라벨 — 정식 아이콘 도입 시 제거.
+        //   플레이스홀더 아이콘(빈 이미지)은 어떤 스킬인지 구분이 안 되므로, 각 슬롯 위에
+        //   스킬 종류 이름(폭탄/빙결/버프/둔화/회복 등)을 텍스트로 표시해 실기 테스트를 돕는다.
+        //   데이터 모델(SkillData/SkillDefinition)은 건드리지 않고, OnShow에서 메커니즘·상태종류로
+        //   이름을 파생해 세팅한다(문자열 하드코딩 — 테스트 후 제거하기 쉽도록).
+        [Header("테스트용 임시 라벨(슬롯 1~5) — 정식 아이콘 도입 시 제거")]
+        [Tooltip("각 스킬 슬롯 위 스킬 종류 텍스트(테스트용). 슬롯 버튼과 1:1. 비어도 동작한다.")]
+        [SerializeField] private List<TMP_Text> _skillSlotLabels = new List<TMP_Text>(5);
 
         // ====================================================================
         // 의존성(Initialize 주입)
@@ -203,6 +213,44 @@ namespace Hexiege.Presentation
                 // 오버레이는 매 프레임 Update에서 갱신되므로 여기서는 초기 상태만 정리.
                 if (i < _skillSlotOverlays.Count && _skillSlotOverlays[i] != null)
                     _skillSlotOverlays[i].Hide();
+
+                // ⚠️ 테스트용 임시 라벨 — 정식 아이콘 도입 시 제거.
+                //   스킬이 있는 슬롯에만 종류 이름을 표시하고, 빈 슬롯은 비운다.
+                if (_skillSlotLabels != null && i < _skillSlotLabels.Count && _skillSlotLabels[i] != null)
+                {
+                    _skillSlotLabels[i].text = hasSkill ? DeriveSkillLabel(_currentLoadout[i]) : string.Empty;
+                    _skillSlotLabels[i].enabled = hasSkill;
+                }
+            }
+        }
+
+        /// <summary>
+        /// ⚠️ 테스트용 임시 라벨 — 정식 아이콘 도입 시 제거.
+        /// 스킬의 메커니즘(A/B/C)과 상태 종류로부터 사람이 읽을 이름을 파생한다(데이터 모델 변경 없음).
+        /// 문자열은 전부 하드코딩 — 테스트 후 이 메서드째로 지우면 된다.
+        /// </summary>
+        /// <param name="skill">라벨을 만들 스킬 값 객체.</param>
+        /// <returns>슬롯 버튼에 표시할 한글 스킬 이름(알 수 없으면 "?").</returns>
+        private static string DeriveSkillLabel(SkillData skill)
+        {
+            if (skill == null) return string.Empty;
+
+            switch (skill.Mechanic)
+            {
+                case SkillMechanicType.InstantAreaDamage: return "폭탄"; // 타입 A
+                case SkillMechanicType.AreaDotDamage:     return "장판"; // 타입 B
+                case SkillMechanicType.GlobalStatusChange:
+                    // 타입 C — 상태 종류(정수 코드)를 StatusEffectKind로 해석해 분기.
+                    switch ((StatusEffectKind)skill.StatusKind)
+                    {
+                        case StatusEffectKind.AttackPowerMul: return "버프";
+                        case StatusEffectKind.MoveSpeedMul:   return "둔화";
+                        case StatusEffectKind.Freeze:         return "빙결";
+                        case StatusEffectKind.HealOverTime:   return "회복";
+                        case StatusEffectKind.AttackDisabled: return "기절"; // 대비(현재 로드아웃엔 없음)
+                        default:                              return "상태";
+                    }
+                default: return "?";
             }
         }
 

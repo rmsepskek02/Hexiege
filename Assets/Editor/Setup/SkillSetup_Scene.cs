@@ -133,6 +133,7 @@ namespace Hexiege.EditorTools
                 "  · (교정) 기존 BuildingSkillPanel(하드코딩/이전 클론)은 제거 후 BuildingActionPanel 복제로 재생성됩니다(항상 1개).\n" +
                 "  · GameBootstrapper 슬롯 4종 연결(_skillLoadoutConfig/_buildingSkillPanelUI/_skillAimController/_networkSkillController).\n" +
                 "  · (스펙) 스킬 버튼=아이콘만(슬롯 CostContainer/라벨 비활성) · 쿨다운 오버레이=유휴 시 숨김(시전 중만 표시) · 취소 X=ui_btn_cancel 이미지 버튼·평소 숨김(조준 중만).\n" +
+                "  · (테스트용) 각 스킬 슬롯에 임시 라벨(SkillTestLabel) 생성·배선 — 스킬 종류(폭탄/빙결/버프/둔화/회복)를 텍스트로 표시. 정식 아이콘 도입 시 제거.\n" +
                 (sceneOpenedByThis ? "  · 씬 자동 저장 완료.\n" : "  · 열린 씬 dirty 표시 — Ctrl+S로 저장하세요.\n") +
                 "  · 쿨다운 fill·조준 원에 Unity 내장 스프라이트를 임시 지정(테스트용) — 이미 셋업된 씬이면 이 메뉴를 다시 실행하면 반영됩니다.\n" +
                 "  · 후속: 아이콘/조준원/오버레이/취소X 정식 아트로 교체, 레이아웃·엣지스크롤 여백 튜닝, 멀티 NetworkObject 확인.");
@@ -226,6 +227,8 @@ namespace Hexiege.EditorTools
             var skillButtons = new List<Object>(SkillSlotCount);
             var skillIcons = new List<Object>(SkillSlotCount);
             var skillOverlays = new List<Object>(SkillSlotCount);
+            // ⚠️ 테스트용 임시 라벨 — 정식 아이콘 도입 시 제거.
+            var skillLabels = new List<Object>(SkillSlotCount);
 
             for (int i = 0; i < SkillSlotCount && i < allSlots.Count; i++)
             {
@@ -258,15 +261,22 @@ namespace Hexiege.EditorTools
                 //   슬롯의 마지막 자식이라 아이콘 위에 그려진다. 유휴 시엔 alpha 0로 완전히 숨김(규칙 10).
                 SkillCooldownOverlay overlay = BuildCooldownOverlay(slot, font);
 
+                // ── 테스트용 임시 라벨(스킬 종류 텍스트) — 정식 아이콘 도입 시 제거 ──
+                //   빈 아이콘만으로는 어떤 스킬인지 구분이 안 되므로, 슬롯 위에 종류 이름을 얹는다.
+                TextMeshProUGUI testLabel = BuildTestSkillLabel(slot, font);
+
                 skillButtons.Add(slotBtn);
                 skillIcons.Add(icon);
                 skillOverlays.Add(overlay);
+                skillLabels.Add(testLabel);
             }
 
             // ── 7) 스킬 슬롯 리스트 배선 ─────────────────────────────────────
             ConnectList(panel, "_skillSlotButtons", skillButtons);
             ConnectList(panel, "_skillSlotIcons", skillIcons);
             ConnectList(panel, "_skillSlotOverlays", skillOverlays);
+            // ⚠️ 테스트용 임시 라벨 리스트 배선 — 정식 아이콘 도입 시 이 줄과 라벨 오브젝트 제거.
+            ConnectList(panel, "_skillSlotLabels", skillLabels);
 
             // ── 8) 예약 슬롯(6~8) 숨김 — 기존 액션 패널이 비활성 슬롯을 감추던 방식(CanvasGroup alpha 0) ──
             for (int i = SkillSlotCount + 1; i < allSlots.Count; i++) // index 6,7,8 (5=철거는 유지)
@@ -360,6 +370,31 @@ namespace Hexiege.EditorTools
             Connect(overlay, "_canvasGroup", cg);
 
             return overlay;
+        }
+
+        /// <summary>
+        /// ⚠️ 테스트용 임시 라벨 — 정식 아이콘 도입 시 이 메서드와 호출부, 생성된 "SkillTestLabel" 오브젝트를 제거.
+        /// 슬롯 버튼 위에 스킬 종류 텍스트(폭탄/빙결/버프/둔화/회복 등)를 얹어 실기 구분을 돕는다.
+        /// 실제 표시 문자열은 런타임에 BuildingSkillPanelUI.OnShow가 스킬 메커니즘·상태종류로 파생해 넣는다.
+        /// </summary>
+        /// <param name="slot">라벨을 붙일 스킬 슬롯 버튼의 Transform.</param>
+        /// <param name="font">사용할 TMP 폰트(없으면 TMP 기본 폰트).</param>
+        /// <returns>배선용 TMP 라벨 컴포넌트.</returns>
+        private static TextMeshProUGUI BuildTestSkillLabel(Transform slot, TMP_FontAsset font)
+        {
+            GameObject labelGo = FindOrCreateChild(slot, "SkillTestLabel");
+            SetStretch(labelGo.GetComponent<RectTransform>());
+
+            // 슬롯에 LayoutGroup(아이콘 배치용)이 있으면 자식 라벨도 눌려 찌그러진다 → 레이아웃 제외.
+            if (!labelGo.TryGetComponent(out LayoutElement le)) le = labelGo.AddComponent<LayoutElement>();
+            le.ignoreLayout = true;
+
+            // 텍스트는 OnShow가 채운다. 여기선 빈 문자열로 생성만.
+            TextMeshProUGUI label = EnsureText(labelGo, font, "", 24, TextAlignmentOptions.Center);
+
+            // 아이콘·쿨다운 오버레이보다 뒤(마지막 형제)에 두어 항상 위에 읽히게 한다.
+            labelGo.transform.SetAsLastSibling();
+            return label;
         }
 
         // ====================================================================
