@@ -7,10 +7,13 @@
 // └────────────────────────────────────────────────────────────────────────┘
 //
 // 무엇을 하는가(유니티 초급자 기준):
-//   스킬 건물 시스템 Phase 1을 실기로 테스트할 수 있도록, "플레이스홀더(임시)" 스킬 데이터 에셋을
+//   스킬 건물 시스템을 실기로 테스트할 수 있도록, "플레이스홀더(임시)" 스킬 데이터 에셋을
 //   자동 생성한다. 프로그래머가 손으로 하나씩 만들 필요 없이 이 메뉴 한 번이면 된다.
-//     1) SkillDefinition(.asset) 6개 — 종족 3종 × (타입 A 폭격 + 타입 B 장판 DoT).
-//     2) SkillLoadoutConfig(.asset) 1개 — 종족(RaceId) 키로 위 스킬들을 슬롯 1~2에 매핑.
+//     1) SkillDefinition(.asset) 15개 — 종족 3종 × (폭탄A + 빙결C + 공격버프C + 둔화C + 회복C).
+//        (구 타입 B 장판 'Dot' 에셋은 로드아웃에서 빠졌고 이 스크립트는 더 이상 생성/갱신하지 않는다.
+//         기존 Skill_*_Dot.asset 파일은 디스크에 남아 있어도 무방하다 — 로드아웃에서만 제외됨.)
+//     2) SkillLoadoutConfig(.asset) 1개 — 종족(RaceId) 키로 위 스킬들을 슬롯 1~5에 매핑.
+//        슬롯 순서: [1=폭탄 / 2=빙결 / 3=공격버프 / 4=둔화 / 5=회복].
 //   생성 위치: Assets/_Project/Resources/Config/Skills/ (기존 Config 관례를 따른다).
 //
 // ⚠️ 수치는 전부 "플레이스홀더"다(최종값 아님):
@@ -23,7 +26,7 @@
 // 이 스크립트가 하지 않는 것(사용자 후속):
 //   · 실제 아이콘 스프라이트 지정(플레이스홀더는 아이콘 null → 버튼은 색만 표시).
 //   · GameBootstrapper 연결/씬 배선 → 메뉴 "2. Setup Scene ..."이 담당.
-//   · 최종 스킬 목록·수치·타입 C(전역 상태변경) 스킬.
+//   · 최종 스킬 목록·수치·밸런스(빙결/둔화/회복 등 타입 C는 모두 테스트용 플레이스홀더 수치다).
 // ============================================================================
 
 using System.Collections.Generic;
@@ -35,7 +38,7 @@ using Hexiege.Infrastructure; // SkillDefinition, SkillLoadoutConfig
 namespace Hexiege.EditorTools
 {
     /// <summary>
-    /// 플레이스홀더 SkillDefinition 6개 + SkillLoadoutConfig 1개를 멱등하게 생성하는 1회성 에디터 스크립트.
+    /// 플레이스홀더 SkillDefinition 15개(종족 3종 × 5스킬) + SkillLoadoutConfig 1개를 멱등하게 생성하는 1회성 에디터 스크립트.
     /// </summary>
     public static class SkillSetup_CreateDataAssets
     {
@@ -63,29 +66,46 @@ namespace Hexiege.EditorTools
             public bool targetsAllies;   // true=아군(버프)/false=적(디버프). 타입 A·B는 false.
         }
 
-        // 종족별 스킬 정의(각 종족: 타입 A 폭격 1 + 타입 B 장판 DoT 1). 전부 플레이스홀더 수치.
+        // 종족별 스킬 정의(각 종족 5스킬 — 배열 순서 = 로드아웃 슬롯 1~5 순서).
+        //   슬롯1 폭탄(A) / 슬롯2 빙결(C) / 슬롯3 공격버프(C) / 슬롯4 둔화(C) / 슬롯5 회복(C). 전부 플레이스홀더 수치.
+        //
+        //   ⚠️ 배열 순서가 그대로 로드아웃 슬롯 번호가 된다(ApplyLoadout이 이 배열 순서를 슬롯 0~4에 매핑).
+        //      순서를 바꾸면 인게임 슬롯 배치가 바뀌므로 주의.
+        //   ⚠️ 빙결/둔화/회복은 타입 C 상태효과 실기 테스트용 플레이스홀더다(테스트 후 제거 가능).
+        //      · 빙결(Freeze)   : statusKind=Freeze, magnitude 무시(강도 무관), 적 전체, 지속 3s.
+        //      · 둔화(MoveSpeedMul): magnitude=0.5(이속 절반), 적 전체, 지속 5s.
+        //      · 회복(HealOverTime): magnitude=총 회복량(×10 스케일 감안 200), 아군 전체, 지속 5s.
+        //      셋 다 즉시발동(Instant)·조준 없음·글로벌 쿨다운 15s.
         private static readonly Dictionary<RaceId, SkillSpec[]> RaceSkills = new Dictionary<RaceId, SkillSpec[]>
         {
             [RaceId.Human] = new[]
             {
-                new SkillSpec { fileName = "Skill_Human_Bomb", aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.InstantAreaDamage, cooldown = 10f, radius = 2.0f, duration = 0f,  totalDamage = 150, damagePerSecond = 0f },
-                new SkillSpec { fileName = "Skill_Human_Dot",  aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.AreaDotDamage,     cooldown = 12f, radius = 2.0f, duration = 4f,  totalDamage = 0,   damagePerSecond = 40f },
-                // 타입 C 플레이스홀더 — 전역 아군 공격력 버프(즉시 발동, 조준 없음). statusKind 2 = AttackPowerMul, magnitude 1.5 = 공격력 1.5배.
-                new SkillSpec { fileName = "Skill_Human_Buff", aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 8f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.AttackPowerMul, magnitude = 1.5f, targetsAllies = true },
+                // 슬롯1 — 폭탄(타입 A, 즉발 범위 피해). 지점 지정.
+                new SkillSpec { fileName = "Skill_Human_Bomb",   aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.InstantAreaDamage, cooldown = 10f, radius = 2.0f, duration = 0f, totalDamage = 150, damagePerSecond = 0f },
+                // 슬롯2 — 빙결(타입 C). 적 전체 이동0+공격불가. 강도(magnitude) 무시.
+                new SkillSpec { fileName = "Skill_Human_Freeze", aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 3f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.Freeze,         magnitude = 0f,    targetsAllies = false },
+                // 슬롯3 — 공격버프(타입 C). 아군 전체 공격력 1.5배.
+                new SkillSpec { fileName = "Skill_Human_Buff",   aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 8f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.AttackPowerMul, magnitude = 1.5f,  targetsAllies = true },
+                // 슬롯4 — 둔화(타입 C). 적 전체 이동속도 0.5배.
+                new SkillSpec { fileName = "Skill_Human_Slow",   aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 5f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.MoveSpeedMul,   magnitude = 0.5f,  targetsAllies = false },
+                // 슬롯5 — 회복(타입 C). 아군 전체 지속 회복(총량 200, ×10 스케일).
+                new SkillSpec { fileName = "Skill_Human_Heal",   aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 5f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.HealOverTime,   magnitude = 200f,  targetsAllies = true },
             },
             [RaceId.Spirit] = new[]
             {
-                new SkillSpec { fileName = "Skill_Spirit_Bomb", aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.InstantAreaDamage, cooldown = 10f, radius = 2.0f, duration = 0f,  totalDamage = 150, damagePerSecond = 0f },
-                new SkillSpec { fileName = "Skill_Spirit_Dot",  aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.AreaDotDamage,     cooldown = 12f, radius = 2.0f, duration = 4f,  totalDamage = 0,   damagePerSecond = 40f },
-                // 타입 C 플레이스홀더 — 전역 아군 공격력 버프.
-                new SkillSpec { fileName = "Skill_Spirit_Buff", aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 8f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.AttackPowerMul, magnitude = 1.5f, targetsAllies = true },
+                new SkillSpec { fileName = "Skill_Spirit_Bomb",   aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.InstantAreaDamage, cooldown = 10f, radius = 2.0f, duration = 0f, totalDamage = 150, damagePerSecond = 0f },
+                new SkillSpec { fileName = "Skill_Spirit_Freeze", aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 3f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.Freeze,         magnitude = 0f,    targetsAllies = false },
+                new SkillSpec { fileName = "Skill_Spirit_Buff",   aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 8f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.AttackPowerMul, magnitude = 1.5f,  targetsAllies = true },
+                new SkillSpec { fileName = "Skill_Spirit_Slow",   aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 5f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.MoveSpeedMul,   magnitude = 0.5f,  targetsAllies = false },
+                new SkillSpec { fileName = "Skill_Spirit_Heal",   aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 5f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.HealOverTime,   magnitude = 200f,  targetsAllies = true },
             },
             [RaceId.Transcendence] = new[]
             {
-                new SkillSpec { fileName = "Skill_Trans_Bomb", aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.InstantAreaDamage, cooldown = 10f, radius = 2.0f, duration = 0f,  totalDamage = 150, damagePerSecond = 0f },
-                new SkillSpec { fileName = "Skill_Trans_Dot",  aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.AreaDotDamage,     cooldown = 12f, radius = 2.0f, duration = 4f,  totalDamage = 0,   damagePerSecond = 40f },
-                // 타입 C 플레이스홀더 — 전역 아군 공격력 버프.
-                new SkillSpec { fileName = "Skill_Trans_Buff", aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 8f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.AttackPowerMul, magnitude = 1.5f, targetsAllies = true },
+                new SkillSpec { fileName = "Skill_Trans_Bomb",   aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.InstantAreaDamage, cooldown = 10f, radius = 2.0f, duration = 0f, totalDamage = 150, damagePerSecond = 0f },
+                new SkillSpec { fileName = "Skill_Trans_Freeze", aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 3f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.Freeze,         magnitude = 0f,    targetsAllies = false },
+                new SkillSpec { fileName = "Skill_Trans_Buff",   aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 8f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.AttackPowerMul, magnitude = 1.5f,  targetsAllies = true },
+                new SkillSpec { fileName = "Skill_Trans_Slow",   aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 5f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.MoveSpeedMul,   magnitude = 0.5f,  targetsAllies = false },
+                new SkillSpec { fileName = "Skill_Trans_Heal",   aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 5f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.HealOverTime,   magnitude = 200f,  targetsAllies = true },
             },
         };
 
