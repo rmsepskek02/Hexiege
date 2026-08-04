@@ -96,6 +96,19 @@ namespace Hexiege.Application
         // ====================================================================
         private UnitUpgradeUseCase _upgrade;
 
+        // ====================================================================
+        // [Phase 2 · 스킬] 상태효과 시스템 — 타입 C 스킬 버프/디버프/제어의 유효 스탯 배율·공격 게이트 조회.
+        //   GameBootstrapper가 SetStatusEffectSystem으로 주입한다(미주입 시 전부 무효과 — 기존 전투와 동일).
+        //   유효 스탯 접근자(EffectiveAttack/GetUnitMoveSpeedMultiplier)와 CanAttack 게이트가 이 시스템을 참조한다.
+        // ====================================================================
+        private StatusEffectSystem _statusSystem;
+
+        // 타입 C 상태를 서버 권위로 부여했을 때 발화되는 이벤트(멀티 클라 재현용).
+        //   NetworkSkillController(서버)가 구독해 상태 부여를 양 클라에 브로드캐스트한다
+        //   (UnitUpgradeUseCase.OnResearchCompleted와 동일한 App→Infra 의존성 역전 패턴).
+        //   인자: (대상 팀, 상태 종류, 강도, 지속시간). 회복(HealOverTime)은 HP가 이미 동기화되므로 발화하지 않는다.
+        public event System.Action<TeamId, StatusEffectKind, float, float> OnGlobalStatusApplied;
+
         // 자연회복(초월 전용) 팀별 소수점 누적기 — 매초 정수 HP로 반영(ResourceUseCase 수입 누적과 동일 패턴).
         // 힐(_activeTimedEffects)과 완전히 분리된 독립 채널이다(규칙 7 — 상호 덮어쓰기 금지).
         private float _regenAccumBlue;
@@ -245,27 +258,62 @@ namespace Hexiege.Application
         }
 
         /// <summary>
-        /// 공격자의 "유효 공격력" = 기본 공격력 + 팀 공격 연구 증가치.
-        /// _upgrade 미주입 시 기본 공격력 그대로(하위호환).
+        /// 타입 C 스킬 상태효과 시스템을 주입한다. GameBootstrapper(조합 루트)에서 게임 시작 시 1회 호출.
+        /// 미주입(null) 상태에서는 모든 상태 배율이 1, 공격 게이트가 항상 통과 → 기존 전투와 완전히 동일(하위호환).
+        /// </summary>
+        /// <param name="statusSystem">유닛별 상태효과 시스템.</param>
+        public void SetStatusEffectSystem(StatusEffectSystem statusSystem)
+        {
+            _statusSystem = statusSystem;
+        }
+
+        /// <summary>
+        /// 공격자의 "유효 공격력" = 기본 공격력 × 팀 공격 연구 배율 × 상태 공격 배율(곱연산 — 확정 9-4).
+        /// _upgrade 미주입 시 기본 공격력, _statusSystem 미주입/무상태 시 상태 배율 1 → 기존과 동일(하위호환).
         /// </summary>
         private int EffectiveAttack(UnitData attacker)
         {
             if (attacker == null) return 0;
-            return _upgrade != null
+
+            int baseAttack = _upgrade != null
                 ? _upgrade.GetEffectiveAttack(attacker.Team, attacker.Type)
                 : attacker.AttackPower;
+
+            // [스킬] 상태 공격 배율 합성(버프 m>1 / 디버프 m<1). 무상태면 1 → baseAttack 그대로.
+            if (_statusSystem == null) return baseAttack;
+            float statusMul = _statusSystem.GetAttackMultiplier(attacker.Id);
+            if (statusMul == 1f) return baseAttack; // 무변경 보장(부동소수 개입 없음).
+            return Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul));
         }
 
         /// <summary>
-        /// 유닛의 이동속도 배율(연구 기반)을 반환한다. Presentation(UnitView)이 실제 이동 속도 산출에 곱한다.
-        /// _upgrade 미주입 시 1.0(무배율 — 기존 동작).
+        /// 유닛의 이동속도 배율 = 팀 이동 연구 배율 × 상태 이동 배율(곱연산 — 확정 9-4·9-5).
+        /// Presentation(UnitView)이 실제 이동 속도 산출에 곱한다. 빙결(Freeze) 상태면 상태 배율이 0 → 완전 정지.
+        /// _upgrade 미주입 시 연구 배율 1, _statusSystem 미주입/무상태 시 상태 배율 1 → 기존과 동일(하위호환).
         /// </summary>
         /// <param name="unit">이동 중인 유닛.</param>
-        /// <returns>기본 이동속도에 곱할 배율(1.000 ~ 1.320).</returns>
+        /// <returns>기본 이동속도에 곱할 배율(0 = 빙결, 1.000 ~ 1.320 = 무상태/연구).</returns>
         public float GetUnitMoveSpeedMultiplier(UnitData unit)
         {
-            if (unit == null || _upgrade == null) return 1f;
-            return _upgrade.GetMoveSpeedMultiplier(unit.Team, unit.Type);
+            if (unit == null) return 1f;
+
+            float mul = _upgrade != null ? _upgrade.GetMoveSpeedMultiplier(unit.Team, unit.Type) : 1f;
+
+            // [스킬] 상태 이동 배율 합성(둔화 0<m<1 / 빙결 0). 무상태면 1 → 연구 배율 그대로.
+            if (_statusSystem != null) mul *= _statusSystem.GetMoveSpeedMultiplier(unit.Id);
+            return mul;
+        }
+
+        /// <summary>
+        /// 유닛이 지금 공격할 수 있는지(신규 게이트 — 규칙 13). 빙결/기절 상태면 false를 반환해 공격을 봉쇄한다.
+        /// _statusSystem 미주입/무상태 시 항상 true → 기존 전투와 완전히 동일(하위호환).
+        /// </summary>
+        /// <param name="unit">공격 시도 유닛.</param>
+        /// <returns>공격 가능하면 true, 빙결/기절이면 false.</returns>
+        public bool CanAttack(UnitData unit)
+        {
+            if (unit == null) return false;
+            return _statusSystem == null || _statusSystem.CanAttack(unit.Id);
         }
 
         /// <summary>
@@ -393,6 +441,9 @@ namespace Hexiege.Application
             // HitFrameTimes 배열의 각 타이머 후 ApplyAttackDamage를 호출하는 것이 규칙.
             // HOST(서버)도 TryAttack을 통해 즉시 데미지를 주면 규칙 2 위반(이중 데미지 + 타이밍 불일치).
             if (NetworkContext.IsNetworkActive) return null;
+
+            // [스킬] 빙결/기절 상태면 공격 불가(규칙 13). 무상태면 항상 통과 → 기존과 동일.
+            if (!CanAttack(attacker)) return null;
 
             // 쿨다운 중이면 공격 불가
             if (attacker.AttackCooldownRemaining > 0f) return null;
@@ -1652,6 +1703,51 @@ namespace Hexiege.Application
                 // 무감쇄 DoT — ApplyDamageOverTime은 ComputeFinalDamage를 우회하므로 자동으로 방어 미적용.
                 ApplyDamageOverTime(null, victim, damagePerSecond, duration, BlastDotTickInterval);
             }
+        }
+
+        /// <summary>
+        /// 타입 C — 전역 상태변경(버프/디버프/제어/회복). 지정 팀의 살아있는 유닛 전체에 상태효과를 부여한다.
+        /// 조준 없음(전역 즉시). 회복(HealOverTime)은 기존 HoT를 재사용하고, 그 외는 상태 시스템에 담는다.
+        ///
+        /// 멀티플레이 동기화(규칙 25):
+        ///   서버 권위 발동(raiseNetworkEvent=true)이면 상태 부여 후 OnGlobalStatusApplied를 발화한다.
+        ///   NetworkSkillController(서버)가 이를 구독해 양 클라에 브로드캐스트하고, 각 클라는
+        ///   raiseNetworkEvent=false로 이 메서드를 다시 호출해 자기 유닛에 상태를 재현한다(유효 스탯 재계산).
+        ///   회복은 HP가 이미 NetworkHealthSync로 동기화되므로 브로드캐스트하지 않는다(이중 힐 방지).
+        /// </summary>
+        /// <param name="team">상태를 부여할 대상 팀(실행기가 아군/적 판정을 마친 결과).</param>
+        /// <param name="kind">상태 종류(공격 배율/이속 배율/빙결/기절/지속 회복).</param>
+        /// <param name="magnitude">강도(배율 또는 회복량 — ×10 스케일).</param>
+        /// <param name="duration">지속시간(초).</param>
+        /// <param name="raiseNetworkEvent">서버 권위 발동이면 true(멀티 브로드캐스트 트리거). 클라 재현 호출이면 false.</param>
+        public void ApplySkillGlobalStatus(TeamId team, StatusEffectKind kind, float magnitude, float duration, bool raiseNetworkEvent)
+        {
+            if (duration <= 0f || kind == StatusEffectKind.None) return;
+
+            // 대상 팀의 살아있는 유닛 전체 순회.
+            foreach (var unit in _unitSpawn.Units.Values)
+            {
+                if (unit == null || !unit.IsAlive) continue;
+                if (unit.Team != team) continue;
+
+                if (kind == StatusEffectKind.HealOverTime)
+                {
+                    // 회복은 기존 HoT 재사용 — 총 회복량 = magnitude(×10 스케일), 지속 = duration.
+                    //   HP는 OnEntityHealed → NetworkHealthSync가 동기화하므로 상태 시스템에 담지 않는다.
+                    int healAmount = Mathf.Max(0, Mathf.RoundToInt(magnitude));
+                    if (healAmount > 0)
+                        ApplyTimedEffect(null, unit, TimedEffectKind.Heal, healAmount, duration);
+                }
+                else
+                {
+                    // 버프/디버프/제어 — 상태 시스템에 부여(유효 스탯 접근자가 배율/게이트로 합성).
+                    _statusSystem?.Apply(unit.Id, new StatusEffect(kind, magnitude, duration, team));
+                }
+            }
+
+            // 멀티 클라 재현용 브로드캐스트 트리거(서버 권위 발동만). 회복은 HP 동기화로 충분해 발화하지 않는다.
+            if (raiseNetworkEvent && kind != StatusEffectKind.HealOverTime)
+                OnGlobalStatusApplied?.Invoke(team, kind, magnitude, duration);
         }
 
         /// <summary>

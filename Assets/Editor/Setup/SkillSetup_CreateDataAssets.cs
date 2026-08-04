@@ -56,6 +56,11 @@ namespace Hexiege.EditorTools
             public float duration;
             public int totalDamage;      // 타입 A(즉발) — ×10 스케일 플레이스홀더.
             public float damagePerSecond; // 타입 B(장판 DoT) — ×10 스케일 플레이스홀더.
+
+            // ── 타입 C(전역 상태변경) 필드 — Phase 2 ──
+            public int statusKind;       // StatusEffectKind 정수 코드(2=공격력 배율 등). 타입 A·B는 0.
+            public float magnitude;      // 강도(배율·회복량 등). 타입 A·B는 0.
+            public bool targetsAllies;   // true=아군(버프)/false=적(디버프). 타입 A·B는 false.
         }
 
         // 종족별 스킬 정의(각 종족: 타입 A 폭격 1 + 타입 B 장판 DoT 1). 전부 플레이스홀더 수치.
@@ -65,16 +70,22 @@ namespace Hexiege.EditorTools
             {
                 new SkillSpec { fileName = "Skill_Human_Bomb", aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.InstantAreaDamage, cooldown = 10f, radius = 2.0f, duration = 0f,  totalDamage = 150, damagePerSecond = 0f },
                 new SkillSpec { fileName = "Skill_Human_Dot",  aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.AreaDotDamage,     cooldown = 12f, radius = 2.0f, duration = 4f,  totalDamage = 0,   damagePerSecond = 40f },
+                // 타입 C 플레이스홀더 — 전역 아군 공격력 버프(즉시 발동, 조준 없음). statusKind 2 = AttackPowerMul, magnitude 1.5 = 공격력 1.5배.
+                new SkillSpec { fileName = "Skill_Human_Buff", aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 8f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.AttackPowerMul, magnitude = 1.5f, targetsAllies = true },
             },
             [RaceId.Spirit] = new[]
             {
                 new SkillSpec { fileName = "Skill_Spirit_Bomb", aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.InstantAreaDamage, cooldown = 10f, radius = 2.0f, duration = 0f,  totalDamage = 150, damagePerSecond = 0f },
                 new SkillSpec { fileName = "Skill_Spirit_Dot",  aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.AreaDotDamage,     cooldown = 12f, radius = 2.0f, duration = 4f,  totalDamage = 0,   damagePerSecond = 40f },
+                // 타입 C 플레이스홀더 — 전역 아군 공격력 버프.
+                new SkillSpec { fileName = "Skill_Spirit_Buff", aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 8f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.AttackPowerMul, magnitude = 1.5f, targetsAllies = true },
             },
             [RaceId.Transcendence] = new[]
             {
                 new SkillSpec { fileName = "Skill_Trans_Bomb", aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.InstantAreaDamage, cooldown = 10f, radius = 2.0f, duration = 0f,  totalDamage = 150, damagePerSecond = 0f },
                 new SkillSpec { fileName = "Skill_Trans_Dot",  aim = SkillAimType.PointTarget, mechanic = SkillMechanicType.AreaDotDamage,     cooldown = 12f, radius = 2.0f, duration = 4f,  totalDamage = 0,   damagePerSecond = 40f },
+                // 타입 C 플레이스홀더 — 전역 아군 공격력 버프.
+                new SkillSpec { fileName = "Skill_Trans_Buff", aim = SkillAimType.Instant, mechanic = SkillMechanicType.GlobalStatusChange, cooldown = 15f, radius = 0f, duration = 8f, totalDamage = 0, damagePerSecond = 0f, statusKind = (int)StatusEffectKind.AttackPowerMul, magnitude = 1.5f, targetsAllies = true },
             },
         };
 
@@ -155,7 +166,10 @@ namespace Hexiege.EditorTools
             SetFloat(so, "_duration", spec.duration);
             SetInt(so, "_totalDamage", spec.totalDamage);
             SetFloat(so, "_damagePerSecond", spec.damagePerSecond);
-            // 타입 C(상태변경) 필드는 Phase 2용 — 플레이스홀더는 기본값(0/false) 유지.
+            // 타입 C(상태변경) 필드 — 타입 A·B는 0/false, 타입 C 버프는 위 스펙 값(공격력 배율 등).
+            SetInt(so, "_statusKind", spec.statusKind);
+            SetFloat(so, "_magnitude", spec.magnitude);
+            SetBool(so, "_targetsAllies", spec.targetsAllies);
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(def);
         }
@@ -238,6 +252,13 @@ namespace Hexiege.EditorTools
             SerializedProperty p = so.FindProperty(field);
             if (p == null) { Debug.LogError($"[Skill Setup] 필드 '{field}' 없음."); return; }
             p.intValue = value;
+        }
+
+        private static void SetBool(SerializedObject so, string field, bool value)
+        {
+            SerializedProperty p = so.FindProperty(field);
+            if (p == null) { Debug.LogError($"[Skill Setup] 필드 '{field}' 없음."); return; }
+            p.boolValue = value;
         }
 
         /// <summary> "Assets/A/B/C" 폴더를 단계별로 확인·생성(AssetDatabase 추적). </summary>

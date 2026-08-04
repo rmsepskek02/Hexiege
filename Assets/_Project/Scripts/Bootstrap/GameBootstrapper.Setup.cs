@@ -346,6 +346,15 @@ namespace Hexiege.Bootstrap
             _towerCombat.SetUpgradeUseCase(_unitUpgrade);
 
             // ────────────────────────────────────────────────────────────
+            // [스킬 - 타입 C] 상태효과 시스템 — 유닛별 버프/디버프/제어(빙결·둔화·공격 배율) 보관·틱.
+            //   유효 스탯 접근자(EffectiveAttack/GetUnitMoveSpeedMultiplier)와 CanAttack 게이트가 참조하도록 주입.
+            //   미주입 시 전투는 기존과 완전히 동일(무상태=배율 1·공격 가능) — 회귀 안전.
+            //   틱: 싱글=GameBootstrapper.Update / 멀티 서버=NetworkCombatController / 멀티 클라 미러=Update.
+            // ────────────────────────────────────────────────────────────
+            _statusEffectSystem = new StatusEffectSystem();
+            _unitCombat.SetStatusEffectSystem(_statusEffectSystem);
+
+            // ────────────────────────────────────────────────────────────
             // [스킬 건물] 스킬 발동 UseCase — 발동 재검증·실행·글로벌 쿨다운 보관(서버 권위).
             //   데이터 제공자(_skillLoadoutConfig)는 미연결 시 null → Activate가 조용히 실패(안전).
             //   팀 → 종족 변환은 TowerCombatUseCase와 동일 규칙(Blue→BlueRace, Red→RedRace).

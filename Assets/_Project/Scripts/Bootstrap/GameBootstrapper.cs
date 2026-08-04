@@ -195,6 +195,7 @@ namespace Hexiege.Bootstrap
         private TowerCombatUseCase _towerCombat;
         private UnitUpgradeUseCase _unitUpgrade;
         private SkillActivationUseCase _skillActivation;
+        private StatusEffectSystem _statusEffectSystem;
         private BuildingPlacementUseCase _buildingPlacement;
         private ResourceUseCase _resource;
         private PopulationUseCase _population;
@@ -355,6 +356,13 @@ namespace Hexiege.Bootstrap
         public SkillActivationUseCase GetSkillActivationUseCase() => _skillActivation;
 
         /// <summary>
+        /// 현재 StatusEffectSystem 반환(타입 C 스킬 상태효과).
+        /// 서버(NetworkCombatController)가 상태 틱 구동에, NetworkSkillController가 멀티 클라 재현에 사용.
+        /// 맵 로드 전이면 null.
+        /// </summary>
+        public StatusEffectSystem GetStatusEffectSystem() => _statusEffectSystem;
+
+        /// <summary>
         /// UnitFactory를 IUnitFactory 인터페이스로 반환.
         /// IGameServices 계약 상 IUnitFactory를 반환하므로,
         /// Infrastructure(UnitFactory)에 Application이 직접 의존하지 않는다.
@@ -498,6 +506,17 @@ namespace Hexiege.Bootstrap
                 (!IsNetworkMode() || !NetworkContext.IsNetworkServer))
             {
                 _skillActivation.TickCooldowns(Time.deltaTime);
+            }
+
+            // [스킬 - 타입 C] 상태효과(버프/디버프/제어) 지속시간 감소.
+            //   - 싱글: 여기서 감소(권위).
+            //   - 멀티 서버(호스트): NetworkCombatController.TickCombat이 감소(권위) → 여기선 스킵.
+            //   - 멀티 순수 클라: 서버 전투 틱이 없으므로 재현된 상태 미러를 여기서 감소(만료 동기화).
+            //   가드는 쿨다운 틱과 동일(이중 틱 금지).
+            if (_statusEffectSystem != null &&
+                (!IsNetworkMode() || !NetworkContext.IsNetworkServer))
+            {
+                _statusEffectSystem.Tick(Time.deltaTime);
             }
 
             // ────────────────────────────────────────────────────────────────

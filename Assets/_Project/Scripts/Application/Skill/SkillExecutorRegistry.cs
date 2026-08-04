@@ -6,10 +6,10 @@
 //   스킬의 실행 방식(A/B/C)에 맞는 실행기를 조회한다. 등록되지 않은 타입은 null을 반환하며,
 //   SkillActivationUseCase는 실행을 건너뛴다(발동 무효).
 //
-// 이번 범위(Phase 1):
-//   타입 A(InstantAreaDamage) → InstantAreaDamageExecutor
-//   타입 B(AreaDotDamage)     → AreaDotDamageExecutor
-//   타입 C(GlobalStatusChange)는 Phase 2에서 GlobalStatusChangeExecutor를 여기 한 줄 추가 등록한다(미구현).
+// 등록 현황:
+//   타입 A(InstantAreaDamage)  → InstantAreaDamageExecutor  (Phase 1)
+//   타입 B(AreaDotDamage)      → AreaDotDamageExecutor      (Phase 1)
+//   타입 C(GlobalStatusChange) → GlobalStatusChangeExecutor (Phase 2 — 전역 상태변경)
 //
 // 왜 인스펙터 배선이 아닌 코드 등록인가:
 //   SkillMechanicType 키 매핑이라 ScriptableObject/인스펙터 배선이 필요 없다.
@@ -33,7 +33,7 @@ namespace Hexiege.Application
             = new Dictionary<SkillMechanicType, ISkillExecutor>();
 
         /// <summary>
-        /// 기본 실행기들을 등록한다. Phase 1은 타입 A·B만 등록한다(타입 C는 Phase 2).
+        /// 기본 실행기들을 등록한다(타입 A·B·C). 실행기는 상태가 없어 UseCase가 내부에서 1회 생성한다.
         /// </summary>
         public SkillExecutorRegistry()
         {
@@ -43,8 +43,10 @@ namespace Hexiege.Application
             // 타입 B — 범위 지속 피해(장판).
             _executors[SkillMechanicType.AreaDotDamage] = new AreaDotDamageExecutor();
 
-            // TODO(Phase 2): 타입 C 실행기 등록.
-            //   _executors[SkillMechanicType.GlobalStatusChange] = new GlobalStatusChangeExecutor(...);
+            // 타입 C — 전역 상태변경(버프/디버프/제어/회복). 조준 없음(전역 즉시).
+            //   실제 유닛 순회·상태 부여·회복은 SkillActivationContext의 상태 부여 델리게이트를 통해
+            //   UnitCombatUseCase가 담당한다(서버 권위). 실행기는 스킬 데이터만 읽는다.
+            _executors[SkillMechanicType.GlobalStatusChange] = new GlobalStatusChangeExecutor();
         }
 
         /// <summary>

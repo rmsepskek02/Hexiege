@@ -52,6 +52,11 @@ namespace Hexiege.Application
         //   UnitCombatUseCase.ApplySkillAreaDot을 그대로 넘겨받는다.
         private readonly Action<TeamId, Vector3, float, float, float> _areaDot;
 
+        // 전역 상태변경(타입 C)을 적용하는 델리게이트.
+        //   인자: (대상 팀, 상태 종류, 강도, 지속시간). 대상 팀은 실행기가 아군/적 판정을 마친 결과다.
+        //   UnitCombatUseCase.ApplySkillGlobalStatus를 그대로 넘겨받는다(유닛 순회·상태 부여·회복 위임).
+        private readonly Action<TeamId, StatusEffectKind, float, float> _globalStatus;
+
         /// <summary>
         /// 컨텍스트 생성.
         /// </summary>
@@ -62,6 +67,7 @@ namespace Hexiege.Application
         /// <param name="hasAim">조준 좌표 유효 여부.</param>
         /// <param name="instantAreaDamage">타입 A 즉발 범위 피해 적용 델리게이트.</param>
         /// <param name="areaDot">타입 B 범위 지속 피해 적용 델리게이트.</param>
+        /// <param name="globalStatus">타입 C 전역 상태변경 적용 델리게이트.</param>
         public SkillActivationContext(
             SkillData skill,
             TeamId casterTeam,
@@ -69,7 +75,8 @@ namespace Hexiege.Application
             Vector3 aimWorld,
             bool hasAim,
             Action<TeamId, Vector3, float, int, int> instantAreaDamage,
-            Action<TeamId, Vector3, float, float, float> areaDot)
+            Action<TeamId, Vector3, float, float, float> areaDot,
+            Action<TeamId, StatusEffectKind, float, float> globalStatus)
         {
             Skill = skill;
             CasterTeam = casterTeam;
@@ -78,6 +85,7 @@ namespace Hexiege.Application
             HasAim = hasAim;
             _instantAreaDamage = instantAreaDamage;
             _areaDot = areaDot;
+            _globalStatus = globalStatus;
         }
 
         /// <summary>
@@ -103,6 +111,19 @@ namespace Hexiege.Application
         public void ApplyAreaDot(Vector3 center, float radius, float damagePerSecond, float duration)
         {
             _areaDot?.Invoke(CasterTeam, center, radius, damagePerSecond, duration);
+        }
+
+        /// <summary>
+        /// 타입 C — 지정한 팀(아군/적)의 유닛 전체에 상태효과를 부여한다(전역 즉시, 조준 없음).
+        /// 실제 유닛 순회·상태 부여·회복(HoT) 위임은 UnitCombatUseCase가 담당한다(서버 권위).
+        /// </summary>
+        /// <param name="targetTeam">상태를 부여할 대상 팀(실행기가 아군/적 판정을 마친 결과).</param>
+        /// <param name="kind">상태 종류(공격 배율/이속 배율/빙결/지속 회복 등).</param>
+        /// <param name="magnitude">강도(배율·회복량 등).</param>
+        /// <param name="duration">지속시간(초).</param>
+        public void ApplyGlobalStatus(TeamId targetTeam, StatusEffectKind kind, float magnitude, float duration)
+        {
+            _globalStatus?.Invoke(targetTeam, kind, magnitude, duration);
         }
     }
 }
