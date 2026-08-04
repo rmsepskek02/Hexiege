@@ -367,39 +367,46 @@ namespace Hexiege.EditorTools
         // ====================================================================
 
         /// <summary>
-        /// SkillAimReticle(조준 범위 원)을 월드 오브젝트로 멱등 생성한다(아트 플레이스홀더 — Ring 자식).
+        /// SkillAimReticle(착탄 범위 조준원)을 월드 오브젝트로 멱등 생성한다(도식 룩: 반투명 채움 + 링 + 중앙 점).
+        /// 루트를 X축 90도로 눕혀 지도(XZ 평면)에 깔고, 자식 SpriteRenderer 3겹(Ring/Fill/Dot)을 배선한다.
+        /// 색·크기·타원은 SkillAimReticle의 Inspector 필드로 조절되며, 여기서는 구조·스프라이트만 만든다.
         /// </summary>
         private static SkillAimReticle BuildReticle()
         {
             GameObject root = GameObject.Find("SkillAimReticle");
             if (root == null) root = new GameObject("SkillAimReticle");
+            // 지도(XZ 평면)에 눕도록 X축 90도 회전(컴포넌트도 Show/Awake에서 보장하지만 에디터에서도 눕혀 둔다).
+            root.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
 
-            // 링(원) 자식 — 지름 1(반경 0.5) 기준. 아트는 사용자가 SpriteRenderer/메시로 채운다.
-            Transform ringT = root.transform.Find("Ring");
-            GameObject ring;
-            if (ringT == null)
-            {
-                ring = new GameObject("Ring");
-                ring.transform.SetParent(root.transform, false);
-                ring.AddComponent<SpriteRenderer>();
-            }
-            else ring = ringT.gameObject;
+            // 임시 내장 스프라이트(채워진 원) — 정식 아트 전 화면에 실제로 보이게 한다. 실패 시 방어적 스킵.
+            //   3겹(Ring/Fill/Dot) 모두 같은 원 스프라이트를 쓰고, 크기·색은 컴포넌트가 구분해 적용한다.
+            Sprite circle = LoadBuiltinSprite("UI/Skin/Knob.psd", "UI/Skin/UISprite.psd");
 
-            // 임시 내장 스프라이트 — 정식 조준 원 아트로 교체 전, 화면에 실제로 보이게 한다.
-            //   Unity 내장 Knob(채워진 원)을 임시로 넣는다. 테스트용이라 링이 아니어도 무방하며,
-            //   반투명 색으로 두면 조준 범위를 가늠할 수 있다. (내장 스프라이트 로드 실패 시 조용히 스킵.)
-            if (!ring.TryGetComponent(out SpriteRenderer ringRenderer))
-                ringRenderer = ring.AddComponent<SpriteRenderer>();
-            Sprite reticleSprite = LoadBuiltinSprite("UI/Skin/Knob.psd", "UI/Skin/UISprite.psd");
-            if (reticleSprite != null) ringRenderer.sprite = reticleSprite;
-            // 눈에 띄되 아래 지형이 비치도록 반투명 붉은 톤(임시).
-            ringRenderer.color = new Color(1f, 0.35f, 0.35f, 0.4f);
+            SpriteRenderer ring = EnsureReticlePart(root.transform, "Ring", circle);
+            SpriteRenderer fill = EnsureReticlePart(root.transform, "Fill", circle);
+            SpriteRenderer dot = EnsureReticlePart(root.transform, "Dot", circle);
 
             if (!root.TryGetComponent(out SkillAimReticle reticle))
                 reticle = root.AddComponent<SkillAimReticle>();
 
-            Connect(reticle, "_ring", ring.transform);
+            // 3겹 렌더러 배선(색·크기·타원 값은 컴포넌트 Inspector 기본값을 따른다).
+            Connect(reticle, "_ringRenderer", ring);
+            Connect(reticle, "_fillRenderer", fill);
+            Connect(reticle, "_dotRenderer", dot);
             return reticle;
+        }
+
+        /// <summary>
+        /// 조준원 한 겹(SpriteRenderer 자식)을 이름으로 멱등 확보하고 스프라이트를 물린다.
+        /// </summary>
+        private static SpriteRenderer EnsureReticlePart(Transform parent, string name, Sprite sprite)
+        {
+            Transform t = parent.Find(name);
+            GameObject go = t != null ? t.gameObject : new GameObject(name);
+            if (t == null) go.transform.SetParent(parent, false);
+            if (!go.TryGetComponent(out SpriteRenderer sr)) sr = go.AddComponent<SpriteRenderer>();
+            if (sprite != null) sr.sprite = sprite;
+            return sr;
         }
 
         // 취소(X) 버튼 스프라이트 경로(정식 아트).
