@@ -16,12 +16,21 @@ MonoBehaviour:
   - race: 0
     skills:
     - {fileID: 11400000, guid: c6c7bc9aa55758d41b9fa4e464089ca9, type: 2}
-    - {fileID: 11400000, guid: b021672431573a74bb2e3ae0c21c34df, type: 2}
+    - {fileID: 11400000, guid: 5367939842557e44d9802c11b69828cc, type: 2}
+    - {fileID: 11400000, guid: a07a53444f2a1604e9be210d35f0e502, type: 2}
+    - {fileID: 11400000, guid: 025526421c37c05478071a52d0774da4, type: 2}
+    - {fileID: 11400000, guid: 4276e58a3985f994d8ef6bb14670aca6, type: 2}
   - race: 1
     skills:
     - {fileID: 11400000, guid: 1923e9fdc9af9394dbc942bf60e14b71, type: 2}
-    - {fileID: 11400000, guid: d2258cf4053939a49afe42d0a18a4424, type: 2}
+    - {fileID: 11400000, guid: 05e61e3ae298a6d4680a85ee6bbd9269, type: 2}
+    - {fileID: 11400000, guid: fecb8167b10f59d419c8eac4dcc7b3e2, type: 2}
+    - {fileID: 11400000, guid: 2d9ca75dfcabd8c4c9125a9db4e1a197, type: 2}
+    - {fileID: 11400000, guid: dc46cb8374786144daca4f3b499ece4f, type: 2}
   - race: 2
     skills:
     - {fileID: 11400000, guid: 0c8986bde9ef9054e906495b8fa23494, type: 2}
-    - {fileID: 11400000, guid: e2460b77f72a97b418045b12192c33dc, type: 2}
+    - {fileID: 11400000, guid: 5ebc9138a15aaae499f603f32c239424, type: 2}
+    - {fileID: 11400000, guid: f14871fdc23483645be1abbb60024e9b, type: 2}
+    - {fileID: 11400000, guid: 00139b93e50160f4ebac6700e84b6164, type: 2}
+    - {fileID: 11400000, guid: 28c0e481933757b48ab0db4496750f3e, type: 2}

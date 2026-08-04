@@ -1,0 +1,347 @@
+=== RuntimeLogger 디버그 세션 ===
+=== 세션 시작: 2026-08-05 02:28:19 ===
+[02:29:09.256] [INFO] [Skill/UnitCombatUseCase] ApplyGlobal(HoT) | role=Server, team=Blue, targets=10, healPerTarget=200HP, dur=5.00, raiseNet=True
+[02:29:09.559] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=0, kind=Freeze, mag=0, dur=3.00, team=Blue
+[02:29:09.560] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=2, kind=Freeze, mag=0, dur=3.00, team=Blue
+[02:29:09.560] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=22, kind=Freeze, mag=0, dur=3.00, team=Blue
+[02:29:09.561] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=6, kind=Freeze, mag=0, dur=3.00, team=Blue
+[02:29:09.561] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=11, kind=Freeze, mag=0, dur=3.00, team=Blue
+[02:29:09.566] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=23, kind=Freeze, mag=0, dur=3.00, team=Blue
+[02:29:09.566] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=16, kind=Freeze, mag=0, dur=3.00, team=Blue
+[02:29:09.568] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=17, kind=Freeze, mag=0, dur=3.00, team=Blue
+[02:29:09.568] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=19, kind=Freeze, mag=0, dur=3.00, team=Blue
+[02:29:09.568] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=25, kind=Freeze, mag=0, dur=3.00, team=Blue
+[02:29:09.569] [INFO] [Skill/UnitCombatUseCase] ApplyGlobal | role=Server, team=Blue, kind=Freeze, targets=10, mag=0, dur=3.00, raiseNet=True
+[02:29:09.569] [INFO] [Skill/NetworkSkillController] StatusAppliedClientRpc 송신 | role=Server, team=Blue, kind=Freeze, mag=0, dur=3.00
+[02:29:09.570] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=25, statusMul=0.00, effectiveMul=0.00
+[02:29:09.571] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=23, statusMul=0.00, effectiveMul=0.00
+[02:29:09.571] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=22, statusMul=0.00, effectiveMul=0.00
+[02:29:09.571] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=17, statusMul=0.00, effectiveMul=0.00
+[02:29:09.572] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=11, statusMul=0.00, effectiveMul=0.00
+[02:29:09.606] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=0
+[02:29:09.606] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=2
+[02:29:09.607] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=22
+[02:29:09.607] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=6
+[02:29:09.607] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=11
+[02:29:09.607] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=23
+[02:29:09.607] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=16
+[02:29:09.607] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=17
+[02:29:09.608] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=19
+[02:29:09.608] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=25
+[02:29:12.615] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=0
+[02:29:12.616] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=2
+[02:29:12.616] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=22
+[02:29:12.616] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=6
+[02:29:12.616] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=11
+[02:29:12.617] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=23
+[02:29:12.617] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=16
+[02:29:12.617] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=17
+[02:29:12.617] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=19
+[02:29:12.617] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=25
+[02:29:44.656] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=33, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.656] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=36, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.657] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=3, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.658] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=50, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.658] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=54, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.659] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=38, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.659] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=7, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.659] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=48, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.660] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=45, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.660] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=12, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.661] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=42, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.661] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=18, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.661] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=32, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.661] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=21, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.661] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=63, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.662] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=68, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.662] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=26, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.663] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=62, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.664] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=66, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.664] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=60, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.664] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=30, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.665] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=56, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.665] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=39, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.665] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=57, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:29:44.666] [INFO] [Skill/UnitCombatUseCase] ApplyGlobal | role=Server, team=Red, kind=MoveSpeedMul, targets=24, mag=0.5, dur=5.00, raiseNet=True
+[02:29:44.666] [INFO] [Skill/NetworkSkillController] StatusAppliedClientRpc 송신 | role=Server, team=Red, kind=MoveSpeedMul, mag=0.5, dur=5.00
+[02:29:44.667] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=21, statusMul=0.50, effectiveMul=0.50
+[02:29:44.668] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=39, statusMul=0.50, effectiveMul=0.50
+[02:29:44.668] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=26, statusMul=0.50, effectiveMul=0.50
+[02:29:44.668] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=38, statusMul=0.50, effectiveMul=0.50
+[02:29:44.668] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=45, statusMul=0.50, effectiveMul=0.50
+[02:29:44.668] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=68, statusMul=0.50, effectiveMul=0.50
+[02:29:44.669] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=66, statusMul=0.50, effectiveMul=0.50
+[02:29:44.669] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=3, statusMul=0.50, effectiveMul=0.50
+[02:29:44.669] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=63, statusMul=0.50, effectiveMul=0.50
+[02:29:44.669] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=7, statusMul=0.50, effectiveMul=0.50
+[02:29:44.669] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=18, statusMul=0.50, effectiveMul=0.50
+[02:29:44.669] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=62, statusMul=0.50, effectiveMul=0.50
+[02:29:44.670] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=60, statusMul=0.50, effectiveMul=0.50
+[02:29:44.670] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=54, statusMul=0.50, effectiveMul=0.50
+[02:29:44.884] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=53, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Blue
+[02:29:44.884] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=64, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Blue
+[02:29:44.884] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=67, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Blue
+[02:29:44.884] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=65, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Blue
+[02:29:44.886] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=31, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Blue
+[02:29:44.886] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=47, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Blue
+[02:29:44.886] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=59, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Blue
+[02:29:44.887] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=61, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Blue
+[02:29:44.887] [INFO] [Skill/UnitCombatUseCase] ApplyGlobal | role=Server, team=Blue, kind=MoveSpeedMul, targets=8, mag=0.5, dur=5.00, raiseNet=True
+[02:29:44.887] [INFO] [Skill/NetworkSkillController] StatusAppliedClientRpc 송신 | role=Server, team=Blue, kind=MoveSpeedMul, mag=0.5, dur=5.00
+[02:29:44.888] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=67, statusMul=0.50, effectiveMul=0.50
+[02:29:44.888] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=65, statusMul=0.50, effectiveMul=0.50
+[02:29:44.888] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=64, statusMul=0.50, effectiveMul=0.50
+[02:29:44.888] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=59, statusMul=0.50, effectiveMul=0.50
+[02:29:45.126] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=61, statusMul=0.50, effectiveMul=0.50
+[02:29:45.563] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=48, statusMul=0.50, effectiveMul=0.50
+[02:29:46.565] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=53, statusMul=0.50, effectiveMul=0.50
+[02:29:47.222] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=56, statusMul=0.50, effectiveMul=0.50
+[02:29:47.573] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=42, statusMul=0.50, effectiveMul=0.50
+[02:29:47.573] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=57, statusMul=0.50, effectiveMul=0.50
+[02:29:47.913] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=31, statusMul=0.50, effectiveMul=0.50
+[02:29:49.592] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=12, statusMul=0.50, effectiveMul=0.50
+[02:29:49.593] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=36, statusMul=0.50, effectiveMul=0.50
+[02:29:49.708] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=12
+[02:29:49.708] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=45
+[02:29:49.708] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=48
+[02:29:49.708] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=7
+[02:29:49.708] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=38
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=54
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=50
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=3
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=36
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=33
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=42
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=18
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=32
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=21
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=63
+[02:29:49.709] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=68
+[02:29:49.711] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=26
+[02:29:49.711] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=62
+[02:29:49.711] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=66
+[02:29:49.711] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=60
+[02:29:49.711] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=30
+[02:29:49.711] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=56
+[02:29:49.711] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=39
+[02:29:49.711] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=57
+[02:29:49.809] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=53
+[02:29:49.809] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=64
+[02:29:49.810] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=67
+[02:29:49.810] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=65
+[02:29:49.810] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=31
+[02:29:49.810] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=47
+[02:29:49.810] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=59
+[02:29:49.810] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=61
+[02:30:03.137] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=90, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.137] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=84, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.138] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=36, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.138] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=80, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.138] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=54, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.139] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=38, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.139] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=7, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.140] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=72, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.140] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=48, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.140] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=45, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.141] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=12, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.142] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=42, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.142] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=75, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.142] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=18, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.142] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=21, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.143] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=63, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.143] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=68, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.143] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=78, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.144] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=62, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.144] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=66, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.145] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=60, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.145] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=30, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.145] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=74, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.146] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=56, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.146] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=39, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.147] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=69, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.147] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=87, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.148] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=81, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.148] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=86, kind=MoveSpeedMul, mag=0.5, dur=5.00, team=Red
+[02:30:03.148] [INFO] [Skill/UnitCombatUseCase] ApplyGlobal | role=Server, team=Red, kind=MoveSpeedMul, targets=29, mag=0.5, dur=5.00, raiseNet=True
+[02:30:03.149] [INFO] [Skill/NetworkSkillController] StatusAppliedClientRpc 송신 | role=Server, team=Red, kind=MoveSpeedMul, mag=0.5, dur=5.00
+[02:30:03.150] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=80, statusMul=0.50, effectiveMul=0.50
+[02:30:03.150] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=90, statusMul=0.50, effectiveMul=0.50
+[02:30:03.150] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=87, statusMul=0.50, effectiveMul=0.50
+[02:30:03.151] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=86, statusMul=0.50, effectiveMul=0.50
+[02:30:03.151] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=84, statusMul=0.50, effectiveMul=0.50
+[02:30:03.151] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=7, statusMul=0.50, effectiveMul=0.50
+[02:30:03.151] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=78, statusMul=0.50, effectiveMul=0.50
+[02:30:03.151] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=72, statusMul=0.50, effectiveMul=0.50
+[02:30:03.151] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=48, statusMul=0.50, effectiveMul=0.50
+[02:30:03.152] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=66, statusMul=0.50, effectiveMul=0.50
+[02:30:03.152] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=18, statusMul=0.50, effectiveMul=0.50
+[02:30:03.222] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=63, statusMul=0.50, effectiveMul=0.50
+[02:30:03.671] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=81, statusMul=0.50, effectiveMul=0.50
+[02:30:03.671] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=60, statusMul=0.50, effectiveMul=0.50
+[02:30:04.013] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=69, statusMul=0.50, effectiveMul=0.50
+[02:30:04.670] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=42, statusMul=0.50, effectiveMul=0.50
+[02:30:05.216] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=62, statusMul=0.50, effectiveMul=0.50
+[02:30:05.316] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=75, statusMul=0.50, effectiveMul=0.50
+[02:30:05.317] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=21, statusMul=0.50, effectiveMul=0.50
+[02:30:05.317] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=39, statusMul=0.50, effectiveMul=0.50
+[02:30:05.317] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=38, statusMul=0.50, effectiveMul=0.50
+[02:30:05.318] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=45, statusMul=0.50, effectiveMul=0.50
+[02:30:05.523] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=68, statusMul=0.50, effectiveMul=0.50
+[02:30:05.676] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=30, statusMul=0.50, effectiveMul=0.50
+[02:30:05.676] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=12, statusMul=0.50, effectiveMul=0.50
+[02:30:05.677] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=56, statusMul=0.50, effectiveMul=0.50
+[02:30:05.677] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=36, statusMul=0.50, effectiveMul=0.50
+[02:30:05.677] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=74, statusMul=0.50, effectiveMul=0.50
+[02:30:07.681] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=54, statusMul=0.50, effectiveMul=0.50
+[02:30:08.214] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=86
+[02:30:08.214] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=81
+[02:30:08.214] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=87
+[02:30:08.214] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=69
+[02:30:08.215] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=39
+[02:30:08.215] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=56
+[02:30:08.215] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=74
+[02:30:08.215] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=30
+[02:30:08.216] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=60
+[02:30:08.216] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=66
+[02:30:08.216] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=62
+[02:30:08.216] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=78
+[02:30:08.216] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=68
+[02:30:08.216] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=63
+[02:30:08.216] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=21
+[02:30:08.216] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=18
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=75
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=42
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=12
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=45
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=48
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=72
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=7
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=38
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=54
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=80
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=36
+[02:30:08.217] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=84
+[02:30:08.219] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=90
+[02:30:23.304] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=90, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.304] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=84, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.304] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=36, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.304] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=105, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.306] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=80, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.306] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=54, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.306] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=111, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.307] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=7, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.307] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=72, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.308] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=48, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.308] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=92, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.308] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=102, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.309] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=12, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.309] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=42, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.310] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=98, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.310] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=18, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.310] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=104, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.310] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=114, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.311] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=68, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.311] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=78, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.311] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=62, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.312] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=66, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.312] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=60, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.312] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=30, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.313] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=110, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.314] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=69, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.314] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=108, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.314] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=81, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.314] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=86, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.315] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=93, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.315] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=99, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.316] [INFO] [Skill/StatusEffectSystem] Apply | role=Server, unit=96, kind=Freeze, mag=0, dur=3.00, team=Red
+[02:30:23.316] [INFO] [Skill/UnitCombatUseCase] ApplyGlobal | role=Server, team=Red, kind=Freeze, targets=32, mag=0, dur=3.00, raiseNet=True
+[02:30:23.317] [INFO] [Skill/NetworkSkillController] StatusAppliedClientRpc 송신 | role=Server, team=Red, kind=Freeze, mag=0, dur=3.00
+[02:30:23.318] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=86, statusMul=0.00, effectiveMul=0.00
+[02:30:23.318] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=114, statusMul=0.00, effectiveMul=0.00
+[02:30:23.318] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=110, statusMul=0.00, effectiveMul=0.00
+[02:30:23.318] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=108, statusMul=0.00, effectiveMul=0.00
+[02:30:23.318] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=81, statusMul=0.00, effectiveMul=0.00
+[02:30:23.318] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=104, statusMul=0.00, effectiveMul=0.00
+[02:30:23.319] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=102, statusMul=0.00, effectiveMul=0.00
+[02:30:23.319] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=98, statusMul=0.00, effectiveMul=0.00
+[02:30:23.319] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=96, statusMul=0.00, effectiveMul=0.00
+[02:30:23.319] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=90, statusMul=0.00, effectiveMul=0.00
+[02:30:23.319] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=84, statusMul=0.00, effectiveMul=0.00
+[02:30:23.319] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=78, statusMul=0.00, effectiveMul=0.00
+[02:30:23.319] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=68, statusMul=0.00, effectiveMul=0.00
+[02:30:23.319] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=66, statusMul=0.00, effectiveMul=0.00
+[02:30:23.329] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=90
+[02:30:23.329] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=84
+[02:30:23.329] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=36
+[02:30:23.329] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=105
+[02:30:23.329] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=80
+[02:30:23.329] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=54
+[02:30:23.329] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=111
+[02:30:23.329] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=7
+[02:30:23.330] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=72
+[02:30:23.330] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=48
+[02:30:23.330] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=92
+[02:30:23.330] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=102
+[02:30:23.330] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=12
+[02:30:23.330] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=42
+[02:30:23.330] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=98
+[02:30:23.331] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=18
+[02:30:23.331] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=104
+[02:30:23.331] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=114
+[02:30:23.331] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=68
+[02:30:23.331] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=78
+[02:30:23.331] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=62
+[02:30:23.331] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=66
+[02:30:23.331] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=60
+[02:30:23.331] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=30
+[02:30:23.331] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=110
+[02:30:23.333] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=69
+[02:30:23.333] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=108
+[02:30:23.333] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=81
+[02:30:23.333] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=86
+[02:30:23.333] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=93
+[02:30:23.333] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=99
+[02:30:23.333] [INFO] [Skill/UnitCombatUseCase] CanAttack=false(빙결/기절로 공격 봉쇄) | role=Server, unit=96
+[02:30:23.759] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=48, statusMul=0.00, effectiveMul=0.00
+[02:30:23.761] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=7, statusMul=0.00, effectiveMul=0.00
+[02:30:23.761] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=42, statusMul=0.00, effectiveMul=0.00
+[02:30:23.761] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=72, statusMul=0.00, effectiveMul=0.00
+[02:30:23.925] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=69, statusMul=0.00, effectiveMul=0.00
+[02:30:24.763] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=30, statusMul=0.00, effectiveMul=0.00
+[02:30:24.763] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=12, statusMul=0.00, effectiveMul=0.00
+[02:30:24.763] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=36, statusMul=0.00, effectiveMul=0.00
+[02:30:24.763] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=60, statusMul=0.00, effectiveMul=0.00
+[02:30:24.929] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=62, statusMul=0.00, effectiveMul=0.00
+[02:30:25.764] [INFO] [Skill/UnitCombatUseCase] MoveSpeedMul(0=빙결/0<m<1=둔화) | role=Server, unit=18, statusMul=0.00, effectiveMul=0.00
+[02:30:26.308] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=96
+[02:30:26.308] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=99
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=93
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=86
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=81
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=108
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=69
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=110
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=30
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=60
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=66
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=62
+[02:30:26.309] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=78
+[02:30:26.311] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=68
+[02:30:26.311] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=114
+[02:30:26.311] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=104
+[02:30:26.311] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=18
+[02:30:26.311] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=98
+[02:30:26.311] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=42
+[02:30:26.311] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=12
+[02:30:26.312] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=102
+[02:30:26.312] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=92
+[02:30:26.312] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=48
+[02:30:26.312] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=72
+[02:30:26.312] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=7
+[02:30:26.312] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=111
+[02:30:26.312] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=54
+[02:30:26.312] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=80
+[02:30:26.313] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=105
+[02:30:26.313] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=36
+[02:30:26.313] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=84
+[02:30:26.313] [INFO] [Skill/StatusEffectSystem] Expire(모든 상태 만료) | role=Server, unit=90
