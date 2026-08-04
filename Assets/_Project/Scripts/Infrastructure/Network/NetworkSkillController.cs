@@ -41,6 +41,10 @@ namespace Hexiege.Infrastructure
         /// <summary> 게임 서비스 참조(IGameServices로 추상화). 지연 해석. </summary>
         private IGameServices _services;
 
+        // 타입 C 전역 상태 부여 구독 핸들러(해제용). 서버에서만 구독한다.
+        //   UnitCombatUseCase.OnGlobalStatusApplied → 이 핸들러 → StatusAppliedClientRpc 브로드캐스트.
+        private System.Action<TeamId, StatusEffectKind, float, float> _statusHandler;
+
         // ====================================================================
         // 생명주기
         // ====================================================================
@@ -56,7 +60,36 @@ namespace Hexiege.Infrastructure
                 Debug.LogWarning("[Network] NetworkSkillController: GameServicesLocator에 IGameServices가 없습니다(스폰 레이스 가능 — 사용 시점 재조회로 복구 시도).");
             }
 
+            // 서버만 타입 C 상태 부여 훅을 구독해 양 클라 브로드캐스트를 트리거한다.
+            //   스폰 레이스로 services가 아직 null이면 여기선 건너뛰고, 첫 발동 시 EnsureStatusSubscription이 복구한다.
+            EnsureStatusSubscription();
+
             Debug.Log($"[Network] NetworkSkillController 스폰. IsServer={IsServer}");
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            // 상태 부여 구독 해제(재경기/씬 전환 시 중복 구독 방지).
+            if (_statusHandler != null)
+            {
+                UnitCombatUseCase combat = _services?.GetCombatUseCase();
+                if (combat != null) combat.OnGlobalStatusApplied -= _statusHandler;
+                _statusHandler = null;
+            }
+            base.OnNetworkDespawn();
+        }
+
+        /// <summary>
+        /// 서버에서 UnitCombatUseCase.OnGlobalStatusApplied 구독을 보장한다(멱등).
+        /// OnNetworkSpawn 스폰 레이스로 놓쳤을 경우 첫 발동 시점에 복구하기 위해 ServerRpc 진입에서도 호출한다.
+        /// </summary>
+        private void EnsureStatusSubscription()
+        {
+            if (!IsServer || _statusHandler != null) return;
+            UnitCombatUseCase combat = ResolveServices()?.GetCombatUseCase();
+            if (combat == null) return;
+            _statusHandler = OnGlobalStatusAppliedOnServer;
+            combat.OnGlobalStatusApplied += _statusHandler;
         }
 
         /// <summary>
@@ -105,6 +138,10 @@ namespace Hexiege.Infrastructure
             IGameServices services = ResolveServices();
             if (services == null) return;
 
+            // 타입 C 상태 부여 구독 보장(스폰 레이스로 OnNetworkSpawn에서 놓쳤을 경우 여기서 복구).
+            //   반드시 Activate(=상태 부여·이벤트 발화) 전에 구독돼 있어야 브로드캐스트가 유실되지 않는다.
+            EnsureStatusSubscription();
+
             SkillActivationUseCase skill = services.GetSkillActivationUseCase();
             BuildingPlacementUseCase buildings = services.GetBuildingPlacement();
             if (skill == null || buildings == null) return;
@@ -144,6 +181,38 @@ namespace Hexiege.Infrastructure
 
             SkillActivationUseCase skill = ResolveServices()?.GetSkillActivationUseCase();
             skill?.StartCooldownLocal(buildingId, cooldown);
+        }
+
+        // ====================================================================
+        // 타입 C — 전역 상태변경 동기화(서버 → 클라 브로드캐스트)
+        // ====================================================================
+
+        /// <summary>
+        /// 서버에서 타입 C 상태가 부여되면(UnitCombatUseCase.OnGlobalStatusApplied) 호출되어
+        /// 상태 부여를 양 클라에 브로드캐스트한다(연구 완료 브로드캐스트와 동일 사유 — 상대 스킬 효과가 내 화면에도 재현).
+        /// 회복(HealOverTime)은 HP가 이미 NetworkHealthSync로 동기화되므로 UseCase가 이 이벤트를 발화하지 않는다.
+        /// </summary>
+        private void OnGlobalStatusAppliedOnServer(TeamId team, StatusEffectKind kind, float magnitude, float duration)
+        {
+            StatusAppliedClientRpc((int)team, (int)kind, magnitude, duration);
+        }
+
+        /// <summary>
+        /// 서버가 부여한 타입 C 상태를 각 클라이언트가 자기 유닛에 재현한다(유효 스탯 재계산·연출 기반).
+        /// 서버(호스트)는 Activate에서 이미 적용했으므로 스킵한다(이중 적용 방지).
+        /// </summary>
+        /// <param name="teamInt">대상 팀(정수).</param>
+        /// <param name="kindInt">상태 종류(정수 — StatusEffectKind).</param>
+        /// <param name="magnitude">강도.</param>
+        /// <param name="duration">지속시간(초).</param>
+        [ClientRpc]
+        private void StatusAppliedClientRpc(int teamInt, int kindInt, float magnitude, float duration)
+        {
+            if (IsServer) return; // 호스트는 서버 Activate에서 이미 상태를 적용했다.
+
+            UnitCombatUseCase combat = ResolveServices()?.GetCombatUseCase();
+            // raiseNetworkEvent=false: 클라 재현이므로 다시 브로드캐스트하지 않는다(무한 전파 방지).
+            combat?.ApplySkillGlobalStatus((TeamId)teamInt, (StatusEffectKind)kindInt, magnitude, duration, raiseNetworkEvent: false);
         }
     }
 }

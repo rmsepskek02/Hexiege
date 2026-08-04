@@ -136,7 +136,8 @@ namespace Hexiege.Application
                 aim,
                 hasAim,
                 ApplyInstantAreaDamageBridge,
-                ApplyAreaDotBridge);
+                ApplyAreaDotBridge,
+                ApplyGlobalStatusBridge);
             executor.Execute(ctx);
 
             // ⑧ 글로벌 쿨다운 설정(규칙 3).
@@ -154,6 +155,14 @@ namespace Hexiege.Application
         private void ApplyAreaDotBridge(TeamId team, Vector3 center, float radius, float dps, float duration)
         {
             _combat?.ApplySkillAreaDot(team, center, radius, dps, duration);
+        }
+
+        // 실행기(타입 C) → UnitCombatUseCase 다리(델리게이트). 대상 팀 유닛 전체에 상태를 부여한다.
+        //   raiseNetworkEvent=true: 서버 권위 발동이므로 상태 부여를 멀티 클라에 브로드캐스트하도록 이벤트를 발화한다.
+        //   (싱글에서는 구독자가 없어 이벤트가 무시되고, 상태는 이 서버에 이미 적용된다.)
+        private void ApplyGlobalStatusBridge(TeamId team, StatusEffectKind kind, float magnitude, float duration)
+        {
+            _combat?.ApplySkillGlobalStatus(team, kind, magnitude, duration, raiseNetworkEvent: true);
         }
 
         // ====================================================================

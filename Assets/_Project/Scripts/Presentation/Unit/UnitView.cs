@@ -75,6 +75,12 @@ namespace Hexiege.Presentation
         /// </summary>
         private const float RangedAttackThreshold = 1.0f;
 
+        /// <summary>
+        /// [스킬 - 빙결] 이동 배율이 이 값 이하이면 "완전 정지(빙결)"로 간주해 이동 스텝을 멈춘다(규칙 13 · 9-5).
+        /// 상태효과가 없으면 이동 배율은 항상 이 값보다 크므로(연구 1.0~1.32) 이 게이트는 절대 작동하지 않는다(무변경 보장).
+        /// </summary>
+        private const float MoveFreezeEpsilon = 0.0001f;
+
         // ====================================================================
         // HexDirection → Y축 회전 각도 매핑
         // NE(0)=60, E(1)=120, SE(2)=180, SW(3)=240, W(4)=300, NW(5)=0
@@ -947,6 +953,16 @@ namespace Hexiege.Presentation
                     // 사망/소실 체크 — 매 타일 진입 시 안전 장치.
                     if (_unitData == null || !_unitData.IsAlive) break;
 
+                    // [스킬 - 빙결] 이동 배율이 0(빙결)이면 이 타일 경계에서 멈춰 대기한다(규칙 13 · 9-5).
+                    //   유닛은 타일 중심(from)에 정지한 채로 상태가 풀릴 때까지 대기하므로 A* 경로 정합이 유지된다.
+                    //   상태가 없으면 배율은 항상 >0이라 이 while은 절대 진입하지 않는다(무변경 보장).
+                    while (_combatUseCase != null && _unitData != null && _unitData.IsAlive
+                           && _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData) <= MoveFreezeEpsilon)
+                    {
+                        yield return null;
+                    }
+                    if (_unitData == null || !_unitData.IsAlive) break;
+
                     HexCoord from = prevActualTile;
                     HexCoord to = path[i];
 
@@ -1444,8 +1460,15 @@ namespace Hexiege.Presentation
                     transform.rotation = Quaternion.RotateTowards(
                         transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
 
-                    // 적 방향으로 직선 이동 (한 프레임 이동량 = worldSpeed × dt).
-                    transform.position += moveDir.normalized * worldSpeed * Time.deltaTime;
+                    // [스킬 - 빙결] 이동 배율이 0(빙결)이면 이번 프레임 전투 이동을 건너뛴다(정지, 회전은 유지).
+                    //   상태가 없으면 배율은 항상 >0이라 항상 이동한다(무변경 보장).
+                    float pursuitMoveMul = _combatUseCase != null
+                        ? _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData) : 1f;
+                    if (pursuitMoveMul > MoveFreezeEpsilon)
+                    {
+                        // 적 방향으로 직선 이동 (한 프레임 이동량 = worldSpeed × dt).
+                        transform.position += moveDir.normalized * worldSpeed * Time.deltaTime;
+                    }
                 }
 
                 yield return null;

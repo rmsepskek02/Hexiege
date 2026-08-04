@@ -318,6 +318,13 @@ namespace Hexiege.Infrastructure
             // ────────────────────────────────────────────────────────────────
             _services?.GetSkillActivationUseCase()?.TickCooldowns(elapsed);
 
+            // ────────────────────────────────────────────────────────────────
+            // [스킬 - 타입 C] 상태효과(버프/디버프/제어) 지속시간 감소 — 서버 권위(규칙 13·25).
+            //   쿨다운 틱 바로 옆. 싱글은 GameBootstrapper.Update, 멀티 서버는 여기서만 감소한다(이중 틱 금지).
+            //   멀티 순수 클라의 상태 미러는 GameBootstrapper.Update(클라 분기)가 별도로 감소시킨다.
+            // ────────────────────────────────────────────────────────────────
+            _services?.GetStatusEffectSystem()?.Tick(elapsed);
+
             // Dictionary를 순회하면서 타겟 탐색
             // 전투 중 RemoveUnit이 호출될 수 있으므로 키를 미리 복사
             var unitIds = new System.Collections.Generic.List<int>(unitSpawn.Units.Keys);
@@ -372,7 +379,10 @@ namespace Hexiege.Infrastructure
                 //   "적이 없어서"일 수도 있고, "쿨다운 중이어서"일 수도 있음.
                 //   StopCombat은 오직 "적이 없을 때"만 전송해야 하므로
                 //   HasEnemyInRange로 실제 적 존재 여부를 별도 확인.
-                var attackResult = combat.TryFindTarget(unit);
+                // [스킬] 빙결/기절 상태면 공격 불가(규칙 13) — 타겟을 찾지 않아 데미지를 주지 않는다.
+                //   HasEnemyInRange는 여전히 참일 수 있어 전투 애니메이션(적을 향한 자세)은 유지되지만
+                //   실제 데미지(ExecuteAttack)는 발생하지 않는다. 무상태면 CanAttack=true → 기존과 동일.
+                var attackResult = combat.CanAttack(unit) ? combat.TryFindTarget(unit) : null;
                 bool hasEnemy = attackResult.HasValue || combat.HasEnemyInRange(unit);
 
                 if (hasEnemy)

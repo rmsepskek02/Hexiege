@@ -101,6 +101,12 @@ namespace Hexiege.Application
         SkillActivationUseCase GetSkillActivationUseCase();
 
         /// <summary>
+        /// 타입 C 스킬 상태효과 시스템(StatusEffectSystem). 서버(Infrastructure)가 상태 지속시간 틱 구동·
+        /// 멀티 클라 재현에 참조한다. 맵 로드 전이면 null.
+        /// </summary>
+        StatusEffectSystem GetStatusEffectSystem();
+
+        /// <summary>
         /// 유닛 팩토리. 유닛 GameObject 생성·조회·뷰 초기화에 사용.
         /// IUnitFactory로 추상화하여 Infrastructure.UnitFactory에 직접 의존하지 않는다.
         /// </summary>
