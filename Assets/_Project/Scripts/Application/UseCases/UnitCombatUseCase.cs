@@ -112,11 +112,22 @@ namespace Hexiege.Application
         private readonly Dictionary<int, float> _dbgLastAtkMul = new Dictionary<int, float>();
         private readonly Dictionary<int, bool> _dbgLastCanAtk = new Dictionary<int, bool>();
 
+        // [테스트 진단 로그 — 제거 예정] 파일 기록 로그 싱크(콘솔+에디터 파일). GameBootstrapper가 SetLogSink로 주입.
+        //   Application은 Infrastructure(RuntimeLogger)를 직접 참조할 수 없어 인터페이스로 역전한다.
+        //   미주입(null)이면 로깅은 조용히 생략 → 기존 전투 동작과 완전히 동일.
+        private IRuntimeLogSink _log;
+
+        /// <summary>
+        /// [테스트 진단 로그 — 제거 예정] 파일 로그 싱크를 주입한다(GameBootstrapper 조합 루트에서 호출).
+        /// </summary>
+        /// <param name="log">RuntimeLogger로 위임하는 어댑터.</param>
+        public void SetLogSink(IRuntimeLogSink log) => _log = log;
+
         // [테스트 진단 로그 — 제거 예정] 서버/클라/싱글 역할 태그.
         private static string DbgRole()
         {
-            if (!NetworkContext.IsNetworkActive) return "[Single]";
-            return NetworkContext.IsNetworkServer ? "[Server]" : "[Client]";
+            if (!NetworkContext.IsNetworkActive) return "Single";
+            return NetworkContext.IsNetworkServer ? "Server" : "Client";
         }
 
         // 타입 C 상태를 서버 권위로 부여했을 때 발화되는 이벤트(멀티 클라 재현용).
@@ -304,9 +315,9 @@ namespace Hexiege.Application
             {
                 _dbgLastAtkMul[attacker.Id] = statusMul;
                 if (statusMul != 1f)
-                    UnityEngine.Debug.Log(
-                        $"[Skill/Status]{DbgRole()} EffectiveAttack: unit={attacker.Id} statusMul={statusMul:F2} " +
-                        $"base={baseAttack} → {Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul))}");
+                    _log?.Log(LogLevel.Info, "Skill", nameof(UnitCombatUseCase), "EffectiveAttack(상태 배율 적용)",
+                        $"role={DbgRole()}, unit={attacker.Id}, statusMul={statusMul:F2}, " +
+                        $"base={baseAttack}, effective={Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul))}");
             }
 
             if (statusMul == 1f) return baseAttack; // 무변경 보장(부동소수 개입 없음).
@@ -338,9 +349,8 @@ namespace Hexiege.Application
                 {
                     _dbgLastMoveMul[unit.Id] = statusMoveMul;
                     if (statusMoveMul != 1f)
-                        UnityEngine.Debug.Log(
-                            $"[Skill/Status]{DbgRole()} MoveSpeedMul: unit={unit.Id} statusMul={statusMoveMul:F2} " +
-                            $"(0=빙결/0<m<1=둔화) → 유효배율 {mul:F2}");
+                        _log?.Log(LogLevel.Info, "Skill", nameof(UnitCombatUseCase), "MoveSpeedMul(0=빙결/0<m<1=둔화)",
+                            $"role={DbgRole()}, unit={unit.Id}, statusMul={statusMoveMul:F2}, effectiveMul={mul:F2}");
                 }
             }
             return mul;
@@ -364,7 +374,8 @@ namespace Hexiege.Application
             {
                 _dbgLastCanAtk[unit.Id] = can;
                 if (!can)
-                    UnityEngine.Debug.Log($"[Skill/Status]{DbgRole()} CanAttack=false: unit={unit.Id} (빙결/기절로 공격 봉쇄)");
+                    _log?.Log(LogLevel.Info, "Skill", nameof(UnitCombatUseCase), "CanAttack=false(빙결/기절로 공격 봉쇄)",
+                        $"role={DbgRole()}, unit={unit.Id}");
             }
 
             return can;
@@ -1810,13 +1821,13 @@ namespace Hexiege.Application
 
             // [테스트 진단 로그 — 제거 예정] 발동 요약: 역할·대상 팀·종류·대상 수(둔화/빙결/버프)·회복량(HoT).
             if (kind == StatusEffectKind.HealOverTime)
-                UnityEngine.Debug.Log(
-                    $"[Skill/Status]{DbgRole()} ApplyGlobal(HoT): team={team} 대상={dbgApplied}명 " +
-                    $"각 회복량={dbgHealPerTarget}HP dur={duration:F2} (raiseNet={raiseNetworkEvent})");
+                _log?.Log(LogLevel.Info, "Skill", nameof(UnitCombatUseCase), "ApplyGlobal(HoT)",
+                    $"role={DbgRole()}, team={team}, targets={dbgApplied}, healPerTarget={dbgHealPerTarget}HP, " +
+                    $"dur={duration:F2}, raiseNet={raiseNetworkEvent}");
             else
-                UnityEngine.Debug.Log(
-                    $"[Skill/Status]{DbgRole()} ApplyGlobal: team={team} kind={kind} 대상={dbgApplied}명 " +
-                    $"mag={magnitude} dur={duration:F2} (raiseNet={raiseNetworkEvent})");
+                _log?.Log(LogLevel.Info, "Skill", nameof(UnitCombatUseCase), "ApplyGlobal",
+                    $"role={DbgRole()}, team={team}, kind={kind}, targets={dbgApplied}, " +
+                    $"mag={magnitude}, dur={duration:F2}, raiseNet={raiseNetworkEvent}");
 
             // 멀티 클라 재현용 브로드캐스트 트리거(서버 권위 발동만). 회복은 HP 동기화로 충분해 발화하지 않는다.
             if (raiseNetworkEvent && kind != StatusEffectKind.HealOverTime)

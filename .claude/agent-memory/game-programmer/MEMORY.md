@@ -28,6 +28,11 @@
 - 루트 GameObject에만 작동. 자식 배치 시 씬 전환마다 재생성+즉시파괴 반복
 - DontDestroyOnLoad 오브젝트는 생성 씬 하나에만 배치. SetActive(false)면 Awake 미호출→미등록(숨김은 CanvasGroup.alpha=0)
 
+## CRITICAL — 런타임 로그는 RuntimeLogger 경유 (상세: logging.md)
+- **raw `Debug.Log` 진단 로그 금지**(Claude가 콘솔 못 읽음). 규칙: `Docs/LogRules.md`. 유틸: `Infrastructure/Debug/RuntimeLogger.cs`(BeginSession/Log/EndSession, 에디터만 파일 저장).
+- **Application에서 로깅**: Infra 직접 참조 금지 → `IRuntimeLogSink`(+Application중립 `LogLevel`, `Application/Interfaces/`) 인터페이스 + `RuntimeLoggerSink` 어댑터(`Infrastructure/Debug/`) + GameBootstrapper 주입(`SetLogSink`). `_log?.Log(LogLevel.Info,"Sys",nameof(Class),"msg","k=v")`.
+- **세션 배선**: 멀티=NetworkCombatController.OnNetworkSpawn/Despawn(role=IsServer?host:client), 싱글=GameBootstrapper.Start/OnDestroy(host, `_dbgSessionOwned` 가드).
+
 ---
 
 ## 최근 작업 (상세 전체는 work-history.md)

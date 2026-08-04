@@ -195,7 +195,10 @@ namespace Hexiege.Infrastructure
         private void OnGlobalStatusAppliedOnServer(TeamId team, StatusEffectKind kind, float magnitude, float duration)
         {
             // [테스트 진단 로그 — 제거 예정] 서버가 상태 부여를 양 클라에 브로드캐스트하는 송신 지점.
-            Debug.Log($"[Skill/Status][Server] StatusAppliedClientRpc 송신: team={team} kind={kind} mag={magnitude} dur={duration:F2}");
+            //   Infrastructure이므로 RuntimeLogger를 직접 호출한다(콘솔+파일, 서버=host 파일에 기록).
+            //   LogLevel은 unqualified가 en클로징 네임스페이스 규칙에 따라 Hexiege.Infrastructure.LogLevel로 해석됨.
+            RuntimeLogger.Log(LogLevel.Info, "Skill", nameof(NetworkSkillController), "StatusAppliedClientRpc 송신",
+                $"role=Server, team={team}, kind={kind}, mag={magnitude}, dur={duration:F2}");
             StatusAppliedClientRpc((int)team, (int)kind, magnitude, duration);
         }
 
@@ -213,7 +216,9 @@ namespace Hexiege.Infrastructure
             if (IsServer) return; // 호스트는 서버 Activate에서 이미 상태를 적용했다.
 
             // [테스트 진단 로그 — 제거 예정] 순수 클라가 서버 브로드캐스트를 수신해 자기 유닛에 재현하는 지점.
-            Debug.Log($"[Skill/Status][Client] StatusAppliedClientRpc 수신: team={(TeamId)teamInt} kind={(StatusEffectKind)kindInt} mag={magnitude} dur={duration:F2}");
+            //   Infrastructure이므로 RuntimeLogger 직접 호출(클라=client 파일에 기록).
+            RuntimeLogger.Log(LogLevel.Info, "Skill", nameof(NetworkSkillController), "StatusAppliedClientRpc 수신",
+                $"role=Client, team={(TeamId)teamInt}, kind={(StatusEffectKind)kindInt}, mag={magnitude}, dur={duration:F2}");
 
             UnitCombatUseCase combat = ResolveServices()?.GetCombatUseCase();
             // raiseNetworkEvent=false: 클라 재현이므로 다시 브로드캐스트하지 않는다(무한 전파 방지).

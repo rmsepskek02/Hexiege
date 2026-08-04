@@ -103,6 +103,12 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private float _lastCarry = 0f;
 
+        // [테스트 진단 로그 — 제거 예정] 스킬 상태효과 파일 로그 세션 폴더.
+        //   멀티플레이는 역할(host/client) 확정 지점(OnNetworkSpawn)에서 자기 역할로 세션을 연다.
+        //   호스트=에디터면 RuntimeLog_host.txt, 순수 클라=에디터면 RuntimeLog_client.txt가 생성된다.
+        private const string DbgSkillStatusLogFolder =
+            "Assets/_Project/Docs/_Logs/2026-08-04/16_49_skill-status-debug";
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -126,6 +132,10 @@ namespace Hexiege.Infrastructure
             // Application 레이어용 정적 홀더를 업데이트.
             NetworkContext.Set(isServer: IsServer, isActive: true);
             Debug.Log($"[Network] NetworkCombatController 스폰. IsServer={IsServer}. NetworkContext 설정 완료.");
+
+            // [테스트 진단 로그 — 제거 예정] 역할(host/client) 확정 지점 → 파일 로그 세션 시작.
+            //   각 인스턴스가 자기 역할로 세션을 열어, 호스트=host 파일 / 클라=client 파일에 기록한다(에디터 한정).
+            RuntimeLogger.BeginSession(DbgSkillStatusLogFolder, IsServer ? "host" : "client");
 
             // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
@@ -212,6 +222,9 @@ namespace Hexiege.Infrastructure
 
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
+
+            // [테스트 진단 로그 — 제거 예정] 파일 로그 세션 종료(핸들 반환). 재경기/씬 전환 시 다음 세션이 깨끗하게 열린다.
+            RuntimeLogger.EndSession();
         }
 
         // ====================================================================
