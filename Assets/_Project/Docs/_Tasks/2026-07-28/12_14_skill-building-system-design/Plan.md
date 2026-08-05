@@ -322,3 +322,36 @@ origin/main이 병합되며 **연구소 유닛 강화 시스템 · 전투 스탯
 | 9-5 | **빙결 시 이동 정지 표현** | **이동속도 배율 0 우선** — `GetUnitMoveSpeedMultiplier`가 0 반환. 구현 중 A* 이동 코루틴이 0 배율을 안전 처리하는지 검증 → 문제 시에만 별도 게이트 추가 | 최소 추가로 표현 가능, 배율 경로 재사용 |
 
 > 위 확정은 Phase 1·Phase 2 산출물에 반영됨(§0, 3-3, 3-4, 6, 7). 9-5의 "A* 0 배율 검증"만 Phase 2 구현 중 실기 확인 항목으로 남고, 나머지는 계획 확정.
+
+---
+
+## 10. Phase 2(타입 C — 전역 상태변경) 완료 결과 (2026-08-05, 실기+멀티(클라) 테스트 PASS)
+
+> **자연어 요약:** 이 계획서 §6에서 예정했던 "전역 상태변경(버프/디버프/CC/힐)"이 실제로 구현되어 실기·멀티(클라이언트 재현)로 검증되었습니다. 이로써 스킬 메커니즘 3종(A 즉발 피해 / B 장판 DoT / C 상태변경)이 모두 완성되었습니다. 계획대로 "상태효과가 없으면 기존과 완전히 동일(무변경 보장)"을 지켜 회귀가 없음을 실기로 확인했고, 계획 단계에서 열려 있던 "빙결 시 이동 정지(9-5)"는 구현·검증 과정에서 방식이 구체화되었습니다.
+
+### 계획대로 구현된 항목
+
+- **타입 C 실행기 + 상태효과 시스템(§6, 규칙 13):** Domain `Status/{StatusEffectKind,StatusEffect,UnitStatusState}`(순수 C# — 상태 목록→공격/이속 배율·`CanAttack` 순수 계산) + Application `Services/StatusEffectSystem`(유닛Id→상태 딕셔너리, **서버 권위** 부여/틱) + `Skill/GlobalStatusChangeExecutor`(타입 C, 조준 없음 전역 즉시, `TargetsAllies`로 대상팀 결정→상태 부여). `StatusEffectKind` = None/MoveSpeedMul/AttackPowerMul/AttackDisabled/Freeze(=이속0+공격불가)/HealOverTime.
+- **상태 배율 합성 = 곱연산(확정 9-1·9-4):** `UnitCombatUseCase`의 `EffectiveAttack`(기본×연구×상태)·`GetUnitMoveSpeedMultiplier`(연구×상태, 빙결 시 0)에 상태 배율을 연구 강화 배율과 곱연산 합성. **신규 공격 게이트 `CanAttack(unit)`**(빙결/기절 시 데미지 봉쇄) — 싱글=`TryAttack`, 멀티=`NetworkCombatController.TickCombat` 2곳에 삽입. **무상태면 배율1·CanAttack true → 기존과 완전 동일(회귀 안전, 실기 확인).**
+- **타입별 방어 상호작용(9-3) 현행 유지 / 회복=HoT 재사용(규칙 13):** 회복(HealOverTime)은 상태 시스템에 미저장, 기존 HoT(`ApplyTimedEffect` Heal) 재사용(HP는 `NetworkHealthSync`가 이미 동기화).
+- **상태 틱 이중 틱 금지:** 서버 틱(`GameBootstrapper.Update` 싱글 / `NetworkCombatController.TickCombat` 멀티)에 `StatusEffectSystem.Tick` 추가, 클라 미러는 Update.
+- **멀티 동기화:** `StatusAppliedClientRpc((int)team,(int)kind,mag,dur)`로 빙결/둔화/버프 브로드캐스트(클라가 자기 유닛 재현, 서버는 skip). 회복은 HP 동기화로 재현(이중 힐 방지).
+
+### 계획과 달라진/구체화된 점
+
+- **9-5 "빙결 시 이동 정지"가 두 갈래로 구체화:** 계획은 "이동속도 배율 0 우선, A* 0 배율 안전 처리 검증"이었다. 실제로는 ① **이동 코루틴이 매 프레임 유효 이동배율을 재조회**하도록 바꿔(경로 발급 시 1회 캡처 → 라이브) 배율 0(빙결)이 즉시 정지로 반영되고, **둔화(부분배율)도 즉시 라이브로 걸린다**(계획엔 없던 부수 개선). ② 여기에 더해 **빙결 시 `Animator.speed=0`으로 걷기 애니 프레임을 고정**(제자리 걷기 방지)하고 `UnitAnimState.Frozen`·`OnUnitFreezeChanged`로 순수 클라에도 정지 프레임을 재현한다. ⚠️ **미세 잔여:** 전투 종료 후 정렬 Lerp 구간은 여전히 캡처값을 사용(라이브 아님) — 필요 시 후속.
+- **UI 버튼 균일화(계획 외 후속):** 스킬 슬롯 CostContainer를 `SetActive(false)`로 숨기면 레이아웃 행 높이가 붕괴 → **CanvasGroup alpha=0(HideChildKeepLayout)**로 숨겨 행 높이를 보존(버튼 크기 균일).
+- **플레이스홀더 확장:** 종족별 플레이스홀더 스킬이 타입 A·B 2개에서 **5슬롯**(1 폭탄A / 2 빙결 / 3 공격버프 / 4 둔화 / 5 회복)으로 확장됨. 스킬 버튼은 임시 텍스트 라벨. **최종 스킬 기획·아이콘 확정 전까지 유지되는 테스트용.**
+
+### 정리(cleanup)
+
+- 개발 중 넣었던 **진단 로그 코드를 LogRules 준수 위해 제거** → `IRuntimeLogSink`/`RuntimeLoggerSink`는 **삭제됨**(상시 기능으로 기재 금지). 로그 파일 `Docs/_Logs/2026-08-04/16_49_skill-status-debug/RuntimeLog_host.txt`는 LogRules대로 보존. 좌표화 때 주석 비활성화했던 코드 3곳도 삭제 완료.
+- **교훈:** 로그 작업 착수 전 반드시 `Docs/LogRules.md`(RuntimeLogger 파일 기록·raw Debug.Log 금지)를 먼저 확인할 것.
+
+### 실기 확인 결과 (PASS)
+
+공격버프 · 빙결(이속0 + 공격 봉쇄 + 만료 후 복귀) · 둔화(0.5 라이브) · 회복(HoT) · **무상태 회귀(기존 유닛/연구 강화 무변경)** + 순수 클라이언트 재현까지 모두 확인.
+
+### 남은 것 (별도 작업)
+
+① 건물 파괴 시 열린 스킬 패널/조준 UI 원복 미구현(스킬 포함 4개 건물 패널 공통 갭, `BuildingPanelBase` `OnBuildingDied` 구독→Close 방식 제안) ② 구체 스킬 목록·수치·아이콘(기획) 보류 ③ 둔화 전투종료 정렬 Lerp 잔여(위 9-5). **규칙 문서:** `GameSystemRules_Skills.md`의 구현 상태 블록을 "타입 C Phase 2 구현 완료·실기+멀티 PASS"로 갱신(규칙 13 본문은 구현과 일치해 무수정).

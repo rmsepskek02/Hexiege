@@ -96,6 +96,15 @@
 - **task 문서**: 지시로 Research/Plan **둘 다** 하단에 "완료 결과"/"구현 후 사실 보강" append(Testcase.md 미생성). Plan은 확정 항목 / **계획과 달라진 점**(조준원 렌더링이 유력안 ZTest Always가 아니라 ZTest LEqual+Offset 데칼로 확정, 취소버그·토스트가 계획에 없던 후속) 구분 기록. Research는 §D 추정(depth 충돌)의 실제 원인(coplanar z-fighting) 보강.
 - **에이전트 MEMORY(이번 갱신 범위 = 지시로 document-manager + game-programmer 2종만)**: game-programmer는 skill-aim 항목 in-place 갱신(헤더 실기 PASS + 취소버그·토스트 불릿 추가) / Phase 1 항목 헤더 실기 PASS 전환 / 토픽 파일 skill-aim-coordinate.md에 취소버그·토스트 절 추가. project-orchestrator는 논리상 대상이나 이번 지시 범위 밖이라 미수정(코드 변경 시 원래 갱신 대상 — 다음에 통합 반영 권장). qa-tester는 별도 QA/버그 발견 없어(실기 사용자 확인) 무수정. 커밋 해시는 사용자 제공값 그대로. 사용자 MEMORY(Windows) 접근 불가.
 
+### 2026-08-05 - 스킬 타입 C(전역 상태변경) Phase 2 실기+멀티 PASS 반영
+- **선행 세션이 "코드 구현 완료·컴파일/실기 미검증"으로 game-programmer MEMORY에 선반영해 둔 Phase 2(타입 C)가 실기+멀티(클라) PASS된 경우의 상태 전환 사례.** game-programmer MEMORY의 Phase 2 항목은 **in-place 갱신**(헤더 "미검증"→"실기+멀티 PASS", 9-5 빙결 bullet을 "둔화 라이브+빙결 Animator.speed=0 애니정지"로 갱신, UI 균일화·정리·실기결과·남은것 bullet 추가) — 새 항목 prepend 금지(중복 방지, MEMORY 규칙 41 재확인).
+- **계획 대비 구체화 기록 = Plan §10 "Phase 2 완료 결과" append**: 9-5가 "이속배율 0 우선·A* 검증"에서 → ①이동코루틴 매 프레임 배율 재조회(둔화까지 라이브) ②빙결 Animator.speed=0+UnitAnimState.Frozen 클라동기화로 **두 갈래 구체화**. UI 버튼 균일화(CanvasGroup alpha=0 HideChildKeepLayout)·플레이스홀더 5슬롯 확장은 계획 외 후속으로 명시. Research는 §6로 "구현 후 사실 보강"만 append(§1~5 원상태 보존). Testcase.md 미생성(미지시).
+- **GameSystemRules_Skills.md 처리**: 규칙 13 본문(타입 C 설계 = 버프/디버프/제어(둔화·빙결)/회복 한 시스템, 회복 전역 즉시)이 이미 구현과 일치 → **무수정**. 최상단 **"구현 상태" 블록만** "타입 C Phase 2 미구현"→"A/B/C 모두 구현·실기+멀티 PASS"로 갱신. 규칙 번호제 파일에서 규칙 본문이 아닌 상태 블록이 stale해질 수 있으니 함께 검토(task 지시 = 불일치 시만 수정).
+- **cleanup/LogRules 교훈 분산 기록**: 진단 로그 제거로 `IRuntimeLogSink`/`RuntimeLoggerSink`가 **삭제**됨(grep 0건 확인) → game-programmer MEMORY의 CRITICAL 로깅 절이 이 어댑터를 "Application 로깅 표준"으로 기술하고 있어 향후 stale 주의(이번 지시 범위=Phase 2 완료 반영이라 CRITICAL 절 미수정, 다음 로깅 작업 시 정정 권장). 교훈 "로그 작업 전 LogRules 먼저 확인"은 공용 `.claude/MEMORY.md`+game-programmer MEMORY+WORK_HISTORY 3곳에 기록.
+- **과대 표기 금지 재적용**: 완료(타입 C 3종 메커니즘)와 미완(건물 파괴 UI 원복·구체 스킬 기획·둔화 정렬 Lerp 잔여)을 모든 문서에 나란히. 플레이스홀더 5슬롯은 "테스트용"임을 명시(완료 스킬 목록으로 오인 금지).
+- **stale "미구현" 문구 정정 패턴**: 헤더/현재단계/blockquote 등 여러 위치의 "타입 C Phase 2 미구현" 문구를 완료로 교체하되, 과거 dated 요약(2026-08-04 milestone 줄)의 "미완" 절은 삭제 대신 "이후 2026-08-05 구현 완료(위 참조)"로 보정해 히스토리 모순 회피.
+- 갱신처(전량): 공용 `.claude/MEMORY.md`(공통교훈 prepend + Phase1 bullet 미완절 보정) · `PROJECT_STATUS.md`(헤더 날짜+2026-08-05 완료줄 신규·2026-08-04 미완절 보정·현재단계·스킬섹션 헤더/셀/타입C 3행 추가/blockquote 재작성) · `ROADMAP.md`(헤더+2026-08-05 완료줄·현재단계·우선순위표 타입C행 🔴→✅·D-1) · `WORK_HISTORY.md`(2026-08-05 마일스톤 prepend) · `GameSystemRules_Skills.md`(구현상태 블록) · task Plan §10·Research §6 append · game-programmer/document-manager MEMORY. 사용자 MEMORY(Windows)는 Linux 세션 접근 불가·git/커밋은 사용자 처리.
+
 ### 2026-07-18 - Email verification flow completion docs
 
 - Completion update pattern: append task `Plan.md` completion result, add PASS results to task `Testcase.md`, update `PROJECT_STATUS.md`/`ROADMAP.md` progress sections from in-progress to complete, and replace the `WORK_HISTORY.md` in-progress entry with completed device verification results.

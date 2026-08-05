@@ -29,26 +29,31 @@
 - DontDestroyOnLoad 오브젝트는 생성 씬 하나에만 배치. SetActive(false)면 Awake 미호출→미등록(숨김은 CanvasGroup.alpha=0)
 
 ## CRITICAL — 런타임 로그는 RuntimeLogger 경유 (상세: logging.md)
-- **raw `Debug.Log` 진단 로그 금지**(Claude가 콘솔 못 읽음). 규칙: `Docs/LogRules.md`. 유틸: `Infrastructure/Debug/RuntimeLogger.cs`(BeginSession/Log/EndSession, 에디터만 파일 저장).
-- **Application에서 로깅**: Infra 직접 참조 금지 → `IRuntimeLogSink`(+Application중립 `LogLevel`, `Application/Interfaces/`) 인터페이스 + `RuntimeLoggerSink` 어댑터(`Infrastructure/Debug/`) + GameBootstrapper 주입(`SetLogSink`). `_log?.Log(LogLevel.Info,"Sys",nameof(Class),"msg","k=v")`.
-- **세션 배선**: 멀티=NetworkCombatController.OnNetworkSpawn/Despawn(role=IsServer?host:client), 싱글=GameBootstrapper.Start/OnDestroy(host, `_dbgSessionOwned` 가드).
+- **raw `Debug.Log` 진단 로그 금지**(Claude가 콘솔 못 읽음). 규칙: `Docs/LogRules.md`. 유틸: `Infrastructure/Debug/RuntimeLogger.cs`(BeginSession/Log/EndSession, 에디터만 파일 저장) — **이 기반 유틸은 유지됨**.
+- ⚠️ **로그 작업 착수 전 반드시 `Docs/LogRules.md`를 먼저 확인**(RuntimeLogger 파일 기록·raw Debug.Log 금지). 2026-08-05 스킬 타입 C 작업에서 이를 뒤늦게 준수해 진단 로그를 걷어냄.
+- **Application 계층 로깅 어댑터(`IRuntimeLogSink`/`RuntimeLoggerSink`/`SetLogSink`)는 2026-08-05 정리로 삭제됨 — 상시 기능 아님.** Application에서 임시 진단 로깅이 다시 필요하면 그때 한시적으로 sink를 재도입하고, 작업 종료 후 반드시 제거(코드/문서에 상시 기능으로 남기지 말 것). Infra 직접 참조 금지 원칙(의존성 역전)은 재도입 시에도 유효.
 
 ---
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
-### 스킬 시스템 Phase 2 — 타입 C(전역 상태변경: 버프/디버프/CC/힐) 프레임워크 (2026-08-04) — ⚠️ 코드 구현 완료·컴파일/실기 미검증(유니티 환경 없음)
-- **범위**: 타입 C 실행기 + 상태효과 시스템 + 유효 스탯 접근자에 상태 배율 합성 + CanAttack 게이트 + 빙결 이동 정지 + 멀티 동기화 + 플레이스홀더(전역 아군 공격력 버프). task Plan §6 Phase 2, 규칙 13·9-1~9-5.
+### 스킬 시스템 Phase 2 — 타입 C(전역 상태변경: 버프/디버프/CC/힐) (2026-08-04 구현 → 2026-08-05 ✅ 실기+멀티(클라) 테스트 PASS)
+- **범위**: 타입 C 실행기 + 상태효과 시스템 + 유효 스탯 접근자에 상태 배율 합성 + CanAttack 게이트 + 빙결 애니 정지 + 둔화 라이브 + 멀티 동기화 + 종족별 플레이스홀더 5슬롯. task Plan §6 Phase 2(하단 "완료 결과"), 규칙 `GameSystemRules_Skills.md` 13·Plan 9-1~9-5.
+- **실기 결과(2026-08-05 PASS)**: 공격버프·빙결(이속0+공격봉쇄+만료 복귀)·둔화(0.5 라이브)·회복(HoT)·**무상태 회귀(기존 유닛/연구강화 무변경)** + 순수 클라이언트 재현까지 모두 확인.
 - **신규 파일(5)**: Domain `Status/{StatusEffectKind,StatusEffect,UnitStatusState}.cs`(순수 C#, 상태 목록→공격/이속 배율·CanAttack 순수 계산). Application `Services/StatusEffectSystem.cs`(유닛Id→UnitStatusState 딕셔너리, 서버 권위 Apply/Tick/accessor, 무상태=배율1·CanAttack true 회귀안전)·`Skill/GlobalStatusChangeExecutor.cs`(타입 C, 조준 없음, TargetsAllies→대상팀 결정→ctx.ApplyGlobalStatus).
 - **StatusEffectKind enum(정수 고정)**: None0/MoveSpeedMul1/AttackPowerMul2/AttackDisabled3/Freeze4(=이속0+공격불가)/HealOverTime5. SkillDefinition._statusKind(int)와 1:1. **회복(HealOverTime)은 상태 시스템 미저장 → 기존 HoT(ApplyTimedEffect Heal) 재사용**(HP는 NetworkHealthSync가 이미 동기화).
 - **상태 배율 합성(확정 9-1·9-4 곱연산)**: `UnitCombatUseCase`에 `_statusSystem` 주입(SetStatusEffectSystem). `EffectiveAttack`=기본×연구×상태(statusMul==1f면 baseAttack 그대로 반환=부동소수 무개입 회귀안전)·`GetUnitMoveSpeedMultiplier`=연구×상태(빙결 시 0)·**신규 게이트 `CanAttack(unit)`**(빙결/기절 false). **상태 없으면 전부 무변경**.
 - **공격 게이트 삽입 2곳**: 싱글=`UnitCombatUseCase.TryAttack`(네트워크 가드 직후 `if(!CanAttack)return null`), 멀티=`NetworkCombatController.TickCombat`(`combat.CanAttack(unit)?TryFindTarget:null` — 데미지만 봉쇄, HasEnemyInRange 유지로 전투 자세는 남음).
-- **9-5 빙결 이동 정지(검증 결과: 문제 발견 → 별도 게이트 추가)**: UnitView 이동 배율은 **경로 발급 시 1회 캡처**(A* line~920·전투추격~1363)라 배율 0으로 바꿔도 즉시 정지 안 됨 + `moveSeconds=eff>0?1/eff:1.0f` 폴백이 0을 **1.0초/칸 기본속도로 오처리**. → **UnitView에 프레임별 빙결 게이트 신설**: `MoveFreezeEpsilon=0.0001f`, A* for-스텝 진입 시 `while(배율<=eps)yield`(타일경계 정지)·전투추격 이동 블록 `if(배율>eps)` 가드. **무상태면 배율>0이라 절대 미작동(무변경 보장)**. ⚠️ **둔화(부분배율)는 캡처1회라 다음 repath에 반영(라이브 아님) — 플레이스홀더가 공격버프라 미노출, 문서화만**. UnitView 이동 코루틴은 서버에서만 도므로 게이트=서버 권위.
+- **9-5 이동 정지·둔화 라이브(실기 확정)**: UnitView 이동 배율이 **경로 발급 시 1회 캡처**라 배율을 바꿔도 즉시 반영 안 되던 것을 → **이동 코루틴이 매 프레임 유효 이동배율을 다시 읽어 즉시 반영**(경로 재캡처 불필요)으로 전환. **둔화(0.5 부분배율)도 라이브로 적용됨(실기 확인)**. 빙결=배율 0이므로 이동 코루틴이 매 프레임 0을 읽어 정지. **무상태면 배율>0이라 기존과 동일(무변경 보장)**. UnitView 이동 코루틴은 서버에서만 도므로 서버 권위. ⚠️ **미세 잔여**: 전투 종료 후 정렬 Lerp 구간은 여전히 캡처값 사용(라이브 아님) — 필요 시 후속.
+- **빙결 애니메이션 정지(2026-08-05)**: 빙결 시 `Animator.speed=0`으로 걷기 프레임을 고정(제자리 걷기 방지). 클라 동기화용 `UnitAnimState.Frozen` + `OnUnitFreezeChanged` 이벤트로 순수 클라이언트에도 정지 프레임 재현.
 - **멀티 동기화(NetworkUpgradeController.OnResearchCompleted 패턴 미러)**: `UnitCombatUseCase.OnGlobalStatusApplied` 이벤트(회복 제외 발화) → `NetworkSkillController`(서버)가 `EnsureStatusSubscription`(OnNetworkSpawn+ServerRpc 진입 멱등, 스폰레이스 대비)로 구독 → `StatusAppliedClientRpc((int)team,(int)kind,mag,dur)` 브로드캐스트 → 클라 `if(IsServer)return; combat.ApplySkillGlobalStatus(...,raiseNetworkEvent:false)`로 자기 유닛 재현. **회복은 HP 동기화로 충분해 미브로드캐스트(이중 힐 방지)**. 기능상 클라 상태는 현재 VFX 없어 무효과지만 프레임워크 완비.
 - **상태 부여 경로**: 실행기→`ctx.ApplyGlobalStatus(team,kind,mag,dur)`→`SkillActivationUseCase.ApplyGlobalStatusBridge(raise:true)`→`UnitCombatUseCase.ApplySkillGlobalStatus`(대상팀 유닛 순회, HealOverTime→HoT/그외→_statusSystem.Apply). A·B 실행기가 ctx.ApplyInstantAreaDamage 부르는 것과 동일 분담(실행기 thin).
 - **상태 틱(이중 틱 금지, 쿨다운 틱과 동일 가드)**: 싱글=GameBootstrapper.Update(`_statusEffectSystem.Tick`, `!IsNetworkMode||!IsNetworkServer`)·멀티서버=NetworkCombatController.TickCombat(TickCooldowns 옆)·멀티클라미러=Update.
-- **수정 파일**: SkillExecutorRegistry(C 등록)·SkillActivationContext(globalStatus 델리게이트+ApplyGlobalStatus)·SkillActivationUseCase(ctx 3번째 델리게이트+ApplyGlobalStatusBridge)·UnitCombatUseCase(_statusSystem·이벤트·접근자 합성·CanAttack·ApplySkillGlobalStatus)·NetworkCombatController(게이트+틱)·NetworkSkillController(구독·브로드캐스트·클라재현)·IGameServices(GetStatusEffectSystem)·GameBootstrapper.cs(필드/getter/Update틱)·GameBootstrapper.Setup.cs(StatusEffectSystem 생성·주입)·UnitView(빙결 게이트+MoveFreezeEpsilon)·editor `SkillSetup_CreateDataAssets`(SkillSpec에 statusKind/magnitude/targetsAllies+SetBool, 종족별 타입 C 버프 1개 추가=슬롯3).
-- **사용자 잔여(Unity)**: 에디터 `Hexiege/Skill/1. Create Skill Data Assets` 재실행(타입 C 버프 에셋 3개 추가·기존 6개 갱신, SkillLoadoutConfig 슬롯3 반영). 씬 재셋업 불필요(로직만). GetStatusEffectSystem은 GameBootstrapper만 구현. **컴파일 미검증**.
+- **수정 파일**: SkillExecutorRegistry(C 등록)·SkillActivationContext(globalStatus 델리게이트+ApplyGlobalStatus)·SkillActivationUseCase(ctx 3번째 델리게이트+ApplyGlobalStatusBridge)·UnitCombatUseCase(_statusSystem·이벤트·접근자 합성·CanAttack·ApplySkillGlobalStatus)·NetworkCombatController(게이트+틱)·NetworkSkillController(구독·브로드캐스트·클라재현)·IGameServices(GetStatusEffectSystem)·GameBootstrapper.cs(필드/getter/Update틱)·GameBootstrapper.Setup.cs(StatusEffectSystem 생성·주입)·UnitView(매 프레임 유효 이동배율 재조회+빙결 Animator.speed=0)·editor `SkillSetup_CreateDataAssets`(SkillSpec에 statusKind/magnitude/targetsAllies+SetBool).
+- **UI 버튼 균일화(2026-08-05)**: 스킬 슬롯 CostContainer를 `SetActive(false)`(→행 높이 붕괴) 대신 **CanvasGroup alpha=0(HideChildKeepLayout)**로 숨겨 레이아웃 행 높이를 보존(버튼 크기 균일).
+- **유지 중인 테스트 스캐폴딩(과대 표기 금지)**: 종족별 플레이스홀더 스킬 **5슬롯** = 1 폭탄(타입 A)/2 빙결(C-CC)/3 공격버프(C-buff)/4 둔화(C-CC)/5 회복(C-heal). 스킬 버튼은 임시 텍스트 라벨. **최종 스킬 기획·아이콘 확정 전까지 유지되는 테스트용**.
+- **정리(cleanup) 완료(2026-08-05)**: 개발 중 넣었던 **진단 로그 코드를 LogRules 준수 위해 제거**(raw Debug.Log 금지·RuntimeLogger 파일 기록 원칙) → `IRuntimeLogSink`/`RuntimeLoggerSink`는 **삭제됨**(grep 0건, 상시 기능으로 기재 금지). 로그 파일 `Docs/_Logs/2026-08-04/16_49_skill-status-debug/RuntimeLog_host.txt`는 LogRules대로 보존. 좌표화 때 주석 비활성화했던 코드 3곳도 삭제 완료. **교훈: 로그 작업 착수 전 반드시 `Docs/LogRules.md`(RuntimeLogger 파일 기록·raw Debug.Log 금지)를 먼저 확인할 것.**
+- **남은 것(별도 작업)**: ① 건물 파괴 시 열린 스킬 패널/조준 UI 원복 미구현(스킬 포함 4개 건물 패널 공통 갭, `BuildingPanelBase` OnBuildingDied 구독→Close 제안) ② 구체 스킬 목록·수치·아이콘(기획) 보류 ③ 둔화 전투종료 정렬 Lerp 잔여(위 9-5).
 
 ### 스킬 지점 조준 좌표화 + 조준원 지면 데칼 렌더링 + 취소 버그·토스트 (2026-08-04) — ✅ 실기기 테스트 PASS (상세: skill-aim-coordinate.md)
 - 조준 중심 **HexCoord(타일 스냅) → 연속 도메인 월드 Vector3**. **착탄 반경 판정은 원래 연속 원이라 무변경, 중심만 연속화.** 전 계층 시그니처 Vector3화: SkillAimController/BuildingSkillPanelUI/SkillActivationUseCase.Activate(Vector3?)/SkillActivationContext(AimWorld)/UnitCombatUseCase.ApplySkill*(Vector3 center)/INetworkSkillController·NetworkSkillController RPC(**NGO Vector3 기본 직렬화**, int q,r 폐지).
