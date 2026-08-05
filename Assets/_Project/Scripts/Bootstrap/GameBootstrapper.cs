@@ -197,15 +197,6 @@ namespace Hexiege.Bootstrap
         private SkillActivationUseCase _skillActivation;
         private StatusEffectSystem _statusEffectSystem;
 
-        // [테스트 진단 로그 — 제거 예정] 스킬 상태효과 파일 로그 세션.
-        //   싱글플레이는 여기(조합 루트)에서 host 파일로 세션을 열고 닫는다.
-        //   멀티플레이는 역할(host/client) 판별이 가능한 NetworkCombatController가 세션을 관리하므로,
-        //   여기서는 "싱글에서 내가 연 세션만" 닫도록 _dbgSessionOwned로 소유권을 표시한다.
-        //   에디터에서만 파일이 생성된다(RuntimeLogger가 실기기에서는 파일 미기록 — 콘솔/Logcat만).
-        private const string DbgSkillStatusLogFolder =
-            "Assets/_Project/Docs/_Logs/2026-08-04/16_49_skill-status-debug";
-        private bool _dbgSessionOwned;
-
         private BuildingPlacementUseCase _buildingPlacement;
         private ResourceUseCase _resource;
         private PopulationUseCase _population;
@@ -422,14 +413,6 @@ namespace Hexiege.Bootstrap
         private void OnDestroy()
         {
             GameServicesLocator.Unregister();
-
-            // [테스트 진단 로그 — 제거 예정] 싱글플레이에서 내가 연 로그 세션만 닫는다(파일 핸들 반환).
-            //   멀티플레이 세션은 NetworkCombatController.OnNetworkDespawn이 닫으므로 여기서 건드리지 않는다.
-            if (_dbgSessionOwned)
-            {
-                RuntimeLogger.EndSession();
-                _dbgSessionOwned = false;
-            }
         }
 
         /// <summary>
@@ -473,11 +456,6 @@ namespace Hexiege.Bootstrap
                 RaceId[] allRaces = (RaceId[])System.Enum.GetValues(typeof(RaceId));
                 RaceId opponentRace = allRaces[UnityEngine.Random.Range(0, allRaces.Length)];
                 GameRaceContext.Set(LocalPlayerRace.Current, opponentRace);
-
-                // [테스트 진단 로그 — 제거 예정] 싱글플레이는 로컬 서버(호스트) 역할 → host 파일로 세션 시작.
-                //   에디터에서만 RuntimeLog_host.txt가 생성된다. OnDestroy에서 이 세션을 닫는다.
-                RuntimeLogger.BeginSession(DbgSkillStatusLogFolder, "host");
-                _dbgSessionOwned = true;
 
                 // 싱글플레이 모드: 기존 로직 그대로 실행
                 LoadMap(HexOrientation.FlatTop);

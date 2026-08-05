@@ -103,33 +103,6 @@ namespace Hexiege.Application
         // ====================================================================
         private StatusEffectSystem _statusSystem;
 
-        // ====================================================================
-        // [테스트 진단 로그 — 제거 예정] 상태효과가 실제 곱해지는지/게이트되는지 판별용.
-        //   프레임 스팸을 피하기 위해 "값이 바뀌는 순간"에만 로깅한다(유닛별 마지막 값 기억).
-        //   서버/클라 역할은 DbgRole()로 태깅. 이 블록과 각 사용처를 지우면 원상복구된다.
-        // ====================================================================
-        private readonly Dictionary<int, float> _dbgLastMoveMul = new Dictionary<int, float>();
-        private readonly Dictionary<int, float> _dbgLastAtkMul = new Dictionary<int, float>();
-        private readonly Dictionary<int, bool> _dbgLastCanAtk = new Dictionary<int, bool>();
-
-        // [테스트 진단 로그 — 제거 예정] 파일 기록 로그 싱크(콘솔+에디터 파일). GameBootstrapper가 SetLogSink로 주입.
-        //   Application은 Infrastructure(RuntimeLogger)를 직접 참조할 수 없어 인터페이스로 역전한다.
-        //   미주입(null)이면 로깅은 조용히 생략 → 기존 전투 동작과 완전히 동일.
-        private IRuntimeLogSink _log;
-
-        /// <summary>
-        /// [테스트 진단 로그 — 제거 예정] 파일 로그 싱크를 주입한다(GameBootstrapper 조합 루트에서 호출).
-        /// </summary>
-        /// <param name="log">RuntimeLogger로 위임하는 어댑터.</param>
-        public void SetLogSink(IRuntimeLogSink log) => _log = log;
-
-        // [테스트 진단 로그 — 제거 예정] 서버/클라/싱글 역할 태그.
-        private static string DbgRole()
-        {
-            if (!NetworkContext.IsNetworkActive) return "Single";
-            return NetworkContext.IsNetworkServer ? "Server" : "Client";
-        }
-
         // 타입 C 상태를 서버 권위로 부여했을 때 발화되는 이벤트(멀티 클라 재현용).
         //   NetworkSkillController(서버)가 구독해 상태 부여를 양 클라에 브로드캐스트한다
         //   (UnitUpgradeUseCase.OnResearchCompleted와 동일한 App→Infra 의존성 역전 패턴).
@@ -310,16 +283,6 @@ namespace Hexiege.Application
             if (_statusSystem == null) return baseAttack;
             float statusMul = _statusSystem.GetAttackMultiplier(attacker.Id);
 
-            // [테스트 진단 로그 — 제거 예정] 공격 배율이 실제 곱해지는 지점. 값 변화 시에만 로깅(스팸 방지).
-            if (!_dbgLastAtkMul.TryGetValue(attacker.Id, out float prevAtk) || !Mathf.Approximately(prevAtk, statusMul))
-            {
-                _dbgLastAtkMul[attacker.Id] = statusMul;
-                if (statusMul != 1f)
-                    _log?.Log(LogLevel.Info, "Skill", nameof(UnitCombatUseCase), "EffectiveAttack(상태 배율 적용)",
-                        $"role={DbgRole()}, unit={attacker.Id}, statusMul={statusMul:F2}, " +
-                        $"base={baseAttack}, effective={Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul))}");
-            }
-
             if (statusMul == 1f) return baseAttack; // 무변경 보장(부동소수 개입 없음).
             return Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul));
         }
@@ -342,16 +305,6 @@ namespace Hexiege.Application
             {
                 float statusMoveMul = _statusSystem.GetMoveSpeedMultiplier(unit.Id);
                 mul *= statusMoveMul;
-
-                // [테스트 진단 로그 — 제거 예정] 이 접근자는 매 프레임(라이브 이동) 호출되므로
-                //   반드시 "값 변화 시에만" 로깅해 스팸을 막는다. 둔화 시작(→0.5)/빙결(→0)/해제(→1)만 찍힌다.
-                if (!_dbgLastMoveMul.TryGetValue(unit.Id, out float prevMove) || !Mathf.Approximately(prevMove, statusMoveMul))
-                {
-                    _dbgLastMoveMul[unit.Id] = statusMoveMul;
-                    if (statusMoveMul != 1f)
-                        _log?.Log(LogLevel.Info, "Skill", nameof(UnitCombatUseCase), "MoveSpeedMul(0=빙결/0<m<1=둔화)",
-                            $"role={DbgRole()}, unit={unit.Id}, statusMul={statusMoveMul:F2}, effectiveMul={mul:F2}");
-                }
             }
             return mul;
         }
@@ -367,18 +320,7 @@ namespace Hexiege.Application
             if (unit == null) return false;
             if (_statusSystem == null) return true;
 
-            bool can = _statusSystem.CanAttack(unit.Id);
-
-            // [테스트 진단 로그 — 제거 예정] 공격 게이트가 실제로 막는지(빙결/기절). 값 변화 시에만 로깅.
-            if (!_dbgLastCanAtk.TryGetValue(unit.Id, out bool prevCan) || prevCan != can)
-            {
-                _dbgLastCanAtk[unit.Id] = can;
-                if (!can)
-                    _log?.Log(LogLevel.Info, "Skill", nameof(UnitCombatUseCase), "CanAttack=false(빙결/기절로 공격 봉쇄)",
-                        $"role={DbgRole()}, unit={unit.Id}");
-            }
-
-            return can;
+            return _statusSystem.CanAttack(unit.Id);
         }
 
         /// <summary>
@@ -1720,9 +1662,8 @@ namespace Hexiege.Application
         {
             if (rawDamage <= 0 || radius <= 0f) return;
 
-            // [비활성화 — 좌표화] 중심이 이미 도메인 월드 좌표로 들어오므로 HexToWorld 재변환은 불필요·왜곡 요인.
-            //   Vector3 centerWorld = Flatten(_mapper.HexToWorld(center));
-            Vector3 centerWorld = Flatten(center); // Y=0 정규화만 수행(center는 이미 도메인 월드 XZ).
+            // 중심(center)은 이미 도메인 월드 좌표(연속 Vector3)이므로 Y=0 정규화만 수행한다.
+            Vector3 centerWorld = Flatten(center);
             float radiusSqr = radius * radius;
 
             // 1) 반경 내 적 유닛/건물 선수집(순회 중 사망 제거로 인한 컬렉션 변경 회피 — 2단계).
@@ -1752,9 +1693,8 @@ namespace Hexiege.Application
         {
             if (damagePerSecond <= 0f || duration <= 0f || radius <= 0f) return;
 
-            // [비활성화 — 좌표화] 중심이 이미 도메인 월드 좌표로 들어오므로 HexToWorld 재변환은 불필요·왜곡 요인.
-            //   Vector3 centerWorld = Flatten(_mapper.HexToWorld(center));
-            Vector3 centerWorld = Flatten(center); // Y=0 정규화만 수행(center는 이미 도메인 월드 XZ).
+            // 중심(center)은 이미 도메인 월드 좌표(연속 Vector3)이므로 Y=0 정규화만 수행한다.
+            Vector3 centerWorld = Flatten(center);
             float radiusSqr = radius * radius;
 
             _skillUnitVictims.Clear();
@@ -1789,10 +1729,6 @@ namespace Hexiege.Application
         {
             if (duration <= 0f || kind == StatusEffectKind.None) return;
 
-            // [테스트 진단 로그 — 제거 예정] 이번 발동으로 실제 상태를 받은 대상 수/회복량 집계용.
-            int dbgApplied = 0;
-            int dbgHealPerTarget = 0;
-
             // 대상 팀의 살아있는 유닛 전체 순회.
             foreach (var unit in _unitSpawn.Units.Values)
             {
@@ -1805,29 +1741,14 @@ namespace Hexiege.Application
                     //   HP는 OnEntityHealed → NetworkHealthSync가 동기화하므로 상태 시스템에 담지 않는다.
                     int healAmount = Mathf.Max(0, Mathf.RoundToInt(magnitude));
                     if (healAmount > 0)
-                    {
                         ApplyTimedEffect(null, unit, TimedEffectKind.Heal, healAmount, duration);
-                        dbgApplied++;
-                        dbgHealPerTarget = healAmount;
-                    }
                 }
                 else
                 {
                     // 버프/디버프/제어 — 상태 시스템에 부여(유효 스탯 접근자가 배율/게이트로 합성).
                     _statusSystem?.Apply(unit.Id, new StatusEffect(kind, magnitude, duration, team));
-                    dbgApplied++;
                 }
             }
-
-            // [테스트 진단 로그 — 제거 예정] 발동 요약: 역할·대상 팀·종류·대상 수(둔화/빙결/버프)·회복량(HoT).
-            if (kind == StatusEffectKind.HealOverTime)
-                _log?.Log(LogLevel.Info, "Skill", nameof(UnitCombatUseCase), "ApplyGlobal(HoT)",
-                    $"role={DbgRole()}, team={team}, targets={dbgApplied}, healPerTarget={dbgHealPerTarget}HP, " +
-                    $"dur={duration:F2}, raiseNet={raiseNetworkEvent}");
-            else
-                _log?.Log(LogLevel.Info, "Skill", nameof(UnitCombatUseCase), "ApplyGlobal",
-                    $"role={DbgRole()}, team={team}, kind={kind}, targets={dbgApplied}, " +
-                    $"mag={magnitude}, dur={duration:F2}, raiseNet={raiseNetworkEvent}");
 
             // 멀티 클라 재현용 브로드캐스트 트리거(서버 권위 발동만). 회복은 HP 동기화로 충분해 발화하지 않는다.
             if (raiseNetworkEvent && kind != StatusEffectKind.HealOverTime)

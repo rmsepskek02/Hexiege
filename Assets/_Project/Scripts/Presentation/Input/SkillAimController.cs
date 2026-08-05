@@ -307,12 +307,9 @@ namespace Hexiege.Presentation
             if (_camera == null) return;
 
             // 화면 → XZ 평면(뷰 좌표) → 도메인 좌표(랠리 모드와 동일 변환).
+            //   타일 스냅 없이 연속 도메인 좌표(domainWorld)를 그대로 채택한다(착탄 판정이 이미 연속 원).
             Vector3 viewPos = ScreenToXZPlane(screenPos);
             Vector3 domainWorld = ViewConverter.FromView(viewPos);
-
-            // [비활성화 — 좌표화] 타일 스냅 제거: 연속 도메인 좌표(domainWorld)를 그대로 채택한다.
-            //   착탄 판정이 이미 연속 원(유클리드 거리)이라 타일 스냅은 표시·전송 정밀도만 낮추는 잉여 단계였다.
-            // HexCoord coord = HexMetrics.WorldToHex(domainWorld);
 
             // 맵 경계 안으로 연속 좌표를 clamp한다(규칙 22 — 최외곽 타일 바깥선 기준). clamp 함수가 없으면 원본 사용.
             Vector3 clampedDomain = _clampToBounds != null ? _clampToBounds(domainWorld) : domainWorld;
@@ -320,10 +317,8 @@ namespace Hexiege.Presentation
             _hasValidCoord = true;
 
             // 조준점 표시: 타일 중심 되돌림 없이 "연속 좌표를 그대로" 뷰로 변환해 표시한다.
-            //   [비활성화 — 좌표화] 아래 타일 중심 스냅 표시를 제거.
             //   ToView(FromView(v)) == v(자기 역함수)이므로, 맵 안에서는 손가락 위치(뷰)와 정확히 일치하고,
             //   맵 밖일 때만 clamp된 경계 지점(뷰)이 표시된다 → 스냅이 아니라 연속 추종 + 경계 clamp.
-            // Vector3 snappedView = ViewConverter.ToView(HexMetrics.HexToWorld(_lastValidCoord));
             if (_reticle != null)
             {
                 Vector3 view = ViewConverter.ToView(clampedDomain);

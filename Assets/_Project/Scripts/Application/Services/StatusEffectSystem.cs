@@ -39,17 +39,6 @@ namespace Hexiege.Application
         private readonly List<int> _emptyKeyBuffer = new List<int>(8);
         private readonly List<int> _tickKeyBuffer = new List<int>(16);
 
-        // [테스트 진단 로그 — 제거 예정] 파일 기록 로그 싱크(콘솔+에디터 파일).
-        //   Application은 Infrastructure(RuntimeLogger)를 직접 참조할 수 없으므로 인터페이스로 역전 주입한다.
-        //   GameBootstrapper가 SetLogSink로 주입하며, 미주입(null)이면 로깅은 조용히 생략된다(기존 동작과 동일).
-        private IRuntimeLogSink _log;
-
-        /// <summary>
-        /// [테스트 진단 로그 — 제거 예정] 파일 로그 싱크를 주입한다(GameBootstrapper 조합 루트에서 호출).
-        /// </summary>
-        /// <param name="log">RuntimeLogger로 위임하는 어댑터.</param>
-        public void SetLogSink(IRuntimeLogSink log) => _log = log;
-
         /// <summary>
         /// 지정 유닛에 상태효과를 부여한다(같은 종류가 있으면 갱신). 서버(싱글=로컬 서버/멀티=서버)에서만 호출된다.
         /// </summary>
@@ -65,19 +54,6 @@ namespace Hexiege.Application
                 _states[unitId] = state;
             }
             state.ApplyOrRefresh(effect);
-
-            // [테스트 진단 로그 — 제거 예정] 상태 "부여" 전이. RuntimeLogger(파일+콘솔)로 남겨 Claude가 읽게 한다.
-            //   LogRules 준수: raw Debug.Log 금지 → 싱크 경유. _log 미주입 시 무동작(?. 널전파).
-            _log?.Log(LogLevel.Info, "Skill", nameof(StatusEffectSystem), "Apply",
-                $"role={DbgRole()}, unit={unitId}, kind={effect.Kind}, mag={effect.Magnitude}, " +
-                $"dur={effect.RemainingDuration:F2}, team={effect.SourceTeam}");
-        }
-
-        // [테스트 진단 로그 — 제거 예정] 서버/클라/싱글 역할 태그. NetworkContext(Application 홀더)만 참조.
-        private static string DbgRole()
-        {
-            if (!NetworkContext.IsNetworkActive) return "Single";
-            return NetworkContext.IsNetworkServer ? "Server" : "Client";
         }
 
         /// <summary>
@@ -101,10 +77,6 @@ namespace Hexiege.Application
                 if (state.IsEmpty)
                 {
                     _emptyKeyBuffer.Add(id);
-                    // [테스트 진단 로그 — 제거 예정] 이 유닛의 마지막 상태가 만료됨(Expire). 틱마다 찍지 않고
-                    //   "빈 상태가 되는 전이"에서만 1회 — 스팸 없이 상태가 실제로 풀렸는지 확인 가능.
-                    _log?.Log(LogLevel.Info, "Skill", nameof(StatusEffectSystem), "Expire(모든 상태 만료)",
-                        $"role={DbgRole()}, unit={id}");
                 }
             }
 

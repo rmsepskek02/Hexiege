@@ -354,14 +354,6 @@ namespace Hexiege.Bootstrap
             _statusEffectSystem = new StatusEffectSystem();
             _unitCombat.SetStatusEffectSystem(_statusEffectSystem);
 
-            // [테스트 진단 로그 — 제거 예정] 상태효과 파일 로그 싱크 주입(의존성 역전).
-            //   Application(StatusEffectSystem/UnitCombatUseCase)은 Infrastructure(RuntimeLogger)를 직접
-            //   참조할 수 없으므로, 조합 루트인 여기서 어댑터를 만들어 인터페이스(IRuntimeLogSink)로 주입한다.
-            //   실제 파일 기록은 어댑터 → RuntimeLogger가 담당한다(에디터에서만 파일 생성).
-            var runtimeLogSink = new RuntimeLoggerSink();
-            _statusEffectSystem.SetLogSink(runtimeLogSink);
-            _unitCombat.SetLogSink(runtimeLogSink);
-
             // ────────────────────────────────────────────────────────────
             // [스킬 건물] 스킬 발동 UseCase — 발동 재검증·실행·글로벌 쿨다운 보관(서버 권위).
             //   데이터 제공자(_skillLoadoutConfig)는 미연결 시 null → Activate가 조용히 실패(안전).
