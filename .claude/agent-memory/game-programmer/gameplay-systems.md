@@ -21,7 +21,7 @@ type: project
 UI/마커(전부 Presentation 로컬):
 - 마커 관리 전부 `Presentation/Production/ProductionTicker.cs` (`_rallyMarkers` Dict + **단일** `_autoHideCoroutine`)
 - 3초 표시: `ShowMarkerTemporary`/`AutoHideMarker`(WaitForSeconds=timeScale 영향), 팝업 열림 `ShowRallyMarker`, 닫힘 `HideAllRallyMarkers`
-- 팝업 연동: `ProductionPanelUI.OnShow → ShowRallyMarker`, `OnBeforeClose → HideAllRallyMarkers`, 조준 진입 `OnRallyPointClick`(534)은 `_popup.Hide()`만, 완료 `CompleteRallyPointSetting`은 끝에서 `_currentBuilding=null`(Close() 미호출)
+- 팝업 연동: `ProductionPanelUI.OnShow → ShowRallyMarker`, `OnBeforeClose → HideAllRallyMarkers`, 조준 진입 `OnRallyPointClick`은 `_popup.Hide()` + **`HideBlockingOverlay()`**(2026-08-08 수정), 완료 `CompleteRallyPointSetting`은 `Close()` 미호출이라 **`HideBlockingOverlay()`로 참조 카운터를 직접 반납**(2026-08-08 추가) 후 `_currentBuilding=null`
 - 입력: `InputHandler.HandleClick` 최상단(IsPointerOverUI보다 앞)에서 rally 분기 + `RallyPointSetFrame` 같은프레임 가드
 - 파괴/철거 정리: `ProductionTicker.OnBuildingDied → UnregisterBarracks + DestroyMarker`; 철거는 `CancelAllQueue`가 ClearRallyPoint를 먼저 호출
 - 업그레이드 승계: `ProductionTicker.OnBuildingUpgraded`가 RallyPoint 저장 → CancelAllQueue → RegisterBarracks → SetRallyPoint 복원 (**서버 가드 없음 → 클라에서도 CancelAllQueue 실행**)
@@ -34,7 +34,7 @@ UI/마커(전부 Presentation 로컬):
 구조적 취약점(코드 근거 확인, 실기 미검증):
 1. `_autoHideCoroutine`이 배럭 단위가 아닌 **단일 필드** → 3초 내 두 번째 ShowMarkerTemporary/ShowRallyMarker가 앞 코루틴을 StopCoroutine → 앞 마커가 영구 표시 잔존. AI가 `SetRallyToMine`으로 모든 배럭을 한 프레임에 설정하므로 N-1개 잔존
 2. 싱글플레이 팀 필터 부재 → AI(Red) 깃발이 플레이어 화면에 표시(기획 규칙 1 위반)
-3. 랠리 조준 중 UIManager 공유 BlockingOverlay(Popup 모드, onTap=Close)를 숨기지 않음. 스킬 패널은 `BuildingSkillPanelUI.cs:328`에서 `HideBlockingOverlay()` 호출로 동일 문제를 회피 → 랠리 경로만 누락(EventSystem/InputHandler 처리 순서에 따라 설정 실패 또는 마커 즉시 숨김)
+3. ~~랠리 조준 중 UIManager 공유 BlockingOverlay(Popup 모드, onTap=Close)를 숨기지 않음~~ → **✅ 2026-08-08 수정 완료·실기 PASS(커밋 `9a19cd5`)**. 스킬 패널(`BuildingSkillPanelUI.cs:328`)과 동일 패턴으로 `OnRallyPointClick`에 `HideBlockingOverlay()` 추가 + `Close()`를 안 거치는 `CompleteRallyPointSetting`에 참조 카운터 반납 1줄 추가. task `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`
 4. `LoadMap()` 재호출(재경기)마다 `ProductionTicker.Initialize→SubscribeEvents`가 **중복 구독**(`AddTo(this)`는 컴포넌트 파괴 시에만 해제). `_rallyMarkers`도 초기화되지 않고 `BuildingPlacementUseCase.Clear()`는 OnBuildingDied를 발행하지 않아 마커 GameObject 누수
 
 ## 공격 방향 — 상세: [attack-direction-refactor.md](attack-direction-refactor.md)

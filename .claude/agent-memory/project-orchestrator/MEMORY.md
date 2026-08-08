@@ -6,6 +6,15 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
+## 프로젝트 현재 상태 (2026-08-08)
+
+### 2026-08-08 완료 — 랠리포인트 조준 시 BlockingOverlay 잔존 버그 수정 (실기 PASS · 커밋 `9a19cd5`)
+- 배럭 팝업에서 랠리포인트 버튼을 누르면 팝업만 숨겨지고 공유 반투명 오버레이가 남아, 맵 탭이 오버레이에 먹혀 `Close()`가 실행되며 집결지 지정이 취소된 것처럼 보이던 버그.
+- **작업 흐름**: 코드 조사(game-programmer 정적 분석, 랠리포인트 구조·취약점 6건 도출) → `Research.md` → `Plan.md`(사용자 승인) → game-programmer 구현 → 사용자 실기 테스트 **PASS**. TC 문서는 사용자 미지시로 미작성(WORKFLOW [5-1] 준수).
+- **결과**: 코드 변경 `Presentation/UI/ProductionPanelUI.cs` **1파일 2줄**(순수 추가, 기존 로직 제거 없음). `OnRallyPointClick()` 오버레이 해제 + `CompleteRallyPointSetting()` 참조 카운터 반납. 계획과 구현 100% 일치(추가 변경 없음).
+- **조율 교훈**: 단일 파일·2줄이어도 "①만 고치면 ②가 새 버그를 만든다"는 결합이 있어 **두 지점을 한 Plan에 묶은 것이 핵심**이었음(기존 버그가 다른 누락을 상쇄하고 있던 구조). Research에서 발견한 나머지 랠리포인트 결함 5건은 범위 밖으로 분리해 별도 작업 후보로 기록.
+- task `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`. 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5, 보조 `GameSystemRules_Buildings.md` 랠리포인트 규칙 2(규칙 문서 변경 불필요 — 코드가 규칙을 다시 준수하도록 맞춘 수정).
+
 ## 프로젝트 현재 상태 (2026-07-31)
 
 ### 2026-07-31 완료 — 연구소 유닛 강화 시스템 + 전투 스탯 ×10 + 연구 패널 UI (멀티플레이 실기 PASS)

@@ -328,3 +328,22 @@ Research.md **5장 "작업 중 발견한 부가 이슈"**에 기록된 아래 �
 | 영향 레이어 | Presentation 한정 / 서버 권위 로직 무변경 / 싱글·멀티 공통 |
 | 위험도 | 낮음 (순수 추가 + 검증된 패턴 재사용) |
 | Inspector 작업 | 없음 |
+
+---
+
+## 9. 구현 결과 — ✅ 구현 완료 · 사용자 실기 테스트 PASS (2026-08-08)
+
+7장의 "구현 시작 조건"(사용자 명시적 승인)이 충족되어 game-programmer 에이전트가 구현을 수행했고, 사용자 실기 테스트에서 **PASS**로 확인되었다.
+
+| 항목 | 결과 |
+|------|------|
+| 구현 범위 | 3장의 **수정 ①·② 두 지점만**. 계획 외 파일·로직 변경 없음 |
+| 실제 변경 파일 | `Assets/_Project/Scripts/Presentation/UI/ProductionPanelUI.cs` **1개** (계획과 동일) |
+| 계획 대비 차이 | **없음.** `OnRallyPointClick()` 블록 전개 + `HideBlockingOverlay()` 1줄, `CompleteRallyPointSetting()`에 반납 1줄 — 주석 문구까지 3장 기재 내용 그대로 적용 |
+| 기존 로직 제거·비활성화 | **없음** (0장에 기재한 대로 순수 가산 수정) |
+| 사용자 실기 테스트 | **PASS** — 랠리포인트 버튼 탭 시 반투명 배경 즉시 사라짐, 이어진 맵 탭으로 집결지 정상 지정 확인 |
+| Testcase.md | **미작성.** 사용자가 TC 작성을 명시적으로 지시하지 않았으므로 WORKFLOW.md [5-1] 규칙에 따라 미작성 상태 유지 (5-3장의 확인 목록은 사용자 실기로 대체 확인) |
+| 커밋 | `9a19cd5` (브랜치 `claude/rally-points-bug-19bar5`) |
+
+> **문서 반영(WORKFLOW.md [9]~[12])**: `PROJECT_STATUS.md` / `ROADMAP.md` / `WORK_HISTORY.md` 갱신, game-programmer·project-orchestrator MEMORY 갱신 완료.
+> `GameSystemRules_UI.md`(공통 UI 규칙 5) 및 `GameSystemRules_Buildings.md`(랠리포인트 규칙 2)는 **규칙 텍스트가 이미 올바르게 서술되어 있었고 이번 수정은 코드가 그 규칙을 다시 준수하도록 맞춘 것**이므로 내용 변경 없음.

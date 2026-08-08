@@ -293,3 +293,13 @@ UIManager.Instance?.HideBlockingOverlay();
 - **선례**: 동일 문제를 `BuildingSkillPanelUI.cs:319-328`이 이미 `_popup.Hide()` + `HideBlockingOverlay()` 짝 호출로 해결해 두었으며, 그 주석에 동일 증상이 명시되어 있다.
 - **부수 결함**: `CompleteRallyPointSetting()` (:536-545)에도 오버레이 참조 카운터 반납 경로가 없다.
 - **범위**: Presentation 레이어 한정, 싱글/멀티 공통, 서버 권위 로직 무결.
+
+---
+
+## 7. 후속 진행 상태 (2026-08-08)
+
+본 조사에서 확인된 원인은 [Plan.md](Plan.md)의 수정 ①·②로 **구현 완료 · 사용자 실기 테스트 PASS**(커밋 `9a19cd5`).
+`ProductionPanelUI.cs` 1개 파일에 `HideBlockingOverlay()` 호출 2줄을 추가한 것이 전부이며, 계획과 실제 구현이 완전히 일치한다.
+상세 결과는 Plan.md 9장 참조.
+
+**5장 "작업 중 발견한 부가 이슈" 6건은 이번 수정 범위 밖으로 여전히 미해결 상태**이며, 별도 작업 사이클의 후보로 남는다.
