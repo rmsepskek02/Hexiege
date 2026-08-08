@@ -108,3 +108,11 @@
 
 - `BuildingPanelBase`에 이미 `CurrentBuildingId`(L116) 접근자가 있어 매칭 판정에 활용 가능하나, 베이스 내부에서는 `_currentBuilding` 직접 참조가 더 단순하다.
 - `Close()`는 `_popup?.Hide()`, `UIManager.Instance?.HideBlockingOverlay()` 등 null-safe로 구성되어 있어 중복/재진입 호출에도 비교적 안전하다. 다만 이미 닫힌 상태에서 다시 `Close()`가 불리는 중복 호출 가능성은 Plan의 위험 항목에서 다룬다.
+
+---
+
+## 구현 결과 (2026-08-08, 실기 테스트 PASS · 커밋 `8c7fa01`)
+
+- 조사한 갭 그대로 **`BuildingPanelBase`가 `GameEvents.OnBuildingDied`를 구독**해, 파괴된 건물이 현재 표시/조준 중인 건물(`_currentBuilding.Id` 매칭)이면 `Close()`를 호출하도록 구현. 코드 변경은 **`BuildingPanelBase.cs` 1개 파일**, 자식 4개 패널 무변경.
+- **구독 해제는 `OnDestroy`+Dispose(당초 조사 L40 제안)가 아니라 `.AddTo(this)`(UniRx)로 구현**했다. 이유: `ResearchPanelUI`가 **이미 자체 `OnDestroy`를 선언**해(본 Research L71 표에서 확인한 패널), 베이스에 `OnDestroy`를 신설하면 자식이 이를 은닉(hide)해 베이스 해제가 누락되는 회귀가 생긴다. 프로젝트 관용 패턴(`BuildingFactory`/`UnitFactory`/`HitPresentationQueue`)을 따라 `.AddTo(this)`로 컴포넌트 수명에 묶었다.
+- 실기: 스킬 조준 중 파괴 시 조준 원 소멸·입력 잠금 잔존 없음, 생산 패널 파괴 시 랠리 마커 소멸, 연구소 파괴 시 연구 패널 닫힘(연구 취소·환불과 충돌 없음) — 모두 PASS. 멀티는 `NetworkCombatController.HandleBuildingDied`(L1027) 로컬 재발행으로 커버됨을 재확인.

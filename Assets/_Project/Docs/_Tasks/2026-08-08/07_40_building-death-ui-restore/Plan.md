@@ -103,3 +103,22 @@
 ```
 
 > 구현은 `game-programmer` 에이전트에 위임하며, **사용자 승인 후에만** 시작한다(WORKFLOW [4]).
+
+---
+
+## 구현 결과 (2026-08-08, 실기 테스트 PASS · 커밋 `8c7fa01`)
+
+계획대로 **`BuildingPanelBase.cs` 1개 파일만 수정**했고(자식 4개 패널 무변경), 파괴된 건물이 현재 표시/조준 중인 건물이면 베이스가 `Close()`를 호출해 각 패널 `OnBeforeClose`로 스킬 조준 취소·랠리 마커 숨김이 자동 연계되는 것을 실기로 확인했다. **생산/건물액션/스킬/연구 4개 패널 전부 커버**되고, 멀티(순수 클라 포함)도 `NetworkCombatController.HandleBuildingDied`의 로컬 재발행으로 정상 동작.
+
+### 계획 대비 달라진 점 — 구독 해제를 `OnDestroy`+Dispose 대신 `.AddTo(this)`(UniRx)로 변경
+
+- **원래 계획(위 설계 5·파일별 변경)**: `IDisposable` 필드 + 신설 `OnDestroy`에서 Dispose.
+- **실제 구현**: 구독을 **`.AddTo(this)`(UniRx)** 로 컴포넌트 수명에 묶어 자동 해제.
+- **변경 이유(회귀 회피)**: `ResearchPanelUI`가 **이미 자체 `OnDestroy`를 선언**하고 있어, 베이스에 `OnDestroy`를 신설하면 C# 메서드 **은닉(hide)** 이 발생한다(자식 `OnDestroy`가 베이스 `OnDestroy`를 가려 `base.OnDestroy()` 호출이 없으면 베이스 해제 로직이 실행되지 않음 → 구독 누수 회귀). 이를 피하려 프로젝트에 이미 쓰이는 관용 패턴(`BuildingFactory`/`UnitFactory`/`HitPresentationQueue`의 `.AddTo(this)`)을 채택했다.
+- **판정 기준은 계획대로 `IsOpen`이 아닌 `_currentBuilding.Id` 매칭**(스킬 조준 중엔 `_popup.Hide()`로 `IsOpen=false`이므로) — 무변경.
+
+### 실기 확인
+- 스킬 조준 중 시전 건물 파괴 → 조준 원 사라짐·입력 잠금 잔존 없음. 생산 건물 파괴 → 생산 패널 닫힘·랠리 마커 사라짐. 연구소 파괴 → 연구 패널 닫힘(기존 연구 취소·환불과 충돌 없음). 모두 PASS.
+
+### 교훈
+- **MonoBehaviour 베이스에서 자식이 자체 `OnDestroy`를 선언하면 베이스 `OnDestroy`가 은닉(hide)되어 베이스 해제 로직이 누락될 수 있다.** 베이스에서 이벤트 구독을 해제할 때는 신설 `OnDestroy`보다 **`.AddTo(this)`(UniRx)** 로 컴포넌트 수명에 묶는 것이 안전하다.

@@ -37,6 +37,15 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 건물 파괴 시 열린 패널/조준 UI 원복 (2026-08-08 ✅ 실기 테스트 PASS · 커밋 `8c7fa01`)
+- **범위**: 건물 패널 4종(생산/건물액션/스킬/연구) 공통 갭 — 파괴된 건물의 패널·조준 UI가 화면에 남던 것을 자동으로 닫음. task `_Tasks/2026-08-08/07_40_building-death-ui-restore/`.
+- **구현(코드 1파일)**: `Presentation/UI/BuildingPanelBase.cs`만 수정(자식 4개 패널 무변경). `InitializeBase`에서 `GameEvents.OnBuildingDied` 구독 → 핸들러가 `e.Building!=null && _currentBuilding!=null && e.Building.Id==_currentBuilding.Id`이면 `Close()` 호출. `Close()`가 `OnBeforeClose()`를 경유하므로 `BuildingSkillPanelUI.OnBeforeClose`(조준 취소 `CancelAim`)·`ProductionPanelUI.OnBeforeClose`(랠리 마커 숨김)가 자동 연계 → **베이스에서 `Close()`만 불러도 4종 정리 완료**.
+- **판정 기준 = `IsOpen` 아님, `_currentBuilding.Id` 매칭**: 스킬 조준 진입 시 `BuildingSkillPanelUI`가 `_popup.Hide()`를 불러 `IsOpen`(=`_popup.IsVisible`)이 조준 중 false가 됨 → `IsOpen`으로 걸면 조준 중 케이스를 놓침. 닫힌 패널은 `_currentBuilding==null`이라 매칭 자연 실패(오작동 없음).
+- **구독 해제 — Plan 대비 변경(`.AddTo(this)`)**: Plan은 `IDisposable`+신설 `OnDestroy` Dispose였으나, ⚠️ **`ResearchPanelUI`가 이미 자체 `OnDestroy`를 선언**해 베이스에 `OnDestroy`를 신설하면 자식이 이를 **은닉(hide)**(자식이 `base.OnDestroy()`를 부르지 않으면 베이스 해제 로직 누락 → 구독 누수 회귀). 프로젝트 관용 패턴(`BuildingFactory`/`UnitFactory`/`HitPresentationQueue`)대로 **`.AddTo(this)`(UniRx)** 로 컴포넌트 수명에 묶어 회피.
+- **멀티**: `NetworkCombatController.HandleBuildingDied`(L1027)가 클라에서 `OnBuildingDied` 재발행 → 싱글/호스트/순수 클라 전부 커버(별도 배선 불필요).
+- **실기(PASS)**: 스킬 조준 중 시전 건물 파괴 시 조준 원 소멸·입력 잠금 잔존 없음, 생산 건물 파괴 시 랠리 마커 소멸, 연구소 파괴 시 연구 패널 닫힘(기존 연구 취소·환불과 충돌 없음).
+- ⚠️ **교훈(재사용)**: MonoBehaviour 베이스에서 이벤트 구독을 해제할 때, 자식이 자체 `OnDestroy`를 가질 수 있으면 신설 `OnDestroy`+Dispose는 은닉으로 누락 위험 → **`.AddTo(this)`가 안전**. 규칙: `GameSystemRules_UI.md` 공통 UI 팝업 규칙 11(건물 팝업 대상 건물 파괴 시 자동 닫힘) 명문화.
+
 ### 스킬 시스템 Phase 2 — 타입 C(전역 상태변경: 버프/디버프/CC/힐) (2026-08-04 구현 → 2026-08-05 ✅ 실기+멀티(클라) 테스트 PASS)
 - **범위**: 타입 C 실행기 + 상태효과 시스템 + 유효 스탯 접근자에 상태 배율 합성 + CanAttack 게이트 + 빙결 애니 정지 + 둔화 라이브 + 멀티 동기화 + 종족별 플레이스홀더 5슬롯. task Plan §6 Phase 2(하단 "완료 결과"), 규칙 `GameSystemRules_Skills.md` 13·Plan 9-1~9-5.
 - **실기 결과(2026-08-05 PASS)**: 공격버프·빙결(이속0+공격봉쇄+만료 복귀)·둔화(0.5 라이브)·회복(HoT)·**무상태 회귀(기존 유닛/연구강화 무변경)** + 순수 클라이언트 재현까지 모두 확인.
@@ -53,7 +62,7 @@
 - **UI 버튼 균일화(2026-08-05)**: 스킬 슬롯 CostContainer를 `SetActive(false)`(→행 높이 붕괴) 대신 **CanvasGroup alpha=0(HideChildKeepLayout)**로 숨겨 레이아웃 행 높이를 보존(버튼 크기 균일).
 - **유지 중인 테스트 스캐폴딩(과대 표기 금지)**: 종족별 플레이스홀더 스킬 **5슬롯** = 1 폭탄(타입 A)/2 빙결(C-CC)/3 공격버프(C-buff)/4 둔화(C-CC)/5 회복(C-heal). 스킬 버튼은 임시 텍스트 라벨. **최종 스킬 기획·아이콘 확정 전까지 유지되는 테스트용**.
 - **정리(cleanup) 완료(2026-08-05)**: 개발 중 넣었던 **진단 로그 코드를 LogRules 준수 위해 제거**(raw Debug.Log 금지·RuntimeLogger 파일 기록 원칙) → `IRuntimeLogSink`/`RuntimeLoggerSink`는 **삭제됨**(grep 0건, 상시 기능으로 기재 금지). 로그 파일 `Docs/_Logs/2026-08-04/16_49_skill-status-debug/RuntimeLog_host.txt`는 LogRules대로 보존. 좌표화 때 주석 비활성화했던 코드 3곳도 삭제 완료. **교훈: 로그 작업 착수 전 반드시 `Docs/LogRules.md`(RuntimeLogger 파일 기록·raw Debug.Log 금지)를 먼저 확인할 것.**
-- **남은 것(별도 작업)**: ① 건물 파괴 시 열린 스킬 패널/조준 UI 원복 미구현(스킬 포함 4개 건물 패널 공통 갭, `BuildingPanelBase` OnBuildingDied 구독→Close 제안) ② 구체 스킬 목록·수치·아이콘(기획) 보류 ③ 둔화 전투종료 정렬 Lerp 잔여(위 9-5).
+- **남은 것(별도 작업)**: ① ✅ 건물 파괴 시 열린 스킬 패널/조준 UI 원복 — **2026-08-08 구현 완료·실기 PASS**(아래 최근 작업 항목 참조) ② 구체 스킬 목록·수치·아이콘(기획) 보류 ③ 둔화 전투종료 정렬 Lerp 잔여(위 9-5).
 
 ### 스킬 지점 조준 좌표화 + 조준원 지면 데칼 렌더링 + 취소 버그·토스트 (2026-08-04) — ✅ 실기기 테스트 PASS (상세: skill-aim-coordinate.md)
 - 조준 중심 **HexCoord(타일 스냅) → 연속 도메인 월드 Vector3**. **착탄 반경 판정은 원래 연속 원이라 무변경, 중심만 연속화.** 전 계층 시그니처 Vector3화: SkillAimController/BuildingSkillPanelUI/SkillActivationUseCase.Activate(Vector3?)/SkillActivationContext(AimWorld)/UnitCombatUseCase.ApplySkill*(Vector3 center)/INetworkSkillController·NetworkSkillController RPC(**NGO Vector3 기본 직렬화**, int q,r 폐지).

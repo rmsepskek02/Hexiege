@@ -105,6 +105,13 @@
 - **stale "미구현" 문구 정정 패턴**: 헤더/현재단계/blockquote 등 여러 위치의 "타입 C Phase 2 미구현" 문구를 완료로 교체하되, 과거 dated 요약(2026-08-04 milestone 줄)의 "미완" 절은 삭제 대신 "이후 2026-08-05 구현 완료(위 참조)"로 보정해 히스토리 모순 회피.
 - 갱신처(전량): 공용 `.claude/MEMORY.md`(공통교훈 prepend + Phase1 bullet 미완절 보정) · `PROJECT_STATUS.md`(헤더 날짜+2026-08-05 완료줄 신규·2026-08-04 미완절 보정·현재단계·스킬섹션 헤더/셀/타입C 3행 추가/blockquote 재작성) · `ROADMAP.md`(헤더+2026-08-05 완료줄·현재단계·우선순위표 타입C행 🔴→✅·D-1) · `WORK_HISTORY.md`(2026-08-05 마일스톤 prepend) · `GameSystemRules_Skills.md`(구현상태 블록) · task Plan §10·Research §6 append · game-programmer/document-manager MEMORY. 사용자 MEMORY(Windows)는 Linux 세션 접근 불가·git/커밋은 사용자 처리.
 
+### 2026-08-08 - 건물 파괴 시 패널/조준 UI 원복 구현·실기 PASS 반영
+- **여러 문서에 "후속/미완"으로 분산 기재돼 있던 단일 항목(건물 파괴 시 UI 원복)이 완료된 경우의 일괄 상태 전환 사례.** 이 항목은 스킬 작업(2026-08-04/08-05)의 파생 잔여로 스킬 문서·상태 문서 곳곳에 "미구현" 표기가 흩어져 있어 **grep으로 전 출현 위치를 먼저 수집**한 뒤 갱신처를 확정했다(PROJECT_STATUS 헤더/현재단계/후속blockquote/시스템표, ROADMAP 헤더/현재단계/우선순위표행/스킬섹션미완, WORK_HISTORY, 공용·game-programmer MEMORY, Skills 서두).
+- **cross-cutting UI 동작의 규칙 명문화 위치 판단**: 건물 파괴 시 패널 자동 닫힘은 4개 건물 패널(생산/건물액션/스킬/연구) 공통 베이스(`BuildingPanelBase`) 동작이라 스킬 전용이 아님 → **`GameSystemRules_UI.md` 공통 UI "팝업" 서브섹션에 규칙 11 신설**(팝업 규칙 8~10 뒤 이어붙이기, 마지막 번호 Read로 확인). Skills 서두엔 완료 사실 + UI 규칙 11로의 참조만 남기고 규칙 본문은 UI 문서로 일원화(SSoT). Buildings.md는 랠리/철거/타워 중심이라 미채택.
+- **Plan 대비 변경 = `.AddTo(this)` 교훈**: 계획은 `OnDestroy`+Dispose였으나 자식 `ResearchPanelUI`의 자체 `OnDestroy`가 베이스 `OnDestroy`를 은닉(hide)하는 회귀 때문에 `.AddTo(this)`(UniRx)로 확정. 이 "MonoBehaviour 베이스 구독 해제는 자식 OnDestroy 은닉 위험 → `.AddTo(this)`" 교훈을 공용 `.claude/MEMORY.md`+game-programmer MEMORY+Plan/Research 완료절+WORK_HISTORY에 분산 기록.
+- **task 문서**: 지시대로 Research/Plan **둘 다** 하단에 "구현 결과" append(계획대로 된 점 / 계획과 달라진 점=`.AddTo(this)` / 실기 PASS 구분). **Testcase.md는 미요청이라 미생성**(관례 유지). 커밋 해시(`8c7fa01`)는 사용자 제공값 그대로 기재. 사용자 MEMORY(Windows) 접근 불가·git/커밋 사용자 처리.
+- **코드 변경 작업이라 game-programmer MEMORY 갱신**(최근 작업 prepend + 스킬 Phase 2 "남은 것"의 건물파괴 항목 ✅ 전환). qa-tester는 별도 버그 발견 없어(사용자 실기 PASS) 무수정, project-orchestrator는 이번 지시 범위 밖(document-manager+game-programmer 2종만).
+
 ### 2026-07-18 - Email verification flow completion docs
 
 - Completion update pattern: append task `Plan.md` completion result, add PASS results to task `Testcase.md`, update `PROJECT_STATUS.md`/`ROADMAP.md` progress sections from in-progress to complete, and replace the `WORK_HISTORY.md` in-progress entry with completed device verification results.
