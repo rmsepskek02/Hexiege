@@ -117,6 +117,7 @@ SetActive(false)를 사용하면 두 가지 문제가 발생한다.
   - **Popup 모드** — `ShowBlockingOverlay(() => Close())` (콜백 있음): 오버레이를 터치하면 등록된 콜백(팝업 닫기)이 실행된다. (InGameSettingsUI, BuildingPlacementUI, 생산/건물 패널)
 - 팝업이 중첩될 수 있으므로 UIManager는 **참조 카운터**로 표시 횟수를 누적 관리한다. `HideBlockingOverlay()`가 호출되어 카운터가 0이 될 때에만 실제로 숨겨진다.
 - 호출은 항상 null-safe 패턴 `UIManager.Instance?.ShowBlockingOverlay(...)`를 사용한다 (씬 직접 진입 시 Instance가 null일 수 있음).
+- **팝업 Hide와 오버레이 Hide는 항상 짝을 이룬다.** 조준 모드 진입 등을 위해 팝업만 숨기는 경로에서도 오버레이를 그대로 두지 말고 `HideBlockingOverlay()`로 함께 내린다. 반대로 조준 완료/취소 처리가 `Close()`를 거치지 않고 끝나는 경로는, `Close()`가 대신 반납해 주던 참조 카운터를 해당 경로에서 직접 `HideBlockingOverlay()`를 호출해 반납해야 한다. (동일 결함이 스킬 패널·랠리포인트 두 곳에서 반복 발생했던 사례 — `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`)
 
 ---
 

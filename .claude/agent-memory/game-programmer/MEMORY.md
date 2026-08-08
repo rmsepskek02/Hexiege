@@ -37,6 +37,13 @@
 
 ## 최근 작업 (상세 전체는 work-history.md)
 
+### 랠리포인트 조준 시 BlockingOverlay 잔존 버그 수정 (2026-08-08 ✅ 실기 테스트 PASS · 커밋 `9a19cd5`)
+- **증상**: 배럭 팝업 → 랠리포인트 버튼 탭 시 팝업만 사라지고 **반투명 배경(공유 BlockingOverlay)이 잔존** → 맵을 탭하면 오버레이(onTap=`Close`)가 터치를 먼저 먹어 `Close()`→`OnBeforeClose()`에서 `IsSettingRallyPoint=false`+`HideAllRallyMarkers()` → "지정이 그냥 취소된 것처럼" 보임(EventSystem/InputHandler 실행 순서에 따라 설정 실패 또는 깃발 즉시 소멸, 두 경우 모두 사용자 체감 동일).
+- **원인**: `ProductionPanelUI.OnRallyPointClick()`이 `_popup?.Hide()`만 호출. 오버레이는 `BuildingPanelBase.Show()`가 켠 것이고 **끄는 곳은 `Close()` 단 하나** → 팝업만 숨기는 경로는 오버레이를 그대로 남긴다.
+- **수정(코드 1파일 2줄, 순수 추가)**: `Presentation/UI/ProductionPanelUI.cs` — ① `OnRallyPointClick()`에 `UIManager.Instance?.HideBlockingOverlay();` ② `Close()`를 거치지 않는 `CompleteRallyPointSetting()`에도 동일 호출(참조 카운터 반납). **②를 빠뜨리면 안 됨** — 지금까지는 잔존 버그가 대신 `Close()`를 태워 카운터를 우연히 맞춰주고 있었으므로, ①만 고치면 카운터가 반납되지 않아 다음 팝업의 오버레이가 어긋난다. `HideBlockingOverlay()`는 언더플로 가드(0 미만 방지)+멱등이라 이중 호출 안전.
+- ⚠️ **교훈(재사용·2번째 발생)**: `BuildingPanelBase` 계열에서 **조준 모드 진입을 위해 `_popup.Hide()`만 하는 경로는 반드시 `HideBlockingOverlay()`를 짝으로 호출**해야 하고, **`Close()`를 우회해 종료되는 경로는 참조 카운터를 직접 반납**해야 한다. 선례 `BuildingSkillPanelUI.cs:321-328`(주석에 "랠리 패턴"이라 적혀 있었으나 정작 랠리 경로가 미적용이었음). 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5(BlockingOverlay 단일 소유+참조 카운터), 보조 `GameSystemRules_Buildings.md` 랠리포인트 규칙 2(설정 직후 3초 표시 — 이 버그로 위반 중이었고 수정으로 정상화).
+- **범위 밖(미수정, 별도 작업 후보)**: `ProductionTicker` 단일 `_autoHideCoroutine`·싱글플레이 팀 필터 부재·재경기 중복 구독/마커 누수·랠리 좌표 검증 부재·멀티 롤백 경로 부재 → 상세는 [gameplay-systems.md](gameplay-systems.md) "랠리포인트 시스템 구조 맵".
+
 ### 건물 파괴 시 열린 패널/조준 UI 원복 (2026-08-08 ✅ 실기 테스트 PASS · 커밋 `8c7fa01`)
 - **범위**: 건물 패널 4종(생산/건물액션/스킬/연구) 공통 갭 — 파괴된 건물의 패널·조준 UI가 화면에 남던 것을 자동으로 닫음. task `_Tasks/2026-08-08/07_40_building-death-ui-restore/`.
 - **구현(코드 1파일)**: `Presentation/UI/BuildingPanelBase.cs`만 수정(자식 4개 패널 무변경). `InitializeBase`에서 `GameEvents.OnBuildingDied` 구독 → 핸들러가 `e.Building!=null && _currentBuilding!=null && e.Building.Id==_currentBuilding.Id`이면 `Close()` 호출. `Close()`가 `OnBeforeClose()`를 경유하므로 `BuildingSkillPanelUI.OnBeforeClose`(조준 취소 `CancelAim`)·`ProductionPanelUI.OnBeforeClose`(랠리 마커 숨김)가 자동 연계 → **베이스에서 `Close()`만 불러도 4종 정리 완료**.
