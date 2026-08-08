@@ -531,7 +531,23 @@ namespace Hexiege.Presentation
                 _production.ToggleAutoProduction(_currentBuilding.Id, type);
         }
 
-        private void OnRallyPointClick() { IsSettingRallyPoint = true; RallyPointSetFrame = Time.frameCount; _popup?.Hide(); }
+        private void OnRallyPointClick()
+        {
+            IsSettingRallyPoint = true;
+            RallyPointSetFrame = Time.frameCount;
+
+            // 조준 중에는 맵이 보여야 하므로 팝업을 숨긴다.
+            _popup?.Hide();
+
+            // 공유 BlockingOverlay(패널이 열릴 때 BuildingPanelBase.Show()에서 표시됨)는
+            //   "탭하면 Close()" 콜백을 가진 Popup 모드다.
+            //   이 오버레이를 그대로 두면 조준하려고 맵을 탭했을 때 오버레이가 터치를 먼저 먹어
+            //   Close()가 실행되고, OnBeforeClose()에서 IsSettingRallyPoint가 false로 초기화되며
+            //   랠리 마커까지 숨겨져 "지정이 취소된 것처럼" 보인다.
+            //   따라서 조준 모드 진입 시 오버레이를 내려 터치가 맵으로 전달되게 한다.
+            //   (BuildingSkillPanelUI의 지점 조준 진입부와 동일한 패턴)
+            UIManager.Instance?.HideBlockingOverlay();
+        }
 
         public void CompleteRallyPointSetting(HexCoord target)
         {
@@ -541,6 +557,14 @@ namespace Hexiege.Presentation
                 _networkProductionController.RequestSetRallyPoint(_currentBuilding.Id, target.Q, target.R, _currentBuilding.Team);
             _production.SetRallyPoint(_currentBuilding.Id, target);
             IsSettingRallyPoint = false;
+
+            // 이 경로는 Close()를 거치지 않으므로, Close()가 대신 해 주던
+            //   BlockingOverlay 참조 카운터 반납을 여기서 직접 수행한다.
+            //   (패널 표시 시 BuildingPanelBase.Show()가 ShowBlockingOverlay로 +1 해 둔 몫)
+            //   조준 진입 시 이미 1회 내렸으므로 보통은 카운터가 0인 상태에서 호출되지만,
+            //   UIManager.HideBlockingOverlay()는 0 미만으로 내려가지 않는 가드를 갖고 있어 안전하다.
+            UIManager.Instance?.HideBlockingOverlay();
+
             _currentBuilding = null;
         }
 
