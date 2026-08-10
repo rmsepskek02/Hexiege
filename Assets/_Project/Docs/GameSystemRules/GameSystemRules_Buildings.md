@@ -366,7 +366,7 @@ MistShrine이 파괴·철거될 때 ① 물안개 제거(규칙 12) ② 자동 �
 ### 에셋
 
 **규칙 26. 물안개 VFX는 신규 제작이 필요하다**
-현재 MistShrine에 등록된 VFX는 `vfx_mistshrine_destroy` / `vfx_mistshrine_upgrade` 뿐이며(`Assets/VFXSFXList.md`),
+현재 MistShrine에 등록된 VFX는 `vfx_mistshrine_destroy` / `vfx_mistshrine_upgrade` 뿐이며([VFXSFXList.md](../Assets/VFXSFXList.md)),
 **물안개 지속 이펙트는 존재하지 않는다 → 신규 제작 대상**이다.
 VFX 재생 시 사운드 규칙 15(VFX+SFX 쌍)를 준수한다.
 
