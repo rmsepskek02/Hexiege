@@ -1,8 +1,10 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.43.0
-**최종 수정일:** 2026-07-20
+**버전:** 0.43.1
+**최종 수정일:** 2026-08-10
 **작성자:** HANYONGHEE
+
+> **2026-08-10:** 건물 타입 주석 오류 정정 — `AutoTower`×3종족의 Transcendence는 **VineTower**다(이전 "Trans=MistShrine"은 오류). MistShrine은 방어 타워가 아니라 별도 힐 건물 `HealShrine`(= 6)이며, 물안개 지속 힐로 재설계 확정되었다(**기획 확정 / 구현 미착수**). 규칙: `GameSystemRules/GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템.
 
 ---
 
@@ -1301,7 +1303,11 @@ if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 // BuildingType enum — 26종
 // Castle×3종족, MiningPost×3종족
 // 종족별 생산라인 3단계: HumanBarracks1/2/3, AncientGrove1/2/3, PrimalSanctuary1/2/3
-// AutoTower×3종족 (Human=CannonTower, Spirit=RuneSpire, Trans=MistShrine)
+// AutoTower×3종족 (Human=CannonTower, Spirit=RuneSpire, Trans=VineTower)
+//   ⚠️ 2026-08-10 정정: Trans 방어 타워는 VineTower다(이전 표기 "Trans=MistShrine"은 오류).
+//   MistShrine은 방어 타워가 아니라 공격하지 않는 별도 힐 건물이며 HealShrine = 6 이라는
+//   독립 enum 값을 쓴다(AutoTower = 2와 완전히 별개). 규칙:
+//   GameSystemRules_Buildings.md — MistShrine 물안개 힐 시스템(기획 확정 / 구현 미착수).
 // 추가: ResearchLab (미구현)
 //
 // BuildingTypeHelper.cs (Domain 레이어):

@@ -1,9 +1,10 @@
 # Hexiege - 게임 기획서 (Game Design Document)
 
-**버전:** 1.11.0
-**최종 수정일:** 2026-07-31
+**버전:** 1.12.0
+**최종 수정일:** 2026-08-10
 **작성자:** HANYONGHEE
 
+> **2026-08-10:** **MistShrine(물안개 신전) 재설계 확정 — 기획 확정 / 구현 미착수.** 그리고 이 문서의 **오류 정정**: Transcendence 방어 타워를 MistShrine으로 적어 왔으나 **정확한 방어 타워는 `VineTower`**이며, MistShrine은 공격하지 않는 **별도 힐 건물(`BuildingType.HealShrine` = 6)** 이다. 재설계 내용은 물안개 지속 힐(아군 유닛+건물 대상, 건물 중심 고정 원형 범위, 1초 discrete 틱 아우라, 물안개 지속 < 쿨다운, 물안개 간 중첩 금지, 연구소 자연회복과는 중첩 적용, 자동/수동 시전 기본 OFF). 수치는 전부 밸런싱 미확정. 상세: `GameSystemRules/GameSystemRules_Buildings.md`(MistShrine 물안개 힐 시스템), `GameSystemRules/GameSystemRules_UI.md`(MistShrine 패널 UI), `_Tasks/2026-08-10/09_34_mistshrine-heal-redesign/`.
 > **2026-07-31:** 연구소 유닛 강화 시스템(공/방/속 + 초월 자연회복) + 전투 스탯 ×10 스케일 개편 **구현 완료(기능·멀티플레이 실기 PASS)**. 연구 패널 UI(매트릭스 2-레이어)까지 구현. ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨). 후속 보류: UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐·싱글 자연회복 실기. 상세: `GameSystemRules/GameSystemRules_Upgrade.md`, `StatsReference.md`, `_Tasks/2026-07-22/10_08_unit-upgrade-system/`.
 > **2026-07-23:** 위 시스템 설계·밸런스 최종 확정(당시 구현 예정).
 
@@ -209,18 +210,53 @@
 - 사거리 내 가장 가까운 적 유닛 자동 타게팅
 - 배치 즉시 공격 가능 (쿨다운 0 초기값)
 
-**종족별 스탯**:
-- Human(CannonTower): 공격력 15 / 쿨다운 5.0s / 상대 진영 방향 초기 회전
-- Spirit(RuneSpire): 공격력 15 / 쿨다운 3.5s (전 종족 중 최단)
-- Transcendence(MistShrine): 공격력 15 / 쿨다운 5.0s / 범위 힐 기능 (1 HP/s, 범위 3타일)
+**종족별 스탯** (수치의 권위 소스는 `StatsReference.md` — 아래는 ×10 스케일 값):
+- Human(CannonTower): 공격력 150 / 쿨다운 5.0s / 상대 진영 방향 초기 회전
+- Spirit(RuneSpire): 공격력 150 / 쿨다운 3.5s (전 종족 중 최단)
+- Transcendence(**VineTower**): 공격력 150 / 쿨다운 5.0s
 
 **공통 사거리**: 4.0타일
+
+> **⚠️ 2026-08-10 정정:** 이 문서는 이전까지 Transcendence의 방어 타워를 **MistShrine**으로 잘못 적고 있었다(범위 힐 기능이 딸린 타워로 서술).
+> **Transcendence 방어 타워는 `VineTower`이며, MistShrine은 공격하지 않는 별도 힐 건물(`BuildingType.HealShrine` = 6)이다.**
+> 방어 타워는 3종족 모두 `BuildingType.AutoTower`(= 2)로, 두 건물은 enum부터 별개다.
+> MistShrine은 아래 §5 참조.
 
 > **미구현**: 방어 타워 업그레이드(단계 확장)는 별도 작업 예정. (스킬 건물의 스킬 기능은 위 §3 스킬 건물 및 [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md) 참조 — 방어 타워 `RuneSpire`와 스킬 건물 `MagicSpirit`은 별개 건물.)
 
 ---
 
-### 5. 연구소 (Research Lab) — 유닛 강화 시스템 ✅ 구현 완료 (멀티플레이 실기 PASS)
+### 5. MistShrine (물안개 신전) — 초월 전용 힐 건물 ⏳ 기획 확정 / 구현 미착수 (2026-08-10 재설계)
+
+**공격하지 않는 회복 건물**이다. 플레이어가 사용하면 건물 주변에 **물안개**가 깔리고,
+물안개가 유지되는 동안 그 안의 **아군 유닛과 아군 건물이 매초 체력을 회복**한다.
+물안개가 걷히면 회복이 멈추고, 남은 쿨다운이 지나야 다시 쓸 수 있다.
+
+**핵심 컨셉**:
+- **방어 타워가 아니다** — 별도 건물 분류 `BuildingType.HealShrine`(= 6). Transcendence 방어 타워는 VineTower(§4).
+- **회복 대상 = 아군 유닛 + 아군 건물 모두.** 시전한 MistShrine 자신과 본기지(Castle)도 포함된다.
+- **범위 = 건물 중심 고정 원형.** 지점 조준이 없어 플레이어가 위치를 고를 수 없다(스킬 건물과의 차이).
+- **아우라 방식** — 물안개 지속 중 범위 안에 있으면 회복을 받고, 범위를 벗어나면 즉시 끊긴다(시전 시점 스냅샷 아님).
+- **1초 단위 회복 틱.** 최대 체력인 대상은 회복되지 않는다.
+- **물안개 지속시간 < 쿨다운** — 다시 쓸 수 있을 때까지 공백(다운타임)이 존재한다.
+- **시전 비용 없음** — 쿨다운으로만 사용 빈도를 제어한다.
+- **시전 건물이 파괴되면 물안개도 즉시 사라진다.**
+- **물안개끼리는 중첩되지 않는다** — 여러 물안개 범위에 겹쳐 있어도 효과는 하나만(더 가까운 건물, 거리가 같으면 건물 Id가 작은 쪽).
+- **연구소 자연회복(초월 전용 강화)과는 별개 효과이며 중첩되어 함께 적용된다.**
+
+**조작**: 아군 MistShrine을 클릭하면 전용 패널이 열린다. **짧은 탭 = 수동 시전 / 길게 누르기 = 자동 모드 토글**(생산 패널과 동일한 조작).
+**자동 모드 기본값은 OFF**이며, 자동 모드 중 짧은 탭은 자동 모드 해제로 처리한다.
+패널이 열려 있는 동안에만 반투명 원형으로 회복 범위를 표시하며, **적 MistShrine은 클릭해도 범위를 보여주지 않는다**(정보 우위 방지).
+
+**밸런싱 미확정**: 회복량 · 물안개 지속시간 · 쿨다운 · 범위 반경 · 회복 텍스트 표시 주기(임시 3초)는 **전부 미확정**이다.
+현재 `StatsReference.md`의 값(HP 500 / 건설비 100 / 10 HP/s · 범위 3)은 재설계 이전 수치이며 밸런싱 재검토 대상이다.
+
+> **상세 규칙은 단일 소스 문서 참조:** [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) — **MistShrine 물안개 힐 시스템** (UI 규칙은 [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) MistShrine 패널 UI)
+> **구현 상태: 기획 확정 / 구현 미착수.** 코드·전용 패널·범위 표시 UI·물안개 VFX 어느 것도 아직 없다(물안개 VFX는 신규 제작 필요).
+
+---
+
+### 6. 연구소 (Research Lab) — 유닛 강화 시스템 ✅ 구현 완료 (멀티플레이 실기 PASS)
 
 연구소를 지어 골드·시간을 들여 **자기 팀 유닛을 강화**하는 시스템. 강화 효과는 이미 전장에 나와 있는 유닛에게도 **연구 완료 즉시 소급 적용**된다(팀 배율 실시간 방식). 상세 구현 계약·구현 상태·연구 패널 UI 설계·수치는 `GameSystemRules/GameSystemRules_Upgrade.md`, `StatsReference.md` 참조.
 
@@ -249,7 +285,7 @@
 - 표준 트랙(스탯 1종 Lv1~5) 합계 1,000 골드(80/120/180/260/360), 연구 시간 15/25/35/50/70초
 - 그룹 비용 배율: 초월 동물 ×2.0, 자연회복 ×2.5, 초월 식물 포함 그 외 ×1.0
 
-> **상태:** ✅ 구현 완료 (기능·멀티플레이 실기 PASS, 2026-07-31). ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨). **후속 보류(미완/미검증):** 연구 패널 UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐(미구현)·싱글플레이 자연회복 실기. 밸런스 확정 근거: `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md`
+> **상태:** ✅ 구현 완료 (기능·멀티플레이 실기 PASS, 2026-07-31). ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨). **후속 보류(미완/미검증):** 연구 패널 UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐(2026-08-10 재설계 확정 / 구현 미착수 — 위 §5)·싱글플레이 자연회복 실기. 밸런스 확정 근거: `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md`
 
 ---
 
@@ -463,11 +499,13 @@
 - RabbitTrickster / RhinoBreaker: 스탯 미확정
 
 **건물 라인**: PrimalSanctuary 1/2/3단계 (원시 신전 스타일)
-**방어 타워**: Trans MistShrine — 힐 기능 포함, 쿨다운 5.0s
+**방어 타워**: Trans **VineTower** — 쿨다운 5.0s (`BuildingType.AutoTower`. 힐 기능 없음 — 힐은 별개 건물 MistShrine 담당)
 
 **종족 특성**:
 - 유닛 체력 +15%
-- MistShrine 범위 힐 (1 HP/s, 범위 3타일)
+- **MistShrine(물안개 신전) 물안개 지속 힐** — 공격하지 않는 별도 힐 건물(`BuildingType.HealShrine`). 시전하면 건물 중심 고정 원형 범위에 물안개가 깔리고, 지속되는 동안 **범위 안의 아군 유닛·아군 건물이 매초 회복**된다(범위를 벗어나면 즉시 끊기는 아우라 방식). 물안개끼리는 중첩되지 않으며, 연구소 자연회복과는 별개 효과로 중첩 적용된다. 자동/수동 시전 모드 지원(기본 OFF).
+  - 회복량·지속시간·쿨다운·범위는 **밸런싱 미확정**. **기획 확정 / 구현 미착수(2026-08-10 재설계)** — 상세는 위 §5 및 [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) MistShrine 물안개 힐 시스템 참조.
+- 초월 전용 강화 트랙 **자연회복**(연구소) — MistShrine 물안개 힐과 별개 효과이며 함께 적용된다.
 
 ---
 
@@ -833,6 +871,7 @@ Castle 바로 옆(인접 1칸)에 도달하면 공성 완료 → 정지
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 1.12.0 | 2026-08-10 | **MistShrine 재설계 확정(기획 확정/구현 미착수) + 문서 오류 정정.** ① 정정: Transcendence 방어 타워는 MistShrine이 아니라 **VineTower**(`AutoTower`), MistShrine은 별도 힐 건물(`HealShrine`=6) — 건물 시스템 §4 및 종족 시스템 초월계 항목 수정. ② 건물 시스템에 **§5 MistShrine(물안개 신전)** 신설: 물안개 지속 힐, 아군 유닛+건물 대상(자기 자신·Castle 포함), 건물 중심 고정 원형 범위(조준 없음), 1초 discrete 틱 아우라(이탈 시 즉시 끊김), 물안개 지속 < 쿨다운, 시전 비용 없음, 파괴 시 물안개 즉시 제거, 물안개 간 중첩 금지(가까운 건물 우선·동률 시 Id 작은 쪽), 연구소 자연회복과는 중첩 적용, 자동/수동 시전(기본 OFF). ③ 기존 §5 연구소는 §6으로 번호 조정. 수치는 전부 밸런싱 미확정. |
 | 1.9.0 | 2026-07-20 | 유닛 시스템에 '특수 유닛 능력 설계' 절 신설. 특수 유닛 6종(BattleAxe 휩쓸기형 / TorrentSpirit 파도형+힐 / BloomFairy 힐러 / MushroomBomber 착탄형 DoT / InfernoSpirit 단일 DoT / QuakeSpirit 착탄형 즉발 2단계 AoE)의 능력·판정 형태·수치를 기획 관점 자연어로 기록. 구현 규칙은 GameSystemRules_Units 규칙 23~42 참조로 연결(역할 분리). QuakeSpirit은 건물도 스플래시 타격하는 차별점, BloomFairy 쿨다운 예외(실제 힐 주기 4.0s) 명문화. |
 | 1.8.0 | 2026-07-20 | 무작위 맵 문서 구현 계약 감사. `MapTestModeEnabled`가 초기 골드만 제어하고 ON=5000/OFF=광산 수 표를 사용하도록 확정했으며, 멀티 Host 권위와 양측 동일 실제 골드 적용을 명문화. 전체 내용은 확정 설계·미구현 상태. |
 | 1.7.0 | 2026-07-19 | 맵 전송 10초 timeout과 불완전 수신 한정 동일 nonce 전체 package 1회 재전송, 검증/버전/용량/연결 오류 즉시 실패를 확정. 최초 준비 실패 Retry/Leave 및 새 seed 재준비, NewMap 실패 시 이전 맵·결과 UI·전체 countdown·선택지 복원, 내부 정보 UI 비공개를 명문화. |
