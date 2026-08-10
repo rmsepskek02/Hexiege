@@ -1,6 +1,7 @@
 # Plan — MistShrine 물안개 힐 시스템 구현
 
 **작성일:** 2026-08-10
+**갱신:** 2026-08-10 — ① `GameSystemRules_Buildings.md` **MistShrine 규칙 8 정정**(내용 교체·번호 유지)에 맞춰 인용 갱신 ② `InputHandler` `ClosedFrame` 가드의 **기존 결손 2종(연구·스킬 패널)을 이번 범위로 편입**(사용자 승인)
 **작업 폴더:** `Assets/_Project/Docs/_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`
 **선행 문서:** [Research.md](Research.md)
 **선행 사이클(문서 전용):** `_Tasks/2026-08-10/09_34_mistshrine-heal-redesign/`
@@ -48,18 +49,37 @@
 회복이 실제로 되는지는 체력이 오르는 숫자와 체력 막대로 확인하게 됩니다.
 (회복 범위를 보여주는 반투명 원은 기존에 쓰던 것을 재활용하므로 이번에도 보입니다.)
 
+### 이번에 함께 고치는, 원래 있던 문제 하나
+
+이 게임에는 **창을 닫으려고 바깥쪽을 눌렀을 때, 그 누름이 창 뒤의 땅까지 같이 눌러 버리는 것을 막아 주는 장치**가 있습니다.
+그런데 확인해 보니 **연구 창과 스킬 창에만 이 장치가 걸려 있지 않았습니다.**
+그래서 이 두 창은 닫는 순간의 누름이 뒤쪽 땅 선택으로 새어 나갈 수 있는 상태였습니다.
+
+이것은 **MistShrine과 아무 상관 없이 원래부터 있던 문제**입니다.
+다만 이번에 새로 만드는 MistShrine 창에도 똑같은 장치를 달아야 해서 **어차피 같은 자리를 손대게 되므로**,
+사용자 승인을 받아 **이번에 셋을 한 번에 고칩니다.**
+(나중에 "MistShrine 작업이 왜 연구·스킬 창을 건드렸지?"라는 의문이 생기지 않도록 여기에 이유를 남겨 둡니다.)
+
+### 규칙 문서 한 곳을 먼저 고쳤습니다
+
+계획을 짜다가 **규칙 문서에 적힌 방법대로 만들면 오히려 회복이 아니라 피해가 들어가는** 문제를 발견했습니다.
+그래서 구현을 시작하기 전에 **규칙 문서를 먼저 바로잡았습니다.**
+회복이 **1초마다 일어난다**는 점은 그대로이고, **"기존의 어떤 장치를 빌려 쓸 것인가"** 만 바뀌었습니다.
+
 ---
 
 ## ⚠️ 기존 로직 제거 여부 (WORKFLOW.md [4] 최상단 기술 규칙)
 
 **이번 작업에서 제거하거나 비활성화(주석 처리)하는 기존 로직은 없다. 전부 신규 추가 또는 확장이다.**
 
-기존 코드에 손을 대는 지점은 아래 4곳뿐이며, **모두 "동작 추가" 또는 "주석 정정"이고 기존 동작을 없애지 않는다.**
+기존 코드에 손을 대는 지점은 아래 5곳뿐이며, **모두 "동작 추가" 또는 "주석 정정"이고 기존 동작을 없애지 않는다.**
+(이 중 `ClosedFrame` 가드 한 곳은 **기존 결손 보정**을 겸한다 — §2-4-2.)
 
 | 지점 | 성격 | 기존 동작 보존 근거 |
 |------|------|-------------------|
 | `NetworkHealthSync.OnEntityHealed` (146행 `if (!e.IsUnit \|\| !(e.Entity is UnitData unit)) return;`) | **분기 추가** — 기존 조기 반환을 "건물 분기로 흘려보내기"로 확장 | 유닛 경로(`SyncUnitHeal`)는 **한 줄도 바뀌지 않는다.** §2-3의 (b)안 채택 시 이 줄 자체를 건드리지 않아도 된다 |
 | `InputHandler` 건물 클릭 분기 (262~295행) | **`else if` 한 갈래 추가** | 기존 4갈래는 순서·조건 모두 불변. `HealShrine`은 지금 마지막 액션 패널 갈래로 흘러가는데, 앞에 전용 갈래가 생겨도 **패널 미배선 시 기존 갈래로 폴백**된다(연구·스킬 패널과 동일 안전망) |
+| `InputHandler` `ClosedFrame` 가드 (230~232행) | **OR 조건 3개 추가** (신규 MistShrine 패널 1 + **기존 누락분 연구·스킬 패널 2** — §2-4-2) | 기존 3개 항(`_buildingUI`/`_productionUI`/`_actionPanelUI`)은 **문구 그대로 유지**하고 뒤에 항만 덧붙인다. 제거·조건 변경 없음. 각 항은 `!= null` 가드를 동반하므로 **미배선 패널은 기존과 동일하게 무시**된다 |
 | `GameBootstrapper.Update` / `NetworkCombatController.TickCombat` | **틱 호출 1줄 추가** | 기존 틱 호출 순서·가드 불변 |
 | `FloatingHpTextSpawner.ShowHeal` 216행 주석 · `NetworkHealthSync` 311행 주석 · `GameEvents.EntityHealedEvent` 254·260행 주석 | **주석 문구 정정만** | 실행 코드 무변경 |
 
@@ -72,7 +92,7 @@
 
 ### 1-1. 물안개 힐은 `_activeTimedEffects`(HoT/DoT 시스템)를 쓰지 않고 **독립 상태 목록 + 매 틱 범위 재수집**으로 만든다
 
-**근거 규칙:** Buildings 규칙 8(1초 discrete 틱) · 규칙 9(아우라 — 범위 이탈 즉시 끊김) · 규칙 13(중첩 금지) · 규칙 14(독립 채널)
+**근거 규칙:** Buildings 규칙 8(**2026-08-10 정정 — 물안개 전용 독립 누적기 + 매 틱 재수집. 시간 지속 효과 목록 사용 금지**) · 규칙 9(아우라 — 범위 이탈 즉시 끊김) · 규칙 13(중첩 금지) · 규칙 14(독립 채널)
 
 **코드 근거(Research.md §3-2 실측):**
 
@@ -96,9 +116,14 @@ List<ActiveMist>  (물안개 인스턴스 목록, 서버 전용)
 - `_activeTimedEffects`를 전혀 쓰지 않으므로 **규칙 14의 독립 채널이 구조적으로 보장**된다(자연회복이 `_regenAccumBlue/_regenBuffer`로 같은 방식을 이미 쓴다).
 - 매 틱 재수집이므로 **규칙 9 아우라가 자연히 성립**한다.
 
-> ⚠️ **규칙 문서와의 해석 정합(Research.md §15-1):** 규칙 8의 *"규칙 40과 동일한 틱 방식을 재사용"* 은
-> **"1초 격자 discrete 틱이라는 동작 방식을 동일하게 한다"** 로 읽는다. 코드 경로 재사용 지시로 읽으면 위 1·2·3 때문에 성립하지 않는다.
-> 이 해석 확정은 사용자 승인 대상이며, 승인 시 **규칙 8 문구 보강**을 별도 문서 작업으로 제안한다(이번 범위 밖).
+> ✅ **규칙 문서 정합 — 해석이 아니라 규칙 자체가 정정되었다 (2026-08-10).**
+> Research.md §15-1이 지적한 대로, 규칙 8의 옛 문구 *"규칙 40과 동일한 틱 방식을 재사용"* 은 위 1·2·3 때문에 코드로 성립하지 않았다.
+> 사용자 승인 후 **`GameSystemRules_Buildings.md` 규칙 8의 내용을 교체**했다(규칙 번호는 8 그대로).
+> - 유지: **회복 주기 1초**
+> - 폐기: "규칙 40 DoT 틱 재사용" 서술
+> - 신설: **물안개별 독립 누적기 + 매 틱 대상 재수집** 모델 확정, `_activeTimedEffects`에 `Kind=Heal` + `TickInterval>0` 레코드를 넣는 것을 **명시적 금지**(금지 사유를 코드 위치와 함께 규칙에 기록)
+>
+> 따라서 이 절의 채택 모델은 **규칙 8을 해석한 결과가 아니라 규칙 8이 직접 요구하는 구현**이다.
 
 ### 1-2. 중첩 해소는 "대상 기준 최근접 물안개 선택"으로 계산한다
 
@@ -254,7 +279,7 @@ float _healPerSecond / _mistDuration / _cooldown / _radius / _textInterval   // 
 |------|:-:|------|------|
 | `Scripts/Presentation/UI/MistShrinePanelUI.cs` | **신규** | 아래 §2-4-1 | UI 1~14 |
 | `Scripts/Presentation/Effects/MistShrineRangeIndicator.cs` | **신규** | 지면 데칼 반투명 원(채움 + 외곽선). `SkillAimReticle`(43~93행)의 **fill + ring 2겹 SpriteRenderer + `_overlayMaterial`** 구조를 본뜨되 dot 없음·색상 별도. API `Show(Vector3 worldPos, float radius)` / `Hide()`. **`ZTest Always` 금지** | UI 8·12 / Buildings 27 |
-| `Scripts/Presentation/Input/InputHandler.cs` | 수정 | ① `private MistShrinePanelUI _mistShrinePanelUI;` 필드 ② `Initialize(...)` 말미 파라미터 추가(**기본값 `= null`** — 스킬 패널 선례) ③ 분기에 `else if (buildingAtPos.Type == BuildingType.HealShrine && _mistShrinePanelUI != null) _mistShrinePanelUI.Show(buildingAtPos);` 를 **스킬 패널 갈래 뒤 · 액션 패널 갈래 앞**에 삽입 ④ **`ClosedFrame` 가드(230~232행)에 신규 패널 추가** | UI 1 / Research §15-2 |
+| `Scripts/Presentation/Input/InputHandler.cs` | 수정 | ① `private MistShrinePanelUI _mistShrinePanelUI;` 필드 ② `Initialize(...)` 말미 파라미터 추가(**기본값 `= null`** — 스킬 패널 선례) ③ 분기에 `else if (buildingAtPos.Type == BuildingType.HealShrine && _mistShrinePanelUI != null) _mistShrinePanelUI.Show(buildingAtPos);` 를 **스킬 패널 갈래 뒤 · 액션 패널 갈래 앞**에 삽입 ④ **`ClosedFrame` 가드 보강 — 아래 §2-4-2** | UI 1 · 공통 UI 8·9 / TDD "PopupClosedFrame" |
 | `Scripts/Presentation/UI/FloatingHpTextSpawner.cs` | 수정 | **216행 주석만** 갱신(`현재 힐 대상은 유닛만` → 건물도 대상). 실행 코드 무변경 — 건물 분기가 **이미 존재** | Buildings 15 / UI 9 |
 
 #### 2-4-1. `MistShrinePanelUI : BuildingPanelBase` 상세
@@ -278,6 +303,44 @@ float _healPerSecond / _mistDuration / _cooldown / _radius / _textInterval   // 
 
 > **적 MistShrine 처리:** `InputHandler`는 262행 `isMine && isAlive`에서 이미 적 건물을 차단하므로 **적 건물은 패널 자체가 열리지 않는다**
 > → UI 규칙 8의 "적 MistShrine은 범위 미표시"가 **추가 코드 없이 성립**한다.
+
+#### 2-4-2. `ClosedFrame` 가드 보강 — 신규 1종 + **기존 결손 2종 함께 수정**
+
+> **범위 편입 사유(사용자 승인, 2026-08-10):** 아래 ②는 **이번 MistShrine 작업과 무관한 기존 결손**이지만,
+> ①에서 같은 가드를 손대는 김에 함께 처리하기로 사용자가 승인했다.
+> 나중에 *"MistShrine 작업이 왜 연구·스킬 패널을 건드렸나"* 라는 혼동이 없도록 이 절에 사유를 명시해 둔다.
+> **이 항목은 §8(범위 밖)에서 제외되어 이번 범위 안으로 들어왔다.**
+
+**현재 코드(`InputHandler.cs` 230~232행) — 실측:**
+
+```csharp
+if ((_buildingUI != null && _buildingUI.ClosedFrame == frame)
+    || (_productionUI != null && _productionUI.ClosedFrame == frame)
+    || (_actionPanelUI != null && _actionPanelUI.ClosedFrame == frame))
+    return;
+```
+
+| # | 수정 내용 | 성격 |
+|:-:|----------|------|
+| ① | **신규** `_mistShrinePanelUI.ClosedFrame == frame` 항을 가드에 추가 | 이번 작업 산출물 |
+| ② | **기존 결손 보정** — `_researchPanelUI.ClosedFrame == frame` · `_skillPanelUI.ClosedFrame == frame` 두 항을 함께 추가 | **이번 작업 이전부터 있던 누락** |
+
+**②가 결손인 근거(코드 실측):** 두 패널은 필드·주입·호출이 모두 갖춰져 있는데 **가드에서만 빠져 있다.**
+
+| 패널 | 필드 선언 | `Initialize` 주입 | 패널 열기 호출 | `ClosedFrame` 가드 |
+|------|:-:|:-:|:-:|:-:|
+| `_researchPanelUI` | 60행 | 113행 | 277행 `Open(...)` | **누락** |
+| `_skillPanelUI` | 63행 | 115행 | 286행 `Show(...)` | **누락** |
+
+`ClosedFrame` 자체는 `BuildingPanelBase`가 공통 제공하는 프로퍼티(`public int ClosedFrame { get; protected set; } = -1;` — 134행)이므로,
+연구·스킬 패널도 **값은 이미 정상적으로 기록하고 있다.** 읽는 쪽(`InputHandler`)만 빠져 있어 무효화되어 있었다.
+
+**증상:** 연구 패널·스킬 패널을 배경 탭으로 닫은 **그 클릭이 같은 프레임에 타일 선택으로 흘러갈 수 있다.**
+
+**근거 규칙:**
+- **공통 UI 규칙 8·9** (`GameSystemRules_UI.md`) — 건물 패널은 **Popup 타입**이므로 배경 탭으로 닫힌다. 그 "닫기 위한 탭"이 뒤쪽 게임 입력까지 함께 발동시키면 규칙 9가 의도한 닫기 동작이 아니게 된다.
+- **`TechnicalDesignDocument.md` "PopupClosedFrame (팝업 닫힘 프레임 보호)"** — 이 프로젝트가 위 문제를 해결하기로 정한 **표준 패턴**의 단일 소스. *"각 팝업 UI가 `ClosedFrame`에 닫힌 프레임 번호를 기록하고, `InputHandler`가 같은 프레임의 클릭을 무시한다"* → **모든 팝업이 가드에 포함되어야 패턴이 성립**한다.
+- **MistShrine UI 규칙 4** — MistShrine 패널의 닫기 규칙은 공통 팝업 규칙(8·9)을 따른다 → 신규 패널도 같은 가드가 필요하다.
 
 ### 2-5. Bootstrap (수정 3)
 
@@ -339,7 +402,7 @@ float _healPerSecond / _mistDuration / _cooldown / _radius / _textInterval   // 
 | **S2. Config** | `SpecialAttackConfig`에 필드 5개 + 프로퍼티 추가 | 컴파일 OK. 에셋은 기본값(폴백)으로 동작 |
 | **S3. Application 코어** | `MistShrineUseCase` 신규(상태·`Activate`·`TickCooldowns`·`TickMists`·`TickAutoCast`·아군 수집 헬퍼·`OnShrineDestroyed`). `IGameServices`에 Getter 추가 | 컴파일 OK. **아직 아무도 호출하지 않음** |
 | **S4. Bootstrap 배선(싱글)** | UseCase 생성·주입, `Update` 틱 3종, `OnBuildingDied` 구독 | **싱글에서 로직이 실제로 돈다.** UI가 없어 시전은 불가 → 다음 단계까지 육안 확인 불가 |
-| **S5. Presentation UI** | `MistShrineRangeIndicator` → `MistShrinePanelUI` → `InputHandler` 분기·`ClosedFrame` 가드 → `GameBootstrapper` 패널 초기화·`UIManager.Register` | 프리팹 배선 전이라 **패널 미배선 → 액션 패널로 폴백**(안전). 코드는 완성 |
+| **S5. Presentation UI** | `MistShrineRangeIndicator` → `MistShrinePanelUI` → `InputHandler` 분기 + **`ClosedFrame` 가드 3항 보강**(신규 1 + 기존 결손 2 — §2-4-2) → `GameBootstrapper` 패널 초기화·`UIManager.Register` | 프리팹 배선 전이라 **패널 미배선 → 액션 패널로 폴백**(안전). 코드는 완성. **가드 보강분은 MistShrine 프리팹과 무관하게 이 단계에서 즉시 유효**하므로 연구·스킬 패널 회귀 확인(R9-1)을 이 시점에 함께 할 수 있다 |
 | **S6. 에디터 스크립트 + 사용자 실행** | §5의 1회성 스크립트 작성 → **사용자에게 실행 요청** → 확인 | **싱글에서 전체 동작 확인 가능**(연출 제외) |
 | **S7. Infrastructure 네트워크** | `INetworkMistShrineController` → `NetworkMistShrineController` → `NetworkHealthSync` 건물 힐 → `NetworkCombatController` 틱 → Bootstrap 멀티 배선 | 멀티 동작. 씬 오브젝트 배치 필요(§5) |
 | **S8. 주석 정정** | `FloatingHpTextSpawner` 216행 · `NetworkHealthSync` 311행 · `GameEvents` 254·260행 | 문서–코드 정합 |
@@ -376,14 +439,15 @@ Inspector 수동 작업이 필요한 항목은 **1회성 Editor 스크립트(`He
 | # | 위험 | 근거 | 대응 |
 |:-:|------|------|------|
 | **R1** | **힐 채널 충돌** — 물안개 힐을 `TimedEffectKind.Heal` 버킷에 넣으면 `AddOrRefreshTimedEffect`가 `(TargetId, Heal)` 키로 **덮어써** BloomFairy 힐·자연회복 중 하나가 소멸 | Research §4, `UnitCombatUseCase` 1869~1910행 | **`_activeTimedEffects`를 아예 쓰지 않는다**(§1-1). 독립 `List<ActiveMist>` — 자연회복(`_regenAccum*`)과 동일한 구조적 분리. 규칙 14 만족 |
-| **R2** | **discrete 틱 경로 오용 → 회복 대상이 피해를 입음** | `TickDiscreteDamageEffect`는 `Kind`를 검사하지 않고 `ApplyOneDamageTick` 호출 (Research §3-2) | 같은 대응(R1). **규칙 8을 "코드 재사용"으로 읽지 않는다.** 구현자에게 이 함정을 명시 전달 |
+| **R2** | **discrete 틱 경로 오용 → 회복 대상이 피해를 입음** | `TickDiscreteDamageEffect`는 `Kind`를 검사하지 않고 `ApplyOneDamageTick` 호출 (Research §3-2, `UnitCombatUseCase` 1943~1949행) | 같은 대응(R1). **규칙 8이 2026-08-10 정정되어 이 경로 사용을 규칙 차원에서 금지**했다(금지 사유가 규칙 8-2 표에 코드 위치와 함께 기록됨) → 구현자가 규칙만 읽어도 함정을 피할 수 있다 |
 | **R3** | **이중 틱** — 호스트에서 `GameBootstrapper.Update`와 `NetworkCombatController` 양쪽이 돌면 **회복량 2배** | 과거 유닛 쿨다운에서 유사 사고 이력 | §2-6 표 준수 + **UseCase 내부 `NetworkContext` 가드**(2중 방어, `TowerCombatUseCase` 107행 선례). 쿨다운만 클라 미러 허용 |
 | **R4** | **거리 동률 시 서버·클라 판정 분기** → 멀티에서 회복 대상이 갈림 | Buildings 13 | **건물 Id 오름차순 순회 + 엄격 부등호(`<`)** 로 결정성 확보(§1-2). 회복 적용 자체는 서버 전용이라 실제 분기 위험은 낮지만 규칙을 코드로 못박는다 |
 | **R5** | **`OnNetworkSpawn` 서비스 스폰 레이스** — `_services`가 null로 굳어 RPC가 조용히 무시됨 | 연구소 강화 실사고(2026-07-31), `NetworkUpgradeController.ResolveServices()` | 신규 컨트롤러는 **`ResolveServices()` 지연 재조회**를 처음부터 채택. `OnNetworkSpawn` 1회 캐시 방식 금지 |
 | **R6** | **베이스 `OnDestroy` 은닉 회귀** — 패널이 자체 `OnDestroy`를 선언하면 `BuildingPanelBase`의 정리가 실행되지 않음 | `BuildingPanelBase` 112~115행 주석 | `MistShrinePanelUI`에 **`OnDestroy` 선언 금지**. 구독은 `.AddTo(this)` |
 | **R7** | **건물 회복 경로 신설이 기존 전투/동기화에 회귀를 부름** — `BuildingData.Hp` 증가는 프로젝트 최초 | Research §2·§8 | ① `Heal`은 **`TakeDamage`와 대칭인 순수 추가**(기존 경로 무변경) ② 멀티 동기화는 **(b)안 전용 RPC 신설**로 유닛 힐 경로를 한 줄도 건드리지 않음 ③ `SyncBuildingHealth`(피해)와 `SyncBuildingHeal`(회복)이 **서로 다른 RPC**라 부호 오분류 불가 |
 | **R8** | **UI 패널 미배선 상태에서의 동작** — 프리팹 생성 전에 코드만 머지되면 클릭 시 아무 반응 없음 | — | `InputHandler` 분기에 `&& _mistShrinePanelUI != null` 가드 → **기존 공용 액션 패널로 폴백**(연구·스킬 패널과 동일 안전망) |
-| **R9** | **`ClosedFrame` 가드 누락 재발** — 패널을 배경 탭으로 닫은 프레임의 클릭이 타일 선택으로 흘러감 | `InputHandler` 230~232행이 이미 연구·스킬 패널을 누락 (Research §15-2) | **신규 패널은 가드에 반드시 포함**한다. 기존 2종 누락 수정은 **범위 밖**(별도 제안) |
+| **R9** | **`ClosedFrame` 가드 누락 재발** — 패널을 배경 탭으로 닫은 프레임의 클릭이 타일 선택으로 흘러감 | `InputHandler` 230~232행이 이미 연구·스킬 패널을 누락 (Research §15-2) | **신규 MistShrine 패널 + 기존 누락 2종(연구·스킬)을 모두 가드에 포함**한다(§2-4-2 — 사용자 승인으로 이번 범위 안). 가드는 `!= null` 동반이라 미배선 패널은 무시된다 |
+| **R9-1** | **가드 확대에 따른 회귀** — 연구·스킬 패널이 지금까지 가드 밖에 있었으므로, **"패널을 닫은 직후 같은 프레임에 타일이 선택되던 동작"에 의존한 흐름이 있었다면** 그 동작이 사라진다 | 이번에 처음 가드에 들어가는 2종이라 기존 동작 변화가 발생하는 유일한 지점 | ① 두 패널의 닫기 경로를 **정상 동작(의도된 UX)이 아니라 결손으로 판정**한 근거는 §2-4-2(공통 UI 규칙 8·9 + TDD `PopupClosedFrame` 패턴)다 ② **실기 확인 항목**: 연구 패널·스킬 패널을 배경 탭/[X]/철거로 닫은 직후 **패널 뒤 타일이 선택되지 않는지**, 그리고 **닫기 다음 프레임의 정상 타일 클릭은 여전히 동작하는지**(가드가 1프레임만 막는지)를 각각 확인한다 ③ 회귀 발견 시 **신규 MistShrine 항만 남기고 기존 2항을 되돌리는 것**이 최소 롤백 경로다(항 단위로 독립) |
 | **R10** | **연출 부재로 인한 오판** — VFX가 없어 "동작 안 함"으로 오인 | 물안개 VFX·아이콘 미제작 | 회복 텍스트(3초 주기)와 HP 막대로 검증한다는 점을 사전 공유. 범위 원은 표시되므로 범위 판정은 육안 확인 가능 |
 | **R11** | **멀티 서버 틱 해상도 50ms** — 물안개 소멸 시점이 싱글과 미세하게 다름 | `NetworkCombatController.Update` 245~265행 | 1초 격자 대비 무시 가능. 기록만 남기고 대응하지 않음 |
 | **R12** | **자동 모드 상태가 서버에만 있어 클라 UI가 어긋남** | 규칙 19가 bool 1개를 요구 | 토글 성공 시 `AutoModeChangedClientRpc`로 **양 클라 브로드캐스트**(진입부 `if (IsServer) return;`로 호스트 이중 적용 방지) |
@@ -415,12 +479,17 @@ Inspector 수동 작업이 필요한 항목은 **1회성 Editor 스크립트(`He
 | **사용(시전) 버튼 아이콘 제작** | 미제작(UI 15). 임시 텍스트 라벨 사용 |
 | **밸런싱 수치 확정** | 미확정. game-design-lead 협의 후 `SpecialAttackConfig.asset`만 교체 |
 | **`ProductionPanelUI` 자동 인디케이터 중복 배선 정리** | 별도 작업 예정(UI 규칙 14 각주). MistShrine은 복제만 하지 않는다 |
-| **`InputHandler` `ClosedFrame` 가드의 연구·스킬 패널 누락 수정** | 기존 결손(Research §15-2). 신규 패널만 가드에 포함하고, 기존 2종 수정은 **사용자 승인 후 별도 진행 권장** |
 | **`NetworkHealthSync` 힐 RPC 통합((a)안)** | 건물 힐 실기 검증 후 리팩터로 제안 |
-| **규칙 8 문구 보강** | Research §15-1의 해석 확정 후 문서 작업으로 분리 |
 | **AI의 MistShrine 사용** | `GameSystemRules_AI*`의 MistShrine 항목 유무 미조사(Research §16). 별도 작업 |
 | **건물 방어 트랙 / MistShrine 업그레이드** | 기존 보류 항목. 무관 |
 | **`Testcase.md` 작성** | **작성하지 않는다.** WORKFLOW.md [5-1] 및 절대 금지 사항 — **사용자 명시 지시가 있을 때만** |
+
+> **이 표에서 빠진 항목 2건 (2026-08-10 갱신) — 추적 누락이 아니라 처리 완료·범위 편입이다.**
+>
+> | 이전에 "범위 밖"이던 항목 | 현재 상태 |
+> |------|----------|
+> | `InputHandler` `ClosedFrame` 가드의 연구·스킬 패널 누락 수정 | **이번 범위 안으로 편입**(사용자 승인) → §2-4-2 · R9 · R9-1 |
+> | 규칙 8 문구 보강 | **처리 완료** — `GameSystemRules_Buildings.md` 규칙 8 내용 교체(규칙 번호 유지). 이 Plan의 §1-1이 정정된 규칙을 인용하도록 갱신됨 |
 
 ---
 
@@ -440,6 +509,9 @@ Inspector 수동 작업이 필요한 항목은 **1회성 Editor 스크립트(`He
 - [ ] 멀티: 호스트에서 회복량이 **2배가 되지 않음**(이중 틱 없음 — R3)
 - [ ] 아군 패널이 열린 동안에만 범위 원이 보이고, 닫으면 즉시 사라짐. **적 건물은 패널·범위 모두 없음**(UI 8)
 - [ ] `MistShrinePanelUI`에 `OnDestroy` 선언이 없음(R6)
+- [ ] **MistShrine 패널**을 배경 탭으로 닫은 프레임에 뒤쪽 타일이 선택되지 않음(§2-4-2 ①)
+- [ ] **기존 결손 보정 확인** — **연구 패널·스킬 패널**을 배경 탭으로 닫은 프레임에도 뒤쪽 타일이 선택되지 않음(§2-4-2 ②)
+- [ ] **회귀 없음 확인** — 위 패널들을 닫은 **다음 프레임부터는** 타일 클릭이 정상 동작(가드가 1프레임만 막음 — R9-1)
 - [ ] 밸런싱 수치가 **`SpecialAttackConfig.asset` 한 곳**에만 있고, 코드에는 폴백 기본값만 존재
 - [ ] 구현 상태 표기가 **과대 표기 없이** 갱신됨(연출·아이콘 미제작 명시)
 - [ ] git 명령 실행 0건 (CLAUDE.md 규칙 5)

@@ -524,7 +524,7 @@ HP·건설비는 이미 `BuildingStatsConfig`에 있으므로 **건드리지 않
 | Infrastructure | `Config/SpecialAttackConfig.cs` | MistShrine 튜닝 5값 추가 |
 | Infrastructure | `Network/NetworkHealthSync.cs` | 건물 힐 동기화 분기 신설(§8) |
 | Infrastructure | `Network/NetworkCombatController.cs` | 서버 틱에 MistShrine 틱 추가(331행 인근) |
-| Presentation | `Input/InputHandler.cs` | `HealShrine` 분기 + 필드/`Initialize` 파라미터 추가 |
+| Presentation | `Input/InputHandler.cs` | `HealShrine` 분기 + 필드/`Initialize` 파라미터 추가 + **`ClosedFrame` 가드 3항 보강**(신규 1 + 기존 결손 2 — §15-2 처리 결과) |
 | Presentation | `UI/FloatingHpTextSpawner.cs` | 216행 주석 갱신(코드 변경 없음) |
 | Bootstrap | `GameBootstrapper.cs` | SerializeField·UseCase 필드·`Get…` 접근자·`Update` 틱 |
 | Bootstrap | `GameBootstrapper.Setup.cs` / `.Map.cs` | UseCase 생성·패널 초기화·입력 배선·`IGameUI` 등록·파괴 구독 |
@@ -556,12 +556,27 @@ HP·건설비는 이미 `BuildingStatsConfig`에 있으므로 **건드리지 않
 자연회복(`TickNaturalRegen`)이 이미 **`_activeTimedEffects`를 쓰지 않는 독립 누적기**로 "1초 단위 정수 HP 적용 + 매 틱 재수집"을 구현하고 있으므로, **이 쪽이 규칙 8·9·14를 동시에 만족하는 정확한 선례**다.
 → 이 해석을 Plan에 명시하고, 사용자 승인 시 **규칙 8 문구 보강**(별도 문서 작업)을 제안한다.
 
+> **✅ 처리 결과 (2026-08-10 추가 기록):** 사용자 승인 후 **규칙 8의 내용을 교체**했다(규칙 번호 8은 유지 — 다른 문서가 번호로 인용 중).
+> - **유지:** 회복 주기 1초
+> - **폐기:** "규칙 40 DoT 틱 방식 재사용" 서술
+> - **신설:** 물안개별 독립 누적기 + 매 틱 대상 재수집 모델(8-1), `_activeTimedEffects`에 `Kind=Heal` + `TickInterval>0` 레코드 등록 **명시적 금지**(8-2 — 금지 사유 ①②③을 위 실측 근거와 함께 규칙에 기록)
+> - 규칙 14에는 "모델은 자연회복과 닮았으나 **누적기·채널은 완전 독립**"임을 보강.
+>
+> 즉 이 §15-1의 지적은 **"Plan의 해석"에 머무르지 않고 "규칙 자체"로 반영**되었다.
+
 ### ⚠️ 15-2. `InputHandler`의 `ClosedFrame` 가드가 패널 2종을 누락하고 있다 (기존 결손)
 
 `InputHandler.cs` 230~232행은 `_buildingUI` / `_productionUI` / `_actionPanelUI`만 검사한다.
 `_researchPanelUI`·`_skillPanelUI`가 빠져 있어, 두 패널을 배경 탭으로 닫은 프레임의 클릭이 타일 선택으로 흘러갈 수 있다.
 **이번 작업과 무관한 기존 결손**이므로 임의 수정하지 않고 기록만 남긴다.
 단 **MistShrine 패널을 추가할 때 같은 누락을 반복하지 않도록** Plan에 명시한다(신규 패널을 가드에 포함).
+
+> **✅ 처리 결과 (2026-08-10 추가 기록):** 사용자 승인으로 **기존 결손 2종(연구·스킬 패널)도 이번 작업 범위에 편입**되었다.
+> 신규 MistShrine 패널 1항 + 기존 누락 2항을 **한 번에 가드에 추가**한다. 상세·근거 규칙·회귀 확인 항목은 **Plan.md §2-4-2 / R9 / R9-1**.
+> (근거 규칙: 공통 UI 규칙 8·9 + `TechnicalDesignDocument.md` "PopupClosedFrame (팝업 닫힘 프레임 보호)" 패턴)
+>
+> 보강 실측: 두 패널은 **필드·주입·호출이 모두 갖춰져 있고 가드에서만 빠져 있다** — `_researchPanelUI`(60행 선언 / 113행 주입 / 277행 `Open`), `_skillPanelUI`(63행 선언 / 115행 주입 / 286행 `Show`).
+> `ClosedFrame` 값 자체는 `BuildingPanelBase`(134행 `public int ClosedFrame { get; protected set; } = -1;`)가 공통 기록하므로 **읽는 쪽만 누락**된 형태다.
 
 ### 15-3. `NetworkHealthSync` 주석이 신규 도메인 메서드와 어긋나게 된다
 
