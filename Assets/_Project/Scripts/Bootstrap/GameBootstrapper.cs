@@ -421,6 +421,19 @@ namespace Hexiege.Bootstrap
         private void Awake()
         {
             GameServicesLocator.Register(this);
+
+            // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+            // MistShrine 물안개 회복의 "범위 원 경계 = 실제 회복 판정" 일치 여부를 파일 로그로 확인하기 위한
+            // 런타임 로그 세션 시작. 검증이 끝나면 이 블록과 OnDestroy의 EndSession 블록을 함께 제거한다.
+            //
+            // 경로: LogRules.md 규정에 따라 _Tasks와 같은 "날짜/시간_작업명" 폴더를 그대로 쓴다.
+            //       (오늘 날짜가 아니라 대응하는 task 폴더 날짜에 맞춘다.)
+            // role: 에디터 단독 테스트이므로 "host" → RuntimeLog_host.txt 로 저장된다.
+            // 폴더가 없으면 RuntimeLogger.BeginSession이 알아서 만든다.
+            Hexiege.Infrastructure.RuntimeLogger.BeginSession(
+                "Assets/_Project/Docs/_Logs/2026-08-10/14_12_mistshrine-heal-implementation",
+                "host");
+            // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
         }
 
         /// <summary>
@@ -431,6 +444,13 @@ namespace Hexiege.Bootstrap
         private void OnDestroy()
         {
             GameServicesLocator.Unregister();
+
+            // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+            // Awake에서 연 로그 파일 스트림을 닫는다. 닫지 않으면 파일 핸들이 남아
+            // 로그 파일을 다른 프로그램(에디터 밖)에서 읽지 못할 수 있다.
+            // 플레이 모드 종료 / 씬 언로드 시 호출되며, 이미 닫혀 있어도 안전하다.
+            Hexiege.Infrastructure.RuntimeLogger.EndSession();
+            // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
         }
 
         /// <summary>

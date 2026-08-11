@@ -462,6 +462,12 @@ namespace Hexiege.Application
             {
                 ActiveMist mist = _firingBuffer[m];
 
+                // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+                // 유닛별 판정 로그 앞에 "어느 물안개의 몇 번째 회복 틱인지"를 먼저 찍어
+                // 1초마다 쏟아지는 유닛 라인들을 틱 단위로 묶어 읽을 수 있게 한다.
+                DebugLogMistTickHeader(mist);
+                // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
+
                 // ② 아군 유닛 수집.
                 CollectAllyUnitsInRadius(mist.Team, mist.CenterWorld, _unitBuffer, _unitDistBuffer);
                 for (int i = 0; i < _unitBuffer.Count; i++)
@@ -577,14 +583,46 @@ namespace Hexiege.Application
             {
                 if (unit == null || !unit.IsAlive) continue;
                 if (unit.Team != team) continue;          // 아군만(적 헬퍼와 정반대 조건).
-                if (unit.Hp >= unit.MaxHp) continue;      // 풀피는 회복 대상이 아니다(규칙 5).
+
+                // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+                // 원본 코드는 아래 한 줄이었다:
+                //     if (unit.Hp >= unit.MaxHp) continue;      // 풀피는 회복 대상이 아니다(규칙 5).
+                // 로그를 남기기 위해서만 블록으로 감쌌다. 조건식·continue 동작은 원본과 완전히 동일하며
+                // result / distSqrResult 에 담기는 내용도 달라지지 않는다(순수 관찰).
+                // 제거할 때는 이 블록 전체를 위 주석의 한 줄로 되돌리면 된다.
+                if (unit.Hp >= unit.MaxHp)
+                {
+                    // 풀피 유닛은 원본 흐름상 "거리 계산 전에" 빠지기 때문에 거리 정보가 없다.
+                    // 로그에서 FullHp 탈락과 OutOfRange 탈락을 구분하려면 거리가 필요하므로,
+                    // 여기서만 로그 전용으로 거리를 따로 계산한다(회복 판정에는 전혀 쓰이지 않는다).
+                    float fullHpDistSqr = (Flatten(_mapper.HexToWorld(unit.Position)) - centerWorld).sqrMagnitude;
+                    DebugLogUnitRangeCheck(unit, fullHpDistSqr, "FullHp");
+                    continue;
+                }
+                // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
 
                 Vector3 rel = Flatten(_mapper.HexToWorld(unit.Position)) - centerWorld;
                 float d2 = rel.sqrMagnitude;
-                if (d2 > _radiusSqr) continue;
+
+                // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+                // 원본 코드는 아래 한 줄이었다:
+                //     if (d2 > _radiusSqr) continue;
+                // 조건식·continue 동작은 원본과 완전히 동일하다.
+                if (d2 > _radiusSqr)
+                {
+                    DebugLogUnitRangeCheck(unit, d2, "OutOfRange");
+                    continue;
+                }
+                // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
 
                 result.Add(unit);
                 distSqrResult.Add(d2);
+
+                // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+                // 회복 대상으로 확정된 유닛. 위 두 탈락 케이스와 같은 형식으로 남겨
+                // "원 안/밖" 경계가 실제 판정과 일치하는지 한 파일에서 비교할 수 있게 한다.
+                DebugLogUnitRangeCheck(unit, d2, "Healed");
+                // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
             }
         }
 
@@ -682,6 +720,91 @@ namespace Hexiege.Application
         {
             return new Vector3(v.x, 0f, v.z);
         }
+
+        // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+        // ====================================================================
+        // 임시 검증 로그 전용 헬퍼 (검증 완료 후 이 섹션 전체를 삭제한다)
+        //
+        // 목적(이 두 가지만 확인하면 끝난다):
+        //   ① 화면에 그려지는 범위 원의 경계 = 실제 회복 판정 경계인가?
+        //   ② 유닛이 범위를 벗어난 "다음 틱"부터 회복 대상에서 빠지는가?
+        //
+        // 설계 메모:
+        //   - 회복 판정 로직(조건·순회 순서·버퍼 내용)은 일절 건드리지 않는다. 로그는 순수 관찰자다.
+        //   - 호출 빈도는 물안개 1개당 1초에 1회(HealTickInterval = 1.0f)이므로 성능 영향은 없다.
+        //   - LogRules.md 금지사항 1에 따라 Debug.Log를 직접 쓰지 않고 RuntimeLogger를 사용한다.
+        // ====================================================================
+
+        /// <summary>로그 카테고리의 System 부분. LogRules.md의 [System/Class] 형식을 따른다.</summary>
+        private const string DebugLogSystem = "MistShrine";
+
+        /// <summary>로그 카테고리의 Class 부분.</summary>
+        private const string DebugLogClass = "MistShrineUseCase";
+
+        /// <summary>
+        /// "경계 근처"로 인정해 로그를 남길 거리제곱의 배수(반경의 2배 = 거리제곱 4배).
+        ///
+        /// 왜 제한하나:
+        ///   맵 위 모든 아군 유닛을 매초 찍으면 로그 파일이 폭증해 정작 봐야 할 경계 구간을 읽을 수 없다.
+        /// 왜 하필 2배인가:
+        ///   확인하려는 것은 "원 경계 바로 안/밖"의 일치 여부다. 반경이 1.0 ≈ 인접 1타일 단위이므로
+        ///   반경 2배면 경계 바깥으로 대략 한 타일 이상의 여유가 생겨, 유닛이 원 밖으로 걸어 나가
+        ///   회복이 끊기는 순간(목표 ②)이 로그 안에서 연속으로 관찰된다. 그보다 먼 유닛은
+        ///   경계 판정과 무관하므로 기록하지 않는다.
+        /// </summary>
+        private const float DebugLogRangeSqrMultiplier = 4f;
+
+        /// <summary>
+        /// 물안개 회복 틱 1회의 머리글을 남긴다(유닛별 판정 로그의 묶음 기준).
+        /// </summary>
+        /// <param name="mist">이번 틱에 회복을 발화한 물안개.</param>
+        private void DebugLogMistTickHeader(ActiveMist mist)
+        {
+#if UNITY_EDITOR
+            // 빌드에는 문자열 조합조차 남지 않도록 본문 전체를 에디터 전용으로 감싼다.
+            // (RuntimeLogger.Log 자체는 빌드에서도 Debug.Log로 나가기 때문에 호출부에서 막는다.)
+            Hexiege.Infrastructure.RuntimeLogger.Log(
+                Hexiege.Infrastructure.LogLevel.Info,
+                DebugLogSystem, DebugLogClass,
+                "회복 틱 시작(유닛 수집 전)",
+                $"ShrineId={mist.SourceBuildingId}, Team={mist.Team}, " +
+                $"Center=({mist.CenterWorld.x:F2}, {mist.CenterWorld.z:F2}), " +
+                $"radius={_radius:F2}, MistRemaining={mist.Remaining:F2}");
+#endif
+        }
+
+        /// <summary>
+        /// 아군 유닛 1명의 범위 판정 결과를 남긴다. 통과·탈락을 모두 같은 형식으로 기록한다.
+        ///
+        /// Reason 값:
+        ///   Healed     = 범위 안이라 회복 대상으로 확정됨
+        ///   OutOfRange = 반경 밖이라 제외됨(목표 ①·② 판정의 핵심)
+        ///   FullHp     = 체력이 가득 차서 제외됨(규칙 5) — 범위 이탈과 혼동하지 않기 위해 반드시 구분한다
+        ///
+        /// 거리는 제곱이 아니라 실제 거리로 찍는다. radius 원본값과 나란히 두어야
+        /// dist &gt; radius / dist &lt;= radius 를 눈으로 바로 비교할 수 있기 때문이다.
+        /// </summary>
+        /// <param name="unit">판정 대상 유닛.</param>
+        /// <param name="distSqr">물안개 중심까지의 거리제곱.</param>
+        /// <param name="reason">판정 결과 문자열(Healed / OutOfRange / FullHp).</param>
+        private void DebugLogUnitRangeCheck(UnitData unit, float distSqr, string reason)
+        {
+#if UNITY_EDITOR
+            if (unit == null) return;
+
+            // 경계 확인에 의미 없는 먼 유닛은 기록하지 않는다(로그 폭증 방지).
+            if (distSqr > _radiusSqr * DebugLogRangeSqrMultiplier) return;
+
+            float dist = Mathf.Sqrt(distSqr);
+            Hexiege.Infrastructure.RuntimeLogger.Log(
+                Hexiege.Infrastructure.LogLevel.Info,
+                DebugLogSystem, DebugLogClass,
+                "유닛 범위 판정",
+                $"UnitId={unit.Id}, Type={unit.Type}, Team={unit.Team}, " +
+                $"Hp={unit.Hp}/{unit.MaxHp}, dist={dist:F2}, radius={_radius:F2}, Reason={reason}");
+#endif
+        }
+        // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
 
         // ====================================================================
         // 내부 자료구조
