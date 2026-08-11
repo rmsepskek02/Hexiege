@@ -75,9 +75,9 @@ namespace Hexiege.Presentation
         [Tooltip("지면 z-fighting 회피용 Y 높이 오프셋.")]
         [SerializeField] private float _yOffset = 0.05f;
 
-        [Tooltip("링 스프라이트의 기준 지름(월드, localScale 1일 때). 반경 r일 때 스케일=(2r)/BaseDiameter. " +
-                 "내장 스프라이트 크기에 맞춰 Inspector에서 튜닝한다.")]
-        [SerializeField] private float _baseDiameter = 1.0f;
+        [Tooltip("기준 지름 수동 오버라이드(월드 단위). 0 이하(기본)이면 각 스프라이트에서 자동 산출한다 — 평소엔 건드리지 않는다. " +
+                 "양수를 넣으면 Ring/Fill 모두 그 값을 기준 지름으로 강제한다(스프라이트에 여백이 많아 자동값이 실제 원보다 클 때 등, 예외 상황용).")]
+        [SerializeField] private float _baseDiameterOverride = 0f;
 
         // ====================================================================
         // 표시 요청 플래그 — "Awake 자기 비활성화" 함정 방지 (유니티 초급자용 상세 설명)
@@ -140,24 +140,31 @@ namespace Hexiege.Presentation
         /// <param name="radius">회복 범위 반경(월드 단위).</param>
         private void ApplyVisual(float radius)
         {
-            // 지름 = 2 × 반경 × 전체 배수. 링 기준 스프라이트 지름 대비 스케일.
+            // 이 원이 월드에서 실제로 차지해야 할 "목표 지름" = 2 × 반경 × 시각 배수.
+            // ⚠️ 여기서는 스케일이 아니라 "월드 지름"만 구한다.
+            //    스프라이트마다 원본 크기가 다르므로, 지름 → localScale 변환은 렌더러별로 ApplyRenderer가 수행한다.
             float diameter = Mathf.Max(0f, radius) * 2f * Mathf.Max(0f, _visualMultiplier);
-            float baseScale = _baseDiameter > 0.0001f ? diameter / _baseDiameter : diameter;
 
-            ApplyRenderer(_ringRenderer, baseScale, _edgeColor, sortingOrder: 0);
-            ApplyRenderer(_fillRenderer, baseScale * Mathf.Clamp01(1f - _ringThickness), _fillColor, sortingOrder: 1);
+            ApplyRenderer(_ringRenderer, diameter, _edgeColor, sortingOrder: 0);
+            ApplyRenderer(_fillRenderer, diameter * Mathf.Clamp01(1f - _ringThickness), _fillColor, sortingOrder: 1);
         }
 
         /// <summary>
-        /// 한 겹 렌더러의 스케일·색·정렬순서를 적용하고, 오버레이 머티리얼이 배선돼 있으면 그것으로 렌더되게 보장한다.
+        /// 한 겹 렌더러를 "목표 월드 지름"에 맞춰 스케일·색·정렬순서를 적용하고,
+        /// 오버레이 머티리얼이 배선돼 있으면 그것으로 렌더되게 보장한다.
         /// </summary>
         /// <param name="r">적용할 스프라이트 렌더러(null이면 무시).</param>
-        /// <param name="scale">원 지름 스케일(루트가 X축 90도로 눕어 있어 로컬 XY = 월드 XZ).</param>
+        /// <param name="worldDiameter">이 겹이 월드에서 차지해야 할 지름(월드 단위).</param>
         /// <param name="color">적용할 색.</param>
         /// <param name="sortingOrder">겹침 순서(작을수록 아래).</param>
-        private void ApplyRenderer(SpriteRenderer r, float scale, Color color, int sortingOrder)
+        private void ApplyRenderer(SpriteRenderer r, float worldDiameter, Color color, int sortingOrder)
         {
             if (r == null) return;
+
+            // 목표 지름 ÷ (이 렌더러 스프라이트의 원본 지름) = 필요한 localScale.
+            // 렌더러마다 따로 계산하므로 Ring/Fill이 서로 다른 스프라이트를 써도 둘 다 정확한 크기가 된다.
+            float scale = worldDiameter / ResolveBaseDiameter(r);
+
             r.transform.localScale = new Vector3(scale, scale, 1f);
             r.color = color;
             r.sortingOrder = sortingOrder;
@@ -165,6 +172,32 @@ namespace Hexiege.Presentation
             // 오버레이 머티리얼 자가 배선(셋업 스크립트가 못 물린 경우 대비 — 런타임 안전장치).
             if (_overlayMaterial != null && r.sharedMaterial != _overlayMaterial)
                 r.sharedMaterial = _overlayMaterial;
+        }
+
+        /// <summary>
+        /// 이 렌더러에 물린 스프라이트가 localScale 1일 때 월드에서 차지하는 지름을 구한다(0 반환 없음 — 나눗셈 안전).
+        /// </summary>
+        /// <param name="r">기준 지름을 구할 스프라이트 렌더러.</param>
+        /// <returns>기준 지름(월드 단위). 스프라이트가 없거나 크기가 0이면 1을 반환한다.</returns>
+        private float ResolveBaseDiameter(SpriteRenderer r)
+        {
+            // 수동 오버라이드(양수)가 있으면 그 값을 그대로 쓴다. 기본값 0 → 자동 산출.
+            if (_baseDiameterOverride > 0.0001f) return _baseDiameterOverride;
+
+            // 스프라이트 미배선 대비. 1을 돌려주면 "지름 = 스케일"이 되어 최소한 0 나눗셈은 나지 않는다.
+            if (r == null || r.sprite == null) return 1f;
+
+            // Sprite.bounds.size = 스프라이트의 로컬(=localScale 1) 크기, 단위는 월드.
+            //   내부적으로 (텍스처 픽셀 크기 ÷ Pixels Per Unit)이라 PPU 설정이 이미 반영돼 있다.
+            //   ⚠️ 매 Show()마다 다시 읽는다 — 정식 아트로 스프라이트가 교체돼도 자동으로 따라간다(캐시 금지).
+            Vector2 size = r.sprite.bounds.size;
+
+            // 비정사각형 스프라이트는 "긴 축"을 기준 지름으로 삼는다.
+            //   이유: 원이 목표 반경을 절대 넘지 않게 하기 위함이다. 긴 축을 목표 지름에 맞추면
+            //   짧은 축은 그보다 작아져 전체가 범위 안에 들어온다. 짧은 축을 기준으로 잡으면
+            //   긴 축이 범위 밖으로 삐져나와 "실제보다 넓은 범위"로 오해하게 된다(치명적).
+            float d = Mathf.Max(size.x, size.y);
+            return d > 0.0001f ? d : 1f;
         }
     }
 }

@@ -443,3 +443,14 @@ public void Hide()    { _showRequested = false; if (gameObject.activeSelf) gameO
 - 디버깅용 raw `Debug.Log` 금지(`Docs/LogRules.md`) — 다만 배선 누락 경고용 `Debug.LogWarning`은 프로젝트 전반의 확립된 패턴
 - 주석은 한국어, 유니티 초급자도 이해할 수준으로 상세히
 - 기존 로직 제거는 원칙적으로 "주석 처리 → 실기 검증 후 삭제"(WORKFLOW.md [4])
+
+### 직렬화 필드의 잘못된 저장값을 무력화하는 방법 (2026-08-11)
+- **스프라이트 기준 크기는 코드 상수로 두지 말고 `sprite.bounds.size`에서 산출한다.**
+  `bounds.size`는 (텍스처 픽셀 ÷ Pixels Per Unit)이라 PPU가 이미 반영된 월드 크기다.
+  매 표시마다 다시 읽으면 정식 아트로 스프라이트를 교체해도 자동으로 따라간다(캐시 금지).
+- ⚠️ **직렬화 필드의 잘못된 값은 "코드 기본값 변경"으로 고칠 수 없다** — Inspector/씬 값이 코드 기본값을 이긴다.
+  저장된 값을 확실히 무력화하려면 **필드 이름을 바꾸고 `[FormerlySerializedAs]`를 일부러 붙이지 않는다.**
+  Unity 직렬화는 이름으로 매칭하므로, 옛 이름의 값은 로드 시 버려지고 새 필드는 C# 기본값으로 초기화된다.
+  사례: `MistShrineRangeIndicator` / `SkillAimReticle`의 `_baseDiameter` → `_baseDiameterOverride`(기본 0 = 자동).
+- 범위/사거리 표시용 도형에서 **비정사각형 스프라이트는 긴 축을 기준 지름으로** 삼는다.
+  과대 표시(실제보다 넓어 보임)가 과소 표시보다 치명적이기 때문이다.
