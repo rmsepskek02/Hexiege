@@ -71,6 +71,7 @@ UI의 성격에 따라 아래 대역을 사용한다. 같은 성격의 UI는 같
 | Panel (InGameSettings 자식) | 200 | true | 인게임 설정 패널 본체 |
 | BuildingPopup | 200 | true | 건물 정보 팝업 |
 | BuildingActionPanel | 200 | true | 건물 배치/액션 패널 |
+| MistShrinePanel | 200 | true | MistShrine(물안개 힐) 전용 패널 — BuildingActionPanel 복제로 생성되어 SO 200을 승계 |
 | ProductionPopup | 200 | true | 유닛 생산 팝업 |
 | GameEndPanel | 200 | true | 게임 종료 패널 |
 
