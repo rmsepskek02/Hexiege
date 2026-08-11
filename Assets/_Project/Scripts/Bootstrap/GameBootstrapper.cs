@@ -108,6 +108,9 @@ namespace Hexiege.Bootstrap
         [Tooltip("스킬 지점 조준 컨트롤러(press→드래그→엣지스크롤→release). 프리팹/씬 배선은 사용자 Unity 작업.")]
         [SerializeField] private SkillAimController _skillAimController;
 
+        [Tooltip("MistShrine(HealShrine) 전용 물안개 힐 패널 UI. 프리팹/씬 배선은 에디터 셋업 스크립트가 처리.")]
+        [SerializeField] private MistShrinePanelUI _mistShrinePanelUI;
+
         [Tooltip("생산 티커")]
         [SerializeField] private ProductionTicker _productionTicker;
 
@@ -132,6 +135,9 @@ namespace Hexiege.Bootstrap
 
         [Tooltip("네트워크 스킬 발동 컨트롤러 (씬에 NetworkSkillController NetworkObject 배치 후 연결)")]
         [SerializeField] private Hexiege.Infrastructure.NetworkSkillController _networkSkillController;
+
+        [Tooltip("네트워크 MistShrine 물안개 힐 컨트롤러 (씬에 NetworkMistShrineController NetworkObject 배치 후 연결)")]
+        [SerializeField] private Hexiege.Infrastructure.NetworkMistShrineController _networkMistShrineController;
 
         [Tooltip("네트워크 유닛 생산 컨트롤러 (씬에 NetworkProductionController NetworkObject 배치 후 연결)")]
         [SerializeField] private Hexiege.Infrastructure.NetworkProductionController _networkProductionController;
@@ -196,6 +202,8 @@ namespace Hexiege.Bootstrap
         private UnitUpgradeUseCase _unitUpgrade;
         private SkillActivationUseCase _skillActivation;
         private StatusEffectSystem _statusEffectSystem;
+        // [MistShrine] 물안개 힐(시전·물안개 수명·회복·쿨다운·자동 모드). 서버 권위 UseCase.
+        private MistShrineUseCase _mistShrine;
 
         private BuildingPlacementUseCase _buildingPlacement;
         private ResourceUseCase _resource;
@@ -246,6 +254,9 @@ namespace Hexiege.Bootstrap
 
         // [Phase 4] 연구소 파괴 시 진행 중 연구 취소·환불 구독(서버/싱글 전용). ClearAll에서 정리.
         private System.IDisposable _labDestroyedSub;
+
+        // [MistShrine] 신전 파괴 시 물안개·자동 모드·쿨다운 정리 구독(서버/싱글 전용). ClearAll에서 정리.
+        private System.IDisposable _mistShrineDestroyedSub;
 
         /// <summary>
         /// StartNetworkGame() 중복 호출 방지 플래그.
@@ -362,6 +373,13 @@ namespace Hexiege.Bootstrap
         /// 맵 로드 전이면 null.
         /// </summary>
         public StatusEffectSystem GetStatusEffectSystem() => _statusEffectSystem;
+
+        /// <summary>
+        /// 현재 MistShrineUseCase 반환(물안개 힐 시전·쿨다운·자동 모드).
+        /// NetworkMistShrineController에서 서버 측 시전 재검증·자동 토글·브로드캐스트에 사용.
+        /// 맵 로드 전이면 null.
+        /// </summary>
+        public MistShrineUseCase GetMistShrineUseCase() => _mistShrine;
 
         /// <summary>
         /// UnitFactory를 IUnitFactory 인터페이스로 반환.
@@ -496,6 +514,30 @@ namespace Hexiege.Bootstrap
             if (!IsNetworkMode() && _unitUpgrade != null)
             {
                 _unitUpgrade.TickResearch(Time.deltaTime);
+            }
+
+            // ────────────────────────────────────────────────────────────────
+            // [MistShrine] 물안개 진행(회복) + 자동 시전 — 서버 권위 틱.
+            //   - 싱글: 여기서만 돈다(권위).
+            //   - 멀티 서버(호스트): NetworkCombatController.TickCombat이 돌린다 → 여기선 스킵.
+            //   - 멀티 순수 클라: 아예 돌지 않는다(HP는 NetworkHealthSync로 받는다).
+            //   가드가 !IsNetworkMode() 하나뿐인 이유: 회복은 서버에서만 일어나야 하고,
+            //   클라이언트가 함께 돌리면 같은 회복이 두 번 적용되기 때문이다(이중 틱 금지).
+            //   MistShrineUseCase 내부에도 NetworkContext 가드가 있어 2중으로 막힌다.
+            // ────────────────────────────────────────────────────────────────
+            if (!IsNetworkMode() && _mistShrine != null)
+            {
+                _mistShrine.TickMists(Time.deltaTime);
+                _mistShrine.TickAutoCast(Time.deltaTime);
+            }
+
+            // [MistShrine] 시전 쿨다운 감소.
+            //   쿨다운만 가드 형태가 다르다 — 멀티 순수 클라도 쿨다운 오버레이가 서버와 같은 남은 시간을
+            //   보여줘야 하므로 "표시용 로컬 미러"로 클라에서도 감소시킨다(스킬 쿨다운과 동일한 검증된 형태).
+            if (_mistShrine != null &&
+                (!IsNetworkMode() || !NetworkContext.IsNetworkServer))
+            {
+                _mistShrine.TickCooldowns(Time.deltaTime);
             }
 
             // [스킬] 건물 글로벌 쿨다운 감소(규칙 3).

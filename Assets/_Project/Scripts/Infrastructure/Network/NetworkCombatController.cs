@@ -331,6 +331,21 @@ namespace Hexiege.Infrastructure
             _services?.GetSkillActivationUseCase()?.TickCooldowns(elapsed);
 
             // ────────────────────────────────────────────────────────────────
+            // [MistShrine] 물안개 진행(1초 회복) + 자동 시전 + 시전 쿨다운 — 서버 권위(규칙 8·18·21·22).
+            //   싱글은 GameBootstrapper.Update, 멀티 서버는 여기서만 돈다(이중 틱 금지 — 회복량 2배 방지).
+            //   멀티 순수 클라는 회복/자동 시전을 아예 돌리지 않고, 쿨다운 미러만
+            //   GameBootstrapper.Update(클라 분기)가 별도로 감소시킨다.
+            //   회복 결과 HP는 OnEntityHealed → NetworkHealthSync가 클라에 동기화한다.
+            // ────────────────────────────────────────────────────────────────
+            MistShrineUseCase mistShrine = _services?.GetMistShrineUseCase();
+            if (mistShrine != null)
+            {
+                mistShrine.TickCooldowns(elapsed);
+                mistShrine.TickMists(elapsed);
+                mistShrine.TickAutoCast(elapsed);
+            }
+
+            // ────────────────────────────────────────────────────────────────
             // [스킬 - 타입 C] 상태효과(버프/디버프/제어) 지속시간 감소 — 서버 권위(규칙 13·25).
             //   쿨다운 틱 바로 옆. 싱글은 GameBootstrapper.Update, 멀티 서버는 여기서만 감소한다(이중 틱 금지).
             //   멀티 순수 클라의 상태 미러는 GameBootstrapper.Update(클라 분기)가 별도로 감소시킨다.

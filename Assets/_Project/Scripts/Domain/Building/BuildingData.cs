@@ -112,5 +112,30 @@ namespace Hexiege.Domain
             Hp -= damage;
             if (Hp < 0) Hp = 0;
         }
+
+        /// <summary>
+        /// 건물 체력을 회복시킨다(MistShrine 물안개 힐 등 건물 회복 경로 전용).
+        ///
+        /// 왜 이 메서드가 필요한가(초급자용 설명):
+        ///   Hp는 `private set`이라 이 클래스 바깥에서는 직접 값을 넣을 수 없다.
+        ///   지금까지 건물은 "맞아서 깎이기만" 했기 때문에 감소 경로(TakeDamage)만 있었는데,
+        ///   MistShrine 물안개 힐이 아군 건물도 회복시키므로(GameSystemRules_Buildings.md
+        ///   MistShrine 규칙 4·24) 증가 경로가 필요해졌다.
+        ///
+        /// 최대 체력 클램프를 왜 여기(도메인 안)에 두는가:
+        ///   UnitData.Heal과 같은 위치·같은 형태로 맞춘다. 클램프가 도메인 안에 있으면
+        ///   호출자가 어디든(싱글 서버 / 멀티 서버 / 멀티 클라 동기화) 최대 체력을 넘길 수 없어
+        ///   "최대 체력 대상은 회복되지 않는다"(MistShrine 규칙 5)가 자동으로 성립한다.
+        ///
+        /// 파괴된 건물(Hp == 0)은 회복 대상이 아니므로 조용히 무시한다(부활 금지).
+        /// </summary>
+        /// <param name="amount">회복량(양수). 0 이하이면 아무 일도 하지 않는다.</param>
+        public void Heal(int amount)
+        {
+            if (!IsAlive) return;
+            if (amount <= 0) return;
+            Hp += amount;
+            if (Hp > MaxHp) Hp = MaxHp;
+        }
     }
 }

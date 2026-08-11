@@ -62,6 +62,9 @@ namespace Hexiege.Presentation
         /// <summary> 스킬 건물(FlightFacility/MagicBuilding) 클릭 시 표시되는 전용 스킬 패널. </summary>
         private BuildingSkillPanelUI _skillPanelUI;
 
+        /// <summary> MistShrine(HealShrine) 클릭 시 표시되는 전용 물안개 힐 패널. </summary>
+        private MistShrinePanelUI _mistShrinePanelUI;
+
         /// <summary> 스킬 지점 조준 컨트롤러. 조준 중이면 타일 선택 입력을 억제한다. </summary>
         private SkillAimController _skillAimController;
 
@@ -100,7 +103,8 @@ namespace Hexiege.Presentation
             BuildingActionPanelUI actionPanelUI,
             ResearchPanelUI researchPanelUI = null,
             BuildingSkillPanelUI skillPanelUI = null,
-            SkillAimController skillAimController = null)
+            SkillAimController skillAimController = null,
+            MistShrinePanelUI mistShrinePanelUI = null)
         {
             _gridInteraction = gridInteraction;
             _mainCamera = mainCamera;
@@ -115,6 +119,8 @@ namespace Hexiege.Presentation
             _skillPanelUI = skillPanelUI;
             // 스킬 지점 조준 컨트롤러 — 조준 중 타일 선택 억제 가드에 사용.
             _skillAimController = skillAimController;
+            // MistShrine(HealShrine) 클릭 라우팅용 전용 패널 — 없으면(null) 기존 액션 패널로 폴백.
+            _mistShrinePanelUI = mistShrinePanelUI;
         }
 
         // ====================================================================
@@ -227,9 +233,20 @@ namespace Hexiege.Presentation
             int frame = Time.frameCount;
             // 같은 프레임에 팝업이 닫힌 경우, 그 닫힘 클릭이 다시 타일 선택으로 흘러가지 않도록 차단.
             // 비생산 건물 액션 패널도 동일하게 ClosedFrame 가드 적용.
+            //
+            // ⚠️ 아래 뒤쪽 3항(연구·스킬·MistShrine)은 2026-08-10에 추가되었다.
+            //   · 연구 패널·스킬 패널: 필드·주입·열기 호출은 모두 갖춰져 있는데 이 가드에서만 빠져 있던
+            //     **기존 결손**이다. 두 패널을 배경 탭으로 닫으면 그 클릭이 같은 프레임에 뒤쪽 타일 선택으로
+            //     새어 나갈 수 있었다. TechnicalDesignDocument.md "PopupClosedFrame(팝업 닫힘 프레임 보호)"
+            //     패턴은 모든 팝업이 가드에 포함되어야 성립하므로 함께 보정했다(사용자 승인).
+            //   · MistShrine 패널: 이번에 새로 추가된 팝업이라 같은 가드가 필요하다(MistShrine UI 규칙 4).
+            //   각 항은 != null 가드를 동반하므로, 씬에 배선되지 않은 패널은 기존과 똑같이 무시된다.
             if ((_buildingUI != null && _buildingUI.ClosedFrame == frame)
                 || (_productionUI != null && _productionUI.ClosedFrame == frame)
-                || (_actionPanelUI != null && _actionPanelUI.ClosedFrame == frame))
+                || (_actionPanelUI != null && _actionPanelUI.ClosedFrame == frame)
+                || (_researchPanelUI != null && _researchPanelUI.ClosedFrame == frame)
+                || (_skillPanelUI != null && _skillPanelUI.ClosedFrame == frame)
+                || (_mistShrinePanelUI != null && _mistShrinePanelUI.ClosedFrame == frame))
                 return;
 
             // 스크린 좌표 → XZ 평면 레이캐스트 → 뷰 좌표 → 도메인 월드 좌표로 역변환
@@ -284,6 +301,17 @@ namespace Hexiege.Presentation
                             //   전용 스킬 패널. 종족 로드아웃으로 슬롯 1~5를 동적으로 채운다(규칙 1·6·8·9).
                             //   (_skillPanelUI 미배선 시엔 아래 액션 패널 분기로 폴백된다.)
                             _skillPanelUI.Show(buildingAtPos);
+                        }
+                        else if (buildingAtPos.Type == BuildingType.HealShrine
+                            && _mistShrinePanelUI != null)
+                        {
+                            // (2c) MistShrine(초월 회복 건물) → 전용 물안개 힐 패널.
+                            //   사용(탭=시전 / 롱프레스=자동 토글) + 철거 + 회복 범위 표시를 담당한다.
+                            //   범위 표시는 이 분기까지 온 경우(= 내 팀 · 생존)만 켜지므로,
+                            //   위 262행의 isMine 검사 덕분에 "적 MistShrine은 범위를 보여주지 않는다"
+                            //   (UI 규칙 8)가 추가 코드 없이 성립한다.
+                            //   (_mistShrinePanelUI 미배선 시엔 아래 액션 패널 분기로 폴백된다.)
+                            _mistShrinePanelUI.Show(buildingAtPos);
                         }
                         else if (BuildingTypeHelper.CanShowActionPanel(buildingAtPos.Type)
                             && _actionPanelUI != null)

@@ -251,13 +251,13 @@ namespace Hexiege.Application
     /// </summary>
     public readonly struct EntityHealedEvent
     {
-        /// <summary> 회복된 엔티티(현재는 유닛만 사용). </summary>
+        /// <summary> 회복된 엔티티(유닛 또는 건물). 건물은 MistShrine 물안개 힐에서 사용한다. </summary>
         public readonly IDamageable Entity;
 
         /// <summary> 회복 적용 후 현재 HP. </summary>
         public readonly int CurrentHp;
 
-        /// <summary> 회복된 엔티티가 유닛인지 여부. false면 건물(현재 미사용). </summary>
+        /// <summary> 회복된 엔티티가 유닛인지 여부. false면 건물(MistShrine 물안개 힐이 사용). </summary>
         public readonly bool IsUnit;
 
         /// <summary> 회복을 시전한 힐러의 Id. 없으면 -1. </summary>

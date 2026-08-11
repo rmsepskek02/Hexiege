@@ -107,6 +107,12 @@ namespace Hexiege.Application
         StatusEffectSystem GetStatusEffectSystem();
 
         /// <summary>
+        /// MistShrine 물안개 힐(MistShrineUseCase). 서버(Infrastructure)가 시전 요청 재검증·물안개 틱 구동·
+        /// 쿨다운/자동 모드 브로드캐스트에 참조한다. 맵 로드 전이면 null.
+        /// </summary>
+        MistShrineUseCase GetMistShrineUseCase();
+
+        /// <summary>
         /// 유닛 팩토리. 유닛 GameObject 생성·조회·뷰 초기화에 사용.
         /// IUnitFactory로 추상화하여 Infrastructure.UnitFactory에 직접 의존하지 않는다.
         /// </summary>

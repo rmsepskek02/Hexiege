@@ -313,6 +313,15 @@ namespace Hexiege.Bootstrap
             float quakeRadius = _specialAttackConfig != null ? _specialAttackConfig.QuakeRadius : 1.0f;
             float quakeSplashRatio = _specialAttackConfig != null ? _specialAttackConfig.QuakeSplashRatio : 0.5f;
 
+            // MistShrine 물안개 힐 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
+            // ⚠️ 아래 5개는 전부 "임시값 — 밸런싱 미확정"이다(MistShrine 규칙 16 / UI 규칙 9).
+            //    밸런싱이 확정되면 SpecialAttackConfig.asset만 고치면 되고 코드 변경은 필요 없다.
+            float mistHealPerSecond = _specialAttackConfig != null ? _specialAttackConfig.MistHealPerSecond : 10f;
+            float mistDuration = _specialAttackConfig != null ? _specialAttackConfig.MistDuration : 10f;
+            float mistCooldown = _specialAttackConfig != null ? _specialAttackConfig.MistCooldown : 20f;
+            float mistRadius = _specialAttackConfig != null ? _specialAttackConfig.MistRadius : 3f;
+            float mistHealTextInterval = _specialAttackConfig != null ? _specialAttackConfig.MistHealTextInterval : 3f;
+
             _unitCombat = new UnitCombatUseCase(
                 _grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper,
                 sweepReach, sweepArcHalfAngle,
@@ -372,6 +381,21 @@ namespace Hexiege.Bootstrap
                     ? GameRaceContext.BlueRace
                     : GameRaceContext.RedRace);
 
+            // ────────────────────────────────────────────────────────────
+            // [MistShrine] 물안개 힐 UseCase — 시전 재검증·물안개 수명·1초 회복·쿨다운·자동 모드(서버 권위).
+            //   기존 HoT/DoT 시스템(_activeTimedEffects)을 쓰지 않는 독립 채널이다(규칙 8-2·14).
+            //   좌표 변환은 hexMapper(IHexCoordinateMapper)로 주입해 Application이 Core를 모르게 한다.
+            // ────────────────────────────────────────────────────────────
+            _mistShrine = new MistShrineUseCase(
+                _buildingPlacement,
+                _unitSpawn,
+                hexMapper,
+                mistHealPerSecond,
+                mistDuration,
+                mistCooldown,
+                mistRadius,
+                mistHealTextInterval);
+
             // TileOwnershipService 초기화.
             // _grid, _unitSpawn, _positionProvider, hexMapper가 모두 준비된 직후에 생성한다.
             // 매 프레임 GameBootstrapper.Update()에서 Tick()이 호출되며,
@@ -419,6 +443,21 @@ namespace Hexiege.Bootstrap
                 if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
                 if (e.Building == null || e.Building.Type != BuildingType.Research) return;
                 _unitUpgrade?.OnLabDestroyed(e.Building.Id, _resource);
+            });
+
+            // ────────────────────────────────────────────────────────────
+            // [MistShrine] 신전 파괴·철거 시 상태 정리(규칙 12·25).
+            //   ① 그 건물이 만든 물안개 즉시 제거 ② 자동 모드 제거 ③ 쿨다운 제거.
+            //   서버(또는 싱글플레이)에서만 처리한다 — 클라이언트는 물안개를 갖고 있지 않다.
+            //   패널 자동 닫힘은 BuildingPanelBase가 이미 공통으로 처리하므로 여기서 다루지 않는다.
+            //   (연구소 파괴 처리와 완전히 동일한 패턴: 서버 가드 + 타입 필터 + 재구독 전 Dispose.)
+            // ────────────────────────────────────────────────────────────
+            _mistShrineDestroyedSub?.Dispose();
+            _mistShrineDestroyedSub = GameEvents.OnBuildingDied.Subscribe(e =>
+            {
+                if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+                if (e.Building == null || e.Building.Type != BuildingType.HealShrine) return;
+                _mistShrine?.OnShrineDestroyed(e.Building.Id);
             });
         }
 
@@ -540,7 +579,9 @@ namespace Hexiege.Bootstrap
                     _buildingPlacement, _buildingUI, _productionUI,
                     _buildingActionPanelUI, _researchPanelUI,
                     // 스킬 건물 라우팅 패널 + 조준 컨트롤러(미배선 시 null → 기존 액션 패널로 폴백/조준 억제 없음).
-                    _buildingSkillPanelUI, _skillAimController);
+                    _buildingSkillPanelUI, _skillAimController,
+                    // MistShrine 라우팅 패널(미배선 시 null → 기존 액션 패널로 폴백).
+                    _mistShrinePanelUI);
             }
 
             // 스킬 지점 조준 컨트롤러 초기화(있을 때만 — 프리팹/씬 배선은 사용자 Unity 작업).
@@ -637,6 +678,28 @@ namespace Hexiege.Bootstrap
                     _skillLoadoutConfig, // ISkillDataProvider (null 허용).
                     _skillAimController,
                     skillController);     // INetworkSkillController (null=싱글).
+            }
+
+            // ────────────────────────────────────────────────────────────
+            // [MistShrine] 전용 물안개 힐 패널 초기화(있을 때만 — 프리팹/씬 배선은 에디터 셋업 스크립트).
+            //   멀티플레이면 NetworkMistShrineController(시전·자동 토글 중계)와
+            //   NetworkBuildingController(철거 중계)를 함께 주입한다. 싱글은 둘 다 null.
+            //   패널이 미배선(null)이면 MistShrine 클릭은 기존 공용 액션 패널로 폴백된다(안전망).
+            // ────────────────────────────────────────────────────────────
+            if (_mistShrinePanelUI != null)
+            {
+                bool isNetworkMode = IsNetworkMode();
+                Hexiege.Infrastructure.NetworkMistShrineController mistController =
+                    isNetworkMode ? _networkMistShrineController : null;
+                Hexiege.Infrastructure.NetworkBuildingController buildingControllerForMist =
+                    isNetworkMode ? _networkBuildingController : null;
+
+                _mistShrinePanelUI.Initialize(
+                    _buildingPlacement,
+                    _resource,
+                    buildingControllerForMist,
+                    _mistShrine,
+                    mistController);      // INetworkMistShrineController (null=싱글).
             }
         }
 
