@@ -370,3 +370,76 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
   - 메뉴: `Hexiege/MistShrine/1. Apply Config Values` → `2. Setup Scene (Panel, Range, Network)`
 - 알려진 기술부채: `ProductionPanelUI`의 `_unitAutoIndicators`(GameObject) ↔ `_unitBorderOverlays`(Image)가
   **같은 BorderOverlay를 이중 배선** — 정리는 별도 작업 예정. 다른 패널은 복제 금지(UI 규칙 14)
+
+---
+
+## Awake 자기 비활성화 함정 · 값의 단일 소스 (2026-08-11 추가)
+
+> MistShrine 보완 수정 사이클에서 확립. 위 섹션들을 대체하지 않고 보완한다.
+
+## 반복되는 함정 (Unity)
+
+### 1. `Awake()`에서 자기 자신을 `SetActive(false)` 하지 말 것
+비활성 상태로 씬에 저장된 오브젝트는 `Awake`가 **실행되지 않는다**.
+런타임에 `Show()`가 `SetActive(true)`를 부르면 그 순간 `Awake`가 뒤늦게 처음 실행되며
+**스스로를 다시 꺼 버려** 영영 보이지 않는다. (`Show()`의 나머지 코드는 돌지만 무의미)
+
+**해결 패턴 (2026-08-11 적용, 두 파일 동일):**
+```csharp
+private bool _showRequested;               // [SerializeField] 금지 — 순수 런타임 상태
+void Awake() { ...; if (!_showRequested) gameObject.SetActive(false); }
+public void Show(...) { _showRequested = true; /* 반드시 SetActive보다 먼저 */ if (!gameObject.activeSelf) gameObject.SetActive(true); ... }
+public void Hide()    { _showRequested = false; if (gameObject.activeSelf) gameObject.SetActive(false); }
+```
+적용 파일:
+- `Assets/_Project/Scripts/Presentation/Effects/SkillAimReticle.cs`
+- `Assets/_Project/Scripts/Presentation/Effects/MistShrineRangeIndicator.cs`
+
+> 씬에 활성으로 저장된 기존 상태에서는 동작이 완전히 동일 → 회귀 없음.
+> 에디터 셋업 스크립트가 "반드시 활성으로 저장" 주석으로 우회하고 있었다면 그건 증상 회피일 뿐이다.
+
+### 2. `MonoBehaviour` 베이스의 `OnDestroy` 은닉
+자식이 자체 `OnDestroy`를 선언하면 베이스 `OnDestroy`가 숨겨진다.
+구독 해제는 UniRx `.AddTo(this)` 사용. (`BuildingPanelBase` 상속 패널 전부 해당)
+
+### 3. UI 숨김은 `CanvasGroup.alpha=0`
+`SetActive(false)`는 GridLayout 셀 정렬을 무너뜨려 남은 버튼이 앞으로 당겨진다.
+
+---
+
+## 값의 단일 소스(Single Source of Truth) 원칙
+
+**같은 게임 수치를 Presentation의 `[SerializeField]`와 Config 에셋 양쪽에 두지 말 것.**
+에디터 셋업 스크립트가 실행 시점에 동기화해 줘도, 밸런싱으로 `.asset`만 고치면 조용히 어긋난다.
+
+- 패턴: UseCase가 Config에서 주입받은 값을 보관하고, UI는 `GetXxx()` 접근자로 **런타임에 조회**한다.
+- 사례(2026-08-11): `MistShrinePanelUI._rangeRadius` 제거 → `MistShrineUseCase.GetRadius()` 조회로 전환.
+  에디터 셋업 스크립트의 해당 배선 코드(`ConnectFloat(panel, "_rangeRadius", ...)`)도 함께 제거해야 한다.
+- UseCase 접근자 스타일은 `GetCooldownRemaining` / `GetCooldownTotal`(블록 바디 + 한국어 XML 주석)을 따른다.
+
+---
+
+## 주요 파일 위치
+
+| 시스템 | 경로 |
+|---|---|
+| MistShrine 물안개 힐 로직 | `Assets/_Project/Scripts/Application/UseCases/MistShrineUseCase.cs` |
+| MistShrine 전용 패널 | `Assets/_Project/Scripts/Presentation/UI/MistShrinePanelUI.cs` |
+| MistShrine 범위 원 | `Assets/_Project/Scripts/Presentation/Effects/MistShrineRangeIndicator.cs` |
+| 스킬 조준원 | `Assets/_Project/Scripts/Presentation/Effects/SkillAimReticle.cs` |
+| MistShrine 에디터 셋업 | `Assets/Editor/Setup/MistShrineSetup_Scene.cs` (메뉴 `Hexiege/MistShrine/2. ...`) |
+| 특수 공격/스킬 수치 Config | `Assets/_Project/Scripts/Infrastructure/Config/SpecialAttackConfig.cs` → `Resources/Config/SpecialAttackConfig.asset` |
+
+지면 데칼 셰이더: `Hexiege/SkillAimOverlay` (ZTest LEqual + Offset -1,-1 + ZWrite Off).
+**ZTest Always 금지** — 유닛·건물을 뚫고 그려진다.
+
+---
+
+## 프로젝트 규칙 요약(코드 작성 시)
+- 레이어: Domain → Application → Core → Infrastructure → Presentation → Bootstrap
+- **Domain은 Core를 참조하지 않는다**, **Application은 Infrastructure/Unity.Netcode를 참조하지 않는다**(`NetworkContext` 정적 홀더 사용)
+- `GameBootstrapper`가 유일한 조합 루트
+- **Inspector 값이 코드 기본값보다 우선**
+- 디버깅용 raw `Debug.Log` 금지(`Docs/LogRules.md`) — 다만 배선 누락 경고용 `Debug.LogWarning`은 프로젝트 전반의 확립된 패턴
+- 주석은 한국어, 유니티 초급자도 이해할 수준으로 상세히
+- 기존 로직 제거는 원칙적으로 "주석 처리 → 실기 검증 후 삭제"(WORKFLOW.md [4])

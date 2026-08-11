@@ -92,12 +92,35 @@ namespace Hexiege.Presentation
                  "내장 스프라이트 크기에 맞춰 Inspector에서 튜닝한다.")]
         [SerializeField] private float _baseDiameter = 1.0f;
 
+        // ====================================================================
+        // 표시 요청 플래그 — "Awake 자기 비활성화" 함정 방지 (유니티 초급자용 상세 설명)
+        //
+        // 유니티는 비활성(SetActive(false)) 상태로 씬에 저장된 GameObject의 Awake를 실행하지 않는다.
+        // 그 상태에서 런타임에 Show()가 SetActive(true)를 호출하면, 바로 그 순간 Awake가 뒤늦게
+        // 처음 실행된다. 예전 코드의 Awake는 무조건 gameObject.SetActive(false)를 했기 때문에
+        // "켜자마자 스스로 다시 꺼지는" 현상이 일어나 조준원이 영영 보이지 않을 수 있었다.
+        //   (Show()의 나머지 줄 — 회전·위치·ApplyVisual — 은 그대로 돌지만 오브젝트가 꺼져 있어 무의미하다.)
+        //   지금까지 문제가 드러나지 않은 것은 셋업 스크립트가 이 오브젝트를 "활성 상태"로 저장해
+        //   Awake가 씬 로드 시점에 정상적으로 돌았기 때문일 뿐이며, 누군가 씬에서 이 오브젝트를
+        //   꺼 두는 순간 조준원이 사라지는 잠재 버그였다.
+        //
+        // 해결: Show()가 SetActive(true)보다 "먼저" 이 플래그를 세운다.
+        //       늦게 도는 Awake는 플래그를 보고 "시작 시 숨김"을 건너뛴다.
+        //       → 씬에 활성으로 저장돼 있든 비활성으로 저장돼 있든 Show()는 항상 보이게 만든다.
+        //       (씬에 활성으로 저장된 기존 상태에서는 동작이 이전과 완전히 동일하다.)
+        //
+        // ⚠️ [SerializeField]를 붙이지 않는다 — 씬 파일에 저장되면 안 되는 순수 런타임 상태다.
+        // ====================================================================
+        private bool _showRequested;
+
         private void Awake()
         {
             // 지도(XZ 평면)에 눕도록 X축 90도 회전(스프라이트는 기본 XY 평면 → 눕혀야 바닥에 깔린다).
             transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+
             // 시작 시 숨김(조준 시작 때만 보인다).
-            gameObject.SetActive(false);
+            // 단, Show()가 이미 표시를 요청한 뒤에 늦게 도는 Awake라면 끄지 않는다(위 설명 참조).
+            if (!_showRequested) gameObject.SetActive(false);
         }
 
         /// <summary>
@@ -107,6 +130,9 @@ namespace Hexiege.Presentation
         /// <param name="radius">착탄 반경(월드 단위, 스킬 데이터 기준).</param>
         public void Show(Vector3 worldPos, float radius)
         {
+            // ⚠️ 순서 중요: SetActive(true)가 Awake를 그 자리에서 실행시키므로,
+            //    플래그를 반드시 "먼저" 세워야 Awake가 자기 자신을 끄지 않는다.
+            _showRequested = true;
             if (!gameObject.activeSelf) gameObject.SetActive(true);
 
             // 지도에 눕는 회전 보장(Awake를 못 탄 경우 대비) + 위치 갱신.
@@ -121,6 +147,9 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
+            // 아직 Awake가 돌지 않은 상태에서 Hide()가 먼저 불릴 수도 있으므로 플래그도 함께 내린다
+            // (그래야 나중에 도는 Awake가 "시작 시 숨김"을 정상 수행한다).
+            _showRequested = false;
             if (gameObject.activeSelf) gameObject.SetActive(false);
         }
 

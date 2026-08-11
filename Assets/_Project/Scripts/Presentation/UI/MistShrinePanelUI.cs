@@ -76,9 +76,10 @@ namespace Hexiege.Presentation
         [Tooltip("패널이 열려 있는 동안 지도에 표시할 회복 범위 원(UI 규칙 8·12). 미배선이어도 패널은 동작한다.")]
         [SerializeField] private MistShrineRangeIndicator _rangeIndicator;
 
-        [Tooltip("범위 원의 반경(월드 단위). MistShrineUseCase에 주입된 값과 같게 맞춘다. " +
-                 "임시값 3 — 밸런싱 미확정(SpecialAttackConfig.asset의 MistRadius와 함께 조정할 것).")]
-        [SerializeField] private float _rangeRadius = 3f;
+        // ⚠️ 반경(_rangeRadius) Inspector 필드는 두지 않는다 — 값이 두 곳에 존재하면 반드시 어긋난다.
+        //    화면의 원 크기는 MistShrineUseCase.GetRadius()(= SpecialAttackConfig.asset의 MistRadius를
+        //    주입받은 값)에서 그때그때 읽어 쓴다. 밸런싱은 설정 에셋 한 곳만 고치면 된다.
+        //    자세한 이유는 MistShrineUseCase.GetRadius()의 주석 참조.
 
         // ====================================================================
         // 의존성(Initialize 주입)
@@ -276,15 +277,30 @@ namespace Hexiege.Presentation
         /// 좌표 주의(중요):
         ///   회복 판정은 "도메인 월드 좌표"로 하지만, 화면에 물체를 놓을 때는 "뷰 좌표"를 써야 한다.
         ///   Red 팀은 맵을 뒤집어 보여 주므로(ViewConverter) 변환을 빠뜨리면 원이 엉뚱한 곳에 뜬다.
+        ///
+        /// 반경 주의(중요):
+        ///   반경은 반드시 MistShrineUseCase.GetRadius()에서 읽는다. 패널이 자체 값을 들고 있으면
+        ///   설정 에셋만 바꿨을 때 "보이는 원"과 "실제 회복 범위"가 조용히 어긋난다.
         /// </summary>
         /// <param name="building">범위를 표시할 MistShrine 건물.</param>
         private void ShowRangeIndicator(BuildingData building)
         {
             if (_rangeIndicator == null || building == null) return;
 
+            // 주입 실패(UseCase null) 시에는 반경을 알 수 없다.
+            // 이때 임의의 값으로 원을 그리면 "실제 회복 범위"를 잘못 알려 주는 셈이라 오히려 해롭다.
+            // → 원을 그리지 않고 확실히 숨긴 뒤, 배선 문제를 알 수 있도록 경고만 남긴다.
+            if (_mistShrine == null)
+            {
+                _rangeIndicator.Hide();
+                Debug.LogWarning("[MistShrinePanelUI] MistShrineUseCase가 주입되지 않아 회복 범위 원을 표시할 수 없습니다. " +
+                                 "GameBootstrapper의 패널 초기화 배선을 확인하세요.");
+                return;
+            }
+
             Vector3 domainPos = HexMetrics.HexToWorld(building.Position);
             Vector3 viewPos = ViewConverter.ToView(domainPos);
-            _rangeIndicator.Show(viewPos, _rangeRadius);
+            _rangeIndicator.Show(viewPos, _mistShrine.GetRadius());
         }
 
         // ====================================================================

@@ -62,8 +62,9 @@ namespace Hexiege.EditorTools
         // ── 경로 상수 ──────────────────────────────────────────────────────
         private const string GameScenePath = "Assets/_Project/Scenes/Game.unity";
         private const string ColorConfigPath = "Assets/_Project/Resources/Config/UIColorConfig.asset";
-        private const string SpecialAttackConfigPath = "Assets/_Project/Resources/Config/SpecialAttackConfig.asset";
         private const string BoldFontPath = "Assets/_Project/Fonts/Maplestory Bold SDF.asset";
+        // SpecialAttackConfig 경로 상수는 제거했다 — 이 스크립트가 반경을 더 이상 배선하지 않기 때문이다.
+        // (수치 반영은 메뉴 'Hexiege/MistShrine/1. Apply Config Values' 담당.)
 
         /// <summary>자동 모드 테두리 회전 머티리얼 — 생산 패널(ProductionPanelUI)이 쓰는 것과 **같은 자산을 재사용**한다(UI 규칙 6).</summary>
         private const string RotatingBorderMaterialPath = "Assets/_Project/Materials/UI/mat_ui_rotatingborder.mat";
@@ -134,15 +135,12 @@ namespace Hexiege.EditorTools
                     "생산 패널(ProductionPanelUI)의 _autoProductionMaterial 이 가리키는 자산 경로를 확인하세요.");
             }
 
-            // 범위 반경(_rangeRadius)은 회복 판정 반경과 반드시 같아야 하므로 설정 에셋에서 읽어 온다.
-            var specialAttackConfig = AssetDatabase.LoadAssetAtPath<SpecialAttackConfig>(SpecialAttackConfigPath);
-            if (specialAttackConfig == null)
-            {
-                Debug.LogWarning(
-                    $"[MistShrine Setup] SpecialAttackConfig 를 찾지 못했습니다: {SpecialAttackConfigPath}\n" +
-                    "  → 패널의 _rangeRadius 는 현재 값(코드 기본값 3)을 그대로 둡니다. " +
-                    "먼저 메뉴 'Hexiege/MistShrine/1. Apply Config Values' 를 실행하는 것을 권장합니다.");
-            }
+            // ⚠️ 범위 반경은 이 스크립트가 배선하지 않는다.
+            //   예전에는 패널에 _rangeRadius Inspector 값을 따로 심어 SpecialAttackConfig 와 맞춰 줬는데,
+            //   그러면 밸런싱으로 SpecialAttackConfig.asset 만 고쳤을 때 "화면의 원 크기"와
+            //   "실제 회복 범위"가 조용히 어긋난다(셋업 스크립트를 다시 돌리기 전까지).
+            //   → 지금은 패널이 런타임에 MistShrineUseCase.GetRadius() 에서 직접 읽으므로
+            //     반경의 단일 소스는 SpecialAttackConfig.asset 하나뿐이다. 여기서 할 일이 없다.
 
             // ── UI 부모 결정 ───────────────────────────────────────────────
             Transform panelParent = ResolvePanelParent();
@@ -159,8 +157,6 @@ namespace Hexiege.EditorTools
             // ── B) 회복 범위 표시 오브젝트 ─────────────────────────────────
             MistShrineRangeIndicator indicator = BuildRangeIndicator();
             Connect(panel, "_rangeIndicator", indicator);
-            if (specialAttackConfig != null)
-                ConnectFloat(panel, "_rangeRadius", specialAttackConfig.MistRadius);
 
             // ── C) NetworkMistShrineController 씬 오브젝트 ─────────────────
             NetworkMistShrineController netMist = BuildNetworkController();
@@ -852,27 +848,8 @@ namespace Hexiege.EditorTools
             EditorUtility.SetDirty(target);
         }
 
-        /// <summary>
-        /// private [SerializeField] float 슬롯을 지정 값으로 설정한다(멱등).
-        /// </summary>
-        /// <param name="target">배선할 컴포넌트.</param>
-        /// <param name="fieldName">필드 이름.</param>
-        /// <param name="value">설정할 값.</param>
-        private static void ConnectFloat(Component target, string fieldName, float value)
-        {
-            if (target == null) return;
-            var so = new SerializedObject(target);
-            SerializedProperty prop = so.FindProperty(fieldName);
-            if (prop == null)
-            {
-                Debug.LogError($"[MistShrine Setup] {target.GetType().Name} 에 '{fieldName}' 필드가 없습니다.");
-                return;
-            }
-            if (Mathf.Approximately(prop.floatValue, value)) return; // 멱등.
-            prop.floatValue = value;
-            so.ApplyModifiedProperties();
-            EditorUtility.SetDirty(target);
-        }
+        // ConnectFloat(float 슬롯 배선 헬퍼)는 _rangeRadius 배선 전용이었고, 그 필드가 사라져
+        // 호출자가 하나도 남지 않아 함께 제거했다(죽은 코드 방지).
 
         /// <summary> private [SerializeField] 리스트/배열 슬롯을 값 목록으로 채운다. </summary>
         /// <param name="target">배선할 컴포넌트.</param>
