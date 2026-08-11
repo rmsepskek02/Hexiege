@@ -316,3 +316,57 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - `LoginUseCase.TryAutoLoginAsync()` now returns an explicit auto-login result so unverified email sessions can return to verification instead of entering Lobby.
 - `LoginBootstrapper` checks Cloud Save nickname after auto-login success; verified email accounts with no nickname return to `NicknameSetupView`.
 - `SplashOverlay.SetTapCallback(skipFade:true)` is only safe for scene transitions. Login-scene panel transitions must use fade out to release the overlay raycast block.
+
+---
+
+## 씬·에셋 실측 경로 및 에디터 셋업 패턴 (2026-08-10 추가)
+
+> MistShrine 구현 사이클에서 실제로 확인한 값들. 위 섹션의 교훈을 대체하지 않고 보완한다.
+
+## 레이어 / 경로
+- 코드 루트: `Assets/_Project/Scripts/{Domain,Application,Core,Infrastructure,Presentation,Bootstrap}`
+- 에디터 1회성 셋업 스크립트: `Assets/Editor/Setup/` — 네임스페이스 `Hexiege.EditorTools`, asmdef 없음(Assembly-CSharp-Editor)
+- 설정 SO 에셋: `Assets/_Project/Resources/Config/*.asset`
+- 대상 씬: `Assets/_Project/Scenes/Game.unity` (Login 0 / Lobby 1 / Game 2)
+
+## 자주 쓰는 실제 경로 (확인 완료)
+- `SpecialAttackConfig` → `Hexiege.Infrastructure`, 에셋 `Resources/Config/SpecialAttackConfig.asset`
+- `UIColorConfig` → **`Hexiege.Infrastructure`** (파일은 `Scripts/Infrastructure/Config/UIColorConfig.cs`)
+- 지면 데칼 셰이더 `Hexiege/SkillAimOverlay` → `Assets/_Project/Shaders/SkillAimOverlay.shader`
+  (ZTest LEqual + Offset -1,-1 + ZWrite Off + Cull Off. **ZTest Always 금지**)
+- 자동모드 테두리 회전 머티리얼 → `Assets/_Project/Materials/UI/mat_ui_rotatingborder.mat`
+  (셰이더 `Shaders/UI/RotatingBorderUI.shader`. 에셋 저장값은 _Speed 5 / _Thickness 0.05만.
+   _Radius·_Inset은 ProductionPanelUI가 **런타임 인스턴싱으로만** 덮어씀 → 다른 패널이 공유하면 값이 다르다)
+- 폰트 `Assets/_Project/Fonts/Maplestory Bold SDF.asset`
+
+## 건물 패널 UI 골격 (씬 실측)
+- `BuildingActionPanel` = 3×3 그리드 9슬롯 원본. `_allSlotButtons` 9개, **index 5 = 철거 버튼**
+- 슬롯 자식 구조: `Slot1 { IconImage, CostContainer { GoldIcon, CostText } }`, 부모는 `Row0/Row1/Row2`(HorizontalLayoutGroup)
+- 패널은 오버라이드 Canvas SortingOrder **200**(`GameSystemRules_CanvasSortingOrder.md`) — 복제하면 자동 충족
+- 미사용 슬롯은 **`CanvasGroup.alpha=0`**, `SetActive(false)` 금지(GridLayout 정렬 붕괴)
+
+## 에디터 셋업 스크립트 패턴 (선례: `SkillSetup_Scene.cs`)
+- 패널은 하드코딩으로 그리지 말고 **씬의 BuildingActionPanel을 `Object.Instantiate` 복제** →
+  복제본의 컴포넌트에서 `SerializedObject`로 remap된 참조를 읽어 새 컴포넌트에 옮겨 배선
+- 배선은 `new SerializedObject(target).FindProperty(...)` + `ApplyModifiedProperties()`
+- **저장 반영 필수**: `EditorUtility.SetDirty()` + `EditorSceneManager.MarkSceneDirty()` (없으면 씬에 저장 안 됨)
+- 멱등: 이름/컴포넌트로 찾아 재사용(FindOrCreateChild). 패널만은 "기존 제거 후 재복제"로 항상 1개 보장
+- 이름 기반 탐색은 **타입 탐색 우선 + 이름은 폴백**, 못 찾으면 조용히 넘어가지 말고 경고
+  (과거 사고: `_backButton`이 `OffButton`에 오연결)
+- 에디터 스크립트의 `Debug.Log` 진행 출력은 허용(LogRules는 **런타임 파일 로그** 규칙)
+- 슬롯 위 오버레이 자식은 `LayoutElement.ignoreLayout = true` 필수(안 하면 한 줄로 찌그러짐)
+- 비용/라벨 숨김은 `SetActive(false)`가 아니라 CanvasGroup alpha=0 (레이아웃 footprint 유지 → 버튼 크기 균일)
+- 쿨다운 fill: `Filled / Radial360 / Origin=Top` + **`fillClockwise = false`**
+  (SetCooldown이 fillAmount=remaining/total로 줄이므로, false여야 어둠이 시계방향으로 걷힌다. true는 과거 버그)
+
+## Awake + SetActive 함정 (중요)
+`SkillAimReticle` / `MistShrineRangeIndicator`는 `Awake()`에서 `gameObject.SetActive(false)`를 한다.
+→ 씬에 **비활성 상태로 저장하면 안 된다.** 비활성 오브젝트는 Awake가 안 돌고,
+런타임 `Show()`의 `SetActive(true)` 순간 Awake가 뒤늦게 실행되며 스스로를 다시 꺼 버려 영영 안 보인다.
+에디터 셋업 스크립트는 **활성 상태로 남길 것**.
+
+## 진행 중 시스템
+- MistShrine 물안개 힐: 런타임 코드 커밋 완료(`be2b396`), 에디터 셋업 = `Assets/Editor/Setup/MistShrineSetup_{Config,Scene}.cs`
+  - 메뉴: `Hexiege/MistShrine/1. Apply Config Values` → `2. Setup Scene (Panel, Range, Network)`
+- 알려진 기술부채: `ProductionPanelUI`의 `_unitAutoIndicators`(GameObject) ↔ `_unitBorderOverlays`(Image)가
+  **같은 BorderOverlay를 이중 배선** — 정리는 별도 작업 예정. 다른 패널은 복제 금지(UI 규칙 14)
