@@ -205,6 +205,29 @@ namespace Hexiege.Bootstrap
         // [MistShrine] 물안개 힐(시전·물안개 수명·회복·쿨다운·자동 모드). 서버 권위 UseCase.
         private MistShrineUseCase _mistShrine;
 
+        // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
+        // MistShrine 물안개 회복의 파일 로그 세션 설정.
+        //
+        // 세션을 "누가" 여는가:
+        //   - 싱글플레이  → 이 클래스(조합 루트)가 Start()의 싱글 분기에서 host 역할로 연다.
+        //   - 멀티플레이  → 역할(host/client)이 확정되는 NetworkCombatController.OnNetworkSpawn이 연다.
+        //     (GameBootstrapper.Awake 시점에는 아직 자신이 호스트인지 클라인지 알 수 없다.)
+        //
+        // _dbgSessionOwned(소유권 플래그)가 필요한 이유:
+        //   RuntimeLogger는 static이라 파일 스트림이 프로세스에 딱 하나뿐이다.
+        //   플래그 없이 OnDestroy에서 무조건 EndSession()을 부르면,
+        //   멀티플레이에서 NetworkCombatController가 연 세션까지 이쪽이 닫아 버려
+        //   이후 로그가 파일에 전혀 남지 않는다(콘솔에만 출력됨).
+        //   그래서 "내가 연 세션일 때만" 닫도록 표시해 둔다.
+        //
+        // 파일은 에디터에서만 생성된다(RuntimeLogger는 실기기에서 파일을 쓰지 않고 Logcat만 사용).
+        private const string DbgMistShrineLogFolder =
+            "Assets/_Project/Docs/_Logs/2026-08-10/14_12_mistshrine-heal-implementation";
+
+        /// <summary>이 GameBootstrapper가 직접 연 로그 세션인지 여부(싱글플레이에서만 true).</summary>
+        private bool _dbgSessionOwned;
+        // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
+
         private BuildingPlacementUseCase _buildingPlacement;
         private ResourceUseCase _resource;
         private PopulationUseCase _population;
@@ -421,19 +444,6 @@ namespace Hexiege.Bootstrap
         private void Awake()
         {
             GameServicesLocator.Register(this);
-
-            // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
-            // MistShrine 물안개 회복의 "범위 원 경계 = 실제 회복 판정" 일치 여부를 파일 로그로 확인하기 위한
-            // 런타임 로그 세션 시작. 검증이 끝나면 이 블록과 OnDestroy의 EndSession 블록을 함께 제거한다.
-            //
-            // 경로: LogRules.md 규정에 따라 _Tasks와 같은 "날짜/시간_작업명" 폴더를 그대로 쓴다.
-            //       (오늘 날짜가 아니라 대응하는 task 폴더 날짜에 맞춘다.)
-            // role: 에디터 단독 테스트이므로 "host" → RuntimeLog_host.txt 로 저장된다.
-            // 폴더가 없으면 RuntimeLogger.BeginSession이 알아서 만든다.
-            Hexiege.Infrastructure.RuntimeLogger.BeginSession(
-                "Assets/_Project/Docs/_Logs/2026-08-10/14_12_mistshrine-heal-implementation",
-                "host");
-            // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
         }
 
         /// <summary>
@@ -445,12 +455,16 @@ namespace Hexiege.Bootstrap
         {
             GameServicesLocator.Unregister();
 
-            // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
-            // Awake에서 연 로그 파일 스트림을 닫는다. 닫지 않으면 파일 핸들이 남아
-            // 로그 파일을 다른 프로그램(에디터 밖)에서 읽지 못할 수 있다.
-            // 플레이 모드 종료 / 씬 언로드 시 호출되며, 이미 닫혀 있어도 안전하다.
-            Hexiege.Infrastructure.RuntimeLogger.EndSession();
-            // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
+            // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
+            // 싱글플레이에서 "내가 연" 로그 세션만 닫는다(파일 핸들 반환).
+            // 멀티플레이 세션은 NetworkCombatController.OnNetworkDespawn이 닫으므로 여기서 건드리지 않는다.
+            // (플래그 검사 없이 닫으면 멀티에서 남의 세션을 닫아 로그가 파일에 안 남는다.)
+            if (_dbgSessionOwned)
+            {
+                Hexiege.Infrastructure.RuntimeLogger.EndSession();
+                _dbgSessionOwned = false;
+            }
+            // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
         }
 
         /// <summary>
@@ -494,6 +508,15 @@ namespace Hexiege.Bootstrap
                 RaceId[] allRaces = (RaceId[])System.Enum.GetValues(typeof(RaceId));
                 RaceId opponentRace = allRaces[UnityEngine.Random.Range(0, allRaces.Length)];
                 GameRaceContext.Set(LocalPlayerRace.Current, opponentRace);
+
+                // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
+                // 싱글플레이는 로컬 서버(호스트) 역할이므로 host 파일(RuntimeLog_host.txt)로 세션을 연다.
+                // 여기(싱글 분기)에서 여는 이유: Awake에서 열면 멀티플레이일 때도 세션이 열려,
+                // 뒤이어 NetworkCombatController가 여는 역할별 세션과 충돌한다.
+                // _dbgSessionOwned를 세워 두면 OnDestroy가 이 세션만 책임지고 닫는다.
+                Hexiege.Infrastructure.RuntimeLogger.BeginSession(DbgMistShrineLogFolder, "host");
+                _dbgSessionOwned = true;
+                // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
 
                 // 싱글플레이 모드: 기존 로직 그대로 실행
                 LoadMap(HexOrientation.FlatTop);

@@ -103,6 +103,16 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private float _lastCarry = 0f;
 
+        // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
+        // MistShrine 물안개 회복의 파일 로그 세션 폴더.
+        // 멀티플레이는 자신이 호스트인지 클라인지가 OnNetworkSpawn에서 확정되므로,
+        // 그 시점에 각 인스턴스가 "자기 역할"로 세션을 연다.
+        //   호스트가 에디터면 RuntimeLog_host.txt, 순수 클라가 에디터면 RuntimeLog_client.txt 생성.
+        // (경로 문자열은 GameBootstrapper 쪽과 동일 — 제거할 때 두 파일을 함께 지운다.)
+        private const string DbgMistShrineLogFolder =
+            "Assets/_Project/Docs/_Logs/2026-08-10/14_12_mistshrine-heal-implementation";
+        // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -126,6 +136,13 @@ namespace Hexiege.Infrastructure
             // Application 레이어용 정적 홀더를 업데이트.
             NetworkContext.Set(isServer: IsServer, isActive: true);
             Debug.Log($"[Network] NetworkCombatController 스폰. IsServer={IsServer}. NetworkContext 설정 완료.");
+
+            // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
+            // 역할(host/client)이 확정되는 지점이므로 여기서 파일 로그 세션을 시작한다.
+            // 각 인스턴스가 자기 역할 파일에 기록하므로 호스트/클라 로그가 섞이지 않는다.
+            // 파일 생성은 에디터에서만 이루어진다(실기기는 Logcat 출력만).
+            RuntimeLogger.BeginSession(DbgMistShrineLogFolder, IsServer ? "host" : "client");
+            // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
 
             // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
@@ -212,6 +229,11 @@ namespace Hexiege.Infrastructure
 
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
+
+            // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
+            // 파일 로그 세션 종료(핸들 반환). 재경기/씬 전환 시 다음 세션이 깨끗하게 열린다.
+            RuntimeLogger.EndSession();
+            // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
         }
 
         // ====================================================================

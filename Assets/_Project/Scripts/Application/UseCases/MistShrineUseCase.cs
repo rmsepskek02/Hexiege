@@ -462,11 +462,11 @@ namespace Hexiege.Application
             {
                 ActiveMist mist = _firingBuffer[m];
 
-                // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+                // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
                 // 유닛별 판정 로그 앞에 "어느 물안개의 몇 번째 회복 틱인지"를 먼저 찍어
                 // 1초마다 쏟아지는 유닛 라인들을 틱 단위로 묶어 읽을 수 있게 한다.
                 DebugLogMistTickHeader(mist);
-                // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
+                // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
 
                 // ② 아군 유닛 수집.
                 CollectAllyUnitsInRadius(mist.Team, mist.CenterWorld, _unitBuffer, _unitDistBuffer);
@@ -584,7 +584,7 @@ namespace Hexiege.Application
                 if (unit == null || !unit.IsAlive) continue;
                 if (unit.Team != team) continue;          // 아군만(적 헬퍼와 정반대 조건).
 
-                // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+                // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
                 // 원본 코드는 아래 한 줄이었다:
                 //     if (unit.Hp >= unit.MaxHp) continue;      // 풀피는 회복 대상이 아니다(규칙 5).
                 // 로그를 남기기 위해서만 블록으로 감쌌다. 조건식·continue 동작은 원본과 완전히 동일하며
@@ -599,12 +599,12 @@ namespace Hexiege.Application
                     DebugLogUnitRangeCheck(unit, fullHpDistSqr, "FullHp");
                     continue;
                 }
-                // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
+                // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
 
                 Vector3 rel = Flatten(_mapper.HexToWorld(unit.Position)) - centerWorld;
                 float d2 = rel.sqrMagnitude;
 
-                // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+                // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
                 // 원본 코드는 아래 한 줄이었다:
                 //     if (d2 > _radiusSqr) continue;
                 // 조건식·continue 동작은 원본과 완전히 동일하다.
@@ -613,16 +613,16 @@ namespace Hexiege.Application
                     DebugLogUnitRangeCheck(unit, d2, "OutOfRange");
                     continue;
                 }
-                // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
+                // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
 
                 result.Add(unit);
                 distSqrResult.Add(d2);
 
-                // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+                // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
                 // 회복 대상으로 확정된 유닛. 위 두 탈락 케이스와 같은 형식으로 남겨
                 // "원 안/밖" 경계가 실제 판정과 일치하는지 한 파일에서 비교할 수 있게 한다.
                 DebugLogUnitRangeCheck(unit, d2, "Healed");
-                // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
+                // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
             }
         }
 
@@ -721,9 +721,9 @@ namespace Hexiege.Application
             return new Vector3(v.x, 0f, v.z);
         }
 
-        // ▼▼▼ [임시 검증 로그 — MistShrine 범위 판정 / 제거 예정] ▼▼▼
+        // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
         // ====================================================================
-        // 임시 검증 로그 전용 헬퍼 (검증 완료 후 이 섹션 전체를 삭제한다)
+        // [테스트 진단 로그 — 제거 예정] 전용 헬퍼 (검증 완료 후 이 섹션 전체를 삭제한다)
         //
         // 목적(이 두 가지만 확인하면 끝난다):
         //   ① 화면에 그려지는 범위 원의 경계 = 실제 회복 판정 경계인가?
@@ -804,7 +804,7 @@ namespace Hexiege.Application
                 $"Hp={unit.Hp}/{unit.MaxHp}, dist={dist:F2}, radius={_radius:F2}, Reason={reason}");
 #endif
         }
-        // ▲▲▲ [임시 검증 로그 끝] ▲▲▲
+        // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
 
         // ====================================================================
         // 내부 자료구조
