@@ -23,13 +23,13 @@
 | `Assets/_Project/Docs/UIGuidelines.md` | UI 가이드라인 |
 | `Assets/_Project/Docs/StatsReference.md` | 유닛/건물 스탯 참조표 |
 | `Assets/_Project/Docs/AuthSystemRules.md` | 로그인/인증 시스템 규칙 |
-| `Assets/_Project/Docs/LogRules.md` | 런타임 로그 파일 작성 규칙 (파일 위치, 형식, 레벨, 금지사항) |
+| `Assets/_Project/Docs/LogRules.md` | 런타임 로그 + QA-Fix 로그(`Log.md`) 작성 규칙 (파일 위치, 형식, 레벨, 금지사항, Round 반복 구조) |
 | `Assets/_Project/Docs/GameSystemRules.md` | 게임 시스템 규칙 인덱스 (세부 규칙은 `GameSystemRules/` 하위 파일 참조) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Map.md` | 대전 맵 전체 180도 대칭, 광산 공정성 및 정적 최단 접근거리 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md` | FlatTop 11×21 무작위 대전 맵 5종 생성·검증 규칙 |
-| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, 건물 배치 패널, 인게임 설정 메뉴 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, MistShrine 패널, 건물 배치 패널, 인게임 설정 메뉴, 로비 설정/프로필 UI |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동, 전투 진입, 전투 연계 |
-| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md` | 랠리포인트, 건물 철거, 방어 타워 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md` | 랠리포인트, 건물 철거, 방어 타워, MistShrine 물안개 힐 (구현 완료 / 싱글 실기 검증 완료 · 멀티 미검증) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Skills.md` | 스킬 건물 3종, 쿨다운/스킬 수 규칙, 3×3 스킬 UI, 스킬 타입 3종, 모바일 지점 조준 UX (기획 확정/미구현) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Upgrade.md` | 연구소 유닛 강화(공/방/속 + 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI (구현 완료 / 멀티 실기 PASS) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_CanvasSortingOrder.md` | Canvas SortingOrder 구조 및 씬별 Canvas 계층 |
