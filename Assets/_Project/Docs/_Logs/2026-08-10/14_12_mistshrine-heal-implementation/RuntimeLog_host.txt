@@ -1,420 +1,310 @@
 === RuntimeLogger 디버그 세션 ===
-=== 세션 시작: 2026-08-12 22:48:49 ===
-[22:49:07.499] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=9.00
-[22:49:08.502] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=7.99
-[22:49:09.497] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=7.00
-[22:49:10.362] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=9.00
-[22:49:10.498] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=6.00
-[22:49:11.361] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=8.00
-[22:49:11.499] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=5.00
-[22:49:12.366] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=6.99
-[22:49:12.498] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=4.00
-[22:49:12.674] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=9.00
-[22:49:13.365] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=6.00
-[22:49:13.500] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=3.00
-[22:49:13.675] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=8.00
-[22:49:14.367] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=4.99
-[22:49:14.499] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=2.00
-[22:49:14.675] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=7.00
-[22:49:15.364] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=4.00
-[22:49:15.498] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=1.00
-[22:49:15.679] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=5.99
-[22:49:16.364] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=3.00
-[22:49:16.498] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=0.00
-[22:49:16.676] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=5.00
-[22:49:17.365] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=2.00
-[22:49:17.673] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=4.00
-[22:49:18.369] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=0.99
-[22:49:18.675] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=3.00
-[22:49:19.363] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=0.00
-[22:49:19.677] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=2.00
-[22:49:20.675] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=1.00
-[22:49:21.680] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=-0.01
-[22:49:27.508] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=8.99
-[22:49:27.509] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
-[22:49:28.502] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=8.00
-[22:49:28.504] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=3.12, radius=3.00, Reason=OutOfRange
-[22:49:29.507] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=7.00
-[22:49:29.507] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=3.12, radius=3.00, Reason=OutOfRange
-[22:49:30.367] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=9.00
-[22:49:30.367] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=4.58, radius=3.00, Reason=OutOfRange
-[22:49:30.367] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=6.00, radius=3.00, Reason=FullHp
-[22:49:30.503] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=6.00
-[22:49:30.503] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=3.12, radius=3.00, Reason=OutOfRange
-[22:49:30.504] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.97, radius=3.00, Reason=FullHp
-[22:49:31.370] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=7.99
-[22:49:31.371] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=4.58, radius=3.00, Reason=OutOfRange
-[22:49:31.371] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.27, radius=3.00, Reason=FullHp
-[22:49:31.507] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=5.00
-[22:49:31.507] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=3.12, radius=3.00, Reason=OutOfRange
-[22:49:31.507] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.46, radius=3.00, Reason=FullHp
-[22:49:32.369] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=7.00
-[22:49:32.370] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=4.58, radius=3.00, Reason=OutOfRange
-[22:49:32.370] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.27, radius=3.00, Reason=FullHp
-[22:49:32.512] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=3.99
-[22:49:32.513] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=3.12, radius=3.00, Reason=OutOfRange
-[22:49:32.514] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.46, radius=3.00, Reason=FullHp
-[22:49:32.671] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=9.00
-[22:49:32.672] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=2.29, radius=3.00, Reason=Healed
-[22:49:32.672] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
-[22:49:33.367] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=6.00
-[22:49:33.368] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=90/200, dist=4.58, radius=3.00, Reason=OutOfRange
-[22:49:33.368] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.27, radius=3.00, Reason=FullHp
-[22:49:33.506] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=3.00
-[22:49:33.506] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=90/200, dist=3.12, radius=3.00, Reason=OutOfRange
-[22:49:33.507] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.46, radius=3.00, Reason=FullHp
-[22:49:33.676] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=8.00
-[22:49:33.676] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=90/200, dist=2.29, radius=3.00, Reason=Healed
-[22:49:33.676] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
-[22:49:34.371] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=4.99
-[22:49:34.371] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=4.58, radius=3.00, Reason=OutOfRange
-[22:49:34.372] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.27, radius=3.00, Reason=FullHp
-[22:49:34.508] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=2.00
-[22:49:34.508] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=3.12, radius=3.00, Reason=OutOfRange
-[22:49:34.508] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.50, radius=3.00, Reason=FullHp
-[22:49:34.677] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=6.99
-[22:49:34.677] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=2.29, radius=3.00, Reason=Healed
-[22:49:34.678] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.77, radius=3.00, Reason=FullHp
-[22:49:35.366] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=4.00
-[22:49:35.367] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=6.00, radius=3.00, Reason=FullHp
-[22:49:35.367] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=110/200, dist=5.20, radius=3.00, Reason=OutOfRange
-[22:49:35.368] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.68, radius=3.00, Reason=FullHp
-[22:49:35.503] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=1.00
-[22:49:35.503] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.97, radius=3.00, Reason=FullHp
-[22:49:35.503] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=110/200, dist=4.50, radius=3.00, Reason=OutOfRange
-[22:49:35.504] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.27, radius=3.00, Reason=FullHp
-[22:49:35.673] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=6.00
-[22:49:35.675] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
-[22:49:35.675] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=110/200, dist=3.77, radius=3.00, Reason=OutOfRange
-[22:49:35.675] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.58, radius=3.00, Reason=FullHp
-[22:49:36.365] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=3.00
-[22:49:36.366] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.58, radius=3.00, Reason=FullHp
-[22:49:36.367] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.68, radius=3.00, Reason=FullHp
-[22:49:36.510] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=-0.01
-[22:49:36.510] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
-[22:49:36.511] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.27, radius=3.00, Reason=FullHp
-[22:49:36.676] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=4.99
-[22:49:36.676] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:49:36.677] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=110/200, dist=5.41, radius=3.00, Reason=OutOfRange
-[22:49:36.677] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.58, radius=3.00, Reason=FullHp
-[22:49:37.371] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=1.99
-[22:49:37.371] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.82, radius=3.00, Reason=FullHp
-[22:49:37.372] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.68, radius=3.00, Reason=FullHp
-[22:49:37.671] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=4.00
-[22:49:37.671] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.77, radius=3.00, Reason=FullHp
-[22:49:37.672] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=5.41, radius=3.00, Reason=OutOfRange
-[22:49:37.672] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.58, radius=3.00, Reason=FullHp
-[22:49:38.368] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=1.00
-[22:49:38.368] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.68, radius=3.00, Reason=FullHp
-[22:49:38.675] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=3.00
-[22:49:38.676] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.82, radius=3.00, Reason=FullHp
-[22:49:38.677] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=5.41, radius=3.00, Reason=OutOfRange
-[22:49:38.677] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.58, radius=3.00, Reason=FullHp
-[22:49:39.372] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=-0.01
-[22:49:39.373] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.68, radius=3.00, Reason=FullHp
-[22:49:39.676] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=2.00
-[22:49:39.677] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.82, radius=3.00, Reason=FullHp
-[22:49:39.677] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=5.41, radius=3.00, Reason=OutOfRange
-[22:49:39.677] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.58, radius=3.00, Reason=FullHp
-[22:49:40.676] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=0.99
-[22:49:40.677] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.82, radius=3.00, Reason=FullHp
-[22:49:40.677] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=9, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
-[22:49:40.678] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=5.41, radius=3.00, Reason=OutOfRange
-[22:49:40.678] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.58, radius=3.00, Reason=FullHp
-[22:49:41.672] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=0.00
-[22:49:41.672] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.82, radius=3.00, Reason=FullHp
-[22:49:41.672] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=9, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.00, radius=3.00, Reason=FullHp
-[22:49:41.673] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=5.41, radius=3.00, Reason=OutOfRange
-[22:49:41.673] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.58, radius=3.00, Reason=FullHp
-[22:49:47.509] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=9.00
-[22:49:47.509] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=10, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.50, radius=3.00, Reason=FullHp
-[22:49:48.507] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=8.00
-[22:49:49.513] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=6.99
-[22:49:50.367] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=9.00
-[22:49:50.508] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=6.00
-[22:49:51.369] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=8.00
-[22:49:51.510] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=5.00
-[22:49:52.371] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=6.99
-[22:49:52.509] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=4.00
-[22:49:52.672] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=9.00
-[22:49:53.370] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=5.99
-[22:49:53.507] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=3.00
-[22:49:53.672] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=8.00
-[22:49:54.369] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=5.00
-[22:49:54.506] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=2.00
-[22:49:54.678] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=6.99
-[22:49:55.366] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=4.00
-[22:49:55.509] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=1.00
-[22:49:55.673] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=6.00
-[22:49:56.371] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=2.99
-[22:49:56.510] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=0.00
-[22:49:56.674] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=5.00
-[22:49:57.369] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=2.00
-[22:49:57.676] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=4.00
-[22:49:58.367] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=1.00
-[22:49:58.676] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=3.00
-[22:49:59.368] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=0.00
-[22:49:59.672] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=2.00
-[22:50:00.676] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=1.00
-[22:50:01.677] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=-0.01
-[22:50:07.509] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=9.00
-[22:50:08.509] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=8.00
-[22:50:09.510] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=7.00
-[22:50:10.369] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=9.00
-[22:50:10.507] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=6.00
-[22:50:11.371] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=8.00
-[22:50:11.514] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=4.99
-[22:50:12.374] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=11, Team=Blue, Center=(0.00, -13.86), radius=3.00, MistRemaining=7.00
-[22:50:12.507] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=8, Team=Blue, Center=(2.25, -15.16), radius=3.00, MistRemaining=4.00
-[22:50:12.677] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=7, Team=Blue, Center=(6.00, -14.72), radius=3.00, MistRemaining=9.00
-[22:50:45.312] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=8.99
-[22:50:45.312] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:46.312] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=7.99
-[22:50:46.312] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:47.309] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=7.00
-[22:50:47.309] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:47.310] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=18, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:48.309] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=6.00
-[22:50:48.309] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=2.29, radius=3.00, Reason=Healed
-[22:50:48.310] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=18, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:49.305] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=5.00
-[22:50:49.307] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=90/200, dist=2.29, radius=3.00, Reason=Healed
-[22:50:49.307] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=18, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:49.308] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
-[22:50:50.309] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=4.00
-[22:50:50.309] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=2.29, radius=3.00, Reason=Healed
-[22:50:50.310] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=18, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:50.310] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:51.307] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=3.00
-[22:50:51.307] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=2.29, radius=3.00, Reason=Healed
-[22:50:51.307] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=18, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:51.309] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:52.308] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=2.00
-[22:50:52.309] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=20, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
-[22:50:52.309] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=60/200, dist=2.29, radius=3.00, Reason=Healed
-[22:50:52.309] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=18, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:52.310] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:53.309] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=1.00
-[22:50:53.309] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=20, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
-[22:50:53.310] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=70/200, dist=2.29, radius=3.00, Reason=Healed
-[22:50:53.310] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=18, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=2.29, radius=3.00, Reason=Healed
-[22:50:53.310] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:50:54.307] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=0.00
-[22:50:54.307] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=20, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.82, radius=3.00, Reason=FullHp
-[22:50:54.307] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=21, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
-[22:50:54.307] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=2.29, radius=3.00, Reason=Healed
-[22:50:54.307] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=18, Type=RabbitTrickster, Team=Blue, Hp=150/200, dist=2.29, radius=3.00, Reason=Healed
-[22:50:54.308] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:51:05.318] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=8.99
-[22:51:05.318] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=26, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:51:06.317] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=7.99
-[22:51:06.318] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=26, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
-[22:51:07.313] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=7.00
-[22:51:07.313] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=26, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.82, radius=3.00, Reason=FullHp
-[22:51:07.313] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[22:51:09.450] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=6.00
-[22:51:09.450] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=26, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.68, radius=3.00, Reason=FullHp
-[22:51:09.452] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
-[22:51:12.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=27, Team=Blue, Center=(5.25, -9.96), radius=3.00, MistRemaining=4.99
-[22:51:12.471] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=29, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
-[22:51:12.471] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.82, radius=3.00, Reason=FullHp
-=== RuntimeLogger 디버그 세션 ===
-=== 세션 시작: 2026-08-12 23:25:23 ===
-[23:25:54.359] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=9.00
-[23:25:54.361] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
-[23:25:55.362] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.99
-[23:25:55.362] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
-[23:25:56.360] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=6.99
-[23:25:56.361] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
-[23:25:56.731] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=9.00
-[23:25:56.731] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:25:57.356] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=6.00
-[23:25:57.356] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
-[23:25:57.733] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=7.99
-[23:25:57.734] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=130/200, dist=1.73, radius=3.00, Reason=Healed
-[23:25:58.360] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=4.99
-[23:25:58.361] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=0.87, radius=3.00, Reason=Healed
-[23:25:58.361] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
-[23:25:58.730] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=7.00
-[23:25:58.730] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=150/200, dist=1.73, radius=3.00, Reason=Healed
-[23:25:58.730] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:25:59.355] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=4.00
-[23:25:59.356] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=160/200, dist=0.87, radius=3.00, Reason=Healed
-[23:25:59.356] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
-[23:25:59.732] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=6.00
-[23:25:59.732] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=170/200, dist=1.73, radius=3.00, Reason=Healed
-[23:25:59.733] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[23:26:00.360] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=2.99
-[23:26:00.362] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=180/200, dist=0.87, radius=3.00, Reason=Healed
-[23:26:00.362] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[23:26:00.733] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=5.00
-[23:26:00.733] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=190/200, dist=1.73, radius=3.00, Reason=Healed
-[23:26:00.733] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
-[23:26:01.355] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=2.00
-[23:26:01.355] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
-[23:26:01.356] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=130/200, dist=2.29, radius=3.00, Reason=Healed
-[23:26:01.732] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=4.00
-[23:26:01.732] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:26:01.732] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=3.12, radius=3.00, Reason=OutOfRange
-[23:26:02.358] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=1.00
-[23:26:02.359] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
-[23:26:02.359] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=2.29, radius=3.00, Reason=Healed
-[23:26:02.733] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=3.00
-[23:26:02.733] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:26:02.733] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=150/200, dist=3.12, radius=3.00, Reason=OutOfRange
-[23:26:03.355] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=0.00
-[23:26:03.355] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
-[23:26:03.356] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
-[23:26:03.356] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=150/200, dist=2.29, radius=3.00, Reason=Healed
-[23:26:03.732] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=1.99
-[23:26:03.734] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:26:03.734] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:26:03.734] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=160/200, dist=3.12, radius=3.00, Reason=OutOfRange
-[23:26:04.729] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=1.00
-[23:26:04.731] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
-[23:26:04.731] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.97, radius=3.00, Reason=FullHp
-[23:26:04.731] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=160/200, dist=3.46, radius=3.00, Reason=OutOfRange
-[23:26:05.728] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=0.00
-[23:26:05.728] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=6, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.46, radius=3.00, Reason=FullHp
-[23:26:05.728] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=3, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=5.68, radius=3.00, Reason=FullHp
-[23:26:05.730] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=160/200, dist=5.20, radius=3.00, Reason=OutOfRange
-[23:26:14.373] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=8.99
-[23:26:15.370] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=8.00
-[23:26:16.368] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.00
-[23:26:16.742] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=8.99
-[23:26:17.372] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=6.00
-[23:26:17.743] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=7.99
-[23:26:18.368] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=5.00
-[23:26:18.740] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=7.00
-[23:26:19.369] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=4.00
-[23:26:19.741] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=6.00
-[23:26:20.372] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=3.00
-[23:26:20.742] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=5.00
-[23:26:21.374] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=1.99
-[23:26:21.738] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=4.00
-[23:26:22.371] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=1.00
-[23:26:22.744] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=2.99
-[23:26:23.369] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=0.00
-[23:26:23.742] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=2.00
-[23:26:24.742] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=1.00
-[23:26:25.741] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=0.00
-[23:26:34.376] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=9.00
-[23:26:35.377] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.99
-[23:26:36.377] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=6.99
-[23:26:36.741] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=9.00
-[23:26:37.375] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=6.00
-[23:26:37.746] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=8.00
-[23:26:38.375] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=5.00
-[23:26:38.744] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=7.00
-[23:26:39.376] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=4.00
-[23:26:39.745] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=6.00
-[23:26:40.379] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=2.99
-[23:26:40.744] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=5.00
-[23:26:41.377] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=1.99
-[23:26:41.743] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=4.00
-[23:26:42.377] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=0.99
-[23:26:42.743] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=3.00
-[23:26:43.373] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=0.00
-[23:26:43.748] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=1.99
-[23:26:44.743] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=1.00
-[23:26:44.743] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=11, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:26:45.754] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=-0.01
-[23:26:45.754] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=11, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=2.60, radius=3.00, Reason=Healed
-[23:26:54.384] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=8.99
-[23:26:55.382] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.99
-[23:26:55.383] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:26:56.381] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.00
-[23:26:56.381] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=2.60, radius=3.00, Reason=Healed
-[23:26:56.758] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=8.99
-[23:26:56.758] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=30/200, dist=3.46, radius=3.00, Reason=OutOfRange
-[23:26:57.388] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=5.99
-[23:26:57.756] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=7.99
-[23:26:58.380] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=5.00
-[23:26:58.752] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=6.99
-[23:26:59.381] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=4.00
-[23:26:59.746] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=6.00
-[23:26:59.746] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:27:00.380] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=3.00
-[23:27:00.381] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:27:00.749] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=5.00
-[23:27:00.750] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=3.46, radius=3.00, Reason=OutOfRange
-[23:27:01.378] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=2.00
-[23:27:01.379] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=2.60, radius=3.00, Reason=Healed
-[23:27:01.754] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=3.99
-[23:27:01.754] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=16, Type=RabbitTrickster, Team=Blue, Hp=90/200, dist=3.46, radius=3.00, Reason=OutOfRange
-[23:27:02.380] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=1.00
-[23:27:02.749] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=3.00
-[23:27:03.382] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=0.00
-[23:27:03.753] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=1.99
-[23:27:04.747] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=1.00
-[23:27:04.747] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=17, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:27:05.755] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=-0.01
-[23:27:05.756] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=17, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=3.46, radius=3.00, Reason=OutOfRange
-[23:27:14.390] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=8.99
-[23:27:15.390] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.99
-[23:27:15.390] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:27:16.388] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.00
-[23:27:16.390] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=20/200, dist=1.73, radius=3.00, Reason=Healed
-[23:27:16.758] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=8.99
-[23:27:16.758] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=30/200, dist=2.60, radius=3.00, Reason=Healed
-[23:27:17.389] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=6.00
-[23:27:17.753] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=8.00
-[23:27:18.384] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=5.00
-[23:27:18.751] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=7.00
-[23:27:19.389] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=4.00
-[23:27:19.758] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=5.99
-[23:27:19.758] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=20, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:27:20.390] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=2.99
-[23:27:20.390] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=20, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=1.73, radius=3.00, Reason=Healed
-[23:27:20.752] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=5.00
-[23:27:21.387] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=2.00
-[23:27:21.751] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=4.00
-[23:27:22.385] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=1.00
-[23:27:22.757] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=2.99
-[23:27:23.386] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=0.00
-[23:27:23.757] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=1.99
-[23:27:24.755] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=1.00
-[23:27:24.755] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=21, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:27:25.758] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=-0.01
-[23:27:25.758] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=21, Type=RabbitTrickster, Team=Blue, Hp=80/200, dist=2.60, radius=3.00, Reason=Healed
-[23:27:34.395] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=9.00
-[23:27:35.401] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.99
-[23:27:35.402] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=140/200, dist=1.73, radius=3.00, Reason=Healed
-[23:27:36.393] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.00
-[23:27:36.394] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=150/200, dist=2.60, radius=3.00, Reason=Healed
-[23:27:36.753] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=9.00
-[23:27:36.753] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=160/200, dist=3.46, radius=3.00, Reason=OutOfRange
-[23:27:37.396] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=6.00
-[23:27:37.398] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=160/200, dist=2.60, radius=3.00, Reason=Healed
-[23:27:37.761] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=7.99
-[23:27:37.761] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=170/200, dist=3.46, radius=3.00, Reason=OutOfRange
-[23:27:38.396] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=5.00
-[23:27:38.397] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=170/200, dist=3.46, radius=3.00, Reason=OutOfRange
-[23:27:38.756] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=7.00
-[23:27:38.756] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=170/200, dist=5.20, radius=3.00, Reason=OutOfRange
-[23:27:39.400] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=3.99
-[23:27:39.401] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=170/200, dist=5.20, radius=3.00, Reason=OutOfRange
-[23:27:39.754] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=6.00
-[23:27:39.755] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=25, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:27:40.397] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=3.00
-[23:27:40.398] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=25, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:27:40.754] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=5.00
-[23:27:40.754] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=25, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.46, radius=3.00, Reason=FullHp
-[23:27:41.399] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=1.99
-[23:27:41.400] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=25, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.46, radius=3.00, Reason=FullHp
-[23:27:41.758] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=4.00
-[23:27:41.759] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=25, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.82, radius=3.00, Reason=FullHp
-[23:27:42.399] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=0.99
-[23:27:42.400] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=25, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.82, radius=3.00, Reason=FullHp
-[23:27:42.759] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=2.99
-[23:27:43.396] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=0.00
-[23:27:43.757] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=2.00
-[23:27:44.757] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=1.00
-[23:27:44.757] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=26, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:27:45.756] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(4.50, -15.59), radius=3.00, MistRemaining=0.00
-[23:27:45.756] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=26, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.46, radius=3.00, Reason=FullHp
-[23:27:54.392] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=9.00
-[23:27:55.399] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.99
-[23:27:55.400] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
-[23:27:57.052] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=6, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=6.93
-[23:27:57.053] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.46, radius=3.00, Reason=FullHp
+=== 세션 시작: 2026-08-13 00:32:02 ===
+[00:32:51.463] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.003, radius=3.00, HealPerTick=10
+[00:32:51.464] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=9.00, Fired=True
+[00:32:51.466] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:32:52.463] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=2, FiredMists=2, TickPhase=0.005, radius=3.00, HealPerTick=10
+[00:32:52.463] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=9.85, Fired=True
+[00:32:52.464] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
+[00:32:52.464] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=8.00, Fired=True
+[00:32:52.465] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:32:53.460] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=2, FiredMists=2, TickPhase=0.002, radius=3.00, HealPerTick=10
+[00:32:53.461] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=8.85, Fired=True
+[00:32:53.461] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
+[00:32:53.461] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.00, Fired=True
+[00:32:53.462] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:32:54.463] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.005, radius=3.00, HealPerTick=10
+[00:32:54.463] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=7.85, Fired=True
+[00:32:54.464] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:32:54.464] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=9.87, Fired=True
+[00:32:54.464] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:32:54.465] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=5.99, Fired=True
+[00:32:54.465] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:32:55.460] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.001, radius=3.00, HealPerTick=10
+[00:32:55.461] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=6.85, Fired=True
+[00:32:55.461] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.60, radius=3.00, Reason=FullHp
+[00:32:55.462] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
+[00:32:55.462] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=8.88, Fired=True
+[00:32:55.462] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
+[00:32:55.463] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.77, radius=3.00, Reason=FullHp
+[00:32:55.463] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=5.00, Fired=True
+[00:32:55.463] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:32:55.463] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.60, radius=3.00, Reason=FullHp
+[00:32:56.466] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.007, radius=3.00, HealPerTick=10
+[00:32:56.466] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=5.85, Fired=True
+[00:32:56.466] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:32:56.466] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=3.97, radius=3.00, Reason=OutOfRange
+[00:32:56.466] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=7.87, Fired=True
+[00:32:56.467] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:32:56.467] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=4.58, radius=3.00, Reason=OutOfRange
+[00:32:56.467] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=3.99, Fired=True
+[00:32:56.469] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:32:56.469] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=3.46, radius=3.00, Reason=OutOfRange
+[00:32:57.460] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.003, radius=3.00, HealPerTick=10
+[00:32:57.462] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=4.85, Fired=True
+[00:32:57.462] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:32:57.463] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=3.97, radius=3.00, Reason=OutOfRange
+[00:32:57.463] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=6.88, Fired=True
+[00:32:57.463] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
+[00:32:57.463] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=4.58, radius=3.00, Reason=OutOfRange
+[00:32:57.464] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=3.00, Fired=True
+[00:32:57.464] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:32:57.464] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=5, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=3.46, radius=3.00, Reason=OutOfRange
+[00:32:58.465] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.007, radius=3.00, HealPerTick=10
+[00:32:58.465] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=3.85, Fired=True
+[00:32:58.465] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.77, radius=3.00, Reason=FullHp
+[00:32:58.466] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=5.87, Fired=True
+[00:32:58.466] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.50, radius=3.00, Reason=FullHp
+[00:32:58.466] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=1.99, Fired=True
+[00:32:58.466] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
+[00:32:59.482] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.024, radius=3.00, HealPerTick=10
+[00:32:59.483] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=2.83, Fired=True
+[00:32:59.483] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.77, radius=3.00, Reason=FullHp
+[00:32:59.483] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=4.86, Fired=True
+[00:32:59.484] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=4.50, radius=3.00, Reason=FullHp
+[00:32:59.484] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=0.98, Fired=True
+[00:32:59.485] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
+[00:33:00.477] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.017, radius=3.00, HealPerTick=10
+[00:33:00.477] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=1.84, Fired=True
+[00:33:00.478] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=3.77, radius=3.00, Reason=OutOfRange
+[00:33:00.478] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=3.86, Fired=True
+[00:33:00.478] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=4.50, radius=3.00, Reason=OutOfRange
+[00:33:00.479] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=-0.02, Fired=True
+[00:33:00.479] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=3.12, radius=3.00, Reason=OutOfRange
+[00:33:01.461] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=2, FiredMists=2, TickPhase=0.003, radius=3.00, HealPerTick=10
+[00:33:01.461] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=0.85, Fired=True
+[00:33:01.463] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=3.77, radius=3.00, Reason=OutOfRange
+[00:33:01.463] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=2.88, Fired=True
+[00:33:01.463] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=7, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=4.50, radius=3.00, Reason=OutOfRange
+[00:33:02.461] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.003, radius=3.00, HealPerTick=10
+[00:33:02.461] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=1.88, Fired=True
+[00:33:03.464] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.006, radius=3.00, HealPerTick=10
+[00:33:03.464] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=0.87, Fired=True
+[00:33:11.473] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.004, radius=3.00, HealPerTick=10
+[00:33:11.473] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=9.00, Fired=True
+[00:33:12.470] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=2, FiredMists=2, TickPhase=0.001, radius=3.00, HealPerTick=10
+[00:33:12.470] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=9.85, Fired=True
+[00:33:12.471] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=9, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
+[00:33:12.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=8.00, Fired=True
+[00:33:12.471] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=9, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:13.469] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=2, FiredMists=2, TickPhase=0.000, radius=3.00, HealPerTick=10
+[00:33:13.469] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=8.85, Fired=True
+[00:33:13.470] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=9, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:13.470] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=7.00, Fired=True
+[00:33:13.470] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=12, UnitId=9, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:14.473] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.004, radius=3.00, HealPerTick=10
+[00:33:14.473] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=7.84, Fired=True
+[00:33:14.473] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=9.87, Fired=True
+[00:33:14.473] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=6.00, Fired=True
+[00:33:15.486] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=4, FiredMists=4, TickPhase=0.017, radius=3.00, HealPerTick=10
+[00:33:15.486] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=6.83, Fired=True
+[00:33:15.486] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=8.85, Fired=True
+[00:33:15.486] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=12, Team=Blue, Center=(4.50, -14.72), radius=3.00, MistRemaining=4.98, Fired=True
+[00:33:15.486] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=9.13, Fired=True
+[00:33:16.476] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.006, radius=3.00, HealPerTick=10
+[00:33:16.476] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=5.84, Fired=True
+[00:33:16.477] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=7.86, Fired=True
+[00:33:16.477] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=8.14, Fired=True
+[00:33:17.468] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.000, radius=3.00, HealPerTick=10
+[00:33:17.469] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=4.85, Fired=True
+[00:33:17.469] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:33:17.469] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=6.87, Fired=True
+[00:33:17.471] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.60, radius=3.00, Reason=FullHp
+[00:33:17.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=7.15, Fired=True
+[00:33:17.472] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:18.474] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.006, radius=3.00, HealPerTick=10
+[00:33:18.476] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=3.84, Fired=True
+[00:33:18.476] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:33:18.476] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=5.87, Fired=True
+[00:33:18.476] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.00, radius=3.00, Reason=FullHp
+[00:33:18.477] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=6.14, Fired=True
+[00:33:18.477] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:19.473] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=4, FiredMists=4, TickPhase=0.005, radius=3.00, HealPerTick=10
+[00:33:19.474] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=2.84, Fired=True
+[00:33:19.474] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:33:19.474] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=4.87, Fired=True
+[00:33:19.474] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
+[00:33:19.474] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=5.14, Fired=True
+[00:33:19.476] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:19.476] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=9.27, Fired=True
+[00:33:19.476] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:20.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=4, FiredMists=4, TickPhase=0.003, radius=3.00, HealPerTick=10
+[00:33:20.472] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=1.84, Fired=True
+[00:33:20.472] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:33:20.472] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=3.87, Fired=True
+[00:33:20.472] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
+[00:33:20.473] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=4.15, Fired=True
+[00:33:20.473] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:20.473] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=8.27, Fired=True
+[00:33:20.473] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=12, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:21.470] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=4, FiredMists=4, TickPhase=0.002, radius=3.00, HealPerTick=10
+[00:33:21.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=0.85, Fired=True
+[00:33:21.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=2.87, Fired=True
+[00:33:21.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=3.15, Fired=True
+[00:33:21.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=7.27, Fired=True
+[00:33:22.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.002, radius=3.00, HealPerTick=10
+[00:33:22.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=1.87, Fired=True
+[00:33:22.471] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:22.472] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=2.15, Fired=True
+[00:33:22.472] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
+[00:33:22.472] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=6.27, Fired=True
+[00:33:22.472] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:33:23.473] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.005, radius=3.00, HealPerTick=10
+[00:33:23.474] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=0.87, Fired=True
+[00:33:23.474] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:23.474] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=1.14, Fired=True
+[00:33:23.475] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
+[00:33:23.476] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=5.27, Fired=True
+[00:33:23.476] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.46, radius=3.00, Reason=FullHp
+[00:33:24.474] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=2, FiredMists=2, TickPhase=0.006, radius=3.00, HealPerTick=10
+[00:33:24.475] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=0.14, Fired=True
+[00:33:24.476] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.77, radius=3.00, Reason=FullHp
+[00:33:24.476] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=4.27, Fired=True
+[00:33:24.476] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.77, radius=3.00, Reason=FullHp
+[00:33:25.487] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.018, radius=3.00, HealPerTick=10
+[00:33:25.487] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=3.26, Fired=True
+[00:33:25.488] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:33:26.483] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.014, radius=3.00, HealPerTick=10
+[00:33:26.484] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=2.26, Fired=True
+[00:33:26.485] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=1.73, radius=3.00, Reason=Healed
+[00:33:26.490] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=14, Hp=100/200, Candidates=1, ChosenShrineId=17, dist=1.73, Applied=True
+[00:33:27.470] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.001, radius=3.00, HealPerTick=10
+[00:33:27.471] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=1.27, Fired=True
+[00:33:27.471] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=10/200, dist=1.73, radius=3.00, Reason=Healed
+[00:33:27.471] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=17, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:27.472] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=14, Hp=10/200, Candidates=1, ChosenShrineId=17, dist=1.73, Applied=True
+[00:33:28.478] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.009, radius=3.00, HealPerTick=10
+[00:33:28.478] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=0.27, Fired=True
+[00:33:28.479] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=14, Type=RabbitTrickster, Team=Blue, Hp=20/200, dist=1.73, radius=3.00, Reason=Healed
+[00:33:28.479] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=17, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:28.479] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=14, Hp=20/200, Candidates=1, ChosenShrineId=17, dist=1.73, Applied=True
+[00:33:33.323] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.008, radius=3.00, HealPerTick=10
+[00:33:33.324] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=8.99, Fired=True
+[00:33:33.324] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:34.339] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.023, radius=3.00, HealPerTick=10
+[00:33:34.339] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=7.98, Fired=True
+[00:33:34.340] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=0.87, radius=3.00, Reason=Healed
+[00:33:34.340] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=19, Hp=100/200, Candidates=1, ChosenShrineId=9, dist=0.87, Applied=True
+[00:33:35.318] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.002, radius=3.00, HealPerTick=10
+[00:33:35.318] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=7.00, Fired=True
+[00:33:35.319] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=110/200, dist=0.87, radius=3.00, Reason=Healed
+[00:33:35.319] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=9.03, Fired=True
+[00:33:35.319] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=110/200, dist=1.73, radius=3.00, Reason=Healed
+[00:33:35.320] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=9.30, Fired=True
+[00:33:35.320] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=110/200, dist=1.50, radius=3.00, Reason=Healed
+[00:33:35.321] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=19, Hp=110/200, Candidates=3, ChosenShrineId=9, dist=0.87, Applied=True
+[00:33:36.343] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.028, radius=3.00, HealPerTick=10
+[00:33:36.345] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=5.97, Fired=True
+[00:33:36.345] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=20/200, dist=0.87, radius=3.00, Reason=Healed
+[00:33:36.345] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=8.00, Fired=True
+[00:33:36.346] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=20/200, dist=1.73, radius=3.00, Reason=Healed
+[00:33:36.346] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=8.28, Fired=True
+[00:33:36.346] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=20/200, dist=1.50, radius=3.00, Reason=Healed
+[00:33:36.346] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=19, Hp=20/200, Candidates=3, ChosenShrineId=9, dist=0.87, Applied=True
+[00:33:37.323] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.007, radius=3.00, HealPerTick=10
+[00:33:37.324] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=4.99, Fired=True
+[00:33:37.326] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=30/200, dist=0.87, radius=3.00, Reason=Healed
+[00:33:37.327] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:37.328] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=7.03, Fired=True
+[00:33:37.329] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=30/200, dist=1.73, radius=3.00, Reason=Healed
+[00:33:37.329] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:37.331] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=7.30, Fired=True
+[00:33:37.331] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=19, Type=RabbitTrickster, Team=Blue, Hp=30/200, dist=1.50, radius=3.00, Reason=Healed
+[00:33:37.332] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:37.332] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=19, Hp=30/200, Candidates=3, ChosenShrineId=9, dist=0.87, Applied=True
+[00:33:38.322] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.006, radius=3.00, HealPerTick=10
+[00:33:38.323] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=3.99, Fired=True
+[00:33:38.323] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:38.323] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=6.03, Fired=True
+[00:33:38.324] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
+[00:33:38.324] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=6.30, Fired=True
+[00:33:38.324] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:39.335] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=4, FiredMists=4, TickPhase=0.019, radius=3.00, HealPerTick=10
+[00:33:39.335] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=2.98, Fired=True
+[00:33:39.336] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:39.337] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=5.01, Fired=True
+[00:33:39.337] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
+[00:33:39.337] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=5.29, Fired=True
+[00:33:39.337] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:39.338] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=9.44, Fired=True
+[00:33:39.338] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:40.323] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=4, FiredMists=4, TickPhase=0.008, radius=3.00, HealPerTick=10
+[00:33:40.323] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=1.99, Fired=True
+[00:33:40.324] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=0.87, radius=3.00, Reason=Healed
+[00:33:40.324] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=4.02, Fired=True
+[00:33:40.325] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=1.73, radius=3.00, Reason=Healed
+[00:33:40.325] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=4.30, Fired=True
+[00:33:40.325] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=1.50, radius=3.00, Reason=Healed
+[00:33:40.326] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=8.45, Fired=True
+[00:33:40.326] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=0.87, radius=3.00, Reason=Healed
+[00:33:40.326] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=22, Hp=100/200, Candidates=4, ChosenShrineId=9, dist=0.87, Applied=True
+[00:33:41.346] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=4, FiredMists=4, TickPhase=0.029, radius=3.00, HealPerTick=10
+[00:33:41.346] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=0.97, Fired=True
+[00:33:41.346] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=0.87, radius=3.00, Reason=Healed
+[00:33:41.347] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=3.00, Fired=True
+[00:33:41.347] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=1.73, radius=3.00, Reason=Healed
+[00:33:41.349] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=3.28, Fired=True
+[00:33:41.350] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=1.50, radius=3.00, Reason=Healed
+[00:33:41.350] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=7.43, Fired=True
+[00:33:41.351] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=22, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=0.87, radius=3.00, Reason=Healed
+[00:33:41.351] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=22, Hp=50/200, Candidates=4, ChosenShrineId=9, dist=0.87, Applied=True
+[00:33:42.318] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=4, FiredMists=4, TickPhase=0.003, radius=3.00, HealPerTick=10
+[00:33:42.319] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=0.00, Fired=True
+[00:33:42.320] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:42.321] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=2.03, Fired=True
+[00:33:42.322] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:42.322] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=2.30, Fired=True
+[00:33:42.323] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:42.324] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=6.45, Fired=True
+[00:33:42.325] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:43.338] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.022, radius=3.00, HealPerTick=10
+[00:33:43.339] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=1.01, Fired=True
+[00:33:43.339] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.73, radius=3.00, Reason=FullHp
+[00:33:43.340] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=1.28, Fired=True
+[00:33:43.340] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:43.340] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=5.44, Fired=True
+[00:33:43.341] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:44.325] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.009, radius=3.00, HealPerTick=10
+[00:33:44.326] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=0.02, Fired=True
+[00:33:44.327] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=1.73, radius=3.00, Reason=Healed
+[00:33:44.327] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=0.30, Fired=True
+[00:33:44.328] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=1.50, radius=3.00, Reason=Healed
+[00:33:44.328] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=4.45, Fired=True
+[00:33:44.329] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=100/200, dist=0.87, radius=3.00, Reason=Healed
+[00:33:44.329] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=24, Hp=100/200, Candidates=3, ChosenShrineId=17, dist=0.87, Applied=True
+[00:33:46.725] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.164, radius=3.00, HealPerTick=10
+[00:33:46.726] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=3.29, Fired=True
+[00:33:46.726] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=24, Type=RabbitTrickster, Team=Blue, Hp=50/200, dist=0.87, radius=3.00, Reason=Healed
+[00:33:46.726] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=24, Hp=50/200, Candidates=1, ChosenShrineId=17, dist=0.87, Applied=True
+[00:33:47.670] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.111, radius=3.00, HealPerTick=10
+[00:33:47.670] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=2.35, Fired=True
+[00:33:48.558] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.001, radius=3.00, HealPerTick=10
+[00:33:48.559] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=1.46, Fired=True
+[00:33:48.559] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=26, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:49.563] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.005, radius=3.00, HealPerTick=10
+[00:33:49.564] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=17, Team=Blue, Center=(5.25, -15.16), radius=3.00, MistRemaining=0.45, Fired=True
+[00:33:49.564] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=17, UnitId=26, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=0.87, radius=3.00, Reason=FullHp
+[00:33:54.564] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.005, radius=3.00, HealPerTick=10
+[00:33:54.565] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=9.00, Fired=True
+[00:33:54.565] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.60, radius=3.00, Reason=FullHp
+[00:33:55.592] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.031, radius=3.00, HealPerTick=10
+[00:33:55.593] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=7.97, Fired=True
+[00:33:55.593] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:33:56.568] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=3, FiredMists=3, TickPhase=0.009, radius=3.00, HealPerTick=10
+[00:33:56.568] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=9, Team=Blue, Center=(3.75, -15.16), radius=3.00, MistRemaining=6.99, Fired=True
+[00:33:56.569] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=9, UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=2.29, radius=3.00, Reason=FullHp
+[00:33:56.569] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=9.04, Fired=True
+[00:33:56.569] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=3.12, radius=3.00, Reason=FullHp
+[00:33:56.569] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=9.31, Fired=True
+[00:33:56.571] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=200/200, dist=1.50, radius=3.00, Reason=FullHp
+[00:33:57.561] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=2, FiredMists=2, TickPhase=0.001, radius=3.00, HealPerTick=10
+[00:33:57.561] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=8.04, Fired=True
+[00:33:57.561] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=10, UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=40/200, dist=3.12, radius=3.00, Reason=OutOfRange
+[00:33:57.563] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=8.32, Fired=True
+[00:33:57.563] [INFO] [MistShrine/MistShrineUseCase] 유닛 범위 판정 | ShrineId=15, UnitId=28, Type=RabbitTrickster, Team=Blue, Hp=40/200, dist=1.50, radius=3.00, Reason=Healed
+[00:33:57.563] [INFO] [MistShrine/MistShrineUseCase] 중첩 해소 결과 | UnitId=28, Hp=40/200, Candidates=1, ChosenShrineId=15, dist=1.50, Applied=True
+[00:33:58.564] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=2, FiredMists=2, TickPhase=0.004, radius=3.00, HealPerTick=10
+[00:33:58.564] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=7.04, Fired=True
+[00:33:58.564] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=15, Team=Blue, Center=(5.25, -16.02), radius=3.00, MistRemaining=7.32, Fired=True
+[00:33:59.562] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(물안개 순회 전) | ActiveMists=1, FiredMists=1, TickPhase=0.002, radius=3.00, HealPerTick=10
+[00:33:59.562] [INFO] [MistShrine/MistShrineUseCase] 회복 틱 시작(유닛 수집 전) | ShrineId=10, Team=Blue, Center=(3.00, -15.59), radius=3.00, MistRemaining=6.04, Fired=True
