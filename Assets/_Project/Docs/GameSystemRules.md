@@ -15,7 +15,7 @@
 | [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md) | FlatTop 11×21 무작위 대전 맵 5종 생성·광산·건설 제한·seed·폴백·검증 |
 | [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
 | [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계, 방어력 데미지 감쇄(구현 완료) |
-| [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템, MistShrine 물안개 힐 시스템 (기획 확정/미구현) |
+| [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템, MistShrine 물안개 힐 시스템 (구현 완료 / 싱글 실기 검증 완료 · 멀티 미검증) |
 | [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md) | 스킬 건물 3종, 쿨다운/스킬 수 공통 규칙, 3×3 스킬 UI, 스킬 타입 3종, 모바일 지점 조준 UX, 서버 권위 (기획 확정/미구현) |
 | [GameSystemRules_Upgrade.md](GameSystemRules/GameSystemRules_Upgrade.md) | 연구소 기반 유닛 강화(공/방/속 + 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI (구현 완료 / 멀티 실기 PASS) |
 | [GameSystemRules_CanvasSortingOrder.md](GameSystemRules/GameSystemRules_CanvasSortingOrder.md) | Canvas SortingOrder 구조, 씬별 Canvas 계층, 전역 UI z-order |
@@ -78,7 +78,7 @@
 - 랠리포인트 표시/숨김
 - 철거 처리, 골드 환불, 연쇄 처리
 - 방어 타워: 타겟 선택, 쿨다운, 서버 권위 처리 (종족별 = `AutoTower` — Human CannonTower / Spirit RuneSpire / **Trans VineTower**)
-- MistShrine 물안개 힐(`HealShrine`, 방어 타워와 별개 건물): 건물 중심 고정 원형 범위, 아군 유닛+건물 회복, 1초 discrete 틱 아우라, 물안개 지속 < 쿨다운, 물안개 간 중첩 금지(가까운 건물 우선·동률 시 Id 작은 쪽), 자연회복과는 중첩 적용, 자동/수동 모드(기본 OFF), 전용 UseCase·서버 권위 (**기획 확정 / 구현 미착수**)
+- MistShrine 물안개 힐(`HealShrine`, 방어 타워와 별개 건물): 건물 중심 고정 원형 범위, 아군 유닛+건물 회복, 1초 discrete 틱 아우라, 물안개 지속 < 쿨다운, 물안개 간 중첩 금지(가까운 건물 우선·동률 시 Id 작은 쪽), 자연회복과는 중첩 적용, 자동/수동 모드(기본 OFF), 전용 UseCase·서버 권위 (**2026-08-12 구현 완료 / 에디터 싱글플레이 실기 검증 완료 · 멀티 미검증 · VFX·아이콘 미제작 · 밸런싱 미확정**. 규칙 8-1에 "활성 물안개는 서로 같은 위상으로 틱한다" 불변식 보강 — 되돌리면 중첩 해소가 죽는다)
   - 특수 동작 건물이 2종 이상이 되면 `GameSystemRules_SpecialBuildings.md`로 분리한다(해당 섹션 서두 명시)
 
 ### 스킬 건물 관련 작업
@@ -97,7 +97,7 @@
 - (B) 팀 배율 실시간 소급 적용, 방어력 감쇄 공식(K=120, floor 1, 직격·스플래시·타워→유닛 일괄, DoT 미적용)
 - 연구소 운영(복수 건설·연구 시간·진행 중 트랙 잠금·파괴 시 100% 환불·서버 권위), 비용·시간·그룹 배율
 - 연구 패널 UI(규칙 13): `ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어(연구소 단위)
-- 후속 보류: UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐(미구현)·싱글 자연회복 실기
+- 후속 보류: UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐(**2026-08-12 구현 완료 / 멀티 미검증**)·싱글 자연회복 실기
 
 ### AI 시스템 관련 작업
 → [GameSystemRules_AI.md](GameSystemRules/GameSystemRules_AI.md)
