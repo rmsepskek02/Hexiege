@@ -31,6 +31,23 @@
 //   거리가 완전히 같으면 **시전 건물 Id가 작은 쪽**을 쓴다. 딕셔너리 순회 순서에 맡기면 서버와
 //   클라이언트의 판정이 갈릴 수 있으므로, 시전 건물 Id 오름차순 순회 + 엄격 부등호(<)로 못 박는다.
 //
+//   ⚠️ 2026-08-12 버그 수정 — 중첩 해소가 "돌 기회조차 없던" 문제 (초당 회복량 2배)
+//     증상: 반경이 거의 완전히 겹치는 신전 2개 아래에 있던 유닛이 초당 10이 아니라 **초당 20** 회복.
+//     원인: 회복 틱 누적기(ActiveMist.TickAccum)가 물안개마다 독립인데 **시전 시각이 다르면 1초 경계를
+//           넘는 프레임도 서로 달라진다**(실측: 신전6 = 매초 .36초 지점, 신전10 = 매초 .73초 지점).
+//           그래서 한 프레임에는 언제나 물안개가 하나만 발화했고, "같은 프레임에 발화한 물안개들끼리"만
+//           비교하던 중첩 해소 코드는 비교 대상이 늘 1개라 **사실상 죽은 코드**였다.
+//     수정: 두 겹으로 막는다.
+//       ① **위상(phase) 정렬** — 새 물안개는 이미 깔려 있는 물안개와 **같은 누적기 위상**으로 시작한다
+//          (Activate에서 GetSharedTickPhase()로 시드). 누적기 자체는 규칙 8-1대로 여전히 물안개마다
+//          하나씩이며(개수 = 물안개 개수 — 규칙 14 표), 시작 위상만 맞춘다. 모든 활성 물안개가 같은
+//          프레임에 발화하므로 중첩 해소가 실제로 동작하고, 물안개가 생기거나 걷힐 때도 회복 간격이
+//          끊기거나 겹치지 않는다.
+//       ② **소유권 판정 범위 확대** — "이번 틱에 발화한 물안개들 중 가장 가까운 것"이 아니라
+//          **"지금 깔려 있는 물안개 전체 중 가장 가까운 것"** 을 대상의 소유자로 정하고, 그 소유자가
+//          이번 틱에 발화했을 때만 회복한다. ①이 지켜지는 한 두 집합은 항상 같지만, 혹시라도 위상이
+//          어긋나더라도 "먼저 틱한 물안개가 이긴다" 같은 순서 의존 판정이나 이중 회복이 생기지 않는다.
+//
 // ── 서버 권위(규칙 22) ──
 //   시전 판정·대상 수집·회복 적용·자동 시전은 서버(싱글=로컬 서버 / 멀티=서버)에서만 실행한다.
 //   멀티 클라이언트는 쿨다운 미러·자동 모드 미러·HP 수신만 한다.
@@ -106,7 +123,6 @@ namespace Hexiege.Application
         private readonly List<int> _tickKeyBuffer = new List<int>(8);
         private readonly List<int> _expiredBuffer = new List<int>(8);
         private readonly List<int> _autoCastBuffer = new List<int>(4);
-        private readonly List<ActiveMist> _firingBuffer = new List<ActiveMist>(4);
         private readonly List<UnitData> _unitBuffer = new List<UnitData>(16);
         private readonly List<float> _unitDistBuffer = new List<float>(16);
         private readonly List<BuildingData> _buildingBuffer = new List<BuildingData>(16);
@@ -114,7 +130,11 @@ namespace Hexiege.Application
         private readonly Dictionary<int, PickedUnit> _bestUnitByTarget = new Dictionary<int, PickedUnit>();
         private readonly Dictionary<int, PickedBuilding> _bestBuildingByTarget = new Dictionary<int, PickedBuilding>();
 
-        /// <summary>물안개를 시전 건물 Id 오름차순으로 정렬하는 비교자(중첩 해소 결정성 — 규칙 13).</summary>
+        /// <summary>
+        /// 물안개를 시전 건물 Id 오름차순으로 정렬하는 비교자(중첩 해소 결정성 — 규칙 13).
+        /// 거리가 완전히 같을 때 "Id가 작은 쪽"이 이기게 하려면, 비교를 Id 오름차순으로 돌면서
+        /// 엄격 부등호(&lt;)로만 갱신하면 된다(먼저 온 = Id가 작은 물안개가 그대로 유지된다).
+        /// </summary>
         private static readonly Comparison<ActiveMist> MistIdAscending =
             (a, b) => a.SourceBuildingId.CompareTo(b.SourceBuildingId);
 
@@ -202,8 +222,12 @@ namespace Hexiege.Application
             RemoveMistsOfShrine(buildingId);
 
             // ⑤ 물안개 생성 — 중심은 시전 건물 타일의 "도메인" 월드 좌표다(규칙 3·10 — 고정 원형, 이동 없음).
+            //    회복 틱 누적기는 **이미 깔려 있는 물안개와 같은 위상**에서 출발시킨다(GetSharedTickPhase).
+            //    이유: 물안개마다 시전 시각이 달라 1초 경계를 넘는 프레임이 어긋나면, 겹친 대상이
+            //    각 물안개에서 따로 회복을 받아 초당 회복량이 배로 뛴다(2026-08-12 버그 — 파일 상단 주석).
+            //    누적기는 규칙 8-1대로 여전히 물안개마다 하나씩이고, "시작 위상"만 맞추는 것이다.
             Vector3 center = Flatten(_mapper.HexToWorld(building.Position));
-            _activeMists.Add(new ActiveMist(buildingId, building.Team, center, _mistDuration));
+            _activeMists.Add(new ActiveMist(buildingId, building.Team, center, _mistDuration, GetSharedTickPhase()));
 
             // ⑥ 쿨다운 시작(규칙 21). 시전 비용은 없다(규칙 11 — 골드 소모 없음).
             StartCooldownLocal(buildingId, _cooldown);
@@ -386,6 +410,11 @@ namespace Hexiege.Application
         ///
         /// 매 틱 대상을 "다시" 수집하는 것이 핵심이다 — 그래야 범위를 벗어난 대상은 즉시 회복이 끊기고,
         /// 다시 들어오면 다시 회복된다(규칙 9 아우라). 중첩 해소도 매 틱 다시 판정된다(규칙 13).
+        ///
+        /// 위상 불변식(2026-08-12):
+        ///   활성 물안개들의 TickAccum은 항상 서로 같다. 아래 루프가 모든 물안개에 **같은 dt**를 더하고
+        ///   같은 프레임에 똑같이 1초를 빼며, 새 물안개도 생성 시 같은 위상에서 출발하기 때문이다(Activate ⑤).
+        ///   이 불변식 덕분에 활성 물안개는 전부 같은 프레임에 발화하고, 중첩 해소가 실제로 동작한다.
         /// </summary>
         /// <param name="dt">경과 시간(초).</param>
         public void TickMists(float dt)
@@ -394,41 +423,49 @@ namespace Hexiege.Application
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
             if (dt <= 0f || _activeMists.Count == 0) return;
 
-            // ── 1) 시간 진행 + 이번 틱에 회복을 발화할 물안개 수집 ───────────────
-            _firingBuffer.Clear();
+            // ── 1) 시간 진행 + 이번 틱에 회복을 발화할 물안개 표시 ───────────────
+            //    발화 여부를 리스트에 모으지 않고 물안개 자신에게 표시(FiredThisTick)해 두는 이유:
+            //    중첩 해소는 "발화한 물안개들"이 아니라 **"활성 물안개 전체"** 를 놓고 가장 가까운 것을
+            //    골라야 하기 때문이다(규칙 13). 발화 여부는 마지막 적용 단계에서만 본다.
+            bool anyFired = false;
             for (int i = 0; i < _activeMists.Count; i++)
             {
                 ActiveMist mist = _activeMists[i];
                 mist.Remaining -= dt;
                 mist.TickAccum += dt;
 
-                // 1초가 찼으면 이번 틱에 회복을 적용한다(누적분에서 정확히 1초만 뺀다 — 이월분 보존).
-                if (mist.TickAccum >= HealTickInterval)
+                // 아직 1초가 차지 않았으면 이번 프레임에는 회복하지 않는다.
+                // (위상 불변식이 지켜지는 한 활성 물안개는 전부 함께 통과하거나 전부 함께 여기서 빠진다.)
+                if (mist.TickAccum < HealTickInterval)
                 {
-                    mist.TickAccum -= HealTickInterval;
+                    mist.FiredThisTick = false;
+                    mist.ShowTextThisTick = false;
+                    continue;
+                }
 
-                    // 회복 텍스트는 회복 틱과 별도 주기다(규칙 15 / UI 규칙 9).
-                    //   TextAccum은 "회복이 실제로 일어난 시간"만 쌓아 주기를 센다.
-                    mist.TextAccum += HealTickInterval;
-                    if (mist.TextAccum >= _textInterval)
-                    {
-                        mist.TextAccum -= _textInterval;
-                        mist.ShowTextThisTick = true;
-                    }
-                    else
-                    {
-                        mist.ShowTextThisTick = false;
-                    }
+                // 1초가 찼다 — 누적분에서 정확히 1초만 뺀다(이월분 보존).
+                mist.TickAccum -= HealTickInterval;
+                mist.FiredThisTick = true;
+                anyFired = true;
 
-                    _firingBuffer.Add(mist);
+                // 회복 텍스트는 회복 틱과 별도 주기다(규칙 15 / UI 규칙 9).
+                //   TextAccum은 "회복이 실제로 일어난 시간"만 쌓아 주기를 센다.
+                mist.TextAccum += HealTickInterval;
+                if (mist.TextAccum >= _textInterval)
+                {
+                    mist.TextAccum -= _textInterval;
+                    mist.ShowTextThisTick = true;
+                }
+                else
+                {
+                    mist.ShowTextThisTick = false;
                 }
             }
 
             // ── 2) 회복 적용(중첩 해소 포함) ─────────────────────────────────────
-            if (_firingBuffer.Count > 0)
+            if (anyFired)
             {
                 ApplyHealTick();
-                _firingBuffer.Clear();
             }
 
             // ── 3) 지속시간이 끝난 물안개 제거(뒤에서부터 지워 인덱스가 밀리지 않게 한다) ──
@@ -440,13 +477,20 @@ namespace Hexiege.Application
         }
 
         /// <summary>
-        /// 이번 틱에 발화한 물안개들의 회복을 대상별로 1회씩만 적용한다(중첩 해소 — 규칙 13).
+        /// 이번 틱의 회복을 대상별로 1회씩만 적용한다(중첩 해소 — 규칙 13). 유닛·건물 모두 같은 규칙을 쓴다.
         ///
         /// 절차:
-        ///   ① 시전 건물 Id 오름차순으로 물안개를 순회한다(거리 동률 시 Id 작은 쪽이 이기도록).
+        ///   ① 시전 건물 Id 오름차순으로 **지금 깔려 있는 물안개 전체**를 순회한다
+        ///      (거리 동률 시 Id 작은 쪽이 이기도록 — 규칙 13).
         ///   ② 각 물안개의 범위 안 아군 유닛·아군 건물을 수집하며 중심까지의 거리제곱을 함께 얻는다.
         ///   ③ 대상별로 "가장 가까운 물안개"만 남긴다(엄격 부등호 &lt; 이므로 동률이면 먼저 온 쪽 유지).
-        ///   ④ 남은 조합에 회복을 적용한다.
+        ///   ④ 남은 조합 중 **그 물안개가 이번 틱에 발화한 경우에만** 회복을 적용한다.
+        ///
+        /// ①에서 "발화한 물안개"가 아니라 "활성 물안개 전체"를 도는 것이 이 메서드의 핵심이다.
+        /// 발화한 것들끼리만 비교하면 "먼저 틱한 물안개가 이긴다"가 되어 규칙 13의 결정성이 깨지고,
+        /// 실제로 2026-08-12 이전에는 프레임마다 발화 물안개가 1개뿐이라 중첩 해소가 아예 돌지 못했다.
+        /// 위상 불변식(TickMists 주석)이 지켜지면 "활성 = 발화"라 ④의 게이트는 항상 통과하며,
+        /// 혹시 위상이 어긋나더라도 이중 회복 대신 "이번 틱 건너뜀"으로 안전하게 떨어진다.
         /// </summary>
         private void ApplyHealTick()
         {
@@ -455,16 +499,21 @@ namespace Hexiege.Application
             _bestUnitByTarget.Clear();
             _bestBuildingByTarget.Clear();
 
-            // ① 결정적 순회 순서 확보.
-            _firingBuffer.Sort(MistIdAscending);
+            // ① 결정적 순회 순서 확보(거리 동률 시 Id 작은 물안개가 이기도록).
+            _activeMists.Sort(MistIdAscending);
 
-            for (int m = 0; m < _firingBuffer.Count; m++)
+            // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
+            DebugLogHealTickBegin();
+            // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
+
+            for (int m = 0; m < _activeMists.Count; m++)
             {
-                ActiveMist mist = _firingBuffer[m];
+                ActiveMist mist = _activeMists[m];
 
                 // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
                 // 유닛별 판정 로그 앞에 "어느 물안개의 몇 번째 회복 틱인지"를 먼저 찍어
                 // 1초마다 쏟아지는 유닛 라인들을 틱 단위로 묶어 읽을 수 있게 한다.
+                // (동시에 유닛 판정 줄이 쓸 ShrineId를 여기서 기억해 둔다.)
                 DebugLogMistTickHeader(mist);
                 // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
 
@@ -474,10 +523,15 @@ namespace Hexiege.Application
                 {
                     UnitData unit = _unitBuffer[i];
                     float d2 = _unitDistBuffer[i];
+
+                    // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
+                    DebugLogCountUnitCandidate(unit.Id);
+                    // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
+
                     // ③ 더 가까운 물안개만 남긴다. 동률(<가 거짓)이면 먼저 온(Id 작은) 물안개가 유지된다.
                     if (_bestUnitByTarget.TryGetValue(unit.Id, out PickedUnit prev) && d2 >= prev.DistSqr)
                         continue;
-                    _bestUnitByTarget[unit.Id] = new PickedUnit(unit, d2, mist.SourceBuildingId, mist.ShowTextThisTick);
+                    _bestUnitByTarget[unit.Id] = new PickedUnit(unit, d2, mist);
                 }
 
                 // ② 아군 건물 수집(시전 건물 자신·Castle도 그대로 포함 — 규칙 4).
@@ -488,20 +542,30 @@ namespace Hexiege.Application
                     float d2 = _buildingDistBuffer[i];
                     if (_bestBuildingByTarget.TryGetValue(building.Id, out PickedBuilding prev) && d2 >= prev.DistSqr)
                         continue;
-                    _bestBuildingByTarget[building.Id] = new PickedBuilding(building, d2, mist.SourceBuildingId, mist.ShowTextThisTick);
+                    _bestBuildingByTarget[building.Id] = new PickedBuilding(building, d2, mist);
                 }
             }
 
             // ④ 실제 회복 적용. 대상마다 정확히 1회만 호출된다.
+            //    소유 물안개가 이번 틱에 발화하지 않았다면 이번 틱은 건너뛴다(다음 발화 때 회복된다).
             foreach (var kv in _bestUnitByTarget)
             {
                 PickedUnit pick = kv.Value;
-                ApplyHealToUnitEntity(pick.Unit, pick.SourceBuildingId, pick.ShowText);
+                ActiveMist source = pick.Source;
+
+                // ▼▼▼ [테스트 진단 로그 — 제거 예정] MistShrine 범위 판정 ▼▼▼
+                DebugLogUnitOverlapResolution(pick);
+                // ▲▲▲ [테스트 진단 로그 — 제거 예정] 끝 ▲▲▲
+
+                if (!source.FiredThisTick) continue;
+                ApplyHealToUnitEntity(pick.Unit, source.SourceBuildingId, source.ShowTextThisTick);
             }
             foreach (var kv in _bestBuildingByTarget)
             {
                 PickedBuilding pick = kv.Value;
-                ApplyHealToBuildingEntity(pick.Building, pick.SourceBuildingId, pick.ShowText);
+                ActiveMist source = pick.Source;
+                if (!source.FiredThisTick) continue;
+                ApplyHealToBuildingEntity(pick.Building, source.SourceBuildingId, source.ShowTextThisTick);
             }
 
             _bestUnitByTarget.Clear();
@@ -702,6 +766,19 @@ namespace Hexiege.Application
         // 내부 헬퍼
         // ====================================================================
 
+        /// <summary>
+        /// 지금 깔려 있는 물안개들이 공유하는 회복 틱 위상(TickAccum 값)을 돌려준다. 깔린 물안개가 없으면 0.
+        ///
+        /// 왜 아무 물안개나 하나만 봐도 되나:
+        ///   TickMists가 모든 활성 물안개에 **같은 dt**를 더하고 같은 프레임에 똑같이 1초를 빼며,
+        ///   새 물안개도 이 값으로 출발하기 때문에 활성 물안개들의 TickAccum은 항상 서로 같다(위상 불변식).
+        ///   float 연산도 "같은 값 + 같은 값"이라 결과가 완전히 동일하므로 시간이 지나도 벌어지지 않는다.
+        /// </summary>
+        private float GetSharedTickPhase()
+        {
+            return _activeMists.Count > 0 ? _activeMists[0].TickAccum : 0f;
+        }
+
         /// <summary> 지정 건물이 만든 물안개를 전부 제거한다(뒤에서부터 지워 인덱스가 밀리지 않게 한다). </summary>
         private void RemoveMistsOfShrine(int buildingId)
         {
@@ -725,13 +802,15 @@ namespace Hexiege.Application
         // ====================================================================
         // [테스트 진단 로그 — 제거 예정] 전용 헬퍼 (검증 완료 후 이 섹션 전체를 삭제한다)
         //
-        // 목적(이 두 가지만 확인하면 끝난다):
+        // 목적(이 세 가지만 확인하면 끝난다):
         //   ① 화면에 그려지는 범위 원의 경계 = 실제 회복 판정 경계인가?
         //   ② 유닛이 범위를 벗어난 "다음 틱"부터 회복 대상에서 빠지는가?
+        //   ③ (2026-08-12 추가) 물안개가 겹칠 때 중첩 해소가 실제로 돌아, 한 유닛이 한 틱에
+        //      **한 물안개에서만** 회복을 받는가? 그리고 그 물안개가 정말 "가장 가까운" 쪽인가?
         //
         // 설계 메모:
         //   - 회복 판정 로직(조건·순회 순서·버퍼 내용)은 일절 건드리지 않는다. 로그는 순수 관찰자다.
-        //   - 호출 빈도는 물안개 1개당 1초에 1회(HealTickInterval = 1.0f)이므로 성능 영향은 없다.
+        //   - 호출 빈도는 회복 틱 1회(1초)당 물안개 수 × 대상 수이므로 성능 영향은 없다.
         //   - LogRules.md 금지사항 1에 따라 Debug.Log를 직접 쓰지 않고 RuntimeLogger를 사용한다.
         // ====================================================================
 
@@ -740,6 +819,21 @@ namespace Hexiege.Application
 
         /// <summary>로그 카테고리의 Class 부분.</summary>
         private const string DebugLogClass = "MistShrineUseCase";
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// 지금 대상을 수집 중인 물안개의 시전 건물 Id(로그 전용).
+        /// 유닛 판정 줄에 ShrineId를 찍기 위한 값으로, DebugLogMistTickHeader가 매 물안개마다 갱신한다.
+        /// 수집 메서드의 시그니처를 로그 때문에 바꾸지 않으려고 필드로 들고 있다(제거 시 이 섹션만 지우면 된다).
+        /// </summary>
+        private int _debugLogCurrentShrineId;
+
+        /// <summary>
+        /// 이번 회복 틱에서 "유닛 Id → 그 유닛을 범위에 담은 물안개 개수"(로그 전용).
+        /// 값이 2 이상이면 그 유닛은 중첩 상황에 있었다는 뜻이고, 중첩 해소가 실제로 돌았는지 확인할 수 있다.
+        /// </summary>
+        private readonly Dictionary<int, int> _debugUnitCandidateCount = new Dictionary<int, int>(16);
+#endif
 
         /// <summary>
         /// "경계 근처"로 인정해 로그를 남길 거리제곱의 배수(반경의 2배 = 거리제곱 4배).
@@ -755,21 +849,87 @@ namespace Hexiege.Application
         private const float DebugLogRangeSqrMultiplier = 4f;
 
         /// <summary>
-        /// 물안개 회복 틱 1회의 머리글을 남긴다(유닛별 판정 로그의 묶음 기준).
+        /// 회복 틱 1회의 시작을 남긴다(물안개별 머리글보다 한 단계 위의 묶음 기준).
+        ///
+        /// 여기서 찍는 ActiveMists / FiredMists 두 값이 이번 수정의 핵심 증거다.
+        /// 위상 정렬이 제대로 되었다면 두 값은 **항상 같아야** 한다(= 활성 물안개가 전부 함께 발화).
         /// </summary>
-        /// <param name="mist">이번 틱에 회복을 발화한 물안개.</param>
+        private void DebugLogHealTickBegin()
+        {
+#if UNITY_EDITOR
+            int fired = 0;
+            for (int i = 0; i < _activeMists.Count; i++)
+            {
+                if (_activeMists[i].FiredThisTick) fired++;
+            }
+
+            _debugUnitCandidateCount.Clear();
+
+            Hexiege.Infrastructure.RuntimeLogger.Log(
+                Hexiege.Infrastructure.LogLevel.Info,
+                DebugLogSystem, DebugLogClass,
+                "회복 틱 시작(물안개 순회 전)",
+                $"ActiveMists={_activeMists.Count}, FiredMists={fired}, " +
+                $"TickPhase={GetSharedTickPhase():F3}, radius={_radius:F2}, HealPerTick={_healPerTick}");
+#endif
+        }
+
+        /// <summary>
+        /// 물안개 1개의 대상 수집 머리글을 남긴다(유닛별 판정 로그의 묶음 기준).
+        /// 동시에 유닛 판정 줄이 사용할 ShrineId를 기억해 둔다.
+        /// </summary>
+        /// <param name="mist">지금부터 대상을 수집할 물안개.</param>
         private void DebugLogMistTickHeader(ActiveMist mist)
         {
 #if UNITY_EDITOR
             // 빌드에는 문자열 조합조차 남지 않도록 본문 전체를 에디터 전용으로 감싼다.
             // (RuntimeLogger.Log 자체는 빌드에서도 Debug.Log로 나가기 때문에 호출부에서 막는다.)
+            _debugLogCurrentShrineId = mist.SourceBuildingId;
+
             Hexiege.Infrastructure.RuntimeLogger.Log(
                 Hexiege.Infrastructure.LogLevel.Info,
                 DebugLogSystem, DebugLogClass,
                 "회복 틱 시작(유닛 수집 전)",
                 $"ShrineId={mist.SourceBuildingId}, Team={mist.Team}, " +
                 $"Center=({mist.CenterWorld.x:F2}, {mist.CenterWorld.z:F2}), " +
-                $"radius={_radius:F2}, MistRemaining={mist.Remaining:F2}");
+                $"radius={_radius:F2}, MistRemaining={mist.Remaining:F2}, Fired={mist.FiredThisTick}");
+#endif
+        }
+
+        /// <summary>
+        /// 이번 틱에 이 유닛을 범위 안에 담은 물안개가 하나 더 있었음을 센다(중첩 후보 카운트).
+        /// </summary>
+        /// <param name="unitId">범위 안에 들어온 유닛 Id.</param>
+        private void DebugLogCountUnitCandidate(int unitId)
+        {
+#if UNITY_EDITOR
+            _debugUnitCandidateCount.TryGetValue(unitId, out int count);
+            _debugUnitCandidateCount[unitId] = count + 1;
+#endif
+        }
+
+        /// <summary>
+        /// 중첩 해소 결과 1건을 남긴다 — "이 유닛은 어느 물안개의 회복을 받는가".
+        ///
+        /// Candidates가 2 이상인데 Applied=True인 줄이 정확히 1개면 중첩 해소가 제대로 돈 것이다.
+        /// 반대로 Candidates=2인 유닛의 Hp가 한 틱에 두 번 오르면 규칙 13 위반이다.
+        /// </summary>
+        /// <param name="pick">해당 유닛에게 최종 선택된 물안개 정보.</param>
+        private void DebugLogUnitOverlapResolution(PickedUnit pick)
+        {
+#if UNITY_EDITOR
+            if (pick.Unit == null) return;
+
+            _debugUnitCandidateCount.TryGetValue(pick.Unit.Id, out int candidates);
+            float dist = Mathf.Sqrt(pick.DistSqr);
+
+            Hexiege.Infrastructure.RuntimeLogger.Log(
+                Hexiege.Infrastructure.LogLevel.Info,
+                DebugLogSystem, DebugLogClass,
+                "중첩 해소 결과",
+                $"UnitId={pick.Unit.Id}, Hp={pick.Unit.Hp}/{pick.Unit.MaxHp}, " +
+                $"Candidates={candidates}, ChosenShrineId={pick.Source.SourceBuildingId}, " +
+                $"dist={dist:F2}, Applied={pick.Source.FiredThisTick}");
 #endif
         }
 
@@ -783,6 +943,9 @@ namespace Hexiege.Application
         ///
         /// 거리는 제곱이 아니라 실제 거리로 찍는다. radius 원본값과 나란히 두어야
         /// dist &gt; radius / dist &lt;= radius 를 눈으로 바로 비교할 수 있기 때문이다.
+        ///
+        /// ShrineId는 "어느 물안개가 내린 판정인지"다(2026-08-12 추가). 이게 없으면 바로 위의
+        /// "회복 틱 시작" 줄로 신전을 역추적해야 해서, 물안개가 여러 개일 때 분석이 불가능하다.
         /// </summary>
         /// <param name="unit">판정 대상 유닛.</param>
         /// <param name="distSqr">물안개 중심까지의 거리제곱.</param>
@@ -800,7 +963,7 @@ namespace Hexiege.Application
                 Hexiege.Infrastructure.LogLevel.Info,
                 DebugLogSystem, DebugLogClass,
                 "유닛 범위 판정",
-                $"UnitId={unit.Id}, Type={unit.Type}, Team={unit.Team}, " +
+                $"ShrineId={_debugLogCurrentShrineId}, UnitId={unit.Id}, Type={unit.Type}, Team={unit.Team}, " +
                 $"Hp={unit.Hp}/{unit.MaxHp}, dist={dist:F2}, radius={_radius:F2}, Reason={reason}");
 #endif
         }
@@ -828,7 +991,13 @@ namespace Hexiege.Application
             /// <summary>남은 지속시간(초). 0 이하가 되면 물안개가 걷힌다.</summary>
             public float Remaining;
 
-            /// <summary>회복 틱(1초) 누적기. 이 물안개만의 독립 누적기다(규칙 8-1·14).</summary>
+            /// <summary>
+            /// 회복 틱(1초) 누적기. 이 물안개만의 독립 누적기다(규칙 8-1·14 — 누적기 개수 = 물안개 개수).
+            ///
+            /// ⚠️ 단, **시작 위상은 이미 깔려 있는 물안개와 맞춘다**(생성자 initialTickAccum).
+            /// 누적기를 공유하는 것이 아니라 각자 갖되 위상만 같게 하는 것이며, 이래야 활성 물안개가
+            /// 전부 같은 프레임에 발화해 중첩 해소(규칙 13)가 실제로 성립한다. 자세한 사유는 파일 상단 주석 참조.
+            /// </summary>
             public float TickAccum;
 
             /// <summary>회복 텍스트 표시 주기 누적기. 회복 틱과 별개로 센다(규칙 15).</summary>
@@ -837,49 +1006,65 @@ namespace Hexiege.Application
             /// <summary>이번 틱의 회복에 텍스트를 띄울지 여부(TickMists가 매 틱 갱신).</summary>
             public bool ShowTextThisTick;
 
-            public ActiveMist(int sourceBuildingId, TeamId team, Vector3 centerWorld, float duration)
+            /// <summary>
+            /// 이번 프레임에 1초 경계를 넘어 회복을 발화했는지 여부(TickMists가 매 프레임 갱신).
+            /// 중첩 해소는 활성 물안개 전체를 놓고 하되, 실제 회복은 이 값이 true인 물안개에서만 나간다.
+            /// </summary>
+            public bool FiredThisTick;
+
+            /// <param name="sourceBuildingId">이 물안개를 만든 MistShrine 건물 Id.</param>
+            /// <param name="team">물안개를 만든 팀.</param>
+            /// <param name="centerWorld">물안개 중심(도메인 월드, Y=0 평탄화).</param>
+            /// <param name="duration">지속시간(초).</param>
+            /// <param name="initialTickAccum">
+            /// 회복 틱 누적기의 시작값. 이미 깔려 있는 물안개가 있으면 그 위상을 그대로 받아
+            /// 같은 프레임에 함께 발화하게 한다. 깔린 물안개가 없으면 0(= 정확히 1초 뒤 첫 회복).
+            /// </param>
+            public ActiveMist(int sourceBuildingId, TeamId team, Vector3 centerWorld, float duration,
+                float initialTickAccum)
             {
                 SourceBuildingId = sourceBuildingId;
                 Team = team;
                 CenterWorld = centerWorld;
                 Remaining = duration;
-                TickAccum = 0f;
+                TickAccum = initialTickAccum;
                 TextAccum = 0f;
                 ShowTextThisTick = false;
+                FiredThisTick = false;
             }
         }
 
-        /// <summary> 중첩 해소 결과 — 유닛 1명에게 최종 선택된 물안개 정보. </summary>
+        /// <summary>
+        /// 중첩 해소 결과 — 유닛 1명에게 최종 선택된 물안개.
+        /// 물안개 Id·텍스트 표시 여부를 따로 복사하지 않고 <see cref="ActiveMist"/> 참조를 그대로 들고 있는다.
+        /// 선택된 물안개가 "이번 틱에 발화했는지"(FiredThisTick)까지 적용 단계에서 봐야 하기 때문이다.
+        /// </summary>
         private readonly struct PickedUnit
         {
             public readonly UnitData Unit;
             public readonly float DistSqr;
-            public readonly int SourceBuildingId;
-            public readonly bool ShowText;
+            public readonly ActiveMist Source;
 
-            public PickedUnit(UnitData unit, float distSqr, int sourceBuildingId, bool showText)
+            public PickedUnit(UnitData unit, float distSqr, ActiveMist source)
             {
                 Unit = unit;
                 DistSqr = distSqr;
-                SourceBuildingId = sourceBuildingId;
-                ShowText = showText;
+                Source = source;
             }
         }
 
-        /// <summary> 중첩 해소 결과 — 건물 1채에게 최종 선택된 물안개 정보. </summary>
+        /// <summary> 중첩 해소 결과 — 건물 1채에게 최종 선택된 물안개(PickedUnit과 같은 구조). </summary>
         private readonly struct PickedBuilding
         {
             public readonly BuildingData Building;
             public readonly float DistSqr;
-            public readonly int SourceBuildingId;
-            public readonly bool ShowText;
+            public readonly ActiveMist Source;
 
-            public PickedBuilding(BuildingData building, float distSqr, int sourceBuildingId, bool showText)
+            public PickedBuilding(BuildingData building, float distSqr, ActiveMist source)
             {
                 Building = building;
                 DistSqr = distSqr;
-                SourceBuildingId = sourceBuildingId;
-                ShowText = showText;
+                Source = source;
             }
         }
     }
