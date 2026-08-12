@@ -27,3 +27,8 @@ MonoBehaviour:
   _infernoDotDuration: 3
   _quakeRadius: 1
   _quakeSplashRatio: 0.5
+  _mistHealPerSecond: 10
+  _mistDuration: 10
+  _mistCooldown: 20
+  _mistRadius: 3
+  _mistHealTextInterval: 3
