@@ -210,7 +210,13 @@ namespace Hexiege.EditorTools
             // ── 저장 경로 결정 + 폴더 생성 ─────────────────────────────────
             DateTime now = DateTime.Now;
             string folderAbsolute = Path.Combine(
-                Application.dataPath,
+                // ⚠️ Application 은 반드시 UnityEngine 으로 완전 수식한다.
+                //    이 파일은 namespace Hexiege.EditorTools 안에 있어 바깥 네임스페이스 Hexiege 도
+                //    이름 탐색 대상이 되고, 거기에 Hexiege.Application 네임스페이스가 존재한다.
+                //    C# 은 using 보다 "자기를 감싸는 네임스페이스"를 먼저 찾으므로,
+                //    그냥 Application 이라고 쓰면 UnityEngine.Application 이 아니라
+                //    네임스페이스 Hexiege.Application 으로 해석되어 CS0234 가 난다.
+                UnityEngine.Application.dataPath,
                 LogsRootRelativeToAssets,
                 now.ToString("yyyy-MM-dd"),
                 now.ToString("HH_mm") + "_logcat");
@@ -317,7 +323,8 @@ namespace Hexiege.EditorTools
             adbPath = null;
 
             // 운영체제마다 실행 파일 이름이 다르다. 윈도우만 .exe 확장자를 쓴다.
-            bool isWindows = Application.platform == RuntimePlatform.WindowsEditor;
+            // (Application 을 완전 수식하는 이유는 위 CaptureLogcat 의 주석 참조)
+            bool isWindows = UnityEngine.Application.platform == RuntimePlatform.WindowsEditor;
             string exeName = isWindows ? "adb.exe" : "adb";
 
             // 어디를 뒤졌는지 사용자에게 보여 주기 위해 기록해 둔다(조용히 실패하지 않기 위함).
@@ -798,8 +805,9 @@ namespace Hexiege.EditorTools
         {
             string normalized = absolutePath.Replace('\\', '/');
 
-            // Application.dataPath 는 "<프로젝트>/Assets" 이므로, 그 부모가 프로젝트 루트다.
-            string projectRoot = Application.dataPath.Replace('\\', '/');
+            // UnityEngine.Application.dataPath 는 "<프로젝트>/Assets" 이므로, 그 부모가 프로젝트 루트다.
+            // (완전 수식이 필요한 이유는 위 CaptureLogcat 의 주석 참조)
+            string projectRoot = UnityEngine.Application.dataPath.Replace('\\', '/');
             int assetsIndex = projectRoot.LastIndexOf("/Assets", StringComparison.Ordinal);
             if (assetsIndex < 0) return normalized;
 
