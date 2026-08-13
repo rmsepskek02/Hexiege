@@ -15,7 +15,6 @@
 // Presentation 레이어 — MonoBehaviour.
 // ============================================================================
 
-using System;                        // [DEBUG-TEMP] 디버깅 완료 후 제거 (DateTime)
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -68,7 +67,6 @@ namespace Hexiege.Presentation
 
         public void Initialize(LoginRootView rootView, LoginUseCase loginUseCase, LoginBootstrapper bootstrapper)
         {
-            RuntimeLog("INFO", "Initialize 호출됨"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             _rootView = rootView;
             _loginUseCase = loginUseCase;
             _bootstrapper = bootstrapper;
@@ -108,7 +106,6 @@ namespace Hexiege.Presentation
         /// <summary>팝업 표시.</summary>
         public void Show()
         {
-            RuntimeLog("INFO", "팝업 표시됨"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             // UIManager 단일 소유 BlockingOverlay를 Modal 모드로 표시(터치해도 닫히지 않음).
             UIManager.Instance?.ShowBlockingOverlay();
             if (_panel != null) _panel.Show();
@@ -148,8 +145,6 @@ namespace Hexiege.Presentation
         /// </summary>
         private async void OnContinueAnonymousClicked()
         {
-            RuntimeLog("INFO", "익명 계속 버튼 클릭됨"); // [DEBUG-TEMP] 디버깅 완료 후 제거
-
             // 중복 클릭 방지
             SetInteractable(false);
             _bootstrapper.ShowLoading(true, "로그인 중...");
@@ -157,12 +152,6 @@ namespace Hexiege.Presentation
             try
             {
                 LoginResult result = await _loginUseCase.SignInAnonymouslyAsync();
-
-                // [DEBUG-TEMP] 디버깅 완료 후 제거 — LoginResult 값 기록
-                if (result == LoginResult.Success)
-                    RuntimeLog("INFO", $"익명 로그인 결과 | result={result}");
-                else
-                    RuntimeLog("ERROR", $"익명 로그인 결과 | result={result}");
 
                 if (result == LoginResult.Success)
                 {
@@ -197,22 +186,6 @@ namespace Hexiege.Presentation
             if (_continueAnonymousButton != null) _continueAnonymousButton.interactable = on;
             // 로그인 진행 중에는 닫기 버튼도 비활성화하여 도중 취소를 막는다.
             if (_closeButton != null) _closeButton.interactable = on;
-        }
-
-        // ====================================================================
-        // [DEBUG-TEMP] 디버깅 완료 후 제거 — RuntimeLog 출력
-        // 실기기(Android)에서 로그인 흐름을 Logcat(Debug.Log)으로 추적하기 위한 임시 로그.
-        // 사용자가 Logcat 출력을 복사해 공유한다.
-        // ====================================================================
-
-        /// <summary>
-        /// [DEBUG-TEMP] 한 줄 로그를 Debug.Log(Logcat)로 출력한다.
-        /// 형식: [HH:MM:SS.ms] [LEVEL] [UI/AnonymousWarningPopup] 메시지
-        /// </summary>
-        private void RuntimeLog(string level, string message)
-        {
-            // 에디터 파일 형식과 동일하게 시간/레벨/시스템 태그를 붙여 출력한다.
-            Debug.Log($"[{DateTime.Now:HH:mm:ss.fff}] [{level}] [UI/AnonymousWarningPopup] {message}");
         }
     }
 }

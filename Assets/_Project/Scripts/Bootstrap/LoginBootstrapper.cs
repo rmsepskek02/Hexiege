@@ -19,7 +19,6 @@
 // Bootstrap 레이어 — 모든 레이어에 접근 가능한 유일한 곳.
 // ============================================================================
 
-using System;                       // [DEBUG-TEMP] 디버깅 완료 후 제거 (DateTime)
 using System.Threading.Tasks;
 #if UNITY_ANDROID && HEXIEGE_ENABLE_FIREBASE_AUTH
 using GooglePlayGames;
@@ -155,8 +154,6 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private async Task InitializeAndDispatchAsync()
         {
-            RuntimeLog("INFO", "초기화 시작"); // [DEBUG-TEMP] 디버깅 완료 후 제거
-
             // 1) Firebase SDK 초기화
             _authService = new FirebaseAuthService();
             bool fbReady = await _authService.InitializeAsync();
@@ -164,11 +161,6 @@ namespace Hexiege.Bootstrap
             {
                 Debug.LogError("[LoginBootstrapper] Firebase 초기화 실패. 로그인 선택 화면을 표시합니다.");
                 // 초기화 실패해도 로그인 화면 자체는 표시 — 사용자가 재시도할 수 있도록.
-                RuntimeLog("ERROR", "Firebase 초기화 실패"); // [DEBUG-TEMP] 디버깅 완료 후 제거
-            }
-            else
-            {
-                RuntimeLog("INFO", "Firebase 초기화 성공"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             }
 
             // 2) UseCase 생성
@@ -368,22 +360,6 @@ namespace Hexiege.Bootstrap
         public void ShowLoading(bool show, string message = "")
         {
             UIManager.Instance?.ShowLoading(show, message);
-        }
-
-        // ====================================================================
-        // [DEBUG-TEMP] 디버깅 완료 후 제거 — RuntimeLog 출력
-        // 실기기(Android)에서 로그인 흐름을 Logcat(Debug.Log)으로 추적하기 위한 임시 로그.
-        // 사용자가 Logcat 출력을 복사해 공유한다.
-        // ====================================================================
-
-        /// <summary>
-        /// [DEBUG-TEMP] 한 줄 로그를 Debug.Log(Logcat)로 출력한다.
-        /// 형식: [HH:MM:SS.ms] [LEVEL] [Bootstrap/LoginBootstrapper] 메시지
-        /// </summary>
-        private void RuntimeLog(string level, string message)
-        {
-            // 에디터 파일 형식과 동일하게 시간/레벨/시스템 태그를 붙여 출력한다.
-            Debug.Log($"[{DateTime.Now:HH:mm:ss.fff}] [{level}] [Bootstrap/LoginBootstrapper] {message}");
         }
     }
 }
