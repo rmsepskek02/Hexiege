@@ -39,9 +39,6 @@ namespace Hexiege.Presentation
         [SerializeField] private List<Image> _unitButtonPortraits;
         [SerializeField] private List<TextMeshProUGUI> _unitCostTexts;
 
-        [Header("Auto Indicators")]
-        [SerializeField] private List<GameObject> _unitAutoIndicators;
-
         [Header("Auto Production Effect")]
         [Tooltip("자동 생산 중일 때 유닛 버튼에 적용할 테두리 회전 효과 머티리얼.")]
         [SerializeField] private Material _autoProductionMaterial;
@@ -55,7 +52,7 @@ namespace Hexiege.Presentation
         [SerializeField] private float _borderInset = 0.02f;
 
         [Tooltip("각 유닛 버튼의 테두리 효과를 담당하는 오버레이 이미지 리스트. 버튼 리스트와 1:1 매칭.")]
-[SerializeField] private List<UnityEngine.UI.Image> _unitBorderOverlays;
+        [SerializeField] private List<Image> _unitBorderOverlays;
 
         private Material _instancedAutoMaterial;
 
@@ -727,19 +724,29 @@ namespace Hexiege.Presentation
 
                     bool isAuto = i < _activeUnitTypes.Count && state.AutoTypes.Contains(_activeUnitTypes[i]);
 
-                    // ── 자동 생산 시각 효과 갱신 ──
+                    // ── 자동 생산 시각 효과 갱신 (테두리 표시의 유일한 제어 경로) ──
                     // 자동 생산 중이면 alpha=1로 테두리 효과를 보이고, 아니면 alpha=0으로 숨긴다.
                     // blocksRaycasts는 테두리가 버튼 입력을 가로채지 않도록 가시성과 동일하게 맞춘다.
+                    //
+                    // [왜 CanvasGroup 하나로만 제어하는가 — 유니티 입문자용 설명]
+                    // 예전에는 아래에 같은 오브젝트를 SetActive(isAuto)로 껐다 켜는 블록이 하나 더 있었다.
+                    // 두 블록이 가리키던 대상은 씬에서 같은 BorderOverlay 오브젝트였고
+                    // (근거: GameSystemRules_UI.md — MistShrine 패널 UI 규칙 14),
+                    // 결국 "테두리를 보이게 할지"를 정하는 스위치가 두 개 달려 있는 상태였다.
+                    // 스위치가 둘이면 한쪽 조건만 바뀌어도 서로 어긋나고, 증상은 "테두리가 안 보인다" 하나인데
+                    // 원인 후보가 둘이라 디버깅이 어려워진다. 그래서 SetActive 쪽을 걷어내고 하나로 합쳤다.
+                    //
+                    // 남길 쪽으로 CanvasGroup을 택한 이유 (근거: GameSystemRules_UI.md — 공통 UI 규칙 5):
+                    //  1) SetActive(false)로 끈 오브젝트는 Layout Group 안에서 차지하던 자리까지 사라져 형제 요소가 밀린다.
+                    //  2) 꺼진 오브젝트는 Awake 등 내부 로직이 돌지 않는다. 비활성 상태로 씬이 저장되면
+                    //     이후 다시 켜도 초기화가 끝나 있지 않아 영영 표시되지 않는 함정에 빠진다.
+                    // alpha=0은 오브젝트를 켜 둔 채 "보이지 않게"만 만들기 때문에 위 두 문제가 모두 없다.
+                    // 화면에 보이는 결과는 기존과 동일하다 — 예전에도 숨김은 alpha=0이 이미 완결하고 있었고
+                    // SetActive는 그 위에 덧붙어 있던 중복 조치였을 뿐이다.
                     if (_unitBorderOverlayCgs != null && i < _unitBorderOverlayCgs.Count && _unitBorderOverlayCgs[i] != null)
                     {
                         _unitBorderOverlayCgs[i].alpha = isAuto ? 1f : 0f;
                         _unitBorderOverlayCgs[i].blocksRaycasts = isAuto;
-                    }
-
-                    // ── 기존 도트 인디케이터 갱신 ──
-if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoIndicators[i] != null)
-                    {
-                        _unitAutoIndicators[i].SetActive(isAuto);
                     }
                 }
             }
