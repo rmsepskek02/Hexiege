@@ -517,27 +517,43 @@ namespace Hexiege.Bootstrap
             }
 
             // ────────────────────────────────────────────────────────────────
-            // [MistShrine] 물안개 진행(회복) + 자동 시전 — 서버 권위 틱.
+            // [MistShrine] 틱 호출 순서: 쿨다운 감소 → 물안개 진행 → 자동 시전.
+            //   이 순서는 멀티 서버(NetworkCombatController.TickCombat)와 **동일**하며, 반드시 지켜야 한다.
+            //
+            //   왜 쿨다운을 먼저 돌리는가(규칙 18 — "쿨다운이 끝나는 즉시" 자동 시전):
+            //     ① 쿨다운을 먼저 깎으면, 이번 프레임에 0이 된 건물은 곧바로 "사용 가능" 상태가 되고
+            //        바로 뒤의 TickAutoCast가 그것을 보고 **같은 프레임에** 자동 시전한다.
+            //        (반대 순서였다면 TickAutoCast가 감소 이전 값을 보므로 시전이 다음 프레임으로
+            //         한 프레임(약 16ms) 밀린다.)
+            //     ② TickAutoCast는 내부에서 Activate()를 호출해 **새 쿨다운을 가득 채워 건다**.
+            //        만약 쿨다운 감소가 뒤에 있으면, 방금 세운 새 쿨다운을 같은 프레임에 한 번 더
+            //        깎아버려(예: 20초 → 19.98초) 시전 주기가 매번 조금씩 짧아진다.
+            //        쿨다운을 먼저 돌리면 이 자기 잠식이 원천적으로 사라진다.
+            //
+            //   ※ 아래 두 블록은 가드 조건이 서로 다르다. 의도된 차이이므로 합치지 말 것.
+            // ────────────────────────────────────────────────────────────────
+
+            // [MistShrine ①] 시전 쿨다운 감소.
+            //   쿨다운만 가드 형태가 다르다 — 멀티 순수 클라도 쿨다운 오버레이가 서버와 같은 남은 시간을
+            //   보여줘야 하므로 "표시용 로컬 미러"로 클라에서도 감소시킨다(스킬 쿨다운과 동일한 검증된 형태).
+            //   멀티 서버(호스트)는 NetworkCombatController가 감소시키므로 여기선 스킵한다(이중 틱 금지).
+            if (_mistShrine != null &&
+                (!IsNetworkMode() || !NetworkContext.IsNetworkServer))
+            {
+                _mistShrine.TickCooldowns(Time.deltaTime);
+            }
+
+            // [MistShrine ②③] 물안개 진행(회복) + 자동 시전 — 서버 권위 틱.
             //   - 싱글: 여기서만 돈다(권위).
             //   - 멀티 서버(호스트): NetworkCombatController.TickCombat이 돌린다 → 여기선 스킵.
             //   - 멀티 순수 클라: 아예 돌지 않는다(HP는 NetworkHealthSync로 받는다).
             //   가드가 !IsNetworkMode() 하나뿐인 이유: 회복은 서버에서만 일어나야 하고,
             //   클라이언트가 함께 돌리면 같은 회복이 두 번 적용되기 때문이다(이중 틱 금지).
             //   MistShrineUseCase 내부에도 NetworkContext 가드가 있어 2중으로 막힌다.
-            // ────────────────────────────────────────────────────────────────
             if (!IsNetworkMode() && _mistShrine != null)
             {
                 _mistShrine.TickMists(Time.deltaTime);
                 _mistShrine.TickAutoCast(Time.deltaTime);
-            }
-
-            // [MistShrine] 시전 쿨다운 감소.
-            //   쿨다운만 가드 형태가 다르다 — 멀티 순수 클라도 쿨다운 오버레이가 서버와 같은 남은 시간을
-            //   보여줘야 하므로 "표시용 로컬 미러"로 클라에서도 감소시킨다(스킬 쿨다운과 동일한 검증된 형태).
-            if (_mistShrine != null &&
-                (!IsNetworkMode() || !NetworkContext.IsNetworkServer))
-            {
-                _mistShrine.TickCooldowns(Time.deltaTime);
             }
 
             // [스킬] 건물 글로벌 쿨다운 감소(규칙 3).
