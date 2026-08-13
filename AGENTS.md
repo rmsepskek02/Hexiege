@@ -23,7 +23,7 @@
 | `Assets/_Project/Docs/UIGuidelines.md` | UI 가이드라인 |
 | `Assets/_Project/Docs/StatsReference.md` | 유닛/건물 스탯 참조표 |
 | `Assets/_Project/Docs/AuthSystemRules.md` | 로그인/인증 시스템 규칙 |
-| `Assets/_Project/Docs/LogRules.md` | 런타임 로그 + QA-Fix 로그(`Log.md`) 작성 규칙 (파일 위치, 형식, 레벨, 금지사항, Round 반복 구조) |
+| `Assets/_Project/Docs/LogRules.md` | 런타임 로그 + QA-Fix 로그(`Log.md`) 작성 규칙 (두 축 — 심각도/존속, 분류 원칙, 파일 위치, 형식, 이벤트 키, 민감 데이터, 릴리스 스트리핑, sink 구조, 파일 누적 관리, 실기기 Logcat 캡처, 금지사항, Round 반복 구조) |
 | `Assets/_Project/Docs/GameSystemRules.md` | 게임 시스템 규칙 인덱스 (세부 규칙은 `GameSystemRules/` 하위 파일 참조) |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Map.md` | 대전 맵 전체 180도 대칭, 광산 공정성 및 정적 최단 접근거리 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md` | FlatTop 11×21 무작위 대전 맵 5종 생성·검증 규칙 |
