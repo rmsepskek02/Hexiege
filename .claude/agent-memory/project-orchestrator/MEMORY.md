@@ -246,7 +246,7 @@ Assets/_Project/
 - [ ] game-programmer MEMORY.md: 새 파일/클래스/API 매핑 추가
 - [ ] qa-tester MEMORY.md: 새 취약 지점, 테스트 체크리스트 항목 추가
 - [ ] game-design-lead MEMORY.md: 구현 완료 항목 이동, 미결 항목 갱신
-- [ ] 메인 MEMORY.md (C:/Users/rmsep/.claude/...): 아키텍처 결정사항 반영
+- [ ] 공용 `.claude/MEMORY.md`: 아키텍처 결정사항 반영
 - [ ] project-orchestrator MEMORY.md: 현재 상태 요약 갱신
 
 ## 사용자 워크플로우 선호사항

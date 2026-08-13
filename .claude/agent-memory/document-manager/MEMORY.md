@@ -11,9 +11,6 @@
 ---
 
 ## 실행 환경 주의
-- 작업이 **원격 Linux 컨테이너**에서 도는 경우가 있다. 이때 WORKFLOW.md [10]의 사용자 MEMORY 경로
-  `C:/Users/rmsep/.claude/projects/.../memory/MEMORY.md`는 **접근 불가** → 건드리지 말고,
-  최종 보고에 "사용자 로컬 MEMORY는 사용자가 직접 반영해야 함"을 반드시 명시한다.
 - `WORK_HISTORY.md` / `PROJECT_STATUS.md` / `ROADMAP.md`는 **한 줄이 수천 자**라 Read 도구가 토큰 한도로 실패한다.
   → `awk 'NR>=A && NR<=B' 파일 | cut -c1-N`으로 훑은 뒤, Edit 전에 `Read`를 **offset/limit 1~4줄**로 좁혀 호출할 것.
 

@@ -38,7 +38,6 @@ memory: project
 | `.claude/agent-memory/asset-prompt-crafter/MEMORY.md` | asset-prompt-crafter 누적 지식 |
 | `.claude/agent-memory/project-orchestrator/MEMORY.md` | project-orchestrator 누적 지식 |
 | `.claude/agent-memory/document-manager/MEMORY.md` | 이 에이전트 자신의 누적 지식 |
-| `C:\Users\rmsep\.claude\projects\...\memory\MEMORY.md` | 사용자 프로젝트 메모리 (작업 완료 후 반드시 갱신) |
 
 ### 3. 작업 사이클 규칙
 | 파일 | 설명 |
@@ -132,7 +131,7 @@ Assets/_Project/Docs/_Logs/YYYY-MM-DD/HH_MM_[작업명]/Log.md
 | 버그 수정 / 취약점 발견 | qa-tester MEMORY.md |
 | 3D 에셋 작업 | asset-prompt-crafter MEMORY.md |
 | 문서 구조 변경 | document-manager MEMORY.md |
-| 모든 작업 완료 후 | 공용 `.claude/MEMORY.md` + 사용자 MEMORY |
+| 모든 작업 완료 후 | 공용 `.claude/MEMORY.md` |
 
 ### CLAUDE.md 수정
 - 기존 규칙과의 충돌 여부 반드시 확인
