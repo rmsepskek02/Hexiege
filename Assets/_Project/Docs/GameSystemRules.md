@@ -13,7 +13,7 @@
 |------|------------|
 | [GameSystemRules_Map.md](GameSystemRules/GameSystemRules_Map.md) | 대전 맵 전체 180도 대칭, 중앙/대응쌍 광산 공정성, 정적 최단 접근거리 검증 |
 | [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md) | FlatTop 11×21 무작위 대전 맵 5종 생성·광산·건설 제한·seed·폴백·검증 |
-| [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
+| [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, MistShrine 패널 UI(구현 완료 / 싱글 실기 검증 완료 · 멀티 미검증), 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
 | [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계, 전투 연출 동기화, 애니메이션 상태 동기화, 특수 공격 시스템(확장 5종), 방어력 데미지 감쇄(구현 완료) |
 | [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템, MistShrine 물안개 힐 시스템 (구현 완료 / 싱글 실기 검증 완료 · 멀티 미검증) |
 | [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md) | 스킬 건물 3종, 쿨다운/스킬 수 공통 규칙, 3×3 스킬 UI, 스킬 타입 3종, 모바일 지점 조준 UX, 서버 권위 (기획 확정/미구현) |
@@ -61,6 +61,7 @@
 - Canvas Scaler, 앵커 기반 배치, Safe Area, CanvasGroup 숨김/표시
 - 폰트, 골드 부족 표시, 팝업/모달 타입 구분
 - 생산 패널: 큐 구조, 골드 차감 시점, 자동 생산, 토스트 메시지
+- MistShrine 패널: `BuildingPanelBase` 상속 전용 패널, 3×3 그리드 배치, 짧은 탭=수동 시전 / 롱프레스=자동 모드 토글(기본 OFF), 쿨다운 오버레이, 범위 원 표시(아군 패널 열림 중에만), 회복 텍스트 — 건물 동작 규칙의 단일 소스는 `GameSystemRules_Buildings.md`
 - 건물 배치 패널: 비용 표시, 실패 피드백
 - 인게임 설정 메뉴: 일시정지, 포기 처리, 프로필 서브 패널
 - 로비 설정/프로필 UI: ProfilePanel/SettingPanel 탭 분리
