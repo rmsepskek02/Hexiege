@@ -13,6 +13,7 @@
 //   4. 카메라 초기 위치/경계/줌 설정 (SetupCamera, SetCameraStartPositionForTeam)
 //   5. 입력 핸들러 의존성 주입 (SetupInput)
 //   6. 건물/생산 시스템 초기화 (SetupBuildings, SetupProduction)
+//   7. 로그 시스템 초기화 (InitializeLogging, ShutdownLogging, OnUnityLogMessageReceived)
 //
 // 규칙:
 //   * [SerializeField] 필드를 본 파일에 추가하지 않는다 — Inspector 추적성 보장.
@@ -888,6 +889,147 @@ namespace Hexiege.Bootstrap
             Debug.Log($"[GameBootstrapper] 시나리오 선택: 종족={aiRace}, " +
                       $"{bundle.scenarioName} (인덱스 {idx})");
             return (bundle.steps, bundle.scenarioName);
+        }
+
+        // ====================================================================
+        // 로그 시스템 초기화 (LogRules.md 1.8 sink 구조 / 1.9 예외 처리 / 1.10 파일 기록)
+        // ====================================================================
+
+        /// <summary>
+        /// GameLog 에 sink 를 등록하고, 전역 미처리 예외 훅을 건다.
+        /// Awake()의 가장 앞에서 1회 호출된다(조합 루트만 호출).
+        /// </summary>
+        private void InitializeLogging()
+        {
+            // 이전 세션의 sink 를 먼저 비운다.
+            // 에디터의 도메인 리로드나 씬 재진입 후에는 "이미 닫힌 파일"을 붙잡고 있는
+            // 옛 sink 가 목록에 남아 있을 수 있고, 그대로 두면 로그가 조용히 사라진다.
+            GameLog.ClearSinks();
+
+#if UNITY_EDITOR
+            // ── 에디터: 파일 sink 하나만 등록한다 ──
+            //   FileSink 는 RuntimeLogger 를 재사용하는데, RuntimeLogger 는 파일과 콘솔에
+            //   동시에 출력한다. 따라서 ConsoleSink 를 함께 등록하면 콘솔에 같은 줄이 두 번 찍힌다.
+            _logFileSink = new FileSink();
+
+            // 세션을 여닫는 주체는 오직 이 클래스다(LogRules.md 1.10 — 세션 소유권).
+            //
+            // 역할을 "host" 로 고정하는 이유:
+            //   ① 이 시점(Awake)에는 NGO 가 아직 연결되지 않아 host/client 를 알 수 없다.
+            //   ② 파일 기록은 에디터에서만 동작하고(실기기는 Logcat 만),
+            //      이 프로젝트의 멀티 테스트 구성은 "에디터 = Host, 빌드 = Client" 다.
+            //      즉 파일을 쓰는 쪽은 사실상 항상 host 다.
+            //   ※ 에디터를 Client 로 띄우는 구성을 쓰게 되면 이 값의 조정이 필요하다.
+            _logFileSink.BeginSession(FileSink.RoleHost);
+
+            GameLog.AddSink(_logFileSink);
+#else
+            // ── 빌드(실기기): 콘솔 sink 하나만 등록한다 ──
+            //   빌드에서는 파일 쓰기가 아예 없으므로(RuntimeLogger 의 파일 코드는 에디터 전용),
+            //   로그는 Logcat 으로 나가고 필요하면 LogcatCapture 도구로 파일에 뽑는다.
+            _logConsoleSink = new ConsoleSink();
+            GameLog.AddSink(_logConsoleSink);
+#endif
+
+            // ── 전역 미처리 예외 수집 (LogRules.md 1.9) ──
+            //   아무리 규율을 지켜도 try-catch 를 두지 않은 자리는 남고,
+            //   실제 크래시는 대개 그런 자리에서 난다.
+            //   등록(+=)과 해제(-=)를 반드시 짝으로 맞춘다 —
+            //   해제하지 않으면 에디터의 도메인 리로드/씬 재진입 때마다 핸들러가 중복 등록되어
+            //   같은 예외가 2번, 3번... 계속 늘어난 횟수만큼 기록된다.
+            //
+            //   ⚠️ Application 은 완전 수식한다.
+            //      이 파일은 namespace Hexiege.Bootstrap 안에 있어 바깥 네임스페이스 Hexiege 가
+            //      탐색 대상이 되므로, 그냥 `Application` 이라고 쓰면
+            //      **네임스페이스 Hexiege.Application** 으로 해석되어 컴파일되지 않는다.
+            UnityEngine.Application.logMessageReceived += OnUnityLogMessageReceived;
+        }
+
+        /// <summary>
+        /// 전역 예외 훅을 해제하고, 파일 세션을 닫고, 등록한 sink 를 뺀다.
+        /// OnDestroy()의 가장 뒤에서 1회 호출된다.
+        /// </summary>
+        private void ShutdownLogging()
+        {
+            // 훅부터 뗀다. 이 뒤로는 되먹임 걱정 없이 정리 작업을 진행할 수 있다.
+            UnityEngine.Application.logMessageReceived -= OnUnityLogMessageReceived;
+
+#if UNITY_EDITOR
+            if (_logFileSink != null)
+            {
+                GameLog.RemoveSink(_logFileSink);
+
+                // 자기가 연 세션만 자기가 닫는다(FileSink 내부 소유권 가드).
+                _logFileSink.EndSession();
+                _logFileSink = null;
+            }
+#else
+            if (_logConsoleSink != null)
+            {
+                GameLog.RemoveSink(_logConsoleSink);
+                _logConsoleSink = null;
+            }
+#endif
+        }
+
+        /// <summary>
+        /// UnityEngine.Application.logMessageReceived 콜백.
+        /// 계측하지 않은 곳에서 터진 **미처리 예외**를 GameLog 로 끌어온다.
+        ///
+        /// ── 여기서 무한 루프가 나는 구조 (이 구현에서 가장 위험한 지점) ──────────
+        ///   이 훅은 Debug.Log 계열이 호출될 때마다 되불린다.
+        ///   그런데 GameLog 의 sink 도 결국 Debug.Log 계열을 호출한다.
+        ///   따라서 아무 방어 없이 이 훅에서 GameLog 를 호출하면
+        ///
+        ///       훅 → GameLog → sink → Debug.LogError → 훅 → GameLog → sink → ...
+        ///
+        ///   이 고리가 끝없이 돌아 스택이 터지고 앱이 죽는다.
+        ///   로그 시스템이 크래시를 기록하는 대신 크래시의 **원인**이 되는 것이다.
+        ///   그래서 방어를 세 겹 둔다(아래 1·2·3).
+        /// </summary>
+        /// <param name="condition">예외 메시지.</param>
+        /// <param name="stackTrace">스택 트레이스(여러 줄).</param>
+        /// <param name="type">로그 종류. 예외만 수집한다.</param>
+        private void OnUnityLogMessageReceived(string condition, string stackTrace, LogType type)
+        {
+            // ── 방어 1: 예외(LogType.Exception)만 수집한다 ──
+            //   sink 가 콘솔에 내보내는 일반 로그는 Log / Warning / Error 종류다.
+            //   그 셋을 여기서 걸러 내면, sink 의 평범한 출력은 애초에 이 훅을 통과하지 못한다.
+            //   → 되먹임 고리가 만들어질 수 있는 경로 자체가 크게 줄어든다.
+            //   (Debug.LogError 로 남는 기존 로그를 여기서 다시 수집하지 않는 이유이기도 하다.
+            //    같은 사건을 두 번 기록하면 서버 집계에서 발생 건수가 부풀려진다 —
+            //    LogRules.md 1.3 분류 원칙 1.)
+            if (type != LogType.Exception) return;
+
+            // ── 방어 2: 재진입 가드 ──
+            //   GameLog 가 sink 로 내보내는 도중이라면, 지금 들어온 이 예외는
+            //   우리 자신이 방금 만든 출력(예: ConsoleSink 의 Debug.LogException)이 되돌아온 것이다.
+            //   즉시 반환해 고리를 끊는다.
+            //   (GameLog.Emit 안에도 같은 취지의 가드가 있다 — 방어를 한 겹만 두지 않는다.)
+            if (GameLog.IsEmitting) return;
+
+            // ── 방어 3: 직전과 동일한 예외면 무시한다 ──
+            //   훅 전달이 혹시라도 즉시(동기)가 아니라 나중에 이루어지는 경우,
+            //   방어 2 의 플래그가 이미 내려가 있어 같은 예외를 다시 받을 수 있다.
+            //   메시지 + 스택이 직전과 똑같으면 우리가 되쏜 것으로 보고 버린다.
+            if (condition == _lastHookCondition && stackTrace == _lastHookStackTrace) return;
+
+            _lastHookCondition = condition;
+            _lastHookStackTrace = stackTrace;
+
+            // 운영 로그로 남긴다 — 미처리 예외는 정확히 "플레이어 기기에서만 벌어지고,
+            // 이 로그가 없으면 추적할 수단이 없는" 사건이다(LogRules.md 1.2 축 B).
+            //
+            // 스택을 message 뒤에 줄바꿈으로 붙이는 이유:
+            //   여기서는 Exception 객체가 아니라 문자열만 전달받으므로 예외 오버로드를 쓸 수 없다.
+            //   스택을 key=value 자리에 넣으면 여러 줄·쉼표 때문에 구조화 필드가 깨지므로
+            //   메시지 쪽에 붙인다(LogRules.md 1.4 — 자유 문장은 메시지에).
+            GameLog.Ops.Error(
+                LogEvent.UnhandledException,
+                "Runtime",
+                nameof(GameBootstrapper),
+                $"미처리 예외: {condition}\n{stackTrace}",
+                "Source=UnityLogHook");
         }
     }
 }
