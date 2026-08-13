@@ -67,6 +67,7 @@
 | 파일/경로 | 내용 | 자동 로드 |
 |----------|------|----------|
 | `Assets/_Project/Docs/WORKFLOW.md` | 작업 사이클 운영 규칙 — **단일 권위 소스** | ❌ 수동 |
+| `Tools/check_docs.py` | 문서 정합성 검사기(읽기 전용) — 규칙 번호 결번, 깨진 파일 링크, 실재하지 않는 규칙 번호, 섹션명 없는 모호한 참조를 찾아 목록만 출력. 문서 수정 후 `python3 Tools/check_docs.py`를 리포지토리 루트에서 실행해 **0건**을 확인한다 (WORKFLOW.md [11]) | ❌ 수동 |
 | `Assets/_Project/Docs/_Tasks/YYYY-MM-DD/HH_MM_[작업명]/` | 작업별 Research / Plan / Testcase (사용자용) | — |
 | `Assets/_Project/Docs/_Logs/YYYY-MM-DD/HH_MM_[작업명]/Log.md` | QA-Fix 반복 이터레이션 로그 (에이전트용) | — |
 

@@ -2,6 +2,11 @@
 
 공통 UI 규칙 및 UI 패널(생산 패널, MistShrine 패널, 건물 배치 패널, 인게임 설정 메뉴)에 적용되는 규칙 모음.
 
+> ⚠️ 이 문서는 **각 섹션이 규칙 번호를 1부터 다시 시작**한다. 따라서 "규칙 6"이라고만 적으면 어느 규칙인지 특정할 수 없다.
+> 이 문서 안에서든 **다른 문서에서 참조할 때든** 반드시 아래 목차의 섹션 이름을 함께 적는다
+> (예: "공통 UI 규칙 6", "인게임 설정 메뉴 규칙 6").
+> 규칙 번호는 코드 주석과 과거 작업 문서가 참조하고 있으므로 **번호 자체를 재배열하지 않는다** — 어긋난 것은 참조하는 쪽을 고친다.
+
 > Canvas SortingOrder 구조 및 씬별 Canvas 목록 → [`GameSystemRules_CanvasSortingOrder.md`](GameSystemRules_CanvasSortingOrder.md) 참조
 
 ---
@@ -420,7 +425,7 @@ MistShrine(초월 종족 힐 건물, `BuildingType.HealShrine`)을 클릭하면 
 > **상태 (2026-08-12 갱신): 전용 패널·범위 표시 UI 구현 완료 / 에디터 싱글플레이 실기 검증 완료.**
 > 패널 열기·탭/롱프레스 조작·쿨다운 오버레이·범위 원 표시(아군 한정)가 실기로 동작 확인되었다.
 > **과대 표기 금지 — 아직 완료가 아닌 것:** **멀티플레이 실기 미검증**(쿨다운 로컬 미러·자동 모드 브로드캐스트 등 멀티 고유 경로는 실행된 적이 없다) ·
-> **사용(시전) 버튼 아이콘 미제작**(규칙 15 — 임시 텍스트 라벨) · **물안개 지속 VFX 미제작**(`GameSystemRules_Buildings.md` 규칙 26) ·
+> **사용(시전) 버튼 아이콘 미제작**(규칙 15 — 임시 텍스트 라벨) · **물안개 지속 VFX 미제작**(`GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템 규칙 26) ·
 > **밸런싱 수치 미확정**(회복 텍스트 표시 주기 포함 — 규칙 9의 3초는 임시값).
 > 구현·검증 상세: `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/Plan.md`(§10 완료 판정).
 >
@@ -483,7 +488,7 @@ MistShrine은 슬롯도 조준도 없으므로 스킬 패널을 재사용하지 
 사용 버튼 위 쿨다운 표시는 기존 `SkillCooldownOverlay`(시계방향 radial fill + 남은 초 텍스트, 남은 시간 0 이하면 자동 숨김)를 그대로 쓴다.
 이 컴포넌트는 스킬 전용 로직 없이 `SetCooldown(remaining, total)`만 받는 **순수 표시 컴포넌트**이므로 재사용에 제약이 없다.
 `total`(발동 시점 총 쿨다운)이 fill 비율에 필요하므로, 로직 측에서 남은 시간과 총 쿨다운을 함께 제공해야 한다
-(`GameSystemRules_Buildings.md` MistShrine 규칙 21).
+(`GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템 규칙 21).
 
 ---
 
@@ -494,7 +499,7 @@ MistShrine은 슬롯도 조준도 없으므로 스킬 패널을 재사용하지 
 - **패널을 닫으면 즉시 사라진다.**
 - **적 MistShrine은 클릭해도 범위를 표시하지 않는다** — 상대에게 정보 우위를 주지 않기 위함이다.
 - 물안개가 지속되는 동안의 범위는 **물안개 VFX 자체로 확인**되므로, 물안개 지속 중이라는 이유로 범위 UI를 따로 켜지 않는다.
-- 렌더링은 지면 데칼 셰이더 재사용을 우선 검토한다(`GameSystemRules_Buildings.md` MistShrine 규칙 27 — **ZTest Always 금지**).
+- 렌더링은 지면 데칼 셰이더 재사용을 우선 검토한다(`GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템 규칙 27 — **ZTest Always 금지**).
 - 원의 **시각 사양(채움·외곽선)** 은 규칙 12를 따른다.
 
 ---
@@ -504,7 +509,7 @@ MistShrine은 슬롯도 조준도 없으므로 스킬 패널을 재사용하지 
 **규칙 9. 회복 텍스트는 회복이 실제로 발생한 대상만 · 표시 주기를 힐 틱과 분리한다**
 - **실제로 체력이 회복된 대상에만** 표시한다(최대 체력이라 회복량 0인 대상은 표시하지 않는다).
 - **회복 틱(1초)과 텍스트 표시 주기를 분리**한다. 범위 내 다수 대상에게 매초 텍스트가 뜨면 화면이 도배되기 때문이다
-  (BloomFairy HoT가 "완료 시 1회 표시"로 억제한 선례 — `GameSystemRules_Units.md` 규칙 36).
+  (BloomFairy HoT가 "완료 시 1회 표시"로 억제한 선례 — `GameSystemRules_Units.md` 규칙 37 HoT 힐 텍스트 집계).
 - **표시 주기는 임시로 3초 누적 1회 표시**로 하고, 밸런싱 단계에서 확정한다(**미확정**).
 - 건물 위 회복 텍스트는 신규 UI 없이 기존 경로로 커버된다(`FloatingHpTextSpawner`가 `IsUnit` 분기로 건물 월드 좌표를 이미 지원).
 
@@ -537,7 +542,7 @@ MistShrine 패널은 비생산 건물 패널의 공통 규격인 **3×3 그리�
 **규칙 12. 범위 표시 원은 반투명 채움 + 외곽선을 함께 사용한다**
 - **반투명 채움만으로는 경계가 모호해** 회복 범위를 정확히 읽기 어렵다. 따라서 **채움 + 외곽선**을 함께 그린다.
 - 렌더링은 기존 지면 데칼 셰이더(`Assets/_Project/Shaders/SkillAimOverlay.shader`) **재사용을 우선 검토**하며,
-  **ZTest Always는 금지**한다(`GameSystemRules_Buildings.md` MistShrine 규칙 27, `GameSystemRules_Skills.md` 규칙 22-1).
+  **ZTest Always는 금지**한다(`GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템 규칙 27, `GameSystemRules_Skills.md` 규칙 22-1).
 - 표시 조건(아군 · 패널이 열려 있는 동안만)은 규칙 8 그대로다.
 - **색상 · 투명도 · 외곽선 두께 값은 미확정**이며, 아트/밸런싱 단계에서 확정한다.
 
@@ -549,7 +554,7 @@ MistShrine 패널은 비생산 건물 패널의 공통 규격인 **3×3 그리�
 - 물안개가 지속되는 동안에도 사용 버튼 표시는 **쿨다운 오버레이(규칙 7)뿐**이다.
 - **"물안개 지속 중"임을 나타내는 별도 UI 표시는 두지 않는다.**
 - 근거: 물안개 VFX가 맵에 떠 있어 플레이어가 지속 상태를 시각적으로 인지할 수 있으므로, UI를 중복으로 늘리지 않는다.
-- 물안개 지속시간과 쿨다운이 다르다는 점(지속 < 쿨다운, `GameSystemRules_Buildings.md` MistShrine 규칙 7)은 UI에서 구분하지 않는다.
+- 물안개 지속시간과 쿨다운이 다르다는 점(지속 < 쿨다운, `GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템 규칙 7)은 UI에서 구분하지 않는다.
 
 ---
 

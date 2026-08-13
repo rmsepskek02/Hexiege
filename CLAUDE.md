@@ -97,5 +97,6 @@
 
 - 전체 문서 인덱스 및 에이전트 역할 → `AGENTS.md` 참조
 - 작업 사이클 상세 운영 규칙 → `Assets/_Project/Docs/WORKFLOW.md` 참조
+- 문서를 수정했으면 리포지토리 루트에서 `python3 Tools/check_docs.py`(읽기 전용 정합성 검사기)를 실행해 0건을 확인 → 절차는 `WORKFLOW.md` [11] 참조
 
 **[7]~[12] 중 하나라도 빠지면 사이클 미완료.**
