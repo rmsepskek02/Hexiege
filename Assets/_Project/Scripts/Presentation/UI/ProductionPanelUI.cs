@@ -121,7 +121,8 @@ namespace Hexiege.Presentation
         #if UNITY_EDITOR
         private void OnValidate()
         {
-            // 플레이 모드에서 슬라이더를 움직이면 즉시 셰이더에 반영되도록 함
+            // 플레이 모드 중 인스펙터에서 위 값(속도/두께/둥글기/여백)을 고치면 즉시 셰이더에 반영되도록 한다.
+            // (이 필드들에는 [Range] 특성이 없으므로 인스펙터에는 슬라이더가 아니라 숫자 입력칸으로 보인다)
             if (UnityEngine.Application.isPlaying && _instancedAutoMaterial != null)
             {
                 UpdateMaterialProperties();
@@ -237,8 +238,11 @@ namespace Hexiege.Presentation
         public int RallyPointSetFrame { get; private set; }
 
         /// <summary>
-        /// 현재 표시 중인 버튼 슬롯에 바인딩된 UnitType 리스트.
-        /// 잠금 여부와 무관하게 모든 슬롯(라인의 전체 유닛)이 포함된다.
+        /// 현재 표시 중인 버튼 슬롯에 바인딩된 UnitType 리스트. 리스트 인덱스 = 버튼 슬롯 인덱스.
+        /// 잠금 여부와 무관하게 라인의 유닛이 전부 포함된다.
+        /// 단, 유닛이 정확히 2종류인 건물은 [유닛1][빈슬롯][유닛2] 배치를 쓰기 때문에
+        /// 인덱스1에는 인덱스0과 같은 값이 더미로 들어간다(BindButtonUnitTypes 참조).
+        /// 즉 이 리스트의 개수가 곧 실제 유닛 종류 수인 것은 아니다.
         /// </summary>
         private List<UnitType> _activeUnitTypes = new List<UnitType>();
 
@@ -362,7 +366,10 @@ namespace Hexiege.Presentation
 
         private void OnUnitPointerDown(UnitType type, int slotIndex)
         {
-            // 잠금 유닛은 길게 누르기(자동 생산 토글)도 막는다. 짧은 탭에서 토스트로 안내.
+            // 이 메서드는 잠금 여부를 판정하지 않는다. 어떤 유닛을 언제 눌렀는지만 기록해 둔다.
+            // 잠금 판정은 "짧은 탭"인지 "길게 누르기"인지가 확정된 뒤,
+            // OnUnitTap() / OnUnitLongPress()가 각각 IsUnitLocked()로 수행한다
+            // (두 경로 모두 잠금이면 ToastKey.UpgradeRequired만 띄우고 중단한다).
             _activeUnitType = type;
             _pointerDownTime = Time.unscaledTime;
             _isPointerDown = true;
@@ -571,10 +578,15 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 현재 건물의 업그레이드 가능 여부에 따라 업그레이드 버튼/비용 텍스트를 갱신.
-        ///   - 다음 단계 없음 → 버튼 GameObject 비활성화 (비용 텍스트도 함께 숨김)
-        ///   - 다음 단계 있음 → 버튼 활성화 + 비용 텍스트에 골드 표시
-        /// 호출: Show()에서 1회, 업그레이드 완료 시 BuildingFactory가 GO를 갈아끼우면
-        /// 패널 자체는 닫혀 있으므로 별도 갱신 불필요.
+        ///   - 다음 단계 없음 → 버튼에 붙은 CanvasGroup을 alpha=0 / blocksRaycasts=false /
+        ///     interactable=false 로 숨긴다. 버튼 GameObject 자체는 계속 켜 둔다.
+        ///     (비용 텍스트만은 GameObject를 SetActive(false)로 끈다)
+        ///   - 다음 단계 있음 → 같은 CanvasGroup을 alpha=1 / blocksRaycasts=true / interactable=true 로
+        ///     표시하고, 다음 단계 건물 아이콘과 비용(골드) 텍스트를 함께 채운다.
+        /// 버튼을 SetActive로 끄지 않는 이유는 아래 본문 주석과
+        /// GameSystemRules_UI.md — 공통 UI 규칙 5(CanvasGroup 숨김/표시 패턴) 참조.
+        /// 호출: 패널을 열 때 OnShow()에서 1회. 업그레이드가 완료되면 BuildingFactory가 건물 GO를
+        /// 갈아끼우지만 그 시점에는 이 패널이 이미 닫혀 있으므로 별도 갱신이 필요 없다.
         /// </summary>
         private void UpdateUpgradeButton(RaceId race)
         {
@@ -630,7 +642,10 @@ namespace Hexiege.Presentation
         /// 흐름:
         ///   1) 현재 건물이 실제로 업그레이드 가능한지 재확인 (CanUpgrade)
         ///   2) 골드 검증 → 부족 시 ToastKey.GoldInsufficient
-        ///   3) 멀티플레이면 RequestUpgradeServerRpc 호출, 싱글플레이면 UseCase 직접 실행
+        ///   3) 멀티플레이면 NetworkBuildingController.RequestUpgrade() 래퍼를 호출한다.
+        ///      (Presentation이 NGO에 직접 의존하지 않도록 ServerRpc를 직접 부르지 않는다.
+        ///       실제 서버 전송은 그 래퍼 내부의 RequestUpgradeServerRpc가 담당한다.)
+        ///      싱글플레이면 골드를 직접 차감한 뒤 UseCase를 직접 실행한다.
         ///   4) 패널 닫기 (BuildingFactory가 GO를 교체할 동안 깔끔하게 정리)
         /// </summary>
         private void OnUpgradeButtonClick()
@@ -756,10 +771,13 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 잠금 인디케이터 GameObject 활성/비활성 갱신 + 잠긴 유닛 초상화 디밍.
-        /// _activeUnitLocks[i] 가 true면 자물쇠 오버레이 On + 초상화를 어둡게,
-        /// false면 오버레이 Off + 초상화 원래 색(흰색)으로 복원한다.
-        /// 슬롯에 유닛이 바인딩되지 않은 경우는 잠금도 끈다.
+        /// 자물쇠 오버레이의 CanvasGroup 갱신 + 잠긴 유닛 초상화 디밍.
+        /// GameObject를 SetActive로 껐다 켜는 방식이 아니라, CanvasGroup의 alpha와 blocksRaycasts만 바꾼다
+        /// (근거: GameSystemRules_UI.md — 공통 UI 규칙 5 "CanvasGroup 숨김/표시 패턴").
+        ///   - 슬롯이 잠금  → 오버레이 alpha=1, blocksRaycasts=true + 초상화를 어둡게(RGB 0.35)
+        ///   - 슬롯이 해금  → 오버레이 alpha=0, blocksRaycasts=false + 초상화를 원래 색(흰색)으로 복원
+        /// 주의: 인디케이터 인덱스 i는 버튼 슬롯 인덱스 i+1에 대응한다(1:1이 아니다 — 본문 주석 참조).
+        /// 슬롯에 유닛이 바인딩되지 않은 경우도 해금과 동일하게 처리한다.
         /// </summary>
         private void UpdateLockIndicators()
         {
@@ -946,8 +964,10 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 현재 건물에 대응하는 유닛 라인업 전체를 버튼 슬롯에 바인딩.
         /// 잠금 여부도 동시에 계산하여 _activeUnitLocks 에 저장.
-        /// 잠금 유닛은 버튼은 활성 상태로 두고(클릭은 가능 — 토스트 안내용),
-        /// 시각적 잠금 처리는 별도 _unitLockIndicators 가 담당.
+        /// 잠금 유닛이라도 이 메서드는 버튼을 눌리는 상태 그대로 둔다
+        /// (탭했을 때 "업그레이드 필요" 토스트를 띄워야 하므로 입력 자체는 살려 둔다).
+        /// 잠금의 시각 표현(자물쇠 오버레이 + 초상화 디밍)은 UpdateLockIndicators()가 담당한다.
+        /// 이 메서드가 CanvasGroup으로 제어하는 것은 "유닛이 없는 빈 슬롯"의 숨김뿐이다.
         /// </summary>
         private void BindButtonUnitTypes(RaceId race)
         {
@@ -960,7 +980,8 @@ namespace Hexiege.Presentation
 
             // 2유닛 특수 배치: [유닛1][빈슬롯][유닛2] — 슬롯 수(3개)에 맞게 리스트를 구성한다.
             // 빈 슬롯(인덱스1)에는 더미 UnitType을 삽입하여 slotIndex 접근 시 IndexOutOfRange를 방지한다.
-            // 슬롯1은 CanvasGroup.alpha=0으로 차단되므로 더미 값이 실제로 사용되지 않는다.
+            // 슬롯1은 아래에서 CanvasGroup으로 가려지므로(alpha=0으로 안 보이게 만들고,
+            // blocksRaycasts=false / interactable=false로 입력을 막는다) 더미 값이 실제로 쓰이지 않는다.
             bool twoUnitLayout = (list.Count == 2);
 
             if (twoUnitLayout)
