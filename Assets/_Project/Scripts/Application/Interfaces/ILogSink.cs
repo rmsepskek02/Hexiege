@@ -157,7 +157,75 @@ namespace Hexiege.Application
         MatchmakingLobbyJoinFailed,
 
         /// <summary>Lobby Heartbeat 전송 실패. 끊기면 Lobby 가 만료돼 매칭이 조용히 깨진다.</summary>
-        LobbyHeartbeatFailed
+        LobbyHeartbeatFailed,
+
+        // ── NetworkProductionController · NetworkBuildingController (4단계 6·7/8) ──
+        //
+        // 두 파일을 한 번에 넣는 이유: 아래 아홉 키 중 여덟 개를 두 파일이 함께 쓴다.
+        // 같은 사건은 같은 키로 묶어야 집계가 쪼개지지 않기 때문이다(LogAudit.md §5-0).
+        //
+        // ⚠️ 초급 개발자 주의 — "요청 종류"를 키 이름에 넣지 않았다.
+        //    배치/업그레이드/생산 골드 부족을 세 키로 나누면
+        //    "자원 부족으로 서버가 거부한 횟수"라는 지표 자체가 만들어지지 않는다.
+        //    어느 요청이었는지는 [System/Class] 와 key=value(Request=, Reason=)가 담는다.
+
+        /// <summary>
+        /// 서버 RPC 처리 중 조합 루트(IGameServices) 또는 UseCase 를 얻지 못했다.
+        /// 발생하면 같은 종류의 요청이 이후 전부 같은 자리에서 죽는다 — 복구 경로가 없다.
+        /// </summary>
+        ServerRpcGameServicesMissing,
+
+        /// <summary>
+        /// 클라이언트 RPC 적용 중 조합 루트 또는 UseCase 를 얻지 못했다.
+        /// 서버 상태가 이 클라이언트 화면에 반영되지 않는다.
+        /// 서버 쪽(ServerRpcGameServicesMissing)과 원인은 같지만 결과가 다르므로 키를 나눈다 —
+        /// 한 키로 묶으면 "게임이 죽었나 화면만 틀어졌나"를 집계에서 구분할 수 없다.
+        /// </summary>
+        ClientRpcGameServicesMissing,
+
+        /// <summary>
+        /// 네트워크 컨트롤러가 스폰 시점에 IGameServices 를 찾지 못했다.
+        /// 위 두 키의 선행 신호다. 별도 키인 이유는 한 번의 사고가
+        /// "스폰 1회 + 요청 N회"로 부풀려 집계되는 것을 막기 위해서다.
+        /// </summary>
+        NetworkControllerSpawnedWithoutGameServices,
+
+        /// <summary>
+        /// 골드·인구·큐 용량 부족으로 서버가 요청을 거부했다.
+        /// 클라이언트가 CanAfford/HasPopulation 으로 이미 막았어야 하므로,
+        /// 이 키가 올라오면 클라·서버 상태 불일치를 뜻한다.
+        /// </summary>
+        ServerRejectedInsufficientResource,
+
+        /// <summary>
+        /// 팀 불일치·소유권 불일치·규칙 위반(최고 단계 / Castle 철거) 요청을 서버가 거부했다.
+        /// 정상 클라이언트는 보낼 수 없는 요청이라 변조 탐지 신호로 읽는다.
+        /// </summary>
+        ServerRejectedUnauthorizedRequest,
+
+        /// <summary>
+        /// 요청 대상(건물·배럭 생산 상태)이 서버에 없다.
+        /// 클라이언트는 존재하는 대상의 패널만 열 수 있으므로 상태 불일치다.
+        /// </summary>
+        ServerRejectedTargetNotFound,
+
+        /// <summary>
+        /// 검증을 모두 통과한 뒤 실행이 실패했다. 서버 내부 상태 이상이며
+        /// ServerRejectedTargetNotFound(대상 없음)와는 원인이 다르다.
+        /// </summary>
+        ServerActionExecutionFailed,
+
+        /// <summary>
+        /// 서버가 보낸 스폰·업그레이드를 클라이언트가 적용하지 못했다.
+        /// 재시도 경로가 없어 그 오브젝트는 이 클라이언트에서 영구히 누락된다.
+        /// </summary>
+        ClientStateSyncApplyFailed,
+
+        /// <summary>
+        /// 유닛 뷰 초기화 재시도가 제한 시간을 넘겨 실패했다.
+        /// ClientStateSyncApplyFailed 와 달리 재시도를 거친 뒤의 최종 실패다.
+        /// </summary>
+        UnitViewInitializeTimeout
     }
 
     /// <summary>
