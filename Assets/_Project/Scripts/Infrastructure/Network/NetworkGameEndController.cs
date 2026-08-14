@@ -98,7 +98,10 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
-            Debug.Log($"[Network] NetworkGameEndController 스폰. IsServer={IsServer}");
+            // [로그 이관] LogAudit.md §3-1 — 축 A=Info / 축 B=개발.
+            // "[Network]" 접두사와 클래스 이름을 메시지에서 뺀 이유:
+            // GameLog 가 [System/Class] 카테고리를 앞에 붙여 주므로 중복이다(LogRules.md 1.4 형식).
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "네트워크 스폰", $"IsServer={IsServer}");
 
             if (IsServer)
             {
@@ -110,7 +113,7 @@ namespace Hexiege.Infrastructure
                 _gameEndSubscription = GameEvents.OnGameEnd
                     .Subscribe(OnGameEndServer);
 
-                Debug.Log("[Network] NetworkGameEndController: 서버 측 OnGameEnd 구독 완료.");
+                GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "서버 측 OnGameEnd 구독 완료");
             }
 
             // 로컬 측 재경기 응답 이벤트 구독 — UI가 이벤트를 발행하면 본 컨트롤러가
@@ -170,7 +173,11 @@ namespace Hexiege.Infrastructure
             if (ngm != null)
                 isRandomMatch = ngm.IsRandomMatchmaking;
 
-            Debug.Log($"[Network] 서버: 게임 종료 감지. 승리 팀={e.Winner} (index={winnerTeamIndex}), 랜덤매칭={isRandomMatch}. 결과 전파 시작.");
+            // 승리 팀 · 인덱스 · 랜덤매칭 여부는 나중에 집계·필터링에 쓰일 값이므로
+            // 문장에 섞지 않고 key=value 자리로 뺀다(LogRules.md 1.4 형식 — "key=value가 곧 전송 데이터다").
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "서버: 게임 종료 감지 — 결과 전파 시작",
+                $"WinnerTeam={e.Winner}, WinnerTeamIndex={winnerTeamIndex}, IsRandomMatch={isRandomMatch}");
 
             // 모든 클라이언트에 승자 발표
             AnnounceWinnerClientRpc(winnerTeamIndex, isRandomMatch);
@@ -199,7 +206,9 @@ namespace Hexiege.Infrastructure
         {
             TeamId winnerTeam = (TeamId)winnerTeamIndex;
 
-            Debug.Log($"[Network] AnnounceWinnerClientRpc 수신. 승리 팀={winnerTeam}, 로컬 팀={LocalPlayerTeam.Current}, 랜덤매칭={isRandomMatch}");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "AnnounceWinnerClientRpc 수신",
+                $"WinnerTeam={winnerTeam}, LocalTeam={LocalPlayerTeam.Current}, IsRandomMatch={isRandomMatch}");
 
             // 클라이언트(비서버)에서는 OnGameEnd가 발행되지 않았으므로 여기서 발행한다.
             // (서버에서는 OnGameEndServer 호출 직전 이미 OnGameEnd가 발행된 상태)
@@ -231,7 +240,9 @@ namespace Hexiege.Infrastructure
             if (_announced) return;
 
             _announced = true;
-            Debug.Log($"[Network] ForceWin 호출. 강제 승리 팀 index={winnerTeamIndex}");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "ForceWin 호출 — 상대 연결 끊김으로 강제 승리 처리",
+                $"WinnerTeamIndex={winnerTeamIndex}");
 
             // 연결 끊김 시 재경기 불가 — isRandomMatch=false
             AnnounceWinnerClientRpc(winnerTeamIndex, false);
@@ -247,7 +258,7 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public void RequestForfeit()
         {
-            Debug.Log("[Network] 포기 요청 전송.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "포기 요청 전송");
             ForfeitServerRpc();
         }
 
@@ -275,8 +286,9 @@ namespace Hexiege.Infrastructure
             TeamId winnerTeam = (forfeitTeam == TeamId.Blue) ? TeamId.Red : TeamId.Blue;
 
             _announced = true;
-            Debug.Log($"[Network] 포기 처리. 포기자ClientId={forfeiterId}, " +
-                      $"포기팀={forfeitTeam}, 승리팀={winnerTeam}");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "포기 처리",
+                $"ForfeiterClientId={forfeiterId}, ForfeitTeam={forfeitTeam}, WinnerTeam={winnerTeam}");
 
             // ----------------------------------------------------------------
             // [버그 수정 2026-05-27] 호스트 측 GameEndUI 미표시 문제 해결
@@ -317,7 +329,9 @@ namespace Hexiege.Infrastructure
         private void RequestRematchServerRpc(ServerRpcParams rpcParams = default)
         {
             ulong requesterId = rpcParams.Receive.SenderClientId;
-            Debug.Log($"[Network] RequestRematchServerRpc 수신. 요청자={requesterId}, 기존 요청자={_rematchRequesterId}");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "RequestRematchServerRpc 수신",
+                $"RequesterClientId={requesterId}, PreviousRequesterClientId={_rematchRequesterId}");
 
             if (_rematchRequesterId == ulong.MaxValue)
             {
@@ -340,7 +354,7 @@ namespace Hexiege.Infrastructure
             else
             {
                 // 상대도 이미 요청 → 상호 동의 — 즉시 재경기
-                Debug.Log("[Network] 양측 재경기 동의. 즉시 재경기 시작.");
+                GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "양측 재경기 동의 — 즉시 재경기 시작");
                 StartRematch();
             }
         }
@@ -355,7 +369,7 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void NotifyRematchRequestedClientRpc(ClientRpcParams clientRpcParams = default)
         {
-            Debug.Log("[Network] 재경기 요청 수신. OnNetworkRematchRequested 발행.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "재경기 요청 수신 — OnNetworkRematchRequested 발행");
             GameEvents.OnNetworkRematchRequested.OnNext(new NetworkRematchRequestedEvent());
         }
 
@@ -365,7 +379,7 @@ namespace Hexiege.Infrastructure
         [ServerRpc(RequireOwnership = false)]
         private void AcceptRematchServerRpc()
         {
-            Debug.Log("[Network] AcceptRematchServerRpc 수신. 재경기 시작.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "AcceptRematchServerRpc 수신 — 재경기 시작");
             StartRematch();
         }
 
@@ -377,7 +391,9 @@ namespace Hexiege.Infrastructure
         private void DeclineRematchServerRpc(ServerRpcParams rpcParams = default)
         {
             ulong declinerId = rpcParams.Receive.SenderClientId;
-            Debug.Log($"[Network] DeclineRematchServerRpc 수신. 거절자={declinerId}");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "DeclineRematchServerRpc 수신",
+                $"DeclinerClientId={declinerId}");
 
             // 요청 상태 초기화
             _rematchRequesterId = ulong.MaxValue;
@@ -405,7 +421,7 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void NotifyRematchDeclinedClientRpc(ClientRpcParams clientRpcParams = default)
         {
-            Debug.Log("[Network] 재경기 거절 알림 수신. OnNetworkRematchDeclined 발행.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "재경기 거절 알림 수신 — OnNetworkRematchDeclined 발행");
             GameEvents.OnNetworkRematchDeclined.OnNext(Unit.Default);
         }
 
@@ -440,7 +456,15 @@ namespace Hexiege.Infrastructure
                 // IsSpawned 체크: 이미 Despawn된 오브젝트를 중복 처리하지 않도록 한다.
                 if (netObj != null && netObj.IsSpawned == true && netObj.IsSceneObject == false)
                 {
-                    Debug.Log($"[Network] StartRematch: 동적 NetworkObject Despawn. name={netObj.name}");
+                    // 이 로그는 **루프 안**에서 오브젝트 개수만큼 반복 출력된다.
+                    // Dev 로 두는 이유: Dev 메서드에는 [Conditional] 두 개가 붙어 있어
+                    // 릴리스 빌드에서는 호출과 인자 평가(netObj.name 접근·문자열 보간)까지
+                    // 통째로 사라진다(LogRules.md 1.7 릴리스 스트리핑).
+                    // 운영 로그로 두면 릴리스에서 매 오브젝트마다 로그가 쏟아져
+                    // LogRules.md 1.14 금지 사항 8(매 틱·매 프레임 로깅 금지)에 걸린다.
+                    GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                        "StartRematch: 동적 NetworkObject Despawn",
+                        $"ObjectName={netObj.name}");
                     netObj.Despawn();
                 }
             }
@@ -452,7 +476,7 @@ namespace Hexiege.Infrastructure
             // ----------------------------------------------------------------
             NotifyRematchStartingClientRpc();
 
-            Debug.Log("[Network] StartRematch: Game 씬 재로드.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "StartRematch: Game 씬 재로드");
             NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single);
         }
 
@@ -468,7 +492,7 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void NotifyRematchStartingClientRpc()
         {
-            Debug.Log("[Network] NotifyRematchStartingClientRpc 수신. 재경기 로딩 표시 신호 발행.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "NotifyRematchStartingClientRpc 수신 — 재경기 로딩 표시 신호 발행");
             GameEvents.OnNetworkRematchStarting.OnNext(Unit.Default);
         }
 
