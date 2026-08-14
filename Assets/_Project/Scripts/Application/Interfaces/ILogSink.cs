@@ -144,7 +144,20 @@ namespace Hexiege.Application
         GooglePlayGamesAuthFailed,
 
         /// <summary>Firebase 인증 작업 실패. 원본 code·reason 이 이 자리에만 남는다.</summary>
-        FirebaseAuthOperationFailed
+        FirebaseAuthOperationFailed,
+
+        // ── LobbyManager (4단계 5/8) ──────────────────────────────────
+        /// <summary>Lobby 서비스 호출 실패. 이 파일은 OnError 통지가 없어 로그가 유일한 실패 기록이다.</summary>
+        LobbyServiceCallFailed,
+
+        /// <summary>Lobby 불변식 위반. matchId 누락이나 현재 Lobby 부재 등 있을 수 없는 상태다.</summary>
+        LobbyInvariantViolated,
+
+        /// <summary>매칭 Lobby 생성·참가·검색 실패. 호출부는 null 만 받아 재시도 안내만 띄운다.</summary>
+        MatchmakingLobbyJoinFailed,
+
+        /// <summary>Lobby Heartbeat 전송 실패. 끊기면 Lobby 가 만료돼 매칭이 조용히 깨진다.</summary>
+        LobbyHeartbeatFailed
     }
 
     /// <summary>
