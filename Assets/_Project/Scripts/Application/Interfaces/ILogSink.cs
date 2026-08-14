@@ -225,7 +225,60 @@ namespace Hexiege.Application
         /// 유닛 뷰 초기화 재시도가 제한 시간을 넘겨 실패했다.
         /// ClientStateSyncApplyFailed 와 달리 재시도를 거친 뒤의 최종 실패다.
         /// </summary>
-        UnitViewInitializeTimeout
+        UnitViewInitializeTimeout,
+
+        // ── NetworkGameManager (4단계 8/8) ────────────────────────────
+        //
+        // 부여 근거: LogAudit.md §5-1 E그룹(Relay·네트워크 세션) · F그룹(매칭·세션 시작 예외).
+        //
+        // ⚠️ 초급 개발자 주의 — 왜 "Relay 할당 실패"와 "Relay 참가 실패"를 한 키로 묶는가:
+        //    셋 다 "Relay 문제로 세션을 열지 못했다"는 하나의 사건이다. 키를 셋으로 나누면
+        //    "Relay 때문에 게임에 못 들어간 횟수"라는 지표 자체가 만들어지지 않는다.
+        //    어느 단계였는지는 key=value(Stage=Allocate|Join|CodeMissing)가 담는다.
+
+        /// <summary>
+        /// Relay 할당 · 참가 · Join Code 확보 중 하나가 실패해 네트워크 세션을 열 수 없다.
+        /// 단계는 Stage 값(Allocate / Join / CodeMissing)으로 구분한다.
+        /// </summary>
+        RelaySetupFailed,
+
+        /// <summary>
+        /// NetworkManager.Singleton 이 null 이다.
+        /// "GameBootstrapper 가 유일한 의존성 조합 루트"라는 프로젝트 전제가 깨진 상태이며,
+        /// 이 자리에서 Host/Client 시작이 통째로 불가능해진다 — 복구 경로가 없다.
+        /// </summary>
+        NetworkManagerSingletonMissing,
+
+        /// <summary>
+        /// StartHost() / StartClient() 가 false 를 반환했다.
+        /// NetworkManagerSingletonMissing 과 달리 객체는 존재하는데 시작 자체가 거부된 것이다.
+        /// </summary>
+        NetworkSessionStartFailed,
+
+        /// <summary>
+        /// 서버가 아닌 쪽에서 게임 씬 로드를 요청했다.
+        /// 정상 흐름에서는 발생할 수 없는 불변식 위반이고 플레이어에게 통지되는 경로도 없다.
+        /// </summary>
+        SceneLoadRequestedByNonServer,
+
+        /// <summary>
+        /// 게임 생성 · 참가 흐름의 최종 catch 에서 잡힌 예외.
+        /// 하위 계층이 분류하지 못한 것이 여기로 온다. 어느 경로였는지는 Flow 값
+        /// (Host / Join / MatchHost / MatchJoin)으로 분해한다.
+        /// </summary>
+        GameSessionStartUnhandledException,
+
+        /// <summary>
+        /// 랜덤 매칭 흐름에서 예외가 났다.
+        /// catch 본문이 로그 한 줄뿐이고 OnError 도 없어 매칭이 조용히 죽는다.
+        /// </summary>
+        MatchmakingUnhandledException,
+
+        /// <summary>
+        /// 매칭 취소 시 티켓 삭제가 실패했다.
+        /// 흐름은 계속되지만 서버에 티켓이 남아 이후 매칭을 방해할 수 있다.
+        /// </summary>
+        MatchmakingTicketDeleteFailed
     }
 
     /// <summary>

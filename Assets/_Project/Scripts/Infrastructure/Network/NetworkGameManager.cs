@@ -26,6 +26,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Hexiege.Application; // GameEvents (씬 전환을 Presentation에 위임하는 이벤트 채널)
+                           // GameLog / LogEvent (두 축 로그 facade — LogRules.md 1.2)
 
 namespace Hexiege.Infrastructure
 {
@@ -125,7 +126,18 @@ namespace Hexiege.Infrastructure
             if (NetworkManager.Singleton.IsServer) return;
 
             // 클라이언트 측: 서버(=자기 자신 또는 ServerClientId) 끊김 처리
-            Debug.Log($"[Network] NGM: 클라이언트 측 서버 연결 끊김 감지 (clientId={clientId}). OnServerDisconnected 발행.");
+            //
+            // ⚠️ 잠정 판정: Warn / 개발 (LogAudit.md §4-3 질의 Q-1).
+            //    축 B 는 개발로 확정이다 — OnServerDisconnected 로 UI 통지 경로가 있고,
+            //    이 줄에는 "왜 끊겼는지"가 담겨 있지 않다.
+            //    축 A 가 확정되지 않은 이유: DisconnectAsync/BackToLobby 가
+            //    OnClientDisconnectCallback 을 구독 해제하지 않아 **의도적으로 나갈 때도**
+            //    이 핸들러가 호출된다. 즉 정상 종료와 장애가 한 줄을 공유한다.
+            //    Error 로 두면 정상 종료마다 거짓 경보가 쌓이고, Info 로 두면 진짜 장애가 묻힌다.
+            //    → 중간값인 Warn 으로 두었다. 축 B 가 개발이라 릴리스에는 어차피 남지 않는다.
+            GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
+                             "클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행",
+                             $"ClientId={clientId}");
             OnServerDisconnected?.Invoke();
         }
 
@@ -188,17 +200,27 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public async Task InitializeAsync()
         {
-            Debug.Log("[Network] NetworkGameManager: 초기화 시작.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager), "초기화 시작");
 
             await _servicesInitializer.InitializeAsync(
                 onSuccess: playerId =>
                 {
-                    Debug.Log($"[Network] 초기화 성공. PlayerId: {playerId}");
+                    // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터 (UGS PlayerId).
+                    //    이번 단계에서는 값을 그대로 둔다. 치환은 5단계에서 GameLog.HashId 로 처리한다.
+                    GameLog.Dev.Info("Network", nameof(NetworkGameManager), "초기화 성공",
+                                     $"PlayerId={playerId}");
                     OnInitialized?.Invoke(playerId);
                 },
                 onFailure: e =>
                 {
-                    Debug.LogError($"[Network] 초기화 실패: {e.Message}");
+                    // ⚠️ 잠정 판정: Error / 개발 (LogAudit.md §4-3 질의 Q-3).
+                    //    원칙 3("Error 는 항상 운영")만 보면 운영이지만, 같은 예외를 이미
+                    //    UnityServicesInitializer 가 e.Message 와 함께 운영으로 남긴다(원칙 1).
+                    //    LogRules.md 1.3 「원칙 간 우선순위」①에 따라 원칙 1이 우선하므로,
+                    //    원인을 쥔 하위 계층을 운영으로 두고 중복되는 이 호출부를 개발로 내렸다.
+                    //    화면 통지(OnError)는 그대로 유지되므로 잃는 정보는 없다.
+                    GameLog.Dev.Error("Network", nameof(NetworkGameManager),
+                                      "UGS 초기화 실패 — 원인은 UnityServicesInitializer 가 운영 로그로 남긴다", e);
                     OnError?.Invoke($"초기화 실패: {e.Message}");
                 });
         }
@@ -213,14 +235,21 @@ namespace Hexiege.Infrastructure
         {
             try
             {
-                Debug.Log($"[Network] HostGame 시작. 방 이름: {lobbyName}");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "HostGame 시작",
+                                 $"LobbyName={lobbyName}");
 
                 // 1. Relay 서버 할당 생성 + Join Code 발급
                 string relayJoinCode = await _relayManager.CreateRelayAsync();
                 if (string.IsNullOrEmpty(relayJoinCode))
                 {
                     const string errorMsg = "Relay 할당 실패. 네트워크 상태를 확인하세요.";
-                    Debug.LogError($"[Network] {errorMsg}");
+                    // ⚠️ 잠정 판정: Error / 운영 (LogAudit.md §4-3 질의 Q-2).
+                    //    원칙 1만 보면 개발이다 — 원인(e.Message)은 RelayManager 가 쥐고 있다.
+                    //    그런데 RelayManager 는 이번 8개 파일 범위 밖이라 GameLog 로 이관되지 않는다.
+                    //    개발로 내리면 운영 스트림에 Relay 실패가 한 줄도 남지 않으므로,
+                    //    "정보를 잃지 않는 쪽"을 기본값으로 두어 잠정적으로 운영을 유지한다.
+                    GameLog.Ops.Error(LogEvent.RelaySetupFailed, "Network", nameof(NetworkGameManager),
+                                      "Relay 할당 실패 — 세션을 열 수 없다", "Stage=Allocate, Flow=Host");
                     OnError?.Invoke(errorMsg);
                     return;
                 }
@@ -230,7 +259,13 @@ namespace Hexiege.Infrastructure
                 if (lobby == null)
                 {
                     const string errorMsg = "Lobby 생성 실패. Unity Lobby 서비스를 확인하세요.";
-                    Debug.LogError($"[Network] {errorMsg}");
+                    // ⚠️ 잠정 판정: Error / 개발 (LogAudit.md §4-3 질의 Q-3).
+                    //    LobbyManager 가 catch 안에서 e.Message 와 함께 이미 운영으로 남긴다.
+                    //    이 자리는 null 만 받아 고정 문구를 찍으므로 원인을 담지 못한다
+                    //    → LogRules.md 1.3 ②의 "최종 처리 지점"이 아니다.
+                    GameLog.Dev.Error("Network", nameof(NetworkGameManager),
+                                      "Lobby 생성 실패 — 원인은 LobbyManager 가 운영 로그로 남긴다",
+                                      $"LobbyName={lobbyName}");
                     OnError?.Invoke(errorMsg);
                     return;
                 }
@@ -252,12 +287,16 @@ namespace Hexiege.Infrastructure
                 // 4. Host Heartbeat 시작 (Lobby 활성 유지)
                 StartHeartbeat();
 
-                Debug.Log($"[Network] Host 게임 시작 완료. Lobby Code: {lobby.LobbyCode}");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "Host 게임 시작 완료",
+                                 $"LobbyCode={lobby.LobbyCode}");
                 OnHostStarted?.Invoke(lobby.LobbyCode);
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Network] HostGame 예외: {e.Message}");
+                // 이 흐름의 최종 catch 이고, 하위 계층이 분류하지 못한 고유 예외만 여기로 온다
+                // → 원칙 1의 중복이 아니다. 예외 객체를 그대로 넘겨 타입을 집계 축으로 남긴다.
+                GameLog.Ops.Error(LogEvent.GameSessionStartUnhandledException, "Network", nameof(NetworkGameManager),
+                                  "HostGame 처리 중 예외", e, "Flow=Host");
                 OnError?.Invoke($"Host 시작 오류: {e.Message}");
             }
         }
@@ -278,14 +317,20 @@ namespace Hexiege.Infrastructure
 
             try
             {
-                Debug.Log($"[Network] JoinGame 시작. Lobby Code: {lobbyCode}");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "JoinGame 시작",
+                                 $"LobbyCode={lobbyCode}");
 
                 // 1. Lobby 참가
                 var lobby = await _lobbyManager.JoinLobbyByCodeAsync(lobbyCode);
                 if (lobby == null)
                 {
                     const string errorMsg = "Lobby 참가 실패. 코드를 확인하거나 방이 꽉 찼을 수 있습니다.";
-                    Debug.LogError($"[Network] {errorMsg}");
+                    // ⚠️ 잠정 판정: Error / 개발 (LogAudit.md §4-3 질의 Q-3).
+                    //    LobbyManager 가 catch 안에서 e.Message 와 함께 이미 운영으로 남긴다.
+                    //    이 자리는 null 만 받아 원인을 담지 못하므로 최종 처리 지점이 아니다.
+                    GameLog.Dev.Error("Network", nameof(NetworkGameManager),
+                                      "Lobby 참가 실패 — 원인은 LobbyManager 가 운영 로그로 남긴다",
+                                      $"LobbyCode={lobbyCode}");
                     OnError?.Invoke(errorMsg);
                     return;
                 }
@@ -296,7 +341,11 @@ namespace Hexiege.Infrastructure
                 {
                     const string errorMsg = "Relay Join Code 를 Lobby 에서 찾을 수 없습니다. " +
                                             "Host 가 아직 준비되지 않았을 수 있습니다.";
-                    Debug.LogError($"[Network] {errorMsg}");
+                    // 하위 계층에 대응 로그가 없다(원칙 1 통과) → 이 줄이 유일한 기록이다.
+                    // Host 의 코드 기록이 늦거나 실패한 상태라 플레이어 기기에서만 벌어진다.
+                    GameLog.Ops.Error(LogEvent.RelaySetupFailed, "Network", nameof(NetworkGameManager),
+                                      "Lobby 에 Relay Join Code 가 없다 — Host 가 아직 기록하지 못했다",
+                                      "Stage=CodeMissing, Flow=Join");
                     OnError?.Invoke(errorMsg);
                     return;
                 }
@@ -306,7 +355,11 @@ namespace Hexiege.Infrastructure
                 if (!relayJoined)
                 {
                     const string errorMsg = "Relay 참가 실패.";
-                    Debug.LogError($"[Network] {errorMsg}");
+                    // ⚠️ 잠정 판정: Error / 운영 (LogAudit.md §4-3 질의 Q-2).
+                    //    원칙 1대로면 개발이지만 원인 로그를 가진 RelayManager 가 이번 범위 밖이라
+                    //    이관되지 않는다. 정보를 잃지 않는 쪽으로 잠정적으로 운영을 유지한다.
+                    GameLog.Ops.Error(LogEvent.RelaySetupFailed, "Network", nameof(NetworkGameManager),
+                                      "Relay 참가 실패 — 세션을 열 수 없다", "Stage=Join, Flow=Join");
                     OnError?.Invoke(errorMsg);
                     return;
                 }
@@ -321,12 +374,14 @@ namespace Hexiege.Infrastructure
                     return;
                 }
 
-                Debug.Log("[Network] Client 게임 참가 완료.");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "Client 게임 참가 완료");
                 OnClientConnected?.Invoke();
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Network] JoinGame 예외: {e.Message}");
+                // 최종 catch · 고유 예외. 예외 객체를 그대로 넘긴다(LogRules.md 1.9).
+                GameLog.Ops.Error(LogEvent.GameSessionStartUnhandledException, "Network", nameof(NetworkGameManager),
+                                  "JoinGame 처리 중 예외", e, "Flow=Join");
                 OnError?.Invoke($"참가 오류: {e.Message}");
             }
         }
@@ -338,7 +393,7 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public async Task DisconnectAsync()
         {
-            Debug.Log("[Network] Disconnect 시작.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager), "Disconnect 시작");
 
             // Heartbeat 중단
             StopHeartbeat();
@@ -356,7 +411,7 @@ namespace Hexiege.Infrastructure
             // Lobby 나가기
             await _lobbyManager.LeaveLobbyAsync();
 
-            Debug.Log("[Network] Disconnect 완료.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager), "Disconnect 완료");
             OnDisconnected?.Invoke();
         }
 
@@ -378,12 +433,14 @@ namespace Hexiege.Infrastructure
             try
             {
                 _currentTicketId = await _matchmakerManager.CreateTicketAsync();
-                Debug.Log($"[Matchmaker] 티켓 생성: {_currentTicketId}");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "매칭 티켓 생성",
+                                 $"TicketId={_currentTicketId}");
 
                 var matchId = await _matchmakerManager.PollUntilMatchedAsync(
                     _currentTicketId, _matchmakingCts.Token, onWaitSecond);
 
-                Debug.Log($"[Matchmaker] 매칭 완료. MatchId: {matchId}");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "매칭 완료",
+                                 $"MatchId={matchId}");
 
                 // 매칭 성사 콜백 — UI에서 로딩 스크린 표시 등에 활용
                 onMatchFound?.Invoke();
@@ -399,7 +456,10 @@ namespace Hexiege.Infrastructure
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Matchmaker] StartMatchmakingAsync 예외: {e.Message}");
+                // catch 본문이 로그 한 줄뿐이고 OnError 도 없다 — 매칭이 조용히 죽는다.
+                // 삼킨 예외는 반드시 운영으로 남긴다(LogRules.md 1.3 분류 원칙 4).
+                GameLog.Ops.Error(LogEvent.MatchmakingUnhandledException, "Network", nameof(NetworkGameManager),
+                                  "랜덤 매칭 처리 중 예외 — 매칭이 통지 없이 종료된다", e);
             }
         }
 
@@ -430,7 +490,8 @@ namespace Hexiege.Infrastructure
             }
 
             bool isHost = _lobbyManager.IsHost;
-            Debug.Log($"[Matchmaker] CreateOrJoin 결과 역할: {(isHost ? "Host" : "Client")}");
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager), "CreateOrJoin 으로 역할 확정",
+                             $"Role={(isHost ? "Host" : "Client")}, MatchId={matchId}");
 
             if (isHost)
                 await HostMatchmadeGameAsync(lobby.LobbyCode);
@@ -476,12 +537,15 @@ namespace Hexiege.Infrastructure
                 // 5. Host Heartbeat 시작 (Lobby 활성 유지)
                 StartHeartbeat();
 
-                Debug.Log($"[Network] 매칭 Host 게임 시작 완료. Lobby Code: {lobbyCode}");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "매칭 Host 게임 시작 완료",
+                                 $"LobbyCode={lobbyCode}");
                 OnHostStarted?.Invoke(lobbyCode);
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Network] 매칭 Host 시작 예외: {e.Message}");
+                // 최종 catch · 고유 예외. Flow 로 어느 경로였는지 분해한다.
+                GameLog.Ops.Error(LogEvent.GameSessionStartUnhandledException, "Network", nameof(NetworkGameManager),
+                                  "매칭 Host 시작 처리 중 예외", e, "Flow=MatchHost");
                 OnError?.Invoke($"Host 시작 오류: {e.Message}");
             }
         }
@@ -511,7 +575,10 @@ namespace Hexiege.Infrastructure
                     if (!string.IsNullOrEmpty(relayJoinCode))
                         break;
 
-                    Debug.Log($"[Matchmaker] RelayJoinCode 대기 중... ({i + 1}/{maxRetries})");
+                    // 루프 안 진행 로그는 상태 "전이"가 아니다(LogRules.md 1.14 금지 사항 8).
+                    // 개발 판정이라 릴리스에서는 호출과 인자 평가까지 통째로 사라진다(1.7).
+                    GameLog.Dev.Info("Network", nameof(NetworkGameManager), "RelayJoinCode 대기 중",
+                                     $"Attempt={i + 1}, MaxRetries={maxRetries}");
                     await Task.Delay(retryDelayMs);
                 }
 
@@ -535,12 +602,15 @@ namespace Hexiege.Infrastructure
                     return;
                 }
 
-                Debug.Log("[Network] Client 게임 참가 완료 (매칭 — CreateOrJoin).");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager),
+                                 "Client 게임 참가 완료 (매칭 — CreateOrJoin)");
                 OnClientConnected?.Invoke();
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Network] 매칭 Client 참가 예외: {e.Message}");
+                // 최종 catch · 고유 예외.
+                GameLog.Ops.Error(LogEvent.GameSessionStartUnhandledException, "Network", nameof(NetworkGameManager),
+                                  "매칭 Client 참가 처리 중 예외", e, "Flow=MatchJoin");
                 OnError?.Invoke($"참가 오류: {e.Message}");
             }
         }
@@ -628,12 +698,16 @@ namespace Hexiege.Infrastructure
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[Matchmaker] 티켓 삭제 중 오류 (무시): {e.Message}");
+                // catch 본문이 로그 한 줄뿐인 삼킨 예외 → 반드시 운영(LogRules.md 1.3 분류 원칙 4).
+                // 흐름은 계속되므로 Warn 이지만, 서버에 티켓이 남아 이후 매칭을 방해할 수 있다.
+                GameLog.Ops.Warn(LogEvent.MatchmakingTicketDeleteFailed, "Network", nameof(NetworkGameManager),
+                                 "매칭 티켓 삭제 실패 (무시하고 계속) — 서버에 티켓이 남을 수 있다", e,
+                                 $"TicketId={_currentTicketId}");
             }
 
             _currentTicketId = null;
             _isRandomMatchmaking = false;
-            Debug.Log("[Matchmaker] 매칭 취소 완료.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager), "매칭 취소 완료");
         }
 
         // ====================================================================
@@ -664,11 +738,15 @@ namespace Hexiege.Infrastructure
         {
             if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
             {
-                Debug.LogWarning("[Network] LoadGameScene: 서버가 아니므로 무시.");
+                // 요청만 무시하고 게임은 계속되므로 Warn.
+                // 다만 정상 흐름에서는 발생할 수 없는 불변식 위반이고 통지 경로가 없다 → 운영.
+                GameLog.Ops.Warn(LogEvent.SceneLoadRequestedByNonServer, "Network", nameof(NetworkGameManager),
+                                 "서버가 아닌 쪽에서 Game 씬 로드를 요청했다 — 무시한다",
+                                 $"HasSingleton={NetworkManager.Singleton != null}");
                 return;
             }
 
-            Debug.Log("[Network] LoadGameScene: Game 씬 로드 시작.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager), "Game 씬 로드 시작");
             NetworkManager.Singleton.SceneManager
                 .LoadScene("Game", LoadSceneMode.Single);
         }
@@ -689,7 +767,8 @@ namespace Hexiege.Infrastructure
             if (NetworkManager.Singleton == null) return;
             if (clientId == NetworkManager.Singleton.LocalClientId) return;
 
-            Debug.Log($"[Network] Client 접속 감지 (clientId={clientId}). OnClientConnected 발행.");
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager),
+                             "Client 접속 감지 — OnClientConnected 발행", $"ClientId={clientId}");
             OnClientConnected?.Invoke();
 
             // 전체 접속 수가 2명 이상이면 OnAllPlayersReady 발행
@@ -697,7 +776,8 @@ namespace Hexiege.Infrastructure
             int connectedCount = NetworkManager.Singleton.ConnectedClientsList.Count;
             if (connectedCount >= 2)
             {
-                Debug.Log($"[Network] OnAllPlayersReady 발행. 접속 수={connectedCount}");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "OnAllPlayersReady 발행",
+                                 $"ConnectedCount={connectedCount}");
                 OnAllPlayersReady?.Invoke(connectedCount);
             }
         }
@@ -710,15 +790,30 @@ namespace Hexiege.Infrastructure
         {
             if (NetworkManager.Singleton == null)
             {
-                Debug.LogError("[Network] StartNetworkHost: NetworkManager.Singleton 이 null 입니다.");
+                // 불변식 위반 — "GameBootstrapper 가 유일한 조합 루트"라는 전제가 깨진 상태다.
+                GameLog.Ops.Error(LogEvent.NetworkManagerSingletonMissing, "Network", nameof(NetworkGameManager),
+                                  "NetworkManager.Singleton 이 null 이라 Host 를 시작할 수 없다",
+                                  "Role=Host");
                 return false;
             }
 
             bool result = NetworkManager.Singleton.StartHost();
+
+            // 중괄호를 명시한다 — 원래 없었는데, 본문이 한 줄일 때 이후 편집에서
+            // 문장을 덧붙이면 조건 밖으로 새기 쉽다(동작은 동일하다).
+            // 성공 쪽은 개발, 실패 쪽은 운영으로 판정이 갈리므로 조건을 뒤집을 이유가 없다.
+            // 릴리스에서는 Dev 호출이 [Conditional] 로 제거돼 if (result) { } 가 되지만
+            // 문법·동작 모두 문제없다.
             if (result)
-                Debug.Log("[Network] NetworkManager.StartHost() 성공.");
+            {
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "NetworkManager.StartHost() 성공");
+            }
             else
-                Debug.LogError("[Network] NetworkManager.StartHost() 실패.");
+            {
+                // 호스트 시작이 거부되면 게임을 만들 수 없다 — 복구 경로가 없다.
+                GameLog.Ops.Error(LogEvent.NetworkSessionStartFailed, "Network", nameof(NetworkGameManager),
+                                  "NetworkManager.StartHost() 가 false 를 반환했다", "Role=Host");
+            }
 
             return result;
         }
@@ -731,15 +826,26 @@ namespace Hexiege.Infrastructure
         {
             if (NetworkManager.Singleton == null)
             {
-                Debug.LogError("[Network] StartNetworkClient: NetworkManager.Singleton 이 null 입니다.");
+                // StartNetworkHost 와 같은 사건 유형이므로 같은 키를 쓴다.
+                // 키가 갈리면 "조합 루트가 깨진 횟수"라는 지표가 둘로 쪼개진다.
+                GameLog.Ops.Error(LogEvent.NetworkManagerSingletonMissing, "Network", nameof(NetworkGameManager),
+                                  "NetworkManager.Singleton 이 null 이라 Client 를 시작할 수 없다",
+                                  "Role=Client");
                 return false;
             }
 
             bool result = NetworkManager.Singleton.StartClient();
+
+            // 중괄호를 명시한다 — 위 StartNetworkHost 와 같은 이유다.
             if (result)
-                Debug.Log("[Network] NetworkManager.StartClient() 성공.");
+            {
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "NetworkManager.StartClient() 성공");
+            }
             else
-                Debug.LogError("[Network] NetworkManager.StartClient() 실패.");
+            {
+                GameLog.Ops.Error(LogEvent.NetworkSessionStartFailed, "Network", nameof(NetworkGameManager),
+                                  "NetworkManager.StartClient() 가 false 를 반환했다", "Role=Client");
+            }
 
             return result;
         }
@@ -752,7 +858,7 @@ namespace Hexiege.Infrastructure
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
             {
                 NetworkManager.Singleton.Shutdown();
-                Debug.Log("[Network] NetworkManager Shutdown 완료.");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "NetworkManager Shutdown 완료");
             }
         }
 
@@ -800,7 +906,8 @@ namespace Hexiege.Infrastructure
         {
             StopHeartbeat(); // 중복 실행 방지
             _heartbeatCoroutine = StartCoroutine(_lobbyManager.HeartbeatCoroutine());
-            Debug.Log("[Network] Heartbeat 코루틴 시작.");
+            // 실제 Heartbeat 전송 실패는 LobbyManager 가 운영 로그로 잡는다(원칙 1).
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager), "Heartbeat 코루틴 시작");
         }
 
         /// <summary>
@@ -812,7 +919,7 @@ namespace Hexiege.Infrastructure
             {
                 StopCoroutine(_heartbeatCoroutine);
                 _heartbeatCoroutine = null;
-                Debug.Log("[Network] Heartbeat 코루틴 정지.");
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager), "Heartbeat 코루틴 정지");
             }
         }
     }
