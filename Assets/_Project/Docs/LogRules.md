@@ -9,7 +9,16 @@
 
 ---
 
-## 이 문서를 왜 개정했는가 (2026-08-13)
+## 이 문서를 왜 개정했는가 (2026-08-13 · 2026-08-14)
+
+이 문서는 지금까지 **두 번** 개정됐다. 각 개정이 무엇을 바꿨는지 먼저 정리한다.
+
+| 개정일 | 무엇을 바꿨는가 |
+|--------|----------------|
+| **2026-08-13** | 로그를 나누는 잣대를 **한 축(심각도)에서 두 축(심각도 + 존속)으로** 바꿨다. 그리고 앞으로의 서버 수집을 위한 이음매(이벤트 키 · `key=value` 구조화 필드)를 지금부터 규칙에 넣어 두었다. → 아래 본문 |
+| **2026-08-14** | 원칙 1~4가 **한 자리에 두 개 이상 걸려 서로 반대 답을 내놓을 때** 어느 쪽을 따르는지 확정했다. **1.3 「원칙 간 우선순위」** 절 신설 — ① 원칙 1이 원칙 3보다 우선, ② "최종 처리 지점"의 정의, ③ 원칙 3의 "항상 `운영`"은 사건 단위, ④ 실제로 갈렸던 3건, ⑤ 순서를 매기지 않은 쌍. **원칙 1~4의 본문은 한 글자도 바꾸지 않았다** — 적용 순서와 용어 정의만 덧붙였다 |
+
+### 2026-08-13 개정 — 한 축에서 두 축으로
 
 쉬운 말로 먼저 설명한다.
 
@@ -30,9 +39,11 @@
 그때 가서 로그를 전부 뜯어고치면 늦으므로, 지금부터 그 이음매를 규칙에 넣어 둔다.
 다행히 기존 형식 규정(`... | key=value, key=value`)이 이미 좋은 기반이다 — 이 `key=value`가 **그대로 서버 전송용 구조화 데이터**가 된다.
 
-> ⚠️ **구현 상태**: 이 문서가 규정하는 `GameLog` / `LogEvent` / `ILogSink` 는 **아직 코드에 없다.**
-> 이 문서는 앞으로 만들 것의 **스펙**이며, 구현은 별도 작업이다.
-> 현행 코드와의 정확한 차이는 **1.13 현행 코드와의 차이(미구현 목록)** 에 정리해 두었다.
+> ⚠️ **구현 상태 (2026-08-14 기준)**: 이 문서가 규정하는 `GameLog` / `LogEvent` / `ILogSink` / `ConsoleSink` / `FileSink` 는
+> 커밋 `668e0aeb` 으로 **코드에 들어왔다.** 다만 **아직 "쓰이지는" 않는다** —
+> 컴파일 통과가 확인되지 않았고, 기존 raw `Debug.Log` 호출도 이관되지 않아 실사용처는 `GameBootstrapper` 배선뿐이다.
+> 나머지 조항(이벤트 키 채우기, 호출부 마스킹, 수동 정리 메뉴 등)은 여전히 **앞으로 만들 것의 스펙**이다.
+> 현행 코드와의 정확한 차이는 **1.13 현행 코드와의 차이** 에 정리해 두었다.
 
 ---
 
@@ -621,24 +632,40 @@ Hexiege > Logcat > 오래된 에디터 로그 정리
 
 ---
 
-## 1.13 현행 코드와의 차이 (미구현 목록)
+## 1.13 현행 코드와의 차이
 
-**추정을 남기지 않기 위해 확인한 사실만 적는다.** 아래는 이 문서 개정 시점(2026-08-13)의 실제 코드 상태다.
+**추정을 남기지 않기 위해 확인한 사실만 적는다.** 아래는 **2026-08-14 시점**에 실제 코드를 열어 확인한 상태다.
+
+> **2026-08-14 갱신 — 골격은 들어왔지만 아직 "쓰이지" 않는다.**
+> 커밋 `668e0aeb` 으로 `GameLog` / `LogEvent` / `ILogSink` / `ConsoleSink` / `FileSink` 와 `GameBootstrapper` 배선이 실제로 들어왔다.
+> 다만 아래 셋은 **아직 이루어지지 않았으므로 과대 표기하지 않는다.**
+>
+> 1. **컴파일 통과가 확인되지 않았다.** 사용자 유니티에서 아직 검증 전이다.
+>    `Assets/Editor/Tools/LogcatCapture.cs` 의 CS0234 3건은 커밋 `9fcee6b7` 로 수정했으나 **재확인 전**이다.
+> 2. **`LogEvent` 멤버는 2개뿐이다** (`Unknown`, `UnhandledException`).
+>    2026-08-13 감사에서 판정으로 정한 **이벤트 키 30개는 아직 enum 에 반영되지 않았다** (4단계 예정).
+> 3. **기존 raw `Debug.Log` 호출은 한 건도 이관되지 않았다.**
+>    `GameLog` 를 호출하는 코드는 `GameBootstrapper`(sink 등록 · 전역 예외 훅)뿐이다.
 
 | 항목 | 현행 코드 상태 | 이 문서의 규정 |
 |------|--------------|--------------|
-| `GameLog` facade | **없음** | 1.5~1.9 — 구현 필요 |
-| `LogEvent` enum | **없음** | 1.5 — 구현 필요 |
-| `ILogSink` / `ConsoleSink` / `FileSink` | **없음** | 1.8 — 구현 필요 |
-| `[Conditional]` 스트리핑 | **없음** | 1.7 — 구현 필요 |
-| 민감 데이터 마스킹 | **없음.** 이메일·UID가 평문으로 출력되는 지점이 확인됨 (`Infrastructure/Auth/FirebaseAuthService.cs`, `Application/UseCases/LoginUseCase.cs` 등) | 1.6 — 구현 시 해당 지점 정리 필요 |
-| 전역 미처리 예외 수집 | **없음** (`Application.logMessageReceived` 사용처 0건) | 1.9 — 구현 필요 |
-| 에디터 파일 기록 상시 활성 | **아님.** `RuntimeLogger.BeginSession`을 호출하는 코드가 **0건**이라 현재 파일이 생성되지 않는다 | 1.10 — 구현 필요 |
-| `RuntimeLogger` 유틸리티 | **존재** (`Infrastructure/Debug/RuntimeLogger.cs`) — `BeginSession`/`Log`/`EndSession`, 파일 쓰기는 `#if UNITY_EDITOR` 안 | 1.11 — 유지 |
-| `RuntimeLogger` 헤더 1줄째 | 고정 문자열 `=== RuntimeLogger 디버그 세션 ===` — 작업명/목적이 들어가지 않는다 | 1.4 — 구현 시 조정 필요 |
-| `RuntimeLogger` 헤더 뒤 빈 줄 | **없음** | 1.4 — 구현 시 추가 필요 |
+| `GameLog` facade | **구현됨** — `Application/GameLog.cs`. 축 B가 중첩 클래스 `Ops`/`Dev` 로 갈려 있고, `AddSink`/`RemoveSink`/`ClearSinks`, `Compose`, 재진입 가드(`IsEmitting`), sink 0개일 때 콘솔 폴백, sink별 개별 `try-catch` 모두 존재 | 1.5~1.9 — 구조 충족. **실사용 이관은 미완**(위 3번) |
+| `LogEvent` enum | **구현됨** — `Application/Interfaces/ILogSink.cs`. **단, 멤버는 `Unknown`(0) · `UnhandledException` 2개뿐**이고 0번을 의도적으로 무의미 값으로 비워 두었다 | 1.5 — **이벤트 키 30개 추가 필요** |
+| `ILogSink` / `ConsoleSink` / `FileSink` | **구현됨** — `Application/Interfaces/ILogSink.cs` / `Infrastructure/Debug/ConsoleSink.cs` / `Infrastructure/Debug/FileSink.cs`. `ConsoleSink` 는 예외를 `Debug.LogException` 으로 따로 내보내고, `FileSink` 는 동작 전체가 `#if UNITY_EDITOR` 안에 있다 | 1.8 / 1.9 — 충족 |
+| sink 등록 (조합 루트) | **구현됨** — `Bootstrap/GameBootstrapper.Setup.cs` `InitializeLogging()`. `Awake` 에서 1회 호출되며 **에디터는 `FileSink`, 빌드는 `ConsoleSink` 하나만** 등록한다(콘솔 이중 출력 방지) | 1.8 — 충족 |
+| `[Conditional]` 스트리핑 | **구현됨** — `GameLog.Dev` 의 4개 메서드에 `UNITY_EDITOR` + `DEVELOPMENT_BUILD` 두 개가 **모두** 붙어 있고, `GameLog.Ops` 에는 붙어 있지 않다 | 1.7 — 충족 |
+| 민감 데이터 마스킹 — **2단(facade)** | **구현됨** — `GameLog.Sanitize` 가 최종 문자열에서 이메일 패턴을 `[email-redacted]` 로 치환한다(에디터 포함 항상 적용). 해시 헬퍼 `GameLog.HashId` 도 존재 | 1.6 — 충족 |
+| 민감 데이터 마스킹 — **1단(호출부)** | **미적용.** `HashId` 를 호출하는 코드가 **0건**이고, raw `Debug.Log` 가 UID·이메일을 여전히 평문 출력한다 — `Infrastructure/Auth/FirebaseAuthService.cs`(146·191·265·289·318·365·424·463행), `Application/UseCases/LoginUseCase.cs`(131행 UID · 485행 PlayerId) | 1.6 — **해당 지점 정리 필요** |
+| 전역 미처리 예외 수집 | **구현됨** — `GameBootstrapper.Setup.cs` 가 `UnityEngine.Application.logMessageReceived` 를 등록/해제하고, `LogType.Exception` 만 `GameLog.Ops.Error(LogEvent.UnhandledException, ...)` 로 올린다. 되먹임 방어 3겹(예외만 수집 / `GameLog.IsEmitting` / 직전 동일 예외 무시) | 1.9 — 충족 |
+| 에디터 파일 기록 상시 활성 | **구현됨** — `InitializeLogging()` 이 `FileSink.BeginSession(FileSink.RoleHost)` 를 호출해 `_Logs/_editor/{yyyy-MM-dd}/RuntimeLog_host.txt` 를 연다(일 단위 이어쓰기). **역할은 "host" 고정** — `Awake` 시점에 NGO 연결 전이라 host/client 판별이 불가능하기 때문이며, 에디터를 Client 로 띄우는 구성에서는 조정이 필요하다 | 1.10 — 충족(단서 있음) |
+| `RuntimeLogger` 유틸리티 | **존재** (`Infrastructure/Debug/RuntimeLogger.cs`) — `BeginSession`/`Log`/`EndSession`, 파일 쓰기는 `#if UNITY_EDITOR` 안. `FileSink` 가 이를 재사용한다(구현을 둘로 두지 않음) | 1.11 — 유지 |
+| `RuntimeLogger` 헤더 1줄째 | **여전히 고정 문자열** `=== RuntimeLogger 디버그 세션 ===` — 작업명/목적이 들어가지 않는다 | 1.4 — **조정 필요** |
+| `RuntimeLogger` 헤더 뒤 빈 줄 | **여전히 없음.** `BeginSession` 이 헤더 2줄만 쓰고 빈 줄을 쓰지 않는다 | 1.4 — **추가 필요** |
+| `LogEvent` 이벤트 키 채우기 | **미착수.** 2026-08-13 감사에서 정한 키 30개가 enum 에 없다 | 1.5 — **4단계 예정** |
+| 기존 raw `Debug.Log` 이관 | **미착수.** `Assets/_Project/Scripts/` 안의 `Debug.Log` 계열 호출이 그대로 남아 있고, `GameLog` 실사용처는 `GameBootstrapper` 배선뿐이다 | 1.14 금지사항 1 — **이관 필요** |
+| 컴파일 검증 | **미확인.** 사용자 유니티에서 통과 확인이 되지 않았다. `LogcatCapture.cs` 의 CS0234 3건은 커밋 `9fcee6b7` 로 수정(`UnityEngine.Application` 완전 수식)했으나 **재확인 전** | — 검증 필요 |
 | Logcat 캡처 도구 | **존재** (`Assets/Editor/Tools/LogcatCapture.cs`) — 메뉴 항목은 `1. 버퍼 비우기` / `2. 파일로 저장` 2개 | 1.12 — 그대로 사용 |
-| 수동 정리 메뉴 `Hexiege > Logcat > 오래된 에디터 로그 정리` | **없음** | 1.10 — 구현 필요 |
+| 수동 정리 메뉴 `Hexiege > Logcat > 오래된 에디터 로그 정리` | **여전히 없음** | 1.10 — 구현 필요 |
 
 ### `GameLog` 배치 위치 (확정)
 
@@ -677,6 +704,8 @@ Hexiege > Logcat > 오래된 에디터 로그 정리
 7. **운영 로그 메서드에 `[Conditional]` 부착 금지** — 릴리스에서 사라지면 안 된다 (1.7)
 8. **매 틱·매 프레임 로깅 금지** — 상태 **전이** 시점에만 남긴다. 스팸은 정작 필요한 줄을 묻어 버린다
 9. **같은 사건을 두 곳에서 로깅 금지** — 최종 처리 지점에서 한 번만 (분류 원칙 1)
+   - **"최종 처리 지점"의 정의는 1.3 「원칙 간 우선순위」 ② 참조** — **예외 객체(`e.Message`·예외 타입·스택)를 직접 손에 쥔 `catch` 블록**이다. "사용자에게 알리고 흐름을 끝내는 상위 호출부"가 아니다.
+   - 이 금지가 **원칙 3(`Error`는 항상 `운영`)과 충돌할 때는 원칙 1이 우선**한다 — 같은 절 ①·③ 참조. 원인을 가진 계층을 `운영`으로 두고, 중복되는 상위 호출부를 `개발`로 내린다.
 10. **`임시` 로그 코드를 남긴 채 작업 종료 금지** — 코드는 제거하되, **로그 파일 자체는 `_Logs/`에 보존**한다
 
 ---
