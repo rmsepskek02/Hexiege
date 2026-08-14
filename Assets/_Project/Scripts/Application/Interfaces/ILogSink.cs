@@ -118,7 +118,20 @@ namespace Hexiege.Application
         /// 게임은 계속 진행되며 플레이어에게는 아무 통지도 가지 않는다.
         /// 발생 지점: Infrastructure/Network/UnityServicesInitializer.cs
         /// </summary>
-        UgsSessionMissingAnonymousFallback
+        UgsSessionMissingAnonymousFallback,
+
+        // ── LoginUseCase (4단계 3/8) ──────────────────────────────────
+        /// <summary>UGS 브릿지에서 BridgeToUGSAsync 가 삼키지 못한 예외가 올라온 경우.</summary>
+        UgsBridgeUnhandledException,
+
+        /// <summary>UGS SignOut 실패. 이전 계정 세션이 남아 다음 로그인에서 계정이 뒤바뀔 수 있다.</summary>
+        UgsSignOutFailed,
+
+        /// <summary>BridgeToUGSAsync 호출 계약 위반 — firebaseUID 가 비어 있다.</summary>
+        UgsBridgeMissingFirebaseUid,
+
+        /// <summary>UGS 브릿지 실패. 로그인은 성공 처리되어 플레이어는 통지받지 못한다.</summary>
+        UgsBridgeFailed
     }
 
     /// <summary>
