@@ -131,7 +131,20 @@ namespace Hexiege.Application
         UgsBridgeMissingFirebaseUid,
 
         /// <summary>UGS 브릿지 실패. 로그인은 성공 처리되어 플레이어는 통지받지 못한다.</summary>
-        UgsBridgeFailed
+        UgsBridgeFailed,
+
+        // ── FirebaseAuthService (4단계 4/8) ───────────────────────────
+        /// <summary>Firebase 의존성 해결 실패. Google Play 서비스 상태는 기기마다 달라 재현되지 않는다.</summary>
+        FirebaseDependencyUnavailable,
+
+        /// <summary>Firebase 초기화 실패. catch 후 false 를 반환해 호출부는 사유를 받지 못한다.</summary>
+        FirebaseInitializeFailed,
+
+        /// <summary>Google Play Games 인증 실패. 단계는 Stage 값으로 구분한다.</summary>
+        GooglePlayGamesAuthFailed,
+
+        /// <summary>Firebase 인증 작업 실패. 원본 code·reason 이 이 자리에만 남는다.</summary>
+        FirebaseAuthOperationFailed
     }
 
     /// <summary>

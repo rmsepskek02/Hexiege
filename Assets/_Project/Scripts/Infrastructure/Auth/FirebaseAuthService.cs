@@ -35,6 +35,7 @@ using Firebase.Extensions;
 using GooglePlayGames;
 #endif
 using UnityEngine;
+using Hexiege.Application;
 
 namespace Hexiege.Infrastructure
 {
@@ -104,7 +105,8 @@ namespace Hexiege.Infrastructure
 
                 if (status != DependencyStatus.Available)
                 {
-                    Debug.LogError($"[FirebaseAuth] Firebase 의존성 해결 실패: {status}");
+                    GameLog.Ops.Error(LogEvent.FirebaseDependencyUnavailable, "Auth", nameof(FirebaseAuthService),
+                                      "Firebase 의존성 해결 실패", $"Status={status}");
                     return false;
                 }
 
@@ -112,13 +114,16 @@ namespace Hexiege.Infrastructure
                 _auth = FirebaseAuth.DefaultInstance;
                 IsInitialized = true;
 
-                Debug.Log($"[FirebaseAuth] 초기화 완료. 기존 세션: " +
-                          $"{(IsLoggedIn ? $"있음(UID={FirebaseUID}, Anonymous={IsAnonymous})" : "없음")}");
+                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "초기화 완료",
+                                 IsLoggedIn ? $"HasSession=true, Uid={FirebaseUID}, Anonymous={IsAnonymous}"
+                                            : "HasSession=false");
                 return true;
             }
             catch (Exception e)
             {
-                Debug.LogError($"[FirebaseAuth] 초기화 예외: {e.Message}");
+                GameLog.Ops.Error(LogEvent.FirebaseInitializeFailed, "Auth", nameof(FirebaseAuthService),
+                                  "초기화 실패 — 호출부는 사유를 받지 못한다", e);
                 return false;
             }
         }
@@ -143,7 +148,8 @@ namespace Hexiege.Infrastructure
                 AuthResult result = await _auth.SignInAnonymouslyAsync();
                 FirebaseUser user = result.User;
 
-                Debug.Log($"[FirebaseAuth] 익명 로그인 성공. UID={user.UserId}");
+                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "익명 로그인 성공", $"Uid={user.UserId}");
                 return user.UserId;
             }
             catch (FirebaseException e)
@@ -188,8 +194,9 @@ namespace Hexiege.Infrastructure
                 // (SignInAnonymouslyAsync 등 다른 메서드는 AuthResult 반환 — 버전별 차이)
                 FirebaseUser user = await _auth.SignInWithCredentialAsync(credential);
 
-                Debug.Log($"[FirebaseAuth] Google 로그인 성공. UID={user.UserId}, " +
-                          $"DisplayName={user.DisplayName}");
+                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "Google 로그인 성공",
+                                 $"Uid={user.UserId}, DisplayName={user.DisplayName}");
                 return user.UserId;
             }
             catch (FirebaseException e)
@@ -207,7 +214,7 @@ namespace Hexiege.Infrastructure
         {
             // TaskCompletionSource: 콜백 결과를 Task 의 결과로 전달하기 위한 표준 헬퍼.
 #if !UNITY_ANDROID
-            Debug.LogWarning("[FirebaseAuth] Google Play Games login is only available on Android.");
+            GameLog.Dev.Warn("Auth", nameof(FirebaseAuthService), "Google Play Games 로그인은 Android 에서만 지원된다");
             return Task.FromResult(string.Empty);
 #else
             var tcs = new TaskCompletionSource<string>();
@@ -217,7 +224,8 @@ namespace Hexiege.Infrastructure
             {
                 if (signInStatus != GooglePlayGames.BasicApi.SignInStatus.Success)
                 {
-                    Debug.LogError($"[FirebaseAuth] GPGS 인증 실패: {signInStatus}");
+                    GameLog.Ops.Warn(LogEvent.GooglePlayGamesAuthFailed, "Auth", nameof(FirebaseAuthService),
+                                     "GPGS 인증 실패", $"Stage=SignIn, Status={signInStatus}");
                     tcs.TrySetResult(string.Empty);
                     return;
                 }
@@ -230,12 +238,13 @@ namespace Hexiege.Infrastructure
                     {
                         if (string.IsNullOrEmpty(authCode))
                         {
-                            Debug.LogError("[FirebaseAuth] GPGS Server Auth Code 발급 실패.");
+                            GameLog.Ops.Warn(LogEvent.GooglePlayGamesAuthFailed, "Auth", nameof(FirebaseAuthService),
+                                             "GPGS Server Auth Code 발급 실패", "Stage=ServerAuthCode");
                             tcs.TrySetResult(string.Empty);
                         }
                         else
                         {
-                            Debug.Log("[FirebaseAuth] GPGS Server Auth Code 발급 성공.");
+                            GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "GPGS Server Auth Code 발급 성공");
                             tcs.TrySetResult(authCode);
                         }
                     });
@@ -262,8 +271,9 @@ namespace Hexiege.Infrastructure
             try
             {
                 AuthResult result = await _auth.SignInWithEmailAndPasswordAsync(email, password);
-                Debug.Log($"[FirebaseAuth] 이메일 로그인 성공. UID={result.User.UserId}, " +
-                          $"EmailVerified={result.User.IsEmailVerified}");
+                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "이메일 로그인 성공",
+                                 $"Uid={result.User.UserId}, EmailVerified={result.User.IsEmailVerified}");
                 return result.User.UserId;
             }
             catch (FirebaseException e)
@@ -286,7 +296,8 @@ namespace Hexiege.Infrastructure
             try
             {
                 AuthResult result = await _auth.CreateUserWithEmailAndPasswordAsync(email, password);
-                Debug.Log($"[FirebaseAuth] 회원가입 성공. UID={result.User.UserId}");
+                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "회원가입 성공", $"Uid={result.User.UserId}");
 
                 // 표시 이름이 있으면 프로필에 설정
                 if (!string.IsNullOrWhiteSpace(displayName))
@@ -315,7 +326,8 @@ namespace Hexiege.Infrastructure
             try
             {
                 await _auth.CurrentUser.SendEmailVerificationAsync();
-                Debug.Log($"[FirebaseAuth] 인증 메일 발송: {_auth.CurrentUser.Email}");
+                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터 — 이메일은 부분 마스킹도 금지, 출력 자체를 없앤다
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "인증 메일 발송");
             }
             catch (FirebaseException e)
             {
@@ -342,7 +354,7 @@ namespace Hexiege.Infrastructure
                 //   캐시된 로컬 상태가 아닌 최신 인증 상태를 가져온다.
                 await _auth.CurrentUser.ReloadAsync();
                 bool verified = _auth.CurrentUser.IsEmailVerified;
-                Debug.Log($"[FirebaseAuth] 인증 완료 확인 결과: {verified}");
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "인증 완료 확인", $"Verified={verified}");
                 return verified;
             }
             catch (FirebaseException e)
@@ -362,7 +374,8 @@ namespace Hexiege.Infrastructure
             try
             {
                 await _auth.SendPasswordResetEmailAsync(email);
-                Debug.Log($"[FirebaseAuth] 비밀번호 재설정 메일 발송: {email}");
+                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터 — 이메일 출력 제거 대상
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "비밀번호 재설정 메일 발송");
             }
             catch (FirebaseException e)
             {
@@ -396,7 +409,8 @@ namespace Hexiege.Infrastructure
             {
                 Credential credential = PlayGamesAuthProvider.GetCredential(serverAuthCode);
                 await _auth.CurrentUser.LinkWithCredentialAsync(credential);
-                Debug.Log($"[FirebaseAuth] Google 연동 성공. UID={FirebaseUID}");
+                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "Google 연동 성공", $"Uid={FirebaseUID}");
             }
             catch (FirebaseException e)
             {
@@ -421,7 +435,8 @@ namespace Hexiege.Infrastructure
             {
                 Credential credential = EmailAuthProvider.GetCredential(email, password);
                 await _auth.CurrentUser.LinkWithCredentialAsync(credential);
-                Debug.Log($"[FirebaseAuth] 이메일 연동 성공. UID={FirebaseUID}, Email={email}");
+                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터 — UID 해시 치환 + 이메일 출력 제거
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "이메일 연동 성공", $"Uid={FirebaseUID}, Email={email}");
 
                 // 이메일 연동 직후 인증 메일 발송 — 호출자가 별도 호출하지 않아도 되도록 일관성 유지.
                 await _auth.CurrentUser.SendEmailVerificationAsync();
@@ -445,7 +460,7 @@ namespace Hexiege.Infrastructure
         {
             EnsureInitialized();
             _auth.SignOut();
-            Debug.Log("[FirebaseAuth] 로그아웃 완료.");
+            GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "로그아웃 완료");
             return Task.CompletedTask;
         }
 
@@ -460,7 +475,9 @@ namespace Hexiege.Infrastructure
             {
                 string uid = _auth.CurrentUser.UserId;
                 await _auth.CurrentUser.DeleteAsync();
-                Debug.Log($"[FirebaseAuth] Current user deleted. UID={uid}");
+                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
+                // 잠정 판정: 개발. 되돌릴 수 없는 조작이라 감사 기록 요구가 축 판정을 덮을 수 있다(질의 Q-4).
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "계정 삭제 완료", $"Uid={uid}");
             }
             catch (FirebaseException e)
             {
@@ -500,7 +517,7 @@ namespace Hexiege.Infrastructure
             {
                 // TokenAsync(false): 캐시된 토큰 우선, 만료 임박 시 SDK 가 알아서 갱신.
                 string token = await _auth.CurrentUser.TokenAsync(forceRefresh);
-                Debug.Log("[FirebaseAuth] ID Token 발급 완료 (UGS OIDC 브릿지용).");
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "ID Token 발급 완료 (UGS OIDC 브릿지용)");
                 return token;
             }
             catch (FirebaseException e)
@@ -547,7 +564,8 @@ namespace Hexiege.Infrastructure
             };
 
             string message = ResolveUserMessage(reason);
-            Debug.LogWarning($"[FirebaseAuth] {operation} 실패: {code} → {reason} ({e.Message})");
+            GameLog.Ops.Warn(LogEvent.FirebaseAuthOperationFailed, "Auth", nameof(FirebaseAuthService),
+                             "Firebase 인증 작업 실패", e, $"Operation={operation}, Code={code}, Reason={reason}");
             return new AuthException(reason, message, e);
         }
 
