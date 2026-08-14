@@ -85,7 +85,40 @@ namespace Hexiege.Application
         /// GameBootstrapper 가 건 UnityEngine.Application.logMessageReceived 훅이 수집한다.
         /// (LogRules.md 1.9 "전역 미처리 예외 수집")
         /// </summary>
-        UnhandledException
+        UnhandledException,
+
+        // ====================================================================
+        // [G] UGS 초기화 · 브릿지
+        //
+        // 부여 근거: _Tasks/2026-08-13/07_13_network-auth-log-cleanup/LogAudit.md §5-1 G그룹.
+        //
+        // ⚠️ 초급 개발자 주의 — 왜 감사표의 키 30개를 한 번에 넣지 않는가:
+        //    이관은 파일 단위로 진행되며, 각 파일 차례에 그 파일이 실제로 쓰는 키만 추가한다.
+        //    미리 다 넣어 두면 "선언은 되어 있는데 아무도 쓰지 않는 키"가 생기고,
+        //    나중에 그것이 이관 누락 때문인지 원래 안 쓰는 키인지 구분할 수 없게 된다.
+        //
+        // ⚠️ 멤버를 추가하는 위치(순서)는 집계에 영향을 주지 않는다.
+        //    서버로는 enum 의 숫자 값이 아니라 **멤버 이름 그대로** 나가기 때문이다
+        //    (LogRules.md 1.5 — "변환 규칙을 두지 않는다").
+        //    반대로 **이름을 바꾸면** 서버에 쌓인 과거 지표와 연결이 끊긴다. 이름은 고정이다.
+        // ====================================================================
+
+        /// <summary>
+        /// UGS(Unity Gaming Services) 초기화 자체가 실패했다.
+        /// 지역·회선·프로젝트 설정에 좌우돼 개발 기기에서는 재현되지 않는 종류의 실패이고,
+        /// 예외 메시지가 원인을 알 수 있는 유일한 단서다.
+        /// 발생 지점: Infrastructure/Network/UnityServicesInitializer.cs
+        /// </summary>
+        UnityServicesInitializeFailed,
+
+        /// <summary>
+        /// UGS 세션이 하나도 없어 익명 로그인으로 폴백했다.
+        /// 릴리스 빌드에서 이 키가 올라오면 Login 씬이 만든 OIDC 세션이 유실됐다는 뜻이고,
+        /// 그 결과 PlayerId 가 통째로 바뀌어 멀티플레이 정체성이 달라진다.
+        /// 게임은 계속 진행되며 플레이어에게는 아무 통지도 가지 않는다.
+        /// 발생 지점: Infrastructure/Network/UnityServicesInitializer.cs
+        /// </summary>
+        UgsSessionMissingAnonymousFallback
     }
 
     /// <summary>
