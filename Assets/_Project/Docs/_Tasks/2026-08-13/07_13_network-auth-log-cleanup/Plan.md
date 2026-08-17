@@ -11,7 +11,7 @@
 **구현 담당:** **game-programmer 에이전트**
 **현재 상태:** **전 단계 완료** (0단계 컴파일 검증 · 4단계 이관 · **5단계 마스킹**) **+ 추가 처리 2건**(`LobbyManager` 마스킹 · 수동 정리 메뉴) — 진행 기록은 **§0-7**(0·4단계) · **§0-9**(5단계 + 추가 2건), §0-8 ①②는 **구현 완료**
 > ~~직전 판: "0단계(컴파일 검증) · 4단계(이관) 완료 / 5단계(마스킹) 대기"~~ — 2026-08-17 갱신으로 무효.
-> **⚠️ "완료"는 코드 작성 완료를 뜻한다. 커밋 `4e027e68` · `675203ae` 는 사용자 유니티 컴파일 검증 전이고 실기 동작 테스트도 하지 않았다** (§0-9 ⑤).
+> **⚠️ "완료"는 코드 작성 완료를 뜻한다. 커밋 `4e027e68` · `675203ae` 는 사용자 유니티 컴파일 통과가 확인되었으나(2026-08-17) 실기 동작 테스트는 하지 않았다** (§0-9 ⑤).
 
 ---
 
@@ -369,7 +369,7 @@
 > 계획이 명시하지 않았던 세부(역할 로그를 `if (IsServer)` 분기 **바깥**에 둔 것, `purpose` 빈 값 방어,
 > `GameBootstrapper.Setup.cs` 의 틀린 전제 주석 정정)는 **계획과 어긋나는 변경이 아니라 계획에 없던 보완**이다.
 >
-> **⚠️ 사용자 유니티 컴파일 검증 전이며 실기 동작 테스트도 하지 않았다** (§0-9 ⑤).
+> **⚠️ 사용자 유니티 컴파일 통과는 확인되었으나(2026-08-17) 실기 동작 테스트는 하지 않았다** (§0-9 ⑤).
 
 #### ① `FileSink` 역할 `"host"` 하드코딩 — **역할을 파일명에서 빼고 로그 라인으로 옮긴다**
 
@@ -574,9 +574,13 @@ Hexiege > Logcat > 3. 오래된 에디터 로그 정리
 
 #### ⑤ 5단계에서 하지 않은 것 · 남은 것 (명시)
 
-- **⚠️ 컴파일 검증을 하지 않았다.** 커밋 `4e027e68` · `675203ae` 의 변경분은 **사용자 유니티 컴파일 검증 전**이다.
-  (§0-7 ① 의 "통과"는 **205건 이관분**에 대한 것이고, 이 두 커밋은 그 뒤의 변경이다.)
-- **⚠️ 실기 동작 테스트를 하지 않았다.** 특히 **새 정리 메뉴는 실제로 실행해 본 적이 없다.**
+- **✅ 컴파일 검증은 통과했다 (2026-08-17).** 커밋 `4e027e68` · `675203ae` · `4710ce31` 전부에 대해 **사용자 유니티에서 컴파일 통과가 확인**되었다.
+  (§0-7 ① 의 "통과"는 **205건 이관분**에 대한 것이었고, 이 커밋들은 그 뒤의 변경이다.)
+  ~~"⚠️ 컴파일 검증을 하지 않았다 — 사용자 유니티 컴파일 검증 전이다"~~ — 2026-08-17 확인으로 무효.
+- **⚠️ 실기 동작 테스트를 하지 않았다 — 이 task 에 남은 검증은 이것 하나뿐이다.**
+  **컴파일 통과는 "문법이 맞다"는 뜻이지 "동작한다"는 뜻이 아니다.** 로그가 실제로 `RuntimeLog.txt` 로 생기는지,
+  헤더 뒤 빈 줄이 들어가는지, `Role=host` / `Role=client` 가 찍히는지는 **확인된 바 없다.**
+  특히 **새 정리 메뉴는 실제로 실행해 본 적이 없다.**
 - **`Testcase.md` 를 작성하지 않았다** (`WORKFLOW.md` [5-1] — 사용자 명시 요청 시에만).
 - **나머지 계층은 손대지 않았다** — `Assets/_Project/Scripts/` 전체 `Debug.Log` 계열 잔존 **234건**은
   이번 8파일 **밖**이다. 사용자가 범위를 **"이번 task 마무리까지"** 로 정했고,
@@ -1159,7 +1163,8 @@ game-programmer가 **모든 단계에서 지켜야 할 규칙**이다.
 > **[갱신 2026-08-17]** 위 표의 **7**(민감 데이터 마스킹)은 **5단계로 완료**되었고(§0-9 ①),
 > **8**의 단서였던 *"1.13 이 구현 이후 갱신되지 않았다"* 도 **해소**되었다(§0-4 ⑤).
 > **9**(상시 참조 문서 갱신)는 코드 작업이 끝나 **2026-08-17 문서 갱신 작업에서 수행**했다 —
-> `PROJECT_STATUS.md` · `ROADMAP.md` · `WORK_HISTORY.md` 에 **"컴파일 검증 전 · 실기 미검증"** 단서를 함께 명시했다.
+> `PROJECT_STATUS.md` · `ROADMAP.md` · `WORK_HISTORY.md` 에 검증 상태 단서를 함께 명시했다 —
+> 현재 표기는 **"컴파일 통과 확인됨(2026-08-17) · 실기 동작 테스트 없음"** 이다.
 
 | # | 항목 | 이유 |
 |:-:|------|------|
@@ -1251,3 +1256,49 @@ game-programmer가 **모든 단계에서 지켜야 할 규칙**이다.
 
 > **`Testcase.md`는 사용자가 명시적으로 요청한 경우에만 작성한다** (WORKFLOW.md [5-1]).
 > 이번 작업에서는 요청이 없어 **작성하지 않는다.**
+
+---
+
+## 9. 변경 파일 리스트업 (`WORKFLOW.md` [12]) — 2026-08-17 신설
+
+> **근거:** 파일 목록은 이 문서 **§0-7 ②**(이관 8파일) · **§0-9 ①③④**(마스킹 · 정리 메뉴) · **§0-8 ①②**(파일명 · 헤더) 와
+> `Research.md` **§12-2**(`GameLog` 뼈대 6파일) 의 기록에서 뽑았고, **각 경로의 실재 여부는 파일 시스템에서 직접 확인**했다.
+> **git 명령은 사용하지 않았다**(CLAUDE.md 규칙 5).
+> `[DEBUG-TEMP]` 임시 로그 제거 4파일(커밋 `f5961cd9`)은 **이 task 의 범위 밖인 별도 작업**이라 넣지 않았다(§7 #1).
+
+```
+[추가]
+- Assets/_Project/Scripts/Application/GameLog.cs
+- Assets/_Project/Scripts/Application/Interfaces/ILogSink.cs
+- Assets/_Project/Scripts/Infrastructure/Debug/ConsoleSink.cs
+- Assets/_Project/Scripts/Infrastructure/Debug/FileSink.cs
+
+[수정]
+- Assets/_Project/Scripts/Bootstrap/GameBootstrapper.cs
+- Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Setup.cs
+- Assets/_Project/Scripts/Infrastructure/Debug/RuntimeLogger.cs
+- Assets/Editor/Tools/LogcatCapture.cs
+- Assets/_Project/Scripts/Application/UseCases/LoginUseCase.cs
+- Assets/_Project/Scripts/Infrastructure/Auth/FirebaseAuthService.cs
+- Assets/_Project/Scripts/Infrastructure/Network/LobbyManager.cs
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkBuildingController.cs
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkGameEndController.cs
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkGameManager.cs
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.cs
+- Assets/_Project/Scripts/Infrastructure/Network/UnityServicesInitializer.cs
+- Assets/_Project/Docs/LogRules.md
+- Assets/_Project/Docs/PROJECT_STATUS.md
+- Assets/_Project/Docs/ROADMAP.md
+- Assets/_Project/Docs/WORK_HISTORY.md
+
+[작업 문서]
+- Assets/_Project/Docs/_Tasks/2026-08-13/07_13_network-auth-log-cleanup/Research.md
+- Assets/_Project/Docs/_Tasks/2026-08-13/07_13_network-auth-log-cleanup/Plan.md
+- Assets/_Project/Docs/_Tasks/2026-08-13/07_13_network-auth-log-cleanup/LogAudit.md
+```
+
+- **`Assets/Editor/Tools/LogcatCapture.cs` 를 `[수정]` 에 둔 이유:** 파일 자체는 선행 작업(커밋 `0087350f`)에서
+  생겼고, 이 task 가 한 일은 **메뉴 항목 `3. 오래된 에디터 로그 정리` 추가**(커밋 `675203ae`)다(§0-9 ④).
+- **`.meta` 파일은 적지 않았다** — `LogRules.md` 가 `.meta` 취급을 규정하지 않아 **규정 공백**이며(§0-4 표 ④),
+  어느 `.meta` 가 이 task 에서 생겼는지는 git 없이 확정할 수 없다. **추정해서 적지 않는다**(CLAUDE.md 규칙 10).
