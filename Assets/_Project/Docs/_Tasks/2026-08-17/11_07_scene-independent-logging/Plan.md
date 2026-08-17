@@ -385,7 +385,7 @@ Game 씬    : GameBootstrapper.Awake
 | **②** | **`UnityEngine.Application.quitting` 이 에디터 플레이모드 종료 시 발생하는가** | 이 프로젝트 코드에 `quitting` 사용처가 **0건**이라 참고할 선례가 없다. 문서 담당은 코드를 실행할 수 없다 | `game-programmer` 가 구현 중 실제로 확인. **발생하지 않으면 §8 R3 의 보조 배선 도입** |
 | **③** | **`Lobby.unity` 직접 진입을 커버할 것인가** (§8 R6) | 개발 편의상 Lobby 를 직접 열고 실행하는 빈도를 문서 담당이 알 수 없다. **추정하지 않는다** | **사용자 판단.** 선택지: ⓐ 그대로 둔다(콘솔 폴백) / ⓑ Lobby 에 최소 진입점을 둔다(씬 수정 발생) |
 | **④** | **신규 클래스의 최종 이름·시그니처·`quitting` 배선 위치** | §6-3 에서 "상태를 static 한 곳에" 와 "Infrastructure/Debug 에 둔다" 까지만 확정했다 | **구현 시 `game-programmer` 판단** |
-| **⑤** | **`ShutdownLogging()` 주석 처리분의 최종 삭제 시점** | WORKFLOW.md [4] 규정상 사용자 테스트 통과 전에는 삭제하지 않는다 | **[6] 통과 후 · [7] 전**에 삭제 |
+| **⑤** | **`ShutdownLogging()` 주석 처리분의 최종 삭제 시점** | WORKFLOW.md [4] 규정상 사용자 테스트 통과 전에는 삭제하지 않는다 | **[6] 통과 후 · [7] 전**에 삭제 → **삭제 완료**(커밋 `7ef682db`) |
 
 ### 9-1. 「확인 필요」 5건의 처리 결과 (2026-08-17 · 구현·실기 검증 후 추가)
 
@@ -397,7 +397,7 @@ Game 씬    : GameBootstrapper.Awake
 | **②** `quitting` 이 플레이 모드 종료에서도 발생하는가 | **여전히 단정하지 않는다.** 대신 **§8 R3 의 보조 배선을 실제로 도입**해 위험을 없앴다 — `#if UNITY_EDITOR` 안에서 `EditorApplication.playModeStateChanged` 를 걸고 **`EnteredEditMode`** 에서 `Shutdown()` 을 한 번 더 시도한다. `Shutdown()` 이 멱등이라 두 경로가 모두 불려도 안전하다 | `LogSessionOwner.cs` `OnPlayModeStateChanged` |
 | **③** `Lobby.unity` 직접 진입을 커버할 것인가 | **사용자가 선택지 ⓐ(그대로 둔다)로 결정했다** — *"로비를 직접 열어 실행하는 경우는 없다(항상 Login 을 거친다)"*. 따라서 **씬 파일은 건드리지 않았고**, 이 항목은 미해결 결함이 아니라 **범위 밖으로 확정된 항목**이다. `LogRules.md` **1.8**·**1.10**·**1.13** 에도 같은 취지로 기록했다 | 사용자 판단 (2026-08-17) |
 | **④** 신규 클래스의 이름·시그니처·배선 위치 | **전부 확정됨** — 클래스명 **`LogSessionOwner`**(가칭 `LogSessionBootstrap` 에서 변경), 공개 진입점은 **`EnsureInitialized()` 하나**, 정리는 **`private static Shutdown()`**, `quitting` 배선은 **클래스가 자기 안에서 직접 건다**(호출자가 걸지 않는다), 파일은 **1개**. 상세와 변경 이유는 **§13** | `Infrastructure/Debug/LogSessionOwner.cs` |
-| **⑤** 주석 처리분의 최종 삭제 | **⚠️ 아직 삭제되지 않았다.** `GameBootstrapper.cs` **473행**에 `// ShutdownLogging();` 이 주석으로 남아 있다(주석 블록에도 *"사용자 테스트 통과 후 삭제 예정"* 이라 적혀 있다). **사용자 테스트는 통과했으므로 이제 삭제 대상이다.** 참고로 `ShutdownLogging()` **메서드 본체는 이미 없다**(§13 ⑥ — `Setup.cs` 에서 완전 삭제됨)이라, 이 주석 한 줄을 지우는 것은 동작에 영향이 없다. **코드 변경이라 문서 담당 범위 밖**이므로 잔여 조치로만 기록한다 | `GameBootstrapper.cs` 470~473행 실측 |
+| **⑤** 주석 처리분의 최종 삭제 | **✅ 삭제 완료**(커밋 `7ef682db`). 사용자 테스트가 통과해 WORKFLOW.md [4] 의 삭제 시점이 도래했으므로 `GameBootstrapper.cs` `OnDestroy` 의 `// ShutdownLogging();` 주석을 삭제했다. `ShutdownLogging()` **메서드 본체는 이미 없었으므로**(§13 ⑥ — `Setup.cs` 에서 완전 삭제됨) **동작 변경은 없다.** 왜 여기서 로그를 정리하지 않는지는 `OnDestroy` 의 XML 주석이 그대로 설명한다 | 커밋 `7ef682db` |
 
 ---
 
@@ -504,7 +504,7 @@ Game 씬    : GameBootstrapper.Awake
 | ③ | 에디터 보조 배선은 **§8 R3 확인 결과에 따라** 필요할 수 있다 (§7) | **도입함 — `EditorApplication.playModeStateChanged` 의 `EnteredEditMode`** | `quitting` 이 플레이 모드 종료에서도 발생하는지 단정할 수 없어 보조 배선을 넣었다(§9-1 ②). **`ExitingPlayMode` 가 아니라 `EnteredEditMode` 를 고른 이유**: `ExitingPlayMode` 는 오브젝트들의 `OnDestroy` **보다 앞설 수 있어** 종료 과정에서 남는 로그를 흘릴 위험이 있다. `EnteredEditMode` 는 정리가 다 끝난 뒤라 그럴 일이 없다 |
 | ④ | (계획에 없던 항목) | **미처리 예외 로그의 `className` 이 `LogSessionOwner` 로 바뀐다** | 훅의 소유자가 옮겨 왔기 때문이다. Infrastructure 인 이 파일이 Bootstrap 의 `GameBootstrapper` 를 참조하면 **의존 방향이 뒤집히므로 불가피**하다. 로그 라인이 `[Runtime/GameBootstrapper]` → **`[Runtime/LogSessionOwner]`** 로 바뀌어 **로그를 `grep` 하는 쪽에 영향이 있다**. `LogRules.md` **1.9** 에도 기록했다 |
 | ⑤ | (계획에 없던 항목) | **`public static bool IsInitialized` 속성 추가** | 로그 배선이 켜져 있는지를 **밖에서 읽기만** 할 수 있게 한 것이다. 여는 것은 `EnsureInitialized()`, 닫는 것은 `private` 이므로 **상태를 바꾸는 통로는 늘지 않는다** |
-| ⑥ | `ShutdownLogging()` 은 **주석 처리(비활성화)** 한다 (§7 [수정] `GameBootstrapper.Setup.cs`) | **`Setup.cs` 의 세 메서드(`InitializeLogging` · `ShutdownLogging` · `OnUnityLogMessageReceived`)는 완전 삭제** | **이관이라 원본을 남기면 중복 정의가 된다** — 같은 로직이 두 곳에 살아 있게 되고, 훅이 두 번 등록될 여지가 생긴다. 「비활성화 우선」(WORKFLOW.md [4])이 겨냥하는 것은 **되돌릴 여지를 남기는 것**인데, 이관은 **원본이 신규 파일에 그대로 옮겨져 있어** 그 목적이 이미 충족된다.<br>**단, `GameBootstrapper.cs` 473행의 호출 한 줄은 규정대로 주석 처리**되어 지금도 남아 있다(§9-1 ⑤) |
+| ⑥ | `ShutdownLogging()` 은 **주석 처리(비활성화)** 한다 (§7 [수정] `GameBootstrapper.Setup.cs`) | **`Setup.cs` 의 세 메서드(`InitializeLogging` · `ShutdownLogging` · `OnUnityLogMessageReceived`)는 완전 삭제** | **이관이라 원본을 남기면 중복 정의가 된다** — 같은 로직이 두 곳에 살아 있게 되고, 훅이 두 번 등록될 여지가 생긴다. 「비활성화 우선」(WORKFLOW.md [4])이 겨냥하는 것은 **되돌릴 여지를 남기는 것**인데, 이관은 **원본이 신규 파일에 그대로 옮겨져 있어** 그 목적이 이미 충족된다.<br>**단, `GameBootstrapper.cs` 473행의 호출 한 줄은 규정대로 주석 처리**했고, 사용자 테스트 통과 후 **삭제했다**(커밋 `7ef682db` · §9-1 ⑤) |
 
 ---
 
@@ -526,7 +526,7 @@ Game 씬    : GameBootstrapper.Awake
 |---|---|
 | **[추가]** `Infrastructure/Debug/LogSessionOwner.cs` | sink 인스턴스 · 초기화 플래그 · 훅 중복 방지 상태를 **한 곳의 `static`** 으로 모은 정적 소유자. `EnsureInitialized()`(public · 멱등) / `Shutdown()`(private · 멱등) / `OnUnityLogMessageReceived`(되먹임 방어 3겹 그대로 이관) / `IsInitialized`. `UnityEngine.Application.quitting` + 에디터 보조 배선을 **자기 안에서** 건다 |
 | `Bootstrap/GameBootstrapper.Setup.cs` | `InitializeLogging` · `ShutdownLogging` · `OnUnityLogMessageReceived` **완전 삭제**(이관). 파일 상단 섹션 주석에 이동 사실을 명시 |
-| `Bootstrap/GameBootstrapper.cs` | `Awake` 첫 줄을 `LogSessionOwner.EnsureInitialized()` 로 교체 · `OnDestroy` 의 `ShutdownLogging()` 호출 **주석 처리**(473행) · sink/훅 상태 필드 이관 · `OnDestroy` XML 주석 정정(정리 시점이 앱 종료로 옮겨졌다) |
+| `Bootstrap/GameBootstrapper.cs` | `Awake` 첫 줄을 `LogSessionOwner.EnsureInitialized()` 로 교체 · `OnDestroy` 의 `ShutdownLogging()` 호출 **주석 처리**(473행 — 이후 커밋 `7ef682db` 에서 **삭제**) · sink/훅 상태 필드 이관 · `OnDestroy` XML 주석 정정(정리 시점이 앱 종료로 옮겨졌다) |
 | `Bootstrap/LoginBootstrapper.cs` | `Awake` **가장 앞줄**에 `LogSessionOwner.EnsureInitialized()` 추가 · **13행 주석 정정** — ~~*"GameBootstrapper 는 Lobby/Game 씬에 존재"*~~ → **Game 씬에만 존재**(실측 §2-2 — `Lobby.unity` 참조 0건) |
 
 ### 코드 — 후속 커밋 `73574a23` (`Role` 값 표기 통일)
