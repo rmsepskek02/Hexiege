@@ -4,6 +4,25 @@
 
 ---
 
+## ✅ 상태: 구현 완료 · 실기 검증 완료 (2026-08-17 · 커밋 `a253232e`)
+
+> **이 문서는 계획서로 쓰였고, 아래 §0 이하 본문은 계획 당시의 원문을 그대로 보존한다.**
+> 구현 결과와 계획이 달라진 부분은 **§13 「구현 결과」** 에, 실기 검증 결과는 **§10 하단**과 **§14** 에 덧붙였다.
+
+| 항목 | 상태 |
+|---|---|
+| 구현 | ✅ **완료** — 신규 `Infrastructure/Debug/**LogSessionOwner**.cs` 1개 + 수정 3개 (커밋 `a253232e`) |
+| 컴파일 | ✅ **통과 확인** — 사용자가 이 상태로 실기 테스트를 수행했다 |
+| 실기 검증 | ✅ **완료 (전 항목 PASS)** — 근거 로그 `_Logs/_editor/2026-08-17/RuntimeLog.txt` (**199줄**) |
+| 후속 커밋 `73574a23` (`Role` 값 표기 통일) | ⚠️ **명시적 컴파일 확인을 받지 않았다** — 문자열 리터럴 1줄 변경이지만 "통과했다"고 적지 않는다 |
+| §9 「확인 필요」 5건 | ✅ **전부 처리됨** — §9 표의 「처리 결과」 열 참조 |
+| `Lobby.unity` 직접 진입 (§8 R6 · §9-③) | **커버하지 않기로 사용자가 결정** — 결함이 아니라 **범위 밖 확정** |
+
+> **[이전 기록 — 구현 전]** 이 자리의 상태는 *"구현 전 / 사용자 승인 대기"* 였다.
+> 원문 보존 방침에 따라 아래 §0·§7·§9·§10 의 계획 시점 서술은 지우지 않고 그대로 둔다.
+
+---
+
 ## ⚠️ 최상단 고지 — 기존 로직 "제거"가 포함된다 (WORKFLOW.md [4] 기존 로직 제거 규칙)
 
 이 계획에는 **기존 호출 한 곳을 없애는 변경**이 들어 있다. 규칙에 따라 최상단에 먼저 적는다.
@@ -19,10 +38,15 @@ WORKFLOW.md 규정대로 **[6] 사용자 테스트 통과 후 · [7] 문서/메�
 
 ## 0. 이 문서의 상태
 
+> **⚠️ 아래 4줄은 계획 시점(구현 전)의 서술이며 원문 그대로 보존한다.**
+> **현재 상태는 문서 최상단 「✅ 상태」 표와 §13 「구현 결과」 를 본다.**
+
 - **이 Plan 은 코드가 한 줄도 바뀌지 않은 상태에서 작성되었다.** 아래 모든 실측값은 현행 코드를 읽어 확인한 것이다.
 - 구현은 **`game-programmer` 에이전트**가 수행한다. 문서 담당은 코드를 작성하지 않는다.
 - **사용자 승인 후에만 구현을 시작한다** (WORKFLOW.md [4]).
 - 이번 사이클에서 `Research.md` 는 **사용자 지시로 생략**했다. 조사 결과는 이 문서 §2·§6 에 함께 담았다.
+
+**→ 이후 경과:** 사용자 승인 후 `game-programmer` 가 구현했고(커밋 `a253232e`), 사용자 실기 테스트에서 **전 항목 PASS**로 확인되었다.
 
 ---
 
@@ -363,6 +387,18 @@ Game 씬    : GameBootstrapper.Awake
 | **④** | **신규 클래스의 최종 이름·시그니처·`quitting` 배선 위치** | §6-3 에서 "상태를 static 한 곳에" 와 "Infrastructure/Debug 에 둔다" 까지만 확정했다 | **구현 시 `game-programmer` 판단** |
 | **⑤** | **`ShutdownLogging()` 주석 처리분의 최종 삭제 시점** | WORKFLOW.md [4] 규정상 사용자 테스트 통과 전에는 삭제하지 않는다 | **[6] 통과 후 · [7] 전**에 삭제 |
 
+### 9-1. 「확인 필요」 5건의 처리 결과 (2026-08-17 · 구현·실기 검증 후 추가)
+
+> **위 표는 계획 시점 원문이라 그대로 두고, 처리 결과만 아래에 덧붙인다.**
+
+| # | 처리 결과 | 근거 |
+|:-:|---|---|
+| **①** 도메인 리로드 설정 | **확인 절차 없이 구조적으로 해소됨.** 에디터 설정값 자체를 확인한 기록은 남아 있지 않다. 대신 구현이 **어느 쪽 설정이든 어긋나지 않는 구조**를 택했다 — 도메인 리로드가 켜져 있으면 `_initialized` 가 `false` 로 돌아가 정상적으로 다시 열리고, 꺼져 있으면 **그 플래그와 `RuntimeLogger` 의 스트림이 함께 살아남으므로** "열려 있다고 판단했는데 실제로는 닫혀 있다"는 어긋남이 생기지 않는다 | `LogSessionOwner.cs` `_initialized` 필드의 XML 주석 |
+| **②** `quitting` 이 플레이 모드 종료에서도 발생하는가 | **여전히 단정하지 않는다.** 대신 **§8 R3 의 보조 배선을 실제로 도입**해 위험을 없앴다 — `#if UNITY_EDITOR` 안에서 `EditorApplication.playModeStateChanged` 를 걸고 **`EnteredEditMode`** 에서 `Shutdown()` 을 한 번 더 시도한다. `Shutdown()` 이 멱등이라 두 경로가 모두 불려도 안전하다 | `LogSessionOwner.cs` `OnPlayModeStateChanged` |
+| **③** `Lobby.unity` 직접 진입을 커버할 것인가 | **사용자가 선택지 ⓐ(그대로 둔다)로 결정했다** — *"로비를 직접 열어 실행하는 경우는 없다(항상 Login 을 거친다)"*. 따라서 **씬 파일은 건드리지 않았고**, 이 항목은 미해결 결함이 아니라 **범위 밖으로 확정된 항목**이다. `LogRules.md` **1.8**·**1.10**·**1.13** 에도 같은 취지로 기록했다 | 사용자 판단 (2026-08-17) |
+| **④** 신규 클래스의 이름·시그니처·배선 위치 | **전부 확정됨** — 클래스명 **`LogSessionOwner`**(가칭 `LogSessionBootstrap` 에서 변경), 공개 진입점은 **`EnsureInitialized()` 하나**, 정리는 **`private static Shutdown()`**, `quitting` 배선은 **클래스가 자기 안에서 직접 건다**(호출자가 걸지 않는다), 파일은 **1개**. 상세와 변경 이유는 **§13** | `Infrastructure/Debug/LogSessionOwner.cs` |
+| **⑤** 주석 처리분의 최종 삭제 | **⚠️ 아직 삭제되지 않았다.** `GameBootstrapper.cs` **473행**에 `// ShutdownLogging();` 이 주석으로 남아 있다(주석 블록에도 *"사용자 테스트 통과 후 삭제 예정"* 이라 적혀 있다). **사용자 테스트는 통과했으므로 이제 삭제 대상이다.** 참고로 `ShutdownLogging()` **메서드 본체는 이미 없다**(§13 ⑥ — `Setup.cs` 에서 완전 삭제됨)이라, 이 주석 한 줄을 지우는 것은 동작에 영향이 없다. **코드 변경이라 문서 담당 범위 밖**이므로 잔여 조치로만 기록한다 | `GameBootstrapper.cs` 470~473행 실측 |
+
 ---
 
 ## 10. 검증 방법 — 사용자가 실기로 확인할 항목
@@ -383,6 +419,46 @@ Game 씬    : GameBootstrapper.Awake
 
 > **에디터 실기만으로 충분하다.** 파일 기록은 에디터 전용이고(`FileSink` 전체가 `#if UNITY_EDITOR`),
 > 빌드 쪽 확인은 필요 시 `LogRules.md` **1.12** 의 Logcat 캡처 도구로 별도 수행한다.
+
+### 10-1. 실기 검증 결과 (2026-08-17 — 사용자 수행)
+
+사용자가 **랜덤매칭 한 판을 에디터 + 실기기 구성으로** 진행하고, 그 로그 파일을 커밋했다.
+
+**근거 파일:** `Assets/_Project/Docs/_Logs/_editor/2026-08-17/RuntimeLog.txt` — **총 199줄**
+
+> **이 한 파일이 변경 전후를 모두 담고 있다.** 계획 §2-1 이 인용한 시점에 이 파일은 **70행**이었고
+> 첫 본문 줄이 곧바로 `NetworkCombatController` 였다(= Game 씬부터 시작). 지금은 같은 파일의
+> **71~72행에 두 번째 헤더**(`=== 세션 시작: 2026-08-17 21:06:57 ===`)가 찍히고, **74행부터 `[Auth/...]` 로 시작한다.**
+> 즉 **1~70행 = 변경 전 / 71~199행 = 변경 후**라, 같은 파일 안에서 전후를 직접 대조할 수 있다.
+
+#### 사용자 확인 8항목 — 전 항목 PASS
+
+| # | 검증 항목 | 결과 · 근거 |
+|:-:|---|---|
+| 1 | 파일명 `RuntimeLog.txt` | ✅ 역할 접미사 없음 |
+| 2 | 헤더 3줄 규정(`LogRules.md` **1.4**) | ✅ `=== 에디터 상시 런타임 로그 ===` / 시각 / **빈 줄** |
+| 3 | 로그 실제 축적 | ✅ **199줄** |
+| 4 | 세션 이어쓰기(**1.10** 일 단위) | ✅ 같은 파일에 2번째 헤더(19:31:37 · 21:06:57) |
+| 5 | `Role=` 기록 | ✅ **3건** (4 · 88 · 98행) |
+| 6 | **로그인·로비 로그 수집** | ✅ `[Auth/...]` **7건** 기록 — **이 작업의 목적 그 자체** |
+| 7 | 마스킹(**1.6**) | ✅ `Uid=c442fb1a5aaa5851` · `PlayerId=f59803b95e641dc6` (**16자리 16진수**) · `Email=` **0건** · `@` 포함 줄 **0건** |
+| 8 | 감사 누락분 마스킹 | ✅ `HostId=f59803b95e641dc6` — `PlayerId` 와 해시가 일치(본인이 host 였다) |
+
+#### V1~V8 과의 대응 — **확인되지 않은 항목은 PASS 로 적지 않는다**
+
+| ID | 판정 | 근거 |
+|:--:|:-:|---|
+| **V1** 머리말 다음 줄부터 로그인 로그 | ✅ **PASS** | 71~72행 헤더 · 73행 빈 줄 · **74행 `[Auth/FirebaseAuthService] 초기화 완료`** |
+| **V2** 로그인 → 로비 → 전투가 한 흐름 | ✅ **PASS** | 74~199행 사이에 **헤더가 다시 나타나지 않는다.** 로그인(74~78) → UGS·매칭(81~90) → 전투 → 게임 종료(189~193)까지 연속 |
+| **V3** 전투 화면 직접 실행 시 회귀 없음 | ⬜ **확인 기록 없음** | 이번 실기는 로그인 화면부터 시작한 경로 하나뿐이다. 코드상 `GameBootstrapper` 도 같은 진입점을 부르지만, **실행으로 확인된 바가 없으므로 PASS 로 적지 않는다** |
+| **V4** 잘못된 비밀번호 로그인 실패 기록 | ⬜ **미실시** | 이번 세션은 **자동 로그인**(75행 *"자동 로그인: 세션 발견"*)이라 실패 경로가 실행되지 않았다 |
+| **V5** 개인정보 노출 없음 | ✅ **PASS** | 위 7번 항목과 동일 근거 (`Email=` 0건 · `@` 포함 줄 0건 · 식별자는 16자리 해시) |
+| **V6** 재실행 시 같은 파일에 머리말 추가 | ✅ **PASS** | 같은 파일에 헤더 2개, 앞 내용(1~70행) **보존됨** |
+| **V7** 콘솔 이중 출력 없음 | ⬜ **확인 기록 없음** | 콘솔 화면은 로그 파일에 남지 않아 **파일로는 판정할 수 없다.** 코드상 `#if` 분기로 sink 는 환경당 1개만 등록된다(§13 참조) |
+| **V8** 로그인·로비 구간 미처리 예외 수집 | ⬜ **미실시** | 이번 실기에서 미처리 예외가 발생하지 않아 확인할 기회가 없었다 |
+
+> **⬜ 표시는 "실패"가 아니라 "확인되지 않음"이다.** 사용자가 검증한 8항목은 전부 PASS 이며,
+> 위 4건은 **이번 실기 시나리오에 포함되지 않아 관측되지 않은 것**이다 (CLAUDE.md 규칙 10 — 추정하지 않는다).
 
 ---
 
@@ -410,5 +486,81 @@ Game 씬    : GameBootstrapper.Awake
 | **핵심 변경** | 여는 쪽 = 먼저 뜨는 부트스트래퍼(멱등) / 닫는 쪽 = 앱 종료 1회 |
 | **설계 판단** | 세션·sink·훅 상태를 **`Infrastructure/Debug` 의 정적 클래스 한 곳**에 모은다 (§6-3 후보 A) |
 | **최대 위험** | 세션 소유권 — 인스턴스 가드는 씬을 건너가지 못한다 (§6-1) |
-| **확인 필요** | 5건 (§9) |
-| **다음 단계** | **사용자 승인 → `game-programmer` 위임** |
+| **확인 필요** | 5건 (§9) → **전부 처리됨 (§9-1)** |
+| **다음 단계** | ~~**사용자 승인 → `game-programmer` 위임**~~ → **구현·실기 검증 완료.** 잔여는 주석 1줄 삭제뿐 (§9-1 ⑤) |
+
+---
+
+## 13. 구현 결과 — 계획과 달라진 점 (2026-08-17 · 커밋 `a253232e`)
+
+> **계획의 뼈대는 그대로 구현되었다.** §6-3 이 확정한 두 가지 — 「상태를 `static` 한 곳에 모은다」와
+> 「`Infrastructure/Debug` 에 둔다」 — 는 변경 없이 지켜졌다.
+> 아래 **6가지**는 §6-3 이 *"구현 시 `game-programmer` 판단으로 남긴다"* 고 적어 둔 항목이 실제로 어떻게 정해졌는지, 또는 계획과 달라진 점이다.
+
+| # | 계획 | 구현 | 왜 달라졌는가 |
+|:-:|---|---|---|
+| ① | 클래스명 **가칭 `LogSessionBootstrap`** (§6-3 후보 A · §7) | **`LogSessionOwner`** | `Infrastructure` 에 `~Bootstrap` 이라는 이름을 두면 **세 번째 조합 루트로 오독된다.** 이 클래스는 의존성을 주입하지 않고 로그 세션을 **소유**할 뿐이라, 이름이 하는 일을 그대로 말하도록 `Owner` 로 바꿨다 |
+| ② | `Shutdown()` 의 접근 수준 미확정 (§6-3 「판단으로 남기는 항목」) | **`private static`** | **"닫는 주체는 하나"를 접근 제한자로 못 박기 위해서다.** 외부에 열어 두면 씬 전환 시점에 닫는 코드가 **다시 생겨나** §6-1 의 사고가 반복된다. 규칙을 주석이 아니라 **컴파일러가 지키게 만든 것** |
+| ③ | 에디터 보조 배선은 **§8 R3 확인 결과에 따라** 필요할 수 있다 (§7) | **도입함 — `EditorApplication.playModeStateChanged` 의 `EnteredEditMode`** | `quitting` 이 플레이 모드 종료에서도 발생하는지 단정할 수 없어 보조 배선을 넣었다(§9-1 ②). **`ExitingPlayMode` 가 아니라 `EnteredEditMode` 를 고른 이유**: `ExitingPlayMode` 는 오브젝트들의 `OnDestroy` **보다 앞설 수 있어** 종료 과정에서 남는 로그를 흘릴 위험이 있다. `EnteredEditMode` 는 정리가 다 끝난 뒤라 그럴 일이 없다 |
+| ④ | (계획에 없던 항목) | **미처리 예외 로그의 `className` 이 `LogSessionOwner` 로 바뀐다** | 훅의 소유자가 옮겨 왔기 때문이다. Infrastructure 인 이 파일이 Bootstrap 의 `GameBootstrapper` 를 참조하면 **의존 방향이 뒤집히므로 불가피**하다. 로그 라인이 `[Runtime/GameBootstrapper]` → **`[Runtime/LogSessionOwner]`** 로 바뀌어 **로그를 `grep` 하는 쪽에 영향이 있다**. `LogRules.md` **1.9** 에도 기록했다 |
+| ⑤ | (계획에 없던 항목) | **`public static bool IsInitialized` 속성 추가** | 로그 배선이 켜져 있는지를 **밖에서 읽기만** 할 수 있게 한 것이다. 여는 것은 `EnsureInitialized()`, 닫는 것은 `private` 이므로 **상태를 바꾸는 통로는 늘지 않는다** |
+| ⑥ | `ShutdownLogging()` 은 **주석 처리(비활성화)** 한다 (§7 [수정] `GameBootstrapper.Setup.cs`) | **`Setup.cs` 의 세 메서드(`InitializeLogging` · `ShutdownLogging` · `OnUnityLogMessageReceived`)는 완전 삭제** | **이관이라 원본을 남기면 중복 정의가 된다** — 같은 로직이 두 곳에 살아 있게 되고, 훅이 두 번 등록될 여지가 생긴다. 「비활성화 우선」(WORKFLOW.md [4])이 겨냥하는 것은 **되돌릴 여지를 남기는 것**인데, 이관은 **원본이 신규 파일에 그대로 옮겨져 있어** 그 목적이 이미 충족된다.<br>**단, `GameBootstrapper.cs` 473행의 호출 한 줄은 규정대로 주석 처리**되어 지금도 남아 있다(§9-1 ⑤) |
+
+---
+
+## 14. 변경 파일 리스트업 (WORKFLOW.md [12])
+
+### 코드 — 커밋 `a253232e` (씬 무관 로그 수집)
+
+```
+[추가]
+- Assets/_Project/Scripts/Infrastructure/Debug/LogSessionOwner.cs
+
+[수정]
+- Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Setup.cs
+- Assets/_Project/Scripts/Bootstrap/GameBootstrapper.cs
+- Assets/_Project/Scripts/Bootstrap/LoginBootstrapper.cs
+```
+
+| 파일 | 변경 내용 |
+|---|---|
+| **[추가]** `Infrastructure/Debug/LogSessionOwner.cs` | sink 인스턴스 · 초기화 플래그 · 훅 중복 방지 상태를 **한 곳의 `static`** 으로 모은 정적 소유자. `EnsureInitialized()`(public · 멱등) / `Shutdown()`(private · 멱등) / `OnUnityLogMessageReceived`(되먹임 방어 3겹 그대로 이관) / `IsInitialized`. `UnityEngine.Application.quitting` + 에디터 보조 배선을 **자기 안에서** 건다 |
+| `Bootstrap/GameBootstrapper.Setup.cs` | `InitializeLogging` · `ShutdownLogging` · `OnUnityLogMessageReceived` **완전 삭제**(이관). 파일 상단 섹션 주석에 이동 사실을 명시 |
+| `Bootstrap/GameBootstrapper.cs` | `Awake` 첫 줄을 `LogSessionOwner.EnsureInitialized()` 로 교체 · `OnDestroy` 의 `ShutdownLogging()` 호출 **주석 처리**(473행) · sink/훅 상태 필드 이관 · `OnDestroy` XML 주석 정정(정리 시점이 앱 종료로 옮겨졌다) |
+| `Bootstrap/LoginBootstrapper.cs` | `Awake` **가장 앞줄**에 `LogSessionOwner.EnsureInitialized()` 추가 · **13행 주석 정정** — ~~*"GameBootstrapper 는 Lobby/Game 씬에 존재"*~~ → **Game 씬에만 존재**(실측 §2-2 — `Lobby.unity` 참조 0건) |
+
+### 코드 — 후속 커밋 `73574a23` (`Role` 값 표기 통일)
+
+```
+[수정]
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs
+```
+
+- `OnNetworkSpawn` 의 역할 로그 값을 `Role=host` / `Role=client` → **`Role=Host` / `Role=Client`** 로 변경(147행).
+  같은 `Role=` 키를 `NetworkGameManager` **5곳**이 이미 `Host`/`Client` 로 쓰고 있어 **소수 쪽을 다수에 맞췄다.**
+  근거 규칙: `LogRules.md` **1.4** — 값 표기가 갈리면 *"집계가 조용히 둘로 갈라진다"*.
+  **⚠️ 이 커밋은 명시적인 컴파일 확인을 받지 않았다.**
+
+### 로그 (실기 검증 근거)
+
+```
+[추가]
+- Assets/_Project/Docs/_Logs/_editor/2026-08-17/RuntimeLog.txt   ← 199줄 (1~70행 변경 전 / 71~199행 변경 후)
+```
+
+### 문서
+
+```
+[추가]
+- Assets/_Project/Docs/_Tasks/2026-08-17/11_07_scene-independent-logging/Plan.md   ← 이 문서
+
+[수정]
+- Assets/_Project/Docs/LogRules.md          ← 1.4 / 1.8 / 1.9 / 1.10 / 1.13
+- Assets/_Project/Docs/PROJECT_STATUS.md
+- Assets/_Project/Docs/ROADMAP.md
+- Assets/_Project/Docs/WORK_HISTORY.md
+```
+
+> **`Research.md` 는 이번 사이클에서 사용자 지시로 생략했다**(§0). 조사 결과는 이 문서 §2·§6 에 담겨 있다.
+> **`Testcase.md` 도 작성하지 않았다** — 사용자의 명시적 지시가 없었기 때문이다(WORKFLOW.md [5-1]).
+> 실기 검증 결과는 대신 **§10-1** 에 기록했다.
