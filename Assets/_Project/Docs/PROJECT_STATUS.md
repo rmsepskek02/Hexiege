@@ -1,6 +1,9 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-08-12
+**최종 수정일:** 2026-08-17
+
+**코드 작성 완료 (2026-08-17) — ⚠️ 컴파일 검증 전 · 실기 동작 테스트 없음:** **로그 체계(`GameLog`) 전환 — 네트워크·인증 계층 정리 task 의 코드 작업이 전부 끝났다.** `LogRules.md` 2026-08-13 전면 개정(심각도 + 존속 **두 축**)에 맞춰, 네트워크·인증 **8파일 205건**의 raw `Debug.Log` 를 `GameLog` 로 이관(`개발` 120 / `운영` 85, 커밋 `668e0aeb` 계열 — **이 이관분은 사용자 유니티 컴파일 통과 확인됨**)한 데 이어, 남아 있던 **미조치 4항목**을 구현했다(커밋 `4e027e68` · `675203ae`). **[구현 내역]** ① **민감 데이터 마스킹 15곳** — Firebase UID · UGS PlayerId 를 `GameLog.HashId` 해시로 치환하고 **이메일 출력은 없앴다**(`Email=` 잔존 0건). `LogRules.md` **1.6** 이 *"에디터 포함 항상 적용"* 이고 **에디터 로그 파일은 커밋되어 공유**되므로 `개발` 로그에도 적용했다. ② **에디터 로그 파일명 단일화** — ~~`RuntimeLog_host.txt` / `RuntimeLog_client.txt`~~ → **`RuntimeLog.txt`**. 빌드는 `#if UNITY_EDITOR` 로 파일을 쓰지 않아 **파일을 쓰는 프로세스가 항상 에디터 1개**라 나눌 이유가 없었고, 기존 파일명은 *"에디터 = Host"* 라는 **틀린 전제**에 기대고 있었다. 역할은 `NetworkCombatController.OnNetworkSpawn` 이 `Role=host` / `Role=client` **로그 한 줄**로 남긴다. ③ **`RuntimeLogger` 헤더 규정 준수** — `BeginSession(folderPath, purpose)` 로 시그니처를 바꿔 헤더 1줄째에 목적을 넣고 헤더 뒤 빈 줄 1줄을 추가. ④ **수동 정리 메뉴 구현** — `Hexiege > Logcat > 3. 오래된 에디터 로그 정리`(보존 기간 선택 → 대상 목록 확인 → `_Logs/_editor/` 하위 한정 · 날짜 폴더 단위 · 삭제 직전 매 건 경로 재검사). **[감사가 놓쳤던 1건]** `LobbyManager` 의 `"CreateOrJoin 완료"` 로그가 **`HostId` 를 평문 출력**하고 있었다(`HostId` 가 UGS PlayerId 인 근거는 같은 파일이 `AuthenticationService.Instance.PlayerId` 와 직접 비교한다는 점) — 감사표에 없던 자리라 그 **누락 사실 자체를 `LogAudit.md` §6 에 기록**했다. **⚠️ 과대 표기 금지 — 아직 완료가 아닌 것:** **커밋 `4e027e68` · `675203ae` 는 사용자 유니티 컴파일 검증 전이다** · **실기 동작 테스트를 하지 않았다** · **새 정리 메뉴는 실제로 실행해 본 적이 없다** · **나머지 계층 이관 미착수**(전체 잔존 `Debug.Log` **234건**은 이번 8파일 밖 — 별도 task 로 분리 결정) · **`.meta` 취급 규정 명문화 보류**(사용자 판단 대기). 상세: `LogRules.md` **1.13**, task `_Tasks/2026-08-13/07_13_network-auth-log-cleanup/`(`Plan.md` §0-7 · §0-9 · `LogAudit.md`).
+
 **구현 완료 (2026-08-12) — 에디터 싱글플레이 실기 검증 완료 · 멀티 미검증:** **MistShrine(HealShrine) 물안개 힐 시스템 구현 완료.** 2026-08-10 기획 확정 후 코드·프리팹·씬 배선을 모두 구현하고 **에디터 싱글플레이 실기 + 런타임 로그 실측으로 검증**했다. 검증 완료 항목: **범위 원 경계 = 실제 회복 판정 일치**(회복 최대 거리 2.29 / 탈락 최소 거리 3.12, 설정 반경 3.00과 모순 0건), **범위 이탈 시 즉시 끊김**(규칙 9 — 거리 2.29→3.77 이탈 다음 틱부터 HP 고정), **회복량 매 틱 +10**(설정값 일치), **중첩 해소**(규칙 13 — 후보 4개에서도 대상당 1회만 적용, 거리 동률 0.87에서 Id 작은 신전 선택), 자동/수동 토글·쿨다운 방향·적 건물 미반응·연구/스킬 패널 `ClosedFrame` 가드. **⚠️ 과대 표기 금지 — 아직 완료가 아닌 것:** **멀티플레이 실기 미검증**(싱글로만 검증했다. 범위 판정 코드는 싱글·멀티 공유라 판정 로직은 유효하나 **건물 HP 동기화·클라 표시·RPC 팀 검증·쿨다운 로컬 미러 등 멀티 고유 경로는 실행된 적이 없다**) · **물안개 지속 VFX 미제작**(물안개가 눈에 보이지 않는다) · **사용 버튼 아이콘 미제작**(임시 텍스트 라벨) · **밸런싱 수치 미확정**(현재 값은 전부 임시값). **구현 중 발견·수정한 규칙 위반 버그:** 겹친 물안개 2개가 같은 대상을 각각 회복시켜 **초당 회복량이 2배**가 되던 문제 — 물안개마다 틱 위상이 달라 중첩 해소 코드가 **돌 기회 자체가 없던 죽은 코드**였다. **활성 물안개 위상 정렬 + 소유권 판정을 발화 여부와 분리**해 수정(커밋 `be17148`), 이 불변식을 **규칙 8-1에 보강 기재**. 상세: 아래 "완료된 시스템 > MistShrine 물안개 힐 시스템", `GameSystemRules/GameSystemRules_Buildings.md`, task `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`(§9-4 · §10).
 
 **기획 확정 이력 (2026-08-10):** MistShrine은 공격하지 않는 별도 힐 건물로, 시전 시 **건물 중심 고정 원형 범위**에 물안개가 깔려 지속 동안 **아군 유닛+아군 건물**(자기 자신·Castle 포함)을 **1초 discrete 틱**으로 회복한다(범위 이탈 시 즉시 끊기는 아우라, 물안개 지속 < 쿨다운, 시전 비용 없음, 파괴 시 물안개 즉시 제거, 물안개 간 중첩 금지 — 가까운 건물 우선·거리 동률이면 Id 작은 쪽, **연구소 자연회복과는 중첩 적용**). UI는 `BuildingPanelBase` 상속 전용 패널(탭=수동/롱프레스=자동 토글, **자동 기본 OFF**, `SkillCooldownOverlay` 재사용, 범위 표시는 아군·패널 열린 동안만). 로직은 `SkillActivationUseCase` 재사용 불가로 **전용 UseCase 신설**(쿨다운 패턴만 차용 + 클라 로컬 미러). **함께 정정한 문서 오류:** GDD/TDD가 Transcendence 방어 타워를 MistShrine으로 적어 왔으나 **정확히는 VineTower**이며 MistShrine은 `HealShrine`(=6) 별도 건물이다. 수치(회복량·지속·쿨다운·반경·텍스트 주기)는 **전부 밸런싱 미확정.** 상세: 아래 "완료된 시스템 > MistShrine 물안개 힐 시스템", `GameSystemRules/GameSystemRules_Buildings.md`, task `_Tasks/2026-08-10/09_34_mistshrine-heal-redesign/`(기획) · `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`(구현).
@@ -375,7 +378,7 @@
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | 랜덤 매칭 2회차 "Cannot start Host" 버그 수정 | ✅ 완료 (2026-06-25) | 증상: 첫 게임 완료 → 로비 복귀 → 2번째 랜덤 매칭 시 NGO "Cannot start Host while an instance is already running" + 로딩 무한 대기. 원인: `GameEndUI._networkGameManager` Inspector 미연결(null) → ReturnToLobby에서 BackToLobby 미호출 → NetworkManager.Shutdown 없이 씬 전환 → 2번째 매칭 시 IsListening=True로 StartHost 재호출. 수정: `GameEndUI.Initialize()`에 `FindFirstObjectByType<NetworkGameManager>()` 자동 탐색 추가(LobbyUI 동일 패턴). 실기 PASS. task: `_Tasks/2026-06-25/...`(GameEndUI 수정) |
-| RuntimeLogger 유틸리티 생성 | ✅ 완료 (2026-06-25) | `Infrastructure/Debug/RuntimeLogger.cs` 신규. `BeginSession(folderPath, role)` / `Log(level, system, className, message, data)` / `EndSession()` API. `#if UNITY_EDITOR`에서 파일 기록, 항상 `Debug.Log` 출력(Logcat 대응). task: `_Tasks/2026-06-25/07_25_runtime-logger/` |
+| RuntimeLogger 유틸리티 생성 | ✅ 완료 (2026-06-25) | `Infrastructure/Debug/RuntimeLogger.cs` 신규. `BeginSession(folderPath, role)` / `Log(level, system, className, message, data)` / `EndSession()` API. `#if UNITY_EDITOR`에서 파일 기록, 항상 `Debug.Log` 출력(Logcat 대응). task: `_Tasks/2026-06-25/07_25_runtime-logger/`<br>**⚠️ [2026-08-17 시그니처 변경] 위 API 서술은 2026-06-25 시점 기록이다.** 현행은 **`BeginSession(folderPath, purpose)`** — `role` 인자가 빠지고 **목적 문자열**이 들어갔다(파일명이 `RuntimeLog.txt` 로 단일화되고 헤더 1줄째가 목적을 받게 되면서). 커밋 `4e027e68` · `LogRules.md` **1.4** / **1.10** / **1.11** 참조 |
 
 #### 멀티플레이 로비 복귀 버그 수정 (2026-03-17)
 | 항목 | 상태 | 비고 |
@@ -778,6 +781,16 @@
 ---
 
 ### ⚠️ 알려진 미완성/버그 항목
+
+#### 로그 체계(`GameLog`) 전환 — 미완 항목 (2026-08-17 기준)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| **커밋 `4e027e68` · `675203ae` 컴파일 검증** | ⚠️ **미완 — 사용자 확인 대기** | 205건 이관분(`668e0aeb` 계열)은 통과 확인됐으나, **그 뒤의 마스킹·파일명 단일화·헤더·정리 메뉴 변경분은 아직 사용자 유니티에서 컴파일해 보지 않았다** |
+| **실기 동작 테스트** | ⚠️ **하지 않았다** | 특히 **`Hexiege > Logcat > 3. 오래된 에디터 로그 정리` 는 실제로 실행해 본 적이 없다.** 되돌릴 수 없는 삭제를 수행하는 도구이므로 첫 실행 시 대상 목록을 반드시 확인할 것 |
+| **나머지 계층 `Debug.Log` 이관** | 미착수 (별도 task 분리 결정) | `Assets/_Project/Scripts/` 전체 잔존 **234건** — 이번 8파일 **밖**이다. 그중 `Application/GameLog.cs` **9건은 이관 대상이 아니다**(sink 폴백 구현 — `LogRules.md` **1.8** 이 요구하는 동작 그 자체) |
+| **`NetworkCombatController.cs` raw `Debug.Log`** | 미이관 (위 항목에 포함) | 이 파일은 8파일 목록 밖이라 잔존 **11건**이다. 그중 하나가 **새 역할 로그와 나란히 `IsServer` 를 찍는 중복**이다 |
+| **`FileSink.EditorLogsRootRelativeToAssets` 가 `private`** | 미해결 (범위 밖) | `LogcatCapture.cs` 가 같은 경로 문자열을 **복제**하고 「FileSink 와 동기화 필요」 경고 주석을 달았다. `internal const` 로 올리면 복제를 없앨 수 있다 |
+| **`_Logs/_editor/` 의 `.meta` 취급 규정** | 규정 공백 — **사용자 판단 대기** | `.gitignore` 는 이미 규정에 부합한다. `LogRules.md` 는 `.meta` 를 언급하지 않는다. 사용자가 커밋 `23a8da06` 에서 `.meta` 를 실제로 커밋했으나, **그 관찰만으로 규정이 확정된 것으로 적지 않는다** |
 
 #### 멀티플레이 기능 미구현
 | 항목 | 파일 | 비고 |
