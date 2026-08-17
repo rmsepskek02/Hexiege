@@ -131,14 +131,20 @@ namespace Hexiege.Infrastructure
             //
             // 왜 파일명이 아니라 로그 한 줄인가:
             //   LogRules.md 1.4 는 "| key=value" 부분을 "서버 전송 시 그대로 구조화 집계 필드가 되는 부분"
-            //   으로 규정한다. Role=host 는 나중에 집계 축이 되지만, 파일명은 아무것도 되지 않는다.
+            //   으로 규정한다. Role=Host 는 나중에 집계 축이 되지만, 파일명은 아무것도 되지 않는다.
             //
             // 왜 하필 여기인가:
             //   OnNetworkSpawn 은 NGO 가 연결을 마쳐 IsServer 값이 확정되는 최초 지점이다.
             //   (조합 루트인 GameBootstrapper.Awake 시점에는 아직 알 수 없다.)
             //   바로 위에서 NetworkContext 에 역할을 주입했으므로, 그 결과를 그대로 기록하는 자리이기도 하다.
+            //
+            // 왜 "Host"/"Client" 로 첫 글자를 대문자로 쓰는가:
+            //   같은 Role= 키를 NetworkGameManager 도 쓰고 있고 그쪽이 "Host"/"Client" 표기다.
+            //   LogRules.md 1.4 는 표기가 섞이면 "집계가 조용히 둘로 갈라진다" 고 경고한다 —
+            //   서버로 보냈을 때 Role=host 와 Role=Host 가 서로 다른 값으로 세어지기 때문이다.
+            //   그래서 이미 쓰이고 있는 표기에 맞춘다. (2026-08-17 실기 로그에서 불일치 발견)
             GameLog.Dev.Info("Network", nameof(NetworkCombatController),
-                             "네트워크 역할 확정", $"Role={(IsServer ? "host" : "client")}");
+                             "네트워크 역할 확정", $"Role={(IsServer ? "Host" : "Client")}");
 
             // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
