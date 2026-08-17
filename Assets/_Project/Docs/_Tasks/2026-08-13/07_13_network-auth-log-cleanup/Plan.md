@@ -2,12 +2,13 @@
 
 **작성일:** 2026-08-13 07:27 (커밋 `d4ce890e`)
 **갱신일:** 2026-08-13 — 방향 전환 반영 (§0 신설, §1~§8에 `[갱신]` 표기)
+**갱신일:** 2026-08-14 — **0·4단계 완료 반영** (§0-7 신설 · §0-8 신설 · §0-4 표 ①②⑤ 갱신). **이 갱신에서 코드 무변경**
 **작업 폴더:** `Assets/_Project/Docs/_Tasks/2026-08-13/07_13_network-auth-log-cleanup/`
 **선행 문서:** [Research.md](Research.md) — 경위는 Research **§0**, 완료된 선행 작업은 **§12**, 미해결 항목은 **§13-2**
 **기준 문서:** `Assets/_Project/Docs/LogRules.md` — **2026-08-13 전면 개정본이 기준이다**(`ed7dda40` · `d4945ad6`)
 **수정 대상:** 코드 8파일 (`Infrastructure/Network` 6 · `Infrastructure/Auth` 1 · `Application/UseCases` 1)
 **구현 담당:** **game-programmer 에이전트**
-**현재 상태:** **재계획 완료 / 0단계(컴파일 검증) 대기 · 이 갱신에서 코드 무변경**
+**현재 상태:** **0단계(컴파일 검증) · 4단계(이관) 완료 / 5단계(마스킹) 대기** — 진행 기록은 **§0-7**, 미해결 ①② 해결 방안은 **§0-8**
 
 ---
 
@@ -110,11 +111,11 @@
 
 | # | 항목 | 상태 |
 |:-:|------|------|
-| ① | **`FileSink` 역할 `"host"` 하드코딩** — `Awake` 시점에 역할을 알 수 없는 구조적 문제. **"에디터는 항상 host"라는 코드 주석의 전제가 틀렸다** | **미착수.** 해결 방향은 *파일명이 아니라 헤더에 역할 기록* |
-| ② | **`RuntimeLogger` 헤더 문구가 `LogRules.md` 1.4와 불일치** — 고정 문자열 `=== RuntimeLogger 디버그 세션 ===`, 헤더 뒤 빈 줄 없음 | **미착수.** `RuntimeLogger` 수정 필요 |
-| ③ | **오래된 에디터 로그 정리 메뉴** | **미구현** |
+| ① | **`FileSink` 역할 `"host"` 하드코딩** — `Awake` 시점에 역할을 알 수 없는 구조적 문제. **"에디터는 항상 host"라는 코드 주석의 전제가 틀렸다** | **[2026-08-14 갱신] 해결 방안 확정 — §0-8 ① 참조.** 구현은 아직 **미착수**.<br>~~해결 방향은 *파일명이 아니라 헤더에 역할 기록*~~ → **헤더가 아니라 일반 로그 라인**으로 바뀌었다(사유는 §0-8 ①) |
+| ② | **`RuntimeLogger` 헤더 문구가 `LogRules.md` 1.4와 불일치** — 고정 문자열 `=== RuntimeLogger 디버그 세션 ===`, 헤더 뒤 빈 줄 없음 | **[2026-08-14 갱신] 해결 방안 확정 — §0-8 ② 참조.** 구현은 아직 **미착수** |
+| ③ | **오래된 에디터 로그 정리 메뉴** | **미구현** (2026-08-14 재확인 — 변동 없음) |
 | ④ | **`_Logs/_editor/` 의 `.gitignore` 처리** | 현행 `.gitignore` 는 규정에 **이미 부합**. 남은 미결정은 **`.meta` 취급** — 규정 공백이라 **판단 보류** |
-| ⑤ | **`LogRules.md` 1.13 「미구현 목록」이 구현 이후 갱신되지 않음** | **미정정.** 이번 갱신은 task 문서만 다루므로 범위 밖 |
+| ⑤ | **`LogRules.md` 1.13 「미구현 목록」이 구현 이후 갱신되지 않음** | **[2026-08-14 갱신] 정정 완료.** ~~미정정 · 범위 밖~~ → **2026-08-14 문서 갱신 작업에서 `LogRules.md` 1.13 을 실측 기준으로 전면 갱신**했고, 같은 작업에서 **1.10 경로 행**도 §0-8 ①에 맞춰 고쳤다 |
 
 ### 0-5. 이번 갱신에서 하지 않은 것 (명시)
 
@@ -240,6 +241,192 @@
 - **`ILogSink.cs` 를 수정하지 않았다** — `LogEvent` 확장은 **4단계**다.
 - **`LogRules.md` 를 수정하지 않았다** — 판정 기준의 단일 소스다.
 - **`Testcase.md` 를 작성하지 않았다.** **상시 참조 문서를 갱신하지 않았다.** **git 명령을 실행하지 않았다.**
+
+### 0-7. **0·4단계 완료 — 205건 전량 이관** (2026-08-14 신설)
+
+> **§0-3의 0단계(컴파일 검증) · 4단계(`GameLog` 이관)를 수행했다.**
+> **5단계(마스킹)는 미착수다.** 남은 것과 남긴 단서는 아래 ⑤에 명시한다.
+
+#### ① 0단계 — 컴파일 검증 **통과**
+
+- **사용자 유니티 에디터에서 통과가 확인되었다.** §0-3이 걸어 둔 선행 조건이 여기서 해제된다.
+- `Assets/Editor/Tools/LogcatCapture.cs` 의 **CS0234 3건**은 커밋 `9fcee6b7`(`UnityEngine.Application` 완전 수식)로 해소된 것이 **재확인**되었다.
+  → **§0-6 이전까지 "재확인 전"으로 적혀 있던 단서가 해제된다.**
+
+#### ② 4단계 — 파일별 이관 내역 (판정표 `LogAudit.md` 205건 **전량**)
+
+| # | 파일 | 건수 | 개발 | 운영 | 커밋 |
+|:-:|------|:-:|:-:|:-:|------|
+| 1 | `Infrastructure/Network/NetworkGameEndController.cs` | 16 | 16 | 0 | `5089b071` |
+| 2 | `Infrastructure/Network/UnityServicesInitializer.cs` | 7 | 5 | 2 | `4e59801e` |
+| 3 | `Application/UseCases/LoginUseCase.cs` | 18 | 13 | 5 | `7340ea82` |
+| 4 | `Infrastructure/Auth/FirebaseAuthService.cs` | 20 | 15 | 5 | `41ce176e` |
+| 5 | `Infrastructure/Network/LobbyManager.cs` | 28 | 15 | 13 | `911f19f7` |
+| 6·7 | `Infrastructure/Network/NetworkProductionController.cs`(35) · `NetworkBuildingController.cs`(40) | 75 | 29 | 46 | `8ee2977d` |
+| 8 | `Infrastructure/Network/NetworkGameManager.cs` | 41 | 27 | 14 | `0ef74c21` |
+| | **합계** | **205** | **120** | **85** | |
+
+**개발 120 / 운영 85 는 §0-6 ③ 교차 집계표의 값과 정확히 일치한다** — 판정과 이관 사이에 표류가 없었다는 뜻이다.
+**파일 배열은 §3-1의 위험도 오름차순 그대로**이며, `NetworkGameManager.cs` 가 마지막인 것도 §2-1의 근거 그대로다.
+
+#### ③ `LogEvent` enum — **최종 32개** = 기존 2 + §0-6 ⑥의 감사 키 30
+
+**`§0-6 ⑥` 의 "키 30개" 는 처음부터 옳은 값이고 지금도 유효하다.** 산술이 정확히 맞아떨어진다.
+
+| 구성 | 수 |
+|------|:-:|
+| 기존 멤버 (`Unknown`(0) · `UnhandledException`) | **2** |
+| 3단계 감사에서 확정한 키 (`LogAudit.md` §5-3) | **30** |
+| **최종 enum 멤버** | **32** |
+
+**대조 결과:** 감사 목록 30개 중 **enum 에 없는 키는 0개**이고, **enum 에만 있는 키는 기존 2개뿐**이다.
+즉 **4단계는 새 키를 만들지 않았다** — 감사가 확정해 둔 키를 enum 에 **반영**했을 뿐이다.
+
+> **⚠️ 왜 "7종이 새로 필요해졌다"는 오해가 생겼는가 (2026-08-14 정정)**
+> **3단계는 판정만 하고 enum 을 건드리지 않았다**(`§0-6 ⑧` — *"`ILogSink.cs` 를 수정하지 않았다"*).
+> 그래서 4단계 시작 시점의 enum 은 여전히 2개뿐이었고, 이관은 **파일 차례마다 그 파일이 쓰는 키를 순차적으로** 넣었다.
+> 마지막 파일 차례에 7종이 한꺼번에 들어간 것은 **"그때까지 아직 반영되지 않고 남아 있던 몫"** 이지 신규 발생이 아니다.
+> **4단계의 "enum 반영"을 "신규 키 발생"으로 오인한 것이 이 오류의 원인이다.**
+
+**마지막 파일(`NetworkGameManager.cs`)에서 enum 에 반영된 7종** — 전부 `LogAudit.md` §5-3 의 [E]·[F] 묶음에 이미 있던 키다.
+
+| 키 | 사용 |
+|----|:-:|
+| `RelaySetupFailed` | 3 |
+| `NetworkManagerSingletonMissing` | 2 |
+| `NetworkSessionStartFailed` | 2 |
+| `SceneLoadRequestedByNonServer` | 1 |
+| `GameSessionStartUnhandledException` | 4 |
+| `MatchmakingUnhandledException` | 1 |
+| `MatchmakingTicketDeleteFailed` | 1 |
+| **합계** | **14** |
+
+**합계 14 = `NetworkGameManager.cs` 의 운영 14건과 일치한다.**
+즉 그 파일의 운영 로그는 **감사 목록 중 앞의 7개 파일에서 한 번도 쓰이지 않던 키 7종**을 사용했고,
+그래서 **마지막 파일 차례에 그 7종이 한꺼번에 enum 에 반영**되었다.
+앞의 7개 파일과 키가 전혀 겹치지 않는 이유는 **Relay·세션 시작·매칭이 그 파일에만 있는 사건**이기 때문이다.
+
+> **`Unknown` 사용처는 여전히 0건이다**(`LogRules.md` **1.14 금지 사항** 6 충족).
+
+#### ④ 마지막 파일(`NetworkGameManager.cs`) 검증 결과
+
+가장 까다로운 파일이라(§2-1 · §3-1) 이관 후 따로 세어 확인했다.
+
+| 확인 항목 | 결과 |
+|-----------|------|
+| **잔존 `Debug` 4건** | 전부 **633~685행 블록 주석(`/* */`) 내부**다 — §0-6 ② 가 "죽은 호출"로 분류한 그 블록이며 **손대지 않았다** |
+| **중괄호가 없던 `if`/`else` 2곳** | **조건 반전 없이 중괄호만 명시**하고 `return result;` 를 보존했다. 릴리스에서 `Dev` 호출이 `[Conditional]` 로 제거되면 `if (result) { }` 라는 빈 블록이 되지만 **제어 흐름은 동일**하다 |
+| **제어 흐름 총계 전후** | `return` 7→7 / `await` 23→23 / `OnError` 25→25 / 중괄호 106→106 — **전부 동일** |
+| **로그 외 코드 삭제** | **없음** |
+
+> **§3-4 ②가 예고했던 `if`/`else` 반전은 끝내 수행되지 않았다.** §0-6 ⑦ 이 확정한 대로
+> **성공 쪽이 `Dev`, 실패 쪽이 `Ops` 로 양쪽 다 살아남아 반전할 이유가 없었기** 때문이다.
+> 중괄호를 명시한 것은 반전이 아니라 **한 줄 본문에 문장을 덧붙일 때 조건 밖으로 새는 것을 막는 안전 조치**다.
+
+#### ⑤ 4단계에서 하지 않은 것 (명시)
+
+- **5단계(마스킹) 미착수.** 대상 **15곳**에 `⚠️ 5단계(마스킹) 대상` 주석을 남겨 **검색으로 찾을 수 있게** 해 두었다.
+
+  | 파일 | 건수 |
+  |------|:-:|
+  | `Infrastructure/Auth/FirebaseAuthService.cs` | 10 |
+  | `Infrastructure/Network/UnityServicesInitializer.cs` | 2 |
+  | `Application/UseCases/LoginUseCase.cs` | 2 |
+  | `Infrastructure/Network/NetworkGameManager.cs` | 1 |
+  | **합계** | **15** |
+
+  > **§0-6 ⑦ 의 "이메일 3건 제거 + UID·PlayerId 13건 해시 치환 = 16건"과 숫자가 다르다.**
+  > 이관 과정에서 대상이 실제 코드 위치 기준으로 재확정된 결과이며, **확정값은 위 15곳**이다(주석이 붙은 자리를 센 값).
+- **잠정 판정건(Q-1~Q-4, §0-6 ⑤)에 주석을 남겼다. 사용자 최종 결정은 아직 받지 못했다** — 잠정 판정대로 이관해 두었으므로 결정이 오면 그 자리만 고치면 된다.
+- **이 task 의 대상 8파일 밖은 손대지 않았다**(CLAUDE.md 규칙 6).
+  참고로 `Assets/_Project/Scripts/` 전체의 `Debug.Log` 계열 잔존은 **234건**이다(`grep -rn 'Debug\.Log'` 출현 횟수 기준).
+  그중 `Application/GameLog.cs` 의 **9건은 이관 대상이 아니다** — **sink 폴백 구현**(sink 가 하나도 없을 때의 콘솔 출력 · `Debug.LogException`)과 그 설명 주석이며, `LogRules.md` **1.8** 이 요구하는 동작 그 자체다.
+- **상시 참조 문서(`PROJECT_STATUS.md` · `ROADMAP.md` · `WORK_HISTORY.md`)를 갱신하지 않았다** — **5단계가 남아 구현이 끝나지 않았다.**
+
+### 0-8. 미해결 ①② — **해결 방안 확정** (2026-08-14 신설 · 구현은 아직)
+
+> **§0-4 표의 ①②에 대한 확정 내용이다. 표가 좁아 여기로 뺐다.**
+> **아직 구현되지 않았다.** 구현은 이 task 범위 밖이며 **game-programmer 가 별도로 수행**한다.
+
+#### ① `FileSink` 역할 `"host"` 하드코딩 — **역할을 파일명에서 빼고 로그 라인으로 옮긴다**
+
+**먼저 확정된 사실 (사용자 답변):**
+이 프로젝트의 멀티플레이 테스트 구성은 **에디터 1개 + 실기기 빌드 1개**이며,
+**어느 쪽이 host가 될지는 정해져 있지 않다.**
+
+**여기서 결론 두 가지가 따라 나온다.**
+
+1. **현행 코드는 틀린 이름을 붙이고 있다.**
+   `Bootstrap/GameBootstrapper.Setup.cs:923` 이 `BeginSession(FileSink.RoleHost)` 를 고정 호출하므로,
+   **에디터가 client 로 붙어도 `RuntimeLog_host.txt` 에 기록된다.** 파일명이 사실과 다르다.
+2. **파일명에 역할을 넣을 이유 자체가 없다.**
+   `FileSink` 의 동작 전체가 `#if UNITY_EDITOR` 안에 있어 **빌드(실기기)는 파일을 아예 쓰지 않는다.**
+   즉 **파일을 쓰는 프로세스는 항상 에디터 1개뿐**이라 파일이 충돌할 수 없다.
+
+**채택안**
+
+| 항목 | 확정 내용 |
+|------|-----------|
+| 파일명 | ~~`RuntimeLog_host.txt` / `RuntimeLog_client.txt`~~ → **`RuntimeLog.txt` 단일** |
+| 역할 기록 | 역할이 **확정되는 시점에 일반 로그 한 줄**로 남긴다 |
+| 제거 대상 | `FileSink.RoleHost` · `FileSink.RoleClient` 상수, `BeginSession(string role)` 의 `role` 인자 |
+
+```
+Infrastructure/Network/NetworkCombatController.OnNetworkSpawn
+→ GameLog.Dev.Info("Network", nameof(NetworkCombatController),
+                   "네트워크 역할 확정", $"Role={(IsServer ? "host" : "client")}")
+```
+
+**근거 3가지**
+
+- **`OnNetworkSpawn` 은 역할이 확정되는 유일한 지점이고, 이미 검증된 자리다.**
+  `.claude/agent-memory/game-programmer/logging.md` 36행이, MistShrine 힐 검증 당시 **이 지점에서 `IsServer ? "host" : "client"` 로 세션을 열던** 패턴을 기록하고 있다.
+  이번 변경은 그 배선을 **없애는 것이 아니라 "세션 열기"에서 "로그 한 줄"로 축소**하는 것이다.
+- **`LogRules.md` 1.4 「`key=value`가 곧 전송 데이터다」에 정확히 맞는다.**
+  `Role=host` 는 서버 전송 시 **그대로 구조화 집계 필드**가 된다. **파일명은 구조화 필드가 아니다.**
+- **헤더에 적는 방식보다 낫다.**
+  헤더는 파일 맨 위인데 **역할은 나중에 확정**되므로, 헤더에 넣으려면 **이미 쓴 줄로 되돌아가 고쳐 써야 한다.**
+  로그 라인은 **시간순 그대로** 기록하면 된다.
+
+**기각안 — "역할을 알 때까지 세션 열기를 미룬다"**
+
+- **기각 사유:** `Awake` ~ `OnNetworkSpawn` 사이의 로그가 **파일에서 통째로 사라진다.**
+  이번에 이관한 205건 중 **`LoginUseCase` 18 + `LobbyManager` 28 + `UnityServicesInitializer` 7 = 53건이 정확히 그 구간**이다(§0-7 ②).
+  로그인·로비·UGS 초기화는 **파일 기록이 가장 필요한 구간**인데 그것을 버리는 안이다.
+
+#### ② `RuntimeLogger` 헤더가 `LogRules.md` 1.4와 불일치 — **`BeginSession` 에 목적 문자열을 받는다**
+
+현행 `Infrastructure/Debug/RuntimeLogger.cs:83-84` 와 규정의 차이:
+
+| 규정 (`LogRules.md` 1.4 「파일 헤더」) | 현행 코드 | 조치 |
+|---|---|---|
+| 1줄째 `=== [작업명 또는 로그 목적] ===` | `=== RuntimeLogger 디버그 세션 ===` **고정 문자열** | `BeginSession` 에 **목적 문자열 인자 추가** |
+| 2줄째 `=== [시각의 종류]: YYYY-MM-DD HH:MM:SS ===` | `=== 세션 시작: {...} ===` | **이미 부합 — 변경 없음** |
+| 헤더 뒤 **빈 줄로 본문과 구분** | 빈 줄 없음 | `WriteLine()` 1줄 추가 |
+
+호출처는 **2곳뿐**이다.
+
+| 호출처 | 넘길 목적 문자열 |
+|---|---|
+| `Infrastructure/Debug/FileSink.cs:134` (에디터 상시 세션) | `"에디터 상시 런타임 로그"` |
+| 진단용 임시 세션 (`LogRules.md` **1.11** — `RuntimeLogger` 직접 호출) | 그때의 작업명 |
+
+#### ③ ①②를 **묶어서** 하는 이유
+
+**둘 다 `RuntimeLogger.BeginSession` 의 시그니처를 바꾼다** — ①은 `role` 을 **빼고**, ②는 `purpose` 를 **넣는다.**
+따로 진행하면 **같은 함수를 두 번 고치게 되고**, 그 사이에 호출처 4곳이 두 번 흔들린다.
+
+**예상 수정 파일 4개** (구현은 이번 작업 범위 밖):
+
+- `Infrastructure/Debug/RuntimeLogger.cs`
+- `Infrastructure/Debug/FileSink.cs`
+- `Bootstrap/GameBootstrapper.Setup.cs`
+- `Infrastructure/Network/NetworkCombatController.cs`
+
+#### ④ 남겨 둘 단서 — 기존 로그 파일은 그대로 둔다
+
+**이미 커밋된 로그 파일**(예: `_Logs/2026-08-10/14_12_mistshrine-heal-implementation/RuntimeLog_host.txt`)은 **그대로 둔다.**
+파일명 규약 변경은 **앞으로 새로 만들어지는 파일에만** 적용되며, **기존 파일을 참조하는 문서 링크는 계속 유효하다.**
 
 ---
 

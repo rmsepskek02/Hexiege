@@ -17,6 +17,7 @@
 |--------|----------------|
 | **2026-08-13** | 로그를 나누는 잣대를 **한 축(심각도)에서 두 축(심각도 + 존속)으로** 바꿨다. 그리고 앞으로의 서버 수집을 위한 이음매(이벤트 키 · `key=value` 구조화 필드)를 지금부터 규칙에 넣어 두었다. → 아래 본문 |
 | **2026-08-14** | 원칙 1~4가 **한 자리에 두 개 이상 걸려 서로 반대 답을 내놓을 때** 어느 쪽을 따르는지 확정했다. **1.3 「원칙 간 우선순위」** 절 신설 — ① 원칙 1이 원칙 3보다 우선, ② "최종 처리 지점"의 정의, ③ 원칙 3의 "항상 `운영`"은 사건 단위, ④ 실제로 갈렸던 3건, ⑤ 순서를 매기지 않은 쌍. **원칙 1~4의 본문은 한 글자도 바꾸지 않았다** — 적용 순서와 용어 정의만 덧붙였다 |
+| **2026-08-14 (2차)** | **에디터 로그 파일명에서 역할(host/client)을 뺐다** — `RuntimeLog.txt` 단일(**1.10**). 빌드는 `#if UNITY_EDITOR` 로 파일을 쓰지 않으므로 **파일을 쓰는 프로세스가 항상 에디터 1개**라 나눌 이유가 없다. 역할은 로그 라인의 `Role=` 필드로 남긴다. 함께 **1.13 을 실측 기준으로 전면 갱신**했다(205건 이관 완료 반영) — **1.13 은 규칙이 아니라 현행 코드와의 차이 기록이다** |
 
 ### 2026-08-13 개정 — 한 축에서 두 축으로
 
@@ -39,11 +40,16 @@
 그때 가서 로그를 전부 뜯어고치면 늦으므로, 지금부터 그 이음매를 규칙에 넣어 둔다.
 다행히 기존 형식 규정(`... | key=value, key=value`)이 이미 좋은 기반이다 — 이 `key=value`가 **그대로 서버 전송용 구조화 데이터**가 된다.
 
-> ⚠️ **구현 상태 (2026-08-14 기준)**: 이 문서가 규정하는 `GameLog` / `LogEvent` / `ILogSink` / `ConsoleSink` / `FileSink` 는
-> 커밋 `668e0aeb` 으로 **코드에 들어왔다.** 다만 **아직 "쓰이지는" 않는다** —
-> 컴파일 통과가 확인되지 않았고, 기존 raw `Debug.Log` 호출도 이관되지 않아 실사용처는 `GameBootstrapper` 배선뿐이다.
-> 나머지 조항(이벤트 키 채우기, 호출부 마스킹, 수동 정리 메뉴 등)은 여전히 **앞으로 만들 것의 스펙**이다.
+> ⚠️ **구현 상태 (2026-08-14 갱신 기준)**: 이 문서가 규정하는 `GameLog` / `LogEvent` / `ILogSink` / `ConsoleSink` / `FileSink` 는
+> 커밋 `668e0aeb` 으로 코드에 들어왔고, **네트워크·인증 계층 8파일 205건의 이관이 완료되어 실제로 쓰이고 있다.**
+> 컴파일 통과도 사용자 유니티에서 확인되었다.
+> 다만 **아직 스펙으로만 남아 있는 조항이 있다** — **호출부 마스킹(15곳)**, **수동 정리 메뉴**,
+> **`RuntimeLogger` 헤더 문구**, **`FileSink` 역할 하드코딩**. 뒤의 둘은 **해결 방안까지 확정됐고 구현만 남았다.**
 > 현행 코드와의 정확한 차이는 **1.13 현행 코드와의 차이** 에 정리해 두었다.
+>
+> > **[이전 기록 — 2026-08-14 갱신 전]** *"골격은 들어왔지만 아직 「쓰이지」 않는다 — 컴파일 통과가 확인되지 않았고,
+> > 기존 raw `Debug.Log` 호출도 이관되지 않아 실사용처는 `GameBootstrapper` 배선뿐이다."*
+> > **이 서술은 더 이상 현행이 아니다.** 남기는 이유는 1.13 이 어느 시점의 무엇을 정정한 것인지 추적하기 위해서다.
 
 ---
 
@@ -493,8 +499,8 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 
 | 항목 | 방침 |
 |------|------|
-| **경로** | `Assets/_Project/Docs/_Logs/_editor/{yyyy-MM-dd}/RuntimeLog_host.txt` (역할별 파일명은 기존 규칙 유지) |
-| **누적 단위** | **일 단위 이어쓰기.** 하루에 역할별 파일 1개 |
+| **경로** | `Assets/_Project/Docs/_Logs/_editor/{yyyy-MM-dd}/RuntimeLog.txt` — **파일명에 역할(host/client)을 넣지 않는다** (아래) |
+| **누적 단위** | **일 단위 이어쓰기.** 하루에 파일 1개 |
 | **실행 구분** | 파일을 나누지 않고, 플레이 모드 진입 시 **헤더를 다시 기록**해 구분선으로 삼는다 |
 | **공유** | 남길 파일은 **복사하지 않고 그 자리의 파일을 그대로 커밋**한다 (아래) |
 | **`.gitignore`** | **`_Logs/_editor/` 를 `.gitignore`에 넣지 않는다** (아래) |
@@ -502,6 +508,11 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 
 **근거:**
 
+- **왜 역할별 파일이 아닌가 (2026-08-14 갱신)** — **`FileSink` 의 동작 전체가 `#if UNITY_EDITOR` 안에 있어 빌드(실기기)는 파일을 쓰지 않는다.**
+  즉 **파일을 쓰는 프로세스는 항상 에디터 1개**라 파일이 충돌할 수 없고, 파일명을 나눌 이유가 없다.
+  역할(host/client)은 **파일명이 아니라 로그 라인의 `Role=` 필드**로 남긴다 — `key=value` 만이 서버 전송 시 구조화 필드가 되기 때문이다(1.4).
+  개정 전 방식(폐기): ~~`RuntimeLog_host.txt` / `RuntimeLog_client.txt` 로 역할별 파일을 나눈다~~
+  **⚠️ 이 방침은 아직 코드에 반영되지 않았다** — 현행 코드는 여전히 `RuntimeLog_host.txt` 로 고정 기록한다. **1.13** 참조.
 - **왜 `_editor/` 라는 별도 하위 트리인가** — 기존 `_Logs/YYYY-MM-DD/HH_MM_[작업명]/` 은 작업에 귀속된 **영구 보존물**이고,
   상시 로그는 **언제 버려도 되는 소모품**이다. 성격이 정반대인 둘이 같은 폴더에 섞이면
   "지워도 되는 파일"과 "지우면 안 되는 파일"을 구분할 수 없게 된다.
@@ -517,7 +528,7 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 복사 단계를 **없앤다.** 공유할 로그가 생기면 `_editor/` 에 있는 그 파일을 그대로 커밋한다.
 
 ```
-git add Assets/_Project/Docs/_Logs/_editor/2026-08-13/RuntimeLog_host.txt
+git add Assets/_Project/Docs/_Logs/_editor/2026-08-13/RuntimeLog.txt
 ```
 
 - **복사는 기존 방식보다 오히려 더 번거롭다.** 상시 활성으로 세션 배선 왕복을 없애 놓고
@@ -590,6 +601,11 @@ Hexiege > Logcat > 오래된 에디터 로그 정리
 
 단, `임시` 로그에도 **민감 데이터 규정(1.6)은 그대로 적용된다.** 임시 로그의 파일은 영구 보존되기 때문이다.
 
+> **직접 호출 형태 변경 예정 (2026-08-14)** — `RuntimeLogger.BeginSession` 의 시그니처가 바뀐다.
+> **`role` 인자가 빠지고**(1.10 — 파일명이 단일화된다), **목적 문자열 인자가 들어간다**(1.4 — 헤더 1줄째가 고정 문자열이면 안 된다).
+> 진단용 임시 세션을 직접 열 때는 **그때의 작업명**을 목적 문자열로 넘긴다.
+> **아직 구현되지 않았다** — 현행 시그니처와 확정된 방안은 **1.13** 참조.
+
 ---
 
 ## 1.12 실기기 로그
@@ -599,7 +615,7 @@ Hexiege > Logcat > 오래된 에디터 로그 정리
 
 | 환경 | 로그 파일 |
 |------|----------|
-| 에디터 | `_Logs/_editor/{yyyy-MM-dd}/RuntimeLog_host.txt` / `RuntimeLog_client.txt` (1.10) |
+| 에디터 | `_Logs/_editor/{yyyy-MM-dd}/RuntimeLog.txt` (1.10 — 2026-08-14 단일 파일명으로 변경) |
 | 실기기 | `_Logs/{yyyy-MM-dd}/{HH_mm}_logcat/RuntimeLog_device.txt` (아래 도구) |
 
 ### 캡처 도구 사용 절차
@@ -634,38 +650,71 @@ Hexiege > Logcat > 오래된 에디터 로그 정리
 
 ## 1.13 현행 코드와의 차이
 
-**추정을 남기지 않기 위해 확인한 사실만 적는다.** 아래는 **2026-08-14 시점**에 실제 코드를 열어 확인한 상태다.
+**추정을 남기지 않기 위해 확인한 사실만 적는다.** 아래는 **2026-08-14 재실측 시점**에 실제 코드를 열어 확인한 상태다.
 
-> **2026-08-14 갱신 — 골격은 들어왔지만 아직 "쓰이지" 않는다.**
-> 커밋 `668e0aeb` 으로 `GameLog` / `LogEvent` / `ILogSink` / `ConsoleSink` / `FileSink` 와 `GameBootstrapper` 배선이 실제로 들어왔다.
-> 다만 아래 셋은 **아직 이루어지지 않았으므로 과대 표기하지 않는다.**
+> ## 2026-08-14 재실측 — **이관이 실제로 이루어졌다. 남은 것은 마스킹과 도구 조정이다.**
 >
-> 1. **컴파일 통과가 확인되지 않았다.** 사용자 유니티에서 아직 검증 전이다.
->    `Assets/Editor/Tools/LogcatCapture.cs` 의 CS0234 3건은 커밋 `9fcee6b7` 로 수정했으나 **재확인 전**이다.
-> 2. **`LogEvent` 멤버는 2개뿐이다** (`Unknown`, `UnhandledException`).
->    2026-08-13 감사에서 판정으로 정한 **이벤트 키 30개는 아직 enum 에 반영되지 않았다** (4단계 예정).
-> 3. **기존 raw `Debug.Log` 호출은 한 건도 이관되지 않았다.**
->    `GameLog` 를 호출하는 코드는 `GameBootstrapper`(sink 등록 · 전역 예외 훅)뿐이다.
+> **이 절은 직전 판까지 "골격만 들어왔고 아직 쓰이지 않는다"고 적고 있었으나, 그 서술은 현행이 아니다.**
+> 아래 셋이 **완료**되었다.
+>
+> 1. **컴파일 통과가 확인되었다.** 사용자 유니티에서 검증되었고,
+>    `Assets/Editor/Tools/LogcatCapture.cs` 의 CS0234 3건이 커밋 `9fcee6b7`(`UnityEngine.Application` 완전 수식)로 해소된 것도 **재확인**되었다.
+> 2. **`LogEvent` 멤버는 32개다** (`Unknown`(0) 포함).
+>    **기존 2개(`Unknown`(0) · `UnhandledException`) + 2026-08-13 감사에서 확정한 키 30종 = 32** 로 산술이 정확히 맞는다.
+>    4단계는 **감사가 확정해 둔 키를 enum 에 반영했을 뿐, 새 키를 만들지 않았다.**
+> 3. **기존 raw `Debug.Log` 호출이 205건 이관되었다** (네트워크·인증 계층 **8파일** · `개발` 120 / `운영` 85).
+>    **`GameLog` 실사용처는 더 이상 `GameBootstrapper` 배선만이 아니다.**
+>
+> **여전히 남은 것 — 과대 표기하지 않는다.**
+>
+> - **호출부 마스킹(1.6 1단) 미적용** — 대상 **15곳**. 코드에 `⚠️ 5단계(마스킹) 대상` 주석이 붙어 있어 검색으로 찾을 수 있다.
+> - **`FileSink` 역할 하드코딩 · `RuntimeLogger` 헤더** — **해결 방안은 확정됐고 구현만 남았다** (아래 「확정된 해결 방안」).
+> - **수동 정리 메뉴 미구현** — 변동 없음.
+>
+> **작업 근거·판정 이력:** `_Tasks/2026-08-13/07_13_network-auth-log-cleanup/Plan.md` **§0-7**(0·4단계 완료 기록) · `LogAudit.md`(205행 판정표).
+>
+> > **[이전 기록 — 2026-08-14 재실측 전]** *"골격은 들어왔지만 아직 「쓰이지」 않는다. ① 컴파일 통과 미확인
+> > ② `LogEvent` 멤버는 `Unknown`·`UnhandledException` 2개뿐 ③ 기존 raw `Debug.Log` 는 한 건도 이관되지 않았다."*
+> > 이 서술은 **이관 착수 전 시점의 사실**이며, 지금은 셋 다 해소되었다.
 
 | 항목 | 현행 코드 상태 | 이 문서의 규정 |
 |------|--------------|--------------|
-| `GameLog` facade | **구현됨** — `Application/GameLog.cs`. 축 B가 중첩 클래스 `Ops`/`Dev` 로 갈려 있고, `AddSink`/`RemoveSink`/`ClearSinks`, `Compose`, 재진입 가드(`IsEmitting`), sink 0개일 때 콘솔 폴백, sink별 개별 `try-catch` 모두 존재 | 1.5~1.9 — 구조 충족. **실사용 이관은 미완**(위 3번) |
-| `LogEvent` enum | **구현됨** — `Application/Interfaces/ILogSink.cs`. **단, 멤버는 `Unknown`(0) · `UnhandledException` 2개뿐**이고 0번을 의도적으로 무의미 값으로 비워 두었다 | 1.5 — **이벤트 키 30개 추가 필요** |
+| `GameLog` facade | **구현됨** — `Application/GameLog.cs`. 축 B가 중첩 클래스 `Ops`/`Dev` 로 갈려 있고, `AddSink`/`RemoveSink`/`ClearSinks`, `Compose`, 재진입 가드(`IsEmitting`), sink 0개일 때 콘솔 폴백, sink별 개별 `try-catch` 모두 존재 | 1.5~1.9 — 구조 충족. **네트워크·인증 계층 이관 완료**(아래) |
+| `LogEvent` enum | **구현됨** — `Application/Interfaces/ILogSink.cs`. **멤버 32개**이며 `Unknown`(0)은 의도적으로 무의미 값으로 비워 두었다. 각 멤버에 부여 근거와 발생 지점이 XML 주석으로 붙어 있다 | 1.5 — **충족** |
 | `ILogSink` / `ConsoleSink` / `FileSink` | **구현됨** — `Application/Interfaces/ILogSink.cs` / `Infrastructure/Debug/ConsoleSink.cs` / `Infrastructure/Debug/FileSink.cs`. `ConsoleSink` 는 예외를 `Debug.LogException` 으로 따로 내보내고, `FileSink` 는 동작 전체가 `#if UNITY_EDITOR` 안에 있다 | 1.8 / 1.9 — 충족 |
 | sink 등록 (조합 루트) | **구현됨** — `Bootstrap/GameBootstrapper.Setup.cs` `InitializeLogging()`. `Awake` 에서 1회 호출되며 **에디터는 `FileSink`, 빌드는 `ConsoleSink` 하나만** 등록한다(콘솔 이중 출력 방지) | 1.8 — 충족 |
 | `[Conditional]` 스트리핑 | **구현됨** — `GameLog.Dev` 의 4개 메서드에 `UNITY_EDITOR` + `DEVELOPMENT_BUILD` 두 개가 **모두** 붙어 있고, `GameLog.Ops` 에는 붙어 있지 않다 | 1.7 — 충족 |
 | 민감 데이터 마스킹 — **2단(facade)** | **구현됨** — `GameLog.Sanitize` 가 최종 문자열에서 이메일 패턴을 `[email-redacted]` 로 치환한다(에디터 포함 항상 적용). 해시 헬퍼 `GameLog.HashId` 도 존재 | 1.6 — 충족 |
-| 민감 데이터 마스킹 — **1단(호출부)** | **미적용.** `HashId` 를 호출하는 코드가 **0건**이고, raw `Debug.Log` 가 UID·이메일을 여전히 평문 출력한다 — `Infrastructure/Auth/FirebaseAuthService.cs`(146·191·265·289·318·365·424·463행), `Application/UseCases/LoginUseCase.cs`(131행 UID · 485행 PlayerId) | 1.6 — **해당 지점 정리 필요** |
+| 민감 데이터 마스킹 — **1단(호출부)** | **여전히 미적용.** 단 **대상 목록이 이관으로 재확정되었다 — 실측 15곳**이며, 각 자리에 `⚠️ 5단계(마스킹) 대상` 주석이 붙어 있어 검색으로 전부 찾을 수 있다.<br>`Infrastructure/Auth/FirebaseAuthService.cs` **10** / `Infrastructure/Network/UnityServicesInitializer.cs` **2** / `Application/UseCases/LoginUseCase.cs` **2** / `Infrastructure/Network/NetworkGameManager.cs` **1**<br>~~(구 목록: `FirebaseAuthService.cs` 146·191·265·289·318·365·424·463행 / `LoginUseCase.cs` 131·485행)~~ — **라인 번호 기준 목록은 이관으로 무효가 되었다** | 1.6 — **해당 지점 정리 필요 (5단계)** |
 | 전역 미처리 예외 수집 | **구현됨** — `GameBootstrapper.Setup.cs` 가 `UnityEngine.Application.logMessageReceived` 를 등록/해제하고, `LogType.Exception` 만 `GameLog.Ops.Error(LogEvent.UnhandledException, ...)` 로 올린다. 되먹임 방어 3겹(예외만 수집 / `GameLog.IsEmitting` / 직전 동일 예외 무시) | 1.9 — 충족 |
-| 에디터 파일 기록 상시 활성 | **구현됨** — `InitializeLogging()` 이 `FileSink.BeginSession(FileSink.RoleHost)` 를 호출해 `_Logs/_editor/{yyyy-MM-dd}/RuntimeLog_host.txt` 를 연다(일 단위 이어쓰기). **역할은 "host" 고정** — `Awake` 시점에 NGO 연결 전이라 host/client 판별이 불가능하기 때문이며, 에디터를 Client 로 띄우는 구성에서는 조정이 필요하다 | 1.10 — 충족(단서 있음) |
+| 에디터 파일 기록 상시 활성 | **구현됨** — `InitializeLogging()` 이 `FileSink.BeginSession(FileSink.RoleHost)` 를 호출해 `_Logs/_editor/{yyyy-MM-dd}/RuntimeLog_host.txt` 를 연다(일 단위 이어쓰기).<br>**⚠️ 파일명이 사실과 다르다.** 이 프로젝트의 테스트 구성은 **에디터 1 + 실기기 빌드 1**이고 **어느 쪽이 host 가 될지 정해져 있지 않다**(사용자 확인). 따라서 **에디터가 client 로 붙어도 `_host.txt` 에 기록된다.**<br>~~"에디터를 Client 로 띄우는 구성에서는 조정이 필요하다"~~ → 조건부 단서가 아니라 **전제가 틀린 것으로 확정**되었다 | 1.10 — **미조치.** 해결 방안 확정 (아래) |
 | `RuntimeLogger` 유틸리티 | **존재** (`Infrastructure/Debug/RuntimeLogger.cs`) — `BeginSession`/`Log`/`EndSession`, 파일 쓰기는 `#if UNITY_EDITOR` 안. `FileSink` 가 이를 재사용한다(구현을 둘로 두지 않음) | 1.11 — 유지 |
-| `RuntimeLogger` 헤더 1줄째 | **여전히 고정 문자열** `=== RuntimeLogger 디버그 세션 ===` — 작업명/목적이 들어가지 않는다 | 1.4 — **조정 필요** |
-| `RuntimeLogger` 헤더 뒤 빈 줄 | **여전히 없음.** `BeginSession` 이 헤더 2줄만 쓰고 빈 줄을 쓰지 않는다 | 1.4 — **추가 필요** |
-| `LogEvent` 이벤트 키 채우기 | **미착수.** 2026-08-13 감사에서 정한 키 30개가 enum 에 없다 | 1.5 — **4단계 예정** |
-| 기존 raw `Debug.Log` 이관 | **미착수.** `Assets/_Project/Scripts/` 안의 `Debug.Log` 계열 호출이 그대로 남아 있고, `GameLog` 실사용처는 `GameBootstrapper` 배선뿐이다 | 1.14 금지사항 1 — **이관 필요** |
-| 컴파일 검증 | **미확인.** 사용자 유니티에서 통과 확인이 되지 않았다. `LogcatCapture.cs` 의 CS0234 3건은 커밋 `9fcee6b7` 로 수정(`UnityEngine.Application` 완전 수식)했으나 **재확인 전** | — 검증 필요 |
+| `RuntimeLogger` 헤더 1줄째 | **여전히 고정 문자열** `=== RuntimeLogger 디버그 세션 ===` (`Infrastructure/Debug/RuntimeLogger.cs:83`) — 작업명/목적이 들어가지 않는다 | 1.4 — **미조치.** 해결 방안 확정 (아래) |
+| `RuntimeLogger` 헤더 2줄째 | **부합.** `=== 세션 시작: yyyy-MM-dd HH:mm:ss ===` (`RuntimeLogger.cs:84`) | 1.4 — 충족. **변경 없음** |
+| `RuntimeLogger` 헤더 뒤 빈 줄 | **여전히 없음.** `BeginSession` 이 헤더 2줄만 쓰고 빈 줄을 쓰지 않는다 | 1.4 — **미조치.** 해결 방안 확정 (아래) |
+| `LogEvent` 이벤트 키 채우기 | **완료.** 기존 2개(`Unknown`(0) · `UnhandledException`) + 2026-08-13 감사에서 확정한 키 30종 = **enum 멤버 32개**. 이관은 감사가 확정해 둔 키를 enum 에 **반영**했을 뿐 새 키를 만들지 않았다(키별 내역은 `_Tasks/2026-08-13/07_13_network-auth-log-cleanup/Plan.md` §0-7 ③). `운영` 85건 전부에 키가 부여되었고 **`Unknown` 사용처는 0건** | 1.5 / 1.14 금지 사항 6 — **충족** |
+| 기존 raw `Debug.Log` 이관 | **네트워크·인증 계층 8파일 205건 완료** (`개발` 120 / `운영` 85). **나머지 계층은 미이관** — `Assets/_Project/Scripts/` 전체의 `Debug.Log` 계열 잔존은 **234건**이다(`grep -rn 'Debug\.Log'` 출현 횟수 기준). 그중 `Application/GameLog.cs` 의 **9건은 이관 대상이 아니다** — **sink 폴백 구현**(sink 0개일 때의 콘솔 출력 · `Debug.LogException`)과 그 설명 주석이며 1.8 이 요구하는 동작 그 자체다 | 1.14 금지 사항 1 — **나머지 계층 이관 필요** |
+| 컴파일 검증 | **통과.** 사용자 유니티에서 확인되었다. `LogcatCapture.cs` 의 CS0234 3건이 커밋 `9fcee6b7`(`UnityEngine.Application` 완전 수식)로 해소된 것도 **재확인**되었다 | — 완료 |
 | Logcat 캡처 도구 | **존재** (`Assets/Editor/Tools/LogcatCapture.cs`) — 메뉴 항목은 `1. 버퍼 비우기` / `2. 파일로 저장` 2개 | 1.12 — 그대로 사용 |
-| 수동 정리 메뉴 `Hexiege > Logcat > 오래된 에디터 로그 정리` | **여전히 없음** | 1.10 — 구현 필요 |
+| 수동 정리 메뉴 `Hexiege > Logcat > 오래된 에디터 로그 정리` | **여전히 없음** (2026-08-14 재확인 — 변동 없음) | 1.10 — 구현 필요 |
+
+### 미조치 항목의 확정된 해결 방안 (2026-08-14 · **구현 전**)
+
+> **여기에는 "어떻게 할 것인가"만 적는다.** 채택 근거와 기각안은
+> `_Tasks/2026-08-13/07_13_network-auth-log-cleanup/Plan.md` **§0-8** 에 있다. 규칙 문서에 논증을 복제하지 않는다.
+
+| # | 항목 | 확정된 조치 |
+|:-:|------|------------|
+| ① | `FileSink` 역할 하드코딩 | **파일명에서 역할을 뺀다** — `RuntimeLog_host.txt` / `RuntimeLog_client.txt` → **`RuntimeLog.txt` 단일**(1.10). 역할은 `NetworkCombatController.OnNetworkSpawn` 에서 **일반 로그 한 줄**로 남긴다 (`Role=host` / `Role=client`). `FileSink.RoleHost` · `RoleClient` 상수와 `BeginSession` 의 `role` 인자는 **제거**한다 |
+| ② | `RuntimeLogger` 헤더 | `BeginSession` 에 **목적 문자열 인자를 추가**해 헤더 1줄째를 채우고(1.4), 헤더 뒤에 **빈 줄 1줄**을 쓴다. 호출처 2곳이 넘길 값 — `FileSink`(에디터 상시 세션)는 `"에디터 상시 런타임 로그"`, 진단용 임시 세션(1.11)은 **그때의 작업명** |
+
+**①②는 한 번에 처리한다** — 둘 다 `RuntimeLogger.BeginSession` 의 시그니처를 바꾸기 때문이다(①은 `role` 제거, ②는 목적 문자열 추가).
+**예상 수정 파일 4개:** `Infrastructure/Debug/RuntimeLogger.cs` · `Infrastructure/Debug/FileSink.cs` · `Bootstrap/GameBootstrapper.Setup.cs` · `Infrastructure/Network/NetworkCombatController.cs`
+
+> **기존에 커밋된 로그 파일은 그대로 둔다.**
+> 파일명 규약 변경은 **앞으로 새로 만들어지는 파일에만** 적용된다.
+> `_Logs/2026-08-10/14_12_mistshrine-heal-implementation/RuntimeLog_host.txt` 처럼 이미 커밋된 파일과
+> 그 파일을 가리키는 문서 링크는 **계속 유효하다.**
 
 ### `GameLog` 배치 위치 (확정)
 
@@ -721,8 +770,7 @@ QA 에이전트가 버그를 발견했을 때 생성하며, QA ↔ DEV 버그 �
 Assets/_Project/Docs/_Logs/
 ├── _editor/                            ← 에디터 상시 로그 (소모품 · 수동 정리, 1.10)
 │ └── YYYY-MM-DD/
-│   ├── RuntimeLog_host.txt
-│   └── RuntimeLog_client.txt
+│   └── RuntimeLog.txt                  ← 파일을 쓰는 프로세스는 항상 에디터 1개 (1.10)
 │
 ├── YYYY-MM-DD/
 │ ├── HH_MM_[작업명]/                   ← _Tasks와 동일 경로명 (대응 관계) · 영구 보존
