@@ -177,8 +177,17 @@ namespace Hexiege.Infrastructure
                 CurrentLobby = await LobbyService.Instance.CreateOrJoinLobbyAsync(
                     matchId, lobbyName, maxPlayers, options);
 
+                // ⚠️ HostId 는 반드시 GameLog.HashId 를 거쳐서 넣는다 (LogRules.md 1.6 — 1단 방어).
+                //   Lobby.HostId 는 "호스트인 사람의 UGS PlayerId 그 자체"다.
+                //   근거: 이 파일 60행의 IsHost 판정이
+                //         `CurrentLobby.HostId == AuthenticationService.Instance.PlayerId`
+                //         로, HostId 를 내 PlayerId 와 직접 비교하고 있다.
+                //   LogRules.md 1.6 은 UID·PlayerId 를 원본 그대로 남기지 말고 해시로 치환하라고 규정한다
+                //   (로그 파일은 채팅에 붙여지고 리포지토리에 커밋되므로 유출 경로가 이미 여럿이다).
+                //   해시는 "같은 사람인지"만 알려 주고 "누구인지"는 알려 주지 않으므로,
+                //   호스트가 매번 같은 계정인지 추적하는 디버깅 용도는 그대로 유지된다.
                 GameLog.Dev.Info("Network", nameof(LobbyManager), "CreateOrJoin 완료",
-                                 $"MatchId={matchId}, LobbyId={CurrentLobby.Id}, HostId={CurrentLobby.HostId}, IsHost={IsHost}");
+                                 $"MatchId={matchId}, LobbyId={CurrentLobby.Id}, HostId={GameLog.HashId(CurrentLobby.HostId)}, IsHost={IsHost}");
 
                 return CurrentLobby;
             }

@@ -9,6 +9,16 @@
 // │     → Assets/_Project/Docs/_Logs/{날짜}/{시각}_logcat/RuntimeLog_device.txt │
 // └────────────────────────────────────────────────────────────────────────┘
 //
+// ┌─ 곁들인 도구: 오래된 에디터 로그 정리 ──────────────────────────────────┐
+// │  상단 메뉴  Hexiege > Logcat > 3. 오래된 에디터 로그 정리   실행.          │
+// │  에디터에서 플레이할 때마다 자동으로 쌓이는 상시 로그                       │
+// │  (Assets/_Project/Docs/_Logs/_editor/{날짜}/RuntimeLog.txt)가              │
+// │  너무 많아졌을 때, 오래된 "날짜 폴더"만 골라 지운다(LogRules.md 1.10).      │
+// │  · 자동 실행·주기 실행은 하지 않는다. 사용자가 메뉴를 누를 때만 동작한다.   │
+// │  · 삭제 대상 목록을 먼저 보여 주고, 사용자가 확인한 뒤에만 지운다.          │
+// │  · 위 [1]/[2] 로 뽑은 실기기 캡처 파일은 대상이 아니다(경로가 다르다).      │
+// └────────────────────────────────────────────────────────────────────────┘
+//
 // 무엇을 하는가(유니티 초급자 기준):
 //   실기기(Android) 테스트에서는 RuntimeLogger 가 파일을 만들지 못한다.
 //   RuntimeLogger.cs 의 파일 쓰기 코드가 전부 #if UNITY_EDITOR 안에 있기 때문이다.
@@ -21,20 +31,24 @@
 //   내부적으로는 Android SDK 의 커맨드라인 도구 `adb`(Android Debug Bridge)를
 //   찾아서 실행할 뿐이다. 사용자는 터미널을 열 필요가 없다.
 //
-// 왜 메뉴가 2개인가:
+// 왜 캡처 메뉴가 [1]/[2] 둘로 나뉘어 있는가:
 //   Logcat 은 "링 버퍼"다. 기기가 계속 로그를 쌓다가 오래된 것부터 지운다.
 //   그래서 테스트 직전에 [1] 로 한 번 비워야, [2] 로 저장했을 때
 //   "이번 테스트에서 나온 로그만" 깔끔하게 담긴다.
 //   비우지 않으면 과거 로그가 섞여 들어와 어디부터가 이번 재현인지 알 수 없다.
+//   ([3] 은 실기기 캡처와 무관한 별개 도구다 — 위 「곁들인 도구」 참조)
 //
 // 이 스크립트가 하지 않는 것:
 //   · 기기에 앱을 설치하거나 실행하지 않는다(빌드/설치는 기존 방식 그대로).
 //   · 실시간 스트리밍(logcat 계속 보기)을 하지 않는다. 한 번 찍어서 파일로 뽑는 용도다.
-//   · 기존 _Logs 파일을 지우거나 덮어쓰지 않는다(항상 새 파일에 쓴다).
+//   · 캡처([1]/[2])는 기존 _Logs 파일을 지우거나 덮어쓰지 않는다(항상 새 파일에 쓴다).
+//   · 파일을 지우는 것은 [3] 하나뿐이며, 그것도 _Logs/_editor/ 하위의 날짜 폴더로 한정된다.
+//     자동·주기 삭제는 어떤 경우에도 하지 않는다(LogRules.md 1.10 「자동 삭제하지 않는다」).
 // ============================================================================
 
 using System;
 using System.Collections.Generic;
+using System.Globalization; // 날짜 폴더 이름을 문화권과 무관하게 해석하기 위해 필요(CultureInfo.InvariantCulture).
 using System.IO;
 using System.Text;
 using UnityEditor;
@@ -61,8 +75,50 @@ namespace Hexiege.EditorTools
         /// </summary>
         private const string LogsRootRelativeToAssets = "_Project/Docs/_Logs";
 
-        /// <summary>저장 파일 이름(확장자 제외). LogRules.md 의 RuntimeLog_* 명명 규칙을 따른다.</summary>
+        /// <summary>
+        /// 실기기 캡처 파일 이름(확장자 제외). LogRules.md 1.12 「실기기 로그」의 명명 규칙이다.
+        ///
+        /// ⚠️ 에디터 상시 로그의 파일명과 혼동하지 말 것.
+        ///    에디터 쪽은 2026-08-14 개정으로 역할(host/client)을 뺀 `RuntimeLog.txt` 단일 이름이 되었지만
+        ///    (LogRules.md 1.10), 이 실기기 캡처 파일은 그 개정과 무관한 별개 경로·별개 규정(1.12)이라
+        ///    `RuntimeLog_device` 라는 이름을 그대로 유지한다.
+        /// </summary>
         private const string LogFileBaseName = "RuntimeLog_device";
+
+        /// <summary>
+        /// 에디터 상시 로그의 뿌리 폴더(Assets 폴더 기준 상대 경로) — 메뉴 [3] 정리 대상의 유일한 범위.
+        ///
+        /// ⚠️ 이 값은 Infrastructure/Debug/FileSink.cs 의
+        ///    `EditorLogsRootRelativeToAssets` 와 **같은 값이어야 한다.**
+        ///    (FileSink 가 쓰는 곳 / 이 도구가 지우는 곳이 어긋나면,
+        ///     "지워지지 않는 로그" 또는 "엉뚱한 폴더 삭제" 가 된다)
+        ///    FileSink 쪽 상수가 private 이라 참조할 수 없어 값을 그대로 옮겨 적었다.
+        ///    FileSink 의 경로가 바뀌면 이 상수도 함께 바꾼다.
+        /// </summary>
+        private const string EditorLogsRootRelativeToAssets = "_Project/Docs/_Logs/_editor";
+
+        /// <summary>
+        /// 정리 메뉴의 기본 보존 기간(일). 이 일수보다 오래된 날짜 폴더만 삭제 후보가 된다.
+        ///
+        /// 기본값을 30일로 넉넉히 잡은 이유:
+        ///   지워진 로그는 복구되지 않는다. 기본값이 공격적이면
+        ///   "확인 버튼을 습관적으로 누르다가 어제 로그를 날리는" 사고가 난다.
+        ///   로그는 텍스트라 용량이 작으므로(LogRules.md 1.10 실측 약 54KB/파일)
+        ///   오래 남겨 두는 쪽의 비용이 거의 없다.
+        /// </summary>
+        private const int DefaultRetentionDays = 30;
+
+        /// <summary>정리 메뉴에서 고를 수 있는 더 보수적인 보존 기간(일).</summary>
+        private const int LongRetentionDays = 90;
+
+        /// <summary>
+        /// 날짜 폴더 이름의 형식. FileSink 가 `DateTime.Now.ToString("yyyy-MM-dd")` 로 만든 이름과 같아야 한다.
+        /// 이 형식으로 해석되지 않는 폴더는 "판정 불가"로 보고 **절대 삭제하지 않는다.**
+        /// </summary>
+        private const string DateFolderFormat = "yyyy-MM-dd";
+
+        /// <summary>확인 대화상자에 이름을 그대로 나열할 폴더의 최대 개수(넘치면 "외 N개"로 줄인다).</summary>
+        private const int MaxListedFolders = 20;
 
         /// <summary>`adb devices` 처럼 즉시 끝나는 명령의 제한 시간(밀리초).</summary>
         private const int ShortTimeoutMs = 10000;
@@ -288,6 +344,515 @@ namespace Hexiege.EditorTools
                 "폴더 열기", "닫기");
 
             if (openFolder) EditorUtility.RevealInFinder(fileAbsolute);
+        }
+
+        // ====================================================================
+        // 메뉴 3 — 오래된 에디터 로그 정리 (LogRules.md 1.10 「수동 정리 메뉴」)
+        //
+        // 이 메뉴는 위의 [1]/[2](실기기 Logcat 캡처)와 아무 관계가 없다.
+        // 지우는 대상은 오직 "에디터에서 플레이할 때마다 쌓이는 상시 로그" 뿐이다.
+        //
+        // ── 규정이 요구하는 4가지 (LogRules.md 1.10) ─────────────────────────
+        //   ① 실행 시점 : 사용자가 메뉴를 직접 눌렀을 때만. 자동·주기 실행 금지.
+        //   ② 사용자 확인 : 삭제 대상 목록을 먼저 보여 주고, 확인받은 뒤에만 삭제.
+        //   ③ 정리 범위 : _Logs/_editor/ 하위로 한정. 삭제 "직전"에 다시 검사.
+        //   ④ 판정 기준 : 날짜 폴더 단위. 파일 개수 기준(`최근 N개`)을 쓰지 않는다.
+        //
+        // ── ④ 를 왜 개수가 아니라 날짜로 하는가 (규정의 근거) ────────────────
+        //   날짜 기준은 판정 근거가 **폴더 이름 그 자체**라, 사용자가 확인 화면에서
+        //   눈으로 검증할 수 있다("2026-06-01 이 지워지는구나").
+        //   개수 기준(`최근 N개만 남김`)은 목록의 **정렬 순서에 의존**하므로,
+        //   정렬이 한 번 어긋나면 가장 최신 로그를 지워 버릴 수 있다.
+        //   그리고 지워진 로그는 복구되지 않는다.
+        //   되돌릴 수 없는 동작에는 눈으로 검증 가능한 기준을 쓴다.
+        //
+        // ── 이 프로젝트의 삭제 사고 이력 ────────────────────────────────────
+        //   CLAUDE.md 규칙 5(git 명령 절대 금지)는 2026-03-03 에 git restore 를
+        //   무단 실행해 커밋되지 않은 작업 전체가 복구 불가로 소실된 사건에서 나왔다.
+        //   "되돌릴 수 없는 삭제를 사용자 확인 없이 수행하지 않는다" 는 원칙이
+        //   이 프로젝트에는 이미 서 있다. 아래 코드는 그 원칙을 그대로 따른다.
+        // ====================================================================
+
+        /// <summary>
+        /// `_Logs/_editor/` 아래에 쌓인 오래된 날짜 폴더를 사용자 확인을 받아 삭제한다.
+        ///
+        /// 처리 흐름(각 단계에서 조건이 안 맞으면 즉시 안내 후 중단한다):
+        ///   1) 정리 대상 뿌리 폴더가 실제로 있는지 확인
+        ///   2) 뿌리 바로 아래 폴더들을 훑어 이름을 날짜로 해석 (해석 실패 폴더는 대상에서 제외)
+        ///   3) 사용자에게 보존 기간(30일 / 90일)을 고르게 함 — 여기서 취소 가능
+        ///   4) 기준일보다 오래된 폴더 목록을 그대로 보여 주고 최종 확인 — 여기서도 취소 가능
+        ///   5) 삭제 직전에 폴더마다 "정말 _editor/ 바로 아래인가" 를 다시 검사한 뒤 삭제
+        ///   6) AssetDatabase.Refresh() 로 에디터에 반영하고 결과를 보고
+        /// </summary>
+        [MenuItem("Hexiege/Logcat/3. 오래된 에디터 로그 정리", false, 13)]
+        public static void CleanOldEditorLogs()
+        {
+            // ── 1) 정리 대상 뿌리 폴더 확인 ────────────────────────────────
+            //   경로 계산 방식은 FileSink.BeginSession 과 **동일**하게 맞춘다.
+            //   (UnityEngine.Application.dataPath = "<프로젝트>/Assets" + 상대 경로)
+            //   ⚠️ Application 완전 수식이 필요한 이유는 위 SaveToFile 의 주석 참조.
+            string rootAbsolute = Path.Combine(
+                UnityEngine.Application.dataPath, EditorLogsRootRelativeToAssets);
+
+            if (!Directory.Exists(rootAbsolute))
+            {
+                EditorUtility.DisplayDialog(
+                    DialogTitle,
+                    "정리할 에디터 로그 폴더가 아직 없습니다.\n\n" +
+                    $"확인한 경로: {ToProjectRelativePath(rootAbsolute)}\n\n" +
+                    "에디터에서 플레이 모드에 한 번도 들어가지 않았다면 정상입니다.",
+                    "확인");
+                return;
+            }
+
+            // ── 2) 날짜 폴더 수집 ─────────────────────────────────────────
+            List<EditorLogFolder> dated;
+            List<string> skippedNames;
+            if (!TryCollectDateFolders(rootAbsolute, out dated, out skippedNames)) return;
+
+            if (dated.Count == 0)
+            {
+                EditorUtility.DisplayDialog(
+                    DialogTitle,
+                    "삭제 판정을 할 수 있는 날짜 폴더가 없습니다.\n\n" +
+                    $"경로: {ToProjectRelativePath(rootAbsolute)}\n" +
+                    $"이름이 날짜(yyyy-MM-dd) 형식이 아니라 제외한 폴더: {skippedNames.Count}개\n\n" +
+                    "이 도구는 폴더 이름을 날짜로 읽어서 판정합니다.\n" +
+                    "이름이 날짜 형식이 아닌 폴더는 안전을 위해 절대 건드리지 않습니다.",
+                    "확인");
+                return;
+            }
+
+            // 오래된 것이 위로 오도록 정렬한다(사용자가 확인 화면에서 읽는 순서).
+            dated.Sort((a, b) => a.Date.CompareTo(b.Date));
+
+            // ── 3) 보존 기간 선택 ─────────────────────────────────────────
+            int retentionDays;
+            if (!TryAskRetentionDays(rootAbsolute, dated, skippedNames.Count, out retentionDays)) return;
+
+            // 기준일 = 오늘 자정에서 보존 기간만큼 뺀 날. 이 날짜"보다 이전"만 삭제한다.
+            // DateTime.Now.Date 를 쓰므로 오늘 폴더는 어떤 경우에도 대상이 될 수 없다.
+            DateTime cutoffDate = DateTime.Now.Date.AddDays(-retentionDays);
+
+            var targets = new List<EditorLogFolder>();
+            for (int i = 0; i < dated.Count; i++)
+            {
+                if (dated[i].Date < cutoffDate) targets.Add(dated[i]);
+            }
+
+            if (targets.Count == 0)
+            {
+                EditorUtility.DisplayDialog(
+                    DialogTitle,
+                    $"{cutoffDate.ToString(DateFolderFormat)} 보다 오래된 날짜 폴더가 없습니다.\n\n" +
+                    $"보존 기간: {retentionDays}일\n" +
+                    $"현재 날짜 폴더: {dated.Count}개 " +
+                    $"({dated[0].Name} ~ {dated[dated.Count - 1].Name})\n\n" +
+                    "아무것도 삭제하지 않았습니다.",
+                    "확인");
+                return;
+            }
+
+            // ── 4) 삭제 대상 목록을 보여 주고 최종 확인 ────────────────────
+            if (!ConfirmDeletion(rootAbsolute, targets, retentionDays, cutoffDate, skippedNames.Count)) return;
+
+            // ── 5) 삭제 (폴더마다 경로 가드를 다시 통과해야 한다) ──────────
+            int deletedFolders = 0;
+            int deletedFiles = 0;
+            var failures = new List<string>();
+
+            for (int i = 0; i < targets.Count; i++)
+            {
+                EditorLogFolder target = targets[i];
+
+                // ★ 마지막 안전장치 — 삭제 직전에 "정말 _editor/ 바로 아래 폴더인가" 를 다시 본다.
+                //   목록을 만든 뒤 삭제하기까지 사이에 값이 바뀌었을 가능성까지 차단한다.
+                //   여기서 한 건이라도 걸리면 나머지도 진행하지 않고 통째로 중단한다.
+                //   (범위를 벗어난 경로가 섞였다는 것은 계산 자체가 틀렸다는 뜻이고,
+                //    그 상태로 삭제를 계속하는 것은 되돌릴 수 없는 사고가 된다)
+                if (!IsInsideEditorLogsRoot(target.AbsolutePath, rootAbsolute))
+                {
+                    AssetDatabase.Refresh();
+                    EditorUtility.DisplayDialog(
+                        DialogTitle,
+                        "정리 범위를 벗어난 경로가 감지되어 삭제를 중단했습니다.\n\n" +
+                        $"문제의 경로: {target.AbsolutePath}\n" +
+                        $"허용 범위: {rootAbsolute} 바로 아래 폴더만\n\n" +
+                        $"여기까지 삭제된 폴더: {deletedFolders}개\n" +
+                        "이 상황은 정상적으로는 발생하지 않습니다. 개발자에게 알려 주세요.",
+                        "확인");
+                    Debug.LogError(
+                        $"[LogcatCapture] 정리 범위 이탈로 중단 — 경로={target.AbsolutePath}, 허용 범위={rootAbsolute}");
+                    return;
+                }
+
+                string failureReason;
+                if (DeleteFolderWithMeta(target.AbsolutePath, out failureReason))
+                {
+                    deletedFolders++;
+                    deletedFiles += target.FileCount;
+                }
+                else
+                {
+                    failures.Add($"{target.Name} — {failureReason}");
+                }
+            }
+
+            // ── 6) 에디터에 반영 + 결과 보고 ───────────────────────────────
+            //   외부에서 지운 파일을 Unity 가 자동으로 알아채지 못할 때가 있다.
+            //   Refresh 를 호출해야 프로젝트 창에서 폴더가 실제로 사라진다.
+            AssetDatabase.Refresh();
+
+            var report = new StringBuilder();
+            report.AppendLine("오래된 에디터 로그 정리를 마쳤습니다.");
+            report.AppendLine();
+            report.AppendLine($"삭제한 날짜 폴더: {deletedFolders}개 (로그 파일 {deletedFiles}개)");
+            report.AppendLine($"기준: {cutoffDate.ToString(DateFolderFormat)} 보다 이전 (보존 {retentionDays}일)");
+
+            if (failures.Count > 0)
+            {
+                report.AppendLine();
+                report.AppendLine($"지우지 못한 폴더: {failures.Count}개");
+                for (int i = 0; i < failures.Count && i < MaxListedFolders; i++)
+                    report.AppendLine($"  · {failures[i]}");
+                if (failures.Count > MaxListedFolders)
+                    report.AppendLine($"  ... 외 {failures.Count - MaxListedFolders}개");
+                report.AppendLine();
+                report.AppendLine("파일이 다른 프로그램에서 열려 있는지 확인한 뒤 다시 실행해 보세요.");
+            }
+
+            EditorUtility.DisplayDialog(DialogTitle, report.ToString(), "확인");
+            Debug.Log(
+                $"[LogcatCapture] 에디터 로그 정리 완료 — 삭제 {deletedFolders}폴더 / {deletedFiles}파일, " +
+                $"실패 {failures.Count}건, 기준일={cutoffDate.ToString(DateFolderFormat)}");
+        }
+
+        // ====================================================================
+        // 메뉴 3 보조 — 날짜 폴더 수집
+        // ====================================================================
+
+        /// <summary>정리 판정에 쓰는 날짜 폴더 하나의 정보.</summary>
+        private struct EditorLogFolder
+        {
+            /// <summary>폴더의 절대 경로(삭제 대상).</summary>
+            public string AbsolutePath;
+
+            /// <summary>폴더 이름(= 날짜 문자열). 사용자에게 그대로 보여 주는 판정 근거다.</summary>
+            public string Name;
+
+            /// <summary>폴더 이름을 해석한 날짜. 이 값만으로 삭제 여부를 판정한다.</summary>
+            public DateTime Date;
+
+            /// <summary>폴더 안의 로그 파일 개수(.meta 제외). 사용자 확인 화면에 표시한다.</summary>
+            public int FileCount;
+        }
+
+        /// <summary>
+        /// 뿌리 폴더 바로 아래의 폴더들을 훑어, 이름이 날짜(yyyy-MM-dd)로 해석되는 것만 모은다.
+        ///
+        /// 이름이 날짜가 아닌 폴더를 왜 그냥 건너뛰는가:
+        ///   이 도구의 판정 근거는 **폴더 이름**뿐이다(LogRules.md 1.10 ④).
+        ///   이름을 읽을 수 없는 폴더는 "오래된 것인지" 를 판정할 방법이 없고,
+        ///   판정할 수 없는 대상을 지우는 것은 규정 위반이자 사고의 원인이다.
+        ///   그래서 대상에서 빼고, 몇 개를 뺐는지만 사용자에게 알린다.
+        /// </summary>
+        /// <param name="rootAbsolute">`_Logs/_editor/` 의 절대 경로.</param>
+        /// <param name="dated">날짜로 해석된 폴더 목록(출력).</param>
+        /// <param name="skippedNames">날짜로 해석되지 않아 제외한 폴더 이름 목록(출력).</param>
+        /// <returns>목록 조사에 성공하면 true. 실패하면 안내 후 false.</returns>
+        private static bool TryCollectDateFolders(
+            string rootAbsolute, out List<EditorLogFolder> dated, out List<string> skippedNames)
+        {
+            dated = new List<EditorLogFolder>();
+            skippedNames = new List<string>();
+
+            string[] subDirectories;
+            try
+            {
+                // SearchOption 기본값은 TopDirectoryOnly — 뿌리 "바로 아래" 한 단계만 본다.
+                // 하위까지 재귀로 훑으면 날짜 폴더 안의 폴더까지 후보가 되어 위험해진다.
+                subDirectories = Directory.GetDirectories(rootAbsolute);
+            }
+            catch (Exception e)
+            {
+                EditorUtility.DisplayDialog(
+                    DialogTitle,
+                    "로그 폴더 목록을 읽지 못했습니다.\n\n" +
+                    $"경로: {rootAbsolute}\n" +
+                    $"원인: {e.Message}",
+                    "확인");
+                return false;
+            }
+
+            for (int i = 0; i < subDirectories.Length; i++)
+            {
+                string folderName = Path.GetFileName(subDirectories[i].TrimEnd('/', '\\'));
+
+                // InvariantCulture 를 쓰는 이유:
+                //   폴더 이름은 FileSink 가 만든 고정 형식 문자열이지 사용자 지역 설정과 무관하다.
+                //   현재 문화권으로 해석하면 PC 설정에 따라 같은 이름이 다르게 읽힐 수 있다.
+                DateTime parsed;
+                bool ok = DateTime.TryParseExact(
+                    folderName, DateFolderFormat, CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out parsed);
+
+                if (!ok)
+                {
+                    skippedNames.Add(folderName);
+                    continue;
+                }
+
+                dated.Add(new EditorLogFolder
+                {
+                    AbsolutePath = subDirectories[i],
+                    Name = folderName,
+                    Date = parsed.Date,
+                    FileCount = CountLogFiles(subDirectories[i])
+                });
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 폴더 안의 로그 파일 개수를 센다(.meta 는 유니티가 만드는 부속 파일이라 제외).
+        /// 세다가 실패해도 정리 작업 자체를 막지 않는다 — 개수는 표시용 정보일 뿐이다.
+        /// </summary>
+        /// <param name="folderAbsolute">셀 폴더의 절대 경로.</param>
+        /// <returns>파일 개수(실패 시 0).</returns>
+        private static int CountLogFiles(string folderAbsolute)
+        {
+            try
+            {
+                string[] files = Directory.GetFiles(folderAbsolute, "*", SearchOption.AllDirectories);
+                int count = 0;
+                for (int i = 0; i < files.Length; i++)
+                {
+                    if (files[i].EndsWith(".meta", StringComparison.OrdinalIgnoreCase)) continue;
+                    count++;
+                }
+                return count;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        // ====================================================================
+        // 메뉴 3 보조 — 사용자 확인 (2단계)
+        // ====================================================================
+
+        /// <summary>
+        /// 1단계 확인 — 보존 기간을 고르게 한다. 여기서 취소하면 아무것도 지우지 않는다.
+        ///
+        /// 왜 자유 입력이 아니라 버튼 두 개인가:
+        ///   유니티 기본 API 에는 텍스트 입력 대화상자가 없어서 별도 창을 만들어야 하는데,
+        ///   되돌릴 수 없는 삭제에서 "아무 숫자나 입력할 수 있는 칸" 은 오히려 위험하다.
+        ///   (0 이나 1 을 입력하면 어제 로그까지 사라진다)
+        ///   미리 정한 넉넉한 값 두 개 중에서 고르게 하면 그 사고가 구조적으로 불가능해진다.
+        /// </summary>
+        /// <param name="rootAbsolute">`_Logs/_editor/` 의 절대 경로(안내문 표시용).</param>
+        /// <param name="dated">수집된 날짜 폴더 목록(오름차순 정렬 상태).</param>
+        /// <param name="skippedCount">날짜로 해석되지 않아 제외한 폴더 개수.</param>
+        /// <param name="retentionDays">사용자가 고른 보존 기간(출력).</param>
+        /// <returns>사용자가 진행을 골랐으면 true, 취소했으면 false.</returns>
+        private static bool TryAskRetentionDays(
+            string rootAbsolute, List<EditorLogFolder> dated, int skippedCount, out int retentionDays)
+        {
+            retentionDays = 0;
+
+            var msg = new StringBuilder();
+            msg.AppendLine("에디터 상시 로그를 날짜 폴더 단위로 정리합니다.");
+            msg.AppendLine();
+            msg.AppendLine($"정리 범위: {ToProjectRelativePath(rootAbsolute)}/");
+            msg.AppendLine($"현재 날짜 폴더: {dated.Count}개 ({dated[0].Name} ~ {dated[dated.Count - 1].Name})");
+            if (skippedCount > 0)
+                msg.AppendLine($"이름이 날짜 형식이 아니라 대상에서 제외한 폴더: {skippedCount}개");
+            msg.AppendLine();
+            msg.AppendLine("며칠보다 오래된 폴더를 지울까요?");
+            msg.AppendLine("고른 기간보다 오래된 폴더만 대상이 되며, 오늘 폴더는 어떤 경우에도 지우지 않습니다.");
+            msg.AppendLine();
+            msg.AppendLine("다음 화면에서 삭제 대상 목록을 확인한 뒤 최종 결정할 수 있습니다.");
+
+            // DisplayDialogComplex 의 반환값: 0=ok(첫 버튼), 1=cancel(둘째), 2=alt(셋째)
+            int choice = EditorUtility.DisplayDialogComplex(
+                DialogTitle,
+                msg.ToString(),
+                $"{DefaultRetentionDays}일보다 오래된 것",   // 0
+                "취소",                                      // 1
+                $"{LongRetentionDays}일보다 오래된 것");     // 2
+
+            if (choice == 1) return false;
+
+            retentionDays = (choice == 2) ? LongRetentionDays : DefaultRetentionDays;
+            return true;
+        }
+
+        /// <summary>
+        /// 2단계 확인 — 실제로 지울 폴더 목록을 그대로 보여 주고 마지막 동의를 받는다.
+        /// 이 대화상자에서 [삭제] 를 누르기 전에는 파일이 하나도 지워지지 않는다
+        /// (LogRules.md 1.10 「사용자 확인」).
+        /// </summary>
+        /// <param name="rootAbsolute">`_Logs/_editor/` 의 절대 경로(안내문 표시용).</param>
+        /// <param name="targets">삭제 대상 폴더 목록.</param>
+        /// <param name="retentionDays">사용자가 고른 보존 기간.</param>
+        /// <param name="cutoffDate">이 날짜보다 이전 폴더가 대상이다.</param>
+        /// <param name="skippedCount">날짜로 해석되지 않아 제외한 폴더 개수.</param>
+        /// <returns>사용자가 삭제에 동의하면 true.</returns>
+        private static bool ConfirmDeletion(
+            string rootAbsolute, List<EditorLogFolder> targets,
+            int retentionDays, DateTime cutoffDate, int skippedCount)
+        {
+            int totalFiles = 0;
+            for (int i = 0; i < targets.Count; i++) totalFiles += targets[i].FileCount;
+
+            var msg = new StringBuilder();
+            msg.AppendLine($"아래 {targets.Count}개 날짜 폴더를 삭제합니다. 되돌릴 수 없습니다.");
+            msg.AppendLine();
+            msg.AppendLine($"정리 범위: {ToProjectRelativePath(rootAbsolute)}/");
+            msg.AppendLine($"기준: {cutoffDate.ToString(DateFolderFormat)} 보다 이전 (보존 {retentionDays}일)");
+            msg.AppendLine();
+            msg.AppendLine("삭제 대상:");
+
+            // 목록이 길면 대화상자가 화면을 넘어가므로 앞부분만 나열한다.
+            // 다만 **총 개수는 어떤 경우에도 표시**한다 — 사용자가 규모를 모른 채 동의하면 안 된다.
+            for (int i = 0; i < targets.Count && i < MaxListedFolders; i++)
+                msg.AppendLine($"  · {targets[i].Name}  (파일 {targets[i].FileCount}개)");
+
+            if (targets.Count > MaxListedFolders)
+                msg.AppendLine($"  ... 외 {targets.Count - MaxListedFolders}개 폴더");
+
+            msg.AppendLine();
+            msg.AppendLine($"합계: 폴더 {targets.Count}개 / 로그 파일 {totalFiles}개");
+            if (skippedCount > 0)
+                msg.AppendLine($"(이름이 날짜 형식이 아닌 폴더 {skippedCount}개는 건드리지 않습니다)");
+            msg.AppendLine();
+            msg.AppendLine("⚠️ 공유하려고 커밋해 둔 로그 파일이 이 안에 있다면 함께 사라집니다.");
+            msg.AppendLine("   남겨야 할 로그가 있는지 목록을 확인한 뒤 진행하세요.");
+
+            return EditorUtility.DisplayDialog(DialogTitle, msg.ToString(), "삭제", "취소");
+        }
+
+        // ====================================================================
+        // 메뉴 3 보조 — 경로 가드와 실제 삭제
+        // ====================================================================
+
+        /// <summary>
+        /// 주어진 경로가 `_Logs/_editor/` **바로 아래의 폴더**인지 검사한다.
+        /// 이 검사를 통과하지 못한 경로는 절대 삭제하지 않는다(LogRules.md 1.10 「정리 범위」).
+        ///
+        /// 세 가지를 모두 확인한다:
+        ///   ① Path.GetFullPath 로 정규화한다 — "..\" 같은 상위 폴더 탈출 표기가
+        ///      여기서 실제 경로로 펼쳐지므로, 문자열 비교만으로 빠져나갈 수 없다.
+        ///      (예: ".../_editor/../../Scripts" 는 ".../Assets/_Project/Scripts" 로 펼쳐져
+        ///       아래 StartsWith 검사에서 탈락한다)
+        ///   ② 뿌리 폴더 그 자체는 대상이 될 수 없다 — _editor/ 통째로 지우는 사고 방지.
+        ///   ③ 뿌리 "바로 아래" 한 단계여야 한다 — 날짜 폴더는 항상 한 단계 아래이고,
+        ///      더 깊은 경로가 대상이 되는 것은 계산이 틀렸다는 뜻이다.
+        /// </summary>
+        /// <param name="candidateAbsolute">검사할 경로.</param>
+        /// <param name="rootAbsolute">허용 범위인 `_Logs/_editor/` 의 절대 경로.</param>
+        /// <returns>삭제해도 되는 위치면 true.</returns>
+        private static bool IsInsideEditorLogsRoot(string candidateAbsolute, string rootAbsolute)
+        {
+            string root = NormalizeFullPath(rootAbsolute);
+            string candidate = NormalizeFullPath(candidateAbsolute);
+
+            // 정규화 자체가 실패했다면(잘못된 문자 등) 판정할 수 없으므로 거부한다.
+            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(candidate)) return false;
+
+            // ② 뿌리 그 자체 거부
+            if (string.Equals(candidate, root, StringComparison.OrdinalIgnoreCase)) return false;
+
+            // ① 반드시 "뿌리/" 로 시작해야 한다.
+            //   구분자 '/' 를 붙여 비교하는 이유: 붙이지 않으면 "_editor_backup" 같은
+            //   형제 폴더가 "_editor" 로 시작한다는 이유만으로 통과해 버린다.
+            string rootWithSeparator = root + "/";
+            if (!candidate.StartsWith(rootWithSeparator, StringComparison.OrdinalIgnoreCase)) return false;
+
+            // ③ 뿌리 바로 아래 한 단계인지 — 남은 부분에 '/' 가 더 있으면 더 깊은 경로다.
+            string remainder = candidate.Substring(rootWithSeparator.Length);
+            return remainder.Length > 0 && remainder.IndexOf('/') < 0;
+        }
+
+        /// <summary>
+        /// 경로를 비교 가능한 형태로 정규화한다.
+        /// (상대 표기·"..\" 를 실제 경로로 펼치고, 구분자를 '/' 로 통일하고, 끝의 구분자를 없앤다)
+        /// </summary>
+        /// <param name="path">원본 경로.</param>
+        /// <returns>정규화된 절대 경로. 정규화할 수 없으면 null.</returns>
+        private static string NormalizeFullPath(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return null;
+
+            try
+            {
+                return Path.GetFullPath(path).Replace('\\', '/').TrimEnd('/');
+            }
+            catch
+            {
+                // 경로에 허용되지 않는 문자가 있는 등, 펼칠 수 없는 경우.
+                // 판정 불가 = 삭제 불가로 이어지도록 null 을 돌려준다.
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 날짜 폴더 하나를 .meta 파일까지 함께 삭제한다.
+        ///
+        /// 왜 AssetDatabase.DeleteAsset 을 먼저 쓰는가:
+        ///   이 폴더는 Assets/ 안에 있어서 유니티가 짝이 되는 `.meta` 파일을 함께 관리한다.
+        ///   · AssetDatabase.DeleteAsset — 에셋과 `.meta` 를 **함께** 지우고 에셋 DB 도 정리한다.
+        ///   · FileUtil.DeleteFileOrDirectory — 지정한 대상만 지운다. 폴더만 넘기면
+        ///     `2026-06-01.meta` 가 그대로 남아 "짝 잃은 meta" 가 된다.
+        ///   이 프로젝트는 _Tasks/_Logs 문서의 `.meta` 도 커밋하므로, 남은 meta 는
+        ///   그대로 커밋 목록에 올라와 혼란을 만든다. 그래서 DeleteAsset 이 정답이다.
+        ///
+        /// 그래도 폴백을 두는 이유:
+        ///   DeleteAsset 은 경로가 에셋으로 인식되지 않거나 파일이 잠겨 있으면 false 만 돌려준다.
+        ///   그 경우 직접 지우되, `.meta` 도 **명시적으로 함께** 지워 위 문제를 피한다.
+        /// </summary>
+        /// <param name="folderAbsolute">삭제할 폴더의 절대 경로(경로 가드를 이미 통과한 값이어야 한다).</param>
+        /// <param name="failureReason">실패했을 때의 이유(성공이면 null).</param>
+        /// <returns>삭제에 성공하면 true.</returns>
+        private static bool DeleteFolderWithMeta(string folderAbsolute, out string failureReason)
+        {
+            failureReason = null;
+
+            // AssetDatabase 계열 API 는 "Assets/..." 형태의 프로젝트 상대 경로만 받는다.
+            string projectRelative = ToProjectRelativePath(folderAbsolute);
+
+            if (projectRelative.StartsWith("Assets/", StringComparison.Ordinal) &&
+                AssetDatabase.DeleteAsset(projectRelative))
+            {
+                return true;
+            }
+
+            // ── 폴백 ──
+            try
+            {
+                if (Directory.Exists(folderAbsolute))
+                    FileUtil.DeleteFileOrDirectory(folderAbsolute);
+
+                // 폴더의 .meta 는 폴더와 같은 위치에 "<폴더이름>.meta" 로 존재한다.
+                string metaPath = folderAbsolute + ".meta";
+                if (File.Exists(metaPath))
+                    FileUtil.DeleteFileOrDirectory(metaPath);
+
+                if (Directory.Exists(folderAbsolute))
+                {
+                    failureReason = "폴더가 그대로 남아 있습니다(다른 프로그램이 파일을 열고 있을 수 있습니다)";
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception e)
+            {
+                failureReason = e.Message;
+                return false;
+            }
         }
 
         // ====================================================================
