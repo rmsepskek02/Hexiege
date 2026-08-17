@@ -10,9 +10,13 @@
 //   5. 자동 로그인 시도 → 성공 시 Lobby 씬 이동, 실패 시 LoginRootView 활성화
 //
 // GameBootstrapper 와의 관계:
-//   - LoginBootstrapper 는 Login 씬에만 존재. GameBootstrapper 는 Lobby/Game 씬에 존재.
+//   - LoginBootstrapper 는 Login 씬에만 존재. GameBootstrapper 는 **Game 씬에만** 존재한다.
+//     (Lobby.unity 에는 부트스트래퍼가 아예 없다 — 2026-08-17 씬 파일 실측 결과 참조 0건.
+//      "Lobby 에도 GameBootstrapper 가 있다" 고 적혀 있던 예전 주석은 사실이 아니어서 정정했다.)
 //   - 두 Bootstrapper 는 완전히 독립적이며, 서로 참조하지 않는다.
 //   - 씬 전환 시점(SceneManager.LoadScene) 에 한쪽이 파괴되고 다른 쪽이 새로 생성된다.
+//   - 로그 배선만은 두 곳에서 같은 진입점(LogSessionOwner.EnsureInitialized)을 부른다.
+//     서로를 참조하는 것이 아니라, Infrastructure 의 정적 소유자를 각자 부르는 방식이다.
 //
 // 부착 위치: Login.unity 씬의 [Bootstrap] 빈 GameObject.
 //
@@ -98,11 +102,24 @@ namespace Hexiege.Bootstrap
         // ====================================================================
 
         /// <summary>
-        /// Awake 에서 Google Play Games 활성화.
+        /// Awake 에서 로그 배선 → Google Play Games 활성화 순으로 수행한다.
         /// PlayGamesPlatform.Activate() 는 게임 시작 시 단 한 번만 호출해야 한다(공식 문서 권장).
+        ///
+        /// 로그 배선(LogSessionOwner.EnsureInitialized)을 맨 앞에 두는 이유:
+        ///   이 씬이 게임 실행 후 가장 먼저 뜨는 씬(Build Index 0)이다.
+        ///   로그를 여기서 켜야 GPGS 활성화부터 Firebase 초기화·자동 로그인까지
+        ///   **그 뒤에 일어나는 모든 일**이 파일에 남는다.
+        ///   예전에는 이 배선이 Game 씬 전용인 GameBootstrapper 에만 있어서
+        ///   로그인·로비 구간 로그가 파일에 한 글자도 남지 않았다.
         /// </summary>
         private void Awake()
         {
+            // [로그] sink 등록 + 파일 세션 시작 + 전역 예외 훅 등록.
+            //   멱등이므로 이미 켜져 있으면 아무 일도 하지 않는다.
+            //   세션을 닫는 일은 여기서 하지 않는다 — 씬을 벗어날 때 닫으면 로비·전투 로그가 끊긴다.
+            //   정리는 LogSessionOwner 가 앱/플레이 모드 종료 시 1회 스스로 수행한다.
+            LogSessionOwner.EnsureInitialized();
+
             // GPGS 활성화 — 이후 PlayGamesPlatform.Instance 가 정상 동작한다.
             //   GooglePlayGames 플러그인이 설치되지 않은 상태에서 컴파일하면 에러가 나므로,
             //   SDK 설치 후 빌드해야 한다.

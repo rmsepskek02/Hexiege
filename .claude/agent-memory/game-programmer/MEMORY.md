@@ -23,7 +23,13 @@
 | 콘솔 구현 | `Assets/_Project/Scripts/Infrastructure/Debug/ConsoleSink.cs` |
 | 파일 구현 | `Assets/_Project/Scripts/Infrastructure/Debug/FileSink.cs` (전체가 `#if UNITY_EDITOR`) |
 | 파일 쓰기 실체 | `Assets/_Project/Scripts/Infrastructure/Debug/RuntimeLogger.cs` |
-| sink 등록 | `Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Setup.cs` `InitializeLogging()` |
+| sink 등록 · 세션 · 전역 예외 훅 | `Assets/_Project/Scripts/Infrastructure/Debug/LogSessionOwner.cs` — **정적 소유자 (2026-08-17 신설)** |
+
+> **씬 무관 로그 수집 (2026-08-17)** — 로그 배선은 더 이상 `GameBootstrapper` 에 없다.
+> `LogSessionOwner.EnsureInitialized()` 를 **각 씬 부트스트래퍼 `Awake()` 첫 줄**에서 호출(멱등, 여는 쪽 여럿).
+> 닫는 것은 `UnityEngine.Application.quitting` + 에디터 `EnteredEditMode` 에서 **1회**(private `Shutdown`).
+> **sink·플래그가 인스턴스 필드면 씬 경계를 못 건너 세션 소유권 사고가 난다** — 반드시 `static`.
+> 상세: `logging.md` 「세션 배선」. `FileSink._sessionOwned` 는 **건드리지 말 것.**
 
 ### `GameLog` 시그니처 (인자 순서 실수가 실제로 4건 났다)
 ```csharp

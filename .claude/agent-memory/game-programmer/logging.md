@@ -11,7 +11,7 @@
 | `Infrastructure/Debug/ConsoleSink.cs` | Infrastructure | 콘솔 출력 |
 | `Infrastructure/Debug/FileSink.cs` | Infrastructure | 파일 기록. 동작 **전체가 `#if UNITY_EDITOR`** |
 | `Infrastructure/Debug/RuntimeLogger.cs` | Infrastructure | 실제 파일 쓰기 구현 + 축 B의 `임시` 로그용 직접 호출 대상 |
-| `Bootstrap/GameBootstrapper.Setup.cs` | Bootstrap | `InitializeLogging()` / `ShutdownLogging()` — **유일한 sink 등록·세션 소유자** |
+| `Infrastructure/Debug/LogSessionOwner.cs` | Infrastructure | **유일한 sink 등록·세션·전역 예외 훅 소유자 (전부 `static`)**. 2026-08-17 신설 |
 
 - **`IRuntimeLogSink` / `RuntimeLoggerSink` 는 삭제되었다**(2026-08-05). 존재하는 것처럼 쓰지 말 것.
 - sink 등록은 **에디터=`FileSink` 하나 / 빌드=`ConsoleSink` 하나**. `RuntimeLogger.Log` 가 파일+콘솔 동시 출력이라 둘 다 등록하면 콘솔 이중 출력.
@@ -36,11 +36,30 @@ RuntimeLogger.BeginSession(string folderPath, string purpose)
 - 헤더 = 목적 줄 + `=== 세션 시작: yyyy-MM-dd HH:mm:ss ===` + **빈 줄 1줄**(본문 경계).
 - `FileSink.BeginSession()` 도 무인자. `FileSink.RoleHost/RoleClient` 상수 **제거됨.**
 
-## 세션 배선 (현행)
+## 세션 배선 (2026-08-17 전면 개편 — 씬 무관 로그 수집)
 
-- **`GameBootstrapper.InitializeLogging()`(Awake)** 이 `_logFileSink.BeginSession()` 으로 열고,
-  `ShutdownLogging()`(OnDestroy)이 `EndSession()` 으로 닫는다. **여닫는 주체는 이 클래스뿐.**
+> 개편 전: `GameBootstrapper.InitializeLogging()`(Awake) 이 열고 `ShutdownLogging()`(OnDestroy) 이 닫았다.
+> `GameBootstrapper` 가 **Game.unity 에만** 있어 로그인·로비 로그 73건이 파일에 안 남던 것이 개편 이유.
+
+- **여는 쪽은 여럿, 닫는 쪽은 하나.**
+  - `LogSessionOwner.EnsureInitialized()` — **public 유일 진입점.** 각 씬 부트스트래퍼 `Awake()` **가장 앞줄**에서 호출.
+    현재 호출처 2곳: `LoginBootstrapper.Awake` / `GameBootstrapper.Awake`.
+  - `LogSessionOwner.Shutdown()` — **private.** 외부에서 못 닫게 막아 "씬 전환 때 닫는 코드"가 재발하지 않게 한다.
+    `UnityEngine.Application.quitting` + (에디터) `EditorApplication.playModeStateChanged`의 `EnteredEditMode` 에 자체 배선.
+  - `LogSessionOwner.IsInitialized` — 검증용 읽기 전용.
+- **⚠️ 상태를 `static` 으로 모은 것이 이 설계의 본질.** sink / `_initialized` / 훅 중복방지 캐시 전부 static.
+  인스턴스 필드였을 때는 씬이 바뀌면 인스턴스가 새로 생겨 "이미 열었는가?" 판단이 **씬 경계를 못 건넜다.**
+  → `GameLog.ClearSinks()` 로 앞 sink 가 빠지고 `RuntimeLogger.BeginSession`(진입 즉시 `EndSession()` 호출)이 앞 스트림을 닫아
+  **2026-08-10 사고(헤더만 남고 본문 빈 파일)가 그대로 재현**된다.
+- **`GameLog.ClearSinks()` 는 반드시 멱등 가드 *뒤*에.** 가드 앞에 두면 씬마다 sink 목록이 비워져 로그 유실.
+- `_initialized = true` 는 **실제 초기화 작업 전에** 세운다(초기화 중 예외/로그로 재진입해도 이중 열기 방지).
 - `FileSink._sessionOwned` 소유권 가드 유지 — 과거 세션을 남이 닫아 로그가 통째로 유실된 사고 있음. **건드리지 말 것.**
+  정적 가드는 그 위에 얹는 한 겹이지 대체가 아니다.
+- **`GameBootstrapper.OnDestroy` 에서 로그를 닫지 않는다.** 닫으면 Game 씬 이탈만으로 Login 부터 이어 온 파일이 끊긴다.
+  (2026-08-17 현재 `// ShutdownLogging();` 로 주석 처리됨 — 사용자 테스트 통과 후 삭제 예정.)
+- 클래스명을 `LogSessionBootstrap`(계획서 가칭) 이 아니라 **`LogSessionOwner`** 로 한 이유:
+  `~Bootstrap` 은 `Hexiege.Bootstrap` 레이어의 조합 루트를 연상시켜 "세 번째 부트스트래퍼" 로 오독된다.
+  이 클래스는 남에게 의존성을 주입하지 않고 자기 sink 만 소유한다.
 - 파일 경로: `Assets/_Project/Docs/_Logs/_editor/{yyyy-MM-dd}/RuntimeLog.txt` — **일 단위 이어쓰기**, 플레이 모드 재진입 시 헤더가 실행 구분선이 됨.
   (작업 귀속 영구 보존물인 `_Logs/YYYY-MM-DD/HH_MM_작업명/` 과 다른 트리다.)
 - ~~`NetworkCombatController.OnNetworkSpawn` 에서 역할별 세션을 연다~~ → 폐기. 그 자리에는 **로그 한 줄만** 남는다:

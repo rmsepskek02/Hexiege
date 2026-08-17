@@ -265,44 +265,21 @@ namespace Hexiege.Bootstrap
         private bool _networkGameStarted = false;
 
         // ────────────────────────────────────────────────────────────────────
-        // 로그 시스템 (GameLog) — LogRules.md 1.8 "sink 구조"
+        // 로그 시스템 (GameLog) — 배선은 이 클래스가 담당하지 않는다
         //
-        //   GameLog(Application의 정적 facade)는 "로그를 남긴다"까지만 담당하고,
-        //   "어디에 쓸 것인가"는 sink 구현체가 담당한다.
-        //   sink 등록은 조합 루트인 이 클래스가 유일하게 수행한다.
+        //   sink 인스턴스 · 파일 세션 · 전역 예외 훅은 전부
+        //   Infrastructure/Debug/LogSessionOwner 가 static 으로 소유한다.
         //
-        //   두 sink 는 **동시에 등록하지 않는다.**
-        //     · 에디터 : FileSink  — RuntimeLogger 를 재사용하며, 파일 + 콘솔에 동시 출력한다.
-        //     · 빌드   : ConsoleSink — 콘솔(Logcat)에만 출력한다(빌드에서는 파일 쓰기가 없다).
-        //   둘을 함께 등록하면 에디터 콘솔에 같은 줄이 두 번 찍히므로,
-        //   InitializeLogging()에서 #if UNITY_EDITOR 로 갈라 하나만 등록한다.
+        //   왜 여기서 뺐는가:
+        //     이 컴포넌트는 Game.unity 씬에만 붙어 있어서, 여기서 로그를 켜면
+        //     Login/Lobby 씬의 로그가 파일에 한 글자도 남지 않았다.
+        //     또한 sink 를 인스턴스 필드로 들고 있으면 씬이 바뀔 때 인스턴스가 새로 생겨
+        //     "이미 열었는가?" 판단이 씬 경계를 건너가지 못하고, 앞 세션의 파일을
+        //     뒤 인스턴스가 닫아 버리는 사고가 난다(자세한 설명은 LogSessionOwner.cs 상단).
+        //
+        //   이 클래스가 하는 일은 Awake 에서 LogSessionOwner.EnsureInitialized() 를
+        //   한 번 부르는 것뿐이다. 이미 켜져 있으면 아무 일도 일어나지 않는다(멱등).
         // ────────────────────────────────────────────────────────────────────
-
-        // 두 필드를 #if 로 갈라 선언하는 이유:
-        //   해당 환경에서 쓰이지 않는 필드를 남겨 두면
-        //   "대입은 하는데 아무도 읽지 않는 필드"라는 컴파일러 경고가 뜬다.
-        //   등록하는 sink 가 환경마다 하나뿐이므로 필드도 하나만 존재하게 만든다.
-
-#if UNITY_EDITOR
-        /// <summary>에디터 전용 파일 로그 sink. 빌드에서는 아예 선언되지 않는다.</summary>
-        private Hexiege.Infrastructure.FileSink _logFileSink;
-#else
-        /// <summary>빌드 전용 콘솔 로그 sink. 에디터에서는 아예 선언되지 않는다.</summary>
-        private Hexiege.Infrastructure.ConsoleSink _logConsoleSink;
-#endif
-
-        /// <summary>
-        /// 전역 예외 훅이 직전에 전달한 예외 메시지(중복 수집 방지용).
-        /// 우리가 남긴 로그가 훅으로 되돌아오는 경우를 걸러 낸다.
-        /// 자세한 이유는 OnUnityLogMessageReceived() 주석 참조.
-        /// </summary>
-        private string _lastHookCondition;
-
-        /// <summary>
-        /// 전역 예외 훅이 직전에 전달한 스택 트레이스(중복 수집 방지용).
-        /// _lastHookCondition 과 짝으로 비교한다.
-        /// </summary>
-        private string _lastHookStackTrace;
 
         // ────────────────────────────────────────────────────────────────────
         // 새 규칙 4 — 건물 변경 시 즉시 모든 유닛 경로 재계산(eager).
@@ -458,14 +435,19 @@ namespace Hexiege.Bootstrap
         /// Awake()에서 미리 등록해 두면 OnNetworkSpawn()에서 바로 꺼낼 수 있다.
         /// 기존 초기화(맵 로드 등)는 Start()에 그대로 두어 순서를 보존한다.
         ///
-        /// 로그 초기화(InitializeLogging)를 맨 앞에 두는 이유:
+        /// 로그 초기화(LogSessionOwner.EnsureInitialized)를 맨 앞에 두는 이유:
         ///   로그는 그 뒤에 일어나는 모든 초기화를 관측할 수 있어야 한다.
         ///   기존 초기화 순서를 바꾸지 않고 **앞에 한 줄 덧붙이기만** 한다.
         /// </summary>
         private void Awake()
         {
             // [로그] sink 등록 + 전역 예외 훅 등록. 다른 초기화보다 먼저 살아 있어야 한다.
-            InitializeLogging();
+            //
+            //   Login 씬을 거쳐 들어왔다면 LoginBootstrapper 가 이미 켜 두었으므로
+            //   이 호출은 첫 줄에서 그대로 되돌아간다(멱등). 세션은 끊기지 않는다.
+            //   반대로 에디터에서 Game.unity 를 직접 열고 실행하면 여기서 처음 켜진다 —
+            //   그래서 기존 동작(전투 씬 단독 실행 시 로그 기록)이 그대로 유지된다.
+            LogSessionOwner.EnsureInitialized();
 
             GameServicesLocator.Register(this);
         }
@@ -475,15 +457,20 @@ namespace Hexiege.Bootstrap
         /// 해제하지 않으면 씬 전환 후 파괴된 GameBootstrapper가 Current에 남아
         /// 다음 씬의 NetworkXxx 파일이 stale 참조를 사용하게 된다.
         ///
-        /// 로그 정리(ShutdownLogging)는 맨 뒤에 둔다 —
-        /// 그 앞에서 일어나는 해제 과정의 로그까지 파일에 남기기 위해서다.
+        /// 로그 정리는 더 이상 여기서 하지 않는다.
+        ///   OnDestroy 는 **씬이 언로드될 때마다** 불리므로, 여기서 파일 세션을 닫으면
+        ///   Game 씬을 벗어나는 것만으로 로그인·로비까지 이어 오던 파일이 끊긴다.
+        ///   정리 시점은 앱/플레이 모드 종료 1회로 옮겼고, 그 배선은
+        ///   LogSessionOwner 가 스스로 걸어 둔다(UnityEngine.Application.quitting).
         /// </summary>
         private void OnDestroy()
         {
             GameServicesLocator.Unregister();
 
-            // [로그] 전역 예외 훅 해제 + 파일 세션 종료 + sink 등록 해제.
-            ShutdownLogging();
+            // [로그] 아래 호출은 의도적으로 제거했다(주석 처리). 사용자 테스트 통과 후 삭제 예정.
+            //   이유: 씬 언로드 시점에 파일 세션을 닫으면 씬을 넘어가는 순간 로그가 끊긴다.
+            //         정리는 LogSessionOwner 가 앱 종료 시 1회 수행한다.
+            // ShutdownLogging();
         }
 
         /// <summary>
