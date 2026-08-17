@@ -63,11 +63,14 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private const string EditorLogsRootRelativeToAssets = "_Project/Docs/_Logs/_editor";
 
-        /// <summary>host 역할일 때의 role 문자열(RuntimeLogger 가 파일명을 결정하는 값).</summary>
-        public const string RoleHost = "host";
-
-        /// <summary>client 역할일 때의 role 문자열.</summary>
-        public const string RoleClient = "client";
+        /// <summary>
+        /// 이 sink 가 여는 세션의 목적 문자열. RuntimeLogger 가 파일 헤더 1줄째에 그대로 쓴다.
+        /// (LogRules.md 1.4 「파일 헤더」 — 1줄째는 "작업명 또는 로그 목적"이어야 한다)
+        ///
+        /// 이 sink 는 특정 작업이 아니라 "에디터에서 플레이할 때마다 항상 켜져 있는 로그"이므로,
+        /// 작업명 대신 그 성격을 그대로 적는다.
+        /// </summary>
+        private const string SessionPurpose = "에디터 상시 런타임 로그";
 
         // ====================================================================
         // 상태
@@ -99,16 +102,21 @@ namespace Hexiege.Infrastructure
         /// 오늘 날짜 폴더에 로그 파일을 열고(없으면 만들고) 기록을 시작한다.
         ///
         /// 세션 제어를 ILogSink 인터페이스에 넣지 않은 이유:
-        ///   파일을 host 로 열지 client 로 열지는 "역할 판별이 가능한 상위 지점"만 알 수 있다.
-        ///   그 상위 지점은 조합 루트인 GameBootstrapper 이며,
-        ///   여닫는 주체를 하나로 못 박아야 세션 소유권 사고가 나지 않는다.
+        ///   RuntimeLogger 의 파일 스트림은 전역에 하나뿐이라, 여닫는 주체를 하나로 못 박아야
+        ///   세션 소유권 사고(한쪽이 다른 쪽 세션을 닫아 로그가 통째로 사라지는 문제)가 나지 않는다.
+        ///   그 하나의 주체가 조합 루트인 GameBootstrapper 다.
         ///
-        /// 파일은 **날짜 단위로 이어쓰기** 한다(하루에 역할별 파일 1개).
+        /// 파일은 **날짜 단위로 이어쓰기** 한다(하루에 파일 1개 — RuntimeLog.txt).
         /// 플레이 모드에 다시 들어가면 RuntimeLogger 가 헤더를 다시 기록하므로
         /// 그 헤더가 실행 구분선 역할을 한다(LogRules.md 1.10).
+        ///
+        /// 파일명에 역할(host/client)을 넣지 않는 이유:
+        ///   이 클래스의 동작 전체가 #if UNITY_EDITOR 안에 있어 빌드(실기기)는 파일을 쓰지 않는다.
+        ///   따라서 파일을 쓰는 프로세스는 항상 에디터 1개뿐이라 파일이 충돌할 수 없다.
+        ///   역할은 NetworkCombatController.OnNetworkSpawn 에서 "Role=host / Role=client"
+        ///   로그 한 줄로 남긴다(LogRules.md 1.10).
         /// </summary>
-        /// <param name="role">"host" 또는 "client". 파일명을 결정한다.</param>
-        public void BeginSession(string role)
+        public void BeginSession()
         {
 #if UNITY_EDITOR
             // 이미 열어 둔 세션이 있으면 아무것도 하지 않는다(중복 호출 방어).
@@ -131,7 +139,8 @@ namespace Hexiege.Infrastructure
                     Directory.CreateDirectory(folderPath);
                 }
 
-                RuntimeLogger.BeginSession(folderPath, role);
+                // 두 번째 인자는 파일 헤더 1줄째에 들어갈 목적 문자열이다(LogRules.md 1.4).
+                RuntimeLogger.BeginSession(folderPath, SessionPurpose);
                 _sessionOwned = true;
             }
             catch (Exception e)

@@ -3,7 +3,8 @@ using System.IO;
 using UnityEngine;
 
 // 사용 예:
-// RuntimeLogger.BeginSession("Assets/_Project/Docs/_Logs/2026-06-25/07_25_matchmaking-debug", "host");
+// (두 번째 인자는 "이 로그가 무엇을 위한 것인가" = 목적 문자열이며, 파일 헤더 1줄째에 그대로 들어간다)
+// RuntimeLogger.BeginSession("Assets/_Project/Docs/_Logs/2026-06-25/07_25_matchmaking-debug", "매치메이킹 디버그");
 // RuntimeLogger.Log(LogLevel.Info, "Network", "NetworkGameManager", "StartMatchmakingAsync 진입", $"IsListening={val}");
 // RuntimeLogger.EndSession();
 
@@ -53,8 +54,12 @@ namespace Hexiege.Infrastructure
         /// 실기기에서는 아무 동작도 하지 않는다(파일을 만들지 않음).
         /// </summary>
         /// <param name="folderPath">로그 파일을 저장할 폴더 경로. 없으면 자동으로 생성한다.</param>
-        /// <param name="role">"host" 또는 "client". 파일명(RuntimeLog_host.txt / RuntimeLog_client.txt)을 결정한다.</param>
-        public static void BeginSession(string folderPath, string role)
+        /// <param name="purpose">
+        /// 이 로그 세션의 목적(또는 작업명). 파일 헤더 1줄째 "=== {purpose} ===" 에 그대로 들어간다.
+        /// 예: "에디터 상시 런타임 로그", "유닛 사망 NGO 버그 픽스 검증 로그"
+        /// (LogRules.md 1.4 「파일 헤더」 — 1줄째는 고정 문자열이 아니라 작업명/목적이어야 한다)
+        /// </param>
+        public static void BeginSession(string folderPath, string purpose)
         {
 #if UNITY_EDITOR
             try
@@ -69,19 +74,38 @@ namespace Hexiege.Infrastructure
                     Directory.CreateDirectory(folderPath);
                 }
 
-                // role 값에 따라 파일명을 결정한다.
-                // "host"가 아니면 모두 client 파일로 취급한다.
-                string fileName = role == "host" ? "RuntimeLog_host.txt" : "RuntimeLog_client.txt";
-                string fullPath = Path.Combine(folderPath, fileName);
+                // 파일명은 항상 "RuntimeLog.txt" 하나다. 역할(host/client)을 파일명에 넣지 않는다.
+                //
+                // 왜 역할별로 파일을 나누지 않는가 (LogRules.md 1.10):
+                //   이 클래스의 파일 쓰기 코드는 전부 #if UNITY_EDITOR 안에 있어
+                //   빌드(실기기)는 로그 파일을 아예 만들지 않는다.
+                //   즉 파일을 쓰는 프로세스는 언제나 에디터 1개뿐이라 파일이 서로 충돌할 수 없고,
+                //   파일명을 나눌 이유가 없다.
+                //   역할은 파일명이 아니라 로그 라인의 "Role=host" 같은 key=value 필드로 남긴다.
+                const string FileName = "RuntimeLog.txt";
+                string fullPath = Path.Combine(folderPath, FileName);
 
                 // append: true  → 기존 파일이 있으면 이어쓰기(기록 보존)
                 // autoFlush: true → 매 줄 작성 직후 디스크에 즉시 기록.
                 //                   에디터가 갑자기 멈추거나 크래시 나도 로그가 유실되지 않는다.
                 _writer = new StreamWriter(fullPath, append: true) { AutoFlush = true };
 
-                // 세션을 구분하기 쉽도록 헤더 두 줄을 기록한다.
-                _writer.WriteLine("=== RuntimeLogger 디버그 세션 ===");
+                // ── 헤더 기록 (LogRules.md 1.4 「파일 헤더」) ──
+                //   1줄째: === [작업명 또는 로그 목적] ===   ← 호출자가 넘긴 purpose
+                //   2줄째: === [시각의 종류]: YYYY-MM-DD HH:MM:SS ===
+                //   그다음: 빈 줄 1줄 (헤더가 여기서 끝난다는 표시)
+                //
+                //   purpose 가 비어 있으면 헤더 1줄째가 "===  ===" 처럼 빈 칸이 되어
+                //   규정 형식이 깨지므로, 그런 경우에만 최소한의 기본 문구로 대체한다.
+                //   (ScriptableObject/Inspector 값처럼 잘못 들어올 수 있는 값은 항상 방어한다)
+                string headerTitle = string.IsNullOrWhiteSpace(purpose) ? "런타임 로그" : purpose;
+
+                _writer.WriteLine($"=== {headerTitle} ===");
                 _writer.WriteLine($"=== 세션 시작: {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
+
+                // 헤더와 본문(로그 라인)을 시각적으로도, 파싱상으로도 갈라 주는 빈 줄.
+                // 본문 줄은 "[" 로 시작하므로, 빈 줄까지가 헤더라는 규칙만으로 경계가 명확해진다.
+                _writer.WriteLine();
             }
             catch (Exception e)
             {

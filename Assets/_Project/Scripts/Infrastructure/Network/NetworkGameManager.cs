@@ -205,10 +205,11 @@ namespace Hexiege.Infrastructure
             await _servicesInitializer.InitializeAsync(
                 onSuccess: playerId =>
                 {
-                    // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터 (UGS PlayerId).
-                    //    이번 단계에서는 값을 그대로 둔다. 치환은 5단계에서 GameLog.HashId 로 처리한다.
+                    // PlayerId 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                    // 바로 아래 OnInitialized 이벤트에는 원본 playerId 를 그대로 넘긴다 —
+                    // 해시는 로그에 찍히는 문자열에만 적용하고 실제 로직 값은 건드리지 않는다.
                     GameLog.Dev.Info("Network", nameof(NetworkGameManager), "초기화 성공",
-                                     $"PlayerId={playerId}");
+                                     $"PlayerId={GameLog.HashId(playerId)}");
                     OnInitialized?.Invoke(playerId);
                 },
                 onFailure: e =>

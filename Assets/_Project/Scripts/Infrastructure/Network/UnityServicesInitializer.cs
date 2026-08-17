@@ -136,13 +136,12 @@ namespace Hexiege.Infrastructure
                     // [로그 이관] LogAudit.md §3-5:123 — 축 A=Info / 축 B=개발.
                     // 의도된 흐름이고 에디터에서 그대로 재현되므로 축 B ①이 "아니오"다.
                     //
-                    // ⚠️ 5단계(마스킹) 대상 — PlayerId 를 원본 그대로 출력하고 있다.
-                    //    LogRules.md 1.6 은 UID·PlayerId 를 GameLog.HashId 로 치환하도록 규정한다.
-                    //    이번 4단계(이관)에서는 값을 건드리지 않고 그대로 옮긴다.
-                    //    마스킹을 파일마다 흩어서 처리하면 누락이 생기므로 5단계에서 일괄 처리한다.
+                    // PlayerId 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                    // 해시는 같은 입력에 항상 같은 값을 내므로 "같은 플레이어인지"는 그대로 판별할 수 있다.
+                    // 프로퍼티 PlayerId 자체는 실제 로직·콜백에서 원본이 필요하므로 건드리지 않는다.
                     GameLog.Dev.Info("Network", nameof(UnityServicesInitializer),
                         "기존 UGS 세션 보존 — 재로그인 생략",
-                        $"PlayerId={PlayerId}");
+                        $"PlayerId={GameLog.HashId(PlayerId)}");
                 }
                 else
                 {
@@ -177,10 +176,12 @@ namespace Hexiege.Infrastructure
                 // SignedIn / PlayerId 는 나중에 집계·필터링에 쓰일 값이므로 문장에 섞지 않고
                 // key=value 자리로 뺀다(LogRules.md 1.4 — "key=value 가 곧 전송 데이터다").
                 //
-                // ⚠️ 5단계(마스킹) 대상 — 위 123행과 같은 이유로 PlayerId 원본이 그대로 나간다.
+                // PlayerId 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 값이 비어 있을 때 "(없음)" 을 보여 주던 기존 표기는 그대로 유지하고,
+                // 값이 있을 때만 해시로 바꾼다 — 로그를 읽는 쪽의 의미가 달라지지 않도록.
                 GameLog.Dev.Info("Network", nameof(UnityServicesInitializer),
                     "UGS 초기화 완료",
-                    $"SignedIn={IsSignedIn}, PlayerId={(string.IsNullOrEmpty(PlayerId) ? "(없음)" : PlayerId)}");
+                    $"SignedIn={IsSignedIn}, PlayerId={(string.IsNullOrEmpty(PlayerId) ? "(없음)" : GameLog.HashId(PlayerId))}");
             }
             catch (Exception e)
             {

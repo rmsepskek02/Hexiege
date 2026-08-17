@@ -114,9 +114,10 @@ namespace Hexiege.Infrastructure
                 _auth = FirebaseAuth.DefaultInstance;
                 IsInitialized = true;
 
-                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 해시는 "같은 사람인지"만 알려 주고 "누구인지"는 알려 주지 않는다.
                 GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "초기화 완료",
-                                 IsLoggedIn ? $"HasSession=true, Uid={FirebaseUID}, Anonymous={IsAnonymous}"
+                                 IsLoggedIn ? $"HasSession=true, Uid={GameLog.HashId(FirebaseUID)}, Anonymous={IsAnonymous}"
                                             : "HasSession=false");
                 return true;
             }
@@ -148,8 +149,9 @@ namespace Hexiege.Infrastructure
                 AuthResult result = await _auth.SignInAnonymouslyAsync();
                 FirebaseUser user = result.User;
 
-                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
-                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "익명 로그인 성공", $"Uid={user.UserId}");
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 반환값(user.UserId)은 실제 로직에서 쓰이므로 원본 그대로 돌려준다.
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "익명 로그인 성공", $"Uid={GameLog.HashId(user.UserId)}");
                 return user.UserId;
             }
             catch (FirebaseException e)
@@ -194,9 +196,9 @@ namespace Hexiege.Infrastructure
                 // (SignInAnonymouslyAsync 등 다른 메서드는 AuthResult 반환 — 버전별 차이)
                 FirebaseUser user = await _auth.SignInWithCredentialAsync(credential);
 
-                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
                 GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "Google 로그인 성공",
-                                 $"Uid={user.UserId}, DisplayName={user.DisplayName}");
+                                 $"Uid={GameLog.HashId(user.UserId)}, DisplayName={user.DisplayName}");
                 return user.UserId;
             }
             catch (FirebaseException e)
@@ -271,9 +273,10 @@ namespace Hexiege.Infrastructure
             try
             {
                 AuthResult result = await _auth.SignInWithEmailAndPasswordAsync(email, password);
-                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 이메일 자체는 애초에 로그에 넣지 않는다 — 인증 여부(bool)만 남긴다.
                 GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "이메일 로그인 성공",
-                                 $"Uid={result.User.UserId}, EmailVerified={result.User.IsEmailVerified}");
+                                 $"Uid={GameLog.HashId(result.User.UserId)}, EmailVerified={result.User.IsEmailVerified}");
                 return result.User.UserId;
             }
             catch (FirebaseException e)
@@ -296,8 +299,8 @@ namespace Hexiege.Infrastructure
             try
             {
                 AuthResult result = await _auth.CreateUserWithEmailAndPasswordAsync(email, password);
-                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
-                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "회원가입 성공", $"Uid={result.User.UserId}");
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "회원가입 성공", $"Uid={GameLog.HashId(result.User.UserId)}");
 
                 // 표시 이름이 있으면 프로필에 설정
                 if (!string.IsNullOrWhiteSpace(displayName))
@@ -326,7 +329,7 @@ namespace Hexiege.Infrastructure
             try
             {
                 await _auth.CurrentUser.SendEmailVerificationAsync();
-                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터 — 이메일은 부분 마스킹도 금지, 출력 자체를 없앤다
+                // 수신 이메일 주소는 로그에 넣지 않는다 — 부분 마스킹조차 금지다 (LogRules.md 1.6).
                 GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "인증 메일 발송");
             }
             catch (FirebaseException e)
@@ -374,7 +377,7 @@ namespace Hexiege.Infrastructure
             try
             {
                 await _auth.SendPasswordResetEmailAsync(email);
-                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터 — 이메일 출력 제거 대상
+                // 인자로 받은 email 은 로그에 넣지 않는다 — 부분 마스킹조차 금지다 (LogRules.md 1.6).
                 GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "비밀번호 재설정 메일 발송");
             }
             catch (FirebaseException e)
@@ -409,8 +412,8 @@ namespace Hexiege.Infrastructure
             {
                 Credential credential = PlayGamesAuthProvider.GetCredential(serverAuthCode);
                 await _auth.CurrentUser.LinkWithCredentialAsync(credential);
-                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
-                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "Google 연동 성공", $"Uid={FirebaseUID}");
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "Google 연동 성공", $"Uid={GameLog.HashId(FirebaseUID)}");
             }
             catch (FirebaseException e)
             {
@@ -435,8 +438,9 @@ namespace Hexiege.Infrastructure
             {
                 Credential credential = EmailAuthProvider.GetCredential(email, password);
                 await _auth.CurrentUser.LinkWithCredentialAsync(credential);
-                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터 — UID 해시 치환 + 이메일 출력 제거
-                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "이메일 연동 성공", $"Uid={FirebaseUID}, Email={email}");
+                // UID 는 개인 식별자라 원본 대신 해시를 남기고, 연동된 이메일 주소는 아예 출력하지 않는다 (LogRules.md 1.6).
+                // 인자 email 은 위 EmailAuthProvider.GetCredential 에서 실제 로직으로 쓰이므로 원본 그대로 둔다.
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "이메일 연동 성공", $"Uid={GameLog.HashId(FirebaseUID)}");
 
                 // 이메일 연동 직후 인증 메일 발송 — 호출자가 별도 호출하지 않아도 되도록 일관성 유지.
                 await _auth.CurrentUser.SendEmailVerificationAsync();
@@ -475,9 +479,10 @@ namespace Hexiege.Infrastructure
             {
                 string uid = _auth.CurrentUser.UserId;
                 await _auth.CurrentUser.DeleteAsync();
-                // ⚠️ 5단계(마스킹) 대상 — LogRules.md 1.6 민감 데이터
                 // 잠정 판정: 개발. 되돌릴 수 없는 조작이라 감사 기록 요구가 축 판정을 덮을 수 있다(질의 Q-4).
-                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "계정 삭제 완료", $"Uid={uid}");
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 위 uid 지역변수는 DeleteAsync 전에 원본을 확보해 둔 값이므로 그대로 두고, 로그 인자만 해시한다.
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "계정 삭제 완료", $"Uid={GameLog.HashId(uid)}");
             }
             catch (FirebaseException e)
             {

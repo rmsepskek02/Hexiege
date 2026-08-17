@@ -28,8 +28,9 @@
 - 루트 GameObject에만 작동. 자식 배치 시 씬 전환마다 재생성+즉시파괴 반복
 - DontDestroyOnLoad 오브젝트는 생성 씬 하나에만 배치. SetActive(false)면 Awake 미호출→미등록(숨김은 CanvasGroup.alpha=0)
 
-## CRITICAL — 런타임 로그는 RuntimeLogger 경유 (상세: logging.md)
-- **raw `Debug.Log` 진단 로그 금지**(Claude가 콘솔 못 읽음). 규칙: `Docs/LogRules.md`. 유틸: `Infrastructure/Debug/RuntimeLogger.cs`(BeginSession/Log/EndSession, 에디터만 파일 저장) — **이 기반 유틸은 유지됨**.
+## CRITICAL — 런타임 로그는 GameLog 경유 (상세: logging.md)
+- **raw `Debug.Log` 진단 로그 금지**(Claude가 콘솔 못 읽음). 규칙: `Docs/LogRules.md`. facade: `Application/GameLog.cs`(`Ops`=운영+LogEvent 키 / `Dev`=개발, 릴리스에서 스트리핑). 파일 쓰기 구현: `Infrastructure/Debug/RuntimeLogger.cs`(에디터만).
+- **2026-08-17 변경**: `RuntimeLogger.BeginSession(folderPath, purpose)` — `role` 인자 폐지, 파일명은 `RuntimeLog.txt` **단일**(`_host`/`_client` 폐지). 역할은 `NetworkCombatController.OnNetworkSpawn` 의 `Role=host|client` 로그 한 줄로 남는다.
 - ⚠️ **로그 작업 착수 전 반드시 `Docs/LogRules.md`를 먼저 확인**(RuntimeLogger 파일 기록·raw Debug.Log 금지). 2026-08-05 스킬 타입 C 작업에서 이를 뒤늦게 준수해 진단 로그를 걷어냄.
 - **Application 계층 로깅 어댑터(`IRuntimeLogSink`/`RuntimeLoggerSink`/`SetLogSink`)는 2026-08-05 정리로 삭제됨 — 상시 기능 아님.** Application에서 임시 진단 로깅이 다시 필요하면 그때 한시적으로 sink를 재도입하고, 작업 종료 후 반드시 제거(코드/문서에 상시 기능으로 남기지 말 것). Infra 직접 참조 금지 원칙(의존성 역전)은 재도입 시에도 유효.
 

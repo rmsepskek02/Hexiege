@@ -128,9 +128,10 @@ namespace Hexiege.Application
                     return AutoLoginResult.NeedsEmailVerification;
                 }
 
-                // ⚠️ 5단계(마스킹) 대상 — UID 는 GameLog.HashId 로 치환 예정 (LogRules.md 1.6 민감 데이터)
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 바로 아래 BridgeToUGSAsync 에는 원본 UID 를 그대로 넘긴다 — 해시는 로그 표시용일 뿐이다.
                 GameLog.Dev.Info("Auth", nameof(LoginUseCase), "자동 로그인: 세션 발견 — UGS 브릿지 진행",
-                                 $"Uid={_authService.FirebaseUID}");
+                                 $"Uid={GameLog.HashId(_authService.FirebaseUID)}");
 
                 // UGS 브릿지 성공 여부를 받아 둔다. false 여도 로그인 자체는 성공 처리(규칙 3).
                 bool bridged = await BridgeToUGSAsync(_authService.FirebaseUID);
@@ -493,9 +494,9 @@ namespace Hexiege.Application
                         firebaseToken);
                 }
 
-                // ⚠️ 5단계(마스킹) 대상 — PlayerId 는 GameLog.HashId 로 치환 예정 (LogRules.md 1.6 민감 데이터)
+                // PlayerId 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
                 GameLog.Dev.Info("Auth", nameof(LoginUseCase), "UGS 브릿지 완료",
-                                 $"PlayerId={AuthenticationService.Instance.PlayerId}");
+                                 $"PlayerId={GameLog.HashId(AuthenticationService.Instance.PlayerId)}");
 
                 // 익명/OIDC 어느 경로든 위 로그인이 예외 없이 끝났으면 UGS 연결 성공.
                 return true;

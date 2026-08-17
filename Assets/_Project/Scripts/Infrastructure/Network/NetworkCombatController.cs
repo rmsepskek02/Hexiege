@@ -127,6 +127,19 @@ namespace Hexiege.Infrastructure
             NetworkContext.Set(isServer: IsServer, isActive: true);
             Debug.Log($"[Network] NetworkCombatController 스폰. IsServer={IsServer}. NetworkContext 설정 완료.");
 
+            // ── 이 실행이 host 인지 client 인지를 로그 파일에 남긴다 (LogRules.md 1.4 / 1.10) ──
+            //
+            // 왜 파일명이 아니라 로그 한 줄인가:
+            //   LogRules.md 1.4 는 "| key=value" 부분을 "서버 전송 시 그대로 구조화 집계 필드가 되는 부분"
+            //   으로 규정한다. Role=host 는 나중에 집계 축이 되지만, 파일명은 아무것도 되지 않는다.
+            //
+            // 왜 하필 여기인가:
+            //   OnNetworkSpawn 은 NGO 가 연결을 마쳐 IsServer 값이 확정되는 최초 지점이다.
+            //   (조합 루트인 GameBootstrapper.Awake 시점에는 아직 알 수 없다.)
+            //   바로 위에서 NetworkContext 에 역할을 주입했으므로, 그 결과를 그대로 기록하는 자리이기도 하다.
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController),
+                             "네트워크 역할 확정", $"Role={(IsServer ? "host" : "client")}");
+
             // 서버만 사망/Walk 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
             {

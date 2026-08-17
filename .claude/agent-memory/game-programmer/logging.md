@@ -1,41 +1,69 @@
-# 런타임 로그(파일 기록) — LogRules & RuntimeLogger 패턴
+# 런타임 로그 — GameLog / sink / RuntimeLogger 패턴
 
-## 규칙 요약 (`Assets/_Project/Docs/LogRules.md`)
-- **raw `Debug.Log`/`Debug.LogWarning`를 진단 로그로 쓰면 규칙 위반** — 콘솔에만 남아 파일화 안 됨 → Claude가 못 읽음.
-- 반드시 `RuntimeLogger` 경유(콘솔+파일 동시). 에디터는 `_Logs/`에 파일 저장, 실기기는 파일 없이 Logcat만.
-- 형식(자동생성): `[HH:MM:SS.ms] [LEVEL] [System/Class] 메시지 | key=value`. 레벨(Info/Warn/Error) 필수, 카테고리 `[System/Class]` 필수.
-- 파일 경로: `Assets/_Project/Docs/_Logs/YYYY-MM-DD/HH_MM_작업명/RuntimeLog_host.txt|_client.txt`. **로그 코드는 테스트 후 제거 대상(주석 `[테스트 진단 로그 — 제거 예정]` 태그 유지), 로그 파일 자체는 보존.**
-- 스팸 방지: 상태 "전이"에서만 로깅(틱마다 금지). 민감정보(ID/토큰) 금지.
+규칙 단일 소스: `Assets/_Project/Docs/LogRules.md`. **충돌 시 언제나 그 문서가 옳다.**
 
-## RuntimeLogger API (`Infrastructure/Debug/RuntimeLogger.cs`, static)
-- `BeginSession(folderPath, role)` — role="host"→RuntimeLog_host.txt, 그 외→_client.txt. append+autoflush. 중복 호출 안전(내부 EndSession 선행).
-- `Log(LogLevel, system, class, message, data=null)` — 콘솔 항상 + 에디터 파일(세션 열려있으면). BeginSession 없이 호출해도 콘솔만 안전.
-- `EndSession()` — 파일 핸들 닫기. null 안전.
-- `LogLevel`은 `Hexiege.Infrastructure` enum(Info/Warn/Error).
+## 현재 구조 (2026-08-17 실측)
 
-## Application 레이어에서 파일 로그 남기는 법 (의존성 역전 — 2026-08-04 확립)
-Application→Infrastructure 직접 참조 금지라 RuntimeLogger를 직접 못 씀. 프로젝트 기존 패턴(IUnitFactory/IGameServices)과 동일하게:
-1. **인터페이스+중립 enum** `Assets/_Project/Scripts/Application/Interfaces/IRuntimeLogSink.cs`:
-   - `enum LogLevel { Info, Warn, Error }` (Application 네임스페이스 — Infra enum 참조 회피)
-   - `interface IRuntimeLogSink { void Log(LogLevel, string system, string className, string message, string data=null); }`
-   - 세션 제어(BeginSession/EndSession)는 인터페이스에 **넣지 않음** — 역할 판별 가능한 상위(Bootstrap/Network)가 RuntimeLogger 직접 관리.
-2. **어댑터** `Assets/_Project/Scripts/Infrastructure/Debug/RuntimeLoggerSink.cs`:
-   - `public sealed class RuntimeLoggerSink : Hexiege.Application.IRuntimeLogSink` — 내부에서 `RuntimeLogger.Log(MapLevel(level),...)`.
-   - Application.LogLevel → Infrastructure.LogLevel 1:1 매핑(`MapLevel`).
-3. **주입** `GameBootstrapper.Setup.cs`: `var sink = new RuntimeLoggerSink(); _statusEffectSystem.SetLogSink(sink); _unitCombat.SetLogSink(sink);`
-4. **로그 지점**(Application): `private IRuntimeLogSink _log;` + `_log?.Log(LogLevel.Info, "Skill", nameof(StatusEffectSystem), "Apply", $"unit={id}, ...");` (null이면 무동작 — `?.`가 인자 평가까지 단락).
-- Infrastructure 클래스(NetworkSkillController 등)는 어댑터 없이 `RuntimeLogger.Log(...)` 직접 호출 가능.
+| 파일 | 레이어 | 역할 |
+|---|---|---|
+| `Application/GameLog.cs` | Application | 정적 facade. 중첩 클래스 `Ops`(운영) / `Dev`(개발)로 축 B가 갈림 |
+| `Application/Interfaces/ILogSink.cs` | Application | `ILogSink` + Application 중립 `LogLevel` + `enum LogEvent`(멤버 32개) |
+| `Infrastructure/Debug/ConsoleSink.cs` | Infrastructure | 콘솔 출력 |
+| `Infrastructure/Debug/FileSink.cs` | Infrastructure | 파일 기록. 동작 **전체가 `#if UNITY_EDITOR`** |
+| `Infrastructure/Debug/RuntimeLogger.cs` | Infrastructure | 실제 파일 쓰기 구현 + 축 B의 `임시` 로그용 직접 호출 대상 |
+| `Bootstrap/GameBootstrapper.Setup.cs` | Bootstrap | `InitializeLogging()` / `ShutdownLogging()` — **유일한 sink 등록·세션 소유자** |
 
-## enum 이름 충돌 주의 (핵심)
-- `LogLevel`이 `Hexiege.Application`·`Hexiege.Infrastructure` 양쪽 존재.
-- 파일이 속한(enclosing) 네임스페이스의 멤버가 `using`으로 들여온 것보다 **우선** → CS0104(모호) 안 남. (모호는 서로 다른 두 using에서 같은 이름이 올 때만.)
-  - 예: `namespace Hexiege.Infrastructure`인 NetworkSkillController가 `using Hexiege.Application;`여도 `LogLevel`=Infrastructure.LogLevel로 해석(정상).
-- **어댑터에서 인터페이스 시그니처 매칭 시엔 fully-qualify 필수**: `public void Log(Hexiege.Application.LogLevel level, ...)` — unqualified로 쓰면 enclosing(Infrastructure) LogLevel로 해석돼 인터페이스 구현이 안 됨.
+- **`IRuntimeLogSink` / `RuntimeLoggerSink` 는 삭제되었다**(2026-08-05). 존재하는 것처럼 쓰지 말 것.
+- sink 등록은 **에디터=`FileSink` 하나 / 빌드=`ConsoleSink` 하나**. `RuntimeLogger.Log` 가 파일+콘솔 동시 출력이라 둘 다 등록하면 콘솔 이중 출력.
 
-## 세션(BeginSession/EndSession) 배선 위치
-- **멀티플레이**: `NetworkCombatController.OnNetworkSpawn`(NetworkContext.Set 직후, `IsServer?"host":"client"`) / `OnNetworkDespawn`(NetworkContext.Reset 직후 EndSession). 각 인스턴스가 자기 역할 파일로 기록.
-- **싱글플레이**: `GameBootstrapper.Start()` 싱글 분기에서 `BeginSession(folder,"host")` + `_dbgSessionOwned=true`, `OnDestroy`에서 `if(_dbgSessionOwned) EndSession()`. 소유권 가드로 멀티 세션과 충돌 방지.
-- 폴더 경로 상수는 세션 여는 파일(GameBootstrapper.cs, NetworkCombatController.cs)에 각각 `const string`으로 둠(제거 시 함께 삭제).
+## API
 
-## 테스트 방법
-- **에디터에서 호스트로 실행해야 파일 생성됨**(실기기는 파일 미생성=Logcat만). 멀티는 에디터=호스트 → RuntimeLog_host.txt, 상대 클라 에디터 → RuntimeLog_client.txt.
+- `GameLog.Ops.Info/Warn/Error(LogEvent, system, className, message, [exception], data=null)` — 릴리스에도 남음. **`LogEvent` 키 필수.**
+- `GameLog.Dev.Info/Warn/Error(system, className, message, [exception], data=null)` — `[Conditional("UNITY_EDITOR")]` + `[Conditional("DEVELOPMENT_BUILD")]` 로 릴리스에서 통째로 사라짐. 키 없음.
+- `RuntimeLogger.Log(LogLevel, system, className, message, data=null)` — 축 B `임시` 로그만 직접 호출.
+
+## `RuntimeLogger.BeginSession` 시그니처 (2026-08-17 변경)
+
+```csharp
+RuntimeLogger.BeginSession(string folderPath, string purpose)
+```
+
+- **`role` 인자 제거됨.** 파일명은 **`RuntimeLog.txt` 단일** — `RuntimeLog_host.txt` / `_client.txt` 는 폐지.
+  이유: `FileSink` 동작 전체가 `#if UNITY_EDITOR` 안 → 빌드는 파일을 아예 안 씀 → 파일 쓰는 프로세스는 항상 에디터 1개 → 충돌 불가.
+  (이 프로젝트 테스트 구성은 **에디터 1 + 실기기 빌드 1이고 어느 쪽이 host 일지 정해져 있지 않다.** "에디터=host" 전제는 틀린 것으로 확정.)
+- `purpose` 는 파일 헤더 1줄째 `=== {purpose} ===` 에 들어감(LogRules 1.4). 빈 값이면 `"런타임 로그"` 로 폴백.
+- `FileSink` 는 `SessionPurpose = "에디터 상시 런타임 로그"` 상수를 넘긴다. 진단용 임시 세션은 그때의 작업명.
+- 헤더 = 목적 줄 + `=== 세션 시작: yyyy-MM-dd HH:mm:ss ===` + **빈 줄 1줄**(본문 경계).
+- `FileSink.BeginSession()` 도 무인자. `FileSink.RoleHost/RoleClient` 상수 **제거됨.**
+
+## 세션 배선 (현행)
+
+- **`GameBootstrapper.InitializeLogging()`(Awake)** 이 `_logFileSink.BeginSession()` 으로 열고,
+  `ShutdownLogging()`(OnDestroy)이 `EndSession()` 으로 닫는다. **여닫는 주체는 이 클래스뿐.**
+- `FileSink._sessionOwned` 소유권 가드 유지 — 과거 세션을 남이 닫아 로그가 통째로 유실된 사고 있음. **건드리지 말 것.**
+- 파일 경로: `Assets/_Project/Docs/_Logs/_editor/{yyyy-MM-dd}/RuntimeLog.txt` — **일 단위 이어쓰기**, 플레이 모드 재진입 시 헤더가 실행 구분선이 됨.
+  (작업 귀속 영구 보존물인 `_Logs/YYYY-MM-DD/HH_MM_작업명/` 과 다른 트리다.)
+- ~~`NetworkCombatController.OnNetworkSpawn` 에서 역할별 세션을 연다~~ → 폐기. 그 자리에는 **로그 한 줄만** 남는다:
+  `GameLog.Dev.Info("Network", nameof(NetworkCombatController), "네트워크 역할 확정", $"Role={(IsServer ? "host" : "client")}")`
+  (역할은 `key=value` 여야 서버 전송 시 집계 필드가 된다. 파일명은 집계 축이 못 된다 — LogRules 1.4)
+
+## 형식
+
+`[HH:MM:SS.ms] [LEVEL] [System/Class] 메시지 | key=value, key=value`
+- `key=value` 는 **서버 전송 시 그대로 구조화 필드**. 값은 집계 가능한 형태로, 키 이름은 고정. 자유 문장은 message 쪽.
+- 민감 데이터: 이메일 **전면 금지**(부분 마스킹도 금지), UID/PlayerId 는 `GameLog.HashId`, 토큰 금지. 에디터 포함 항상 적용.
+- 호출부 마스킹(1.6 1단) **미적용 15곳** — 코드에 `⚠️ 5단계(마스킹) 대상` 주석이 붙어 있어 grep 으로 찾을 수 있다.
+
+## 네임스페이스 함정 (반복 발생, CS0234 3건 이력)
+
+- `Hexiege.Application` 네임스페이스가 존재 → 수식 없는 `Application` 은 **`UnityEngine.Application` 이 아니다.**
+  `UnityEngine.Application.dataPath` / `.logMessageReceived` 는 **반드시 완전 수식.**
+- `LogLevel` 이 `Hexiege.Application` · `Hexiege.Infrastructure` 양쪽 존재.
+  enclosing 네임스페이스 멤버가 `using` 보다 우선하므로 CS0104 는 안 나지만,
+  **인터페이스 구현 시그니처는 `Hexiege.Application.LogLevel` 로 완전 수식해야** 구현으로 인정된다.
+
+## 미구현 / 남은 것
+
+- `Hexiege > Logcat > 오래된 에디터 로그 정리` 수동 메뉴 — 미구현. 현행 `Assets/Editor/Tools/LogcatCapture.cs` 는 `버퍼 비우기` / `파일로 저장` 2개뿐.
+- 네트워크·인증 8파일 205건은 `GameLog` 이관 완료. **나머지 계층은 미이관**(`Debug.Log` 계열 잔존 234건).
+  단 `Application/GameLog.cs` 의 9건은 sink 폴백 구현이라 이관 대상 아님.

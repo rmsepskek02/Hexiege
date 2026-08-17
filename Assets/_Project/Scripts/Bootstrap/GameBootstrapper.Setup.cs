@@ -914,13 +914,17 @@ namespace Hexiege.Bootstrap
 
             // 세션을 여닫는 주체는 오직 이 클래스다(LogRules.md 1.10 — 세션 소유권).
             //
-            // 역할을 "host" 로 고정하는 이유:
+            // 파일명에 역할(host/client)이 들어가지 않는 이유:
             //   ① 이 시점(Awake)에는 NGO 가 아직 연결되지 않아 host/client 를 알 수 없다.
-            //   ② 파일 기록은 에디터에서만 동작하고(실기기는 Logcat 만),
-            //      이 프로젝트의 멀티 테스트 구성은 "에디터 = Host, 빌드 = Client" 다.
-            //      즉 파일을 쓰는 쪽은 사실상 항상 host 다.
-            //   ※ 에디터를 Client 로 띄우는 구성을 쓰게 되면 이 값의 조정이 필요하다.
-            _logFileSink.BeginSession(FileSink.RoleHost);
+            //      이 프로젝트의 멀티 테스트 구성은 "에디터 1개 + 실기기 빌드 1개"이고,
+            //      어느 쪽이 host 가 될지는 정해져 있지 않다.
+            //   ② 애초에 파일명을 나눌 필요가 없다. FileSink 의 동작 전체가 #if UNITY_EDITOR 안에 있어
+            //      빌드(실기기)는 로그 파일을 아예 쓰지 않는다.
+            //      즉 파일을 쓰는 프로세스는 언제나 에디터 1개뿐이라 파일이 충돌할 수 없다.
+            //   → 그래서 파일은 RuntimeLog.txt 하나이고,
+            //     역할은 NetworkCombatController.OnNetworkSpawn 이 역할 확정 시점에
+            //     "Role=host / Role=client" 로그 한 줄로 남긴다(LogRules.md 1.4 / 1.10).
+            _logFileSink.BeginSession();
 
             GameLog.AddSink(_logFileSink);
 #else
