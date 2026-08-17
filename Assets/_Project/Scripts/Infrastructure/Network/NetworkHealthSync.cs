@@ -66,10 +66,18 @@ namespace Hexiege.Infrastructure
             _services = GameServicesLocator.Current;
             if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkHealthSync: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
+                // [운영] 아직 기능이 죽지는 않았고(요청 전) 스폰은 계속된다 → 축 A Warn.
+                //   NGO 스폰 타이밍은 회선 상태에 좌우돼 플레이어 기기에서만 어긋날 수 있고
+                //   플레이어에게 알리는 경로가 없다 → 축 B 운영.
+                //   선행 판정과 같은 사건이므로 같은 키를 쓴다
+                //   (LogAudit.md 3-2 NetworkBuildingController:58 · 3-3 NetworkProductionController:72).
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices,
+                                 "Network", nameof(NetworkHealthSync),
+                                 "스폰 시점에 GameServicesLocator 에서 IGameServices 를 얻지 못했다");
             }
 
-            Debug.Log($"[Network] NetworkHealthSync 스폰. IsServer={IsServer}");
+            // [개발] 진입 흔적. 에디터에서 그대로 재현된다.
+            GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "네트워크 스폰", $"IsServer={IsServer}");
 
             // 서버만 HP 변화 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
@@ -81,7 +89,9 @@ namespace Hexiege.Infrastructure
                 _healedSubscription = GameEvents.OnEntityHealed
                     .Subscribe(OnEntityHealed);
 
-                Debug.Log("[Network] NetworkHealthSync: 서버 측 OnEntityDamaged/OnEntityHealed 구독 완료.");
+                // [개발] 진입 흔적. 구독이 실패하면 이후 HP 동기화가 통째로 멈춰 별도로 드러난다.
+                GameLog.Dev.Info("Network", nameof(NetworkHealthSync),
+                                 "서버 측 OnEntityDamaged/OnEntityHealed 구독 완료");
             }
         }
 
@@ -122,7 +132,11 @@ namespace Hexiege.Infrastructure
             }
             else
             {
-                Debug.LogWarning("[Network] NetworkHealthSync: 알 수 없는 엔티티 타입.");
+                // [개발] e.IsUnit 과 e.Entity 의 실제 타입이 어긋난 경우 — 이벤트 발행 측의 코드 버그다.
+                //   이 동기화 한 건만 건너뛰고 게임은 계속된다 → 축 A Warn.
+                //   코드 버그라 에디터에서 그대로 재현된다 → 축 B ①("플레이어 기기에서만 벌어지는가")
+                //   가 "아니오" → 개발.
+                GameLog.Dev.Warn("Network", nameof(NetworkHealthSync), "알 수 없는 엔티티 타입");
                 return;
             }
 
@@ -191,7 +205,11 @@ namespace Hexiege.Infrastructure
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] SyncHealthClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                // [운영] 조합 루트 부재. 이 클라이언트는 이후 모든 HP 동기화를 받지 못한다 —
+                //   복구 경로가 없다 → 축 A Error. 화면에는 아무 통지도 가지 않는다 → 축 B 운영.
+                //   선행 판정과 같은 사건이므로 같은 키(LogAudit.md 3-2 SpawnBuildingClientRpc 계열).
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkHealthSync),
+                                  "SyncHealthClientRpc: IGameServices 를 찾을 수 없다", "Request=SyncHealth");
                 return;
             }
 
@@ -224,7 +242,9 @@ namespace Hexiege.Infrastructure
 
             if (_services == null)
             {
-                Debug.LogError("[Network] SyncHealClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                // [운영] 위와 같은 사건 → 같은 키. 어느 RPC 였는지는 Request 필드로 갈린다.
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkHealthSync),
+                                  "SyncHealClientRpc: IGameServices 를 찾을 수 없다", "Request=SyncHeal");
                 return;
             }
 
@@ -251,7 +271,10 @@ namespace Hexiege.Infrastructure
 
             if (_services == null)
             {
-                Debug.LogError("[Network] SyncBuildingHealClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                // [운영] 위와 같은 사건 → 같은 키.
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkHealthSync),
+                                  "SyncBuildingHealClientRpc: IGameServices 를 찾을 수 없다",
+                                  "Request=SyncBuildingHeal");
                 return;
             }
 
@@ -273,7 +296,14 @@ namespace Hexiege.Infrastructure
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
             {
-                Debug.LogWarning("[Network] SyncUnitHealth: UnitSpawnUseCase가 null. 맵 로드 전일 수 있음.");
+                // [운영] UseCase 부재로 이번 동기화 한 건을 버린다.
+                //   다음 피격 이벤트가 다시 절대 HP 로 맞춰 주므로 복구된다 → 축 A Warn.
+                //   맵 로드 완료 시점은 회선·기기 성능에 좌우돼 플레이어 기기에서만 어긋날 수 있고,
+                //   화면에는 "HP 가 조금 어긋난 상태"로만 보여 다른 기록이 없다 → 축 B 운영.
+                //   키는 조합 루트/UseCase 부재를 함께 담는 기존 키를 재사용한다.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkHealthSync),
+                                 "SyncUnitHealth: UnitSpawnUseCase 가 null 이다 — 맵 로드 전일 수 있다",
+                                 $"Request=SyncHealth, UnitId={unitId}");
                 return;
             }
 
@@ -289,7 +319,10 @@ namespace Hexiege.Infrastructure
             if (diff > 0)
             {
                 unit.TakeDamage(diff);
-                Debug.Log($"[Network] 유닛 HP 동기화. UnitId={unitId}, 적용 데미지={diff}, 현재HP={unit.Hp}");
+                // [개발] 피격마다 찍히는 고빈도 로그다(LogRules 1.14 금지 8 — 매 틱 로깅 금지).
+                //   Dev 라서 릴리스에서는 [Conditional] 로 호출과 문자열 보간까지 통째로 사라진다(1.7).
+                GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "유닛 HP 동기화",
+                                 $"UnitId={unitId}, AppliedDamage={diff}, Hp={unit.Hp}");
 
                 // 클라이언트에서도 피격 표현 큐/HP 텍스트가 반응할 수 있도록 이벤트 재발행.
                 // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.
@@ -314,7 +347,10 @@ namespace Hexiege.Infrastructure
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
             {
-                Debug.LogWarning("[Network] SyncUnitHeal: UnitSpawnUseCase가 null. 맵 로드 전일 수 있음.");
+                // [운영] 위(SyncUnitHealth)와 같은 사건 → 같은 키. 경로는 Request 필드로 갈린다.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkHealthSync),
+                                 "SyncUnitHeal: UnitSpawnUseCase 가 null 이다 — 맵 로드 전일 수 있다",
+                                 $"Request=SyncHeal, UnitId={unitId}");
                 return;
             }
 
@@ -331,7 +367,9 @@ namespace Hexiege.Infrastructure
             if (diff > 0)
             {
                 unit.Heal(diff);
-                Debug.Log($"[Network] 유닛 힐 동기화. UnitId={unitId}, 적용 회복={diff}, 현재HP={unit.Hp}");
+                // [개발] 힐 틱마다 찍히는 고빈도 로그. 위와 같은 이유로 Dev.
+                GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "유닛 힐 동기화",
+                                 $"UnitId={unitId}, AppliedHeal={diff}, Hp={unit.Hp}");
             }
 
             // (2) 부유 힐 텍스트 — ShowText가 true일 때만 이벤트를 재발행하여 텍스트를 띄운다(클라이언트 전용).
@@ -358,7 +396,10 @@ namespace Hexiege.Infrastructure
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
-                Debug.LogWarning("[Network] SyncBuildingHeal: BuildingPlacementUseCase가 null. 맵 로드 전일 수 있음.");
+                // [운영] 위와 같은 사건 → 같은 키.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkHealthSync),
+                                 "SyncBuildingHeal: BuildingPlacementUseCase 가 null 이다 — 맵 로드 전일 수 있다",
+                                 $"Request=SyncBuildingHeal, BuildingId={buildingId}");
                 return;
             }
 
@@ -397,7 +438,10 @@ namespace Hexiege.Infrastructure
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
-                Debug.LogWarning("[Network] SyncBuildingHealth: BuildingPlacementUseCase가 null.");
+                // [운영] 위와 같은 사건 → 같은 키.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkHealthSync),
+                                 "SyncBuildingHealth: BuildingPlacementUseCase 가 null 이다",
+                                 $"Request=SyncHealth, BuildingId={buildingId}");
                 return;
             }
 
@@ -412,7 +456,9 @@ namespace Hexiege.Infrastructure
             if (diff > 0)
             {
                 building.TakeDamage(diff);
-                Debug.Log($"[Network] 건물 HP 동기화. BuildingId={buildingId}, 적용 데미지={diff}, 현재HP={building.Hp}");
+                // [개발] 건물 피격마다 찍히는 고빈도 로그. 위와 같은 이유로 Dev.
+                GameLog.Dev.Info("Network", nameof(NetworkHealthSync), "건물 HP 동기화",
+                                 $"BuildingId={buildingId}, AppliedDamage={diff}, Hp={building.Hp}");
 
                 // 클라이언트에서도 피격 표현 큐/HP 텍스트가 반응할 수 있도록 이벤트 재발행.
                 // 서버는 UnitCombatUseCase에서 이미 발행했으므로 클라이언트 전용.

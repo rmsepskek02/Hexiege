@@ -72,18 +72,27 @@ namespace Hexiege.Infrastructure
             _services = GameServicesLocator.Current;
             if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkTileSync: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
+                // [운영] 스폰은 계속되고 아직 RPC 수신 전이라 기능이 죽지는 않았다 → Warn.
+                //   NGO 스폰 타이밍은 회선에 좌우되고 통지 경로가 없다 → 운영.
+                //   선행 판정(NetworkBuildingController:58)과 같은 사건 → 같은 키.
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices,
+                                 "Network", nameof(NetworkTileSync),
+                                 "스폰 시점에 GameServicesLocator 에서 IGameServices 를 얻지 못했다");
             }
 
             // 서버에서만 타일 변경 이벤트를 구독하여 클라이언트에 전파
             if (IsServer)
             {
                 SubscribeTileOwnerChanged();
-                Debug.Log("[Network] NetworkTileSync: 서버 모드로 타일 소유권 동기화 시작.");
+                // [개발] 의도된 분기. 역할은 이후 흐름으로 드러난다.
+                GameLog.Dev.Info("Network", nameof(NetworkTileSync), "서버 모드로 타일 소유권 동기화 시작",
+                                 $"IsServer={IsServer}");
             }
             else
             {
-                Debug.Log("[Network] NetworkTileSync: 클라이언트 모드. ClientRpc 대기 중.");
+                // [개발] 의도된 분기.
+                GameLog.Dev.Info("Network", nameof(NetworkTileSync), "클라이언트 모드 — ClientRpc 대기 중",
+                                 $"IsServer={IsServer}");
             }
         }
 
@@ -95,7 +104,8 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkDespawn();
             UnsubscribeTileOwnerChanged();
-            Debug.Log("[Network] NetworkTileSync: 디스폰. 이벤트 구독 해제.");
+            // [개발] 의도된 흐름(스폰 로그와 대칭 쌍).
+            GameLog.Dev.Info("Network", nameof(NetworkTileSync), "디스폰 — 이벤트 구독 해제");
         }
 
         // ====================================================================
@@ -114,7 +124,8 @@ namespace Hexiege.Infrastructure
             _tileOwnerChangedSubscription = GameEvents.OnTileOwnerChanged
                 .Subscribe(OnTileOwnerChangedOnServer);
 
-            Debug.Log("[Network] NetworkTileSync: OnTileOwnerChanged 구독 완료.");
+            // [개발] 진입 흔적. 구독이 실패하면 이후 타일 동기화가 통째로 멈춰 별도로 드러난다.
+            GameLog.Dev.Info("Network", nameof(NetworkTileSync), "OnTileOwnerChanged 구독 완료");
         }
 
         /// <summary>
@@ -163,7 +174,15 @@ namespace Hexiege.Infrastructure
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogWarning($"[Network] BroadcastTileChangeClientRpc: GameBootstrapper 없음. 좌표=({q},{r})");
+                // [운영] ⚠️ 축 A 승격(원래 Warning → Error).
+                //   타일 소유권 변경은 "그때 한 번만" 오는 이벤트라 재전송 경로가 없다.
+                //   여기서 빠져나가면 이 클라이언트의 타일 색·점령 상태가 영구히 어긋난다
+                //   — "복구되었나?" 가 아니오 → Error(LogRules 1.3 원칙 3).
+                //   선행 판정의 같은 사유 승격 사례: LogAudit.md 3-2 의 272·490 행(↑승격).
+                //   화면에는 "타일 색이 이상함" 으로만 보이고 통지가 없다 → 운영.
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkTileSync),
+                                  "BroadcastTileChangeClientRpc: IGameServices 를 찾을 수 없다 — 타일 상태가 영구히 어긋난다",
+                                  $"Request=TileSync, Q={q}, R={r}");
                 return;
             }
 
@@ -175,13 +194,22 @@ namespace Hexiege.Infrastructure
             }
             else
             {
-                Debug.LogWarning($"[Network] BroadcastTileChangeClientRpc: HexGrid가 null. 맵 로드 전일 수 있음. 좌표=({q},{r})");
+                // [운영] 맵 로드 전이면 이 시점의 도메인 갱신은 버려지지만,
+                //   맵 로드가 초기 소유권을 다시 세팅하므로 복구된다 → 축 A Warn(레벨 유지).
+                //   맵 로드 완료 시점은 기기 성능·회선에 좌우되고 화면에 통지가 없다 → 축 B 운영.
+                //   위와 같은 "조합 루트에서 얻어야 할 것을 못 얻었다" 사건이므로 같은 키를 쓴다.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkTileSync),
+                                 "BroadcastTileChangeClientRpc: HexGrid 가 null 이다 — 맵 로드 전일 수 있다",
+                                 $"Request=TileSync, Q={q}, R={r}");
             }
 
             // 2. GameEvents 재발행 → HexTileView가 자동으로 색상 갱신
             GameEvents.OnTileOwnerChanged.OnNext(new TileOwnerChangedEvent(coord, newOwner));
 
-            Debug.Log($"[Network] 타일 동기화 수신. 좌표=({q},{r}), 팀={newOwner}");
+            // [개발] 타일이 점령될 때마다 찍히는 고빈도 로그(LogRules 1.14 금지 8).
+            //   Dev 라서 릴리스에서는 호출과 문자열 보간까지 통째로 사라진다(1.7).
+            GameLog.Dev.Info("Network", nameof(NetworkTileSync), "타일 동기화 수신",
+                             $"Q={q}, R={r}, Team={newOwner}");
         }
     }
 }

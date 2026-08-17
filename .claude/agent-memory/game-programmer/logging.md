@@ -81,8 +81,69 @@ RuntimeLogger.BeginSession(string folderPath, string purpose)
   enclosing 네임스페이스 멤버가 `using` 보다 우선하므로 CS0104 는 안 나지만,
   **인터페이스 구현 시그니처는 `Hexiege.Application.LogLevel` 로 완전 수식해야** 구현으로 인정된다.
 
-## 미구현 / 남은 것
+## 이관 진행 상황
 
-- `Hexiege > Logcat > 오래된 에디터 로그 정리` 수동 메뉴 — 미구현. 현행 `Assets/Editor/Tools/LogcatCapture.cs` 는 `버퍼 비우기` / `파일로 저장` 2개뿐.
-- 네트워크·인증 8파일 205건은 `GameLog` 이관 완료. **나머지 계층은 미이관**(`Debug.Log` 계열 잔존 234건).
-  단 `Application/GameLog.cs` 의 9건은 sink 폴백 구현이라 이관 대상 아님.
+계획서: `Assets/_Project/Docs/_Tasks/2026-08-17/17_19_remaining-layers-log-migration/Plan.md`
+판정 선례 982줄: `_Tasks/2026-08-13/07_13_network-auth-log-cleanup/LogAudit.md` — **애매하면 여기서 유사 사례를 먼저 찾는다.**
+
+| 배치 | 대상 | 상태 |
+|:-:|---|---|
+| 선행 | 네트워크·인증 8파일 205건 (개발 120 / 운영 85) | 완료 |
+| **1-A** | `Network` 상위 6파일 65건 (`NetworkHealthSync` 14 · `RelayManager` 13 · `NetworkCombatController` 11 · `NetworkGameFlow` 10 · `NetworkUnitMovementController` 9 · `NetworkTileSync` 8) | **완료 — 개발 35 / 운영 29 / 비활성화 1** |
+| 1-B | `Network` 나머지 8파일 30건 | 미착수 |
+| 2 | `Bootstrap` 26 + `Application` 9 + `Cloud` 8 + `Factories` 7 | 미착수 |
+| 3 | `Presentation` 39건 / 20파일 | 미착수 |
+| 4 | `Debug/UIManagerTestButtonHandler.cs` 4건 | 미착수 |
+| — | `Editor/` 4파일 16건 | **이관하지 않기로 결정**(빌드 미포함 → 서버 수집 대상이 될 수 없음) |
+| — | `GameLog.cs` 9 · `ILogSink.cs` 2 · `Infrastructure/Debug/` 19 | 이관 대상 아님(로그 시스템 자체) |
+
+- `Hexiege > Logcat > 3. 오래된 에디터 로그 정리` 수동 메뉴는 **구현·실기 검증 완료**(커밋 `675203ae`).
+  ~~"미구현"~~ 이라는 옛 기록은 폐기.
+
+## 이관 시 재사용하는 판정 선례 (배치 1-A 에서 확인)
+
+같은 사건은 **반드시 같은 키**를 쓴다. 새 키를 만들기 전에 이 표를 먼저 본다.
+
+| 코드 패턴 | 축 A | 축 B | 키 |
+|---|:-:|:-:|---|
+| `OnNetworkSpawn` 에서 `GameServicesLocator.Current == null` (스폰은 계속) | Warn | 운영 | `NetworkControllerSpawnedWithoutGameServices` |
+| 같은 상황인데 **즉시 return** 해 기능이 죽음 (`NetworkGameFlow`) | **Error** | 운영 | 위와 같은 키 (사건은 같고 축 A 만 다름) |
+| ServerRpc 안에서 `_services`/UseCase 가 null | Error | 운영 | `ServerRpcGameServicesMissing` |
+| ClientRpc 안에서 `_services` 가 null (사망·타일 등 1회성 이벤트) | Error | 운영 | `ClientRpcGameServicesMissing` |
+| ClientRpc 안에서 UseCase 가 null + **"맵 로드 전일 수 있음"** (다음 이벤트가 재동기화) | **Warn** | 운영 | 위와 같은 키 |
+| 서버가 팀·소유권 불일치로 요청 거부 | Warn | 운영 | `ServerRejectedUnauthorizedRequest` (+`Reason=Ownership`) |
+| 서버에 요청 대상이 없음/이미 사망 | Warn | 운영 | `ServerRejectedTargetNotFound` |
+| Relay 할당·참가·JoinCode 실패 (`catch` 로 예외를 쥔 자리) | Error | 운영 | `RelaySetupFailed` (+`Stage=Allocate\|Join\|CodeMissing`) |
+| `NetworkManager.Singleton == null` | Error | 운영 | `NetworkManagerSingletonMissing` |
+| 호출부 계약 위반(인자가 빈 문자열) | Error | 운영 | 그 흐름의 기존 키 재사용 (선례: `UgsBridgeMissingFirebaseUid`) |
+| 스폰/디스폰/구독완료/RPC 수신 덤프/성공 통보 | Info | **개발** | — |
+| Inspector·프리팹 **설정 오류** (컴포넌트 미부착 등) | **Warn** | **개발** | — (LogRules 1.3 원칙 3 단서) |
+| 코드 버그로만 도달하는 분기(타입 불일치 등) | Warn | **개발** | — (축 B ① 이 "아니오") |
+
+**축 A 승격/하향 판단의 실제 기준:** *"다음 이벤트가 다시 맞춰 주는가."*
+HP·골드처럼 **절대값을 계속 재동기화**하는 값은 Warn, 사망·타일 소유권처럼 **그때 한 번만 오는 이벤트**는 Error.
+
+## `key=value` 표기 규약 (실측 기준 — 새로 만들지 말고 이걸 따를 것)
+
+`Request=` `Reason=` `ClientId=` `Team=` `ExpectedTeam=` `RequestedTeam=` `BuildingTeam=`
+`UnitId=` `BuildingId=` `BarracksId=` `UnitType=` `BuildingType=` `Q=` `R=` `TargetQ=` `TargetR=`
+`IsServer=` `Role=Host|Client`(대문자 고정) `Stage=` `Flow=` `MatchId=` `LobbyId=` `LobbyCode=` `RelayJoinCode=`
+`Uid=`/`PlayerId=`(반드시 `GameLog.HashId`) `Attempt=` `MaxRetries=`
+
+- 배치 1-A 에서 새로 도입: `AppliedDamage=` `AppliedHeal=` `Hp=` `PathLength=` `EntityId=` `ReadyCount=` `BlueGold=` `RedGold=` `UnitTeam=`
+- **값 표기까지 고정**한다. `Role=host` / `Role=Host` 가 갈려 한 지표가 둘로 쪼개진 사고 이력 있음(커밋 `73574a23`).
+- Relay Join Code · Lobby Code · ticketId 는 **민감 데이터 아님**(LogRules 1.6 규정 3항목에 없음) — 평문 유지가 선례.
+
+## 이관 작업 시 자기 검증 (매 배치 실행)
+
+```bash
+# 파일별 원래 건수 = GameLog.Dev + GameLog.Ops 인지, 그리고 로그 외 코드를 안 건드렸는지
+git show HEAD:<path> | grep -c 'Debug\.Log'
+grep -c 'GameLog\.Dev\.' <path>; grep -c 'GameLog\.Ops\.' <path>
+# 구조 불변 증거: 단독행 중괄호 / return / await 수가 작업 전후 동일
+grep -cE '^[[:space:]]*[{}][[:space:]]*$' <path>
+grep -nE '(^|[^.a-zA-Z_])Application\.' <path>   # 0건이어야 함
+```
+
+- ⚠️ **`{` 총 개수로 비교하면 안 된다.** `$"{e.Message}"` 같은 문자열 보간이 섞여 오탐이 난다. **단독행 중괄호**로 세라.
+- ⚠️ **주석에 `return` / `await` / `Debug.Log` 라는 낱말을 쓰지 마라.** 검증 grep 이 그대로 오탐한다. (배치 1-A 에서 3번 걸렸다)

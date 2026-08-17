@@ -118,14 +118,36 @@ namespace Hexiege.Infrastructure
             _services = GameServicesLocator.Current;
             if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkCombatController: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
+                // [운영] 스폰은 계속되고 아직 요청 전이라 기능이 죽지는 않았다 → 축 A Warn.
+                //   NGO 스폰 타이밍은 회선에 좌우돼 플레이어 기기에서만 어긋날 수 있고 통지 경로가
+                //   없다 → 축 B 운영. 선행 판정(NetworkBuildingController:58)과 같은 사건 → 같은 키.
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices,
+                                 "Network", nameof(NetworkCombatController),
+                                 "스폰 시점에 GameServicesLocator 에서 IGameServices 를 얻지 못했다");
             }
 
             // NetworkContext에 네트워크 상태 주입.
             // UnitCombatUseCase가 NetworkManager에 직접 의존하지 않도록
             // Application 레이어용 정적 홀더를 업데이트.
             NetworkContext.Set(isServer: IsServer, isActive: true);
-            Debug.Log($"[Network] NetworkCombatController 스폰. IsServer={IsServer}. NetworkContext 설정 완료.");
+
+            // ⚠️ 아래 한 줄은 "이관"이 아니라 "비활성화" 처리한 자리다. 사용자 승인 대기 중.
+            //
+            //   왜 지우려 하는가 (LogRules.md 1.14 금지 사항 9 — 같은 사건 두 곳 로깅 금지):
+            //     이 줄과 바로 아래 "네트워크 역할 확정" 줄은 **같은 사건(역할 확정)** 을 잇달아
+            //     두 번 기록한다. 이 줄은 IsServer= 로, 아래 줄은 Role= 로 같은 값을 찍는다.
+            //     LogRules.md 1.13 이 이 중복을 이미 지목해 두었고, 이번 작업 계획서(Plan.md §7-4)가
+            //     "이관이 아니라 제거 후보" 로 확정했다.
+            //
+            //   왜 지우지 않고 주석으로만 두는가:
+            //     기존 로직 제거는 사용자 승인 대상이다(WORKFLOW.md [4] · CLAUDE.md 규칙 11).
+            //     사용자 테스트에서 로그 흐름에 문제가 없음이 확인되면 이 주석 블록째로 삭제한다.
+            //
+            //   ⚠️ 함께 사라지는 정보: 원문의 "NetworkContext 설정 완료" 문구.
+            //     바로 윗줄이 NetworkContext.Set 이고 아랫줄이 그 결과를 Role= 로 찍으므로
+            //     같은 사실이 로그 순서만으로 그대로 읽힌다.
+            //
+            // Debug.Log($"[Network] NetworkCombatController 스폰. IsServer={IsServer}. NetworkContext 설정 완료.");
 
             // ── 이 실행이 host 인지 client 인지를 로그 파일에 남긴다 (LogRules.md 1.4 / 1.10) ──
             //
@@ -185,7 +207,9 @@ namespace Hexiege.Infrastructure
                 _freezeChangedSubscription = GameEvents.OnUnitFreezeChanged
                     .Subscribe(OnUnitFreezeChangedHandler);
 
-                Debug.Log("[Network] NetworkCombatController: 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged 이벤트 구독 완료.");
+                // [개발] 진입 흔적. 구독이 실패하면 이후 사망·애니메이션 동기화가 멈춰 별도로 드러난다.
+                GameLog.Dev.Info("Network", nameof(NetworkCombatController),
+                                 "서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged 이벤트 구독 완료");
             }
         }
 
@@ -818,7 +842,10 @@ namespace Hexiege.Infrastructure
             _unitCombatTargets.Remove(unitId);
             _combatAnimationSent.Remove(unitId);
 
-            Debug.Log($"[Network] 서버: 유닛 사망. Id={unitId}");
+            // [개발] 유닛이 죽을 때마다 찍히는 고빈도 로그(LogRules 1.14 금지 8).
+            //   Dev 라서 릴리스에서는 호출과 문자열 보간까지 통째로 사라진다(1.7).
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController), "서버: 유닛 사망",
+                             $"UnitId={unitId}");
 
             // 모든 클라이언트에 사망 전파. RPC 시그니처는 유지(isUnit=true).
             // EntityDiedClientRpc는 클라이언트의 도메인 데이터 정리 + OnUnitDied 재발행을 담당한다.
@@ -877,7 +904,9 @@ namespace Hexiege.Infrastructure
             if (e.Building == null) return;
 
             int buildingId = e.Building.Id;
-            Debug.Log($"[Network] 서버: 건물 사망. Id={buildingId}");
+            // [개발] 의도된 흐름. 결과(건물 파괴·게임 종료)가 화면에 즉시 반영된다.
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController), "서버: 건물 사망",
+                             $"BuildingId={buildingId}");
 
             // 모든 클라이언트에 사망 전파. RPC 시그니처는 유지(isUnit=false).
             EntityDiedClientRpc(buildingId, false);
@@ -905,12 +934,19 @@ namespace Hexiege.Infrastructure
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
 
-            Debug.Log($"[Network] EntityDiedClientRpc 수신. Id={entityId}, IsUnit={isUnit}");
+            // [개발] RPC 수신 덤프. 결과가 화면(유닛·건물 소멸)에 즉시 나타난다.
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController), "EntityDiedClientRpc 수신",
+                             $"EntityId={entityId}, IsUnit={isUnit}");
 
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] EntityDiedClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                // [운영] 사망 전파는 "그때 한 번만" 오는 이벤트라 재전송 경로가 없다.
+                //   이 클라이언트는 이후 모든 사망 처리를 놓쳐 도메인 상태가 영구히 어긋난다
+                //   — "복구되었나?" 가 아니오 → Error. 화면 통지도 없다 → 운영.
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkCombatController),
+                                  "EntityDiedClientRpc: IGameServices 를 찾을 수 없다 — 사망 처리가 영구히 누락된다",
+                                  $"Request=EntityDied, EntityId={entityId}, IsUnit={isUnit}");
                 return;
             }
 
@@ -998,7 +1034,13 @@ namespace Hexiege.Infrastructure
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
             {
-                Debug.LogWarning("[Network] HandleUnitDied: UnitSpawnUseCase가 null.");
+                // [운영] UseCase 부재는 맵 로드 전 상태를 뜻하고, 그때는 제거할 유닛도 없으므로
+                //   실질적으로 잃는 것이 없다 → 축 A Warn(레벨 유지).
+                //   맵 로드 완료 시점은 기기 성능·회선에 좌우되고 화면 통지가 없다 → 축 B 운영.
+                //   같은 배치의 NetworkHealthSync 의 "UseCase 가 null" 판정과 같은 기준을 적용했다.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkCombatController),
+                                 "HandleUnitDied: UnitSpawnUseCase 가 null 이다 — 맵 로드 전일 수 있다",
+                                 $"Request=EntityDied, UnitId={unitId}");
                 return;
             }
 
@@ -1021,7 +1063,9 @@ namespace Hexiege.Infrastructure
             // GameEvents.OnUnitDied 재발행 → UnitView 구독자가 GameObject를 파괴.
             GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(unit));
 
-            Debug.Log($"[Network] 클라이언트: 유닛 사망 처리 완료. UnitId={unitId}");
+            // [개발] 유닛이 죽을 때마다 찍히는 고빈도 로그. 결과가 화면에 즉시 나타난다.
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController), "클라이언트: 유닛 사망 처리 완료",
+                             $"UnitId={unitId}");
         }
 
         /// <summary>
@@ -1037,7 +1081,10 @@ namespace Hexiege.Infrastructure
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
-                Debug.LogWarning("[Network] HandleBuildingDied: BuildingPlacementUseCase가 null.");
+                // [운영] 위(HandleUnitDied)와 같은 사건 → 같은 키. 대상만 건물로 다르다.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkCombatController),
+                                 "HandleBuildingDied: BuildingPlacementUseCase 가 null 이다 — 맵 로드 전일 수 있다",
+                                 $"Request=EntityDied, BuildingId={buildingId}");
                 return;
             }
 
@@ -1060,7 +1107,9 @@ namespace Hexiege.Infrastructure
             // GameEvents.OnBuildingDied 재발행 → BuildingFactory, GameEndUseCase 등 구독자가 후속 처리.
             GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(building));
 
-            Debug.Log($"[Network] 클라이언트: 건물 사망 처리 완료. BuildingId={buildingId}");
+            // [개발] 의도된 흐름. 결과(건물 소멸·게임 종료 UI)가 화면에 나타난다.
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController), "클라이언트: 건물 사망 처리 완료",
+                             $"BuildingId={buildingId}");
         }
     }
 }
