@@ -466,11 +466,6 @@ namespace Hexiege.Bootstrap
         private void OnDestroy()
         {
             GameServicesLocator.Unregister();
-
-            // [로그] 아래 호출은 의도적으로 제거했다(주석 처리). 사용자 테스트 통과 후 삭제 예정.
-            //   이유: 씬 언로드 시점에 파일 세션을 닫으면 씬을 넘어가는 순간 로그가 끊긴다.
-            //         정리는 LogSessionOwner 가 앱 종료 시 1회 수행한다.
-            // ShutdownLogging();
         }
 
         /// <summary>
