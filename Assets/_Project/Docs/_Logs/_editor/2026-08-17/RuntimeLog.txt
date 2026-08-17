@@ -1,0 +1,70 @@
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-08-17 19:31:37 ===
+
+[19:31:38.275] [INFO] [Network/NetworkCombatController] 네트워크 역할 확정 | Role=host
+[19:31:38.283] [INFO] [Network/NetworkGameEndController] 네트워크 스폰 | IsServer=True
+[19:31:38.284] [INFO] [Network/NetworkGameEndController] 서버 측 OnGameEnd 구독 완료
+[19:31:38.297] [INFO] [Network/NetworkBuildingController] 스폰 완료 | IsServer=True
+[19:31:38.299] [INFO] [Network/NetworkProductionController] 스폰 완료 | IsServer=True
+[19:31:38.303] [INFO] [Network/NetworkProductionController] 서버 측 생산 이벤트 구독 완료
+[19:31:48.489] [INFO] [Network/NetworkBuildingController] 건물 배치 요청 수신 | ClientId=1, BuildingType=15, Team=2, Q=5, R=0
+[19:31:48.493] [INFO] [Network/NetworkBuildingController] 서버: 건물 배치 성공 | BuildingId=4, BuildingType=FireSpire, Team=Red, Q=5, R=0, SpentGold=75
+[19:31:50.114] [INFO] [Network/NetworkProductionController] 서버: 자동 생산 토글 완료 | BarracksId=4, UnitType=EmberSpirit, IsAuto=True
+[19:31:51.555] [INFO] [Network/NetworkBuildingController] 건물 배치 요청 수신 | ClientId=0, BuildingType=7, Team=1, Q=5, R=15
+[19:31:51.556] [INFO] [Network/NetworkBuildingController] 서버: 건물 배치 성공 | BuildingId=5, BuildingType=TrainingCamp, Team=Blue, Q=5, R=15, SpentGold=100
+[19:31:53.065] [INFO] [Network/NetworkProductionController] 서버: 자동 생산 토글 완료 | BarracksId=5, UnitType=LittleKnight, IsAuto=True
+[19:31:55.149] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=0, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:31:58.071] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=1, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:00.109] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=2, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:03.073] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=3, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:05.117] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=4, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:08.075] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=5, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:10.121] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=6, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:13.081] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=7, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:15.125] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=8, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:18.090] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=9, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:20.125] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=10, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:23.094] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=11, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:25.130] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=12, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:28.095] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=13, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:30.140] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=14, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:33.104] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=15, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:35.144] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=16, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:38.112] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=17, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:40.154] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=18, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:43.114] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=19, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:45.155] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=20, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:48.121] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=21, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[19:32:48.530] [INFO] [Network/NetworkBuildingController] 건물 배치 요청 수신 | ClientId=0, BuildingType=7, Team=1, Q=6, R=14
+[19:32:48.532] [INFO] [Network/NetworkBuildingController] 서버: 건물 배치 성공 | BuildingId=6, BuildingType=TrainingCamp, Team=Blue, Q=6, R=14, SpentGold=100
+[19:32:50.028] [INFO] [Network/NetworkProductionController] 서버: 자동 생산 토글 완료 | BarracksId=6, UnitType=LittleKnight, IsAuto=True
+[19:32:50.162] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=22, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:52.517] [INFO] [Network/NetworkBuildingController] 건물 배치 요청 수신 | ClientId=0, BuildingType=7, Team=1, Q=6, R=13
+[19:32:52.519] [INFO] [Network/NetworkBuildingController] 서버: 건물 배치 성공 | BuildingId=7, BuildingType=TrainingCamp, Team=Blue, Q=6, R=13, SpentGold=100
+[19:32:53.127] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=23, UnitType=LittleKnight, Team=Blue, Pos=(6, 15)
+[19:32:55.035] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=24, UnitType=LittleKnight, Team=Blue, Pos=(7, 13)
+[19:32:55.162] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=25, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:32:55.493] [INFO] [Network/NetworkProductionController] 서버: 자동 생산 토글 완료 | BarracksId=7, UnitType=LittleKnight, IsAuto=True
+[19:32:58.129] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=26, UnitType=LittleKnight, Team=Blue, Pos=(6, 15)
+[19:33:00.042] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=27, UnitType=LittleKnight, Team=Blue, Pos=(7, 13)
+[19:33:00.170] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=28, UnitType=EmberSpirit, Team=Red, Pos=(6, -1)
+[19:33:00.498] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=29, UnitType=LittleKnight, Team=Blue, Pos=(7, 12)
+[19:33:03.132] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=30, UnitType=LittleKnight, Team=Blue, Pos=(6, 15)
+[19:33:05.051] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=31, UnitType=LittleKnight, Team=Blue, Pos=(7, 13)
+[19:33:05.175] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=32, UnitType=EmberSpirit, Team=Red, Pos=(6, 0)
+[19:33:05.501] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=33, UnitType=LittleKnight, Team=Blue, Pos=(7, 12)
+[19:33:08.133] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=34, UnitType=LittleKnight, Team=Blue, Pos=(6, 15)
+[19:33:10.059] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=35, UnitType=LittleKnight, Team=Blue, Pos=(7, 13)
+[19:33:10.179] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=36, UnitType=EmberSpirit, Team=Red, Pos=(6, 0)
+[19:33:10.506] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=37, UnitType=LittleKnight, Team=Blue, Pos=(7, 12)
+[19:33:13.134] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=38, UnitType=LittleKnight, Team=Blue, Pos=(6, 15)
+[19:33:15.066] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=39, UnitType=LittleKnight, Team=Blue, Pos=(7, 13)
+[19:33:15.507] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=40, UnitType=LittleKnight, Team=Blue, Pos=(7, 12)
+[19:33:18.139] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=41, UnitType=LittleKnight, Team=Blue, Pos=(6, 15)
+[19:33:20.065] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=42, UnitType=LittleKnight, Team=Blue, Pos=(7, 13)
+[19:33:20.508] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=43, UnitType=LittleKnight, Team=Blue, Pos=(7, 12)
+[19:33:20.529] [INFO] [Network/NetworkGameEndController] 서버: 게임 종료 감지 — 결과 전파 시작 | WinnerTeam=Blue, WinnerTeamIndex=1, IsRandomMatch=True
+[19:33:20.530] [INFO] [Network/NetworkGameEndController] AnnounceWinnerClientRpc 수신 | WinnerTeam=Blue, LocalTeam=Blue, IsRandomMatch=True
+[19:33:48.062] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 정지
+[19:33:48.066] [INFO] [Network/NetworkGameManager] NetworkManager Shutdown 완료
+[19:33:48.325] [INFO] [Network/LobbyManager] Lobby 삭제 완료 (Host 퇴장) | LobbyId=8d9e4818-364f-43bc-9225-5e9c708978f3
