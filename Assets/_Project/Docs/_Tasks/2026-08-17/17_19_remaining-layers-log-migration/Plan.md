@@ -642,3 +642,178 @@
 
 > **WORKFLOW.md [4]:** *"Plan.md 내용을 사용자에게 공유 → **명시적 승인 확인 후에만** 구현 시작"*
 > **CLAUDE.md 규칙 11:** 코드 수정은 명시적 지시 없이는 허가를 받은 뒤에 진행.
+
+---
+
+# 11. 구현 결과 (2026-08-18 추가 · 전 배치 완료)
+
+> **아래는 계획이 아니라 실제로 벌어진 일의 기록이다.** 위 §1~§10 은 착수 시점의 계획이므로 원문을 그대로 둔다.
+> 숫자는 **전부 2026-08-18 재실측값**이며 추정이 없다(CLAUDE.md 규칙 10).
+
+## 11-1. 무엇이 끝났는가 (자연어)
+
+**게임이 실행 중에 남기는 기록이, 이제 콘솔 창이 아니라 파일에 남습니다.**
+
+작업 전에는 로그의 절반만 파일에 남고 절반은 콘솔에만 찍히고 사라졌습니다. 그래서
+"로그인은 됐는데 게임에 못 들어갔다" 같은 제보를 받아도, 로그 파일을 열면 **딱 그 구간만 비어** 있었습니다.
+이번 작업으로 게임 코드 쪽 로그가 전부 파일에 남게 되어 **그 구멍이 메워졌습니다.**
+코드가 하는 일은 하나도 바뀌지 않았고, "어디에 기록하느냐"만 바뀌었습니다.
+
+## 11-2. 배치별 실적
+
+| 배치 | 대상 | 이관 | `개발` | `운영` | 커밋 |
+|:-:|---|:-:|:-:|:-:|---|
+| **1-A** | `Infrastructure/Network` 상위 **6파일** | **65** | 35 | 29 | `3151d0df` |
+| **1-B** | `Infrastructure/Network` 나머지 **8파일** | **23** | 17 | 6 | `793e584f` |
+| **2** | `Bootstrap` · `Application` · `Cloud` · `Factories` **11파일** | **50** (신규 3 포함) | 45 | 8 | `3141bc61` |
+| **3·4** | `Presentation` **20파일** + `Debug/` **1파일** | **43** | 42 | 1 | `5a554bc7` |
+| — | `system` 문자열 교정 **16건** | — | — | — | `589c2fcf` |
+| | **합계** | **181** | | | |
+
+**선행 task 205건을 더해 누적 386건.**
+
+- **1-B 가 계획 30건에서 23건으로 줄어든 이유**는 누락이 아니다. `NetworkGameManager` **4건**(666~718행 `/* */` 블록)과
+  `UnityServicesInitializer` **3건**이 이관이 아니라 **주석 처리**로 정리되었다 — **30 = 23 + 7.**
+- **배치 2 의 신규 3건**은 §5-3 ④ 의 사용자 승인 사항 B 다(아래 11-5).
+- `LogEvent` enum 은 **36개**가 되었다 — **배치 2 에서 4개 신설, 나머지 배치는 신설 0건.**
+  **`LogEvent.Unknown` 사용처는 여전히 0건**이다(§5-2 기준 4 유지).
+
+## 11-3. 최종 잔존 — **46건. §8-2 의 기대값과 정확히 일치한다**
+
+| 구분 | 건수 | 왜 남는가 |
+|---|:-:|---|
+| `Application/GameLog.cs` | **9** | **sink 0개일 때의 콘솔 폴백.** `LogRules` **1.8** 이 요구하는 동작 그 자체 |
+| `Application/Interfaces/ILogSink.cs` | **2** | 주석 |
+| `Infrastructure/Debug/` | **19** | 로그 시스템 본체 — `RuntimeLogger` 8 · `LogSessionOwner` 5 · `ConsoleSink` 5 · `FileSink` 1 |
+| `Assets/Editor/` | **16** | §5-1 결정대로 이관하지 않았다. **규칙 예외가 아니라 「미적용 + 이유」** 로 `LogRules` **1.13** 에 기재했다(사용자 결정 — 나중에 에디트 모드 sink 를 만들면 할 수 있도록 규칙으로 막지 않는다) |
+
+> **⚠️ `grep` 총계는 54 다.** `grep -rn "Debug\.Log" Assets/_Project/Scripts --include=*.cs` = **54**.
+> 차액 **8건은 전부 주석**이다 — `NetworkGameManager` **4**(`/* */` 블록) ·
+> `UnityServicesInitializer` **3**(`//` 로 비활성화한 2 + 산문 속 낱말 1) · `NetworkCombatController` **1**(§7-4 의 중복 로깅).
+> **54 = 실제 호출 46 + 주석 8.**
+
+## 11-4. ⭐ 중복 집계 해소 — **추정이 두 번 연속 빗나갔다**
+
+§7-4 는 중복 1건만 예상했으나, 실제로는 **"중복처럼 보이지만 중복이 아닌" 자리**가 두 번 나왔다.
+
+| 배치 | 상황 | 결과 |
+|:-:|---|---|
+| **1-B** | `RelaySetupFailed` 가 `RelayManager`(원인)와 `NetworkGameManager`(호출자) 양쪽에서 발생 | **3곳 중 2곳만** 같은 사안이었다. `Stage=CodeMissing` 은 **하위를 호출하지 않고 `return`** 해 대응 로그가 존재할 수 없다 → **`운영` 유지** |
+| **3** | `PlayerProfileService` 를 부르는 View **4곳** | **4곳 중 3곳만** 같은 사안이었다. `ProfileView` 로그아웃은 `FirebaseAuthService.SignOutAsync` 에 **`catch` 가 없어** 하위 로그가 없다 → **`운영` 유지** |
+
+**교훈: "같은 계층을 호출하니 중복일 것" 이라는 추정이 두 번 연속 틀렸다. 호출 경로를 끝까지 따라가야 한다.**
+→ 이 교훈은 `LogRules` **1.14 금지 사항 9** 에 반영했다.
+
+## 11-5. 사용자 확인 사항 A·B·C 의 처리 결과
+
+| # | 항목 | 결과 |
+|:-:|---|---|
+| **A** | `PlayerProfileService` 닉네임 출력 | **(a) 그대로 둔다** 로 결정(사용자, 2026-08-18). 근거는 코드 주석에 남아 있다 — *"`LogRules` 1.6 이 규정한 세 항목(이메일 / UID·PlayerId / 토큰) 어디에도 해당하지 않고, 유저가 게임 안에서 스스로 공개하는 이름"*. 해당 로그는 현재 `GameLog.Dev.Info(... $"Nickname={nickname}#{code}")` 2곳 |
+| **B** | 삼킨 예외 5곳에 **`운영` 로그 신규 추가** | **승인되어 배치 2 에 포함.** 로그 **3건**을 추가했다. `GetInt` / `GetBool` 은 `catch` 가 중첩이라 **바깥 `catch` 하나에만** 달았다 — **안쪽에만 달면 *"숫자 자리에 문자열"* 경로가 누락**되고, **양쪽에 달면 한 사건이 두 줄**이 되어 `LogRules` **1.14 금지 9** 를 어긴다 |
+| **C** | `LogRules` **1.14 금지 1** 에 에디터 전용 코드 예외 명문화 | **명문화하지 않기로 확정.** 예외가 아니라 **「미적용 + 이유」** 로 **1.13** 에 적었다 — 에디터 도구는 플레이 모드 밖이라 sink 가 없어 **이관 효과가 원리적으로 0**일 뿐이고, 규칙으로 막으면 나중에 에디트 모드 sink 를 만들었을 때 되돌려야 한다 |
+
+## 11-6. ⭐ `system` 문자열 교정 16건 — **폴더가 아니라 기능 기준이다** (커밋 `589c2fcf`)
+
+배치 3 이 원본 `[Network]` 태그를 달고 있던 UI **4파일**의 `system` 을 **폴더 기준으로 `"UI"` 로 바꿨다가 되돌렸다.**
+
+| 파일 | 건수 | 최종 `system` |
+|---|:-:|:-:|
+| `Presentation/UI/LobbyUI.cs` | 10 | `Network` |
+| `Presentation/UI/NetworkStatusUI.cs` | 4 | `Network` |
+| `Presentation/UI/GameEndUI.cs` | 1 | `Network` |
+| `Presentation/UI/Views/Lobby/LobbyRootView.cs` | 1 | `Network` |
+| | **16** | |
+
+**근거 — `LogRules` 1.4 「카테고리 규칙」의 예시 셋이 전부 `Presentation` 클래스인데 System 이 갈린다:**
+`[Combat/UnitView]`(`Presentation/Unit/`) · `[HexGrid/HexTileView]`(`Presentation/Grid/`) · `[UI/ProductionPanelUI]`(`Presentation/UI/`).
+폴더 기준으로 통일하면 **매칭 실패를 추적할 때 `System=Network` 필터에 `LobbyUI` 의 방 참가 실패가 안 잡힌다.**
+
+→ **예시만으로는 읽는 사람마다 갈렸고 실제로 갈렸으므로**, 이 해석을 `LogRules` **1.4 본문에 한 문장으로 명문화**했다.
+**규칙 번호는 신설하지 않았다** — 코드 주석의 기존 참조와 어긋나기 때문이다.
+
+## 11-7. ⚠️ 완료 옆에 붙는 단서 (규칙 10 — 과대 표기 금지)
+
+1. **각 배치의 컴파일 통과는 사용자 유니티에서 확인되었으나, 실기 동작 테스트는 하지 않았다.**
+   §8-3 이 정의한 확인(랜덤매칭 1회 후 `[Network/RelayManager]` 로그가 파일에 남는가)은 **아직 수행되지 않았다.**
+2. **`LobbyUI` 가 현재 쓰이지 않을 가능성이 있다.** 로비가 `LobbyRootView` 계열로 재구성됐는데 `LobbyUI` 는 옛 구조 그대로다.
+   **확인 없이 판단하지 않고 10건 전부 이관했다**(CLAUDE.md 규칙 10·12).
+3. **`Assets/Editor/` 16건은 미적용이다.** 규칙 예외가 아니라 현행 구현의 한계다(11-3).
+4. §9 의 나머지 범위 밖 항목(`FileSink.EditorLogsRootRelativeToAssets` 접근 수준 · 로그 서버 전송 · `Lobby.unity` 직접 진입)은
+   **손대지 않았다.**
+
+## 11-8. 변경 파일 리스트업 (WORKFLOW.md [12])
+
+> **git 명령을 쓰지 않았다**(CLAUDE.md 규칙 5). 아래 목록은 **`GameLog` 호출 실측**으로 작성했고, 괄호 안은 현재 호출 건수다.
+
+```
+[수정] 배치 1-A — Infrastructure/Network (6파일)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkHealthSync.cs (14)
+- Assets/_Project/Scripts/Infrastructure/Network/RelayManager.cs (13)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs (11)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkGameFlow.cs (10)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkUnitMovementController.cs (9)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkTileSync.cs (8)
+
+[수정] 배치 1-B — Infrastructure/Network (8파일)
+- Assets/_Project/Scripts/Infrastructure/Network/ReconnectionHandler.cs (7)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkResourceSync.cs (6)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkGameManager.cs (42 — 선행 이관분 포함)
+- Assets/_Project/Scripts/Infrastructure/Network/UnityServicesInitializer.cs (7 — 선행 이관분 포함)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkUpgradeController.cs (3)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkUnit.cs (3)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkSkillController.cs (2)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkMistShrineController.cs (2)
+
+[수정] 배치 2 — Bootstrap (5파일)
+- Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Setup.cs (13)
+- Assets/_Project/Scripts/Bootstrap/LoginBootstrapper.cs (8)
+- Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Network.cs (3)
+- Assets/_Project/Scripts/Bootstrap/GameBootstrapper.cs (1)
+- Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Map.cs (1)
+
+[수정] 배치 2 — Application / Cloud / Factories (6파일)
+- Assets/_Project/Scripts/Application/UseCases/AccountLinkUseCase.cs (8)
+- Assets/_Project/Scripts/Application/UseCases/UnitSpawnUseCase.cs (1)
+- Assets/_Project/Scripts/Infrastructure/Cloud/PlayerProfileService.cs (8 — 이관 5 + 신규 3)
+- Assets/_Project/Scripts/Infrastructure/Cloud/LeaderboardService.cs (3)
+- Assets/_Project/Scripts/Infrastructure/Factories/UnitFactory.cs (5)
+- Assets/_Project/Scripts/Infrastructure/Factories/BuildingFactory.cs (2)
+
+[수정] 배치 3 — Presentation (20파일)
+- Assets/_Project/Scripts/Presentation/UI/LobbyUI.cs (10)
+- Assets/_Project/Scripts/Presentation/Audio/AudioManager.cs (4)
+- Assets/_Project/Scripts/Presentation/UI/NetworkStatusUI.cs (4)
+- Assets/_Project/Scripts/Presentation/UI/Common/ToastUI.cs (3)
+- Assets/_Project/Scripts/Presentation/UI/ProductionPanelUI.cs (2)
+- Assets/_Project/Scripts/Presentation/UI/Views/Login/NicknameSetupView.cs (2)
+- Assets/_Project/Scripts/Presentation/Grid/HexGridRenderer.cs (1)
+- Assets/_Project/Scripts/Presentation/Input/InputHandler.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/BuildingPlacementUI.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/FloatingHpTextSpawner.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/GameEndUI.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/InGameSettingsUI.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/MistShrinePanelUI.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/ResearchMatrixView.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/UIManager.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/Views/Lobby/LobbyRootView.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/Views/Lobby/Profile/NicknameChangePopup.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/Views/Lobby/Profile/ProfileView.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/Views/Lobby/Ranking/RankingView.cs (1)
+- Assets/_Project/Scripts/Presentation/UI/Views/Login/LoginRootView.cs (1)
+
+[수정] 배치 4 — Debug (1파일)
+- Assets/_Project/Scripts/Debug/UIManagerTestButtonHandler.cs (4)
+
+[수정] 이벤트 키
+- Assets/_Project/Scripts/Application/Interfaces/ILogSink.cs (LogEvent 32 → 36)
+
+[수정 없음 — 명시]
+- Assets/_Project/Scripts/Editor/ 4파일 (§5-1 결정 — 이관하지 않음)
+
+[문서]
+- Assets/_Project/Docs/_Tasks/2026-08-17/17_19_remaining-layers-log-migration/Plan.md (이 문서 §11 추가)
+- Assets/_Project/Docs/LogRules.md (1.4 · 1.7 · 1.13 · 1.14)
+```
+
+**총 47파일 수정** (Network 14 + Bootstrap 5 + Application/Cloud/Factories 6 + Presentation 20 + Debug 1 + `ILogSink.cs` 1).
+§6-2 의 계획 **46파일** 대비 1개 많은 것은 **`ILogSink.cs`(`LogEvent` 4개 신설)** 가 이관 대상 파일 수에 포함되지 않았기 때문이다.

@@ -418,3 +418,68 @@ $"Request=SpawnUnit, UnitId={unitId}, UnitType={unitType}, Team={team}, Q={q}, R
 - `.claude/agent-memory/game-programmer/logging.md` — 판정 선례표 / `key=value` 표기 규약 / 배치 2 확인 사실
 - `Assets/_Project/Docs/_Tasks/2026-08-17/17_19_remaining-layers-log-migration/Plan.md` — 세 건의 발견 경위
 - 이식 원본: `Assets/_Project/Scripts/Infrastructure/Network/NetworkSkillController.cs` 58~101행 · 151행
+
+---
+
+# 11. 구현 결과 (2026-08-18 추가)
+
+> **아래는 계획이 아니라 실제로 벌어진 일의 기록이다.** 위 §1~§10 은 착수 시점의 계획이므로 원문을 그대로 둔다.
+> 아래 내용은 **2026-08-18 코드 재실측**으로 확인했다(CLAUDE.md 규칙 10).
+
+## 11-1. 3건 모두 구현 완료 (커밋 `da5eeaab`)
+
+| 건 | 결과 | 실측 확인 |
+|:-:|---|---|
+| **①** `NetworkUpgradeController` 완료 훅 구독 누락 | **구현 완료** | `EnsureUpgradeSubscription()` 이 **139행에 신설**되어 `ResolveServices()`(117행) 바로 아래 자리에 있다. 호출부는 계획대로 **2곳** — `OnNetworkSpawn` **81행**, `RequestResearchServerRpc` **201행**(`TryStartResearch` 앞). `OnNetworkSpawn` 의 조기 `return` 은 **제거되었고**, 62~70행의 「잠정 판정」 주석은 **확정 주석**(`Warn` + `운영`)으로 교체되었다 |
+| **②** `SetCameraStartPositionForTeam` | **주석 처리 완료 (최종 삭제 미완 — 아래 11-3)** | `GameBootstrapper.Setup.cs` **537행**에 `[비활성화 2026-08-18]` 블록으로 남아 있고 비활성화 사유가 함께 적혀 있다. 파일 헤더 목차(**14행**)에도 `— 제거 예정` 이 병기되었다 |
+| **③** 유닛 스폰 실패 로그 진단 필드 | **구현 완료** | `NetworkProductionController` **529행** — `$"Request=SpawnUnit, UnitId={unitId}, UnitType={unitType}, Team={team}, Q={q}, R={r}"`. 레벨·키(`ClientStateSyncApplyFailed`)·`system`·클래스명·메시지는 **불변**이며 신규 키도 없다 |
+
+## 11-2. 계획과 달라진 점
+
+| 항목 | 계획 | 실제 |
+|---|---|---|
+| **행 번호** | §2-2 ⓐ/ⓑ · §4-1 「515~525행」 · §6 「523행」 등 | **전부 어긋난다.** 이관·주석 보강으로 파일이 밀렸다. 위 11-1 의 번호가 **재실측값**이며, 앞으로는 이 표를 기준으로 삼는다 |
+| **로그 주석의 참조 대상** | §2-5 (5) 는 `NetworkSkillController:60~63` 과 「같은 형태」로 교체한다고만 적었다 | 실제 주석은 **판정 확정 근거(2026-08-18)** 를 함께 적었고, 같은 키를 쓰는 근거로 **배치 1-A** 를 명시한다 |
+
+> **⚠️ 확인하지 못한 것.** 이 사이클의 인계 메모에는 *"클래스명이 계획과 달라졌다"* 는 항목이 있었으나,
+> Plan 이 언급한 클래스 13종을 전수 조회한 결과 **전부 실재하고 이름도 일치**했다.
+> **어느 클래스명을 가리키는지 특정할 수 없어 추정하지 않고 그대로 둔다**(CLAUDE.md 규칙 10·12).
+
+## 11-3. ⚠️ 미완 — 반드시 남는 단서 (규칙 10)
+
+1. **② `SetCameraStartPositionForTeam` 의 최종 삭제가 남아 있다.**
+   현재는 **주석 처리(비활성화) 상태**다. WORKFLOW.md [4] 대로 **[6] 사용자 테스트 통과 후 · [7] 문서 업데이트 전**에
+   537행 블록과 14행 목차 표기를 삭제한다. 그때까지는 §최상단 절의 ⚠️(검증 grep 오탐)도 유효하다.
+2. **컴파일은 통과했으나 실기 동작 테스트를 하지 않았다.**
+   특히 **① 은 §8-2 가 적은 대로 "재현해서 확인"이 사실상 불가능한 간헐 버그**다.
+   **"안 났으니 고쳐졌다"고 결론 내리지 않는다** — 로그에 *"스폰 시점에 IGameServices 를 얻지 못했다"* 가
+   `NetworkUpgradeController` 이름으로 찍힌 판에서 8-1 의 4~5번이 정상일 때만 직접 증거가 된다.
+3. **`_services` 가 이전 경기 인스턴스를 가리킬 위험**(§2-7 ②)은 **그대로 남아 있다.**
+   `NetworkSkillController` 를 포함한 구조 공통 사항이며 **이번 변경이 만든 위험이 아니다.**
+   재경기 후 강화가 이상하면 여기를 먼저 의심한다.
+4. **§2-7 ① 은 절반만 확인되었다.** `GetUnitMoveSpeedMultiplier` 호출부 실측 결과
+   `Presentation/Unit/UnitView.cs` **3곳**(926 · 1030 · 1489행)이 부르므로 **클라이언트 표시 경로에서도 조회된다.**
+   다만 **순수 클라이언트에서 그 `_combatUseCase` 가 실제로 주입되는지는 이번에 확인하지 않았다** —
+   확인 전까지 "표시 불일치가 있다/없다" 어느 쪽으로도 단정하지 않는다.
+5. §9 의 범위 밖 6항목(서버 거부 지점 로그 신규 추가 · 판정 재조정 · `NetworkSkillController` 수정 등)은
+   **손대지 않았다.**
+
+## 11-4. 변경 파일 리스트업 (WORKFLOW.md [12])
+
+> **git 명령을 쓰지 않았다**(CLAUDE.md 규칙 5). 아래는 §6 의 계획을 **코드 재실측으로 대조**한 결과다.
+
+```
+[수정]
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkUpgradeController.cs   (①)
+- Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Setup.cs                  (② 주석 처리 — 최종 삭제 미완)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.cs (③ data 문자열 1줄)
+
+[변경 없음 — 계획대로]
+- Assets/_Project/Scripts/Application/UseCases/UnitSpawnUseCase.cs
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkSkillController.cs
+- Assets/_Project/Scripts/Application/UseCases/UnitUpgradeUseCase.cs
+- 씬 · 프리팹 (Inspector 작업 없음 — WORKFLOW [5-2] 해당 없음)
+
+[문서]
+- Assets/_Project/Docs/_Tasks/2026-08-18/04_02_upgrade-subscription-fix/Plan.md (이 문서 §11 추가)
+```
