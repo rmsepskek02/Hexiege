@@ -244,13 +244,29 @@ namespace Hexiege.Infrastructure
                 if (string.IsNullOrEmpty(relayJoinCode))
                 {
                     const string errorMsg = "Relay 할당 실패. 네트워크 상태를 확인하세요.";
-                    // ⚠️ 잠정 판정: Error / 운영 (LogAudit.md §4-3 질의 Q-2).
-                    //    원칙 1만 보면 개발이다 — 원인(e.Message)은 RelayManager 가 쥐고 있다.
-                    //    그런데 RelayManager 는 이번 8개 파일 범위 밖이라 GameLog 로 이관되지 않는다.
-                    //    개발로 내리면 운영 스트림에 Relay 실패가 한 줄도 남지 않으므로,
-                    //    "정보를 잃지 않는 쪽"을 기본값으로 두어 잠정적으로 운영을 유지한다.
-                    GameLog.Ops.Error(LogEvent.RelaySetupFailed, "Network", nameof(NetworkGameManager),
-                                      "Relay 할당 실패 — 세션을 열 수 없다", "Stage=Allocate, Flow=Host");
+                    // ✅ 확정 판정: Error / 개발 (LogAudit.md §4-3 질의 Q-2 의 전제가 소멸했다).
+                    //
+                    //    [무엇이 바뀌었나]
+                    //    Q-2 의 잠정 판정("운영 유지")은 오직 하나의 전제 위에 서 있었다 —
+                    //    *원인(예외 객체)을 쥔 RelayManager 가 그 task 의 범위 밖이라 GameLog 로 이관되지 않는다.*
+                    //    그래서 여기를 개발로 내리면 Relay 실패가 운영 스트림에 한 줄도 남지 않게 되므로,
+                    //    "정보를 잃지 않는 쪽"을 기본값으로 두고 잠정적으로 운영을 유지했던 것이다.
+                    //    로그 이관 배치 1-A 에서 RelayManager 의 catch 블록이
+                    //    GameLog.Ops.Error(LogEvent.RelaySetupFailed, ..., e, "Stage=Allocate") 로 이관되면서
+                    //    그 전제가 사라졌다. 이제 원인은 운영 스트림에 예외 객체째로 남는다.
+                    //
+                    //    [그래서 무엇을 적용하나]
+                    //    LogRules 1.3 「원칙 간 우선순위」 ② — 최종 처리 지점은 "예외 객체를 직접 쥔 catch 블록"이고,
+                    //    이 자리는 CreateRelayAsync() 에서 null 만 받으므로 원인을 담지 못한다.
+                    //    같은 절 ① 과 1.14 금지 9 — 원인을 가진 계층(RelayManager)을 운영으로 두고
+                    //    중복되는 상위 호출부(여기)를 개발로 내린다.
+                    //    그대로 두면 Relay 실패 1회가 서버 집계에서 2건으로 세어진다.
+                    //
+                    //    축 A 는 Error 그대로다 — 세션을 열지 못해 기능이 죽고 복구 경로가 없다.
+                    //    화면 통지(OnError)도 그대로 유지된다. 축 B 값을 내리는 것이지 통지를 없애는 것이 아니다.
+                    GameLog.Dev.Error("Network", nameof(NetworkGameManager),
+                                      "Relay 할당 실패 — 원인은 RelayManager 가 운영 로그로 남긴다",
+                                      "Stage=Allocate, Flow=Host");
                     OnError?.Invoke(errorMsg);
                     return;
                 }
@@ -344,6 +360,16 @@ namespace Hexiege.Infrastructure
                                             "Host 가 아직 준비되지 않았을 수 있습니다.";
                     // 하위 계층에 대응 로그가 없다(원칙 1 통과) → 이 줄이 유일한 기록이다.
                     // Host 의 코드 기록이 늦거나 실패한 상태라 플레이어 기기에서만 벌어진다.
+                    //
+                    // ⚠️ 이 줄은 위/아래 두 곳(Stage=Allocate · Stage=Join)과 달리 개발로 내리지 않는다.
+                    //    같은 RelaySetupFailed 키를 쓰지만 사건이 다르기 때문이다 —
+                    //    여기서 감지하는 것은 "Lobby Data 에 Relay Join Code 가 아직 없다"이고,
+                    //    이 분기는 return 으로 끝나 RelayManager.JoinRelayAsync 를 아예 호출하지 않는다.
+                    //    즉 RelayManager 쪽에는 이 사건에 대응하는 로그가 존재할 수 없어 중복이 아니다.
+                    //    (RelayManager 의 Stage=CodeMissing 로그는 "JoinRelay 를 빈 코드로 호출한 계약 위반"이라
+                    //     이 자리와는 별개의 사건이다.)
+                    //    검증 시 "RelaySetupFailed 를 쓰는 Ops 호출은 RelayManager 5곳뿐"이 아니라
+                    //    "RelayManager 5곳 + 이 자리 1곳 = 6곳"이 정상 상태다.
                     GameLog.Ops.Error(LogEvent.RelaySetupFailed, "Network", nameof(NetworkGameManager),
                                       "Lobby 에 Relay Join Code 가 없다 — Host 가 아직 기록하지 못했다",
                                       "Stage=CodeMissing, Flow=Join");
@@ -356,11 +382,17 @@ namespace Hexiege.Infrastructure
                 if (!relayJoined)
                 {
                     const string errorMsg = "Relay 참가 실패.";
-                    // ⚠️ 잠정 판정: Error / 운영 (LogAudit.md §4-3 질의 Q-2).
-                    //    원칙 1대로면 개발이지만 원인 로그를 가진 RelayManager 가 이번 범위 밖이라
-                    //    이관되지 않는다. 정보를 잃지 않는 쪽으로 잠정적으로 운영을 유지한다.
-                    GameLog.Ops.Error(LogEvent.RelaySetupFailed, "Network", nameof(NetworkGameManager),
-                                      "Relay 참가 실패 — 세션을 열 수 없다", "Stage=Join, Flow=Join");
+                    // ✅ 확정 판정: Error / 개발 — 위 HostGameAsync 의 "Relay 할당 실패" 와 같은 사안이다.
+                    //    Q-2 의 잠정 판정이 기대고 있던 전제(원인 로그를 가진 RelayManager 가 범위 밖이라
+                    //    이관되지 않는다)가 배치 1-A 의 RelayManager 이관으로 소멸했다.
+                    //    이제 JoinRelayAsync 의 catch 가 예외 객체와 함께
+                    //    Ops.Error(RelaySetupFailed, ..., e, "Stage=Join") 을 남긴다.
+                    //    이 자리는 bool false 만 받아 원인을 담지 못하므로 최종 처리 지점이 아니다
+                    //    (LogRules 1.3 ②) → 중복 집계를 막기 위해 개발로 내린다(1.14 금지 9).
+                    //    축 A 는 Error 유지, OnError 화면 통지도 그대로다.
+                    GameLog.Dev.Error("Network", nameof(NetworkGameManager),
+                                      "Relay 참가 실패 — 원인은 RelayManager 가 운영 로그로 남긴다",
+                                      "Stage=Join, Flow=Join");
                     OnError?.Invoke(errorMsg);
                     return;
                 }

@@ -90,7 +90,7 @@ RuntimeLogger.BeginSession(string folderPath, string purpose)
 |:-:|---|---|
 | 선행 | 네트워크·인증 8파일 205건 (개발 120 / 운영 85) | 완료 |
 | **1-A** | `Network` 상위 6파일 65건 (`NetworkHealthSync` 14 · `RelayManager` 13 · `NetworkCombatController` 11 · `NetworkGameFlow` 10 · `NetworkUnitMovementController` 9 · `NetworkTileSync` 8) | **완료 — 개발 35 / 운영 29 / 비활성화 1** |
-| 1-B | `Network` 나머지 8파일 30건 | 미착수 |
+| **1-B** | `Network` 나머지 8파일 30건 | **완료 — 실제 이관 대상은 23건뿐** (개발 17 / 운영 6). 나머지 7건은 **주석 안의 죽은 코드**였다: `NetworkGameManager` 4건은 `/* */` 블록 주석(666~718행) 안, `UnityServicesInitializer` 3건은 `//` 로 비활성화된 구 로직 2건 + 산문 속 `Debug.LogException` 낱말 1건. **grep 건수 ≠ 이관 대상 건수** — 착수 전 반드시 주석 여부를 확인한다 |
 | 2 | `Bootstrap` 26 + `Application` 9 + `Cloud` 8 + `Factories` 7 | 미착수 |
 | 3 | `Presentation` 39건 / 20파일 | 미착수 |
 | 4 | `Debug/UIManagerTestButtonHandler.cs` 4건 | 미착수 |
@@ -119,6 +119,10 @@ RuntimeLogger.BeginSession(string folderPath, string purpose)
 | 스폰/디스폰/구독완료/RPC 수신 덤프/성공 통보 | Info | **개발** | — |
 | Inspector·프리팹 **설정 오류** (컴포넌트 미부착 등) | **Warn** | **개발** | — (LogRules 1.3 원칙 3 단서) |
 | 코드 버그로만 도달하는 분기(타입 불일치 등) | Warn | **개발** | — (축 B ① 이 "아니오") |
+| 클라이언트가 **거부 알림 ClientRpc** 를 수신 (`Reason=` 문자열 보유) | Warn | **개발** | — (선례: `NetworkProductionController.EnqueueFailedClientRpc` · `NetworkUpgradeController.ResearchFailedClientRpc`) |
+| **씬에 배치돼야 할 오브젝트**를 `FindFirstObjectByType` 으로 못 찾음 | **Warn** | **개발** | — (설정 오류 단서. **네트워크 스폰 순서 문제가 아니다** — `FindFirstObjectByType` 은 스폰 여부와 무관하게 씬의 활성 오브젝트를 찾으므로 null = "씬에 없다") |
+| 클라이언트가 서버 상태를 **1회성으로 반영**하는 자리에서 `_services`/factory 가 null (재시도 없음 → 영구 누락) | **Error** | 운영 | `ClientRpcGameServicesMissing` (문자 그대로의 ClientRpc 가 아니어도 **사건이 같으면 같은 키**) |
+| 클라이언트 골드/HP 를 서버 값으로 재보정 | Info | **개발** | — |
 
 **축 A 승격/하향 판단의 실제 기준:** *"다음 이벤트가 다시 맞춰 주는가."*
 HP·골드처럼 **절대값을 계속 재동기화**하는 값은 Warn, 사망·타일 소유권처럼 **그때 한 번만 오는 이벤트**는 Error.
@@ -131,8 +135,21 @@ HP·골드처럼 **절대값을 계속 재동기화**하는 값은 Warn, 사망�
 `Uid=`/`PlayerId=`(반드시 `GameLog.HashId`) `Attempt=` `MaxRetries=`
 
 - 배치 1-A 에서 새로 도입: `AppliedDamage=` `AppliedHeal=` `Hp=` `PathLength=` `EntityId=` `ReadyCount=` `BlueGold=` `RedGold=` `UnitTeam=`
+- 배치 1-B 에서 새로 도입(**전부 `개발` 로그 전용** — 서버 집계에 올라가지 않는다): `WaitSeconds=` `WinnerTeam=` `PreviousGold=` `ServerGold=` `Diff=`
+- `Reason=` 값 표기 고정: 팀 불일치는 **`Reason=Team`**(`TeamMismatch` 아님), 소유권은 `Reason=Ownership`
 - **값 표기까지 고정**한다. `Role=host` / `Role=Host` 가 갈려 한 지표가 둘로 쪼개진 사고 이력 있음(커밋 `73574a23`).
 - Relay Join Code · Lobby Code · ticketId 는 **민감 데이터 아님**(LogRules 1.6 규정 3항목에 없음) — 평문 유지가 선례.
+
+## `RelaySetupFailed` 중복 집계 — 배치 1-B 에서 해소 (2026-08-18)
+
+`LogAudit.md` §4-3 **Q-2** 의 잠정 판정("`NetworkGameManager` 호출부를 `운영` 으로 유지")은
+*"원인을 쥔 `RelayManager` 가 그 task 범위 밖이라 이관되지 않는다"* 는 **전제 하나**에만 기대고 있었다.
+배치 1-A 에서 `RelayManager` 가 이관되며 그 전제가 소멸 → 1-B 에서 호출부 2곳을 `GameLog.Dev.Error` 로 내렸다.
+
+**⚠️ `RelaySetupFailed` 를 쓰는 `Ops` 호출의 정상 상태는 `RelayManager` 5곳 + `NetworkGameManager` **1곳** = **6곳**이다.**
+`NetworkGameManager` 의 `Stage=CodeMissing, Flow=Join` 자리(“Lobby Data 에 Relay Join Code 가 없다”)는
+**중복이 아니다** — 그 분기는 `return` 으로 끝나 `RelayManager.JoinRelayAsync` 를 아예 호출하지 않으므로
+하위 계층에 대응 로그가 존재할 수 없다. "5곳만 남아야 한다"고 적힌 검증 기준은 틀렸다.
 
 ## 이관 작업 시 자기 검증 (매 배치 실행)
 

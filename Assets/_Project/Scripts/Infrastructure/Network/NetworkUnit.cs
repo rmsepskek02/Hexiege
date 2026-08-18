@@ -394,14 +394,28 @@ namespace Hexiege.Infrastructure
             var services = _services;
             if (services == null)
             {
-                Debug.LogWarning($"[NetworkUnit] GameServicesLocator에 IGameServices가 등록되지 않았습니다. UnitId={unitId}");
+                // [운영] 축 A=Error / 축 B=운영.
+                //   축 A 가 Error 인 이유(복구되었나? → 아니오):
+                //     RegisterToFactory 는 스폰 직후 1회(218행) 또는 unitId 도착 시 1회(240행)만 호출되고
+                //     재시도 경로가 없다. 여기서 return 하면 이 유닛은 이 클라이언트의 UnitFactory 에
+                //     끝내 등록되지 않아 SpawnUnitClientRpc 가 오브젝트를 찾지 못한다 — 영구 누락이다.
+                //   축 B: 서버 상태가 이 클라이언트 화면에만 반영되지 않는 사건이고 통지 경로가 없다 → 운영.
+                //   배치 1-A 선례 그대로 "ClientRpc 적용 중 조합 루트를 얻지 못한 1회성 이벤트" → 같은 키.
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkUnit),
+                                  "클라이언트: IGameServices 가 없어 UnitFactory 등록을 할 수 없다",
+                                  $"UnitId={unitId}");
                 return;
             }
 
             IUnitFactory unitFactory = services.GetUnitFactory();
             if (unitFactory == null)
             {
-                Debug.LogWarning($"[NetworkUnit] UnitFactory가 null입니다. UnitId={unitId}");
+                // [운영] 위와 같은 사건(조합 루트에서 필요한 것을 얻지 못해 등록이 죽음)이므로 같은 키를 쓴다.
+                //   키를 나누면 "클라이언트가 서버 상태를 반영하지 못한 횟수" 지표가 쪼개진다(LogRules 1.5).
+                //   IGameServices 가 없었는지 UnitFactory 가 없었는지는 메시지로 구분한다.
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkUnit),
+                                  "클라이언트: UnitFactory 가 null 이라 UnitFactory 등록을 할 수 없다",
+                                  $"UnitId={unitId}");
                 return;
             }
 
@@ -409,7 +423,9 @@ namespace Hexiege.Infrastructure
             // → SpawnUnitClientRpc에서 GetUnitObject(unitId)로 조회 가능
             unitFactory.RegisterUnitObject(unitId, gameObject);
 
-            Debug.Log($"[NetworkUnit] 클라이언트: UnitFactory에 등록 완료. UnitId={unitId}");
+            // [개발] 성공 통보 → Info / 개발. 실패하면 위 두 줄이 원인과 함께 운영으로 남는다.
+            GameLog.Dev.Info("Network", nameof(NetworkUnit), "클라이언트: UnitFactory 등록 완료",
+                             $"UnitId={unitId}");
         }
 
         /// <summary>

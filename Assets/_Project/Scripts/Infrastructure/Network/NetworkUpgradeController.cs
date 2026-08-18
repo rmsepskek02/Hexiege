@@ -55,7 +55,19 @@ namespace Hexiege.Infrastructure
             // 그 경우 이후 RPC 처리에서 ResolveServices()가 지연 재조회로 복구한다(스폰 레이스 방지).
             if (ResolveServices() == null)
             {
-                Debug.LogWarning("[Network] NetworkUpgradeController: GameServicesLocator에 IGameServices가 없습니다(스폰 레이스 가능 — 사용 시점 재조회로 복구 시도).");
+                // [운영] 축 A=Warn / 축 B=운영 — 배치 1-A 와 같은 사건이므로 같은 키를 쓴다.
+                //   축 A: ServerRpc 처리 경로가 ResolveServices() 로 지연 재조회하여 요청 자체는 계속 처리된다 → Warn.
+                //   축 B: NGO 스폰 타이밍은 회선 상태에 좌우돼 플레이어 기기에서만 어긋날 수 있고(①),
+                //         플레이어에게 알리는 경로가 없다(②) → 운영.
+                // ⚠️ 잠정 판정 — 축 A 를 Error 로 올릴 여지가 있다.
+                //    바로 아래 return 때문에 서버의 OnResearchCompleted 구독(69~70행)이 통째로 건너뛰어지고,
+                //    그 구독은 이 자리 말고 어디에서도 다시 시도되지 않는다(파일 전체에서 _completedHandler 는
+                //    OnNetworkSpawn 에서만 대입된다). 즉 "요청은 살아나지만 완료 브로드캐스트는 죽는" 부분 손상이다.
+                //    로그 외 코드를 바꾸지 않는다는 이번 배치 원칙에 따라 원래 레벨(Warning)을 유지하고 보고만 한다.
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices,
+                                 "Network", nameof(NetworkUpgradeController),
+                                 "스폰 시점에 IGameServices 를 얻지 못했다 — 사용 시점 재조회로 복구를 시도한다",
+                                 $"IsServer={IsServer}");
                 return;
             }
 
@@ -71,7 +83,8 @@ namespace Hexiege.Infrastructure
                 }
             }
 
-            Debug.Log($"[Network] NetworkUpgradeController 스폰. IsServer={IsServer}");
+            // [개발] 스폰 진입 흔적 → Info / 개발.
+            GameLog.Dev.Info("Network", nameof(NetworkUpgradeController), "네트워크 스폰", $"IsServer={IsServer}");
         }
 
         public override void OnNetworkDespawn()
@@ -330,7 +343,15 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void ResearchFailedClientRpc(string reason, ClientRpcParams p = default)
         {
-            Debug.LogWarning($"[Network] 연구 착수 실패: {reason}");
+            // [개발] 축 A=Warn / 축 B=개발.
+            //   축 A: 요청 하나만 거부됐을 뿐 게임은 그대로 진행된다 → Warn.
+            //   축 B: 팀 불일치·서버 초기화 오류·맵 로드 중 어느 사유든 에디터 2인 구성으로 재현된다(① 아니오).
+            //   선례: NetworkProductionController.EnqueueFailedClientRpc(980행) 도 같은 구조로 Dev.Warn 이다.
+            //   ⚠️ 다만 그 선례와 다른 점이 하나 있다 — NetworkProductionController 는 서버 쪽 거부 지점에도
+            //      운영 로그가 있는데, 이 파일의 서버 쪽 거부 지점(154·162·174·182행)에는 로그가 한 줄도 없다.
+            //      로그 신규 추가는 이번 배치(기존 로그 이관) 범위 밖이라 보고만 한다.
+            GameLog.Dev.Warn("Network", nameof(NetworkUpgradeController), "클라이언트: 연구 착수 실패 알림 수신",
+                             $"Reason={reason}");
             if (reason == "연구 불가")
                 GameEvents.OnToastRequested.OnNext(ToastKey.GoldInsufficient);
         }

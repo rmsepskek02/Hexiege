@@ -67,7 +67,14 @@ namespace Hexiege.Infrastructure
             // 그 경우 사용 시점 ResolveServices()가 지연 재조회로 복구한다(스폰 레이스 방지).
             if (ResolveServices() == null)
             {
-                Debug.LogWarning("[Network] NetworkMistShrineController: GameServicesLocator에 IGameServices가 없습니다(스폰 레이스 가능 — 사용 시점 재조회로 복구 시도).");
+                // [운영] 축 A=Warn / 축 B=운영 — 배치 1-A 와 같은 사건이므로 같은 키를 쓴다.
+                //   축 A: 여기서 return 하지 않고 첫 ServerRpc 의 ResolveServices() 가 복구한다 → Warn.
+                //   축 B: NGO 스폰 타이밍은 회선 상태에 좌우돼 플레이어 기기에서만 어긋날 수 있고(①),
+                //         플레이어에게 알리는 경로가 없다(②) → 운영.
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices,
+                                 "Network", nameof(NetworkMistShrineController),
+                                 "스폰 시점에 IGameServices 를 얻지 못했다 — 사용 시점 재조회로 복구를 시도한다",
+                                 $"IsServer={IsServer}");
             }
 
             // 서버만 시전 성공 훅을 구독해 쿨다운 브로드캐스트를 트리거한다.
@@ -213,7 +220,18 @@ namespace Hexiege.Infrastructure
 
             if ((TeamId)teamIndex != expectedTeam)
             {
-                Debug.LogWarning($"[Network] NetworkMistShrineController: 팀 불일치 요청 무시. sender={senderClientId}, 요청팀={(TeamId)teamIndex}, 기대팀={expectedTeam}");
+                // [운영] 축 A=Warn / 축 B=운영 — 배치 1-A 선례와 같은 사건이므로 같은 키를 쓴다
+                //   (NetworkBuildingController:183 · NetworkProductionController:370 등).
+                //   축 A: 이 요청 하나만 거부하고 게임은 계속된다 → Warn.
+                //   축 B: 정상 클라이언트는 자기 팀이 아닌 요청을 보낼 수 없다 → 상태 불일치나 변조 신호이고,
+                //         이 자리에는 플레이어에게 알리는 경로가 없다 → 운영.
+                //   key 표기는 기존 거부 로그와 똑같이 맞춘다(Request= / Reason= / ClientId= / RequestedTeam= / ExpectedTeam=).
+                //   ⚠️ Reason=Team 은 선행 파일들이 쓰는 값 그대로다. 여기서 새 표기를 만들면 지표가 둘로 갈라진다.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest,
+                                 "Network", nameof(NetworkMistShrineController),
+                                 "서버: 팀 불일치 요청 거부",
+                                 $"Request=MistShrine, Reason=Team, ClientId={senderClientId}, " +
+                                 $"BuildingId={buildingId}, RequestedTeam={(TeamId)teamIndex}, ExpectedTeam={expectedTeam}");
                 return false;
             }
 
