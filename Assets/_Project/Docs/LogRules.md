@@ -329,7 +329,11 @@ UI로 알렸더라도 **원인이 그 로그에만 있으면 `개발`로 내리�
 
 `[System/Class]` 형식으로 작성한다.
 
-- **System**: 어느 시스템 영역인지 (예: `Network`, `Combat`, `UI`, `HexGrid`, `Auth`)
+- **System**: 어느 시스템 영역인지. **현재 실제로 쓰이는 값은 9종이다** (2026-08-18 실측) —
+  `Network` · `Auth` · `Bootstrap` · `UI` · `Cloud` · `Factory` · `Audio` · `Input` · `HexGrid`.
+  `Combat` 은 **아직 사용 0건**이지만 아래 예시와 `GameLog`·`ILogSink` 의 XML 주석이 이미 이 이름을 쓰므로 **전투 계층용으로 예약**해 둔다.
+  **이 목록은 닫힌 집합이 아니라 「먼저 여기서 고른다」는 뜻이다** — 기존 값 어디에도 담기지 않을 때만 새 값을 추가한다.
+  담기는데도 새 이름을 만들면 **같은 영역이 두 이름으로 갈려 집계가 조용히 쪼개진다.**
 - **Class**: 정확히 어느 클래스에서 출력하는지 (예: `NetworkUnit`, `UnitView`, `ProductionPanelUI`)
 - **System 은 그 로그가 다루는 「기능」으로 정한다. 파일이 놓인 폴더로 정하지 않는다 (2026-08-18 추가).**
   아래 예시 셋이 **전부 `Presentation/` 하위 클래스인데 System 이 셋으로 갈리는 것**이 그 뜻이다.
