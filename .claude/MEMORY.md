@@ -4,6 +4,11 @@
 
 ---
 
+## 현재 P0 — Unit ActionSequence B3 (2026-08-18)
+- stale PendingPath·동일 A* 과잉 종료와 제자리 걷기 교정 구현 완료, Unity C# 런타임/Editor 컴파일 PASS.
+- 목표 단위 `WaitingRepath/Blocked`, 환경 revision 재개, 공성 동일 목표 재명령 억제, 서버 권위 `Held`(Frozen 우선), endpoint 중복 `NoIntent` 게시 방지를 적용했다.
+- Editor self-validation·새 Android Host 실기 전이므로 B3는 FAIL/OPEN. 통과 전 역할교대·25종 회귀 재개 금지.
+
 ## 프로젝트 개요
 - 장르: 모바일 1v1 RTS, 헥스 타일맵 기반 공성전 (9:16 세로)
 - 엔진: Unity 6000.0.x (URP), C# 9.0, NGO 2.9.2

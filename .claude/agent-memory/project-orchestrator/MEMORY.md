@@ -1,5 +1,12 @@
 # Project Orchestrator Memory — Hexiege
 
+## 프로젝트 현재 상태 (2026-08-18)
+
+### B3 목표 단위 재경로·Held 교정 구현 완료 / 검증 대기
+- stale PendingPath·동일 A* 과잉 종료를 `UnitNavigationObjective` lifecycle로 교체하고 공성 동일 목표 재명령을 차단했다. 서버 `Held` 표현을 NetworkVariable로 복제하며 Frozen과 우선순위를 합성했고 중복 `NoIntent` cleanup 게시를 제거했다.
+- Unity C# 런타임/Editor 컴파일 PASS. 아직 Editor self-validation과 Android Host 실기 증거가 없어 B3는 FAIL/OPEN.
+- 다음 게이트: self-validation → Editor 건물 변경/공성 반복 → Android Host 1경기 → 역할교대 4종 → 25종 전체 회귀.
+
 ## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음, 모든 서브에이전트 포함)
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 attack direction 작업 전체 삭제 (복구 불가)

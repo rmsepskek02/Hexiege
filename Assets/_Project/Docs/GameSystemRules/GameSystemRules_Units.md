@@ -5,7 +5,7 @@
 
 이 문서는 **게임에서 무엇이 참이어야 하는지**를 정의한다. 멀티플레이 복제와 순서 역전 처리는 `GameSystemRules_UnitCombatSynchronization.md`, 클래스·RPC·레이어 배치는 `TechnicalDesignDocument.md`, 런타임 수치는 검증된 `UnitStatsConfig`와 향후 `AttackProfile`, 사람이 읽는 수치 미러는 `StatsReference.md`, 유닛별 에셋·구현 감사 스냅샷은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`가 담당한다.
 
-> **상태:** 규칙 v2.1과 서버 권위 연속 이동의 Editor 검증은 PASS했다. 2026-08-18 Android Host 경기에서 확인한 한-frame 반복 재탐색 결함은 유닛별 frame budget, 동일·순환 path fail-closed, 다음-frame 재개와 진전 reset으로 구현·Unity self-validation까지 PASS했다. 다만 이 교정 빌드의 Android Host 회귀 전이므로 B3 전체는 계속 **FAIL / OPEN**이며 역할교대·25종 회귀도 완료로 판정하지 않는다. 공격 방향과 Impact·피해 적용 시점은 별도 미완료 범위다.
+> **상태:** 규칙 v2.1과 서버 권위 연속 이동의 Editor 검증은 PASS했지만 B3 전체는 **FAIL / OPEN**이다. 2026-08-18 Android Host에서 확인한 stale PendingPath·동일 A* 과잉 종료와 제자리 걷기에 대해 목표 단위 `WaitingRepath/Blocked`, 환경 revision 재개, 공성 동일 목표 재명령 억제, 서버 권위 `Held` 표현과 중복 `NoIntent` 게시 방지를 구현했고 Unity C# 컴파일은 PASS했다. 아직 Editor self-validation과 새 Android Host 실기 증거가 없으므로 역할교대·25종 회귀는 재개하지 않는다. 공격 방향과 Impact·피해 적용 시점은 별도 미완료 범위다.
 
 ---
 
@@ -47,7 +47,7 @@
 - 같은 타일에 여러 유닛이 겹칠 수 있다.
 - 서버의 틱별 후보 이동 구간은 현재 A* 경로의 이동 가능 타일 영역을 연결한 logical path corridor 안에 있어야 한다. 경로에 없는 타일이나 이동 불가 타일·건물을 가로지르지 않는다.
 - 다음 후보 이동 구간이 corridor를 벗어나거나 다음 타일이 건물 생성 등으로 이동 불가가 되면 그 구간을 적용하지 않고 현재 위치에서 재탐색한다.
-- 재탐색은 유닛별·Unity frame별 최대 1회만 수락하며, 새 path는 다음 frame부터 처리한다. 같은 path, `A→B→A` 순환, 비정상 path 또는 서로 다른 path의 무진전 수락 8회 상한에 도달하면 해당 유닛만 현재 pose에서 fail-closed하고 서버 경기 루프를 즉시 반환한다. 실제 위치 commit 또는 checkpoint 소비가 확인되면 무진전 이력을 reset한다.
+- 재탐색은 유닛별·Unity frame별 최대 1회만 실행하고 새 path는 다음 frame부터 처리한다. fail-closed는 안전하지 않은 candidate pose/path를 해당 틱에 commit하지 않는다는 뜻이며, 동일 path 1회나 PendingPath 시간차만으로 이동 목표 자체를 종료한다는 뜻이 아니다. 반복 판단과 재개 기준은 `U-MOV-REPATH`를 따른다.
 - 1차 corridor 안전 판정은 유닛 간 중첩을 허용하는 기존 규칙에 맞춰 Simulation Root point의 sweep을 기준으로 한다. 유닛 footprint 반경은 별도 게임플레이 변경 없이는 경로 차단에 추가하지 않는다.
 - 모든 유닛의 `MoveSpeed`는 실제 권위 trajectory 거리/초다. 코너의 도착 시간은 실제 trajectory 길이를 따르며, 경유 타일마다 `1 / MoveSpeed` 시간을 강제하지 않는다.
 
@@ -81,6 +81,18 @@ Move / AlignToMove ├─ 적 감지 → AcquireTarget
 
 `NetworkTransform`은 서버 결과를 복제할 뿐 trajectory나 권위 방향을 다시 계산하지 않는다. Visual Root 보간은 화면 표현만 다듬으며 Simulation Root의 정지·경로·방향 판정을 숨기는 교정 수단으로 사용하지 않는다.
 
+### U-MOV-REPATH. 재탐색 진행성과 정지 상태
+
+1. 재탐색의 생명주기는 코루틴이나 개별 `MoveTo` 호출이 아니라 **유닛의 이동 목표**에 귀속한다. 같은 유닛·같은 최종 목적지의 command가 다시 발행돼도 진전 이력과 재탐색 예산을 초기화하지 않는다.
+2. PendingPath는 계산 시점과 소비 시점 사이에 유닛이 전진할 수 있는 예약 결과다. 소비 시 현재 권위 타일이 path에 없으면 이를 치명적 오류로 처리하지 않고 stale path로 폐기한다. 서버는 현재 권위 위치에서 다음 frame에 새 경로를 요청하며 같은 frame에 코루틴을 재시작하지 않는다.
+3. corridor가 재탐색을 요구했는데 A*가 현재와 동일한 logical path를 반환하는 것은 그 자체로 무한 반복 증거가 아니다. 해당 후보는 같은 frame에 다시 실행하지 않고 `WaitingRepath`로 보류하며, 다음 frame의 최신 pose·경로 환경 revision으로 다시 평가한다.
+4. `A→B→A` 또는 동일 path 반복은 실제 위치 commit·checkpoint 소비·경로 환경 변경이 없는 **무진전 관측**으로 누적한다. 한 frame에서 동기 반복은 항상 차단하되, 이동 목표를 `Blocked`로 전환하는 상한은 여러 frame에 걸친 목표 단위 이력으로 판단한다.
+5. 실제 위치 commit 또는 logical checkpoint 소비가 확인되면 무진전 이력을 초기화한다. 건물 생성·파괴처럼 walkability revision이 변경되면 `Blocked` 목표는 같은 목표 ID를 유지한 채 재평가할 수 있다.
+6. `WaitingRepath`와 `Blocked`는 정상 완료가 아니다. 이동 완료 callback, 다음 공성 단계, 힐러 종착 감시를 발행하지 않는다. 외부 ticker는 `IsMoving == false`만으로 같은 목표의 새 command를 만들지 않으며, 목표 변경·경로 환경 revision 변경·명시적 취소 중 하나가 있을 때만 재개한다.
+7. 이동 종료와 보류는 일반 이동 frame 평가를 흉내 내서 만들지 않는다. 서버는 명시적인 lifecycle 전이로 `NoIntent`, `WaitingRepath`, `Blocked`, `Completed`를 commit하고 command/segment revision과 애니메이션 표현을 같은 권위 전환에서 갱신한다.
+8. 서버의 틱별 위치 변화가 0이고 공격·사망 표현도 아닌 `Idle`, `AlignToMove`, `WaitingRepath`, `Blocked` 상태에서는 Walk 애니메이션 시간이 진행되어서는 안 된다. 전용 Idle/Held 표현 또는 검증된 정지 pose를 사용하며, 빙결 스킬의 `Frozen` 상태를 재경로 대기에 재사용하지 않는다.
+9. `Move` 상태에서만 Walk 표현을 진행한다. 클라이언트는 로컬 위치 변화로 상태를 추측하지 않고 서버가 복제한 행동/표현 상태를 적용한다.
+
 ---
 
 ### 이동 규칙
@@ -112,8 +124,10 @@ A*로 경로를 계산하고, 타일 중심에서 타일 중심으로 이동한�
 계산된 경로는 유닛이 다음 타일에 도착하는 시점에 교체된다 (Pending Path 방식).
 이동 코루틴을 재시작하지 않으므로 유닛이 멈추지 않는다.
 
+예약 경로를 소비할 때 유닛이 이미 전진해 현재 권위 타일이 포함되지 않으면 그 예약 경로는 stale로 폐기하고, 현재 권위 위치에서 다음 frame에 다시 계산한다. 이를 유닛 이동 완료나 치명적 오류로 판정하지 않는다.
+
 예외: 유닛이 현재 이동 중인 타겟 타일 위에 건물이 생성된 경우,
-해당 타일이 더 이상 이동 가능하지 않으므로 즉시 코루틴을 재시작한다.
+해당 candidate 구간은 commit하지 않고 현재 pose를 보존한 뒤 다음 frame 재탐색으로 전환한다. 같은 frame 코루틴 재시작은 금지한다.
 
 **규칙 5. 이동 속도**
 이동 속도는 유닛별 스탯으로 개별 관리한다.

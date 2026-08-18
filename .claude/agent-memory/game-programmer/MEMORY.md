@@ -4,6 +4,13 @@
 
 ---
 
+## 2026-08-18 B3 목표 단위 재경로 교정 (구현/컴파일 PASS, 실기 대기)
+- `UnitRepathProgressGuard`의 동일 path·A→B→A 즉시 terminal 정책을 제거하고 frame당 1회, 무진전 8회 상한으로 변경. 실제 위치/checkpoint 진전 또는 walkability revision에서 reset.
+- `UnitNavigationObjective`가 `Navigating/WaitingRepath/Blocked/Completed/Cancelled`와 최종 목적지·환경 revision·guard를 코루틴보다 길게 소유한다. stale PendingPath는 서버 현재 위치에서 다시 요청하고 실패해도 목표/코루틴을 유지한다.
+- `ProductionTicker`는 `IsMoving || HasActiveNavigationObjective`면 같은 siege command를 재발행하지 않는다.
+- 위치 변화 0인 대기/막힘은 서버 `UnitAnimState.Held`를 복제해 Walk 첫 pose를 고정한다. `NetworkCombatController`는 Frozen > Held > Walk 우선순위를 합성한다.
+- endpoint가 이미 `NoIntent`이면 cleanup에서 같은 reducer snapshot을 다시 게시하지 않는다. Unity Roslyn 런타임/Editor 컴파일 PASS. Editor self-validation·Android Host 검증은 아직 미실행이므로 B3 FAIL/OPEN.
+
 ## CRITICAL — GIT 명령 절대 금지
 - **모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)

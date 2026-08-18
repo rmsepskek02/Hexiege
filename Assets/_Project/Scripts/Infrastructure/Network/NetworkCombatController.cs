@@ -82,6 +82,14 @@ namespace Hexiege.Infrastructure
         /// <summary>[스킬 - 빙결] OnUnitFreezeChanged 구독 해제용 Disposable. 서버 전용(빙결 걷기 정지 동기화).</summary>
         private System.IDisposable _freezeChangedSubscription;
 
+        /// <summary>재경로 대기/막힘 중 걷기 모션 정지 상태 구독.</summary>
+        private System.IDisposable _movementHeldChangedSubscription;
+
+        private readonly System.Collections.Generic.HashSet<int> _frozenAnimationUnits =
+            new System.Collections.Generic.HashSet<int>();
+        private readonly System.Collections.Generic.HashSet<int> _heldMovementUnits =
+            new System.Collections.Generic.HashSet<int>();
+
         /// <summary>
         /// 유닛별 현재 전투 타겟 추적. key=유닛Id, value=(타겟Id, 타겟이 유닛인지).
         /// 전투 중이 아닌 유닛은 Dictionary에 없음.
@@ -259,6 +267,8 @@ namespace Hexiege.Infrastructure
                 // 애니메이션 상태를 Frozen/Walk로 레벨 동기화한다(순수 클라의 "제자리걸음" 제거).
                 _freezeChangedSubscription = GameEvents.OnUnitFreezeChanged
                     .Subscribe(OnUnitFreezeChangedHandler);
+                _movementHeldChangedSubscription = GameEvents.OnUnitMovementHeldChanged
+                    .Subscribe(OnUnitMovementHeldChangedHandler);
 
                 Debug.Log("[Network] NetworkCombatController: 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged 이벤트 구독 완료.");
             }
@@ -295,6 +305,10 @@ namespace Hexiege.Infrastructure
             // [스킬 - 빙결] FreezeChanged 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _freezeChangedSubscription?.Dispose();
             _freezeChangedSubscription = null;
+            _movementHeldChangedSubscription?.Dispose();
+            _movementHeldChangedSubscription = null;
+            _frozenAnimationUnits.Clear();
+            _heldMovementUnits.Clear();
 
             // 전투 상태 초기화 — 씬 전환 시 이전 게임의 상태가 남지 않도록
             _unitCombatTargets.Clear();
@@ -1285,7 +1299,7 @@ namespace Hexiege.Infrastructure
             // 1) [Phase 2] 애니메이션 상태를 Walk로 설정(레벨 동기화).
             //    클라이언트는 값 변경(OnValueChanged) 및 스폰 시 현재 값을 자동 적용하므로
             //    엣지 트리거 Walk RPC와 달리 스폰 레이스로 신호가 유실될 수 없다.
-            SetUnitAnimState(unitId, UnitAnimState.Walk);
+            ApplyMovementAnimationState(unitId);
 
             // 2) 전투 애니메이션 재전송 가드 해제 — 유지.
             //    _combatAnimationSent는 "애니메이션"이 아니라 OnUnitEnteredCombatHandler의
@@ -1316,7 +1330,32 @@ namespace Hexiege.Infrastructure
         /// <param name="e">(유닛 Id, 빙결 여부).</param>
         private void OnUnitFreezeChangedHandler(UnitFreezeChangedEvent e)
         {
-            SetUnitAnimState(e.UnitId, e.Frozen ? UnitAnimState.Frozen : UnitAnimState.Walk);
+            if (e.Frozen)
+                _frozenAnimationUnits.Add(e.UnitId);
+            else
+                _frozenAnimationUnits.Remove(e.UnitId);
+
+            ApplyMovementAnimationState(e.UnitId);
+        }
+
+        private void OnUnitMovementHeldChangedHandler(UnitMovementHeldChangedEvent e)
+        {
+            if (e.Held)
+                _heldMovementUnits.Add(e.UnitId);
+            else
+                _heldMovementUnits.Remove(e.UnitId);
+
+            ApplyMovementAnimationState(e.UnitId);
+        }
+
+        private void ApplyMovementAnimationState(int unitId)
+        {
+            UnitAnimState state = _frozenAnimationUnits.Contains(unitId)
+                ? UnitAnimState.Frozen
+                : _heldMovementUnits.Contains(unitId)
+                    ? UnitAnimState.Held
+                    : UnitAnimState.Walk;
+            SetUnitAnimState(unitId, state);
         }
 
         /// <summary>
@@ -1440,6 +1479,8 @@ namespace Hexiege.Infrastructure
             //   ChangeTargetClientRpc 또는 StopCombatClientRpc가 자연스럽게 발행됨.
             _unitCombatTargets.Remove(unitId);
             _combatAnimationSent.Remove(unitId);
+            _frozenAnimationUnits.Remove(unitId);
+            _heldMovementUnits.Remove(unitId);
             // 죽은 공격자의 adapter와 새 회차 발급 상태만 정리한다.
             //
             // 이미 예약된 A2 observation은 여기서 지우면 안 된다. 피해 지연 코루틴은

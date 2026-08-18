@@ -112,6 +112,22 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// 이동 목표는 유지되지만 해당 프레임에 실제 변위가 없어 걷기 모션을 정지해야 함을 알린다.
+    /// 빙결과는 원인이 다르며, 서버가 두 상태의 우선순위를 합성해 복제한다.
+    /// </summary>
+    public readonly struct UnitMovementHeldChangedEvent
+    {
+        public readonly int UnitId;
+        public readonly bool Held;
+
+        public UnitMovementHeldChangedEvent(int unitId, bool held)
+        {
+            UnitId = unitId;
+            Held = held;
+        }
+    }
+
+    /// <summary>
     /// 유닛 이동 이벤트 데이터.
     /// 유닛이 타일 하나를 이동할 때마다 발행.
     /// </summary>
@@ -894,6 +910,12 @@ namespace Hexiege.Application
         /// 싱글플레이/호스트는 UnitView가 Animator.speed를 직접 제어하므로 이 이벤트에 의존하지 않는다.
         /// </summary>
         public static readonly Subject<UnitFreezeChangedEvent> OnUnitFreezeChanged = new Subject<UnitFreezeChangedEvent>();
+
+        /// <summary>
+        /// 유효한 이동 목표를 유지한 채 재경로를 기다리거나 막혀 실제 변위가 0인 상태를 동기화한다.
+        /// </summary>
+        public static readonly Subject<UnitMovementHeldChangedEvent> OnUnitMovementHeldChanged =
+            new Subject<UnitMovementHeldChangedEvent>();
 
         // OnUnitWalkStopped 제거 — Idle 상태가 없으므로 Walk 정지 이벤트 불필요.
         // Walk→Attack: StartCombatClientRpc에서 직접 처리.

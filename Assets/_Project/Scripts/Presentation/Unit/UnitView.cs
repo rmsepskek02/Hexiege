@@ -195,6 +195,11 @@ namespace Hexiege.Presentation
         // 무관하게 같은 지점에서만 증가시켜 Legacy/신규 경로가 서로 다른 회차를 보지 않게 한다.
         private ulong _movementCommandRevision;
         private ulong _movementSegmentRevision;
+        // 하나의 최종 목적지에 대한 재탐색 진행성은 이동 코루틴보다 오래 살아야 한다.
+        // 공성 ticker나 다른 외부 호출이 같은 목적지의 MoveTo를 다시 발행해도 이 객체를
+        // 보존하여 무진전 예산을 우회하지 못하게 한다.
+        private UnitNavigationObjective _navigationObjective;
+        private ulong _navigationEnvironmentRevision;
         private UnitMovementIntentReason _movementIntentReason;
         private bool _movementPendingCommand;
         private bool _movementPendingSegment;
@@ -290,6 +295,13 @@ namespace Hexiege.Presentation
 
         /// <summary> 현재 이동 중인지 여부. InputHandler에서 이동 명령 중복 방지에 사용. </summary>
         public bool IsMoving => _moveCoroutine != null;
+
+        /// <summary>
+        /// 이동 코루틴이 일시 대기 중이거나 경로 환경 변경을 기다리는 경우까지 포함한
+        /// 서버 navigation 목표 활성 여부다. 외부 ticker는 IsMoving 하나만 보고 재명령하지 않는다.
+        /// </summary>
+        public bool HasActiveNavigationObjective =>
+            _navigationObjective != null && _navigationObjective.IsActive;
 
         /// <summary> 이 유닛의 Domain 데이터. 외부에서 읽기 전용. </summary>
         public UnitData Data => _unitData;
@@ -388,6 +400,10 @@ namespace Hexiege.Presentation
             _movementNetworkUnit = GetComponent<NetworkUnit>();
             _movementCommandRevision = 0UL;
             _movementSegmentRevision = 0UL;
+            _navigationObjective = null;
+            _navigationEnvironmentRevision = 0UL;
+            _isFrozenAnim = false;
+            _isMovementHeldAnim = false;
             _movementIntentReason = UnitMovementIntentReason.None;
             _movementPendingCommand = false;
             _movementPendingSegment = false;
@@ -1114,6 +1130,12 @@ namespace Hexiege.Presentation
                 transform.rotation,
                 authorityWriterSelected: true);
 #endif
+            if (evaluation.Decision.Phase == UnitMovementPhase.NoIntent)
+            {
+                _movementIntentReason = UnitMovementIntentReason.None;
+                _movementPendingCommand = false;
+                _movementPendingSegment = false;
+            }
             return outcome;
         }
 
@@ -1235,6 +1257,21 @@ namespace Hexiege.Presentation
             if (_unitData == null || !_unitData.IsAlive)
                 return true;
 
+            if (_movementAuthorityReducer != null)
+            {
+                UnitMovementSnapshot current = _movementAuthorityReducer.Snapshot;
+                if (current.HasAcceptedObservation
+                    && current.Phase == UnitMovementPhase.NoIntent
+                    && current.CommandRevision == _movementCommandRevision
+                    && current.SegmentRevision == _movementSegmentRevision)
+                {
+                    _movementIntentReason = UnitMovementIntentReason.None;
+                    _movementPendingCommand = false;
+                    _movementPendingSegment = false;
+                    return true;
+                }
+            }
+
             MovementWriteOutcome outcome = ApplyMovementAuthorityFrame(
                 transform.position,
                 transform.position,
@@ -1351,22 +1388,28 @@ namespace Hexiege.Presentation
             // 클라이언트는 NetworkTransform이 서버 위치를 자동으로 보간·동기화.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
 
-            if (startNewCommand)
-                BeginMovementShadowCommand(intentReason);
-            else
-                BeginMovementShadowSegment(intentReason);
-
-            // 새 코루틴을 시작하므로, OnPathInvalidated가 예약해 둔
-            // _pendingPath는 더 이상 유효하지 않다(이미 새 path가 들어왔기 때문).
-            // 이전 예약을 끌고 가면 다음 타일 도착 직후 즉시 path가 또 교체되어 의도와 다른 동작이 된다.
-            _pendingPath = null;
-            // 현재 Lerp 중인 타일 정보도 초기화 — 새 코루틴이 자기 첫 타일에서 다시 set한다.
-            _currentNextTileCoord = null;
-
-            if (_moveCoroutine != null)
+            // 중복 command 판정은 AlignPathStartToTransform보다 먼저 수행한다. 정렬 helper는
+            // 필요하면 Domain Position을 보정할 수 있으므로, 이미 활성인 같은 목표를 무시하면서
+            // 그 helper를 먼저 호출하면 "억제된 명령이 상태를 변경"하는 모순이 생긴다.
+            if (startNewCommand
+                && path != null
+                && path.Count > 0
+                && _navigationObjective != null
+                && _navigationObjective.IsActive
+                && _navigationObjective.Matches(path[path.Count - 1]))
             {
-                StopCoroutine(_moveCoroutine);
-                _moveCoroutine = null;
+                _navigationObjective.NotifyEnvironmentChanged(
+                    _navigationEnvironmentRevision);
+                if (_navigationObjective.SuppressesDuplicateCommand(
+                        path[path.Count - 1], _navigationEnvironmentRevision))
+                {
+                    if (_moveCoroutine != null)
+                    {
+                        _pendingPath = path;
+                        _navigationObjective.MarkWaitingRepath();
+                    }
+                    return;
+                }
             }
 
             // ────────────────────────────────────────────────────────────
@@ -1383,15 +1426,43 @@ namespace Hexiege.Presentation
             //     경로를 재발급한다. 정방향/정합 상태는 원본 path를 그대로 반환하므로 일반 이동은
             //     전혀 건드리지 않는다.
             // ────────────────────────────────────────────────────────────
+            if (startNewCommand)
+                _navigationObjective?.Cancel();
+
             path = AlignPathStartToTransform(path);
 
             // 외부에서 이 유닛이 어디로 가는지 알 수 있도록 최종 목적지를 저장.
             // 빈 경로/null 안전 처리: path가 비정상이면 코루틴 동작이 알아서 종료된다.
             if (path != null && path.Count > 0)
             {
-                _currentDestination = path[path.Count - 1];
+                HexCoord destination = path[path.Count - 1];
+
+                _currentDestination = destination;
                 _hasDestination = true;
+
+                if (startNewCommand)
+                {
+                    _navigationObjective = new UnitNavigationObjective(
+                        destination, path, _navigationEnvironmentRevision);
+                }
             }
+
+            // 여기까지 왔다는 것은 새 objective 또는 같은 objective의 명시적 segment 교체다.
+            // 중복 command는 위에서 기존 코루틴을 보존한 채 반환했으므로, 이 시점부터만
+            // 예약 상태를 비우고 기존 코루틴을 교체할 수 있다.
+            _pendingPath = null;
+            _currentNextTileCoord = null;
+
+            if (_moveCoroutine != null)
+            {
+                StopCoroutine(_moveCoroutine);
+                _moveCoroutine = null;
+            }
+
+            if (startNewCommand)
+                BeginMovementShadowCommand(intentReason);
+            else
+                BeginMovementShadowSegment(intentReason);
 
             // 이동/전투 흐름 코루틴 시작.
             //   - GameSystemRules.md 규칙 1~18을 그대로 따른다.
@@ -1502,6 +1573,14 @@ namespace Hexiege.Presentation
             if (!_hasDestination) return;
             if (_unitData == null || !_unitData.IsAlive) return;
             if (_movementUseCase == null) return;
+
+            // 건물 생성·파괴 한 번을 이 유닛이 관측한 walkability revision으로 기록한다.
+            // ulong 고갈은 현실적으로 도달하지 않지만 wrap하면 오래된 revision과 구분할 수 없으므로
+            // 최대값에서 고정한다.
+            if (_navigationEnvironmentRevision < ulong.MaxValue)
+                _navigationEnvironmentRevision++;
+            _navigationObjective?.NotifyEnvironmentChanged(
+                _navigationEnvironmentRevision);
 
             // ────────────────────────────────────────────────────────────
             // 전투 중인 유닛에 대한 repath 차단.
@@ -1682,8 +1761,21 @@ namespace Hexiege.Presentation
                 ? guard.Evaluate(Time.frameCount, candidatePath)
                 : UnitRepathDecision.RejectedInvalidPath;
             if (decision == UnitRepathDecision.AcceptedNextFrame)
+            {
+                _navigationObjective?.MarkWaitingRepath();
                 return true;
+            }
 
+            if (decision == UnitRepathDecision.RejectedFrameBudget
+                && candidatePath != null)
+            {
+                _pendingPath = candidatePath as List<HexCoord>
+                    ?? new List<HexCoord>(candidatePath);
+                _navigationObjective?.MarkWaitingRepath();
+                return false;
+            }
+
+            _navigationObjective?.MarkBlocked();
             LogRepathFailClosed(guard, candidatePath, source, decision);
             return false;
         }
@@ -1719,6 +1811,16 @@ namespace Hexiege.Presentation
             => signature.IsValid
                 ? $"{signature.WaypointCount}:{signature.OrderedHash:x16}"
                 : "invalid";
+
+        private void ObserveNavigationProgress(
+            UnitRepathProgressGuard guard,
+            IReadOnlyList<HexCoord> path)
+        {
+            if (_navigationObjective != null && _navigationObjective.IsActive)
+                _navigationObjective.ObserveProgress(path);
+            else
+                guard?.ObserveProgress(path);
+        }
 
         private IEnumerator MoveAlongPathV3(List<HexCoord> path)
         {
@@ -1761,8 +1863,13 @@ namespace Hexiege.Presentation
             // 최종 목적지(외부 while 동안 변하지 않음). 우회/재경로 모두 이 좌표를 기준.
             HexCoord finalTarget = path[path.Count - 1];
             var pathCheckpoint = new UnitPathCheckpointTracker();
-            var repathGuard = new UnitRepathProgressGuard(path);
+            var repathGuard = _navigationObjective != null
+                && _navigationObjective.IsActive
+                ? _navigationObjective.RepathGuard
+                : new UnitRepathProgressGuard(path);
             bool movementFailedClosed = false;
+            bool navigationBlocked = false;
+            SetMovementHeldAnimation(false);
 
             // Legacy 시간 환산과 신규 trajectory가 같은 기본 MoveSpeed를 사용한다.
             // 연구·둔화·빙결 배율은 각 frame에서 다시 읽어 즉시 반영한다.
@@ -1780,6 +1887,64 @@ namespace Hexiege.Presentation
             // ────────────────────────────────────────────────────────────────
             while (_unitData != null && _unitData.IsAlive)
             {
+                // 여러 frame의 무진전 상한 또는 invalid path에 도달하면 코루틴을 종료하지 않는다.
+                // 종료하면 IsMoving이 false가 되어 공성 ticker가 같은 목표를 새 command로 재발행하고
+                // guard가 초기화된다. 현재 pose와 코루틴을 유지한 채 walkability revision 또는
+                // OnPathInvalidated가 제공한 새 PendingPath만 기다린다.
+                if (navigationBlocked)
+                {
+                    SetMovementHeldAnimation(true);
+                    ulong blockedEnvironmentRevision =
+                        _navigationEnvironmentRevision;
+                    while (_unitData != null
+                        && _unitData.IsAlive
+                        && _pendingPath == null
+                        && _navigationEnvironmentRevision
+                            == blockedEnvironmentRevision)
+                    {
+                        yield return null;
+                    }
+
+                    if (_unitData == null || !_unitData.IsAlive)
+                        break;
+
+                    List<HexCoord> recoveryPath = _pendingPath;
+                    _pendingPath = null;
+                    if (recoveryPath == null || recoveryPath.Count < 2)
+                    {
+                        recoveryPath = _movementUseCase != null
+                            ? _movementUseCase.RequestMove(
+                                _unitData, finalTarget)
+                            : null;
+                    }
+
+                    if (!TryAcceptRepath(
+                            repathGuard,
+                            recoveryPath,
+                            "blocked-environment-resume",
+                            out UnitRepathDecision blockedDecision))
+                    {
+                        // 새 환경에서도 아직 경로가 없으면 다시 Blocked로 남는다. 로그는 환경 변화
+                        // 한 번당 terminal 1회만 기록되고 매 frame 재시도하지 않는다.
+                        yield return null;
+                        continue;
+                    }
+
+                    BeginMovementShadowSegment(
+                        UnitMovementIntentReason.BlockedRepath);
+                    path = recoveryPath;
+                    finalTarget = path[path.Count - 1];
+                    pathCheckpoint.Reset();
+                    navigationBlocked = false;
+                    _navigationObjective?.MarkWaitingRepath();
+
+                    // 수락한 재경로는 반드시 다음 frame부터 planner에 입력한다.
+                    yield return null;
+                }
+
+                _navigationObjective?.MarkNavigating();
+                SetMovementHeldAnimation(false);
+
                 // 새 path를 받아 다시 시작할지 결정하는 플래그.
                 // for 안에서 true로 바꾼 뒤 break하면 외부 while로 빠져 새 path로 continue.
                 bool needRepath = false;
@@ -1931,8 +2096,10 @@ namespace Hexiege.Presentation
                                     "astar-corridor",
                                     out UnitRepathDecision repathDecision))
                             {
-                                movementFailedClosed = true;
-                                goto cleanup;
+                                navigationBlocked = true;
+                                needRepath = true;
+                                _currentNextTileCoord = null;
+                                break;
                             }
 
                             BeginMovementShadowSegment(
@@ -1940,6 +2107,7 @@ namespace Hexiege.Presentation
                             path = blockedRepath;
                             pathCheckpoint.Reset();
                             needRepath = true;
+                            SetMovementHeldAnimation(true);
                             _currentNextTileCoord = null;
                             break;
                         }
@@ -1949,6 +2117,7 @@ namespace Hexiege.Presentation
                                 $"[UAS-MOVE] 권위 이동 frame 거부. unitId={_unitData.Id}, " +
                                 $"commandRevision={_movementCommandRevision}, " +
                                 $"segmentRevision={_movementSegmentRevision}");
+                            movementFailedClosed = true;
                             goto cleanup;
                         }
                         if (movementOutcome == MovementWriteOutcome.Advanced)
@@ -1961,7 +2130,7 @@ namespace Hexiege.Presentation
                                     > (float)(UnitMovementEvaluationAdapter.PositionTolerance
                                         * UnitMovementEvaluationAdapter.PositionTolerance))
                             {
-                                repathGuard.ObserveProgress(path);
+                                ObserveNavigationProgress(repathGuard, path);
                             }
 
                             if (reducerTrajectory)
@@ -2168,8 +2337,10 @@ namespace Hexiege.Presentation
                                                 "post-combat-corridor",
                                                 out UnitRepathDecision repathDecision))
                                         {
-                                            movementFailedClosed = true;
-                                            goto cleanup;
+                                            navigationBlocked = true;
+                                            needRepath = true;
+                                            _currentNextTileCoord = null;
+                                            break;
                                         }
 
                                         BeginMovementShadowSegment(
@@ -2177,6 +2348,7 @@ namespace Hexiege.Presentation
                                         path = blockedResumePath;
                                         pathCheckpoint.Reset();
                                         needRepath = true;
+                                        SetMovementHeldAnimation(true);
                                         break;
                                     }
                                     if (alignOutcome == MovementWriteOutcome.Rejected)
@@ -2186,6 +2358,7 @@ namespace Hexiege.Presentation
                                             $"unitId={_unitData.Id}, " +
                                             $"commandRevision={_movementCommandRevision}, " +
                                             $"segmentRevision={_movementSegmentRevision}");
+                                        movementFailedClosed = true;
                                         goto cleanup;
                                     }
                                     if (alignOutcome == MovementWriteOutcome.Advanced)
@@ -2198,7 +2371,7 @@ namespace Hexiege.Presentation
                                                 > (float)(UnitMovementEvaluationAdapter.PositionTolerance
                                                     * UnitMovementEvaluationAdapter.PositionTolerance))
                                         {
-                                            repathGuard.ObserveProgress(path);
+                                            ObserveNavigationProgress(repathGuard, path);
                                         }
 
                                         if (reducerResumeTrajectory)
@@ -2259,6 +2432,7 @@ namespace Hexiege.Presentation
                             {
                                 Debug.LogError(
                                     $"[UAS-MOVE] 권위 복귀 endpoint 거부. unitId={_unitData.Id}");
+                                movementFailedClosed = true;
                                 goto cleanup;
                             }
 
@@ -2272,14 +2446,17 @@ namespace Hexiege.Presentation
                                         "post-combat-resume",
                                         out UnitRepathDecision repathDecision))
                                 {
-                                    movementFailedClosed = true;
-                                    goto cleanup;
+                                    navigationBlocked = true;
+                                    needRepath = true;
+                                    _currentNextTileCoord = null;
+                                    break;
                                 }
 
                                 path = resumePath;
                                 pathCheckpoint.Reset();
                                 needRepath = true;
                                 interruptedByCombat = true;
+                                SetMovementHeldAnimation(true);
                                 // 혼잡도 기여 재활성화 — 전투 종료 후 정상 A* 재개.
                                 _isAStarMoving = true;
                                 break;  // Lerp while 탈출
@@ -2323,6 +2500,7 @@ namespace Hexiege.Presentation
                         {
                             Debug.LogError(
                                 $"[UAS-MOVE] 권위 이동 endpoint 거부. unitId={_unitData.Id}");
+                            movementFailedClosed = true;
                             goto cleanup;
                         }
                     }
@@ -2338,9 +2516,10 @@ namespace Hexiege.Presentation
                             $"[UAS-MOVE] trajectory waypoint 순서 거부. " +
                             $"unitId={_unitData.Id}, index={i}, " +
                             $"expected={pathCheckpoint.NextWaypointIndex}");
+                        movementFailedClosed = true;
                         goto cleanup;
                     }
-                    repathGuard.ObserveProgress(path);
+                    ObserveNavigationProgress(repathGuard, path);
                     if (_movementUseCase != null && !(isLastStep && isLastStepToNonWalkable))
                     {
                         _movementUseCase.ProcessStep(_unitData, from, to);
@@ -2408,12 +2587,15 @@ namespace Hexiege.Presentation
                                     "pending-path",
                                     out UnitRepathDecision repathDecision))
                             {
-                                movementFailedClosed = true;
-                                goto cleanup;
+                                navigationBlocked = true;
+                                needRepath = true;
+                                _currentNextTileCoord = null;
+                                break;
                             }
 
                             path = sliced;
                             pathCheckpoint.Reset();
+                            SetMovementHeldAnimation(true);
 
                             // 최종 목적지가 바뀌었을 수도 있으므로 갱신.
                             finalTarget = path[path.Count - 1];
@@ -2427,14 +2609,29 @@ namespace Hexiege.Presentation
                             // 현재 위치를 포함하지 않는 pending path는 이어 달릴 수 없는 입력이다.
                             // 같은 프레임에 새 코루틴을 재시작하면 무제한 재시작 고리가 생길 수
                             // 있으므로 이 유닛만 현재 위치에서 fail-closed 한다.
-                            LogRepathFailClosed(
-                                repathGuard,
-                                pending,
-                                "pending-path",
-                                UnitRepathDecision.RejectedMissingCurrentPosition,
-                                _unitData.Position.ToString());
-                            movementFailedClosed = true;
-                            goto cleanup;
+                            List<HexCoord> refreshed = _movementUseCase != null
+                                ? _movementUseCase.RequestMove(_unitData, finalTarget)
+                                : null;
+                            if (TryAcceptRepath(
+                                    repathGuard,
+                                    refreshed,
+                                    "pending-path-current-position-refresh",
+                                    out UnitRepathDecision refreshDecision))
+                            {
+                                BeginMovementShadowSegment(
+                                    UnitMovementIntentReason.PendingRepath);
+                                path = refreshed;
+                                finalTarget = path[path.Count - 1];
+                                pathCheckpoint.Reset();
+                                needRepath = true;
+                                SetMovementHeldAnimation(true);
+                                break;
+                            }
+
+                            navigationBlocked = true;
+                            needRepath = true;
+                            _currentNextTileCoord = null;
+                            break;
                         }
                     }
 
@@ -2463,6 +2660,12 @@ namespace Hexiege.Presentation
                     UnitMovementIntentReason.AStarPath,
                     "path-cleanup");
             }
+            if (_unitData == null || !_unitData.IsAlive)
+                _navigationObjective?.Cancel();
+            else if (movementFailedClosed)
+                _navigationObjective?.Cancel();
+            else
+                _navigationObjective?.Complete();
             MoveCleanupAndCompleteV3(invokeCompletion: !movementFailedClosed);
 
             // ────────────────────────────────────────────────────────────────
@@ -3053,6 +3256,7 @@ namespace Hexiege.Presentation
             _movementRotationWriterOwnsRoot = false;
             _moveCoroutine = null;
             ClearUnitActionShadowDesiredTarget();
+            SetMovementHeldAnimation(true);
 
             // 혼잡도 기여 종료 — 이동이 끝났으니 새 코루틴 전까지는 발행하지 않는다.
             _isAStarMoving = false;
@@ -3216,7 +3420,25 @@ namespace Hexiege.Presentation
             _animator.speed = 0f;
         }
 
+        /// <summary>
+        /// 이동 목표는 유지되지만 재경로 대기/막힘으로 변위가 없는 동안 걷기 모션을 정지한다.
+        /// </summary>
+        public void HoldMovementAnimation()
+        {
+            if (_animator == null)
+                _animator = GetComponentInChildren<Animator>();
+            if (_animator == null) return;
+
+            // 공격 전환 중에 목표가 막혀도 공격 pose를 얼리지 않고 모든 프리팹에 존재하는
+            // Walk clip의 결정적인 첫 pose를 stationary fallback으로 사용한다.
+            _animator.speed = 1f;
+            _animator.Play(StateWalk, 0, 0f);
+            _currentAnimStateHash = StateWalk;
+            _animator.speed = 0f;
+        }
+
         private bool _isFrozenAnim;
+        private bool _isMovementHeldAnim;
 
         /// <summary>
         /// 서버 이동 루프의 빙결 표현을 상태 변화 시에만 적용하고 클라이언트에 복제한다.
@@ -3228,11 +3450,26 @@ namespace Hexiege.Presentation
             _isFrozenAnim = frozen;
 
             if (_animator != null)
-                _animator.speed = frozen ? 0f : 1f;
+                _animator.speed = frozen || _isMovementHeldAnim ? 0f : 1f;
 
             if (NetworkContext.IsNetworkActive && _unitData != null)
                 GameEvents.OnUnitFreezeChanged.OnNext(
                     new UnitFreezeChangedEvent(_unitData.Id, frozen));
+        }
+
+        private void SetMovementHeldAnimation(bool held)
+        {
+            if (_isMovementHeldAnim == held) return;
+            _isMovementHeldAnim = held;
+
+            if (held && !_isFrozenAnim)
+                HoldMovementAnimation();
+            else if (_animator != null)
+                _animator.speed = held || _isFrozenAnim ? 0f : 1f;
+
+            if (NetworkContext.IsNetworkActive && _unitData != null)
+                GameEvents.OnUnitMovementHeldChanged.OnNext(
+                    new UnitMovementHeldChangedEvent(_unitData.Id, held));
         }
 
         // StopWalkAnimation() 제거 — Idle 상태가 없으므로 Walk 정지 전용 메서드 불필요.

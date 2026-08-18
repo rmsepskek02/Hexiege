@@ -85,6 +85,8 @@ VisualFacing은 SimulationFacing을 재생한 결과이며 판정 원본이 아�
 최소 상태는 다음과 같다.
 
 - Idle
+- WaitingRepath
+- Blocked
 - AlignToMove
 - Move
 - AcquireTarget
@@ -95,7 +97,7 @@ VisualFacing은 SimulationFacing을 재생한 결과이며 판정 원본이 아�
 - Recovery
 - Dead
 
-구현 enum을 반드시 위 목록과 일치시킬 필요는 없지만, 네트워크 스냅샷은 클라이언트가 현재 단계를 구분할 충분한 정보를 제공해야 한다. 단순 `Walk / Attack` 애니메이션 값만으로 행동 권위를 표현하지 않는다.
+구현 enum을 반드시 위 목록과 일치시킬 필요는 없지만, 네트워크 스냅샷은 클라이언트가 현재 단계를 구분할 충분한 정보를 제공해야 한다. `WaitingRepath`는 다음 서버 frame의 경로 평가를 기다리는 일시 상태이고 `Blocked`는 같은 이동 목표가 경로 환경 변경을 기다리는 상태다. 둘 다 `Completed`가 아니며 외부 시스템이 같은 목표를 새 command로 반복 발행하는 근거가 될 수 없다. 단순 `Walk / Attack` 애니메이션 값만으로 행동 권위를 표현하지 않는다.
 
 ---
 
@@ -202,6 +204,9 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 - NetworkTransform은 서버 Simulation Root pose의 유일한 클라이언트 writer이고, Visual Root는 관점 변환과 허용된 표현 보간만 담당한다.
 - 서버 복제 대상은 logical path 자체가 아니라 Authoritative Locomotion이 commit한 Simulation Root pose와 phase/scope다. logical path corridor, trajectory sweep, 실제 trajectory 거리/초 `MoveSpeed`, 공통 최대 회전 속도 270°/s와 candidate position 기준 target acquire는 서버에서만 계산한다. candidate position으로 획득이 확정된 틱에는 그 위치까지만 commit하고 `NoIntent`를 게시하며 다음 틱의 추가 이동을 금지한다.
 - 150° 이상의 반전은 연속 선회가 아니라 정지 정렬로 처리한다. 이 임계값은 네트워크 지연이나 클라이언트 상태로 변경하지 않는다.
+- fail-closed는 unsafe candidate의 commit을 거부하는 서버 권위 원칙이다. 동일 path 1회, stale PendingPath 또는 일시적인 planner/pathfinder 불일치를 근거로 살아 있는 유닛의 이동 목표를 즉시 폐기하지 않는다.
+- 같은 이동 목표의 재탐색 이력은 코루틴·segment·외부 ticker 재호출을 넘어 유지한다. 서버는 목표 변경, 실제 위치/checkpoint 진전 또는 walkability revision 변경만을 명시적인 재개·reset 근거로 사용한다.
+- `Idle`, `AlignToMove`, `WaitingRepath`, `Blocked`처럼 서버 위치 변화량이 0인 비공격 상태에서는 Walk 표현 시간이 진행되지 않는다. 이 표현 상태도 서버가 값으로 복제하며 클라이언트가 NetworkTransform 변화량으로 추측하지 않는다.
 
 ### NET-FACING-002. 공격 방향
 

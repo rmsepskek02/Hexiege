@@ -70,7 +70,11 @@ namespace Hexiege.Infrastructure
         /// 클라이언트는 이 값을 받으면 Walk 클립을 유지한 채 Animator.speed=0으로 멈춰 "제자리걸음"을 없앤다.
         /// 빙결 해제 시 서버가 다시 Walk로 되돌리면 speed=1로 재개된다.
         /// </summary>
-        Frozen = 3
+        Frozen = 3,
+        /// <summary>
+        /// 이동 목표는 살아 있지만 재경로 대기/막힘으로 실제 변위가 없어 걷기 재생을 멈춘 상태.
+        /// </summary>
+        Held = 4
     }
 
     /// <summary>
@@ -427,6 +431,9 @@ namespace Hexiege.Infrastructure
                 case UnitAnimState.Frozen:
                     // [스킬 - 빙결] 걷기 클립을 유지한 채 speed=0으로 정지 → 순수 클라의 "제자리걸음" 제거.
                     _unitView.FreezeWalkAnimation();
+                    break;
+                case UnitAnimState.Held:
+                    _unitView.HoldMovementAnimation();
                     break;
                 // None: 애니메이션 변경 없음(초기 상태).
             }

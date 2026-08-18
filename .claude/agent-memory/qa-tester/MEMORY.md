@@ -1,5 +1,10 @@
 # QA Tester Memory — Hexiege
 
+## 2026-08-18 B3 재경로 교정 검증 대기
+- 과거 Android Host 실패 기준: recoverable `REPATH-FAIL-CLOSED` 10회, movement observer rejected=3/invalid=3, stale PendingPath로 4유닛 정지, 같은 siege 목표 command 반복, 위치 정지 후 Walk 지속.
+- 교정 구현/Unity C# 컴파일은 PASS. 다음 순서: Editor `[UAS-DIAG]` self-validation → Editor 건물 변경/공성 반복 → 새 Android Host 1경기.
+- 합격 기준: recoverable repath terminal 0, 동일 목표 command 폭주 0, 위치 0+Walk 0, movement observer rejected/invalid/gate failure 0, Client writer 0, Root Pose error 0. 통과 전 25종 회귀 재개 금지.
+
 ## ⚠️ TC 작성 형식 규칙 (CRITICAL — README.md 공식 규칙, 2026-03-24 확정)
 
 ### TC 구조 (4구조 자연어 필수)

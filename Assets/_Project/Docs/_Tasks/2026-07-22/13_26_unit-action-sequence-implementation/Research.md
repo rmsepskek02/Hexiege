@@ -333,3 +333,28 @@ Unity 6000.3.5f2 배치 검증에서 처음에는 최신 main 빙결 통합의 �
 ```
 
 문서 정합성 검사 `Tools/check_docs.py`도 문제 0건으로 PASS했다. 이 결과는 유한 종료 구현과 Editor 게이트의 PASS이며 Android Host 실기 완료가 아니다. B3는 계속 **FAIL / OPEN**이고, 다음 게이트는 새 Android Development Build에서 이전 정지 종류를 포함한 경로 무효화 시험으로 경기 루프 정지·ANR·로그 폭주 0 및 다른 유닛/경기 시간 진행을 확인하는 것이다. 그 뒤에만 역할교대·25종 전체·다음 경기 Legacy rollback을 재개한다.
+
+---
+
+## 19. 2026-08-18 유한 재탐색 교정 실기 실패와 제자리 걷기 원인
+
+새 Android Development Build의 Android Host 경기에서 프로세스 crash·ANR·OOM·예외는 없었고 서버 경기 루프도 이전처럼 한 frame에 영구 정지하지 않았다. 그러나 `REPATH-FAIL-CLOSED`가 10회 발생해 회복 가능한 유닛 이동이 대량 종료됐다. 네 유닛은 약 1.2초 안에 `source=pending-path`, `decision=RejectedMissingCurrentPosition`으로 정지했다. 이는 PendingPath가 계산된 뒤 실제 소비 지점까지 유닛이 전진할 수 있다는 예약 경로의 정상 시간차를 치명적 입력으로 오판한 것이다.
+
+나머지 주요 실패는 corridor가 재탐색을 요청한 뒤 A*가 동일 logical path를 반환한 경우였다. 현 `UnitRepathProgressGuard` self-validation은 동일 path 1회를 즉시 `RejectedRepeatedPath`로 처리하는 것을 정답으로 고정했지만, 실기에서는 pathfinder가 주변 조건상 같은 최선 경로를 반환하는 정상적인 planner/pathfinder 불일치가 존재했다. “같은 frame의 동기 반복을 금지한다”와 “동일 결과 한 번이면 이동 목표를 폐기한다”가 잘못 결합돼 있었다.
+
+유닛 15는 `ProductionTicker.TickSiege`가 `IsMoving == false`를 확인한 뒤 약 1초마다 같은 성 목표의 `MoveTo`를 새 command로 발행해 command revision 2→3→4로 진행했다. guard가 코루틴마다 생성되므로 새 command가 실패 이력을 초기화했고, 유닛 단위 fail-closed가 외부 호출자를 통한 반복까지 막지 못했다. 따라서 재탐색 생명주기는 코루틴/segment가 아니라 유닛의 이동 목표에 귀속해야 한다.
+
+시각적 제자리 걷기도 같은 원인이다. `MoveAlongPathV3` 시작은 서버 애니메이션 값을 Walk로 설정하지만 실패 cleanup은 명시적인 Walk 종료/정지 표현을 게시하지 않는다. 코드에는 “유닛은 항상 이동 또는 공격하므로 Idle이 없다”는 전제로 `StateIdle`과 `OnUnitWalkStopped`가 제거돼 있지만, 동기화 규칙의 최소 행동 상태에는 이미 Idle이 존재한다. 실패 종료 후 서버 위치는 정지하고 클라이언트는 정상적으로 마지막 Walk 값을 유지하므로 사용자가 본 제자리 걷기가 발생한다. 이는 클라이언트 보간 문제가 아니라 서버 lifecycle과 표현 상태 계약의 누락이다.
+
+같은 세션에서 Client movement replication 221건의 invalid·duplicate·revision/identity/scope 오류는 모두 0이었고 Client Simulation Root write도 0이었다. Host/Client Root Pose는 errors 0으로 PASS했다. Host movement observer만 `rejected=3`, `invalid=3`, 최종 `FAIL`이었다. 따라서 NetworkTransform, Visual Root, 세션 역할 또는 클라이언트 복제는 이번 원인에서 제외한다.
+
+교정 결론은 다음과 같다.
+
+- fail-closed는 unsafe candidate commit을 거부하는 틱 단위 원칙으로 유지하되 recoverable 경로 입력만으로 이동 목표를 종료하지 않는다.
+- stale PendingPath는 폐기 후 다음 frame에 현재 권위 위치에서 다시 요청한다.
+- 동일/순환 path는 목표 단위 무진전 관측으로 누적하고 실제 여러 frame 무진전 뒤에만 `Blocked`로 전환한다.
+- 이동 목표 상태는 외부 ticker의 새 command 호출을 넘어 유지하며 환경 revision이나 목표 변경으로만 재개한다.
+- `WaitingRepath/Blocked/AlignToMove`는 Walk 시간이 진행되지 않는 서버 권위 정지 표현을 가진다. 빙결 스킬 `Frozen`과는 별도다.
+- 이동 종료/보류는 일반 movement frame 평가를 재사용하지 않고 명시적인 lifecycle commit으로 닫는다.
+
+이 실기 결과로 9.8의 Editor self-validation PASS는 철회하지 않지만, 그 테스트의 동일 path 기대가 잘못됐음이 확인됐다. B3는 계속 **FAIL / OPEN**이며 9.10 교정의 RED→GREEN 회귀와 Android Host 재검증 전에는 25종 검증을 진행하지 않는다.

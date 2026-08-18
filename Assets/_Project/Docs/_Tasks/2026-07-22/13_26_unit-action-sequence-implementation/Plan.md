@@ -8,6 +8,8 @@
 
 > **기존 로직 제거 안전 규칙:** `HitPresentationQueue`, Legacy PendingHit/공격 코루틴, Start/Change/Stop 전투 RPC, Red root 보정은 신규 경로의 shadow 비교와 사용자 멀티플레이 실기 승인을 통과하기 전까지 삭제하지 않는다. 전환 단계에서는 경기 단위 설정으로 한쪽만 활성화하고, 검증 전 코드는 rollback용으로 유지한다. 최종 삭제는 사용자 테스트 통과 및 문서/메모리 업데이트 승인 후 별도 수행한다.
 
+> **2026-08-18 재경로 교정 안전 규칙:** 기존 `UnitRepathProgressGuard`의 결정적 signature와 한-frame 제어 반환은 보존한다. 다만 동일 path·순환·현재 타일 누락을 즉시 유닛 종료로 연결하는 정책은 실기에서 정상 재평가까지 중단시킨 것으로 확인됐으므로, 먼저 회귀 테스트에서 잘못된 판정을 재현한 뒤 목표 단위 `WaitingRepath/Blocked` lifecycle로 교체한다. 검증 전에는 관련 코드를 삭제하지 않고 의미를 대체하며, 공격·피해·Visual Root·NetworkTransform writer는 변경하지 않는다.
+
 **작성일:** 2026-07-22
 **Research:** `Research.md`
 **구현 기준:** 멀티플레이 Host/Client, Blue/Red
@@ -605,6 +607,39 @@ B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 공�
 7. 기준선 PASS 후에만 9.8 재탐색 유한 종료를 구현한다. 통합 결함과 정지 교정 결함을 한 번의 실기 테스트로 혼합 판정하지 않는다.
 
 **main 통합 중 금지:** B3 예전 `Game.unity` 전체 선택, main `UnitView` 전체 선택으로 B3 writer 삭제, B3 `UnitView` 전체 선택으로 둔화·빙결 회귀, 문서 충돌을 이력 삭제로 해결, 경기 중 Legacy fallback, stash `pop`으로 복구 지점 삭제.
+
+### 9.10 B3 재경로·제자리 걷기 교정 — 목표 단위 진행성과 서버 정지 표현
+
+> **구현 상태 (2026-08-18):** 아래 1~9의 런타임 연결과 회귀 self-validation 코드를 구현했고 Unity C# 런타임·Editor 컴파일은 PASS했다. Editor 메뉴 self-validation과 새 Android Host 실기 검증은 아직 실행하지 않았으므로 완료 판정은 보류한다.
+
+**실기 근거:** Android Host 인정 세션 `sharedSessionKey=9b46ac338ae7757c7ec8437de0de9e8edb6fd86083292800ebcd9edb376f5d26`에서 `REPATH-FAIL-CLOSED` 10회가 발생했다. 네 유닛은 약 1.2초 사이 PendingPath의 `RejectedMissingCurrentPosition`으로 정지했고, 동일 A* 결과는 `RejectedRepeatedPath`로 종료됐다. 유닛 15는 공성 ticker가 약 1초마다 새 command revision을 발행해 목표 단위 실패 이력을 우회했다. Host movement observer는 `rejected=3`, `invalid=3`, `verdict=FAIL`이었고, Client는 복제 표본 221개에서 invalid·revision·identity 오류 0, Root Pose는 양쪽 PASS였다. 따라서 문제 범위는 NetworkTransform/Visual Root가 아니라 서버 navigation lifecycle과 애니메이션 상태 경계다.
+
+**근거 규칙:** `GameSystemRules_Units.md` `U-MOV-PHASE`, `U-MOV-ALIGN`, `U-MOV-REPATH`, 이동 규칙 4와 `GameSystemRules_UnitCombatSynchronization.md` `NET-ACTION-STATE`, `NET-FACING-001`을 적용한다.
+
+1. 먼저 `RunUnitActionSelfValidation`의 기존 “동일 path 즉시 종료” 기대를 반대로 바꿔 현재 구현에서 실패하는 것을 확인한다. 최소 재현은 stale PendingPath, 동일 A* 1회, 여러 frame 무진전, 같은 목표의 외부 command 재발행, 실패 종료의 NoIntent 거부와 위치 0+Walk 지속이다.
+2. `UnitMovementContracts.cs`에 코루틴이 아닌 유닛 이동 목표에 귀속되는 pure navigation lifecycle을 둔다. 목표 ID·최종 목적지·walkability revision·마지막 committed checkpoint/path·무진전 횟수와 `Navigating/WaitingRepath/Blocked/Completed/Cancelled`를 보유한다.
+3. 기존 ordered path signature와 frame budget은 동기식 무한 반복 차단에만 사용한다. 동일 path나 `A→B→A`를 즉시 terminal로 만들지 않고 무진전 관측으로 누적하며, 수락·재평가는 다음 frame에만 한다. 실제 위치/checkpoint 진전 또는 walkability revision 변경만 이력을 reset한다.
+4. PendingPath에 현재 권위 타일이 없으면 stale로 폐기하고 `WaitingRepath`로 전환한다. 현재 권위 위치에서 다음 frame에 새 경로를 요청하며 `MoveTo`/코루틴을 같은 frame에 재시작하지 않는다.
+5. 여러 frame의 제한된 무진전 뒤에만 `Blocked`로 전환한다. `Blocked`는 현재 Simulation Root pose를 유지하고 환경 revision·목표 변경·명시적 취소를 기다리며, 정상 완료 callback이나 힐러 종착 감시를 실행하지 않는다.
+6. `ProductionTicker`는 `IsMoving` 하나로 재명령하지 않는다. 같은 siege 목표가 `WaitingRepath/Blocked`이면 새 command를 발급하지 않고, 목표 또는 walkability revision이 변경됐을 때 기존 navigation objective를 재개한다.
+7. `UnitView` cleanup의 일반 frame 평가를 통한 NoIntent 추론을 제거하고 명시적인 movement lifecycle terminal/hold commit을 사용한다. phase·command/segment scope·AnimationState를 한 서버 전환에서 갱신해 cleanup 자체가 reducer에서 거부되지 않게 한다.
+8. 비영 위치 commit이 있는 `Move`에서만 Walk 시간을 진행한다. `AlignToMove`, `WaitingRepath`, `Blocked`는 별도 `Held` 표현으로 정지시키며 스킬 `Frozen`과 구분한다. 모든 유닛의 실제 Idle clip 보유 여부를 먼저 감사하고, 공통 clip 계약이 없으면 네트워크 `Held` 상태가 검증된 stationary pose를 적용하게 한다.
+9. 클라이언트는 서버가 복제한 phase/표현 상태만 적용한다. NetworkTransform 위치 변화량으로 Walk/Held를 추측하거나 Visual Root smoothing으로 서버 정지를 숨기지 않는다.
+
+**예정 파일과 책임:**
+
+- `Assets/_Project/Scripts/Application/Combat/Sequencing/UnitMovementContracts.cs` — 목표 단위 navigation lifecycle과 무진전/환경 revision 정책
+- `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs` — stale PendingPath 지연 재요청, 명시적 hold/terminal commit, 서버 표현 상태 연결
+- `Assets/_Project/Scripts/Presentation/Production/ProductionTicker.cs` — siege 동일 목표 재명령 억제와 환경 revision 기반 재개
+- `Assets/_Project/Scripts/Infrastructure/Network/NetworkUnit.cs` — 서버 권위 Held 표현 값과 클라이언트 적용
+- `Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs` — 행동/표현 상태의 서버 레벨 동기화 연결
+- `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` — 실제 실기 형태의 stale/same-path/ticker/lifecycle/Walk 회귀
+
+**검증 순서:** 잘못된 기존 기대를 교체한 self-validation RED → pure lifecycle 구현 GREEN → `UnitView`/ticker/표현 adapter 연결 → Unity compile·self-validation → Editor에서 건물 변경·공성 목표 반복 → 새 Android Host 1경기에서 정지/제자리 걷기/ANR/로그 폭주 0 → Android/Editor 역할교대 4종 대표 smoke → 통과 후 25종 전체 회귀를 재개한다.
+
+**합격 기준:** recoverable `REPATH-FAIL-CLOSED` 0, movement observer rejected/invalid/gate failure 0, 같은 목표 command 폭주 0, 위치 변화 0 상태의 진행 중 Walk 0, Client reducer/root write 0, Root Pose errors 0, 공격·피해·HP·RPC·VFX 값과 writer 변화 0이다.
+
+**제외 범위:** 공격 방향, AttackSequence/ImpactResult, 피해 적용 시점, 50개 프리팹 구조, NetworkTransform 설정과 Visual Root projector는 변경하지 않는다.
 
 ---
 

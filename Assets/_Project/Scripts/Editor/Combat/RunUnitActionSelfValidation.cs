@@ -36,7 +36,7 @@ namespace Hexiege.Editor.Combat
             ValidateDuplicateAndReorderedResults();
             ValidateA1ContractsAndReducer();
 
-            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and reserved-terminal preflight, B3 match-fixed movement pipeline mode/rollback, continuous 60-degree trajectory/150-degree reverse/held-progress invariants, finite repath frame/repeat-cycle/distinct-no-progress budgets and progress reset, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and retire/reuse, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
+            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and reserved-terminal preflight, B3 match-fixed movement pipeline mode/rollback, continuous 60-degree trajectory/150-degree reverse/held-progress invariants, objective-scoped finite repath frame/no-progress/environment-reset and duplicate-command suppression, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and retire/reuse, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
         }
 
         private static void ValidateB3FiniteRepathGuard()
@@ -74,30 +74,30 @@ namespace Hexiege.Editor.Combat
 
             var guard = new UnitRepathProgressGuard(pathA);
             Require(guard.Evaluate(10, pathAClone)
-                    == UnitRepathDecision.RejectedRepeatedPath,
-                "A repeated path must fail closed instead of spinning in the same frame.");
-            Require(guard.Evaluate(10, pathB)
                     == UnitRepathDecision.AcceptedNextFrame,
-                "The first distinct repath in a frame must be accepted for next-frame processing.");
+                "A repeated path returned once must defer to the next frame instead of terminating the navigation objective.");
+            Require(guard.Evaluate(10, pathB)
+                    == UnitRepathDecision.RejectedFrameBudget,
+                "A repeated-path defer must consume the frame budget so another repath cannot run synchronously.");
             Require(guard.AcceptedInFrame == 1
                     && guard.AcceptedWithoutProgress == 1,
-                "An accepted repath must consume the frame budget and no-progress count.");
-            Require(guard.Evaluate(10, pathC)
-                    == UnitRepathDecision.RejectedFrameBudget,
-                "A second distinct repath in one frame must be rejected by the frame budget.");
-            Require(guard.Evaluate(11, pathA)
-                    == UnitRepathDecision.RejectedCycle,
-                "An A-to-B-to-A path cycle must fail closed.");
+                "A repeated-path defer must consume one bounded no-progress observation.");
+            Require(guard.Evaluate(11, pathB)
+                    == UnitRepathDecision.AcceptedNextFrame,
+                "A distinct path must be accepted after the frame boundary.");
+            Require(guard.Evaluate(12, pathA)
+                    == UnitRepathDecision.AcceptedNextFrame,
+                "An A-to-B-to-A observation must remain bounded without immediately terminating the objective.");
             Require(guard.Evaluate(11, invalidPath)
                     == UnitRepathDecision.RejectedInvalidPath,
                 "An invalid path must fail closed.");
-            Require(guard.Evaluate(11, pathC)
+            Require(guard.Evaluate(13, pathC)
                     == UnitRepathDecision.AcceptedNextFrame,
                 "A distinct path must be accepted after the frame boundary.");
             Require(guard.ObserveProgress(pathC)
                 && guard.AcceptedInFrame == 1
                 && guard.AcceptedWithoutProgress == 0
-                && guard.Evaluate(12, pathA)
+                && guard.Evaluate(14, pathA)
                     == UnitRepathDecision.AcceptedNextFrame,
                 "Committed progress must reset cycle history without reopening the same-frame budget.");
 
@@ -126,6 +126,38 @@ namespace Hexiege.Editor.Combat
             Require(boundedGuard.Evaluate(200, overflowPath)
                     == UnitRepathDecision.RejectedNoProgressBudget,
                 "Distinct repaths without committed progress must eventually fail closed.");
+
+            var objective = new UnitNavigationObjective(
+                new HexCoord(5, 0), pathA, 3UL);
+            Require(objective.IsActive
+                    && objective.State == UnitNavigationObjectiveState.Navigating
+                    && objective.SuppressesDuplicateCommand(
+                        new HexCoord(5, 0), 3UL)
+                    && !objective.SuppressesDuplicateCommand(
+                        new HexCoord(6, 0), 3UL),
+                "An active objective must suppress only the same destination in the same environment.");
+            objective.MarkWaitingRepath();
+            objective.MarkBlocked();
+            Require(objective.State == UnitNavigationObjectiveState.Blocked
+                    && objective.SuppressesDuplicateCommand(
+                        new HexCoord(5, 0), 3UL),
+                "A blocked objective must remain active so an external ticker cannot reset its budget.");
+            Require(objective.NotifyEnvironmentChanged(4UL)
+                    && objective.State == UnitNavigationObjectiveState.WaitingRepath
+                    && objective.RepathGuard.AcceptedWithoutProgress == 0
+                    && !objective.SuppressesDuplicateCommand(
+                        new HexCoord(5, 0), 5UL),
+                "A newer walkability revision must reopen the same objective without accepting future revisions.");
+            objective.MarkNavigating();
+            Require(objective.ObserveProgress(pathB)
+                    && objective.State == UnitNavigationObjectiveState.Navigating,
+                "Committed movement must keep the objective active and clear no-progress history.");
+            objective.Complete();
+            Require(!objective.IsActive
+                    && objective.State == UnitNavigationObjectiveState.Completed
+                    && !objective.SuppressesDuplicateCommand(
+                        new HexCoord(5, 0), 4UL),
+                "A completed objective must allow a future command to create a new lifecycle.");
         }
 
         private static void ValidateB3ContinuousLocomotionPlanner()

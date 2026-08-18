@@ -569,6 +569,19 @@ namespace Hexiege.Application.Combat.Sequencing
     }
 
     /// <summary>
+    /// 하나의 최종 목적지에 대한 서버 navigation 목표 상태다.
+    /// 코루틴이나 segment가 바뀌어도 같은 목적지의 진행성 이력을 보존하기 위한 순수 계약이다.
+    /// </summary>
+    public enum UnitNavigationObjectiveState
+    {
+        Navigating = 0,
+        WaitingRepath = 1,
+        Blocked = 2,
+        Completed = 3,
+        Cancelled = 4
+    }
+
+    /// <summary>
     /// 경로 길이와 순서가 있는 HexCoord 전체로 만든 결정적 서명이다.
     /// 런타임 객체 identity나 플랫폼별 GetHashCode에 의존하지 않는다.
     /// </summary>
@@ -673,17 +686,20 @@ namespace Hexiege.Application.Combat.Sequencing
                 _acceptedInFrame = 0;
             }
 
-            if (_currentPath.IsValid && candidate == _currentPath)
-                return UnitRepathDecision.RejectedRepeatedPath;
-            if (_previousPath.IsValid && candidate == _previousPath)
-                return UnitRepathDecision.RejectedCycle;
-            if (_acceptedWithoutProgress >= MaximumAcceptedWithoutProgress)
-                return UnitRepathDecision.RejectedNoProgressBudget;
             if (_acceptedInFrame >= 1)
                 return UnitRepathDecision.RejectedFrameBudget;
+            if (_acceptedWithoutProgress >= MaximumAcceptedWithoutProgress)
+                return UnitRepathDecision.RejectedNoProgressBudget;
 
-            _previousPath = _currentPath;
-            _currentPath = candidate;
+            // 같은 logical path가 한 번 반환됐다는 사실만으로 navigation 목표를 종료하지 않는다.
+            // corridor planner와 A* pathfinder는 서로 다른 안전 기준을 사용하므로, 최신 pose에서도
+            // 같은 최선 경로가 다시 나오는 정상적인 재평가가 가능하다. A→B→A 역시 즉시 terminal이
+            // 아니라 bounded no-progress 관측으로 누적하고 여러 frame의 상한에서만 차단한다.
+            if (!_currentPath.IsValid || candidate != _currentPath)
+            {
+                _previousPath = _currentPath;
+                _currentPath = candidate;
+            }
             _acceptedInFrame++;
             _acceptedWithoutProgress++;
             return UnitRepathDecision.AcceptedNextFrame;
@@ -701,6 +717,113 @@ namespace Hexiege.Application.Combat.Sequencing
             _previousPath = default;
             _acceptedWithoutProgress = 0;
             return true;
+        }
+
+        /// <summary>
+        /// 건물 생성·파괴처럼 walkability가 바뀌면 과거 path 반복은 더 이상 같은 환경의
+        /// 무진전 증거가 아니다. 현재 signature는 보존하고 반복/예산 이력만 초기화한다.
+        /// </summary>
+        public void ResetForEnvironmentChange()
+        {
+            _previousPath = default;
+            _frameToken = long.MinValue;
+            _acceptedInFrame = 0;
+            _acceptedWithoutProgress = 0;
+        }
+    }
+
+    /// <summary>
+    /// 최종 목적지 하나의 진행 상태와 재탐색 guard를 함께 보유한다.
+    /// Presentation 코루틴은 이 객체를 소유할 수 있지만 판단 자체는 Unity/NGO와 무관하다.
+    /// </summary>
+    public sealed class UnitNavigationObjective
+    {
+        private readonly HexCoord _destination;
+        private ulong _environmentRevision;
+        private readonly UnitRepathProgressGuard _repathGuard;
+        private UnitNavigationObjectiveState _state;
+
+        public HexCoord Destination => _destination;
+        public ulong EnvironmentRevision => _environmentRevision;
+        public UnitRepathProgressGuard RepathGuard => _repathGuard;
+        public UnitNavigationObjectiveState State => _state;
+        public bool IsActive => _state == UnitNavigationObjectiveState.Navigating
+            || _state == UnitNavigationObjectiveState.WaitingRepath
+            || _state == UnitNavigationObjectiveState.Blocked;
+
+        public UnitNavigationObjective(
+            HexCoord destination,
+            IReadOnlyList<HexCoord> initialPath,
+            ulong environmentRevision)
+        {
+            _destination = destination;
+            _environmentRevision = environmentRevision;
+            _repathGuard = new UnitRepathProgressGuard(initialPath);
+            _state = UnitNavigationObjectiveState.Navigating;
+        }
+
+        public bool Matches(HexCoord destination)
+            => destination == _destination;
+
+        /// <summary>
+        /// 같은 환경에서 같은 목적지로 들어온 외부 MoveTo는 새 command가 아니다.
+        /// 완료·취소됐거나 목적지가 달라야 새 objective를 만들 수 있다.
+        /// </summary>
+        public bool SuppressesDuplicateCommand(
+            HexCoord destination,
+            ulong environmentRevision)
+            => IsActive
+                && Matches(destination)
+                && environmentRevision <= _environmentRevision;
+
+        public void MarkWaitingRepath()
+        {
+            if (IsActive)
+                _state = UnitNavigationObjectiveState.WaitingRepath;
+        }
+
+        public void MarkNavigating()
+        {
+            if (IsActive)
+                _state = UnitNavigationObjectiveState.Navigating;
+        }
+
+        public void MarkBlocked()
+        {
+            if (IsActive)
+                _state = UnitNavigationObjectiveState.Blocked;
+        }
+
+        public bool ObserveProgress(IReadOnlyList<HexCoord> committedPath)
+        {
+            if (!IsActive || !_repathGuard.ObserveProgress(committedPath))
+                return false;
+
+            _state = UnitNavigationObjectiveState.Navigating;
+            return true;
+        }
+
+        public bool NotifyEnvironmentChanged(ulong environmentRevision)
+        {
+            if (!IsActive || environmentRevision <= _environmentRevision)
+                return false;
+
+            _environmentRevision = environmentRevision;
+            _repathGuard.ResetForEnvironmentChange();
+            _state = UnitNavigationObjectiveState.WaitingRepath;
+            return true;
+        }
+
+        public void Complete()
+        {
+            if (IsActive)
+                _state = UnitNavigationObjectiveState.Completed;
+        }
+
+        public void Cancel()
+        {
+            if (IsActive)
+                _state = UnitNavigationObjectiveState.Cancelled;
         }
     }
 
