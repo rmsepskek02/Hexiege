@@ -110,7 +110,7 @@ namespace Hexiege.Presentation
                 //   FindFirstObjectByType 은 네트워크 스폰 여부와 무관하게 씬의 활성 오브젝트를 찾으므로
                 //   null = "씬(또는 DontDestroyOnLoad)에 없다" = 설정 오류다(1.3 원칙 3 단서).
                 //   같은 사건에는 같은 축 값을 준다 — 계층마다 판정이 흔들리면 지표가 갈라진다.
-                GameLog.Dev.Warn("UI", nameof(LobbyRootView),
+                GameLog.Dev.Warn("Network", nameof(LobbyRootView),
                                  "NetworkGameManager 를 찾을 수 없다 — 로비 기능을 초기화하지 못한다");
                 return;
             }

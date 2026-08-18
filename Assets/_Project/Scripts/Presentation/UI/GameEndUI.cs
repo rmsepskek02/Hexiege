@@ -128,7 +128,7 @@ namespace Hexiege.Presentation
                 // [개발] Warn + 개발 — LobbyUI · LobbyRootView 와 같은 사건, 같은 판정이다.
                 //   FindFirstObjectByType 이 null 이라는 것은 "씬(또는 DontDestroyOnLoad)에 없다" 는 뜻이고,
                 //   그건 배치 누락이라는 설정 오류다(1.3 원칙 3 단서) → Warn + 개발.
-                GameLog.Dev.Warn("UI", nameof(GameEndUI),
+                GameLog.Dev.Warn("Network", nameof(GameEndUI),
                                  "NetworkGameManager 를 찾을 수 없다 — 로비 복귀 시 NGO Shutdown 이 누락될 수 있다");
             }
 
