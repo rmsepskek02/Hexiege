@@ -197,3 +197,70 @@
 [21:08:57.018] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
 [21:08:57.019] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
 [21:08:57.019] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-08-17 21:45:31 ===
+
+[21:45:32.093] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[21:45:32.106] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[21:45:32.108] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[21:45:32.164] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[21:45:34.823] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[21:46:57.980] [INFO] [Network/NetworkGameManager] 초기화 시작
+[21:46:57.982] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[21:46:57.982] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[21:46:57.983] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[21:46:57.983] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[21:46:58.023] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[21:47:13.199] [INFO] [Network/NetworkGameManager] 매칭 티켓 생성 | TicketId=00aef474-8ee0-46e8-83e6-4e9cffe76e6d
+[21:47:50.241] [INFO] [Network/NetworkGameManager] 매칭 완료 | MatchId=dab50e24-5456-4d6f-81dd-ad74bf86f979
+[21:47:50.599] [INFO] [Network/LobbyManager] CreateOrJoin 완료 | MatchId=dab50e24-5456-4d6f-81dd-ad74bf86f979, LobbyId=dab50e24-5456-4d6f-81dd-ad74bf86f979, HostId=f59803b95e641dc6, IsHost=True
+[21:47:50.599] [INFO] [Network/NetworkGameManager] CreateOrJoin 으로 역할 확정 | Role=Host, MatchId=dab50e24-5456-4d6f-81dd-ad74bf86f979
+[21:47:52.472] [INFO] [Network/LobbyManager] Lobby 에 Relay Join Code 저장 완료 | RelayJoinCode=DWF6RJ
+[21:47:52.629] [INFO] [Network/NetworkGameManager] NetworkManager.StartHost() 성공
+[21:47:52.631] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 시작
+[21:47:52.631] [INFO] [Network/NetworkGameManager] 매칭 Host 게임 시작 완료 | LobbyCode=98NTKH
+[21:47:55.230] [INFO] [Network/NetworkGameManager] Client 접속 감지 — OnClientConnected 발행 | ClientId=1
+[21:47:55.232] [INFO] [Network/NetworkGameManager] Game 씬 로드 시작
+[21:47:55.239] [INFO] [Network/NetworkGameManager] OnAllPlayersReady 발행 | ConnectedCount=2
+[21:47:57.917] [INFO] [Network/NetworkGameEndController] 네트워크 스폰 | IsServer=True
+[21:47:57.920] [INFO] [Network/NetworkGameEndController] 서버 측 OnGameEnd 구독 완료
+[21:47:57.921] [INFO] [Network/NetworkProductionController] 스폰 완료 | IsServer=True
+[21:47:57.924] [INFO] [Network/NetworkProductionController] 서버 측 생산 이벤트 구독 완료
+[21:47:57.941] [INFO] [Network/NetworkBuildingController] 스폰 완료 | IsServer=True
+[21:47:57.944] [INFO] [Network/NetworkCombatController] 네트워크 역할 확정 | Role=Host
+[21:48:43.337] [INFO] [Network/NetworkBuildingController] 건물 배치 요청 수신 | ClientId=1, BuildingType=24, Team=2, Q=5, R=0
+[21:48:43.340] [INFO] [Network/NetworkBuildingController] 서버: 건물 배치 성공 | BuildingId=4, BuildingType=PrimalAltar, Team=Red, Q=5, R=0, SpentGold=125
+[21:48:45.215] [INFO] [Network/NetworkProductionController] 서버: 자동 생산 토글 완료 | BarracksId=4, UnitType=RabbitTrickster, IsAuto=True
+[21:48:49.375] [INFO] [Network/NetworkBuildingController] 건물 배치 요청 수신 | ClientId=0, BuildingType=7, Team=1, Q=5, R=15
+[21:48:49.376] [INFO] [Network/NetworkBuildingController] 서버: 건물 배치 성공 | BuildingId=5, BuildingType=TrainingCamp, Team=Blue, Q=5, R=15, SpentGold=100
+[21:48:50.255] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=0, UnitType=RabbitTrickster, Team=Red, Pos=(6, -1)
+[21:48:50.894] [INFO] [Network/NetworkProductionController] 서버: 자동 생산 토글 완료 | BarracksId=5, UnitType=LittleKnight, IsAuto=True
+[21:48:55.211] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=1, UnitType=RabbitTrickster, Team=Red, Pos=(6, -1)
+[21:48:55.906] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=2, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[21:49:00.217] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=3, UnitType=RabbitTrickster, Team=Red, Pos=(6, -1)
+[21:49:00.907] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=4, UnitType=LittleKnight, Team=Blue, Pos=(6, 15)
+[21:49:05.219] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=5, UnitType=RabbitTrickster, Team=Red, Pos=(6, -1)
+[21:49:05.914] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=6, UnitType=LittleKnight, Team=Blue, Pos=(6, 15)
+[21:49:10.219] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=7, UnitType=RabbitTrickster, Team=Red, Pos=(6, -1)
+[21:49:10.917] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=8, UnitType=LittleKnight, Team=Blue, Pos=(6, 15)
+[21:49:15.225] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=9, UnitType=RabbitTrickster, Team=Red, Pos=(6, -1)
+[21:49:15.924] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=10, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[21:49:20.235] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=11, UnitType=RabbitTrickster, Team=Red, Pos=(6, -1)
+[21:49:20.933] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=12, UnitType=LittleKnight, Team=Blue, Pos=(6, 14)
+[21:49:25.244] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=13, UnitType=RabbitTrickster, Team=Red, Pos=(6, -1)
+[21:49:30.251] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=14, UnitType=RabbitTrickster, Team=Red, Pos=(6, -1)
+[21:49:32.217] [INFO] [Network/NetworkBuildingController] 건물 배치 요청 수신 | ClientId=1, BuildingType=24, Team=2, Q=5, R=1
+[21:49:32.218] [INFO] [Network/NetworkBuildingController] 서버: 건물 배치 성공 | BuildingId=6, BuildingType=PrimalAltar, Team=Red, Q=5, R=1, SpentGold=125
+[21:49:33.850] [INFO] [Network/NetworkProductionController] 서버: 자동 생산 토글 완료 | BarracksId=6, UnitType=RabbitTrickster, IsAuto=True
+[21:49:35.258] [INFO] [Network/NetworkProductionController] 서버 유닛 생산 완료 | UnitId=15, UnitType=RabbitTrickster, Team=Red, Pos=(6, -1)
+[21:49:35.566] [INFO] [Network/NetworkGameEndController] 서버: 게임 종료 감지 — 결과 전파 시작 | WinnerTeam=Red, WinnerTeamIndex=2, IsRandomMatch=True
+[21:49:35.567] [INFO] [Network/NetworkGameEndController] AnnounceWinnerClientRpc 수신 | WinnerTeam=Red, LocalTeam=Blue, IsRandomMatch=True
+[21:49:37.586] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 정지
+[21:49:37.590] [INFO] [Network/NetworkGameManager] NetworkManager Shutdown 완료
+[21:49:37.840] [INFO] [Network/LobbyManager] Lobby 삭제 완료 (Host 퇴장) | LobbyId=dab50e24-5456-4d6f-81dd-ad74bf86f979
+[21:49:39.454] [INFO] [Network/NetworkGameManager] 초기화 시작
+[21:49:39.454] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[21:49:39.455] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[21:49:39.455] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[21:49:39.455] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[21:49:39.458] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
