@@ -63,7 +63,13 @@ namespace Hexiege.Infrastructure
         /// <summary> 이동(걷기) 애니메이션. </summary>
         Walk = 1,
         /// <summary> 공격 애니메이션. </summary>
-        Attack = 2
+        Attack = 2,
+        /// <summary>
+        /// [스킬 - 빙결] 걷기 애니메이션 정지(제자리 프레임 고정). 빙결로 이동이 멈춘 동안 사용.
+        /// 클라이언트는 이 값을 받으면 Walk 클립을 유지한 채 Animator.speed=0으로 멈춰 "제자리걸음"을 없앤다.
+        /// 빙결 해제 시 서버가 다시 Walk로 되돌리면 speed=1로 재개된다.
+        /// </summary>
+        Frozen = 3
     }
 
     /// <summary>
@@ -322,6 +328,10 @@ namespace Hexiege.Infrastructure
                     break;
                 case UnitAnimState.Attack:
                     _unitView.PlayAttackAnimation();
+                    break;
+                case UnitAnimState.Frozen:
+                    // [스킬 - 빙결] 걷기 클립을 유지한 채 speed=0으로 정지 → 순수 클라의 "제자리걸음" 제거.
+                    _unitView.FreezeWalkAnimation();
                     break;
                 // None: 애니메이션 변경 없음(초기 상태).
             }

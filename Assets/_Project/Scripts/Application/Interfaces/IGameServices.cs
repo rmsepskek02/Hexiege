@@ -88,6 +88,31 @@ namespace Hexiege.Application
         TowerCombatUseCase GetTowerCombat();
 
         /// <summary>
+        /// 연구소 유닛 강화(업그레이드) UseCase. 팀별 트랙 레벨·진행 상태 조회/구동에 사용.
+        /// 서버(Infrastructure)가 연구 요청 처리·타이머 구동·완료 브로드캐스트에 참조한다.
+        /// 맵 로드 전이면 null.
+        /// </summary>
+        UnitUpgradeUseCase GetUpgradeUseCase();
+
+        /// <summary>
+        /// 스킬 건물 발동(SkillActivationUseCase). 서버(Infrastructure)가 스킬 발동 요청 재검증·실행·
+        /// 글로벌 쿨다운 구동에 참조한다. 맵 로드 전이면 null.
+        /// </summary>
+        SkillActivationUseCase GetSkillActivationUseCase();
+
+        /// <summary>
+        /// 타입 C 스킬 상태효과 시스템(StatusEffectSystem). 서버(Infrastructure)가 상태 지속시간 틱 구동·
+        /// 멀티 클라 재현에 참조한다. 맵 로드 전이면 null.
+        /// </summary>
+        StatusEffectSystem GetStatusEffectSystem();
+
+        /// <summary>
+        /// MistShrine 물안개 힐(MistShrineUseCase). 서버(Infrastructure)가 시전 요청 재검증·물안개 틱 구동·
+        /// 쿨다운/자동 모드 브로드캐스트에 참조한다. 맵 로드 전이면 null.
+        /// </summary>
+        MistShrineUseCase GetMistShrineUseCase();
+
+        /// <summary>
         /// 유닛 팩토리. 유닛 GameObject 생성·조회·뷰 초기화에 사용.
         /// IUnitFactory로 추상화하여 Infrastructure.UnitFactory에 직접 의존하지 않는다.
         /// </summary>

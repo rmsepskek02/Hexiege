@@ -56,6 +56,18 @@ namespace Hexiege.Presentation
         /// <summary> 비생산 건물(MiningPost/Tower/특수건물) 클릭 시 표시되는 공용 액션 패널. </summary>
         private BuildingActionPanelUI _actionPanelUI;
 
+        /// <summary> 연구소(Research) 클릭 시 표시되는 유닛 강화(연구) 패널. </summary>
+        private ResearchPanelUI _researchPanelUI;
+
+        /// <summary> 스킬 건물(FlightFacility/MagicBuilding) 클릭 시 표시되는 전용 스킬 패널. </summary>
+        private BuildingSkillPanelUI _skillPanelUI;
+
+        /// <summary> MistShrine(HealShrine) 클릭 시 표시되는 전용 물안개 힐 패널. </summary>
+        private MistShrinePanelUI _mistShrinePanelUI;
+
+        /// <summary> 스킬 지점 조준 컨트롤러. 조준 중이면 타일 선택 입력을 억제한다. </summary>
+        private SkillAimController _skillAimController;
+
         /// <summary> 메인 카메라 참조 (ScreenToWorldPoint 변환용). </summary>
         private Camera _mainCamera;
 
@@ -88,7 +100,11 @@ namespace Hexiege.Presentation
             BuildingPlacementUseCase buildingPlacement,
             BuildingPlacementUI buildingUI,
             ProductionPanelUI productionUI,
-            BuildingActionPanelUI actionPanelUI)
+            BuildingActionPanelUI actionPanelUI,
+            ResearchPanelUI researchPanelUI = null,
+            BuildingSkillPanelUI skillPanelUI = null,
+            SkillAimController skillAimController = null,
+            MistShrinePanelUI mistShrinePanelUI = null)
         {
             _gridInteraction = gridInteraction;
             _mainCamera = mainCamera;
@@ -97,6 +113,14 @@ namespace Hexiege.Presentation
             _productionUI = productionUI;
             // 비생산 건물용 공용 액션 패널 — Castle 제외, MiningPost/Tower/특수건물 클릭 시 표시.
             _actionPanelUI = actionPanelUI;
+            // 연구소(Research) 클릭 라우팅용 강화 패널 — 없으면(null) 연구소는 기존 액션 패널로 폴백.
+            _researchPanelUI = researchPanelUI;
+            // 스킬 건물(FlightFacility/MagicBuilding) 클릭 라우팅용 전용 패널 — 없으면(null) 기존 액션 패널로 폴백.
+            _skillPanelUI = skillPanelUI;
+            // 스킬 지점 조준 컨트롤러 — 조준 중 타일 선택 억제 가드에 사용.
+            _skillAimController = skillAimController;
+            // MistShrine(HealShrine) 클릭 라우팅용 전용 패널 — 없으면(null) 기존 액션 패널로 폴백.
+            _mistShrinePanelUI = mistShrinePanelUI;
         }
 
         // ====================================================================
@@ -179,6 +203,11 @@ namespace Hexiege.Presentation
             //    팝업이 닫힌 상태에서 타일을 선택해야 하므로
             //    IsPointerOverUI보다 먼저 처리해야 함.
             // --------------------------------------------------------
+            // 스킬 지점 조준 중에는 타일 선택/건물 팝업을 억제한다(조준 컨트롤러가 입력을 소유).
+            // 조준은 SkillAimController가 press/drag/release를 자체 처리하므로 여기서는 통과만 막는다.
+            if (SkillAimController.IsAiming)
+                return;
+
             if (_productionUI != null && _productionUI.IsSettingRallyPoint
                 && Time.frameCount != _productionUI.RallyPointSetFrame)
             {
@@ -204,9 +233,20 @@ namespace Hexiege.Presentation
             int frame = Time.frameCount;
             // 같은 프레임에 팝업이 닫힌 경우, 그 닫힘 클릭이 다시 타일 선택으로 흘러가지 않도록 차단.
             // 비생산 건물 액션 패널도 동일하게 ClosedFrame 가드 적용.
+            //
+            // ⚠️ 아래 뒤쪽 3항(연구·스킬·MistShrine)은 2026-08-10에 추가되었다.
+            //   · 연구 패널·스킬 패널: 필드·주입·열기 호출은 모두 갖춰져 있는데 이 가드에서만 빠져 있던
+            //     **기존 결손**이다. 두 패널을 배경 탭으로 닫으면 그 클릭이 같은 프레임에 뒤쪽 타일 선택으로
+            //     새어 나갈 수 있었다. TechnicalDesignDocument.md "PopupClosedFrame(팝업 닫힘 프레임 보호)"
+            //     패턴은 모든 팝업이 가드에 포함되어야 성립하므로 함께 보정했다(사용자 승인).
+            //   · MistShrine 패널: 이번에 새로 추가된 팝업이라 같은 가드가 필요하다(MistShrine UI 규칙 4).
+            //   각 항은 != null 가드를 동반하므로, 씬에 배선되지 않은 패널은 기존과 똑같이 무시된다.
             if ((_buildingUI != null && _buildingUI.ClosedFrame == frame)
                 || (_productionUI != null && _productionUI.ClosedFrame == frame)
-                || (_actionPanelUI != null && _actionPanelUI.ClosedFrame == frame))
+                || (_actionPanelUI != null && _actionPanelUI.ClosedFrame == frame)
+                || (_researchPanelUI != null && _researchPanelUI.ClosedFrame == frame)
+                || (_skillPanelUI != null && _skillPanelUI.ClosedFrame == frame)
+                || (_mistShrinePanelUI != null && _mistShrinePanelUI.ClosedFrame == frame))
                 return;
 
             // 스크린 좌표 → XZ 평면 레이캐스트 → 뷰 좌표 → 도메인 월드 좌표로 역변환
@@ -244,13 +284,42 @@ namespace Hexiege.Presentation
                             // (1) 생산 건물 → 생산 패널 (유닛 버튼, 큐, 업그레이드 포함 풀스펙)
                             _productionUI.Show(buildingAtPos);
                         }
+                        else if (buildingAtPos.Type == BuildingType.Research
+                            && _researchPanelUI != null)
+                        {
+                            // (2) 연구소(Research) → 유닛 강화(연구) 패널.
+                            //   연구는 특정 연구소 종속이 아니라 팀 트랙 단위지만, 착수한 연구소 Id는
+                            //   파괴 시 취소·환불 기준으로 기록되므로 클릭한 건물을 그대로 넘긴다.
+                            //   (_researchPanelUI 미배선 시엔 아래 액션 패널 분기로 폴백된다.)
+                            _researchPanelUI.Open(buildingAtPos);
+                        }
+                        else if ((buildingAtPos.Type == BuildingType.FlightFacility
+                                  || buildingAtPos.Type == BuildingType.MagicBuilding)
+                            && _skillPanelUI != null)
+                        {
+                            // (2b) 스킬 건물(FlightFacility=Human / MagicBuilding=Spirit·Trans 공유) →
+                            //   전용 스킬 패널. 종족 로드아웃으로 슬롯 1~5를 동적으로 채운다(규칙 1·6·8·9).
+                            //   (_skillPanelUI 미배선 시엔 아래 액션 패널 분기로 폴백된다.)
+                            _skillPanelUI.Show(buildingAtPos);
+                        }
+                        else if (buildingAtPos.Type == BuildingType.HealShrine
+                            && _mistShrinePanelUI != null)
+                        {
+                            // (2c) MistShrine(초월 회복 건물) → 전용 물안개 힐 패널.
+                            //   사용(탭=시전 / 롱프레스=자동 토글) + 철거 + 회복 범위 표시를 담당한다.
+                            //   범위 표시는 이 분기까지 온 경우(= 내 팀 · 생존)만 켜지므로,
+                            //   위 262행의 isMine 검사 덕분에 "적 MistShrine은 범위를 보여주지 않는다"
+                            //   (UI 규칙 8)가 추가 코드 없이 성립한다.
+                            //   (_mistShrinePanelUI 미배선 시엔 아래 액션 패널 분기로 폴백된다.)
+                            _mistShrinePanelUI.Show(buildingAtPos);
+                        }
                         else if (BuildingTypeHelper.CanShowActionPanel(buildingAtPos.Type)
                             && _actionPanelUI != null)
                         {
-                            // (2) 비생산 건물 (Castle 제외) → 공용 액션 패널 (건물 이름 + 철거)
+                            // (3) 비생산 건물 (Castle 제외) → 공용 액션 패널 (건물 이름 + 철거)
                             _actionPanelUI.Show(buildingAtPos);
                         }
-                        // (3) Castle: CanShowActionPanel이 false 반환 → 어느 분기도 해당 없음 → 클릭 무반응
+                        // (4) Castle: CanShowActionPanel이 false 반환 → 어느 분기도 해당 없음 → 클릭 무반응
                     }
                     // 적 건물 클릭: 어떤 팝업도 띄우지 않음 (기존 동작 유지)
 

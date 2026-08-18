@@ -87,6 +87,35 @@ namespace Hexiege.Application
         private readonly float _quakeRadius;
         private readonly float _quakeSplashRatio;
 
+        // ====================================================================
+        // [Phase 2] 연구소 유닛 강화 — 팀별 강화 레벨 조회 UseCase(생성 후 주입)
+        //   데미지(공격보너스·방어감쇄)·이동배율·힐 스케일·자연회복이 이 UseCase를 통해
+        //   "기본값 × 팀 연구 레벨"을 실시간으로 반영한다((B) 방식).
+        //   GameBootstrapper가 SetUpgradeUseCase로 주입한다(미주입 시 전부 기본값=Lv0 동작 — 하위호환).
+        //   Application 내 UseCase 간 참조는 허용된다(레이어 위반 아님).
+        // ====================================================================
+        private UnitUpgradeUseCase _upgrade;
+
+        // ====================================================================
+        // [Phase 2 · 스킬] 상태효과 시스템 — 타입 C 스킬 버프/디버프/제어의 유효 스탯 배율·공격 게이트 조회.
+        //   GameBootstrapper가 SetStatusEffectSystem으로 주입한다(미주입 시 전부 무효과 — 기존 전투와 동일).
+        //   유효 스탯 접근자(EffectiveAttack/GetUnitMoveSpeedMultiplier)와 CanAttack 게이트가 이 시스템을 참조한다.
+        // ====================================================================
+        private StatusEffectSystem _statusSystem;
+
+        // 타입 C 상태를 서버 권위로 부여했을 때 발화되는 이벤트(멀티 클라 재현용).
+        //   NetworkSkillController(서버)가 구독해 상태 부여를 양 클라에 브로드캐스트한다
+        //   (UnitUpgradeUseCase.OnResearchCompleted와 동일한 App→Infra 의존성 역전 패턴).
+        //   인자: (대상 팀, 상태 종류, 강도, 지속시간). 회복(HealOverTime)은 HP가 이미 동기화되므로 발화하지 않는다.
+        public event System.Action<TeamId, StatusEffectKind, float, float> OnGlobalStatusApplied;
+
+        // 자연회복(초월 전용) 팀별 소수점 누적기 — 매초 정수 HP로 반영(ResourceUseCase 수입 누적과 동일 패턴).
+        // 힐(_activeTimedEffects)과 완전히 분리된 독립 채널이다(규칙 7 — 상호 덮어쓰기 금지).
+        private float _regenAccumBlue;
+        private float _regenAccumRed;
+        // 자연회복 적용 대상 선수집 버퍼(순회 중 컬렉션 변경 회피 + GC 절감).
+        private readonly List<UnitData> _regenBuffer = new List<UnitData>(16);
+
         // DoT의 틱 간격(초). "매초 뚝뚝" — 1초마다 discrete하게 피해가 들어간다.
         // (힐(HoT)의 "프레임마다 부드러운 diff"와 대비되는 값. SO 튜닝 대상이 아니라 설계 고정값 1초.)
         // MushroomBomber 착탄 DoT와 InfernoSpirit DoT가 공유하는 규칙 40의 "초 단위 틱" 상수다.
@@ -215,6 +244,139 @@ namespace Hexiege.Application
         }
 
         // ====================================================================
+        // [Phase 2] 연구소 강화 UseCase 주입 및 조회 헬퍼
+        // ====================================================================
+
+        /// <summary>
+        /// 팀별 강화 레벨 UseCase를 주입한다. GameBootstrapper(조합 루트)에서 게임 시작 시 1회 호출.
+        /// 미주입(null) 상태에서는 모든 강화 조회가 기본값(Lv0)으로 동작하여 기존 전투와 동일하다(하위호환).
+        /// </summary>
+        /// <param name="upgrade">팀별 강화 상태 UseCase.</param>
+        public void SetUpgradeUseCase(UnitUpgradeUseCase upgrade)
+        {
+            _upgrade = upgrade;
+        }
+
+        /// <summary>
+        /// 타입 C 스킬 상태효과 시스템을 주입한다. GameBootstrapper(조합 루트)에서 게임 시작 시 1회 호출.
+        /// 미주입(null) 상태에서는 모든 상태 배율이 1, 공격 게이트가 항상 통과 → 기존 전투와 완전히 동일(하위호환).
+        /// </summary>
+        /// <param name="statusSystem">유닛별 상태효과 시스템.</param>
+        public void SetStatusEffectSystem(StatusEffectSystem statusSystem)
+        {
+            _statusSystem = statusSystem;
+        }
+
+        /// <summary>
+        /// 공격자의 "유효 공격력" = 기본 공격력 × 팀 공격 연구 배율 × 상태 공격 배율(곱연산 — 확정 9-4).
+        /// _upgrade 미주입 시 기본 공격력, _statusSystem 미주입/무상태 시 상태 배율 1 → 기존과 동일(하위호환).
+        /// </summary>
+        private int EffectiveAttack(UnitData attacker)
+        {
+            if (attacker == null) return 0;
+
+            int baseAttack = _upgrade != null
+                ? _upgrade.GetEffectiveAttack(attacker.Team, attacker.Type)
+                : attacker.AttackPower;
+
+            // [스킬] 상태 공격 배율 합성(버프 m>1 / 디버프 m<1). 무상태면 1 → baseAttack 그대로.
+            if (_statusSystem == null) return baseAttack;
+            float statusMul = _statusSystem.GetAttackMultiplier(attacker.Id);
+
+            if (statusMul == 1f) return baseAttack; // 무변경 보장(부동소수 개입 없음).
+            return Mathf.Max(0, Mathf.RoundToInt(baseAttack * statusMul));
+        }
+
+        /// <summary>
+        /// 유닛의 이동속도 배율 = 팀 이동 연구 배율 × 상태 이동 배율(곱연산 — 확정 9-4·9-5).
+        /// Presentation(UnitView)이 실제 이동 속도 산출에 곱한다. 빙결(Freeze) 상태면 상태 배율이 0 → 완전 정지.
+        /// _upgrade 미주입 시 연구 배율 1, _statusSystem 미주입/무상태 시 상태 배율 1 → 기존과 동일(하위호환).
+        /// </summary>
+        /// <param name="unit">이동 중인 유닛.</param>
+        /// <returns>기본 이동속도에 곱할 배율(0 = 빙결, 1.000 ~ 1.320 = 무상태/연구).</returns>
+        public float GetUnitMoveSpeedMultiplier(UnitData unit)
+        {
+            if (unit == null) return 1f;
+
+            float mul = _upgrade != null ? _upgrade.GetMoveSpeedMultiplier(unit.Team, unit.Type) : 1f;
+
+            // [스킬] 상태 이동 배율 합성(둔화 0<m<1 / 빙결 0). 무상태면 1 → 연구 배율 그대로.
+            if (_statusSystem != null)
+            {
+                float statusMoveMul = _statusSystem.GetMoveSpeedMultiplier(unit.Id);
+                mul *= statusMoveMul;
+            }
+            return mul;
+        }
+
+        /// <summary>
+        /// 유닛이 지금 공격할 수 있는지(신규 게이트 — 규칙 13). 빙결/기절 상태면 false를 반환해 공격을 봉쇄한다.
+        /// _statusSystem 미주입/무상태 시 항상 true → 기존 전투와 완전히 동일(하위호환).
+        /// </summary>
+        /// <param name="unit">공격 시도 유닛.</param>
+        /// <returns>공격 가능하면 true, 빙결/기절이면 false.</returns>
+        public bool CanAttack(UnitData unit)
+        {
+            if (unit == null) return false;
+            if (_statusSystem == null) return true;
+
+            return _statusSystem.CanAttack(unit.Id);
+        }
+
+        /// <summary>
+        /// 자연회복(초월계 전용 상시 HoT)을 서버 틱마다 적용한다. BloomFairy 힐(_activeTimedEffects)과
+        /// 완전히 분리된 독립 채널로, 서로 덮어쓰지 않는다(규칙 7).
+        ///
+        /// 동작: 팀별 회복량(HP/s = 3×레벨)을 소수점 누적(ResourceUseCase 수입 누적과 동일 패턴)하고,
+        ///   정수 HP가 쌓일 때마다 그 팀의 살아있는 초월 유닛 전체를 그만큼 회복(MaxHp 클램프)한다.
+        ///   레벨 0이면 무동작. 풀피 유닛은 자연 무동작.
+        ///
+        /// 호출 위치(서버 전용, 이중 틱 금지):
+        ///   - 싱글플레이: GameBootstrapper.Update()(!IsNetworkMode).
+        ///   - 멀티플레이: NetworkCombatController.TickCombat()(IsServer).
+        /// </summary>
+        /// <param name="dt">경과 시간(초).</param>
+        public void TickNaturalRegen(float dt)
+        {
+            if (_upgrade == null || _unitSpawn == null) return;
+            ApplyTeamRegen(TeamId.Blue, ref _regenAccumBlue, dt);
+            ApplyTeamRegen(TeamId.Red, ref _regenAccumRed, dt);
+        }
+
+        // 팀 하나의 자연회복 누적·적용. 정수 HP가 쌓이면 그 팀 초월 유닛 전체에 일괄 회복.
+        private void ApplyTeamRegen(TeamId team, ref float accum, float dt)
+        {
+            int perSecond = _upgrade.GetRegenPerSecond(team);
+            if (perSecond <= 0)
+            {
+                accum = 0f; // 레벨 0이면 누적도 리셋(다음 연구 시 깔끔히 시작).
+                return;
+            }
+
+            accum += perSecond * dt;
+            int wholeHp = (int)accum;
+            if (wholeHp <= 0) return;
+            accum -= wholeHp;
+
+            // 회복 대상(살아있고 풀피 아닌 초월 유닛) 선수집 후 일괄 적용(순회 중 변경 회피).
+            _regenBuffer.Clear();
+            foreach (var unit in _unitSpawn.Units.Values)
+            {
+                if (unit == null || !unit.IsAlive) continue;
+                if (unit.Team != team) continue;
+                if (!UpgradeGroupHelper.IsTranscendence(unit.Type)) continue;
+                if (unit.Hp >= unit.MaxHp) continue;
+                _regenBuffer.Add(unit);
+            }
+
+            for (int i = 0; i < _regenBuffer.Count; i++)
+            {
+                // healer=null(자연회복은 시전자 없음). showText=false로 매 틱 힐 텍스트 스팸 방지.
+                ApplyHealToUnit(null, _regenBuffer[i], wholeHp, showText: false);
+            }
+        }
+
+        // ====================================================================
         // 사거리 계산 헬퍼
         // ====================================================================
 
@@ -286,6 +448,9 @@ namespace Hexiege.Application
             // HitFrameTimes 배열의 각 타이머 후 ApplyAttackDamage를 호출하는 것이 규칙.
             // HOST(서버)도 TryAttack을 통해 즉시 데미지를 주면 규칙 2 위반(이중 데미지 + 타이밍 불일치).
             if (NetworkContext.IsNetworkActive) return null;
+
+            // [스킬] 빙결/기절 상태면 공격 불가(규칙 13). 무상태면 항상 통과 → 기존과 동일.
+            if (!CanAttack(attacker)) return null;
 
             // 쿨다운 중이면 공격 불가
             if (attacker.AttackCooldownRemaining > 0f) return null;
@@ -1077,6 +1242,47 @@ namespace Hexiege.Application
             => ApplyDamageToVictim(attacker, target, immediatePresentation: false);
 
         /// <summary>
+        /// 최종 피해량 산출 공용 헬퍼. raw 피해에 두 단계를 적용한다:
+        ///   ① Tank/CannonCart가 건물을 때리면 데미지 2배(StatsReference 비고 "건물에 2배").
+        ///   ② 대상의 방어력으로 감쇄(DamageCalculator.ApplyDefense — 유닛/건물 통일 공식).
+        ///
+        /// 직격(ApplyDamageToVictim)·스플래시(ApplyFixedDamageToVictim)가 모두 이 헬퍼를 거쳐
+        /// 동일한 규칙을 쓰도록 한다. 건물은 방어력 0이라 감쇄는 무의미하고 2배만 적용된다.
+        ///
+        /// 하위호환: 방어력 0 + 공격자가 Tank/CannonCart가 아니면 결과 = rawDamage(회귀 없음).
+        /// ⚠️ DoT 틱 경로(ApplyBlastDot/ApplyInfernoDot)는 이 헬퍼를 거치지 않는다(규칙 6 — DoT 무감쇄).
+        /// </summary>
+        /// <param name="attacker">공격자 유닛(2배 판정에 UnitType 사용).</param>
+        /// <param name="target">피격 대상(유닛/건물 — 방어력·건물 판정에 사용).</param>
+        /// <param name="rawDamage">감쇄·배수 이전의 원본 피해량(공격력 또는 스플래시 산출값).</param>
+        /// <returns>2배·감쇄가 반영된 최종 피해량.</returns>
+        private int ComputeFinalDamage(UnitData attacker, IDamageable target, int rawDamage)
+        {
+            int damage = rawDamage;
+
+            // ① Tank/CannonCart → 건물 대상 2배. 유닛 대상에는 적용하지 않는다.
+            if (target is BuildingData &&
+                (attacker.Type == UnitType.Tank || attacker.Type == UnitType.CannonCart))
+            {
+                damage *= 2;
+            }
+
+            // ② 대상 방어력으로 감쇄. [Phase 2] 방어력은 "피격 대상 팀"의 연구 레벨로 결정된다(규칙 5).
+            //    _upgrade 미주입 시에는 스냅샷 필드(UnitData.Defense — Phase 1: 0)로 폴백한다(하위호환).
+            //    건물은 방어 트랙이 없어 항상 0(무감쇄, 2배만 반영).
+            int defense = 0;
+            if (target is UnitData u)
+            {
+                defense = _upgrade != null
+                    ? _upgrade.GetDefense(u.Team, u.Type)
+                    : u.Defense;
+            }
+            // 건물(BuildingData)은 defense 0 유지.
+
+            return DamageCalculator.ApplyDefense(damage, defense);
+        }
+
+        /// <summary>
         /// <see cref="ApplyDamageToVictim(UnitData, IDamageable)"/>의 확장 오버로드.
         /// 피격 연출을 공격자 타격 프레임에 맞출지(false, 일반/휩쓸기) 즉시 방출할지(true, 파도)를 지정한다.
         /// 2-인자 오버로드가 SpecialAttackContext의 피해 델리게이트로 전달되므로(휩쓸기),
@@ -1091,8 +1297,11 @@ namespace Hexiege.Application
         {
             if (attacker == null || target == null) return;
 
-            // 데미지 적용 (인터페이스의 메서드 호출)
-            target.TakeDamage(attacker.AttackPower);
+            // 데미지 적용 (인터페이스의 메서드 호출).
+            // [Phase 2] raw = 공격자 팀 공격 연구가 반영된 "유효 공격력"(직격 대상).
+            //   이후 ComputeFinalDamage가 ① Tank/CannonCart 건물 2배, ② 피격 대상 팀 방어 감쇄를 적용한다.
+            //   연구 미적용(Lv0)이면 EffectiveAttack=기본 공격력 → 기존과 정확히 동일(하위호환).
+            target.TakeDamage(ComputeFinalDamage(attacker, target, EffectiveAttack(attacker)));
 
             // 일반화된 공격 이벤트 발행
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
@@ -1236,7 +1445,14 @@ namespace Hexiege.Application
             //   (대상 사망/제거 시 무시하는 기존 동작은 위 IsAlive 가드가 그대로 담당한다.)
             if (target.Hp >= target.MaxHp) return;
 
-            ApplyTimedEffect(healer, target, TimedEffectKind.Heal, _bloomHealAmount, _bloomHealDuration);
+            // [Phase 2] BloomFairy 힐량은 초월 "식물" 그룹의 공격력 트랙 레벨을 따라 스케일한다(규칙 6).
+            //   BloomFairy는 순수 힐러(AttackPower 없음)라 AttackPower 경로가 없으므로, 그룹 공격 레벨을 직접 조회한다.
+            //   _upgrade 미주입 시 기본 힐량(_bloomHealAmount)으로 폴백(하위호환).
+            int healAmount = _upgrade != null
+                ? _upgrade.ScaleByGroupAttack(healer.Team, UpgradeGroup.TransPlant, _bloomHealAmount)
+                : _bloomHealAmount;
+
+            ApplyTimedEffect(healer, target, TimedEffectKind.Heal, healAmount, _bloomHealDuration);
         }
 
         /// <summary>
@@ -1339,8 +1555,9 @@ namespace Hexiege.Application
         {
             if (attacker == null || victim == null || !victim.IsAlive) return;
 
-            // 스플래시 피해량 = 올림(공격력 × 비율). 소수점은 항상 올려(예: 15×0.5=7.5 → 8) 최소 손실을 보장.
-            int amount = Mathf.CeilToInt(attacker.AttackPower * _quakeSplashRatio);
+            // 스플래시 피해량 = 올림(유효 공격력 × 비율). 소수점은 항상 올려(예: 15×0.5=7.5 → 8) 최소 손실을 보장.
+            // [Phase 2] 공격력 파생 피해(스플래시)도 공격 연구에 따라 커진다 → EffectiveAttack 사용.
+            int amount = Mathf.CeilToInt(EffectiveAttack(attacker) * _quakeSplashRatio);
             if (amount <= 0) return;
 
             // 즉발 피해(DoT 아님). 도끼병 휩쓸기와 동일하게 immediatePresentation=false로 주어
@@ -1369,8 +1586,9 @@ namespace Hexiege.Application
         {
             if (attacker == null || target == null || amount <= 0) return;
 
-            // 피해 적용(임의 량).
-            target.TakeDamage(amount);
+            // 피해 적용(임의 량). 스플래시도 직격과 동일하게 방어력 감쇄(+건물 2배 판정)를 거친다.
+            // 방어력 0(Phase 1)이면 ComputeFinalDamage(amount)=amount → 기존과 동일(하위호환).
+            target.TakeDamage(ComputeFinalDamage(attacker, target, amount));
 
             // 일반화된 공격 이벤트 발행(주 타깃 단일 피해 경로와 동일).
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
@@ -1405,6 +1623,232 @@ namespace Hexiege.Application
                     _unitSpawn.RemoveUnit(u.Id);
                 else if (target is BuildingData b)
                     _buildingPlacement.RemoveBuilding(b.Id);
+            }
+        }
+
+        // ====================================================================
+        // 스킬(건물) 출처 범위 피해 — 타입 A(즉발) · 타입 B(장판 DoT) [Phase 1]
+        //
+        //   스킬 건물이 시전자라 UnitData 공격자가 없다(§9-2). 기존 유닛 공격 경로
+        //   (ComputeFinalDamage/ApplyFixedDamageToVictim)는 UnitData attacker를 요구하므로
+        //   그대로 쓸 수 없다. → 건물/스킬 출처 전용 피해 경로를 신설한다(기존 경로 무변경 — 회귀 없음).
+        //     · Tank/CannonCart 건물 2배는 미적용(§9-2 — 건물 출처).
+        //     · 타입 A는 방어 감쇄 O(DamageCalculator.ApplyDefense), 타입 B DoT는 무감쇄(기존 DoT 구조).
+        //     · 아군 제외.
+        //
+        //   좌표계 주의(왜 SpecialAttackContext 헬퍼를 재사용하지 않는가):
+        //     기존 CollectEnemyUnitsInRadius(SpecialAttackContext)는 UnitData attacker와
+        //     positionProvider(뷰 좌표)를 요구한다. 스킬은 UnitData 공격자가 없고, 조준 중심이
+        //     "맵 지점"이라 뷰 좌표 기준이 없다. 그래서 도메인 월드(_mapper.HexToWorld) 기준으로
+        //     중심·대상 좌표를 일관 처리하는 전용 수집 헬퍼를 둔다(양 팀 좌표계 정합).
+        //     ViewConverter는 위치를 중심 대칭 반전만 하므로 거리 스케일은 뷰/도메인이 동일하다.
+        // ====================================================================
+
+        // 스킬 반경 수집용 재사용 버퍼(GC 절감). 서버/싱글 단일 스레드에서만 사용되므로 재사용 안전.
+        //   유닛/건물은 Id 카운터가 달라 값이 겹칠 수 있으므로 버퍼를 분리한다(규칙 29 교훈).
+        private readonly List<UnitData> _skillUnitVictims = new List<UnitData>(16);
+        private readonly List<BuildingData> _skillBuildingVictims = new List<BuildingData>(8);
+
+        /// <summary>
+        /// 타입 A — 스킬(건물) 출처 즉발 범위 피해. 조준 중심의 원형 반경 안 적 유닛·적 건물에게
+        /// 방어 감쇄를 적용한 1회 피해를 준다(Tank 2배 미적용). 아군 제외.
+        /// </summary>
+        /// <param name="casterTeam">시전 팀(아군/적 판정 기준).</param>
+        /// <param name="center">조준 중심(도메인 월드 좌표, 연속 Vector3, XZ·Y=0).</param>
+        /// <param name="radius">원형 반경(월드 단위).</param>
+        /// <param name="rawDamage">감쇄 전 원본 피해(×10 스케일).</param>
+        /// <param name="sourceBuildingId">시전 건물 Id(피격 연출 attribution).</param>
+        public void ApplySkillInstantAreaDamage(TeamId casterTeam, Vector3 center, float radius, int rawDamage, int sourceBuildingId)
+        {
+            if (rawDamage <= 0 || radius <= 0f) return;
+
+            // 중심(center)은 이미 도메인 월드 좌표(연속 Vector3)이므로 Y=0 정규화만 수행한다.
+            Vector3 centerWorld = Flatten(center);
+            float radiusSqr = radius * radius;
+
+            // 1) 반경 내 적 유닛/건물 선수집(순회 중 사망 제거로 인한 컬렉션 변경 회피 — 2단계).
+            _skillUnitVictims.Clear();
+            CollectEnemyUnitsInRadiusDomain(casterTeam, centerWorld, radiusSqr, _skillUnitVictims);
+            _skillBuildingVictims.Clear();
+            CollectEnemyBuildingsInRadiusDomain(casterTeam, centerWorld, radiusSqr, _skillBuildingVictims);
+
+            // 2) 즉발 피해 적용(방어 감쇄 O, 2배 미적용).
+            for (int i = 0; i < _skillUnitVictims.Count; i++)
+                ApplySkillInstantDamageToVictim(_skillUnitVictims[i], rawDamage, sourceBuildingId);
+            for (int i = 0; i < _skillBuildingVictims.Count; i++)
+                ApplySkillInstantDamageToVictim(_skillBuildingVictims[i], rawDamage, sourceBuildingId);
+        }
+
+        /// <summary>
+        /// 타입 B — 스킬(건물) 출처 범위 지속 피해(장판). 조준 중심의 원형 반경 안 적 유닛에게
+        /// 지속시간 동안 DoT(무감쇄, 초 단위 discrete 틱)를 부여한다. 틱은 TickTimedEffects가 소비.
+        /// 건물은 대상이 아니다(DoT 시스템은 유닛 대상 — 기존 구조 그대로).
+        /// </summary>
+        /// <param name="casterTeam">시전 팀(아군/적 판정 기준).</param>
+        /// <param name="center">조준 중심(도메인 월드 좌표, 연속 Vector3, XZ·Y=0).</param>
+        /// <param name="radius">원형 반경(월드 단위).</param>
+        /// <param name="damagePerSecond">초당 피해(×10 스케일).</param>
+        /// <param name="duration">지속시간(초).</param>
+        public void ApplySkillAreaDot(TeamId casterTeam, Vector3 center, float radius, float damagePerSecond, float duration)
+        {
+            if (damagePerSecond <= 0f || duration <= 0f || radius <= 0f) return;
+
+            // 중심(center)은 이미 도메인 월드 좌표(연속 Vector3)이므로 Y=0 정규화만 수행한다.
+            Vector3 centerWorld = Flatten(center);
+            float radiusSqr = radius * radius;
+
+            _skillUnitVictims.Clear();
+            CollectEnemyUnitsInRadiusDomain(casterTeam, centerWorld, radiusSqr, _skillUnitVictims);
+
+            for (int i = 0; i < _skillUnitVictims.Count; i++)
+            {
+                UnitData victim = _skillUnitVictims[i];
+                if (victim == null || !victim.IsAlive) continue;
+                // 건물 출처라 source=null(UnitData 공격자 없음 — AddOrRefreshTimedEffect가 SourceId=-1로 안전 처리).
+                // 무감쇄 DoT — ApplyDamageOverTime은 ComputeFinalDamage를 우회하므로 자동으로 방어 미적용.
+                ApplyDamageOverTime(null, victim, damagePerSecond, duration, BlastDotTickInterval);
+            }
+        }
+
+        /// <summary>
+        /// 타입 C — 전역 상태변경(버프/디버프/제어/회복). 지정 팀의 살아있는 유닛 전체에 상태효과를 부여한다.
+        /// 조준 없음(전역 즉시). 회복(HealOverTime)은 기존 HoT를 재사용하고, 그 외는 상태 시스템에 담는다.
+        ///
+        /// 멀티플레이 동기화(규칙 25):
+        ///   서버 권위 발동(raiseNetworkEvent=true)이면 상태 부여 후 OnGlobalStatusApplied를 발화한다.
+        ///   NetworkSkillController(서버)가 이를 구독해 양 클라에 브로드캐스트하고, 각 클라는
+        ///   raiseNetworkEvent=false로 이 메서드를 다시 호출해 자기 유닛에 상태를 재현한다(유효 스탯 재계산).
+        ///   회복은 HP가 이미 NetworkHealthSync로 동기화되므로 브로드캐스트하지 않는다(이중 힐 방지).
+        /// </summary>
+        /// <param name="team">상태를 부여할 대상 팀(실행기가 아군/적 판정을 마친 결과).</param>
+        /// <param name="kind">상태 종류(공격 배율/이속 배율/빙결/기절/지속 회복).</param>
+        /// <param name="magnitude">강도(배율 또는 회복량 — ×10 스케일).</param>
+        /// <param name="duration">지속시간(초).</param>
+        /// <param name="raiseNetworkEvent">서버 권위 발동이면 true(멀티 브로드캐스트 트리거). 클라 재현 호출이면 false.</param>
+        public void ApplySkillGlobalStatus(TeamId team, StatusEffectKind kind, float magnitude, float duration, bool raiseNetworkEvent)
+        {
+            if (duration <= 0f || kind == StatusEffectKind.None) return;
+
+            // 대상 팀의 살아있는 유닛 전체 순회.
+            foreach (var unit in _unitSpawn.Units.Values)
+            {
+                if (unit == null || !unit.IsAlive) continue;
+                if (unit.Team != team) continue;
+
+                if (kind == StatusEffectKind.HealOverTime)
+                {
+                    // 회복은 기존 HoT 재사용 — 총 회복량 = magnitude(×10 스케일), 지속 = duration.
+                    //   HP는 OnEntityHealed → NetworkHealthSync가 동기화하므로 상태 시스템에 담지 않는다.
+                    int healAmount = Mathf.Max(0, Mathf.RoundToInt(magnitude));
+                    if (healAmount > 0)
+                        ApplyTimedEffect(null, unit, TimedEffectKind.Heal, healAmount, duration);
+                }
+                else
+                {
+                    // 버프/디버프/제어 — 상태 시스템에 부여(유효 스탯 접근자가 배율/게이트로 합성).
+                    _statusSystem?.Apply(unit.Id, new StatusEffect(kind, magnitude, duration, team));
+                }
+            }
+
+            // 멀티 클라 재현용 브로드캐스트 트리거(서버 권위 발동만). 회복은 HP 동기화로 충분해 발화하지 않는다.
+            if (raiseNetworkEvent && kind != StatusEffectKind.HealOverTime)
+                OnGlobalStatusApplied?.Invoke(team, kind, magnitude, duration);
+        }
+
+        /// <summary>
+        /// 스킬(건물) 출처 즉발 피해 1회를 대상(유닛/건물)에 적용하고 사망까지 처리하는 전용 헬퍼.
+        /// UnitData 공격자가 없다는 점을 빼면 ApplyFixedDamageToVictim과 동일한 순서
+        /// (피해 → 이벤트 → 사망 처리)를 따라 멀티플레이 HP 동기화 형식을 일관되게 유지한다.
+        ///
+        /// 방어 감쇄:
+        ///   유닛은 피격 대상 팀 방어 연구(_upgrade.GetDefense) 또는 스냅샷(UnitData.Defense)으로 감쇄.
+        ///   건물은 방어 트랙이 없어 0(무감쇄). Tank 2배는 건물 출처라 적용하지 않는다(§9-2).
+        /// </summary>
+        /// <param name="target">피해를 받을 대상(유닛/건물).</param>
+        /// <param name="rawDamage">감쇄 전 원본 피해(양수).</param>
+        /// <param name="sourceBuildingId">시전 건물 Id(피격 연출 attribution).</param>
+        private void ApplySkillInstantDamageToVictim(IDamageable target, int rawDamage, int sourceBuildingId)
+        {
+            if (target == null || !target.IsAlive || rawDamage <= 0) return;
+
+            // 방어력 산출 — 유닛만 방어 감쇄, 건물은 0(무감쇄).
+            int defense = 0;
+            if (target is UnitData u)
+            {
+                defense = _upgrade != null
+                    ? _upgrade.GetDefense(u.Team, u.Type)
+                    : u.Defense;
+            }
+
+            int finalDamage = DamageCalculator.ApplyDefense(rawDamage, defense);
+            target.TakeDamage(finalDamage);
+
+            // 피격 이벤트 발행 — NetworkHealthSync가 구독해 모든 클라이언트에 HP를 동기화한다.
+            //   공격자가 건물이므로 attackerIsUnit=false(피격 표현 큐의 타워형 즉시 방출 경로),
+            //   immediatePresentation=true로 공격자 타격 프레임을 기다리지 않고 즉시 방출한다.
+            bool targetIsUnit = target is UnitData;
+            GameEvents.OnEntityDamaged.OnNext(
+                new EntityDamagedEvent(target, target.Hp, targetIsUnit,
+                    attackerId: sourceBuildingId, attackerIsUnit: false,
+                    immediatePresentation: true));
+
+            // 사망 처리 — ApplyFixedDamageToVictim의 사망 경로와 동일 순서(이벤트 → 상태 정리 → 제거).
+            if (!target.IsAlive)
+            {
+                if (target is UnitData diedUnit)
+                {
+                    GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(diedUnit));
+                }
+                else if (target is BuildingData diedBuilding)
+                {
+                    GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(diedBuilding));
+                }
+
+                if (!NetworkContext.IsNetworkActive && target is UnitData deadUnit)
+                {
+                    _combatTargets.Remove(deadUnit.Id);
+                }
+
+                if (target is UnitData ru)
+                    _unitSpawn.RemoveUnit(ru.Id);
+                else if (target is BuildingData rb)
+                    _buildingPlacement.RemoveBuilding(rb.Id);
+            }
+        }
+
+        /// <summary>
+        /// 조준 중심(도메인 월드)에서 원형 반경 안의 적 유닛을 수집한다(스킬 전용, 도메인 좌표 기준).
+        /// 아군/사망 유닛은 제외한다(규칙 16). BlastAttackBehavior.CollectEnemyUnitsInRadius와 같은
+        /// 알고리즘이지만, UnitData 공격자·뷰 좌표 대신 TeamId·도메인 좌표(_mapper.HexToWorld)를 쓴다.
+        /// </summary>
+        private void CollectEnemyUnitsInRadiusDomain(TeamId casterTeam, Vector3 centerWorld, float radiusSqr, List<UnitData> result)
+        {
+            foreach (var unit in _unitSpawn.Units.Values)
+            {
+                if (unit == null || !unit.IsAlive) continue;
+                if (unit.Team == casterTeam) continue; // 아군 제외(규칙 16).
+
+                Vector3 rel = Flatten(_mapper.HexToWorld(unit.Position)) - centerWorld;
+                if (rel.sqrMagnitude <= radiusSqr)
+                    result.Add(unit);
+            }
+        }
+
+        /// <summary>
+        /// 조준 중심(도메인 월드)에서 원형 반경 안의 적 건물을 수집한다(스킬 전용, 도메인 좌표 기준).
+        /// 아군 건물은 제외한다(규칙 16). QuakeAttackBehavior.CollectEnemyBuildingsInRadius와 같은
+        /// 알고리즘이지만, TeamId·도메인 좌표 기준이다.
+        /// </summary>
+        private void CollectEnemyBuildingsInRadiusDomain(TeamId casterTeam, Vector3 centerWorld, float radiusSqr, List<BuildingData> result)
+        {
+            foreach (var building in _buildingPlacement.Buildings.Values)
+            {
+                if (building == null || !building.IsAlive) continue;
+                if (building.Team == casterTeam) continue; // 아군 건물 제외(규칙 16).
+
+                Vector3 rel = Flatten(_mapper.HexToWorld(building.Position)) - centerWorld;
+                if (rel.sqrMagnitude <= radiusSqr)
+                    result.Add(building);
             }
         }
 
@@ -1755,6 +2199,13 @@ namespace Hexiege.Application
             // 좌우 판정을 위한 우측 벡터(XZ 평면에서 forward에 수직). forward가 정규화돼 있으므로 크기 1.
             Vector3 right = new Vector3(req.Forward.z, 0f, -req.Forward.x);
 
+            // [Phase 2] TorrentSpirit 아군 힐 = 물 "유효 공격력" × 0.5(규칙 6). 물 공격 연구에 따라 커진다.
+            //   유효 공격력 = 기본(200) + 물 공격 보너스. Lv0이면 200×0.5=100(= 기본 파도 힐과 동일, 하위호환).
+            //   _upgrade 미주입 시 파도 요청에 실린 기본 힐량(req.Heal)으로 폴백.
+            int waveHeal = _upgrade != null
+                ? Mathf.RoundToInt(EffectiveAttack(req.Caster) * 0.5f)
+                : Mathf.RoundToInt(req.Heal);
+
             _activeWaves.Add(new ActiveWave
             {
                 Caster = req.Caster,
@@ -1767,7 +2218,7 @@ namespace Hexiege.Application
                 Length = req.Length,
                 Speed = speed,
                 TravelTime = travelTime,
-                Heal = req.Heal,
+                Heal = waveHeal,
                 FrontDistance = 0f,
                 Elapsed = 0f
             });

@@ -137,12 +137,25 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// 서버에서 엔티티 회복(힐) 이벤트를 수신하여 모든 클라이언트에 절대 HP 전파.
-        /// 유닛 힐만 다룬다(현재 파도/힐러 대상은 유닛). 건물 힐은 아직 사용처가 없어 무시.
+        ///
+        /// 유닛 힐(파도/BloomFairy/자연회복)과 건물 힐(MistShrine 물안개)을 각각 **전용 RPC**로 나눠 보낸다.
+        ///   · 유닛 → SyncHealClientRpc      (기존 경로 — 한 줄도 바뀌지 않았다)
+        ///   · 건물 → SyncBuildingHealClientRpc (2026-08-10 신설 — MistShrine 규칙 24)
+        /// 기존 유닛 힐 RPC의 시그니처를 건드리면 검증된 유닛 힐 전체에 회귀 위험이 생기므로,
+        /// 파라미터를 추가하는 대신 건물 전용 RPC를 새로 만들었다.
         /// </summary>
         private void OnEntityHealed(EntityHealedEvent e)
         {
             if (!IsServer) return;
             if (e.Entity == null) return;
+
+            // 건물 힐(MistShrine 물안개) — 전용 RPC로 분기시키고 아래 유닛 경로는 그대로 지나간다.
+            if (!e.IsUnit && e.Entity is BuildingData healedBuilding)
+            {
+                SyncBuildingHealClientRpc(healedBuilding.Id, e.CurrentHp, e.HealerId, e.ShowText);
+                return;
+            }
+
             if (!e.IsUnit || !(e.Entity is UnitData unit)) return;
 
             // 모든 클라이언트에 회복 후 절대 HP를 전송(힐러 정보도 함께 실어 연출이 힐러를 알 수 있게).
@@ -216,6 +229,33 @@ namespace Hexiege.Infrastructure
             }
 
             SyncUnitHeal(unitId, serverHp, healerId, healerIsUnit, showText);
+        }
+
+        /// <summary>
+        /// 서버에서 건물 회복 후 현재 HP를 모든 클라이언트에 전파한다(MistShrine 물안개 힐 전용 — 규칙 24).
+        ///
+        /// 유닛 힐 RPC(SyncHealClientRpc)와 분리한 이유:
+        ///   기존 유닛 힐 경로는 파도·BloomFairy·자연회복이 이미 검증해 둔 길이다. 거기에 파라미터를 추가하면
+        ///   그 전부에 회귀 위험이 생기므로, 건물 회복은 새 RPC를 하나 더 두는 쪽을 택했다.
+        ///   힐러가 항상 건물(MistShrine)이므로 healerIsUnit 파라미터는 두지 않고 false로 고정한다.
+        /// </summary>
+        /// <param name="buildingId">회복된 건물 Id</param>
+        /// <param name="serverHp">서버 기준 회복 후 현재 HP</param>
+        /// <param name="healerId">회복을 일으킨 MistShrine 건물 Id(없으면 -1)</param>
+        /// <param name="showText">부유 회복 텍스트 표시 여부(회복 틱=false, 표시 주기가 찬 틱=true).</param>
+        [ClientRpc]
+        private void SyncBuildingHealClientRpc(int buildingId, int serverHp, int healerId, bool showText)
+        {
+            // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
+            if (IsServer) return;
+
+            if (_services == null)
+            {
+                Debug.LogError("[Network] SyncBuildingHealClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                return;
+            }
+
+            SyncBuildingHeal(buildingId, serverHp, healerId, showText);
         }
 
         // ====================================================================
@@ -307,8 +347,50 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
-        /// 클라이언트 측 건물 HP를 서버 값에 맞춤.
-        /// BuildingData.Hp도 TakeDamage를 통해서만 변경 가능.
+        /// 클라이언트 측 건물 HP를 서버 회복 값까지 끌어올린다(건물 힐 전용).
+        /// BuildingData.Hp는 Heal을 통해서만 증가하므로 서버 HP와의 양(+) 차이만큼 Heal을 적용한다.
+        /// 부유 회복 텍스트는 showText=true일 때만 OnEntityHealed 재발행으로 띄운다
+        /// (물안개 회복 틱은 매초 일어나지만 텍스트는 표시 주기가 찬 틱에만 뜬다 — MistShrine 규칙 15).
+        /// SyncUnitHeal과 완전히 같은 구조이며, 대상 조회만 건물 쪽으로 바뀐다.
+        /// </summary>
+        private void SyncBuildingHeal(int buildingId, int serverHp, int healerId, bool showText)
+        {
+            BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
+            if (buildingPlacement == null)
+            {
+                Debug.LogWarning("[Network] SyncBuildingHeal: BuildingPlacementUseCase가 null. 맵 로드 전일 수 있음.");
+                return;
+            }
+
+            BuildingData building = buildingPlacement.GetBuilding(buildingId);
+            if (building == null)
+            {
+                // 이미 파괴 처리되었거나 아직 배치 전일 수 있음 (조용히 무시)
+                return;
+            }
+
+            // (1) HP 동기화 — 서버 HP가 현재보다 높으면 그 차이만큼 회복(절대값 동기화).
+            int diff = serverHp - building.Hp;
+            if (diff > 0)
+            {
+                building.Heal(diff);
+            }
+
+            // (2) 부유 회복 텍스트 — showText가 true일 때만 재발행한다(클라이언트 전용).
+            //     힐러는 항상 건물(MistShrine)이므로 healerIsUnit=false로 고정한다.
+            if (showText)
+            {
+                GameEvents.OnEntityHealed.OnNext(new EntityHealedEvent(building, building.Hp, isUnit: false,
+                    healerId: healerId, healerIsUnit: false,
+                    showText: true));
+            }
+        }
+
+        /// <summary>
+        /// 클라이언트 측 건물 HP를 서버 값에 맞춤(피격 전용).
+        /// 감소는 TakeDamage로만 가능하므로 현재 HP와 서버 HP의 차이를 데미지로 적용한다.
+        /// (2026-08-10: BuildingData에 Heal이 추가되어 "TakeDamage를 통해서만 변경 가능"하던 서술은
+        ///  더 이상 맞지 않는다. 회복은 위 SyncBuildingHeal이 담당한다.)
         /// </summary>
         private void SyncBuildingHealth(int buildingId, int serverHp, int attackerId, bool attackerIsUnit)
         {

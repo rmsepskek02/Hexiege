@@ -25,3 +25,6 @@ MonoBehaviour:
   - key: 3
     message: "\uAC74\uBB3C \uC5C5\uADF8\uB808\uC774\uB4DC\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4"
     duration: 1
+  - key: 4
+    message: "\uC2A4\uD0AC\uC774 \uCFE8\uB2E4\uC6B4 \uC911\uC785\uB2C8\uB2E4"
+    duration: 1

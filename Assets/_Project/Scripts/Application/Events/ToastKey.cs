@@ -34,6 +34,9 @@ namespace Hexiege.Application
         ProductionQueueFull,
 
         /// <summary>업그레이드 필요 — 현재 건물 단계로는 생산할 수 없는 유닛을 탭했을 때.</summary>
-        UpgradeRequired
+        UpgradeRequired,
+
+        /// <summary>스킬 쿨다운 중 — 글로벌 쿨다운이 도는 동안 스킬 슬롯을 탭했을 때.</summary>
+        SkillOnCooldown
     }
 }

@@ -28,9 +28,83 @@
 - 루트 GameObject에만 작동. 자식 배치 시 씬 전환마다 재생성+즉시파괴 반복
 - DontDestroyOnLoad 오브젝트는 생성 씬 하나에만 배치. SetActive(false)면 Awake 미호출→미등록(숨김은 CanvasGroup.alpha=0)
 
+## CRITICAL — 런타임 로그는 RuntimeLogger 경유 (상세: logging.md)
+- **raw `Debug.Log` 진단 로그 금지**(Claude가 콘솔 못 읽음). 규칙: `Docs/LogRules.md`. 유틸: `Infrastructure/Debug/RuntimeLogger.cs`(BeginSession/Log/EndSession, 에디터만 파일 저장) — **이 기반 유틸은 유지됨**.
+- ⚠️ **로그 작업 착수 전 반드시 `Docs/LogRules.md`를 먼저 확인**(RuntimeLogger 파일 기록·raw Debug.Log 금지). 2026-08-05 스킬 타입 C 작업에서 이를 뒤늦게 준수해 진단 로그를 걷어냄.
+- **Application 계층 로깅 어댑터(`IRuntimeLogSink`/`RuntimeLoggerSink`/`SetLogSink`)는 2026-08-05 정리로 삭제됨 — 상시 기능 아님.** Application에서 임시 진단 로깅이 다시 필요하면 그때 한시적으로 sink를 재도입하고, 작업 종료 후 반드시 제거(코드/문서에 상시 기능으로 남기지 말 것). Infra 직접 참조 금지 원칙(의존성 역전)은 재도입 시에도 유효.
+
 ---
 
 ## 최근 작업 (상세 전체는 work-history.md)
+
+### 랠리포인트 조준 시 BlockingOverlay 잔존 버그 수정 (2026-08-08 ✅ 실기 테스트 PASS · 커밋 `9a19cd5`)
+- **증상**: 배럭 팝업 → 랠리포인트 버튼 탭 시 팝업만 사라지고 **반투명 배경(공유 BlockingOverlay)이 잔존** → 맵을 탭하면 오버레이(onTap=`Close`)가 터치를 먼저 먹어 `Close()`→`OnBeforeClose()`에서 `IsSettingRallyPoint=false`+`HideAllRallyMarkers()` → "지정이 그냥 취소된 것처럼" 보임(EventSystem/InputHandler 실행 순서에 따라 설정 실패 또는 깃발 즉시 소멸, 두 경우 모두 사용자 체감 동일).
+- **원인**: `ProductionPanelUI.OnRallyPointClick()`이 `_popup?.Hide()`만 호출. 오버레이는 `BuildingPanelBase.Show()`가 켠 것이고 **끄는 곳은 `Close()` 단 하나** → 팝업만 숨기는 경로는 오버레이를 그대로 남긴다.
+- **수정(코드 1파일 2줄, 순수 추가)**: `Presentation/UI/ProductionPanelUI.cs` — ① `OnRallyPointClick()`에 `UIManager.Instance?.HideBlockingOverlay();` ② `Close()`를 거치지 않는 `CompleteRallyPointSetting()`에도 동일 호출(참조 카운터 반납). **②를 빠뜨리면 안 됨** — 지금까지는 잔존 버그가 대신 `Close()`를 태워 카운터를 우연히 맞춰주고 있었으므로, ①만 고치면 카운터가 반납되지 않아 다음 팝업의 오버레이가 어긋난다. `HideBlockingOverlay()`는 언더플로 가드(0 미만 방지)+멱등이라 이중 호출 안전.
+- ⚠️ **교훈(재사용·2번째 발생)**: `BuildingPanelBase` 계열에서 **조준 모드 진입을 위해 `_popup.Hide()`만 하는 경로는 반드시 `HideBlockingOverlay()`를 짝으로 호출**해야 하고, **`Close()`를 우회해 종료되는 경로는 참조 카운터를 직접 반납**해야 한다. 선례 `BuildingSkillPanelUI.cs:321-328`(주석에 "랠리 패턴"이라 적혀 있었으나 정작 랠리 경로가 미적용이었음). 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5(BlockingOverlay 단일 소유+참조 카운터), 보조 `GameSystemRules_Buildings.md` 랠리포인트 규칙 2(설정 직후 3초 표시 — 이 버그로 위반 중이었고 수정으로 정상화).
+- **범위 밖(미수정, 별도 작업 후보)**: `ProductionTicker` 단일 `_autoHideCoroutine`·싱글플레이 팀 필터 부재·재경기 중복 구독/마커 누수·랠리 좌표 검증 부재·멀티 롤백 경로 부재 → 상세는 [gameplay-systems.md](gameplay-systems.md) "랠리포인트 시스템 구조 맵".
+
+### 건물 파괴 시 열린 패널/조준 UI 원복 (2026-08-08 ✅ 실기 테스트 PASS · 커밋 `8c7fa01`)
+- **범위**: 건물 패널 4종(생산/건물액션/스킬/연구) 공통 갭 — 파괴된 건물의 패널·조준 UI가 화면에 남던 것을 자동으로 닫음. task `_Tasks/2026-08-08/07_40_building-death-ui-restore/`.
+- **구현(코드 1파일)**: `Presentation/UI/BuildingPanelBase.cs`만 수정(자식 4개 패널 무변경). `InitializeBase`에서 `GameEvents.OnBuildingDied` 구독 → 핸들러가 `e.Building!=null && _currentBuilding!=null && e.Building.Id==_currentBuilding.Id`이면 `Close()` 호출. `Close()`가 `OnBeforeClose()`를 경유하므로 `BuildingSkillPanelUI.OnBeforeClose`(조준 취소 `CancelAim`)·`ProductionPanelUI.OnBeforeClose`(랠리 마커 숨김)가 자동 연계 → **베이스에서 `Close()`만 불러도 4종 정리 완료**.
+- **판정 기준 = `IsOpen` 아님, `_currentBuilding.Id` 매칭**: 스킬 조준 진입 시 `BuildingSkillPanelUI`가 `_popup.Hide()`를 불러 `IsOpen`(=`_popup.IsVisible`)이 조준 중 false가 됨 → `IsOpen`으로 걸면 조준 중 케이스를 놓침. 닫힌 패널은 `_currentBuilding==null`이라 매칭 자연 실패(오작동 없음).
+- **구독 해제 — Plan 대비 변경(`.AddTo(this)`)**: Plan은 `IDisposable`+신설 `OnDestroy` Dispose였으나, ⚠️ **`ResearchPanelUI`가 이미 자체 `OnDestroy`를 선언**해 베이스에 `OnDestroy`를 신설하면 자식이 이를 **은닉(hide)**(자식이 `base.OnDestroy()`를 부르지 않으면 베이스 해제 로직 누락 → 구독 누수 회귀). 프로젝트 관용 패턴(`BuildingFactory`/`UnitFactory`/`HitPresentationQueue`)대로 **`.AddTo(this)`(UniRx)** 로 컴포넌트 수명에 묶어 회피.
+- **멀티**: `NetworkCombatController.HandleBuildingDied`(L1027)가 클라에서 `OnBuildingDied` 재발행 → 싱글/호스트/순수 클라 전부 커버(별도 배선 불필요).
+- **실기(PASS)**: 스킬 조준 중 시전 건물 파괴 시 조준 원 소멸·입력 잠금 잔존 없음, 생산 건물 파괴 시 랠리 마커 소멸, 연구소 파괴 시 연구 패널 닫힘(기존 연구 취소·환불과 충돌 없음).
+- ⚠️ **교훈(재사용)**: MonoBehaviour 베이스에서 이벤트 구독을 해제할 때, 자식이 자체 `OnDestroy`를 가질 수 있으면 신설 `OnDestroy`+Dispose는 은닉으로 누락 위험 → **`.AddTo(this)`가 안전**. 규칙: `GameSystemRules_UI.md` 공통 UI 팝업 규칙 11(건물 팝업 대상 건물 파괴 시 자동 닫힘) 명문화.
+
+### 스킬 시스템 Phase 2 — 타입 C(전역 상태변경: 버프/디버프/CC/힐) (2026-08-04 구현 → 2026-08-05 ✅ 실기+멀티(클라) 테스트 PASS)
+- **범위**: 타입 C 실행기 + 상태효과 시스템 + 유효 스탯 접근자에 상태 배율 합성 + CanAttack 게이트 + 빙결 애니 정지 + 둔화 라이브 + 멀티 동기화 + 종족별 플레이스홀더 5슬롯. task Plan §6 Phase 2(하단 "완료 결과"), 규칙 `GameSystemRules_Skills.md` 13·Plan 9-1~9-5.
+- **실기 결과(2026-08-05 PASS)**: 공격버프·빙결(이속0+공격봉쇄+만료 복귀)·둔화(0.5 라이브)·회복(HoT)·**무상태 회귀(기존 유닛/연구강화 무변경)** + 순수 클라이언트 재현까지 모두 확인.
+- **신규 파일(5)**: Domain `Status/{StatusEffectKind,StatusEffect,UnitStatusState}.cs`(순수 C#, 상태 목록→공격/이속 배율·CanAttack 순수 계산). Application `Services/StatusEffectSystem.cs`(유닛Id→UnitStatusState 딕셔너리, 서버 권위 Apply/Tick/accessor, 무상태=배율1·CanAttack true 회귀안전)·`Skill/GlobalStatusChangeExecutor.cs`(타입 C, 조준 없음, TargetsAllies→대상팀 결정→ctx.ApplyGlobalStatus).
+- **StatusEffectKind enum(정수 고정)**: None0/MoveSpeedMul1/AttackPowerMul2/AttackDisabled3/Freeze4(=이속0+공격불가)/HealOverTime5. SkillDefinition._statusKind(int)와 1:1. **회복(HealOverTime)은 상태 시스템 미저장 → 기존 HoT(ApplyTimedEffect Heal) 재사용**(HP는 NetworkHealthSync가 이미 동기화).
+- **상태 배율 합성(확정 9-1·9-4 곱연산)**: `UnitCombatUseCase`에 `_statusSystem` 주입(SetStatusEffectSystem). `EffectiveAttack`=기본×연구×상태(statusMul==1f면 baseAttack 그대로 반환=부동소수 무개입 회귀안전)·`GetUnitMoveSpeedMultiplier`=연구×상태(빙결 시 0)·**신규 게이트 `CanAttack(unit)`**(빙결/기절 false). **상태 없으면 전부 무변경**.
+- **공격 게이트 삽입 2곳**: 싱글=`UnitCombatUseCase.TryAttack`(네트워크 가드 직후 `if(!CanAttack)return null`), 멀티=`NetworkCombatController.TickCombat`(`combat.CanAttack(unit)?TryFindTarget:null` — 데미지만 봉쇄, HasEnemyInRange 유지로 전투 자세는 남음).
+- **9-5 이동 정지·둔화 라이브(실기 확정)**: UnitView 이동 배율이 **경로 발급 시 1회 캡처**라 배율을 바꿔도 즉시 반영 안 되던 것을 → **이동 코루틴이 매 프레임 유효 이동배율을 다시 읽어 즉시 반영**(경로 재캡처 불필요)으로 전환. **둔화(0.5 부분배율)도 라이브로 적용됨(실기 확인)**. 빙결=배율 0이므로 이동 코루틴이 매 프레임 0을 읽어 정지. **무상태면 배율>0이라 기존과 동일(무변경 보장)**. UnitView 이동 코루틴은 서버에서만 도므로 서버 권위. ⚠️ **미세 잔여**: 전투 종료 후 정렬 Lerp 구간은 여전히 캡처값 사용(라이브 아님) — 필요 시 후속.
+- **빙결 애니메이션 정지(2026-08-05)**: 빙결 시 `Animator.speed=0`으로 걷기 프레임을 고정(제자리 걷기 방지). 클라 동기화용 `UnitAnimState.Frozen` + `OnUnitFreezeChanged` 이벤트로 순수 클라이언트에도 정지 프레임 재현.
+- **멀티 동기화(NetworkUpgradeController.OnResearchCompleted 패턴 미러)**: `UnitCombatUseCase.OnGlobalStatusApplied` 이벤트(회복 제외 발화) → `NetworkSkillController`(서버)가 `EnsureStatusSubscription`(OnNetworkSpawn+ServerRpc 진입 멱등, 스폰레이스 대비)로 구독 → `StatusAppliedClientRpc((int)team,(int)kind,mag,dur)` 브로드캐스트 → 클라 `if(IsServer)return; combat.ApplySkillGlobalStatus(...,raiseNetworkEvent:false)`로 자기 유닛 재현. **회복은 HP 동기화로 충분해 미브로드캐스트(이중 힐 방지)**. 기능상 클라 상태는 현재 VFX 없어 무효과지만 프레임워크 완비.
+- **상태 부여 경로**: 실행기→`ctx.ApplyGlobalStatus(team,kind,mag,dur)`→`SkillActivationUseCase.ApplyGlobalStatusBridge(raise:true)`→`UnitCombatUseCase.ApplySkillGlobalStatus`(대상팀 유닛 순회, HealOverTime→HoT/그외→_statusSystem.Apply). A·B 실행기가 ctx.ApplyInstantAreaDamage 부르는 것과 동일 분담(실행기 thin).
+- **상태 틱(이중 틱 금지, 쿨다운 틱과 동일 가드)**: 싱글=GameBootstrapper.Update(`_statusEffectSystem.Tick`, `!IsNetworkMode||!IsNetworkServer`)·멀티서버=NetworkCombatController.TickCombat(TickCooldowns 옆)·멀티클라미러=Update.
+- **수정 파일**: SkillExecutorRegistry(C 등록)·SkillActivationContext(globalStatus 델리게이트+ApplyGlobalStatus)·SkillActivationUseCase(ctx 3번째 델리게이트+ApplyGlobalStatusBridge)·UnitCombatUseCase(_statusSystem·이벤트·접근자 합성·CanAttack·ApplySkillGlobalStatus)·NetworkCombatController(게이트+틱)·NetworkSkillController(구독·브로드캐스트·클라재현)·IGameServices(GetStatusEffectSystem)·GameBootstrapper.cs(필드/getter/Update틱)·GameBootstrapper.Setup.cs(StatusEffectSystem 생성·주입)·UnitView(매 프레임 유효 이동배율 재조회+빙결 Animator.speed=0)·editor `SkillSetup_CreateDataAssets`(SkillSpec에 statusKind/magnitude/targetsAllies+SetBool).
+- **UI 버튼 균일화(2026-08-05)**: 스킬 슬롯 CostContainer를 `SetActive(false)`(→행 높이 붕괴) 대신 **CanvasGroup alpha=0(HideChildKeepLayout)**로 숨겨 레이아웃 행 높이를 보존(버튼 크기 균일).
+- **유지 중인 테스트 스캐폴딩(과대 표기 금지)**: 종족별 플레이스홀더 스킬 **5슬롯** = 1 폭탄(타입 A)/2 빙결(C-CC)/3 공격버프(C-buff)/4 둔화(C-CC)/5 회복(C-heal). 스킬 버튼은 임시 텍스트 라벨. **최종 스킬 기획·아이콘 확정 전까지 유지되는 테스트용**.
+- **정리(cleanup) 완료(2026-08-05)**: 개발 중 넣었던 **진단 로그 코드를 LogRules 준수 위해 제거**(raw Debug.Log 금지·RuntimeLogger 파일 기록 원칙) → `IRuntimeLogSink`/`RuntimeLoggerSink`는 **삭제됨**(grep 0건, 상시 기능으로 기재 금지). 로그 파일 `Docs/_Logs/2026-08-04/16_49_skill-status-debug/RuntimeLog_host.txt`는 LogRules대로 보존. 좌표화 때 주석 비활성화했던 코드 3곳도 삭제 완료. **교훈: 로그 작업 착수 전 반드시 `Docs/LogRules.md`(RuntimeLogger 파일 기록·raw Debug.Log 금지)를 먼저 확인할 것.**
+- **남은 것(별도 작업)**: ① ✅ 건물 파괴 시 열린 스킬 패널/조준 UI 원복 — **2026-08-08 구현 완료·실기 PASS**(아래 최근 작업 항목 참조) ② 구체 스킬 목록·수치·아이콘(기획) 보류 ③ 둔화 전투종료 정렬 Lerp 잔여(위 9-5).
+
+### 스킬 지점 조준 좌표화 + 조준원 지면 데칼 렌더링 + 취소 버그·토스트 (2026-08-04) — ✅ 실기기 테스트 PASS (상세: skill-aim-coordinate.md)
+- 조준 중심 **HexCoord(타일 스냅) → 연속 도메인 월드 Vector3**. **착탄 반경 판정은 원래 연속 원이라 무변경, 중심만 연속화.** 전 계층 시그니처 Vector3화: SkillAimController/BuildingSkillPanelUI/SkillActivationUseCase.Activate(Vector3?)/SkillActivationContext(AimWorld)/UnitCombatUseCase.ApplySkill*(Vector3 center)/INetworkSkillController·NetworkSkillController RPC(**NGO Vector3 기본 직렬화**, int q,r 폐지).
+- **맵 경계 헬퍼 신규**: `HexMetrics.{ComputeMapWorldBounds,IsWithinMapBounds,ClampToMapBounds}(pt,w,h)` — 최외곽 타일 중심 극값+반칸 AABB(도메인 좌표). HexGrid(Domain)는 Vector3 불가 → Core 수학+클로저 주입(GameBootstrapper `_grid` 캡처=맵 재로드 대응). 서버 재검증 HasTile→맵경계 안 점.
+- **조준원 렌더링**: coplanar z-fight 원인 → 신규 셰이더 `Hexiege/SkillAimOverlay`(`Assets/_Project/Shaders/`) = Transparent+ZWrite Off+**ZTest LEqual+Offset -1,-1**+Cull Off. 지형엔 안 파묻히고 유닛/건물(불투명)엔 가려짐. **ZTest Always 금지**. 머티리얼은 `SkillSetup_Scene.EnsureOverlayMaterial`가 생성·배선, `SkillAimReticle._overlayMaterial`(신규 필드) 런타임 자가배선. **씬 재셋업(Hexiege/Skill/2. Setup Scene) 필요**(머티리얼 생성·배선). 제거 3곳은 주석 비활성화→실기 통과 후 삭제.
+- **취소 버그 근본 수정(실기 Android, 커밋 `2e88dfa` 1차→`4e5da5e` 근본)**: 취소 X 위에서 손을 떼도 발동·쿨다운. 원인=손 뗀 프레임에 `TryGetPointerScreenPos` 마우스 분기가 **합성 마우스 좌표(0,0)를 유효로 반환**해 캐시 폴백을 가로챔. 수정=**release 프레임엔 라이브 좌표를 읽지 않고 캐시된 마지막 드래그 좌표(`_lastDragScreenPos`)로만 취소/발동 판정.** 교훈: 터치 종료 프레임에 마우스 좌표 폴링은 (0,0) 합성값이 유효처럼 새어들 수 있으니 release 판정은 라이브 폴링 대신 마지막 유효 드래그 좌표 캐시로.
+- **쿨다운 안내 토스트(커밋 `4e5da5e`)**: 쿨다운 중 탭 조용히 무시 → 기존 ToastUI(에셋 기반)에 `ToastKey.SkillOnCooldown`(`Application/Events/ToastKey.cs`) + `Resources/Config/ToastMessageConfig.asset` key:4 "스킬이 쿨다운 중입니다". `BuildingSkillPanelUI`에서 `ToastUI.Show(ToastKey.SkillOnCooldown)`.
+- **컴파일/실기 상태**: 좌표화·렌더링·버그수정 전부 **사용자 실기기 테스트 PASS**(이전 "컴파일 미검증" 해소). 규칙 정정 `13bb7c1`·좌표화+렌더링 `9e79a2f`, 브랜치 `claude/building-skills-discussion-3v8d5k`.
+
+### 스킬 건물 시스템 Phase 1 — ✅ 구현 완료·실기기 테스트 PASS (2026-07-31 구현 → 2026-08-04 조준 좌표화 사이클로 컴파일·씬 배선·실기 PASS)
+- **범위**: 타입 A(즉발 범위 피해)·B(장판 DoT) + 프레임워크 골격. 타입 C(전역 상태변경)는 enum 멤버만 선언, 실행기 미구현(Phase 2). task `_Tasks/2026-07-28/12_14_skill-building-system-design/`(Plan §6 Phase 1), 규칙 `GameSystemRules_Skills.md`(1~26).
+- **신규 파일(19)**: Domain `Skill/SkillMechanicType.cs`(A/B/C, C 선언만)·`Skill/SkillAimType.cs`(Instant/PointTarget). Application `Skill/SkillData.cs`(값객체, Sprite 허용)·`Skill/{ISkillExecutor,SkillActivationContext,InstantAreaDamageExecutor,AreaDotDamageExecutor,SkillExecutorRegistry}.cs`·`Interfaces/{ISkillDataProvider,INetworkSkillController}.cs`·`UseCases/SkillActivationUseCase.cs`. Infrastructure `Config/{SkillDefinition,SkillLoadoutConfig}.cs`(SO)·`Network/NetworkSkillController.cs`. Presentation `UI/{BuildingSkillPanelUI,SkillCooldownOverlay}.cs`·`Input/SkillAimController.cs`·`Effects/SkillAimReticle.cs`.
+- **핵심 패턴**: ① 발동 단일 진입점 `SkillActivationUseCase.Activate(buildingId, slot, HexCoord? aim)`(플레이어/AI 공유, §3-8). 글로벌 쿨다운=UseCase `Dictionary<int,float>`(BuildingData 무변경). ② 건물 출처 피해=`UnitCombatUseCase.ApplySkillInstantAreaDamage`(방어 감쇄 O, **Tank 2배 미적용**, 기존 ComputeFinalDamage/ApplyFixedDamageToVictim 무변경 — 신규 `ApplySkillInstantDamageToVictim`)·`ApplySkillAreaDot`(무감쇄 DoT=`ApplyDamageOverTime(source:null)`). ③ **반경 수집은 SpecialAttackContext 헬퍼 재사용 안 함** → 건물엔 UnitData 공격자가 없고 맵 지점 중심은 뷰 좌표가 없어, 도메인월드(`_mapper.HexToWorld`)+TeamId 기준 전용 수집(`CollectEnemy{Units,Buildings}InRadiusDomain`) 신설(양팀 좌표계 정합). ④ 로드아웃=RaceId 키(`SkillLoadoutConfig:ISkillDataProvider`, MagicBuilding 공유라 enum 아닌 종족 분기). ⑤ RPC=`NetworkSkillController`(NetworkUpgradeController 미러, `GameServicesLocator.Current` 지연 해석, q/r int 전송). 발동 성공 시 `SkillActivatedClientRpc` 브로드캐스트로 클라 쿨다운 미러(`StartCooldownLocal`)만 세움(VFX 플레이스홀더). ⑥ 조준=`SkillAimController`(static `IsAiming` 가드 → CameraController.HandlePan/InputHandler.HandleClick 억제). 좌표=랠리와 동일(ScreenToXZPlane→ViewConverter.FromView→WorldToHex). ⑦ **BlockingOverlay 함정**: 스킬 패널 열면 UIManager BlockingOverlay(탭=Close)가 뜸 → 조준은 SkillAimController가 포인터 직접 읽어 오버레이가 release를 먹어 취소됨 → OnSkillPointerDown에서 `UIManager.Instance?.HideBlockingOverlay()` 필수.
+- **쿨다운 틱(이중 틱 금지)**: 싱글=GameBootstrapper.Update, 멀티 서버=NetworkCombatController.TickCombat(TickResearch 옆), 멀티 순수클라=GameBootstrapper.Update의 `!IsNetworkServer` 분기(오버레이 미러 감소).
+- **수정 파일(전부 additive)**: UnitCombatUseCase(스킬 피해 경로)·IGameServices(`GetSkillActivationUseCase`)·InputHandler(스킬 라우팅 분기+조준 가드+Initialize 인자 2개)·CameraController(`EdgeScroll(screenPos,dt,margin,speed)`+조준 팬 가드)·NetworkCombatController(쿨다운 틱)·GameBootstrapper.cs(필드/getter/Update)·GameBootstrapper.Setup.cs(생성·배선).
+- **잔여(사용자 Unity 작업)**: SkillDefinition/SkillLoadoutConfig .asset 저작(×10 스케일!)·GameBootstrapper 신규 SerializeField 6종 배선(_skillLoadoutConfig/_buildingSkillPanelUI/_skillAimController/_networkSkillController)·씬에 NetworkSkillController NetworkObject·스킬 패널/조준점/취소X/쿨다운오버레이 프리팹. **컴파일 미검증(유니티 환경 없음)**. 개별 스킬 목록·수치·타입 C·정식 아트는 범위 밖.
+- **버그수정(2026-07-31)**: `BuildingSkillPanelUI`가 `GameBootstrapper.Map.cs` LoadMap의 UIManager 등록 블록(`_uiManager.Register(...)`)에서 누락 → IGameUI(OnGameStarted/OnGameEnded→Close) 미호출로 게임 시작/종료 시 스킬 패널 미닫힘 + 조준 중 종료 시 IsAiming 락 잔존. `_buildingActionPanelUI` 옆에 `Register(_buildingSkillPanelUI)` 추가로 해결. **교훈: BuildingPanelBase(IGameUI) 상속 신규 패널은 반드시 LoadMap UIManager 등록 블록에 추가**(Register는 null-safe/중복방지). **참고: `_researchPanelUI`도 같은 블록에서 누락(선행 연구 task 산출물이라 이번 범위 밖·미수정)**. 쿨다운 상태는 `_skillActivation`이 CreateUseCases에서 매 LoadMap 새로 생성돼 잔여 없음(ClearAll 불필요).
+- **에디터 셋업 스크립트 2종 신설(2026-07-31)**: `Assets/_Project/Scripts/Editor/SkillSetup_CreateDataAssets.cs`(메뉴 `Hexiege/Skill/1. Create Skill Data Assets` — 종족 3×[A폭격+B장판] 플레이스홀더 SkillDefinition 6개 + SkillLoadoutConfig 1개를 `Resources/Config/Skills/`에 멱등 생성, SerializedObject로 private 필드 세팅, ×10 수치)·`SkillSetup_Scene.cs`(메뉴 `Hexiege/Skill/2. Setup Scene` — BuildingSkillPanel(AnimatedPanel+헤더/닫기/철거+슬롯5×[아이콘+SkillCooldownOverlay])·SkillAimReticle(월드 Ring)·SkillAimController+하단 X·NetworkSkillController(NetworkObject) 멱등 생성 + GameBootstrapper 4슬롯 배선). 선례=`Assets/Editor/Setup/CreateSpecialAttackConfigAsset.cs`(SO+GameBootstrapper 배선)·`CreateProfileStatsFields.cs`(UI 빌드 헬퍼 FindOrCreateChild/EnsureText/EnsureButton/Connect). **주의: 기존 셋업 스크립트 관례는 `Assets/Editor/Setup/`+메뉴 `Hexiege/Setup/`인데 코디네이터 지시로 `Assets/_Project/Scripts/Editor/`+`Hexiege/Skill/`에 배치(둘 다 Editor 폴더라 컴파일 OK, 필요 시 이동)**. 실행·컴파일 미검증(유니티 없음). 쿨다운 Fill Image는 스프라이트 미지정 시 radial이 안 보임(로직은 배선됨) → 사용자 스프라이트 지정 필요(후속: 내장 UISprite/Knob 임시 자동 지정 보완). **부모 배치 교훈(버그수정 2026-07-31)**: Game.unity의 BuildingActionPanel/ProductionPopup/GameEndPanel은 각자 **자체 오버라이드 Canvas(SO 200, overrideSorting)** 를 가진 독립 패널이라 `[UI]` 루트(SO 0)의 형제로 배치됨(`GameSystemRules_CanvasSortingOrder.md`). 신규 패널을 붙일 부모는 `action.GetComponentInParent<Canvas>()`(자기 Canvas 반환→중첩)가 아니라 **`action.transform.parent`([UI] 루트)** 로 잡아 형제로 둘 것. 신규 패널 루트엔 오버라이드 Canvas(SO 200)+GraphicRaycaster 필수(규칙1). 셋업 스크립트 멱등화는 씬 전역 `FindFirstObjectByType<T>`(+이름 폴백)로 기존 인스턴스 찾아 `SetParent(정상부모,false)` 재부모화로 잘못된 잔재 자동 교정. **패널 신규 생성 교훈(2026-07-31 재수정)**: 셋업 스크립트로 UI 패널을 만들 땐 **처음부터 하드코딩으로 그리지 말고 기존 유사 패널을 `Object.Instantiate(srcGo, parent, false)` 복제** → 배경/앵커/AnimatedPanel/Canvas(SO200)/GraphicRaycaster/슬롯그리드 룩을 그대로 물려받는다. Instantiate가 계층 내부 참조(_popup/_headerText/_allSlotButtons 등)를 복제본 자식으로 자동 remap하므로, 복제본의 원본 컴포넌트에서 SerializedObject로 그 참조들을 **읽은 뒤** `DestroyImmediate(원본컴포넌트)`+`AddComponent<신규>()` 하고 읽어둔 참조로 재배선. Game.unity `BuildingActionPanel._allSlotButtons`=9개(0~4 스킬/5 철거=_demolishButton/6~8 예약). 스킬 슬롯엔 Icon Image+SkillCooldownOverlay만 추가, 예약 슬롯은 CanvasGroup alpha0로 숨김. BuildingSkillPanel=BuildingActionPanel 복제로 재작성 완료(하드코딩 조잡 박스 폐기). **스펙 정합(규칙 2·9·10·20)**: Game.unity 액션패널 슬롯 템플릿=`IconImage`+`CostContainer`(GoldIcon/CostText) 2자식 → 스킬 버튼은 아이콘만이므로 `CostContainer`/`Label` SetActive(false) 비활성, 기존 `IconImage` 재사용(런타임 SkillData.Icon로 켜짐). 쿨다운 오버레이=유휴 시 완전 숨김(`SkillCooldownOverlay.SetCooldown` remaining<=0→Hide, Awake에서 text=""·fillAmount=0로 잔여 "999" 표기 제거). 취소 X=`Sprites/UI/Buttons/ui_btn_cancel.png` 이미지 버튼(텍스트 라벨 없음)·평소 SetActive(false) → `SkillAimController.BeginAim`에서 켜고 `EndAim`(발동/취소/CancelAim)에서 끔(`SetCancelButtonVisible`). 플레이스홀더 스킬은 종족당 2개(타입 A·B)만, 타입 C는 Phase 2. **조준 조작=탭 기반 2단계로 재설계(규칙 17~20·20-1, 기존 hold-drag 폐기)**: `SkillAimController.BeginAim(…, HexCoord fallbackCoord, …)`—버튼 탭 시 즉시 조준모드 진입+조준원 기본표시(화면중앙 유효타일→없으면 시전건물타일)+취소버튼 표시, **버튼 자신의 release는 무시**(`_pendingButtonRelease`가 IsPointerPressed()로 그 gesture 소진까지 대기). 그 뒤 **새 화면 press→드래그(`_dragging`)로 조준 이동+엣지스크롤**, release로 발동, 하단 X 위 release로 취소. X 위 hover 시 취소버튼 `localScale` 확대 예고(규칙20-1, `ApplyCancelHover`). 이전 "hold-drag release 즉시발동"은 버튼이 화면하단이라 그 아래 타일 없어 아무것도 안 뜨는 버그였음. 쿨다운 오버레이가 "얇게" 뜨는 건 슬롯 LayoutGroup이 자식을 눌러서 → 오버레이에 `LayoutElement.ignoreLayout=true` + SetStretch로 버튼 전체 덮음. 취소버튼 스프라이트=`ui_btn_cancel.png`(AssetDatabase.LoadAssetAtPath<Sprite>), 셋업 재실행 시 다른 부모의 잔재 DestroyImmediate로 1개 유지+초기 SetActive(false). **UI 폴리시(2026-07-31)**: ① 취소버튼 hover 확대=하드설정→프레임독립 Lerp(`ApplyCancelHover`는 `_cancelTargetScale`만, `TickCancelHover`가 매 프레임 `Vector3.Lerp(cur,target,1-exp(-speed·dt))`, EndAim서 즉시 기준복원). ② 쿨다운 fill 방향=`fillOrigin=Top`+`fillClockwise=false`+`fillAmount=remaining/total` → 어두운 오버레이가 12시부터 **시계방향으로 걷혀 사라짐**(clockwise=true는 반대=버그였음). ③ `SkillAimReticle`=단일 Ring→**3겹 SpriteRenderer(Ring 진한 아래/Fill 반투명 중간/Dot 중앙점)** 재설계: 루트 X90° 눕힘, Inspector 노출 `_fillColor`(기본 붉은반투명 0.8,0.2,0.2,0.25)·`_edgeColor`·`_sizeScale`(Vector2=타원 가로/세로)·`_visualMultiplier`·`_ringThickness`·`_dotScale`. `Show(pos,radius)` 시그니처 유지. 셋업 `BuildReticle`이 Ring/Fill/Dot 자식(내장 Knob 스프라이트)+3필드 배선.
+
+### 연구소 유닛 강화 시스템 — 전체 구현 완료·멀티플레이 실기 PASS (2026-07-31)
+- **Phase 2 완료(UseCase·네트워크·UI·자연회복)**: Phase 1(아래 방어력·공식·×10) 위에 나머지 전부 구현·멀티 실기 PASS.
+- **`Application/UseCases/UnitUpgradeUseCase.cs`**: 팀별 트랙 레벨 `Dictionary<(TeamId,UpgradeGroup,UnitUpgradeStat),int>` 보관, (B) 사용 지점 조회 API — `GetEffectiveAttack`(=기본+`Round(기본×8%)×레벨`, 유닛별 고정 정수)/`GetMoveSpeedMultiplier`(1.000~1.320)/`GetDefense`(0/8/16/24/32/40)/`GetRegenPerSecond`(3×레벨)/`ScaleByGroupAttack`(힐=그룹 공격력 트랙 조회). 자연회복 트랙은 `RegenCanonicalGroup`로 정규화(팀 단위 1트랙). 비용/시간 테이블 + 그룹 배율(`GetGroupCostMultiplierPercent`: 동물 200/자연회복 250/그외 100). `OnResearchCompleted` 이벤트, `TryGetActiveResearchByBuilding(buildingId)`. 선례 `ResourceUseCase._incomeMultipliers`.
+- **`Domain/Unit/UpgradeGroup.cs`**: `UpgradeGroup`(Human Melee/Ranged/Vehicle·Spirit Fire/Water/Earth·Trans Animal/Plant 8) + `UnitUpgradeStat`(Attack/Defense/MoveSpeed/Regen) + `UpgradeGroupHelper`(`GetGroup(UnitType)`·`MaxLevel=5`·`RegenCanonicalGroup`). 순수 Domain(BuildingTypeHelper 패턴).
+- **`Infrastructure/Network/NetworkUpgradeController.cs`(NetworkBehaviour)**: 연구 요청 ServerRpc → 서버 골드 검증·차감·트랙 잠금·타이머 → 완료 시 팀 레벨 반영. **완료 레벨 = 양 클라 브로드캐스트(효과 양쪽 적용), 진행 중 = 소유자만**. 파괴 시 진행 연구 취소·100% 환불. **⚠️ 스폰 레이스 버그 수정**: `OnNetworkSpawn` 시점 `IGameServices` 미등록 가능 → 사용 시점 `ResolveServices()`(지연 재조회)로 복구. 서버만 `OnResearchCompleted` 구독.
+- **연구 패널 UI(매트릭스 2-레이어)**: `Presentation/UI/ResearchPanelUI.cs`가 **기존 독립 MonoBehaviour → `: BuildingPanelBase` 상속**으로 전환(공통 헤더·닫기·철거+환불 상속, 철거 시 진행 연구도 GameBootstrapper `OnBuildingDied` 구독이 취소·환불). 본문 2-레이어(연구소 단위): 매트릭스(`ResearchMatrixView`/`ResearchCellView`, 인간·정령 3×3·초월 2×3+자연회복 전체폭 1) ↔ 진행 게이지(`ResearchProgressView`, Lv X→X+1·게이지·취소). `UpdateLayerVisibility()`로 전환. buildingId↔진행 매핑: 싱글/호스트=`TryGetActiveResearchByBuilding`, 순수 클라=서버 착수 확정 buildingId 로컬 귀속. 아이콘 대신 텍스트 라벨(헤더 아이콘 후속).
+- **배선·디버그**: 초기 셋업/디버그에 쓰였던 에디터·디버그 스크립트(멱등 배선, 업그레이드 핫키)는 역할 종료 후 제거됨 → 배선은 씬에 반영 완료. 수정: GameBootstrapper(신규 UseCase·NetworkUpgradeController 배선·연구소 파괴 구독)·GameEvents·InputHandler·AIOpponentController·BuildOrderStep.
+- **후속 보류(과대 표기 금지)**: UI 레이아웃 다듬기(자동생성 골격)·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐(미구현)·싱글 자연회복 실기.
+
+### 연구소 유닛 강화 시스템 Phase 1 — 전투 데이터·공식 기반 (2026-07-25→31 실기 PASS)
+- **범위**: 방어력 필드 + 데미지 감쇄 공식 + Tank/CannonCart 건물 2배 + ×10 스케일 config 재조정. 연구 UseCase·팀 배율·자연회복·네트워크·UI·AI는 **Phase 2**(위 "전체 구현 완료" 항목에서 완료). **Phase 1의 "방어력을 팀 연구레벨로 조회" 예정 주의는 Phase 2에서 `UnitUpgradeUseCase.GetDefense` 조회로 실제 연결됨.**
+- **신규 순수함수 `DamageCalculator.ApplyDefense(int raw, int defense)`**(`Domain/Combat/DamageCalculator.cs`): `Max(1, Round(raw×(1−def/(def+120))))`, K=120, floor 1, 감쇄율 하드캡 65%(`MaxMitigationRate`). **하위호환 핵심**: `raw<=0`이면 그대로 반환(0공격력 유닛 회귀 방지), `defense<=0`이면 계산 없이 raw 그대로(반올림 개입 0). Domain이라 System.Math만 사용(UnityEngine 금지).
+- **최종 데미지 수렴 헬퍼 `UnitCombatUseCase.ComputeFinalDamage(attacker, target, rawDamage)`**(private static): ① target이 BuildingData이고 attacker가 Tank(6)/CannonCart(7)면 ×2, ② target.Defense(UnitData)/BuildingData(0)로 ApplyDefense. **삽입 지점**: `ApplyDamageToVictim`(직격, attacker.AttackPower), `ApplyFixedDamageToVictim`(스플래시/파도, amount). 파도(TorrentSpirit)·QuakeSplash·BattleAxe 휩쓸기 전부 이 두 경로 경유 → 자동 반영. **DoT(`ApplyTimedDamageToUnit`)는 미경유=무감쇄**(규칙 6). 타워는 `TowerCombatUseCase.ExecuteTowerAttack`에서 `DamageCalculator.ApplyDefense(raw, target.Defense)` 직접(2배 무관).
+- **방어력 필드**: `UnitStats.StatValues.Defense`(int)+`GetDefense`, `UnitData.Defense`(생성 시 `GetDefense(type)` 스냅샷, IsHealer와 동일 패턴), `BuildingData.Defense => 0`(트랙 없음), `UnitStatEntry.defense`(스키마, 구 .asset은 0 폴백), GameBootstrapper.Setup 매핑 1줄. **Phase 2 주의**: 규칙5는 방어력을 "피격 대상 팀 연구레벨"로 조회한다 — Phase 1 스냅샷 필드는 골격일 뿐, Phase 2에서 ComputeFinalDamage의 defense 조회를 팀 레벨 조회로 교체 예정.
+- **×10 config**: 코드 폴백 default 변경(`SpecialAttackConfig` blast2→20/inferno5→50/bloom20→200/wave10→100, GameBootstrapper.Setup 폴백 리터럴 동일). **실제 .asset(UnitStatsConfig·BuildingStatsConfig·SpecialAttackConfig)에 ×10 값이 커밋 반영됨** → 저장소 기본값이 ×10(Inspector 우선). 재조정 내역: UnitStatsConfig maxHp·attackPower ×10, BuildingStatsConfig 종족 HP·공격력 6필드 ×10, SpecialAttackConfig DoT/힐 4필드(blast/inferno/bloom/wave) set. 적용에 쓰였던 셋업 에디터 스크립트는 역할 종료 후 제거됨(재실행 불필요). 방어력/사거리/이동/쿨/골드/비율/반경은 불변.
+- task: `_Tasks/2026-07-22/10_08_unit-upgrade-system/`(Plan 항목0·1·2·10, GameSystemRules_Upgrade 규칙1·5·6). 신규 .cs 2개 .meta는 Unity가 재임포트 시 생성.
 
 ### QuakeSpirit(대지의 정령, UnitType 15) 착탄형 즉발 AoE (2026-07-20) — 코드 완료(에디터 스크립트·스탯·프리팹·OnAttackHit·VFX·설계문서 후속)
 - **핸들러**: `Application/Combat/QuakeAttackBehavior.cs`(ISpecialAttackBehavior, `ReplacesPrimaryAttack=false`). 레지스트리 1줄 등록. 착탄 중심=주 타깃 월드위치, 반경(`_quakeRadius`) 내 **적 유닛+적 건물** 선수집→**주 타깃 제외**→각 대상 즉발 스플래시 `CeilToInt(공격력×_quakeSplashRatio)` 적용. 주 타깃 100%(20)는 기존 ExecuteAttack이 담당(무변경).
@@ -306,3 +380,140 @@ SO 0(HUD)/100(UIManager)/200(패널 Override)/250(ConfirmPopup)/300(LoadingIndic
 - `UnitMovementShadowObserver` v5는 서버 read-only 비교와 client sentinel만 수행한다. Legacy 이동·SimulationFacing writer와 피해·RPC·VFX 권위는 유지하며 신규 root write는 0이어야 한다.
 - Android manifest는 entry-boundary 청크, UTF-8 byte 메타데이터, SHA-256, terminal 예약/preflight를 사용한다. 첫 4종 v4 + 나머지 21종 v5로 25/25종 Blue/Red 누적 증거를 확보했다.
 - `legacyMovedWhileShadowAlign`은 B2 오류가 아니라 규칙 v2와 Legacy writer의 분류된 차이다. 다음 구현은 경기 시작 시 고정한 mode로 25종 writer를 한 번에 전환하는 B3이며 유닛별 혼합을 금지한다.
+---
+
+## 씬·에셋 실측 경로 및 에디터 셋업 패턴 (2026-08-10 추가)
+
+> MistShrine 구현 사이클에서 실제로 확인한 값들. 위 섹션의 교훈을 대체하지 않고 보완한다.
+
+## 레이어 / 경로
+- 코드 루트: `Assets/_Project/Scripts/{Domain,Application,Core,Infrastructure,Presentation,Bootstrap}`
+- 에디터 1회성 셋업 스크립트: `Assets/Editor/Setup/` — 네임스페이스 `Hexiege.EditorTools`, asmdef 없음(Assembly-CSharp-Editor)
+- 설정 SO 에셋: `Assets/_Project/Resources/Config/*.asset`
+- 대상 씬: `Assets/_Project/Scenes/Game.unity` (Login 0 / Lobby 1 / Game 2)
+
+## 자주 쓰는 실제 경로 (확인 완료)
+- `SpecialAttackConfig` → `Hexiege.Infrastructure`, 에셋 `Resources/Config/SpecialAttackConfig.asset`
+- `UIColorConfig` → **`Hexiege.Infrastructure`** (파일은 `Scripts/Infrastructure/Config/UIColorConfig.cs`)
+- 지면 데칼 셰이더 `Hexiege/SkillAimOverlay` → `Assets/_Project/Shaders/SkillAimOverlay.shader`
+  (ZTest LEqual + Offset -1,-1 + ZWrite Off + Cull Off. **ZTest Always 금지**)
+- 자동모드 테두리 회전 머티리얼 → `Assets/_Project/Materials/UI/mat_ui_rotatingborder.mat`
+  (셰이더 `Shaders/UI/RotatingBorderUI.shader`. 에셋 저장값은 _Speed 5 / _Thickness 0.05만.
+   _Radius·_Inset은 ProductionPanelUI가 **런타임 인스턴싱으로만** 덮어씀 → 다른 패널이 공유하면 값이 다르다)
+- 폰트 `Assets/_Project/Fonts/Maplestory Bold SDF.asset`
+
+## 건물 패널 UI 골격 (씬 실측)
+- `BuildingActionPanel` = 3×3 그리드 9슬롯 원본. `_allSlotButtons` 9개, **index 5 = 철거 버튼**
+- 슬롯 자식 구조: `Slot1 { IconImage, CostContainer { GoldIcon, CostText } }`, 부모는 `Row0/Row1/Row2`(HorizontalLayoutGroup)
+- 패널은 오버라이드 Canvas SortingOrder **200**(`GameSystemRules_CanvasSortingOrder.md`) — 복제하면 자동 충족
+- 미사용 슬롯은 **`CanvasGroup.alpha=0`**, `SetActive(false)` 금지(GridLayout 정렬 붕괴)
+
+## 에디터 셋업 스크립트 패턴 (선례: `SkillSetup_Scene.cs`)
+- 패널은 하드코딩으로 그리지 말고 **씬의 BuildingActionPanel을 `Object.Instantiate` 복제** →
+  복제본의 컴포넌트에서 `SerializedObject`로 remap된 참조를 읽어 새 컴포넌트에 옮겨 배선
+- 배선은 `new SerializedObject(target).FindProperty(...)` + `ApplyModifiedProperties()`
+- **저장 반영 필수**: `EditorUtility.SetDirty()` + `EditorSceneManager.MarkSceneDirty()` (없으면 씬에 저장 안 됨)
+- 멱등: 이름/컴포넌트로 찾아 재사용(FindOrCreateChild). 패널만은 "기존 제거 후 재복제"로 항상 1개 보장
+- 이름 기반 탐색은 **타입 탐색 우선 + 이름은 폴백**, 못 찾으면 조용히 넘어가지 말고 경고
+  (과거 사고: `_backButton`이 `OffButton`에 오연결)
+- 에디터 스크립트의 `Debug.Log` 진행 출력은 허용(LogRules는 **런타임 파일 로그** 규칙)
+- 슬롯 위 오버레이 자식은 `LayoutElement.ignoreLayout = true` 필수(안 하면 한 줄로 찌그러짐)
+- 비용/라벨 숨김은 `SetActive(false)`가 아니라 CanvasGroup alpha=0 (레이아웃 footprint 유지 → 버튼 크기 균일)
+- 쿨다운 fill: `Filled / Radial360 / Origin=Top` + **`fillClockwise = false`**
+  (SetCooldown이 fillAmount=remaining/total로 줄이므로, false여야 어둠이 시계방향으로 걷힌다. true는 과거 버그)
+
+## Awake + SetActive 함정 (중요)
+`SkillAimReticle` / `MistShrineRangeIndicator`는 `Awake()`에서 `gameObject.SetActive(false)`를 한다.
+→ 씬에 **비활성 상태로 저장하면 안 된다.** 비활성 오브젝트는 Awake가 안 돌고,
+런타임 `Show()`의 `SetActive(true)` 순간 Awake가 뒤늦게 실행되며 스스로를 다시 꺼 버려 영영 안 보인다.
+에디터 셋업 스크립트는 **활성 상태로 남길 것**.
+
+## 진행 중 시스템
+- MistShrine 물안개 힐: 런타임 코드 커밋 완료(`be2b396`), 에디터 셋업 = `Assets/Editor/Setup/MistShrineSetup_{Config,Scene}.cs`
+  - 메뉴: `Hexiege/MistShrine/1. Apply Config Values` → `2. Setup Scene (Panel, Range, Network)`
+- 알려진 기술부채: `ProductionPanelUI`의 `_unitAutoIndicators`(GameObject) ↔ `_unitBorderOverlays`(Image)가
+  **같은 BorderOverlay를 이중 배선** — 정리는 별도 작업 예정. 다른 패널은 복제 금지(UI 규칙 14)
+
+---
+
+## Awake 자기 비활성화 함정 · 값의 단일 소스 (2026-08-11 추가)
+
+> MistShrine 보완 수정 사이클에서 확립. 위 섹션들을 대체하지 않고 보완한다.
+
+## 반복되는 함정 (Unity)
+
+### 1. `Awake()`에서 자기 자신을 `SetActive(false)` 하지 말 것
+비활성 상태로 씬에 저장된 오브젝트는 `Awake`가 **실행되지 않는다**.
+런타임에 `Show()`가 `SetActive(true)`를 부르면 그 순간 `Awake`가 뒤늦게 처음 실행되며
+**스스로를 다시 꺼 버려** 영영 보이지 않는다. (`Show()`의 나머지 코드는 돌지만 무의미)
+
+**해결 패턴 (2026-08-11 적용, 두 파일 동일):**
+```csharp
+private bool _showRequested;               // [SerializeField] 금지 — 순수 런타임 상태
+void Awake() { ...; if (!_showRequested) gameObject.SetActive(false); }
+public void Show(...) { _showRequested = true; /* 반드시 SetActive보다 먼저 */ if (!gameObject.activeSelf) gameObject.SetActive(true); ... }
+public void Hide()    { _showRequested = false; if (gameObject.activeSelf) gameObject.SetActive(false); }
+```
+적용 파일:
+- `Assets/_Project/Scripts/Presentation/Effects/SkillAimReticle.cs`
+- `Assets/_Project/Scripts/Presentation/Effects/MistShrineRangeIndicator.cs`
+
+> 씬에 활성으로 저장된 기존 상태에서는 동작이 완전히 동일 → 회귀 없음.
+> 에디터 셋업 스크립트가 "반드시 활성으로 저장" 주석으로 우회하고 있었다면 그건 증상 회피일 뿐이다.
+
+### 2. `MonoBehaviour` 베이스의 `OnDestroy` 은닉
+자식이 자체 `OnDestroy`를 선언하면 베이스 `OnDestroy`가 숨겨진다.
+구독 해제는 UniRx `.AddTo(this)` 사용. (`BuildingPanelBase` 상속 패널 전부 해당)
+
+### 3. UI 숨김은 `CanvasGroup.alpha=0`
+`SetActive(false)`는 GridLayout 셀 정렬을 무너뜨려 남은 버튼이 앞으로 당겨진다.
+
+---
+
+## 값의 단일 소스(Single Source of Truth) 원칙
+
+**같은 게임 수치를 Presentation의 `[SerializeField]`와 Config 에셋 양쪽에 두지 말 것.**
+에디터 셋업 스크립트가 실행 시점에 동기화해 줘도, 밸런싱으로 `.asset`만 고치면 조용히 어긋난다.
+
+- 패턴: UseCase가 Config에서 주입받은 값을 보관하고, UI는 `GetXxx()` 접근자로 **런타임에 조회**한다.
+- 사례(2026-08-11): `MistShrinePanelUI._rangeRadius` 제거 → `MistShrineUseCase.GetRadius()` 조회로 전환.
+  에디터 셋업 스크립트의 해당 배선 코드(`ConnectFloat(panel, "_rangeRadius", ...)`)도 함께 제거해야 한다.
+- UseCase 접근자 스타일은 `GetCooldownRemaining` / `GetCooldownTotal`(블록 바디 + 한국어 XML 주석)을 따른다.
+
+---
+
+## 주요 파일 위치
+
+| 시스템 | 경로 |
+|---|---|
+| MistShrine 물안개 힐 로직 | `Assets/_Project/Scripts/Application/UseCases/MistShrineUseCase.cs` |
+| MistShrine 전용 패널 | `Assets/_Project/Scripts/Presentation/UI/MistShrinePanelUI.cs` |
+| MistShrine 범위 원 | `Assets/_Project/Scripts/Presentation/Effects/MistShrineRangeIndicator.cs` |
+| 스킬 조준원 | `Assets/_Project/Scripts/Presentation/Effects/SkillAimReticle.cs` |
+| MistShrine 에디터 셋업 | `Assets/Editor/Setup/MistShrineSetup_Scene.cs` (메뉴 `Hexiege/MistShrine/2. ...`) |
+| 특수 공격/스킬 수치 Config | `Assets/_Project/Scripts/Infrastructure/Config/SpecialAttackConfig.cs` → `Resources/Config/SpecialAttackConfig.asset` |
+
+지면 데칼 셰이더: `Hexiege/SkillAimOverlay` (ZTest LEqual + Offset -1,-1 + ZWrite Off).
+**ZTest Always 금지** — 유닛·건물을 뚫고 그려진다.
+
+---
+
+## 프로젝트 규칙 요약(코드 작성 시)
+- 레이어: Domain → Application → Core → Infrastructure → Presentation → Bootstrap
+- **Domain은 Core를 참조하지 않는다**, **Application은 Infrastructure/Unity.Netcode를 참조하지 않는다**(`NetworkContext` 정적 홀더 사용)
+- `GameBootstrapper`가 유일한 조합 루트
+- **Inspector 값이 코드 기본값보다 우선**
+- 디버깅용 raw `Debug.Log` 금지(`Docs/LogRules.md`) — 다만 배선 누락 경고용 `Debug.LogWarning`은 프로젝트 전반의 확립된 패턴
+- 주석은 한국어, 유니티 초급자도 이해할 수준으로 상세히
+- 기존 로직 제거는 원칙적으로 "주석 처리 → 실기 검증 후 삭제"(WORKFLOW.md [4])
+
+### 직렬화 필드의 잘못된 저장값을 무력화하는 방법 (2026-08-11)
+- **스프라이트 기준 크기는 코드 상수로 두지 말고 `sprite.bounds.size`에서 산출한다.**
+  `bounds.size`는 (텍스처 픽셀 ÷ Pixels Per Unit)이라 PPU가 이미 반영된 월드 크기다.
+  매 표시마다 다시 읽으면 정식 아트로 스프라이트를 교체해도 자동으로 따라간다(캐시 금지).
+- ⚠️ **직렬화 필드의 잘못된 값은 "코드 기본값 변경"으로 고칠 수 없다** — Inspector/씬 값이 코드 기본값을 이긴다.
+  저장된 값을 확실히 무력화하려면 **필드 이름을 바꾸고 `[FormerlySerializedAs]`를 일부러 붙이지 않는다.**
+  Unity 직렬화는 이름으로 매칭하므로, 옛 이름의 값은 로드 시 버려지고 새 필드는 C# 기본값으로 초기화된다.
+  사례: `MistShrineRangeIndicator` / `SkillAimReticle`의 `_baseDiameter` → `_baseDiameterOverride`(기본 0 = 자동).
+- 범위/사거리 표시용 도형에서 **비정사각형 스프라이트는 긴 축을 기준 지름으로** 삼는다.
+  과대 표시(실제보다 넓어 보임)가 과소 표시보다 치명적이기 때문이다.

@@ -1,8 +1,11 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.48.0
-**최종 수정일:** 2026-08-03
+**버전:** 0.43.2
+**최종 수정일:** 2026-08-12
 **작성자:** HANYONGHEE
+
+> **2026-08-12:** **MistShrine 물안개 힐 구현 완료 — 에디터 싱글플레이 실기 검증 완료 / ⚠️ 멀티플레이 미검증.** 신규 구성 요소: Application `MistShrineUseCase`(물안개 인스턴스 목록 + 물안개별 독립 누적기 + 매 틱 대상 재수집. **HoT/DoT 시간 지속 효과 목록을 사용하지 않아** 자연회복·BloomFairy 힐과의 채널 충돌이 구조적으로 차단된다) · Application `INetworkMistShrineController` / Infrastructure `NetworkMistShrineController`(`Request → ServerRpc(팀 검증) → ClientRpc`, `ResolveServices()` 지연 재조회) · `NetworkHealthSync` **건물 힐 전용 RPC 신설**(기존 유닛 힐 RPC 시그니처 무변경) · Domain `BuildingData.Heal(int)`(프로젝트 최초의 건물 회복 경로) · Presentation `MistShrinePanelUI` / `MistShrineRangeIndicator`. **`PopupClosedFrame` 패턴의 기존 결손 보정** — `InputHandler`의 `ClosedFrame` 가드에 연구 패널·스킬 패널이 누락돼 있던 것을 신규 MistShrine 패널과 함께 등록했다(모든 팝업이 가드에 들어와야 패턴이 성립한다). **⚠️ 멀티 고유 경로(건물 HP 동기화·클라 표시·RPC 팀 검증·쿨다운 로컬 미러·이중 틱)는 실행된 적이 없다.** 상세: `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`.
+> **2026-08-10:** 건물 타입 주석 오류 정정 — `AutoTower`×3종족의 Transcendence는 **VineTower**다(이전 "Trans=MistShrine"은 오류). MistShrine은 방어 타워가 아니라 별도 힐 건물 `HealShrine`(= 6)이며, 물안개 지속 힐로 재설계 확정되었다(**당시 기준 기획 확정 / 구현 미착수 — 2026-08-12 구현 완료**). 규칙: `GameSystemRules/GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템.
 
 ---
 
@@ -121,22 +124,9 @@ Clean Architecture에서는 **안쪽 레이어가 바깥쪽 레이어를 알면 
 - **역할**: 서버/도메인 좌표계(Blue 기준 단일)를 Red 클라이언트 뷰 좌표로 반전
 - **반전 공식**: `Flip(pos) = 2 * mapCenter - pos` (맵 중심 기준 180° 반전)
 - **제공 API**: `IsFlipped`, `ToView()`, `FromView()`, `FlipDirection()`
-- **현재 경계(Tracer B1)**: 서버 좌표·NetworkTransform이 있는 Simulation Root는 반전하지 않는다. `NetworkUnit`의 클라이언트 Root 보정을 제거했고, Red 클라이언트의 위치·방향 변환은 자식 Visual Root에 있는 표현으로만 적용한다.
-- **표현 투영**: Simulation Root의 `VisualRootProjector`가 직접 자식 `VisualRoot`를 참조하고 렌더 직전 canonical Root pose를 투영한다. `PresentationPoseProvider`는 VFX·피격 반응·플로팅 텍스트 같은 표현 소비자에 presentation pose를 제공한다.
-- **생성 좌표**: 멀티플레이 `UnitFactory`는 서버 canonical world position으로 NetworkObject를 생성한다. 화면 관점 변환은 생성 좌표가 아니라 Visual Root 표현 단계에서만 수행한다.
+- **특징**: 스프라이트/메시 자체는 뒤집히지 않음 — 위치(Position)만 반전
 - **입력 역변환**: `ScreenToWorldPoint` 결과도 `FromView()`로 역변환 필요
 - **방향 반전**: 유닛 FacingDirection도 Red팀에서 FlipDirection() 적용 (NE↔SW, E↔W, SE↔NW)
-
-#### 유닛 Simulation Root / Visual Root 런타임 seam
-
-- Simulation Root는 `NetworkObject`, `NetworkTransform`, `NetworkUnit`, `UnitView`, `VisualRootProjector`와 서버 위치·회전 writer를 보유한다.
-- `NetworkTransform`은 서버 권위와 canonical world-space를 유지하며 `Interpolate=true`, `PositionLerpSmoothing=false`를 사용한다. 전체 보간은 유지하되 NGO LegacyLerp의 millimeter-scale 종료 잔차가 안정 pose에 남지 않게 한다.
-- 직접 자식 `VisualRoot`는 identity transform으로 시작하며 모델, Animator, Renderer, VFX/socket을 포함한다. Animator Root Motion은 비활성화한다.
-- Simulation Root에는 Animator와 Renderer를 두지 않는다. 각 Animator와 동일 GameObject에 `AnimationEventRelay` 하나를 두며 relay와 Animator 개수가 일치해야 한다.
-- `VisualRootProjector`는 자신의 Simulation Root를 수정하지 않고 참조된 `VisualRoot`만 투영한다. Presentation pose getter도 같은 프레임의 canonical Root를 먼저 투영해 Animation Event와 `LateUpdate` 사이의 한 프레임 pose 지연을 피한다.
-- `HitPresentationQueue`, `FloatingHpTextSpawner`, 사망 VFX와 피격 punch는 `PresentationPoseProvider` 또는 projector pose를 사용한다. A2 `IUnitActionPoseSource`는 계속 Simulation Root를 읽어 서버 판정과 표현 pose가 섞이지 않게 한다.
-- Bootstrap은 Simulation 위치 공급자와 Presentation pose 공급자를 별도 의존성으로 조합한다. Application의 서버 권위 계약은 Presentation 구현을 역참조하지 않는다.
-- 프리팹 제작·승인 규격은 `GameSystemRules_UnitCombatSynchronization.md`의 `NET-ROOT-004`가 권위다.
 
 ---
 
@@ -192,9 +182,7 @@ void ShowEffectClientRpc(Vector3 position) {
 | **타일 점령** | NetworkList<TileOwnership> | 변경 시 |
 | **자원** | NetworkVariable<int> | 변경 시 |
 | **본기지 체력** | NetworkVariable<int> | 변경 시 |
-| **유닛 이동·SimulationFacing** | 현재: Legacy 서버 writer + B2 서버 전용 read-only `UnitMovementReducer` Shadow; 다음: B3 경기 단위 신규 writer 전환. Client reducer·Simulation Root write 금지 | 연속 |
-| **유닛 행동 상태** | 목표: 값 기반 `UnitActionSnapshot` 복제; 현재: A1/A2 계약·pose seam과 B2 이동 Shadow 구현, 권위 런타임은 위치/회전 + `UnitAnimState`와 개별 RPC 혼합 | 상태 변경 시 |
-| **공격 타격 결과** | 목표: `AttackImpactResult` (`AttackerInstanceId + SequenceId + HitIndex` 기반 정규 키); 현재: HP 동기화 + 공격자 FIFO 표현 큐 | Impact 시 |
+| **유닛 이동** | 클라이언트 예측 (AI 동일 로직) | - |
 
 #### 무작위 맵 시작 동기화 (확정 설계, 미구현)
 
@@ -1023,16 +1011,28 @@ public struct HexCoord {
 List<HexCoord> path = HexPathfinder.FindPath(grid, start, goal, blockedCoords);
 ```
 
-**현행 경로 차단 규칙 (2026-05-11 이후)**:
-- 정적 이동 불가 지형과 건물만 경로를 차단한다.
-- 유닛 Position과 `ClaimedTile`은 `blockedCoords`에 넣지 않는다.
-- 같은 타일의 아군·적군 유닛 겹침을 허용한다.
-- 다음 타일이 건물 생성 등으로 이동 불가가 되면 서버가 현재 위치에서 목적지까지 재탐색한다.
-- 과거의 유닛 점유·같은 팀 `ClaimedTile` 차단 설계는 Legacy이며 현행 게임 규칙이 아니다.
+**경로 차단 (blockedCoords)**:
+- 모든 다른 유닛(아군/적군 무관)의 현재 Position을 이동 불가로 처리
+- **같은 팀** 유닛의 ClaimedTile(이동 중 선점 타일)도 차단 목록에 포함 → 아군끼리 겹침 방지
+- **적 팀**의 ClaimedTile은 차단하지 않음 → 적과의 타일 경합은 전투로 해결
+- UnitMovementUseCase가 RequestMove() 시 자기 자신을 제외한 모든 살아있는 유닛 좌표 + 같은 팀 ClaimedTile을 HashSet으로 구성하여 전달
+- **목표 타일은 차단 체크 제외** (2026-03-18 수정): 경로 중간 타일에만 blocked 적용. 목표 타일도 blocked 체크 시, 인접 타일이 모두 선점되면 Castle에 도달 불가한 교착 상태 발생 가능
+
+**ClaimedTile (이동 중 타일 선점)**:
+- UnitData.ClaimedTile (HexCoord?) — Lerp 시작 전 설정, Lerp 완료 후 해제
+- 같은 팀 유닛만 이 타일을 이동 불가로 인식 (경로탐색 시 우회)
+- 적 팀에게는 투과 → 같은 타일에 적이 진입 시 전투 발생
+
+**Per-step 타일 가용성 체크 (이동 중 실시간 검증)**:
+- MoveAlongPath에서 각 스텝 시작 전 `IsTileBlockedBySameTeam()` 호출
+- 같은 팀 유닛의 Position 또는 ClaimedTile이 다음 타일과 겹치면 차단 판정
+- 차단 시 현재 위치에서 최종 목적지까지 재탐색 (RequestMove) → 새 경로로 교체
+- 재탐색 실패 시 이동 중단 (Idle 복귀)
+- 적 팀은 체크하지 않음 — 전투로 해결
 
 **유닛 스폰 검증**:
-- 정적 이동 가능 여부와 건물 점유를 검증한다.
-- 유닛 점유만으로 스폰을 거부하지 않는다.
+- UnitSpawnUseCase.SpawnUnit()에서 계산된 타일 `IsWalkable` 검증 + 유닛 점유 검증 (GetUnitAt)
+- 건물이 있거나 다른 유닛이 이미 있는 타일에는 유닛 생성 불가
 
 ---
 
@@ -1073,9 +1073,9 @@ public class UnitAI : MonoBehaviour {
 }
 ```
 
-### Legacy: 초기 전투 프로토타입
+### 현재 구현: 전투 시스템 (프로토타입)
 
-아래 `IDamageable` 설명은 공통 피해 대상이라는 역사적 구조를 설명한다. 초기 코루틴 기반 이동→즉시 공격 흐름은 2026-07-20 유닛 규칙 v2의 Align/Windup/Impact/Recovery 및 서버 ActionSequence 목표 계약으로 대체되었으며 현행 설계 기준으로 사용하지 않는다.
+프로토타입에서는 State 패턴 대신 코루틴 기반으로 이동→공격 흐름 구현.
 
 #### IDamageable 인터페이스
 
@@ -1146,7 +1146,7 @@ public class UnitData : IDamageable {
     public int AttackPower { get; }    // UnitStats에서 결정
     public int AttackRange { get; }    // UnitStats에서 결정
     public bool IsAlive => Hp > 0;
-    public HexCoord? ClaimedTile { get; set; } // Legacy 필드: 현행 경로 차단 권위로 사용하지 않음
+    public HexCoord? ClaimedTile { get; set; } // 이동 중 선점 타일 (같은 팀만 차단)
 }
 ```
 
@@ -1159,25 +1159,41 @@ public class BuildingData : IDamageable {
 }
 ```
 
-#### 목표 전투 흐름 — 유닛 규칙 v2
-
-```text
-서버 이동 명령
-  → A* Navigate
-  → AlignToMove(10° 진입 / 15° 이탈)
-  → Move
-  → AcquireTarget(거리 → 대상 종류 → 안정 ID)
-  → Chase 또는 AlignToAttack(5° 진입 / 8° 유지)
-  → AttackSequence 커밋
-  → Windup
-  → 서버 ImpactResult(0..N)
-  → Recovery
-  → 타겟 유지·재탐색 또는 A* 이동 재개
+#### 전투 흐름 (이동 중 거리 기반 전투)
+```
+유닛 이동 명령 (InputHandler / AutoMove)
+  ↓
+A* 경로 계산 (아군/적군 Position 우회 + 같은 팀 ClaimedTile 우회)
+  ↓
+각 스텝마다:
+  ↓
+다음 타일 가용성 체크 (IsTileBlockedBySameTeam)
+  ↓ 차단됨
+현재 위치 → 최종 목적지 재탐색 (RequestMove) → 새 경로로 교체
+  ↓ 통과
+ClaimedTile = 다음 타일 (같은 팀 겹침 방지)
+  ↓
+타일→타일 Lerp 이동 (UnitView 코루틴)
+  ↓ Lerp 중 매 프레임
+사거리 내 적(유닛/건물) 탐색 (UnitCombatUseCase.TryAttack)
+  ↓ 적 발견
+이동 중단 → 공격 방향 계산 → IDamageable.TakeDamage() → 이벤트 발행
+  ↓
+적 HP ≤ 0? → EntityDied 이벤트 → View 파괴 + Dictionary 제거
+  ↓
+사거리 내 적이 남아있으면 반복 공격
+  ↓
+전투 승리 → 남은 Lerp 계속 → 타일 중앙 도착 = 점령
+  ↓
+ClaimedTile 해제, ProcessStep(Position 갱신 + SetOwner)
+  ↓
+모든 경로 이동 완료 → Idle 상태 복귀
 ```
 
-- 타일 중심 도착 시 점령하는 기존 의미는 유지한다.
-- 이동·타겟·방향·Impact·HP는 서버가 결정한다.
-- AttackSequence 구현 전까지 현재 코루틴·NetworkCombatController 경로가 런타임을 담당하지만, 신규 구현은 위 흐름과 `GameSystemRules_UnitCombatSynchronization.md`를 기준으로 한다.
+**핵심 규칙: 타일 중앙 도착 = 전투 승리 = 점령**
+- 전투는 Lerp 이동 중에 거리 기반으로 발동 (타일 중앙 도착 전)
+- 패배한 유닛은 타일 중앙에 도달하지 못하므로 점령 불가
+- SetOwner는 Lerp 완료 후 ProcessStep에서만 호출 (변경 없음)
 
 #### 사망 처리 (Dead Entity Cleanup, 2026-05-18 강타입 분리 / 2026-06-08 NGO Despawn 패턴 수정)
 ```
@@ -1246,73 +1262,38 @@ if (e.Unit.Id == _unitData.Id) { /* 이 유닛이 사망 */ }
 if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 ```
 
-#### 서버 권위 Unit ActionSequence 목표 구조 (2026-08-03 B2 이동 Shadow까지 구현, 권위 전환 미완료)
+#### 피격 표현 큐 (Hit Presentation Queue, 2026-07-12 전투 타격 타이밍 동기화)
 
-상태 보유형 `UnitActionSnapshot`과 실제 판정 결과인 `AttackImpactResult`를 분리한다.
+데이터(HP)는 서버 시계를, 연출(HP 텍스트·피격 VFX·타격 반응)은 각 클라이언트의 로컬 타격 프레임을 따르도록 역할을 분리한다.
 
-**현재 구현 상태:** A1의 `UnitActionContracts`·`UnitActionSequencer`, A2 서버 pose seam, B1 Simulation/Visual Root seam에 이어 B2 pure `UnitMovementReducer`와 서버 read-only Shadow observer를 연결했다. B2는 10°/15° 이동 정렬, command/segment scope, target priority와 endpoint `NoIntent`를 25/25종 Blue/Red 누적 표본으로 검증했지만 위치·SimulationFacing을 쓰지 않는다. 실제 이동 writer는 Legacy이며 다음 단계는 B3 경기 단위 writer 전환이다. 공격 result seam과 피해·RPC·VFX 권위 전환은 계속 미완료다.
+- `EntityDamagedEvent` / `SyncHealthClientRpc`에 **공격자 정보(Id + 유닛 여부)** 를 추가했다. 도메인 HP는 서버 값 도착 즉시 갱신(서버 권위 유지)하되, 연출은 보류한다.
+- `HitPresentationQueue`(Presentation 신규)가 피격 정보를 공격자별로 큐에 보류하고, 공격자의 로컬 `UnitView.OnAttackHit` 시점에 FIFO 방출한다. 타임아웃(쿨다운×1.5)·타겟 사망·공격자 사망·공격자 전투 중단 시 즉시 방출한다.
+- `HitFrameTimes`(데미지 타격 시점)는 Attack 클립 `OnAttackHit` Animation Event 시간에서 `UnitFactory`가 자동 추출한다(수동 입력은 폴백). 데미지는 항상 서버 타이머로 적용하며 Animator 상태에 종속시키지 않는다.
+- 연출 API: `EffectManager.PlayUnitHit`(+`UnitEffectConfig.hitPreset`), `PlayBuildingAttack`(타워 발사, +`BuildingEffectConfig.attackPreset`), `TracerProjectile`(원거리 트레이서, +`tracerPreset`). HP 텍스트는 `FloatingHpTextSpawner.ShowDamage` 단일 진입점으로 통합.
+- 상세 규칙: `GameSystemRules_Units.md` 규칙 17~21, `GameSystemRules_Buildings.md` 방어 타워 시스템 규칙 12(타워 발사 연출).
+- 구 `UnitEffectView.cs`(DEPRECATED)는 이 파이프라인이 역할을 대체하여 삭제됨.
 
-**UnitActionSnapshot — 유닛별 현재 상태 값**
-
-- SchemaRevision, SequenceId, Revision
-- ActionKind, AttackProfileId, Phase
-- TargetKind + TargetId 또는 권위 ImpactPoint
-- StartServerTick, NextImpactIndex + NextImpactServerTick, RecoveryEndServerTick
-- AuthoritativeFacing, CancelReason
-
-가변 길이 전체 Hit schedule은 NetworkVariable에 넣지 않는다. 정적 AttackProfile ID와 revision/hash로 양측 데이터 동일성을 확인하고, 스냅샷은 늦은 참가에 필요한 현재·다음 상태만 가진다.
-
-**AttackImpactResult — 서버 판정 후 신뢰 가능한 결과**
-
-- AttackerId + AttackerInstanceId, SequenceId, Revision, HitIndex
-- VictimKind + VictimId + ResultOrdinal
-- ImpactServerTick, ImpactPoint, AuthoritativeFacing
-- EffectKind, Amount, ResultingHp, Killed
-- Periodic 효과는 EffectInstanceId + TickIndex
-
-표현 상관키는 `(AttackerInstanceId, SequenceId, HitIndex, VictimKind, VictimId, EffectKind, ResultOrdinal)`다. Periodic은 `(EffectInstanceId, TickIndex, VictimKind, VictimId, EffectKind)`를 사용한다. 중복은 멱등하게 무시하고, 순서가 뒤바뀐 결과는 제한된 버퍼에서 같은 회차와 결합한다.
-
-**레이어 배치**
-
-- Domain: SequenceId, ActionPhase, Delivery, CancelReason 등 NGO 비의존 값
-- Application: UnitActionSequencer, AttackScheduler, 타겟·방향·Impact 결정 및 기존 피해 수렴점
-- Infrastructure: Network DTO, Snapshot NetworkVariable, ImpactResult 전송 어댑터
-- Presentation: UnitActionPresenter, VisualRootProjector, sequence-keyed ImpactPresentationBuffer
-- Bootstrap: clock, profile registry, sequencer, replication adapter 조합
-
-Application은 Unity.Netcode/Infrastructure를 역참조하지 않는다. 상세 규칙은 `GameSystemRules_UnitCombatSynchronization.md`를 따른다.
-
-#### Legacy 피격 표현 큐 (2026-07-12, 대체 예정)
-
-현재 런타임의 `HitPresentationQueue`는 공격자별 FIFO와 로컬 `OnAttackHit`으로 표현을 연결한다. 순서 역전 시 빈 신호를 버려 다음 공격 또는 타임아웃에 표현이 붙을 수 있으므로 규칙 v2에서는 정상 동기화 방식으로 금지한다.
-
-- 도메인 HP 즉시 수렴 원칙과 EffectManager/FloatingHpText API는 유지한다.
-- FIFO, 쿨다운×1.5 타임아웃, 단일 Hit AoE 큐 전체 방출은 `AttackSequenceId + HitIndex` 기반 PresentationBuffer로 대체한다.
-- 신규 경로를 shadow mode로 비교하기 전에는 기존 큐를 제거하지 않는다.
-- 구 `UnitEffectView.cs`가 삭제된 과거 이력은 유지한다.
-
-#### 현재 유닛 애니메이션 상태 어댑터 (2026-07-13, 규칙 v2 이전 대상)
+#### 유닛 애니메이션 상태 동기화 (2026-07-13 엣지 RPC → NetworkVariable 레벨 동기화)
 
 멀티플레이에서 유닛 애니메이션 상태(Walk / Attack)의 동기화 방식을 **"상태가 바뀌는 순간에만 1회성으로 쏘는 엣지 트리거 RPC"** 에서 **"현재 상태 값 자체를 공유하는 레벨 동기화(NetworkVariable)"** 로 전환했다.
 
 - **전(엣지 RPC):** `StartWalkAnimationClientRpc` / `GameEvents.OnUnitWalkStarted` 등 1회성 신호로 클라이언트에 상태 변화를 통지. 신규 유닛이 구독을 완료하기 전에 첫 신호가 도착하면 유실되고 이후 바로잡을 수단이 없었다(스폰 레이스 — 클라 스폰 223기 중 222기에서 첫 Walk RPC 유실 실측). 갓 생산된 유닛에서 걷기 모션이 안 나오는 원인.
 - **후(레벨 동기화):** `NetworkUnit`에 `UnitAnimState`(None / Walk / Attack) `NetworkVariable`(ReadPermission=Everyone / WritePermission=Server, `_unitId` 패턴 재사용)을 두고 서버가 상태 진입 지점에서 값을 쓴다. 클라이언트는 `OnValueChanged` + **스폰 시 현재 값 자동 적용**으로 항상 서버의 현재 상태를 받으므로 신호 유실이 구조적으로 불가능하다. 호스트/싱글플레이는 기존 로컬 Animator 직접 제어를 유지.
 - **적용 시점 봉합:** 애니메이션 적용이 `UnitView.Initialize`(애니메이터 준비)보다 이르면 무음 실패하므로, `UnitView.Initialize` 말미에서 `NetworkUnit.ReapplyAnimStateToView()`로 현재 값을 **멱등 재적용**한다.
-- **한계:** Walk/Attack 값은 Animator 재생 상태만 복원하며 타겟·권위 방향·공격 회차·Impact 시각을 원자적으로 묶지 못한다. 규칙 v2에서는 `UnitActionSnapshot`의 Presentation adapter로 축소하고 공격 권위로 사용하지 않는다.
-- **부수 위치 보정:** 재경로 재발급 시 첫 스텝이 최종 목적지 역방향으로 향하던 "뒤로 밀림"(서버 경로 자체가 원인, 클라 보간 무죄)은 `MoveTo`의 `AlignPathStartToTransform`로 실제 `transform` 전방 타일(`FindForwardClosestTile`)에서 재발급하여 보정(`GameSystemRules_Units.md`의 U-MOV-PATH 계약).
-- 당시 작업 이력: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`. 목표 계약: `GameSystemRules_UnitCombatSynchronization.md`.
+- **역할 분리 유지:** 데미지 판정은 서버 타이머(규칙 18), 조준 회전은 별도 타겟 참조(규칙 12·15)로 애니메이션 상태 값과 분리. `_combatAnimationSent`는 애니메이션이 아니라 데미지(`ExecuteAttack`)·타겟 RPC 게이팅 가드로 유지.
+- **부수 위치 보정:** 재경로 재발급 시 첫 스텝이 최종 목적지 역방향으로 향하던 "뒤로 밀림"(서버 경로 자체가 원인, 클라 보간 무죄)은 `MoveTo`의 `AlignPathStartToTransform`로 실제 `transform` 전방 타일(`FindForwardClosestTile`)에서 재발급하여 보정(규칙 11 강제).
+- 상세 규칙: `GameSystemRules_Units.md` 규칙 22(규칙 21을 상위 대체). task: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`.
 
 #### 특수 공격 전략 핸들러 구조 (2026-07-17 도끼병 휩쓸기형 AoE)
 
-일반 유닛의 단일 타깃 피해와 별개로, 특수 능력의 추가 피해·효과를 **전략(핸들러) 패턴**으로 분리한다. 현재 등록은 BattleAxe, TorrentSpirit, MushroomBomber, InfernoSpirit, QuakeSpirit 5종이며 BloomFairy는 별도 힐러 경로다. 이 등록 상태는 Legacy 런타임 구현 현황이며 규칙 v2 ActionSequence 완료를 의미하지 않는다.
+일반 유닛의 단일 타깃 피해와 별개로, 특수 능력(휩쓸기 / 착탄 / 파도 / DoT / 힐)을 가진 유닛의 추가 피해·효과를 **전략(핸들러) 패턴**으로 분리했다. 특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy) 중 도끼병이 첫 구현.
 
-- **계약/구성:** `ISpecialAttackBehavior.Apply(SpecialAttackContext)` 인터페이스 + `SpecialAttackContext`(공격자·주 타깃·유닛/건물 목록·재사용 피해/DoT 헬퍼·월드 좌표 조회 수단·유닛별 튜닝값) + `SpecialAttackRegistry`(`UnitType → 핸들러`) + 유닛별 핸들러. 등록은 `BattleAxe → SweepAttackBehavior`, `TorrentSpirit → TorrentAttackBehavior`, `MushroomBomber → BlastAttackBehavior`, `InfernoSpirit → InfernoAttackBehavior`, `QuakeSpirit → QuakeAttackBehavior`다. 모두 `Scripts/Application/Combat/`에 둔다.
-- **Legacy 피해 수렴점 상태:** 기본 피해와 기존 AoE는 `ApplyDamageToVictim`을 공유한다. Quake의 50% 고정 피해를 위해 `ApplyFixedDamageToVictim`이 별도 복제 경로로 추가돼 현재는 완전한 단일 수렴점이 아니다. v2 이전 시 피해량을 인자로 받는 하나의 authority result writer로 통합하고 두 경로가 직접 이벤트를 각각 방출하지 않게 한다.
+- **계약/구성:** `ISpecialAttackBehavior.Apply(SpecialAttackContext)` 인터페이스 + `SpecialAttackContext`(공격자·주 타깃·유닛 목록·재사용 피해 헬퍼·월드 좌표 조회 수단·reach/arc) + `SpecialAttackRegistry`(`UnitType → 핸들러` 매핑, 현재 `BattleAxe → SweepAttackBehavior`만) + 유닛별 핸들러. 모두 `Scripts/Application/Combat/`. `UnitType` 키 매핑이라 인스펙터 배선 불필요.
+- **피해 수렴점 단일화:** `UnitCombatUseCase.ExecuteAttack`의 인라인 단일 피해 로직을 `ApplyDamageToVictim` 헬퍼로 추출하여 주 타깃과 AoE 대상이 **같은 피해·이벤트·사망 처리 경로**를 쓰게 했다(멀티플레이 HP 동기화 일관). `ExecuteAttack` 말미에 특수 공격 훅 1줄만 추가 → 신규 특수 유닛은 핸들러 + 레지스트리 1줄로 확장하며 `ExecuteAttack` 재수정 불필요.
 - **휩쓸기 판정(SweepAttackBehavior):** 타일 소속이 아니라 **월드 좌표 전방 부채꼴**(forward = 공격자 → 주 타깃, XZ 거리 ≤ `sweepReach` AND 각도 ≤ `sweepArcHalfAngle`). 월드 좌표는 `IEntityPositionProvider`(서버 권위). 아군/사망/공격자/주 타깃 제외, 건물 미대상.
 - **튜닝 SO:** `SpecialAttackConfig`(Infrastructure/Config, `sweepReach`·`sweepArcHalfAngle`). GameBootstrapper가 SO 값을 읽어 핸들러에 **float로 주입**(Application → Infrastructure 역참조 회피). 에셋 생성 + 배선은 `CreateSpecialAttackConfigAsset.cs`가 멱등 자동화. ⚠️ 에셋 생성 ≠ 씬 배선 — 미배선 시 폴백값 사용.
-- **규칙 v2 상관관계:** 같은 AoE Impact의 대상별 결과는 동일 SequenceId+HitIndex로 묶는다. 공격자 FIFO 큐 전체 방출은 Legacy이며 대체 대상이다.
-- **신규 Legacy 핸들러 경계:** Inferno는 주 타겟 유닛에 5/초×3초 DoT, Quake는 ActionMarker 시점 주 타겟 위치를 중심으로 직접 100%+주변 유닛/건물 50% 즉발 피해를 적용한다. 둘 다 `AttackSequenceId`, 고정 `ImpactPoint`, `ResultOrdinal`을 아직 방출하지 않는다.
-- 게임플레이 의미는 `GameSystemRules_Units.md`, 상태는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`, 당시 작업은 `_Tasks/2026-07-16/18_06_battleaxe-aoe/`를 참조한다.
+- **AoE 연출 동시 방출:** `HitPresentationQueue`가 공격자 `HitFrameTimes.Length ≤ 1`이면 보류 큐 전부 방출(휩쓸기 N마리 동시 표시), `> 1`이면 신호당 1건(다중 히트 유닛 회귀 없음).
+- 상세 규칙: `GameSystemRules_Units.md` 규칙 23~27. task: `_Tasks/2026-07-16/18_06_battleaxe-aoe/`.
 
 ### 건물 배치 시스템 (MVP Phase 1)
 
@@ -1323,7 +1304,12 @@ Application은 Unity.Netcode/Infrastructure를 역참조하지 않는다. 상세
 // BuildingType enum — 26종
 // Castle×3종족, MiningPost×3종족
 // 종족별 생산라인 3단계: HumanBarracks1/2/3, AncientGrove1/2/3, PrimalSanctuary1/2/3
-// AutoTower×3종족 (Human=CannonTower, Spirit=MagicTower, Trans=MistShrine)
+// AutoTower×3종족 (Human=CannonTower, Spirit=RuneSpire, Trans=VineTower)
+//   ⚠️ 2026-08-10 정정: Trans 방어 타워는 VineTower다(이전 표기 "Trans=MistShrine"은 오류).
+//   MistShrine은 방어 타워가 아니라 공격하지 않는 별도 힐 건물이며 HealShrine = 6 이라는
+//   독립 enum 값을 쓴다(AutoTower = 2와 완전히 별개). 규칙:
+//   GameSystemRules_Buildings.md — MistShrine 물안개 힐 시스템
+//   (2026-08-12 구현 완료 / 에디터 싱글플레이 실기 검증 완료 · 멀티 미검증).
 // 추가: ResearchLab (미구현)
 //
 // BuildingTypeHelper.cs (Domain 레이어):
@@ -1699,11 +1685,8 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
-| 0.48.0 | 2026-08-03 | Tracer B2 서버 이동·SimulationFacing Shadow와 25종 Blue/Red 누적 멀티플레이 검증을 반영했다. 신규 reducer는 10°/15° 히스테리시스와 이동 scope를 서버에서만 판정하고 위치·회전·Animator·NetworkTransform·path를 쓰지 않는다. 6개 인정 세션의 오류 카운터와 Client reducer·Simulation Root write는 0이다. 실제 이동·SimulationFacing single-writer 전환은 B3 미완료다. |
-| 0.47.0 | 2026-07-30 | Tracer B1 최종 게이트 반영. 50개 프리팹의 `Interpolate=true`, `PositionLerpSmoothing=false`와 서버 권위/canonical world-space 불변을 기록하고, Android 1대와 Unity Editor counterpart의 Host/Client 역할교대 root-pose 교차 검증 및 rollback을 PASS로 확정했다. B2 서버 이동·SimulationFacing Shadow, 공격 방향, Impact/피해 시점, result seam과 권위 전환은 미완료다. |
-| 0.46.0 | 2026-07-27 | Unit ActionSequence Tracer B1 Simulation/Visual Root seam 반영. `NetworkUnit`의 클라이언트 Simulation Root 보정을 제거하고 `VisualRootProjector`·`PresentationPoseProvider`로 표현 pose를 분리했다. 멀티플레이 UnitFactory의 canonical world position 생성, presentation 소비자 전환, 신규·교체 프리팹 승인 규격을 기록했다. 50개 프리팹 migration과 재실행 NO-OP는 확인됐지만 Host/Client runtime smoke와 실제 rollback failure injection은 아직 미완료다. |
-| 0.45.0 | 2026-07-22 | Unit ActionSequence A1 순수 Application 경계 구현 상태 반영. `UnitActionContracts`·stateful `UnitActionSequencer`와 self-validation PASS를 기록하고, 런타임 pose/result seam·피해·RPC·VFX 미연결 및 다음 A2 server-authoritative pose seam shadow를 명시했다. |
-| 0.44.0 | 2026-07-20 | 멀티플레이 유닛 이동·공격 규칙 v2 목표 아키텍처 반영. 서버 권위 `UnitActionSnapshot` + `AttackImpactResult`, AttackSequenceId/HitIndex 상관관계, Simulation Root/Visual Root 분리, 늦은 참가·순서 역전·중복 처리와 Clean Architecture 배치를 정의했다. 클라이언트 이동 예측, 유닛 점유 경로 차단, 공격자 FIFO 피격 표현은 Legacy로 정정했다. **문서 설계 완료이며 런타임 구현은 미완료다.** |
+| 0.43.2 | 2026-08-12 | **MistShrine 물안개 힐 구현 반영 — 아키텍처 설계 변경 없음, 상태 표기 정정.** 2026-08-10 시점의 "구현 미착수" 표기를 **코드·프리팹 구현 완료 / 에디터 싱글플레이 실기 검증 완료**로 정정하고, 신설된 구성 요소는 문서 상단 노트에 기록했다(레이어 경계·서버 권위 원칙은 기존 규칙을 그대로 따르며 새 패턴을 도입하지 않았다). **아직 완료가 아닌 것(과대 표기 금지): 멀티플레이 실기 미검증 — 건물 HP 동기화·클라이언트 표시·RPC 팀 검증·쿨다운 로컬 미러·이중 틱은 멀티에서만 도는 경로이며 실행된 적이 없다 · 물안개 지속 VFX 미제작 · 사용 버튼 아이콘 미제작 · 밸런싱 수치 미확정.** 구현 계약에 규칙 8-1-a(활성 물안개 위상 정렬)가 신설되었다 — `GameSystemRules/GameSystemRules_Buildings.md`. |
+| 0.43.1 | 2026-08-10 | 건물 타입 주석 오류 정정 — `AutoTower`×3종족의 Transcendence를 `MistShrine`으로 적어 온 것을 **`VineTower`**로 수정했다. MistShrine은 방어 타워가 아니라 공격하지 않는 별도 힐 건물이며 `AutoTower`(= 2)와 완전히 별개인 `HealShrine`(= 6) enum 값을 쓴다는 점을 주석에 명문화. 당시 MistShrine 물안개 지속 힐은 **기획 확정 / 구현 미착수** 상태였다. 아키텍처·구조 변경 없이 표기 정정만 수행. 규칙: `GameSystemRules/GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템. |
 | 0.43.0 | 2026-07-20 | `MapTestModeEnabled`를 초기 골드 전용 설정으로 확정. 정상 모드는 광산 수 표, 테스트 모드는 `TestStartingGold=5000`을 사용하며 멀티플레이에서는 Host 표식·실제 골드가 권위값이다. 표식(0/1)과 실제 골드를 canonical bytes·SHA-256·로그에 포함하고 NewMap 준비에도 동일 권한 경계를 적용하도록 명문화. |
 | 0.42.0 | 2026-07-19 | reliable map transfer의 10초 timeout, incomplete 한정 동일 nonce/package 전체 1회 재전송과 두 번째 실패 종료, version/size/SHA/deserialize/semantic/disconnect 즉시 실패를 확정. 최초·NewMap·싱글 실패 복구 UI/state, idempotent Retry와 새 seed 재준비, 내부 정보 비공개를 명문화. |
 | 0.41.0 | 2026-07-19 | canonical 180 orbit 기반 중립 광산 균등 sampling, 유형별 zone/lane 제약, spacing filter 없음과 repair 없는 attempt reject 확정. castle-neighbor→mine-neighbor multi-source BFS access metric, center/pair 교차·HexCoord 거리, mine 전후 corridor 폭과 start-to-end continuity validator를 명문화. |

@@ -6,7 +6,24 @@
 - 서브에이전트(game-programmer 등)에 작업 위임 시에도 이 규칙을 반드시 명시할 것
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
-## 프로젝트 현재 상태 (2026-07-17)
+## 프로젝트 현재 상태 (2026-08-08)
+
+### 2026-08-08 완료 — 랠리포인트 조준 시 BlockingOverlay 잔존 버그 수정 (실기 PASS · 커밋 `9a19cd5`)
+- 배럭 팝업에서 랠리포인트 버튼을 누르면 팝업만 숨겨지고 공유 반투명 오버레이가 남아, 맵 탭이 오버레이에 먹혀 `Close()`가 실행되며 집결지 지정이 취소된 것처럼 보이던 버그.
+- **작업 흐름**: 코드 조사(game-programmer 정적 분석, 랠리포인트 구조·취약점 6건 도출) → `Research.md` → `Plan.md`(사용자 승인) → game-programmer 구현 → 사용자 실기 테스트 **PASS**. TC 문서는 사용자 미지시로 미작성(WORKFLOW [5-1] 준수).
+- **결과**: 코드 변경 `Presentation/UI/ProductionPanelUI.cs` **1파일 2줄**(순수 추가, 기존 로직 제거 없음). `OnRallyPointClick()` 오버레이 해제 + `CompleteRallyPointSetting()` 참조 카운터 반납. 계획과 구현 100% 일치(추가 변경 없음).
+- **조율 교훈**: 단일 파일·2줄이어도 "①만 고치면 ②가 새 버그를 만든다"는 결합이 있어 **두 지점을 한 Plan에 묶은 것이 핵심**이었음(기존 버그가 다른 누락을 상쇄하고 있던 구조). Research에서 발견한 나머지 랠리포인트 결함 5건은 범위 밖으로 분리해 별도 작업 후보로 기록.
+- task `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`. 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5, 보조 `GameSystemRules_Buildings.md` 랠리포인트 규칙 2(규칙 문서 변경 불필요 — 코드가 규칙을 다시 준수하도록 맞춘 수정).
+
+## 프로젝트 현재 상태 (2026-07-31)
+
+### 2026-07-31 완료 — 연구소 유닛 강화 시스템 + 전투 스탯 ×10 + 연구 패널 UI (멀티플레이 실기 PASS)
+- 연구소(Research 건물)로 팀 단위 유닛을 강화하는 신규 시스템 전체 구현·멀티 실기 검증.
+- **강화 3스탯 + 초월 자연회복**: 공격력(유닛별 고정 정수 증가)·방어력(신규, 비율 감쇄 K=120)·이동속도(배율) + 자연회복(상시 HoT, BloomFairy 힐과 별개 채널). 전투 스탯 ×10(TTK 불변) — config `.asset`에 ×10 값 커밋 반영(적용에 쓰였던 셋업 에디터 스크립트는 역할 종료 후 제거됨).
+- **레이어 준수**: 방어 감쇄 순수 함수 `Domain/Combat/DamageCalculator.ApplyDefense`, 그룹 매핑 `Domain/Unit/UpgradeGroup.cs`, 팀 배율 상태 `Application/UseCases/UnitUpgradeUseCase.cs`(선례 `ResourceUseCase._incomeMultipliers`), 네트워크 `Infrastructure/Network/NetworkUpgradeController.cs`(ServerRpc·완료 양 클라 브로드캐스트·진행 소유자만·파괴 100% 환불). (B) 소급 강화 = 유닛 스냅샷 미변경, 사용 지점 배율 조회.
+- **연구 패널 UI**: `ResearchPanelUI : BuildingPanelBase`(공통 프레임 상속) + 매트릭스/진행 2-레이어(연구소 단위). 초기 계획 "생산 패널 패턴"에서 확정 변경. 규칙 13.
+- **실기 발견 버그**: 멀티 완료 처리 서비스 스폰 레이스 → `ResolveServices()` 지연 재조회로 수정.
+- **후속 보류(과대 표기 금지)**: UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐(미구현)·싱글 자연회복 실기. 규칙 `GameSystemRules_Upgrade.md`(1~13). task `_Tasks/2026-07-22/10_08_unit-upgrade-system/`.
 
 ### 2026-07-17 완료 — 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 아키텍처 (사용자 실기 PASS)
 - 특수 유닛 5종(BattleAxe/QuakeSpirit/TorrentSpirit/MushroomBomber/BloomFairy) 중 **첫 구현**. 이후 4종의 특수 공격 처리 기반 구조 확립.
@@ -229,7 +246,7 @@ Assets/_Project/
 - [ ] game-programmer MEMORY.md: 새 파일/클래스/API 매핑 추가
 - [ ] qa-tester MEMORY.md: 새 취약 지점, 테스트 체크리스트 항목 추가
 - [ ] game-design-lead MEMORY.md: 구현 완료 항목 이동, 미결 항목 갱신
-- [ ] 메인 MEMORY.md (C:/Users/rmsep/.claude/...): 아키텍처 결정사항 반영
+- [ ] 공용 `.claude/MEMORY.md`: 아키텍처 결정사항 반영
 - [ ] project-orchestrator MEMORY.md: 현재 상태 요약 갱신
 
 ## 사용자 워크플로우 선호사항

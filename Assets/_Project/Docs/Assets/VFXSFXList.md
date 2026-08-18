@@ -169,6 +169,21 @@
 | Transcendence | SporePatch | `vfx_sporepatch_upgrade.prefab` | |
 | Transcendence | FloralNursery | `vfx_floralnursery_upgrade.prefab` | |
 
+#### 건물 특수 효과 이펙트
+
+> MistShrine 물안개 힐은 **2026-08-12 기준 로직·UI 구현 완료**(에디터 싱글플레이 실기 검증 완료 · 멀티 미검증)이지만, 아래 이펙트는 **여전히 모두 미제작**이다.
+> 즉 **물안개는 동작하되 눈에 보이지 않는 상태**이며, 이 이펙트 제작이 남은 작업이다.
+> 규칙: [`GameSystemRules/GameSystemRules_Buildings.md`](../GameSystemRules/GameSystemRules_Buildings.md) **MistShrine 물안개 힐 시스템 규칙 26**.
+> 물안개는 **뿌리는 순간**(1회)과 **지속 중**(루프)의 두 국면이 있어 이펙트를 분리한다.
+
+| 종족 | 건물명 | 파일명 | 비고 |
+|------|--------|--------|------|
+| Transcendence | MistShrine | `vfx_mistshrine_mist_cast.prefab` | **미제작** — 물안개 시전 순간 1회 재생 |
+| Transcendence | MistShrine | `vfx_mistshrine_mist_loop.prefab` | **미제작** — 물안개 지속 중 루프 재생. 건물 중심 고정(이동하지 않음), 지속시간 종료·시전 건물 파괴 시 즉시 정지 |
+
+> **범위 표시 반투명 원형 UI는 이 문서 대상이 아니다.** VFX가 아니라 UI/셰이더 영역이며,
+> 기존 지면 데칼 셰이더 `Assets/_Project/Shaders/SkillAimOverlay.shader` 재사용을 우선 검토한다(같은 문서 규칙 27).
+
 #### 골드 채집 이펙트
 
 | 오브젝트 | 파일명 | 비고 |
@@ -364,6 +379,16 @@
 | Transcendence | FeralSanctuary | `sfx_feralsanctuary_upgrade.wav` | |
 | Transcendence | SporePatch | `sfx_sporepatch_upgrade.wav` | |
 | Transcendence | FloralNursery | `sfx_floralnursery_upgrade.wav` | |
+
+#### 건물 특수 효과 사운드
+
+> 사운드 규칙 15(VFX + SFX 쌍 호출)에 따라 위 **건물 특수 효과 이펙트**와 1:1로 대응한다.
+> MistShrine 물안개 힐은 **2026-08-12 기준 로직·UI 구현 완료**(멀티 미검증)이지만, 아래 사운드는 **여전히 모두 미제작**이다.
+
+| 종족 | 건물명 | 파일명 | 비고 |
+|------|--------|--------|------|
+| Transcendence | MistShrine | `sfx_mistshrine_mist_cast.wav` | **미제작** — 물안개 시전음(1회). `vfx_mistshrine_mist_cast`와 쌍 |
+| Transcendence | MistShrine | `sfx_mistshrine_mist_loop.wav` | **미제작** — 물안개 지속 환경음(루프). `vfx_mistshrine_mist_loop`와 쌍, 물안개 소멸 시 함께 정지 |
 
 #### UI 사운드
 

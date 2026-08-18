@@ -79,6 +79,9 @@ namespace Hexiege.Infrastructure
         /// <summary>OnUnitHealCastStarted 구독 해제용 Disposable. 서버 전용(힐러 힐 애니메이션 동기화).</summary>
         private System.IDisposable _healCastSubscription;
 
+        /// <summary>[스킬 - 빙결] OnUnitFreezeChanged 구독 해제용 Disposable. 서버 전용(빙결 걷기 정지 동기화).</summary>
+        private System.IDisposable _freezeChangedSubscription;
+
         /// <summary>
         /// 유닛별 현재 전투 타겟 추적. key=유닛Id, value=(타겟Id, 타겟이 유닛인지).
         /// 전투 중이 아닌 유닛은 Dictionary에 없음.
@@ -253,7 +256,12 @@ namespace Hexiege.Infrastructure
                 _healCastSubscription = GameEvents.OnUnitHealCastStarted
                     .Subscribe(OnUnitHealCastStartedHandler);
 
-                Debug.Log("[Network] NetworkCombatController: 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast 이벤트 구독 완료.");
+                // [스킬 - 빙결] 서버 이동 코루틴이 빙결 진입/해제 시 발행하는 이벤트를 받아
+                // 애니메이션 상태를 Frozen/Walk로 레벨 동기화한다(순수 클라의 "제자리걸음" 제거).
+                _freezeChangedSubscription = GameEvents.OnUnitFreezeChanged
+                    .Subscribe(OnUnitFreezeChangedHandler);
+
+                Debug.Log("[Network] NetworkCombatController: 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged 이벤트 구독 완료.");
             }
         }
 
@@ -284,6 +292,10 @@ namespace Hexiege.Infrastructure
             // HealCast 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
             _healCastSubscription?.Dispose();
             _healCastSubscription = null;
+
+            // [스킬 - 빙결] FreezeChanged 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
+            _freezeChangedSubscription?.Dispose();
+            _freezeChangedSubscription = null;
 
             // 전투 상태 초기화 — 씬 전환 시 이전 게임의 상태가 남지 않도록
             _unitCombatTargets.Clear();
@@ -410,6 +422,47 @@ namespace Hexiege.Infrastructure
             // ────────────────────────────────────────────────────────────────
             combat.TickTimedEffects(elapsed);
 
+            // ────────────────────────────────────────────────────────────────
+            // [Phase 3] 자연회복(초월 전용 상시 HoT) — BloomFairy 힐과 분리된 독립 채널. 서버 권위 틱.
+            //   회복은 OnEntityHealed → NetworkHealthSync가 HP를 클라에 동기화(이중 적용 없음).
+            // ────────────────────────────────────────────────────────────────
+            combat.TickNaturalRegen(elapsed);
+
+            // ────────────────────────────────────────────────────────────────
+            // [Phase 4] 연구 진행 타이머(연구소 강화) — 서버 권위. 완료 시 UnitUpgradeUseCase가
+            //   레벨을 올리고 OnResearchCompleted 훅을 호출하여 NetworkUpgradeController가 양 클라에 브로드캐스트한다.
+            // ────────────────────────────────────────────────────────────────
+            _services?.GetUpgradeUseCase()?.TickResearch(elapsed);
+
+            // ────────────────────────────────────────────────────────────────
+            // [스킬] 건물 글로벌 쿨다운 감소 — 서버 권위(규칙 3·25). 연구 틱 바로 옆.
+            //   싱글은 GameBootstrapper.Update, 멀티 서버는 여기서만 감소한다(이중 틱 금지).
+            //   멀티 순수 클라의 쿨다운 미러는 GameBootstrapper.Update(클라 분기)가 별도로 감소시킨다.
+            // ────────────────────────────────────────────────────────────────
+            _services?.GetSkillActivationUseCase()?.TickCooldowns(elapsed);
+
+            // ────────────────────────────────────────────────────────────────
+            // [MistShrine] 물안개 진행(1초 회복) + 자동 시전 + 시전 쿨다운 — 서버 권위(규칙 8·18·21·22).
+            //   싱글은 GameBootstrapper.Update, 멀티 서버는 여기서만 돈다(이중 틱 금지 — 회복량 2배 방지).
+            //   멀티 순수 클라는 회복/자동 시전을 아예 돌리지 않고, 쿨다운 미러만
+            //   GameBootstrapper.Update(클라 분기)가 별도로 감소시킨다.
+            //   회복 결과 HP는 OnEntityHealed → NetworkHealthSync가 클라에 동기화한다.
+            // ────────────────────────────────────────────────────────────────
+            MistShrineUseCase mistShrine = _services?.GetMistShrineUseCase();
+            if (mistShrine != null)
+            {
+                mistShrine.TickCooldowns(elapsed);
+                mistShrine.TickMists(elapsed);
+                mistShrine.TickAutoCast(elapsed);
+            }
+
+            // ────────────────────────────────────────────────────────────────
+            // [스킬 - 타입 C] 상태효과(버프/디버프/제어) 지속시간 감소 — 서버 권위(규칙 13·25).
+            //   쿨다운 틱 바로 옆. 싱글은 GameBootstrapper.Update, 멀티 서버는 여기서만 감소한다(이중 틱 금지).
+            //   멀티 순수 클라의 상태 미러는 GameBootstrapper.Update(클라 분기)가 별도로 감소시킨다.
+            // ────────────────────────────────────────────────────────────────
+            _services?.GetStatusEffectSystem()?.Tick(elapsed);
+
             // Dictionary를 순회하면서 타겟 탐색
             // 전투 중 RemoveUnit이 호출될 수 있으므로 키를 미리 복사
             var unitIds = new System.Collections.Generic.List<int>(unitSpawn.Units.Keys);
@@ -464,7 +517,10 @@ namespace Hexiege.Infrastructure
                 //   "적이 없어서"일 수도 있고, "쿨다운 중이어서"일 수도 있음.
                 //   StopCombat은 오직 "적이 없을 때"만 전송해야 하므로
                 //   HasEnemyInRange로 실제 적 존재 여부를 별도 확인.
-                var attackResult = combat.TryFindTarget(unit);
+                // [스킬] 빙결/기절 상태면 공격 불가(규칙 13) — 타겟을 찾지 않아 데미지를 주지 않는다.
+                //   HasEnemyInRange는 여전히 참일 수 있어 전투 애니메이션(적을 향한 자세)은 유지되지만
+                //   실제 데미지(ExecuteAttack)는 발생하지 않는다. 무상태면 CanAttack=true → 기존과 동일.
+                var attackResult = combat.CanAttack(unit) ? combat.TryFindTarget(unit) : null;
                 bool hasEnemy = attackResult.HasValue || combat.HasEnemyInRange(unit);
 
                 if (hasEnemy)
@@ -1249,6 +1305,18 @@ namespace Hexiege.Infrastructure
         private void OnUnitHealCastStartedHandler(int unitId)
         {
             SetUnitAnimState(unitId, UnitAnimState.Attack);
+        }
+
+        /// <summary>
+        /// [스킬 - 빙결] 서버 이동 코루틴이 빙결 진입/해제를 알릴 때 호출(서버 전용).
+        /// 빙결이면 애니메이션 상태를 Frozen(걷기 정지)으로, 해제면 Walk(걷기 재개)로 레벨 동기화한다.
+        /// 순수 클라이언트는 이 값을 받아 걷기 애니메이션을 멈추거나(제자리걸음 제거) 재개한다.
+        /// 호스트(서버)는 UnitView가 Animator.speed를 직접 제어하므로 별도 처리가 필요 없다.
+        /// </summary>
+        /// <param name="e">(유닛 Id, 빙결 여부).</param>
+        private void OnUnitFreezeChangedHandler(UnitFreezeChangedEvent e)
+        {
+            SetUnitAnimState(e.UnitId, e.Frozen ? UnitAnimState.Frozen : UnitAnimState.Walk);
         }
 
         /// <summary>

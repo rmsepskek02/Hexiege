@@ -212,7 +212,8 @@ namespace Hexiege.Presentation
             //   발행된 것이므로, 부유 텍스트는 그리지 않는다. HoT는 완료 시 ShowText=true 이벤트로 1회만 표시된다.
             if (!evt.ShowText) return;
 
-            // 회복 엔티티의 월드 좌표 조회 — 현재 힐 대상은 유닛만.
+            // 회복 엔티티의 월드 좌표 조회 — 유닛(파도/BloomFairy/자연회복)과 건물(MistShrine 물안개 힐) 둘 다 대상이다.
+            //   IsUnit 분기 덕분에 건물 회복 텍스트도 신규 UI 없이 이 경로로 그대로 표시된다(MistShrine 규칙 15).
             Vector3 worldPos = evt.IsUnit
                 ? _presentationPoseProvider.GetUnitPosition(evt.Entity.Id)
                 : _presentationPoseProvider.GetBuildingPosition(evt.Entity.Id);

@@ -92,6 +92,26 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// [스킬 - 빙결] 유닛의 "빙결(이동 정지) 상태 전환"을 알리는 이벤트 데이터.
+    /// 서버 전용 이동 코루틴(UnitView)이 빙결 진입/해제 순간에 1회씩 발행한다.
+    /// NetworkCombatController(서버)가 구독해 애니메이션 상태를 Frozen/Walk로 레벨 동기화한다
+    /// (호스트는 UnitView가 Animator.speed를 직접 제어하므로, 이 이벤트는 순수 클라 동기화가 목적).
+    /// </summary>
+    public readonly struct UnitFreezeChangedEvent
+    {
+        /// <summary> 상태가 바뀐 유닛 Id. </summary>
+        public readonly int UnitId;
+        /// <summary> true=빙결(걷기 정지) 진입, false=빙결 해제(걷기 재개). </summary>
+        public readonly bool Frozen;
+
+        public UnitFreezeChangedEvent(int unitId, bool frozen)
+        {
+            UnitId = unitId;
+            Frozen = frozen;
+        }
+    }
+
+    /// <summary>
     /// 유닛 이동 이벤트 데이터.
     /// 유닛이 타일 하나를 이동할 때마다 발행.
     /// </summary>
@@ -231,13 +251,13 @@ namespace Hexiege.Application
     /// </summary>
     public readonly struct EntityHealedEvent
     {
-        /// <summary> 회복된 엔티티(현재는 유닛만 사용). </summary>
+        /// <summary> 회복된 엔티티(유닛 또는 건물). 건물은 MistShrine 물안개 힐에서 사용한다. </summary>
         public readonly IDamageable Entity;
 
         /// <summary> 회복 적용 후 현재 HP. </summary>
         public readonly int CurrentHp;
 
-        /// <summary> 회복된 엔티티가 유닛인지 여부. false면 건물(현재 미사용). </summary>
+        /// <summary> 회복된 엔티티가 유닛인지 여부. false면 건물(MistShrine 물안개 힐이 사용). </summary>
         public readonly bool IsUnit;
 
         /// <summary> 회복을 시전한 힐러의 Id. 없으면 -1. </summary>
@@ -326,6 +346,36 @@ namespace Hexiege.Application
         public BuildingDiedEvent(BuildingData building)
         {
             Building = building;
+        }
+    }
+
+    /// <summary>
+    /// 연구 착수가 서버에서 확정되어 "소유 클라"에게만 진행 표시를 시작하라고 알리는 이벤트.
+    /// 멀티플레이 순수 클라이언트(Red)는 진행 상태를 UseCase에 두지 않으므로(서버 권위 틱),
+    /// 이 이벤트의 Total로 UI가 로컬 카운트다운을 그린다. 완료는 OnUpgradeChanged(레벨 반영)로 확정.
+    /// </summary>
+    public readonly struct ResearchStartedLocalEvent
+    {
+        /// <summary> 착수한 강화 그룹(Regen은 그룹 무시). </summary>
+        public readonly UpgradeGroup Group;
+        /// <summary> 착수한 강화 스탯. </summary>
+        public readonly UnitUpgradeStat Stat;
+        /// <summary> 전체 연구 시간(초). UI 진행 바 카운트다운 기준. </summary>
+        public readonly float Total;
+        /// <summary>
+        /// 착수한 연구소 건물 Id.
+        /// 멀티플레이 순수 클라이언트는 UseCase에 진행 상태(_active)가 없어 "이 연구소가 연구 중인가"를
+        /// 직접 조회할 수 없다. 연구 패널의 매트릭스/진행 레이어 전환을 연구소 단위로 하기 위해
+        /// 서버가 착수를 확정할 때 이 Id를 함께 내려보내, 클라가 로컬 진행을 연구소에 귀속시킨다.
+        /// </summary>
+        public readonly int BuildingId;
+
+        public ResearchStartedLocalEvent(UpgradeGroup group, UnitUpgradeStat stat, float total, int buildingId)
+        {
+            Group = group;
+            Stat = stat;
+            Total = total;
+            BuildingId = buildingId;
         }
     }
 
@@ -781,6 +831,22 @@ namespace Hexiege.Application
         public static readonly Subject<ResourceChangedEvent> OnResourceChanged = new Subject<ResourceChangedEvent>();
 
         /// <summary>
+        /// 연구소 유닛 강화(업그레이드) 상태가 바뀔 때 발행(팀 단위).
+        /// 발행: UnitUpgradeUseCase(연구 착수/완료/취소/레벨 동기화 시)
+        /// 구독: ResearchPanelUI(트랙 레벨/진행 상태/버튼 활성 갱신)
+        /// 값: 상태가 바뀐 팀 Id. 구독자는 이 팀의 트랙 상태를 UseCase에서 다시 읽어 갱신한다.
+        /// </summary>
+        public static readonly Subject<TeamId> OnUpgradeChanged = new Subject<TeamId>();
+
+        /// <summary>
+        /// 멀티플레이에서 서버가 연구 착수를 확정해 "소유 클라"에게 진행 표시를 시작시키는 이벤트.
+        /// 발행: NetworkUpgradeController.ResearchStartedClientRpc(요청 클라 한정)
+        /// 구독: ResearchPanelUI(로컬 진행 바 카운트다운 시작)
+        /// </summary>
+        public static readonly Subject<ResearchStartedLocalEvent> OnResearchStartedLocal
+            = new Subject<ResearchStartedLocalEvent>();
+
+        /// <summary>
         /// 생산 시작 시 발행.
         /// 발행: UnitProductionUseCase
         /// 구독: ProductionPanelUI (프로그레스 바 시작)
@@ -819,6 +885,15 @@ namespace Hexiege.Application
         /// 구독: NetworkCombatController (SetUnitAnimState로 _animState=Walk 레벨 동기화 전파)
         /// </summary>
         public static readonly Subject<int> OnUnitWalkStarted = new Subject<int>();
+
+        /// <summary>
+        /// [스킬 - 빙결] 유닛이 빙결(이동 정지) 상태로 들어가거나 빠져나올 때 발행. (UnitId, Frozen).
+        /// 멀티플레이 서버 전용 — 서버 이동 코루틴(UnitView)이 빙결 진입/해제 순간에 1회씩 발행한다.
+        /// 발행: UnitView.SetFrozenAnimation(상태 전환 시에만)
+        /// 구독: NetworkCombatController(서버) → SetUnitAnimState로 Frozen/Walk 레벨 동기화(순수 클라 걷기 정지).
+        /// 싱글플레이/호스트는 UnitView가 Animator.speed를 직접 제어하므로 이 이벤트에 의존하지 않는다.
+        /// </summary>
+        public static readonly Subject<UnitFreezeChangedEvent> OnUnitFreezeChanged = new Subject<UnitFreezeChangedEvent>();
 
         // OnUnitWalkStopped 제거 — Idle 상태가 없으므로 Walk 정지 이벤트 불필요.
         // Walk→Attack: StartCombatClientRpc에서 직접 처리.

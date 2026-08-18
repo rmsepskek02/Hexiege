@@ -63,15 +63,15 @@ namespace Hexiege.Infrastructure
                  "작을수록 파도가 빠르게 훑는다. 기본값 0.5")]
         [SerializeField] private float _waveTravelTime = 0.5f;
 
-        [Tooltip("파도가 아군에 닿을 때의 회복량(HP). 적에게는 대신 attackPower만큼 피해. 기본값 10")]
-        [SerializeField] private float _waveHeal = 10f;
+        [Tooltip("파도가 아군에 닿을 때의 회복량(HP). 적에게는 대신 attackPower만큼 피해. 기본값 100(×10 스케일)")]
+        [SerializeField] private float _waveHeal = 100f;
 
         // ── 꽃요정(BloomFairy) 힐러 HoT(지속 회복) ────────────────────
         [Header("BloomFairy Heal (지속 회복 HoT)")]
 
         [Tooltip("BloomFairy가 부상 아군에게 거는 지속 회복(HoT) 총 회복량(HP). " +
-                 "지속시간 동안 서버 틱으로 나눠 회복되며 최종적으로 정확히 이 값에 도달. 기본값 20")]
-        [SerializeField] private float _bloomHealAmount = 20f;
+                 "지속시간 동안 서버 틱으로 나눠 회복되며 최종적으로 정확히 이 값에 도달. 기본값 200(×10 스케일)")]
+        [SerializeField] private float _bloomHealAmount = 200f;
 
         [Tooltip("BloomFairy 지속 회복(HoT)의 지속시간(초). 이 시간 동안 총 회복량이 서서히 적용된다. 기본값 3")]
         [SerializeField] private float _bloomHealDuration = 3f;
@@ -83,8 +83,8 @@ namespace Hexiege.Infrastructure
                  "적 유닛에게 DoT를 부여한다. 기본값 = '인접 1칸' 타일 거리(≈1.0). 기본값 1.0")]
         [SerializeField] private float _blastRadius = 1.0f;
 
-        [Tooltip("착탄 DoT의 초당 피해량(HP/초). 매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 2")]
-        [SerializeField] private float _blastDotPerSecond = 2f;
+        [Tooltip("착탄 DoT의 초당 피해량(HP/초). 매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 20(×10 스케일)")]
+        [SerializeField] private float _blastDotPerSecond = 20f;
 
         [Tooltip("착탄 DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 2×3 = 6). 기본값 3")]
         [SerializeField] private float _blastDotDuration = 3f;
@@ -93,8 +93,8 @@ namespace Hexiege.Infrastructure
         [Header("InfernoSpirit DoT (단일 대상 지속 피해)")]
 
         [Tooltip("InfernoSpirit이 때린 적 유닛 1명에게 거는 DoT의 초당 피해량(HP/초). " +
-                 "매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 5")]
-        [SerializeField] private float _infernoDotPerSecond = 5f;
+                 "매초 뚝뚝 들어가며 소수점은 올림 처리된다. 기본값 50(×10 스케일)")]
+        [SerializeField] private float _infernoDotPerSecond = 50f;
 
         [Tooltip("InfernoSpirit DoT의 지속시간(초). 총 피해 = 초당 피해 × 지속(예: 5×3 = 15). 기본값 3")]
         [SerializeField] private float _infernoDotDuration = 3f;
@@ -109,6 +109,36 @@ namespace Hexiege.Infrastructure
         [Tooltip("착탄 즉발 스플래시의 피해 비율(공격력 대비). 스플래시 피해 = 올림(공격력 × 이 값). " +
                  "예: 공격력 20 × 0.5 = 10. 주 타깃은 100%(스플래시 제외)만 받는다. 기본값 0.5")]
         [SerializeField] private float _quakeSplashRatio = 0.5f;
+
+        // ── MistShrine(초월 회복 건물) 물안개 힐 ───────────────────────
+        // ⚠️ 아래 5개는 전부 "임시값 — 밸런싱 미확정"이다
+        //    (GameSystemRules_Buildings.md MistShrine 규칙 16 / GameSystemRules_UI.md MistShrine 규칙 9).
+        //    특히 지속시간(10초)·쿨다운(20초)은 어떤 문서에도 근거가 없는 신규 제안값이므로
+        //    플레이테스트 전까지 확정 수치로 인용해서는 안 된다.
+        //    밸런싱이 확정되면 Resources/Config/SpecialAttackConfig.asset "한 파일만" 고치면 되고
+        //    코드 재작성·재빌드는 필요 없다(Inspector 값이 코드 기본값보다 우선).
+        [Header("MistShrine 물안개 힐 (전부 임시값 — 밸런싱 미확정)")]
+
+        [Tooltip("물안개 안의 아군 유닛·아군 건물이 1초마다 회복하는 체력(HP/초). " +
+                 "1초 격자 틱이라 틱당 회복량 = 올림(이 값)이 된다. 임시값 10 — 밸런싱 미확정")]
+        [SerializeField] private float _mistHealPerSecond = 10f;
+
+        [Tooltip("한 번 시전했을 때 물안개가 깔려 있는 시간(초). 반드시 쿨다운보다 짧아야 한다" +
+                 "(MistShrine 규칙 7 — 다운타임 존재). 임시값 10 — 밸런싱 미확정")]
+        [SerializeField] private float _mistDuration = 10f;
+
+        [Tooltip("시전 후 다시 사용할 수 있을 때까지의 대기 시간(초). 지속시간보다 길어야 한다. " +
+                 "임시값 20 — 밸런싱 미확정")]
+        [SerializeField] private float _mistCooldown = 20f;
+
+        [Tooltip("물안개 회복 범위 반경(월드 단위). 다른 특수 공격 반경과 같은 기준이며 " +
+                 "1.0 ≈ 인접 1칸 타일 거리다. 임시값 3(≈3타일) — 밸런싱 미확정")]
+        [SerializeField] private float _mistRadius = 3f;
+
+        [Tooltip("회복 텍스트를 띄우는 주기(초). 회복은 1초마다 일어나지만 매초 텍스트를 띄우면 " +
+                 "범위 안 다수 대상에서 화면이 도배되므로 표시 주기만 따로 둔다(UI 규칙 9). " +
+                 "임시값 3 — 밸런싱 미확정")]
+        [SerializeField] private float _mistHealTextInterval = 3f;
 
         /// <summary> 휩쓸기 전방 부채꼴 판정의 월드 반경(XZ 평면 거리 한계). </summary>
         public float SweepReach => _sweepReach;
@@ -154,5 +184,20 @@ namespace Hexiege.Infrastructure
 
         /// <summary> QuakeSpirit 착탄 즉발 스플래시의 피해 비율(공격력 대비, 올림 적용). </summary>
         public float QuakeSplashRatio => _quakeSplashRatio;
+
+        /// <summary> MistShrine 물안개 힐의 초당 회복량(HP/초). 임시값 — 밸런싱 미확정. </summary>
+        public float MistHealPerSecond => _mistHealPerSecond;
+
+        /// <summary> MistShrine 물안개 지속시간(초). 쿨다운보다 짧아야 한다(규칙 7). 임시값 — 밸런싱 미확정. </summary>
+        public float MistDuration => _mistDuration;
+
+        /// <summary> MistShrine 시전 쿨다운(초). 임시값 — 밸런싱 미확정. </summary>
+        public float MistCooldown => _mistCooldown;
+
+        /// <summary> MistShrine 물안개 회복 범위 반경(월드 단위, 1.0 ≈ 인접 1타일). 임시값 — 밸런싱 미확정. </summary>
+        public float MistRadius => _mistRadius;
+
+        /// <summary> MistShrine 회복 텍스트 표시 주기(초). 회복 틱(1초)과 분리된 값. 임시값 — 밸런싱 미확정. </summary>
+        public float MistHealTextInterval => _mistHealTextInterval;
     }
 }

@@ -40,6 +40,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UniRx;
 using Hexiege.Domain;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
@@ -98,6 +99,26 @@ namespace Hexiege.Presentation
         /// <summary>현재 패널이 표시 중인 건물 데이터. Close() 시 null로 초기화된다.</summary>
         protected BuildingData _currentBuilding;
 
+        /// <summary>
+        /// 건물 사망 이벤트(GameEvents.OnBuildingDied)를 이미 구독했는지 여부(중복 구독 방지 가드).
+        ///
+        /// 왜 IDisposable을 따로 보관하지 않나?
+        ///   이 클래스는 MonoBehaviour이므로, 구독을 UniRx의 .AddTo(this)로
+        ///   "이 컴포넌트의 수명"에 묶는다. 그러면 GameObject가 파괴될 때 구독이
+        ///   자동으로 해제되어(별도 OnDestroy/Dispose 불필요) 누수가 생기지 않는다.
+        ///   (이 프로젝트의 다른 MonoBehaviour들 — BuildingFactory/UnitFactory/
+        ///    HitPresentationQueue 등 — 도 동일하게 .AddTo(this)를 사용한다.)
+        ///
+        ///   참고: 여기서 직접 OnDestroy를 정의하지 않는 이유는, 자식 중
+        ///   ResearchPanelUI가 이미 자체 OnDestroy를 갖고 있어 베이스의 OnDestroy를
+        ///   숨겨 버리기 때문이다(그 경우 베이스 정리가 실행되지 않는다).
+        ///   .AddTo(this)는 이런 메서드 숨김과 무관하게 동작하므로 더 안전하다.
+        ///
+        /// InitializeBase가 자식마다 1회만 호출되는 것이 정상이지만,
+        /// 방어적으로 이 플래그가 true면 재구독을 건너뛴다.
+        /// </summary>
+        private bool _buildingDiedSubscribed;
+
         // ====================================================================
         // 공개 상태 프로퍼티
         // ====================================================================
@@ -142,6 +163,23 @@ namespace Hexiege.Presentation
             // 철거 버튼 → OnDemolishButtonClick() 연결
             if (_demolishButton != null)
                 _demolishButton.onClick.AddListener(OnDemolishButtonClick);
+
+            // 건물 사망 이벤트 구독 (중복 구독 방지 가드)
+            //
+            // 목적: 이 패널이 표시/조준 중인 건물이 파괴되면 패널을 자동으로 닫는다.
+            //       (생산/액션/스킬/연구 패널 4종이 모두 이 베이스를 상속하므로
+            //        여기 한 곳에서 구독하면 4종 전부가 커버된다.)
+            //
+            // 가드: 이미 구독했다면 재구독하지 않는다.
+            //       InitializeBase가 실수로 두 번 호출되더라도 구독이 겹쳐 쌓이는 것을 막는다.
+            // .AddTo(this): 이 컴포넌트(GameObject)가 파괴되면 구독을 자동 해제(누수 방지).
+            if (!_buildingDiedSubscribed)
+            {
+                GameEvents.OnBuildingDied
+                    .Subscribe(OnBuildingDied)
+                    .AddTo(this);
+                _buildingDiedSubscribed = true;
+            }
         }
 
         // ====================================================================
@@ -314,5 +352,41 @@ namespace Hexiege.Presentation
 
         /// <summary>게임 종료(승패 결정) 시 호출. 결과 화면이 표시되는 동안 패널을 닫는다.</summary>
         public virtual void OnGameEnded() => Close();
+
+        // ====================================================================
+        // 건물 사망 → 열린 패널/조준 UI 원복
+        // ====================================================================
+
+        /// <summary>
+        /// 건물이 파괴/철거되었을 때 호출되는 핸들러 (GameEvents.OnBuildingDied 구독).
+        ///
+        /// 하는 일:
+        ///   죽은 건물이 "지금 이 패널이 다루고 있는 바로 그 건물"이면 패널을 닫는다.
+        ///
+        /// 왜 IsOpen이 아니라 _currentBuilding.Id로 판정하나?
+        ///   스킬 패널은 지점 조준 모드로 들어갈 때 팝업을 잠시 숨긴다(_popup.Hide()).
+        ///   그러면 IsOpen(=팝업 가시성 기준)이 false가 되지만, _currentBuilding은
+        ///   여전히 조준 대상 건물을 가리킨다. IsOpen으로 걸면 이 "조준 중" 케이스를
+        ///   놓치므로, 화면 표시 여부와 무관한 _currentBuilding.Id 매칭으로 판정한다.
+        ///   (패널이 완전히 닫혀 있으면 _currentBuilding == null이라 매칭이 자연히
+        ///    실패하므로, 남의 건물이 죽어도 엉뚱하게 닫히지 않는다.)
+        ///
+        /// 왜 Close()만 불러도 조준까지 취소되나?
+        ///   Close()는 맨 처음 OnBeforeClose()를 호출한다. 스킬 패널은 이 훅에서
+        ///   _skillAimController.CancelAim()을, 생산 패널은 랠리 마커 숨김을 수행한다.
+        ///   따라서 베이스에서 Close()만 호출해도 각 패널의 정리가 자동으로 따라온다.
+        /// </summary>
+        /// <param name="e">사망한 건물 정보가 담긴 이벤트.</param>
+        private void OnBuildingDied(BuildingDiedEvent e)
+        {
+            // 죽은 건물이 있고, 이 패널이 현재 어떤 건물을 다루는 중이며,
+            // 그 둘의 Id가 같을 때만 닫는다. (셋 중 하나라도 아니면 아무 동작 없음)
+            if (e.Building != null
+                && _currentBuilding != null
+                && e.Building.Id == _currentBuilding.Id)
+            {
+                Close();
+            }
+        }
     }
 }

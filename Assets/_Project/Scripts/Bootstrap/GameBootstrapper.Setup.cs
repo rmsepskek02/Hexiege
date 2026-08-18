@@ -77,7 +77,9 @@ namespace Hexiege.Bootstrap
                     AttackCooldown = entry.attackCooldown,
                     HitFrameTimes = entry.hitFrameTimes,
                     // 역할 플래그(방식 A) — 힐러(BloomFairy) 여부를 Domain 스탯으로 전달.
-                    IsHealer = entry.isHealer
+                    IsHealer = entry.isHealer,
+                    // 방어력(신규) — 전 유닛 0(Phase 1). 구 .asset은 필드가 없어 자동으로 0 폴백.
+                    Defense = entry.defense
                 };
 
                 prodDict[entry.unitType] = new UnitProductionStats.ProductionValues
@@ -291,28 +293,37 @@ namespace Hexiege.Bootstrap
             float waveWidth = _specialAttackConfig != null ? _specialAttackConfig.WaveWidth : 3f;
             float waveLength = _specialAttackConfig != null ? _specialAttackConfig.WaveLength : 3f;
             float waveTravelTime = _specialAttackConfig != null ? _specialAttackConfig.WaveTravelTime : 0.5f;
-            float waveHeal = _specialAttackConfig != null ? _specialAttackConfig.WaveHeal : 10f;
+            float waveHeal = _specialAttackConfig != null ? _specialAttackConfig.WaveHeal : 100f;
 
             // BloomFairy 지속 회복(HoT) 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
-            // 총 회복량 20HP / 지속 3초가 기본값(설계 확정값).
-            float bloomHealAmount = _specialAttackConfig != null ? _specialAttackConfig.BloomHealAmount : 20f;
+            // 총 회복량 200HP(×10 스케일) / 지속 3초가 기본값(설계 확정값).
+            float bloomHealAmount = _specialAttackConfig != null ? _specialAttackConfig.BloomHealAmount : 200f;
             float bloomHealDuration = _specialAttackConfig != null ? _specialAttackConfig.BloomHealDuration : 3f;
 
             // MushroomBomber 착탄 DoT 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
-            // 착탄 반경 1.0(인접 1칸) / 초당 피해 2 / 지속 3초가 기본값(설계 확정값).
+            // 착탄 반경 1.0(인접 1칸) / 초당 피해 20(×10 스케일) / 지속 3초가 기본값(설계 확정값).
             float blastRadius = _specialAttackConfig != null ? _specialAttackConfig.BlastRadius : 1.0f;
-            float blastDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.BlastDotPerSecond : 2f;
+            float blastDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.BlastDotPerSecond : 20f;
             float blastDotDuration = _specialAttackConfig != null ? _specialAttackConfig.BlastDotDuration : 3f;
 
             // InfernoSpirit 단일 대상 DoT 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
-            // 초당 피해 5 / 지속 3초(총 15)가 기본값(설계 확정값). MushroomBomber(2/3)와 별개 값.
-            float infernoDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.InfernoDotPerSecond : 5f;
+            // 초당 피해 50(×10 스케일) / 지속 3초(총 150)가 기본값(설계 확정값). MushroomBomber(20/3)와 별개 값.
+            float infernoDotPerSecond = _specialAttackConfig != null ? _specialAttackConfig.InfernoDotPerSecond : 50f;
             float infernoDotDuration = _specialAttackConfig != null ? _specialAttackConfig.InfernoDotDuration : 3f;
 
             // QuakeSpirit 착탄 즉발 스플래시 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
             // 착탄 반경 1.0(인접 1칸) / 스플래시 비율 0.5(공격력의 50%, 올림)가 기본값(설계 확정값).
             float quakeRadius = _specialAttackConfig != null ? _specialAttackConfig.QuakeRadius : 1.0f;
             float quakeSplashRatio = _specialAttackConfig != null ? _specialAttackConfig.QuakeSplashRatio : 0.5f;
+
+            // MistShrine 물안개 힐 튜닝값 — SO에서 float로 읽어 주입(미연결 시 코드 폴백).
+            // ⚠️ 아래 5개는 전부 "임시값 — 밸런싱 미확정"이다(MistShrine 규칙 16 / UI 규칙 9).
+            //    밸런싱이 확정되면 SpecialAttackConfig.asset만 고치면 되고 코드 변경은 필요 없다.
+            float mistHealPerSecond = _specialAttackConfig != null ? _specialAttackConfig.MistHealPerSecond : 10f;
+            float mistDuration = _specialAttackConfig != null ? _specialAttackConfig.MistDuration : 10f;
+            float mistCooldown = _specialAttackConfig != null ? _specialAttackConfig.MistCooldown : 20f;
+            float mistRadius = _specialAttackConfig != null ? _specialAttackConfig.MistRadius : 3f;
+            float mistHealTextInterval = _specialAttackConfig != null ? _specialAttackConfig.MistHealTextInterval : 3f;
 
             _unitCombat = new UnitCombatUseCase(
                 _grid, _unitSpawn, _buildingPlacement, _positionProvider, hexMapper,
@@ -336,6 +347,57 @@ namespace Hexiege.Bootstrap
                 team => team == TeamId.Blue
                     ? GameRaceContext.BlueRace
                     : GameRaceContext.RedRace);
+
+            // ────────────────────────────────────────────────────────────
+            // [Phase 2] 연구소 유닛 강화 UseCase — 팀별 트랙 레벨/진행 상태 보관.
+            //   데미지(공격보너스·방어감쇄)·이동배율·힐 스케일·자연회복 조회를 전투/이동/타워가 참조하도록 주입.
+            //   (B) 방식: 유닛 스냅샷은 그대로 두고 사용 지점에서 팀 레벨을 곱한다 → 소급 강화 자동 성립.
+            // ────────────────────────────────────────────────────────────
+            _unitUpgrade = new UnitUpgradeUseCase();
+            _unitCombat.SetUpgradeUseCase(_unitUpgrade);
+            _towerCombat.SetUpgradeUseCase(_unitUpgrade);
+
+            // ────────────────────────────────────────────────────────────
+            // [스킬 - 타입 C] 상태효과 시스템 — 유닛별 버프/디버프/제어(빙결·둔화·공격 배율) 보관·틱.
+            //   유효 스탯 접근자(EffectiveAttack/GetUnitMoveSpeedMultiplier)와 CanAttack 게이트가 참조하도록 주입.
+            //   미주입 시 전투는 기존과 완전히 동일(무상태=배율 1·공격 가능) — 회귀 안전.
+            //   틱: 싱글=GameBootstrapper.Update / 멀티 서버=NetworkCombatController / 멀티 클라 미러=Update.
+            // ────────────────────────────────────────────────────────────
+            _statusEffectSystem = new StatusEffectSystem();
+            _unitCombat.SetStatusEffectSystem(_statusEffectSystem);
+
+            // ────────────────────────────────────────────────────────────
+            // [스킬 건물] 스킬 발동 UseCase — 발동 재검증·실행·글로벌 쿨다운 보관(서버 권위).
+            //   데이터 제공자(_skillLoadoutConfig)는 미연결 시 null → Activate가 조용히 실패(안전).
+            //   팀 → 종족 변환은 TowerCombatUseCase와 동일 규칙(Blue→BlueRace, Red→RedRace).
+            //   피해/DoT 실제 적용은 _unitCombat의 "건물/스킬 출처 전용 경로"가 담당한다.
+            // ────────────────────────────────────────────────────────────
+            _skillActivation = new SkillActivationUseCase(
+                _buildingPlacement,
+                // 조준 연속 좌표(도메인 월드)가 맵 경계 안 점인지 재검증(규칙 22·26).
+                //   좌표화 이후 HasTile(정수 타일) 대신 맵 월드 경계(최외곽 타일 바깥선) 판정을 쓴다.
+                //   람다가 현재 _grid를 읽으므로 맵 재로드에도 최신 그리드 크기를 반영한다.
+                aimWorld => _grid != null && HexMetrics.IsWithinMapBounds(aimWorld, _grid.Width, _grid.Height),
+                _unitCombat,
+                _skillLoadoutConfig, // ISkillDataProvider (SkillLoadoutConfig SO). null 허용.
+                team => team == TeamId.Blue
+                    ? GameRaceContext.BlueRace
+                    : GameRaceContext.RedRace);
+
+            // ────────────────────────────────────────────────────────────
+            // [MistShrine] 물안개 힐 UseCase — 시전 재검증·물안개 수명·1초 회복·쿨다운·자동 모드(서버 권위).
+            //   기존 HoT/DoT 시스템(_activeTimedEffects)을 쓰지 않는 독립 채널이다(규칙 8-2·14).
+            //   좌표 변환은 hexMapper(IHexCoordinateMapper)로 주입해 Application이 Core를 모르게 한다.
+            // ────────────────────────────────────────────────────────────
+            _mistShrine = new MistShrineUseCase(
+                _buildingPlacement,
+                _unitSpawn,
+                hexMapper,
+                mistHealPerSecond,
+                mistDuration,
+                mistCooldown,
+                mistRadius,
+                mistHealTextInterval);
 
             // TileOwnershipService 초기화.
             // _grid, _unitSpawn, _positionProvider, hexMapper가 모두 준비된 직후에 생성한다.
@@ -371,6 +433,35 @@ namespace Hexiege.Bootstrap
 
             // 게임 종료 판정
             _gameEnd = new GameEndUseCase();
+
+            // ────────────────────────────────────────────────────────────
+            // [Phase 4] 연구소(Research) 파괴 시 진행 중 연구 취소 + 투입 골드 100% 환불(규칙 8).
+            //   서버(또는 싱글플레이)에서만 처리 — 클라이언트는 골드/레벨을 동기화로 수신하므로 이중 환불 금지.
+            //   연구는 특정 연구소에 종속되지 않지만, 각 진행 연구는 착수한 연구소 Id를 기억하므로
+            //   그 연구소가 파괴되면 해당 연구만 취소·환불한다(다른 연구소의 병렬 연구는 유지).
+            // ────────────────────────────────────────────────────────────
+            _labDestroyedSub?.Dispose();
+            _labDestroyedSub = GameEvents.OnBuildingDied.Subscribe(e =>
+            {
+                if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+                if (e.Building == null || e.Building.Type != BuildingType.Research) return;
+                _unitUpgrade?.OnLabDestroyed(e.Building.Id, _resource);
+            });
+
+            // ────────────────────────────────────────────────────────────
+            // [MistShrine] 신전 파괴·철거 시 상태 정리(규칙 12·25).
+            //   ① 그 건물이 만든 물안개 즉시 제거 ② 자동 모드 제거 ③ 쿨다운 제거.
+            //   서버(또는 싱글플레이)에서만 처리한다 — 클라이언트는 물안개를 갖고 있지 않다.
+            //   패널 자동 닫힘은 BuildingPanelBase가 이미 공통으로 처리하므로 여기서 다루지 않는다.
+            //   (연구소 파괴 처리와 완전히 동일한 패턴: 서버 가드 + 타입 필터 + 재구독 전 Dispose.)
+            // ────────────────────────────────────────────────────────────
+            _mistShrineDestroyedSub?.Dispose();
+            _mistShrineDestroyedSub = GameEvents.OnBuildingDied.Subscribe(e =>
+            {
+                if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+                if (e.Building == null || e.Building.Type != BuildingType.HealShrine) return;
+                _mistShrine?.OnShrineDestroyed(e.Building.Id);
+            });
         }
 
         // ====================================================================
@@ -483,12 +574,31 @@ namespace Hexiege.Bootstrap
         {
             if (_inputHandler != null)
             {
-                // 비생산 건물 액션 패널(_buildingActionPanelUI)을 마지막 인자로 함께 주입.
-                // 싱글/멀티 모드 모두 동일 — 멀티는 액션 패널 내부에서 ServerRpc 분기 처리.
+                // 비생산 건물 액션 패널(_buildingActionPanelUI)과 연구소 강화 패널(_researchPanelUI)을 함께 주입.
+                // 싱글/멀티 모드 모두 동일 — 멀티는 각 패널 내부에서 ServerRpc 분기 처리.
+                // _researchPanelUI 가 씬에 미배선(null)이면 연구소 클릭은 기존 액션 패널로 폴백된다.
                 _inputHandler.Initialize(
                     _gridInteraction, _mainCamera,
                     _buildingPlacement, _buildingUI, _productionUI,
-                    _buildingActionPanelUI);
+                    _buildingActionPanelUI, _researchPanelUI,
+                    // 스킬 건물 라우팅 패널 + 조준 컨트롤러(미배선 시 null → 기존 액션 패널로 폴백/조준 억제 없음).
+                    _buildingSkillPanelUI, _skillAimController,
+                    // MistShrine 라우팅 패널(미배선 시 null → 기존 액션 패널로 폴백).
+                    _mistShrinePanelUI);
+            }
+
+            // 스킬 지점 조준 컨트롤러 초기화(있을 때만 — 프리팹/씬 배선은 사용자 Unity 작업).
+            //   좌표화 이후: 타일 유효성(HasTile) 대신 "연속 좌표 clamp + 맵 경계 안 점 판정"을 주입한다.
+            //   두 람다 모두 현재 _grid를 읽으므로 맵 재로드 시에도 최신 그리드 크기를 반영한다.
+            if (_skillAimController != null)
+            {
+                _skillAimController.Initialize(
+                    _mainCamera,
+                    _cameraController,
+                    // 연속 도메인 좌표를 맵 경계 안으로 clamp(규칙 22 — 최외곽 타일 바깥선 기준).
+                    domain => _grid != null ? HexMetrics.ClampToMapBounds(domain, _grid.Width, _grid.Height) : domain,
+                    // 연속 도메인 좌표가 맵 경계 안인지 판정(기본 조준 위치 결정용).
+                    domain => _grid == null || HexMetrics.IsWithinMapBounds(domain, _grid.Width, _grid.Height));
             }
         }
 
@@ -529,6 +639,70 @@ namespace Hexiege.Bootstrap
                 Hexiege.Infrastructure.NetworkBuildingController controller =
                     isNetworkMode ? _networkBuildingController : null;
                 _buildingActionPanelUI.Initialize(_buildingPlacement, _resource, controller);
+            }
+
+            // ────────────────────────────────────────────────────────────
+            // [Phase 4] 연구소 강화 패널 초기화(있을 때만 — 프리팹/씬 배선은 사용자 Unity 작업).
+            //   멀티플레이면 NetworkUpgradeController를 주입해 ServerRpc 경유 연구 착수.
+            //   연구소 클릭 → _researchPanelUI.Open(building) 라우팅은 InputHandler/액션 패널에서 배선 필요(사용자 작업).
+            // ────────────────────────────────────────────────────────────
+            if (_researchPanelUI != null)
+            {
+                bool isNetworkMode = IsNetworkMode();
+                Hexiege.Infrastructure.NetworkUpgradeController upgradeController =
+                    isNetworkMode ? _networkUpgradeController : null;
+                // 연구 패널이 BuildingPanelBase를 상속하므로 철거(하단 버튼)용 의존성도 함께 주입한다.
+                //   - _buildingPlacement: 건물 제거(철거).
+                //   - networkBuildingController: 멀티플레이 철거 요청 중계(싱글은 null).
+                Hexiege.Infrastructure.NetworkBuildingController buildingController =
+                    isNetworkMode ? _networkBuildingController : null;
+                _researchPanelUI.Initialize(_unitUpgrade, _resource, upgradeController,
+                    _buildingPlacement, buildingController);
+            }
+
+            // ────────────────────────────────────────────────────────────
+            // [스킬 건물] 전용 스킬 패널 초기화(있을 때만 — 프리팹/씬 배선은 사용자 Unity 작업).
+            //   멀티플레이면 NetworkSkillController(발동 중계)·NetworkBuildingController(철거 중계)를 주입한다.
+            //   스킬 로드아웃(_skillLoadoutConfig)은 ISkillDataProvider로 주입되어 슬롯 1~5를 채운다.
+            // ────────────────────────────────────────────────────────────
+            if (_buildingSkillPanelUI != null)
+            {
+                bool isNetworkMode = IsNetworkMode();
+                Hexiege.Infrastructure.NetworkSkillController skillController =
+                    isNetworkMode ? _networkSkillController : null;
+                Hexiege.Infrastructure.NetworkBuildingController buildingControllerForSkill =
+                    isNetworkMode ? _networkBuildingController : null;
+
+                _buildingSkillPanelUI.Initialize(
+                    _buildingPlacement,
+                    _resource,
+                    buildingControllerForSkill,
+                    _skillActivation,
+                    _skillLoadoutConfig, // ISkillDataProvider (null 허용).
+                    _skillAimController,
+                    skillController);     // INetworkSkillController (null=싱글).
+            }
+
+            // ────────────────────────────────────────────────────────────
+            // [MistShrine] 전용 물안개 힐 패널 초기화(있을 때만 — 프리팹/씬 배선은 에디터 셋업 스크립트).
+            //   멀티플레이면 NetworkMistShrineController(시전·자동 토글 중계)와
+            //   NetworkBuildingController(철거 중계)를 함께 주입한다. 싱글은 둘 다 null.
+            //   패널이 미배선(null)이면 MistShrine 클릭은 기존 공용 액션 패널로 폴백된다(안전망).
+            // ────────────────────────────────────────────────────────────
+            if (_mistShrinePanelUI != null)
+            {
+                bool isNetworkMode = IsNetworkMode();
+                Hexiege.Infrastructure.NetworkMistShrineController mistController =
+                    isNetworkMode ? _networkMistShrineController : null;
+                Hexiege.Infrastructure.NetworkBuildingController buildingControllerForMist =
+                    isNetworkMode ? _networkBuildingController : null;
+
+                _mistShrinePanelUI.Initialize(
+                    _buildingPlacement,
+                    _resource,
+                    buildingControllerForMist,
+                    _mistShrine,
+                    mistController);      // INetworkMistShrineController (null=싱글).
             }
         }
 
@@ -650,7 +824,8 @@ namespace Hexiege.Bootstrap
                 aiParams,
                 scenarioSteps,
                 scenarioName,
-                difficulty);
+                difficulty,
+                _unitUpgrade); // [Phase 5] 연구 스텝(StartResearch) 실행용. null이면 연구 스텝은 스킵.
 
             Debug.Log($"[GameBootstrapper] AI 초기화 완료. 난이도={difficulty}, " +
                       $"시나리오={scenarioName}, 수입배율={aiParams.goldIncomeMultiplier}");

@@ -50,6 +50,14 @@ namespace Hexiege.Bootstrap
                 // 비생산 건물 공용 액션 패널도 IGameUI 구현체이므로 함께 등록한다.
                 // 게임 시작/종료 시 자동으로 패널이 닫히도록 보장.
                 _uiManager.Register(_buildingActionPanelUI);
+                // 스킬 건물 전용 패널도 IGameUI(BuildingPanelBase) 구현체 — 게임 시작/종료 시 자동 닫힘 보장.
+                //   (미등록 시 OnGameStarted/OnGameEnded가 호출되지 않아 시작/종료 후에도 스킬 패널이 남는다.)
+                _uiManager.Register(_buildingSkillPanelUI);
+                // 연구소 강화 패널도 IGameUI(BuildingPanelBase) 구현체 — 동일하게 게임 시작/종료 시 자동 닫힘 보장.
+                _uiManager.Register(_researchPanelUI);
+                // MistShrine 전용 패널도 IGameUI(BuildingPanelBase) 구현체 — 게임 시작/종료 시 자동 닫힘 보장
+                //   (닫히면서 OnBeforeClose가 회복 범위 원까지 함께 지운다).
+                _uiManager.Register(_mistShrinePanelUI);
                 // 인게임 설정 메뉴도 IGameUI — 재경기/게임 종료 시 자동 닫힘 보장을 위해 등록.
                 _uiManager.Register(_inGameSettingsUI);
                 _uiManager.Register(_gameEndUI);
@@ -219,6 +227,17 @@ namespace Hexiege.Bootstrap
 
             _congestionSub?.Dispose();
             _congestionSub = null;
+
+            // [Phase 4] 연구소 파괴 구독 해제 + 연구 강화 상태 리셋(재경기/맵 전환 시 잔여 레벨 차단).
+            _labDestroyedSub?.Dispose();
+            _labDestroyedSub = null;
+            _unitUpgrade?.Reset();
+
+            // [MistShrine] 신전 파괴 구독 해제 + 물안개/자동 모드/쿨다운 전체 초기화
+            //   (재경기·맵 전환 시 이전 게임의 물안개나 쿨다운이 남지 않도록).
+            _mistShrineDestroyedSub?.Dispose();
+            _mistShrineDestroyedSub = null;
+            _mistShrine?.ClearAll();
 
             // 이전 게임 종료 UseCase 정리
             _gameEnd?.Dispose();

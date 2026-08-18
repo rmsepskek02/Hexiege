@@ -272,5 +272,99 @@ namespace Hexiege.Core
             Vector3 max = HexToWorld(bottomRight);
             return (min + max) * 0.5f;
         }
+
+        // ====================================================================
+        // 맵 월드 경계(도메인 좌표) — 스킬 조준 연속 좌표 clamp/판정용
+        // ====================================================================
+        //
+        // 왜 필요한가(초급자용 설명):
+        //   스킬 지점 조준이 "타일 스냅"에서 "연속 좌표"로 바뀌면서, 조준 중심이 더 이상
+        //   정수 타일(HexCoord)이 아니라 임의의 연속 월드 좌표가 된다. 그래서 "이 연속 점이
+        //   맵 안인가?"를 타일 존재(HasTile)로는 판정할 수 없다. 대신 "맵 전체를 감싸는
+        //   월드 사각 경계(최외곽 타일 바깥선 기준)" 안인지로 판정·clamp한다.
+        //
+        // 경계 정의(엄밀 — 결정 3):
+        //   최외곽 타일들의 중심 월드 좌표 극값(min/max)을 구한 뒤, 타일 반칸(가로 0.5×TileWidth,
+        //   세로 0.5×TileHeight)만큼 바깥으로 확장한 축 정렬 사각형(AABB)을 맵 경계로 삼는다.
+        //   → "최근접 타일 근사(반칸 여유)"가 아니라 실제 맵 가장자리선에 해당하는 연속 경계다.
+        //
+        // 좌표계 주의:
+        //   여기서 다루는 좌표는 모두 "도메인 월드"(HexToWorld 결과, Blue 기준)다. Red 팀의 뷰
+        //   반전(ViewConverter)은 표시 단계에서만 적용되므로, 이 경계는 뷰 반전과 무관하게 동일하다.
+
+        /// <summary>
+        /// 맵 전체를 감싸는 도메인 월드 경계(AABB)를 계산한다. Y는 0으로 둔다(XZ 평면).
+        /// 최외곽 타일 중심의 극값을 구한 뒤 타일 반칸만큼 바깥으로 확장한다.
+        /// </summary>
+        /// <param name="gridWidth">그리드 가로 타일 수.</param>
+        /// <param name="gridHeight">그리드 세로 타일 수.</param>
+        /// <param name="min">경계 사각형의 최소 모서리(작은 x·z).</param>
+        /// <param name="max">경계 사각형의 최대 모서리(큰 x·z).</param>
+        public static void ComputeMapWorldBounds(int gridWidth, int gridHeight, out Vector3 min, out Vector3 max)
+        {
+            // 방어: 비정상 그리드면 원점 한 점으로 축약(clamp가 항상 원점을 돌려주도록).
+            if (gridWidth <= 0 || gridHeight <= 0)
+            {
+                min = Vector3.zero;
+                max = Vector3.zero;
+                return;
+            }
+
+            float minX = float.MaxValue, maxX = float.MinValue;
+            float minZ = float.MaxValue, maxZ = float.MinValue;
+
+            // 테두리 셀만 순회해도 극값을 모두 얻는다(내부 셀은 극값에 영향 없음 — 순회 절감).
+            //   홀수 행/열 반칸 시프트 때문에 극값이 코너가 아닌 곳에 생길 수 있어, 테두리 전체를 훑는다.
+            for (int r = 0; r < gridHeight; r++)
+            {
+                for (int c = 0; c < gridWidth; c++)
+                {
+                    bool border = (r == 0 || r == gridHeight - 1 || c == 0 || c == gridWidth - 1);
+                    if (!border) continue;
+
+                    Vector3 w = HexToWorld(HexGrid.OffsetToCube(c, r, Orientation));
+                    if (w.x < minX) minX = w.x;
+                    if (w.x > maxX) maxX = w.x;
+                    if (w.z < minZ) minZ = w.z;
+                    if (w.z > maxZ) maxZ = w.z;
+                }
+            }
+
+            // 타일 중심 극값에서 반칸만큼 바깥으로 확장 = 최외곽 타일 바깥선.
+            float padX = 0.5f * TileWidth;
+            float padZ = 0.5f * TileHeight;
+            min = new Vector3(minX - padX, 0f, minZ - padZ);
+            max = new Vector3(maxX + padX, 0f, maxZ + padZ);
+        }
+
+        /// <summary>
+        /// 도메인 월드 점이 맵 경계(사각 AABB) 안에 있는지 판정한다. 서버 재검증(규칙 26)용.
+        /// </summary>
+        /// <param name="domainPoint">판정할 도메인 월드 좌표(XZ, Y 무시).</param>
+        /// <param name="gridWidth">그리드 가로 타일 수.</param>
+        /// <param name="gridHeight">그리드 세로 타일 수.</param>
+        /// <returns>맵 경계 안이면 true.</returns>
+        public static bool IsWithinMapBounds(Vector3 domainPoint, int gridWidth, int gridHeight)
+        {
+            ComputeMapWorldBounds(gridWidth, gridHeight, out Vector3 min, out Vector3 max);
+            return domainPoint.x >= min.x && domainPoint.x <= max.x
+                && domainPoint.z >= min.z && domainPoint.z <= max.z;
+        }
+
+        /// <summary>
+        /// 도메인 월드 점을 맵 경계(사각 AABB) 안으로 clamp한다. 조준 원이 맵 밖으로 못 나가게 한다(규칙 22).
+        /// Y는 0으로 정규화한다(XZ 평면).
+        /// </summary>
+        /// <param name="domainPoint">clamp할 도메인 월드 좌표.</param>
+        /// <param name="gridWidth">그리드 가로 타일 수.</param>
+        /// <param name="gridHeight">그리드 세로 타일 수.</param>
+        /// <returns>맵 경계 안으로 clamp된 도메인 월드 좌표(Y=0).</returns>
+        public static Vector3 ClampToMapBounds(Vector3 domainPoint, int gridWidth, int gridHeight)
+        {
+            ComputeMapWorldBounds(gridWidth, gridHeight, out Vector3 min, out Vector3 max);
+            float x = Mathf.Clamp(domainPoint.x, min.x, max.x);
+            float z = Mathf.Clamp(domainPoint.z, min.z, max.z);
+            return new Vector3(x, 0f, z);
+        }
     }
 }
