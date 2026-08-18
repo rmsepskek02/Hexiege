@@ -34,6 +34,7 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Hexiege.Application;      // GameLog — 런타임 로그 파사드 (LogRules.md 1.4)
 using Hexiege.Core;
 
 namespace Hexiege.Presentation
@@ -145,8 +146,10 @@ namespace Hexiege.Presentation
         {
             if (_confirmPopup == null)
             {
-                Debug.LogWarning("[UIManager] ConfirmPopup 참조가 비어 있어 확인 팝업을 표시할 수 없습니다. " +
-                                 "Inspector에서 연결해 주세요.");
+                // [개발] Warn + 개발 — Inspector 배선 누락(1.3 원칙 3 단서).
+                GameLog.Dev.Warn("UI", nameof(UIManager),
+                                 "ConfirmPopup 미배선 — 확인 팝업을 표시할 수 없다. Inspector 에서 연결해야 한다",
+                                 "Field=_confirmPopup");
                 return;
             }
 

@@ -229,7 +229,17 @@ namespace Hexiege.Presentation
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"[NicknameChangePopup] 닉네임 변경 실패: {e.Message}");
+                // [개발] Error + 개발 (원본 레벨 유지) — NicknameSetupView 와 같은 중복 집계 해소다.
+                //   _profileUseCase.ChangeNicknameAsync 는 내부에서
+                //   PlayerProfileService.SaveNicknameAsync(nickname, code, hasUsedFreeNicknameChange) 를
+                //   호출하고, 그 catch 가 Ops.Warn(LogEvent.CloudSaveOperationFailed, ..., "Operation=SaveNickname")
+                //   으로 운영 기록한 뒤 `throw;` 로 같은 예외를 다시 던진다.
+                //   예외 객체를 쥔 최종 처리 지점은 그쪽이므로(1.3 ②) 이 상위 호출부는 개발로 내린다(1.14 금지 9).
+                //   (같은 메서드가 먼저 호출하는 LoadProfileAsync 도 실패 시 같은 파일이
+                //    CloudSaveOperationFailed / Operation=LoadProfile 로 운영 기록한다 — 어느 쪽이든 중복이다.)
+                GameLog.Dev.Error("UI", nameof(NicknameChangePopup),
+                                  "닉네임 변경 실패 — 원인은 PlayerProfileService 가 운영 로그로 남긴다", e,
+                                  "Operation=SaveNickname");
                 SetStatus("닉네임 변경 중 오류가 발생했습니다. 다시 시도하세요.");
             }
             finally

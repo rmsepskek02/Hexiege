@@ -181,7 +181,18 @@ namespace Hexiege.Presentation
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"[NicknameSetupView] 닉네임 저장 실패: {e.Message}");
+                // [개발] Error + 개발 (원본 레벨 유지) — ⭐ 중복 집계 해소 지점.
+                //   여기서 잡히는 예외는 Infrastructure/Cloud/PlayerProfileService.SaveNicknameAsync 의
+                //   catch 가 이미 Ops.Warn(LogEvent.CloudSaveOperationFailed, ..., "Operation=SaveNickname")
+                //   으로 운영 기록한 뒤 `throw;` 로 그대로 다시 던진 **같은 예외 객체**다.
+                //   LogRules 1.3 「원칙 간 우선순위」② 가 정의한 "최종 처리 지점"은 예외 객체를 직접 쥐고
+                //   무엇이 실패했는지 아는 그 catch 이지, 사용자에게 알리고 흐름을 끝내는 이 상위 호출부가
+                //   아니다. 둘 다 운영으로 남기면 한 사건이 두 번 집계된다(1.14 금지 9).
+                //   → 원인 계층을 운영으로 두고 이 자리를 개발로 내린다. 화면 통지(SetStatus)는 그대로다.
+                //   ⚠️ 개발 축의 Warn 메서드에는 Exception 오버로드가 없어 Error 쪽을 쓴다(예외 오버로드 보유).
+                GameLog.Dev.Error("UI", nameof(NicknameSetupView),
+                                  "닉네임 저장 실패 — 원인은 PlayerProfileService 가 운영 로그로 남긴다", e,
+                                  "Operation=SaveNickname");
                 SetStatus("닉네임 저장 중 오류가 발생했습니다. 다시 시도하세요.");
             }
             finally
@@ -209,7 +220,13 @@ namespace Hexiege.Presentation
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"[NicknameSetupView] 자동 닉네임 저장 실패: {e.Message}");
+                // [개발] Error + 개발 — 위와 완전히 같은 사건이다.
+                //   SaveAutoNicknameAsync 도 최종적으로 PlayerProfileService.SaveNicknameAsync 를 호출하며,
+                //   그 catch 가 같은 키(CloudSaveOperationFailed) · 같은 Operation 값으로 운영 기록한 뒤
+                //   예외를 다시 던진다. 따라서 이 자리도 개발로 내린다(1.14 금지 9).
+                GameLog.Dev.Error("UI", nameof(NicknameSetupView),
+                                  "자동 닉네임 저장 실패 — 원인은 PlayerProfileService 가 운영 로그로 남긴다", e,
+                                  "Operation=SaveNickname");
                 SetStatus("닉네임 생성 중 오류가 발생했습니다. 다시 시도하세요.");
             }
             finally

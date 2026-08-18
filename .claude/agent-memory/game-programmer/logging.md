@@ -92,8 +92,8 @@ RuntimeLogger.BeginSession(string folderPath, string purpose)
 | **1-A** | `Network` 상위 6파일 65건 (`NetworkHealthSync` 14 · `RelayManager` 13 · `NetworkCombatController` 11 · `NetworkGameFlow` 10 · `NetworkUnitMovementController` 9 · `NetworkTileSync` 8) | **완료 — 개발 35 / 운영 29 / 비활성화 1** |
 | **1-B** | `Network` 나머지 8파일 30건 | **완료 — 실제 이관 대상은 23건뿐** (개발 17 / 운영 6). 나머지 7건은 **주석 안의 죽은 코드**였다: `NetworkGameManager` 4건은 `/* */` 블록 주석(666~718행) 안, `UnityServicesInitializer` 3건은 `//` 로 비활성화된 구 로직 2건 + 산문 속 `Debug.LogException` 낱말 1건. **grep 건수 ≠ 이관 대상 건수** — 착수 전 반드시 주석 여부를 확인한다 |
 | **2** | `Bootstrap` 26 + `Application` 9 + `Cloud` 8 + `Factories` 7 | **완료 — 이관 50 (개발 42 / 운영 8) + 신규 추가 3(전부 운영). 신설 키 4개(32→36)** |
-| 3 | `Presentation` 39건 / 20파일 | 미착수 |
-| 4 | `Debug/UIManagerTestButtonHandler.cs` 4건 | 미착수 |
+| **3** | `Presentation` 39건 / 20파일 | **완료 — 개발 38 / 운영 1. 신설 키 0개** |
+| **4** | `Debug/UIManagerTestButtonHandler.cs` 4건 | **완료 — 전부 개발** |
 | — | `Editor/` 4파일 16건 | **이관하지 않기로 결정**(빌드 미포함 → 서버 수집 대상이 될 수 없음) |
 | — | `GameLog.cs` 9 · `ILogSink.cs` 2 · `Infrastructure/Debug/` 19 | 이관 대상 아님(로그 시스템 자체) |
 
@@ -130,6 +130,15 @@ RuntimeLogger.BeginSession(string folderPath, string purpose)
 | UGS Leaderboards 조회 실패 → 빈 목록 | Warn | 운영 | `LeaderboardQueryFailed` |
 | 랭킹 Metadata(JSON) 파싱 실패 → 칸 비움 | Warn | 운영 | `LeaderboardMetadataParseFailed` |
 | "아직 등재 안 됨"이 예외로 오는 자리(신규 유저 정상 경로) | Info | **개발** | — (운영으로 올리면 신규 유저 트래픽이 지표를 덮는다) |
+
+| **UI 가 하위 계층의 예외를 `catch` 해 화면에 안내만 하는 자리** (닉네임 저장/변경 등) | 원본 레벨 유지 | **개발** | — (원인 계층이 이미 운영. 예외 객체를 넘기려면 `Dev.Error(…, e, …)`) |
+| **UI 가 NGM `OnError`/`OnServerDisconnected` 같은 *가공된 통지*를 받는 자리** | Warn/Info | **개발** | — (예외 타입도 원인도 도달하지 않음 → 최종 처리 지점 아님) |
+| **UI 가 `FindFirstObjectByType` 으로 `NetworkGameManager` 를 못 찾음** | **Warn** | **개발** | — (원본이 `LogError` 여도 설정 오류로 하향. `LobbyUI`·`LobbyRootView`·`GameEndUI` 3곳 동일 판정) |
+| **Inspector/Resources/의존성 주입 미배선 전반** (`CanvasGroup`, `AudioMixerGroup`, UseCase 미주입, 프리팹 슬롯, `Resources.Load` null) | **Warn** | **개발** | — (원본이 `LogError` 여도 하향. 1.3 원칙 3 단서) |
+| **`AudioMixer.SetFloat` 이 false 반환** (Exposed Parameter 이름 불일치) | Warn | **개발** | — (에셋 설정 오류. 배선 누락과 같은 부류) |
+| **클라이언트 사전 검증에서 골드 부족으로 요청을 안 보냄** | Warn | **개발** | — (1.2 조합표가 이미 판정. 서버가 거부한 경우만 운영) |
+| **`UIManager.Instance == null`** (씬 직접 진입) | Warn | **개발** | — (플레이어 빌드는 항상 Login 부터 시작 → 축 B ① 이 "아니오") |
+| **UI 의 로그아웃 `catch`** (`ProfileView.OnLogoutClicked`) | Warn | **운영** | `FirebaseAuthOperationFailed` (+`Operation=SignOut`) — **Presentation 유일의 운영 건**. 아래 참조 |
 
 **축 A 승격/하향 판단의 실제 기준:** *"다음 이벤트가 다시 맞춰 주는가."*
 HP·골드처럼 **절대값을 계속 재동기화**하는 값은 Warn, 사망·타일 소유권처럼 **그때 한 번만 오는 이벤트**는 Error.
@@ -169,6 +178,15 @@ HP·골드처럼 **절대값을 계속 재동기화**하는 값은 Warn, 사망�
 | **`Infrastructure/Cloud/*`** | **`"Cloud"`** | 배치 2 신설 |
 | **`Infrastructure/Factories/*`** | **`"Factory"`** | 배치 2 신설 |
 | `Application/UseCases/UnitSpawnUseCase` | `"Network"` | 이 로그 자리는 멀티 클라 전용 경로다(원본 태그도 `[Network]`) |
+| **`Presentation/UI/**` 전체 (17파일)** | **`"UI"`** | 배치 3 확정. `GameLog.cs` 헤더 주석의 공식 예시(`GameLog.Dev.Warn("UI", nameof(ProductionPanelUI), …)`)를 그대로 재사용 |
+| **`Presentation/Audio/*`** | **`"Audio"`** | 배치 3 신설 |
+| **`Presentation/Input/*`** | **`"Input"`** | 배치 3 신설 |
+| **`Presentation/Grid/*`** | **`"HexGrid"`** | 배치 3 신설. LogRules 1.4 가 `[HexGrid/HexTileView]` 를 예시로 이미 규정 |
+| **`Scripts/Debug/UIManagerTestButtonHandler`** | **`"UI"`** | 배치 4. 4건 전부 UI 컴포넌트(UIManager·LoginRootView·팝업)에 관한 로그이고, 이 파일에는 UI 말고 다른 기능 영역이 없다 |
+
+- ⚠️ **`LobbyUI` · `NetworkStatusUI` · `GameEndUI` · `LobbyRootView` 는 원본 태그가 `[Network]` 였지만 `"UI"` 로 통일했다.**
+  근거: `system` 은 **발생 지점(코드 영역)** 필드이고(1.4), 한 폴더 안에서 값이 갈리면
+  같은 지표가 조용히 둘로 쪼개진다(1.4 값 표기 일관성). "무엇에 관한 로그인가"는 클래스명·메시지가 담는다.
 
 - **`system` 은 "무슨 기능인가"가 아니라 "어느 코드 영역인가"로 정한다.** LogRules 1.4 가 `[System/Class]` 를 **발생 지점 필드**로 규정하기 때문이다.
 
@@ -187,6 +205,31 @@ HP·골드처럼 **절대값을 계속 재동기화**하는 값은 Warn, 사망�
   `int.TryParse` 가 **예외 없이 false 를 돌려주는 경로**가 통째로 누락된다(가장 흔한 실패인데도).
 - `catch { }` → `catch (Exception e)` 는 예외 객체를 로그에 넘기기 위한 최소 변경이며 동작을 바꾸지 않는다.
 
+## 배치 3·4 에서 확인한 사실 (2026-08-18) — Presentation / Debug
+
+- **`Presentation` 39건 중 운영은 단 1건**(`ProfileView.OnLogoutClicked`). 나머지 38건이 개발이다.
+  **결과로 몰아간 것이 아니라 축 B 2문을 실제로 물어 나온 값**이다 — 대상의 절반이 Inspector 배선 누락이고,
+  나머지 대부분이 하위 계층이 이미 운영으로 남긴 사건의 상위 호출부다.
+- **⭐ Cloud 중복 집계 해소 결과 — 3곳이 중복, 1곳은 중복 아님.**
+  | 자리 | 하위 운영 로그 | 판정 |
+  |---|---|---|
+  | `NicknameSetupView.OnConfirmClicked` | `PlayerProfileService.SaveNicknameAsync` catch → `CloudSaveOperationFailed` 후 `throw;` | **개발로 하향** |
+  | `NicknameSetupView.OnSkipClicked` | `SaveAutoNicknameAsync` → 같은 메서드 경유 | **개발로 하향** |
+  | `NicknameChangePopup.OnConfirmClicked` | `ChangeNicknameAsync` → `SaveNicknameAsync(3인자 오버로드)` + `LoadProfileAsync` 둘 다 운영 기록 | **개발로 하향** |
+  | `ProfileView.OnLogoutClicked` | **없음** — `LoginUseCase.SignOutAsync` 는 **UGS SignOut 만** try 로 감싸고,
+    그 뒤 `_authService.SignOutAsync()`(=`FirebaseAuthService`, catch 없음)는 무방비다 | **운영 유지** |
+  | `RankingView` | 해당 없음 — 유일한 로그가 Inspector 배선 누락이다 | 개발 |
+  → **"Cloud 를 호출하니 중복일 것"이라는 추정은 4곳 중 1곳에서 틀렸다. 반드시 호출 경로를 끝까지 따라간다.**
+- **`ProfileView` 의 키는 신설하지 않고 `FirebaseAuthOperationFailed` 를 재사용**(+`Operation=SignOut`).
+  그 키는 이미 `Operation=` 으로 작업 종류를 가르도록 설계돼 있어(`FirebaseAuthService.ConvertException`)
+  집계가 섞이지 않고 조치도 같은 부류다 → 신설 조건 2개를 모두 충족하지 못한다.
+- **`Debug/UIManagerTestButtonHandler.cs` 는 `Assets/Editor/` 가 아니라 `Scripts/Debug/` 라 빌드에 포함**된다.
+  개발 축으로 옮기면 `[Conditional]` 로 릴리스에서 문자열 조립까지 사라지는 이득이 생긴다.
+- ⚠️ **`[Conditional]` 메서드를 람다에 넣을 때는 반드시 블록 본문 `() => { GameLog…; }` 로 쓴다.**
+  C# 은 **문(statement) 자리의 호출만** 제거하므로 식 본문 람다 `() => GameLog…` 는 릴리스에서도 남는다.
+- ⚠️ **`key=value` 값에 `, ` 를 넣지 않는다.** `string.Join(", ", …)` 을 그대로 쓰면 구분자와 충돌해
+  파싱이 깨진다 → `|` 로 잇는다 (`UnwiredSlots=0|3|5`, `Field=_rowPrefab|_content`).
+
 ## 이관 작업 시 자기 검증 (매 배치 실행)
 
 ```bash
@@ -202,5 +245,16 @@ grep -nE '(^|[^.a-zA-Z_])Application\.' <path>   # 0건이어야 함
 - ⚠️ **단독행 중괄호 카운트도 믿지 마라.** `catch { return fallback; }` · `};` 같은 인라인 중괄호가 있는 파일에서는
   원래부터 불균형이라 "MISMATCH" 가 뜬다(배치 2 에서 11파일 중 6파일이 오탐).
   → **주석·문자열 리터럴을 걷어낸 뒤 `{`/`}` 를 세는 파이썬 스크립트**를 쓰는 것이 유일하게 신뢰할 수 있는 방법이다.
-- ⚠️ **주석에 `return` / `await` / `Debug.Log` 라는 낱말을 쓰지 마라.** 검증 grep 이 그대로 오탐한다.
-  (배치 1-A 에서 3번, 배치 2 에서 2번 걸렸다 — "옛 방식", "이관 전 원본도 Info 레벨" 처럼 우회 표현을 쓴다.)
+- ⚠️ **주석에 `return` / `await` / `Debug.Log` / `GameLog.Dev.` / `GameLog.Ops.` 라는 낱말을 쓰지 마라.**
+  검증 grep 이 그대로 오탐한다. (배치 1-A 3번, 배치 2 2번, **배치 3 에서도 3번** 걸렸다.)
+  → "개발 축의 Warn 메서드", "옛 방식", "이관 전 원본도 Info 레벨" 처럼 우회 표현을 쓴다.
+
+## 전 배치 완료 시점의 잔존 실측 (2026-08-18 · 배치 4 종료 직후)
+
+`grep -rn "Debug\.Log" Assets/_Project/Scripts --include=*.cs | wc -l` → **54**
+
+- **실제 코드 46** = 이관 대상 아님 30(`GameLog.cs` 9 + `ILogSink.cs` 2 + `Infrastructure/Debug/` 19) + `Editor/` 16
+- **주석 안의 죽은 코드/산문 8** — `NetworkGameManager` 4(`/* */` 블록, 686·696·709·714행) ·
+  `UnityServicesInitializer` 3(`//` 비활성화 2 + 산문 속 `Debug.LogException` 낱말 1) ·
+  `NetworkCombatController` 1(150행 비활성화)
+- ⚠️ **계획서 §8-2 의 "최종 46" 은 grep 총계가 아니라 "실행 코드" 기준이다.** grep 은 54 가 정상값이다.

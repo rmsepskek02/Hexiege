@@ -310,7 +310,13 @@ namespace Hexiege.Presentation
         {
             if (_rowPrefab == null || _content == null)
             {
-                Debug.LogWarning("[RankingView] _rowPrefab 또는 _content 가 연결되지 않아 행 풀을 만들 수 없습니다.");
+                // [개발] Warn + 개발 — Inspector 배선 누락(1.3 원칙 3 단서).
+                //   ⚠️ 이 파일에서 Cloud(랭킹 조회) 계층과 중복되는 로그는 없다. 조회 실패는
+                //      LeaderboardService 가 LeaderboardQueryFailed / LeaderboardMetadataParseFailed 로
+                //      이미 운영 기록하며, 이 자리는 그 흐름과 무관한 UI 배선 문제다.
+                GameLog.Dev.Warn("UI", nameof(RankingView),
+                                 "행 프리팹/컨테이너 미배선 — 랭킹 행 풀을 만들 수 없다",
+                                 "Field=_rowPrefab|_content");
                 return;
             }
 

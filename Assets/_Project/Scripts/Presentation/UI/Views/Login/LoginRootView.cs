@@ -292,7 +292,13 @@ namespace Hexiege.Presentation
             if (UIManager.Instance == null)
             {
                 // UIManager 미초기화 상태(씬 직접 진입 등) — 안전을 위해 즉시 종료.
-                Debug.LogWarning("[LoginRootView] UIManager가 없어 즉시 종료합니다.");
+                // [개발] Warn + 개발.
+                //   UIManager 는 Login 씬에서 1회 생성되어 DontDestroyOnLoad 되므로, 여기서 null 이라는 것은
+                //   Login 을 거치지 않고 씬에 직접 진입했다는 뜻이다 — 즉 개발 편의 경로에서만 나오는 상태다.
+                //   축 A: 확인 팝업을 건너뛰고 즉시 종료하는 대체 경로로 계속 진행된다 → Warn.
+                //   축 B ①: 플레이어 빌드는 항상 Login 부터 시작하므로 "플레이어 기기에서만" 이 아니다 → 개발.
+                GameLog.Dev.Warn("UI", nameof(LoginRootView),
+                                 "UIManager 가 없어 종료 확인 팝업을 건너뛰고 즉시 종료한다");
                 UnityEngine.Application.Quit();
                 return;
             }

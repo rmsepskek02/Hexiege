@@ -258,10 +258,22 @@ namespace Hexiege.Presentation
             BuildUiCache();
 
             // 믹서 그룹 미연결 경고 (규칙 17).
+            // [개발] 둘 다 Warn + 개발 — Inspector 배선 누락(설정 오류)이다.
+            //   LogRules 1.3 원칙 3 단서: 설정 오류는 Error 로 올리지 않고 Warn + 개발로 낮춘다.
+            //   축 B ①: 배선은 프리팹/씬에 박혀 있어 있으면 모든 기기에 있고 없으면 모든 기기에 없다
+            //           → "플레이어 기기에서만 벌어지는가"가 항상 "아니오" → 개발.
             if (_bgmGroup == null)
-                Debug.LogWarning("[AudioManager] BGM AudioMixerGroup이 연결되지 않았습니다. BGM 볼륨 제어가 동작하지 않습니다.");
+            {
+                GameLog.Dev.Warn("Audio", nameof(AudioManager),
+                                 "BGM AudioMixerGroup 미배선 — BGM 볼륨 제어가 동작하지 않는다",
+                                 "Group=Bgm");
+            }
             if (_sfxGroup == null)
-                Debug.LogWarning("[AudioManager] SFX AudioMixerGroup이 연결되지 않았습니다. SFX 볼륨 제어가 동작하지 않습니다.");
+            {
+                GameLog.Dev.Warn("Audio", nameof(AudioManager),
+                                 "SFX AudioMixerGroup 미배선 — SFX 볼륨 제어가 동작하지 않는다",
+                                 "Group=Sfx");
+            }
 
             // BGM AudioSource A/B에 믹서 그룹 연결 (규칙 17).
             SetupBgmSource(_bgmSourceA);
@@ -752,7 +764,9 @@ namespace Hexiege.Presentation
             // _audioMixer 미연결 시 볼륨 제어 불가 — 원인 추적을 위해 경고 로그 남김.
             if (_audioMixer == null)
             {
-                Debug.LogWarning("[AudioManager] _audioMixer가 null입니다.");
+                // [개발] Warn + 개발 — 위 두 건과 같은 성격의 Inspector 배선 누락이다(1.3 원칙 3 단서).
+                GameLog.Dev.Warn("Audio", nameof(AudioManager),
+                                 "AudioMixer 미배선 — 볼륨/음소거를 적용할 수 없다");
                 return;
             }
 
@@ -760,7 +774,15 @@ namespace Hexiege.Presentation
             //   볼륨/음소거가 적용되지 않는 원인이 파라미터 이름 불일치인지 확인하기 위해 결과를 검사한다.
             bool result = _audioMixer.SetFloat(param, dB);
             if (!result)
-                Debug.LogWarning($"[AudioManager] AudioMixer.SetFloat 실패: param={param}, dB={dB}");
+            {
+                // [개발] Warn + 개발.
+                //   SetFloat 이 false 를 돌려주는 원인은 "Exposed Parameter 이름이 믹서에 없다" 하나뿐이고,
+                //   그건 AudioMixer 에셋의 설정 오류다 → 배선 누락과 같은 부류(1.3 원칙 3 단서).
+                //   에셋은 모든 기기에 동일하게 들어가므로 축 B ① 이 항상 "아니오" → 개발.
+                GameLog.Dev.Warn("Audio", nameof(AudioManager),
+                                 "AudioMixer.SetFloat 실패 — Exposed Parameter 이름이 믹서에 없다",
+                                 $"Param={param}, Db={dB}");
+            }
         }
 
         /// <summary>

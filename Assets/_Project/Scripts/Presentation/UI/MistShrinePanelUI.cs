@@ -293,8 +293,14 @@ namespace Hexiege.Presentation
             if (_mistShrine == null)
             {
                 _rangeIndicator.Hide();
-                Debug.LogWarning("[MistShrinePanelUI] MistShrineUseCase가 주입되지 않아 회복 범위 원을 표시할 수 없습니다. " +
-                                 "GameBootstrapper의 패널 초기화 배선을 확인하세요.");
+                // [개발] Warn + 개발.
+                //   의존성 주입은 GameBootstrapper 의 배선이 결정하므로, null 이면 코드/씬 설정 오류다
+                //   (1.3 원칙 3 단서). 모든 기기에 같은 배선이 나가 축 B ① 이 "아니오" → 개발.
+                //   축 A: 원을 그리지 않고 확실히 숨기는 대체 경로로 계속 진행된다 → Warn.
+                GameLog.Dev.Warn("UI", nameof(MistShrinePanelUI),
+                                 "MistShrineUseCase 미주입 — 회복 범위 원을 표시할 수 없다. " +
+                                 "GameBootstrapper 의 패널 초기화 배선을 확인해야 한다",
+                                 "Field=_mistShrine");
                 return;
             }
 

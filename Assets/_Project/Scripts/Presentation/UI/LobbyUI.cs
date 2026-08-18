@@ -37,6 +37,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using Hexiege.Application;      // GameLog — 런타임 로그 파사드 (LogRules.md 1.4)
 using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
@@ -101,8 +102,15 @@ namespace Hexiege.Presentation
 
             if (_networkGameManager == null)
             {
-                Debug.LogError("[Network] LobbyUI: NetworkGameManager를 찾을 수 없습니다. " +
-                               "씬에 NetworkGameManager GameObject를 배치하세요.");
+                // [개발] Warn + 개발.
+                //   축 A: 원본은 LogError 였지만 축 A 의 판정 질문은 "복구되었나?" 하나뿐이다(1.2).
+                //         이건 실행 중 고장이 아니라 "씬에 오브젝트를 안 넣었다"는 설정 오류이고,
+                //         LogRules 1.3 원칙 3 단서가 설정 오류를 Warn 으로 낮추라고 규정한다.
+                //   축 B: FindFirstObjectByType 은 네트워크 스폰 여부와 무관하게 씬의 활성 오브젝트를
+                //         찾으므로, null = "씬에 없다" 다. 있으면 모든 기기에 있고 없으면 모든 기기에 없다
+                //         → 축 B ①("플레이어 기기에서만 벌어지는가")이 항상 "아니오" → 개발.
+                GameLog.Dev.Warn("UI", nameof(LobbyUI),
+                                 "NetworkGameManager 를 찾을 수 없다 — 씬에 NetworkGameManager GameObject 를 배치해야 한다");
                 return;
             }
 
@@ -139,7 +147,8 @@ namespace Hexiege.Presentation
             }
 
             SetStatus("방을 만들거나 코드를 입력하여 참가하세요.");
-            Debug.Log("[Network] LobbyUI: 초기화 완료. UGS 초기화 시작.");
+            // [개발] Info + 개발. 의도된 정상 흐름 통보이고, 화면에도 같은 안내가 이미 떠 있다.
+            GameLog.Dev.Info("UI", nameof(LobbyUI), "로비 UI 초기화 완료 — UGS 초기화 시작");
 
             // UGS 자동 초기화 (익명 로그인)
             _ = InitializeAsync();
@@ -178,7 +187,16 @@ namespace Hexiege.Presentation
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Network] LobbyUI: UGS 초기화 예외: {e.Message}");
+                // [개발] Error + 개발 (원본 레벨 유지).
+                //   축 B: 같은 사건의 원인은 하위 계층이 이미 운영 로그로 남긴다 —
+                //         UnityServicesInitializer 가 LogEvent.UnityServicesInitializeFailed 를 남기고,
+                //         NetworkGameManager.InitializeAsync 의 onFailure 도 이미 개발로 내려져 있다.
+                //         상위 호출부인 이 자리가 또 운영으로 남으면 한 사건이 두 번 집계된다
+                //         (LogRules 1.3 「원칙 간 우선순위」① · 1.14 금지 9).
+                //   ⚠️ 개발 축의 Warn 메서드에는 Exception 오버로드가 없다. 예외 타입은 집계의 핵심 축이라
+                //      e.Message 로 눌러 담지 않고(1.9), 예외 오버로드가 있는 Dev.Error 를 쓴다.
+                GameLog.Dev.Error("UI", nameof(LobbyUI),
+                                  "UGS 초기화 예외 — 원인은 UnityServicesInitializer 가 운영 로그로 남긴다", e);
                 SetStatus($"초기화 실패: {e.Message}");
                 // 재시도 버튼을 활성화하여 사용자가 다시 시도할 수 있게
                 SetButtonsInteractable(true);
@@ -207,7 +225,14 @@ namespace Hexiege.Presentation
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Network] LobbyUI: HostGame 예외: {e.Message}");
+                // [개발] Error + 개발 (원본 레벨 유지).
+                //   NetworkGameManager.HostGameAsync 는 자체 최종 catch 에서
+                //   Ops.Error(GameSessionStartUnhandledException, ..., e, "Flow=Host") 를 남기고
+                //   예외를 다시 던지지 않는다. 즉 원인을 쥔 최종 처리 지점은 그쪽이고(1.3 ②),
+                //   이 자리는 중복 집계를 막기 위해 개발로 내린다(1.14 금지 9).
+                GameLog.Dev.Error("UI", nameof(LobbyUI),
+                                  "방 생성(Host) 예외 — 원인은 NetworkGameManager 가 운영 로그로 남긴다", e,
+                                  "Flow=Host");
                 SetStatus($"방 생성 실패: {e.Message}");
                 SetButtonsInteractable(true);
                 _isWorking = false;
@@ -221,7 +246,10 @@ namespace Hexiege.Presentation
         {
             _isWorking = false;
             SetStatus($"방 코드: {lobbyCode}\n상대방 접속 대기 중...");
-            Debug.Log($"[Network] LobbyUI: Host 시작 완료. 로비 코드: {lobbyCode}");
+            // [개발] Info + 개발. 정상 흐름 통보이고 같은 코드가 화면에도 표시된다.
+            //   Lobby Code 는 LogRules 1.6 이 규정한 민감 데이터 3항목(이메일/UID·PlayerId/토큰)이 아니라
+            //   평문으로 남긴다 — 이는 선행 이관에서 확정된 표기다.
+            GameLog.Dev.Info("UI", nameof(LobbyUI), "Host 시작 완료", $"LobbyCode={lobbyCode}");
         }
 
         // ====================================================================
@@ -254,7 +282,12 @@ namespace Hexiege.Presentation
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Network] LobbyUI: JoinGame 예외: {e.Message}");
+                // [개발] Error + 개발 (원본 레벨 유지). 위 HostGame 과 완전히 같은 구조다 —
+                //   NetworkGameManager.JoinGameAsync 가 최종 catch 에서 운영 로그를 남기고
+                //   예외를 다시 던지지 않으므로, 이 자리는 개발로 내려 중복 집계를 막는다.
+                GameLog.Dev.Error("UI", nameof(LobbyUI),
+                                  "방 참가(Join) 예외 — 원인은 NetworkGameManager 가 운영 로그로 남긴다", e,
+                                  "Flow=Join");
                 SetStatus($"참가 실패: {e.Message}");
                 SetButtonsInteractable(true);
                 _isWorking = false;
@@ -268,7 +301,8 @@ namespace Hexiege.Presentation
         {
             _isWorking = false;
             SetStatus("접속 완료. 게임 시작 대기 중...");
-            Debug.Log("[Network] LobbyUI: Client 접속 완료.");
+            // [개발] Info + 개발. 정상 흐름 통보.
+            GameLog.Dev.Info("UI", nameof(LobbyUI), "Client 접속 완료 — 게임 시작 대기");
         }
 
         /// <summary>
@@ -298,7 +332,9 @@ namespace Hexiege.Presentation
         /// <param name="connectedCount">현재까지 접속 완료한 클라이언트 수.</param>
         private void OnAllPlayersReady(int connectedCount)
         {
-            Debug.Log($"[Network] LobbyUI: OnAllPlayersReady 수신. 총 접속 수={connectedCount}");
+            // [개발] Info + 개발. 정상 흐름의 이벤트 수신 통보.
+            //   ConnectedCount 는 key=value 로 남긴다 — 자유 문장이 아니라 집계 가능한 값이다(1.4).
+            GameLog.Dev.Info("UI", nameof(LobbyUI), "OnAllPlayersReady 수신", $"ConnectedCount={connectedCount}");
             HideLobby();
         }
 
@@ -314,7 +350,13 @@ namespace Hexiege.Presentation
             _isWorking = false;
             SetStatus($"오류: {errorMessage}");
             SetButtonsInteractable(true);
-            Debug.LogWarning($"[Network] LobbyUI: 네트워크 오류 수신: {errorMessage}");
+            // [개발] Warn + 개발.
+            //   이 자리는 NetworkGameManager 의 OnError 콜백이다. errorMessage 는 이미 가공된
+            //   사용자 안내 문구일 뿐 예외 타입도 원인도 담고 있지 않고, 그 원인은 NGM 과 그 하위
+            //   계층이 이미 운영 로그로 남겼다 → 최종 처리 지점이 아니다(1.3 ②).
+            //   화면 통지(SetStatus)도 그대로 유지되므로 잃는 정보가 없다.
+            GameLog.Dev.Warn("UI", nameof(LobbyUI),
+                             $"네트워크 오류 통지 수신 — 원인은 NetworkGameManager 계층이 운영 로그로 남긴다: {errorMessage}");
         }
 
         // ====================================================================
@@ -355,7 +397,8 @@ namespace Hexiege.Presentation
                 _lobbyPanel.interactable = false;
             }
 
-            Debug.Log("[Network] LobbyUI: 로비 패널 숨김. 게임 시작 대기.");
+            // [개발] Info + 개발. 정상 흐름의 UI 상태 전이 통보.
+            GameLog.Dev.Info("UI", nameof(LobbyUI), "로비 패널 숨김 — 게임 시작 대기");
         }
     }
 }

@@ -962,8 +962,13 @@ namespace Hexiege.Presentation
                     : (mapping.redUnits ?? new List<UnitPortraitEntry>());
             }
 
-            // 매핑 누락 — 콘솔 경고 후 빈 리스트 반환
-            Debug.LogWarning($"[ProductionPanelUI] BuildingType={_currentBuilding.Type}에 대한 유닛 매핑이 없습니다.");
+            // 매핑 누락 — 경고 후 빈 리스트 반환
+            // [개발] Warn + 개발.
+            //   _buildingUnitMappings 는 Inspector 에서 채우는 목록이므로 매핑 누락은 설정 오류다
+            //   (LogRules 1.3 원칙 3 단서). 모든 기기에 같은 설정이 나가므로 축 B ① 이 "아니오" → 개발.
+            GameLog.Dev.Warn("UI", nameof(ProductionPanelUI),
+                             "건물에 대응하는 유닛 매핑이 Inspector 에 없다",
+                             $"BuildingType={_currentBuilding.Type}");
             return new List<UnitPortraitEntry>();
         }
 
@@ -1058,13 +1063,16 @@ namespace Hexiege.Presentation
                 if (unwiredSlots != null && !_unitButtonGroupWarningLogged)
                 {
                     _unitButtonGroupWarningLogged = true;
-                    Debug.LogWarning(
-                        $"[ProductionPanelUI] 유닛 버튼 슬롯 [{string.Join(", ", unwiredSlots)}]번의 CanvasGroup이 " +
-                        $"Inspector의 {nameof(_unitButtonGroups)}에 배선되어 있지 않습니다. " +
-                        "해당 슬롯은 유닛이 없어도 숨겨지지 않아 빈 버튼이 그대로 보입니다. " +
-                        "조치: 씬에서 이 컴포넌트를 선택한 뒤, 각 유닛 버튼 GameObject의 CanvasGroup을 " +
-                        $"{nameof(_unitButtons)}와 같은 순서로 {nameof(_unitButtonGroups)} 리스트에 넣어 주세요 " +
-                        "(CanvasGroup 컴포넌트가 없으면 해당 버튼에 먼저 추가해야 합니다).");
+                    // [개발] Warn + 개발 — 전형적인 Inspector 배선 누락(1.3 원칙 3 단서).
+                    //   조치 안내처럼 긴 자유 문장은 message 쪽에 두고,
+                    //   집계 가능한 값(슬롯 번호)만 key=value 로 뺀다(LogRules 1.4).
+                    GameLog.Dev.Warn("UI", nameof(ProductionPanelUI),
+                        $"유닛 버튼 슬롯의 CanvasGroup 이 Inspector 의 {nameof(_unitButtonGroups)} 에 배선되어 있지 않다. " +
+                        "해당 슬롯은 유닛이 없어도 숨겨지지 않아 빈 버튼이 그대로 보인다. " +
+                        "조치: 씬에서 이 컴포넌트를 선택한 뒤, 각 유닛 버튼 GameObject 의 CanvasGroup 을 " +
+                        $"{nameof(_unitButtons)} 와 같은 순서로 {nameof(_unitButtonGroups)} 리스트에 넣는다 " +
+                        "(CanvasGroup 컴포넌트가 없으면 해당 버튼에 먼저 추가해야 한다)",
+                        $"UnwiredSlots={string.Join("|", unwiredSlots)}");
                 }
             }
         }

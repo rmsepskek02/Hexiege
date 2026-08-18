@@ -81,7 +81,13 @@ namespace Hexiege.Presentation
 
             if (prefab == null)
             {
-                Debug.LogError("[HexGridRenderer] TilePrefab이 설정되지 않았습니다.");
+                // [개발] Warn + 개발.
+                //   원본은 LogError 였지만 이건 Inspector 프리팹 슬롯 미배선이다 — 설정 오류라
+                //   LogRules 1.3 원칙 3 단서에 따라 Warn + 개발로 낮춘다.
+                //   현재 orientation 을 key=value 로 남겨, 두 슬롯 중 어느 쪽이 비었는지 바로 알 수 있게 한다.
+                GameLog.Dev.Warn("HexGrid", nameof(HexGridRenderer),
+                                 "타일 프리팹 미배선 — 그리드를 렌더링할 수 없다",
+                                 $"Orientation={HexMetrics.Orientation}");
                 return;
             }
 

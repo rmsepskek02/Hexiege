@@ -544,7 +544,29 @@ namespace Hexiege.Presentation
             }
             catch (System.Exception e)
             {
-                Debug.LogError($"[ProfileView] 로그아웃 중 예외: {e.Message}");
+                // [운영] ⚠️ 잠정 판정 — Warn + 운영. 키는 기존 FirebaseAuthOperationFailed 재사용.
+                //
+                //   ⭐ 이 자리는 앞의 닉네임 계열과 달리 "중복"이 아니다. 실제 호출 경로를 따라가 확인했다 —
+                //      LoginUseCase.SignOutAsync 는 UGS SignOut 실패만 자체 catch 로 운영 기록하고
+                //      (LogEvent.UgsSignOutFailed), 그 뒤의 _authService.SignOutAsync() 는 try 로 감싸지
+                //      않는다. FirebaseAuthService.SignOutAsync 도 catch 가 없어 예외가 그대로 올라온다.
+                //      즉 Firebase 로그아웃 실패의 예외 객체를 손에 쥐는 계층은 이 catch 가 유일하다
+                //      → LogRules 1.3 ② 의 "최종 처리 지점"이 여기다.
+                //
+                //   축 A: 예외로 씬 전환이 일어나지 않아 사용자는 프로필 화면에 남고, 버튼이 다시 활성화되어
+                //         재시도할 수 있다 → 대체 경로로 계속 진행 → Warn.
+                //   축 B ①: Firebase/Play 서비스 상태에 좌우돼 에디터에서 재현되지 않는 부류다 → 예.
+                //   축 B ②: 화면에는 고정 문구("로그아웃 중 오류가 발생했습니다")만 뜨고 원인은 어디에도
+                //           남지 않는다 → 예. 둘 다 "예" 이므로 운영(1.2 축 B).
+                //           (1.3 「2↔3 단서」: UI 로 알렸더라도 원인이 이 로그에만 있으면 개발로 내리지 않는다.)
+                //
+                //   키를 신설하지 않은 근거: FirebaseAuthOperationFailed 는 이미 Operation= 값으로
+                //   작업 종류를 가르도록 설계된 키다(FirebaseAuthService.ConvertException 이 같은 방식으로 쓴다).
+                //   집계가 섞이지 않고 조치도 같은 부류(Firebase/회선 상태 확인)라 신설 조건 두 개를
+                //   모두 충족하지 못한다 → 재사용.
+                GameLog.Ops.Warn(LogEvent.FirebaseAuthOperationFailed, "UI", nameof(ProfileView),
+                                 "로그아웃 처리 실패 — 세션이 남은 채 프로필 화면에 머문다", e,
+                                 "Operation=SignOut");
                 SetStatus("로그아웃 중 오류가 발생했습니다.");
                 SetInteractable(true);
                 // 예외로 씬 전환이 일어나지 않으므로 여기서 로딩을 직접 끈다(UI 규칙 L-3 예외 경로).

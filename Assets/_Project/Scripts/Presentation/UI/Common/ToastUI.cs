@@ -149,15 +149,33 @@ namespace Hexiege.Presentation
             // "Config/ToastMessageConfig" → Assets/_Project/Resources/Config/ToastMessageConfig.asset
             _config = Resources.Load<ToastMessageConfig>("Config/ToastMessageConfig");
             if (_config == null)
-                Debug.LogWarning("[ToastUI] Resources/Config/ToastMessageConfig.asset을 찾을 수 없습니다. 에셋이 올바른 경로에 있는지 확인하세요.");
+            {
+                // [개발] Warn + 개발 — Resources 에셋 누락은 Inspector 배선 누락과 같은 "설정 오류"다.
+                //   에셋은 빌드에 함께 들어가므로 있으면 모든 기기에 있고 없으면 모든 기기에 없다
+                //   → 축 B ①("플레이어 기기에서만 벌어지는가")이 항상 "아니오" → 개발.
+                GameLog.Dev.Warn("UI", nameof(ToastUI),
+                                 "Resources/Config/ToastMessageConfig.asset 을 찾을 수 없다 — 에셋 경로를 확인해야 한다",
+                                 "Path=Config/ToastMessageConfig");
+            }
 
             _initialized = true;
             ClearAll(); // 초기 상태는 항상 숨김
 
+            // [개발] 둘 다 Warn + 개발.
+            //   원본은 LogError 였지만 LogRules 1.3 원칙 3 단서가 Inspector 배선 누락 같은 설정 오류를
+            //   Warn + 개발로 낮추라고 규정한다 — 개발자가 빌드 전에 잡는 문제이기 때문이다.
             if (_canvasGroup == null)
-                Debug.LogError("[ToastUI] CanvasGroup 참조가 비어 있습니다. Inspector에서 연결해 주세요.");
+            {
+                GameLog.Dev.Warn("UI", nameof(ToastUI),
+                                 "CanvasGroup 미배선 — Inspector 에서 연결해야 한다",
+                                 "Field=_canvasGroup");
+            }
             if (_messageText == null)
-                Debug.LogError("[ToastUI] 메시지 텍스트 참조가 비어 있습니다. Inspector에서 연결해 주세요.");
+            {
+                GameLog.Dev.Warn("UI", nameof(ToastUI),
+                                 "메시지 텍스트 미배선 — Inspector 에서 연결해야 한다",
+                                 "Field=_messageText");
+            }
 
             // 게임 시작/종료 이벤트 구독 — 씬 전환 시 이전 게임의 잔여 토스트 자동 정리.
             // AddTo(this): 이 오브젝트가 파괴될 때 구독 자동 해제.
