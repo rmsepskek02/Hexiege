@@ -282,8 +282,15 @@ namespace Hexiege.Infrastructure
             UnitData unit = e.Unit;
             HexCoord? rally = e.RallyPoint;
 
+            // ⚠️ 좌표를 HexCoord 구조체 통째로 한 필드에 넣지 않는다
+            //   (LogRules 1.4 — 값 안에 구분자 ", " 금지).
+            //   unit.Position 은 HexCoord 구조체이고 그 ToString() 은 "(4, 15)" 를 돌려준다.
+            //   로그 라인은 key=value 쌍을 ", " 로 잇는 형식이라, 값 안에 같은 문자열이 들어가면
+            //   파싱이 그 자리에서 쪼개져 필드 하나가 둘로 보인다(실제 로그 파일에서 확인된 위반).
+            //   → 이 파일의 다른 로그(예: SpawnUnitClientRpc)가 이미 쓰는 Q=/R= 표기로 통일한다.
             GameLog.Dev.Info("Network", nameof(NetworkProductionController), "서버 유닛 생산 완료",
-                             $"UnitId={unit.Id}, UnitType={unit.Type}, Team={unit.Team}, Pos={unit.Position}");
+                             $"UnitId={unit.Id}, UnitType={unit.Type}, Team={unit.Team}, " +
+                             $"Q={unit.Position.Q}, R={unit.Position.R}");
 
             // 랠리포인트 좌표 (없으면 0,0으로 전달하고 hasRally=false)
             int rallyQ = rally.HasValue ? rally.Value.Q : 0;

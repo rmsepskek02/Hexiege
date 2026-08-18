@@ -49,6 +49,42 @@ namespace Hexiege.Infrastructure
 #endif
 
         /// <summary>
+        /// 지금 이 클래스가 **콘솔로 로그를 내보내는 중**인지 여부.
+        ///
+        /// ── 이 플래그가 왜 필요한가 (초급 개발자용 설명 — 되먹임 차단) ─────────────
+        ///   아래 Log() 는 마지막에 Debug.Log / LogWarning / **LogError** 로 콘솔에 출력한다.
+        ///   그런데 이 프로젝트는 UnityEngine.Application.logMessageReceived 훅을 걸어
+        ///   "엔진이 낸 오류" 를 로그 파일로 끌어온다(LogSessionOwner).
+        ///   훅이 Error 종류까지 수집하게 되면서 다음 고리가 생길 수 있다.
+        ///
+        ///       GameLog.Ops.Error → FileSink → RuntimeLogger.Log → Debug.LogError
+        ///         → logMessageReceived 훅 → GameLog.Ops.Error → ... (끝없이 반복)
+        ///
+        ///   그래서 "지금 나가는 이 오류 줄은 우리 로그 시스템 자신이 만든 것" 임을
+        ///   훅이 확실히 알아볼 수 있어야 한다. 그 표식이 이 플래그다.
+        ///
+        /// ── 왜 GameLog.IsEmitting 만으로는 부족한가 ────────────────────────────
+        ///   GameLog 를 거치는 경로는 GameLog.IsEmitting 으로 이미 걸러진다.
+        ///   그런데 LogRules.md 1.11 은 축 B 의 「임시」 로그에 대해
+        ///   **RuntimeLogger.Log 직접 호출**을 명시적으로 허용한다. 그 경로는 GameLog 를 거치지 않으므로
+        ///   GameLog.IsEmitting 이 거짓이라 구멍이 된다.
+        ///   → 출력하는 코드 바로 옆(=이 클래스)에 플래그를 두면 두 경로를 한꺼번에 덮는다.
+        ///
+        /// ── 왜 "직전 줄과 같으면 무시" 로는 못 막는가 ──────────────────────────
+        ///   우리가 만드는 줄에는 [HH:mm:ss.fff] 처럼 **밀리초까지 들어간 시각**이 붙는다.
+        ///   그래서 같은 사건이라도 문자열이 매번 달라져 "직전과 동일" 비교가 영원히 성립하지 않는다.
+        ///
+        /// 선례: Hexiege.Application.GameLog.IsEmitting 이 정확히 같은 패턴이다.
+        /// </summary>
+        public static bool IsEmittingToConsole => _isEmittingToConsole;
+
+        /// <summary>
+        /// IsEmittingToConsole 의 실제 저장소.
+        /// 이 클래스는 메인 스레드 호출을 전제로 하므로 잠금(lock)을 두지 않는다.
+        /// </summary>
+        private static bool _isEmittingToConsole;
+
+        /// <summary>
         /// 디버그 로그 세션을 시작한다.
         /// 에디터에서는 지정한 폴더에 로그 파일을 만들고(또는 이어쓰기) 헤더를 기록한다.
         /// 실기기에서는 아무 동작도 하지 않는다(파일을 만들지 않음).
@@ -162,17 +198,35 @@ namespace Hexiege.Infrastructure
 
             // 3) 콘솔에는 심각도에 맞는 메서드로 항상 출력한다.
             //    이렇게 하면 에디터 콘솔과 실기기 Logcat에서 모두 동일한 형식으로 보인다.
-            switch (level)
+            //
+            //    ⚠️ 이 구간만 "콘솔 출력 중" 플래그로 감싼다(IsEmittingToConsole 주석 참조).
+            //       파일 쓰기(위 2번)는 감싸지 않는다 — 파일 쓰기는 logMessageReceived 훅을
+            //       발화시키지 않으므로 플래그 구간을 넓힐 이유가 없다.
+            //
+            //    ⚠️ try / finally 가 필수인 이유:
+            //       Debug.LogError 가 어떤 이유로든 예외를 던졌을 때 플래그가 올라간 채로 남으면,
+            //       그 뒤로 훅이 **모든 엔진 오류를 영구히 무시**하게 된다.
+            //       즉 로그 시스템이 조용히 죽는다. 그래서 무슨 일이 있어도 finally 에서 내린다.
+            //       (GameLog.Emit 의 재진입 가드도 정확히 같은 이유로 finally 를 쓴다.)
+            _isEmittingToConsole = true;
+            try
             {
-                case LogLevel.Warn:
-                    Debug.LogWarning(line);
-                    break;
-                case LogLevel.Error:
-                    Debug.LogError(line);
-                    break;
-                default: // LogLevel.Info
-                    Debug.Log(line);
-                    break;
+                switch (level)
+                {
+                    case LogLevel.Warn:
+                        Debug.LogWarning(line);
+                        break;
+                    case LogLevel.Error:
+                        Debug.LogError(line);
+                        break;
+                    default: // LogLevel.Info
+                        Debug.Log(line);
+                        break;
+                }
+            }
+            finally
+            {
+                _isEmittingToConsole = false;
             }
         }
 

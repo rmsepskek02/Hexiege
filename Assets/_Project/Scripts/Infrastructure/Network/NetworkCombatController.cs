@@ -287,8 +287,27 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void Update()
         {
-            // 멀티플레이 서버만 실행
-            if (!IsServer) return;
+            // 멀티플레이 서버만 실행 + **이 오브젝트가 아직 네트워크에 살아 있을 때만** 실행
+            //
+            // ── 왜 IsSpawned 를 함께 보는가 (초급 개발자용 설명) ──────────────────
+            //   IsServer 는 "내가 서버 역할인가" 를 묻는 값이지, "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //   그래서 게임이 끝나 NetworkManager.Shutdown() 이 호출된 뒤에도, 씬이 실제로 바뀌기 전까지
+            //   Update 가 한 번 더 돌면 IsServer 는 여전히 참이라 이 가드를 그대로 통과한다.
+            //   그 상태로 TickCombat 이 실행되면 아래 두 가지가 겹쳐 오류가 난다.
+            //     ① 게임이 끝나면 유닛들이 일제히 타겟을 잃는다 → TickCombat 끝의 정리 목록이 한꺼번에 찬다.
+            //     ② 그 정리 과정에서 StopCombatClientRpc 가 무더기로 발신된다.
+            //   그런데 NGO 는 이미 정지 상태라
+            //   "Rpc methods can only be invoked after starting the NetworkManager!" 오류를 뱉는다
+            //   (2026-08-18 실기 테스트에서 [로비로] 경로로 2회 재현).
+            //
+            //   IsSpawned 는 "이 NetworkObject 가 아직 스폰된 상태인가" 를 묻는 값이라
+            //   Shutdown/디스폰 이후에는 거짓이 되어 이 한 줄이 늦은 틱을 막아 준다.
+            //
+            //   순서(IsSpawned 를 앞에)의 근거:
+            //     || 는 앞이 참이면 뒤를 평가하지 않는다(단락 평가).
+            //     싱글플레이처럼 스폰되지 않은 상태에서 IsServer 를 건드리지 않고 곧바로 반환하기 위해
+            //     IsSpawned 를 먼저 둔다. NetworkUnit.cs 291행이 같은 이유로 같은 순서를 쓴다.
+            if (!IsSpawned || !IsServer) return;
 
             _attackTimer += Time.deltaTime;
             if (_attackTimer < _attackInterval) return;

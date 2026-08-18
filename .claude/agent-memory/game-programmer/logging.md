@@ -66,6 +66,26 @@ RuntimeLogger.BeginSession(string folderPath, string purpose)
   `GameLog.Dev.Info("Network", nameof(NetworkCombatController), "네트워크 역할 확정", $"Role={(IsServer ? "host" : "client")}")`
   (역할은 `key=value` 여야 서버 전송 시 집계 필드가 된다. 파일명은 집계 축이 못 된다 — LogRules 1.4)
 
+## 전역 로그 훅 — 수집 범위 확대 (2026-08-18, `LogSessionOwner.OnUnityLogMessageReceived`)
+
+**훅은 이제 `LogType.Exception` **과** `LogType.Error` 를 함께 수집한다.** (`Assert`·`Warning`·`Log` 는 제외)
+
+- 옛 서술("Exception 만 수집")은 폐기. 배제 근거였던 *"우리 raw `Debug.LogError` 를 이중 집계한다"* 는
+  386건 이관 완료로 **전제가 소멸**했다(런타임 raw 호출 0건). 되돌리면 엔진·NGO 오류가 다시 전부 유실된다.
+- **방어 4겹**(순서 그대로):
+  ① 타입 필터(`Exception || Error`) → ② **`RuntimeLogger.IsEmittingToConsole`(신설)** →
+  ③ `GameLog.IsEmitting` → ④ 직전 `condition`+`stackTrace` 동일 무시
+- ⚠️ **방어 ④ 는 우리 자신의 출력을 못 잡는다.** `RuntimeLogger.cs` 가 만드는 줄에 `[HH:mm:ss.fff]` 가
+  들어가 메아리마다 문자열이 달라지기 때문. 그래서 ②(플래그)가 실질적인 자기출력 차단막이다.
+- `RuntimeLogger._isEmittingToConsole` 는 **콘솔 `switch` 구간만** `try/finally` 로 감싼다.
+  파일 쓰기는 훅을 발화시키지 않으므로 감싸지 않는다. **`finally` 누락 시 훅이 영구히 죽는다.**
+- **스로틀**: 같은 `condition` 1초 1건. 억제분은 다음 통과 줄에 `Suppressed=n`.
+  `Dictionary` **상한 32개, 초과 시 `Clear()`**(LRU 아님 — 훑는 비용을 피하려고). 시계는 `Stopwatch`(단조 증가).
+  `Shutdown()` 에서 표도 비운다.
+- ⚠️ `Suppressed=` 는 **스로틀이 버린 횟수만** 센다. 방어 ④가 먼저 버린 줄은 세지 않는다 → 발생 횟수의 하한.
+- 키 분기: `Exception` → `UnhandledException` / `Error` → **`UnhandledEngineError`(신설, 36→37)**.
+  `LogType=` 같은 잉여 필드는 두지 않는다. `Source=UnityLogHook` 유지.
+
 ## 형식
 
 `[HH:MM:SS.ms] [LEVEL] [System/Class] 메시지 | key=value, key=value`
@@ -152,6 +172,11 @@ HP·골드처럼 **절대값을 계속 재동기화**하는 값은 Warn, 사망�
 
 - 배치 1-A 에서 새로 도입: `AppliedDamage=` `AppliedHeal=` `Hp=` `PathLength=` `EntityId=` `ReadyCount=` `BlueGold=` `RedGold=` `UnitTeam=`
 - 배치 1-B 에서 새로 도입(**전부 `개발` 로그 전용** — 서버 집계에 올라가지 않는다): `WaitSeconds=` `WinnerTeam=` `PreviousGold=` `ServerGold=` `Diff=`
+- 연구(Upgrade) 흐름에서 도입(2026-08-18): `Group=`(`UpgradeGroup` enum 이름) · `Stat=`(`UnitUpgradeStat` enum 이름) ·
+  `Level=`(정수) · `TotalSeconds=`(**정수** — `Mathf.RoundToInt`) · `Suppressed=`(정수, 훅 전용)
+- ⚠️ **`float` 를 값에 그대로 넣지 않는다.** 문화권에 따라 소수 구분자가 `,` 가 되어 표기가 기기마다 갈린다. 정수로 고정하거나 `:F2` 로 못 박는다.
+- ⚠️ **구조체를 통째로 값에 넣지 않는다.** `HexCoord.ToString()` 은 `(4, 15)` 라 구분자 `, ` 가 값 안에 들어간다.
+  → **`Q=` / `R=` 로 쪼갠다.** (`NetworkProductionController:286` 의 `Pos={unit.Position}` 위반을 2026-08-18 에 이렇게 고쳤다.)
 - `Reason=` 값 표기 고정: 팀 불일치는 **`Reason=Team`**(`TeamMismatch` 아님), 소유권은 `Reason=Ownership`
 - **값 표기까지 고정**한다. `Role=host` / `Role=Host` 가 갈려 한 지표가 둘로 쪼개진 사고 이력 있음(커밋 `73574a23`).
 - Relay Join Code · Lobby Code · ticketId 는 **민감 데이터 아님**(LogRules 1.6 규정 3항목에 없음) — 평문 유지가 선례.

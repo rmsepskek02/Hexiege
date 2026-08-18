@@ -99,7 +99,7 @@ namespace Hexiege.Infrastructure
 #endif
 
         /// <summary>
-        /// 전역 예외 훅이 직전에 전달한 예외 메시지(중복 수집 방지용).
+        /// 전역 로그 훅이 직전에 전달한 메시지(중복 수집 방지용).
         /// 우리가 남긴 로그가 훅으로 되돌아오는 경우를 걸러 낸다.
         /// 자세한 이유는 OnUnityLogMessageReceived() 주석 참조.
         /// </summary>
@@ -110,6 +110,61 @@ namespace Hexiege.Infrastructure
         /// _lastHookCondition 과 짝으로 비교한다.
         /// </summary>
         private static string _lastHookStackTrace;
+
+        // ────────────────────────────────────────────────────────────────────
+        // 스팸 억제(스로틀) 상태 — 되먹임 방어와는 목적이 다르다
+        //
+        //   되먹임 방어(아래 방어 1~3) : "우리가 만든 출력을 우리가 다시 줍는 것" 을 막는다.
+        //   스로틀(여기)             : "남이 매 프레임 뱉는 같은 오류" 가 파일을 뒤덮는 것을 막는다.
+        //
+        //   왜 필요한가: 엔진 오류는 Update 안에서 나면 **매 프레임 반복**된다.
+        //   그리고 수집된 줄은 그때마다 파일에 즉시 기록된다(RuntimeLogger 의 AutoFlush=true).
+        //   즉 파일 비대화와 프레임당 디스크 I/O 가 함께 온다.
+        //   스팸은 정작 필요한 줄을 묻어 버린다(LogRules.md 1.14 금지 8 의 취지).
+        // ────────────────────────────────────────────────────────────────────
+
+        /// <summary>같은 메시지를 다시 통과시키기까지 기다리는 시간(초).</summary>
+        private const double ThrottleWindowSeconds = 1.0;
+
+        /// <summary>
+        /// 스로틀 표의 최대 항목 수.
+        ///
+        /// 상한을 두는 이유(중요):
+        ///   메시지에 좌표·Id 가 섞이면 **매번 다른 문자열**이 들어온다.
+        ///   상한이 없으면 이 표가 끝없이 커져 **로그 시스템 자신이 메모리 누수의 원인**이 된다.
+        ///   "로그 때문에 게임이 멈추면 본말전도" (LogRules.md 1.8).
+        /// </summary>
+        private const int ThrottleTableCapacity = 32;
+
+        /// <summary>
+        /// 훅이 수집한 메시지(condition)별 마지막 통과 시각과 그 뒤 억제된 횟수.
+        /// 키를 condition 문자열로 잡는 이유:
+        ///   같은 자리에서 반복되는 엔진 오류는 condition 이 동일하다.
+        ///   stackTrace 는 여러 줄이라 비교 비용이 크고, 같은 사건인데도 프레임마다 달라질 여지가 있다.
+        /// </summary>
+        private static readonly System.Collections.Generic.Dictionary<string, ThrottleEntry> _throttleTable
+            = new System.Collections.Generic.Dictionary<string, ThrottleEntry>();
+
+        /// <summary>
+        /// 시간 측정용 시계. DateTime 대신 Stopwatch 를 쓰는 이유는
+        /// 사용자가 시스템 시각을 바꾸거나 서머타임이 적용돼도 값이 뒤로 가지 않기 때문이다(단조 증가).
+        /// </summary>
+        private static readonly System.Diagnostics.Stopwatch _throttleClock
+            = System.Diagnostics.Stopwatch.StartNew();
+
+        /// <summary>
+        /// 스로틀 표의 한 칸. 클래스(참조 타입)로 둔 이유는
+        /// 딕셔너리에서 꺼낸 뒤 그 자리에서 값을 고칠 수 있어야 하기 때문이다
+        /// (구조체였다면 복사본이 고쳐져 표에 반영되지 않는다).
+        /// </summary>
+        private sealed class ThrottleEntry
+        {
+            /// <summary>이 메시지를 마지막으로 통과시킨 시각(초, Stopwatch 기준).</summary>
+            public double LastPassedSeconds;
+
+            /// <summary>마지막 통과 이후 스로틀이 걸러 낸 횟수. 다음 통과 줄에 Suppressed= 로 함께 남긴다.</summary>
+            public int SuppressedCount;
+        }
 
         // ====================================================================
         // 공개 API — 부트스트래퍼가 호출하는 유일한 진입점
@@ -261,6 +316,12 @@ namespace Hexiege.Infrastructure
             _lastHookCondition = null;
             _lastHookStackTrace = null;
 
+            // 스로틀 표도 비운다.
+            //   ① 다음 플레이가 지난 플레이의 "마지막 통과 시각" 을 물려받아
+            //      첫 오류 한 건이 조용히 억제되는 일을 막는다.
+            //   ② 문자열을 붙잡고 있을 이유가 없으므로 메모리도 함께 놓아 준다.
+            _throttleTable.Clear();
+
             // 마지막에 내린다. 다시 EnsureInitialized() 가 불리면 정상적으로 새로 열 수 있다.
             _initialized = false;
         }
@@ -286,7 +347,8 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// UnityEngine.Application.logMessageReceived 콜백.
-        /// 계측하지 않은 곳에서 터진 **미처리 예외**를 GameLog 로 끌어온다.
+        /// 계측하지 않은 곳에서 터진 **미처리 예외**와, 엔진·플러그인이 스스로 뱉는 **오류(Error)** 를
+        /// GameLog 로 끌어온다.
         ///
         /// ── 여기서 무한 루프가 나는 구조 (이 구현에서 가장 위험한 지점) ──────────
         ///   이 훅은 Debug.Log 계열이 호출될 때마다 되불린다.
@@ -297,39 +359,83 @@ namespace Hexiege.Infrastructure
         ///
         ///   이 고리가 끝없이 돌아 스택이 터지고 앱이 죽는다.
         ///   로그 시스템이 크래시를 기록하는 대신 크래시의 **원인**이 되는 것이다.
-        ///   그래서 방어를 세 겹 둔다(아래 1·2·3).
+        ///   그래서 방어를 **네 겹** 둔다(아래 1 · 1-b · 2 · 3). 그 뒤에 스팸 억제(스로틀)가 한 번 더 걸린다.
         /// </summary>
-        /// <param name="condition">예외 메시지.</param>
+        /// <param name="condition">로그 메시지(예외 메시지 또는 오류 문구).</param>
         /// <param name="stackTrace">스택 트레이스(여러 줄).</param>
-        /// <param name="type">로그 종류. 예외만 수집한다.</param>
+        /// <param name="type">로그 종류. 예외(Exception)와 오류(Error)만 수집한다.</param>
         private static void OnUnityLogMessageReceived(string condition, string stackTrace, UnityEngine.LogType type)
         {
-            // ── 방어 1: 예외(LogType.Exception)만 수집한다 ──
-            //   sink 가 콘솔에 내보내는 일반 로그는 Log / Warning / Error 종류다.
-            //   그 셋을 여기서 걸러 내면, sink 의 평범한 출력은 애초에 이 훅을 통과하지 못한다.
-            //   → 되먹임 고리가 만들어질 수 있는 경로 자체가 크게 줄어든다.
-            //   (Debug.LogError 로 남는 기존 로그를 여기서 다시 수집하지 않는 이유이기도 하다.
-            //    같은 사건을 두 번 기록하면 서버 집계에서 발생 건수가 부풀려진다 —
-            //    LogRules.md 1.3 분류 원칙 1.)
-            if (type != UnityEngine.LogType.Exception) return;
+            // ── 방어 1: 예외(Exception)와 오류(Error)만 수집한다 ──
+            //   Log(일반) / Warning / Assert 는 여기서 걸러 낸다.
+            //   → 되먹임 고리가 만들어질 수 있는 표면 자체를 줄인다.
+            //
+            //   Assert 를 넣지 않는 이유:
+            //     Debug.Assert 는 UNITY_ASSERTIONS(에디터·개발 빌드)에서만 살아 있어
+            //     릴리스 빌드에서는 발화 자체가 불가능하다. 이 수집의 목적인 「라이브 운영 지표」에
+            //     기여할 수 있는 양이 원리적으로 0이다. (실제 사용처도 현재 0건이다.)
+            //
+            //   ⚠️ 2026-08-18 변경 — 예전에는 Exception 만 수집했다. 그 판단이 틀렸던 것이 아니라
+            //      **전제가 바뀌었다.** 되돌리기 전에 반드시 읽을 것:
+            //        · 당시 근거는 "우리 코드가 Debug.LogError 로 남긴 로그를 훅이 다시 주우면
+            //          같은 사건이 두 번 집계된다" 였다. 그때는 프로젝트 코드가 raw Debug.LogError 를
+            //          널리 쓰고 있었기 때문에 옳은 판단이었다.
+            //        · 그 뒤 누적 386건의 GameLog 이관이 끝나 **게임 런타임 코드의 raw 호출이 0건**이 되었다.
+            //          지금 남은 Debug.LogError 는 로그 시스템 자신의 출력뿐이고,
+            //          그것은 「이중 집계」가 아니라 「되먹임」 문제이며 방어 1-b·2 가 담당한다.
+            //        · 반대로 엔진·NGO·플러그인이 내는 오류는 통째로 유실되고 있었다.
+            //          (실측: 753줄짜리 실기 로그에 [ERROR] 가 0건. 그 사이 콘솔에는 RPC 오류가 나 있었다.)
+            //      즉 이 조건을 원래대로 좁히면 **엔진 계층의 오류가 다시 전부 사라진다.**
+            if (type != UnityEngine.LogType.Exception && type != UnityEngine.LogType.Error) return;
+
+            // ── 방어 1-b: RuntimeLogger 가 지금 콘솔로 출력하는 중이면 무시한다 ──
+            //   우리 로그 시스템은 "오류를 남기는 방식" 자체가 Debug.LogError 호출이다.
+            //   그래서 Error 를 수집하기로 한 이상, 우리 자신의 출력을 확실히 알아볼 표식이 필요하다.
+            //   RuntimeLogger 가 콘솔 출력 구간에서만 드는 플래그가 그 표식이다.
+            //
+            //   방어 2(GameLog.IsEmitting)만으로 부족한 이유:
+            //     LogRules.md 1.11 은 축 B 「임시」 로그에 대해 RuntimeLogger 직접 호출을 허용한다.
+            //     그 경로는 GameLog 를 거치지 않아 IsEmitting 이 거짓이다(= 구멍).
+            //     플래그를 출력하는 코드 바로 옆에 두면 GameLog 경유와 직접 호출을 한꺼번에 덮는다.
+            if (RuntimeLogger.IsEmittingToConsole) return;
 
             // ── 방어 2: 재진입 가드 ──
-            //   GameLog 가 sink 로 내보내는 도중이라면, 지금 들어온 이 예외는
+            //   GameLog 가 sink 로 내보내는 도중이라면, 지금 들어온 이 줄은
             //   우리 자신이 방금 만든 출력(예: ConsoleSink 의 Debug.LogException)이 되돌아온 것이다.
             //   즉시 반환해 고리를 끊는다.
             //   (GameLog.Emit 안에도 같은 취지의 가드가 있다 — 방어를 한 겹만 두지 않는다.)
             if (Hexiege.Application.GameLog.IsEmitting) return;
 
-            // ── 방어 3: 직전과 동일한 예외면 무시한다 ──
+            // ── 방어 3: 직전과 동일한 메시지면 무시한다 ──
             //   훅 전달이 혹시라도 즉시(동기)가 아니라 나중에 이루어지는 경우,
-            //   방어 2 의 플래그가 이미 내려가 있어 같은 예외를 다시 받을 수 있다.
+            //   방어 2 의 플래그가 이미 내려가 있어 같은 줄을 다시 받을 수 있다.
             //   메시지 + 스택이 직전과 똑같으면 우리가 되쏜 것으로 보고 버린다.
+            //
+            //   ⚠️ 이 방어는 **우리 자신의 출력에 대해서는 기대할 수 없다.**
+            //      우리가 만드는 줄에는 [HH:mm:ss.fff] 처럼 밀리초까지 들어간 시각이 붙어
+            //      메아리마다 문자열이 달라지기 때문이다. 그래서 방어 1-b 를 따로 둔 것이다.
+            //      이 방어가 실제로 잡는 것은 "형식이 그대로 유지되는 남의 출력" 이다.
             if (condition == _lastHookCondition && stackTrace == _lastHookStackTrace) return;
 
             _lastHookCondition = condition;
             _lastHookStackTrace = stackTrace;
 
-            // 운영 로그로 남긴다 — 미처리 예외는 정확히 "플레이어 기기에서만 벌어지고,
+            // ── 스팸 억제(스로틀) ──
+            //   여기까지 온 줄은 "우리 것이 아니고, 직전과도 다른" 진짜 수집 대상이다.
+            //   그런데 엔진 오류는 Update 안에서 나면 매 프레임 반복되므로 한 번 더 조인다.
+            if (!TryPassThrottle(condition, out int suppressedCount)) return;
+
+            // 수집한 종류에 따라 이벤트 키를 가른다(LogRules.md 1.5).
+            //   Exception → 흐름이 끊긴 미처리 예외
+            //   Error     → 흐름은 그대로 진행되는 엔진 계층 오류
+            //   두 키를 섞으면 "크래시 건수" 지표가 크래시 아닌 사건으로 부풀어 못 쓰게 된다.
+            bool isException = type == UnityEngine.LogType.Exception;
+            Hexiege.Application.LogEvent logEvent = isException
+                ? Hexiege.Application.LogEvent.UnhandledException
+                : Hexiege.Application.LogEvent.UnhandledEngineError;
+            string headline = isException ? "미처리 예외" : "엔진 계층 오류";
+
+            // 운영 로그로 남긴다 — 둘 다 정확히 "플레이어 기기에서만 벌어지고,
             // 이 로그가 없으면 추적할 수단이 없는" 사건이다(LogRules.md 1.2 축 B).
             //
             // 스택을 message 뒤에 줄바꿈으로 붙이는 이유:
@@ -337,15 +443,90 @@ namespace Hexiege.Infrastructure
             //   스택을 key=value 자리에 넣으면 여러 줄·쉼표 때문에 구조화 필드가 깨지므로
             //   메시지 쪽에 붙인다(LogRules.md 1.4 — 자유 문장은 메시지에).
             //
+            // Source= 는 예전 그대로 둔다. LogType= 같은 잉여 필드는 두지 않는다 —
+            //   이벤트 키가 이미 둘을 가르고 있어 집계에서 아무 질문에도 답하지 않기 때문이다.
+            //
             // className 이 GameBootstrapper 가 아니라 이 클래스인 이유:
             //   훅의 소유자가 여기로 옮겨 왔기 때문이다. Infrastructure 인 이 파일이
             //   Bootstrap 레이어의 GameBootstrapper 를 참조하면 의존 방향이 거꾸로 뒤집힌다.
             Hexiege.Application.GameLog.Ops.Error(
-                Hexiege.Application.LogEvent.UnhandledException,
+                logEvent,
                 "Runtime",
                 nameof(LogSessionOwner),
-                $"미처리 예외: {condition}\n{stackTrace}",
-                "Source=UnityLogHook");
+                $"{headline}: {condition}\n{stackTrace}",
+                $"Source=UnityLogHook, Suppressed={suppressedCount}");
+        }
+
+        /// <summary>
+        /// 같은 메시지가 짧은 시간에 몰려 들어오는 것을 걸러 낸다(스팸 억제).
+        /// 같은 condition 은 1초에 한 건만 통과시키고, 그 사이에 들어온 것들은 횟수만 세어 둔다.
+        ///
+        /// 왜 "버리기만" 하지 않고 횟수를 세는가:
+        ///   억제했다는 사실 자체가 사라지면 "그 오류가 몇 번 났는가" 를 영원히 알 수 없다.
+        ///   그래서 다음에 통과하는 줄에 Suppressed=n 으로 함께 남긴다.
+        ///   n 은 숫자라서 서버 집계에서 그대로 쓸 수 있다(LogRules.md 1.4).
+        ///
+        /// ⚠️ 이 값이 세는 것은 **이 스로틀이 걸러 낸 횟수뿐**이다.
+        ///    바로 앞의 방어 3(직전과 동일하면 무시)이 이미 버린 줄은 여기까지 오지 않으므로 세지 않는다.
+        ///    즉 Suppressed 는 "실제 발생 횟수" 의 하한이지 정확한 발생 횟수가 아니다.
+        ///
+        /// ⚠️ [Conditional] 을 붙이지 않는다. 이것은 로그 시스템 본체 코드이고,
+        ///    릴리스에서 사라지면 정작 스팸이 문제가 되는 환경에서 억제가 없어진다.
+        /// </summary>
+        /// <param name="condition">훅이 전달한 메시지 문자열(스로틀 판정 키).</param>
+        /// <param name="suppressedCount">
+        /// 통과하는 경우, 마지막 통과 이후 이 스로틀이 걸러 낸 횟수. 통과하지 못하면 0.
+        /// </param>
+        /// <returns>이번 줄을 기록해도 되면 true, 걸러야 하면 false.</returns>
+        private static bool TryPassThrottle(string condition, out int suppressedCount)
+        {
+            suppressedCount = 0;
+
+            // 키가 null 이면 딕셔너리에 넣을 수 없다. 이런 줄은 억제하지 않고 그대로 통과시킨다
+            //   (수집을 놓치는 것보다 한 줄 더 남는 편이 낫다).
+            if (condition == null) return true;
+
+            double now = _throttleClock.Elapsed.TotalSeconds;
+
+            if (_throttleTable.TryGetValue(condition, out ThrottleEntry entry))
+            {
+                // 아직 창(1초) 안이면 통과시키지 않고 횟수만 올린다.
+                if (now - entry.LastPassedSeconds < ThrottleWindowSeconds)
+                {
+                    entry.SuppressedCount++;
+                    return false;
+                }
+
+                // 창이 지났다 — 통과시키면서, 그동안 억제한 횟수를 함께 넘겨 준다.
+                suppressedCount = entry.SuppressedCount;
+                entry.SuppressedCount = 0;
+                entry.LastPassedSeconds = now;
+                return true;
+            }
+
+            // ── 처음 보는 메시지 ──
+            //   표가 상한에 닿았으면 **통째로 비우고 다시 시작**한다.
+            //
+            //   왜 "가장 오래된 것 제거(LRU)" 가 아닌가:
+            //     가장 오래된 항목을 찾으려면 순서 정보를 따로 유지하거나 표 전체를 훑어야 한다.
+            //     이 메서드는 오류가 쏟아지는 상황에서 매 프레임 여러 번 불릴 수 있는 자리라
+            //     그런 비용을 지고 싶지 않다.
+            //   왜 "새 항목 무시(= 스로틀 없이 통과)" 가 아닌가:
+            //     그러면 상한을 넘긴 뒤 들어오는 새 오류가 전부 억제 없이 통과해
+            //     정작 상한을 둔 목적(스팸 방지)이 사라진다.
+            //   통째로 비우기의 대가는 "그 순간 쌓여 있던 Suppressed 카운트를 잃고,
+            //     직후 한 번씩은 다시 통과한다" 는 것뿐이다. 스스로 회복되는 성질의 손해라 받아들인다.
+            if (_throttleTable.Count >= ThrottleTableCapacity)
+            {
+                _throttleTable.Clear();
+            }
+
+            _throttleTable[condition] = new ThrottleEntry
+            {
+                LastPassedSeconds = now,
+                SuppressedCount = 0
+            };
+            return true;
         }
     }
 }

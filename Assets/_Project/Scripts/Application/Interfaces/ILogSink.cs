@@ -87,6 +87,26 @@ namespace Hexiege.Application
         /// </summary>
         UnhandledException,
 
+        /// <summary>
+        /// 우리가 계측하지 않은 곳에서 **엔진 계층이 낸 오류**(Debug.LogError).
+        /// UnhandledException 과 같은 훅(UnityEngine.Application.logMessageReceived)이 수집하지만
+        /// **키를 나눈다.** 접두사를 맞춰 둔 것은 "같은 훅이 수집한 짝" 임을 이름만으로 알게 하기 위해서다.
+        ///
+        /// ── 왜 UnhandledException 과 한 키로 묶지 않는가 (LogRules.md 1.5 신설 기준 2개 충족) ──
+        ///   ① 집계가 섞이면 안 된다:
+        ///      UnhandledException 은 "try-catch 로 감싸지 않은 곳에서 터진 예외" 다 — 스택이 풀리고 흐름이 끊긴다.
+        ///      반면 엔진·플러그인의 Debug.LogError 는 **예외가 아니다.** 게임은 그대로 계속 진행된다.
+        ///      한 키로 묶으면 "크래시 건수" 지표가 크래시가 아닌 사건으로 부풀어,
+        ///      출시 판단에 쓰는 가장 중요한 숫자를 못 쓰게 된다.
+        ///   ② 조치가 다르다:
+        ///      미처리 예외 → 그 자리에 try-catch 를 두거나 원인 코드를 고친다.
+        ///      엔진 계층 오류 → 대개 우리가 SDK 를 잘못된 상태·순서로 호출한 것이라
+        ///                      (예: NetworkManager 정지 후 RPC 발신) **호출 시점 가드 추가**가 조치다.
+        ///
+        /// 발생 지점: Infrastructure/Debug/LogSessionOwner.cs — OnUnityLogMessageReceived
+        /// </summary>
+        UnhandledEngineError,
+
         // ====================================================================
         // [G] UGS 초기화 · 브릿지
         //

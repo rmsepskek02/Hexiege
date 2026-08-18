@@ -1,54 +1,41 @@
-# game-programmer 메모리 (Hexiege)
+# game-programmer 메모리 — 인덱스
 
-상세 주제 노트: [`logging.md`](./logging.md) — GameLog / 판정 선례 / `key=value` 규약 / 네임스페이스 함정
+프로젝트 규칙 단일 소스는 리포지토리의 `CLAUDE.md` / `AGENTS.md` / `Assets/_Project/Docs/`.
+여기에는 **코드에서 반복적으로 발을 헛디딘 지점**만 적는다. 충돌하면 항상 프로젝트 문서가 옳다.
 
-## 네트워크 컨트롤러 — 스폰 레이스 대응 표준 패턴 (2026-08-18 확정)
+## 토픽 파일
 
-씬 NetworkObject 컨트롤러는 `GameBootstrapper` 의 `GameServicesLocator.Register` 보다 **먼저 스폰될 수 있다**
-(NGO 스폰 타이밍은 회선 상태에 좌우 → 에디터 재현 거의 불가, 실기에서만 간헐 발생).
+- `logging.md` — GameLog / sink / RuntimeLogger 구조, 판정 선례표, `key=value` 확정 매핑,
+  전역 로그 훅(4겹 방어 + 스로틀). **로그 관련 작업은 여기부터 읽는다.**
 
-**요청 경로는 `ResolveServices()` 지연 재조회로 저절로 살아나지만, `OnNetworkSpawn` 에서 한 번만 거는
-이벤트 구독은 복구 경로가 없다** → "요청은 되는데 완료 브로드캐스트만 죽는" 비대칭 손상이 난다.
+## 컴파일에서 반복해서 물린 함정
 
-표준 형태 (`NetworkSkillController` = 원본, `NetworkUpgradeController` = 이식본):
+- **`Hexiege.Application` 네임스페이스가 존재한다.** 수식 없는 `Application` 은 `UnityEngine.Application` 이 아니다
+  (CS0234 3건 이력). `UnityEngine.Application.logMessageReceived` 처럼 **완전 수식** 필수.
+  검증: `grep -nE '(^|[^.a-zA-Z_])Application\.' <file>` 이 0건이어야 한다.
+- **`LogLevel` 이 `Hexiege.Application` · `Hexiege.Infrastructure` 양쪽에 있다.**
+  인터페이스 구현 시그니처는 `Hexiege.Application.LogLevel` 로 완전 수식해야 구현으로 인정된다.
+- `Infrastructure/Debug/LogSessionOwner.cs` 는 **의도적으로 `using` 이 하나도 없다.** 새 타입도 완전 수식으로 쓴다
+  (`System.Collections.Generic.Dictionary`, `System.Diagnostics.Stopwatch`).
 
-```csharp
-private void EnsureXxxSubscription()
-{
-    if (!IsServer || _handler != null) return;              // 서버 전용 + 멱등 가드
-    SomeUseCase uc = ResolveServices()?.GetXxx();
-    if (uc == null) return;                                 // 못 얻으면 다음 기회에
-    _handler = OnXxxOnServer;
-    uc.OnXxx += _handler;
-}
-```
+## NGO(Netcode) 관용구
 
-- **호출 지점은 반드시 2곳**: `OnNetworkSpawn`(1차) + **해당 이벤트를 낳는 ServerRpc 의 동작 직전**(복구).
-  스폰에만 두면 `return` 을 걷어내도 결과가 같다 — 서비스가 null 이면 그대로 구독을 못 한 채 끝난다.
-- `OnNetworkSpawn` 에서 서비스 미해결 시 **조기 종료 금지.** 로그만 남기고 흐름을 계속한다.
-- `OnNetworkDespawn` 짝: `if (_handler != null) { uc?.OnXxx -= _handler; _handler = null; }`
-  — `_handler = null` 이 재경기 재구독을 허용하고, 멱등 가드가 중복 구독을 막는 2겹 구조.
-- 이벤트를 **낳지 않는** RPC(예: 취소)에는 넣지 않는다 — 그 지점은 항상 no-op.
+- **`IsServer` 는 "이 오브젝트가 살아 있는가" 가 아니다.** `NetworkManager.Shutdown()` 뒤에도 참일 수 있어
+  늦은 `Update` 가 통과하고 RPC 발신이 *"Rpc methods can only be invoked after starting the NetworkManager!"* 로 터진다.
+  → 서버 틱/RPC 발신 자리는 **`if (!IsSpawned || !IsServer) return;`**.
+  `IsSpawned` 를 **앞에** 두는 이유는 단락 평가로 싱글플레이(미스폰)에서 `IsServer` 를 건드리지 않기 위해서다.
+  선례: `NetworkUnit:291` · `NetworkCombatController:310`(Update) · `NetworkGameEndController:457` · `UnitFactory:533`.
+- **host 는 서버이자 클라이언트다.** `ClientRpc` 안의 로그는 `if (IsServer) return;` **뒤**에 둬야
+  같은 사건이 host 파일에 두 줄로 남지 않는다(LogRules 1.14 금지 9).
 
-관련 파일: `Assets/_Project/Scripts/Infrastructure/Network/NetworkSkillController.cs`,
-`.../NetworkUpgradeController.cs`
+## 알려진 잔존 구멍 (아직 안 고침 — 2026-08-18 기준)
 
-## 죽은 코드 제거 절차 (WORKFLOW.md [4])
+- `NetworkCombatController` 에 **게임 종료 구독이 0건**이라, 승패가 갈린 뒤에도 전투 루프가 계속 돈다(실측 약 20초).
+- 같은 파일 `OnUnitDied → EntityDiedClientRpc` 는 가드가 `if (!IsServer) return;` 하나뿐 —
+  코루틴(`DelayedAttackDamage`)이 Shutdown 이후에 깨어나면 `Update` 와 같은 성질의 구멍이 된다.
 
-**예외 없이 2단계**: ① 주석 처리(비활성화) → ② 사용자 테스트([6]) 통과 후 삭제([7] 전).
-호출부 0곳을 실측했더라도 즉시 삭제하지 않는다.
+## 자기 검증 스크립트
 
-- 주석 처리 시 **XML doc `///` 도 `//` 로 바꿀 것** — 언어 요소 없는 `///` 는 CS1587 경고.
-- ⚠️ 주석 안으로 들어간 `return` / `Debug.Log` 낱말이 **검증 grep 을 오탐**시킨다. 해당 파일은 예외 처리.
-- 현재 비활성화 대기 중: `Bootstrap/GameBootstrapper.Setup.cs` 의 `SetCameraStartPositionForTeam`
-  (팀별 카메라 이동은 `GameBootstrapper.Network.cs` 의 `ViewConverter.Setup` 뷰 반전으로 대체됨).
-
-## 검증 스니펫
-
-```bash
-# 중괄호 균형 — 반드시 주석·문자열 리터럴을 걷어낸 뒤 셀 것(인라인 중괄호·문자열 보간이 오탐)
-grep -nE '(^|[^.a-zA-Z_])Application\.' <path>   # 0건이어야 함 (Hexiege.Application 네임스페이스 함정)
-grep -cE '^[[:space:]]*GameLog\.(Ops|Dev)\.' <path>   # 활성 로그 건수(주석 제외)
-```
-
-`LogEvent` enum 멤버는 **36개**(`Application/Interfaces/ILogSink.cs`). 로그 작업 후 무변경 확인 대상.
+- 중괄호 개폐 균형은 **주석·문자열 리터럴을 걷어낸 뒤** 세야 한다. 단독행 카운트나 `{` 총계는 오탐이 잦다
+  (문자열 보간 `$"{x}"` 때문). 파이썬으로 스트립 후 세는 것이 유일하게 신뢰할 수 있다.
+- ⚠️ **주석에 `Debug.Log` / `GameLog.Dev.` / `Pos=` 같은 검증 grep 대상 낱말을 쓰지 마라.** 그 자체가 오탐이 된다.

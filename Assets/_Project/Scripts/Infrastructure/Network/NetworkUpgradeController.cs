@@ -232,6 +232,21 @@ namespace Hexiege.Infrastructure
             //   착수 직후 _active에 기록된 전체 시간을 읽어 보낸다. buildingId도 함께 보내
             //   클라가 "이 연구소가 연구 중"임을 알고 진행 레이어로 전환할 수 있게 한다.
             upgrade.TryGetProgress(team, group, stat, out _, out float total);
+
+            // [개발] 축 A=Info / 축 B=개발 — 연구 흐름의 첫 지점(착수 성공)을 남긴다.
+            //   축 A: 정상적으로 성공한 흐름이라 Info.
+            //   축 B: 에디터 2인 구성(host + client)으로 그대로 재현되므로 ① "플레이어 기기에서만?" 이 아니오 → 개발.
+            //   선례: 메모리 판정표의 "스폰/구독완료/성공 통보 → Info / 개발" 행과 같은 부류다.
+            //
+            //   ⚠️ TotalSeconds 를 float 그대로 넣지 않고 정수로 반올림하는 이유(LogRules 1.4):
+            //      float 를 문자열로 만들면 실행 환경의 문화권(culture)에 따라 소수 구분자가 '.' 이 아니라
+            //      ',' 가 될 수 있다. 그러면 같은 키의 값 표기가 기기마다 갈리고,
+            //      로그 라인의 필드 구분자(", ")와도 헷갈릴 여지가 생긴다.
+            //      연구 시간은 초 단위 정수면 충분하므로 애초에 그 위험이 없는 형태로 고정한다.
+            GameLog.Dev.Info("Network", nameof(NetworkUpgradeController), "서버: 연구 착수 성공",
+                             $"ClientId={senderClientId}, Team={team}, Group={group}, Stat={stat}, " +
+                             $"BuildingId={buildingId}, TotalSeconds={Mathf.RoundToInt(total)}");
+
             SendResearchStarted(senderClientId, groupInt, statInt, buildingId, total);
         }
 
@@ -278,6 +293,18 @@ namespace Hexiege.Infrastructure
         // 완료 레벨 — 양 클라 브로드캐스트(효과 양쪽 적용).
         private void OnResearchCompletedOnServer(TeamId team, UpgradeGroup group, UnitUpgradeStat stat, int level)
         {
+            // [개발] 축 A=Info / 축 B=개발 — 연구 흐름에서 가장 중요한 지점이다.
+            //   이 줄이 필요한 이유(초급 개발자용 설명):
+            //     이 메서드는 "서버에서 연구가 끝났다" 는 사실을 양 클라이언트에 알리는 유일한 자리다.
+            //     여기가 실행되지 않으면 서버 쪽 레벨만 올라가고, 순수 클라이언트 화면에서는
+            //     연구가 영원히 끝나지 않는 것처럼 보인다(= 완료 브로드캐스트 유실 버그).
+            //     직전 작업에서 그 버그를 고쳤는데, 이 자리에 로그가 한 줄도 없어
+            //     "정말 발신되었는가" 를 로그로 확인할 방법이 없었다. 그래서 발신 직전에 남긴다.
+            //   축 A: 정상 흐름의 성공 통보라 Info.
+            //   축 B: 에디터 2인 구성으로 그대로 재현되므로 개발.
+            GameLog.Dev.Info("Network", nameof(NetworkUpgradeController), "서버: 연구 완료 — 레벨 브로드캐스트",
+                             $"Team={team}, Group={group}, Stat={stat}, Level={level}");
+
             ResearchLevelClientRpc((int)team, (int)group, (int)stat, level);
         }
 
@@ -294,9 +321,16 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void ResearchLevelClientRpc(int teamIndex, int groupInt, int statInt, int level)
         {
+            // ⚠️ 아래 두 로그는 반드시 이 가드 **뒤**에 둔다(LogRules 1.14 금지 9 — 같은 사건 두 곳 로깅 금지).
+            //   host 는 서버이자 클라이언트라 이 ClientRpc 도 자기 자신에게 도착한다.
+            //   가드 앞에 로그를 두면 host 에서는 "서버: 연구 완료 — 레벨 브로드캐스트" 와
+            //   여기의 클라이언트 로그가 **같은 사건인데 한 파일에 두 줄**로 남아 집계가 두 배가 된다.
+            //   가드 뒤에 두면 순수 클라이언트에서만 찍히므로 중복이 원리적으로 생길 수 없다.
             if (IsServer) return; // 서버는 TickResearch에서 이미 레벨을 올렸다.
 
             var team = (TeamId)teamIndex;
+            var group = (UpgradeGroup)groupInt;
+            var stat = (UnitUpgradeStat)statInt;
 
             // 서비스 지연 해석(스폰 레이스로 _services가 null일 수 있음).
             UnitUpgradeUseCase upgrade = ResolveServices()?.GetUpgradeUseCase();
@@ -304,13 +338,36 @@ namespace Hexiege.Infrastructure
             {
                 // SetLevel 내부에서 진행 레코드 제거 + OnUpgradeChanged 발행
                 //   → 소유 클라의 연구 패널이 진행 레이어를 비우고 매트릭스로 복귀한다.
-                upgrade.SetLevel(team, (UpgradeGroup)groupInt, (UnitUpgradeStat)statInt, level);
+                upgrade.SetLevel(team, group, stat, level);
+
+                // [개발] 축 A=Info / 축 B=개발 — 클라이언트가 완료 레벨을 실제로 반영했다는 증거.
+                //   서버의 "레벨 브로드캐스트" 줄과 짝을 이뤄, 완료 사실이 상대 화면까지 도달했는지 확인한다.
+                //   축 B: 에디터가 client 인 회차에서 그대로 재현되므로 개발.
+                GameLog.Dev.Info("Network", nameof(NetworkUpgradeController), "클라이언트: 강화 레벨 반영",
+                                 $"Team={team}, Group={group}, Stat={stat}, Level={level}");
             }
             else
             {
                 // 서비스 미해결 시에도 UI 가 진행 레이어에 갇히지 않도록 완료를 직접 통지한다
                 //   (취소 통지 ResearchCanceledClientRpc 와 동일한 안전장치 — 서비스 의존 없음).
                 GameEvents.OnUpgradeChanged.OnNext(team);
+
+                // [운영] 축 A=Warn / 축 B=운영 — 기존 키 ClientRpcGameServicesMissing 을 **재사용**한다.
+                //   축 A(복구되었나?): 바로 위에서 OnUpgradeChanged 를 직접 발행해 UI 가 진행 레이어에
+                //     갇히지 않도록 복구했다. 다만 강화 레벨 자체는 이 클라이언트에 반영되지 않았다 → Warn.
+                //   축 B①(플레이어 기기에서만?): 이 분기에 들어가는 조건은 NGO 스폰 레이스이고,
+                //     그것은 회선 상태에 좌우돼 플레이어 기기에서만 어긋난다 → 예.
+                //   축 B②(다른 기록으로 대체 불가?): 레벨이 반영되지 않았는데 UI 는 완료로 보이므로
+                //     화면상 정상과 구분되지 않는다. 이 로그 말고는 흔적이 없다 → 예. 따라서 운영.
+                //
+                //   ⚠️ 새 키를 만들지 않는 이유(LogRules 1.5 신설 기준):
+                //      "ClientRpc 안에서 서비스를 얻지 못해 서버 상태가 이 클라이언트에 반영되지 않았다" 는
+                //      이미 ClientRpcGameServicesMissing 이 담고 있는 사건이고 조치도 같다
+                //      (스폰 순서·조합 루트 등록 시점 점검). 신설 기준 두 가지를 모두 충족하지 못한다.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing,
+                                 "Network", nameof(NetworkUpgradeController),
+                                 "클라이언트: 서비스를 얻지 못해 레벨 반영 없이 완료만 통지했다",
+                                 $"Team={team}, Group={group}, Stat={stat}, Level={level}");
             }
         }
 
