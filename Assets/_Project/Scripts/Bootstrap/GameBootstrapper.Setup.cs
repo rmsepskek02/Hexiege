@@ -10,7 +10,8 @@
 //      - InitializeBuildingStatsFromConfig
 //   2. orientation별 HexMetrics 설정 적용 (ApplyConfig)
 //   3. UseCase 인스턴스 일괄 생성 (CreateUseCases)
-//   4. 카메라 초기 위치/경계/줌 설정 (SetupCamera, SetCameraStartPositionForTeam)
+//   4. 카메라 초기 위치/경계/줌 설정 (SetupCamera)
+//      - SetCameraStartPositionForTeam 은 호출부 0곳으로 확인되어 비활성화(주석 처리)됨 — 제거 예정
 //   5. 입력 핸들러 의존성 주입 (SetupInput)
 //   6. 건물/생산 시스템 초기화 (SetupBuildings, SetupProduction)
 //
@@ -532,57 +533,76 @@ namespace Hexiege.Bootstrap
             }
         }
 
-        /// <summary>
-        /// 로컬 플레이어 팀에 맞춰 카메라 초기 위치를 설정.
-        /// Blue 팀: 맵 하단(자신의 Castle 근처), Red 팀: 반전된 뷰 기준 하단.
-        /// ViewConverter가 설정된 후 호출되어야 함.
-        /// XZ 평면 기반: X, Z로 맵 위치, Y는 카메라 높이(CameraController가 유지).
-        /// </summary>
-        private void SetCameraStartPositionForTeam(TeamId localTeam, OrientationConfig oc)
-        {
-            if (_cameraController == null) return;
-
-            // 양 팀 모두 '자기 진영 = 화면 하단' 규칙 → 카메라는 항상 맵 하단 행을 향함
-            // Red팀은 ViewConverter가 반전하므로 도메인 좌표에서는 상단(Red Castle 근처)을 지정
-            int cameraRow;
-            if (localTeam == TeamId.Red)
-            {
-                // Red 팀: 도메인 좌표에서 맵 상단 (ViewConverter가 뷰에서 하단으로 반전)
-                cameraRow = 2;
-            }
-            else
-            {
-                // Blue 팀(또는 기본): 맵 하단 (Blue Castle 근처)
-                cameraRow = oc.GridHeight - 3;
-            }
-
-            HexCoord cameraTargetCoord = HexGrid.OffsetToCube(
-                oc.GridWidth / 2, cameraRow, HexOrientation.FlatTop);
-            Vector3 startPos = HexMetrics.HexToWorld(cameraTargetCoord);
-            // 카메라 위치도 뷰 좌표계로 변환 (Red팀이면 반전)
-            startPos = ViewConverter.ToView(startPos);
-
-            // 틸트 보정: 카메라가 틸트되어 있으면 목표 지점이 화면 중앙에 오도록 Z 오프셋 적용
-            float tiltAngle = _cameraController.TiltAngle;
-            if (tiltAngle > 0f && tiltAngle < 90f)
-            {
-                float cameraHeight = _mainCamera != null ? _mainCamera.transform.position.y : 15f;
-                float zOffset = cameraHeight / Mathf.Tan(tiltAngle * Mathf.Deg2Rad);
-                startPos.z -= zOffset;
-            }
-
-            // Y는 카메라 높이 — CameraController.SetPosition()이 기존 Y를 유지
-            _cameraController.SetPosition(startPos);
-
-            // [개발] 카메라 배치 결과 확인용 흐름 추적. 축 A: 정상 흐름 → Info / 축 B: 개발.
-            //
-            // ⚠️ 참고 — 이 메서드는 2026-08-18 실측 기준 **호출부가 한 곳도 없다.**
-            //    (StartNetworkGame 은 "싱글플레이와 동일하게 맵 중심에서 시작" 방침이라 부르지 않는다.)
-            //    즉 이 로그는 현재 실행되지 않는다. 그래도 형식만 이관해 두는 이유는,
-            //    나중에 팀별 카메라 시작 위치가 되살아났을 때 이 자리만 옛 방식으로 남는 것을 막기 위해서다.
-            GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "카메라 시작 위치 설정",
-                             $"Team={localTeam}, Row={cameraRow}, ViewFlipped={ViewConverter.IsFlipped}");
-        }
+        // ====================================================================
+        // [비활성화 2026-08-18] SetCameraStartPositionForTeam — 죽은 코드
+        // ====================================================================
+        //
+        // 왜 비활성화하는가:
+        //   1) 호출부가 0곳이다. Assets/ 전체 검색 결과가 이 선언과 파일 헤더 목차 주석 2건뿐이었고,
+        //      private 메서드라 외부 어셈블리·리플렉션 경로도 없다.
+        //   2) 대체 방식이 이미 자리를 잡았다. 팀별로 카메라를 옮기는 대신
+        //      GameBootstrapper.Network.cs 가 ViewConverter.Setup(isRed, mapCenter) 으로 뷰 좌표계 자체를
+        //      반전시킨다. 같은 파일에 "싱글플레이와 동일하게 맵 중심에서 시작하도록 팀별 카메라 이동은
+        //      수행하지 않음" 이라는 방침이 명문으로 남아 있다.
+        //   → 실행되지 않는 코드이므로 비활성화로 인해 런타임 동작이 달라질 여지가 없다.
+        //
+        // 왜 지금 바로 지우지 않는가:
+        //   WORKFLOW.md [4] 기존 로직 제거 규칙이 "검증 전까지는 제거 대신 비활성화(주석 처리)를 기본으로
+        //   한다" 를 예외 없이 규정하기 때문이다.
+        //
+        // 언제 삭제하는가:
+        //   WORKFLOW [6] 사용자 테스트 통과 후 · [7] 문서/메모리 업데이트 전에 이 주석 블록을 통째로 삭제한다.
+        //   그때 파일 헤더 목차 주석 14행의 "제거 예정" 안내 줄도 함께 지운다.
+        //
+        // 아래는 비활성화된 원본이다(형태 보존용 — 되살릴 때 그대로 주석만 벗기면 된다).
+        //
+        // /// <summary>
+        // /// 로컬 플레이어 팀에 맞춰 카메라 초기 위치를 설정.
+        // /// Blue 팀: 맵 하단(자신의 Castle 근처), Red 팀: 반전된 뷰 기준 하단.
+        // /// ViewConverter가 설정된 후 호출되어야 함.
+        // /// XZ 평면 기반: X, Z로 맵 위치, Y는 카메라 높이(CameraController가 유지).
+        // /// </summary>
+        // private void SetCameraStartPositionForTeam(TeamId localTeam, OrientationConfig oc)
+        // {
+        //     if (_cameraController == null) return;
+        //
+        //     // 양 팀 모두 '자기 진영 = 화면 하단' 규칙 → 카메라는 항상 맵 하단 행을 향함
+        //     // Red팀은 ViewConverter가 반전하므로 도메인 좌표에서는 상단(Red Castle 근처)을 지정
+        //     int cameraRow;
+        //     if (localTeam == TeamId.Red)
+        //     {
+        //         // Red 팀: 도메인 좌표에서 맵 상단 (ViewConverter가 뷰에서 하단으로 반전)
+        //         cameraRow = 2;
+        //     }
+        //     else
+        //     {
+        //         // Blue 팀(또는 기본): 맵 하단 (Blue Castle 근처)
+        //         cameraRow = oc.GridHeight - 3;
+        //     }
+        //
+        //     HexCoord cameraTargetCoord = HexGrid.OffsetToCube(
+        //         oc.GridWidth / 2, cameraRow, HexOrientation.FlatTop);
+        //     Vector3 startPos = HexMetrics.HexToWorld(cameraTargetCoord);
+        //     // 카메라 위치도 뷰 좌표계로 변환 (Red팀이면 반전)
+        //     startPos = ViewConverter.ToView(startPos);
+        //
+        //     // 틸트 보정: 카메라가 틸트되어 있으면 목표 지점이 화면 중앙에 오도록 Z 오프셋 적용
+        //     float tiltAngle = _cameraController.TiltAngle;
+        //     if (tiltAngle > 0f && tiltAngle < 90f)
+        //     {
+        //         float cameraHeight = _mainCamera != null ? _mainCamera.transform.position.y : 15f;
+        //         float zOffset = cameraHeight / Mathf.Tan(tiltAngle * Mathf.Deg2Rad);
+        //         startPos.z -= zOffset;
+        //     }
+        //
+        //     // Y는 카메라 높이 — CameraController.SetPosition()이 기존 Y를 유지
+        //     _cameraController.SetPosition(startPos);
+        //
+        //     // [개발] 카메라 배치 결과 확인용 흐름 추적. 축 A: 정상 흐름 → Info / 축 B: 개발.
+        //     //    이 로그는 비활성화 이전에도 호출부가 없어 실행되지 않았으므로 로그 커버리지 손실이 아니다.
+        //     GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "카메라 시작 위치 설정",
+        //                      $"Team={localTeam}, Row={cameraRow}, ViewFlipped={ViewConverter.IsFlipped}");
+        // }
 
         // ====================================================================
         // 입력 연결

@@ -15,6 +15,10 @@
 //        (완료 효과는 양쪽에 적용되어야 한다 — 상대 강화 유닛이 내 화면에서도 올바른 데미지를 내야 하므로).
 //      클라이언트는 UnitUpgradeUseCase.SetLevel로 레벨을 반영.
 //
+//   ※ 3번의 OnResearchCompleted 구독은 스폰 시 1차로 시도하되, 스폰 레이스(서비스 미등록)로
+//     놓쳤을 경우 첫 연구 착수 요청(RequestResearchServerRpc) 시점에 EnsureUpgradeSubscription()이
+//     복구한다. 구독이 끊기면 완료 브로드캐스트만 통째로 죽는 비대칭 손상이 나기 때문이다.
+//
 // 배치(사용자 Unity 작업):
 //   씬에 빈 GameObject "NetworkUpgradeController" 생성 → NetworkObject + 이 스크립트 부착.
 //   NetworkManager의 씬 오브젝트(자동 스폰)로 설정. GameBootstrapper._networkUpgradeController에 연결.
@@ -56,32 +60,25 @@ namespace Hexiege.Infrastructure
             if (ResolveServices() == null)
             {
                 // [운영] 축 A=Warn / 축 B=운영 — 배치 1-A 와 같은 사건이므로 같은 키를 쓴다.
-                //   축 A: ServerRpc 처리 경로가 ResolveServices() 로 지연 재조회하여 요청 자체는 계속 처리된다 → Warn.
+                //   축 A: 여기서 return 하지 않고 EnsureUpgradeSubscription() 이 첫 착수 요청 시 구독을 복구하며,
+                //         ServerRpc 처리 경로도 ResolveServices() 로 지연 재조회하여 요청 자체는 계속 처리된다 → Warn.
                 //   축 B: NGO 스폰 타이밍은 회선 상태에 좌우돼 플레이어 기기에서만 어긋날 수 있고(①),
                 //         플레이어에게 알리는 경로가 없다(②) → 운영.
-                // ⚠️ 잠정 판정 — 축 A 를 Error 로 올릴 여지가 있다.
-                //    바로 아래 return 때문에 서버의 OnResearchCompleted 구독(69~70행)이 통째로 건너뛰어지고,
-                //    그 구독은 이 자리 말고 어디에서도 다시 시도되지 않는다(파일 전체에서 _completedHandler 는
-                //    OnNetworkSpawn 에서만 대입된다). 즉 "요청은 살아나지만 완료 브로드캐스트는 죽는" 부분 손상이다.
-                //    로그 외 코드를 바꾸지 않는다는 이번 배치 원칙에 따라 원래 레벨(Warning)을 유지하고 보고만 한다.
+                //   ※ 판정 확정(2026-08-18): 과거에는 이 자리 바로 아래에서 조기 종료해 완료 훅 구독이 통째로
+                //     날아갔기 때문에 "축 A 를 Error 로 올릴 여지가 있다"는 잠정 판정이 붙어 있었다. 조기 종료를
+                //     걷어내고 복구 경로(EnsureUpgradeSubscription)를 만들면서 그 전제가 사라졌으므로,
+                //     NetworkSkillController 와 완전히 같은 상황이 되어 Warn + 운영 으로 확정한다.
                 GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices,
                                  "Network", nameof(NetworkUpgradeController),
                                  "스폰 시점에 IGameServices 를 얻지 못했다 — 사용 시점 재조회로 복구를 시도한다",
                                  $"IsServer={IsServer}");
-                return;
             }
 
             // 서버만 완료 훅을 구독하여 양 클라 브로드캐스트를 트리거한다.
             // (클라이언트는 브로드캐스트를 받는 쪽이므로 구독하지 않는다.)
-            if (IsServer)
-            {
-                UnitUpgradeUseCase upgrade = _services.GetUpgradeUseCase();
-                if (upgrade != null)
-                {
-                    _completedHandler = OnResearchCompletedOnServer;
-                    upgrade.OnResearchCompleted += _completedHandler;
-                }
-            }
+            //   스폰 레이스로 services 가 아직 null 이면 여기선 건너뛰고,
+            //   첫 착수 요청(RequestResearchServerRpc) 시 EnsureUpgradeSubscription 이 복구한다.
+            EnsureUpgradeSubscription();
 
             // [개발] 스폰 진입 흔적 → Info / 개발.
             GameLog.Dev.Info("Network", nameof(NetworkUpgradeController), "네트워크 스폰", $"IsServer={IsServer}");
@@ -90,9 +87,12 @@ namespace Hexiege.Infrastructure
         public override void OnNetworkDespawn()
         {
             // 구독 해제(재경기/씬 전환 시 중복 구독 방지).
-            if (_completedHandler != null && _services != null)
+            //   _completedHandler 가 null 이 아니라는 것은 EnsureUpgradeSubscription 이 서비스를 얻은 뒤에만
+            //   대입했다는 뜻이므로, _services 는 이 시점에 항상 null 이 아니다. 그래도 방어적으로 ?. 를 쓴다.
+            //   _completedHandler = null 은 분기 안에서 항상 수행되어, 다음 스폰 때 멱등 가드가 재구독을 허용한다.
+            if (_completedHandler != null)
             {
-                UnitUpgradeUseCase upgrade = _services.GetUpgradeUseCase();
+                UnitUpgradeUseCase upgrade = _services?.GetUpgradeUseCase();
                 if (upgrade != null) upgrade.OnResearchCompleted -= _completedHandler;
                 _completedHandler = null;
             }
@@ -118,6 +118,31 @@ namespace Hexiege.Infrastructure
         {
             if (_services == null) _services = GameServicesLocator.Current;
             return _services;
+        }
+
+        /// <summary>
+        /// 서버에서 UnitUpgradeUseCase.OnResearchCompleted 구독을 보장한다(멱등 = 몇 번 불러도 구독은 1개).
+        ///
+        /// 왜 필요한가(초급자용 설명):
+        ///   이 구독이 없으면 서버는 "연구가 끝났다"는 사실을 알고도 그것을 양 클라이언트에 알리는
+        ///   ResearchLevelClientRpc 를 발신하지 못한다. 서버 쪽 레벨은 정상적으로 올라가므로 전투 판정은
+        ///   멀쩡하지만, 순수 클라이언트 화면에서는 연구가 영원히 끝나지 않는 것처럼 보인다.
+        ///   그런데 구독을 거는 자리는 OnNetworkSpawn 한 곳뿐이라, 스폰 레이스로 한 번 놓치면
+        ///   그 판이 끝날 때까지 두 번 다시 시도되지 않았다(이번 수정 이전의 버그).
+        ///   → 그래서 스폰 시 1차 시도 + 첫 착수 ServerRpc 에서 2차 복구, 두 번 시도한다.
+        ///
+        /// 가드 3겹:
+        ///   1) !IsServer     — 구독은 서버만 한다(클라이언트는 브로드캐스트를 받는 쪽).
+        ///   2) 핸들러 보유 여부 — 이미 구독했으면 즉시 빠져나가 중복 구독(= 완료 2회 브로드캐스트)을 막는다.
+        ///   3) upgrade null  — 아직 서비스를 못 얻었으면 아무것도 하지 않고, 다음 호출 기회에 다시 시도한다.
+        /// </summary>
+        private void EnsureUpgradeSubscription()
+        {
+            if (!IsServer || _completedHandler != null) return;
+            UnitUpgradeUseCase upgrade = ResolveServices()?.GetUpgradeUseCase();
+            if (upgrade == null) return;
+            _completedHandler = OnResearchCompletedOnServer;
+            upgrade.OnResearchCompleted += _completedHandler;
         }
 
         // ====================================================================
@@ -167,6 +192,13 @@ namespace Hexiege.Infrastructure
                 SendResearchFailed(senderClientId, "서버 초기화 오류");
                 return;
             }
+
+            // 완료 훅 구독 보장(스폰 레이스로 OnNetworkSpawn 에서 놓쳤을 경우 여기서 복구).
+            //   반드시 TryStartResearch(= 연구 착수 → 이후 완료 이벤트를 낳는 지점) 전에 구독돼 있어야
+            //   완료 브로드캐스트가 유실되지 않는다. 두 번째 호출부터는 멱등 가드에서 즉시 빠져나온다.
+            //   취소 ServerRpc 에는 넣지 않는다 — 취소가 도달했다는 것은 이미 이 착수 경로를 지났다는 뜻이라
+            //   그 자리에서는 언제나 아무 일도 하지 않기 때문이다.
+            EnsureUpgradeSubscription();
 
             UnitUpgradeUseCase upgrade = services.GetUpgradeUseCase();
             ResourceUseCase resource = services.GetResource();
@@ -348,7 +380,8 @@ namespace Hexiege.Infrastructure
             //   축 B: 팀 불일치·서버 초기화 오류·맵 로드 중 어느 사유든 에디터 2인 구성으로 재현된다(① 아니오).
             //   선례: NetworkProductionController.EnqueueFailedClientRpc(980행) 도 같은 구조로 Dev.Warn 이다.
             //   ⚠️ 다만 그 선례와 다른 점이 하나 있다 — NetworkProductionController 는 서버 쪽 거부 지점에도
-            //      운영 로그가 있는데, 이 파일의 서버 쪽 거부 지점(154·162·174·182행)에는 로그가 한 줄도 없다.
+            //      운영 로그가 있는데, 이 파일의 서버 쪽 거부 지점(192·207·219·227행 — SendResearchFailed
+            //      호출 4곳)에는 로그가 한 줄도 없다.
             //      로그 신규 추가는 이번 배치(기존 로그 이관) 범위 밖이라 보고만 한다.
             GameLog.Dev.Warn("Network", nameof(NetworkUpgradeController), "클라이언트: 연구 착수 실패 알림 수신",
                              $"Reason={reason}");

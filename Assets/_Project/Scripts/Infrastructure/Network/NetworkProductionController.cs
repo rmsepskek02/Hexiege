@@ -518,9 +518,15 @@ namespace Hexiege.Infrastructure
                 // ⚠️ 레벨 승격(Warn → Error, LogAudit.md §3-3 :484).
                 //    재시도 경로가 없다. 이 유닛은 이 클라이언트에서 영구히 누락된다
                 //    → "복구되었나?" 아니오 → Error.
+                //
+                //    데이터에 유닛 종류·팀·좌표를 함께 남긴다(2026-08-18 보강):
+                //      실패 원인은 UnitSpawnUseCase.SpawnUnitWithId 의 "그 좌표 타일이 클라이언트 그리드에 없다"
+                //      이므로, 좌표가 있어야 맵 desync 인지 아닌지를 릴리스 로그만 보고 판단할 수 있다.
+                //      UnitType·Team 은 507~508행에서 변환된 enum 변수를 쓴다(정수보다 읽기 쉽고 프로젝트 최빈 표기).
+                //      Q·R 표기는 같은 메서드 위쪽 개발 로그와 일치시킨다.
                 GameLog.Ops.Error(LogEvent.ClientStateSyncApplyFailed, "Network", nameof(NetworkProductionController),
                                   "SpawnUnitClientRpc — SpawnUnitWithId 실패. 이 유닛은 클라이언트에서 영구히 누락된다",
-                                  $"Request=SpawnUnit, UnitId={unitId}");
+                                  $"Request=SpawnUnit, UnitId={unitId}, UnitType={unitType}, Team={team}, Q={q}, R={r}");
                 return;
             }
 
