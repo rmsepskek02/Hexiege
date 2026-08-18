@@ -75,14 +75,22 @@ namespace Hexiege.Application
 
             if (!_authService.IsAnonymous)
             {
-                Debug.LogWarning("[AccountLinkUseCase] 익명 계정이 아닙니다. 연동을 진행할 수 없습니다.");
+                // [개발] "계정 연동" 버튼은 익명 계정에서만 노출되므로, 여기에 도달했다면
+                //   UI 상태와 실제 계정 상태가 어긋난 코드 버그다. 에디터에서 그대로 재현되므로
+                //   축 B ①("플레이어 기기에서만 벌어지는가")이 "아니오" → 개발.
+                //   축 A: 요청만 거부하고 앱은 계속 진행된다 → Warn.
+                GameLog.Dev.Warn("Auth", nameof(AccountLinkUseCase),
+                                 "익명 계정이 아니어서 Google 연동을 진행할 수 없다",
+                                 "Provider=Google");
                 return LinkResult.Failed;
             }
 
             try
             {
                 await _authService.LinkWithGoogleAsync();
-                Debug.Log("[AccountLinkUseCase] Google 연동 성공.");
+                // [개발] 성공 통보 → Info + 개발. 화면도 즉시 갱신되므로 운영 지표 가치가 없다.
+                GameLog.Dev.Info("Auth", nameof(AccountLinkUseCase), "Google 연동 성공",
+                                 "Provider=Google");
                 return LinkResult.Success;
             }
             catch (AuthException e)
@@ -90,10 +98,21 @@ namespace Hexiege.Application
                 LastError = e;
                 if (e.Reason == AuthErrorReason.CredentialAlreadyInUse)
                 {
-                    Debug.LogWarning("[AccountLinkUseCase] 이미 다른 계정에 연동된 Google 계정.");
+                    // [개발] 사용자가 이미 다른 계정에 쓰고 있는 Google 계정을 고른, 흔한 정상 실패다.
+                    //   화면에는 LastError 메시지가 그대로 뜨고(원칙 2), 같은 사건을
+                    //   FirebaseAuthService.ConvertException 이 운영 로그로 이미 남긴다(원칙 1).
+                    GameLog.Dev.Warn("Auth", nameof(AccountLinkUseCase),
+                                     "이미 다른 계정에 연동된 Google 계정",
+                                     $"Provider=Google, Reason={e.Reason}");
                     return LinkResult.AlreadyLinkedElsewhere;
                 }
-                Debug.LogError($"[AccountLinkUseCase] Google 연동 실패: {e.Message}");
+                // [개발] 원인(예외 객체·Firebase 에러 코드)은 FirebaseAuthService.ConvertException 이
+                //   LogEvent.FirebaseAuthOperationFailed 로 이미 운영 기록했다.
+                //   LogRules.md 1.3 「원칙 간 우선순위」①에 따라 중복되는 이 호출부는 개발로 내린다.
+                //   예외 객체는 e.Message 로 눌러 담지 않고 그대로 넘긴다(1.9).
+                GameLog.Dev.Error("Auth", nameof(AccountLinkUseCase),
+                                  "Google 연동 실패 — 원인은 FirebaseAuthService 가 운영 로그로 남긴다",
+                                  e, $"Provider=Google, Reason={e.Reason}");
                 return LinkResult.Failed;
             }
         }
@@ -114,14 +133,21 @@ namespace Hexiege.Application
 
             if (!_authService.IsAnonymous)
             {
-                Debug.LogWarning("[AccountLinkUseCase] 익명 계정이 아닙니다. 연동을 진행할 수 없습니다.");
+                // [개발] Google 경로와 완전히 같은 사건이므로 같은 축 값(Warn + 개발)을 쓴다.
+                //   같은 사건에 다른 축 값을 주면 지표가 조용히 둘로 갈라진다.
+                GameLog.Dev.Warn("Auth", nameof(AccountLinkUseCase),
+                                 "익명 계정이 아니어서 이메일 연동을 진행할 수 없다",
+                                 "Provider=Email");
                 return LinkResult.Failed;
             }
 
             try
             {
                 await _authService.LinkWithEmailAsync(email, password);
-                Debug.Log("[AccountLinkUseCase] 이메일 연동 성공.");
+                // [개발] 성공 통보 → Info + 개발.
+                //   ⚠️ 인자 email 은 로그에 넣지 않는다 — 이메일은 부분 마스킹도 금지다(LogRules.md 1.6).
+                GameLog.Dev.Info("Auth", nameof(AccountLinkUseCase), "이메일 연동 성공",
+                                 "Provider=Email");
                 return LinkResult.Success;
             }
             catch (AuthException e)
@@ -130,10 +156,16 @@ namespace Hexiege.Application
                 if (e.Reason == AuthErrorReason.CredentialAlreadyInUse ||
                     e.Reason == AuthErrorReason.EmailAlreadyInUse)
                 {
-                    Debug.LogWarning("[AccountLinkUseCase] 이미 다른 계정에 연동된 이메일.");
+                    // [개발] Google 경로와 같은 사건 — 판정도 동일하게 Warn + 개발.
+                    GameLog.Dev.Warn("Auth", nameof(AccountLinkUseCase),
+                                     "이미 다른 계정에 연동된 이메일",
+                                     $"Provider=Email, Reason={e.Reason}");
                     return LinkResult.AlreadyLinkedElsewhere;
                 }
-                Debug.LogError($"[AccountLinkUseCase] 이메일 연동 실패: {e.Message}");
+                // [개발] Google 경로와 같은 근거 — 원인은 FirebaseAuthService 가 운영으로 남긴다(원칙 1).
+                GameLog.Dev.Error("Auth", nameof(AccountLinkUseCase),
+                                  "이메일 연동 실패 — 원인은 FirebaseAuthService 가 운영 로그로 남긴다",
+                                  e, $"Provider=Email, Reason={e.Reason}");
                 return LinkResult.Failed;
             }
         }

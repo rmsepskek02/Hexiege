@@ -147,7 +147,11 @@ namespace Hexiege.Infrastructure
 
             if (prefab == null)
             {
-                Debug.LogError($"[BuildingFactory] {race}/{data.Team}/{data.Type}에 해당하는 프리팹이 설정되지 않았습니다.");
+                // [개발] UnitFactory 의 프리팹 누락과 같은 사건이므로 같은 축 값을 쓴다 → Warn + 개발.
+                //   Inspector 배선 누락 = 설정 오류(LogRules.md 1.3 분류 원칙 3 의 단서).
+                GameLog.Dev.Warn("Factory", nameof(BuildingFactory),
+                                 "건물 프리팹이 Inspector 에 설정되지 않아 생성할 수 없다",
+                                 $"Race={race}, BuildingType={data.Type}, Team={data.Team}");
                 return;
             }
 
@@ -273,7 +277,11 @@ namespace Hexiege.Infrastructure
             GameObject prefab = GetPrefab(race, newBuilding.Type, newBuilding.Team);
             if (prefab == null)
             {
-                Debug.LogError($"[BuildingFactory] 업그레이드 프리팹 누락: {race}/{newBuilding.Team}/{newBuilding.Type}");
+                // [개발] 위 배치 경로와 같은 프리팹 설정 오류 → Warn + 개발.
+                //   단계 승급용 프리팹만 빠진 경우라 메시지로 구분하되, 축 값과 키는 동일하게 둔다.
+                GameLog.Dev.Warn("Factory", nameof(BuildingFactory),
+                                 "업그레이드 대상 건물 프리팹이 Inspector 에 설정되지 않았다",
+                                 $"Race={race}, BuildingType={newBuilding.Type}, Team={newBuilding.Team}");
                 return;
             }
 

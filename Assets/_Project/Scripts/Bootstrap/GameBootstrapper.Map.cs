@@ -71,7 +71,11 @@ namespace Hexiege.Bootstrap
 
             if (_config == null)
             {
-                Debug.LogError("[GameBootstrapper] GameConfig가 설정되지 않았습니다.");
+                // [개발] Inspector 배선 누락 = 설정 오류다.
+                //   LogRules.md 1.3 분류 원칙 3 의 단서에 따라 Error 가 아니라 Warn + 개발로 낮춘다.
+                //   플레이어 기기에서 벌어지는 일이 아니라 개발 환경의 문제이고, 빌드 전에 잡히기 때문이다.
+                GameLog.Dev.Warn("Bootstrap", nameof(GameBootstrapper),
+                                 "GameConfig 가 Inspector 에 연결되지 않아 맵을 로드할 수 없다");
                 return;
             }
 

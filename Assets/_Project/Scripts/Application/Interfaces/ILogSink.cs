@@ -278,7 +278,64 @@ namespace Hexiege.Application
         /// 매칭 취소 시 티켓 삭제가 실패했다.
         /// 흐름은 계속되지만 서버에 티켓이 남아 이후 매칭을 방해할 수 있다.
         /// </summary>
-        MatchmakingTicketDeleteFailed
+        MatchmakingTicketDeleteFailed,
+
+        // ====================================================================
+        // [H] UGS Cloud Save · Leaderboards (배치 2 — 초기화·계정 계층 이관)
+        //
+        // 부여 근거: _Tasks/2026-08-17/17_19_remaining-layers-log-migration/Plan.md
+        //            §5-2 기준 2 — "집계가 섞이면 안 되고 + 조치가 다를 때"만 신설.
+        //
+        // ⚠️ 초급 개발자 주의 — 왜 이 네 개는 새로 만들었는가:
+        //    기존 32개 키는 전부 "네트워크 세션 · Firebase 인증" 계층에서 나온 것이라
+        //    클라우드 저장(Cloud Save) · 랭킹(Leaderboards) 사건을 담을 키가 하나도 없었다.
+        //    기존 키에 억지로 흡수시키면 "매칭이 안 된 횟수"와 "프로필이 안 불러와진 횟수"가
+        //    한 지표에 섞여, 어느 쪽이 늘었는지 영원히 알 수 없게 된다.
+        //
+        // ⚠️ 반대로 "서비스 호출 실패"는 Load / Save 로 쪼개지 않았다.
+        //    둘 다 조치가 같기 때문이다(UGS 연결·권한·대시보드 스키마 점검).
+        //    어느 작업이었는지는 key=value 의 Operation= 이 담는다
+        //    (RelaySetupFailed 가 Stage= 로 단계를 담는 것과 같은 방식).
+        // ====================================================================
+
+        /// <summary>
+        /// UGS Cloud Save 호출 자체가 실패했다(프로필 로드 / 닉네임 저장).
+        /// 어느 작업이었는지는 Operation 값(LoadProfile / SaveNickname)으로 구분한다.
+        ///
+        /// 왜 운영인가: 로드 실패는 빈 프로필로 조용히 폴백되어 아무도 눈치채지 못하고,
+        /// 저장 실패는 화면에 "다시 시도하세요"만 뜰 뿐 원인(예외 타입)이 이 로그에만 남는다.
+        /// 발생 지점: Infrastructure/Cloud/PlayerProfileService.cs
+        /// </summary>
+        CloudSaveOperationFailed,
+
+        /// <summary>
+        /// Cloud Save 에서 읽어 온 값을 원하는 타입으로 변환하지 못해 폴백 경로로 넘어갔다.
+        /// 어느 키·타입이었는지는 Key / Type 값으로 구분한다.
+        ///
+        /// CloudSaveOperationFailed 와 키를 나눈 이유:
+        ///   호출 실패는 "네트워크·권한" 문제이고, 변환 실패는 "저장된 데이터의 타입·스키마"
+        ///   문제다. 조치가 완전히 다르므로 한 지표에 섞으면 원인 판단이 불가능해진다.
+        ///
+        /// 왜 운영인가(LogRules.md 1.3 분류 원칙 4 — 삼킨 예외):
+        ///   변환에 실패해도 프로필이 "멀쩡한 기본값"으로 보여 실패했다는 사실 자체가 사라진다.
+        /// 발생 지점: Infrastructure/Cloud/PlayerProfileService.cs — GetString / GetInt / GetBool
+        /// </summary>
+        CloudSaveValueParseFailed,
+
+        /// <summary>
+        /// UGS Leaderboards 조회가 실패해 빈 랭킹 목록을 반환했다.
+        /// 화면에는 "랭킹이 비어 있음"으로만 보여 실패와 구분되지 않는다.
+        /// 발생 지점: Infrastructure/Cloud/LeaderboardService.cs — GetTopRankingsAsync
+        /// </summary>
+        LeaderboardQueryFailed,
+
+        /// <summary>
+        /// 랭킹 엔트리의 Metadata(JSON) 파싱에 실패해 닉네임·전적 칸이 비었다.
+        /// LeaderboardQueryFailed 와 키를 나눈 이유: 조회는 성공했고 데이터 포맷만 깨진
+        /// 상태라, 조치 대상이 SDK/회선이 아니라 Cloud Code 가 기록하는 JSON 스키마다.
+        /// 발생 지점: Infrastructure/Cloud/LeaderboardService.cs — ApplyMetadata
+        /// </summary>
+        LeaderboardMetadataParseFailed
     }
 
     /// <summary>

@@ -93,7 +93,14 @@ namespace Hexiege.Infrastructure
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[LeaderboardService] 랭킹 목록 조회 실패(빈 목록 반환): {e.Message}");
+                // [운영] 축 A: 빈 목록으로 폴백해 화면은 그대로 뜬다 → 복구됨 → Warn.
+                //   축 B: ① UGS 회선·서비스 상태에 좌우돼 개발 기기에서 재현되지 않는다.
+                //         ② 호출부는 빈 List 만 받고, 화면에는 "랭킹이 비어 있음"으로만 보여
+                //            "아직 아무도 등록 안 됨"과 "조회 실패"가 구분되지 않는다
+                //            → 이 로그가 유일한 기록이다.
+                GameLog.Ops.Warn(LogEvent.LeaderboardQueryFailed, "Cloud", nameof(LeaderboardService),
+                                 "랭킹 목록 조회 실패 — 빈 목록을 반환한다", e,
+                                 $"Operation=GetTopRankings, Limit={limit}");
             }
 
             return result;
@@ -124,7 +131,18 @@ namespace Hexiege.Infrastructure
             catch (Exception e)
             {
                 // 점수가 없는 플레이어(전적 부족 등)는 예외가 던져질 수 있다 → 미등재로 간주.
-                Debug.Log($"[LeaderboardService] 내 순위 없음 또는 조회 실패: {e.Message}");
+                //
+                // [개발] ⚠️ 잠정 판정 — Info + 개발.
+                //   축 A: 이 예외는 "아직 랭킹에 없다"는 **정상 상태**에서 대부분 발생한다.
+                //         이관 전 원본도 Info 레벨이었다 → 의도된 흐름 → Info.
+                //   축 B: 이것을 운영으로 올리면 신규 유저가 랭킹 화면을 열 때마다 지표가 쌓여
+                //         진짜 장애가 그 안에 묻힌다. 실제 서비스 장애라면 같은 화면이 함께 호출하는
+                //         GetTopRankingsAsync 가 LeaderboardQueryFailed 로 운영 기록을 남긴다.
+                //   예외 메시지 대신 타입만 남기는 이유: Dev.Info 에는 예외 오버로드가 없고,
+                //   자유 문장(e.Message)은 key=value 에 넣지 않는다(1.4). 타입은 집계 가능한 값이다.
+                GameLog.Dev.Info("Cloud", nameof(LeaderboardService),
+                                 "내 순위 없음 또는 조회 실패 — 미등재(-1)로 간주한다",
+                                 $"Operation=GetPlayerRank, ExceptionType={e.GetType().Name}");
                 return -1;
             }
         }
@@ -179,7 +197,16 @@ namespace Hexiege.Infrastructure
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[LeaderboardService] Metadata 파싱 실패: {e.Message}");
+                // [운영] 삼킨 예외(LogRules.md 1.3 분류 원칙 4).
+                //   축 A: 닉네임·전적 칸만 비고 랭킹 목록 자체는 그대로 표시된다 → 복구됨 → Warn.
+                //   축 B: ① Metadata JSON 은 Cloud Code 가 서버에서 기록하므로 개발 기기에서
+                //            깨진 데이터를 재현할 방법이 없다.
+                //         ② 화면에는 "닉네임이 빈 랭킹 줄"로만 보여 아무도 실패를 눈치채지 못한다.
+                //   LeaderboardQueryFailed 와 키를 나눈 이유: 조회는 성공했고 데이터 포맷만 깨진
+                //   상태라 조치 대상이 SDK/회선이 아니라 Cloud Code 의 JSON 스키마다.
+                GameLog.Ops.Warn(LogEvent.LeaderboardMetadataParseFailed, "Cloud", nameof(LeaderboardService),
+                                 "랭킹 Metadata 파싱 실패 — 닉네임·전적 칸을 비운 채 진행한다", e,
+                                 $"Rank={dto.Rank}");
             }
         }
 

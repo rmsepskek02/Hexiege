@@ -497,7 +497,10 @@ namespace Hexiege.Bootstrap
             {
                 // 네트워크 모드: NetworkGameFlow가 StartGameClientRpc를 통해
                 // StartNetworkGame()을 호출하므로 여기서는 맵 로드를 건너뜀
-                Debug.Log("[Network] GameBootstrapper: 네트워크 모드 감지. 맵 로드는 NetworkGameFlow에 위임.");
+                // [개발] 의도된 분기이고, 결과(맵이 뜨는지)가 곧바로 화면에 나타난다.
+                //   축 A: 정상 흐름 → Info / 축 B: 에디터에서 그대로 재현된다 → 개발.
+                GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper),
+                                 "네트워크 모드 감지 — 맵 로드는 NetworkGameFlow 에 위임한다");
             }
             else
             {

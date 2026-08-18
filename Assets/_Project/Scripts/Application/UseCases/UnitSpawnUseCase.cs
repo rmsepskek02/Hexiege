@@ -211,7 +211,20 @@ namespace Hexiege.Application
             HexTile tile = _grid.GetTile(position);
             if (tile == null)
             {
-                UnityEngine.Debug.LogWarning($"[Network] SpawnUnitWithId: 타일 없음. coord={position}");
+                // [개발] ⚠️ 이 자리는 "원인"을 아는 계층이지만 일부러 개발로 둔다.
+                //
+                //   이 메서드의 유일한 호출부인 NetworkProductionController.SpawnUnitClientRpc 가
+                //   null 을 받은 즉시 LogEvent.ClientStateSyncApplyFailed 를 **운영**으로 남긴다
+                //   (Infrastructure/Network/NetworkProductionController.cs — "이 유닛은 클라이언트에서
+                //    영구히 누락된다"). 여기서도 운영으로 남기면 같은 사건이 두 줄이 되어
+                //   서버 집계에서 발생 건수가 두 배로 부풀려진다(LogRules.md 1.14 금지 사항 9).
+                //
+                //   LogRules.md 1.3 「원칙 간 우선순위」③ — 원칙 3 의 "항상 운영"은 **사건 단위**다.
+                //   한 사건에 운영 기록이 한 곳만 있으면 충족되므로, 이 자리를 개발로 두어도 위반이 아니다.
+                //   좌표 같은 세부 정보는 개발 로그로 남겨 에디터 디버깅에 그대로 쓴다.
+                GameLog.Dev.Warn("Network", nameof(UnitSpawnUseCase),
+                                 "SpawnUnitWithId: 그리드에 없는 좌표라 유닛을 만들 수 없다",
+                                 $"UnitId={unitId}, UnitType={type}, Team={team}, Q={position.Q}, R={position.R}");
                 return null;
             }
 

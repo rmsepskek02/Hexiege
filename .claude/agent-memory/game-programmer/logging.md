@@ -91,7 +91,7 @@ RuntimeLogger.BeginSession(string folderPath, string purpose)
 | 선행 | 네트워크·인증 8파일 205건 (개발 120 / 운영 85) | 완료 |
 | **1-A** | `Network` 상위 6파일 65건 (`NetworkHealthSync` 14 · `RelayManager` 13 · `NetworkCombatController` 11 · `NetworkGameFlow` 10 · `NetworkUnitMovementController` 9 · `NetworkTileSync` 8) | **완료 — 개발 35 / 운영 29 / 비활성화 1** |
 | **1-B** | `Network` 나머지 8파일 30건 | **완료 — 실제 이관 대상은 23건뿐** (개발 17 / 운영 6). 나머지 7건은 **주석 안의 죽은 코드**였다: `NetworkGameManager` 4건은 `/* */` 블록 주석(666~718행) 안, `UnityServicesInitializer` 3건은 `//` 로 비활성화된 구 로직 2건 + 산문 속 `Debug.LogException` 낱말 1건. **grep 건수 ≠ 이관 대상 건수** — 착수 전 반드시 주석 여부를 확인한다 |
-| 2 | `Bootstrap` 26 + `Application` 9 + `Cloud` 8 + `Factories` 7 | 미착수 |
+| **2** | `Bootstrap` 26 + `Application` 9 + `Cloud` 8 + `Factories` 7 | **완료 — 이관 50 (개발 42 / 운영 8) + 신규 추가 3(전부 운영). 신설 키 4개(32→36)** |
 | 3 | `Presentation` 39건 / 20파일 | 미착수 |
 | 4 | `Debug/UIManagerTestButtonHandler.cs` 4건 | 미착수 |
 | — | `Editor/` 4파일 16건 | **이관하지 않기로 결정**(빌드 미포함 → 서버 수집 대상이 될 수 없음) |
@@ -123,6 +123,13 @@ RuntimeLogger.BeginSession(string folderPath, string purpose)
 | **씬에 배치돼야 할 오브젝트**를 `FindFirstObjectByType` 으로 못 찾음 | **Warn** | **개발** | — (설정 오류 단서. **네트워크 스폰 순서 문제가 아니다** — `FindFirstObjectByType` 은 스폰 여부와 무관하게 씬의 활성 오브젝트를 찾으므로 null = "씬에 없다") |
 | 클라이언트가 서버 상태를 **1회성으로 반영**하는 자리에서 `_services`/factory 가 null (재시도 없음 → 영구 누락) | **Error** | 운영 | `ClientRpcGameServicesMissing` (문자 그대로의 ClientRpc 가 아니어도 **사건이 같으면 같은 키**) |
 | 클라이언트 골드/HP 를 서버 값으로 재보정 | Info | **개발** | — |
+| **Resources 에셋 누락**(`Resources.Load` 가 null) | Warn | **개발** | — (Inspector 배선 누락과 같은 "설정 오류". 있으면 모든 기기에 있고 없으면 모든 기기에 없다 → 축 B ① 이 항상 "아니오") |
+| 부트스트래퍼가 **하위 계층 실패의 결과(bool/enum)만** 받아 남기는 로그 | 원본 레벨 유지 | **개발** | — (원인 계층이 이미 운영. `Dev.Error(…, e)` 는 예외 오버로드가 **있다**) |
+| UGS Cloud Save 호출 실패 (Load/Save) | Warn | 운영 | `CloudSaveOperationFailed` (+`Operation=LoadProfile\|SaveNickname`) |
+| Cloud Save 값 타입 변환 실패 → 폴백 | Warn | 운영 | `CloudSaveValueParseFailed` (+`Key=`, `Type=`, `Fallback=`) |
+| UGS Leaderboards 조회 실패 → 빈 목록 | Warn | 운영 | `LeaderboardQueryFailed` |
+| 랭킹 Metadata(JSON) 파싱 실패 → 칸 비움 | Warn | 운영 | `LeaderboardMetadataParseFailed` |
+| "아직 등재 안 됨"이 예외로 오는 자리(신규 유저 정상 경로) | Info | **개발** | — (운영으로 올리면 신규 유저 트래픽이 지표를 덮는다) |
 
 **축 A 승격/하향 판단의 실제 기준:** *"다음 이벤트가 다시 맞춰 주는가."*
 HP·골드처럼 **절대값을 계속 재동기화**하는 값은 Warn, 사망·타일 소유권처럼 **그때 한 번만 오는 이벤트**는 Error.
@@ -151,6 +158,35 @@ HP·골드처럼 **절대값을 계속 재동기화**하는 값은 Warn, 사망�
 **중복이 아니다** — 그 분기는 `return` 으로 끝나 `RelayManager.JoinRelayAsync` 를 아예 호출하지 않으므로
 하위 계층에 대응 로그가 존재할 수 없다. "5곳만 남아야 한다"고 적힌 검증 기준은 틀렸다.
 
+## `system` 문자열 — 확정된 매핑 (실측 + 배치 2 확정)
+
+| 영역 | `system` | 비고 |
+|---|---|---|
+| `Infrastructure/Network/*` | `"Network"` | 기존 최다(256) |
+| `Infrastructure/Auth/*` · `Application/UseCases/LoginUseCase` · `AccountLinkUseCase` | `"Auth"` | 계정/인증 사건 계열 |
+| `Infrastructure/Debug/LogSessionOwner`(미처리 예외) | `"Runtime"` | |
+| **`Bootstrap/*` (5파일)** | **`"Bootstrap"`** | 배치 2 신설 |
+| **`Infrastructure/Cloud/*`** | **`"Cloud"`** | 배치 2 신설 |
+| **`Infrastructure/Factories/*`** | **`"Factory"`** | 배치 2 신설 |
+| `Application/UseCases/UnitSpawnUseCase` | `"Network"` | 이 로그 자리는 멀티 클라 전용 경로다(원본 태그도 `[Network]`) |
+
+- **`system` 은 "무슨 기능인가"가 아니라 "어느 코드 영역인가"로 정한다.** LogRules 1.4 가 `[System/Class]` 를 **발생 지점 필드**로 규정하기 때문이다.
+
+## 배치 2 에서 확인한 사실 (2026-08-18)
+
+- **sink 등록 시점 전수 확인 결과: 배치 2 의 61자리 전부 `LogSessionOwner.EnsureInitialized()` 이후다.**
+  - `GameBootstrapper.Awake:450` 이 sink 를 등록하고, `Setup.cs` 13건은 전부 `Start()` → `LoadMap()` 아래에 있다.
+  - `LoginBootstrapper.Awake` 는 **첫 줄이 `EnsureInitialized()`** 이고 GPGS 로그가 그 다음 줄이다.
+  - **부트스트래퍼에서 sink 등록보다 앞서 실행되는 로그 자리는 존재하지 않는다.**
+- ⚠️ **`GameBootstrapper.SetCameraStartPositionForTeam` 은 호출부가 0건이다**(private + 참조 없음).
+  `StartNetworkGame` 이 "싱글과 동일하게 맵 중심에서 시작" 방침이라 부르지 않는다. 로그는 이관했지만 실행되지 않는다.
+- ⚠️ **중복 로깅 지점 2곳** (지금은 하위/상위 중 한쪽만 운영으로 두어 해소):
+  - `UnitSpawnUseCase.SpawnUnitWithId` 타일 없음 → **개발**. 호출부 `NetworkProductionController:521` 이 이미 `ClientStateSyncApplyFailed` 를 운영으로 남긴다.
+  - `PlayerProfileService.SaveNicknameAsync` catch → **운영**. 상위 `NicknameSetupView`(배치 3) 이관 시 **개발로 내려야** 집계가 두 배가 안 된다.
+- **`GetInt`/`GetBool` 의 폴백 파싱은 바깥 `catch` 에서만 로그한다.** 안쪽 `catch` 에만 달면
+  `int.TryParse` 가 **예외 없이 false 를 돌려주는 경로**가 통째로 누락된다(가장 흔한 실패인데도).
+- `catch { }` → `catch (Exception e)` 는 예외 객체를 로그에 넘기기 위한 최소 변경이며 동작을 바꾸지 않는다.
+
 ## 이관 작업 시 자기 검증 (매 배치 실행)
 
 ```bash
@@ -162,5 +198,9 @@ grep -cE '^[[:space:]]*[{}][[:space:]]*$' <path>
 grep -nE '(^|[^.a-zA-Z_])Application\.' <path>   # 0건이어야 함
 ```
 
-- ⚠️ **`{` 총 개수로 비교하면 안 된다.** `$"{e.Message}"` 같은 문자열 보간이 섞여 오탐이 난다. **단독행 중괄호**로 세라.
-- ⚠️ **주석에 `return` / `await` / `Debug.Log` 라는 낱말을 쓰지 마라.** 검증 grep 이 그대로 오탐한다. (배치 1-A 에서 3번 걸렸다)
+- ⚠️ **`{` 총 개수로 비교하면 안 된다.** `$"{e.Message}"` 같은 문자열 보간이 섞여 오탐이 난다.
+- ⚠️ **단독행 중괄호 카운트도 믿지 마라.** `catch { return fallback; }` · `};` 같은 인라인 중괄호가 있는 파일에서는
+  원래부터 불균형이라 "MISMATCH" 가 뜬다(배치 2 에서 11파일 중 6파일이 오탐).
+  → **주석·문자열 리터럴을 걷어낸 뒤 `{`/`}` 를 세는 파이썬 스크립트**를 쓰는 것이 유일하게 신뢰할 수 있는 방법이다.
+- ⚠️ **주석에 `return` / `await` / `Debug.Log` 라는 낱말을 쓰지 마라.** 검증 grep 이 그대로 오탐한다.
+  (배치 1-A 에서 3번, 배치 2 에서 2번 걸렸다 — "옛 방식", "이관 전 원본도 Info 레벨" 처럼 우회 표현을 쓴다.)
