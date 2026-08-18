@@ -4,6 +4,8 @@
 
 이 문서는 **무엇을 동기화해야 하는지**를 정의한다. 구체적인 NGO 타입, RPC 이름, 클래스 배치는 `TechnicalDesignDocument.md`가 담당한다. 게임플레이 의미는 `GameSystemRules_Units.md`, 런타임 수치는 검증된 `UnitStatsConfig`와 향후 `AttackProfile`, 사람이 읽는 수치 미러는 `StatsReference.md`, 에셋 감사 스냅샷은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`가 담당한다.
 
+> **이동 동기화 구현 상태 (2026-08-04):** `ReducerAuthoritative` 경기의 공통 서버 writer에 연속 trajectory를 연결했고 Unity self-validation과 사용자 Editor smoke를 통과했다. 다만 새 Android 빌드의 Editor/Android Host·Client 역할교대, 공통 변경 뒤 25종 전체 회귀와 다음 경기 Legacy rollback 전에는 B3 동기화 완료로 판정하지 않는다. 공격 회차·ImpactResult와 피해·표현 시점 전환은 계속 미완료다.
+
 ---
 
 ## 1. 권위 경계
@@ -13,7 +15,7 @@
 서버는 다음 항목의 유일한 권위자다.
 
 - 시뮬레이션 위치와 방향
-- 이동 시작·정지와 경로 진행
+- 이동 시작·정지, 경로 revision·진행도, logical path corridor, 연속 선회 trajectory와 틱별 이동량
 - 타겟 획득·잠금·상실
 - 공격 회차의 생성·취소·종료
 - 공격 전달 방식과 타격 시각
@@ -191,7 +193,15 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 
 ### NET-FACING-001. 이동 방향
 
-서버가 DesiredMoveDirection과 SimulationFacing을 결정한다. 클라이언트는 위치 변화량으로 별도의 권위 방향을 추측하지 않는다.
+서버가 `DesiredMoveDirection`, `SimulationFacing`과 틱별 위치 변화를 결정한다. 클라이언트는 위치 변화량으로 별도의 권위 방향·코너 trajectory·이동 시작/정지를 추측하지 않는다.
+
+- 서버의 Authoritative Locomotion은 위치 진행 방향과 `SimulationFacing`을 같은 trajectory 접선에서 원자적으로 결정한다. 비영 위치 변화 방향과 같은 틱의 `SimulationFacing` 오차는 1° 이하여야 한다.
+- A* 선분 전환, 추격, 재경로와 전투 종료 후 이동 재개가 서로 다른 이동·회전 writer를 사용하지 않는다.
+- 10° 진입 / 15° 이탈은 잘못된 방향 이동을 막는 fail-closed 기준이다. 이동 가능한 연속 trajectory가 이 기준 안에서 방향을 바꿀 수 있는 정상 코너를 매번 `AlignToMove` 정지로 바꾸지 않는다.
+- 서버가 복제하는 이동 phase와 command/segment scope는 관측·늦은 참가 수렴을 위한 권위 상태다. 클라이언트는 이를 입력으로 reducer를 실행하거나 Simulation Root를 직접 쓰지 않는다.
+- NetworkTransform은 서버 Simulation Root pose의 유일한 클라이언트 writer이고, Visual Root는 관점 변환과 허용된 표현 보간만 담당한다.
+- 서버 복제 대상은 logical path 자체가 아니라 Authoritative Locomotion이 commit한 Simulation Root pose와 phase/scope다. logical path corridor, trajectory sweep, 실제 trajectory 거리/초 `MoveSpeed`, 공통 최대 회전 속도 270°/s와 candidate position 기준 target acquire는 서버에서만 계산한다. candidate position으로 획득이 확정된 틱에는 그 위치까지만 commit하고 `NoIntent`를 게시하며 다음 틱의 추가 이동을 금지한다.
+- 150° 이상의 반전은 연속 선회가 아니라 정지 정렬로 처리한다. 이 임계값은 네트워크 지연이나 클라이언트 상태로 변경하지 않는다.
 
 ### NET-FACING-002. 공격 방향
 

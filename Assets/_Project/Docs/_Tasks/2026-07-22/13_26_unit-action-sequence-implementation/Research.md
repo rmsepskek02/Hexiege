@@ -243,3 +243,93 @@ Android 1대와 Unity Editor counterpart의 Host/Client 역할을 경기 집합�
 최종 성공 세션은 invalid·duplicate·stale·illegal·scope·unknown mismatch, client reducer invocation, Simulation Root write attempt, exception, dropped log, manifest preflight failure와 terminal overflow가 모두 0이었다. 모든 manifest는 청크 ordinal·entry count·SHA-256이 일치했다.
 
 B2에서 관측된 `legacyMovedWhileShadowAlign`은 신규 reducer 오류가 아니라, 방향 정렬 전에 이동할 수 있는 기존 writer와 규칙 v2 10° 정렬 계약 사이의 분류된 차이다. B3에서 신규 writer를 경기 단위로 단독 활성화해 제거해야 할 대상이며, B2 단계에서 Legacy 동작을 수정하거나 결과 권위를 혼합하지 않는다. 따라서 B2 Shadow/증거 게이트는 완료하지만 실제 이동 방향과 바라보기 방향의 교정 완료는 B3 writer 전환과 멀티 검증 전까지 선언하지 않는다. 공격 타겟·공격 방향과 시각 Impact·실제 피해 시점도 이번 범위 밖이다.
+
+---
+
+## 14. 2026-08-04 B3 정확성 증거와 연속 이동 품질 결함
+
+B3는 공격 권위 모드와 분리된 경기 단위 `UnitMovementPipelineMode`를 도입하고, `ReducerAuthoritative` 경기에서 서버 `UnitMovementReducer`만 Simulation Root position·rotation과 이동 phase를 결정하도록 전환했다. Client는 reducer와 Simulation Root writer를 실행하지 않고 NetworkTransform과 서버가 복제한 phase/scope를 읽는다. A*, Chase, PendingRepath와 PostCombatResume의 위치·회전은 같은 writer seam을 통과하고, target-acquire 우선 프레임과 endpoint는 `NoIntent`로 닫힌다.
+
+현재 B3 로그는 정확성 계약의 유효한 증거다. 여러 Host 세션의 `[UAS-MOVE-AUTH] END`에서 reducer rejection, invalid, gate failure, writer selection failure, Client root/reducer write, 공격 writer ownership conflict, dropped log, manifest preflight failure와 terminal overflow가 0이었다. Client 세션도 복제 표본 1,822건에서 invalid 0을 기록했다. 예를 들어 Host 세션 `4316ab13...`은 96,909 frame과 coverage 27항목, Host 세션 `9798f1fa...`는 21,375 frame과 AStarPath·Chase·PendingRepath·PostCombatResume coverage 23항목을 오류 0으로 종료했다. 이 증거는 B3 writer가 서버 권위·single-writer·10°/15°·scope·복제 계약을 지켰음을 보여 주며 폐기하지 않는다.
+
+다만 실기 품질 검토에서 정상 A* 경로가 타일 경계마다 정지한 뒤 회전하고 다시 출발하는 stop-turn-go 현상이 확인됐다. 로그에도 A* 선분 전환에서 약 60°의 `AlignToMove`와 position delta 0이 반복된다. 원인은 NetworkTransform 보간이나 Visual Root 투영이 아니라, `MoveAlongPathV3`가 현재 타일 선분의 목표만 넘겨 다음 선분에서 DesiredMoveDirection을 불연속적으로 바꾸고, reducer가 규칙대로 15° 초과를 안전 정지시키는 서버 Simulation Root 입력 구조다.
+
+따라서 B3 판정은 다음처럼 분리한다.
+
+- **정확성 증거: 유지.** 서버 권위, 경기 단위 mode, exact-one writer, Client write/reducer 0, Align 중 위치 진행 0, target priority, endpoint, command/segment와 phase 복제는 현재 증거로 유효하다.
+- **완료 판정: 재개방.** 이동 방향과 바라보기 방향의 논리적 일치는 확보했지만, 모든 정상 코너를 stop-turn-go로 표현하는 현재 trajectory는 프로젝트 완성도 기준을 충족하지 못한다.
+- **후속 설계:** deep Authoritative Locomotion Module이 phase·SimulationFacing·position/rotation·진행량·복제 commit을 소유하고, Server Trajectory Planner가 현재/다음 선분과 이동 가능 통로를 이용해 연속 위치 접선과 DesiredMoveDirection을 만든다.
+- **금지:** 10°/15° 안전 계약 완화, Client 예측 writer 추가, 방향만 미리 돌리고 위치는 이전 직선으로 이동, Visual Root smoothing으로 canonical 정지를 숨기는 방식, 경기 중 또는 유닛별 Legacy fallback.
+
+**[당시 설계 확정/현재 구현 완료·멀티 검증 대기]** 경유 타일 중심 통과는 강제하지 않는다. 서버는 최초 Simulation Root point와 A* logical path를 기반으로 각 타일 영역을 연결한 logical path corridor를 만들고, trajectory를 해당 corridor 안에서 sweep한다. 위치 진행과 SimulationFacing은 같은 trajectory 접선을 사용하며 오차는 1° 이내여야 한다. `MoveSpeed`는 타일 중심 간 진행률이 아니라 실제 trajectory distance/second로 적용한다. 공통 최대 회전 속도는 270°/s를 사용하고, target acquire 판정은 이미 계산된 해당 틱의 candidate position을 기준으로 적용해 한 프레임 이전 pose와 섞이지 않게 한다. 획득이 확정된 틱에는 candidate pose까지만 commit하고 다음 틱의 추가 이동을 금지한다. 150°는 회전 속도가 아니라 반전 판정 임계값이며, 그 이상의 반전은 연속 선회가 아니라 정지 정렬 fallback으로 처리한다.
+
+연속 이동 교정은 60° 코너, 180° 재경로, Chase, PendingRepath, PostCombatResume, held tick 진행량 0과 재개 jump 0, velocity↔SimulationFacing 1° 이내, 차단 통로 보존을 순수 검증한 뒤 Android/Editor 역할교대 멀티플레이와 25종 회귀를 다시 통과해야 한다. 이 재검증 전에는 B3와 이동 방향 증상 해결을 완료로 선언하지 않는다.
+
+## 15. 2026-08-04 B3 연속 이동 구현 및 Editor 검증 결과
+
+설계한 연속 이동을 기존 서버 권위와 레이어 경계를 유지한 채 구현했다. pure Application의 `UnitServerTrajectoryPlanner`가 서버 pose, 현재·다음 waypoint, 이동 거리, 회전 제한과 반전 임계값을 받아 `UnitTrajectoryStep`을 만든다. `UnitPathCheckpointTracker`는 곡선이 경유 타일 중심을 정확히 밟지 않아도 실제 trajectory가 통과한 checkpoint를 순서대로 한 번만 소비한다. 이를 통해 중간 중심 스냅 없이 최종 목적지에는 정확히 수렴한다.
+
+`UnitView`의 공통 서버 writer는 A*, Chase, PendingRepath와 PostCombatResume를 같은 planner/commit 경계로 수렴시켰다. candidate segment는 logical path corridor의 Simulation Root point sweep을 통과해야 하며, 실패하면 안전한 candidate로 줄이거나 재경로한다. 실제 이동 거리만 진행량으로 소비하고 hold 중에는 진행량을 소비하지 않는다. commit된 `SimulationFacing`을 `UnitData.Facing`에 동기화하므로 권위 displacement와 Facing이 서로 다른 선분을 가리키지 않는다. 공통 회전 속도 270°/s와 150° 이상 반전 정지 정렬은 유지한다.
+
+이동 중 적 또는 힐 타겟 획득은 이전 pose가 아니라 이번 틱의 candidate position으로 조회한다. 획득이 확정되면 해당 candidate pose까지만 commit하고 `NoIntent` lifecycle로 닫는다. `UnitCombatUseCase`에는 candidate world position을 받는 조회 경계를 추가했고, `UnitMovementAuthorityObserver`는 이 정상 candidate commit을 writer 위반으로 오인하지 않도록 gate를 교정했다. 공격 결과·피해·HP·RPC·VFX 권위는 변경하지 않았다.
+
+구현 검증 중 두 종류의 결함을 self-validation이 실제로 검출했다. 첫째, C#의 단축 평가 경로 때문에 `UnitView`와 Editor validator의 지역 변수가 미할당일 수 있다는 CS0165가 발생해 명시적 기본값 초기화로 교정했다. 둘째, 최초 곡선 planner가 60° 코너 waypoint 중심을 약간 비켜 지나가면서 회전하는 통과 평면과 만나지 못해 waypoint를 영원히 소비하지 못했다. checkpoint 판정을 실제 trajectory의 순차 통과 기준으로 바꾼 뒤 정상 소비와 최종 수렴을 확인했다.
+
+최종 Unity 메뉴 로그는 다음 계약을 포함해 PASS했다.
+
+```text
+[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and reserved-terminal preflight, B3 match-fixed movement pipeline mode/rollback, continuous 60-degree trajectory/150-degree reverse/held-progress invariants, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and retire/reuse, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.
+```
+
+사용자 Editor smoke에서는 정상 코너의 stop-turn-go가 교정된 것으로 잠정 확인됐다. 이는 Editor 단계의 조건부 PASS이며 B3 전체 완료는 아니다. 공통 이동 코드를 변경했으므로 기존 21/25종 B3 증거는 서버 권위·single-writer 정확성 기준선으로만 보존한다. 새 Android Development Build에서 Editor/Android Host·Client 역할교대, 25종 전체 회귀, 다음 경기 Legacy rollback을 모두 통과해야 최종 완료를 판정한다. 공격 방향과 시각 Impact·실제 피해 적용 시점은 별도 후속 게이트로 남는다.
+
+---
+
+## 16. 2026-08-18 Android Host 게임 정지 진단
+
+새 B3 빌드의 Android Host 경기에서 별도의 Unity 예외나 Android 크래시 표시 없이 경기 전체가 멈추는 실파를 확인했다. 로그캣은 해당 기기가 `role=host`인 것을 보였고, Unity 게임 스레드 로그는 `08:48:49.737`의 `UnitRootPoseConsistencyObserver` 이동 표본을 끝으로 중단됐다. 직전에 Garage 배치와 Pistoleer·LittleKnight 이동이 있었지만, 건물 배치 자체를 단독 원인으로 확정할 증거는 아직 없다.
+
+정지 직후 프로세스는 종료되지 않았고 CPU를 약 `127%`를 사용했다. 로그에는 `FATAL EXCEPTION`, `ANR`, `OutOfMemory`, 네트워크 종료, GPU device lost가 없었다. 따라서 대기·네트워크 중단이나 크래시보다 Unity 게임 스레드가 동기식 반복에 머물러 있었을 가능성이 높다. 기기에서 native stack을 읽는 `debuggerd` 호출은 root 권한이 필요해 실행하지 못했으므로, 아래 코드 경로 진단은 높은 확률의 원인이지만 native stack으로 확정된 결론은 아니다.
+
+코드에서는 `ApplyMovementAuthorityFrame` 의 candidate와 보수적 fallback이 모두 logical corridor point sweep을 통과하지 못하면 `RepathRequired`를 반환한다. A* 및 PostCombatResume 호출자는 즉시 `RequestMove`를 실행해 새 path를 대입하고 `needRepath=true`로 외부 `while`에 돌아간다. 해당 `continue`에는 `yield`가 없고, 새 path가 이전과 동일한지, 이동 진전이 있었는지, 같은 frame에 재탐색했는지를 검사하지 않는다. A*가 같은 입력에 같은 path를 반환하고 corridor가 계속 거부하면 한 frame에서 끝나지 않는 `RepathRequired → RequestMove → continue` 순환이 가능하다.
+
+이 결함은 `U-MOV-PATH`의 “안전하지 않은 구간을 적용하지 않고 재탐색”은 지켰지만, 재탐색이 수렴하지 않을 때 서버 틱을 반환해야 한다는 안전 경계가 누락된 것이다. 이동량을 줄이거나 Legacy writer로 자동 전환하는 방식으로는 해결하지 않는다. 해당 유닛만 현재 pose에 안전하게 멈추고, 다른 유닛과 서버 경기 루프는 반드시 진행해야 한다.
+
+이 Android 실패로 B3 현재 판정을 **FAIL / OPEN**으로 낮춘다. Editor self-validation과 코너 이동 품질 PASS 증거는 보존하지만, 재탐색 유한 종료·서버 루프 진행성을 교정하고 Android Host에서 같은 종류의 시나리오를 재검증하기 전에는 빌드 안정성과 B3 완료를 주장하지 않는다.
+
+---
+
+## 17. 2026-08-18 최신 main 통합 사전 감사
+
+원격 `main` 정보를 갱신해 B3 브랜치의 공통 기준 `95b6b17a...`에서 비교했다. 현재 B3 HEAD는 `b24fd6cf`(공통 기준 이후 13개 커밋), 최신 `origin/main`은 `26576d46`(공통 기준 이후 93개 커밋)이다. main은 248개 파일을 변경했고, 커밋된 B0~B2 이력과 main 사이에만 25개 파일의 병합 충돌이 예상된다. 복구된 B3 worktree와 main이 직접 겹치는 핵심 파일은 10개다.
+
+main에는 연구소 공·방·속 강화, 상태효과, 스킬 A/B/C, MistShrine, 건물 UI 복구, 최신 문서 구조와 `Tools/check_docs.py`가 추가됐다. 특히 `UnitView` 이동은 연구 이동 배율과 둔화를 매 frame 재조회하고, 빙결 배율 0에서 위치·걷기 애니메이션을 정지한다. 반면 복구된 B3는 경로 시작 시 `worldSpeed`를 한 번 계산한다. B3를 예전 기준에서 더 구현하면 둔화·빙결·이동 연구가 Authoritative Locomotion에서 무시되는 회귀가 생긴다.
+
+직접 통합 정책은 다음과 같다.
+
+- `UnitView`: B3의 단일 서버 writer·trajectory·corridor를 유지하되 main의 매 frame 유효 이동 배율, 빙결 hold, Frozen 애니메이션 전이를 같은 commit seam에 통합한다. 빙결은 corridor 실패나 재탐색 사유가 아니며 진행량 0으로 hold한다.
+- `UnitCombatUseCase`: B3의 candidate-position 적·힐 타겟 조회와 main의 `EffectiveAttack`, 방어력, 이동 배율, `CanAttack`, 스킬·자연회복을 모두 유지한다.
+- `NetworkUnit`: B3의 movement phase/command/segment/semantic revision 복제와 main의 `Frozen` 애니메이션 상태를 함께 유지한다.
+- `NetworkCombatController`: main의 상태효과·MistShrine·로그 세션 배선을 유지하고 B3 observer 세션 종료만 합친다.
+- `Game.unity`: main 신규 UI·스킬·MistShrine 배선을 권위로 삼고 B3의 `_serverMovementPipelineMode: 1` 필드만 재적용한다. B3 예전 씬 전체를 선택하지 않는다.
+- 문서: main의 최신 구조·버전·정합성 검사 규칙을 기준으로 B0~B3 이력과 규칙 v2.1을 소실 없이 합친다.
+
+안전한 순서는 B3 worktree를 새 이름의 stash로 다시 보존 → `origin/main` merge 및 커밋된 B0~B2 충돌 해소 → B3 stash 재적용 및 10개 중첩 파일 의미 단위 통합 → 컴파일·자가검증 기준선 확보 → 9.8 재탐색 정지 교정이다. 13개 B0~B2 커밋을 93개 main 커밋 위로 순차 재작성하는 rebase보다 한 번의 merge가 이력 보존과 충돌 해소에 더 안전하다.
+
+---
+
+## 18. 2026-08-18 최신 main 통합 및 유한 재탐색 교정 결과
+
+`origin/main`을 B3 브랜치에 merge하고 B3 worktree를 다시 적용했다. main의 연구 강화·상태효과·스킬·MistShrine·빙결/둔화와 최신 씬 배선을 보존하면서 B3의 경기 단위 `ReducerAuthoritative` single-writer, movement phase 복제와 연속 trajectory를 의미 단위로 합쳤다. 안전 stash `277a3ea54e91cd778829943491e7f4827f9649db`는 검증이 끝날 때까지 삭제하지 않는다.
+
+Android Host 정지의 동기식 반복 경로에는 pure Application `UnitRepathProgressGuard`를 연결했다. path signature는 waypoint 개수와 순서화된 모든 `HexCoord(Q,R)`을 결정적으로 해시하며 런타임 객체 identity나 플랫폼별 `GetHashCode`를 쓰지 않는다. 같은 path, A→B→A 순환, invalid path와 같은 frame의 두 번째 수락은 해당 유닛에서 fail-closed한다. 서로 다른 path만 반환해도 실제 진전 없는 수락은 최대 8회로 제한한다. 수락한 path도 `yield return null` 뒤 다음 Unity frame부터 처리한다. authoritative position이 tolerance보다 이동하거나 logical checkpoint를 소비하면 no-progress 이력을 reset한다.
+
+`UnitView`의 A* corridor, PostCombatResume corridor, 전투 복귀 path와 PendingRepath를 공통 guard로 수렴했다. fail-closed 종료에서는 현재 Simulation Root pose를 유지하고 이동 완료 callback과 힐러 idle watcher의 즉시 재진입을 억제한다. Client writer나 유닛별/경기 중 Legacy fallback은 추가하지 않았고 공격·피해·HP·RPC·VFX 권위도 변경하지 않았다. 현재 위치를 포함하지 않는 pending path 역시 같은-frame 코루틴 재시작 대신 해당 유닛만 안전 종료한다.
+
+Unity 6000.3.5f2 배치 검증에서 처음에는 최신 main 빙결 통합의 전투 복귀 지역 변수 이름 충돌 2건(CS0136)을 검출해 의미 변화 없이 이름을 분리했다. 재실행 결과 Tundra script build가 성공했고 다음 self-validation이 PASS했다.
+
+```text
+[UAS-DIAG] self-validation PASS: ... B3 match-fixed movement pipeline mode/rollback, continuous 60-degree trajectory/150-degree reverse/held-progress invariants, finite repath frame/repeat-cycle/distinct-no-progress budgets and progress reset, ...
+```
+
+문서 정합성 검사 `Tools/check_docs.py`도 문제 0건으로 PASS했다. 이 결과는 유한 종료 구현과 Editor 게이트의 PASS이며 Android Host 실기 완료가 아니다. B3는 계속 **FAIL / OPEN**이고, 다음 게이트는 새 Android Development Build에서 이전 정지 종류를 포함한 경로 무효화 시험으로 경기 루프 정지·ANR·로그 폭주 0 및 다른 유닛/경기 시간 진행을 확인하는 것이다. 그 뒤에만 역할교대·25종 전체·다음 경기 Legacy rollback을 재개한다.

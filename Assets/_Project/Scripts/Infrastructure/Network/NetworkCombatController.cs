@@ -218,7 +218,6 @@ namespace Hexiege.Infrastructure
                         gameObject.AddComponent<UnitRootPoseConsistencyObserver>();
                 }
                 _rootPoseConsistencyObserver.Initialize(NetworkManager, IsServer);
-                UnitMovementShadowObserver.BeginSession(NetworkManager, IsServer);
             }
 #endif
 
@@ -317,6 +316,7 @@ namespace Hexiege.Infrastructure
             // Flush the bounded evidence summary while the existing RuntimeLogger session is
             // still open. The observer never owns or replaces that session.
             UnitMovementShadowObserver.EndSession("network-despawn");
+            UnitMovementAuthorityObserver.EndSession("network-despawn");
             _rootPoseConsistencyObserver?.StopAndLogSummary();
             _rootPoseConsistencyObserver = null;
 #endif

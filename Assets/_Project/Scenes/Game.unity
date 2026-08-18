@@ -2887,6 +2887,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkGameFlow
   ShowTopMostFoldoutHeaderGroup: 1
+  _serverMovementPipelineMode: 1
 --- !u!4 &102157244
 Transform:
   m_ObjectHideFlags: 0

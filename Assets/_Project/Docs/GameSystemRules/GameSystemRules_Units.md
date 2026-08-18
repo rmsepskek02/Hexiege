@@ -1,6 +1,11 @@
 # Game System Rules — 유닛
 
 유닛 이동, 전투 진입, 전투 연계, 전투 연출 동기화, 애니메이션 상태 동기화, 특수 공격 시스템(확장 5종), 방어력 데미지 감쇄에 관한 규칙 모음.
+유닛의 이동, 방향 정렬, 타겟, 공격, 피해·회복 및 특수 효과에 관한 게임플레이 불변 규칙이다.
+
+이 문서는 **게임에서 무엇이 참이어야 하는지**를 정의한다. 멀티플레이 복제와 순서 역전 처리는 `GameSystemRules_UnitCombatSynchronization.md`, 클래스·RPC·레이어 배치는 `TechnicalDesignDocument.md`, 런타임 수치는 검증된 `UnitStatsConfig`와 향후 `AttackProfile`, 사람이 읽는 수치 미러는 `StatsReference.md`, 유닛별 에셋·구현 감사 스냅샷은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`가 담당한다.
+
+> **상태:** 규칙 v2.1과 서버 권위 연속 이동의 Editor 검증은 PASS했다. 2026-08-18 Android Host 경기에서 확인한 한-frame 반복 재탐색 결함은 유닛별 frame budget, 동일·순환 path fail-closed, 다음-frame 재개와 진전 reset으로 구현·Unity self-validation까지 PASS했다. 다만 이 교정 빌드의 Android Host 회귀 전이므로 B3 전체는 계속 **FAIL / OPEN**이며 역할교대·25종 회귀도 완료로 판정하지 않는다. 공격 방향과 Impact·피해 적용 시점은 별도 미완료 범위다.
 
 ---
 
@@ -35,6 +40,46 @@
 - 이동 슬롯, 공격 슬롯, 타일 점유 한도 제거
 - 근접/원거리 구분 없이 모든 유닛이 동일한 상태 전환 로직을 공유
 - 규칙의 수와 복잡도를 최소화하여 구현 안정성 확보
+서버는 A*로 현재 위치에서 목적지까지 통과해야 할 이동 가능 타일의 순서와 목적지를 계산한다. 일반 경유 타일의 중심 통과는 강제하지 않으며, 최종 목적지는 목적 타일 중심에 정확히 수렴한다.
+
+- 정적 이동 불가 지형과 건물은 경로를 차단한다.
+- 다른 유닛의 현재 타일·선점 타일은 경로 차단 정보로 사용하지 않는다.
+- 같은 타일에 여러 유닛이 겹칠 수 있다.
+- 서버의 틱별 후보 이동 구간은 현재 A* 경로의 이동 가능 타일 영역을 연결한 logical path corridor 안에 있어야 한다. 경로에 없는 타일이나 이동 불가 타일·건물을 가로지르지 않는다.
+- 다음 후보 이동 구간이 corridor를 벗어나거나 다음 타일이 건물 생성 등으로 이동 불가가 되면 그 구간을 적용하지 않고 현재 위치에서 재탐색한다.
+- 재탐색은 유닛별·Unity frame별 최대 1회만 수락하며, 새 path는 다음 frame부터 처리한다. 같은 path, `A→B→A` 순환, 비정상 path 또는 서로 다른 path의 무진전 수락 8회 상한에 도달하면 해당 유닛만 현재 pose에서 fail-closed하고 서버 경기 루프를 즉시 반환한다. 실제 위치 commit 또는 checkpoint 소비가 확인되면 무진전 이력을 reset한다.
+- 1차 corridor 안전 판정은 유닛 간 중첩을 허용하는 기존 규칙에 맞춰 Simulation Root point의 sweep을 기준으로 한다. 유닛 footprint 반경은 별도 게임플레이 변경 없이는 경로 차단에 추가하지 않는다.
+- 모든 유닛의 `MoveSpeed`는 실제 권위 trajectory 거리/초다. 코너의 도착 시간은 실제 trajectory 길이를 따르며, 경유 타일마다 `1 / MoveSpeed` 시간을 강제하지 않는다.
+
+### U-MOV-PHASE. 이동 단계
+
+유닛 이동은 다음 의미 단계를 가진다.
+
+```text
+Idle → Navigate → Move (직선/연속 선회)
+          └→ AlignToMove → Move
+Move / AlignToMove ├─ 적 감지 → AcquireTarget
+                   └─ 경로 차단·무효 경로 → Navigate
+```
+
+`Move`에는 직선 진행과 정상 코너의 연속 선회가 모두 포함된다. `AlignToMove`는 새 이동 시작, 급격한 재경로, 반전 또는 corridor 안전 위반처럼 이동하면서 방향 일치를 보장할 수 없을 때만 사용하는 정지 정렬 단계다. 일반 경로의 인접 타일 전환만으로 진입하지 않는다. 구현 enum은 다를 수 있지만 직선 이동·연속 선회·정지 정렬의 의미와 전이 원인은 구분해 기록해야 한다.
+
+### U-MOV-ALIGN. 이동 방향 정렬
+
+1. 서버는 현재 위치와 권위 경로의 look-ahead 지점으로 이번 틱의 `DesiredMoveDirection`을 계산한다. 이는 다음 타일 중심을 향해 순간적으로 바뀌는 벡터가 아니라 logical path corridor 안에서 진행할 권위 trajectory의 접선 방향이다.
+2. 서버는 공통 최대 회전 속도 270°/s 안에서 `SimulationFacing`을 `DesiredMoveDirection` 쪽으로 갱신한다. 이동이 허용된 틱의 실제 비영 위치 변화는 갱신된 `SimulationFacing` 방향으로만 적용하며 두 방향의 검증 오차는 1° 이하다.
+3. 정상 코너에서는 다음 경로 방향을 미리 반영해 이동과 회전을 같은 서버 틱들에 연속 적용한다. 타일 경계나 waypoint 변경만을 이유로 속도를 0으로 만들지 않는다.
+4. 후보 이동 구간이 현재 회전 속도와 이동 속도로 corridor 안전을 만족하지 못하면 먼저 해당 틱의 이동량을 줄인다. 안전한 비영 이동도 만들 수 없을 때만 정지 정렬 또는 재탐색한다.
+5. `Move` 중 방향 오차가 15°를 초과하거나 이동-방향 일치 또는 corridor 안전을 보장할 수 없으면 해당 틱의 이동량을 0으로 하고 `AlignToMove`로 전환한다.
+6. `AlignToMove`에서는 최단 Yaw로 제자리 회전하고 오차가 10° 이하가 된 서버 틱부터 `Move`로 복귀한다. 10° 진입 / 15° 이탈 히스테리시스는 정상 코너를 생성하는 규칙이 아니라 안전 fallback이다.
+7. 새 명령·재경로·전투 종료 후 이동 재개 시 위치를 스냅하지 않는다. 현재 pose에서 안전한 연속 trajectory를 만들 수 있으면 연속 선회하고, 만들 수 없을 때만 정지 정렬을 사용한다. 정렬 중에는 경로 시간·거리를 소비하지 않고 재개 시 누적 진행량을 한 번에 적용하지 않는다.
+8. A* 이동, 추격, PendingRepath와 전투 종료 후 이동 재개는 동일한 Authoritative Locomotion과 단일 Simulation Root writer를 사용한다. 각 경로는 이동 의도만 제공하고 위치·회전·phase를 직접 쓰지 않는다.
+9. `Move` 또는 `AlignToMove` 중 유효한 적이 AcquireRange에 들어오면 같은 서버 틱에 이동 의도를 중단하고 `AcquireTarget`을 우선한다. 후보 이동으로 처음 범위에 들어왔다면 그 candidate position까지만 commit하고 `NoIntent`를 기록하며, 다음 틱의 추가 이동을 허용하지 않는다.
+10. 150° 이상의 반전, 바로 앞 차단과 공격 정렬은 연속 코너링 대상이 아니다. 반전은 정지 정렬, 차단은 재탐색, 공격은 `U-ATK-ALIGN`의 완전 정지 및 5° 진입 / 8° 유지 규칙을 사용한다.
+
+270°/s, 150°와 1°는 초기 공통값이다. 변경하려면 순수 trajectory 회귀와 역할교대 멀티플레이 검증을 모두 다시 통과하고 `StatsReference.md`에 반영한다.
+
+`NetworkTransform`은 서버 결과를 복제할 뿐 trajectory나 권위 방향을 다시 계산하지 않는다. Visual Root 보간은 화면 표현만 다듬으며 Simulation Root의 정지·경로·방향 판정을 숨기는 교정 수단으로 사용하지 않는다.
 
 ---
 

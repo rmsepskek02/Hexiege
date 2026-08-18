@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Text;
+using Hexiege.Domain;
 
 namespace Hexiege.Application.Combat.Sequencing
 {
@@ -139,12 +142,627 @@ namespace Hexiege.Application.Combat.Sequencing
     }
 
     /// <summary>
+    /// Unity Transform과 무관한 공통 이동 adapter 결과다. B2 observer와 B3 writer가
+    /// 같은 endpoint 정규화와 reducer 입력 생성을 사용하도록 단일 구현으로 유지한다.
+    /// </summary>
+    public readonly struct UnitMovementEvaluation
+    {
+        public UnitMovementReducerStatus Status { get; }
+        public UnitMovementDecision Decision { get; }
+        public UnitMovementIntentReason EvaluatedIntentReason { get; }
+        public bool EvaluatedHasIntent { get; }
+        public ActionDirectionXZ SimulationFacing { get; }
+        public ActionDirectionXZ DesiredMoveDirection { get; }
+        public bool EndpointNormalized { get; }
+        public bool ReducerInvoked { get; }
+        public bool CommitsAcquireCandidate { get; }
+
+        internal UnitMovementEvaluation(
+            UnitMovementReducerStatus status,
+            UnitMovementDecision decision,
+            UnitMovementIntentReason evaluatedIntentReason,
+            bool evaluatedHasIntent,
+            ActionDirectionXZ simulationFacing,
+            ActionDirectionXZ desiredMoveDirection,
+            bool endpointNormalized,
+            bool reducerInvoked,
+            bool commitsAcquireCandidate = false)
+        {
+            Status = status;
+            Decision = decision;
+            EvaluatedIntentReason = evaluatedIntentReason;
+            EvaluatedHasIntent = evaluatedHasIntent;
+            SimulationFacing = simulationFacing;
+            DesiredMoveDirection = desiredMoveDirection;
+            EndpointNormalized = endpointNormalized;
+            ReducerInvoked = reducerInvoked;
+            CommitsAcquireCandidate = commitsAcquireCandidate;
+        }
+
+        internal static UnitMovementEvaluation Invalid()
+            => new UnitMovementEvaluation(
+                UnitMovementReducerStatus.InvalidInput,
+                UnitMovementDecision.Invalid(),
+                UnitMovementIntentReason.None,
+                false,
+                default,
+                default,
+                false,
+                false);
+    }
+
+    /// <summary>
+    /// 월드 XZ pose를 reducer 계약으로 변환하는 유일한 production adapter다.
+    /// 위치와 예상 이동량이 모두 endpoint tolerance 안일 때만 NoIntent로 정규화한다.
+    /// </summary>
+    public static class UnitMovementEvaluationAdapter
+    {
+        public const double PositionTolerance = 0.00001d;
+
+        public static UnitMovementEvaluation Evaluate(
+            UnitMovementReducer reducer,
+            ulong commandRevision,
+            ulong segmentRevision,
+            UnitMovementIntentReason sourceIntentReason,
+            double positionX,
+            double positionZ,
+            double facingX,
+            double facingZ,
+            double desiredTargetX,
+            double desiredTargetZ,
+            bool targetAcquirePriority,
+            double expectedPositionDeltaWorld,
+            double serverTime)
+        {
+            if (reducer == null
+                || !IsFiniteNonNegative(expectedPositionDeltaWorld)
+                || !IsFinite(positionX)
+                || !IsFinite(positionZ)
+                || !IsFinite(desiredTargetX)
+                || !IsFinite(desiredTargetZ)
+                || !ActionDirectionXZ.TryCreate(
+                    facingX, facingZ, out ActionDirectionXZ simulationFacing))
+            {
+                return UnitMovementEvaluation.Invalid();
+            }
+
+            double desiredX = desiredTargetX - positionX;
+            double desiredZ = desiredTargetZ - positionZ;
+            double desiredDistance = Math.Sqrt(desiredX * desiredX + desiredZ * desiredZ);
+            if (!IsFiniteNonNegative(desiredDistance))
+                return UnitMovementEvaluation.Invalid();
+
+            bool expectedAtEndpoint =
+                expectedPositionDeltaWorld <= PositionTolerance;
+            bool desiredAtEndpoint = desiredDistance <= PositionTolerance;
+            if (desiredAtEndpoint && !expectedAtEndpoint)
+                return UnitMovementEvaluation.Invalid();
+
+            bool endpointNormalized = expectedAtEndpoint && desiredAtEndpoint;
+            UnitMovementIntentReason evaluatedIntentReason = endpointNormalized
+                ? UnitMovementIntentReason.None
+                : sourceIntentReason;
+            bool evaluatedHasIntent = !endpointNormalized;
+            ActionDirectionXZ desiredDirection = default;
+            if (evaluatedHasIntent
+                && !ActionDirectionXZ.TryCreate(
+                    desiredX, desiredZ, out desiredDirection))
+            {
+                return UnitMovementEvaluation.Invalid();
+            }
+
+            UnitMovementReducerStatus status = reducer.Evaluate(
+                reducer.Snapshot.Revision,
+                commandRevision,
+                segmentRevision,
+                evaluatedIntentReason,
+                evaluatedHasIntent,
+                simulationFacing,
+                desiredDirection,
+                targetAcquirePriority,
+                serverTime,
+                out UnitMovementDecision decision);
+            return new UnitMovementEvaluation(
+                status,
+                decision,
+                evaluatedIntentReason,
+                evaluatedHasIntent,
+                simulationFacing,
+                desiredDirection,
+                endpointNormalized,
+                true);
+        }
+
+        private static bool IsFinite(double value)
+            => !double.IsNaN(value) && !double.IsInfinity(value);
+
+        private static bool IsFiniteNonNegative(double value)
+            => IsFinite(value) && value >= 0d;
+    }
+
+    /// <summary>
+    /// 한 서버 틱에 적용할 연속 이동 후보다.
+    ///
+    /// 이 값은 Unity Transform을 전혀 모르며, 위치 변화 방향과 SimulationFacing으로
+    /// 사용할 방향을 하나의 TrajectoryDirection으로 묶는다. 따라서 호출자가 위치만
+    /// 먼저 적용하거나 방향만 따로 적용하는 실수를 구조적으로 피할 수 있다.
+    /// </summary>
+    public readonly struct UnitTrajectoryStep
+    {
+        public WorldPointXZ CandidatePosition { get; }
+        public ActionDirectionXZ TrajectoryDirection { get; }
+        public double ConsumedDistanceWorld { get; }
+        public bool RequiresStationaryAlignment { get; }
+        public bool ReachedCurrentWaypoint { get; }
+        public bool IsValid { get; }
+
+        internal UnitTrajectoryStep(
+            WorldPointXZ candidatePosition,
+            ActionDirectionXZ trajectoryDirection,
+            double consumedDistanceWorld,
+            bool requiresStationaryAlignment,
+            bool reachedCurrentWaypoint,
+            bool isValid)
+        {
+            CandidatePosition = candidatePosition;
+            TrajectoryDirection = trajectoryDirection;
+            ConsumedDistanceWorld = consumedDistanceWorld;
+            RequiresStationaryAlignment = requiresStationaryAlignment;
+            ReachedCurrentWaypoint = reachedCurrentWaypoint;
+            IsValid = isValid;
+        }
+
+        internal static UnitTrajectoryStep Invalid()
+            => new UnitTrajectoryStep(default, default, 0d, false, false, false);
+    }
+
+    /// <summary>
+    /// 서버 A*·추격·재경로·전투 복귀가 함께 사용하는 순수 trajectory planner다.
+    ///
+    /// 중요한 원칙:
+    /// 1) 현재 waypoint 가까이에서는 다음 선분을 미리 보아 60도 방향 점프를 완만하게 만든다.
+    /// 2) 한 틱의 방향 변화는 maximumTurnDegrees를 넘지 않는다.
+    /// 3) 위치는 계산된 TrajectoryDirection으로만 진행한다. 이 때문에 이동 벡터와
+    ///    SimulationFacing은 부동소수점 정규화 오차 외에는 동일하다.
+    /// 4) 150도 이상의 반전은 이동하지 않고 정지 정렬 후보를 반환한다.
+    ///
+    /// logical path corridor 검사는 맵을 아는 adapter가 이 후보를 받은 뒤 수행한다.
+    /// planner 자신은 Collider, HexMetrics, 씬 또는 NGO를 참조하지 않는다.
+    /// </summary>
+    public static class UnitServerTrajectoryPlanner
+    {
+        public const double DefaultMaximumTurnDegreesPerSecond = 270d;
+        public const double ReverseAlignmentDegrees = 150d;
+
+        public static bool TryPlan(
+            WorldPointXZ currentPosition,
+            ActionDirectionXZ currentFacing,
+            WorldPointXZ currentWaypoint,
+            bool hasNextWaypoint,
+            WorldPointXZ nextWaypoint,
+            double maximumTravelDistanceWorld,
+            double maximumTurnDegrees,
+            double cornerLookAheadDistanceWorld,
+            out UnitTrajectoryStep step)
+        {
+            step = UnitTrajectoryStep.Invalid();
+            if (!currentPosition.IsValid
+                || !currentFacing.IsValid
+                || !currentWaypoint.IsValid
+                || (hasNextWaypoint && !nextWaypoint.IsValid)
+                || !IsFiniteNonNegative(maximumTravelDistanceWorld)
+                || !IsFiniteNonNegative(maximumTurnDegrees)
+                || !IsFiniteNonNegative(cornerLookAheadDistanceWorld))
+            {
+                return false;
+            }
+
+            double toWaypointX = currentWaypoint.X - currentPosition.X;
+            double toWaypointZ = currentWaypoint.Z - currentPosition.Z;
+            double distanceToWaypoint = Math.Sqrt(
+                toWaypointX * toWaypointX + toWaypointZ * toWaypointZ);
+            if (!IsFiniteNonNegative(distanceToWaypoint)) return false;
+
+            // 마지막 목적지에 이미 도착한 호출은 이동 의도가 아니다. endpoint NoIntent는
+            // production adapter가 별도로 게시하므로 여기서는 유효한 0거리 후보를 만든다.
+            if (distanceToWaypoint <= UnitMovementEvaluationAdapter.PositionTolerance)
+            {
+                step = new UnitTrajectoryStep(
+                    currentPosition,
+                    currentFacing,
+                    0d,
+                    false,
+                    true,
+                    true);
+                return true;
+            }
+
+            if (!ActionDirectionXZ.TryCreate(
+                toWaypointX, toWaypointZ, out ActionDirectionXZ toWaypoint))
+            {
+                return false;
+            }
+
+            ActionDirectionXZ desiredTangent = toWaypoint;
+            if (hasNextWaypoint
+                && cornerLookAheadDistanceWorld
+                    > UnitMovementEvaluationAdapter.PositionTolerance)
+            {
+                double nextX = nextWaypoint.X - currentWaypoint.X;
+                double nextZ = nextWaypoint.Z - currentWaypoint.Z;
+                if (!ActionDirectionXZ.TryCreate(
+                    nextX, nextZ, out ActionDirectionXZ outgoingDirection))
+                {
+                    return false;
+                }
+
+                // look-ahead 구간의 시작에서는 현재 선분을 그대로 따르고, waypoint에
+                // 가까워질수록 다음 선분 접선의 비중을 smoothstep으로 높인다.
+                double normalized = 1d - Math.Min(
+                    1d, distanceToWaypoint / cornerLookAheadDistanceWorld);
+                double blend = normalized * normalized * (3d - 2d * normalized);
+                double blendedX = toWaypoint.X * (1d - blend)
+                    + outgoingDirection.X * blend;
+                double blendedZ = toWaypoint.Z * (1d - blend)
+                    + outgoingDirection.Z * blend;
+                if (!ActionDirectionXZ.TryCreate(
+                    blendedX, blendedZ, out desiredTangent))
+                {
+                    return false;
+                }
+            }
+
+            double rawYawError = UnitActionPoseSample.GetYawDegrees(
+                currentFacing, toWaypoint);
+            if (!IsFiniteNonNegative(rawYawError)) return false;
+
+            bool requiresStationaryAlignment =
+                rawYawError >= ReverseAlignmentDegrees;
+            ActionDirectionXZ trajectoryDirection = requiresStationaryAlignment
+                ? RotateTowards(currentFacing, toWaypoint, maximumTurnDegrees)
+                : RotateTowards(currentFacing, desiredTangent, maximumTurnDegrees);
+            if (!trajectoryDirection.IsValid) return false;
+
+            double travelDistance = requiresStationaryAlignment
+                ? 0d
+                : maximumTravelDistanceWorld;
+            if (!hasNextWaypoint)
+                travelDistance = Math.Min(travelDistance, distanceToWaypoint);
+
+            if (!WorldPointXZ.TryCreate(
+                currentPosition.X + trajectoryDirection.X * travelDistance,
+                currentPosition.Z + trajectoryDirection.Z * travelDistance,
+                out WorldPointXZ candidatePosition))
+            {
+                return false;
+            }
+
+            // 중간 waypoint는 중심에 스냅하지 않는다. 현재 위치에서 waypoint로 향하던
+            // 평면을 후보가 통과했으면 논리적으로 해당 waypoint를 소비한다.
+            // A smoothed corner intentionally does not force the Simulation Root through the
+            // waypoint centre. Therefore an intermediate waypoint is consumed at the discrete
+            // closest approach: while inside the configured look-ahead zone, the previous frame
+            // was still facing toward the waypoint, but this candidate no longer reduces its
+            // distance. This is stateless and stable because both distances are measured from the
+            // same fixed waypoint. The old pass-plane used the per-frame toWaypoint vector as its
+            // normal; that normal rotated every tick and could make a valid curved path orbit the
+            // waypoint forever. A zero-progress alignment step can never consume a checkpoint.
+            double candidateToWaypointX = currentWaypoint.X - candidatePosition.X;
+            double candidateToWaypointZ = currentWaypoint.Z - candidatePosition.Z;
+            double candidateDistanceSquared =
+                candidateToWaypointX * candidateToWaypointX
+                + candidateToWaypointZ * candidateToWaypointZ;
+            double currentDistanceSquared = distanceToWaypoint * distanceToWaypoint;
+            bool reachedWaypoint;
+            if (!hasNextWaypoint)
+            {
+                // The final endpoint keeps exact convergence; closest-approach consumption is
+                // reserved for intermediate path checkpoints only.
+                reachedWaypoint = travelDistance >= distanceToWaypoint
+                    - UnitMovementEvaluationAdapter.PositionTolerance;
+            }
+            else
+            {
+                // A unit that is still rotating from a badly misaligned pose must not consume a
+                // checkpoint merely because that temporary step increases its distance. The
+                // accepted step must already be following the planned corner tangent (same
+                // hemisphere). At the true closest point that tangent legitimately points past
+                // the waypoint, so testing currentFacing against toWaypoint would be too strict.
+                double followsPlannedTangent =
+                    trajectoryDirection.X * desiredTangent.X
+                    + trajectoryDirection.Z * desiredTangent.Z;
+                bool insideCornerZone = cornerLookAheadDistanceWorld
+                        > UnitMovementEvaluationAdapter.PositionTolerance
+                    && distanceToWaypoint <= cornerLookAheadDistanceWorld;
+                reachedWaypoint = travelDistance
+                        > UnitMovementEvaluationAdapter.PositionTolerance
+                    && insideCornerZone
+                    && followsPlannedTangent > 0d
+                    && candidateDistanceSquared >= currentDistanceSquared;
+            }
+
+            step = new UnitTrajectoryStep(
+                candidatePosition,
+                trajectoryDirection,
+                travelDistance,
+                requiresStationaryAlignment,
+                reachedWaypoint,
+                true);
+            return true;
+        }
+
+        private static ActionDirectionXZ RotateTowards(
+            ActionDirectionXZ from,
+            ActionDirectionXZ to,
+            double maximumDegrees)
+        {
+            if (!from.IsValid || !to.IsValid || !IsFiniteNonNegative(maximumDegrees))
+                return default;
+
+            double fromYaw = Math.Atan2(from.X, from.Z);
+            double toYaw = Math.Atan2(to.X, to.Z);
+            double delta = WrapRadians(toYaw - fromYaw);
+            double maximumRadians = maximumDegrees * Math.PI / 180d;
+            double applied = Math.Max(-maximumRadians, Math.Min(maximumRadians, delta));
+            double resultYaw = fromYaw + applied;
+            return ActionDirectionXZ.TryCreate(
+                Math.Sin(resultYaw), Math.Cos(resultYaw), out ActionDirectionXZ result)
+                ? result
+                : default;
+        }
+
+        private static double WrapRadians(double radians)
+        {
+            double twoPi = Math.PI * 2d;
+            double wrapped = (radians + Math.PI) % twoPi;
+            if (wrapped < 0d) wrapped += twoPi;
+            return wrapped - Math.PI;
+        }
+
+        private static bool IsFiniteNonNegative(double value)
+            => !double.IsNaN(value) && !double.IsInfinity(value) && value >= 0d;
+    }
+
+    /// <summary>
+    /// 곡선 trajectory가 타일 중심을 통과하지 않더라도 A* waypoint의 도메인 의미를
+    /// 순서대로 정확히 한 번만 소비하게 하는 순수 checkpoint다.
+    /// Presentation adapter는 true를 받은 경우에만 ProcessStep과 OnUnitEnteredTile을
+    /// 각각 한 번 실행한다. 중복·건너뛰기·미도달 호출은 상태를 바꾸지 않는다.
+    /// </summary>
+    public sealed class UnitPathCheckpointTracker
+    {
+        public int NextWaypointIndex { get; private set; }
+
+        public UnitPathCheckpointTracker(int firstWaypointIndex = 1)
+        {
+            Reset(firstWaypointIndex);
+        }
+
+        public bool TryConsume(int waypointIndex, bool reachedWaypoint)
+        {
+            if (!reachedWaypoint || waypointIndex != NextWaypointIndex)
+                return false;
+            if (NextWaypointIndex == int.MaxValue)
+                return false;
+
+            NextWaypointIndex++;
+            return true;
+        }
+
+        public void Reset(int firstWaypointIndex = 1)
+        {
+            NextWaypointIndex = firstWaypointIndex > 0
+                ? firstWaypointIndex
+                : 1;
+        }
+    }
+
+    public enum UnitRepathDecision
+    {
+        AcceptedNextFrame = 0,
+        RejectedInvalidPath = 1,
+        RejectedRepeatedPath = 2,
+        RejectedCycle = 3,
+        RejectedFrameBudget = 4,
+        RejectedNoProgressBudget = 5,
+        RejectedMissingCurrentPosition = 6
+    }
+
+    /// <summary>
+    /// 경로 길이와 순서가 있는 HexCoord 전체로 만든 결정적 서명이다.
+    /// 런타임 객체 identity나 플랫폼별 GetHashCode에 의존하지 않는다.
+    /// </summary>
+    public readonly struct UnitPathSignature : IEquatable<UnitPathSignature>
+    {
+        public int WaypointCount { get; }
+        public ulong OrderedHash { get; }
+        public bool IsValid { get; }
+
+        private UnitPathSignature(int waypointCount, ulong orderedHash)
+        {
+            WaypointCount = waypointCount;
+            OrderedHash = orderedHash;
+            IsValid = true;
+        }
+
+        public static bool TryCreate(
+            IReadOnlyList<HexCoord> path,
+            out UnitPathSignature signature)
+        {
+            signature = default;
+            if (path == null || path.Count < 2)
+                return false;
+
+            unchecked
+            {
+                const ulong offset = 14695981039346656037UL;
+                const ulong prime = 1099511628211UL;
+                ulong hash = offset;
+                hash = (hash ^ (uint)path.Count) * prime;
+
+                for (int index = 0; index < path.Count; index++)
+                {
+                    HexCoord coord = path[index];
+                    if (index > 0 && coord == path[index - 1])
+                        return false;
+
+                    hash = (hash ^ (uint)coord.Q) * prime;
+                    hash = (hash ^ (uint)coord.R) * prime;
+                }
+
+                signature = new UnitPathSignature(path.Count, hash);
+                return true;
+            }
+        }
+
+        public bool Equals(UnitPathSignature other)
+            => IsValid == other.IsValid
+                && WaypointCount == other.WaypointCount
+                && OrderedHash == other.OrderedHash;
+
+        public override bool Equals(object obj)
+            => obj is UnitPathSignature other && Equals(other);
+
+        public override int GetHashCode()
+            => unchecked((WaypointCount * 397) ^ OrderedHash.GetHashCode());
+
+        public static bool operator ==(UnitPathSignature left, UnitPathSignature right)
+            => left.Equals(right);
+
+        public static bool operator !=(UnitPathSignature left, UnitPathSignature right)
+            => !left.Equals(right);
+    }
+
+    /// <summary>
+    /// 재탐색이 수렴하지 않아 한 Unity frame 또는 여러 frame을 무한 점유하지 않도록 하는
+    /// 순수 진행성 guard다. path를 직접 적용하지 않고 수락/거부만 결정한다.
+    /// </summary>
+    public sealed class UnitRepathProgressGuard
+    {
+        public const int MaximumAcceptedWithoutProgress = 8;
+
+        private UnitPathSignature _previousPath;
+        private UnitPathSignature _currentPath;
+        private long _frameToken = long.MinValue;
+        private int _acceptedInFrame;
+        private int _acceptedWithoutProgress;
+
+        public UnitPathSignature PreviousPath => _previousPath;
+        public UnitPathSignature CurrentPath => _currentPath;
+        public int AcceptedInFrame => _acceptedInFrame;
+        public int AcceptedWithoutProgress => _acceptedWithoutProgress;
+
+        public UnitRepathProgressGuard(IReadOnlyList<HexCoord> initialPath)
+        {
+            UnitPathSignature.TryCreate(initialPath, out _currentPath);
+        }
+
+        public UnitRepathDecision Evaluate(
+            long frameToken,
+            IReadOnlyList<HexCoord> candidatePath)
+        {
+            if (frameToken < 0
+                || !UnitPathSignature.TryCreate(candidatePath, out UnitPathSignature candidate))
+            {
+                return UnitRepathDecision.RejectedInvalidPath;
+            }
+
+            if (frameToken != _frameToken)
+            {
+                _frameToken = frameToken;
+                _acceptedInFrame = 0;
+            }
+
+            if (_currentPath.IsValid && candidate == _currentPath)
+                return UnitRepathDecision.RejectedRepeatedPath;
+            if (_previousPath.IsValid && candidate == _previousPath)
+                return UnitRepathDecision.RejectedCycle;
+            if (_acceptedWithoutProgress >= MaximumAcceptedWithoutProgress)
+                return UnitRepathDecision.RejectedNoProgressBudget;
+            if (_acceptedInFrame >= 1)
+                return UnitRepathDecision.RejectedFrameBudget;
+
+            _previousPath = _currentPath;
+            _currentPath = candidate;
+            _acceptedInFrame++;
+            _acceptedWithoutProgress++;
+            return UnitRepathDecision.AcceptedNextFrame;
+        }
+
+        public bool ObserveProgress(IReadOnlyList<HexCoord> committedPath)
+        {
+            if (!UnitPathSignature.TryCreate(
+                    committedPath, out UnitPathSignature signature))
+            {
+                return false;
+            }
+
+            _currentPath = signature;
+            _previousPath = default;
+            _acceptedWithoutProgress = 0;
+            return true;
+        }
+    }
+
+    /// <summary>Android terminal evidence용 순수 lossless chunk/preflight 계약.</summary>
+    public static class UnitMovementManifestChunker
+    {
+        public static bool TryBuild(
+            IReadOnlyList<string> entries,
+            int payloadUtf8Limit,
+            int maximumChunks,
+            int reservedTerminalLines,
+            int nonManifestTerminalLines,
+            out IReadOnlyList<string> chunks)
+        {
+            chunks = Array.Empty<string>();
+            if (entries == null || payloadUtf8Limit <= 0 || maximumChunks < 0
+                || reservedTerminalLines <= 0 || nonManifestTerminalLines < 1)
+                return false;
+
+            var result = new List<string>();
+            var current = new StringBuilder();
+            for (int index = 0; index < entries.Count; index++)
+            {
+                string entry = entries[index];
+                if (string.IsNullOrEmpty(entry)
+                    || Encoding.UTF8.GetByteCount(entry) > payloadUtf8Limit)
+                    return false;
+
+                string candidate = current.Length == 0
+                    ? entry
+                    : current.ToString() + ";" + entry;
+                if (Encoding.UTF8.GetByteCount(candidate) > payloadUtf8Limit)
+                {
+                    result.Add(current.ToString());
+                    current.Clear();
+                    current.Append(entry);
+                }
+                else
+                {
+                    if (current.Length > 0) current.Append(';');
+                    current.Append(entry);
+                }
+            }
+            if (current.Length > 0) result.Add(current.ToString());
+
+            if (result.Count > maximumChunks
+                || result.Count + nonManifestTerminalLines > reservedTerminalLines)
+                return false;
+
+            chunks = result;
+            return true;
+        }
+    }
+
+    /// <summary>
     /// 서버 이동·SimulationFacing을 결정하는 production-grade 순수 reducer다.
     /// B2에서는 Shadow observer가 읽기 전용으로 사용하고, B3에서는 단일 권위 writer가
     /// 같은 결정을 소비한다. Unity, NGO, Transform과 무관하며 writer를 직접 호출하지 않는다.
     /// </summary>
     public sealed class UnitMovementReducer
     {
+        public const int ContractSchemaRevision = 1;
         public const string ContractSchemaVersion = "b2-movement-reducer-v1";
 
         private ulong _revision;

@@ -397,3 +397,10 @@ Assets/_Project/
 - 첫 4종은 observer v4, 나머지 21종은 endpoint `NoIntent`가 보강된 v5다. reducer schema는 모두 `b2-movement-reducer-v1`이며 각 유닛을 Host/Client 양 역할에서 각각 검증한 것은 아니다.
 - B2는 진단·분류 완료다. 실제 이동·바라보기 writer 교정은 B3 전까지 미완료이고, `legacyMovedWhileShadowAlign`은 B3가 필요한 직접 근거다.
 - 다음 활성 게이트는 B3 경기 단위 25종 이동·SimulationFacing single-writer 전환이다. 공격 방향과 Impact/피해 타이밍은 Tracer C/D 이후까지 미완료다.
+
+### 2026-08-18 - B3 최신 main 통합과 진행성 교정
+
+- `origin/main`의 연구·상태효과·스킬·MistShrine·빙결/둔화를 B3 서버 권위 이동과 merge했다. merge commit은 `9dd9b627`, 안전 stash `277a3ea54e91cd778829943491e7f4827f9649db`는 유지한다.
+- B3 유한 재탐색 guard 구현과 Unity compile/self-validation, 문서 정합성 검사는 PASS다. 전체 상태는 Android Host 회귀 전까지 FAIL / OPEN이다.
+- 다음 순서: 새 Android Development Build → Android Host 정지 재현 회귀와 다른 유닛/경기 진행 확인 → Editor/Android 역할교대 → 25종 전체 → 다음 경기 Legacy rollback.
+- 공격 타겟/공격 방향과 시각 Impact/실제 피해 시점은 이번 교정 범위 밖이며 후속 Tracer에서 별도로 진행한다.

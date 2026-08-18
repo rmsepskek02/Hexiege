@@ -517,3 +517,10 @@ public void Hide()    { _showRequested = false; if (gameObject.activeSelf) gameO
   사례: `MistShrineRangeIndicator` / `SkillAimReticle`의 `_baseDiameter` → `_baseDiameterOverride`(기본 0 = 자동).
 - 범위/사거리 표시용 도형에서 **비정사각형 스프라이트는 긴 축을 기준 지름으로** 삼는다.
   과대 표시(실제보다 넓어 보임)가 과소 표시보다 치명적이기 때문이다.
+
+### 2026-08-18 - B3 서버 권위 유한 재탐색 구현
+
+- `UnitMovementContracts.cs`의 `UnitRepathProgressGuard`는 ordered `HexCoord` path signature, 유닛별 frame budget, 동일 path와 A→B→A 순환, invalid 입력을 pure Application에서 판정한다.
+- `UnitView.MoveAlongPathV3`의 A* corridor, PostCombatResume corridor, resume path와 PendingRepath는 공통 guard를 사용한다. 수락한 path는 반드시 `yield return null` 뒤 다음 frame부터 처리한다.
+- authoritative position 또는 logical checkpoint 진전에서 no-progress 이력을 reset한다. fail-closed에서는 완료 callback과 힐러 idle watcher 재진입을 억제해 새 same-frame loop를 만들지 않는다.
+- 서버 single-writer와 Client Simulation Root write 금지, 경기 중/유닛별 Legacy fallback 금지는 유지한다. Unity Tundra compile과 finite-repath self-validation은 PASS, Android Host 회귀는 pending이다.

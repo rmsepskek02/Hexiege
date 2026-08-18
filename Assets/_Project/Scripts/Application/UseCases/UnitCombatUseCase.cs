@@ -723,6 +723,30 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// 서버 이동 writer가 아직 Transform에 쓰지 않은 candidate position을 기준으로
+        /// 감지 여부를 계산한다. 현재 pose를 임시로 쓰거나 되돌리지 않으므로 한 틱의
+        /// trajectory 후보와 AcquireTarget 판정을 원자적으로 결합할 수 있다.
+        /// </summary>
+        public bool HasEnemyInDetectRangeAt(
+            UnitData attacker,
+            Vector3 attackerCandidateWorldPosition)
+        {
+            if (attacker == null || !attacker.IsAlive
+                || float.IsNaN(attackerCandidateWorldPosition.x)
+                || float.IsInfinity(attackerCandidateWorldPosition.x)
+                || float.IsNaN(attackerCandidateWorldPosition.z)
+                || float.IsInfinity(attackerCandidateWorldPosition.z))
+            {
+                return false;
+            }
+
+            return FindFirstEnemyInDetectRange(
+                attacker,
+                attackerCandidateWorldPosition,
+                usePositionOverride: true) != null;
+        }
+
+        /// <summary>
         /// 감지 사거리(DetectRange) 내 가장 가까운 적의 (Id, 유닛 여부)를 반환.
         ///
         /// UnitView에서 감지 후 재경로 대상을 특정하기 위해 사용.
@@ -800,6 +824,26 @@ namespace Hexiege.Application
             return FindInjuredAllyToHeal(healer).HasValue;
         }
 
+        /// <summary>힐러의 아직 commit되지 않은 이동 candidate 기준 부상 아군 감지.</summary>
+        public bool HasInjuredAllyInHealRangeAt(
+            UnitData healer,
+            Vector3 healerCandidateWorldPosition)
+        {
+            if (healer == null || !healer.IsAlive
+                || float.IsNaN(healerCandidateWorldPosition.x)
+                || float.IsInfinity(healerCandidateWorldPosition.x)
+                || float.IsNaN(healerCandidateWorldPosition.z)
+                || float.IsInfinity(healerCandidateWorldPosition.z))
+            {
+                return false;
+            }
+
+            return FindInjuredAllyToHeal(
+                healer,
+                healerCandidateWorldPosition,
+                usePositionOverride: true).HasValue;
+        }
+
         /// <summary>
         /// 힐 사거리(DetectRange) 안에서 "가장 회복이 급한" 부상 아군 1명의 Id를 반환한다.
         ///
@@ -818,14 +862,22 @@ namespace Hexiege.Application
         /// <param name="healer">힐러 유닛(본인도 후보에 포함).</param>
         /// <returns>회복할 부상 아군의 Id. 없으면 null.</returns>
         public int? FindInjuredAllyToHeal(UnitData healer)
+            => FindInjuredAllyToHeal(healer, default, usePositionOverride: false);
+
+        private int? FindInjuredAllyToHeal(
+            UnitData healer,
+            Vector3 healerPositionOverride,
+            bool usePositionOverride)
         {
             if (healer == null || !healer.IsAlive) return null;
 
             // 힐러의 월드 좌표. 미등록(Vector3.zero)이면 도메인 좌표로 폴백해 거리 판정에 사용.
-            Vector3 healerPos = _positionProvider != null
-                ? _positionProvider.GetUnitWorldPosition(healer.Id)
-                : Vector3.zero;
-            if (healerPos == Vector3.zero)
+            Vector3 healerPos = usePositionOverride
+                ? healerPositionOverride
+                : (_positionProvider != null
+                    ? _positionProvider.GetUnitWorldPosition(healer.Id)
+                    : Vector3.zero);
+            if (!usePositionOverride && healerPos == Vector3.zero)
                 healerPos = _mapper.HexToWorld(healer.Position);
 
             // 힐 사거리 = 적 감지와 동일 공식(DetectRange × TileHeight + Epsilon). 유닛 거리만 사용.
@@ -884,18 +936,27 @@ namespace Hexiege.Application
         ///   (건물 메시가 크므로 조금 더 일찍 감지, 기존 패턴 동일).
         /// </summary>
         private IDamageable FindFirstEnemyInDetectRange(UnitData attacker)
+            => FindFirstEnemyInDetectRange(
+                attacker, default, usePositionOverride: false);
+
+        private IDamageable FindFirstEnemyInDetectRange(
+            UnitData attacker,
+            Vector3 attackerPositionOverride,
+            bool usePositionOverride)
         {
             // _positionProvider가 없으면 HexCoord 기반 폴백.
             // HexCoord 폴백은 이미 threshold=1로 인접 타일까지 탐색하므로
             // DetectRange(1.0)와 일치 — 별도 폴백 메서드 불필요.
-            if (_positionProvider == null)
+            if (_positionProvider == null && !usePositionOverride)
                 return FindFirstEnemyTargetByHexCoord(attacker);
 
             // 공격자 월드 좌표 취득
-            Vector3 attackerWorldPos = _positionProvider.GetUnitWorldPosition(attacker.Id);
+            Vector3 attackerWorldPos = usePositionOverride
+                ? attackerPositionOverride
+                : _positionProvider.GetUnitWorldPosition(attacker.Id);
 
             // Vector3.zero = GameObject 미등록 상태 → HexCoord 폴백
-            if (attackerWorldPos == Vector3.zero)
+            if (!usePositionOverride && attackerWorldPos == Vector3.zero)
                 return FindFirstEnemyTargetByHexCoord(attacker);
 
             // 감지 사거리 기반 판정 거리 계산 (DetectRange × TileHeight + 건물 여유 거리)
@@ -909,7 +970,9 @@ namespace Hexiege.Application
             {
                 if (unit.Team == attacker.Team || !unit.IsAlive) continue;
 
-                Vector3 targetPos = _positionProvider.GetUnitWorldPosition(unit.Id);
+                Vector3 targetPos = _positionProvider != null
+                    ? _positionProvider.GetUnitWorldPosition(unit.Id)
+                    : Vector3.zero;
 
                 // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
                 if (targetPos == Vector3.zero)
@@ -929,7 +992,9 @@ namespace Hexiege.Application
             {
                 if (building.Team == attacker.Team || !building.IsAlive) continue;
 
-                Vector3 targetPos = _positionProvider.GetBuildingWorldPosition(building.Id);
+                Vector3 targetPos = _positionProvider != null
+                    ? _positionProvider.GetBuildingWorldPosition(building.Id)
+                    : Vector3.zero;
 
                 if (targetPos == Vector3.zero)
                     targetPos = _mapper.HexToWorld(building.Position);

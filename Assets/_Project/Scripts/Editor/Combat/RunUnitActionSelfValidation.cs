@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+using Hexiege.Application;
 using Hexiege.Application.Combat.Sequencing;
+using Hexiege.Domain;
 using UnityEditor;
 using UnityEngine;
 
@@ -25,11 +27,437 @@ namespace Hexiege.Editor.Combat
             ValidateB2MovementReducer();
             ValidateB2MovementEndpointAdapter();
             ValidateB2MovementManifestChunking();
+            ValidateB3MovementManifestPreflight();
+            ValidateB3ClientReplicationClassification();
+            ValidateB3MovementPipelineModeLatch();
+            ValidateB3ContinuousLocomotionPlanner();
+            ValidateB3FiniteRepathGuard();
             ValidateAttackHysteresis();
             ValidateDuplicateAndReorderedResults();
             ValidateA1ContractsAndReducer();
 
-            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and reserved-terminal preflight, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
+            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and reserved-terminal preflight, B3 match-fixed movement pipeline mode/rollback, continuous 60-degree trajectory/150-degree reverse/held-progress invariants, finite repath frame/repeat-cycle/distinct-no-progress budgets and progress reset, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and retire/reuse, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
+        }
+
+        private static void ValidateB3FiniteRepathGuard()
+        {
+            var pathA = new List<HexCoord>
+            {
+                new HexCoord(0, 0),
+                new HexCoord(1, 0),
+                new HexCoord(2, 0)
+            };
+            var pathAClone = new List<HexCoord>
+            {
+                new HexCoord(0, 0),
+                new HexCoord(1, 0),
+                new HexCoord(2, 0)
+            };
+            var pathB = new List<HexCoord>
+            {
+                new HexCoord(0, 0),
+                new HexCoord(1, -1),
+                new HexCoord(2, -1)
+            };
+            var pathC = new List<HexCoord>
+            {
+                new HexCoord(0, 0),
+                new HexCoord(0, 1),
+                new HexCoord(1, 1)
+            };
+            var invalidPath = new List<HexCoord> { new HexCoord(0, 0) };
+
+            Require(UnitPathSignature.TryCreate(pathA, out UnitPathSignature signatureA)
+                && UnitPathSignature.TryCreate(pathAClone, out UnitPathSignature signatureAClone)
+                && signatureA == signatureAClone,
+                "Equal ordered HexCoord paths must produce the same deterministic signature.");
+
+            var guard = new UnitRepathProgressGuard(pathA);
+            Require(guard.Evaluate(10, pathAClone)
+                    == UnitRepathDecision.RejectedRepeatedPath,
+                "A repeated path must fail closed instead of spinning in the same frame.");
+            Require(guard.Evaluate(10, pathB)
+                    == UnitRepathDecision.AcceptedNextFrame,
+                "The first distinct repath in a frame must be accepted for next-frame processing.");
+            Require(guard.AcceptedInFrame == 1
+                    && guard.AcceptedWithoutProgress == 1,
+                "An accepted repath must consume the frame budget and no-progress count.");
+            Require(guard.Evaluate(10, pathC)
+                    == UnitRepathDecision.RejectedFrameBudget,
+                "A second distinct repath in one frame must be rejected by the frame budget.");
+            Require(guard.Evaluate(11, pathA)
+                    == UnitRepathDecision.RejectedCycle,
+                "An A-to-B-to-A path cycle must fail closed.");
+            Require(guard.Evaluate(11, invalidPath)
+                    == UnitRepathDecision.RejectedInvalidPath,
+                "An invalid path must fail closed.");
+            Require(guard.Evaluate(11, pathC)
+                    == UnitRepathDecision.AcceptedNextFrame,
+                "A distinct path must be accepted after the frame boundary.");
+            Require(guard.ObserveProgress(pathC)
+                && guard.AcceptedInFrame == 1
+                && guard.AcceptedWithoutProgress == 0
+                && guard.Evaluate(12, pathA)
+                    == UnitRepathDecision.AcceptedNextFrame,
+                "Committed progress must reset cycle history without reopening the same-frame budget.");
+
+            var boundedGuard = new UnitRepathProgressGuard(pathA);
+            for (int attempt = 0;
+                attempt < UnitRepathProgressGuard.MaximumAcceptedWithoutProgress;
+                attempt++)
+            {
+                var uniquePath = new List<HexCoord>
+                {
+                    new HexCoord(0, 0),
+                    new HexCoord(10 + attempt, -attempt),
+                    new HexCoord(20 + attempt, -attempt)
+                };
+                Require(boundedGuard.Evaluate(100 + attempt, uniquePath)
+                        == UnitRepathDecision.AcceptedNextFrame,
+                    "Distinct paths must remain bounded while allowing finite recovery attempts.");
+            }
+
+            var overflowPath = new List<HexCoord>
+            {
+                new HexCoord(0, 0),
+                new HexCoord(99, -99),
+                new HexCoord(100, -99)
+            };
+            Require(boundedGuard.Evaluate(200, overflowPath)
+                    == UnitRepathDecision.RejectedNoProgressBudget,
+                "Distinct repaths without committed progress must eventually fail closed.");
+        }
+
+        private static void ValidateB3ContinuousLocomotionPlanner()
+        {
+            // Keep every fixture definitely assigned even when an earlier validation short-circuits.
+            // This does not relax the fixture gate: Require still fails unless every TryCreate succeeds.
+            WorldPointXZ origin = default;
+            WorldPointXZ corner = default;
+            WorldPointXZ next = default;
+            ActionDirectionXZ north = default;
+            Require(WorldPointXZ.TryCreate(0d, 0d, out origin)
+                && WorldPointXZ.TryCreate(0d, 1d, out corner)
+                && WorldPointXZ.TryCreate(
+                    Math.Sin(Math.PI / 3d),
+                    1d + Math.Cos(Math.PI / 3d),
+                    out next)
+                && ActionDirectionXZ.TryCreate(
+                    0d, 1d, out north),
+                "Continuous locomotion validation inputs must be valid.");
+
+            WorldPointXZ position = origin;
+            ActionDirectionXZ facing = north;
+            bool observedTurningMove = false;
+            bool reachedCorner = false;
+            for (int frame = 0; frame < 240 && !reachedCorner; frame++)
+            {
+                UnitTrajectoryStep step = default;
+                Require(UnitServerTrajectoryPlanner.TryPlan(
+                        position,
+                        facing,
+                        corner,
+                        true,
+                        next,
+                        maximumTravelDistanceWorld: 0.01d,
+                        maximumTurnDegrees: 4.5d,
+                        cornerLookAheadDistanceWorld: 0.35d,
+                        out step)
+                    && step.IsValid
+                    && !step.RequiresStationaryAlignment
+                    && step.ConsumedDistanceWorld > 0d,
+                    "A normal 60-degree corner must keep non-zero authoritative progress.");
+
+                double movementX = step.CandidatePosition.X - position.X;
+                double movementZ = step.CandidatePosition.Z - position.Z;
+                ActionDirectionXZ velocity = default;
+                Require(ActionDirectionXZ.TryCreate(
+                        movementX, movementZ, out velocity)
+                    && UnitActionPoseSample.GetYawDegrees(
+                        velocity, step.TrajectoryDirection) <= 1d,
+                    "Trajectory velocity and SimulationFacing must agree within one degree.");
+
+                if (UnitActionPoseSample.GetYawDegrees(facing, step.TrajectoryDirection) > 0.01d)
+                    observedTurningMove = true;
+                position = step.CandidatePosition;
+                facing = step.TrajectoryDirection;
+                reachedCorner = step.ReachedCurrentWaypoint;
+            }
+            Require(reachedCorner && observedTurningMove,
+                "A 60-degree path corner must turn while moving and consume the waypoint.");
+
+            var checkpoints = new UnitPathCheckpointTracker();
+            Require(!checkpoints.TryConsume(1, reachedWaypoint: false)
+                && !checkpoints.TryConsume(2, reachedWaypoint: true)
+                && checkpoints.TryConsume(1, reachedWaypoint: true)
+                && !checkpoints.TryConsume(1, reachedWaypoint: true)
+                && checkpoints.TryConsume(2, reachedWaypoint: true)
+                && checkpoints.NextWaypointIndex == 3,
+                "Waypoint checkpoint must reject early/skip/duplicate commits and consume each tile once.");
+
+            WorldPointXZ reverseTarget = default;
+            UnitTrajectoryStep reverse = default;
+            Require(WorldPointXZ.TryCreate(0d, -1d, out reverseTarget)
+                && UnitServerTrajectoryPlanner.TryPlan(
+                    origin,
+                    north,
+                    reverseTarget,
+                    false,
+                    default,
+                    maximumTravelDistanceWorld: 0.1d,
+                    maximumTurnDegrees: 4.5d,
+                    cornerLookAheadDistanceWorld: 0.35d,
+                    out reverse)
+                && reverse.IsValid
+                && reverse.RequiresStationaryAlignment
+                && reverse.ConsumedDistanceWorld == 0d
+                && reverse.CandidatePosition.Equals(origin),
+                "A 150-degree-or-greater reverse must hold position and consume zero progress.");
+        }
+
+        private static void ValidateB3ClientReplicationClassification()
+        {
+            Type observerType = null;
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (int index = 0; index < assemblies.Length; index++)
+            {
+                observerType = assemblies[index].GetType(
+                    "Hexiege.Infrastructure.UnitMovementAuthorityObserver",
+                    throwOnError: false);
+                if (observerType != null)
+                    break;
+            }
+
+            Require(observerType != null,
+                "B3 movement authority observer type was not loaded.");
+            MethodInfo classify = observerType.GetMethod(
+                "ClassifyClientReplicatedStateForValidation",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo retire = observerType.GetMethod(
+                "RetireUnitLifecycleForValidation",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo shouldObserve = observerType.GetMethod(
+                "ShouldObserveClientReplicatedState",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Require(classify != null && retire != null && shouldObserve != null,
+                "B3 client replication classification seam is incomplete.");
+
+            string Classify(
+                bool hasPrevious,
+                int previousUnitId,
+                int previousPhase,
+                ulong previousCommand,
+                ulong previousSegment,
+                ulong previousSemantic,
+                int unitId,
+                int phase,
+                ulong command,
+                ulong segment,
+                ulong semantic)
+                => (string)classify.Invoke(
+                    null,
+                    new object[]
+                    {
+                        hasPrevious, previousUnitId, previousPhase, previousCommand,
+                        previousSegment, previousSemantic, unitId, phase,
+                        command, segment, semantic
+                    });
+
+            int move = (int)UnitMovementPhase.Move;
+            int align = (int)UnitMovementPhase.AlignToMove;
+            Require(Classify(false, 0, 0, 0UL, 0UL, 0UL,
+                    7, move, 5UL, 9UL, 6UL) == "None",
+                "A coalesced first client snapshot must be accepted without requiring scope 1/1.");
+            Require(Classify(true, 7, move, 1UL, 1UL, 4UL,
+                    7, move, 1UL, 1UL, 4UL) == "Duplicate",
+                "Same revision and same snapshot must be a valid duplicate.");
+            Require(Classify(true, 7, move, 1UL, 1UL, 4UL,
+                    7, align, 1UL, 1UL, 4UL)
+                    .Contains("SameRevisionConflict"),
+                "Same revision with a different snapshot must fail as conflict.");
+            string identityConflict = Classify(
+                true, 7, move, 1UL, 1UL, 4UL,
+                8, move, 1UL, 1UL, 4UL);
+            Require(identityConflict.Contains("IdentityConflict")
+                && identityConflict.Contains("SameRevisionConflict"),
+                "A unitId-only change in the same lifecycle must fail closed as identity conflict.");
+            Require(Classify(true, 7, move, 1UL, 1UL, 4UL,
+                    7, move, 1UL, 1UL, 3UL)
+                    .Contains("RevisionRegression"),
+                "A decreased semantic revision must fail as regression.");
+            Require(Classify(false, 0, 0, 0UL, 0UL, 0UL,
+                    7, move, 1UL, 1UL, 0UL)
+                    .Contains("RevisionZero"),
+                "A zero semantic revision must have its own failure cause.");
+            Require(Classify(false, 0, 0, 0UL, 0UL, 0UL,
+                    7, (int)UnitMovementPhase.Invalid, 1UL, 1UL, 1UL)
+                    .Contains("InvalidPhase"),
+                "An invalid phase must have its own failure cause.");
+            Require(Classify(false, 0, 0, 0UL, 0UL, 0UL,
+                    -1, move, 1UL, 1UL, 1UL)
+                    .Contains("UnitUninitialized"),
+                "An uninitialized unit must have its own failure cause.");
+            Require(Classify(false, 0, 0, 0UL, 0UL, 0UL,
+                    7, move, 0UL, 1UL, 1UL)
+                    .Contains("InvalidScope"),
+                "A zero command/segment scope must fail closed.");
+            Require(Classify(true, 7, move, 3UL, 5UL, 7UL,
+                    7, move, 2UL, 99UL, 8UL)
+                    .Contains("ScopeRegression"),
+                "A decreased command scope must fail as scope regression.");
+            Require(Classify(true, 7, move, 3UL, 5UL, 7UL,
+                    7, move, 3UL, 4UL, 8UL)
+                    .Contains("ScopeRegression"),
+                "A decreased segment in the same command must fail as scope regression.");
+            Require(Classify(true, 7, move, 3UL, 5UL, 7UL,
+                    7, move, 9UL, 27UL, 12UL) == "None",
+                "Coalesced command/segment jumps must remain valid when scope is monotonic.");
+            Require((string)retire.Invoke(null, null) == "PASS",
+                "Retire must remove matching/mismatched completed lifecycle baselines and permit object-id reuse.");
+            Require(!(bool)shouldObserve.Invoke(
+                    null, new object[] { -1, 9UL })
+                && (bool)shouldObserve.Invoke(
+                    null, new object[] { 7, 9UL }),
+                "A coalesced snapshot must defer while unitId is uninitialized and intake after registration.");
+        }
+
+        private static void ValidateB3MovementPipelineModeLatch()
+        {
+            var host = new UnitMovementPipelineModeLatch();
+            var client = new UnitMovementPipelineModeLatch();
+
+            UnitMovementPipelineMode replicatedServerMode =
+                UnitMovementPipelineMode.ReducerAuthoritative;
+            Require(host.TryBeginMatch(replicatedServerMode)
+                && client.TryBeginMatch(replicatedServerMode)
+                && host.ActiveMode == UnitMovementPipelineMode.ReducerAuthoritative
+                && client.ActiveMode == host.ActiveMode,
+                "Host/client must latch the same server-published movement mode.");
+            Require(host.TryBeginMatch(UnitMovementPipelineMode.ReducerAuthoritative)
+                && !host.TryBeginMatch(UnitMovementPipelineMode.Legacy),
+                "Movement mode must reject mid-match mutation and mixed writers.");
+
+            host.EndMatch();
+            client.EndMatch();
+            Require(host.TryBeginMatch(UnitMovementPipelineMode.Legacy)
+                && client.TryBeginMatch(UnitMovementPipelineMode.Legacy),
+                "Rollback must select Legacy for the next complete match only.");
+
+            var invalid = new UnitMovementPipelineModeLatch();
+            Require(!invalid.TryBeginMatch((UnitMovementPipelineMode)99)
+                && !invalid.IsMatchActive,
+                "Unknown movement mode must reject match start without silent fallback.");
+
+            var reducer = new UnitMovementReducer();
+            UnitMovementEvaluation align = UnitMovementEvaluationAdapter.Evaluate(
+                reducer,
+                1UL,
+                1UL,
+                UnitMovementIntentReason.AStarPath,
+                0d,
+                0d,
+                0d,
+                1d,
+                1d,
+                0d,
+                false,
+                0.1d,
+                1d);
+            Require(align.ReducerInvoked
+                && align.Status == UnitMovementReducerStatus.Accepted
+                && align.Decision.Phase == UnitMovementPhase.AlignToMove
+                && !align.Decision.AllowsMovement,
+                "Shared production adapter must stop position while aligning.");
+
+            double nineDegrees = 9d * (Math.PI / 180d);
+            UnitMovementEvaluation move = UnitMovementEvaluationAdapter.Evaluate(
+                reducer,
+                1UL,
+                1UL,
+                UnitMovementIntentReason.AStarPath,
+                0d,
+                0d,
+                Math.Sin(nineDegrees),
+                Math.Cos(nineDegrees),
+                0d,
+                1d,
+                false,
+                0.1d,
+                2d);
+            Require(move.Status == UnitMovementReducerStatus.Accepted
+                && move.Decision.Phase == UnitMovementPhase.Move
+                && move.Decision.AllowsMovement,
+                "Shared production adapter must release movement at the 10-degree gate.");
+
+            UnitMovementEvaluation acquireStop = UnitMovementEvaluationAdapter.Evaluate(
+                reducer,
+                1UL,
+                1UL,
+                UnitMovementIntentReason.Chase,
+                0d,
+                0d,
+                0d,
+                1d,
+                0d,
+                2d,
+                true,
+                0d,
+                3d);
+            Require(acquireStop.Status == UnitMovementReducerStatus.Accepted
+                && acquireStop.Decision.Phase == UnitMovementPhase.NoIntent
+                && acquireStop.Decision.IsTargetAcquirePriority
+                && !acquireStop.Decision.AllowsMovement,
+                "Attack-range acquisition must publish NoIntent instead of stale Move/Align.");
+            Require(Math.Abs(move.DesiredMoveDirection.X) < 0.000001d
+                && Math.Abs(move.DesiredMoveDirection.Z - 1d) < 0.000001d,
+                "Authoritative rotation source must be the reducer-approved desired direction.");
+        }
+
+        private static void ValidateB3MovementManifestPreflight()
+        {
+            IReadOnlyList<string> chunks;
+            Require(UnitMovementManifestChunker.TryBuild(
+                    new[] { "12345", "67890" },
+                    payloadUtf8Limit: 5,
+                    maximumChunks: 2,
+                    reservedTerminalLines: 4,
+                    nonManifestTerminalLines: 2,
+                    out chunks)
+                && chunks.Count == 2,
+                "B3 manifest must accept the exact chunk/terminal boundary.");
+
+            Require(!UnitMovementManifestChunker.TryBuild(
+                    new[] { "12345", "67890" },
+                    payloadUtf8Limit: 5,
+                    maximumChunks: 1,
+                    reservedTerminalLines: 4,
+                    nonManifestTerminalLines: 2,
+                    out chunks),
+                "B3 manifest must reject a chunk-count overflow.");
+            Require(!UnitMovementManifestChunker.TryBuild(
+                    new[] { "12345", "67890" },
+                    payloadUtf8Limit: 5,
+                    maximumChunks: 2,
+                    reservedTerminalLines: 3,
+                    nonManifestTerminalLines: 2,
+                    out chunks),
+                "B3 manifest must reserve summary and END terminal lines.");
+            Require(!UnitMovementManifestChunker.TryBuild(
+                    new[] { "123456" },
+                    payloadUtf8Limit: 5,
+                    maximumChunks: 2,
+                    reservedTerminalLines: 4,
+                    nonManifestTerminalLines: 2,
+                    out chunks),
+                "B3 manifest must fail closed for an oversized entry.");
+            Require(!UnitMovementManifestChunker.TryBuild(
+                    new[] { "가나" },
+                    payloadUtf8Limit: 5,
+                    maximumChunks: 2,
+                    reservedTerminalLines: 4,
+                    nonManifestTerminalLines: 2,
+                    out chunks),
+                "B3 manifest limits must be measured in UTF-8 bytes.");
         }
 
         /// <summary>

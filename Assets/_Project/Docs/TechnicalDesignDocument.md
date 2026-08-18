@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
 **버전:** 0.43.2
-**최종 수정일:** 2026-08-12
+**최종 수정일:** 2026-08-18
 **작성자:** HANYONGHEE
 
 > **2026-08-12:** **MistShrine 물안개 힐 구현 완료 — 에디터 싱글플레이 실기 검증 완료 / ⚠️ 멀티플레이 미검증.** 신규 구성 요소: Application `MistShrineUseCase`(물안개 인스턴스 목록 + 물안개별 독립 누적기 + 매 틱 대상 재수집. **HoT/DoT 시간 지속 효과 목록을 사용하지 않아** 자연회복·BloomFairy 힐과의 채널 충돌이 구조적으로 차단된다) · Application `INetworkMistShrineController` / Infrastructure `NetworkMistShrineController`(`Request → ServerRpc(팀 검증) → ClientRpc`, `ResolveServices()` 지연 재조회) · `NetworkHealthSync` **건물 힐 전용 RPC 신설**(기존 유닛 힐 RPC 시그니처 무변경) · Domain `BuildingData.Heal(int)`(프로젝트 최초의 건물 회복 경로) · Presentation `MistShrinePanelUI` / `MistShrineRangeIndicator`. **`PopupClosedFrame` 패턴의 기존 결손 보정** — `InputHandler`의 `ClosedFrame` 가드에 연구 패널·스킬 패널이 누락돼 있던 것을 신규 MistShrine 패널과 함께 등록했다(모든 팝업이 가드에 들어와야 패턴이 성립한다). **⚠️ 멀티 고유 경로(건물 HP 동기화·클라 표시·RPC 팀 검증·쿨다운 로컬 미러·이중 틱)는 실행된 적이 없다.** 상세: `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`.
@@ -183,6 +183,9 @@ void ShowEffectClientRpc(Vector3 position) {
 | **자원** | NetworkVariable<int> | 변경 시 |
 | **본기지 체력** | NetworkVariable<int> | 변경 시 |
 | **유닛 이동** | 클라이언트 예측 (AI 동일 로직) | - |
+| **유닛 이동·SimulationFacing** | B3 경기 단위 `ReducerAuthoritative` single-writer에 `UnitServerTrajectoryPlanner`·`UnitTrajectoryStep`·`UnitPathCheckpointTracker` 연속 이동을 연결. Unity self-validation·사용자 Editor smoke PASS, 새 Android 역할교대·25종·Legacy rollback은 미완료. Client reducer·Simulation Root write 금지 | 연속 |
+| **유닛 행동 상태** | 목표: 값 기반 `UnitActionSnapshot` 복제; 현재: A1/A2 계약·pose seam과 B2 이동 Shadow 구현, 권위 런타임은 위치/회전 + `UnitAnimState`와 개별 RPC 혼합 | 상태 변경 시 |
+| **공격 타격 결과** | 목표: `AttackImpactResult` (`AttackerInstanceId + SequenceId + HitIndex` 기반 정규 키); 현재: HP 동기화 + 공격자 FIFO 표현 큐 | Impact 시 |
 
 #### 무작위 맵 시작 동기화 (확정 설계, 미구현)
 
@@ -1195,6 +1198,28 @@ ClaimedTile 해제, ProcessStep(Position 갱신 + SetOwner)
 - 패배한 유닛은 타일 중앙에 도달하지 못하므로 점령 불가
 - SetOwner는 Lerp 완료 후 ProcessStep에서만 호출 (변경 없음)
 
+#### Deep Authoritative Locomotion 구현 구조 (2026-08-04 Editor 조건부 PASS)
+
+B3의 신규 서버 writer는 10°/15° fallback 정렬, 이동 금지 틱의 진행량 보존, target-acquire 우선, endpoint `NoIntent`, 경기 단위 mode 고정과 Client Simulation Root write 금지의 정확성 계약을 유지한다. 과거 멀티플레이 증거의 reducer rejection, gate failure, writer 선택 오류, client write, 공격 writer 충돌은 0이었다. 이후 확인된 정상 60° 코너의 stop-turn-go를 교정하기 위해 아래 목표 구조를 실제 런타임에 연결했다. NetworkTransform과 Visual Root는 서버가 commit한 결과를 계속 복제·표현할 뿐 trajectory를 계산하지 않는다.
+
+구현은 다음 두 층으로 구성한다.
+
+1. **Authoritative Locomotion Module / 공통 commit seam**
+   - 서버 pose, trajectory 표본, `deltaTime`, command/segment scope를 받아 phase, SimulationFacing, 다음 position/rotation, 진행량과 복제 snapshot을 하나의 commit으로 결정한다.
+   - A*, Chase, PendingRepath, PostCombatResume는 이 Module의 Adapter이며 직접 Transform 진행량·회전·phase를 각각 계산하지 않는다.
+   - 정렬로 위치가 보류되면 진행 시간·거리도 보류하고, 재개 시 jump 없이 같은 trajectory에서 이어 간다.
+   - Legacy와 ReducerAuthoritative가 공존하는 기간에는 두 Adapter가 같은 Seam을 사용하며 경기 단위 mode에 따라 정확히 하나만 활성화한다.
+
+2. **Server Trajectory Planner (`UnitServerTrajectoryPlanner`)**
+   - 현재 선분과 다음 선분, 이동 가능 타일 통로, 재경로·추격·전투 복귀 의도를 받아 연속적인 위치 접선과 DesiredMoveDirection을 만든다.
+   - 위치 진행 방향과 SimulationFacing은 같은 접선을 사용한다. 이전 직선으로 움직이면서 방향만 다음 선분으로 미리 돌리는 구현은 금지한다.
+   - 완만한 코너는 10°/15° 계약 안에서 `Move`를 유지하고, 새 명령·급격한 재경로 등 연속 전환이 안전하지 않을 때만 `AlignToMove`를 사용한다.
+   - trajectory는 이동 가능 타일 통로를 벗어나거나 차단 타일을 가로지르지 않으며 기존 타일 도착 순서·점령·목적지 의미를 보존한다.
+
+**[구현 완료/실기 전체 검증 대기]** `UnitTrajectoryStep`은 candidate position·facing·진행량·hold/waypoint 상태를 한 결과로 전달하고, `UnitPathCheckpointTracker`는 곡선이 waypoint 중심을 정확히 밟지 않아도 실제 trajectory의 통과를 순서대로 한 번만 소비한다. Planner는 최초 Simulation Root point와 A* logical path를 입력으로 logical path corridor를 만들며 경유 타일 중심 통과를 강제하지 않는다. 1차 안전 판정은 Simulation Root point sweep이고, 실패하면 안전한 후보 또는 재경로로 닫는다. `MoveSpeed`는 실제 trajectory 거리/초로 적분한다. 위치 진행 방향과 `SimulationFacing`은 같은 접선에서 계산해 오차를 1° 이내로 제한한다. 공통 최대 회전 속도는 270°/s이며, target acquire는 해당 틱의 candidate position으로 판정한다. 획득이 확정된 틱에는 candidate pose까지만 commit하고 `NoIntent`를 게시하며 다음 틱의 추가 이동을 금지한다. 150° 이상의 반전은 정지 정렬 fallback이다.
+
+**검증 Seam:** 순수 trajectory/step 검증은 60° 코너, 180° 재경로, 이동 타겟 추격, 전투 종료 복귀, held tick 진행량 0, 재개 jump 0, velocity↔SimulationFacing 허용 오차, 차단 타일 통과 0과 결정적 동일 입력/동일 결과를 포함한다. 런타임 검증은 Android와 Unity Editor counterpart 역할교대로 Host/Client Simulation Root 수렴, Client reducer/write 0, 25종 공통 경로, 공격·피해·RPC·VFX Legacy 회귀 0을 확인한다. Visual Root smoothing만으로 canonical stop-turn-go를 숨긴 결과는 PASS로 인정하지 않는다.
+
 #### 사망 처리 (Dead Entity Cleanup, 2026-05-18 강타입 분리 / 2026-06-08 NGO Despawn 패턴 수정)
 ```
 UnitCombatUseCase.ExecuteAttack()
@@ -1262,7 +1287,11 @@ if (e.Unit.Id == _unitData.Id) { /* 이 유닛이 사망 */ }
 if (_buildingObjects.TryGetValue(e.Building.Id, out var go)) { Destroy(go); }
 ```
 
-#### 피격 표현 큐 (Hit Presentation Queue, 2026-07-12 전투 타격 타이밍 동기화)
+#### 서버 권위 Unit ActionSequence 목표 구조 (2026-08-18 B3 Android 진행성 교정 중)
+
+**현재 구현 상태:** A1의 `UnitActionContracts`·`UnitActionSequencer`, A2 서버 pose seam, B1 Simulation/Visual Root seam과 B2 pure `UnitMovementReducer` Shadow를 거쳐 B3 경기 단위 `ReducerAuthoritative` single-writer와 이동 phase 복제를 연결했다. `UnitServerTrajectoryPlanner`와 공통 commit adapter가 A*·Chase·PendingRepath·PostCombatResume의 연속 이동, 실제 거리 기반 waypoint 소비, candidate-position target acquire와 committed `SimulationFacing → UnitData.Facing` 동기화를 담당한다. Android Host에서 확인한 yield 없는 반복 재탐색은 pure `UnitRepathProgressGuard`와 결정적 ordered-path signature로 교정했다. 유닛별 한-frame 1회, 동일/순환/invalid 및 서로 다른 path의 무진전 8회 상한 fail-closed, 다음-frame 적용, 실제 position/checkpoint 진전 reset을 `UnitView` 공통 이동 코루틴에 연결했고 Unity compile·self-validation은 PASS했다. 단 Android Host 회귀 전이므로 B3는 계속 **FAIL / OPEN**이다. 공격 result seam과 피해·RPC·VFX 권위 전환도 미완료다.
+
+##### Legacy 피격 표현 큐 (Hit Presentation Queue, 2026-07-12 전투 타격 타이밍 동기화)
 
 데이터(HP)는 서버 시계를, 연출(HP 텍스트·피격 VFX·타격 반응)은 각 클라이언트의 로컬 타격 프레임을 따르도록 역할을 분리한다.
 
@@ -1685,8 +1714,17 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.51.1 | 2026-08-18 | B3 유한 재탐색 guard 구현 반영. 결정적 ordered `HexCoord` path signature, 유닛별 frame budget, 동일·A→B→A·invalid 및 서로 다른 path 무진전 8회 상한 fail-closed, 다음-frame 적용, 실제 진전 reset과 실패 유닛 callback 재진입 억제를 추가했다. Unity compile·self-validation PASS, Android Host 실기 회귀 대기이므로 B3는 FAIL / OPEN 유지. |
+| 0.51.0 | 2026-08-18 | 최신 `main`의 연구·상태효과·스킬·MistShrine 기능을 B3 서버 권위 이동과 통합. Android Host에서 동일·순환 재탐색이 한 frame을 점유할 수 있는 진행성 결함을 확인해 B3를 FAIL / OPEN으로 재개방하고, 유닛별 frame budget·동일/순환 path fail-closed·다음 frame 재개·진전 reset을 필수 교정 계약으로 추가했다. |
 | 0.43.2 | 2026-08-12 | **MistShrine 물안개 힐 구현 반영 — 아키텍처 설계 변경 없음, 상태 표기 정정.** 2026-08-10 시점의 "구현 미착수" 표기를 **코드·프리팹 구현 완료 / 에디터 싱글플레이 실기 검증 완료**로 정정하고, 신설된 구성 요소는 문서 상단 노트에 기록했다(레이어 경계·서버 권위 원칙은 기존 규칙을 그대로 따르며 새 패턴을 도입하지 않았다). **아직 완료가 아닌 것(과대 표기 금지): 멀티플레이 실기 미검증 — 건물 HP 동기화·클라이언트 표시·RPC 팀 검증·쿨다운 로컬 미러·이중 틱은 멀티에서만 도는 경로이며 실행된 적이 없다 · 물안개 지속 VFX 미제작 · 사용 버튼 아이콘 미제작 · 밸런싱 수치 미확정.** 구현 계약에 규칙 8-1-a(활성 물안개 위상 정렬)가 신설되었다 — `GameSystemRules/GameSystemRules_Buildings.md`. |
 | 0.43.1 | 2026-08-10 | 건물 타입 주석 오류 정정 — `AutoTower`×3종족의 Transcendence를 `MistShrine`으로 적어 온 것을 **`VineTower`**로 수정했다. MistShrine은 방어 타워가 아니라 공격하지 않는 별도 힐 건물이며 `AutoTower`(= 2)와 완전히 별개인 `HealShrine`(= 6) enum 값을 쓴다는 점을 주석에 명문화. 당시 MistShrine 물안개 지속 힐은 **기획 확정 / 구현 미착수** 상태였다. 아키텍처·구조 변경 없이 표기 정정만 수행. 규칙: `GameSystemRules/GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템. |
+| 0.50.0 | 2026-08-04 | B3 연속 이동 구현 상태 반영. `UnitServerTrajectoryPlanner`·`UnitTrajectoryStep`·`UnitPathCheckpointTracker`와 공통 서버 commit seam을 A*·Chase·PendingRepath·PostCombatResume에 연결하고, 실제 trajectory 거리 기반 waypoint 소비·corridor sweep/fallback repath·candidate-position acquire·committed Facing 동기화를 기록했다. Unity self-validation과 사용자 Editor smoke는 PASS지만 새 Android 역할교대·25종·Legacy rollback 전까지 B3는 조건부 진행 상태다. 공격 방향·Impact/피해 시점은 미완료다. |
+| 0.49.0 | 2026-08-04 | B3 경기 단위 ReducerAuthoritative writer의 현재 정확성 증거를 반영하되, 정상 경로의 선분 전환마다 발생하는 stop-turn-go 품질 결함으로 완료 판정을 재개방했다. 서버 권위·Simulation Root/Visual Root·10°/15°·single-writer 계약을 유지하는 deep Authoritative Locomotion Module과 Server Trajectory Planner, 순수/멀티플레이 검증 Seam을 정의했다. |
+| 0.48.0 | 2026-08-03 | Tracer B2 서버 이동·SimulationFacing Shadow와 25종 Blue/Red 누적 멀티플레이 검증을 반영했다. 신규 reducer는 10°/15° 히스테리시스와 이동 scope를 서버에서만 판정하고 위치·회전·Animator·NetworkTransform·path를 쓰지 않는다. 6개 인정 세션의 오류 카운터와 Client reducer·Simulation Root write는 0이다. 실제 이동·SimulationFacing single-writer 전환은 B3 미완료다. |
+| 0.47.0 | 2026-07-30 | Tracer B1 최종 게이트 반영. 50개 프리팹의 `Interpolate=true`, `PositionLerpSmoothing=false`와 서버 권위/canonical world-space 불변을 기록하고, Android 1대와 Unity Editor counterpart의 Host/Client 역할교대 root-pose 교차 검증 및 rollback을 PASS로 확정했다. B2 서버 이동·SimulationFacing Shadow, 공격 방향, Impact/피해 시점, result seam과 권위 전환은 미완료다. |
+| 0.46.0 | 2026-07-27 | Unit ActionSequence Tracer B1 Simulation/Visual Root seam 반영. `NetworkUnit`의 클라이언트 Simulation Root 보정을 제거하고 `VisualRootProjector`·`PresentationPoseProvider`로 표현 pose를 분리했다. 멀티플레이 UnitFactory의 canonical world position 생성, presentation 소비자 전환, 신규·교체 프리팹 승인 규격을 기록했다. 50개 프리팹 migration과 재실행 NO-OP는 확인됐지만 Host/Client runtime smoke와 실제 rollback failure injection은 아직 미완료다. |
+| 0.45.0 | 2026-07-22 | Unit ActionSequence A1 순수 Application 경계 구현 상태 반영. `UnitActionContracts`·stateful `UnitActionSequencer`와 self-validation PASS를 기록하고, 런타임 pose/result seam·피해·RPC·VFX 미연결 및 다음 A2 server-authoritative pose seam shadow를 명시했다. |
+| 0.44.0 | 2026-07-20 | 멀티플레이 유닛 이동·공격 규칙 v2 목표 아키텍처 반영. 서버 권위 `UnitActionSnapshot` + `AttackImpactResult`, AttackSequenceId/HitIndex 상관관계, Simulation Root/Visual Root 분리, 늦은 참가·순서 역전·중복 처리와 Clean Architecture 배치를 정의했다. 클라이언트 이동 예측, 유닛 점유 경로 차단, 공격자 FIFO 피격 표현은 Legacy로 정정했다. **문서 설계 완료이며 런타임 구현은 미완료다.** |
 | 0.43.0 | 2026-07-20 | `MapTestModeEnabled`를 초기 골드 전용 설정으로 확정. 정상 모드는 광산 수 표, 테스트 모드는 `TestStartingGold=5000`을 사용하며 멀티플레이에서는 Host 표식·실제 골드가 권위값이다. 표식(0/1)과 실제 골드를 canonical bytes·SHA-256·로그에 포함하고 NewMap 준비에도 동일 권한 경계를 적용하도록 명문화. |
 | 0.42.0 | 2026-07-19 | reliable map transfer의 10초 timeout, incomplete 한정 동일 nonce/package 전체 1회 재전송과 두 번째 실패 종료, version/size/SHA/deserialize/semantic/disconnect 즉시 실패를 확정. 최초·NewMap·싱글 실패 복구 UI/state, idempotent Retry와 새 seed 재준비, 내부 정보 비공개를 명문화. |
 | 0.41.0 | 2026-07-19 | canonical 180 orbit 기반 중립 광산 균등 sampling, 유형별 zone/lane 제약, spacing filter 없음과 repair 없는 attempt reject 확정. castle-neighbor→mine-neighbor multi-source BFS access metric, center/pair 교차·HexCoord 거리, mine 전후 corridor 폭과 start-to-end continuity validator를 명문화. |

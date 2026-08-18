@@ -497,15 +497,15 @@ B1을 통과한 50개 프리팹에서 기존 이동 writer는 그대로 유지�
 - Client에서 서버 이동 reducer 실행 및 Simulation Root write 0
 - 25종·Blue/Red 표본을 확보하고 유닛별 불일치 원인을 분류
 
-### 9.5 B3 — 경기 단위 25종 이동·방향 writer 전환
+### 9.5 B3 — 경기 단위 25종 이동·방향 writer 전환과 연속 이동 품질 교정
 
-B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 `CombatPipelineMode`에 따라 **25종 전체의 이동·SimulationFacing writer를 한 번에 전환**한다.
+B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 공격 파이프라인과 독립적인 `UnitMovementPipelineMode`에 따라 **25종 전체의 이동·SimulationFacing writer를 한 번에 전환**한다.
 
 - 신규 모드에서는 서버 reducer만 이동 phase, SimulationFacing과 Simulation Root 위치를 쓴다. Legacy `UnitView` 이동/회전 writer는 전 유닛에서 비활성화한다.
 - Legacy 모드에서는 기존 writer만 사용하며 신규 reducer는 진단 외 write를 하지 않는다.
 - SpearMan 단독 authoritative canary 또는 유닛별 Legacy/v2 writer 혼합을 금지한다. 한 유닛에서 두 writer가 동시에 활성화되는 상태도 금지한다.
 - 클라이언트는 Visual Root projector와 presentation seam만 실행하며 Simulation Root, 권위 phase 또는 SimulationFacing을 쓰지 않는다.
-- rollback은 진행 중 경기의 유닛별 전환이 아니라 다음 경기 시작 시 전체 `CombatPipelineMode`를 Legacy로 선택하는 방식으로만 수행한다.
+- rollback은 진행 중 경기의 유닛별 전환이 아니라 다음 경기 시작 시 전체 `UnitMovementPipelineMode`를 Legacy로 선택하는 방식으로만 수행한다.
 - 공격 타겟·Impact·피해 writer와 Presentation emitter는 이 단계에서 기존 권위를 유지하며 Tracer C/D에서 별도 전환한다.
 
 **B3 완료 게이트**
@@ -516,8 +516,95 @@ B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 `Comb
 - Host/Client·Blue/Red의 동일 UnitId Simulation position/rotation/phase 수렴
 - 재경로·추격·전투 종료 복귀에서 위치 스냅, 중복 이동, 정지/이동 진동 0
 - 기존 피해·HP·RPC·VFX single-writer/single-emitter와 게임플레이 수치 변경 0
+- 정상 A* 코너에서 불필요한 stop-turn-go 0. `AlignToMove`는 새 명령·급격한 재경로 등 연속 trajectory로 안전하게 처리할 수 없는 경우에만 사용
+- 위치 진행 방향과 SimulationFacing은 같은 trajectory 접선을 사용하며 오차 ≤1°. 방향만 선행하거나 위치만 이전 선분으로 진행하는 불일치 0
+- Align/hold tick의 경로 시간·거리 소비 0, 이동 재개 position jump 0
+- trajectory의 차단 타일·건물 통과 0, logical path corridor 이탈 0, 기존 타일 도착 순서·점령·목적지 의미 변경 0
 
-**Tracer B 판정 경계:** B3까지 통과해야 이동 방향과 바라보기 방향 교정을 완료로 판정한다. 타겟/공격 방향과 시각 Impact/실제 피해 시점은 Tracer C/D 이후 게이트이며 B 단계 PASS로 완료 처리하지 않는다.
+**2026-08-04 B3 판정 재개방:** 현재 ReducerAuthoritative writer는 서버 권위·single-writer·10°/15°·target priority·endpoint·phase/scope 복제 정확성 증거를 확보했다. 그러나 타일 선분 전환마다 반복되는 stop-turn-go 품질 결함으로 위 완료 게이트 전체를 통과하지 못했다. 기존 정확성 증거는 유지하되, 아래 9.6을 구현하고 재검증하기 전까지 B3와 이동 방향 증상 해결을 완료로 판정하지 않는다. 타겟/공격 방향과 시각 Impact/실제 피해 시점은 Tracer C/D 이후 게이트이며 B 단계 PASS로 완료 처리하지 않는다.
+
+### 9.6 B3 연속 이동 심화 — Authoritative Locomotion + Server Trajectory Planner
+
+1. pure Application 검증이 가능한 Authoritative Locomotion Module을 정의한다. Module은 trajectory 표본과 서버 pose, `deltaTime`, command/segment scope를 받아 phase, SimulationFacing, 다음 position/rotation, 진행량과 복제 snapshot commit을 함께 결정한다.
+2. A*, Chase, PendingRepath와 PostCombatResume를 동일 Seam의 Adapter로 수렴시킨다. 각 Adapter는 경로·타겟 의도만 제공하고 Transform 회전·진행량·phase를 별도로 쓰지 않는다.
+3. Server Trajectory Planner가 최초 Simulation Root point와 A* logical path로 타일 영역을 연결한 corridor를 만들고, 현재/다음 선분을 이용해 그 안에서 연속 trajectory를 sweep한다. 경유 타일 중심 통과는 강제하지 않는다.
+4. 위치 진행 방향과 SimulationFacing은 같은 trajectory 접선을 사용하고 오차를 1° 이내로 유지한다. `MoveSpeed`는 실제 trajectory distance/second로 적용한다.
+5. **[구현 완료/멀티 검증 대기]** 공통 최대 회전 속도는 270°/s다. target acquire는 해당 틱에 계산된 candidate position으로 판정하며, 획득이 확정된 틱에는 그 candidate position까지만 commit하고 `NoIntent`를 게시한 뒤 다음 틱의 추가 이동을 금지한다.
+6. **[구현 완료/멀티 검증 대기]** 150°는 회전 속도가 아니라 반전 판정 임계값이다. 150° 이상의 반전은 연속 선회가 아니라 정지 정렬 fallback으로 처리한다.
+7. 경기 단위 Legacy와 ReducerAuthoritative Adapter를 같은 Seam에 유지해 rollback을 보존한다. 경기 중·유닛별 mode 변경은 금지한다.
+8. `NetworkTransform`, Visual Root 구조, 공격·피해·RPC·VFX Legacy 권위는 변경하지 않는다. Visual Root 표현 개선은 canonical 연속 이동 PASS 뒤의 별도 단계다.
+
+**9.6 검증 순서**
+
+- pure: 60° 코너, 180° 재경로, 이동 타겟 Chase, PendingRepath, PostCombatResume, endpoint와 target priority
+- 불변: held tick progress 0, resume jump 0, velocity↔SimulationFacing ≤1°, corridor/차단 통로 이탈 0, 같은 입력/같은 결과
+- 정적: A*/Chase/repath/resume의 직접 Simulation Root 이동·회전 writer 0, 공통 Seam만 사용
+- 멀티: Editor Host·Android Client와 Android Host·Editor Client 역할교대, phase/pose 수렴, Client reducer/write 0
+- 회귀: 25종 공통 경로, 공격 방향·피해·HP·RPC·VFX 값과 emitter 변경 0, 다음 경기 Legacy rollback
+
+**9.7 구현 Seam과 파일 책임**
+
+1. `Application/Combat/Sequencing/UnitMovementContracts.cs`의 현재 reducer 계약은 command/segment, revision/time, target priority와 fail-closed를 유지한다. 여기에 Unity 타입을 참조하지 않는 Authoritative Locomotion Module의 입력·출력 값과 순수 trajectory 진행 계약을 둔다.
+2. 새 Server Trajectory Planner Module은 최초 Simulation Root point와 logical path를 받아 corridor, 거리 기반 진행량, 현재 접선과 candidate pose를 계산한다. 삭제할 경우 A*·Chase·PendingRepath·PostCombatResume에 corridor/look-ahead/곡률 계산이 다시 퍼질 정도의 깊이를 가져야 한다.
+3. `Presentation/Unit/UnitView.cs`의 `ApplyMovementAuthorityFrame`은 유일한 런타임 Adapter/commit Seam으로 유지하되, 호출자가 `Lerp` 진행률·회전·candidate position을 각각 계산하는 얕은 Interface는 제거한다. A*·Chase·재경로·전투 복귀는 의도와 logical path만 전달한다.
+4. `Infrastructure/Network/NetworkUnit.cs`는 서버가 commit한 pose와 phase/scope 복제만 담당한다. Client trajectory 계산이나 Simulation Root write를 추가하지 않는다.
+5. `Bootstrap/GameBootstrapper.Setup.cs`와 `Infrastructure/Factories/UnitFactory.cs`는 새 구현을 조립·주입하는 위치다. Application은 Infrastructure나 NGO를 참조하지 않는다.
+6. `Editor/Combat/RunUnitActionSelfValidation.cs`에 60° 연속 코너, 150° 임계 전후, 180° 반전, held progress 0, resume jump 0, candidate acquire 후 추가 이동 0, corridor 이탈 0, 동일 입력 결정성 회귀를 먼저 추가한다.
+7. 변경 순서는 순수 계약·검증 실패 재현 → Planner/Locomotion 구현 → UnitView Adapter 연결 → direct Simulation Root writer 정적 감사 → Editor self-validation → Android/Editor 역할교대 → 25종 → 다음 경기 Legacy rollback이다. 경기 중 또는 유닛별 writer 혼합 canary는 금지한다.
+
+**주요 위험:** corridor corner-cutting과 차단 타일 횡단, 타일 중심 강제 제거 뒤 `ProcessStep`·점유·진입 이벤트 의미 불일치, `_unitData.Facing`과 실제 SimulationFacing의 선행 갱신, 프레임률별 적분 차이와 모바일 GC, target acquire의 stale pose 또는 초과 이동, 공격 writer ownership 침범을 P0 회귀로 다룬다.
+
+### 9.8 B3 Android Host 정지 교정 — 유한 재탐색과 유닛 단위 fail-closed
+
+**근거 규칙:** `GameSystemRules_Units.md` `U-AUTH-SERVER`, `U-MOV-PATH`, `U-MOV-ALIGN` 7·8·10, `GameSystemRules_UnitCombatSynchronization.md` `NET-FACING-001` 및 전환 규칙 5·8·10을 유지한다. 즉 corridor가 거부한 candidate는 commit하지 않고 서버만 재탐색하되, 재탐색 실패를 Client writer·Visual Root 보정·경기 중 Legacy 전환으로 숨기지 않는다.
+
+1. `UnitMovementContracts.cs`에 Unity·NGO에 의존하지 않는 유한 재탐색 guard 계약을 둔다. guard는 이동 command scope, 실제 위치 진전, 결정적 path signature 이력과 frame token을 입력으로 받아 `AcceptNextFrame`, `StopRepeatedPath`, `StopCycle`, `RejectInvalid`와 같은 결과를 반환한다.
+2. path signature는 프로세스별 `GetHashCode`나 순회 순서에 의존하지 않고, waypoint 개수와 순서화된 `HexCoord(Q,R)` 열로 결정적으로 비교한다. 진전 없이 같은 signature가 다시 나오거나 이전 signature 순환으로 돌아오면 재탐색을 종료한다. 이력은 명시적인 상한을 두어 정상 진전 없이 메모리가 증가하지 않게 한다.
+3. 한 Unity frame에서 재탐색은 유닛별로 최대 한 번만 수락한다. 새 path를 수락해도 같은 frame에 바로 planner를 재실행하지 않고 `yield return null`로 서버 루프에 제어를 반환한 뒤 다음 frame에서 검증한다.
+4. 실제 authoritative trajectory가 position tolerance보다 큰 거리를 commit하거나 logical checkpoint를 소비하면 no-progress 이력을 초기화한다. 새 movement command도 guard를 초기화하지만, segment revision만 바뀌어 같은 command의 반복을 숨기지 않는다.
+5. 반복·순환·invalid path로 guard가 종료를 결정하면 해당 유닛의 Simulation Root를 현재 pose에 유지하고 이동 intent를 정상 종료한다. 다른 유닛, NetworkTickSystem, 공격·피해·HP·RPC·VFX writer는 계속 진행해야 한다. Legacy mode로의 rollback은 기존처럼 다음 경기에서만 가능하다.
+6. `UnitView.cs`의 A*·PendingRepath·PostCombatResume `RepathRequired` 분기를 공통 guard adapter로 수렴한다. 각 호출자가 독립적으로 재시도 카운터나 fallback writer를 가지지 않게 한다.
+7. 진단은 `LogRules.md` 형식으로 terminal 결과만 중복 없이 남긴다. 최소 필드는 unit ID, command/segment revision, 실패 waypoint, 이전/신규 path signature, no-progress 횟수, 종료 사유다. 개발 중 임시 프레임 로그는 고유 prefix를 사용하고 원인 확정 후 제거한다.
+
+**지정 피드백 루프와 회귀 게이트**
+
+- pure self-validation에서 동일 path 반복, A→B→A 순환, invalid/empty path, 새 path 다음 frame 수락, 실제 진전 후 이력 초기화를 검증한다.
+- 시뮬레이션 한 frame당 재탐색 수락이 1회 이하이고, 모든 입력이 유한 번의 결정 후 반환되는지 검증한다.
+- Unity self-validation은 기존 60° 연속 코너, 150° reverse, held progress, candidate acquire, client writer 금지 회귀와 함께 PASS해야 한다.
+- Editor에서 이동 중 건물 배치·경로 무효화를 재현해 한 유닛의 안전 정지와 다른 유닛·경기 시간 진행을 확인한다.
+- 새 Android Development Build의 Android Host 경기에서 같은 종류의 경로 무효화를 포함해 게임 루프 정지·ANR·진단 폭주 0을 확인한다.
+- 정지 재현 회귀를 통과한 후에만 Editor Host/Android Client ↔ Android Host/Editor Client 역할교대, 25종 전체, 다음 경기 Legacy rollback을 재개한다.
+
+**변경 파일 예정:**
+
+- `Assets/_Project/Scripts/Application/Combat/Sequencing/UnitMovementContracts.cs` — pure 재탐색 guard 계약·순환 판정
+- `Assets/_Project/Scripts/Presentation/Unit/UnitView.cs` — 한 frame 1회 재탐색, 다음 frame 재개, 유닛 단위 fail-closed adapter
+- `Assets/_Project/Scripts/Editor/Combat/RunUnitActionSelfValidation.cs` — 동일 path·순환·진전 reset·유한 종료 회귀
+
+**제외 범위:** NetworkTransform/Visual Root 구조, 공격 타겟·공격 방향, Impact·피해 시점, 공격·HP·RPC·VFX writer, 유닛별 Legacy fallback은 변경하지 않는다.
+
+### 9.9 최신 main 통합 게이트 — B3 정지 교정 전 필수
+
+9.8 코드를 수정하기 전에 `origin/main` `26576d46` 기준을 B3 브랜치에 병합한다. main의 연구·상태효과·스킬·MistShrine·UI·문서 기능은 기존 완료 사항이며, B3 편의를 위해 삭제·되돌림·고정값 치환하지 않는다.
+
+1. 현재 B3 worktree의 tracked·untracked·staged 변경을 새 설명적 stash로 보존하고 stash commit ID와 변경 목록을 확인한다. 기존 `2742d880...` stash는 삭제하지 않는다.
+2. worktree가 clean인 상태에서 `origin/main`을 merge한다. 13개 B0~B2 커밋을 순차 재작성하는 rebase는 사용하지 않는다.
+3. 커밋 이력 병합 충돌은 다음 권위 우선순위로 해소한다.
+   - 최신 `AGENTS.md`, `CLAUDE.md`, `WORKFLOW.md`, 스킬·MistShrine·강화·UI 구조와 main `Game.unity`: main 우선
+   - B0~B2 Simulation/Visual Root, ActionSequence reducer, movement shadow·observer, 서버 single-writer 규칙과 증거: B3 브랜치 이력 보존
+   - 동일 파일에 두 의미가 공존하면 한쪽 파일 전체를 선택하지 않고 method·serialized field·문서 section 단위로 통합
+4. merge 충돌을 모두 해소한 뒤 새 B3 stash를 재적용한다. stash를 `pop`하지 않고 `apply`해 완전 검증 전까지 복구 지점을 유지한다.
+5. 직접 중첩 10개 파일은 다음처럼 통합한다.
+   - `UnitView.cs`: B3 trajectory/single-writer + main 매 frame 이동 배율·빙결 hold/Frozen animation
+   - `UnitCombatUseCase.cs`: B3 candidate-position query + main 강화·방어·상태·스킬·회복
+   - `NetworkUnit.cs`: B3 movement semantic snapshot + main Frozen animation state
+   - `NetworkCombatController.cs`: B3 observer lifecycle + main 상태효과·MistShrine·로그 세션
+   - `Game.unity`: main 씬 전체 보존 + `_serverMovementPipelineMode: 1` 재적용
+   - 규칙·현황·로드맵·TDD·이력: main 구조에 B0~B3 상태와 FAIL/OPEN 판정 병합
+6. 통합 후 9.8 교정 전의 기준선으로 컴파일, 기존 `[UAS-DIAG]` self-validation, 신규 상태효과 정적 경로, 씬 serialized reference, 서버/client writer 소유권을 확인한다.
+7. 기준선 PASS 후에만 9.8 재탐색 유한 종료를 구현한다. 통합 결함과 정지 교정 결함을 한 번의 실기 테스트로 혼합 판정하지 않는다.
+
+**main 통합 중 금지:** B3 예전 `Game.unity` 전체 선택, main `UnitView` 전체 선택으로 B3 writer 삭제, B3 `UnitView` 전체 선택으로 둔화·빙결 회귀, 문서 충돌을 이력 삭제로 해결, 경기 중 Legacy fallback, stash `pop`으로 복구 지점 삭제.
 
 ---
 
@@ -660,3 +747,34 @@ B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 `Comb
 **B2 최종 판정:** 서버 이동·SimulationFacing Shadow와 25/25종·Blue/Red 누적 증거 게이트는 PASS다. `legacyMovedWhileShadowAlign`은 신규 계약과 기존 Legacy writer의 분류된 차이이며 실제 writer 교정이 B3에 남았다는 근거다. 각 유닛을 Host와 Client 역할 양쪽에서 각각 시험한 것은 아니며, 역할교대는 전체 경기 집합에서 검증했다. 실제 writer는 계속 Legacy이므로 이동 방향과 바라보기 방향 교정 완료로 판정하지 않는다. 다음 단계는 **B3 경기 단위 25종 이동·SimulationFacing writer 전환**이다. 공격 방향과 시각 Impact/실제 피해 시점은 Tracer C/D까지 계속 미완료다.
 
 사용자가 Testcase 작성을 요청하지 않았으므로 별도 `Testcase.md`는 생성하지 않았으며, 이번 실행 결과는 이 진행 기록에 보존한다.
+
+### 2026-08-04 — Tracer B3 연속 이동 구현 및 Editor 조건부 PASS
+
+- [x] `UnitMovementContracts.cs`에 pure Application `UnitServerTrajectoryPlanner`, `UnitTrajectoryStep`, `UnitPathCheckpointTracker` 구현
+- [x] 공통 서버 writer에 A*·Chase·PendingRepath·PostCombatResume 연결
+- [x] 경유 타일 중심 스냅 제거, 실제 trajectory distance 기반 waypoint 순차 소비와 최종 목적지 수렴
+- [x] logical path corridor point sweep, 안전 후보 축소와 실패 시 fallback repath
+- [x] candidate position 기준 적·힐 타겟 조회 후 획득 확정 pose까지만 commit
+- [x] commit된 `SimulationFacing`을 `UnitData.Facing`에 동기화하고 이동 방향과 같은 접선을 사용
+- [x] 공통 270°/s 회전 제한, 150° 이상 반전 hold, hold tick 진행량 0
+- [x] `UnitMovementAuthorityObserver`가 candidate acquire commit을 정상 권위 결과로 분류하도록 gate 교정
+- [x] Unity 컴파일 과정에서 발견된 CS0165 미할당 지역 변수들을 명시적 기본값으로 초기화
+- [x] 최초 self-validation이 발견한 60° 곡선의 waypoint orbit을 통과 기반 checkpoint 소비로 교정
+- [x] 최종 Unity self-validation PASS: `continuous 60-degree trajectory/150-degree reverse/held-progress invariants`
+- [x] 사용자 Unity Editor smoke: 정상 코너 이동 체감이 교정된 것으로 잠정 확인
+- [ ] 새 Android Development Build 생성
+- [ ] Editor Host·Android Client / Android Host·Editor Client 역할교대
+- [ ] 공통 이동 변경 뒤 25종 전체 회귀. 기존 B3 21/25종 로그는 정확성 기준선일 뿐 완료 증거로 재사용하지 않음
+- [ ] 다음 경기 `Legacy` mode rollback과 기존 공격·피해·HP·RPC·VFX 불변 확인
+
+**2026-08-18 Android Host 실패:** 예외·ANR·OOM 없이 Unity 로그가 이동 표본에서 끝나고 프로세스 CPU가 상승한 경기 정지를 확인했다. `RepathRequired → RequestMove → needRepath → yield 없는 outer continue`가 동일·순환 path에서 한 frame 무한 반복이 될 수 있는 구조를 확인했다. native stack 확정은 기기 root 제한으로 못했으나 로그·CPU·코드 경로가 동일한 실패 모델을 가리킨다.
+
+- [x] pure 유한 재탐색 guard와 동일 path·A→B→A 순환 종료 구현
+- [x] 한 frame당 유닛별 재탐색 1회, 새 path는 다음 frame에 적용
+- [x] 진전 시 guard reset, 무진전 반복 시 해당 유닛만 현재 pose에 fail-closed
+- [x] self-validation에 동일/순환/invalid/frame budget/서로 다른 path 무진전 8회 상한/다음-frame/진전 reset 유한 종료 회귀 추가
+- [ ] Editor·Android에서 fail-closed 유닛 외 다른 유닛과 서버 경기 루프 진행 확인
+- [ ] Editor 경로 무효화 재현와 Android Host 정지 재현 회귀 PASS
+- [ ] 정지 회귀 PASS 후 Android/Editor 역할교대·25종 전체·Legacy rollback 재개
+
+**B3 현재 판정: FAIL / OPEN.** 9.8 유한 재탐색 구현과 Unity compile·self-validation은 PASS했다. 그러나 Android Host 경기 루프 정지 재현 회귀는 아직 실행하지 않았으므로 빌드 안정성 완료를 주장하지 않는다. 다음은 새 Android Development Build에서 fail-closed 유닛 외 경기 진행과 정지·ANR·로그 폭주 0을 확인하는 것이다. 공격 타겟·공격 방향, 시각 Impact·실제 피해 적용 시점은 이번 교정 범위가 아니며 계속 미완료다.

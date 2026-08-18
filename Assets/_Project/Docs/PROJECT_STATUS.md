@@ -1,7 +1,11 @@
 # Hexiege - 프로젝트 진행 현황
 
-**최종 수정일:** 2026-08-12
+**최종 수정일:** 2026-08-18
 **구현 완료 (2026-08-12) — 에디터 싱글플레이 실기 검증 완료 · 멀티 미검증:** **MistShrine(HealShrine) 물안개 힐 시스템 구현 완료.** 2026-08-10 기획 확정 후 코드·프리팹·씬 배선을 모두 구현하고 **에디터 싱글플레이 실기 + 런타임 로그 실측으로 검증**했다. 검증 완료 항목: **범위 원 경계 = 실제 회복 판정 일치**(회복 최대 거리 2.29 / 탈락 최소 거리 3.12, 설정 반경 3.00과 모순 0건), **범위 이탈 시 즉시 끊김**(규칙 9 — 거리 2.29→3.77 이탈 다음 틱부터 HP 고정), **회복량 매 틱 +10**(설정값 일치), **중첩 해소**(규칙 13 — 후보 4개에서도 대상당 1회만 적용, 거리 동률 0.87에서 Id 작은 신전 선택), 자동/수동 토글·쿨다운 방향·적 건물 미반응·연구/스킬 패널 `ClosedFrame` 가드. **⚠️ 과대 표기 금지 — 아직 완료가 아닌 것:** **멀티플레이 실기 미검증**(싱글로만 검증했다. 범위 판정 코드는 싱글·멀티 공유라 판정 로직은 유효하나 **건물 HP 동기화·클라 표시·RPC 팀 검증·쿨다운 로컬 미러 등 멀티 고유 경로는 실행된 적이 없다**) · **물안개 지속 VFX 미제작**(물안개가 눈에 보이지 않는다) · **사용 버튼 아이콘 미제작**(임시 텍스트 라벨) · **밸런싱 수치 미확정**(현재 값은 전부 임시값). **구현 중 발견·수정한 규칙 위반 버그:** 겹친 물안개 2개가 같은 대상을 각각 회복시켜 **초당 회복량이 2배**가 되던 문제 — 물안개마다 틱 위상이 달라 중첩 해소 코드가 **돌 기회 자체가 없던 죽은 코드**였다. **활성 물안개 위상 정렬 + 소유권 판정을 발화 여부와 분리**해 수정(커밋 `be17148`), 이 불변식을 **규칙 8-1에 보강 기재**. 상세: 아래 "완료된 시스템 > MistShrine 물안개 힐 시스템", `GameSystemRules/GameSystemRules_Buildings.md`, task `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`(§9-4 · §10).
+**정밀 동기화 상태:** Tracer A0/A1/A2와 B0/B1/B2는 완료됐다. B3의 경기 단위 `ReducerAuthoritative` single-writer와 서버 권위 연속 trajectory에 유한 재탐색 guard를 연결했고 Unity compile·self-validation은 PASS했다. 그러나 Android Host 정지 재현 회귀는 아직 실행하지 않았으므로 B3 전체는 계속 **FAIL / OPEN**이다. 기존 21/25종 누적 시험은 정확성 기준선으로만 보존한다. 공격 방향, 공격 Impact·피해 적용 시점, result seam, 피해·RPC·VFX 권위 전환과 Snapshot/ImpactResult 복제도 미완료다. ActionSequence 전환은 **P0 진행 중**이다.
+**최신 main 반영:** InfernoSpirit은 직접 25 + 유닛 전용 DoT 5/초×3초가 Legacy 경로에서 사용자 실기 확인됐고, QuakeSpirit은 직접 20 + 주변 적 유닛·건물 10 및 Host/Client HP 결과가 로그로 확인됐다. 다만 Inferno는 marker 0.50초/설정 1.15초가 불일치하며, Quake는 기본 `OnAttackHit`이 없고 1.00초 placeholder를 사용한다. 두 구현 모두 권위 `AttackSequenceId`, `ImpactPoint`, 결과 순번이 없어 v2 Complete가 아니다.
+**현재 단계 (규칙 v2.1):** 최신 `main`의 연구·상태효과·스킬·MistShrine 기능을 보존한 통합 기준에서 유한 재탐색 교정과 Editor 검증을 완료했다. 다음은 새 Android Development Build의 Android Host 정지 재현 회귀이며, 여기서 PASS한 뒤 역할교대·25종 전체·Legacy rollback을 재개한다. 공격 방향·Impact·피해 시점은 후속 게이트에서 별도로 검증한다.
+**Legacy 스냅샷 (2026-07-19):** BattleAxe·TorrentSpirit·BloomFairy·MushroomBomber의 당시 기능 완료 기록은 `WORK_HISTORY.md`로 이관해 보존한다. 이후 반영된 InfernoSpirit·QuakeSpirit 상태와 v2 판정은 위 최신 상태 및 AssetMatrix를 따른다.
 
 **기획 확정 이력 (2026-08-10):** MistShrine은 공격하지 않는 별도 힐 건물로, 시전 시 **건물 중심 고정 원형 범위**에 물안개가 깔려 지속 동안 **아군 유닛+아군 건물**(자기 자신·Castle 포함)을 **1초 discrete 틱**으로 회복한다(범위 이탈 시 즉시 끊기는 아우라, 물안개 지속 < 쿨다운, 시전 비용 없음, 파괴 시 물안개 즉시 제거, 물안개 간 중첩 금지 — 가까운 건물 우선·거리 동률이면 Id 작은 쪽, **연구소 자연회복과는 중첩 적용**). UI는 `BuildingPanelBase` 상속 전용 패널(탭=수동/롱프레스=자동 토글, **자동 기본 OFF**, `SkillCooldownOverlay` 재사용, 범위 표시는 아군·패널 열린 동안만). 로직은 `SkillActivationUseCase` 재사용 불가로 **전용 UseCase 신설**(쿨다운 패턴만 차용 + 클라 로컬 미러). **함께 정정한 문서 오류:** GDD/TDD가 Transcendence 방어 타워를 MistShrine으로 적어 왔으나 **정확히는 VineTower**이며 MistShrine은 `HealShrine`(=6) 별도 건물이다. 수치(회복량·지속·쿨다운·반경·텍스트 주기)는 **전부 밸런싱 미확정.** 상세: 아래 "완료된 시스템 > MistShrine 물안개 힐 시스템", `GameSystemRules/GameSystemRules_Buildings.md`, task `_Tasks/2026-08-10/09_34_mistshrine-heal-redesign/`(기획) · `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`(구현).
 **버그 수정 (2026-08-08):** **랠리포인트 조준 시 반투명 오버레이 잔존 버그 수정 · 실기 테스트 PASS**(커밋 `9a19cd5`). 배럭 팝업에서 랠리포인트 버튼을 누르면 팝업만 숨겨지고 공유 반투명 오버레이(BlockingOverlay)가 화면에 남아, 집결지를 찍으려 맵을 탭하면 오버레이(탭=`Close`)가 터치를 먼저 가로채 `Close()`→`OnBeforeClose()`(`IsSettingRallyPoint=false`+랠리 마커 숨김)가 실행되며 **지정이 그냥 취소된 것처럼 보이던** 버그. 원인은 `ProductionPanelUI.OnRallyPointClick()`이 `_popup?.Hide()`만 호출하고 오버레이를 내리지 않은 것(오버레이를 켜는 곳은 `BuildingPanelBase.Show()`, 끄는 곳은 `Close()` 단 하나). **수정: `ProductionPanelUI.cs` 1파일 2줄 순수 추가** — ① `OnRallyPointClick()`에 `HideBlockingOverlay()`(스킬 패널 `BuildingSkillPanelUI`의 조준 진입 패턴과 동일) ② `Close()`를 거치지 않는 `CompleteRallyPointSetting()`에 참조 카운터 반납 호출(②를 빠뜨리면 카운터 미반납으로 다음 팝업의 오버레이가 어긋남 — 기존엔 이 버그가 대신 `Close()`를 태워 우연히 상쇄하고 있었음). 이로써 `GameSystemRules_Buildings.md` 랠리포인트 시스템 규칙 2의 "설정 직후 3초 표시"도 정상화. 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5(BlockingOverlay 단일 소유·참조 카운터) — **규칙 문서 변경 없음(코드가 기존 규칙을 다시 준수하도록 맞춘 수정)**. task `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`(Testcase 미작성 — 사용자 미지시).
@@ -14,6 +18,43 @@
 ---
 
 ## 전체 구현 현황
+
+### 🔴 P0 재오픈 — 서버 권위 유닛 ActionSequence
+
+- 규칙 v2 완료: `GameSystemRules_Units.md`, `GameSystemRules_UnitCombatSynchronization.md`
+- 25종 에셋 감사 완료: `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`
+- Tracer A0 완료: `UnitActionSequencing` 계약 유틸리티와 SpearMan schedule/dispatch Shadow 계측. 기존 피해·HP·RPC·VFX는 그대로 유지했다.
+- 사용자 멀티 Host 계측: scheduled 204 / dispatch 204 / unique 204, missing·duplicate·target mismatch·schedule↔dispatch facing change 모두 0. Windup 240ms 전건 일치.
+- 방출 지연: min 0.013ms / avg 9.105ms / p50 8.226ms / p95 19.862ms / max 29.386ms. 16.667ms 초과 27건, 33.333ms·50ms 초과 0건.
+- Client 로그는 현재 계측 범위상 header only이므로 Host/Client 상관관계 검증 완료로 판정하지 않는다.
+- Tracer A1 완료: `UnitActionContracts`와 `UnitActionSequencer` 순수 Application 계약·stateful reducer. C# 9/Application 및 Editor 컴파일 PASS, Unity Editor 메뉴 PASS, reflection `Validate*` 10개 PASS, 최종 Standards/Spec P0~P3 지적 0건.
+- Tracer A2 완료: pure `IUnitActionPoseSource`/`UnitActionPoseSample`, `UnitView` read-only adapter, 서버 SpearMan one-cycle reducer Shadow를 연결했다. 기존 위치·회전·타겟·피해·HP·RPC·VFX·path writer는 변경하지 않았다.
+- 공격자 사망 경계는 pending observer 삭제 대신 `MarkDead=Accepted`와 `DeadTerminal`로 닫고, bounded 용량 초과는 canonical `capacity-evicted` terminal skip으로 기록한다.
+- 사용자 런타임 검증: Host(2026-07-27 18:04:04) schedule 429 / dispatch 428이며 마지막 1건은 로그 종료 당시 Impact 전 in-flight다. 완료 회차 누락·중복 0, attacker-dead 2건 정상 terminal, capacity eviction·예외 0. Client(18:09:48) `[UAS-POSE]` 0.
+- Tracer B0 완료: 50개 프리팹(Human 16 / Spirit 18 / Transcendence 16)의 read-only 구조 감사와 migration dry-run을 통과했다. 예상치는 VisualRoot create 50 / reuse 0 / direct-child move 58이며 실제 에셋 변경은 0이다.
+- B0 결정성 검증: 연속 두 실행 모두 50/50, errors 0, assetsModified 0이며 aggregate manifest SHA-256은 `1d1043ff2ea440a5f25d24a9e006bca8739ecb514b4e362f8dd6c01504ae1dcd`로 동일했다.
+- Tracer B1 적용: 50/50 프리팹에 `VisualRoot`와 `VisualRootProjector`를 적용하고 migration journal을 완료했다. 재실행은 50개 모두 migrated state로 `[NO-OP]` 종료해 prefab 저장 호출 0을 확인했다.
+- B1 런타임 seam: 클라이언트 Simulation Root 관점 보정을 제거하고 `VisualRootProjector`·`PresentationPoseProvider`로 표현 pose를 분리했다. 기존 서버 피해·HP·RPC·VFX 권위와 A2 Simulation pose 관측은 유지한다.
+- B1 rollback PASS: graceful failure injection index 0/24/49는 각각 `JournalRecovered=true`, `VerifiedFileCount=100`, `InitialAnalyzerPassed=true`다. crash index 24는 별도 프로세스 `RecoverCrash`로 복구했으며, 복구 전 prefab mismatch 25 / meta mismatch 0 / VisualRoot 25 / projector 25에서 복구 후 100/100 원상복구를 확인했다.
+- B1 보조 검증: primary Unity compile Tundra success, `[UAS-DIAG]` self-validation PASS.
+- 잘못된 진단 가정 제거: 2026-07-27 B1에서 근거 없이 도입된 Collider 존재·배치 조건은 B1 범위가 아니므로 공통 계약·runtime observer·Editor validator·self-validation에서 완전히 제거했다. B1 구조 권위는 network component placement, identity VisualRoot, root Animator/Renderer 0, projector/ref, Root Motion off, Animator별 relay, 서버 single-writer와 client Simulation Root write 금지다.
+- B1 Match A PASS: Editor Host Blue + Android Client Red에서 stable endpoint exact match 34/39(`0.872`), pose mismatch 0, 최대 축 오차 `0.000767m`, 최대 회전 오차 `0.000362°`.
+- B1 Match B PASS: Android Host Blue + Editor Client Red 양쪽 완전 END PASS. endpoint 36/33, union 38, exact match 29(`0.763158`), temporal-only 2, host-only 5, client-only 2, pose mismatch 0, 최대 축/거리 오차 `0.000491m`, 최대 회전 오차 `0.000159196°`, drop/error 0. self-validation도 overlap/non-overlap·union coverage·실제 match shape를 포함해 PASS했다.
+- B1 범위 판정: 이동 Simulation Root/Visual Root와 NetworkTransform 보간 양방향 멀티 검증 완료. 후속 B2 Shadow와 B3 경기 단위 writer 정확성 기준선을 확보했고, B3 연속 이동은 현재 Editor 조건부 PASS다. 공격 방향·Impact·피해 적용 시점과 result seam은 미완료다.
+- Tracer B2 구현: pure Application `UnitMovementReducer`(`b2-movement-reducer-v1`)에 command/segment scope, 10° 진입·15° 이탈 히스테리시스, target-acquire priority, revision fail-closed와 endpoint `NoIntent` 정규화를 구현했다. `UnitMovementShadowObserver`(`b2-movement-shadow-v5`)는 서버 read-only 비교와 클라이언트 sentinel만 수행한다.
+- B2 진단 내구성: Android 로그 절단을 막기 위해 손실 없는 entry-boundary manifest, 청크별 문자/UTF-8 byte 메타데이터, SHA-256, terminal 예약과 fail-closed preflight를 적용했다. self-validation은 endpoint lifecycle과 최대 29청크 경계를 포함해 PASS했다.
+- B2 멀티플레이 검증: Android 1대와 Unity Editor counterpart에서 역할을 교대하며 6개 경기 그룹으로 25/25종을 Blue/Red 모두 관측했다. 첫 4종은 observer v4, 나머지 21종은 endpoint `NoIntent`가 보강된 v5 누적 증거다. 모든 인정 세션의 invalid·duplicate·stale·illegal·scope·unknown·client reducer·Simulation Root write·exception·drop·preflight·overflow 카운터는 0이고 manifest 청크·entry count·SHA-256이 일치했다.
+- B2 범위 판정: 당시 10°/15° 일반 정렬 계약의 Shadow/증거 게이트는 완료 이력으로 보존한다. 규칙 v2.1에서 10°/15°는 안전 fallback으로 재분류했으므로 B2 PASS를 연속 코너링 준수 증거로 재사용하지 않는다.
+- Tracer B3 정확성 기준선: 경기 단위 `UnitMovementPipelineMode`, exact-one 서버 writer, Client reducer/Simulation Root write 0, phase/scope 복제와 역할교대 pose 수렴은 현재 로그에서 오류 0이다. 교정 전 21/25종 관측은 기준선으로만 보존하며, 공통 이동 변경 뒤 25종 전체를 다시 시험한다.
+- B3 연속 이동 구현: pure Application `UnitServerTrajectoryPlanner`·`UnitTrajectoryStep`·`UnitPathCheckpointTracker`를 추가했다. A*·Chase·PendingRepath·PostCombatResume는 공통 서버 commit seam을 사용하고, 경유 타일 중심 스냅 없이 실제 trajectory distance로 waypoint를 소비한다. corridor point sweep/fallback repath, candidate-position acquire commit, committed `SimulationFacing → UnitData.Facing`, 270°/s와 150° reverse hold를 적용했다.
+- B3 Editor 검증: CS0165 미할당 변수와 최초 곡선 waypoint orbit을 self-validation이 검출해 교정했다. 최종 `[UAS-DIAG]`는 `continuous 60-degree trajectory/150-degree reverse/held-progress invariants`를 포함해 PASS했고 사용자 Editor smoke도 잠정 PASS다.
+- B3 Android Host 실패: 예외·ANR·OOM 없이 프로세스 CPU가 상승하고 Unity 게임 로그가 멈췄다. `RepathRequired → RequestMove → needRepath → yield 없는 outer continue`가 동일·순환 path에서 한 frame 무한 반복이 될 수 있는 구조를 확인했다. 유한 재탐색 교정과 Android Host 회귀 전까지 **FAIL / OPEN**이다.
+- B3 유한 재탐색 교정: ordered `HexCoord` path signature와 유닛별 guard를 pure Application에 추가했다. 동일 path·A→B→A·invalid·동일 frame 2회째뿐 아니라 서로 다른 path만 계속 반환하는 경우도 무진전 수락 8회에서 fail-closed한다. 수락 path는 `yield return null` 뒤 처리하며 실제 position/checkpoint 진전에서 이력을 reset한다. 실패 유닛의 완료 callback·힐러 감시 재진입도 억제한다. Unity Tundra compile과 `[UAS-DIAG] finite repath frame/repeat-cycle/distinct-no-progress budgets and progress reset`은 PASS했으며 Android Host 회귀는 대기 중이다.
+- 신규·교체 프리팹은 migrated 템플릿과 `NET-ROOT-004` 승인 게이트를 사용한다. B1 50개 일괄 migration을 반복하지 않으며 Asset Matrix와 fail-closed validator roster·기준선을 함께 갱신한다.
+- 목표: Simulation Root/Visual Root 분리, `AttackerInstanceId + AttackSequenceId + HitIndex` 기반 정규 결과 키, 서버 시간 Impact, FIFO 대체
+- 런타임: A2 pose seam, B1 Simulation/Visual Root 표현 seam, B2 Shadow와 B3 경기 단위 이동 writer·연속 trajectory까지 연결했다. B3 Android 역할교대·25종·rollback, Walk/Attack 상태 분리, 공격자 FIFO, result seam과 권위 Snapshot/ImpactResult 전환이 남아 있어 **미완료**
+- 중요 사실: UnitStatsConfig는 25/25 등록됐으나 기본 Attack marker 누락 4종, BattleAxe·Inferno 등 marker/설정 불일치, hit/tracer preset 0/25, Quake의 표현 최대 7.5초 지연 가능성이 남아 있다.
+- 후속 구현과 검증은 현재 task Plan의 A2 이후 게이트를 따른다.
 
 ### 📐 확정 설계 — 구현 예정
 
@@ -133,7 +174,7 @@
 | 유닛 이동 (Lerp) | ✅ 완료 | Per-step 가용성 체크, 재탐색 |
 | 전투 시스템 | ✅ 완료 | IDamageable, 이동 중 자동 공격 |
 | 전투 거리 정밀도 | ✅ 완료 (2026-03-18 갱신) | 월드좌표 기반, Epsilon=0.05f 추가 (인접 경계 부동소수점 오차 방지) |
-| 공격 방향 정밀도 | ✅ 완료 (2026-03-07) | 타겟 실제 transform.position 기반 Atan2, 2D 레거시 제거 |
+| 공격 방향 정밀도 | ⚠️ Legacy 구현 / v2 미완료 | 2026-03-07의 타겟 실제 position 기반 Atan2·2D 레거시 제거 이력은 보존한다. 서버 `AttackSequenceId + HitIndex`의 권위 AimDirection과 Host/Client 결과 상관 검증은 아직 미완료다. |
 | 공격 쿨다운 시스템 | ✅ 완료 (2026-04-04 갱신) | 유닛별 AttackCooldown=클립 길이 (Assault=0.2s, Pistoleer=2.0s, Sniper=3.0s), elapsed 기반 정확한 감소 |
 | 다중 히트 데미지 | ✅ 완료 (2026-04-24) | FlameSpirit 6히트(총 12dmg), LionKnight 2히트(총 18dmg). HitFrameTimes float[] 기반, 싱글=PendingHit 타이머, 멀티=코루틴 N개 병렬 |
 | 전투 애니메이션 시스템 (멀티플레이) | ✅ 완료 (2026-04-04) | 3-신호 RPC, 6가지 규칙, _combatAnimationSent 경쟁조건 수정, 사이클 동기화 |

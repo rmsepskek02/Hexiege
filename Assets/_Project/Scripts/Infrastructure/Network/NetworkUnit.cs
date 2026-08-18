@@ -39,6 +39,7 @@
 using Unity.Netcode;
 using UnityEngine;
 using Hexiege.Application;
+using Hexiege.Application.Combat.Sequencing;
 using Hexiege.Presentation;
 
 namespace Hexiege.Infrastructure
@@ -121,6 +122,44 @@ namespace Hexiege.Infrastructure
         );
 
         /// <summary>
+        /// B3 이동 전용 권위 상태. 공격 Action phase와 분리되며 신규 이동 mode에서만
+        /// 서버가 쓴다. 클라이언트는 현재 phase/revision을 읽기만 한다.
+        /// </summary>
+        private NetworkVariable<byte> _movementPhase = new NetworkVariable<byte>(
+            (byte)UnitMovementPhase.NoIntent,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        private NetworkVariable<ulong> _movementCommandRevision = new NetworkVariable<ulong>(
+            0UL,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        private NetworkVariable<ulong> _movementSegmentRevision = new NetworkVariable<ulong>(
+            0UL,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        /// <summary>
+        /// phase/scope 묶음이 완전히 기록된 뒤 마지막에 증가하는 commit revision이다.
+        /// 클라이언트는 이 값의 변경 콜백에서 세 값을 일관된 snapshot으로 읽는다.
+        /// NGO 2.9.2의 NetworkBehaviour source-field 순서 ReadDelta/callback 계약에 따라
+        /// phase/command/segment 뒤 마지막 선언과 마지막 write를 유지한다.
+        /// NGO 업그레이드 시 이 commit-marker 순서 보장을 반드시 재검증해야 한다.
+        /// 장기적으로 단일 복제 snapshot으로 통합하는 작업은 별도 후속 범위다.
+        /// </summary>
+        private NetworkVariable<ulong> _movementSemanticRevision = new NetworkVariable<ulong>(
+            0UL,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
+
+        public UnitMovementPhase MovementPhase =>
+            (UnitMovementPhase)_movementPhase.Value;
+        public ulong MovementCommandRevision => _movementCommandRevision.Value;
+        public ulong MovementSegmentRevision => _movementSegmentRevision.Value;
+        public ulong MovementSemanticRevision => _movementSemanticRevision.Value;
+
+        /// <summary>
         /// [Phase 2] 같은 GameObject의 UnitView 캐시 — 애니메이션 상태 적용 시 메서드 호출용.
         /// NetworkUnit → 같은 프리팹 내 UnitView 참조는 기존 관례다(OnNetworkDespawn에서도 GetComponent 사용).
         /// 클라이언트에서만 사용한다(호스트/서버는 Animator를 직접 제어하므로 적용하지 않음).
@@ -172,6 +211,31 @@ namespace Hexiege.Infrastructure
             _animState.Value = (byte)state;
         }
 
+        /// <summary>ReducerAuthoritative 서버가 수락한 이동 snapshot만 게시한다.</summary>
+        public bool PublishMovementSnapshot(UnitMovementSnapshot snapshot)
+        {
+            if (!IsServer || !snapshot.HasAcceptedObservation)
+            {
+                return false;
+            }
+
+            if (_movementPhase.Value == (byte)snapshot.Phase
+                && _movementCommandRevision.Value == snapshot.CommandRevision
+                && _movementSegmentRevision.Value == snapshot.SegmentRevision)
+            {
+                return true;
+            }
+
+            if (_movementSemanticRevision.Value == ulong.MaxValue)
+                return false;
+
+            _movementPhase.Value = (byte)snapshot.Phase;
+            _movementCommandRevision.Value = snapshot.CommandRevision;
+            _movementSegmentRevision.Value = snapshot.SegmentRevision;
+            _movementSemanticRevision.Value++;
+            return true;
+        }
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -207,12 +271,15 @@ namespace Hexiege.Infrastructure
             //   (이 코드는 클라이언트 경로에서만 실행된다 — 위에서 IsServer일 때 이미 return했다.)
             // ────────────────────────────────────────────────────────────────
             _animState.OnValueChanged += OnAnimStateChanged;
+            _movementSemanticRevision.OnValueChanged +=
+                OnMovementSemanticRevisionChanged;
             ApplySpawnAnimState();
 
             // 클라이언트: unitId가 이미 설정되었으면 즉시 딕셔너리에 등록
             if (_unitId.Value != -1)
             {
                 RegisterToFactory(_unitId.Value);
+                ObserveCurrentMovementSnapshot();
                 return;
             }
 
@@ -238,6 +305,8 @@ namespace Hexiege.Infrastructure
 
             // 등록 완료 후 콜백 해제 — 1회만 실행하면 되므로 더 이상 구독할 필요 없음
             _unitId.OnValueChanged -= OnUnitIdReceived;
+            // semantic snapshot이 unitId보다 먼저 coalesce되어 도착했더라도 등록 후 한 번 수집한다.
+            ObserveCurrentMovementSnapshot();
         }
 
         // ====================================================================
@@ -304,6 +373,32 @@ namespace Hexiege.Infrastructure
             ApplyAnimState(newValue);
         }
 
+        private void OnMovementSemanticRevisionChanged(
+            ulong previousValue,
+            ulong newValue)
+        {
+            ObserveCurrentMovementSnapshot();
+        }
+
+        private void ObserveCurrentMovementSnapshot()
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (IsServer
+                || !UnitMovementAuthorityObserver.ShouldObserveClientReplicatedState(
+                    _unitId.Value,
+                    _movementSemanticRevision.Value))
+                return;
+
+            UnitMovementAuthorityObserver.ObserveClientReplicatedState(
+                _unitId.Value,
+                NetworkObjectId,
+                (UnitMovementPhase)_movementPhase.Value,
+                _movementCommandRevision.Value,
+                _movementSegmentRevision.Value,
+                _movementSemanticRevision.Value);
+#endif
+        }
+
         /// <summary>
         /// [Phase 2] 애니메이션 상태 값을 같은 GameObject의 UnitView에 적용한다(클라이언트 전용).
         ///
@@ -352,6 +447,14 @@ namespace Hexiege.Infrastructure
             // [Phase 2] 애니메이션 상태 콜백도 해제(클라이언트에서만 구독했으므로 서버에선 no-op).
             // 남겨두면 파괴된 오브젝트에 접근하는 버그로 이어질 수 있다.
             _animState.OnValueChanged -= OnAnimStateChanged;
+            _movementSemanticRevision.OnValueChanged -=
+                OnMovementSemanticRevisionChanged;
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            UnitMovementAuthorityObserver.RetireUnitLifecycle(
+                _unitId.Value,
+                NetworkObjectId);
+#endif
 
             // 클라이언트 전용: 사망 이펙트를 여기서 재생한다.
             // OnNetworkDespawn은 GO가 파괴되기 직전에 반드시 호출되므로

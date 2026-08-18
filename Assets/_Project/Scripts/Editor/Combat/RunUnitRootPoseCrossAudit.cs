@@ -63,6 +63,11 @@ namespace Hexiege.Editor.Combat
                     AuditVerdict.Pass,
                     "overlapping stable windows/1mm");
 
+                RequireVerdict(
+                    Analyze(host + "\n" + host, client + "\n" + client),
+                    AuditVerdict.Pass,
+                    "identical preserved log copies");
+
                 string lateClient =
                     BuildFixture("client-run", "fixture-key", "client", true, 14d, 0f);
                 RequireVerdict(
@@ -269,14 +274,21 @@ namespace Hexiege.Editor.Combat
                     $"hostRuns={hostRuns.Count}, clientRuns={clientRuns.Count}");
             }
 
-            List<PairGateResult> completeCandidates = candidates
+            List<PairGateResult> candidateResults = candidates
                 .Select(pair => ValidatePairGate(pair.Item1, pair.Item2))
+                .ToList();
+            List<PairGateResult> completeCandidates = candidateResults
                 .Where(result => result.Verdict != AuditVerdict.Inconclusive)
                 .ToList();
             if (completeCandidates.Count == 0)
             {
+                string gateReasons = string.Join(
+                    ";",
+                    candidateResults.Select(result =>
+                        $"{result.Host.RunId}+{result.Client.RunId}:{result.Reason}"));
                 return AuditResult.Inconclusive(
-                    $"reason=no-complete-unique-session-pair, candidates={candidates.Count}");
+                    $"reason=no-complete-unique-session-pair, candidates={candidates.Count}, " +
+                    $"gateReasons={gateReasons}");
             }
             if (completeCandidates.Count != 1)
             {
@@ -558,6 +570,12 @@ namespace Hexiege.Editor.Combat
 
                 if (line.IndexOf("[UAS-ROOT-POSE] BEGIN", StringComparison.Ordinal) >= 0)
                 {
+                    int markerIndex = line.IndexOf(
+                        "[UAS-ROOT-POSE]",
+                        StringComparison.Ordinal);
+                    string signature = line.Substring(markerIndex);
+                    if (!run.BeginSignatures.Add(signature))
+                        continue;
                     run.BeginCount++;
                     run.BeginRole = ReadValue(line, "role");
                     run.BeginIsFlipped = ReadBool(line, "isFlipped");
@@ -566,6 +584,12 @@ namespace Hexiege.Editor.Combat
                              "[UAS-ROOT-POSE] summary-END",
                              StringComparison.Ordinal) >= 0)
                 {
+                    int markerIndex = line.IndexOf(
+                        "[UAS-ROOT-POSE]",
+                        StringComparison.Ordinal);
+                    string signature = line.Substring(markerIndex);
+                    if (!run.EndSignatures.Add(signature))
+                        continue;
                     run.EndCount++;
                     run.EndLine = lineIndex;
                     run.EndRole = ReadValue(line, "role");
@@ -1013,6 +1037,10 @@ namespace Hexiege.Editor.Combat
             public int? StableAfterMoveEndpointUnits;
             public readonly Dictionary<UnitIdentity, List<Endpoint>> Endpoints =
                 new Dictionary<UnitIdentity, List<Endpoint>>();
+            public readonly HashSet<string> BeginSignatures =
+                new HashSet<string>(StringComparer.Ordinal);
+            public readonly HashSet<string> EndSignatures =
+                new HashSet<string>(StringComparer.Ordinal);
             public readonly HashSet<string> EndpointSignatures =
                 new HashSet<string>(StringComparer.Ordinal);
         }

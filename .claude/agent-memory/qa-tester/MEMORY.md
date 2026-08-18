@@ -548,3 +548,10 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - 6개 인정 경기에서 25/25종 Blue/Red를 확인했다. accepted decision 545,190회, manifest entry 420개이며 모든 인정 세션의 invalid/duplicate/stale/illegal/scope/unknown/client reducer/root write/exception/drop/preflight/overflow는 0, manifest와 SHA는 완전 일치했다.
 - 첫 4종은 observer v4, 나머지 21종은 v5다. Android Host 그룹의 근거는 수집 당시 Logcat 직접 검산이며 Editor RuntimeLog만으로 전체 25종을 재구성할 수 없다.
 - B2 QA 판정은 read-only Shadow/증거 PASS다. Legacy Align 중 이동 차이는 B3 전환 대상이며 실제 이동 방향 교정, 공격 방향, Impact/피해 적용 시점은 미완료다.
+
+### 2026-08-18 - B3 Android Host 정지 교정 QA 상태
+
+- 이전 Android Host 정지는 예외·ANR·OOM 없이 CPU가 상승하고 Unity 로그가 멈춘 형태였다. 높은 확률 원인은 `RepathRequired → RequestMove → yield 없는 continue`의 동기식 반복이다.
+- 유한 guard self-validation은 동일 path, A→B→A, invalid, 한 frame 2회째 거부, 다음-frame 수락과 진전 reset을 포함해 PASS했고 Unity Tundra compile도 성공했다.
+- 전체 B3 판정은 여전히 FAIL / OPEN이다. 새 Android Development Build에서 Android Host 경로 무효화/건물 배치가 포함된 경기로 정지·ANR·로그 폭주 0, fail-closed 유닛 외 다른 유닛과 경기 시간 진행을 먼저 확인한다.
+- 위 회귀 PASS 뒤에만 역할교대, 25종 전체와 다음 경기 Legacy rollback을 재개한다. 기존 21/25종은 정확성 기준선이지 새 구현 완료 증거가 아니다.

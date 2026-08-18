@@ -16,12 +16,57 @@
 namespace Hexiege.Application
 {
     /// <summary>
+    /// 경기 전체에서 사용하는 이동 권위 파이프라인이다. 값은 경기 시작 시 한 번
+    /// 고정되며 유닛 종류나 진영별로 선택하지 않는다.
+    /// </summary>
+    public enum UnitMovementPipelineMode
+    {
+        Legacy = 0,
+        ReducerAuthoritative = 1
+    }
+
+    /// <summary>
+    /// 서버가 전송한 현재 경기 값을 한 번만 고정하는 순수 C# latch다.
+    /// 다음 경기 선택의 단일 seam은 NetworkGameFlow의 서버 설정이다.
+    /// </summary>
+    public sealed class UnitMovementPipelineModeLatch
+    {
+        public bool IsMatchActive { get; private set; }
+        public UnitMovementPipelineMode ActiveMode { get; private set; }
+
+        public bool TryBeginMatch(UnitMovementPipelineMode authoritativeMode)
+        {
+            if (!IsSupported(authoritativeMode))
+                return false;
+
+            if (IsMatchActive)
+                return ActiveMode == authoritativeMode;
+
+            ActiveMode = authoritativeMode;
+            IsMatchActive = true;
+            return true;
+        }
+
+        public void EndMatch()
+        {
+            IsMatchActive = false;
+            ActiveMode = UnitMovementPipelineMode.Legacy;
+        }
+
+        public static bool IsSupported(UnitMovementPipelineMode mode)
+            => mode == UnitMovementPipelineMode.Legacy
+                || mode == UnitMovementPipelineMode.ReducerAuthoritative;
+    }
+
+    /// <summary>
     /// 네트워크 서버 여부를 전역으로 참조하기 위한 정적 홀더.
     /// Infrastructure 레이어가 NetworkBehaviour.OnNetworkSpawn에서 설정.
     /// Application 레이어의 UseCase가 멀티플레이 서버 분기 처리에 사용.
     /// </summary>
     public static class NetworkContext
     {
+        private static readonly UnitMovementPipelineModeLatch MovementPipeline =
+            new UnitMovementPipelineModeLatch();
         // ====================================================================
         // 상태
         // ====================================================================
@@ -41,6 +86,12 @@ namespace Hexiege.Application
         /// </summary>
         public static bool IsNetworkActive { get; private set; } = false;
 
+        /// <summary>현재 경기에서 고정된 mode. 활성 경기 밖에서는 Legacy다.</summary>
+        public static UnitMovementPipelineMode ActiveUnitMovementPipelineMode =>
+            MovementPipeline.IsMatchActive
+                ? MovementPipeline.ActiveMode
+                : UnitMovementPipelineMode.Legacy;
+
         // ====================================================================
         // API
         // ====================================================================
@@ -58,6 +109,13 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// 서버가 전파한 mode를 현재 경기 값으로 고정한다. 이미 시작된 경기에서
+        /// 다른 값을 넣으면 false를 반환하고 기존 값을 보존한다.
+        /// </summary>
+        public static bool TryBeginUnitMovementPipelineMatch(UnitMovementPipelineMode mode)
+            => MovementPipeline.TryBeginMatch(mode);
+
+        /// <summary>
         /// 싱글플레이 기본값으로 초기화.
         /// 씬 전환 또는 연결 해제 시 호출.
         /// </summary>
@@ -65,6 +123,7 @@ namespace Hexiege.Application
         {
             IsNetworkServer = false;
             IsNetworkActive = false;
+            MovementPipeline.EndMatch();
         }
     }
 }

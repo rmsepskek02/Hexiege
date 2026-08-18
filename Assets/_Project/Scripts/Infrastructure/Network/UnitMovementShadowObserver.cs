@@ -684,73 +684,31 @@ namespace Hexiege.Infrastructure
             float expectedPositionDeltaWorld,
             double serverTime)
         {
-            if (reducer == null
-                || !IsFinite(expectedPositionDeltaWorld)
-                || expectedPositionDeltaWorld < 0f)
-            {
-                return MovementAdapterEvaluation.Invalid();
-            }
-
             Vector3 facingVector = rotation * Vector3.forward;
-            if (!ActionDirectionXZ.TryCreate(
-                facingVector.x,
-                facingVector.z,
-                out ActionDirectionXZ simulationFacing))
-            {
-                return MovementAdapterEvaluation.Invalid();
-            }
-
-            Vector3 desiredDelta = desiredTarget - position;
-            if (!IsFinite(desiredDelta.x) || !IsFinite(desiredDelta.z))
-                return MovementAdapterEvaluation.Invalid();
-            float desiredDistanceXZ =
-                new Vector2(desiredDelta.x, desiredDelta.z).magnitude;
-            if (!IsFinite(desiredDistanceXZ))
-                return MovementAdapterEvaluation.Invalid();
-
-            bool expectedAtEndpoint =
-                expectedPositionDeltaWorld <= PositionDeltaTolerance;
-            bool desiredAtEndpoint =
-                desiredDistanceXZ <= PositionDeltaTolerance;
-            if (desiredAtEndpoint && !expectedAtEndpoint)
-                return MovementAdapterEvaluation.Invalid();
-
-            bool endpointNormalized = expectedAtEndpoint && desiredAtEndpoint;
-            UnitMovementIntentReason evaluatedIntentReason =
-                endpointNormalized
-                    ? UnitMovementIntentReason.None
-                    : sourceIntentReason;
-            bool evaluatedHasIntent = !endpointNormalized;
-            ActionDirectionXZ evaluatedDesiredMoveDirection = default;
-            if (evaluatedHasIntent
-                && !ActionDirectionXZ.TryCreate(
-                    desiredDelta.x,
-                    desiredDelta.z,
-                    out evaluatedDesiredMoveDirection))
-            {
-                return MovementAdapterEvaluation.Invalid();
-            }
-
-            UnitMovementReducerStatus status = reducer.Evaluate(
-                reducer.Snapshot.Revision,
+            UnitMovementEvaluation evaluation =
+                UnitMovementEvaluationAdapter.Evaluate(
+                reducer,
                 commandRevision,
                 segmentRevision,
-                evaluatedIntentReason,
-                evaluatedHasIntent,
-                simulationFacing,
-                evaluatedDesiredMoveDirection,
+                sourceIntentReason,
+                position.x,
+                position.z,
+                facingVector.x,
+                facingVector.z,
+                desiredTarget.x,
+                desiredTarget.z,
                 targetAcquirePriority,
-                serverTime,
-                out UnitMovementDecision decision);
+                expectedPositionDeltaWorld,
+                serverTime);
             return new MovementAdapterEvaluation(
-                status,
-                decision,
-                evaluatedIntentReason,
-                evaluatedHasIntent,
-                simulationFacing,
-                evaluatedDesiredMoveDirection,
-                endpointNormalized,
-                reducerInvoked: true);
+                evaluation.Status,
+                evaluation.Decision,
+                evaluation.EvaluatedIntentReason,
+                evaluation.EvaluatedHasIntent,
+                evaluation.SimulationFacing,
+                evaluation.DesiredMoveDirection,
+                evaluation.EndpointNormalized,
+                evaluation.ReducerInvoked);
         }
 
         internal static EndpointAdapterValidationResult

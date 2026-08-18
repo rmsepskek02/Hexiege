@@ -5,7 +5,7 @@
 // 회전 동기화 방식:
 //   - 회전은 즉시 스냅(Quaternion.Euler)으로 적용한다.
 //   - 멀티플레이에서는 서버가 즉시 스냅한 rotation을 NetworkTransform이 클라이언트에 보간 전달한다.
-//   - Red 클라이언트 rotation 보정은 NetworkUnit.LateUpdate()에서 일괄 처리한다.
+//   - Red 클라이언트 관점 반전은 VisualRootProjector가 Visual Root에만 적용한다.
 //
 // 프리팹 구조:
 //   Unit_{Type} (GameObject)
@@ -36,6 +36,7 @@ using UniRx;
 using Hexiege.Domain;
 using Hexiege.Core;
 using Hexiege.Application;
+using Hexiege.Application.Combat.Sequencing;
 using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation
@@ -43,7 +44,7 @@ namespace Hexiege.Presentation
     // IUnitView 인터페이스 구현.
     //   UnitFactory(Infrastructure)가 Presentation 구체 타입 대신 인터페이스로 Initialize를 호출하도록.
     //   SetDependencies는 Infrastructure 구체 타입을 받으므로 인터페이스에 포함하지 않음.
-    public class UnitView : MonoBehaviour, Hexiege.Application.IUnitView
+    public class UnitView : MonoBehaviour, Hexiege.Application.IUnitView, IUnitActionPoseSource
     {
         // ====================================================================
         // Animator 파라미터 해시 (문자열 비교 방지)
@@ -76,8 +77,8 @@ namespace Hexiege.Presentation
         private const float RangedAttackThreshold = 1.0f;
 
         /// <summary>
-        /// [스킬 - 빙결] 이동 배율이 이 값 이하이면 "완전 정지(빙결)"로 간주해 이동 스텝을 멈춘다(규칙 13 · 9-5).
-        /// 상태효과가 없으면 이동 배율은 항상 이 값보다 크므로(연구 1.0~1.32) 이 게이트는 절대 작동하지 않는다(무변경 보장).
+        /// 이동 배율이 이 값 이하이면 빙결로 간주한다. 서버 권위 이동 writer는 유지한 채
+        /// 위치 진행량만 0으로 만들고, 클라이언트에는 Frozen 애니메이션 상태를 복제한다.
         /// </summary>
         private const float MoveFreezeEpsilon = 0.0001f;
 
@@ -118,6 +119,12 @@ namespace Hexiege.Presentation
 
         /// <summary> 이 유닛에 연결된 Domain 데이터. </summary>
         private UnitData _unitData;
+
+        /// <summary>
+        /// VFX/SFX 등 표현 소비자만 사용하는 Visual Root projector.
+        /// 이동, 사거리, 타겟, A2 pose source는 계속 Simulation Root(transform)를 사용한다.
+        /// </summary>
+        private VisualRootProjector _visualRootProjector;
 
         /// <summary> NetworkUnit.OnNetworkDespawn에서 클라이언트 이펙트 재생 시 타입 참조용. </summary>
         public UnitData UnitData => _unitData;
@@ -176,6 +183,39 @@ namespace Hexiege.Presentation
         /// </summary>
         private Transform _combatTargetTransform = null;
 
+        /// <summary>
+        /// Legacy 이동·정렬·추격 코드가 마지막으로 실제 선택한 월드 목표다.
+        /// A2는 이 값을 읽기만 하며 이동 경로, transform, UnitData.Facing을 절대 수정하지 않는다.
+        /// bool을 따로 두는 이유는 월드 원점도 Vector3 값으로는 표현 가능하기 때문이다.
+        /// </summary>
+        private Vector3 _unitActionShadowDesiredTarget;
+        private bool _hasUnitActionShadowDesiredTarget;
+
+        // 이동 명령/구간 scope는 B2 진단과 B3 권위 writer가 함께 사용한다. 경기 mode와
+        // 무관하게 같은 지점에서만 증가시켜 Legacy/신규 경로가 서로 다른 회차를 보지 않게 한다.
+        private ulong _movementCommandRevision;
+        private ulong _movementSegmentRevision;
+        private UnitMovementIntentReason _movementIntentReason;
+        private bool _movementPendingCommand;
+        private bool _movementPendingSegment;
+        private UnitMovementReducer _movementAuthorityReducer;
+        private NetworkUnit _movementNetworkUnit;
+        private UnitMovementPipelineMode _lockedMovementPipelineMode =
+            UnitMovementPipelineMode.Legacy;
+        // ReducerAuthoritative 경로에서 방금 계산한 trajectory가 현재 논리 waypoint를
+        // 통과했는지 호출 측에 알려 준다. 위치를 타일 중심으로 스냅하지 않고도
+        // ProcessStep/OnUnitEnteredTile을 정확히 한 번 실행하기 위한 프레임 결과다.
+        private bool _lastMovementTrajectoryReachedWaypoint;
+        private bool _lastMovementCandidateAcquiredTarget;
+
+        private enum MovementWriteOutcome
+        {
+            Rejected = 0,
+            Held = 1,
+            Advanced = 2,
+            RepathRequired = 3
+        }
+
         // 회전 속도 (초당 각도) — 인스펙터에서 조정 가능.
         // 전투 중 타겟 추적, A* 이동 중 방향 전환, 전투 종료 후 정렬 모두 동일한 속도로 회전한다.
         // 270도/s 기준: 반대 방향(180도)에서도 약 0.67초 내 전환 완료.
@@ -187,6 +227,7 @@ namespace Hexiege.Presentation
         // _combatTargetTransform이 null로 덮어써지는 경우에도 추적을 복구할 수 있도록 한다.
         private int _combatTargetId = -1;
         private bool _combatTargetIsUnit = true;
+        private bool _movementRotationWriterOwnsRoot;
 
         // ────────────────────────────────────────────────────────────────────
         // 전투 추격(EnterCombatPursuitV3 실행 중) 여부 플래그.
@@ -302,6 +343,17 @@ namespace Hexiege.Presentation
             // 클라이언트가 직접 rotation을 쓰면 NetworkTransform과 충돌한다.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
 
+            // 이동 writer가 root rotation을 소유하는 동안 Legacy 공격 추적 writer는
+            // 같은 frame에 root를 쓸 수 없다. 충돌 시 write를 억제하고 진단 실패로 남긴다.
+            if (_movementRotationWriterOwnsRoot)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObserveAttackWriterOwnershipConflict(
+                    _unitData != null ? _unitData.Id : -1);
+#endif
+                return;
+            }
+
             // 매 프레임 타겟 방향으로 유닛을 부드럽게 회전시킨다.
             // Quaternion.RotateTowards: 현재 회전에서 목표 회전으로 초당 _rotationSpeed 각도만큼 이동.
             // 타겟이 멀리 있을수록 회전이 느리게 보이지만, 일반적인 유닛 이동 속도에서는 즉각 추적처럼 보임.
@@ -325,23 +377,35 @@ namespace Hexiege.Presentation
         ///
         /// 스폰 시 즉시 rotation 스냅:
         ///   서버: 즉시 스냅 → NetworkTransform이 클라이언트에 보간 전달.
-        ///   클라이언트: NetworkTransform이 서버 rotation을 자동 동기화하므로
-        ///             여기서 설정한 값은 곧 서버 값으로 덮어씌워짐.
-        ///             Red 클라이언트는 NetworkUnit.LateUpdate()에서 +180° 보정.
+        ///   클라이언트: 여기서 Simulation Root를 쓰지 않고 NetworkTransform 결과만 사용.
+        ///             Red 관점 반전은 VisualRootProjector가 Visual Root에만 적용.
         /// </summary>
         /// <param name="unitData">이 유닛의 Domain 데이터</param>
         public void Initialize(UnitData unitData)
         {
             _unitData = unitData;
+            _visualRootProjector = GetComponent<VisualRootProjector>();
+            _movementNetworkUnit = GetComponent<NetworkUnit>();
+            _movementCommandRevision = 0UL;
+            _movementSegmentRevision = 0UL;
+            _movementIntentReason = UnitMovementIntentReason.None;
+            _movementPendingCommand = false;
+            _movementPendingSegment = false;
+            _movementAuthorityReducer = new UnitMovementReducer();
+            _lockedMovementPipelineMode = NetworkContext.IsNetworkActive
+                ? NetworkContext.ActiveUnitMovementPipelineMode
+                : UnitMovementPipelineMode.Legacy;
 
             // Animator 캐시 — 자식 오브젝트에 있을 수 있으므로 GetComponentInChildren 사용
             _animator = GetComponentInChildren<Animator>();
 
             // 스폰 시 Facing 방향으로 즉시 rotation 설정.
             // 서버에서 즉시 스냅하면 NetworkTransform이 이 값을 클라이언트에 자동 보간 전달.
-            // ViewConverter.IsFlipped 보정은 NetworkUnit.LateUpdate()에서 일괄 처리하므로 불필요.
+            // 순수 클라이언트는 canonical Simulation Root를 NetworkTransform에서만 받으므로 쓰지 않는다.
             int index = (int)_unitData.Facing;
-            if (index >= 0 && index < DirectionAngles.Length)
+            bool canWriteSimulationRoot =
+                !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
+            if (canWriteSimulationRoot && index >= 0 && index < DirectionAngles.Length)
             {
                 float spawnAngle = DirectionAngles[index];
                 transform.rotation = Quaternion.Euler(0f, spawnAngle, 0f);
@@ -477,6 +541,12 @@ namespace Hexiege.Presentation
                     // 다른 유닛의 사망 이벤트는 무시.
                     if (_unitData != null && e.Unit == _unitData)
                     {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        RetireMovementShadowUnit();
+#endif
+                        // 사망한 root의 마지막 이동/공격 목표가 adapter에 남아 다음 관측으로 재사용되지 않게 한다.
+                        ClearUnitActionShadowDesiredTarget();
+
                         // 사망 시 speed 복원 후 IsDead bool 설정 (Animator 트랜지션)
                         if (_animator != null)
                         {
@@ -505,7 +575,9 @@ namespace Hexiege.Presentation
 
                         // 서버 또는 싱글플레이: 사망 이펙트를 여기서 즉시 재생.
                         // EffectManager/AudioManager가 아직 없는 경우를 대비해 ?. 연산자로 안전 처리.
-                        EffectManager.Instance?.PlayUnitDeath(_unitData.Type, transform.position);   // VFX
+                        EffectManager.Instance?.PlayUnitDeath(
+                            _unitData.Type,
+                            PresentationTransform.position);                                        // VFX
                         AudioManager.Instance?.PlayUnitDeathSfx(_unitData.Type);                     // SFX (규칙 15 — VFX와 짝)
 
                         // GameObject 파괴 경로 분기:
@@ -571,6 +643,686 @@ namespace Hexiege.Presentation
             return obj != null ? obj.transform : null;
         }
 
+        /// <summary>
+        /// 로컬 화면에 그려지는 절대 pose. 표현 소비자만 사용하며 Simulation Root를 변경하지 않는다.
+        /// migration 전 프리팹은 projector가 없으므로 기존 root pose로 안전하게 폴백한다.
+        /// </summary>
+        private Transform PresentationTransform
+        {
+            get
+            {
+                if (_visualRootProjector == null)
+                    _visualRootProjector = GetComponent<VisualRootProjector>();
+                return _visualRootProjector != null
+                    ? _visualRootProjector.PresentationTransform
+                    : transform;
+            }
+        }
+
+        private static Transform GetPresentationTransform(Transform simulationTransform)
+        {
+            if (simulationTransform == null) return null;
+            VisualRootProjector projector =
+                simulationTransform.GetComponent<VisualRootProjector>();
+            return projector != null
+                ? projector.PresentationTransform
+                : simulationTransform;
+        }
+
+        private Vector3 GetTargetPresentationWorldPos(int targetId, bool targetIsUnit)
+        {
+            Transform simulationTransform = GetTargetTransform(targetId, targetIsUnit);
+            Transform presentationTransform =
+                GetPresentationTransform(simulationTransform);
+            return presentationTransform != null
+                ? presentationTransform.position
+                : PresentationTransform.position + PresentationTransform.forward;
+        }
+
+        /// <summary>
+        /// A2 observer가 요청한 타겟과 현재 root pose를 한 번에 읽는다.
+        /// transform.position/forward는 이미 Legacy와 NetworkTransform이 사용하는 좌표이므로
+        /// ViewConverter를 다시 적용하지 않는다. 제공자가 타겟을 찾지 못해 zero를 반환하거나
+        /// 마지막 Legacy 목표가 정리된 상태라면 오래된 방향을 추측하지 않고 false로 끝낸다.
+        /// </summary>
+        public bool TryCaptureUnitActionPose(EntityRef target, out UnitActionPoseSample sample)
+        {
+            sample = default;
+            if (_unitData == null || !_unitData.IsAlive || !target.IsValid)
+                return false;
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer)
+                return false;
+
+            // provider의 Vector3.zero sentinel은 실제 월드 원점과 구분할 수 없다. 따라서 요청한
+            // EntityRef로 factory 오브젝트가 존재하는지 직접 확인한 뒤 raw Transform 위치를 읽는다.
+            Transform targetTransform = GetTargetTransform(target.Id, target.Kind == EntityKind.Unit);
+            if (targetTransform == null) return false;
+            Vector3 targetPosition = targetTransform.position;
+
+            Vector3 attackerPosition = transform.position;
+            Vector3 facing = transform.forward;
+            if (!IsFiniteXZ(attackerPosition) || !IsFiniteXZ(facing)
+                || !IsFiniteXZ(targetPosition) || !IsFiniteXZ(_unitActionShadowDesiredTarget))
+                return false;
+
+            return UnitActionPoseSample.TryCreate(
+                target,
+                attackerPosition.x, attackerPosition.z,
+                facing.x, facing.z,
+                targetPosition.x, targetPosition.z,
+                _hasUnitActionShadowDesiredTarget,
+                _unitActionShadowDesiredTarget.x, _unitActionShadowDesiredTarget.z,
+                out sample);
+        }
+
+        /// <summary>
+        /// Legacy가 이미 계산한 실제 목표만 복사한다. A2를 위해 새 경로나 좌표 변환을 만들지 않는다.
+        /// </summary>
+        private void CaptureUnitActionShadowDesiredTarget(Vector3 target)
+        {
+            if (!IsFiniteXZ(target))
+            {
+                ClearUnitActionShadowDesiredTarget();
+                return;
+            }
+
+            _unitActionShadowDesiredTarget = target;
+            _hasUnitActionShadowDesiredTarget = true;
+        }
+
+        private void ClearUnitActionShadowDesiredTarget()
+        {
+            _unitActionShadowDesiredTarget = default;
+            _hasUnitActionShadowDesiredTarget = false;
+            _movementIntentReason = UnitMovementIntentReason.None;
+        }
+
+        private static bool IsFiniteXZ(Vector3 value)
+        {
+            return !float.IsNaN(value.x) && !float.IsInfinity(value.x)
+                && !float.IsNaN(value.z) && !float.IsInfinity(value.z);
+        }
+
+        private void BeginMovementShadowCommand(UnitMovementIntentReason intentReason)
+        {
+            // Commit diagnostic revisions only when a Legacy writer is actually observed.
+            // Empty or rejected commands therefore cannot create reducer-visible gaps.
+            _movementPendingCommand = true;
+            _movementPendingSegment = false;
+            _movementIntentReason = intentReason;
+        }
+
+        private void BeginMovementShadowSegment(UnitMovementIntentReason intentReason)
+        {
+            if (_movementCommandRevision == 0UL || _movementPendingCommand)
+            {
+                _movementPendingCommand = true;
+                _movementPendingSegment = false;
+                _movementIntentReason = intentReason;
+                return;
+            }
+
+            _movementPendingSegment = true;
+            _movementIntentReason = intentReason;
+        }
+
+        private bool TryCommitMovementScope()
+        {
+            if (_movementPendingCommand)
+            {
+                if (_movementCommandRevision == ulong.MaxValue)
+                    return false;
+
+                _movementCommandRevision++;
+                _movementSegmentRevision = 1UL;
+                _movementPendingCommand = false;
+                _movementPendingSegment = false;
+                return true;
+            }
+
+            if (!_movementPendingSegment)
+                return _movementCommandRevision != 0UL
+                    && _movementSegmentRevision != 0UL;
+
+            if (_movementSegmentRevision == ulong.MaxValue)
+                return false;
+
+            _movementSegmentRevision++;
+            _movementPendingSegment = false;
+            return true;
+        }
+
+        /// <summary>
+        /// A*·전투 복귀·추격이 공유하는 유일한 이동 pose writer seam이다.
+        /// Legacy 경기에는 기존 후보 pose를 그대로 쓰고, ReducerAuthoritative 경기에는
+        /// 서버 reducer가 허용한 frame만 위치를 전진시킨다. 클라이언트는 어떤 분기에서도
+        /// Simulation Root를 쓰지 않는다.
+        /// </summary>
+        private MovementWriteOutcome ApplyMovementAuthorityFrame(
+            Vector3 desiredTarget,
+            Vector3 candidatePosition,
+            Quaternion targetRotation,
+            UnitMovementIntentReason fallbackIntentReason,
+            bool targetAcquirePriority,
+            Vector3? nextTrajectoryTarget = null,
+            float maximumTravelDistanceWorld = -1f,
+            IReadOnlyList<HexCoord> logicalCorridorPath = null,
+            int logicalCorridorWaypointIndex = -1,
+            Func<Vector3, bool> candidateAcquirePredicate = null)
+        {
+            _lastMovementTrajectoryReachedWaypoint = false;
+            _lastMovementCandidateAcquiredTarget = false;
+            if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObserveClientWriteAttempt();
+#endif
+                return MovementWriteOutcome.Rejected;
+            }
+
+            bool reducerAuthoritative = _lockedMovementPipelineMode
+                == UnitMovementPipelineMode.ReducerAuthoritative;
+            if (!reducerAuthoritative)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObserveLegacyWriterSelection();
+#endif
+                transform.position = candidatePosition;
+                transform.rotation = Quaternion.RotateTowards(
+                    transform.rotation,
+                    targetRotation,
+                    _rotationSpeed * Time.deltaTime);
+                return MovementWriteOutcome.Advanced;
+            }
+
+            if (_movementAuthorityReducer == null)
+                _movementAuthorityReducer = new UnitMovementReducer();
+            if (!IsFiniteXZ(transform.position)
+                || !IsFiniteXZ(candidatePosition)
+                || !IsFiniteXZ(desiredTarget)
+                || !IsFiniteQuaternion(transform.rotation)
+                || !IsFiniteQuaternion(targetRotation))
+            {
+                return MovementWriteOutcome.Rejected;
+            }
+            if (_movementIntentReason == UnitMovementIntentReason.None)
+                BeginMovementShadowSegment(fallbackIntentReason);
+            if (!TryCommitMovementScope())
+                return MovementWriteOutcome.Rejected;
+
+            Vector3 facing = transform.forward;
+            Vector3 positionBefore = transform.position;
+            Quaternion rotationBefore = transform.rotation;
+            float expectedDelta = CalculateMovementPositionDeltaXZ(
+                transform.position, candidatePosition);
+            float planningDistance = maximumTravelDistanceWorld >= 0f
+                ? maximumTravelDistanceWorld
+                : expectedDelta;
+            UnitTrajectoryStep trajectoryStep = default;
+            bool hasTrajectoryStep = false;
+            UnitMovementEvaluation evaluation;
+
+            // AcquireTarget와 실제 endpoint는 기존 NoIntent adapter를 그대로 사용한다.
+            // 정상 이동 의도만 pure trajectory planner를 통과시켜, reducer가 raw waypoint
+            // 방향 점프가 아니라 회전 속도 안에서 만들어진 실제 이동 접선을 판정하게 한다.
+            float desiredDistance = CalculateMovementPositionDeltaXZ(
+                transform.position, desiredTarget);
+            bool endpoint = desiredDistance
+                    <= (float)UnitMovementEvaluationAdapter.PositionTolerance
+                && planningDistance
+                    <= (float)UnitMovementEvaluationAdapter.PositionTolerance;
+            if (targetAcquirePriority || endpoint)
+            {
+                evaluation = UnitMovementEvaluationAdapter.Evaluate(
+                    _movementAuthorityReducer,
+                    _movementCommandRevision,
+                    _movementSegmentRevision,
+                    _movementIntentReason,
+                    transform.position.x,
+                    transform.position.z,
+                    facing.x,
+                    facing.z,
+                    desiredTarget.x,
+                    desiredTarget.z,
+                    targetAcquirePriority,
+                    planningDistance,
+                    Time.timeAsDouble);
+            }
+            else
+            {
+                // C# definite-assignment 규칙은 && 뒤쪽 TryCreate가 실행되지 않을 수 있다고
+                // 판단한다. planner 호출 전에 세 값을 default로 명시해, 실패 입력에서는
+                // validPureInput=false로 닫히면서도 컴파일러가 모든 경로의 할당을 증명하게 한다.
+                WorldPointXZ currentPoint = default;
+                ActionDirectionXZ currentFacing = default;
+                WorldPointXZ waypoint = default;
+                bool validPureInput = WorldPointXZ.TryCreate(
+                        transform.position.x,
+                        transform.position.z,
+                        out currentPoint)
+                    && ActionDirectionXZ.TryCreate(
+                        facing.x,
+                        facing.z,
+                        out currentFacing)
+                    && WorldPointXZ.TryCreate(
+                        desiredTarget.x,
+                        desiredTarget.z,
+                        out waypoint);
+                bool hasNext = nextTrajectoryTarget.HasValue;
+                WorldPointXZ nextWaypoint = default;
+                if (validPureInput && hasNext)
+                {
+                    Vector3 next = nextTrajectoryTarget.Value;
+                    validPureInput = IsFiniteXZ(next)
+                        && WorldPointXZ.TryCreate(next.x, next.z, out nextWaypoint);
+                }
+
+                bool planned = validPureInput
+                    && UnitServerTrajectoryPlanner.TryPlan(
+                        currentPoint,
+                        currentFacing,
+                        waypoint,
+                        hasNext,
+                        nextWaypoint,
+                        planningDistance,
+                        _rotationSpeed * Time.deltaTime,
+                        HexMetrics.TileHeight * 0.35d,
+                        out trajectoryStep)
+                    && trajectoryStep.IsValid;
+                if (!planned)
+                    return MovementWriteOutcome.Rejected;
+
+                Vector3 plannedCandidate = transform.position;
+                plannedCandidate.x = (float)trajectoryStep.CandidatePosition.X;
+                plannedCandidate.z = (float)trajectoryStep.CandidatePosition.Z;
+                if (logicalCorridorPath != null
+                    && !IsTrajectoryPointSweepInsidePath(
+                        transform.position,
+                        plannedCandidate,
+                        logicalCorridorPath,
+                        logicalCorridorWaypointIndex))
+                {
+                    // 다음 선분 look-ahead가 현재 corridor 형상에서는 너무 공격적으로
+                    // 코너를 잘랐다면 먼저 현재 waypoint만 향하는 보수적 후보를 한 번 만든다.
+                    // 이 후보도 corridor 밖이면 Transform을 쓰지 않고 재탐색을 요청한다.
+                    bool fallbackPlanned = hasNext
+                        && UnitServerTrajectoryPlanner.TryPlan(
+                            currentPoint,
+                            currentFacing,
+                            waypoint,
+                            false,
+                            default,
+                            planningDistance,
+                            _rotationSpeed * Time.deltaTime,
+                            0d,
+                            out trajectoryStep)
+                        && trajectoryStep.IsValid;
+                    if (!fallbackPlanned)
+                        return MovementWriteOutcome.RepathRequired;
+
+                    plannedCandidate.x = (float)trajectoryStep.CandidatePosition.X;
+                    plannedCandidate.z = (float)trajectoryStep.CandidatePosition.Z;
+                    if (!IsTrajectoryPointSweepInsidePath(
+                        transform.position,
+                        plannedCandidate,
+                        logicalCorridorPath,
+                        logicalCorridorWaypointIndex))
+                    {
+                        return MovementWriteOutcome.RepathRequired;
+                    }
+                }
+
+                bool acquireFromCandidate = candidateAcquirePredicate != null
+                    && candidateAcquirePredicate(plannedCandidate);
+
+                hasTrajectoryStep = true;
+                ActionDirectionXZ reducerDirection =
+                    trajectoryStep.TrajectoryDirection;
+                // 150도 이상 반전은 planner가 위치 진행을 0으로 막는다. reducer에도
+                // raw 목표 방향을 전달해 AlignToMove 상태가 명시적으로 게시되게 한다.
+                if (trajectoryStep.RequiresStationaryAlignment
+                    && !ActionDirectionXZ.TryCreate(
+                        desiredTarget.x - transform.position.x,
+                        desiredTarget.z - transform.position.z,
+                        out reducerDirection))
+                {
+                    return MovementWriteOutcome.Rejected;
+                }
+
+                UnitMovementReducerStatus status = _movementAuthorityReducer.Evaluate(
+                    _movementAuthorityReducer.Snapshot.Revision,
+                    _movementCommandRevision,
+                    _movementSegmentRevision,
+                    _movementIntentReason,
+                    true,
+                    currentFacing,
+                    reducerDirection,
+                    acquireFromCandidate,
+                    Time.timeAsDouble,
+                    out UnitMovementDecision decision);
+                evaluation = new UnitMovementEvaluation(
+                    status,
+                    decision,
+                    _movementIntentReason,
+                    true,
+                    currentFacing,
+                    reducerDirection,
+                    false,
+                    true,
+                    acquireFromCandidate);
+            }
+
+            bool accepted = evaluation.ReducerInvoked
+                && (evaluation.Status == UnitMovementReducerStatus.Accepted
+                    || evaluation.Status == UnitMovementReducerStatus.Duplicate)
+                && evaluation.Decision.IsValid;
+            if (!accepted)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObserveFrame(
+                    _unitData != null ? _unitData.Id : -1,
+                    _movementNetworkUnit != null ? _movementNetworkUnit.NetworkObjectId : 0UL,
+                    _unitData != null ? _unitData.Type : default,
+                    _unitData != null ? _unitData.Team : default,
+                    _movementIntentReason,
+                    _movementCommandRevision,
+                    _movementSegmentRevision,
+                    evaluation,
+                    positionBefore,
+                    rotationBefore,
+                    transform.position,
+                    transform.rotation,
+                    authorityWriterSelected: true);
+#endif
+                return MovementWriteOutcome.Rejected;
+            }
+
+            if (_movementNetworkUnit == null
+                || !_movementNetworkUnit.PublishMovementSnapshot(
+                    _movementAuthorityReducer.Snapshot))
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObservePublicationFailure(
+                    _unitData != null ? _unitData.Id : -1);
+#endif
+                return MovementWriteOutcome.Rejected;
+            }
+
+            if (hasTrajectoryStep)
+            {
+                ActionDirectionXZ trajectoryDirection =
+                    trajectoryStep.TrajectoryDirection;
+                float trajectoryAngle = Mathf.Atan2(
+                    (float)trajectoryDirection.X,
+                    (float)trajectoryDirection.Z) * Mathf.Rad2Deg;
+                // planner가 이미 270°/s 제한을 적용했으므로 여기서 다시 보간하면
+                // 한 프레임의 위치 방향과 rotation이 달라진다. 같은 접선을 원자 적용한다.
+                transform.rotation = Quaternion.Euler(0f, trajectoryAngle, 0f);
+                SynchronizeDomainFacingFromSimulationForward();
+            }
+            else if (evaluation.Decision.Phase == UnitMovementPhase.AlignToMove
+                || evaluation.Decision.Phase == UnitMovementPhase.Move)
+            {
+                ActionDirectionXZ desiredDirection =
+                    evaluation.DesiredMoveDirection;
+                float authorityAngle = Mathf.Atan2(
+                    (float)desiredDirection.X,
+                    (float)desiredDirection.Z) * Mathf.Rad2Deg;
+                Quaternion authorityTargetRotation =
+                    Quaternion.Euler(0f, authorityAngle, 0f);
+                transform.rotation = Quaternion.RotateTowards(
+                    transform.rotation,
+                    authorityTargetRotation,
+                    _rotationSpeed * Time.deltaTime);
+            }
+
+            MovementWriteOutcome outcome = MovementWriteOutcome.Held;
+            if (evaluation.Decision.AllowsMovement
+                || evaluation.CommitsAcquireCandidate)
+            {
+                if (hasTrajectoryStep)
+                {
+                    Vector3 plannedPosition = transform.position;
+                    plannedPosition.x = (float)trajectoryStep.CandidatePosition.X;
+                    plannedPosition.z = (float)trajectoryStep.CandidatePosition.Z;
+                    transform.position = plannedPosition;
+                    _lastMovementTrajectoryReachedWaypoint =
+                        trajectoryStep.ReachedCurrentWaypoint;
+                    _lastMovementCandidateAcquiredTarget =
+                        evaluation.CommitsAcquireCandidate;
+                }
+                else
+                {
+                    transform.position = candidatePosition;
+                }
+                outcome = MovementWriteOutcome.Advanced;
+            }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            UnitMovementAuthorityObserver.ObserveFrame(
+                _unitData != null ? _unitData.Id : -1,
+                _movementNetworkUnit != null ? _movementNetworkUnit.NetworkObjectId : 0UL,
+                _unitData != null ? _unitData.Type : default,
+                _unitData != null ? _unitData.Team : default,
+                _movementIntentReason,
+                _movementCommandRevision,
+                _movementSegmentRevision,
+                evaluation,
+                positionBefore,
+                rotationBefore,
+                transform.position,
+                transform.rotation,
+                authorityWriterSelected: true);
+#endif
+            return outcome;
+        }
+
+        private static float CalculateMovementPositionDeltaXZ(
+            Vector3 from,
+            Vector3 to)
+        {
+            float deltaX = to.x - from.x;
+            float deltaZ = to.z - from.z;
+            return Mathf.Sqrt(deltaX * deltaX + deltaZ * deltaZ);
+        }
+
+        /// <summary>
+        /// reducer mode의 이산 Domain Facing을 이미 commit한 SimulationFacing에 가장 가까운
+        /// 헥스 방향으로 갱신한다. waypoint 시작 시 raw 선분 방향을 먼저 쓰지 않기 때문에
+        /// Domain 방향이 실제 서버 rotation보다 한 단계 앞서는 상태가 생기지 않는다.
+        /// </summary>
+        private void SynchronizeDomainFacingFromSimulationForward()
+        {
+            if (_unitData == null) return;
+
+            Vector3 forward = transform.forward;
+            forward.y = 0f;
+            if (forward.sqrMagnitude <= 0.000001f) return;
+            forward.Normalize();
+
+            Vector3 centerDomain = HexMetrics.HexToWorld(_unitData.Position);
+            Vector3 centerView = ViewConverter.ToView(centerDomain);
+            float bestDot = float.NegativeInfinity;
+            HexDirection bestDirection = _unitData.Facing;
+            for (int index = 0; index < HexDirectionExtensions.Count; index++)
+            {
+                HexDirection domainDirection = (HexDirection)index;
+                HexCoord neighbor = _unitData.Position + domainDirection.Offset();
+                Vector3 neighborView = ViewConverter.ToView(
+                    HexMetrics.HexToWorld(neighbor));
+                Vector3 direction = neighborView - centerView;
+                direction.y = 0f;
+                if (direction.sqrMagnitude <= 0.000001f) continue;
+
+                float dot = Vector3.Dot(forward, direction.normalized);
+                if (dot > bestDot)
+                {
+                    bestDot = dot;
+                    // 기존 A* writer와 같은 진영 변환 의미를 보존한다.
+                    bestDirection = ViewConverter.FlipDirection(domainDirection);
+                }
+            }
+
+            _unitData.Facing = bestDirection;
+        }
+
+        /// <summary>
+        /// Collider 없이 Simulation Root point의 선분만 검사한다. 선분을 짧게 나눠
+        /// 각 표본이 현재 A* path의 인접 타일 영역 중 하나에 속하는지 확인한다.
+        /// 다른 유닛은 경로 차단 요소가 아니며, path 밖 타일과 새로 막힌 중간 타일만 거부한다.
+        /// </summary>
+        private bool IsTrajectoryPointSweepInsidePath(
+            Vector3 fromView,
+            Vector3 toView,
+            IReadOnlyList<HexCoord> path,
+            int waypointIndex)
+        {
+            if (path == null
+                || path.Count < 2
+                || waypointIndex < 1
+                || waypointIndex >= path.Count
+                || !IsFiniteXZ(fromView)
+                || !IsFiniteXZ(toView))
+            {
+                return false;
+            }
+
+            float distance = CalculateMovementPositionDeltaXZ(fromView, toView);
+            float sampleSpacing = Mathf.Max(HexMetrics.TileHeight * 0.1f, 0.01f);
+            int sampleCount = Mathf.Max(1, Mathf.CeilToInt(distance / sampleSpacing));
+            int firstAllowed = Mathf.Max(0, waypointIndex - 1);
+            int lastAllowed = Mathf.Min(path.Count - 1, waypointIndex + 1);
+            for (int sample = 0; sample <= sampleCount; sample++)
+            {
+                float t = sample / (float)sampleCount;
+                Vector3 viewPoint = Vector3.Lerp(fromView, toView, t);
+                Vector3 domainPoint = ViewConverter.FromView(viewPoint);
+                HexCoord tile = HexMetrics.WorldToHex(domainPoint);
+
+                bool inCorridor = false;
+                for (int index = firstAllowed; index <= lastAllowed; index++)
+                {
+                    if (path[index] == tile)
+                    {
+                        inCorridor = true;
+                        break;
+                    }
+                }
+                if (!inCorridor) return false;
+
+                // 마지막 목적지는 성/건물일 수 있어 기존 의미상 non-walkable을 허용한다.
+                // 그 외 표본 타일이 경기 중 새로 막혔다면 point sweep을 즉시 거부한다.
+                bool isFinalDestination = tile == path[path.Count - 1];
+                if (!isFinalDestination
+                    && _movementUseCase != null
+                    && !_movementUseCase.IsWalkable(tile))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// 살아 있는 유닛이 이동/추격을 정상 종료할 때 마지막 권위 상태를 NoIntent로 닫는다.
+        /// 종료 경계가 publication에 실패하면 이전 Move/Align 상태를 숨기지 않고 fail-closed한다.
+        /// </summary>
+        private bool TryCloseMovementAuthorityIntent(
+            UnitMovementIntentReason fallbackIntentReason,
+            string boundary)
+        {
+            if (_unitData == null || !_unitData.IsAlive)
+                return true;
+
+            MovementWriteOutcome outcome = ApplyMovementAuthorityFrame(
+                transform.position,
+                transform.position,
+                transform.rotation,
+                fallbackIntentReason,
+                targetAcquirePriority: false);
+            if (outcome != MovementWriteOutcome.Rejected)
+                return true;
+
+            Debug.LogError(
+                $"[UAS-MOVE] 이동 종료 NoIntent 게시 거부. " +
+                $"unitId={_unitData.Id}, boundary={boundary}, " +
+                $"commandRevision={_movementCommandRevision}, " +
+                $"segmentRevision={_movementSegmentRevision}");
+            return false;
+        }
+
+        private static bool IsFiniteQuaternion(Quaternion value)
+        {
+            return !float.IsNaN(value.x) && !float.IsInfinity(value.x)
+                && !float.IsNaN(value.y) && !float.IsInfinity(value.y)
+                && !float.IsNaN(value.z) && !float.IsInfinity(value.z)
+                && !float.IsNaN(value.w) && !float.IsInfinity(value.w);
+        }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private void RetireMovementShadowUnit()
+        {
+            if (_unitData == null
+                || _movementNetworkUnit == null
+                || !_movementNetworkUnit.IsSpawned)
+                return;
+
+            UnitMovementShadowObserver.RetireUnit(
+                _unitData.Id,
+                _movementNetworkUnit.NetworkObjectId);
+        }
+
+        private static float CalculateMovementShadowPositionDeltaXZ(
+            Vector3 from,
+            Vector3 to)
+            => CalculateMovementPositionDeltaXZ(from, to);
+
+        private UnitMovementShadowObserver.LegacyFrameToken BeginMovementShadowLegacyFrame(
+            Vector3 desiredTarget,
+            UnitMovementIntentReason fallbackIntentReason,
+            float expectedPositionDeltaWorld)
+        {
+            if (!NetworkContext.IsNetworkActive
+                || !NetworkContext.IsNetworkServer
+                || _unitData == null
+                || !_unitData.IsAlive
+                || _movementNetworkUnit == null
+                || !_movementNetworkUnit.IsSpawned)
+            {
+                return default;
+            }
+
+            if (_movementIntentReason == UnitMovementIntentReason.None)
+                BeginMovementShadowSegment(fallbackIntentReason);
+
+            if (!TryCommitMovementScope())
+                return default;
+            return UnitMovementShadowObserver.BeginLegacyFrame(
+                _unitData.Id,
+                _movementNetworkUnit.NetworkObjectId,
+                _unitData.Type,
+                _unitData.Team,
+                _movementCommandRevision,
+                _movementSegmentRevision,
+                _movementIntentReason,
+                transform.position,
+                transform.rotation,
+                desiredTarget,
+                targetAcquirePriority: false,
+                expectedPositionDeltaWorld: expectedPositionDeltaWorld);
+        }
+
+        private void CompleteMovementShadowLegacyFrame(
+            UnitMovementShadowObserver.LegacyFrameToken token)
+        {
+            UnitMovementShadowObserver.CompleteLegacyFrame(
+                token,
+                transform.position,
+                transform.rotation);
+        }
+#endif
+
         // ====================================================================
         // 이동
         // ====================================================================
@@ -583,9 +1335,26 @@ namespace Hexiege.Presentation
         /// <param name="path">A* 경로 (시작점 포함)</param>
         public void MoveTo(List<HexCoord> path)
         {
+            MoveToInternal(path, UnitMovementIntentReason.AStarPath, startNewCommand: true);
+        }
+
+        /// <summary>
+        /// Starts or restarts the existing Legacy coroutine while keeping B2 command/segment
+        /// correlation explicit. The diagnostic scope does not affect the path or writer.
+        /// </summary>
+        private void MoveToInternal(
+            List<HexCoord> path,
+            UnitMovementIntentReason intentReason,
+            bool startNewCommand)
+        {
             // 멀티플레이에서는 서버만 이동 로직을 실행.
             // 클라이언트는 NetworkTransform이 서버 위치를 자동으로 보간·동기화.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
+
+            if (startNewCommand)
+                BeginMovementShadowCommand(intentReason);
+            else
+                BeginMovementShadowSegment(intentReason);
 
             // 새 코루틴을 시작하므로, OnPathInvalidated가 예약해 둔
             // _pendingPath는 더 이상 유효하지 않다(이미 새 path가 들어왔기 때문).
@@ -785,7 +1554,10 @@ namespace Hexiege.Presentation
                 && !_movementUseCase.IsWalkable(_currentNextTileCoord.Value))
             {
                 // 다음 도착 타일이 막혔으므로 부드러운 교체 불가 — 즉시 코루틴 재시작.
-                MoveTo(newPath);
+                MoveToInternal(
+                    newPath,
+                    UnitMovementIntentReason.BlockedRepath,
+                    startNewCommand: false);
                 return;
             }
 
@@ -836,13 +1608,31 @@ namespace Hexiege.Presentation
                 : _combatUseCase.HasEnemyInDetectRange(_unitData);
         }
 
+        /// <summary>
+        /// 아직 Transform에 적용하지 않은 서버 trajectory candidate를 기준으로 감지한다.
+        /// 현재 pose를 임시로 덮어쓰지 않으므로, candidate까지 이동한 바로 그 틱에
+        /// 위치를 commit하고 AcquireTarget으로 전환할 수 있다.
+        /// </summary>
+        private bool ShouldEngageAt(Vector3 candidatePosition)
+        {
+            if (_combatUseCase == null || _unitData == null || !_unitData.IsAlive)
+                return false;
+
+            return _unitData.IsHealer
+                ? _combatUseCase.HasInjuredAllyInHealRangeAt(
+                    _unitData, candidatePosition)
+                : _combatUseCase.HasEnemyInDetectRangeAt(
+                    _unitData, candidatePosition);
+        }
+
         // ====================================================================
         // MoveAlongPathV3 — 단일 상태 머신
         // ====================================================================
         // GameSystemRules.md 새 규칙 7~10에 따른 통합 상태 머신:
         //
-        //   [A* 이동] : path 따라 타일 중심 → 타일 중심 Lerp 이동.
-        //              매 프레임 HasEnemyInDetectRange 체크.
+        //   [A* 이동] : Legacy는 타일 중심 Lerp, ReducerAuthoritative는 실제 거리 기반
+        //              연속 trajectory와 waypoint 통과 checkpoint를 사용한다.
+        //              두 모드 모두 매 프레임 감지하며 서버만 pose를 쓴다.
         //              감지되면 → [전투 이동]으로 전환.
         //
         //   [전투 이동] : 적의 월드 위치를 향해 직선 이동 (근접/원거리 동일).
@@ -874,13 +1664,62 @@ namespace Hexiege.Presentation
         ///   1) 멀티플레이 가드 — 서버가 아니면 즉시 yield break.
         ///   2) path 유효성 체크 — 비정상이면 cleanup 후 종료.
         ///   3) Walk 애니메이션 시작 (1회만 CrossFade).
-        ///   4) 외부 while: path를 순회하며 타일 중심으로 Lerp.
+        ///   4) 외부 while: path를 순회한다. Legacy는 중심 Lerp, 신규 권위 모드는
+        ///      다음 선분 look-ahead를 포함한 거리 기반 trajectory로 진행한다.
         ///      - 매 프레임 detect 사거리 내 적 확인.
         ///      - 감지되면 EnterCombatPursuitV3로 전투 이동 → 공격 흐름 위임.
         ///      - 전투 종료 후 ResumeFromForwardTileV3로 앞쪽 타일에서 새 경로 받아 재개.
         ///   5) 정상 완주 또는 사망이면 cleanup.
         /// </summary>
         /// <param name="path">A* 경로 (시작점 포함, 길이 ≥ 2).</param>
+        private bool TryAcceptRepath(
+            UnitRepathProgressGuard guard,
+            IReadOnlyList<HexCoord> candidatePath,
+            string source,
+            out UnitRepathDecision decision)
+        {
+            decision = guard != null
+                ? guard.Evaluate(Time.frameCount, candidatePath)
+                : UnitRepathDecision.RejectedInvalidPath;
+            if (decision == UnitRepathDecision.AcceptedNextFrame)
+                return true;
+
+            LogRepathFailClosed(guard, candidatePath, source, decision);
+            return false;
+        }
+
+        private void LogRepathFailClosed(
+            UnitRepathProgressGuard guard,
+            IReadOnlyList<HexCoord> candidatePath,
+            string source,
+            UnitRepathDecision decision,
+            string failedWaypointOverride = null)
+        {
+            string unitId = _unitData != null ? _unitData.Id.ToString() : "null";
+            UnitPathSignature.TryCreate(
+                candidatePath, out UnitPathSignature candidateSignature);
+            string failedWaypoint = failedWaypointOverride
+                ?? (candidatePath != null && candidatePath.Count > 1
+                    ? candidatePath[1].ToString()
+                    : "unavailable");
+            Debug.LogError(
+                $"[UAS-MOVE][REPATH-FAIL-CLOSED] unitId={unitId}, " +
+                $"commandRevision={_movementCommandRevision}, " +
+                $"segmentRevision={_movementSegmentRevision}, " +
+                $"source={source}, decision={decision}, frame={Time.frameCount}, " +
+                $"failedWaypoint={failedWaypoint}, " +
+                $"previousPath={FormatPathSignature(guard?.PreviousPath ?? default)}, " +
+                $"currentPath={FormatPathSignature(guard?.CurrentPath ?? default)}, " +
+                $"candidatePath={FormatPathSignature(candidateSignature)}, " +
+                $"acceptedInFrame={guard?.AcceptedInFrame ?? 0}, " +
+                $"acceptedWithoutProgress={guard?.AcceptedWithoutProgress ?? 0}");
+        }
+
+        private static string FormatPathSignature(UnitPathSignature signature)
+            => signature.IsValid
+                ? $"{signature.WaypointCount}:{signature.OrderedHash:x16}"
+                : "invalid";
+
         private IEnumerator MoveAlongPathV3(List<HexCoord> path)
         {
             // ── 멀티플레이 가드 ────────────────────────────────────────────
@@ -897,6 +1736,8 @@ namespace Hexiege.Presentation
                 MoveCleanupAndCompleteV3();
                 yield break;
             }
+
+            _movementRotationWriterOwnsRoot = true;
 
             // 멀티플레이 서버: 이동 시작 이벤트 발행 → NetworkCombatController가
             // _animState(=Walk) 레벨 동기화로 모든 클라이언트에 Walk 시작 전파.
@@ -919,13 +1760,14 @@ namespace Hexiege.Presentation
 
             // 최종 목적지(외부 while 동안 변하지 않음). 우회/재경로 모두 이 좌표를 기준.
             HexCoord finalTarget = path[path.Count - 1];
+            var pathCheckpoint = new UnitPathCheckpointTracker();
+            var repathGuard = new UnitRepathProgressGuard(path);
+            bool movementFailedClosed = false;
 
-            // 유닛별 개별 이동 속도 (MoveSpeed 칸/초 → 1칸 이동 시간(초) 변환).
-            // [Phase 2] 실제 속도 = 기본 MoveSpeed × 팀 이동 연구 배율(스냅샷 필드 불변, 사용 지점 배율).
-            //   _combatUseCase 미주입/미연구 시 배율 1.0 → 기존과 동일.
-            float moveSpeedMul = _combatUseCase != null ? _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData) : 1f;
-            float effectiveMoveSpeed = _unitData.MoveSpeed * moveSpeedMul;
-            float moveSeconds = effectiveMoveSpeed > 0f ? 1f / effectiveMoveSpeed : 1.0f;
+            // Legacy 시간 환산과 신규 trajectory가 같은 기본 MoveSpeed를 사용한다.
+            // 연구·둔화·빙결 배율은 각 frame에서 다시 읽어 즉시 반영한다.
+            float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
+            float worldSpeed = HexMetrics.TileHeight / moveSeconds;
 
             // ────────────────────────────────────────────────────────────────
             // 외부 while — path가 새로 발급될 때마다 위로 돌아와 새 path로 순회.
@@ -953,11 +1795,6 @@ namespace Hexiege.Presentation
                     // 사망/소실 체크 — 매 타일 진입 시 안전 장치.
                     if (_unitData == null || !_unitData.IsAlive) break;
 
-                    // [스킬 - 빙결/둔화 통합] 과거의 "타일 경계 전용" 빙결 대기 게이트는 제거했다.
-                    //   대신 아래 Lerp 루프가 매 프레임 "현재(라이브)" 이동 배율을 읽어
-                    //   빙결(배율 0)=진행 정지 + 걷기 애니 정지, 둔화(0<m<1)=느린 진행을 즉시 반영한다.
-                    //   (타일 경계에서 빙결돼도 Lerp 진입 즉시 t=0에서 멈추므로 위치가 타일 중심에 고정된다.)
-
                     HexCoord from = prevActualTile;
                     HexCoord to = path[i];
 
@@ -974,12 +1811,16 @@ namespace Hexiege.Presentation
                     // ──────────────────────────────────────────────────────
                     HexDirection dir = FacingDirection.FromCoords(from, to);
                     dir = ViewConverter.FlipDirection(dir);
-                    _unitData.Facing = dir;
+                    if (_lockedMovementPipelineMode
+                        != UnitMovementPipelineMode.ReducerAuthoritative)
+                    {
+                        _unitData.Facing = dir;
+                    }
 
                     // ──────────────────────────────────────────────────────
-                    // [A* 이동] 이동 목표 = 항상 타일 중심.
-                    //   같은 타일에 여러 유닛이 들어가도 동일한 중심으로 이동한다.
-                    //   시각적 분산은 별도 시스템 책임이 아니다.
+                    // [A* 경로 입력] waypoint는 타일 중심이지만 ReducerAuthoritative 위치는
+                    // 중심 통과를 강제하지 않는다. 이 점과 다음 점으로 corridor 안의 연속
+                    // trajectory를 만들며, 마지막 목적지만 중심에 정확히 수렴한다.
                     // ──────────────────────────────────────────────────────
                     Vector3 toDomain = HexMetrics.HexToWorld(to);
 
@@ -989,6 +1830,19 @@ namespace Hexiege.Presentation
                     // 타일 중심 = 도메인 좌표 → 뷰 좌표 변환 + 유닛 높이 보정.
                     Vector3 toPos = ViewConverter.ToView(toDomain);
                     toPos.y += HexMetrics.UnitYOffset;
+                    CaptureUnitActionShadowDesiredTarget(toPos);
+
+                    // 정상 코너는 현재 타일 중심에 도착한 뒤 다음 방향을 처음 보는 것이 아니라,
+                    // 현재 waypoint에 접근하는 동안 다음 선분을 미리 보아야 연속 선회가 된다.
+                    // 마지막 waypoint에는 다음 점이 없으므로 정확한 목적지 중심에 수렴한다.
+                    Vector3? nextTrajectoryTarget = null;
+                    if (i + 1 < path.Count)
+                    {
+                        Vector3 nextDomain = HexMetrics.HexToWorld(path[i + 1]);
+                        Vector3 nextView = ViewConverter.ToView(nextDomain);
+                        nextView.y += HexMetrics.UnitYOffset;
+                        nextTrajectoryTarget = nextView;
+                    }
 
                     // ──────────────────────────────────────────────────────
                     // [회전 시스템 변경 — 2026-05-14] 목표 각도 계산 — toPos 정의 직후 1회만.
@@ -1000,18 +1854,18 @@ namespace Hexiege.Presentation
                     Quaternion targetRot = Quaternion.Euler(0f, targetAngle, 0f);
 
                     // ──────────────────────────────────────────────────────
-                    // [A* 이동] Lerp 이동 + 매 프레임 detect 사거리 적 감지.
+                    // [A* 이동] Legacy Lerp 또는 신규 거리 기반 trajectory + 매 프레임 감지.
                     //   - detect 진입 → EnterCombatPursuitV3로 [전투 이동] 위임.
                     //   - 근접/원거리 구분 없음. 차이는 EnterCombatPursuitV3 내부의 사거리 수치뿐.
                     // ──────────────────────────────────────────────────────
-                    // [라이브 이동 — 둔화/빙결 즉시 반영] 고정 시간(moveSeconds) 대신 "진행도 t"를
-                    //   매 프레임 현재 이동 배율로 전진시킨다.
-                    //   - t: 이 타일 스텝의 진행도(0=출발 fromPos, 1=도착 toPos).
-                    //   - 한 칸 이동을 t:0→1로 볼 때, 초당 진행 속도 = 유효 이동속도(칸/초)이다
-                    //     (기존 moveSeconds = 1/유효속도 와 역수 관계 — 무상태면 완전히 동일 속도).
-                    //   경로 발급 시 1회 캡처하던 방식과 달리, 배율이 바뀌면 다음 프레임부터 즉시 반영된다.
-                    // ──────────────────────────────────────────────────────
-                    float t = 0f;
+                    float elapsed = 0f;
+                    float targetDuration = moveSeconds;
+                    bool reducerTrajectory = _lockedMovementPipelineMode
+                        == UnitMovementPipelineMode.ReducerAuthoritative;
+                    bool authoritativeWaypointReached = false;
+                    Func<Vector3, bool> candidateEngagePredicate = reducerTrajectory
+                        ? (Func<Vector3, bool>)ShouldEngageAt
+                        : null;
 
                     // [전투 이동]으로 전환되었음을 표시. true면 Lerp while 탈출 후
                     // toPos 강제 스냅과 ProcessStep을 모두 건너뛰고 새 path로 외부 while 재진입.
@@ -1022,49 +1876,119 @@ namespace Hexiege.Presentation
                     // 즉시 코루틴을 재시작해야 하므로 외부에서 검사할 수 있도록 노출한다.
                     _currentNextTileCoord = to;
 
-                    while (t < 1f && _unitData != null && _unitData.IsAlive)
+                    while ((reducerTrajectory
+                            ? !authoritativeWaypointReached
+                            : elapsed < targetDuration)
+                        && _unitData != null
+                        && _unitData.IsAlive)
                     {
-                        // 현재(라이브) 유효 이동 배율 — 매 프레임 다시 읽는다(둔화/빙결 즉시 반영).
-                        //   _combatUseCase 미주입/무상태면 1 → 기존과 동일 속도(회귀 안전).
-                        float liveMul = _combatUseCase != null
-                            ? _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData)
+                        float liveMoveMultiplier = _combatUseCase != null
+                            ? Mathf.Max(0f, _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData))
                             : 1f;
+                        bool movementFrozen = liveMoveMultiplier <= MoveFreezeEpsilon;
+                        SetFrozenAnimation(movementFrozen);
 
-                        // [스킬 - 빙결] 배율이 0(빙결)이면 진행을 멈추고(위치 고정) 걷기 애니메이션도 정지한다.
-                        //   무상태면 배율은 항상 >0이라 이 분기에 절대 들어오지 않는다(무변경 보장).
-                        if (liveMul <= MoveFreezeEpsilon)
+                        float candidateElapsed = elapsed
+                            + (movementFrozen ? 0f : Time.deltaTime * liveMoveMultiplier);
+                        float t = Mathf.Clamp01(candidateElapsed / targetDuration);
+                        Vector3 candidatePosition = Vector3.Lerp(fromPos, toPos, t);
+                        bool shouldEngage = ShouldEngage();
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        UnitMovementShadowObserver.LegacyFrameToken movementShadowToken = default;
+                        if (_lockedMovementPipelineMode
+                            != UnitMovementPipelineMode.ReducerAuthoritative)
                         {
-                            SetFrozenAnimation(true);   // 걷기 정지(호스트 speed=0 / 클라 Frozen 동기화).
-                            yield return null;
-                            continue;                   // t 전진 없음 → transform.position 유지(제자리 고정).
+                            movementShadowToken = BeginMovementShadowLegacyFrame(
+                                    toPos,
+                                    UnitMovementIntentReason.AStarPath,
+                                    CalculateMovementShadowPositionDeltaXZ(
+                                        transform.position,
+                                        candidatePosition));
                         }
+#endif
+                        Vector3 positionBeforeAuthorityFrame = transform.position;
+                        MovementWriteOutcome movementOutcome = ApplyMovementAuthorityFrame(
+                            toPos,
+                            candidatePosition,
+                            targetRot,
+                            UnitMovementIntentReason.AStarPath,
+                            shouldEngage,
+                            nextTrajectoryTarget,
+                            reducerTrajectory
+                                ? worldSpeed * liveMoveMultiplier * Time.deltaTime
+                                : -1f,
+                            reducerTrajectory ? path : null,
+                            reducerTrajectory ? i : -1,
+                            candidateEngagePredicate);
+                        if (movementOutcome == MovementWriteOutcome.RepathRequired)
+                        {
+                            List<HexCoord> blockedRepath = _movementUseCase != null
+                                ? _movementUseCase.RequestMove(_unitData, finalTarget)
+                                : null;
+                            if (!TryAcceptRepath(
+                                    repathGuard,
+                                    blockedRepath,
+                                    "astar-corridor",
+                                    out UnitRepathDecision repathDecision))
+                            {
+                                movementFailedClosed = true;
+                                goto cleanup;
+                            }
 
-                        // 빙결이 아니면(또는 애초에 무빙결) 걷기 애니메이션을 정상 속도로 복원한다.
-                        //   무상태 유닛은 _isFrozenAnim가 계속 false라 이 호출이 즉시 반환된다(부작용 없음).
-                        SetFrozenAnimation(false);
+                            BeginMovementShadowSegment(
+                                UnitMovementIntentReason.BlockedRepath);
+                            path = blockedRepath;
+                            pathCheckpoint.Reset();
+                            needRepath = true;
+                            _currentNextTileCoord = null;
+                            break;
+                        }
+                        if (movementOutcome == MovementWriteOutcome.Rejected)
+                        {
+                            Debug.LogError(
+                                $"[UAS-MOVE] 권위 이동 frame 거부. unitId={_unitData.Id}, " +
+                                $"commandRevision={_movementCommandRevision}, " +
+                                $"segmentRevision={_movementSegmentRevision}");
+                            goto cleanup;
+                        }
+                        if (movementOutcome == MovementWriteOutcome.Advanced)
+                        {
+                            Vector3 committedDelta =
+                                transform.position - positionBeforeAuthorityFrame;
+                            if (_lastMovementTrajectoryReachedWaypoint
+                                || committedDelta.x * committedDelta.x
+                                    + committedDelta.z * committedDelta.z
+                                    > (float)(UnitMovementEvaluationAdapter.PositionTolerance
+                                        * UnitMovementEvaluationAdapter.PositionTolerance))
+                            {
+                                repathGuard.ObserveProgress(path);
+                            }
 
-                        // 유효 이동속도(칸/초) = 기본 이동속도 × 라이브 배율.
-                        //   MoveSpeed<=0인 비정상 데이터는 기존 폴백(1칸/초)로 진행해 무한 루프를 막는다.
-                        float liveSpeed = _unitData.MoveSpeed * liveMul;
-                        float progressRate = liveSpeed > 0f ? liveSpeed : 1f;
-
-                        // 진행도 전진 — 둔화면 progressRate가 작아져 자연히 느리게 이동한다.
-                        t += Time.deltaTime * progressRate;
-                        if (t > 1f) t = 1f;
-                        transform.position = Vector3.Lerp(fromPos, toPos, t);
-
-                        // [회전 시스템 변경 — 2026-05-14] 매 프레임 RotateTowards로 점진 회전.
-                        //   _rotationSpeed(초당 각도) × Time.deltaTime 만큼 targetRot로 다가간다.
-                        //   1 타일 이동 시간(moveSeconds)이 회전 완료에 충분할 만큼 _rotationSpeed가 크면 거의 즉시 정렬됨.
-                        //   서버에서만 실행되며, NetworkTransform이 클라이언트로 회전 보간 전달.
-                        transform.rotation = Quaternion.RotateTowards(
-                            transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
+                            if (reducerTrajectory)
+                            {
+                                authoritativeWaypointReached =
+                                    _lastMovementTrajectoryReachedWaypoint;
+                            }
+                            else
+                            {
+                                elapsed = candidateElapsed;
+                            }
+                        }
+                        shouldEngage = shouldEngage
+                            || _lastMovementCandidateAcquiredTarget;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        CompleteMovementShadowLegacyFrame(movementShadowToken);
+#endif
 
                         // ── [A* 이동] → [전투 이동 / 힐] 전환 ──
                         // 감지 사거리 안에 대상(일반=적 / 힐러=부상 아군)이 있으면 즉시 위임.
                         // ShouldEngage()가 유닛 역할에 맞는 대상을 검사한다(힐러는 적을 타지 않음).
-                        if (ShouldEngage())
+                        if (shouldEngage)
                         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                            UnitMovementShadowObserver.ObserveTargetAcquirePriority(
+                                movementShadowToken);
+#endif
                             // 혼잡도 기여 일시 중단 — 추격 단계는 타일을 거치지 않는
                             // 직선 이동이므로 OnUnitEnteredTile 발행을 막는다. resumePath에서 다시 true.
                             _isAStarMoving = false;
@@ -1079,7 +2003,9 @@ namespace Hexiege.Presentation
                             {
                                 // [힐러] 부상 아군 힐 루프에 위임 — 적 공격 흐름과 완전히 분리된 경로.
                                 //   정지 → 힐 애니 → HoT 부여 → 쿨다운 → 재탐색을 EnterHealLoopV3가 담당한다.
+                                _movementRotationWriterOwnsRoot = false;
                                 yield return EnterHealLoopV3();
+                                _movementRotationWriterOwnsRoot = true;
                             }
                             else
                             {
@@ -1094,6 +2020,7 @@ namespace Hexiege.Presentation
 
                             if (_unitData == null || !_unitData.IsAlive) break;
 
+                            BeginMovementShadowSegment(UnitMovementIntentReason.PostCombatResume);
                             // ──────────────────────────────────────────────────────────
                             // [BUG-002 수정 — 2026-05-13] 전투 종료 → 앞쪽 타일까지 "걸어서" 정렬.
                             //
@@ -1122,6 +2049,7 @@ namespace Hexiege.Presentation
                             Vector3 forwardWorld = HexMetrics.HexToWorld(forwardTile);
                             Vector3 alignView = ViewConverter.ToView(forwardWorld);
                             alignView.y += HexMetrics.UnitYOffset;
+                            CaptureUnitActionShadowDesiredTarget(alignView);
 
                             Vector3 alignFromPos = transform.position;
                             float alignDist = Vector3.Distance(alignFromPos, alignView);
@@ -1139,6 +2067,13 @@ namespace Hexiege.Presentation
                             // 정렬 방향 계산 — unitDomainPos가 속한 타일에서 forwardTile로 가는 HexDirection.
                             HexCoord nearestTile = HexMetrics.WorldToHex(unitDomainPos);
                             HexDirection alignDir = FacingDirection.FromCoords(nearestTile, forwardTile);
+                            // 전투 위치에서 A*로 복귀하는 구간도 Collider가 아니라 현재/앞쪽
+                            // 타일을 연결한 logical corridor로 Simulation Root point를 검사한다.
+                            var resumeCorridor = new List<HexCoord>(2)
+                            {
+                                nearestTile,
+                                forwardTile
+                            };
 
                             // ──────────────────────────────────────────────────────
                             // [회전 시스템 변경 — 2026-05-14] 정렬 회전을 RotateTowards로 점진 회전.
@@ -1149,7 +2084,11 @@ namespace Hexiege.Presentation
                             //   _unitData.Facing은 도메인 상태 추적 목적으로 기존처럼 HexDirection으로 갱신 유지.
                             // ──────────────────────────────────────────────────────
                             HexDirection alignViewDir = ViewConverter.FlipDirection(alignDir);
-                            _unitData.Facing = alignViewDir;
+                            if (_lockedMovementPipelineMode
+                                != UnitMovementPipelineMode.ReducerAuthoritative)
+                            {
+                                _unitData.Facing = alignViewDir;
+                            }
 
                             float alignTargetAngle = CalculateAttackAngle(alignView);
                             Quaternion alignTargetRot = Quaternion.Euler(0f, alignTargetAngle, 0f);
@@ -1157,22 +2096,134 @@ namespace Hexiege.Presentation
                             if (alignDuration > 0.0001f)
                             {
                                 float alignElapsed = 0f;
-                                while (alignElapsed < alignDuration && _unitData != null && _unitData.IsAlive)
+                                bool reducerResumeTrajectory = _lockedMovementPipelineMode
+                                    == UnitMovementPipelineMode.ReducerAuthoritative;
+                                bool resumeWaypointReached = false;
+                                while ((reducerResumeTrajectory
+                                        ? !resumeWaypointReached
+                                        : alignElapsed < alignDuration)
+                                    && _unitData != null
+                                    && _unitData.IsAlive)
                                 {
-                                    alignElapsed += Time.deltaTime;
-                                    float at = Mathf.Clamp01(alignElapsed / alignDuration);
-                                    transform.position = Vector3.Lerp(alignFromPos, alignView, at);
+                                    float alignMoveMultiplier = _combatUseCase != null
+                                        ? Mathf.Max(0f, _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData))
+                                        : 1f;
+                                    bool alignMovementFrozen =
+                                        alignMoveMultiplier <= MoveFreezeEpsilon;
+                                    SetFrozenAnimation(alignMovementFrozen);
 
-                                    // [회전 시스템 변경 — 2026-05-14] 매 프레임 RotateTowards로 점진 회전.
-                                    //   _rotationSpeed(초당 각도) × Time.deltaTime 만큼 alignTargetRot로 다가간다.
-                                    //   전투 종료 후 적 방향에서 정렬 방향까지 부드러운 회전이 보이도록 한다.
-                                    //   서버에서만 실행되며, NetworkTransform이 클라이언트로 회전 보간 전달.
-                                    transform.rotation = Quaternion.RotateTowards(
-                                        transform.rotation, alignTargetRot, _rotationSpeed * Time.deltaTime);
+                                    float candidateAlignElapsed = alignElapsed
+                                        + (alignMovementFrozen
+                                            ? 0f
+                                            : Time.deltaTime * alignMoveMultiplier);
+                                    float at = Mathf.Clamp01(candidateAlignElapsed / alignDuration);
+                                    Vector3 candidateAlignPosition = Vector3.Lerp(
+                                        alignFromPos,
+                                        alignView,
+                                        at);
+                                    bool shouldReengage = ShouldEngage();
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                                    UnitMovementShadowObserver.LegacyFrameToken resumeShadowToken = default;
+                                    if (_lockedMovementPipelineMode
+                                        != UnitMovementPipelineMode.ReducerAuthoritative)
+                                    {
+                                        resumeShadowToken = BeginMovementShadowLegacyFrame(
+                                            alignView,
+                                            UnitMovementIntentReason.PostCombatResume,
+                                            CalculateMovementShadowPositionDeltaXZ(
+                                                transform.position,
+                                                candidateAlignPosition));
+                                    }
+#endif
+                                    Vector3 positionBeforeAlignFrame = transform.position;
+                                    MovementWriteOutcome alignOutcome = ApplyMovementAuthorityFrame(
+                                        alignView,
+                                        candidateAlignPosition,
+                                        alignTargetRot,
+                                        UnitMovementIntentReason.PostCombatResume,
+                                        shouldReengage,
+                                        nextTrajectoryTarget: null,
+                                        maximumTravelDistanceWorld:
+                                            reducerResumeTrajectory
+                                                ? worldSpeed * alignMoveMultiplier * Time.deltaTime
+                                                : -1f,
+                                        logicalCorridorPath:
+                                            reducerResumeTrajectory
+                                                ? resumeCorridor
+                                                : null,
+                                        logicalCorridorWaypointIndex:
+                                            reducerResumeTrajectory ? 1 : -1,
+                                        candidateAcquirePredicate:
+                                            reducerResumeTrajectory
+                                                ? (Func<Vector3, bool>)ShouldEngageAt
+                                                : null);
+                                    if (alignOutcome == MovementWriteOutcome.RepathRequired)
+                                    {
+                                        List<HexCoord> blockedResumePath =
+                                            _movementUseCase.RequestMove(
+                                                _unitData, finalTarget);
+                                        if (!TryAcceptRepath(
+                                                repathGuard,
+                                                blockedResumePath,
+                                                "post-combat-corridor",
+                                                out UnitRepathDecision repathDecision))
+                                        {
+                                            movementFailedClosed = true;
+                                            goto cleanup;
+                                        }
+
+                                        BeginMovementShadowSegment(
+                                            UnitMovementIntentReason.BlockedRepath);
+                                        path = blockedResumePath;
+                                        pathCheckpoint.Reset();
+                                        needRepath = true;
+                                        break;
+                                    }
+                                    if (alignOutcome == MovementWriteOutcome.Rejected)
+                                    {
+                                        Debug.LogError(
+                                            $"[UAS-MOVE] 권위 복귀 정렬 frame 거부. " +
+                                            $"unitId={_unitData.Id}, " +
+                                            $"commandRevision={_movementCommandRevision}, " +
+                                            $"segmentRevision={_movementSegmentRevision}");
+                                        goto cleanup;
+                                    }
+                                    if (alignOutcome == MovementWriteOutcome.Advanced)
+                                    {
+                                        Vector3 committedAlignDelta =
+                                            transform.position - positionBeforeAlignFrame;
+                                        if (_lastMovementTrajectoryReachedWaypoint
+                                            || committedAlignDelta.x * committedAlignDelta.x
+                                                + committedAlignDelta.z * committedAlignDelta.z
+                                                > (float)(UnitMovementEvaluationAdapter.PositionTolerance
+                                                    * UnitMovementEvaluationAdapter.PositionTolerance))
+                                        {
+                                            repathGuard.ObserveProgress(path);
+                                        }
+
+                                        if (reducerResumeTrajectory)
+                                        {
+                                            resumeWaypointReached =
+                                                _lastMovementTrajectoryReachedWaypoint;
+                                        }
+                                        else
+                                        {
+                                            alignElapsed = candidateAlignElapsed;
+                                        }
+                                    }
+                                    shouldReengage = shouldReengage
+                                        || _lastMovementCandidateAcquiredTarget;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                                    CompleteMovementShadowLegacyFrame(resumeShadowToken);
+#endif
 
                                     // 정렬 도중에도 새 대상(일반=적 / 힐러=부상 아군) 감지 시 즉시 다음 사이클로 넘긴다.
-                                    if (ShouldEngage())
+                                    if (shouldReengage)
                                     {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                                        UnitMovementShadowObserver.ObserveTargetAcquirePriority(
+                                            resumeShadowToken);
+#endif
                                         alignInterruptedByCombat = true;
                                         break;
                                     }
@@ -1180,6 +2231,9 @@ namespace Hexiege.Presentation
                                     yield return null;
                                 }
                             }
+
+                            if (needRepath)
+                                break;
 
                             if (_unitData == null || !_unitData.IsAlive) break;
 
@@ -1193,14 +2247,37 @@ namespace Hexiege.Presentation
                                 break;  // Lerp while 탈출 → for 루프도 interruptedByCombat 처리로 break
                             }
 
-                            // 4) 최종 정렬 스냅 — 부동소수점 누적 오차 보정.
-                            transform.position = alignView;
+                            // 4) 최종 부동소수점 보정도 같은 writer seam을 통과한다.
+                            MovementWriteOutcome alignEndpointOutcome =
+                                ApplyMovementAuthorityFrame(
+                                alignView,
+                                alignView,
+                                transform.rotation,
+                                UnitMovementIntentReason.PostCombatResume,
+                                targetAcquirePriority: false);
+                            if (alignEndpointOutcome == MovementWriteOutcome.Rejected)
+                            {
+                                Debug.LogError(
+                                    $"[UAS-MOVE] 권위 복귀 endpoint 거부. unitId={_unitData.Id}");
+                                goto cleanup;
+                            }
 
                             // 5) 같은 forwardTile로 도메인 갱신 + 새 path 발급.
                             List<HexCoord> resumePath = ResumeFromForwardTileV3(finalTarget, forwardTile);
                             if (resumePath != null && resumePath.Count >= 2)
                             {
+                                if (!TryAcceptRepath(
+                                        repathGuard,
+                                        resumePath,
+                                        "post-combat-resume",
+                                        out UnitRepathDecision repathDecision))
+                                {
+                                    movementFailedClosed = true;
+                                    goto cleanup;
+                                }
+
                                 path = resumePath;
+                                pathCheckpoint.Reset();
                                 needRepath = true;
                                 interruptedByCombat = true;
                                 // 혼잡도 기여 재활성화 — 전투 종료 후 정상 A* 재개.
@@ -1217,6 +2294,11 @@ namespace Hexiege.Presentation
 
                     if (_unitData == null || !_unitData.IsAlive) break;
 
+                    // corridor가 경기 중 막혀 새 path를 받은 경우 현재 waypoint의
+                    // ProcessStep/EnteredTile은 아직 발생하면 안 된다. 외부 while에서
+                    // 새 path index 1부터 다시 시작한다.
+                    if (needRepath) break;
+
                     // [전투 이동]으로 중단된 경우: toPos 강제 스냅과 ProcessStep을 건너뛰고
                     // for 루프를 빠져나가 외부 while에서 새 path로 재진입.
                     if (interruptedByCombat)
@@ -1227,11 +2309,38 @@ namespace Hexiege.Presentation
                     // ──────────────────────────────────────────────────────
                     // [A* 이동] 정상 Lerp 완료 — 타일 중심에 스냅 + 도메인 위치 갱신.
                     // ──────────────────────────────────────────────────────
-                    // 정확한 최종 위치 보정.
-                    transform.position = toPos;
+                    // Legacy Lerp만 기존 타일 중심 endpoint 보정을 유지한다. 연속 trajectory는
+                    // 중간 waypoint를 통과 평면으로 소비하므로 중심 스냅을 하면 안 된다.
+                    if (!reducerTrajectory)
+                    {
+                        MovementWriteOutcome endpointOutcome = ApplyMovementAuthorityFrame(
+                            toPos,
+                            toPos,
+                            transform.rotation,
+                            UnitMovementIntentReason.AStarPath,
+                            targetAcquirePriority: false);
+                        if (endpointOutcome == MovementWriteOutcome.Rejected)
+                        {
+                            Debug.LogError(
+                                $"[UAS-MOVE] 권위 이동 endpoint 거부. unitId={_unitData.Id}");
+                            goto cleanup;
+                        }
+                    }
 
                     // 도메인 처리: _unitData.Position을 to로 갱신.
                     // 마지막 스텝이 non-walkable(성/건물)이면 ProcessStep 생략 — 유닛이 건물 위에 존재하는 것으로 처리되지 않도록.
+                    if (reducerTrajectory
+                        && !pathCheckpoint.TryConsume(
+                            i,
+                            authoritativeWaypointReached))
+                    {
+                        Debug.LogError(
+                            $"[UAS-MOVE] trajectory waypoint 순서 거부. " +
+                            $"unitId={_unitData.Id}, index={i}, " +
+                            $"expected={pathCheckpoint.NextWaypointIndex}");
+                        goto cleanup;
+                    }
+                    repathGuard.ObserveProgress(path);
                     if (_movementUseCase != null && !(isLastStep && isLastStepToNonWalkable))
                     {
                         _movementUseCase.ProcessStep(_unitData, from, to);
@@ -1284,6 +2393,7 @@ namespace Hexiege.Presentation
 
                         if (startIdx >= 0 && startIdx < pending.Count - 1)
                         {
+                            BeginMovementShadowSegment(UnitMovementIntentReason.PendingRepath);
                             // 정상 케이스: 현재 위치를 새 path의 startIdx로 두고,
                             // 그 다음 타일(startIdx+1)부터 진행하도록 path 교체.
                             // path[0]은 항상 시작점(현재 위치) — 슬라이스 후에도 이 규약 유지.
@@ -1292,7 +2402,18 @@ namespace Hexiege.Presentation
                             {
                                 sliced.Add(pending[k]);
                             }
+                            if (!TryAcceptRepath(
+                                    repathGuard,
+                                    sliced,
+                                    "pending-path",
+                                    out UnitRepathDecision repathDecision))
+                            {
+                                movementFailedClosed = true;
+                                goto cleanup;
+                            }
+
                             path = sliced;
+                            pathCheckpoint.Reset();
 
                             // 최종 목적지가 바뀌었을 수도 있으므로 갱신.
                             finalTarget = path[path.Count - 1];
@@ -1303,11 +2424,17 @@ namespace Hexiege.Presentation
                         }
                         else
                         {
-                            // 안전망: 현재 위치를 새 path에서 찾지 못함 → 코루틴 재시작.
-                            // MoveTo 안에서 _pendingPath / _currentNextTileCoord가 초기화되고
-                            // 기존 코루틴이 정지된 뒤 새 코루틴이 시작된다.
-                            MoveTo(pending);
-                            yield break;
+                            // 현재 위치를 포함하지 않는 pending path는 이어 달릴 수 없는 입력이다.
+                            // 같은 프레임에 새 코루틴을 재시작하면 무제한 재시작 고리가 생길 수
+                            // 있으므로 이 유닛만 현재 위치에서 fail-closed 한다.
+                            LogRepathFailClosed(
+                                repathGuard,
+                                pending,
+                                "pending-path",
+                                UnitRepathDecision.RejectedMissingCurrentPosition,
+                                _unitData.Position.ToString());
+                            movementFailedClosed = true;
+                            goto cleanup;
                         }
                     }
 
@@ -1316,7 +2443,13 @@ namespace Hexiege.Presentation
                 }  // end of for (path 순회)
 
                 // for를 정상 종료(완주) 또는 사망/탈출 — 외부 while 분기.
-                if (needRepath) continue;   // 새 path로 외부 while 재진입.
+                if (needRepath)
+                {
+                    // 수락한 재경로는 반드시 다음 Unity frame부터 처리한다. 이 경계가
+                    // RequestMove → RepathRequired의 단일-frame 무한 반복을 차단한다.
+                    yield return null;
+                    continue;
+                }
                 break;                       // 정상 완주 또는 사망 — 외부 while 종료.
             }
 
@@ -1324,7 +2457,13 @@ namespace Hexiege.Presentation
             // 정상/사망/완주/RESUME 실패 등 모든 종료 경로에서 공통 cleanup.
             //   여기서 _moveCoroutine을 null로 비우고 OnMoveComplete 콜백(랠리→성 자동 이동/공성 체인)을
             //   발행한다. 콜백이 새 이동(MoveTo)을 시작하면 _moveCoroutine이 다시 non-null이 된다.
-            MoveCleanupAndCompleteV3();
+            if (_unitData != null && _unitData.IsAlive)
+            {
+                TryCloseMovementAuthorityIntent(
+                    UnitMovementIntentReason.AStarPath,
+                    "path-cleanup");
+            }
+            MoveCleanupAndCompleteV3(invokeCompletion: !movementFailedClosed);
 
             // ────────────────────────────────────────────────────────────────
             // [이슈 2 수정 — 2026-07-18] 힐러(BloomFairy) 유휴 감시 진입.
@@ -1346,7 +2485,11 @@ namespace Hexiege.Presentation
             //       않는다. 즉 랠리 도착·공성 진행처럼 "다음 이동이 이어지는 중간 구간"에서는 감시가 끼어들지
             //       않아 기존 랠리/공성 체인이 그대로 보존된다. 순수 종착(더 이동할 곳 없음)일 때만 감시한다.
             // ────────────────────────────────────────────────────────────────
-            if (_moveCoroutine == null && _unitData != null && _unitData.IsAlive && _unitData.IsHealer)
+            if (!movementFailedClosed
+                && _moveCoroutine == null
+                && _unitData != null
+                && _unitData.IsAlive
+                && _unitData.IsHealer)
             {
                 _moveCoroutine = StartCoroutine(HealerIdleWatchV3());
             }
@@ -1380,6 +2523,7 @@ namespace Hexiege.Presentation
             //   각 yield break 직전 + 함수 끝에서 false로 명시적 리셋해야 한다.
             // ────────────────────────────────────────────────────────────
             _isInCombatPursuit = true;
+            BeginMovementShadowSegment(UnitMovementIntentReason.Chase);
 
             // 필수 의존성 가드 — _positionProvider는 적 월드 좌표 조회에 사용.
             if (_combatUseCase == null || _positionProvider == null || _unitData == null)
@@ -1392,6 +2536,9 @@ namespace Hexiege.Presentation
             var firstTarget = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
             if (!firstTarget.HasValue)
             {
+                TryCloseMovementAuthorityIntent(
+                    UnitMovementIntentReason.Chase,
+                    "pursuit-no-first-target");
                 _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                 yield break;
             }
@@ -1399,10 +2546,9 @@ namespace Hexiege.Presentation
             int targetId = firstTarget.Value.id;
             bool targetIsUnit = firstTarget.Value.isUnit;
 
-            // 이동 속도는 아래 루프에서 "매 프레임 라이브"로 계산한다(둔화/빙결 즉시 반영).
-            //   과거엔 여기서 worldSpeed를 1회 캡처했으나, 둔화가 다음 repath 전까지 반영되지 않는 한계가 있어
-            //   A* 이동과 동일하게 사용 지점(아래 이동 라인)에서 현재 배율로 산출하도록 바꿨다.
-            //   무상태(배율 1)면 기존 worldSpeed(=TileHeight × MoveSpeed)와 완전히 동일하다(회귀 안전).
+            // 기본 이동 속도. 연구·둔화·빙결 배율은 아래 frame 루프에서 다시 읽는다.
+            float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
+            float worldSpeed = HexMetrics.TileHeight / moveSeconds;
 
             // 매 프레임 루프 — 적 상태 확인 + 전투 이동 또는 공격으로 분기.
             while (_unitData != null && _unitData.IsAlive)
@@ -1420,6 +2566,9 @@ namespace Hexiege.Presentation
                     if (!next.HasValue)
                     {
                         // detect 내 다른 적 없음 → A* 재개로 위임.
+                        TryCloseMovementAuthorityIntent(
+                            UnitMovementIntentReason.Chase,
+                            "pursuit-target-lost");
                         _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
@@ -1434,6 +2583,9 @@ namespace Hexiege.Presentation
                 // ── 3) 적이 detect 사거리 밖으로 이탈 → 종료 ──
                 if (!_combatUseCase.HasEnemyInDetectRange(_unitData))
                 {
+                    TryCloseMovementAuthorityIntent(
+                        UnitMovementIntentReason.Chase,
+                        "pursuit-detect-range-lost");
                     _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                     yield break;
                 }
@@ -1441,7 +2593,24 @@ namespace Hexiege.Presentation
                 // ── 4) 공격 사거리 도달 → [공격] 루프 ──
                 if (_combatUseCase.HasEnemyInRange(_unitData))
                 {
+                    MovementWriteOutcome acquireOutcome = ApplyMovementAuthorityFrame(
+                        enemyViewPos,
+                        transform.position,
+                        transform.rotation,
+                        UnitMovementIntentReason.Chase,
+                        targetAcquirePriority: true);
+                    if (acquireOutcome == MovementWriteOutcome.Rejected)
+                    {
+                        Debug.LogError(
+                            $"[UAS-MOVE] 공격 범위 진입 NoIntent 게시 거부. unitId={_unitData.Id}");
+                        _isInCombatPursuit = false;
+                        yield break;
+                    }
+
+                    _movementRotationWriterOwnsRoot = false;
                     yield return EnterCombatLoopV3();
+                    StopCombatAnimation();
+                    _movementRotationWriterOwnsRoot = true;
 
                     if (_unitData == null || !_unitData.IsAlive)
                     {
@@ -1452,6 +2621,9 @@ namespace Hexiege.Presentation
                     // 전투 종료 후 detect 내에 다른 적이 남았으면 새 타겟 선택 후 continue.
                     if (!_combatUseCase.HasEnemyInDetectRange(_unitData))
                     {
+                        TryCloseMovementAuthorityIntent(
+                            UnitMovementIntentReason.Chase,
+                            "post-combat-detect-range-lost");
                         _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
@@ -1459,6 +2631,9 @@ namespace Hexiege.Presentation
                     var nextEnemy = _combatUseCase.FindNearestEnemyInDetectRange(_unitData);
                     if (!nextEnemy.HasValue)
                     {
+                        TryCloseMovementAuthorityIntent(
+                            UnitMovementIntentReason.Chase,
+                            "post-combat-no-next-target");
                         _isInCombatPursuit = false; // [BUG-001] 추격 종료 마킹
                         yield break;
                     }
@@ -1475,33 +2650,53 @@ namespace Hexiege.Presentation
                 // 회전: 시각적으로 자연스럽게 적을 바라보며 추적.
                 Vector3 moveDir = enemyViewPos - transform.position;
                 moveDir.y = 0f;
+                CaptureUnitActionShadowDesiredTarget(enemyViewPos);
                 float dist = moveDir.magnitude;
                 if (dist > 0.01f)
                 {
                     float pursuitAngle = CalculateAttackAngle(enemyViewPos);
                     Quaternion targetRot = Quaternion.Euler(0f, pursuitAngle, 0f);
-                    transform.rotation = Quaternion.RotateTowards(
-                        transform.rotation, targetRot, _rotationSpeed * Time.deltaTime);
-
-                    // [스킬 - 빙결/둔화 라이브] 현재(라이브) 이동 배율을 매 프레임 읽어 즉시 반영한다.
-                    //   상태가 없으면 배율은 항상 >0(연구 1.0~1.32)이라 기존과 동일하게 이동한다(무변경 보장).
-                    float pursuitMoveMul = _combatUseCase != null
-                        ? _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData) : 1f;
-                    if (pursuitMoveMul <= MoveFreezeEpsilon)
+                    float liveMoveMultiplier = _combatUseCase != null
+                        ? Mathf.Max(0f, _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData))
+                        : 1f;
+                    bool movementFrozen = liveMoveMultiplier <= MoveFreezeEpsilon;
+                    SetFrozenAnimation(movementFrozen);
+                    Vector3 candidatePursuitPosition = transform.position
+                        + moveDir.normalized
+                            * worldSpeed
+                            * liveMoveMultiplier
+                            * Time.deltaTime;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitMovementShadowObserver.LegacyFrameToken pursuitShadowToken = default;
+                    if (_lockedMovementPipelineMode
+                        != UnitMovementPipelineMode.ReducerAuthoritative)
                     {
-                        // 빙결: 전투 이동 정지 + 걷기 애니메이션 정지("제자리걸음" 제거). 회전은 위에서 이미 갱신됨.
-                        SetFrozenAnimation(true);
+                        pursuitShadowToken = BeginMovementShadowLegacyFrame(
+                            enemyViewPos,
+                            UnitMovementIntentReason.Chase,
+                            CalculateMovementShadowPositionDeltaXZ(
+                                transform.position,
+                                candidatePursuitPosition));
                     }
-                    else
+#endif
+                    MovementWriteOutcome pursuitOutcome = ApplyMovementAuthorityFrame(
+                        enemyViewPos,
+                        candidatePursuitPosition,
+                        targetRot,
+                        UnitMovementIntentReason.Chase,
+                        targetAcquirePriority: false);
+                    if (pursuitOutcome == MovementWriteOutcome.Rejected)
                     {
-                        // 빙결 아님: 걷기 재개 + 라이브 유효 속도로 직선 이동(둔화면 느리게).
-                        //   worldSpeed = TileHeight × 유효이동속도(칸/초)와 동치. 무상태면 기존 값과 동일.
-                        SetFrozenAnimation(false);
-                        float liveEff = _unitData.MoveSpeed * pursuitMoveMul;                    // 칸/초
-                        float liveWorldSpeed = liveEff > 0f ? HexMetrics.TileHeight * liveEff     // 월드/초
-                                                            : HexMetrics.TileHeight;             // MoveSpeed<=0 폴백(기존과 동일)
-                        transform.position += moveDir.normalized * liveWorldSpeed * Time.deltaTime;
+                        Debug.LogError(
+                            $"[UAS-MOVE] 권위 추격 frame 거부. unitId={_unitData.Id}, " +
+                            $"commandRevision={_movementCommandRevision}, " +
+                            $"segmentRevision={_movementSegmentRevision}");
+                        _isInCombatPursuit = false;
+                        yield break;
                     }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    CompleteMovementShadowLegacyFrame(pursuitShadowToken);
+#endif
                 }
 
                 yield return null;
@@ -1530,6 +2725,9 @@ namespace Hexiege.Presentation
         {
             if (_combatUseCase == null || _unitData == null) yield break;
             if (!_combatUseCase.HasEnemyInRange(_unitData)) yield break;
+            // 공격 중에는 실제 이동 목표가 없다. 마지막 추격 목적지를 남기면 A2가 이를
+            // 현재 공격 desired로 오해하므로 전투 정지 경계에서 optional 값을 명시적으로 비운다.
+            ClearUnitActionShadowDesiredTarget();
 
             if (NetworkContext.IsNetworkActive)
             {
@@ -1714,7 +2912,10 @@ namespace Hexiege.Presentation
                 {
                     List<HexCoord> resumePath = _pendingPath;
                     _pendingPath = null;
-                    MoveTo(resumePath);
+                    MoveToInternal(
+                        resumePath,
+                        UnitMovementIntentReason.HealerResume,
+                        startNewCommand: false);
                     yield break;
                 }
 
@@ -1750,11 +2951,24 @@ namespace Hexiege.Presentation
             Vector3 targetPos = _positionProvider != null
                 ? _positionProvider.GetUnitWorldPosition(targetId)
                 : Vector3.zero;
-            if (targetPos != Vector3.zero)
+            bool canWriteSimulationRoot =
+                !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
+            if (canWriteSimulationRoot
+                && !_movementRotationWriterOwnsRoot
+                && targetPos != Vector3.zero)
             {
                 float angle = CalculateAttackAngle(targetPos);
                 transform.rotation = Quaternion.Euler(0f, angle, 0f);
             }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            else if (canWriteSimulationRoot
+                && _movementRotationWriterOwnsRoot
+                && targetPos != Vector3.zero)
+            {
+                UnitMovementAuthorityObserver.ObserveAttackWriterOwnershipConflict(
+                    _unitData != null ? _unitData.Id : -1);
+            }
+#endif
 
             // Attack(=힐) 애니메이션 CrossFade — 싱글/호스트만 직접 재생(클라는 레벨 동기화가 담당).
             bool applyCrossFadeHere = !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
@@ -1834,9 +3048,11 @@ namespace Hexiege.Presentation
         /// 이동 종료 시 정리 + 1회성 콜백 호출.
         /// 외부 while 종료(완주/사망/RESUME 실패) 직후 + path 비정상 종료 직후 등에서 호출.
         /// </summary>
-        private void MoveCleanupAndCompleteV3()
+        private void MoveCleanupAndCompleteV3(bool invokeCompletion = true)
         {
+            _movementRotationWriterOwnsRoot = false;
             _moveCoroutine = null;
+            ClearUnitActionShadowDesiredTarget();
 
             // 혼잡도 기여 종료 — 이동이 끝났으니 새 코루틴 전까지는 발행하지 않는다.
             _isAStarMoving = false;
@@ -1850,7 +3066,8 @@ namespace Hexiege.Presentation
             // 1회성 이동 완료 콜백 (랠리→Castle 자동 이동 체인 등에서 사용).
             var callback = OnMoveComplete;
             OnMoveComplete = null;
-            callback?.Invoke();
+            if (invokeCompletion)
+                callback?.Invoke();
         }
 
         // ====================================================================
@@ -1876,8 +3093,11 @@ namespace Hexiege.Presentation
             //   VfxSpawnPoint가 스켈레톤 본(손 부위) 하위에 배치되어 있어,
             //   월드 회전에 본 고유 회전(약 0, -90, -90도)이 섞여 VFX가 엉뚱한 방향으로 발사되기 때문이다.
             //   위치는 본 덕분에 정확하므로 유지하고, 회전만 유닛 루트의 정면 방향으로 교체한다.
-            Vector3 spawnPos = _vfxSpawnPoint != null ? _vfxSpawnPoint.position : transform.position;
-            Quaternion spawnRot = Quaternion.LookRotation(transform.forward);
+            Transform presentationTransform = PresentationTransform;
+            Vector3 spawnPos = _vfxSpawnPoint != null
+                ? _vfxSpawnPoint.position
+                : presentationTransform.position;
+            Quaternion spawnRot = Quaternion.LookRotation(presentationTransform.forward);
             EffectManager.Instance?.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot);  // VFX
             AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                    // SFX (규칙 15 — VFX와 짝)
 
@@ -1899,9 +3119,13 @@ namespace Hexiege.Presentation
                 // 도착 지점 = 발사 시점의 타겟 월드 위치(값으로 복사).
                 //   비행 중 타겟이 파괴되어도 트레이서는 이 좌표까지 그대로 날아가 소멸한다(댕글링 참조 없음).
                 //   _combatTargetTransform이 있으면 그 위치를, 없으면 백업 ID로 재조회(둘 다 실패 시 전방 폴백).
-                Vector3 targetPos = _combatTargetTransform != null
-                    ? _combatTargetTransform.position
-                    : GetTargetWorldPos(_combatTargetId, _combatTargetIsUnit);
+                Transform presentationTarget =
+                    GetPresentationTransform(_combatTargetTransform);
+                Vector3 targetPos = presentationTarget != null
+                    ? presentationTarget.position
+                    : GetTargetPresentationWorldPos(
+                        _combatTargetId,
+                        _combatTargetIsUnit);
 
                 // 트레이서 발사. 착탄 콜백에서 OnLocalAttackHit을 발행하여 피격 연출을 착탄 시점에 방출한다.
                 //   트레이서 프리셋이 없으면 PlayTracer가 콜백을 "즉시" 실행하므로 기존 즉시 방출로 폴백된다.
@@ -1942,63 +3166,6 @@ namespace Hexiege.Presentation
             _currentAnimStateHash = StateWalk;
         }
 
-        // ────────────────────────────────────────────────────────────────────
-        // [스킬 - 빙결] 걷기 애니메이션 정지/재개.
-        // ────────────────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// 지금 이 유닛이 빙결 애니메이션(걷기 정지) 상태인지 여부.
-        /// 상태 전환(정지↔재개)에서만 Animator/이벤트를 건드려 프레임 스팸을 막기 위한 로컬 추적 플래그.
-        /// 무상태 유닛은 항상 false로 유지되어 기존 동작과 완전히 동일하다(회귀 안전).
-        /// </summary>
-        private bool _isFrozenAnim = false;
-
-        /// <summary>
-        /// [스킬 - 빙결] 걷기 클립을 유지한 채 Animator를 정지(speed=0)시킨다 — "제자리걸음" 제거.
-        ///
-        /// 호출 경로:
-        ///   클라이언트: NetworkUnit._animState(=Frozen) 적용 시 → NetworkUnit.ApplyAnimState → 여기.
-        ///   (호스트/싱글은 SetFrozenAnimation이 Animator.speed를 직접 제어하므로 이 경로를 타지 않는다.)
-        /// 새 CrossFade를 걸지 않고 speed만 0으로 만들어 현재 걷기 포즈에서 멈춘다.
-        /// </summary>
-        public void FreezeWalkAnimation()
-        {
-            if (_animator == null)
-                _animator = GetComponentInChildren<Animator>();
-            if (_animator == null) return;
-
-            // 걷기 클립을 유지한 채 프레임만 고정(speed=0). 클립 전환이 없어 자연스럽게 멈춰 보인다.
-            _animator.speed = 0f;
-        }
-
-        /// <summary>
-        /// [스킬 - 빙결] 빙결 애니메이션 상태를 설정한다(서버 이동 코루틴에서만 호출됨 — 코루틴은 서버 전용).
-        ///
-        /// 두 가지를 함께 처리한다(상태가 실제로 바뀔 때만 — 프레임 스팸 방지):
-        ///   1) 호스트/싱글: Animator.speed를 직접 0(정지)/1(재개)로 제어한다.
-        ///   2) 멀티: GameEvents.OnUnitFreezeChanged를 발행해 서버가 순수 클라의 _animState를 Frozen/Walk로
-        ///      레벨 동기화하게 한다(NetworkCombatController 구독). 싱글에는 구독자가 없어 무해하다.
-        ///
-        /// 무상태 유닛은 이 메서드에 frozen=false만 반복 전달되고 _isFrozenAnim 가드로 즉시 반환되어
-        /// 어떤 부작용도 없다(기존 동작과 완전히 동일 — 회귀 안전).
-        /// </summary>
-        /// <param name="frozen">true=걷기 정지(빙결 진입), false=걷기 재개(빙결 해제/무상태).</param>
-        private void SetFrozenAnimation(bool frozen)
-        {
-            // 상태 변화가 없으면 아무것도 하지 않는다(매 프레임 호출되지만 전환에서만 동작).
-            if (_isFrozenAnim == frozen) return;
-            _isFrozenAnim = frozen;
-
-            // 1) 호스트/싱글: Animator를 직접 제어. (멀티 클라는 코루틴 자체가 안 도므로 여기 도달하지 않는다.)
-            if (_animator != null)
-                _animator.speed = frozen ? 0f : 1f; // 0=현재 걷기 포즈에서 정지, 1=걷기 재개.
-
-            // 2) 멀티: 순수 클라 동기화용 이벤트(서버 컨텍스트에서만 발행 — 이 코루틴은 서버 전용).
-            //    싱글플레이는 구독자가 없어 발행해도 무해하지만, 불필요한 발행을 피하려 네트워크 활성 시에만 쏜다.
-            if (NetworkContext.IsNetworkActive && _unitData != null)
-                GameEvents.OnUnitFreezeChanged.OnNext(new UnitFreezeChangedEvent(_unitData.Id, frozen));
-        }
-
         /// <summary>
         /// [Phase 2 신규] 공격(Attack) 애니메이션 루프를 재생한다 — CrossFade만 수행.
         ///
@@ -2036,6 +3203,38 @@ namespace Hexiege.Presentation
             _currentAnimStateHash = StateWalk;
         }
 
+        /// <summary>
+        /// 순수 클라이언트가 서버의 Frozen 애니메이션 상태를 적용할 때 호출한다.
+        /// 현재 걷기 포즈를 유지한 채 재생 속도만 0으로 만든다.
+        /// </summary>
+        public void FreezeWalkAnimation()
+        {
+            if (_animator == null)
+                _animator = GetComponentInChildren<Animator>();
+            if (_animator == null) return;
+
+            _animator.speed = 0f;
+        }
+
+        private bool _isFrozenAnim;
+
+        /// <summary>
+        /// 서버 이동 루프의 빙결 표현을 상태 변화 시에만 적용하고 클라이언트에 복제한다.
+        /// 위치·회전 결정은 계속 기존 서버 권위 이동 writer를 통한다.
+        /// </summary>
+        private void SetFrozenAnimation(bool frozen)
+        {
+            if (_isFrozenAnim == frozen) return;
+            _isFrozenAnim = frozen;
+
+            if (_animator != null)
+                _animator.speed = frozen ? 0f : 1f;
+
+            if (NetworkContext.IsNetworkActive && _unitData != null)
+                GameEvents.OnUnitFreezeChanged.OnNext(
+                    new UnitFreezeChangedEvent(_unitData.Id, frozen));
+        }
+
         // StopWalkAnimation() 제거 — Idle 상태가 없으므로 Walk 정지 전용 메서드 불필요.
         // Walk→Attack 전환: StartCombatAnimation()에서 Attack CrossFade 직접 호출.
         // Walk→Walk: 이동 재개 시 StartWalkAnimation()에서 Walk CrossFade 호출.
@@ -2063,10 +3262,24 @@ namespace Hexiege.Presentation
         {
             if (_unitData == null || !_unitData.IsAlive) return;
 
-            // 타겟 방향으로 즉시 스냅 회전
-            // 서버에서 즉시 스냅 → NetworkTransform이 클라이언트에 보간 전달
-            float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
-            transform.rotation = Quaternion.Euler(0f, angle, 0f);
+            // 순수 클라이언트는 canonical Simulation Root를 NetworkTransform에서만 받으므로 쓰지 않는다.
+            bool canWriteSimulationRoot =
+                !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
+            if (canWriteSimulationRoot)
+            {
+                if (_movementRotationWriterOwnsRoot)
+                {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitMovementAuthorityObserver.ObserveAttackWriterOwnershipConflict(
+                        _unitData.Id);
+#endif
+                }
+                else
+                {
+                    float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
+                    transform.rotation = Quaternion.Euler(0f, angle, 0f);
+                }
+            }
 
             // ────────────────────────────────────────────────────────────────
             // [Phase 2 대체] Attack CrossFade 책임 분리.
@@ -2090,6 +3303,7 @@ namespace Hexiege.Presentation
             // [Phase 2] 이 타겟 참조/회전 추적은 애니메이션과 분리해 "유지"한다(클라이언트도 필요):
             //   원거리 유닛의 트레이서 조준(OnAttackHit)이 _combatTargetTransform/_combatTargetId를 사용한다.
             _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
+            ClearUnitActionShadowDesiredTarget();
 
             // 멀티플레이 타이밍 문제 대비: Transform 참조가 나중에 null이 되더라도
             // 백업 ID로 재조회할 수 있도록 ID를 저장한다.
@@ -2113,6 +3327,7 @@ namespace Hexiege.Presentation
 
             // 추적 대상을 새 타겟으로 교체 → Update()가 새 타겟 방향 추적 시작
             _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
+            ClearUnitActionShadowDesiredTarget();
 
             // 새 타겟의 ID로 백업을 갱신한다.
             _combatTargetId = targetId;
@@ -2143,6 +3358,7 @@ namespace Hexiege.Presentation
 
             // Transform 참조와 함께 백업 ID도 초기화하여 Update()의 재조회 시도를 차단한다.
             _combatTargetId = -1;
+            ClearUnitActionShadowDesiredTarget();
 
             // 의도적으로 비워둠 — 위 summary 참조.
         }
