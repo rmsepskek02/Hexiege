@@ -494,3 +494,91 @@ if (!IsServer)
    → 사용자 승인 시 `GameSystemRules_Units.md` 에 규칙 추가를 별도 제안한다.
 5. **`Testcase.md` 작성 / QA 에이전트 요청** — WORKFLOW [5-1]·[5-3]에 따라 사용자의 명시적 지시가 있을 때만 진행한다.
 6. **전투 계산식·타이밍 튜닝** — 오버슈트/이월분 로직(규칙 18)은 **손대지 않는다.**
+
+---
+
+## 10. 구현 결과 (2026-08-19 · 커밋 `55d24d83`)
+
+> 위 §1~§9는 **구현 전 계획 시점의 원문**이며 고치지 않았다. 이 절은 그 계획이 실제로 무엇이 되었는지를 덧붙인 것이다.
+
+### 10-1. 자연어 요약
+
+계획대로 **가드 6곳 + 게임 종료 시 전투 틱 정지**가 들어갔고, 사용자가 **3경기를 연속으로(= 재경기 2회)** 돌려
+실기 검증을 마쳤다. 계획서가 §7-1에서 **최우선 위험**으로 지목했던 *"재경기에서 전투가 아예 시작되지 않는 사고"* 는
+**2회 연속으로 발생하지 않았다** — 이것이 이번 검증의 핵심이다.
+
+### 10-2. 최종 가드 표 (실측 — 커밋 후 코드 직접 확인)
+
+| # | 자리 | 변경 전 | 변경 후 (행) |
+|:-:|---|---|---|
+| 1 | `OnUnitDied` (994행) | `!IsServer` 만 | `if (!IsSpawned \|\| !IsServer) return;` (**1004행**) |
+| 2 | `OnBuildingDied` (1073행) | `!IsServer` 만 | 동일 (**1079행**) |
+| 3 | `OnUnitEnteredCombatHandler` (914행) | **가드 전무** | 동일 (**925행**) |
+| 4~6 | Walk · HealCast · FreezeChanged | 가드 전무 | **`SetUnitAnimState`(865행) 한 곳**에 `if (!IsSpawned) return;` (**885행**) — 호출 지점 5곳을 한 번에 덮는다 |
+| — | `Update` (커밋 `cc864054` 에서 선행 수정) | `!IsSpawned \|\| !IsServer` | `if (!IsSpawned \|\| !IsServer \|\| _combatStopped) return;` (**380행**) |
+
+- **`OnUnitDied` 만 고쳤으면 성 파괴 경로(`OnBuildingDied`)로 그대로 재발했을 것이다** — 게임을 끝내는 바로 그 경로다.
+  계획서 §3-5가 전수 확인을 한 이유가 여기서 드러났다.
+- **`OnUnitEnteredCombatHandler` 에 붙인 `IsServer` 는 동작 변화가 없다** — 그 구독이 `OnNetworkSpawn` 의
+  `if (IsServer)` 블록 안에서만 이루어져 **원래도 서버에서만 호출되던 자리**다. 형태 통일이 목적이다(§3-5-1).
+- **길목 하나(`SetUnitAnimState`)를 막는 방식**을 택한 이유는 호출부마다 붙이는 것보다 **새 호출부가 생겨도
+  자동으로 덮인다**는 점이다.
+
+### 10-3. `_combatStopped` — 세우는 곳 / 검사하는 곳 / 리셋하는 곳
+
+| 역할 | 자리 (행) |
+|---|---|
+| 필드 선언 | 126행 (`private bool _combatStopped = false;`) |
+| **세운다** | `OnGameEndHandler`(843행) → **845행** `_combatStopped = true;` + **848행** `StopAllCoroutines()` |
+| **검사한다** | `Update` 진입부 **380행** |
+| **리셋한다 ①** | `OnNetworkSpawn`(IsServer 블록) **205행** |
+| **리셋한다 ②** | `OnNetworkDespawn` **311행** |
+| 구독 | 필드 80행 / 구독 250행 / 해제 292~293행 |
+
+리셋을 **양쪽**에 둔 것은 계획 §결정 2 그대로다. 같은 파일의 `_attackTimer` · `_lastCarry` 가 정확히 그 두 자리에서
+리셋되는 선례 옆에 붙였다.
+
+**구독 해제 방식은 기각한 채로 유지했다** — `GameEndUseCase` 가 `OnBuildingDied` **디스패치 도중 동기적으로**
+`OnGameEnd` 를 발행하므로, 그 안에서 `Dispose()` 하면 디스패치 중 구독자 목록을 바꾸게 되고 구독 순서에 따라
+**게임을 끝낸 성의 `EntityDiedClientRpc` 가 영영 안 나갈 수 있다**(§결정 1).
+
+### 10-4. 실기 검증 결과 — **전부 통과**
+
+근거 로그: `_Logs/_editor/2026-08-19/RuntimeLog.txt` **1408줄** (세 번째 세션 = 706행 `=== 세션 시작: 2026-08-19 23:26:46 ===` 이후).
+**사용자가 3경기를 연속으로 진행했다 = 재경기를 2회 했다.**
+
+| # | 항목 | 결과 · 근거 |
+|:-:|---|---|
+| **①** | 가드 구멍 | ✅ **해결.** 3경기 내내 `[ERROR]` **0건** · `"Rpc methods can only be invoked after starting the NetworkManager!"` **0건**. 게임 종료 → 로비 → 재경기를 **두 번 반복**했다 |
+| **②** | 전투 틱 정지 | ✅ **동작.** `게임 종료 — 전투 틱 정지` 가 **872 · 1090 · 1394행**에 **경기당 정확히 1회**. 872행(23:29:15.657) 직후 Shutdown(23:29:45.826)까지 `NetworkCombatController` 의 전투 로그가 **한 줄도 없다** |
+| **재경기** | 🔴 **플래그 리셋** | ✅ **2회 연속 통과.** 1경기 정지 후 2경기 구간(873~1090행)에 `NetworkCombatController` 로그 **40건**(그중 `서버: 유닛 사망` **34건**), 2경기 정지 후 3경기 구간(1091~1394행)에 **68건**(`서버: 유닛 사망` **63건**) — **전투가 정상 재개됐다** |
+
+**재경기 검증이 이 작업의 핵심이다.** 플래그 리셋이 잘못됐다면 §7-1 그대로 2경기에서 유닛이 아예 싸우지 못하고
+게임이 끝나지 않았을 것이다. 그 시나리오가 **두 번 연속 통과**했다.
+
+### 10-5. 계획서가 「확인 필요」로 남겼던 항목의 현재 상태
+
+| § | 항목 | 현재 상태 |
+|:-:|---|---|
+| **7-4** | `IsSpawned` 가 `Shutdown()` 직후 전이하는지 | **여전히 미확정.** 이 환경에서 NGO 패키지 소스를 열 수 없다는 사정은 그대로다. 추가된 것은 **실기 관측 하나뿐** — 3경기를 돌리는 동안 해당 오류가 나지 않았다. **⚠️ 이것으로 "27ms 창을 완전히 닫는다" 고 단정하지 않는다**(CLAUDE.md 규칙 10) |
+| **3-5-2** | 디스폰 후 NetworkVariable 쓰기가 RPC 와 같은 오류를 내는지 | **여전히 미확정.** Walk · HealCast · FreezeChanged 3건은 계속 **「오류가 확인된 수정」이 아니라 「예방」** 으로 표기한다 |
+| **9-2** | `NetworkUnit.SetAnimState` 의 `IsSpawned` 가드 | **손대지 않았다.** 여전히 `IsServer` 만 보고 `IsSpawned` 를 안 본다. 더 근본적인 자리지만 다른 파일이라 `NetworkCombatController.SetUnitAnimState` 쪽에서 막았다 |
+| **9-3** | 다른 네트워크 컨트롤러의 동일 구멍 | **점검하지 않았다.** `NetworkProductionController` · `NetworkBuildingController` · `NetworkUpgradeController` 등을 열지 않았으므로 **있다/없다를 말할 수 없다**(규칙 10) |
+| — | **B(전역 훅의 엔진 오류 수집 · 커밋 `cc864054`)** | **이번에도 미검증.** 3경기를 돌렸는데 엔진 오류가 한 건도 나지 않아 잡을 것이 없었다. **역설적이지만 ①·② 수정이 잘 돼서 B 를 검증할 기회가 사라진 것이다** — B 로 잡으려던 대상이 바로 그 RPC 에러였다 |
+
+### 10-6. 변경 파일 리스트업 (WORKFLOW [12])
+
+```
+[수정 — 코드]
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs
+
+[수정 — 에이전트 메모리]
+- .claude/agent-memory/game-programmer/MEMORY.md
+
+[추가 — 에이전트 메모리]
+- .claude/agent-memory/game-programmer/network-infra.md
+```
+
+- **코드 변경은 `NetworkCombatController.cs` 단 1개 파일**이다(계획 §6-1 그대로).
+- 프리팹 · 씬 · `.asset` 변경 **없음** → Inspector 작업 없음(계획 §6-2 그대로).
+- 문서 갱신분(이 문서 · `LogRules.md` · `PROJECT_STATUS.md` · `ROADMAP.md` · `WORK_HISTORY.md`)은 [11] 작업이라 위 목록과 별도다.
