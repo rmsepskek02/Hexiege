@@ -7,6 +7,8 @@
 
 - `logging.md` — GameLog / sink / RuntimeLogger 구조, 판정 선례표, `key=value` 확정 매핑,
   전역 로그 훅(4겹 방어 + 스로틀). **로그 관련 작업은 여기부터 읽는다.**
+- `network-infra.md` — NGO 컨트롤러 구조, 스폰 레이스, **종료(Shutdown) 시점 뒷정리 관례 +
+  `_combatStopped`(게임 종료 후 서버 틱 정지) 패턴**. 네트워크 작업은 여기부터 읽는다.
 
 ## 컴파일에서 반복해서 물린 함정
 
@@ -28,11 +30,14 @@
 - **host 는 서버이자 클라이언트다.** `ClientRpc` 안의 로그는 `if (IsServer) return;` **뒤**에 둬야
   같은 사건이 host 파일에 두 줄로 남지 않는다(LogRules 1.14 금지 9).
 
-## 알려진 잔존 구멍 (아직 안 고침 — 2026-08-18 기준)
+## 알려진 잔존 구멍 (2026-08-19 기준)
 
-- `NetworkCombatController` 에 **게임 종료 구독이 0건**이라, 승패가 갈린 뒤에도 전투 루프가 계속 돈다(실측 약 20초).
-- 같은 파일 `OnUnitDied → EntityDiedClientRpc` 는 가드가 `if (!IsServer) return;` 하나뿐 —
-  코루틴(`DelayedAttackDamage`)이 Shutdown 이후에 깨어나면 `Update` 와 같은 성질의 구멍이 된다.
+- ~~`NetworkCombatController` 의 게임 종료 구독 0건 / `OnUnitDied` 가드 부족~~ → **2026-08-19 해소.**
+  `_combatStopped` 플래그 + 6개 핸들러 가드. 상세는 `network-infra.md` 「네트워크 종료 시점 뒷정리」 참조.
+- **아직 안 봄**: `NetworkProductionController` / `NetworkBuildingController` / `NetworkUpgradeController` 의
+  같은 형태 구멍(전수 점검 미실시). `NetworkUnit.SetAnimState`(`NetworkUnit.cs:170`)는 `IsServer` 만 본다.
+- **싱글플레이의 같은 낭비**: `GameBootstrapper.Update`(530~590행)도 게임 종료 후 쿨다운/파도/HoT/자연회복/
+  연구/물안개 틱을 계속 돌린다. 네트워크가 없어 오류는 안 나고 낭비만 있다.
 
 ## 자기 검증 스크립트
 
