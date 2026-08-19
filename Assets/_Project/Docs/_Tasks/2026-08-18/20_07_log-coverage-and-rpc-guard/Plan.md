@@ -495,3 +495,76 @@ ExecuteAttack(605행) → StartCoroutine(DelayedAttackDamage)(634행)
 1. **`LogEvent.UnhandledEngineError` 이름** — 한 번 정하면 바꾸지 않는다(**1.5**). 이 이름으로 확정해도 되는가.
 2. **C #3-b(운영 로그 1줄) 포함 여부** — 원 요청은 3지점이었고 이것은 같은 지점의 반대 분기다. 빼도 나머지는 성립한다.
 3. **검증 순서(§9-2)** — B 를 먼저 켠 뒤 A 를 고치는 2단계 진행에 동의하는가. 한 번에 다 넣으면 A 의 수정 효과를 로그로 판정할 수 없다.
+
+---
+
+# 11. 구현 결과 (2026-08-19 추가 · 커밋 `cc864054`)
+
+> **아래는 계획이 아니라 실제로 벌어진 일의 기록이다.** 위 §1~§10 은 착수 시점의 계획이므로 원문을 그대로 둔다.
+> 아래 내용은 **코드 재실측 + 실기 로그 `_Logs/_editor/2026-08-19/RuntimeLog.txt`(704줄) 판독**으로 확인했다(CLAUDE.md 규칙 10).
+
+## 11-1. 3건 모두 구현 완료
+
+| 건 | 결과 | 실측 확인 |
+|:-:|---|---|
+| **B** | **구현 완료** | `LogSessionOwner.cs` **389행** `if (type != LogType.Exception && type != LogType.Error) return;` · **400행** `if (RuntimeLogger.IsEmittingToConsole) return;` · **432~435행** `type` 별 키 분기 · **457행** `Source=UnityLogHook, Suppressed={suppressedCount}` · 스로틀 표(**145행**)와 `Stopwatch`(**152행**)와 상한(**519행**). `RuntimeLogger.cs` **79행** `IsEmittingToConsole` 공개 프로퍼티 · **202행** 콘솔 출력 구간만 감싼다. `ILogSink.cs` **108행** `UnhandledEngineError` |
+| **A** | **구현 완료** | `NetworkCombatController.cs` **310행** `if (!IsSpawned \|\| !IsServer) return;` |
+| **C** | **구현 완료** | `NetworkUpgradeController.cs` — **246행**(착수 성공 `Dev`) · **305행**(완료 브로드캐스트 `Dev`) · **346행**(클라 반영 `Dev`) · **369행**(서비스 부재 `Ops` — 기존 키 `ClientRpcGameServicesMissing` 재사용). **326행 주석**에 「`IsServer` 가드 뒤에 두는 이유」가 함께 적혀 있다 |
+| — | **`key=value` 구분자 위반 수정** | `NetworkProductionController.cs` **293행** — ~~`Pos={unit.Position}`~~ → **`Q={unit.Position.Q}, R={unit.Position.R}`**. §10 에서 "범위 밖"으로 미뤄 두었던 항목인데, **1.4 를 우리가 어기고 있는 자리**라 이번에 함께 고쳤다(290행 주석에 근거 기재) |
+
+**`LogEvent` 실측 = 37개** (`ILogSink.cs` 파싱 결과 `Unknown`(0) 포함). 계획의 「36 → 37」과 일치한다.
+
+## 11-2. 계획과 달라진 점 — **1건**
+
+| 항목 | 계획(§3-8) | 실제 |
+|---|---|---|
+| `Suppressed=` 를 붙이는 조건 | *"다음 통과 줄에 `Suppressed=n` 을 함께 남긴다"* — 억제분이 있을 때만 붙는 것으로 읽힌다 | **처음 통과하는 줄에도 `Suppressed=0` 을 항상 붙인다.** 필드를 조건부로 빼면 **같은 로그가 두 가지 필드 구성으로 갈려 파싱이 어려워지기 때문**이다. §5-4 가 `Group=` 에 대해 이미 같은 판단을 내려 두었고(*"필드를 조건부로 빼면…"*), 그 판단을 훅 쪽에도 똑같이 적용한 것이다 |
+
+**그 밖에는 계획대로다** — 방어 4겹 구성 · `Assert` 제외 · 키 신설과 이름 · 스로틀 1초 / 상한 32 / `Stopwatch` · `try`/`finally` · 가드 위치(`Update`) · C 4지점과 `IsServer` 가드 뒤 배치.
+
+## 11-3. 실기 검증 결과 (2026-08-19) — **A ✅ / C ✅ / B ⚠️ 미검증**
+
+근거: `_Logs/_editor/2026-08-19/RuntimeLog.txt` (704줄).
+
+| # | 항목 | 결과 · 근거 |
+|:-:|---|---|
+| **A** | RPC 에러(§9-2 항목 4) | ✅ **해결.** Shutdown(**13:34:01.467** · 692행) 이후 `StopCombatClientRpc` **0건**. 에디터가 host 인 회차라(`Role=Host` **4건**, `Role=client` 0건) 검증 조건 성립 |
+| **C** | 연구 흐름(§9-2 항목 5) | ✅ **정상.** `서버: 연구 착수 성공` **6건**(397·408·420·518·525·533행) ↔ `서버: 연구 완료 — 레벨 브로드캐스트` **6건**(445·455·466·592·596·603행) **1:1**. `Level=1` → `Level=2` 상승 확인 |
+| **B** | 엔진 오류 수집(§9-2 항목 1·3) | ⚠️ **미검증.** `[ERROR]` **0건** · `UnhandledEngineError` **0건** · `Suppressed=` **0건** — **이번 세션에 엔진 오류가 나지 않아 잡을 것이 없었다.** 훅이 동작한다는 증거는 아직 없다 |
+| — | 되먹임·폭주(§9-2 항목 2) | ✅ 없음. 704줄이 정상 형식으로 기록되었고 같은 줄의 폭주가 없다 |
+| **C #3** | 클라 반영(§9-2 항목 6) | **해당 회차 없음.** `클라이언트: 강화 레벨 반영` 0건은 **정상**이다 — `if (IsServer) return;` 뒤에 있어 host 는 건너뛰고, 기기(순수 클라)는 빌드라 파일을 쓰지 않는다(§5-3 · §9-3 2번) |
+
+## 11-4. ⚠️ 완료 옆에 붙는 단서 (규칙 10 — 과대 표기 금지)
+
+1. **B 는 「동작 확인」이 아니라 「확인할 기회가 없었음」이다.** 오류가 나지 않아 잡을 것이 없었을 뿐, 훅이 동작한다는 증거가 아니다. §9-2 항목 1·3 은 **아직 미판정**이다.
+2. **A 의 원인인 스폰 레이스 계열 타이밍은 이번에도 미발생이다** — `NetworkControllerSpawnedWithoutGameServices` **0건**. §4-5 가 적은 대로 **"창이 닫혔다"고 단정하지 않는다.** 확인된 것은 **정상 경로에서 오류가 나지 않았다**는 사실까지다.
+3. **`SetCameraStartPositionForTeam` 주석 처리분의 최종 삭제가 아직 남아 있다** (직전 task `04_02` §11-3 1번과 동일 건).
+4. **기기 빌드가 낡았다** — 386건 이관과 이번 수정이 **미포함**이다. **기기가 host 인 회차에서는 A 가 동작하지 않는다**(§9-3 1번).
+5. **범위 밖으로 남긴 2건은 그대로다** — §8-3 의 `OnUnitDied` → `EntityDiedClientRpc` **같은 성질의 가드 구멍** / §10 의 **`NetworkCombatController` 게임 종료 구독 부재**. 후자는 이번 로그에서도 확인된다 — **13:33:58.860 종료 감지 → 13:34:01.467 Shutdown, 약 3초간 전투 루프 지속**(2026-08-18 회차의 약 20초보다는 짧다).
+6. **`Suppressed=` 는 발생 횟수의 하한이다** — 방어 ④가 먼저 버린 줄은 스로틀에 도달하지 않는다. 정확한 발생 횟수로 읽지 않는다.
+
+## 11-5. 변경 파일 리스트업 (WORKFLOW.md [12])
+
+> **git 명령을 쓰지 않았다**(CLAUDE.md 규칙 5). 아래는 §7 의 계획을 **코드 재실측으로 대조**한 결과다.
+
+```
+[수정]
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkCombatController.cs    (A — Update 가드)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkUpgradeController.cs   (C — 로그 4줄)
+- Assets/_Project/Scripts/Application/Interfaces/ILogSink.cs                   (B — LogEvent 36→37)
+- Assets/_Project/Scripts/Infrastructure/Debug/RuntimeLogger.cs                (B — IsEmittingToConsole)
+- Assets/_Project/Scripts/Infrastructure/Debug/LogSessionOwner.cs              (B — 수집 범위·키 분기·스로틀)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.cs (§10 → Pos= 를 Q=/R= 로)
+
+[변경 없음]
+- 씬 · 프리팹 (Inspector 작업 없음 — WORKFLOW [5-2] 해당 없음)
+
+[문서]
+- Assets/_Project/Docs/LogRules.md                       (1.5 / 1.9 / 1.11 / 1.13 · 서두 개정 이력)
+- Assets/_Project/Docs/_Tasks/2026-08-18/20_07_log-coverage-and-rpc-guard/Plan.md  (이 문서 §11 추가)
+- Assets/_Project/Docs/_Tasks/2026-08-18/04_02_upgrade-subscription-fix/Plan.md    (§12 추가)
+- Assets/_Project/Docs/PROJECT_STATUS.md · ROADMAP.md · WORK_HISTORY.md
+
+[로그]
+- Assets/_Project/Docs/_Logs/_editor/2026-08-19/RuntimeLog.txt  (실기 근거 — 704줄)
+```

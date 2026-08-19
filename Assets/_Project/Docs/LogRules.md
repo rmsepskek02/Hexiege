@@ -16,9 +16,11 @@
 
 ---
 
-## 이 문서를 왜 개정했는가 (2026-08-13 · 2026-08-14)
+## 이 문서를 왜 개정했는가
 
-이 문서는 지금까지 **두 번** 개정됐다. 각 개정이 무엇을 바꿨는지 먼저 정리한다.
+이 문서는 여러 차례 개정됐다. **개정 이력의 단일 소스는 아래 「개정 이력」 표다** —
+여기에 횟수나 날짜를 적어 두면 개정할 때마다 두 곳을 고쳐야 하고, 실제로 한쪽이 낡아 있었다.
+아래 절들은 그중 **판정 체계를 바꾼 두 번**(2026-08-13 두 축 전환 · 2026-08-14 이관 착수)을 자세히 설명한다.
 
 | 개정일 | 무엇을 바꿨는가 |
 |--------|----------------|
@@ -29,6 +31,7 @@
 | **2026-08-17 (2차)** | **규칙 본문은 한 글자도 바꾸지 않았다.** 사용자 유니티에서 **커밋 `4e027e68` · `675203ae` · `4710ce31` 의 컴파일 통과가 확인**되어, 직전 판이 *"컴파일 검증 전"* 으로 적어 두었던 **구현 상태 서술만** 정정했다(서두 구현 상태 박스 · **1.10** · **1.13**). **⚠️ 실기 동작 테스트는 여전히 하지 않았고, 정리 메뉴는 한 번도 실행된 적이 없다** |
 | **2026-08-17 (3차)** | **두 가지가 달라졌다.** ① **씬 무관 로그 수집이 구현되어 sink 등록 주체가 바뀌었다**(커밋 `a253232e`) — `GameBootstrapper` 안에 있던 배선이 신규 정적 클래스 **`Infrastructure/Debug/LogSessionOwner.cs`** 로 이관되었고, **1.9** 의 전역 미처리 예외 훅도 함께 옮겨졌다. 그에 맞춰 **1.8 등록 주체** · **1.9** · **1.13 표**의 **주체 서술만** 정정했다. ② **실기 검증이 끝났다** — 직전 판이 *"실기 동작 테스트를 하지 않았다"* · *"정리 메뉴는 실행해 본 적이 없다"* 로 적어 두었던 두 항목이 **전부 PASS**로 확인되어(서두 구현 상태 박스 · **1.10** · **1.13**) 그 경고를 걷어냈다. 함께 **1.4** 에 `key=value` **값 표기 일관성** 항목을 추가했다(`Role=` 표기가 실제로 두 갈래로 갈렸던 사례 — 커밋 `73574a23`). **원칙 1~4와 축 정의는 여전히 한 글자도 바뀌지 않았다** |
 | **2026-08-18** | **원칙 1~4와 축 정의는 여전히 한 글자도 바뀌지 않았다.** ① **`Assets/_Project/Scripts/` 의 게임 런타임 코드에서 raw `Debug.Log` 이관이 끝났다** — **1.13** 의 「기존 raw `Debug.Log` 이관」 행을 **완료**로 고치고, 최종 잔존 **46건**의 내역과 **왜 남는가**를 기재했다. `Assets/Editor/` **16건은 규칙 예외가 아니라 「미적용 + 이유」** 다(사용자 결정 — 나중에 에디트 모드 sink 를 만들면 할 수 있게 규칙으로 막지 않는다). ② **1.4 「카테고리 규칙」에 「System 은 폴더가 아니라 기능 기준」 한 문장을 본문에 추가**했다 — 예시 셋만으로는 읽는 사람마다 갈렸고 실제로 갈려서 되돌린 커밋(`589c2fcf`)이 있다. **규칙 번호는 신설하지 않았다.** ③ **1.4** 에 `key=value` 값에 `, ` 금지, **1.7** 에 `[Conditional]` + 식 본문 람다 함정을 각각 한 항목씩 덧붙였다. ④ **1.14 금지 9** 에 *"호출 경로를 끝까지 따라간다"* 를 보강했다 — 중복 판정이 **두 번 연속 빗나갔기** 때문이다 |
+| **2026-08-19** | **원칙 1~4와 축 정의는 여전히 한 글자도 바뀌지 않았다.** ① **1.9 의 수집 범위가 넓어졌다** — 전역 훅이 `Exception` 뿐 아니라 **`Error`** 까지 수집하고(`Assert` 제외), 그에 맞춰 **되먹임 방어가 3겹 → 4겹**이 되었다(`RuntimeLogger.IsEmittingToConsole` 신설). **절 제목도 「예외 처리」 → 「예외 · 엔진 오류 처리」로 넓혔다(번호 1.9 는 불변).** ② **1.9 에 스로틀 방침**(`condition` 단위 1초 · `Suppressed=n` · 딕셔너리 상한 32)을 기재하고 **1.14 금지 8 과의 관계**를 밝혔다. ③ **1.5 에 `UnhandledEngineError` 신설**(멤버 36 → **37**)과 `UnhandledException` 과 나눈 근거를 적었다. ④ **1.11 에 「직접 호출이 방어 ③을 우회한다」는 교차 참조 한 블록**을 넣었다. ⑤ **1.13 에 2026-08-19 실기 검증 결과**(A ✅ / C ✅ / **B 미검증**)와 단서 5건을 추가했다. 커밋 `cc864054` |
 
 ### 2026-08-13 개정 — 한 축에서 두 축으로
 
@@ -422,6 +425,13 @@ enum이면 오타는 컴파일 에러고, 이름을 바꾸면 IDE가 전부 따�
 - 이름은 **한 번 정하면 바꾸지 않는다.** 이름이 바뀌면 서버에 쌓인 과거 지표와 연결이 끊긴다
 - 예: `MatchmakingLobbyJoinFailed`, `ServerRejectedUpgradeInsufficientGold`, `CloudSaveValueParseFailed`, `UnhandledException`
 
+> **`UnhandledEngineError` 신설 — 멤버 ~~36개~~ → 37개 (2026-08-19 · 커밋 `cc864054`)**
+> 전역 훅이 `LogType.Error` 까지 수집하게 되면서(**1.9**) 엔진·NGO 가 낸 `Debug.LogError` 에 줄 키가 필요해졌다.
+> **`UnhandledException` 에 섞지 않고 나눈 이유**는 1.5 의 신설 기준 두 개를 **둘 다** 충족하기 때문이다.
+> ① **집계가 섞이면 안 된다** — `UnhandledException` 은 *"try-catch 없이 터진 예외"* 다. 엔진의 `Debug.LogError` 는 **예외가 아니라** 스택이 풀리지도 흐름이 끊기지도 않는다. 한 키로 묶으면 **크래시 건수 지표가 크래시 아닌 사건으로 부풀어** 출시 판단에 못 쓴다.
+> ② **조치가 다르다** — 미처리 예외는 **그 자리에 `try-catch` 를 두거나 원인 코드를 고치는** 일이고, 엔진 Error 는 대개 **우리가 SDK 를 잘못된 상태·순서로 호출한 것**이라 **호출 시점 가드 추가**가 조치다.
+> `key=value` 는 기존 `Source=UnityLogHook` 을 그대로 쓰고 **`LogType=` 필드는 두지 않는다** — 키가 이미 둘을 가르고 있어 잉여 필드다.
+
 ---
 
 ## 1.6 민감 데이터
@@ -559,7 +569,10 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 
 ---
 
-## 1.9 예외 처리
+## 1.9 예외 · 엔진 오류 처리
+
+> **절 제목이 ~~「예외 처리」~~ 에서 「예외 · 엔진 오류 처리」로 넓어졌다 (2026-08-19 · 커밋 `cc864054`).**
+> 전역 훅이 예외뿐 아니라 **엔진·NGO 가 내는 `Debug.LogError` 까지** 수집하게 되었기 때문이다. **절 번호(1.9)는 그대로다.**
 
 ### `Exception` 오버로드를 둔다
 
@@ -574,10 +587,55 @@ sink 목록이 비어 있으면 **콘솔로 출력**한다.
 크래시 리포터가 그것을 **예외로 인식하지 못해 스택 심볼화(symbolication)가 되지 않는다.**
 난독화·최적화된 릴리스 빌드에서 심볼화가 안 된 스택은 사실상 읽을 수 없는 주소 나열이다.
 
-### 전역 미처리 예외 수집
+### 전역 훅 수집 — ~~미처리 예외~~ **미처리 예외 + 엔진 오류**
 
 `Application.logMessageReceived` 훅을 걸어, **계측하지 않은 곳에서 터진 예외까지** 수집한다.
 아무리 규율을 지켜도 `try-catch`를 두지 않은 자리는 남고, 실제 크래시는 대개 그런 자리에서 난다.
+
+> ## 수집 범위 확대 — `Exception` **+ `Error`** (2026-08-19 · 커밋 `cc864054`)
+>
+> 직전 판까지 훅은 ~~`LogType.Exception` 만~~ 수집했고, 그 결과 **엔진·NGO 가 내는 `Debug.LogError` 가 파일에 한 줄도 남지 않았다.**
+> **1.1** 이 규정한 두 목적 중 「라이브 운영 지표 수집」이 엔진 계층에서 통째로 비어 있는 상태였다. 지금은 **`Exception` 또는 `Error`** 를 수집한다.
+>
+> **`LogType.Assert` 는 제외한다** — 실측 사용처 **0건**이고 `UNITY_ASSERTIONS`(에디터·개발 빌드) 에서만 살아 있어 **릴리스에서 발화 자체가 불가능**하다. 즉 운영 지표에 기여할 수 있는 양이 **원리적으로 0**이다. 나중에 `Debug.Assert` 를 실제로 쓰기 시작하면 이 판정을 다시 연다.
+>
+> 키는 `type` 으로 갈린다 — `Exception` → `UnhandledException` / `Error` → **`UnhandledEngineError`**(신설. 나눈 이유는 **1.5**).
+>
+> ### 되먹임 방어가 3겹 → **4겹**이 되었다
+>
+> | 겹 | 내용 | 무엇을 막는가 |
+> |:-:|---|---|
+> | ① | `type` 이 `Exception` \|\| `Error` 가 아니면 반환 (`Assert` 제외) | Info/Warning 이 훅을 통과하는 것 — 되먹임 표면 축소 |
+> | **②** | **`RuntimeLogger.IsEmittingToConsole` 이면 반환 — 신설** | `GameLog` 경유 + **`RuntimeLogger` 직접 호출** 양쪽의 **자기 출력** |
+> | ③ | `GameLog.IsEmitting` 이면 반환 (기존) | `ConsoleSink` · sink 0개 폴백 포함 `GameLog` 전 경로 |
+> | ④ | 직전과 동일한 `condition` + `stackTrace` 면 반환 (기존) | 훅 전달이 비동기일 경우의 1회 메아리 |
+>
+> ### ②를 신설한 이유 — 이것을 모르면 다음 사람이 되돌린다
+>
+> - **되먹임 경로는 실재한다:** `GameLog.Ops.Error` → `FileSink` → `RuntimeLogger` → `Debug.LogError` → 훅.
+> - 방어 **①(`Exception` 만)이 그 고리를 원천 차단**하고 있었다. 이번 변경은 **그 방어를 푸는 변경**이므로, 대체 방어를 새로 세우지 않으면 안 되는 자리였다.
+> - **⚠️ 방어 ④는 우리 출력에 대해 애초에 작동한 적이 없다.** `RuntimeLogger` 가 만드는 줄은 **`[HH:mm:ss.fff]` 밀리초 타임스탬프로 시작**해 두 줄이 같아질 수 없기 때문이다. **④에 의존하지 말 것.** ④가 실제로 막는 것은 「남이 낸 같은 오류의 1회 메아리」뿐이다.
+> - **방어 ③에는 구멍이 있다** — **1.11** 이 명시적으로 허용하는 **`RuntimeLogger` 직접 호출**(축 B `임시` 로그) 경로는 `GameLog` 를 거치지 않아 `IsEmitting` 이 거짓이다. 무한 루프까지는 가지 않지만 **같은 사건이 2줄로 남아 1.14 금지 9 위반**이 된다. **②가 그 구멍을 덮는다.**
+> - **플래그는 반드시 `try` / `finally` 로 내린다.** 걸린 채 남으면 **이후 모든 엔진 오류를 영구히 놓친다.** `GameLog.Emit` 의 `finally` 와 같은 이유다.
+>
+> ### 스팸 억제 — `condition` 단위 1초 스로틀
+>
+> 엔진 오류는 `Update` 안에서 나면 **매 프레임 반복**되고, 수집된 줄은 `AutoFlush` 로 그때마다 디스크에 쓰인다. 방어 ④는 직전 1건만 비교하므로 A→B→A→B 교대를 못 막는다.
+>
+> | 항목 | 방침 |
+> |---|---|
+> | 판정 키 | **`condition` 문자열**(스택 제외) |
+> | 통과 규칙 | 같은 `condition` 은 **1초에 1건**만 통과 |
+> | 시계 | **`Stopwatch`**(단조 증가) — 시스템 시각 변경에 흔들리지 않는다 |
+> | 억제분 표기 | 다음 통과 줄에 **`Suppressed=n`** 을 함께 남긴다. **처음 통과하는 줄에도 `Suppressed=0` 을 항상 붙인다** — 필드를 조건부로 빼면 같은 로그가 두 구성으로 갈려 파싱이 어려워진다(**1.4**) |
+> | 자료구조 | `Dictionary` + **상한 32개.** 넘으면 통째로 비우고 다시 시작 — 상한이 없으면 매번 다른 문자열이 들어올 때 **로그 시스템 자신이 메모리 누수원**이 된다(**1.8** *"로그 때문에 게임이 멈추면 본말전도"*) |
+> | 적용 범위 | **훅이 수집한 줄에만.** 우리가 직접 남기는 로그는 **1.14 금지 8** 이 이미 규율한다 |
+>
+> **⚠️ `Suppressed=` 는 실제 발생 횟수의 「하한」이다.** 방어 ④가 먼저 버린 줄은 스로틀에 도달하지 않으므로 카운트에 잡히지 않는다. **정확한 발생 횟수로 읽거나 과대 표기하지 말 것**(CLAUDE.md 규칙 10).
+>
+> **1.14 금지 8 과의 관계:** 금지 8은 *"우리가 로그를 **작성**할 때"* 의 규칙이라 남의 출력을 **수집**하는 이 자리는 문자 그대로의 대상이 아니다. 그러나 결과(*"스팸은 정작 필요한 줄을 묻어 버린다"*)가 동일하므로 **취지를 수집 자리에도 적용한 것**이다.
+>
+> **⚠️ 이 확대는 아직 실기로 검증되지 않았다** — 상세는 **1.13** 「2026-08-19」 참조.
 
 > **훅 소유자 이동 (2026-08-17 · 커밋 `a253232e`)**
 > 등록·해제와 중복 방지 상태는 직전 판까지 ~~`GameBootstrapper.Setup.cs`~~ 안에 **인스턴스 멤버**로 있었고,
@@ -769,6 +827,10 @@ Hexiege > Logcat > 3. 오래된 에디터 로그 정리
 
 단, `임시` 로그에도 **민감 데이터 규정(1.6)은 그대로 적용된다.** 임시 로그의 파일은 영구 보존되기 때문이다.
 
+> **⚠️ 이 「직접 호출」 경로가 전역 훅의 방어 ③을 우회한다 (2026-08-19 · 커밋 `cc864054`)**
+> `GameLog` 를 거치지 않으므로 `GameLog.IsEmitting` 이 거짓이다. **1.9** 의 방어 **②(`RuntimeLogger.IsEmittingToConsole`)** 가 정확히 이 구멍을 막으려고 신설되었다.
+> **호출하는 쪽이 할 일은 없다** — 플래그는 `RuntimeLogger` 안에서 세우고 내린다. 다만 **`RuntimeLogger` 의 콘솔 출력부를 손대는 사람은 그 플래그를 지우면 안 된다.**
+
 > **직접 호출 형태 변경 완료 (2026-08-14 확정 → 2026-08-17 구현 · 커밋 `4e027e68`)** — `RuntimeLogger.BeginSession` 의 시그니처가 바뀌었다.
 > **`role` 인자가 빠지고**(1.10 — 파일명이 단일화됐다), **목적 문자열 인자가 들어갔다**(1.4 — 헤더 1줄째가 고정 문자열이면 안 된다).
 > 현행 시그니처는 **`BeginSession(string folderPath, string purpose)`** 다.
@@ -952,23 +1014,57 @@ Hexiege > Logcat > 3. 오래된 에디터 로그 정리
 > > **[이전 기록 — 2026-08-14 재실측 전]** *"골격은 들어왔지만 아직 「쓰이지」 않는다. ① 컴파일 통과 미확인
 > > ② `LogEvent` 멤버는 `Unknown`·`UnhandledException` 2개뿐 ③ 기존 raw `Debug.Log` 는 한 건도 이관되지 않았다."*
 > > 이 서술은 **이관 착수 전 시점의 사실**이며, 지금은 셋 다 해소되었다.
+>
+> ## 2026-08-19 — **훅의 `Error` 수집 확대 + RPC 가드 + 연구 흐름 로그** (커밋 `cc864054`)
+>
+> task: `_Tasks/2026-08-18/20_07_log-coverage-and-rpc-guard/Plan.md` · 근거 로그: `_Logs/_editor/2026-08-19/RuntimeLog.txt`(**704줄**).
+>
+> | 건 | 내용 |
+> |:-:|---|
+> | **B** | 전역 훅이 **`Exception` + `Error`** 를 수집(**1.9**). 되먹임 방어 **3겹 → 4겹**(②`RuntimeLogger.IsEmittingToConsole` 신설) · `condition` 단위 **1초 스로틀** + `Suppressed=` · `LogEvent` **36 → 37**(`UnhandledEngineError` 신설 — **1.5**) |
+> | **A** | `NetworkCombatController.Update` 가드를 **`if (!IsSpawned \|\| !IsServer) return;`** 로 확장. `IsServer` 는 *"내가 서버 역할인가"* 이지 *"이 오브젝트가 아직 살아 있는가"* 가 아니다 |
+> | **C** | `NetworkUpgradeController` 성공 경로가 **무로그**였다 → 착수 성공 · 완료 브로드캐스트 · 클라 반영을 **개발**로, 클라 측 서비스 부재 분기만 **운영**(기존 키 `ClientRpcGameServicesMissing` **재사용**)으로 4줄 추가 |
+> | — | **`key=value` 구분자 위반 1건 수정** — `NetworkProductionController` 의 `Pos={unit.Position}` 이 `Pos=(4, 15)` 를 만들어 **값 안에 구분자 `, ` 가 들어가 있었다.** **2026-08-18 에 1.4 로 명문화한 규정을 우리 코드가 어기고 있었다.** `Q=`/`R=` 표기로 통일 |
+>
+> ### 실기 검증 (2026-08-19) — **A ✅ / C ✅ / B ⚠️ 미검증**
+>
+> | # | 항목 | 결과 · 근거 |
+> |:-:|---|---|
+> | **A** | RPC 에러 | ✅ **해결.** Shutdown(**13:34:01.467** · 692행) 이후 `StopCombatClientRpc` **0건**. 에디터가 host 인 회차라(`Role=Host` **4건**) 검증 조건이 성립한다 |
+> | **C** | 연구 흐름 | ✅ **정상.** `서버: 연구 착수 성공` **6건** ↔ `서버: 연구 완료 — 레벨 브로드캐스트` **6건** 1:1, `Level=1` → `Level=2` 상승 확인 |
+> | **B** | 엔진 오류 수집 | ⚠️ **미검증.** `[ERROR]` **0건** · `UnhandledEngineError` **0건** · `Suppressed=` **0건** — **이번 세션에 엔진 오류가 나지 않아 잡을 것이 없었다.** 훅이 동작한다는 증거는 **아직 없다** |
+> | — | 되먹임 · 폭주 | ✅ 없음 (704줄 정상 기록) |
+>
+> **⚠️ B 는 「동작 확인」이 아니라 「확인할 기회가 없었음」이다** (CLAUDE.md 규칙 10 — 과대 표기 금지).
+>
+> > `클라이언트: 강화 레벨 반영`(C #3)이 로그에 없는 것은 **정상**이다 — `if (IsServer) return;` 뒤에 있어 host 는 건너뛰고, 기기(순수 클라)는 빌드라 파일을 쓰지 않는다.
+>
+> ### ⚠️ 완료 옆에 붙는 단서 (2026-08-19)
+>
+> | # | 단서 |
+> |:-:|---|
+> | 1 | **B(엔진 오류 수집)는 미검증** — 오류가 나지 않아 확인할 기회가 없었다 |
+> | 2 | **A 의 원인인 스폰 레이스는 이번에도 미발생** (`NetworkControllerSpawnedWithoutGameServices` **0건**) — **정상 경로만 확인**되었다 |
+> | 3 | **`SetCameraStartPositionForTeam` 주석 처리분의 최종 삭제가 아직 남아 있다** (2026-08-18 단서 2와 동일 건) |
+> | 4 | **기기 빌드가 낡았다** — 386건 이관과 이번 수정이 **미포함**이다. **기기가 host 인 회차에서는 A 가 동작하지 않는다** |
+> | 5 | **범위 밖으로 남긴 2건** — ① `OnUnitDied` → `EntityDiedClientRpc` 에 **같은 성질의 가드 구멍**이 있다(코루틴이 Shutdown 이후에 깨어날 수 있다) ② `NetworkCombatController` 에 **게임 종료 구독이 없어** 로그상 종료 감지 후 **약 3초간 전투 루프가 지속**된다(13:33:58.860 종료 감지 → 13:34:01.467 Shutdown) |
 
 | 항목 | 현행 코드 상태 | 이 문서의 규정 |
 |------|--------------|--------------|
 | `GameLog` facade | **구현됨** — `Application/GameLog.cs`. 축 B가 중첩 클래스 `Ops`/`Dev` 로 갈려 있고, `AddSink`/`RemoveSink`/`ClearSinks`, `Compose`, 재진입 가드(`IsEmitting`), sink 0개일 때 콘솔 폴백, sink별 개별 `try-catch` 모두 존재 | 1.5~1.9 — 구조 충족. **네트워크·인증 계층 이관 완료**(아래) |
-| `LogEvent` enum | **구현됨** — `Application/Interfaces/ILogSink.cs`. **멤버 36개**(2026-08-18 실측. ~~32개~~ — 나머지 계층 이관 **배치 2 에서 4개 신설**, 다른 배치는 신설 0건)이며 `Unknown`(0)은 의도적으로 무의미 값으로 비워 두었다. 각 멤버에 부여 근거와 발생 지점이 XML 주석으로 붙어 있다 | 1.5 — **충족** |
+| `LogEvent` enum | **구현됨** — `Application/Interfaces/ILogSink.cs`. **멤버 37개**(2026-08-19 실측. ~~32개~~ → ~~36개~~ — 나머지 계층 이관 **배치 2 에서 4개 신설**, 다른 배치는 신설 0건. **2026-08-19 커밋 `cc864054` 로 `UnhandledEngineError` 1개 추가 = 37**)이며 `Unknown`(0)은 의도적으로 무의미 값으로 비워 두었다. 각 멤버에 부여 근거와 발생 지점이 XML 주석으로 붙어 있다 | 1.5 — **충족** |
 | `ILogSink` / `ConsoleSink` / `FileSink` | **구현됨** — `Application/Interfaces/ILogSink.cs` / `Infrastructure/Debug/ConsoleSink.cs` / `Infrastructure/Debug/FileSink.cs`. `ConsoleSink` 는 예외를 `Debug.LogException` 으로 따로 내보내고, `FileSink` 는 동작 전체가 `#if UNITY_EDITOR` 안에 있다 | 1.8 / 1.9 — 충족 |
 | sink 등록 (**정적 소유자**) | **주체 변경됨** (2026-08-17 · 커밋 `a253232e`). ~~"`Bootstrap/GameBootstrapper.Setup.cs` `InitializeLogging()`"~~<br>현행: **`Infrastructure/Debug/LogSessionOwner.cs`** 의 `EnsureInitialized()` 가 등록한다. **에디터는 `FileSink`, 빌드는 `ConsoleSink` 하나만** 등록하는 `#if` 분기는 **그대로 유지**되었다(콘솔 이중 출력 방지).<br>부트스트래퍼 **둘**(`LoginBootstrapper` · `GameBootstrapper`)이 각자 `Awake` **첫 줄**에서 이 진입점을 부르고, 두 번째 호출부터는 멱등 가드에서 즉시 반환한다. 상태(`_initialized` · sink 필드 · 훅 중복 방지 캐시)는 **전부 `static`** 이라 씬 경계를 건너간다.<br>`GameBootstrapper.OnDestroy` 의 `ShutdownLogging()` 호출은 **주석 처리**되었다(`GameBootstrapper.cs` 473행) — 씬 언로드 때 닫으면 앞 씬이 연 세션까지 끊기기 때문이다 | 1.8 — **충족 (주체 정정)** |
 | `[Conditional]` 스트리핑 | **구현됨** — `GameLog.Dev` 의 4개 메서드에 `UNITY_EDITOR` + `DEVELOPMENT_BUILD` 두 개가 **모두** 붙어 있고, `GameLog.Ops` 에는 붙어 있지 않다 | 1.7 — 충족 |
 | 민감 데이터 마스킹 — **2단(facade)** | **구현됨** — `GameLog.Sanitize` 가 최종 문자열에서 이메일 패턴을 `[email-redacted]` 로 치환한다(에디터 포함 항상 적용). 해시 헬퍼 `GameLog.HashId` 도 존재 | 1.6 — 충족 |
 | 민감 데이터 마스킹 — **1단(호출부)** | **적용 완료** (2026-08-17 · 커밋 `4e027e68`). ~~"여전히 미적용"~~<br>대상 **15곳**: `Infrastructure/Auth/FirebaseAuthService.cs` **10** (UID 8곳 해시 / 이메일 1곳 출력 제거 / 이미 처리돼 있던 2곳은 표식 주석만 제거) / `Infrastructure/Network/UnityServicesInitializer.cs` **2** (PlayerId 해시) / `Application/UseCases/LoginUseCase.cs` **2** (UID · PlayerId 해시) / `Infrastructure/Network/NetworkGameManager.cs` **1** (PlayerId 해시)<br>**실측:** `⚠️ 5단계(마스킹) 대상` 표식 주석 잔존 **0건** · `GameLog.HashId` 실제 호출 **14건**(`grep` 15건 중 1건은 주석) · 위 4파일에서 `Uid=`·`PlayerId=`·`Email=` 중 해시를 거치지 않은 자리 **0건**이고 `Email=` 은 완전히 사라졌다.<br>**`개발`(`Dev`) 로그에도 적용했다** — 1.6 이 "에디터 포함 항상 적용"이고, 에디터 로그 파일은 커밋되어 공유되기 때문이다.<br>**추가 1곳** (커밋 `675203ae`): `Infrastructure/Network/LobbyManager.cs` 의 `"CreateOrJoin 완료"` 로그가 `HostId` 를 **평문 출력**하고 있었다. **`LogAudit.md` §6 목록에 없던 자리다.** 근거 — 같은 파일 60행이 `CurrentLobby.HostId == AuthenticationService.Instance.PlayerId` 로 직접 비교하므로 `HostId` 는 UGS PlayerId 다. 로직 판정에 쓰는 60행은 원본 유지.<br>~~(구 목록: `FirebaseAuthService.cs` 146·191·265·289·318·365·424·463행 / `LoginUseCase.cs` 131·485행)~~ — 라인 번호 기준 목록은 이관으로 무효가 되었다 | 1.6 — **충족 (5단계 완료)** |
-| 전역 미처리 예외 수집 | **구현됨 · 주체 변경됨** (2026-08-17 · 커밋 `a253232e`). ~~"`GameBootstrapper.Setup.cs` 가 등록/해제"~~<br>현행: **`LogSessionOwner`** 가 `UnityEngine.Application.logMessageReceived` 를 등록/해제하고, `LogType.Exception` 만 `GameLog.Ops.Error(LogEvent.UnhandledException, ...)` 로 올린다. 되먹임 방어 3겹(예외만 수집 / `GameLog.IsEmitting` / 직전 동일 예외 무시)은 **한 겹도 빼지 않고 그대로 이관**되었고, 중복 방지 캐시 2개도 인스턴스 → `static` 이 되었다.<br>**함께 옮긴 이유:** 훅이 `GameBootstrapper` 에만 걸려 있으면 **로그인·로비 구간의 미처리 예외가 아무 데도 수집되지 않는다.** sink 커버리지만 고치면 같은 구멍이 예외 쪽에 남는다.<br>**⚠️ 부수 영향:** 로그 라인의 `className` 이 `GameBootstrapper` → **`LogSessionOwner`** 로 바뀐다(`[Runtime/GameBootstrapper]` → `[Runtime/LogSessionOwner]`). Infrastructure 가 Bootstrap 을 참조할 수 없어 불가피하며, **로그를 `grep` 하는 쪽에 영향이 있다** | 1.9 — **충족 (주체 정정)** |
+| 전역 훅 수집 — ~~미처리 예외~~ **예외 + 엔진 오류** | **구현됨 · 주체 변경됨**(2026-08-17 · 커밋 `a253232e`) **· 수집 범위 확대됨**(2026-08-19 · 커밋 `cc864054`). ~~"`GameBootstrapper.Setup.cs` 가 등록/해제"~~<br>현행: **`LogSessionOwner`** 가 `UnityEngine.Application.logMessageReceived` 를 등록/해제하고, ~~`LogType.Exception` 만~~ → **`Exception` 또는 `Error`** 를 `GameLog.Ops.Error` 로 올린다. 키는 `type` 으로 갈린다(`Exception` → `UnhandledException` / `Error` → **`UnhandledEngineError`**). `Assert` 는 제외한다(사용처 0건 · 릴리스 발화 불가).<br>되먹임 방어는 ~~3겹~~ → **4겹**이다 — ①타입 필터(`Exception`\|\|`Error`) / **②`RuntimeLogger.IsEmittingToConsole` 신설** / ③`GameLog.IsEmitting` / ④직전 동일 `condition`+`stackTrace` 무시. **②가 없으면 ①을 푸는 순간 되먹임 고리가 열린다.** 함께 `condition` 단위 **1초 스로틀 + `Suppressed=n`**(딕셔너리 상한 **32**)이 들어갔다. 근거와 ④의 한계는 **1.9** 참조.<br>**⚠️ 확대분은 실기 미검증** — 2026-08-19 세션에 엔진 오류가 나지 않아 `[ERROR]`·`UnhandledEngineError`·`Suppressed=` 모두 **0건**이다(위 「2026-08-19」 표).<br>**함께 옮긴 이유:** 훅이 `GameBootstrapper` 에만 걸려 있으면 **로그인·로비 구간의 미처리 예외가 아무 데도 수집되지 않는다.** sink 커버리지만 고치면 같은 구멍이 예외 쪽에 남는다.<br>**⚠️ 부수 영향:** 로그 라인의 `className` 이 `GameBootstrapper` → **`LogSessionOwner`** 로 바뀐다(`[Runtime/GameBootstrapper]` → `[Runtime/LogSessionOwner]`). Infrastructure 가 Bootstrap 을 참조할 수 없어 불가피하며, **로그를 `grep` 하는 쪽에 영향이 있다** | 1.9 — **충족 (주체 정정)** |
 | 에디터 파일 기록 상시 활성 — **씬 무관으로 확장** | **구현됨 + 파일명 단일화 완료**(2026-08-17 · 커밋 `4e027e68`) **+ 씬 무관 확장 완료**(2026-08-17 · 커밋 `a253232e`).<br>**커버리지가 `Game.unity` 뿐이던 상태가 해소되었다** — 세션을 여는 주체가 `GameBootstrapper` 에서 **`LogSessionOwner`** 로 옮겨져, 어느 씬에서 시작하든 **가장 먼저 뜨는 부트스트래퍼**가 연다. 닫는 것은 `UnityEngine.Application.quitting` 1회이므로 **씬을 오가도 파일 하나에 이어진다.**<br>**✅ 실기 확인(2026-08-17):** `_Logs/_editor/2026-08-17/RuntimeLog.txt` 에 `[Auth/...]` **7건** 기록 · 같은 파일에 헤더 2개(일 단위 이어쓰기) · 총 **199줄**.<br>**⚠️ `Lobby.unity` 직접 진입은 커버되지 않는다**(부트스트래퍼 없음). **사용자가 "항상 Login 을 거친다"고 판단해 커버하지 않기로 결정**했다.<br>현행: `LogSessionOwner.EnsureInitialized()` 가 **인자 없는 `FileSink.BeginSession()`** 을 호출해 `_Logs/_editor/{yyyy-MM-dd}/**RuntimeLog.txt**` 를 연다(일 단위 이어쓰기). `FileSink` 가 `RuntimeLogger` 에 넘기는 목적 문자열은 내부 상수 `SessionPurpose = "에디터 상시 런타임 로그"` 다.<br>역할은 파일명이 아니라 `Infrastructure/Network/NetworkCombatController.cs` 의 `OnNetworkSpawn` 에서 로그 한 줄(**`Role=Host` / `Role=Client`** — 표기는 2026-08-17 커밋 `73574a23` 으로 통일, **1.4** 참조)로 기록한다. 위치는 `NetworkContext.Set(...)` **직후 · `if (IsServer)` 분기 바깥** — 분기 안에 넣으면 host 에서만 찍혀 목적을 잃기 때문이다.<br>`GameBootstrapper.Setup.cs` 의 *"에디터 = Host, 빌드 = Client"* 라는 **틀린 전제 주석도 함께 정정**했다.<br>**실측:** `RoleHost`·`RoleClient`·`RuntimeLog_host`·`RuntimeLog_client` 잔존 **전부 0건**.<br>~~"⚠️ 파일명이 사실과 다르다 — 에디터가 client 로 붙어도 `_host.txt` 에 기록된다"~~ → **해소됨.** 이 프로젝트의 테스트 구성이 **에디터 1 + 실기기 빌드 1**이고 어느 쪽이 host 가 될지 정해져 있지 않다는 사실(사용자 확인)은 그대로이나, 파일명이 역할을 담지 않게 되어 더 이상 문제가 되지 않는다 | 1.10 — **충족** |
 | `RuntimeLogger` 유틸리티 | **존재** (`Infrastructure/Debug/RuntimeLogger.cs`) — `BeginSession`/`Log`/`EndSession`, 파일 쓰기는 `#if UNITY_EDITOR` 안. `FileSink` 가 이를 재사용한다(구현을 둘로 두지 않음).<br>**2026-08-17 시그니처 변경분 확인:** `append: true` · `AutoFlush = true` · 예외 시 게임을 멈추지 않는 `try-catch` · `FileSink._sessionOwned` 세션 소유권 가드는 **전부 그대로 유지**되었다 | 1.11 — 유지 |
 | `RuntimeLogger` 헤더 1줄째 | **충족** (2026-08-17 · 커밋 `4e027e68`). ~~"여전히 고정 문자열 `=== RuntimeLogger 디버그 세션 ===`"~~<br>현행 시그니처는 **`BeginSession(string folderPath, string purpose)`** 이고, 헤더 1줄째는 **호출자가 넘긴 목적**을 그대로 쓴다. `purpose` 가 비면(`IsNullOrWhiteSpace`) 헤더 형식이 깨지지 않도록 기본 문구로 방어한다 | 1.4 — **충족** |
 | `RuntimeLogger` 헤더 2줄째 | **부합.** `=== 세션 시작: yyyy-MM-dd HH:mm:ss ===` — 이미 규정에 맞아 **이번 구현에서 변경하지 않았다** | 1.4 — 충족. **변경 없음** |
 | `RuntimeLogger` 헤더 뒤 빈 줄 | **충족** (2026-08-17 · 커밋 `4e027e68`). ~~"여전히 없음 — `BeginSession` 이 헤더 2줄만 쓰고 빈 줄을 쓰지 않는다"~~<br>헤더 2줄 뒤에 **빈 줄 1줄**을 쓴다. 본문 줄은 `[` 로 시작하므로 "빈 줄까지가 헤더" 규칙만으로 경계가 확정된다 | 1.4 — **충족** |
-| `LogEvent` 이벤트 키 채우기 | **완료.** 기존 2개(`Unknown`(0) · `UnhandledException`) + 2026-08-13 감사에서 확정한 키 30종 = 32 → **나머지 계층 이관 배치 2 에서 4개 신설 = 현재 36개**(2026-08-18 실측). 선행 이관은 감사가 확정해 둔 키를 **반영**만 했고(키별 내역은 `_Tasks/2026-08-13/07_13_network-auth-log-cleanup/Plan.md` §0-7 ③), 이번 이관도 **배치 2 외에는 신설 0건**이다. **`Unknown` 사용처는 여전히 0건** | 1.5 / 1.14 금지 사항 6 — **충족** |
+| `LogEvent` 이벤트 키 채우기 | **완료.** 기존 2개(`Unknown`(0) · `UnhandledException`) + 2026-08-13 감사에서 확정한 키 30종 = 32 → 나머지 계층 이관 배치 2 에서 4개 신설 = ~~36개~~ → **`UnhandledEngineError` 1개 추가 = 현재 37개**(2026-08-19 실측). 선행 이관은 감사가 확정해 둔 키를 **반영**만 했고(키별 내역은 `_Tasks/2026-08-13/07_13_network-auth-log-cleanup/Plan.md` §0-7 ③), 이번 이관도 **배치 2 외에는 신설 0건**이다. **`Unknown` 사용처는 여전히 0건** | 1.5 / 1.14 금지 사항 6 — **충족** |
 | 기존 raw `Debug.Log` 이관 | **완료** (2026-08-18). ~~"네트워크·인증 계층 8파일 205건 완료. 나머지 계층은 미이관 — 잔존 234건"~~<br>**누적 386건**(선행 205 + 이번 181)이 `GameLog` 를 경유한다. 이번 181건의 배치별 내역은 위 「2026-08-18」 절 참조.<br>**최종 잔존 46건**: `GameLog.cs` **9**(sink 0개일 때의 **콘솔 폴백** — **1.8** 이 요구하는 동작 그 자체) · `ILogSink.cs` **2**(주석) · `Infrastructure/Debug/` **19**(로그 시스템 본체) · `Assets/Editor/` **16**(**미적용** — 에디터 도구는 플레이 모드 밖이라 sink 가 없어 이관 효과가 원리적으로 0. **규칙 예외가 아니다**).<br>**⚠️ 컴파일 통과만 확인되었고 실기 동작 테스트를 하지 않았다** — 위 「완료 옆에 붙는 단서」 참조 | 1.14 금지 사항 1 — **충족** (`Assets/Editor/` 는 미적용 + 이유 기재) |
 | 컴파일 검증 | **통과** (2026-08-17). 205건 이관분(커밋 `668e0aeb` 계열)에 이어 **커밋 `4e027e68` · `675203ae` 의 변경분도 사용자 유니티에서 통과가 확인**되었고, **커밋 `a253232e`(씬 무관 구현)까지도 통과가 확인되었다** — 사용자가 **그 상태로 실기 테스트를 수행**했다. `LogcatCapture.cs` 의 CS0234 3건이 커밋 `9fcee6b7`(`UnityEngine.Application` 완전 수식)로 해소된 것도 **재확인**되었다.<br>**⚠️ 커밋 `73574a23`(`Role` 값 표기 통일)은 명시적인 컴파일 확인을 받지 않았다** — 문자열 리터럴 대소문자 1줄 변경이지만 확인받지 않은 것을 "통과했다"고 적지 않는다.<br>~~"⚠️ 실기 동작 테스트는 하지 않았다."~~ → **실기 검증 완료 (전 항목 PASS)** — 위 「2026-08-17 (3차)」 표 참조 | — **통과 (`73574a23` 만 미확인) · 실기 PASS** |
 | Logcat 캡처 도구 | **존재** (`Assets/Editor/Tools/LogcatCapture.cs`) — 메뉴 항목은 **3개**: `1. 버퍼 비우기` / `2. 파일로 저장` / `3. 오래된 에디터 로그 정리`. ~~"2개"~~ (2026-08-17 갱신). `1`·`2` 는 **이름·동작·순서 그대로**이고, `3` 은 파괴적 동작이라 **메뉴 구분선으로 분리**되어 있다 | 1.12 (`1`·`2`) / 1.10 (`3`) |
