@@ -608,3 +608,129 @@ Rpc methods can only be invoked after starting the NetworkManager!
 
 > **승인 전까지 코드는 한 줄도 수정하지 않습니다**(CLAUDE.md 규칙 11, WORKFLOW [4]).
 > 승인 후 구현은 **game-programmer 에이전트에 위임**합니다(CLAUDE.md 규칙 3).
+
+---
+
+## 13. 구현 결과 (2026-08-20 추가 · 커밋 `bcf45ec1`)
+
+> **§0~§12 의 계획 본문은 한 글자도 고치지 않았습니다.** 이 절만 뒤에 덧붙입니다.
+
+### 13-0. 쉬운 말로 — 무엇이 끝났고 무엇이 안 끝났는가
+
+계획한 **8곳에 안전장치 한 줄씩을 넣는 작업이 끝났습니다.** 승인 사항이던 8번째(`OnProductionQueueChanged`)도 포함됐습니다.
+
+**다만 이것은 "고쳤다" 이지 "고쳐진 것을 확인했다" 가 아닙니다.**
+이번 8곳은 **원래 한 번도 오류를 낸 적이 없어서**(§4), 오류가 사라졌는지 볼 대상 자체가 없습니다.
+그래서 실제로 확인해야 하는 것은 **"멀쩡하던 것이 망가지지 않았는가"** 이고, **그 실기 확인은 아직 하지 않았습니다.**
+현재 상태는 **코드 적용 완료 · 실기 미검증**입니다(§13-4).
+
+### 13-1. 최종 가드 표 — 8곳 전부 적용 확인 (행 번호는 적용 **후** 기준)
+
+전부 `if (!IsSpawned || !IsServer) return;` **한 가지 형태**이며, 계획한 형태에서 벗어난 곳이 없습니다.
+
+| # | 파일 (`Infrastructure/Network/`) | 진입점 (메서드 선언 행) | 가드 행 | 전 → 후 |
+|:-:|---|---|:-:|---|
+| 1 | `NetworkResourceSync.cs` | `OnResourceChangedOnServer` (170) | **188** | 가드 전무 → **신설** |
+| 2 | `NetworkTileSync.cs` | `OnTileOwnerChangedOnServer` (144) | **164** | 가드 전무 → **신설** |
+| 3 | `NetworkGameEndController.cs` | `OnGameEndServer` (161) | **178** | `!IsServer` → **대체** |
+| 4 | `NetworkHealthSync.cs` | `OnEntityDamaged` (118) | **131** | `!IsServer` → **대체** |
+| 5 | `NetworkHealthSync.cs` | `OnEntityHealed` (172) | **186** | `!IsServer` → **대체** |
+| 6 | `NetworkProductionController.cs` | `OnProductionStarted` (194) | **209** | `!IsServer` → **대체** |
+| 7 | `NetworkProductionController.cs` | `OnProductionQueueChanged` (236) | **253** | `!IsServer` → **대체** |
+| 8 | `NetworkProductionController.cs` | `OnUnitProduced` (306) | **319** | `!IsServer` → **대체** |
+
+> **가드 행이 메서드 선언보다 13~20행 뒤에 있는 이유**는 §7 의 삽입 주석(4~8줄)이 그 사이에 들어갔기 때문입니다. 계획대로 **각 진입점의 실행 첫 줄**입니다.
+
+### 13-2. §12 승인 사항의 처리 결과
+
+| # | 승인받을 사항 | 결과 |
+|:-:|---|---|
+| 1 | 7곳(사전 확정분) 진행 | **진행됨** |
+| 2 | **#8 `OnProductionQueueChanged` 포함 여부** | **포함됨** — 위 표 #7. `SubscribeToProductionEvents` 블록에서 `OnProductionStarted`·`OnUnitProduced` 와 나란히 구독되는 **세 번째 형제**임을 Plan 작성 중 확인했고, 셋 중 둘만 막으면 **같은 파일 안에서 가드 모양이 갈리므로** 함께 넣었다 |
+| 3 | #9 재경기 3종 제외 | **제외됨** — §11 · §13-5 |
+| 4 | `ProductionTicker` 종료 가드 | **제안으로만 남김** — §13-5 |
+
+### 13-3. 검증 결과 — **정적 확인만. 실기는 없다**
+
+| 확인 | 방법 | 결과 |
+|---|---|---|
+| 8곳 적용 | 5파일에서 `IsSpawned` 검색 | **8곳 전부 확인** (188 · 164 · 178 · 131 · 186 · 209 · 253 · 319) |
+| **부호가 반대인 가드 10곳 무변경** | 5파일에서 `if (IsServer) return;` 검색 | **10곳 그대로** — Resource **2**(216·228) · Tile **1**(189) · Health **3**(226·264·293) · Production **4**(527·659·724·990). 변경분의 삭제 6줄이 **전부 `!IsServer` 형태**임을 확인 |
+| 중괄호 균형 | 5파일 `{` / `}` 개수 | **전후 동일** — 20 · 23 · 47 · 52 · 137 (모두 열림=닫힘) |
+| `return` 문 수 | 대체 3파일 | **전후 동일** (대체이므로 줄이 늘지 않는다) |
+| `LogEvent` 멤버 수 | `Application/Interfaces/ILogSink.cs` 의 enum 본문 파싱 | **37개 무변경 · 신설 0건** |
+
+> **⚠️ `NetworkTileSync` 의 `return` 문이 2 → 4 로 세어지는 것은 오탐이다.**
+> 신설 가드 1줄과, **새 주석이 혼동 방지용으로 인용한 문자열** `` `if (IsServer) return;` `` 1줄(162행)이 함께 잡힌 것이다.
+> 실제 실행되는 `return` 은 1개만 늘었다. §9-1 이 최우선 위험으로 지목했던 그 혼동을 **막으려고 넣은 주석이 검사에서는 오탐을 만든 셈**이라, 다음 사람이 같은 숫자를 보고 놀라지 않도록 적어 둔다.
+
+#### 로그는 0건 추가했다
+
+§6-4 방침대로입니다. 가드에 걸리는 것은 **정상 종료 흐름**이고 상태 **전이** 지점이 아니라
+`LogRules.md` **1.14 금지 8**(*"매 틱·매 프레임 로깅 금지 — 상태 전이 시점에만"*)에 걸립니다.
+`LogEvent` **37개 무변경**이며, `LogRules.md` **1.13** 에 「2026-08-20」 블록으로 *"규칙 본문 무변경 · 로그 0건"* 을 기록했습니다.
+
+### 13-4. ⚠️ 실기 미검증 — 숨기지 않는다 (CLAUDE.md 규칙 10)
+
+**이 작업은 아직 실기로 검증되지 않았습니다.** 현재 근거는 **정적 확인뿐**입니다.
+
+| 물음 | 현재 답 |
+|---|---|
+| 이번 8곳이 실기에서 오류를 낸 적이 있는가 | **0회.** `NetworkCombatController` 는 2026-08-18 에 **2회** 재현됐지만, 이번 8곳은 **한 번도 없다** |
+| 그러면 왜 고쳤는가 | **"터진 적 없으니 놔둔다" 가 `NetworkCombatController` 를 그 상태로 방치했던 바로 그 판단이고, 그것은 실제로 터졌다.** 0회는 *"구멍이 없다"* 가 아니라 *"아직 조건이 겹치지 않았다"* 는 뜻이다 (§4) |
+| 실기에서 무엇을 보면 되는가 | **§10-2 그대로.** 골드·타일 색·체력·생산·큐·승패가 **양쪽 화면에서** 정상인지가 핵심이고(정상 동작 회귀 확인), 종료 후 [로비로] 경로에서 콘솔 오류 0건을 함께 본다 |
+| 고쳐졌음을 적극적으로 보일 수 있는가 | **없다.** §10-1 에 적은 대로 이 종류의 버그는 *"아무 일도 일어나지 않는 것"* 이 정상이고, 애초에 오류가 0회라 *"오류가 사라졌다"* 는 확인이 성립하지 않는다 |
+
+**따라서 이 작업을 "실기 PASS" 로 적으면 안 됩니다.** 정확한 표기는 **「코드 적용 완료 · 실기 미검증」** 입니다.
+
+#### 위험 구간 수치 정정 — **27ms 단일값이 아니라 6~41ms**
+
+§3-4 의 실측을 **이번에 재확인**했습니다. `_Logs/_editor/2026-08-19/RuntimeLog.txt` 의 **255·692·874·1398행 부근** 4회 표본:
+
+| 회차 | `NetworkManager Shutdown 완료` | 첫 `디스폰` 로그 | 구간 |
+|---|---|---|---|
+| 1 | `05:00:54.174` | `05:00:54.199` | **25 ms** |
+| 2 | `13:34:01.467` | `13:34:01.494` | **27 ms** |
+| 3 | `23:29:45.826` | `23:29:45.867` | **41 ms** |
+| 4 | `23:35:57.538` | `23:35:57.544` | **6 ms** |
+
+- **최댓값 41ms 는 60fps 기준 2~3 프레임**입니다.
+- **코드 주석의 `27ms` 는 4회 중 2회차 한 표본**일 뿐이며, 대표값도 최댓값도 아닙니다.
+- **코드 주석은 이번 범위 밖이라 고치지 않았습니다**(§11 마지막 행 · CLAUDE.md 규칙 6). 현재 `NetworkCombatController.cs` **880·920·1001·1078행**에 `27ms` 표기가 그대로 남아 있습니다.
+
+#### 위험 구간이 「정지 화면」이 아니라는 근거 (§5-1 재확인)
+
+`GameEndUI.cs` **343행 `Time.timeScale = 1f`** 가 **354행 `_networkGameManager.BackToLobby("Lobby")`** 보다 **먼저** 실행됩니다.
+승리 팝업 동안은 `timeScale=0`(245·317행)이지만, **[로비로] 를 누르는 순간 정상 속도로 되돌린 뒤 Shutdown 합니다.**
+그 사이 생산 틱 · 수입 틱 · 타일 점령 틱이 **정상 속도로 돕니다.**
+
+### 13-5. 범위 밖 5건 — 현재 상태 (전부 **무변경**)
+
+| 대상 | 현재 상태 (2026-08-20 실측) | 판단 |
+|---|---|---|
+| **`NetworkUnit.SetAnimState`** | `NetworkUnit.cs` **170행** 선언 / **173행 `if (!IsServer) return;`** — `IsSpawned` 없음 | **중복이라 넣지 않았다.** 유일한 호출부인 `NetworkCombatController.SetUnitAnimState` 가 직전 커밋에서 이미 `!IsSpawned` 로 막혀 길목이 닫혀 있다 |
+| **`NetworkGameEndController` 재경기 3종** (`_localRematch*`) | 가드 없음 | **범위 밖.** `ServerRpc` 이고 `IsServer` 블록 **밖** 구독이라 필요한 가드가 `!IsSpawned` **만**으로 형태가 달라진다 — 판단이 별건이다 |
+| **`ServerRpc` 계열 전반** | 대부분 진입부 가드 없음 | **범위 밖.** 호출 주체가 **UI 입력**이라 "이벤트 구독으로 자동 실행되는 경로" 인 이번 조사와 성격이 다르다 |
+| **`ProductionTicker.Update`** | `Presentation/Production/ProductionTicker.cs` **238행**. **종료 가드 없음** — 246행의 유일한 분기는 *"멀티 클라이언트면 스킵"* 뿐 | **범위 밖 · 제안만.** 길목으로는 더 근본적이나 `Presentation` 레이어이고, 생산·수입 틱 전체를 멈추는 것은 **동작 변경**이라 별도 설계 판단이 필요하다 |
+| **`NetworkBuildingController` / `NetworkUpgradeController`** | `.Subscribe(` **0건**(실측) → **`GameEvents` 구독이 없어 이번 전수 대상에서 제외** | **⚠️ "구멍이 없다" 는 뜻이 아니다.** 이번 조사는 *"이벤트 구독 경로"* 만 본 것이고, **다른 형태의 구멍 유무는 확인하지 않았다**(규칙 10) |
+
+> **전수 조사의 실측 범위를 정확히 적는다.** `Infrastructure/Network/` 의 **`.cs` 21개** 중 `.Subscribe(` 가 있는 파일은 **6개**다 —
+> `NetworkCombatController`(7건, **직전 커밋에서 처리 완료**) · `NetworkGameEndController`(4) · `NetworkProductionController`(3) · `NetworkHealthSync`(2) · `NetworkTileSync`(1) · `NetworkResourceSync`(1).
+> **이번 대상은 그중 `NetworkCombatController` 를 뺀 5개 파일**이다. 나머지 15개 파일은 구독 **0건**이다.
+
+### 13-6. 변경 파일 리스트업 (WORKFLOW [12])
+
+```
+[수정] — 코드 (5개, 전부 Infrastructure/Network/)
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkResourceSync.cs
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkTileSync.cs
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkGameEndController.cs
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkHealthSync.cs
+- Assets/_Project/Scripts/Infrastructure/Network/NetworkProductionController.cs
+
+[추가] 없음   [삭제] 없음
+[프리팹 · 씬 · .asset] 변경 없음 (Inspector 작업 없음 — WORKFLOW [5-2] 해당 없음)
+```
+
+- **§7-6 의 계획(5파일 · 추가 2 · 대체 5 (+1))과 정확히 일치**합니다. 계획 밖 파일은 한 개도 건드리지 않았습니다.
+- 작업 문서는 별도입니다 — 이 `Plan.md` 에 §13 이 추가됐고, `PROJECT_STATUS.md` · `ROADMAP.md` · `WORK_HISTORY.md` · `LogRules.md` · `AGENTS.md` 가 갱신됐습니다.
