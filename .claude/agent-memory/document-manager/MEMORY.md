@@ -52,7 +52,16 @@ grep -rn "LogEvent\.Unknown" Assets/_Project/Scripts --include=*.cs      # 0건 
 **둘 다 6개 파일에서 제거·교체 완료**(`.claude/agents/` 하위 `Dmain` 잔존 0건). 원칙은 `AGENTS.md` 「에이전트 메모리」 절 상단에 인용 블록으로 명문화했다.
 > **교훈:** 시스템 프롬프트에 **「현재 상태」를 사실로 못 박지 말고 「먼저 읽어서 확인하라」는 절차로 적는다.** 상태 서술은 시간이 지나면 거짓이 된다.
 > **⚠️ 내 시스템 프롬프트에는 아직 옛 문장(`Your MEMORY.md is currently empty.`)이 실려 올 수 있다** — 파일은 이미 고쳐졌으므로 **그 문장을 믿지 말고 항상 `Read` 로 확인**한다.
-> **미정리:** `.claude/MEMORY.md`(공용) **33·36·44~49행**에 같은 성질의 `d:/Dmain/...` 경로가 남아 있다. 범위 밖이라 손대지 않고 `ROADMAP.md` 우선순위 표에 등록했다.
+> **~~미정리~~ → ✅ 2026-08-20 해소:** `.claude/MEMORY.md`(공용) 33·36·44~49행 **8행 교체 완료**(파일 108행 유지). 함께 **`.claude/settings.json`** 과 **`project-orchestrator/MEMORY.md` 239행**도 정리 — 아래 항목 참조.
+
+## 🔴 죽은 경로는 문서가 아니라 **설정 파일**에 숨어 있었다 (2026-08-20 후속)
+에이전트 정의 6개(`.claude/agents/*.md`)를 고치고 *"잔존 0건"* 이라고 적었지만, **`.claude/settings.json` 8행 `SessionStart` 훅**이
+`cat "d:/Dmain/dev/Portfolio/Hexiege/Hexiege/CLAUDE.md"` 였다 — **매 세션 시작마다 실패해 절대 규칙 자동 로딩이 죽어 있었다.**
+> **교훈:** `.md` 만 grep 하고 "정리 끝"이라고 쓰지 말 것. **`.claude/` 전체를 확장자 구분 없이** 훑는다 — `grep -rn "Dmain\|C:.Users\|D:/dev" .claude/`
+- **JSON 을 고친 뒤엔 반드시 파싱 검증**: `python3 -c "import json;json.load(open('.claude/settings.json'))"`
+- `Edit` 의 `old_string` 끝에 **공백을 흘리면 본문 공백이 지워진다**(실제로 `-c \"import` 의 공백 1칸을 날렸다가 복구). 문자열 경계는 공백까지 확인할 것.
+- **의도적으로 남기는 `Dmain` 2건**: ① `project-orchestrator/MEMORY.md` 239행의 **금지 예시** ② 이 파일의 사고 기록. `_Tasks/` 의 `D:/Projects/...` 는 **과거 기록이라 소급 수정하지 않는다.**
+- 서브에이전트 위임 규약처럼 **"다른 에이전트에게 넘길 형식"을 지시하는 문장**은 죽은 경로의 **증식원**이다. 경로 표기 규약이 적힌 자리를 따로 찾아볼 것.
 
 ## 과거 기록의 수치를 정정할 때 (2026-08-20 확립)
 **원문 보존 방침과 「정정 반영」 요구가 충돌한다.** 해법은 **삭제·수정이 아니라 덧붙이기**다.

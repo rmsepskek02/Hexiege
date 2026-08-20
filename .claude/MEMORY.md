@@ -30,10 +30,10 @@
 ---
 
 ## 절대 규칙 참조
-→ `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/CLAUDE.md`
+→ `CLAUDE.md`
 
 ## 작업 사이클 상세 참조
-→ `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/Assets/_Project/Docs/WORKFLOW.md`
+→ `Assets/_Project/Docs/WORKFLOW.md`
 
 ---
 
@@ -41,12 +41,12 @@
 
 | 에이전트 | MEMORY.md 경로 |
 |---------|---------------|
-| game-programmer | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/game-programmer/MEMORY.md` |
-| game-design-lead | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/game-design-lead/MEMORY.md` |
-| qa-tester | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/qa-tester/MEMORY.md` |
-| asset-prompt-crafter | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/asset-prompt-crafter/MEMORY.md` |
-| project-orchestrator | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/project-orchestrator/MEMORY.md` |
-| document-manager | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/document-manager/MEMORY.md` |
+| game-programmer | `.claude/agent-memory/game-programmer/MEMORY.md` |
+| game-design-lead | `.claude/agent-memory/game-design-lead/MEMORY.md` |
+| qa-tester | `.claude/agent-memory/qa-tester/MEMORY.md` |
+| asset-prompt-crafter | `.claude/agent-memory/asset-prompt-crafter/MEMORY.md` |
+| project-orchestrator | `.claude/agent-memory/project-orchestrator/MEMORY.md` |
+| document-manager | `.claude/agent-memory/document-manager/MEMORY.md` |
 
 ---
 

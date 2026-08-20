@@ -236,7 +236,7 @@ Assets/_Project/
 
 ## 위임 시 필수 컨텍스트 항목
 모든 위임 시 반드시 포함:
-1. 관련 파일 경로 (절대 경로, `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/Assets/...`) — 탐색 비용 절감
+1. 관련 파일 경로 (**리포지토리 루트 기준 상대경로**, 예: `Assets/_Project/Scripts/...`) — 탐색 비용 절감. ⚠️ 윈도우 절대경로(`d:/Dmain/...`)를 넘기지 말 것 — 작업 환경은 원격 리눅스 세션(`/home/user/Hexiege`)이라 그 경로는 존재하지 않으며, 2026-08-20 MEMORY.md 소실 사고 원인 ②(죽은 윈도우 경로로는 기존 파일을 못 찾음)와 같은 성질이다.
 2. Clean Architecture 레이어 규칙 (Domain이 Core 참조 불가 등)
 3. NGO API 제약 명시 (ServerRpc/ClientRpc 이름 규칙, NetworkBehaviour=Infrastructure만, RPC 파라미터 직렬화 타입)
 4. 현재 프로젝트 상태 요약
