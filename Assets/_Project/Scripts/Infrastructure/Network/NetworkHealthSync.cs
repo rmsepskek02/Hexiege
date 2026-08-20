@@ -117,7 +117,18 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void OnEntityDamaged(EntityDamagedEvent e)
         {
-            if (!IsServer) return;
+            // 이 오브젝트가 아직 네트워크에 살아 있고, 내가 서버일 때만 진행한다.
+            //   이 핸들러는 아래에서 SyncHealthClientRpc 를 전송한다.
+            //
+            //   이유는 NetworkCombatController.Update() 진입부 가드와 같다 — 그쪽의 상세 주석 참조.
+            //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //    NetworkManager.Shutdown() 이 불린 뒤에도 디스폰 전까지 IsServer 는 여전히 참이므로,
+            //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이다.)
+            //
+            //   ※ IsSpawned 를 앞에 두는 이유 — || 는 앞 조건이 참이면 뒤를 평가하지 않는다(단락 평가).
+            //     스폰되지 않은 상태에서 IsServer 를 건드리지 않고 곧바로 반환하기 위해서다
+            //     (NetworkUnit.cs:291 이 같은 이유로 같은 순서를 쓴다).
+            if (!IsSpawned || !IsServer) return;
             if (e.Entity == null) return;
 
             // 엔티티 Id 추출 (UnitData 또는 BuildingData)
@@ -160,7 +171,19 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void OnEntityHealed(EntityHealedEvent e)
         {
-            if (!IsServer) return;
+            // 이 오브젝트가 아직 네트워크에 살아 있고, 내가 서버일 때만 진행한다.
+            //   이 핸들러는 아래에서 건물이면 SyncBuildingHealClientRpc 를, 유닛이면 SyncHealClientRpc 를
+            //   전송한다. 가드가 그 분기보다 앞에 있으므로 두 경로를 한 번에 덮는다.
+            //
+            //   이유는 NetworkCombatController.Update() 진입부 가드와 같다 — 그쪽의 상세 주석 참조.
+            //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //    NetworkManager.Shutdown() 이 불린 뒤에도 디스폰 전까지 IsServer 는 여전히 참이므로,
+            //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이다.)
+            //
+            //   ※ IsSpawned 를 앞에 두는 이유 — || 는 앞 조건이 참이면 뒤를 평가하지 않는다(단락 평가).
+            //     스폰되지 않은 상태에서 IsServer 를 건드리지 않고 곧바로 반환하기 위해서다
+            //     (NetworkUnit.cs:291 이 같은 이유로 같은 순서를 쓴다).
+            if (!IsSpawned || !IsServer) return;
             if (e.Entity == null) return;
 
             // 건물 힐(MistShrine 물안개) — 전용 RPC로 분기시키고 아래 유닛 경로는 그대로 지나간다.

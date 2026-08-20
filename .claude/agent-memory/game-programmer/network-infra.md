@@ -140,8 +140,8 @@ type: project
 ## 네트워크 종료(Shutdown) 시점 뒷정리 — 확립된 관례 (2026-08-19)
 
 **`IsServer` 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.**
-`NetworkManager.Shutdown()` 과 씬 NetworkObject 디스폰 사이에 **실측 27ms** 의 창이 있고
-(실측 근거: `_Logs/_editor/2026-08-19/RuntimeLog.txt` 681~692행),
+`NetworkManager.Shutdown()` 과 씬 NetworkObject 디스폰 사이에 **실측 6~41ms**(4회 표본: 25/27/41/6) 의 창이 있고
+(실측 근거: `_Logs/_editor/2026-08-19/RuntimeLog.txt` — 255·692·874·1398행 부근. 코드 주석의 `27ms` 는 그중 한 표본일 뿐이다),
 그 구간에서 RPC 를 보내면 `"Rpc methods can only be invoked after starting the NetworkManager!"` 가 난다.
 
 - **관례 형태**: `if (!IsSpawned || !IsServer) return;` — 순서 고정(`IsSpawned` 가 앞).
@@ -152,8 +152,21 @@ type: project
 - **길목이 있으면 길목 한 곳에서 막는다.** `NetworkCombatController.SetUnitAnimState` 에 `if (!IsSpawned) return;`
   한 줄을 두어 호출 지점 5곳(Walk/HealCast/FreezeChanged 핸들러 + `TickCombat` + `OnUnitEnteredCombatHandler`)을 한 번에 덮었다.
 - ⚠️ **한 파일에서 한 핸들러만 고치면 같은 버그가 다른 경로로 재발한다.** 구독 목록을 전수로 훑을 것.
-- 미적용으로 남은 곳(범위 밖, 별도 작업 후보): `NetworkUnit.SetAnimState`(`NetworkUnit.cs:170` — `IsServer` 만 봄),
-  `NetworkProductionController` / `NetworkBuildingController` / `NetworkUpgradeController` 전수 점검.
+- **전수 보강 완료 (2026-08-20, network-guard-sweep)** — 이벤트 구독 진입점 8곳에 같은 형태를 넣었다:
+  `NetworkResourceSync.OnResourceChangedOnServer` · `NetworkTileSync.OnTileOwnerChangedOnServer`(둘은 가드 신설) ·
+  `NetworkGameEndController.OnGameEndServer` · `NetworkHealthSync.OnEntityDamaged`/`OnEntityHealed` ·
+  `NetworkProductionController.OnProductionStarted`/`OnProductionQueueChanged`/`OnUnitProduced`(여섯은 `!IsServer` 대체).
+  `Infrastructure/Network/` 21개 파일 중 `GameEvents...Subscribe(` 가 있는 파일은 이 5개뿐이다.
+- 🔴 **부호가 반대인 `if (IsServer) return;` 과 혼동 주의.** 그것은 **ClientRpc 수신부**에서 서버의 중복 처리를 막는
+  정반대 목적이다. 5파일 합계 10곳(Resource 2 · Tile 1 · Health 3 · Production 4 · GameEnd 0).
+  특히 `NetworkTileSync.BroadcastTileChangeClientRpc` 의 것을 잘못 고치면 **클라 타일 색이 통째로 죽는다.**
+- 가드에는 **로그를 넣지 않는다** — 가드에 걸리는 것은 정상 종료 흐름이고 상태 *전이* 지점이 아니라
+  `LogRules` 1.14 금지 8(매 틱 로깅 금지)에 걸린다.
+- 미적용으로 남은 곳(범위 밖, 별도 작업 후보): `NetworkUnit.SetAnimState`(`NetworkUnit.cs:170` — `IsServer` 만 보지만
+  유일한 호출부인 `NetworkCombatController.SetUnitAnimState` 가 이미 막혀 중복),
+  `NetworkGameEndController` 의 `_localRematch*` 3종(→`ServerRpc`, `IsServer` 블록 **밖** 구독이라 `!IsSpawned` 만 필요),
+  `ServerRpc` 계열 전반(호출 주체가 UI 입력이라 성격이 다름),
+  `ProductionTicker.Update`(`Presentation` — 종료 가드 없음. 길목으로는 더 근본적이나 동작 변경이라 별도 설계 판단 필요).
 
 ### 게임 종료 후 서버 틱 정지 — `_combatStopped` 패턴
 

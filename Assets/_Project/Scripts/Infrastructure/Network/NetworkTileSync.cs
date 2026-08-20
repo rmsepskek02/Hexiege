@@ -143,6 +143,26 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void OnTileOwnerChangedOnServer(TileOwnerChangedEvent evt)
         {
+            // 이 오브젝트가 아직 네트워크에 살아 있고, 내가 서버일 때만 진행한다.
+            //   이 핸들러는 바로 아래에서 BroadcastTileChangeClientRpc 를 전송한다.
+            //
+            //   이유는 NetworkCombatController.Update() 진입부 가드와 같다 — 그쪽의 상세 주석 참조.
+            //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //    NetworkManager.Shutdown() 이 불린 뒤에도 디스폰 전까지 IsServer 는 여전히 참이므로,
+            //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이다.)
+            //
+            //   ※ IsSpawned 를 앞에 두는 이유 — || 는 앞 조건이 참이면 뒤를 평가하지 않는다(단락 평가).
+            //     스폰되지 않은 상태에서 IsServer 를 건드리지 않고 곧바로 반환하기 위해서다
+            //     (NetworkUnit.cs:291 이 같은 이유로 같은 순서를 쓴다).
+            //
+            //   ⚠️ IsServer 조건이 새로 붙지만 동작은 달라지지 않는다 — 이 이벤트 구독은
+            //      OnNetworkSpawn 의 IsServer 블록(84행) 안에서만 이루어지므로 원래도 서버에서만
+            //      호출되던 자리다.
+            //
+            //   🔴 아래 BroadcastTileChangeClientRpc 본문에 있는 `if (IsServer) return;` 과 혼동하지 말 것.
+            //      그것은 "클라이언트 수신부에서 서버의 중복 처리를 막는" 정반대 목적의 가드이고 부호도 반대다.
+            if (!IsSpawned || !IsServer) return;
+
             // ClientRpc로 모든 클라이언트에 전파
             BroadcastTileChangeClientRpc(evt.Coord.Q, evt.Coord.R, (int)evt.NewOwner);
         }
