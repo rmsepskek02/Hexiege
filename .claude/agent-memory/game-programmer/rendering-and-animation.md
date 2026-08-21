@@ -48,3 +48,17 @@ type: project
 - 초상화: `Sprites/Units/{Type}/{type}_portrait_{blue|red}.png`
 - UnitFactory: `UnitTeamPrefabSet` struct / BuildingFactory: `BuildingTeamPrefabSet` struct
 - ProductionPanelUI: `UpdateButtonPortraits(TeamId)` — 팀별 초상화 동적 교체
+
+## 범위/사거리 표시 스프라이트의 기준 크기 (2026-08-11 / 2026-08-21 복구 — 유일본)
+
+> 2026-08-17 `675203ae` 로 `MEMORY.md` 에서 소실. `sprite.bounds.size` 산출 규칙은
+> 다른 문서에 남아 있지 않아 여기로 복구한다.
+> (짝을 이루던 `[FormerlySerializedAs]` 무력화 기법과 `_baseDiameterOverride` 사례는
+>  `Assets/_Project/Docs/WORK_HISTORY.md` 에 보존돼 있어 중복 복구하지 않는다.)
+
+- **스프라이트 기준 지름을 코드 상수로 두지 말고 `sprite.bounds.size` 에서 산출한다.**
+  `bounds.size` = (텍스처 픽셀 ÷ Pixels Per Unit) 이라 **PPU가 이미 반영된 월드 크기**다.
+- **매 표시마다 다시 읽는다(캐시 금지).** 그래야 정식 아트로 스프라이트를 교체해도 크기가 자동으로 따라간다.
+- **비정사각형 스프라이트는 긴 축을 기준 지름으로 삼는다.** 과대 표시(실제보다 넓어 보임)가
+  과소 표시보다 치명적이기 때문이다(플레이어가 사거리를 잘못 판단한다).
+- 적용 대상: `SkillAimReticle` · `MistShrineRangeIndicator`

@@ -7,12 +7,52 @@
 > `Write` 로 전체를 다시 쓰지 마라 — 2026-08-20 에 실제로 그렇게 해서
 > 「알려진 잔존 구멍」 등 앞선 세션의 지식이 통째로 사라졌다.
 
-## 토픽 파일
+## 토픽 파일 인덱스
 
-- `logging.md` — GameLog / sink / RuntimeLogger 구조, 판정 선례표, `key=value` 확정 매핑,
+> ⚠️ **여기서 링크가 빠진 토픽 파일은 존재하지 않는 것과 같다**(`.claude/MEMORY.md` 갱신 규칙 5).
+> 이 인덱스는 2026-08-17 `675203ae` 에서 통째로 지워져 토픽 16개가 고아가 됐고,
+> 2026-08-21 에 복원했다. **토픽 파일을 새로 만들면 반드시 이 목록에 한 줄을 추가한다.**
+> 아래 18개 = 이 폴더의 `.md` 전부(`MEMORY.md` 제외).
+
+### 먼저 읽어야 하는 것
+
+- [logging.md](logging.md) — GameLog / sink / RuntimeLogger 구조, 판정 선례표, `key=value` 확정 매핑,
   전역 로그 훅(4겹 방어 + 스로틀). **로그 관련 작업은 여기부터 읽는다.**
-- `network-infra.md` — NGO 컨트롤러 구조, 스폰 레이스, **종료(Shutdown) 시점 뒷정리 관례 +
-  `_combatStopped`(게임 종료 후 서버 틱 정지) 패턴**. 네트워크 작업은 여기부터 읽는다.
+- [network-infra.md](network-infra.md) — NGO 컨트롤러 구조, 스폰 레이스, **종료(Shutdown) 시점 뒷정리 관례 +
+  `_combatStopped`(게임 종료 후 서버 틱 정지) 패턴**, UGS/동기화/팀 할당/승패 Phase 1~8 상세.
+  **네트워크 작업은 여기부터 읽는다.**
+
+### 시스템별 (2026-06-23 재구성)
+
+- [architecture.md](architecture.md) — 레이어 구조/제약, 정적 홀더, GameBootstrapper, SO Config 패턴,
+  DontDestroyOnLoad, **에디터 셋업 스크립트 패턴 + 배치 관례(`Assets/Editor/Setup/`·`Hexiege.EditorTools`)
+  와 저장 반영(`SetDirty`+`MarkSceneDirty`)**
+- [network.md](network.md) — NGO API 제약, RPC 래퍼 패턴, GO 파괴 전파, 같은 씬 재로드, 동기화 타이밍, 회전/위치 동기화
+- [ui-system.md](ui-system.md) — UIManager, BlockingOverlay, SceneLoader, LoadingIndicator, Canvas SortingOrder,
+  CanvasGroup/레이아웃/팝업/ToastUI 패턴, 생산·연구 패널 실측 구조,
+  **건물 패널 골격(`Row0~2`) + 회전 테두리 머티리얼 `_Radius`·`_Inset` 공유 함정**
+- [unit-building.md](unit-building.md) — 유닛 이동/전투 V3, 회전, 혼잡도, 다중히트, 건물 배치/철거/업그레이드/환불,
+  생산 PendingQueue, AutoTower, 랠리포인트
+- [hex-grid.md](hex-grid.md) — 헥스 좌표계, HexMetrics, ViewConverter, 타일 소유권, 그리드 렌더링, 패스파인딩,
+  카메라, URP RT 잔상, **거리 비교는 `HexCoord.Distance`(도메인 정수) 우선**
+- [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
+
+### 세부 보조 자료
+
+- [network-todo.md](network-todo.md) — 네트워크 미완성 항목
+- [random-matching-bugfix.md](random-matching-bugfix.md) — 2026-03-16 랜덤 매칭 버그
+- [unit-stats-and-combat.md](unit-stats-and-combat.md) — 스탯, IEntityPositionProvider, 쿨다운, 클라 시각 동기화
+- [combat-fixes.md](combat-fixes.md) — ClaimedTile 공격 위치 보정, UnitView 회전
+- [attack-direction-refactor.md](attack-direction-refactor.md) — 공격 방향 리팩터링(2D→3D)
+- [rendering-and-animation.md](rendering-and-animation.md) — UnitView 애니메이션(`Animator.Play` 직접 호출,
+  **상태 `m_Speed`=0 이면 첫 프레임 동결**), Shader Graph, HexTileView, 팀 프리팹,
+  **범위 표시 스프라이트 기준 크기는 `sprite.bounds.size`(캐시 금지)**
+- [3d-transition.md](3d-transition.md) — XZ 좌표계 전환, Phase별 수정 파일
+- [camera-and-view.md](camera-and-view.md) — 카메라 틸트, ViewConverter, 경계 클램프
+- [gameplay-systems.md](gameplay-systems.md) — 랠리포인트 구조 맵, 초상화 동적 업데이트,
+  **MistShrine 에디터 셋업 메뉴 순서**
+- [skill-aim-coordinate.md](skill-aim-coordinate.md) — 스킬 지점 조준 좌표화(HexCoord→Vector3),
+  지면 데칼 셰이더 `Hexiege/SkillAimOverlay`, 취소 판정 버그 (2026-08-04)
 
 ## 프로젝트 기본
 
