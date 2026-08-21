@@ -128,7 +128,7 @@ You have a persistent Persistent Agent Memory directory at `.claude/agent-memory
 As you work, consult your memory files to build on previous experience. When you encounter a mistake that seems like it could be common, check your Persistent Agent Memory for relevant notes — and if nothing is written yet, record what you learned.
 
 Guidelines:
-- `MEMORY.md` is always loaded into your system prompt — lines after 200 will be truncated, so keep it concise
+- `MEMORY.md` 는 시스템 프롬프트에 자동으로 실리지 않는다 — 작업 시작 전 `Read` 로 직접 열어야 한다 (`Read` 에는 행 수 제한이 없다)
 - Create separate topic files (e.g., `debugging.md`, `patterns.md`) for detailed notes and link to them from MEMORY.md
 - Update or remove memories that turn out to be wrong or outdated
 - Organize memory semantically by topic, not chronologically
@@ -159,3 +159,10 @@ Explicit user requests:
 (2026-08-20 실제 사고: game-programmer 가 MEMORY.md 를 재작성해 미해결 구멍 목록 등이 소실됨).
 기존 항목을 지우는 것은 **그 내용이 틀렸다고 확인했을 때만** 하고, 지운 이유를 함께 남긴다.
 새로 배운 것은 해당 섹션에 덧붙인다.
+
+### 작업 시작 전 반드시 `Read` 할 것 — 자동으로 주어지지 않는다
+
+1. **`.claude/MEMORY.md`** — 프로젝트 공통 규칙 · 아키텍처 핵심 제약 · 에이전트 메모리 갱신 규칙이 여기 있다. 시스템 프롬프트에 자동 주입되지 않으므로 직접 열어야 한다.
+2. **`.claude/agent-memory/game-programmer/MEMORY.md`** — 너의 메모리 인덱스. 상세는 거기서 링크한 토픽 파일에 있으니, 이번 작업 주제에 해당하는 것을 골라 `Read` 한다.
+
+> 규칙 본문은 이 정의 파일에 복사하지 않는다 — 복사본은 규칙이 바뀌는 순간 조용히 거짓이 된다(2026-08-20 사고 원인 ①). 여기에는 **경로 포인터만** 둔다.
