@@ -358,3 +358,142 @@ Unity 6000.3.5f2 배치 검증에서 처음에는 최신 main 빙결 통합의 �
 - 이동 종료/보류는 일반 movement frame 평가를 재사용하지 않고 명시적인 lifecycle commit으로 닫는다.
 
 이 실기 결과로 9.8의 Editor self-validation PASS는 철회하지 않지만, 그 테스트의 동일 path 기대가 잘못됐음이 확인됐다. B3는 계속 **FAIL / OPEN**이며 9.10 교정의 RED→GREEN 회귀와 Android Host 재검증 전에는 25종 검증을 진행하지 않는다.
+
+---
+
+## 20. 2026-08-19 Editor Host 교정 후 실기 실패
+
+Editor Host·모바일 Client 구성으로 실행한 최신 경기에서 Host 세션 `76360a2f...`가 정상 수집됐다. Root Pose는 64유닛·7종·3,163표본에서 구조/투영/쓰기 오류 0, 위치·회전 최대 오차 0으로 PASS했다. 프로세스 예외, ANR, OOM, 로그 유실과 `REPATH-FAIL-CLOSED`도 없었다. 따라서 이번 실패는 NetworkTransform·Visual Root·프로세스 정지가 아니라 B3 행동 경계 안에 있다.
+
+`[UAS-MOVE-AUTH] END`는 105,066 frame 중 `rejected=30`, `invalid=30`, `attackWriterOwnershipConflicts=1`로 FAIL했다. 단일 명시 오류는 `unitId=26` Assault에서 발생한 `double-writer-attempt`다. 이동 writer가 Simulation Root 회전을 소유한 상태에서 Legacy 공격 시작/추적 경로가 타겟 방향 회전을 요청했고, 현재 코드는 공격 회전을 억제해 실제 이중 쓰기는 막지만 공격 시작 pose가 이동 방향에 남을 수 있다. 이는 `NET-FACING-002`와 single-writer 계약의 “충돌을 감지하고 한쪽을 버림” 상태이며, 이동→전투 경계에서 소유권을 명시적으로 인계한 상태가 아니다.
+
+30건의 invalid는 `UnitMovementAuthorityObserver`가 세부 로그 예산을 phase-transition과 공유해 원인 필드를 보존하지 못했다. 최종 집계만으로는 reducer 미호출, InvalidInput, InvalidTime 또는 invalid decision을 구분할 수 없다. 진단 결과를 구현 결함으로 단정하지 않고, terminal 예약과 별도의 bounded failure evidence를 추가해 유닛·scope·입력·상태를 손실 없이 남긴 뒤 같은 시나리오로 재판정해야 한다.
+
+현재 관측기는 서버 `Held`와 최종 Animator 상태, 실제 위치 변화 0 구간의 Walk 진행 여부도 직접 연결하지 않는다. Root Pose PASS는 Simulation Root 좌표가 맞다는 뜻일 뿐 제자리 걷기 부재를 증명하지 않는다. `WaitingRepath/Blocked/AlignToMove`의 정지 표현과 실제 displacement를 상태 전이 기준으로 함께 기록해야 한다.
+
+원인 가설의 현재 순위는 다음과 같다.
+
+1. 이동→전투 전환이 이동 objective/회전 소유권을 먼저 정리하지 않아 공격 회전 요청이 억제된다.
+2. lifecycle 경계의 일부 frame이 유효한 reducer scope를 만들기 전에 평가되어 30건의 invalid를 만든다.
+3. 서버 `Held/Walk` 적용 순서 또는 후속 이벤트 덮어쓰기가 위치 변화 0 구간의 제자리 걷기를 남긴다.
+4. 진단 상세 예산 공유가 2~3번을 구분할 증거를 소실한다.
+
+교정은 서버 권위를 유지한다. 전투 진입은 이동 목표를 임의 완료하거나 클라이언트가 방향을 계산하는 방식이 아니라, 같은 서버 frame의 행동 경계에서 이동 회전 소유권을 해제하고 공격 writer가 타겟 방향을 이어받게 한다. invalid와 표현 상태는 결과에 영향을 주지 않는 관측 seam으로 보강하고, self-validation과 다음 Editor Host 실기에서 conflict/rejected/invalid 및 위치 0 Walk를 모두 0으로 확인한다.
+
+2026-08-19 구현에서는 이동/행동 회전을 `UnitRootRotationOwnership` 하나로 묶어 전투 시작 시 `Movement → Action`, 전투 종료 후 살아 있는 이동 objective가 있으면 `Action → Movement`로 원자 인계하도록 했다. `AlignToMove`와 일반 `NoIntent`처럼 위치를 진행하지 않는 유효 판정은 같은 commit 경계에서 Walk 시간을 멈추며, 타겟 획득으로 즉시 Attack에 들어가는 `NoIntent`는 공격 애니메이션을 덮어쓰지 않는다.
+
+`UnitMovementAuthorityObserver`는 `b3-movement-authority-v2`로 변경했다. rejected/invalid마다 유닛·네트워크 ID, 타입/팀, command·segment revision, reducer 호출/status, 판정/의도, 위치·목표·예상 이동량, 관측 서버 시각·이전 허용 시각과 방향 유효성을 별도 bounded 예산으로 기록한다. 정지 판정에서 Walk 시간이 진행되면 `stationary-walk-animation`으로 명시 실패하며, 실패 증거 예산 초과 자체도 최종 FAIL이다. 이 변경은 observer 전용이며 서버 판정 결과나 복제 값을 바꾸지 않는다.
+
+Unity Roslyn 기준 런타임과 Editor assembly는 오류 없이 컴파일됐고 기존 NGO obsolete 경고만 남았다. `Tools/check_docs.py`도 문제 0건이다. 아직 Editor 메뉴 self-validation과 새 실기 증거가 없으므로 기존 B3 FAIL/OPEN 판정은 유지한다.
+
+## 21. 2026-08-19 v2 실기 실패 원인 확정 및 2차 교정
+
+동일 경기의 Android Client와 Editor Host 로그를 `sharedSessionKey=90cb445887c5ca3e5111eba7154dffa4953297af86fea812ddcde54fef9451d7`로 결합했다. 양쪽 Root Pose는 64유닛·6종, 오류 0으로 PASS했고 Client 복제 1,540표본도 invalid와 root/reducer write가 모두 0이었다. 반면 Host movement observer는 66,838 frame에서 `attackWriterOwnershipConflicts=737`, `stationaryWalkViolations=58`, `rejected=10`, `invalid=10`, 실패 상세 overflow 4로 FAIL했다.
+
+코드와 실패 상세를 대조해 세 원인을 확정했다.
+
+1. 서버 `StartCombatAnimation`과 `ChangeTarget` 이벤트가 실제 gameplay 행동 종료 뒤 늦게 도착해, Movement가 소유한 Simulation Root에 공격 타겟 추적을 다시 설치했다.
+2. `_isMovementHeldAnim`이 이미 true이면 재적용을 생략했기 때문에 `StartWalkAnimation` 또는 `ResumeWalkAnimation`이 Animator speed를 1로 되돌린 뒤에도 위치 변화 0 Walk가 지속됐다.
+3. `UnitView`가 planner/adapter/reducer 호출 전에 command/segment revision을 확정해 planner 실패가 reducer에 보이지 않은 scope를 소비했다. 이후 reducer의 최초 관측이 `0/0 → 1/18`, `0/0 → 1/47`처럼 건너뛰어 strict fail-closed가 `InvalidInput`을 반환했다.
+
+2차 교정은 서버 권위와 기존 계층을 유지한다. 네트워크 서버는 gameplay 사거리 진입 경계가 이미 Action 소유권을 연 경우에만 Start/Change 타겟 이벤트를 수락하고, Action 종료도 로컬 gameplay 전투 루프만 확정한다. 따라서 지연된 Start/Change/Stop 이벤트는 서버 Simulation Root 소유권을 열거나 닫지 않는다. Held는 상태 bool이 같아도 실제 Animator의 Walk 진행을 다시 멈춘다. 이동 scope는 pure 정책으로 후보만 준비하고 planner와 reducer가 수락한 뒤 확정하므로 실패 후 재시도도 같은 revision을 사용한다. `b3-movement-authority-v3`는 무시한 지연 서버 이벤트 수를 정보성으로 남겨 새 빌드와 원인 차단을 식별한다.
+
+런타임과 Editor assembly 컴파일은 오류 없이 PASS했다. 완료 조건은 Editor self-validation PASS 후 새 Android Development Build의 같은 경기에서 `rejected=0`, `invalid=0`, `attackWriterOwnershipConflicts=0`, `stationaryWalkViolations=0`, Client write/복제 오류 0, Root Pose 오류 0을 확인하는 것이다. 실기 전이므로 B3 판정은 **FAIL / OPEN**을 유지한다.
+
+## 22. 2026-08-19 v3 실기 — 행동 경계 PASS, astar-corridor 반복 FAIL
+
+동일 세션 `sharedSessionKey=9cbefd11120fac3b85fc49f49a01ecb31b8ee9ed51f8fd0cc737fdb4abc5f37b`에서 Android가 Host, Editor가 Client였다. Host movement 55,120 frame은 `rejected=0`, `invalid=0`, `attackWriterOwnershipConflicts=0`, `stationaryWalkViolations=0`으로 9.11 교정이 작동했다. 지연 서버 이벤트 246건은 소유권을 변경하지 않고 정보성으로 차단됐다. Client 복제 1,435표본은 invalid·revision·scope·identity·writer 오류 0이었고, 양쪽 Root Pose는 64유닛·7종에서 PASS했다.
+
+하지만 Host에서 `[UAS-MOVE][REPATH-FAIL-CLOSED]` 76건이 21유닛에 발생했다. 69건은 `RejectedNoProgressBudget`, 7건은 `RejectedInvalidPath`, source는 전부 `astar-corridor`였다. 이는 planner의 full-distance smooth 후보와 full-distance direct fallback이 corridor를 벗어나면 더 짧은 안전 후보나 제자리 정렬을 만들지 않고 즉시 A*를 재요청하기 때문이다. A*가 같은 logical path를 반환하면 실제 pose 진전 없이 8회 예산을 소모하고 `Blocked`가 된다. scope `0/0` 16건은 첫 reducer commit 전에 corridor 재요청부터 발생한 결과이며 reducer scope regression은 아니다.
+
+규칙상 corridor 거부는 곧바로 목표 차단을 뜻하지 않는다. `U-MOV-ALIGN` 4에 따라 이동량을 먼저 축소하고, 안전한 비영 이동이 없으면 5·6에 따라 현재 pose에서 제한된 Yaw 정렬을 해야 한다. 현재 pose 자체가 path corridor에 없거나 walkability가 실제로 막힌 경우만 `U-MOV-REPATH`로 넘긴다. 따라서 교정은 A*나 guard 한도를 느슨하게 하지 않고 planner와 corridor adapter 사이에 순수 안전 후보 resolver를 추가하는 방식으로 진행한다.
+### 22.1 교정 구현
+
+`UnitTrajectoryCorridorResolver`를 pure policy로 추가하고 서버 `UnitView` writer에 연결했다. full smooth 후보가 corridor를 벗어나면 이동량을 유한 횟수로 줄이고, 그래도 불가능하면 current waypoint만 향하는 direct 후보도 같은 순서로 줄인다. 모든 non-zero 후보가 불가능하지만 현재 pose가 안전하면 위치를 쓰지 않고 제한된 각도만 회전한다. 현재 pose 자체도 corridor·walkability 검사에 실패할 때만 `RepathRequired`를 반환한다.
+
+새 실기 증거는 `observerSchema=b3-movement-authority-v4`로 구분한다. summary의 `corridorFullSmooth`, `corridorReducedSmooth`, `corridorFullDirect`, `corridorReducedDirect`, `corridorStationaryAlignment`, `corridorRepathRequired`로 실제 선택 분포를 확인하며, 기존 `REPATH-FAIL-CLOSED`와 함께 반복 차단이 제거됐는지 판정한다.
+
+## 23. 2026-08-19 v4 실기 — A* start와 corridor walkability 계약 불일치
+
+동일 세션 `d9924ba...50d12`에서 Android Host와 Editor Client 모두 `b3-movement-authority-v4`를 기록했다. Host authority는 rejected/invalid/conflict/stationary Walk가 모두 0이고 Client replicated 1,234 sample도 오류 0이었다. 양쪽 Root Pose는 64유닛·7종에서 PASS했고 치명 예외도 없었다.
+
+그러나 Host는 `corridorFullSmooth=43,570`, `corridorReducedDirect=20`, `corridorStationaryAlignment=5`, `corridorRepathRequired=454`를 기록했다. terminal `REPATH-FAIL-CLOSED`는 66건·14유닛이며 `RejectedNoProgressBudget=55`, `RejectedInvalidPath=11`이었다. 52건이 첫 reducer scope `0/0`이고, 여러 생산 유닛이 동일 생산 좌표·동일 path signature에서 실제 위치 진행 없이 반복됐다.
+
+코드 대조 결과 A*는 현재 타일을 walkability 검사 없이 출발 노드로 등록하고 인접 타일부터 walkability를 적용한다. 이는 현재 타일이 환경 변화로 막혀도 빠져나올 수 있게 하는 정상 의미다. 반면 `IsTrajectoryPointSweepInsidePath`는 sample 0을 포함한 모든 표본에 walkability를 요구해 `path[0]`에서 나가는 동일 경로를 거부했다. 교정은 첫 구간의 `path[0]` egress만 허용하고 나머지 corridor·중간 차단 fail-closed는 유지해야 한다.
+
+## 24. 2026-08-19 v6 실기 — 실제 Root 도착 전 논리 위치 선행 커밋 확정
+
+동일 세션 `1b14b299bf0b4cf087040b7cbb4c5cb9e350cef9cf3db2c133541f7693bbdea0`에서 Android Host와 Editor Client를 결합했다. Host의 이동 권위 60,248 frame은 rejected·invalid·gate·writer·ownership·stationary Walk가 모두 0이었고, Client 복제 1,943표본도 오류 0이었다. Host fallback은 full smooth 55,095, reduced direct 101, stationary alignment 46, repath-required 643, start-tile egress 222였다. 치명 예외·ANR·OOM은 없었다. Root Pose 관측기는 매칭 대기 중 시간 제한이 먼저 끝나 양쪽 모두 유닛 0으로 INCOMPLETE였으므로 이번 경기의 Root Pose PASS 근거로 사용하지 않는다.
+
+`[UAS-MOVE][REPATH-FAIL-CLOSED]` 80건·18유닛의 v6 terminal evidence는 모두 `rootHex != UnitData.Position`이었다. 74건은 헥스 거리 1, 6건은 거리 2였고, 78건에서 `UnitData.Position == sourcePathStart`였다. 71건은 실제 Root 표본 타일도 walkable이었으므로 NetworkTransform, Collider, 타일 walkability가 1차 원인이 아니다.
+
+코드 대조로 직접 원인을 확정했다. `MoveToInternal`의 `AlignPathStartToTransform`은 이동 중 새 경로의 첫 걸음이 역방향이면 `FindForwardClosestTile`로 앞쪽 타일을 고른 뒤, Root가 그 타일에 도착하기 전에 `ProcessStep`을 호출했다. 이 호출은 `UnitData.Position`, 위치 역인덱스와 이동 이벤트를 모두 앞으로 넘긴다. 이후 A*는 앞당겨진 논리 위치에서 시작하지만 Root는 뒤에 남아 corridor 밖으로 판정되고, 동일 경로 재요청이 no-progress 예산을 소모해 Blocked가 됐다.
+
+올바른 계약은 다음과 같다.
+
+1. 새 경로가 이동 중 Root보다 뒤에서 시작하더라도 `ProcessStep`으로 앞쪽 타일을 선점하지 않는다.
+2. 현재 논리 타일에서 앞쪽 타일까지를 교정 경로의 첫 segment로 명시한다.
+3. 앞쪽 타일 이후의 경로는 그 타일을 명시적 출발점으로 계산하되, 계산만으로 도메인이나 점유를 변경하지 않는다.
+4. 서버 trajectory가 앞쪽 타일 waypoint에 실제 도착하고 checkpoint가 이를 소비한 같은 경계에서만 기존 `ProcessStep`이 위치·점유·이벤트를 커밋한다.
+5. 앞쪽 타일이 현재 논리 타일의 인접 타일이 아니거나 안전한 후속 경로를 만들 수 없으면 원본 경로를 유지해 fail-closed하며, 비인접 논리 점프를 만들지 않는다.
+
+이 교정은 서버 단일 writer와 기존 `ProcessStep` 도착 계약을 유지한다. 클라이언트 계산, NetworkTransform 권위 변경, Collider 예외 또는 corridor 완화는 사용하지 않는다. B3 판정은 새 pure 회귀, Unity self-validation과 Android Host/Editor Client 실기 재검증 전까지 **FAIL / OPEN**이다.
+
+위 계약은 작업 문서에만 두지 않고 `GameSystemRules_Units.md`의 공통 이동 규칙에도 반영했다. 이후 신규 이동 경로·재경로·전투 복귀 구현도 “경로 계산은 상태 변경이 아니며 실제 Root 도착이 논리 커밋의 유일한 조건”을 따라야 한다.
+
+## 25. 2026-08-20 v7 실기 — 경로 checkpoint와 실제 공간 타일의 의미 혼합 확정
+
+동일 세션 `c7dfe0bd78f386d2510887041e8bfb2694b7f7c6f912b256834675b99ee2ccd3`에서 Android Host와 Editor Client가 모두 `observerSchema=b3-movement-authority-v7`을 기록했다. Host 67,736 frame은 rejected·invalid·gate·writer·ownership·stationary Walk가 모두 0이었고 Client 복제 1,788표본도 오류 0이었다. 양쪽 Root Pose 관측기는 각각 64유닛·2,765표본·5종, 오류 0으로 PASS했고 최대 위치 오차는 `0.000006m`였다. 치명 예외·ANR·OOM도 없었다.
+
+그러나 Host에는 `[UAS-MOVE][REPATH-FAIL-CLOSED]` 42건이 남았다. 39건은 parse 가능한 `astar-corridor`, 3건은 `blocked-environment-resume`였고 모두 `RejectedNoProgressBudget`이었다. `astar-corridor` 39건은 전부 `rootHex != UnitData.Position`, `UnitData.Position == sourcePathStart`, `OutsideCorridor`였으며 Root와 도메인 위치의 헥스 거리는 1~5까지 누적됐다. 36/39에서 실제 Root 타일은 walkable이었다. 따라서 v7이 제거한 선행 `AlignPathStartToTransform.ProcessStep` 외에도 정상 이동 중 도메인 위치를 Root보다 앞당기는 경로가 남아 있다.
+
+코드 대조로 남은 원인을 확정했다. `UnitServerTrajectoryPlanner`는 부드러운 코너에서 현재 waypoint 중심을 밟지 않아도 최근접 지점을 지난 순간 `ReachedCurrentWaypoint`를 true로 만들 수 있다. 이는 경로 접선 진행을 위한 올바른 checkpoint 의미다. 그러나 `MoveAlongPathV3`는 이 route checkpoint 소비 직후 `UnitMovementUseCase.ProcessStep`을 호출해 `UnitData.Position`, 위치 역인덱스와 이동 이벤트까지 다음 타일로 커밋한다. Chase도 공용 writer로 Root를 이동시키지만 공간 타일은 갱신하지 않고, 전투 복귀 시 별도 `ProcessStep`으로 뒤늦게 점프한다. 즉 경로 진행과 실제 공간 점유라는 두 의미가 하나의 waypoint 완료 신호에 결합돼 있다.
+
+교정 계약은 다음과 같다.
+
+1. route checkpoint 소비는 경로 진행만 갱신하며 `UnitData.Position`이나 위치 역인덱스를 변경하지 않는다.
+2. 공용 서버 이동 writer가 commit한 Root의 전후 선분에서 실제로 교차한 헥스 타일을 순서대로 산출한다.
+3. 현재 커밋 타일에서 인접한 실제 경계 전이만 `UnitData.Position`과 위치 역인덱스에 반영한다. 한 frame의 다중 경계는 순서대로 처리하고 비인접 점프는 fail-closed한다.
+4. A*·Chase·PendingRepath·PostCombatResume가 같은 공간 커밋기를 사용한다. reducer가 소유한 facing은 공간 위치 커밋이 덮어쓰지 않는다.
+5. A* congestion 진입 이벤트는 실제 경계 전이에만 기록하고, Chase의 공간 동기화가 A* 경로 혼잡도를 오염시키지 않게 구분한다.
+6. 이미 불가능한 비인접 불일치가 존재하면 정상 이동 이벤트로 위장하지 않고 별도 복구/진단 경계로 처리한다. 새 경기의 정상 완료 조건은 복구 0건이다.
+
+이 변경은 서버 권위, NetworkTransform 역할, 기존 레이어 방향을 유지한다. corridor 허용 범위와 no-progress 예산을 늘리는 방식은 사용하지 않는다. v7 실기 결과와 기존 규칙 문장을 위 계약으로 정정했으며, deterministic 회귀와 공용 writer 교정 전 B3는 **FAIL / OPEN**이다.
+
+### 25.1 2026-08-20 v8 구현 및 코드 게이트
+
+v7에서 확정한 원인에 따라 경로 진행과 실제 공간 점유를 코드에서도 분리했다. pure sampled spatial transition policy가 서버 Root의 이전·현재 위치 구간에서 교차한 타일을 순서대로 표본화하고 인접 전이만 만든다. Application 공간 커밋 API는 기존 facing을 보존한 채 preflight에서 전체 전이를 검증한 뒤 commit하며, 중간 실패로 일부 타일만 반영하지 않는다.
+
+공용 서버 writer는 A*·Chase·PendingRepath·PostCombatResume의 실제 Root 이동 뒤 같은 공간 커밋 경계를 사용한다. ReducerAuthoritative 경로는 route checkpoint 소비 시 `ProcessStep`을 호출하지 않으며 Legacy 경로는 rollback을 위해 기존 동작을 보존한다. 공간 커밋은 staged reducer의 `Prepare → snapshot publish → commit` 순서 안에서 원자적으로 처리한다. Chase처럼 trajectory를 사용하지 않는 경로도 reducer 소유 facing을 별도로 동기화하며, per-frame corridor 검사에서 캡처 람다를 생성하지 않는다. observer schema는 새 빌드 식별과 공간 전이·preflight·commit·recovery 계수를 위해 `b3-movement-authority-v8`로 올렸다.
+
+코드 게이트는 통과했다. Runtime Roslyn 컴파일은 PASS했고 기존 NGO obsolete 경고와 `EffectManager` 미사용 경고만 남았다. Editor Roslyn 컴파일도 Runtime 뒤 순차 실행으로 PASS했다. 독립 QA는 최초 리뷰에서 P1 3건을 제기했으나 교정 후 재검토에서 모두 CLOSED됐고 차단 이슈는 0이다. 다만 Unity 메뉴 `[UAS-DIAG]` self-validation과 새 Android Development Build 실기는 아직 실행하지 않았다. 따라서 v8은 **구현·컴파일·정적 QA 코드 게이트 PASS**일 뿐 B3 전체 판정은 계속 **FAIL / OPEN**이다.
+
+## 26. 2026-08-23 v8 Android 실기 — 공간 preflight 국소 실패
+
+Unity 메뉴 `[UAS-DIAG]` self-validation을 PASS한 뒤 새 Android Development Build로 Android Host·Editor Client 경기를 실행했다. 동일 세션 `sharedSessionKey=f5d...`에서 양쪽 observer schema가 `b3-movement-authority-v8`이고 Host/Client 역할과 세션 식별자가 일치했다. Host authority, Client replication, 양쪽 local Root 검증은 PASS했다. 수동 동등 cross-audit도 identities 52, overlap 50, matched 50, mismatch 0, match ratio `0.962`, 최대 축 오차 `0.000917m`, 최대 회전 오차 `0°`로 PASS했다. 따라서 이번 실패는 NetworkTransform·복제·Visual Root 또는 Host/Client pose 불일치가 아니다.
+
+Host에서는 `spatialPreflightFailures=24`가 발생했다. `OutsideLogicalPath`가 11건이고, 공간 정책이 `Ready`를 반환했지만 Application preflight가 false인 표본이 13건이었다. 후자 13건은 모두 Blue SpearMan `unitId=58`의 `(8,7) → (8,6)` 전이에서 약 1초 동안 반복됐다. 현재 observer는 이 false를 `Rejected`로 집계하고 이동 cleanup을 실행하며, 외부 생산·공성 흐름이 같은 목표를 다시 명령해 반복을 만든다.
+
+코드와 규칙을 대조한 직접 원인은 corridor 후보 허용 범위와 strict ordered spatial transition policy의 유효성 기준이 서로 다른 seam에 있다는 점이다. trajectory/corridor 단계에서 허용한 후보가 공간 preflight에서는 logical path 밖 또는 현재 타일 상태 불일치로 거부될 수 있는데, 이 recoverable 공간 불일치를 치명적 reducer 거부와 같은 `Rejected`로 처리한다. 이는 `GameSystemRules_Units.md`의 이동 경로·corridor와 실제 공간 커밋 분리, `U-MOV-PHASE`, `U-MOV-ALIGN` 4, `U-MOV-REPATH` 2·3·6·7·8·9 및 `GameSystemRules_UnitCombatSynchronization.md`의 `NET-FACING-001` fail-closed 계약과 맞지 않는다. fail-closed는 unsafe commit을 막아야 하지만 살아 있는 이동 목표를 cleanup으로 종료해서는 안 된다.
+
+마지막 국소 교정의 범위는 다음으로 고정한다.
+
+1. 공간 preflight를 bool이 아닌 `reason + offending tile`을 가진 typed result로 바꿔 recoverable 경로 불일치와 fatal dependency/invalid를 구분한다.
+2. corridor 후보와 ordered spatial viability가 같은 검증 seam과 같은 logical path/tile snapshot을 사용하게 한다.
+3. `OutsideLogicalPath`, tile missing, non-walkable은 위치·방향을 commit하지 않고 `RepathRequired → WaitingRepath`로 연결한다. fatal dependency 또는 입력 불변식 파괴만 `Rejected`로 남긴다.
+4. 같은 유닛·같은 목표는 같은 frame에 다시 실행하지 않고 다음 frame의 최신 pose·환경 revision에서 재평가한다.
+5. observer는 spatial policy result, Application preflight, staged publish/commit, repath transition과 fatal reject를 서로 다른 계수로 기록한다.
+
+종료 조건은 pure 회귀와 Unity self-validation PASS 후 새 Android Host·Editor Client 경기에서 `spatialPreflightFailures=0`, recoverable spatial reject/cleanup 반복 0, 같은 frame 재실행 0, fatal reject 0, Host authority·Client replication 오류 0과 양쪽 Root/cross-audit PASS를 동시에 확보하는 것이다. 이 조건 전까지 B3는 **FAIL / OPEN**이며 역할교대·25종 전체 회귀·Legacy rollback을 재개하지 않는다.
+
+## 27. 2026-08-23 v9 typed 공간 후보/preflight 구현 및 코드 게이트
+
+v8 실기의 recoverable 공간 불일치와 fatal 입력을 한 `Rejected` 경로로 합치던 문제를 typed 후보 판정으로 분리했다. `UnitSpatialPreflightResult`는 상태, offending tile, transition index를 보존하고, 후보 판정은 `Accepted / CandidateUnsafe / RouteInvalidated / Fatal`로 구분한다. corridor fallback의 probe와 최종 stage는 같은 logical path·타일 표본·Application preflight seam을 사용하며, 둘이 달라지면 observer가 실패로 기록하고 실행을 중단한다. `OutsideLogicalPath`·비인접 표본·missing tile·non-walkable은 unsafe pose를 쓰지 않은 채 `RepathRequired → WaitingRepath`로 연결하고, 유닛/의존성·chain 불변식 파괴만 fatal `Rejected`로 남겼다.
+
+공간 진단의 staged 의미도 고정했다. 후보 stage나 Held 판정은 `planned`를 증가시키지 않고 실제 공간 commit 호출 직전에만 전이 수를 `planned`에 더한다. commit 성공 뒤에만 `committed`를 더하며, 세션 END에서 두 값이 다르면 실패다. recoverable signature/frame 이력은 전이 수가 양수인 성공 공간 commit 뒤에만 지워져, 제자리 Accepted나 후보 stage가 반복 증거를 숨기지 않는다. observer schema는 `b3-movement-authority-v9`다.
+
+실제 코드에는 lifecycle retire 보강도 반영됐다. 서버의 phase baseline, 클라이언트 복제 baseline과 유닛별 recoverable signature/frame 이력을 despawn lifecycle에서 제거하고, identity가 맞지 않아도 stale object-id baseline을 폐기하되 충돌 계수로 fail-closed한다. Editor reflection 회귀는 정상 retire, identity mismatch retire, recoverable 이력 제거와 object-id 재사용을 함께 검사한다.
+
+Runtime Roslyn과 Editor Roslyn은 기존 NGO obsolete·`EffectManager` 미사용 경고만 남기고 PASS했다. 독립 정적 QA 재검토는 P0~P2 지적 0건이다. Unity 메뉴 `[UAS-DIAG]` self-validation의 **실제 실행**과 새 Android v9 Host·Editor Client 실기는 아직 수행하지 않았다. 따라서 이는 구현·컴파일·정적 QA 코드 게이트일 뿐 B3는 계속 **FAIL / OPEN**이다.
+
+새 Android 게이트는 `spatialFinalRecoverableRepaths=0`을 강제하지 않는다. 환경 변화로 recoverable repath가 발생할 수 있으므로, 발생 건이 다음 frame 이후 해소되고 동일 signature 반복·same-frame retry·recoverable 뒤 cleanup 없이 정상 commit 또는 안전한 목표 lifecycle로 수렴했는지를 증명해야 한다. 반대로 `spatialRepeatedRecoverableRepaths`, `spatialSameFrameRetries`, `spatialCleanupAfterRecoverable`, fatal preflight, stage divergence, commit 실패와 `planned != committed`는 END 실패 조건이다. 기존 영구 규칙은 이 계약을 이미 요구하므로 추가 변경하지 않았다.

@@ -4,10 +4,10 @@
 
 ---
 
-## 현재 P0 — Unit ActionSequence B3 (2026-08-18)
-- stale PendingPath·동일 A* 과잉 종료와 제자리 걷기 교정 구현 완료, Unity C# 런타임/Editor 컴파일 PASS.
-- 목표 단위 `WaitingRepath/Blocked`, 환경 revision 재개, 공성 동일 목표 재명령 억제, 서버 권위 `Held`(Frozen 우선), endpoint 중복 `NoIntent` 게시 방지를 적용했다.
-- Editor self-validation·새 Android Host 실기 전이므로 B3는 FAIL/OPEN. 통과 전 역할교대·25종 회귀 재개 금지.
+## 현재 P0 — Unit ActionSequence B3 v9 (2026-08-23)
+- v8 Android의 recoverable 공간 preflight 반복을 typed status/offending tile/index와 `CandidateUnsafe/RouteInvalidated → WaitingRepath`로 분리했다. corridor probe와 final stage는 동일 seam을 쓴다.
+- `planned`는 실제 commit attempt 직전, `committed`는 성공 뒤에만 증가하고 END equality를 강제한다. recoverable 이력은 양수 전이 성공 commit에서만 clear하며 lifecycle retire가 서버/클라이언트 baseline과 recoverable 이력을 제거한다.
+- observer `b3-movement-authority-v9`. Runtime/Editor Roslyn PASS, 독립 정적 QA P0~P2 없음. Unity 메뉴 self-validation·Android v9 미실행이므로 B3 FAIL/OPEN. Android의 `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다.
 
 ## 프로젝트 개요
 - 장르: 모바일 1v1 RTS, 헥스 타일맵 기반 공성전 (9:16 세로)

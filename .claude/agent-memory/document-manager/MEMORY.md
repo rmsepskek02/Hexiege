@@ -29,6 +29,18 @@
 - 톤: 모든 프로젝트 문서는 **한국어 + 굵게 강조 + 근거 파일/라인/커밋 해시 명기**. 추정 표현 금지(CLAUDE.md 규칙 10).
 - "과대 표기 금지" 관례 — 미검증 항목은 반드시 "미검증"/"보류"/"범위 밖"으로 라벨링한다.
 
+### 2026-08-23 - Unit ActionSequence B3 v9 코드 게이트 문서 동기화
+
+- v8 Android recoverable preflight 반복 뒤 v9 typed 후보/preflight, 동일 probe/final-stage seam, staged accounting과 lifecycle retire 보강이 구현됐다. Runtime/Editor Roslyn PASS, 독립 정적 QA P0~P2 없음.
+- `planned`는 실제 commit attempt 직전, `committed`는 success 뒤에만 증가하고 END equality를 강제한다. recoverable history는 positive successful spatial commit에서만 clear한다.
+- Unity 메뉴 self-validation과 Android v9 미실행이므로 B3는 `FAIL / OPEN`. `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다. 영구 규칙과 Testcase는 변경하지 않는다.
+
+### 2026-08-20 - Unit ActionSequence B3 v8 코드 게이트 문서 동기화
+
+- 완료 표현은 “v8 구현·Runtime/Editor Roslyn·독립 QA 코드 게이트 PASS”로 제한한다. Unity 메뉴 self-validation과 Android 실기가 미실행이므로 B3 전체는 `FAIL / OPEN`이다.
+- 불변식은 `checkpoint 소비 ≠ 공간 타일 도착`이다. sampled Root 경계 전이 전체를 preflight한 뒤 staged `Prepare → publish → commit`으로 원자 반영하고, ReducerAuthoritative 직접 `ProcessStep`은 금지하며 Legacy rollback은 보존한다.
+- 규칙 문서는 이미 이 계약으로 정정돼 추가 변경하지 않았다. Task Research/Plan, Log Round 8, 상태 3문서와 관련 MEMORY만 동기화하고 Testcase는 생성하지 않는다.
+
 ---
 
 ## Testcase.md 규칙 (자주 헷갈림)

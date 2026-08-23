@@ -1,11 +1,11 @@
 # Project Orchestrator Memory — Hexiege
 
-## 프로젝트 현재 상태 (2026-08-18)
+## 프로젝트 현재 상태 (2026-08-23)
 
-### B3 목표 단위 재경로·Held 교정 구현 완료 / 검증 대기
-- stale PendingPath·동일 A* 과잉 종료를 `UnitNavigationObjective` lifecycle로 교체하고 공성 동일 목표 재명령을 차단했다. 서버 `Held` 표현을 NetworkVariable로 복제하며 Frozen과 우선순위를 합성했고 중복 `NoIntent` cleanup 게시를 제거했다.
-- Unity C# 런타임/Editor 컴파일 PASS. 아직 Editor self-validation과 Android Host 실기 증거가 없어 B3는 FAIL/OPEN.
-- 다음 게이트: self-validation → Editor 건물 변경/공성 반복 → Android Host 1경기 → 역할교대 4종 → 25종 전체 회귀.
+### B3 v9 typed 공간 후보/preflight 코드 게이트 / 실기 대기
+- v8 Android recoverable preflight 반복을 typed 결과와 `CandidateUnsafe/RouteInvalidated → WaitingRepath`로 교정했다. corridor probe/final stage는 같은 seam을 쓰고 fatal만 `Rejected`다.
+- commit accounting은 actual attempt 직전 planned, success 뒤 committed, END equality다. recoverable history는 positive successful commit에서만 clear하고 lifecycle retire는 server/client baseline·recoverable 이력을 제거한다.
+- observer `b3-movement-authority-v9`, Runtime/Editor Roslyn PASS, 독립 정적 QA P0~P2 없음. 다음 게이트는 Unity 메뉴 self-validation → Android v9이며 전까지 B3 FAIL/OPEN·역할교대/25종 회귀 금지. Android recoverable repath는 0이 아니라 resolved/nonrepeat/no-cleanup 수렴을 요구한다.
 
 ## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음, 모든 서브에이전트 포함)
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**

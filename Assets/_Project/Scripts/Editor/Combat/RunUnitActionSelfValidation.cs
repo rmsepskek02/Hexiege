@@ -25,18 +25,686 @@ namespace Hexiege.Editor.Combat
             ValidateMonotonicSequences();
             ValidateMovementHysteresis();
             ValidateB2MovementReducer();
+            ValidateB3PreparedMovementTransition();
             ValidateB2MovementEndpointAdapter();
             ValidateB2MovementManifestChunking();
             ValidateB3MovementManifestPreflight();
             ValidateB3ClientReplicationClassification();
             ValidateB3MovementPipelineModeLatch();
+            ValidateB3RotationWriterOwnership();
+            ValidateB3PathStartArrivalCommit();
+            ValidateB3SpatialTransitionPolicy();
+            ValidateB3SpatialTransitionApplicationPreflight();
+            ValidateB3CorridorSamplePolicy();
+            ValidateB3CorridorTerminalEvidence();
+            ValidateB3TrajectoryCorridorResolver();
             ValidateB3ContinuousLocomotionPlanner();
             ValidateB3FiniteRepathGuard();
             ValidateAttackHysteresis();
             ValidateDuplicateAndReorderedResults();
             ValidateA1ContractsAndReducer();
 
-            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and reserved-terminal preflight, B3 match-fixed movement pipeline mode/rollback, continuous 60-degree trajectory/150-degree reverse/held-progress invariants, objective-scoped finite repath frame/no-progress/environment-reset and duplicate-command suppression, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and retire/reuse, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
+            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and reserved-terminal preflight, B3 match-fixed movement pipeline mode/rollback, publish-staged reducer prepare/commit atomicity, route checkpoint/spatial Root transition separation, trajectory and non-trajectory reducer-facing synchronization, allocation-stable corridor validation seam, gameplay-gated movement-to-action rotation ownership, retry-stable deferred movement scope commit, arrival-committed adjacent path-start transition, path[0] start-tile egress confinement, bounded terminal corridor Root/Domain/UnitData/path/sample evidence, typed v9 candidate probe/final-stage semantics with staged-versus-commit accounting, recoverable-history retention, reduced/stationary/repath fallback and fatal separation, no same-frame retry, continuous 60-degree trajectory/150-degree reverse/held-progress invariants, objective-scoped finite repath frame/no-progress/environment-reset and duplicate-command suppression, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and lifecycle retire/reuse including recoverable observer history, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
+        }
+
+        private static void ValidateB3SpatialTransitionPolicy()
+        {
+            var start = new HexCoord(0, 0);
+            var first = new HexCoord(1, 0);
+            var second = new HexCoord(2, 0);
+            var terminal = new HexCoord(3, 0);
+            var route = new[] { start, first, second, terminal };
+            var output = new HexCoord[4];
+
+            UnitSpatialTransitionPlanStatus status = UnitSpatialTransitionPolicy.TryBuild(
+                start,
+                new[] { start, start, first, first, second },
+                5,
+                route,
+                false,
+                default,
+                output,
+                out int count);
+            Require(status == UnitSpatialTransitionPlanStatus.Ready
+                    && count == 2
+                    && output[0] == first
+                    && output[1] == second,
+                "Duplicate Root samples must compact into ordered adjacent transitions.");
+
+            var checkpoint = new UnitPathCheckpointTracker();
+            Require(checkpoint.TryConsume(1, true),
+                "The route checkpoint fixture must consume its first waypoint.");
+            status = UnitSpatialTransitionPolicy.TryBuild(
+                start,
+                new[] { start, start },
+                2,
+                route,
+                false,
+                default,
+                output,
+                out count);
+            Require(status == UnitSpatialTransitionPlanStatus.NoTransition && count == 0,
+                "A consumed route checkpoint must not create a spatial transition before Root crosses a boundary.");
+
+            status = UnitSpatialTransitionPolicy.TryBuild(
+                start,
+                new[] { start, first, terminal },
+                3,
+                route,
+                false,
+                default,
+                output,
+                out count);
+            Require(status == UnitSpatialTransitionPlanStatus.NonAdjacentSample && count == 0,
+                "A skipped sampled tile must fail closed without partial output.");
+
+            status = UnitSpatialTransitionPolicy.TryBuild(
+                start,
+                new[] { start, first, second, terminal },
+                4,
+                route,
+                true,
+                terminal,
+                output,
+                out count);
+            Require(status == UnitSpatialTransitionPlanStatus.TerminalContact
+                    && count == 2
+                    && output[0] == first
+                    && output[1] == second,
+                "A non-walkable logical final tile must remain terminal contact, not an occupied tile.");
+
+            status = UnitSpatialTransitionPolicy.TryBuild(
+                first,
+                new[] { first, start },
+                2,
+                route,
+                false,
+                default,
+                output,
+                out count);
+            Require(status == UnitSpatialTransitionPlanStatus.OutsideLogicalPath && count == 0,
+                "A backward A-star spatial transition must fail closed.");
+
+            status = UnitSpatialTransitionPolicy.TryBuild(
+                start,
+                new[] { start, first, second },
+                3,
+                route,
+                false,
+                default,
+                new HexCoord[1],
+                out count);
+            Require(status == UnitSpatialTransitionPlanStatus.InsufficientCapacity && count == 0,
+                "An undersized caller buffer must fail closed without partial output.");
+        }
+
+        private static void ValidateB3PreparedMovementTransition()
+        {
+            Require(ActionDirectionXZ.TryCreate(
+                    0d, 1d, out ActionDirectionXZ forward),
+                "Prepared movement fixture direction must be valid.");
+            var reducer = new UnitMovementReducer();
+            UnitMovementSnapshot before = reducer.Snapshot;
+
+            UnitMovementReducerStatus preparedStatus = reducer.Prepare(
+                before.Revision,
+                1UL,
+                1UL,
+                UnitMovementIntentReason.AStarPath,
+                true,
+                forward,
+                forward,
+                false,
+                1d,
+                out UnitMovementPreparedTransition prepared);
+            Require(preparedStatus == UnitMovementReducerStatus.Accepted
+                    && prepared.IsPrepared
+                    && reducer.Snapshot.Revision == before.Revision
+                    && !reducer.Snapshot.HasAcceptedObservation,
+                "Prepare must produce an accepted transition without mutating the reducer.");
+
+            UnitMovementReducerStatus failedStatus = reducer.Prepare(
+                before.Revision,
+                1UL,
+                1UL,
+                UnitMovementIntentReason.AStarPath,
+                true,
+                forward,
+                forward,
+                false,
+                double.NaN,
+                out UnitMovementPreparedTransition failed);
+            Require(failedStatus == UnitMovementReducerStatus.InvalidTime
+                    && !failed.IsPrepared
+                    && reducer.Snapshot.Revision == before.Revision
+                    && !reducer.Snapshot.HasAcceptedObservation,
+                "Failed and abandoned prepares must leave the reducer unchanged.");
+
+            Require(reducer.CanCommitPrepared(prepared)
+                    && reducer.TryCommitPrepared(prepared)
+                    && reducer.Snapshot.Revision == before.Revision + 1UL
+                    && reducer.Snapshot.HasAcceptedObservation
+                    && !reducer.TryCommitPrepared(prepared),
+                "A prepared transition must commit exactly once.");
+
+            UnitMovementSnapshot beforeDuplicate = reducer.Snapshot;
+            UnitMovementReducerStatus duplicateStatus = reducer.Prepare(
+                beforeDuplicate.Revision,
+                1UL,
+                1UL,
+                UnitMovementIntentReason.AStarPath,
+                true,
+                forward,
+                forward,
+                false,
+                1d,
+                out UnitMovementPreparedTransition duplicate);
+            Require(duplicateStatus == UnitMovementReducerStatus.Duplicate
+                    && reducer.CanCommitPrepared(duplicate)
+                    && reducer.TryCommitPrepared(duplicate)
+                    && reducer.Snapshot.Revision == beforeDuplicate.Revision,
+                "A duplicate prepared transition must commit as a no-op.");
+        }
+
+        private static void ValidateB3SpatialTransitionApplicationPreflight()
+        {
+            var start = new HexCoord(0, 0);
+            var first = new HexCoord(1, 0);
+            var second = new HexCoord(2, 0);
+            var adjacent = new[] { first, second };
+
+            Require(UnitMovementUseCase.IsValidSpatialTransitionChain(
+                    start, adjacent, adjacent.Length),
+                "Application spatial preflight must accept an ordered adjacent chain.");
+            Require(UnitMovementUseCase.IsValidSpatialTransitionChain(
+                    start, adjacent, 0),
+                "Application spatial preflight must accept a zero-transition no-op.");
+            Require(!UnitMovementUseCase.IsValidSpatialTransitionChain(
+                    start, new[] { second }, 1),
+                "Application spatial preflight must reject a chain that skips the first boundary.");
+            Require(!UnitMovementUseCase.IsValidSpatialTransitionChain(
+                    start, adjacent, adjacent.Length + 1),
+                "Application spatial preflight must reject an out-of-bounds caller count.");
+
+            UnitSpatialPreflightResult missing =
+                UnitMovementUseCase.ClassifySpatialTile(
+                    tileExists: false,
+                    tileWalkable: false,
+                    second,
+                    transitionIndex: 1);
+            UnitSpatialPreflightResult nonWalkable =
+                UnitMovementUseCase.ClassifySpatialTile(
+                    tileExists: true,
+                    tileWalkable: false,
+                    first,
+                    transitionIndex: 0);
+            var invalidChain = new UnitSpatialPreflightResult(
+                UnitSpatialPreflightStatus.InvalidChain, second, 0);
+            Require(missing.IsRecoverable
+                    && missing.OffendingTile == second
+                    && missing.OffendingTransitionIndex == 1
+                    && nonWalkable.IsRecoverable
+                    && nonWalkable.OffendingTile == first
+                    && invalidChain.IsFatal,
+                "Missing/non-walkable tiles must retain typed recoverable evidence while invalid chains remain fatal.");
+            Require(UnitSpatialCandidatePolicy.Classify(
+                        UnitSpatialTransitionPlanStatus.OutsideLogicalPath,
+                        UnitSpatialPreflightResult.Success())
+                    == UnitSpatialCandidateVerdict.CandidateUnsafe
+                    && UnitSpatialCandidatePolicy.Classify(
+                        UnitSpatialTransitionPlanStatus.Ready,
+                        invalidChain)
+                    == UnitSpatialCandidateVerdict.Fatal,
+                "OutsideLogicalPath must enter resolver fallback/repath while fatal Application contracts reject.");
+
+            int heldPlanned = UnitSpatialDiagnosticAccountingPolicy
+                .PlannedDeltaAtCandidateStage(transitionCount: 2);
+            int successfulPlanned = UnitSpatialDiagnosticAccountingPolicy
+                .PlannedDeltaAtCommitAttempt(transitionCount: 2);
+            int successfulCommitted = UnitSpatialDiagnosticAccountingPolicy
+                .CommittedDeltaAtCommitResult(transitionCount: 2, succeeded: true);
+            int failedPlanned = UnitSpatialDiagnosticAccountingPolicy
+                .PlannedDeltaAtCommitAttempt(transitionCount: 1);
+            int failedCommitted = UnitSpatialDiagnosticAccountingPolicy
+                .CommittedDeltaAtCommitResult(transitionCount: 1, succeeded: false);
+            Require(heldPlanned == 0
+                    && successfulPlanned == 2
+                    && successfulCommitted == 2
+                    && failedPlanned == 1
+                    && failedCommitted == 0
+                    && UnitSpatialDiagnosticAccountingPolicy.CommitFailureDelta(false) == 1,
+                "Accepted staged-but-Held candidates must not count as planned; only actual commit attempts may create planned/committed divergence.");
+            Require(!UnitSpatialDiagnosticAccountingPolicy
+                        .ClearsRecoverableHistory(transitionCount: 0, succeeded: true)
+                    && !UnitSpatialDiagnosticAccountingPolicy
+                        .ClearsRecoverableHistory(transitionCount: 2, succeeded: false)
+                    && UnitSpatialDiagnosticAccountingPolicy
+                        .ClearsRecoverableHistory(transitionCount: 2, succeeded: true),
+                "No-transition Accepted stages between repeated failures must retain recoverable history until a real spatial commit succeeds.");
+        }
+
+        private static void ValidateB3PathStartArrivalCommit()
+        {
+            var logicalStart = new HexCoord(0, 0);
+            var stagedStart = new HexCoord(1, 0);
+            var finalTarget = new HexCoord(2, 0);
+            var route = new List<HexCoord> { stagedStart, finalTarget };
+
+            Require(UnitPathStartTransitionPolicy.TryBuildArrivalCommittedPath(
+                        logicalStart,
+                        stagedStart,
+                        route,
+                        out List<HexCoord> path),
+                "An adjacent forward start must produce an arrival-committed transition path.");
+            Require(path.Count == 3
+                    && path[0] == logicalStart
+                    && path[1] == stagedStart
+                    && path[2] == finalTarget,
+                "The logical start must remain path[0] until the staged tile is actually reached.");
+            Require(!UnitPathStartTransitionPolicy.TryBuildArrivalCommittedPath(
+                        logicalStart,
+                        finalTarget,
+                        new List<HexCoord> { finalTarget },
+                        out _),
+                "A non-adjacent staged start must fail closed instead of creating a logical jump.");
+            Require(!UnitPathStartTransitionPolicy.TryBuildArrivalCommittedPath(
+                        logicalStart,
+                        stagedStart,
+                        new List<HexCoord> { finalTarget },
+                        out _),
+                "A route that does not begin at the staged start must fail closed.");
+        }
+
+        private static void ValidateB3CorridorSamplePolicy()
+        {
+            Require(UnitTrajectoryCorridorSamplePolicy.Evaluate(
+                        pathCount: 4,
+                        waypointIndex: 1,
+                        matchedPathIndex: 0,
+                        isWalkable: false)
+                    == UnitTrajectoryCorridorSampleResult.StartTileEgress,
+                "A non-walkable path[0] must be a legal origin only while leaving the first segment.");
+            Require(UnitTrajectoryCorridorSamplePolicy.Evaluate(
+                        pathCount: 4,
+                        waypointIndex: 1,
+                        matchedPathIndex: 1,
+                        isWalkable: false)
+                    == UnitTrajectoryCorridorSampleResult.Blocked,
+                "A non-walkable first waypoint must remain blocked.");
+            Require(UnitTrajectoryCorridorSamplePolicy.Evaluate(
+                        pathCount: 4,
+                        waypointIndex: 2,
+                        matchedPathIndex: 0,
+                        isWalkable: false)
+                    == UnitTrajectoryCorridorSampleResult.OutsideCorridor,
+                "The start-tile exception must not permit re-entry after the first segment.");
+            Require(UnitTrajectoryCorridorSamplePolicy.Evaluate(
+                        pathCount: 4,
+                        waypointIndex: 1,
+                        matchedPathIndex: -1,
+                        isWalkable: true)
+                    == UnitTrajectoryCorridorSampleResult.OutsideCorridor,
+                "A walkable tile outside the logical corridor must remain rejected.");
+            Require(UnitTrajectoryCorridorSamplePolicy.Evaluate(
+                        pathCount: 4,
+                        waypointIndex: 2,
+                        matchedPathIndex: 2,
+                        isWalkable: true)
+                    == UnitTrajectoryCorridorSampleResult.Walkable,
+                "A normal walkable corridor sample must remain accepted.");
+            Require(UnitTrajectoryCorridorSamplePolicy.Evaluate(
+                        pathCount: 4,
+                        waypointIndex: 3,
+                        matchedPathIndex: 3,
+                        isWalkable: false)
+                    == UnitTrajectoryCorridorSampleResult.FinalDestination,
+                "The existing non-walkable final destination contract must remain accepted.");
+        }
+
+        private static void ValidateB3CorridorTerminalEvidence()
+        {
+            const BindingFlags flags = BindingFlags.Public
+                | BindingFlags.NonPublic
+                | BindingFlags.Static
+                | BindingFlags.Instance;
+            System.Type viewType = typeof(Hexiege.Presentation.UnitView);
+            System.Type evidenceType = viewType.GetNestedType(
+                "CorridorRepathEvidence", BindingFlags.NonPublic);
+            MethodInfo formatter = viewType.GetMethod(
+                "FormatCorridorRepathEvidence",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Require(evidenceType != null && formatter != null,
+                "The bounded corridor terminal evidence formatter must remain connected to UnitView.");
+
+            object emptyEvidence = System.Activator.CreateInstance(evidenceType);
+            string empty = formatter.Invoke(null, new[] { emptyEvidence }) as string;
+            Require(empty == "unavailable",
+                "Missing corridor terminal evidence must fail closed as unavailable.");
+
+            object evidence = System.Activator.CreateInstance(evidenceType);
+            evidenceType.GetField("IsAvailable", flags)?.SetValue(evidence, true);
+            evidenceType.GetField("Frame", flags)?.SetValue(evidence, 17);
+            evidenceType.GetField("PathCount", flags)?.SetValue(evidence, 3);
+            evidenceType.GetField("WaypointIndex", flags)?.SetValue(evidence, 1);
+            evidenceType.GetField("MatchedPathIndex", flags)?.SetValue(evidence, -1);
+            evidenceType.GetField("FirstAllowedPathIndex", flags)?.SetValue(evidence, 0);
+            evidenceType.GetField("LastAllowedPathIndex", flags)?.SetValue(evidence, 2);
+            evidenceType.GetField("SampleResult", flags)?.SetValue(
+                evidence, UnitTrajectoryCorridorSampleResult.OutsideCorridor);
+            string formatted = formatter.Invoke(null, new[] { evidence }) as string;
+            Require(!string.IsNullOrEmpty(formatted)
+                    && formatted.Contains("frame:17|")
+                    && formatted.Contains("rootView:")
+                    && formatted.Contains("rootDomain:")
+                    && formatted.Contains("rootHex:")
+                    && formatted.Contains("unitDataPosition:")
+                    && formatted.Contains("sourcePathStart:")
+                    && formatted.Contains("sourceWaypointIndex:1/2|")
+                    && formatted.Contains("sampleHex:")
+                    && formatted.Contains("matchedPathIndex:-1|")
+                    && formatted.Contains("allowedPathIndices:0-2|")
+                    && formatted.EndsWith("sampleResult:OutsideCorridor"),
+                "Corridor terminal evidence must remain a lossless single-line Root/Domain/UnitData/path/sample record.");
+        }
+
+        private static void ValidateB3TrajectoryCorridorResolver()
+        {
+            WorldPointXZ current = default;
+            ActionDirectionXZ facing = default;
+            WorldPointXZ waypoint = default;
+            WorldPointXZ next = default;
+            Require(WorldPointXZ.TryCreate(0d, 0d, out current),
+                "Corridor resolver current point fixture must be valid.");
+            Require(ActionDirectionXZ.TryCreate(1d, 0d, out facing),
+                "Corridor resolver facing fixture must be valid.");
+            Require(WorldPointXZ.TryCreate(10d, 0d, out waypoint),
+                "Corridor resolver waypoint fixture must be valid.");
+            Require(WorldPointXZ.TryCreate(10d, 10d, out next),
+                "Corridor resolver next waypoint fixture must be valid.");
+
+            UnitTrajectoryCorridorResolution reduced =
+                UnitTrajectoryCorridorResolver.Resolve(
+                    current,
+                    facing,
+                    waypoint,
+                    hasNextWaypoint: true,
+                    next,
+                    maximumTravelDistanceWorld: 1d,
+                    maximumTurnDegrees: 90d,
+                    cornerLookAheadDistanceWorld: 20d,
+                    step => step.CandidatePosition.X <= 0.250001d,
+                    out UnitTrajectoryStep reducedStep);
+            Require(reduced == UnitTrajectoryCorridorResolution.ReducedSmooth
+                    && reducedStep.IsValid
+                    && reducedStep.ConsumedDistanceWorld > 0d
+                    && reducedStep.ConsumedDistanceWorld <= 0.250001d
+                    && !reducedStep.RequiresStationaryAlignment,
+                "A full corridor rejection must first shrink the smooth non-zero movement instead of requesting A* again.");
+
+            UnitTrajectoryCorridorResolution alignment =
+                UnitTrajectoryCorridorResolver.Resolve(
+                    current,
+                    facing,
+                    waypoint,
+                    hasNextWaypoint: true,
+                    next,
+                    maximumTravelDistanceWorld: 1d,
+                    maximumTurnDegrees: 4.5d,
+                    cornerLookAheadDistanceWorld: 20d,
+                    step => step.ConsumedDistanceWorld
+                        <= UnitMovementEvaluationAdapter.PositionTolerance,
+                    out UnitTrajectoryStep alignmentStep);
+            Require(alignment
+                        == UnitTrajectoryCorridorResolution.StationaryAlignment
+                    && alignmentStep.IsValid
+                    && alignmentStep.RequiresStationaryAlignment
+                    && alignmentStep.ConsumedDistanceWorld == 0d
+                    && alignmentStep.CandidatePosition.Equals(current),
+                "When every non-zero candidate leaves the corridor, the safe current pose must rotate in place instead of consuming repath budget.");
+
+            UnitTrajectoryCorridorResolution blocked =
+                UnitTrajectoryCorridorResolver.Resolve(
+                    current,
+                    facing,
+                    waypoint,
+                    hasNextWaypoint: true,
+                    next,
+                    maximumTravelDistanceWorld: 1d,
+                    maximumTurnDegrees: 4.5d,
+                    cornerLookAheadDistanceWorld: 20d,
+                    step => false,
+                    out UnitTrajectoryStep blockedStep);
+            Require(blocked == UnitTrajectoryCorridorResolution.RepathRequired
+                    && !blockedStep.IsValid,
+                "A current pose outside the corridor must remain fail-closed and request a real A* repath.");
+
+            int typedReducedCalls = 0;
+            UnitTrajectoryCorridorResolution typedReduced =
+                UnitTrajectoryCorridorResolver.Resolve(
+                    current,
+                    facing,
+                    waypoint,
+                    hasNextWaypoint: true,
+                    next,
+                    maximumTravelDistanceWorld: 1d,
+                    maximumTurnDegrees: 90d,
+                    cornerLookAheadDistanceWorld: 20d,
+                    new Func<UnitTrajectoryStep, UnitSpatialCandidateVerdict>(step =>
+                    {
+                        typedReducedCalls++;
+                        return step.CandidatePosition.X <= 0.250001d
+                            ? UnitSpatialCandidateVerdict.Accepted
+                            : UnitSpatialCandidateVerdict.CandidateUnsafe;
+                    }),
+                    out UnitTrajectoryStep typedReducedStep,
+                    out UnitSpatialCandidateVerdict typedReducedVerdict);
+            Require(typedReduced == UnitTrajectoryCorridorResolution.ReducedSmooth
+                    && typedReducedVerdict == UnitSpatialCandidateVerdict.Accepted
+                    && typedReducedStep.ConsumedDistanceWorld > 0d
+                    && typedReducedCalls > 1,
+                "Typed OutsideLogicalPath candidates must remain side-effect-free probes until reduced movement is accepted.");
+
+            int typedStationaryCalls = 0;
+            UnitTrajectoryCorridorResolution typedStationary =
+                UnitTrajectoryCorridorResolver.Resolve(
+                    current,
+                    facing,
+                    waypoint,
+                    hasNextWaypoint: true,
+                    next,
+                    maximumTravelDistanceWorld: 1d,
+                    maximumTurnDegrees: 4.5d,
+                    cornerLookAheadDistanceWorld: 20d,
+                    new Func<UnitTrajectoryStep, UnitSpatialCandidateVerdict>(step =>
+                    {
+                        typedStationaryCalls++;
+                        return step.ConsumedDistanceWorld
+                                <= UnitMovementEvaluationAdapter.PositionTolerance
+                            ? UnitSpatialCandidateVerdict.Accepted
+                            : UnitSpatialCandidateVerdict.CandidateUnsafe;
+                    }),
+                    out UnitTrajectoryStep typedStationaryStep,
+                    out UnitSpatialCandidateVerdict typedStationaryVerdict);
+            Require(typedStationary
+                        == UnitTrajectoryCorridorResolution.StationaryAlignment
+                    && typedStationaryVerdict == UnitSpatialCandidateVerdict.Accepted
+                    && typedStationaryStep.RequiresStationaryAlignment
+                    && typedStationaryCalls > 1,
+                "Typed unsafe movement candidates must be allowed to fall back to a safe stationary alignment.");
+
+            int typedUnsafeCalls = 0;
+            UnitTrajectoryCorridorResolution typedUnsafe =
+                UnitTrajectoryCorridorResolver.Resolve(
+                    current,
+                    facing,
+                    waypoint,
+                    hasNextWaypoint: true,
+                    next,
+                    maximumTravelDistanceWorld: 1d,
+                    maximumTurnDegrees: 4.5d,
+                    cornerLookAheadDistanceWorld: 20d,
+                    new Func<UnitTrajectoryStep, UnitSpatialCandidateVerdict>(_ =>
+                    {
+                        typedUnsafeCalls++;
+                        return UnitSpatialCandidateVerdict.CandidateUnsafe;
+                    }),
+                    out UnitTrajectoryStep typedUnsafeStep,
+                    out UnitSpatialCandidateVerdict typedUnsafeVerdict);
+            Require(typedUnsafe == UnitTrajectoryCorridorResolution.RepathRequired
+                    && typedUnsafeVerdict
+                        == UnitSpatialCandidateVerdict.CandidateUnsafe
+                    && !typedUnsafeStep.IsValid
+                    && typedUnsafeCalls > 1,
+                "OutsideLogicalPath candidates must exhaust bounded fallbacks and then request repath without staging a pose.");
+
+            int routeInvalidatedCalls = 0;
+            UnitTrajectoryCorridorResolution routeInvalidated =
+                UnitTrajectoryCorridorResolver.Resolve(
+                    current,
+                    facing,
+                    waypoint,
+                    hasNextWaypoint: true,
+                    next,
+                    maximumTravelDistanceWorld: 1d,
+                    maximumTurnDegrees: 90d,
+                    cornerLookAheadDistanceWorld: 20d,
+                    new Func<UnitTrajectoryStep, UnitSpatialCandidateVerdict>(_ =>
+                    {
+                        routeInvalidatedCalls++;
+                        return UnitSpatialCandidateVerdict.RouteInvalidated;
+                    }),
+                    out UnitTrajectoryStep routeInvalidatedStep,
+                    out UnitSpatialCandidateVerdict routeInvalidatedVerdict);
+            Require(routeInvalidated
+                        == UnitTrajectoryCorridorResolution.RepathRequired
+                    && routeInvalidatedVerdict
+                        == UnitSpatialCandidateVerdict.RouteInvalidated
+                    && !routeInvalidatedStep.IsValid
+                    && routeInvalidatedCalls == 1,
+                "Missing/non-walkable route evidence must request repath immediately without reduced or same-frame retry probes.");
+
+            int fatalCalls = 0;
+            UnitTrajectoryCorridorResolution fatal =
+                UnitTrajectoryCorridorResolver.Resolve(
+                    current,
+                    facing,
+                    waypoint,
+                    hasNextWaypoint: true,
+                    next,
+                    maximumTravelDistanceWorld: 1d,
+                    maximumTurnDegrees: 90d,
+                    cornerLookAheadDistanceWorld: 20d,
+                    new Func<UnitTrajectoryStep, UnitSpatialCandidateVerdict>(_ =>
+                    {
+                        fatalCalls++;
+                        return UnitSpatialCandidateVerdict.Fatal;
+                    }),
+                    out UnitTrajectoryStep fatalStep,
+                    out UnitSpatialCandidateVerdict fatalVerdict);
+            Require(fatal == UnitTrajectoryCorridorResolution.Invalid
+                    && fatalVerdict == UnitSpatialCandidateVerdict.Fatal
+                    && !fatalStep.IsValid
+                    && fatalCalls == 1,
+                "Fatal dependency/chain/capacity evidence must reject immediately and remain distinct from recoverable repath.");
+        }
+
+        private static void ValidateB3RotationWriterOwnership()
+        {
+            var ownership = new UnitRootRotationOwnership();
+            Require(ownership.Owner == UnitRootRotationWriter.None
+                    && ownership.TryAcquireMovement()
+                    && ownership.MovementOwnsRoot
+                    && !ownership.ActionOwnsRoot,
+                "A navigation start must select Movement as the sole Simulation Root rotation writer.");
+
+            Require(ownership.TransferToAction()
+                    && ownership.ActionOwnsRoot
+                    && !ownership.MovementOwnsRoot
+                    && !ownership.TryAcquireMovement(),
+                "Movement-to-action entry must atomically transfer ownership and reject movement reacquisition during combat.");
+
+            ownership.ReleaseAction(resumeMovement: true);
+            Require(ownership.MovementOwnsRoot
+                    && !ownership.ActionOwnsRoot,
+                "Action exit with a live navigation objective must return ownership to Movement.");
+
+            Require(!UnitActionRotationEventPolicy.ShouldAcceptTargetEvent(
+                        networkActive: true,
+                        networkServer: true,
+                        actionOwnsRoot: ownership.ActionOwnsRoot)
+                    && UnitActionRotationEventPolicy.ShouldAcceptTargetEvent(
+                        networkActive: true,
+                        networkServer: false,
+                        actionOwnsRoot: false)
+                    && UnitActionRotationEventPolicy.ShouldAcceptTargetEvent(
+                        networkActive: false,
+                        networkServer: false,
+                        actionOwnsRoot: false)
+                    && !UnitActionRotationEventPolicy.ShouldAcceptStopEvent(
+                        networkActive: true,
+                        networkServer: true)
+                    && UnitActionRotationEventPolicy.ShouldAcceptStopEvent(
+                        networkActive: true,
+                        networkServer: false)
+                    && UnitActionRotationEventPolicy.ShouldAcceptStopEvent(
+                        networkActive: false,
+                        networkServer: false),
+                "Delayed server target/stop events must not revive or release gameplay action rotation, while pure clients may retain presentation event handling.");
+
+            Require(ownership.TransferToAction(),
+                "A resumed movement writer must be transferable to a later action.");
+            ownership.ReleaseAction(resumeMovement: false);
+            Require(ownership.Owner == UnitRootRotationWriter.None,
+                "Action exit without navigation must release Simulation Root rotation ownership.");
+
+            Require(UnitMovementPresentationPolicy.ShouldHoldWalk(
+                        decisionValid: true,
+                        allowsMovement: false,
+                        commitsAcquireCandidate: false)
+                    && !UnitMovementPresentationPolicy.ShouldHoldWalk(
+                        decisionValid: true,
+                        allowsMovement: true,
+                        commitsAcquireCandidate: false)
+                    && !UnitMovementPresentationPolicy.ShouldHoldWalk(
+                        decisionValid: true,
+                        allowsMovement: false,
+                        commitsAcquireCandidate: true)
+                    && !UnitMovementPresentationPolicy.ShouldHoldWalk(
+                        decisionValid: false,
+                        allowsMovement: false,
+                        commitsAcquireCandidate: false),
+                "Walk must stop for stationary alignment/endpoint, resume for displacement, and yield directly to an acquired action.");
+
+            Require(UnitMovementScopePolicy.TryPrepare(
+                        currentCommandRevision: 1UL,
+                        currentSegmentRevision: 7UL,
+                        pendingCommand: false,
+                        pendingSegment: true,
+                        out ulong preparedCommand,
+                        out ulong preparedSegment)
+                    && preparedCommand == 1UL
+                    && preparedSegment == 8UL
+                    && UnitMovementScopePolicy.TryPrepare(
+                        currentCommandRevision: 1UL,
+                        currentSegmentRevision: 7UL,
+                        pendingCommand: false,
+                        pendingSegment: true,
+                        out ulong retriedCommand,
+                        out ulong retriedSegment)
+                    && retriedCommand == preparedCommand
+                    && retriedSegment == preparedSegment,
+                "A planner failure before reducer evaluation must leave the pending segment retry on the same next revision.");
+
+            Require(UnitMovementScopePolicy.TryPrepare(
+                        currentCommandRevision: 0UL,
+                        currentSegmentRevision: 0UL,
+                        pendingCommand: true,
+                        pendingSegment: false,
+                        out ulong firstCommand,
+                        out ulong firstSegment)
+                    && firstCommand == 1UL
+                    && firstSegment == 1UL,
+                "A unit with no accepted movement observation must always present command/segment 1/1 to its first reducer evaluation.");
         }
 
         private static void ValidateB3FiniteRepathGuard()

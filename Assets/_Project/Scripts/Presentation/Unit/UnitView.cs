@@ -208,10 +208,80 @@ namespace Hexiege.Presentation
         private UnitMovementPipelineMode _lockedMovementPipelineMode =
             UnitMovementPipelineMode.Legacy;
         // ReducerAuthoritative 경로에서 방금 계산한 trajectory가 현재 논리 waypoint를
-        // 통과했는지 호출 측에 알려 준다. 위치를 타일 중심으로 스냅하지 않고도
-        // ProcessStep/OnUnitEnteredTile을 정확히 한 번 실행하기 위한 프레임 결과다.
+        // 통과했는지 호출 측에 알려 준다. route cursor 소비에만 사용하며 Domain 위치나
+        // ProcessStep/OnUnitEnteredTile을 직접 발생시키지 않는다.
         private bool _lastMovementTrajectoryReachedWaypoint;
         private bool _lastMovementCandidateAcquiredTarget;
+
+        // Corridor resolver가 모든 후보를 거부한 마지막 표본을 보존한다.
+        // 반복 frame마다 로그를 남기지 않고 terminal REPATH-FAIL-CLOSED 한 줄에만 결합하여
+        // 실제 Simulation Root, Domain 좌표, logical path 시작점 중 어느 값이 어긋났는지 구분한다.
+        private CorridorRepathEvidence _lastCorridorRepathEvidence;
+        // Corridor resolver에 전달하는 delegate는 UnitView당 한 번만 만든다.
+        // frame별 path/index는 호출 직전에 임시 필드로 설정하고 finally에서 반드시 비운다.
+        private Func<UnitTrajectoryStep, UnitSpatialCandidateVerdict> _corridorStepValidator;
+        private IReadOnlyList<HexCoord> _activeCorridorPath;
+        private int _activeCorridorWaypointIndex = -1;
+        private bool _activeCorridorSelectedStartTileEgress;
+        private SpatialCandidateEvaluation _activeCorridorLastEvaluation;
+        private bool _activeCorridorHasEvaluation;
+        private bool _spatialRecoverablePending;
+
+        private struct CorridorRepathEvidence
+        {
+            public bool IsAvailable;
+            public int Frame;
+            public Vector3 RootView;
+            public Vector3 RootDomain;
+            public HexCoord RootHex;
+            public HexCoord UnitDataPosition;
+            public int PathCount;
+            public int WaypointIndex;
+            public HexCoord PathStart;
+            public HexCoord CurrentWaypoint;
+            public UnitPathSignature SourcePathSignature;
+            public Vector3 SampleView;
+            public HexCoord SampleHex;
+            public int SampleIndex;
+            public int SampleCount;
+            public int MatchedPathIndex;
+            public int FirstAllowedPathIndex;
+            public int LastAllowedPathIndex;
+            public bool IsWalkable;
+            public UnitTrajectoryCorridorSampleResult SampleResult;
+        }
+
+        private readonly struct SpatialCandidateEvaluation
+        {
+            public UnitSpatialCandidateVerdict Verdict { get; }
+            public UnitSpatialTransitionPlanStatus TransitionStatus { get; }
+            public UnitSpatialPreflightResult Preflight { get; }
+            public int TransitionCount { get; }
+            public HexCoord RootBeforeHex { get; }
+            public HexCoord CandidateHex { get; }
+            public bool UsedStartTileEgress { get; }
+            public CorridorRepathEvidence Evidence { get; }
+
+            public SpatialCandidateEvaluation(
+                UnitSpatialCandidateVerdict verdict,
+                UnitSpatialTransitionPlanStatus transitionStatus,
+                UnitSpatialPreflightResult preflight,
+                int transitionCount,
+                HexCoord rootBeforeHex,
+                HexCoord candidateHex,
+                bool usedStartTileEgress,
+                CorridorRepathEvidence evidence)
+            {
+                Verdict = verdict;
+                TransitionStatus = transitionStatus;
+                Preflight = preflight;
+                TransitionCount = transitionCount;
+                RootBeforeHex = rootBeforeHex;
+                CandidateHex = candidateHex;
+                UsedStartTileEgress = usedStartTileEgress;
+                Evidence = evidence;
+            }
+        }
 
         private enum MovementWriteOutcome
         {
@@ -232,7 +302,10 @@ namespace Hexiege.Presentation
         // _combatTargetTransform이 null로 덮어써지는 경우에도 추적을 복구할 수 있도록 한다.
         private int _combatTargetId = -1;
         private bool _combatTargetIsUnit = true;
-        private bool _movementRotationWriterOwnsRoot;
+        // Simulation Root 회전은 이동 또는 행동(공격/힐) 중 정확히 한 writer만 소유한다.
+        // bool 두 개 대신 순수 Application 소유권 객체 하나를 사용해 이중 소유 상태를 막는다.
+        private readonly UnitRootRotationOwnership _rootRotationOwnership =
+            new UnitRootRotationOwnership();
 
         // ────────────────────────────────────────────────────────────────────
         // 전투 추격(EnterCombatPursuitV3 실행 중) 여부 플래그.
@@ -253,6 +326,9 @@ namespace Hexiege.Presentation
         //     추격 단계도 "전투 중"으로 판정하게 합니다.
         // ────────────────────────────────────────────────────────────────────
         private bool _isInCombatPursuit = false;
+        // Chase spatial route가 회복 가능하게 무효화되면 fatal cleanup으로 닫지 않고,
+        // 한 frame held 후 기존 A*/PostCombat 재탐색 경계로 반환한다.
+        private bool _combatPursuitRequiresRepath;
 
         // ────────────────────────────────────────────────────────────────────
         // A* 이동 단계 여부 플래그 (혼잡도 시스템 연동용).
@@ -269,6 +345,18 @@ namespace Hexiege.Presentation
         //   - MoveCleanupAndCompleteV3(이동 완료)에서 false로 reset.
         // ────────────────────────────────────────────────────────────────────
         private bool _isAStarMoving = false;
+
+        // 서버 Root 선분을 타일 전이로 바꾸는 재사용 버퍼다. 프레임마다 배열/List를 만들지 않는다.
+        // 한 프레임 이동이 이 상한을 넘으면 부분 적용하지 않고 권위 frame 전체를 거부한다.
+        private const int SpatialSampleCapacity = 64;
+        private readonly List<HexCoord> _spatialTileSamples =
+            new List<HexCoord>(SpatialSampleCapacity);
+        private readonly HexCoord[] _spatialTransitionBuffer =
+            new HexCoord[SpatialSampleCapacity];
+        private readonly List<HexCoord> _spatialProbeTileSamples =
+            new List<HexCoord>(SpatialSampleCapacity);
+        private readonly HexCoord[] _spatialProbeTransitionBuffer =
+            new HexCoord[SpatialSampleCapacity];
 
         // ────────────────────────────────────────────────────────────────────
         // 건물 생성/파괴 시 유닛 멈춤 현상 제거용 — 부드러운 경로 교체 패턴.
@@ -357,7 +445,7 @@ namespace Hexiege.Presentation
 
             // 이동 writer가 root rotation을 소유하는 동안 Legacy 공격 추적 writer는
             // 같은 frame에 root를 쓸 수 없다. 충돌 시 write를 억제하고 진단 실패로 남긴다.
-            if (_movementRotationWriterOwnsRoot)
+            if (_rootRotationOwnership.MovementOwnsRoot)
             {
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 UnitMovementAuthorityObserver.ObserveAttackWriterOwnershipConflict(
@@ -396,6 +484,7 @@ namespace Hexiege.Presentation
         public void Initialize(UnitData unitData)
         {
             _unitData = unitData;
+            _rootRotationOwnership.ReleaseAll();
             _visualRootProjector = GetComponent<VisualRootProjector>();
             _movementNetworkUnit = GetComponent<NetworkUnit>();
             _movementCommandRevision = 0UL;
@@ -408,6 +497,7 @@ namespace Hexiege.Presentation
             _movementPendingCommand = false;
             _movementPendingSegment = false;
             _movementAuthorityReducer = new UnitMovementReducer();
+            ClearCombatTargetTracking();
             _lockedMovementPipelineMode = NetworkContext.IsNetworkActive
                 ? NetworkContext.ActiveUnitMovementPipelineMode
                 : UnitMovementPipelineMode.Legacy;
@@ -808,6 +898,27 @@ namespace Hexiege.Presentation
             return true;
         }
 
+        private bool TryPrepareMovementScope(
+            out ulong preparedCommandRevision,
+            out ulong preparedSegmentRevision)
+            => UnitMovementScopePolicy.TryPrepare(
+                _movementCommandRevision,
+                _movementSegmentRevision,
+                _movementPendingCommand,
+                _movementPendingSegment,
+                out preparedCommandRevision,
+                out preparedSegmentRevision);
+
+        private void CommitPreparedMovementScope(
+            ulong preparedCommandRevision,
+            ulong preparedSegmentRevision)
+        {
+            _movementCommandRevision = preparedCommandRevision;
+            _movementSegmentRevision = preparedSegmentRevision;
+            _movementPendingCommand = false;
+            _movementPendingSegment = false;
+        }
+
         /// <summary>
         /// A*·전투 복귀·추격이 공유하는 유일한 이동 pose writer seam이다.
         /// Legacy 경기에는 기존 후보 pose를 그대로 쓰고, ReducerAuthoritative 경기에는
@@ -836,6 +947,11 @@ namespace Hexiege.Presentation
                 return MovementWriteOutcome.Rejected;
             }
 
+            // 공격/힐 행동이 회전을 소유하는 동안 이동 코루틴은 살아 있어도 pose를 쓰지 않는다.
+            // Held는 진행량을 소비하지 않으므로 행동 종료 뒤 같은 navigation objective에서 재개된다.
+            if (_rootRotationOwnership.ActionOwnsRoot)
+                return MovementWriteOutcome.Held;
+
             bool reducerAuthoritative = _lockedMovementPipelineMode
                 == UnitMovementPipelineMode.ReducerAuthoritative;
             if (!reducerAuthoritative)
@@ -863,12 +979,17 @@ namespace Hexiege.Presentation
             }
             if (_movementIntentReason == UnitMovementIntentReason.None)
                 BeginMovementShadowSegment(fallbackIntentReason);
-            if (!TryCommitMovementScope())
+            if (!TryPrepareMovementScope(
+                    out ulong evaluatedCommandRevision,
+                    out ulong evaluatedSegmentRevision))
                 return MovementWriteOutcome.Rejected;
 
             Vector3 facing = transform.forward;
             Vector3 positionBefore = transform.position;
             Quaternion rotationBefore = transform.rotation;
+            double observedServerTime = Time.timeAsDouble;
+            UnitMovementSnapshot reducerSnapshotBefore =
+                _movementAuthorityReducer.Snapshot;
             float expectedDelta = CalculateMovementPositionDeltaXZ(
                 transform.position, candidatePosition);
             float planningDistance = maximumTravelDistanceWorld >= 0f
@@ -876,7 +997,11 @@ namespace Hexiege.Presentation
                 : expectedDelta;
             UnitTrajectoryStep trajectoryStep = default;
             bool hasTrajectoryStep = false;
+            int spatialTransitionCount = 0;
             UnitMovementEvaluation evaluation;
+            UnitMovementPreparedTransition preparedTransition = default;
+            SpatialCandidateEvaluation selectedProbeEvaluation = default;
+            bool hasSelectedProbeEvaluation = false;
 
             // AcquireTarget와 실제 endpoint는 기존 NoIntent adapter를 그대로 사용한다.
             // 정상 이동 의도만 pure trajectory planner를 통과시켜, reducer가 raw waypoint
@@ -889,10 +1014,29 @@ namespace Hexiege.Presentation
                     <= (float)UnitMovementEvaluationAdapter.PositionTolerance;
             if (targetAcquirePriority || endpoint)
             {
-                evaluation = UnitMovementEvaluationAdapter.Evaluate(
+                // endpoint/우선 타겟 획득도 adapter가 candidate pose를 커밋할 수 있으므로
+                // reducer 호출 전에 실제 후보 선분을 검증한다. 일반 NoIntent/Held는 아래에서
+                // 위치를 적용하지 않으므로 미리 계산한 전이도 커밋되지 않는다.
+                if (!TryStageSpatialCommit(
+                        positionBefore,
+                        candidatePosition,
+                        logicalCorridorPath,
+                        logicalCorridorWaypointIndex,
+                        out spatialTransitionCount,
+                        out SpatialCandidateEvaluation endpointSpatialEvaluation))
+                {
+                    return endpointSpatialEvaluation.Verdict
+                            == UnitSpatialCandidateVerdict.RouteInvalidated
+                        || endpointSpatialEvaluation.Verdict
+                            == UnitSpatialCandidateVerdict.CandidateUnsafe
+                        ? MovementWriteOutcome.RepathRequired
+                        : MovementWriteOutcome.Rejected;
+                }
+
+                evaluation = UnitMovementEvaluationAdapter.Prepare(
                     _movementAuthorityReducer,
-                    _movementCommandRevision,
-                    _movementSegmentRevision,
+                    evaluatedCommandRevision,
+                    evaluatedSegmentRevision,
                     _movementIntentReason,
                     transform.position.x,
                     transform.position.z,
@@ -902,7 +1046,8 @@ namespace Hexiege.Presentation
                     desiredTarget.z,
                     targetAcquirePriority,
                     planningDistance,
-                    Time.timeAsDouble);
+                    observedServerTime,
+                    out preparedTransition);
             }
             else
             {
@@ -933,59 +1078,155 @@ namespace Hexiege.Presentation
                         && WorldPointXZ.TryCreate(next.x, next.z, out nextWaypoint);
                 }
 
-                bool planned = validPureInput
-                    && UnitServerTrajectoryPlanner.TryPlan(
-                        currentPoint,
-                        currentFacing,
-                        waypoint,
-                        hasNext,
-                        nextWaypoint,
-                        planningDistance,
-                        _rotationSpeed * Time.deltaTime,
-                        HexMetrics.TileHeight * 0.35d,
-                        out trajectoryStep)
-                    && trajectoryStep.IsValid;
-                if (!planned)
+                if (!validPureInput)
                     return MovementWriteOutcome.Rejected;
+
+                if (logicalCorridorPath != null)
+                {
+                    _lastCorridorRepathEvidence = default;
+                    bool selectedStartTileEgress = false;
+                    UnitTrajectoryCorridorResolution corridorResolution;
+                    UnitSpatialCandidateVerdict corridorFinalVerdict;
+                    SpatialCandidateEvaluation corridorFinalEvaluation = default;
+                    _corridorStepValidator ??= ValidateActiveCorridorStep;
+                    _activeCorridorPath = logicalCorridorPath;
+                    _activeCorridorWaypointIndex = logicalCorridorWaypointIndex;
+                    _activeCorridorSelectedStartTileEgress = false;
+                    _activeCorridorHasEvaluation = false;
+                    try
+                    {
+                        corridorResolution = UnitTrajectoryCorridorResolver.Resolve(
+                            currentPoint,
+                            currentFacing,
+                            waypoint,
+                            hasNext,
+                            nextWaypoint,
+                            planningDistance,
+                            _rotationSpeed * Time.deltaTime,
+                            HexMetrics.TileHeight * 0.35d,
+                            _corridorStepValidator,
+                            out trajectoryStep,
+                            out corridorFinalVerdict);
+                        selectedStartTileEgress =
+                            _activeCorridorSelectedStartTileEgress;
+                        corridorFinalEvaluation =
+                            _activeCorridorLastEvaluation;
+                        if (!_activeCorridorHasEvaluation)
+                        {
+                            var invalidPreflight = new UnitSpatialPreflightResult(
+                                UnitSpatialPreflightStatus.InvalidChain,
+                                default,
+                                -1);
+                            corridorFinalEvaluation = new SpatialCandidateEvaluation(
+                                UnitSpatialCandidateVerdict.Fatal,
+                                UnitSpatialTransitionPlanStatus.InvalidInput,
+                                invalidPreflight,
+                                0,
+                                _unitData != null ? _unitData.Position : default,
+                                _unitData != null ? _unitData.Position : default,
+                                false,
+                                default);
+                            corridorFinalVerdict = UnitSpatialCandidateVerdict.Fatal;
+                        }
+                    }
+                    finally
+                    {
+                        _activeCorridorPath = null;
+                        _activeCorridorWaypointIndex = -1;
+                        _activeCorridorSelectedStartTileEgress = false;
+                        _activeCorridorLastEvaluation = default;
+                        _activeCorridorHasEvaluation = false;
+                    }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitMovementAuthorityObserver.ObserveCorridorResolution(
+                        corridorResolution,
+                        selectedStartTileEgress);
+#endif
+                    if (corridorResolution == UnitTrajectoryCorridorResolution.Invalid
+                        || corridorFinalVerdict == UnitSpatialCandidateVerdict.Fatal)
+                    {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        ObserveFinalSpatialCandidate(
+                            corridorFinalEvaluation,
+                            repathRequired: false);
+#endif
+                        return MovementWriteOutcome.Rejected;
+                    }
+                    if (corridorResolution == UnitTrajectoryCorridorResolution.RepathRequired)
+                    {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        ObserveFinalSpatialCandidate(
+                            corridorFinalEvaluation,
+                            repathRequired: true);
+#endif
+                        return MovementWriteOutcome.RepathRequired;
+                    }
+                    selectedProbeEvaluation = corridorFinalEvaluation;
+                    hasSelectedProbeEvaluation = true;
+                }
+                else if (!UnitServerTrajectoryPlanner.TryPlan(
+                             currentPoint,
+                             currentFacing,
+                             waypoint,
+                             hasNext,
+                             nextWaypoint,
+                             planningDistance,
+                             _rotationSpeed * Time.deltaTime,
+                             HexMetrics.TileHeight * 0.35d,
+                             out trajectoryStep)
+                         || !trajectoryStep.IsValid)
+                {
+                    return MovementWriteOutcome.Rejected;
+                }
 
                 Vector3 plannedCandidate = transform.position;
                 plannedCandidate.x = (float)trajectoryStep.CandidatePosition.X;
                 plannedCandidate.z = (float)trajectoryStep.CandidatePosition.Z;
-                if (logicalCorridorPath != null
-                    && !IsTrajectoryPointSweepInsidePath(
-                        transform.position,
-                        plannedCandidate,
-                        logicalCorridorPath,
-                        logicalCorridorWaypointIndex))
-                {
-                    // 다음 선분 look-ahead가 현재 corridor 형상에서는 너무 공격적으로
-                    // 코너를 잘랐다면 먼저 현재 waypoint만 향하는 보수적 후보를 한 번 만든다.
-                    // 이 후보도 corridor 밖이면 Transform을 쓰지 않고 재탐색을 요청한다.
-                    bool fallbackPlanned = hasNext
-                        && UnitServerTrajectoryPlanner.TryPlan(
-                            currentPoint,
-                            currentFacing,
-                            waypoint,
-                            false,
-                            default,
-                            planningDistance,
-                            _rotationSpeed * Time.deltaTime,
-                            0d,
-                            out trajectoryStep)
-                        && trajectoryStep.IsValid;
-                    if (!fallbackPlanned)
-                        return MovementWriteOutcome.RepathRequired;
 
-                    plannedCandidate.x = (float)trajectoryStep.CandidatePosition.X;
-                    plannedCandidate.z = (float)trajectoryStep.CandidatePosition.Z;
-                    if (!IsTrajectoryPointSweepInsidePath(
-                        transform.position,
+                // planner가 실제 후보 pose를 확정한 직후, stateful reducer보다 먼저
+                // Root 경계 전이 전체를 검증한다. 실패하면 scope/reducer/pose/domain 모두 그대로다.
+                if (!TryStageSpatialCommit(
+                        positionBefore,
                         plannedCandidate,
                         logicalCorridorPath,
-                        logicalCorridorWaypointIndex))
-                    {
-                        return MovementWriteOutcome.RepathRequired;
-                    }
+                        logicalCorridorWaypointIndex,
+                        out spatialTransitionCount,
+                        out SpatialCandidateEvaluation stagedSpatialEvaluation))
+                {
+                    return stagedSpatialEvaluation.Verdict
+                            == UnitSpatialCandidateVerdict.RouteInvalidated
+                        || stagedSpatialEvaluation.Verdict
+                            == UnitSpatialCandidateVerdict.CandidateUnsafe
+                        ? MovementWriteOutcome.RepathRequired
+                        : MovementWriteOutcome.Rejected;
+                }
+                if (hasSelectedProbeEvaluation
+                    && (selectedProbeEvaluation.Verdict != stagedSpatialEvaluation.Verdict
+                        || selectedProbeEvaluation.TransitionStatus
+                            != stagedSpatialEvaluation.TransitionStatus
+                        || selectedProbeEvaluation.TransitionCount
+                            != stagedSpatialEvaluation.TransitionCount
+                        || selectedProbeEvaluation.Preflight.Status
+                            != stagedSpatialEvaluation.Preflight.Status
+                        || selectedProbeEvaluation.Preflight.OffendingTile
+                            != stagedSpatialEvaluation.Preflight.OffendingTile
+                        || selectedProbeEvaluation.Preflight.OffendingTransitionIndex
+                            != stagedSpatialEvaluation.Preflight.OffendingTransitionIndex
+                        || selectedProbeEvaluation.RootBeforeHex
+                            != stagedSpatialEvaluation.RootBeforeHex
+                        || selectedProbeEvaluation.CandidateHex
+                            != stagedSpatialEvaluation.CandidateHex))
+                {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitMovementAuthorityObserver.ObserveSpatialStageDivergence(
+                        _unitData != null ? _unitData.Id : -1,
+                        selectedProbeEvaluation.Verdict,
+                        stagedSpatialEvaluation.Verdict,
+                        selectedProbeEvaluation.Preflight.Status,
+                        stagedSpatialEvaluation.Preflight.Status);
+#endif
+                    throw new InvalidOperationException(
+                        "Corridor probe and final spatial stage diverged.");
                 }
 
                 bool acquireFromCandidate = candidateAcquirePredicate != null
@@ -1005,20 +1246,20 @@ namespace Hexiege.Presentation
                     return MovementWriteOutcome.Rejected;
                 }
 
-                UnitMovementReducerStatus status = _movementAuthorityReducer.Evaluate(
+                UnitMovementReducerStatus status = _movementAuthorityReducer.Prepare(
                     _movementAuthorityReducer.Snapshot.Revision,
-                    _movementCommandRevision,
-                    _movementSegmentRevision,
+                    evaluatedCommandRevision,
+                    evaluatedSegmentRevision,
                     _movementIntentReason,
                     true,
                     currentFacing,
                     reducerDirection,
                     acquireFromCandidate,
-                    Time.timeAsDouble,
-                    out UnitMovementDecision decision);
+                    observedServerTime,
+                    out preparedTransition);
                 evaluation = new UnitMovementEvaluation(
                     status,
-                    decision,
+                    preparedTransition.Decision,
                     _movementIntentReason,
                     true,
                     currentFacing,
@@ -1041,21 +1282,33 @@ namespace Hexiege.Presentation
                     _unitData != null ? _unitData.Type : default,
                     _unitData != null ? _unitData.Team : default,
                     _movementIntentReason,
-                    _movementCommandRevision,
-                    _movementSegmentRevision,
+                    evaluatedCommandRevision,
+                    evaluatedSegmentRevision,
                     evaluation,
+                    desiredTarget,
+                    planningDistance,
+                    observedServerTime,
+                    reducerSnapshotBefore,
                     positionBefore,
                     rotationBefore,
                     transform.position,
                     transform.rotation,
-                    authorityWriterSelected: true);
+                    authorityWriterSelected: true,
+                    walkAnimationAdvancing: _animator != null
+                        && _currentAnimStateHash == StateWalk
+                        && _animator.speed > 0.0001f);
 #endif
                 return MovementWriteOutcome.Rejected;
             }
 
+            if (!_movementAuthorityReducer.CanCommitPrepared(preparedTransition))
+                return MovementWriteOutcome.Rejected;
+
+            // planner/spatial/reducer 준비가 모두 성공해도 아직 reducer/scope/Root/Domain은
+            // 변경되지 않았다. 준비 snapshot 게시가 성공해야만 로컬 권위 상태를 커밋한다.
             if (_movementNetworkUnit == null
                 || !_movementNetworkUnit.PublishMovementSnapshot(
-                    _movementAuthorityReducer.Snapshot))
+                    preparedTransition.PreparedSnapshot))
             {
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 UnitMovementAuthorityObserver.ObservePublicationFailure(
@@ -1063,6 +1316,15 @@ namespace Hexiege.Presentation
 #endif
                 return MovementWriteOutcome.Rejected;
             }
+
+            if (!_movementAuthorityReducer.TryCommitPrepared(preparedTransition))
+            {
+                throw new InvalidOperationException(
+                    "Prepared movement transition became stale after publication.");
+            }
+            CommitPreparedMovementScope(
+                evaluatedCommandRevision,
+                evaluatedSegmentRevision);
 
             if (hasTrajectoryStep)
             {
@@ -1090,6 +1352,7 @@ namespace Hexiege.Presentation
                     transform.rotation,
                     authorityTargetRotation,
                     _rotationSpeed * Time.deltaTime);
+                SynchronizeDomainFacingFromSimulationForward();
             }
 
             MovementWriteOutcome outcome = MovementWriteOutcome.Held;
@@ -1114,6 +1377,68 @@ namespace Hexiege.Presentation
                 outcome = MovementWriteOutcome.Advanced;
             }
 
+            if (outcome == MovementWriteOutcome.Advanced
+                && spatialTransitionCount > 0)
+            {
+                // 같은 동기 호출 안에서 preflight한 버퍼를 커밋한다. 이 지점까지 await/yield가 없으므로
+                // 정상 경로에서는 재검증이 실패하지 않는다. Facing은 새 API가 현재 값을 보존한다.
+                HexCoord committedPositionBefore = _unitData != null
+                    ? _unitData.Position
+                    : default;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObserveSpatialCommitAttempt(
+                    _unitData != null ? _unitData.Id : -1,
+                    spatialTransitionCount,
+                    committedPositionBefore);
+#endif
+                try
+                {
+                    _movementUseCase.CommitPreflightedSpatialTransitionsPreservingFacing(
+                        _unitData,
+                        _spatialTransitionBuffer,
+                        spatialTransitionCount);
+                }
+                catch (Exception)
+                {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitMovementAuthorityObserver.ObserveSpatialCommit(
+                        _unitData != null ? _unitData.Id : -1,
+                        spatialTransitionCount,
+                        committedPositionBefore,
+                        _unitData != null ? _unitData.Position : default,
+                        succeeded: false);
+#endif
+                    throw;
+                }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObserveSpatialCommit(
+                    _unitData != null ? _unitData.Id : -1,
+                    spatialTransitionCount,
+                    committedPositionBefore,
+                    _unitData != null ? _unitData.Position : default,
+                    succeeded: true);
+#endif
+
+                if (_isAStarMoving && logicalCorridorPath != null)
+                {
+                    for (int index = 0; index < spatialTransitionCount; index++)
+                    {
+                        GameEvents.OnUnitEnteredTile.OnNext(
+                            new UnitEnteredTileEvent(
+                                _unitData.Id,
+                                _spatialTransitionBuffer[index]));
+                    }
+                }
+            }
+
+            // 권위 위치와 표현 상태를 같은 commit 경계에서 바꾼다. AlignToMove/NoIntent는
+            // 위치가 멈추므로 Walk 시간도 정지하고, 실제 전진 frame에서만 다시 재생한다.
+            SetMovementHeldAnimation(
+                UnitMovementPresentationPolicy.ShouldHoldWalk(
+                    evaluation.Decision.IsValid,
+                    evaluation.Decision.AllowsMovement,
+                    evaluation.CommitsAcquireCandidate));
+
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             UnitMovementAuthorityObserver.ObserveFrame(
                 _unitData != null ? _unitData.Id : -1,
@@ -1121,14 +1446,21 @@ namespace Hexiege.Presentation
                 _unitData != null ? _unitData.Type : default,
                 _unitData != null ? _unitData.Team : default,
                 _movementIntentReason,
-                _movementCommandRevision,
-                _movementSegmentRevision,
+                evaluatedCommandRevision,
+                evaluatedSegmentRevision,
                 evaluation,
+                desiredTarget,
+                planningDistance,
+                observedServerTime,
+                reducerSnapshotBefore,
                 positionBefore,
                 rotationBefore,
                 transform.position,
                 transform.rotation,
-                authorityWriterSelected: true);
+                authorityWriterSelected: true,
+                walkAnimationAdvancing: _animator != null
+                    && _currentAnimStateHash == StateWalk
+                    && _animator.speed > 0.0001f);
 #endif
             if (evaluation.Decision.Phase == UnitMovementPhase.NoIntent)
             {
@@ -1139,6 +1471,205 @@ namespace Hexiege.Presentation
             return outcome;
         }
 
+        /// <summary>
+        /// 서버 Root 후보 선분을 bounded 간격으로 표본화하고 실제 인접 타일 전이를 사전검증한다.
+        /// non-walkable 경로 마지막 타일은 접촉 목표로만 인정하며 출력 전이에는 넣지 않는다.
+        /// </summary>
+        private bool TryStageSpatialCommit(
+            Vector3 positionBefore,
+            Vector3 authoritativeCandidate,
+            IReadOnlyList<HexCoord> logicalPath,
+            int logicalWaypointIndex,
+            out int transitionCount,
+            out SpatialCandidateEvaluation evaluation)
+        {
+            evaluation = EvaluateSpatialCandidate(
+                positionBefore,
+                authoritativeCandidate,
+                logicalPath,
+                logicalWaypointIndex,
+                _spatialTileSamples,
+                _spatialTransitionBuffer);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            ObserveFinalSpatialCandidate(
+                evaluation,
+                evaluation.Verdict == UnitSpatialCandidateVerdict.RouteInvalidated
+                    || evaluation.Verdict == UnitSpatialCandidateVerdict.CandidateUnsafe);
+#endif
+            transitionCount = evaluation.TransitionCount;
+            if (evaluation.Verdict == UnitSpatialCandidateVerdict.Accepted)
+                return true;
+
+            if (evaluation.Verdict == UnitSpatialCandidateVerdict.CandidateUnsafe
+                || evaluation.Verdict == UnitSpatialCandidateVerdict.RouteInvalidated)
+            {
+                _lastCorridorRepathEvidence = evaluation.Evidence;
+            }
+            transitionCount = 0;
+            return false;
+        }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private void ObserveFinalSpatialCandidate(
+            SpatialCandidateEvaluation evaluation,
+            bool repathRequired)
+        {
+            if (repathRequired)
+                _spatialRecoverablePending = true;
+            else if (evaluation.Verdict == UnitSpatialCandidateVerdict.Accepted)
+                _spatialRecoverablePending = false;
+            UnitMovementAuthorityObserver.ObserveSpatialFinalCandidate(
+                _unitData != null ? _unitData.Id : -1,
+                evaluation.Verdict,
+                evaluation.TransitionStatus,
+                evaluation.Preflight,
+                evaluation.TransitionCount,
+                _unitData != null ? _unitData.Position : default,
+                evaluation.RootBeforeHex,
+                evaluation.CandidateHex,
+                repathRequired);
+        }
+#endif
+
+        /// <summary>
+        /// 후보 pose 하나를 관측만 한다. reducer/scope/Root/UnitData/index/event/observer를
+        /// 변경하지 않으며 caller-owned scratch buffer에만 샘플과 전이를 기록한다.
+        /// </summary>
+        private SpatialCandidateEvaluation EvaluateSpatialCandidate(
+            Vector3 positionBefore,
+            Vector3 authoritativeCandidate,
+            IReadOnlyList<HexCoord> logicalPath,
+            int logicalWaypointIndex,
+            List<HexCoord> sampleBuffer,
+            HexCoord[] transitionBuffer)
+        {
+            sampleBuffer.Clear();
+            if (_movementUseCase == null
+                || _unitData == null
+                || !_unitData.IsAlive
+                || !IsFiniteXZ(positionBefore)
+                || !IsFiniteXZ(authoritativeCandidate))
+            {
+                var invalid = new UnitSpatialPreflightResult(
+                    UnitSpatialPreflightStatus.InvalidUnitOrDependency,
+                    default,
+                    -1);
+                return new SpatialCandidateEvaluation(
+                    UnitSpatialCandidateVerdict.Fatal,
+                    UnitSpatialTransitionPlanStatus.InvalidInput,
+                    invalid,
+                    0,
+                    default,
+                    default,
+                    false,
+                    default);
+            }
+
+            float distance = CalculateMovementPositionDeltaXZ(
+                positionBefore, authoritativeCandidate);
+            float sampleSpacing = Mathf.Max(
+                HexMetrics.TileHeight * 0.1f, 0.01f);
+            int segmentCount = Mathf.Max(
+                1, Mathf.CeilToInt(distance / sampleSpacing));
+            if (segmentCount + 1 > SpatialSampleCapacity)
+            {
+                var invalid = new UnitSpatialPreflightResult(
+                    UnitSpatialPreflightStatus.InvalidChain,
+                    default,
+                    -1);
+                return new SpatialCandidateEvaluation(
+                    UnitSpatialCandidateVerdict.Fatal,
+                    UnitSpatialTransitionPlanStatus.InsufficientCapacity,
+                    invalid,
+                    0,
+                    HexMetrics.WorldToHex(ViewConverter.FromView(positionBefore)),
+                    HexMetrics.WorldToHex(ViewConverter.FromView(authoritativeCandidate)),
+                    false,
+                    default);
+            }
+
+            for (int sampleIndex = 0; sampleIndex <= segmentCount; sampleIndex++)
+            {
+                float t = sampleIndex / (float)segmentCount;
+                Vector3 viewPoint = Vector3.Lerp(
+                    positionBefore, authoritativeCandidate, t);
+                Vector3 domainPoint = ViewConverter.FromView(viewPoint);
+                sampleBuffer.Add(HexMetrics.WorldToHex(domainPoint));
+            }
+
+            HexCoord rootBeforeHex = sampleBuffer[0];
+            HexCoord candidateHex =
+                sampleBuffer[sampleBuffer.Count - 1];
+
+            bool usedStartTileEgress = false;
+            CorridorRepathEvidence evidence = default;
+            if (logicalPath != null
+                && !IsTrajectoryPointSweepInsidePath(
+                    positionBefore,
+                    authoritativeCandidate,
+                    logicalPath,
+                    logicalWaypointIndex,
+                    out usedStartTileEgress,
+                    out evidence))
+            {
+                return new SpatialCandidateEvaluation(
+                    UnitSpatialCandidateVerdict.CandidateUnsafe,
+                    UnitSpatialTransitionPlanStatus.OutsideLogicalPath,
+                    UnitSpatialPreflightResult.Success(),
+                    0,
+                    rootBeforeHex,
+                    candidateHex,
+                    usedStartTileEgress,
+                    evidence);
+            }
+
+            bool hasTerminalContact = false;
+            HexCoord terminalTile = default;
+            if (logicalPath != null && logicalPath.Count > 0)
+            {
+                HexCoord lastSample =
+                    sampleBuffer[sampleBuffer.Count - 1];
+                HexCoord logicalFinal = logicalPath[logicalPath.Count - 1];
+                if (lastSample == logicalFinal
+                    && !_movementUseCase.IsWalkable(lastSample))
+                {
+                    hasTerminalContact = true;
+                    terminalTile = lastSample;
+                }
+            }
+
+            UnitSpatialTransitionPlanStatus status =
+                UnitSpatialTransitionPolicy.TryBuild(
+                    _unitData.Position,
+                    sampleBuffer,
+                    sampleBuffer.Count,
+                    logicalPath,
+                    hasTerminalContact,
+                    terminalTile,
+                    transitionBuffer,
+                    out int transitionCount);
+            UnitSpatialPreflightResult preflight =
+                status == UnitSpatialTransitionPlanStatus.Ready
+                    || status == UnitSpatialTransitionPlanStatus.NoTransition
+                    || status == UnitSpatialTransitionPlanStatus.TerminalContact
+                ? _movementUseCase.PreflightSpatialTransitions(
+                    _unitData,
+                    transitionBuffer,
+                    transitionCount)
+                : UnitSpatialPreflightResult.Success();
+            UnitSpatialCandidateVerdict verdict =
+                UnitSpatialCandidatePolicy.Classify(status, preflight);
+            return new SpatialCandidateEvaluation(
+                verdict,
+                status,
+                preflight,
+                transitionCount,
+                rootBeforeHex,
+                candidateHex,
+                usedStartTileEgress,
+                evidence);
+        }
+
         private static float CalculateMovementPositionDeltaXZ(
             Vector3 from,
             Vector3 to)
@@ -1146,6 +1677,32 @@ namespace Hexiege.Presentation
             float deltaX = to.x - from.x;
             float deltaZ = to.z - from.z;
             return Mathf.Sqrt(deltaX * deltaX + deltaZ * deltaZ);
+        }
+
+        private UnitSpatialCandidateVerdict ValidateActiveCorridorStep(
+            UnitTrajectoryStep step)
+        {
+            if (_activeCorridorPath == null
+                || _activeCorridorWaypointIndex < 0)
+            {
+                return UnitSpatialCandidateVerdict.Fatal;
+            }
+
+            Vector3 candidate = transform.position;
+            candidate.x = (float)step.CandidatePosition.X;
+            candidate.z = (float)step.CandidatePosition.Z;
+            SpatialCandidateEvaluation evaluation = EvaluateSpatialCandidate(
+                transform.position,
+                candidate,
+                _activeCorridorPath,
+                _activeCorridorWaypointIndex,
+                _spatialProbeTileSamples,
+                _spatialProbeTransitionBuffer);
+            _activeCorridorLastEvaluation = evaluation;
+            _activeCorridorHasEvaluation = true;
+            _activeCorridorSelectedStartTileEgress =
+                evaluation.UsedStartTileEgress;
+            return evaluation.Verdict;
         }
 
         /// <summary>
@@ -1197,8 +1754,12 @@ namespace Hexiege.Presentation
             Vector3 fromView,
             Vector3 toView,
             IReadOnlyList<HexCoord> path,
-            int waypointIndex)
+            int waypointIndex,
+            out bool usedStartTileEgress,
+            out CorridorRepathEvidence evidence)
         {
+            usedStartTileEgress = false;
+            evidence = default;
             if (path == null
                 || path.Count < 2
                 || waypointIndex < 1
@@ -1221,26 +1782,58 @@ namespace Hexiege.Presentation
                 Vector3 domainPoint = ViewConverter.FromView(viewPoint);
                 HexCoord tile = HexMetrics.WorldToHex(domainPoint);
 
-                bool inCorridor = false;
+                int matchedPathIndex = -1;
                 for (int index = firstAllowed; index <= lastAllowed; index++)
                 {
                     if (path[index] == tile)
                     {
-                        inCorridor = true;
+                        matchedPathIndex = index;
                         break;
                     }
                 }
-                if (!inCorridor) return false;
-
-                // 마지막 목적지는 성/건물일 수 있어 기존 의미상 non-walkable을 허용한다.
-                // 그 외 표본 타일이 경기 중 새로 막혔다면 point sweep을 즉시 거부한다.
-                bool isFinalDestination = tile == path[path.Count - 1];
-                if (!isFinalDestination
-                    && _movementUseCase != null
-                    && !_movementUseCase.IsWalkable(tile))
+                bool isWalkable = _movementUseCase == null
+                    || _movementUseCase.IsWalkable(tile);
+                UnitTrajectoryCorridorSampleResult sampleResult =
+                    UnitTrajectoryCorridorSamplePolicy.Evaluate(
+                        path.Count,
+                        waypointIndex,
+                        matchedPathIndex,
+                        isWalkable);
+                if (sampleResult == UnitTrajectoryCorridorSampleResult.OutsideCorridor
+                    || sampleResult == UnitTrajectoryCorridorSampleResult.Blocked)
                 {
+                    Vector3 rootDomain = ViewConverter.FromView(fromView);
+                    UnitPathSignature.TryCreate(
+                        path, out UnitPathSignature sourcePathSignature);
+                    evidence = new CorridorRepathEvidence
+                    {
+                        IsAvailable = true,
+                        Frame = Time.frameCount,
+                        RootView = fromView,
+                        RootDomain = rootDomain,
+                        RootHex = HexMetrics.WorldToHex(rootDomain),
+                        UnitDataPosition = _unitData != null
+                            ? _unitData.Position
+                            : default,
+                        PathCount = path.Count,
+                        WaypointIndex = waypointIndex,
+                        PathStart = path[0],
+                        CurrentWaypoint = path[waypointIndex],
+                        SourcePathSignature = sourcePathSignature,
+                        SampleView = viewPoint,
+                        SampleHex = tile,
+                        SampleIndex = sample,
+                        SampleCount = sampleCount,
+                        MatchedPathIndex = matchedPathIndex,
+                        FirstAllowedPathIndex = firstAllowed,
+                        LastAllowedPathIndex = lastAllowed,
+                        IsWalkable = isWalkable,
+                        SampleResult = sampleResult
+                    };
                     return false;
                 }
+                if (sampleResult == UnitTrajectoryCorridorSampleResult.StartTileEgress)
+                    usedStartTileEgress = true;
             }
 
             return true;
@@ -1388,9 +1981,8 @@ namespace Hexiege.Presentation
             // 클라이언트는 NetworkTransform이 서버 위치를 자동으로 보간·동기화.
             if (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer) return;
 
-            // 중복 command 판정은 AlignPathStartToTransform보다 먼저 수행한다. 정렬 helper는
-            // 필요하면 Domain Position을 보정할 수 있으므로, 이미 활성인 같은 목표를 무시하면서
-            // 그 helper를 먼저 호출하면 "억제된 명령이 상태를 변경"하는 모순이 생긴다.
+            // 중복 command 판정은 AlignPathStartToTransform보다 먼저 수행한다. 이미 활성인 같은
+            // 목표는 현재 코루틴과 도착-커밋 경계를 그대로 보존해야 한다.
             if (startNewCommand
                 && path != null
                 && path.Count > 0
@@ -1422,9 +2014,9 @@ namespace Hexiege.Presentation
             //     첫 걸음이 목적지 역방향으로 향한다("뒤로 밀림", 규칙 11 위반).
             //
             //   동작:
-            //     AlignPathStartToTransform이 이 "역방향 첫 스텝" 케이스만 감지해 앞쪽 타일 기준으로
-            //     경로를 재발급한다. 정방향/정합 상태는 원본 path를 그대로 반환하므로 일반 이동은
-            //     전혀 건드리지 않는다.
+            //     AlignPathStartToTransform이 이 "역방향 첫 스텝" 케이스만 감지해 현재 논리 타일에서
+            //     앞쪽 인접 타일까지의 도착 segment와 그 이후 경로를 합성한다. 정방향/정합 상태는
+            //     원본 path를 그대로 반환하므로 일반 이동은 전혀 건드리지 않는다.
             // ────────────────────────────────────────────────────────────
             if (startNewCommand)
                 _navigationObjective?.Cancel();
@@ -1484,10 +2076,10 @@ namespace Hexiege.Presentation
         /// 동작:
         ///   1) 첫 스텝(transform → path[1])이 최종 목적지 기준 "역방향"(XZ 내적&lt;0)인지 판정한다.
         ///      역방향이 아니면(정상) 원본 path를 그대로 반환 — 일반 이동은 전혀 건드리지 않는다.
-        ///   2) 역방향이면: 실제 transform 위치 기준 "앞쪽 가장 가까운 타일"을 FindForwardClosestTile로
-        ///      구하고, 도메인 위치도 그 타일로 정합(ProcessStep)시킨 뒤, 그 출발점에서 목적지까지
-        ///      경로를 재발급(RequestMove)한다.
-        ///      (전투 종료 정렬의 ResumeFromForwardTileV3에서 이미 검증된 패턴을 그대로 재사용한다.)
+        ///   2) 역방향이면 실제 transform 위치 기준 "앞쪽 가장 가까운 타일"을 구한다.
+        ///      그 타일에서 목적지까지의 후속 경로는 상태를 바꾸지 않고 계산하고, 현재 논리 타일에서
+        ///      앞쪽 타일까지를 첫 segment로 앞에 붙인다. Root가 실제로 그 waypoint에 도착한 뒤에만
+        ///      MoveAlongPathV3의 기존 checkpoint/ProcessStep 경계가 도메인 위치와 점유를 커밋한다.
         ///
         /// 반환: 보정된 경로(역방향 케이스) 또는 원본 경로(정상/보정 불가 케이스).
         /// </summary>
@@ -1521,18 +2113,23 @@ namespace Hexiege.Presentation
             Vector3 domainPos = ViewConverter.FromView(transform.position);
             HexCoord forwardTile = _movementUseCase.FindForwardClosestTile(domainPos, finalTarget);
 
-            // 도메인 위치 정합 — forwardTile이 현재 도메인과 다를 때만 ProcessStep.
-            //   (같은 타일이면 생략 — ResumeFromForwardTileV3와 동일 규약.)
-            //   ProcessStep은 위치 역인덱스(NotifyUnitMoved) 갱신과 OnUnitMoved 이벤트 발행만 하며,
-            //   혼잡도 누적 이벤트(OnUnitEnteredTile)는 발행하지 않는다. 따라서 혼잡도/점유 부작용이 없다.
-            if (forwardTile != _unitData.Position)
-                _movementUseCase.ProcessStep(_unitData, _unitData.Position, forwardTile);
+            // 앞쪽 타일 이후의 경로만 계산한다. RequestMoveFrom은 UnitData.Position과 점유를
+            // 변경하지 않는다. forwardTile이 최종 목표면 그 타일 하나가 후속 경로 전체다.
+            List<HexCoord> routeFromForward = forwardTile == finalTarget
+                ? new List<HexCoord> { forwardTile }
+                : _movementUseCase.RequestMoveFrom(forwardTile, finalTarget);
 
-            // 앞쪽 타일에서 목적지까지 경로 재발급.
-            List<HexCoord> corrected = _movementUseCase.RequestMove(_unitData, finalTarget);
+            // 현재 논리 타일 → 앞쪽 인접 타일 → 후속 경로를 합성한다. 비인접 후보나 잘못된
+            // 후속 경로는 원본을 유지해 fail-closed하며 논리 위치를 절대 미리 넘기지 않는다.
+            if (!UnitPathStartTransitionPolicy.TryBuildArrivalCommittedPath(
+                    _unitData.Position,
+                    forwardTile,
+                    routeFromForward,
+                    out List<HexCoord> corrected))
+            {
+                return path;
+            }
 
-            // 재발급 실패(도착/경로 없음) 시 원본 유지 — 최소한 기존 동작을 보존한다.
-            if (corrected == null || corrected.Count < 2) return path;
             return corrected;
         }
 
@@ -1794,18 +2391,55 @@ namespace Hexiege.Presentation
                 ?? (candidatePath != null && candidatePath.Count > 1
                     ? candidatePath[1].ToString()
                     : "unavailable");
+            string candidatePathStart = candidatePath != null
+                && candidatePath.Count > 0
+                    ? candidatePath[0].ToString()
+                    : "unavailable";
+            string corridorEvidence = source == "astar-corridor"
+                ? FormatCorridorRepathEvidence(_lastCorridorRepathEvidence)
+                : "not-applicable";
             Debug.LogError(
                 $"[UAS-MOVE][REPATH-FAIL-CLOSED] unitId={unitId}, " +
                 $"commandRevision={_movementCommandRevision}, " +
                 $"segmentRevision={_movementSegmentRevision}, " +
                 $"source={source}, decision={decision}, frame={Time.frameCount}, " +
                 $"failedWaypoint={failedWaypoint}, " +
+                $"candidatePathStart={candidatePathStart}, " +
                 $"previousPath={FormatPathSignature(guard?.PreviousPath ?? default)}, " +
                 $"currentPath={FormatPathSignature(guard?.CurrentPath ?? default)}, " +
                 $"candidatePath={FormatPathSignature(candidateSignature)}, " +
                 $"acceptedInFrame={guard?.AcceptedInFrame ?? 0}, " +
-                $"acceptedWithoutProgress={guard?.AcceptedWithoutProgress ?? 0}");
+                $"acceptedWithoutProgress={guard?.AcceptedWithoutProgress ?? 0}, " +
+                $"corridorEvidence={corridorEvidence}");
         }
+
+        private static string FormatCorridorRepathEvidence(
+            CorridorRepathEvidence evidence)
+        {
+            if (!evidence.IsAvailable)
+                return "unavailable";
+
+            return
+                $"frame:{evidence.Frame}|" +
+                $"rootView:{FormatVector3(evidence.RootView)}|" +
+                $"rootDomain:{FormatVector3(evidence.RootDomain)}|" +
+                $"rootHex:{evidence.RootHex}|" +
+                $"unitDataPosition:{evidence.UnitDataPosition}|" +
+                $"sourcePathStart:{evidence.PathStart}|" +
+                $"sourceWaypoint:{evidence.CurrentWaypoint}|" +
+                $"sourceWaypointIndex:{evidence.WaypointIndex}/{evidence.PathCount - 1}|" +
+                $"sourcePath:{FormatPathSignature(evidence.SourcePathSignature)}|" +
+                $"sampleView:{FormatVector3(evidence.SampleView)}|" +
+                $"sampleHex:{evidence.SampleHex}|" +
+                $"sampleIndex:{evidence.SampleIndex}/{evidence.SampleCount}|" +
+                $"matchedPathIndex:{evidence.MatchedPathIndex}|" +
+                $"allowedPathIndices:{evidence.FirstAllowedPathIndex}-{evidence.LastAllowedPathIndex}|" +
+                $"sampleWalkable:{evidence.IsWalkable}|" +
+                $"sampleResult:{evidence.SampleResult}";
+        }
+
+        private static string FormatVector3(Vector3 value)
+            => $"({value.x:F6},{value.y:F6},{value.z:F6})";
 
         private static string FormatPathSignature(UnitPathSignature signature)
             => signature.IsValid
@@ -1839,7 +2473,7 @@ namespace Hexiege.Presentation
                 yield break;
             }
 
-            _movementRotationWriterOwnsRoot = true;
+            _rootRotationOwnership.TryAcquireMovement();
 
             // 멀티플레이 서버: 이동 시작 이벤트 발행 → NetworkCombatController가
             // _animState(=Walk) 레벨 동기화로 모든 클라이언트에 Walk 시작 전파.
@@ -1949,7 +2583,7 @@ namespace Hexiege.Presentation
                 // for 안에서 true로 바꾼 뒤 break하면 외부 while로 빠져 새 path로 continue.
                 bool needRepath = false;
 
-                // 마지막에 실제로 도착한 타일 — ProcessStep의 from 인자에 사용.
+                // Legacy는 ProcessStep의 from으로, Reducer는 마지막 spatial commit 위치로 갱신한다.
                 HexCoord prevActualTile = _unitData.Position;
 
                 // ────────────────────────────────────────────────────────────
@@ -2172,9 +2806,11 @@ namespace Hexiege.Presentation
                             {
                                 // [힐러] 부상 아군 힐 루프에 위임 — 적 공격 흐름과 완전히 분리된 경로.
                                 //   정지 → 힐 애니 → HoT 부여 → 쿨다운 → 재탐색을 EnterHealLoopV3가 담당한다.
-                                _movementRotationWriterOwnsRoot = false;
+                                _rootRotationOwnership.TransferToAction();
                                 yield return EnterHealLoopV3();
-                                _movementRotationWriterOwnsRoot = true;
+                                _rootRotationOwnership.ReleaseAction(
+                                    resumeMovement: _unitData != null
+                                        && _unitData.IsAlive);
                             }
                             else
                             {
@@ -2183,11 +2819,43 @@ namespace Hexiege.Presentation
 
                                 // 전투 종료 후 회전 정합성 유지.
                                 // _combatTargetTransform이 null이 아닌 동안 Update()가 매 프레임 회전을 덮어쓰므로
-                                // StopCombatAnimation()을 직접 호출하여 즉시 추적을 끊습니다.
-                                StopCombatAnimation();
+                                // 전투 추격 내부의 gameplay 종료 경계가 추적과 소유권을 직접 닫는다.
                             }
 
                             if (_unitData == null || !_unitData.IsAlive) break;
+
+                            // Chase의 실제 Root 전이가 Missing/NonWalkable로 무효화된 경우에는
+                            // Rejected cleanup이나 복귀 정렬을 수행하지 않는다. 추격 코루틴이 이미
+                            // 최소 한 frame held했으므로 여기서 기존 objective/guard를 통해 새 A*를
+                            // 받고 다음 외부 while부터 적용한다.
+                            if (_combatPursuitRequiresRepath)
+                            {
+                                _combatPursuitRequiresRepath = false;
+                                List<HexCoord> pursuitRepath = _movementUseCase != null
+                                    ? _movementUseCase.RequestMove(_unitData, finalTarget)
+                                    : null;
+                                if (!TryAcceptRepath(
+                                        repathGuard,
+                                        pursuitRepath,
+                                        "chase-spatial-route-invalidated",
+                                        out UnitRepathDecision pursuitRepathDecision))
+                                {
+                                    navigationBlocked = true;
+                                    needRepath = true;
+                                    _currentNextTileCoord = null;
+                                    break;
+                                }
+
+                                BeginMovementShadowSegment(
+                                    UnitMovementIntentReason.BlockedRepath);
+                                path = pursuitRepath;
+                                pathCheckpoint.Reset();
+                                needRepath = true;
+                                _isAStarMoving = true;
+                                SetMovementHeldAnimation(true);
+                                _currentNextTileCoord = null;
+                                break;
+                            }
 
                             BeginMovementShadowSegment(UnitMovementIntentReason.PostCombatResume);
                             // ──────────────────────────────────────────────────────────
@@ -2472,7 +3140,7 @@ namespace Hexiege.Presentation
                     if (_unitData == null || !_unitData.IsAlive) break;
 
                     // corridor가 경기 중 막혀 새 path를 받은 경우 현재 waypoint의
-                    // ProcessStep/EnteredTile은 아직 발생하면 안 된다. 외부 while에서
+                    // route checkpoint도 아직 소비하면 안 된다. 외부 while에서
                     // 새 path index 1부터 다시 시작한다.
                     if (needRepath) break;
 
@@ -2505,8 +3173,8 @@ namespace Hexiege.Presentation
                         }
                     }
 
-                    // 도메인 처리: _unitData.Position을 to로 갱신.
-                    // 마지막 스텝이 non-walkable(성/건물)이면 ProcessStep 생략 — 유닛이 건물 위에 존재하는 것으로 처리되지 않도록.
+                    // Reducer 경로의 waypoint 완료는 route checkpoint만 소비한다.
+                    // 실제 Domain 위치와 혼잡도는 매 frame Root 경계 전이 시 공용 writer가 이미 커밋했다.
                     if (reducerTrajectory
                         && !pathCheckpoint.TryConsume(
                             i,
@@ -2520,20 +3188,25 @@ namespace Hexiege.Presentation
                         goto cleanup;
                     }
                     ObserveNavigationProgress(repathGuard, path);
-                    if (_movementUseCase != null && !(isLastStep && isLastStepToNonWalkable))
+                    if (!reducerTrajectory)
                     {
-                        _movementUseCase.ProcessStep(_unitData, from, to);
+                        // Legacy rollback 경로는 기존 waypoint 중심 도착 의미를 그대로 보존한다.
+                        if (_movementUseCase != null
+                            && !(isLastStep && isLastStepToNonWalkable))
+                        {
+                            _movementUseCase.ProcessStep(_unitData, from, to);
+                        }
+
+                        if (_isAStarMoving)
+                        {
+                            GameEvents.OnUnitEnteredTile.OnNext(
+                                new UnitEnteredTileEvent(_unitData.Id, to));
+                        }
                     }
 
-                    // 혼잡도 시스템 — A* 이동 중 새 타일에 진입했을 때만 발행.
-                    // 전투 추격 단계에서는 _isAStarMoving == false라 발행되지 않는다.
-                    // GameBootstrapper가 이 이벤트를 받아 CongestionMap.Increment(tile)을 수행한다.
-                    if (_isAStarMoving)
-                    {
-                        GameEvents.OnUnitEnteredTile.OnNext(new UnitEnteredTileEvent(_unitData.Id, to));
-                    }
-
-                    prevActualTile = to;
+                    prevActualTile = reducerTrajectory
+                        ? _unitData.Position
+                        : to;
 
                     // 타일 도착 완료 — 다음 Lerp 시작 전까지는 "다음 도착 타일" 정보 없음.
                     // null로 비워 두지 않으면 OnPathInvalidated가 이미 지나간 타일을 검사할 수 있다.
@@ -2726,6 +3399,7 @@ namespace Hexiege.Presentation
             //   각 yield break 직전 + 함수 끝에서 false로 명시적 리셋해야 한다.
             // ────────────────────────────────────────────────────────────
             _isInCombatPursuit = true;
+            _combatPursuitRequiresRepath = false;
             BeginMovementShadowSegment(UnitMovementIntentReason.Chase);
 
             // 필수 의존성 가드 — _positionProvider는 적 월드 좌표 조회에 사용.
@@ -2810,10 +3484,10 @@ namespace Hexiege.Presentation
                         yield break;
                     }
 
-                    _movementRotationWriterOwnsRoot = false;
+                    BeginServerActionRotation(targetId, targetIsUnit);
                     yield return EnterCombatLoopV3();
-                    StopCombatAnimation();
-                    _movementRotationWriterOwnsRoot = true;
+                    EndServerActionRotation();
+                    _rootRotationOwnership.TryAcquireMovement();
 
                     if (_unitData == null || !_unitData.IsAlive)
                     {
@@ -2888,6 +3562,18 @@ namespace Hexiege.Presentation
                         targetRot,
                         UnitMovementIntentReason.Chase,
                         targetAcquirePriority: false);
+                    if (pursuitOutcome == MovementWriteOutcome.RepathRequired)
+                    {
+                        // Missing/NonWalkable은 현재 command를 폐기하는 fatal 거부가 아니다.
+                        // pose/scope/reducer/domain은 ApplyMovementAuthorityFrame에서 그대로이며,
+                        // objective를 보존한 채 최소 한 frame held 후 caller의 A* 재탐색으로 넘긴다.
+                        _navigationObjective?.MarkWaitingRepath();
+                        SetMovementHeldAnimation(true);
+                        _combatPursuitRequiresRepath = true;
+                        _isInCombatPursuit = false;
+                        yield return null;
+                        yield break;
+                    }
                     if (pursuitOutcome == MovementWriteOutcome.Rejected)
                     {
                         Debug.LogError(
@@ -3157,7 +3843,7 @@ namespace Hexiege.Presentation
             bool canWriteSimulationRoot =
                 !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
             if (canWriteSimulationRoot
-                && !_movementRotationWriterOwnsRoot
+                && _rootRotationOwnership.ActionOwnsRoot
                 && targetPos != Vector3.zero)
             {
                 float angle = CalculateAttackAngle(targetPos);
@@ -3165,7 +3851,7 @@ namespace Hexiege.Presentation
             }
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             else if (canWriteSimulationRoot
-                && _movementRotationWriterOwnsRoot
+                && !_rootRotationOwnership.ActionOwnsRoot
                 && targetPos != Vector3.zero)
             {
                 UnitMovementAuthorityObserver.ObserveAttackWriterOwnershipConflict(
@@ -3191,18 +3877,18 @@ namespace Hexiege.Presentation
         /// [V3] 근접 전투 종료 후 A* 재개 시 출발 타일을 결정한다 (규칙 11/15).
         ///
         /// 동작:
-        ///   1) (호출 측이 미리 계산한) forwardTile을 파라미터로 받음 — 이중 계산 방지.
-        ///   2) ProcessStep으로 도메인 위치를 그 타일로 갱신 + FROM(이전 _unitData.Position) 해제.
-        ///   3) 같은 타일이면 ProcessStep 생략 — 점유 누수 방지.
-        ///   4) Walk 애니메이션 재개.
-        ///   5) finalTarget으로 RequestMove → 새 path 반환. 호출 측이 외부 while로 재진입.
+        ///   1) 호출 측이 미리 계산한 forwardTile을 받는다 — 이중 계산 방지.
+        ///   2) ReducerAuthoritative는 정렬 frame에서 커밋된 실제 공간 위치를 그대로 사용한다.
+        ///      Legacy rollback만 기존 ProcessStep waypoint 의미를 유지한다.
+        ///   3) Walk 애니메이션을 재개한다.
+        ///   4) 현재 커밋 위치에서 finalTarget으로 새 path를 받아 외부 while로 재진입한다.
         ///
         /// 뒤쪽 타일로 복귀하지 않는다(규칙 11/15).
         ///
         /// [BUG-002 — 2026-05-13]
         ///   이전에는 transform.position을 forwardTile에 즉시 스냅했으나, 이는 규칙 9(걸어서 재개)
-        ///   위반이며 1타일 순간이동의 직접 원인이었다. 이제 transform.position 정렬은 호출 측
-        ///   (MoveAlongPathV3)에서 Lerp로 처리하므로, 이 함수는 도메인 갱신과 path 재발급만 담당한다.
+        ///   위반이며 1타일 순간이동의 직접 원인이었다. 이제 transform.position 정렬과 공간
+        ///   타일 커밋은 호출 측 공용 writer가 처리하며, 이 함수는 path 재발급만 담당한다.
         ///
         /// [중요] forwardTile 이중 계산 방지:
         ///   호출 측은 Lerp 시작 전에 FindForwardClosestTile을 1회 호출하여 forwardTile을 결정한 뒤,
@@ -3215,9 +3901,11 @@ namespace Hexiege.Presentation
             if (_movementUseCase == null || _unitData == null || !_unitData.IsAlive)
                 return null;
 
-            // 같은 타일이면 도메인 갱신 불필요. 다른 타일이면 ProcessStep만 호출.
-            // [2026-05-11 비활성화] RegisterOccupancyMove는 점유 시스템 폐기로 인해 호출 제거됨.
-            if (forwardTile != _unitData.Position)
+            // Legacy rollback만 waypoint 의미의 직접 도메인 갱신을 유지한다.
+            // ReducerAuthoritative는 앞선 정렬 frame의 실제 Root 경계 전이가 이미 커밋했으므로
+            // forwardTile을 미리 점유하거나 UnitData.Position에 기록하지 않는다.
+            if (_lockedMovementPipelineMode != UnitMovementPipelineMode.ReducerAuthoritative
+                && forwardTile != _unitData.Position)
             {
                 _movementUseCase.ProcessStep(_unitData, _unitData.Position, forwardTile);
             }
@@ -3232,9 +3920,8 @@ namespace Hexiege.Presentation
             //     transform.position = forwardView;   ← 1타일 순간이동의 원인.
             //
             //   현재:
-            //     호출 측(MoveAlongPathV3)이 이 함수 호출 전에 Lerp로 forwardTile 중심까지
-            //     "걸어서" 이동시킨 뒤 정렬 스냅까지 마쳤다고 가정한다.
-            //     따라서 여기서는 도메인 갱신과 path 재발급만 처리한다.
+            //     호출 측(MoveAlongPathV3)의 공용 writer가 forwardTile 방향으로 걸으며
+            //     실제 Root 경계만 Domain에 커밋한다. 여기서는 path만 다시 발급한다.
             // ────────────────────────────────────────────────────────────
 
             // Walk 애니메이션 재개 — 전투 중 Attack 상태였을 수 있음.
@@ -3253,7 +3940,16 @@ namespace Hexiege.Presentation
         /// </summary>
         private void MoveCleanupAndCompleteV3(bool invokeCompletion = true)
         {
-            _movementRotationWriterOwnsRoot = false;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (_spatialRecoverablePending)
+            {
+                UnitMovementAuthorityObserver.ObserveSpatialCleanupAfterRecoverable(
+                    _unitData != null ? _unitData.Id : -1);
+            }
+#endif
+            _spatialRecoverablePending = false;
+            _rootRotationOwnership.ReleaseAll();
+            ClearCombatTargetTracking();
             _moveCoroutine = null;
             ClearUnitActionShadowDesiredTarget();
             SetMovementHeldAnimation(true);
@@ -3365,7 +4061,13 @@ namespace Hexiege.Presentation
                 _animator = GetComponentInChildren<Animator>();
             if (_animator == null) return;
 
-            _animator.speed = 1f;
+            if (_isMovementHeldAnim && !_isFrozenAnim)
+            {
+                HoldMovementAnimation();
+                return;
+            }
+
+            _animator.speed = _isFrozenAnim ? 0f : 1f;
             _animator.CrossFadeInFixedTime(StateWalk, _idleToWalkBlend, 0);
             _currentAnimStateHash = StateWalk;
         }
@@ -3401,7 +4103,13 @@ namespace Hexiege.Presentation
         private void ResumeWalkAnimation()
         {
             if (_animator == null) return;
-            _animator.speed = 1f;
+            if (_isMovementHeldAnim && !_isFrozenAnim)
+            {
+                HoldMovementAnimation();
+                return;
+            }
+
+            _animator.speed = _isFrozenAnim ? 0f : 1f;
             if (_currentAnimStateHash == StateWalk) return; // 이미 Walk — 재-CrossFade로 블렌드 리셋 방지
             _animator.CrossFadeInFixedTime(StateWalk, _attackToWalkBlend, 0);
             _currentAnimStateHash = StateWalk;
@@ -3459,15 +4167,30 @@ namespace Hexiege.Presentation
 
         private void SetMovementHeldAnimation(bool held)
         {
-            if (_isMovementHeldAnim == held) return;
+            bool stateChanged = _isMovementHeldAnim != held;
             _isMovementHeldAnim = held;
 
             if (held && !_isFrozenAnim)
-                HoldMovementAnimation();
+            {
+                // 다른 애니메이션 경로가 같은 Held 구간에서 speed를 다시 1로 만들 수 있다.
+                // 상태 bool이 이미 true여도 실제 Animator를 재검증하여 정지 계약을 복구한다.
+                if (_animator != null
+                    && _currentAnimStateHash == StateWalk
+                    && _animator.speed <= 0.0001f)
+                {
+                    _animator.speed = 0f;
+                }
+                else
+                {
+                    HoldMovementAnimation();
+                }
+            }
             else if (_animator != null)
                 _animator.speed = held || _isFrozenAnim ? 0f : 1f;
 
-            if (NetworkContext.IsNetworkActive && _unitData != null)
+            if (stateChanged
+                && NetworkContext.IsNetworkActive
+                && _unitData != null)
                 GameEvents.OnUnitMovementHeldChanged.OnNext(
                     new UnitMovementHeldChangedEvent(_unitData.Id, held));
         }
@@ -3480,6 +4203,51 @@ namespace Hexiege.Presentation
         // Animator normalizedTime 기반 대기 → 도메인 AttackCooldownRemaining 기반 대기로 교체.
         // AttackCooldown = 공격 클립 길이이므로 쿨다운 만료 = 한 사이클 완료.
         // Animator 상태 의존성을 제거하여 CrossFade 블렌딩 중 상태 판별 오류를 근본적으로 방지.
+
+        private void SetCombatTargetTracking(int targetId, bool targetIsUnit)
+        {
+            _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
+            _combatTargetId = targetId;
+            _combatTargetIsUnit = targetIsUnit;
+        }
+
+        private void ClearCombatTargetTracking()
+        {
+            _combatTargetTransform = null;
+            _combatTargetId = -1;
+            _combatTargetIsUnit = false;
+        }
+
+        /// <summary>
+        /// 서버 gameplay 루프가 공격 사거리 진입을 확정한 경계다. ClientRpc는 지연될 수 있으므로
+        /// Simulation Root 행동 소유권은 이 로컬 서버 경계에서 먼저 열고 타겟도 함께 설치한다.
+        /// </summary>
+        private void BeginServerActionRotation(int targetId, bool targetIsUnit)
+        {
+            _rootRotationOwnership.TransferToAction();
+            SetCombatTargetTracking(targetId, targetIsUnit);
+
+            Vector3 targetPosition = GetTargetWorldPos(targetId, targetIsUnit);
+            if (targetPosition != Vector3.zero)
+            {
+                float angle = CalculateAttackAngle(targetPosition);
+                transform.rotation = Quaternion.Euler(0f, angle, 0f);
+            }
+        }
+
+        /// <summary>
+        /// 서버 gameplay 전투 루프가 종료를 확정하는 유일한 소유권 반환 경계다.
+        /// 네트워크 Stop 이벤트보다 먼저 로컬 상태를 닫아 지연 이벤트 순서에 의존하지 않는다.
+        /// </summary>
+        private void EndServerActionRotation()
+        {
+            ClearCombatTargetTracking();
+            ClearUnitActionShadowDesiredTarget();
+            bool resumeMovement = _moveCoroutine != null
+                && _unitData != null
+                && _unitData.IsAlive;
+            _rootRotationOwnership.ReleaseAction(resumeMovement);
+        }
 
         // ====================================================================
         // 전투 애니메이션 — 상태 기반 (RPC/이벤트에서 호출)
@@ -3499,21 +4267,34 @@ namespace Hexiege.Presentation
         {
             if (_unitData == null || !_unitData.IsAlive) return;
 
-            // 순수 클라이언트는 canonical Simulation Root를 NetworkTransform에서만 받으므로 쓰지 않는다.
+            // 싱글플레이는 이 이벤트가 gameplay 경계이므로 여기서 Action을 연다. 멀티 서버는
+            // gameplay 루프가 이미 연 소유권만 인정하고, 지연된 RPC가 이동 상태를 공격 상태로
+            // 되살리는 것은 거부한다. 순수 클라이언트는 표시용 타겟을 항상 보존한다.
+            if (!NetworkContext.IsNetworkActive)
+                _rootRotationOwnership.TransferToAction();
+
+            bool acceptTargetEvent =
+                UnitActionRotationEventPolicy.ShouldAcceptTargetEvent(
+                    NetworkContext.IsNetworkActive,
+                    NetworkContext.IsNetworkServer,
+                    _rootRotationOwnership.ActionOwnsRoot);
+            if (acceptTargetEvent)
+                SetCombatTargetTracking(targetId, targetIsUnit);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            else if (NetworkContext.IsNetworkServer)
+                UnitMovementAuthorityObserver.ObserveIgnoredServerTargetEvent(
+                    _unitData.Id,
+                    "start");
+#endif
+
             bool canWriteSimulationRoot =
                 !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
-            if (canWriteSimulationRoot)
+            if (canWriteSimulationRoot && acceptTargetEvent)
             {
-                if (_movementRotationWriterOwnsRoot)
+                Vector3 targetPosition = GetTargetWorldPos(targetId, targetIsUnit);
+                if (targetPosition != Vector3.zero)
                 {
-#if DEVELOPMENT_BUILD || UNITY_EDITOR
-                    UnitMovementAuthorityObserver.ObserveAttackWriterOwnershipConflict(
-                        _unitData.Id);
-#endif
-                }
-                else
-                {
-                    float angle = CalculateAttackAngle(GetTargetWorldPos(targetId, targetIsUnit));
+                    float angle = CalculateAttackAngle(targetPosition);
                     transform.rotation = Quaternion.Euler(0f, angle, 0f);
                 }
             }
@@ -3528,7 +4309,8 @@ namespace Hexiege.Presentation
             //       (서버가 애니메이션을 직접 제어하는 다른 경로들과 동일한 취지).
             //   클라이언트가 여기서도 CrossFade하면 레벨 동기화와 이중 적용되므로 스킵한다.
             // ────────────────────────────────────────────────────────────────
-            bool applyCrossFadeHere = !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
+            bool applyCrossFadeHere = !NetworkContext.IsNetworkActive
+                || (NetworkContext.IsNetworkServer && acceptTargetEvent);
             if (applyCrossFadeHere && _animator != null)
             {
                 _animator.speed = 1f;
@@ -3539,13 +4321,7 @@ namespace Hexiege.Presentation
             // 공격 중 타겟 Transform 참조 저장 → Update()에서 매 프레임 추적.
             // [Phase 2] 이 타겟 참조/회전 추적은 애니메이션과 분리해 "유지"한다(클라이언트도 필요):
             //   원거리 유닛의 트레이서 조준(OnAttackHit)이 _combatTargetTransform/_combatTargetId를 사용한다.
-            _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
             ClearUnitActionShadowDesiredTarget();
-
-            // 멀티플레이 타이밍 문제 대비: Transform 참조가 나중에 null이 되더라도
-            // 백업 ID로 재조회할 수 있도록 ID를 저장한다.
-            _combatTargetId = targetId;
-            _combatTargetIsUnit = targetIsUnit;
         }
 
         /// <summary>
@@ -3562,13 +4338,25 @@ namespace Hexiege.Presentation
         {
             if (_unitData == null || !_unitData.IsAlive) return;
 
-            // 추적 대상을 새 타겟으로 교체 → Update()가 새 타겟 방향 추적 시작
-            _combatTargetTransform = GetTargetTransform(targetId, targetIsUnit);
-            ClearUnitActionShadowDesiredTarget();
+            bool acceptTargetEvent =
+                UnitActionRotationEventPolicy.ShouldAcceptTargetEvent(
+                    NetworkContext.IsNetworkActive,
+                    NetworkContext.IsNetworkServer,
+                    _rootRotationOwnership.ActionOwnsRoot);
+            if (!acceptTargetEvent)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (NetworkContext.IsNetworkServer)
+                    UnitMovementAuthorityObserver.ObserveIgnoredServerTargetEvent(
+                        _unitData.Id,
+                        "change");
+#endif
+                return;
+            }
 
-            // 새 타겟의 ID로 백업을 갱신한다.
-            _combatTargetId = targetId;
-            _combatTargetIsUnit = targetIsUnit;
+            // 행동 소유권이 열린 상태에서만 추적 대상을 교체한다.
+            SetCombatTargetTracking(targetId, targetIsUnit);
+            ClearUnitActionShadowDesiredTarget();
         }
 
         /// <summary>
@@ -3590,12 +4378,28 @@ namespace Hexiege.Presentation
         /// </summary>
         public void StopCombatAnimation()
         {
-            // 회전 추적 중단 — null로 초기화하면 Update()가 자동으로 건너뜀
-            _combatTargetTransform = null;
+            if (!UnitActionRotationEventPolicy.ShouldAcceptStopEvent(
+                    NetworkContext.IsNetworkActive,
+                    NetworkContext.IsNetworkServer))
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (_unitData != null)
+                    UnitMovementAuthorityObserver.ObserveIgnoredServerTargetEvent(
+                        _unitData.Id,
+                        "stop");
+#endif
+                return;
+            }
 
-            // Transform 참조와 함께 백업 ID도 초기화하여 Update()의 재조회 시도를 차단한다.
-            _combatTargetId = -1;
+            ClearCombatTargetTracking();
             ClearUnitActionShadowDesiredTarget();
+
+            // 행동 writer를 반환한다. 이동 코루틴이 살아 있으면 Movement로 돌려주되,
+            // 실제 Walk 재생은 다음 Advanced commit이 Held를 해제할 때 시작한다.
+            bool resumeMovement = _moveCoroutine != null
+                && _unitData != null
+                && _unitData.IsAlive;
+            _rootRotationOwnership.ReleaseAction(resumeMovement);
 
             // 의도적으로 비워둠 — 위 summary 참조.
         }

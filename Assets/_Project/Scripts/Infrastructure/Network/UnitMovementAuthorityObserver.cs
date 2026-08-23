@@ -18,11 +18,22 @@ namespace Hexiege.Infrastructure
     /// </summary>
     internal static class UnitMovementAuthorityObserver
     {
-        private const string Schema = "b3-movement-authority-v1";
+        // v2: rejected/invalid frame의 독립 failure evidence와
+        // root 정지 중 Walk 진행 위반을 손실 없이 관측한다.
+        // v3: gameplay action ownership gate, retry-stable movement scope commit,
+        // held Walk reassertion correction evidence.
+        // v4: trajectory-corridor 후보 축소와 제자리 정렬 fallback 사용량을 관측한다.
+        // v5: A* path[0] non-walkable start-tile egress frame을 별도로 관측한다.
+        // v6: terminal corridor 실패에 Root/Domain/UnitData/path/sample 근거를 보존한다.
+        // v7: 이동 중 path-start 보정이 논리 위치를 선행 커밋하지 않는 빌드를 식별한다.
+        // v8: route checkpoint 소비와 실제 spatial Root 타일 커밋을 분리해 관측한다.
+        // v9: 후보 probe는 기록하지 않고 최종 stage/recoverable repath/fatal만 분리한다.
+        private const string Schema = "b3-movement-authority-v9";
         private const int MaximumLines = 768;
         private const int ReservedTerminalLines = 32;
         private const int MaximumNormalLines = MaximumLines - ReservedTerminalLines;
         private const int MaximumDetails = 128;
+        private const int MaximumFailureDetails = 64;
         private const int MaximumManifestChunks = 29;
         private const int PayloadLimit = 700;
         private static readonly Dictionary<string, Coverage> Coverages =
@@ -44,6 +55,8 @@ namespace Hexiege.Infrastructure
         private static int _lines;
         private static int _dropped;
         private static int _details;
+        private static int _failureDetails;
+        private static int _failureEvidenceOverflow;
         private static int _frames;
         private static int _align;
         private static int _move;
@@ -56,6 +69,34 @@ namespace Hexiege.Infrastructure
         private static int _writerSelectionFailures;
         private static int _clientWriteAttempts;
         private static int _attackWriterOwnershipConflicts;
+        private static int _ignoredServerTargetEvents;
+        private static int _heldFrames;
+        private static int _stationaryWalkViolations;
+        private static int _corridorFullSmooth;
+        private static int _corridorReducedSmooth;
+        private static int _corridorFullDirect;
+        private static int _corridorReducedDirect;
+        private static int _corridorStationaryAlignment;
+        private static int _corridorRepathRequired;
+        private static int _corridorStartTileEgressFrames;
+        private static int _spatialTransitionsPlanned;
+        private static int _spatialTransitionsCommitted;
+        private static int _spatialNoTransitionPlans;
+        private static int _spatialTerminalContacts;
+        private static int _spatialPreflightFailures;
+        private static int _spatialCommitFailures;
+        private static int _spatialRecoveries;
+        private static int _spatialFinalRecoverableRepaths;
+        private static int _spatialRepeatedRecoverableRepaths;
+        private static int _spatialFatalPreflights;
+        private static int _spatialStagesForCommit;
+        private static int _spatialCleanupAfterRecoverable;
+        private static int _spatialSameFrameRetries;
+        private static int _spatialStageDivergences;
+        private static readonly Dictionary<int, string> LastRecoverableSignatures =
+            new Dictionary<int, string>();
+        private static readonly Dictionary<int, int> LastRecoverableFrames =
+            new Dictionary<int, int>();
         private static int _terminalLines;
         private static int _terminalOverflow;
         private static int _manifestPreflightFailures;
@@ -98,11 +139,16 @@ namespace Hexiege.Infrastructure
             ulong commandRevision,
             ulong segmentRevision,
             UnitMovementEvaluation evaluation,
+            Vector3 desiredTarget,
+            float expectedPositionDeltaWorld,
+            double observedServerTime,
+            UnitMovementSnapshot reducerSnapshotBefore,
             Vector3 positionBefore,
             Quaternion rotationBefore,
             Vector3 positionAfter,
             Quaternion rotationAfter,
-            bool authorityWriterSelected)
+            bool authorityWriterSelected,
+            bool walkAnimationAdvancing)
         {
             if (!_active) return;
             if (!_isServer)
@@ -126,6 +172,26 @@ namespace Hexiege.Infrastructure
                     || evaluation.Status == UnitMovementReducerStatus.InvalidInput
                     || evaluation.Status == UnitMovementReducerStatus.InvalidTime)
                     _invalid++;
+                LogFailure("movement-decision-rejected",
+                    $"unitId={unitId}, networkObjectId={networkObjectId}, " +
+                    $"unitType={unitType}, team={team}, reason={reason}, " +
+                    $"commandRevision={commandRevision}, segmentRevision={segmentRevision}, " +
+                    $"reducerInvoked={evaluation.ReducerInvoked}, reducerStatus={evaluation.Status}, " +
+                    $"decisionValid={evaluation.Decision.IsValid}, phase={evaluation.Decision.Phase}, " +
+                    $"evaluatedReason={evaluation.EvaluatedIntentReason}, " +
+                    $"evaluatedHasIntent={evaluation.EvaluatedHasIntent}, " +
+                    $"endpointNormalized={evaluation.EndpointNormalized}, " +
+                    $"commitsAcquireCandidate={evaluation.CommitsAcquireCandidate}, " +
+                    $"position=({positionBefore.x:F6},{positionBefore.z:F6}), " +
+                    $"desiredTarget=({desiredTarget.x:F6},{desiredTarget.z:F6}), " +
+                    $"expectedDelta={expectedPositionDeltaWorld:F6}, " +
+                    $"observedServerTime={observedServerTime:F9}, " +
+                    $"previousAcceptedTime={reducerSnapshotBefore.LastObservedServerTime:F9}, " +
+                    $"hadAcceptedObservation={reducerSnapshotBefore.HasAcceptedObservation}, " +
+                    $"previousCommandRevision={reducerSnapshotBefore.CommandRevision}, " +
+                    $"previousSegmentRevision={reducerSnapshotBefore.SegmentRevision}, " +
+                    $"facingValid={evaluation.SimulationFacing.IsValid}, " +
+                    $"desiredDirectionValid={evaluation.DesiredMoveDirection.IsValid}");
                 return;
             }
 
@@ -139,6 +205,20 @@ namespace Hexiege.Infrastructure
             float positionDelta = Vector2.Distance(
                 new Vector2(positionBefore.x, positionBefore.z),
                 new Vector2(positionAfter.x, positionAfter.z));
+            bool shouldHoldWalk = UnitMovementPresentationPolicy.ShouldHoldWalk(
+                evaluation.Decision.IsValid,
+                evaluation.Decision.AllowsMovement,
+                evaluation.CommitsAcquireCandidate);
+            if (shouldHoldWalk) _heldFrames++;
+            if (shouldHoldWalk && walkAnimationAdvancing)
+            {
+                _stationaryWalkViolations++;
+                LogFailure("stationary-walk-animation",
+                    $"unitId={unitId}, networkObjectId={networkObjectId}, " +
+                    $"unitType={unitType}, team={team}, reason={reason}, " +
+                    $"commandRevision={commandRevision}, segmentRevision={segmentRevision}, " +
+                    $"phase={phase}, positionDelta={positionDelta:F6}");
+            }
             if ((!evaluation.Decision.AllowsMovement
                     && !evaluation.CommitsAcquireCandidate
                     && positionDelta > 0.00001f)
@@ -217,8 +297,220 @@ namespace Hexiege.Infrastructure
         {
             if (!_active) return;
             _rejected++;
-            if (_details++ < MaximumDetails)
-                Log(LogLevel.Error, "movement-publication-failed", $"unitId={unitId}");
+            LogFailure("movement-publication-failed", $"unitId={unitId}");
+        }
+
+        internal static void ObserveCorridorResolution(
+            UnitTrajectoryCorridorResolution resolution,
+            bool usedStartTileEgress)
+        {
+            if (!_active || !_isServer) return;
+
+            if (usedStartTileEgress
+                && resolution != UnitTrajectoryCorridorResolution.Invalid
+                && resolution != UnitTrajectoryCorridorResolution.RepathRequired)
+            {
+                _corridorStartTileEgressFrames++;
+            }
+
+            switch (resolution)
+            {
+                case UnitTrajectoryCorridorResolution.FullSmooth:
+                    _corridorFullSmooth++;
+                    break;
+                case UnitTrajectoryCorridorResolution.ReducedSmooth:
+                    _corridorReducedSmooth++;
+                    break;
+                case UnitTrajectoryCorridorResolution.FullDirect:
+                    _corridorFullDirect++;
+                    break;
+                case UnitTrajectoryCorridorResolution.ReducedDirect:
+                    _corridorReducedDirect++;
+                    break;
+                case UnitTrajectoryCorridorResolution.StationaryAlignment:
+                    _corridorStationaryAlignment++;
+                    break;
+                case UnitTrajectoryCorridorResolution.RepathRequired:
+                    _corridorRepathRequired++;
+                    break;
+            }
+        }
+
+        internal static void ObserveSpatialFinalCandidate(
+            int unitId,
+            UnitSpatialCandidateVerdict verdict,
+            UnitSpatialTransitionPlanStatus status,
+            UnitSpatialPreflightResult preflight,
+            int transitionCount,
+            HexCoord committedPosition,
+            HexCoord rootBeforeHex,
+            HexCoord candidateHex,
+            bool repathRequired)
+        {
+            if (!_active || !_isServer) return;
+
+            if (verdict == UnitSpatialCandidateVerdict.Accepted
+                && preflight.IsSuccess
+                && !repathRequired)
+            {
+                IncrementBounded(ref _spatialStagesForCommit);
+                if (status == UnitSpatialTransitionPlanStatus.NoTransition)
+                    IncrementBounded(ref _spatialNoTransitionPlans);
+                if (status == UnitSpatialTransitionPlanStatus.TerminalContact)
+                    IncrementBounded(ref _spatialTerminalContacts);
+                return;
+            }
+
+            if (repathRequired
+                && (verdict == UnitSpatialCandidateVerdict.RouteInvalidated
+                    || verdict == UnitSpatialCandidateVerdict.CandidateUnsafe))
+            {
+                IncrementBounded(ref _spatialFinalRecoverableRepaths);
+                string signature = $"{verdict}|{status}|{preflight.Status}|" +
+                    $"{preflight.OffendingTile}|{preflight.OffendingTransitionIndex}|" +
+                    $"{committedPosition}|{rootBeforeHex}|{candidateHex}";
+                if (LastRecoverableSignatures.TryGetValue(unitId, out string previous)
+                    && string.Equals(previous, signature, StringComparison.Ordinal))
+                {
+                    IncrementBounded(ref _spatialRepeatedRecoverableRepaths);
+                    if (LastRecoverableFrames.TryGetValue(unitId, out int previousFrame)
+                        && previousFrame == Time.frameCount)
+                    {
+                        IncrementBounded(ref _spatialSameFrameRetries);
+                    }
+                    LogFailure("spatial-recoverable-repeated",
+                        $"unitId={unitId}, verdict={verdict}, status={status}, " +
+                        $"preflight={preflight.Status}, offendingTile={preflight.OffendingTile}, " +
+                        $"offendingIndex={preflight.OffendingTransitionIndex}, " +
+                        $"committedPosition={committedPosition}, rootBeforeHex={rootBeforeHex}, " +
+                        $"candidateHex={candidateHex}, sameFrame={previousFrame == Time.frameCount}");
+                }
+                LastRecoverableSignatures[unitId] = signature;
+                LastRecoverableFrames[unitId] = Time.frameCount;
+                return;
+            }
+
+            IncrementBounded(ref _spatialFatalPreflights);
+            IncrementBounded(ref _spatialPreflightFailures);
+            LogFailure("spatial-preflight-fatal",
+                $"unitId={unitId}, verdict={verdict}, status={status}, " +
+                $"preflight={preflight.Status}, offendingTile={preflight.OffendingTile}, " +
+                $"offendingIndex={preflight.OffendingTransitionIndex}, " +
+                $"transitionCount={transitionCount}, committedPosition={committedPosition}, " +
+                $"rootBeforeHex={rootBeforeHex}, candidateHex={candidateHex}");
+        }
+
+        internal static void ObserveSpatialCleanupAfterRecoverable(int unitId)
+        {
+            if (!_active || !_isServer) return;
+            IncrementBounded(ref _spatialCleanupAfterRecoverable);
+            LogFailure("spatial-cleanup-after-recoverable", $"unitId={unitId}");
+        }
+
+        internal static void ObserveSpatialStageDivergence(
+            int unitId,
+            UnitSpatialCandidateVerdict probeVerdict,
+            UnitSpatialCandidateVerdict stageVerdict,
+            UnitSpatialPreflightStatus probePreflight,
+            UnitSpatialPreflightStatus stagePreflight)
+        {
+            if (!_active || !_isServer) return;
+            IncrementBounded(ref _spatialStageDivergences);
+            LogFailure("spatial-probe-stage-divergence",
+                $"unitId={unitId}, probeVerdict={probeVerdict}, stageVerdict={stageVerdict}, " +
+                $"probePreflight={probePreflight}, stagePreflight={stagePreflight}");
+        }
+
+        internal static void ObserveSpatialCommit(
+            int unitId,
+            int transitionCount,
+            HexCoord committedPositionBefore,
+            HexCoord committedPositionAfter,
+            bool succeeded)
+        {
+            if (!_active || !_isServer) return;
+
+            if (succeeded)
+            {
+                AddBounded(
+                    ref _spatialTransitionsCommitted,
+                    UnitSpatialDiagnosticAccountingPolicy
+                        .CommittedDeltaAtCommitResult(transitionCount, true));
+                if (UnitSpatialDiagnosticAccountingPolicy
+                    .ClearsRecoverableHistory(transitionCount, true))
+                {
+                    LastRecoverableSignatures.Remove(unitId);
+                    LastRecoverableFrames.Remove(unitId);
+                }
+                return;
+            }
+
+            IncrementBounded(ref _spatialCommitFailures);
+            LogFailure("spatial-commit-failed",
+                $"unitId={unitId}, transitionCount={transitionCount}, " +
+                $"committedPositionBefore={committedPositionBefore}, " +
+                $"committedPositionAfter={committedPositionAfter}");
+        }
+
+        internal static void ObserveSpatialCommitAttempt(
+            int unitId,
+            int transitionCount,
+            HexCoord committedPosition)
+        {
+            if (!_active || !_isServer) return;
+
+            int plannedDelta = UnitSpatialDiagnosticAccountingPolicy
+                .PlannedDeltaAtCommitAttempt(transitionCount);
+            if (plannedDelta <= 0)
+            {
+                IncrementBounded(ref _spatialPreflightFailures);
+                LogFailure("spatial-commit-attempt-invalid",
+                    $"unitId={unitId}, transitionCount={transitionCount}, " +
+                    $"committedPosition={committedPosition}");
+                return;
+            }
+
+            AddBounded(ref _spatialTransitionsPlanned, plannedDelta);
+        }
+
+        private static void IncrementBounded(ref int value)
+        {
+            if (value < int.MaxValue)
+                value++;
+        }
+
+        private static void AddBounded(ref int value, int amount)
+        {
+            if (amount <= 0 || value == int.MaxValue) return;
+            value = amount >= int.MaxValue - value
+                ? int.MaxValue
+                : value + amount;
+        }
+
+        internal static void ObserveIgnoredServerTargetEvent(
+            int unitId,
+            string eventKind)
+        {
+            if (!_active || !_isServer) return;
+            _ignoredServerTargetEvents++;
+            if (_details < MaximumDetails)
+            {
+                _details++;
+                Log(LogLevel.Info, "ignored-stale-action-target-event",
+                    $"unitId={unitId}, eventKind={eventKind}");
+            }
+        }
+
+        private static void LogFailure(string message, string data)
+        {
+            if (_failureDetails >= MaximumFailureDetails)
+            {
+                _failureEvidenceOverflow++;
+                return;
+            }
+
+            _failureDetails++;
+            Log(LogLevel.Error, message, data);
         }
 
         internal static void ObserveClientReplicatedState(
@@ -301,6 +593,10 @@ namespace Hexiege.Infrastructure
 
             if (_isServer)
             {
+                RetireRecoverableHistory(
+                    LastRecoverableSignatures,
+                    LastRecoverableFrames,
+                    unitId);
                 LifecycleRetireResult serverResult = RetireUnitLifecycleCore(
                     LastPhases,
                     networkObjectId,
@@ -338,6 +634,15 @@ namespace Hexiege.Infrastructure
                         $"baselineUnitId={clientBaselineUnitId}");
                 }
             }
+        }
+
+        private static void RetireRecoverableHistory(
+            IDictionary<int, string> signatures,
+            IDictionary<int, int> frames,
+            int unitId)
+        {
+            signatures?.Remove(unitId);
+            frames?.Remove(unitId);
         }
 
         private static LifecycleRetireResult RetireUnitLifecycleCore<TSnapshot>(
@@ -479,6 +784,22 @@ namespace Hexiege.Infrastructure
             bool retired = correctIdentity == LifecycleRetireResult.Retired
                 && !snapshots.ContainsKey(networkObjectId);
 
+            var recoverableSignatures = new Dictionary<int, string>
+            {
+                [7] = "old-lifecycle"
+            };
+            var recoverableFrames = new Dictionary<int, int>
+            {
+                [7] = 123
+            };
+            RetireRecoverableHistory(
+                recoverableSignatures,
+                recoverableFrames,
+                unitId: 7);
+            bool recoverableHistoryRetired =
+                !recoverableSignatures.ContainsKey(7)
+                && !recoverableFrames.ContainsKey(7);
+
             ClientReplicationIssue reused = ClassifyClientReplicatedState(
                 hasPrevious: false,
                 previous: default,
@@ -488,6 +809,7 @@ namespace Hexiege.Infrastructure
                 segmentRevision: 1UL,
                 semanticRevision: 1UL);
             return wrongIdentityRetired && retired
+                && recoverableHistoryRetired
                 && reused == ClientReplicationIssue.None
                     ? "PASS"
                     : "FAIL";
@@ -524,8 +846,27 @@ namespace Hexiege.Infrastructure
             }
 
             LogTerminal(manifestValid ? LogLevel.Info : LogLevel.Error, "summary",
-                $"manifestChunks={chunks.Count}, manifestPreflightFailures={_manifestPreflightFailures}, " +
-                $"clientReplicatedSamples={_clientReplicatedSamples}, " +
+                 $"manifestChunks={chunks.Count}, manifestPreflightFailures={_manifestPreflightFailures}, " +
+                 $"corridorFullSmooth={_corridorFullSmooth}, corridorReducedSmooth={_corridorReducedSmooth}, " +
+                 $"corridorFullDirect={_corridorFullDirect}, corridorReducedDirect={_corridorReducedDirect}, " +
+                 $"corridorStationaryAlignment={_corridorStationaryAlignment}, " +
+                 $"corridorRepathRequired={_corridorRepathRequired}, " +
+                 $"corridorStartTileEgressFrames={_corridorStartTileEgressFrames}, " +
+                 $"spatialTransitionsPlanned={_spatialTransitionsPlanned}, " +
+                 $"spatialTransitionsCommitted={_spatialTransitionsCommitted}, " +
+                 $"spatialNoTransitionPlans={_spatialNoTransitionPlans}, " +
+                 $"spatialTerminalContacts={_spatialTerminalContacts}, " +
+                 $"spatialPreflightFailures={_spatialPreflightFailures}, " +
+                 $"spatialCommitFailures={_spatialCommitFailures}, " +
+                 $"spatialRecoveries={_spatialRecoveries}, " +
+                 $"spatialFinalRecoverableRepaths={_spatialFinalRecoverableRepaths}, " +
+                 $"spatialRepeatedRecoverableRepaths={_spatialRepeatedRecoverableRepaths}, " +
+                 $"spatialFatalPreflights={_spatialFatalPreflights}, " +
+                 $"spatialStagesForCommit={_spatialStagesForCommit}, " +
+                 $"spatialCleanupAfterRecoverable={_spatialCleanupAfterRecoverable}, " +
+                 $"spatialSameFrameRetries={_spatialSameFrameRetries}, " +
+                 $"spatialStageDivergences={_spatialStageDivergences}, " +
+                 $"clientReplicatedSamples={_clientReplicatedSamples}, " +
                 $"clientReplicatedInvalid={_clientReplicatedInvalid}, " +
                 $"clientReplicatedDuplicates={_clientReplicatedDuplicates}, " +
                 $"clientRevisionZero={_clientRevisionZero}, " +
@@ -541,6 +882,17 @@ namespace Hexiege.Infrastructure
             bool failure = _rejected != 0 || _invalid != 0 || _gateFailures != 0
                 || _writerSelectionFailures != 0 || _clientWriteAttempts != 0
                 || _attackWriterOwnershipConflicts != 0 || _dropped != 0
+                || _stationaryWalkViolations != 0
+                || _spatialPreflightFailures != 0
+                || _spatialCommitFailures != 0
+                || _spatialRecoveries != 0
+                || _spatialRepeatedRecoverableRepaths != 0
+                || _spatialFatalPreflights != 0
+                || _spatialCleanupAfterRecoverable != 0
+                || _spatialSameFrameRetries != 0
+                || _spatialStageDivergences != 0
+                || _spatialTransitionsPlanned != _spatialTransitionsCommitted
+                || _failureEvidenceOverflow != 0
                 || !manifestValid || _manifestPreflightFailures != 0
                 || _terminalOverflow != 0 || _clientReplicatedInvalid != 0
                 || _lifecycleIdentityConflicts != 0
@@ -554,6 +906,25 @@ namespace Hexiege.Infrastructure
                 $"gateFailures={_gateFailures}, writerSelectionFailures={_writerSelectionFailures}, " +
                 $"clientRootOrReducerWriteAttempts={_clientWriteAttempts}, " +
                 $"attackWriterOwnershipConflicts={_attackWriterOwnershipConflicts}, " +
+                $"ignoredServerTargetEvents={_ignoredServerTargetEvents}, " +
+                $"heldFrames={_heldFrames}, " +
+                $"stationaryWalkViolations={_stationaryWalkViolations}, " +
+                $"spatialTransitionsPlanned={_spatialTransitionsPlanned}, " +
+                $"spatialTransitionsCommitted={_spatialTransitionsCommitted}, " +
+                $"spatialNoTransitionPlans={_spatialNoTransitionPlans}, " +
+                $"spatialTerminalContacts={_spatialTerminalContacts}, " +
+                $"spatialPreflightFailures={_spatialPreflightFailures}, " +
+                $"spatialCommitFailures={_spatialCommitFailures}, " +
+                $"spatialRecoveries={_spatialRecoveries}, " +
+                $"spatialFinalRecoverableRepaths={_spatialFinalRecoverableRepaths}, " +
+                $"spatialRepeatedRecoverableRepaths={_spatialRepeatedRecoverableRepaths}, " +
+                $"spatialFatalPreflights={_spatialFatalPreflights}, " +
+                $"spatialStagesForCommit={_spatialStagesForCommit}, " +
+                $"spatialCleanupAfterRecoverable={_spatialCleanupAfterRecoverable}, " +
+                $"spatialSameFrameRetries={_spatialSameFrameRetries}, " +
+                $"spatialStageDivergences={_spatialStageDivergences}, " +
+                $"failureDetails={_failureDetails}, " +
+                $"failureEvidenceOverflow={_failureEvidenceOverflow}, " +
                 $"clientReplicatedSamples={_clientReplicatedSamples}, " +
                 $"clientReplicatedInvalid={_clientReplicatedInvalid}, " +
                 $"clientReplicatedDuplicates={_clientReplicatedDuplicates}, " +
@@ -630,6 +1001,8 @@ namespace Hexiege.Infrastructure
             PhaseTransitions.Clear();
             LastPhases.Clear();
             ClientReplicatedSnapshots.Clear();
+            LastRecoverableSignatures.Clear();
+            LastRecoverableFrames.Clear();
             _networkManager = null;
             _active = false;
             _isServer = false;
@@ -637,9 +1010,27 @@ namespace Hexiege.Infrastructure
             _sessionKey = null;
             _startedAt = 0d;
             _lines = _dropped = _details = _frames = _align = _move = _noIntent = 0;
+            _failureDetails = _failureEvidenceOverflow = 0;
             _endpoint = _targetPriority = _rejected = _invalid = _gateFailures = 0;
             _writerSelectionFailures = _clientWriteAttempts = 0;
             _attackWriterOwnershipConflicts = 0;
+            _ignoredServerTargetEvents = 0;
+            _heldFrames = _stationaryWalkViolations = 0;
+            _corridorFullSmooth = _corridorReducedSmooth = 0;
+            _corridorFullDirect = _corridorReducedDirect = 0;
+            _corridorStationaryAlignment = _corridorRepathRequired = 0;
+            _corridorStartTileEgressFrames = 0;
+            _spatialTransitionsPlanned = _spatialTransitionsCommitted = 0;
+            _spatialNoTransitionPlans = _spatialTerminalContacts = 0;
+            _spatialPreflightFailures = _spatialCommitFailures = 0;
+            _spatialRecoveries = 0;
+            _spatialFinalRecoverableRepaths = 0;
+            _spatialRepeatedRecoverableRepaths = 0;
+            _spatialFatalPreflights = 0;
+            _spatialStagesForCommit = 0;
+            _spatialCleanupAfterRecoverable = 0;
+            _spatialSameFrameRetries = 0;
+            _spatialStageDivergences = 0;
             _terminalLines = _terminalOverflow = _manifestPreflightFailures = 0;
             _clientReplicatedSamples = _clientReplicatedInvalid = 0;
             _clientReplicatedDuplicates = _clientRevisionZero = 0;

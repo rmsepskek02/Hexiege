@@ -1,9 +1,9 @@
 # QA Tester Memory — Hexiege
 
-## 2026-08-18 B3 재경로 교정 검증 대기
-- 과거 Android Host 실패 기준: recoverable `REPATH-FAIL-CLOSED` 10회, movement observer rejected=3/invalid=3, stale PendingPath로 4유닛 정지, 같은 siege 목표 command 반복, 위치 정지 후 Walk 지속.
-- 교정 구현/Unity C# 컴파일은 PASS. 다음 순서: Editor `[UAS-DIAG]` self-validation → Editor 건물 변경/공성 반복 → 새 Android Host 1경기.
-- 합격 기준: recoverable repath terminal 0, 동일 목표 command 폭주 0, 위치 0+Walk 0, movement observer rejected/invalid/gate failure 0, Client writer 0, Root Pose error 0. 통과 전 25종 회귀 재개 금지.
+## 2026-08-23 B3 v9 코드 게이트 / 런타임 검증 대기
+- v8 Android는 recoverable 공간 preflight 24건과 단일 SpearMan 후보 반복으로 FAIL했다. v9은 typed result와 동일 probe/final-stage seam, `CandidateUnsafe/RouteInvalidated → WaitingRepath`, fatal-only `Rejected`를 구현했다.
+- 정적 QA P0~P2 없음, Runtime/Editor Roslyn PASS. staged accounting은 actual attempt 직전 planned, success 뒤 committed, END equality이며 recoverable history는 positive successful commit에서만 clear한다. lifecycle retire/reuse 회귀도 반영됐다.
+- 다음 순서: Unity `[UAS-DIAG]` self-validation 실제 실행 → Android v9. `spatialFinalRecoverableRepaths=0` 강제가 아니라 resolved/nonrepeat/no-cleanup coverage, repeated/same-frame/cleanup/fatal/divergence/commit failure 0과 authority·replication·Root/cross-audit를 확인한다. 전까지 B3 FAIL/OPEN.
 
 ## ⚠️ TC 작성 형식 규칙 (CRITICAL — README.md 공식 규칙, 2026-03-24 확정)
 
