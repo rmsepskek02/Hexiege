@@ -55,10 +55,14 @@ namespace Hexiege.Infrastructure
             _services = GameServicesLocator.Current;
             if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkBuildingController: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
+                // 스폰은 계속되지만(요청 전이라 아직 기능이 죽지는 않았다) 이후 모든 건물 RPC 가 같은 자리에서 죽는다.
+                // NGO 스폰 타이밍은 회선 상태에 좌우돼 플레이어 기기에서만 어긋날 수 있고 통지 경로가 없다 → 운영.
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices, "Network", nameof(NetworkBuildingController),
+                                 "스폰 시점에 GameServicesLocator 에서 IGameServices 를 얻지 못했다");
             }
 
-            Debug.Log($"[Network] NetworkBuildingController 스폰. IsServer={IsServer}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "스폰 완료",
+                             $"IsServer={IsServer}");
         }
 
         // ====================================================================
@@ -130,7 +134,8 @@ namespace Hexiege.Infrastructure
         {
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
-            Debug.Log($"[Network] 건물 배치 요청 수신. ClientId={senderClientId}, Type={buildingTypeInt}, Team={teamIndex}, Q={q}, R={r}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "건물 배치 요청 수신",
+                             $"ClientId={senderClientId}, BuildingType={buildingTypeInt}, Team={teamIndex}, Q={q}, R={r}");
 
             // ----------------------------------------------------------------
             // 1. 부트스트래퍼 및 UseCase 존재 확인
@@ -139,7 +144,9 @@ namespace Hexiege.Infrastructure
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] RequestBuildServerRpc: GameBootstrapper를 찾을 수 없습니다.");
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "RequestBuildServerRpc — IGameServices 를 얻지 못했다. 이후 모든 건물 요청이 같은 자리에서 죽는다",
+                                  $"Request=Build, ClientId={senderClientId}");
                 SendBuildFailed(senderClientId, "서버 초기화 오류");
                 return;
             }
@@ -149,7 +156,9 @@ namespace Hexiege.Infrastructure
 
             if (buildingPlacement == null || resource == null)
             {
-                Debug.LogError("[Network] RequestBuildServerRpc: UseCase가 null입니다. 맵이 아직 로드되지 않았을 수 있습니다.");
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "RequestBuildServerRpc — UseCase 가 null 이다. 맵이 아직 로드되지 않았을 수 있다",
+                                  $"Request=Build, ClientId={senderClientId}");
                 SendBuildFailed(senderClientId, "맵 로드 중");
                 return;
             }
@@ -168,7 +177,10 @@ namespace Hexiege.Infrastructure
             TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
             if (team != expectedTeam)
             {
-                Debug.LogWarning($"[Network] 팀 불일치. 발신자={senderClientId}, 요청팀={team}, 기대팀={expectedTeam}");
+                // 요청만 거부하고 게임은 계속된다 → Warn. 다만 정상 클라이언트는 보낼 수 없는 요청이다.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest, "Network", nameof(NetworkBuildingController),
+                                 "건물 배치 거부 — 요청 팀이 발신자의 팀과 다르다",
+                                 $"Request=Build, Reason=Team, ClientId={senderClientId}, RequestedTeam={team}, ExpectedTeam={expectedTeam}");
                 SendBuildFailed(senderClientId, "팀 불일치");
                 return;
             }
@@ -179,7 +191,10 @@ namespace Hexiege.Infrastructure
             int cost = GetBuildingCost(buildingType, team);
             if (!resource.CanAfford(team, cost))
 {
-                Debug.LogWarning($"[Network] 골드 부족. 팀={team}, 비용={cost}, 현재골드={resource.GetGold(team)}");
+                // BuildingPlacementUI 가 CanAfford 로 이미 막았는데 서버가 거부했다 = 클라·서버 골드 상태 불일치.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedInsufficientResource, "Network", nameof(NetworkBuildingController),
+                                 "건물 배치 거부 — 골드 부족(클라이언트가 이미 막았어야 한다)",
+                                 $"Request=Build, Reason=Gold, Team={team}, Required={cost}, Current={resource.GetGold(team)}");
                 SendBuildFailed(senderClientId, "골드 부족");
                 return;
             }
@@ -197,7 +212,11 @@ namespace Hexiege.Infrastructure
             BuildingData placed = buildingPlacement.PlaceBuilding(buildingType, team, coord, race);
             if (placed == null)
             {
-                Debug.LogWarning($"[Network] 서버 측 건물 배치 실패. Type={buildingType}, Team={team}, Coord={coord}");
+                // 검증을 통과한 뒤 실행이 실패했다 = 맵 상태 불일치.
+                // "배치 위치 오류"는 BuildFailedClientRpc 의 토스트 매핑에 없어 플레이어에게 통지되지 않는다.
+                GameLog.Ops.Warn(LogEvent.ServerActionExecutionFailed, "Network", nameof(NetworkBuildingController),
+                                 "서버 측 건물 배치 실행 실패 — 검증 통과 후 실패했다(맵 상태 불일치)",
+                                 $"Request=Build, BuildingType={buildingType}, Team={team}, Q={q}, R={r}");
                 SendBuildFailed(senderClientId, "배치 위치 오류");
                 return;
             }
@@ -206,7 +225,8 @@ namespace Hexiege.Infrastructure
             // 6. 골드 차감 (서버에서만 실행)
             // ----------------------------------------------------------------
             resource.SpendGold(team, cost);
-            Debug.Log($"[Network] 서버: 건물 배치 성공. Id={placed.Id}, Type={buildingType}, Team={team}, Coord={coord}, 차감골드={cost}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "서버: 건물 배치 성공",
+                             $"BuildingId={placed.Id}, BuildingType={buildingType}, Team={team}, Q={q}, R={r}, SpentGold={cost}");
 
             // ----------------------------------------------------------------
             // 7. 모든 클라이언트에 동기화 명령 전파
@@ -236,21 +256,26 @@ namespace Hexiege.Infrastructure
             // 서버는 이미 PlaceBuilding()에서 처리 완료 → 중복 방지
             if (IsServer) return;
 
-            Debug.Log($"[Network] SpawnBuildingClientRpc 수신. Id={buildingId}, Type={buildingTypeInt}, Team={teamIndex}, Q={q}, R={r}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "SpawnBuildingClientRpc 수신",
+                             $"BuildingId={buildingId}, BuildingType={buildingTypeInt}, Team={teamIndex}, Q={q}, R={r}");
 
             // UseCase 접근
             // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] SpawnBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "SpawnBuildingClientRpc — IGameServices 를 얻지 못했다. 이 건물이 클라이언트 화면에 나타나지 않는다",
+                                  $"Request=SpawnBuilding, BuildingId={buildingId}");
                 return;
             }
 
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
-                Debug.LogError("[Network] SpawnBuildingClientRpc: BuildingPlacementUseCase가 null입니다.");
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "SpawnBuildingClientRpc — BuildingPlacementUseCase 가 null 이다",
+                                  $"Request=SpawnBuilding, BuildingId={buildingId}");
                 return;
             }
 
@@ -269,11 +294,17 @@ namespace Hexiege.Infrastructure
             BuildingData result = buildingPlacement.PlaceBuildingWithId(buildingId, buildingType, team, coord, race);
             if (result == null)
             {
-                Debug.LogWarning($"[Network] SpawnBuildingClientRpc: PlaceBuildingWithId 실패. Id={buildingId}");
+                // ⚠️ 레벨 승격(Warn → Error, LogAudit.md §3-2 :272).
+                //    재시도 경로가 없다. 이 건물은 이 클라이언트에서 영구히 누락된다
+                //    → "복구되었나?" 아니오 → Error.
+                GameLog.Ops.Error(LogEvent.ClientStateSyncApplyFailed, "Network", nameof(NetworkBuildingController),
+                                  "SpawnBuildingClientRpc — PlaceBuildingWithId 실패. 이 건물은 클라이언트에서 영구히 누락된다",
+                                  $"Request=SpawnBuilding, BuildingId={buildingId}");
                 return;
             }
 
-            Debug.Log($"[Network] 클라이언트: 건물 재생성 완료. Id={result.Id}, Type={buildingType}, Team={team}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "클라이언트: 건물 재생성 완료",
+                             $"BuildingId={result.Id}, BuildingType={buildingType}, Team={team}");
         }
 
         // ====================================================================
@@ -311,7 +342,10 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void BuildFailedClientRpc(string reason, ClientRpcParams clientRpcParams = default)
         {
-            Debug.LogWarning($"[Network] 건물 배치 실패: {reason}");
+            // 개발인 이유(원칙 1): 같은 거부를 서버 쪽 RPC 들이 이미 더 상세히 남긴다.
+            // 양쪽을 운영으로 두면 한 사건이 두 번 집계된다.
+            GameLog.Dev.Warn("Network", nameof(NetworkBuildingController), "클라이언트: 건물 요청 실패 알림 수신",
+                             $"Reason={reason}");
 
             // reason → ToastKey 매핑. 매핑이 정의된 사유만 토스트 발행.
             if (reason == "골드 부족")
@@ -357,13 +391,16 @@ namespace Hexiege.Infrastructure
         {
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
-            Debug.Log($"[Network] 건물 업그레이드 요청 수신. ClientId={senderClientId}, BuildingId={buildingId}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "건물 업그레이드 요청 수신",
+                             $"ClientId={senderClientId}, BuildingId={buildingId}");
 
             // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] RequestUpgradeServerRpc: GameBootstrapper를 찾을 수 없습니다.");
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "RequestUpgradeServerRpc — IGameServices 를 얻지 못했다. 이후 모든 건물 요청이 같은 자리에서 죽는다",
+                                  $"Request=Upgrade, ClientId={senderClientId}, BuildingId={buildingId}");
                 SendBuildFailed(senderClientId, "서버 초기화 오류");
                 return;
             }
@@ -373,7 +410,9 @@ namespace Hexiege.Infrastructure
 
             if (buildingPlacement == null || resource == null)
             {
-                Debug.LogError("[Network] RequestUpgradeServerRpc: UseCase가 null입니다.");
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "RequestUpgradeServerRpc — UseCase 가 null 이다",
+                                  $"Request=Upgrade, ClientId={senderClientId}, BuildingId={buildingId}");
                 SendBuildFailed(senderClientId, "맵 로드 중");
                 return;
             }
@@ -382,7 +421,10 @@ namespace Hexiege.Infrastructure
             BuildingData old = buildingPlacement.GetBuilding(buildingId);
             if (old == null)
             {
-                Debug.LogWarning($"[Network] 업그레이드 대상 건물 없음. Id={buildingId}");
+                // 클라이언트는 존재하는 건물의 패널만 열 수 있다 → 서버에 없다는 것은 상태 불일치다.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedTargetNotFound, "Network", nameof(NetworkBuildingController),
+                                 "업그레이드 거부 — 대상 건물이 서버에 없다",
+                                 $"Request=Upgrade, ClientId={senderClientId}, BuildingId={buildingId}");
                 SendBuildFailed(senderClientId, "건물 없음");
                 return;
             }
@@ -391,7 +433,9 @@ namespace Hexiege.Infrastructure
             TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
             if (old.Team != expectedTeam)
             {
-                Debug.LogWarning($"[Network] 업그레이드 소유권 불일치. 발신자={senderClientId}, 건물팀={old.Team}, 기대팀={expectedTeam}");
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest, "Network", nameof(NetworkBuildingController),
+                                 "업그레이드 거부 — 건물 소유 팀과 발신자의 팀이 다르다",
+                                 $"Request=Upgrade, Reason=Ownership, ClientId={senderClientId}, BuildingId={buildingId}, BuildingTeam={old.Team}, ExpectedTeam={expectedTeam}");
                 SendBuildFailed(senderClientId, "소유권 불일치");
                 return;
             }
@@ -400,7 +444,10 @@ namespace Hexiege.Infrastructure
             BuildingType? nextOpt = BuildingTypeHelper.GetNextStage(old.Type);
             if (!nextOpt.HasValue)
             {
-                Debug.LogWarning($"[Network] 업그레이드 불가 (최고 단계). Type={old.Type}");
+                // UI 가 최고 단계에서 버튼을 숨기고 클릭 시 CanUpgrade 로 재확인까지 한다 → 여기 도달하면 불일치다.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest, "Network", nameof(NetworkBuildingController),
+                                 "업그레이드 거부 — 이미 최고 단계라 다음 단계가 없다",
+                                 $"Request=Upgrade, Reason=MaxStage, ClientId={senderClientId}, BuildingId={buildingId}, BuildingType={old.Type}");
                 SendBuildFailed(senderClientId, "최고 단계");
                 return;
             }
@@ -409,7 +456,11 @@ namespace Hexiege.Infrastructure
             int upgradeCost = BuildingStats.GetUpgradeCost(old.Type);
             if (!resource.CanAfford(old.Team, upgradeCost))
             {
-                Debug.LogWarning($"[Network] 업그레이드 골드 부족. 팀={old.Team}, 비용={upgradeCost}, 현재={resource.GetGold(old.Team)}");
+                // LogRules.md 1.2 조합표가 이 자리를 Warn + 운영 예시로 그대로 들었다
+                // (클라이언트가 CanAfford 로 이미 막았는데 서버가 거부 = 클라·서버 골드 상태 불일치).
+                GameLog.Ops.Warn(LogEvent.ServerRejectedInsufficientResource, "Network", nameof(NetworkBuildingController),
+                                 "업그레이드 거부 — 골드 부족(클라이언트가 이미 막았어야 한다)",
+                                 $"Request=Upgrade, Reason=Gold, Team={old.Team}, Required={upgradeCost}, Current={resource.GetGold(old.Team)}");
                 SendBuildFailed(senderClientId, "골드 부족");
                 return;
             }
@@ -421,7 +472,10 @@ namespace Hexiege.Infrastructure
             BuildingData newBuilding = buildingPlacement.UpgradeBuilding(buildingId, race);
             if (newBuilding == null)
             {
-                Debug.LogWarning($"[Network] 서버 업그레이드 실행 실패. Id={buildingId}");
+                // 검증 4단계를 모두 통과한 뒤 실행이 실패했다 = 서버 내부 상태 이상.
+                GameLog.Ops.Warn(LogEvent.ServerActionExecutionFailed, "Network", nameof(NetworkBuildingController),
+                                 "서버 업그레이드 실행 실패 — 검증을 모두 통과한 뒤 실패했다",
+                                 $"Request=Upgrade, BuildingId={buildingId}, BuildingType={old.Type}, Team={old.Team}");
                 SendBuildFailed(senderClientId, "업그레이드 실패");
                 return;
             }
@@ -429,7 +483,8 @@ namespace Hexiege.Infrastructure
             // 6) 골드 차감 (서버에서만)
             resource.SpendGold(old.Team, upgradeCost);
 
-            Debug.Log($"[Network] 서버: 업그레이드 성공. oldId={buildingId}, newId={newBuilding.Id}, newType={newBuilding.Type}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "서버: 건물 업그레이드 성공",
+                             $"OldBuildingId={buildingId}, NewBuildingId={newBuilding.Id}, NewBuildingType={newBuilding.Type}");
 
             // 7) 모든 클라이언트에 동기화 명령 전파
             UpgradeBuildingClientRpc(
@@ -457,20 +512,25 @@ namespace Hexiege.Infrastructure
             // 서버는 이미 처리됨 — 중복 적용 방지
             if (IsServer) return;
 
-            Debug.Log($"[Network] UpgradeBuildingClientRpc 수신. oldId={oldBuildingId}, newId={newBuildingId}, newType={newTypeInt}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "UpgradeBuildingClientRpc 수신",
+                             $"OldBuildingId={oldBuildingId}, NewBuildingId={newBuildingId}, NewBuildingType={newTypeInt}");
 
             // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] UpgradeBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "UpgradeBuildingClientRpc — IGameServices 를 얻지 못했다. 업그레이드가 클라이언트에 반영되지 않는다",
+                                  $"Request=UpgradeSync, OldBuildingId={oldBuildingId}, NewBuildingId={newBuildingId}");
                 return;
             }
 
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
-                Debug.LogError("[Network] UpgradeBuildingClientRpc: BuildingPlacementUseCase가 null입니다.");
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "UpgradeBuildingClientRpc — BuildingPlacementUseCase 가 null 이다",
+                                  $"Request=UpgradeSync, OldBuildingId={oldBuildingId}, NewBuildingId={newBuildingId}");
                 return;
             }
 
@@ -487,11 +547,16 @@ namespace Hexiege.Infrastructure
             BuildingData result = buildingPlacement.UpgradeBuildingWithId(oldBuildingId, newBuildingId, newType, race);
             if (result == null)
             {
-                Debug.LogWarning($"[Network] UpgradeBuildingClientRpc: UpgradeBuildingWithId 실패. oldId={oldBuildingId}");
+                // ⚠️ 레벨 승격(Warn → Error, LogAudit.md §3-2 :490).
+                //    :272 와 동일 — 재시도가 없어 이 클라이언트의 건물 상태가 영구히 갈린다.
+                GameLog.Ops.Error(LogEvent.ClientStateSyncApplyFailed, "Network", nameof(NetworkBuildingController),
+                                  "UpgradeBuildingClientRpc — UpgradeBuildingWithId 실패. 클라이언트 건물 상태가 영구히 갈린다",
+                                  $"Request=UpgradeSync, OldBuildingId={oldBuildingId}, NewBuildingId={newBuildingId}");
                 return;
             }
 
-            Debug.Log($"[Network] 클라이언트: 업그레이드 동기화 완료. newId={result.Id}, newType={newType}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "클라이언트: 업그레이드 동기화 완료",
+                             $"NewBuildingId={result.Id}, NewBuildingType={newType}");
         }
 
         // ====================================================================
@@ -520,13 +585,16 @@ namespace Hexiege.Infrastructure
         {
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
-            Debug.Log($"[Network] 건물 철거 요청 수신. ClientId={senderClientId}, BuildingId={buildingId}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "건물 철거 요청 수신",
+                             $"ClientId={senderClientId}, BuildingId={buildingId}");
 
             // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] RequestDemolishServerRpc: GameBootstrapper를 찾을 수 없습니다.");
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "RequestDemolishServerRpc — IGameServices 를 얻지 못했다. 이후 모든 건물 요청이 같은 자리에서 죽는다",
+                                  $"Request=Demolish, ClientId={senderClientId}, BuildingId={buildingId}");
                 SendBuildFailed(senderClientId, "서버 초기화 오류");
                 return;
             }
@@ -536,7 +604,9 @@ namespace Hexiege.Infrastructure
 
             if (buildingPlacement == null || resource == null)
             {
-                Debug.LogError("[Network] RequestDemolishServerRpc: UseCase가 null입니다.");
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "RequestDemolishServerRpc — UseCase 가 null 이다",
+                                  $"Request=Demolish, ClientId={senderClientId}, BuildingId={buildingId}");
                 SendBuildFailed(senderClientId, "맵 로드 중");
                 return;
             }
@@ -545,7 +615,10 @@ namespace Hexiege.Infrastructure
             BuildingData building = buildingPlacement.GetBuilding(buildingId);
             if (building == null)
             {
-                Debug.LogWarning($"[Network] 철거 대상 건물 없음. Id={buildingId}");
+                // 업그레이드 :385 와 동일 근거 — 클라이언트는 존재하는 건물의 패널만 열 수 있다.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedTargetNotFound, "Network", nameof(NetworkBuildingController),
+                                 "철거 거부 — 대상 건물이 서버에 없다",
+                                 $"Request=Demolish, ClientId={senderClientId}, BuildingId={buildingId}");
                 SendBuildFailed(senderClientId, "건물 없음");
                 return;
             }
@@ -553,7 +626,12 @@ namespace Hexiege.Infrastructure
             // 2) Castle(본기지) 철거 불가 — 본기지는 절대 철거할 수 없음
             if (building.Type == BuildingType.Castle)
             {
-                Debug.LogWarning($"[Network] Castle은 철거할 수 없습니다. Id={buildingId}");
+                // InputHandler 가 Castle 클릭 시 패널 자체를 열지 않는다(CanShowActionPanel == false)
+                // → 여기 도달했다는 것은 정상 클라이언트가 보낼 수 없는 요청이라는 뜻이다.
+                // GameSystemRules_Buildings.md 건물 철거 시스템 규칙 1(철거 가능 범위)의 서버 측 강제 지점.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest, "Network", nameof(NetworkBuildingController),
+                                 "철거 거부 — Castle 은 철거할 수 없다",
+                                 $"Request=Demolish, Reason=CastleProtected, ClientId={senderClientId}, BuildingId={buildingId}");
                 SendBuildFailed(senderClientId, "철거 불가");
                 return;
             }
@@ -562,7 +640,9 @@ namespace Hexiege.Infrastructure
             TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
             if (building.Team != expectedTeam)
             {
-                Debug.LogWarning($"[Network] 철거 소유권 불일치. 발신자={senderClientId}, 건물팀={building.Team}, 기대팀={expectedTeam}");
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest, "Network", nameof(NetworkBuildingController),
+                                 "철거 거부 — 건물 소유 팀과 발신자의 팀이 다르다",
+                                 $"Request=Demolish, Reason=Ownership, ClientId={senderClientId}, BuildingId={buildingId}, BuildingTeam={building.Team}, ExpectedTeam={expectedTeam}");
                 SendBuildFailed(senderClientId, "소유권 불일치");
                 return;
             }
@@ -585,7 +665,8 @@ namespace Hexiege.Infrastructure
             int refund = totalInvested / 2;
             resource.AddGold(building.Team, refund);
 
-            Debug.Log($"[Network] 서버: 건물 철거 처리. Id={buildingId}, Type={building.Type}, Team={building.Team}, 환불={refund}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "서버: 건물 철거 처리",
+                             $"BuildingId={buildingId}, BuildingType={building.Type}, Team={building.Team}, Refund={refund}");
 
             // 6) 서버 도메인 상태 제거
             // DemolishBuilding = OnBuildingDied 발행(서버 BuildingFactory가 GO 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
@@ -610,20 +691,25 @@ namespace Hexiege.Infrastructure
             // 서버는 이미 처리됨 — 중복 적용 방지
             if (IsServer) return;
 
-            Debug.Log($"[Network] DemolishBuildingClientRpc 수신. Id={buildingId}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "DemolishBuildingClientRpc 수신",
+                             $"BuildingId={buildingId}");
 
             // _services는 OnNetworkSpawn에서 1회 캐시.
             // 누락 시 메서드는 빠르게 종료 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] DemolishBuildingClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "DemolishBuildingClientRpc — IGameServices 를 얻지 못했다. 철거가 클라이언트에 반영되지 않는다",
+                                  $"Request=DemolishSync, BuildingId={buildingId}");
                 return;
             }
 
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
-                Debug.LogError("[Network] DemolishBuildingClientRpc: BuildingPlacementUseCase가 null입니다.");
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkBuildingController),
+                                  "DemolishBuildingClientRpc — BuildingPlacementUseCase 가 null 이다",
+                                  $"Request=DemolishSync, BuildingId={buildingId}");
                 return;
             }
 
@@ -631,7 +717,8 @@ namespace Hexiege.Infrastructure
             // DemolishBuilding = OnBuildingDied 발행(BuildingFactory가 GO 제거) + RemoveBuilding(도메인 딕셔너리 제거 + 타일 복구)
             buildingPlacement.DemolishBuilding(buildingId);
 
-            Debug.Log($"[Network] 클라이언트: 건물 철거 동기화 완료. Id={buildingId}");
+            GameLog.Dev.Info("Network", nameof(NetworkBuildingController), "클라이언트: 건물 철거 동기화 완료",
+                             $"BuildingId={buildingId}");
         }
 }
 

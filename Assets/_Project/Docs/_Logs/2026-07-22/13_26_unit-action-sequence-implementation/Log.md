@@ -172,3 +172,23 @@ Android 1대와 Unity Editor counterpart를 사용했으며 Windows/Standalone b
 - Runtime/Editor Roslyn compile PASS. 기존 NGO obsolete·`EffectManager` 미사용 경고만 존재한다. 독립 정적 QA P0~P2 없음.
 - Unity 메뉴 `[UAS-DIAG]` self-validation 실제 실행과 새 Android v9 Host·Editor Client 실기는 아직 미실행이다.
 - 판정: **v9 구현·컴파일·정적 QA 코드 게이트 PASS / B3 FAIL·OPEN 유지**. 다음은 메뉴 self-validation, 그 뒤 새 Android gate다.
+
+### Round 11 — pre-merge self-validation PASS와 main 통합 진행
+
+- main 통합 전 v9 Unity 메뉴 `[UAS-DIAG]` self-validation을 실제 실행해 PASS했다.
+- 이 PASS는 typed 공간 후보/preflight, staged accounting, recoverable history와 lifecycle retire/reuse의 pre-merge 기준선이며 post-merge 결과로 재사용하지 않는다.
+- main의 `GameLog`/씬 무관 Editor 로그/Android Logcat 캡처와 `NetworkCombatController` 게임 종료·despawn 안전 가드 및 전투 틱 정지 이력을 B3와 함께 보존하는 통합이 진행 중이다.
+- 새 로그 절차는 Editor `_Logs/_editor/{date}/RuntimeLog.txt`, device `_Logs/{date}/{HH_mm}_logcat/RuntimeLog_device*.txt`를 사용한다. match 직전 buffer clear, 종료 후 file save, 양쪽 `Role=Host/Client + sharedSessionKey + schema` 일치가 필수이며 ambiguity는 fail-closed한다.
+- main 통합 뒤 Runtime/Editor compile, Unity 메뉴 self-validation 재실행, 독립 최종 QA와 Android v9 실기는 아직 완료되지 않았다.
+- 판정: **pre-merge self-validation PASS / main 통합 진행 중 / B3 FAIL·OPEN 유지**.
+
+#### 최종 통합 코드 게이트 갱신
+
+- `origin/main` 60개 commit과 B3 v9 양측 의미 병합을 완료했다. unmerged 0, staged 최신 해결본 일치를 확인했다.
+- main의 `GameLog`, `LogSessionOwner`, combat shutdown, `IsSpawned` 가드, research 수정과 B3 v9의 typed 공간 후보/preflight·staged accounting·lifecycle retire·observer를 모두 보존했다.
+- 증거 감사기는 device 최신 anchor + Editor daily, run role, shared key, production schema exact, 전체 BEGIN/END identity, EVIDENCE/FAIL, device/editor source gate를 모두 요구하며 누락·불일치·모호성은 fail-closed한다.
+- Android-safe terminal은 manifest 26 + summary 5 + compact END 1 = 32줄, 최대 968 UTF-8 byte다. manifest 27개 또는 초과 길이는 fail-closed한다.
+- stateful adapter는 64개까지 보존하고 65번째를 거부하며 release에서는 `Conditional`로 제거된다.
+- post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0, 최종 반영 전 문서 정합성 검사 0건이다.
+- post-merge Unity `[UAS-DIAG]` self-validation과 RootCrossAudit self-validation의 실제 메뉴 실행, Android v9 실기는 미실행이다. pre-merge `[UAS-DIAG]` PASS와 혼동하지 않는다.
+- 판정: **최종 통합 정적·컴파일·QA 코드 게이트 PASS / B3 FAIL·OPEN 유지**.

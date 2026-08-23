@@ -88,14 +88,23 @@ namespace Hexiege.Infrastructure
             _services = GameServicesLocator.Current;
             if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkResourceSync: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
+                // [운영] 축 A=Warn / 축 B=운영 — 배치 1-A 와 같은 판정, 같은 키를 쓴다
+                //   (선례: NetworkHealthSync:67 · NetworkBuildingController:58 · NetworkProductionController:72).
+                //   축 A: 여기서 return 하지 않고 스폰이 계속되므로 아직 기능이 죽지 않았다 → Warn.
+                //   축 B: NGO 스폰 타이밍은 회선 상태에 좌우돼 플레이어 기기에서만 어긋날 수 있고(①),
+                //         플레이어에게 알리는 경로가 없다(②) → 운영.
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices,
+                                 "Network", nameof(NetworkResourceSync),
+                                 "스폰 시점에 GameServicesLocator 에서 IGameServices 를 얻지 못했다",
+                                 $"IsServer={IsServer}");
             }
 
             // 서버: 게임 이벤트 구독 → NetworkVariable 갱신
             if (IsServer)
             {
                 SubscribeResourceChanged();
-                Debug.Log("[Network] NetworkResourceSync: 서버 모드로 골드 동기화 시작.");
+                // [개발] 의도된 흐름의 진입 흔적 → Info / 개발.
+                GameLog.Dev.Info("Network", nameof(NetworkResourceSync), "서버 모드로 골드 동기화 시작");
             }
 
             // 모든 인스턴스: NetworkVariable 변경 콜백 등록
@@ -103,7 +112,9 @@ namespace Hexiege.Infrastructure
             _blueGold.OnValueChanged += OnBlueGoldChanged;
             _redGold.OnValueChanged += OnRedGoldChanged;
 
-            Debug.Log("[Network] NetworkResourceSync: NetworkVariable 콜백 등록 완료.");
+            // [개발] 구독 완료 통보 → Info / 개발 (배치 1-A 선례: "스폰/디스폰/구독완료"는 전부 개발).
+            GameLog.Dev.Info("Network", nameof(NetworkResourceSync), "NetworkVariable 콜백 등록 완료",
+                             $"IsServer={IsServer}");
         }
 
         /// <summary>
@@ -119,7 +130,8 @@ namespace Hexiege.Infrastructure
             _blueGold.OnValueChanged -= OnBlueGoldChanged;
             _redGold.OnValueChanged -= OnRedGoldChanged;
 
-            Debug.Log("[Network] NetworkResourceSync: 디스폰. 구독 해제 완료.");
+            // [개발] 스폰 로그와 짝을 이루는 의도된 흐름 → Info / 개발.
+            GameLog.Dev.Info("Network", nameof(NetworkResourceSync), "디스폰 — 구독 해제 완료");
         }
 
         // ====================================================================
@@ -137,7 +149,8 @@ namespace Hexiege.Infrastructure
             _resourceChangedSubscription = GameEvents.OnResourceChanged
                 .Subscribe(OnResourceChangedOnServer);
 
-            Debug.Log("[Network] NetworkResourceSync: OnResourceChanged 구독 완료.");
+            // [개발] 구독 완료 통보 → Info / 개발.
+            GameLog.Dev.Info("Network", nameof(NetworkResourceSync), "OnResourceChanged 구독 완료");
         }
 
         /// <summary>
@@ -232,7 +245,13 @@ namespace Hexiege.Infrastructure
             // 어느 방향이든 OnResourceChanged 이벤트가 발행되어 HUD가 갱신됨.
             resource.AddGold(team, diff);
 
-            Debug.Log($"[Network] 골드 동기화. 팀={team}, 이전={currentGold}, 서버={serverGold}, 차이={diff}");
+            // [개발] 축 A=Info / 축 B=개발.
+            //   축 A: 클라이언트 골드를 서버 값으로 맞추는 것은 이 클래스가 하기로 되어 있는 정상 흐름이다.
+            //   축 B: 값이 바뀔 때마다 늘 흐르는 동기화 로그라 라이브 지표로서의 가치가 없다(축 B ②).
+            //   ⚠️ diff == 0 이면 위에서 이미 return 하므로 이 줄은 "값이 실제로 바뀐 순간"에만 찍힌다
+            //      — 매 틱 로깅 금지(LogRules 1.14 금지 8)에 걸리지 않는다.
+            GameLog.Dev.Info("Network", nameof(NetworkResourceSync), "클라이언트 골드를 서버 값으로 보정",
+                             $"Team={team}, PreviousGold={currentGold}, ServerGold={serverGold}, Diff={diff}");
         }
     }
 }

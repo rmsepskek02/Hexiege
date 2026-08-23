@@ -2,10 +2,12 @@
 
 ## 프로젝트 현재 상태 (2026-08-23)
 
-### B3 v9 typed 공간 후보/preflight 코드 게이트 / 실기 대기
+### B3 v9 최종 통합 정적 코드 게이트 / 메뉴·실기 대기
 - v8 Android recoverable preflight 반복을 typed 결과와 `CandidateUnsafe/RouteInvalidated → WaitingRepath`로 교정했다. corridor probe/final stage는 같은 seam을 쓰고 fatal만 `Rejected`다.
 - commit accounting은 actual attempt 직전 planned, success 뒤 committed, END equality다. recoverable history는 positive successful commit에서만 clear하고 lifecycle retire는 server/client baseline·recoverable 이력을 제거한다.
-- observer `b3-movement-authority-v9`, Runtime/Editor Roslyn PASS, 독립 정적 QA P0~P2 없음. 다음 게이트는 Unity 메뉴 self-validation → Android v9이며 전까지 B3 FAIL/OPEN·역할교대/25종 회귀 금지. Android recoverable repath는 0이 아니라 resolved/nonrepeat/no-cleanup 수렴을 요구한다.
+- `origin/main` 60개 commit과 B3 의미 병합 완료, unmerged 0·staged 최신 해결본 일치. main `GameLog`·`LogSessionOwner`·combat shutdown·`IsSpawned`·research 수정과 B3를 모두 보존했다.
+- observer `b3-movement-authority-v9`, post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0. 증거 감사는 최신 device anchor + Editor daily, role/shared key/production schema exact/전체 BEGIN·END identity/EVIDENCE·FAIL/source gate를 요구한다. terminal 32줄·최대 968 UTF-8 byte, adapter 64/65와 release `Conditional` 경계다.
+- 다음 게이트는 post-merge Unity `[UAS-DIAG]`·RootCrossAudit 실제 메뉴 → Android v9다. pre-merge UAS PASS는 재사용하지 않으며 전까지 B3 FAIL/OPEN·역할교대/25종 회귀 금지다. Android recoverable repath는 0이 아니라 resolved/nonrepeat/no-cleanup 수렴을 요구한다.
 
 ## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음, 모든 서브에이전트 포함)
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**

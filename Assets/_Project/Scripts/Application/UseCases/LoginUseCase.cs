@@ -114,7 +114,7 @@ namespace Hexiege.Application
         {
             if (!_authService.IsLoggedIn)
             {
-                Debug.Log("[LoginUseCase] 자동 로그인: 세션 없음.");
+                GameLog.Dev.Info("Auth", nameof(LoginUseCase), "자동 로그인: 세션 없음");
                 return AutoLoginResult.NoSession;
             }
 
@@ -124,23 +124,28 @@ namespace Hexiege.Application
                     !string.IsNullOrWhiteSpace(_authService.Email) &&
                     !_authService.IsEmailVerified)
                 {
-                    Debug.Log("[LoginUseCase] 자동 로그인: 이메일 미인증 계정 → 인증 대기 필요.");
+                    GameLog.Dev.Info("Auth", nameof(LoginUseCase), "자동 로그인: 이메일 미인증 계정 — 인증 대기 필요");
                     return AutoLoginResult.NeedsEmailVerification;
                 }
 
-                Debug.Log($"[LoginUseCase] 자동 로그인: 세션 발견 (UID={_authService.FirebaseUID}). UGS 브릿지 진행.");
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 바로 아래 BridgeToUGSAsync 에는 원본 UID 를 그대로 넘긴다 — 해시는 로그 표시용일 뿐이다.
+                GameLog.Dev.Info("Auth", nameof(LoginUseCase), "자동 로그인: 세션 발견 — UGS 브릿지 진행",
+                                 $"Uid={GameLog.HashId(_authService.FirebaseUID)}");
 
                 // UGS 브릿지 성공 여부를 받아 둔다. false 여도 로그인 자체는 성공 처리(규칙 3).
                 bool bridged = await BridgeToUGSAsync(_authService.FirebaseUID);
                 if (!bridged)
                 {
-                    Debug.LogWarning("[LoginUseCase] 자동 로그인: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
+                    GameLog.Dev.Warn("Auth", nameof(LoginUseCase), "UGS 미연결 — 멀티플레이 기능이 제한될 수 있다",
+                                      $"Path=AutoLogin");
                 }
                 return AutoLoginResult.Success;
             }
             catch (Exception e)
             {
-                Debug.LogError($"[LoginUseCase] 자동 로그인 중 UGS 브릿지 실패: {e.Message}");
+                GameLog.Ops.Error(LogEvent.UgsBridgeUnhandledException, "Auth", nameof(LoginUseCase),
+                                  "자동 로그인 중 UGS 브릿지 실패", e);
                 return AutoLoginResult.Failed;
             }
         }
@@ -163,7 +168,8 @@ namespace Hexiege.Application
                 bool bridged = await BridgeToUGSAsync(uid);
                 if (!bridged)
                 {
-                    Debug.LogWarning("[LoginUseCase] 익명 로그인: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
+                    GameLog.Dev.Warn("Auth", nameof(LoginUseCase), "UGS 미연결 — 멀티플레이 기능이 제한될 수 있다",
+                                      $"Path=Anonymous");
                 }
                 return LoginResult.Success;
             }
@@ -192,7 +198,8 @@ namespace Hexiege.Application
                 bool bridged = await BridgeToUGSAsync(uid);
                 if (!bridged)
                 {
-                    Debug.LogWarning("[LoginUseCase] Google 로그인: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
+                    GameLog.Dev.Warn("Auth", nameof(LoginUseCase), "UGS 미연결 — 멀티플레이 기능이 제한될 수 있다",
+                                      $"Path=Google");
                 }
                 return LoginResult.Success;
             }
@@ -222,7 +229,7 @@ namespace Hexiege.Application
                 // 호출자(View)가 EmailVerifyView 로 이동하여 인증 메일 재발송/완료 확인을 진행할 수 있도록.
                 if (!_authService.IsEmailVerified)
                 {
-                    Debug.Log("[LoginUseCase] 이메일 미인증 계정 — NeedsEmailVerification 반환.");
+                    GameLog.Dev.Info("Auth", nameof(LoginUseCase), "이메일 미인증 계정 — NeedsEmailVerification 반환");
                     return LoginResult.NeedsEmailVerification;
                 }
 
@@ -230,7 +237,8 @@ namespace Hexiege.Application
                 bool bridged = await BridgeToUGSAsync(uid);
                 if (!bridged)
                 {
-                    Debug.LogWarning("[LoginUseCase] 이메일 로그인: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
+                    GameLog.Dev.Warn("Auth", nameof(LoginUseCase), "UGS 미연결 — 멀티플레이 기능이 제한될 수 있다",
+                                      $"Path=Email");
                 }
                 return LoginResult.Success;
             }
@@ -301,7 +309,8 @@ namespace Hexiege.Application
                 bool bridged = await BridgeToUGSAsync(_authService.FirebaseUID);
                 if (!bridged)
                 {
-                    Debug.LogWarning("[LoginUseCase] 이메일 인증 완료: UGS 미연결 — 멀티플레이 기능이 제한될 수 있습니다.");
+                    GameLog.Dev.Warn("Auth", nameof(LoginUseCase), "UGS 미연결 — 멀티플레이 기능이 제한될 수 있다",
+                                      $"Path=EmailVerified");
                 }
                 return true;
             }
@@ -312,7 +321,8 @@ namespace Hexiege.Application
             }
             catch (Exception e)
             {
-                Debug.LogError($"[LoginUseCase] CheckEmailVerifiedAsync 중 UGS 브릿지 실패: {e.Message}");
+                GameLog.Ops.Error(LogEvent.UgsBridgeUnhandledException, "Auth", nameof(LoginUseCase),
+                                  "이메일 인증 확인 중 UGS 브릿지 실패", e);
                 return false;
             }
         }
@@ -386,7 +396,8 @@ namespace Hexiege.Application
             }
             catch (Exception e)
             {
-                Debug.LogWarning($"[LoginUseCase] UGS SignOut 중 예외(무시): {e.Message}");
+                GameLog.Ops.Warn(LogEvent.UgsSignOutFailed, "Auth", nameof(LoginUseCase),
+                                 "UGS SignOut 실패 — 이전 계정 세션이 남을 수 있다", e);
             }
 
             await _authService.SignOutAsync();
@@ -443,7 +454,8 @@ namespace Hexiege.Application
         {
             if (string.IsNullOrWhiteSpace(firebaseUID))
             {
-                Debug.LogError("[LoginUseCase] BridgeToUGSAsync: firebaseUID 가 비어 있습니다.");
+                GameLog.Ops.Error(LogEvent.UgsBridgeMissingFirebaseUid, "Auth", nameof(LoginUseCase),
+                                  "BridgeToUGSAsync 호출 계약 위반 — firebaseUID 가 비어 있다");
                 return false;
             }
 
@@ -452,7 +464,7 @@ namespace Hexiege.Application
                 // UGS 초기화 (멱등성 — 이미 초기화되어 있으면 즉시 반환)
                 if (UnityServices.State != ServicesInitializationState.Initialized)
                 {
-                    Debug.Log("[LoginUseCase] UGS 초기화 시작...");
+                    GameLog.Dev.Info("Auth", nameof(LoginUseCase), "UGS 초기화 시작");
                     await UnityServices.InitializeAsync();
                 }
 
@@ -466,7 +478,7 @@ namespace Hexiege.Application
                 if (_authService.IsAnonymous)
                 {
                     // [익명 계정] OIDC 식별 주체가 없으므로 기존 익명 로그인 유지.
-                    Debug.Log("[LoginUseCase] 익명 계정 — UGS 익명 로그인 수행.");
+                    GameLog.Dev.Info("Auth", nameof(LoginUseCase), "익명 계정 — UGS 익명 로그인 수행");
                     await AuthenticationService.Instance.SignInAnonymouslyAsync();
                 }
                 else
@@ -475,14 +487,16 @@ namespace Hexiege.Application
                     //   "oidc-firebase" 는 UGS Dashboard 에 등록한 Provider 이름이며,
                     //   UGS 규약상 OIDC Provider 이름은 "oidc-" 접두사로 시작해야 한다.
                     //   토큰은 캐시 우선(false)으로 발급 — 만료 임박 시 Firebase SDK 가 자동 갱신한다.
-                    Debug.Log("[LoginUseCase] 실계정 — Firebase ID Token 으로 UGS OIDC 브릿지 수행.");
+                    GameLog.Dev.Info("Auth", nameof(LoginUseCase), "실계정 — Firebase ID Token 으로 UGS OIDC 브릿지 수행");
                     string firebaseToken = await _authService.GetIdTokenAsync(false);
                     await AuthenticationService.Instance.SignInWithOpenIdConnectAsync(
                         "oidc-firebase",
                         firebaseToken);
                 }
 
-                Debug.Log($"[LoginUseCase] UGS 브릿지 완료. PlayerId={AuthenticationService.Instance.PlayerId}");
+                // PlayerId 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                GameLog.Dev.Info("Auth", nameof(LoginUseCase), "UGS 브릿지 완료",
+                                 $"PlayerId={GameLog.HashId(AuthenticationService.Instance.PlayerId)}");
 
                 // 익명/OIDC 어느 경로든 위 로그인이 예외 없이 끝났으면 UGS 연결 성공.
                 return true;
@@ -491,7 +505,8 @@ namespace Hexiege.Application
             {
                 // 로그인 자체를 실패로 처리하지 않는다 — 규칙 3 참조.
                 // 다만 호출부가 "UGS 미연결" 을 인지할 수 있도록 false 를 반환한다.
-                Debug.LogWarning($"[LoginUseCase] UGS 브릿지 실패(멀티플레이 제한): {e.Message}");
+                GameLog.Ops.Warn(LogEvent.UgsBridgeFailed, "Auth", nameof(LoginUseCase),
+                                 "UGS 브릿지 실패 — 멀티플레이 제한. 로그인은 성공 처리된다", e);
                 return false;
             }
         }

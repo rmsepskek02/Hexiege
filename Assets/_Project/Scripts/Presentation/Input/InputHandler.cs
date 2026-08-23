@@ -369,7 +369,14 @@ namespace Hexiege.Presentation
         {
             if (EventSystem.current == null)
             {
-                Debug.Log("[InputHandler] EventSystem.current == null");
+                // [개발] Warn + 개발.
+                //   축 A: UI 히트 판정을 포기하고 false(=UI 위가 아님)로 계속 진행한다 → 대체 경로 있음 → Warn.
+                //   축 B: EventSystem 은 씬에 배치돼야 하는 오브젝트다. 없다면 씬 구성 오류이고
+                //         모든 기기에서 똑같이 없다 → 축 B ① 이 "아니오" → 개발(1.3 원칙 3 단서).
+                //   ⚠️ 이 메서드는 터치/클릭마다 호출된다. 매 프레임 스팸은 아니지만(입력 시점 한정)
+                //      개발 로그라 릴리스에서는 [Conditional] 로 호출 자체가 사라진다(1.7).
+                GameLog.Dev.Warn("Input", nameof(InputHandler),
+                                 "EventSystem.current 가 null — UI 히트 판정을 건너뛴다");
                 return false;
             }
 

@@ -1,30 +1,43 @@
-# Document Manager Memory — Hexiege
+# document-manager 누적 지식
 
-> 200줄 이내 유지. 상세 내용이 길어지면 토픽 파일로 분리하고 여기서 링크.
+## 이 프로젝트의 문서 관습 (실측으로 확인된 것만)
 
----
+### 원문 보존 방침
+- 기존 서술을 **지우지 않는다.** `~~취소선~~` + `> **[이전 기록 — YYYY-MM-DD 갱신 전]**` 인용 블록으로 남기고 현행을 덧붙인다.
+- `LogRules.md` 는 문서 상단에 **개정 이력 표**를 두고 **시간 오름차순**으로 행을 추가한다(맨 아래가 최신). 순서 주의.
 
-## CRITICAL — git 명령 절대 금지
-- 문서만 수정하고 커밋/푸시는 사용자에게 맡긴다. `git status`/`git log`/`git show` 같은 **읽기 전용 조회만** 허용(변경 검증용).
-- 이유: 2026-03-03 `git restore` 무단 실행으로 커밋 안 된 작업 전체 소실.
+### 상시 참조 3문서의 갱신 형태
+| 문서 | 형태 |
+|---|---|
+| `PROJECT_STATUS.md` | 상단 `**최종 수정일:**` 갱신 + 그 아래에 `**구현 완료 (날짜) — 검증 상태:**` 문단을 **맨 앞에 prepend**. `**현재 단계:**` 문단 맨 앞에도 한 줄 추가 |
+| `ROADMAP.md` | 상단 문단 prepend + **우선순위 요약 표**의 해당 행을 `🔴 높음 (미착수)` → `✅ 완료 (날짜, 검증상태)` 로 교체. 새로 생긴 잔여 항목은 표에 행 추가 |
+| `WORK_HISTORY.md` | **마일스톤 표**(날짜 역순)의 맨 위에 행 1개 추가. 한 행이 매우 길다(수천 자) — 그게 이 파일의 관습이다 |
 
----
+### 과대 표기 금지 (CLAUDE.md 규칙 10)가 문서에 나타나는 형태
+- 완료 항목 옆에 **`⚠️ 과대 표기 금지 — 아직 완료가 아닌 것:`** 목록을 반드시 병기한다.
+- "컴파일 통과"와 "실기 검증 PASS"는 **명확히 구분**해서 적는다. 확인받지 않은 커밋은 "통과했다"고 쓰지 않는다.
+- 사용자가 범위 밖으로 결정한 항목은 **"미해결 결함이 아니라 범위 밖 확정 항목"** 이라고 명시한다.
 
-## 실행 환경 주의
-- `WORK_HISTORY.md` / `PROJECT_STATUS.md` / `ROADMAP.md`는 **한 줄이 수천 자**라 Read 도구가 토큰 한도로 실패한다.
-  → `awk 'NR>=A && NR<=B' 파일 | cut -c1-N`으로 훑은 뒤, Edit 전에 `Read`를 **offset/limit 1~4줄**로 좁혀 호출할 것.
+### 규칙 번호
+- **절대 재배열·신설하지 않는다.** 코드 주석과 과거 Task 문서가 번호를 참조한다.
+- 해석을 명문화할 때는 **새 번호 대신 기존 규칙 본문에 문장을 추가**한다.
+- `GameSystemRules_UI.md` · `GameSystemRules_Buildings.md` 는 섹션마다 번호가 1부터 반복 → 참조 시 **섹션명(H2) 병기 필수**.
 
----
+## Task Plan.md 사후 갱신 패턴
+계획 본문(§1~§10)은 **원문 그대로 두고**, 문서 끝에 `# 11. 구현 결과 (날짜 추가)` 절을 append 한다.
+포함 항목: 자연어 요약 / 실적표 / 계획과 달라진 점 / **⚠️ 미완 단서** / **변경 파일 리스트업**(WORKFLOW [12]).
 
-## 문서 갱신 표준 세트 (작업 1건 완료 시)
+## 도구
+- `python3 Tools/check_docs.py` — 리포지토리 루트에서 실행. 읽기 전용. **0건 확인 후 보고.**
+- **git 명령 금지**(규칙 5). 변경 파일 목록은 `grep`/코드 실측으로 재구성한다.
 
-| 문서 | 갱신 방식 |
-|------|----------|
-| `PROJECT_STATUS.md` | ① 상단 `**구현 완료 (날짜):**` 또는 `**버그 수정 (날짜):**` 한 줄 추가(최신이 위) ② `**현재 단계:**` 문장 **맨 앞에 새 항목을 붙이고 기존 문장은 "직전 …"으로 밀어냄**(기존 내용 삭제 금지) ③ 해당 시스템 섹션 표 또는 `#### 버그 수정 및 폴리싱` 표에 행 추가(표 맨 위) |
-| `ROADMAP.md` | ① 상단 헤더 한 줄 추가 ② 우선순위 표에 `✅ 완료 (날짜, 실기 PASS)` 행 추가. 예정 항목으로 있었다면 그 행을 완료로 치환 |
-| `WORK_HISTORY.md` | `## 마일스톤 이력` 표 **맨 위**에 `| YYYY-MM-DD | **제목** — 본문 |` 1행 추가(날짜 역순). 본문은 [증상]/[원인]/[수정]/[교훈]/[범위 밖]을 굵은 대괄호 라벨로 구분하는 관례 |
-| 에이전트 MEMORY | AGENTS.md "완료 후 업데이트 체크리스트" 표의 조건에 해당하는 것만 |
-| `_Tasks/.../Research.md`·`Plan.md` | 계획과 구현이 일치하면 **본문 수정 없이 하단에 "구현 결과" 섹션만 append** |
+## 자주 쓰는 실측 명령 (숫자를 문서에 적기 전 반드시 재확인)
+```
+grep -rn "Debug\.Log" Assets/_Project/Scripts --include=*.cs | wc -l     # 잔존(주석 포함)
+grep -rn "LogEvent\.Unknown" Assets/_Project/Scripts --include=*.cs      # 0건 유지 확인
+```
+`GameLog` 호출은 **여러 줄에 걸치는 경우가 있어** 한 줄 정규식 grep 으로 세면 누락된다 →
+파이썬으로 `GameLog\.(Ops|Dev)\.(Info|Warn|Error)\s*\(` 매치 후 뒤쪽 300자에서 인자를 읽어야 정확하다.
 
 - 톤: 모든 프로젝트 문서는 **한국어 + 굵게 강조 + 근거 파일/라인/커밋 해시 명기**. 추정 표현 금지(CLAUDE.md 규칙 10).
 - "과대 표기 금지" 관례 — 미검증 항목은 반드시 "미검증"/"보류"/"범위 밖"으로 라벨링한다.
@@ -33,7 +46,19 @@
 
 - v8 Android recoverable preflight 반복 뒤 v9 typed 후보/preflight, 동일 probe/final-stage seam, staged accounting과 lifecycle retire 보강이 구현됐다. Runtime/Editor Roslyn PASS, 독립 정적 QA P0~P2 없음.
 - `planned`는 실제 commit attempt 직전, `committed`는 success 뒤에만 증가하고 END equality를 강제한다. recoverable history는 positive successful spatial commit에서만 clear한다.
-- Unity 메뉴 self-validation과 Android v9 미실행이므로 B3는 `FAIL / OPEN`. `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다. 영구 규칙과 Testcase는 변경하지 않는다.
+- 후속으로 pre-merge Unity 메뉴 self-validation은 PASS했다. main 통합 뒤 재실행과 Android v9는 미실행이므로 B3는 `FAIL / OPEN`. `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다. 영구 규칙과 Testcase는 변경하지 않는다.
+
+### 2026-08-23 - B3 v9/main 문서 conflict 통합
+
+- HEAD의 B3 v9 이력과 main의 `GameLog`·씬 무관 로그·종료 안전 이력은 모두 보존한다. pre-merge Unity self-validation PASS는 기록하되 통합 뒤 compile/self-validation/최종 QA와 Android v9 전까지 B3 `FAIL / OPEN`이다.
+- 신규 증거는 Editor `_Logs/_editor/{date}/RuntimeLog.txt`, device `_Logs/{date}/{HH_mm}_logcat/RuntimeLog_device*.txt`; match 직전 buffer clear/종료 뒤 save, `Role=Host/Client + sharedSessionKey + schema` 결합, ambiguity fail-closed를 따른다.
+
+### 2026-08-23 - B3 v9 최종 통합 정적 코드 게이트 동기화
+
+- `origin/main` 60개 commit과 B3 v9 의미 병합 완료, unmerged 0·staged 최신 해결본 일치. main `GameLog`·`LogSessionOwner`·combat shutdown·`IsSpawned`·research 수정과 B3 이력을 모두 보존한다.
+- post-merge Runtime/Editor Roslyn PASS와 독립 QA P0~P3 0만 코드 게이트 PASS로 기록한다. pre-merge `[UAS-DIAG]` PASS를 post-merge 결과로 재사용하지 않는다.
+- 감사 계약은 최신 device anchor + Editor daily, role/shared key/production schema exact/전체 BEGIN·END identity/EVIDENCE·FAIL/source gate다. Android-safe terminal 26+5+1=32줄·최대 968 UTF-8 byte와 manifest 27개/초과 길이 fail-closed, adapter stateful 64/65·release `Conditional` 경계를 보존한다.
+- post-merge `[UAS-DIAG]`·RootCrossAudit 실제 메뉴와 Android v9가 미실행이므로 B3는 `FAIL / OPEN`. 영구 Unit 규칙은 계약 변화가 없어 수정하지 않는다.
 
 ### 2026-08-20 - Unit ActionSequence B3 v8 코드 게이트 문서 동기화
 
@@ -139,3 +164,7 @@
 ## 작업 이력(문서 관점)
 - 2026-08-08 랠리포인트 BlockingOverlay 잔존 버그 — 문서 갱신 7건 수행. 규칙 문서(UI 규칙 5 / 건물 랠리 규칙 2)는 변경 불필요로 판정.
   후속 제안(미반영): UI 규칙 5에 "조준 모드 진입으로 팝업만 숨기는 경로는 `HideBlockingOverlay()` 짝 호출 필수 + `Close()` 우회 경로는 참조 카운터 직접 반납" 문장 추가 — 동일 결함이 스킬 패널·랠리 2회 발생했으므로 규칙 명문화 가치 있음(사용자 승인 필요).
+## 인계받은 수치가 실측과 어긋난 사례 (2026-08-18)
+- 인계 메모의 **`system` 문자열 분포**(Network 163 등, 합 262)가 실측(Network 273 · Auth 46 · Bootstrap 26 · UI 22 · Cloud 11 · Factory 7 · Audio 4 · HexGrid 1 · Input 1, 합 391)과 **달랐다.**
+  → **문서에 옮겨 적지 않고 사용자에게 보고**했다. 인계 수치는 항상 재실측한다.
+- 인계 메모의 *"클래스명이 계획과 달라졌다"* 는 항목은 Plan 이 언급한 클래스 13종을 전수 조회해도 **특정할 수 없었다** → 추정하지 않고 그대로 두고 보고.

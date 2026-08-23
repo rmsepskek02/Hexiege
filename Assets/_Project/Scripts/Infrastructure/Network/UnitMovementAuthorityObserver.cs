@@ -16,7 +16,7 @@ namespace Hexiege.Infrastructure
     /// B3 production decision/write를 읽기만 하는 bounded observer다. 별도 reducer를
     /// 실행하지 않으며 transform, phase, 경로 또는 NetworkVariable을 쓰지 않는다.
     /// </summary>
-    internal static class UnitMovementAuthorityObserver
+    public static class UnitMovementAuthorityObserver
     {
         // v2: rejected/invalid frame의 독립 failure evidence와
         // root 정지 중 Walk 진행 위반을 손실 없이 관측한다.
@@ -28,14 +28,20 @@ namespace Hexiege.Infrastructure
         // v7: 이동 중 path-start 보정이 논리 위치를 선행 커밋하지 않는 빌드를 식별한다.
         // v8: route checkpoint 소비와 실제 spatial Root 타일 커밋을 분리해 관측한다.
         // v9: 후보 probe는 기록하지 않고 최종 stage/recoverable repath/fatal만 분리한다.
-        private const string Schema = "b3-movement-authority-v9";
+        /// <summary>
+        /// 런타임 증거와 Editor 교차 감사가 함께 사용하는 현재 production schema.
+        /// 문자열을 복제하지 않아 오래된 양쪽 빌드가 서로 일치한다는 이유만으로 통과하지 않게 한다.
+        /// </summary>
+        public const string ProductionSchema = "b3-movement-authority-v9";
         private const int MaximumLines = 768;
         private const int ReservedTerminalLines = 32;
         private const int MaximumNormalLines = MaximumLines - ReservedTerminalLines;
         private const int MaximumDetails = 128;
         private const int MaximumFailureDetails = 64;
-        private const int MaximumManifestChunks = 29;
+        private const int MaximumManifestChunks = 26;
         private const int PayloadLimit = 700;
+        private const int NonManifestTerminalLines = 6;
+        private const int MaximumFullLineUtf8BytesExclusive = 1000;
         private static readonly Dictionary<string, Coverage> Coverages =
             new Dictionary<string, Coverage>();
         private static readonly HashSet<string> PhaseTransitions =
@@ -100,6 +106,7 @@ namespace Hexiege.Infrastructure
         private static int _terminalLines;
         private static int _terminalOverflow;
         private static int _manifestPreflightFailures;
+        private static int _terminalPreflightFailures;
         private static int _clientReplicatedSamples;
         private static int _clientReplicatedInvalid;
         private static int _clientReplicatedDuplicates;
@@ -112,6 +119,7 @@ namespace Hexiege.Infrastructure
         private static int _clientIdentityConflicts;
         private static int _clientScopeRegressions;
         private static int _lifecycleIdentityConflicts;
+        private static int _adapterFailures;
 
         internal static void BeginSession(NetworkManager networkManager, bool isServer)
         {
@@ -125,7 +133,7 @@ namespace Hexiege.Infrastructure
             if (_active)
             {
                 Log(LogLevel.Info, "BEGIN",
-                    $"role={(_isServer ? "host" : "client")}, observerSchema={Schema}, " +
+                    $"role={(_isServer ? "host" : "client")}, observerSchema={ProductionSchema}, " +
                     $"mode=ReducerAuthoritative, serverTime={_startedAt:F6}");
             }
         }
@@ -299,6 +307,61 @@ namespace Hexiege.Infrastructure
             _rejected++;
             LogFailure("movement-publication-failed", $"unitId={unitId}");
         }
+
+        /// <summary>
+        /// UnitView adapter가 fail-closed로 중단한 경계를 공용 bounded failure 채널에 기록한다.
+        /// 게임 상태를 쓰지 않으며 server authority observer가 활성인 경우에만 집계한다.
+        /// </summary>
+        internal static void ObserveAdapterFailure(string kind, string context)
+        {
+            if (!_active || !_isServer) return;
+            RecordAdapterFailure(kind, context, emitLog: true);
+        }
+
+        private static void RecordAdapterFailure(
+            string kind,
+            string context,
+            bool emitLog)
+        {
+            IncrementBounded(ref _adapterFailures);
+            if (emitLog)
+            {
+                LogFailure(
+                    "movement-adapter-failure",
+                    $"kind={kind ?? "unknown"}, context={context ?? "unavailable"}");
+                return;
+            }
+
+            if (_failureDetails >= MaximumFailureDetails)
+                _failureEvidenceOverflow++;
+            else
+                _failureDetails++;
+        }
+
+        internal static string ValidateAdapterFailureStateForValidation(
+            int observations)
+        {
+            if (observations < 0) return "Invalid";
+            Reset();
+            _active = true;
+            _isServer = true;
+            for (int index = 0; index < observations; index++)
+                RecordAdapterFailure("fixture", "fixture", emitLog: false);
+            int details = _failureDetails;
+            int overflow = _failureEvidenceOverflow;
+            int failures = _adapterFailures;
+            bool failure = HasAdapterFailure();
+            Reset();
+            bool reset = _adapterFailures == 0
+                && _failureDetails == 0
+                && _failureEvidenceOverflow == 0
+                && !_active;
+            return $"details={details},overflow={overflow},adapter={failures}," +
+                   $"failure={failure},reset={reset}";
+        }
+
+        private static bool HasAdapterFailure() =>
+            _adapterFailures != 0 || _failureEvidenceOverflow != 0;
 
         internal static void ObserveCorridorResolution(
             UnitTrajectoryCorridorResolution resolution,
@@ -832,53 +895,13 @@ namespace Hexiege.Infrastructure
                 PayloadLimit,
                 MaximumManifestChunks,
                 ReservedTerminalLines,
-                nonManifestTerminalLines: 2,
+                nonManifestTerminalLines: NonManifestTerminalLines,
                 out IReadOnlyList<string> chunks);
             if (!manifestValid)
             {
                 _manifestPreflightFailures++;
                 chunks = Array.Empty<string>();
             }
-            if (manifestValid)
-            {
-                for (int i = 0; i < chunks.Count; i++)
-                    LogTerminal(LogLevel.Info, "coverage-manifest", $"chunk={i + 1}/{chunks.Count}, entries={chunks[i]}");
-            }
-
-            LogTerminal(manifestValid ? LogLevel.Info : LogLevel.Error, "summary",
-                 $"manifestChunks={chunks.Count}, manifestPreflightFailures={_manifestPreflightFailures}, " +
-                 $"corridorFullSmooth={_corridorFullSmooth}, corridorReducedSmooth={_corridorReducedSmooth}, " +
-                 $"corridorFullDirect={_corridorFullDirect}, corridorReducedDirect={_corridorReducedDirect}, " +
-                 $"corridorStationaryAlignment={_corridorStationaryAlignment}, " +
-                 $"corridorRepathRequired={_corridorRepathRequired}, " +
-                 $"corridorStartTileEgressFrames={_corridorStartTileEgressFrames}, " +
-                 $"spatialTransitionsPlanned={_spatialTransitionsPlanned}, " +
-                 $"spatialTransitionsCommitted={_spatialTransitionsCommitted}, " +
-                 $"spatialNoTransitionPlans={_spatialNoTransitionPlans}, " +
-                 $"spatialTerminalContacts={_spatialTerminalContacts}, " +
-                 $"spatialPreflightFailures={_spatialPreflightFailures}, " +
-                 $"spatialCommitFailures={_spatialCommitFailures}, " +
-                 $"spatialRecoveries={_spatialRecoveries}, " +
-                 $"spatialFinalRecoverableRepaths={_spatialFinalRecoverableRepaths}, " +
-                 $"spatialRepeatedRecoverableRepaths={_spatialRepeatedRecoverableRepaths}, " +
-                 $"spatialFatalPreflights={_spatialFatalPreflights}, " +
-                 $"spatialStagesForCommit={_spatialStagesForCommit}, " +
-                 $"spatialCleanupAfterRecoverable={_spatialCleanupAfterRecoverable}, " +
-                 $"spatialSameFrameRetries={_spatialSameFrameRetries}, " +
-                 $"spatialStageDivergences={_spatialStageDivergences}, " +
-                 $"clientReplicatedSamples={_clientReplicatedSamples}, " +
-                $"clientReplicatedInvalid={_clientReplicatedInvalid}, " +
-                $"clientReplicatedDuplicates={_clientReplicatedDuplicates}, " +
-                $"clientRevisionZero={_clientRevisionZero}, " +
-                $"clientRevisionRegressions={_clientRevisionRegressions}, " +
-                $"clientSameRevisionConflicts={_clientSameRevisionConflicts}, " +
-                $"clientInvalidPhase={_clientInvalidPhase}, " +
-                $"clientUnitUninitialized={_clientUnitUninitialized}, " +
-                $"clientInvalidScope={_clientInvalidScope}, " +
-                $"clientIdentityConflicts={_clientIdentityConflicts}, " +
-                $"clientScopeRegressions={_clientScopeRegressions}, " +
-                $"lifecycleIdentityConflicts={_lifecycleIdentityConflicts}");
-
             bool failure = _rejected != 0 || _invalid != 0 || _gateFailures != 0
                 || _writerSelectionFailures != 0 || _clientWriteAttempts != 0
                 || _attackWriterOwnershipConflicts != 0 || _dropped != 0
@@ -892,23 +915,97 @@ namespace Hexiege.Infrastructure
                 || _spatialSameFrameRetries != 0
                 || _spatialStageDivergences != 0
                 || _spatialTransitionsPlanned != _spatialTransitionsCommitted
-                || _failureEvidenceOverflow != 0
+                || HasAdapterFailure()
                 || !manifestValid || _manifestPreflightFailures != 0
                 || _terminalOverflow != 0 || _clientReplicatedInvalid != 0
                 || _lifecycleIdentityConflicts != 0
                 || (_isServer && (_frames == 0 || _align == 0 || _move == 0
                     || _noIntent == 0 || entries.Count == 0))
                 || (!_isServer && _clientReplicatedSamples == 0);
-            LogTerminal(failure ? LogLevel.Error : LogLevel.Info, "END",
-                $"reason={reason}, role={(_isServer ? "host" : "client")}, frames={_frames}, " +
-                $"align={_align}, move={_move}, noIntent={_noIntent}, endpoint={_endpoint}, " +
-                $"targetPriority={_targetPriority}, rejected={_rejected}, invalid={_invalid}, " +
-                $"gateFailures={_gateFailures}, writerSelectionFailures={_writerSelectionFailures}, " +
+
+            List<TerminalRecord> records = BuildTerminalRecords(
+                chunks,
+                entries.Count,
+                sha,
+                reason,
+                failure);
+            if (!TryPreflightTerminalRecords(records, out _))
+            {
+                _terminalPreflightFailures++;
+                failure = true;
+                records = BuildTerminalRecords(
+                    chunks,
+                    entries.Count,
+                    sha,
+                    "terminal-preflight-failed",
+                    failure);
+            }
+
+            bool terminalSafe = TryPreflightTerminalRecords(records, out _);
+            if (!terminalSafe)
+            {
+                _terminalOverflow++;
+                LogTerminal(
+                    LogLevel.Error,
+                    "END",
+                    $"reason=terminal-preflight-unrecoverable, " +
+                    $"role={(_isServer ? "host" : "client")}, verdict=FAIL");
+                Reset();
+                return;
+            }
+
+            LogLevel terminalLevel = failure ? LogLevel.Error : LogLevel.Info;
+            foreach (TerminalRecord record in records)
+                LogTerminal(terminalLevel, record.Message, record.Data);
+            Reset();
+        }
+
+        private static List<TerminalRecord> BuildTerminalRecords(
+            IReadOnlyList<string> chunks,
+            int coverageEntries,
+            string coverageSha,
+            string reason,
+            bool failure)
+        {
+            var records = new List<TerminalRecord>(
+                (chunks?.Count ?? 0) + NonManifestTerminalLines);
+            if (chunks != null)
+            {
+                for (int index = 0; index < chunks.Count; index++)
+                {
+                    records.Add(new TerminalRecord(
+                        "coverage-manifest",
+                        $"chunk={index + 1}/{chunks.Count}, entries={chunks[index]}"));
+                }
+            }
+
+            records.Add(new TerminalRecord(
+                "terminal-summary-core",
+                $"manifestChunks={chunks?.Count ?? 0}, " +
+                $"manifestPreflightFailures={_manifestPreflightFailures}, " +
+                $"terminalPreflightFailures={_terminalPreflightFailures}, " +
+                $"frames={_frames}, align={_align}, move={_move}, noIntent={_noIntent}, " +
+                $"endpoint={_endpoint}, targetPriority={_targetPriority}, rejected={_rejected}, " +
+                $"invalid={_invalid}, gateFailures={_gateFailures}, " +
+                $"writerSelectionFailures={_writerSelectionFailures}, " +
                 $"clientRootOrReducerWriteAttempts={_clientWriteAttempts}, " +
                 $"attackWriterOwnershipConflicts={_attackWriterOwnershipConflicts}, " +
                 $"ignoredServerTargetEvents={_ignoredServerTargetEvents}, " +
-                $"heldFrames={_heldFrames}, " +
-                $"stationaryWalkViolations={_stationaryWalkViolations}, " +
+                $"heldFrames={_heldFrames}, stationaryWalkViolations={_stationaryWalkViolations}, " +
+                $"failureDetails={_failureDetails}, " +
+                $"failureEvidenceOverflow={_failureEvidenceOverflow}, " +
+                $"adapterFailures={_adapterFailures}, droppedLogs={_dropped}"));
+            records.Add(new TerminalRecord(
+                "terminal-summary-corridor",
+                $"corridorFullSmooth={_corridorFullSmooth}, " +
+                $"corridorReducedSmooth={_corridorReducedSmooth}, " +
+                $"corridorFullDirect={_corridorFullDirect}, " +
+                $"corridorReducedDirect={_corridorReducedDirect}, " +
+                $"corridorStationaryAlignment={_corridorStationaryAlignment}, " +
+                $"corridorRepathRequired={_corridorRepathRequired}, " +
+                $"corridorStartTileEgressFrames={_corridorStartTileEgressFrames}"));
+            records.Add(new TerminalRecord(
+                "terminal-summary-spatial-commit",
                 $"spatialTransitionsPlanned={_spatialTransitionsPlanned}, " +
                 $"spatialTransitionsCommitted={_spatialTransitionsCommitted}, " +
                 $"spatialNoTransitionPlans={_spatialNoTransitionPlans}, " +
@@ -916,15 +1013,17 @@ namespace Hexiege.Infrastructure
                 $"spatialPreflightFailures={_spatialPreflightFailures}, " +
                 $"spatialCommitFailures={_spatialCommitFailures}, " +
                 $"spatialRecoveries={_spatialRecoveries}, " +
+                $"spatialStagesForCommit={_spatialStagesForCommit}"));
+            records.Add(new TerminalRecord(
+                "terminal-summary-spatial-repath",
                 $"spatialFinalRecoverableRepaths={_spatialFinalRecoverableRepaths}, " +
                 $"spatialRepeatedRecoverableRepaths={_spatialRepeatedRecoverableRepaths}, " +
                 $"spatialFatalPreflights={_spatialFatalPreflights}, " +
-                $"spatialStagesForCommit={_spatialStagesForCommit}, " +
                 $"spatialCleanupAfterRecoverable={_spatialCleanupAfterRecoverable}, " +
                 $"spatialSameFrameRetries={_spatialSameFrameRetries}, " +
-                $"spatialStageDivergences={_spatialStageDivergences}, " +
-                $"failureDetails={_failureDetails}, " +
-                $"failureEvidenceOverflow={_failureEvidenceOverflow}, " +
+                $"spatialStageDivergences={_spatialStageDivergences}"));
+            records.Add(new TerminalRecord(
+                "terminal-summary-replication",
                 $"clientReplicatedSamples={_clientReplicatedSamples}, " +
                 $"clientReplicatedInvalid={_clientReplicatedInvalid}, " +
                 $"clientReplicatedDuplicates={_clientReplicatedDuplicates}, " +
@@ -937,11 +1036,118 @@ namespace Hexiege.Infrastructure
                 $"clientIdentityConflicts={_clientIdentityConflicts}, " +
                 $"clientScopeRegressions={_clientScopeRegressions}, " +
                 $"lifecycleIdentityConflicts={_lifecycleIdentityConflicts}, " +
-                $"coverageEntries={entries.Count}, coverageSha256={sha}, droppedLogs={_dropped}, " +
-                $"manifestPreflightFailures={_manifestPreflightFailures}, " +
-                $"terminalOverflow={_terminalOverflow}, " +
-                $"verdict={(failure ? "FAIL" : "EVIDENCE")}");
+                $"coverageEntries={coverageEntries}, coverageSha256={coverageSha}, " +
+                $"terminalOverflow={_terminalOverflow}"));
+            records.Add(new TerminalRecord(
+                "END",
+                $"reason={NormalizeTerminalToken(reason)}, " +
+                $"role={(_isServer ? "host" : "client")}, " +
+                $"verdict={(failure ? "FAIL" : "EVIDENCE")}"));
+            return records;
+        }
+
+        private static bool TryPreflightTerminalRecords(
+            IReadOnlyList<TerminalRecord> records,
+            out int maximumUtf8Bytes)
+        {
+            maximumUtf8Bytes = 0;
+            if (records == null || records.Count > ReservedTerminalLines)
+                return false;
+            for (int index = 0; index < records.Count; index++)
+            {
+                TerminalRecord record = records[index];
+                int bytes = Encoding.UTF8.GetByteCount(FormatFullTerminalLine(
+                    record.Message,
+                    record.Data,
+                    _runId,
+                    _sessionKey,
+                    _startedAt));
+                maximumUtf8Bytes = Math.Max(maximumUtf8Bytes, bytes);
+                if (bytes >= MaximumFullLineUtf8BytesExclusive)
+                    return false;
+            }
+            return true;
+        }
+
+        private static string FormatFullTerminalLine(
+            string message,
+            string data,
+            string runId,
+            string sessionKey,
+            double startedAt)
+        {
+            return
+                "[00:00:00.000] [ERROR] [Network/UnitMovementAuthorityObserver] " +
+                $"[UAS-MOVE-AUTH] {message} | " +
+                $"runId={runId ?? "unavailable"}, " +
+                $"sharedSessionKey={sessionKey ?? "unavailable"}, " +
+                $"startedAt={startedAt:F6}, {data}";
+        }
+
+        private static string NormalizeTerminalToken(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "unavailable";
+            string normalized = value.Replace(',', '_').Replace('\r', '_').Replace('\n', '_');
+            return normalized.Length <= 64 ? normalized : normalized.Substring(0, 64);
+        }
+
+        internal static string ValidateTerminalPreflightForValidation(
+            int manifestChunks,
+            string payload)
+        {
+            if (manifestChunks < 0 || payload == null) return "Invalid";
+            var records = new List<TerminalRecord>(manifestChunks + NonManifestTerminalLines);
+            for (int index = 0; index < manifestChunks; index++)
+            {
+                records.Add(new TerminalRecord(
+                    "coverage-manifest",
+                    $"chunk={index + 1}/{manifestChunks}, entries={payload}"));
+            }
+            records.Add(new TerminalRecord("terminal-summary-core", "value=1"));
+            records.Add(new TerminalRecord("terminal-summary-corridor", "value=1"));
+            records.Add(new TerminalRecord("terminal-summary-spatial-commit", "value=1"));
+            records.Add(new TerminalRecord("terminal-summary-spatial-repath", "value=1"));
+            records.Add(new TerminalRecord("terminal-summary-replication", "value=1"));
+            records.Add(new TerminalRecord(
+                "END",
+                "reason=fixture, role=host, verdict=EVIDENCE"));
+
+            string previousRunId = _runId;
+            string previousSessionKey = _sessionKey;
+            double previousStartedAt = _startedAt;
+            _runId = new string('r', 32);
+            _sessionKey = new string('s', 64);
+            _startedAt = 123456.123456d;
+            bool valid = TryPreflightTerminalRecords(records, out int maximumBytes);
+            _runId = previousRunId;
+            _sessionKey = previousSessionKey;
+            _startedAt = previousStartedAt;
+            return $"valid={valid},lines={records.Count},maxBytes={maximumBytes}";
+        }
+
+        internal static string ValidateProductionTerminalRecordsForValidation()
+        {
             Reset();
+            _runId = new string('r', 32);
+            _sessionKey = new string('s', 64);
+            _startedAt = 123456.123456d;
+            var chunks = new List<string>(MaximumManifestChunks);
+            for (int index = 0; index < MaximumManifestChunks; index++)
+                chunks.Add(new string('x', PayloadLimit));
+            List<TerminalRecord> records = BuildTerminalRecords(
+                chunks,
+                coverageEntries: int.MaxValue,
+                coverageSha: new string('a', 64),
+                reason: new string('r', 64),
+                failure: true);
+            bool valid = TryPreflightTerminalRecords(records, out int maximumBytes);
+            int lines = records.Count;
+            Reset();
+            bool reset = _runId == null
+                && _sessionKey == null
+                && _terminalLines == 0
+                && _terminalPreflightFailures == 0;
+            return $"valid={valid},lines={lines},maxBytes={maximumBytes},reset={reset}";
         }
 
         private static void Log(LogLevel level, string message, string data)
@@ -1032,12 +1238,14 @@ namespace Hexiege.Infrastructure
             _spatialSameFrameRetries = 0;
             _spatialStageDivergences = 0;
             _terminalLines = _terminalOverflow = _manifestPreflightFailures = 0;
+            _terminalPreflightFailures = 0;
             _clientReplicatedSamples = _clientReplicatedInvalid = 0;
             _clientReplicatedDuplicates = _clientRevisionZero = 0;
             _clientRevisionRegressions = _clientSameRevisionConflicts = 0;
             _clientInvalidPhase = _clientUnitUninitialized = _clientInvalidScope = 0;
             _clientIdentityConflicts = _clientScopeRegressions = 0;
             _lifecycleIdentityConflicts = 0;
+            _adapterFailures = 0;
         }
 
         [Flags]
@@ -1060,6 +1268,18 @@ namespace Hexiege.Infrastructure
             NotFound = 0,
             Retired = 1,
             IdentityConflictRetired = 2
+        }
+
+        private readonly struct TerminalRecord
+        {
+            internal readonly string Message;
+            internal readonly string Data;
+
+            internal TerminalRecord(string message, string data)
+            {
+                Message = message;
+                Data = data;
+            }
         }
 
         private readonly struct ServerPhaseSnapshot

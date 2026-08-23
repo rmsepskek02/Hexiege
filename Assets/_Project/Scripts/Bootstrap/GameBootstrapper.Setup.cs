@@ -10,9 +10,14 @@
 //      - InitializeBuildingStatsFromConfig
 //   2. orientation별 HexMetrics 설정 적용 (ApplyConfig)
 //   3. UseCase 인스턴스 일괄 생성 (CreateUseCases)
-//   4. 카메라 초기 위치/경계/줌 설정 (SetupCamera, SetCameraStartPositionForTeam)
+//   4. 카메라 초기 위치/경계/줌 설정 (SetupCamera)
 //   5. 입력 핸들러 의존성 주입 (SetupInput)
 //   6. 건물/생산 시스템 초기화 (SetupBuildings, SetupProduction)
+//
+// 로그 시스템 초기화는 더 이상 이 파일에 없다:
+//   기존 InitializeLogging / ShutdownLogging / OnUnityLogMessageReceived 는
+//   Infrastructure/Debug/LogSessionOwner.cs 로 이동했다(정적 소유자).
+//   씬마다 부트스트래퍼가 달라도 로그 세션이 하나로 유지되게 하기 위해서다.
 //
 // 규칙:
 //   * [SerializeField] 필드를 본 파일에 추가하지 않는다 — Inspector 추적성 보장.
@@ -55,8 +60,13 @@ namespace Hexiege.Bootstrap
         {
             if (_unitStatsConfig == null)
             {
-                Debug.LogError("[GameBootstrapper] UnitStatsConfig가 연결되지 않았습니다. " +
-                               "Inspector의 Config 섹션에서 Assets/_Project/Resources/Config/UnitStatsConfig.asset을 연결해 주세요.");
+                // [개발] Inspector 배선 누락 = 설정 오류다(LogRules.md 1.3 분류 원칙 3 의 단서).
+                //   원본은 LogError 였지만, 설정 오류는 플레이어 기기의 문제가 아니라
+                //   개발 환경의 문제이고 빌드 전에 잡히므로 Warn + 개발로 낮춘다.
+                GameLog.Dev.Warn("Bootstrap", nameof(GameBootstrapper),
+                                 "UnitStatsConfig 미연결 — Inspector 의 Config 섹션에서 " +
+                                 "Assets/_Project/Resources/Config/UnitStatsConfig.asset 을 연결할 것",
+                                 "Config=UnitStatsConfig");
                 return;
             }
 
@@ -93,8 +103,11 @@ namespace Hexiege.Bootstrap
             UnitStats.Initialize(statDict);
             UnitProductionStats.Initialize(prodDict);
 
-            Debug.Log($"[GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료. " +
-                      $"등록된 유닛 수: {statDict.Count}");
+            // [개발] 초기화 완료 통보. 축 A: 정상 흐름 → Info / 축 B: 에디터 재현 가능 → 개발.
+            //   "등록된 유닛 수"는 자유 문장이 아니라 집계 가능한 값이므로 key=value 로 옮겼다(1.4).
+            GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper),
+                             "UnitStats / UnitProductionStats 초기화 완료",
+                             $"UnitCount={statDict.Count}");
         }
 
         // ====================================================================
@@ -119,8 +132,12 @@ namespace Hexiege.Bootstrap
         {
             if (_buildingStatsConfig == null)
             {
-                Debug.LogError("[GameBootstrapper] BuildingStatsConfig가 연결되지 않았습니다. " +
-                               "Inspector의 Config 섹션에서 Assets/_Project/Resources/Config/BuildingStatsConfig.asset을 연결해 주세요.");
+                // [개발] 위 UnitStatsConfig 와 같은 성격의 Inspector 배선 누락이다.
+                //   같은 종류의 사건은 같은 축 값을 써야 지표가 갈라지지 않는다 → Warn + 개발.
+                GameLog.Dev.Warn("Bootstrap", nameof(GameBootstrapper),
+                                 "BuildingStatsConfig 미연결 — Inspector 의 Config 섹션에서 " +
+                                 "Assets/_Project/Resources/Config/BuildingStatsConfig.asset 을 연결할 것",
+                                 "Config=BuildingStatsConfig");
                 return;
             }
 
@@ -228,8 +245,9 @@ namespace Hexiege.Bootstrap
                 }
             }
 
-            Debug.Log($"[GameBootstrapper] BuildingStats 초기화 완료. " +
-                      $"등록된 (건물×종족) 엔트리 수: {dict.Count}");
+            // [개발] 초기화 완료 통보 — UnitStats 쪽과 동일한 판정(Info + 개발).
+            GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "BuildingStats 초기화 완료",
+                             $"EntryCount={dict.Count}");
         }
 
         // ====================================================================
@@ -517,51 +535,6 @@ namespace Hexiege.Bootstrap
             }
         }
 
-        /// <summary>
-        /// 로컬 플레이어 팀에 맞춰 카메라 초기 위치를 설정.
-        /// Blue 팀: 맵 하단(자신의 Castle 근처), Red 팀: 반전된 뷰 기준 하단.
-        /// ViewConverter가 설정된 후 호출되어야 함.
-        /// XZ 평면 기반: X, Z로 맵 위치, Y는 카메라 높이(CameraController가 유지).
-        /// </summary>
-        private void SetCameraStartPositionForTeam(TeamId localTeam, OrientationConfig oc)
-        {
-            if (_cameraController == null) return;
-
-            // 양 팀 모두 '자기 진영 = 화면 하단' 규칙 → 카메라는 항상 맵 하단 행을 향함
-            // Red팀은 ViewConverter가 반전하므로 도메인 좌표에서는 상단(Red Castle 근처)을 지정
-            int cameraRow;
-            if (localTeam == TeamId.Red)
-            {
-                // Red 팀: 도메인 좌표에서 맵 상단 (ViewConverter가 뷰에서 하단으로 반전)
-                cameraRow = 2;
-            }
-            else
-            {
-                // Blue 팀(또는 기본): 맵 하단 (Blue Castle 근처)
-                cameraRow = oc.GridHeight - 3;
-            }
-
-            HexCoord cameraTargetCoord = HexGrid.OffsetToCube(
-                oc.GridWidth / 2, cameraRow, HexOrientation.FlatTop);
-            Vector3 startPos = HexMetrics.HexToWorld(cameraTargetCoord);
-            // 카메라 위치도 뷰 좌표계로 변환 (Red팀이면 반전)
-            startPos = ViewConverter.ToView(startPos);
-
-            // 틸트 보정: 카메라가 틸트되어 있으면 목표 지점이 화면 중앙에 오도록 Z 오프셋 적용
-            float tiltAngle = _cameraController.TiltAngle;
-            if (tiltAngle > 0f && tiltAngle < 90f)
-            {
-                float cameraHeight = _mainCamera != null ? _mainCamera.transform.position.y : 15f;
-                float zOffset = cameraHeight / Mathf.Tan(tiltAngle * Mathf.Deg2Rad);
-                startPos.z -= zOffset;
-            }
-
-            // Y는 카메라 높이 — CameraController.SetPosition()이 기존 Y를 유지
-            _cameraController.SetPosition(startPos);
-
-            Debug.Log($"[Network] 카메라 시작 위치 설정. 팀={localTeam}, 행={cameraRow}, " +
-                      $"뷰반전={ViewConverter.IsFlipped}");
-        }
 
         // ====================================================================
         // 입력 연결
@@ -782,8 +755,14 @@ namespace Hexiege.Bootstrap
             AIConfig aiConfig = Resources.Load<AIConfig>("Config/AIConfig");
             if (aiConfig == null)
             {
-                Debug.LogError("[GameBootstrapper] AIConfig.asset을 찾을 수 없습니다. " +
-                               "메뉴 Hexiege/Setup/AIConfig 생성으로 만들어 주세요. AI를 비활성화합니다.");
+                // [개발] Resources 에셋 누락도 Inspector 배선 누락과 같은 "설정 오류"다.
+                //   프로젝트에 에셋이 있으면 모든 기기에서 있고, 없으면 모든 기기에서 없다 —
+                //   플레이어 기기에서만 벌어지는 일이 아니므로 축 B 는 개발이다(1.3 원칙 3 단서).
+                //   축 A: AI 만 꺼지고 게임은 정상 진행된다 → 복구됨 → Warn.
+                GameLog.Dev.Warn("Bootstrap", nameof(GameBootstrapper),
+                                 "AIConfig.asset 을 찾을 수 없어 AI 를 비활성화한다 — " +
+                                 "메뉴 Hexiege/Setup/AIConfig 생성으로 만들 것",
+                                 "Asset=Config/AIConfig");
                 return;
             }
 
@@ -792,7 +771,10 @@ namespace Hexiege.Bootstrap
             //   에러가 아닌 정상 동작이므로 LogError가 아닌 Log로 남긴다.
             if (!aiConfig.enableAI)
             {
-                Debug.Log("[GameBootstrapper] AIConfig.enableAI = false — AI를 비활성화합니다.");
+                // [개발] 설정대로 동작한 것이므로 에러가 아니다 → 축 A Info / 축 B 개발.
+                GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper),
+                                 "AIConfig.enableAI = false — AI 를 비활성화한다",
+                                 "EnableAI=False");
                 return;
             }
 
@@ -805,9 +787,13 @@ namespace Hexiege.Bootstrap
             var (scenarioSteps, scenarioName) = LoadScenarioBundleForRace();
             if (scenarioSteps == null)
             {
-                Debug.LogError("[GameBootstrapper] AI 시나리오 에셋을 찾을 수 없습니다. " +
-                               "AIScenarioConfig_Human.asset이 Resources/Config/에 있는지 확인하세요. " +
-                               "AI를 비활성화합니다.");
+                // [개발] AIConfig 누락(위)과 같은 성격의 에셋 설정 오류 → Warn + 개발.
+                //   실제 누락 사유(경로 없음 / scenarios 배열이 빔)는 LoadScenarioBundleForRace 가
+                //   종족과 함께 이미 남기므로, 여기서는 "AI 를 껐다"는 결과만 남긴다.
+                GameLog.Dev.Warn("Bootstrap", nameof(GameBootstrapper),
+                                 "AI 시나리오 에셋을 찾을 수 없어 AI 를 비활성화한다 — " +
+                                 "AIScenarioConfig_(종족).asset 이 Resources/Config/ 에 있는지 확인할 것",
+                                 $"AiRace={GameRaceContext.RedRace}");
                 return;
             }
 
@@ -827,8 +813,10 @@ namespace Hexiege.Bootstrap
                 difficulty,
                 _unitUpgrade); // [Phase 5] 연구 스텝(StartResearch) 실행용. null이면 연구 스텝은 스킵.
 
-            Debug.Log($"[GameBootstrapper] AI 초기화 완료. 난이도={difficulty}, " +
-                      $"시나리오={scenarioName}, 수입배율={aiParams.goldIncomeMultiplier}");
+            // [개발] 초기화 완료 통보 → Info + 개발.
+            GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "AI 초기화 완료",
+                             $"Difficulty={difficulty}, Scenario={scenarioName}, " +
+                             $"GoldIncomeMultiplier={aiParams.goldIncomeMultiplier}");
         }
 
         /// <summary>
@@ -866,8 +854,12 @@ namespace Hexiege.Bootstrap
                     path = "Config/AIScenarioConfig_Transcendence";
                     break;
                 default:
-                    Debug.LogWarning($"[GameBootstrapper] 알 수 없는 AI 종족({aiRace})입니다. " +
-                                     "시나리오를 로드할 수 없습니다.");
+                    // [개발] 새 종족을 RaceId 에 추가하고 이 switch 를 갱신하지 않았을 때만 도달한다.
+                    //   즉 코드 버그이며 에디터에서 그대로 재현된다 → 축 B ①이 "아니오" → 개발.
+                    //   축 A: AI 만 꺼지고 게임은 진행된다 → Warn.
+                    GameLog.Dev.Warn("Bootstrap", nameof(GameBootstrapper),
+                                     "알 수 없는 AI 종족 — 시나리오를 로드할 수 없다",
+                                     $"AiRace={aiRace}");
                     return (null, null);
             }
 
@@ -875,21 +867,28 @@ namespace Hexiege.Bootstrap
 
             if (config == null)
             {
-                Debug.LogWarning($"[GameBootstrapper] (종족={aiRace}) {path}.asset을 찾을 수 없습니다.");
+                // [개발] Resources 에셋 누락 = 설정 오류 → Warn + 개발(1.3 원칙 3 단서).
+                GameLog.Dev.Warn("Bootstrap", nameof(GameBootstrapper),
+                                 "AI 시나리오 에셋을 찾을 수 없다",
+                                 $"AiRace={aiRace}, Asset={path}");
                 return (null, null);
             }
 
             if (config.scenarios == null || config.scenarios.Count == 0)
             {
-                Debug.LogWarning($"[GameBootstrapper] (종족={aiRace}) {path}.asset의 " +
-                                 "scenarios 배열이 비어 있습니다.");
+                // [개발] 에셋은 있는데 내용이 비어 있는 경우 — 위와 같은 에셋 설정 오류다.
+                //   원인이 "없음"이 아니라 "비어 있음"이라 조치가 다르므로 메시지를 나눠 둔다.
+                GameLog.Dev.Warn("Bootstrap", nameof(GameBootstrapper),
+                                 "AI 시나리오 에셋의 scenarios 배열이 비어 있다",
+                                 $"AiRace={aiRace}, Asset={path}");
                 return (null, null);
             }
 
             int idx = UnityEngine.Random.Range(0, config.scenarios.Count);
             var bundle = config.scenarios[idx];
-            Debug.Log($"[GameBootstrapper] 시나리오 선택: 종족={aiRace}, " +
-                      $"{bundle.scenarioName} (인덱스 {idx})");
+            // [개발] 무작위 선택 결과 추적용 → Info + 개발.
+            GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "AI 시나리오 선택",
+                             $"AiRace={aiRace}, Scenario={bundle.scenarioName}, Index={idx}");
             return (bundle.steps, bundle.scenarioName);
         }
     }

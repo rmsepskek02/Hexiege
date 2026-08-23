@@ -121,8 +121,9 @@ namespace Hexiege.Infrastructure
 
         private void OnDisable()
         {
-            // NetworkCombatController normally stops us before RuntimeLogger.EndSession.
-            // This is a safe fallback for an unexpected component disable.
+            // NetworkCombatController normally stops us while the process-wide
+            // LogSessionOwner session is still open. This is a safe fallback for an
+            // unexpected component disable; this observer never owns the session.
             StopInternal(writeSummary: true);
         }
 

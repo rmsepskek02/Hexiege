@@ -124,8 +124,13 @@ namespace Hexiege.Presentation
             // 멀티플레이에서 NGM을 못 찾으면 로비 복귀 시 네트워크 종료가 누락되므로 경고만 남긴다.
             // (싱글플레이는 NGM이 없는 것이 정상이므로 NetworkContext.IsNetworkActive로 분기)
             if (_networkGameManager == null && NetworkContext.IsNetworkActive)
-                Debug.LogError("[Network] GameEndUI: NetworkGameManager를 찾을 수 없습니다. " +
-                               "로비 복귀 시 NGO Shutdown이 누락될 수 있습니다.");
+            {
+                // [개발] Warn + 개발 — LobbyUI · LobbyRootView 와 같은 사건, 같은 판정이다.
+                //   FindFirstObjectByType 이 null 이라는 것은 "씬(또는 DontDestroyOnLoad)에 없다" 는 뜻이고,
+                //   그건 배치 누락이라는 설정 오류다(1.3 원칙 3 단서) → Warn + 개발.
+                GameLog.Dev.Warn("Network", nameof(GameEndUI),
+                                 "NetworkGameManager 를 찾을 수 없다 — 로비 복귀 시 NGO Shutdown 이 누락될 수 있다");
+            }
 
             // 이전 구독 정리 (재시작 시 중복 방지)
             _gameEndSubscription?.Dispose();

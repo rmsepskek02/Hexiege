@@ -44,7 +44,7 @@ namespace Hexiege.Editor.Combat
             ValidateDuplicateAndReorderedResults();
             ValidateA1ContractsAndReducer();
 
-            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and reserved-terminal preflight, B3 match-fixed movement pipeline mode/rollback, publish-staged reducer prepare/commit atomicity, route checkpoint/spatial Root transition separation, trajectory and non-trajectory reducer-facing synchronization, allocation-stable corridor validation seam, gameplay-gated movement-to-action rotation ownership, retry-stable deferred movement scope commit, arrival-committed adjacent path-start transition, path[0] start-tile egress confinement, bounded terminal corridor Root/Domain/UnitData/path/sample evidence, typed v9 candidate probe/final-stage semantics with staged-versus-commit accounting, recoverable-history retention, reduced/stationary/repath fallback and fatal separation, no same-frame retry, continuous 60-degree trajectory/150-degree reverse/held-progress invariants, objective-scoped finite repath frame/no-progress/environment-reset and duplicate-command suppression, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and lifecycle retire/reuse including recoverable observer history, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
+            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and full-line UTF-8 terminal preflight, B3 match-fixed movement pipeline mode/rollback, publish-staged reducer prepare/commit atomicity, route checkpoint/spatial Root transition separation, trajectory and non-trajectory reducer-facing synchronization, allocation-stable corridor validation seam, gameplay-gated movement-to-action rotation ownership, retry-stable deferred movement scope commit, arrival-committed adjacent path-start transition, path[0] start-tile egress confinement, bounded terminal corridor Root/Domain/UnitData/path/sample evidence, bounded UnitView adapter failure evidence, typed v9 candidate probe/final-stage semantics with staged-versus-commit accounting, recoverable-history retention, reduced/stationary/repath fallback and fatal separation, no same-frame retry, continuous 60-degree trajectory/150-degree reverse/held-progress invariants, objective-scoped finite repath frame/no-progress/environment-reset and duplicate-command suppression, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and lifecycle retire/reuse including recoverable observer history, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
         }
 
         private static void ValidateB3SpatialTransitionPolicy()
@@ -939,7 +939,18 @@ namespace Hexiege.Editor.Combat
             MethodInfo shouldObserve = observerType.GetMethod(
                 "ShouldObserveClientReplicatedState",
                 BindingFlags.Static | BindingFlags.NonPublic);
-            Require(classify != null && retire != null && shouldObserve != null,
+            MethodInfo adapterBounds = observerType.GetMethod(
+                "ValidateAdapterFailureStateForValidation",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo terminalPreflight = observerType.GetMethod(
+                "ValidateTerminalPreflightForValidation",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo productionTerminal = observerType.GetMethod(
+                "ValidateProductionTerminalRecordsForValidation",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Require(classify != null && retire != null && shouldObserve != null
+                    && adapterBounds != null && terminalPreflight != null
+                    && productionTerminal != null,
                 "B3 client replication classification seam is incomplete.");
 
             string Classify(
@@ -1019,6 +1030,38 @@ namespace Hexiege.Editor.Combat
                 && (bool)shouldObserve.Invoke(
                     null, new object[] { 7, 9UL }),
                 "A coalesced snapshot must defer while unitId is uninitialized and intake after registration.");
+            Require((string)adapterBounds.Invoke(null, new object[] { 64 })
+                        == "details=64,overflow=0,adapter=64,failure=True,reset=True"
+                    && (string)adapterBounds.Invoke(null, new object[] { 65 })
+                        == "details=64,overflow=1,adapter=65,failure=True,reset=True",
+                "UnitView adapter failures must exercise real observer counters, fail verdict, bounded detail overflow and Reset.");
+            string exactTerminalBudget = (string)terminalPreflight.Invoke(
+                null,
+                new object[] { 26, new string('x', 700) });
+            Require(exactTerminalBudget.StartsWith(
+                    "valid=True,lines=32,maxBytes=",
+                    StringComparison.Ordinal),
+                "26 manifest chunks plus five summary parts and END must fit the 32-line terminal budget.");
+            Require((string)terminalPreflight.Invoke(
+                    null,
+                    new object[] { 27, new string('x', 700) })
+                        == "valid=False,lines=33,maxBytes=0",
+                "A terminal record set above 32 lines must fail closed before emission.");
+            string utf8Overflow = (string)terminalPreflight.Invoke(
+                null,
+                new object[] { 1, new string('가', 300) });
+            Require(utf8Overflow.StartsWith(
+                    "valid=False,lines=7,maxBytes=",
+                    StringComparison.Ordinal),
+                "Terminal full-line limits must count UTF-8 bytes including identity and logger prefixes.");
+            string productionTerminalResult = (string)productionTerminal.Invoke(null, null);
+            Require(productionTerminalResult.StartsWith(
+                        "valid=True,lines=32,maxBytes=",
+                        StringComparison.Ordinal)
+                    && productionTerminalResult.EndsWith(
+                        ",reset=True",
+                        StringComparison.Ordinal),
+                "Production terminal manifest, five summary parts and compact END must all fit full-line UTF-8 and reset cleanly.");
         }
 
         private static void ValidateB3MovementPipelineModeLatch()

@@ -57,14 +57,22 @@ namespace Hexiege.Infrastructure
             // 그 경우 사용 시점 ResolveServices()가 지연 재조회로 복구한다(스폰 레이스 방지).
             if (ResolveServices() == null)
             {
-                Debug.LogWarning("[Network] NetworkSkillController: GameServicesLocator에 IGameServices가 없습니다(스폰 레이스 가능 — 사용 시점 재조회로 복구 시도).");
+                // [운영] 축 A=Warn / 축 B=운영 — 배치 1-A 와 같은 사건이므로 같은 키를 쓴다.
+                //   축 A: 여기서 return 하지 않고 EnsureStatusSubscription() 이 첫 발동 시 복구한다 → Warn.
+                //   축 B: NGO 스폰 타이밍은 회선 상태에 좌우돼 플레이어 기기에서만 어긋날 수 있고(①),
+                //         플레이어에게 알리는 경로가 없다(②) → 운영.
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices,
+                                 "Network", nameof(NetworkSkillController),
+                                 "스폰 시점에 IGameServices 를 얻지 못했다 — 사용 시점 재조회로 복구를 시도한다",
+                                 $"IsServer={IsServer}");
             }
 
             // 서버만 타입 C 상태 부여 훅을 구독해 양 클라 브로드캐스트를 트리거한다.
             //   스폰 레이스로 services가 아직 null이면 여기선 건너뛰고, 첫 발동 시 EnsureStatusSubscription이 복구한다.
             EnsureStatusSubscription();
 
-            Debug.Log($"[Network] NetworkSkillController 스폰. IsServer={IsServer}");
+            // [개발] 스폰 진입 흔적 → Info / 개발.
+            GameLog.Dev.Info("Network", nameof(NetworkSkillController), "네트워크 스폰", $"IsServer={IsServer}");
         }
 
         public override void OnNetworkDespawn()

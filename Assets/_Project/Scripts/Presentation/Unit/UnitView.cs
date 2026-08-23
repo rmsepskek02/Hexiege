@@ -1874,7 +1874,7 @@ namespace Hexiege.Presentation
             if (outcome != MovementWriteOutcome.Rejected)
                 return true;
 
-            Debug.LogError(
+            ObserveMovementAuthorityAdapterFailure("completion-no-intent-rejected",
                 $"[UAS-MOVE] 이동 종료 NoIntent 게시 거부. " +
                 $"unitId={_unitData.Id}, boundary={boundary}, " +
                 $"commandRevision={_movementCommandRevision}, " +
@@ -2377,6 +2377,17 @@ namespace Hexiege.Presentation
             return false;
         }
 
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void ObserveMovementAuthorityAdapterFailure(
+            string kind,
+            string context)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            UnitMovementAuthorityObserver.ObserveAdapterFailure(kind, context);
+#endif
+        }
+
         private void LogRepathFailClosed(
             UnitRepathProgressGuard guard,
             IReadOnlyList<HexCoord> candidatePath,
@@ -2398,7 +2409,7 @@ namespace Hexiege.Presentation
             string corridorEvidence = source == "astar-corridor"
                 ? FormatCorridorRepathEvidence(_lastCorridorRepathEvidence)
                 : "not-applicable";
-            Debug.LogError(
+            ObserveMovementAuthorityAdapterFailure("repath-fail-closed",
                 $"[UAS-MOVE][REPATH-FAIL-CLOSED] unitId={unitId}, " +
                 $"commandRevision={_movementCommandRevision}, " +
                 $"segmentRevision={_movementSegmentRevision}, " +
@@ -2747,7 +2758,7 @@ namespace Hexiege.Presentation
                         }
                         if (movementOutcome == MovementWriteOutcome.Rejected)
                         {
-                            Debug.LogError(
+                            ObserveMovementAuthorityAdapterFailure("authority-frame-rejected",
                                 $"[UAS-MOVE] 권위 이동 frame 거부. unitId={_unitData.Id}, " +
                                 $"commandRevision={_movementCommandRevision}, " +
                                 $"segmentRevision={_movementSegmentRevision}");
@@ -3021,7 +3032,7 @@ namespace Hexiege.Presentation
                                     }
                                     if (alignOutcome == MovementWriteOutcome.Rejected)
                                     {
-                                        Debug.LogError(
+                                        ObserveMovementAuthorityAdapterFailure("resume-align-rejected",
                                             $"[UAS-MOVE] 권위 복귀 정렬 frame 거부. " +
                                             $"unitId={_unitData.Id}, " +
                                             $"commandRevision={_movementCommandRevision}, " +
@@ -3098,7 +3109,7 @@ namespace Hexiege.Presentation
                                 targetAcquirePriority: false);
                             if (alignEndpointOutcome == MovementWriteOutcome.Rejected)
                             {
-                                Debug.LogError(
+                                ObserveMovementAuthorityAdapterFailure("resume-endpoint-rejected",
                                     $"[UAS-MOVE] 권위 복귀 endpoint 거부. unitId={_unitData.Id}");
                                 movementFailedClosed = true;
                                 goto cleanup;
@@ -3166,7 +3177,7 @@ namespace Hexiege.Presentation
                             targetAcquirePriority: false);
                         if (endpointOutcome == MovementWriteOutcome.Rejected)
                         {
-                            Debug.LogError(
+                            ObserveMovementAuthorityAdapterFailure("movement-endpoint-rejected",
                                 $"[UAS-MOVE] 권위 이동 endpoint 거부. unitId={_unitData.Id}");
                             movementFailedClosed = true;
                             goto cleanup;
@@ -3180,7 +3191,7 @@ namespace Hexiege.Presentation
                             i,
                             authoritativeWaypointReached))
                     {
-                        Debug.LogError(
+                        ObserveMovementAuthorityAdapterFailure("trajectory-checkpoint-rejected",
                             $"[UAS-MOVE] trajectory waypoint 순서 거부. " +
                             $"unitId={_unitData.Id}, index={i}, " +
                             $"expected={pathCheckpoint.NextWaypointIndex}");
@@ -3478,7 +3489,7 @@ namespace Hexiege.Presentation
                         targetAcquirePriority: true);
                     if (acquireOutcome == MovementWriteOutcome.Rejected)
                     {
-                        Debug.LogError(
+                        ObserveMovementAuthorityAdapterFailure("target-acquire-no-intent-rejected",
                             $"[UAS-MOVE] 공격 범위 진입 NoIntent 게시 거부. unitId={_unitData.Id}");
                         _isInCombatPursuit = false;
                         yield break;
@@ -3576,7 +3587,7 @@ namespace Hexiege.Presentation
                     }
                     if (pursuitOutcome == MovementWriteOutcome.Rejected)
                     {
-                        Debug.LogError(
+                        ObserveMovementAuthorityAdapterFailure("pursuit-frame-rejected",
                             $"[UAS-MOVE] 권위 추격 frame 거부. unitId={_unitData.Id}, " +
                             $"commandRevision={_movementCommandRevision}, " +
                             $"segmentRevision={_movementSegmentRevision}");

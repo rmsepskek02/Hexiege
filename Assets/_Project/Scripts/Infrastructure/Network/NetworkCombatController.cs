@@ -91,6 +91,12 @@ namespace Hexiege.Infrastructure
             new System.Collections.Generic.HashSet<int>();
 
         /// <summary>
+        /// OnGameEnd 구독 해제용 Disposable. 서버 전용(승패 확정 → 전투 틱 정지).
+        /// 위 6개와 같은 관례로 OnNetworkDespawn에서 반드시 해제한다.
+        /// </summary>
+        private System.IDisposable _gameEndSubscription;
+
+        /// <summary>
         /// 유닛별 현재 전투 타겟 추적. key=유닛Id, value=(타겟Id, 타겟이 유닛인지).
         /// 전투 중이 아닌 유닛은 Dictionary에 없음.
         /// TickCombat에서 이전 프레임 상태와 비교하여 상태 변화 시에만 RPC 전송.
@@ -181,6 +187,22 @@ namespace Hexiege.Infrastructure
         private readonly System.Collections.Generic.Queue<AttackResultKey> _poseObservationOrder
             = new System.Collections.Generic.Queue<AttackResultKey>();
 
+        /// <summary>
+        /// 게임 종료(승패 확정) 이후 서버 전투 틱을 멈추기 위한 플래그.
+        ///
+        /// [초급 개발자용 설명]
+        ///   승패가 갈리면 화면에는 승리/패배 팝업이 떠서 사용자에게는 이미 게임이 끝난 것으로 보인다.
+        ///   하지만 이 플래그가 없으면 서버는 네트워크가 실제로 꺼질 때까지(실측 약 2.6초)
+        ///   아무도 보지 않는 전투를 계속 계산하고 그 결과를 계속 RPC로 전송한다.
+        ///   이 플래그가 true가 되면 Update() 진입부에서 곧바로 빠져나가 TickCombat이 아예 실행되지 않는다.
+        ///
+        /// ⚠️ 이 플래그는 "경기마다 리셋해야 하는 상태"다.
+        ///   true인 채로 다음 경기가 시작되면 전투·타워·연구 등이 전부 멈춰 게임이 성립하지 않는다.
+        ///   그래서 바로 위의 _attackTimer / _lastCarry 와 똑같이
+        ///   OnNetworkSpawn(서버 분기)과 OnNetworkDespawn 양쪽에서 false로 되돌린다.
+        /// </summary>
+        private bool _combatStopped = false;
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -193,29 +215,62 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
-            // RuntimeLogger는 프로세스 전역 writer 하나만 가진다. 이 연결은 씬에
-            // NetworkCombatController가 정확히 한 개 존재한다는 기존 배치 규칙을 전제로 한다.
-            // Tracer A는 서버의 schedule/dispatch만 기록하므로 client 파일에는 세션 헤더만 남으며,
-            // 클라이언트 presentation 계측은 후속 Tracer에서 추가한다.
-            RuntimeLogger.BeginSession(
-                "Assets/_Project/Docs/_Logs/2026-07-22/13_26_unit-action-sequence-implementation",
-                IsServer ? "host" : "client");
-
             _services = GameServicesLocator.Current;
             if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkCombatController: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
+                // [운영] 스폰은 계속되고 아직 요청 전이라 기능이 죽지는 않았다 → 축 A Warn.
+                //   NGO 스폰 타이밍은 회선에 좌우돼 플레이어 기기에서만 어긋날 수 있고 통지 경로가
+                //   없다 → 축 B 운영. 선행 판정(NetworkBuildingController:58)과 같은 사건 → 같은 키.
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices,
+                                 "Network", nameof(NetworkCombatController),
+                                 "스폰 시점에 GameServicesLocator 에서 IGameServices 를 얻지 못했다");
             }
 
             // NetworkContext에 네트워크 상태 주입.
             // UnitCombatUseCase가 NetworkManager에 직접 의존하지 않도록
             // Application 레이어용 정적 홀더를 업데이트.
             NetworkContext.Set(isServer: IsServer, isActive: true);
-            Debug.Log($"[Network] NetworkCombatController 스폰. IsServer={IsServer}. NetworkContext 설정 완료.");
+
+            // ⚠️ 아래 한 줄은 "이관"이 아니라 "비활성화" 처리한 자리다. 사용자 승인 대기 중.
+            //
+            //   왜 지우려 하는가 (LogRules.md 1.14 금지 사항 9 — 같은 사건 두 곳 로깅 금지):
+            //     이 줄과 바로 아래 "네트워크 역할 확정" 줄은 **같은 사건(역할 확정)** 을 잇달아
+            //     두 번 기록한다. 이 줄은 IsServer= 로, 아래 줄은 Role= 로 같은 값을 찍는다.
+            //     LogRules.md 1.13 이 이 중복을 이미 지목해 두었고, 이번 작업 계획서(Plan.md §7-4)가
+            //     "이관이 아니라 제거 후보" 로 확정했다.
+            //
+            //   왜 지우지 않고 주석으로만 두는가:
+            //     기존 로직 제거는 사용자 승인 대상이다(WORKFLOW.md [4] · CLAUDE.md 규칙 11).
+            //     사용자 테스트에서 로그 흐름에 문제가 없음이 확인되면 이 주석 블록째로 삭제한다.
+            //
+            //   ⚠️ 함께 사라지는 정보: 원문의 "NetworkContext 설정 완료" 문구.
+            //     바로 윗줄이 NetworkContext.Set 이고 아랫줄이 그 결과를 Role= 로 찍으므로
+            //     같은 사실이 로그 순서만으로 그대로 읽힌다.
+            //
+            // Debug.Log($"[Network] NetworkCombatController 스폰. IsServer={IsServer}. NetworkContext 설정 완료.");
+
+            // ── 이 실행이 host 인지 client 인지를 로그 파일에 남긴다 (LogRules.md 1.4 / 1.10) ──
+            //
+            // 왜 파일명이 아니라 로그 한 줄인가:
+            //   LogRules.md 1.4 는 "| key=value" 부분을 "서버 전송 시 그대로 구조화 집계 필드가 되는 부분"
+            //   으로 규정한다. Role=Host 는 나중에 집계 축이 되지만, 파일명은 아무것도 되지 않는다.
+            //
+            // 왜 하필 여기인가:
+            //   OnNetworkSpawn 은 NGO 가 연결을 마쳐 IsServer 값이 확정되는 최초 지점이다.
+            //   (조합 루트인 GameBootstrapper.Awake 시점에는 아직 알 수 없다.)
+            //   바로 위에서 NetworkContext 에 역할을 주입했으므로, 그 결과를 그대로 기록하는 자리이기도 하다.
+            //
+            // 왜 "Host"/"Client" 로 첫 글자를 대문자로 쓰는가:
+            //   같은 Role= 키를 NetworkGameManager 도 쓰고 있고 그쪽이 "Host"/"Client" 표기다.
+            //   LogRules.md 1.4 는 표기가 섞이면 "집계가 조용히 둘로 갈라진다" 고 경고한다 —
+            //   서버로 보냈을 때 Role=host 와 Role=Host 가 서로 다른 값으로 세어지기 때문이다.
+            //   그래서 이미 쓰이고 있는 표기에 맞춘다. (2026-08-17 실기 로그에서 불일치 발견)
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController),
+                             "네트워크 역할 확정", $"Role={(IsServer ? "Host" : "Client")}");
 
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
-            // OnNetworkSpawn implies a live NGO multiplayer controller. Starting here (after
-            // BeginSession) prevents single-player observation and avoids a second log writer.
+            // OnNetworkSpawn implies a live NGO multiplayer controller. The process-wide
+            // LogSessionOwner session is already open, so observers only append evidence.
             if (NetworkManager != null && NetworkManager.IsListening)
             {
                 _rootPoseConsistencyObserver =
@@ -236,6 +291,12 @@ namespace Hexiege.Infrastructure
                 // 이전 게임의 잔여 이월분이 남아 첫 Tick의 경과 시간이 부풀지 않도록 리셋.
                 _attackTimer = 0f;
                 _lastCarry = 0f;
+
+                // 전투 정지 플래그도 같은 이유로 리셋 — 이전 경기에서 true로 세워둔 값이 남아 있으면
+                // 이번 경기의 Update()가 진입부에서 곧바로 빠져나가 전투·타워·파도·연구가 전부 멈춘다
+                // (= 성이 파괴될 수 없어 게임이 영원히 끝나지 않는다).
+                // 위 두 줄과 나란히 두어 "이 자리는 경기마다 리셋하는 자리" 임이 눈에 보이게 한다.
+                _combatStopped = false;
 
                 // 사망 이벤트는 OnUnitDied / OnBuildingDied 두 갈래로 분리되었으므로
                 // 서버 측에서도 각각 구독한다.
@@ -270,7 +331,24 @@ namespace Hexiege.Infrastructure
                 _movementHeldChangedSubscription = GameEvents.OnUnitMovementHeldChanged
                     .Subscribe(OnUnitMovementHeldChangedHandler);
 
-                Debug.Log("[Network] NetworkCombatController: 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged 이벤트 구독 완료.");
+                // 게임 종료(승패 확정) 이벤트를 구독하여 서버 전투 틱을 멈춘다.
+                //
+                // [왜 서버에서만 구독하는가]
+                //   전투 틱(Update)은 애초에 IsServer 가드 뒤에서만 돌기 때문에 클라이언트에는 멈출 것이 없다.
+                //   구독 위치가 이 블록 밖으로 갈리면 "왜 이것만 밖에 있지" 라는 판단 비용이 생기므로
+                //   위의 6개와 같은 자리(= IsServer 블록 안)에 둔다.
+                //
+                // [이 구독이 덮는 종료 경로 두 가지]
+                //   ① 정상 종료 — GameEndUseCase가 Castle 파괴를 감지해 OnGameEnd를 발행한다.
+                //   ② 멀티 포기(Forfeit) — NetworkGameEndController.ForfeitServerRpc가 직접 OnGameEnd를 발행한다.
+                //   ②는 GameEndUseCase를 거치지 않으므로, GameEndUseCase의 내부 상태를 들여다보는 방식으로는
+                //   잡을 수 없다. OnGameEnd를 구독하면 두 경로가 한 번에 덮인다.
+                _gameEndSubscription = GameEvents.OnGameEnd
+                    .Subscribe(OnGameEndHandler);
+
+                // [개발] 진입 흔적. 구독이 실패하면 이후 사망·애니메이션 동기화가 멈춰 별도로 드러난다.
+                GameLog.Dev.Info("Network", nameof(NetworkCombatController),
+                                 "서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged/GameEnd 이벤트 구독 완료");
             }
         }
 
@@ -310,6 +388,10 @@ namespace Hexiege.Infrastructure
             _frozenAnimationUnits.Clear();
             _heldMovementUnits.Clear();
 
+            // 게임 종료 이벤트 구독 해제 (서버에서만 구독했으므로 null일 수 있음)
+            _gameEndSubscription?.Dispose();
+            _gameEndSubscription = null;
+
             // 전투 상태 초기화 — 씬 전환 시 이전 게임의 상태가 남지 않도록
             _unitCombatTargets.Clear();
             _combatAnimationSent.Clear();
@@ -323,20 +405,28 @@ namespace Hexiege.Infrastructure
             _attackTimer = 0f;
             _lastCarry = 0f;
 
+            // 전투 정지 플래그도 함께 초기화 — 다음 경기에서 전투가 아예 시작되지 않는 사고를 막는다.
+            //
+            // [왜 OnNetworkSpawn 과 여기 양쪽에서 리셋하는가 — 초급 개발자용 설명]
+            //   이 컴포넌트는 씬에 미리 배치된 NetworkObject(씬 오브젝트)다.
+            //   NGO 가 다음 경기에서 이 오브젝트를 "새로 만들지" 아니면 "쓰던 것을 다시 스폰할지" 는
+            //   NGO 내부 사정이라 코드만 보고 단정할 수 없다.
+            //   그래서 어느 쪽이어도 안전하도록 디스폰(경기 끝)과 스폰(경기 시작) 양쪽에서 false로 되돌린다.
+            //   바로 위 _attackTimer / _lastCarry 가 이미 정확히 같은 이유로 두 자리에서 리셋되고 있다.
+            _combatStopped = false;
+
             // 연결 해제 시 NetworkContext를 싱글플레이 기본값으로 초기화
             NetworkContext.Reset();
 
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
-            // Flush the bounded evidence summary while the existing RuntimeLogger session is
-            // still open. The observer never owns or replaces that session.
+            // Flush bounded evidence while the process-wide LogSessionOwner session is open.
+            // Observers append to that session and never own or replace it.
             UnitMovementShadowObserver.EndSession("network-despawn");
             UnitMovementAuthorityObserver.EndSession("network-despawn");
             _rootPoseConsistencyObserver?.StopAndLogSummary();
             _rootPoseConsistencyObserver = null;
 #endif
 
-            // BeginSession과 마찬가지로 컨트롤러가 씬에 하나라는 전제에서 전역 writer를 닫는다.
-            RuntimeLogger.EndSession();
         }
 
         // ====================================================================
@@ -369,8 +459,40 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void Update()
         {
-            // 멀티플레이 서버만 실행
-            if (!IsServer) return;
+            // 멀티플레이 서버만 실행 + **이 오브젝트가 아직 네트워크에 살아 있을 때만** 실행
+            //
+            // ── 왜 IsSpawned 를 함께 보는가 (초급 개발자용 설명) ──────────────────
+            //   IsServer 는 "내가 서버 역할인가" 를 묻는 값이지, "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //   그래서 게임이 끝나 NetworkManager.Shutdown() 이 호출된 뒤에도, 씬이 실제로 바뀌기 전까지
+            //   Update 가 한 번 더 돌면 IsServer 는 여전히 참이라 이 가드를 그대로 통과한다.
+            //   그 상태로 TickCombat 이 실행되면 아래 두 가지가 겹쳐 오류가 난다.
+            //     ① 게임이 끝나면 유닛들이 일제히 타겟을 잃는다 → TickCombat 끝의 정리 목록이 한꺼번에 찬다.
+            //     ② 그 정리 과정에서 StopCombatClientRpc 가 무더기로 발신된다.
+            //   그런데 NGO 는 이미 정지 상태라
+            //   "Rpc methods can only be invoked after starting the NetworkManager!" 오류를 뱉는다
+            //   (2026-08-18 실기 테스트에서 [로비로] 경로로 2회 재현).
+            //
+            //   IsSpawned 는 "이 NetworkObject 가 아직 스폰된 상태인가" 를 묻는 값이라
+            //   Shutdown/디스폰 이후에는 거짓이 되어 이 한 줄이 늦은 틱을 막아 준다.
+            //
+            //   순서(IsSpawned 를 앞에)의 근거:
+            //     || 는 앞이 참이면 뒤를 평가하지 않는다(단락 평가).
+            //     싱글플레이처럼 스폰되지 않은 상태에서 IsServer 를 건드리지 않고 곧바로 반환하기 위해
+            //     IsSpawned 를 먼저 둔다. NetworkUnit.cs 291행이 같은 이유로 같은 순서를 쓴다.
+            //
+            // ── 왜 _combatStopped 도 함께 보는가 ──────────────────────────────
+            //   위 두 값은 "네트워크가 아직 살아 있는가" 만 본다. 승패가 갈린 직후는 네트워크가 아직
+            //   멀쩡히 살아 있는 구간이라 두 값만으로는 걸러지지 않는다.
+            //   _combatStopped 는 "승패가 이미 확정됐는가" 를 보는 값이라, 결과가 정해진 뒤의
+            //   불필요한 계산과 RPC 전송을 여기서 끊는다.
+            //
+            //   ⚠️ 이 한 줄이 멈추는 범위는 "전투"보다 넓다 — TickCombat 안에는 아래가 모두 들어 있다:
+            //     방어 타워 · TorrentSpirit 파도 · BloomFairy 지속 회복(HoT) · 자연회복 ·
+            //     연구 진행 · 스킬 글로벌 쿨다운 · MistShrine 물안개 · 상태효과 지속시간.
+            //   게임이 끝난 뒤에는 전부 의미가 없는 계산이므로 함께 멈추는 것이 의도된 동작이다.
+            //   (멀티 순수 클라이언트의 쿨다운/상태 미러는 GameBootstrapper.Update 가 따로 감소시키므로
+            //    이 변경의 영향을 받지 않는다. 여기서 멈추는 것은 서버 쪽 틱뿐이다.)
+            if (!IsSpawned || !IsServer || _combatStopped) return;
 
             _attackTimer += Time.deltaTime;
             if (_attackTimer < _attackInterval) return;
@@ -1359,6 +1481,52 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
+        /// 게임 종료(승패 확정) 이벤트 핸들러(서버 전용). 서버 전투 틱을 멈춘다.
+        ///
+        /// [무엇을 하는가]
+        ///   1) _combatStopped 를 true 로 세워 다음 Update() 부터 TickCombat 이 실행되지 않게 한다.
+        ///   2) StopAllCoroutines() 로 이미 떠 있는 데미지 지연 코루틴을 정리한다.
+        ///
+        /// [왜 구독을 끊지 않고 플래그를 쓰는가 — 초급 개발자용 설명]
+        ///   GameEndUseCase 는 OnBuildingDied 를 처리하는 도중에 그 자리에서 곧바로 OnGameEnd 를 발행한다.
+        ///   즉 이 핸들러는 "OnBuildingDied 를 모든 구독자에게 전달하는 작업이 아직 끝나기 전에" 실행된다.
+        ///   그 안에서 우리 자신의 OnBuildingDied 구독을 해제해 버리면, 전달 도중에 구독자 목록을 바꾸는 셈이 된다.
+        ///   구독 순서에 따라서는 게임을 끝낸 바로 그 성(Castle) 파괴의 EntityDiedClientRpc 가 영영 전송되지 않아
+        ///   클라이언트 화면에 성이 그대로 남고 클라이언트 쪽 게임 종료 판정도 발동하지 않을 수 있다.
+        ///   구독 순서는 설계로 보장된 것이 아니므로, 그 순서에 정합성을 의존시키지 않는다.
+        ///   → "틱만 멈추고 구독은 그대로 유지" 하는 플래그 방식이 의도에도 정확히 맞는다.
+        ///
+        /// [StopAllCoroutines 의 사정거리]
+        ///   현재 이 컴포넌트가 시작하는 코루틴은 DelayedAttackDamage 하나뿐이라(StartCoroutine 호출 지점 1곳)
+        ///   다른 기능까지 함께 멈출 위험이 없다.
+        ///   ⚠️ 앞으로 이 컴포넌트에 다른 코루틴이 추가되면 그것도 함께 멈춘다는 전제를 기억할 것.
+        ///   그리고 이것은 "정확성" 이 아니라 "군더더기 제거" 다 — 잔여 코루틴이 유닛을 죽여도
+        ///   OnUnitDied 진입부의 IsSpawned 가드가 이미 늦은 전파를 막아 주기 때문이다.
+        ///   부작용은 게임 종료 순간 공중에 떠 있던 마지막 타격이 적용되지 않는 것뿐인데,
+        ///   승패는 이미 확정이고 화면은 결과 팝업에 가려져 있어 관측 가능한 차이가 없다.
+        ///
+        /// [두 번 들어와도 안전하다]
+        ///   서버에서 OnGameEnd 가 발행되는 경로는 정상 종료와 멀티 포기 두 가지이고 서로 다른 플래그로 관리된다.
+        ///   두 번 들어오더라도 플래그를 true 로 세우는 동작과 코루틴 정지는 모두 멱등이므로 무해하다.
+        ///   → 별도의 중복 방지 상태를 새로 만들지 않는다.
+        /// </summary>
+        /// <param name="e">게임 종료 이벤트(승리 팀). 승리 팀은 이 자리에서 사용하지 않는다.</param>
+        private void OnGameEndHandler(GameEndEvent e)
+        {
+            _combatStopped = true;
+
+            // 이미 예약된 데미지 지연 코루틴 정리(위 요약 참조).
+            StopAllCoroutines();
+
+            // [개발] 게임당 1회, 상태 전이 시점에만 남는 줄이라 고빈도 로깅에 해당하지 않는다.
+            //   NetworkGameEndController 의 "게임 종료 감지" 는 결과 전파라는 다른 사건이고,
+            //   이 줄은 전투 틱 정지라는 별개 사건이다(이 사건을 기록하는 곳은 여기뿐).
+            //   승리 팀은 이미 NetworkGameEndController 가 WinnerTeam= 으로 남기고 있어 덧붙이지 않는다.
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController),
+                             "게임 종료 — 전투 틱 정지");
+        }
+
+        /// <summary>
         /// [Phase 2] 유닛 Id로 같은 GameObject의 NetworkUnit을 찾아 애니메이션 상태를 설정한다(서버 전용).
         /// 실제 NetworkVariable 쓰기는 NetworkUnit.SetAnimState가 담당한다(NGO 허용 위치=Infrastructure).
         /// 팩토리 조회 → GetComponent&lt;NetworkUnit&gt;() 패턴은 OnUnitDied의 Despawn 경로와 동일한 관례.
@@ -1367,6 +1535,26 @@ namespace Hexiege.Infrastructure
         /// <param name="state">설정할 애니메이션 상태(Walk / Attack).</param>
         private void SetUnitAnimState(int unitId, UnitAnimState state)
         {
+            // 이 오브젝트가 아직 네트워크에 살아 있을 때만 진행한다.
+            //
+            // ── 왜 여기 한 곳에 두는가 (초급 개발자용 설명) ────────────────────
+            //   이 메서드는 호출 지점이 5곳이다:
+            //     OnUnitWalkStartedHandler / OnUnitHealCastStartedHandler / OnUnitFreezeChangedHandler /
+            //     TickCombat / OnUnitEnteredCombatHandler
+            //   이 메서드가 하는 일은 NetworkUnit.SetAnimState 를 통한 NetworkVariable 쓰기이고,
+            //   NetworkVariable 쓰기도 RPC 와 마찬가지로 "네트워크가 살아 있을 때"를 전제한다.
+            //   가드를 5곳에 각각 넣으면 같은 조건이 흩어져 한 곳만 빠뜨리기 쉬우므로
+            //   길목인 이 자리 한 곳에서 막는다.
+            //
+            //   이유 자체는 Update() 진입부 가드와 같다 — Update() 위의 상세 주석 참조.
+            //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이이며 실기 로그 실측 27ms 다.)
+            //
+            //   ⚠️ 이 세 애니메이션 경로는 "오류가 확인된 수정"이 아니라 "같은 구간을 같은 방식으로 막는 예방"이다.
+            //      디스폰 이후 NetworkVariable 쓰기가 RPC 와 똑같이 오류를 내는지는 확정하지 못했다.
+            //      정상 구간에서는 IsSpawned 가 참이므로 동작이 달라지지 않는다.
+            if (!IsSpawned) return;
+
             if (_services == null) return;
 
             IUnitFactory unitFactory = _services.GetUnitFactory();
@@ -1396,6 +1584,17 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void OnUnitEnteredCombatHandler(int unitId)
         {
+            // 이 오브젝트가 아직 네트워크에 살아 있고 서버일 때만 진행한다.
+            //   이 핸들러는 아래에서 StartCombatClientRpc 를 두 자리에서 전송하고 ExecuteAttack 도 실행한다.
+            //   이유는 Update() 진입부 가드와 같다 — Update() 위의 상세 주석 참조.
+            //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이이며 실기 로그 실측 27ms 다.)
+            //
+            //   ⚠️ IsServer 조건이 새로 붙지만 동작은 달라지지 않는다 — 이 이벤트 구독은 OnNetworkSpawn 의
+            //      IsServer 블록 안에서만 이루어지므로, 원래도 서버에서만 호출되던 자리다.
+            //      같은 파일 안에서 가드 모양이 갈리지 않도록 Update()·OnUnitDied 와 형태를 통일한다.
+            if (!IsSpawned || !IsServer) return;
+
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null) return;
 
@@ -1467,7 +1666,13 @@ namespace Hexiege.Infrastructure
         {
             // 서버만 클라이언트에 전파한다. 클라이언트에서 도착하는 OnUnitDied는
             // EntityDiedClientRpc → HandleUnitDied 가 재발행한 것이므로 무시.
-            if (!IsServer) return;
+            //
+            // IsSpawned 를 함께 보는 이유는 Update() 진입부 가드와 같다 — Update() 위의 상세 주석 참조.
+            //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이이며 실기 로그 실측 27ms 다.)
+            // 이 핸들러가 네트워크를 건드리는 자리는 한 곳이 아니라 두 곳이다 —
+            //   아래의 EntityDiedClientRpc(사망 전파)와 NetworkObject.Despawn(오브젝트 파괴).
+            if (!IsSpawned || !IsServer) return;
             if (e.Unit == null) return;
 
             int unitId = e.Unit.Id;
@@ -1500,7 +1705,10 @@ namespace Hexiege.Infrastructure
             }
             _poseAdapters.Remove(unitId);
 
-            Debug.Log($"[Network] 서버: 유닛 사망. Id={unitId}");
+            // [개발] 유닛이 죽을 때마다 찍히는 고빈도 로그(LogRules 1.14 금지 8).
+            //   Dev 라서 릴리스에서는 호출과 문자열 보간까지 통째로 사라진다(1.7).
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController), "서버: 유닛 사망",
+                             $"UnitId={unitId}");
 
             // 모든 클라이언트에 사망 전파. RPC 시그니처는 유지(isUnit=true).
             // EntityDiedClientRpc는 클라이언트의 도메인 데이터 정리 + OnUnitDied 재발행을 담당한다.
@@ -1562,11 +1770,17 @@ namespace Hexiege.Infrastructure
         /// <param name="e">사망한 건물 정보가 담긴 이벤트.</param>
         private void OnBuildingDied(BuildingDiedEvent e)
         {
-            if (!IsServer) return;
+            // OnUnitDied 와 완전히 같은 구조다 — 아래에서 EntityDiedClientRpc 로 사망을 전파한다.
+            // IsSpawned 를 함께 보는 이유는 Update() 진입부 가드와 같다 — Update() 위의 상세 주석 참조.
+            //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이이며 실기 로그 실측 27ms 다.)
+            if (!IsSpawned || !IsServer) return;
             if (e.Building == null) return;
 
             int buildingId = e.Building.Id;
-            Debug.Log($"[Network] 서버: 건물 사망. Id={buildingId}");
+            // [개발] 의도된 흐름. 결과(건물 파괴·게임 종료)가 화면에 즉시 반영된다.
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController), "서버: 건물 사망",
+                             $"BuildingId={buildingId}");
 
             // 모든 클라이언트에 사망 전파. RPC 시그니처는 유지(isUnit=false).
             EntityDiedClientRpc(buildingId, false);
@@ -1594,12 +1808,19 @@ namespace Hexiege.Infrastructure
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
 
-            Debug.Log($"[Network] EntityDiedClientRpc 수신. Id={entityId}, IsUnit={isUnit}");
+            // [개발] RPC 수신 덤프. 결과가 화면(유닛·건물 소멸)에 즉시 나타난다.
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController), "EntityDiedClientRpc 수신",
+                             $"EntityId={entityId}, IsUnit={isUnit}");
 
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] EntityDiedClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                // [운영] 사망 전파는 "그때 한 번만" 오는 이벤트라 재전송 경로가 없다.
+                //   이 클라이언트는 이후 모든 사망 처리를 놓쳐 도메인 상태가 영구히 어긋난다
+                //   — "복구되었나?" 가 아니오 → Error. 화면 통지도 없다 → 운영.
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkCombatController),
+                                  "EntityDiedClientRpc: IGameServices 를 찾을 수 없다 — 사망 처리가 영구히 누락된다",
+                                  $"Request=EntityDied, EntityId={entityId}, IsUnit={isUnit}");
                 return;
             }
 
@@ -1687,7 +1908,13 @@ namespace Hexiege.Infrastructure
             UnitSpawnUseCase unitSpawn = _services.GetUnitSpawn();
             if (unitSpawn == null)
             {
-                Debug.LogWarning("[Network] HandleUnitDied: UnitSpawnUseCase가 null.");
+                // [운영] UseCase 부재는 맵 로드 전 상태를 뜻하고, 그때는 제거할 유닛도 없으므로
+                //   실질적으로 잃는 것이 없다 → 축 A Warn(레벨 유지).
+                //   맵 로드 완료 시점은 기기 성능·회선에 좌우되고 화면 통지가 없다 → 축 B 운영.
+                //   같은 배치의 NetworkHealthSync 의 "UseCase 가 null" 판정과 같은 기준을 적용했다.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkCombatController),
+                                 "HandleUnitDied: UnitSpawnUseCase 가 null 이다 — 맵 로드 전일 수 있다",
+                                 $"Request=EntityDied, UnitId={unitId}");
                 return;
             }
 
@@ -1710,7 +1937,9 @@ namespace Hexiege.Infrastructure
             // GameEvents.OnUnitDied 재발행 → UnitView 구독자가 GameObject를 파괴.
             GameEvents.OnUnitDied.OnNext(new UnitDiedEvent(unit));
 
-            Debug.Log($"[Network] 클라이언트: 유닛 사망 처리 완료. UnitId={unitId}");
+            // [개발] 유닛이 죽을 때마다 찍히는 고빈도 로그. 결과가 화면에 즉시 나타난다.
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController), "클라이언트: 유닛 사망 처리 완료",
+                             $"UnitId={unitId}");
         }
 
         /// <summary>
@@ -1726,7 +1955,10 @@ namespace Hexiege.Infrastructure
             BuildingPlacementUseCase buildingPlacement = _services.GetBuildingPlacement();
             if (buildingPlacement == null)
             {
-                Debug.LogWarning("[Network] HandleBuildingDied: BuildingPlacementUseCase가 null.");
+                // [운영] 위(HandleUnitDied)와 같은 사건 → 같은 키. 대상만 건물로 다르다.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkCombatController),
+                                 "HandleBuildingDied: BuildingPlacementUseCase 가 null 이다 — 맵 로드 전일 수 있다",
+                                 $"Request=EntityDied, BuildingId={buildingId}");
                 return;
             }
 
@@ -1749,7 +1981,9 @@ namespace Hexiege.Infrastructure
             // GameEvents.OnBuildingDied 재발행 → BuildingFactory, GameEndUseCase 등 구독자가 후속 처리.
             GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(building));
 
-            Debug.Log($"[Network] 클라이언트: 건물 사망 처리 완료. BuildingId={buildingId}");
+            // [개발] 의도된 흐름. 결과(건물 소멸·게임 종료 UI)가 화면에 나타난다.
+            GameLog.Dev.Info("Network", nameof(NetworkCombatController), "클라이언트: 건물 사망 처리 완료",
+                             $"BuildingId={buildingId}");
         }
     }
 }

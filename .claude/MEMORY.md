@@ -7,7 +7,9 @@
 ## 현재 P0 — Unit ActionSequence B3 v9 (2026-08-23)
 - v8 Android의 recoverable 공간 preflight 반복을 typed status/offending tile/index와 `CandidateUnsafe/RouteInvalidated → WaitingRepath`로 분리했다. corridor probe와 final stage는 동일 seam을 쓴다.
 - `planned`는 실제 commit attempt 직전, `committed`는 성공 뒤에만 증가하고 END equality를 강제한다. recoverable 이력은 양수 전이 성공 commit에서만 clear하며 lifecycle retire가 서버/클라이언트 baseline과 recoverable 이력을 제거한다.
-- observer `b3-movement-authority-v9`. Runtime/Editor Roslyn PASS, 독립 정적 QA P0~P2 없음. Unity 메뉴 self-validation·Android v9 미실행이므로 B3 FAIL/OPEN. Android의 `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다.
+- `origin/main` 60개 commit과 B3 v9 의미 병합 완료, unmerged 0·staged 최신 해결본 일치. main `GameLog`/`LogSessionOwner`/combat shutdown/`IsSpawned`/research 수정과 B3를 모두 보존했다.
+- observer `b3-movement-authority-v9`. post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0. 증거 감사는 최신 device anchor + Editor daily, role/shared key/production schema exact/전체 BEGIN·END identity/EVIDENCE·FAIL/source gate를 요구한다. terminal은 26+5+1=32줄·최대 968 UTF-8 byte, adapter는 64/65 fail-closed 경계와 release `Conditional`이다.
+- pre-merge `[UAS-DIAG]` PASS는 post-merge 증거가 아니다. post-merge `[UAS-DIAG]`·RootCrossAudit 실제 메뉴와 Android v9가 미실행이므로 B3 FAIL/OPEN. Android의 `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다.
 
 ## 프로젝트 개요
 - 장르: 모바일 1v1 RTS, 헥스 타일맵 기반 공성전 (9:16 세로)

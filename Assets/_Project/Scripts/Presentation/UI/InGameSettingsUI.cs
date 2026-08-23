@@ -504,7 +504,12 @@ namespace Hexiege.Presentation
             }
             else
             {
-                Debug.LogWarning("[InGameSettingsUI] IForfeitService가 주입되지 않아 멀티플레이 포기 요청을 보낼 수 없습니다.");
+                // [개발] Warn + 개발.
+                //   IForfeitService 주입은 GameBootstrapper 배선이 결정하므로 null 은 설정 오류다
+                //   (1.3 원칙 3 단서). 축 B ①: 모든 기기에 같은 배선이 나간다 → "아니오" → 개발.
+                GameLog.Dev.Warn("UI", nameof(InGameSettingsUI),
+                                 "IForfeitService 미주입 — 멀티플레이 포기 요청을 보낼 수 없다",
+                                 "Field=_forfeitService");
             }
 
             // 포기 처리는 비동기적이지만(특히 네트워크) UI는 즉시 닫는다.

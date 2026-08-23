@@ -39,9 +39,6 @@ namespace Hexiege.Presentation
         [SerializeField] private List<Image> _unitButtonPortraits;
         [SerializeField] private List<TextMeshProUGUI> _unitCostTexts;
 
-        [Header("Auto Indicators")]
-        [SerializeField] private List<GameObject> _unitAutoIndicators;
-
         [Header("Auto Production Effect")]
         [Tooltip("자동 생산 중일 때 유닛 버튼에 적용할 테두리 회전 효과 머티리얼.")]
         [SerializeField] private Material _autoProductionMaterial;
@@ -55,7 +52,7 @@ namespace Hexiege.Presentation
         [SerializeField] private float _borderInset = 0.02f;
 
         [Tooltip("각 유닛 버튼의 테두리 효과를 담당하는 오버레이 이미지 리스트. 버튼 리스트와 1:1 매칭.")]
-[SerializeField] private List<UnityEngine.UI.Image> _unitBorderOverlays;
+        [SerializeField] private List<Image> _unitBorderOverlays;
 
         private Material _instancedAutoMaterial;
 
@@ -124,7 +121,8 @@ namespace Hexiege.Presentation
         #if UNITY_EDITOR
         private void OnValidate()
         {
-            // 플레이 모드에서 슬라이더를 움직이면 즉시 셰이더에 반영되도록 함
+            // 플레이 모드 중 인스펙터에서 위 값(속도/두께/둥글기/여백)을 고치면 즉시 셰이더에 반영되도록 한다.
+            // (이 필드들에는 [Range] 특성이 없으므로 인스펙터에는 슬라이더가 아니라 숫자 입력칸으로 보인다)
             if (UnityEngine.Application.isPlaying && _instancedAutoMaterial != null)
             {
                 UpdateMaterialProperties();
@@ -133,14 +131,24 @@ namespace Hexiege.Presentation
         #endif
 
         [Header("Lock Indicators")]
-        [Tooltip("각 유닛 버튼 위에 표시되는 잠금 오버레이의 CanvasGroup. 버튼 리스트와 1:1 매칭. " +
-                 "현재 건물 단계보다 높은 단계의 유닛에 대해 alpha=1로 표시된다.")]
+        [Tooltip("유닛 버튼 위에 표시되는 잠금 오버레이의 CanvasGroup 목록. 버튼 리스트와 1:1이 아니다. " +
+                 "인디케이터 i번은 버튼 슬롯 i+1번에 대응한다 (0번 → 슬롯1, 1번 → 슬롯2). " +
+                 "슬롯0은 1단계 유닛이라 항상 해금 상태여서 잠금 인디케이터를 두지 않기 때문이다. " +
+                 "따라서 버튼이 3개여도 이 리스트는 2개가 정상이며, 배선 순서는 슬롯1 → 슬롯2 순이다. " +
+                 "현재 건물 단계보다 높은 단계의 유닛 슬롯에 대해 alpha=1로 표시된다.")]
         [SerializeField] private List<CanvasGroup> _unitLockIndicators;
 
         [Header("Unit Button Groups")]
         [Tooltip("각 유닛 버튼 GO에 부착된 CanvasGroup 목록. 유닛 버튼 리스트와 1:1 매칭. " +
                  "유닛이 없는 슬롯을 alpha=0으로 숨기되 레이아웃 공간은 유지한다.")]
         [SerializeField] private List<CanvasGroup> _unitButtonGroups;
+
+        /// <summary>
+        /// _unitButtonGroups 미배선 경고를 이미 출력했는지 여부. (도배 방지용 1회성 플래그)
+        /// 씬/프리팹 배선은 게임 실행 중에 바뀌지 않는 반면 BindButtonUnitTypes()는 패널을 열 때마다
+        /// 호출되므로, 억제가 없으면 같은 경고가 콘솔을 가득 채워 다른 로그를 덮어버린다.
+        /// </summary>
+        private bool _unitButtonGroupWarningLogged;
 
         [Header("Queue Slots")]
         [SerializeField] private Image[] _queueSlotImages;
@@ -240,8 +248,11 @@ namespace Hexiege.Presentation
         public int RallyPointSetFrame { get; private set; }
 
         /// <summary>
-        /// 현재 표시 중인 버튼 슬롯에 바인딩된 UnitType 리스트.
-        /// 잠금 여부와 무관하게 모든 슬롯(라인의 전체 유닛)이 포함된다.
+        /// 현재 표시 중인 버튼 슬롯에 바인딩된 UnitType 리스트. 리스트 인덱스 = 버튼 슬롯 인덱스.
+        /// 잠금 여부와 무관하게 라인의 유닛이 전부 포함된다.
+        /// 단, 유닛이 정확히 2종류인 건물은 [유닛1][빈슬롯][유닛2] 배치를 쓰기 때문에
+        /// 인덱스1에는 인덱스0과 같은 값이 더미로 들어간다(BindButtonUnitTypes 참조).
+        /// 즉 이 리스트의 개수가 곧 실제 유닛 종류 수인 것은 아니다.
         /// </summary>
         private List<UnitType> _activeUnitTypes = new List<UnitType>();
 
@@ -322,7 +333,6 @@ namespace Hexiege.Presentation
             if (_ticker != null) _ticker.ShowRallyMarker(building.Id);
 
             RaceId race = (building.Team == TeamId.Blue) ? GameRaceContext.BlueRace : GameRaceContext.RedRace;
-            Debug.Log($"[ProductionUI] Show - Team: {building.Team}, Race: {race}, BuildingType: {building.Type}, Stage: {building.Stage}");
 
             BindButtonUnitTypes(race);
             UpdateButtonPortraits(building.Team, race);
@@ -365,7 +375,10 @@ namespace Hexiege.Presentation
 
         private void OnUnitPointerDown(UnitType type, int slotIndex)
         {
-            // 잠금 유닛은 길게 누르기(자동 생산 토글)도 막는다. 짧은 탭에서 토스트로 안내.
+            // 이 메서드는 잠금 여부를 판정하지 않는다. 어떤 유닛을 언제 눌렀는지만 기록해 둔다.
+            // 잠금 판정은 "짧은 탭"인지 "길게 누르기"인지가 확정된 뒤,
+            // OnUnitTap() / OnUnitLongPress()가 각각 IsUnitLocked()로 수행한다
+            // (두 경로 모두 잠금이면 ToastKey.UpgradeRequired만 띄우고 중단한다).
             _activeUnitType = type;
             _pointerDownTime = Time.unscaledTime;
             _isPointerDown = true;
@@ -574,10 +587,15 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 현재 건물의 업그레이드 가능 여부에 따라 업그레이드 버튼/비용 텍스트를 갱신.
-        ///   - 다음 단계 없음 → 버튼 GameObject 비활성화 (비용 텍스트도 함께 숨김)
-        ///   - 다음 단계 있음 → 버튼 활성화 + 비용 텍스트에 골드 표시
-        /// 호출: Show()에서 1회, 업그레이드 완료 시 BuildingFactory가 GO를 갈아끼우면
-        /// 패널 자체는 닫혀 있으므로 별도 갱신 불필요.
+        ///   - 다음 단계 없음 → 버튼에 붙은 CanvasGroup을 alpha=0 / blocksRaycasts=false /
+        ///     interactable=false 로 숨긴다. 버튼 GameObject 자체는 계속 켜 둔다.
+        ///     (비용 텍스트만은 GameObject를 SetActive(false)로 끈다)
+        ///   - 다음 단계 있음 → 같은 CanvasGroup을 alpha=1 / blocksRaycasts=true / interactable=true 로
+        ///     표시하고, 다음 단계 건물 아이콘과 비용(골드) 텍스트를 함께 채운다.
+        /// 버튼을 SetActive로 끄지 않는 이유는 아래 본문 주석과
+        /// GameSystemRules_UI.md — 공통 UI 규칙 5(CanvasGroup 숨김/표시 패턴) 참조.
+        /// 호출: 패널을 열 때 OnShow()에서 1회. 업그레이드가 완료되면 BuildingFactory가 건물 GO를
+        /// 갈아끼우지만 그 시점에는 이 패널이 이미 닫혀 있으므로 별도 갱신이 필요 없다.
         /// </summary>
         private void UpdateUpgradeButton(RaceId race)
         {
@@ -633,7 +651,10 @@ namespace Hexiege.Presentation
         /// 흐름:
         ///   1) 현재 건물이 실제로 업그레이드 가능한지 재확인 (CanUpgrade)
         ///   2) 골드 검증 → 부족 시 ToastKey.GoldInsufficient
-        ///   3) 멀티플레이면 RequestUpgradeServerRpc 호출, 싱글플레이면 UseCase 직접 실행
+        ///   3) 멀티플레이면 NetworkBuildingController.RequestUpgrade() 래퍼를 호출한다.
+        ///      (Presentation이 NGO에 직접 의존하지 않도록 ServerRpc를 직접 부르지 않는다.
+        ///       실제 서버 전송은 그 래퍼 내부의 RequestUpgradeServerRpc가 담당한다.)
+        ///      싱글플레이면 골드를 직접 차감한 뒤 UseCase를 직접 실행한다.
         ///   4) 패널 닫기 (BuildingFactory가 GO를 교체할 동안 깔끔하게 정리)
         /// </summary>
         private void OnUpgradeButtonClick()
@@ -727,19 +748,29 @@ namespace Hexiege.Presentation
 
                     bool isAuto = i < _activeUnitTypes.Count && state.AutoTypes.Contains(_activeUnitTypes[i]);
 
-                    // ── 자동 생산 시각 효과 갱신 ──
+                    // ── 자동 생산 시각 효과 갱신 (테두리 표시의 유일한 제어 경로) ──
                     // 자동 생산 중이면 alpha=1로 테두리 효과를 보이고, 아니면 alpha=0으로 숨긴다.
                     // blocksRaycasts는 테두리가 버튼 입력을 가로채지 않도록 가시성과 동일하게 맞춘다.
+                    //
+                    // [왜 CanvasGroup 하나로만 제어하는가 — 유니티 입문자용 설명]
+                    // 예전에는 아래에 같은 오브젝트를 SetActive(isAuto)로 껐다 켜는 블록이 하나 더 있었다.
+                    // 두 블록이 가리키던 대상은 씬에서 같은 BorderOverlay 오브젝트였고
+                    // (근거: GameSystemRules_UI.md — MistShrine 패널 UI 규칙 14),
+                    // 결국 "테두리를 보이게 할지"를 정하는 스위치가 두 개 달려 있는 상태였다.
+                    // 스위치가 둘이면 한쪽 조건만 바뀌어도 서로 어긋나고, 증상은 "테두리가 안 보인다" 하나인데
+                    // 원인 후보가 둘이라 디버깅이 어려워진다. 그래서 SetActive 쪽을 걷어내고 하나로 합쳤다.
+                    //
+                    // 남길 쪽으로 CanvasGroup을 택한 이유 (근거: GameSystemRules_UI.md — 공통 UI 규칙 5):
+                    //  1) SetActive(false)로 끈 오브젝트는 Layout Group 안에서 차지하던 자리까지 사라져 형제 요소가 밀린다.
+                    //  2) 꺼진 오브젝트는 Awake 등 내부 로직이 돌지 않는다. 비활성 상태로 씬이 저장되면
+                    //     이후 다시 켜도 초기화가 끝나 있지 않아 영영 표시되지 않는 함정에 빠진다.
+                    // alpha=0은 오브젝트를 켜 둔 채 "보이지 않게"만 만들기 때문에 위 두 문제가 모두 없다.
+                    // 화면에 보이는 결과는 기존과 동일하다 — 예전에도 숨김은 alpha=0이 이미 완결하고 있었고
+                    // SetActive는 그 위에 덧붙어 있던 중복 조치였을 뿐이다.
                     if (_unitBorderOverlayCgs != null && i < _unitBorderOverlayCgs.Count && _unitBorderOverlayCgs[i] != null)
                     {
                         _unitBorderOverlayCgs[i].alpha = isAuto ? 1f : 0f;
                         _unitBorderOverlayCgs[i].blocksRaycasts = isAuto;
-                    }
-
-                    // ── 기존 도트 인디케이터 갱신 ──
-if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoIndicators[i] != null)
-                    {
-                        _unitAutoIndicators[i].SetActive(isAuto);
                     }
                 }
             }
@@ -749,10 +780,13 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
         }
 
         /// <summary>
-        /// 잠금 인디케이터 GameObject 활성/비활성 갱신 + 잠긴 유닛 초상화 디밍.
-        /// _activeUnitLocks[i] 가 true면 자물쇠 오버레이 On + 초상화를 어둡게,
-        /// false면 오버레이 Off + 초상화 원래 색(흰색)으로 복원한다.
-        /// 슬롯에 유닛이 바인딩되지 않은 경우는 잠금도 끈다.
+        /// 자물쇠 오버레이의 CanvasGroup 갱신 + 잠긴 유닛 초상화 디밍.
+        /// GameObject를 SetActive로 껐다 켜는 방식이 아니라, CanvasGroup의 alpha와 blocksRaycasts만 바꾼다
+        /// (근거: GameSystemRules_UI.md — 공통 UI 규칙 5 "CanvasGroup 숨김/표시 패턴").
+        ///   - 슬롯이 잠금  → 오버레이 alpha=1, blocksRaycasts=true + 초상화를 어둡게(RGB 0.35)
+        ///   - 슬롯이 해금  → 오버레이 alpha=0, blocksRaycasts=false + 초상화를 원래 색(흰색)으로 복원
+        /// 주의: 인디케이터 인덱스 i는 버튼 슬롯 인덱스 i+1에 대응한다(1:1이 아니다 — 본문 주석 참조).
+        /// 슬롯에 유닛이 바인딩되지 않은 경우도 해금과 동일하게 처리한다.
         /// </summary>
         private void UpdateLockIndicators()
         {
@@ -865,7 +899,6 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
         private void UpdateButtonPortraits(TeamId team, RaceId race)
         {
             var list = GetUnitEntriesForCurrentBuilding(team);
-            Debug.Log($"[Portrait] team={team} listCount={list.Count} portraitsCount={_unitButtonPortraits?.Count}");
             if (_unitButtonPortraits == null) return;
 
             // 유닛이 정확히 2종류인 건물은 [유닛1][빈슬롯][유닛2] 배치를 사용한다.
@@ -876,7 +909,8 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
 
             for (int i = 0; i < _unitButtonPortraits.Count; i++)
             {
-                if (_unitButtonPortraits[i] == null) { Debug.Log($"[Portrait] [{i}] Image null"); continue; }
+                // 초상화 Image가 배선되지 않은 슬롯은 건너뛴다. (continue 유지 — 아래 갱신을 실행하면 NRE)
+                if (_unitButtonPortraits[i] == null) continue;
 
                 if (twoUnitLayout)
                 {
@@ -884,12 +918,10 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
                     if (i == 0)
                     {
                         _unitButtonPortraits[i].sprite = list[0].portrait;
-                        Debug.Log("[Portrait] [0] sprite=" + (list[0].portrait != null ? list[0].portrait.name : "NULL"));
                     }
                     else if (i == 2)
                     {
                         _unitButtonPortraits[i].sprite = list[1].portrait;
-                        Debug.Log("[Portrait] [2] sprite=" + (list[1].portrait != null ? list[1].portrait.name : "NULL"));
                     }
                     // slot1(i==1)은 숨겨진 더미 슬롯 — 초상화 갱신 불필요
                 }
@@ -899,7 +931,6 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
                     if (i < list.Count)
                     {
                         _unitButtonPortraits[i].sprite = list[i].portrait;
-                        Debug.Log("[Portrait] [" + i + "] sprite=" + (list[i].portrait != null ? list[i].portrait.name : "NULL"));
                     }
                 }
             }
@@ -931,16 +962,23 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
                     : (mapping.redUnits ?? new List<UnitPortraitEntry>());
             }
 
-            // 매핑 누락 — 콘솔 경고 후 빈 리스트 반환
-            Debug.LogWarning($"[ProductionPanelUI] BuildingType={_currentBuilding.Type}에 대한 유닛 매핑이 없습니다.");
+            // 매핑 누락 — 경고 후 빈 리스트 반환
+            // [개발] Warn + 개발.
+            //   _buildingUnitMappings 는 Inspector 에서 채우는 목록이므로 매핑 누락은 설정 오류다
+            //   (LogRules 1.3 원칙 3 단서). 모든 기기에 같은 설정이 나가므로 축 B ① 이 "아니오" → 개발.
+            GameLog.Dev.Warn("UI", nameof(ProductionPanelUI),
+                             "건물에 대응하는 유닛 매핑이 Inspector 에 없다",
+                             $"BuildingType={_currentBuilding.Type}");
             return new List<UnitPortraitEntry>();
         }
 
         /// <summary>
         /// 현재 건물에 대응하는 유닛 라인업 전체를 버튼 슬롯에 바인딩.
         /// 잠금 여부도 동시에 계산하여 _activeUnitLocks 에 저장.
-        /// 잠금 유닛은 버튼은 활성 상태로 두고(클릭은 가능 — 토스트 안내용),
-        /// 시각적 잠금 처리는 별도 _unitLockIndicators 가 담당.
+        /// 잠금 유닛이라도 이 메서드는 버튼을 눌리는 상태 그대로 둔다
+        /// (탭했을 때 "업그레이드 필요" 토스트를 띄워야 하므로 입력 자체는 살려 둔다).
+        /// 잠금의 시각 표현(자물쇠 오버레이 + 초상화 디밍)은 UpdateLockIndicators()가 담당한다.
+        /// 이 메서드가 CanvasGroup으로 제어하는 것은 "유닛이 없는 빈 슬롯"의 숨김뿐이다.
         /// </summary>
         private void BindButtonUnitTypes(RaceId race)
         {
@@ -953,7 +991,8 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
 
             // 2유닛 특수 배치: [유닛1][빈슬롯][유닛2] — 슬롯 수(3개)에 맞게 리스트를 구성한다.
             // 빈 슬롯(인덱스1)에는 더미 UnitType을 삽입하여 slotIndex 접근 시 IndexOutOfRange를 방지한다.
-            // 슬롯1은 CanvasGroup.alpha=0으로 차단되므로 더미 값이 실제로 사용되지 않는다.
+            // 슬롯1은 아래에서 CanvasGroup으로 가려지므로(alpha=0으로 안 보이게 만들고,
+            // blocksRaycasts=false / interactable=false로 입력을 막는다) 더미 값이 실제로 쓰이지 않는다.
             bool twoUnitLayout = (list.Count == 2);
 
             if (twoUnitLayout)
@@ -981,14 +1020,22 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
 
             if (_unitButtons != null)
             {
+                // CanvasGroup이 배선되지 않은 슬롯 번호를 모아 두는 임시 리스트.
+                // 정상 배선 상태에서는 끝까지 null로 남아 메모리 할당이 전혀 발생하지 않는다.
+                List<int> unwiredSlots = null;
+
                 for (int i = 0; i < _unitButtons.Count; i++)
                 {
                     // 2유닛 특수 배치: 슬롯0(유닛1), 슬롯1(빈), 슬롯2(유닛2)
                     // 2유닛 외: 유닛이 있는 슬롯만 표시
                     bool hasUnit = twoUnitLayout ? (i == 0 || i == 2) : (i < list.Count);
 
-                    // CanvasGroup으로 표시/숨김 (SetActive 대신 사용, 레이아웃 공간 유지)
-                    // SetActive(false)는 Grid Layout에서 슬롯 공간 자체가 사라지므로 사용하지 않는다.
+                    // ── 빈 슬롯 숨김은 CanvasGroup으로만 처리한다 ──────────────────────
+                    // 근거: GameSystemRules_UI.md — 공통 UI 규칙 5 "CanvasGroup 숨김/표시 패턴".
+                    // SetActive(false)를 쓰면 Grid Layout 안에서 그 슬롯이 차지하던 공간까지 사라져
+                    // 뒤쪽 버튼들이 앞으로 당겨진다. 그래서 "CanvasGroup이 없으면 SetActive로라도 끈다"는
+                    // 폴백을 두지 않는다 — 규칙이 금지한 방식을 예외 경로로 되살리는 셈이기 때문이다.
+                    // 대신 배선이 빠진 사실을 아래에서 경고로 알려, 씬에서 고치도록 유도한다.
                     if (_unitButtonGroups != null && i < _unitButtonGroups.Count && _unitButtonGroups[i] != null)
                     {
                         _unitButtonGroups[i].alpha = hasUnit ? 1f : 0f;
@@ -997,13 +1044,35 @@ if (_unitAutoIndicators != null && i < _unitAutoIndicators.Count && _unitAutoInd
                     }
                     else
                     {
-                        // CanvasGroup 미연결 시 기존 SetActive 방식으로 폴백
-                        _unitButtons[i].gameObject.SetActive(hasUnit);
+                        // 미배선 슬롯 — 숨김/표시를 적용할 수단이 없다.
+                        // 슬롯마다 즉시 경고하면 한 번 여는데 여러 줄이 찍히므로, 번호만 모아 두었다가
+                        // 루프가 끝난 뒤 한 줄로 합쳐서 출력한다.
+                        if (unwiredSlots == null) unwiredSlots = new List<int>();
+                        unwiredSlots.Add(i);
                     }
 
                     // 비용 텍스트: 유닛이 있는 슬롯만 갱신
-                    if (hasUnit && i < _unitCostTexts.Count && _unitCostTexts[i] != null && i < _activeUnitTypes.Count)
+                    // _unitCostTexts 자체가 미배선(null)일 수 있으므로 UpdateInfoBar()와 동일하게 null을 먼저 확인한다.
+                    if (hasUnit && _unitCostTexts != null && i < _unitCostTexts.Count && _unitCostTexts[i] != null && i < _activeUnitTypes.Count)
                         _unitCostTexts[i].text = $"{UnitProductionStats.GetGoldCost(_activeUnitTypes[i])}";
+                }
+
+                // ── 미배선 경고 (호출당 1줄 + 인스턴스당 1회) ─────────────────────────
+                // 이 메서드는 패널을 열 때마다 호출되지만 배선 상태는 실행 중에 바뀌지 않으므로,
+                // 플래그로 최초 1회만 출력해 콘솔 도배를 막는다.
+                if (unwiredSlots != null && !_unitButtonGroupWarningLogged)
+                {
+                    _unitButtonGroupWarningLogged = true;
+                    // [개발] Warn + 개발 — 전형적인 Inspector 배선 누락(1.3 원칙 3 단서).
+                    //   조치 안내처럼 긴 자유 문장은 message 쪽에 두고,
+                    //   집계 가능한 값(슬롯 번호)만 key=value 로 뺀다(LogRules 1.4).
+                    GameLog.Dev.Warn("UI", nameof(ProductionPanelUI),
+                        $"유닛 버튼 슬롯의 CanvasGroup 이 Inspector 의 {nameof(_unitButtonGroups)} 에 배선되어 있지 않다. " +
+                        "해당 슬롯은 유닛이 없어도 숨겨지지 않아 빈 버튼이 그대로 보인다. " +
+                        "조치: 씬에서 이 컴포넌트를 선택한 뒤, 각 유닛 버튼 GameObject 의 CanvasGroup 을 " +
+                        $"{nameof(_unitButtons)} 와 같은 순서로 {nameof(_unitButtonGroups)} 리스트에 넣는다 " +
+                        "(CanvasGroup 컴포넌트가 없으면 해당 버튼에 먼저 추가해야 한다)",
+                        $"UnwiredSlots={string.Join("|", unwiredSlots)}");
                 }
             }
         }

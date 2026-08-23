@@ -93,19 +93,31 @@ namespace Hexiege.Infrastructure
             _services = GameServicesLocator.Current;
             if (_services == null)
             {
-                Debug.LogError("[Network] NetworkGameFlow: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
+                // [운영] 여기서 함수를 빠져나가면 준비 신호(RequestReadyServerRpc)가 아예 전송되지 않아
+                //   게임이 시작되지 못한다 — 복구 경로가 없다 → 축 A Error.
+                //   (같은 키를 쓰는 NetworkBuildingController:58 등은 스폰이 계속되므로 Warn 이었다.
+                //    여기는 즉시 빠져나가므로 결과가 다르고, 그래서 축 A 만 다르다.)
+                //   플레이어에게 알리는 경로가 없어 이 로그가 유일한 기록이다 → 축 B 운영.
+                GameLog.Ops.Error(LogEvent.NetworkControllerSpawnedWithoutGameServices,
+                                  "Network", nameof(NetworkGameFlow),
+                                  "GameServicesLocator 에 IGameServices 가 등록되지 않았다 — 게임을 시작할 수 없다");
                 return;
             }
 
-            Debug.Log($"[Network] NetworkGameFlow 스폰. IsServer={IsServer}, IsHost={IsHost}");
+            // [개발] 진입 흔적.
+            GameLog.Dev.Info("Network", nameof(NetworkGameFlow), "네트워크 스폰",
+                             $"IsServer={IsServer}, IsHost={IsHost}");
 
             if (IsServer)
             {
                 if (!UnitMovementPipelineModeLatch.IsSupported(
                     _serverMovementPipelineMode))
                 {
-                    Debug.LogError(
-                        "[Network] 지원하지 않는 서버 이동 mode입니다. 게임 시작을 거부합니다.");
+                    GameLog.Dev.Error(
+                        "Network",
+                        nameof(NetworkGameFlow),
+                        "지원하지 않는 서버 이동 mode입니다 — 게임 시작을 거부합니다",
+                        $"Mode={_serverMovementPipelineMode}");
                     return;
                 }
 
@@ -116,8 +128,15 @@ namespace Hexiege.Infrastructure
             // (NetworkObject가 Despawn → Respawn될 때 _gameStarted/_readyCount가 리셋되는 것 방지)
             if (_services.IsNetworkGameStarted)
             {
-                Debug.LogWarning("[Network] NetworkGameFlow: 게임 이미 진행 중 감지. " +
-                                 "재스폰으로 인한 준비 신호 재전송 차단.");
+                // ⚠️ [잠정 판정] Warn + 개발.
+                //   축 A: 중복 시작을 막고 게임은 그대로 계속된다 = 가드가 곧 복구다 → Warn.
+                //   축 B: ①("플레이어 기기에서만 벌어지는가")를 "아니오"로 봤다 —
+                //         이 재스폰은 재경기(씬 재로드) 경로에서 에디터 2인 구성으로 재현할 수 있다.
+                //   ⚠️ 다만 "회선 불안정으로 인한 Despawn→Respawn" 이라면 ①이 "예"가 되어 운영이
+                //      되고 새 키가 필요하다. 어느 쪽인지 코드만으로 단정할 수 없어 잠정으로 둔다.
+                //      (LogRules 1.5 — 키 이름은 한 번 정하면 바꿀 수 없으므로 애매하면 만들지 않는다)
+                GameLog.Dev.Warn("Network", nameof(NetworkGameFlow),
+                                 "게임 이미 진행 중 감지 — 재스폰으로 인한 준비 신호 재전송을 차단했다");
                 return;
             }
 
@@ -139,7 +158,9 @@ namespace Hexiege.Infrastructure
             TeamId myTeam = IsHost ? TeamId.Blue : TeamId.Red;
             LocalPlayerTeam.Set(myTeam);
 
-            Debug.Log($"[Network] 팀 직접 할당. IsHost={IsHost}, 팀={myTeam}");
+            // [개발] 의도된 흐름. 팀이 틀리면 화면(진영·카메라)에 즉시 드러난다.
+            GameLog.Dev.Info("Network", nameof(NetworkGameFlow), "팀 직접 할당",
+                             $"IsHost={IsHost}, Team={myTeam}");
 
             // 로비에서 선택한 종족을 int로 캐스팅하여 서버에 전송
             int myRace = (int)LocalPlayerRace.Current;
@@ -157,7 +178,8 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 클라이언트가 게임 준비 완료를 서버에 알림.
         /// 로비에서 선택한 종족 정보(int)를 함께 전송.
-        /// 2명 모두 준비되면 StartGameClientRpc(blueRace, redRace) 호출.
+        /// 2명 모두 준비되면 양 팀 종족과 합의된 이동 mode/schema를
+        /// StartGameClientRpc로 함께 전달한다.
         /// </summary>
         /// <param name="race">로비에서 선택한 종족. (int)RaceId로 캐스팅하여 전송.</param>
         [ServerRpc(RequireOwnership = false)]
@@ -177,12 +199,14 @@ namespace Hexiege.Infrastructure
                 && (supportedMovementModeMask & selectedModeBit) != 0;
             if (!compatible)
             {
-                Debug.LogError(
-                    $"[Network] 이동 파이프라인 호환 실패. ClientId={senderId}, " +
-                    $"serverMode={_selectedMovementPipelineMode}, " +
-                    $"serverSchema={UnitMovementSchemaRevision}, " +
-                    $"clientSchema={movementSchemaRevision}, " +
-                    $"clientModeMask={supportedMovementModeMask}. 게임 시작을 거부합니다.");
+                GameLog.Dev.Error(
+                    "Network",
+                    nameof(NetworkGameFlow),
+                    "이동 파이프라인 호환 실패 — 게임 시작을 거부합니다",
+                    $"ClientId={senderId}, ServerMode={_selectedMovementPipelineMode}, " +
+                    $"ServerSchema={UnitMovementSchemaRevision}, " +
+                    $"ClientSchema={movementSchemaRevision}, " +
+                    $"ClientModeMask={supportedMovementModeMask}");
                 if (senderId != NetworkManager.ServerClientId)
                     NetworkManager.DisconnectClient(senderId);
                 return;
@@ -192,7 +216,9 @@ namespace Hexiege.Infrastructure
                 return;
 
             _readyCount = _readyClients.Count;
-            Debug.Log($"[Network] 준비 신호 수신. ClientId={senderId}, Race={race}, 준비 완료={_readyCount}/2");
+            // [개발] RPC 수신 덤프. 의도된 흐름이고 에디터 2인 구성으로 그대로 재현된다.
+            GameLog.Dev.Info("Network", nameof(NetworkGameFlow), "준비 신호 수신",
+                             $"ClientId={senderId}, Race={race}, ReadyCount={_readyCount}, ExpectedPlayers=2");
 
             // Host(ServerClientId)가 보낸 종족 → Blue 팀, 그 외 → Red 팀
             if (senderId == NetworkManager.ServerClientId)
@@ -209,8 +235,11 @@ namespace Hexiege.Infrastructure
             if (_readyCount >= expectedPlayers && !_gameStarted)
             {
                 _gameStarted = true;
-                Debug.Log(
-                    $"[Network] 모든 플레이어 준비 완료. 게임 시작 명령 전송. " +
+                // [개발] 의도된 흐름. 시작 실패는 씬 전환이 일어나지 않는 것으로 드러난다.
+                GameLog.Dev.Info(
+                    "Network",
+                    nameof(NetworkGameFlow),
+                    "모든 플레이어 준비 완료 — 게임 시작 명령 전송",
                     $"BlueRace={_blueRace}, RedRace={_redRace}, " +
                     $"UnitMovementPipelineMode={_selectedMovementPipelineMode}, " +
                     $"MovementSchemaRevision={UnitMovementSchemaRevision}");
@@ -248,17 +277,22 @@ namespace Hexiege.Infrastructure
                 || !NetworkContext.TryBeginUnitMovementPipelineMatch(
                     selectedMovementMode))
             {
-                Debug.LogError(
-                    $"[Network] 게임 시작 이동 계약 불일치. " +
-                    $"mode={movementPipelineMode}, schema={movementSchemaRevision}. " +
-                    "로컬 게임 시작을 거부합니다.");
+                GameLog.Dev.Error(
+                    "Network",
+                    nameof(NetworkGameFlow),
+                    "게임 시작 이동 계약 불일치 — 로컬 게임 시작을 거부합니다",
+                    $"Mode={movementPipelineMode}, Schema={movementSchemaRevision}");
                 return;
             }
 
-            Debug.Log(
-                $"[Network] 게임 시작 ClientRpc 수신. 로컬 팀={LocalPlayerTeam.Current}, " +
-                $"BlueRace={blueRace}, RedRace={redRace}, " +
-                $"UnitMovementPipelineMode={selectedMovementMode}");
+            // [개발] RPC 수신 덤프. 결과(맵 로드)가 화면에 즉시 나타난다.
+            GameLog.Dev.Info(
+                "Network",
+                nameof(NetworkGameFlow),
+                "게임 시작 ClientRpc 수신",
+                $"Team={LocalPlayerTeam.Current}, BlueRace={blueRace}, RedRace={redRace}, " +
+                $"UnitMovementPipelineMode={selectedMovementMode}, " +
+                $"MovementSchemaRevision={movementSchemaRevision}");
 
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             if (selectedMovementMode == UnitMovementPipelineMode.ReducerAuthoritative)
@@ -273,7 +307,11 @@ namespace Hexiege.Infrastructure
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] StartGameClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                // [운영] 이 클라이언트만 맵을 로드하지 못한다 — 재시도 경로가 없어 게임에 들어가지 못한다.
+                //   화면에는 아무 안내도 뜨지 않으므로 이 로그가 유일한 기록이다 → Error + 운영.
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkGameFlow),
+                                  "StartGameClientRpc: IGameServices 를 찾을 수 없다 — 맵을 로드할 수 없다",
+                                  "Request=StartGame");
                 return;
             }
 
@@ -299,7 +337,14 @@ namespace Hexiege.Infrastructure
             ResourceUseCase resource = _services.GetResource();
             if (resource == null)
             {
-                Debug.LogWarning("[Network] SyncInitialGold: ResourceUseCase가 null. 초기 골드 동기화 생략.");
+                // [운영] _services 는 바로 위에서 non-null 로 확인됐으므로, 여기서 null 이라는 것은
+                //   StartNetworkGame(맵 로드) 이 ResourceUseCase 를 만들지 못했다는 뜻이다.
+                //   초기 골드가 클라이언트에 전파되지 않지만 이후 골드 변동이 다시 동기화하므로
+                //   복구된다 → 축 A Warn. 화면에는 "골드가 잠깐 이상함" 으로만 보이고 다른 기록이
+                //   없으며, 맵 로드 실패는 기기 성능·회선에 좌우된다 → 축 B 운영.
+                GameLog.Ops.Warn(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkGameFlow),
+                                 "SyncInitialGold: ResourceUseCase 가 null 이다 — 초기 골드 동기화를 생략했다",
+                                 "Request=SyncInitialGold");
                 return;
             }
 
@@ -310,7 +355,9 @@ namespace Hexiege.Infrastructure
             GameEvents.OnResourceChanged.OnNext(new ResourceChangedEvent(TeamId.Blue, blueGold));
             GameEvents.OnResourceChanged.OnNext(new ResourceChangedEvent(TeamId.Red, redGold));
 
-            Debug.Log($"[Network] 초기 골드 동기화 완료. Blue={blueGold}, Red={redGold}");
+            // [개발] 의도된 흐름. 값이 틀리면 화면의 골드 표시로 즉시 드러난다.
+            GameLog.Dev.Info("Network", nameof(NetworkGameFlow), "초기 골드 동기화 완료",
+                             $"BlueGold={blueGold}, RedGold={redGold}");
         }
     }
 }

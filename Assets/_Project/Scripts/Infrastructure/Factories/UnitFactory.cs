@@ -181,7 +181,13 @@ namespace Hexiege.Infrastructure
 
             if (prefab == null)
             {
-                Debug.LogError($"[UnitFactory] {unitData.Team}/{unitData.Type} 프리팹이 설정되지 않았습니다.");
+                // [개발] 프리팹 목록은 Inspector 배선이다 = 설정 오류
+                //   (LogRules.md 1.3 분류 원칙 3 의 단서) → Warn + 개발.
+                //   프리팹이 빠져 있으면 모든 기기에서 똑같이 빠져 있으므로
+                //   "플레이어 기기에서만 벌어지는가"가 항상 "아니오"다.
+                GameLog.Dev.Warn("Factory", nameof(UnitFactory),
+                                 "유닛 프리팹이 Inspector 에 설정되지 않아 생성할 수 없다",
+                                 $"Race={race}, UnitType={unitData.Type}, Team={unitData.Team}");
                 return;
             }
 
@@ -223,7 +229,10 @@ namespace Hexiege.Infrastructure
                 NetworkObject networkObject = unitObj.GetComponent<NetworkObject>();
                 if (networkObject == null)
                 {
-                    Debug.LogError($"[UnitFactory] NetworkObject 컴포넌트가 없습니다. 프리팹에 추가 필요: {unitData.Type}_{unitData.Team}");
+                    // [개발] 프리팹에 컴포넌트를 안 붙인 것이므로 위와 같은 설정 오류다 → Warn + 개발.
+                    GameLog.Dev.Warn("Factory", nameof(UnitFactory),
+                                     "유닛 프리팹에 NetworkObject 컴포넌트가 없다 — 프리팹에 추가할 것",
+                                     $"UnitType={unitData.Type}, Team={unitData.Team}");
                     Destroy(unitObj);
                     return;
                 }
@@ -244,7 +253,10 @@ namespace Hexiege.Infrastructure
                 }
                 else
                 {
-                    Debug.LogWarning($"[UnitFactory] NetworkUnit 컴포넌트가 없습니다. 프리팹에 추가 필요: {unitData.Type}_{unitData.Team}");
+                    // [개발] NetworkObject 누락과 같은 성격의 프리팹 설정 오류 → Warn + 개발.
+                    GameLog.Dev.Warn("Factory", nameof(UnitFactory),
+                                     "유닛 프리팹에 NetworkUnit 컴포넌트가 없다 — 프리팹에 추가할 것",
+                                     $"UnitType={unitData.Type}, Team={unitData.Team}");
                 }
             }
 
@@ -320,8 +332,15 @@ namespace Hexiege.Infrastructure
         {
             if (!_unitObjects.TryGetValue(unitData.Id, out GameObject unitObj) || unitObj == null)
             {
-                Debug.LogWarning($"[UnitFactory] InitializeUnitView: UnitId={unitData.Id}에 해당하는 GameObject 없음. " +
-                                 "NetworkUnit.OnNetworkSpawn()이 아직 호출되지 않았을 수 있습니다.");
+                // [개발] 축 A: NGO 프리팹 전달이 아직 안 끝났을 뿐이고, 호출부가 false 를 받아
+                //   재시도 코루틴을 돌린다 → 복구 경로 있음 → Warn.
+                //   축 B: 재시도가 끝내 실패하면 NetworkProductionController.RetryInitializeUnitView 가
+                //   LogEvent.UnitViewInitializeTimeout 을 운영으로 남긴다. 여기까지 운영으로 두면
+                //   같은 사건이 "지연 N회 + 최종 실패 1회"로 부풀려 집계된다(1.14 금지 사항 9) → 개발.
+                GameLog.Dev.Warn("Factory", nameof(UnitFactory),
+                                 "InitializeUnitView: 해당 UnitId 의 GameObject 가 아직 없다 — " +
+                                 "NetworkUnit.OnNetworkSpawn() 이 아직 호출되지 않았을 수 있다",
+                                 $"UnitId={unitData.Id}");
                 return false;
             }
 
@@ -376,7 +395,9 @@ namespace Hexiege.Infrastructure
             if (networkUnit != null)
                 networkUnit.MarkInitialized();
 
-            Debug.Log($"[UnitFactory] 클라이언트: UnitView 초기화 완료. UnitId={unitData.Id}, Type={unitData.Type}, Team={unitData.Team}");
+            // [개발] 성공 통보 → Info + 개발. 결과(유닛이 화면에 보이는지)가 즉시 확인된다.
+            GameLog.Dev.Info("Factory", nameof(UnitFactory), "클라이언트: UnitView 초기화 완료",
+                             $"UnitId={unitData.Id}, UnitType={unitData.Type}, Team={unitData.Team}");
 
             return true;
         }

@@ -495,7 +495,16 @@ namespace Hexiege.Presentation
                     if (!_resource.CanAfford(_currentTeam, cost))
                     {
                         // 골드 부족 → 요청 자체를 보내지 않음 (서버에서도 검증하지만 불필요한 RPC 방지)
-                        Debug.Log($"[Network] 건물 배치 클라이언트 사전 검증 실패: 골드 부족. 타입={type}, 팀={_currentTeam}");
+                        // [개발] Warn + 개발.
+                        //   축 A: 요청만 보내지 않고 팝업을 닫으며 게임은 그대로 계속된다 → Warn.
+                        //         (원본은 Log(Info) 였지만 "예상 밖이지만 대체 경로로 진행"이 Warn 의 정의다 — 1.2)
+                        //   축 B: LogRules 1.2 조합표가 이미 판정해 둔 자리다 — "골드 부족으로 거부"는
+                        //         화면에 이미 안내가 뜨는 클라이언트 사전 검증이므로 개발(원칙 2).
+                        //         서버가 거부한 경우만 운영이고(클라·서버 상태 불일치 신호),
+                        //         그 자리는 NetworkBuildingController 가 이미 운영으로 남긴다.
+                        GameLog.Dev.Warn("UI", nameof(BuildingPlacementUI),
+                                         "건물 배치 클라이언트 사전 검증 실패 — 골드 부족으로 요청을 보내지 않는다",
+                                         $"BuildingType={type}, Team={_currentTeam}");
                         Close();
                         return;
                     }

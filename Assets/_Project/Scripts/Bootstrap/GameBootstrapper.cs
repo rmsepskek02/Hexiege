@@ -266,6 +266,23 @@ namespace Hexiege.Bootstrap
         private bool _networkGameStarted = false;
 
         // ────────────────────────────────────────────────────────────────────
+        // 로그 시스템 (GameLog) — 배선은 이 클래스가 담당하지 않는다
+        //
+        //   sink 인스턴스 · 파일 세션 · 전역 예외 훅은 전부
+        //   Infrastructure/Debug/LogSessionOwner 가 static 으로 소유한다.
+        //
+        //   왜 여기서 뺐는가:
+        //     이 컴포넌트는 Game.unity 씬에만 붙어 있어서, 여기서 로그를 켜면
+        //     Login/Lobby 씬의 로그가 파일에 한 글자도 남지 않았다.
+        //     또한 sink 를 인스턴스 필드로 들고 있으면 씬이 바뀔 때 인스턴스가 새로 생겨
+        //     "이미 열었는가?" 판단이 씬 경계를 건너가지 못하고, 앞 세션의 파일을
+        //     뒤 인스턴스가 닫아 버리는 사고가 난다(자세한 설명은 LogSessionOwner.cs 상단).
+        //
+        //   이 클래스가 하는 일은 Awake 에서 LogSessionOwner.EnsureInitialized() 를
+        //   한 번 부르는 것뿐이다. 이미 켜져 있으면 아무 일도 일어나지 않는다(멱등).
+        // ────────────────────────────────────────────────────────────────────
+
+        // ────────────────────────────────────────────────────────────────────
         // 새 규칙 4 — 건물 변경 시 즉시 모든 유닛 경로 재계산(eager).
         //
         //   FlowFieldService가 OnBuildingPlaced / OnBuildingDied 에서 InvalidateAll로
@@ -418,9 +435,21 @@ namespace Hexiege.Bootstrap
         /// OnNetworkSpawn()이 호출되는데, 이는 Start()보다 나중에 일어난다.
         /// Awake()에서 미리 등록해 두면 OnNetworkSpawn()에서 바로 꺼낼 수 있다.
         /// 기존 초기화(맵 로드 등)는 Start()에 그대로 두어 순서를 보존한다.
+        ///
+        /// 로그 초기화(LogSessionOwner.EnsureInitialized)를 맨 앞에 두는 이유:
+        ///   로그는 그 뒤에 일어나는 모든 초기화를 관측할 수 있어야 한다.
+        ///   기존 초기화 순서를 바꾸지 않고 **앞에 한 줄 덧붙이기만** 한다.
         /// </summary>
         private void Awake()
         {
+            // [로그] sink 등록 + 전역 예외 훅 등록. 다른 초기화보다 먼저 살아 있어야 한다.
+            //
+            //   Login 씬을 거쳐 들어왔다면 LoginBootstrapper 가 이미 켜 두었으므로
+            //   이 호출은 첫 줄에서 그대로 되돌아간다(멱등). 세션은 끊기지 않는다.
+            //   반대로 에디터에서 Game.unity 를 직접 열고 실행하면 여기서 처음 켜진다 —
+            //   그래서 기존 동작(전투 씬 단독 실행 시 로그 기록)이 그대로 유지된다.
+            LogSessionOwner.EnsureInitialized();
+
             GameServicesLocator.Register(this);
         }
 
@@ -428,6 +457,12 @@ namespace Hexiege.Bootstrap
         /// 씬이 언로드될 때 로케이터 등록을 해제한다.
         /// 해제하지 않으면 씬 전환 후 파괴된 GameBootstrapper가 Current에 남아
         /// 다음 씬의 NetworkXxx 파일이 stale 참조를 사용하게 된다.
+        ///
+        /// 로그 정리는 더 이상 여기서 하지 않는다.
+        ///   OnDestroy 는 **씬이 언로드될 때마다** 불리므로, 여기서 파일 세션을 닫으면
+        ///   Game 씬을 벗어나는 것만으로 로그인·로비까지 이어 오던 파일이 끊긴다.
+        ///   정리 시점은 앱/플레이 모드 종료 1회로 옮겼고, 그 배선은
+        ///   LogSessionOwner 가 스스로 걸어 둔다(UnityEngine.Application.quitting).
         /// </summary>
         private void OnDestroy()
         {
@@ -463,7 +498,10 @@ namespace Hexiege.Bootstrap
             {
                 // 네트워크 모드: NetworkGameFlow가 StartGameClientRpc를 통해
                 // StartNetworkGame()을 호출하므로 여기서는 맵 로드를 건너뜀
-                Debug.Log("[Network] GameBootstrapper: 네트워크 모드 감지. 맵 로드는 NetworkGameFlow에 위임.");
+                // [개발] 의도된 분기이고, 결과(맵이 뜨는지)가 곧바로 화면에 나타난다.
+                //   축 A: 정상 흐름 → Info / 축 B: 에디터에서 그대로 재현된다 → 개발.
+                GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper),
+                                 "네트워크 모드 감지 — 맵 로드는 NetworkGameFlow 에 위임한다");
             }
             else
             {

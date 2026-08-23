@@ -796,9 +796,9 @@ B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 공�
 
 1. 같은 코드 리비전이 열린 Unity Editor와 Android 1대에 설치한 Android Development Build를 준비한다. Unity Editor는 PC target build가 아니라 기존 테스트 harness/counterpart로 사용하며 Windows/Standalone build는 사용하지 않는다.
 2. 같은 실기 세션에서 두 경기를 역할교대한다.
-   - Match A: Editor Host·Blue + Android Client·Red. `RuntimeLog_host.txt`와 Android client Logcat을 짝지어 분석한다.
-   - Match B: Android Host·Blue + Editor Client·Red. Android host Logcat과 `RuntimeLog_client.txt`를 짝지어 분석한다.
-3. 각 경기의 `[UAS-ROOT-POSE]` 로그 쌍은 `sharedSessionKey`가 서로 같고 `unavailable`이 아니어야 한다. `role`과 `isFlipped`는 Match A/B의 Host/Client·Blue/Red 배치와 일치해야 한다.
+   - Match A: Editor Host·Blue + Android Client·Red. Editor `_Logs/_editor/{date}/RuntimeLog.txt`와 Android `_Logs/{date}/{HH_mm}_logcat/RuntimeLog_device*.txt`를 짝지어 분석한다.
+   - Match B: Android Host·Blue + Editor Client·Red. Android `RuntimeLog_device*.txt`와 Editor `_Logs/_editor/{date}/RuntimeLog.txt`를 짝지어 분석한다.
+3. 매 경기 직전 `Hexiege > Logcat > 1. 버퍼 비우기`, 경기 종료 직후 `2. 파일로 저장`을 실행한다. 각 경기의 `[UAS-ROOT-POSE]` 로그 쌍은 `Role=Host/Client`, 동일하고 available한 `sharedSessionKey`, 동일 observer schema가 모두 맞아야 한다. `isFlipped`도 Match A/B의 Blue/Red 배치와 일치해야 하며, 누락·불일치·복수 후보로 pairing이 모호하면 fail-closed한다.
 4. 각 경기에서 180초 안에 Blue/Red 양 진영, 서로 다른 유닛 타입 2종 이상, 실제 이동한 유닛 2기 이상, 이동 후 3초 stable 표본을 확보한다.
 5. 각 경기 양쪽 `[END]`가 coverage PASS와 errors 0인지 확인하고, 파일 로그와 Logcat 쌍을 외부 stable cross-audit한다.
 
@@ -937,12 +937,31 @@ B2의 25종 Shadow 게이트를 통과한 뒤, 경기 시작 시 고정한 공�
 - [x] lifecycle retire가 서버/클라이언트 baseline과 recoverable 이력을 제거하고 object-id 재사용을 허용하도록 보강
 - [x] pure 회귀: OutsideLogicalPath, missing, non-walkable, fatal invalid, 동일 frame 재실행, staged accounting, recoverable 이력, lifecycle retire/reuse
 - [x] Runtime/Editor Roslyn compile PASS 및 독립 정적 QA P0~P2 없음
-- [ ] Unity 메뉴 `[UAS-DIAG]` self-validation 실제 실행 PASS
+- [x] main 통합 전 Unity 메뉴 `[UAS-DIAG]` self-validation 실제 실행 PASS
 - [ ] 새 Android Host·Editor Client에서 recoverable repath의 resolved/nonrepeat/no-cleanup coverage와 fatal/stage/commit 오류 0
 - [ ] 새 실기 Host authority·Client replication 오류 0, 양쪽 Root와 cross-audit PASS
 
-**v9 코드 게이트 판정 (2026-08-23):** typed 공간 후보/preflight 교정, staged accounting, recoverable 이력과 lifecycle retire 보강의 코드 반영을 확인했다. Runtime/Editor Roslyn은 PASS했고 독립 정적 QA는 P0~P2가 없다. Unity 메뉴 self-validation과 Android v9 실기는 아직 실행하지 않았으므로 B3는 **FAIL / OPEN**이다.
+**v9 코드 게이트 판정 (2026-08-23):** typed 공간 후보/preflight 교정, staged accounting, recoverable 이력과 lifecycle retire 보강의 코드 반영을 확인했다. Runtime/Editor Roslyn과 독립 정적 QA P0~P2 없음, main 통합 전 Unity 메뉴 self-validation까지 PASS했다. main 통합 결과의 컴파일·self-validation 재실행·최종 QA와 Android v9 실기는 아직 없으므로 B3는 **FAIL / OPEN**이다.
 
 **Android 판정 주의:** `spatialFinalRecoverableRepaths` 자체는 0 강제 항목이 아니다. recoverable repath가 발생했다면 다음 frame 이후 해소되고, 동일 signature 반복·same-frame retry·cleanup 없이 정상 commit 또는 안전한 lifecycle로 수렴해야 한다. `spatialRepeatedRecoverableRepaths`, `spatialSameFrameRetries`, `spatialCleanupAfterRecoverable`, fatal preflight, stage divergence, commit 실패 및 `planned != committed`는 실패다.
 
 **종료 조건:** 위 미체크 항목을 모두 통과하기 전에는 역할교대·25종 전체 회귀·Legacy rollback으로 확대하지 않는다. corridor 허용 범위, no-progress 예산 또는 서버 권위를 완화하지 않으며 이번 수정을 B3의 마지막 국소 교정 범위로 제한한다.
+
+### 9.17 pre-merge self-validation PASS와 main 통합 재검증
+
+- [x] main 통합 전 v9 Unity 메뉴 `[UAS-DIAG]` self-validation 실제 실행 PASS
+- [x] main의 `GameLog`·씬 무관 Editor 로그·Logcat 캡처와 게임 종료/despawn 안전 이력을 보존하는 병합 기준 확정
+- [x] 문서 conflict에서 B3 v9와 main 로그/종료 안전 이력을 모두 보존
+- [x] `origin/main` 60개 commit과 B3 v9 양측 의미 병합 완료, unmerged 0 및 staged 최신 해결본 일치
+- [x] main `GameLog`·`LogSessionOwner`·combat shutdown·`IsSpawned`·research 수정과 B3 v9 동작 모두 보존
+- [x] device 최신 anchor + Editor daily, run role, shared key, production schema exact, 전체 BEGIN/END identity, EVIDENCE/FAIL, device/editor source gate 감사
+- [x] Android-safe terminal 26 manifest + 5 summary + compact END = 32줄, 최대 968 UTF-8 byte 확인; manifest 27개/초과 길이 fail-closed
+- [x] stateful adapter 64개 허용/65번째 거부 경계와 release `Conditional` 확인
+- [x] main 통합 결과 Runtime/Editor Roslyn compile PASS
+- [x] 독립 최종 QA P0~P3 없음
+- [x] 최종 반영 전 문서 정합성 검사 0건
+- [ ] main 통합 결과 Unity 메뉴 `[UAS-DIAG]` self-validation 재실행 PASS
+- [ ] main 통합 결과 RootCrossAudit self-validation 실제 메뉴 실행 PASS
+- [ ] Android v9 Host·Editor Client resolved/nonrepeat/no-cleanup 및 authority·replication·Root/cross-audit gate
+
+**현재 판정:** 양측 의미 병합과 post-merge Runtime/Editor Roslyn·독립 QA 코드 게이트는 PASS했다. pre-merge `[UAS-DIAG]` PASS는 post-merge 메뉴 증거로 재사용하지 않는다. post-merge `[UAS-DIAG]`·RootCrossAudit 실제 메뉴 실행과 Android v9 실기가 남아 있으므로 B3는 **FAIL / OPEN**이다.

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Hexiege.Infrastructure;
 using UnityEditor;
 using UnityEngine;
 
@@ -20,21 +21,19 @@ namespace Hexiege.Editor.Combat
         private const float FloatComparisonEpsilon = 0.000001f;
         private const int MinimumMatchedUnits = 2;
         private const float MinimumMatchedCoverageRatio = 0.5f;
-
         [MenuItem("Hexiege/Combat/Diagnostics/Analyze Latest Unit Root Pose Logs")]
         public static void Run()
         {
             try
             {
-                string hostText = ReadAllLogs("RuntimeLog_host.txt", out int hostFiles);
-                string clientText = ReadAllLogs("RuntimeLog_client.txt", out int clientFiles);
-                AuditResult result = Analyze(
-                    hostText,
-                    clientText);
+                IReadOnlyList<LogFileInput> files = DiscoverLogFiles();
+                DiscoveryAudit discovery = AnalyzeDiscoveredLogs(files);
+                AuditResult result = discovery.Result;
                 string message =
                     $"[UAS-ROOT-CROSS-AUDIT]" +
                     $"[{result.Verdict.ToString().ToUpperInvariant()}] " +
-                    $"hostFiles={hostFiles}, clientFiles={clientFiles}, {result.Details}";
+                    $"discoveredFiles={files.Count}, hostFiles={discovery.HostFiles}, " +
+                    $"clientFiles={discovery.ClientFiles}, {result.Details}";
 
                 if (result.Verdict == AuditVerdict.Pass)
                     Debug.Log(message);
@@ -238,9 +237,241 @@ namespace Hexiege.Editor.Combat
                     AuditVerdict.Inconclusive,
                     "ambiguous repeated lobby sessions");
 
+                var editorHostDeviceClient = new[]
+                {
+                    new LogFileInput(
+                        "_editor/fixture/RuntimeLog.txt",
+                        host),
+                    new LogFileInput(
+                        "device/RuntimeLog_device_20260823_120000.txt",
+                        client)
+                };
+                RequireVerdict(
+                    AnalyzeDiscoveredLogs(editorHostDeviceClient).Result,
+                    AuditVerdict.Pass,
+                    "content role discovery");
+
+                var editorClientDeviceHost = new[]
+                {
+                    new LogFileInput(
+                        "_editor/fixture/RuntimeLog.txt",
+                        client),
+                    new LogFileInput(
+                        "device/RuntimeLog_device7.txt",
+                        host)
+                };
+                RequireVerdict(
+                    AnalyzeDiscoveredLogs(editorClientDeviceHost).Result,
+                    AuditVerdict.Pass,
+                    "role swap and device suffix discovery");
+
+                string dailySwapClient = BuildFixture(
+                    "daily-swap-client",
+                    "daily-swap-key",
+                    "client",
+                    true,
+                    22d,
+                    0f);
+                string dailySwapHost = BuildFixture(
+                    "daily-swap-host",
+                    "daily-swap-key",
+                    "host",
+                    false,
+                    20d,
+                    0f);
+                DiscoveryAudit mixedRoleDailyFile = AnalyzeDiscoveredLogs(new[]
+                {
+                    new LogFileInput(
+                        "_editor/fixture/RuntimeLog.txt",
+                        host + "\n" + dailySwapClient),
+                    new LogFileInput(
+                        "device/RuntimeLog_device.txt",
+                        dailySwapHost)
+                });
+                RequireVerdict(
+                    mixedRoleDailyFile.Result,
+                    AuditVerdict.Pass,
+                    "mixed role daily append file");
+
+                DiscoveryAudit editorOnly = AnalyzeDiscoveredLogs(new[]
+                {
+                    new LogFileInput(
+                        "_editor/fixture/RuntimeLog.txt",
+                        host + "\n" + client)
+                });
+                RequireVerdict(
+                    editorOnly.Result,
+                    AuditVerdict.Inconclusive,
+                    "device anchor required");
+                RequireDetails(
+                    editorOnly.Result,
+                    "device anchor required",
+                    "reason=no-device-anchor");
+
+                DiscoveryAudit duplicateHost = AnalyzeDiscoveredLogs(new[]
+                {
+                    new LogFileInput("_editor/a/RuntimeLog.txt", host),
+                    new LogFileInput("_editor/b/RuntimeLog.txt", host),
+                    new LogFileInput("device/RuntimeLog_device.txt", client)
+                });
+                RequireVerdict(
+                    duplicateHost.Result,
+                    AuditVerdict.Inconclusive,
+                    "duplicate role/session discovery");
+                RequireDetails(
+                    duplicateHost.Result,
+                    "duplicate role/session discovery",
+                    "reason=duplicate-role-session-files");
+
+                DiscoveryAudit mismatchedSession = AnalyzeDiscoveredLogs(new[]
+                {
+                    new LogFileInput("_editor/a/RuntimeLog.txt", host),
+                    new LogFileInput("device/RuntimeLog_device.txt", otherMatch)
+                });
+                RequireVerdict(
+                    mismatchedSession.Result,
+                    AuditVerdict.Inconclusive,
+                    "discovered same-session gate");
+
+                string latestHost = BuildFixture(
+                    "latest-host",
+                    "latest-key",
+                    "host",
+                    false,
+                    30d,
+                    0f);
+                string latestClient = BuildFixture(
+                    "latest-client",
+                    "latest-key",
+                    "client",
+                    true,
+                    32d,
+                    0f);
+                IReadOnlyList<LogFileInput> latestSelection = SelectLatestCapture(new[]
+                {
+                    new LogFileInput("_editor/day/RuntimeLog.txt", host + "\n" + latestHost, 1),
+                    new LogFileInput("device/RuntimeLog_device_old.txt", client, 2),
+                    new LogFileInput("device/RuntimeLog_device_latest.txt", latestClient, 3)
+                });
+                RequireVerdict(
+                    AnalyzeDiscoveredLogs(latestSelection).Result,
+                    AuditVerdict.Pass,
+                    "latest device capture anchor");
+
+                string schemaMismatchClient = client.Replace(
+                    UnitMovementAuthorityObserver.ProductionSchema,
+                    "b3-movement-authority-v8");
+                DiscoveryAudit schemaMismatch = AnalyzeDiscoveredLogs(new[]
+                {
+                    new LogFileInput("_editor/a/RuntimeLog.txt", host),
+                    new LogFileInput("device/RuntimeLog_device.txt", schemaMismatchClient)
+                });
+                RequireVerdict(
+                    schemaMismatch.Result,
+                    AuditVerdict.Inconclusive,
+                    "movement observer schema mismatch");
+                RequireDetails(
+                    schemaMismatch.Result,
+                    "movement observer schema mismatch",
+                    "reason=movement-observer-schema-mismatch");
+
+                string equallyStaleHost = host.Replace(
+                    UnitMovementAuthorityObserver.ProductionSchema,
+                    "b3-movement-authority-v8");
+                string equallyStaleClient = client.Replace(
+                    UnitMovementAuthorityObserver.ProductionSchema,
+                    "b3-movement-authority-v8");
+                DiscoveryAudit equallyStaleSchema = AnalyzeDiscoveredLogs(new[]
+                {
+                    new LogFileInput("_editor/a/RuntimeLog.txt", equallyStaleHost),
+                    new LogFileInput("device/RuntimeLog_device.txt", equallyStaleClient)
+                });
+                RequireVerdict(
+                    equallyStaleSchema.Result,
+                    AuditVerdict.Inconclusive,
+                    "equal but stale movement observer schema");
+                RequireDetails(
+                    equallyStaleSchema.Result,
+                    "equal but stale movement observer schema",
+                    "reason=non-production-movement-observer-schema");
+
+                string missingSchemaClient = string.Join(
+                    "\n",
+                    client.Split(new[] { "\n" }, StringSplitOptions.None)
+                        .Where(line => line.IndexOf(
+                            "[UAS-MOVE-AUTH] BEGIN",
+                            StringComparison.Ordinal) < 0));
+                DiscoveryAudit missingSchema = AnalyzeDiscoveredLogs(new[]
+                {
+                    new LogFileInput("_editor/a/RuntimeLog.txt", host),
+                    new LogFileInput("device/RuntimeLog_device.txt", missingSchemaClient)
+                });
+                RequireVerdict(
+                    missingSchema.Result,
+                    AuditVerdict.Inconclusive,
+                    "movement observer schema missing");
+                RequireDetails(
+                    missingSchema.Result,
+                    "movement observer schema missing",
+                    "reason=missing-or-ambiguous-movement-observer-schema");
+
+                string truncatedMovementEnd = client.Replace(
+                    ", verdict=EVIDENCE",
+                    string.Empty);
+                DiscoveryAudit truncatedMovementLifecycle = AnalyzeDiscoveredLogs(new[]
+                {
+                    new LogFileInput("_editor/a/RuntimeLog.txt", host),
+                    new LogFileInput("device/RuntimeLog_device.txt", truncatedMovementEnd)
+                });
+                RequireVerdict(
+                    truncatedMovementLifecycle.Result,
+                    AuditVerdict.Inconclusive,
+                    "truncated movement observer END");
+                RequireDetails(
+                    truncatedMovementLifecycle.Result,
+                    "truncated movement observer END",
+                    "reason=malformed-movement-observer-terminal");
+
+                string mismatchedMovementEnd = client.Replace(
+                    "[UAS-MOVE-AUTH] END | runId=move-client-run,",
+                    "[UAS-MOVE-AUTH] END | runId=move-other-run,");
+                DiscoveryAudit mismatchedMovementLifecycle = AnalyzeDiscoveredLogs(new[]
+                {
+                    new LogFileInput("_editor/a/RuntimeLog.txt", host),
+                    new LogFileInput("device/RuntimeLog_device.txt", mismatchedMovementEnd)
+                });
+                RequireVerdict(
+                    mismatchedMovementLifecycle.Result,
+                    AuditVerdict.Inconclusive,
+                    "mismatched movement observer lifecycle");
+                RequireDetails(
+                    mismatchedMovementLifecycle.Result,
+                    "mismatched movement observer lifecycle",
+                    "reason=mismatched-movement-observer-lifecycle");
+
+                string failedMovementEnd = client.Replace(
+                    ", verdict=EVIDENCE",
+                    ", verdict=FAIL");
+                DiscoveryAudit failedMovementLifecycle = AnalyzeDiscoveredLogs(new[]
+                {
+                    new LogFileInput("_editor/a/RuntimeLog.txt", host),
+                    new LogFileInput("device/RuntimeLog_device.txt", failedMovementEnd)
+                });
+                RequireVerdict(
+                    failedMovementLifecycle.Result,
+                    AuditVerdict.Fail,
+                    "movement observer FAIL END");
+                RequireDetails(
+                    failedMovementLifecycle.Result,
+                    "movement observer FAIL END",
+                    "reason=movement-observer-terminal-fail");
+
                 Debug.Log(
                     "[UAS-ROOT-CROSS-AUDIT] self-validation PASS: " +
-                    "same-session gate, overlapping/non-overlapping stable windows, " +
+                    "file discovery/content role swap/device suffix and mandatory device anchor, " +
+                    "same-session gate, " +
+                    "duplicate/ambiguous role, movement schema and lifecycle fail-closed, " +
+                    "overlapping/non-overlapping stable windows, " +
                     "temporal/one-sided union coverage, real-match-shaped coverage, " +
                     "per-axis threshold, " +
                     "distinct-unit minimum, ambiguous sessions, " +
@@ -257,6 +488,14 @@ namespace Hexiege.Editor.Combat
         {
             List<RunEvidence> hostRuns = Parse(hostText);
             List<RunEvidence> clientRuns = Parse(clientText);
+            return AnalyzeRuns(hostRuns, clientRuns);
+        }
+
+        private static AuditResult AnalyzeRuns(
+            IReadOnlyList<RunEvidence> hostRuns,
+            IReadOnlyList<RunEvidence> clientRuns,
+            bool requireDeviceEditorPair = false)
+        {
             List<Tuple<RunEvidence, RunEvidence>> candidates =
                 (from host in hostRuns
                  from client in clientRuns
@@ -265,6 +504,8 @@ namespace Hexiege.Editor.Combat
                            host.SharedSessionKey,
                            client.SharedSessionKey,
                            StringComparison.Ordinal)
+                       && (!requireDeviceEditorPair
+                           || host.SourceIsDevice != client.SourceIsDevice)
                  select Tuple.Create(host, client)).ToList();
 
             if (candidates.Count == 0)
@@ -402,20 +643,377 @@ namespace Hexiege.Editor.Combat
             return AuditResult.Pass(metrics);
         }
 
-        private static string ReadAllLogs(string fileName, out int fileCount)
+        private static IReadOnlyList<LogFileInput> DiscoverLogFiles()
         {
             string fullRoot = Path.GetFullPath(LogRoot);
+            if (!Directory.Exists(fullRoot))
+                throw new DirectoryNotFoundException(LogRoot);
+
             string[] paths = Directory.GetFiles(
                     fullRoot,
-                    fileName,
+                    "RuntimeLog*.txt",
                     SearchOption.AllDirectories)
+                .Where(IsSupportedLogPath)
                 .OrderBy(File.GetLastWriteTimeUtc)
                 .ThenBy(path => path, StringComparer.Ordinal)
                 .ToArray();
             if (paths.Length == 0)
-                throw new FileNotFoundException($"{fileName} was not found below {LogRoot}");
-            fileCount = paths.Length;
-            return string.Join("\n", paths.Select(File.ReadAllText));
+            {
+                throw new FileNotFoundException(
+                    $"RuntimeLog.txt or RuntimeLog_device*.txt was not found below {LogRoot}");
+            }
+            return SelectLatestCapture(paths
+                .Select(path => new LogFileInput(
+                    path,
+                    File.ReadAllText(path),
+                    File.GetLastWriteTimeUtc(path).Ticks))
+                .ToArray());
+        }
+
+        private static IReadOnlyList<LogFileInput> SelectLatestCapture(
+            IReadOnlyList<LogFileInput> files)
+        {
+            var selected = files
+                .Where(file => string.Equals(
+                    Path.GetFileName(file.Path),
+                    "RuntimeLog.txt",
+                    StringComparison.Ordinal))
+                .ToList();
+            LogFileInput latestDevice = files
+                .Where(file => Path.GetFileName(file.Path).StartsWith(
+                    "RuntimeLog_device",
+                    StringComparison.Ordinal))
+                .OrderBy(file => file.ModifiedUtcTicks)
+                .ThenBy(file => file.Path, StringComparer.Ordinal)
+                .LastOrDefault();
+            if (latestDevice != null)
+                selected.Add(latestDevice);
+            return selected;
+        }
+
+        private static bool IsSupportedLogPath(string path)
+        {
+            string fileName = Path.GetFileName(path);
+            if (fileName.StartsWith("RuntimeLog_device", StringComparison.Ordinal)
+                && fileName.EndsWith(".txt", StringComparison.Ordinal))
+                return true;
+            if (!string.Equals(fileName, "RuntimeLog.txt", StringComparison.Ordinal))
+                return false;
+
+            string normalized = path.Replace('\\', '/');
+            return normalized.IndexOf("/_editor/", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static DiscoveryAudit AnalyzeDiscoveredLogs(
+            IReadOnlyList<LogFileInput> files)
+        {
+            if (files == null || files.Count == 0)
+            {
+                return DiscoveryAudit.Create(
+                    AuditResult.Inconclusive("reason=no-supported-log-files"),
+                    0,
+                    0);
+            }
+
+            var hostRuns = new List<RunEvidence>();
+            var clientRuns = new List<RunEvidence>();
+            var roleSessionSources = new Dictionary<string, string>(StringComparer.Ordinal);
+            var schemasByRoleSession = new Dictionary<string, string>(StringComparer.Ordinal);
+            var anchorSharedSessionKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (LogFileInput file in files)
+            {
+                if (!Path.GetFileName(file.Path).StartsWith(
+                        "RuntimeLog_device",
+                        StringComparison.Ordinal))
+                    continue;
+                foreach (RunEvidence run in Parse(file.Text))
+                {
+                    if (IsAvailableKey(run.SharedSessionKey))
+                        anchorSharedSessionKeys.Add(run.SharedSessionKey);
+                }
+            }
+            if (anchorSharedSessionKeys.Count == 0)
+            {
+                return DiscoveryAudit.Create(
+                    AuditResult.Inconclusive("reason=no-device-anchor"),
+                    0,
+                    0);
+            }
+            int hostFiles = 0;
+            int clientFiles = 0;
+            foreach (LogFileInput file in files)
+            {
+                if (file == null || string.IsNullOrEmpty(file.Path))
+                {
+                    return DiscoveryAudit.Create(
+                        AuditResult.Inconclusive("reason=invalid-discovered-file"),
+                        hostFiles,
+                        clientFiles);
+                }
+
+                List<RunEvidence> runs = Parse(file.Text)
+                    .Where(run => anchorSharedSessionKeys.Contains(run.SharedSessionKey))
+                    .ToList();
+                if (runs.Count == 0)
+                    continue;
+                bool sourceIsDevice = Path.GetFileName(file.Path).StartsWith(
+                    "RuntimeLog_device",
+                    StringComparison.Ordinal);
+                foreach (RunEvidence run in runs)
+                {
+                    run.SourceIsDevice = sourceIsDevice;
+                }
+
+                Dictionary<string, string> fileSchemas;
+                bool movementObserverTerminalFailure;
+                string schemaError = ParseMovementObserverSchemas(
+                    file.Text,
+                    anchorSharedSessionKeys,
+                    out fileSchemas,
+                    out movementObserverTerminalFailure);
+                if (schemaError != null)
+                {
+                    return DiscoveryAudit.Create(
+                        AuditResult.Inconclusive(
+                            $"reason={schemaError}, file={file.Path}"),
+                        hostFiles,
+                        clientFiles);
+                }
+                if (movementObserverTerminalFailure)
+                {
+                    return DiscoveryAudit.Create(
+                        AuditResult.Fail(
+                            $"reason=movement-observer-terminal-fail, file={file.Path}"),
+                        hostFiles,
+                        clientFiles);
+                }
+
+                bool fileHasHost = false;
+                bool fileHasClient = false;
+                foreach (RunEvidence run in runs)
+                {
+                    if (!TryGetConsistentRole(run, out string role))
+                    {
+                        return DiscoveryAudit.Create(
+                            AuditResult.Inconclusive(
+                                $"reason=ambiguous-file-role, file={file.Path}, runId={run.RunId}"),
+                            hostFiles,
+                            clientFiles);
+                    }
+                    if (!IsAvailableKey(run.SharedSessionKey))
+                    {
+                        return DiscoveryAudit.Create(
+                            AuditResult.Inconclusive(
+                                $"reason=missing-shared-session-key, file={file.Path}, runId={run.RunId}"),
+                            hostFiles,
+                            clientFiles);
+                    }
+
+                    string identity = role + "\n" + run.SharedSessionKey;
+                    if (!fileSchemas.TryGetValue(identity, out string observerSchema))
+                    {
+                        return DiscoveryAudit.Create(
+                            AuditResult.Inconclusive(
+                                $"reason=missing-or-ambiguous-movement-observer-schema, " +
+                                $"file={file.Path}, role={role}, " +
+                                $"sharedSessionKey={run.SharedSessionKey}"),
+                            hostFiles,
+                            clientFiles);
+                    }
+                    if (roleSessionSources.TryGetValue(identity, out string source)
+                        && !string.Equals(source, file.Path, StringComparison.Ordinal))
+                    {
+                        return DiscoveryAudit.Create(
+                            AuditResult.Inconclusive(
+                                $"reason=duplicate-role-session-files, role={role}, " +
+                                $"sharedSessionKey={run.SharedSessionKey}, first={source}, second={file.Path}"),
+                            hostFiles,
+                            clientFiles);
+                    }
+                    roleSessionSources[identity] = file.Path;
+                    schemasByRoleSession[identity] = observerSchema;
+                    if (string.Equals(role, "host", StringComparison.OrdinalIgnoreCase))
+                    {
+                        hostRuns.Add(run);
+                        fileHasHost = true;
+                    }
+                    else
+                    {
+                        clientRuns.Add(run);
+                        fileHasClient = true;
+                    }
+                }
+                if (fileHasHost) hostFiles++;
+                if (fileHasClient) clientFiles++;
+            }
+
+            if (hostRuns.Count == 0 || clientRuns.Count == 0)
+            {
+                return DiscoveryAudit.Create(
+                    AuditResult.Inconclusive(
+                        $"reason=missing-role-evidence, hostFiles={hostFiles}, clientFiles={clientFiles}"),
+                    hostFiles,
+                    clientFiles);
+            }
+
+            IEnumerable<string> sharedKeys = schemasByRoleSession.Keys
+                .Where(identity => identity.StartsWith("host\n", StringComparison.Ordinal))
+                .Select(identity => identity.Substring("host\n".Length))
+                .Where(key => schemasByRoleSession.ContainsKey("client\n" + key));
+            foreach (string sharedKey in sharedKeys)
+            {
+                string hostSchema = schemasByRoleSession["host\n" + sharedKey];
+                string clientSchema = schemasByRoleSession["client\n" + sharedKey];
+                if (!string.Equals(hostSchema, clientSchema, StringComparison.Ordinal))
+                {
+                    return DiscoveryAudit.Create(
+                        AuditResult.Inconclusive(
+                            $"reason=movement-observer-schema-mismatch, " +
+                            $"sharedSessionKey={sharedKey}, hostSchema={hostSchema}, " +
+                            $"clientSchema={clientSchema}"),
+                        hostFiles,
+                        clientFiles);
+                }
+                if (!string.Equals(
+                        hostSchema,
+                        UnitMovementAuthorityObserver.ProductionSchema,
+                        StringComparison.Ordinal))
+                {
+                    return DiscoveryAudit.Create(
+                        AuditResult.Inconclusive(
+                            $"reason=non-production-movement-observer-schema, " +
+                            $"sharedSessionKey={sharedKey}, schema={hostSchema}, " +
+                            $"requiredSchema={UnitMovementAuthorityObserver.ProductionSchema}"),
+                        hostFiles,
+                        clientFiles);
+                }
+            }
+
+            return DiscoveryAudit.Create(
+                AnalyzeRuns(hostRuns, clientRuns, requireDeviceEditorPair: true),
+                hostFiles,
+                clientFiles);
+        }
+
+        private static bool TryGetConsistentRole(RunEvidence run, out string role)
+        {
+            role = null;
+            if (!string.Equals(run.BeginRole, run.EndRole, StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (string.Equals(run.BeginRole, "host", StringComparison.OrdinalIgnoreCase))
+                role = "host";
+            else if (string.Equals(run.BeginRole, "client", StringComparison.OrdinalIgnoreCase))
+                role = "client";
+            return role != null;
+        }
+
+        private static string ParseMovementObserverSchemas(
+            string text,
+            ISet<string> includedSharedSessionKeys,
+            out Dictionary<string, string> schemas,
+            out bool terminalFailure)
+        {
+            schemas = new Dictionary<string, string>(StringComparer.Ordinal);
+            terminalFailure = false;
+            var lifecycles = new Dictionary<string, MovementObserverLifecycle>(
+                StringComparer.Ordinal);
+            string[] lines = (text ?? string.Empty)
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            foreach (string line in lines)
+            {
+                bool isBegin = line.IndexOf(
+                    "[UAS-MOVE-AUTH] BEGIN",
+                    StringComparison.Ordinal) >= 0;
+                bool isEnd = line.IndexOf(
+                    "[UAS-MOVE-AUTH] END",
+                    StringComparison.Ordinal) >= 0;
+                if (!isBegin && !isEnd)
+                    continue;
+
+                string role = ReadValue(line, "role");
+                string sharedSessionKey = ReadValue(line, "sharedSessionKey");
+                if (includedSharedSessionKeys != null
+                    && !includedSharedSessionKeys.Contains(sharedSessionKey))
+                    continue;
+                if ((!string.Equals(role, "host", StringComparison.OrdinalIgnoreCase)
+                     && !string.Equals(role, "client", StringComparison.OrdinalIgnoreCase))
+                    || !IsAvailableKey(sharedSessionKey))
+                    return "malformed-movement-observer-schema";
+
+                role = role.ToLowerInvariant();
+                string identity = role + "\n" + sharedSessionKey;
+                if (isBegin)
+                {
+                    string runId = ReadValue(line, "runId");
+                    string startedAt = ReadValue(line, "startedAt");
+                    string schema = ReadValue(line, "observerSchema");
+                    if (string.IsNullOrEmpty(runId)
+                        || string.IsNullOrEmpty(startedAt)
+                        || !double.TryParse(
+                            startedAt,
+                            NumberStyles.Float,
+                            CultureInfo.InvariantCulture,
+                            out double parsedStartedAt)
+                        || !IsFinite(parsedStartedAt)
+                        || string.IsNullOrEmpty(schema))
+                        return "malformed-movement-observer-schema";
+                    if (lifecycles.ContainsKey(identity))
+                        return "duplicate-movement-observer-schema";
+                    lifecycles.Add(identity, new MovementObserverLifecycle
+                    {
+                        RunId = runId,
+                        SharedSessionKey = sharedSessionKey,
+                        StartedAt = startedAt,
+                        Role = role,
+                        Schema = schema
+                    });
+                    schemas.Add(identity, schema);
+                }
+                else
+                {
+                    if (!lifecycles.TryGetValue(
+                            identity,
+                            out MovementObserverLifecycle lifecycle))
+                        return "missing-or-ambiguous-movement-observer-schema";
+                    if (lifecycle.EndSeen)
+                        return "mismatched-movement-observer-lifecycle";
+
+                    string endRunId = ReadValue(line, "runId");
+                    string endStartedAt = ReadValue(line, "startedAt");
+                    string verdict = ReadValue(line, "verdict");
+                    if (!string.Equals(
+                            lifecycle.RunId,
+                            endRunId,
+                            StringComparison.Ordinal)
+                        || !string.Equals(
+                            lifecycle.SharedSessionKey,
+                            sharedSessionKey,
+                            StringComparison.Ordinal)
+                        || !string.Equals(
+                            lifecycle.StartedAt,
+                            endStartedAt,
+                            StringComparison.Ordinal)
+                        || !string.Equals(
+                            lifecycle.Role,
+                            role,
+                            StringComparison.Ordinal))
+                        return "mismatched-movement-observer-lifecycle";
+                    if (string.Equals(verdict, "FAIL", StringComparison.Ordinal))
+                        terminalFailure = true;
+                    else if (!string.Equals(
+                                 verdict,
+                                 "EVIDENCE",
+                                 StringComparison.Ordinal))
+                        return "malformed-movement-observer-terminal";
+                    lifecycle.EndSeen = true;
+                }
+            }
+            foreach (MovementObserverLifecycle lifecycle in lifecycles.Values)
+            {
+                if (!lifecycle.EndSeen)
+                    return "missing-or-ambiguous-movement-observer-schema";
+            }
+            return null;
         }
 
         private static string BuildFixture(
@@ -436,6 +1034,10 @@ namespace Hexiege.Editor.Combat
             string time = endpointTime.ToString("F3", CultureInfo.InvariantCulture);
             var lines = new List<string>
             {
+                $"[UAS-MOVE-AUTH] BEGIN | runId=move-{runId}, " +
+                $"sharedSessionKey={sharedSessionKey}, startedAt=1.000000, " +
+                $"role={role}, observerSchema={UnitMovementAuthorityObserver.ProductionSchema}, " +
+                "mode=ReducerAuthoritative, serverTime=1.000000",
                 $"[UAS-ROOT-POSE] BEGIN | runId={runId}, " +
                 $"sharedSessionKey={sharedSessionKey}, sessionStartBucket=1, " +
                 $"role={role}, isFlipped={flip}"
@@ -470,6 +1072,10 @@ namespace Hexiege.Editor.Combat
                     endpointCount++;
                 }
             }
+            lines.Add(
+                $"[UAS-MOVE-AUTH] END | runId=move-{runId}, " +
+                $"sharedSessionKey={sharedSessionKey}, startedAt=1.000000, " +
+                $"reason=fixture, role={role}, verdict=EVIDENCE");
             lines.Add(
                 $"[UAS-ROOT-POSE] summary-END | runId={runId}, " +
                 $"sharedSessionKey={sharedSessionKey}, sessionStartBucket=1, " +
@@ -1013,10 +1619,56 @@ namespace Hexiege.Editor.Combat
             }
         }
 
+        private sealed class LogFileInput
+        {
+            public readonly string Path;
+            public readonly string Text;
+
+            public readonly long ModifiedUtcTicks;
+
+            public LogFileInput(string path, string text, long modifiedUtcTicks = 0)
+            {
+                Path = path;
+                Text = text ?? string.Empty;
+                ModifiedUtcTicks = modifiedUtcTicks;
+            }
+        }
+
+        private sealed class DiscoveryAudit
+        {
+            public AuditResult Result { get; private set; }
+            public int HostFiles { get; private set; }
+            public int ClientFiles { get; private set; }
+
+            public static DiscoveryAudit Create(
+                AuditResult result,
+                int hostFiles,
+                int clientFiles)
+            {
+                return new DiscoveryAudit
+                {
+                    Result = result,
+                    HostFiles = hostFiles,
+                    ClientFiles = clientFiles
+                };
+            }
+        }
+
+        private sealed class MovementObserverLifecycle
+        {
+            public string RunId;
+            public string SharedSessionKey;
+            public string StartedAt;
+            public string Role;
+            public string Schema;
+            public bool EndSeen;
+        }
+
         private sealed class RunEvidence
         {
             public string RunId;
             public string SharedSessionKey;
+            public bool SourceIsDevice;
             public long? SessionStartBucket;
             public string BeginRole;
             public string EndRole;

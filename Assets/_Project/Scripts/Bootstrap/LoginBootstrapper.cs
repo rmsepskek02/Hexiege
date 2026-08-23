@@ -10,16 +10,19 @@
 //   5. 자동 로그인 시도 → 성공 시 Lobby 씬 이동, 실패 시 LoginRootView 활성화
 //
 // GameBootstrapper 와의 관계:
-//   - LoginBootstrapper 는 Login 씬에만 존재. GameBootstrapper 는 Lobby/Game 씬에 존재.
+//   - LoginBootstrapper 는 Login 씬에만 존재. GameBootstrapper 는 **Game 씬에만** 존재한다.
+//     (Lobby.unity 에는 부트스트래퍼가 아예 없다 — 2026-08-17 씬 파일 실측 결과 참조 0건.
+//      "Lobby 에도 GameBootstrapper 가 있다" 고 적혀 있던 예전 주석은 사실이 아니어서 정정했다.)
 //   - 두 Bootstrapper 는 완전히 독립적이며, 서로 참조하지 않는다.
 //   - 씬 전환 시점(SceneManager.LoadScene) 에 한쪽이 파괴되고 다른 쪽이 새로 생성된다.
+//   - 로그 배선만은 두 곳에서 같은 진입점(LogSessionOwner.EnsureInitialized)을 부른다.
+//     서로를 참조하는 것이 아니라, Infrastructure 의 정적 소유자를 각자 부르는 방식이다.
 //
 // 부착 위치: Login.unity 씬의 [Bootstrap] 빈 GameObject.
 //
 // Bootstrap 레이어 — 모든 레이어에 접근 가능한 유일한 곳.
 // ============================================================================
 
-using System;                       // [DEBUG-TEMP] 디버깅 완료 후 제거 (DateTime)
 using System.Threading.Tasks;
 #if UNITY_ANDROID && HEXIEGE_ENABLE_FIREBASE_AUTH
 using GooglePlayGames;
@@ -99,19 +102,38 @@ namespace Hexiege.Bootstrap
         // ====================================================================
 
         /// <summary>
-        /// Awake 에서 Google Play Games 활성화.
+        /// Awake 에서 로그 배선 → Google Play Games 활성화 순으로 수행한다.
         /// PlayGamesPlatform.Activate() 는 게임 시작 시 단 한 번만 호출해야 한다(공식 문서 권장).
+        ///
+        /// 로그 배선(LogSessionOwner.EnsureInitialized)을 맨 앞에 두는 이유:
+        ///   이 씬이 게임 실행 후 가장 먼저 뜨는 씬(Build Index 0)이다.
+        ///   로그를 여기서 켜야 GPGS 활성화부터 Firebase 초기화·자동 로그인까지
+        ///   **그 뒤에 일어나는 모든 일**이 파일에 남는다.
+        ///   예전에는 이 배선이 Game 씬 전용인 GameBootstrapper 에만 있어서
+        ///   로그인·로비 구간 로그가 파일에 한 글자도 남지 않았다.
         /// </summary>
         private void Awake()
         {
+            // [로그] sink 등록 + 파일 세션 시작 + 전역 예외 훅 등록.
+            //   멱등이므로 이미 켜져 있으면 아무 일도 하지 않는다.
+            //   세션을 닫는 일은 여기서 하지 않는다 — 씬을 벗어날 때 닫으면 로비·전투 로그가 끊긴다.
+            //   정리는 LogSessionOwner 가 앱/플레이 모드 종료 시 1회 스스로 수행한다.
+            LogSessionOwner.EnsureInitialized();
+
             // GPGS 활성화 — 이후 PlayGamesPlatform.Instance 가 정상 동작한다.
             //   GooglePlayGames 플러그인이 설치되지 않은 상태에서 컴파일하면 에러가 나므로,
             //   SDK 설치 후 빌드해야 한다.
 #if UNITY_ANDROID && HEXIEGE_ENABLE_FIREBASE_AUTH
             PlayGamesPlatform.Activate();
-            Debug.Log("[LoginBootstrapper] GooglePlayGames 플랫폼 활성화 완료.");
+            // [개발] 의도된 초기화 완료 통보 → 축 A Info / 축 B 개발.
+            //   바로 위 EnsureInitialized() 로 sink 가 이미 등록된 뒤이므로 파일에 남는다.
+            GameLog.Dev.Info("Bootstrap", nameof(LoginBootstrapper), "GooglePlayGames 플랫폼 활성화 완료",
+                             "Platform=Android");
 #else
-            Debug.Log("[LoginBootstrapper] GooglePlayGames activation skipped outside Android.");
+            // [개발] Android 가 아니면 GPGS 를 켜지 않는 것이 정상 동작이다 → Info + 개발.
+            GameLog.Dev.Info("Bootstrap", nameof(LoginBootstrapper),
+                             "Android 가 아니라 GooglePlayGames 활성화를 건너뛴다",
+                             "Platform=NonAndroid");
 #endif
         }
 
@@ -136,8 +158,14 @@ namespace Hexiege.Bootstrap
             //    Awake에서 Instance 등록 + DontDestroyOnLoad 처리된다.
             //    개발 중 직접 진입 등으로 null일 수 있으므로 경고만 출력하고 진행한다(규칙 5).
             if (UIManager.Instance == null)
-                Debug.LogWarning("[LoginBootstrapper] UIManager.Instance가 null입니다. " +
-                                 "[UI Systems]에 UIManager가 배치되어 있는지 확인하세요. 공통 UI 호출은 무시됩니다.");
+            {
+                // [개발] 씬 배치 누락 = 설정 오류다(LogRules.md 1.3 분류 원칙 3 의 단서) → Warn + 개발.
+                //   ⚠️ 중괄호는 로그가 두 줄이 되어도 if 에 계속 묶이도록 명시적으로 추가한 것이고,
+                //      조건과 동작은 전혀 바뀌지 않았다.
+                GameLog.Dev.Warn("Bootstrap", nameof(LoginBootstrapper),
+                                 "UIManager.Instance 가 null — [UI Systems] 에 UIManager 가 배치되어 있는지 " +
+                                 "확인할 것. 공통 UI 호출은 무시된다");
+            }
 
             await InitializeAndDispatchAsync();
         }
@@ -155,20 +183,20 @@ namespace Hexiege.Bootstrap
         /// </summary>
         private async Task InitializeAndDispatchAsync()
         {
-            RuntimeLog("INFO", "초기화 시작"); // [DEBUG-TEMP] 디버깅 완료 후 제거
-
             // 1) Firebase SDK 초기화
             _authService = new FirebaseAuthService();
             bool fbReady = await _authService.InitializeAsync();
             if (!fbReady)
             {
-                Debug.LogError("[LoginBootstrapper] Firebase 초기화 실패. 로그인 선택 화면을 표시합니다.");
+                // [개발] 같은 실패를 FirebaseAuthService 가 예외 객체와 함께 이미 운영 로그로 남긴다
+                //   (LogEvent.FirebaseInitializeFailed / FirebaseDependencyUnavailable).
+                //   LogRules.md 1.3 「원칙 간 우선순위」①(원칙 1 > 원칙 3)에 따라
+                //   원인을 쥔 하위 계층을 운영으로 두고, 중복되는 이 호출부는 개발로 내린다.
+                //   이 자리는 bool 만 받아 "왜" 를 말할 수 없으므로 운영으로 남길 가치도 없다.
+                GameLog.Dev.Error("Bootstrap", nameof(LoginBootstrapper),
+                                  "Firebase 초기화 실패 — 원인은 FirebaseAuthService 가 운영 로그로 남긴다. " +
+                                  "로그인 선택 화면은 그대로 표시한다");
                 // 초기화 실패해도 로그인 화면 자체는 표시 — 사용자가 재시도할 수 있도록.
-                RuntimeLog("ERROR", "Firebase 초기화 실패"); // [DEBUG-TEMP] 디버깅 완료 후 제거
-            }
-            else
-            {
-                RuntimeLog("INFO", "Firebase 초기화 성공"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             }
 
             // 2) UseCase 생성
@@ -197,7 +225,11 @@ namespace Hexiege.Bootstrap
                                    _playerProfileUseCase != null &&
                                    await _playerProfileUseCase.IsFirstLogin();
 
-                    Debug.Log("[LoginBootstrapper] 자동 로그인 성공. 'Tap to Start' 후 Lobby 씬으로 이동합니다.");
+                    // [개발] 정상 흐름 통보 → Info + 개발.
+                    //   ⚠️ IsFirstLogin 결과는 닉네임 설정 화면으로 갈지를 가르는 분기값이라 함께 남긴다.
+                    GameLog.Dev.Info("Bootstrap", nameof(LoginBootstrapper),
+                                     "자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다",
+                                     $"IsFirstLogin={isFirst}");
                     // 자동 로그인 성공이라도 곧바로 씬을 이동하지 않고 "Tap to Start"를 거친다.
                     //   탭 콜백으로 GoToNextScene을 주입한 뒤, 로딩 인디케이터를 끄고 "Tap to Start"를 표시한다.
                     //   → 사용자가 탭하면 오버레이가 페이드아웃되고 그 완료 콜백(GoToNextScene)으로 Lobby 씬으로 이동한다.
@@ -230,7 +262,10 @@ namespace Hexiege.Bootstrap
 
                 if (autoResult == AutoLoginResult.NeedsEmailVerification)
                 {
-                    Debug.Log("[LoginBootstrapper] 자동 로그인: 이메일 미인증 계정. 'Tap to Start' 후 인증 화면으로 이동합니다.");
+                    // [개발] 규칙대로 인증 화면으로 보내는 정상 분기다 → Info + 개발.
+                    GameLog.Dev.Info("Bootstrap", nameof(LoginBootstrapper),
+                                     "자동 로그인: 이메일 미인증 계정 — 'Tap to Start' 후 인증 화면으로 이동한다",
+                                     "AutoLoginResult=NeedsEmailVerification");
                     if (_splashOverlay != null)
                     {
                         _splashOverlay.SetTapCallback(ShowExistingEmailVerification);
@@ -245,7 +280,14 @@ namespace Hexiege.Bootstrap
                     return;
                 }
 
-                Debug.LogWarning("[LoginBootstrapper] 자동 로그인 실패. 'Tap to Start' 후 로그인 선택 화면을 표시합니다.");
+                // [개발] 축 A: 로그인 선택 화면으로 폴백되어 사용자가 그대로 진행할 수 있다 → Warn.
+                //   축 B: 실패 "사유"는 LoginUseCase.TryAutoLoginAsync 가 이미 남겼다
+                //         (세션 없음 / UGS 브릿지 실패 등). 여기는 결과만 아는 중복 지점 →
+                //         LogRules.md 1.3 원칙 1 에 따라 개발.
+                GameLog.Dev.Warn("Bootstrap", nameof(LoginBootstrapper),
+                                 "자동 로그인 실패 — 'Tap to Start' 후 로그인 선택 화면을 표시한다. " +
+                                 "사유는 LoginUseCase 로그 참조",
+                                 $"AutoLoginResult={autoResult}");
             }
 
             // 5) 자동 로그인 실패 또는 세션 없음
@@ -352,7 +394,13 @@ namespace Hexiege.Bootstrap
         {
             if (string.IsNullOrWhiteSpace(_nextSceneName))
             {
-                Debug.LogError("[LoginBootstrapper] _nextSceneName 이 비어 있어 씬 이동을 진행할 수 없습니다.");
+                // [개발] _nextSceneName 은 [SerializeField] 라 Inspector 설정 오류다
+                //   (LogRules.md 1.3 분류 원칙 3 의 단서) → Warn + 개발.
+                //   기본값이 "Lobby" 이므로 비어 있다는 것은 누군가 Inspector 에서 지운 경우뿐이고,
+                //   빌드 전 한 번만 실행해 보면 잡힌다.
+                GameLog.Dev.Warn("Bootstrap", nameof(LoginBootstrapper),
+                                 "_nextSceneName 이 비어 있어 씬 이동을 진행할 수 없다 — " +
+                                 "Inspector 의 '씬 전환 설정' 항목을 확인할 것");
                 return;
             }
             // SceneLoader.Load 가 내부에서 로딩 인디케이터를 자동 표시한다.
@@ -368,22 +416,6 @@ namespace Hexiege.Bootstrap
         public void ShowLoading(bool show, string message = "")
         {
             UIManager.Instance?.ShowLoading(show, message);
-        }
-
-        // ====================================================================
-        // [DEBUG-TEMP] 디버깅 완료 후 제거 — RuntimeLog 출력
-        // 실기기(Android)에서 로그인 흐름을 Logcat(Debug.Log)으로 추적하기 위한 임시 로그.
-        // 사용자가 Logcat 출력을 복사해 공유한다.
-        // ====================================================================
-
-        /// <summary>
-        /// [DEBUG-TEMP] 한 줄 로그를 Debug.Log(Logcat)로 출력한다.
-        /// 형식: [HH:MM:SS.ms] [LEVEL] [Bootstrap/LoginBootstrapper] 메시지
-        /// </summary>
-        private void RuntimeLog(string level, string message)
-        {
-            // 에디터 파일 형식과 동일하게 시간/레벨/시스템 태그를 붙여 출력한다.
-            Debug.Log($"[{DateTime.Now:HH:mm:ss.fff}] [{level}] [Bootstrap/LoginBootstrapper] {message}");
         }
     }
 }

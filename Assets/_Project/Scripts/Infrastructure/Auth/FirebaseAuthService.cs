@@ -35,6 +35,7 @@ using Firebase.Extensions;
 using GooglePlayGames;
 #endif
 using UnityEngine;
+using Hexiege.Application;
 
 namespace Hexiege.Infrastructure
 {
@@ -95,7 +96,6 @@ namespace Hexiege.Infrastructure
         /// <returns>초기화 성공 여부.</returns>
         public async Task<bool> InitializeAsync()
         {
-            RuntimeLog("INFO", "InitializeAsync 진입"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             try
             {
                 // CheckAndFixDependenciesAsync:
@@ -105,27 +105,26 @@ namespace Hexiege.Infrastructure
 
                 if (status != DependencyStatus.Available)
                 {
-                    Debug.LogError($"[FirebaseAuth] Firebase 의존성 해결 실패: {status}");
-                    RuntimeLog("ERROR", $"DependencyStatus 실패 | status={status}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
+                    GameLog.Ops.Error(LogEvent.FirebaseDependencyUnavailable, "Auth", nameof(FirebaseAuthService),
+                                      "Firebase 의존성 해결 실패", $"Status={status}");
                     return false;
                 }
-
-                RuntimeLog("INFO", $"DependencyStatus 성공 | status={status}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
 
                 // DefaultInstance 는 google-services.json 의 설정을 기반으로 생성된 기본 Auth 인스턴스.
                 _auth = FirebaseAuth.DefaultInstance;
                 IsInitialized = true;
 
-                Debug.Log($"[FirebaseAuth] 초기화 완료. 기존 세션: " +
-                          $"{(IsLoggedIn ? $"있음(UID={FirebaseUID}, Anonymous={IsAnonymous})" : "없음")}");
-                // [DEBUG-TEMP] 디버깅 완료 후 제거 — 초기화 후 세션 상태 기록
-                RuntimeLog("INFO", $"초기화 완료 | IsLoggedIn={IsLoggedIn}, IsAnonymous={IsAnonymous}");
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 해시는 "같은 사람인지"만 알려 주고 "누구인지"는 알려 주지 않는다.
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "초기화 완료",
+                                 IsLoggedIn ? $"HasSession=true, Uid={GameLog.HashId(FirebaseUID)}, Anonymous={IsAnonymous}"
+                                            : "HasSession=false");
                 return true;
             }
             catch (Exception e)
             {
-                Debug.LogError($"[FirebaseAuth] 초기화 예외: {e.Message}");
-                RuntimeLog("ERROR", $"초기화 예외 | message={e.Message}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
+                GameLog.Ops.Error(LogEvent.FirebaseInitializeFailed, "Auth", nameof(FirebaseAuthService),
+                                  "초기화 실패 — 호출부는 사유를 받지 못한다", e);
                 return false;
             }
         }
@@ -143,7 +142,6 @@ namespace Hexiege.Infrastructure
         /// <returns>발급된 Firebase UID.</returns>
         public async Task<string> SignInAnonymouslyAsync()
         {
-            RuntimeLog("INFO", "SignInAnonymouslyAsync 진입"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             EnsureInitialized();
             try
             {
@@ -151,14 +149,13 @@ namespace Hexiege.Infrastructure
                 AuthResult result = await _auth.SignInAnonymouslyAsync();
                 FirebaseUser user = result.User;
 
-                Debug.Log($"[FirebaseAuth] 익명 로그인 성공. UID={user.UserId}");
-                RuntimeLog("INFO", $"익명 로그인 성공 | UID={user.UserId}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 반환값(user.UserId)은 실제 로직에서 쓰이므로 원본 그대로 돌려준다.
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "익명 로그인 성공", $"Uid={GameLog.HashId(user.UserId)}");
                 return user.UserId;
             }
             catch (FirebaseException e)
             {
-                // [DEBUG-TEMP] 디버깅 완료 후 제거 — FirebaseException 상세 기록
-                RuntimeLog("ERROR", $"익명 로그인 실패 | errorCode={e.ErrorCode}, message={e.Message}");
                 throw ConvertException(e, "익명 로그인");
             }
         }
@@ -183,9 +180,6 @@ namespace Hexiege.Infrastructure
             //    GPGS 콜백은 비동기 콜백 기반이므로, TaskCompletionSource 로 async/await 화한다.
             string serverAuthCode = await RequestGoogleServerAuthCodeAsync();
 
-            // [DEBUG-TEMP] 디버깅 완료 후 제거 — serverAuthCode 내용은 보안상 기록 금지(길이/null 여부만)
-            RuntimeLog("INFO", $"serverAuthCode 획득 | isNull={(serverAuthCode == null)}, length={serverAuthCode?.Length ?? 0}");
-
             if (string.IsNullOrEmpty(serverAuthCode))
             {
                 throw new AuthException(AuthErrorReason.GoogleSignInCancelled,
@@ -202,15 +196,13 @@ namespace Hexiege.Infrastructure
                 // (SignInAnonymouslyAsync 등 다른 메서드는 AuthResult 반환 — 버전별 차이)
                 FirebaseUser user = await _auth.SignInWithCredentialAsync(credential);
 
-                Debug.Log($"[FirebaseAuth] Google 로그인 성공. UID={user.UserId}, " +
-                          $"DisplayName={user.DisplayName}");
-                RuntimeLog("INFO", $"Google Firebase 로그인 성공 | UID={user.UserId}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "Google 로그인 성공",
+                                 $"Uid={GameLog.HashId(user.UserId)}, DisplayName={user.DisplayName}");
                 return user.UserId;
             }
             catch (FirebaseException e)
             {
-                // [DEBUG-TEMP] 디버깅 완료 후 제거 — FirebaseException 상세 기록
-                RuntimeLog("ERROR", $"Google Firebase 로그인 실패 | errorCode={e.ErrorCode}, message={e.Message}");
                 throw ConvertException(e, "Google 로그인");
             }
         }
@@ -224,7 +216,7 @@ namespace Hexiege.Infrastructure
         {
             // TaskCompletionSource: 콜백 결과를 Task 의 결과로 전달하기 위한 표준 헬퍼.
 #if !UNITY_ANDROID
-            Debug.LogWarning("[FirebaseAuth] Google Play Games login is only available on Android.");
+            GameLog.Dev.Warn("Auth", nameof(FirebaseAuthService), "Google Play Games 로그인은 Android 에서만 지원된다");
             return Task.FromResult(string.Empty);
 #else
             var tcs = new TaskCompletionSource<string>();
@@ -232,13 +224,10 @@ namespace Hexiege.Infrastructure
             // 1) GPGS 인증 (사용자가 Google 계정을 선택 / 자동 선택)
             PlayGamesPlatform.Instance.ManuallyAuthenticate(signInStatus =>
             {
-                // [DEBUG-TEMP] 디버깅 완료 후 제거 — Authenticate 콜백 진입 + 상태값 기록
-                RuntimeLog("INFO", $"GPGS Authenticate 콜백 진입 | signInStatus={signInStatus}");
-
                 if (signInStatus != GooglePlayGames.BasicApi.SignInStatus.Success)
                 {
-                    Debug.LogError($"[FirebaseAuth] GPGS 인증 실패: {signInStatus}");
-                    RuntimeLog("ERROR", $"GPGS Authenticate 실패 | signInStatus={signInStatus}"); // [DEBUG-TEMP] 디버깅 완료 후 제거
+                    GameLog.Ops.Warn(LogEvent.GooglePlayGamesAuthFailed, "Auth", nameof(FirebaseAuthService),
+                                     "GPGS 인증 실패", $"Stage=SignIn, Status={signInStatus}");
                     tcs.TrySetResult(string.Empty);
                     return;
                 }
@@ -251,14 +240,13 @@ namespace Hexiege.Infrastructure
                     {
                         if (string.IsNullOrEmpty(authCode))
                         {
-                            Debug.LogError("[FirebaseAuth] GPGS Server Auth Code 발급 실패.");
-                            RuntimeLog("ERROR", "GPGS RequestServerSideAccess 콜백 실패 | authCode 비어있음"); // [DEBUG-TEMP] 디버깅 완료 후 제거
+                            GameLog.Ops.Warn(LogEvent.GooglePlayGamesAuthFailed, "Auth", nameof(FirebaseAuthService),
+                                             "GPGS Server Auth Code 발급 실패", "Stage=ServerAuthCode");
                             tcs.TrySetResult(string.Empty);
                         }
                         else
                         {
-                            Debug.Log("[FirebaseAuth] GPGS Server Auth Code 발급 성공.");
-                            RuntimeLog("INFO", "GPGS RequestServerSideAccess 콜백 성공"); // [DEBUG-TEMP] 디버깅 완료 후 제거
+                            GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "GPGS Server Auth Code 발급 성공");
                             tcs.TrySetResult(authCode);
                         }
                     });
@@ -285,8 +273,10 @@ namespace Hexiege.Infrastructure
             try
             {
                 AuthResult result = await _auth.SignInWithEmailAndPasswordAsync(email, password);
-                Debug.Log($"[FirebaseAuth] 이메일 로그인 성공. UID={result.User.UserId}, " +
-                          $"EmailVerified={result.User.IsEmailVerified}");
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 이메일 자체는 애초에 로그에 넣지 않는다 — 인증 여부(bool)만 남긴다.
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "이메일 로그인 성공",
+                                 $"Uid={GameLog.HashId(result.User.UserId)}, EmailVerified={result.User.IsEmailVerified}");
                 return result.User.UserId;
             }
             catch (FirebaseException e)
@@ -309,7 +299,8 @@ namespace Hexiege.Infrastructure
             try
             {
                 AuthResult result = await _auth.CreateUserWithEmailAndPasswordAsync(email, password);
-                Debug.Log($"[FirebaseAuth] 회원가입 성공. UID={result.User.UserId}");
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "회원가입 성공", $"Uid={GameLog.HashId(result.User.UserId)}");
 
                 // 표시 이름이 있으면 프로필에 설정
                 if (!string.IsNullOrWhiteSpace(displayName))
@@ -338,7 +329,8 @@ namespace Hexiege.Infrastructure
             try
             {
                 await _auth.CurrentUser.SendEmailVerificationAsync();
-                Debug.Log($"[FirebaseAuth] 인증 메일 발송: {_auth.CurrentUser.Email}");
+                // 수신 이메일 주소는 로그에 넣지 않는다 — 부분 마스킹조차 금지다 (LogRules.md 1.6).
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "인증 메일 발송");
             }
             catch (FirebaseException e)
             {
@@ -365,7 +357,7 @@ namespace Hexiege.Infrastructure
                 //   캐시된 로컬 상태가 아닌 최신 인증 상태를 가져온다.
                 await _auth.CurrentUser.ReloadAsync();
                 bool verified = _auth.CurrentUser.IsEmailVerified;
-                Debug.Log($"[FirebaseAuth] 인증 완료 확인 결과: {verified}");
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "인증 완료 확인", $"Verified={verified}");
                 return verified;
             }
             catch (FirebaseException e)
@@ -385,7 +377,8 @@ namespace Hexiege.Infrastructure
             try
             {
                 await _auth.SendPasswordResetEmailAsync(email);
-                Debug.Log($"[FirebaseAuth] 비밀번호 재설정 메일 발송: {email}");
+                // 인자로 받은 email 은 로그에 넣지 않는다 — 부분 마스킹조차 금지다 (LogRules.md 1.6).
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "비밀번호 재설정 메일 발송");
             }
             catch (FirebaseException e)
             {
@@ -419,7 +412,8 @@ namespace Hexiege.Infrastructure
             {
                 Credential credential = PlayGamesAuthProvider.GetCredential(serverAuthCode);
                 await _auth.CurrentUser.LinkWithCredentialAsync(credential);
-                Debug.Log($"[FirebaseAuth] Google 연동 성공. UID={FirebaseUID}");
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "Google 연동 성공", $"Uid={GameLog.HashId(FirebaseUID)}");
             }
             catch (FirebaseException e)
             {
@@ -444,7 +438,9 @@ namespace Hexiege.Infrastructure
             {
                 Credential credential = EmailAuthProvider.GetCredential(email, password);
                 await _auth.CurrentUser.LinkWithCredentialAsync(credential);
-                Debug.Log($"[FirebaseAuth] 이메일 연동 성공. UID={FirebaseUID}, Email={email}");
+                // UID 는 개인 식별자라 원본 대신 해시를 남기고, 연동된 이메일 주소는 아예 출력하지 않는다 (LogRules.md 1.6).
+                // 인자 email 은 위 EmailAuthProvider.GetCredential 에서 실제 로직으로 쓰이므로 원본 그대로 둔다.
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "이메일 연동 성공", $"Uid={GameLog.HashId(FirebaseUID)}");
 
                 // 이메일 연동 직후 인증 메일 발송 — 호출자가 별도 호출하지 않아도 되도록 일관성 유지.
                 await _auth.CurrentUser.SendEmailVerificationAsync();
@@ -468,7 +464,7 @@ namespace Hexiege.Infrastructure
         {
             EnsureInitialized();
             _auth.SignOut();
-            Debug.Log("[FirebaseAuth] 로그아웃 완료.");
+            GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "로그아웃 완료");
             return Task.CompletedTask;
         }
 
@@ -483,7 +479,10 @@ namespace Hexiege.Infrastructure
             {
                 string uid = _auth.CurrentUser.UserId;
                 await _auth.CurrentUser.DeleteAsync();
-                Debug.Log($"[FirebaseAuth] Current user deleted. UID={uid}");
+                // 잠정 판정: 개발. 되돌릴 수 없는 조작이라 감사 기록 요구가 축 판정을 덮을 수 있다(질의 Q-4).
+                // UID 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 위 uid 지역변수는 DeleteAsync 전에 원본을 확보해 둔 값이므로 그대로 두고, 로그 인자만 해시한다.
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "계정 삭제 완료", $"Uid={GameLog.HashId(uid)}");
             }
             catch (FirebaseException e)
             {
@@ -523,7 +522,7 @@ namespace Hexiege.Infrastructure
             {
                 // TokenAsync(false): 캐시된 토큰 우선, 만료 임박 시 SDK 가 알아서 갱신.
                 string token = await _auth.CurrentUser.TokenAsync(forceRefresh);
-                Debug.Log("[FirebaseAuth] ID Token 발급 완료 (UGS OIDC 브릿지용).");
+                GameLog.Dev.Info("Auth", nameof(FirebaseAuthService), "ID Token 발급 완료 (UGS OIDC 브릿지용)");
                 return token;
             }
             catch (FirebaseException e)
@@ -535,22 +534,6 @@ namespace Hexiege.Infrastructure
         // ====================================================================
         // 내부 헬퍼
         // ====================================================================
-
-        // ====================================================================
-        // [DEBUG-TEMP] 디버깅 완료 후 제거 — RuntimeLog 출력
-        // 실기기(Android)에서 로그인 흐름을 Logcat(Debug.Log)으로 추적하기 위한 임시 로그.
-        // 사용자가 Logcat 출력을 복사해 공유한다.
-        // ====================================================================
-
-        /// <summary>
-        /// [DEBUG-TEMP] 한 줄 로그를 Debug.Log(Logcat)로 출력한다.
-        /// 형식: [HH:MM:SS.ms] [LEVEL] [Auth/FirebaseAuthService] 메시지
-        /// </summary>
-        private void RuntimeLog(string level, string message)
-        {
-            // 에디터 파일 형식과 동일하게 시간/레벨/시스템 태그를 붙여 출력한다.
-            Debug.Log($"[{DateTime.Now:HH:mm:ss.fff}] [{level}] [Auth/FirebaseAuthService] {message}");
-        }
 
         /// <summary>
         /// 초기화 검증. InitializeAsync() 호출 전 다른 API 사용 시 즉시 예외 발생.
@@ -586,7 +569,8 @@ namespace Hexiege.Infrastructure
             };
 
             string message = ResolveUserMessage(reason);
-            Debug.LogWarning($"[FirebaseAuth] {operation} 실패: {code} → {reason} ({e.Message})");
+            GameLog.Ops.Warn(LogEvent.FirebaseAuthOperationFailed, "Auth", nameof(FirebaseAuthService),
+                             "Firebase 인증 작업 실패", e, $"Operation={operation}, Code={code}, Reason={reason}");
             return new AuthException(reason, message, e);
         }
 

@@ -69,10 +69,14 @@ namespace Hexiege.Infrastructure
             _services = GameServicesLocator.Current;
             if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkProductionController: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
+                // 스폰은 계속되지만(요청 전이라 아직 기능이 죽지는 않았다) 이후 모든 RPC 가 같은 자리에서 죽는다.
+                // NGO 스폰 타이밍은 회선 상태에 좌우돼 플레이어 기기에서만 어긋날 수 있고 통지 경로가 없다 → 운영.
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices, "Network", nameof(NetworkProductionController),
+                                 "스폰 시점에 GameServicesLocator 에서 IGameServices 를 얻지 못했다");
             }
 
-            Debug.Log($"[Network] NetworkProductionController 스폰. IsServer={IsServer}");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "스폰 완료",
+                             $"IsServer={IsServer}");
 
             // 서버만 생산 완료 이벤트를 구독하여 클라이언트에 동기화
             if (IsServer)
@@ -180,7 +184,7 @@ namespace Hexiege.Infrastructure
             _queueChangedSubscription = GameEvents.OnProductionQueueChanged
                 .Subscribe(OnProductionQueueChanged);
 
-            Debug.Log("[Network] NetworkProductionController: 서버 측 생산 이벤트 구독 완료.");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "서버 측 생산 이벤트 구독 완료");
         }
 
         /// <summary>
@@ -278,7 +282,15 @@ namespace Hexiege.Infrastructure
             UnitData unit = e.Unit;
             HexCoord? rally = e.RallyPoint;
 
-            Debug.Log($"[Network] 서버 유닛 생산 완료. UnitId={unit.Id}, Type={unit.Type}, Team={unit.Team}, Pos={unit.Position}");
+            // ⚠️ 좌표를 HexCoord 구조체 통째로 한 필드에 넣지 않는다
+            //   (LogRules 1.4 — 값 안에 구분자 ", " 금지).
+            //   unit.Position 은 HexCoord 구조체이고 그 ToString() 은 "(4, 15)" 를 돌려준다.
+            //   로그 라인은 key=value 쌍을 ", " 로 잇는 형식이라, 값 안에 같은 문자열이 들어가면
+            //   파싱이 그 자리에서 쪼개져 필드 하나가 둘로 보인다(실제 로그 파일에서 확인된 위반).
+            //   → 이 파일의 다른 로그(예: SpawnUnitClientRpc)가 이미 쓰는 Q=/R= 표기로 통일한다.
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "서버 유닛 생산 완료",
+                             $"UnitId={unit.Id}, UnitType={unit.Type}, Team={unit.Team}, " +
+                             $"Q={unit.Position.Q}, R={unit.Position.R}");
 
             // 랠리포인트 좌표 (없으면 0,0으로 전달하고 hasRally=false)
             int rallyQ = rally.HasValue ? rally.Value.Q : 0;
@@ -318,7 +330,8 @@ namespace Hexiege.Infrastructure
         {
             ulong senderClientId = rpcParams.Receive.SenderClientId;
 
-            Debug.Log($"[Network] 유닛 생산 큐 요청. ClientId={senderClientId}, BarracksId={barracksId}, UnitType={unitTypeInt}, Team={teamIndex}");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "유닛 생산 큐 요청 수신",
+                             $"ClientId={senderClientId}, BarracksId={barracksId}, UnitType={unitTypeInt}, Team={teamIndex}");
 
             // ----------------------------------------------------------------
             // 1. 부트스트래퍼 및 UseCase 확인
@@ -326,7 +339,9 @@ namespace Hexiege.Infrastructure
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] RequestEnqueueServerRpc: GameBootstrapper를 찾을 수 없습니다.");
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkProductionController),
+                                  "RequestEnqueueServerRpc — IGameServices 를 얻지 못했다. 이후 생산 요청이 모두 같은 자리에서 죽는다",
+                                  $"Request=Enqueue, ClientId={senderClientId}");
                 SendEnqueueFailed(senderClientId, "서버 초기화 오류");
                 return;
             }
@@ -337,7 +352,9 @@ namespace Hexiege.Infrastructure
 
             if (production == null || resource == null || population == null)
             {
-                Debug.LogError("[Network] RequestEnqueueServerRpc: UseCase가 null입니다. 맵 로드 전일 수 있습니다.");
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkProductionController),
+                                  "RequestEnqueueServerRpc — UseCase 가 null 이다. 맵 로드 전일 수 있다",
+                                  $"Request=Enqueue, ClientId={senderClientId}");
                 SendEnqueueFailed(senderClientId, "맵 로드 중");
                 return;
             }
@@ -354,7 +371,10 @@ namespace Hexiege.Infrastructure
             TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
             if (team != expectedTeam)
             {
-                Debug.LogWarning($"[Network] 팀 불일치. 발신자={senderClientId}, 요청팀={team}, 기대팀={expectedTeam}");
+                // 요청만 거부하고 게임은 계속된다 → Warn. 다만 정상 클라이언트는 보낼 수 없는 요청이다.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest, "Network", nameof(NetworkProductionController),
+                                 "생산 요청 거부 — 요청 팀이 발신자의 팀과 다르다",
+                                 $"Request=Enqueue, Reason=Team, ClientId={senderClientId}, RequestedTeam={team}, ExpectedTeam={expectedTeam}");
                 SendEnqueueFailed(senderClientId, "팀 불일치");
                 return;
             }
@@ -366,7 +386,10 @@ namespace Hexiege.Infrastructure
             var state = production.GetState(barracksId);
             if (state == null)
             {
-                Debug.LogWarning($"[Network] 배럭 생산 상태 없음. BarracksId={barracksId}");
+                // 클라이언트는 존재하는 배럭의 패널만 열 수 있다 → 서버에 없다는 것은 상태 불일치다.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedTargetNotFound, "Network", nameof(NetworkProductionController),
+                                 "생산 요청 거부 — 배럭 생산 상태가 서버에 없다",
+                                 $"Request=Enqueue, ClientId={senderClientId}, BarracksId={barracksId}");
                 SendEnqueueFailed(senderClientId, "배럭 없음");
                 return;
             }
@@ -377,7 +400,10 @@ namespace Hexiege.Infrastructure
             int cost = UnitProductionStats.GetGoldCost(unitType);
             if (!resource.CanAfford(team, cost))
             {
-                Debug.LogWarning($"[Network] 골드 부족. 팀={team}, 필요={cost}, 현재={resource.GetGold(team)}");
+                // ProductionPanelUI 가 CanAfford 로 이미 막았는데 서버가 거부했다 = 클라·서버 골드 상태 불일치.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedInsufficientResource, "Network", nameof(NetworkProductionController),
+                                 "생산 요청 거부 — 골드 부족(클라이언트가 이미 막았어야 한다)",
+                                 $"Request=Enqueue, Reason=Gold, Team={team}, Required={cost}, Current={resource.GetGold(team)}");
                 SendEnqueueFailed(senderClientId, "골드 부족");
                 return;
             }
@@ -388,7 +414,11 @@ namespace Hexiege.Infrastructure
             int popCost = UnitProductionStats.GetPopulationCost(unitType);
             if (!population.HasPopulation(team, popCost))
             {
-                Debug.LogWarning($"[Network] 인구 부족. 팀={team}");
+                // 골드와 같은 성격(클라이언트 HasPopulation 이 이미 막았어야 한다)이라 같은 키로 묶고
+                // 무엇이 부족했는지는 Reason 필드로 분해한다.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedInsufficientResource, "Network", nameof(NetworkProductionController),
+                                 "생산 요청 거부 — 인구 부족(클라이언트가 이미 막았어야 한다)",
+                                 $"Request=Enqueue, Reason=Population, Team={team}, Required={popCost}");
                 SendEnqueueFailed(senderClientId, "인구 부족");
                 return;
             }
@@ -400,12 +430,18 @@ namespace Hexiege.Infrastructure
             bool success = production.EnqueueUnit(barracksId, unitType);
             if (!success)
             {
-                Debug.LogWarning($"[Network] EnqueueUnit 실패. BarracksId={barracksId}, UnitType={unitType}");
+                // 큐 용량도 자원의 일종이라 같은 키로 묶는다.
+                // EnqueueFailedClientRpc 의 매핑 문자열("큐 가득")과 아래 사유가 일치하지 않아
+                // 토스트가 발행되지 않는다 → 플레이어는 이 실패를 알 수 없다(운영 판정 근거).
+                GameLog.Ops.Warn(LogEvent.ServerRejectedInsufficientResource, "Network", nameof(NetworkProductionController),
+                                 "생산 요청 거부 — 생산 큐가 가득 찼다",
+                                 $"Request=Enqueue, Reason=QueueFull, BarracksId={barracksId}, UnitType={unitType}");
                 SendEnqueueFailed(senderClientId, "큐 추가 실패 (큐 가득 참)");
                 return;
             }
 
-            Debug.Log($"[Network] 서버: 유닛 생산 큐 추가 성공. BarracksId={barracksId}, UnitType={unitType}, Team={team}");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "서버: 유닛 생산 큐 추가 성공",
+                             $"BarracksId={barracksId}, UnitType={unitType}, Team={team}");
 
             // 큐 변경 이벤트는 EnqueueUnit 내부에서 이미 발행됨
             // → OnProductionQueueChanged 구독(서버) → SyncQueueStateClientRpc → 클라이언트 UI 즉시 갱신
@@ -451,12 +487,15 @@ namespace Hexiege.Infrastructure
             // 서버는 이미 UseCase에서 처리 완료 → 중복 방지
             if (IsServer) return;
 
-            Debug.Log($"[Network] SpawnUnitClientRpc 수신. UnitId={unitId}, Type={unitTypeInt}, Team={teamIndex}, Q={q}, R={r}");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "SpawnUnitClientRpc 수신",
+                             $"UnitId={unitId}, UnitType={unitTypeInt}, Team={teamIndex}, Q={q}, R={r}");
 
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] SpawnUnitClientRpc: GameBootstrapper를 찾을 수 없습니다.");
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkProductionController),
+                                  "SpawnUnitClientRpc — IGameServices 를 얻지 못했다. 생산된 유닛이 이 클라이언트에 나타나지 않는다",
+                                  $"Request=SpawnUnit, UnitId={unitId}");
                 return;
             }
 
@@ -465,7 +504,9 @@ namespace Hexiege.Infrastructure
 
             if (unitSpawn == null)
             {
-                Debug.LogError("[Network] SpawnUnitClientRpc: UnitSpawnUseCase가 null입니다.");
+                GameLog.Ops.Error(LogEvent.ClientRpcGameServicesMissing, "Network", nameof(NetworkProductionController),
+                                  "SpawnUnitClientRpc — UnitSpawnUseCase 가 null 이다",
+                                  $"Request=SpawnUnit, UnitId={unitId}");
                 return;
             }
 
@@ -481,7 +522,18 @@ namespace Hexiege.Infrastructure
             UnitData unit = unitSpawn.SpawnUnitWithId(unitId, unitType, team, spawnCoord);
             if (unit == null)
             {
-                Debug.LogWarning($"[Network] SpawnUnitClientRpc: SpawnUnitWithId 실패. UnitId={unitId}");
+                // ⚠️ 레벨 승격(Warn → Error, LogAudit.md §3-3 :484).
+                //    재시도 경로가 없다. 이 유닛은 이 클라이언트에서 영구히 누락된다
+                //    → "복구되었나?" 아니오 → Error.
+                //
+                //    데이터에 유닛 종류·팀·좌표를 함께 남긴다(2026-08-18 보강):
+                //      실패 원인은 UnitSpawnUseCase.SpawnUnitWithId 의 "그 좌표 타일이 클라이언트 그리드에 없다"
+                //      이므로, 좌표가 있어야 맵 desync 인지 아닌지를 릴리스 로그만 보고 판단할 수 있다.
+                //      UnitType·Team 은 507~508행에서 변환된 enum 변수를 쓴다(정수보다 읽기 쉽고 프로젝트 최빈 표기).
+                //      Q·R 표기는 같은 메서드 위쪽 개발 로그와 일치시킨다.
+                GameLog.Ops.Error(LogEvent.ClientStateSyncApplyFailed, "Network", nameof(NetworkProductionController),
+                                  "SpawnUnitClientRpc — SpawnUnitWithId 실패. 이 유닛은 클라이언트에서 영구히 누락된다",
+                                  $"Request=SpawnUnit, UnitId={unitId}, UnitType={unitType}, Team={team}, Q={q}, R={r}");
                 return;
             }
 
@@ -495,7 +547,11 @@ namespace Hexiege.Infrastructure
                     // NetworkUnit.OnNetworkSpawn()이 아직 호출되지 않은 경우
                     // (NGO 프리팹 전달이 SpawnUnitClientRpc보다 늦게 도착)
                     // → 재시도 코루틴으로 대기
-                    Debug.LogWarning($"[Network] SpawnUnitClientRpc: UnitView 초기화 지연. UnitId={unitId}. 재시도 대기 중...");
+                    // 재시도 코루틴으로 복구를 시도하므로 Warn 이고, 끝내 실패하면
+                    // RetryInitializeUnitView 가 운영 로그를 남긴다 → 여기는 개발(원칙 1 — 최종 지점은 그쪽).
+                    GameLog.Dev.Warn("Network", nameof(NetworkProductionController),
+                                     "SpawnUnitClientRpc — UnitView 초기화 지연. 재시도 대기",
+                                     $"UnitId={unitId}");
                     StartCoroutine(RetryInitializeUnitView(unitFactory, unit));
                 }
             }
@@ -508,7 +564,8 @@ namespace Hexiege.Infrastructure
             // 이 경로에서 BarracksId를 사용하는 구독자가 없으므로 -1(미지정)을 전달한다.
             GameEvents.OnUnitProduced.OnNext(new UnitProducedEvent(unit, rallyPoint, -1));
 
-            Debug.Log($"[Network] 클라이언트: 유닛 데이터 재생성 완료. UnitId={unit.Id}, Type={unitType}, Team={team}");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "클라이언트: 유닛 데이터 재생성 완료",
+                             $"UnitId={unit.Id}, UnitType={unitType}, Team={team}");
         }
 
         /// <summary>
@@ -531,13 +588,18 @@ namespace Hexiege.Infrastructure
 
                 if (unitFactory.InitializeUnitView(unitData))
                 {
-                    Debug.Log($"[Network] RetryInitializeUnitView: 초기화 성공. UnitId={unitData.Id}, 대기 시간={elapsed:F2}초");
+                    GameLog.Dev.Info("Network", nameof(NetworkProductionController), "RetryInitializeUnitView — 초기화 성공",
+                                     $"UnitId={unitData.Id}, WaitSeconds={elapsed:F2}");
                     yield break;
                 }
             }
 
-            Debug.LogError($"[Network] RetryInitializeUnitView: {maxWait}초 초과. UnitId={unitData.Id} 초기화 실패. " +
-                           "NetworkManager의 Network Prefabs List에 유닛 프리팹이 등록되어 있는지 확인하세요.");
+            // 재시도를 모두 소진한 뒤의 최종 실패라 복구 경로가 없다.
+            // 조치 방법(Network Prefabs List 확인)을 메시지에 남긴다 — 이 줄이 사라지면 원인 추적 수단이 없다.
+            GameLog.Ops.Error(LogEvent.UnitViewInitializeTimeout, "Network", nameof(NetworkProductionController),
+                              "RetryInitializeUnitView — 대기 시간 초과로 UnitView 초기화 실패. " +
+                              "NetworkManager 의 Network Prefabs List 에 유닛 프리팹이 등록되어 있는지 확인할 것",
+                              $"UnitId={unitData.Id}, MaxWaitSeconds={maxWait}");
         }
 
         // ====================================================================
@@ -575,7 +637,8 @@ namespace Hexiege.Infrastructure
             GameEvents.OnProductionQueueChanged.OnNext(
                 new ProductionQueueChangedEvent(barracksId));
 
-            Debug.Log($"[Network] 클라이언트: 생산 시작 동기화. BarracksId={barracksId}, Type={unitTypeInt}, Time={requiredTime}s");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "클라이언트: 생산 시작 동기화",
+                             $"BarracksId={barracksId}, UnitType={unitTypeInt}, RequiredTime={requiredTime}");
         }
 
         /// <summary>
@@ -696,7 +759,9 @@ namespace Hexiege.Infrastructure
             TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
             if ((TeamId)teamIndex != expectedTeam)
             {
-                Debug.LogWarning($"[Network] CancelSlotServerRpc: 팀 불일치. ClientId={senderClientId}, 요청팀={teamIndex}, 기대팀={expectedTeam}");
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest, "Network", nameof(NetworkProductionController),
+                                 "큐 슬롯 취소 거부 — 요청 팀이 발신자의 팀과 다르다",
+                                 $"Request=CancelSlot, Reason=Team, ClientId={senderClientId}, RequestedTeam={(TeamId)teamIndex}, ExpectedTeam={expectedTeam}");
                 return;
             }
 
@@ -705,7 +770,12 @@ namespace Hexiege.Infrastructure
             UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null)
             {
-                Debug.LogWarning("[Network] CancelSlotServerRpc: UnitProductionUseCase가 null.");
+                // ⚠️ 레벨 승격(Warn → Error, LogAudit.md §3-3 :708).
+                //    RequestEnqueueServerRpc 의 같은 불변식 위반과 동일한 사건인데 이 자리만 레벨이 낮았다.
+                //    취소 요청이 통째로 무시되고 복구 경로가 없다.
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkProductionController),
+                                  "CancelSlotServerRpc — UnitProductionUseCase 가 null 이다. 취소 요청이 통째로 무시된다",
+                                  $"Request=CancelSlot, ClientId={senderClientId}, BarracksId={barracksId}");
                 return;
             }
 
@@ -715,11 +785,16 @@ namespace Hexiege.Infrastructure
             bool success = production.CancelQueueAt(barracksId, slotIndex);
             if (!success)
             {
-                Debug.LogWarning($"[Network] CancelSlotServerRpc: CancelQueueAt 실패. BarracksId={barracksId}, SlotIndex={slotIndex}");
+                // 요청만 거부되고 게임은 계속된다 → Warn.
+                // 다만 클라이언트 UI 는 취소 성공을 가정하므로 상태가 갈리고, 통지 경로가 없다 → 운영.
+                GameLog.Ops.Warn(LogEvent.ServerActionExecutionFailed, "Network", nameof(NetworkProductionController),
+                                 "CancelQueueAt 실행 실패 — 클라이언트 UI 는 취소 성공을 가정해 상태가 갈린다",
+                                 $"Request=CancelSlot, BarracksId={barracksId}, SlotIndex={slotIndex}");
                 return;
             }
 
-            Debug.Log($"[Network] 서버: 큐 슬롯 취소 성공. BarracksId={barracksId}, SlotIndex={slotIndex}");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "서버: 큐 슬롯 취소 성공",
+                             $"BarracksId={barracksId}, SlotIndex={slotIndex}");
         }
 
         // ====================================================================
@@ -761,7 +836,9 @@ namespace Hexiege.Infrastructure
             TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
             if ((TeamId)teamIndex != expectedTeam)
             {
-                Debug.LogWarning($"[Network] SetRallyPointServerRpc: 팀 불일치. ClientId={senderClientId}, 요청팀={teamIndex}, 기대팀={expectedTeam}");
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest, "Network", nameof(NetworkProductionController),
+                                 "랠리포인트 설정 거부 — 요청 팀이 발신자의 팀과 다르다",
+                                 $"Request=SetRally, Reason=Team, ClientId={senderClientId}, RequestedTeam={(TeamId)teamIndex}, ExpectedTeam={expectedTeam}");
                 return;
             }
 
@@ -773,7 +850,10 @@ namespace Hexiege.Infrastructure
             UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null)
             {
-                Debug.LogWarning("[Network] SetRallyPointServerRpc: UnitProductionUseCase가 null.");
+                // ⚠️ 레벨 승격(Warn → Error, LogAudit.md §3-3 :776). :708 과 동일한 불변식 위반이다.
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkProductionController),
+                                  "SetRallyPointServerRpc — UnitProductionUseCase 가 null 이다. 랠리 설정이 통째로 무시된다",
+                                  $"Request=SetRally, ClientId={senderClientId}, BarracksId={barracksId}");
                 return;
             }
 
@@ -785,7 +865,8 @@ namespace Hexiege.Infrastructure
             HexCoord target = new HexCoord(q, r);
             production.SetRallyPoint(barracksId, target);
 
-            Debug.Log($"[Network] 서버: 랠리포인트 설정 완료. BarracksId={barracksId}, Target=({q},{r}), Team={expectedTeam}");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "서버: 랠리포인트 설정 완료",
+                             $"BarracksId={barracksId}, TargetQ={q}, TargetR={r}, Team={expectedTeam}");
         }
 
         // ====================================================================
@@ -814,7 +895,9 @@ namespace Hexiege.Infrastructure
             TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
             if ((TeamId)teamIndex != expectedTeam)
             {
-                Debug.LogWarning($"[Network] ToggleAutoServerRpc: 팀 불일치. ClientId={senderClientId}");
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest, "Network", nameof(NetworkProductionController),
+                                 "자동 생산 토글 거부 — 요청 팀이 발신자의 팀과 다르다",
+                                 $"Request=ToggleAuto, Reason=Team, ClientId={senderClientId}, RequestedTeam={(TeamId)teamIndex}, ExpectedTeam={expectedTeam}");
                 return;
             }
 
@@ -822,7 +905,10 @@ namespace Hexiege.Infrastructure
             UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null)
             {
-                Debug.LogWarning("[Network] ToggleAutoServerRpc: UnitProductionUseCase가 null.");
+                // ⚠️ 레벨 승격(Warn → Error, LogAudit.md §3-3 :825). :708 과 동일한 불변식 위반이다.
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing, "Network", nameof(NetworkProductionController),
+                                  "ToggleAutoServerRpc — UnitProductionUseCase 가 null 이다. 토글 요청이 통째로 무시된다",
+                                  $"Request=ToggleAuto, ClientId={senderClientId}, BarracksId={barracksId}");
                 return;
             }
 
@@ -831,14 +917,18 @@ namespace Hexiege.Infrastructure
             bool success = production.ToggleAutoProduction(barracksId, unitType);
             if (!success)
             {
-                Debug.LogWarning($"[Network] ToggleAutoServerRpc: ToggleAutoProduction 실패. BarracksId={barracksId}, UnitType={unitType}");
+                // 요청 거부 후 게임은 계속된다 → Warn. 다만 클라이언트 토글 상태와 갈리고 통지 경로가 없다 → 운영.
+                GameLog.Ops.Warn(LogEvent.ServerActionExecutionFailed, "Network", nameof(NetworkProductionController),
+                                 "ToggleAutoProduction 실행 실패 — 클라이언트 토글 상태와 갈린다",
+                                 $"Request=ToggleAuto, BarracksId={barracksId}, UnitType={unitType}");
                 return;
             }
 
             var state = production.GetState(barracksId);
             bool isAuto = state?.IsAutoMode ?? false;
 
-            Debug.Log($"[Network] 자동 생산 토글 완료. BarracksId={barracksId}, UnitType={unitType}, IsAuto={isAuto}");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "서버: 자동 생산 토글 완료",
+                             $"BarracksId={barracksId}, UnitType={unitType}, IsAuto={isAuto}");
             AutoProductionChangedClientRpc(barracksId, isAuto, unitTypeInt);
         }
 
@@ -866,7 +956,8 @@ namespace Hexiege.Infrastructure
             // (SyncQueueStateClientRpc가 도착하지 않은 경우 대비해 리프레시 시그널을 한번 더 보냄)
             GameEvents.OnProductionQueueChanged.OnNext(new ProductionQueueChangedEvent(barracksId));
 
-            Debug.Log($"[Network] 클라이언트: 자동 생산 상태 동기화. BarracksId={barracksId}, UnitType={unitType}, IsAuto={isAuto}");
+            GameLog.Dev.Info("Network", nameof(NetworkProductionController), "클라이언트: 자동 생산 상태 동기화",
+                             $"BarracksId={barracksId}, UnitType={unitType}, IsAuto={isAuto}");
         }
 
         // ====================================================================
@@ -901,7 +992,10 @@ namespace Hexiege.Infrastructure
         [ClientRpc]
         private void EnqueueFailedClientRpc(string reason, ClientRpcParams clientRpcParams = default)
         {
-            Debug.LogWarning($"[Network] 유닛 생산 큐 추가 실패: {reason}");
+            // 개발인 이유(원칙 1): 같은 거부를 서버 쪽 RequestEnqueueServerRpc 가 이미 더 상세히 남긴다.
+            // 양쪽을 운영으로 두면 한 사건이 두 번 집계된다.
+            GameLog.Dev.Warn("Network", nameof(NetworkProductionController), "클라이언트: 유닛 생산 큐 추가 실패 알림 수신",
+                             $"Reason={reason}");
 
             // reason → ToastKey 매핑. 매핑이 정의된 사유만 토스트 발행.
             if (reason == "골드 부족")

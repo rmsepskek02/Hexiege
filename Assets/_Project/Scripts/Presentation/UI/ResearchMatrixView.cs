@@ -20,6 +20,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using Hexiege.Application;      // GameLog — 런타임 로그 파사드 (LogRules.md 1.4)
 using Hexiege.Domain;
 
 namespace Hexiege.Presentation
@@ -139,7 +140,10 @@ namespace Hexiege.Presentation
 
             if (_cellTemplate == null || _rowContainer == null)
             {
-                Debug.LogWarning("[ResearchMatrixView] 셀 템플릿/컨테이너가 배선되지 않아 격자를 생성할 수 없습니다.");
+                // [개발] Warn + 개발 — Inspector 배선 누락(1.3 원칙 3 단서).
+                GameLog.Dev.Warn("UI", nameof(ResearchMatrixView),
+                                 "셀 템플릿/컨테이너 미배선 — 강화 격자를 생성할 수 없다",
+                                 "Field=_cellTemplate|_rowContainer");
                 _built = false;
                 return;
             }

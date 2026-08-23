@@ -114,8 +114,15 @@ namespace Hexiege.Presentation
             // 필수 의존성 null 체크 — Inspector 미연결 시 CreateInstance()에서 크래시 방지
             if (presentationPoseProvider == null || container == null || prefab == null)
             {
-                Debug.LogError("[FloatingHpTextSpawner] Initialize() 실패: 필수 의존성이 null입니다. " +
-                               "GameBootstrapper Inspector에서 모든 슬롯이 연결되었는지 확인하세요.");
+                // [개발] Warn + 개발.
+                //   원본은 LogError 였지만 이 null 은 GameBootstrapper Inspector 슬롯 미연결에서만 나온다 —
+                //   전형적인 설정 오류이고 LogRules 1.3 원칙 3 단서가 Warn + 개발로 낮추라고 규정한다.
+                //   축 B ①: 배선이 빠졌다면 모든 기기에서 빠진 것이라 "플레이어 기기에서만"이 아니다.
+                GameLog.Dev.Warn("UI", nameof(FloatingHpTextSpawner),
+                                 "Initialize() 실패 — 필수 의존성이 null 이다. " +
+                                 "GameBootstrapper Inspector 에서 모든 슬롯이 연결됐는지 확인해야 한다",
+                                 $"PresentationPoseProviderNull={presentationPoseProvider == null}, " +
+                                 $"ContainerNull={container == null}, PrefabNull={prefab == null}");
                 return;
             }
 

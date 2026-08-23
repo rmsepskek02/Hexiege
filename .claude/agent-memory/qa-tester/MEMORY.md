@@ -1,9 +1,10 @@
 # QA Tester Memory — Hexiege
 
-## 2026-08-23 B3 v9 코드 게이트 / 런타임 검증 대기
+## 2026-08-23 B3 v9 최종 통합 정적 코드 게이트 / 런타임 검증 대기
 - v8 Android는 recoverable 공간 preflight 24건과 단일 SpearMan 후보 반복으로 FAIL했다. v9은 typed result와 동일 probe/final-stage seam, `CandidateUnsafe/RouteInvalidated → WaitingRepath`, fatal-only `Rejected`를 구현했다.
-- 정적 QA P0~P2 없음, Runtime/Editor Roslyn PASS. staged accounting은 actual attempt 직전 planned, success 뒤 committed, END equality이며 recoverable history는 positive successful commit에서만 clear한다. lifecycle retire/reuse 회귀도 반영됐다.
-- 다음 순서: Unity `[UAS-DIAG]` self-validation 실제 실행 → Android v9. `spatialFinalRecoverableRepaths=0` 강제가 아니라 resolved/nonrepeat/no-cleanup coverage, repeated/same-frame/cleanup/fatal/divergence/commit failure 0과 authority·replication·Root/cross-audit를 확인한다. 전까지 B3 FAIL/OPEN.
+- `origin/main` 60개 commit과 B3 의미 병합 완료, main 로그/종료 안전/research 수정과 B3 보존. post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0. staged accounting은 actual attempt 직전 planned, success 뒤 committed, END equality이며 recoverable history는 positive successful commit에서만 clear한다. lifecycle retire/reuse 회귀도 반영됐다.
+- evidence gate는 최신 device anchor + Editor daily, run role, shared key, production schema exact, 전체 BEGIN/END identity, EVIDENCE/FAIL, device/editor source를 검사한다. terminal은 26+5+1=32줄·최대 968 UTF-8 byte이며 manifest 27개/초과 길이 fail-closed, adapter는 stateful 64/65와 release `Conditional` 경계다.
+- 다음 순서: post-merge Unity `[UAS-DIAG]`와 RootCrossAudit 실제 메뉴 실행 → Android v9. pre-merge UAS PASS는 재사용하지 않는다. `spatialFinalRecoverableRepaths=0` 강제가 아니라 resolved/nonrepeat/no-cleanup coverage, repeated/same-frame/cleanup/fatal/divergence/commit failure 0과 authority·replication·Root/cross-audit를 확인한다. 전까지 B3 FAIL/OPEN.
 
 ## ⚠️ TC 작성 형식 규칙 (CRITICAL — README.md 공식 규칙, 2026-03-24 확정)
 

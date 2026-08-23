@@ -121,7 +121,8 @@ namespace Hexiege.Presentation
             if (_networkGameManager != null)
                 _networkGameManager.OnServerDisconnected += OnServerDisconnected;
 
-            Debug.Log("[Network] NetworkStatusUI: 네트워크 상태 모니터링 시작.");
+            // [개발] Info + 개발. 멀티플레이 진입 시의 의도된 정상 흐름 통보다.
+            GameLog.Dev.Info("Network", nameof(NetworkStatusUI), "네트워크 상태 모니터링 시작");
         }
 
         private void OnDestroy()
@@ -196,7 +197,12 @@ namespace Hexiege.Presentation
         {
             if (_disconnectHandled) return;
 
-            Debug.Log("[Network] 클라이언트: 서버 연결 끊김 알림 수신. 팝업 표시.");
+            // [개발] Info + 개발.
+            //   축 A: 이 자리는 "끊김을 알리는 이벤트를 받았다"는 사실만 남기는 통보다.
+            //         끊김 자체의 심각도 판정과 운영 기록은 NetworkGameManager /
+            //         ReconnectionHandler 가 이미 갖고 있다.
+            //   축 B: 원인(끊김 사유)은 이 자리에 도달하지 않으므로 최종 처리 지점이 아니다(1.3 ②).
+            GameLog.Dev.Info("Network", nameof(NetworkStatusUI), "서버 연결 끊김 알림 수신 — 팝업 표시");
             _disconnectHandled = true;
             ShowDisconnectPopup();
         }
@@ -209,7 +215,8 @@ namespace Hexiege.Presentation
             if (_disconnectPanel != null)
                 _disconnectPanel.SetActive(true);
 
-            Debug.Log("[Network] NetworkStatusUI: 연결 끊김 팝업 표시.");
+            // [개발] Info + 개발. UI 상태 전이 통보.
+            GameLog.Dev.Info("Network", nameof(NetworkStatusUI), "연결 끊김 팝업 표시");
         }
 
         // ====================================================================
@@ -225,7 +232,8 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnReturnButtonClicked()
         {
-            Debug.Log("[Network] NetworkStatusUI: 로비 복귀 버튼 클릭.");
+            // [개발] Info + 개발. 사용자가 직접 누른 버튼의 정상 흐름 통보.
+            GameLog.Dev.Info("Network", nameof(NetworkStatusUI), "로비 복귀 버튼 클릭");
 
             // 시간 복원 (게임 종료 팝업과 함께 표시된 경우)
             Time.timeScale = 1f;

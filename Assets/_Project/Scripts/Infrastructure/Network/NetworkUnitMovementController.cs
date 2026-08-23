@@ -58,10 +58,17 @@ namespace Hexiege.Infrastructure
             _services = GameServicesLocator.Current;
             if (_services == null)
             {
-                Debug.LogWarning("[Network] NetworkUnitMovementController: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
+                // [운영] 스폰은 계속되고 아직 요청 전이라 기능이 죽지는 않았다 → 축 A Warn.
+                //   NGO 스폰 타이밍은 회선에 좌우돼 플레이어 기기에서만 어긋날 수 있고 통지 경로가
+                //   없다 → 축 B 운영. 선행 판정(NetworkBuildingController:58)과 같은 사건 → 같은 키.
+                GameLog.Ops.Warn(LogEvent.NetworkControllerSpawnedWithoutGameServices,
+                                 "Network", nameof(NetworkUnitMovementController),
+                                 "스폰 시점에 GameServicesLocator 에서 IGameServices 를 얻지 못했다");
             }
 
-            Debug.Log($"[Network] NetworkUnitMovementController 스폰. IsServer={IsServer}");
+            // [개발] 진입 흔적.
+            GameLog.Dev.Info("Network", nameof(NetworkUnitMovementController), "네트워크 스폰",
+                             $"IsServer={IsServer}");
         }
 
         // ====================================================================
@@ -93,7 +100,10 @@ namespace Hexiege.Infrastructure
             // 서버가 경로 계산 + MoveTo() 실행 → NetworkTransform이 위치 자동 동기화
             RequestMoveServerRpc(unit.Id, target.Q, target.R);
 
-            Debug.Log($"[Network] 이동 요청 전송. UnitId={unit.Id}, Target={target}");
+            // [개발] 플레이어가 이동을 지시할 때마다 찍히는 고빈도 로그.
+            //   Dev 라서 릴리스에서는 호출과 문자열 보간까지 통째로 사라진다(LogRules 1.7).
+            GameLog.Dev.Info("Network", nameof(NetworkUnitMovementController), "이동 요청 전송",
+                             $"UnitId={unit.Id}, TargetQ={target.Q}, TargetR={target.R}");
         }
 
         // ====================================================================
@@ -125,7 +135,13 @@ namespace Hexiege.Infrastructure
             // _services는 OnNetworkSpawn에서 1회 캐시 — 보호적 재탐색은 하지 않음.
             if (_services == null)
             {
-                Debug.LogError("[Network] RequestMoveServerRpc: GameServicesLocator에 IGameServices가 등록되지 않았습니다.");
+                // [운영] 이후 모든 이동 요청이 같은 자리에서 죽는다 — 복구 경로가 없다 → Error.
+                //   플레이어에게는 "유닛이 안 움직인다" 로만 보이고 통지가 없다 → 운영.
+                //   선행 판정(NetworkBuildingController:142 등)과 같은 사건 → 같은 키.
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing,
+                                  "Network", nameof(NetworkUnitMovementController),
+                                  "RequestMoveServerRpc — IGameServices 를 얻지 못했다. 이후 모든 이동 요청이 같은 자리에서 죽는다",
+                                  $"Request=Move, ClientId={senderClientId}, UnitId={unitId}");
                 return;
             }
 
@@ -135,7 +151,11 @@ namespace Hexiege.Infrastructure
 
             if (unitSpawn == null || movement == null)
             {
-                Debug.LogError("[Network] RequestMoveServerRpc: UseCase가 null입니다. 맵 로드 전일 수 있습니다.");
+                // [운영] 위와 같은 사건(서버 RPC 처리 중 조합 루트/UseCase 부재) → 같은 키.
+                GameLog.Ops.Error(LogEvent.ServerRpcGameServicesMissing,
+                                  "Network", nameof(NetworkUnitMovementController),
+                                  "RequestMoveServerRpc — UseCase 가 null 이다. 맵이 아직 로드되지 않았을 수 있다",
+                                  $"Request=Move, ClientId={senderClientId}, UnitId={unitId}");
                 return;
             }
 
@@ -145,7 +165,14 @@ namespace Hexiege.Infrastructure
             UnitData unit = unitSpawn.GetUnit(unitId);
             if (unit == null || !unit.IsAlive)
             {
-                Debug.LogWarning($"[Network] RequestMoveServerRpc: 유닛 없음 또는 사망. UnitId={unitId}");
+                // [운영] 요청만 거부하고 게임은 계속된다 → 축 A Warn.
+                //   클라이언트는 살아 있는 자기 유닛만 선택할 수 있으므로, 서버에 없거나 죽어 있다는
+                //   것은 클라·서버 상태 불일치다. 화면에는 아무 안내도 뜨지 않는다 → 축 B 운영.
+                //   선행 판정(NetworkBuildingController:385 "대상 건물 없음")과 같은 사건 → 같은 키.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedTargetNotFound,
+                                 "Network", nameof(NetworkUnitMovementController),
+                                 "이동 거부 — 대상 유닛이 서버에 없거나 이미 사망했다",
+                                 $"Request=Move, ClientId={senderClientId}, UnitId={unitId}");
                 return;
             }
 
@@ -155,7 +182,14 @@ namespace Hexiege.Infrastructure
             TeamId expectedTeam = (senderClientId == 0) ? TeamId.Blue : TeamId.Red;
             if (unit.Team != expectedTeam)
             {
-                Debug.LogWarning($"[Network] 팀 불일치로 이동 거부. 발신자={senderClientId}, 유닛팀={unit.Team}, 기대팀={expectedTeam}");
+                // [운영] 요청만 거부하고 게임은 계속된다 → Warn.
+                //   정상 클라이언트는 상대 팀 유닛에 이동 명령을 낼 수 없으므로 변조 탐지 신호로 읽는다.
+                //   선행 판정(NetworkBuildingController:171 "팀 불일치")과 같은 사건 → 같은 키.
+                GameLog.Ops.Warn(LogEvent.ServerRejectedUnauthorizedRequest,
+                                 "Network", nameof(NetworkUnitMovementController),
+                                 "이동 거부 — 유닛 소유 팀과 발신자의 팀이 다르다",
+                                 $"Request=Move, Reason=Ownership, ClientId={senderClientId}, " +
+                                 $"UnitId={unitId}, UnitTeam={unit.Team}, ExpectedTeam={expectedTeam}");
                 return;
             }
 
@@ -167,11 +201,16 @@ namespace Hexiege.Infrastructure
 
             if (path == null)
             {
-                Debug.Log($"[Network] 서버: 경로 없음. UnitId={unitId}, Target={target}");
+                // [개발] 도달할 수 없는 타일을 찍으면 정상적으로 일어나는 결과다 → 축 A Info(레벨 유지).
+                //   에디터에서 그대로 재현된다 → 축 B 개발.
+                GameLog.Dev.Info("Network", nameof(NetworkUnitMovementController), "서버: 경로 없음",
+                                 $"UnitId={unitId}, TargetQ={target.Q}, TargetR={target.R}");
                 return;
             }
 
-            Debug.Log($"[Network] 서버: 이동 경로 계산 완료. UnitId={unitId}, 경로 길이={path.Count}");
+            // [개발] 이동 지시마다 찍히는 고빈도 로그.
+            GameLog.Dev.Info("Network", nameof(NetworkUnitMovementController), "서버: 이동 경로 계산 완료",
+                             $"UnitId={unitId}, PathLength={path.Count}");
 
             // ----------------------------------------------------------------
             // 5. 서버에서 UnitView.MoveTo() 실행

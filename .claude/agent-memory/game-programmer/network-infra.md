@@ -136,3 +136,47 @@ type: project
 - **자연회복(Regen)**: 그룹 무관 트랙. `UnitUpgradeUseCase.Key()`가 `stat==Regen`이면 그룹을 `UpgradeGroupHelper.RegenCanonicalGroup(=TransPlant)`로 정규화. UI(`ResearchMatrixView`)도 Regen 셀을 group=RegenCanonicalGroup로 바인딩. 서버가 Regen을 거부하는 별도 경로는 **없음**(공/방/속과 동일). "MP Regen 안 됨"은 위 완료-클리어 버그가 패시브 효과라 "업그레이드 안 됨"처럼 보인 것 + 서버 완료 후 취소 시도라 `_active` 비어 "취소 불가".
 - **건물 배치 아이콘(BuildingPlacementUI)**: `_blue/redTranscendenceBuildings` 등 6개 `List<BuildingPortraitEntry>{type,icon}`는 **Inspector 직렬화 데이터**. `UpdateButtonPortraits`가 `icon.sprite=entry.icon` 대입만 함. 아이콘 누락=순수 Inspector(코드 아님). AncientGrove=BuildingType.Research(=4), 초월 연구소도 같은 타입.
 - **UI 하베스트 함정(역사적 교훈, 배선 셋업 스크립트는 제거됨)**: 생산 패널에서 앵커를 하베스트해 `SetRect`(sizeDelta=0)로 적용하던 방식은 원본이 포인트 앵커(min==max)면 0×0 무형 요소가 됨 → 스트레치 앵커 여부 가드 필요(철거 버튼/환불 텍스트). 철거 버튼 배선(`_demolishButton`/`_demolishRefundText`)은 `BuildPanel`에 존재하는 런타임 필드 → 씬에서 참조만 연결하면 됨.
+
+## 네트워크 종료(Shutdown) 시점 뒷정리 — 확립된 관례 (2026-08-19)
+
+**`IsServer` 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.**
+`NetworkManager.Shutdown()` 과 씬 NetworkObject 디스폰 사이에 **실측 27ms** 의 창이 있고
+(실측 근거: `_Logs/_editor/2026-08-19/RuntimeLog.txt` 681~692행),
+그 구간에서 RPC 를 보내면 `"Rpc methods can only be invoked after starting the NetworkManager!"` 가 난다.
+
+- **관례 형태**: `if (!IsSpawned || !IsServer) return;` — 순서 고정(`IsSpawned` 가 앞).
+  단락 평가로 미스폰(싱글플레이) 상태에서 `IsServer` 를 건드리지 않는다.
+  선례: `NetworkUnit.cs:291`(`ReapplyAnimStateToView`), `NetworkCombatController.Update`.
+- **적용 대상**: ClientRpc 전송 · `NetworkObject.Despawn()` · **NetworkVariable 쓰기**(예방 성격 — 디스폰 후
+  NetworkVariable 쓰기가 RPC 와 같은 오류를 내는지는 패키지 소스를 못 열어 미확정).
+- **길목이 있으면 길목 한 곳에서 막는다.** `NetworkCombatController.SetUnitAnimState` 에 `if (!IsSpawned) return;`
+  한 줄을 두어 호출 지점 5곳(Walk/HealCast/FreezeChanged 핸들러 + `TickCombat` + `OnUnitEnteredCombatHandler`)을 한 번에 덮었다.
+- ⚠️ **한 파일에서 한 핸들러만 고치면 같은 버그가 다른 경로로 재발한다.** 구독 목록을 전수로 훑을 것.
+- 미적용으로 남은 곳(범위 밖, 별도 작업 후보): `NetworkUnit.SetAnimState`(`NetworkUnit.cs:170` — `IsServer` 만 봄),
+  `NetworkProductionController` / `NetworkBuildingController` / `NetworkUpgradeController` 전수 점검.
+
+### 게임 종료 후 서버 틱 정지 — `_combatStopped` 패턴
+
+`NetworkCombatController` 가 `GameEvents.OnGameEnd` 를 **서버 전용**으로 구독해 `_combatStopped=true` 로 만들고,
+`Update` 진입부가 `if (!IsSpawned || !IsServer || _combatStopped) return;` 로 걸러낸다(+`StopAllCoroutines()`).
+수정 전에는 승패 확정(`13:33:58.860`) → `Shutdown`(`13:34:01.467`) 사이 **2.6초**간 전투 틱이 계속 돌았다.
+
+- **구독 해제 방식은 기각**. `GameEndUseCase.cs:79` 가 `OnBuildingDied` **디스패치 도중 동기적으로** `OnGameEnd` 를
+  발행하므로, 핸들러 안에서 `Dispose()` 하면 디스패치 중 구독자 목록을 바꾸게 된다 → 구독 순서에 따라
+  게임을 끝낸 성의 `EntityDiedClientRpc` 가 영영 안 나갈 수 있다. **틱만 멈추고 구독은 유지**가 정답.
+- **`GameEndUseCase.IsGameOver` 폴링도 기각** — `IGameServices` 에 접근자가 없고, 무엇보다
+  멀티 포기(`NetworkGameEndController.ForfeitServerRpc:311`)는 `GameEndUseCase` 를 거치지 않는다.
+  `OnGameEnd` 구독은 정상 종료·포기 **두 경로를 모두** 덮는다.
+- `OnGameEnd` 는 순수 클라에서도 재발행된다(`AnnounceWinnerClientRpc`, `!IsServer` 분기) — 서버 전용 구독이라 무관.
+- 서버에서 2회 발행 가능(정상 종료 / 포기 — 별개 플래그) → 플래그 세우기·`StopAllCoroutines()` 모두 멱등이라 무해.
+  **별도 중복 가드를 두지 않는다.**
+- ⚠️ **`TickCombat` 은 "전투"보다 넓다.** 방어 타워 · 파도 · HoT · 자연회복 · **연구 진행** · 스킬 쿨다운 ·
+  물안개 · 상태효과가 전부 그 안에 있다(`TickCombat` 359~415행). 멈추면 이 8개가 함께 멈춘다.
+- 🔴 **최대 위험 — 플래그 리셋 누락.** `true` 로 남은 채 재경기가 시작되면 위 8개가 전부 멈추고
+  성이 파괴될 수 없어 **게임이 영원히 끝나지 않는다.**
+  → **`OnNetworkSpawn`(IsServer 분기) + `OnNetworkDespawn` 양쪽에서 `false` 로 초기화.**
+  같은 파일의 `_attackTimer` / `_lastCarry` 가 정확히 그 두 자리에서 리셋되므로 **그 옆줄에 붙인다**
+  ("이 자리는 경기마다 리셋하는 자리" 가 눈에 보이게).
+- 재경기 경로: `NetworkGameEndController.StartRematch`(432~481행)는 동적 NetworkObject 만 명시 Despawn 하고
+  씬 오브젝트(`IsSceneObject==true`)는 건드리지 않은 채 `SceneManager.LoadScene("Game", Single)` 로 맡긴다.
+  NGO 가 인스턴스를 재사용하든 새로 만들든 **어느 쪽이어도 안전한 형태**를 택한 것.

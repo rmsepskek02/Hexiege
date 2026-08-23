@@ -27,6 +27,9 @@ using System.Threading.Tasks;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using UnityEngine;
+// GameLog / LogEvent 는 Application 레이어에 있다(LogRules.md 1.13 "GameLog 배치 위치").
+// Infrastructure → Application 은 허용된 방향이다(Domain → Application → Core → Infrastructure → ...).
+using Hexiege.Application;
 
 namespace Hexiege.Infrastructure
 {
@@ -73,13 +76,22 @@ namespace Hexiege.Infrastructure
                 // UGS 초기화 (중복 호출 안전 — 내부적으로 멱등성 보장)
                 if (UnityServices.State != ServicesInitializationState.Initialized)
                 {
-                    Debug.Log("[Network] Unity Gaming Services 초기화 시작...");
+                    // [로그 이관] LogAudit.md §3-5:76 — 축 A=Info / 축 B=개발.
+                    // "[Network]" 접두사를 메시지에서 뺀 이유:
+                    // GameLog 가 [System/Class] 카테고리를 앞에 붙여 주므로 남기면 이중 표기가 된다
+                    // (LogRules.md 1.4 형식).
+                    GameLog.Dev.Info("Network", nameof(UnityServicesInitializer), "UGS 초기화 시작");
                     await UnityServices.InitializeAsync();
-                    Debug.Log("[Network] Unity Gaming Services 초기화 완료.");
+
+                    // [로그 이관] LogAudit.md §3-5:78 — 축 A=Info / 축 B=개발.
+                    // 성공 통보다. 실패했다면 아래 catch 의 운영 로그가 남는다.
+                    GameLog.Dev.Info("Network", nameof(UnityServicesInitializer), "UGS 초기화 완료");
                 }
                 else
                 {
-                    Debug.Log("[Network] Unity Gaming Services 이미 초기화됨, 스킵.");
+                    // [로그 이관] LogAudit.md §3-5:82 — 축 A=Info / 축 B=개발.
+                    // 재호출을 그냥 흘려보내는 의도된 멱등 경로다.
+                    GameLog.Dev.Info("Network", nameof(UnityServicesInitializer), "UGS 이미 초기화됨 — 스킵");
                 }
 
                 IsInitialized = true;
@@ -120,23 +132,80 @@ namespace Hexiege.Infrastructure
                 {
                     // Login 씬이 만든 OIDC(또는 익명) 세션이 살아 있으면 그대로 사용.
                     // SDK 가 토큰을 자동 갱신하므로 덮어쓰지 않는다.
-                    Debug.Log($"[Network] 기존 UGS 세션 보존 — 재로그인 생략. PlayerId={PlayerId}");
+                    //
+                    // [로그 이관] LogAudit.md §3-5:123 — 축 A=Info / 축 B=개발.
+                    // 의도된 흐름이고 에디터에서 그대로 재현되므로 축 B ①이 "아니오"다.
+                    //
+                    // PlayerId 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                    // 해시는 같은 입력에 항상 같은 값을 내므로 "같은 플레이어인지"는 그대로 판별할 수 있다.
+                    // 프로퍼티 PlayerId 자체는 실제 로직·콜백에서 원본이 필요하므로 건드리지 않는다.
+                    GameLog.Dev.Info("Network", nameof(UnityServicesInitializer),
+                        "기존 UGS 세션 보존 — 재로그인 생략",
+                        $"PlayerId={GameLog.HashId(PlayerId)}");
                 }
                 else
                 {
                     // 세션이 전혀 없는 경우(예: Login 씬을 거치지 않은 단독 테스트 진입).
                     // 멀티플레이가 최소한 동작하도록 익명 세션으로 폴백한다.
-                    Debug.Log("[Network] UGS 세션 없음 — 익명 로그인으로 폴백 수행.");
+                    //
+                    // [로그 이관] LogAudit.md §3-5:129 — 축 A=Warn(Info 에서 ↑승격) / 축 B=운영.
+                    //
+                    // 왜 Info 가 아니라 Warn 인가 (축 A — "복구되었나?"):
+                    //   세션이 없다는 것 자체는 예상 밖이지만, 익명 로그인이라는 대체 경로로
+                    //   계속 진행되므로 복구된 상태다 → Warn (LogRules.md 1.2 축 A).
+                    //
+                    // 왜 개발이 아니라 운영인가 (축 B — 두 질문 모두 "예"):
+                    //   ① 릴리스에서 이 줄이 뜨면 Login 씬이 만든 OIDC 세션이 유실됐다는 뜻이고,
+                    //      그 결과 PlayerId 가 통째로 바뀌어 멀티플레이 정체성이 달라진다.
+                    //      개발 기기에서 재현되는 종류의 사건이 아니다.
+                    //   ② 플레이어에게는 아무 통지도 가지 않아 이 로그 외에 추적 수단이 없다.
+                    //
+                    // Ops 메서드는 LogEvent 를 첫 인자로 반드시 받는다 — 운영 로그의 이벤트 키
+                    // 생략이 컴파일 단계에서 불가능하도록 만든 구조다(LogRules.md 1.5 / 1.14 금지사항 6).
+                    GameLog.Ops.Warn(LogEvent.UgsSessionMissingAnonymousFallback,
+                        "Network", nameof(UnityServicesInitializer),
+                        "UGS 세션 없음 — 익명 로그인으로 폴백 수행");
+
                     await AuthenticationService.Instance.SignInAnonymouslyAsync();
                 }
 
                 onSuccess?.Invoke(PlayerId);
-                Debug.Log($"[Network] UGS 초기화 완료. " +
-                          $"SignedIn={IsSignedIn}, PlayerId={(string.IsNullOrEmpty(PlayerId) ? "(없음)" : PlayerId)}");
+
+                // [로그 이관] LogAudit.md §3-5:134 — 축 A=Info / 축 B=개발.
+                // 성공 통보라 축 B ①이 "아니오"다.
+                // SignedIn / PlayerId 는 나중에 집계·필터링에 쓰일 값이므로 문장에 섞지 않고
+                // key=value 자리로 뺀다(LogRules.md 1.4 — "key=value 가 곧 전송 데이터다").
+                //
+                // PlayerId 는 개인 식별자라 원본 대신 해시를 남긴다 (LogRules.md 1.6).
+                // 값이 비어 있을 때 "(없음)" 을 보여 주던 기존 표기는 그대로 유지하고,
+                // 값이 있을 때만 해시로 바꾼다 — 로그를 읽는 쪽의 의미가 달라지지 않도록.
+                GameLog.Dev.Info("Network", nameof(UnityServicesInitializer),
+                    "UGS 초기화 완료",
+                    $"SignedIn={IsSignedIn}, PlayerId={(string.IsNullOrEmpty(PlayerId) ? "(없음)" : GameLog.HashId(PlayerId))}");
             }
             catch (Exception e)
             {
-                Debug.LogError($"[Network] UGS 초기화 실패: {e.Message}");
+                // [로그 이관] LogAudit.md §3-5:139 — 축 A=Error / 축 B=운영.
+                //
+                // 축 A: 초기화가 실패하면 UGS 를 쓰는 기능(Lobby·Relay·멀티플레이)이 통째로
+                //       죽고 이 흐름 안에 복구 경로가 없다 → Error (LogRules.md 1.3 분류 원칙 3).
+                // 축 B: 실패 원인이 지역·회선·프로젝트 설정에 좌우돼 개발 기기에서 재현되지 않고,
+                //       예외 정보가 원인을 알 수 있는 유일한 단서다 → 운영.
+                //
+                // 여기가 "최종 처리 지점"이다 — 예외 객체를 직접 손에 쥔 catch 블록
+                // (LogRules.md 1.3 「원칙 간 우선순위」 ②). 이 로그가 원인을 가지고 있으므로
+                // 같은 사건을 다시 남기는 상위 호출부(NetworkGameManager)는 개발로 내려간다.
+                //
+                // e.Message 문자열로 눌러 담지 않고 예외 객체를 그대로 넘기는 이유:
+                //   예외 "타입"이 텔레메트리 집계의 핵심 축이기 때문이다. TimeoutException 300건과
+                //   NullReferenceException 300건은 완전히 다른 사건인데, 메시지만 남기면
+                //   그 구분이 사라진다(LogRules.md 1.9 예외 처리).
+                //   메시지 본문은 sink 쪽에서 그대로 보존된다 —
+                //   ConsoleSink 는 Debug.LogException 으로, FileSink 는 예외 전문을 함께 기록한다.
+                GameLog.Ops.Error(LogEvent.UnityServicesInitializeFailed,
+                    "Network", nameof(UnityServicesInitializer),
+                    "UGS 초기화 실패", e);
+
                 onFailure?.Invoke(e);
             }
         }

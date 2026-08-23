@@ -1,54 +1,58 @@
-# Game Programmer Agent Memory
+# game-programmer 메모리 — 인덱스
 
-> 이 파일은 200줄 이내 핵심 요약만 유지한다. 상세 내용은 토픽 파일 참조.
+프로젝트 규칙 단일 소스는 리포지토리의 `CLAUDE.md` / `AGENTS.md` / `Assets/_Project/Docs/`.
+여기에는 **코드에서 반복적으로 발을 헛디딘 지점**만 적는다. 충돌하면 항상 프로젝트 문서가 옳다.
 
----
+## 토픽 파일
 
-## 2026-08-23 B3 v9 typed 공간 후보/preflight (코드 게이트, 실기 대기)
+- `logging.md` — GameLog / sink / RuntimeLogger 구조, 판정 선례표, `key=value` 확정 매핑,
+  전역 로그 훅(4겹 방어 + 스로틀). **로그 관련 작업은 여기부터 읽는다.**
+- `network-infra.md` — NGO 컨트롤러 구조, 스폰 레이스, **종료(Shutdown) 시점 뒷정리 관례 +
+  `_combatStopped`(게임 종료 후 서버 틱 정지) 패턴**. 네트워크 작업은 여기부터 읽는다.
+
+## 2026-08-23 B3 v9 최종 통합 정적 코드 게이트
 - typed preflight(status/offending tile/index)와 후보 verdict로 recoverable `CandidateUnsafe/RouteInvalidated`를 `WaitingRepath`, fatal dependency/chain만 `Rejected`에 연결한다. corridor probe/final stage 동일 seam과 divergence fail-closed를 유지한다.
 - `planned`는 actual commit attempt 직전, `committed`는 success 뒤에만 증가하고 END equality를 강제한다. recoverable history clear는 positive successful spatial commit에서만 허용한다.
-- lifecycle retire가 server/client baseline과 recoverable signature/frame을 제거하고 object-id 재사용을 회귀 검증한다. observer `b3-movement-authority-v9`; Runtime/Editor Roslyn PASS, 정적 QA P0~P2 없음.
-- Unity 메뉴 self-validation·Android v9 미실행이므로 B3 FAIL/OPEN. `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다.
+- lifecycle retire가 server/client baseline과 recoverable signature/frame을 제거하고 object-id 재사용을 회귀 검증한다. observer `b3-movement-authority-v9`.
+- `origin/main` 60개 commit과 의미 병합을 완료해 main `GameLog`·`LogSessionOwner`·combat shutdown·`IsSpawned`·research 수정과 B3를 모두 보존했다. post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0.
+- 증거 감사는 최신 device anchor + Editor daily, role/shared key/production schema exact/전체 BEGIN·END identity/EVIDENCE·FAIL/source gate를 요구한다. Android-safe terminal은 26 manifest + 5 summary + compact END = 32줄·최대 968 UTF-8 byte, 27개/초과 길이 fail-closed다. adapter는 stateful 64/65 경계와 release `Conditional`이다.
+- pre-merge Unity `[UAS-DIAG]` PASS는 post-merge 증거가 아니다. post-merge `[UAS-DIAG]`·RootCrossAudit 실제 메뉴와 Android v9는 미실행이므로 B3 FAIL/OPEN. `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다.
 
 ## CRITICAL — GIT 명령 절대 금지
 - **모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
 - 코드 상태 확인 필요 시 Read/Grep 도구만 사용
 
-## CRITICAL — 레이어 제약 (상세: architecture.md)
-- Domain: `using Hexiege.Core` 금지, UnityEngine 참조 금지 → 정적 홀더 패턴(HexOrientationContext 등)
-- Application: Unity.Netcode 직접 참조 금지 → NetworkContext 정적 홀더
-- NetworkBehaviour / Unity.Netcode: **Infrastructure 레이어 전용** (Presentation/Application 금지)
-- Infrastructure→Presentation 직접 호출 금지 → GameEvents(Subject) 이벤트 경유
-- GameBootstrapper = 유일한 의존성 조합 루트. Assembly Definition 없음 — 네임스페이스 규약만
-- `Hexiege.Application`이 `UnityEngine.Application`을 가림 → `UnityEngine.Application.xxx` 명시 필요
+## 컴파일에서 반복해서 물린 함정
 
-## CRITICAL — NGO API 제약 (상세: network.md)
-- ServerRpc/ClientRpc 메서드명은 반드시 `ServerRpc`/`ClientRpc`로 끝나야 함
-- NGO 2.9.2, Enable Scene Management = ON. NetworkObject는 씬 루트에 생성
-- RPC 파라미터: 직렬화 가능 타입만. NGO 2.9.x bool? nullable 비교 필수
-- 클라이언트 전용 분기: `NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer`
-- **GO 파괴 전파**: 서버에서 `NetworkObject.Despawn(destroy:true)` 명시 호출. `Destroy(gameObject)`는 NGO 클라 전파 불보장
+- **`Hexiege.Application` 네임스페이스가 존재한다.** 수식 없는 `Application` 은 `UnityEngine.Application` 이 아니다
+  (CS0234 3건 이력). `UnityEngine.Application.logMessageReceived` 처럼 **완전 수식** 필수.
+  검증: `grep -nE '(^|[^.a-zA-Z_])Application\.' <file>` 이 0건이어야 한다.
+- **`LogLevel` 이 `Hexiege.Application` · `Hexiege.Infrastructure` 양쪽에 있다.**
+  인터페이스 구현 시그니처는 `Hexiege.Application.LogLevel` 로 완전 수식해야 구현으로 인정된다.
+- `Infrastructure/Debug/LogSessionOwner.cs` 는 **의도적으로 `using` 이 하나도 없다.** 새 타입도 완전 수식으로 쓴다
+  (`System.Collections.Generic.Dictionary`, `System.Diagnostics.Stopwatch`).
 
-## CRITICAL — DontDestroyOnLoad (상세: architecture.md / ui-system.md)
-- 루트 GameObject에만 작동. 자식 배치 시 씬 전환마다 재생성+즉시파괴 반복
-- DontDestroyOnLoad 오브젝트는 생성 씬 하나에만 배치. SetActive(false)면 Awake 미호출→미등록(숨김은 CanvasGroup.alpha=0)
+## NGO(Netcode) 관용구
 
-## CRITICAL — 런타임 로그는 RuntimeLogger 경유 (상세: logging.md)
-- **raw `Debug.Log` 진단 로그 금지**(Claude가 콘솔 못 읽음). 규칙: `Docs/LogRules.md`. 유틸: `Infrastructure/Debug/RuntimeLogger.cs`(BeginSession/Log/EndSession, 에디터만 파일 저장) — **이 기반 유틸은 유지됨**.
-- ⚠️ **로그 작업 착수 전 반드시 `Docs/LogRules.md`를 먼저 확인**(RuntimeLogger 파일 기록·raw Debug.Log 금지). 2026-08-05 스킬 타입 C 작업에서 이를 뒤늦게 준수해 진단 로그를 걷어냄.
-- **Application 계층 로깅 어댑터(`IRuntimeLogSink`/`RuntimeLoggerSink`/`SetLogSink`)는 2026-08-05 정리로 삭제됨 — 상시 기능 아님.** Application에서 임시 진단 로깅이 다시 필요하면 그때 한시적으로 sink를 재도입하고, 작업 종료 후 반드시 제거(코드/문서에 상시 기능으로 남기지 말 것). Infra 직접 참조 금지 원칙(의존성 역전)은 재도입 시에도 유효.
+- **`IsServer` 는 "이 오브젝트가 살아 있는가" 가 아니다.** `NetworkManager.Shutdown()` 뒤에도 참일 수 있어
+  늦은 `Update` 가 통과하고 RPC 발신이 *"Rpc methods can only be invoked after starting the NetworkManager!"* 로 터진다.
+  → 서버 틱/RPC 발신 자리는 **`if (!IsSpawned || !IsServer) return;`**.
+  `IsSpawned` 를 **앞에** 두는 이유는 단락 평가로 싱글플레이(미스폰)에서 `IsServer` 를 건드리지 않기 위해서다.
+  선례: `NetworkUnit:291` · `NetworkCombatController:310`(Update) · `NetworkGameEndController:457` · `UnitFactory:533`.
+- **host 는 서버이자 클라이언트다.** `ClientRpc` 안의 로그는 `if (IsServer) return;` **뒤**에 둬야
+  같은 사건이 host 파일에 두 줄로 남지 않는다(LogRules 1.14 금지 9).
 
----
+## 알려진 잔존 구멍 (2026-08-19 기준)
 
-## 최근 작업 (상세 전체는 work-history.md)
+- ~~`NetworkCombatController` 의 게임 종료 구독 0건 / `OnUnitDied` 가드 부족~~ → **2026-08-19 해소.**
+  `_combatStopped` 플래그 + 6개 핸들러 가드. 상세는 `network-infra.md` 「네트워크 종료 시점 뒷정리」 참조.
+- **아직 안 봄**: `NetworkProductionController` / `NetworkBuildingController` / `NetworkUpgradeController` 의
+  같은 형태 구멍(전수 점검 미실시). `NetworkUnit.SetAnimState`(`NetworkUnit.cs:170`)는 `IsServer` 만 본다.
+- **싱글플레이의 같은 낭비**: `GameBootstrapper.Update`(530~590행)도 게임 종료 후 쿨다운/파도/HoT/자연회복/
+  연구/물안개 틱을 계속 돌린다. 네트워크가 없어 오류는 안 나고 낭비만 있다.
 
-### 랠리포인트 조준 시 BlockingOverlay 잔존 버그 수정 (2026-08-08 ✅ 실기 테스트 PASS · 커밋 `9a19cd5`)
-- **증상**: 배럭 팝업 → 랠리포인트 버튼 탭 시 팝업만 사라지고 **반투명 배경(공유 BlockingOverlay)이 잔존** → 맵을 탭하면 오버레이(onTap=`Close`)가 터치를 먼저 먹어 `Close()`→`OnBeforeClose()`에서 `IsSettingRallyPoint=false`+`HideAllRallyMarkers()` → "지정이 그냥 취소된 것처럼" 보임(EventSystem/InputHandler 실행 순서에 따라 설정 실패 또는 깃발 즉시 소멸, 두 경우 모두 사용자 체감 동일).
-- **원인**: `ProductionPanelUI.OnRallyPointClick()`이 `_popup?.Hide()`만 호출. 오버레이는 `BuildingPanelBase.Show()`가 켠 것이고 **끄는 곳은 `Close()` 단 하나** → 팝업만 숨기는 경로는 오버레이를 그대로 남긴다.
-- **수정(코드 1파일 2줄, 순수 추가)**: `Presentation/UI/ProductionPanelUI.cs` — ① `OnRallyPointClick()`에 `UIManager.Instance?.HideBlockingOverlay();` ② `Close()`를 거치지 않는 `CompleteRallyPointSetting()`에도 동일 호출(참조 카운터 반납). **②를 빠뜨리면 안 됨** — 지금까지는 잔존 버그가 대신 `Close()`를 태워 카운터를 우연히 맞춰주고 있었으므로, ①만 고치면 카운터가 반납되지 않아 다음 팝업의 오버레이가 어긋난다. `HideBlockingOverlay()`는 언더플로 가드(0 미만 방지)+멱등이라 이중 호출 안전.
-- ⚠️ **교훈(재사용·2번째 발생)**: `BuildingPanelBase` 계열에서 **조준 모드 진입을 위해 `_popup.Hide()`만 하는 경로는 반드시 `HideBlockingOverlay()`를 짝으로 호출**해야 하고, **`Close()`를 우회해 종료되는 경로는 참조 카운터를 직접 반납**해야 한다. 선례 `BuildingSkillPanelUI.cs:321-328`(주석에 "랠리 패턴"이라 적혀 있었으나 정작 랠리 경로가 미적용이었음). 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5(BlockingOverlay 단일 소유+참조 카운터), 보조 `GameSystemRules_Buildings.md` 랠리포인트 규칙 2(설정 직후 3초 표시 — 이 버그로 위반 중이었고 수정으로 정상화).
-- **범위 밖(미수정, 별도 작업 후보)**: `ProductionTicker` 단일 `_autoHideCoroutine`·싱글플레이 팀 필터 부재·재경기 중복 구독/마커 누수·랠리 좌표 검증 부재·멀티 롤백 경로 부재 → 상세는 [gameplay-systems.md](gameplay-systems.md) "랠리포인트 시스템 구조 맵".
+## 자기 검증 스크립트
 
 ### 건물 파괴 시 열린 패널/조준 UI 원복 (2026-08-08 ✅ 실기 테스트 PASS · 커밋 `8c7fa01`)
 - **범위**: 건물 패널 4종(생산/건물액션/스킬/연구) 공통 갭 — 파괴된 건물의 패널·조준 UI가 화면에 남던 것을 자동으로 닫음. task `_Tasks/2026-08-08/07_40_building-death-ui-restore/`.
@@ -530,3 +534,6 @@ public void Hide()    { _showRequested = false; if (gameObject.activeSelf) gameO
 - `UnitView.MoveAlongPathV3`의 A* corridor, PostCombatResume corridor, resume path와 PendingRepath는 공통 guard를 사용한다. 수락한 path는 반드시 `yield return null` 뒤 다음 frame부터 처리한다.
 - authoritative position 또는 logical checkpoint 진전에서 no-progress 이력을 reset한다. fail-closed에서는 완료 callback과 힐러 idle watcher 재진입을 억제해 새 same-frame loop를 만들지 않는다.
 - 서버 single-writer와 Client Simulation Root write 금지, 경기 중/유닛별 Legacy fallback 금지는 유지한다. Unity Tundra compile과 finite-repath self-validation은 PASS, Android Host 회귀는 pending이다.
+- 중괄호 개폐 균형은 **주석·문자열 리터럴을 걷어낸 뒤** 세야 한다. 단독행 카운트나 `{` 총계는 오탐이 잦다
+  (문자열 보간 `$"{x}"` 때문). 파이썬으로 스트립 후 세는 것이 유일하게 신뢰할 수 있다.
+- ⚠️ **주석에 `Debug.Log` / `GameLog.Dev.` / `Pos=` 같은 검증 grep 대상 낱말을 쓰지 마라.** 그 자체가 오탐이 된다.

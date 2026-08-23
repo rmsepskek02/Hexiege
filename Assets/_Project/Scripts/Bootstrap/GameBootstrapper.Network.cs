@@ -40,12 +40,21 @@ namespace Hexiege.Bootstrap
             // NetworkGameFlow가 재스폰되어 중복 호출되는 경우 방지
             if (_networkGameStarted)
             {
-                Debug.LogWarning("[Network] StartNetworkGame: 이미 시작됨. 중복 호출 무시.");
+                // [개발] ⚠️ 잠정 판정 — Warn + 개발.
+                //   축 A: 중복 호출을 무시하고 게임은 그대로 진행된다 → 복구됨 → Warn.
+                //   축 B: NetworkGameFlow 가 다시 스폰됐다는 신호이고, 그 수신 자체는
+                //         NetworkGameFlow.StartGameClientRpc 의 개발 로그로도 확인된다.
+                //         가드가 정상 동작해 피해가 없으므로 서버 집계 가치가 낮다고 보아 개발로 둔다.
+                GameLog.Dev.Warn("Bootstrap", nameof(GameBootstrapper),
+                                 "StartNetworkGame 중복 호출 — 이미 시작되어 무시한다",
+                                 $"Team={localTeam}");
                 return;
             }
             _networkGameStarted = true;
 
-            Debug.Log($"[Network] StartNetworkGame 호출. 로컬 팀={localTeam}");
+            // [개발] 네트워크 게임 진입 흐름 추적용. 결과(맵 로드)가 곧바로 화면에 나타난다.
+            GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "StartNetworkGame 호출",
+                             $"Team={localTeam}");
 
             // ViewConverter를 LoadMap() 이전에 설정.
             // LoadMap() 내부에서 PlaceCastles(), RenderGrid() 등이 ViewConverter.ToView()를 호출하므로
@@ -71,7 +80,10 @@ namespace Hexiege.Bootstrap
                 Vector3 mapCenter = HexMetrics.GridCenter(oc.GridWidth, oc.GridHeight);
                 bool isRed = (localTeam == TeamId.Red);
                 ViewConverter.Setup(isRed, mapCenter);
-                Debug.Log($"[Network] ViewConverter 사전 설정 완료. isRed={isRed}, mapCenter={mapCenter}");
+                // [개발] Red 팀 뷰 반전이 제대로 걸렸는지 확인하는 흐름 추적 로그.
+                //   축 A: 정상 흐름 → Info / 축 B: 에디터 2인 테스트로 그대로 재현된다 → 개발.
+                GameLog.Dev.Info("Bootstrap", nameof(GameBootstrapper), "ViewConverter 사전 설정 완료",
+                                 $"IsRed={isRed}, MapCenter={mapCenter}");
             }
 
             // 맵 로드 (FlatTop 고정) — ViewConverter 설정 완료 후 실행

@@ -95,7 +95,7 @@ NGO·Animator·씬 없이 Application 수준에서 다음을 결정적으로 재
 
 ### 사용자 실기 피드백 루프
 
-자동 테스트 후 같은 코드 리비전의 Unity Editor counterpart와 Android Development Build를 사용해 Host/Client 역할을 교대하는 두 경기를 실행한다. Editor의 `RuntimeLog_host.txt`/`RuntimeLog_client.txt`와 Android Logcat의 구조화 로그로 동일 UnitId를 추적한다. 서버 tick, phase, target, desired direction, SimulationFacing, sequence, scheduled/applied impact, presentation release, root writer를 한 행으로 기록한다. Blue/Red 양쪽 로그 시간으로 세 증상을 재현하고 수정 전후를 비교한다.
+자동 테스트 후 같은 코드 리비전의 Unity Editor counterpart와 Android Development Build를 사용해 Host/Client 역할을 교대하는 두 경기를 실행한다. Editor 근거는 `_Logs/_editor/{yyyy-MM-dd}/RuntimeLog.txt`, 실기기 근거는 경기 직전 `Hexiege > Logcat > 1. 버퍼 비우기` 후 재현하고 종료 직후 `2. 파일로 저장`한 `_Logs/{yyyy-MM-dd}/{HH_mm}_logcat/RuntimeLog_device*.txt`다. 파일명으로 역할을 추정하지 않고 양쪽의 `Role=Host/Client`, 동일하고 available한 `sharedSessionKey`, 동일 observer schema를 결합해 한 경기 쌍을 확정한다. 하나라도 누락·불일치하거나 여러 경기 중 어느 쌍인지 모호하면 해당 증거를 fail-closed로 제외한다. 서버 tick, phase, target, desired direction, SimulationFacing, sequence, scheduled/applied impact, presentation release, root writer를 같은 identity로 추적해 Blue/Red 수정 전후를 비교한다.
 
 일반 로그를 무차별 추가하지 않고 고유 접두사 `[UAS-DIAG]`를 사용하며 작업 종료 전에 제거하거나 정식 계측 채널로 승격한다.
 
@@ -497,3 +497,19 @@ v8 실기의 recoverable 공간 불일치와 fatal 입력을 한 `Rejected` 경�
 Runtime Roslyn과 Editor Roslyn은 기존 NGO obsolete·`EffectManager` 미사용 경고만 남기고 PASS했다. 독립 정적 QA 재검토는 P0~P2 지적 0건이다. Unity 메뉴 `[UAS-DIAG]` self-validation의 **실제 실행**과 새 Android v9 Host·Editor Client 실기는 아직 수행하지 않았다. 따라서 이는 구현·컴파일·정적 QA 코드 게이트일 뿐 B3는 계속 **FAIL / OPEN**이다.
 
 새 Android 게이트는 `spatialFinalRecoverableRepaths=0`을 강제하지 않는다. 환경 변화로 recoverable repath가 발생할 수 있으므로, 발생 건이 다음 frame 이후 해소되고 동일 signature 반복·same-frame retry·recoverable 뒤 cleanup 없이 정상 commit 또는 안전한 목표 lifecycle로 수렴했는지를 증명해야 한다. 반대로 `spatialRepeatedRecoverableRepaths`, `spatialSameFrameRetries`, `spatialCleanupAfterRecoverable`, fatal preflight, stage divergence, commit 실패와 `planned != committed`는 END 실패 조건이다. 기존 영구 규칙은 이 계약을 이미 요구하므로 추가 변경하지 않았다.
+
+## 28. 2026-08-23 pre-merge self-validation과 main 통합 상태
+
+v9 코드가 main과 합쳐지기 전 Unity 메뉴 `[UAS-DIAG]` self-validation을 실제 실행해 PASS했다. 이 증거는 typed 후보/preflight, staged accounting, recoverable-history retention과 lifecycle retire/reuse의 **pre-merge 기준선**이다.
+
+현재 main 통합은 진행 중이다. main의 `GameLog` 전환, 씬 무관 Editor 파일 로그, Android Logcat 저장 도구와 `NetworkCombatController`의 게임 종료·despawn 안전 가드/전투 틱 정지 이력은 보존해야 한다. 동시에 B3 v9의 서버 writer와 observer를 의미 단위로 통합해야 한다. 통합 결과에 대한 Runtime/Editor 컴파일, Unity 메뉴 self-validation 재실행과 독립 최종 QA는 아직 완료되지 않았다. 따라서 pre-merge PASS를 post-merge PASS로 재사용하지 않으며 B3는 **FAIL / OPEN**이다.
+
+통합 뒤 검증 로그는 현행 `LogRules.md` 절차를 따른다. Editor는 `_Logs/_editor/{date}/RuntimeLog.txt`, Android는 match 직전 buffer clear 후 `_Logs/{date}/{HH_mm}_logcat/RuntimeLog_device*.txt`로 저장한다. 양쪽 `Role=Host/Client + sharedSessionKey + schema`가 모두 맞아야 한 경기로 인정하고, 누락·불일치·여러 후보가 있는 모호한 증거는 fail-closed한다.
+
+## 29. 2026-08-23 최종 통합 정적 코드 게이트
+
+`origin/main` 60개 commit과 B3 v9의 양측 의미 병합을 완료했다. unmerged 항목은 0이고 staged 내용은 최신 해결본과 일치한다. main의 `GameLog`, `LogSessionOwner`, 전투 종료·shutdown 안전 처리, `IsSpawned` 가드와 research 수정 이력을 보존했으며 B3 v9의 typed 공간 후보/preflight, staged accounting, lifecycle retire와 observer도 함께 보존했다.
+
+통합 뒤 증거 감사기는 device 최신 anchor와 Editor 일별 로그를 짝짓고, run role·shared session key·production schema exact match·전체 BEGIN/END identity·EVIDENCE/FAIL 의미·device/editor source gate를 모두 확인한다. 어느 하나라도 누락되거나 후보가 모호하면 fail-closed한다. Android-safe terminal 출력은 manifest 26줄 + summary 5줄 + compact END 1줄, 총 32줄이며 UTF-8 최대 968 byte다. manifest 27개 또는 허용 길이를 넘는 항목은 fail-closed한다. adapter는 stateful 상태를 64개로 제한하고 65번째를 거부하는 경계를 가지며 release에서는 `Conditional`로 제거된다.
+
+post-merge Runtime과 Editor Roslyn 컴파일은 PASS했고 독립 QA는 P0~P3 지적 0건이다. 최종 문서 반영 전 정합성 검사도 0건이었다. 다만 main 통합 전 `[UAS-DIAG]` PASS는 기준선일 뿐 post-merge 증거가 아니다. post-merge Unity `[UAS-DIAG]` self-validation과 RootCrossAudit self-validation의 실제 메뉴 실행, 새 Android v9 Host·Editor Client 실기는 아직 수행하지 않았다. 따라서 현재 결과는 **통합 정적·컴파일·QA 코드 게이트 PASS**이며 B3 전체 판정은 계속 **FAIL / OPEN**이다.

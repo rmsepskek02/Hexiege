@@ -15,7 +15,6 @@
 // Presentation 레이어 — MonoBehaviour.
 // ============================================================================
 
-using System;                        // [DEBUG-TEMP] 디버깅 완료 후 제거 (DateTime)
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -62,7 +61,6 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Initialize(LoginRootView rootView)
         {
-            RuntimeLog("INFO", "Initialize 호출됨"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             _rootView = rootView;
 
             // 확인 버튼 클릭 시 팝업을 닫는다.
@@ -88,7 +86,6 @@ namespace Hexiege.Presentation
         /// <summary>팝업 표시.</summary>
         public void Show()
         {
-            RuntimeLog("INFO", "팝업 표시됨"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             // UIManager 단일 소유 BlockingOverlay 를 표시(뒤쪽 입력 차단).
             UIManager.Instance?.ShowBlockingOverlay();
             if (_panel != null) _panel.Show();
@@ -111,7 +108,6 @@ namespace Hexiege.Presentation
         /// </summary>
         private void OnConfirmClicked()
         {
-            RuntimeLog("INFO", "확인 버튼 클릭됨"); // [DEBUG-TEMP] 디버깅 완료 후 제거
             Hide();
         }
 
@@ -121,20 +117,6 @@ namespace Hexiege.Presentation
         private void OnCloseButtonClicked()
         {
             Hide();
-        }
-
-        // ====================================================================
-        // [DEBUG-TEMP] 디버깅 완료 후 제거 — RuntimeLog 출력
-        // 실기기(Android)에서 로그인 흐름을 Logcat(Debug.Log)으로 추적하기 위한 임시 로그.
-        // ====================================================================
-
-        /// <summary>
-        /// [DEBUG-TEMP] 한 줄 로그를 Debug.Log(Logcat)로 출력한다.
-        /// 형식: [HH:MM:SS.ms] [LEVEL] [UI/NetworkErrorPopup] 메시지
-        /// </summary>
-        private void RuntimeLog(string level, string message)
-        {
-            Debug.Log($"[{DateTime.Now:HH:mm:ss.fff}] [{level}] [UI/NetworkErrorPopup] {message}");
         }
     }
 }

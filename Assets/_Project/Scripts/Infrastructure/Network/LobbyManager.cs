@@ -24,6 +24,7 @@ using Unity.Services.Authentication;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using UnityEngine;
+using Hexiege.Application;
 
 namespace Hexiege.Infrastructure
 {
@@ -101,14 +102,15 @@ namespace Hexiege.Infrastructure
                 CurrentLobby = await LobbyService.Instance.CreateLobbyAsync(
                     lobbyName, maxPlayers, options);
 
-                Debug.Log($"[Network] Lobby 생성 완료. 이름: {CurrentLobby.Name}, " +
-                          $"코드: {CurrentLobby.LobbyCode}, ID: {CurrentLobby.Id}");
+                GameLog.Dev.Info("Network", nameof(LobbyManager), "Lobby 생성 완료",
+                                 $"Name={CurrentLobby.Name}, Code={CurrentLobby.LobbyCode}, LobbyId={CurrentLobby.Id}");
 
                 return CurrentLobby;
             }
             catch (LobbyServiceException e)
             {
-                Debug.LogError($"[Network] Lobby 생성 실패: {e.Message}");
+                GameLog.Ops.Error(LogEvent.LobbyServiceCallFailed, "Network", nameof(LobbyManager),
+                                  "Lobby 생성 실패 — 호출부는 null 만 받는다", e);
                 return null;
             }
         }
@@ -150,7 +152,8 @@ namespace Hexiege.Infrastructure
         {
             if (string.IsNullOrEmpty(matchId))
             {
-                Debug.LogError("[Network] CreateOrJoinLobbyByMatchId: matchId 가 비어 있습니다.");
+                GameLog.Ops.Error(LogEvent.LobbyInvariantViolated, "Network", nameof(LobbyManager),
+                                  "CreateOrJoinLobbyByMatchId 불변식 위반 — matchId 가 비어 있다");
                 return null;
             }
 
@@ -174,14 +177,24 @@ namespace Hexiege.Infrastructure
                 CurrentLobby = await LobbyService.Instance.CreateOrJoinLobbyAsync(
                     matchId, lobbyName, maxPlayers, options);
 
-                Debug.Log($"[Network] CreateOrJoin 완료. matchId={matchId}, " +
-                          $"LobbyId={CurrentLobby.Id}, HostId={CurrentLobby.HostId}, IsHost={IsHost}");
+                // ⚠️ HostId 는 반드시 GameLog.HashId 를 거쳐서 넣는다 (LogRules.md 1.6 — 1단 방어).
+                //   Lobby.HostId 는 "호스트인 사람의 UGS PlayerId 그 자체"다.
+                //   근거: 이 파일 60행의 IsHost 판정이
+                //         `CurrentLobby.HostId == AuthenticationService.Instance.PlayerId`
+                //         로, HostId 를 내 PlayerId 와 직접 비교하고 있다.
+                //   LogRules.md 1.6 은 UID·PlayerId 를 원본 그대로 남기지 말고 해시로 치환하라고 규정한다
+                //   (로그 파일은 채팅에 붙여지고 리포지토리에 커밋되므로 유출 경로가 이미 여럿이다).
+                //   해시는 "같은 사람인지"만 알려 주고 "누구인지"는 알려 주지 않으므로,
+                //   호스트가 매번 같은 계정인지 추적하는 디버깅 용도는 그대로 유지된다.
+                GameLog.Dev.Info("Network", nameof(LobbyManager), "CreateOrJoin 완료",
+                                 $"MatchId={matchId}, LobbyId={CurrentLobby.Id}, HostId={GameLog.HashId(CurrentLobby.HostId)}, IsHost={IsHost}");
 
                 return CurrentLobby;
             }
             catch (LobbyServiceException e)
             {
-                Debug.LogError($"[Network] CreateOrJoin 실패 (matchId={matchId}): {e.Message}");
+                GameLog.Ops.Error(LogEvent.MatchmakingLobbyJoinFailed, "Network", nameof(LobbyManager),
+                                  "매칭 Lobby 생성·참가 실패", e, $"MatchId={matchId}");
                 return null;
             }
         }
@@ -214,12 +227,14 @@ namespace Hexiege.Infrastructure
                 };
 
                 var response = await LobbyService.Instance.QueryLobbiesAsync(options);
-                Debug.Log($"[Network] Lobby 목록 조회 완료. 총 {response.Results.Count}개.");
+                GameLog.Dev.Info("Network", nameof(LobbyManager), "Lobby 목록 조회 완료 【호출처 0건】",
+                                 $"Count={response.Results.Count}");
                 return response.Results;
             }
             catch (LobbyServiceException e)
             {
-                Debug.LogError($"[Network] Lobby 목록 조회 실패: {e.Message}");
+                GameLog.Ops.Error(LogEvent.LobbyServiceCallFailed, "Network", nameof(LobbyManager),
+                                  "Lobby 목록 조회 실패 — 빈 리스트를 반환한다", e);
                 return new List<Lobby>();
             }
         }
@@ -253,13 +268,15 @@ namespace Hexiege.Infrastructure
                 };
 
                 var results = await LobbyService.Instance.QueryLobbiesAsync(queryOptions);
-                Debug.Log($"[Matchmaker] Lobby 전체 조회: {results.Results.Count}개. 검색 matchId={matchId}");
+                GameLog.Dev.Info("Network", nameof(LobbyManager), "Lobby 전체 조회 【호출처 0건】",
+                                 $"Count={results.Results.Count}, MatchId={matchId}");
 
                 foreach (var l in results.Results)
                 {
                     string storedMatchId = l.Data != null && l.Data.ContainsKey(MatchIdKey)
                         ? l.Data[MatchIdKey].Value : "없음";
-                    Debug.Log($"[Matchmaker] - 로비: {l.Name}, matchId={storedMatchId}");
+                    GameLog.Dev.Info("Network", nameof(LobbyManager), "Lobby 후보 열거 【호출처 0건】",
+                                 $"Name={l.Name}, MatchId={storedMatchId}");
                 }
 
                 var lobby = results.Results.FirstOrDefault(l =>
@@ -268,16 +285,25 @@ namespace Hexiege.Infrastructure
                     string.Equals(l.Data[MatchIdKey].Value.Trim(), matchId.Trim(),
                         StringComparison.OrdinalIgnoreCase));
 
+                // 중괄호를 명시한다 — 원래 없었는데, 본문이 한 줄일 때 이후 편집에서
+                // 문장을 덧붙이면 조건 밖으로 새기 쉽다(동작은 동일하다).
                 if (lobby != null)
-                    Debug.Log($"[Matchmaker] 매칭 Lobby 발견! Name={lobby.Name}, Id={lobby.Id}");
+                {
+                    GameLog.Dev.Info("Network", nameof(LobbyManager), "매칭 Lobby 발견 【호출처 0건】",
+                                     $"Name={lobby.Name}, LobbyId={lobby.Id}");
+                }
                 else
-                    Debug.Log($"[Matchmaker] FirstOrDefault null — 비교 실패");
+                {
+                    GameLog.Dev.Info("Network", nameof(LobbyManager), "매칭 Lobby 없음 — matchId 가 일치하는 Lobby 를 찾지 못했다 【호출처 0건】",
+                                     $"MatchId={matchId}");
+                }
 
                 return lobby?.Id;
             }
             catch (LobbyServiceException e)
             {
-                Debug.LogWarning($"[Network] Lobby 검색 실패 (matchId={matchId}): {e.Message}");
+                GameLog.Ops.Warn(LogEvent.MatchmakingLobbyJoinFailed, "Network", nameof(LobbyManager),
+                                  "매칭 Lobby 검색 실패", e, $"MatchId={matchId}");
                 return null;
             }
         }
@@ -296,12 +322,14 @@ namespace Hexiege.Infrastructure
             try
             {
                 CurrentLobby = await LobbyService.Instance.JoinLobbyByIdAsync(lobbyId);
-                Debug.Log($"[Network] Lobby 참가 완료 (ID). 이름: {CurrentLobby.Name}");
+                GameLog.Dev.Info("Network", nameof(LobbyManager), "Lobby 참가 완료 (ID) 【호출처 0건】",
+                                 $"Name={CurrentLobby.Name}");
                 return CurrentLobby;
             }
             catch (LobbyServiceException e)
             {
-                Debug.LogError($"[Network] Lobby 참가 실패 (ID): {e.Message}");
+                GameLog.Ops.Error(LogEvent.LobbyServiceCallFailed, "Network", nameof(LobbyManager),
+                                  "Lobby 참가 실패 (ID)", e);
                 return null;
             }
         }
@@ -316,12 +344,14 @@ namespace Hexiege.Infrastructure
             try
             {
                 CurrentLobby = await LobbyService.Instance.JoinLobbyByCodeAsync(lobbyCode);
-                Debug.Log($"[Network] Lobby 참가 완료 (코드). 이름: {CurrentLobby.Name}");
+                GameLog.Dev.Info("Network", nameof(LobbyManager), "Lobby 참가 완료 (코드)",
+                                 $"Name={CurrentLobby.Name}");
                 return CurrentLobby;
             }
             catch (LobbyServiceException e)
             {
-                Debug.LogError($"[Network] Lobby 참가 실패 (코드): {e.Message}");
+                GameLog.Ops.Error(LogEvent.LobbyServiceCallFailed, "Network", nameof(LobbyManager),
+                                  "Lobby 참가 실패 (코드)", e);
                 return null;
             }
         }
@@ -335,12 +365,14 @@ namespace Hexiege.Infrastructure
             try
             {
                 CurrentLobby = await LobbyService.Instance.QuickJoinLobbyAsync();
-                Debug.Log($"[Network] 빠른 매칭 성공. 방: {CurrentLobby.Name}");
+                GameLog.Dev.Info("Network", nameof(LobbyManager), "빠른 매칭 성공 【호출처 0건】",
+                                 $"Name={CurrentLobby.Name}");
                 return CurrentLobby;
             }
             catch (LobbyServiceException e)
             {
-                Debug.LogError($"[Network] 빠른 매칭 실패: {e.Message}");
+                GameLog.Ops.Error(LogEvent.LobbyServiceCallFailed, "Network", nameof(LobbyManager),
+                                  "빠른 매칭 실패", e);
                 return null;
             }
         }
@@ -358,7 +390,8 @@ namespace Hexiege.Infrastructure
         {
             if (CurrentLobby == null)
             {
-                Debug.LogError("[Network] UpdateRelayJoinCode: 현재 참가 중인 Lobby 가 없습니다.");
+                GameLog.Ops.Error(LogEvent.LobbyInvariantViolated, "Network", nameof(LobbyManager),
+                                  "UpdateRelayJoinCode 불변식 위반 — 현재 Lobby 가 없다. 클라이언트가 코드를 영원히 받지 못한다");
                 return;
             }
 
@@ -374,11 +407,13 @@ namespace Hexiege.Infrastructure
                 };
 
                 CurrentLobby = await LobbyService.Instance.UpdateLobbyAsync(CurrentLobby.Id, options);
-                Debug.Log($"[Network] Lobby 에 Relay Join Code 저장 완료: {relayJoinCode}");
+                GameLog.Dev.Info("Network", nameof(LobbyManager), "Lobby 에 Relay Join Code 저장 완료",
+                                 $"RelayJoinCode={relayJoinCode}");
             }
             catch (LobbyServiceException e)
             {
-                Debug.LogError($"[Network] Relay Join Code 업데이트 실패: {e.Message}");
+                GameLog.Ops.Error(LogEvent.LobbyServiceCallFailed, "Network", nameof(LobbyManager),
+                                  "Relay Join Code 업데이트 실패 — 클라이언트가 코드를 받지 못한다", e);
             }
         }
 
@@ -395,7 +430,7 @@ namespace Hexiege.Infrastructure
         {
             if (CurrentLobby == null)
             {
-                Debug.LogWarning("[Network] RefreshCurrentLobby: 현재 참가 중인 Lobby 가 없습니다.");
+                GameLog.Dev.Warn("Network", nameof(LobbyManager), "RefreshCurrentLobby — 현재 Lobby 가 없다");
                 return false;
             }
 
@@ -406,7 +441,8 @@ namespace Hexiege.Infrastructure
             }
             catch (LobbyServiceException e)
             {
-                Debug.LogWarning($"[Network] Lobby 갱신 실패 (id={CurrentLobby.Id}): {e.Message}");
+                GameLog.Ops.Warn(LogEvent.LobbyServiceCallFailed, "Network", nameof(LobbyManager),
+                                  "Lobby 갱신 실패 — 폴링 실패의 유일한 단서", e, $"LobbyId={CurrentLobby.Id}");
                 return false;
             }
         }
@@ -432,18 +468,21 @@ namespace Hexiege.Infrastructure
                 {
                     // Host 가 나가면 Lobby 자체를 삭제
                     await LobbyService.Instance.DeleteLobbyAsync(lobbyId);
-                    Debug.Log($"[Network] Lobby 삭제 완료 (Host 퇴장). ID: {lobbyId}");
+                    GameLog.Dev.Info("Network", nameof(LobbyManager), "Lobby 삭제 완료 (Host 퇴장)",
+                                 $"LobbyId={lobbyId}");
                 }
                 else
                 {
                     // Guest 는 자신만 Lobby 에서 제거
                     await LobbyService.Instance.RemovePlayerAsync(lobbyId, playerId);
-                    Debug.Log($"[Network] Lobby 나가기 완료 (Guest 퇴장). ID: {lobbyId}");
+                    GameLog.Dev.Info("Network", nameof(LobbyManager), "Lobby 나가기 완료 (Guest 퇴장)",
+                                 $"LobbyId={lobbyId}");
                 }
             }
             catch (LobbyServiceException e)
             {
-                Debug.LogError($"[Network] Lobby 나가기 실패: {e.Message}");
+                GameLog.Ops.Warn(LogEvent.LobbyServiceCallFailed, "Network", nameof(LobbyManager),
+                                  "Lobby 나가기 실패 — 서버에 유령 Lobby 가 남는다", e);
             }
             finally
             {
@@ -495,11 +534,13 @@ namespace Hexiege.Infrastructure
 
                 if (task.Exception != null)
                 {
-                    Debug.LogWarning($"[Network] Heartbeat 전송 실패: {task.Exception.Message}");
+                    GameLog.Ops.Warn(LogEvent.LobbyHeartbeatFailed, "Network", nameof(LobbyManager),
+                            "Heartbeat 전송 실패 — 끊기면 Lobby 가 만료돼 매칭이 조용히 깨진다",
+                            task.Exception);
                 }
             }
 
-            Debug.Log("[Network] Heartbeat 코루틴 종료.");
+            GameLog.Dev.Info("Network", nameof(LobbyManager), "Heartbeat 코루틴 종료");
         }
     }
 }
