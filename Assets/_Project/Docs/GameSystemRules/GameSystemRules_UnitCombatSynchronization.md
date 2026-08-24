@@ -4,7 +4,7 @@
 
 이 문서는 **무엇을 동기화해야 하는지**를 정의한다. 구체적인 NGO 타입, RPC 이름, 클래스 배치는 `TechnicalDesignDocument.md`가 담당한다. 게임플레이 의미는 `GameSystemRules_Units.md`, 런타임 수치는 검증된 `UnitStatsConfig`와 향후 `AttackProfile`, 사람이 읽는 수치 미러는 `StatsReference.md`, 에셋 감사 스냅샷은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`가 담당한다.
 
-> **이동 동기화 구현 상태 (2026-08-04):** `ReducerAuthoritative` 경기의 공통 서버 writer에 연속 trajectory를 연결했고 Unity self-validation과 사용자 Editor smoke를 통과했다. 다만 새 Android 빌드의 Editor/Android Host·Client 역할교대, 공통 변경 뒤 25종 전체 회귀와 다음 경기 Legacy rollback 전에는 B3 동기화 완료로 판정하지 않는다. 공격 회차·ImpactResult와 피해·표현 시점 전환은 계속 미완료다.
+> **이동 동기화 구현 상태 (2026-08-25):** `ReducerAuthoritative` 공통 서버 writer의 중심 도달 checkpoint, 건물 안전 Chase와 안전한 전방 중심 복귀는 v10 집중 멀티 실기를 통과했다. Android Host는 중심 checkpoint 766회·최대 오차 0, direct-safe/path Chase 806/2,977 frame과 terminal 오류 0을 기록했고 같은 경기 Editor Client와 양쪽 local ROOT 53/53 PASS를 확보했다. 공식 CrossAudit의 INCONCLUSIVE 원인이던 Host 긴 ROOT terminal은 채점 필수 필드만 담는 최악값 803 UTF-8 byte compact END와 출력 전 preflight로 교정했고 Runtime/Editor Roslyn과 Unity self-validation 2종까지 PASS다. 이 결함만을 위한 동일 빌드 재시험은 하지 않으며 25종·반대 역할·Legacy rollback은 다음 새 빌드의 통합 회귀에 포함한다. 다음 구현은 공격 회차 Shadow와 권위 타겟·공격 방향이며, ImpactResult와 피해·표현 시점 전환은 계속 미완료다.
 
 ---
 
@@ -202,7 +202,9 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 - 10° 진입 / 15° 이탈은 잘못된 방향 이동을 막는 fail-closed 기준이다. 이동 가능한 연속 trajectory가 이 기준 안에서 방향을 바꿀 수 있는 정상 코너를 매번 `AlignToMove` 정지로 바꾸지 않는다.
 - 서버가 복제하는 이동 phase와 command/segment scope는 관측·늦은 참가 수렴을 위한 권위 상태다. 클라이언트는 이를 입력으로 reducer를 실행하거나 Simulation Root를 직접 쓰지 않는다.
 - NetworkTransform은 서버 Simulation Root pose의 유일한 클라이언트 writer이고, Visual Root는 관점 변환과 허용된 표현 보간만 담당한다.
-- 서버 복제 대상은 logical path 자체가 아니라 Authoritative Locomotion이 commit한 Simulation Root pose와 phase/scope다. logical path corridor, trajectory sweep, 실제 trajectory 거리/초 `MoveSpeed`, 공통 최대 회전 속도 270°/s와 candidate position 기준 target acquire는 서버에서만 계산한다. candidate position으로 획득이 확정된 틱에는 그 위치까지만 commit하고 `NoIntent`를 게시하며 다음 틱의 추가 이동을 금지한다.
+- 서버 복제 대상은 logical path 자체가 아니라 Authoritative Locomotion이 commit한 Simulation Root pose와 phase/scope다. 기본 A*의 경유 중심 checkpoint, logical path corridor, trajectory sweep, 실제 trajectory 거리/초 `MoveSpeed`, 공통 최대 회전 속도 270°/s와 candidate position 기준 target acquire는 서버에서만 계산한다. 경유 checkpoint는 Simulation Root가 해당 중심 허용 오차에 실제로 도달한 뒤에만 소비한다. candidate position으로 획득이 확정된 틱에는 그 위치까지만 commit하고 `NoIntent`를 게시하며 다음 틱의 추가 이동을 금지한다.
+- 전투 추격은 같은 Authoritative Locomotion과 공간 preflight를 사용한다. 타겟까지의 직선 구간이 안전할 때만 direct chase를 사용하고, 중간 건물·완전 차단 지형·이동 불가 타일이 있으면 서버가 공격 접근 위치까지 경로를 계산한다. 동일한 unsafe direct candidate와 일반 A*를 번갈아 재시도하는 것은 유효한 복구가 아니다.
+- 전투 종료 후에는 서버가 도달 가능한 전방 중심을 복귀 checkpoint로 선택하고, 그 중심까지의 안전한 direct 구간 또는 A* 복귀 경로를 사용한다. 클라이언트 보정이나 위치 스냅으로 중심 복귀를 대신하지 않는다.
 - 150° 이상의 반전은 연속 선회가 아니라 정지 정렬로 처리한다. 이 임계값은 네트워크 지연이나 클라이언트 상태로 변경하지 않는다.
 - fail-closed는 unsafe candidate의 commit을 거부하는 서버 권위 원칙이다. 동일 path 1회, stale PendingPath 또는 일시적인 planner/pathfinder 불일치를 근거로 살아 있는 유닛의 이동 목표를 즉시 폐기하지 않는다.
 - 같은 이동 목표의 재탐색 이력은 코루틴·segment·외부 ticker 재호출을 넘어 유지한다. 서버는 목표 변경, 실제 위치/checkpoint 진전 또는 walkability revision 변경만을 명시적인 재개·reset 근거로 사용한다.

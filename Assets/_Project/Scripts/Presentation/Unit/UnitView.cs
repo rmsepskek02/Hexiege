@@ -329,6 +329,10 @@ namespace Hexiege.Presentation
         // Chase spatial route가 회복 가능하게 무효화되면 fatal cleanup으로 닫지 않고,
         // 한 frame held 후 기존 A*/PostCombat 재탐색 경계로 반환한다.
         private bool _combatPursuitRequiresRepath;
+        // 건물 생성·파괴 중에도 Chase 코루틴의 단일 writer는 유지하되, 현재 타겟 접근
+        // 경로만 다음 frame에 다시 계산하도록 표시한다. OnPathInvalidated가 전투 코루틴을
+        // 교체하면 두 writer가 생길 수 있으므로 bool 신호만 전달한다.
+        private bool _combatPursuitPathInvalidated;
 
         // ────────────────────────────────────────────────────────────────────
         // A* 이동 단계 여부 플래그 (혼잡도 시스템 연동용).
@@ -1995,7 +1999,10 @@ namespace Hexiege.Presentation
                 if (_navigationObjective.SuppressesDuplicateCommand(
                         path[path.Count - 1], _navigationEnvironmentRevision))
                 {
-                    if (_moveCoroutine != null)
+                    if (_moveCoroutine != null
+                        && _navigationObjective.CanQueueSuppressedPath(
+                            path[path.Count - 1],
+                            _navigationEnvironmentRevision))
                     {
                         _pendingPath = path;
                         _navigationObjective.MarkWaitingRepath();
@@ -2111,7 +2118,14 @@ namespace Hexiege.Presentation
             // 실제 transform 위치 → 도메인 좌표 → 앞쪽 가장 가까운 타일.
             //   (ResumeFromForwardTileV3의 forwardTile 계산과 동일한 방식.)
             Vector3 domainPos = ViewConverter.FromView(transform.position);
-            HexCoord forwardTile = _movementUseCase.FindForwardClosestTile(domainPos, finalTarget);
+            if (!_movementUseCase.TryFindReachableForwardRejoinTile(
+                    _unitData,
+                    domainPos,
+                    finalTarget,
+                    out HexCoord forwardTile))
+            {
+                return path;
+            }
 
             // 앞쪽 타일 이후의 경로만 계산한다. RequestMoveFrom은 UnitData.Position과 점유를
             // 변경하지 않는다. forwardTile이 최종 목표면 그 타일 하나가 후속 경로 전체다.
@@ -2199,6 +2213,7 @@ namespace Hexiege.Presentation
             // ────────────────────────────────────────────────────────────
             if (IsInCombat())
             {
+                _combatPursuitPathInvalidated = true;
                 return;
             }
 
@@ -2357,6 +2372,49 @@ namespace Hexiege.Presentation
             decision = guard != null
                 ? guard.Evaluate(Time.frameCount, candidatePath)
                 : UnitRepathDecision.RejectedInvalidPath;
+            return TryAcceptRepathDecision(
+                guard,
+                candidatePath,
+                source,
+                decision);
+        }
+
+        /// <summary>
+        /// spatial preflight가 recoverable unsafe로 거부한 직후의 전용 경계다.
+        /// 같은 환경에서 현재 active path와 같은 후보를 다시 실행하지 않고 Blocked로
+        /// 보류한다. 이 보류는 adapter failure가 아니며 환경 revision 변경만 재개시킨다.
+        /// </summary>
+        private bool TryAcceptSpatialRecoverableRepath(
+            UnitRepathProgressGuard guard,
+            IReadOnlyList<HexCoord> candidatePath,
+            string source,
+            out UnitRepathDecision decision)
+        {
+            decision = guard != null
+                ? guard.Evaluate(
+                    Time.frameCount,
+                    candidatePath,
+                    UnitRepathEvaluationContext.SpatialRecoverable)
+                : UnitRepathDecision.RejectedInvalidPath;
+            if (decision == UnitRepathDecision.RejectedRepeatedPath)
+            {
+                _navigationObjective?.MarkBlocked();
+                return false;
+            }
+
+            return TryAcceptRepathDecision(
+                guard,
+                candidatePath,
+                source,
+                decision);
+        }
+
+        private bool TryAcceptRepathDecision(
+            UnitRepathProgressGuard guard,
+            IReadOnlyList<HexCoord> candidatePath,
+            string source,
+            UnitRepathDecision decision)
+        {
             if (decision == UnitRepathDecision.AcceptedNextFrame)
             {
                 _navigationObjective?.MarkWaitingRepath();
@@ -2628,9 +2686,9 @@ namespace Hexiege.Presentation
                     }
 
                     // ──────────────────────────────────────────────────────
-                    // [A* 경로 입력] waypoint는 타일 중심이지만 ReducerAuthoritative 위치는
-                    // 중심 통과를 강제하지 않는다. 이 점과 다음 점으로 corridor 안의 연속
-                    // trajectory를 만들며, 마지막 목적지만 중심에 정확히 수렴한다.
+                    // [A* 경로 입력] 모든 waypoint는 타일 중심의 권위 checkpoint다.
+                    // 현재 점과 다음 점으로 corridor 안의 연속 trajectory를 만들되,
+                    // 중간·마지막 목적지 모두 실제 중심 도달 뒤에만 소비한다.
                     // ──────────────────────────────────────────────────────
                     Vector3 toDomain = HexMetrics.HexToWorld(to);
 
@@ -2735,7 +2793,7 @@ namespace Hexiege.Presentation
                             List<HexCoord> blockedRepath = _movementUseCase != null
                                 ? _movementUseCase.RequestMove(_unitData, finalTarget)
                                 : null;
-                            if (!TryAcceptRepath(
+                            if (!TryAcceptSpatialRecoverableRepath(
                                     repathGuard,
                                     blockedRepath,
                                     "astar-corridor",
@@ -2845,7 +2903,7 @@ namespace Hexiege.Presentation
                                 List<HexCoord> pursuitRepath = _movementUseCase != null
                                     ? _movementUseCase.RequestMove(_unitData, finalTarget)
                                     : null;
-                                if (!TryAcceptRepath(
+                                if (!TryAcceptSpatialRecoverableRepath(
                                         repathGuard,
                                         pursuitRepath,
                                         "chase-spatial-route-invalidated",
@@ -2879,19 +2937,44 @@ namespace Hexiege.Presentation
                             //     다음 타일까지 비정상적으로 멀리 점프하는 시각적 순간이동이 발생한다.
                             //
                             //   해결:
-                            //     1) FindForwardClosestTile로 "앞쪽 타일" forwardTile을 1회만 결정.
+                            //     1) walkable·전방·도달 가능 조건을 만족하는 인접 중심을 1회 결정.
                             //     2) 그 타일 중심 뷰 좌표(alignView)까지 동일 이동 속도로 Lerp.
                             //        (규칙 5: A* 이동과 동일 속도 — moveSeconds는 1칸 이동 시간이므로
                             //         실제 거리 / TileHeight 비율을 곱해 시간 환산.)
                             //     3) Lerp 도중에도 detect 사거리 적 감지 시 즉시 중단 → 새 추격 진입.
-                            //     4) Lerp 완료 후 transform.position을 alignView로 최종 정렬 스냅.
+                            //     4) planner가 남은 이동량을 중심까지 제한해 실제로 도달.
                             //     5) 같은 forwardTile을 ResumeFromForwardTileV3에 전달해 도메인 갱신 +
-                            //        새 path 발급. (이중 FindForwardClosestTile 호출 방지)
+                            //        새 path 발급. (복귀 후보 이중 계산 방지)
                             // ──────────────────────────────────────────────────────────
 
-                            // 1) forwardTile 계산 — 호출은 단 1회.
+                            // 1) 안전한 forwardTile 계산 — 호출은 단 1회. 후보가 없으면
+                            // nearestTile을 성공으로 오인하지 않고 현재 objective의 서버 A*를
+                            // 재평가한다.
                             Vector3 unitDomainPos = ViewConverter.FromView(transform.position);
-                            HexCoord forwardTile = _movementUseCase.FindForwardClosestTile(unitDomainPos, finalTarget);
+                            if (!_movementUseCase.TryFindReachableForwardRejoinTile(
+                                    _unitData,
+                                    unitDomainPos,
+                                    finalTarget,
+                                    out HexCoord forwardTile))
+                            {
+                                List<HexCoord> safeResumePath =
+                                    _movementUseCase.RequestMove(_unitData, finalTarget);
+                                if (!TryAcceptSpatialRecoverableRepath(
+                                        repathGuard,
+                                        safeResumePath,
+                                        "post-combat-no-safe-forward-center",
+                                        out UnitRepathDecision safeResumeDecision))
+                                {
+                                    navigationBlocked = true;
+                                }
+
+                                path = safeResumePath;
+                                pathCheckpoint.Reset();
+                                needRepath = true;
+                                SetMovementHeldAnimation(true);
+                                _currentNextTileCoord = null;
+                                break;
+                            }
 
                             // 2) forwardTile 중심 뷰 좌표.
                             Vector3 forwardWorld = HexMetrics.HexToWorld(forwardTile);
@@ -3010,7 +3093,7 @@ namespace Hexiege.Presentation
                                         List<HexCoord> blockedResumePath =
                                             _movementUseCase.RequestMove(
                                                 _unitData, finalTarget);
-                                        if (!TryAcceptRepath(
+                                        if (!TryAcceptSpatialRecoverableRepath(
                                                 repathGuard,
                                                 blockedResumePath,
                                                 "post-combat-corridor",
@@ -3057,6 +3140,15 @@ namespace Hexiege.Presentation
                                         {
                                             resumeWaypointReached =
                                                 _lastMovementTrajectoryReachedWaypoint;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                                            if (resumeWaypointReached)
+                                            {
+                                                UnitMovementAuthorityObserver.ObserveCenterCheckpoint(
+                                                    CalculateMovementShadowPositionDeltaXZ(
+                                                        transform.position,
+                                                        alignView));
+                                            }
+#endif
                                         }
                                         else
                                         {
@@ -3163,10 +3255,10 @@ namespace Hexiege.Presentation
                     }
 
                     // ──────────────────────────────────────────────────────
-                    // [A* 이동] 정상 Lerp 완료 — 타일 중심에 스냅 + 도메인 위치 갱신.
+                    // [A* 이동] 정상 waypoint 완료.
                     // ──────────────────────────────────────────────────────
-                    // Legacy Lerp만 기존 타일 중심 endpoint 보정을 유지한다. 연속 trajectory는
-                    // 중간 waypoint를 통과 평면으로 소비하므로 중심 스냅을 하면 안 된다.
+                    // Legacy Lerp만 기존 타일 중심 endpoint 보정을 유지한다. Reducer trajectory는
+                    // planner의 이동량 제한으로 중심에 도달하며 별도 위치 스냅을 하지 않는다.
                     if (!reducerTrajectory)
                     {
                         MovementWriteOutcome endpointOutcome = ApplyMovementAuthorityFrame(
@@ -3198,6 +3290,15 @@ namespace Hexiege.Presentation
                         movementFailedClosed = true;
                         goto cleanup;
                     }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    if (reducerTrajectory)
+                    {
+                        UnitMovementAuthorityObserver.ObserveCenterCheckpoint(
+                            CalculateMovementShadowPositionDeltaXZ(
+                                transform.position,
+                                toPos));
+                    }
+#endif
                     ObserveNavigationProgress(repathGuard, path);
                     if (!reducerTrajectory)
                     {
@@ -3396,9 +3497,10 @@ namespace Hexiege.Presentation
         ///      - 타겟이 공격 사거리(HasEnemyInRange) 안이면 EnterCombatLoopV3 호출.
         ///         · 전투 종료 후 detect 내 다른 적이 있으면 타겟 교체 후 continue.
         ///         · 없으면 종료.
-        ///      - 그 외(detect 안, 사거리 밖) → 적 방향으로 직선 이동.
+        ///      - 그 외(detect 안, 사거리 밖) → 같은 타일은 안전한 직선, 다른 타일은
+        ///        타겟 접근 서버 경로로 이동.
         ///
-        /// 슬롯/점유 없음 — 같은 적을 향해 여러 유닛이 같은 위치로 모여도 그대로 진행합니다.
+        /// 슬롯/유닛 점유 차단 없음 — 같은 적을 향해 여러 유닛이 같은 위치로 모일 수 있습니다.
         /// </summary>
         private IEnumerator EnterCombatPursuitV3()
         {
@@ -3438,6 +3540,17 @@ namespace Hexiege.Presentation
             float moveSeconds = _unitData.MoveSpeed > 0f ? 1f / _unitData.MoveSpeed : 1.0f;
             float worldSpeed = HexMetrics.TileHeight / moveSeconds;
 
+            // Chase도 A*와 같은 logical corridor를 사용한다. 타겟 타일 또는 환경 revision이
+            // 바뀔 때만 경로를 갱신하여 움직이는 타겟 때문에 매 frame FlowField를 요청하거나,
+            // 동일한 막힌 후보를 무한 반복하지 않게 한다.
+            List<HexCoord> pursuitPath = null;
+            int pursuitWaypointIndex = 1;
+            HexCoord pursuitTargetTile = default;
+            bool hasPursuitTargetTile = false;
+            ulong pursuitEnvironmentRevision = _navigationEnvironmentRevision;
+            var pursuitCheckpoint = new UnitPathCheckpointTracker();
+            _combatPursuitPathInvalidated = false;
+
             // 매 프레임 루프 — 적 상태 확인 + 전투 이동 또는 공격으로 분기.
             while (_unitData != null && _unitData.IsAlive)
             {
@@ -3463,6 +3576,10 @@ namespace Hexiege.Presentation
 
                     targetId = next.Value.id;
                     targetIsUnit = next.Value.isUnit;
+                    pursuitPath = null;
+                    pursuitWaypointIndex = 1;
+                    pursuitCheckpoint.Reset();
+                    hasPursuitTargetTile = false;
 
                     yield return null;
                     continue;
@@ -3528,39 +3645,117 @@ namespace Hexiege.Presentation
 
                     targetId = nextEnemy.Value.id;
                     targetIsUnit = nextEnemy.Value.isUnit;
+                    pursuitPath = null;
+                    pursuitWaypointIndex = 1;
+                    pursuitCheckpoint.Reset();
+                    hasPursuitTargetTile = false;
 
                     yield return null;
                     continue;
                 }
 
-                // ── 5) [전투 이동] 적의 월드 위치로 직선 이동 + 매 프레임 적 방향 회전 ──
-                // 슬롯 없음 — 같은 적을 노리는 유닛이 같은 위치로 모여도 진행.
-                // 회전: 시각적으로 자연스럽게 적을 바라보며 추적.
+                // ── 5) [전투 이동] 안전한 서버 경로로 공격 접근 ──
+                // 타겟과 같은 walkable 타일 안에 있을 때만 짧은 direct 이동을 허용한다.
+                // 타일이 다르면 타겟 타일까지의 FlowField 경로를 사용하므로 중간 건물이나
+                // 완전 차단 지형을 향해 직선 후보를 반복하지 않는다. 다른 유닛의 점유는
+                // 여전히 차단하지 않으므로 슬롯 없는 유닛 겹침 규칙은 그대로다.
                 Vector3 moveDir = enemyViewPos - transform.position;
                 moveDir.y = 0f;
                 CaptureUnitActionShadowDesiredTarget(enemyViewPos);
                 float dist = moveDir.magnitude;
                 if (dist > 0.01f)
                 {
-                    float pursuitAngle = CalculateAttackAngle(enemyViewPos);
-                    Quaternion targetRot = Quaternion.Euler(0f, pursuitAngle, 0f);
                     float liveMoveMultiplier = _combatUseCase != null
                         ? Mathf.Max(0f, _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData))
                         : 1f;
                     bool movementFrozen = liveMoveMultiplier <= MoveFreezeEpsilon;
                     SetFrozenAnimation(movementFrozen);
-                    Vector3 candidatePursuitPosition = transform.position
-                        + moveDir.normalized
-                            * worldSpeed
-                            * liveMoveMultiplier
-                            * Time.deltaTime;
+
+                    Vector3 enemyDomainPos = ViewConverter.FromView(enemyViewPos);
+                    HexCoord liveTargetTile = HexMetrics.WorldToHex(enemyDomainPos);
+                    Vector3 rootDomainPos = ViewConverter.FromView(transform.position);
+                    HexCoord liveRootTile = HexMetrics.WorldToHex(rootDomainPos);
+                    bool directInsideSameTile = liveRootTile == liveTargetTile
+                        && _movementUseCase.IsWalkable(liveRootTile);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    UnitMovementAuthorityObserver.ObserveChaseApproach(
+                        directInsideSameTile);
+#endif
+
+                    Vector3 pursuitWaypointView = enemyViewPos;
+                    Vector3? nextPursuitWaypointView = null;
+                    IReadOnlyList<HexCoord> pursuitCorridor = null;
+                    int corridorWaypointIndex = -1;
+
+                    if (!directInsideSameTile)
+                    {
+                        bool routeChanged = !hasPursuitTargetTile
+                            || liveTargetTile != pursuitTargetTile
+                            || _combatPursuitPathInvalidated
+                            || pursuitEnvironmentRevision
+                                != _navigationEnvironmentRevision;
+                        if (routeChanged)
+                        {
+                            pursuitPath = _movementUseCase.RequestCombatApproachPath(
+                                _unitData,
+                                liveTargetTile);
+                            pursuitTargetTile = liveTargetTile;
+                            hasPursuitTargetTile = true;
+                            pursuitEnvironmentRevision =
+                                _navigationEnvironmentRevision;
+                            pursuitWaypointIndex = 1;
+                            pursuitCheckpoint.Reset();
+                            _combatPursuitPathInvalidated = false;
+                            if (pursuitPath != null && pursuitPath.Count >= 2)
+                                _navigationObjective?.MarkNavigating();
+                        }
+
+                        if (pursuitPath == null || pursuitPath.Count < 2)
+                        {
+                            _navigationObjective?.MarkBlocked();
+                            SetMovementHeldAnimation(true);
+                            yield return null;
+                            continue;
+                        }
+
+                        if (pursuitWaypointIndex >= pursuitPath.Count)
+                        {
+                            pursuitPath = null;
+                            hasPursuitTargetTile = false;
+                            yield return null;
+                            continue;
+                        }
+
+                        pursuitWaypointView = TileCenterView(
+                            pursuitPath[pursuitWaypointIndex]);
+                        if (pursuitWaypointIndex + 1 < pursuitPath.Count)
+                        {
+                            nextPursuitWaypointView = TileCenterView(
+                                pursuitPath[pursuitWaypointIndex + 1]);
+                        }
+                        pursuitCorridor = pursuitPath;
+                        corridorWaypointIndex = pursuitWaypointIndex;
+                    }
+
+                    SetMovementHeldAnimation(false);
+                    float pursuitAngle = CalculateAttackAngle(pursuitWaypointView);
+                    Quaternion targetRot = Quaternion.Euler(0f, pursuitAngle, 0f);
+                    Vector3 pursuitMoveDir = pursuitWaypointView - transform.position;
+                    pursuitMoveDir.y = 0f;
+                    Vector3 candidatePursuitPosition = pursuitMoveDir.sqrMagnitude > 0.0001f
+                        ? transform.position
+                            + pursuitMoveDir.normalized
+                                * worldSpeed
+                                * liveMoveMultiplier
+                                * Time.deltaTime
+                        : transform.position;
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                     UnitMovementShadowObserver.LegacyFrameToken pursuitShadowToken = default;
                     if (_lockedMovementPipelineMode
                         != UnitMovementPipelineMode.ReducerAuthoritative)
                     {
                         pursuitShadowToken = BeginMovementShadowLegacyFrame(
-                            enemyViewPos,
+                            pursuitWaypointView,
                             UnitMovementIntentReason.Chase,
                             CalculateMovementShadowPositionDeltaXZ(
                                 transform.position,
@@ -3568,22 +3763,36 @@ namespace Hexiege.Presentation
                     }
 #endif
                     MovementWriteOutcome pursuitOutcome = ApplyMovementAuthorityFrame(
-                        enemyViewPos,
+                        pursuitWaypointView,
                         candidatePursuitPosition,
                         targetRot,
                         UnitMovementIntentReason.Chase,
-                        targetAcquirePriority: false);
+                        targetAcquirePriority: false,
+                        nextTrajectoryTarget: nextPursuitWaypointView,
+                        maximumTravelDistanceWorld:
+                            worldSpeed * liveMoveMultiplier * Time.deltaTime,
+                        logicalCorridorPath: pursuitCorridor,
+                        logicalCorridorWaypointIndex: corridorWaypointIndex,
+                        candidateAcquirePredicate: candidate =>
+                            _combatUseCase.HasEnemyInRangeAt(_unitData, candidate));
                     if (pursuitOutcome == MovementWriteOutcome.RepathRequired)
                     {
-                        // Missing/NonWalkable은 현재 command를 폐기하는 fatal 거부가 아니다.
-                        // pose/scope/reducer/domain은 ApplyMovementAuthorityFrame에서 그대로이며,
-                        // objective를 보존한 채 최소 한 frame held 후 caller의 A* 재탐색으로 넘긴다.
+                        // 현재 Chase 경로가 동적 건물로 무효화된 경우 같은 frame에는 다시
+                        // 실행하지 않는다. 코루틴과 타겟은 유지하되 같은 타겟·같은 환경에서는
+                        // 실패한 경로를 반복하지 않고, 타겟 이동 또는 환경 revision 변경을 기다린다.
                         _navigationObjective?.MarkWaitingRepath();
                         SetMovementHeldAnimation(true);
-                        _combatPursuitRequiresRepath = true;
-                        _isInCombatPursuit = false;
+                        pursuitPath = null;
+                        // 같은 타겟·같은 environment revision에서는 이 실패한 route를
+                        // 다시 요청하지 않는다. 타겟 타일 이동 또는 OnPathInvalidated가
+                        // 새 revision을 알릴 때만 routeChanged가 다시 참이 된다.
+                        pursuitTargetTile = liveTargetTile;
+                        hasPursuitTargetTile = true;
+                        pursuitEnvironmentRevision =
+                            _navigationEnvironmentRevision;
+                        _combatPursuitPathInvalidated = false;
                         yield return null;
-                        yield break;
+                        continue;
                     }
                     if (pursuitOutcome == MovementWriteOutcome.Rejected)
                     {
@@ -3593,6 +3802,21 @@ namespace Hexiege.Presentation
                             $"segmentRevision={_movementSegmentRevision}");
                         _isInCombatPursuit = false;
                         yield break;
+                    }
+                    if (!directInsideSameTile
+                        && pursuitOutcome == MovementWriteOutcome.Advanced
+                        && _lastMovementTrajectoryReachedWaypoint
+                        && pursuitCheckpoint.TryConsume(
+                            pursuitWaypointIndex,
+                            reachedWaypoint: true))
+                    {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                        UnitMovementAuthorityObserver.ObserveCenterCheckpoint(
+                            CalculateMovementShadowPositionDeltaXZ(
+                                transform.position,
+                                pursuitWaypointView));
+#endif
+                        pursuitWaypointIndex++;
                     }
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                     CompleteMovementShadowLegacyFrame(pursuitShadowToken);
@@ -3902,9 +4126,9 @@ namespace Hexiege.Presentation
         ///   타일 커밋은 호출 측 공용 writer가 처리하며, 이 함수는 path 재발급만 담당한다.
         ///
         /// [중요] forwardTile 이중 계산 방지:
-        ///   호출 측은 Lerp 시작 전에 FindForwardClosestTile을 1회 호출하여 forwardTile을 결정한 뒤,
+        ///   호출 측은 Lerp 시작 전에 안전한 복귀 후보를 1회 계산하여 forwardTile을 결정한 뒤,
         ///   그 값으로 transform을 정렬하고 동일한 forwardTile을 이 함수에 전달해야 한다.
-        ///   만약 이 함수가 FindForwardClosestTile을 다시 호출하면, 정렬 후의 transform.position
+        ///   만약 이 함수가 복귀 후보를 다시 계산하면, 정렬 후의 transform.position
         ///   기준으로 한 타일 더 앞쪽이 선택될 수 있어 도메인-뷰 좌표가 다시 어긋난다.
         /// </summary>
         private List<HexCoord> ResumeFromForwardTileV3(HexCoord finalTarget, HexCoord forwardTile)
@@ -3952,7 +4176,10 @@ namespace Hexiege.Presentation
         private void MoveCleanupAndCompleteV3(bool invokeCompletion = true)
         {
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
-            if (_spatialRecoverablePending)
+            if (UnitSpatialDiagnosticAccountingPolicy
+                .IsUnexpectedRecoverableCleanup(
+                    _spatialRecoverablePending,
+                    _unitData != null && _unitData.IsAlive))
             {
                 UnitMovementAuthorityObserver.ObserveSpatialCleanupAfterRecoverable(
                     _unitData != null ? _unitData.Id : -1);

@@ -1,5 +1,10 @@
 # document-manager 누적 지식
 
+## 2026-08-24 B3 역할교대 FAIL 문서 판정
+- self-validation/계측 완전성 PASS와 실기 전체 판정을 분리한다. MOVE terminal FAIL 세션의 read-only 회전 대조는 원인 분리 근거이지 공식 RootCrossAudit 판정이 아니다.
+- 현행 수치: Android Host endpoint/evidence 54/54, Editor Client 53/53, overlap 48, 같은 revision 회전 잔차 7(`0.11~0.15°`), Unit 30 adapter failure 6·repeated recoverable 1.
+- 다음 문서 갱신은 Unit 30 교정과 새 역할교대 공식 CrossAudit 뒤에 수행하며, 그 전 B3는 FAIL/OPEN으로 유지한다.
+
 ## 이 프로젝트의 문서 관습 (실측으로 확인된 것만)
 
 ### 원문 보존 방침
@@ -58,7 +63,13 @@ grep -rn "LogEvent\.Unknown" Assets/_Project/Scripts --include=*.cs      # 0건 
 - `origin/main` 60개 commit과 B3 v9 의미 병합 완료, unmerged 0·staged 최신 해결본 일치. main `GameLog`·`LogSessionOwner`·combat shutdown·`IsSpawned`·research 수정과 B3 이력을 모두 보존한다.
 - post-merge Runtime/Editor Roslyn PASS와 독립 QA P0~P3 0만 코드 게이트 PASS로 기록한다. pre-merge `[UAS-DIAG]` PASS를 post-merge 결과로 재사용하지 않는다.
 - 감사 계약은 최신 device anchor + Editor daily, role/shared key/production schema exact/전체 BEGIN·END identity/EVIDENCE·FAIL/source gate다. Android-safe terminal 26+5+1=32줄·최대 968 UTF-8 byte와 manifest 27개/초과 길이 fail-closed, adapter stateful 64/65·release `Conditional` 경계를 보존한다.
-- post-merge `[UAS-DIAG]`·RootCrossAudit 실제 메뉴와 Android v9가 미실행이므로 B3는 `FAIL / OPEN`. 영구 Unit 규칙은 계약 변화가 없어 수정하지 않는다.
+- 이 코드 게이트 기록 당시에는 post-merge 메뉴와 Android v9가 미실행이었다. 후속 실제 경기와 RootCrossAudit false-INCONCLUSIVE 교정 상태는 아래 항목으로 갱신하며, 공식 재감사 전 B3는 `FAIL / OPEN`이다. 영구 Unit 규칙은 계약 변화가 없어 수정하지 않는다.
+
+### 2026-08-23 - RootCrossAudit false-INCONCLUSIVE 문서화
+
+- 실제 `a0e690...8d8` Editor Host·Android Client는 MOVE full EVIDENCE·ROOT PASS, 수동 pose 49/49 match다. ROOT bucket 14/17 cross-peer equality가 false-INCONCLUSIVE를 만들었고 MOVE `startedAt` delta는 `.733149초`다.
+- 진단기만 ROOT peer bucket equality 제거 + run 내부 invariant 유지 + validated MOVE `startedAt <=2.000초`로 교정했다. `2.000/2.001`, stable overlap, fail-closed, Play Mode 차단과 read/`IOException` INCONCLUSIVE를 함께 기록한다.
+- Editor Roslyn PASS와 사용자 Unity SelfValidate/Analyze 미실행을 분리한다. 공식 실제 재감사는 OPEN이며 게임·서버 권위·로그 포맷·영구 규칙 변경 없음.
 
 ### 2026-08-20 - Unit ActionSequence B3 v8 코드 게이트 문서 동기화
 

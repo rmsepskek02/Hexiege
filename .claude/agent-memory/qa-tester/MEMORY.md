@@ -1,10 +1,24 @@
 # QA Tester Memory — Hexiege
 
+## 2026-08-24 blocked-start egress QA 교훈
+- `RequestMoveFrom(start,target)`처럼 임의 staged start를 받는 API에 blocked-start 예외를 넣으면 non-authoritative blocked waypoint가 중간 경로에 합성될 수 있다. 예외는 `UnitData.Position`을 직접 읽는 authoritative API에만 허용한다.
+- 회귀는 성공 경로뿐 아니라 staged blocked null, 최단 우선, Q/R tie-break, first edge 인접, 중간 blocked 제외, 무인접 fail-closed, blocked start==destination과 정상 경로 불변을 함께 고정한다.
+
+## 2026-08-24 B3 역할교대 실기 FAIL
+- self-validation 2종 PASS. Android Host/Editor Client `65ee1764...d691` ROOT와 rotation evidence는 Host 54/54, Client 53/53, drop/preflight 0이다.
+- Host MOVE terminal은 Unit 30 Red Pistoleer `repath-fail-closed` 6건과 `spatial-recoverable-repeated=1`로 FAIL했다. CrossAudit의 조기 중단은 정상 fail-closed이며 `hostFiles=0` 표시는 role 부재가 아니라 terminal 검사 전 집계 순서다.
+- 비인증 read-only 대조: overlap 48, rotation mismatch 7(`0.11~0.15°`), 위치 허용치 이내, phase+3 revisions 전건 동일. 공식 판정은 MOVE gate 교정 뒤 재경기로만 갱신한다.
+
 ## 2026-08-23 B3 v9 최종 통합 정적 코드 게이트 / 런타임 검증 대기
 - v8 Android는 recoverable 공간 preflight 24건과 단일 SpearMan 후보 반복으로 FAIL했다. v9은 typed result와 동일 probe/final-stage seam, `CandidateUnsafe/RouteInvalidated → WaitingRepath`, fatal-only `Rejected`를 구현했다.
 - `origin/main` 60개 commit과 B3 의미 병합 완료, main 로그/종료 안전/research 수정과 B3 보존. post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0. staged accounting은 actual attempt 직전 planned, success 뒤 committed, END equality이며 recoverable history는 positive successful commit에서만 clear한다. lifecycle retire/reuse 회귀도 반영됐다.
 - evidence gate는 최신 device anchor + Editor daily, run role, shared key, production schema exact, 전체 BEGIN/END identity, EVIDENCE/FAIL, device/editor source를 검사한다. terminal은 26+5+1=32줄·최대 968 UTF-8 byte이며 manifest 27개/초과 길이 fail-closed, adapter는 stateful 64/65와 release `Conditional` 경계다.
-- 다음 순서: post-merge Unity `[UAS-DIAG]`와 RootCrossAudit 실제 메뉴 실행 → Android v9. pre-merge UAS PASS는 재사용하지 않는다. `spatialFinalRecoverableRepaths=0` 강제가 아니라 resolved/nonrepeat/no-cleanup coverage, repeated/same-frame/cleanup/fatal/divergence/commit failure 0과 authority·replication·Root/cross-audit를 확인한다. 전까지 B3 FAIL/OPEN.
+- 후속 Android v9 실제 경기의 MOVE·ROOT 증거는 확보했다. 다음은 RootCrossAudit SelfValidate와 동일 경기 Analyze 재실행이다. pre-merge UAS PASS는 재사용하지 않는다. `spatialFinalRecoverableRepaths=0` 강제가 아니라 resolved/nonrepeat/no-cleanup coverage, repeated/same-frame/cleanup/fatal/divergence/commit failure 0과 authority·replication·Root/cross-audit를 확인한다. 전까지 B3 FAIL/OPEN.
+
+## 2026-08-23 RootCrossAudit false-INCONCLUSIVE 교정
+- 실제 `a0e690...8d8`: Editor Host·Android Client, MOVE full EVIDENCE, ROOT 양쪽 PASS. 수동 pose union55/overlap49/match49/mismatch0/coverage `.891`, max axis `.000982m`, max rot `0°`.
+- 기존 ROOT bucket 14/17 peer equality는 false-INCONCLUSIVE. validated MOVE `startedAt` delta `.733149초`를 사용하도록 교정했다. 경계 `2.000` 허용/`2.001` 거부, run 내부 bucket·stable overlap·identity/source/role/key/schema/EVIDENCE/FAIL은 계속 fail-closed다.
+- SelfValidation은 실제형, 시간 경계, 내부 bucket mismatch, BEGIN/END missing, `NaN`/`Infinity`를 포함한다. Editor Roslyn만 PASS했으며 사용자 SelfValidate/Analyze 전 공식 판정은 OPEN이다.
 
 ## ⚠️ TC 작성 형식 규칙 (CRITICAL — README.md 공식 규칙, 2026-03-24 확정)
 
@@ -561,3 +575,10 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - 유한 guard self-validation은 동일 path, A→B→A, invalid, 한 frame 2회째 거부, 다음-frame 수락과 진전 reset을 포함해 PASS했고 Unity Tundra compile도 성공했다.
 - 전체 B3 판정은 여전히 FAIL / OPEN이다. 새 Android Development Build에서 Android Host 경로 무효화/건물 배치가 포함된 경기로 정지·ANR·로그 폭주 0, fail-closed 유닛 외 다른 유닛과 경기 시간 진행을 먼저 확인한다.
 - 위 회귀 PASS 뒤에만 역할교대, 25종 전체와 다음 경기 Legacy rollback을 재개한다. 기존 21/25종은 정확성 기준선이지 새 구현 완료 증거가 아니다.
+
+### 2026-08-25 - B3 v10 집중 실기와 ROOT 채점기 PASS
+
+- Android Host/Editor Client 같은 경기에서 Host 중심 checkpoint 766회·최대 오차 0, direct-safe/path Chase 806/2,977 frame, authority/adapter/stationary Walk/drop 오류 0을 확인했다. 양쪽 local ROOT endpoint/rotation evidence는 53/53 PASS다.
+- 기존 공식 INCONCLUSIVE는 Host ROOT 긴 terminal 절단 때문이며 개별 게임 증거 실패가 아니다. 과거 절단 파일은 추정 PASS로 승격하지 않는다.
+- compact terminal은 최악값 803 UTF-8 byte, 필수 CrossAudit 필드 보존, 초과 시 fail-closed다. Runtime/Editor Roslyn과 사용자 Unity `[UAS-DIAG]`·RootCrossAudit SelfValidate가 모두 PASS했다.
+- 채점기만을 위한 재빌드/재시험은 하지 않는다. 다음 Tracer C 새 빌드의 통합 회귀에서 공식 Analyze를 재사용하며, 25종·반대 역할·Legacy rollback 게이트는 유지한다.

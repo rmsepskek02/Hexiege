@@ -5,7 +5,7 @@
 
 이 문서는 **게임에서 무엇이 참이어야 하는지**를 정의한다. 멀티플레이 복제와 순서 역전 처리는 `GameSystemRules_UnitCombatSynchronization.md`, 클래스·RPC·레이어 배치는 `TechnicalDesignDocument.md`, 런타임 수치는 검증된 `UnitStatsConfig`와 향후 `AttackProfile`, 사람이 읽는 수치 미러는 `StatsReference.md`, 유닛별 에셋·구현 감사 스냅샷은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`가 담당한다.
 
-> **상태:** 규칙 v2.1과 서버 권위 연속 이동의 Editor 검증은 PASS했지만 B3 전체는 **FAIL / OPEN**이다. 2026-08-18 Android Host에서 확인한 stale PendingPath·동일 A* 과잉 종료와 제자리 걷기에 대해 목표 단위 `WaitingRepath/Blocked`, 환경 revision 재개, 공성 동일 목표 재명령 억제, 서버 권위 `Held` 표현과 중복 `NoIntent` 게시 방지를 구현했고 Unity C# 컴파일은 PASS했다. 아직 Editor self-validation과 새 Android Host 실기 증거가 없으므로 역할교대·25종 회귀는 재개하지 않는다. 공격 방향과 Impact·피해 적용 시점은 별도 미완료 범위다.
+> **상태:** 규칙 v2.2의 B3 중심 경로·건물 안전 Chase·전방 중심 복귀 집중 교정은 **IMPLEMENTED / FOCUSED MULTIPLAYER PASS**다. A1·A2·B1 계약과 B2 관측 구조, 서버 단일 writer를 유지했다. `b3-movement-authority-v10` Android Host 실기에서 중심 checkpoint 766회·최대 오차 0, direct-safe/path Chase 806/2,977 frame, authority/adapter/stationary Walk/drop 오류 0을 확인했고 같은 경기 Editor Client와 양쪽 local ROOT 53/53 PASS를 확보했다. Host 긴 ROOT terminal의 Logcat 절단은 채점 필수 필드만 담는 최악값 803 UTF-8 byte compact END와 출력 전 preflight로 교정했으며 Runtime/Editor Roslyn과 Unity self-validation 2종까지 PASS다. 25종·반대 역할·Legacy rollback은 다음 통합 회귀 게이트로 남긴다. 공격 방향과 Impact·피해 적용 시점은 별도 미완료 범위다.
 
 ---
 
@@ -40,18 +40,18 @@
 - 이동 슬롯, 공격 슬롯, 타일 점유 한도 제거
 - 근접/원거리 구분 없이 모든 유닛이 동일한 상태 전환 로직을 공유
 - 규칙의 수와 복잡도를 최소화하여 구현 안정성 확보
-서버는 A*로 현재 위치에서 목적지까지 통과해야 할 이동 가능 타일의 순서와 목적지를 계산한다. 일반 경유 타일의 중심 통과는 강제하지 않으며, 최종 목적지는 목적 타일 중심에 정확히 수렴한다.
+서버는 A*로 현재 위치에서 목적지까지 통과해야 할 이동 가능 타일의 순서와 목적지를 계산한다. 기본 A* 이동의 각 경유 타일은 중심을 권위 checkpoint로 사용하며, Simulation Root가 중심 허용 오차 안에 실제로 도달한 뒤에만 순서대로 소비한다. 중심에서는 강제 정지하거나 위치를 스냅하지 않는다. incoming 선분은 현재 중심까지 완료하고, 다음 outgoing 선분의 첫 frame부터 이동과 회전을 함께 적용한다. 회전 한도와 corridor 안전을 이동 중 만족할 수 없을 때만 `AlignToMove`로 정지 정렬한다. 최종 목적지도 목적 타일 중심에 정확히 수렴한다.
 
 - 정적 이동 불가 지형과 건물은 경로를 차단한다.
 - 다른 유닛의 현재 타일·선점 타일은 경로 차단 정보로 사용하지 않는다.
 - 같은 타일에 여러 유닛이 겹칠 수 있다.
 - 서버의 틱별 후보 이동 구간은 현재 A* 경로의 이동 가능 타일 영역을 연결한 logical path corridor 안에 있어야 한다. 경로에 없는 타일이나 이동 불가 타일·건물을 가로지르지 않는다.
 - A*와 corridor는 `path[0]`을 동일한 출발점으로 해석한다. 현재 유닛이 서 있는 `path[0]`이 경기 중 건물 생성 등으로 이동 불가가 된 경우 첫 구간에서 그 타일을 빠져나가는 point sweep은 허용한다. 이 예외는 `waypointIndex=1`에서 `path[0]` 영역을 출발하는 동안에만 유효하며, `path[0]`으로 재진입하거나 다음 경유 타일·경로 밖 이동 불가 타일을 통과하는 데 사용할 수 없다.
-- 경로 계산, 경로 checkpoint 진행, 실제 공간 타일 커밋은 서로 분리한다. 경로를 계산·교체하거나 중간 checkpoint를 소비한 사실만으로 `UnitData.Position`, 위치 역인덱스 또는 이동 이벤트를 다음 타일로 넘기지 않는다. 부드러운 코너의 중간 checkpoint는 타일 중심 도착 없이 최근접 통과로 소비될 수 있기 때문이다. 실제 공간 타일은 서버 Simulation Root가 인접 타일 경계를 넘어 들어간 순서대로만 커밋하며, 한 frame에 여러 경계를 통과하면 관측된 인접 전이를 순서대로 모두 반영한다. A*·Chase·PendingRepath·PostCombatResume는 같은 서버 공간 커밋기를 사용하고, 클라이언트 보정이나 비인접 논리 점프는 금지한다. 이동 중 출발점 보정이 필요하면 현재 커밋 타일을 `path[0]`에 유지하고 앞쪽 **인접** 타일을 첫 waypoint로 명시한다. Root 경계 통과 전 `ProcessStep`과 checkpoint 소비를 실제 점유 도착으로 간주하는 구현은 금지한다.
+- 경로 계산, 경로 checkpoint 진행, 실제 공간 타일 커밋은 서로 분리한다. 경로를 계산·교체한 사실만으로 `UnitData.Position`, 위치 역인덱스 또는 이동 이벤트를 다음 타일로 넘기지 않는다. 기본 A*의 checkpoint는 Simulation Root가 해당 타일 중심 허용 오차 안에 실제로 들어온 경우에만 소비한다. 실제 공간 타일은 서버 Simulation Root가 인접 타일 경계를 넘어 들어간 순서대로만 커밋하며, 한 frame에 여러 경계를 통과하면 관측된 인접 전이를 순서대로 모두 반영한다. A*·Chase·PendingRepath·PostCombatResume는 같은 서버 공간 커밋기를 사용하고, 클라이언트 보정이나 비인접 논리 점프는 금지한다. 이동 중 출발점 보정이 필요하면 현재 커밋 타일을 `path[0]`에 유지하고 앞쪽 **인접** 타일을 첫 waypoint로 명시한다. Root 경계 통과 전 `ProcessStep`을 실제 점유 도착으로 간주하거나, 중심에 도달하지 않은 최근접 통과·평면 교차만으로 checkpoint를 소비하는 구현은 금지한다.
 - 다음 후보 이동 구간이 corridor를 벗어나거나 다음 타일이 건물 생성 등으로 이동 불가가 되면 그 구간을 적용하지 않고 현재 위치에서 재탐색한다.
 - 재탐색은 유닛별·Unity frame별 최대 1회만 실행하고 새 path는 다음 frame부터 처리한다. fail-closed는 안전하지 않은 candidate pose/path를 해당 틱에 commit하지 않는다는 뜻이며, 동일 path 1회나 PendingPath 시간차만으로 이동 목표 자체를 종료한다는 뜻이 아니다. 반복 판단과 재개 기준은 `U-MOV-REPATH`를 따른다.
 - 1차 corridor 안전 판정은 유닛 간 중첩을 허용하는 기존 규칙에 맞춰 Simulation Root point의 sweep을 기준으로 한다. 유닛 footprint 반경은 별도 게임플레이 변경 없이는 경로 차단에 추가하지 않는다.
-- 모든 유닛의 `MoveSpeed`는 실제 권위 trajectory 거리/초다. 코너의 도착 시간은 실제 trajectory 길이를 따르며, 경유 타일마다 `1 / MoveSpeed` 시간을 강제하지 않는다.
+- 모든 유닛의 `MoveSpeed`는 실제 권위 trajectory 거리/초다. 중심을 통과하는 코너의 도착 시간은 실제 trajectory 길이를 따르며, 경유 타일마다 `1 / MoveSpeed` 시간을 강제하거나 중심에서 일정 시간 머물게 하지 않는다.
 
 ### U-MOV-PHASE. 이동 단계
 
@@ -68,9 +68,9 @@ Move / AlignToMove ├─ 적 감지 → AcquireTarget
 
 ### U-MOV-ALIGN. 이동 방향 정렬
 
-1. 서버는 현재 위치와 권위 경로의 look-ahead 지점으로 이번 틱의 `DesiredMoveDirection`을 계산한다. 이는 다음 타일 중심을 향해 순간적으로 바뀌는 벡터가 아니라 logical path corridor 안에서 진행할 권위 trajectory의 접선 방향이다.
+1. 서버는 현재 위치와 현재 경유 중심으로 이번 틱의 `DesiredMoveDirection`을 계산한다. 기본 A*의 위치 trajectory는 현재 checkpoint까지 center-to-center로 진행한다. 다음 경유 중심은 현재 중심을 실제로 소비한 다음 선분부터 방향 입력이 되며, look-ahead를 현재 선분 위치에 섞어 중심을 자르거나 되돌아오는 곡선을 만들지 않는다.
 2. 서버는 공통 최대 회전 속도 270°/s 안에서 `SimulationFacing`을 `DesiredMoveDirection` 쪽으로 갱신한다. 이동이 허용된 틱의 실제 비영 위치 변화는 갱신된 `SimulationFacing` 방향으로만 적용하며 두 방향의 검증 오차는 1° 이하다.
-3. 정상 코너에서는 다음 경로 방향을 미리 반영해 이동과 회전을 같은 서버 틱들에 연속 적용한다. 타일 경계나 waypoint 변경만을 이유로 속도를 0으로 만들지 않는다.
+3. 정상 코너에서는 현재 중심을 소비한 다음 frame부터 다음 경로 방향으로 이동과 회전을 함께 적용한다. 타일 경계나 waypoint 변경만을 이유로 속도를 0으로 만들지 않으며, 60° 전환은 outgoing 선분에서 이동 중 점진 회전한다. 단, 150° 반전 또는 10°/15° 방향 안전을 이동 중 만족할 수 없는 코너에서는 `AlignToMove`가 우선한다.
 4. 후보 이동 구간이 현재 회전 속도와 이동 속도로 corridor 안전을 만족하지 못하면 먼저 해당 틱의 이동량을 줄인다. 안전한 비영 이동도 만들 수 없을 때만 정지 정렬 또는 재탐색한다.
 5. `Move` 중 방향 오차가 15°를 초과하거나 이동-방향 일치 또는 corridor 안전을 보장할 수 없으면 해당 틱의 이동량을 0으로 하고 `AlignToMove`로 전환한다.
 6. `AlignToMove`에서는 최단 Yaw로 제자리 회전하고 오차가 10° 이하가 된 서버 틱부터 `Move`로 복귀한다. 10° 진입 / 15° 이탈 히스테리시스는 정상 코너를 생성하는 규칙이 아니라 안전 fallback이다.
@@ -87,9 +87,9 @@ Move / AlignToMove ├─ 적 감지 → AcquireTarget
 
 1. 재탐색의 생명주기는 코루틴이나 개별 `MoveTo` 호출이 아니라 **유닛의 이동 목표**에 귀속한다. 같은 유닛·같은 최종 목적지의 command가 다시 발행돼도 진전 이력과 재탐색 예산을 초기화하지 않는다.
 2. PendingPath는 계산 시점과 소비 시점 사이에 유닛이 전진할 수 있는 예약 결과다. 소비 시 현재 권위 타일이 path에 없으면 이를 치명적 오류로 처리하지 않고 stale path로 폐기한다. 서버는 현재 권위 위치에서 다음 frame에 새 경로를 요청하며 같은 frame에 코루틴을 재시작하지 않는다.
-3. corridor가 재탐색을 요구했는데 A*가 현재와 동일한 logical path를 반환하는 것은 그 자체로 무한 반복 증거가 아니다. 해당 후보는 같은 frame에 다시 실행하지 않고 `WaitingRepath`로 보류하며, 다음 frame의 최신 pose·경로 환경 revision으로 다시 평가한다.
+3. corridor가 재탐색을 요구했는데 A*가 현재와 동일한 logical path를 반환하는 것은 그 자체로 무한 반복 증거가 아니다. 해당 후보는 같은 frame에 다시 실행하지 않고 `WaitingRepath`로 보류하며, 다음 frame의 최신 pose와 경로 환경 revision으로 다시 평가한다. 다만 동일 objective·동일 environment revision에서 동일한 unsafe path 또는 `Unreachable` 결과가 다시 확인되면 `Blocked`로 전환하고, 외부의 중복 `MoveTo`로 깨우지 않는다. 이후 environment revision이 증가했을 때 같은 objective를 유지한 채 다시 평가한다.
 4. `A→B→A` 또는 동일 path 반복은 실제 위치 commit·checkpoint 소비·경로 환경 변경이 없는 **무진전 관측**으로 누적한다. 한 frame에서 동기 반복은 항상 차단하되, 이동 목표를 `Blocked`로 전환하는 상한은 여러 frame에 걸친 목표 단위 이력으로 판단한다.
-5. 실제 위치 commit 또는 logical checkpoint 소비가 확인되면 무진전 이력을 초기화한다. 건물 생성·파괴처럼 walkability revision이 변경되면 `Blocked` 목표는 같은 목표 ID를 유지한 채 재평가할 수 있다.
+5. 실제 위치 commit 또는 logical checkpoint 소비가 확인되면 무진전 이력을 초기화한다. 건물 생성·파괴처럼 walkability revision이 변경되면 `Blocked` 목표는 같은 목표 ID를 유지한 채 재평가할 수 있다. 동적 건물로 기존 경로가 무효화되어 현재 revision의 경로 질의가 `Unreachable`을 반환한 경우도 이 lifecycle을 따르며, 같은 revision의 중복 command는 재탐색 예산이나 상태를 초기화하지 않는다. 단, 서버 경로 그래프에 목적지까지의 유효한 우회 경로가 존재하면 `Blocked`는 정상 결과가 아니며 경로 질의·출발점·캐시 무효화 계약의 실패로 판정한다.
 6. `WaitingRepath`와 `Blocked`는 정상 완료가 아니다. 이동 완료 callback, 다음 공성 단계, 힐러 종착 감시를 발행하지 않는다. 외부 ticker는 `IsMoving == false`만으로 같은 목표의 새 command를 만들지 않으며, 목표 변경·경로 환경 revision 변경·명시적 취소 중 하나가 있을 때만 재개한다.
 7. 이동 종료와 보류는 일반 이동 frame 평가를 흉내 내서 만들지 않는다. 서버는 명시적인 lifecycle 전이로 `NoIntent`, `WaitingRepath`, `Blocked`, `Completed`를 commit하고 command/segment revision과 애니메이션 표현을 같은 권위 전환에서 갱신한다.
 8. 서버의 틱별 위치 변화가 0이고 공격·사망 표현도 아닌 `Idle`, `AlignToMove`, `WaitingRepath`, `Blocked` 상태에서는 Walk 애니메이션 시간이 진행되어서는 안 된다. 전용 Idle/Held 표현 또는 검증된 정지 pose를 사용하며, 빙결 스킬의 `Frozen` 상태를 재경로 대기에 재사용하지 않는다.
@@ -103,7 +103,7 @@ Move / AlignToMove ├─ 적 감지 → AcquireTarget
 유닛은 스폰된 순간부터 상대방 성을 향해 이동한다.
 
 **규칙 2. 이동 방식**
-A*로 경로를 계산하고, 타일 중심에서 타일 중심으로 이동한다.
+A*로 경로를 계산하고, 각 경유 타일 중심을 순서대로 통과해 다음 타일 중심으로 이동한다. 중심 허용 오차에 실제로 도달해야 경유 checkpoint를 완료할 수 있지만, 중심에서 정지하거나 위치를 스냅하지 않는다. 정상 코너는 중심을 소비한 다음 outgoing 선분에서 이동 중 점진 회전하고, 안전하게 이동 선회할 수 없는 경우에만 정지 정렬 후 진행한다.
 같은 타일에 여러 유닛이 위치할 수 있으며, 겹침은 허용한다.
 
 **규칙 3. 공유 타일 상태 (Shared Tile State)**
@@ -130,6 +130,8 @@ A*로 경로를 계산하고, 타일 중심에서 타일 중심으로 이동한�
 
 예외: 유닛이 현재 이동 중인 타겟 타일 위에 건물이 생성된 경우,
 해당 candidate 구간은 commit하지 않고 현재 pose를 보존한 뒤 다음 frame 재탐색으로 전환한다. 같은 frame 코루틴 재시작은 금지한다.
+
+현재 경로가 동적 건물로 무효화되더라도 서버 경로 그래프에 목적지까지의 우회 경로가 있으면 같은 이동 목표와 command를 유지한 채 그 우회 경로로 계속 이동해야 한다. `Blocked`는 현재 environment revision에서 실제로 유효한 경로가 없을 때만 허용하며, 철거·파괴 등으로 revision이 증가하면 같은 목표를 1회 재평가한다.
 
 **규칙 5. 이동 속도**
 이동 속도는 유닛별 스탯으로 개별 관리한다.
@@ -159,7 +161,7 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 유닛은 다음 세 가지 상태 중 하나에 있다:
 
 1. **A* 이동**: 상대방 성을 향해 타일 중심으로 이동 중
-2. **전투 이동**: 타겟을 향해 월드 좌표로 직선 이동 중
+2. **전투 이동**: 타겟의 공격 접근 위치를 향해 이동 중. 서버가 현재 위치부터 접근 위치까지의 직선 구간이 이동 가능하다고 검증한 경우에만 월드 좌표 직선 이동을 사용하고, 중간에 건물·완전 차단 지형·이동 불가 타일이 있으면 서버 A* 경로로 우회한다.
 3. **공격**: 멈추고 타겟을 공격 중
 
 상태 전환 조건:
@@ -177,8 +179,9 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 
 **규칙 11. A* 이동 재개 방식**
 전투 종료 또는 타겟 이탈로 A* 이동을 재개할 때:
-현재 월드 위치 기준으로 성 방향 앞쪽에 있는 타일 중 가장 가까운 타일의 중심으로 이동한 뒤 A*를 재개한다.
-뒤쪽 타일로 복귀하는 경우는 허용하지 않는다.
+현재 월드 위치에서 서버가 도달 가능하다고 검증한 후보 중, 성 방향으로 진행성을 유지하는 가장 가까운 전방 타일 중심을 복귀 checkpoint로 선택한다. 현재 위치에서 그 중심까지의 구간이 건물·완전 차단 지형·이동 불가 타일을 통과하지 않아야 하며, 안전한 직선 복귀가 불가능하면 서버 A*로 복귀 경로를 계산한다. Simulation Root는 해당 중심까지 걸어서 이동하고 스냅하지 않는다. 중심 도달 후 현재 권위 타일에서 성까지 A*를 다시 계산한다.
+
+단순히 가장 가까운 타일 또는 walkable 인접 타일이라는 이유만으로 복귀 후보를 확정하지 않는다. 뒤쪽 타일로 복귀하거나, 이동 불가인 현재 타일을 그대로 성공 후보로 반환하거나, 유효한 전방 복귀 경로가 있는데 `Blocked`로 종료하는 것은 허용하지 않는다.
 
 **규칙 12. 전투 이동 중 회전**
 전투 이동(추격) 중 유닛은 항상 타겟 방향을 정면으로 바라본다.

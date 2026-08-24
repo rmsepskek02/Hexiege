@@ -1,5 +1,10 @@
 # game-programmer 메모리 — 인덱스
 
+## 2026-08-24 B3 동적 건물 blocked authoritative start egress
+- 확정 원인: 건물이 유닛의 현재 권위 타일을 non-walkable로 만든 뒤 새 FlowField가 start를 포함하지 않아 `GetPath(start)==null`이 반복됐다. cache invalidation→eager repath 순서는 정상이다.
+- `UnitMovementUseCase.RequestMove(UnitData, target)`만 blocked authoritative start에서 reachable walkable 인접점의 기존 FlowField path를 `길이→Q→R`로 선택하고 start를 prepend한다. staged `RequestMoveFrom`은 fail-closed를 유지한다.
+- 실제 HexGrid 공개 경계 회귀가 authoritative/staged 분리, 인접 first edge, 중간 blocked 제외, 무경로, blocked destination, 일반 경로 불변과 Q/R 결정성을 고정한다. Roslyn/독립 QA PASS, Unity/Android는 미검증. B3 FAIL/OPEN.
+
 프로젝트 규칙 단일 소스는 리포지토리의 `CLAUDE.md` / `AGENTS.md` / `Assets/_Project/Docs/`.
 여기에는 **코드에서 반복적으로 발을 헛디딘 지점**만 적는다. 충돌하면 항상 프로젝트 문서가 옳다.
 
@@ -10,13 +15,23 @@
 - `network-infra.md` — NGO 컨트롤러 구조, 스폰 레이스, **종료(Shutdown) 시점 뒷정리 관례 +
   `_combatStopped`(게임 종료 후 서버 틱 정지) 패턴**. 네트워크 작업은 여기부터 읽는다.
 
+## 2026-08-24 B3 회전 계측과 역할교대 FAIL
+- `root-rotation-replication-v1`은 stable-after-move Host authoritative Root/Client final Root를 identity·server time/tick·phase·3 revisions로 연결한다. bounded/drop/preflight fail-closed이며 Transform/RPC/package를 쓰지 않는다.
+- Unity self-validation 2종 PASS, 실기 evidence 54/54·53/53 완전. Android Host Unit 30 Pistoleer의 adapter failure 6·repeated recoverable 1로 MOVE terminal FAIL했다.
+- read-only overlap 48 중 회전 잔차 7(`0.11~0.15°`)은 위치 정상·revision 전건 동일. 먼저 Unit 30 repath를 교정한 뒤 NetworkTransform 최종 수렴 seam을 다룬다. B3 FAIL/OPEN.
+
 ## 2026-08-23 B3 v9 최종 통합 정적 코드 게이트
 - typed preflight(status/offending tile/index)와 후보 verdict로 recoverable `CandidateUnsafe/RouteInvalidated`를 `WaitingRepath`, fatal dependency/chain만 `Rejected`에 연결한다. corridor probe/final stage 동일 seam과 divergence fail-closed를 유지한다.
 - `planned`는 actual commit attempt 직전, `committed`는 success 뒤에만 증가하고 END equality를 강제한다. recoverable history clear는 positive successful spatial commit에서만 허용한다.
 - lifecycle retire가 server/client baseline과 recoverable signature/frame을 제거하고 object-id 재사용을 회귀 검증한다. observer `b3-movement-authority-v9`.
 - `origin/main` 60개 commit과 의미 병합을 완료해 main `GameLog`·`LogSessionOwner`·combat shutdown·`IsSpawned`·research 수정과 B3를 모두 보존했다. post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0.
 - 증거 감사는 최신 device anchor + Editor daily, role/shared key/production schema exact/전체 BEGIN·END identity/EVIDENCE·FAIL/source gate를 요구한다. Android-safe terminal은 26 manifest + 5 summary + compact END = 32줄·최대 968 UTF-8 byte, 27개/초과 길이 fail-closed다. adapter는 stateful 64/65 경계와 release `Conditional`이다.
-- pre-merge Unity `[UAS-DIAG]` PASS는 post-merge 증거가 아니다. post-merge `[UAS-DIAG]`·RootCrossAudit 실제 메뉴와 Android v9는 미실행이므로 B3 FAIL/OPEN. `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다.
+- pre-merge Unity `[UAS-DIAG]` PASS는 post-merge 증거가 아니다. 후속 Android v9 실제 경기는 확보했지만 RootCrossAudit 사용자 재실행 전 공식 판정은 OPEN이고 B3도 FAIL/OPEN이다. `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다.
+
+## 2026-08-23 RootCrossAudit false-INCONCLUSIVE 진단기 교정
+- 실제 `a0e690...8d8` Editor Host·Android Client는 MOVE full EVIDENCE, ROOT 양쪽 PASS, 수동 pose 49/49 match·mismatch 0이다. ROOT bucket 14/17 peer equality가 잘못된 INCONCLUSIVE 원인이며 MOVE `startedAt` delta는 `0.733149초`다.
+- ROOT bucket은 각 run 내부 invariant만 검사한다. peer 결합은 validated MOVE `startedAt <=2.000초`(`2.000` 허용/`2.001` 거부), stable overlap과 기존 fail-closed를 유지한다. Play Mode 차단, snapshot read/`IOException`은 INCONCLUSIVE다.
+- 실제형·경계·bucket internal mismatch·BEGIN/END 누락·`NaN`/`Infinity` fixture와 Editor Roslyn PASS. 사용자 SelfValidate/Analyze 전 공식 재감사는 OPEN. 게임/서버 권위/로그 포맷 변경 없음.
 
 ## CRITICAL — GIT 명령 절대 금지
 - **모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
@@ -537,3 +552,10 @@ public void Hide()    { _showRequested = false; if (gameObject.activeSelf) gameO
 - 중괄호 개폐 균형은 **주석·문자열 리터럴을 걷어낸 뒤** 세야 한다. 단독행 카운트나 `{` 총계는 오탐이 잦다
   (문자열 보간 `$"{x}"` 때문). 파이썬으로 스트립 후 세는 것이 유일하게 신뢰할 수 있다.
 - ⚠️ **주석에 `Debug.Log` / `GameLog.Dev.` / `Pos=` 같은 검증 grep 대상 낱말을 쓰지 마라.** 그 자체가 오탐이 된다.
+
+### 2026-08-25 - ROOT terminal Android-safe 교정
+
+- `UnitRootPoseConsistencyObserver`의 periodic summary는 조사 필드를 유지하고 `summary-END`만 CrossAudit 필수 필드로 축약한다. terminal formatter 최악값은 전체 줄 803 UTF-8 byte다.
+- terminal 출력 직전 full-line preflight를 반드시 유지한다. 초과 시 잘린 END를 기록하지 말고 짧은 `terminal-preflight-failure`로 fail-closed한다.
+- CrossAudit가 요구하는 endpoint/rotation count·drop·preflight·complete 필드를 제거하면 안 된다. 상세 정보는 개별 endpoint/rotation evidence와 periodic summary가 담당한다.
+- Runtime/Editor Roslyn과 Unity self-validation 2종 PASS. 다음 Tracer C Shadow에서는 Legacy 피해·HP·RPC·VFX writer를 변경하지 않는다.

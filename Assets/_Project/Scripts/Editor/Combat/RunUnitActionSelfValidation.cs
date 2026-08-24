@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Text;
 using Hexiege.Application;
 using Hexiege.Application.Combat.Sequencing;
+using Hexiege.Core;
 using Hexiege.Domain;
 using UnityEditor;
 using UnityEngine;
@@ -33,6 +34,8 @@ namespace Hexiege.Editor.Combat
             ValidateB3MovementPipelineModeLatch();
             ValidateB3RotationWriterOwnership();
             ValidateB3PathStartArrivalCommit();
+            ValidateB3BlockedAuthoritativeStartEgressPathfinding();
+            ValidateB3CombatApproachAndRejoinPathfinding();
             ValidateB3SpatialTransitionPolicy();
             ValidateB3SpatialTransitionApplicationPreflight();
             ValidateB3CorridorSamplePolicy();
@@ -44,7 +47,213 @@ namespace Hexiege.Editor.Combat
             ValidateDuplicateAndReorderedResults();
             ValidateA1ContractsAndReducer();
 
-            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and full-line UTF-8 terminal preflight, B3 match-fixed movement pipeline mode/rollback, publish-staged reducer prepare/commit atomicity, route checkpoint/spatial Root transition separation, trajectory and non-trajectory reducer-facing synchronization, allocation-stable corridor validation seam, gameplay-gated movement-to-action rotation ownership, retry-stable deferred movement scope commit, arrival-committed adjacent path-start transition, path[0] start-tile egress confinement, bounded terminal corridor Root/Domain/UnitData/path/sample evidence, bounded UnitView adapter failure evidence, typed v9 candidate probe/final-stage semantics with staged-versus-commit accounting, recoverable-history retention, reduced/stationary/repath fallback and fatal separation, no same-frame retry, continuous 60-degree trajectory/150-degree reverse/held-progress invariants, objective-scoped finite repath frame/no-progress/environment-reset and duplicate-command suppression, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and lifecycle retire/reuse including recoverable observer history, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
+            Debug.Log("[UAS-DIAG] self-validation PASS: A1 contracts/reducer, A2 pure pose sample, B2 movement reducer command/segment scope and 10/15 hysteresis, endpoint NoIntent normalization/lifecycle, target-acquire priority, duplicate/stale/invalid fail-closed, Android-safe lossless coverage manifest chunks and full-line UTF-8 terminal preflight, B3 match-fixed movement pipeline mode/rollback, publish-staged reducer prepare/commit atomicity, route checkpoint/spatial Root transition separation, trajectory and non-trajectory reducer-facing synchronization, allocation-stable corridor validation seam, gameplay-gated movement-to-action rotation ownership, retry-stable deferred movement scope commit, arrival-committed adjacent path-start transition, blocked authoritative-start deterministic FlowField egress, center-reached checkpoint consumption, building-safe combat approach path and reachable forward rejoin, path[0] start-tile egress confinement, bounded terminal corridor Root/Domain/UnitData/path/sample evidence, bounded v10 center checkpoint error and Chase direct-safe/path evidence, bounded UnitView adapter failure evidence, bounded server-checkpoint/client-final-root rotation replication evidence and compact ROOT terminal with full-line UTF-8 preflight, typed v9 candidate probe/final-stage semantics with staged-versus-commit accounting, recoverable-history retention, Unit30-shaped unchanged spatial recovery blocking/stale duplicate suppression/death retire, reduced/stationary/repath fallback and fatal separation, no same-frame retry, center-to-center 60-degree outgoing turn/150-degree reverse/held-progress invariants, objective-scoped finite repath frame/no-progress/environment-reset and duplicate-command suppression, shared production adapter, reducer-direction rotation source, attack-range NoIntent lifecycle, client replication identity/scope monotonic classification and lifecycle retire/reuse including recoverable observer history, phase vocabulary/ordinal, 5/8 attack, cancel/dead, multi-hit/result confirmation, bounded dedupe/reorder, v2 range divergence.");
+        }
+
+        private static void ValidateB3CombatApproachAndRejoinPathfinding()
+        {
+            var grid = new HexGrid(5, 5, HexOrientation.FlatTop);
+            var flowFields = new FlowFieldService();
+            flowFields.Initialize(grid);
+            try
+            {
+                var mapper = new HexMetricsCoordinateMapper();
+                var movement = new UnitMovementUseCase(
+                    grid,
+                    unitSpawn: null,
+                    flowFieldService: flowFields,
+                    mapper: mapper);
+                var start = new HexCoord(0, 2);
+                var target = new HexCoord(4, 0);
+                var unit = new UnitData(
+                    -2,
+                    UnitType.Pistoleer,
+                    TeamId.Blue,
+                    start,
+                    maxHp: 1,
+                    attackPower: 1,
+                    attackRange: 1f,
+                    detectRange: 1f);
+
+                List<HexCoord> directBaseline = movement.RequestCombatApproachPath(
+                    unit,
+                    target);
+                Require(directBaseline != null && directBaseline.Count >= 3,
+                    "Combat approach fixture must begin with a multi-tile route.");
+                HexCoord blockedMiddle = directBaseline[1];
+                grid.GetTile(blockedMiddle).IsWalkable = false;
+                flowFields.InvalidateAll();
+
+                List<HexCoord> detour = movement.RequestCombatApproachPath(
+                    unit,
+                    target);
+                Require(detour != null
+                        && detour.Count >= 3
+                        && detour[0] == start
+                        && detour[detour.Count - 1] == target
+                        && !detour.Contains(blockedMiddle),
+                    "Combat approach must route around a newly blocked intermediate building tile.");
+
+                Vector3 startWorld = mapper.HexToWorld(start);
+                Require(movement.TryFindReachableForwardRejoinTile(
+                            unit,
+                            startWorld,
+                            target,
+                            out HexCoord rejoin)
+                        && HexCoord.Distance(start, rejoin) == 1
+                        && HexCoord.Distance(rejoin, target)
+                            < HexCoord.Distance(start, target)
+                        && movement.IsWalkable(rejoin),
+                    "Post-combat rejoin must choose a reachable walkable adjacent center with forward progress.");
+
+                foreach (HexTile neighbor in grid.GetNeighbors(start))
+                {
+                    if (HexCoord.Distance(neighbor.Coord, target)
+                        < HexCoord.Distance(start, target))
+                    {
+                        neighbor.IsWalkable = false;
+                    }
+                }
+                flowFields.InvalidateAll();
+                Require(!movement.TryFindReachableForwardRejoinTile(
+                            unit,
+                            startWorld,
+                            target,
+                            out _),
+                    "Post-combat rejoin must fail closed instead of returning a blocked or unreachable nearest tile.");
+            }
+            finally
+            {
+                flowFields.Dispose();
+            }
+        }
+
+        private static void ValidateB3BlockedAuthoritativeStartEgressPathfinding()
+        {
+            var grid = new HexGrid(5, 5, HexOrientation.FlatTop);
+            foreach (HexTile tile in grid.Tiles.Values)
+                tile.IsWalkable = false;
+
+            var start = new HexCoord(1, 0);
+            var longerCoordinateFirst = new HexCoord(0, 1);
+            var coordinateFirst = new HexCoord(1, 1);
+            var coordinateSecond = new HexCoord(2, 0);
+            var destination = new HexCoord(2, 1);
+            grid.GetTile(longerCoordinateFirst).IsWalkable = true;
+            grid.GetTile(coordinateFirst).IsWalkable = true;
+            grid.GetTile(coordinateSecond).IsWalkable = true;
+            grid.GetTile(destination).IsWalkable = true;
+
+            var flowFields = new FlowFieldService();
+            flowFields.Initialize(grid);
+            try
+            {
+                var movement = new UnitMovementUseCase(
+                    grid,
+                    unitSpawn: null,
+                    flowFieldService: flowFields,
+                    mapper: null);
+
+                Require(movement.RequestMoveFrom(start, destination) == null,
+                    "A non-authoritative staged blocked start must remain fail-closed.");
+
+                var authoritativeUnit = new UnitData(
+                    -1,
+                    UnitType.Pistoleer,
+                    TeamId.Blue,
+                    start,
+                    maxHp: 1,
+                    attackPower: 1,
+                    attackRange: 1f,
+                    detectRange: 1f);
+                List<HexCoord> egress = movement.RequestMove(
+                    authoritativeUnit, destination);
+                Require(egress != null
+                        && egress.Count == 3
+                        && egress[0] == start
+                        && egress[1] == coordinateFirst
+                        && egress[2] == destination,
+                    "A blocked authoritative start must egress through the deterministic shortest coordinate-first route.");
+                Require(HexCoord.Distance(egress[0], egress[1]) == 1,
+                    "Blocked-start egress must preserve an adjacent first spatial edge.");
+                for (int index = 1; index < egress.Count - 1; index++)
+                {
+                    Require(grid.GetTile(egress[index]) != null
+                            && grid.GetTile(egress[index]).IsWalkable,
+                        "Blocked-start egress must exclude blocked intermediate tiles.");
+                }
+
+                List<HexCoord> repeated = movement.RequestMove(
+                    authoritativeUnit, destination);
+                Require(PathsEqual(egress, repeated),
+                    "Equal-length blocked-start egress routes must choose the smaller Q deterministically.");
+
+                Require(movement.RequestMove(authoritativeUnit, start) == null,
+                    "A blocked authoritative start already at its destination must remain no movement.");
+
+                grid.GetTile(coordinateFirst).IsWalkable = false;
+                grid.GetTile(coordinateSecond).IsWalkable = false;
+                grid.GetTile(longerCoordinateFirst).IsWalkable = false;
+                flowFields.InvalidateAll();
+                Require(movement.RequestMove(authoritativeUnit, destination) == null,
+                    "A blocked authoritative start without a reachable walkable neighbor must fail closed.");
+
+                grid.GetTile(start).IsWalkable = true;
+                grid.GetTile(longerCoordinateFirst).IsWalkable = true;
+                grid.GetTile(coordinateFirst).IsWalkable = true;
+                grid.GetTile(coordinateSecond).IsWalkable = true;
+                flowFields.InvalidateAll();
+                List<HexCoord> expectedNormal = flowFields
+                    .GetOrCompute(destination)
+                    .GetPath(start);
+                List<HexCoord> actualNormal = movement.RequestMoveFrom(
+                    start, destination);
+                Require(PathsEqual(expectedNormal, actualNormal),
+                    "A normal walkable start must retain the existing flow-field path unchanged.");
+                Require(movement.RequestMoveFrom(start, start) == null,
+                    "An already-at-destination request must retain the existing no-movement result.");
+
+                foreach (HexTile tile in grid.Tiles.Values)
+                    tile.IsWalkable = false;
+                var equalQStart = new HexCoord(1, 1);
+                var smallerR = new HexCoord(2, 0);
+                var largerR = new HexCoord(2, 1);
+                var equalQDestination = new HexCoord(3, 0);
+                grid.GetTile(smallerR).IsWalkable = true;
+                grid.GetTile(largerR).IsWalkable = true;
+                grid.GetTile(equalQDestination).IsWalkable = true;
+                authoritativeUnit.Position = equalQStart;
+                flowFields.InvalidateAll();
+
+                List<HexCoord> equalQEgress = movement.RequestMove(
+                    authoritativeUnit, equalQDestination);
+                Require(equalQEgress != null
+                        && equalQEgress.Count == 3
+                        && equalQEgress[0] == equalQStart
+                        && equalQEgress[1] == smallerR
+                        && equalQEgress[2] == equalQDestination,
+                    "Equal-length blocked-start egress routes with equal Q must choose the smaller R deterministically.");
+            }
+            finally
+            {
+                flowFields.Dispose();
+            }
+        }
+
+        private static bool PathsEqual(
+            IReadOnlyList<HexCoord> left,
+            IReadOnlyList<HexCoord> right)
+        {
+            if (ReferenceEquals(left, right)) return true;
+            if (left == null || right == null || left.Count != right.Count)
+                return false;
+
+            for (int index = 0; index < left.Count; index++)
+            {
+                if (left[index] != right[index])
+                    return false;
+            }
+            return true;
         }
 
         private static void ValidateB3SpatialTransitionPolicy()
@@ -734,9 +943,11 @@ namespace Hexiege.Editor.Combat
                 new HexCoord(1, 1)
             };
             var invalidPath = new List<HexCoord> { new HexCoord(0, 0) };
+            UnitPathSignature signatureB = default;
 
             Require(UnitPathSignature.TryCreate(pathA, out UnitPathSignature signatureA)
                 && UnitPathSignature.TryCreate(pathAClone, out UnitPathSignature signatureAClone)
+                && UnitPathSignature.TryCreate(pathB, out signatureB)
                 && signatureA == signatureAClone,
                 "Equal ordered HexCoord paths must produce the same deterministic signature.");
 
@@ -750,6 +961,29 @@ namespace Hexiege.Editor.Combat
             Require(guard.AcceptedInFrame == 1
                     && guard.AcceptedWithoutProgress == 1,
                 "A repeated-path defer must consume one bounded no-progress observation.");
+
+            // 2026-08-24 Android Host Unit 30: spatial recoverable 뒤 pathfinder가
+            // active path와 같은 path를 돌려줬고, 이를 새 회복으로 적용해 같은 corridor가
+            // 다시 실패했다. 일반 재평가와 달리 이미 unsafe로 판정된 동일 path는 환경이
+            // 바뀔 때까지 재적용하지 않아야 한다.
+            var unit30RecoverableGuard = new UnitRepathProgressGuard(pathA);
+            Require(unit30RecoverableGuard.Evaluate(
+                        300,
+                        pathAClone,
+                        UnitRepathEvaluationContext.SpatialRecoverable)
+                    == UnitRepathDecision.RejectedRepeatedPath
+                    && unit30RecoverableGuard.AcceptedInFrame == 0
+                    && unit30RecoverableGuard.AcceptedWithoutProgress == 0,
+                "Unit 30-shaped spatial recovery must block an unchanged active path without consuming or replaying it.");
+            Require(unit30RecoverableGuard.Evaluate(
+                        301,
+                        pathB,
+                        UnitRepathEvaluationContext.SpatialRecoverable)
+                    == UnitRepathDecision.AcceptedNextFrame
+                    && unit30RecoverableGuard.CurrentPath == signatureB
+                    && unit30RecoverableGuard.AcceptedInFrame == 1
+                    && unit30RecoverableGuard.AcceptedWithoutProgress == 1,
+                "Spatial recovery must still accept one valid path that differs from the unsafe active path.");
             Require(guard.Evaluate(11, pathB)
                     == UnitRepathDecision.AcceptedNextFrame,
                 "A distinct path must be accepted after the frame boundary.");
@@ -808,14 +1042,40 @@ namespace Hexiege.Editor.Combat
             objective.MarkBlocked();
             Require(objective.State == UnitNavigationObjectiveState.Blocked
                     && objective.SuppressesDuplicateCommand(
+                        new HexCoord(5, 0), 3UL)
+                    && !objective.CanQueueSuppressedPath(
                         new HexCoord(5, 0), 3UL),
-                "A blocked objective must remain active so an external ticker cannot reset its budget.");
+                "A blocked objective must suppress a same-environment ticker without waking on its stale path.");
             Require(objective.NotifyEnvironmentChanged(4UL)
                     && objective.State == UnitNavigationObjectiveState.WaitingRepath
                     && objective.RepathGuard.AcceptedWithoutProgress == 0
+                    && objective.CanQueueSuppressedPath(
+                        new HexCoord(5, 0), 4UL)
                     && !objective.SuppressesDuplicateCommand(
                         new HexCoord(5, 0), 5UL),
                 "A newer walkability revision must reopen the same objective without accepting future revisions.");
+            Require(objective.RepathGuard.Evaluate(
+                        400,
+                        pathAClone,
+                        UnitRepathEvaluationContext.General)
+                    == UnitRepathDecision.AcceptedNextFrame
+                    && objective.RepathGuard.Evaluate(
+                        400,
+                        pathAClone,
+                        UnitRepathEvaluationContext.General)
+                    == UnitRepathDecision.RejectedFrameBudget
+                    && objective.RepathGuard.AcceptedInFrame == 1
+                    && objective.RepathGuard.AcceptedWithoutProgress == 1,
+                "A newer environment must accept the unchanged best path exactly once and reject a same-frame replay.");
+            Require(!UnitSpatialDiagnosticAccountingPolicy
+                    .IsUnexpectedRecoverableCleanup(
+                        recoverablePending: true,
+                        unitAlive: false)
+                    && UnitSpatialDiagnosticAccountingPolicy
+                    .IsUnexpectedRecoverableCleanup(
+                        recoverablePending: true,
+                        unitAlive: true),
+                "Death lifecycle retirement must not be reported as live-objective recoverable cleanup.");
             objective.MarkNavigating();
             Require(objective.ObserveProgress(pathB)
                     && objective.State == UnitNavigationObjectiveState.Navigating,
@@ -848,9 +1108,9 @@ namespace Hexiege.Editor.Combat
 
             WorldPointXZ position = origin;
             ActionDirectionXZ facing = north;
-            bool observedTurningMove = false;
             bool reachedCorner = false;
-            for (int frame = 0; frame < 240 && !reachedCorner; frame++)
+            bool observedCenterAlignmentHold = false;
+            for (int frame = 0; frame < 480 && !reachedCorner; frame++)
             {
                 UnitTrajectoryStep step = default;
                 Require(UnitServerTrajectoryPlanner.TryPlan(
@@ -864,9 +1124,19 @@ namespace Hexiege.Editor.Combat
                         cornerLookAheadDistanceWorld: 0.35d,
                         out step)
                     && step.IsValid
-                    && !step.RequiresStationaryAlignment
-                    && step.ConsumedDistanceWorld > 0d,
-                    "A normal 60-degree corner must keep non-zero authoritative progress.");
+                    && (step.RequiresStationaryAlignment
+                        ? step.ConsumedDistanceWorld == 0d
+                        : step.ConsumedDistanceWorld > 0d),
+                    "A center-to-center incoming segment must either advance or explicitly hold for alignment.");
+
+                if (step.RequiresStationaryAlignment)
+                {
+                    observedCenterAlignmentHold = true;
+                    Require(step.CandidatePosition.Equals(position),
+                        "A center-alignment hold must not consume spatial progress.");
+                    facing = step.TrajectoryDirection;
+                    continue;
+                }
 
                 double movementX = step.CandidatePosition.X - position.X;
                 double movementZ = step.CandidatePosition.Z - position.Z;
@@ -877,14 +1147,83 @@ namespace Hexiege.Editor.Combat
                         velocity, step.TrajectoryDirection) <= 1d,
                     "Trajectory velocity and SimulationFacing must agree within one degree.");
 
-                if (UnitActionPoseSample.GetYawDegrees(facing, step.TrajectoryDirection) > 0.01d)
-                    observedTurningMove = true;
                 position = step.CandidatePosition;
                 facing = step.TrajectoryDirection;
                 reachedCorner = step.ReachedCurrentWaypoint;
             }
-            Require(reachedCorner && observedTurningMove,
-                "A 60-degree path corner must turn while moving and consume the waypoint.");
+            double cornerDx = position.X - corner.X;
+            double cornerDz = position.Z - corner.Z;
+            double cornerDistance = Math.Sqrt(
+                cornerDx * cornerDx + cornerDz * cornerDz);
+            Require(reachedCorner
+                    && cornerDistance
+                        <= UnitMovementEvaluationAdapter.PositionTolerance,
+                "A 60-degree path corner must consume its incoming waypoint only at the center.");
+            Require(!observedCenterAlignmentHold
+                    || cornerDistance
+                        <= UnitMovementEvaluationAdapter.PositionTolerance,
+                "Any safety alignment hold must still converge to the same center checkpoint.");
+
+            // 중심을 소비한 다음 선분에서 60도 방향 전환을 수행한다. 중심 이전에 다음
+            // 선분을 섞어 코너를 자르지 않으면서도, 정상 60도 전환은 정지하지 않고
+            // 이동 방향과 SimulationFacing을 함께 회전해야 한다.
+            bool reachedNext = false;
+            bool observedTurningMove = false;
+            bool observedSecondSegmentHold = false;
+            for (int frame = 0; frame < 480 && !reachedNext; frame++)
+            {
+                UnitTrajectoryStep step = default;
+                Require(UnitServerTrajectoryPlanner.TryPlan(
+                        position,
+                        facing,
+                        next,
+                        false,
+                        default,
+                        maximumTravelDistanceWorld: 0.01d,
+                        maximumTurnDegrees: 4.5d,
+                        cornerLookAheadDistanceWorld: 0.35d,
+                        out step)
+                    && step.IsValid
+                    && (step.RequiresStationaryAlignment
+                        ? step.ConsumedDistanceWorld == 0d
+                        : step.ConsumedDistanceWorld > 0d),
+                    "A center-to-center 60-degree outgoing segment must produce a valid movement or explicit alignment frame.");
+
+                if (step.RequiresStationaryAlignment)
+                {
+                    observedSecondSegmentHold = true;
+                    facing = step.TrajectoryDirection;
+                    continue;
+                }
+
+                double movementX = step.CandidatePosition.X - position.X;
+                double movementZ = step.CandidatePosition.Z - position.Z;
+                ActionDirectionXZ velocity = default;
+                Require(ActionDirectionXZ.TryCreate(
+                        movementX, movementZ, out velocity)
+                    && UnitActionPoseSample.GetYawDegrees(
+                        velocity, step.TrajectoryDirection) <= 1d,
+                    "Outgoing trajectory velocity and SimulationFacing must agree within one degree.");
+                if (UnitActionPoseSample.GetYawDegrees(
+                        facing, step.TrajectoryDirection) > 0.01d)
+                {
+                    observedTurningMove = true;
+                }
+
+                position = step.CandidatePosition;
+                facing = step.TrajectoryDirection;
+                reachedNext = step.ReachedCurrentWaypoint;
+            }
+
+            double nextDx = position.X - next.X;
+            double nextDz = position.Z - next.Z;
+            double nextDistance = Math.Sqrt(nextDx * nextDx + nextDz * nextDz);
+            Require(reachedNext
+                    && observedTurningMove
+                    && !observedSecondSegmentHold
+                    && nextDistance
+                        <= UnitMovementEvaluationAdapter.PositionTolerance,
+                "A normal 60-degree center transition must turn while moving on the outgoing segment without a stop.");
 
             var checkpoints = new UnitPathCheckpointTracker();
             Require(!checkpoints.TryConsume(1, reachedWaypoint: false)
@@ -948,9 +1287,27 @@ namespace Hexiege.Editor.Combat
             MethodInfo productionTerminal = observerType.GetMethod(
                 "ValidateProductionTerminalRecordsForValidation",
                 BindingFlags.Static | BindingFlags.NonPublic);
+
+            Type rootObserverType = null;
+            for (int index = 0; index < assemblies.Length; index++)
+            {
+                rootObserverType = assemblies[index].GetType(
+                    "Hexiege.Infrastructure.UnitRootPoseConsistencyObserver",
+                    throwOnError: false);
+                if (rootObserverType != null)
+                    break;
+            }
+            MethodInfo rotationEvidencePreflight = rootObserverType?.GetMethod(
+                "ValidateRotationEvidenceForValidation",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            MethodInfo rootTerminalPreflight = rootObserverType?.GetMethod(
+                "ValidateTerminalSummaryForValidation",
+                BindingFlags.Static | BindingFlags.NonPublic);
             Require(classify != null && retire != null && shouldObserve != null
                     && adapterBounds != null && terminalPreflight != null
-                    && productionTerminal != null,
+                    && productionTerminal != null
+                    && rotationEvidencePreflight != null
+                    && rootTerminalPreflight != null,
                 "B3 client replication classification seam is incomplete.");
 
             string Classify(
@@ -1062,6 +1419,18 @@ namespace Hexiege.Editor.Combat
                         ",reset=True",
                         StringComparison.Ordinal),
                 "Production terminal manifest, five summary parts and compact END must all fit full-line UTF-8 and reset cleanly.");
+            string rotationEvidenceResult =
+                (string)rotationEvidencePreflight.Invoke(null, null);
+            Require(rotationEvidenceResult.StartsWith(
+                        "valid=True,fields=True,maxBytes=",
+                        StringComparison.Ordinal),
+                "Rotation replication evidence must preserve identity/time/tick/phase/revision/root fields and fit one Android UTF-8 line.");
+            string rootTerminalResult =
+                (string)rootTerminalPreflight.Invoke(null, null);
+            Require(rootTerminalResult.StartsWith(
+                        "valid=True,fields=True,maxBytes=",
+                        StringComparison.Ordinal),
+                "Root terminal must preserve every CrossAudit contract field and fit one Android UTF-8 line.");
         }
 
         private static void ValidateB3MovementPipelineModeLatch()

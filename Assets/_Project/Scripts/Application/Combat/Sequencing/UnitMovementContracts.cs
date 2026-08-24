@@ -583,103 +583,66 @@ namespace Hexiege.Application.Combat.Sequencing
                 return false;
             }
 
+            // 기본 A*는 현재 checkpoint 중심을 향하는 center-to-center 선분이다.
+            // 다음 선분 방향을 현재 중심 도달 전에 위치 trajectory에 섞으면 안쪽 코너를
+            // 잘라 중심을 생략하거나, 중심으로 되돌아오기 위해 역선회/정지하는 문제가 생긴다.
+            // nextWaypoint/look-ahead 입력은 adapter 계약 호환과 유효성 검사에 보존하지만,
+            // 방향 전환은 현재 중심을 실제 소비한 다음 선분의 첫 frame부터 수행한다.
             ActionDirectionXZ desiredTangent = toWaypoint;
-            if (hasNextWaypoint
-                && cornerLookAheadDistanceWorld
-                    > UnitMovementEvaluationAdapter.PositionTolerance)
-            {
-                double nextX = nextWaypoint.X - currentWaypoint.X;
-                double nextZ = nextWaypoint.Z - currentWaypoint.Z;
-                if (!ActionDirectionXZ.TryCreate(
-                    nextX, nextZ, out ActionDirectionXZ outgoingDirection))
-                {
-                    return false;
-                }
-
-                // look-ahead 구간의 시작에서는 현재 선분을 그대로 따르고, waypoint에
-                // 가까워질수록 다음 선분 접선의 비중을 smoothstep으로 높인다.
-                double normalized = 1d - Math.Min(
-                    1d, distanceToWaypoint / cornerLookAheadDistanceWorld);
-                double blend = normalized * normalized * (3d - 2d * normalized);
-                double blendedX = toWaypoint.X * (1d - blend)
-                    + outgoingDirection.X * blend;
-                double blendedZ = toWaypoint.Z * (1d - blend)
-                    + outgoingDirection.Z * blend;
-                if (!ActionDirectionXZ.TryCreate(
-                    blendedX, blendedZ, out desiredTangent))
-                {
-                    return false;
-                }
-            }
 
             double rawYawError = UnitActionPoseSample.GetYawDegrees(
                 currentFacing, toWaypoint);
             if (!IsFiniteNonNegative(rawYawError)) return false;
 
-            bool requiresStationaryAlignment =
-                rawYawError >= ReverseAlignmentDegrees;
+            // 중심 바로 앞에서는 남은 거리보다 회전 오차가 큰 상태로 계속 전진하면
+            // 작은 원을 그리며 중심 주위를 도는 현상이 생긴다. 최대 두 frame 이동 거리
+            // 안에서는 먼저 중심 방향으로 정렬하고, 정렬 가능한 frame에 정확히 중심까지
+            // 이동한다. 이는 위치 스냅이 아니라 이동량을 남은 거리로 제한한 권위 이동이다.
+            double centerCaptureDistance = Math.Max(
+                UnitMovementEvaluationAdapter.PositionTolerance,
+                maximumTravelDistanceWorld * 2d);
+            bool insideCenterCapture = distanceToWaypoint <= centerCaptureDistance;
+            bool requiresStationaryAlignment = rawYawError >= ReverseAlignmentDegrees
+                || (insideCenterCapture && rawYawError > maximumTurnDegrees);
             ActionDirectionXZ trajectoryDirection = requiresStationaryAlignment
                 ? RotateTowards(currentFacing, toWaypoint, maximumTurnDegrees)
-                : RotateTowards(currentFacing, desiredTangent, maximumTurnDegrees);
+                : insideCenterCapture
+                    ? toWaypoint
+                    : RotateTowards(currentFacing, desiredTangent, maximumTurnDegrees);
             if (!trajectoryDirection.IsValid) return false;
 
             double travelDistance = requiresStationaryAlignment
                 ? 0d
-                : maximumTravelDistanceWorld;
-            if (!hasNextWaypoint)
-                travelDistance = Math.Min(travelDistance, distanceToWaypoint);
+                : Math.Min(maximumTravelDistanceWorld, distanceToWaypoint);
 
-            if (!WorldPointXZ.TryCreate(
-                currentPosition.X + trajectoryDirection.X * travelDistance,
-                currentPosition.Z + trajectoryDirection.Z * travelDistance,
-                out WorldPointXZ candidatePosition))
+            WorldPointXZ candidatePosition;
+            bool reachesCenterThisStep = !requiresStationaryAlignment
+                && insideCenterCapture
+                && travelDistance >= distanceToWaypoint
+                    - UnitMovementEvaluationAdapter.PositionTolerance;
+            if (reachesCenterThisStep)
+            {
+                candidatePosition = currentWaypoint;
+            }
+            else if (!WorldPointXZ.TryCreate(
+                         currentPosition.X + trajectoryDirection.X * travelDistance,
+                         currentPosition.Z + trajectoryDirection.Z * travelDistance,
+                         out candidatePosition))
             {
                 return false;
             }
 
-            // 중간 waypoint는 중심에 스냅하지 않는다. 현재 위치에서 waypoint로 향하던
-            // 평면을 후보가 통과했으면 논리적으로 해당 waypoint를 소비한다.
-            // A smoothed corner intentionally does not force the Simulation Root through the
-            // waypoint centre. Therefore an intermediate waypoint is consumed at the discrete
-            // closest approach: while inside the configured look-ahead zone, the previous frame
-            // was still facing toward the waypoint, but this candidate no longer reduces its
-            // distance. This is stateless and stable because both distances are measured from the
-            // same fixed waypoint. The old pass-plane used the per-frame toWaypoint vector as its
-            // normal; that normal rotated every tick and could make a valid curved path orbit the
-            // waypoint forever. A zero-progress alignment step can never consume a checkpoint.
+            // 기본 A*의 중간·최종 waypoint는 모두 같은 중심 도달 계약을 사용한다.
+            // 최근접 통과, pass-plane 교차 또는 다음 선분 방향만으로 checkpoint를 소비하지
+            // 않는다. candidate를 중심에 정확히 제한한 frame만 완료로 기록한다.
             double candidateToWaypointX = currentWaypoint.X - candidatePosition.X;
             double candidateToWaypointZ = currentWaypoint.Z - candidatePosition.Z;
             double candidateDistanceSquared =
                 candidateToWaypointX * candidateToWaypointX
                 + candidateToWaypointZ * candidateToWaypointZ;
-            double currentDistanceSquared = distanceToWaypoint * distanceToWaypoint;
-            bool reachedWaypoint;
-            if (!hasNextWaypoint)
-            {
-                // The final endpoint keeps exact convergence; closest-approach consumption is
-                // reserved for intermediate path checkpoints only.
-                reachedWaypoint = travelDistance >= distanceToWaypoint
-                    - UnitMovementEvaluationAdapter.PositionTolerance;
-            }
-            else
-            {
-                // A unit that is still rotating from a badly misaligned pose must not consume a
-                // checkpoint merely because that temporary step increases its distance. The
-                // accepted step must already be following the planned corner tangent (same
-                // hemisphere). At the true closest point that tangent legitimately points past
-                // the waypoint, so testing currentFacing against toWaypoint would be too strict.
-                double followsPlannedTangent =
-                    trajectoryDirection.X * desiredTangent.X
-                    + trajectoryDirection.Z * desiredTangent.Z;
-                bool insideCornerZone = cornerLookAheadDistanceWorld
-                        > UnitMovementEvaluationAdapter.PositionTolerance
-                    && distanceToWaypoint <= cornerLookAheadDistanceWorld;
-                reachedWaypoint = travelDistance
-                        > UnitMovementEvaluationAdapter.PositionTolerance
-                    && insideCornerZone
-                    && followsPlannedTangent > 0d
-                    && candidateDistanceSquared >= currentDistanceSquared;
-            }
+            double toleranceSquared = UnitMovementEvaluationAdapter.PositionTolerance
+                * UnitMovementEvaluationAdapter.PositionTolerance;
+            bool reachedWaypoint = candidateDistanceSquared <= toleranceSquared;
 
             step = new UnitTrajectoryStep(
                 candidatePosition,
@@ -1329,6 +1292,16 @@ namespace Hexiege.Application.Combat.Sequencing
             int transitionCount,
             bool succeeded)
             => succeeded && transitionCount > 0;
+
+        /// <summary>
+        /// 살아 있는 유닛의 이동 코루틴이 recoverable 상태를 cleanup으로 버리는 경우만
+        /// 진단 실패다. 사망한 유닛은 navigation lifecycle 자체가 종료되므로 observer의
+        /// despawn retire 경로로 정리되며 cleanup 위반으로 중복 집계하지 않는다.
+        /// </summary>
+        public static bool IsUnexpectedRecoverableCleanup(
+            bool recoverablePending,
+            bool unitAlive)
+            => recoverablePending && unitAlive;
     }
 
     /// <summary>
@@ -1483,6 +1456,17 @@ namespace Hexiege.Application.Combat.Sequencing
     }
 
     /// <summary>
+    /// 일반 path 재평가와, 방금 unsafe로 판정된 spatial candidate의 회복을 구분한다.
+    /// 후자는 같은 환경의 동일 active path를 다시 실행해도 같은 후보만 재현하므로
+    /// 환경 변경 전까지 Blocked로 보류해야 한다.
+    /// </summary>
+    public enum UnitRepathEvaluationContext
+    {
+        General = 0,
+        SpatialRecoverable = 1
+    }
+
+    /// <summary>
     /// 하나의 최종 목적지에 대한 서버 navigation 목표 상태다.
     /// 코루틴이나 segment가 바뀌어도 같은 목적지의 진행성 이력을 보존하기 위한 순수 계약이다.
     /// </summary>
@@ -1586,12 +1570,26 @@ namespace Hexiege.Application.Combat.Sequencing
 
         public UnitRepathDecision Evaluate(
             long frameToken,
-            IReadOnlyList<HexCoord> candidatePath)
+            IReadOnlyList<HexCoord> candidatePath,
+            UnitRepathEvaluationContext context =
+                UnitRepathEvaluationContext.General)
         {
             if (frameToken < 0
                 || !UnitPathSignature.TryCreate(candidatePath, out UnitPathSignature candidate))
             {
                 return UnitRepathDecision.RejectedInvalidPath;
+            }
+
+            // 일반 A* 재평가에서는 같은 path도 여러 frame에 걸쳐 유효할 수 있다. 하지만
+            // spatial preflight가 방금 이 active path의 candidate를 recoverable unsafe로
+            // 판정한 경우, 동일 path를 즉시 다시 실행하는 것은 재평가가 아니라 실패 재생이다.
+            // 건물 생성/파괴는 UnitNavigationObjective.NotifyEnvironmentChanged가 별도로
+            // guard를 reset하고 blocked loop를 깨우므로 여기서 허용 오차나 예산을 늘리지 않는다.
+            if (context == UnitRepathEvaluationContext.SpatialRecoverable
+                && _currentPath.IsValid
+                && candidate == _currentPath)
+            {
+                return UnitRepathDecision.RejectedRepeatedPath;
             }
 
             if (frameToken != _frameToken)
@@ -1689,6 +1687,17 @@ namespace Hexiege.Application.Combat.Sequencing
             => IsActive
                 && Matches(destination)
                 && environmentRevision <= _environmentRevision;
+
+        /// <summary>
+        /// 같은 환경의 중복 명령은 command로 승격하지 않되, Navigating/WaitingRepath에서는
+        /// 현재 코루틴이 안전한 경계에서 pending path를 소비할 수 있다. Blocked는 오직
+        /// 더 최신 environment revision만 깨워야 하므로 stale path 예약을 금지한다.
+        /// </summary>
+        public bool CanQueueSuppressedPath(
+            HexCoord destination,
+            ulong environmentRevision)
+            => SuppressesDuplicateCommand(destination, environmentRevision)
+                && _state != UnitNavigationObjectiveState.Blocked;
 
         public void MarkWaitingRepath()
         {

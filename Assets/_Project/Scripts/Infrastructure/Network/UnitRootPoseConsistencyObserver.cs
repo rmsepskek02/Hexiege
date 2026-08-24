@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using Hexiege.Application.Combat.Sequencing;
 using Hexiege.Core;
 using Hexiege.Domain;
 using Hexiege.Presentation;
@@ -35,8 +36,13 @@ namespace Hexiege.Infrastructure
         private const double SummaryIntervalSeconds = 10d;
         private const double MaximumDurationSeconds = 180d;
         private const int MaximumTrackedUnits = 64;
-        private const int MaximumLogLines = 256;
+        // 한 유닛은 initial/movement/stable/rotation evidence를 각각 최대 한 번 남긴다.
+        // 64개 전부가 그 경계를 통과해도 BEGIN/summary/error 여유가 남도록 유한 예산을 둔다.
+        private const int MaximumLogLines = 384;
         private const int MaximumNonTerminalLogLines = MaximumLogLines - 1;
+        private const int MaximumFullLineUtf8BytesExclusive = 1000;
+        internal const string RotationEvidenceSchema =
+            "root-rotation-replication-v1";
         private const float PositionTolerance = 0.001f;
         private const float RotationToleranceDegrees = 0.1f;
 
@@ -61,6 +67,10 @@ namespace Hexiege.Infrastructure
         private int _stableEndpointLogsWritten;
         private int _stableEvidenceDropCount;
         private int _movementEvidenceDropCount;
+        private int _rotationEvidenceEventsObserved;
+        private int _rotationEvidenceLogsWritten;
+        private int _rotationEvidenceDropCount;
+        private int _rotationEvidencePreflightFailures;
         private int _sampleCount;
         private int _errorCount;
         private int _structureErrorCount;
@@ -90,6 +100,10 @@ namespace Hexiege.Infrastructure
             _stableEndpointLogsWritten = 0;
             _stableEvidenceDropCount = 0;
             _movementEvidenceDropCount = 0;
+            _rotationEvidenceEventsObserved = 0;
+            _rotationEvidenceLogsWritten = 0;
+            _rotationEvidenceDropCount = 0;
+            _rotationEvidencePreflightFailures = 0;
             _sampleCount = 0;
             _errorCount = 0;
             _structureErrorCount = 0;
@@ -422,6 +436,13 @@ namespace Hexiege.Infrastructure
                 {
                     _stableEvidenceDropCount++;
                 }
+
+                WriteRotationReplicationEvidence(
+                    unit,
+                    simulationRotationBefore,
+                    serverTime,
+                    state.StableSince,
+                    serverTime);
             }
 
             if (hasError && !state.ErrorActive)
@@ -444,6 +465,218 @@ namespace Hexiege.Infrastructure
                 state.ErrorActive = false;
                 Log(LogLevel.Info, "mismatch-recovered", correlation);
             }
+        }
+
+        /// <summary>
+        /// 서버의 최종 authoritative Root와 클라이언트가 NetworkTransform으로 적용한
+        /// 최종 Root를 같은 안정 구간에서 읽어, 복제 revision까지 포함한 compact 증거로 남긴다.
+        /// Transform/NetworkVariable에는 쓰지 않으며 유닛당 최대 한 번만 호출된다.
+        /// </summary>
+        private void WriteRotationReplicationEvidence(
+            NetworkUnit unit,
+            Quaternion rootRotation,
+            double serverTime,
+            double stableWindowStartServerTime,
+            double stableQualifiedServerTime)
+        {
+            _rotationEvidenceEventsObserved++;
+            string data = BuildRotationReplicationEvidenceData(
+                _isServer ? "server-checkpoint" : "client-final-root",
+                unit.UnitId,
+                unit.NetworkObjectId,
+                serverTime,
+                ReadServerTick(),
+                unit.MovementPhase,
+                unit.MovementCommandRevision,
+                unit.MovementSegmentRevision,
+                unit.MovementSemanticRevision,
+                rootRotation,
+                stableWindowStartServerTime,
+                stableQualifiedServerTime);
+
+            if (!IsFullLineUtf8Safe(
+                    "rotation-replication-evidence",
+                    DecorateData(data)))
+            {
+                _rotationEvidencePreflightFailures++;
+                _rotationEvidenceDropCount++;
+                return;
+            }
+
+            if (Log(LogLevel.Info, "rotation-replication-evidence", data))
+                _rotationEvidenceLogsWritten++;
+            else
+                _rotationEvidenceDropCount++;
+        }
+
+        private static string BuildRotationReplicationEvidenceData(
+            string observation,
+            int unitId,
+            ulong networkObjectId,
+            double serverTime,
+            int networkTick,
+            UnitMovementPhase phase,
+            ulong commandRevision,
+            ulong segmentRevision,
+            ulong semanticRevision,
+            Quaternion rootRotation,
+            double stableWindowStartServerTime,
+            double stableQualifiedServerTime)
+        {
+            return
+                $"rotationEvidenceSchema={RotationEvidenceSchema}, " +
+                $"observation={observation}, unitId={unitId}, " +
+                $"networkObjectId={networkObjectId}, " +
+                $"serverTime={FormatDouble(serverTime)}, networkTick={networkTick}, " +
+                $"movementPhase={phase}, commandRevision={commandRevision}, " +
+                $"segmentRevision={segmentRevision}, semanticRevision={semanticRevision}, " +
+                $"rootRotation={FormatQuaternion(rootRotation)}, " +
+                $"stableWindowStartServerTime=" +
+                $"{FormatDouble(stableWindowStartServerTime)}, " +
+                $"stableQualifiedServerTime=" +
+                $"{FormatDouble(stableQualifiedServerTime)}";
+        }
+
+        private static bool IsFullLineUtf8Safe(string message, string decoratedData)
+        {
+            string fullLine =
+                "[00:00:00.000] [INFO] " +
+                "[Network/UnitRootPoseConsistencyObserver] " +
+                $"[UAS-ROOT-POSE] {message} | {decoratedData}";
+            return Encoding.UTF8.GetByteCount(fullLine)
+                < MaximumFullLineUtf8BytesExclusive;
+        }
+
+        /// <summary>
+        /// Unity self-validation이 production 필드 전체와 Android full-line UTF-8
+        /// 한계를 실제 formatter로 검증하는 read-only seam이다.
+        /// </summary>
+        internal static string ValidateRotationEvidenceForValidation()
+        {
+            string data = BuildRotationReplicationEvidenceData(
+                "client-final-root",
+                int.MaxValue,
+                ulong.MaxValue,
+                123456.123d,
+                int.MaxValue,
+                UnitMovementPhase.AlignToMove,
+                ulong.MaxValue,
+                ulong.MaxValue,
+                ulong.MaxValue,
+                new Quaternion(-1f, -1f, -1f, -1f),
+                123456.123d,
+                123459.123d);
+            string decorated =
+                $"runId={new string('r', 32)}, " +
+                $"sharedSessionKey={new string('s', 64)}, " +
+                $"sessionStartBucket={long.MaxValue}, {data}";
+            int bytes = Encoding.UTF8.GetByteCount(
+                "[00:00:00.000] [INFO] " +
+                "[Network/UnitRootPoseConsistencyObserver] " +
+                $"[UAS-ROOT-POSE] rotation-replication-evidence | {decorated}");
+            bool valid = IsFullLineUtf8Safe(
+                "rotation-replication-evidence",
+                decorated);
+            bool fields = data.Contains(
+                    $"rotationEvidenceSchema={RotationEvidenceSchema}")
+                && data.Contains("observation=client-final-root")
+                && data.Contains("unitId=2147483647")
+                && data.Contains("networkObjectId=18446744073709551615")
+                && data.Contains("networkTick=2147483647")
+                && data.Contains("movementPhase=AlignToMove")
+                && data.Contains("commandRevision=18446744073709551615")
+                && data.Contains("segmentRevision=18446744073709551615")
+                && data.Contains("semanticRevision=18446744073709551615")
+                && data.Contains("rootRotation=")
+                && data.Contains("stableWindowStartServerTime=")
+                && data.Contains("stableQualifiedServerTime=");
+            return $"valid={valid},fields={fields},maxBytes={bytes}";
+        }
+
+        /// <summary>
+        /// Android Logcat은 Unity가 만든 긴 한 줄을 중간에서 자를 수 있다.
+        /// 실제 종료 판정에 필요한 필드만 사용하는 production formatter를 최악값으로
+        /// 검증해, 상세 통계를 추가하다가 END 계약을 다시 깨뜨리는 회귀를 막는다.
+        /// </summary>
+        internal static string ValidateTerminalSummaryForValidation()
+        {
+            string data = BuildTerminalSummaryData(
+                "client",
+                true,
+                "INCOMPLETE",
+                false,
+                int.MaxValue,
+                int.MaxValue,
+                false,
+                int.MaxValue,
+                int.MaxValue,
+                int.MaxValue,
+                int.MaxValue,
+                int.MaxValue,
+                int.MaxValue,
+                int.MaxValue,
+                int.MaxValue,
+                false);
+            string decorated =
+                $"runId={new string('r', 32)}, " +
+                $"sharedSessionKey={new string('s', 64)}, " +
+                $"sessionStartBucket={long.MinValue}, {data}";
+            string fullLine =
+                "[00:00:00.000] [WARN] " +
+                "[Network/UnitRootPoseConsistencyObserver] " +
+                $"[UAS-ROOT-POSE] summary-END | {decorated}";
+            int bytes = Encoding.UTF8.GetByteCount(fullLine);
+            bool valid = IsFullLineUtf8Safe("summary-END", decorated);
+            bool fields = data.Contains("role=client")
+                && data.Contains("isFlipped=True")
+                && data.Contains("verdict=INCOMPLETE")
+                && data.Contains("coveragePassed=False")
+                && data.Contains("evidenceComplete=False")
+                && data.Contains("stableEndpointEventsObserved=2147483647")
+                && data.Contains("stableEndpointLogsWritten=2147483647")
+                && data.Contains("stableEvidenceDropCount=2147483647")
+                && data.Contains("stableAfterMoveEndpointUnits=2147483647")
+                && data.Contains($"rotationEvidenceSchema={RotationEvidenceSchema}")
+                && data.Contains("rotationEvidenceEventsObserved=2147483647")
+                && data.Contains("rotationEvidenceLogsWritten=2147483647")
+                && data.Contains("rotationEvidenceDropCount=2147483647")
+                && data.Contains("rotationEvidencePreflightFailures=2147483647")
+                && data.Contains("rotationEvidenceComplete=False");
+            return $"valid={valid},fields={fields},maxBytes={bytes}";
+        }
+
+        private static string BuildTerminalSummaryData(
+            string role,
+            bool isFlipped,
+            string verdict,
+            bool coveragePassed,
+            int errors,
+            int logDropCount,
+            bool evidenceComplete,
+            int stableEndpointEventsObserved,
+            int stableEndpointLogsWritten,
+            int stableEvidenceDropCount,
+            int stableAfterMoveEndpointUnits,
+            int rotationEvidenceEventsObserved,
+            int rotationEvidenceLogsWritten,
+            int rotationEvidenceDropCount,
+            int rotationEvidencePreflightFailures,
+            bool rotationEvidenceComplete)
+        {
+            return
+                $"role={role}, isFlipped={isFlipped}, verdict={verdict}, " +
+                $"coveragePassed={coveragePassed}, errors={errors}, " +
+                $"logDropCount={logDropCount}, evidenceComplete={evidenceComplete}, " +
+                $"stableEndpointEventsObserved={stableEndpointEventsObserved}, " +
+                $"stableEndpointLogsWritten={stableEndpointLogsWritten}, " +
+                $"stableEvidenceDropCount={stableEvidenceDropCount}, " +
+                $"stableAfterMoveEndpointUnits={stableAfterMoveEndpointUnits}, " +
+                $"rotationEvidenceSchema={RotationEvidenceSchema}, " +
+                $"rotationEvidenceEventsObserved={rotationEvidenceEventsObserved}, " +
+                $"rotationEvidenceLogsWritten={rotationEvidenceLogsWritten}, " +
+                $"rotationEvidenceDropCount={rotationEvidenceDropCount}, " +
+                $"rotationEvidencePreflightFailures={rotationEvidencePreflightFailures}, " +
+                $"rotationEvidenceComplete={rotationEvidenceComplete}";
         }
 
         private void StopInternal(bool writeSummary)
@@ -541,7 +774,13 @@ namespace Hexiege.Infrastructure
                     _sharedSessionKey,
                     "unavailable",
                     System.StringComparison.Ordinal);
-            bool evidenceComplete = _logDropCount == 0;
+            bool rotationEvidenceComplete =
+                _rotationEvidencePreflightFailures == 0
+                && _rotationEvidenceDropCount == 0
+                && _rotationEvidenceEventsObserved
+                    == _rotationEvidenceLogsWritten;
+            bool evidenceComplete = _logDropCount == 0
+                && rotationEvidenceComplete;
             bool coveragePassed =
                 trackedCoverage
                 && bothTeamsCoverage
@@ -571,7 +810,10 @@ namespace Hexiege.Infrastructure
                         sharedSessionKeyAvailable
                             ? null
                             : "sharedSessionKeyUnavailable",
-                        evidenceComplete ? null : "logDropped",
+                        _logDropCount == 0 ? null : "logDropped",
+                        rotationEvidenceComplete
+                            ? null
+                            : "rotationEvidenceIncomplete",
                         _beginWritten ? null : "beginMissing"
                     }
                     .Where(value => value != null));
@@ -581,7 +823,7 @@ namespace Hexiege.Infrastructure
                     ? "PASS"
                     : "INCOMPLETE";
             string eventName = terminal ? "summary-END" : "summary-periodic";
-            string summary =
+            string detailedSummary =
                 $"reason={reason}, role={(_isServer ? "host" : "client")}, " +
                 $"isFlipped={ViewConverter.IsFlipped}, " +
                 $"roleFlipValid={roleFlipValid}, beginWritten={_beginWritten}, " +
@@ -606,6 +848,14 @@ namespace Hexiege.Infrastructure
                 $"logDropCount={_logDropCount}, " +
                 $"stableEvidenceDropCount={_stableEvidenceDropCount}, " +
                 $"movementEvidenceDropCount={_movementEvidenceDropCount}, " +
+                $"rotationEvidenceSchema={RotationEvidenceSchema}, " +
+                $"rotationEvidenceEventsObserved=" +
+                $"{_rotationEvidenceEventsObserved}, " +
+                $"rotationEvidenceLogsWritten={_rotationEvidenceLogsWritten}, " +
+                $"rotationEvidenceDropCount={_rotationEvidenceDropCount}, " +
+                $"rotationEvidencePreflightFailures=" +
+                $"{_rotationEvidencePreflightFailures}, " +
+                $"rotationEvidenceComplete={rotationEvidenceComplete}, " +
                 $"evidenceComplete={evidenceComplete}, " +
                 $"coveragePassed={coveragePassed}, coverageErrors={coverageErrors}, " +
                 $"maxPositionError={FormatFloat(_maximumPositionError)}, " +
@@ -618,6 +868,27 @@ namespace Hexiege.Infrastructure
                 $"temporalOrphanIsCoverage, " +
                 $"logsWritten={_logCount}";
 
+            // Periodic 로그는 사람이 원인을 조사할 수 있도록 상세 통계를 유지한다.
+            // terminal은 CrossAudit가 실제로 소비하는 필드만 남겨 Android 한 줄 절단을
+            // 방지한다. 개별 endpoint/rotation 레코드가 상세 증거의 권위 원본이다.
+            string terminalSummary = BuildTerminalSummaryData(
+                _isServer ? "host" : "client",
+                ViewConverter.IsFlipped,
+                verdict,
+                coveragePassed,
+                _errorCount,
+                _logDropCount,
+                evidenceComplete,
+                _stableEndpointEventsObserved,
+                _stableEndpointLogsWritten,
+                _stableEvidenceDropCount,
+                stableAfterMoveEndpointUnits,
+                _rotationEvidenceEventsObserved,
+                _rotationEvidenceLogsWritten,
+                _rotationEvidenceDropCount,
+                _rotationEvidencePreflightFailures,
+                rotationEvidenceComplete);
+
             if (terminal)
             {
                 LogLevel terminalLevel = verdict == "FAIL"
@@ -625,10 +896,13 @@ namespace Hexiege.Infrastructure
                     : verdict == "INCOMPLETE"
                         ? LogLevel.Warn
                         : LogLevel.Info;
-                LogTerminalSummary(terminalLevel, eventName, summary);
+                LogTerminalSummary(terminalLevel, eventName, terminalSummary);
             }
             else
-                Log(_errorCount > 0 ? LogLevel.Error : LogLevel.Info, eventName, summary);
+                Log(
+                    _errorCount > 0 ? LogLevel.Error : LogLevel.Info,
+                    eventName,
+                    detailedSummary);
 
             if (terminal)
                 _summaryWritten = true;
@@ -639,6 +913,13 @@ namespace Hexiege.Infrastructure
             return _networkManager != null
                 ? _networkManager.ServerTime.Time
                 : 0d;
+        }
+
+        private int ReadServerTick()
+        {
+            return _networkManager != null && _networkManager.IsListening
+                ? _networkManager.ServerTime.Tick
+                : -1;
         }
 
         private static string FormatPoses(
@@ -731,13 +1012,28 @@ namespace Hexiege.Infrastructure
 
         private void LogTerminalSummary(LogLevel level, string message, string data)
         {
+            string decoratedData = DecorateData(data);
+            if (!IsFullLineUtf8Safe(message, decoratedData))
+            {
+                // 잘린 END를 정상 증거처럼 남기지 않는다. 이 짧은 오류만 기록하면
+                // CrossAudit는 END 누락으로 fail-closed하며 원인도 즉시 식별할 수 있다.
+                _logCount++;
+                RuntimeLogger.Log(
+                    LogLevel.Error,
+                    "Network",
+                    nameof(UnitRootPoseConsistencyObserver),
+                    "[UAS-ROOT-POSE] terminal-preflight-failure",
+                    DecorateData($"eventName={message}"));
+                return;
+            }
+
             _logCount++;
             RuntimeLogger.Log(
                 level,
                 "Network",
                 nameof(UnitRootPoseConsistencyObserver),
                 $"[UAS-ROOT-POSE] {message}",
-                DecorateData(data));
+                decoratedData);
         }
 
         private string DecorateData(string data)

@@ -702,6 +702,30 @@ namespace Hexiege.Application
         }
 
         /// <summary>
+        /// 아직 Simulation Root에 적용하지 않은 이동 후보 위치를 기준으로 공격 사거리 진입을
+        /// 판정한다. Chase 경로의 마지막 이동과 AcquireTarget을 같은 서버 frame에서 원자적으로
+        /// 커밋하기 위한 읽기 전용 seam이며, 현재 Transform이나 UnitData.Position을 변경하지 않는다.
+        /// </summary>
+        public bool HasEnemyInRangeAt(
+            UnitData attacker,
+            Vector3 attackerCandidateWorldPosition)
+        {
+            if (attacker == null || !attacker.IsAlive
+                || float.IsNaN(attackerCandidateWorldPosition.x)
+                || float.IsInfinity(attackerCandidateWorldPosition.x)
+                || float.IsNaN(attackerCandidateWorldPosition.z)
+                || float.IsInfinity(attackerCandidateWorldPosition.z))
+            {
+                return false;
+            }
+
+            return FindFirstEnemyTarget(
+                attacker,
+                attackerCandidateWorldPosition,
+                usePositionOverride: true) != null;
+        }
+
+        /// <summary>
         /// 감지 사거리(DetectRange) 내에 적이 있는지 판정.
         ///
         /// HasEnemyInRange(AttackRange 기준)와의 차이:
@@ -1019,16 +1043,32 @@ namespace Hexiege.Application
         /// _positionProvider가 null이면 기존 HexCoord.Distance 폴백.
         /// </summary>
         private IDamageable FindFirstEnemyTarget(UnitData attacker)
+            => FindFirstEnemyTarget(
+                attacker,
+                default,
+                usePositionOverride: false);
+
+        /// <summary>
+        /// 현재 Root 또는 아직 commit되지 않은 서버 후보 위치를 기준으로 가장 가까운 공격
+        /// 가능 대상을 찾는다. 후보 override는 Chase의 이동과 사거리 진입을 같은 frame에
+        /// 결정할 때만 사용하며 도메인 위치를 임시 변경하지 않는다.
+        /// </summary>
+        private IDamageable FindFirstEnemyTarget(
+            UnitData attacker,
+            Vector3 attackerPositionOverride,
+            bool usePositionOverride)
         {
             // _positionProvider가 없으면 기존 HexCoord 기반 판정으로 폴백
-            if (_positionProvider == null)
+            if (_positionProvider == null && !usePositionOverride)
                 return FindFirstEnemyTargetByHexCoord(attacker);
 
             // 공격자 월드 좌표 취득
-            Vector3 attackerWorldPos = _positionProvider.GetUnitWorldPosition(attacker.Id);
+            Vector3 attackerWorldPos = usePositionOverride
+                ? attackerPositionOverride
+                : _positionProvider.GetUnitWorldPosition(attacker.Id);
 
             // Vector3.zero는 GameObject 미등록 상태 → HexCoord 폴백
-            if (attackerWorldPos == Vector3.zero)
+            if (!usePositionOverride && attackerWorldPos == Vector3.zero)
                 return FindFirstEnemyTargetByHexCoord(attacker);
 
             // 공격 사거리 기반 판정 거리 계산 (근접/원거리 + 건물 여유 거리 포함)
@@ -1042,7 +1082,9 @@ namespace Hexiege.Application
             {
                 if (unit.Team == attacker.Team || !unit.IsAlive) continue;
 
-                Vector3 targetPos = _positionProvider.GetUnitWorldPosition(unit.Id);
+                Vector3 targetPos = _positionProvider != null
+                    ? _positionProvider.GetUnitWorldPosition(unit.Id)
+                    : Vector3.zero;
 
                 // 미등록 유닛은 HexCoord → 월드 좌표 변환으로 폴백
                 if (targetPos == Vector3.zero)
@@ -1062,7 +1104,9 @@ namespace Hexiege.Application
             {
                 if (building.Team == attacker.Team || !building.IsAlive) continue;
 
-                Vector3 targetPos = _positionProvider.GetBuildingWorldPosition(building.Id);
+                Vector3 targetPos = _positionProvider != null
+                    ? _positionProvider.GetBuildingWorldPosition(building.Id)
+                    : Vector3.zero;
 
                 // 미등록 건물은 HexCoord → 월드 좌표 변환으로 폴백
                 if (targetPos == Vector3.zero)

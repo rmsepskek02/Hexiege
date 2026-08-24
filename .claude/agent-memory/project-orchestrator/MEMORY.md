@@ -1,13 +1,27 @@
 # Project Orchestrator Memory — Hexiege
 
-## 프로젝트 현재 상태 (2026-08-23)
+## 2026-08-24 B3 blocked-start 최소 교정 상태
+- 동적 건물로 대체 경로가 있어도 Unit48/59/69/96이 멈춘 직접 원인은 non-walkable authoritative start가 FlowField에서 빠져 `RequestMove`가 null이 된 계약 공백이다.
+- 최소 slice는 `UnitMovementUseCase`의 authoritative-only 인접 egress와 Editor self-validation이며 UnitView/HexFlowField/NetworkTransform/prefab/package는 보존했다.
+- 독립 QA 최초 P1(비권위 staged start까지 예외 확산)을 API 권한 분리로 닫고 Q/R 회귀까지 보강했다. 다음 gate는 Unity `[UAS-DIAG]` PASS→Android 재빌드→집중 실기/역할교대 MOVE·ROOT·CrossAudit. Unit30/회전은 별도 OPEN.
+
+## 프로젝트 현재 상태 (2026-08-24)
+
+### B3 회전 계측 PASS / 역할교대 MOVE terminal FAIL
+- Unity self-validation 2종과 `root-rotation-replication-v1` 완전성 PASS. 역할교대 세션은 Android Host 54/54, Editor Client 53/53 endpoint evidence, drop/preflight 0이다.
+- Unit 30 Red Pistoleer adapter failure 6·repeated recoverable repath 1로 Host MOVE terminal FAIL하여 공식 CrossAudit 중단. read-only 동일 revision 회전 잔차 7(`0.11~0.15°`)은 원인 분리 근거일 뿐 공식 pose 판정이 아니다.
+- 다음 순서: Unit 30 반복 repath 최소 재현·교정 → 새 역할교대 공식 CrossAudit → NetworkTransform final convergence 교정. 25종/Legacy rollback 보류, B3 FAIL/OPEN.
 
 ### B3 v9 최종 통합 정적 코드 게이트 / 메뉴·실기 대기
 - v8 Android recoverable preflight 반복을 typed 결과와 `CandidateUnsafe/RouteInvalidated → WaitingRepath`로 교정했다. corridor probe/final stage는 같은 seam을 쓰고 fatal만 `Rejected`다.
 - commit accounting은 actual attempt 직전 planned, success 뒤 committed, END equality다. recoverable history는 positive successful commit에서만 clear하고 lifecycle retire는 server/client baseline·recoverable 이력을 제거한다.
 - `origin/main` 60개 commit과 B3 의미 병합 완료, unmerged 0·staged 최신 해결본 일치. main `GameLog`·`LogSessionOwner`·combat shutdown·`IsSpawned`·research 수정과 B3를 모두 보존했다.
 - observer `b3-movement-authority-v9`, post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0. 증거 감사는 최신 device anchor + Editor daily, role/shared key/production schema exact/전체 BEGIN·END identity/EVIDENCE·FAIL/source gate를 요구한다. terminal 32줄·최대 968 UTF-8 byte, adapter 64/65와 release `Conditional` 경계다.
-- 다음 게이트는 post-merge Unity `[UAS-DIAG]`·RootCrossAudit 실제 메뉴 → Android v9다. pre-merge UAS PASS는 재사용하지 않으며 전까지 B3 FAIL/OPEN·역할교대/25종 회귀 금지다. Android recoverable repath는 0이 아니라 resolved/nonrepeat/no-cleanup 수렴을 요구한다.
+- 후속 Android v9 실제 경기는 확보했지만 RootCrossAudit가 false-INCONCLUSIVE여서 공식 판정은 OPEN이다. pre-merge UAS PASS는 재사용하지 않으며 사용자 RootCrossAudit 재실행 전 B3 FAIL/OPEN·역할교대/25종 회귀 금지다. Android recoverable repath는 0이 아니라 resolved/nonrepeat/no-cleanup 수렴을 요구한다.
+
+### RootCrossAudit false-INCONCLUSIVE 교정 / 공식 재감사 OPEN
+- `a0e690...8d8` 실제 Editor Host·Android Client의 MOVE full EVIDENCE·ROOT PASS와 수동 49/49 match를 확보했다. ROOT bucket 14/17 peer 비교는 공유 시간축이 없어 false-INCONCLUSIVE였다.
+- 진단기만 validated MOVE `startedAt <=2.000초`로 교정하고 run 내부 bucket·stable overlap·fail-closed를 유지했다. Editor Roslyn PASS. 다음은 사용자 RootCrossAudit SelfValidate → 동일 경기 Analyze이며 전까지 B3 FAIL/OPEN이다.
 
 ## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음, 모든 서브에이전트 포함)
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
@@ -413,3 +427,10 @@ Assets/_Project/
 - B3 유한 재탐색 guard 구현과 Unity compile/self-validation, 문서 정합성 검사는 PASS다. 전체 상태는 Android Host 회귀 전까지 FAIL / OPEN이다.
 - 다음 순서: 새 Android Development Build → Android Host 정지 재현 회귀와 다른 유닛/경기 진행 확인 → Editor/Android 역할교대 → 25종 전체 → 다음 경기 Legacy rollback.
 - 공격 타겟/공격 방향과 시각 Impact/실제 피해 시점은 이번 교정 범위 밖이며 후속 Tracer에서 별도로 진행한다.
+
+### 2026-08-25 - B3 집중 교정 종료와 Tracer C 진입 게이트
+
+- B3 v10 중심 이동·건물 안전 Chase·전방 중심 복귀는 focused multiplayer PASS다. 25종·반대 역할·Legacy rollback은 제거하지 않고 Tracer C 이후 권위 전환 전 통합 회귀로 이관한다.
+- ROOT CrossAudit의 긴 Android terminal 절단은 compact END(최악값 803 UTF-8 byte)와 production preflight로 교정했다. Runtime/Editor Roslyn 및 Unity self-validation 2종 PASS다.
+- 기존 절단 로그는 INCONCLUSIVE 이력으로 보존하고 재판정하지 않는다. 진단기만을 위한 별도 빌드/실기는 생략하며 다음 새 빌드부터 교정된 채점기를 사용한다.
+- 다음 활성 단계는 Tracer C Phase 4 공격 회차 Shadow와 서버 권위 TargetId/AimDirection·AlignToAttack 5°/8°다. Shadow 동안 Legacy 피해·HP·RPC·VFX writer는 유지하고 이중 writer를 금지한다.

@@ -192,3 +192,22 @@ Android 1대와 Unity Editor counterpart를 사용했으며 Windows/Standalone b
 - post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0, 최종 반영 전 문서 정합성 검사 0건이다.
 - post-merge Unity `[UAS-DIAG]` self-validation과 RootCrossAudit self-validation의 실제 메뉴 실행, Android v9 실기는 미실행이다. pre-merge `[UAS-DIAG]` PASS와 혼동하지 않는다.
 - 판정: **최종 통합 정적·컴파일·QA 코드 게이트 PASS / B3 FAIL·OPEN 유지**.
+
+### Round 12 — RootCrossAudit false-INCONCLUSIVE 진단기 교정
+
+- 실제 경기 `sharedSessionKey=a0e690...8d8`, Editor Host·Android Client. 양쪽 v9 MOVE full EVIDENCE, ROOT PASS.
+- 수동 pose 감사: union 55, overlap 49, match 49, mismatch 0, coverage `0.891`, max axis `0.000982m`, max rotation `0°`.
+- 기존 도구는 ROOT `sessionStartBucket` Host 14 / Client 17을 cross-peer equality로 비교해 false-INCONCLUSIVE를 냈다. 검증된 MOVE lifecycle `startedAt`은 `18.284286` / `19.017435`, delta `0.733149초`였다.
+- 진단기만 수정했다. ROOT bucket의 peer 간 equality는 제거하되 각 run 내부 BEGIN/END bucket invariant는 유지한다. peer 시간 결합은 validated MOVE `startedAt <= 2.000초`이며 `2.000` PASS / `2.001` fail-closed다.
+- stable overlap과 기존 identity/source/role/shared key/schema/EVIDENCE/FAIL gate를 유지했다. Play Mode는 차단하고 shared snapshot read 실패·`IOException`은 INCONCLUSIVE다.
+- SelfValidation fixture에 실제형, `2.000/2.001` 경계, bucket 내부 mismatch, BEGIN/END 누락, `NaN`/`Infinity`를 추가했다. Editor Roslyn PASS.
+- 사용자 Unity SelfValidate와 Analyze 재실행은 아직이다. 공식 실제 재감사는 **OPEN**이며 게임/서버 권위/로그 포맷/영구 규칙 변경은 없다.
+
+### Round 13 — 회전 복제 계측 PASS / Android Host MOVE terminal FAIL
+
+- `[UAS-DIAG]`와 RootCrossAudit self-validation을 사용자 Unity에서 모두 PASS했다.
+- `root-rotation-replication-v1`을 추가해 Host `server-checkpoint`와 Client `client-final-root`를 identity, server time/tick, phase와 command/segment/semantic revision, quaternion, stable window로 연결했다. 유닛당 1회 bounded, full-line UTF-8 preflight와 drop fail-closed를 적용했다.
+- 실기 `65ee1764...d691`은 Android Host·Editor Client였다. ROOT는 Host 64유닛/54 endpoint와 Client 64유닛/53 endpoint 모두 PASS, rotation evidence 54/54·53/53, drop/preflight 0이었다.
+- Host MOVE는 Unit 30 Red Pistoleer에서 adapter failure 6건, repeated recoverable repath 1건이 발생해 terminal FAIL했다. CrossAudit가 `movement-observer-terminal-fail`로 pose 인증을 중단한 것은 의도된 fail-closed다.
+- 별도 read-only 대조는 overlap 48, 회전 `0.1°` 초과 7건, 약 `0.11~0.15°`, 위치 허용치 이내였다. 7건 모두 phase와 세 revision이 일치해 revision-lag가 아니라 NetworkTransform 최종 회전 수렴 seam을 가리킨다. MOVE FAIL 세션이므로 공식 pose 판정으로 사용하지 않는다.
+- 판정: **계측 구현·자체 검증·증거 완전성 PASS / B3 실기 FAIL·OPEN**. 다음은 Unit 30 반복 recoverable repath 교정 후 새 역할교대 경기다.

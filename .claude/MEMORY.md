@@ -4,12 +4,18 @@
 
 ---
 
-## 현재 P0 — Unit ActionSequence B3 v9 (2026-08-23)
+## 현재 P0 — Unit ActionSequence B3 v9 (2026-08-24)
+
+- Unity `[UAS-DIAG]`/RootCrossAudit self-validation PASS. `root-rotation-replication-v1`은 Android Host 54/54, Editor Client 53/53 endpoint에서 drop/preflight 0으로 완전했다.
+- 역할교대 `65ee1764...d691`은 Unit 30 Red Pistoleer adapter failure 6·repeated recoverable repath 1로 Host MOVE terminal FAIL, 공식 CrossAudit 중단. read-only overlap 48 중 회전 mismatch 7(`0.11~0.15°`)은 위치 허용치 이내이며 phase+command/segment/semantic revision 전건 동일이다.
+- 다음은 Unit 30 반복 repath 교정 → 역할교대 공식 CrossAudit → 같은-revision NetworkTransform 최종 회전 수렴 seam 교정. tolerance 상향·Client Root writer 추가 금지, B3 FAIL/OPEN.
 - v8 Android의 recoverable 공간 preflight 반복을 typed status/offending tile/index와 `CandidateUnsafe/RouteInvalidated → WaitingRepath`로 분리했다. corridor probe와 final stage는 동일 seam을 쓴다.
 - `planned`는 실제 commit attempt 직전, `committed`는 성공 뒤에만 증가하고 END equality를 강제한다. recoverable 이력은 양수 전이 성공 commit에서만 clear하며 lifecycle retire가 서버/클라이언트 baseline과 recoverable 이력을 제거한다.
 - `origin/main` 60개 commit과 B3 v9 의미 병합 완료, unmerged 0·staged 최신 해결본 일치. main `GameLog`/`LogSessionOwner`/combat shutdown/`IsSpawned`/research 수정과 B3를 모두 보존했다.
 - observer `b3-movement-authority-v9`. post-merge Runtime/Editor Roslyn PASS, 독립 QA P0~P3 0. 증거 감사는 최신 device anchor + Editor daily, role/shared key/production schema exact/전체 BEGIN·END identity/EVIDENCE·FAIL/source gate를 요구한다. terminal은 26+5+1=32줄·최대 968 UTF-8 byte, adapter는 64/65 fail-closed 경계와 release `Conditional`이다.
-- pre-merge `[UAS-DIAG]` PASS는 post-merge 증거가 아니다. post-merge `[UAS-DIAG]`·RootCrossAudit 실제 메뉴와 Android v9가 미실행이므로 B3 FAIL/OPEN. Android의 `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다.
+- pre-merge `[UAS-DIAG]` PASS는 post-merge 증거가 아니다. 후속 Android v9 실제 경기는 확보했지만 RootCrossAudit 사용자 재실행 전 공식 판정은 OPEN이고 B3도 FAIL/OPEN이다. Android의 `spatialFinalRecoverableRepaths`는 0 강제가 아니라 resolved/nonrepeat/no-cleanup coverage다.
+- 실제 `a0e690...8d8` Editor Host·Android Client는 v9 MOVE full EVIDENCE·ROOT 양쪽 PASS, 수동 pose union55/overlap49/match49/mismatch0/coverage `.891`이다. ROOT bucket 14/17 peer equality가 false-INCONCLUSIVE 원인이었다.
+- 진단기는 ROOT bucket cross-peer equality만 제거하고 run 내부 invariant를 유지한다. validated MOVE `startedAt` delta `<=2.000초`(`2.000` 허용/`2.001` 거부), stable overlap과 fail-closed는 유지한다. Editor Roslyn PASS, 사용자 RootCrossAudit SelfValidate/Analyze 전 공식 재감사는 OPEN. 게임/권위/로그 포맷/영구 규칙 변경 없음.
 
 ## 프로젝트 개요
 - 장르: 모바일 1v1 RTS, 헥스 타일맵 기반 공성전 (9:16 세로)
@@ -119,3 +125,10 @@
 - Branch `codex/unit-movement-attack-sync-audit`: B2 server read-only movement/SimulationFacing Shadow passed cumulative 25/25 UnitType Blue/Red multiplayer evidence across six accepted matches.
 - This completes diagnosis only. Legacy remains the movement writer; B3 match-wide 25-unit writer transition is next. Attack direction and visual Impact versus authoritative damage timing remain incomplete.
 - Evidence and QA-fix history: `Assets/_Project/Docs/_Tasks/2026-07-22/13_26_unit-action-sequence-implementation/Plan.md` and matching `_Logs/.../Log.md`.
+
+### 2026-08-25 - B3 v10 focused PASS and compact ROOT terminal
+
+- B3 center-to-center checkpoints, building-safe Chase and reachable forward rejoin passed the focused Android Host + Editor Client match. Host recorded 766 center checkpoints with zero maximum error, direct-safe/path Chase 806/2,977 frames, and zero authority/adapter/stationary-Walk/drop failures; both local ROOT observers recorded 53/53 endpoint and rotation evidence.
+- The formal CrossAudit INCONCLUSIVE was caused by Android Logcat truncating the oversized Host ROOT `summary-END`, not by missing individual gameplay evidence. Do not retroactively infer PASS from the old truncated file.
+- ROOT periodic summaries remain detailed; terminal END now contains only mandatory CrossAudit fields. Worst-case full line is 803 UTF-8 bytes and has a production preflight that emits a short terminal failure instead of truncated evidence.
+- Runtime/Editor Roslyn, Unity `[UAS-DIAG]`, and RootCrossAudit SelfValidate all PASS. No standalone rebuild/retest is required for this diagnostic fix. The next active implementation is Tracer C Phase 4 attack-sequence Shadow and authoritative target/facing alignment; Legacy damage/HP/RPC/VFX stays authoritative during Shadow.

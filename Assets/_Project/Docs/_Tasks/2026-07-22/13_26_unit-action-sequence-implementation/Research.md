@@ -261,7 +261,7 @@ B3는 공격 권위 모드와 분리된 경기 단위 `UnitMovementPipelineMode`
 - **후속 설계:** deep Authoritative Locomotion Module이 phase·SimulationFacing·position/rotation·진행량·복제 commit을 소유하고, Server Trajectory Planner가 현재/다음 선분과 이동 가능 통로를 이용해 연속 위치 접선과 DesiredMoveDirection을 만든다.
 - **금지:** 10°/15° 안전 계약 완화, Client 예측 writer 추가, 방향만 미리 돌리고 위치는 이전 직선으로 이동, Visual Root smoothing으로 canonical 정지를 숨기는 방식, 경기 중 또는 유닛별 Legacy fallback.
 
-**[당시 설계 확정/현재 구현 완료·멀티 검증 대기]** 경유 타일 중심 통과는 강제하지 않는다. 서버는 최초 Simulation Root point와 A* logical path를 기반으로 각 타일 영역을 연결한 logical path corridor를 만들고, trajectory를 해당 corridor 안에서 sweep한다. 위치 진행과 SimulationFacing은 같은 trajectory 접선을 사용하며 오차는 1° 이내여야 한다. `MoveSpeed`는 타일 중심 간 진행률이 아니라 실제 trajectory distance/second로 적용한다. 공통 최대 회전 속도는 270°/s를 사용하고, target acquire 판정은 이미 계산된 해당 틱의 candidate position을 기준으로 적용해 한 프레임 이전 pose와 섞이지 않게 한다. 획득이 확정된 틱에는 candidate pose까지만 commit하고 다음 틱의 추가 이동을 금지한다. 150°는 회전 속도가 아니라 반전 판정 임계값이며, 그 이상의 반전은 연속 선회가 아니라 정지 정렬 fallback으로 처리한다.
+**[당시 설계 기록/2026-08-24 일부 대체]** 당시에는 경유 타일 중심 통과를 강제하지 않고 logical path corridor 안의 최근접 통과로 checkpoint를 소비하도록 설계했다. 이후 기본 이동을 “타일 중심에서 타일 중심으로 이동”한다고 정의한 같은 규칙 문서와 충돌하고, 전투 추격의 무경로 direct 후보가 건물을 반복해서 향하는 실기 실패가 확인됐다. A1·A2·B1과 B2 관측 구조는 유지하지만, 이 문단의 **중심 생략 checkpoint**는 `2026-08-24/17_46_b3-center-path-chase-rejoin-correction` 작업의 규칙과 Plan으로 대체한다. corridor, 위치 진행과 SimulationFacing의 1° 일치, 실제 trajectory 거리/초, 270°/s, candidate 기준 target acquire, 150° 반전 정렬 계약은 계속 유지한다.
 
 연속 이동 교정은 60° 코너, 180° 재경로, Chase, PendingRepath, PostCombatResume, held tick 진행량 0과 재개 jump 0, velocity↔SimulationFacing 1° 이내, 차단 통로 보존을 순수 검증한 뒤 Android/Editor 역할교대 멀티플레이와 25종 회귀를 다시 통과해야 한다. 이 재검증 전에는 B3와 이동 방향 증상 해결을 완료로 선언하지 않는다.
 
@@ -513,3 +513,41 @@ v9 코드가 main과 합쳐지기 전 Unity 메뉴 `[UAS-DIAG]` self-validation�
 통합 뒤 증거 감사기는 device 최신 anchor와 Editor 일별 로그를 짝짓고, run role·shared session key·production schema exact match·전체 BEGIN/END identity·EVIDENCE/FAIL 의미·device/editor source gate를 모두 확인한다. 어느 하나라도 누락되거나 후보가 모호하면 fail-closed한다. Android-safe terminal 출력은 manifest 26줄 + summary 5줄 + compact END 1줄, 총 32줄이며 UTF-8 최대 968 byte다. manifest 27개 또는 허용 길이를 넘는 항목은 fail-closed한다. adapter는 stateful 상태를 64개로 제한하고 65번째를 거부하는 경계를 가지며 release에서는 `Conditional`로 제거된다.
 
 post-merge Runtime과 Editor Roslyn 컴파일은 PASS했고 독립 QA는 P0~P3 지적 0건이다. 최종 문서 반영 전 정합성 검사도 0건이었다. 다만 main 통합 전 `[UAS-DIAG]` PASS는 기준선일 뿐 post-merge 증거가 아니다. post-merge Unity `[UAS-DIAG]` self-validation과 RootCrossAudit self-validation의 실제 메뉴 실행, 새 Android v9 Host·Editor Client 실기는 아직 수행하지 않았다. 따라서 현재 결과는 **통합 정적·컴파일·QA 코드 게이트 PASS**이며 B3 전체 판정은 계속 **FAIL / OPEN**이다.
+
+## 30. 2026-08-23 RootCrossAudit false-INCONCLUSIVE 원인과 진단기 교정
+
+동일 `sharedSessionKey=a0e690...8d8`의 Editor Host·Android Client 실제 경기에서 v9 MOVE는 양쪽 full EVIDENCE였고 ROOT도 양쪽 PASS했다. 수동 pose 감사 결과는 union 55, overlap 49, match 49, mismatch 0, coverage `0.891`, 최대 축 오차 `0.000982m`, 최대 회전 오차 `0°`였다. 그러나 기존 RootCrossAudit는 ROOT `sessionStartBucket`이 Host 14, Client 17이라는 이유로 허용 차이 2를 넘었다며 INCONCLUSIVE를 반환했다.
+
+이 결과는 게임 pose나 서버 권위 실패가 아니라 서로 다른 프로세스의 절대 bucket을 cross-peer 동등성으로 사용한 진단기 오류다. 같은 경기의 검증된 MOVE lifecycle `startedAt`은 Host `18.284286`, Client `19.017435`로 차이가 `0.733149초`였다. run 내부에서 BEGIN/END가 같은 ROOT bucket을 유지하는 불변식은 유효하지만, 서로 다른 기기의 bucket 숫자가 같아야 한다는 조건은 공유 시간축이 없어 유효하지 않다.
+
+교정은 Root bucket의 cross-peer equality만 제거하고 각 run 내부 bucket 불변식은 유지한다. peer 결합은 검증된 MOVE lifecycle의 `startedAt` 차이 `<= 2.000초`를 사용하며 `2.000`은 허용, `2.001`은 거부한다. stable overlap, 전체 identity, source/role/shared key/schema, EVIDENCE/FAIL과 기존 fail-closed 조건은 유지한다. Play Mode에서는 분석을 차단하고, shared snapshot 읽기 실패나 `IOException`은 PASS가 아니라 INCONCLUSIVE다.
+
+SelfValidation fixture는 실제형 조합, `2.000/2.001` 경계, run 내부 bucket mismatch, BEGIN/END 누락, `NaN`과 `Infinity`를 포함하도록 보강했다. Editor Roslyn 컴파일은 PASS했다. 사용자 Unity 메뉴 SelfValidate와 실제 로그 Analyze 재실행은 아직 수행하지 않았으므로 공식 실제 재감사 판정은 **OPEN**이다. 이 수정은 진단기에만 한정되며 게임 로직, 서버 권위, 로그 포맷과 영구 규칙은 변경하지 않는다.
+
+## 31. 2026-08-24 회전 복제 증거 구현과 역할교대 실기 FAIL
+
+RootCrossAudit와 `[UAS-DIAG]` self-validation은 Unity 메뉴에서 모두 PASS했다. 다음 실기에는 안정 이동 종료 경계마다 Host의 authoritative Simulation Root를 `server-checkpoint`, Client가 NetworkTransform으로 적용한 Root를 `client-final-root`로 기록하는 `root-rotation-replication-v1` 증거를 추가했다. 증거는 `unitId/networkObjectId`, server time/tick, movement phase와 command/segment/semantic revision, quaternion과 stable window를 연결하며 유닛당 1회·64유닛 bounded, UTF-8 1000 byte 미만, 누락·drop·preflight 실패는 fail-closed다. Transform 쓰기, RPC, 게임 판정, NetworkTransform 설정·패키지는 변경하지 않았다.
+
+실기 세션 `65ee1764...d691`은 Android Host·Editor Client 역할교대 경기였다. ROOT terminal은 Android Host 64유닛·54 endpoint, Editor Client 64유닛·53 endpoint로 양쪽 PASS했고 rotation evidence도 각각 54/54, 53/53, drop/preflight 0으로 완전했다. 그러나 Host MOVE terminal이 Unit 30 Red Pistoleer의 `repath-fail-closed` 6건과 `spatial-recoverable-repeated=1` 때문에 FAIL하여 공식 CrossAudit는 pose 판정 전에 중단됐다. 동일 command/segment `1/2`에서 `astar-corridor` 2건 뒤 `blocked-environment-resume` 4건이 반복됐고, 현재 path hash는 동일했으며 유닛은 약 18.6초 뒤 사망했다. 저장·세션·네트워크 역할 검출 실패가 아니다.
+
+공식 인증 판정과 분리한 read-only 증거 대조에서는 stable endpoint 54/53, overlap 48, 회전 허용치 `0.1°` 초과 7건이 확인됐다. 위치 차이는 모두 허용치 이내였고 회전 차이는 약 `0.11~0.15°`였다. 7건 모두 Host/Client의 phase와 command/segment/semantic revision이 같았다. 따라서 잔여 회전 오차는 movement snapshot/revision 지연이 아니라 같은 revision을 받은 뒤 NetworkTransform 회전 적용·최종 수렴 경계에서 남는다는 가설을 지지한다. 다만 MOVE terminal FAIL 세션이므로 공식 RootCrossAudit 판정으로 승격하지 않는다.
+
+다음 교정 순서는 Unit 30의 반복 recoverable repath를 먼저 재현·최소화해 MOVE terminal gate를 복구하고, 그 뒤 같은-revision 회전 잔차의 NetworkTransform 적용/보간 종료 경계를 교정하는 것이다. 허용 오차 상향, 클라이언트 Root writer 추가, 서버 권위 완화는 사용하지 않는다. B3는 계속 **FAIL / OPEN**이다.
+
+## 32. 2026-08-24 동적 건물 대체 경로 재탐색 FAIL과 분석 정정
+
+새 경기 `sharedSessionKey=3303d48c3bce76bb180fba6008142e0577d268913a437ac123374d58ce774681`은 §31의 `65ee1764...97d2d691` 경기와 별개다. Android Host run은 `e371587a1b7c484c8c6724769ab0a961`, Editor Client movement run은 `7966aa6f567d40f2bccdd15ffca2917a`다. 두 세션이나 서로 다른 Unit 30 증거를 결합하지 않는다.
+
+Host에서 `13:27:42.849` Building 20 AquaSpring Red가 `(Q=5,R=9)`에 배치된 직후 Unit 48은 command/segment `1/4`, source `astar-corridor`에서 `candidatePath=invalid → RejectedInvalidPath`가 됐다. 이후 건물 환경 변경 때마다 Unit 48·59·69가 `blocked-environment-resume`에서 같은 invalid 결과를 반복했고 Unit 96은 `post-combat-corridor`에서 실패했다. 전체 adapter failure는 28건이다. Unit 30은 별도로 `RouteInvalidated`, `NonWalkable`, offending tile `(5,13)`, Root `(4,14)`에서 `spatial-recoverable-repeated=1`을 남겼다.
+
+이전의 “경로가 완전히 막혀 규칙상 정상 Blocked” 분석은 철회한다. 로그의 `candidatePath=invalid`는 `UnitMovementUseCase.RequestMoveFrom`이 반환한 `null/short path`만 증명하며, 실제 그래프의 완전 단절을 증명하지 않는다. 사용자의 실기 관찰에서는 완전 차단이 아니었으므로 이번 판정 기준은 “유효한 우회 경로가 있는데 서버 재탐색이 실패했다”이다. 규칙 4와 `U-MOV-REPATH`에 따르면 unsafe candidate를 commit하지 않는 것은 맞지만, 우회 경로가 있으면 현재 권위 위치에서 다음 frame 재탐색해 같은 목표로 이동을 계속해야 한다. 현재 구현은 이 계약을 만족하지 못했다.
+
+코드 대조로 이번 Unit 48·59·69·96 실패의 직접 원인을 확정했다. 건물 배치는 타일을 `IsWalkable=false`로 바꾼 뒤 이벤트를 발행하고, `FlowFieldService`의 캐시 무효화 구독은 eager repath 구독보다 먼저 등록돼 있어 이벤트 순서 경쟁은 아니다. 문제는 새 FlowField가 walkable 타일만 포함하므로 건물로 막힌 **현재 서버 권위 start 타일**이 field에 없다는 점이다. `HexFlowField.GetPath(start)`는 start 미포함 시 `null`을 반환하고, `UnitView`는 이미 environment revision을 소비한 뒤 그대로 반환한다. 이후 다른 건물 이벤트가 생겨도 같은 blocked start에서 같은 `null`을 반복한다. 이는 규칙 49의 제한된 `path[0]` egress가 실제 경로 질의에 구현되지 않은 계약 공백이다.
+
+고정 소형 HexGrid에서 출발점 `S`만 non-walkable로 바꾸고 인접 우회로 `S → N → … → D`를 남겨 blocked authoritative start의 실패를 재현했다. 다만 명시 좌표만 받는 `RequestMoveFrom(S,D)`은 그 좌표가 권위 위치인지 증명할 수 없으므로 계속 fail-closed해야 한다. GREEN 계약은 `UnitData.Position`을 직접 읽는 `RequestMove(unit,D)`에만 `[S, N, …, D]` egress를 허용하는 것이며 `N`은 walkable 인접 타일이어야 한다. 도달 가능한 인접점이 여러 개면 최단 경로 뒤 Q, R 좌표 순으로 결정하고, 도달 가능한 인접점이 없으면 실패를 유지한다. 중간 blocked tile 포함·비인접 점프·`path[0]` 재진입은 계속 금지한다.
+
+Host terminal의 서버 공간 commit 1,110/1,110, commit failure 0, Client replication/Root write 오류 0은 서버 권위와 복제 경로가 유지됐다는 근거다. Unit 30의 `spatial-recoverable-repeated=1`은 valid candidate/history 계열이므로 blocked-start null과 같은 원인으로 합치지 않고 별도 OPEN으로 유지한다. observer 최대 64유닛 때문에 뒤 유닛의 Root endpoint가 누락될 수 있고 현재 경기에는 Unit 96까지 존재했다는 진단 커버리지 한계도 별도다. 공격 방향·Impact/피해 시점은 이번 경기로 판정하지 않는다. B3는 계속 **FAIL / OPEN**이다.
+
+구현은 `UnitMovementUseCase` 내부의 private 공용 경로 계산 core로 분리했다. `RequestMove`만 `UnitData.Position`에 대한 blocked-start egress를 허용하고, `RequestMoveFrom`은 staged 출발점이므로 같은 상황에서 `null`을 유지한다. 권위 출발점의 일반 FlowField 경로가 없을 때만 walkable 인접 타일별 기존 FlowField 경로를 조회하며, 경로 길이 최단 → Q 오름차순 → R 오름차순으로 하나를 선택해 blocked start를 한 번만 앞에 붙인다. 따라서 첫 edge는 인접하고 이후 중간 타일은 기존 walkable 경로만 사용한다. 일반 walkable start의 기존 경로는 변경하지 않았고 서버 writer, 클라이언트 Root, NetworkTransform과 environment revision 소유권도 변경하지 않았다.
+
+Editor self-validation에는 authoritative/staged 분리, 최단 경로, Q/R 동률 결정성, 인접 첫 edge, 중간 blocked tile 배제, 도달 가능한 인접점 없음, blocked start와 목적지 동일, 일반 경로 불변 회귀를 추가했다. production과 Editor 대상 Roslyn syntax 검사는 모두 PASS했고, 최초 독립 QA의 P1은 권위/staged API 분리로 닫혔다. R 동률 fixture 보강 뒤 독립 재검토 결과는 P0~P3 0건이다. 사용자가 Unity 메뉴에서 `[UAS-DIAG]`를 실제 실행해 line 48의 `self-validation PASS`를 확인했으며, 새 문구 `blocked authoritative-start deterministic FlowField egress`를 포함한 기존 전체 계약도 함께 PASS했다. Unity compile error 보고는 없었다. 새 Android 경기와 MOVE/ROOT/CrossAudit는 아직 실행하지 않았으므로 B3는 계속 **FAIL / OPEN**이다.

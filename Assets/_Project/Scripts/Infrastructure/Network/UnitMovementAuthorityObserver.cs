@@ -28,11 +28,12 @@ namespace Hexiege.Infrastructure
         // v7: 이동 중 path-start 보정이 논리 위치를 선행 커밋하지 않는 빌드를 식별한다.
         // v8: route checkpoint 소비와 실제 spatial Root 타일 커밋을 분리해 관측한다.
         // v9: 후보 probe는 기록하지 않고 최종 stage/recoverable repath/fatal만 분리한다.
+        // v10: 중심 checkpoint 실제 도달 오차와 Chase direct-safe/path 선택을 bounded 집계한다.
         /// <summary>
         /// 런타임 증거와 Editor 교차 감사가 함께 사용하는 현재 production schema.
         /// 문자열을 복제하지 않아 오래된 양쪽 빌드가 서로 일치한다는 이유만으로 통과하지 않게 한다.
         /// </summary>
-        public const string ProductionSchema = "b3-movement-authority-v9";
+        public const string ProductionSchema = "b3-movement-authority-v10";
         private const int MaximumLines = 768;
         private const int ReservedTerminalLines = 32;
         private const int MaximumNormalLines = MaximumLines - ReservedTerminalLines;
@@ -85,6 +86,10 @@ namespace Hexiege.Infrastructure
         private static int _corridorStationaryAlignment;
         private static int _corridorRepathRequired;
         private static int _corridorStartTileEgressFrames;
+        private static int _centerCheckpointsReached;
+        private static double _maximumCenterCheckpointErrorWorld;
+        private static int _chaseDirectSafeFrames;
+        private static int _chasePathFrames;
         private static int _spatialTransitionsPlanned;
         private static int _spatialTransitionsCommitted;
         private static int _spatialNoTransitionPlans;
@@ -397,6 +402,42 @@ namespace Hexiege.Infrastructure
                     _corridorRepathRequired++;
                     break;
             }
+        }
+
+        internal static void ObserveCenterCheckpoint(double errorWorld)
+        {
+            if (!_active || !_isServer) return;
+            if (double.IsNaN(errorWorld) || double.IsInfinity(errorWorld)
+                || errorWorld < 0d)
+            {
+                RecordAdapterFailure(
+                    "center-checkpoint-error-invalid",
+                    $"errorWorld={errorWorld}",
+                    emitLog: true);
+                return;
+            }
+
+            IncrementBounded(ref _centerCheckpointsReached);
+            _maximumCenterCheckpointErrorWorld = Math.Max(
+                _maximumCenterCheckpointErrorWorld,
+                errorWorld);
+            if (errorWorld > UnitMovementEvaluationAdapter.PositionTolerance)
+            {
+                RecordAdapterFailure(
+                    "center-checkpoint-outside-tolerance",
+                    $"errorWorld={errorWorld:F9}, " +
+                    $"tolerance={UnitMovementEvaluationAdapter.PositionTolerance:F9}",
+                    emitLog: true);
+            }
+        }
+
+        internal static void ObserveChaseApproach(bool directSafe)
+        {
+            if (!_active || !_isServer) return;
+            if (directSafe)
+                IncrementBounded(ref _chaseDirectSafeFrames);
+            else
+                IncrementBounded(ref _chasePathFrames);
         }
 
         internal static void ObserveSpatialFinalCandidate(
@@ -1003,7 +1044,11 @@ namespace Hexiege.Infrastructure
                 $"corridorReducedDirect={_corridorReducedDirect}, " +
                 $"corridorStationaryAlignment={_corridorStationaryAlignment}, " +
                 $"corridorRepathRequired={_corridorRepathRequired}, " +
-                $"corridorStartTileEgressFrames={_corridorStartTileEgressFrames}"));
+                $"corridorStartTileEgressFrames={_corridorStartTileEgressFrames}, " +
+                $"centerCheckpointsReached={_centerCheckpointsReached}, " +
+                $"maximumCenterCheckpointErrorWorld={_maximumCenterCheckpointErrorWorld:F9}, " +
+                $"chaseDirectSafeFrames={_chaseDirectSafeFrames}, " +
+                $"chasePathFrames={_chasePathFrames}"));
             records.Add(new TerminalRecord(
                 "terminal-summary-spatial-commit",
                 $"spatialTransitionsPlanned={_spatialTransitionsPlanned}, " +
@@ -1226,6 +1271,9 @@ namespace Hexiege.Infrastructure
             _corridorFullDirect = _corridorReducedDirect = 0;
             _corridorStationaryAlignment = _corridorRepathRequired = 0;
             _corridorStartTileEgressFrames = 0;
+            _centerCheckpointsReached = 0;
+            _maximumCenterCheckpointErrorWorld = 0d;
+            _chaseDirectSafeFrames = _chasePathFrames = 0;
             _spatialTransitionsPlanned = _spatialTransitionsCommitted = 0;
             _spatialNoTransitionPlans = _spatialTerminalContacts = 0;
             _spatialPreflightFailures = _spatialCommitFailures = 0;
