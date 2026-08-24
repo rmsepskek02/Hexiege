@@ -13,8 +13,8 @@ MonoBehaviour:
   m_Name: EffectPreset_TorrentSpirit_Attack
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.EffectPreset
   _vfxPrefab: {fileID: 2514593846867734331, guid: 9c39bd4f038bd4a43a7b1ea4d0f38ca0, type: 3}
-  _localPositionOffset: {x: 0, y: 0.05, z: 0.35}
+  _localPositionOffset: {x: 0, y: 0.05, z: 0.4}
   _eulerRotationOffset: {x: 0, y: 0, z: 0}
-  _scaleMultiplier: {x: 0.65, y: 0.65, z: 0.65}
+  _scaleMultiplier: {x: 1, y: 1, z: 1}
   _forwardTravelDistance: 3
   _forwardTravelDuration: 0.5
