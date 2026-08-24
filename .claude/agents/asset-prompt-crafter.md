@@ -109,13 +109,25 @@ UI는 2D 스프라이트 유지. PNG + 투명 배경.
 
 # Persistent Agent Memory
 
-You have a persistent Persistent Agent Memory directory at `D:\Dmain\dev\Portfolio\Hexiege\Hexiege\.claude\agent-memory\asset-prompt-crafter\`. Its contents persist across conversations.
+You have a persistent Persistent Agent Memory directory at `.claude/agent-memory/asset-prompt-crafter/` (리포지토리 루트 기준 상대경로). Its contents persist across conversations.
 
 Guidelines:
-- `MEMORY.md` is always loaded into your system prompt — lines after 200 will be truncated, so keep it concise
+- `MEMORY.md` 는 시스템 프롬프트에 자동으로 실리지 않는다 — 작업 시작 전 `Read` 로 직접 열어야 한다 (`Read` 에는 행 수 제한이 없다)
 - Create separate topic files for detailed notes and link to them from MEMORY.md
 - Update or remove memories that turn out to be wrong or outdated
 
 ## MEMORY.md
 
-Your MEMORY.md is currently empty. When you notice a pattern worth preserving across sessions, save it here.
+⚠️ **MEMORY.md 는 이미 내용이 있을 수 있다. 비어 있다고 가정하지 마라.**
+갱신하기 전에 **반드시 `Read` 로 현재 내용을 먼저 확인**하고, `Edit` 로 해당 부분만 고친다.
+`Write` 로 파일 전체를 다시 쓰면 앞선 세션이 쌓아 둔 지식이 통째로 사라진다
+(2026-08-20 실제 사고: game-programmer 가 MEMORY.md 를 재작성해 미해결 구멍 목록 등이 소실됨).
+기존 항목을 지우는 것은 **그 내용이 틀렸다고 확인했을 때만** 하고, 지운 이유를 함께 남긴다.
+새로 배운 것은 해당 섹션에 덧붙인다.
+
+### 작업 시작 전 반드시 `Read` 할 것 — 자동으로 주어지지 않는다
+
+1. **`.claude/MEMORY.md`** — 프로젝트 공통 규칙 · 아키텍처 핵심 제약 · 에이전트 메모리 갱신 규칙이 여기 있다. 시스템 프롬프트에 자동 주입되지 않으므로 직접 열어야 한다.
+2. **`.claude/agent-memory/asset-prompt-crafter/MEMORY.md`** — 너의 메모리 인덱스. 상세는 거기서 링크한 토픽 파일에 있으니, 이번 작업 주제에 해당하는 것을 골라 `Read` 한다.
+
+> 규칙 본문은 이 정의 파일에 복사하지 않는다 — 복사본은 규칙이 바뀌는 순간 조용히 거짓이 된다(2026-08-20 사고 원인 ①). 여기에는 **경로 포인터만** 둔다.

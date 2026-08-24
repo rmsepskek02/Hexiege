@@ -42,6 +42,19 @@ UI/마커(전부 Presentation 로컬):
 - UnitView.CalculateAttackAngle: 실제 transform.position → Atan2 → _meshYOffset 보정
 - BuildingFactory.GetBuildingObject(int buildingId) 추가
 
+## MistShrine 물안개 힐 — 에디터 셋업 진입점 (2026-08-21 복구)
+
+> 2026-08-17 `675203ae` 로 `MEMORY.md` 「주요 파일 위치」 표에서 소실.
+> **셋업 스크립트 경로와 메뉴 순서는 다른 문서에 남아 있지 않은 유일본**이라 여기로 복구한다.
+> (`MistShrineUseCase` / `MistShrinePanelUI` / `MistShrineRangeIndicator` 의 런타임 코드 경로는
+>  `TechnicalDesignDocument.md` · `WORK_HISTORY.md` 에 있어 중복 복구하지 않는다.)
+
+- 에디터 셋업: `Assets/Editor/Setup/MistShrineSetup_Config.cs` · `MistShrineSetup_Scene.cs`
+- **메뉴는 순서대로 실행해야 한다**:
+  `Hexiege/MistShrine/1. Apply Config Values` → `2. Setup Scene (Panel, Range, Network)`
+- 알려진 기술부채: `ProductionPanelUI` 의 `_unitAutoIndicators`(GameObject) ↔ `_unitBorderOverlays`(Image) 가
+  **같은 BorderOverlay 를 이중 배선**한다. 정리는 별도 작업이며, **다른 패널로 복제 금지**(UI 규칙 14).
+
 ## 팀별 초상화 동적 업데이트 (2026-03-14)
 - ProductionPanelUI: UpdateButtonPortraits(TeamId) — Show(barracks) 시 교체
 - BuildingPlacementUI: UpdateButtonPortraits(TeamId) — Show(coord, team) 시 교체

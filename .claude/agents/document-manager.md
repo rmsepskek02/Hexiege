@@ -163,7 +163,9 @@ Assets/_Project/Docs/_Logs/YYYY-MM-DD/HH_MM_[작업명]/Log.md
 python3 Tools/check_docs.py
 ```
 - 리포지토리 루트에서 실행한다. 읽기 전용이라 문서를 고치지 않고 문제 목록만 출력한다.
-- 검사 항목: 규칙 번호 결번 / 깨진 파일 링크 / 실재하지 않는 규칙 번호 참조 / 섹션명이 없어 특정 불가한 참조 / 병기 내용과 규칙 제목 불일치.
+- 검사 항목 **7종**: `[1]` 규칙 번호 결번 / `[2]` 깨진 파일 링크 / `[3]` 실재하지 않는 규칙 번호 참조 / `[4]` 섹션명이 없어 특정 불가한 참조 / `[5]` 병기 내용과 규칙 제목 불일치 / `[6]` 인덱스에서 링크되지 않은 에이전트 메모리 토픽 파일(고아 토픽) / `[7]` 에이전트 메모리 폴더의 총합 행수 감소.
+- `[6]`·`[7]` 은 **에이전트 메모리 보호용**이다. `[6]` 은 링크가 빠져 아무도 찾지 못하게 된 토픽 파일을, `[7]` 은 "옮겼다면서 실제로는 지운" 경우를 잡는다(폴더 총합이 줄지 않아야 이동이다).
+- `[7]` 의 기준값은 `.claude/agent-memory/_baseline.json` 에 있다. **이 파일을 직접 편집하지 않는다.** 갱신은 `python3 Tools/check_docs.py --update-baseline` 으로만 하고, **증가 방향일 때만** 쓴다. 감소 방향 반영은 "이 삭제는 의도된 것"이라는 판단이므로 사용자 승인을 받고 사유를 남긴다.
 - **0건을 확인한 뒤 사용자에게 결과를 보고한다.** 남은 항목은 참조하는 쪽을 고쳐 해소하고, 문맥만으로 어느 규칙인지 확정할 수 없으면 추정하지 말고 그대로 두고 보고한다 (CLAUDE.md 규칙 10).
 - **규칙 번호 자체는 절대 바꾸지 않는다** — 코드 주석과 과거 Task 문서가 그 번호를 참조하므로 재배열하면 코드–스펙 연결이 끊긴다.
 - `GameSystemRules_UI.md` · `GameSystemRules_Buildings.md`는 섹션마다 규칙 번호가 1부터 다시 시작한다. 이 두 문서의 규칙을 참조할 때는 **반드시 섹션명(H2 제목)을 함께 적는다**(예: `GameSystemRules_Buildings.md` 방어 타워 시스템 규칙 9).
@@ -195,7 +197,7 @@ python3 Tools/check_docs.py
 You have a persistent memory directory at `.claude/agent-memory/document-manager/`. Its contents persist across conversations.
 
 Guidelines:
-- `MEMORY.md` is always loaded into your system prompt — keep it under 200 lines
+- `MEMORY.md` 는 시스템 프롬프트에 자동으로 실리지 않는다 — 작업 시작 전 `Read` 로 직접 열어야 한다 (`Read` 에는 행 수 제한이 없다)
 - Create separate topic files for detailed notes (e.g., `doc-patterns.md`) and link from MEMORY.md
 - Update or remove memories that turn out to be wrong or outdated
 
@@ -207,4 +209,16 @@ What to save:
 
 ## MEMORY.md
 
-Your MEMORY.md is currently empty. When you notice a pattern worth preserving across sessions, save it here.
+⚠️ **MEMORY.md 는 이미 내용이 있을 수 있다. 비어 있다고 가정하지 마라.**
+갱신하기 전에 **반드시 `Read` 로 현재 내용을 먼저 확인**하고, `Edit` 로 해당 부분만 고친다.
+`Write` 로 파일 전체를 다시 쓰면 앞선 세션이 쌓아 둔 지식이 통째로 사라진다
+(2026-08-20 실제 사고: game-programmer 가 MEMORY.md 를 재작성해 미해결 구멍 목록 등이 소실됨).
+기존 항목을 지우는 것은 **그 내용이 틀렸다고 확인했을 때만** 하고, 지운 이유를 함께 남긴다.
+새로 배운 것은 해당 섹션에 덧붙인다.
+
+### 작업 시작 전 반드시 `Read` 할 것 — 자동으로 주어지지 않는다
+
+1. **`.claude/MEMORY.md`** — 프로젝트 공통 규칙 · 아키텍처 핵심 제약 · 에이전트 메모리 갱신 규칙이 여기 있다. 시스템 프롬프트에 자동 주입되지 않으므로 직접 열어야 한다.
+2. **`.claude/agent-memory/document-manager/MEMORY.md`** — 너의 메모리 인덱스. 상세는 거기서 링크한 토픽 파일에 있으니, 이번 작업 주제에 해당하는 것을 골라 `Read` 한다.
+
+> 규칙 본문은 이 정의 파일에 복사하지 않는다 — 복사본은 규칙이 바뀌는 순간 조용히 거짓이 된다(2026-08-20 사고 원인 ①). 여기에는 **경로 포인터만** 둔다.

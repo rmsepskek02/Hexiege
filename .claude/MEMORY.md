@@ -1,6 +1,25 @@
 # 에이전트 공용 컨텍스트
 
 > **모든 에이전트는 작업 시작 전 이 파일을 반드시 읽을 것.**
+>
+> 이 파일은 **시스템 프롬프트에 자동 주입되지 않는다.** 각 에이전트 정의 `.claude/agents/<이름>.md` 의 「작업 시작 전 반드시 `Read` 할 것」 지시를 따라 **`Read` 로 직접 열어야** 도달한다(그 지시를 2026-08-21에 6개 정의 파일 전부에 넣어 위 문장이 비로소 사실이 되었다).
+> 그리고 **여기서부터** 문서 인덱스 `AGENTS.md`(→ 아래 「주요 문서 경로」)와 각자의 `.claude/agent-memory/<이름>/MEMORY.md`(→ 아래 「에이전트별 MEMORY.md 경로」)로 이어진다. 이 파일이 그 두 곳으로 가는 **분기점**이다.
+
+### 자동 주입 경계 (2026-08-21 프로브 실측)
+
+qa-tester · game-design-lead · asset-prompt-crafter · project-orchestrator 4개 에이전트에게 **도구를 하나도 쓰지 말고 시스템 프롬프트 내용만으로 답하라**고 지시해 확인했다. 4건 결과가 일치한다.
+
+| 층 | 에이전트 시스템 프롬프트에 자동 주입되는가 |
+|---|---|
+| `CLAUDE.md` | ✅ **예** — 규칙 번호 · `2026-03-03` 날짜 · 체크리스트 항목까지 정확히 인용했다 |
+| 에이전트 정의 `.claude/agents/<이름>.md` | ✅ **예** — 단, **자기 것만** (6개가 각각 별도 파일) |
+| `AGENTS.md` | ❌ 아니오 — 문서 인덱스인데 도달 경로가 **이 파일 경유뿐**이다 |
+| `.claude/MEMORY.md` (이 파일) | ❌ 아니오 |
+| 각 에이전트 `MEMORY.md` | ❌ 아니오 |
+
+- 즉 메모리는 **잘려서 일부만 보이는 것이 아니라 애초에 0행이 실린다.** 에이전트가 메모리를 아는 유일한 방법은 `Read` 이고, **`Read` 에는 200행 제한이 없다.**
+- **자동 주입되는 것은 다른 곳에 옮겨 적지 않는다** — 사본은 원본이 바뀌는 순간 조용히 거짓이 된다. `CLAUDE.md` 는 사용자·메인 세션의 소통용 기초 문서이며 자동 주입은 부수효과다.
+- ⚠️ **에이전트 프롬프트에 적힌 사실 주장은 검증 없이 인용하지 않는다.** `lines after 200 will be truncated` 한 줄을 검증 없이 믿어 여러 문서로 퍼뜨린 것이 2026-08-21 정정 작업의 원인이다.
 
 ---
 
@@ -29,11 +48,23 @@
 
 ---
 
-## 절대 규칙 참조
-→ `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/CLAUDE.md`
+## 🔴 에이전트 메모리 갱신 규칙 (예외 없음)
 
-## 작업 사이클 상세 참조
-→ `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/Assets/_Project/Docs/WORKFLOW.md`
+1. 자기 `MEMORY.md` 갱신은 **`Read` → `Edit`**. **`Write` 로 파일 전체를 다시 쓰지 않는다.**
+2. **비어 있다고 가정하지 않는다** — 갱신 전 반드시 먼저 읽는다.
+3. 기존 항목 **삭제는 그 내용이 틀렸다고 확인했을 때만** 하고 **지운 이유를 함께 남긴다.** "정리했다"·"간결하게 줄였다"는 삭제 사유가 못 된다.
+4. **`MEMORY.md` 는 「인덱스 + 매 작업마다 필요한 것」만 담는다.** 지나간 작업 기록·세부 사항은 토픽 파일로 빼되 **반드시 인덱스에서 링크한다.**
+   - **1차 기준은 성격이다** — 이유는 절삭이 아니라 **매 작업마다 읽는 파일이라 가벼워야 하기 때문**이다. (종전 "200행 초과분은 잘려서 안 보인다"는 **거짓으로 확인됐다** → 위 「자동 주입 경계」)
+   - **2차 기준은 경고선 250행.** 실측 근거: 인덱스 구조가 잡힌 쪽이 game-programmer 132 · document-manager 131 · asset-prompt-crafter 166, 이력이 쌓인 쪽이 game-design-lead 254 · project-orchestrator 325 · qa-tester 502(2026-08-21 기준).
+   - **토픽 파일에는 상한을 두지 않는다** — 필요할 때만 선택적으로 읽으므로. (`work-history.md` 819행은 문제가 아니다)
+5. **링크 없는 토픽 파일은 존재하지 않는 것과 같다.** 자동 주입이 없다는 것이 밝혀진 지금 **오히려 더 중요해졌다** — 인덱스의 링크가 토픽 파일에 도달하는 **유일한 발견 경로**다. 링크를 빠뜨리면 그 파일은 아무도 찾지 못한다.
+6. 토픽으로 옮길 때는 **에이전트 폴더 전체 행수 합이 줄지 않아야 한다** — 이동과 삭제를 구분하는 유일한 검증법.
+
+> **실측 사고 기록(실제 손실):** 2026-08-17 `675203ae` game-programmer **-378행**(미복구) · 2026-08-20 `bcf45ec1` 같은 파일 **-18행**(`405538c7` 복원) · game-programmer 고아 토픽 **16개 1,839행**. 손실 경로가 ①덮어쓰기 ②고아 토픽(링크 누락)으로 **서로 다르므로 위 6개 항목을 모두 지킨다.** (커밋 해시·증감 수치는 당시 호출 세션이 측정한 값이며, 규칙 5로 git 명령을 쓸 수 없어 이 문서에서 재검증하지 않았다.)
+>
+> **품질 항목(손실 아님):** **세분화 권장 3개** — qa-tester 502 · project-orchestrator 325 · game-design-lead 254. 종전에는 이것을 "200행 초과 = 잘려서 안 보임"으로 적어 **손실 위험**으로 분류했으나 **2026-08-21 프로브로 그 전제가 거짓임이 확인됐다.** 잘리는 것이 아니라 **읽는 비용**의 문제이므로 **손실 방지가 아니라 품질 개선(오해 방지) 항목**이다.
+>
+> 🔴 **그 결과 드러난 사실: 「3개 에이전트 1,081행 분산」은 애초에 불필요한 작업이었다.** 없는 문제를 고치려고 1,081행을 옮길 뻔했고, **그 이동 자체가 2026-08-17과 같은 모양의 실제 손실 위험**이었다. 전제를 검증하지 않은 채 착수하는 대량 이동이 가장 위험하다.
 
 ---
 
@@ -41,12 +72,12 @@
 
 | 에이전트 | MEMORY.md 경로 |
 |---------|---------------|
-| game-programmer | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/game-programmer/MEMORY.md` |
-| game-design-lead | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/game-design-lead/MEMORY.md` |
-| qa-tester | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/qa-tester/MEMORY.md` |
-| asset-prompt-crafter | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/asset-prompt-crafter/MEMORY.md` |
-| project-orchestrator | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/project-orchestrator/MEMORY.md` |
-| document-manager | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/document-manager/MEMORY.md` |
+| game-programmer | `.claude/agent-memory/game-programmer/MEMORY.md` |
+| game-design-lead | `.claude/agent-memory/game-design-lead/MEMORY.md` |
+| qa-tester | `.claude/agent-memory/qa-tester/MEMORY.md` |
+| asset-prompt-crafter | `.claude/agent-memory/asset-prompt-crafter/MEMORY.md` |
+| project-orchestrator | `.claude/agent-memory/project-orchestrator/MEMORY.md` |
+| document-manager | `.claude/agent-memory/document-manager/MEMORY.md` |
 
 ---
 
@@ -58,8 +89,11 @@
 | 로드맵 | `Assets/_Project/Docs/ROADMAP.md` |
 | 기획서 | `Assets/_Project/Docs/GameDesignDocument.md` |
 | 기술설계 | `Assets/_Project/Docs/TechnicalDesignDocument.md` |
-| 작업 사이클 규칙 | `Assets/_Project/Docs/WORKFLOW.md` |
-| 에이전트 & 문서 인덱스 | `AGENTS.md` |
+| 작업 사이클 규칙 | `Assets/_Project/Docs/WORKFLOW.md` — **자동 주입 없음.** `CLAUDE.md` 체크리스트 [1]이 읽으라고 지시하는 대상이므로 경로를 반드시 유지한다 |
+| 에이전트 & 문서 인덱스 | `AGENTS.md` — **자동 주입 없음.** 필요한 문서를 찾아갈 때의 인덱스이며, 도달 경로는 이 파일 경유뿐이다 |
+| AI 실수 기록 | `.claude/mistakes.md` — **자동 주입 없음.** 같은 부류의 작업을 시작하기 전에 **목차를 훑고** 걸리는 항목만 펼쳐 읽는다. 실수를 인지하면 그 자리에서 덧붙인다 |
+
+> `CLAUDE.md` 는 **자동 주입되므로 이 파일에 옮겨 적지 않는다**(종전의 「절대 규칙 참조 → `CLAUDE.md`」 절은 2026-08-21에 이 사유로 제거). `WORKFLOW.md` 는 자동 주입되지 않으므로 위 표에 경로를 남겼다 — 종전의 「작업 사이클 상세 참조」 절은 이 표 행과 같은 내용이라 표로 합쳤다.
 
 ---
 
