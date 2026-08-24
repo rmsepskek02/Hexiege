@@ -168,6 +168,16 @@ type: project
   `ServerRpc` 계열 전반(호출 주체가 UI 입력이라 성격이 다름),
   `ProductionTicker.Update`(`Presentation` — 종료 가드 없음. 길목으로는 더 근본적이나 동작 변경이라 별도 설계 판단 필요).
 
+#### 실기 결과 (2026-08-24) — **회귀 없음. 단, 8곳 중 2곳만 발화가 확인됐다**
+
+근거 `_Logs/_editor/2026-08-24/RuntimeLog.txt`(13,003행) — **`[ERROR]` 0건 · 3경기 정상 종료 · `게임 종료 — 전투 틱 정지` 1경기에 1회(446행)**.
+무작위 매칭이라 **1경기 호스트 → 2·3경기 클라이언트**로 역할이 바뀌어 **클라이언트 쪽 로그를 처음 수집**했다.
+
+- ✅ 서버 발화가 로그에 남은 것: `NetworkGameEndController.OnGameEndServer`(447행 1회) · `NetworkProductionController.OnUnitProduced`(1경기 189회).
+- ⚠️ **나머지 6곳은 가드 아래 본문에 호출당 로그가 없어 발화 횟수를 셀 수 없다** — 바로 위 *"가드에는 로그를 넣지 않는다"* 의 **대가**다. 규칙을 바꾸자는 뜻이 아니라, **이 관례를 쓰는 한 「가드가 통과시켰다」는 로그로 증명되지 않는다**는 사실을 알고 있으라는 것.
+- 🔴 **`IsServer` 가 새로 붙은 `NetworkResourceSync`·`NetworkTileSync` 의 근거를 섞지 말 것.** 클라 구간의 `클라이언트 골드를 서버 값으로 보정`(6,168건) · `타일 동기화 수신`(733건)은 **상대 호스트가 보낸 것**이라 우리 서버 가드의 근거가 아니다. 서버 근거는 1경기의 `서버 모드로 … 동기화 시작`(37·43행) = **분기 진입·구독 성립**과, `서버 유닛 생산 완료` 189회 + 정상 종료 = **골드가 실제로 흘렀다**는 간접 근거까지다.
+- **NGO 스폰 순서 경합은 실재하며 재시도로 흡수된다** — 클라 구간에서 `SpawnUnitClientRpc — UnitView 초기화 지연` **319건**에 `RetryInitializeUnitView — 초기화 성공` **319건**이 1:1 대응하고 **실패 0건**(대기 0.01~0.06초). 호스트 구간에는 **0건**이다. 이 경고는 `bcf45ec1` 과 무관하며 **2026-07-19부터 있던 코드**다(※ `git log -S` = 호출 세션 측정값).
+
 ### 게임 종료 후 서버 틱 정지 — `_combatStopped` 패턴
 
 `NetworkCombatController` 가 `GameEvents.OnGameEnd` 를 **서버 전용**으로 구독해 `_combatStopped=true` 로 만들고,
@@ -190,6 +200,11 @@ type: project
   → **`OnNetworkSpawn`(IsServer 분기) + `OnNetworkDespawn` 양쪽에서 `false` 로 초기화.**
   같은 파일의 `_attackTimer` / `_lastCarry` 가 정확히 그 두 자리에서 리셋되므로 **그 옆줄에 붙인다**
   ("이 자리는 경기마다 리셋하는 자리" 가 눈에 보이게).
+- ⚠️ **리셋의 실기 검증은 2026-08-19 「재경기 2회 연속 통과」가 유일하다 — 2026-08-24 세션은 이것을 재확인하지 못했다.**
+  그 세션은 **2·3경기에 에디터가 클라이언트**였고, 가드가 `if (!IsSpawned || !IsServer || _combatStopped) return;` 이라
+  **`_combatStopped` 를 평가하기 전에 `!IsServer` 에서 반환**된다. 2·3경기 사망 로그는 전부 `EntityDiedClientRpc 수신 → 클라 처리`
+  경로였고(`서버: 유닛 사망` 0건) **상대 호스트의 틱이 돈 것**이다. **재확인 조건: 에디터가 호스트로 연속 2경기.**
+  > **여기서 얻을 교훈:** 단락 평가로 앞 조건에서 반환되는 가드는, **뒷 조건이 실제로 평가되는 구간이 로그에 있어야만** 검증된다.
 - 재경기 경로: `NetworkGameEndController.StartRematch`(432~481행)는 동적 NetworkObject 만 명시 Despawn 하고
   씬 오브젝트(`IsSceneObject==true`)는 건드리지 않은 채 `SceneManager.LoadScene("Game", Single)` 로 맡긴다.
   NGO 가 인스턴스를 재사용하든 새로 만들든 **어느 쪽이어도 안전한 형태**를 택한 것.
