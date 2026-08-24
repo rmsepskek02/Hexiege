@@ -24022,7 +24022,7 @@ MonoBehaviour:
   _ringThickness: 0.14
   _dotScale: 0.14
   _yOffset: 0.05
-  _baseDiameter: 1
+  _baseDiameterOverride: 0
 --- !u!4 &948346800
 Transform:
   m_ObjectHideFlags: 0
@@ -28783,7 +28783,7 @@ MonoBehaviour:
   _visualMultiplier: 1
   _ringThickness: 0.08
   _yOffset: 0.05
-  _baseDiameter: 1
+  _baseDiameterOverride: 0
 --- !u!4 &1176548481
 Transform:
   m_ObjectHideFlags: 0
@@ -46901,10 +46901,6 @@ MonoBehaviour:
   - {fileID: 1571004421}
   - {fileID: 1040588335}
   - {fileID: 2024826449}
-  _unitAutoIndicators:
-  - {fileID: 421601954}
-  - {fileID: 2109204902}
-  - {fileID: 1950394263}
   _autoProductionMaterial: {fileID: 2100000, guid: 9db30641b36bfbe4c8cc66830cb39e94, type: 2}
   _borderSpeed: 5
   _borderThickness: 0.05
@@ -47455,11 +47451,11 @@ MonoBehaviour:
     blueIcon: {fileID: 21300000, guid: 2267dbc28801e2a4d914ad87993e637d, type: 3}
     redIcon: {fileID: 21300000, guid: 5ba10d658b4b69843ad917b71bc42701, type: 3}
   - buildingType: 17
-    blueIcon: {fileID: -8046804717842630876, guid: 3ca8d5e59b90caa40824ec6823994ff8, type: 3}
-    redIcon: {fileID: 4040002565591908939, guid: 431393d5adce19946a9f1e5c8977cd32, type: 3}
+    blueIcon: {fileID: 21300000, guid: 3ca8d5e59b90caa40824ec6823994ff8, type: 3}
+    redIcon: {fileID: 21300000, guid: 431393d5adce19946a9f1e5c8977cd32, type: 3}
   - buildingType: 19
-    blueIcon: {fileID: -976133490684811521, guid: 45c6b37594d84f94d86d42a35fecf1b9, type: 3}
-    redIcon: {fileID: 7173698737164273524, guid: e409147d33b075f459e8f14e46b211d3, type: 3}
+    blueIcon: {fileID: 21300000, guid: 45c6b37594d84f94d86d42a35fecf1b9, type: 3}
+    redIcon: {fileID: 21300000, guid: e409147d33b075f459e8f14e46b211d3, type: 3}
   - buildingType: 20
     blueIcon: {fileID: 21300000, guid: c886ab3a5055dde4992647d832819178, type: 3}
     redIcon: {fileID: 21300000, guid: 3ade714221685d545bb0fa4705f71de6, type: 3}
