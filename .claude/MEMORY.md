@@ -91,6 +91,7 @@ qa-tester · game-design-lead · asset-prompt-crafter · project-orchestrator 4�
 | 기술설계 | `Assets/_Project/Docs/TechnicalDesignDocument.md` |
 | 작업 사이클 규칙 | `Assets/_Project/Docs/WORKFLOW.md` — **자동 주입 없음.** `CLAUDE.md` 체크리스트 [1]이 읽으라고 지시하는 대상이므로 경로를 반드시 유지한다 |
 | 에이전트 & 문서 인덱스 | `AGENTS.md` — **자동 주입 없음.** 필요한 문서를 찾아갈 때의 인덱스이며, 도달 경로는 이 파일 경유뿐이다 |
+| AI 실수 기록 | `.claude/mistakes.md` — **자동 주입 없음.** 같은 부류의 작업을 시작하기 전에 **목차를 훑고** 걸리는 항목만 펼쳐 읽는다. 실수를 인지하면 그 자리에서 덧붙인다 |
 
 > `CLAUDE.md` 는 **자동 주입되므로 이 파일에 옮겨 적지 않는다**(종전의 「절대 규칙 참조 → `CLAUDE.md`」 절은 2026-08-21에 이 사유로 제거). `WORKFLOW.md` 는 자동 주입되지 않으므로 위 표에 경로를 남겼다 — 종전의 「작업 사이클 상세 참조」 절은 이 표 행과 같은 내용이라 표로 합쳤다.
 

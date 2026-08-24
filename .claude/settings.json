@@ -1,16 +1,5 @@
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cat CLAUDE.md",
-            "statusMessage": "CLAUDE.md 로딩 중..."
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Agent",
