@@ -802,3 +802,8 @@ Build_BackUpThisFolder_ButDontShipItWithYourGame/Managed/UnityEngine.TextCoreFon
 Build_BackUpThisFolder_ButDontShipItWithYourGame/Managed/UnityEngine.TextRenderingModule.dll
 Build_BackUpThisFolder_ButDontShipItWithYourGame/Managed/UnityEngine.UIModule.dll
 Build_BackUpThisFolder_ButDontShipItWithYourGame/Managed/UnityLinkerToEditorData.json
+
+# 파이썬 바이트코드 캐시 (Tools/check_docs.py 실행 시 생성)
+# 소스에서 자동 생성되는 산출물이라 커밋하지 않는다.
+__pycache__/
+*.py[cod]
