@@ -79,7 +79,7 @@ MonoBehaviour:
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
   - unitType: 15
-    attackPreset: {fileID: 0}
+    attackPreset: {fileID: 11400000, guid: 03d1d55cf026a8346a268bb3c5d88d51, type: 2}
     deathPreset: {fileID: 11400000, guid: 65d4cbf4613902a4687ea27844a4ee67, type: 2}
     hitPreset: {fileID: 0}
     tracerPreset: {fileID: 0}
