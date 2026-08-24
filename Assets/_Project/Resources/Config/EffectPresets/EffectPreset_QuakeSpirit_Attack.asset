@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 42d2b12a396127a48a807b6549418404, type: 3}
-  m_Name: EffectPreset_TorrentSpirit_Attack
+  m_Name: EffectPreset_QuakeSpirit_Attack
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.EffectPreset
-  _vfxPrefab: {fileID: 2514593846867734331, guid: 9c39bd4f038bd4a43a7b1ea4d0f38ca0, type: 3}
-  _localPositionOffset: {x: 0, y: 0.05, z: 0.4}
+  _vfxPrefab: {fileID: 768439002192069519, guid: 6d2d8817c7b365a43b5d08f24b4c8a60, type: 3}
+  _localPositionOffset: {x: 0, y: 0.05, z: 0.5}
   _eulerRotationOffset: {x: 0, y: 0, z: 0}
   _scaleMultiplier: {x: 1, y: 1, z: 1}
-  _forwardTravelDistance: 3
-  _forwardTravelDuration: 0.5
+  _forwardTravelDistance: 0
+  _forwardTravelDuration: 0
