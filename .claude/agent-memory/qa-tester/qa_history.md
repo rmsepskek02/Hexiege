@@ -152,6 +152,11 @@
 ### task 문서
 `Assets/_Project/Docs/_Tasks/2026-04-07/09_00_faction-ingame-apply/Testcase.md`
 
+> **[2026-08-24 중복 제거 — 삭제 사유]** 이 파일 522행에 **소제목 한 줄만 다른 동일 사본**이 있어 제거했다
+> (파이썬 대조 결과 11행 중 10행 완전 일치, 다른 줄은 `### 정적 분석 발견 사항` ↔ `### 핵심 발견 사항` 뿐).
+> 본문이 필드명 충돌·셋업 스크립트·중복 호출 같은 **정적 분석 결과**이므로 이쪽 소제목이 더 정확해 이 절을 남겼다.
+> 원본이 `qa-tester/MEMORY.md` 와 이 파일 양쪽에 있어 직전 라운드(2026-08-24 2차 이관) 때 겹쳤다.
+
 ---
 
 ## 전투 거리 정밀도 QA (2026-03-02 수정, QA 완료)
@@ -200,8 +205,9 @@
 > `MEMORY.md` 는 매 작업마다 읽는 파일이라 「매번 필요한 규칙·체크리스트」만 남기고 이력은 여기로 옮겼다
 > (근거: `.claude/MEMORY.md` 「🔴 에이전트 메모리 갱신 규칙」 4).
 > **본문은 한 글자도 고치지 않은 원문 그대로이며 날짜 역순으로 정렬했다.**
-> ⚠️ 「종족 인게임 적용 QA (2026-04-07 완료)」는 이 파일 위쪽에 이미 같은 내용이 있다(소제목만 「정적 분석 발견 사항」 ↔ 「핵심 발견 사항」으로 다름).
-> 어느 쪽이 틀렸다고 확인된 바 없어 **지우지 않고 양쪽 다 남긴다.**
+> ✅ **2026-08-24 해소:** 이관 당시 「종족 인게임 적용 QA (2026-04-07 완료)」가 이 파일 위쪽 것과 겹쳐 양쪽 다 남겼으나,
+> 파이썬 대조로 **소제목 한 줄 외 완전 일치(11행 중 10행 동일)** 임이 확인되어 **이관본 쪽 사본을 제거**했다.
+> 남은 것은 위쪽 「종족 인게임 적용 QA (2026-04-07 완료)」 절 하나뿐이며, 삭제 사유는 그 절 아래에 적어 두었다.
 
 ### 2026-07-20 - InfernoSpirit(지옥불 정령) 단일 대상 DoT QA (정적 분석, PASS)
 - 검증 범위: InfernoAttackBehavior(신규), SpecialAttackRegistry 등록, SpecialAttackContext.ApplyInfernoDot 델리게이트,
@@ -518,15 +524,3 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 ### task 문서
 `Assets/_Project/Docs/_Tasks/2026-04-12/06_42_stats-apply/Testcase.md`
 `Assets/_Project/Docs/_Tasks/2026-04-12/18_03_floating-hp-text/Testcase.md`
-
-## 종족 인게임 적용 QA (2026-04-07 완료)
-
-### 최종 판정: PASS (SINGLE-01~06, MULTI-01 실기 통과)
-
-### 핵심 발견 사항
-- `_bluePrefabs` / `_redPrefabs` 필드명이 BuildingFactory에도 동일하게 존재 → Grep 시 클래스명 함께 확인 필수
-- Inspector 필드 재연결이 필요한 작업은 에디터 설정 스크립트(`Hexiege/Setup/...`) 실행 여부 반드시 확인
-- BattleViewModel + GameBootstrapper 양쪽에서 GameRaceContext.Set() 중복 호출 — 동작 오류 없음 (Minor 잔존)
-
-### task 문서
-`Assets/_Project/Docs/_Tasks/2026-04-07/09_00_faction-ingame-apply/Testcase.md`

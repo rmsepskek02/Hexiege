@@ -113,7 +113,6 @@
 | `.claude/agent-memory/asset-prompt-crafter/MEMORY.md` | asset-prompt-crafter 누적 지식 | ❌ 수동 |
 | `.claude/agent-memory/project-orchestrator/MEMORY.md` | project-orchestrator 누적 지식 | ❌ 수동 |
 | `.claude/agent-memory/document-manager/MEMORY.md` | document-manager 누적 지식 | ❌ 수동 |
-| `C:\Users\rmsep\.claude\projects\...\memory\` | 프로젝트 상태/학습 메모리 | ✅ 항상 |
 
 ---
 
@@ -152,4 +151,4 @@
 | 버그 수정 / 취약점 발견 | qa-tester MEMORY.md |
 | 3D 에셋 작업 | asset-prompt-crafter MEMORY.md |
 | 문서 구조 변경 / 신규 에이전트 추가 | document-manager MEMORY.md |
-| 모든 작업 완료 후 | `C:/Users/rmsep/.claude/projects/.../memory/MEMORY.md` |
+| 모든 작업 완료 후 | `.claude/MEMORY.md` (에이전트 공용) |
