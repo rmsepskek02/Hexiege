@@ -5,7 +5,7 @@
     "이전 상태를 어딘가에 적어 둬야 하는데, CLAUDE.md 규칙 5 로 git 명령이 금지돼 있어",
     "git 이력에서 가져올 수 없다. 그래서 이 파일에 적어 둔다.",
     "",
-    "준거: .claude/MEMORY.md 39행 「토픽으로 옮길 때는 에이전트 폴더 전체 행수 합이 줄지 않아야 한다",
+    "준거: .claude/MEMORY.md 갱신 규칙 6 「토픽으로 옮길 때는 에이전트 폴더 전체 행수 합이 줄지 않아야 한다",
     "      — 이동과 삭제를 구분하는 유일한 검증법」"
   ],
   "_왜_MEMORY_md_에_안_적고_별도_파일인가": [
@@ -25,7 +25,7 @@
     "",
     "증가 방향(정상적인 성장)은 자유롭게 갱신해도 된다.",
     "감소 방향을 기준값에 반영하는 것은 '이 삭제는 의도된 것'이라는 판단이므로",
-    "사용자 승인을 받고, 아래 change_log 에 줄어든 행수와 사유를 함께 남긴다(.claude/MEMORY.md 36행)."
+    "사용자 승인을 받고, 아래 change_log 에 줄어든 행수와 사유를 함께 남긴다(.claude/MEMORY.md 갱신 규칙 3)."
   ],
   "_행수_세는_법": "파일 내용을 splitlines() 한 개수. 마지막 줄에 개행이 없어도 1행으로 센다.",
   "measured_at": "2026-08-24",
@@ -36,7 +36,7 @@
     },
     "document-manager": {
       "files": 1,
-      "lines": 178
+      "lines": 206
     },
     "game-design-lead": {
       "files": 3,
@@ -44,7 +44,7 @@
     },
     "game-programmer": {
       "files": 19,
-      "lines": 2534
+      "lines": 2549
     },
     "project-orchestrator": {
       "files": 3,
@@ -52,7 +52,7 @@
     },
     "qa-tester": {
       "files": 3,
-      "lines": 754
+      "lines": 812
     }
   },
   "_known_orphans_란": [

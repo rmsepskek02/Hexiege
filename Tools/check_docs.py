@@ -36,7 +36,7 @@ Hexiege 문서 정합성 검사기
 사람 눈으로는 못 잡는다. 노트는 겉보기에 멀쩡하고,
 없어진 줄이 무엇이었는지는 없어진 뒤에는 알 방법이 없다. 그래서 기계가 잡는다.
 
-준거는 `.claude/MEMORY.md` 32~44행 「🔴 에이전트 메모리 갱신 규칙」이며,
+준거는 `.claude/MEMORY.md` 「🔴 에이전트 메모리 갱신 규칙」이며,
 그중 **기계가 집행할 수 있는 5번·6번**을 각각 검사 [6]·[7] 로 구현했다.
 
     갱신 규칙 5  링크 없는 토픽 파일은 존재하지 않는 것과 같다        → 검사 [6]
@@ -56,7 +56,11 @@ Hexiege 문서 정합성 검사기
     # 검사 [7] 의 기준값을 현재 상태로 갱신 (사람이 명시적으로 실행. 아래 주의 참조)
     python3 Tools/check_docs.py --update-baseline
 
+    # 감소가 하나라도 포함된 갱신은 사유를 반드시 함께 준다 (없으면 거부된다)
+    python3 Tools/check_docs.py --update-baseline --reason "중복 절 제거, 사용자 승인 완료"
+
 종료 코드: 문제가 없으면 0, 하나라도 있으면 1.
+           `--update-baseline` 은 갱신에 성공하면 0, 사유 없이 감소를 반영하려다 거부되면 2.
 
 ⚠️ 기준값은 자동으로 갱신되지 않는다
 ------------------------------------
@@ -66,6 +70,41 @@ Hexiege 문서 정합성 검사기
 자동 갱신을 허용하면 **감소가 그대로 새 기준이 되어**,
 사고 직후 도구를 한 번 돌리는 것만으로 사고가 지워지기 때문이다.
 "줄었다"는 판단은 사람이 확인하고 사람이 반영한다.
+
+⚠️ 감소를 반영하려면 `--reason` 이 필요하다 (2026-08-24 추가)
+-------------------------------------------------------------
+기준값 파일의 `_갱신하는_법` 은 **감소를 반영할 때 사유를 `change_log` 에 남기라**고 요구한다.
+그런데 종전의 `--update-baseline` 은 "남겨라"라고 **출력만 하고 그냥 갱신했다.**
+안 남겨도 아무 일도 일어나지 않으니, 실제로 2026-08-24 의 qa-tester -2행 반영 때
+`change_log` 항목은 사람이 손으로 적어야 했다. 다음 사람은 안 적을 것이고,
+그러면 감소가 사유 없이 조용히 새 기준이 된다 — 이 도구가 막으려던 바로 그 상태다.
+
+그래서 규칙을 "지키자"에서 "기계가 잡는다"로 옮겼다:
+
+    감소가 하나라도 포함  +  --reason 없음   →  🔴 거부. 기준값 파일을 건드리지 않고 끝낸다.
+    감소가 하나라도 포함  +  --reason 있음   →  갱신 + change_log 에 항목 자동 추가
+    증가만 있음                              →  --reason 없이 그대로 통과 (승인 불필요)
+
+증가만 있을 때 `--reason` 을 요구하지 않는 근거는 기준값 파일 `_갱신하는_법` 이다 —
+"증가 방향(정상적인 성장)은 자유롭게 갱신해도 된다". 승인이 필요 없는 방향이므로
+`change_log` 항목도 남기지 않는다(항목이 불어나면 정작 중요한 감소 기록이 묻힌다).
+증가만인데도 굳이 기록을 남기고 싶으면 `--reason` 을 붙이면 된다 — 그때는 기록된다.
+
+⚠️ 기준값이 낡으면 감소폭이 실제보다 작게 보인다 (2026-08-24 추가)
+-------------------------------------------------------------------
+검사 [7] 은 **감소만** 봤다. 기준값이 실제보다 **작을 때**(= 증가가 반영되지 않아 낡았을 때)는
+아무 말도 하지 않았고, 그래서 드리프트가 소리 없이 쌓였다.
+
+    2026-08-24 실측: 실제 삭제는 **-6행**이었는데 [7] 은 **-2행**으로 보고했다.
+                     기준값이 2026-08-21 의 756 에 머물러 그 사이의 증가(→760)가
+                     반영돼 있지 않았기 때문이다.
+
+낡은 기준값은 검사를 죽이지는 않지만 **눈금을 어긋나게 한다.** 그래서 [7] 은 이제
+`실제 > 기준값` 인 폴더를 발견하면 「기준값이 낡음」을 함께 알린다.
+
+🔴 다만 그것은 **문제로 집계하지 않고 종료 코드에도 넣지 않는다.** 증가는 정상적인 성장이라
+   집계하면 문서 작업 때마다 종료 코드가 1 이 되어 `WORKFLOW.md` [11]③ 의
+   "0건 확인" 절차가 막힌다. 보이기만 하면 사람이 갱신하므로 안내로 충분하다.
 
 검사하지 않는 것
 ----------------
@@ -84,6 +123,7 @@ Hexiege 문서 정합성 검사기
 """
 
 import argparse
+import datetime
 import json
 import os
 import re
@@ -311,7 +351,7 @@ def check_orphan_topics(memory, baseline):
         에이전트 폴더 안에 있지만 **그 폴더의 MEMORY.md 어디에서도 링크되지 않은** 토픽 파일.
 
     왜 잡는가:
-        `.claude/MEMORY.md` 38행 — **"링크 없는 토픽 파일은 존재하지 않는 것과 같다."**
+        `.claude/MEMORY.md` 갱신 규칙 5 — **"링크 없는 토픽 파일은 존재하지 않는 것과 같다."**
         에이전트는 인덱스(MEMORY.md)를 보고 토픽을 찾아간다.
         인덱스에서 링크가 빠지면 파일은 디스크에 멀쩡히 남아 있는데 아무도 열지 않는다.
         내용이 지워진 것과 결과가 같으면서, 파일이 남아 있어 **더 발견하기 어렵다.**
@@ -336,7 +376,7 @@ def check_orphan_topics(memory, baseline):
     print("=" * 68)
     print("  대상: 각 에이전트 폴더의 MEMORY.md 가 아닌 모든 .md")
     print("  판정: 같은 폴더 MEMORY.md 본문에 마크다운 링크로 등장하지 않으면 고아")
-    print("  근거: .claude/MEMORY.md 38행 — 링크 없는 토픽 파일은 존재하지 않는 것과 같다")
+    print("  근거: .claude/MEMORY.md 갱신 규칙 5 — 링크 없는 토픽 파일은 존재하지 않는 것과 같다")
     print()
 
     # 기준값 파일의 known_orphans 에 등록된 것은 "이미 알고 있는 미해소 항목"이라
@@ -410,7 +450,7 @@ def check_folder_line_totals(memory, baseline, baseline_error):
         에이전트 폴더의 **파일 수 / 총행수**를 기준값과 대조해, 총행수가 줄었으면 보고한다.
 
     왜 잡는가 — 이것이 이동과 삭제를 구분하는 유일한 방법이다:
-        `.claude/MEMORY.md` 39행 — "토픽으로 옮길 때는 폴더 전체 행수 합이 줄지 않아야 한다
+        `.claude/MEMORY.md` 갱신 규칙 6 — "토픽으로 옮길 때는 폴더 전체 행수 합이 줄지 않아야 한다
         — **이동과 삭제를 구분하는 유일한 검증법**".
         내용을 다른 파일로 옮긴 것이라면 총합은 그대로여야 한다. 총합이 줄었다면 옮긴 게 아니라 지워진 것이다.
 
@@ -430,14 +470,33 @@ def check_folder_line_totals(memory, baseline, baseline_error):
         오히려 그 절차가 갱신 규칙 3("삭제는 틀렸다고 확인했을 때만, 지운 이유를 남긴다")을
         기계적으로 강제하는 효과가 있다. 감소가 검사에 걸리므로 이유 없이 지나갈 수 없다.
 
-    반환값: 종료 코드에 반영할 문제 건수
+    ── 함께 알리는 것: 「기준값이 낡음」 (2026-08-24 추가) ──────────
+        위 감소 판정은 기준값을 자로 쓴다. 그런데 그 자가 낡으면 눈금이 어긋난다.
+
+        실측 (2026-08-24):
+            실제 삭제는 **-6행**이었는데 이 검사는 **-2행**으로 보고했다.
+            기준값이 2026-08-21 의 756 에 머물러 그 사이의 증가(→760)가 반영되지 않아
+            "760에서 754로 -6" 이 아니라 "756에서 754로 -2" 로 계산됐기 때문이다.
+            드리프트가 쌓일수록 이후 감소폭은 실제보다 계속 작게 보인다.
+
+        그래서 `실제 > 기준값` 인 폴더를 발견하면 얼마나 차이 나는지 알린다.
+
+        🔴 이것은 **문제로 집계하지 않고 반환값(종료 코드)에도 넣지 않는다.**
+           증가는 정상적인 성장이다. 집계해 버리면 메모리에 한 줄만 보태도 종료 코드가 1 이 되고,
+           그러면 `WORKFLOW.md` [11]③ 의 "0건 확인" 절차가 메모리와 무관한 문서 작업까지 전부 막는다.
+           보이기만 하면 사람이 갱신하므로 안내로 충분하다.
+
+        🔴 출력에서 감소와 **명확히 구분**한다. 감소는 사고일 수 있는 🔴 문제이고,
+           증가 미반영은 눈금 정비 안내다. 한 덩어리로 섞어 내면 감소의 심각성이 희석된다.
+
+    반환값: 종료 코드에 반영할 문제 건수 (「기준값이 낡음」 안내는 여기 들어가지 않는다)
     """
     print()
     print("=" * 68)
     print("[7] 에이전트 메모리 폴더의 총합 행수 감소")
     print("=" * 68)
     print("  기준값과 대조해 총행수가 1행이라도 줄었으면 보고한다(임계값 0).")
-    print("  근거: .claude/MEMORY.md 39행 — 폴더 전체 행수 합이 줄지 않아야 한다")
+    print("  근거: .claude/MEMORY.md 갱신 규칙 6 — 폴더 전체 행수 합이 줄지 않아야 한다")
     print()
 
     # 기준값 파일이 없거나 깨졌으면 조용히 통과시키지 않는다.
@@ -451,6 +510,11 @@ def check_folder_line_totals(memory, baseline, baseline_error):
     recorded = baseline.get("folders", {})
     issues = 0
     found = False
+
+    # 「기준값이 낡음」 안내용으로 따로 모은다.
+    # 🔴 감소 목록과 절대 섞지 않는다 — 섞으면 사고(감소)가 성장(증가) 사이에 묻힌다.
+    #    한 줄에 (에이전트, 기준행수, 실제행수, 기준파일수, 실제파일수) 를 담는다.
+    stale = []
 
     # (1) 기준값에 있는 폴더가 지금 어떻게 됐는지 본다.
     for agent in sorted(recorded):
@@ -470,8 +534,13 @@ def check_folder_line_totals(memory, baseline, baseline_error):
         now_files = len(info["files"])
         now_lines = sum(lines for _, _, lines in info["files"])
 
-        if now_lines >= want_lines:
-            continue  # 유지 또는 증가 — 정상
+        if now_lines > want_lines:
+            # 증가 = 정상적인 성장이라 문제가 아니다. 다만 기준값이 그만큼 낡았다는 뜻이므로
+            # 나중에 안내로 따로 낸다 (issues 에는 넣지 않는다).
+            stale.append((agent, want_lines, now_lines, want_files, now_files))
+            continue
+        if now_lines == want_lines:
+            continue  # 유지 — 정상
 
         delta_lines = now_lines - want_lines            # 항상 음수
         delta_files = now_files - want_files
@@ -507,13 +576,86 @@ def check_folder_line_totals(memory, baseline, baseline_error):
     else:
         print()
         print("  조치: 감소가 의도된 것인지 사람이 먼저 확인한다.")
-        print("        의도된 것이라면 사유를 남긴 뒤 python3 Tools/check_docs.py --update-baseline")
+        print("        의도된 것이라면 사용자 승인을 받고 사유를 붙여 갱신한다:")
+        print('          python3 Tools/check_docs.py --update-baseline --reason "왜 줄었는지"')
         print("        🔴 감소를 기준값에 반영하는 것은 '이 삭제는 의도된 것'이라는 판단이다.")
         print("           확인 없이 갱신하면 사고가 그대로 새 기준이 된다.")
+        print("           그래서 감소를 포함한 갱신은 --reason 없이는 거부되고,")
+        print("           준 사유는 기준값 파일 change_log 에 자동으로 기록된다.")
+
+    # ── 안내: 기준값이 낡음 ────────────────────────────────────
+    # 🔴 위 감소 목록과 시각적으로 확실히 갈라 놓는다. 여기 있는 것은 사고가 아니라 눈금 정비다.
+    #    issues 를 건드리지 않으므로 종료 코드에도 영향이 없다.
+    if stale:
+        total_lines = sum(now - want for _, want, now, _, _ in stale)
+        print()
+        print("  ── 안내: 기준값이 낡음 (문제 아님 · 종료 코드 미반영) ──────────")
+        for agent, want_lines, now_lines, want_files, now_files in stale:
+            print(f"  {agent}: 기준값 {want_lines}행 ↔ 실제 {now_lines}행"
+                  f" ({now_lines - want_lines:+}행)"
+                  f" / 파일 {want_files}개 ↔ {now_files}개 ({now_files - want_files:+})")
+        print(f"  합 {total_lines:+}행 — 증가분이 기준값에 반영되지 않았다.")
+        print()
+        print("  왜 그냥 두면 안 되나: 기준값은 감소를 재는 자다. 자가 낡으면 눈금이 어긋난다.")
+        print("    2026-08-24 실측 — 실제 삭제 -6행이 이 검사에는 -2행으로 보였다.")
+        print("    (기준값이 2026-08-21 의 756 에 멈춰 그 사이의 증가 →760 이 빠져 있었다.)")
+        print("  조치: python3 Tools/check_docs.py --update-baseline")
+        print("        증가만이면 --reason 없이 통과한다(승인이 필요 없는 방향).")
     return issues
 
 
-def update_baseline(memory_root, memory):
+def diff_baseline_folders(old_folders, new_folders):
+    """
+    기준값 갱신 전후를 비교해 **승인이 필요한 것과 필요 없는 것**으로 갈라 놓는다.
+
+    왜 따로 함수로 빼는가:
+        같은 분류를 세 군데에서 쓰기 때문이다 —
+        ① 화면 출력, ② `--reason` 을 요구할지 말지 판정, ③ change_log 에 적을 내용.
+        세 곳이 각자 계산하면 "출력엔 감소라고 찍혔는데 거부는 안 된다" 같은 어긋남이 생긴다.
+
+    판정 기준은 **행수**다 — 검사 [7] 과 같은 잣대를 써야 도구 안에서 말이 엇갈리지 않는다.
+
+    반환값: {"decreased": [...], "increased": [...], "added": [...], "removed": [...]}
+        각 값은 사람이 그대로 읽을 수 있는 한 줄 문자열의 목록이다.
+
+        decreased  총행수가 줄었다              → 🔴 승인 필요 (사고일 수 있다)
+        removed    폴더가 통째로 사라졌다        → 🔴 승인 필요 (가장 큰 손실이라 감소로 친다)
+        increased  총행수가 늘었다              → 정상적인 성장, 승인 불필요
+        added      기준값에 없던 새 폴더        → 감시 대상에 새로 들어오는 것뿐, 승인 불필요
+
+        ⚠️ 행수는 그대로인데 파일 수만 바뀐 경우는 increased 에 넣는다.
+           총합이 보존됐다는 것은 "옮기기만 했다"는 뜻이라 갱신 규칙 6 을 만족하기 때문이다.
+    """
+    decreased, increased, added, removed = [], [], [], []
+
+    for agent in sorted(set(old_folders) | set(new_folders)):
+        before = old_folders.get(agent)
+        after = new_folders.get(agent)
+
+        if before is None:
+            added.append(f"{agent}: 신규 등록 → 파일 {after['files']}개 / {after['lines']}행")
+            continue
+        if after is None:
+            removed.append(f"{agent}: 폴더가 통째로 사라짐"
+                           f" (기준값 파일 {before.get('files')}개 / {before.get('lines')}행 → 0)")
+            continue
+
+        before_lines = int(before.get("lines", 0))
+        before_files = int(before.get("files", 0))
+        d_lines = after["lines"] - before_lines
+        d_files = after["files"] - before_files
+        if d_lines == 0 and d_files == 0:
+            continue  # 바뀐 것이 없다
+
+        line = (f"{agent}: {before_lines}행 → {after['lines']}행 ({d_lines:+}행)"
+                f" / 파일 {before_files}개 → {after['files']}개 ({d_files:+})")
+        (decreased if d_lines < 0 else increased).append(line)
+
+    return {"decreased": decreased, "increased": increased,
+            "added": added, "removed": removed}
+
+
+def update_baseline(memory_root, memory, reason=None, today=None):
     """
     `--update-baseline` 로만 호출된다. 기준값 파일을 현재 상태로 다시 쓴다.
 
@@ -522,8 +664,33 @@ def update_baseline(memory_root, memory):
        **감소가 그대로 새 기준이 되어** 다음 실행부터는 아무 문제도 아니게 된다.
        즉 사고 직후 도구를 한 번 돌리는 것만으로 사고가 지워진다.
 
+    ── `--reason` 을 요구하는 이유 (2026-08-24 추가) ────────────────
+    기준값 파일 `_갱신하는_법` 은 감소를 반영할 때 사유를 `change_log` 에 남기라고 요구한다.
+    그런데 종전 구현은 그 문구를 **출력만 하고 그냥 갱신했다.** 즉 규칙은 "지키자" 쪽에 있고
+    검사는 없었다. 실제로 2026-08-24 의 qa-tester -2행 반영 때 `change_log` 항목은
+    사람이 손으로 적어야 했고, 다음 사람이 안 적으면 감소가 사유 없이 새 기준이 된다.
+
+    그래서 이 함수는 이제 이렇게 동작한다:
+
+        감소 있음 + reason 없음  →  🔴 거부. **파일을 열지도 않고** 그대로 끝낸다(종료 코드 2).
+        감소 있음 + reason 있음  →  갱신 + change_log 에 항목 자동 추가
+        증가만                   →  reason 없이 통과. change_log 항목은 남기지 않는다.
+
+    증가만일 때 기록을 남기지 않는 근거는 기준값 파일 `_갱신하는_법` 이다 —
+    "증가 방향(정상적인 성장)은 자유롭게 갱신해도 된다". 승인이 필요 없는 방향인데다,
+    검사 [7] 이 「기준값이 낡음」을 알리게 된 뒤로는 증가 반영이 잦아진다.
+    잦은 기록으로 목록이 불어나면 정작 중요한 감소 기록이 그 사이에 묻힌다.
+    그래도 남기고 싶으면 `--reason` 을 붙이면 된다 — 그때는 증가만이어도 기록한다.
+
+    인자:
+        reason  사용자가 준 사유 문자열. None 이면 "사유 없음".
+        today   change_log 에 적을 날짜(YYYY-MM-DD). None 이면 오늘 날짜.
+                테스트에서 날짜를 고정하려고 열어 둔 인자다.
+
+    반환값: 갱신했으면 0, 사유 없이 감소를 반영하려다 거부했으면 2.
+
     무엇이 어떻게 바뀌는지 전부 출력한다 — 사람이 눈으로 확인하고 승인할 수 있어야 한다.
-    known_orphans 와 change_log 등 사람이 손으로 적은 내용은 건드리지 않고 그대로 옮긴다.
+    known_orphans 와 밑줄 접두 설명 키 등 사람이 손으로 적은 내용은 건드리지 않고 그대로 옮긴다.
     """
     path = os.path.join(memory_root, BASELINE_FILENAME)
     old, _ = load_baseline(memory_root)
@@ -537,44 +704,83 @@ def update_baseline(memory_root, memory):
             "lines": sum(lines for _, _, lines in info["files"]),
         }
 
+    diff = diff_baseline_folders(old_folders, new_folders)
+    # 폴더가 통째로 사라진 것은 가장 큰 손실이므로 감소와 똑같이 승인 대상으로 묶는다.
+    losses = diff["removed"] + diff["decreased"]
+    gains = diff["added"] + diff["increased"]
+
     print("=" * 68)
     print("기준값 갱신 (--update-baseline)")
     print("=" * 68)
     print(f"  대상 파일: {path}")
     print()
 
-    changed = False
-    for agent in sorted(set(old_folders) | set(new_folders)):
-        before = old_folders.get(agent)
-        after = new_folders.get(agent)
-        if before is None:
-            print(f"  + {agent}: 신규 등록 → {after['files']}개 파일 / {after['lines']}행")
-            changed = True
-        elif after is None:
-            print(f"  - {agent}: 폴더가 사라져 기준값에서 제거"
-                  f" (이전 {before.get('files')}개 파일 / {before.get('lines')}행)")
-            changed = True
-        elif before.get("files") != after["files"] or before.get("lines") != after["lines"]:
-            d = after["lines"] - int(before.get("lines", 0))
-            mark = "🔴 감소" if d < 0 else "증가"
-            print(f"  ~ {agent}: {before.get('lines')}행 → {after['lines']}행 ({d:+}행) [{mark}]"
-                  f" / 파일 {before.get('files')}개 → {after['files']}개")
-            changed = True
-
-    if not changed:
+    if losses:
+        print("  🔴 감소 (사용자 승인이 필요한 방향)")
+        for line in losses:
+            print(f"    - {line}")
+        print()
+    if gains:
+        print("  증가 / 신규 (승인 불필요)")
+        for line in gains:
+            print(f"    + {line}")
+        print()
+    if not losses and not gains:
         print("  바뀐 값이 없다. 기준값은 이미 현재 상태와 같다.")
+        print()
 
-    # 사람이 적어 둔 항목(주석·known_orphans·change_log)을 보존한 채 folders 만 교체한다.
+    # ── 🔴 거부 지점: 감소가 있는데 사유가 없으면 파일을 건드리지 않고 끝낸다 ──
+    # 여기서 return 하기 전에는 절대 파일을 열지 않는다. "거부했는데 반쯤 써 놨다" 가 되면
+    # 사고가 오히려 커진다.
+    if losses and not reason:
+        print("  🔴 거부 — 감소가 포함된 갱신인데 사유(--reason)가 없다.")
+        print("     기준값 파일을 건드리지 않고 그대로 끝낸다.")
+        print()
+        print("     감소를 기준값에 반영하는 것은 '이 삭제는 의도된 것'이라는 판단이다.")
+        print("     사유 없이 반영하면 사고가 그대로 새 기준이 되어 다음 실행부터는")
+        print("     아무 문제도 아니게 된다. 그래서 사유를 필수로 받는다.")
+        print("     (준거: .claude/MEMORY.md 「에이전트 메모리 갱신 규칙」 3번 —")
+        print("      삭제는 틀렸다고 확인했을 때만 하고 지운 이유를 함께 남긴다)")
+        print()
+        print("  조치: ① 위 감소가 의도된 것인지 사람이 확인하고 사용자 승인을 받는다.")
+        print("        ② 승인받았으면 사유를 붙여 다시 실행한다:")
+        print('           python3 Tools/check_docs.py --update-baseline --reason "왜 줄었는지"')
+        print("        준 사유는 기준값 파일 change_log 에 자동으로 기록된다.")
+        print("=" * 68)
+        return 2
+
+    # ── 여기부터 실제 쓰기 ──
+    # 사람이 적어 둔 항목(밑줄 접두 설명 키·known_orphans·기존 change_log)을 보존한 채
+    # folders 만 교체한다. dict(old) 로 통째로 복사하므로 모르는 키도 자동으로 살아남는다.
     data = dict(old) if old else {}
     data["folders"] = new_folders
+
+    # 사유가 주어졌으면 change_log 에 항목을 자동으로 추가한다.
+    # 사람이 손으로 적던 것을 도구가 적게 만드는 것이 이 변경의 핵심이다 —
+    # "남겨라"라고 출력만 하면 안 남기는 사람이 반드시 나온다.
+    if reason:
+        entry = {
+            "date": today or datetime.date.today().isoformat(),
+            "note": ("Tools/check_docs.py --update-baseline --reason 으로 자동 기록. "
+                     f"감소 {len(losses)}건 · 증가/신규 {len(gains)}건."),
+        }
+        if losses:
+            entry["🔴 감소"] = list(losses)
+        if gains:
+            entry["증가"] = list(gains)
+        entry["사유"] = reason
+        data.setdefault("change_log", []).append(entry)
+
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
         f.write("\n")
 
-    print()
     print("  기준값 파일을 갱신했다.")
-    print("  🔴 감소가 포함돼 있다면, 그 감소가 의도된 것인지 사용자 승인을 받고")
-    print("     줄어든 행수와 사유를 기준값 파일 change_log 에 남긴다(.claude/MEMORY.md 36행).")
+    if reason:
+        print(f"  change_log 에 항목을 추가했다 (사유: {reason})")
+    elif gains:
+        print("  증가만 있어 사유 없이 반영했다 — change_log 항목은 남기지 않는다.")
+        print("  (기록을 남기고 싶으면 --reason 을 붙여 다시 실행하면 된다.)")
     print("=" * 68)
     return 0
 
@@ -593,7 +799,22 @@ def main():
     ap.add_argument("--update-baseline", action="store_true",
                     help="검사 [7] 의 기준값을 현재 상태로 갱신한다. "
                          "이 플래그를 붙였을 때만 파일에 쓴다 — 기본 실행은 읽기 전용이다.")
+    # 🔴 --reason 을 선택 인자로 두되 '감소가 있으면 필수'로 만든 이유:
+    #    증가만 있는 갱신까지 사유를 요구하면, 기준값을 최신으로 유지하는 일 자체가 번거로워져
+    #    사람들이 갱신을 미루게 된다. 그러면 검사 [7] 의 눈금이 낡아 감소폭이 작게 보인다
+    #    (2026-08-24 실측: 실제 -6행이 -2행으로 보였다). 즉 마찰은 감소에만 걸어야 한다.
+    ap.add_argument("--reason", default=None,
+                    help="--update-baseline 과 함께 쓴다. 감소가 하나라도 포함된 갱신은 "
+                         "이 사유 없이는 거부된다. 준 사유는 기준값 파일 change_log 에 "
+                         "자동으로 기록된다. 증가만 있는 갱신에는 필요 없다.")
     args = ap.parse_args()
+
+    # --reason 만 주고 --update-baseline 을 빠뜨리면 아무 일도 일어나지 않는다.
+    # 조용히 무시하면 "사유를 남겼다"고 착각한 채 지나가므로 여기서 확실히 막는다.
+    if args.reason and not args.update_baseline:
+        print("[오류] --reason 은 --update-baseline 과 함께 써야 한다.")
+        print("       기본 실행은 읽기 전용이라 사유를 적을 곳이 없다.")
+        return 2
 
     # ── --update-baseline: 검사를 돌리지 않고 기준값만 갱신하고 끝낸다 ──
     # 검사와 갱신을 한 번에 하면 "갱신했으니 당연히 0건"이 찍혀 결과가 무의미해진다.
@@ -601,7 +822,9 @@ def main():
         if not os.path.isdir(args.memory_root):
             print(f"[오류] 에이전트 메모리 폴더를 찾을 수 없다: {args.memory_root}")
             return 2
-        return update_baseline(args.memory_root, collect_memory_files(args.memory_root))
+        return update_baseline(args.memory_root,
+                               collect_memory_files(args.memory_root),
+                               reason=args.reason)
 
     if not os.path.isdir(args.root):
         print(f"[오류] 문서 폴더를 찾을 수 없다: {args.root}")
