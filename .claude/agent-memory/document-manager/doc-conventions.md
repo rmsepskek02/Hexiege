@@ -1,0 +1,166 @@
+# Documentation Conventions — rule citation & where status belongs
+
+> Topic file for `document-manager`. Linked from `MEMORY.md` (an unlinked topic file does not exist).
+> Everyday one-liners stay in the index; the reasoning and the failure cases live here.
+
+---
+
+## 1. Citing rule numbers in docs whose numbering restarts per section (2026-08-25)
+
+Two documents under `Assets/_Project/Docs/GameSystemRules/` restart rule numbering from 1 in
+**every** section: `GameSystemRules_Buildings.md` and `GameSystemRules_UI.md`.
+For those two, a bare rule number identifies nothing — **always write the section name (H2 title)
+next to the number.**
+
+- ❌ `규칙 9`
+- ✅ `방어 타워 시스템 규칙 9`
+
+Check `[4]` of `python3 Tools/check_docs.py` catches this violation: it flags a reference whose
+line mentions one of those two documents but carries no section name from that document.
+
+**Do not memorize the section list or the ranges here.** The checker prints the live section
+names and number ranges of both documents in its `[4]` block on every run — **that output is the
+authoritative source**, and it changes whenever the rule documents change. Run it and read it.
+
+Every other `GameSystemRules_*.md` numbers rules continuously across the whole document, so a
+section name is not required there.
+
+### 🔴 Failure case — repeated twice, so it is worth writing down
+
+A single line may carry references to **two different sections**, e.g.
+
+```
+… 건물 철거 시스템 규칙 4·5 / 방어 타워 시스템 규칙 9 …
+```
+
+Read by eye, `규칙 9` gets attached to the *first* section on the line (건물 철거 시스템, whose
+maximum is 6) and is then wrongly judged "a rule that does not exist".
+
+**A rule number belongs to the section name immediately preceding it.** `extract_refs()` in
+`check_docs.py` binds each number to the *nearest preceding* document/section mention — which is
+also how a human should read it.
+
+→ **Never adjudicate these by hand. Use the `[3]` and `[4]` results of
+`python3 Tools/check_docs.py` as the evidence** (CLAUDE.md rule 10 — no guessing).
+
+---
+
+## 2. Which document carries implementation status (user-confirmed, 2026-08-25)
+
+| Document | What it holds |
+|---|---|
+| `GameDesignDocument.md` | **Design document.** Only "what the game should be". **No implementation progress.** |
+| `PROJECT_STATUS.md` | Single source for *current* implementation status |
+| `GameSystemRules/*.md` | Single source for per-system implementation contract **and** status |
+| `WORK_HISTORY.md` | Every past work item |
+| `ROADMAP.md` | Work still to come |
+
+### The distinction that actually caused confusion — memorize this split
+
+| Wording | Kind | Belongs in the design document? |
+|---|---|---|
+| `밸런싱 미확정` · `수치 미확정` · `확정 기획` · `스탯 미확정` | **design state** | ✅ yes — the GDD keeps managing these |
+| `✅ 구현 완료` · `실기 PASS` · `멀티 미검증` · `구현 현황:` · `미구현` | **implementation state** | ❌ no — remove, point at the single source |
+
+⚠️ Watch for wording that is a *design* state but happens to use the word 「구현」 (e.g.
+`유닛 타입 (구현 현황)`, `후속 구현`, `구현된 유닛`). The content stays; only the word is wrong.
+Fix the wording rather than deleting the content.
+
+### Standard replacement block (the form §3 of the GDD already used)
+
+```
+> **상세 규칙은 단일 소스 문서 참조:** [문서명](경로)
+> **구현 상태는 위 단일 소스 문서를 참조한다** — 여기에 상태를 병기하면 사본이 낡는다.
+```
+
+🔴 **Attach the second line only when the referenced document actually contains implementation
+status prose.** Claiming a status lives somewhere it does not is a guess (CLAUDE.md rule 10).
+Real case: the 「방어 타워 시스템」 section of `GameSystemRules_Buildings.md` carries no
+implementation-status prose, so only the first line was attached there.
+
+---
+
+## 3. What `check_docs.py` accepts as a rule definition — and the one-section rule (2026-08-25)
+
+`parse_rule_docs()` registers a rule **only** from a line matching `^\*\*규칙\s*(\d+)[.\s]\s*(.*)`,
+i.e. bold `**규칙 N. 제목**`. A `## 규칙 N. 제목` H2 is parsed as a **section**, not a rule — so a
+document written that way registers **zero rules**, and checks [3]·[4]·[5] pass *vacuously* for it.
+That is exactly how `_Map.md` · `_RandomMap.md` · `_Upgrade.md` sat outside the checker until
+2026-08-25.
+
+**Shape of a rule document the checker can read:**
+
+```
+# 제목                      ← H1, ignored
+## 이 문서가 무엇인가 …      ← non-rule H2: becomes a section with an empty bucket → dropped
+## <섹션명>                 ← the ONE H2 that wraps the whole rule block
+**규칙 1. …**               ← rule definitions
+### 하위 제목               ← H3 is NEVER read as a section; safe to keep
+**규칙 2. …**
+## 참고 문서                ← the next non-rule H2 naturally closes the rule section
+```
+
+🔴 **One section per document unless the numbering genuinely restarts.** `per_section` is computed as
+`len(nums) != len(set(nums))` — a **duplicate rule number is the only thing** that turns on check [4]'s
+"section name required" mode. Splitting a continuously-numbered document into several H2 sections does
+not turn it on, but it does make [4] print ranges that mean nothing to a citer. Keep it to one.
+
+### The `규칙 11-1` case — the received premise was wrong, verify before acting
+
+The definition regex needs `.` or whitespace **immediately after the digits**, so
+`**규칙 11-1. 장식 단계**` matches **nothing**: `\d+` takes `11`, `[.\s]` meets `-` and fails; backtracking
+to `1` then meets `1` and fails too. Measured — it creates **no duplicate 11** and `per_section` stays
+off. The widely repeated claim that "the regex grabs the `11` and double-counts rule 11" describes
+`RE_RULE_MENTION` (the *reference* regex, `규칙\s*(\d+)(?:\s*[~-]\s*(\d+))?`), **not** the definition one.
+Two different regexes; do not carry a claim about one over to the other.
+
+Bold is still the right markup for `11-1`: demoting it to H3 would make it read as a sub-rule of
+규칙 11, and the two subjects are unrelated (장식 단계 vs 건물 경로 차단). H3 would not register it as a
+rule either, so H3 buys nothing and costs meaning.
+
+**[🔴 2026-08-25 correction — the analysis above stays, the exception it describes is gone]**
+The regex analysis remains valid and is the reason the hyphenated form must never be used again.
+The `11-1` **exception itself was resolved on 2026-08-25 by user instruction**: `**규칙 11-1. 장식 단계**`
+was renumbered to `**규칙 15. 장식 단계**` and moved to the end of the rule block (after 규칙 14, before
+`## 용어 정의`). The five body bullets were not altered — only the number and the position changed.
+Renumbering was safe because **nothing outside this document referenced `규칙 11-1`**: a repo-wide grep
+(excluding `_Tasks/` · `_Logs/`) found it only on the definition line itself and in this memory folder.
+The subject-unrelatedness noted above is precisely why a standalone number 15 fits better than a
+sub-number of 규칙 11. `GameSystemRules_RandomMap.md` now registers **1~15 continuous**, and check `[1]`
+(missing rule numbers) confirms no gap.
+
+→ **Takeaway that outlives the case:** a rule number must be `숫자` followed by `.` or whitespace.
+No hyphens, no sub-numbers. If a rule feels like a sub-rule, either fold it into the parent rule's
+body or give it its own number at the end — never `N-1`.
+
+**2026-08-25 conversion result** — `규칙 정의 원본` **7 → 10 문서**, all 7 checks 0건:
+
+| 문서 | 새 섹션명 | 규칙 |
+|---|---|---|
+| `GameSystemRules_Map.md` | `## 맵 공정성 검증 규칙` | 1~5 |
+| `GameSystemRules_RandomMap.md` | `## 무작위 맵 생성 규칙` | 1~15 |
+| `GameSystemRules_Upgrade.md` | `## 유닛 강화 시스템 규칙` | 1~13 |
+
+> The RandomMap row read `1~14 (+11-1, 미등록)` when this table was first written. **Changed to `1~15`
+> on 2026-08-25** because `규칙 11-1` was renumbered to `규칙 15` (see the correction in the `규칙 11-1`
+> case above) — the figure changed because the fact changed, not because the original count was wrong.
+
+⚠️ **Two documents now describe a limitation that no longer exists** and were left untouched as
+out of scope (CLAUDE.md rule 6) — report them, do not silently fix:
+`Assets/_Project/Docs/WORKFLOW.md` [11] (the 「Map · RandomMap · Upgrade … 규칙 33개는 검사기에
+존재하지 않는다」 paragraph) and `.claude/agents/document-manager.md` (the 「실무상 결론」 bullet).
+
+**[🔴 2026-08-25 correction — both were fixed in the follow-up round; the ⚠️ above is now closed]**
+The user authorized the follow-up, so those two passages are no longer stale:
+
+| 자리 | 무엇이 있었나 | 무엇으로 바뀌었나 |
+|---|---|---|
+| `WORKFLOW.md` [11] | 「🔴 알려진 한계 — 규칙 33개가 검사기에 존재하지 않는다」 절 + 7개 vs 6개 표 | 「🔴 규칙 정의는 반드시 `**규칙 N. 제목**` 형식으로 쓴다」 **형식 규칙** 절. 표는 삭제(숫자를 10으로 고쳐 적으면 또 낡는다) |
+| `.claude/agents/document-manager.md` | 「🔴 실무상 결론: 이 세 문서는 "[3] 0건 = 정상"을 믿지 말 것」 | 「규칙을 새로 쓸 때 굵은 글씨 형식을 쓸 것」 **행동 지시** |
+
+🔴 **The limitation is gone but the format rule must stay written down.** Deleting the passage
+outright would invite the next person to write `## 규칙 N.` and recreate the same blind spot. Both
+rewrites therefore keep the *why* (`## 규칙 N.` parses as a section name → that document registers
+zero rules → [3]·[4]·[5] pass vacuously) and drop only the now-false inventory.
+**Never re-add a document count to either passage** — the checker's `[검사 범위]` block is the
+authoritative source for those numbers.

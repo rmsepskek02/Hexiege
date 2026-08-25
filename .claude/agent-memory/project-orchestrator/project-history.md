@@ -96,13 +96,11 @@
   - Pistoleer MoveSpeed 0.5f 수정
   - Transcendence 건물 HP 종족별 분기 (`BuildingStats.GetMaxHp(type, RaceId)`)
   - 생산 패널/건물 배치 UI 골드 비용 숫자 표기 추가 (G 없음)
-  - task 문서: `Assets/_Project/Docs/_Tasks/2026-04-12/06_42_stats-apply/`
 - **피격 시 부유 HP 텍스트**
   - FloatingHpText.cs + FloatingHpTextSpawner.cs + 프리팹 신규
   - 줌 기반 크기/위치 스케일링 (orthographicSize 기준)
   - 멀티플레이: NetworkHealthSync에서 클라이언트 재발행으로 양측 표시
   - SetupFloatingHpText 에디터 스크립트 자동화
-  - task 문서: `Assets/_Project/Docs/_Tasks/2026-04-12/18_03_floating-hp-text/`
 
 ## 2026-04-06 시점 스냅샷
 

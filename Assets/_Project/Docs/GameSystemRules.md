@@ -13,11 +13,11 @@
 |------|------------|
 | [GameSystemRules_Map.md](GameSystemRules/GameSystemRules_Map.md) | 대전 맵 전체 180도 대칭, 중앙/대응쌍 광산 공정성, 정적 최단 접근거리 검증 |
 | [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md) | FlatTop 11×21 무작위 대전 맵 5종 생성·광산·건설 제한·seed·폴백·검증 |
-| [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, MistShrine 패널 UI(구현 완료 / 싱글 실기 검증 완료 · 멀티 미검증), 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
-| [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계, 전투 연출 동기화, 애니메이션 상태 동기화, 특수 공격 시스템(확장 5종), 방어력 데미지 감쇄(구현 완료) |
-| [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템, MistShrine 물안개 힐 시스템 (구현 완료 / 싱글 실기 검증 완료 · 멀티 미검증) |
-| [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md) | 스킬 건물 3종, 쿨다운/스킬 수 공통 규칙, 3×3 스킬 UI, 스킬 타입 3종, 모바일 지점 조준 UX, 서버 권위 (기획 확정/미구현) |
-| [GameSystemRules_Upgrade.md](GameSystemRules/GameSystemRules_Upgrade.md) | 연구소 기반 유닛 강화(공/방/속 + 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI (구현 완료 / 멀티 실기 PASS) |
+| [GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) | 공통 UI 규칙, 생산 패널 UI, MistShrine 패널 UI, 건물 배치 패널 UI, 인게임 설정 메뉴, 로비 설정/프로필 UI |
+| [GameSystemRules_Units.md](GameSystemRules/GameSystemRules_Units.md) | 유닛 이동 시스템, 전투 진입, 전투 연계, 전투 연출 동기화, 애니메이션 상태 동기화, 특수 공격 시스템(확장 5종), 방어력 데미지 감쇄 |
+| [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 랠리포인트 시스템, 건물 철거 시스템, 방어 타워 시스템, MistShrine 물안개 힐 시스템 |
+| [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md) | 스킬 건물 3종, 쿨다운/스킬 수 공통 규칙, 3×3 스킬 UI, 스킬 타입 3종, 모바일 지점 조준 UX, 서버 권위 |
+| [GameSystemRules_Upgrade.md](GameSystemRules/GameSystemRules_Upgrade.md) | 연구소 기반 유닛 강화(공/방/속 + 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI |
 | [GameSystemRules_CanvasSortingOrder.md](GameSystemRules/GameSystemRules_CanvasSortingOrder.md) | Canvas SortingOrder 구조, 씬별 Canvas 계층, 전역 UI z-order |
 | [GameSystemRules_Sound.md](GameSystemRules/GameSystemRules_Sound.md) | BGM 전환 규칙, SFX 정책, 볼륨 제어, AudioManager 아키텍처 |
 | [GameSystemRules_AI.md](GameSystemRules/GameSystemRules_AI.md) | AI 난이도 시스템, 빌드오더 스크립트, 반응 시스템, 건물 배치 로직, 가드 메커니즘 |
@@ -79,7 +79,7 @@
 - 랠리포인트 표시/숨김
 - 철거 처리, 골드 환불, 연쇄 처리
 - 방어 타워: 타겟 선택, 쿨다운, 서버 권위 처리 (종족별 = `AutoTower` — Human CannonTower / Spirit RuneSpire / **Trans VineTower**)
-- MistShrine 물안개 힐(`HealShrine`, 방어 타워와 별개 건물): 건물 중심 고정 원형 범위, 아군 유닛+건물 회복, 1초 discrete 틱 아우라, 물안개 지속 < 쿨다운, 물안개 간 중첩 금지(가까운 건물 우선·동률 시 Id 작은 쪽), 자연회복과는 중첩 적용, 자동/수동 모드(기본 OFF), 전용 UseCase·서버 권위 (**2026-08-12 구현 완료 / 에디터 싱글플레이 실기 검증 완료 · 멀티 미검증 · VFX·아이콘 미제작 · 밸런싱 미확정**. 규칙 8-1에 "활성 물안개는 서로 같은 위상으로 틱한다" 불변식 보강 — 되돌리면 중첩 해소가 죽는다)
+- MistShrine 물안개 힐(`HealShrine`, 방어 타워와 별개 건물): 건물 중심 고정 원형 범위, 아군 유닛+건물 회복, 1초 discrete 틱 아우라, 물안개 지속 < 쿨다운, 물안개 간 중첩 금지(가까운 건물 우선·동률 시 Id 작은 쪽), 자연회복과는 중첩 적용, 자동/수동 모드(기본 OFF), 전용 UseCase·서버 권위 (규칙 8-1에 "활성 물안개는 서로 같은 위상으로 틱한다" 불변식 보강 — 되돌리면 중첩 해소가 죽는다)
   - 특수 동작 건물이 2종 이상이 되면 `GameSystemRules_SpecialBuildings.md`로 분리한다(해당 섹션 서두 명시)
 
 ### 스킬 건물 관련 작업
@@ -88,17 +88,17 @@
 - 자원 없음(쿨다운만), 건물별 글로벌 쿨다운, 건물당 최대 5개, 업그레이드 없음
 - 범용 `BuildingActionPanelUI` 3×3 그리드(스킬 1~5 / 철거 6 / 예약 7~9), 쿨다운 시계방향 오버레이
 - 스킬 타입 3종(즉발 범위 피해 / 장판 DoT / 전역 상태변경), 발동 경로 2종
-- 모바일 지점 조준 UX(탭으로 조준 모드 진입 → 화면 드래그로 범위 이동 → 손 떼면 발동, 엣지 스크롤, X 취소·취소 버튼 확대 예고, 맵 clamp) — 설계 정정: hold-drag → 탭 기반(코드 미반영, 후속 작업)
-- 서버 권위(좌표만 RPC 전송 + 서버 재검증), 기획 확정 / 미구현
+- 모바일 지점 조준 UX(탭으로 조준 모드 진입 → 화면 드래그로 범위 이동 → 손 떼면 발동, 엣지 스크롤, X 취소·취소 버튼 확대 예고, 맵 clamp)
+- 서버 권위(좌표만 RPC 전송 + 서버 재검증)
 
-### 유닛 강화(연구소) 시스템 (구현 완료 / 멀티 실기 PASS)
+### 유닛 강화(연구소) 시스템
 → [GameSystemRules_Upgrade.md](GameSystemRules/GameSystemRules_Upgrade.md)
 - 전투 스탯 ×10 스케일(HP·공격력·건물·타워·DoT·힐), 불변 항목(사거리·이동속도·쿨다운·비용·비율). ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨)
 - 강화 스탯 3종(공/방/속) + 초월 자연회복, 종족별 그룹×스탯 트랙, 유닛→그룹 매핑
 - (B) 팀 배율 실시간 소급 적용, 방어력 감쇄 공식(K=120, floor 1, 직격·스플래시·타워→유닛 일괄, DoT 미적용)
 - 연구소 운영(복수 건설·연구 시간·진행 중 트랙 잠금·파괴 시 100% 환불·서버 권위), 비용·시간·그룹 배율
 - 연구 패널 UI(규칙 13): `ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어(연구소 단위)
-- 후속 보류: UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐(**2026-08-12 구현 완료 / 멀티 미검증**)·싱글 자연회복 실기
+- 후속 보류: UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐·싱글 자연회복 실기
 
 ### AI 시스템 관련 작업
 → [GameSystemRules_AI.md](GameSystemRules/GameSystemRules_AI.md)

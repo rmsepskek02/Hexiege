@@ -5,8 +5,8 @@
     "이전 상태를 어딘가에 적어 둬야 하는데, CLAUDE.md 규칙 5 로 git 명령이 금지돼 있어",
     "git 이력에서 가져올 수 없다. 그래서 이 파일에 적어 둔다.",
     "",
-    "준거: .claude/MEMORY.md 갱신 규칙 6 「토픽으로 옮길 때는 에이전트 폴더 전체 행수 합이 줄지 않아야 한다",
-    "      — 이동과 삭제를 구분하는 유일한 검증법」"
+    "준거: .claude/MEMORY.md 「🔴 Agent Memory Management Rules」 E-16",
+    "      「폴더 총 행수가 줄지 않아야 한다 — 이동과 삭제를 구분하는 유일한 검증법」"
   ],
   "_왜_MEMORY_md_에_안_적고_별도_파일인가": [
     "기준값을 각 MEMORY.md 헤더에 적는 방식은 채택하지 않았다.",
@@ -22,10 +22,12 @@
     "",
     "갱신은 사람이 명시적으로 한다:",
     "    python3 Tools/check_docs.py --update-baseline",
+    "    python3 Tools/check_docs.py --update-baseline --reason \"왜 줄었는지\"   # 감소가 포함된 경우",
     "",
     "증가 방향(정상적인 성장)은 자유롭게 갱신해도 된다.",
     "감소 방향을 기준값에 반영하는 것은 '이 삭제는 의도된 것'이라는 판단이므로",
-    "사용자 승인을 받고, 아래 change_log 에 줄어든 행수와 사유를 함께 남긴다(.claude/MEMORY.md 갱신 규칙 3)."
+    "사용자 승인을 받고 --reason 으로 사유를 남긴다(.claude/MEMORY.md 「Agent Memory Management Rules」 B-6).",
+    "감소가 하나라도 포함된 갱신은 --reason 없이는 거부되며, 준 사유는 change_log 에 자동 기록된다."
   ],
   "_행수_세는_법": "파일 내용을 splitlines() 한 개수. 마지막 줄에 개행이 없어도 1행으로 센다.",
   "measured_at": "2026-08-24",
@@ -35,24 +37,24 @@
       "lines": 166
     },
     "document-manager": {
-      "files": 1,
-      "lines": 228
+      "files": 2,
+      "lines": 388
     },
     "game-design-lead": {
       "files": 3,
-      "lines": 285
+      "lines": 283
     },
     "game-programmer": {
-      "files": 19,
-      "lines": 2561
+      "files": 20,
+      "lines": 2664
     },
     "project-orchestrator": {
       "files": 3,
-      "lines": 592
+      "lines": 588
     },
     "qa-tester": {
       "files": 3,
-      "lines": 812
+      "lines": 805
     }
   },
   "_known_orphans_란": [
@@ -88,7 +90,29 @@
       "note": "메모리 세분화 라운드의 증가분 반영 + qa-tester 감소 1건 승인. 증가는 document-manager 131→178 · game-design-lead 254→285(파일 1→3) · project-orchestrator 549→592(파일 2→3) 로, 세 폴더를 「인덱스 + 토픽」 구조로 나눈 결과다(승인 불필요).",
       "🔴 감소_승인": "qa-tester 756 → 754행 (-2행). qa_history.md 의 「종족 인게임 적용 QA (2026-04-07 완료)」가 143행과 522행에 두 벌 있었고, difflib 대조 결과 11행 중 10행이 완전 일치하며 다른 한 줄은 소제목(`### 정적 분석 발견 사항` ↔ `### 핵심 발견 사항`)뿐이었다. 522행 사본을 제거하고 143행을 남겼으며, 삭제 사유는 qa_history.md 143행 절 아래에 남겼다. 사용자 승인 완료.",
       "측정_불일치_주의": "[7] 은 이 감소를 -6행이 아니라 -2행으로 보고했다. 기준값이 2026-08-21 의 756 에 머물러 직전 라운드의 증가(→760)가 반영되지 않았기 때문이다. 증가 방향 갱신은 승인이 필요 없으므로 미루지 말 것 — 미루면 이후 감소폭이 실제보다 작게 보인다.",
-      "도구_한계": "--update-baseline 은 change_log 를 자동으로 쓰지 않는다. 이 항목은 사람이 직접 적은 것이다. 감소를 반영할 때는 반드시 여기에 사유를 남길 것."
+      "도구_한계": "--update-baseline 은 change_log 를 자동으로 쓰지 않는다. 이 항목은 사람이 직접 적은 것이다. 감소를 반영할 때는 반드시 여기에 사유를 남길 것. **[🔴 2026-08-25 정정 — 원문은 그대로 두고 덧붙인다: 이 한계는 같은 날 커밋 `2b3f2c6a` 로 해소됐다. --reason 을 주면 change_log 항목이 자동으로 기록되고, 감소가 포함된 갱신은 --reason 없이 거부된다.]**"
+    },
+    {
+      "date": "2026-08-25",
+      "note": "Tools/check_docs.py --update-baseline --reason 으로 자동 기록. 감소 5건 · 증가/신규 0건.",
+      "🔴 감소": [
+        "document-manager: 228행 → 210행 (-18행) / 파일 1개 → 1개 (+0)",
+        "game-design-lead: 285행 → 283행 (-2행) / 파일 3개 → 3개 (+0)",
+        "game-programmer: 2561행 → 2554행 (-7행) / 파일 19개 → 19개 (+0)",
+        "project-orchestrator: 592행 → 590행 (-2행) / 파일 3개 → 3개 (+0)",
+        "qa-tester: 812행 → 810행 (-2행) / 파일 3개 → 3개 (+0)"
+      ],
+      "사유": "메모리 관리 규칙을 .claude/MEMORY.md 로 일원화하고 각 노트의 사본을 제거. 지운 내용은 공용문서와 mistakes.md 에 원문이 있음을 한 줄씩 대조 확인. 낡은 전제(200행 절삭·자동 주입) 정정 포함. 사용자 승인 완료."
+    },
+    {
+      "date": "2026-08-25",
+      "note": "Tools/check_docs.py --update-baseline --reason 으로 자동 기록. 감소 3건 · 증가/신규 0건.",
+      "🔴 감소": [
+        "game-programmer: 2554행 → 2553행 (-1행) / 파일 19개 → 19개 (+0)",
+        "project-orchestrator: 590행 → 588행 (-2행) / 파일 3개 → 3개 (+0)",
+        "qa-tester: 810행 → 805행 (-5행) / 파일 3개 → 3개 (+0)"
+      ],
+      "사유": "[I] 공용메모리 영문 작업 이력 3절 제거(WORK_HISTORY.md·AuthSystemRules.md·PROJECT_STATUS.md 에 원문 있음을 대조 확인, 고유 내용 0건). [F-3] 실재하지 않는 _Tasks 폴더 6종을 가리키는 경로 참조만 제거하고 기록 본문은 유지. 사용자 승인 완료."
     }
   ]
 }

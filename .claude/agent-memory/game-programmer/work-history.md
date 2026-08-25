@@ -388,7 +388,7 @@ get => _currentIsAutoFlag && CurrentProducing.HasValue && AutoTypes.Contains(Cur
 
 **신규 4개**:
 - `Infrastructure/Config/ToastMessageConfig.cs` — ToastEntry(key/message/duration), TryGet()
-- `Presentation/UI/Common/ToastKey.cs` — GoldInsufficient=0/PopulationFull=1/ProductionQueueFull=2
+- `Application/Events/ToastKey.cs` — GoldInsufficient=0/PopulationFull=1/ProductionQueueFull=2
 - `Presentation/UI/Common/ToastUI.cs` — 싱글턴, IPointerClickHandler, `ToastUI.Show(ToastKey)`, Queue 방식, DontDestroyOnLoad 독립 Canvas, CanvasGroup DOTween, OnGameStarted/OnGameEnd 자동정리
 - `Editor/SetupToastUI.cs` — 씬 루트 생성, 자체 Canvas(Overlay sortingOrder=100)
 
@@ -669,7 +669,6 @@ UnitCombatUseCase `MeleeContactDist=0.3f`/`BuildingDetectionRadius=0.2f`. 근접
 UnitType Pistoleer=0~LionKnight=8 (9종 독립 enum). HexPathfinder `FindPathToNeighbor()`. UnitFactory `List<UnitPrefabEntry>(type, blue, red)`. 근접(range=0.5): maxDist 0.483f+경로에 Castle 타일 추가. **ClaimedTile non-walkable 예외**(설정 시 Castle blocked 유지로 후속 차단). `FindPathToNeighbor` count=1 반환→`>=1` 조건.
 
 ### 다중 히트/회전 관련 유닛/건물 스탯 적용 + UI 골드 (2026-04-12~13) ✅ 실기 완료
-**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-12/06_42_stats-apply/`
 UnitStats(Pistoleer MoveSpeed 1.0→0.5, Spirit/Trans 6종 HP/ATK), BuildingStats `GetMaxHp(type, RaceId)` 오버로드(Trans Castle200/Barracks50/Mining40). BuildingPlacementUseCase에 `RaceId race=Human` 파라미터(GameRaceContext 직접 참조 없음). UI 골드 숫자만.
 
 ---
@@ -682,7 +681,6 @@ BuildingPlacementUI `BuildingRacePortraitSet`(barracks+miningPost), 팀×종족 
 - Spirit: EmberSpirit/FlameSpirit/InfernoSpirit. Trans: FoxMagician/BearGuard/LionKnight
 
 ### 종족 인게임 적용 (2026-04-07) ✅ 실기 완료
-**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-07/09_00_faction-ingame-apply/`
 UnitFactory/BuildingFactory 종족별 6세트 프리팹, GameRaceContext switch. GameBootstrapper 싱글 Start `GameRaceContext.Set`. SetupUnitFactoryPrefabs.cs.
 - **건물 매핑**: Castle(Castle/SpiritNexus/ElderTree), Barracks(Barracks/SummoningAltar/HunterPlant), MiningPost(MiningPost/ManaRift/FungalNode)
 
@@ -694,7 +692,6 @@ HexGridRenderer `_goldMineObjects` List→Dictionary, Hide/ShowGoldMine, Subscri
 
 ## 피격 시 부유 HP 텍스트 (2026-04-12~17 World Space 전환) ✅ 싱글/멀티 실기 완료
 
-**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-12/18_03_floating-hp-text/`, `2026-04-13/17_50_floating-text-worldspace/`
 
 **신규**: FloatingHpText.cs(TMP 3D World Space, DOTween LocalMoveY+DOFade), FloatingHpTextSpawner.cs(OnEntityDamaged 구독, Queue 풀 10개, 팀별 색상), FloatingHpText.prefab, SetupFloatingHpText.cs
 **수정**: GameBootstrapper(SerializeField+LoadMap Initialize), NetworkHealthSync(TakeDamage 후 OnEntityDamaged 재발행)
@@ -717,7 +714,6 @@ NetworkProductionController `SetRallyPointServerRpc` 신규. **원인**: Complet
 UnitProductionUseCase ToggleAutoProduction(284~288). **버그**: 큐 빌 때 자동 등록 시 슬롯1→슬롯0 1프레임 깜빡. **수정**: Add 이후 `!CurrentProducing.HasValue`이면 즉시 TryStartNext+Early Return.
 
 ### 유닛 생산 패널 전면 재작성 (2026-04-19) ✅ 실기 완료
-**task 문서**: `Assets/_Project/Docs/_Tasks/2026-04-19/production-panel-rewrite/`
 - ProductionState QueueSlot struct, PendingQueue/AutoTypes/AutoCycleIndex/CurrentIsAuto, IsAutoMode→`AutoTypes.Count>0` 읽기전용
 - UnitProductionUseCase EnqueueUnit/Toggle/Cancel/TryStartNext/Complete/ChargeVisibleSlots 재작성, CancelAutoTypeIfNeeded
 - **구조(PendingQueue 단일 큐)**: QueueSlot{Type,IsAuto,IsCharged}. PendingQueue[0]=슬롯1/[1]=슬롯2 불변식. AutoTypes 목록. IsAutoMode 계산값

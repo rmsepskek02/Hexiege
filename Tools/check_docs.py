@@ -21,6 +21,32 @@ Hexiege 문서 정합성 검사기
 그래서 "UI 규칙 14" 라고만 적으면 **어느 섹션인지 알 수 없다.**
 사람이 눈으로 훑어서는 놓치기 쉬우므로 기계가 잡는다.
 
+어디까지 검사하는가 — 두 범위는 서로 다르다 (2026-08-25 확장)
+--------------------------------------------------------------
+이 도구에는 **성격이 다른 두 개의 범위**가 있다. 헷갈리면 검사가 조용히 죽는다.
+
+    ① 규칙 정의 원본을 읽을 위치   `--root`/GameSystemRules/*.md   ← parse_rule_docs()
+       "규칙 14 가 실제로 존재하는가" 를 판정할 근거를 여기서만 읽는다.
+
+    ② 참조를 찾을 위치             `--root` 하위 전체
+                                   + 리포지토리 루트 `AGENTS.md` · `CLAUDE.md`
+                                   + `.claude/` 하위 전부        ← collect_files()
+       "규칙 14 라고 적어 놓은 곳" 을 여기서 훑는다.
+
+②에 `.claude/` 가 들어간 것이 2026-08-25 의 변경이다. 그전까지는 ②가 `--root` 에 묶여 있어
+`.claude/MEMORY.md` · `.claude/mistakes.md` · `.claude/agents/*.md` ·
+`.claude/agent-memory/**/*.md` 가 규칙 번호를 인용해도 **한 건도 검사되지 않았다**(실측 20건).
+
+`--root` 를 `.claude` 로 돌려서 해결할 수는 없다. ①과 ②가 같은 인자를 쓰기 때문이다 —
+`--root` 를 옮기는 순간 ①이 `GameSystemRules/` 를 못 찾아 규칙 정의가 빈 딕셔너리가 되고,
+거기에 의존하는 검사 [1]·[3]·[4]·[5] 가 전부 **조용히 "이상 없음"** 을 낸다.
+그래서 ②만 별도 인자(`--claude-root`)로 떼어냈다.
+
+`.claude/` 안에서도 `skills/` 와 `plugins/` 는 뺀다 — 외부에서 받아온 문서라
+이 프로젝트가 내용을 관리하지 않는다. 고칠 수 없는 문서를 문제로 집계하면
+`WORKFLOW.md` [11]③ 의 "0건 확인" 절차가 영구히 막힌다.
+기존 제외 규칙(`_Tasks/` · `_Logs/`)은 경로와 무관하게 그대로 적용된다.
+
 에이전트 메모리도 함께 지킨다 (검사 [6]·[7])
 ---------------------------------------------
 이 도구는 문서 참조뿐 아니라 **`.claude/agent-memory/` 의 무결성**도 본다.
@@ -52,6 +78,12 @@ Hexiege 문서 정합성 검사기
 
     # 에이전트 메모리 폴더 위치를 바꾸고 싶을 때 (기본: .claude/agent-memory)
     python3 Tools/check_docs.py --memory-root .claude/agent-memory
+
+    # .claude 폴더 위치를 바꾸고 싶을 때 (기본: .claude)
+    python3 Tools/check_docs.py --claude-root .claude
+
+    # .claude/ 하위 문서를 참조 검사에서 빼고 싶을 때 (기본은 '포함')
+    python3 Tools/check_docs.py --no-claude-docs
 
     # 검사 [7] 의 기준값을 현재 상태로 갱신 (사람이 명시적으로 실행. 아래 주의 참조)
     python3 Tools/check_docs.py --update-baseline
@@ -142,6 +174,18 @@ EXCLUDE_PARTS = ("/_Tasks/", "/_Logs/", "\\_Tasks\\", "\\_Logs\\")
 # collect_files() 도 AGENTS.md / CLAUDE.md 를 같은 방식으로 이미 알고 있다.
 DEFAULT_MEMORY_ROOT = ".claude/agent-memory"
 
+# 참조 검사([2]~[5])의 대상에 함께 넣을 `.claude/` 폴더의 기본 위치.
+# 여기에는 `MEMORY.md` · `mistakes.md` · `agents/*.md` · `agent-memory/**/*.md` 가 들어 있고,
+# 이 문서들도 `GameSystemRules_*.md 규칙 N` 형태의 참조를 그대로 쓴다.
+# 종전에는 이 폴더가 수집되지 않아 참조가 어긋나도 아무도 잡지 못했다(2026-08-25 확장).
+DEFAULT_CLAUDE_ROOT = ".claude"
+
+# `.claude/` 안에서도 검사하지 않을 하위 폴더 이름.
+#   skills/  · plugins/  → 외부에서 받아온 문서라 이 프로젝트가 내용을 관리하지 않는다.
+#                          우리가 고칠 수 없는 문서를 문제로 집계하면 "0건 확인" 절차가 영구히 막힌다.
+# 폴더 이름만 비교하므로 `.claude/skills/...` 처럼 어느 깊이에 있어도 걸러진다.
+CLAUDE_EXCLUDE_DIRS = ("skills", "plugins")
+
 # 검사 [7] 의 기준값 파일 이름. 메모리 폴더 바로 아래에 둔다.
 # .md 가 아니라 .json 인 이유: "메모리 정리" 작업의 시야에 안 들어와서 같이 지워질 확률이 낮고,
 # collect_files() 의 *.md 수집에도 걸리지 않아 기존 검사 [2] 를 건드리지 않는다.
@@ -198,14 +242,66 @@ def is_excluded(path):
     return any(part.replace("\\", "/") in p for part in EXCLUDE_PARTS)
 
 
-def collect_files(root):
-    """검사 대상 마크다운 파일 목록. 이력 폴더는 뺀다."""
+def is_excluded_claude_dir(path, claude_root):
+    """
+    `.claude/` 안의 파일 중 **외부에서 받아온 문서**(skills/ · plugins/)인지 판정한다.
+
+    왜 별도 함수인가:
+        `is_excluded()` 는 `_Tasks/` · `_Logs/`(= 이력 기록) 전용 판정이다.
+        제외 사유가 서로 다르므로("이력이라 소급 수정하면 안 된다" vs
+        "우리가 관리하지 않는 외부 문서다") 판정도 섞지 않는다.
+        한 함수에 몰아넣으면 나중에 어느 쪽 사유로 걸러졌는지 알 수 없게 된다.
+
+    판정 방법:
+        `claude_root` 기준 상대경로의 **첫 번째 폴더 이름**만 본다.
+        예) `.claude/skills/foo/SKILL.md` → 첫 폴더 `skills` → 제외
+            `.claude/agents/qa-tester.md`  → 첫 폴더 `agents` → 포함
+    """
+    rel = os.path.relpath(path, claude_root).replace(os.sep, "/")
+    head = rel.split("/", 1)[0]
+    return head in CLAUDE_EXCLUDE_DIRS
+
+
+def collect_claude_files(claude_root):
+    """
+    `.claude/` 아래에서 참조 검사 대상으로 삼을 마크다운 파일 목록을 만든다.
+
+    포함: `MEMORY.md` · `mistakes.md` · `agents/*.md` · `agent-memory/**/*.md`
+          (= skills/ · plugins/ 를 뺀 나머지 전부. 새 문서가 늘어도 자동으로 따라온다)
+    제외: `skills/` · `plugins/`  → 외부 문서 (CLAUDE_EXCLUDE_DIRS)
+          `_Tasks/` · `_Logs/`    → 이력 기록 (is_excluded, 파일 상단 「검사하지 않는 것」)
+
+    🔴 이 함수는 **참조를 찾을 범위**만 넓힌다. 규칙 정의를 어디서 읽는지와는 무관하다.
+       규칙 정의는 지금까지처럼 `parse_rule_docs(--root)` 가 `GameSystemRules/` 에서만 읽는다.
+       두 관심사를 한 인자(`--root`)에 묶으면 `--root` 를 `.claude` 로 돌리는 순간
+       규칙 정의가 통째로 비어 검사 [1]·[3]·[4]·[5] 가 조용히 "이상 없음" 을 내게 된다
+       (main() 의 --memory-root 주석 참조). 그래서 인자를 따로 둔다.
+    """
+    if not os.path.isdir(claude_root):
+        return []
+    return [p for p in glob.glob(os.path.join(claude_root, "**", "*.md"), recursive=True)
+            if not is_excluded(p) and not is_excluded_claude_dir(p, claude_root)]
+
+
+def collect_files(root, claude_root=None):
+    """
+    검사 대상 마크다운 파일 목록. 이력 폴더는 뺀다.
+
+    인자:
+        root         문서 루트(기본 `Assets/_Project/Docs`). 이 아래의 모든 `.md` 를 재귀 수집한다.
+        claude_root  `.claude/` 폴더 경로. None 이면 `.claude/` 를 수집하지 않는다.
+                     기본 실행에서는 항상 값이 들어온다 — 끄는 쪽이 옵션이다.
+                     (옵션을 켜야만 검사되면 아무도 켜지 않아 검사가 있으나 마나가 되기 때문이다.)
+    """
     found = [p for p in glob.glob(os.path.join(root, "**", "*.md"), recursive=True)
              if not is_excluded(p)]
     # 리포지토리 루트의 지침 문서도 참조를 담고 있어 함께 본다.
     for extra in ("AGENTS.md", "CLAUDE.md"):
         if os.path.exists(extra):
             found.append(extra)
+    # `.claude/` 하위 문서도 규칙 번호를 인용하므로 같은 잣대로 검사한다.
+    if claude_root:
+        found.extend(collect_claude_files(claude_root))
     return sorted(set(found))
 
 
@@ -796,6 +892,19 @@ def main():
     #    즉 기존 검사를 무력화하지 않고는 --root 를 돌려 쓸 수 없다.
     ap.add_argument("--memory-root", default=DEFAULT_MEMORY_ROOT,
                     help=f"에이전트 메모리 루트 (기본: {DEFAULT_MEMORY_ROOT})")
+    # 🔴 --claude-root 도 같은 이유로 --root 와 분리한다.
+    #    「규칙 정의를 읽을 위치」(--root)와 「참조를 찾을 위치」는 서로 다른 관심사다.
+    #    한 인자에 묶여 있어서 `.claude/` 하위 문서 20여 건이 검사 밖에 방치돼 있었다.
+    ap.add_argument("--claude-root", default=DEFAULT_CLAUDE_ROOT,
+                    help=f"참조 검사에 함께 넣을 .claude 폴더 (기본: {DEFAULT_CLAUDE_ROOT}). "
+                         f"{'/ · '.join(CLAUDE_EXCLUDE_DIRS)}/ 는 외부 문서라 제외된다.")
+    # 🔴 기본값이 '포함' 인 이유:
+    #    켜야만 검사되는 옵션은 아무도 켜지 않는다. 그러면 검사가 존재만 하고 동작하지 않는
+    #    상태가 되어, "검사기가 있으니 안심"이라는 잘못된 믿음만 남는다.
+    #    그래서 포함이 기본이고, 끄는 쪽을 옵션으로 둔다(외부 도구가 Docs 만 보고 싶을 때용).
+    ap.add_argument("--no-claude-docs", action="store_true",
+                    help=".claude/ 하위 문서를 참조 검사 대상에서 뺀다. "
+                         "기본은 '포함' 이며, 이 플래그는 예외적인 경우에만 쓴다.")
     ap.add_argument("--update-baseline", action="store_true",
                     help="검사 [7] 의 기준값을 현재 상태로 갱신한다. "
                          "이 플래그를 붙였을 때만 파일에 쓴다 — 기본 실행은 읽기 전용이다.")
@@ -831,9 +940,35 @@ def main():
         print("       리포지토리 루트에서 실행해야 한다.")
         return 2
 
-    files = collect_files(args.root)
+    # 참조를 찾을 범위 = --root 아래 문서 + 루트 AGENTS.md/CLAUDE.md + .claude/ 하위 문서.
+    # 규칙 정의를 읽는 곳(parse_rule_docs)은 지금까지와 똑같이 --root 뿐이다 — 여기는 손대지 않는다.
+    claude_root = None if args.no_claude_docs else args.claude_root
+    files = collect_files(args.root, claude_root)
     docs = parse_rule_docs(args.root)
     issues = 0
+
+    # 어디까지 봤는지 먼저 알린다. 검사 결과가 "이상 없음" 일 때,
+    # 정말 문제가 없는 것인지 애초에 대상이 아니었던 것인지 구분할 수 있어야 하기 때문이다.
+    claude_count = len(collect_claude_files(claude_root)) if claude_root else 0
+    print("=" * 68)
+    print("[검사 범위] 참조 검사([2]~[5])가 훑는 문서")
+    print("=" * 68)
+    print(f"  규칙 정의 원본 : {os.path.join(args.root, 'GameSystemRules')} "
+          f"(문서 {len(docs)}개)")
+    print(f"  참조 검색 대상 : 총 {len(files)}개 .md")
+    print(f"                   - {args.root} 하위 + 루트 AGENTS.md · CLAUDE.md")
+    if claude_root and os.path.isdir(claude_root):
+        print(f"                   - {claude_root} 하위 {claude_count}개"
+              f" ({'/ · '.join(CLAUDE_EXCLUDE_DIRS)}/ 제외)")
+    elif claude_root:
+        # 폴더가 없는데 조용히 "0개" 로만 찍으면 "검사했는데 참조가 없었다" 로 오해한다.
+        # 검사 대상이 애초에 없었다는 사실을 분명히 알린다.
+        print(f"                   - {claude_root} 폴더가 없어 건너뜀"
+              f" (경로가 맞는지 --claude-root 로 확인할 것)")
+    else:
+        print("                   - .claude/ 는 --no-claude-docs 로 제외됨")
+    print("  제외           : _Tasks/ · _Logs/ (이력 기록이라 소급 수정하지 않는다)")
+    print()
 
     # ── [1] 규칙 번호 결번 ────────────────────────────────────
     # 섹션마다 1부터 다시 매기는 문서는 "중복"이 정상이므로 결번만 본다.

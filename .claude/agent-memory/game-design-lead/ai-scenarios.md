@@ -2,7 +2,7 @@
 
 > 이 파일은 `game-design-lead/MEMORY.md` 에서 옮겨 온 **확정 설계 상세**다(2026-08-24 분리).
 > `MEMORY.md` 는 매 작업마다 읽는 파일이라 「매번 필요한 것 + 인덱스」만 남기고,
-> 분량이 큰 상세 설계는 여기로 옮겼다(근거: `.claude/MEMORY.md` 「🔴 에이전트 메모리 갱신 규칙」 4).
+> 분량이 큰 상세 설계는 여기로 옮겼다(근거: `.claude/MEMORY.md` 「🔴 Agent Memory Management Rules」 C-8).
 > **본문은 한 글자도 고치지 않은 원문 그대로다 — 삭제가 아니라 이동이다.**
 
 > 다루는 범위: AI 시나리오 ScriptableObject 에셋 / 시나리오 구조 / 3종족(Human·Spirit·Transcendence)

@@ -198,8 +198,7 @@ task: `_Tasks/2026-08-20/12_24_network-guard-sweep/Plan.md` §14 · `LogRules.md
 - Inspector 필드 재연결이 필요한 작업은 에디터 설정 스크립트(`Hexiege/Setup/...`) 실행 여부 반드시 확인
 - BattleViewModel + GameBootstrapper 양쪽에서 GameRaceContext.Set() 중복 호출 — 동작 오류 없음 (Minor 잔존)
 
-### task 문서
-`Assets/_Project/Docs/_Tasks/2026-04-07/09_00_faction-ingame-apply/Testcase.md`
+###
 
 > **[2026-08-24 중복 제거 — 삭제 사유]** 이 파일 522행에 **소제목 한 줄만 다른 동일 사본**이 있어 제거했다
 > (파이썬 대조 결과 11행 중 10행 완전 일치, 다른 줄은 `### 정적 분석 발견 사항` ↔ `### 핵심 발견 사항` 뿐).
@@ -252,7 +251,7 @@ task: `_Tasks/2026-08-20/12_24_network-guard-sweep/Plan.md` §14 · `LogRules.md
 
 > 아래 18건은 `qa-tester/MEMORY.md` 에 쌓여 있던 **지나간 QA 기록**이다(2026-04-07 ~ 2026-07-20).
 > `MEMORY.md` 는 매 작업마다 읽는 파일이라 「매번 필요한 규칙·체크리스트」만 남기고 이력은 여기로 옮겼다
-> (근거: `.claude/MEMORY.md` 「🔴 에이전트 메모리 갱신 규칙」 4).
+> (근거: `.claude/MEMORY.md` 「🔴 Agent Memory Management Rules」 C-8).
 > **본문은 한 글자도 고치지 않은 원문 그대로이며 날짜 역순으로 정렬했다.**
 > ✅ **2026-08-24 해소:** 이관 당시 「종족 인게임 적용 QA (2026-04-07 완료)」가 이 파일 위쪽 것과 겹쳐 양쪽 다 남겼으나,
 > 파이썬 대조로 **소제목 한 줄 외 완전 일치(11행 중 10행 동일)** 임이 확인되어 **이관본 쪽 사본을 제거**했다.
@@ -526,8 +525,7 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 2. GameBootstrapper.SetupProduction() 에서 UnitFactory.SetDependencyReferences() 호출에 인자 추가
 3. UnitFactory.CreateUnitObject() / InitializeUnitView() 에서 unitView.SetDependencies() 호출에 인자 추가
 
-### task 문서
-`Assets/_Project/Docs/_Tasks/2026-04-30/02_29_movement-combat-redesign/Testcase.md`
+###
 `Assets/_Project/Docs/_Logs/2026-04-30/02_29_movement-combat-redesign/Log.md`
 
 ## 생산 패널 전면 재작성 QA (2026-04-19) ✅ 실기 완료
@@ -551,8 +549,7 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 ### 미해결 이슈
 - ~~TC-008 관련: 큐 비어있을 때 자동 등록 시 슬롯1에 1프레임 깜빡임~~ → **수정 완료 (2026-04-19)** `ToggleAutoProduction`에서 `!CurrentProducing.HasValue`이면 즉시 `TryStartNext` 호출로 해결
 
-### task 문서
-`Assets/_Project/Docs/_Tasks/2026-04-19/production-panel-rewrite/Testcase.md`
+###
 
 ## 스탯 적용 + 부유 HP 텍스트 QA (2026-04-12~13 완료)
 
@@ -570,6 +567,4 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - [ ] 멀티플레이 전투 중 클라이언트 FloatingHpText 표시 여부 (NetworkHealthSync 재발행 확인)
 - [ ] BuildingStats.GetMaxHp 호출부 RaceId 미전달 누락 없는지 신규 건물 추가 시 확인
 
-### task 문서
-`Assets/_Project/Docs/_Tasks/2026-04-12/06_42_stats-apply/Testcase.md`
-`Assets/_Project/Docs/_Tasks/2026-04-12/18_03_floating-hp-text/Testcase.md`
+###

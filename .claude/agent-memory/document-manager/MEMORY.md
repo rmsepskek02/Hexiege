@@ -1,5 +1,11 @@
 # document-manager 누적 지식
 
+## Topic files (index — an unlinked topic file does not exist)
+
+| Topic | What is in it |
+|---|---|
+| [doc-conventions.md](doc-conventions.md) | ① Citing rule numbers in the two docs whose numbering restarts per section (`GameSystemRules_Buildings.md` · `GameSystemRules_UI.md`) + the repeated misreading of a two-section line ② Which document carries implementation status — `GameDesignDocument.md` is a **design** document, and the `밸런싱 미확정`(design) vs `✅ 구현 완료`(implementation) split, with the standard replacement block ③ What `check_docs.py` accepts as a rule definition (`**규칙 N. 제목**` bold only, never `## 규칙 N.`), the one-H2-per-document rule that keeps `per_section` off, and the `규칙 11-1` regex case |
+
 ## 이 프로젝트의 문서 관습 (실측으로 확인된 것만)
 
 ### 원문 보존 방침
@@ -22,6 +28,12 @@
 - **절대 재배열·신설하지 않는다.** 코드 주석과 과거 Task 문서가 번호를 참조한다.
 - 해석을 명문화할 때는 **새 번호 대신 기존 규칙 본문에 문장을 추가**한다.
 - `GameSystemRules_UI.md` · `GameSystemRules_Buildings.md` 는 섹션마다 번호가 1부터 반복 → 참조 시 **섹션명(H2) 병기 필수**.
+  섹션 목록·번호 범위는 외우지 말 것 — **`python3 Tools/check_docs.py` 의 `[4]` 블록 출력이 권위 소스**다.
+  한 줄에 섹션이 둘 나오는 참조의 오독 사례와 판정 절차 → [doc-conventions.md](doc-conventions.md) §1.
+- 구현 진행 상태를 어느 문서에 적는가(기획 상태 vs 구현 상태 구분, 표준 대체 문구) → [doc-conventions.md](doc-conventions.md) §2.
+- **규칙 제목은 `**규칙 N. 제목**`(굵은 글씨)로 적는다.** `## 규칙 N.` H2 로 적으면 검사기가 규칙이 아니라 **섹션**으로 읽어
+  그 문서의 규칙이 **0개로 등록**되고 [3]·[4]·[5] 가 전부 공허하게 통과한다. 규칙 블록을 감싸는 H2 는 **문서당 하나**로 둘 것
+  (여러 개로 쪼개도 `per_section` 은 안 켜지지만 [4] 출력이 무의미해진다) → [doc-conventions.md](doc-conventions.md) §3.
 
 ## Task Plan.md 사후 갱신 패턴
 계획 본문(§1~§10)은 **원문 그대로 두고**, 문서 끝에 `# 11. 구현 결과 (날짜 추가)` 절을 append 한다.
@@ -43,16 +55,6 @@ grep -rn "LogEvent\.Unknown" Assets/_Project/Scripts --include=*.cs      # 0건 
 - 인계 메모의 **`system` 문자열 분포**(Network 163 등, 합 262)가 실측(Network 273 · Auth 46 · Bootstrap 26 · UI 22 · Cloud 11 · Factory 7 · Audio 4 · HexGrid 1 · Input 1, 합 391)과 **달랐다.**
   → **문서에 옮겨 적지 않고 사용자에게 보고**했다. 인계 수치는 항상 재실측한다.
 - 인계 메모의 *"클래스명이 계획과 달라졌다"* 는 항목은 Plan 이 언급한 클래스 13종을 전수 조회해도 **특정할 수 없었다** → 추정하지 않고 그대로 두고 보고.
-
-## 🔴 MEMORY.md 는 `Read` → `Edit`. `Write` 금지 (2026-08-20 실제 사고)
-`game-programmer` 가 자기 `MEMORY.md` 를 **`Write` 로 재작성**해 **46행 → 28행**, 미해결 구멍 목록까지 소실됐다.
-**원인은 에이전트가 아니라 `.claude/agents/*.md` 6개 전부에 하드코딩돼 있던 두 줄**이었다 —
-① 거짓 문장 `Your MEMORY.md is currently empty.`(파일이 실제로 비었던 시점에 굳음 → 매 호출마다 그렇게 믿고 시작 → `Edit` 아닌 `Write` 선택)
-② 존재하지 않는 윈도우 절대경로(그 경로로는 기존 파일을 찾아 ①을 반증할 수도 없었다).
-**둘 다 6개 파일에서 제거·교체 완료**(`.claude/agents/` 하위 `Dmain` 잔존 0건). 원칙은 `AGENTS.md` 「에이전트 메모리」 절 상단에 인용 블록으로 명문화했다.
-> **교훈:** 시스템 프롬프트에 **「현재 상태」를 사실로 못 박지 말고 「먼저 읽어서 확인하라」는 절차로 적는다.** 상태 서술은 시간이 지나면 거짓이 된다.
-> **⚠️ 내 시스템 프롬프트에는 아직 옛 문장(`Your MEMORY.md is currently empty.`)이 실려 올 수 있다** — 파일은 이미 고쳐졌으므로 **그 문장을 믿지 말고 항상 `Read` 로 확인**한다.
-> **~~미정리~~ → ✅ 2026-08-20 해소:** `.claude/MEMORY.md`(공용) 33·36·44~49행 **8행 교체 완료**(파일 108행 유지). 함께 **`.claude/settings.json`** 과 **`project-orchestrator/MEMORY.md` 239행**도 정리 — 아래 항목 참조.
 
 ## 🔴 죽은 경로는 문서가 아니라 **설정 파일**에 숨어 있었다 (2026-08-20 후속)
 에이전트 정의 6개(`.claude/agents/*.md`)를 고치고 *"잔존 0건"* 이라고 적었지만, **`.claude/settings.json` 8행 `SessionStart` 훅**이
@@ -85,19 +87,11 @@ tr -cd '{' < <파일> | wc -c ; tr -cd '}' < <파일> | wc -c                   
 파이썬으로 파싱해 센다(주석 제거 후 쉼표 분할). 2026-08-20 실측 **37개**.
 - **`return` 문 개수 비교는 오탐이 난다** — 주석이 인용한 `` `if (IsServer) return;` `` 문자열까지 잡힌다(`NetworkTileSync` 2→4). 숫자를 그대로 옮기기 전에 해당 줄을 눈으로 확인할 것.
 
-## 🔴 메모리 손실 경로는 3가지이고 원인이 서로 다르다 (2026-08-21 확립)
-`Write` 금지만 적으면 ②③을 못 막는다. **규칙 원문 6개 항목은 `.claude/MEMORY.md` 「🔴 에이전트 메모리 갱신 규칙」 절**(내가 신설)에 있고 `AGENTS.md` 는 그걸 참조한다.
-- ① **덮어쓰기** — 2026-08-17 `675203ae` ~~**-378행 미복구**~~ → **✅ 2026-08-21 복구 완료**(08-20 `bcf45ec1` -18행보다 21배 큼, `405538c7` 로 복원된 건 후자뿐). *취소선 사유: "미복구"가 이제 사실과 다르다 — 아래 「소실분 복구」 절 참조.*
-- ② **200행 절삭** — 프롬프트에 실릴 때 잘린다. 실측 qa-tester 502 · project-orchestrator 325 · game-design-lead 254. **커밋 이력에 안 남아 사고를 인지조차 못 한다**(①보다 나쁨).
-- ③ **고아 토픽** — `game-programmer` 토픽 18개 중 ~~**16개(1,839행)** 미링크~~ → **✅ 2026-08-21 18/18 재링크 완료**. 원인은 ① — **인덱스가 덮어써지면 토픽이 통째로 미아**가 된다. *취소선 사유: 미링크 상태가 해소됐다.*
-> **검증법 한 줄:** 토픽으로 옮겼다면 **폴더 총 행수 합이 줄지 않는다.** 파일 수가 그대로인데 총합이 줄었으면 **이동이 아니라 삭제**다(08-17 은 19→19 / 2,503→2,125 = 정확히 -378).
-
 ### 이 부류 작업의 안전 절차 (실제로 이렇게 했다)
 1. `Read` 로 **전체를 먼저 읽는다**(그래야 무손상 판정의 기준선이 생긴다).
 2. `Edit` **순수 삽입** — 기존 줄은 한 줄도 손대지 않는다. `Write` 금지.
 3. `wc -l` 로 **작업 전후 행수**를 보고하고, **삽입 구간을 제거하면 원문과 완전 일치**함을 파이썬으로 증명한다:
    `rest = lines[:31] + lines[44:]` → 길이와 양 끝 줄이 원문과 같은지 확인. (`.claude/MEMORY.md` 108 → 121행, 삽입 13행)
-- **길이 억제**: `.claude/MEMORY.md` 는 **매 에이전트 호출마다 프롬프트에 통째로 실린다** → 신설 절은 **12행 이내**, 사고 근거는 **날짜·커밋·수치만 한 줄**로 압축.
 - **위치**: 상단부(`## 절대 규칙 참조` 앞). 다만 **기존 절 순서를 재배치하지 않는다**(재배치는 순수 삽입이 아니다).
 
 ### git 결과를 문서에 옮길 때 (규칙 5 + 규칙 10 동시 충족)
@@ -114,7 +108,7 @@ tr -cd '{' < <파일> | wc -c ; tr -cd '}' < <파일> | wc -c                   
 - **실적: 457행 중 유일본은 7건뿐이었다.** 나머지는 전부 다른 문서에 살아 있었다.
 - **`_Tasks/` · `_Logs/` 는 원본으로 치지 않는다** — 이력 아카이브라 에이전트가 찾아가지 못한다.
   grep 할 때 `grep -v "_Tasks/\|_Logs/"` 로 **살아 있는 출처만** 센다(이 구분이 판정을 가른다).
-- **유일본은 `MEMORY.md` 가 아니라 토픽 파일로 보낸다**(200행 인덱스 원칙). 그리고
+- **유일본은 `MEMORY.md` 가 아니라 토픽 파일로 보낸다**(`.claude/MEMORY.md` 「Agent Memory Management Rules」 C-8 인덱스 원칙). 그리고
   **어느 토픽에 넣었는지 인덱스 한 줄 설명에 반영**한다 — 안 하면 방금 고친 고아 토픽 문제를 재생산한다.
 - **한 블록에 유일본과 중복이 섞여 있으면** 맥락 유지를 위해 블록째 복구하되
   **어느 줄이 유일본인지 주석으로 명시**한다(판정을 확신 못 하면 복구 쪽 — 중복은 지울 수 있지만 소실은 못 되돌린다).

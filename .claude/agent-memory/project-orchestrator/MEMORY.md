@@ -8,8 +8,6 @@
 
 ## 토픽 파일 인덱스
 
-> 링크 없는 토픽 파일은 존재하지 않는 것과 같다 — 인덱스의 링크가 **유일한 발견 경로**다(`.claude/MEMORY.md` 「🔴 에이전트 메모리 갱신 규칙」 5). 새 토픽을 만들면 반드시 여기에 링크를 추가한다.
-
 | 토픽 파일 | 내용 |
 |---|---|
 | [project-history.md](project-history.md) | 2026-03-14 ~ 2026-07-31 과거 프로젝트 스냅샷 아카이브. **현재 상태가 아니다** — 현재 상태는 바로 아래 절 |
@@ -24,7 +22,7 @@
 - **작업 흐름**: 코드 조사(game-programmer 정적 분석, 랠리포인트 구조·취약점 6건 도출) → `Research.md` → `Plan.md`(사용자 승인) → game-programmer 구현 → 사용자 실기 테스트 **PASS**. TC 문서는 사용자 미지시로 미작성(WORKFLOW [5-1] 준수).
 - **결과**: 코드 변경 `Presentation/UI/ProductionPanelUI.cs` **1파일 2줄**(순수 추가, 기존 로직 제거 없음). `OnRallyPointClick()` 오버레이 해제 + `CompleteRallyPointSetting()` 참조 카운터 반납. 계획과 구현 100% 일치(추가 변경 없음).
 - **조율 교훈**: 단일 파일·2줄이어도 "①만 고치면 ②가 새 버그를 만든다"는 결합이 있어 **두 지점을 한 Plan에 묶은 것이 핵심**이었음(기존 버그가 다른 누락을 상쇄하고 있던 구조). Research에서 발견한 나머지 랠리포인트 결함 5건은 범위 밖으로 분리해 별도 작업 후보로 기록.
-- task `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`. 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5, 보조 `GameSystemRules_Buildings.md` 랠리포인트 규칙 2(규칙 문서 변경 불필요 — 코드가 규칙을 다시 준수하도록 맞춘 수정).
+- task `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`. 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5, 보조 `GameSystemRules_Buildings.md` 랠리포인트 시스템 규칙 2(규칙 문서 변경 불필요 — 코드가 규칙을 다시 준수하도록 맞춘 수정).
 
 ## 에셋 폴더 구조 확정
 ```

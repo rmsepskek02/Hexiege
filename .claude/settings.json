@@ -1,17 +1,4 @@
 {
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '[체크] 에이전트 호출 전: .claude/MEMORY.md 내용을 프롬프트에 포함했는가?'"
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "allow": [
       "Bash(python:*)",
