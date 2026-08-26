@@ -193,7 +193,20 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void OnProductionStarted(ProductionStartedEvent e)
         {
-            if (!IsServer) return;
+            // 이 오브젝트가 아직 네트워크에 살아 있고, 내가 서버일 때만 진행한다.
+            //   이 핸들러는 아래에서 ProductionStartedClientRpc 를 전송한다.
+            //
+            //   이유는 NetworkCombatController.Update() 진입부 가드와 같다 — 그쪽의 상세 주석 참조.
+            //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //    NetworkManager.Shutdown() 이 불린 뒤에도 디스폰 전까지 IsServer 는 여전히 참이므로,
+            //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이다.)
+            //
+            //   ※ IsSpawned 를 앞에 두는 이유 — || 는 앞 조건이 참이면 뒤를 평가하지 않는다(단락 평가).
+            //     스폰되지 않은 상태에서 IsServer 를 건드리지 않고 곧바로 반환하기 위해서다
+            //     (NetworkUnit.cs:291 이 같은 이유로 같은 순서를 쓴다).
+            //
+            //   ※ 아래 production == null / state == null 가드는 순서를 포함해 그대로 둔다.
+            if (!IsSpawned || !IsServer) return;
 
             UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null) return;
@@ -222,7 +235,22 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void OnProductionQueueChanged(ProductionQueueChangedEvent e)
         {
-            if (!IsServer) return;
+            // 이 오브젝트가 아직 네트워크에 살아 있고, 내가 서버일 때만 진행한다.
+            //   이 핸들러는 아래에서 SyncQueueStateClientRpc 를 전송한다.
+            //
+            //   이유는 NetworkCombatController.Update() 진입부 가드와 같다 — 그쪽의 상세 주석 참조.
+            //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //    NetworkManager.Shutdown() 이 불린 뒤에도 디스폰 전까지 IsServer 는 여전히 참이므로,
+            //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이다.)
+            //
+            //   ※ IsSpawned 를 앞에 두는 이유 — || 는 앞 조건이 참이면 뒤를 평가하지 않는다(단락 평가).
+            //     스폰되지 않은 상태에서 IsServer 를 건드리지 않고 곧바로 반환하기 위해서다
+            //     (NetworkUnit.cs:291 이 같은 이유로 같은 순서를 쓴다).
+            //
+            //   ※ 같은 SubscribeToProductionEvents() 블록에서 구독되는 형제 셋
+            //     (OnProductionStarted · OnUnitProduced · OnProductionQueueChanged)의 가드 모양을 통일한다.
+            //   ※ 아래 production == null / state == null 가드는 순서를 포함해 그대로 둔다.
+            if (!IsSpawned || !IsServer) return;
 
             UnitProductionUseCase production = _services?.GetUnitProduction();
             if (production == null) return;
@@ -277,7 +305,18 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void OnUnitProduced(UnitProducedEvent e)
         {
-            if (!IsServer) return;
+            // 이 오브젝트가 아직 네트워크에 살아 있고, 내가 서버일 때만 진행한다.
+            //   이 핸들러는 아래에서 SpawnUnitClientRpc 를 전송한다.
+            //
+            //   이유는 NetworkCombatController.Update() 진입부 가드와 같다 — 그쪽의 상세 주석 참조.
+            //   (요약: IsServer 는 "내가 서버 역할인가" 이지 "이 오브젝트가 아직 살아 있는가" 가 아니다.
+            //    NetworkManager.Shutdown() 이 불린 뒤에도 디스폰 전까지 IsServer 는 여전히 참이므로,
+            //    위험 구간은 NetworkManager.Shutdown() 과 디스폰 사이다.)
+            //
+            //   ※ IsSpawned 를 앞에 두는 이유 — || 는 앞 조건이 참이면 뒤를 평가하지 않는다(단락 평가).
+            //     스폰되지 않은 상태에서 IsServer 를 건드리지 않고 곧바로 반환하기 위해서다
+            //     (NetworkUnit.cs:291 이 같은 이유로 같은 순서를 쓴다).
+            if (!IsSpawned || !IsServer) return;
 
             UnitData unit = e.Unit;
             HexCoord? rally = e.RallyPoint;

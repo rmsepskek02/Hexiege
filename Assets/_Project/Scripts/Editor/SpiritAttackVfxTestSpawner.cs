@@ -41,34 +41,36 @@ namespace Hexiege.EditorTools
             }
 
             List<TilePair> candidates = FindFreeAdjacentPairs(grid, spawn);
-            if (candidates.Count < 2)
+            if (candidates.Count < 3)
             {
                 Debug.LogWarning("[VFX Test] 비어 있는 보행 가능 인접 타일 쌍이 부족합니다.");
                 return;
             }
 
             int centerIndex = candidates.Count / 2;
-            TilePair first = candidates[centerIndex];
-            TilePair second = candidates[Mathf.Min(candidates.Count - 1, centerIndex + 2)];
+            TilePair first = candidates[Mathf.Max(0, centerIndex - 2)];
+            TilePair second = candidates[centerIndex];
+            TilePair third = candidates[Mathf.Min(candidates.Count - 1, centerIndex + 2)];
 
             int viewCountBefore = Object.FindObjectsByType<UnitView>(FindObjectsSortMode.None).Length;
-            // 인접 타일에 적을 두어 두 정령 모두 즉시 공격 사거리 안에서 실제 전투를 시작한다.
+            // 인접 타일에 적을 두어 정령 모두 즉시 공격 사거리 안에서 실제 전투를 시작한다.
             bool success = SpawnPair(spawn, UnitType.StreamSpirit, first)
-                && SpawnPair(spawn, UnitType.TorrentSpirit, second);
+                && SpawnPair(spawn, UnitType.TorrentSpirit, second)
+                && SpawnPair(spawn, UnitType.QuakeSpirit, third);
 
             var marker = new GameObject(MarkerName) { hideFlags = HideFlags.HideAndDontSave };
             int createdViewCount = Object.FindObjectsByType<UnitView>(FindObjectsSortMode.None).Length - viewCountBefore;
-            if (!success || createdViewCount < 4)
+            if (!success || createdViewCount < 6)
             {
-                CreateDirectVisualPreview(marker, first, second);
+                CreateDirectVisualPreview(marker, first, second, third);
                 Debug.LogWarning("[VFX Test] UnitFactory 프리팹 누락을 감지해 직접 시각 프리뷰로 전환했습니다. 이 모드는 Animator와 EffectManager 경로만 반복 검증합니다.", marker);
                 return;
             }
 
-            Debug.Log($"[VFX Test] 실제 전투: StreamSpirit {first.Blue}->{first.Red}, TorrentSpirit {second.Blue}->{second.Red}에 생성했습니다.", marker);
+            Debug.Log($"[VFX Test] 실제 전투: StreamSpirit {first.Blue}->{first.Red}, TorrentSpirit {second.Blue}->{second.Red}, QuakeSpirit {third.Blue}->{third.Red}에 생성했습니다.", marker);
         }
 
-        private static void CreateDirectVisualPreview(GameObject marker, TilePair streamPair, TilePair torrentPair)
+        private static void CreateDirectVisualPreview(GameObject marker, TilePair streamPair, TilePair torrentPair, TilePair quakePair)
         {
             PreviewEntry stream = CreatePreviewEntry(
                 "Assets/_Project/Prefabs/Units/Spirit/Unit_StreamSpirit_Blue.prefab",
@@ -76,11 +78,15 @@ namespace Hexiege.EditorTools
             PreviewEntry torrent = CreatePreviewEntry(
                 "Assets/_Project/Prefabs/Units/Spirit/Unit_TorrentSpirit_Blue.prefab",
                 torrentPair, UnitType.TorrentSpirit, 0.5f, marker.transform);
+            PreviewEntry quake = CreatePreviewEntry(
+                "Assets/_Project/Prefabs/Units/Spirit/Unit_QuakeSpirit_Red.prefab",
+                quakePair, UnitType.QuakeSpirit, 1.667f, marker.transform);
 
             // 적 프리팹은 방향과 거리 확인용 시각 기준점이다. 전투 로직이나 UnitView 초기화는 수행하지 않는다.
             CreateReferenceTarget("Stream Target", streamPair.Red, marker.transform);
             CreateReferenceTarget("Torrent Target", torrentPair.Red, marker.transform);
-            marker.AddComponent<SpiritAttackPreviewDriver>().Configure(stream, torrent);
+            CreateReferenceTarget("Quake Target", quakePair.Red, marker.transform);
+            marker.AddComponent<SpiritAttackPreviewDriver>().Configure(stream, torrent, quake);
         }
 
         private static PreviewEntry CreatePreviewEntry(string path, TilePair pair, UnitType type, float hitTime, Transform parent)

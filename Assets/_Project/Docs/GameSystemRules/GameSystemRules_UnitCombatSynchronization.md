@@ -8,6 +8,33 @@
 
 ---
 
+## 0. 공통 용어
+
+- **Simulation Root**: 서버 권위 위치와 방향을 보유하고 NetworkTransform·사거리·타겟·공격 판정이 참조하는 유닛 루트다.
+- **Visual Root**: Simulation Root의 자식으로서 팀별 화면 변환, 모델 방향 오프셋, Animator와 VFX를 담당하는 클라이언트 표현 루트다.
+- **행동 회차(Action Sequence)**: 서버가 확정한 하나의 이동·회전·공격 행동과 그 진행 단계를 식별하는 기록이다.
+- **공격 회차 ID(AttackSequenceId)**: 공격자별로 단조 증가하며 하나의 Windup·Impact·Recovery를 끝까지 묶는 서버 권위 식별자다.
+- **타격 번호(HitIndex)**: 한 공격 회차 안의 여러 Impact를 0부터 순서대로 식별하는 번호다.
+- **Impact**: 서버가 공격의 적중·빗나감·피해·회복·상태 효과 결과를 확정하는 권위 순간이다. Animation Event 자체가 아니다.
+- **전달 방식(Delivery)**: 효과가 목표 위치에 도달하는 방식이며 MeleeContact·Hitscan·ProjectileImpact·TravelingArea로 구분한다.
+- **대상 범위(TargetScope)**: 공격이 단일 대상인지 범위 대상인지 나타내는 축이며 Single 또는 Area다.
+- **범위 모양(AreaShape)**: TargetScope가 Area일 때 사용하는 Cone·Circle·Rectangle 등의 월드 좌표 판정 형태다.
+- **효과 종류(Effect)**: 공격이 적용하는 Damage·Heal·Status의 의미다.
+- **적용 일정(ApplicationSchedule)**: 효과가 Instant·MultiImpact·Periodic·ImpactThenPeriodic·ContactOncePerTarget 중 어떤 시간 패턴으로 적용되는지를 나타낸다.
+- **Windup**: 공격 회차가 커밋된 뒤 첫 Impact 전까지의 준비 구간이다.
+- **Recovery**: 마지막 Impact 후 다음 행동이 가능해질 때까지의 구간이다.
+- **SimulationFacing**: 서버 Simulation Root가 보유하고 이동·사거리·공격 판정에 사용하는 권위 방향이다.
+- **VisualFacing**: 각 클라이언트가 SimulationFacing을 팀 관점으로 변환해 Visual Root에 표시하는 방향이다.
+- **AimDirection**: 서버가 Impact 또는 발사·활성 시점에 기록하는 판정 방향이며 클라이언트가 다시 계산하지 않는다.
+- **ImpactPoint**: 서버가 ProjectileImpact 또는 범위 결과의 중심으로 확정한 월드 좌표다.
+- **AttackTimeline**: Windup·ActionMarkerOffset·Recovery를 정의하는 검증된 공격 시간 데이터다.
+- **AttackProfile**: Delivery·TargetScope·AreaShape·Effect·ApplicationSchedule·RangeMetric·AttackTimeline을 묶은 서버 판정 설정이다.
+- **AcquireRange**: 타겟이 없는 유닛이 새 타겟 후보를 획득할 수 있는 거리다.
+- **LoseRange**: 이미 획득한 타겟을 유지할 수 있는 최대 거리이며 AcquireRange보다 크게 두어 타겟 떨림을 막는다.
+- **Interval**: 하나의 공격 회차 커밋부터 다음 공격 회차를 커밋할 수 있을 때까지의 전체 주기다.
+
+---
+
 ## 1. 권위 경계
 
 ### NET-AUTH-001. 서버 행동 권위

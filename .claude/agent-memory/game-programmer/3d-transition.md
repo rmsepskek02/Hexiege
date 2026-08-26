@@ -53,6 +53,9 @@
 ### 보존 파일 (사용하지 않지만 에셋 참조 때문에 유지)
 - `Assets/_Project/Scripts/Infrastructure/Config/UnitAnimationData.cs`
   - ScriptableObject 에셋(.asset)이 존재할 수 있으므로 삭제하면 missing script 에러
+  - **[🔴 2026-08-25 정정 — 원문은 그대로 두고 덧붙인다: 이 파일은 현재 리포지토리에 없다.
+    삭제 시점과 경위는 확인하지 못했다. `project-orchestrator/MEMORY.md` 는 `FrameAnimator.cs`·
+    `UnitAnimationData.cs`·`PistoleerAnimData.asset` 이 삭제됐다고 적고 있어 두 기록이 엇갈린다.]**
 
 ## UnitView Animator 파라미터 규격
 - IsWalking (bool): 이동 중 여부

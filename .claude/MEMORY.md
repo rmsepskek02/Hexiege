@@ -1,6 +1,25 @@
 # 에이전트 공용 컨텍스트
 
 > **모든 에이전트는 작업 시작 전 이 파일을 반드시 읽을 것.**
+>
+> 이 파일은 **시스템 프롬프트에 자동 주입되지 않는다.** 각 에이전트 정의 `.claude/agents/<이름>.md` 의 「작업 시작 전 반드시 `Read` 할 것」 지시를 따라 **`Read` 로 직접 열어야** 도달한다(그 지시를 2026-08-21에 6개 정의 파일 전부에 넣어 위 문장이 비로소 사실이 되었다).
+> 그리고 **여기서부터** 문서 인덱스 `AGENTS.md`(→ 아래 「주요 문서 경로」)와 각자의 `.claude/agent-memory/<이름>/MEMORY.md`(→ 아래 「에이전트별 MEMORY.md 경로」)로 이어진다. 이 파일이 그 두 곳으로 가는 **분기점**이다.
+
+### 자동 주입 경계 (2026-08-21 프로브 실측)
+
+qa-tester · game-design-lead · asset-prompt-crafter · project-orchestrator 4개 에이전트에게 **도구를 하나도 쓰지 말고 시스템 프롬프트 내용만으로 답하라**고 지시해 확인했다. 4건 결과가 일치한다.
+
+| 층 | 에이전트 시스템 프롬프트에 자동 주입되는가 |
+|---|---|
+| `CLAUDE.md` | ✅ **예** — 규칙 번호 · `2026-03-03` 날짜 · 체크리스트 항목까지 정확히 인용했다 |
+| 에이전트 정의 `.claude/agents/<이름>.md` | ✅ **예** — 단, **자기 것만** (6개가 각각 별도 파일) |
+| `AGENTS.md` | ❌ 아니오 — 문서 인덱스인데 도달 경로가 **이 파일 경유뿐**이다 |
+| `.claude/MEMORY.md` (이 파일) | ❌ 아니오 |
+| 각 에이전트 `MEMORY.md` | ❌ 아니오 |
+
+- 즉 메모리는 **잘려서 일부만 보이는 것이 아니라 애초에 0행이 실린다.** 에이전트가 메모리를 아는 유일한 방법은 `Read` 이고, **`Read` 에는 200행 제한이 없다.**
+- **자동 주입되는 것은 다른 곳에 옮겨 적지 않는다** — 사본은 원본이 바뀌는 순간 조용히 거짓이 된다. `CLAUDE.md` 는 사용자·메인 세션의 소통용 기초 문서이며 자동 주입은 부수효과다.
+- ⚠️ **에이전트 프롬프트에 적힌 사실 주장은 검증 없이 인용하지 않는다.** `lines after 200 will be truncated` 한 줄을 검증 없이 믿어 여러 문서로 퍼뜨린 것이 2026-08-21 정정 작업의 원인이다.
 
 ---
 
@@ -42,11 +61,85 @@
 
 ---
 
-## 절대 규칙 참조
-→ `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/CLAUDE.md`
+## 🔴 Agent Memory Management Rules (no exceptions)
 
-## 작업 사이클 상세 참조
-→ `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/Assets/_Project/Docs/WORKFLOW.md`
+> **This section is the single source for memory management rules.**
+> Do NOT copy the rule text into agent definition files (`.claude/agents/*.md`) or into
+> memory notes (`.claude/agent-memory/*/MEMORY.md`) — a copy becomes silently false the
+> moment the original changes. Those files carry a **pointer to this section only**.
+
+### A. Reading
+
+1. **Memory files are NOT auto-injected into the system prompt.** Open them with `Read`
+   before starting work. They are not truncated — **zero lines are loaded**, so nothing
+   reaches you unless you read it. `Read` has no line limit.
+2. **Never assume a memory file is empty.** Always read it before updating.
+   ⚠️ Any "current state" claim in your system prompt may be stale — **do not trust it;
+   verify by reading the file.**
+
+### B. Writing
+
+3. **Use `Write` only to create a new file. To change a file that already exists, use
+   `Read` → `Edit`.** `Write` replaces the whole file and **succeeds while destroying the
+   contents**; `Edit` fails loudly when it cannot find its target.
+4. Add what you learned to the **appropriate existing section**.
+5. **Update** entries that turn out to be wrong or outdated.
+6. **Delete an entry only after confirming it is wrong, and record why you deleted it.**
+   "Tidied up" / "made it shorter" is not a valid reason to delete.
+7. **When correcting a figure in a past record, append — do not overwrite.**
+   Leave the original sentence, then add `**[🔴 YYYY-MM-DD correction — original kept: …]**`.
+   Use strikethrough only when the entire entry has become invalid.
+
+### C. Structure
+
+8. **`MEMORY.md` holds only an index plus what is needed on every task.**
+   Past records and details go into topic files — and **must be linked from the index**.
+9. **Organize by topic, not chronologically.**
+10. **An unlinked topic file does not exist.** The index link is the **only path** by which
+    a topic file is discovered. Miss the link and nobody will ever find that file.
+11. **Primary criterion is character** (this file is read on every task, so it must stay
+    light). **Secondary criterion is a 250-line warning line.**
+    (The former claim "content past line 200 is truncated and invisible" was **verified
+    false** — see the auto-injection boundary section above.)
+    **Topic files have no size limit** — they are read selectively.
+
+### D. What to save and what not to save
+
+12. **Save** — patterns and conventions confirmed across multiple sessions; architectural
+    decisions; important file locations; user preferences for workflow, tools, and
+    communication; solutions to recurring problems.
+13. **Do not save** — session-only context (the current task, work in progress); anything
+    unverified against project docs; anything that duplicates or contradicts `CLAUDE.md`;
+    **conclusions drawn from reading a single file**.
+14. **Act on explicit user requests immediately.** "Remember this" is saved at once without
+    waiting for repetition; "forget this" means finding and removing those entries.
+15. This memory is **project-scoped** and shared with the team through version control.
+
+### E. Verification
+
+16. **When moving content into a topic file, the agent folder's total line count must not
+    decrease** — this is the only way to tell a move from a deletion.
+17. `python3 Tools/check_docs.py` enforces 10 and 16 mechanically via check **[6]**
+    (orphan topic files) and check **[7]** (agent folder total line count decrease).
+    The baseline lives in `.claude/agent-memory/_baseline.json` — **never edit it directly**;
+    update it only with `--update-baseline` (a decrease also requires `--reason`).
+
+> **실측 사고 기록(실제 손실):** 2026-08-17 `675203ae` game-programmer **-378행**(미복구) · 2026-08-20 `bcf45ec1` 같은 파일 **-18행**(`405538c7` 복원) · game-programmer 고아 토픽 **16개 1,839행**. 손실 경로가 ①덮어쓰기 ②고아 토픽(링크 누락)으로 **서로 다르므로 위 「Agent Memory Management Rules」 A~E 를 모두 지킨다.** (커밋 해시·증감 수치는 당시 호출 세션이 측정한 값이며, 규칙 5로 git 명령을 쓸 수 없어 이 문서에서 재검증하지 않았다.)
+>
+> **품질 항목(손실 아님):** **세분화 권장 3개** — qa-tester 502 · project-orchestrator 325 · game-design-lead 254. 종전에는 이것을 "200행 초과 = 잘려서 안 보임"으로 적어 **손실 위험**으로 분류했으나 **2026-08-21 프로브로 그 전제가 거짓임이 확인됐다.** 잘리는 것이 아니라 **읽는 비용**의 문제이므로 **손실 방지가 아니라 품질 개선(오해 방지) 항목**이다.
+>
+> 🔴 **그 결과 드러난 사실: 「3개 에이전트 1,081행 분산」은 애초에 불필요한 작업이었다.** 없는 문제를 고치려고 1,081행을 옮길 뻔했고, **그 이동 자체가 2026-08-17과 같은 모양의 실제 손실 위험**이었다. 전제를 검증하지 않은 채 착수하는 대량 이동이 가장 위험하다.
+
+---
+
+## 📝 Documentation Language
+
+- **Documents that agents read are written in English** — `.claude/MEMORY.md`,
+  `.claude/agents/*.md`, `.claude/agent-memory/**`. New content and new sections follow this.
+- **Conversation with the user is in Korean.** Explain, report, and ask in Korean.
+- Existing Korean content is not translated wholesale; it is converted only when that
+  section is being rewritten for another reason.
+
 
 ---
 
@@ -54,12 +147,12 @@
 
 | 에이전트 | MEMORY.md 경로 |
 |---------|---------------|
-| game-programmer | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/game-programmer/MEMORY.md` |
-| game-design-lead | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/game-design-lead/MEMORY.md` |
-| qa-tester | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/qa-tester/MEMORY.md` |
-| asset-prompt-crafter | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/asset-prompt-crafter/MEMORY.md` |
-| project-orchestrator | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/project-orchestrator/MEMORY.md` |
-| document-manager | `d:/Dmain/dev/Portfolio/Hexiege/Hexiege/.claude/agent-memory/document-manager/MEMORY.md` |
+| game-programmer | `.claude/agent-memory/game-programmer/MEMORY.md` |
+| game-design-lead | `.claude/agent-memory/game-design-lead/MEMORY.md` |
+| qa-tester | `.claude/agent-memory/qa-tester/MEMORY.md` |
+| asset-prompt-crafter | `.claude/agent-memory/asset-prompt-crafter/MEMORY.md` |
+| project-orchestrator | `.claude/agent-memory/project-orchestrator/MEMORY.md` |
+| document-manager | `.claude/agent-memory/document-manager/MEMORY.md` |
 
 ---
 
@@ -71,8 +164,11 @@
 | 로드맵 | `Assets/_Project/Docs/ROADMAP.md` |
 | 기획서 | `Assets/_Project/Docs/GameDesignDocument.md` |
 | 기술설계 | `Assets/_Project/Docs/TechnicalDesignDocument.md` |
-| 작업 사이클 규칙 | `Assets/_Project/Docs/WORKFLOW.md` |
-| 에이전트 & 문서 인덱스 | `AGENTS.md` |
+| 작업 사이클 규칙 | `Assets/_Project/Docs/WORKFLOW.md` — **자동 주입 없음.** `CLAUDE.md` 체크리스트 [1]이 읽으라고 지시하는 대상이므로 경로를 반드시 유지한다 |
+| 에이전트 & 문서 인덱스 | `AGENTS.md` — **자동 주입 없음.** 필요한 문서를 찾아갈 때의 인덱스이며, 도달 경로는 이 파일 경유뿐이다 |
+| AI 실수 기록 | `.claude/mistakes.md` — **자동 주입 없음.** 같은 부류의 작업을 시작하기 전에 **목차를 훑고** 걸리는 항목만 펼쳐 읽는다. 실수를 인지하면 그 자리에서 덧붙인다 |
+
+> `CLAUDE.md` 는 **자동 주입되므로 이 파일에 옮겨 적지 않는다**(종전의 「절대 규칙 참조 → `CLAUDE.md`」 절은 2026-08-21에 이 사유로 제거). `WORKFLOW.md` 는 자동 주입되지 않으므로 위 표에 경로를 남겼다 — 종전의 「작업 사이클 상세 참조」 절은 이 표 행과 같은 내용이라 표로 합쳤다.
 
 ---
 
@@ -86,7 +182,7 @@
 
 ## 공통 중요 교훈
 - **MistShrine 물안개 힐 구현 완료 · 에디터 싱글플레이 실기 검증 완료 / ⚠️ 멀티 미검증 (2026-08-12)** — 전용 `MistShrineUseCase`(물안개 인스턴스 목록 + 물안개별 독립 누적기 + **매 틱 대상 재수집**, `_activeTimedEffects` HoT/DoT 목록 미사용 → 규칙 14 독립 채널 구조적 보장) + `BuildingPanelBase` 상속 전용 패널 + 건물 회복 경로 신설(`BuildingData.Heal` + **전용 동기화 RPC**로 검증된 유닛 힐 경로 무변경). **로그 실측 검증**: 범위 원 경계 = 실제 회복 판정 일치(회복 최대 2.29 / 탈락 최소 3.12 vs 반경 3.00, 모순 0건) · 범위 이탈 즉시 끊김 · 매 틱 +10 · 중첩 해소 1회 + 동률 시 Id 작은 쪽. **⚠️ 과대 표기 금지 — 멀티 실기 미검증**(범위 판정 코드는 싱글·멀티 공유라 판정 로직은 유효하나 **HP 동기화·클라 표시·RPC 팀 검증·쿨다운 미러는 멀티 고유 경로로 실행된 적 없음**) · **물안개 VFX 미제작(물안개가 눈에 안 보임)** · 버튼 아이콘 미제작 · **밸런싱 수치 전부 임시값**. ⚠️ **교훈 3가지**: ① **"중첩 해소 코드를 넣었다" ≠ "중첩 해소가 동작한다"** — 물안개마다 틱 위상이 달라(실측 `.36x` / `.73x`, 동시 틱 0건) "이번 프레임 발화분끼리" 비교하는 해소 코드가 **비교 대상 1개뿐이라 죽은 코드**였고, 겹친 물안개 2개가 **초당 회복량 2배**를 만들었다(3초에 +60, 기댓값 +30). 판정 로직은 **그 로직이 실제로 실행되는 조건까지** 확인할 것. 수정=**활성 물안개 위상 정렬 + 소유권 판정을 발화 여부와 분리**(커밋 `be17148`), 불변식을 **규칙 8-1에 보강 기재**(문서에 없으면 되돌려짐). ② **직렬화 필드에 잘못 저장된 값은 코드 기본값 수정으로 절대 안 고쳐진다**(Inspector 우선 원칙) — 고치는 법은 씬/에셋 값 직접 수정 / **필드명 변경으로 옛 직렬화 키 버리기**(`[FormerlySerializedAs]`를 일부러 안 붙이는 것이 수정 그 자체) / 런타임 무시 경로. ③ **비활성 상태로 씬에 저장된 오브젝트는 `Show()`의 `SetActive(true)` 순간 `Awake`가 처음 실행**되어, `Awake`의 `SetActive(false)`가 켜자마자 자기를 다시 끈다 → 런타임 전용 플래그로 자기 비활성화만 건너뛸 것(`MistShrineRangeIndicator`·`SkillAimReticle` 동일 함정). 진단 로그는 `848d891`→`939bd87`→`be17148`→`cfe73bb`(전량 제거), 로그 파일은 LogRules대로 `_Logs/2026-08-10/14_12_mistshrine-heal-implementation/RuntimeLog_host.txt`에 보존. task `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`(Plan §9-4 · §10), 규칙 `GameSystemRules_Buildings.md`(8-1 보강·상태 정정)·`GameSystemRules_UI.md`(상태 정정).
-- **건물 파괴 시 열린 패널/조준 UI 원복 구현·실기 PASS (2026-08-08, 커밋 `8c7fa01`)** — 건물 패널 4종(생산/건물액션/스킬/연구) 공통 베이스 `BuildingPanelBase`가 `GameEvents.OnBuildingDied` 구독→파괴 건물이 현재 표시/조준 중 건물(`_currentBuilding.Id` 매칭, **`IsOpen` 아님** — 조준 중엔 `_popup.Hide()`로 IsOpen=false)이면 `Close()`→각 패널 `OnBeforeClose`로 조준 취소·랠리 마커 숨김 자동 연계. 코드 변경 `BuildingPanelBase.cs` 1파일(자식 무변경). 멀티=`NetworkCombatController.HandleBuildingDied` 클라 재발행 커버. ⚠️ **교훈: MonoBehaviour 베이스에서 자식(`ResearchPanelUI`)이 자체 `OnDestroy`를 선언하면 베이스 `OnDestroy`가 은닉(hide)되어 베이스 해제 로직이 누락되므로, 베이스의 이벤트 구독 해제는 신설 `OnDestroy`보다 `.AddTo(this)`(UniRx, 관용 패턴: BuildingFactory/UnitFactory/HitPresentationQueue)가 안전.** 규칙 `GameSystemRules_UI.md`(공통 UI 팝업 규칙 11 신설). task `_Tasks/2026-08-08/07_40_building-death-ui-restore/`.
+- **건물 파괴 시 열린 패널/조준 UI 원복 구현·실기 PASS (2026-08-08, 커밋 `8c7fa01`)** — 건물 패널 4종(생산/건물액션/스킬/연구) 공통 베이스 `BuildingPanelBase`가 `GameEvents.OnBuildingDied` 구독→파괴 건물이 현재 표시/조준 중 건물(`_currentBuilding.Id` 매칭, **`IsOpen` 아님** — 조준 중엔 `_popup.Hide()`로 IsOpen=false)이면 `Close()`→각 패널 `OnBeforeClose`로 조준 취소·랠리 마커 숨김 자동 연계. 코드 변경 `BuildingPanelBase.cs` 1파일(자식 무변경). 멀티=`NetworkCombatController.HandleBuildingDied` 클라 재발행 커버. ⚠️ **교훈: MonoBehaviour 베이스에서 자식(`ResearchPanelUI`)이 자체 `OnDestroy`를 선언하면 베이스 `OnDestroy`가 은닉(hide)되어 베이스 해제 로직이 누락되므로, 베이스의 이벤트 구독 해제는 신설 `OnDestroy`보다 `.AddTo(this)`(UniRx, 관용 패턴: BuildingFactory/UnitFactory/HitPresentationQueue)가 안전.** 규칙 `GameSystemRules_UI.md`(공통 UI 규칙 11 신설). task `_Tasks/2026-08-08/07_40_building-death-ui-restore/`.
 - 스킬 시스템 **타입 C(전역 상태변경: 버프/디버프/CC/힐) Phase 2 구현·실기+멀티(클라) 테스트 PASS (2026-08-05)** — 스킬 메커니즘 3종(A/B/C) 전부 완료. Domain `Status/{StatusEffectKind,StatusEffect,UnitStatusState}`(순수 계산) + Application `Services/StatusEffectSystem`(서버 권위 부여/틱) + `Skill/GlobalStatusChangeExecutor`(조준 없음 전역 즉시). 유효 스탯 접근자(`EffectiveAttack`/`GetUnitMoveSpeedMultiplier`)에 상태 배율을 연구 강화 배율과 **곱연산 합성** + 공격 게이트 `CanAttack`(빙결/기절 시 데미지 봉쇄) — **무상태면 배율1·CanAttack true라 기존과 완전 동일(회귀 안전).** 빙결=이속0+`Animator.speed=0` 애니 정지(`UnitAnimState.Frozen`·`OnUnitFreezeChanged` 클라 동기화), 둔화=이동 코루틴 매 프레임 유효 배율 재조회로 라이브(전투종료 정렬 Lerp 구간만 캡처값 미세 잔여), 회복=기존 HoT 재사용, 멀티=`StatusAppliedClientRpc`(회복은 HP 동기화로 재현). UI 버튼 균일화=CostContainer를 SetActive(false) 대신 CanvasGroup alpha=0로 숨겨 행 높이 보존. **정리(cleanup): 개발용 진단 로그 코드를 제거하며 `IRuntimeLogSink`/`RuntimeLoggerSink` 삭제(상시 기능 아님), 로그 파일은 LogRules대로 보존, 좌표화 주석 비활성 코드 3곳 삭제.** ⚠️ **교훈: 로그 작업 착수 전 반드시 `Docs/LogRules.md`(RuntimeLogger 파일 기록·raw Debug.Log 금지)를 먼저 확인할 것** — 이번에 이를 뒤늦게 준수해 진단 로그를 걷어냄. **건물 파괴 시 스킬 패널/조준 UI 원복 = 2026-08-08 구현 완료·실기 PASS**(BuildingPanelBase OnBuildingDied 구독→현재 건물 Id 매칭 시 Close, 4개 건물 패널 공통, 구독 해제 `.AddTo(this)`). **남은 것: 구체 스킬 목록/수치/아이콘(기획, 현재 종족별 플레이스홀더 5슬롯 테스트용) · 둔화 전투종료 정렬 Lerp 잔여만.** task `_Tasks/2026-07-28/12_14_skill-building-system-design/`(Plan/Research 하단 "Phase 2 완료 결과"), 규칙 `GameSystemRules_Skills.md`(13, 구현 상태 갱신).
 - 스킬 건물 시스템 Phase 1(타입 A 즉발 범위 피해·B 장판 DoT + 프레임워크 + 3×3 패널 UI/쿨다운 오버레이 + 모바일 탭 조준) 구현·**실기기 테스트 PASS (2026-08-04)**. 이번 사이클 핵심 4건: ① **조준 지점 좌표화** — 조준 중심을 타일 스냅(HexCoord) → 연속 도메인 월드 Vector3로. **착탄 반경 판정은 원래 연속 원(중심 월드+반경 유클리드)이라 무변경, "중심 입력"만 연속화.** 서버 재검증도 유효타일(HasTile) → 맵 경계 안 점(point-in-bounds, `Core/HexMetrics.{ComputeMapWorldBounds,IsWithinMapBounds,ClampToMapBounds}` 신규, 최외곽 타일 바깥선까지 엄밀 clamp). HexGrid(Domain) Vector3 불가 → Core 수학+클로저 주입(GameBootstrapper `_grid` 캡처=맵 재로드 대응). RPC=NGO 2.9.2 Vector3 기본 직렬화(int q,r 폐지). ② **조준원 지면 데칼 렌더링** — 원인=조준원(y=0.05)과 HexTile(ProBuilder 실린더) coplanar z-fighting. 신규 셰이더 `Assets/_Project/Shaders/SkillAimOverlay.shader`(ZTest LEqual + Offset -1,-1 + ZWrite Off + Cull Off) = 지형엔 안 가려지고 불투명 유닛/건물엔 가려지는 데칼(**ZTest Always 금지** — 유닛/건물까지 덮어 규칙 22-1 위반). 셋업 스크립트가 머티리얼 자동 생성·배선, **씬 재셋업 필요**. ③ **취소 버그 근본 수정** — 실기(Android)에서 취소 X 위에서 손을 떼도 발동·쿨다운. 원인=손 뗀 프레임에 `TryGetPointerScreenPos` 마우스 분기가 합성 마우스 좌표(0,0)를 유효로 반환해 캐시 폴백을 가로챔 → release 프레임엔 캐시된 마지막 드래그 좌표(`_lastDragScreenPos`)로만 판정. ④ **쿨다운 안내 토스트** — 기존 ToastUI(에셋 기반)에 `ToastKey.SkillOnCooldown` + `ToastMessageConfig.asset` key:4 "스킬이 쿨다운 중입니다". **미완(당시 기준·과대 표기 금지):** 타입 C(전역 상태변경)는 당시 enum만 선언·실행기 미구현이었으나 **2026-08-05 Phase 2로 구현 완료(위 항목 참조)** · 건물 파괴 시 패널/조준 UI 원복은 **2026-08-08 구현 완료(위 항목 참조)** · 구체 스킬 목록/수치(기획) 보류. 규칙 `GameSystemRules_Skills.md`(1~26). task `_Tasks/2026-07-28/12_14_skill-building-system-design/`·`_Tasks/2026-08-04/04_46_skill-aim-coordinate-based/`.
 - 연구소 유닛 강화 시스템 + 전투 스탯 ×10 + 연구 패널 UI 구현·멀티 실기 완료 (2026-07-31). ① 방어 감쇄 = 순수 함수 `Domain/Combat/DamageCalculator.ApplyDefense`(K=120, floor 1, 하드캡 65%, `raw<=0`·`defense<=0`이면 원본 반환→하위호환). ② 팀 배율 상태 = Application `UnitUpgradeUseCase`(선례 `ResourceUseCase._incomeMultipliers`), (B) 소급 강화 = 유닛 스냅샷 미변경·사용 지점 조회. ③ 네트워크 `Infrastructure/NetworkUpgradeController` — 완료 레벨 양 클라 브로드캐스트/진행 소유자만/파괴 100% 환불, **`OnNetworkSpawn` 서비스 미등록 스폰 레이스는 `ResolveServices()` 지연 재조회로 수정**. ④ **연구 패널 UI = `ResearchPanelUI : BuildingPanelBase` + 매트릭스/진행 2-레이어(연구소 단위)** — 초기 "생산 패널 패턴"에서 확정 변경(규칙 13). ⑤ **×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨)**(1회 실행 필요, Inspector 값 우선). 후속 보류(과대 표기 금지): UI 레이아웃·헤더 아이콘·AI 연구 실기·MistShrine 힐(미구현)·싱글 자연회복 실기. task `_Tasks/2026-07-22/10_08_unit-upgrade-system/`, 규칙 `GameSystemRules_Upgrade.md`.

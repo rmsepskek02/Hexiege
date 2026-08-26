@@ -10,7 +10,7 @@
 
 ### 완료된 에셋
 - **Pistoleer (유닛)**: `Assets/_Project/Models/Units/Pistoleer/Pistoleer.fbx`
-  - 프리팹: `Assets/_Project/Prefabs/Units/Unit_Pistoleer.prefab` (애니메이션 작동 확인 완료)
+  - 프리팹: `Assets/_Project/Prefabs/Units/Human/Unit_Pistoleer_{Blue,Red}.prefab` (애니메이션 작동 확인 완료)
   - 애니메이션 클립: `Assets/_Project/Animations/Units/Pistoleer/Pistoleer_[Walk|Dead|Shoot].anim`
   - Avatar: Pistoleer.fbx 기준 (추가 유닛은 Copy From Other Avatar)
   - Animator Controller: `IsDead`(bool) 파라미터 1개 + `Any State → Dead` 트랜지션만 존재
@@ -70,7 +70,7 @@ Border = step(0.433 - BorderSize, d);
 
 ### 완료된 기타 에셋
 - **금광 타일 오브젝트** (2026-03-01 완료): 크리스탈 바위 더미
-  - 프리팹 경로: `Assets/_Project/Prefabs/Misc/GoldMineTile.prefab`
+  - 프리팹 경로: `Assets/_Project/Prefabs/Tiles/GoldMineTile.prefab`
   - 건물이 아닌 타일 오버레이 — HexGridRenderer에서 생성, MiningPost 건설 시 숨김
 - **랠리포인트 마커** (2026-03-01 확정)
   - 프리팹 경로: `Assets/_Project/Prefabs/Misc/RallyPointMarker.prefab`

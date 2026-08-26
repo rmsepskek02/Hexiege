@@ -1,28 +1,4 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "cat \"d:/Dmain/dev/Portfolio/Hexiege/Hexiege/CLAUDE.md\"",
-            "statusMessage": "CLAUDE.md 로딩 중..."
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '[체크] 에이전트 호출 전: .claude/MEMORY.md 내용을 프롬프트에 포함했는가?'"
-          }
-        ]
-      }
-    ]
-  },
   "permissions": {
     "allow": [
       "Bash(python:*)",
@@ -30,15 +6,10 @@
       "Bash(npx:*)",
       "Bash(git rm:*)",
       "Bash(where claude:*)",
-      "Read(//c/Users/rmsep/**)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in d.items\\(\\) if ''''mcp'''' in k.lower\\(\\) or ''''server'''' in k.lower\\(\\)}, indent=2\\)\\)\")",
-      "Bash(\"D:/dev/Node/npm.cmd\" install:*)",
-      "Bash(\"D:/dev/Node/npm.cmd\" run:*)",
-      "Bash(PATH=\"/d/dev/Node:$PATH\" \"D:/dev/Node/npm.cmd\" run build)"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in d.items\\(\\) if ''''mcp'''' in k.lower\\(\\) or ''''server'''' in k.lower\\(\\)}, indent=2\\)\\)\")"
     ],
     "additionalDirectories": [
-      "d:\\Dmain\\dev\\Portfolio\\Hexiege\\Hexiege\\Assets\\_Project\\Docs\\_Tasks",
-      "C:\\Users\\rmsep"
+      "Assets/_Project/Docs/_Tasks"
     ]
   }
 }

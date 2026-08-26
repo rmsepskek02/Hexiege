@@ -19,6 +19,14 @@
 - 실제 `a0e690...8d8`: Editor Host·Android Client, MOVE full EVIDENCE, ROOT 양쪽 PASS. 수동 pose union55/overlap49/match49/mismatch0/coverage `.891`, max axis `.000982m`, max rot `0°`.
 - 기존 ROOT bucket 14/17 peer equality는 false-INCONCLUSIVE. validated MOVE `startedAt` delta `.733149초`를 사용하도록 교정했다. 경계 `2.000` 허용/`2.001` 거부, run 내부 bucket·stable overlap·identity/source/role/key/schema/EVIDENCE/FAIL은 계속 fail-closed다.
 - SelfValidation은 실제형, 시간 경계, 내부 bucket mismatch, BEGIN/END missing, `NaN`/`Infinity`를 포함한다. Editor Roslyn만 PASS했으며 사용자 SelfValidate/Analyze 전 공식 판정은 OPEN이다.
+## 토픽 파일 인덱스
+
+| 토픽 파일 | 내용 |
+|---|---|
+| [patterns.md](patterns.md) | 세션별 버그 패턴 상세 — 반복해서 걸린 함정과 그 검사 방법(grep 루틴 포함). 신규 유닛 데이터 배선 검사 루틴도 여기 |
+| [qa_history.md](qa_history.md) | 완료된 QA 이력 전문. 1차 이관분(생산시스템 / DOTween / 카메라 / 재경기 / 로비 복귀 / 로딩 / 랜덤매칭 / 전투거리 / 공격방향) + **2026-08-24 2차 이관분 18건**(2026-04-07 ~ 2026-07-20) + **네트워크 종료 시점 가드 8곳 실기 검증(2026-08-24, 맨 위)** |
+
+> 이 파일에는 **매 QA 작업마다 필요한 규칙·체크리스트만** 남긴다. 지나간 QA 기록은 위 [qa_history.md](qa_history.md) 로 옮겼다(2026-08-24, 삭제 아님 — 원문 그대로 보존).
 
 ## ⚠️ TC 작성 형식 규칙 (CRITICAL — README.md 공식 규칙, 2026-03-24 확정)
 
@@ -165,6 +173,15 @@
 - [x] 자동생산 멀티플레이 — NetworkProductionController에 ToggleAutoServerRpc 구현됨 (2026-04-19 확인)
 - [x] 생산 큐 클라이언트 UI: SyncQueueStateClientRpc + ProductionStartedClientRpc 두 경로로 동기화됨 (2026-04-19 확인)
 - [x] NetworkGameEndController._lobbySceneName 하드코딩 수정: "SampleScene" → "Game" (수정 완료)
+
+## 🔴 런타임 로그로 판정할 때의 3대 함정 (2026-08-24 실증 — 매 로그 QA마다 확인)
+
+상세·근거는 [qa_history.md](qa_history.md) 「네트워크 종료 시점 가드 8곳 실기 검증 (2026-08-24)」.
+
+1. **회차 간 건수 비교 전에 역할 구성부터 맞춘다.** `[WARN]` 1,099건이 2026-08-24 로그에만 있고 2026-08-19 로그에 0건이라 *"이번에 생겼다"* 로 읽히지만, **08-19 는 3경기 내내 호스트**(`IsServer=False` 스폰 0건)였고 그 경고는 **클라이언트 전용 경로**의 것이다. **차이는 "코드가 바뀐 것"이 아니라 "기록한 쪽이 바뀐 것"이었다.** → 두 로그를 비교하기 전에 **`네트워크 스폰 | IsServer=` 로 역할 구성을 먼저 센다.**
+2. **서버 전용 가드는 에디터가 서버인 구간에서만 검증된다.** 클라이언트 구간의 수신 로그(`… 수신` · `… 보정`)는 **상대 호스트가 보낸 것**이라, 우리 쪽 서버 가드의 근거가 **되지 못한다**(상대 빌드의 커밋을 확인할 수 없다 — 규칙 10). 근거표를 만들 때 **서버 구간 / 클라 구간을 반드시 갈라 적는다.**
+3. **`if (!IsServer …)` 로 시작하는 가드는 클라이언트에서 뒷 조건이 평가되지 않는다.** `_combatStopped` 리셋이 이 때문에 *"재경기 정상"* 으로 오독될 뻔했다 — 2·3경기 사망 로그는 전부 `EntityDiedClientRpc 수신` 경로였다. **단락 평가 순서를 읽고 "이 조건이 실제로 평가되는 구간이 로그에 있는가"를 확인한다.**
+> **경고 건수가 크다 ≠ 문제가 심하다.** 재시도 성공/실패 짝을 먼저 센다(이번엔 대기 319 ↔ 성공 319 · 실패 0건). **한 대상당 여러 번 찍히는 경고**라 1,099 대 319 로 부풀어 보였다.
 
 ## 네트워크 QA 체크리스트
 - 건물 배치: 서버 검증 후 양쪽에 동일하게 생성되는지

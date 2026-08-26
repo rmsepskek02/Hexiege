@@ -4,23 +4,8 @@
 
 **최우선 게이트 (2026-08-25):** B3 v10 중심 경로·건물 안전 Chase·전방 중심 복귀는 Android Host·Editor Client 집중 실기에서 MOVE EVIDENCE와 양쪽 local ROOT PASS를 확보했다. Host 중심 checkpoint 766회·최대 오차 0, direct-safe/path Chase 806/2,977 frame, authority/adapter/stationary Walk/drop 오류 0이다. 공식 CrossAudit INCONCLUSIVE의 원인이던 긴 ROOT terminal은 채점 필수 필드만 남긴 803-byte 최악값 compact END와 출력 전 preflight로 교정했으며 Runtime/Editor Roslyn과 Unity self-validation 2종까지 PASS했다. 다음은 Tracer C Phase 4 공격 회차 Shadow와 서버 권위 타겟·공격 방향 교정이다.
 
-**구현 완료 (2026-08-19) — ✅ 실기 검증 통과 (재경기 2회 포함):** **게임 종료 · 서버 종료 시점의 전투 뒷정리** (커밋 `55d24d83`). **[① 가드 구멍 6곳]** 종료 시점에 네트워크가 꺼진 뒤 호출될 수 있는 서버 핸들러 전수 확인 — `OnUnitDied`·`OnBuildingDied` 는 `!IsServer` 만 있던 가드를 **`!IsSpawned || !IsServer`** 로, `OnUnitEnteredCombatHandler` 는 **가드 전무**였던 자리에 동일 형태로, Walk·HealCast·FreezeChanged 는 **공통 길목 `SetUnitAnimState` 한 곳**에 `!IsSpawned` 를 두어 **호출 지점 5곳을 한 번에** 덮었다. **⭐ `OnUnitDied` 만 고쳤으면 성 파괴 경로(`OnBuildingDied`)로 그대로 재발했을 것** — 게임을 끝내는 바로 그 경로다. **[② 게임 종료 시 전투 틱 정지]** `GameEvents.OnGameEnd` 를 **서버 전용** 구독해 `_combatStopped` 를 세우고 `Update` 진입부에서 검사 + `StopAllCoroutines()`. **구독 해제 방식은 기각** — `GameEndUseCase` 가 `OnBuildingDied` **디스패치 도중 동기적으로** `OnGameEnd` 를 발행해, 그 안에서 `Dispose()` 하면 구독 순서에 따라 **게임을 끝낸 성의 `EntityDiedClientRpc` 가 영영 안 나갈 수 있다.** **[🔴 최우선 위험 — 플래그 리셋]** `TickCombat` 에는 타워·파도·HoT·자연회복·연구·쿨다운·물안개·상태효과가 함께 들어 있어, 재경기에서 `true` 로 남으면 **게임이 영원히 끝나지 않는다.** `OnNetworkSpawn`(IsServer) · `OnNetworkDespawn` **양쪽**에서 `false` 로 리셋(같은 파일 `_attackTimer`·`_lastCarry` 선례 옆). **[✅ 실기 — 1408줄, 3경기 연속 = 재경기 2회]** ① **✅** `[ERROR]` **0건** · RPC 오류 **0건** · ② **✅** `게임 종료 — 전투 틱 정지` 경기당 정확히 **1회**(872·1090·1394행) · **재경기 ✅ 2회 연속 통과**(2경기 구간 전투 로그 **40건** / 3경기 구간 **68건** — 정상 재개). **⚠️ 단서:** **B(엔진 오류 수집) 여전히 미검증**(3경기 더 돌렸으나 오류 미발생 — **①·② 가 잘 돼서 검증 기회가 사라졌다**) · **`IsSpawned` 전이 시점 미확정**(NGO 소스 없음 — **27ms 창을 완전히 닫는다고 단정하지 않는다**) · **Walk·HealCast·FreezeChanged 는 「예방」**(디스폰 후 NetworkVariable 쓰기가 오류를 내는지 미확정) · **`NetworkUnit.SetAnimState` 미수정**(다른 파일) · **다른 네트워크 컨트롤러 동일 구멍 미점검**(열지 않았으므로 있다/없다를 말할 수 없다). 상세: task `_Tasks/2026-08-19/10_16_combat-shutdown-cleanup/Plan.md` §10.
-
-**구현 완료 (2026-08-19) — ⚠️ 부분 검증 (A ✅ / C ✅ / B 미검증):** **전역 로그 훅의 `Error` 수집 확대 + 전투 컨트롤러 RPC 가드 + 연구 흐름 로그 보강** (커밋 `cc864054`). **[B]** 전역 훅이 **`Exception` + `Error`** 를 수집해 엔진·NGO 의 `Debug.LogError` 가 파일에 남지 않던 구멍을 메웠다. 방어 1겹을 푸는 변경이라 **되먹임 방어 3겹 → 4겹**(`RuntimeLogger.IsEmittingToConsole` 신설 — `GameLog` 우회 직접 호출 경로까지 덮는다). `condition` 단위 **1초 스로틀 + `Suppressed=n`**(상한 32). `LogEvent` **36 → 37**(`UnhandledEngineError`). **[A]** `NetworkCombatController.Update` 가드 → `if (!IsSpawned || !IsServer) return;`. **[C]** `NetworkUpgradeController` 무로그 성공 경로에 로그 4줄(개발 3 / 운영 1 — 기존 키 재사용). **[+]** `NetworkProductionController` 의 `Pos=(4, 15)` **`key=value` 구분자 위반 1건**을 `Q=`/`R=` 로 수정. **[실기 704줄]** **A ✅ 해결** · **C ✅ 정상**(착수 6 ↔ 완료 6 1:1) · 되먹임·폭주 없음 · **⚠️ B 미검증 — 이번 세션에 엔진 오류가 나지 않아 확인할 기회가 없었다**(「동작 확인」이 아니다). **⚠️ 잔여 단서:** **A 의 원인인 스폰 레이스 이번에도 미발생**(정상 경로만 확인) · **`SetCameraStartPositionForTeam` 최종 삭제 여전히 잔여** · 범위 밖 2건(`OnUnitDied` → `EntityDiedClientRpc` 가드 구멍 / `NetworkCombatController` 게임 종료 구독 부재 — 종료 감지 후 약 3초간 전투 루프 지속). 상세: `LogRules.md` **1.5 / 1.9 / 1.11 / 1.13**, task `_Tasks/2026-08-18/20_07_log-coverage-and-rpc-guard/`.
-
-**구현 완료 (2026-08-18) — 컴파일 통과 · ⚠️ 실기 미검증:** **로그 체계(`GameLog`) 전환 — 나머지 계층 이관 완료.** `Assets/_Project/Scripts/` 의 게임 런타임 코드 raw `Debug.Log` 이관이 끝나 **누적 386건**(선행 205 + 이번 **181**)이 `GameLog` 를 경유한다. 배치별 1-A **65** / 1-B **23** / 2 **50**(신규 3 포함) / 3·4 **43** + `system` 교정 **16**. `LogEvent` **36개**, `Unknown` 사용 **0건**. **최종 잔존 46건**은 전부 남을 이유가 있다 — `GameLog.cs` 9(sink 폴백) · `ILogSink.cs` 2(주석) · `Infrastructure/Debug/` 19(로그 본체) · **`Assets/Editor/` 16(미적용 — 에디터 도구는 sink 가 없어 이관 효과가 원리적으로 0. 규칙 예외가 아니라 현행 구현의 한계)**. **함께 수정한 버그 3건**(커밋 `da5eeaab`): `NetworkUpgradeController` 완료 훅 구독 누락(클라 브로드캐스트만 죽던 간헐 버그) · `SetCameraStartPositionForTeam` 비활성화 · 유닛 스폰 실패 로그 진단 필드 추가. **`system` 은 폴더가 아니라 기능 기준**이라는 해석을 `LogRules.md` **1.4 본문**에 명문화(규칙 번호 신설 없음). **⚠️ 잔여 — 과대 표기 금지:** **실기 동작 테스트 미수행**(특히 구독 수정은 간헐 버그라 확인 불가 — "안 났으니 고쳐졌다"로 결론 내리지 않는다) · **`SetCameraStartPositionForTeam` 최종 삭제 미완**([6] 통과 후) · **`LobbyUI` 가 현재 쓰이지 않을 가능성**(확인 없이 판단하지 않고 10건 전부 이관) · `_services` 재경기 인스턴스 위험(구조 공통, 이번 변경과 무관). 상세: `LogRules.md` **1.13**, task `_Tasks/2026-08-17/17_19_remaining-layers-log-migration/` · `_Tasks/2026-08-18/04_02_upgrade-subscription-fix/`.
-
-**구현 완료 (2026-08-17) — 컴파일 통과 · ✅ 실기 검증 PASS:** **로그 체계(`GameLog`) 전환 — 네트워크·인증 계층 정리 + 씬 무관 로그 수집까지 완료.** **[씬 무관 로그 수집 — 커밋 `a253232e`]** 기록을 켜는 배선이 `GameBootstrapper`(= `Game.unity` 전용)에만 있어 **로그인·로비 구간 73건이 파일에 남지 않던** 문제를 해소했다. 신규 정적 클래스 **`Infrastructure/Debug/LogSessionOwner.cs`** 가 sink·초기화 플래그·훅 상태를 **한 곳의 `static`** 으로 소유하고, **여는 쪽 둘 / 닫는 쪽 하나** — 두 부트스트래퍼가 `Awake` 첫 줄에서 `EnsureInitialized()`(멱등)를 부르고 종료는 `Application.quitting` 1회다. **전역 미처리 예외 훅도 함께 이관**했으며, 그 결과 **로그 라인이 `[Runtime/GameBootstrapper]` → `[Runtime/LogSessionOwner]` 로 바뀐다(로그를 grep 하는 쪽에 영향)**. **[✅ 실기 PASS]** 근거 로그 `_Logs/_editor/2026-08-17/RuntimeLog.txt`(**199줄**) — `[Auth/...]` **7건** 기록(목적 달성) · 일 단위 이어쓰기 · 마스킹(`Email=` **0건**) · **정리 메뉴 실기도 PASS**(날짜 형식 아닌 폴더 제외 · 오늘 폴더 보존 · **`_Logs/` 직속 날짜 폴더 17개 무손상**). **[선행 작업]** 8파일 **205건** 이관(`개발` 120 / `운영` 85) + 미조치 4항목(커밋 `4e027e68` · `675203ae`). 8파일 **205건** 이관(`개발` 120 / `운영` 85)에 이어 남아 있던 **미조치 4항목**을 구현했다(커밋 `4e027e68` · `675203ae`) — ① 민감 데이터 마스킹 **15곳**(UID·PlayerId 해시 / 이메일 출력 제거) ② 에디터 로그 파일명 **`RuntimeLog.txt` 단일화**(역할은 `Role=` 로그 한 줄로) ③ `RuntimeLogger` 헤더 규정 준수(`BeginSession(folderPath, purpose)`) ④ **수동 정리 메뉴** `Hexiege > Logcat > 3. 오래된 에디터 로그 정리`. 감사가 놓쳤던 `LobbyManager` **`HostId` 평문 출력 1건**도 함께 마스킹했다. **⚠️ 잔여 — 과대 표기 금지:** **후속 커밋 `73574a23`(`Role` 값 표기 통일)은 컴파일 확인을 받지 않았다**(`a253232e` 까지만 통과 확인) · **`Lobby.unity` 직접 진입 미커버**(부트스트래퍼가 없어 sink 0개 — **사용자가 "항상 Login 을 거치므로 커버 불필요"로 결정**한 범위 밖 항목) · **나머지 계층 이관 미착수**(잔존 **234건** — 별도 task) · `.meta` 취급 규정 명문화 보류. 상세: `LogRules.md` **1.8**·**1.9**·**1.10**·**1.13**, task `_Tasks/2026-08-13/07_13_network-auth-log-cleanup/` · `_Tasks/2026-08-17/11_07_scene-independent-logging/`.
-
-**구현 완료 (2026-08-12) — 에디터 싱글플레이 실기 검증 완료 · 멀티 미검증:** **MistShrine(HealShrine) 물안개 힐 시스템 구현 완료.** 2026-08-10 기획 확정 후 코드·프리팹·씬 배선을 구현하고 **에디터 싱글플레이 실기 + 런타임 로그 실측**으로 검증했다(범위 원 경계 = 실제 회복 판정 일치 / 범위 이탈 시 즉시 끊김 / 회복량 매 틱 +10 / 중첩 해소 1회 적용 + 동률 시 Id 작은 쪽). **⚠️ 과대 표기 금지 — 미완:** **멀티플레이 실기 미검증**(HP 동기화·클라 표시 등 멀티 고유 경로는 실행된 적 없음) · **물안개 지속 VFX 미제작** · **사용 버튼 아이콘 미제작** · **밸런싱 수치 미확정**(현재 값은 임시). **구현 중 발견·수정한 규칙 위반 버그:** 겹친 물안개 2개가 같은 대상을 각각 회복시켜 **초당 회복량 2배**가 되던 문제 — 물안개별 틱 위상이 달라 중첩 해소 코드가 **돌 기회 자체가 없는 죽은 코드**였다. **위상 정렬 + 소유권 판정 분리**로 수정(커밋 `be17148`), 불변식을 **규칙 8-1에 보강**. 구현 task: `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`.
-**기획 확정 이력 (2026-08-10):** MistShrine(`BuildingType.HealShrine` = 6)은 공격하지 않는 **아군 힐 전용 건물**로, 시전하면 **건물 중심 고정 원형 범위**(조준 없음)에 물안개가 깔려 지속 동안 **아군 유닛 + 아군 건물**(시전 건물 자신·Castle 포함)을 **1초 discrete 틱**으로 회복한다. 최대 체력 대상은 회복 없음, **범위 이탈 시 즉시 끊기는 아우라**, **물안개 지속시간 < 쿨다운**(다운타임 존재), 시전 비용 없음, 시전 건물 파괴 시 물안개 즉시 제거, **물안개끼리는 중첩 금지**(더 가까운 건물 우선 · 거리 동률이면 건물 Id가 작은 쪽), **연구소 자연회복과는 별개 효과로 중첩 적용**. UI는 `BuildingPanelBase` 상속 전용 패널(탭=수동 시전 / 롱프레스=자동 모드 토글, **자동 기본 OFF**, `SkillCooldownOverlay` 재사용, 범위 표시는 아군·패널 열린 동안만). 로직은 `SkillActivationUseCase` 재사용 불가로 **전용 UseCase 신설**(쿨다운 패턴만 차용 + 클라 로컬 미러). **함께 정정한 문서 오류:** GDD/TDD가 Transcendence 방어 타워를 MistShrine으로 적어 왔으나 **정확히는 VineTower**(`AutoTower` = 2)이며 MistShrine은 별개 건물이다. **수치(회복량·물안개 지속시간·쿨다운·범위 반경·회복 텍스트 표시 주기)는 전부 밸런싱 미확정** — 아래 C-1 표 참조. 상세: [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) **MistShrine 물안개 힐 시스템**(규칙 1~27), `PROJECT_STATUS.md` "완료된 시스템 > MistShrine 물안개 힐 시스템", task `_Tasks/2026-08-10/09_34_mistshrine-heal-redesign/`.
-**버그 수정 (2026-08-08):** **랠리포인트 조준 시 반투명 오버레이 잔존 버그 수정 · 실기 테스트 PASS**(커밋 `9a19cd5`). 랠리포인트 버튼 탭 시 팝업만 숨겨지고 공유 BlockingOverlay(탭=`Close`)가 잔존해 맵 탭을 가로채면서 집결지 지정이 취소된 것처럼 보이던 버그. `ProductionPanelUI.cs` **1파일 2줄 순수 추가** — ① `OnRallyPointClick()`에 `HideBlockingOverlay()`(스킬 패널 조준 진입과 동일 패턴) ② `Close()`를 거치지 않는 `CompleteRallyPointSetting()`에 참조 카운터 반납(②를 빠뜨리면 다음 팝업 오버레이가 어긋남 — 기존엔 이 버그가 대신 `Close()`를 태워 우연히 상쇄). 랠리포인트 규칙 2의 "설정 직후 3초 표시"도 정상화. 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5 — **규칙 문서 변경 없음**(코드가 기존 규칙을 다시 준수하도록 맞춘 수정). task `_Tasks/2026-08-08/13_33_rally-point-blocking-overlay-bug/`.
-**구현 완료 (2026-08-08):** **건물 파괴 시 열린 패널/조준 UI 원복** **구현 완료 · 실기 테스트 PASS**(커밋 `8c7fa01`). 건물 패널 4종(생산/건물액션/스킬/연구)이 열려 있거나 스킬 조준 중일 때 그 건물이 파괴되면 유령 패널·조준 UI가 남던 갭 해소. 공통 베이스 `BuildingPanelBase`가 `GameEvents.OnBuildingDied` 구독 → 파괴 건물이 현재 표시/조준 중인 건물(`_currentBuilding.Id` 매칭)이면 `Close()` → 각 패널 `OnBeforeClose`로 조준 취소·랠리 마커 숨김 자동 연계. **코드 변경 `BuildingPanelBase.cs` 1파일**(자식 4개 패널 무변경). 멀티=`NetworkCombatController.HandleBuildingDied` 클라 재발행으로 커버. **교훈: 자식(`ResearchPanelUI`)이 자체 `OnDestroy`를 선언하면 베이스 `OnDestroy` 은닉(hide)으로 해제 누락 → `.AddTo(this)`(UniRx)로 컴포넌트 수명에 묶음.** task `_Tasks/2026-08-08/07_40_building-death-ui-restore/`.
-**구현 완료 (2026-08-05):** 스킬 시스템 **타입 C(전역 상태변경: 버프/디버프/CC/힐) Phase 2** **구현 완료 · 실기+멀티(클라) 테스트 PASS**. 스킬 프레임워크의 마지막 메커니즘 타입 — 버프·디버프·제어(둔화·빙결)·회복을 하나의 상태변경 시스템으로 표현. Domain `Status/{StatusEffectKind,StatusEffect,UnitStatusState}` + Application `Services/StatusEffectSystem`(서버 권위 부여/틱) + `Skill/GlobalStatusChangeExecutor`(조준 없음 전역 즉시) 신설. 유효 스탯 접근자에 상태 배율 곱연산 합성 + 공격 게이트 `CanAttack`(무상태면 회귀 안전). 빙결=`Animator.speed=0` 애니 정지·클라 동기화, 둔화=이동 코루틴 매 프레임 배율 재조회로 라이브, 회복=HoT 재사용, 멀티=`StatusAppliedClientRpc`. **정리:** 진단 로그 코드 제거(LogRules 준수, `IRuntimeLogSink`/`RuntimeLoggerSink` 삭제)·좌표화 주석 비활성 코드 3곳 삭제. **미완:** ~~건물 파괴 시 UI 원복~~(→2026-08-08 완료·위 참조)·구체 스킬 목록/수치/아이콘(기획). 상세: `GameSystemRules/GameSystemRules_Skills.md`, `_Tasks/2026-07-28/12_14_skill-building-system-design/`.
-**구현 완료 (2026-08-04):** 스킬 건물 시스템 Phase 1(타입 A 즉발 범위 피해 · 타입 B 장판 DoT + 프레임워크 골격 + 3×3 패널 UI/쿨다운 오버레이 + 모바일 탭 조준 + 조준 지점 연속 좌표화 + 조준원 지면 데칼 렌더링 + 취소 버그·쿨다운 토스트) **구현 완료 · 실기기 테스트 PASS**. 조준 중심 타일 스냅(HexCoord) → 연속 도메인 월드 Vector3 좌표화(**착탄 반경 판정은 원래 연속 원이라 무변경, 중심만 연속화** + 서버 재검증 HasTile → 맵 경계 안 점, `HexMetrics` 경계 헬퍼 신규·최외곽 타일 바깥선 엄밀 clamp). 조준원 coplanar z-fighting → 신규 셰이더 `SkillAimOverlay.shader`(ZTest LEqual + Offset -1,-1 + ZWrite Off) 지면 데칼. 실기 취소 버그(손 뗀 프레임 합성 마우스 좌표가 캐시 폴백 가로챔) → release 프레임 캐시 좌표만 판정으로 근본 수정. 쿨다운 중 탭 무시 → `ToastKey.SkillOnCooldown` 안내. **미완:** 타입 C(전역 상태변경) Phase 2·건물 파괴 시 UI 원복·구체 스킬 기획. 상세: `GameSystemRules/GameSystemRules_Skills.md`, `_Tasks/2026-07-28/12_14_skill-building-system-design/`·`_Tasks/2026-08-04/04_46_skill-aim-coordinate-based/`.
-**구현 완료 (2026-07-31):** 연구소 유닛 강화 시스템(공/방/속 + 초월 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI **구현 완료 · 멀티플레이 실기 PASS**. ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨). 후속 보류: UI 레이아웃 다듬기·매트릭스 헤더 아이콘·AI 연구 사용 실기·MistShrine 힐·싱글 자연회복 실기. 상세: `GameSystemRules/GameSystemRules_Upgrade.md`, `StatsReference.md`, `_Tasks/2026-07-22/10_08_unit-upgrade-system/`.
-**현재 단계:** MistShrine(HealShrine) 물안개 힐 **구현 완료 · 에디터 싱글플레이 실기 검증 완료 / 멀티 미검증**(2026-08-12 — 위 항목 참조. 전용 UseCase·전용 패널 UI·아군 수집 헬퍼·건물 회복 경로 전부 구현됨. **잔여: 멀티 실기 검증 · 물안개 VFX 제작 · 사용 버튼 아이콘 · 밸런싱 수치 확정**). 직전 스킬 건물 시스템 Phase 1(타입 A·B + 프레임워크 + 3×3 패널 UI/쿨다운 오버레이 + 모바일 탭 조준 + 조준 지점 연속 좌표화 + 조준원 지면 데칼 + 취소 버그·쿨다운 토스트) 구현·실기기 테스트 PASS(2026-08-04)에 이어 타입 C(전역 상태변경) Phase 2도 구현·실기+멀티(클라) PASS(2026-08-05)로 스킬 메커니즘 3종(A/B/C) 전부 완료. **직전 건물 파괴 시 패널/조준 UI 원복 구현·실기 PASS(2026-08-08, `BuildingPanelBase` OnBuildingDied 구독→현재 건물 매칭 시 Close, 4개 건물 패널 공통 커버).** 스킬 관련 다음 우선순위: 구체 스킬 목록·수치·아이콘(기획, ScriptableObject 확정 — 현재는 플레이스홀더 5슬롯 테스트용). 직전 QuakeSpirit(대지의 정령) 착탄형 즉발 범위 딜러 구현 완료(2026-07-20, QA PASS·**멀티플레이 실기 로그 검증 완료**) — 마지막 남은 특수 유닛으로, **특수 유닛 5종(BattleAxe/TorrentSpirit/BloomFairy/MushroomBomber/QuakeSpirit) 전량 + InfernoSpirit DoT까지 전부 완료**. 착탄형 **즉발** AoE(DoT 아님): 주 타깃 1마리 직접 100%(공격력 200, 건물이면 100% 공성) + 착탄 월드 원형 반경(`_quakeRadius` 기본 1.0=인접 1칸) 내 다른 적 유닛·**적 건물** 50%(올림 `CeilToInt(200×0.5)`=100, 주 타깃 제외). ⚠️ MushroomBomber/BattleAxe와 달리 스플래시가 건물도 포함. 아군 무피해, 서버 권위. 핸들러 `QuakeAttackBehavior`(`ReplacesPrimaryAttack=false`)+레지스트리 1줄, MushroomBomber 원형 반경 헬퍼(`internal static` 공용화)+건물 순회 신설+유닛/건물 hit-set 분리(규칙 29), `SpecialAttackConfig` `_quakeRadius`/`_quakeSplashRatio`(1.0/0.5). 멀티 로그로 전 항목 정상 검증(로그 `_Logs/2026-07-20/11_00_quakespirit-aoe-verify/`). 규칙 43. 직전 InfernoSpirit(지옥불 정령) 단일 대상 DoT 구현 완료(2026-07-20) — 이미 완성된 원거리 유닛에 DoT 특수만 추가(주 타깃 1마리 직접 250 + 그 1마리에게만 DoT 50/초×3초, AoE 아님). 규칙 40 초 단위 틱을 단일 대상 재사용, 별도 진입점(`ApplyInfernoDot` 50/3) 분리. 규칙 41~42. **알려진 이슈(보류, 별도 task 분리)**: ① QuakeSpirit 타격 애니↔데미지 텍스트 타이밍 어긋남(Attack 클립 `OnAttackHit` 미주입+placeholder hitFrameTimes → 스플래시 텍스트 타임아웃 7.5s 지연, 피해·동기화 자체는 정상), ② 멀티 원거리 공격 facing 버그(에셋 아닌 공유 회전 로직 추정). 후속(Phase F): 기기 QA로 3D 텍스처 품질 확인, 피격 VFX 프리셋 연결, QuakeSpirit `OnAttackHit` 클립 이벤트 주입(타이밍 이슈 해소), 멀티 원거리 facing 버그 수정, Firebase/EDM 저장소 방침 정리, AI 반응 시스템·시나리오 정밀 검증 + 잔여 신규 유닛 프리팹 실기 테스트. **병행 관찰 항목 — 매치메이킹 404(호스트 결정 단계) 수정(A방식, 2026-07-17, 브랜치 `claude/matchmaker-404-error-pi9qdn` 커밋 `a3dbc73`)**: 랜덤 매칭 후 호스트 결정을 매치 결과 조회(P2P 클라 호출 시 404) → Lobby CreateOrJoin(matchId=lobbyId) 원자 선점으로 전환. 초기 매칭 실기에서 404 없이 정상 연결 확인했으나 간헐(intermittent) 버그라 지속 테스트 중(확정 PASS 아님) — 비활성화(주석)한 레거시 코드는 지속 테스트 확정 후 삭제 예정. 상세는 우선순위 표 및 Phase A-2 참조. **※ 이 문단의 전투 수치(직접 피해·DoT 틱값)는 2026-08-10에 ×10 스케일 개편(2026-07-31) 기준으로 정정했다 — 비율·반경·쿨다운은 ×10 대상이 아니라 그대로이며, 단일 진실 소스는 [StatsReference.md](StatsReference.md)다(우선순위 표 하단 ※ 참조).**
-**작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
+> **이 문서의 역할: 앞으로 해야 할 작업.** 완료된 항목은 이 문서에 남기지 않는다.
+> 완료 이력은 [WORK_HISTORY.md](WORK_HISTORY.md), 현재 상태는 [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 **최우선 작업:** RootCrossAudit compact terminal 교정 후 Tracer C Phase 4 공격 회차 Shadow와 서버 권위 타겟·공격 방향 교정. B3 v10 집중 교정은 실기 PASS이며, 25종·반대 역할·Legacy rollback은 Tracer C 이후 권위 전환 전 통합 회귀로 유지한다. Impact/피해 표현 시점은 다음 Phase 5다.
 **현재 단계:** 채점기 절단 회귀를 먼저 닫고 공격 Shadow로 이동한다. Legacy 피해·HP·RPC·VFX writer는 그대로 두며 신규 회차는 타겟·방향·Impact 계획을 기록·복제만 한다.
@@ -34,18 +19,16 @@
 
 | 우선순위 | 작업 | 카테고리 | 예상 규모 |
 |---------|------|---------|---------|
-| ✅ 완료 (2026-08-17, **실기 PASS**) | **로그 체계(`GameLog`) 전환 — 네트워크·인증 계층** — 8파일 **205건** 이관(`개발` 120 / `운영` 85) + 마스킹 **15곳**(UID·PlayerId 해시 / 이메일 출력 제거) + 에디터 로그 파일명 **`RuntimeLog.txt` 단일화**(역할은 `Role=` 로그 라인) + `RuntimeLogger` 헤더 규정 준수 + **수동 정리 메뉴**(`Hexiege > Logcat > 3. 오래된 에디터 로그 정리`) + 감사 누락 `HostId` 평문 출력 1건 마스킹. 커밋 `668e0aeb` 계열 · `4e027e68` · `675203ae`. **실기 검증 전 항목 PASS** — 근거 로그 `_Logs/_editor/2026-08-17/RuntimeLog.txt`(199줄) | 코드 정리/인프라 | 대 |
-| ✅ 완료 (2026-08-17, **실기 PASS**) | **로그 체계 전환 — 씬 무관 로그 수집** (커밋 `a253232e`) — 신규 `Infrastructure/Debug/LogSessionOwner.cs` 가 sink·초기화 플래그·전역 예외 훅 상태를 **한 곳의 `static`** 으로 소유. **여는 쪽 둘**(두 부트스트래퍼가 `Awake` 첫 줄에서 `EnsureInitialized()`, 멱등) **/ 닫는 쪽 하나**(`Application.quitting`). 로그인·로비 구간 **73건**이 파일에 닿게 되었다(실기 확인 `[Auth/...]` **7건**). **⚠️ 부수 영향: 미처리 예외 로그가 `[Runtime/GameBootstrapper]` → `[Runtime/LogSessionOwner]` 로 바뀐다(grep 하는 쪽에 영향).** **⚠️ 후속 커밋 `73574a23`(`Role` 값 표기 통일)은 컴파일 확인 미수령** · **`Lobby.unity` 직접 진입은 사용자 결정으로 미커버**. task `_Tasks/2026-08-17/11_07_scene-independent-logging/` | 코드 정리/인프라 | 중 |
-| ✅ 완료 (2026-08-18, **컴파일 통과 · 실기 미검증**) | **로그 체계 전환 — 나머지 계층 이관** — ~~잔존 234건 미착수~~ → **이관 완료.** 이번 **181건**(1-A 65 / 1-B 23 / 2 50 / 3·4 43 + `system` 교정 16)으로 **누적 386건**. `LogEvent` **36개**(배치 2 에서 4개 신설), `Unknown` **0건**. **최종 잔존 46건** = `GameLog.cs` 9(sink 폴백 — `LogRules.md` 1.8) + `ILogSink.cs` 2 + `Infrastructure/Debug/` 19 + **`Assets/Editor/` 16(미적용 — sink 가 없어 이관 효과 0. 규칙 예외 아님)**. `NetworkCombatController` 의 `IsServer` 중복 1건은 **1.14 금지 9** 에 따라 비활성화. **⚠️ 실기 동작 테스트 미수행** | 코드 정리 | 대 |
-| ✅ 완료 (2026-08-19, **A/C 실기 확인 · B 미검증**) | **전역 로그 훅의 `Error` 수집 확대 + `NetworkCombatController` RPC 가드 + 연구 흐름 로그** (커밋 `cc864054`) — 훅이 `Exception`+`Error` 수집, 되먹임 방어 **3겹 → 4겹**(`RuntimeLogger.IsEmittingToConsole`), `condition` 1초 스로틀 + `Suppressed=n`(상한 32), `LogEvent` **36 → 37**(`UnhandledEngineError`), `Update` 가드에 `IsSpawned` 추가, 연구 성공 경로 로그 4줄, `Pos=` 구분자 위반 수정. **A ✅**(Shutdown 후 `StopCombatClientRpc` 0건) · **C ✅**(착수 6 ↔ 완료 6 1:1) · **⚠️ B 미검증** | 로그/QA | 중 |
-| 🟡 중간 (**여전히 미검증** — 2026-08-19 (2차) 갱신) | **전역 훅의 엔진 오류 수집(B) 실기 확인** — 2026-08-19 회차에 엔진 오류가 **나지 않아** `[ERROR]`·`UnhandledEngineError`·`Suppressed=` 가 전부 0건이었고, **커밋 `55d24d83` 검증에서 3경기를 더 돌렸는데도 여전히 0건**이다(1408줄 기준). **훅이 동작한다는 증거가 아직 없다.** **⚠️ 역설이지만 기록해 둔다 — B 로 잡으려던 대상이 바로 그 RPC 에러였고, `55d24d83` 의 가드 수정이 그 에러를 없앴다. 즉 수정이 잘 돼서 검증 기회가 사라졌다.** 이제 *"우리가 만들지 않은 엔진 오류"* 가 우연히 나는 회차를 기다려야 한다. 다음에 엔진 오류가 나는 회차에서 로그 파일에 `Event=UnhandledEngineError` 줄이 남는지, `Suppressed=` 가 함께 찍히는지 확인한다 | QA | 소 |
-| ✅ 완료 (2026-08-19, **실기 PASS · 재경기 2회 포함**) | **`NetworkCombatController` 의 나머지 2건** (커밋 `55d24d83`) — ~~① `OnUnitDied` 가드 구멍 ② 게임 종료 구독 0건(종료 후 약 3초간 전투 루프 지속)~~ → **둘 다 해소.** ①은 전수 확인 결과 **`OnUnitDied` 하나가 아니라 6곳**이었다(`OnBuildingDied` 는 **게임을 끝내는 바로 그 경로**이고, Walk·HealCast·FreezeChanged 는 공통 길목 `SetUnitAnimState` 한 곳으로 5개 호출 지점을 덮었다). ②는 `OnGameEnd` **서버 전용 구독 + `_combatStopped` 플래그 + `StopAllCoroutines()`**(구독 해제 방식은 디스패치 중 구독자 변경 위험으로 기각). **최우선 위험이던 플래그 리셋**은 `OnNetworkSpawn`·`OnNetworkDespawn` 양쪽에 두었고 **재경기 2회 연속 통과**로 확인됐다. **⚠️ 잔여 단서:** `IsSpawned` 전이 시점 미확정(27ms 창을 완전히 닫는다고 단정하지 않음) · Walk 계열 3건은 「예방」 · `NetworkUnit.SetAnimState` 미수정 · **다른 네트워크 컨트롤러 미점검** | 코드 정리 | 중 |
-| 🟢 낮음 (미점검 — 후속 후보) | **다른 네트워크 컨트롤러의 동일 가드 구멍 전수 점검** — `NetworkCombatController` 에서 6곳이 나왔으므로 `NetworkProductionController` · `NetworkBuildingController` · `NetworkUpgradeController` 등에도 같은 형태가 있을 수 있다. **다만 이번에 해당 파일들을 열지 않았으므로 「있다/없다」를 말할 수 없다**(CLAUDE.md 규칙 10). 점검 자체가 별도 작업이다 | 코드 정리 | 중 |
-| 🟢 낮음 (범위 밖 — 후속 후보) | **`NetworkUnit.SetAnimState` 의 `IsSpawned` 가드** — 현재 `if (!IsServer) return;` 만 있어 `IsSpawned` 를 보지 않는다. 애니메이션 상태 쓰기의 **더 근본적인 자리**지만 다른 파일이라 2026-08-19 작업에서는 `NetworkCombatController.SetUnitAnimState` 쪽에서 막았다. **디스폰 후 NetworkVariable 쓰기가 실제로 오류를 내는지 자체가 미확정**이라 착수 전 그 확인이 먼저다 | 코드 정리 | 소 |
+| 🟡 중간 (**여전히 미검증** — 2026-08-24 (3차) 갱신) | **전역 훅의 엔진 오류 수집(B) 실기 확인** — 2026-08-19 회차에 엔진 오류가 **나지 않아** `[ERROR]`·`UnhandledEngineError`·`Suppressed=` 가 전부 0건이었고, **커밋 `55d24d83` 검증에서 3경기를 더 돌렸는데도 여전히 0건**이다(1408줄 기준). **훅이 동작한다는 증거가 아직 없다.** **⚠️ 역설이지만 기록해 둔다 — B 로 잡으려던 대상이 바로 그 RPC 에러였고, `55d24d83` 의 가드 수정이 그 에러를 없앴다. 즉 수정이 잘 돼서 검증 기회가 사라졌다.** 이제 *"우리가 만들지 않은 엔진 오류"* 가 우연히 나는 회차를 기다려야 한다. 다음에 엔진 오류가 나는 회차에서 로그 파일에 `Event=UnhandledEngineError` 줄이 남는지, `Suppressed=` 가 함께 찍히는지 확인한다 **[🔴 2026-08-24 3차 재확인 — 원문은 그대로 두고 덧붙인다: `bcf45ec1` 검증 세션에서 **3경기를 더 돌렸는데도 `[ERROR]` 가 13,003행 전체에 0건**이라 이번에도 **잡을 대상이 없었다.** 누적하면 2026-08-19 회차 + `55d24d83` 3경기 + 이번 3경기로 **연속 0건**이다. *수정이 잘 돼서 검증 기회가 사라지는 역설*이 계속되고 있으며, **훅이 동작한다는 증거는 여전히 없다.** ⚠️ 이 세션은 **클라이언트 쪽 로그를 처음 수집한 회차**라 표본 성격이 달라졌는데도 0건이었다는 점만 추가된다]** | QA | 소 |
+| 🟡 중간 (**미검증** — 2026-08-24 등록) | **`_combatStopped` 재경기 리셋의 실기 확인** — 커밋 `55d24d83` 의 리셋(`NetworkCombatController.cs` **205행 `OnNetworkSpawn`** · **311행 디스폰**)이 2026-08-19 에 「재경기 2회 연속 통과」로 확인됐으나, **2026-08-24 세션으로는 재확인되지 않았다.** 가드가 **380행 `if (!IsSpawned \|\| !IsServer \|\| _combatStopped) return;`** 이라 **2·3경기처럼 에디터가 클라이언트(`IsServer=False`)면 `_combatStopped` 를 평가하기 전에 `!IsServer` 에서 반환**된다. 실제로 2·3경기의 사망 로그는 전부 `EntityDiedClientRpc 수신 → 클라 처리` 경로였고(`서버: 유닛 사망` **0건** · `서버 측 … 이벤트 구독 완료` **0건**) **상대 호스트의 틱이 돈 것**이다. 2026-08-24 실측 내역 — 1경기(서버) 유닛 사망 129 · 건물 5 / 2경기(클라) 수신 64 → 유닛 62 · 건물 2 / 3경기(클라) 수신 179 → 유닛 175 · 건물 4. **확인 조건: 에디터가 호스트로 연속 2경기.** ⚠️ *"판정 로직은 **그 로직이 실제로 실행되는 조건까지** 확인할 것"*(`.claude/MEMORY.md` MistShrine 교훈 ①)의 같은 함정이다 | 검증 | 소 |
+| 🟢 낮음 (**미착수** — 2026-08-24 등록) | **`_baseline.json` 의 `measured_at` 을 `--update-baseline` 이 갱신하지 않는다** — 갱신 시 `folders` 만 바뀌고 `measured_at` 은 그대로라, **다음 갱신 후에는 *"언제 실측한 값인가"* 가 거짓이 된다.** 방금 고친 **드리프트(ⓑ)와 정확히 같은 성격**이고, 위 항목의 「하드코딩된 위치·상태 참조」 4건과도 같은 부류다. 오늘(2026-08-24) 갱신했고 오늘 날짜와 우연히 일치하므로 **지금은 맞다** — 다음 갱신 때 어긋난다. ※ 문서 에이전트는 `Tools/check_docs.py` 와 `_baseline.json` 을 직접 편집하지 않는다 | 도구 | 소 |
+| 🟢 낮음 (범위 밖 — 후속 후보, 2026-08-20 등록) | **`ProductionTicker` 에 종료 가드 추가** — `Presentation/Production/ProductionTicker.cs` **238행 `Update()`** 에 종료 가드가 없다. 246행의 유일한 분기는 *"멀티 클라이언트면 스킵"* 뿐이라, 위험 구간에서 **생산 틱(260행)과 수입 틱(265행)이 정상 속도로 돈다.** **길목으로는 이번 8곳보다 근본적**이지만 `Presentation` 레이어이고 틱 전체를 멈추는 것은 **동작 변경**이라 별도 설계 판단이 필요하다 | 코드 정리 | 중 |
+| 🟢 낮음 (범위 밖 — 후속 후보, 2026-08-20 등록) | **`NetworkGameEndController` 재경기 3종(`_localRematch*`)의 가드** — `ServerRpc` 3종(`RequestRematchServerRpc`·`AcceptRematchServerRpc`·`DeclineRematchServerRpc`)이고 **`IsServer` 블록 밖에서 구독**되어 클라이언트에서도 살아 있다. 따라서 필요한 가드는 **`!IsSpawned` 만**으로 이번 8곳과 **형태가 다르다.** 위험 구간(수십 ms) 안에 사용자가 재경기 버튼을 눌러야 발동하므로 실현 가능성도 사실상 없다 | 코드 정리 | 소 |
+| 🟢 낮음 (범위 밖 — 후속 후보, 2026-08-20 등록) | **`ServerRpc` 계열 전반의 종료 가드** — `NetworkProductionController` · `NetworkBuildingController` · `NetworkUpgradeController` · `NetworkSkillController` 등 대부분 진입부 가드가 없다. **호출 주체가 UI 입력**이라 *"이벤트 구독으로 자동 실행되는 경로"* 를 본 이번 조사와 **성격이 다르다.** 별건으로 다뤄야 한다 | 코드 정리 | 중 |
+| 🟢 낮음 (범위 밖 — 후속 후보) | **`NetworkUnit.SetAnimState` 의 `IsSpawned` 가드** — 현재 `if (!IsServer) return;` 만 있어 `IsSpawned` 를 보지 않는다. 애니메이션 상태 쓰기의 **더 근본적인 자리**지만 다른 파일이라 2026-08-19 작업에서는 `NetworkCombatController.SetUnitAnimState` 쪽에서 막았다. **디스폰 후 NetworkVariable 쓰기가 실제로 오류를 내는지 자체가 미확정**이라 착수 전 그 확인이 먼저다. **[2026-08-20 재확인]** 여전히 `NetworkUnit.cs` **173행 `if (!IsServer) return;`** 뿐이다(선언 170행). 이번 전수 보강에서도 **의도적으로 제외** — `.SetAnimState(` 호출부가 `NetworkCombatController.SetUnitAnimState` **한 곳뿐**이고 그 상위가 이미 `!IsSpawned` 로 막혀 있어 **중복**이기 때문이다 | 코드 정리 | 소 |
 | 🟡 중간 (미완 · [6] 통과 후) | **`SetCameraStartPositionForTeam` 주석 처리분 최종 삭제** — 호출부 0곳으로 확인되어 `GameBootstrapper.Setup.cs` **537행**에 비활성화 블록으로 남아 있다(파일 헤더 목차 14행에 `— 제거 예정` 병기). WORKFLOW.md [4] 대로 **사용자 테스트 통과 후 · 문서 업데이트 전**에 삭제한다 | 코드 정리 | 소 |
 | 🟡 중간 (**여전히 미검증** — 2026-08-19 갱신) | **`NetworkUpgradeController` 구독 누락 수정의 실기 확인** — 커밋 `da5eeaab`. **2026-08-19 회차에서 정상 경로는 로그로 확인되었으나**(착수 6 ↔ 완료 브로드캐스트 6 1:1, `Level=1`→`2`) **원래 버그의 원인인 스폰 레이스가 발생하지 않아**(`NetworkControllerSpawnedWithoutGameServices` **0건**) **지연 구독 경로 자체가 필요해진 상황이 없었다.** 즉 확인된 것은 **「버그가 재현되지 않았고 정상 경로는 확인됐다」** 까지다. **회선 상태에 좌우되는 간헐 버그**라 재현이 사실상 불가능하다. 로그에 *"스폰 시점에 IGameServices 를 얻지 못했다"* 가 **`NetworkUpgradeController` 이름으로** 찍힌 판에서 연구 완료가 정상일 때만 직접 증거가 된다. **"안 났으니 고쳐졌다"로 결론 내리지 않는다** | QA | 소 |
 | 🟢 낮음 (미확인) | **`Presentation/UI/LobbyUI.cs` 가 현재 쓰이는지 확인** — 로비가 `LobbyRootView` 계열로 재구성됐는데 이 파일은 옛 구조 그대로다. 이관 작업에서는 **확인 없이 판단하지 않고 10건 전부 이관**했다(CLAUDE.md 규칙 10·12). 쓰이지 않는다면 죽은 코드 정리 대상 | 코드 정리 | 소 |
-| ✅ 완료 (2026-08-17, **실기 PASS**) | **로그 정리 메뉴 첫 실행 확인** — ~~"한 번도 실행된 적이 없다"~~ → 실제로 실행해 확인했다. `_Logs/_editor/` 에 `2020-01-01`(날짜 형식)과 `2020.01.01`(점 구분)을 두고 실행: **`2020-01-01` 삭제 · `2020.01.01` 제외**(`TryParseExact("yyyy-MM-dd")` — 느슨한 `TryParse` 였다면 삭제됐을 케이스) · **오늘 폴더 보존** · 취소 경로 · **정리 범위 한정 — `_Logs/` 직속 날짜 폴더 17개 무손상**(영구 보존물 영역이라 지워지면 복구 불가) | QA | 소 |
 | 🟢 낮음 (사용자 판단 대기) | **`_Logs/_editor/` 의 `.meta` 취급 규정 명문화** — `.gitignore` 는 이미 `LogRules.md` 1.10 규정에 부합한다. 남은 것은 `.meta` 를 커밋할지에 대한 **규정 공백**이다. 사용자가 커밋 `23a8da06` 에서 `.meta` 를 실제로 커밋했으나, **그 관찰만으로 규정이 확정된 것으로 적지 않는다**(CLAUDE.md 규칙 10) | 문서/규정 | 소 |
 | 🟢 낮음 (범위 밖으로 미룸) | **`FileSink.EditorLogsRootRelativeToAssets` 접근 수준 조정** — 현재 `private` 이라 `LogcatCapture.cs` 가 같은 경로 문자열을 **복제**하고 「FileSink 와 동기화 필요」 경고 주석을 달아 두었다. `internal const` 로 올리면 복제를 없앨 수 있다 | 코드 정리 | 소 |
 | 🔵 초기 정상·지속 관찰 중 | 매치메이킹 404(호스트 결정 단계) 수정 — 호스트 결정을 매치 결과 조회(P2P 클라 404) → Lobby CreateOrJoin 원자 선점(A방식)으로 전환 (2026-07-17, 커밋 `a3dbc73`). 초기 실기 정상, 간헐 버그라 지속 멀티 실기 검증 필요 | QA/버그 | 중 |
@@ -76,40 +59,16 @@
 | 🔴 높음 | 신규 유닛 프리팹 실기 테스트 + 후속 작업 (Animation Event 부착, UnitFactory 등록, StatsReference 스탯 확정) | 기능 | 대 |
 | 🔴 높음 | 게임 화면 UI 크기/레이아웃 수정 잔여 (HUD-007, SET-004, SET-007/END-001, MULTI-END-002 — 5항목) | UI | 소 |
 | 🔴 높음 | FlatTop 11×21 무작위 대전 맵 구현 — 5종 생성 전략, exact 180° 대칭, 광산/초기 골드, 초기 골드 전용 테스트 모드(멀티 Host 권위), 건설 불가·차단 지형, 결정적 seed/검증/폴백, canonical chunk 전송, SameMap/NewMap, 경로 완전 차단 대응 (설계 확정·문서 동기화 2026-07-20) | 기능/맵 | 대 |
-| ✅ 완료 (2026-08-04, 실기 PASS) | 스킬 건물 시스템 Phase 1 — 타입 A(즉발 범위 피해)·B(장판 DoT) 실행기 + 데이터 주도 프레임워크(SkillData/Executor/Registry/SkillActivationUseCase, 건물 글로벌 쿨다운) + 3×3 패널 UI/쿨다운 오버레이(12시 시계방향 소멸) + 모바일 탭 조준(2단계, 엣지 스크롤, 취소 X Lerp 확대) + 조준 지점 연속 좌표화(HexCoord→Vector3, **반경 판정 무변경·중심만 연속화**) + 맵 경계 point-in-bounds 재검증(`HexMetrics` 헬퍼 신규) + 조준원 지면 데칼 렌더링(`SkillAimOverlay.shader`) + 취소 버그 근본 수정 + 쿨다운 안내 토스트. 서버 권위(`NetworkSkillController`). 규칙 1~26. 미완: 타입 C·건물파괴 UI 원복·구체 스킬 기획 | 기능 | 대 |
-| ✅ 완료 (2026-08-05, 실기+멀티 PASS) | 스킬 타입 C(전역 상태변경: 버프/디버프/CC/힐) Phase 2 — 전역 즉시 발동(조준 없음), 상태효과 시스템(`StatusEffectSystem`, 서버 권위 부여/틱) + 실행기(`GlobalStatusChangeExecutor`) 신설, 유효 스탯 접근자에 상태 배율 곱연산 합성 + 공격 게이트 `CanAttack`(무상태 회귀 안전), 빙결 애니 정지(`Animator.speed=0`)·둔화 라이브·회복 HoT 재사용, 멀티 `StatusAppliedClientRpc` 동기화. 업그레이드 연동은 곱연산 합성으로 확정. 진단 로그 제거(LogRules 준수). 규칙 13 | 기능 | 대 |
-| ✅ 완료 (2026-08-08, 실기 PASS) | 랠리포인트 조준 시 반투명 오버레이 잔존 버그 수정 — 랠리포인트 버튼 탭 시 팝업만 숨겨지고 공유 BlockingOverlay(탭=`Close`)가 `blocksRaycasts=true`로 잔존해 맵 탭을 가로채면서 집결지 지정이 취소된 것처럼 보이던 버그. `ProductionPanelUI.cs` 1파일 2줄 순수 추가(① `OnRallyPointClick()` 오버레이 해제 ② `Close()` 미경유 `CompleteRallyPointSetting()` 참조 카운터 반납). 규칙 근거 `GameSystemRules_UI.md` 공통 UI 규칙 5(단일 소유·참조 카운터), 랠리포인트 규칙 2 "설정 직후 3초 표시" 정상화. 커밋 `9a19cd5` | QA/버그 | 소 |
-| ✅ 완료 (2026-08-08, 실기 PASS) | 건물 파괴 시 패널/조준 UI 원복 — 스킬 포함 4개 건물 패널 공통 갭(파괴돼도 열린 패널·조준 락 잔존) 해소. `BuildingPanelBase`가 `OnBuildingDied` 구독→현재 건물(`_currentBuilding.Id`) 매칭 시 `Close()`(각 패널 `OnBeforeClose`로 조준 취소·랠리 마커 숨김 자동 연계). 코드 변경 `BuildingPanelBase.cs` 1파일, 구독 해제=`.AddTo(this)`(자식 `ResearchPanelUI` 자체 `OnDestroy` 은닉 회귀 회피). 멀티=`NetworkCombatController.HandleBuildingDied` 클라 재발행 커버. 커밋 `8c7fa01` | QA/버그 | 소 |
-| ✅ 완료 (2026-08-12, 에디터 싱글 실기 PASS · **멀티 미검증**) | **MistShrine 물안개 힐 시스템 구현** — 전용 `MistShrineUseCase` · `BuildingPanelBase` 상속 전용 패널(탭=수동/롱프레스=자동, 자동 기본 OFF) · 범위 표시 원 · 아군 유닛/건물 수집 헬퍼 · 건물 회복 경로(`BuildingData.Heal` + 전용 동기화 RPC) · 파괴/철거 정리 경로 전부 구현. **로그 실측 검증**: 범위 원 경계 = 실제 회복 판정 일치(회복 최대 2.29 / 탈락 최소 3.12, 반경 3.00과 모순 0건) · 범위 이탈 시 즉시 끊김 · 회복량 매 틱 +10 · **중첩 해소 1회 적용 + 거리 동률 시 Id 작은 쪽**. **구현 중 규칙 13 위반 버그 발견·수정**(위상 불일치로 중첩 해소가 죽은 코드였음 → 위상 정렬 + 소유권 판정 분리, 커밋 `be17148`, 불변식을 규칙 8-1에 보강). **잔여(아래 별도 항목)**: 멀티 실기 검증 · 물안개 VFX · 버튼 아이콘 · 밸런싱 수치. 규칙 1~27: [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) | 기능 | 중 |
 | 🟡 중간 (미착수) | **MistShrine 멀티플레이 실기 검증** — 이번 사이클 검증은 **에디터 싱글플레이로만** 이루어졌다. 범위 판정·중첩 해소·회복량 계산은 싱글·멀티가 같은 코드 경로를 공유하지만, **건물 HP 동기화(`SyncBuildingHealClientRpc`)·클라이언트 표시·RPC 팀 검증·쿨다운 로컬 미러·이중 틱 여부는 멀티에서만 도는 경로이며 한 번도 실행되지 않았다.** Host+Client 구성으로 확인 필요 | QA | 소 |
 | 🟡 중간 (미착수) | **MistShrine 물안개 지속 VFX + 사용 버튼 아이콘 제작** — 현재 물안개는 **눈에 보이지 않고**(등록 VFX는 `vfx_mistshrine_destroy`/`vfx_mistshrine_upgrade`뿐 — 규칙 26), 사용 버튼은 **임시 텍스트 라벨**(UI 규칙 15). VFX 재생 시 사운드 규칙 15(VFX+SFX 쌍) 준수 | 에셋 | 중 |
 | 🟡 중간 | 스킬 건물 구체 스킬 목록·수치 확정(기획) — 각 슬롯 1~5 스킬·쿨다운·반경·지속·피해·상태효과를 ScriptableObject 데이터로 확정. 개별 스킬 쿨다운 도입 여부·회복 스킬 지점 지정 전환 여부 포함 | 기획 | 중 |
-| ✅ 완료 (2026-07-31, 멀티 실기 PASS) | 연구소 유닛 강화 시스템 + 전투 스탯 ×10 개편 + 연구 패널 UI — 공/방(신규)/속 3스탯 + 초월 자연회복, 종족별 그룹×스탯 트랙, (B) 팀 배율 실시간 소급 적용, 방어력 감쇄(K=120), 연구소 운영(복수 건설·트랙 잠금·파괴 100% 환불·서버 권위), 전투 수치 ×10(TTK 불변), 매트릭스 2-레이어 UI. 후속 보류: UI 레이아웃·헤더 아이콘·AI 연구·MistShrine 힐·싱글 자연회복 | 기능/기획 | 대 |
 | 🔴 높음 | 전역 GameProtocolVersion/build 호환성 관리 — matchmaking 동일 버전 필터, custom lobby Relay 전 검사, NGO connection approval/rejection, reconnect 버전 검증, update-required UX | 네트워크/호환성 | 대 |
-| ✅ 완료 | 전역 UI 시스템 (UIManager + SplashOverlay) | UI | 중 |
-| ✅ 완료 | Firebase Console 설정 (Google 로그인) — SHA-1 정합 + Play Games 제공업체 활성화, 실기 로그인 성공 (2026-06-27) | 인프라 | 소 |
 | 🔴 높음 | Login.unity 씬 로그인 UI 조립 | UI | 소 |
 | 🔴 높음 | UGS OIDC 브릿지 활성화 — UGS Dashboard OIDC 제공자(`oidc-firebase`) 등록 (현재 `id provider not found`로 멀티플레이 제한) | 인프라 | 소 |
 | 🟡 중간 | BuildFailed/EnqueueFailed UI 피드백 (멀티) | UI | 소 |
 | 🟡 중간 | 게임 내 밸런싱 (골드/HP/생산시간) | 기획 | 중 |
 | 🟡 중간 | 로비 UI 비주얼 폴리싱 (에셋 제작 완료 2026-05-30) | UI | 중 |
 | 🟢 낮음 | 재접속 실제 구현 | 기능 | 중 |
-| ✅ 완료 | 방어 타워(AutoTower) 공격 기능 | 기능 | 대 |
-| ✅ 완료 | 사운드 시스템 — 코드 완료 + Inspector 작업 + 실기 버그 3종(BGM 겹침/볼륨 UI 규칙/SFX 진단) 수정 (2026-07-08) | 기능 | 중 |
-| ✅ 완료 | 사운드 시스템 — 인게임/로비 볼륨·음소거·프로필 버튼 UI 로직 연결 (AudioManager 음소거 + 공용 VolumeControlBinder + 로비 설정 탭 배선 + 실기 버그 3건 수정, 2026-07-09 실기 PASS) | 기능/UI | 중 |
-| ✅ 완료 | 전투 타격 타이밍 동기화 — 타격 프레임 클립 이벤트 단일 소스화 + 서버 Tick 정밀화 + 피격 표현 큐 + 타워 발사 VFX/원거리 트레이서 + 기존 버그 3건 수정 (2026-07-12 실기/로그 검증 PASS) | 기능 | 대 |
-| ✅ 완료 | 이동/Walk 애니메이션 동기화 (2026-07-13) — 애니메이션 상태를 엣지 RPC → NetworkVariable 레벨 동기화 전환(스폰 레이스 유실 소멸) + Initialize 후 재적용 봉합 + 재경로 첫 스텝 역방향 보정. 규칙 U-22 등재 | QA/버그 | 중 |
-| ✅ 완료 | 죽은 코드 제거 — `UnitView.StopMovement()` 미사용 메서드 삭제(호출 0건, 커밋 8840798) (2026-07-13) | 코드 정리 | 소 |
-| ✅ 완료 | Animator 상태 의존 제거 — 전투 종료 후 Walk 재개 3곳의 `GetCurrentAnimatorStateInfo` 질의 → 로컬 추적 필드 기반 판별 리팩토링(겉보기 동작 불변, 커밋 97adaad) (2026-07-13) | 코드 정리 | 소 |
-| ✅ 완료 | Firebase 인증 게이트 제거 — `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 스텁이 로그인 무조건 실패시키던 버그 수정, 실제 Firebase 코드 무조건 컴파일 복원(커밋 4fe1cf0) (2026-07-13) | QA/버그 | 소 |
-| ✅ 완료 | 이메일 인증 플로우 보정 — 실제 이메일 표시, 가입 취소 시 미인증 Firebase 계정 삭제, 앱 재실행 시 인증/닉네임 게이트 복귀, Lobby 게스트 우회 차단 (2026-07-18 실기 PASS) | QA/버그 | 중 |
-| ✅ 완료 | 빌드 에셋 용량 최적화 — Android AAB 190.66 MB → 125.30 MB 절감(2026-07-15). 3D 건물/유닛 텍스처 Android max size 512 적용, 미사용 `_Old` 에셋/normal/roughness PNG 정리, FBX import 조정 | 플랫폼 | 중 |
-| ✅ 완료 | 도끼병(BattleAxe) 휩쓸기형 AoE + 특수 공격 전략 핸들러 아키텍처 — 특수 유닛 5종 중 첫 구현. 월드 좌표 전방 부채꼴 판정 + `SpecialAttackConfig` 튜닝 SO + `ApplyDamageToVictim` 피해 수렴점 단일화 + AoE 연출 동시 방출 + BattleAxe 스탯/클립 이벤트 확정 (2026-07-17 실기 PASS) | 기능 | 중 |
-| ✅ 완료 | TorrentSpirit 파도형 이동 AoE + 힐 서브시스템 — 특수 유닛 5종 중 2번째. special-only(`ReplacesPrimaryAttack`) 서버 권위 이동 파도(`TickWaves`, 월드 직사각형, 적 유닛·건물 피해/아군 힐 각 1회) + 힐 서브시스템(`UnitData.Heal`/`OnEntityHealed`/NetworkHealthSync 힐 동기화/치유 텍스트, BloomFairy 공용) + `VfxPoolItem` 다중 파티클 재생 수정 + 데이터 배선(스탯/EffectPreset/OnAttackHit). QA CONDITIONAL PASS(BUG-002 건물 공격 수정). 규칙 28~31. VFX 튜닝은 사용자 진행 (2026-07-17) | 기능 | 중 |
-| ✅ 완료 | BloomFairy(꽃요정) 힐러 — 특수 유닛 5종 중 3번째. 힐러 전용 경로(적 공격 흐름·레지스트리 분리) + 부상 아군 탐색(팀 필터 반대·본인 포함) + HoT/DoT 공용 시간 지속 효과 시스템(서버 권위 diff 틱, 규칙 34) + 힐 유휴 감시 + 쿨다운 예외(발동 준비 1.0s 미포함 → 실제 힐 주기 4.0s, 프로젝트 유일) + HoT 힐 텍스트 완료 시 1회 표시(사망 시 생략). 규칙 32~37. 실기 완료 (2026-07-18) | 기능 | 중 |
-| ✅ 완료 | MushroomBomber(버섯폭격기) 착탄형 범위 DoT — 특수 유닛 5종 중 4번째. 착탄 중심 월드 원형 반경(`BlastAttackBehavior`, arc 없는 도끼병 부채꼴, QuakeSpirit 재사용 헬퍼) 내 적 유닛 DoT + 주 타깃 직접 100(기존 단일 피해 `ReplacesPrimaryAttack=false`, 건물 공성). DoT 초 단위 discrete 틱 모드 신설(규칙 34 확장 — 1초 간격·틱당 올림·총량 클램프·매초 데미지 텍스트). 식물 라인 생산 배선(SporePatch=MushroomBomber, FloralNursery=BloomFairy). 규칙 38~40. QA PASS·실기 완료 (2026-07-19) | 기능 | 중 |
-| ✅ 완료 | InfernoSpirit(지옥불 정령) 단일 대상 DoT — 특수 유닛 5종 외 추가 DoT 유닛. 이미 완성된 원거리 유닛에 DoT 특수만 추가: 주 타깃 1마리 직접 250(기존 단일 피해 `ReplacesPrimaryAttack=false`, 건물 공성) + 그 주 타깃 1마리에게만 DoT 50/초×3초(총 150, AoE 아님·반경 없음, 적 유닛만). 규칙 40 초 단위 틱을 단일 대상으로 재사용, 값은 별도 진입점(`ApplyInfernoDot` 50/3)으로 분리(MushroomBomber 20/3 회귀 없음). `SpecialAttackConfig` inferno DoT 필드 + GameBootstrapper 주입. 레지스트리 1줄. 규칙 41~42. 공격 방향(facing) 버그는 사용자 결정으로 보류(별도 작업). QA PASS·실기 완료 (2026-07-20) | 기능 | 소 |
-| ✅ 완료 | QuakeSpirit(대지의 정령) 착탄형 즉발 AoE — **특수 유닛 5종 마지막(전량 완료)**. 착탄형 즉발(DoT 아님): 주 타깃 1마리 직접 100%(공격력 200, 건물이면 100% 공성) + 착탄 월드 원형 반경(`_quakeRadius` 1.0=인접 1칸) 내 다른 적 유닛·**적 건물** 50%(올림 `CeilToInt(200×0.5)`=100, 주 타깃 제외). ⚠️ MushroomBomber/BattleAxe와 달리 스플래시가 건물도 포함. 핸들러 `QuakeAttackBehavior`(`ReplacesPrimaryAttack=false`)+레지스트리 1줄, MushroomBomber 원형 반경 헬퍼 `internal static` 공용화 재사용(유닛만 로직 무변경)+건물 순회 `CollectEnemyBuildingsInRadius` 신설+유닛/건물 hit-set 분리(규칙 29). `SpecialAttackConfig` `_quakeRadius`/`_quakeSplashRatio`(1.0/0.5) 주입. 규칙 43. 타격 타이밍 어긋남(OnAttackHit 미주입)은 사용자 결정으로 별도 task 보류. **QA PASS·멀티플레이 실기 로그 검증 완료** (2026-07-20, 로그 `_Logs/2026-07-20/11_00_quakespirit-aoe-verify/`) | 기능 | 중 |
 | 🟡 중간 | 피격 VFX 프리셋 연결 — `UnitEffectConfig.hitPreset` Inspector 배선(Human 6종 등 미연결) | 에셋 | 소 |
 | 🟢 낮음 | QuakeSpirit Attack 클립 `OnAttackHit` 이벤트 주입 — 특수 공격 로직(규칙 43)은 구현·검증 완료됐으나 클립 `OnAttackHit` 미주입 + placeholder `hitFrameTimes`(1.0s)로 타격 애니↔데미지 텍스트 타이밍이 어긋남(스플래시 텍스트 타임아웃 7.5s 지연, 피해·동기화 자체는 정상). 인젝터로 실제 타격 프레임 주입 시 해소. 사용자 결정으로 별도 후속 task. (특수 공격 핸들러 확장 완료: BattleAxe·TorrentSpirit 2026-07-17, BloomFairy 2026-07-18, MushroomBomber 2026-07-19, InfernoSpirit·QuakeSpirit 2026-07-20) | 기능/에셋 | 소 |
 | 🟡 중간 | 멀티플레이 원거리 공격 방향(facing) 버그 — 원거리 유닛이 공격 시 타겟을 정확히 안 바라봄. 진단상 에셋 아닌 멀티 원거리 facing 공유 회전 로직(서버 계산+NetworkTransform) 문제로 추정(근접 유닛 미노출). 수정 시 근접 유닛 회귀 주의. 상세: `_Tasks/2026-07-20/03_22_infernospirit-dot-and-attack-facing/Plan.md` (InfernoSpirit 작업에서 진단·보류) | QA/버그 | 소 |
@@ -121,10 +80,6 @@
 ---
 
 ## Phase A — 네트워크 버그 수정
-
-### ✅ A-1. BuildFailed/EnqueueFailed UI 피드백 (멀티플레이 분기) — 완료 (2026-05-24)
-- **완료 내용**: `GameEvents.OnToastRequested` Subject 패턴 도입. NetworkBuildingController / NetworkProductionController RPC 핸들러에서 Subject 발행 → ToastUI 구독. Presentation이 Infrastructure를 직접 참조하지 않는 구조 완성.
-- **파일**: `NetworkBuildingController.cs`, `NetworkProductionController.cs`, `GameEvents.cs`, `ToastKey.cs`
 
 ### 🔵 A-2. 매치메이킹 404 수정 — 호스트 결정 Lobby CreateOrJoin 전환 (A방식) — 초기 정상·지속 관찰 중 (2026-07-17)
 - **증상**: 랜덤 매칭은 성사되나 **직후 호스트 결정 단계에서 HTTP 404** → 게임 연결 끊김.
@@ -161,8 +116,6 @@
 ### C-0. 싱글플레이 AI 시스템
 **🔵 코드 구현 완료 (2026-06-07)**: LocalPlayerDifficulty / AIConfig / AIScenarioConfig ScriptableObject / AIOpponentController(빌드오더+반응시스템+BFS) / GameBootstrapper 연동 / 로비 난이도 선택 UI(DifficultySelectView) 전체 완료. 3종족 시나리오 에셋 개편 완료 (2026-06-10): Human/Spirit/Transcendence 각 1개 에셋 × 3시나리오, Domain 레이어 아키텍처 정리.
 
-**✅ Inspector 작업 완료 (2026-07-16)**: AIConfig 에셋 생성, AIScenarioConfig 3종족 에셋 생성, DifficultySelectView 레이아웃 배치 반영(실기 테스트가 진행된 사실로 확인).
-
 **🔵 핵심 흐름 실기 조건부 완료 (2026-07-16)**: 유닛 생산·건물 업그레이드 등 핵심 흐름을 반복 실기로 확인 — PASS, 특별한 문제 미발견.
 
 **남은 작업 (세부 정밀 검증)**:
@@ -173,10 +126,6 @@
 
 ### C-1. 게임 내 밸런싱
 현재 수치는 임시값. 플레이테스트 후 조정 필요.
-
-**✅ 밸런싱 인프라 완료 (2026-04-25)**: `UnitStatsConfig`, `BuildingStatsConfig` ScriptableObject 전환 완료. 코드 수정·재컴파일 없이 Unity Inspector에서 수치 직접 편집 가능.
-
-**✅ 건물 스탯 전체 확정 (2026-05-18)**: StatsReference.md 기준으로 모든 종족 건물 HP/비용/공격력/쿨다운 확정. BuildingStatsConfig.asset 32종 항목 전부 채움.
 
 | 항목 | 현재값 | 조정 방향 |
 |------|--------|---------|
@@ -203,37 +152,17 @@
 
 ---
 
-### C-2. 연구소 유닛 강화 시스템 + 전투 스탯 ×10 개편 + 연구 패널 UI ✅ 구현 완료 · 멀티플레이 실기 PASS (2026-07-31)
-
-연구소(Research 건물)로 팀 단위 유닛을 강화하는 신규 시스템 + 함께 진행하는 전투 수치 ×10 스케일 개편 + 연구 패널 UI. **구현 완료, 멀티플레이 실기 테스트 통과.**
-
-- **전투 스탯 ×10 스케일**: 유닛 HP·공격력, 건물 HP, 타워 HP·공격력, DoT 틱값, 힐량 전부 ×10. HP·공격력 동일 배율로 **TTK 불변**(상성·매치업 불변). ×10은 config `.asset`에 ×10 커밋 반영(적용에 쓰였던 셋업 스크립트는 역할 종료 후 제거됨)(1회 실행).
-- **강화 스탯**: 공격력(유닛별 고정 정수 증가) / 방어력(신규, K=120 감쇄) / 이동속도 배율 + 초월 자연회복(3~15 HP/s). `UnitUpgradeUseCase`가 (B) 실시간 배율/증가치 조회 → 소급 강화.
-- **네트워크**: 완료 레벨 양 클라 브로드캐스트(효과 양쪽 적용), 진행 중은 소유자만, 파괴 시 취소·100% 환불. `NetworkUpgradeController`. MP 완료 처리 서비스 스폰 레이스 버그 `ResolveServices()`로 수정.
-- **연구 패널 UI**: `ResearchPanelUI : BuildingPanelBase`(헤더·닫기·철거+환불) + 매트릭스/진행 2-레이어(연구소 단위 전환, 진행 트랙 잠금). 규칙 13.
-- **후속 보류(미완/미검증 — 별도 작업)**: ① UI 레이아웃 다듬기(자동생성 골격) ② 매트릭스 헤더 아이콘 ③ AI 연구 사용 실기 ④ **MistShrine(HealShrine) 힐 — 2026-08-12 구현 완료 · 에디터 싱글플레이 실기 검증 완료 / 멀티 미검증 · VFX·아이콘 미제작 · 밸런싱 미확정**(규칙: [GameSystemRules_Buildings.md](GameSystemRules/GameSystemRules_Buildings.md) **MistShrine 물안개 힐 시스템**. 연구소 자연회복과는 **별개 효과로 중첩 적용** — 규칙 14) ⑤ 싱글 자연회복 실기.
-- **문서**: `GameSystemRules/GameSystemRules_Upgrade.md`(구현 계약·구현 상태·규칙 13 UI), `StatsReference.md`(×10 값·업그레이드 표), `GameSystemRules_Units.md` 규칙 44(방어력 감쇄), GDD 연구소 섹션. old/new 대조: `_Tasks/2026-07-22/10_08_unit-upgrade-system/BalanceReview.md`·`Research.md`·`Plan.md`(하단 "완료 결과").
-
----
-
 ## Phase D — 콘텐츠 확장 (백로그)
 
 ### D-1. 방어/마법 타워
-**✅ 방어 타워 완료 (2026-06-01~02)**: TowerCombatUseCase 신규 구현. 종족별 스탯(사거리 4.0/공격력 15, 쿨다운 Human·Trans 5.0s/Spirit 3.5s). 서버 권위 처리. Human CannonTower 초기 방향(내 진영 0도/상대 진영 180도) 구현 완료.
-- 스킬 건물(FlightFacility / MagicSpirit / WillowShrine): **Phase 1 + Phase 2 구현 완료 · 실기기 테스트 PASS (Phase 1: 2026-08-04, Phase 2 타입 C: 2026-08-05 실기+멀티(클라))**. **마나 미도입** — 자원 없이 건물별 글로벌 쿨다운만 사용. 건물당 최대 5개 스킬, 3×3 패널 UI(슬롯 1~5 스킬/6 철거/7~9 예약), 모바일 탭 조준(2단계·엣지 스크롤·취소 X Lerp 확대), 서버 권위. **타입 A(즉발 범위 피해)·B(장판 DoT)·C(전역 상태변경: 버프/디버프/CC/힐) 실행기 완료**, 조준 지점 연속 좌표화(HexCoord→Vector3, 반경 판정 무변경·중심만 연속화)·맵 경계 point-in-bounds 재검증·조준원 지면 데칼 렌더링(`SkillAimOverlay.shader`)·취소 버그 수정·쿨다운 안내 토스트까지 반영. 타입 C는 상태효과 시스템(`StatusEffectSystem` 서버 권위)+유효 스탯 곱연산 합성+공격 게이트(무상태 회귀 안전)·빙결 애니 정지·둔화 라이브·회복 HoT·멀티 `StatusAppliedClientRpc`. **건물 파괴 시 열린 패널/조준 UI 원복은 2026-08-08 구현 완료·실기 PASS(`BuildingPanelBase` OnBuildingDied 구독→Close, 4개 건물 패널 공통).** **미완: 구체 스킬 목록/수치/아이콘(기획, 현재 플레이스홀더 5슬롯 테스트용).** 상세: [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md)(규칙 1~26), task `_Tasks/2026-07-28/12_14_skill-building-system-design/`·`_Tasks/2026-08-04/04_46_skill-aim-coordinate-based/`.
-
-### D-2. 건물 업그레이드 시스템
-**✅ 완료 (2026-05-17~18)**: 종족별 단계 BuildingType 26종 확장, BuildingPlacementUseCase.UpgradeBuilding(), NetworkBuildingController RPC, ProductionPopup 업그레이드 버튼/아이콘, 철거 환불 누적 계산 완료. 전 종족 테스트 통과.
-
-### D-2-1. 건물 철거 로직 구현
-**✅ 완료 (2026-05-18~19)**: BuildingActionPanelUI를 통해 비생산 건물(채굴소/타워 등) 철거 가능. BuildingPanelBase.OnDemolishButtonClick()에 싱글/멀티 분기 공통 구현. 채굴소 전용 패널(일시정지 등)은 별도 작업.
+- **미완:** 구체 스킬 목록·수치·아이콘 확정(기획). 현재는 종족별 플레이스홀더 5슬롯 테스트용.
+  상세: [GameSystemRules_Skills.md](GameSystemRules/GameSystemRules_Skills.md)
 
 ### D-3. 유닛 AI 상태머신
-**✅ 기본 전투 AI 구현 완료 (2026-05-11)**: 슬롯/점유 시스템 폐기. 근접·원거리 모두 단일 상태 머신(MoveAlongPathV3) 적용. A* 이동 → 적 감지(DetectRange) → 직선 추격(EnterCombatPursuitV3) → 공격 → 재개(Lerp 정렬) 사이클 완성. 겹침 허용, 모든 유닛 동일 규칙 적용.
 - 추가 목표: Idle → Patrol → Retreat 상태 확장 (현재 미구현)
 
 ### D-4. 신규 유닛 프리팹 완성 (16종)
-**🔧 에디터 스크립트 완료 (2026-06-05)**: Human 5종(LittleKnight/SpearMan/BattleAxe/Tank/CannonCart)·Spirit 6종(DustSpirit/BoulderSpirit/QuakeSpirit/TideSpirit/StreamSpirit/TorrentSpirit)·Transcendence 5종(RabbitTrickster/RhinoBreaker 등) × Blue/Red 총 32개 프리팹 자동 컴포넌트 부착. `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`
+**🔧 에디터 스크립트 완료 (2026-06-05)**: Human 5종(LittleKnight/SpearMan/BattleAxe/Tank/CannonCart)·Spirit 6종(DustSpirit/BoulderSpirit/QuakeSpirit/TideSpirit/StreamSpirit/TorrentSpirit)·Transcendence 5종(RabbitTrickster/RhinoBreaker 등) × Blue/Red 총 32개 프리팹 자동 컴포넌트 부착. `Assets/Editor/Setup/SetupNewUnitPrefabs.cs`(**1회성 — 실행 후 삭제됨**)
 
 **진행 (2026-07-21)**: 특수 유닛 5종 **전량 구현 완료 + InfernoSpirit DoT까지 완료** — BattleAxe(휩쓸기형 부채꼴, 2026-07-17), TorrentSpirit(파도형 이동 AoE + 힐 서브시스템, 2026-07-17), BloomFairy(힐러 전용 경로 + HoT/DoT 공용 시스템, 2026-07-18), MushroomBomber(착탄형 원형 반경 DoT + DoT 초 단위 틱 모드 + 식물 라인 생산 배선, 2026-07-19), InfernoSpirit(단일 대상 DoT — 규칙 40 초 단위 틱 재사용, 값 별도 진입점 분리, 2026-07-20), QuakeSpirit(착탄형 즉발 2단계 AoE — 주 타깃 100%/스플래시 50%, 스플래시가 건물도 포함, MushroomBomber 원형 반경 헬퍼 `internal static` 공용화 재사용 + 건물 순회 신설 + 유닛/건물 hit-set 분리, 2026-07-20 멀티 로그 검증). 특수 공격 전략 핸들러 아키텍처(핸들러 + 레지스트리 1줄) 확립. **잔여 없음**(BloomFairy는 힐러 전용 경로로 의도적 미등록). **알려진 이슈(보류, 별도 task)**: QuakeSpirit `OnAttackHit` 미주입 타이밍 어긋남, 멀티 원거리 facing 버그. 상세: `PROJECT_STATUS.md` / `WORK_HISTORY.md`, task `_Tasks/2026-07-16/18_06_battleaxe-aoe/` · `_Tasks/2026-07-17/12_59_torrentspirit-wave-aoe/` · `_Tasks/2026-07-18/03_40_bloomfairy-healer/` · `_Tasks/2026-07-19/01_42_mushroombomber-impact-dot/` · `_Tasks/2026-07-20/03_22_infernospirit-dot-and-attack-facing/` · `_Tasks/2026-07-20/10_24_quakespirit-impact-aoe/`.
 
@@ -273,28 +202,11 @@
 
 전투 타격 타이밍 동기화 작업(`_Tasks/2026-07-09/01_12_combat-hit-timing-sync/`) 완료 후 남은 후속 항목.
 
-### F-1. 이동/Walk 애니메이션 동기화 ✅ 완료 (2026-07-13)
-- **결과**: 애니메이션 상태(None/Walk/Attack)를 1회성 엣지 RPC → NetworkUnit의 **NetworkVariable 레벨 동기화**로 전환. 클라 스폰 시 현재 값 자동 적용으로 첫 Walk RPC 스폰 레이스 유실(222/223기) 구조적 소멸. `UnitView.Initialize` 후 `ReapplyAnimStateToView()`(멱등) 재적용으로 애니메이터 미준비 무음 실패 봉합. 재경로 첫 스텝 역방향(뒤로 밀림, 서버 282건)은 `AlignPathStartToTransform`로 282→41 급감.
-- **검증**: 3차 로그 15,316줄 — 생성 634기 전원 상태 적용 보장, 육안 걷기 미재생/뒤로 밀림 소멸. 잔여 41건은 스폰 직후 우회 경로를 판정 지표가 오탐한 계측 한계로 코드 무수정 종결. 규칙 U-22 등재.
-- **task**: `_Tasks/2026-07-12/07_55_movement-walk-anim-sync/`.
-
-### F-2. 빌드 에셋 용량 최적화 ✅ 완료 (2026-07-15)
-- **결과**: Android AAB 용량 **190.66 MB → 125.30 MB**로 65.36 MB 절감. 작업 브랜치 `codex/asset-size-optimization`이 main에 병합됨.
-- **주요 변경**: `Assets/_Project/Texture/Buildings/**`, `Assets/_Project/Texture/Units/**` Android max texture size `1024 → 512`. `_Old` 미사용 에셋 디렉터리 7개 정리, normal-map PNG 93개 + roughness PNG 84개 정리, 건물/장비 FBX import를 보수적으로 조정.
-- **유지한 영역**: UI 배경, 유닛 초상화, 건물 아이콘, UI 스프라이트, TextMeshPro 폰트 에셋은 품질 확인 전 유지. TMP Font Atlas 축소 테스트는 AAB 효과가 작아 되돌림.
-- **후속 확인**: 기기 QA에서 설치/실행, 로그인, 로비 UI 가독성, 인게임 유닛/건물 텍스처 품질, 팀 색상 변형, emission/공격 이펙트 품질을 확인한다.
-- **상세 문서**: `AABSizeOptimization.md`, `BuildAssetOptimizationReport.md`, `UnusedAssetAudit.md`.
-
 ### F-3. 피격 VFX 프리셋 연결 🟡 중간
 - **작업**: `UnitEffectConfig.hitPreset`을 Inspector에서 각 유닛에 배선. Human 6종 등 미연결.
 - **비고**: 코드 아님, 에셋 연결 작업.
 
 ### F-4. 미구현 특수 타격 클립 이벤트 주입 🟢 낮음
-- **✅ BattleAxe 완료 (2026-07-17)**: 휩쓸기형 AoE 구현과 함께 Attack 클립 `OnAttackHit` 이벤트 주입 완료(`hitFrameTimes=1.1667s`, 클립 타격모션 종료 프레임 35f/30fps). `Hexiege/Combat/Inject OnAttackHit Events` 인젝터 사용.
-- **✅ TorrentSpirit 완료 (2026-07-17)**: 파도형 이동 AoE + 힐 서브시스템 구현과 함께 `OnAttackHit` 주입(`0.5s`, 임시 — 실제 파도 발동 프레임 튜닝 대상). 규칙 28~31 신설.
-- **✅ BloomFairy 완료 (2026-07-18)**: 힐러 전용 경로 구현과 함께 힐 발동 타이밍을 `HitFrameTimes` 타이머로 구동(`OnAttackHit`은 힐 연출 전용). HoT/DoT 공용 시스템 신설. 규칙 32~37 신설.
-- **✅ MushroomBomber 완료 (2026-07-19)**: 착탄형 범위 DoT 구현과 함께 Attack 클립 `OnAttackHit` 주입(규칙 27, 1개). DoT 초 단위 discrete 틱 모드(규칙 34 확장) 신설. 규칙 38~40 신설.
-- **✅ InfernoSpirit 완료 (2026-07-20)**: 이미 완성된 원거리 유닛(에셋·VFX·생산·`OnAttackHit` 완비)에 단일 대상 DoT 특수만 추가(`InfernoAttackBehavior`, 레지스트리 1줄). 주 타깃 1마리 직접 25 + 그 1마리에게만 DoT 5/초×3초(AoE 아님). 규칙 40 초 단위 틱 재사용, 값은 별도 진입점(`ApplyInfernoDot` 5/3)으로 분리. 규칙 41~42 신설.
 - **🔨 QuakeSpirit 특수 공격 로직 완료·클립 이벤트 잔여 (2026-07-20)**: 착탄형 즉발 2단계 AoE 구현·멀티 로그 검증 완료(규칙 43, 핸들러 `QuakeAttackBehavior` + 레지스트리 1줄, MushroomBomber 원형 반경 헬퍼 `internal static` 공용화 재사용). 단 Attack 클립 `OnAttackHit`은 **아직 미주입** + `hitFrameTimes` placeholder(1.0s)로 타격 애니↔데미지 텍스트 타이밍이 어긋남(스플래시 텍스트가 `HitPresentationQueue` 타임아웃 7.5s까지 지연 — 피해·판정·동기화 자체는 정상). 사용자 결정으로 **별도 후속 task 분리**.
 - **남은 대상**: QuakeSpirit `OnAttackHit` 클립 이벤트 주입만 잔여(특수 공격 핸들러 확장은 5종 전량 완료). BloomFairy는 힐러 전용 경로로 의도적 미등록.
 - **작업**: QuakeSpirit 후속 task에서 실제 타격 프레임으로 `hitFrameTimes` 확정 후 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 `OnAttackHit`을 주입(규칙 17·27) → 타이밍 어긋남 해소.
@@ -304,27 +216,3 @@
 - **작업**: Firebase/EDM 패키지·플러그인을 저장소에 어떻게 커밋/제외할지(버전 관리 방침)를 정리하여 신규 클론 시 재임포트 없이 빌드 가능하도록 정비.
 - **비고**: 인프라/저장소 관리 작업(코드 아님).
 - **2026-07-13 진행**: 관련하여 `#if HEXIEGE_ENABLE_FIREBASE_AUTH` 컴파일 게이트를 제거(커밋 4fe1cf0)해 SDK 로컬 임포트 시 실제 Firebase 코드가 무조건 컴파일되도록 복원(스텁 컴파일로 로그인 무조건 실패하던 버그 해소). **남은 작업은 SDK/EDM 자체의 버전 관리(커밋/제외) 방침 확정**으로, 게이트 제거와 별개.
-## 2026-07-16 로비 프로필/랭킹 클라우드 연동 상태
-
-- 완료: UGS Cloud Save 플레이어 프로필 모델/서비스/UseCase, 닉네임 설정/변경 흐름, 로비 Profile 탭 전적 표시, UGS Leaderboards Ranking 탭, RankRow 프리팹/에디터 생성 스크립트, 기본 UI 레이아웃 보정.
-- 완료: 이메일 인증 완료 후 최초 로그인 시 닉네임 설정 화면으로 이동하는 흐름.
-- 완료: RankingView의 숨김 상태 자동 로드 제거. 랭킹 데이터는 Ranking 탭 표시 또는 새로고침 버튼에서 로드한다.
-- 완료: 이메일 인증 플로우 보완(2026-07-18).
-  - 인증 대기 화면에 가입/로그인 시도 이메일을 명시적으로 전달해 표시한다.
-  - 회원가입 직후 인증 대기와 기존 미인증 계정 로그인 진입을 구분한다.
-  - 회원가입 직후 인증을 포기하고 되돌아가는 경우 Firebase 미인증 계정을 삭제한다.
-  - 앱 재실행/자동 로그인 경로에서도 미인증 계정은 인증 화면으로, 닉네임 미설정 계정은 닉네임 설정 화면으로 복귀한다.
-  - 장기적으로 생성 후 일정 기간 지난 `emailVerified=false` 계정 정리 정책을 검토한다.
----
-
-## 2026-07-18 이메일 인증 플로우 보정 완료
-
-- 완료: 이메일 인증 대기 화면의 이메일 표시, 뒤로가기 가입 취소 정책, 앱 재실행/자동 로그인 게이트를 보정했다.
-- 사용자 실기 PASS:
-  - 신규 이메일 회원가입 후 인증 화면에서 실제 이메일 표시.
-  - 인증 화면 Back 시 가입 취소 확인 팝업 표시.
-  - 가입 취소 확정 시 Firebase Authentication 미인증 사용자 레코드 삭제.
-  - 인증 계속하기 선택 시 인증 화면 유지.
-  - 인증 화면에서 앱 종료 후 재실행 시 다시 인증 화면 표시.
-  - 닉네임 설정 화면에서 앱 종료 후 재실행 시 다시 닉네임 설정 화면 표시.
-- 장기 과제: 일정 기간 이상 지난 `emailVerified=false` 계정의 서버/관리자 정리 정책 검토.

@@ -82,6 +82,22 @@ Domain → Application → Core → Infrastructure → Presentation → Bootstra
 - 씬 NGM 제거: Additive 임시 로드 → `Undo.DestroyObjectImmediate` → `EditorSceneManager.SaveScene` → CloseScene
 - Undo 지원: RegisterCreatedObjectUndo / SetTransformParent / RecordObject / RegisterCompleteObjectUndo
 
+### 배치 관례와 저장 반영 (2026-08-10 확인 / 2026-08-21 복구 — 유일본)
+
+> 2026-08-17 `675203ae` 로 `MEMORY.md` 에서 소실됐던 내용. 아래 4개 항목은
+> `Assets/_Project/Docs/**` · `.claude/**` 어디에도 남아 있지 않아 여기로 복구한다.
+
+- **에디터 1회성 셋업 스크립트 위치 = `Assets/Editor/Setup/`, 네임스페이스 `Hexiege.EditorTools`**
+  (asmdef 없음 → Assembly-CSharp-Editor). 메뉴 접두사 관례는 `Hexiege/Setup/`.
+  예외: 스킬 셋업 2종만 코디네이터 지시로 `Assets/_Project/Scripts/Editor/` + `Hexiege/Skill/` 에 있다.
+- **저장 반영 필수**: `EditorUtility.SetDirty(obj)` **+** `EditorSceneManager.MarkSceneDirty(scene)`.
+  **둘 중 하나라도 빠지면 씬에 저장되지 않는다** — 스크립트는 성공 로그를 찍고 변경은 사라진다.
+- **멱등 헬퍼 `FindOrCreateChild(parent, name)`** 로 이름/컴포넌트를 찾아 재사용한다.
+  단 **패널처럼 통째로 복제하는 대상은 "기존 제거 후 재복제"** 로 항상 1개를 보장한다.
+- 이름 기반 탐색은 **타입 탐색 우선 + 이름은 폴백**. 못 찾으면 조용히 넘어가지 말고 경고를 남긴다
+  (과거 사고: `_backButton` 이 `OffButton` 에 오연결됐다).
+- 에디터 스크립트의 `Debug.Log` 진행 출력은 **허용**된다 — `LogRules.md` 는 **런타임 파일 로그** 규칙이다.
+
 ---
 
 ## DontDestroyOnLoad 규칙
