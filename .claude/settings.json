@@ -10,6 +10,9 @@
     ],
     "additionalDirectories": [
       "Assets/_Project/Docs/_Tasks"
+    ],
+    "ask": [
+      "Bash(git push:*)"
     ]
   }
 }
