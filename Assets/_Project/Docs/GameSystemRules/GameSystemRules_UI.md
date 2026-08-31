@@ -613,32 +613,34 @@ MistShrine 패널은 비생산 건물 패널의 공통 규격인 **3×3 그리�
 
 ### 무작위 맵 타일 선택과 건설 패널
 
+> **타일 상태 표기**: 타일의 상태는 `TileKind` 한 가지 값(`Normal` 일반 타일 / `NoBuild` 건설 불가 타일 / `Blocked` 막힌 타일)으로 표현한다. 세 값의 성질과 이 표기를 쓰는 이유의 단일 소스는 `GameSystemRules_RandomMap.md` 5장(규칙 9·10)이다.
+
 **규칙 5. 판정 우선순위**
 
 `GridInteractionUseCase`는 다음 순서로 클릭을 처리한다.
 
 1. 기존 building action 분기
 2. `MineKind`와 MiningPost 건설 자격 분기
-3. `TerrainKind.Blocked` 차단
-4. `BuildRule.NoBuild` 처리
-5. 일반 타일 처리
+3. `TileKind.Blocked`(막힌 타일) 차단
+4. `TileKind.NoBuild`(건설 불가 타일) 처리
+5. 일반 타일(`TileKind.Normal`) 처리
 
-광산 분기가 NoBuild보다 먼저이므로 광산 타일의 MiningPost 예외는 유지한다.
+광산 분기가 건설 불가 처리보다 먼저이므로 광산 타일의 MiningPost 예외는 유지한다.
 
-**규칙 6. Blocked 또는 빈 공간 클릭**
+**규칙 6. 막힌 타일 또는 빈 공간 클릭**
 
-- 논리 `HexGrid`에 좌표가 있어도 `TerrainKind.Blocked`는 선택할 수 없다.
+- 논리 `HexGrid`에 좌표가 있어도 `TileKind.Blocked`는 선택할 수 없다.
 - 기존 타일 선택을 해제하고 열린 건물 배치 패널을 닫는다.
 - 토스트를 표시하지 않는다.
 - 새 타일 선택 이벤트를 발행하지 않는다.
 
-**규칙 7. 자기 팀 소유 Open+NoBuild 클릭**
+**규칙 7. 자기 팀 소유 건설 불가 타일 클릭**
 
 - 타일을 정상 선택하고 highlight를 표시한다.
 - 건물 배치 패널을 열지 않으며, 이전 타일에서 열린 패널이 남아 있으면 닫는다.
 - `ToastKey.BuildingNotAllowed`로 `이 타일에는 건설할 수 없습니다`를 표시한다.
 
-**규칙 8. 중립·적 소유 Open+NoBuild 클릭**
+**규칙 8. 중립·적 소유 건설 불가 타일 클릭**
 
 - 타일 선택과 highlight만 수행한다.
 - 건물 배치 패널을 열지 않고 stale 패널을 닫는다.

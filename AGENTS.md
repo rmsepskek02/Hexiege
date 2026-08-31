@@ -31,7 +31,7 @@
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Map.md` | 대전 맵 전체 180도 대칭, 광산 공정성 및 정적 최단 접근거리 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md` | FlatTop 11×21 무작위 대전 맵 5종 생성·검증 규칙 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_UI.md` | 공통 UI 규칙, 생산 패널, MistShrine 패널, 건물 배치 패널, 인게임 설정 메뉴, 로비 설정/프로필 UI |
-| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동, 전투 진입, 전투 연계, 전투 연출 동기화, 애니메이션 상태 동기화, 특수 공격 시스템(확장 5종), 방어력 데미지 감쇄 |
+| `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Units.md` | 유닛 이동(건물로 경로가 막혔을 때의 동작 포함), 전투 진입, 전투 연계, 전투 연출 동기화, 애니메이션 상태 동기화, 특수 공격 시스템(확장 5종), 방어력 데미지 감쇄 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Buildings.md` | 랠리포인트, 건물 철거, 방어 타워, MistShrine 물안개 힐 |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Skills.md` | 스킬 건물 3종, 쿨다운/스킬 수 규칙, 3×3 스킬 UI, 스킬 타입 3종, 모바일 지점 조준 UX |
 | `Assets/_Project/Docs/GameSystemRules/GameSystemRules_Upgrade.md` | 연구소 유닛 강화(공/방/속 + 자연회복) + 전투 스탯 ×10 스케일 + 연구 패널 UI |
@@ -70,7 +70,7 @@
 |----------|------|----------|
 | `Assets/_Project/Docs/WORKFLOW.md` | 작업 사이클 운영 규칙 — **단일 권위 소스** | ❌ 수동 |
 | `.claude/mistakes.md` | **AI 실수 기록** — AI가 이 프로젝트에서 저지른 실수의 누적 기록. 항목마다 **무엇을 틀렸나 / 왜 그랬나 / 어떻게 드러났나 / 교훈**. **전문을 읽지 않는다** — 상단 **목차(한 건당 한 줄)** 를 훑고 이번 작업과 성격이 비슷한 항목만 펼쳐 읽는다. 실수를 인지하면 그 자리에서 덧붙이고 **사건은 지우지 않는다**. 확인 시점은 WORKFLOW.md 「작업 시작 전 확인」 | ❌ 수동 |
-| `Tools/check_docs.py` | 문서 정합성 검사기(읽기 전용) — **7종**을 찾아 목록만 출력: 규칙 번호 결번, 깨진 파일 링크, 실재하지 않는 규칙 번호, 섹션명 없는 모호한 참조, 병기 내용과 규칙 제목 불일치, **인덱스에서 링크되지 않은 에이전트 메모리 토픽 파일**, **에이전트 메모리 폴더의 총합 행수 감소**(기준값 `.claude/agent-memory/_baseline.json` — 직접 편집 금지, 갱신은 `--update-baseline`, 감소가 포함되면 `--reason` 필수). 문서 수정 후 `python3 Tools/check_docs.py`를 리포지토리 루트에서 실행해 **0건**을 확인한다. ⚠️ **검사 범위와 알려진 한계(규칙 정의를 `**규칙 N.**` 굵은 글씨 형식으로만 인식 → `GameSystemRules/` 13개 중 7개만 규칙 원본으로 읽힌다)는 [WORKFLOW.md](Assets/_Project/Docs/WORKFLOW.md) [11]이 단일 소스** — 실행 결과를 해석하기 전에 그쪽을 볼 것 | ❌ 수동 |
+| `Tools/check_docs.py` | 문서 정합성 검사기(읽기 전용) — **7종**을 찾아 목록만 출력: 규칙 번호 결번, 깨진 파일 링크, 실재하지 않는 규칙 번호, 섹션명 없는 모호한 참조, 병기 내용과 규칙 제목 불일치, **인덱스에서 링크되지 않은 에이전트 메모리 토픽 파일**, **에이전트 메모리 폴더의 총합 행수 감소**(기준값 `.claude/agent-memory/_baseline.json` — 직접 편집 금지, 갱신은 `--update-baseline`, 감소가 포함되면 `--reason` 필수). 문서 수정 후 `python3 Tools/check_docs.py`를 리포지토리 루트에서 실행해 **0건**을 확인한다. 🔴 **주의: 규칙을 `**규칙 N. 제목**` 굵은 글씨로 쓰지 않으면 그 문서의 규칙이 통째로 검사에서 빠지고, 검사기는 아무 경고 없이 0건을 낸다.** 실제로 몇 개 문서가 규칙 원본으로 읽히는지는 **검사기가 매 실행 시 출력하는 `[검사 범위]` 블록이 권위 소스**이며 이 자리에 숫자를 옮겨 적지 않는다. **검사 범위와 형식 규정은 [WORKFLOW.md](Assets/_Project/Docs/WORKFLOW.md) [11]이 단일 소스** — 실행 결과를 해석하기 전에 그쪽을 볼 것 | ❌ 수동 |
 | `Assets/_Project/Docs/_Tasks/YYYY-MM-DD/HH_MM_[작업명]/` | 작업별 Research / Plan / Testcase (사용자용) | — |
 | `Assets/_Project/Docs/_Logs/YYYY-MM-DD/HH_MM_[작업명]/Log.md` | QA-Fix 반복 이터레이션 로그 (에이전트용) | — |
 

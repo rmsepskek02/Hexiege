@@ -164,3 +164,86 @@ rewrites therefore keep the *why* (`## 규칙 N.` parses as a section name → t
 zero rules → [3]·[4]·[5] pass vacuously) and drop only the now-false inventory.
 **Never re-add a document count to either passage** — the checker's `[검사 범위]` block is the
 authoritative source for those numbers.
+
+---
+
+## 4. Restructuring a rule document into chapters (2026-08-26, map rules correction)
+
+`GameSystemRules_RandomMap.md` was reorganised into 7 chapters (공통 사양 / 공통 생성 절차 / 유형별
+사양 / 생성 검증 / 런타임 동작 / 네트워크 / 용어 정의) without touching a single rule number.
+What made it safe:
+
+- **Chapters are `### H3`, not `## H2`.** The whole rule block stays inside the one existing H2
+  (`## 무작위 맵 생성 규칙`), so the document still registers as a single section (§3 above). H3 is
+  never parsed as a section, so chapter headings cost nothing. The glossary keeps its own H2 and
+  simply became "7장" in its title.
+- **Reordering rules inside the document is fine** — check `[1]` looks at `set(titles)`, not order.
+  So chapter order (1,2 / 3,12,15 / 4~8 / 13 / 9,10,11 / 16,14) may differ from numeric order.
+  State that mismatch in the document's own reading guide, or the next reader will "fix" it.
+- **Never split one rule across two chapters.** Writing `**규칙 N.**` twice makes
+  `per_section = len(nums) != len(set(nums))` flip to True, which turns on check `[4]`'s
+  "section name required" mode for *every* future reference to that document.
+- **Content moved to another document takes the receiving document's next free number.**
+  규칙 11 (경로 막힘) moved to `GameSystemRules_Units.md` as **규칙 45** (its next number), and the
+  map document kept 규칙 11 as a one-line pointer. Reusing the origin number would collide.
+- **Order of edits that prevents loss**: write the new copy at the new position first, verify every
+  bullet of the original survives, only then `Edit`-delete the old block. A session interruption in
+  the middle then leaves a *duplicate*, which the checker catches — not a hole, which it cannot.
+  (This actually happened: the run was cut by an API limit with 규칙 15 present twice.)
+
+### Change-history tables are NOT all ascending — check before appending
+
+| 문서 | 정렬 |
+|---|---|
+| `LogRules.md` 개정 이력 | ascending (newest at the **bottom**) |
+| `TechnicalDesignDocument.md` 📝 변경 이력 | **descending** (newest at the **top**, 0.44.0 above 0.43.2) |
+| `GameDesignDocument.md` 📝 변경 이력 | **descending** (1.14.0 above 1.13.0) |
+
+A task brief that says "append the new row at the bottom, time-ascending" is wrong for the two
+design documents. **Open the table and read the first two rows before appending**, then report the
+deviation instead of silently following the brief.
+
+### Deprecated wording has to survive somewhere, but only once
+
+When a term is retired (「보호 통로」 → **필수 통로**), the completion check is a repo-wide grep whose
+expected result is **exactly one hit: the glossary `_Avoid_` line**. So a deprecation note in another
+document must be written *without* repeating the retired words — say "종전 이름" and point at the
+`_Avoid_` row. Same trick for retired type names (`TerrainKind`/`BuildRule` → `TileKind`): explain the
+old shape as 「지형 종류와 건설 규칙 두 필드」 rather than quoting the identifiers, or the grep never
+reaches zero. Historical change-log rows are the one allowed exception and are never edited.
+
+## 5. Replacing a structure leaves contradictions in the sentences written under the old one (2026-08-31)
+
+The fallback structure was replaced with **one fixed template per map type (5 total)**, with the mine
+count, initial gold and starting-mine side baked into the template. The replacement was written into
+two places (the rule document's fallback subsection and the TDD's `deterministic fallback 정의`), but
+**four sentences written under the previous structure survived elsewhere** and asserted the opposite —
+that the values chosen at match start stay in force through the fallback path too. Both statements
+looked locally correct; only reading them together showed they could not both hold.
+
+- **The trap: the change lands where the new structure is described, not where the old premise was
+  assumed.** Preambles, player-facing summaries in the GDD, and one-line builder-input clauses in the
+  TDD carry the old premise without ever naming the structure, so a grep for the new structure's
+  vocabulary finds none of them.
+- **What actually finds them:** grep for the *claim the old structure made*, not for its name.
+  Here `"폴백까지\|fallback까지\|같은 광산 수"` over `Docs/` minus `_Tasks/`·`_Logs/` returned every
+  live occurrence plus two change-history rows (correctly left alone).
+- **`check_docs.py` cannot see this class of defect** — it checks rule numbers and links, not whether
+  two prose sentences can both be true. It reported 0 findings the whole time.
+- **How the fix was worded:** state the substitution as an explicit spec ("using the fallback replaces
+  mine count / starting-mine side / initial gold with the template's values; map type and the
+  test-mode flag are what survive"), and name the single source for the template's values instead of
+  repeating the numbers. In the GDD the same fact goes in plain player-facing language **with no
+  numbers** — values belong to the rule document.
+- Check whether the required log fields already cover the substituted values before proposing new
+  ones; here 중립 광산 수 · 시작 광산 방향 · 실제 초기 골드 · 폴백 사용 여부 were already listed, so
+  saying so in one line was enough.
+
+### A stale number in a tool description is worse than no number
+
+`AGENTS.md` described `check_docs.py` as reading only some of the `GameSystemRules/` documents, with a
+count that had gone stale — it warned about a blind spot that no longer existed. **The fix is to
+delete the number, not to correct it** (`WORKFLOW.md` [11]: the checker's `[검사 범위]` block is the
+authority, never a copy). What replaced it is the fact that does not go stale: writing a rule in any
+form other than the bold `**규칙 N. 제목**` drops that document's rules from the checks entirely and
+the checker still reports 0.

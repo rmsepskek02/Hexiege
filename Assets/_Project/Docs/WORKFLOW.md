@@ -196,6 +196,24 @@ TC 목록과 **별도 섹션**으로 문서 하단에 작성. qa-tester 에이�
 - 스크립트 실행 완료 후 해당 파일 삭제해도 무방 (1회성)
 - 별도의 Inspector 작업이 없는 경우 생략하고 다음 단계 바로 진행
 
+#### 에디터 스크립트를 두는 폴더 (1회성 vs 영구 보존)
+
+```
+Assets/Editor/Setup/   → 1회성 스크립트. 실행 후 삭제 가능
+Assets/Editor/Tools/   → 영구 보존 도구. 삭제 금지
+```
+
+- 이것은 새 관습이 아니라 **이미 있는 관습을 적어 둔 것**이다 — `Setup/` 의 14개는 전부 헤더에 「1회성 셋업」이 명시돼 있고, `Tools/LogcatCapture.cs` 는 「상시 사용 도구」로 명시돼 있다(2026-08-26 실측).
+- **반복해서 다시 쓰는 도구는 `Tools/` 에 둔다.** 무작위 맵 **폴백 템플릿 제작 도구**가 여기 해당한다 — 저장 포맷이 바뀌면 템플릿을 재생성해야 하는데 도구를 지우면 재생성할 수 없다(`GameSystemRules/GameSystemRules_RandomMap.md` 규칙 12).
+- 파일을 옮길 때는 **`.cs.meta` 를 반드시 동반**하고 `Hexiege.EditorTools` 네임스페이스 영향을 확인한다.
+
+**후속 판단 대기 (이번에 옮기지 않았다 — 이동은 별도 승인 대상)**
+
+| 파일 | 판정 |
+|---|---|
+| `Assets/_Project/Scripts/Editor/AndroidBuildAssetOptimizer.cs` | 확실한 상시 도구 → `Assets/Editor/Tools/` 로 이동 대상 |
+| `CombatHitEventInjector.cs` · `CombatHitEventValidator.cs` · `SpiritAttackVfxTestSpawner.cs` | **판단 필요** — 헤더는 「1회성」이나 반복 사용 성격 |
+
 ### [5-3] QA 요청
 - qa-tester 에이전트에게 Testcase.md와 함께 테스트 요청
 - QA 에이전트는 **정적 분석 + 실기 테스트(가능한 경우)** 모두 수행하여 결과를 문서에 반영
