@@ -247,3 +247,151 @@ delete the number, not to correct it** (`WORKFLOW.md` [11]: the checker's `[검�
 authority, never a copy). What replaced it is the fact that does not go stale: writing a rule in any
 form other than the bold `**규칙 N. 제목**` drops that document's rules from the checks entirely and
 the checker still reports 0.
+
+---
+
+## 6. Terminology unification: removing the banned word is only half of "done" (2026-09-01)
+
+The map-document rounds keep producing the same class of defect, and grep keeps passing it.
+
+### The failure that grep cannot catch
+
+`GameSystemRules.md` (the **rule-document index** — it had been out of scope for every earlier round,
+which is why three separate defects had accumulated in one small section) said "성 인접 **영역**→광산
+인접 **영역**". The task was to move to the settled 「칸」 vocabulary. Four official names exist:
+
+| Document | Names it uses |
+|---|---|
+| universal fairness doc — `GameSystemRules_Map.md` 규칙 4 | 시작 칸 · 도착 칸 |
+| 11×21 spec — `GameSystemRules_RandomMap.md` 규칙 13 | 성 접근 칸 · 광산 덩어리 접근 칸 |
+
+> ⚠️ Those descriptors sit **before** the rule number on purpose. `check_docs.py` [5] treats a
+> parenthesis right after `규칙 N` as "content annotated for that rule" and compares it word-by-word
+> against the real rule title — in **all 75 scanned files, agent memory included**. Writing
+> `규칙 4 (universal fairness doc)` fails the check. Put the gloss ahead of the reference, or quote the
+> actual title.
+
+I wrote **「성 인접 칸」·「광산 덩어리 인접 칸」** — a fifth name, matching none of them. Swapping the
+one banned word into the old sentence skeleton (`성 인접 ○○`) produced a hybrid automatically.
+
+- The grep for 「영역」·「집합」·`region`·`set` returned **0** — the new name contains no banned word.
+- `check_docs.py` returned 0 too; it reads rule numbers and links only.
+- What caught it: the **first-time-reader read-through** of the section, which the instruction
+  required as a separate verification step. Same detector as the 2026-08-26 catch.
+
+### Rules that follow from it
+
+1. **Completion has two halves**: (a) the banned form is gone, (b) what replaced it is *verbatim one of
+   the official names*. Checking only (a) breeds banned-word-free variants.
+2. **Do not compose an official name — copy it** from the single-source document. If the sentence then
+   reads awkwardly, rewrite the sentence, never the name.
+3. **An index bullet uses the vocabulary of the document it points at.** When a universal-rules doc and
+   a concrete-spec doc name the same concept differently, pick the name the reader will find after
+   following *that* link. (`GameSystemRules_Map.md` carries a note saying the two name sets are the
+   same concept, so pointing at either is safe as long as you use its own names.)
+4. **Distrust the judgment "this is a one-word swap."** Keeping the old skeleton and swapping a word is
+   how hybrids appear.
+
+### The index document needs its own summary-vs-source pass
+
+Beyond the terminology, reading `GameSystemRules.md` 「맵 관련 작업」 as a newcomer surfaced a second
+class: **the summary silently narrows the rule.** Its re-validation bullet listed a shorter trigger set
+than `GameSystemRules_Map.md` 규칙 5 actually requires, and its initial-gold bullet omitted the
+test-mode branch that 규칙 3 defines. Neither is a wrong word — both are *true but incomplete* lines
+that a reader will treat as the whole rule. **When auditing an index, compare each bullet against the
+rule it summarizes and ask whether the omission changes what a reader would do**, then report rather
+than silently expanding scope.
+
+### Count copies live in index documents
+
+「다섯 맵 유형」 in a bullet and 「맵 5종」 in the file-list table are both copies of a number whose
+single source is a chapter of another document. Rewrite the bullet so **no count is written at all**
+and point at the source chapter — do not "correct" the number.
+
+### Marking an API that will change later, without breaking it now
+
+`GameSystemRules_AI.md` documents `HasGoldMine` for mine-tile lookup. That is **not** deprecated — it
+is live code (verified 2026-09-01 in `Domain/Hex/HexTile.cs`, `Bootstrap/GameBootstrapper.Map.cs`,
+`Presentation/Grid/HexGridRenderer.cs`). A design contract in `TechnicalDesignDocument.md` 「기존 코드
+전환 요구」 replaces it with `MineKind` **when the random map is implemented** (that section sits under
+「무작위 맵 시작 동기화 (확정 설계, 미구현)」).
+
+- **Do not pre-apply a planned rename.** Changing the notation now makes the document disagree with the
+  code that exists today, which is the failure mode the notation was supposed to prevent.
+- Attach a **transition marker** instead: what it becomes, when, and the single source for the change.
+  Say explicitly that the current wording is correct until then.
+- Before writing any of that, **verify in `.cs` that the API is live** — an instruction calling
+  something "deprecated" is a claim to check, not a fact to copy (`.claude/MEMORY.md` A-2).
+
+### Naming a state so it cannot collide with a tile state
+
+`GameSystemRules_Units.md` 규칙 45 called a **unit's** stuck state by the same code-font name as the
+**tile** state `TileKind.Blocked`. Procedure used, and reusable:
+
+1. `grep -rnw "<name>" Assets/_Project/Scripts --include=*.cs` — whole-word, to see whether code
+   already owns the name. Here: **0 hits**, so the document was free to choose.
+2. If code owns it, **do not rename** — add one sentence saying it is a different thing from the
+   similarly named one.
+3. If not, rename to something that shows the owner (`PathBlocked`), and **record in the document that
+   the code has no such identifier yet**, with the date of the measurement.
+4. Write the "why" **by meaning** — "a name that did not distinguish it from the tile state" — never by
+   quoting the old bare name, or the deprecation grep will trip on your own sentence
+   (`.claude/mistakes.md` 2026-08-26 and 2026-08-31).
+
+### Consequence to hand back, not to fix
+
+Renaming in one document leaves the old name in every other document that copied it — here
+`GameDesignDocument.md` still carries the unit state's old name. When the fix scope is closed to a list,
+that is a **finding to report**, and reporting it matters more than usual: an unreported half-rename is
+worse than no rename, because the two documents now disagree.
+
+### Bare enum members: convention, not a leftover
+
+`TileKind.Normal` / `.NoBuild` / `.Blocked` are required when *referring* to a value. Bare members are
+the established form in exactly two places — the definition table listing the members of `TileKind`,
+and a comparison whose left operand is `TileKind` (`TileKind != Blocked`). A prefix scan will flag both;
+classify them rather than "fixing" them. What is a real leftover is a bare member used referentially in
+prose (found in `TechnicalDesignDocument.md` 「archetype generator 알고리즘」, `OuterGenerator`).
+
+---
+
+## 7. Closing the three leftovers of §6 (2026-09-01, same day, follow-up round)
+
+All three were one-liners the previous round created or missed. Worth writing down because each is a
+*shape* of leftover, not a one-off.
+
+### A half-rename is closed in the second document's own vocabulary, not by copying the identifier
+
+`GameSystemRules_Units.md` 규칙 45 renamed the unit state; `GameDesignDocument.md` still carried the old
+bare name, so the two documents disagreed (§6 「Consequence to hand back」). The fix is **not** to write
+the new identifier into the design document — GDD change-history 1.15.0 established that a design
+document writes in Korean and code-contract notation belongs to the TDD. So the GDD gets
+
+1. a plain-language phrase in the bullet (「길이 막힌 상태」), and
+2. **one pointer line** naming the document+rule that owns the official name.
+
+That closes the disagreement without putting a code identifier back into a design document. Word the
+change-history entry **by meaning** ("코드 이름으로 적던 자리") — quoting the retired bare name would
+re-break the deprecation grep.
+
+### A count copy can survive in a second section of the same index document
+
+The previous round removed the map-type count from `GameSystemRules.md` 「맵 관련 작업」 and reported it
+done; the identical copy in that file's 「파일 목록」 table survived because it is a different section.
+**Scope a count-copy sweep to the document, not to the section** — the same lesson as the TDD prefix
+sweep (⑬ in change-history 0.45.0: 「개수를 못 박은 지시가 남긴 갈라짐이라, 이런 통일 작업은 절 단위가
+아니라 문서 단위로 훑는다」). Rewrite so no count is written at all and point at the owning chapter;
+watch that a *different* count on the same table row (there: 특수 공격 시스템 확장 5종) is a different
+subject and must not be touched.
+
+### Prefix-scan classifications that recur — decide once, reuse
+
+A case-insensitive prefix-agnostic scan for the tile-state words over the 75 scanned `.md` returns ~57
+hits. Beyond §6's two established classes (definition table, `TileKind` comparison), these recur:
+
+| Hit | Verdict |
+|---|---|
+| `Open/Obstacle` in the TDD mine-sampling bullets | **archetype short names** — siblings on the neighbouring bullets are Canyon / Outer / ThreeLane, so they name map types, not tile states |
+| GDD 「타일 상태」 numbered list, English glosses in parentheses | **parallel definition list** — all six items share the form 「우리말 (English)」; changing one produces the hybrid §6 warns about |
+| `blocked 체크` in pathfinding prose (TDD, `PROJECT_STATUS.md`, `WORK_HISTORY.md`) | **different subject** — the A* goal-blocked check, not `TileKind` |
+| committed change-history rows | never edited |
