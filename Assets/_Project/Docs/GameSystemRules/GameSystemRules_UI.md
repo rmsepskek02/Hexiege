@@ -226,7 +226,7 @@ TextMeshPro 텍스트 컴포넌트에 사용하는 폰트는 아래 두 가지�
 **규칙 M-2. 멀티플레이 최초 경기 실패**
 
 - loading UI를 닫고 기존 로비와 network connection을 유지한다.
-- 일반 팝업 문구는 `맵 준비에 실패했습니다`다.
+- 모달 (Modal) 타입이며, 문구는 `맵 준비에 실패했습니다`다.
 - action은 `Retry`와 `Leave Match`다.
 - 어느 플레이어든 Retry를 누를 수 있고 Host에 재시도 요청을 보낸다. 중복 요청은 같은 준비 상태에서 한 번만 처리한다.
 - Retry는 기존 package 재전송이 아니라 새 root seed부터 맵 관련 추첨·생성·전송을 다시 시작한다.
