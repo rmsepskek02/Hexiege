@@ -500,3 +500,97 @@ you disproved is how a false claim gets laundered into a permanent record.
 
 Procedure: **measure before writing the closing rationale, not after.** Count both cases of the word,
 and count the *sibling* words in the same clause — one word alone cannot establish a house style.
+
+---
+
+## 9. Actually repairing the index summaries §8 found (2026-09-01, execution round)
+
+The 18 findings §8-4 recorded were repaired in `GameSystemRules.md` in one round. What the execution
+taught, beyond the audit method:
+
+### 9-1. Each class has exactly one correct repair — do not mix them
+
+| Class | Repair | Why not the other one |
+|---|---|---|
+| **Narrowing** (a condition, trigger, branch or whole rule block missing) | Rewrite so the missing thing is *visible*, then **point at the source rule** — never transcribe the detail | This is an index. Transcribing the detail is how the value copies got here in the first place |
+| **Value copy** (count, number, name list) | **Delete the number/list** and replace it with `…의 단일 소스는 (문서) 규칙 N` | Correcting the number keeps the copy alive; it will drift again on the next spec change |
+| **Overstatement** (index asserts what the rule defers to future work) | Rewrite so the **undecided-ness is what the reader sees** | Narrowing merely hides something; this one asserts something untrue |
+| **Whole block missing** (no bullet anywhere for a rule group) | **Add a bullet that can reach it.** Naming the group's H2/H3 heading is enough | Folding it into a neighbouring bullet keeps it unfindable by heading |
+
+The wording that worked for the pointer form, reused throughout: `X — Y 의 단일 소스는 (문서) 규칙 N`.
+It states what the index is responsible for (that X exists) and hands off what it is not (Y's value).
+
+### 9-2. Pre-existing values in a bullet you are widening: do not strip them reflexively
+
+The MistShrine bullet carried `1초 discrete 틱` and `기본 OFF`. Both are numbers, but the rule that lists
+what is provisional (`규칙 16`) **does not include the tick interval** — it is settled spec, not a tunable.
+Deleting it would have *narrowed* the summary, which is the defect this round exists to remove.
+**Check the source's own "undecided" list before treating a number as a copy to delete.** Where the values
+stay, add the undecided marker *above* them rather than removing them.
+
+### 9-3. The index has two reachability paths, and fixing one leaves the other
+
+`GameSystemRules.md` reaches a rule group **twice**: the 「파일 목록」 table row and the per-section
+summary. §8's audit covered only the summaries, so after repairing them the AI row of the table still
+omits the same 「10. 아키텍처 및 구현 규칙」 block that finding A was about. **When a whole block was
+missing from a summary, check the file-list row for the same document before calling it reached.**
+Method: list the source document's H2 headings and diff them against the row's text.
+
+### 9-4. Regex traps when writing index pointers (all of these pass or fail silently)
+
+- `규칙 N(내용)` — a parenthesis **immediately** after the number is parsed as a 병기 label and checked by
+  `[5]` against the rule's title+body. Put a space and a dash instead, or the check may fire on a correct
+  reference. `규칙 N)` (closing paren) is not a label and is safe.
+- `규칙 8-1` parses as the range 8~1. Harmless while both are in range, but it is not what you wrote.
+- Only the **first** number after the word `규칙` is captured: `규칙 6·7` checks 6 only, `규칙 30~37 · 40~42`
+  checks 30~37 only. Do not assume the checker validated the whole list you wrote.
+- A rule number is bound to the **nearest preceding document mention within 80 characters**. Past that it
+  is not checked at all — so a wrong number in a long history-table cell is invisible to `[3]`.
+- `[4]` passes when *any* of that document's section names appears **anywhere on the line** — the section
+  name does not need to sit beside the number.
+
+### 9-5. Fixing a wrong pointer inside a change-history row
+
+History rows are not retro-edited, but a **wrong pointer** is not narrative — it sends the reader to an
+unrelated rule (here: 「실패 복구 절」 attributed to 규칙 13, which is 「생성 완료 검증」; the section is
+under 규칙 16). Repair it, and note it: **verify the diagnosis in the source first, change only the wrong
+occurrence** (the same row already carried the correct number in a later paragraph), **create no new
+history entry**, and leave a one-sentence `**[YYYY-MM-DD 정정]**` inside the row's existing addendum.
+Neither `[3]` (the number exists) nor `[5]` (no parenthesised label) can see this class.
+
+## 10. The index's *other* reachability path — the file-list table (2026-09-01, follow-up round)
+
+§9 repaired the per-system summary bullets of `GameSystemRules.md`. The **file-list table at the top of
+the same file** carried the same two defect classes and was untouched — so a rule block could be missing
+from **both** paths, or fixed in one and still invisible in the other. **When repairing one path, open the
+other in the same round.**
+
+**The audit is mechanical and cheap.** One command gives the ground truth for every row:
+`grep -n "^#\{1,3\} " GameSystemRules/<doc>.md` — then read the row against that document's **H2 list, 1:1**.
+13 rows took one pass. Findings that round: `_AI.md` row missing 「10. 아키텍처 및 구현 규칙」,
+`_Skills.md` row missing 「발동 경로」·「추후 데이터로 확정할 항목」, and — found only by the full re-scan —
+`_CanvasSortingOrder.md` row missing 「새 Canvas 추가 시 규칙」.
+
+- **Granularity is H2.** That is what makes the audit decidable. It also draws the line for what counts as
+  a defect: a row must carry every H2 that is a **rule block**. Sections that are reference data
+  (`## 7. Human 종족 참조 정보`) are not systems and are not omissions.
+- 🔴 **A row with no section summary of its own is the worst case.** `_CanvasSortingOrder.md` has no entry
+  under 「시스템별 빠른 참조」 — only a one-line pointer inside the UI section — so the table row is its
+  **only** description. Check which rows are singly-reachable before deciding what to skip.
+- **Value copies in this table: delete the count, keep the name, add one short trailing pointer.** The row
+  is a one-liner, so use the form the `_RandomMap.md` row already established:
+  `… 검증 (유형 목록과 개수는 3장 「유형별 사양」이 단일 소스)` — one parenthetical at the end of the row,
+  never one per item.
+- **A number inside a cited section title is not a copy.** 「스킬 건물 3종 정의」 is the section's own name;
+  quoting it verbatim is correct even though it contains 「3종」. Likewise `3×3` in 「3×3 스킬 UI」 is the
+  official name (규칙 9 「3×3 그리드 슬롯 배치」), not a stale-able count. Delete a count only where it is
+  the index's own arithmetic (「확장 5종」, 「스킬 타입 3종」).
+- 🔴 **Before calling a row's number a copy, check what the repaired section summary did with it.** The
+  `_Upgrade.md` row's 「공/방/속」 and 「×10 스케일」 look like copies, but §9's repair deliberately kept both
+  in the summary and moved only the *scope* to 규칙 1. The table matching that decision is consistency,
+  not a defect. Measure the sibling path before editing.
+- **When the two paths disagree, fix neither alone.** The three `_AI_Scenario_*.md` rows omit four H2s each,
+  but the section summaries omit exactly the same ones — widening only the table would split the paths.
+  That is a one-batch decision and needs its own approval (CLAUDE.md 규칙 6·12).
+- `check_docs.py` is blind to this whole class, exactly as in §9: it never asks whether a row represents
+  its document. 0건 before and after tells you nothing here.
