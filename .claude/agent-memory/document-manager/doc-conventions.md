@@ -395,3 +395,108 @@ hits. Beyond §6's two established classes (definition table, `TileKind` compari
 | GDD 「타일 상태」 numbered list, English glosses in parentheses | **parallel definition list** — all six items share the form 「우리말 (English)」; changing one produces the hybrid §6 warns about |
 | `blocked 체크` in pathfinding prose (TDD, `PROJECT_STATUS.md`, `WORK_HISTORY.md`) | **different subject** — the A* goal-blocked check, not `TileKind` |
 | committed change-history rows | never edited |
+
+---
+
+## 8. Pinning "undecided" into the docs, and the two blind spots the checker has (2026-09-01, closing round)
+
+The round's goal was stated as **"drive open items to zero"** — anything the user had waved off as
+"later" was to be either fixed or **nailed into a document**, so nothing survives only in the chat.
+That framing changes what "done" means: **"I left it alone and told the user" is not done.**
+Done is either an edit, or a written marker at the place a future reader will stand.
+
+### 8-1. The project's existing "undecided" marker — reuse it, don't invent one
+
+`TechnicalDesignDocument.md` (transfer-protocol bullets, and again in the timeout/retry list) already
+carries the form:
+
+> ⚠️ **근거 미확인 — 구현 시 NGO 실측으로 확정한다.**
+
+Shape to copy: **inline at the end of the bullet it qualifies** (never a separate block that drifts
+away from its subject), a `⚠️` + one bolded sentence naming *what* is unknown and *when* it gets
+settled. Longer justification, if any, goes in an unbolded sentence right after — still on the bullet.
+
+Three markers went in this way on `GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 M-3 · M-4
+(single-play failure wording · single-play loading-UI handling · whether rematch failure shows a popup).
+
+**Rule for where the marker lives: the owning document only.** The same three facts are also described
+in `GameSystemRules_RandomMap.md` and `TechnicalDesignDocument.md`. Marking all three would recreate the
+copy problem the markers exist to prevent. So: **marker in the single-source doc, and in each other
+place a one-line pointer that says "undecided items exist, the list is over there" — never the list itself.**
+Check both other places first: if a reader standing there already cannot tell, the pointer is required.
+
+**Do not fill an undecided slot while marking it.** Two of these three were gaps in the spec
+(no wording had ever been chosen; loading-UI handling was silent in *all three* docs). Writing a
+plausible value there is adding a new spec under cover of a cleanup — mark it, don't author it.
+
+### 8-2. 🔴 `.claude/mistakes.md` is inside the checker's scan set
+
+Writing a mistake entry that cited a rule from one of the two per-section documents made
+`check_docs.py` fail with `[4]` (**EXIT=1**) — pointing at `.claude/mistakes.md` itself.
+`.claude/**` is part of 참조 검색 대상; a memory or mistakes file gets the same citation rules as a spec.
+
+Worse, the obvious fix loops: **quoting the bad form as an illustration trips `[4]` a second time**
+(the checker cannot tell a citation from a quotation of a citation). The way out is to *describe*
+the wrong form in words rather than reproduce it — which is the same rule as
+「폐기 표기를 설명문·이력에 인용하지 말 것」. Run the checker after touching `.claude/` files, not just `Docs/`.
+
+### 8-3. What `check_docs.py` measures — and the two things it cannot see here
+
+`RE_DOC_MENTION` is `GameSystemRules_\w+\.md`. Consequences worth knowing before trusting a 0:
+
+- **Intra-document citations are invisible.** The house style for citing a sibling section inside
+  `GameSystemRules_UI.md` is 「공통 UI 규칙 8」 with no filename — so `[3]`/`[4]`/`[5]` never look at it.
+  Correctness there is on the writer, not the tool.
+- **`TechnicalDesignDocument.md` and `GameDesignDocument.md` are not rule-definition sources**, so
+  a rule number attributed to them is never validated either.
+- **A wrong-but-existing number passes.** `[3]` only catches numbers that do not exist; `[5]` only
+  compares text in parentheses. A citation like 「…`GameSystemRules_RandomMap.md` 규칙 13 실패 복구 절」
+  where the failure-recovery section actually sits under 규칙 16 passes both silently.
+  (Found exactly this in a `TechnicalDesignDocument.md` change-history row this round; recorded, not fixed
+  — history rows are records.)
+
+So `check_docs.py` measures rule-number existence, section disambiguation, parenthetical agreement,
+link targets, and agent-memory integrity. It measures **nothing** about whether a summary faithfully
+represents the rule it summarises, whether a value copy has gone stale, or whether prose casing is
+consistent — all three of which were the actual substance of this round.
+
+### 8-4. Auditing the index for summaries that narrow their rule — method and yield
+
+`GameSystemRules.md` 「시스템별 빠른 참조」, every section except the map one, compared bullet-by-bullet
+against the rule text. **16 findings.** Two classes, both worth naming because they fail differently:
+
+1. **The summary drops a condition/trigger/branch** → the reader concludes "that part doesn't apply to me".
+   The severe variant is **a whole rule block missing from the index** — e.g. the UI section listed no
+   bullet at all for the loading-UI rules or the map-prepare-failure rules, so nobody arriving via the
+   index learns those exist. Look for this by listing the rule doc's rule titles and asking which
+   *headings* have no bullet, not which sentences.
+2. **Value copy** — a count, number, or name list transcribed into the index. Worst case is a value the
+   rule itself calls tunable (an Inspector field), and a value that also exists as a code constant,
+   because then it is a three-way copy.
+
+A third shape showed up that is neither: **the summary asserts a branch the rule marks as future work**
+(index listed Victory/Defeat BGM split; the rule says V1 plays one end-of-game BGM). That is a summary
+that is *wider* than its source, and it reads as "already built". Watch for it alongside the narrowing kind.
+
+Also recurring: **the index drops a rule that says "these numbers are all provisional"**, which turns a
+provisional spec into a settled-looking one — a 과대 표기 violation created purely by summarising.
+
+**Findings go to the task's `Research.md` §6, not into the index in the same round.** With this many
+sections, fixing while auditing makes the verification shallow. Record per finding: which section and
+line / which rule it disagrees with / which class. **Also record the list of sections compared and what
+was deliberately not compared** — otherwise the next round cannot tell coverage from silence.
+
+### 8-5. Closing a "판단 보류" item when the handed-over rationale does not survive measurement
+
+Asked to close a deferred item as "not a defect", with a rationale to use. Measuring first showed the
+rationale's premise was false as stated (the lowercase word appeared 3× in the whole document, two of
+them being the disputed lines themselves; the *capitalised* form was the one used as a common noun, 21×).
+
+**The conclusion still held, but on different evidence** — the surrounding section writes English common
+nouns in lowercase throughout (`mine` beside `MineKind`, `traversable` beside `StaticTraversable`), so
+the disputed word is prose, not a misnamed identifier. **Write the conclusion with the evidence that
+actually measured, and state plainly that the handed-over premise did not match.** Closing on a premise
+you disproved is how a false claim gets laundered into a permanent record.
+
+Procedure: **measure before writing the closing rationale, not after.** Count both cases of the word,
+and count the *sibling* words in the same clause — one word alone cannot establish a house style.

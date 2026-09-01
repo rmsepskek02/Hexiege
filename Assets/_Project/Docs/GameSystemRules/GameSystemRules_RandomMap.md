@@ -486,6 +486,7 @@ Host는 맵 생성 시도를 시작하기 전에 다음 값을 **경기당 한 �
 - 어느 플레이어든 `Retry`를 누르면 Host에 요청한다. 중복 요청은 idempotent하게 한 번만 처리하고, Host는 **새 root seed부터** 맵 선택·생성·전송을 다시 수행한다.
 - `NewMap` 재경기 실패는 이전 `MapDefinition`을 유지하고 rematch pending 상태를 초기화한 뒤 결과 UI와 전체 길이의 자동 로비 복귀 countdown, `SameMap`/`NewMap`/`Lobby` 선택을 복원한다.
 - 싱글 최초 실패는 모달 (Modal) 타입 팝업에 `Retry`/`Lobby`, 싱글 재경기 실패는 기존 재경기 선택지를 복원한다. 팝업 타입 구분의 단일 소스는 `GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 8 이며, 이 팝업의 타입 지정은 같은 문서 「공통 UI 규칙」 규칙 M-4 다.
+- ⚠️ **위 실패 UI 규정에는 아직 정해지지 않은 항목이 남아 있다 — 구현 시 확정한다.** 무엇이 미정인지의 단일 소스는 `GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 M-3·M-4 에 달린 미정 표시이며, 이 문서에는 옮겨 적지 않는다.
 
 ---
 
