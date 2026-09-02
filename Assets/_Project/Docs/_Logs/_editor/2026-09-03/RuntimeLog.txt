@@ -24,3 +24,116 @@
 [03:09:42.086] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
 [03:09:42.086] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
 [03:09:42.088] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-09-03 03:20:17 ===
+
+[03:20:17.690] [INFO] [Bootstrap/LoginBootstrapper] Android 가 아니라 GooglePlayGames 활성화를 건너뛴다 | Platform=NonAndroid
+[03:20:18.982] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[03:20:19.000] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[03:20:19.007] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[03:20:19.099] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[03:20:22.541] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[03:20:22.544] [INFO] [Bootstrap/LoginBootstrapper] 자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다 | IsFirstLogin=False
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-09-03 03:21:55 ===
+
+[03:21:55.641] [INFO] [Bootstrap/LoginBootstrapper] Android 가 아니라 GooglePlayGames 활성화를 건너뛴다 | Platform=NonAndroid
+[03:21:56.715] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[03:21:56.726] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[03:21:56.728] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[03:21:56.784] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[03:22:00.232] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[03:22:00.234] [INFO] [Bootstrap/LoginBootstrapper] 자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다 | IsFirstLogin=False
+[03:22:26.424] [INFO] [Network/NetworkGameManager] 초기화 시작
+[03:22:26.425] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[03:22:26.426] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[03:22:26.426] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[03:22:26.427] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[03:22:26.462] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[03:23:10.593] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[03:23:10.618] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[03:23:11.157] [INFO] [Bootstrap/GameBootstrapper] AI 시나리오 선택 | AiRace=Spirit, Scenario=Spirit-Quake, Index=2
+[03:23:11.163] [INFO] [Bootstrap/GameBootstrapper] AI 초기화 완료 | Difficulty=Easy, Scenario=Spirit-Quake, GoldIncomeMultiplier=0.7
+[03:23:11.232] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 배치 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=0, BuildingType=Castle, Team=Blue, Q=5, R=16, TileKind=Normal, MineKind=None, HasBuilding=True, IsWalkable=False, Owner=Blue
+[03:23:11.242] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 배치 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=1, BuildingType=Castle, Team=Red, Q=5, R=-1, TileKind=Normal, MineKind=None, HasBuilding=True, IsWalkable=False, Owner=Red
+[03:23:11.253] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 배치 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=2, BuildingType=MiningPost, Team=Blue, Q=3, R=17, TileKind=Normal, MineKind=BlueStart, HasBuilding=True, IsWalkable=False, Owner=Blue
+[03:23:11.255] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 배치 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=3, BuildingType=MiningPost, Team=Red, Q=3, R=0, TileKind=Normal, MineKind=RedStart, HasBuilding=True, IsWalkable=False, Owner=Red
+[03:23:11.261] [INFO] [HexGrid/GameBootstrapper] 진단: 맵 로드 후 요약 | Diag=RandomMapPhase1, CastleCount=2, MiningPostCount=2, MineTileCount=4
+[03:23:11.263] [INFO] [HexGrid/GameBootstrapper] 진단: 맵 로드 후 광산 타일 상태 | Diag=RandomMapPhase1, Q=3, R=0, MineKind=RedStart, TileKind=Normal, HasBuilding=True, IsWalkable=False, Owner=Red
+[03:23:11.263] [INFO] [HexGrid/GameBootstrapper] 진단: 맵 로드 후 광산 타일 상태 | Diag=RandomMapPhase1, Q=2, R=9, MineKind=Neutral, TileKind=Normal, HasBuilding=False, IsWalkable=False, Owner=Neutral
+[03:23:11.263] [INFO] [HexGrid/GameBootstrapper] 진단: 맵 로드 후 광산 타일 상태 | Diag=RandomMapPhase1, Q=8, R=6, MineKind=Neutral, TileKind=Normal, HasBuilding=False, IsWalkable=False, Owner=Neutral
+[03:23:11.263] [INFO] [HexGrid/GameBootstrapper] 진단: 맵 로드 후 광산 타일 상태 | Diag=RandomMapPhase1, Q=3, R=17, MineKind=BlueStart, TileKind=Normal, HasBuilding=True, IsWalkable=False, Owner=Blue
+[03:23:15.951] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 배치 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=4, BuildingType=StoneMound, Team=Red, Q=6, R=-2, TileKind=Normal, MineKind=None, HasBuilding=True, IsWalkable=False, Owner=Red
+[03:23:15.955] [INFO] [HexGrid/AIOpponentController] 진단: AI 건물 배치 시도 | Diag=RandomMapPhase1, BuildingType=StoneMound, Q=6, R=-2, Result=Placed
+[03:23:19.098] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 배치 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=5, BuildingType=TrainingCamp, Team=Blue, Q=5, R=15, TileKind=Normal, MineKind=None, HasBuilding=True, IsWalkable=False, Owner=Blue
+[03:23:25.630] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=0, Team=Blue, Q=6, R=14, TargetQ=6, TargetR=-1, PathLength=16, BlockedInPath=0, EndWalkable=True
+[03:23:30.594] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=1, Team=Blue, Q=6, R=14, TargetQ=6, TargetR=-1, PathLength=17, BlockedInPath=0, EndWalkable=True
+[03:23:35.599] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=2, Team=Blue, Q=6, R=14, TargetQ=6, TargetR=-1, PathLength=17, BlockedInPath=0, EndWalkable=True
+[03:23:35.987] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=3, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=19, BlockedInPath=0, EndWalkable=True
+[03:23:39.474] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 배치 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=6, BuildingType=Gunsmith, Team=Blue, Q=6, R=7, TileKind=Normal, MineKind=None, HasBuilding=True, IsWalkable=False, Owner=Blue
+[03:23:39.627] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=2, Team=Blue, Q=6, R=9, TargetQ=6, TargetR=-1, PathLength=12, BlockedInPath=0, EndWalkable=True
+[03:23:40.544] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 배치 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=7, BuildingType=Gunsmith, Team=Blue, Q=5, R=7, TileKind=Normal, MineKind=None, HasBuilding=True, IsWalkable=False, Owner=Blue
+[03:23:40.608] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=4, Team=Blue, Q=6, R=14, TargetQ=6, TargetR=-1, PathLength=17, BlockedInPath=0, EndWalkable=True
+[03:23:40.982] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=5, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=19, BlockedInPath=0, EndWalkable=True
+[03:23:41.411] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 배치 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=8, BuildingType=Gunsmith, Team=Blue, Q=7, R=6, TileKind=Normal, MineKind=None, HasBuilding=True, IsWalkable=False, Owner=Blue
+[03:23:41.601] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=4, Team=Blue, Q=7, R=13, TargetQ=6, TargetR=-1, PathLength=18, BlockedInPath=0, EndWalkable=True
+[03:23:41.635] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=2, Team=Blue, Q=7, R=7, TargetQ=6, TargetR=-1, PathLength=13, BlockedInPath=0, EndWalkable=True
+[03:23:45.987] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=6, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=21, BlockedInPath=0, EndWalkable=True
+[03:23:50.190] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=0, Team=Blue, Q=6, R=0, TargetQ=6, TargetR=-1, Arrived=False, Distance=1
+[03:23:55.972] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=7, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=21, BlockedInPath=0, EndWalkable=True
+[03:24:00.974] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=8, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=21, BlockedInPath=0, EndWalkable=True
+[03:24:05.145] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=6, Team=Red, Q=7, R=-2, TargetQ=6, TargetR=15, Arrived=False, Distance=17
+[03:24:05.979] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=9, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=21, BlockedInPath=0, EndWalkable=True
+[03:24:10.981] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=10, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=21, BlockedInPath=0, EndWalkable=True
+[03:24:16.208] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=4, Team=Blue, Q=6, R=1, TargetQ=6, TargetR=-1, Arrived=False, Distance=2
+[03:24:17.521] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 철거 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=6, BuildingType=Gunsmith, Team=Blue, Q=6, R=7, TileKind=Normal, MineKind=None, HasBuilding=False, IsWalkable=True, Owner=Blue
+[03:24:21.823] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 철거 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=2, BuildingType=MiningPost, Team=Blue, Q=3, R=17, TileKind=Normal, MineKind=BlueStart, HasBuilding=False, IsWalkable=False, Owner=Neutral
+[03:24:23.977] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=11, Team=Blue, Q=6, R=14, TargetQ=6, TargetR=-1, PathLength=17, BlockedInPath=0, EndWalkable=True
+[03:24:25.996] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=12, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=20, BlockedInPath=0, EndWalkable=True
+[03:24:28.982] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=13, Team=Blue, Q=6, R=14, TargetQ=6, TargetR=-1, PathLength=18, BlockedInPath=0, EndWalkable=True
+[03:24:30.973] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 배치 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=10, BuildingType=AquaSpring, Team=Red, Q=5, R=0, TileKind=Normal, MineKind=None, HasBuilding=True, IsWalkable=False, Owner=Red
+[03:24:30.974] [INFO] [HexGrid/AIOpponentController] 진단: AI 건물 배치 시도 | Diag=RandomMapPhase1, BuildingType=AquaSpring, Q=5, R=0, Result=Placed
+[03:24:33.987] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=14, Team=Blue, Q=6, R=14, TargetQ=6, TargetR=-1, PathLength=18, BlockedInPath=0, EndWalkable=True
+[03:24:38.992] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=15, Team=Blue, Q=6, R=14, TargetQ=6, TargetR=-1, PathLength=17, BlockedInPath=0, EndWalkable=True
+[03:24:40.990] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=16, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=21, BlockedInPath=0, EndWalkable=True
+[03:24:43.997] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=17, Team=Blue, Q=6, R=14, TargetQ=6, TargetR=-1, PathLength=17, BlockedInPath=0, EndWalkable=True
+[03:24:48.645] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=14, Team=Blue, Q=6, R=7, TargetQ=6, TargetR=-1, Arrived=False, Distance=8
+[03:24:49.008] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=18, Team=Blue, Q=6, R=14, TargetQ=6, TargetR=-1, PathLength=16, BlockedInPath=0, EndWalkable=True
+[03:24:54.009] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=19, Team=Blue, Q=6, R=15, TargetQ=6, TargetR=-1, PathLength=17, BlockedInPath=0, EndWalkable=True
+[03:24:55.897] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 철거 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=8, BuildingType=Gunsmith, Team=Blue, Q=7, R=6, TileKind=Normal, MineKind=None, HasBuilding=False, IsWalkable=True, Owner=Blue
+[03:24:56.025] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=20, Team=Red, Q=6, R=-1, TargetQ=6, TargetR=15, PathLength=17, BlockedInPath=0, EndWalkable=True
+[03:24:56.034] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=21, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=19, BlockedInPath=0, EndWalkable=True
+[03:24:59.013] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=22, Team=Blue, Q=4, R=16, TargetQ=6, TargetR=-1, PathLength=18, BlockedInPath=0, EndWalkable=True
+[03:24:59.311] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=8, Team=Red, Q=8, R=4, TargetQ=6, TargetR=15, Arrived=False, Distance=11
+[03:25:00.318] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=8, Team=Red, Q=7, R=7, TargetQ=5, TargetR=16, PathLength=10, BlockedInPath=0, EndWalkable=False
+[03:25:00.824] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=10, Team=Red, Q=8, R=13, TargetQ=6, TargetR=15, Arrived=False, Distance=2
+[03:25:00.988] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=23, Team=Red, Q=6, R=-1, TargetQ=6, TargetR=15, PathLength=18, BlockedInPath=0, EndWalkable=True
+[03:25:03.548] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 철거 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=5, BuildingType=TrainingCamp, Team=Blue, Q=5, R=15, TileKind=Normal, MineKind=None, HasBuilding=False, IsWalkable=True, Owner=Blue
+[03:25:04.040] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=22, Team=Blue, Q=4, R=10, TargetQ=6, TargetR=-1, PathLength=12, BlockedInPath=0, EndWalkable=True
+[03:25:05.992] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=24, Team=Red, Q=6, R=-1, TargetQ=6, TargetR=15, PathLength=18, BlockedInPath=0, EndWalkable=True
+[03:25:10.996] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=25, Team=Red, Q=6, R=-1, TargetQ=6, TargetR=15, PathLength=19, BlockedInPath=0, EndWalkable=True
+[03:25:45.703] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=26, Team=Red, Q=6, R=-1, TargetQ=6, TargetR=15, PathLength=18, BlockedInPath=0, EndWalkable=True
+[03:25:47.263] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=22, Team=Blue, Q=6, R=8, TargetQ=6, TargetR=-1, Arrived=False, Distance=9
+[03:25:50.683] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=27, Team=Red, Q=7, R=-3, TargetQ=6, TargetR=15, PathLength=19, BlockedInPath=0, EndWalkable=True
+[03:25:50.704] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=28, Team=Red, Q=6, R=-1, TargetQ=6, TargetR=15, PathLength=18, BlockedInPath=0, EndWalkable=True
+[03:25:51.954] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=21, Team=Red, Q=7, R=5, TargetQ=6, TargetR=15, Arrived=False, Distance=10
+[03:25:52.825] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=21, Team=Red, Q=6, R=7, TargetQ=5, TargetR=16, PathLength=10, BlockedInPath=0, EndWalkable=False
+[03:25:53.147] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=24, Team=Red, Q=7, R=5, TargetQ=6, TargetR=15, Arrived=False, Distance=10
+[03:25:53.222] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=25, Team=Red, Q=8, R=5, TargetQ=6, TargetR=15, Arrived=False, Distance=10
+[03:25:53.826] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=24, Team=Red, Q=6, R=7, TargetQ=5, TargetR=16, PathLength=10, BlockedInPath=0, EndWalkable=False
+[03:25:53.826] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=25, Team=Red, Q=6, R=8, TargetQ=5, TargetR=16, PathLength=9, BlockedInPath=0, EndWalkable=False
+[03:25:55.706] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=29, Team=Red, Q=6, R=-1, TargetQ=6, TargetR=15, PathLength=17, BlockedInPath=0, EndWalkable=True
+[03:25:56.288] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 철거 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=7, BuildingType=Gunsmith, Team=Blue, Q=5, R=7, TileKind=Normal, MineKind=None, HasBuilding=False, IsWalkable=True, Owner=Blue
+[03:25:56.722] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=28, Team=Red, Q=6, R=4, TargetQ=6, TargetR=15, PathLength=13, BlockedInPath=0, EndWalkable=True
+[03:25:58.732] [INFO] [HexGrid/UnitView] 진단: 이동 종료 | Diag=RandomMapPhase1, UnitId=16, Team=Red, Q=5, R=7, TargetQ=6, TargetR=15, Arrived=False, Distance=9
+[03:25:58.831] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=16, Team=Red, Q=5, R=7, TargetQ=5, TargetR=16, PathLength=10, BlockedInPath=0, EndWalkable=False
+[03:26:05.688] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=30, Team=Red, Q=6, R=-1, TargetQ=6, TargetR=15, PathLength=19, BlockedInPath=0, EndWalkable=True
+[03:26:10.688] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=31, Team=Red, Q=6, R=-1, TargetQ=6, TargetR=15, PathLength=20, BlockedInPath=0, EndWalkable=True
+[03:26:15.692] [INFO] [HexGrid/UnitView] 진단: 이동 경로 발급 | Diag=RandomMapPhase1, UnitId=32, Team=Red, Q=6, R=-1, TargetQ=6, TargetR=15, PathLength=19, BlockedInPath=0, EndWalkable=True
+[03:26:19.104] [INFO] [HexGrid/BuildingPlacementUseCase] 진단: 건물 철거 후 타일 상태 | Diag=RandomMapPhase1, BuildingId=0, BuildingType=Castle, Team=Blue, Q=5, R=16, TileKind=Normal, MineKind=None, HasBuilding=False, IsWalkable=True, Owner=Blue
+[03:26:25.953] [INFO] [Network/NetworkGameManager] 초기화 시작
+[03:26:25.953] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[03:26:25.954] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[03:26:25.954] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[03:26:25.954] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[03:26:25.958] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
