@@ -624,6 +624,11 @@ namespace Hexiege.Presentation
                 _hasDestination = true;
             }
 
+            // ★★★ 임시 진단 로그 — 무작위 맵 1단계 회귀 확인용 (2026-09-02) ★★★
+            //   목적: Plan.md §5 회귀 확인 6번("경로가 건물·광산을 피해 가는가")을 로그만으로 판정한다.
+            //   제거 시점: 회귀 확인 1·2·5·6·7 이 전부 PASS 로 확인되면 이 호출과 아래 메서드를 지운다.
+            LogMoveStartDiag(path);
+
             // 이동/전투 흐름 코루틴 시작.
             //   - GameSystemRules.md 규칙 1~18을 그대로 따른다.
             //   - 외부 while 안에 타일 순회를 직접 인라인하여 가독성을 높였다.
@@ -1847,6 +1852,11 @@ namespace Hexiege.Presentation
             _pendingPath = null;
             _currentNextTileCoord = null;
 
+            // ★★★ 임시 진단 로그 — 무작위 맵 1단계 회귀 확인용 (2026-09-02) ★★★
+            //   목적: 회귀 확인 6번의 뒷부분("결국 목적지에 도달했는가")을 로그만으로 판정한다.
+            //   제거 시점: 회귀 확인이 끝나면 이 호출과 아래 메서드를 지운다.
+            LogMoveEndDiag();
+
             // 1회성 이동 완료 콜백 (랠리→Castle 자동 이동 체인 등에서 사용).
             var callback = OnMoveComplete;
             OnMoveComplete = null;
@@ -2145,6 +2155,73 @@ namespace Hexiege.Presentation
             _combatTargetId = -1;
 
             // 의도적으로 비워둠 — 위 summary 참조.
+        }
+
+        // ====================================================================
+        // ★★★ 임시 진단 로그 — 무작위 맵 1단계 회귀 확인용 (2026-09-02) ★★★
+        //   이 영역 전체가 임시 코드다. Plan.md §5 회귀 확인이 끝나면 통째로 삭제한다.
+        //   (LogRules.md 1.2 축 B "임시" · 1.14 금지 10)
+        //
+        //   ⚠️ 두 메서드 모두 [Conditional] 을 "메서드 자체"에 붙였다.
+        //      그래야 출시 빌드에서 호출문뿐 아니라 아래의 반복문·문자열 조립까지
+        //      전부 사라진다(LogRules.md 1.7). 반환형이 void 여야 하는 것도 그 때문이다.
+        // ====================================================================
+
+        /// <summary>
+        /// [임시] 새 이동 경로를 받아 출발하는 시점의 경로 품질을 한 줄로 남긴다.
+        ///
+        /// 핵심 값은 <c>BlockedInPath</c> 다 — 경로의 "중간 타일" 중 이동 불가인 칸의 개수다.
+        /// 경로는 원래 이동 가능한 칸만 밟아야 하므로 정상값은 항상 0이다.
+        /// (경로의 마지막 칸은 공격 대상 건물일 수 있어 이동 불가인 것이 정상이므로 세지 않고,
+        ///  대신 EndWalkable 로 따로 남긴다.)
+        /// </summary>
+        /// <param name="path">이번에 출발할 경로(시작 타일 포함).</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogMoveStartDiag(List<HexCoord> path)
+        {
+            if (_unitData == null || _movementUseCase == null) return;
+            if (path == null || path.Count < 2) return;
+
+            // 중간 타일(첫 칸과 마지막 칸을 제외한 구간)에 이동 불가 칸이 섞여 있는지 센다.
+            int blockedInPath = 0;
+            for (int i = 1; i < path.Count - 1; i++)
+            {
+                if (!_movementUseCase.IsWalkable(path[i])) blockedInPath++;
+            }
+
+            HexCoord target = path[path.Count - 1];
+            bool endWalkable = _movementUseCase.IsWalkable(target);
+
+            // key=value 규약(LogRules.md 1.4): HexCoord 를 통째로 넣지 않고 Q / R 로 쪼갠다.
+            GameLog.Dev.Info("HexGrid", nameof(UnitView), "진단: 이동 경로 발급",
+                $"Diag=RandomMapPhase1, UnitId={_unitData.Id}, Team={_unitData.Team}, " +
+                $"Q={_unitData.Position.Q}, R={_unitData.Position.R}, " +
+                $"TargetQ={target.Q}, TargetR={target.R}, PathLength={path.Count}, " +
+                $"BlockedInPath={blockedInPath}, EndWalkable={endWalkable}");
+        }
+
+        /// <summary>
+        /// [임시] 이동 코루틴이 끝난 시점에 "목적지까지 실제로 갔는가"를 한 줄로 남긴다.
+        /// Arrived 는 현재 도메인 좌표가 목적지와 같은지로 판정한다.
+        /// (목적지가 건물 타일이라 그 앞에서 멈춘 경우 Arrived=False 가 정상이므로,
+        ///  Distance 값을 함께 남겨 "바로 앞에서 멈춤"과 "엉뚱한 곳에서 멈춤"을 구분한다.)
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogMoveEndDiag()
+        {
+            if (_unitData == null || !_hasDestination) return;
+
+            HexCoord pos = _unitData.Position;
+            bool arrived = pos == _currentDestination;
+            int distance = HexCoord.Distance(pos, _currentDestination);
+
+            GameLog.Dev.Info("HexGrid", nameof(UnitView), "진단: 이동 종료",
+                $"Diag=RandomMapPhase1, UnitId={_unitData.Id}, Team={_unitData.Team}, " +
+                $"Q={pos.Q}, R={pos.R}, " +
+                $"TargetQ={_currentDestination.Q}, TargetR={_currentDestination.R}, " +
+                $"Arrived={arrived}, Distance={distance}");
         }
     }
 }

@@ -177,6 +177,12 @@ namespace Hexiege.Bootstrap
             // 12. 금광 배치
             PlaceGoldMines(orientation, oc);
 
+            // ★★★ 임시 진단 로그 — 무작위 맵 1단계 회귀 확인용 (2026-09-02) ★★★
+            //   목적: Plan.md §5 회귀 확인 2번("성 2개 · 시작 채굴소 2개 · 중립 광산이 예전 그대로인가")을
+            //         화면을 보지 않고 로그 파일만으로 판정할 수 있게 한다.
+            //   제거 시점: 회귀 확인 1·2·5·6·7 이 전부 PASS 로 확인되면 이 호출과 아래 메서드를 지운다.
+            LogMapSnapshotDiag();
+
             // 13. 금광 렌더링
             if (_gridRenderer != null)
                 _gridRenderer.RenderGoldMines(_grid);
@@ -344,6 +350,67 @@ namespace Hexiege.Bootstrap
                     startingMines[1][0], startingMines[1][1], orientation);
                 _buildingPlacement.PlaceMiningPostDirect(TeamId.Red, redMinePos,
                     GameRaceContext.RedRace);
+            }
+        }
+
+        // ====================================================================
+        // ★★★ 임시 진단 로그 — 무작위 맵 1단계 회귀 확인용 (2026-09-02) ★★★
+        //   이 영역 전체가 임시 코드다. 회귀 확인이 끝나면 통째로 삭제한다.
+        //   (LogRules.md 1.2 축 B "임시" · 1.14 금지 10)
+        // ====================================================================
+
+        /// <summary>
+        /// [임시] 맵 로드가 끝난 직후의 "초기 배치" 상태를 로그로 남긴다.
+        ///
+        /// 무엇을 남기는가:
+        ///   1) 요약 한 줄 — 성 개수 / 채굴소 개수 / 광산 타일 개수
+        ///   2) 광산 타일마다 한 줄 — 좌표와 MineKind, 그리고 그 타일이 정말 못 걷는 상태인지
+        ///
+        /// 성과 시작 채굴소의 좌표는 BuildingPlacementUseCase 의 "건물 배치 후 타일 상태" 로그가
+        /// 이미 남기므로 여기서 중복해 찍지 않는다(LogRules.md 1.14 금지 9 — 같은 사건 이중 기록 금지).
+        ///
+        /// ⚠️ [Conditional] 을 메서드 자체에 붙였기 때문에, 출시 빌드에서는
+        ///    호출문은 물론 아래 반복문까지 통째로 사라진다(LogRules.md 1.7).
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogMapSnapshotDiag()
+        {
+            if (_grid == null) return;
+
+            int castleCount = 0;
+            int miningPostCount = 0;
+            if (_buildingPlacement != null)
+            {
+                foreach (var kvp in _buildingPlacement.Buildings)
+                {
+                    if (kvp.Value == null) continue;
+                    if (kvp.Value.Type == BuildingType.Castle) castleCount++;
+                    else if (kvp.Value.Type == BuildingType.MiningPost) miningPostCount++;
+                }
+            }
+
+            int mineTileCount = 0;
+            foreach (var kvp in _grid.Tiles)
+            {
+                if (kvp.Value.MineKind == MineKind.None) continue;
+                mineTileCount++;
+            }
+
+            GameLog.Dev.Info("HexGrid", nameof(GameBootstrapper), "진단: 맵 로드 후 요약",
+                $"Diag=RandomMapPhase1, CastleCount={castleCount}, " +
+                $"MiningPostCount={miningPostCount}, MineTileCount={mineTileCount}");
+
+            // 광산 타일은 개수가 적어(고정 맵 기준 4개) 한 줄씩 찍어도 파일이 지저분해지지 않는다.
+            foreach (var kvp in _grid.Tiles)
+            {
+                HexTile tile = kvp.Value;
+                if (tile.MineKind == MineKind.None) continue;
+
+                GameLog.Dev.Info("HexGrid", nameof(GameBootstrapper), "진단: 맵 로드 후 광산 타일 상태",
+                    $"Diag=RandomMapPhase1, Q={tile.Coord.Q}, R={tile.Coord.R}, " +
+                    $"MineKind={tile.MineKind}, TileKind={tile.TileKind}, " +
+                    $"HasBuilding={tile.HasBuilding}, IsWalkable={tile.IsWalkable}, Owner={tile.Owner}");
             }
         }
     }
