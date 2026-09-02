@@ -279,7 +279,7 @@ namespace Hexiege.Bootstrap
 
         /// <summary>
         /// 맵에 금광 배치 + 시작 채굴소 건설.
-        /// 금광은 중립 오브젝트: IsWalkable=false, Owner=Neutral.
+        /// 금광은 중립 오브젝트: MineKind 설정(→ IsWalkable 자동 false), Owner=Neutral.
         /// 각 팀 Castle 횡 2칸 위치에 금광+채굴소 자동 건설.
         /// 맵 중앙에 중립 금광 2개 배치.
         /// </summary>
@@ -306,20 +306,28 @@ namespace Hexiege.Bootstrap
                 new int[] { 8, midRow },
             };
 
-            // 모든 금광 타일 설정 (HasGoldMine + IsWalkable=false)
-            void SetGoldMine(int col, int row)
+            // 금광 타일 설정.
+            // 예전에는 "금광이 있다" 플래그와 "이동 불가" 플래그를 나란히 두 번 대입했지만,
+            // 이제는 MineKind 하나만 설정하면 이동 가능 여부가 자동으로 계산된다.
+            // 어떤 팀의 광산인지(BlueStart/RedStart/Neutral)까지 구분해 넣기 위해
+            // 매개변수로 MineKind를 받는다.
+            void SetGoldMine(int col, int row, MineKind mineKind)
             {
                 HexCoord coord = HexGrid.OffsetToCube(col, row, orientation);
                 HexTile tile = _grid.GetTile(coord);
                 if (tile != null)
                 {
-                    tile.HasGoldMine = true;
-                    tile.IsWalkable = false;
+                    tile.MineKind = mineKind;
                 }
             }
 
-            foreach (var m in startingMines) SetGoldMine(m[0], m[1]);
-            foreach (var m in neutralMines) SetGoldMine(m[0], m[1]);
+            // 시작 금광은 팀별로 MineKind가 다르므로 배열 순회 대신 하나씩 명시적으로 호출한다.
+            // 좌표는 위 배열을 그대로 사용해 좌표 계산이 두 벌로 갈라지지 않게 한다.
+            SetGoldMine(startingMines[0][0], startingMines[0][1], MineKind.BlueStart);
+            SetGoldMine(startingMines[1][0], startingMines[1][1], MineKind.RedStart);
+
+            // 중립 금광은 전부 같은 종류이므로 기존처럼 순회한다.
+            foreach (var m in neutralMines) SetGoldMine(m[0], m[1], MineKind.Neutral);
 
             // 시작 채굴소 자동 건설 (금광 타일 위에 직접 배치)
             if (_buildingPlacement != null)
