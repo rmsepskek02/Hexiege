@@ -1,0 +1,26 @@
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-09-03 03:06:09 ===
+
+[03:06:09.807] [INFO] [Bootstrap/LoginBootstrapper] Android 가 아니라 GooglePlayGames 활성화를 건너뛴다 | Platform=NonAndroid
+[03:06:11.160] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[03:06:11.170] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[03:06:11.173] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[03:06:11.225] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[03:06:17.234] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[03:06:17.238] [INFO] [Bootstrap/LoginBootstrapper] 자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다 | IsFirstLogin=False
+[03:06:39.240] [INFO] [Network/NetworkGameManager] 초기화 시작
+[03:06:39.241] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[03:06:39.243] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[03:06:39.243] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[03:06:39.245] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[03:06:39.316] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[03:07:01.378] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[03:07:01.403] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[03:07:02.095] [INFO] [Bootstrap/GameBootstrapper] AI 시나리오 선택 | AiRace=Transcendence, Scenario=Trans-Beast, Index=2
+[03:07:02.106] [INFO] [Bootstrap/GameBootstrapper] AI 초기화 완료 | Difficulty=Easy, Scenario=Trans-Beast, GoldIncomeMultiplier=0.7
+[03:09:42.084] [INFO] [Network/NetworkGameManager] 초기화 시작
+[03:09:42.084] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[03:09:42.084] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[03:09:42.086] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[03:09:42.086] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[03:09:42.088] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
