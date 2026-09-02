@@ -188,6 +188,13 @@ namespace Hexiege.Application
             tile.HasBuilding = true;
             _grid.SetOwner(position, team);
 
+            // ★★★ 임시 진단 로그 — 무작위 맵 1단계 회귀 확인용 (2026-09-02) ★★★
+            //   목적: "건물을 지은 직후 그 타일이 정말 못 걷는 상태가 되는가"를 로그만 보고 판정한다.
+            //         철거 로그(RemoveBuilding)와 짝을 이뤄 "원래 어땠는지 ↔ 철거 후 어떻게 됐는지"를 비교한다.
+            //   제거 시점: Plan.md §5 회귀 확인 1·2·5·6·7 이 전부 PASS 로 확인되면 이 블록을 통째로 지운다.
+            //   ⚠️ 이 블록은 로그 출력만 한다 — 값을 바꾸거나 흐름을 바꾸지 않는다.
+            LogTileStateDiag("진단: 건물 배치 후 타일 상태", building.Id, type, team, tile);
+
             // 인접 타일 소유권 설정 (건물 건설 시 주변 영토 확장)
             var neighbors = _grid.GetNeighbors(position);
             foreach (var neighbor in neighbors)
@@ -344,6 +351,17 @@ namespace Hexiege.Application
                         GameEvents.OnTileOwnerChanged.OnNext(
                             new TileOwnerChangedEvent(building.Position, TeamId.Neutral));
                     }
+
+                    // ★★★ 임시 진단 로그 — 무작위 맵 1단계 회귀 확인용 (2026-09-02) ★★★
+                    //   목적: 이번 전환의 최고 위험 지점이다(Plan.md §5-5).
+                    //         예전에 있던 "금광 타일이면 되돌리지 않는다" 가드를 없앴기 때문에,
+                    //         · 일반 건물 철거 → IsWalkable 이 True 로 돌아와야 하고
+                    //         · 채굴소(광산 타일) 철거 → IsWalkable 이 계속 False 여야 한다.
+                    //         이 한 줄이 그 두 경우를 로그만으로 갈라 준다.
+                    //   제거 시점: 위 두 경우가 실기로 확인되면 이 블록을 통째로 지운다.
+                    //   ⚠️ 이 블록은 로그 출력만 한다 — 값을 바꾸거나 흐름을 바꾸지 않는다.
+                    LogTileStateDiag("진단: 건물 철거 후 타일 상태", building.Id, building.Type,
+                        building.Team, tile);
                 }
 
                 // 위치 역인덱스에서도 동기 제거 — 동일 인스턴스인 경우에만 제거 (업그레이드 도중 안전성)
@@ -450,6 +468,49 @@ namespace Hexiege.Application
             GameEvents.OnBuildingUpgraded.OnNext(new BuildingUpgradedEvent(oldBuildingId, newBuilding));
 
             return newBuilding;
+        }
+
+        // ====================================================================
+        // ★★★ 임시 진단 로그 헬퍼 — 무작위 맵 1단계 회귀 확인용 (2026-09-02) ★★★
+        //
+        //   이 영역 전체가 임시 코드다. Plan.md §5 회귀 확인이 끝나면 통째로 삭제한다.
+        //   (LogRules.md 1.2 축 B "임시" · 1.14 금지 10 — 임시 로그 코드를 남긴 채 끝내지 않는다)
+        //
+        //   ── 왜 메서드로 뽑았는가 (초급 개발자용 설명) ────────────────────────
+        //   로그 한 줄을 만들려면 문자열을 조립해야 하는데, 그 조립 비용을 출시 빌드에
+        //   남기고 싶지 않다. C# 의 [Conditional] 특성이 붙은 메서드는 컴파일러가
+        //   "호출문 자체와 인자 계산까지" 통째로 지워 준다(LogRules.md 1.7).
+        //   그래서 조립 코드를 이 메서드 안에 모아 두고, 이 메서드에 특성을 붙였다.
+        //   ⚠️ [Conditional] 을 붙이려면 반환형이 반드시 void 여야 한다(C# 언어 제약).
+        //   ⚠️ 이 메서드를 람다 안에서 부를 때는 반드시 블록 본문 { } 을 쓸 것 —
+        //      식 본문 람다(() => Log...)는 "문"이 아니라 "식"이라 지워지지 않는다.
+        // ====================================================================
+
+        /// <summary>
+        /// [임시] 한 타일의 상태 4종(TileKind / MineKind / HasBuilding / 계산된 IsWalkable)을
+        /// 한 줄로 남긴다. 배치 직후와 철거 직후에 같은 형식으로 찍어 두 시점을 비교할 수 있게 한다.
+        /// </summary>
+        /// <param name="message">로그 메시지(배치/철거를 구분하는 사람이 읽는 문구).</param>
+        /// <param name="buildingId">대상 건물 Id.</param>
+        /// <param name="type">대상 건물 종류(MiningPost 인지 구분하는 데 쓴다).</param>
+        /// <param name="team">대상 건물 소속 팀.</param>
+        /// <param name="tile">상태를 찍을 타일.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private static void LogTileStateDiag(string message, int buildingId, BuildingType type,
+            TeamId team, HexTile tile)
+        {
+            if (tile == null) return;
+
+            // key=value 규약(LogRules.md 1.4):
+            //   · HexCoord 를 통째로 넣지 않고 Q / R 로 쪼갠다
+            //     (ToString() 결과 "(4, 15)" 안의 ", " 가 필드 구분자와 충돌하기 때문)
+            //   · Diag= 는 이번 임시 진단 로그를 한 번에 골라내기 위한 표식이다.
+            //     검증이 끝난 뒤 "Diag=RandomMapPhase1" 로 grep 해서 0건이면 제거 완료다.
+            GameLog.Dev.Info("HexGrid", nameof(BuildingPlacementUseCase), message,
+                $"Diag=RandomMapPhase1, BuildingId={buildingId}, BuildingType={type}, Team={team}, " +
+                $"Q={tile.Coord.Q}, R={tile.Coord.R}, TileKind={tile.TileKind}, MineKind={tile.MineKind}, " +
+                $"HasBuilding={tile.HasBuilding}, IsWalkable={tile.IsWalkable}, Owner={tile.Owner}");
         }
     }
 }
