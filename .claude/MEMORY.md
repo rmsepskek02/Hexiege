@@ -138,7 +138,7 @@ qa-tester · game-design-lead · asset-prompt-crafter · project-orchestrator 4�
 | game-design-lead | `.claude/agent-memory/game-design-lead/MEMORY.md` |
 | qa-tester | `.claude/agent-memory/qa-tester/MEMORY.md` |
 | asset-prompt-crafter | `.claude/agent-memory/asset-prompt-crafter/MEMORY.md` |
-| project-orchestrator | `.claude/agent-memory/project-orchestrator/MEMORY.md` |
+| ~~project-orchestrator~~ **(폐지 2026-09-02 — 아카이브)** | `.claude/agent-memory/project-orchestrator/MEMORY.md` — 에이전트 정의는 삭제됐고 조율은 **메인 세션**이 한다. 폴더는 프로젝트 이력이라 보존한다(폐지 경위는 그 파일 최상단) |
 | document-manager | `.claude/agent-memory/document-manager/MEMORY.md` |
 
 ---

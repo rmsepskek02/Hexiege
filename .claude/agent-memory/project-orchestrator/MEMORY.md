@@ -1,5 +1,34 @@
 # Project Orchestrator Memory — Hexiege
 
+> # 🔴 ARCHIVE — the `project-orchestrator` agent was retired on 2026-09-02
+>
+> **The agent definition `.claude/agents/project-orchestrator.md` was deleted.** There is no
+> `project-orchestrator` agent to call any more.
+>
+> **Why it was retired.** This agent's whole job was to coordinate *other* agents, but
+> **a subagent cannot call another agent** — that is a harness-level restriction and no
+> setting changes it. So an agent invoked to coordinate had nobody to coordinate and did
+> all the work itself, which is not coordination. On 2026-09-01 the agent reported this
+> about its own run: it could not honour `CLAUDE.md` rule 3 because no tool for calling
+> another agent was available to it.
+>
+> **Coordination is now the main session's job.** The main session is top-level, so it can
+> call each specialist agent directly, and that is how this project has actually worked.
+> The *criteria* for when coordination is needed (design + implementation together / three
+> or more files / reviewing an agent's output) remain valid and live in `CLAUDE.md` rule 3
+> and `WORKFLOW.md` [5].
+>
+> **This folder is kept on purpose — do not delete it.** `project-history.md` and
+> `roadmap-3d.md` are **project history, not agent role material**; retiring the agent does
+> not make that history wrong. Deleting it would violate `.claude/MEMORY.md` memory rule 6
+> (delete only after confirming an entry is wrong) and rule 16 / `check_docs.py` check `[7]`
+> (an agent folder's total line count must not decrease). This project already has one
+> unrecovered **-378 line** loss of exactly this shape.
+>
+> **Read the rest of this file as a record of how the retired agent worked**, not as
+> instructions for a live agent. The delegation patterns and required-context checklist
+> below still describe how this project delegates — the main session is now the caller.
+
 ## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음, 모든 서브에이전트 포함)
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 attack direction 작업 전체 삭제 (복구 불가)

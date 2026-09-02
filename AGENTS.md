@@ -87,7 +87,7 @@
 | `.claude/agent-memory/game-design-lead/MEMORY.md` | game-design-lead 누적 지식 인덱스 | ❌ 수동 |
 | `.claude/agent-memory/qa-tester/MEMORY.md` | qa-tester 누적 지식 인덱스 | ❌ 수동 |
 | `.claude/agent-memory/asset-prompt-crafter/MEMORY.md` | asset-prompt-crafter 누적 지식 (토픽 파일 없음 — 본문이 여기에 있다) | ❌ 수동 |
-| `.claude/agent-memory/project-orchestrator/MEMORY.md` | project-orchestrator 누적 지식 인덱스 | ❌ 수동 |
+| `.claude/agent-memory/project-orchestrator/MEMORY.md` | **폐지된 에이전트의 아카이브 (2026-09-02)** — `project-orchestrator` 에이전트는 폐지됐고 조율은 메인 세션이 한다. 폴더의 토픽 파일(과거 스냅샷·3D 전환 로드맵)은 **프로젝트 이력이라 그대로 보존**한다. 폐지 경위는 이 파일 최상단 참조 | ❌ 수동 |
 | `.claude/agent-memory/document-manager/MEMORY.md` | document-manager 누적 지식 인덱스 | ❌ 수동 |
 
 ---
