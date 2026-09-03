@@ -38,7 +38,7 @@
     },
     "document-manager": {
       "files": 2,
-      "lines": 818
+      "lines": 853
     },
     "game-design-lead": {
       "files": 3,
@@ -46,7 +46,7 @@
     },
     "game-programmer": {
       "files": 20,
-      "lines": 2664
+      "lines": 2760
     },
     "project-orchestrator": {
       "files": 3,

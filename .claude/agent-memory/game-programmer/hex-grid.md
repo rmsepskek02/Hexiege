@@ -86,3 +86,62 @@
 
 - 근본 원인: RT 에셋(m_AntiAliasing:2)과 카메라(allowMSAA=false) sample 불일치 → clear 실패 → 잔상
 - 체크리스트: RT m_AntiAliasing:1(YAML 직접 확인), Camera allowMSAA/allowHDR=false, backgroundColor.alpha=1, URP antialiasing=None / renderType=Base / renderShadows=false
+
+---
+
+## HexTile state contract — `TileKind` / `MineKind` / `HasBuilding` (2026-09-02 phase 1)
+
+Random-map work, phase 1 of 3. **Structure change only — no behavior change intended.**
+Task docs: `Assets/_Project/Docs/_Tasks/2026-09-01/19_49_random-map-phase1-tilekind/`.
+Contract single source: `TechnicalDesignDocument.md` 「`HexTile` 런타임 상태 계약」.
+
+**What `HexTile` looks like now** (`Domain/Hex/HexTile.cs`)
+
+- `TileKind TileKind` (Normal/NoBuild/Blocked) — map definition, static during a match, setter kept for load time
+- `MineKind MineKind` (None/Neutral/BlueStart/RedStart) — projected from the mine placement list at load
+- `bool HasBuilding` — dynamic, set on place / cleared on remove
+- `bool IsWalkable => TileKind != Blocked && MineKind == None && !HasBuilding` — **computed, no setter**
+- Constructor is `HexTile(HexCoord, TeamId = Neutral)`; the old `isWalkable` parameter is gone
+  (only caller is `HexGrid.Generate()` at `HexGrid.cs:93`, which used the default).
+
+**Where the writes live now** (these are the ONLY writes in the codebase)
+
+- `HasBuilding = true` — `BuildingPlacementUseCase.PlaceBuildingWithId` and `.PlaceBuildingInternal`
+  (`PlaceBuilding` / `PlaceMiningPost` / `PlaceMiningPostDirect` all funnel through `PlaceBuildingInternal`)
+- `HasBuilding = false` — `BuildingPlacementUseCase.RemoveBuilding` only, **unconditionally**.
+  The old `if (!tile.HasGoldMine)` guard is gone on purpose: the computed `IsWalkable` already requires
+  `MineKind == None`, so a mine tile stays unwalkable by itself. `UpgradeBuilding*` does NOT go through
+  `RemoveBuilding` (it removes from `_buildings` directly), so `HasBuilding` never gets cleared while
+  a building still stands.
+- `MineKind = ...` — `GameBootstrapper.Map.cs` `PlaceGoldMines()` local `SetGoldMine(col, row, MineKind)`.
+  Starting mines are called out explicitly (`BlueStart` / `RedStart`), neutral mines stay a `foreach`.
+  The `startingMines[][]` array is still needed below for the auto-built MiningPosts — **do not delete it.**
+
+**Reads are source-compatible.** ~30 `tile.IsWalkable` read sites needed no edit at all.
+
+**Deliberately NOT changed (phase 3):** `AIOpponentController.cs` 807~809 placement predicate and its
+XML comment at 770~773. TDD 「기존 코드 전환 요구」 lists it separately. Only the `HasGoldMine` read at
+line 224 was converted. So `grep -rnE "IsWalkable\s*=[^=]" Assets/ --include=*.cs` legitimately returns
+**1 comment hit** at `AIOpponentController.cs:771` — that is expected, not a leftover.
+
+**New Domain types, deliberately unreferenced** (`Domain/Hex/TileKind.cs`, `Domain/Hex/MineKind.cs`,
+`Domain/Map/{MapType,DecorationDefinition,MapDefinition,MapDefinitionCodec}.cs`)
+
+- All `namespace Hexiege.Domain` (the Domain tree is flat — every file uses that one namespace).
+- `MapDefinition` = 상위 필드 + `TileKind[]` row-major (`index = row * Width + col`) + castle/starting-mine
+  (`MapObjectPlacement`: tile index + team) + neutral mine (tile index) + `DecorationDefinition` lists.
+- `MapDefinitionCodec` = canonical little-endian binary (hand-rolled writes — **`BitConverter` is
+  platform-endian and must not be used here**) + SHA-256 over those bytes, hash field itself excluded.
+- Nothing calls them. The map generator is phase 2, NGO transfer is phase 3.
+
+**Trap for the next session:** `public TileKind TileKind { get; set; }` plus `TileKind != TileKind.Blocked`
+relies on C#'s color-color rule (a property may share its type's name). It is legal; do not "fix" it by
+renaming the property.
+
+**Editor playtest result (2026-09-03, temp `Diag=RandomMapPhase1` log, 77 lines):** initial layout 2 castles /
+2 starting MiningPosts / 4 mine tiles; all 4 mine tiles unwalkable and **the 2 neutral ones are unwalkable
+with no building on them** (direct evidence the computed property derives from state); 🔴 **after demolishing
+a MiningPost the tile stays unwalkable** — this is the replacement logic for the removed mine-flag guard and was
+the highest-risk point of the whole transition; a normal building's tile goes back to walkable; 43 issued paths
+contained 0 unwalkable intermediate tiles; both AI building placements succeeded. **Multiplayer is still
+unverified** — this was an editor single-player session only. (Figures relayed by the calling session.)

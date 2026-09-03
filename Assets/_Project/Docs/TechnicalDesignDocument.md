@@ -196,7 +196,11 @@ void ShowEffectClientRpc(Vector3 position) {
 | **본기지 체력** | NetworkVariable<int> | 변경 시 |
 | **유닛 이동** | 클라이언트 예측 (AI 동일 로직) | - |
 
-#### 무작위 맵 시작 동기화 (확정 설계, 미구현)
+#### 무작위 맵 시작 동기화 (확정 설계, 1단계만 구현)
+
+> **2026-09-03 상태 갱신.** 이 절 전체가 「미구현」이던 표기를 바꿨다. **아래 「`HexTile` 런타임 상태 계약」의 1단계(타일 상태 계약 전환)만 구현·실기 검증이 끝났고, 나머지는 여전히 확정 설계·미구현이다.**
+> 1단계에서 **`TileKind` · `MineKind` · `MapType` · `DecorationDefinition` · `MapDefinition` · `MapDefinitionCodec` 6개 타입이 생겼지만, 뒤의 4개는 아직 어느 코드에서도 호출되지 않는다**(2·3단계에서 쓰인다). **타입이 있다는 것과 그 계약이 동작한다는 것은 다른 말이므로, 이 절의 맵 생성·검증·전송·해시 대조는 전부 미구현으로 읽어야 한다.**
+> 단계 구분: **1단계** 타일 상태 계약 전환(완료) · **2단계** 맵 생성기 5종 · 검증기 · 폴백 · **3단계** AI 배치 후보 판정 전환을 포함한 나머지 전환.
 
 > 범위 경계: 이번 기능에는 canonical binary 형식 식별용 임시 `MapVersion`(`int`, 초기값 `1`)만 둔다. 이는 unknown map format deserialize 차단 전용이며 matchmaking, 앱 업데이트, 전역 connection compatibility 책임이 없다. 전역 `GameProtocolVersion`/build compatibility는 matchmaking same-version filter, custom lobby pre-Relay 검사, NGO connection approval/rejection, reconnect version validation, update-required UX를 포함한 별도 중요 작업이다.
 
@@ -582,12 +586,25 @@ MiningPost = TileKind != Blocked
 
 **기존 코드 전환 요구:**
 
-- mutable `HexTile.IsWalkable` 필드를 제거하거나 setter 없는 계산 프로퍼티로 전환한다.
-- 광산 배치의 `HasGoldMine`/`IsWalkable=false` 이중 대입은 `MineKind` 설정으로 교체한다.
-- 건물 배치 시 `IsWalkable=false` 대신 `HasBuilding=true`를 설정한다.
-- 건물 철거/파괴 시 `IsWalkable=true` 복구 대신 `HasBuilding=false`만 설정한다.
-- 이동, 스폰, 경로탐색은 계산된 `IsWalkable`을 읽고, 건설·점령은 위의 전용 조건을 사용한다.
-- `Assets/_Project/Scripts/Application/Services/AIOpponentController.cs`의 `FindPlacementTile()` 배치 후보 판정(**807~809행**, 세 줄에 걸친 한 문장)을 이동 판정에서 **위 「일반 건설」 조건**으로 교체한다. AI 건물 배치는 건설이므로 바로 위 항목의 방침이 그대로 적용되는 자리다. **같은 파일 770~773행의 XML 주석도 같은 조건을 적고 있으므로 함께 옮긴다** — 한쪽만 고치면 주석이 코드와 어긋난 채 남는다. 기획 계약의 단일 소스는 `GameSystemRules/GameSystemRules_AI.md` 규칙 26이다.
+> **2026-09-03 진행 상태 — 무작위 맵 1단계(타일 상태 계약 전환)로 아래 6개 중 4개가 완료됐다.** 각 항목 앞의 표시가 그 항목의 상태다.
+> `✅` 는 코드 구현 + 에디터 실기 검증까지 끝난 것, `⚠️` 는 절반만 닿은 것, `⏳` 는 착수 전이다.
+> **완료 항목의 「~한다」 미래형 문장은 지우지 않고 그대로 둔다** — 무엇을 요구했던 계약인지가 남아야 나중에 대조할 수 있기 때문이며, 완료 여부는 표시와 괄호 주석으로만 구분한다.
+
+- ✅ **(완료)** mutable `HexTile.IsWalkable` 필드를 제거하거나 setter 없는 계산 프로퍼티로 전환한다.
+  → `Domain/Hex/HexTile.cs` 에서 setter 없는 계산 프로퍼티가 되었고, 생성자의 `isWalkable` 매개변수도 함께 제거됐다.
+- ✅ **(완료)** 광산 배치의 이중 대입은 `MineKind` 설정으로 교체한다.
+  → `Bootstrap/GameBootstrapper.Map.cs` 의 광산 배치가 `MineKind` 한 축만 설정한다. 종전에 함께 대입하던 광산 표시용 저장 필드는 코드에서 삭제됐다(`.cs` 전수 검색 0건).
+- ✅ **(완료)** 건물 배치 시 `IsWalkable=false` 대신 `HasBuilding=true`를 설정한다.
+  → `Application/UseCases/BuildingPlacementUseCase.cs` 의 일반 건물·채굴소 배치 두 자리 모두.
+- ✅ **(완료)** 건물 철거/파괴 시 `IsWalkable=true` 복구 대신 `HasBuilding=false`만 설정한다.
+  → 같은 파일 `RemoveBuilding`. **종전에 있던 「광산 타일이면 되돌리지 않는다」 가드는 제거됐다** — 계산 프로퍼티가 `MineKind == None` 을 이미 요구하므로 가드 없이도 광산 타일은 계속 이동 불가로 계산된다. 이 지점이 이번 전환의 최대 위험 자리였으므로 **실기에서 채굴소 철거 후 이동 불가 유지를 직접 확인했다.**
+- ⚠️ **(절반 완료)** 이동, 스폰, 경로탐색은 계산된 `IsWalkable`을 읽고, 건설·점령은 위의 전용 조건을 사용한다.
+  → **앞 절반(이동·스폰·경로탐색)은 완료.** 경로탐색 3종과 스폰·이동 판정이 모두 계산된 `IsWalkable`을 읽는다.
+  → **뒤 절반(건설·점령의 전용 조건)은 미완.** 일반 건물 배치 판정은 아직 이동 가능 여부를 그대로 쓰고 있고(`TileKind == Normal` 을 확인하지 않는다), 점령에는 `TileKind != Blocked` 확인이 없다. 채굴소 배치만 전용 조건(`MineKind != None` + 건물 없음 + 인접 팀 타일)을 쓴다.
+  → **지금 결과가 갈리지 않는 이유:** 현재 고정 맵은 `TileKind` 를 설정하는 코드가 한 곳도 없어 모든 타일이 `Normal` 이다(`.cs` 전수 검색으로 확인). 이동 기준과 건설 기준이 갈라지려면 `NoBuild`/`Blocked` 타일이 실제로 존재해야 하고, 그것을 만들어내는 맵 생성기가 **2단계** 산출물이다.
+- ⏳ **(미착수 — 3단계)** `Assets/_Project/Scripts/Application/Services/AIOpponentController.cs`의 `FindPlacementTile()` 배치 후보 판정(**807~809행**, 세 줄에 걸친 한 문장)을 이동 판정에서 **위 「일반 건설」 조건**으로 교체한다. AI 건물 배치는 건설이므로 바로 위 항목의 방침이 그대로 적용되는 자리다. **같은 파일 770~773행의 XML 주석도 같은 조건을 적고 있으므로 함께 옮긴다** — 한쪽만 고치면 주석이 코드와 어긋난 채 남는다. 기획 계약의 단일 소스는 `GameSystemRules/GameSystemRules_AI.md` 규칙 26이다.
+  → 2026-09-03 기준 코드·주석 둘 다 그대로다. **바로 위 항목의 뒤 절반과 같은 이유로 3단계까지 미룬다.**
+  → ⚠️ 같은 파일의 **광산 타일 조회**(`CacheMineTiles`)는 이 항목과 **별개이며 이미 `MineKind` 기준으로 전환됐다.** 한 파일 안에 전환된 자리와 안 된 자리가 함께 있으므로 한쪽을 보고 다른 쪽을 단정하지 않는다.
 
 ##### 재경기 `MapDefinition` 생명주기
 
