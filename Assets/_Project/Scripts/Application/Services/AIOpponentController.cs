@@ -437,29 +437,10 @@ namespace Hexiege.Application.Services
 
             HexCoord? tile = FindPlacementTile();
             if (!tile.HasValue)
-            {
-                // ★★★ 임시 진단 로그 — 무작위 맵 1단계 회귀 확인용 (2026-09-02) ★★★
-                //   목적: Plan.md §5 회귀 확인 7번("AI 가 계속 건물을 배치하는가").
-                //         AI 의 후보 타일 판정은 IsWalkable 을 읽는다. 계산 프로퍼티로 바뀐 뒤에도
-                //         후보를 찾는지 / 아예 못 찾는지를 로그만으로 갈라 준다.
-                //   제거 시점: 회귀 확인 1·2·5·6·7 이 전부 PASS 로 확인되면 이 블록을 지운다.
-                //   ⚠️ 로그만 추가했다 — 아래 return 과 조건은 원래 그대로다.
-                GameLog.Dev.Info("HexGrid", nameof(AIOpponentController), "진단: AI 건물 배치 시도",
-                    $"Diag=RandomMapPhase1, BuildingType={step.buildingType}, Result=NoCandidateTile");
                 return false; // 타일 없음 → 대기 후 재시도 (규칙 24)
-            }
 
             BuildingData placed = _buildingPlacement.PlaceBuilding(
                 step.buildingType, AiTeam, tile.Value, GameRaceForAi());
-
-            // ★★★ 임시 진단 로그 — 무작위 맵 1단계 회귀 확인용 (2026-09-02) ★★★
-            //   후보 타일을 찾은 뒤 실제 배치가 성사됐는지(Placed)/거부됐는지(Rejected)를 남긴다.
-            //   제거 시점: 위와 동일.
-            GameLog.Dev.Info("HexGrid", nameof(AIOpponentController), "진단: AI 건물 배치 시도",
-                $"Diag=RandomMapPhase1, BuildingType={step.buildingType}, " +
-                $"Q={tile.Value.Q}, R={tile.Value.R}, " +
-                $"Result={(placed == null ? "Rejected" : "Placed")}");
-
             if (placed == null)
                 return false;
 
