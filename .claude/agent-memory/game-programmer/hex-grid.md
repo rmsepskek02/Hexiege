@@ -220,3 +220,79 @@ says the phrasing is deliberate — don't "tidy" it back into code form.
 generators, `NeutralMineSampler`, `MapDefinitionValidator`, fallback templates, the map-prep coordinator,
 `MapDefinition` → `HexGrid` projection, predicate switchover, renderer, log keys. Nothing calls
 `MapRandom` yet.
+
+**[🔴 2026-09-03 correction — original sentence above kept]** Steps **B and C are now built.** `SymmetricMapBuilder.cs`
+(step B, `Domain/Map/`) and `InitialMapStateEvaluator.cs` (step C, below) exist. Still not built: the 5
+archetype generators, `NeutralMineSampler`, `MapDefinitionValidator`, fallback templates, the map-prep
+coordinator, `MapDefinition` → `HexGrid` projection, predicate switchover, renderer, log keys.
+Nothing outside the two files' own self-checks calls them yet.
+
+---
+
+## Initial map state — `InitialMapStateEvaluator` (2026-09-03 phase 2, step C)
+
+Random-map phase 2, step **C**. Plan §4-C of
+`Assets/_Project/Docs/_Tasks/2026-09-03/03_14_random-map-phase2-generator/Plan.md`.
+Contract single source: `TechnicalDesignDocument.md` 「초기 소유권 단일 소스」 (inside 「`MapDefinition` 정규
+데이터 계약」); rule single source: `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 2 · 규칙 13 검증 3번.
+
+**File** — `Assets/_Project/Scripts/Domain/Map/InitialMapStateEvaluator.cs` (+ `.cs.meta`,
+guid `33e102f310014010bcfe0b0851d318fd`). `namespace Hexiege.Domain`, pure C#, no `UnityEngine`, no Core.
+
+**Why it exists**: three consumers need the same derivation — the generator (must keep neutral mines off the
+protected tiles), the validator (규칙 13 검증 3번), and runtime initial castle/mining-post placement +
+ownership. `MapDefinition` stores no per-tile initial owner; castle + starting-mine positions are the only input.
+
+**Shape** — constructor takes a `MapDefinition` and **snapshots** everything (owned / occupied / buildable /
+unique / shared / protected sets). ⚠️ Mutating the definition afterwards does not refresh the instance;
+make a new evaluator. This is deliberate (the generator asks the same question many times per attempt).
+
+Public surface: `RequiredBuildableTileCount = 10` · `MaxNeighborCount = 6` · `OffsetToCube` / `CubeToOffset` ·
+`GetNeighborIndices` (static width/height form + instance form, buffer-filling) · `CollectNeighborIndices` ·
+`GetInitialOwnedTiles(team)` · `GetInitialOwner(index)` · `GetBuildableTiles(team)` ·
+`GetUniqueBuildableTiles(team)` · `GetUniqueBuildableTileCount(team)` ·
+`TryValidateBuildableTileCount(out reason, out blue, out red)` · `GetMineKind` · `HasInitialBuilding` ·
+`OccupiedTiles` / `ContestedOwnedTiles` / `SharedBuildableTiles` / `ProtectedTiles` ·
+`TryRunSelfCheck(out string)` / `AssertSelfCheck()`.
+
+🔴 **Neighbours must go through cube coordinates.** `MapDefinition` indexes by offset (col,row) row-major, but
+hex adjacency is only defined in cube space. The order is always: `HexGrid.OffsetToCube(col,row,FlatTop)` →
+`((HexDirection)d).Neighbor(cube)` (`HexDirectionExtensions.Count` = 6) → **even-q inverse back to offset**
+(`col = q; row = r + (col - (col & 1)) / 2`) → drop anything outside the grid. Picking "up/down/left/right"
+in the offset table is wrong for half the columns and the error is invisible. The project has **no
+`CubeToOffset` API** — `InitialMapStateEvaluator.CubeToOffset` is the first one; the same two lines were
+previously inlined in `SymmetricMapBuilder.cs` self-check (~line 705).
+
+**Two meanings of 「고유(unique)」 — both implemented**
+1. within a team: duplicate coordinates counted once (TDD 판정 3번) — every result is a `HashSet<int>`, so
+   this is structural. The castle ring and the starting-mine ring really do overlap (2 tiles per team).
+2. across teams: a coordinate in **both** teams' buildable sets is unique to neither, so
+   `GetUniqueBuildableTiles` subtracts `SharedBuildableTiles` from both sides. The 10-count check uses this.
+   ⚠️ `ProtectedTiles` deliberately does **not** apply (2) — a tile both sides touch still must not get a mine.
+   On the canonical layout the overlap is 0, so (1) and (2) give the same answer.
+
+**Measured on the canonical layout** (Blue castle (5,19) via `SetCastlePair` → Red (5,1) by rotation;
+case A Blue starting mine (3,19) → Red (7,1); case B (7,19) → (3,1)); terrain otherwise empty:
+
+| | case A | case B |
+|---|---|---|
+| initial owned tiles per team | 12 (7+7 minus 2 overlap) | 12 |
+| contested owned / shared buildable | 0 / 0 | 0 / 0 |
+| **unique buildable per team** | **10 / 10** | **10 / 10** |
+| protected tiles (occupied 4 + 20) | 24 | 24 |
+
+So 규칙 2's 10 does come out on an empty-terrain map — no fudging was needed.
+
+**Self-check items** (`TryRunSelfCheck`, expectations derived independently in Python before writing the C#):
+offset↔cube round trip over all 231 cells · every returned neighbour at cube distance 1, no self, no dupes ·
+**exactly 60 cells have fewer than 6 neighbours** (= perimeter 11·2 + 21·2 − 4; interior cells all have 6) ·
+`(0,0)` has 2 neighbours and `(5,10)` has 6 · neighbour relation is reciprocal · the two 규칙 2 layouts above ·
+and a **negative control**: blocking the pair `(2,19)↔(8,2)` drops both teams to 9 and the count check must
+fail. Without the negative control a check that accepts anything would look identical to a correct one.
+
+**Verification without a compiler** (no `dotnet`/`mcs`/`csc`/`mono` in this environment): comment- and
+string-stripped bracket/paren stack balance, `using`/namespace inspection, a scripted check that every public
+member carries an XML doc, and a Python port of the whole self-check to produce the hard-coded expectations.
+
+**Comment hygiene** (`.claude/mistakes.md` 2026-09-02): no assignment-shaped identifier text in comments
+(the row-major index formula is written as prose), no literal mention of retired identifiers.
