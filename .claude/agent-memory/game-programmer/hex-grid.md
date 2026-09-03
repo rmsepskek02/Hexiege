@@ -145,3 +145,78 @@ a MiningPost the tile stays unwalkable** — this is the replacement logic for t
 the highest-risk point of the whole transition; a normal building's tile goes back to walkable; 43 issued paths
 contained 0 unwalkable intermediate tiles; both AI building placements succeeded. **Multiplayer is still
 unverified** — this was an editor single-player session only. (Figures relayed by the calling session.)
+
+---
+
+## Deterministic map PRNG — `MapRandom` / `MapRandomStreams` (2026-09-03 phase 2, step A)
+
+Random-map phase 2, step **A** (the input every later step depends on). Plan §4-A of
+`Assets/_Project/Docs/_Tasks/2026-09-03/03_14_random-map-phase2-generator/Plan.md`.
+Contract single source: `TechnicalDesignDocument.md` 「결정적 PRNG 및 독립 스트림 계약」;
+rule single source: `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 3 · 규칙 12.
+**When the two disagree, the rules document wins** (the TDD says so itself).
+
+**Files** — both `namespace Hexiege.Domain`, pure C#, no `UnityEngine` and no Core reference.
+
+- `Domain/Map/MapRandom.cs` — SplitMix64. 64-bit state, `unchecked` everywhere.
+  `Gamma = 0x9E3779B97F4A7C15`, finalizer multipliers `0xBF58476D1CE4E5B9` / `0x94D049BB133111EB`,
+  shifts 30/27/31. Public surface: `Mix64` · `Combine` (static, pure), `NextUInt64` ·
+  `NextInt(max)` · `NextInt(min,max)` · `Choose(IReadOnlyList<int>)` · `NextBool` · `DrawCount`.
+- `Domain/Map/MapRandomStreams.cs` — fixed integer stream IDs
+  `MapSelection=1 · Terrain=2 · MinePlacement=3 · Decoration=4` (0 reserved for "unset"),
+  `MaxAttemptCount=100`, `DeriveDomainSeed` / `DeriveAttemptSeed`,
+  `CreateMatchStream` (match-level, MapSelection) / `CreateAttemptStream` (per attempt),
+  plus the self-check vectors.
+
+**Derivation order (fixed — changing it invalidates every past seed)**
+
+```
+domainSeed  = Combine(Combine((uint)mapVersion, rootSeed), (uint)streamId)
+attemptSeed = Combine(domainSeed, (uint)attemptIndex)
+Combine(seed, salt) = Mix64(seed + Gamma * (salt + 1))
+```
+
+`salt + 1` exists because **`Mix64(0) == 0`** (known SplitMix64 finalizer property) — without it a
+zero salt would be a no-op. Same reason `NextUInt64` advances the state *before* mixing.
+
+**Why not `% n`**: `NextInt` rejects `r < (2^64 mod bound)` and only then takes the remainder.
+Plain modulo is biased and 규칙 3/5 demand equal probability. Rejection chance is `bound / 2^64`.
+
+**How the four TDD guarantees are met** (the four sentences are quoted verbatim in the file header):
+one `MapRandom` instance per stream, state lives only inside the instance, and an attempt seed is
+recomputed from `(domainSeed, attemptIndex)` — never continued from the previous attempt's generator.
+🔴 **Reusing a previous attempt's `MapRandom` instance breaks guarantee 3 instantly.**
+
+**Test vectors live in code, not in a test assembly.** There is no unit-test assembly in this project
+(2026-09-03: the only `.asmdef` under `Assets/` is the external `ai.meshy` package). So
+`MapRandomStreams.TryRunSelfCheck(out string)` holds hard-coded expectations (computed with an
+independent Python implementation) and `AssertSelfCheck()` wraps it with
+`[System.Diagnostics.Conditional("UNITY_EDITOR")]`. `TryRunSelfCheck` itself is **not** Conditional so a
+future test assembly can call it directly. Anchor values, `mapVersion=1`, `rootSeed=0x0123456789ABCDEF`:
+
+| | |
+|---|---|
+| `Mix64(1)` | `0x5692161D100B05E5` |
+| `Combine(0,0)` = first draw of seed 0 | `0xE220A8397B1DCDAF` |
+| domainSeed MapSelection / Terrain / MinePlacement / Decoration | `0x1B2F2F00FA7AD69C` / `0x1626569ABECE1769` / `0xF68B89A15F89931E` / `0xBF73AACBB7A78706` |
+| attemptSeed Terrain-0 / -1 / -99 | `0x4E5F400C26BB210B` / `0x75BC33FA43E1A9A4` / `0xCC6B972591720A76` |
+
+🔴 A self-check failure means **the PRNG spec changed**, not that the test is wrong. Decide whether
+`MapVersion` must be bumped before touching the constants.
+
+**Config fields (Infrastructure)** — `GameConfig.cs` gained a `[Header("Random Map Test Mode")]` block:
+`_mapTestModeEnabled` → `MapTestModeEnabled` (bool, default off) and `_testStartingGold` →
+`TestStartingGold` (int, 5000). The public names are fixed by 규칙 3 · 규칙 12 · TDD — **do not rename.**
+Serialized in `Assets/_Project/Resources/Config/GameConfig.asset` as `_mapTestModeEnabled: 0` /
+`_testStartingGold: 5000`. ⚠️ The pre-existing `_startingGold: 5000` is a **different field**; whether the
+two are really the same thing is still unconfirmed (`Research.md` §9-3) — it was left untouched.
+
+**Comment hygiene applied here** (`.claude/mistakes.md` 2026-09-02, the three-times trap): the header
+that explains *why* the banned RNG APIs must not be used spells their names in prose, never in dotted
+code form, so `grep` for banned APIs over `Assets/` returns 0 hits inside these files. A note in the file
+says the phrasing is deliberate — don't "tidy" it back into code form.
+
+**Still not built (steps B~K):** `SymmetricMapBuilder`, `InitialMapStateEvaluator`, the 5 archetype
+generators, `NeutralMineSampler`, `MapDefinitionValidator`, fallback templates, the map-prep coordinator,
+`MapDefinition` → `HexGrid` projection, predicate switchover, renderer, log keys. Nothing calls
+`MapRandom` yet.

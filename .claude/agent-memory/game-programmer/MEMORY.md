@@ -29,7 +29,9 @@
 - [hex-grid.md](hex-grid.md) — 헥스 좌표계, HexMetrics, ViewConverter, 타일 소유권, 그리드 렌더링, 패스파인딩,
   카메라, URP RT 잔상, **거리 비교는 `HexCoord.Distance`(도메인 정수) 우선**,
   **`HexTile` 상태 계약(`TileKind`/`MineKind`/`HasBuilding` + 계산 프로퍼티 `IsWalkable`) 과
-  무작위 맵 1단계 신설 타입** — 타일 상태·건물 배치/철거 작업은 여기부터 읽는다
+  무작위 맵 1단계 신설 타입** — 타일 상태·건물 배치/철거 작업은 여기부터 읽는다.
+  **무작위 맵 2단계 A: 결정적 PRNG `MapRandom`(SplitMix64) · 4스트림 `MapRandomStreams` ·
+  seed 파생 순서 · 코드 내장 검증 벡터 · `GameConfig` 테스트 모드 필드 2개** — 맵 생성 작업도 여기부터 읽는다
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
 ### 세부 보조 자료

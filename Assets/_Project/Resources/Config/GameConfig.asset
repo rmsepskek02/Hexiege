@@ -31,6 +31,8 @@ MonoBehaviour:
   _miningGoldPerSecond: 10
   _barracksCost: 100
   _miningPostCost: 50
+  _mapTestModeEnabled: 0
+  _testStartingGold: 5000
   UnitMoveSpeed: 1
   UnitYOffset: 0.15
   BuildingYOffset: 0.1

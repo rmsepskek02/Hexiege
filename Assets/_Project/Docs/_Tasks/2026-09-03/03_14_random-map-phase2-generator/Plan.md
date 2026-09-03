@@ -455,13 +455,29 @@ Assets/_Project/Scripts/Application/Interfaces/ILogSink.cs               (LogEve
 
 ---
 
-## 8. 승인이 필요한 두 가지
+## 8. 미결 2건의 처리 (2026-09-03 확정)
 
-구현 착수 전에 확인 부탁드립니다.
-
-| # | 항목 | 제 제안 |
+| # | 항목 | 처리 |
 |---|---|---|
-| 1 | **폴백 템플릿 데이터 파일 위치** (§F — 어느 문서에도 없음) | 바이너리는 `Assets/_Project/Resources/MapTemplates/`, 재생성용 원본은 `Assets/_Project/Docs/_Reference/MapTemplateSource/` |
-| 2 | **검증기에 「크기 확인」 추가와 그에 따른 규칙 13 개정** (§6-마) | 코드에 넣고 규칙 13 에 항목을 추가한다 — TDD 가 이미 「231개 타일」 확인을 요구하고 있어 규칙 문서에만 빠진 것으로 보인다 |
+| 1 | **폴백 템플릿 데이터 파일 위치** (§F — 어느 문서에도 없음) | ✅ **제안대로 진행.** 바이너리는 `Assets/_Project/Resources/MapTemplates/`, 재생성용 원본은 `Assets/_Project/Docs/_Reference/MapTemplateSource/`. 근거: 런타임이 읽어야 하므로 `Resources/` 아래여야 하고(기존 `Resources/Config/` 관례), 재생성용 원본은 런타임이 읽지 않으므로 빌드에 포함될 이유가 없다 |
+| 2 | **검증기 「크기 확인」과 규칙 13 개정** (§6-마) | ⏸ **지금 정하지 않는다.** 규칙 문서를 고치는 일이므로 **E(검증기) 단계에서 실제 필요가 확인된 뒤** 별도 승인을 받는다. 그때까지 규칙 13 은 손대지 않는다. E 착수 시 이 항목을 다시 꺼낸다 |
 
-그 밖의 사항은 규칙 문서와 TDD 에 이미 정해져 있어 이 Plan 은 그것을 구현 순서로 옮긴 것입니다.
+그 밖의 사항은 규칙 문서와 TDD 에 이미 정해져 있어 이 Plan 은 그것을 구현 순서로 옮긴 것이다.
+
+---
+
+## 9. 실행 기록
+
+| 단계 | 상태 | 비고 |
+|---|---|---|
+| A 결정적 PRNG + 설정 필드 | ✅ 구현 완료 (컴파일 미검증) | SplitMix64 채택. 검증 벡터 13개를 메인 세션이 **파이썬 독립 구현으로 재대조해 전부 일치** 확인. 자기 검증은 테스트 어셈블리가 프로젝트에 없어 `MapRandomStreams.TryRunSelfCheck` / `AssertSelfCheck`(`[Conditional("UNITY_EDITOR")]`) 내장 방식. 기존 `_startingGold` 는 건드리지 않고 새 필드 2개를 별도 추가 |
+| B `SymmetricMapBuilder` | ⏳ | |
+| C `InitialMapStateEvaluator` | ⏳ | |
+| D 생성기 5종 + 광산 샘플링 | ⏳ | |
+| E `MapDefinitionValidator` | ⏳ | 착수 시 §8-2 재확인 |
+| F 폴백 템플릿 + 제작 도구 | ⏳ | |
+| G 맵 준비 조정자 | ⏳ | |
+| H `GameConfig` 11×21 + 투영 | ⏳ | 🔴 여기서 처음 화면이 바뀐다 |
+| I 판정 조건 전환 | ⏳ | |
+| J 렌더러 + 클릭 판정 | ⏳ | |
+| K 로그 키 | ⏳ | |
