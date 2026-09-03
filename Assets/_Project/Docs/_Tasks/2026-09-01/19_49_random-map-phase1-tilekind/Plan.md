@@ -4,7 +4,10 @@
 작업 폴더: `Assets/_Project/Docs/_Tasks/2026-09-01/19_49_random-map-phase1-tilekind/`
 선행 문서: 같은 폴더 `Research.md` (반드시 함께 읽을 것 — 특히 §2-3의 "대입 9건→5건 불일치")
 
-> 🔴 **이 문서는 아직 실행되지 않았다.** 사용자의 명시적 승인 후에만 game-programmer에게 위임한다(CLAUDE.md 규칙 2, `WORKFLOW.md` [4]).
+> ~~🔴 **이 문서는 아직 실행되지 않았다.** 사용자의 명시적 승인 후에만 game-programmer에게 위임한다(CLAUDE.md 규칙 2, `WORKFLOW.md` [4]).~~
+>
+> **[✅ 2026-09-03 — 이 계획은 실행됐다.]** 구현 커밋 `cee857d` → 임시 진단 로그 `5649a7e` → 진단 로그 제거 `51516a1`(브랜치 `claude/random-map-implementation`). 에디터 실기 검증 통과.
+> **계획 본문(§0~§6)은 한 글자도 고치지 않았다.** 실행 결과·계획과 달라진 점·미완 단서는 문서 끝의 **§7 구현 결과**에 모아 두었으며, §5 회귀 확인 항목별 결과는 그 절 머리의 인용 블록에 있다.
 
 ---
 
@@ -212,6 +215,22 @@ SetGoldMine(8, midRow, MineKind.Neutral);
 
 ## 5. 회귀 확인 방법 (실제로 확인할 것 — `check_docs.py`는 여기서 의미 없음)
 
+> **[✅ 2026-09-03 수행 — 1~8 통과 · 9(멀티)는 미수행]** 에디터 싱글플레이 세션(2026-09-03 03:21:55, 임시 진단 로그 `Diag=RandomMapPhase1` 77줄 분석)으로 확인했다. 항목별 결과는 아래 표, 원문 목록은 그대로 둔다.
+>
+> | 항목 | 결과 |
+> |---|---|
+> | 1 콘솔 에러 0건 | ✅ |
+> | 2 초기 배치 그대로 | ✅ **성 2 · 시작 채굴소 2 · 광산 타일 4** |
+> | 3 중립 광산 이동 불가 | ✅ 광산 타일 4칸 전부 이동 불가. **그중 중립 광산 2칸은 건물이 없는데도 이동 불가** — 계산 프로퍼티가 상태에서 값을 만든다는 직접 증거다 |
+> | 4 일반 건물 배치 시 이동 불가 전환 | ✅ |
+> | 5 🔴 철거 시 복구 (최고 위험 지점) | ✅ **채굴소 철거 후 이동 불가 유지** — §2-3 #3에서 없앤 가드의 대체 논리가 실제로 작동함을 확인. **일반 건물 철거 후에는 이동 가능으로 복구** |
+> | 6 경로탐색이 건물·광산을 피함 | ✅ **발급된 경로 43건 전부 중간에 이동 불가 칸 0개** |
+> | 7 AI 건물 배치 정상 | ✅ **AI 건물 배치 2건 전부 성사** |
+> | 8 `DebugUI` Walkable 표시 | ✅ |
+> | 9 멀티 건물 배치 동기화 | ⚠️ **미수행** — 원문이 예상한 대로 에디터(Host)+빌드(Client) 구성이 필요해 이번 세션에서는 확인하지 못했다. **「통과」가 아니라 「미검증」으로 남긴다.** 후속은 `ROADMAP.md` |
+>
+> **판정: §5 판정 기준의 「1~8이 전부 이전과 동일」을 충족 → 1단계 완료.** 9는 원문이 이미 조건부로 적어 둔 항목이라 판정 기준에서 빠져 있었고, 실제로 미수행이므로 **완료 판정에 포함시키지 않는다.**
+
 에디터 Play Mode(싱글플레이)로 기존 고정 맵을 로드해 아래를 **직접 확인**한다.
 
 1. **콘솔 에러 0건** — Play Mode 진입 시 NullReferenceException 등 런타임 에러가 없어야 한다.
@@ -240,3 +259,72 @@ SetGoldMine(8, midRow, MineKind.Neutral);
 | `HasGoldMine` 부정 방향 반전 실수 | §2-5 표로 5곳 전부 명시, 리뷰 시 표와 코드 diff를 나란히 대조 |
 | 신설 6개 파일이 실제로는 다른 곳에서 참조되기 시작해 "아무도 안 씀" 전제가 깨짐 | 그룹 B 작업 중 신설 타입을 `GameBootstrapper`나 기존 로직에 연결하는 코드를 추가하지 않는다 — 1단계 범위(`Research.md` §1)를 벗어나면 별도 승인 필요 |
 | `AIOpponentController.cs:807~809`을 실수로 함께 고칠 위험 | §2-6에서 명시적으로 "이번엔 손대지 않는다"고 못박음. game-programmer에게 위임 시 이 문장을 그대로 전달 |
+
+---
+
+## 7. 구현 결과 (2026-09-03 추가)
+
+### 7-0. 무엇이 끝났는지 (자연어 — CLAUDE.md 규칙 13)
+
+계획대로 **타일의 「지나갈 수 있는가」를 저장하지 않고 계산하도록** 바꿨습니다. 이제 타일에는 *막힌 지형인가 · 광산이 있는가 · 건물이 서 있는가* 세 가지만 기록되고, 「지나갈 수 있는가」는 그 셋으로부터 매번 계산됩니다. 계산 결과라서 **손으로 덮어쓸 수 없습니다.**
+
+계획이 세운 성공 기준은 하나였습니다 — **작업 전후로 지금 있는 고정 맵이 완전히 똑같이 동작할 것.** 에디터 실기로 확인한 결과 그대로였고, 특히 가장 걱정했던 **「채굴소를 부순 뒤에도 그 칸을 계속 못 지나가는가」가 통과**했습니다(§5 인용 블록).
+
+새로 만든 자료구조 6개 중 **4개는 아직 아무도 부르지 않습니다.** 계획 §2-1이 의도한 그대로이며, 실제로 쓰이는 것은 2단계(맵 생성기)부터입니다.
+
+### 7-1. 실적표 (계획 항목 ↔ 결과)
+
+| 계획 항목 | 결과 | 비고 |
+|---|---|---|
+| §2-1 신설 6개 파일 | ✅ 그대로 | `TileKind.cs` · `MineKind.cs` · `MapType.cs` · `DecorationDefinition.cs` · `MapDefinition.cs` · `MapDefinitionCodec.cs` |
+| §2-2 `HexTile` 전환 | ✅ 그대로 | 계산 프로퍼티 + 생성자 매개변수 제거 |
+| §2-3 `IsWalkable` 대입 5곳 | ✅ 그대로 | #3(가드 제거) 포함 |
+| §2-4 `SetGoldMine` 시그니처 변경 | ⚠️ **일부 다름** | 아래 §7-2 |
+| §2-5 광산 읽기 5곳 | ✅ 그대로 | 부정 방향 반전 없음 |
+| §2-6 순수 읽기 30곳 무변경 | ✅ 그대로 | 컴파일로 검증 |
+| §2-6 `AIOpponentController.cs:807~809` 미변경 | ✅ 그대로 | 3단계 몫으로 남김 |
+| §5 회귀 확인 1~8 | ✅ 통과 | 9(멀티)는 미수행 |
+
+### 7-2. 🔴 계획과 달라진 점 — `startingMines` 배열은 지우지 못했다
+
+**계획 §2-4의 「변경 후」 코드는 `startingMines`·`neutralMines` 배열을 없애고 좌표를 호출부에 직접 적는 형태**였다. 실제 구현은 **배열을 그대로 두고 호출부만 나눴다.**
+
+- **이유:** `startingMines` 는 광산 타일 설정 말고도 **시작 채굴소 자동 건설에서 더 쓰인다** — 같은 파일의 `PlaceMiningPostDirect` 호출 2곳이 `startingMines[0]`·`startingMines[1]` 로 좌표를 다시 읽는다. 배열을 지우면 그 좌표가 갈 곳이 없어지고, 좌표를 두 벌로 복제하게 되어 **「좌표 계산이 두 벌로 갈라지지 않게 한다」는 §2-4의 원래 취지에 정면으로 어긋난다.**
+- **실제 사용처는 4곳**(`startingMines[0][0]`/`[0][1]`/`[1][0]`/`[1][1]` 을 읽는 자리 기준)이며, 배열 선언까지 세면 파일 안에서 5개 자리가 이 배열을 참조한다.
+- **좌표 값 자체는 계획과 동일하다**(`centerCol - 2, blueRow` / `centerCol - 2, redRow`). 팀 구분(`BlueStart`/`RedStart`)도 계획대로 정확히 들어갔다.
+- `neutralMines` 도 같은 이유가 아니라 **단순히 전부 같은 종류라서** `foreach` 를 유지했다(계획은 명시적 2회 호출을 그렸다). 동작은 동일하다.
+
+> **교훈:** 계획의 「변경 후」 코드 블록이 **그 변수를 쓰는 다른 자리를 다 보고 쓴 것인지** 확인해야 한다. 이번 §2-4는 `PlaceGoldMines()` 안의 광산 설정 부분만 보고 쓰였고, **같은 함수 아래쪽의 시작 채굴소 자동 건설 구간을 시야에 넣지 않았다.**
+
+### 7-3. ⚠️ 미완 단서 (과대 표기 금지)
+
+1. **무작위 맵 자체는 미구현이다.** 이번에 끝난 것은 타일 상태 계약 전환뿐이고, 지금 경기는 여전히 고정 맵을 쓴다. 맵 생성기 5종·검증기·폴백은 **2단계**다.
+2. **신설 6종 중 `MapType`·`DecorationDefinition`·`MapDefinition`·`MapDefinitionCodec` 4종은 호출부가 0곳이다.** 계획 §2-1이 의도한 상태 그대로이며, 이는 곧 **이 4개의 정확성은 아직 아무 방법으로도 검증되지 않았다**는 뜻이다(컴파일만 통과했다).
+3. **AI 건물 배치 후보 판정(807~809행)과 그 XML 주석(770~773행)은 전환하지 않았다 — 3단계 몫이다.** 다만 **같은 파일의 광산 타일 조회(`CacheMineTiles`, 224행)는 §2-5대로 전환됐으므로**, `AIOpponentController.cs` 안에는 전환된 자리와 안 된 자리가 함께 있다. 한쪽을 보고 다른 쪽을 단정하지 말 것.
+4. **건설·점령의 전용 조건 전환도 미완**이다(TDD 「기존 코드 전환 요구」의 다섯 번째 항목 뒤 절반). 일반 건물 배치가 아직 이동 가능 여부를 그대로 쓰고, 점령에 막힌 지형 확인이 없다. 지금 고정 맵은 `TileKind` 를 설정하는 코드가 한 곳도 없어 모든 타일이 `Normal` 이라 결과가 갈리지 않을 뿐이다.
+5. **멀티플레이 실기 미검증**(§5-9). 계획이 조건부로 예상한 그대로다.
+6. **임시 진단 로그는 전량 제거됐다** — `5649a7e` 투입 → `51516a1` 에서 224행 순수 삭제, `Diag=RandomMapPhase1` grep **0건**.
+
+### 7-4. 변경 파일 리스트업 (WORKFLOW [12])
+
+**코드 (구현 커밋 `cee857d` 기준)**
+
+| 파일 | 변경 |
+|---|---|
+| `Assets/_Project/Scripts/Domain/Hex/HexTile.cs` | 상태 3축 + 계산 프로퍼티로 전환, 생성자 매개변수 제거, 광산 표시 필드 삭제 |
+| `Assets/_Project/Scripts/Domain/Hex/TileKind.cs` | **신설** |
+| `Assets/_Project/Scripts/Domain/Hex/MineKind.cs` | **신설** |
+| `Assets/_Project/Scripts/Domain/Map/MapType.cs` | **신설** (호출부 0곳) |
+| `Assets/_Project/Scripts/Domain/Map/DecorationDefinition.cs` | **신설** (호출부 0곳) |
+| `Assets/_Project/Scripts/Domain/Map/MapDefinition.cs` | **신설** (호출부 0곳) |
+| `Assets/_Project/Scripts/Domain/Map/MapDefinitionCodec.cs` | **신설** (호출부 0곳) |
+| `Assets/_Project/Scripts/Application/UseCases/BuildingPlacementUseCase.cs` | 대입 3곳 + 광산 읽기 3곳 전환, `RemoveBuilding` 가드 제거 |
+| `Assets/_Project/Scripts/Bootstrap/GameBootstrapper.Map.cs` | `SetGoldMine(col, row, MineKind)` 로 시그니처 변경 (§7-2 참조) |
+| `Assets/_Project/Scripts/Application/Services/AIOpponentController.cs` | 광산 타일 조회 1곳만 전환 (**807~809행·770~773행은 무변경**) |
+| `Assets/_Project/Scripts/Presentation/Grid/HexGridRenderer.cs` | 광산 읽기 1곳 전환 |
+
+**문서 (2026-09-03 이 사이클)**
+
+`GameSystemRules/GameSystemRules_AI.md` · `GameDesignDocument.md` · `TechnicalDesignDocument.md` · `PROJECT_STATUS.md` · `ROADMAP.md` · `WORK_HISTORY.md` · 이 폴더의 `Research.md`·`Plan.md` · `.claude/agent-memory/game-programmer/{hex-grid.md,logging.md}` · `.claude/agent-memory/document-manager/{MEMORY.md,doc-conventions.md}`
+
+> **※ 근거 구분(규칙 10):** 커밋 해시·삭제 행수(224행)·실기 로그 수치는 **호출 세션이 전달한 값**이다. `.cs` 전수 검색 결과(광산 표시 필드 0건 · 신설 4종 호출부 0곳 · `TileKind` 설정 코드 0곳 · `startingMines` 참조 5곳 · `Diag=RandomMapPhase1` 0건)는 **이 문서 작업 중 직접 실측한 값**이다.

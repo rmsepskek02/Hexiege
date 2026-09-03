@@ -137,3 +137,11 @@ line 224 was converted. So `grep -rnE "IsWalkable\s*=[^=]" Assets/ --include=*.c
 **Trap for the next session:** `public TileKind TileKind { get; set; }` plus `TileKind != TileKind.Blocked`
 relies on C#'s color-color rule (a property may share its type's name). It is legal; do not "fix" it by
 renaming the property.
+
+**Editor playtest result (2026-09-03, temp `Diag=RandomMapPhase1` log, 77 lines):** initial layout 2 castles /
+2 starting MiningPosts / 4 mine tiles; all 4 mine tiles unwalkable and **the 2 neutral ones are unwalkable
+with no building on them** (direct evidence the computed property derives from state); 🔴 **after demolishing
+a MiningPost the tile stays unwalkable** — this is the replacement logic for the removed mine-flag guard and was
+the highest-risk point of the whole transition; a normal building's tile goes back to walkable; 43 issued paths
+contained 0 unwalkable intermediate tiles; both AI building placements succeeded. **Multiplayer is still
+unverified** — this was an editor single-player session only. (Figures relayed by the calling session.)

@@ -323,6 +323,41 @@ is live code (verified 2026-09-01 in `Domain/Hex/HexTile.cs`, `Bootstrap/GameBoo
 - Before writing any of that, **verify in `.cs` that the API is live** — an instruction calling
   something "deprecated" is a claim to check, not a fact to copy (`.claude/MEMORY.md` A-2).
 
+#### 🔴 2026-09-03 — the marker was cashed in. The lesson above still stands.
+
+**The "when" arrived.** Random-map **phase 1 (tile state contract transition)** shipped and passed an editor
+playtest, the mine-flag storage field was deleted from the code (`grep` over `Assets/_Project/Scripts/` →
+**0 hits**), and `AIOpponentController.CacheMineTiles` now reads `MineKind != MineKind.None`. So the two
+`GameSystemRules_AI.md` sites were rewritten to `MineKind`, and the `⏳` marker was replaced with a `✅ 전환
+완료` note. **The original account above is kept verbatim** — the entry is not "wrong", it recorded a correct
+decision under conditions that have since changed, and deleting it would delete the reason the transition was
+deferred (`.claude/MEMORY.md` B-6, B-7).
+
+- **Why it was right not to change it on 2026-09-01, and right to change it on 2026-09-03:** the rule was
+  never "never rename" — it was **"do not rename ahead of the code."** On 09-01 the field was live, so the
+  new notation would have been false. On 09-03 the field is gone, so the old notation is false. **Same rule,
+  opposite action.** The trigger to re-read a transition marker is a `.cs` measurement, never a calendar date
+  or a hand-off memo saying the work is "done".
+- **Cashing in a marker is a two-part job.** (1) change the notation in the documents; (2) **update this note
+  itself.** Miss (2) and the next session reads "not deprecated — live code" and re-introduces the old name.
+  A transition marker that outlives its transition becomes the misinformation it was written to prevent.
+- 🔴 **A transition marker may cover several sites that do NOT all move together.** `GameSystemRules_AI.md`
+  carried two of them: the **mine-tile lookup** (transitioned) and 규칙 26's **placement predicate**
+  (still on the walkability test — phase 3). Both live in the same file, and the same `.cs` file
+  (`AIOpponentController.cs`) now contains one converted site and one unconverted site. **Measure each site
+  separately; never let one site's completion be written as the file's completion.** After editing, say in
+  the document which sibling is still pending and why.
+- **When a marker survives, re-check its stated *reason*, not just its status.** 규칙 26's marker justified
+  waiting with "the code has no such tile-state axis yet". Phase 1 created that axis, so the reason had gone
+  stale even though the conclusion (still wait) had not. The replacement reason is measurable: the fixed map
+  sets `TileKind` **nowhere** (`.cs` 0 hits), so every tile is `Normal` and the two predicates cannot yet
+  produce different answers. **A marker with a dead reason gets believed for the wrong cause and then gets
+  cashed in at the wrong time.**
+- **Heading text is part of the marker.** The enclosing heading said 「(확정 설계, 미구현)」; phase 1 made that
+  false for one sub-section while leaving it true for the rest. Fix the heading and say **which part** moved —
+  otherwise the reader either over-reads (whole feature done) or under-reads (nothing done). Here: new types
+  exist, but 4 of the 6 have **zero call sites**, and *a type existing is not the contract working.*
+
 ### Naming a state so it cannot collide with a tile state
 
 `GameSystemRules_Units.md` 규칙 45 called a **unit's** stuck state by the same code-font name as the
