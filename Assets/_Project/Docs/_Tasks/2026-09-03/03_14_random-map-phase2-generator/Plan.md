@@ -471,7 +471,7 @@ Assets/_Project/Scripts/Application/Interfaces/ILogSink.cs               (LogEve
 | 단계 | 상태 | 비고 |
 |---|---|---|
 | A 결정적 PRNG + 설정 필드 | ✅ 구현 완료 (컴파일 미검증) | SplitMix64 채택. 검증 벡터 13개를 메인 세션이 **파이썬 독립 구현으로 재대조해 전부 일치** 확인. 자기 검증은 테스트 어셈블리가 프로젝트에 없어 `MapRandomStreams.TryRunSelfCheck` / `AssertSelfCheck`(`[Conditional("UNITY_EDITOR")]`) 내장 방식. 기존 `_startingGold` 는 건드리지 않고 새 필드 2개를 별도 추가 |
-| B `SymmetricMapBuilder` | ⏳ | |
+| B `SymmetricMapBuilder` | ✅ 구현 완료 (컴파일 미검증) | 회전식을 `Width`/`Height` 에서 유도(하드코딩 없음). 메인 세션이 파이썬으로 격자 전체를 훑어 **자기 역함수 위반 0 · 중심 고정점 확인 · 🔴 인접성 보존 위반 0 · 짝 없는 칸 정확히 6개**를 재검증했다. 대조로 폐기된 행열 반전을 넣으면 **400개 방향쌍**이 깨지는데, 이는 `GameSystemRules_Map.md` 규칙 5 가 적어 둔 수치와 정확히 일치한다 — 구현과 규칙 문서가 동시에 확인됐다 |
 | C `InitialMapStateEvaluator` | ⏳ | |
 | D 생성기 5종 + 광산 샘플링 | ⏳ | |
 | E `MapDefinitionValidator` | ⏳ | 착수 시 §8-2 재확인 |
