@@ -629,3 +629,79 @@ other in the same round.**
   That is a one-batch decision and needs its own approval (CLAUDE.md 규칙 6·12).
 - `check_docs.py` is blind to this whole class, exactly as in §9: it never asks whether a row represents
   its document. 0건 before and after tells you nothing here.
+
+---
+
+## 11. Writing a `_Tasks/` Research document (2026-09-03, random-map phase 2)
+
+The task was **one `Research.md`, no `Plan.md`** — the caller reviews the research first and delegates the
+plan separately. Four things about that shape are worth keeping.
+
+### `check_docs.py` does not validate the document you just wrote
+
+The checker's scan set **excludes `_Tasks/` and `_Logs/`** (it prints this in its own `[검사 범위]` block).
+So running it after writing a Task document confirms **the rest of the repo is still clean** — it says
+nothing about the new file. Report it that way. Claiming "0건 확인" as if it covered the new document is the
+same class of vacuous pass as §3's `## 규칙 N.` case: a green result over a file that was never read.
+
+- Corollary: a Task document may cite rule numbers and file paths that the checker will never verify.
+  Verify those citations by hand, and say in the report that they were verified by hand.
+
+### Every code line number in the document must be re-read before finishing
+
+Writing `파일:행` from the memory of an earlier read drifts. In this round **6 of the cited ranges were off**
+(a method's opening line vs. its body, a comment block's first line vs. the line that actually carries the
+sentence, a two-line condition cited one line late). The fix is mechanical: after the draft, `sed -n` every
+cited range and correct it. `.claude/mistakes.md` 2026-08-24 「행 번호로 위치를 가리켜 전부 어긋남」 is the
+same failure — the lesson here is that *drafting from memory* is where it re-enters.
+
+- Prefer a **range that contains the whole construct** (`:262~278` for a method) over a single line when the
+  point is "this function does X", and a **single exact line** when the point is "this line says X".
+
+### Judging whether two handed-over coordinate notations mean the same thing
+
+Never compare the numbers. **Convert one side with the project's own conversion function and compare in one
+system.** Here a runtime log gave `Q=5,R=16` and the rule document gave `(5,19)`; running the offset→cube
+function from `Domain/Hex/HexGrid.cs` on the coordinate the bootstrap code actually builds reproduced the
+log value exactly, which proved the log was cube and the rule was offset — and that the real mismatch was a
+different grid height, not a wrong coordinate. Then re-derive the rule's own formula from that function to
+show the rule is implementable with existing code.
+
+- The generalisation of 「인계 수치는 논지까지 틀릴 수 있다」(index file, 2026-08-24): a handed-over figure can
+  be **right and still not mean what the sender thought**, because it is in a different unit or frame.
+- A configuration value read from a `.asset` is only authoritative once you show the scene actually
+  references *that* asset: grep the asset's own GUID (from its `.meta`) inside the `.unity` file.
+
+### 🔴 Before presenting options, check whether the question is already answered
+
+**The original version of this section is kept below, struck through, because the round it came from is
+exactly the failure it should warn about.** It recorded "how to lay out two options" as the lesson. The
+real lesson is one level up: **that round should never have had two options.**
+
+What happened (2026-09-03): the caller's brief said "present the impact of each option, do not decide" about
+the map grid size. The brief was wrong — the grid was settled at 11×21 across six documents, one of which
+calls it 「현재 도입 맵」, and a 2026-08-26 round had already measured 400 direction pairs and 126 of 231
+tiles on that assumption. The caller had not read the 650-line rule document; it worked from greps and from
+this agent's own earlier reports. So a settled specification was handed back to the user as an open choice,
+and ~30 lines of a 388-line `Research.md` were written on that false premise.
+
+- **A brief that asks for options is a claim to verify, not a fact to execute** (`.claude/MEMORY.md` A-2, the
+  same rule that governs a "deprecated" label). Before laying out option A and option B, grep the rule
+  documents for the thing being decided. If a rule document states it — especially in the present tense, or
+  with a downstream measurement built on it — it is decided.
+- **Say so instead of complying.** Answer: "이건 이미 정해져 있습니다 — `<파일:행>`. 미결이 아니라 코드가 안
+  따라온 것입니다." That reply is worth more than a well-formed comparison table.
+- The distinguishing question is **「문서 vs 문서」인가 「문서 vs 코드」인가**. Two documents disagreeing is a
+  real open question. A document disagreeing with code is **미구현** — the document already decided.
+- This is the same failure as the 2026-09-02 「문서에만 남겨놓고 미루기」 the user called out, with the sign
+  flipped: there, a settled item was deferred; here, a settled item was reopened. Both come from not
+  checking where the decision is written down.
+
+~~**When the brief says "present the impact of each option, do not decide", the shape that works is one
+table per option with the same five rows — 파일/문서 변경 · 즉시 따라오는 변화 · 회귀 위험 · 얻는 것 ·
+미확인 — plus one closing line stating that options outside the two given were not examined. Symmetric rows
+let the reader compare; the closing line stops the reader from assuming the space was exhaustively
+searched.**~~
+
+→ The table shape itself is still fine **once the question survives the check above.** Keep it for genuinely
+open choices; do not let it become the reflex answer to any brief that says "options".
