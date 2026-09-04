@@ -388,3 +388,98 @@ whoever exports the map (coordinator), not here.
 balance, `using`/namespace/banned-reference scan (`UnityEngine` · `Hexiege.Core` · `UnityEditor` all 0 hits),
 a scripted XML-doc check over every public/protected member, and a full Python port of the five files that
 reproduces every hard-coded expectation above. **Nothing outside the self-checks calls these classes yet.**
+
+---
+
+## Archetype generators, step D-2 — 협곡형 · 외곽형 · 3갈래형 (2026-09-04 phase 2)
+
+Random-map phase 2, step **D-2**. Built on D-1 unchanged — **no D-1 file was edited.**
+Rule single source: `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 6 · 7 · 8 · 15.
+
+**Files** (all `namespace Hexiege.Domain`, pure C#, no `UnityEngine`/`Hexiege.Core`/`UnityEditor`;
+each with a fresh 2-line `.cs.meta`)
+
+| file | guid | what |
+|---|---|---|
+| `Domain/Map/Generators/MapBandTable.cs` | `3c1fc168b50c486a84150542ac5a6a55` | shared height-step/band table + `MapTileKindSelector` delegate + `ApplySymmetricTerrain` |
+| `Domain/Map/Generators/CanyonGenerator.cs` | `1577a0cac39445739874ee3132d0cfca` | 규칙 6 |
+| `Domain/Map/Generators/OuterGenerator.cs` | `43d06f7cb28d4c94b943c2071ea0181d` | 규칙 7 (+ `OuterMassShape` enum) |
+| `Domain/Map/Generators/ThreeLaneGenerator.cs` | `cf51381d1f9a43a19bf782e1e272357c` | 규칙 8 |
+
+**Height step is the only safe way to name a band.** `heightStep = row*2 + (col&1)`, range 0~41
+(0 is only the 6 unpaired cells), **21 is the centre line**, rotation is `L -> 42-L`
+(`MapBandTable.HeightStepSum = 42`). 🔴 **`MapBandTable.CentralBandTileCount = 39` is measured, not
+assumed**: height steps 18~24 = even cols rows 9~12 (6x4=24) + odd cols rows 9~11 (5x3=15) = **39**,
+asserted in `MapBandTable.TryRunSelfCheck` by building the set and comparing its size. Rows 9~11 is
+**not** rotation-closed — that is the negative control in that same self-check.
+
+**The 분리 길이 row-range table lives in ONE place** — `MapBandTable.GetBandRowRange(length, isOddColumn, …)`,
+derived from `GetRowRange(minStep, maxStep, …)`, and both `OuterGenerator` and `ThreeLaneGenerator`
+read it. Values reproduce 규칙 8's table exactly (5 -> even 8~13 / odd 8~12; 7 -> 7~14 / 7~13;
+9 -> 6~15 / 6~14; 11 -> 5~16 / 5~15). minRow is the same for both parities; only maxRow differs by 1.
+
+**Every generator writes rows 0..CenterRow only** (`MapBandTable.ApplySymmetricTerrain`): centre cell
+via `SetCenter`, unpaired cells skipped, everything else `SetPair`. Rows 0~10 plus their rotations
+cover all 231 cells exactly — no lower-half row number is ever written by hand.
+
+**🔴 The one place D-1's interface did not fit — and how it was absorbed without editing D-1.**
+`IMapArchetypeConstraints.IsNeutralMineForbidden(col,row)` is a per-tile predicate, so it cannot express
+「대역 안 대응쌍은 **최대 1쌍**」(외곽형 ④) or 「레인당 광산 **최대 1개**」(3갈래형 ④). Solution: the
+generator draws **one allowed pair representative** per attempt from the band's eligible pairs and marks
+every *other* band tile forbidden. At most one pair can then land in the band, which is exactly the rule.
+This costs one extra Terrain draw and, being per attempt, cannot leak into the next attempt.
+**Do not "fix" this by adding a count field to the interface without re-reading D-1's rationale.**
+
+**Known design consequence to raise with 기획 (not a bug):** the allowed band pair for 외곽형/3갈래형,
+and 3갈래형's odd-count centre mine at (5,10), sit on `TileKind.NoBuild` tiles — a mine you cannot build
+a MiningPost on. 협곡형's centre mine is likewise on a NoBuild tile. The rules as written require it.
+
+**Canyon (규칙 6) — the 전환 행 reading that actually satisfies every stated invariant.**
+Rule text says "3~8행 중 (11-W)/2 개의 전환 행". Read literally as 6 candidate *rows* it is impossible to
+keep both 「3행 폭 11」 and 「8행 폭 W」 (a transition on row 8 cannot land at row 8). So the implementation
+picks `k = (11-W)/2` of the **five gaps** 3->4 … 7->8 (`TransitionStepCount = 5`) and drops 2 across each
+picked gap. Documented in the file header; `TryVerifyWidthProfile` counts transitions from the output.
+
+**Outer (규칙 7) — how 울퉁불퉁형 satisfies all five constraints with no post-hoc repair.**
+Only the half-profile (width by distance from the centre line) is drawn, starting at `maxWidth`, and each
+next step is drawn uniformly from `{prev-2, prev, prev+2}` clipped to `[1, maxWidth]`. Centre = max (①),
+odd start plus ±2 keeps every width odd (②), width never reaches 0 so consecutive steps always touch near
+col 5 (③ — no cavity), the candidate set caps the adjacent difference at 2 (④), and mirroring one
+half-profile gives rotational symmetry structurally (⑤). **The constraints are absorbed into the candidate
+set, so no rejection/redraw loop exists here.**
+마름모형 vs 타원형: with widths limited to 1/3/5 no curve distinguishes them, so the project's operational
+definition is the **taper rate** — diamond widens 2 per step from the tip, ellipse 2 per **two** steps.
+This is written down in the file header; it is a decision, not a derivation.
+🔴 **Outer's parameters cannot be read back from the finished map** — at odd height steps width 1 and 3
+look identical (only col 5 exists) and at even steps width 3 and 5 look identical (only cols 4,6). The
+self-check therefore **replays the Terrain stream** with the same seed instead of reverse-engineering.
+`IsNeutralMineCountAllowed` is overridden to {2,4,6}; odd counts are impossible because the mass always
+blocks the rotation centre.
+
+**Hard-coded self-check expectations** (independent Python port, mapVersion 1, attemptIndex 0, seeds 0~199):
+
+| | |
+|---|---|
+| Canyon corridor width 3 / 5 / 7 counts | **73 / 57 / 70** |
+| Canyon NoBuild total | **3522** (= 73x11 + 57x17 + 70x25, hand-derived from the band's open-cell counts) |
+| Canyon Blocked total (unpaired 6 excluded) | **11566** |
+| Outer & ThreeLane separation length 5/7/9/11 counts | **53 / 58 / 50 / 39** |
+| ThreeLane Blocked / NoBuild totals | **3100** (= 2 x 1550, hand-derived) / **15150** (= 9x1550 + 6x200) |
+| Outer max width 3 / 5 counts | **99 / 101** |
+| Outer shape diamond / ellipse / rugged counts | **72 / 65 / 63** |
+| Outer Blocked / NoBuild totals | **4832 / 5302** |
+
+🔴 If one of these fails, the draw order or probabilities changed — decide whether `MapVersion` must be
+bumped before touching the constant.
+
+**Negative controls (one per generator, all sharing the same verifier the positive path uses):**
+MapBandTable — rows 9~11 must **not** be rotation-closed; Canyon — a profile with an adjacent drop of 4,
+and one that never reaches W; Outer — adjacent difference 4, centre not at max width, an even width;
+ThreeLane — blocking one lane tile must fail `TryVerifyLaneStructure`.
+
+**Verification without a compiler** (no `dotnet`/`mcs`/`csc`/`mono`): comment/string-stripped bracket
+balance, `using`/namespace/banned-reference scan (0 hits for `UnityEngine` · `Hexiege.Core` · `UnityEditor`
+· `System.Linq`), a scripted XML-doc check over every public/protected member, a cross-file member-existence
+scan, and a full Python port that reproduces every hard-coded number above plus symmetry, connectivity and
+corridor-continuity over 200 seeds x 3 types. **Nothing outside the self-checks calls these classes yet**
+— the validator (E) and the coordinator are still unbuilt.
