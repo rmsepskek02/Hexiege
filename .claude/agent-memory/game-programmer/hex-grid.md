@@ -296,3 +296,95 @@ member carries an XML doc, and a Python port of the whole self-check to produce 
 
 **Comment hygiene** (`.claude/mistakes.md` 2026-09-02): no assignment-shaped identifier text in comments
 (the row-major index formula is written as prose), no literal mention of retired identifiers.
+
+---
+
+## Archetype generators, step D-1 — `Domain/Map/Generators/` (2026-09-03 phase 2)
+
+Random-map phase 2, step **D-1**: the shared skeleton, the neutral-mine sampler, and the two *open*
+archetypes. 협곡형 · 외곽형 · 3갈래형 (D-2) and the validator (E) are **not** built.
+Rule single source: `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 1 · 3 · 4 · 5 · 6 · 15.
+
+**Files** (all `namespace Hexiege.Domain`, pure C#, no `UnityEngine`, no Core; each has a fresh 2-line `.cs.meta`,
+plus a new `Generators.meta` folder asset)
+
+| file | what |
+|---|---|
+| `IMapArchetypeGenerator.cs` | contract + `MapStartingMineSide` · `MapGenerationRequest` · `MapCorridorRequirement` · `IMapArchetypeConstraints` · `MapArchetypeConstraints` · `MapGenerationResult` |
+| `MapArchetypeGeneratorBase.cs` | template-method `Generate`, **the only place castles/starting mines are placed**, the probe helper, and the shared self-check helpers |
+| `NeutralMineSampler.cs` | 규칙 3, type-agnostic |
+| `OpenGenerator.cs` | 규칙 4 — adds **no** terrain, draws **zero** from Terrain |
+| `ObstacleOpenGenerator.cs` | 규칙 5 |
+
+**Where per-type values live — and why they are split in two**
+
+- Fixed before generation → on the generator: `MapType`, `MinNeutralMineCount` / `MaxNeutralMineCount`,
+  `IsNeutralMineCountAllowed` (virtual, so a "even counts only" type needs one override).
+- **Decided by the draw** → on `IMapArchetypeConstraints`, produced *per attempt* and carried in
+  `MapGenerationResult.Constraints`: `IsNeutralMineForbidden(col,row)` (④), `IsBuildForbidden` (⑤),
+  `RequiredCorridors` (⑥). 🔴 Putting ④⑥ on the generator instance would be a bug for D-2 — the canyon's
+  corridor width/position is drawn per attempt, so the previous attempt's zone would leak into the next one.
+  D-2 fits: canyon/outer fill the forbidden set + corridors, three-lane emits three corridors.
+
+**Common layout is `MapArchetypeGeneratorBase.ApplyCommonLayout(builder, side)`** — public static so the
+sampler's self-check reuses it. Only Blue coordinates appear: `SetCastlePair(5,19,Blue)` and
+`SetStartingMinePair(3 or 7, 19, Blue)`; the Red side comes from the builder's rotation. Case A uses col 3,
+case B col 7.
+
+**The probe trick (`CreateInitialStateProbe`)** — `InitialMapStateEvaluator` needs a finished `MapDefinition`,
+but `SymmetricMapBuilder` deliberately never exposes the in-progress one. So the base replays the current
+terrain plus the common layout into a *second* builder through `SetPair`/`SetCenter` and evaluates
+`probe.Build()`. Never reimplement the protected-tile derivation locally — three consumers must agree.
+
+**Rejection sampling lives in `NeutralMineSampler.TryPickDistinctSlots`** (draw, redraw on a repeat, cap
+`MaxRedrawCount = 1000`). `ObstacleOpenGenerator` calls the same helper for its per-row distinct columns, so
+규칙 6's "같은 확률 분포에서 다시 뽑는다" has exactly one implementation. Type-level *zone* constraints are
+applied by pre-filtering the candidate list, not by redrawing.
+
+**Rejection of a whole attempt is a return value, never an exception**: `MapGenerationResult.IsAccepted`
+false + `RejectionReason`, and `Reject` refuses to carry a `Definition` so there is no path to "repair" a
+half-built map (규칙 6). A bad `NeutralMineCount` in the request *does* throw — that is a caller bug, not a
+bad draw, and must not hide inside the retry loop.
+
+**ObstacleOpen algorithm (규칙 5), the part that is easy to get wrong**
+
+- Draw unit is the **row** (always 11 cells wide → uniform density); the *band* is expressed in **height
+  steps** (row·2, +1 on odd columns, 1~41, 21 is the centre line, rotation sends L to 42−L). The two are
+  not the same word and the comments say so.
+- Rows 3~9, each independently 0/1/2/3/4 obstacles at 20% each, distinct columns. Rows 0~2 stay empty, and
+  so does their rotated band (**even cols 19~20, odd cols 18~20** — they differ). The lower projection lands
+  on **rows 11~18**, which does not line up with 3~9.
+- Centre line = **odd columns of row 10 only** (5 cells). 0/2/4 obstacles at 1/3 each, placed as the pairs
+  `(1,10)↔(9,10)` and `(3,10)↔(7,10)`. `(5,10)` is the rotation fixed point and never gets a solo obstacle.
+- Zero obstacle pairs → reject the attempt.
+
+**Measured figures (independent Python port, mapVersion 1, attemptIndex 0, rootSeed 0~199)**
+
+| | |
+|---|---|
+| obstacle total over 200 seeds | **5904**, mean **29.52** (theory 30; sd of the mean ≈ 0.54) |
+| attempts rejected in those 200 | 0 |
+| rows ever holding an obstacle | 3~18 |
+| protected tiles, both mine cases | 24 |
+| **neutral-mine candidate pairs, open map** | **100** (= 112 paired non-centre pairs − 12 protected pairs) |
+| unique buildable per team | 10 / 10 |
+
+`ObstacleOpenGenerator.SelfCheckExpectedObstacleTotal = 5904` is asserted exactly, plus a soft mean band of
+27~33. 🔴 If it fails, the draw order or the probabilities changed — decide whether `MapVersion` must be
+bumped before touching the constant.
+
+**Self-check coverage** (`TryRunSelfCheck` / `AssertSelfCheck`, same shape as steps A·B·C; the shared
+verifiers `TryVerifyRotationalSymmetry` and `TryCompareDefinitions` are static on the base class):
+full-grid rotational symmetry (terrain + castles + starting mines + neutral mines) · forbidden band empty ·
+centre line paired-only with the fixed point empty · same seed same map · `DecorationDrawCount == 0`
+(규칙 15) · `TerrainDrawCount == 0` for the fully-open type · fully-open blocks nothing beyond the 6
+unpaired cells · candidate-pair count and the odd-count centre mine · **a negative control** (leave 2
+candidate pairs, ask for 6 mines, it must be refused while 4 still succeeds).
+
+**Hash is deliberately left null** by the generator — it must be computed over the canonical bytes by
+whoever exports the map (coordinator), not here.
+
+**Verification without a compiler** (no `dotnet`/`mcs`/`csc`/`mono`): comment/string-stripped bracket
+balance, `using`/namespace/banned-reference scan (`UnityEngine` · `Hexiege.Core` · `UnityEditor` all 0 hits),
+a scripted XML-doc check over every public/protected member, and a full Python port of the five files that
+reproduces every hard-coded expectation above. **Nothing outside the self-checks calls these classes yet.**
