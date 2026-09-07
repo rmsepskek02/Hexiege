@@ -372,8 +372,12 @@ namespace Hexiege.Domain
 
             var corridors = new List<MapCorridorRequirement>(2)
             {
-                new MapCorridorRequirement(LeftCorridorName, leftCorridorTiles),
-                new MapCorridorRequirement(RightCorridorName, rightCorridorTiles)
+                // 두 통로가 덮어야 하는 대역은 통로 타일을 모을 때 쓴 중앙 대역(높이 단계 18~24)과
+                // 같다. 같은 표를 넘겨야 「타일이 하나도 없는 단계」도 검사 대상에 들어간다.
+                new MapCorridorRequirement(LeftCorridorName, leftCorridorTiles, MinCorridorWidth, false,
+                    MapBandTable.CentralBandMinHeightStep, MapBandTable.CentralBandMaxHeightStep),
+                new MapCorridorRequirement(RightCorridorName, rightCorridorTiles, MinCorridorWidth, false,
+                    MapBandTable.CentralBandMinHeightStep, MapBandTable.CentralBandMaxHeightStep)
             };
 
             failureReason = null;

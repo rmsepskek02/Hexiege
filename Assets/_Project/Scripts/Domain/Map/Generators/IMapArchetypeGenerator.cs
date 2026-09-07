@@ -105,14 +105,84 @@ namespace Hexiege.Domain
         public IReadOnlyList<int> TileIndices { get; }
 
         /// <summary>
+        /// 이 통로가 지켜야 하는 「규정 폭」(규칙 6 ⑥ · 7 ⑥ · 8 ⑥ 이 단일 소스).
+        /// 폭은 타일 개수가 아니라 **열 구간의 너비**다(규칙 문서 3장 「폭은 열 구간으로 읽는다」).
+        ///
+        /// 🔴 왜 생성기가 이 값을 알려 줘야 하는가:
+        ///    완성된 맵만 봐서는 통로의 폭을 되읽을 수 없다. 한 높이 단계에는 짝수 열
+        ///    아니면 홀수 열만 있기 때문에, 홀수 단계에서는 폭 1 과 폭 3 이 똑같이
+        ///    「5열 하나」로 보이고 짝수 단계에서는 폭 3 과 폭 5 가 똑같이 「4·6열」로 보인다.
+        ///    그래서 검증기가 역산하지 않고 이 값을 받아서 쓴다.
+        /// </summary>
+        public int RequiredWidth { get; }
+
+        /// <summary>
+        /// 규정 폭이 「정확히 그 값」이어야 하면 true, 「그 값 이상」이면 false.
+        /// 3갈래형의 레인만 정확히 3이고(규칙 8 ⑥), 협곡형·외곽형은 3 이상이다.
+        /// </summary>
+        public bool IsExactWidth { get; }
+
+        /// <summary>
+        /// 이 통로가 반드시 덮어야 하는 높이 단계 대역의 시작(포함).
+        ///
+        /// 🔴 왜 이 값도 생성기가 알려 줘야 하는가 (초급자용 설명):
+        ///    검증기는 통로 타일 목록만 받는다. 그런데 어떤 높이 단계가 통째로 막혀 버리면
+        ///    그 단계의 타일이 목록에 아예 들어오지 않는다. 목록에서 대역을 되읽는 방식이면
+        ///    「막혀서 사라진 단계」와 「원래 통로에 없던 단계」를 구별할 수 없어, 병목이
+        ///    검사 대상에서 조용히 빠져나간다.
+        ///    그래서 통로가 덮어야 하는 범위를 생성기가 미리 신고하고, 검증기는 그 범위를
+        ///    처음부터 끝까지 훑는다. 타일이 0개인 단계는 폭 0으로 세어져 걸린다.
+        /// </summary>
+        public int MinHeightStep { get; }
+
+        /// <summary> 이 통로가 반드시 덮어야 하는 높이 단계 대역의 끝(포함). </summary>
+        public int MaxHeightStep { get; }
+
+        /// <summary>
         /// 필수 통로 하나를 만든다.
+        ///
+        /// 🔴 높이 단계 대역을 받지 않는 생성자는 일부러 두지 않는다. 그런 생성자가 있으면
+        ///    대역을 빠뜨린 통로(=검사되지 않는 통로)가 조용히 만들어질 수 있기 때문이다.
         /// </summary>
         /// <param name="name">통로 이름</param>
         /// <param name="tileIndices">통로 타일의 row-major 인덱스 목록</param>
-        public MapCorridorRequirement(string name, IReadOnlyList<int> tileIndices)
+        /// <param name="requiredWidth">규정 폭(열 구간의 너비, 1 이상)</param>
+        /// <param name="isExactWidth">정확히 그 폭이어야 하면 true, 그 이상이면 false</param>
+        /// <param name="minHeightStep">덮어야 하는 높이 단계 대역의 시작(포함)</param>
+        /// <param name="maxHeightStep">덮어야 하는 높이 단계 대역의 끝(포함)</param>
+        public MapCorridorRequirement(string name, IReadOnlyList<int> tileIndices,
+            int requiredWidth, bool isExactWidth, int minHeightStep, int maxHeightStep)
         {
+            if (requiredWidth < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(requiredWidth), "규정 폭은 1 이상이어야 한다.");
+            }
+
+            if (minHeightStep < MapBandTable.MinHeightStep || maxHeightStep > MapBandTable.MaxHeightStep ||
+                minHeightStep > maxHeightStep)
+            {
+                throw new ArgumentOutOfRangeException(nameof(minHeightStep),
+                    "통로의 높이 단계 대역이 격자 범위를 벗어났거나 앞뒤가 뒤집혔다(" +
+                    minHeightStep + "~" + maxHeightStep + ").");
+            }
+
+            // 🔴 대역이 180도 회전에 대해 닫혀 있어야 한다. 높이 단계 L 의 회전 상대는
+            //    42(=HeightStepSum)에서 L 을 뺀 값이므로, 대역이 닫혀 있다는 것은
+            //    「시작 + 끝 = 42」와 같은 말이다. 여기서 막지 않으면 위쪽 진영과 아래쪽
+            //    진영이 서로 다른 범위로 검사되는 불공평한 맵이 통과할 수 있다.
+            if (minHeightStep + maxHeightStep != MapBandTable.HeightStepSum)
+            {
+                throw new ArgumentOutOfRangeException(nameof(minHeightStep),
+                    "통로의 높이 단계 대역이 회전에 닫혀 있지 않다(" + minHeightStep + "~" + maxHeightStep +
+                    ", 합이 " + MapBandTable.HeightStepSum + " 이어야 한다).");
+            }
+
             Name = name ?? throw new ArgumentNullException(nameof(name));
             TileIndices = tileIndices ?? throw new ArgumentNullException(nameof(tileIndices));
+            RequiredWidth = requiredWidth;
+            IsExactWidth = isExactWidth;
+            MinHeightStep = minHeightStep;
+            MaxHeightStep = maxHeightStep;
         }
     }
 

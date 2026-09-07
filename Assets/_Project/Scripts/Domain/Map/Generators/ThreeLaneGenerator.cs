@@ -258,10 +258,17 @@ namespace Hexiege.Domain
                 }
             }
 
+            // 세 레인이 덮어야 하는 대역은 이 시도의 분리 길이가 정하는 대역이다.
+            // 레인 타일을 모을 때 쓴 IsWithinBand 와 같은 분리 길이에서 뽑아야 둘이 어긋나지 않는다.
+            int laneMinHeightStep = MapBandTable.GetBandMinHeightStep(separationLength);
+            int laneMaxHeightStep = MapBandTable.GetBandMaxHeightStep(separationLength);
+
             var corridors = new List<MapCorridorRequirement>(LaneCount);
             for (int lane = 0; lane < LaneCount; lane++)
             {
-                corridors.Add(new MapCorridorRequirement(LaneNameValues[lane], laneTiles[lane]));
+                // 레인의 규정 폭은 「정확히 3」이라 네 번째 인자가 true 다(규칙 8 ⑥).
+                corridors.Add(new MapCorridorRequirement(LaneNameValues[lane], laneTiles[lane],
+                    LaneWidth, true, laneMinHeightStep, laneMaxHeightStep));
             }
 
             failureReason = null;

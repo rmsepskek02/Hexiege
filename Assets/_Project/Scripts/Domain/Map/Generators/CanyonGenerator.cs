@@ -113,6 +113,13 @@ namespace Hexiege.Domain
         /// <summary> 필수 통로의 이름(로그·실패 사유에 쓴다). </summary>
         public const string CorridorName = "중앙 협곡";
 
+        /// <summary>
+        /// 필수 통로의 규정 폭(규칙 6 ⑥ 「3 이상」). 실제로 뽑히는 통로 폭 W 는 3·5·7 이지만,
+        /// 검증기에게 넘기는 값은 「규칙이 요구하는 최소 폭」이다 — 규칙이 단일 소스이고
+        /// 생성기가 이번에 몇으로 뽑았는지는 검증 기준이 아니기 때문이다.
+        /// </summary>
+        public const int RequiredCorridorWidth = 3;
+
         /// <summary> 이 생성기가 만드는 맵 유형. </summary>
         public override MapType MapType => MapType.Canyon;
 
@@ -261,7 +268,11 @@ namespace Hexiege.Domain
 
             var corridors = new List<MapCorridorRequirement>
             {
-                new MapCorridorRequirement(CorridorName + "(폭 " + corridorWidth + ")", corridorTiles)
+                // 대역은 병목 그 자체인 중앙 대역(높이 단계 18~24)이다. 통로 타일을 모을 때
+                // 쓴 IsWithinCentralBand 와 같은 표를 그대로 넘겨야 둘이 어긋나지 않는다.
+                new MapCorridorRequirement(CorridorName + "(폭 " + corridorWidth + ")", corridorTiles,
+                    RequiredCorridorWidth, false,
+                    MapBandTable.CentralBandMinHeightStep, MapBandTable.CentralBandMaxHeightStep)
             };
 
             return new MapArchetypeConstraints(MapType.Canyon, builder.Width,
