@@ -560,3 +560,66 @@ Single|OrderBy|Sum|Average|Aggregate|Distinct|Concat|Except|Intersect|Union|Skip
 ToDictionary|ToLookup|Reverse|Zip|SequenceEqual|ElementAt` → **진짜 히트 0건**(`HexPathfinder.cs:125` 의
 `path.Reverse()` 하나는 `List<T>` 의 인스턴스 메서드다), 그리고 약 40개의 `.Contains(` 수신자는 전부
 `HashSet<T>`/`List<T>`/`Dictionary<T>` 의 인스턴스 메서드다. **이 부류의 다른 오류는 Domain 에 남아 있지 않다.**
+
+## 무작위 맵 F 단계 — 폴백 템플릿 5개 + 제작 도구 (2026-09-07)
+
+**손으로 그리지 않는다. 생성기에서 뽑는다.** Plan 의 원래 방식(윗절반 수기 지정 + 회전 복제)은
+**사용자 승인으로 폐기**됐다. 손으로 그린 맵이 규칙 13 의 검사 전부를 동시에 만족한다는 보장이
+없기 때문이다. 실제 방식:
+
+```
+유형마다  광산 수 = 그 유형의 MaxNeutralMineCount,  시작 광산 = CaseA 고정
+          시드 0 부터 1씩 올리며 생성 → MapDefinitionValidator.Validate 를 완화 없이 통과한 첫 시드 채택
+```
+
+채택된 것은 **정의상** 검증 통과본이고, 재생성 정보가 「유형 + 시드 + 광산 수 + A/B」 네 값으로 줄어든다.
+
+| 파일 | 역할 |
+|---|---|
+| `Domain/Map/MapFallbackTemplateFactory.cs` (1124행) | 순수 로직. `MapFallbackTemplate` 값 객체 + 팩터리 |
+| `Assets/Editor/Tools/MapFallbackTemplateBuilder.cs` (342행) | 위를 부르기만 하는 얇은 껍데기. 메뉴 `Hexiege/무작위 맵/1·2` |
+| `Assets/_Project/Resources/MapTemplates/*.bytes` | 런타임 로드용 canonical binary 5개 |
+| `Assets/_Project/Docs/_Reference/MapTemplateSource/*.md` | 재생성 정보 5개(각 55행) |
+
+🔴 **로직을 Domain 에 두는 이유가 검증 가능성이다.** 이 저장소에는 Unity 가 없어 에디터 도구를
+실행할 수 없다. 로직이 순수 C# 이면 `mono` 로 그대로 돌려 **결과물을 실제로 만들고 검증까지** 할 수
+있고, 에디터 도구는 같은 로직을 부르므로 두 경로가 어긋날 수 없다. 문서 본문을 만드는 문자열 조립
+(`BuildSourceDocument`)까지 Domain 에 둔 것도 같은 이유다 — 에디터로 만든 문서와 mono 로 만든 문서가
+글자 하나까지 같아야 하기 때문.
+
+**실측값(mapVersion 1, attemptIndex 0, CaseA, 정상 모드):**
+
+| 유형 | 채택 시드 | 광산 | 초기 골드 | 바이트 | SHA-256 |
+|---|---|---|---|---|---|
+| FullyOpen | 0 | 6 | 200 | 343 | `4fab6efbb6cb27ec30510a5e8c18dca07729a897e5d9c0f46ba86b62595fbbd9` |
+| ObstacleOpen | 0 | 6 | 200 | 343 | `52ed46de30436f20c7a37260ea7bcc4b0104063f0e2a470ae96ef90b658691ee` |
+| Canyon | 0 | 4 | 400 | 335 | `314db3fa4a022bb804a12a9b3050c5b38e424d13dc83333afbdf2865e7901082` |
+| Outer | 0 | 6 | 200 | 343 | `67f2857cb076023332172257a94b54a3a9765eeb0f7d621138b63a91716df14f` |
+| ThreeLane | 0 | 6 | 200 | 343 | `4b84e2b76fb0fc645b9d81c092f854496dc47d1413b855afc6ed839e897ae647` |
+
+**다섯 유형 전부 시드 0 에서 바로 통과했다**(`seedsTried = 1`). 광산 수 4/6 차이 때문에 Canyon 만
+8바이트 짧다(중립 광산 int 2개). 이 해시가 바뀌면 생성기의 뽑기 순서·확률이 바뀐 것이므로
+`MapVersion` 을 올려야 하는지부터 판단할 것.
+
+🔴 **`MapDefinitionCodec.Encode` 는 `TestModeFlag` 와 `InitialGold` 를 해시 입력에 포함한다**
+(canonical 앞머리 40바이트 = int 8개 + ulong 1개). 규칙 12 대로 조정자(G)가 테스트 모드 초기 골드
+5000 을 덮어쓰면 **해시를 반드시 다시 계산해야 한다.** 템플릿은 정상 모드 값만 담는다 —
+테스트 모드 덮어쓰기는 템플릿의 몫이 아니다.
+
+**`.bytes` 확장자는 선택이 아니다.** Unity 는 `.bytes` 여야 바이너리를 `TextAsset` 으로 임포트한다.
+다른 확장자면 `Resources.Load<TextAsset>` 이 런타임에 읽지 못한다. 이름 규칙의 단일 소스는
+`GetTemplateAssetName/FileName/ResourcePath` 이며 **G 단계 로더도 이것을 써야** 만드는 쪽과 읽는 쪽이
+갈리지 않는다.
+
+**`MapDefinitionCodec.Decode` 는 `Hash` 를 복원하지 않는다**(바이트열에 애초에 없다). 그래서 왕복 검사는
+「해시가 복원됐는가」가 아니라 **「다시 계산하면 같은가」**를 봐야 한다.
+`MapArchetypeGeneratorBase.TryCompareDefinitions` 는 **지형과 중립 광산만** 본다 — 성·시작 광산·장식·
+스칼라 필드까지 보는 왕복 비교는 `MapFallbackTemplateFactory.TryCompareDefinitionsExactly` 다.
+
+**자기 검증은 이제 12종이다**(F 로 1개 추가). `mono` 전량 실행 결과 **12/12 PASS**(합계 약 200ms).
+F 의 자기 검증 9단계에는 음성 대조가 들어 있다 — 타일 배열 첫 바이트를 뒤집은 사본이 왕복 비교에서
+**반드시 검출돼야** 통과한다(검출하지 못하면 왕복 검사 통과가 근거가 되지 못하므로).
+
+⚠️ **Unity 에디터에서는 아직 한 번도 실행되지 않았다.** 에디터 도구는 `mcs` + Unity 스텁
+(`MenuItem`/`EditorUtility`/`AssetDatabase`/`Debug`/`Application.dataPath` + `Hexiege.Application`
+네임스페이스 재현)으로 **오류 0 · 경고 0** 컴파일까지만 확인했다.
