@@ -1,5 +1,34 @@
 # Project Orchestrator Memory — Hexiege
 
+> # 🔴 ARCHIVE — the `project-orchestrator` agent was retired on 2026-09-02
+>
+> **The agent definition `.claude/agents/project-orchestrator.md` was deleted.** There is no
+> `project-orchestrator` agent to call any more.
+>
+> **Why it was retired.** This agent's whole job was to coordinate *other* agents, but
+> **a subagent cannot call another agent** — that is a harness-level restriction and no
+> setting changes it. So an agent invoked to coordinate had nobody to coordinate and did
+> all the work itself, which is not coordination. On 2026-09-01 the agent reported this
+> about its own run: it could not honour `CLAUDE.md` rule 3 because no tool for calling
+> another agent was available to it.
+>
+> **Coordination is now the main session's job.** The main session is top-level, so it can
+> call each specialist agent directly, and that is how this project has actually worked.
+> The *criteria* for when coordination is needed (design + implementation together / three
+> or more files / reviewing an agent's output) remain valid and live in `CLAUDE.md` rule 3
+> and `WORKFLOW.md` [5].
+>
+> **This folder is kept on purpose — do not delete it.** `project-history.md` and
+> `roadmap-3d.md` are **project history, not agent role material**; retiring the agent does
+> not make that history wrong. Deleting it would violate `.claude/MEMORY.md` memory rule 6
+> (delete only after confirming an entry is wrong) and rule 16 / `check_docs.py` check `[7]`
+> (an agent folder's total line count must not decrease). This project already has one
+> unrecovered **-378 line** loss of exactly this shape.
+>
+> **Read the rest of this file as a record of how the retired agent worked**, not as
+> instructions for a live agent. The delegation patterns and required-context checklist
+> below still describe how this project delegates — the main session is now the caller.
+
 ## 2026-08-24 B3 blocked-start 최소 교정 상태
 - 동적 건물로 대체 경로가 있어도 Unit48/59/69/96이 멈춘 직접 원인은 non-walkable authoritative start가 FlowField에서 빠져 `RequestMove`가 null이 된 계약 공백이다.
 - 최소 slice는 `UnitMovementUseCase`의 authoritative-only 인접 egress와 Editor self-validation이며 UnitView/HexFlowField/NetworkTransform/prefab/package는 보존했다.

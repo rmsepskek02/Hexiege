@@ -221,7 +221,7 @@ namespace Hexiege.Application.Services
 
             foreach (var kvp in _grid.Tiles)
             {
-                if (kvp.Value.HasGoldMine)
+                if (kvp.Value.MineKind != MineKind.None)
                     _mineTiles.Add(kvp.Key);
             }
 

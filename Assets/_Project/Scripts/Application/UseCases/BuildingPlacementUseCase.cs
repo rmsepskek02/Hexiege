@@ -6,7 +6,7 @@
 //   1. GameBootstrapper(Castle 자동 배치) 또는 BuildingPlacementUI(플레이어 배치)가 요청
 //   2. 배치 가능 여부 검증 (타일 존재, IsWalkable, 팀 소유)
 //   3. BuildingData 인스턴스 생성 (Id 자동 발급)
-//   4. 타일 상태 변경: IsWalkable = false, 소유권 설정
+//   4. 타일 상태 변경: HasBuilding 을 켜고 소유권 설정
 //   5. GameEvents.OnBuildingPlaced 이벤트 발행
 //   6. BuildingFactory(Infrastructure)가 이벤트를 받아 프리팹 인스턴스 생성
 //
@@ -83,7 +83,7 @@ namespace Hexiege.Application
 
         /// <summary>
         /// MiningPost 배치. 금광 타일 전용.
-        /// 조건: HasGoldMine + 건물 없음 + 인접 타일 중 하나 이상 팀 소유.
+        /// 조건: 광산 타일(MineKind != None) + 건물 없음 + 인접 타일 중 하나 이상 팀 소유.
         /// </summary>
         /// <param name="team">소속 팀</param>
         /// <param name="position">배치 좌표</param>
@@ -93,7 +93,7 @@ namespace Hexiege.Application
         {
             HexTile tile = _grid.GetTile(position);
             if (tile == null) return null;
-            if (!tile.HasGoldMine) return null;
+            if (tile.MineKind == MineKind.None) return null;
             if (GetBuildingAt(position) != null) return null; // 이미 건물 있음
 
             // 인접 타일 중 하나 이상 팀 소유 필요
@@ -114,7 +114,7 @@ namespace Hexiege.Application
         {
             HexTile tile = _grid.GetTile(position);
             if (tile == null) return null;
-            if (!tile.HasGoldMine) return null;
+            if (tile.MineKind == MineKind.None) return null;
 
             return PlaceBuildingInternal(BuildingType.MiningPost, team, position, tile, race);
         }
@@ -143,8 +143,9 @@ namespace Hexiege.Application
             _buildings[building.Id] = building;
             _buildingsByPosition[position] = building; // 위치 역인덱스 동기화
 
-            // 타일 상태 변경
-            tile.IsWalkable = false;
+            // 타일 상태 변경 — 건물이 생겼다는 사실만 기록한다.
+            // (IsWalkable은 계산 프로퍼티라 직접 대입할 수 없고, 그럴 필요도 없다.)
+            tile.HasBuilding = true;
             _grid.SetOwner(position, team);
 
             // 인접 타일 소유권 설정
@@ -182,8 +183,9 @@ namespace Hexiege.Application
             _buildings[building.Id] = building;
             _buildingsByPosition[position] = building; // 위치 역인덱스 동기화
 
-            // 타일 상태 변경: 이동 불가 + 소유권 설정
-            tile.IsWalkable = false;
+            // 타일 상태 변경: 건물 있음 + 소유권 설정
+            // HasBuilding 이 켜지면 이동 가능 여부는 자동으로 false로 계산된다.
+            tile.HasBuilding = true;
             _grid.SetOwner(position, team);
 
             // 인접 타일 소유권 설정 (건물 건설 시 주변 영토 확장)
@@ -227,7 +229,7 @@ namespace Hexiege.Application
 
             if (type == BuildingType.MiningPost)
             {
-                return tile.HasGoldMine
+                return tile.MineKind != MineKind.None
                     && GetBuildingAt(position) == null
                     && HasAdjacentTeamTile(position, team);
             }
@@ -308,7 +310,7 @@ namespace Hexiege.Application
             // 철거 호출 전 Castle 여부를 검증하므로 실제로는 Castle이 여기에 도달하지 않는다.
             GameEvents.OnBuildingDied.OnNext(new BuildingDiedEvent(building));
 
-            // 도메인 딕셔너리에서 제거 + 타일 상태(IsWalkable, 소유권) 복구
+            // 도메인 딕셔너리에서 제거 + 타일 상태(HasBuilding, 소유권) 복구
             return RemoveBuilding(buildingId);
         }
 
@@ -324,9 +326,12 @@ namespace Hexiege.Application
                 HexTile tile = _grid.GetTile(building.Position);
                 if (tile != null)
                 {
-                    // 금광 타일은 이동 불가 유지 (금광 오브젝트가 남아있음)
-                    if (!tile.HasGoldMine)
-                        tile.IsWalkable = true;
+                    // 건물이 사라졌다는 사실만 기록한다.
+                    // 예전에는 "금광 타일이면 되돌리지 않는다"는 가드가 필요했지만,
+                    // 이제 IsWalkable 계산식이 MineKind == None을 이미 요구하므로
+                    // 광산 타일은 HasBuilding을 false로 내려도 계속 이동 불가로 계산된다.
+                    // (막힌 지형 TileKind.Blocked도 같은 이유로 자동 유지된다.)
+                    tile.HasBuilding = false;
 
                     // 채굴소(MiningPost)가 파괴된 경우:
                     // 해당 타일의 소유권을 Neutral로 되돌려서 타일 색상이 중립으로 복귀하도록 처리.

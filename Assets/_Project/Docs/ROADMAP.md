@@ -1,6 +1,6 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-08-25
+**최종 수정일:** 2026-09-03
 
 **최우선 게이트 (2026-08-25):** B3 v10 중심 경로·건물 안전 Chase·전방 중심 복귀는 Android Host·Editor Client 집중 실기에서 MOVE EVIDENCE와 양쪽 local ROOT PASS를 확보했다. Host 중심 checkpoint 766회·최대 오차 0, direct-safe/path Chase 806/2,977 frame, authority/adapter/stationary Walk/drop 오류 0이다. 공식 CrossAudit INCONCLUSIVE의 원인이던 긴 ROOT terminal은 채점 필수 필드만 남긴 803-byte 최악값 compact END와 출력 전 preflight로 교정했으며 Runtime/Editor Roslyn과 Unity self-validation 2종까지 PASS했다. 다음은 Tracer C Phase 4 공격 회차 Shadow와 서버 권위 타겟·공격 방향 교정이다.
 
@@ -12,6 +12,7 @@
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 > B2 PASS는 당시 10°/15° 일반 정렬 계약의 이력이다. v2.1은 이를 안전 fallback으로 재분류했으므로 B2 및 현재 B3 정확성 로그만으로 연속 이동 완료를 선언하지 않는다. 공격 방향·Impact·피해 시점과 ActionSequence 전체 권위 전환도 계속 미완료다.
+**2026-09-03 갱신 — 무작위 맵 작업이 3단계로 갈라졌다.** 종전에는 무작위 맵 구현이 우선순위 표에 **한 행**으로만 있었는데, **1단계(타일 상태 계약 전환)가 구현·에디터 실기 검증까지 끝나** 그 행의 범위 서술이 더는 맞지 않게 됐다. 그래서 완료된 1단계는 표에서 내리고, 남은 일을 **2단계(맵 생성기 5종 · 검증기 · 폴백)** 와 **3단계(AI 배치 후보 판정 등 잔여 전환 · 맵 전송 · 재경기)** 두 행으로 나눴다. **무작위 맵 트랙의 다음 단계는 2단계**이며, 현재 진행 중인 유닛 전투 교정 트랙을 대체하지 않고 병행한다. 3단계는 2단계가 만들어 낼 타일 종류가 있어야 결과가 달라지므로 그 뒤에 한다.
 
 ---
 
@@ -58,7 +59,8 @@
 | 🔴 높음 | AI 시스템 — 반응 시스템(R1 유닛열세/R2 골드과잉/R3 채굴소 파괴) 트리거·동작 + 3종족(Human/Spirit/Transcendence) 시나리오 무작위 선택 동작 정밀 실기 검증 (핵심 흐름은 확인됨, 세부 정밀 검증만 잔여) | 기능 | 소 |
 | 🔴 높음 | 신규 유닛 프리팹 실기 테스트 + 후속 작업 (Animation Event 부착, UnitFactory 등록, StatsReference 스탯 확정) | 기능 | 대 |
 | 🔴 높음 | 게임 화면 UI 크기/레이아웃 수정 잔여 (HUD-007, SET-004, SET-007/END-001, MULTI-END-002 — 5항목) | UI | 소 |
-| 🔴 높음 | FlatTop 11×21 무작위 대전 맵 구현 — 5종 생성 전략, exact 180° 대칭, 광산/초기 골드, 초기 골드 전용 테스트 모드(멀티 Host 권위), 건설 불가·차단 지형, 결정적 seed/검증/폴백, canonical chunk 전송, SameMap/NewMap, 경로 완전 차단 대응 (설계 확정·문서 동기화 2026-07-20) | 기능/맵 | 대 |
+| 🔴 높음 (**2단계 — 1단계 완료 2026-09-03**) | **FlatTop 11×21 무작위 대전 맵 구현 — 2단계: 싱글플레이에서 무작위 맵이 실제로 도는 것까지.** 1단계(타일 상태 계약 전환)는 **구현·에디터 실기 검증 완료**라 이 표에서 내렸다(이력은 [WORK_HISTORY.md](WORK_HISTORY.md), 상태는 [PROJECT_STATUS.md](PROJECT_STATUS.md)). **2단계 범위(2026-09-03 재조정 — 경계를 「싱글 = 2단계 / 멀티 = 3단계」로 다시 그었다):** 결정적 PRNG 4스트림, `SymmetricMapBuilder`, 유형별 생성 전략 5종, exact 180° 대칭, 광산/초기 골드, 초기 골드 전용 테스트 모드 설정 필드, 건설 불가·차단 지형 생성, 검증기·폴백 5개와 제작 도구, **그리고 만든 맵을 실제 전장으로 옮기는 것까지** — `MapDefinition` → `HexGrid` 투영, `GameConfig` 격자 11×21, 렌더러(막힌 타일 빈 공간·건설 불가 해치), AI 배치 후보 판정 전환, 건설·점령 전용 조건. **완료 판정은 「싱글 경기에서 매번 다른 맵이 나오고 정상 플레이된다」이며 실기로 확인한다.** 종전 분할은 2단계를 생성기·검증기·폴백까지로 두어 완료해도 게임 동작이 그대로였다. **3단계는 멀티 전송·해시 대조·실패 UI·재경기만 남는다.** ⚠️ **1단계가 만든 타입 6종 중 `MapType`·`DecorationDefinition`·`MapDefinition`·`MapDefinitionCodec` 4종은 아직 호출부가 0곳**이며, 이 2단계가 그 호출부를 만드는 작업이다 (설계 확정·문서 동기화 2026-07-20) | 기능/맵 | 대 |
+| 🔴 높음 (**3단계 — 2026-09-03 등록**) | **무작위 맵 3단계 — 잔여 전환 · 맵 전송 · 재경기.** ① **AI 건물 배치 후보 판정 전환** — `Application/Services/AIOpponentController.cs` `FindPlacementTile()` 의 후보 판정(**807~809행**)과 **같은 파일 770~773행 XML 주석**이 아직 이동 가능 여부로 판정한다. 「일반 건설」 조건으로 옮긴다(단일 소스 `TechnicalDesignDocument.md` 「기존 코드 전환 요구」 · 기획 계약 `GameSystemRules/GameSystemRules_AI.md` 규칙 26). ② **건설·점령의 전용 조건 전환** — 일반 건물 배치가 아직 이동 가능 여부를 그대로 쓰고(`TileKind == Normal` 미확인), 점령에 `TileKind != Blocked` 확인이 없다. ③ canonical chunk 전송, `SameMap`/`NewMap`, 경로 완전 차단 대응. ⚠️ **①②는 지금 고쳐도 결과가 달라지지 않는다** — 현재 고정 맵은 `TileKind` 를 설정하는 코드가 한 곳도 없어 모든 타일이 `Normal` 이고, 「이동은 되지만 건설만 막히는 타일」을 만들어내는 것이 2단계이기 때문이다. **2단계 완료 후에 착수한다** | 기능/맵 | 중 |
 | 🟡 중간 (미착수) | **MistShrine 멀티플레이 실기 검증** — 이번 사이클 검증은 **에디터 싱글플레이로만** 이루어졌다. 범위 판정·중첩 해소·회복량 계산은 싱글·멀티가 같은 코드 경로를 공유하지만, **건물 HP 동기화(`SyncBuildingHealClientRpc`)·클라이언트 표시·RPC 팀 검증·쿨다운 로컬 미러·이중 틱 여부는 멀티에서만 도는 경로이며 한 번도 실행되지 않았다.** Host+Client 구성으로 확인 필요 | QA | 소 |
 | 🟡 중간 (미착수) | **MistShrine 물안개 지속 VFX + 사용 버튼 아이콘 제작** — 현재 물안개는 **눈에 보이지 않고**(등록 VFX는 `vfx_mistshrine_destroy`/`vfx_mistshrine_upgrade`뿐 — 규칙 26), 사용 버튼은 **임시 텍스트 라벨**(UI 규칙 15). VFX 재생 시 사운드 규칙 15(VFX+SFX 쌍) 준수 | 에셋 | 중 |
 | 🟡 중간 | 스킬 건물 구체 스킬 목록·수치 확정(기획) — 각 슬롯 1~5 스킬·쿨다운·반경·지속·피해·상태효과를 ScriptableObject 데이터로 확정. 개별 스킬 쿨다운 도입 여부·회복 스킬 지점 지정 전환 여부 포함 | 기획 | 중 |

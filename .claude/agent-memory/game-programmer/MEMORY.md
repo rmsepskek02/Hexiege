@@ -32,7 +32,11 @@
 - [unit-building.md](unit-building.md) — 유닛 이동/전투 V3, 회전, 혼잡도, 다중히트, 건물 배치/철거/업그레이드/환불,
   생산 PendingQueue, AutoTower, 랠리포인트
 - [hex-grid.md](hex-grid.md) — 헥스 좌표계, HexMetrics, ViewConverter, 타일 소유권, 그리드 렌더링, 패스파인딩,
-  카메라, URP RT 잔상, **거리 비교는 `HexCoord.Distance`(도메인 정수) 우선**
+  카메라, URP RT 잔상, **거리 비교는 `HexCoord.Distance`(도메인 정수) 우선**,
+  **`HexTile` 상태 계약(`TileKind`/`MineKind`/`HasBuilding` + 계산 프로퍼티 `IsWalkable`) 과
+  무작위 맵 1단계 신설 타입** — 타일 상태·건물 배치/철거 작업은 여기부터 읽는다.
+  **무작위 맵 2단계 A: 결정적 PRNG `MapRandom`(SplitMix64) · 4스트림 `MapRandomStreams` ·
+  seed 파생 순서 · 코드 내장 검증 벡터 · `GameConfig` 테스트 모드 필드 2개** — 맵 생성 작업도 여기부터 읽는다
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
 ### 세부 보조 자료
@@ -642,6 +646,10 @@ public void Hide()    { _showRequested = false; if (gameObject.activeSelf) gameO
 - `UnitView.MoveAlongPathV3`의 A* corridor, PostCombatResume corridor, resume path와 PendingRepath는 공통 guard를 사용한다. 수락한 path는 반드시 `yield return null` 뒤 다음 frame부터 처리한다.
 - authoritative position 또는 logical checkpoint 진전에서 no-progress 이력을 reset한다. fail-closed에서는 완료 callback과 힐러 idle watcher 재진입을 억제해 새 same-frame loop를 만들지 않는다.
 - 서버 single-writer와 Client Simulation Root write 금지, 경기 중/유닛별 Legacy fallback 금지는 유지한다. Unity Tundra compile과 finite-repath self-validation은 PASS, Android Host 회귀는 pending이다.
+- 🔴 **Domain 레이어는 진짜로 컴파일해서 돌릴 수 있다(2026-09-07).** `apt-get install -y mono-mcs` →
+  `mcs`/`mono`. `Domain/Map/**` + `Domain/Hex/*` + `Common/TeamId.cs` 는 Unity 없이 단독 빌드된다.
+  「컴파일러가 없어 추론만 했다」는 종전 전제는 **더 이상 사실이 아니다.** 절차·제약(C# 7.2 한계,
+  수정 전/후 사본 2벌 비교)과 이 방법으로 찾아낸 기존 컴파일 오류 1건 → [hex-grid.md](hex-grid.md) 맨 끝.
 - 중괄호 개폐 균형은 **주석·문자열 리터럴을 걷어낸 뒤** 세야 한다. 단독행 카운트나 `{` 총계는 오탐이 잦다
   (문자열 보간 `$"{x}"` 때문). 파이썬으로 스트립 후 세는 것이 유일하게 신뢰할 수 있다.
 - ⚠️ **주석에 `Debug.Log` / `GameLog.Dev.` / `Pos=` / `if (IsServer) return;` 같은 검증 grep 대상 낱말을

@@ -116,6 +116,18 @@ Clean Architecture에서는 **안쪽 레이어가 바깥쪽 레이어를 알면 
 - **참조 허용 범위**: Application 레이어는 Domain/Application 타입 참조 가능, `Unity.Netcode` 직접 참조 금지(NetworkContext 정적 홀더 사용). 단 `UnityEngine.GameObject` 등 기본 Unity 타입은 `IUnitFactory`처럼 필요 시 허용.
 - **`IUnitFactory` 멤버**: `GetUnitObject(int)` / `RegisterUnitObject(int, GameObject)` / `InitializeUnitView(UnitData)` — Infrastructure/Network 계층(`NetworkUnit`, `NetworkProductionController`, `NetworkCombatController`, `NetworkUnitMovementController`)이 `IGameServices.GetUnitFactory()`를 통해 `IUnitFactory` 타입으로 접근한다.
 
+### ⚠️ 네임스페이스 이름 충돌 — `Hexiege.Application` 과 `UnityEngine.Application`
+
+이 프로젝트의 Application 레이어 네임스페이스 `Hexiege.Application` 은 **유니티의 `UnityEngine.Application` 클래스와 이름이 겹친다.**
+
+- `Hexiege.*` 안에 있는 파일에서는 바깥 네임스페이스가 `Hexiege` 이므로, 그냥 `Application` 이라고 쓰면 **네임스페이스 `Hexiege.Application` 으로 해석된다.** 그래서 `Application.dataPath` 같은 코드는 **컴파일되지 않는다.**
+- **해결: 유니티 쪽을 쓸 때는 반드시 `UnityEngine.Application` 으로 완전 수식한다.** 이미 그렇게 쓰고 있는 코드가 있으니 그 형태를 따르면 된다(예: `Assets/_Project/Scripts/Infrastructure/Debug/FileSink.cs` — 이 함정과 해법이 파일 헤더 주석에 적혀 있다).
+- **실측 규모(2026-08-31, `grep` 기준)**: `namespace Hexiege.Application…` 선언 파일 **58개** · `using Hexiege.Application` 계열 지시문 **77곳**(그중 `using Hexiege.Application;` 74곳) · `UnityEngine.Application.` 완전 수식 **24곳 / 9개 파일**.
+
+**개명하지 않기로 한다 (2026-08-31 결정).** 이유는 두 가지다 — ① 완전 수식으로 회피되고 있어 **현재 정상 동작 중**이고, ② 개명은 위 135곳 이상(선언 58 + 사용 77)을 건드리는 **코드 리팩터**라 문서 정리와는 성격이 다르다. **후속 판단 대기 항목으로 남긴다** — 레이어 이름을 손보는 별도 작업이 생기면 그때 함께 검토한다.
+
+> 🔴 이것은 **회전 연산의 이름을 `RotateCoord`/`RotateState` 로 나눈 것과 같은 부류의 문제**다(「`SymmetricMapBuilder` 생성 경계」 절 — 종전에는 좌표 변환과 상태 변환이 한 이름이었다). **같은 이름이 서로 다른 것을 가리켜, 컴파일러는 구분해도 사람은 구분하지 못한다.** 다른 점은 그쪽은 문서상의 이름이라 고쳤고 이쪽은 코드 전반의 이름이라 미뤘다는 것뿐이므로, **새로 이름을 짓는 자리에서는 이 부류를 만들지 않는다.**
+
 ### ViewConverter 시스템 (Core 레이어)
 
 멀티플레이 팀별 관점 처리를 위한 좌표 변환 시스템.
@@ -187,12 +199,21 @@ void ShowEffectClientRpc(Vector3 position) {
 | **유닛 행동 상태** | 목표: 값 기반 `UnitActionSnapshot` 복제; 현재: A1/A2 계약·pose seam과 B2 이동 Shadow 구현, 권위 런타임은 위치/회전 + `UnitAnimState`와 개별 RPC 혼합 | 상태 변경 시 |
 | **공격 타격 결과** | 목표: `AttackImpactResult` (`AttackerInstanceId + SequenceId + HitIndex` 기반 정규 키); 현재: HP 동기화 + 공격자 FIFO 표현 큐 | Impact 시 |
 
-#### 무작위 맵 시작 동기화 (확정 설계, 미구현)
+#### 무작위 맵 시작 동기화 (확정 설계, 1단계만 구현)
+
+> **2026-09-03 상태 갱신.** 이 절 전체가 「미구현」이던 표기를 바꿨다. **아래 「`HexTile` 런타임 상태 계약」의 1단계(타일 상태 계약 전환)만 구현·실기 검증이 끝났고, 나머지는 여전히 확정 설계·미구현이다.**
+> 1단계에서 **`TileKind` · `MineKind` · `MapType` · `DecorationDefinition` · `MapDefinition` · `MapDefinitionCodec` 6개 타입이 생겼지만, 뒤의 4개는 아직 어느 코드에서도 호출되지 않는다**(2·3단계에서 쓰인다). **타입이 있다는 것과 그 계약이 동작한다는 것은 다른 말이므로, 이 절의 맵 생성·검증·전송·해시 대조는 전부 미구현으로 읽어야 한다.**
+> 단계 구분 (**2026-09-03 재조정 — 경계를 「싱글플레이 = 2단계 / 멀티플레이 = 3단계」로 다시 그었다**):
+> - **1단계** 타일 상태 계약 전환 — **완료**
+> - **2단계** 결정적 PRNG 4스트림 · `SymmetricMapBuilder` · 생성기 5종 · `MapDefinitionValidator` · `InitialMapStateEvaluator` · 폴백 템플릿 5개와 제작 도구 · **`MapDefinition` → `HexGrid` 투영** · **`GameConfig` 격자 11×21** · **테스트 모드 설정 필드** · **렌더러(막힌 타일 빈 공간·건설 불가 해치)** · **AI 배치 후보 판정 전환** · **건설·점령 전용 조건** · `GridInteractionUseCase` 클릭 판정 순서. 완료 판정은 **「싱글 경기에서 매번 다른 맵이 나오고 정상 플레이된다」**
+> - **3단계** `NetworkMapTransfer` 조각 전송 · Host/Client 해시 대조 · 맵 준비 실패 UI · `SameMap`/`NewMap` 재경기
+>
+> 종전 분할은 2단계를 「생성기·검증기·폴백」까지로 두어 **완료 판정이 게임 동작과 무관**했다(에디터에서 생성만 확인). 실기로 확인할 것이 없고 「이건 2단계냐 3단계냐」 하는 경계 문제가 쌓여, 규칙 12가 이미 긋고 있는 선(**「싱글플레이는 같은 생성기를 로컬 권위로 실행한다」**)을 따라 다시 잘랐다.
 
 > 범위 경계: 이번 기능에는 canonical binary 형식 식별용 임시 `MapVersion`(`int`, 초기값 `1`)만 둔다. 이는 unknown map format deserialize 차단 전용이며 matchmaking, 앱 업데이트, 전역 connection compatibility 책임이 없다. 전역 `GameProtocolVersion`/build compatibility는 matchmaking same-version filter, custom lobby pre-Relay 검사, NGO connection approval/rejection, reconnect version validation, update-required UX를 포함한 별도 중요 작업이다.
 
 - Host 측 맵 준비 조정자가 64-bit root seed를 만들고, 전용 PRNG의 `MapSelection` 스트림으로 `MapType`, 허용 `NeutralMineCount`, `StartingMineSide`(A/B 50:50)를 최초 1회 선택한 뒤 최종 맵을 생성·검증한다. 정상 모드의 `InitialGold`는 광산 수 표에서 결정하고, `GameConfig.MapTestModeEnabled=true`이면 광산 수와 무관하게 실제 `InitialGold=TestStartingGold(5000)`을 사용한다.
-- 최대 100회 재시도와 같은 선택값의 폴백 선택도 Host에서만 수행한다. 재시도는 지형 세부 형태·중립 광산 위치와 장식 placement 활성화 이후의 장식만 바꾸며 선택값을 다시 뽑지 않는다. 최초 구현의 장식 목록은 항상 비어 있다.
+- 최대 100회 재시도와 폴백 선택도 Host에서만 수행한다. 재시도는 지형 세부 형태·중립 광산 위치와 장식 placement 활성화 이후의 장식만 바꾸며 선택값을 다시 뽑지 않는다. 최초 구현의 장식 목록은 항상 비어 있다. **경기 선택값이 그대로 유지되는 구간은 시도 0~99까지이며, 폴백 경로에서는 일부 값이 템플릿 값으로 대체된다** — 무엇이 대체되고 무엇이 유지되는지는 아래 「deterministic fallback 정의」가 단일 소스다.
 - 로비 씬에 로딩 화면을 표시한 상태에서 최종 맵 데이터, 64-bit root seed, 맵 유형, 광산 수, 시작 광산 방향, 테스트 모드 표식(고정폭 0/1), 실제 초기 골드, 최종 맵 해시를 전달한다.
 - 로딩 UI는 준비 진행 상태만 표시하고 맵 유형·광산 수·초기 골드·seed·맵 미리보기를 노출하지 않는다.
 - Client는 전달받은 맵 정의의 해시를 확인하고 준비 완료를 알린다. 양측 해시가 같을 때만 Host가 전투 씬 전환을 시작한다.
@@ -224,7 +245,10 @@ col   = index % width
 row   = index / width
 ```
 
-- 타일별 필드: `TerrainKind`(`Open`/`Blocked`), `BuildRule`(`Allowed`/`NoBuild`). `InitialOwner`와 장식 상태는 포함하지 않는다.
+- 타일별 필드: **`TileKind` 3상태 단일 필드** — `Normal`(일반 타일) / `NoBuild`(건설 불가 타일) / `Blocked`(막힌 타일). `InitialOwner`와 장식 상태는 포함하지 않는다.
+
+> 🔴 **2필드(`지형 종류` + `건설 규칙`) 구조는 폐기했다 (2026-08-26).** 막힌 타일의 건설 규칙 값이 미정의여서 **게임 의미가 같은 맵이 서로 다른 canonical bytes·SHA-256** 을 가질 수 있었기 때문이다. 해시는 Host/Client 비교, `NewMap` 재경기의 동일 맵 판정, 폴백 바이너리 유효성의 근거이므로 이 어긋남은 설계 전체의 전제를 흔든다. 3상태 단일 필드는 **모순 조합을 구조적으로 표현 불가능**하게 만든다.
+> **구현 시 제약**: `TileKind` 는 Domain 계층 타입이므로 `Domain → Core 참조 금지` 제약을 받는다(`.claude/MEMORY.md` 「아키텍처 핵심 제약」).
 - orientation, enum, 종류, 변형, 회전은 정수 enum/index로 표현하며 해시 원본에 float를 포함하지 않는다.
 
 **오브젝트 배치:**
@@ -236,7 +260,7 @@ row   = index / width
 
 `DecorationDefinition`의 네 속성은 모두 고정폭 정수 ID다. 실제 material, scale float, rotation float는 해당 ID가 가리키는 표현 계층의 사전 정의이며 canonical bytes에 직접 넣지 않는다. 장식 목록은 canonical codec과 SHA-256 입력에 포함하고 정규 정렬한다.
 
-성·광산의 정체성, 팀, 위치는 이 오브젝트 배치 목록이 유일한 권위 원본이다. 타일 레코드에 `HasCastle`, `HasGoldMine` 같은 중복 정체성 필드를 두지 않는다. 타일 레코드의 `TerrainKind`/`BuildRule`은 정적 지형과 건설 규칙만 표현하며 성·광산의 존재를 중복 인코딩하지 않는다. 런타임 이동 가능 여부는 배치 목록에서 투영한 `MineKind`와 동적 `HasBuilding`을 함께 계산한다. 생성기, 검증기, 네트워크 전달, 전투 씬 구성은 모두 같은 `MapDefinition`을 사용하며 별도 위치 목록을 병행 유지하지 않는다.
+성·광산의 정체성, 팀, 위치는 이 오브젝트 배치 목록이 유일한 권위 원본이다. 타일 레코드에 `HasCastle`, `HasGoldMine` 같은 중복 정체성 필드를 두지 않는다. 타일 레코드의 `TileKind`는 정적 지형과 건설 규칙만 표현하며 성·광산의 존재를 중복 인코딩하지 않는다. 런타임 이동 가능 여부는 배치 목록에서 투영한 `MineKind`와 동적 `HasBuilding`을 함께 계산한다. 생성기, 검증기, 네트워크 전달, 전투 씬 구성은 모두 같은 `MapDefinition`을 사용하며 별도 위치 목록을 병행 유지하지 않는다.
 
 **초기 소유권 단일 소스:**
 
@@ -253,7 +277,7 @@ row   = index / width
 팀별 즉시 일반 건설 가능 타일 검증은 evaluator가 만든 **고유 집합**에서 다음 순서로 수행한다.
 
 1. 성과 초기 채굴소가 점유한 타일을 제외한다.
-2. `TerrainKind == Open`, `BuildRule == Allowed`, `MineKind == None`, `HasBuilding == false`와 기존 소유권 조건을 적용한다.
+2. `TileKind == Normal`, `MineKind == None`, `HasBuilding == false`와 기존 소유권 조건을 적용한다.
 3. 중복 좌표를 한 번만 세어 Blue/Red 각각 정확히 10개인지 확인한다.
 
 **canonical binary와 SHA-256:**
@@ -291,8 +315,14 @@ MapChunk(matchNonce, index, count, data)
 MapReady(matchNonce, success, clientSHA, errorCode)
 ```
 
-- canonical payload의 `totalBytes`는 최대 64KB다.
-- 각 `MapChunk.data`는 최대 1KB이며 `index`와 `count`로 전체 위치를 식별한다.
+- canonical payload의 `totalBytes`는 최대 64KB다. ⚠️ **근거 미확인 — 구현 시 NGO 실측으로 확정한다.**
+- 각 `MapChunk.data`는 최대 1KB이며 `index`와 `count`로 전체 위치를 식별한다. ⚠️ **근거 미확인 — 구현 시 NGO 실측으로 확정한다.**
+
+> 🔴 **위 두 수치(1KB · 64KB)는 왜 그 값인지의 근거가 문서 어디에도 없다 (2026-08-26 확인).** 게다가 canonical payload 실측이 **약 274바이트**(타일 231 + 헤더 19 + 성·광산 24 + 장식 0)라 **조각이 1개뿐이어서 쪼개기·재조립·중복 무시 로직이 실전에서 한 번도 실행되지 않는다.** 2개째 조각이 생기려면 장식이 150개 이상 있어야 하는데 최초 구현의 장식은 0개다.
+>
+> **그럼에도 값을 지금 바꾸지 않는다.** 조각 크기는 **네트워크가 한 번에 실을 수 있는 한도**에서 나와야 하는 값이므로, 실측 없이 고치면 근거 없는 숫자를 근거 없는 다른 숫자로 바꾸는 것이 된다. 코드를 억지로 실행시키려고 조각 크기를 줄이는 방안도 폐기했다.
+> **할 일**: 전송 경로 구현 후 NGO 실측으로 조각 크기·전체 한도를 확정하고 **그 근거를 이 절에 기록**한다. 규칙 문서(`GameSystemRules_RandomMap.md` 6장)에는 이 숫자를 두지 않는다 — 그쪽은 기획 약속만 담는다.
+> 실측 근거: `_Tasks/2026-08-26/04_35_map-rules-correction/Plan.md` D7-4 6장. **파이썬 계산이며 Unity·NGO 실기 측정이 아니다.**
 - Client는 같은 `matchNonce`와 `index`의 중복 chunk를 무시한다.
 - out-of-order chunk는 수신 순서가 아니라 `index` 순서로 재조립한다.
 - 활성 준비 작업의 nonce와 다른 stale begin/chunk/ready 메시지는 상태를 바꾸지 않고 무시한다.
@@ -306,14 +336,15 @@ MapReady(matchNonce, success, clientSHA, errorCode)
 - Begin/Chunks는 reliable delivery를 사용한다.
 - Host는 package 전송 완료 후 활성 nonce의 `MapReady`를 10초 기다린다.
 - timeout 또는 incomplete assembly만 같은 nonce와 같은 canonical package 전체를 1회 재전송한다. 재전송 뒤 두 번째 10초 timeout/incomplete면 terminal failure다.
-- unsupported `MapVersion`, `totalBytes>64KB`, SHA mismatch, deserialize failure, semantic invalid, disconnect는 즉시 terminal failure다. 동일 package resend를 수행하지 않는다.
+- unsupported `MapVersion`, `totalBytes`가 한도 초과(현재 값 64KB — ⚠️ 근거 미확인, 위 전송 프로토콜 절 참조), SHA mismatch, deserialize failure, semantic invalid, disconnect는 즉시 terminal failure다. 동일 package resend를 수행하지 않는다.
 - terminal failure 경로는 모두 scene transition gate를 닫은 상태로 유지한다.
 
 **복구 상태:**
 
 - 최초 멀티 준비 실패: loading hide, lobby와 connection 유지, generic `맵 준비에 실패했습니다` modal, `Retry`/`Leave Match` actions. 양 player의 Retry request를 Host가 idempotency key로 한 번만 수락하고 새 64-bit root seed부터 selection/generation/transfer를 재시작한다.
 - NewMap 실패: pending candidate 폐기, old current definition 유지, rematch pending state reset, result UI 복원, auto-return countdown을 full duration으로 reset, SameMap/NewMap/Lobby actions 재활성화.
-- single 최초 실패: Retry/Lobby. single NewMap 실패: 기존 rematch result choices 복원.
+- single 최초 실패: modal, Retry/Lobby. single NewMap 실패: 기존 rematch result choices 복원.
+- ⚠️ **위 복구 상태 규정에는 아직 정해지지 않은 항목이 남아 있다 — 구현 시 확정한다.** 무엇이 미정인지의 단일 소스는 `GameSystemRules/GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 M-3·M-4 에 달린 미정 표시이며, 이 문서에는 옮겨 적지 않는다.
 - UI payload에는 internal error code, seed, MapType을 포함하지 않는다. 상세 값은 진단 로그 전용이다.
 
 **Client 검증 순서:**
@@ -362,7 +393,7 @@ generator와 validator의 도메인 코드는 `UnityEngine` object, scene object
 
 재시도마다 각 도메인 seed와 attempt index를 다시 파생해 `Attempt-0`~`Attempt-99`의 독립 PRNG 상태를 만든다. 즉 하나의 긴 PRNG 상태를 모든 서브시스템과 attempt가 공유하지 않는다.
 
-`InitialGold`는 PRNG 입력이 아니다. 정상 모드에서는 `NeutralMineCount`의 순수 lookup 결과이고, 테스트 모드에서는 `TestStartingGold(5000)`이다. 선택된 `MapType`, `NeutralMineCount`, `StartingMineSide`, `MapTestModeEnabled` 표식, 실제 `InitialGold`는 attempt 0~99와 fallback이 모두 공유하는 불변 경기 선택값이다. attempt는 `Terrain`, 중립 `MinePlacement`, `Decoration`의 세부 결과만 바꿀 수 있다. 검증 실패는 해당 attempt만 폐기하며 `MapSelection`을 다시 실행하지 않는다. 이 경계로 유형·광산 수·A/B별 후보 실패율이 최초 선택 확률을 편향시키는 것을 금지한다.
+`InitialGold`는 PRNG 입력이 아니다. 정상 모드에서는 `NeutralMineCount`의 순수 lookup 결과이고, 테스트 모드에서는 `TestStartingGold(5000)`이다. 선택된 `MapType`, `NeutralMineCount`, `StartingMineSide`, `MapTestModeEnabled` 표식, 실제 `InitialGold`는 **attempt 0~99 구간에서 불변인 경기 선택값**이다. **폴백 경로는 이 구간 밖이며, 그 경로에서 어떤 값이 템플릿 값으로 대체되고 어떤 값이 유지되는지는 아래 「deterministic fallback 정의」가 단일 소스다.** attempt는 `Terrain`, 중립 `MinePlacement`, `Decoration`의 세부 결과만 바꿀 수 있다. 검증 실패는 해당 attempt만 폐기하며 `MapSelection`을 다시 실행하지 않는다. 이 경계로 유형·광산 수·A/B별 후보 실패율이 최초 선택 확률을 편향시키는 것을 금지한다.
 
 ```text
 domainSeed  = Derive(mapVersion, rootSeed, fixedDomainId)
@@ -385,102 +416,129 @@ attemptSeed = Derive(domainSeed, attemptIndex)
 ```text
 SetPair(col, row, state)
     original = (col, row)
-    rotated  = (10 - col, 20 - row)
-    두 위치에 state와 Rotate180(state)를 원자적으로 기록
+    rotated  = 참 180도 회전(col, row)
+                 col → 10 - col
+                 row → 21 - row      (col 이 짝수일 때)
+                 row → 20 - row      (col 이 홀수일 때)
+    두 위치에 state와 RotateState(state)를 원자적으로 기록
 
 SetCenter(state)
     center = (5, 10)
     자기대응 가능한 state를 중심에 기록
 ```
 
+> 🔴 **종전의 `rotated = (10 - col, 20 - row)`(행열 반전)는 폐기됐다 (2026-08-26).** 그것은 회전이 아니다 — FlatTop 은 홀수 열이 반 칸 아래로 시프트되어 있어 두 축 번호를 뒤집으면 **헥스 인접성이 보존되지 않는다.** 큐브 좌표로는 `p → 2C - p`(`C` = offset `(5,10)`)이며, 규칙 정의의 단일 소스는 `GameSystemRules_RandomMap.md` 규칙 1이다.
+>
+> **`SetPair`는 짝 없는 6칸 `(0,0) (2,0) (4,0) (6,0) (8,0) (10,0)`(짝수 열 0행)을 입력으로 받지 않는다.** 그 좌표의 회전 결과는 21행이라 맵 밖이다. 6칸은 생성이 아니라 **고정값(항상 막힌 타일)** 으로 기록한다.
+
 계약:
 
 - `SetPair`는 중심 `(5,10)` 입력을 거부하고 중심은 `SetCenter`로만 기록한다.
 - `SetCenter`는 중심 외 좌표를 받지 않는다.
-- Terrain, `BuildRule`, 광산, 장식 등 모든 정적 생성 상태는 builder API를 통과한다.
+- `TileKind`, 광산, 장식 등 모든 정적 생성 상태는 builder API를 통과한다.
 - archetype generator에는 raw mutable tile buffer와 회전 상대 타일 직접 수정 API를 노출하지 않는다.
-- `Rotate180(state)`는 팀 전용 상태의 Blue↔Red 대응과 장식 rotation의 180도 대응 정수 ID 변환을 포함한다.
+- `RotateState(state)`는 팀 전용 상태의 Blue↔Red 대응과 장식 rotation의 180도 대응 정수 ID 변환을 포함한다.
+- **좌표를 옮기는 연산과 상태를 바꾸는 연산은 이름을 나눠 쓴다** — 좌표는 `RotateCoord(p)`(계산식의 단일 소스는 `GameSystemRules_RandomMap.md` 규칙 1), 상태는 `RotateState(state)`(위 항목)다. 2026-08-31 이전에는 **둘 다 같은 이름**이어서 컴파일러는 입력 타입으로 구분해도 읽는 사람은 구분할 수 없었다. 같은 이름으로 되돌리지 않는다.
 - 장식 종류·variant·scale/material 대응은 같은 상태 변환 계약 안에서 유지한다.
 
-builder는 실수로 한쪽만 기록하는 구현을 구조적으로 막는 도구다. 보안·완료 판정 경계로 신뢰하지는 않는다. builder가 완성한 `MapDefinition` 후보를 독립 `MapDefinitionValidator`에 넘겨 타일, 지형, `BuildRule`, 광산, 장식의 exact 180° symmetry를 다시 검사한다. validator는 builder 내부 상태나 “대칭으로 생성되었다”는 플래그를 신뢰하지 않고 최종 정의만 읽는다.
+builder는 실수로 한쪽만 기록하는 구현을 구조적으로 막는 도구다. 보안·완료 판정 경계로 신뢰하지는 않는다. builder가 완성한 `MapDefinition` 후보를 독립 `MapDefinitionValidator`에 넘겨 타일 `TileKind`, 광산, 장식의 exact 180° symmetry를 다시 검사한다. validator는 builder 내부 상태나 “대칭으로 생성되었다”는 플래그를 신뢰하지 않고 최종 정의만 읽는다.
 
 ##### archetype generator 알고리즘
 
-**`ObstacleOpenGenerator`:** 3~9행은 행별 count 0~4를 각각 20%로 독립 선택하고 count개의 unique column을 균등 선택한다. 11~17행은 exact 180° projection이다. 10행은 count 0/2/4를 각각 1/3로 선택해 내부 rotation pair로 배치한다. 장애물 pair 0개는 attempt reject다. raw 기대값은 `7×2×2 + 2 = 30`개/231타일이다. reachability 실패 시 count 감소·이동·repair 없이 attempt 전체를 버린다.
+> 🔴 **이 절의 대역 수치는 2026-08-26에 참 180도 회전 기준으로 전면 재작성됐다.** 종전 수치는 행열 반전 전제 위에 적혀 있어 회전 대칭이 성립하지 않았다.
+> - **유형별 값의 단일 소스는 `GameSystemRules_RandomMap.md` 3장(규칙 4~8)** 이다. 이 절은 그 사양을 구현하는 생성기 알고리즘을 적으며, **값이 바뀌면 규칙 문서를 먼저 고치고 이 절을 맞춘다.**
+> - 「높이 단계」 = `행 × 2 + (홀수 열이면 1)`, 범위 1~41, 회전은 `L ↔ 42-L`. 정의는 규칙 문서 7장 용어 정의.
+> - ⚠️ **아래 수치의 공정성 근거는 파이썬 시뮬레이션이며 Unity 실기 검증이 아니다**(`_Tasks/2026-08-26/04_35_map-rules-correction/Research.md` 3-0). **구현 후 C# 검증기로 같은 항목을 재측정하기 전까지 「검증 완료」로 표기하지 않는다.**
 
-**`CanyonGenerator`:** rows 0~2와 18~20은 width 11 Open이다. `W`는 3/5/7 균등 선택이다. rows 3~8 중 `(11-W)/2`개 distinct transition row를 균등 선택하고 해당 row를 지날 때 centered contiguous odd width를 2씩 감소시킨다. profile은 단조이고 adjacent decrement≤2다. rows 9~11은 width W `Open+NoBuild`, rows 12~17은 exact 180° projection이며 profile 밖은 Blocked다.
+**`ObstacleOpenGenerator`:** **윗절반 3~9행**은 행별 count 0~4를 각각 20%로 독립 선택하고 count개의 unique column을 균등 선택한다. 0~2행과 그 회전 상대에는 장애물을 두지 않는다. 아랫절반은 별도 추첨 없이 참 180도 회전 투영이며, 결과 대역은 **11~18행**이다(짝수 열 `21-row` · 홀수 열 `20-row` 차이 때문에 상단 대역과 행 번호가 겹치지 않는다). 중앙선(높이 단계 21 = 홀수 열 10행)은 count 0/2/4를 각각 1/3로 선택해 중앙선 내부 rotation pair `(1,10)↔(9,10)` · `(3,10)↔(7,10)` 로 배치하고 고정점 `(5,10)`에는 두지 않는다. 장애물 pair 0개는 attempt reject다. 기대값은 약 30개다. reachability 실패 시 count 감소·이동·repair 없이 attempt 전체를 버린다.
 
-**`OuterGenerator`:** length 5/7/9/11, maxWidth 3/5, shape Diamond/Oval/Irregular을 각각 균등 선택한다. 모든 포함 row는 col 5 중심의 단일 contiguous odd-width Blocked segment이고 row 10은 maxWidth다. upper profile을 180° 투영하며 adjacent width delta≤2, connected, no holes를 보장한다. Diamond는 1→3→5 monotonic ramp, Oval은 tapered ends와 max-width plateau, Irregular은 공통 제약 내 임의 odd-width profile이다. rows 9~11의 mass 바깥 Open route는 NoBuild이며 validator가 left/right width≥3과 connectivity를 검사한다.
+**`CanyonGenerator`:** `W`는 3/5/7 균등 선택이다. 폭은 **열 구간**으로 해석한다(폭 `w` = col `5-(w-1)/2` ~ `5+(w-1)/2`). **윗절반만 생성하고 아랫절반은 참 180도 회전으로 복제한다.** 0~2행은 width 11이다. rows 3~8 중 `(11-W)/2`개 distinct transition row를 균등 선택하고 해당 row를 지날 때 centered contiguous odd width를 2씩 감소시킨다. **3행의 시작 폭은 11**이고 8행에서 `W`에 도달하며 profile은 단조, adjacent decrement≤2다. **높이 단계 18~24**(짝수 열 9~12행 · 홀수 열 9~11행, 두께 3타일 39칸)는 width `W` 로 고정하고 그 열린 타일을 `TileKind.NoBuild`로 둔다. 회전 투영 결과 아래쪽 좁아지는 구간은 **짝수 열 13~18행 · 홀수 열 12~17행**, 아래쪽 width 11 대역은 **짝수 열 19~20행 · 홀수 열 18~20행**이다. 중심 폭 밖은 `TileKind.Blocked`다.
 
-**`ThreeLaneGenerator`:** L 5/7/9/11에 대한 band는 8~12/7~13/6~14/5~15다. band row는 cols 0~2/4~6/8~10을 `Open+NoBuild`, cols 3/7을 Blocked로 고정한다. band 밖은 모두 `Open+Allowed`이고 즉시 merge하며 transition obstacle이나 longitudinal protected corridor는 없다. band 내부 paired mine은 mirrored left/right lane에 lane당 최대 1개, middle lane은 odd count의 `(5,10)` singleton만 허용한다. 나머지 pair는 merged upper/lower zone에 둔다.
+**`OuterGenerator`:** length 5/7/9/11, maxWidth 3/5, 형태(마름모형/타원형/울퉁불퉁형)를 각각 균등 선택한다. 덩어리 대역은 **높이 단계 `21±L`** 이며 실제 행 범위는 `L=5 → 짝수 8~13·홀수 8~12`, `L=7 → 7~14·7~13`, `L=9 → 6~15·6~14`, `L=11 → 5~16·5~15`다. 포함된 각 높이 단계는 col 5 중심의 단일 contiguous odd-width `TileKind.Blocked` 구간이고 **중앙선(단계 21)은 maxWidth**다. upper profile을 참 180도 회전 투영하며 adjacent width delta≤2, connected, no holes를 보장한다. 마름모형은 `1→3→5` monotonic ramp, 타원형은 tapered ends와 max-width plateau, 울퉁불퉁형은 공통 제약 내 임의 odd-width profile이다. **높이 단계 18~24**에서 덩어리 바깥의 열린 외곽 통로는 `TileKind.NoBuild`이며 validator가 left/right width≥3과 connectivity를 검사한다.
+
+**`ThreeLaneGenerator`:** L 5/7/9/11에 대한 분리 대역은 **높이 단계 `21±L`** 이며 실제 행 범위는 `OuterGenerator`와 같은 표를 따른다(`L=5 → 짝수 8~13·홀수 8~12` … `L=11 → 5~16·5~15`). 대역 안은 cols 0~2/4~6/8~10을 `TileKind.NoBuild`, cols 3/7을 `TileKind.Blocked`로 고정한다. 열 구조는 회전(`col → 10-col`)에 그대로 대응하므로 손대지 않는다. 대역 밖은 모두 `TileKind.Normal`이고 즉시 merge하며 transition obstacle이나 맵을 세로로 관통하는 상시 건설 불가 띠는 없다. 대역 내부 paired mine은 mirrored left/right lane에 lane당 최대 1개, middle lane은 odd count의 `(5,10)` singleton만 허용한다. 나머지 pair는 합쳐진 위·아래 구역에 둔다.
 
 ##### 중립 광산 canonical orbit sampling
 
-candidate builder는 성, 시작 광산, `InitialMapStateEvaluator`가 산출한 팀별 보호 초기 건설 타일 10개, Blocked, archetype 금지 zone을 제거한다. 남은 좌표 `p`에서 `(p, Rotate180(p))`를 만들고 두 row-major index 중 작은 쪽을 canonical representative로 삼아 reversed duplicate를 제거한다. `MinePlacement` stream으로 필요한 distinct pair slot을 center/edge weight 없이 균등 선택한다. odd count의 singleton은 고정 `(5,10)`이다.
+candidate builder는 성, 시작 광산, `InitialMapStateEvaluator`가 산출한 팀별 보호 초기 건설 타일 10개, `TileKind.Blocked`, archetype 금지 zone을 제거한다. 남은 좌표 `p`에서 `(p, RotateCoord(p))`를 만들고 두 row-major index 중 작은 쪽을 canonical representative로 삼아 reversed duplicate를 제거한다. `MinePlacement` stream으로 필요한 distinct pair slot을 center/edge weight 없이 균등 선택한다. odd count의 singleton은 고정 `(5,10)`이다.
 
 - Open/Obstacle: 공통 제외 뒤 모든 pair 허용
-- Canyon: rows 9~11 밖 widening zone
-- Outer: rows 9~11 최대 1 pair, 나머지 upper/lower zone
-- ThreeLane: band 내부 pair는 mirrored left/right lane이고 lane당 mine 최대 1개, 나머지는 merged zone
+- Canyon: **높이 단계 18~24 밖**에만 pair를 둔다(odd count의 `(5,10)` singleton은 예외)
+- Outer: **높이 단계 18~24** 안에는 최대 1 pair, 나머지는 위·아래 구역
+- ThreeLane: 분리 대역(높이 단계 `21±L`) 내부 pair는 mirrored left/right lane이고 lane당 mine 최대 1개, 나머지는 합쳐진 위·아래 구역
+
+> 유형별 금지 구역의 **단일 소스는 `GameSystemRules_RandomMap.md` 3장(규칙 4~8)의 ④ 항목**이다. 위 목록은 sampler 구현이 참조하는 요약이며, 값이 어긋나면 규칙 문서가 옳다.
 - spacing/adjacency filter 없음
 - local constraint 위반은 후보별 동일 확률을 보존하는 rejection sampling으로 다시 선택
 - global validator 실패는 chosen mine 이동·repair 없이 attempt reject
 
 ##### `MapDefinitionValidator` access metric
 
-공정성 거리는 기존 A*에 임의의 mine 인접 타일 하나를 지정해 구하지 않는다. 각 castle의 statically walkable neighbor 전체를 distance 0 source set, target mine의 statically walkable neighbor 전체를 target set으로 하는 multi-source BFS에서 최초 target 도달 거리를 사용한다.
+공정성 거리는 기존 A*에 임의의 mine 인접 타일 하나를 지정해 구하지 않는다. 각 castle에 인접한 `StaticTraversable` 타일 전체를 거리 0의 **성 접근 칸**으로 두고, **대상 광산 덩어리**에 인접한 `StaticTraversable` 타일 전체를 **광산 덩어리 접근 칸**으로 하는 multi-source BFS에서 최초 도달 거리를 사용한다. **재는 단위는 광산 하나가 아니라 광산 덩어리다**(아래 항목). 용어의 단일 소스는 `GameSystemRules_RandomMap.md` 규칙 13 「접근 거리」 절이다.
 
 ```text
-StaticTraversable = TerrainKind == Open
+StaticTraversable = TileKind != Blocked
                  && MineKind == None
                  && !Castle
                  && !StartingPost
 ```
 
-`BuildRule.Allowed`와 `NoBuild`는 모두 traversable이고 runtime general building은 이 정적 metric에서 제외한다. 모든 castle이 모든 neutral mine access set에 도달해야 하고 Blue/Red castle source region도 상호 도달해야 한다. center C는 `Access(B,C)==Access(R,C)`, pair A/R180(A)는 `Access(B,A)==Access(R,R180(A))`와 `Access(R,A)==Access(B,R180(A))`를 모두 만족해야 한다. 같은 cross equality를 geometric `HexCoord` 거리로 독립 검사한다.
+> **광산 덩어리 접근 칸은 광산 하나가 아니라 「광산 덩어리」 단위로 만든다.** 서로 인접한 광산들을 한 덩어리로 묶고, 그 덩어리에 속한 **어느 광산에라도 인접한 StaticTraversable 타일 전체**를 그 덩어리의 접근 칸으로 쓴다. **접근 칸이 하나도 없는 덩어리가 하나라도 있으면 해당 후보를 거부한다.** 아래의 도달 가능성과 cross equality 도 이 덩어리 접근 칸으로 판정하며, 광산이 하나뿐인 덩어리는 결과가 종전과 같다. 판정 규정과 그 근거의 단일 소스는 `GameSystemRules_RandomMap.md` 규칙 13이다.
 
-##### 보호 corridor validator
+`TileKind.Normal`과 `TileKind.NoBuild`는 모두 traversable이고 runtime general building은 이 정적 metric에서 제외한다. 모든 castle이 모든 neutral 광산 덩어리 접근 칸에 도달해야 하고 Blue/Red 성 접근 칸끼리도 상호 도달해야 한다. center C는 `Access(B,C)==Access(R,C)`, pair A/RotateCoord(A)는 `Access(B,A)==Access(R,RotateCoord(A))`와 `Access(R,A)==Access(B,RotateCoord(A))`를 모두 만족해야 한다. 같은 cross equality를 geometric `HexCoord` 거리로 독립 검사한다.
 
-- mine placement 전 모든 보호 row cross-section: Canyon 중앙 Open≥3, Outer left/right 각각≥3, ThreeLane 각 lane 정확히3. 해당 Open은 모두 NoBuild다.
-- mine placement 후 corridor+row: mine 0이면 walkable≥3, mine 1이면 walkable≥2, mine≥2는 invalid다.
-- corridor별 정의된 start set→end set BFS로 연속성과 unintended disconnect 부재를 확인한다.
+##### 필수 통로 validator
+
+> 이 절의 이름은 2026-08-26에 **필수 통로 validator** 로 바뀌었다. 종전 이름은 같은 단어가 「두지 않기로 한 것」과 「반드시 검증할 것」을 동시에 가리켜 폐기했다 — 폐기된 표현은 `GameSystemRules_RandomMap.md` 7장 용어 정의 「필수 통로」의 `_Avoid_` 행에만 남겨 둔다.
+
+- mine placement 전 모든 필수 통로의 같은 높이 단계 cross-section: Canyon 중앙 열린 폭≥3, Outer left/right 각각≥3, ThreeLane 각 lane 정확히 3. 해당 열린 타일은 모두 `TileKind.NoBuild`다.
+- mine placement 후 같은 통로·같은 높이 단계: mine 0이면 walkable≥3, mine 1이면 walkable≥2, mine≥2는 invalid다.
+- 통로별 정의된 start set→end set BFS로 연속성과 unintended disconnect 부재를 확인한다.
 - exact symmetry+위 국소 폭+BFS만 검사하며 alternate route 전체를 열거하지 않는다.
 
 ##### deterministic fallback 정의
 
-fallback은 유형×중립 광산 수 조합마다 canonical binary 또는 Unity asset 완성본을 저장하는 구조가 아니다.
+> 🔴 **2026-08-26 전면 교체.** 종전 구조(유형 × 광산 수 × A/B = 50케이스, 시작 광산 좌우 변환)는 폐기했다. 폐기 근거는 두 가지다 — ① **좌우 변환 `(col,row) → (10-col,row)` 은 보호 대상 10타일 집합을 바꿔 검증을 깨뜨린다** ② 폴백은 실전에서 거의 도달하지 않는 경로(attempt 1회 성공률 최저 99.6%)라 50케이스의 제작·검증·유지 비용이 정당화되지 않는다. 기획 계약의 단일 소스는 `GameSystemRules_RandomMap.md` 규칙 12다.
+>
+> **아래 「구성 요소」의 유형별 최대 광산 수와 초기 골드 값은 구현자가 곧바로 쓸 수 있도록 여기에 함께 적는다. 그러나 값의 단일 소스는 규칙 문서이며, 값이 바뀌면 규칙 문서를 먼저 고치고 이 절을 맞춘다**(「archetype generator 알고리즘」 절과 같은 방식이다).
 
 **구성 요소:**
 
-- 맵 유형별 deterministic base template 1개(총 5개)
-- 각 유형이 허용하는 중립 광산 수별 prevalidated symmetric mine slot 조합
+- 맵 유형별 deterministic 고정 템플릿 **1개씩, 총 5개**. 유형×광산 수×A/B 조합은 만들지 않는다.
+- 각 템플릿의 중립 광산 수는 **그 유형이 허용하는 최대값**(완전개방 6 / 장애물 6 / 협곡 4 / 외곽 6 / 3갈래 6)으로 고정하고, `InitialGold`는 그 광산 수에서 파생한다(6→200, 4→400).
+- **시작 광산 A/B는 템플릿 안에 그대로 고정해 담는다.** `MirrorStartMine` 같은 좌우 대응 변환은 **사용하지 않는다.**
+- 템플릿 데이터는 **윗절반(높이 단계 1~20)과 중앙선(단계 21)만 지정**하고, 아랫절반은 `SymmetricMapBuilder`의 참 180도 회전으로 복제한다.
 - 최초 구현은 장식 없음(`DecorationDefinition` count 0). 에셋·테마 확정 뒤에는 유형별 고정 exact 180° symmetric decoration set만 허용
 
-fallback builder는 맵 유형과 중립 광산 수를 키로 위 정의를 조립하며 PRNG draw를 전혀 사용하지 않는다. 같은 type+mine count는 항상 같은 지형과 중립 광산 결과를 만든다.
+fallback builder는 맵 유형을 키로 위 정의를 조립하며 PRNG draw를 전혀 사용하지 않는다. 같은 유형은 항상 같은 지형과 중립 광산 결과를 만든다. **fallback builder의 입력은 `MapType` 하나뿐이다** — 경기 선택 단계의 `StartingMineSide`·`NeutralMineCount`·`InitialGold`는 이 경로에서 입력으로 쓰이지 않고 **템플릿 값으로 대체된다.** 대체된 값은 canonical `MapDefinition`에 그대로 실려 Client에도 전달되고, 규칙 12의 로그 필수 항목(중립 광산 수·시작 광산 방향·실제 초기 골드·폴백 사용 여부)으로 추적된다. 테스트 모드 표식과 그때의 `InitialGold` 규정은 대체 대상이 아니며, 기획 계약의 단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 12다.
 
-fallback builder는 경기 선택 단계의 `StartingMineSide`를 별도 불변 입력으로 받고 새로 추첨하거나 변경하지 않는다. A/B별 완성 맵을 복제 저장하지 않으며, 기준 시작 광산 쌍에 대해 B일 때 시작 광산 좌표에만 좌우 대응 함수 `MirrorStartMine(col,row) = (10-col,row)`를 적용한다. 이는 전체 맵의 180도 대칭 함수와 별개이며 base terrain과 중립 mine slot은 변환하지 않는다.
+조립 결과는 일반 생성 결과와 동일한 `MapDefinition`이며, **전용 완화 규칙 없이 전체 `MapDefinitionValidator`를 통과해야 한다.** 검증 성공 후에만 canonical binary와 SHA-256 package를 만든다. 폴백이 검증에 실패하면 조용히 사용하지 않고 맵 준비 실패로 처리한다. 빌드·에디터 테스트에서 템플릿 5개를 상시 전수 검증한다.
 
-조립 결과는 일반 생성 결과와 동일한 `MapDefinition`이며, 전용 완화 규칙 없이 전체 `MapDefinitionValidator`를 통과해야 한다. 검증 성공 후에만 canonical binary와 SHA-256 package를 만든다.
+**저장 포맷은 canonical binary이며, 그 선택에는 부수 조건 2가지가 따라붙는다.**
 
-base template과 mine slot은 코드 상수 또는 schema 비종속 순수 정의로 유지한다. 과거 schema 버전의 canonical binary fallback asset을 저장하지 않으므로 schema 변경 시 fallback binary migration이 필요하지 않아야 한다.
+1. **템플릿 제작 에디터 도구를 삭제하지 않는다.** 포맷이 바뀌면 템플릿을 재생성해야 하는데 도구가 없으면 재생성할 수 없다. 도구는 영구 보존 폴더 `Assets/Editor/Tools/` 에 둔다(`WORKFLOW.md` [5-2]).
+2. **재생성용 원본(윗절반 지정값 또는 seed)을 별도 보관한다.** 바이너리만 남으면 포맷 변경 시 손으로 다시 만들어야 한다.
+
+base template은 코드 상수 또는 schema 비종속 순수 정의로도 유지해, schema 변경 시 옛 canonical binary에 발이 묶이지 않게 한다.
 
 ##### `HexTile` 런타임 상태 계약
 
-`MapDefinition`을 `HexGrid`로 구성할 때 `HexTile` 상태를 다음 네 축으로 분리한다.
+`MapDefinition`을 `HexGrid`로 구성할 때 `HexTile` 상태를 다음 세 축으로 분리한다.
 
 | 상태 | 값 | 변경 주체 |
 |------|----|-----------|
-| `TerrainKind` | `Open`, `Blocked` | 맵 정의. 경기 중 불변 |
-| `BuildRule` | `Allowed`, `NoBuild` | 맵 정의. 경기 중 불변 |
+| `TileKind` | `Normal`(일반), `NoBuild`(건설 불가), `Blocked`(막힘) | 맵 정의. 경기 중 불변 |
 | `MineKind` | `None`, `Neutral`, `BlueStart`, `RedStart` | 광산 배치 목록에서 로드 시 투영. 경기 중 불변 |
 | `HasBuilding` | bool | 건물 배치·철거·파괴에 따른 동적 상태 |
+
+> 종전에는 지형 축과 건설 규칙 축이 **별도 필드 2개**였으나, 「막혔는데 건설 허용」 같은 **뜻이 없는 조합**이 표현 가능해 의미가 같은 맵이 서로 다른 canonical bytes·해시를 가질 수 있었다. 2026-08-26에 `TileKind` 3상태 단일 필드로 통합했다(위 「`MapDefinition` 정규 데이터 계약」 참조).
 
 `MapDefinition`의 성/광산 배치 목록은 직렬화·해시의 단일 원본이다. `HexTile.MineKind`는 그 목록에서 생성한 런타임 투영이며 별도 네트워크/직렬화 원본으로 병행 유지하지 않는다.
 
 `IsWalkable`은 mutable 저장 필드가 아니라 다음 계산 프로퍼티다.
 
 ```text
-IsWalkable = TerrainKind == Open
+IsWalkable = TileKind != Blocked
           && MineKind == None
           && !HasBuilding
 ```
@@ -488,50 +546,73 @@ IsWalkable = TerrainKind == Open
 판정 규칙:
 
 ```text
-일반 건설 = TerrainKind == Open
-         && BuildRule == Allowed
+일반 건설 = TileKind == Normal
          && MineKind == None
          && !HasBuilding
          && 기존 소유권 조건
 
-MiningPost = MineKind != None
+MiningPost = TileKind != Blocked
+          && MineKind != None
           && !HasBuilding
           && 기존 인접 팀 타일 조건
 
-점령 가능 = TerrainKind == Open
+점령 가능 = TileKind != Blocked
 ```
 
-`Blocked`는 이동·일반/채굴소 건설·점령이 모두 불가능한 영구 지형이다. `HasBuilding`과 독립적이므로 건물 철거 또는 파괴가 `Blocked`를 열지 않는다. `NoBuild`는 열린 타일에서 이동·점령은 허용하고 일반 건설만 막는다.
+`TileKind.Blocked`는 이동·일반/채굴소 건설·점령이 모두 불가능한 영구 지형이다. `HasBuilding`과 독립적이므로 건물 철거 또는 파괴가 막힌 타일을 열지 않는다. `TileKind.NoBuild`는 이동·점령은 허용하고 일반 건설만 막는다(MiningPost는 예외).
 
 **`HexGridRenderer`와 입력 표현:**
 
-- `BuildRule.NoBuild`인 `Open` 좌표는 일반 타일과 같은 standard hex mesh와 높이를 생성한다. owner base color도 Neutral/Blue/Red 상태를 그대로 사용한다.
-- 타일 표면에는 별도 표현 계층으로 반투명 짙은 회색 diagonal hatch 3개를 overlay한다. selection highlight와 NoBuild overlay를 독립 상태로 유지해 둘을 동시에 렌더링한다.
-- `TerrainKind.Blocked`도 domain `HexGrid`와 `MapDefinition`의 231개 row-major 레코드에는 남는다. canonical codec/hash와 `MapDefinitionValidator`의 exact 180° 비교에서도 제외하지 않는다.
-- `HexGridRenderer`는 blocked 좌표에 standard hex tile mesh와 collider를 생성하지 않는다. Open/NoBuild와 다른 높이 geometry도 만들지 않아 결과는 빈 공간이다.
-- selection/raycast 진입점은 hit된 배경 또는 하부 collider만 신뢰하지 않는다. 변환된 맵 좌표가 범위 안인지 확인한 뒤 `TerrainKind == Open`인 경우에만 선택 대상으로 반환한다. 따라서 blocked 좌표는 이동 명령, 점령, 건설과 selection event를 발생시키지 않는다.
-- 추후 obstacle prefab/asset은 blocked 좌표의 빈 공간 시각을 대체하는 presentation 확장점이다. domain `TerrainKind`, collider 기반 선택 금지, 이동/점령/건설 규칙, canonical hash와 exact symmetry 계약은 유지한다.
+- `TileKind.NoBuild` 좌표는 일반 타일과 같은 standard hex mesh와 높이를 생성한다. owner base color도 Neutral/Blue/Red 상태를 그대로 사용한다.
+- 타일 표면에는 별도 표현 계층으로 반투명 짙은 회색 diagonal hatch 3개를 overlay한다. selection highlight와 `TileKind.NoBuild` overlay를 독립 상태로 유지해 둘을 동시에 렌더링한다.
+- `TileKind.Blocked`도 domain `HexGrid`와 `MapDefinition`의 231개 row-major 레코드에는 남는다. **canonical codec/hash에서 제외하지 않는다.** `MapDefinitionValidator`의 exact 180° 비교에서도 제외하지 않되, **짝 없는 6칸만 아래 예외를 따른다.**
+
+**`TileKind.Blocked` 좌표 계약 — 짝 없는 6칸 예외 (2026-08-26 추가):**
+
+- **① 어느 6칸인가**: `(0,0) (2,0) (4,0) (6,0) (8,0) (10,0)` — **전부 짝수 열 0행**이다. 참 180도 회전은 짝수 열에서 `row → 21 - row` 이므로 0행의 상대는 21행이 되어 맵 밖이다. 즉 **회전 상대가 존재하지 않는다.** 그래서 이 6칸은 항상 `TileKind.Blocked` 고정이며 231칸 중 플레이에 쓰는 칸은 225칸이다.
+- **② 대칭 검증**: `MapDefinitionValidator`는 이 6칸을 **대응쌍 비교 대상에서 제외**하되, 그냥 빠뜨리지 않고 **「항상 `TileKind.Blocked` 인가」를 확인하는 고정값 검사로 대체**한다. 제외만 하면 그 6칸이 무엇이든 될 수 있어 검증에 구멍이 생긴다.
+- **③ canonical hash**: **배열 231칸과 해시 범위는 그대로 유지한다.** `index = row * 11 + col` 인덱스 규칙도 바뀌지 않는다. 직렬화 범위와 해시 범위를 갈라 놓으면 `TileKind` 통합이 없애려던 「같은 맵이 다른 바이트가 되는 경로」를 다른 자리에 새로 만들게 된다.
+- 같은 내용이 `GameSystemRules_RandomMap.md` 규칙 10에도 있다. **두 곳이 어긋나면 규칙 문서가 옳다.**
+- `HexGridRenderer`는 `TileKind.Blocked` 좌표에 standard hex tile mesh와 collider를 생성하지 않는다. `TileKind.Normal`·`TileKind.NoBuild`와 다른 높이 geometry도 만들지 않아 결과는 빈 공간이다.
+- selection/raycast 진입점은 hit된 배경 또는 하부 collider만 신뢰하지 않는다. 변환된 맵 좌표가 범위 안인지 확인한 뒤 `TileKind != Blocked`인 경우에만 선택 대상으로 반환한다. 따라서 `TileKind.Blocked` 좌표는 이동 명령, 점령, 건설과 selection event를 발생시키지 않는다.
+- 추후 obstacle prefab/asset은 `TileKind.Blocked` 좌표의 빈 공간 시각을 대체하는 presentation 확장점이다. domain `TileKind`, collider 기반 선택 금지, 이동/점령/건설 규칙, canonical hash와 exact symmetry 계약은 유지한다. ⚠️ **짝 없는 6칸은 회전 상대가 없으므로, obstacle asset 도입 시 반드시 예외 처리한다** — 그러지 않으면 한쪽에만 보이는 지형 6개가 생긴다.
 
 **`GridInteractionUseCase` 클릭 판정 순서:**
 
 1. 기존 building action 분기
 2. `MineKind` 기반 MiningPost 자격 분기
-3. `TerrainKind.Blocked`
-4. `BuildRule.NoBuild`
-5. 일반 Open 타일
+3. `TileKind.Blocked`
+4. `TileKind.NoBuild`
+5. 일반 타일(`TileKind.Normal`)
 
-- Blocked/빈 공간은 논리 좌표가 있어도 unselectable이다. `Deselect`로 이전 highlight를 해제하고 `BuildingPlacementUI`를 닫되 토스트와 새 `TileSelected` 이벤트는 발생시키지 않는다.
-- 자기 팀 소유 `Open+NoBuild`는 정상 `TileSelected`와 highlight를 발생시킨다. 건설 패널은 열지 않고 stale 패널을 닫은 뒤 `ToastKey.BuildingNotAllowed`(`이 타일에는 건설할 수 없습니다`)를 발행한다.
-- 중립·적 소유 `Open+NoBuild`는 선택·highlight만 수행하고 stale 패널은 닫는다. 건설 의도가 아니므로 토스트는 없다.
-- building action과 광산 분기를 먼저 처리하므로 기존 건물 상호작용과 `MineKind != None`인 광산의 MiningPost 예외가 NoBuild에 가로막히지 않는다.
+- `TileKind.Blocked`/빈 공간은 논리 좌표가 있어도 unselectable이다. `Deselect`로 이전 highlight를 해제하고 `BuildingPlacementUI`를 닫되 토스트와 새 `TileSelected` 이벤트는 발생시키지 않는다.
+- 자기 팀 소유 `TileKind.NoBuild`는 정상 `TileSelected`와 highlight를 발생시킨다. 건설 패널은 열지 않고 stale 패널을 닫은 뒤 `ToastKey.BuildingNotAllowed`(`이 타일에는 건설할 수 없습니다`)를 발행한다.
+- 중립·적 소유 `TileKind.NoBuild`는 선택·highlight만 수행하고 stale 패널은 닫는다. 건설 의도가 아니므로 토스트는 없다.
+
+> 이 클릭 판정 순서는 `GameSystemRules_UI.md` 「건물 배치 패널 UI」 규칙 5~8과 **같은 내용**이다. 한쪽만 고치면 조용히 갈라지므로 항상 함께 고친다.
+- building action과 광산 분기를 먼저 처리하므로 기존 건물 상호작용과 `MineKind != None`인 광산의 MiningPost 예외가 `TileKind.NoBuild`에 가로막히지 않는다.
 
 **기존 코드 전환 요구:**
 
-- mutable `HexTile.IsWalkable` 필드를 제거하거나 setter 없는 계산 프로퍼티로 전환한다.
-- 광산 배치의 `HasGoldMine`/`IsWalkable=false` 이중 대입은 `MineKind` 설정으로 교체한다.
-- 건물 배치 시 `IsWalkable=false` 대신 `HasBuilding=true`를 설정한다.
-- 건물 철거/파괴 시 `IsWalkable=true` 복구 대신 `HasBuilding=false`만 설정한다.
-- 이동, 스폰, 경로탐색은 계산된 `IsWalkable`을 읽고, 건설·점령은 위의 전용 조건을 사용한다.
+> **2026-09-03 진행 상태 — 무작위 맵 1단계(타일 상태 계약 전환)로 아래 6개 중 4개가 완료됐다.** 각 항목 앞의 표시가 그 항목의 상태다.
+> `✅` 는 코드 구현 + 에디터 실기 검증까지 끝난 것, `⚠️` 는 절반만 닿은 것, `⏳` 는 착수 전이다.
+> **완료 항목의 「~한다」 미래형 문장은 지우지 않고 그대로 둔다** — 무엇을 요구했던 계약인지가 남아야 나중에 대조할 수 있기 때문이며, 완료 여부는 표시와 괄호 주석으로만 구분한다.
+
+- ✅ **(완료)** mutable `HexTile.IsWalkable` 필드를 제거하거나 setter 없는 계산 프로퍼티로 전환한다.
+  → `Domain/Hex/HexTile.cs` 에서 setter 없는 계산 프로퍼티가 되었고, 생성자의 `isWalkable` 매개변수도 함께 제거됐다.
+- ✅ **(완료)** 광산 배치의 이중 대입은 `MineKind` 설정으로 교체한다.
+  → `Bootstrap/GameBootstrapper.Map.cs` 의 광산 배치가 `MineKind` 한 축만 설정한다. 종전에 함께 대입하던 광산 표시용 저장 필드는 코드에서 삭제됐다(`.cs` 전수 검색 0건).
+- ✅ **(완료)** 건물 배치 시 `IsWalkable=false` 대신 `HasBuilding=true`를 설정한다.
+  → `Application/UseCases/BuildingPlacementUseCase.cs` 의 일반 건물·채굴소 배치 두 자리 모두.
+- ✅ **(완료)** 건물 철거/파괴 시 `IsWalkable=true` 복구 대신 `HasBuilding=false`만 설정한다.
+  → 같은 파일 `RemoveBuilding`. **종전에 있던 「광산 타일이면 되돌리지 않는다」 가드는 제거됐다** — 계산 프로퍼티가 `MineKind == None` 을 이미 요구하므로 가드 없이도 광산 타일은 계속 이동 불가로 계산된다. 이 지점이 이번 전환의 최대 위험 자리였으므로 **실기에서 채굴소 철거 후 이동 불가 유지를 직접 확인했다.**
+- ⚠️ **(절반 완료 — 남은 절반은 2단계)** 이동, 스폰, 경로탐색은 계산된 `IsWalkable`을 읽고, 건설·점령은 위의 전용 조건을 사용한다.
+  → **앞 절반(이동·스폰·경로탐색)은 완료.** 경로탐색 3종과 스폰·이동 판정이 모두 계산된 `IsWalkable`을 읽는다.
+  → **뒤 절반(건설·점령의 전용 조건)은 미완.** 일반 건물 배치 판정은 아직 이동 가능 여부를 그대로 쓰고 있고(`TileKind == Normal` 을 확인하지 않는다), 점령에는 `TileKind != Blocked` 확인이 없다. 채굴소 배치만 전용 조건(`MineKind != None` + 건물 없음 + 인접 팀 타일)을 쓴다.
+  → **지금 결과가 갈리지 않는 이유:** 현재 고정 맵은 `TileKind` 를 설정하는 코드가 한 곳도 없어 모든 타일이 `Normal` 이다(`.cs` 전수 검색으로 확인). 이동 기준과 건설 기준이 갈라지려면 `NoBuild`/`Blocked` 타일이 실제로 존재해야 하고, 그것을 만들어내는 맵 생성기가 **2단계** 산출물이다.
+- ⏳ **(미착수 — 2단계)** `Assets/_Project/Scripts/Application/Services/AIOpponentController.cs`의 `FindPlacementTile()` 배치 후보 판정(**807~809행**, 세 줄에 걸친 한 문장)을 이동 판정에서 **위 「일반 건설」 조건**으로 교체한다. AI 건물 배치는 건설이므로 바로 위 항목의 방침이 그대로 적용되는 자리다. **같은 파일 770~773행의 XML 주석도 같은 조건을 적고 있으므로 함께 옮긴다** — 한쪽만 고치면 주석이 코드와 어긋난 채 남는다. 기획 계약의 단일 소스는 `GameSystemRules/GameSystemRules_AI.md` 규칙 26이다.
+  → 2026-09-03 기준 코드·주석 둘 다 그대로다. **바로 위 항목의 뒤 절반과 같은 이유로 3단계까지 미룬다.**
+  → ⚠️ 같은 파일의 **광산 타일 조회**(`CacheMineTiles`)는 이 항목과 **별개이며 이미 `MineKind` 기준으로 전환됐다.** 한 파일 안에 전환된 자리와 안 된 자리가 함께 있으므로 한쪽을 보고 다른 쪽을 단정하지 않는다.
 
 ##### 재경기 `MapDefinition` 생명주기
 
@@ -1391,7 +1472,7 @@ public class BuildingData : IDamageable {
     -   `BuildingData` 인스턴스를 생성합니다 (HP 포함).
     -   해당 타일의 상태를 '건설됨'으로 변경합니다 (`HexTile.HasBuilding = true`).
     -   `GameEvents.OnBuildingPlaced` 이벤트를 발행(OnNext)하여 시스템의 다른 부분에 건물 배치가 완료되었음을 알립니다.
-    -   건물 파괴 시: `RemoveBuilding(id)` → Dictionary 제거 + `HexTile.HasBuilding = false`. 이동 가능 여부는 `TerrainKind`/`MineKind`와 함께 다시 계산되므로 영구 차단 지형이나 광산이 열리지 않습니다.
+    -   건물 파괴 시: `RemoveBuilding(id)` → Dictionary 제거 + `HexTile.HasBuilding = false`. 이동 가능 여부는 `TileKind`/`MineKind`와 함께 다시 계산되므로 영구 차단 지형이나 광산이 열리지 않습니다.
 
 4.  **객체 생성 (BuildingFactory)**
     -   `BuildingFactory`는 `OnBuildingPlaced` 이벤트를 구독(Subscribe)하고 있습니다.
@@ -1716,6 +1797,9 @@ Build Settings:
 |------|------|-----------|
 | 0.51.1 | 2026-08-18 | B3 유한 재탐색 guard 구현 반영. 결정적 ordered `HexCoord` path signature, 유닛별 frame budget, 동일·A→B→A·invalid 및 서로 다른 path 무진전 8회 상한 fail-closed, 다음-frame 적용, 실제 진전 reset과 실패 유닛 callback 재진입 억제를 추가했다. Unity compile·self-validation PASS, Android Host 실기 회귀 대기이므로 B3는 FAIL / OPEN 유지. |
 | 0.51.0 | 2026-08-18 | 최신 `main`의 연구·상태효과·스킬·MistShrine 기능을 B3 서버 권위 이동과 통합. Android Host에서 동일·순환 재탐색이 한 frame을 점유할 수 있는 진행성 결함을 확인해 B3를 FAIL / OPEN으로 재개방하고, 유닛별 frame budget·동일/순환 path fail-closed·다음 frame 재개·진전 reset을 필수 교정 계약으로 추가했다. |
+| 0.46.0 | 2026-09-01 | **접근 지표 절의 이름 통일 + AI 건물 배치 후보 판정의 전환 요구 등재 (코드 변경 0줄).** ① 「`MapDefinitionValidator` access metric」 절 도입부에서 **같은 절이 정의한 식별자를 다른 영문 어구로 부르던 표기 2곳**(성 쪽 1회 · 광산 덩어리 쪽 1회)을 정의된 이름 `StaticTraversable` 로 맞췄다. 같은 절의 인용 블록은 이미 그 이름을 쓰고 있어 **한 절 안에서 표기가 갈려** 있었다 — 0.45.0 의 ④·⑤·⑭ 와 같은 부류이며, 그때 우리말 표기만 정리하고 영문 어구 쪽이 남았던 자리다. ② 「기존 코드 전환 요구」 목록에 **`AIOpponentController.FindPlacementTile()` 의 배치 후보 판정을 이동 판정에서 「일반 건설」 조건으로 교체한다**는 항목을 추가했다(대상 파일 경로 · 현재 판정 위치 · **같은 파일의 XML 주석도 함께 옮긴다**는 조건을 함께 적었다). 🔴 **이것은 사양 변경이지만 오늘 `.cs` 는 한 줄도 바꾸지 않았다** — 새 조건이 읽어야 할 타일 상태 축이 아직 코드에 없어, `TileKind` 도입(= 무작위 맵 구현)과 **같은 시점에** 전환한다. **지금 등재해 두지 않으면 그때 이 파일이 누락된다**는 것이 이 항목의 존재 이유다. 기획 계약 쪽은 같은 회차에 `GameSystemRules/GameSystemRules_AI.md` 규칙 26 을 함께 고쳤다(후보 조건 교체 · 「후보가 거부돼도 탐색을 멈추지 않는다」 명시 · 전환 예정 표시). 이 어긋남은 **건설 불가 구역을 두는 맵 유형에서만 발현하며 그것은 5종 중 3종**이다(단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 3장과 규칙 9). 근거는 `_Tasks/2026-09-01/07_07_map-docs-out-of-scope-findings/`. **[같은 날 추가]** ③ **싱글플레이 맵 준비 「최초 경기」 실패 UI 의 팝업 타입을 모달 (Modal) 로 확정했다 — 이것은 표기 교정이 아니라 없던 사양을 새로 정한 결정이다.** 종전에는 `GameSystemRules/GameSystemRules_UI.md` 규칙 M-4 · 같은 문서의 반투명 배경 오버레이 모드 목록 · 이 문서 「복구 상태」 절 **어디에도 이 UI 의 타입 규정이 없었다**(2026-09-01 실측). 근거는 멀티 최초 실패를 모달로 정한 것과 같다 — **로딩 UI 가 이미 닫힌 뒤이고 `Retry`/`Lobby` 중 하나를 반드시 골라야 하는 자리**라, 배경 탭으로 닫히면 아무 선택지도 없는 화면에 남는다(타입별 동작 차이의 단일 소스는 `GameSystemRules/GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 9). 🔴 **세 문서에 함께 반영했다** — 규칙 M-4 첫 불릿 · `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 16 실패 복구 절 · 이 문서 「복구 상태」 절. 멀티 최초 실패가 이미 그 세 곳 모두에 타입을 적고 있어, **한 곳만 적으면 같은 종류의 UI 인데 어떤 것은 세 곳 어떤 것은 한 곳이 되는 반쪽 상태**가 새로 생긴다. 이 항목도 **코드 변경 0줄**이다(맵 준비 실패 UI 는 무작위 맵 미구현으로 코드에 0건). **재경기 실패 쪽(멀티 `NewMap` · 싱글 재경기)은 팝업인지 결과 화면 그 자체인지 세 문서 모두 불명확해 추정하지 않고 그대로 두었다**(CLAUDE.md 규칙 10). **[같은 날 추가 2]** ④ **이 문서에서 바뀐 것은 「복구 상태」 절에 넣은 미정 항목 포인터 한 줄뿐이며, 복구 사양 본문은 한 줄도 바뀌지 않았다.** 같은 날 ③이 「그대로 두었다」고 적은 미결 항목들을 **대화가 아니라 문서에 못 박았는데**, 미정 표시 자체는 그 UI 들의 단일 소스인 `GameSystemRules/GameSystemRules_UI.md` 규칙 M-3·M-4 **한 곳에만** 달았다 — 세 문서에 같은 표시를 두면 그것이 또 사본이 되어 한 곳만 갱신되는 반쪽 상태를 새로 만든다. 다만 이 문서의 「복구 상태」 절만 읽는 사람에게는 **미정이라는 사실 자체가 닿지 않으므로**, 내용은 옮기지 않고 **어디를 보라는 포인터 한 줄만** 넣었다(같은 이유로 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 16 실패 복구 절에도 같은 포인터 한 줄을 넣었다). **[2026-09-01 정정]** 위 ③ 이 실패 복구 절의 소속을 「규칙 13」으로 적었으나 그 절은 규칙 16(멀티플레이 맵 전송과 실패 복구) 아래에 있고 규칙 13 은 「생성 완료 검증」이므로, 서술이 아니라 **잘못된 포인터**를 바로잡는 것이라 판단해 그 한 자리를 규칙 16 으로 정정했다(새 이력 항목은 만들지 않았다). |
+| 0.45.0 | 2026-08-31 | **무작위 맵 계약의 모호성 해소 + 맵 문서 전문 통독으로 찾은 정합 교정 (구현 착수 전 계약 교정, 코드 변경 0줄).** ① **봉쇄된 광산 덩어리 판정 신설** — 광산끼리 인접한 군집을 허용하므로 접근 칸이 하나도 없는 광산이 실제로 생길 수 있는데 그때의 판정이 없었다. **서로 인접한 광산을 「광산 덩어리」로 묶어 덩어리 단위로 접근 칸·접근 거리·도달 가능성을 판정**하고, **접근 칸이 하나도 없는 덩어리가 하나라도 있으면 판 전체를 버린다.** 근거는 채굴소가 인접 6타일 전부를 자기 팀 소유로 만들어 덩어리 안에서 연쇄 건설이 된다는 코드 실측(`BuildingPlacementUseCase.PlaceMiningPost`·`PlaceBuildingInternal`). 회전이 덩어리를 덩어리로 옮기므로 대응쌍 교차 등식과 중앙 단독 광산 등식은 그대로 성립한다. 보편 공정성 문서인 `GameSystemRules/GameSystemRules_Map.md` 규칙 4 에도 **덩어리 단위로 도착 칸을 잡는다는 원칙 한 줄과 단일 소스 포인터**를 병기했다 — 그 문서만 읽는 사람에게는 덩어리 판정이 도달하지 않아, 두 문서의 서술이 문자 그대로는 어긋나 보였기 때문이다(같은 줄의 접근 거리 단위 표기도 규칙 문서 용어집이 정한 정식 표현으로 맞췄다). ② 규칙 문서의 영문 용어를 우리말로 정리(`attempt` → 「시도」, `rejection sampling` 뜻 병기). **코드 계약 문서인 이 문서의 영문 식별자는 손대지 않았다.** ③ 로그 「생성 소요 시간」의 **측정 구간을 확정** — seed 확정 직후부터 최종 맵 확정(검증 통과 또는 폴백 확정)까지의 누적 경과 시간 하나만 밀리초로 기록하며, 전송·해시 비교·씬 로드는 제외한다(규칙 16 범위). ④ **회전 연산의 이름 분리** — 좌표 변환은 `RotateCoord(p)`, 타일 상태 변환은 `RotateState(state)` 로 나눴다. 종전에는 **한 이름**이 입력도 하는 일도 다른 두 연산을 가리켜 사람이 구분할 수 없었다(2026-08-26 교정의 원인과 같은 부류). 코드에는 아직 이 이름이 없어 문서만 교체했으며, 폐기한 옛 이름은 규칙 문서 7장 용어 정의 「180도 회전」의 `_Avoid_` 행 한 곳에만 남겼다. 이 문서 「`MapDefinitionValidator` access metric」 절에서 같은 좌표 회전을 축약 표기로 적던 자리도 좌표용 이름으로 통일했다 — 한 문서 안에서 같은 연산이 두 이름을 갖는 것은 이번 교정이 없애려던 것과 같은 모양이다. ⑤ **`Hexiege.Application` 과 `UnityEngine.Application` 의 이름 충돌을 아키텍처 절에 명문화** — 종전에는 `FileSink.cs` 헤더 주석에만 있어 문서를 읽는 사람에게 도달하지 않았다. **개명하지 않고 완전 수식으로 회피하는 현행 방식을 유지**하기로 결정(현재 정상 동작 중 · 개명은 135곳 이상을 건드리는 코드 리팩터)하고 후속 판단 대기 항목으로 남겼다. 실측(2026-08-31): 선언 58파일 · `using` 77곳 · `UnityEngine.Application.` 완전 수식 24곳/9파일. ⑥ **접근 거리 개념의 용어를 「칸」 계열로 통일** — 성 접근 칸 · 광산 덩어리 · 광산 덩어리 접근 칸 · 접근 거리 넷이다. 이 문서 「`MapDefinitionValidator` access metric」 절의 우리말 서술도 같은 이름으로 맞췄다(**영문 코드 식별자는 손대지 않았다**). 종전 표기는 이 맵 문서가 이미 타일을 「칸」이라 부르는 것과 어긋났고, 덩어리 판정 도입으로 이어지지 않은 칸들의 모음이 될 수 있어 정확하지도 않았다. 폐기한 표기는 규칙 문서 7장 용어 정의 「접근 거리」의 `_Avoid_` 행 한 곳에만 남겼다. ⑦ **폴백 경로에서 경기 선택값이 그대로 유지된다고 읽히던 서술 2곳을 시도 0~99 구간 한정으로 좁혔다**(「무작위 맵 시작 동기화」 도입부 · 「결정적 PRNG 및 독립 스트림 계약」). 폴백은 광산 수·시작 광산 방향·실제 초기 골드를 템플릿 값으로 대체하므로 종전 서술은 같은 문서 「deterministic fallback 정의」와 문자 그대로 어긋나 있었다. 상세는 그 절을 가리키게 했다. ⑧ **access metric 도입부의 판정 단위를 광산 하나 → 광산 덩어리로 맞췄다** — 같은 절 아래에 덩어리 규정이 이미 있는데 도입부만 옛 단위였다. ⑨ **`MiningPost` 판정식에 `TileKind != Blocked` 를 추가** — 바로 아래 산문이 막힌 타일의 채굴소 건설을 금지하는데 판정식이 막지 않아, 이 절의 목적(판정식을 그대로 코드로 옮긴다)에 어긋났다. ⑩ **타일 표기를 코드 계약 형식으로 통일** — 「`HexGridRenderer`와 입력 표현」 절의 접두 없는 표기를 `TileKind.Normal`·`TileKind.NoBuild`·`TileKind.Blocked` 로 바꿨다. ⑪ **「deterministic fallback 정의」의 유형별 최대 광산 수·초기 골드 값에 단일 소스 경고를 달았다** — 구현자가 손에 들고 있어야 하는 값이라 남기되, 값이 바뀌면 규칙 문서를 먼저 고치고 이 절을 맞춘다(「archetype generator 알고리즘」 절과 같은 방식). ⑫ **규칙 문서 인덱스 `GameSystemRules.md` 「맵 관련 작업」 절 3건** — 이 인덱스는 그동안 맵 문서 교정 대상에서 빠져 있었다. ⓐ 접근거리 개념을 구역을 뜻하는 낱말로 적던 표기를 규칙 문서 용어집이 정한 「칸」 계열로 맞추고 재는 단위가 광산 덩어리임을 병기했다. ⓑ 맵 유형 개수를 인덱스에 옮겨 적던 사본을 없애고 `GameSystemRules_RandomMap.md` 3장을 단일 소스로 가리키게 했다. ⓒ 폴백이 경기 선택값을 그대로 쓴다고 읽히던 서술을 유형별 고정 템플릿 폴백으로 바로잡고 교체 규정의 단일 소스를 규칙 12로 가리키게 했다 — 같은 취지의 서술을 고친 다섯 번째 자리이며, 인덱스라 상세 규정은 옮겨 적지 않고 포인터만 뒀다. ⑬ **접두 없는 타일 상태 표기를 5곳 전부 `TileKind.` 접두형으로 통일** — ⑩에서 한 절만 고치는 바람에 **굵은 소제목과 그 본문이 서로 다른 표기로 갈려** 있었다. 이번에 「중립 광산 canonical orbit sampling」 1곳, 「`HexGridRenderer`와 입력 표현」 2곳(소제목 포함), 「`GridInteractionUseCase` 클릭 판정 순서」 2곳을 맞췄다. **개수를 못 박은 지시가 남긴 갈라짐이라, 이런 통일 작업은 절 단위가 아니라 문서 단위로 훑는다.** ⑭ **「`MapDefinitionValidator` access metric」 절의 성 접근 칸 표기를 우리말 정식 용어로 통일** — 한 문장 안에서 앞은 새 용어, 뒤는 옛 영문 표기로 갈려 있었다. 그 옛 표기는 규칙 문서 7장 용어 정의 「접근 거리」의 `_Avoid_` 행이 이미 금지한 것과 같은 부류다(**영문 코드 식별자 `Castle`·`StaticTraversable` 등은 손대지 않았다**). ⑮ **`GameSystemRules/GameSystemRules_AI.md` 「채굴소(MiningPost) 배치 — 병행 트랙」에 전환 예정 표시를 달았다** — 그 절의 광산 타일 조회 API 표기는 **폐기된 것이 아니라 현재 코드 그대로이며(2026-09-01 `.cs` 실측: 도메인 타일 정의·부트스트랩 대입·렌더러 사용 모두 살아 있음) 지금은 정확하다.** 그래서 **표기를 바꾸지 않고**, 무작위 맵을 구현하면 `MineKind` 기반 조회로 옮겨 간다는 사실과 그 단일 소스(이 문서 「기존 코드 전환 요구」)만 병기했다. 미리 바꿨다면 문서가 현재 코드와 어긋났을 것이다. ⑯ **`GameSystemRules/GameSystemRules_Units.md` 규칙 45 의 유닛 상태 이름을 `PathBlocked` 로 나눴다** — 아군 건물에 길이 막힌 **유닛의 상태**가 **타일의 상태**와 구분되지 않는 이름이어서 읽는 사람이 둘을 가려낼 수 없었다. ④의 회전 연산 이름 분리와 같은 부류다. 코드에 이 낱말 단위의 식별자가 0건임을 `.cs` 전수 실측으로 확인한 뒤 개명했으므로 **코드와 어긋나지 않는다**(규칙 45 자체가 미구현이다). ⑰ **`GameSystemRules/GameSystemRules_UI.md` 를 전문 통독해 맵 계약 접점(맵 준비 실패 UI 규칙 M-1~M-4 · 「무작위 맵 타일 선택과 건설 패널」 규칙 5~8)을 대조한 결과 어긋난 곳은 없어 고치지 않았다.** 통독에서 새로 드러난 것은 별도 보고 항목으로 남겼다. ⑱ **앞 항목들의 개명·표기 통일이 닿지 않은 자리 3곳을 마저 맞췄다** — ⑯의 유닛 상태 개명이 기획서 `GameDesignDocument.md` 에는 반영되지 않아 두 문서가 다른 이름을 쓰던 자리를 우리말 서술 + 정식 이름의 단일 소스 포인터로 정리했고, ⑬의 접두 통일에서 빠져 있던 「archetype generator 알고리즘」 절 `OuterGenerator` 항목의 타일 상태 표기를 형제 생성기 3개와 같은 접두형으로 맞췄으며, ⑫ⓑ에서 없앤 맵 유형 개수 사본이 `GameSystemRules.md` 「파일 목록」 표에는 다른 절이라 그대로 남아 있어 개수를 적지 않고 규칙 문서 3장을 가리키는 형태로 바꿨다. |
+| 0.44.0 | 2026-08-26 | **무작위 맵 대칭 기준 교정 + 타일 상태 통합 (구현 착수 전 계약 교정, 코드 변경 0줄).** ① 대칭 기준을 **참 180도 회전**(큐브 `p → 2C - p`, offset 은 짝수 열 `21-row`·홀수 열 `20-row`)으로 확정하고 행열 반전 `(10-col, 20-row)` 을 폐기했다 — 그것은 회전이 아니라 헥스 인접성을 보존하지 못한다. `SymmetricMapBuilder.SetPair` 의 대응 좌표도 함께 교체. ② 회전 상대가 없는 **짝수 열 0행 6칸**을 영구 차단 지형으로 고정(231칸 중 플레이 225칸). **배열·canonical hash 범위는 231칸 그대로 두고**, 대칭 대응쌍 비교에서만 제외하되 「항상 막힌 타일」 고정값 검사로 대체한다. ③ 타일 상태 2필드를 **`TileKind` 3상태 단일 필드**(`Normal`/`NoBuild`/`Blocked`)로 통합 — 뜻이 없는 조합이 표현 가능해 의미가 같은 맵이 다른 해시를 가질 수 있었다. ④ archetype generator 4종의 대역 수치를 **높이 단계** 기준으로 재작성(장애물 개방형 행 3~9 · 협곡형/외곽형 단계 18~24 · 3갈래형·외곽형 덩어리 단계 21±L). ⑤ 폴백을 **유형별 고정 템플릿 5개**로 교체하고 시작 광산 좌우 변환을 폐기(제작 도구 보존·재생성 원본 보관이 부수 조건). **폴백 경로에서는 `StartingMineSide`·`NeutralMineCount`·`InitialGold`가 템플릿 값으로 대체되고 fallback builder의 입력은 `MapType` 하나뿐임을 명시했다** — 종전 서술은 경기 선택 값이 폴백 경로에서도 입력으로 유지된다고 적고 있어 템플릿 구조와 양립하지 않았다. ⑥ 「보호 corridor」를 **필수 통로**로 개명. ⑦ 전송 조각 크기 1KB·전체 한도 64KB에 **「⚠️ 근거 미확인 — 구현 시 NGO 실측으로 확정」** 표시. **⚠️ 과대 표기 금지: 공정성 수치는 파이썬 시뮬레이션이며 Unity 실기 검증이 아니다.** 근거·결정 이력은 `_Tasks/2026-08-26/04_35_map-rules-correction/`. |
 | 0.43.2 | 2026-08-12 | **MistShrine 물안개 힐 구현 반영 — 아키텍처 설계 변경 없음, 상태 표기 정정.** 2026-08-10 시점의 "구현 미착수" 표기를 **코드·프리팹 구현 완료 / 에디터 싱글플레이 실기 검증 완료**로 정정하고, 신설된 구성 요소는 문서 상단 노트에 기록했다(레이어 경계·서버 권위 원칙은 기존 규칙을 그대로 따르며 새 패턴을 도입하지 않았다). **아직 완료가 아닌 것(과대 표기 금지): 멀티플레이 실기 미검증 — 건물 HP 동기화·클라이언트 표시·RPC 팀 검증·쿨다운 로컬 미러·이중 틱은 멀티에서만 도는 경로이며 실행된 적이 없다 · 물안개 지속 VFX 미제작 · 사용 버튼 아이콘 미제작 · 밸런싱 수치 미확정.** 구현 계약에 규칙 8-1-a(활성 물안개 위상 정렬)가 신설되었다 — `GameSystemRules/GameSystemRules_Buildings.md`. |
 | 0.43.1 | 2026-08-10 | 건물 타입 주석 오류 정정 — `AutoTower`×3종족의 Transcendence를 `MistShrine`으로 적어 온 것을 **`VineTower`**로 수정했다. MistShrine은 방어 타워가 아니라 공격하지 않는 별도 힐 건물이며 `AutoTower`(= 2)와 완전히 별개인 `HealShrine`(= 6) enum 값을 쓴다는 점을 주석에 명문화. 당시 MistShrine 물안개 지속 힐은 **기획 확정 / 구현 미착수** 상태였다. 아키텍처·구조 변경 없이 표기 정정만 수행. 규칙: `GameSystemRules/GameSystemRules_Buildings.md` MistShrine 물안개 힐 시스템. |
 | 0.50.0 | 2026-08-04 | B3 연속 이동 구현 상태 반영. `UnitServerTrajectoryPlanner`·`UnitTrajectoryStep`·`UnitPathCheckpointTracker`와 공통 서버 commit seam을 A*·Chase·PendingRepath·PostCombatResume에 연결하고, 실제 trajectory 거리 기반 waypoint 소비·corridor sweep/fallback repath·candidate-position acquire·committed Facing 동기화를 기록했다. Unity self-validation과 사용자 Editor smoke는 PASS지만 새 Android 역할교대·25종·Legacy rollback 전까지 B3는 조건부 진행 상태다. 공격 방향·Impact/피해 시점은 미완료다. |

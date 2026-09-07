@@ -215,6 +215,41 @@ HP·골드처럼 **절대값을 계속 재동기화**하는 값은 Warn, 사망�
 
 - **`system` 은 "무슨 기능인가"가 아니라 "어느 코드 영역인가"로 정한다.** LogRules 1.4 가 `[System/Class]` 를 **발생 지점 필드**로 규정하기 때문이다.
 
+  **[🔴 2026-09-02 correction — original sentence kept above]** This line contradicts the current
+  `LogRules.md` **1.4** body text and must not be applied as written. The 2026-08-18 revision added a
+  sentence to 1.4 saying the exact opposite: *"System 은 그 로그가 다루는 「기능」으로 정한다. 파일이
+  놓인 폴더로 정하지 않는다"*, with `Presentation/UI/LobbyUI` 의 방 참가 실패 → **`Network`** as the
+  worked example, and it names commit `589c2fcf` as a revert of a folder-based reassignment.
+  **`LogRules.md` is the single source and wins.** The batch-3 UI unification above is still correct as a
+  result (those files' logs really are about UI), but its stated *reason* ("코드 영역") is the wrong rule.
+  → Rule of thumb: pick System by **what the log is about**; only fall back to the folder to break a tie
+  inside one functional area (that is all the batch-3 note actually established).
+
+## 임시(축 B) 진단 로그를 쓸 때의 확정 패턴 (2026-09-02)
+
+버그 추적·회귀 확인용으로 **곧 지울** 로그를 넣을 때의 형태. `LogRules.md` **1.11** 은 `임시` 로그가
+`RuntimeLogger` 직접 호출이어도 된다고 허용하지만, 아래 이유로 **`GameLog.Dev` 를 쓴다.**
+
+| 왜 `Ops` 가 아닌가 | 축 B 판정 1문 *"플레이어 기기에서만 벌어지는가"* 가 **아니오** 다 — 에디터 Play Mode 검증이 목적이므로 `운영` 자격이 없다(1.2). 따라서 **`LogEvent` 키를 새로 만들지 않는다.** 곧 지울 로그에 이름을 만들면 1.5 의 *"이름은 한 번 정하면 바꾸지 않는다"* 와 `ILogSink.cs` enum 주석의 *"선언은 됐는데 아무도 안 쓰는 키"* 경고에 정면으로 걸린다 |
+| 왜 `RuntimeLogger` 직접 호출이 아닌가 | ① 1.14 금지 1 을 `GameLog` 경유로 확실히 만족 ② **`[Conditional]` 스트리핑이 공짜로 붙어**, 제거를 깜빡해도 릴리스에 새지 않는다 ③ 1.9/1.11 이 지적한 **전역 훅 방어 ③ 우회 구멍**을 타지 않는다 |
+
+- 🔴 **문자열 조립·반복문이 들어가면 그 코드를 `private void` 헬퍼로 빼고 헬퍼 자체에
+  `[System.Diagnostics.Conditional("UNITY_EDITOR")]` + `[...("DEVELOPMENT_BUILD")]` 를 붙인다.**
+  `GameLog.Dev` 호출만 스트리핑되면 **바깥의 조립 코드는 릴리스에 그대로 남는다.** `[Conditional]` 은
+  반환형이 `void` 여야 하므로 "문자열을 만들어 돌려주는 헬퍼"는 이 보호를 받지 못한다 — 반드시 void.
+- **모든 임시 줄에 `Diag=<작업식별자>` 를 첫 `key=value` 로 넣는다.** 분석 시 한 번에 골라내고,
+  제거 후 `grep -rn "Diag=<식별자>"` 가 0건이면 1.14 금지 10 을 지켰다는 기계적 증거가 된다.
+- 코드에는 **"임시 진단 로그" 라는 말과 제거 시점**을 주석으로 못박는다(MistShrine 선례: `848d891`→`cfe73bb` 전량 제거).
+
+### 이 패턴을 따른 실적 (append only — 지우지 않는다)
+
+| 작업 | 투입 | 제거 | 결과 |
+|---|---|---|---|
+| MistShrine 물안개 힐 (2026-08-10) | `848d891` | `cfe73bb` | 전량 제거 |
+| 무작위 맵 1단계 · 타일 상태 계약 전환 (2026-09-03) | `5649a7e` | `51516a1` | **224행 순수 삭제 · `Diag=RandomMapPhase1` grep 0건.** 위 규약(`Diag=` 접두 → 제거 후 grep 0건)이 **기계적 증거로 실제 성립한 첫 사례**다 |
+
+※ 근거 구분: 커밋 해시와 삭제 행수는 **호출 세션이 전달한 값**이고, grep 0건은 문서 작업 중 실측했다.
+
 ## 배치 2 에서 확인한 사실 (2026-08-18)
 
 - **sink 등록 시점 전수 확인 결과: 배치 2 의 61자리 전부 `LogSessionOwner.EnsureInitialized()` 이후다.**

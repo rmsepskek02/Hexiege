@@ -159,7 +159,7 @@ namespace Hexiege.Presentation
 
             foreach (var kvp in grid.Tiles)
             {
-                if (!kvp.Value.HasGoldMine) continue;
+                if (kvp.Value.MineKind == MineKind.None) continue;
 
                 HexCoord coord = kvp.Key;
                 Vector3 worldPos = HexMetrics.HexToWorld(coord);
