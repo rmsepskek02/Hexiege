@@ -5,11 +5,13 @@
 // Inspector 필드 / 생명주기 메서드는 메인 파일(GameBootstrapper.cs)에 있다.
 //
 // 담당 영역:
-//   1. LoadMap        — 현재 맵 정리 → 그리드 생성 → UseCase 생성 → 카메라/입력/건물/생산 와이어링 →
-//                        Castle/금광 자동 배치 → 게임 시작 이벤트 발행
+//   1. LoadMap        — 현재 맵 정리 → 그리드 생성 → 무작위 맵 준비/투영 → UseCase 생성 →
+//                        카메라/입력/건물/생산 와이어링 → Castle/시작 채굴소 배치 → 게임 시작 이벤트 발행
 //   2. ClearAll       — 이전 게임의 유닛/건물/혼잡도/구독 모두 정리 (재경기 안전성)
-//   3. PlaceCastles   — Blue 하단, Red 상단 Castle 자동 배치
-//   4. PlaceGoldMines — 시작 금광 2개 + 채굴소 자동 건설 + 중립 금광 2개
+//   3. PlaceCastles   — 투영 결과가 알려 준 자리에 양 팀 Castle 자동 배치
+//   4. PlaceGoldMines — 투영 결과가 알려 준 시작 광산 위에 채굴소 자동 건설
+//   5. PrepareAndProjectMap / CreateRootSeed
+//                     — 이번 판의 맵을 만들고(MapPreparationUseCase) 격자에 새긴다(MapProjectionUseCase)
 //
 // 규칙:
 //   * [SerializeField] 필드를 본 파일에 추가하지 않는다 — Inspector 추적성 보장.
@@ -101,6 +103,12 @@ namespace Hexiege.Bootstrap
             // 3. 그리드 생성
             _grid = new HexGrid(oc.GridWidth, oc.GridHeight, orientation);
 
+            // 3-A. 무작위 맵 준비 + 투영 (무작위 맵 2단계 H).
+            //   여기서 이번 판의 지형(TileKind)과 광산(MineKind)이 격자에 실제로 새겨진다.
+            //   반드시 "그리드 생성 뒤 · 타일 렌더링(5번) 앞"이어야 한다 —
+            //   렌더러는 격자의 현재 상태를 읽어 그리므로, 투영이 늦으면 옛 상태가 그려진다.
+            PrepareAndProjectMap();
+
             // 4. UseCase 생성
             CreateUseCases();
 
@@ -171,10 +179,10 @@ namespace Hexiege.Bootstrap
                 _hitPresentationQueue = gameObject.AddComponent<HitPresentationQueue>();
             _hitPresentationQueue.Initialize(_floatingHpTextSpawner, _unitFactory, _buildingFactory, _unitSpawn, _buildingPlacement);
 
-            // 11. Castle 자동 배치
+            // 11. Castle 자동 배치 (좌표는 3-A 의 투영 결과에서 온다)
             PlaceCastles(orientation, oc);
 
-            // 12. 금광 배치
+            // 12. 시작 채굴소 자동 건설 (광산 타일 자체는 3-A 에서 이미 새겨졌다)
             PlaceGoldMines(orientation, oc);
 
             // 13. 금광 렌더링
@@ -257,94 +265,245 @@ namespace Hexiege.Bootstrap
 
         /// <summary>
         /// 양 팀 Castle 자동 배치. 게임 시작 시 호출.
-        /// Blue: 맵 하단 중앙, Red: 맵 상단 중앙.
+        /// 좌표는 이번 판의 맵 설계도(MapDefinition)를 투영한 결과에서 온다.
         /// </summary>
+        /// <param name="orientation">헥스 방향(옛 하드코딩 경로를 되살릴 때 쓰인다)</param>
+        /// <param name="oc">해당 방향의 격자 설정(옛 하드코딩 경로를 되살릴 때 쓰인다)</param>
         private void PlaceCastles(HexOrientation orientation, OrientationConfig oc)
         {
             if (_buildingPlacement == null) return;
 
-            // Blue Castle: 하단 중앙
-            // 종족에 따라 Castle HP가 다르므로 GameRaceContext에서 종족을 조회하여 전달
-            HexCoord bluePos = HexGrid.OffsetToCube(
-                oc.GridWidth / 2, oc.GridHeight - 2, orientation);
-            _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Blue, bluePos,
-                GameRaceContext.BlueRace);
+            // ────────────────────────────────────────────────────────────────
+            // [2단계 대체 대기] 무작위 맵 이전의 "좌표를 코드에 박아 두는" 배치 경로.
+            //   맵마다 성 자리가 달라졌으므로 더 이상 쓰지 않는다. 아래 무작위 맵
+            //   경로가 실기로 검증될 때까지 되돌릴 수단으로 남겨 둔다(WORKFLOW.md [4]).
+            //   최종 삭제 시 이 표식을 grep 으로 한 번에 찾는다.
+            // ────────────────────────────────────────────────────────────────
+            //
+            // // Blue Castle: 하단 중앙
+            // // 종족에 따라 Castle HP가 다르므로 GameRaceContext에서 종족을 조회하여 전달
+            // HexCoord bluePos = HexGrid.OffsetToCube(
+            //     oc.GridWidth / 2, oc.GridHeight - 2, orientation);
+            // _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Blue, bluePos,
+            //     GameRaceContext.BlueRace);
+            //
+            // // Red Castle: 상단 중앙
+            // HexCoord redPos = HexGrid.OffsetToCube(
+            //     oc.GridWidth / 2, 1, orientation);
+            // _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Red, redPos,
+            //     GameRaceContext.RedRace);
 
-            // Red Castle: 상단 중앙
-            HexCoord redPos = HexGrid.OffsetToCube(
-                oc.GridWidth / 2, 1, orientation);
-            _buildingPlacement.PlaceBuilding(BuildingType.Castle, TeamId.Red, redPos,
-                GameRaceContext.RedRace);
+            // ── 무작위 맵 경로 ──────────────────────────────────────────────
+            // 맵 준비/투영이 실패했다면 성을 세울 자리를 모른다. 이때 임의의 자리에
+            // 세우면 "맵이 이상하다"가 아니라 "게임이 이상하다"로 보이게 되므로,
+            // 아무것도 하지 않는다. 실패 사유는 PrepareAndProjectMap 이 이미 남겼다.
+            if (_mapProjection == null || !_mapProjection.IsSucceeded) return;
+
+            foreach (MapTeamPlacement castle in _mapProjection.Castles)
+            {
+                // 종족에 따라 Castle HP가 다르므로 GameRaceContext에서 종족을 조회하여 전달.
+                RaceId race = (castle.Team == TeamId.Blue)
+                    ? GameRaceContext.BlueRace
+                    : GameRaceContext.RedRace;
+
+                _buildingPlacement.PlaceBuilding(BuildingType.Castle, castle.Team, castle.Coord, race);
+            }
         }
 
         /// <summary>
-        /// 맵에 금광 배치 + 시작 채굴소 건설.
-        /// 금광은 중립 오브젝트: MineKind 설정(→ IsWalkable 자동 false), Owner=Neutral.
-        /// 각 팀 Castle 횡 2칸 위치에 금광+채굴소 자동 건설.
-        /// 맵 중앙에 중립 금광 2개 배치.
+        /// 시작 채굴소 자동 건설.
+        ///
+        /// 금광 타일 자체(MineKind)는 이제 이 메서드가 찍지 않는다.
+        /// 3-A 의 투영(MapProjectionUseCase)이 설계도의 광산 목록을 보고 이미 새겨 두었다.
+        /// 여기 남는 일은 "각 팀 시작 광산 위에 채굴소를 세우는 것" 하나뿐이다.
         /// </summary>
+        /// <param name="orientation">헥스 방향(옛 하드코딩 경로를 되살릴 때 쓰인다)</param>
+        /// <param name="oc">해당 방향의 격자 설정(옛 하드코딩 경로를 되살릴 때 쓰인다)</param>
         private void PlaceGoldMines(HexOrientation orientation, OrientationConfig oc)
         {
             if (_grid == null) return;
 
-            int centerCol = oc.GridWidth / 2; // 맵 중앙 열
-            int blueRow = oc.GridHeight - 2;  // Blue Castle 행
-            int redRow = 1;                   // Red Castle 행
-            int midRow = oc.GridHeight / 2;   // 맵 중앙 행
+            // ────────────────────────────────────────────────────────────────
+            // [2단계 대체 대기] 무작위 맵 이전의 "좌표를 코드에 박아 두는" 금광 배치 경로.
+            //   광산 자리가 맵마다 달라졌으므로 더 이상 쓰지 않는다. 아래 무작위 맵
+            //   경로가 실기로 검증될 때까지 되돌릴 수단으로 남겨 둔다(WORKFLOW.md [4]).
+            //   최종 삭제 시 이 표식을 grep 으로 한 번에 찾는다.
+            //
+            //   🔴 1단계에서 지우지 못했던 "숨은 참조"가 바로 이 구간이다.
+            //      아래 시작 채굴소 자동 건설이 좌표 배열을 직접 읽고 있었기 때문에
+            //      배열만 지우면 채굴소 건설이 함께 깨졌다. 이번에는 그 연결을 끊어
+            //      채굴소 좌표를 투영 결과(설계도의 시작 광산 목록)에서 받는다.
+            // ────────────────────────────────────────────────────────────────
+            //
+            // int centerCol = oc.GridWidth / 2; // 맵 중앙 열
+            // int blueRow = oc.GridHeight - 2;  // Blue Castle 행
+            // int redRow = 1;                   // Red Castle 행
+            // int midRow = oc.GridHeight / 2;   // 맵 중앙 행
+            //
+            // // 시작 금광 (각 팀 Castle 횡 2칸, 채굴소 자동 건설)
+            // int[][] startingMines = new int[][]
+            // {
+            //     new int[] { centerCol - 2, blueRow }, // Blue 시작 금광
+            //     new int[] { centerCol - 2, redRow },  // Red 시작 금광
+            // };
+            //
+            // // 중립 금광 (맵 중앙 부근 2개)
+            // int[][] neutralMines = new int[][]
+            // {
+            //     new int[] { 2, midRow },
+            //     new int[] { 8, midRow },
+            // };
+            //
+            // // 금광 타일 설정.
+            // // 예전에는 "금광이 있다" 플래그와 "이동 불가" 플래그를 나란히 두 번 대입했지만,
+            // // 이제는 MineKind 하나만 설정하면 이동 가능 여부가 자동으로 계산된다.
+            // // 어떤 팀의 광산인지(BlueStart/RedStart/Neutral)까지 구분해 넣기 위해
+            // // 매개변수로 MineKind를 받는다.
+            // void SetGoldMine(int col, int row, MineKind mineKind)
+            // {
+            //     HexCoord coord = HexGrid.OffsetToCube(col, row, orientation);
+            //     HexTile tile = _grid.GetTile(coord);
+            //     if (tile != null)
+            //     {
+            //         tile.MineKind = mineKind;
+            //     }
+            // }
+            //
+            // // 시작 금광은 팀별로 MineKind가 다르므로 배열 순회 대신 하나씩 명시적으로 호출한다.
+            // // 좌표는 위 배열을 그대로 사용해 좌표 계산이 두 벌로 갈라지지 않게 한다.
+            // SetGoldMine(startingMines[0][0], startingMines[0][1], MineKind.BlueStart);
+            // SetGoldMine(startingMines[1][0], startingMines[1][1], MineKind.RedStart);
+            //
+            // // 중립 금광은 전부 같은 종류이므로 기존처럼 순회한다.
+            // foreach (var m in neutralMines) SetGoldMine(m[0], m[1], MineKind.Neutral);
+            //
+            // // 시작 채굴소 자동 건설 (금광 타일 위에 직접 배치)
+            // if (_buildingPlacement != null)
+            // {
+            //     // Blue 시작 채굴소
+            //     // 종족에 따라 MiningPost HP가 다르므로 GameRaceContext에서 종족을 조회하여 전달
+            //     HexCoord blueMinePos = HexGrid.OffsetToCube(
+            //         startingMines[0][0], startingMines[0][1], orientation);
+            //     _buildingPlacement.PlaceMiningPostDirect(TeamId.Blue, blueMinePos,
+            //         GameRaceContext.BlueRace);
+            //
+            //     // Red 시작 채굴소
+            //     HexCoord redMinePos = HexGrid.OffsetToCube(
+            //         startingMines[1][0], startingMines[1][1], orientation);
+            //     _buildingPlacement.PlaceMiningPostDirect(TeamId.Red, redMinePos,
+            //         GameRaceContext.RedRace);
+            // }
 
-            // 시작 금광 (각 팀 Castle 횡 2칸, 채굴소 자동 건설)
-            int[][] startingMines = new int[][]
-            {
-                new int[] { centerCol - 2, blueRow }, // Blue 시작 금광
-                new int[] { centerCol - 2, redRow },  // Red 시작 금광
-            };
+            // ── 무작위 맵 경로 ──────────────────────────────────────────────
+            if (_buildingPlacement == null) return;
+            if (_mapProjection == null || !_mapProjection.IsSucceeded) return;
 
-            // 중립 금광 (맵 중앙 부근 2개)
-            int[][] neutralMines = new int[][]
+            foreach (MapTeamPlacement mine in _mapProjection.StartingMines)
             {
-                new int[] { 2, midRow },
-                new int[] { 8, midRow },
-            };
+                // 종족에 따라 MiningPost HP가 다르므로 GameRaceContext에서 종족을 조회하여 전달.
+                RaceId race = (mine.Team == TeamId.Blue)
+                    ? GameRaceContext.BlueRace
+                    : GameRaceContext.RedRace;
 
-            // 금광 타일 설정.
-            // 예전에는 "금광이 있다" 플래그와 "이동 불가" 플래그를 나란히 두 번 대입했지만,
-            // 이제는 MineKind 하나만 설정하면 이동 가능 여부가 자동으로 계산된다.
-            // 어떤 팀의 광산인지(BlueStart/RedStart/Neutral)까지 구분해 넣기 위해
-            // 매개변수로 MineKind를 받는다.
-            void SetGoldMine(int col, int row, MineKind mineKind)
+                // PlaceMiningPostDirect 는 "인접 타일이 우리 팀인가" 조건을 건너뛴다.
+                // 경기 시작 시점에는 아직 아무 영토도 없으므로 그 조건을 만족할 수 없다.
+                _buildingPlacement.PlaceMiningPostDirect(mine.Team, mine.Coord, race);
+            }
+        }
+
+        // ====================================================================
+        // 무작위 맵 준비 + 투영 (2단계 H)
+        // ====================================================================
+
+        /// <summary>
+        /// 이번 판의 맵을 만들고(MapPreparationUseCase) 격자에 새긴다(MapProjectionUseCase).
+        ///
+        /// 🔴 동기 호출이다. 코루틴으로 바꾸지 않았다.
+        ///    실측(데스크톱, 300회)에서 맵 준비는 중앙값 0ms · 95번째 0ms · 최대 7ms 였고,
+        ///    첫 시도에서 검증을 통과하는 비율이 사실상 100% 라 실제로는 "한 번 만들고 끝"이다.
+        ///    최악의 경우(100번 재시도)에도 로딩 화면에서 한 번 걸리는 수준이다.
+        ///
+        /// 💡 이상적으로는 이 함수를 부르기 직전에 한 프레임을 넘기는 것이 좋다.
+        ///    그래야 로딩 UI 가 화면에 실제로 그려진 뒤에 계산이 시작된다.
+        ///    지금은 LoadMap 전체가 동기 함수라 그 자리가 없다. 프레임을 넘기려면
+        ///    LoadMap 을 코루틴으로 바꿔야 하는데, 그러면 LoadMap 을 부르는 모든 곳이
+        ///    함께 흔들린다. H 단계는 이미 화면이 바뀌는 가장 위험한 단계라
+        ///    그 개조를 겹치지 않기로 했다(별도 작업으로 제안).
+        /// </summary>
+        private void PrepareAndProjectMap()
+        {
+            // 이전 판의 결과가 남아 새 판에 섞여 들지 않도록 먼저 비운다.
+            _mapPreparation = null;
+            _mapProjection = null;
+
+            if (_config == null || _grid == null) return;
+
+            // 폴백 템플릿은 Resources 에서 읽는다(Infrastructure 구현체).
+            // Application 의 조정자는 인터페이스만 알고 Unity 를 모른다.
+            var preparation = new MapPreparationUseCase(new ResourcesMapFallbackTemplateSource());
+
+            ulong rootSeed = CreateRootSeed();
+
+            // 테스트 모드 표식은 로컬 GameConfig 가 권위다(규칙 3 — 싱글 권위).
+            MapPreparationResult prepared = preparation.Prepare(rootSeed, _config.MapTestModeEnabled);
+
+            // 🔴 결과를 반드시 보관한다.
+            //    문제가 생긴 맵을 다시 만들어 보려면 그 판의 root seed 가 있어야 하는데,
+            //    seed 는 매 판 새로 뽑히므로 여기서 놓치면 영영 재현할 수 없다.
+            //    K 단계가 이 값을 꺼내 로그로 남긴다(GetLastMapPreparation).
+            _mapPreparation = prepared;
+
+            if (!prepared.IsSucceeded)
             {
-                HexCoord coord = HexGrid.OffsetToCube(col, row, orientation);
-                HexTile tile = _grid.GetTile(coord);
-                if (tile != null)
-                {
-                    tile.MineKind = mineKind;
-                }
+                // [개발] 맵 준비 실패 = 폴백 템플릿까지 실패한 상태다. 경기를 진행할 수 없다.
+                //   운영 로그 키 신설은 K 단계 범위라 여기서는 개발 로그로만 남긴다.
+                GameLog.Dev.Error("Map", nameof(GameBootstrapper),
+                                  "맵 준비 실패 — 성/광산을 배치하지 않는다", prepared.ToString());
+                return;
             }
 
-            // 시작 금광은 팀별로 MineKind가 다르므로 배열 순회 대신 하나씩 명시적으로 호출한다.
-            // 좌표는 위 배열을 그대로 사용해 좌표 계산이 두 벌로 갈라지지 않게 한다.
-            SetGoldMine(startingMines[0][0], startingMines[0][1], MineKind.BlueStart);
-            SetGoldMine(startingMines[1][0], startingMines[1][1], MineKind.RedStart);
+            // 설계도를 격자에 새긴다. 격자 크기(11x21)가 설계도와 다르면 여기서 실패한다.
+            MapProjectionResult projected = MapProjectionUseCase.Project(prepared.Definition, _grid);
+            _mapProjection = projected;
 
-            // 중립 금광은 전부 같은 종류이므로 기존처럼 순회한다.
-            foreach (var m in neutralMines) SetGoldMine(m[0], m[1], MineKind.Neutral);
-
-            // 시작 채굴소 자동 건설 (금광 타일 위에 직접 배치)
-            if (_buildingPlacement != null)
+            if (!projected.IsSucceeded)
             {
-                // Blue 시작 채굴소
-                // 종족에 따라 MiningPost HP가 다르므로 GameRaceContext에서 종족을 조회하여 전달
-                HexCoord blueMinePos = HexGrid.OffsetToCube(
-                    startingMines[0][0], startingMines[0][1], orientation);
-                _buildingPlacement.PlaceMiningPostDirect(TeamId.Blue, blueMinePos,
-                    GameRaceContext.BlueRace);
-
-                // Red 시작 채굴소
-                HexCoord redMinePos = HexGrid.OffsetToCube(
-                    startingMines[1][0], startingMines[1][1], orientation);
-                _buildingPlacement.PlaceMiningPostDirect(TeamId.Red, redMinePos,
-                    GameRaceContext.RedRace);
+                // [개발] 크기·헥스 방향 불일치 등 설정 오류다. GameConfig 의 격자 크기를 먼저 본다.
+                GameLog.Dev.Error("Map", nameof(GameBootstrapper),
+                                  "맵 투영 실패 — 성/광산을 배치하지 않는다", projected.ToString());
             }
+        }
+
+        /// <summary>
+        /// 이번 판의 64비트 root seed 를 정한다.
+        ///
+        /// 싱글플레이는 로컬이 권위이므로 매 판 새로 뽑는다(규칙 3).
+        /// 🔴 UnityEngine.Random 이나 GetHashCode 를 쓰지 않는다 — 맵 생성 계통에서
+        ///    그것들을 쓰지 않기로 한 약속(TDD)과 혼동될 여지를 남기지 않기 위해서다.
+        ///    여기서 필요한 것은 "매 판 다른 64비트 값"뿐이므로 시각과 GUID 를 섞는다.
+        /// </summary>
+        /// <returns>이번 판의 root seed</returns>
+        private ulong CreateRootSeed()
+        {
+            // ── 멀티플레이 임시 처리 ────────────────────────────────────────
+            // 🔴 Host 가 정한 seed 를 클라이언트에게 보내는 일은 3단계 범위다.
+            //    지금 양쪽이 각자 seed 를 뽑으면 두 사람이 서로 다른 맵을 보게 된다.
+            //    그래서 멀티에서는 고정 seed 를 쓴다 — 같은 seed 면 같은 맵이므로
+            //    (규칙 12) 전송 없이도 양쪽이 반드시 같은 맵을 얻는다.
+            //    3단계에서 Host 권위 seed 전송이 들어오면 이 분기는 사라진다.
+            if (IsNetworkMode())
+                return NetworkInterimRootSeed;
+
+            // ── 싱글플레이: 매 판 다른 값 ───────────────────────────────────
+            // GUID 는 앞 8바이트만 써도 충분히 흩어지고, 시각을 섞어 같은 프로세스에서
+            // 연속으로 시작해도 값이 겹치지 않게 한다.
+            byte[] guidBytes = System.Guid.NewGuid().ToByteArray();
+
+            ulong entropy = 0UL;
+            for (int i = 0; i < 8; i++)
+                entropy = (entropy << 8) | guidBytes[i];
+
+            return entropy ^ (ulong)System.DateTime.UtcNow.Ticks;
         }
     }
 }

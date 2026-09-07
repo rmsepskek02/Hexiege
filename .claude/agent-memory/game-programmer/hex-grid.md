@@ -623,3 +623,114 @@ F 의 자기 검증 9단계에는 음성 대조가 들어 있다 — 타일 배�
 ⚠️ **Unity 에디터에서는 아직 한 번도 실행되지 않았다.** 에디터 도구는 `mcs` + Unity 스텁
 (`MenuItem`/`EditorUtility`/`AssetDatabase`/`Debug`/`Application.dataPath` + `Hexiege.Application`
 네임스페이스 재현)으로 **오류 0 · 경고 0** 컴파일까지만 확인했다.
+
+---
+
+## 무작위 맵 H 단계 — 격자 11×21 + `MapDefinition` → `HexGrid` 투영 (2026-09-07)
+
+**여기서 처음으로 실제 화면이 바뀐다.** A~G 는 아무도 부르지 않는 코드였고, H 가 기존 고정 맵 경로를
+무작위 맵으로 갈아끼운다. Plan §1 제거표 제거-1~3 과 §4 H 절이 근거.
+
+| 파일 | 무엇이 바뀌었나 |
+|---|---|
+| `Resources/Config/GameConfig.asset` | FlatTop `GridWidth 10→11` · `GridHeight 20→21`. **PointyTop(7×17)은 무변경** |
+| `Infrastructure/Config/GameConfig.cs` | FlatTop 코드 기본값 `10×29 → 11×21`. `.asset` 이 실행 권위지만 코드 기본값이 다르면 「세 번째 값」이 남는다 |
+| `Application/UseCases/MapProjectionUseCase.cs` (신설, guid `12b78cbe79624d4281c93f738a46feb9`) | 순수 C#. `Project(MapDefinition, HexGrid)` |
+| `Bootstrap/GameBootstrapper.Map.cs` | `LoadMap` 3-A 단계 신설 + 하드코딩 배치 주석 비활성화 |
+| `Bootstrap/GameBootstrapper.cs` | `_mapPreparation` / `_mapProjection` 필드 + 게터 2개 + `NetworkInterimRootSeed` 상수 |
+
+### `MapProjectionUseCase` — 순수 C# 이라 mono 로 검증된다
+
+`static class`(보관 상태 0). `Project` 는 **모든 실패 판정을 대입 전에 끝낸다** — 중간에 실패하면
+격자가 「절반만 새 맵」인 상태로 남아 원인을 못 찾는다. 결과 객체 `MapProjectionResult` 는
+`Castles` / `StartingMines`(`MapTeamPlacement` = HexCoord + TeamId) / `NeutralMines`(HexCoord) 를 돌려주고,
+**실제 건물 배치는 하지 않는다**(종족·팩터리가 필요해 Bootstrap 의 몫).
+
+- `TileKind` ← `definition.Tiles[index]` 전 칸. `MineKind` 는 **매번 `None` 으로 되돌린 뒤** 목록으로 다시
+  칠한다 → 같은 격자에 다른 맵을 재투영해도 이전 광산이 남지 않는다(재경기 경로에서 실제로 일어난다).
+- `HasBuilding` · 소유권은 **건드리지 않는다.** 초기 소유권은 성·시작 채굴소를 세울 때
+  `BuildingPlacementUseCase` 가 자기 타일 + 인접 타일을 칠하며 자연히 생긴다 —
+  `InitialMapStateEvaluator`(C) 와 **입력이 같아 결과도 같다.** 그래서 소유권을 두 번 계산하지 않는다.
+- 🔴 **방향 불일치 검출**: 인덱스→좌표 변환에 `definition.Orientation` 을 쓰고 `grid.HasTile` 로 확인하므로,
+  PointyTop 격자에 투영하면 반드시 실패한다(자체 점검의 음성 대조 중 하나).
+- 자체 점검 7종(전 칸 대조 · 광산 종류 · 성 좌표 · 소유권/HasBuilding 무변경 · 재투영 · 음성 대조 4개).
+
+### 🔴 1단계에서 못 지웠던 「숨은 참조」를 이번에 끊었다
+
+`PlaceGoldMines` 의 **시작 채굴소 자동 건설이 `startingMines[][]` 배열 좌표를 직접 읽고 있었다.**
+그래서 1단계에서는 배열을 지우지 못했다. H 에서는 채굴소 좌표를 **`MapDefinition.StartingMines` →
+투영 결과 `StartingMines`** 에서 받는다. 이제 `GameBootstrapper.Map.cs` 의
+`startingMines` / `neutralMines` / `SetGoldMine` 히트는 **전부 `//` 주석 줄**이다.
+
+`// [2단계 대체 대기]` 표식 = 코드 **2건**(`PlaceCastles` · `PlaceGoldMines`) + `Plan.md` 2건.
+최종 삭제 후 코드 0건이 완료의 기계적 증거다.
+
+⚠️ **주석 비활성화의 부작용**: 주석 안에 `tile.MineKind = mineKind;` 같은 **대입 모양 문자열**이 남아 있다.
+「MineKind 를 쓰는 자리」를 grep 으로 세면 오탐이 된다(`.claude/mistakes.md` 2026-09-02 항목과 같은 부류).
+Plan 이 주석 비활성화를 지시했으므로 그대로 두되, 그 grep 을 쓸 때는 주석을 걷어내고 셀 것.
+
+### root seed 를 어디서 만들고 어디에 두는가
+
+`GameBootstrapper.Map.cs` `CreateRootSeed()`. 싱글은 `Guid.NewGuid()` 앞 8바이트 ^ `DateTime.UtcNow.Ticks`
+(**`UnityEngine.Random` · `GetHashCode` 미사용** — 맵 생성 계통의 금지 API 와 혼동될 여지를 남기지 않는다).
+결과는 `_mapPreparation`(= `MapPreparationResult`, `RootSeed` 포함)에 보관하고 `GetLastMapPreparation()`
+으로 꺼낸다. **K 단계는 이 게터에서 규칙 12 의 11개 항목을 전부 얻을 수 있다.**
+
+🔴 **멀티는 고정 seed `NetworkInterimRootSeed = 1`.** Host 권위 seed 전송이 3단계라, 지금 양쪽이
+각자 뽑으면 서로 다른 맵을 본다. 「같은 seed → 같은 맵」(규칙 12)에 기대어 전송 없이 일치시킨
+**임시 조치**이며 멀티는 당분간 매 판 같은 맵이다. **사용자 확인이 필요한 판단**으로 보고했다.
+
+### 실행 모델 — `LoadMap` 은 동기 그대로
+
+메인 세션 실측(`Prepare` 300회, 데스크톱 mono): 중앙값 0ms · 95번째 0ms · 최대 7ms. 첫 시도 통과율이
+사실상 100% 라 실제로는 생성·검증 1회로 끝난다. 코루틴화는 호출부 전체를 흔들고 H 는 이미 가장
+위험한 단계라 **개조를 겹치지 않는다.** 「부르기 전 한 프레임 넘기는 것이 이상적」은 `PrepareAndProjectMap`
+XML 주석에 남겨 뒀다.
+
+### 격자 크기 변경을 따라 움직이는 것 (전부 매개변수화돼 있어 코드 수정 0건)
+
+`HexMetrics.GridCenter` · `ComputeMapWorldBounds` · `IsWithinMapBounds` · `ClampToMapBounds` 는 전부
+`gridWidth/gridHeight` 인자를 받고, 호출부는 `oc.GridWidth/GridHeight`(Setup.cs 499·516·518,
+Map.cs 96, Network.cs 80) 또는 `_grid.Width/Height`(Setup.cs 395·569·571 스킬 조준 람다)를 넘긴다.
+**`GridWidth`/`GridHeight` 를 참조하는 자리는 `GameConfig.cs` 정의 4곳 외에 전부 `oc.` 경유**(grep 실측).
+
+FlatTop TileWidth 1.0 · TileHeight 0.866 기준 실제 변화값:
+
+| | 10×20 | 11×21 |
+|---|---|---|
+| `GridCenter` (x, z) | (3.375, −8.4435) | (3.75, −8.66) |
+| 맵 월드 경계 (minX, minZ, maxX, maxZ) | (−0.5, −17.32, 7.25, 0.433) | (−0.5, −18.186, 8.0, 0.433) |
+| 카메라 clamp size (x, z) | (10.75, 20.887) | (11.5, 21.32) |
+
+### 실측 — `mcs` + `mono` 로 실제 실행
+
+- 자체 점검 **14종 전원 PASS**(기존 13 + `MapProjectionUseCase` 신설 1).
+- **end-to-end 프로브**: 시드 0~199 를 `Prepare` → `Project` → 231칸 전수 대조. **실패 0건.**
+  `TileKind` 전 칸 일치 · `MineKind` 전 칸 일치 · `HasBuilding` 전부 false · 소유권 전부 Neutral ·
+  성 2 / 시작 광산 2 / 중립 광산 = `NeutralMineCount` · 성 타일은 항상 `Normal` + 광산 없음 + 이동 가능.
+  최대 소요 24ms(첫 JIT 포함). 같은 seed 두 번 → 같은 해시.
+- **유형별 타일 구성 실측**(시드 0~499, 정상 모드, 평균 칸수):
+
+  | 유형 | Normal | NoBuild | Blocked |
+  |---|---|---|---|
+  | FullyOpen | 225.0 | 0 | 6.0 |
+  | ObstacleOpen | 194.6 | 0 | 36.4 |
+  | Canyon | 148.8 | 17.2 | 65.0 |
+  | Outer | 172.9 | 26.8 | 31.3 |
+  | ThreeLane | 129.9 | 78.9 | 22.2 |
+
+  🔴 **`Blocked` 는 항상 최소 6칸이다** — 짝수 열 0행 6칸은 회전 상대가 격자 밖이라 `SymmetricMapBuilder`
+  가 영구 `Blocked` 로 고정한다(규칙 10). 231칸 중 실제 사용 225칸.
+
+🔴 **`UnityEngine` 을 쓰는 파일은 컴파일 검증 불가**: `GameBootstrapper.*` · `GameConfig.cs` 는 mono 로
+빌드할 수 없다. 중괄호/괄호 균형(주석·문자열 스트립 후 0) · 금지 grep(`Application.` 0건) · 타입/using
+소재 확인까지만 했고, **컴파일 확인은 Unity 에디터에서만 가능하다.**
+
+### H 시점의 의도된 미완 (I·J·K 범위 — 화면에서 이렇게 보인다)
+
+- `Blocked` 타일이 **여전히 일반 타일처럼 그려진다**(J 단계). 눈에는 평범한데 유닛이 못 지나간다
+  = 「보이지 않는 벽」. `Blocked` 는 `IsWalkable` 이 false 라 건설도 이미 막혀 있다.
+- `NoBuild` 타일에 **빗금이 없고 건설도 막히지 않는다**(J·I 단계). 지금 판정은 `IsWalkable` 뿐이라
+  `NoBuild` 는 일반 타일과 구분되지 않는다.
+- `MapPreparationResult.InitialGold`(광산 수 표 / 테스트 모드 5000)를 **아직 아무도 쓰지 않는다.**
+  초기 골드는 여전히 `GameConfig.StartingGold`. H 의 파일 4개 목록에 없어 범위 밖으로 두고 보고만 했다.

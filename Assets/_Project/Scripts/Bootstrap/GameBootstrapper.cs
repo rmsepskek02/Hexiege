@@ -194,6 +194,32 @@ namespace Hexiege.Bootstrap
 
         private HexGrid _grid;
 
+        // ────────────────────────────────────────────────────────────────────
+        // 무작위 맵 2단계 H — 이번 판의 맵 준비/투영 결과.
+        //
+        //   🔴 준비 결과를 보관하는 이유는 "재현" 때문이다.
+        //      root seed 는 경기마다 새로 뽑히므로(GameBootstrapper.Map.cs CreateRootSeed),
+        //      여기에 붙들어 두지 않으면 문제가 생긴 맵을 다시 만들어 볼 방법이 없다.
+        //      규칙 12 가 요구하는 로그 항목(맵 유형·시도 횟수·해시 등)도 전부 이 안에 있고,
+        //      K 단계가 이 값을 꺼내 운영 로그로 내보낸다.
+        //
+        //   투영 결과는 성·시작 광산의 좌표를 담고 있어 PlaceCastles / PlaceGoldMines 가 읽는다.
+        //   둘 다 LoadMap 이 매 판 새로 채운다(실패하면 null 이 아니라 IsSucceeded=false 로 들어온다).
+        // ────────────────────────────────────────────────────────────────────
+        private MapPreparationResult _mapPreparation;
+        private MapProjectionResult _mapProjection;
+
+        /// <summary>
+        /// 멀티플레이에서 임시로 쓰는 고정 root seed.
+        ///
+        /// 🔴 Host 가 정한 seed 를 클라이언트에 보내는 일은 무작위 맵 3단계 범위다.
+        ///    그전까지 양쪽이 각자 seed 를 뽑으면 서로 다른 맵을 보게 되므로,
+        ///    같은 seed 를 쓰기로 해서 "같은 seed 면 같은 맵"(규칙 12)에 기대어
+        ///    전송 없이 맵을 일치시킨다. 즉 멀티는 당분간 매 판 같은 맵이다.
+        ///    3단계에서 Host 권위 seed 가 들어오면 이 상수는 사라진다.
+        /// </summary>
+        private const ulong NetworkInterimRootSeed = 1UL;
+
         private GridInteractionUseCase _gridInteraction;
         private UnitMovementUseCase _unitMovement;
         private UnitSpawnUseCase _unitSpawn;
@@ -423,6 +449,21 @@ namespace Hexiege.Bootstrap
         /// NetworkGameFlow.OnNetworkSpawn()에서 재스폰 감지용으로 사용.
         /// </summary>
         public bool IsNetworkGameStarted => _networkGameStarted;
+
+        /// <summary>
+        /// 이번 판의 맵 준비 결과(무작위 맵 2단계 H).
+        /// root seed · 맵 유형 · 시도 횟수 · 폴백 여부 · 최종 해시 등 규칙 12 의 로그 항목이 들어 있다.
+        /// 아직 맵을 로드하지 않았으면 null.
+        /// </summary>
+        /// <returns>맵 준비 결과. 없으면 null</returns>
+        public MapPreparationResult GetLastMapPreparation() => _mapPreparation;
+
+        /// <summary>
+        /// 이번 판의 맵 투영 결과(무작위 맵 2단계 H).
+        /// 성·시작 광산·중립 광산의 좌표 목록이 들어 있다. 아직 맵을 로드하지 않았으면 null.
+        /// </summary>
+        /// <returns>맵 투영 결과. 없으면 null</returns>
+        public MapProjectionResult GetLastMapProjection() => _mapProjection;
 
         // ====================================================================
         // Unity 생명주기 — Awake / Start / Update / OnDestroy

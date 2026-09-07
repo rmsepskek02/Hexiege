@@ -31,7 +31,9 @@
   **`HexTile` 상태 계약(`TileKind`/`MineKind`/`HasBuilding` + 계산 프로퍼티 `IsWalkable`) 과
   무작위 맵 1단계 신설 타입** — 타일 상태·건물 배치/철거 작업은 여기부터 읽는다.
   **무작위 맵 2단계 A: 결정적 PRNG `MapRandom`(SplitMix64) · 4스트림 `MapRandomStreams` ·
-  seed 파생 순서 · 코드 내장 검증 벡터 · `GameConfig` 테스트 모드 필드 2개** — 맵 생성 작업도 여기부터 읽는다
+  seed 파생 순서 · 코드 내장 검증 벡터 · `GameConfig` 테스트 모드 필드 2개** — 맵 생성 작업도 여기부터 읽는다.
+  **2단계 H: 격자 11×21 전환 · `MapProjectionUseCase`(설계도 → `HexGrid` 투영) · root seed 생성/보관 ·
+  하드코딩 배치 주석 비활성화(`[2단계 대체 대기]`) · I/J/K 미완이 화면에 어떻게 보이는지**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
 ### 세부 보조 자료

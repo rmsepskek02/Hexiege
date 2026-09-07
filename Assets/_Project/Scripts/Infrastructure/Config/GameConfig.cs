@@ -74,8 +74,11 @@ namespace Hexiege.Infrastructure
         [Tooltip("FlatTop 방향 그리드 설정 (변 12시)")]
         public OrientationConfig FlatTop = new OrientationConfig
         {
-            GridWidth = 10,
-            GridHeight = 29,
+            // 무작위 맵 규격 11x21(규칙 1). 실행에 실제로 쓰이는 값은
+            // Resources/Config/GameConfig.asset 에 직렬화된 값이지만,
+            // 여기 코드 기본값이 다르면 "세 번째 값"이 계속 존재하게 되므로 함께 맞춘다.
+            GridWidth = 11,
+            GridHeight = 21,
             TileWidth = 1.0f,
             TileHeight = 0.36f
         };

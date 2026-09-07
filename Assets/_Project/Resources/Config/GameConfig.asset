@@ -18,8 +18,8 @@ MonoBehaviour:
     TileWidth: 0.866
     TileHeight: 0.866
   FlatTop:
-    GridWidth: 10
-    GridHeight: 20
+    GridWidth: 11
+    GridHeight: 21
     TileWidth: 1
     TileHeight: 0.866
   NeutralColor: {r: 0.69803923, g: 0.69803923, b: 0.69803923, a: 1}
