@@ -483,3 +483,80 @@ balance, `using`/namespace/banned-reference scan (0 hits for `UnityEngine` · `H
 scan, and a full Python port that reproduces every hard-coded number above plus symmetry, connectivity and
 corridor-continuity over 200 seeds x 3 types. **Nothing outside the self-checks calls these classes yet**
 — the validator (E) and the coordinator are still unbuilt.
+
+## 맵 검증기 E 단계 — 필수 통로 검사(`MapDefinitionValidator`) 구멍을 막았다 (2026-09-07)
+
+`Domain/Map/MapDefinitionValidator.cs` 의 검사 **2**(필수 통로)에 조용한 구멍이 둘 있었다. 둘 다 수정
+전후로 **실제 코드를 돌려 재현**했다(아래 mono 절 참조).
+
+| 구멍 | 무엇이 잘못됐나 | 수정 |
+|---|---|---|
+| ① 빈 높이 단계를 건너뜀 | `heightSteps` 를 `tilesByHeightStep.Keys` 에서 가져왔기 때문에, 통로 타일이 **전부 막힌** 단계는 아예 방문되지 않았다 — 폭 0 으로 재는 대신 병목이 사라져 버렸다 | `MapCorridorRequirement` 가 이제 `MinHeightStep`/`MaxHeightStep` 를 갖는다. 반복은 **선언된 대역 전체**를 훑으며, 대역 밖의 통로 타일은 그 자체가 실패다 |
+| ② 광산은 한 단계에서, 폭은 두 단계에서 셌다 | 폭 = `tilesAtStep + pairedTiles` 인데 광산은 `tilesAtStep` 에서만 셌다 → 한 행의 광산 2개가 "단계당 1개" 로 읽혀 통과했다 | 광산도 **같은 두 단계 창**에서 센다. 상수명은 `MaxMinePerCorridorHeightStep` → **`MaxMinePerCorridorWidthWindow`** 로 바꿨다 |
+| ③ 선택 인자인 생성기 | `Validate(def, constraints, generator = null)` 이 조용히 규칙 3 의 공통 1~6 범위로 폴백했다 | 2인자 오버로드는 **없앴다.** `generator` 는 필수다(ArgumentNullException) |
+
+- **짝 짓는 규칙은 그대로다**(`step+1` 우선, 없으면 `step-1`, 그것도 없으면 0) — 대역의 끝
+  단계가 통과할 수 있는 것이 이 규칙 덕이다. 바뀐 것은 훑는 단계의 집합뿐이다.
+- 대역 상수는 다시 만들어 쓰지 않는다: 협곡형/외곽형은 `MapBandTable.CentralBand{Min,Max}HeightStep`,
+  3갈래형은 `MapBandTable.GetBand{Min,Max}HeightStep(separationLength)`. 생성자는 회전에 닫혀 있지 않은
+  대역(`min + max != MapBandTable.HeightStepSum`, 42)을 거부한다 — 같은 부류의 구멍이기 때문이다.
+- 새 음성 대조 **N13**(회전 짝인 두 행을 비움 → 폭 1) 과 **N14**(광산
+  `(4,10) (5,10) (6,11)`, 회전에 닫혀 있고 한 폭 창 안에 2개). 둘 다 일부러 회전 대칭으로 만들었다:
+  `ExpectFailure(..., 2)` 는 이들이 검사 1 에 걸리면 실패하므로, 대조가 자기 대칭성까지 검사한다.
+- 통과율은 **움직이지 않았다**(측당 10만 시도, 시드 0~1999 x 허용 광산 수 x 측 A/B):
+  FullyOpen/Canyon/Outer/ThreeLane 100.00%, ObstacleOpen 99.90%(실패 24건, 전부 검사 4 성↔성 도달).
+  생성기가 이미 대역 안 광산을 금지하므로 실제로는 ②가 걸리는 일이 드물다.
+  **[🔴 2026-09-07 정정 — 원문 유지: 위 줄의 「시드 0~1999 … ObstacleOpen 99.90%(실패 24건)」은
+  스윕 범위와 백분율이 서로 어긋나 있었다.]** 실측값은 **시드 0~1999 = 23962/24000 = 99.84%,
+  실패 38건**이다. 원문의 「실패 24건」은 **시드 0~999 구간의 값**(11976/12000 = **99.80%**)인데
+  범위만 0~1999 로 적혀 어긋난 것으로 보인다(시드 1000~1999 는 11986/12000 = **99.88%**, 실패 14건).
+  실패 시드는 **43 · 219 · 486 · 991 · 1221 · 1452 · 1683** 이고 **실패 사유가 전부 검사 4
+  (성↔성 도달 불가)** 인 것은 원문이 맞다. **「통과율은 움직이지 않았다」(구멍 수정 전후 동일)는 결론
+  자체도 유효하다** — 틀린 것은 스윕 범위와 그에 따른 백분율뿐이다. 근거: 메인 세션이 아래
+  「Domain 레이어를 진짜로 컴파일하기」 절의 `mono` 절차로 세 구간(0~999 / 1000~1999 / 0~2000)을
+  각각 돌려 실패 시드 목록까지 대조했다.
+- **남긴 한계(보고만 하고 고치지 않음):** 폭 **5** 협곡 통로에서는 짝수 단계 하나를 통째로 비워도
+  여전히 통과한다 — 짝인 홀수 단계 혼자서 열린 열 3개를 내놓아 규정 폭 3 을 충족하기 때문이며,
+  그 3열은 서로 인접하지 않는다. 「비인접 3열」이 폭 3 으로 세어지는가는 규칙의 문제다.
+  인접한 세 단계를 비우면 *잡힌다*(폭 0).
+
+## Domain 레이어를 진짜로 컴파일하기 (2026-09-07) — 「컴파일러가 없다」는 종전 전제를 대체한다
+
+`apt-get install -y mono-mcs` 가 에이전트 샌드박스에서 동작한다(`mcs` + `mono`). `Domain/Map/**` +
+`Domain/Hex/*` + `Domain/Common/TeamId.cs` 는 **단독 컴파일**된다(Unity 불필요). 그래서 검증기·생성기의
+자체 점검과 통과율 스윕을 추론만 하는 것이 아니라 *실행*할 수 있다. 절차:
+
+- 소스를 임시 폴더로 복사한 뒤(프로젝트 트리를 그 자리에서 컴파일하지 말 것)
+  `mcs -langversion:latest -r:System.Core.dll -out:run.exe Main.cs src/*.cs` 그리고 `mono run.exe`.
+- `mcs` 는 C# 7.2 까지다: `out int _, out int _`(한 호출에 discard 두 개)는 복사본에서 이름을 붙여야 한다.
+  이 레이어의 나머지는 손대지 않고 그대로 컴파일된다.
+- 수정이 정말로 무언가를 고쳤음을 보이려면, 수정을 **되돌린** 사본을 하나 더 두고 둘 다 돌린다.
+
+🔴 **이 방법으로 찾아낸 기존 컴파일 오류(범위 밖, 당시 미수정):**
+`Domain/Map/InitialMapStateEvaluator.cs:858-859` 가 `IReadOnlyCollection<int>`(`GetBuildableTiles` 의
+반환)에 `.Contains(occupied)` 를 부르는데 이 파일에는 **`using System.Linq` 가 없다**
+— 그 인터페이스에는 `Contains` 가 없으므로 Unity(Roslyn)도 컴파일하지 못한다. 앞서의
+"금지 참조 스캔(`System.Linq` 0건)" 은 정작 코드가 필요로 하는 바로 그 using 의 *부재*를 강제했던 것이다.
+
+**[🔴 2026-09-07 correction — 위 문단은 어떻게 발견했는지의 기록으로 그대로 남긴다. 지금은
+수정 완료다.]** `CheckCaseIsConsistent` 에서 두 `GetBuildableTiles(...)` 결과를 **반복문 밖에서 한 번**
+지역 `HashSet<int>`(`blueBuildable` / `redBuildable`)로 복사하고, 반복문은 그것에 `Contains` 를
+부른다. `System.Linq` 는 **도입하지 않았다** — Domain 의 `using System.Linq` 는 여전히 **0**건이다
+(Domain 의 `.cs` 파일 49개 전부 실측). 술어는 바이트 단위로 같은 집합 소속 판정이라 검사가 약해지지
+않았다. 프로브로 `OccupiedTiles.Count == 4`(반복문이 헛돌지 않음), 건설 가능 10/10, 그리고 음성 대조
+(건설 가능한 것으로 알려진 타일을 넣어 봄)가 여전히 검출됨을 확인했다.
+증거, 두 사본 모두 `mcs -langversion:latest -target:library` 로 빌드:
+**수정 전** = `InitialMapStateEvaluator.cs(858,62): error CS1501`(오류 1건) · **수정 후** = 오류 0 경고 0,
+그리고 `mono` 로 실행한 **11**개 `TryRunSelfCheck` 전부 PASS(MapRandomStreams · SymmetricMapBuilder ·
+InitialMapStateEvaluator · MapBandTable · NeutralMineSampler · Open/ObstacleOpen/Canyon/Outer/ThreeLane
+생성기 · MapDefinitionValidator).
+
+⚠️ **`mcs` 는 `Domain/Map/**` + `Domain/Hex/*` + `Domain/Common/TeamId.cs` 에 대해서만 유효한 오라클이다.**
+Domain **전체**를 `mcs` 로 컴파일하면 `Domain/Building/BuildingStats.cs` 에서 가짜 `CS1525` 오류가 13개 난다
+— **switch 식(C# 8)** 때문이며, mcs 6.8(최대 C# 7.2)은 파싱하지 못하지만 Unity 의 Roslyn(C# 9)은 받아들인다.
+이것을 진짜 오류로 보고하지 말 것. Domain 의 나머지에는 **대신 grep 오라클**을 쓴다: Domain 에는
+`using System.Linq` 가 하나도 없으므로 *어떤* Linq 전용 확장 호출이든 그것이 곧 오류다. `Any|All|Where|Select|First|Last|
+Single|OrderBy|Sum|Average|Aggregate|Distinct|Concat|Except|Intersect|Union|Skip|Take|Cast|OfType|
+ToDictionary|ToLookup|Reverse|Zip|SequenceEqual|ElementAt` → **진짜 히트 0건**(`HexPathfinder.cs:125` 의
+`path.Reverse()` 하나는 `List<T>` 의 인스턴스 메서드다), 그리고 약 40개의 `.Contains(` 수신자는 전부
+`HashSet<T>`/`List<T>`/`Dictionary<T>` 의 인스턴스 메서드다. **이 부류의 다른 오류는 Domain 에 남아 있지 않다.**
