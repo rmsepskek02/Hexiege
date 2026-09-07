@@ -853,10 +853,18 @@ namespace Hexiege.Domain
             }
 
             // 성 타일과 시작 광산 타일은 소유 집합에는 있고 건설 가능 집합에는 없어야 한다.
+            //
+            // ⚠️ GetBuildableTiles 의 반환형 IReadOnlyCollection<int> 에는 Contains 가 없다.
+            //    (Contains 는 ICollection<T> 또는 System.Linq 확장 메서드에만 있다.)
+            //    Domain 레이어는 System.Linq 를 쓰지 않는 관례이므로, 반환된 집합을
+            //    HashSet<int> 로 한 번 복사해 O(1) 조회로 검사한다.
+            //    복사는 반복문 「밖」에서 팀당 한 번만 한다 — 반복문 안에서 만들면
+            //    점유 타일 개수만큼 쓸데없이 집합을 새로 만들게 된다.
+            var blueBuildable = new HashSet<int>(evaluator.GetBuildableTiles(TeamId.Blue));
+            var redBuildable = new HashSet<int>(evaluator.GetBuildableTiles(TeamId.Red));
             foreach (int occupied in evaluator.OccupiedTiles)
             {
-                if (evaluator.GetBuildableTiles(TeamId.Blue).Contains(occupied) ||
-                    evaluator.GetBuildableTiles(TeamId.Red).Contains(occupied))
+                if (blueBuildable.Contains(occupied) || redBuildable.Contains(occupied))
                 {
                     failureReason = label + " 점유 타일 " + occupied + " 이 건설 가능으로 남았다.";
                     return false;
