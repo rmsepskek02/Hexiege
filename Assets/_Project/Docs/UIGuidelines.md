@@ -15,7 +15,7 @@
 | **게임 상태 알림 패널** | 게임 흐름 변화를 알리는 대형 UI | GameEndUI |
 | **시스템 팝업** | 사용자 결정이 필요한 오버레이 다이얼로그 | RematchRequestPopup |
 | **HUD** | 항상 표시되는 인게임 정보 | GameHudUI (골드, 인구, 타이머) |
-| **토스트 알림** | 일시적 피드백 메시지 (자동 사라짐) | ToastUI (구현 완료 — DontDestroyOnLoad 싱글턴, 큐 기반 순차 표시) |
+| **토스트 알림** | 일시적 피드백 메시지 (자동 사라짐) | ToastUI (구현 완료 — DontDestroyOnLoad 싱글턴, **서로 다른 종류만** 큐에 쌓아 순차 표시. **같은 종류는 누적하지 않는다** — 표시 중이면 표시 시간만 되돌리고, 대기 중이면 무시한다. 단일 소스는 [GameSystemRules/GameSystemRules_UI.md](GameSystemRules/GameSystemRules_UI.md) 「생산 패널 UI」 규칙 25) |
 | **로비 UI** | 로비 씬 탭/서브뷰 전환 | TabBarView, BattleRootView 서브뷰 |
 | **전역 공통 UI** | 씬 전환과 무관하게 항상 사용 가능한 공통 팝업/로딩 | UIManager (ConfirmPopup + LoadingIndicator — Login 씬 1회 생성, DontDestroyOnLoad) |
 | **스플래시 오버레이** | 앱 진입 시 초기화 중 표시, Tap to Start 흐름 | SplashOverlayView (Login 씬 전용, SortingOrder 200) |

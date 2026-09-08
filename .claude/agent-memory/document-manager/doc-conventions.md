@@ -705,3 +705,98 @@ searched.**~~
 
 → The table shape itself is still fine **once the question survives the check above.** Keep it for genuinely
 open choices; do not let it become the reflex answer to any brief that says "options".
+
+
+---
+
+## 12. Recording the *results* of a multi-stage Plan (2026-09-08, random-map phase 2, stages F~J)
+
+### Filling a `§9 실행 기록` table: the row is a summary with a pointer, not the record
+
+The document already showed the shape at stage E — **one dense table row + one `### <단계> 단계 상세 (날짜)` section
+appended at the end.** Follow it. A row that tries to hold everything makes the table unreadable, and a detail
+section with no row leaves the table looking unfinished. What belongs in the row: status label, commit, the one
+🔴 fact that changes how the stage is read, the headline measurement, and `상세는 아래 …` .
+
+- **Status labels are not interchangeable.** This round used four distinct ones and the distinction is the point:
+  `✅ 구현 완료 (**mono 로 실제 컴파일·실행 검증**)` / `✅ 구현 완료 · **실기 검증 완료(사용자 테스트)**` /
+  `✅ 구현 완료 · ⚠️ **부분 실기 검증**`. Headless execution is not user verification, and neither is compilation.
+- **When execution order differed from the plan, say so in *both* rows** (the one that ran early and the one that
+  ran late), with the reason, plus once more at the top of the detail section. One mention gets read as a typo.
+  Keep the table in the *plan's* letter order (F G H I J) — reordering the table to match execution destroys the
+  mapping to §3's dependency graph.
+- Detail sections may be appended **out of letter order** to mirror execution (J before I here) as long as the
+  section header says why.
+
+### Marking a superseded design without deleting the plan text
+
+The brief was: the plan's design was scrapped; keep the original, add the fact. The shape that worked:
+
+1. **In the original row, append a marker only** — `🔴 **[YYYY-MM-DD 폐기 — 원문은 그대로 둔다. 아래 「…」 참조]**`.
+   The original sentence is not touched, so a later reader can still see what was planned.
+2. **Right after the table, a blockquote note with four fixed parts**: 계획 / 실제 / **왜 갈렸는가** / **따라 바뀐 것**.
+   The 「왜」 part is the whole reason the note exists — "the plan weighed X, the implementation weighed Y" —
+   because "폐기됨" alone tells the next person nothing.
+3. 🔴 **A scrapped design leaves knock-on descriptions elsewhere in the same section.** Here the folder-layout code
+   block still said `재생성용 원본 (윗절반 지정값, …)`, which the change also invalidated. **Put it in the note
+   ("따라 바뀐 것") rather than editing the code block** — editing it would erase the plan text the brief asked to keep.
+   Grep the section for the *claim* the old design made (「윗절반」), not just its name (this is §5's method applied
+   inside a single section).
+4. Close the note by naming what **did** hold — "표의 나머지 행은 계획대로 지켜졌다". Otherwise the marker reads as
+   if the whole table were void.
+
+### 🔴 "도달 불가" is a distinct verdict from "미검증" — and it has to be pinned in more than one place
+
+A behaviour was implemented and measured headlessly, but **cannot be exercised in the running game** (the AI never
+reaches the tiles the new rule governs, because the map guarantees its opening tiles are ordinary). This is the
+kind of finding the next reader turns into "they forgot to test it".
+
+- Write it as **「검증 누락이 아니라 도달 불가다」** — the negation first, in those words.
+- **Always pair it with the condition that makes it reachable later**, plus the number that shows the code is not
+  dead ("3라인형은 맵의 3분의 1이 빗금 — 시나리오를 맞추는 순간 곧바로 실전에서 쓰인다"). Without that second half
+  someone deletes the code as unused.
+- **Pin it in at least three places**: the stage's detail section, the status document's 과대 표기 금지 list, and the
+  roadmap row for the phase. It is the single most misreadable line in the whole round.
+
+### A stage-scoped count is not a wrong figure — check the sentence's scope before "correcting" it
+
+Handed-over note said 자체 점검 is 12 (Domain) / 14 (project). The Plan already said **「자체 점검 9종」** at stage E.
+That is **not a contradiction to correct** — the E sentence reads 「이번 단계의 자체 점검 9종」, i.e. scoped to E, and later
+stages added more. **Leave it, and say in the new section why it is not being corrected**, or the next round will
+"fix" it back and forth.
+
+- Decide by re-reading the sentence for a scope word (「이번 단계의」 · 「그 시점」), not by comparing numbers.
+- Verify counts yourself before writing them: `grep -rn "public static.*TryRunSelfCheck" … ` gave Domain 12 +
+  Application 2 = 14, matching the handed figures, so both could be written as 실측.
+
+### Status documents when a phase is *partly* done (the hard case)
+
+The phase's main acceptance test passed, and the phase is still **not complete** (one lettered stage left).
+
+| 문서 | What to do |
+|---|---|
+| `PROJECT_STATUS.md` | Prepend a paragraph headed **`**⚠️ 진행 중 (날짜) — … / 🔴 N단계는 아직 끝나지 않았다(X 단계 남음):**`** — not `구현 완료`. The 과대 표기 금지 list leads with the incompleteness, not with it buried at ⑤ |
+| `ROADMAP.md` | 🔴 **Do not take the row down and do not mark it 완료. Narrow its scope in place** — relabel the priority cell (`2단계 — A~J 완료 … · ⚠️ K 남음`) and append what remains. The document's own rule is 「완료된 항목은 남기지 않는다」, so leaving an unnarrowed row is as wrong as deleting it |
+| `WORK_HISTORY.md` | A row per *event*, ascending by nothing — the table is 날짜 역순, newest at top. Two changes landing the same day that are genuinely separate concerns get **two rows**, not one merged row |
+
+- **Also check the roadmap rows for *later* phases.** Stage I here absorbed items ①② that the 3단계 row still listed
+  as its own. Append 「①②는 N단계에서 처리 완료」 to that row — otherwise two rows in the same table claim the same work.
+- **The list of deferred items belongs in the Plan, not in the status docs.** Put it there as a numbered table
+  (`## 13. ⏸ 완성 후 점검 대상`) with a closing line saying they are **「미해결 결함이 아니라 사용자가 범위 밖으로 확정한 항목」**,
+  and give the status docs a count plus a pointer. Naming which of them will actually bite ("1·3·8 은 그대로 두면 실제
+  문제가 되는 성격") is what makes the table usable next round.
+
+### Repairing a stale description depends on the document's role, not on the sentence
+
+Four spots described toast behaviour that a later commit changed. **Three different repairs, decided by role:**
+
+| Spot | Role | Repair |
+|---|---|---|
+| `WORK_HISTORY.md` 2026-05-16 행 | dated history | **원문 유지 + `**[🔴 날짜 정정 — 원문은 그대로 두고 덧붙인다: …]**`** (memory rule 7) |
+| `PROJECT_STATUS.md` dated 완료 표 | current state *inside* a dated block | same append form — the block is dated, so overwriting would falsify the record |
+| `UIGuidelines.md` 분류 표 | living guideline, undated | **직접 교체** + pointer to the rule that owns it |
+
+- 🔴 **A row whose scope is narrower than the stale claim may not be stale at all.** 「수동 생산 실패 토스트 3종」 stayed
+  correct because its scope *is* the three production-failure keys. The repair there is a **pointer to the owning rule,
+  and deliberately NOT writing the new total** — writing "현재 6종" would have created exactly the count-copy problem
+  §6/§9-2 are about. Say so in the note (「개수는 여기에 적지 않는다 — 늘어나면 조용히 낡는다`」) so it is not re-added.
