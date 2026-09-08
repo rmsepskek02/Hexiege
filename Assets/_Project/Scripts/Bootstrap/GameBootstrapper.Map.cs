@@ -450,16 +450,52 @@ namespace Hexiege.Bootstrap
             // 🔴 결과를 반드시 보관한다.
             //    문제가 생긴 맵을 다시 만들어 보려면 그 판의 root seed 가 있어야 하는데,
             //    seed 는 매 판 새로 뽑히므로 여기서 놓치면 영영 재현할 수 없다.
-            //    K 단계가 이 값을 꺼내 로그로 남긴다(GetLastMapPreparation).
+            //    보관은 로그와 별개로 필요하다 — 다른 코드가 GetLastMapPreparation() 으로
+            //    같은 판의 결과(최종 맵 바이트·해시 등)를 다시 읽는다.
             _mapPreparation = prepared;
+
+            // ── 규칙 12 「로그 필수 항목」을 운영 로그로 내보낸다 (2단계 K) ──────
+            //
+            // 🔴 왜 여기(호출부)에서 내보내고 MapPreparationUseCase 안에서 내보내지 않는가:
+            //    그 조정자는 **일부러** UnityEngine 을 참조하지 않는 순수 C# 으로 두었다.
+            //    그래야 Unity 없이 그 파일만 따로 컴파일해서 "100회 실패 → 폴백" 같은
+            //    좀처럼 안 걸리는 경로까지 실제로 돌려 볼 수 있다. 거기에 로그 호출을 넣으면
+            //    그 검증 수단이 통째로 사라진다. 그래서 조정자는 값만 결과 객체에 담아 주고,
+            //    실제 발신은 Unity 를 아는 이 자리에서 한 번만 한다.
+            //
+            // 🔴 결말마다 줄은 **정확히 하나**다(LogRules 1.14 금지 8·9).
+            //    성공/폴백/실패는 서로 배타적이므로 한 판에 두 줄이 남지 않는다.
+            string preparationData = BuildMapPreparationLogData(prepared);
 
             if (!prepared.IsSucceeded)
             {
-                // [개발] 맵 준비 실패 = 폴백 템플릿까지 실패한 상태다. 경기를 진행할 수 없다.
-                //   운영 로그 키 신설은 K 단계 범위라 여기서는 개발 로그로만 남긴다.
-                GameLog.Dev.Error("Map", nameof(GameBootstrapper),
-                                  "맵 준비 실패 — 성/광산을 배치하지 않는다", prepared.ToString());
+                // [운영/Error] 폴백 템플릿까지 실패했다 = 경기를 진행할 수 없다(복구 경로 없음).
+                //   ⚠️ 실패 사유(FailureReason)는 사람이 읽는 자유 문장이라 message 쪽에 넣는다.
+                //      key=value 에 넣으면 안 된다 — 그 문장에는 ", " 가 들어 있어 구분자와
+                //      충돌해 필드 하나가 둘로 쪼개진다(LogRules 1.4).
+                //   ⚠️ 종전에는 여기서 개발 로그만 남겼다. "운영 키 신설이 K 단계 범위" 라서였고,
+                //      그 키가 이번에 생겼으므로 운영으로 올린다. 개발 로그로 두면 릴리스에서
+                //      컴파일 단계에 사라져(LogRules 1.7) 정작 필요한 출시본에 기록이 없다.
+                GameLog.Ops.Error(LogEvent.MapPreparationFailed, MapLogSystem, nameof(GameBootstrapper),
+                                  "맵 준비 실패 — 성/광산을 배치하지 않는다: " +
+                                  (prepared.FailureReason ?? "사유 없음"), preparationData);
                 return;
+            }
+
+            if (prepared.UsedFallback)
+            {
+                // [운영/Warn] 생성 시도가 전부 거부되어 폴백 템플릿으로 경기를 연다.
+                //   맵 자체는 검증을 통과한 정상 맵이라 경기는 그대로 진행된다 → 축 A 는 Warn.
+                GameLog.Ops.Warn(LogEvent.MapPreparationUsedFallbackTemplate, MapLogSystem,
+                                 nameof(GameBootstrapper),
+                                 "맵 생성 시도가 모두 거부되어 폴백 템플릿을 사용했다", preparationData);
+            }
+            else
+            {
+                // [운영/Info] 정상 경로로 맵이 확정됐다. 경기당 한 줄이며,
+                //   위 두 키의 발생률을 계산할 때의 분모가 된다.
+                GameLog.Ops.Info(LogEvent.MapPreparationSucceeded, MapLogSystem,
+                                 nameof(GameBootstrapper), "맵 준비 완료", preparationData);
             }
 
             // 설계도를 격자에 새긴다. 격자 크기(11x21)가 설계도와 다르면 여기서 실패한다.
@@ -468,10 +504,113 @@ namespace Hexiege.Bootstrap
 
             if (!projected.IsSucceeded)
             {
-                // [개발] 크기·헥스 방향 불일치 등 설정 오류다. GameConfig 의 격자 크기를 먼저 본다.
-                GameLog.Dev.Error("Map", nameof(GameBootstrapper),
-                                  "맵 투영 실패 — 성/광산을 배치하지 않는다", projected.ToString());
+                // [운영/Error] 크기·헥스 방향 불일치 등이다. GameConfig 의 격자 크기를 먼저 본다.
+                //   맵 준비와는 별개의 사건이라 키를 나눴다(LogEvent.MapProjectionFailed 주석 참조).
+                //   여기서는 11개 항목을 다시 싣지 않는다 — 바로 위에서 이미 한 줄로 남겼고,
+                //   같은 값을 두 줄에 반복하면 집계에서 같은 판이 두 번 세어질 여지가 생긴다.
+                //   이 줄에는 "어느 판인가"(MapVersion/Seed/Hash)와 "무엇과 안 맞았나"(격자 크기)만 싣는다.
+                GameLog.Ops.Error(LogEvent.MapProjectionFailed, MapLogSystem, nameof(GameBootstrapper),
+                                  "맵 투영 실패 — 성/광산을 배치하지 않는다: " +
+                                  (projected.FailureReason ?? "사유 없음"),
+                                  BuildMapProjectionLogData(prepared));
             }
+        }
+
+        // ====================================================================
+        // 맵 로그의 구조화 필드 조립 (무작위 맵 2단계 K)
+        //
+        // LogRules 1.4: "| key=value, key=value" 부분은 사람이 읽으라고 붙인 꼬리표가 아니라
+        // **서버로 보낼 때 그대로 구조화 필드가 되는 부분**이다. 그래서 아래 규약을 지킨다.
+        //   · 키 이름과 값 표기를 그때그때 바꾸지 않는다(한 지표가 조용히 둘로 갈라진다).
+        //   · 값에 구분자 ", " 를 넣지 않는다. 자유 문장은 message 쪽으로 보낸다.
+        //   · 실수(float)를 값에 그대로 넣지 않는다 — 문화권에 따라 소수점이 ',' 가 되어
+        //     기기마다 표기가 갈린다. 아래 값은 전부 정수·bool·enum 이름이라 이 문제가 없다.
+        //
+        // 🔴 이 헬퍼들에는 [Conditional] 을 붙이지 않는다(LogRules 1.14 금지 7).
+        //    운영 로그의 재료이므로 릴리스 빌드에서도 살아 있어야 한다.
+        // ====================================================================
+
+        /// <summary>
+        /// 맵 로그의 System 값. LogRules 1.4 는 System 을 "그 로그가 다루는 기능"으로 정하라고
+        /// 규정한다. 맵 준비는 지형·광산을 **정하는** 기능이라 격자를 **그리는** HexGrid 와
+        /// 다른 영역이므로 별도 값으로 둔다. 상수로 뽑아 둔 이유는 오타 하나로 같은 지표가
+        /// 두 갈래로 갈라지는 것을 막기 위해서다.
+        /// </summary>
+        private const string MapLogSystem = "Map";
+
+        /// <summary>
+        /// 최종 맵 해시를 로그에 실을 때 쓰는 길이(16진수 자릿수).
+        /// 원본은 32바이트(64자)라 그대로 실으면 로그 한 줄이 세 배로 길어진다.
+        /// 앞 8바이트(16자)만 써도 "두 기기가 같은 맵을 받았는가"를 가리는 데는 충분하고,
+        /// 이는 GameLog.HashId 가 UID 해시를 16자로 자르는 것과 같은 판단이다.
+        /// 🔴 3단계의 Host/Client 해시 대조는 이 문자열이 아니라 **원본 32바이트**로 한다.
+        ///    이 값은 사람이 읽고 집계하기 위한 지문일 뿐이다.
+        /// </summary>
+        private const int MapHashLogLength = 16;
+
+        /// <summary>
+        /// 규칙 12 가 요구하는 맵 준비 로그 항목을 "key=value, key=value" 로 조립한다.
+        ///
+        /// 담는 항목은 11가지다 — MapVersion · seed · 맵 유형 · 중립 광산 수 · 시작 광산 방향 ·
+        /// 테스트 모드 표식 · 실제 초기 골드 · 생성 소요 시간 · 시도 횟수 · 폴백 사용 여부 ·
+        /// 최종 맵 해시. 여기에 내부 error code 를 더해 12개 필드가 된다.
+        /// 규칙 12 의 나머지 두 항목(전송/재전송 횟수 · Host/Client 해시 비교 결과)은
+        /// 값이 3단계에서 처음 생기므로 **일부러 넣지 않는다**(항상 비는 필드가 되기 때문).
+        /// </summary>
+        /// <param name="prepared">맵 준비 결과(성공/실패 모두 받는다)</param>
+        /// <returns>구조화 필드 문자열</returns>
+        private static string BuildMapPreparationLogData(MapPreparationResult prepared)
+        {
+            // 실패했을 때도 같은 필드 집합을 낸다. 성공과 실패에서 필드가 달라지면
+            // 서버 집계 쪽에서 "없는 필드"와 "값이 0인 필드"를 구분하는 처리가 또 필요해진다.
+            return
+                "MapVersion=" + prepared.MapVersion +
+                ", Seed=" + prepared.RootSeed +
+                ", MapType=" + prepared.MapType +
+                ", NeutralMineCount=" + prepared.NeutralMineCount +
+                ", StartingMineSide=" + prepared.StartingMineSide +
+                ", TestMode=" + prepared.MapTestModeEnabled +
+                ", InitialGold=" + prepared.InitialGold +
+                ", ElapsedMs=" + prepared.ElapsedMilliseconds +
+                ", AttemptCount=" + prepared.AttemptCount +
+                ", UsedFallback=" + prepared.UsedFallback +
+                ", Hash=" + ToMapHashField(prepared.HashHex) +
+                ", ErrorCode=" + prepared.ErrorCode;
+        }
+
+        /// <summary>
+        /// 맵 투영 실패 로그의 구조화 필드를 조립한다.
+        /// "어느 판의 맵인가"(MapVersion/Seed/Hash)와 "무엇과 안 맞았나"(격자 크기)만 담는다.
+        /// </summary>
+        /// <param name="prepared">방금 만들어진 맵의 준비 결과</param>
+        /// <returns>구조화 필드 문자열</returns>
+        private string BuildMapProjectionLogData(MapPreparationResult prepared)
+        {
+            // 격자 크기를 함께 싣는 이유: 이 실패의 가장 흔한 원인이 GameConfig 의 격자 크기와
+            // 맵 정의 크기의 불일치이고, 그 두 숫자가 있어야 로그만 보고 바로 조치할 수 있다.
+            // (_grid 는 이 메서드가 불리는 시점에 반드시 살아 있다 — PrepareAndProjectMap 가
+            //  앞쪽에서 null 이면 이미 돌아갔다.)
+            return
+                "MapVersion=" + prepared.MapVersion +
+                ", Seed=" + prepared.RootSeed +
+                ", Hash=" + ToMapHashField(prepared.HashHex) +
+                ", GridWidth=" + _grid.Width +
+                ", GridHeight=" + _grid.Height;
+        }
+
+        /// <summary>
+        /// 최종 맵 해시(16진수 64자)를 로그용 길이로 자른다.
+        /// 값이 없으면 "-" 를 돌려준다 — 빈 값으로 두면 "key=" 뒤가 비어 파싱이 애매해진다.
+        /// </summary>
+        /// <param name="hashHex">최종 맵 해시의 16진수 문자열(없으면 null)</param>
+        /// <returns>로그에 실을 해시 문자열</returns>
+        private static string ToMapHashField(string hashHex)
+        {
+            if (string.IsNullOrEmpty(hashHex)) return "-";
+
+            return hashHex.Length <= MapHashLogLength
+                ? hashHex
+                : hashHex.Substring(0, MapHashLogLength);
         }
 
         /// <summary>

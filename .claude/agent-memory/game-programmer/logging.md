@@ -318,3 +318,62 @@ grep -nE '(^|[^.a-zA-Z_])Application\.' <path>   # 0건이어야 함
   `UnityServicesInitializer` 3(`//` 비활성화 2 + 산문 속 `Debug.LogException` 낱말 1) ·
   `NetworkCombatController` 1(150행 비활성화)
 - ⚠️ **계획서 §8-2 의 "최종 46" 은 grep 총계가 아니라 "실행 코드" 기준이다.** grep 은 54 가 정상값이다.
+
+## 무작위 맵 준비 로그 — `LogEvent` 37 → **41** (2026-09-08 · 2단계 K)
+
+첫 문단의 표는 `LogEvent` 를 「멤버 32개」로 적어 두었다(2026-08-17 실측). 그 뒤 36 → 37 을 거쳐
+**지금은 41개**다. 늘어난 4개가 아래이고, **맵 관련 키는 이때가 처음**이다(그 전까지 0개였다).
+
+| 키 | 축 A | 결말 |
+|---|:-:|---|
+| `MapPreparationSucceeded` | Info | 생성 → 검증 통과. 경기당 한 줄이며 아래 두 키의 **분모** |
+| `MapPreparationUsedFallbackTemplate` | Warn | 100회 전부 거부 → 폴백 템플릿 사용. 경기는 그대로 진행 |
+| `MapPreparationFailed` | Error | 폴백까지 실패 → 성·광산 미배치. 경기 성립 불가 |
+| `MapProjectionFailed` | Error | 맵은 만들어졌는데 `HexGrid` 에 못 새김(격자 크기·헥스 방향) |
+
+- 🔴 **네 결말은 배타적이라 한 판에 줄이 하나만 남는다.** 성공과 폴백을 **동시에** 남기지 않는다
+  (폴백 줄이 11개 항목을 전부 싣고 있어 규칙 12 를 그 줄 하나로 충족한다).
+- **실패 사유 7종(`MapPreparationErrorCode`)마다 키를 만들지 않았다.** `RelaySetupFailed` 가 `Stage=` 로
+  단계를 가르는 것과 같은 방식으로 `ErrorCode=` 필드가 가른다. 쪼개면 「맵이 없어 경기가 안 열린 횟수」라는
+  장애 지표 자체가 만들어지지 않는다.
+- **발신 자리는 호출부 `Bootstrap/GameBootstrapper.Map.cs` `PrepareAndProjectMap()` 한 곳뿐이다.**
+  🔴 `Application/UseCases/MapPreparationUseCase.cs` 와 `MapProjectionUseCase.cs` 에는 **로그를 넣지 마라.**
+  두 파일은 **일부러 `UnityEngine` 미참조 순수 C#** 이라 `mcs`/`mono` 로 단독 실행 검증이 되고,
+  로그 호출을 넣는 순간 그 검증 수단이 사라진다. 값은 `MapPreparationResult` 가 전부 들고 나온다.
+
+### `key=value` 표기 — 이번에 신설한 것 (바꾸지 말 것)
+
+`MapVersion=` `Seed=`(ulong 10진수) `MapType=` `NeutralMineCount=` `StartingMineSide=`(`CaseA|CaseB`)
+`TestMode=`(`True|False`) `InitialGold=` `ElapsedMs=`(정수) `AttemptCount=` `UsedFallback=`(`True|False`)
+`Hash=` `ErrorCode=` / 투영 전용 `GridWidth=` `GridHeight=`
+
+- ⚠️ **`Attempt=`(기존, 재시도 회차)와 `AttemptCount=`(신설, 총 시도 횟수)는 다른 키다.** 섞지 말 것.
+- ⚠️ **`Hash=` 는 앞 16자(8바이트)만 싣는다.** 원본은 64자라 그대로 넣으면 줄이 3배가 된다.
+  `GameLog.HashId` 가 UID 해시를 16자로 자르는 것과 같은 판단이며, 3단계의 Host/Client 대조는
+  이 문자열이 아니라 **원본 32바이트**로 한다. 자르는 코드는 `ToMapHashField`(같은 파일).
+- ⚠️ **`FailureReason` 은 `key=value` 에 넣지 않는다.** 그 문자열에는 `", "` 가 들어 있어
+  (예: `"…(테스트 모드 표식 0, 중립 광산 수 5)."`) 구분자와 충돌해 필드가 쪼개진다 → **message 쪽**에 넣는다.
+- **민감 데이터 아님**: seed·해시는 LogRules 1.6 이 규정한 3항목(이메일 / UID·PlayerId / 토큰)에 없고
+  플레이어를 식별하지 않는다. Relay Join Code·Lobby Code 를 평문으로 둔 선례와 같다.
+
+### `system` 값에 **`Map`** 을 새로 썼다 (10번째 값)
+
+기존 9종(`Network` `Auth` `Bootstrap` `UI` `Cloud` `Factory` `Audio` `Input` `HexGrid`) 어디에도
+담기지 않는다고 판단했다 — `HexGrid` 는 **격자를 그리는** 영역이고 맵 준비는 **지형·광산을 정하는**
+영역이다. 상수 `GameBootstrapper.Map.cs` 의 `MapLogSystem` 하나로 묶어 두어 오타로 갈라지지 않게 했다.
+(이 파일에 이미 있던 개발 로그 2건도 원래 `"Map"` 을 쓰고 있었다 — 값이 갈린 것이 아니라 이어받은 것이다.)
+
+### 개발 로그 2건을 운영으로 **올린** 근거
+
+`PrepareAndProjectMap` 의 `GameLog.Dev.Error` 2건은 *"운영 키 신설이 K 단계 범위라 여기서는 개발로만"*
+이라는 **한 가지 전제**에만 기대고 있었다. 이번에 키가 생겨 전제가 소멸했다.
+개발 축으로 두면 **LogRules 1.7 의 `[Conditional]` 로 릴리스에서 통째로 사라져**, 정작 필요한
+출시본에 맵 실패 기록이 0줄이 된다. 둘 다 두면 한 사건이 두 줄이 되어 1.14 금지 9 에 걸린다 → **교체**.
+
+### 이때 확인한 것 (추정 아님)
+
+- `Application/Interfaces/ILogSink.cs` 는 `UnityEngine` 미참조라 **`mcs -langversion:latest` 로 단독 컴파일된다**(통과).
+- `Bootstrap/GameBootstrapper.Map.cs` 는 Unity·UniRx·형제 partial 의존이라 **`mcs` 로 컴파일할 수 없다 — 유니티에서만 확인 가능.**
+- `MapPreparationUseCase.TryRunSelfCheck()` 는 Domain/Map 전체와 함께 `mono` 로 실제 실행되며 이번에도 **PASS**.
+  단, 사본에서 `MapDefinitionValidator.cs:917` 의 `out int _, out int _`(반복 discard)를 고쳐야 mcs 6.8 이 통과한다 —
+  **원본 코드의 문제가 아니다.**

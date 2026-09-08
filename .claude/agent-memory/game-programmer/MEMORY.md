@@ -84,6 +84,9 @@
 - `Infrastructure/Debug/LogSessionOwner.cs` 는 **의도적으로 `using` 이 하나도 없다.** 새 타입도 완전 수식으로 쓴다
   (`System.Collections.Generic.Dictionary`, `System.Diagnostics.Stopwatch`).
 - `LogEvent` enum 은 `Application/Interfaces/ILogSink.cs` 에 있다(2026-08-20 기준 멤버 37개).
+  **[🔴 2026-09-08 correction — original line kept above]** The count is now **41**: the random-map
+  phase-2 step K added four map keys (`MapPreparationSucceeded` · `MapPreparationUsedFallbackTemplate` ·
+  `MapPreparationFailed` · `MapProjectionFailed`). Details → [logging.md](logging.md).
 
 ## NGO(Netcode) 관용구
 
