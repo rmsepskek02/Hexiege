@@ -184,6 +184,20 @@ namespace Hexiege.Application.Services
                 // 이미 같은 팀이 점령 중이면 갱신/이벤트 발행 모두 생략 (성능 + 노이즈 감소).
                 if (_grid.GetOwner(tile) == claimingTeam) continue;
 
+                // 🔴 막힌 타일(TileKind.Blocked)은 점령 불가 (규칙 10 「완전 차단 지형」).
+                //
+                //    "유닛은 막힌 타일에 못 올라가니 여기 올 일이 없지 않나?" 싶지만 온다.
+                //    이 서비스는 유닛의 도메인 좌표가 아니라 화면상의 실제 위치
+                //    (Transform.position)를 매 프레임 읽어 헥스 좌표로 "반올림"한다.
+                //    그런데 전투 추격 이동(UnitView 의 [전투 이동])은 경로 없이 적을 향해
+                //    직선으로 움직이므로 타일 중심을 잇는 선 위에 있지 않다.
+                //    그래서 막힌 칸 위를 스쳐 지나가는 순간의 위치가 그 칸으로 반올림될 수 있다.
+                //    가드가 없으면 지나갈 수 없는 칸이 색만 물드는 상태가 된다.
+                //
+                //    타일이 그리드에 없으면(이론상 위 HasTile 로 걸러지지만) 방어적으로 건너뛴다.
+                HexTile hexTile = _grid.GetTile(tile);
+                if (hexTile == null || !hexTile.AcceptsCapture) continue;
+
                 // 실제 갱신 + 이벤트 발행.
                 // HexTileView가 OnTileOwnerChanged를 구독해 색상을 즉시 변경한다.
                 _grid.SetOwner(tile, claimingTeam);

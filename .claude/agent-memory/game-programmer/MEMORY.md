@@ -34,6 +34,11 @@
   seed 파생 순서 · 코드 내장 검증 벡터 · `GameConfig` 테스트 모드 필드 2개** — 맵 생성 작업도 여기부터 읽는다.
   **2단계 H: 격자 11×21 전환 · `MapProjectionUseCase`(설계도 → `HexGrid` 투영) · root seed 생성/보관 ·
   하드코딩 배치 주석 비활성화(`[2단계 대체 대기]`) · I/J/K 미완이 화면에 어떻게 보이는지**
+  🔴 **2단계 I: 판정 조건 전환 — `IsWalkable` 은 건설 판정이 아니다.**
+  신설 계산 프로퍼티 `AcceptsGeneralBuilding` / `AcceptsMiningPost` / `AcceptsCapture`(setter 없음,
+  소유권은 호출부에 남음) · `NoBuild` 만 결과가 달라지는 근거 · 손대면 안 되는 이동 판정 목록 ·
+  AI BFS 확장 조건을 좁히면 안 되는 이유 · `GetBuildingAt` vs `HasBuilding` 중복 전수 조사.
+  **건설/점령 판정을 만지기 전에 반드시 읽는다.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
 ### 세부 보조 자료

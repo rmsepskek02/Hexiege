@@ -872,3 +872,122 @@ Assets/_Project/Shaders/SkillAimOverlay.shader  (guid 32a13eb796b8bae43bb9e6ce43
 - 회귀: Domain 자체 점검 **14종 전원 PASS**(`mcs` + `mono`, 이번에 Domain 은 안 건드렸다).
 - 🔴 **확인 불가**: `HexGridRenderer.cs` 는 `UnityEngine` 의존이라 **컴파일 검증을 못 한다.**
   Unity 에디터에서만 확인된다. 실기(빌드 포함 여부·빗금 표시)도 미검증.
+
+---
+
+## 무작위 맵 2단계 I — 판정 조건 전환 (2026-09-08, 실기 미검증)
+
+J 가 **보이는 것과 클릭 반응**만 고쳤다면, I 는 **판정 그 자체**를 규칙 문서 5장 판정표에 맞췄다.
+J 뒤에 남아 있던 불일치는 이것이었다: 사람이 빗금 타일을 탭하면 패널이 안 열리는데,
+**AI 와 내부 판정은 여전히 `IsWalkable` 을 읽어 `TileKind.NoBuild` 타일에 건물을 그대로 지었다.**
+
+### 🔴 핵심 — `IsWalkable` 은 건설 판정이 아니다
+
+| `TileKind` | 이동 | 점령 | 일반 건설 | MiningPost |
+|---|---|---|---|---|
+| `Normal` | O | O | O | 광산 타일일 때만 |
+| `NoBuild` | O | O | **X** | **예외로 허용** |
+| `Blocked` | X | X | X | X |
+
+일반 건설 조건과 `IsWalkable` 의 **유일한 차이는 `Blocked 아님` → `Normal 임`** 하나다.
+그래서 `NoBuild` 가 전부 통과하고 있었다. 한 글자 차이라 눈으로는 안 보인다.
+
+### 신설한 계산 프로퍼티 3종 (`Domain/Hex/HexTile.cs`)
+
+`IsWalkable` 바로 아래. 전부 **setter 없음**(`IsWalkable` 과 같은 이유).
+
+- `AcceptsGeneralBuilding => TileKind == TileKind.Normal && MineKind == MineKind.None && !HasBuilding`
+- `AcceptsMiningPost     => TileKind != TileKind.Blocked && MineKind != MineKind.None && !HasBuilding`
+- `AcceptsCapture        => TileKind != TileKind.Blocked`
+
+**이름을 `Accepts~` 로 지은 이유**: `CanPlaceBuilding` 은 `BuildingPlacementUseCase` 에 **이미 있고
+그쪽은 소유권까지 포함한 최종 판정**이다. Domain 프로퍼티에 같은 이름을 쓰면 반드시 혼동된다.
+`Accepts~` 는 「타일 쪽 몫만 답한다」가 이름에 드러난다.
+
+🔴 **소유권은 이 프로퍼티에 넣을 수 없다** — 팀에 따라 답이 달라지므로(같은 타일이 Blue 에겐 O,
+Red 에겐 X) 팀을 인자로 받지 않는 `HexTile` 은 답을 낼 수 없다. **호출부에 그대로 남는다.**
+파일 주석에 이 사실을 명시했다. 안 적으면 다음 사람이 프로퍼티만 보고 판정이 끝났다고 착각한다.
+
+`AcceptsCapture` 는 비교 한 번뿐인데도 프로퍼티로 뒀다. 판정표의 3열(이동/점령/건설)이 코드에서도
+나란히 보여야 「점령은 어디서 판정하지」를 찾아 헤매지 않고, 호출부에 `TileKind != Blocked` 를
+직접 적으면 다음 규칙 변경 때 「이동/건설은 고쳤는데 점령만 안 고침」이 또 생기기 때문이다.
+
+### 고친 자리 (4파일 7곳 + 함께 옮긴 주석)
+
+| 파일 | 자리 | 무엇을 |
+|---|---|---|
+| `Domain/Hex/HexTile.cs` | `:88~186` 신설 | 판정표 주석 + `Accepts~` 3종. 파일 머리 목록에도 추가 |
+| `Application/UseCases/BuildingPlacementUseCase.cs` | `:83` `PlaceBuilding` | `!IsWalkable` → `!AcceptsGeneralBuilding` |
+| 〃 | `:107` `PlaceMiningPost` | `MineKind == None` 검사 → `!AcceptsMiningPost`(= `Blocked` 가드 추가) |
+| 〃 | `:232` `CanPlaceBuilding` | `IsWalkable` → `AcceptsGeneralBuilding` |
+| 〃 | `:250` `CanPlaceBuildingType` MiningPost 분기 | `MineKind != None` → `AcceptsMiningPost` |
+| 〃 | `:256` 같은 메서드 일반 건물 분기 | `IsWalkable` → `AcceptsGeneralBuilding` |
+| 〃 | `:8~10` · `:55~58` · `:238~239` | 어긋난 주석 3곳 |
+| `Application/Services/AIOpponentController.cs` | `:810` | `neighbor.IsWalkable` → `neighbor.AcceptsGeneralBuilding` |
+| 〃 | `:771~774` | XML 주석 「Red 소유 + IsWalkable=true」 |
+| `Application/Services/TileOwnershipService.cs` | `:187~200` | `SetOwner` 앞에 `AcceptsCapture` 가드 |
+
+### 🔴 손대면 안 되는 곳 (전부 그대로 뒀다)
+
+- `HexPathfinder` · `CongestionAwarePathfinder` · `HexFlowField` · `UnitMovementUseCase` ·
+  `UnitSpawnUseCase` · `HexGrid.GetWalkableNeighbors` · `UnitView` 의 `IsWalkable` — **이동 판정이
+  맞다.** 판정표대로 `NoBuild` 를 통과시켜야 한다.
+- `AIOpponentController` 의 **BFS 확장 조건** `if (neighbor.Owner == AiTeam) queue.Enqueue(nc);`
+  — 여기를 건설 조건으로 좁히면 **빗금 구역 너머의 AI 영토가 탐색에서 통째로 끊긴다**
+  (`NoBuild` 는 점령되므로 그 위를 지나 탐색이 이어져야 한다). 주석으로 경고를 박아 뒀다.
+- `NetworkTileSync.cs:213` — 서버가 이미 판정한 결과를 클라가 반영하는 자리.
+
+### `TileOwnershipService` 점령 가드는 실제로 도달 가능하다 (추정 아님)
+
+근거: `Presentation/Unit/UnitView.cs:1503`
+`transform.position += moveDir.normalized * liveWorldSpeed * Time.deltaTime;`
+— **[전투 이동]은 경로 없이 적을 향해 직선으로 움직인다.** 타일 중심을 잇는 선 위에 있지 않다.
+그런데 `TileOwnershipService` 는 도메인 좌표가 아니라 그 `Transform.position` 을 매 프레임 읽어
+`WorldToHex` 로 **반올림**한다(파일 머리말이 이 서비스의 존재 이유로 그렇게 적고 있다).
+따라서 막힌 칸 위를 스쳐 지나가는 순간의 위치가 그 칸으로 반올림될 수 있다.
+(중심→중심 Lerp 만이라면 두 육각형의 합집합 안이라 제3의 칸으로 반올림되지 않는다. 도달 가능하게
+만드는 것은 전투 추격 이동이다.)
+
+### `GetBuildingAt`(딕셔너리) vs `HasBuilding`(타일 플래그) 중복 판정 — 확인한 사실
+
+`AcceptsMiningPost` 안에 `!HasBuilding` 이 있고 호출부에는 `GetBuildingAt(...) == null` 이 남아
+**같은 것을 두 번 본다.** 지시대로 딕셔너리 검사를 권위로 두고 그대로 남겼다. 어긋날 수 있는
+경로를 전수로 훑은 결과 **현재 코드에는 없다**:
+
+- `PlaceBuildingInternal` · `PlaceBuildingWithId` = 둘 다 켬 / `RemoveBuilding` = 둘 다 끔.
+- `UpgradeBuilding*` 는 `RemoveBuilding` 을 타지 않고 `_buildings` 에서 직접 빼며
+  `_buildingsByPosition[pos]` 를 새 인스턴스로 교체한다 → 건물은 계속 서 있고 `HasBuilding` 도 true.
+  일관적이다.
+- `RemoveBuilding` 의 `ReferenceEquals` 가드는 방어용이며, 그 전제(같은 좌표에 다른 인스턴스가
+  이미 매핑된 채 `_buildings` 에 옛 id 가 남아 있음)를 만드는 경로가 두 업그레이드 메서드 어디에도
+  없다(둘 다 `_buildings.Remove` 를 먼저 한다).
+- `Clear()` 는 딕셔너리 2개만 비우고 `HasBuilding` 은 안 내린다 → **겉보기 구멍**이지만,
+  `GameBootstrapper.Map.cs:412` 가 `new HexGrid(width, height, ...)` 로 타일을 통째로 새로 만들어
+  `HasBuilding` 이 기본값 false 로 되돌아간다. 실질 무해.
+
+### 검증 (2026-09-08) — 실제로 컴파일한 것과 못 한 것
+
+- ✅ **실제 컴파일·실행**: `Domain/Hex/*` + `Domain/Map/**` + `Domain/Common/TeamId.cs` 를
+  `mcs -langversion:latest` 로 빌드(**오류 0 · 경고 0**) 후 `mono` 로 판정표 대조를 실행.
+  `TileKind` 3종 × (이동/점령/일반 건설/MiningPost) **15개 단정 전원 PASS**,
+  규칙 문서 5장 판정표와 칸 단위로 일치. 회귀 단정도 PASS:
+  **`TileKind.Normal` 인 8조합(MineKind 4 × HasBuilding 2)에서 `AcceptsGeneralBuilding` 과
+  `IsWalkable` 이 완전히 같다** = `Normal` 타일 동작 무변경, `NoBuild` 에서만 달라진다.
+  기존 Domain 자체 점검 **12종**(`public static TryRunSelfCheck` 전수)도 전원 PASS.
+  (사본에서만 `out int _, out int _` → 이름 부여. 실제 파일은 안 건드렸다.)
+- 🔴 **컴파일 검증 불가**: `BuildingPlacementUseCase.cs` · `AIOpponentController.cs` ·
+  `TileOwnershipService.cs` 는 `UnityEngine` 의존이라 이 환경에서 컴파일할 수 없다.
+  **Unity 에디터에서만 확인된다.** 중괄호/괄호/대괄호 균형 0(주석·문자열 스트립 후) ·
+  `Application.` 0건 · raw `Debug.Log` 0건 · `Hexiege.Core` 0건까지만 확인했다.
+- 실기(에디터 플레이) 미검증. 멀티 미검증.
+
+### 범위 밖으로 남긴 것 (고치지 않고 보고만 — 규칙 6)
+
+- `BuildingPlacementUseCase.PlaceMiningPostDirect`(`:130`)는 여전히 `MineKind == None` 만 본다.
+  시작 채굴소 자동 배치 전용이라 `Blocked` 가드가 없다. 지시된 자리 목록에 없어 손대지 않았다.
+- `Infrastructure/Network/NetworkBuildingController.cs:204` 주석
+  「PlaceBuilding 내부에서 타일 존재·**IsWalkable**·팀 소유 검증 실행」이 이번 변경으로 낡았다.
+  4개 파일 범위 밖이라 손대지 않았다.
+- 지시서의 자리 표기 하나가 실제와 달랐다: 「`PlaceMiningPost`(`:250` 부근)」이라 적혀 있었으나
+  실제 `PlaceMiningPost` 는 `:91~103`(변경 전 기준)이다. `:250` 부근에 있는 것은
+  `CanPlaceMiningPost`(`CanPlaceBuildingType` 위임)다. 양쪽 다 조건이 적용되도록 고쳤다.

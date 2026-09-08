@@ -4,7 +4,10 @@
 //
 // 흐름:
 //   1. GameBootstrapper(Castle 자동 배치) 또는 BuildingPlacementUI(플레이어 배치)가 요청
-//   2. 배치 가능 여부 검증 (타일 존재, IsWalkable, 팀 소유)
+//   2. 배치 가능 여부 검증 (타일 존재, 타일이 그 건물을 받아들이는가, 팀 소유)
+//      ⚠️ 검증에 IsWalkable(이동 가능)을 쓰지 않는다 — 건설 불가 타일(TileKind.NoBuild)은
+//         이동은 되지만 일반 건설은 막아야 한다. HexTile.AcceptsGeneralBuilding /
+//         AcceptsMiningPost 를 읽는다(판정표 단일 소스는 HexTile.cs 주석).
 //   3. BuildingData 인스턴스 생성 (Id 자동 발급)
 //   4. 타일 상태 변경: HasBuilding 을 켜고 소유권 설정
 //   5. GameEvents.OnBuildingPlaced 이벤트 발행
@@ -49,7 +52,10 @@ namespace Hexiege.Application
         ///
         /// 검증:
         ///   - 해당 좌표에 타일이 존재하는지
-        ///   - 해당 타일이 이동 가능(IsWalkable)한지 (이미 건물 없음)
+        ///   - 해당 타일이 일반 건물을 받아들이는지(AcceptsGeneralBuilding)
+        ///     = 일반 지형(Normal) + 광산 없음 + 건물 없음.
+        ///     🔴 이동 가능(IsWalkable)이 아니다. 건설 불가 타일(NoBuild)은 이동은 되지만
+        ///        일반 건설은 막아야 하므로 두 판정은 서로 다르다.
         ///   - Castle이 아닌 건물은 자기 팀 타일에만 배치 가능
         ///
         /// 성공 시: BuildingData 생성 → 타일 상태 변경 → 이벤트 발행 → BuildingData 반환
@@ -72,7 +78,9 @@ namespace Hexiege.Application
 
             HexTile tile = _grid.GetTile(position);
             if (tile == null) return null;
-            if (!tile.IsWalkable) return null; // 이미 건물이 있거나 이동 불가 타일
+            // 🔴 일반 건설 판정 — 이동 판정(IsWalkable)이 아니다.
+            //    막혔거나(Blocked) 건설 불가 타일(NoBuild)이거나 광산이거나 이미 건물이 있으면 실패.
+            if (!tile.AcceptsGeneralBuilding) return null;
 
             // Castle이 아닌 건물은 자기 팀 타일에만 배치 가능
             if (type != BuildingType.Castle && tile.Owner != team)
@@ -83,7 +91,9 @@ namespace Hexiege.Application
 
         /// <summary>
         /// MiningPost 배치. 금광 타일 전용.
-        /// 조건: 광산 타일(MineKind != None) + 건물 없음 + 인접 타일 중 하나 이상 팀 소유.
+        /// 조건: 막힌 타일 아님(TileKind != Blocked) + 광산 타일(MineKind != None)
+        ///       + 건물 없음 + 인접 타일 중 하나 이상 팀 소유.
+        /// 🔴 건설 불가 타일(NoBuild)은 여기서 통과시킨다 — 채굴소는 규칙 9의 예외다.
         /// </summary>
         /// <param name="team">소속 팀</param>
         /// <param name="position">배치 좌표</param>
@@ -93,7 +103,10 @@ namespace Hexiege.Application
         {
             HexTile tile = _grid.GetTile(position);
             if (tile == null) return null;
-            if (tile.MineKind == MineKind.None) return null;
+            // 채굴소 판정: 막힌 타일 아님 + 광산 타일 + 건물 없음.
+            if (!tile.AcceptsMiningPost) return null;
+            // 위 프로퍼티의 !HasBuilding 과 뜻이 겹치지만, "건물이 있는가"의 권위는
+            // 건물 딕셔너리(_buildingsByPosition)이므로 기존 검사도 그대로 남긴다.
             if (GetBuildingAt(position) != null) return null; // 이미 건물 있음
 
             // 인접 타일 중 하나 이상 팀 소유 필요
@@ -214,13 +227,16 @@ namespace Hexiege.Application
         public bool CanPlaceBuilding(HexCoord position, TeamId team)
         {
             HexTile tile = _grid.GetTile(position);
-            return tile != null && tile.IsWalkable && tile.Owner == team;
+            // 🔴 일반 건설 판정(AcceptsGeneralBuilding) + 소유권.
+            //    이동 판정(IsWalkable)을 쓰면 건설 불가 타일(NoBuild)이 통과해 버린다.
+            return tile != null && tile.AcceptsGeneralBuilding && tile.Owner == team;
         }
 
         /// <summary>
         /// 특정 건물 타입을 해당 좌표에 배치 가능한지 확인.
-        /// MiningPost: 금광 + 건물 없음 + 인접 팀 타일.
-        /// 일반 건물: IsWalkable + 팀 소유.
+        /// MiningPost: 막힌 타일 아님 + 금광 + 건물 없음 + 인접 팀 타일.
+        /// 일반 건물: 일반 건설 가능 타일(AcceptsGeneralBuilding) + 팀 소유.
+        /// 🔴 어느 쪽도 IsWalkable(이동 가능)을 쓰지 않는다 — 판정이 서로 다르기 때문이다.
         /// </summary>
         public bool CanPlaceBuildingType(BuildingType type, HexCoord position, TeamId team)
         {
@@ -229,12 +245,15 @@ namespace Hexiege.Application
 
             if (type == BuildingType.MiningPost)
             {
-                return tile.MineKind != MineKind.None
+                // AcceptsMiningPost = 막힌 타일 아님 + 광산 타일 + 건물 없음.
+                // GetBuildingAt 은 뜻이 겹치지만 "건물이 있는가"의 권위라 그대로 둔다.
+                return tile.AcceptsMiningPost
                     && GetBuildingAt(position) == null
                     && HasAdjacentTeamTile(position, team);
             }
 
-            return tile.IsWalkable && tile.Owner == team;
+            // 일반 건물: 일반 건설 판정 + 소유권. (IsWalkable 아님 — 위 주석 참조)
+            return tile.AcceptsGeneralBuilding && tile.Owner == team;
         }
 
         /// <summary>

@@ -768,7 +768,10 @@ namespace Hexiege.Application.Services
         /// <summary>
         /// Red 성채에서 BFS로 가장 가까운 배치 가능 타일을 찾는다(규칙 26).
         /// 조건:
-        ///   - Red 소유 + IsWalkable=true
+        ///   - Red 소유 + 일반 건물을 받아들이는 타일(HexTile.AcceptsGeneralBuilding=true)
+        ///     🔴 이동 가능(IsWalkable)이 아니다. 건설 불가 타일(TileKind.NoBuild)은
+        ///        이동은 되지만 일반 건설은 막아야 하므로 두 판정은 서로 다르다.
+        ///        (2026-09-08 이전에는 IsWalkable 을 봐서 AI 가 빗금 타일에 건물을 지었다.)
         ///   - 기존 Red 생산 건물의 인접 6타일이 아님 (스폰 블로킹 방지)
         /// 조건을 만족하는 첫 번째 타일을 반환. 없으면 null.
         /// </summary>
@@ -803,8 +806,9 @@ namespace Hexiege.Application.Services
                     if (visited.Contains(nc)) continue;
                     visited.Add(nc);
 
-                    // 배치 가능 후보 판정: Red 소유 + walkable + 예약 타일 아님.
-                    bool placeable = neighbor.IsWalkable
+                    // 배치 가능 후보 판정: Red 소유 + 일반 건설 가능 타일 + 예약 타일 아님.
+                    // 🔴 IsWalkable(이동 가능)이 아니라 AcceptsGeneralBuilding 을 본다.
+                    bool placeable = neighbor.AcceptsGeneralBuilding
                                      && neighbor.Owner == AiTeam
                                      && !reservedTiles.Contains(nc);
 
@@ -813,6 +817,9 @@ namespace Hexiege.Application.Services
 
                     // 탐색 확장: Red 소유 영역 안에서만 BFS를 넓힌다.
                     // (적/중립 영역으로 새어나가지 않도록 — 거기엔 배치할 수 없으므로)
+                    // 🔴 여기를 위의 배치 조건(AcceptsGeneralBuilding)으로 좁히지 말 것.
+                    //    건설 불가 타일(NoBuild)도 점령되므로 그 위를 지나 탐색이 이어져야 한다.
+                    //    좁히면 빗금 구역 너머의 AI 영토가 탐색에서 통째로 끊긴다.
                     if (neighbor.Owner == AiTeam)
                         queue.Enqueue(nc);
                 }
