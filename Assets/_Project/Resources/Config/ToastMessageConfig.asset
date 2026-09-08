@@ -28,3 +28,6 @@ MonoBehaviour:
   - key: 4
     message: "\uC2A4\uD0AC\uC774 \uCFE8\uB2E4\uC6B4 \uC911\uC785\uB2C8\uB2E4"
     duration: 1
+  - key: 5
+    message: "\uC774 \uD0C0\uC77C\uC5D0\uB294 \uAC74\uC124\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4"
+    duration: 1

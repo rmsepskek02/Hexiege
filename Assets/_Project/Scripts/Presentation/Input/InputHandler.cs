@@ -190,11 +190,19 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 클릭된 스크린 좌표를 처리.
         ///
-        /// 판정 순서:
-        ///   1. 건물 UI가 열려있으면 → 닫기 (팝업 외부 탭)
-        ///   2. 건물이 있는 타일 → 타일 선택
-        ///   3. 자기 팀 빈 타일 → 건물 배치 팝업
-        ///   4. 기타 → 타일 선택 (하이라이트)
+        /// 판정 순서 — GameSystemRules_UI.md 「무작위 맵 타일 선택과 건설 패널」 규칙 5와
+        /// 같은 순서이며, 아래 코드도 위에서부터 정확히 이 순서로 읽힌다.
+        ///
+        ///   (사전 처리) 스킬 조준 중 / 랠리포인트 지정 중 / UI 위 클릭 / 팝업 닫힘 프레임 → 통과 차단
+        ///   1. 기존 building action 분기        — 건물이 있는 타일: 종류별 패널 + 타일 선택
+        ///   2. MineKind 기반 MiningPost 자격 분기 — 광산 타일: 채굴소 배치 팝업 + 타일 선택
+        ///   3. TileKind.Blocked  → 선택 불가. 선택 해제 + 배치 패널 닫기(토스트 없음)
+        ///   4. TileKind.NoBuild  → 자기 팀: 선택 + ToastKey.BuildingNotAllowed
+        ///                          중립·적: 선택만
+        ///   5. TileKind.Normal   → 지금까지와 동일 (자기 팀 빈 타일이면 건물 배치 팝업)
+        ///
+        /// 🔴 1·2번이 3·4번보다 반드시 먼저다. 광산 위 채굴소는 NoBuild 타일에서도 지을 수 있는
+        ///    예외인데, NoBuild 처리가 먼저 오면 그 예외가 통째로 막히기 때문이다.
         /// </summary>
         private void HandleClick(Vector2 screenPos)
         {
@@ -257,7 +265,8 @@ namespace Hexiege.Presentation
             HexCoord clickedCoord = HexMetrics.WorldToHex(worldPos);
 
             // --------------------------------------------------------
-            // 2. 건물이 있는 타일 → 종류에 따라 분기
+            // 1. 기존 building action 분기 (규칙 5의 1번)
+            //    건물이 있는 타일 → 종류에 따라 분기
             //    (1) 생산건물(IsProductionBuilding == true)
             //          : 풀스펙 생산 패널(유닛 버튼/큐/업그레이드 등) 표시
             //    (2) 비생산건물 중 Castle 제외 (CanShowActionPanel == true)
@@ -329,7 +338,12 @@ namespace Hexiege.Presentation
             }
 
             // --------------------------------------------------------
-            // 3. 금광 타일 (건물 없음) → 채굴소 건설 팝업
+            // 2. MineKind 기반 MiningPost 자격 분기 (규칙 5의 2번)
+            //    금광 타일(건물 없음) → 채굴소 건설 팝업
+            //
+            //    🔴 이 분기가 아래 3·4번(Blocked/NoBuild)보다 먼저 있어야 한다.
+            //       채굴소는 NoBuild 타일 위에서도 지을 수 있는 예외이기 때문이다.
+            //       순서를 바꾸면 광산이 NoBuild 타일에 놓인 순간 채굴소를 못 짓게 된다.
             // --------------------------------------------------------
             if (_buildingPlacement != null &&
                 _buildingPlacement.CanPlaceMiningPost(clickedCoord, LocalPlayerTeam.Current))
@@ -340,20 +354,70 @@ namespace Hexiege.Presentation
             }
 
             // --------------------------------------------------------
-            // 4. 자기 팀 빈 타일 → 건물 배치 팝업
+            // 3~5. TileKind(지형 종류) 기반 판정 (규칙 5의 3~5번 / 규칙 6·7·8)
+            //
+            //   "어떤 타일인가"의 판정은 Application 레이어(GridInteractionUseCase)가 하고,
+            //   그 결과를 받아 화면 반응(패널 닫기·토스트)만 여기서 처리한다.
+            //   선택·하이라이트 이벤트 발행은 SelectTileByKind 안에서 이미 끝난다.
+            //
+            //   _gridInteraction이 아직 주입되지 않았다면(씬 초기화 전 등) 예전과 똑같이
+            //   "선택은 못 하지만 흐름은 계속" 이어지도록 Normal로 간주한다.
+            // --------------------------------------------------------
+            TileClickOutcome outcome = _gridInteraction != null
+                ? _gridInteraction.SelectTileByKind(worldPos, LocalPlayerTeam.Current)
+                : TileClickOutcome.Normal;
+
+            // 3. 막힌 타일(Blocked) 또는 격자 밖 빈 공간 → 선택 불가 (규칙 6)
+            //    선택은 이미 해제됐고, 여기서는 열려 있던 배치 패널만 닫는다. 토스트는 없다.
+            if (outcome == TileClickOutcome.NotSelectable)
+            {
+                CloseBuildingPlacementPanel();
+                return;
+            }
+
+            // 4-a. 자기 팀 소유 건설 불가 타일(NoBuild) → 선택은 되지만 건설은 막는다 (규칙 7)
+            if (outcome == TileClickOutcome.NoBuildOwnTeam)
+            {
+                CloseBuildingPlacementPanel();
+                ToastUI.Show(ToastKey.BuildingNotAllowed);
+                return;
+            }
+
+            // 4-b. 중립·적 소유 건설 불가 타일(NoBuild) → 선택만. 건설 의도가 없으니 토스트도 없다 (규칙 8)
+            if (outcome == TileClickOutcome.NoBuildOther)
+            {
+                CloseBuildingPlacementPanel();
+                return;
+            }
+
+            // --------------------------------------------------------
+            // 5. 일반 타일(Normal) → 지금까지와 동일 (규칙 5의 5번)
+            //    자기 팀 빈 타일이면 건물 배치 팝업을 연다.
+            //    (선택·하이라이트는 위 SelectTileByKind에서 이미 처리됐으므로
+            //     예전처럼 SelectTileAt을 다시 부르지 않는다 — 다시 부르면 같은 타일
+            //     재클릭으로 간주돼 방금 켠 하이라이트가 즉시 꺼진다.)
             // --------------------------------------------------------
             if (_buildingPlacement != null &&
                 _buildingPlacement.CanPlaceBuilding(clickedCoord, LocalPlayerTeam.Current))
             {
                 _buildingUI?.Show(clickedCoord, LocalPlayerTeam.Current);
-                _gridInteraction?.SelectTileAt(worldPos);
-                return;
             }
+        }
 
-            // --------------------------------------------------------
-            // 5. 기타 → 타일 선택 (하이라이트)
-            // --------------------------------------------------------
-            _gridInteraction?.SelectTileAt(worldPos);
+        /// <summary>
+        /// 열려 있는 건물 배치 팝업을 닫는다.
+        /// 규칙 6·7·8이 공통으로 요구하는 "이전 타일에서 열린 패널이 남아 있으면 닫는다"를 담당.
+        ///
+        /// IsOpen을 먼저 확인하는 이유:
+        ///   BuildingPlacementUI.Close()는 UIManager의 공유 BlockingOverlay도 함께 숨긴다.
+        ///   열려 있지도 않은데 호출하면 다른 UI가 쓰고 있는 오버레이까지 꺼질 수 있다.
+        /// </summary>
+        private void CloseBuildingPlacementPanel()
+        {
+            if (_buildingUI != null && _buildingUI.IsOpen)
+            {
+                _buildingUI.Close();
+            }
         }
 
         // ====================================================================

@@ -734,3 +734,78 @@ FlatTop TileWidth 1.0 · TileHeight 0.866 기준 실제 변화값:
   `NoBuild` 는 일반 타일과 구분되지 않는다.
 - `MapPreparationResult.InitialGold`(광산 수 표 / 테스트 모드 5000)를 **아직 아무도 쓰지 않는다.**
   초기 골드는 여전히 `GameConfig.StartingGold`. H 의 파일 4개 목록에 없어 범위 밖으로 두고 보고만 했다.
+
+---
+
+## 무작위 맵 2단계 J — 렌더러 + 클릭 판정 순서 (2026-09-07, 실기 미검증)
+
+Plan 의 I → J 순서를 **J → I 로 바꿔** 진행했다(사용자 승인). 이번 단계는 **보이는 것과 클릭 반응만**
+바꾸고, 건설 가능/후보/점령 **판정 조건 전환은 손대지 않았다**(I 단계 그대로 남아 있다).
+
+### 고친 파일 4개
+
+| 파일 | 무엇을 |
+|---|---|
+| `Presentation/Grid/HexGridRenderer.cs` | `Blocked` 는 **Instantiate 자체를 건너뛴다**(`continue`) · `NoBuild` 는 타일 생성 후 자식 `NoBuildHatch` 를 붙인다 · 빗금 상수/메시/머티리얼 |
+| `Application/UseCases/GridInteractionUseCase.cs` | `TileClickOutcome` enum 신설 + `SelectTileByKind(worldPos, localTeam)` 신설 · 토글·이벤트 발행을 `ApplySelection` 으로 공통화 |
+| `Presentation/Input/InputHandler.cs` | `HandleClick` 꼬리(옛 4·5번)를 `SelectTileByKind` 결과 분기로 교체 · `CloseBuildingPlacementPanel()` 헬퍼 |
+| `Application/Events/ToastKey.cs` + `Resources/Config/ToastMessageConfig.asset` | `BuildingNotAllowed`(= key 5) 신설, 문구 「이 타일에는 건설할 수 없습니다」 |
+
+### `Blocked` 는 「투명하게 그린다」가 아니라 「만들지 않는다」
+
+`RenderGrid` 의 타일 루프 맨 앞에서 `if (tile.TileKind == TileKind.Blocked) continue;`.
+그래서 그 좌표에는 메시도 **MeshCollider 도 HexTileView 도** 생기지 않는다.
+🔴 투명 머티리얼로 처리하면 collider 가 남아 클릭이 잡히고 판정 순서가 통째로 무의미해진다.
+
+⚠️ **부작용(알고 남긴 것)**: `HexGridRenderer.TileViews` / `GetTileView` 에 `Blocked` 좌표가 없다.
+「논리 격자에는 있는데 화면에는 없는 좌표」가 생긴다. 2026-09-07 실측으로 이 두 API 의 **외부 호출자는
+0건**이라 지금은 안전하지만, 새로 쓸 때는 null 을 전제해야 한다.
+
+### `NoBuild` 빗금 — 선택 하이라이트와 동시에 보이는 것의 근거
+
+빗금은 타일의 **자식 GameObject**(`NoBuildHatch`, MeshFilter + MeshRenderer, **collider 없음**)다.
+선택 하이라이트는 `HexTileView.UpdateColor()` 가 **타일 자신의 머티리얼 `_BaseColor`** 만 곱해 바꾸므로
+자식인 빗금에는 닿지 않는다 → **구조적으로** 둘이 서로를 대체할 수 없다.
+
+- 메시는 45도 대각선 얇은 사각형 3개(정점 12·삼각형 6)를 **정적 캐시 1개**로 공유한다(231칸 대응).
+- 수치는 **코드 상수**다(`HatchHalfLength 0.34` / `HatchHalfWidth 0.0375` / `HatchSpacing 0.19` /
+  `HatchYOffset 0.06`). `[SerializeField]` 로 빼지 않은 이유는 씬에 이미 있는 컴포넌트에서
+  **Inspector 값이 0 으로 저장돼 빗금이 사라지는 사고**를 원천 차단하기 위해서다(Inspector 우선 원칙).
+- `HexTile.prefab` 실측: 정육각형 FlatTop · 외접원 반지름 0.5 · 윗면 y=+0.05 · 아랫면 y=-0.05.
+  위 상수 조합에서 빗금 3개의 **꼭짓점 12개가 전부 육각형 내부**임을 기하 계산으로 확인했다.
+- 머티리얼 셰이더는 1순위 `Hexiege/SkillAimOverlay`(스킬 조준원의 지면 데칼 셰이더 재사용),
+  2순위 `Sprites/Default`. 🔴 **`Shader.Find` 라 빌드에서 스트립될 수 있다** — 에디터 실기는 문제없지만
+  플레이어 빌드에서 빗금이 안 보이면 Always Included Shaders 등록을 먼저 의심할 것(미조치, 범위 밖).
+
+### 클릭 판정 순서가 실제로 사는 곳
+
+🔴 **규칙 문서는 「`GridInteractionUseCase` 가 다음 순서로 처리한다」고 적었지만, 1·2번은 코드상
+`InputHandler.HandleClick` 에 있다**(건물 패널·채굴소 팝업은 Presentation 의 일이라 그렇게 될 수밖에 없다).
+J 에서는 그 사실을 바꾸지 않고, `HandleClick` 의 주석 번호를 규칙 5 와 같은 1~5 로 맞추고
+3~5번의 **판정만** `GridInteractionUseCase.SelectTileByKind` 로 내렸다(패널 닫기·토스트는 InputHandler).
+
+`InputHandler.HandleClick` 실제 읽히는 순서(2026-09-07 실측 행번호):
+`1.`268 건물 → `2.`341 광산/MiningPost → `3~5.`357 `SelectTileByKind` → `3.`370 → `4-a.`378 →
+`4-b.`386 → `5.`394.
+
+⚠️ **옛 5번의 `SelectTileAt` 재호출을 제거**했다. `SelectTileByKind` 가 이미 선택했으므로 한 번 더 부르면
+**같은 타일 재클릭 = 토글**로 잡혀 방금 켠 하이라이트가 즉시 꺼진다.
+
+⚠️ **격자 밖(빈 공간) 클릭도 이제 배치 패널을 닫는다.** 종전에는 닫지 않았다. 규칙 6 의 제목이
+「막힌 타일 **또는 빈 공간** 클릭」이라 의도된 변경이다.
+
+🔴 **`InputHandler` 의 클릭 좌표는 collider 가 아니라 XZ 평면 수학 레이캐스트로 구한다**
+(`ScreenToXZPlane` → `Plane.Raycast`, `InputHandler.cs:465`). 그래서 `Blocked` 타일을 안 만들어도
+**그 자리의 헥스 좌표는 정상적으로 계산되고 `_grid.HasTile` 도 true 다** → "빈 공간 클릭" 의 대부분은
+`SelectTileByKind` 의 **격자 밖 분기가 아니라 `Blocked` 분기**가 받는다. collider 를 만들지 않는 것은
+이 경로가 아니라 **다른 물리 레이캐스트 경로에 잡히지 않게** 하는 조치다.
+
+### 검증 (2026-09-07)
+
+- 자체 점검 **14종 전원 PASS**(`mcs` + `mono`, 회귀 확인용 — Domain/Map 은 이번에 안 건드렸다).
+- 🔴 **`GridInteractionUseCase.cs` 는 `UnityEngine.Vector3` 를 쓴다** — mono 단독 컴파일 불가.
+  대신 **실제 파일 그대로**를 `UnityEngine.Vector3` · `GameEvents`/`TileSelectedEvent` 스텁과 함께
+  `mcs` 로 빌드해 **판정 15항목을 실행 검증**했다(Blocked 무이벤트 · NoBuild 자기팀/적/중립 ·
+  격자 밖 · 토글 회귀 포함, 전원 PASS). 스텁 컴파일이지 **Unity 컴파일은 아니다**.
+- 🔴 **`HexGridRenderer.cs` · `InputHandler.cs` 는 컴파일 검증 불가**(Unity 의존). 중괄호/괄호/대괄호
+  균형 0 · `Application.` 금지 grep 0건 · raw `Debug.Log` 0건 · 새 `LogEvent` 키 0건까지만 확인했다.

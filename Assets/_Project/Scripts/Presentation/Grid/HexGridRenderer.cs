@@ -11,6 +11,23 @@
 //   3. 타일 프리팹을 Instantiate하여 XZ 평면에 배치
 //   4. HexTileView 컴포넌트를 Initialize()로 초기화
 //
+// ─────────────────────────────────────────────────────────────────────────────
+// 무작위 맵 2단계 J — TileKind(지형 종류)별 렌더 규칙
+//   (단일 소스: GameSystemRules_RandomMap.md 5장 규칙 9·10 / GameSystemRules_UI.md
+//    「무작위 맵 타일 선택과 건설 패널」)
+//
+//   · TileKind.Normal   : 지금까지와 완전히 같다. 타일 프리팹 1개를 그대로 만든다.
+//   · TileKind.NoBuild  : 겉모습(메시·높이·소유권 색)은 일반 타일과 똑같이 만들고,
+//                         그 "위에" 반투명 짙은 회색 대각선 빗금 3개를 덧그린다.
+//                         빗금은 타일과 별개의 자식 오브젝트라서, 선택 하이라이트
+//                         (HexTileView가 타일 자신의 머티리얼 색을 바꾸는 방식)와
+//                         서로를 지우지 않고 동시에 보인다.
+//   · TileKind.Blocked  : 타일 오브젝트를 "아예 만들지 않는다".
+//                         → 메시도 collider도 없으므로 화면에서는 구멍(빈 공간)이 되고,
+//                           클릭 레이캐스트에도 잡히지 않는다.
+//                         ⚠️ "투명하게 그린다"가 아니다. collider가 남아 있으면 클릭이
+//                            잡혀서 GridInteractionUseCase의 판정 순서가 무의미해진다.
+//
 // Presentation 레이어 — Unity 의존.
 // ============================================================================
 
@@ -61,8 +78,57 @@ namespace Hexiege.Presentation
         // List에서 Dictionary로 변경함.
         private readonly Dictionary<HexCoord, GameObject> _goldMineObjects = new Dictionary<HexCoord, GameObject>();
 
-        /// <summary> 생성된 타일 View 딕셔너리 (읽기 전용). </summary>
+        /// <summary>
+        /// 생성된 타일 View 딕셔너리 (읽기 전용).
+        /// ⚠️ TileKind.Blocked 좌표는 타일 오브젝트를 만들지 않으므로 여기에 들어오지 않는다.
+        ///    "논리 격자(HexGrid.Tiles)에는 있지만 화면에는 없는" 좌표가 존재한다는 뜻이다.
+        /// </summary>
         public IReadOnlyDictionary<HexCoord, HexTileView> TileViews => _tileViews;
+
+        // ====================================================================
+        // 건설 불가(NoBuild) 빗금 오버레이 — 수치 상수
+        //
+        // 왜 코드 상수인가:
+        //   [SerializeField]로 빼면 씬에 이미 배치된 HexGridRenderer 컴포넌트의
+        //   Inspector 값이 우선하게 되어, 새 필드가 "0"으로 저장된 씬에서는 빗금이
+        //   보이지 않는 사고가 난다(프로젝트 공통 교훈: Inspector 값이 코드 기본값보다 우선).
+        //   빗금은 기획 조정 대상이 아니라 "구분이 되는가"만 중요하므로 상수로 고정한다.
+        //
+        // 타일 메시 실측값(HexTile.prefab):
+        //   정육각형(FlatTop) · 외접원 반지름 0.5 · 윗면 y = +0.05 · 아랫면 y = -0.05
+        // ====================================================================
+
+        /// <summary>
+        /// 빗금 한 줄의 길이 절반. 빗금은 45도 대각선이라 육각형 밖으로 삐져나가기 쉽다.
+        /// 0.34는 아래 간격(0.19)·폭 절반(0.0375)과 조합했을 때 빗금 3개의 네 꼭짓점이
+        /// 전부 육각형 내부에 들어오는 값이다(기하 계산으로 확인).
+        /// </summary>
+        private const float HatchHalfLength = 0.34f;
+
+        /// <summary> 빗금 한 줄의 폭 절반. 값이 커질수록 굵은 빗금이 된다. </summary>
+        private const float HatchHalfWidth = 0.0375f;
+
+        /// <summary> 빗금 사이 간격(빗금에 수직인 방향). 3개를 -1 / 0 / +1 배수 위치에 놓는다. </summary>
+        private const float HatchSpacing = 0.19f;
+
+        /// <summary>
+        /// 빗금을 띄울 높이(타일 로컬 기준).
+        /// 타일 윗면이 y=+0.05이므로 그보다 0.01만큼 위에 둔다.
+        /// 같은 높이에 두면 깊이 싸움(z-fighting)이 나서 빗금이 타일에 파묻혀 깜빡인다.
+        /// </summary>
+        private const float HatchYOffset = 0.06f;
+
+        /// <summary> 빗금 색 — 반투명 짙은 회색. 팀 색이 비쳐 보이도록 알파를 1보다 낮게 둔다. </summary>
+        private static readonly Color HatchColor = new Color(0.12f, 0.12f, 0.12f, 0.62f);
+
+        /// <summary>
+        /// 빗금 메시. 모든 NoBuild 타일이 똑같은 모양이므로 한 번만 만들어 전부가 공유한다.
+        /// (타일마다 새로 만들면 231칸 규모에서 불필요한 메모리·GC가 생긴다)
+        /// </summary>
+        private static Mesh _hatchMesh;
+
+        /// <summary> 빗금 머티리얼. 메시와 같은 이유로 공유한다. </summary>
+        private static Material _hatchMaterial;
 
         // ====================================================================
         // 그리드 렌더링
@@ -98,6 +164,20 @@ namespace Hexiege.Presentation
             foreach (var kvp in grid.Tiles)
             {
                 HexCoord coord = kvp.Key;
+                HexTile tile = kvp.Value;
+
+                // ------------------------------------------------------------
+                // [J] TileKind.Blocked — 타일을 만들지 않고 건너뛴다.
+                //
+                //   여기서 continue 하면 이 좌표에는 메시도, collider도, HexTileView도
+                //   생기지 않는다. 그래서 화면에서는 그 자리가 그냥 "빈 공간"이 되고
+                //   클릭 레이캐스트에도 걸리지 않는다.
+                //
+                //   ⚠️ 투명 머티리얼로 "안 보이게" 처리하면 collider는 그대로 남아
+                //      클릭이 잡히고, 결국 아래 GridInteractionUseCase의 판정 순서가
+                //      의미를 잃는다. 그래서 "안 그린다"가 아니라 "안 만든다"이다.
+                // ------------------------------------------------------------
+                if (tile != null && tile.TileKind == TileKind.Blocked) continue;
 
                 // 헥스 좌표 → 도메인 월드 좌표 변환 (XZ 평면)
                 Vector3 worldPos = HexMetrics.HexToWorld(coord);
@@ -118,6 +198,19 @@ namespace Hexiege.Presentation
                     tileView.Initialize(coord, _config);
                     _tileViews[coord] = tileView;
                 }
+
+                // ------------------------------------------------------------
+                // [J] TileKind.NoBuild — 일반 타일과 똑같이 만든 뒤 빗금만 덧붙인다.
+                //
+                //   빗금은 타일의 "자식" 오브젝트다. HexTileView가 선택 하이라이트를
+                //   적용할 때 건드리는 것은 타일 자신의 머티리얼(_BaseColor)뿐이라,
+                //   자식인 빗금은 영향을 받지 않는다.
+                //   → 선택 하이라이트와 빗금이 서로를 대체하지 않고 함께 보인다.
+                // ------------------------------------------------------------
+                if (tile != null && tile.TileKind == TileKind.NoBuild)
+                {
+                    CreateNoBuildHatch(tileObj);
+                }
             }
         }
 
@@ -133,6 +226,157 @@ namespace Hexiege.Presentation
             }
             _tileViews.Clear();
             _goldMineObjects.Clear();
+        }
+
+        // ====================================================================
+        // 건설 불가(NoBuild) 빗금 오버레이 생성
+        // ====================================================================
+
+        /// <summary>
+        /// NoBuild 타일 위에 반투명 짙은 회색 대각선 빗금 3개를 덧그린다.
+        ///
+        /// 구조:
+        ///   Tile_(q,r)            ← 일반 타일과 완전히 동일한 프리팹 인스턴스
+        ///     └ NoBuildHatch      ← 이 메서드가 만드는 자식 (MeshFilter + MeshRenderer만)
+        ///
+        /// collider를 붙이지 않는 이유:
+        ///   NoBuild 타일은 "선택은 되는" 타일이다. 클릭 판정은 부모 타일의 collider가
+        ///   그대로 담당해야 하므로, 빗금은 순수하게 보여주기만 하는 오브젝트여야 한다.
+        /// </summary>
+        /// <param name="tileObj">빗금을 붙일 타일 오브젝트(부모가 된다)</param>
+        private void CreateNoBuildHatch(GameObject tileObj)
+        {
+            Mesh mesh = GetHatchMesh();
+            Material material = GetHatchMaterial();
+
+            // 셰이더를 못 찾은 경우 등 — 빗금만 생략하고 타일 자체는 정상 표시한다.
+            if (mesh == null || material == null) return;
+
+            var hatchObj = new GameObject("NoBuildHatch");
+
+            // worldPositionStays: false → 부모의 로컬 좌표계를 그대로 쓰겠다는 뜻.
+            hatchObj.transform.SetParent(tileObj.transform, false);
+            hatchObj.transform.localPosition = new Vector3(0f, HatchYOffset, 0f);
+            hatchObj.transform.localRotation = Quaternion.identity;
+            hatchObj.transform.localScale = Vector3.one;
+
+            hatchObj.AddComponent<MeshFilter>().sharedMesh = mesh;
+
+            var meshRenderer = hatchObj.AddComponent<MeshRenderer>();
+            meshRenderer.sharedMaterial = material;
+
+            // 얇은 장식이라 그림자를 주고받을 이유가 없다. 모바일 렌더 비용도 아낀다.
+            meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            meshRenderer.receiveShadows = false;
+        }
+
+        /// <summary>
+        /// 빗금 3개짜리 메시를 만든다(최초 1회). 이후에는 캐시를 그대로 돌려준다.
+        ///
+        /// 만드는 방법:
+        ///   XZ 평면에서 45도 대각선 방향(dir)으로 뻗는 얇은 사각형 3개를 만들고,
+        ///   그 대각선에 수직인 방향(perp)으로 -1 / 0 / +1 칸씩 밀어 나란히 배치한다.
+        ///   사각형 하나 = 정점 4개 + 삼각형 2개 → 3개면 정점 12개 + 삼각형 6개.
+        /// </summary>
+        private static Mesh GetHatchMesh()
+        {
+            // Unity의 == 는 "파괴된 오브젝트"도 null로 판정한다.
+            // 씬을 다시 로드해 메시가 정리된 경우에도 여기서 다시 만들어진다.
+            if (_hatchMesh != null) return _hatchMesh;
+
+            // 45도 방향 단위벡터 성분 (= 1/√2)
+            const float Diagonal = 0.70710678f;
+
+            Vector3 dir = new Vector3(Diagonal, 0f, Diagonal);   // 빗금이 뻗는 방향
+            Vector3 perp = new Vector3(Diagonal, 0f, -Diagonal); // 빗금을 나란히 벌리는 방향
+
+            var vertices = new Vector3[12];
+            var normals = new Vector3[12];
+            var uvs = new Vector2[12];
+            var colors = new Color[12];
+            var triangles = new int[18];
+
+            for (int i = 0; i < 3; i++)
+            {
+                int slot = i - 1;                                  // -1, 0, +1
+                Vector3 center = perp * (slot * HatchSpacing);     // 이 빗금의 중심
+                Vector3 along = dir * HatchHalfLength;             // 길이 방향 절반
+                Vector3 side = perp * HatchHalfWidth;              // 폭 방향 절반
+
+                int v = i * 4;
+                vertices[v + 0] = center - along - side;
+                vertices[v + 1] = center - along + side;
+                vertices[v + 2] = center + along + side;
+                vertices[v + 3] = center + along - side;
+
+                for (int k = 0; k < 4; k++)
+                {
+                    normals[v + k] = Vector3.up;   // 위(하늘)를 향하는 면
+                    colors[v + k] = Color.white;   // 셰이더가 정점색 × 머티리얼 색으로 계산한다
+                }
+
+                uvs[v + 0] = new Vector2(0f, 0f);
+                uvs[v + 1] = new Vector2(1f, 0f);
+                uvs[v + 2] = new Vector2(1f, 1f);
+                uvs[v + 3] = new Vector2(0f, 1f);
+
+                // 삼각형 감는 순서(winding): 위(+Y)에서 봤을 때 앞면이 되도록 0-3-2 / 0-2-1.
+                int t = i * 6;
+                triangles[t + 0] = v + 0;
+                triangles[t + 1] = v + 3;
+                triangles[t + 2] = v + 2;
+                triangles[t + 3] = v + 0;
+                triangles[t + 4] = v + 2;
+                triangles[t + 5] = v + 1;
+            }
+
+            var mesh = new Mesh { name = "NoBuildHatchMesh" };
+            mesh.vertices = vertices;
+            mesh.normals = normals;
+            mesh.uv = uvs;
+            mesh.colors = colors;
+            mesh.triangles = triangles;
+            mesh.RecalculateBounds();
+
+            _hatchMesh = mesh;
+            return _hatchMesh;
+        }
+
+        /// <summary>
+        /// 빗금 머티리얼을 만든다(최초 1회). 이후에는 캐시를 그대로 돌려준다.
+        ///
+        /// 셰이더 선택 이유:
+        ///   1순위 Hexiege/SkillAimOverlay — 스킬 조준원이 쓰던 "지면 데칼" 셰이더다.
+        ///     반투명 + ZWrite Off + 깊이 오프셋이 들어 있어 타일 윗면과 겹쳐도 깜빡이지 않고,
+        ///     유닛·건물 같은 불투명 물체에는 정상적으로 가려진다.
+        ///   2순위 Sprites/Default — 위 셰이더를 못 찾았을 때의 안전망(항상 존재하는 내장 셰이더).
+        /// </summary>
+        private static Material GetHatchMaterial()
+        {
+            if (_hatchMaterial != null) return _hatchMaterial;
+
+            Shader shader = Shader.Find("Hexiege/SkillAimOverlay");
+            if (shader == null) shader = Shader.Find("Sprites/Default");
+
+            if (shader == null)
+            {
+                // [개발] Warn + 개발 — 셰이더 부재는 프로젝트 에셋 구성 문제이고,
+                //   있으면 모든 기기에 있고 없으면 모든 기기에 없다(플레이어 기기 고유 사건이 아님).
+                //   빗금만 생략되고 타일은 정상 표시되므로 대체 경로가 있다 → Warn.
+                GameLog.Dev.Warn("HexGrid", nameof(HexGridRenderer),
+                                 "빗금 오버레이용 셰이더를 찾지 못했다 — NoBuild 타일에 빗금이 표시되지 않는다",
+                                 "Shader=Hexiege/SkillAimOverlay");
+                return null;
+            }
+
+            var material = new Material(shader) { name = "NoBuildHatchMaterial" };
+
+            // 셰이더마다 색 프로퍼티 이름이 달라 둘 다 시도한다(있는 쪽만 적용됨).
+            if (material.HasProperty("_Color")) material.SetColor("_Color", HatchColor);
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", HatchColor);
+
+            _hatchMaterial = material;
+            return _hatchMaterial;
         }
 
         // ====================================================================

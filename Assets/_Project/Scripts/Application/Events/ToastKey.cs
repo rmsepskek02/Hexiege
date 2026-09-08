@@ -37,6 +37,14 @@ namespace Hexiege.Application
         UpgradeRequired,
 
         /// <summary>스킬 쿨다운 중 — 글로벌 쿨다운이 도는 동안 스킬 슬롯을 탭했을 때.</summary>
-        SkillOnCooldown
+        SkillOnCooldown,
+
+        /// <summary>
+        /// 건설 불가 타일 — 자기 팀이 소유한 TileKind.NoBuild 타일을 탭했을 때.
+        /// (무작위 맵 2단계 J / GameSystemRules_UI.md 「무작위 맵 타일 선택과 건설 패널」 규칙 7)
+        /// ⚠️ 이 enum의 순서 = ToastMessageConfig.asset의 key 숫자이므로 항상 맨 뒤에 추가한다.
+        ///    중간에 끼워 넣으면 기존 에셋의 key 숫자가 통째로 밀려 다른 문구가 나온다.
+        /// </summary>
+        BuildingNotAllowed
     }
 }
