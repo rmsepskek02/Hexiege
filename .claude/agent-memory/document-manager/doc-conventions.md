@@ -800,3 +800,67 @@ Four spots described toast behaviour that a later commit changed. **Three differ
   correct because its scope *is* the three production-failure keys. The repair there is a **pointer to the owning rule,
   and deliberately NOT writing the new total** — writing "현재 6종" would have created exactly the count-copy problem
   §6/§9-2 are about. Say so in the note (「개수는 여기에 적지 않는다 — 늘어나면 조용히 낡는다`」) so it is not re-added.
+
+
+---
+
+## 13. Closing a phase that the *same day's* records call unfinished (2026-09-08, random-map phase 2, stage K)
+
+The previous round wrote "A~J done, **K left**, so phase 2 is NOT complete" into four documents. This round K
+landed. The work is not "change 미완 to 완료" — each document needs a different repair, and one of them loses a
+row that was carrying a warning the other documents depend on.
+
+### The four repairs are not the same edit
+
+| 문서 | Repair |
+|---|---|
+| `Plan.md` §9 | Fill the `⏳` row (dense row + `### K 단계 상세` appended before `## 12.`, §12's shape). The **I row's status label** also changes — see below |
+| `PROJECT_STATUS.md` | The 진행 중 paragraph is **the same day's own record**, so do not rewrite it: swap the heading line to `✅ 구현 완료 …`, add a blockquote right under it saying what the heading used to say and why it changed, and put ~~취소선~~ + `**[🔴 해소 …]**` on the 과대 표기 금지 item that claimed the phase was unfinished. The `**현재 단계:**` opening sentence is a *second* place that says 미완 — it is easy to miss |
+| `ROADMAP.md` | 🔴 The row comes **down**. The document's own rule is 「완료된 항목은 남기지 않는다」 and the previous round only kept the row because the phase was partly done. Prepend a new dated paragraph saying the row was removed and where the history/state went, and mark the previous round's top paragraph as "written before K" instead of deleting it |
+| `WORK_HISTORY.md` | A **new row** for the stage (separate event, separate commit), and on the existing row **append a marker after its title** — `**[🔴 날짜 갱신 — 원문은 그대로 두고 덧붙인다: … 같은 날짜의 「…」 행 참조]**`. Do not edit that row's own claim; it was true when written |
+
+### 🔴 Before deleting a roadmap row, re-home what it was pinning
+
+§12 says 「도달 불가」 must be pinned in **three** places, one of them the roadmap row for the phase. Taking the
+completed phase's row down **removes one of the three pins**. Check the surviving rows first: here the 3단계 row
+already carried 「①의 AI 경로는 실기 도달 불가」, so the pin survived and was strengthened in place. **If no
+surviving row carries it, move it before you delete, not after.**
+
+- The same check applies to every other clause the deleted row was the only home of (여기서는 보류 8건 포인터 →
+  the new top paragraph took it).
+
+### Splitting a "부분 실기 검증" verdict — both halves stay visible in the status cell
+
+Half of the verdict closed (the mining-post exception was exercised in the running game), half did not (the AI
+path is still 도달 불가). Writing 「✅ 실기 검증 완료」 would erase the second half; leaving 「⚠️ 부분 실기 검증」
+would hide the first.
+
+- **The cell carries both**: `✅ 구현 완료 · ✅ **채굴소 예외 경로 실기 검증 완료(사용자 테스트)** · ⚠️ **AI 경로는 도달 불가 — 실기 확인 불가**`.
+- In the 비고, append a dated marker that names **what the label used to say**, what closed, and — in the same
+  sentence — that the remaining half **is not a missed test**. Pair the closed half with the count that shows it
+  is a real path (1,800판 중 416건), so the closure is not read as anecdotal.
+- The §12-(2) 「도달 불가」 block gets a one-line **재확인** note, not an edit: this round did not change it.
+
+### 🔴 Retracting a paragraph of a commit message
+
+Commit messages cannot be edited once pushed, so a wrong claim inside one keeps misleading readers forever. The
+fix is to put the retraction **where a reader of that commit lands**: the Plan section that names the hash, and
+the `WORK_HISTORY` row that names the hash. Say in the retraction itself that the message cannot be fixed and
+that is why it lives here.
+
+- Write **why the claim was wrong**, not just that it is withdrawn — here: the rule governs *what the loading
+  screen draws*, and six lines later the same values are *required* in the log, so the rule already split
+  「화면에는 안 그린다 / 로그에는 남긴다」 and there was never a conflict.
+- Add the **residual-risk** assessment separately from the retraction, and 🔴 **label the parts that are general
+  knowledge rather than measured in this project** (안드로이드 logcat 권한) — otherwise the retraction itself
+  becomes the next unverified claim.
+
+### An unexamined observation is recorded as excluded-path + unknown, and it becomes a roadmap row
+
+The console had 5 errors / 4 warnings that nobody looked at. What is provable is only that the *map* keys were
+not among them (the run logged `MapPreparationSucceeded`, terrain and mining posts worked).
+
+- Write it as **「맵 경로는 배제되지만 정체는 미확인」**, explicitly **not** 「맵과 무관함이 확인됐다」 — the
+  negation belongs in the sentence, the same way 「도달 불가」 does.
+- It is **future work**, so it also gets a `ROADMAP.md` row (🟡 중간 **미확인**), not just a caveat in the status
+  document. Caveat lists say what is not done; the roadmap says what someone will do about it.
