@@ -574,7 +574,7 @@ MiningPost = TileKind != Blocked
 - selection/raycast 진입점은 hit된 배경 또는 하부 collider만 신뢰하지 않는다. 변환된 맵 좌표가 범위 안인지 확인한 뒤 `TileKind != Blocked`인 경우에만 선택 대상으로 반환한다. 따라서 `TileKind.Blocked` 좌표는 이동 명령, 점령, 건설과 selection event를 발생시키지 않는다.
 - 추후 obstacle prefab/asset은 `TileKind.Blocked` 좌표의 빈 공간 시각을 대체하는 presentation 확장점이다. domain `TileKind`, collider 기반 선택 금지, 이동/점령/건설 규칙, canonical hash와 exact symmetry 계약은 유지한다. ⚠️ **짝 없는 6칸은 회전 상대가 없으므로, obstacle asset 도입 시 반드시 예외 처리한다** — 그러지 않으면 한쪽에만 보이는 지형 6개가 생긴다.
 
-**`GridInteractionUseCase` 클릭 판정 순서:**
+**`InputHandler`(1·2) + `GridInteractionUseCase`(3~5) 클릭 판정 순서:**
 
 1. 기존 building action 분기
 2. `MineKind` 기반 MiningPost 자격 분기

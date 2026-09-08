@@ -92,7 +92,13 @@ namespace Hexiege.Presentation
         //   [SerializeField]로 빼면 씬에 이미 배치된 HexGridRenderer 컴포넌트의
         //   Inspector 값이 우선하게 되어, 새 필드가 "0"으로 저장된 씬에서는 빗금이
         //   보이지 않는 사고가 난다(프로젝트 공통 교훈: Inspector 값이 코드 기본값보다 우선).
-        //   빗금은 기획 조정 대상이 아니라 "구분이 되는가"만 중요하므로 상수로 고정한다.
+        //   빗금 "모양"(길이·폭·간격·높이)은 타일 메시에 맞춰 계산된 값이라 조정 대상이 아니므로
+        //   상수로 고정한다.
+        //
+        // ⚠️ 단, 빗금 "색·투명도"는 여기 상수가 아니라 머티리얼 에셋
+        //   (Assets/_Project/Resources/Materials/NoBuildHatch.mat)에 들어 있다.
+        //   실기에서 눈으로 보고 조정해야 하는 값이라 에셋으로 뺐다. 아래 HatchColor 는
+        //   그 에셋을 못 찾았을 때만 쓰이는 최후 수단용 값이다.
         //
         // 타일 메시 실측값(HexTile.prefab):
         //   정육각형(FlatTop) · 외접원 반지름 0.5 · 윗면 y = +0.05 · 아랫면 y = -0.05
@@ -118,7 +124,29 @@ namespace Hexiege.Presentation
         /// </summary>
         private const float HatchYOffset = 0.06f;
 
-        /// <summary> 빗금 색 — 반투명 짙은 회색. 팀 색이 비쳐 보이도록 알파를 1보다 낮게 둔다. </summary>
+        /// <summary>
+        /// 빗금 전용 머티리얼 에셋의 Resources 경로.
+        ///
+        /// 🔴 Resources.Load 에 넘기는 경로는 "Resources 폴더 다음"부터 쓰고 확장자를 붙이지 않는다.
+        ///    실제 파일: Assets/_Project/Resources/Materials/NoBuildHatch.mat
+        ///    (같은 형태의 선례: MapFallbackTemplateFactory.GetTemplateResourcePath)
+        ///
+        /// 🔴 왜 Resources 인가:
+        ///    Resources 폴더 아래에 있는 에셋은 씬이나 프리팹이 참조하지 않아도 빌드에 무조건 포함된다.
+        ///    종전처럼 Shader.Find 로 찾으면, 그 셰이더가 빌드에 들어가는 근거가
+        ///    "스킬 조준 기능이 쓰는 머티리얼을 씬이 참조한다"는 남의 사정에 얹혀 있게 된다.
+        ///    스킬 조준 UI를 빼거나 그 머티리얼을 바꾸는 순간 빗금이 조용히 사라진다
+        ///    (에디터에서는 계속 보이므로 빌드에서만 드러난다). 전용 에셋으로 그 의존을 끊는다.
+        /// </summary>
+        private const string HatchMaterialResourcePath = "Materials/NoBuildHatch";
+
+        /// <summary>
+        /// 빗금 색 — 반투명 짙은 회색. 팀 색이 비쳐 보이도록 알파를 1보다 낮게 둔다.
+        ///
+        /// ⚠️ 이 값은 "머티리얼 에셋을 못 찾았을 때만" 쓰이는 최후 수단용 색이다.
+        ///    평소 화면에 보이는 색은 위 NoBuildHatch.mat 에 저장된 _Color 값이고,
+        ///    조정도 그 에셋의 Inspector 에서 한다(코드가 에셋 색을 덮어쓰지 않는다).
+        /// </summary>
         private static readonly Color HatchColor = new Color(0.12f, 0.12f, 0.12f, 0.62f);
 
         /// <summary>
@@ -343,34 +371,65 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 빗금 머티리얼을 만든다(최초 1회). 이후에는 캐시를 그대로 돌려준다.
+        /// 빗금 머티리얼을 구한다(최초 1회). 이후에는 캐시를 그대로 돌려준다.
         ///
-        /// 셰이더 선택 이유:
-        ///   1순위 Hexiege/SkillAimOverlay — 스킬 조준원이 쓰던 "지면 데칼" 셰이더다.
-        ///     반투명 + ZWrite Off + 깊이 오프셋이 들어 있어 타일 윗면과 겹쳐도 깜빡이지 않고,
-        ///     유닛·건물 같은 불투명 물체에는 정상적으로 가려진다.
-        ///   2순위 Sprites/Default — 위 셰이더를 못 찾았을 때의 안전망(항상 존재하는 내장 셰이더).
+        /// 구하는 순서:
+        ///   1순위 — Resources 의 전용 머티리얼 에셋(NoBuildHatch.mat).
+        ///     Resources 아래에 있으므로 아무도 참조하지 않아도 빌드에 반드시 포함되고,
+        ///     그 에셋이 셰이더(Hexiege/SkillAimOverlay)를 참조하므로 셰이더도 함께 포함된다.
+        ///     색·투명도는 이 에셋에 들어 있다 → 실기에서 보고 Inspector 로 바로 조정할 수 있다.
+        ///     🔴 그래서 여기서 색을 다시 칠하지 않는다. 코드가 덮어쓰면 조정이 무의미해진다.
+        ///
+        ///   2순위(최후 수단) — Shader.Find 로 셰이더만 찾아 머티리얼을 즉석에서 만든다.
+        ///     에셋이 없거나 이름이 바뀐 비정상 상태이므로, 이 경로로 내려왔다는 사실 자체를
+        ///     아래 경고 로그로 남긴다. 이때만 코드 상수 HatchColor 를 색으로 쓴다.
+        ///
+        /// 셰이더 Hexiege/SkillAimOverlay 를 쓰는 이유:
+        ///   스킬 조준원이 쓰던 "지면 데칼" 셰이더다. 반투명 + ZWrite Off + 깊이 오프셋이 들어 있어
+        ///   타일 윗면과 겹쳐도 깜빡이지 않고(z-fighting), 유닛·건물 같은 불투명 물체에는
+        ///   정상적으로 가려진다.
         /// </summary>
         private static Material GetHatchMaterial()
         {
             if (_hatchMaterial != null) return _hatchMaterial;
+
+            // 1순위 — 전용 머티리얼 에셋.
+            // Resources.Load 는 못 찾으면 예외 없이 null 을 돌려준다.
+            Material asset = Resources.Load<Material>(HatchMaterialResourcePath);
+            if (asset != null)
+            {
+                // 에셋을 그대로 공유해서 쓴다.
+                // 색을 건드리지 않으므로 인스턴스 복제도 필요 없다(머티리얼 인스턴스 증가 방지).
+                _hatchMaterial = asset;
+                return _hatchMaterial;
+            }
+
+            // ----------------------------------------------------------------
+            // 2순위 — 최후 수단. 여기 내려온 것 자체가 "전용 에셋을 못 찾았다"는 뜻이다.
+            // ----------------------------------------------------------------
+
+            // [개발] Warn + 개발 — 에셋/셰이더 구성 문제이고, 있으면 모든 기기에 있고
+            //   없으면 모든 기기에 없다(플레이어 기기 고유 사건이 아님).
+            //   아래에서 셰이더를 찾으면 빗금은 계속 보이므로 대체 경로가 있다 → Warn.
+            GameLog.Dev.Warn("HexGrid", nameof(HexGridRenderer),
+                             "빗금 전용 머티리얼 에셋을 찾지 못했다 — Shader.Find 최후 수단으로 대체한다",
+                             $"Path=Resources/{HatchMaterialResourcePath}");
 
             Shader shader = Shader.Find("Hexiege/SkillAimOverlay");
             if (shader == null) shader = Shader.Find("Sprites/Default");
 
             if (shader == null)
             {
-                // [개발] Warn + 개발 — 셰이더 부재는 프로젝트 에셋 구성 문제이고,
-                //   있으면 모든 기기에 있고 없으면 모든 기기에 없다(플레이어 기기 고유 사건이 아님).
-                //   빗금만 생략되고 타일은 정상 표시되므로 대체 경로가 있다 → Warn.
+                // 셰이더까지 못 찾으면 빗금만 생략하고 타일은 정상 표시한다(호출부 null 처리).
                 GameLog.Dev.Warn("HexGrid", nameof(HexGridRenderer),
-                                 "빗금 오버레이용 셰이더를 찾지 못했다 — NoBuild 타일에 빗금이 표시되지 않는다",
+                                 "빗금 오버레이용 셰이더도 찾지 못했다 — NoBuild 타일에 빗금이 표시되지 않는다",
                                  "Shader=Hexiege/SkillAimOverlay");
                 return null;
             }
 
             var material = new Material(shader) { name = "NoBuildHatchMaterial" };
 
+            // 에셋이 없어 색을 가져올 곳이 없으므로, 이 경로에서만 코드 상수를 쓴다.
             // 셰이더마다 색 프로퍼티 이름이 달라 둘 다 시도한다(있는 쪽만 적용됨).
             if (material.HasProperty("_Color")) material.SetColor("_Color", HatchColor);
             if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", HatchColor);

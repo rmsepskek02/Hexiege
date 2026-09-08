@@ -618,7 +618,7 @@ MistShrine 패널은 비생산 건물 패널의 공통 규격인 **3×3 그리�
 
 **규칙 5. 판정 우선순위**
 
-`GridInteractionUseCase`는 다음 순서로 클릭을 처리한다.
+`InputHandler`(Presentation)와 `GridInteractionUseCase`(Application)가 함께 다음 순서로 클릭을 처리한다. 패널을 여는 1·2번은 `InputHandler`가 맡고, 타일 상태를 판정하는 3~5번은 `GridInteractionUseCase`가 맡는다. 건물 액션 패널과 채굴소 배치 팝업을 여는 일은 Presentation의 몫이라 Application에 둘 수 없기 때문이며(레이어 규칙), 이 분담을 하나로 합치면 Application → Presentation 역참조가 된다.
 
 1. 기존 building action 분기
 2. `MineKind`와 MiningPost 건설 자격 분기

@@ -776,6 +776,9 @@ Plan 의 I → J 순서를 **J → I 로 바꿔** 진행했다(사용자 승인)
 - 머티리얼 셰이더는 1순위 `Hexiege/SkillAimOverlay`(스킬 조준원의 지면 데칼 셰이더 재사용),
   2순위 `Sprites/Default`. 🔴 **`Shader.Find` 라 빌드에서 스트립될 수 있다** — 에디터 실기는 문제없지만
   플레이어 빌드에서 빗금이 안 보이면 Always Included Shaders 등록을 먼저 의심할 것(미조치, 범위 밖).
+  **[🔴 2026-09-08 correction — 위 문장은 그대로 남긴다. 아래 「J-2」에서 조치했고, 당시 진단도
+  정확하지는 않았다: 실제로는 `Game.unity` → `Materials/SkillAimOverlay.mat` → 셰이더 참조 사슬 덕분에
+  빌드에서도 `Shader.Find` 가 성공하고 있었다. 문제는 「깨진다」가 아니라 「남의 참조에 얹혀 있다」였다.]**
 
 ### 클릭 판정 순서가 실제로 사는 곳
 
@@ -809,3 +812,63 @@ J 에서는 그 사실을 바꾸지 않고, `HandleClick` 의 주석 번호를 �
   격자 밖 · 토글 회귀 포함, 전원 PASS). 스텁 컴파일이지 **Unity 컴파일은 아니다**.
 - 🔴 **`HexGridRenderer.cs` · `InputHandler.cs` 는 컴파일 검증 불가**(Unity 의존). 중괄호/괄호/대괄호
   균형 0 · `Application.` 금지 grep 0건 · raw `Debug.Log` 0건 · 새 `LogEvent` 키 0건까지만 확인했다.
+
+---
+
+## 무작위 맵 2단계 J-2 — 빗금 셰이더 확보 방식 전환 (2026-09-08, 실기 미검증)
+
+J 에서 `Shader.Find("Hexiege/SkillAimOverlay")` 로 잡던 빗금 머티리얼을 **Resources 의 전용 에셋**으로
+바꿨다. 빗금 모양·위치·클릭 판정·렌더링 로직은 건드리지 않았다.
+
+### 왜 바꿨나 — 「지금 깨진다」가 아니라 「조용히 깨진다」
+
+셰이더가 빌드에 들어가던 근거는 **다른 기능의 참조 사슬**이었다:
+
+```
+Assets/_Project/Shaders/SkillAimOverlay.shader  (guid 32a13eb796b8bae43bb9e6ce43f5c783)
+  ← Assets/_Project/Materials/SkillAimOverlay.mat (guid b496f88efac2be44e9904baa1a2ce965)
+      ← Assets/_Project/Scenes/Game.unity 가 참조
+```
+
+즉 **스킬 조준 UI 를 빼거나 그 머티리얼을 바꾸면 빗금이 소리 없이 사라진다.** 에디터에는 계속 보이므로
+빌드에서만 드러난다. 2순위 `Sprites/Default` 도 URP 프로젝트라 분홍이 될 수 있다.
+
+### 신설 에셋
+
+| 파일 | GUID | 비고 |
+|---|---|---|
+| `Assets/_Project/Resources/Materials.meta` | `2e70d8e249f44331a33d0f12beb0bf0b` | 폴더 meta (선례: `Resources/MapTemplates.meta`) |
+| `Assets/_Project/Resources/Materials/NoBuildHatch.mat` | — | `SkillAimOverlay.mat` 복제 후 이름·`_Color` 만 변경 |
+| `.../NoBuildHatch.mat.meta` | `c52b10fd7be9431aa7258576a42e9da7` | 저장소 전수 대조로 유일 확인 |
+
+- 셰이더 참조 GUID = `32a13eb796b8bae43bb9e6ce43f5c783`(원본과 동일, 실측 대조).
+- `_Color = (0.12, 0.12, 0.12, 0.62)` — 종전 코드 상수 `HatchColor` 를 **그대로 옮긴 값**(변경 없음).
+- 🔴 **Resources 아래에 있으면 아무도 참조하지 않아도 빌드에 포함된다.** 머티리얼이 셰이더를
+  참조하므로 셰이더도 함께 들어간다. 이제 다른 기능에 얹혀 있지 않다.
+
+### 코드 변경 — `Presentation/Grid/HexGridRenderer.cs` 1파일
+
+- 상수 `HatchMaterialResourcePath = "Materials/NoBuildHatch"` 신설(경로 문자열은 여기 한 곳뿐).
+  🔴 `Resources.Load` 경로는 **Resources 폴더 다음부터, 확장자 없이**
+  (선례: `MapFallbackTemplateFactory.GetTemplateResourcePath`).
+- `GetHatchMaterial()` 순서: ① `Resources.Load<Material>` → 찾으면 **에셋을 그대로 공유**해서 쓴다.
+  🔴 **코드가 색을 다시 칠하지 않는다** — 인스펙터 조정 가능하게 만드는 것이 목적이라 덮어쓰면 의미가 없다.
+  복제하지 않으므로 머티리얼 인스턴스도 늘지 않는다.
+  ② 못 찾으면 `GameLog.Dev.Warn`(「전용 머티리얼 에셋을 찾지 못했다」, `Path=Resources/...`)을 남기고
+  기존 `Shader.Find` 경로를 **최후 수단**으로 탄다. 이때만 코드 상수 `HatchColor` 를 칠한다.
+  ③ 셰이더까지 없으면 종전대로 `null` 반환 → 빗금만 생략, 타일은 정상.
+- 새 `LogEvent` 키는 만들지 않았다(K 단계 범위). `GameLog.Dev` 만 쓴다.
+- `HatchColor` 는 **삭제하지 않고 최후 수단 전용**으로 남겼다(주석에 명시).
+
+**빗금 색을 바꾸고 싶으면 `Assets/_Project/Resources/Materials/NoBuildHatch.mat` 의 `_Color` 하나만 만진다.**
+
+### 검증 (2026-09-08)
+
+- 확인함: 셰이더 GUID 대조 일치 · 새 GUID 2개 저장소 전수 대조 **각각 1회만 등장**(자기 meta) ·
+  `Resources/Materials/NoBuildHatch` 경로가 다른 Resources 루트(`Assets/Resources`, TextMesh Pro,
+  ai.meshy)와 **충돌 없음** · `.mat` 은 원본과 **2줄만 다름**(`m_Name`, `_Color`) ·
+  중괄호/괄호/대괄호 균형 0(주석·문자열 스트립 후) · `Application.` 0건 · raw `Debug.Log` 0건 ·
+  `LogEvent.` 0건 · `GameLog.Dev.Warn(system, className, message, data)` 4인자 시그니처 일치.
+- 회귀: Domain 자체 점검 **14종 전원 PASS**(`mcs` + `mono`, 이번에 Domain 은 안 건드렸다).
+- 🔴 **확인 불가**: `HexGridRenderer.cs` 는 `UnityEngine` 의존이라 **컴파일 검증을 못 한다.**
+  Unity 에디터에서만 확인된다. 실기(빌드 포함 여부·빗금 표시)도 미검증.
