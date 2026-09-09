@@ -17,7 +17,8 @@
 
 ### 시스템별 (2026-06-23 재구성)
 
-- [architecture.md](architecture.md) — 레이어 구조/제약, 정적 홀더, GameBootstrapper, SO Config 패턴,
+- [architecture.md](architecture.md) — 레이어 구조/제약, 정적 홀더(**`MapHandoff` 「읽고 비운다」 포함**),
+  GameBootstrapper, SO Config 패턴,
   DontDestroyOnLoad, **에디터 셋업 스크립트 패턴 + 배치 관례(`Assets/Editor/Setup/`·`Hexiege.EditorTools`)
   와 저장 반영(`SetDirty`+`MarkSceneDirty`)**
 - [network.md](network.md) — NGO API 제약, RPC 래퍼 패턴, GO 파괴 전파, 같은 씬 재로드, 동기화 타이밍, 회전/위치 동기화
@@ -39,6 +40,10 @@
   소유권은 호출부에 남음) · `NoBuild` 만 결과가 달라지는 근거 · 손대면 안 되는 이동 판정 목록 ·
   AI BFS 확장 조건을 좁히면 안 되는 이유 · `GetBuildingAt` vs `HasBuilding` 중복 전수 조사.
   **건설/점령 판정을 만지기 전에 반드시 읽는다.**
+  **3단계 C·D(2026-09-09, 동작 무변경): `MapHandoff` 가 맵 계통 어디에 끼는지 ·
+  `PrepareAndProjectMap()` → 래퍼 + `PrepareMap()` + `ProjectMap()` 3분할 ·
+  🔴 가르면서 반드시 지켜야 하는 3가지(리셋 두 줄·가드는 래퍼에 남긴다 / 인자는
+  `MapPreparationResult`) · 임시 고정 seed 는 아직 살아 있다.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
 ### 세부 보조 자료

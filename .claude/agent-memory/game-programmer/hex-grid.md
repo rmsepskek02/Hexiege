@@ -991,3 +991,64 @@ Red 에겐 X) 팀을 인자로 받지 않는 `HexTile` 은 답을 낼 수 없다
 - 지시서의 자리 표기 하나가 실제와 달랐다: 「`PlaceMiningPost`(`:250` 부근)」이라 적혀 있었으나
   실제 `PlaceMiningPost` 는 `:91~103`(변경 전 기준)이다. `:250` 부근에 있는 것은
   `CanPlaceMiningPost`(`CanPlaceBuildingType` 위임)다. 양쪽 다 조건이 적용되도록 고쳤다.
+
+---
+
+## 무작위 맵 3단계 C·D — 인계 통로 + 준비/투영 분리 (2026-09-09, 동작 무변경)
+
+Plan: `_Tasks/2026-09-08/17_29_random-map-phase3-multiplayer/Plan.md` §7-C · §7-D.
+**둘 다 게임 동작이 한 줄도 바뀌지 않는 변경**이다. A·B·E~I 는 이 회차 범위가 아니다.
+
+### C — `Application/MapHandoff.cs` 신설 (순수 C#, 99행)
+
+정적 홀더 자체의 설계·금지사항은 [architecture.md](architecture.md) 「정적 홀더 패턴」에 적었다.
+여기서는 **맵 계통에서 이것이 어디에 끼는지**만 남긴다.
+
+- 맵이 **확정되는 곳**(로비)과 **격자에 새겨지는 곳**(전투 씬) 사이에 `LoadSceneMode.Single`
+  재로드가 있다. 그 사이를 건너는 유일한 통로가 이 홀더다.
+- 흐름(3단계 완료 시): Infrastructure(전송) → `MapHandoff.Set` → 씬 전환 →
+  `GameBootstrapper` 가 `TryTake` → `ProjectMap(prepared)`.
+  **이번 회차에는 그 배선을 하지 않았다** — 홀더만 있고 `Set`/`TryTake` 호출자도 0건이다(F·I 몫).
+- 함께 고친 것: `GameBootstrapper.Map.cs` 의 `_mapPreparation = prepared;` 위 주석에 있던
+  「다른 코드가 `GetLastMapPreparation()` 으로 다시 읽는다」가 **사실이 아니어서** 교체했다.
+  🔴 실측: `GetLastMapPreparation` 은 **선언 1건 · 호출자 0건**이고, 인계를 `MapHandoff` 가 맡으므로
+  3단계가 끝나도 0건으로 남는다(Plan §5-3). 「재현하려면 seed 가 필요하다」는 취지는 살렸다.
+
+### D — `PrepareAndProjectMap()` 을 셋으로 가름
+
+`GameBootstrapper.Map.cs` 한 파일. **가르기만 했고 문장 순서는 그대로다.**
+
+| 함수 | 하는 일 | 전제 |
+|---|---|---|
+| `PrepareAndProjectMap()` (기존 이름 · 래퍼) | `_mapPreparation`/`_mapProjection` 비우기 → 가드 → `PrepareMap()` → 실패면 return → `ProjectMap()` | — |
+| `PrepareMap()` → `MapPreparationResult` | seed 생성 · 준비 · `_mapPreparation` 보관 · 규칙 12 로그 1줄. 실패면 **null 반환**(실패 로그는 안에서) | `_config != null` |
+| `ProjectMap(MapPreparationResult)` | `MapProjectionUseCase.Project` · `_mapProjection` 보관 · 실패 로그 | `_grid != null` |
+
+🔴 **가르면서 반드시 지킨 것 3가지** (다음에 이 자리를 만질 때 되풀이해서 걸릴 지점):
+
+1. **`_mapPreparation = null; _mapProjection = null;` 두 줄은 래퍼에 남겨야 한다.**
+   특히 `_mapProjection` 비우기를 `ProjectMap` 안으로 옮기면, **준비 실패로 일찍 돌아간 판에서
+   그 줄이 실행되지 않아** 지난 판의 투영 결과가 남고 성·시작 채굴소가 옛 자리에 배치된다.
+2. **가드 `if (_config == null || _grid == null) return;` 도 래퍼에 남겨야 한다.**
+   `_config` 만 보고 `PrepareMap` 을 먼저 부르면, `_grid == null` 인 판에서 **원래는 아예 안 나가던
+   준비 로그가 새로 한 줄 나간다**(규칙 12 로그가 경기당 1줄이라는 전제가 깨진다).
+3. `ProjectMap` 의 인자는 `MapDefinition` 이 아니라 **`MapPreparationResult`** 다 —
+   투영 실패 로그가 `BuildMapProjectionLogData(prepared)`(MapVersion/Seed/Hash)를 쓰기 때문이고,
+   `MapHandoff` 가 넘겨주는 타입과도 같아 F·I 에서 그대로 이어진다.
+
+**임시 고정 seed 분기(`CreateRootSeed()` 안 `if (IsNetworkMode()) return NetworkInterimRootSeed;`)는
+그대로 살아 있다.** 멀티는 여전히 로컬 준비다 — 뒤집는 것은 I 단계다.
+
+### 검증 (2026-09-09) — 실제로 돌린 것과 못 한 것
+
+- ✅ **실제 컴파일·실행**: `MapHandoff.cs` 를 `mcs` 로 단독 빌드(스텁 `MapPreparationResult` 1개만
+  곁들임) 후 `mono` 실행 — 초기 false / `Set`→1회째 true / **2회째 false(읽고 비운다)** /
+  `Clear` 후 false / `Clear` 뒤 재`Set` 정상 = **5개 단정 전원 PASS**.
+- ✅ **회귀**: Domain 자체 점검 **12종 전원 PASS**(`Domain/Map/**` + `Domain/Hex/*` + `TeamId.cs`).
+  Domain 은 이번에 한 줄도 안 건드렸으므로 기대대로 무변화.
+  (사본에서만 `MapDefinitionValidator.cs:917` 의 `out int _, out int _` 를 이름 부여로 우회 —
+  mcs 6.8 의 가짜 CS0128. 실제 파일은 안 건드렸다.)
+- 🔴 **컴파일 검증 불가**: `GameBootstrapper.Map.cs` 는 `UnityEngine` 의존이라 이 환경에서
+  빌드할 수 없다. **컴파일 통과를 주장하면 안 된다.** 확인한 것은 중괄호 균형(주석·문자열 스트립 후
+  23/23) · `Application.` 직접 참조 0건 · raw `Debug.Log` 0건 · 문장 순서 대조뿐.
+- 실기(에디터 플레이) 미검증. 멀티 미검증.

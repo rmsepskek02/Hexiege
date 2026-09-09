@@ -416,7 +416,16 @@ namespace Hexiege.Bootstrap
         // ====================================================================
 
         /// <summary>
-        /// 이번 판의 맵을 만들고(MapPreparationUseCase) 격자에 새긴다(MapProjectionUseCase).
+        /// 이번 판의 맵을 만들고(<see cref="PrepareMap"/>) 곧바로 격자에 새긴다(<see cref="ProjectMap"/>).
+        ///
+        /// 🔴 이 함수는 <b>이름만 남은 래퍼</b>다(무작위 맵 3단계 D).
+        ///    원래 한 함수 안에서 하던 "준비"와 "투영"을 두 함수로 갈랐는데,
+        ///    <b>부르는 쪽(LoadMap)은 한 글자도 바뀌지 않게</b> 하려고 옛 이름을 그대로 남겼다.
+        ///    가른 이유는 멀티플레이 때문이다 — 규칙 16 이 "해시 대조가 씬 전환보다 먼저"라고
+        ///    정하므로, Host 는 <b>로비에서 준비</b>하고 <b>전투 씬에서 투영</b>해야 하고
+        ///    Client 는 <b>준비 없이 투영만</b> 해야 한다. 즉 두 일이 다른 시점·다른 주체가 된다.
+        ///    ⚠️ 그 배선(누가 언제 부르는가)은 아직 하지 않았다. 이 단계는 가르기만 하며,
+        ///       싱글·멀티 모두 지금까지와 똑같이 이 래퍼를 통해 연달아 실행된다.
         ///
         /// 🔴 동기 호출이다. 코루틴으로 바꾸지 않았다.
         ///    실측(데스크톱, 300회)에서 맵 준비는 중앙값 0ms · 95번째 0ms · 최대 7ms 였고,
@@ -433,11 +442,40 @@ namespace Hexiege.Bootstrap
         private void PrepareAndProjectMap()
         {
             // 이전 판의 결과가 남아 새 판에 섞여 들지 않도록 먼저 비운다.
+            //
+            // 🔴 이 두 줄과 바로 아래 가드는 <b>일부러 래퍼에 남겨 두었다.</b>
+            //    가르기 전과 실행 순서가 한 칸도 달라지면 안 되기 때문이다. 특히
+            //    _mapProjection 을 비우는 일은 "맵 준비가 실패한 판"에서도 반드시 실행돼야 한다 —
+            //    준비 실패로 일찍 돌아가면 투영은 아예 안 하는데, 그때 이 줄이 없으면
+            //    <b>지난 판의 투영 결과가 그대로 남아</b> 성·시작 채굴소가 옛 자리에 배치된다.
             _mapPreparation = null;
             _mapProjection = null;
 
+            // _config 는 준비에, _grid 는 투영에 필요하다. 둘 중 하나라도 없으면
+            // 아무것도 하지 않는다 — 가르기 전과 같은 조건·같은 자리다.
             if (_config == null || _grid == null) return;
 
+            MapPreparationResult prepared = PrepareMap();
+
+            // 준비가 실패했으면 여기서 끝난다(실패 로그는 PrepareMap 안에서 이미 남겼다).
+            // 가르기 전의 "if (!prepared.IsSucceeded) { 로그; return; }" 와 완전히 같은 지점이다.
+            if (prepared == null) return;
+
+            ProjectMap(prepared);
+        }
+
+        /// <summary>
+        /// 이번 판의 맵 설계도를 만든다(<see cref="MapPreparationUseCase"/>). <b>격자에는 손대지 않는다.</b>
+        ///
+        /// 하는 일은 세 가지다 — ① root seed 를 정해 맵을 만들고 ② 그 결과를 _mapPreparation 에
+        /// 보관하고 ③ 규칙 12 의 로그를 한 줄 내보낸다.
+        ///
+        /// ⚠️ <b>전제</b>: 호출 전에 _config 가 null 이 아니어야 한다(안에서 _config 를 읽는다).
+        ///    현재 유일한 호출부인 <see cref="PrepareAndProjectMap"/> 가 앞에서 확인하고 부른다.
+        /// </summary>
+        /// <returns>준비에 성공한 결과. 실패했으면 null(실패 로그는 이 안에서 남긴다)</returns>
+        private MapPreparationResult PrepareMap()
+        {
             // 폴백 템플릿은 Resources 에서 읽는다(Infrastructure 구현체).
             // Application 의 조정자는 인터페이스만 알고 Unity 를 모른다.
             var preparation = new MapPreparationUseCase(new ResourcesMapFallbackTemplateSource());
@@ -450,8 +488,13 @@ namespace Hexiege.Bootstrap
             // 🔴 결과를 반드시 보관한다.
             //    문제가 생긴 맵을 다시 만들어 보려면 그 판의 root seed 가 있어야 하는데,
             //    seed 는 매 판 새로 뽑히므로 여기서 놓치면 영영 재현할 수 없다.
-            //    보관은 로그와 별개로 필요하다 — 다른 코드가 GetLastMapPreparation() 으로
-            //    같은 판의 결과(최종 맵 바이트·해시 등)를 다시 읽는다.
+            //    보관은 로그와 별개로 필요하다 — 로그에는 해시 앞 16자만 실리지만
+            //    여기에는 최종 맵 바이트·해시 원본까지 통째로 남기 때문이다.
+            //    ⚠️ 종전에는 이 자리에 「다른 코드가 GetLastMapPreparation() 으로 같은 판의
+            //       결과를 다시 읽는다」고 적혀 있었으나 사실이 아니어서 고쳤다(2026-09-09).
+            //       그 접근자의 호출자는 0건이고 3단계가 끝나도 0건으로 남는다 —
+            //       확정된 맵을 전투 씬으로 넘기는 일은 그 접근자가 아니라
+            //       Application/MapHandoff.cs(정적 홀더)가 맡기 때문이다.
             _mapPreparation = prepared;
 
             // ── 규칙 12 「로그 필수 항목」을 운영 로그로 내보낸다 (2단계 K) ──────
@@ -479,7 +522,7 @@ namespace Hexiege.Bootstrap
                 GameLog.Ops.Error(LogEvent.MapPreparationFailed, MapLogSystem, nameof(GameBootstrapper),
                                   "맵 준비 실패 — 성/광산을 배치하지 않는다: " +
                                   (prepared.FailureReason ?? "사유 없음"), preparationData);
-                return;
+                return null;
             }
 
             if (prepared.UsedFallback)
@@ -498,6 +541,22 @@ namespace Hexiege.Bootstrap
                                  nameof(GameBootstrapper), "맵 준비 완료", preparationData);
             }
 
+            return prepared;
+        }
+
+        /// <summary>
+        /// 이미 확정된 맵 설계도를 격자(_grid)에 실제로 새긴다(<see cref="MapProjectionUseCase"/>).
+        /// <b>맵을 새로 만들지 않는다</b> — 받은 것을 그대로 쓴다.
+        ///
+        /// 이렇게 "받아서 새기기만" 하도록 갈라 둔 덕분에, 뒤 단계에서 Client 가
+        /// <b>자기가 만들지 않은 맵</b>(Host 에게서 받은 맵)을 그대로 새길 수 있게 된다.
+        ///
+        /// ⚠️ <b>전제</b>: 호출 전에 _grid 가 null 이 아니어야 한다.
+        ///    현재 유일한 호출부인 <see cref="PrepareAndProjectMap"/> 가 앞에서 확인하고 부른다.
+        /// </summary>
+        /// <param name="prepared">확정된 맵 준비 결과. 설계도(Definition)와 실패 로그 재료를 함께 들고 있다</param>
+        private void ProjectMap(MapPreparationResult prepared)
+        {
             // 설계도를 격자에 새긴다. 격자 크기(11x21)가 설계도와 다르면 여기서 실패한다.
             MapProjectionResult projected = MapProjectionUseCase.Project(prepared.Definition, _grid);
             _mapProjection = projected;

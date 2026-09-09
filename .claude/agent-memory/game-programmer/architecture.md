@@ -32,6 +32,15 @@ Domain → Application → Core → Infrastructure → Presentation → Bootstra
 - `GameRaceContext` — BlueRace/RedRace (멀티플레이 수신용)
 - `LocalPlayerDifficulty` — DifficultyLevel(Easy/Normal/Hard) 정적 홀더
 - `ViewConverter` — Red팀 좌표/방향 반전
+- `MapHandoff` (`Application/MapHandoff.cs`, 신설 2026-09-09 — 무작위 맵 3단계 C) —
+  로비에서 확정된 `MapPreparationResult` 를 **씬 재로드를 넘어** 전투 씬으로 인계.
+  선례는 같은 폴더 `NetworkContext`. 멤버 3개: `Set` / `TryTake(out)` / `Clear`.
+  🔴 **`TryTake` 는 「읽고 비운다」** — 남겨 두면 인계가 실패한 판에서 **지난 판 맵이 조용히 재사용**되어
+  규칙 16(전투 씬은 로비에서 확정한 맵만 사용)을 가장 눈에 안 띄는 방식으로 어긴다.
+  `_pending` 을 프로퍼티로 노출하지 않는 것도 이 규칙의 샛길을 막기 위해서다.
+  ⚠️ `Clear()` 는 **의도적으로 호출자 0건**(폐기 시점 배선은 3단계 F·I 몫) — 죽은 코드로 오해해 지우지 말 것.
+  ⚠️ 이 홀더 때문에 **`IGameServices` 는 확장하지 않는다**(멤버 15개 유지). Bootstrap 이 읽는 방향이라
+  `GetLastMapPreparation()` 을 뚫을 필요가 없다(Plan §5-3).
 
 **GameRaceContext는 Presentation에서 참조 허용** — Infrastructure 정적 홀더이지만 레이어 위반 아님 (UnitFactory/BuildingFactory/UI에서 직접 조회).
 
