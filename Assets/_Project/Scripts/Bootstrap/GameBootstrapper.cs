@@ -216,9 +216,28 @@ namespace Hexiege.Bootstrap
         ///    그전까지 양쪽이 각자 seed 를 뽑으면 서로 다른 맵을 보게 되므로,
         ///    같은 seed 를 쓰기로 해서 "같은 seed 면 같은 맵"(규칙 12)에 기대어
         ///    전송 없이 맵을 일치시킨다. 즉 멀티는 당분간 매 판 같은 맵이다.
-        ///    3단계에서 Host 권위 seed 가 들어오면 이 상수는 사라진다.
+        ///    3단계에서 Host 권위 seed 가 들어오면 이 상수는 사라진다
+        ///    (분기 위치: GameBootstrapper.Map.cs 의 IsNetworkMode() 분기).
+        ///
+        /// 🔴 왜 하필 11 인가 — 숫자 자체에는 아무 의미가 없다. 이 값이 만들어 내는 "맵"이
+        ///    테스트에 쓸모 있어서 고른 것이다. 실제로 생성해 확인한 결과는 이렇다.
+        ///      seed=11 → 유형 ThreeLane / 빗금 105칸 / 막힘 28칸 / 중립 광산 5개
+        ///                (그중 1개는 빗금 타일 위에 놓인다)
+        ///    화면의 절반 가까이가 빗금이고 구멍(막힘)도 뚜렷해서, 2단계 I·J 가 만든
+        ///    "빗금 렌더링"과 "빗금 위 건설 판정"을 멀티 실기에서 눈으로 확인할 수 있다.
+        ///    빗금 타일 위 광산이 1개 있어 "빗금이라도 채굴소는 예외로 허용"(규칙 9)까지
+        ///    같은 판에서 함께 확인된다.
+        ///    종전 값 1 은 완전개방형(FullyOpen)이라 빗금이 0칸이었고, 그래서 위 세 가지를
+        ///    멀티에서 확인할 방법이 아예 없었다. 그것이 값을 바꾼 유일한 이유다.
+        ///
+        /// ⚠️ 이 숫자는 "좋은 seed" 가 아니라 "테스트용으로 고른 seed" 다.
+        ///    밸런스가 검증됐다거나 대표적인 맵이라는 뜻이 전혀 아니므로,
+        ///    나중에 보는 사람은 11 에 특별한 의미가 있다고 오해하지 말 것.
+        ///
+        /// ⚠️ 이 값을 바꾸면 멀티에서 나오는 맵이 통째로 바뀐다.
+        ///    "같은 seed = 같은 맵" 이므로 seed 를 바꾸는 것은 곧 맵을 교체하는 것이다.
         /// </summary>
-        private const ulong NetworkInterimRootSeed = 1UL;
+        private const ulong NetworkInterimRootSeed = 11UL;
 
         private GridInteractionUseCase _gridInteraction;
         private UnitMovementUseCase _unitMovement;
