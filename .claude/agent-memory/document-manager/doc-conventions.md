@@ -937,3 +937,72 @@ holder / scene-placed `NetworkBehaviour`) and the candidate list writes itself, 
   class name alone does not appear in scene YAML.
 - When the deciding runtime behaviour lives in a package that is not on disk (`Library/PackageCache` absent in
   a headless checkout), **that is a §13 「확인 못 함」 row, not a guess.** Name what must be measured and where.
+
+---
+
+## 15. Replacing a 「미검증」 claim when the verification came back *partial* (2026-09-09, random-map phase 2 multiplayer)
+
+Three documents said 「2단계의 검증은 전부 에디터 싱글플레이다 — 멀티는 실기 미검증」. A multiplayer run finally
+happened, and the claim became **half false**. The deliverable of this round was not "change 미검증 to 검증" — it was
+**the sentence that draws the boundary**, written once and pointed at from everywhere else.
+
+### 15-1. The boundary sentence is the artifact; give it one home and point at it
+
+Write it as a ✅/⚠️ pair, and put the ⚠️ half **first in the reader's mind** by naming the negation:
+「**「매 판 다른 맵이 나오는가」는 이번에도 확인 불가다 — seed 가 고정이라 구조적으로 확인할 수 없다**」.
+
+- **Structural impossibility is not a missed test** — same shape as §12's 「도달 불가」, and it is written the same
+  way: the negation in the sentence, plus the condition that makes it reachable later (here: 3단계's seed 전송).
+- **Degrade the strength of what *was* confirmed, in the user's own words.** The user wrote 「빗금 105칸을 세어본 건
+  아니고 같은 맵이 나온 것만 확인했어」 — so the document says **「두 화면이 같은 맵임을 눈으로 본 것이지 칸 단위
+  대조가 아니다」** and quotes them. Never upgrade an eyeball check into a comparison.
+- Name **one** document as 「경계의 단일 소스」 (here `PROJECT_STATUS.md`'s new dated paragraph) and have the roadmap,
+  the history row and the Plan section point at it. Four copies of a boundary drift apart within one round.
+
+### 15-2. Four documents, four repairs — again, decided by role (extends §12/§13)
+
+| Spot | Repair |
+|---|---|
+| `PROJECT_STATUS.md` dated 완료 문단의 **머리** (「… / 멀티 미검증」) | Leave the heading, **append a bracket marker** saying the heading was true on its date and is now partly resolved, plus where the boundary lives |
+| the same block's 과대 표기 금지 **항목** | ~~strikethrough~~ + `**[🔴 날짜 부분 해소 — 원문은 그대로 둔다]**` + what closed and what did not. **「부분 해소」, never 「해소」** |
+| `ROADMAP.md` **row for the next phase** | The row stays (the phase is future work). **Narrow it in place**: say which sub-item is still open, which closed, and 🔴 **what verification now remains** (here ㉠ 매 판 다른 맵 ㉡ 칸 단위 대조). A row that only says 「미검증」 after a partial run is now wrong |
+| `WORK_HISTORY.md` | New dated row for the run, and a marker appended after the **title** of each older row whose caveat list this changes. Do not edit those rows' claims |
+
+- The Plan that owns the phase gets a new `## 14. …` section holding the full record (§12's shape), and the
+  status documents carry only the boundary plus a pointer.
+
+### 15-3. 🔴 A "correct behaviour that looks like a bug" is recorded like 「도달 불가」
+
+The user reported 「토스트가 안 뜬다」; the rules (`GameSystemRules_UI.md` 「건물 배치 패널 UI」 규칙 7·8) only toast on a
+**self-owned** tile, and at match start **no team owns any hatched tile**. It appeared after they captured one.
+
+- Write it with the negation and the mechanism: **「점령한 뒤에만 뜬다 — 결함이 아니라 규칙대로의 동작이다」**, then the
+  measurement that makes it non-anecdotal (초기 소유 12칸 중 빗금 0 · 맵 전체 105칸 전부 중립).
+- **Say which known finding it is structurally identical to** (here 「AI 가 빗금 타일에 닿을 수 없다」). Two findings
+  sharing one cause should be linked, or the second gets "fixed" independently.
+- Pin it in **three** places for the same reason 「도달 불가」 is pinned three times: status doc, roadmap, Plan section.
+
+### 15-4. A side finding the user did **not** put in scope — record it, and do not give it a roadmap row
+
+Measurement showed the map's initial gold is never applied (screenshot 5135; the table value for that map is 500;
+`GameConfig.StartingGold` 5000 is what runs). It matters because a rule (`GameSystemRules_RandomMap.md` 규칙 16)
+requires both sides to apply that value — **so skipping it leaves that rule unmet**, and saying so is the point.
+
+- 🔴 **A `ROADMAP.md` row *is* a scoping decision** (「누군가 이것을 할 것이다」). When the user neither included nor
+  excluded the item, a row overstates it. Record it as a **fact paragraph** in the roadmap's dated top block, the
+  status document, and the Plan's deferred-item row — and write **「범위에 넣지 않고 사실만 적는다」** explicitly, with
+  「하지 말라인지 이번엔 아니다인지 확정되지 않았다」. That wording is what keeps the next round from either
+  silently dropping it or silently adopting it.
+- Pair it with the rule it breaks. 「미사용이다」 alone reads as tidy-up; 「규칙 N 이 미충족으로 남는다」 does not.
+
+### 15-5. A test-only constant change needs four sentences, and one of them guards a distinction
+
+A temp fixed seed moved `1` → `11` (one constant + comments). What the record must carry:
+
+1. **What changed, measured** (file + line + the literal), and that the branch structure did not.
+2. 🔴 **That the number itself means nothing** — chosen because the map it produces is *useful for testing*, not
+   because it is balanced. Otherwise the next reader treats it as a tuned value.
+3. **How long it stays and what removes it** (here: kept while phase 3 transport is built, deleted by phase 3).
+4. 🔴 **The distinction the change can blur.** Single-player was *always* random (`Guid` + `UtcNow`); only
+   multiplayer is fixed. Without that sentence the docs read as 「무작위 맵인데 왜 고정이냐」. Measure both branches
+   in the same function before writing it.
