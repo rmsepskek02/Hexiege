@@ -864,3 +864,76 @@ not among them (the run logged `MapPreparationSucceeded`, terrain and mining pos
   negation belongs in the sentence, the same way 「도달 불가」 does.
 - It is **future work**, so it also gets a `ROADMAP.md` row (🟡 중간 **미확인**), not just a caveat in the status
   document. Caveat lists say what is not done; the roadmap says what someone will do about it.
+
+---
+
+## 14. A Research document that is mostly *measurement*, and the traps in it (2026-09-08, random-map phase 3)
+
+Same shape as §11 (one `Research.md`, no `Plan.md`), but this round the value was in **numbers measured from
+binary assets and scene files**, not in reading prose. Four things generalise.
+
+### 14-1. A binary asset is the cheapest authoritative measurement available
+
+The brief asked "how big is the map payload, really?" — the answer was five `.bytes` files in
+`Assets/_Project/Resources/MapTemplates/`. Their **file size is the payload size**, because the codec writes
+canonical bytes and nothing else. But do not stop at `ls -la`: **decode them with the codec's own field
+order** (a short Python script mirroring `Encode`) and assert `consumed_offset == len(file)`. That one
+assertion turns "the file is 343 bytes" into "the format parses to the end", which is what lets you derive a
+size *formula* (`319 + 4N + 20D` here) and check it against two different files. Sizes alone would not have
+caught the next item.
+
+- Then compare against the **configured limit read from the scene**, not from memory: `m_MaxPayloadSize` sits
+  in `Lobby.unity` / `Game.unity` as plain YAML. Both scenes must be checked — they can differ.
+- 🔴 **A configured limit is not an effective limit.** Say so in the document and push the real measurement
+  to the Plan. Transport headers eat into it, and Relay is a different number from localhost.
+
+### 14-2. 🔴 An existing design document's arithmetic can be wrong — recompute, don't quote
+
+`TechnicalDesignDocument.md` carried "약 274바이트 (타일 231 + 헤더 19 + 성·광산 24 + 장식 0)". Measurement
+gave **335~343**. Two independent errors: the header was counted as 19 when `Encode` writes 40, and the four
+list-length `int32` fields (16 bytes) were omitted entirely. The document itself had labelled the figure
+*"파이썬 계산이며 실기 측정이 아니다"* — so it was an arithmetic slip, not a false claim.
+
+- **Report which conclusions survive.** Here the conclusion built on it ("조각이 1개뿐") is still true at 343,
+  so only the supporting number is wrong. Saying "the number is wrong" without saying "the conclusion holds"
+  invites someone to redo settled work.
+- **Do not fix the other document from inside a Research task.** Record it, name the two causes, and hand the
+  decision back. This is the `_Tasks/` counterpart of the index file's 「인계 수치는 논지까지 틀릴 수 있다」.
+
+### 14-3. Extracting an "undecided" list is a *counting* job with a conditional tail
+
+The brief asked how many planning decisions the user must make. Reading the two rules
+(`GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 M-3·M-4) yields **4** ⚠️ markers — but one of them says *"팝업으로
+확정되면 규칙 8 에 따라 팝업/모달 타입을 함께 정해야 한다"*. That is a **conditional fifth and sixth decision**
+that exists only under one answer.
+
+- Present it as **「확정 4건, 한쪽으로 정해지면 +2건」**, not as 6. A flat count of 6 overstates what the user
+  must decide today; a flat 4 hides work that appears the moment they answer.
+- Pair each undecided item with **whether existing UI assets can express the answer** (measured: `ConfirmPopup`
+  has exactly two buttons, `GameEndUI` exactly two). That converts an abstract question into a costed one —
+  a three-choice restore has *no* asset today, and the user should know that before choosing.
+
+### 14-4. A handed-over "there is no spec for X" claim splits in half more often than it holds
+
+The phase-2 Plan's deferred item read *"맵 준비·투영 실패 처리 미명세 — 어느 문서에도 없다"*. Grepping `Docs/`
+showed **preparation failure is fully specified** (규칙 16 + 규칙 M-2·M-3·M-4, including the 4 undecided
+markers), while **projection failure genuinely has nothing** — `MapProjectionFailed` appears only as a
+`LogRules.md` key definition and one roadmap line.
+
+- **Split the verdict instead of accepting or rejecting the whole claim.** "절반만 그렇다" plus which half, with
+  the grep that decided it. Same discipline as 「미검증 해소」 (index file, 2026-08-24): line up what the claim
+  asserted, then show how far the evidence reaches.
+- The generalisation: a deferred item written while a *different* phase was in flight often describes a state
+  two rule-document revisions ago. **Re-grep every deferred item before carrying it forward.**
+
+### 14-5. Scene files answer "what is scene-bound?" better than code does
+
+The rule demanded a 「씬에 종속되지 않는 공용 전송 경로」. The decisive fact was not in any `.cs`:
+`grep -c "NetworkObject" Lobby.unity` → **0**, `Game.unity` → **13**. Pair that with a one-pass classification
+of every file in the network folder by *lifetime* (`MonoBehaviour + DontDestroyOnLoad` / plain C# / `static`
+holder / scene-placed `NetworkBehaviour`) and the candidate list writes itself, each with its own cost.
+
+- Confirm a single class's placement by **its script GUID from the `.meta`**, grepped in each `.unity` — the
+  class name alone does not appear in scene YAML.
+- When the deciding runtime behaviour lives in a package that is not on disk (`Library/PackageCache` absent in
+  a headless checkout), **that is a §13 「확인 못 함」 row, not a guess.** Name what must be measured and where.
