@@ -1382,3 +1382,108 @@ same coroutine and deciding them apart yields contradictory specs.
   An item the current work introduces is a different argument from one it merely uncovered.
 - Close the row with **why it does not block** the map work (success path ~0.2s measured from the run log,
   failure reverts cleanly) — a grouped row otherwise reads as a prerequisite.
+
+---
+
+## 20. Extending a Plan when the user folds a **second, differently-shaped** piece of work into it (2026-09-14, rematch-map round 5)
+
+An existing 497-line Plan (stages A~D, "wire up the rematch map") had to absorb a second job the user
+just scoped in: **delete the map test mode**. Deletion is the opposite shape of the plan it joins —
+A~D *add wiring that does not exist*, the new piece *removes wiring that does*. Eight lessons.
+
+### 20-1. 🔴 Do not re-letter the existing stages — give the new block its own **prefix**
+
+The obvious move is "deletion becomes A~C, the old A~D slide to D~G". **Do not.** The old letters were
+referenced by name in **seven** sections (order diagram, failure mapping, rule mapping, risks, verification
+table, file list, execution table). Shifting them breaks every pointer **silently** — nothing errors.
+
+- Prefix the new block instead (`T1~T4`, T = TestMode) and **write one line in the doc saying why**,
+  so the next reader does not "tidy" the lettering later.
+- This is §17-6's rule in a new setting: **the only property that matters is that existing names keep
+  pointing at the same thing.** Monotonic prettiness is not a property worth a single broken pointer.
+
+### 20-2. 🔴 A deletion inside a **serialized format** cannot obey the "comment it out first" default
+
+`WORKFLOW.md` [4] mandates disable-before-delete until verified. A flag that sits **inside the canonical
+byte stream** has no half state: the field is either there (old format) or gone (new format).
+
+- Say that explicitly, then **name the substitute revert mechanisms** — here ① one stage = one commit, so
+  reverting the single code commit restores the format, and ② rule/design docs keep the removed clauses
+  as strikethrough + "previous record" quote blocks.
+- 🔴 **A deviation from a written project rule is raised as a user-confirm item**, not decided in passing.
+  Writing the reasoning down is not the same as being allowed to do it.
+
+### 20-3. 🔴 When the change voids an already-closed verification, the artifact is a **gate stage**
+
+§17-3 taught that the cascade (canonical field → version bump → regenerate binaries → **a finished
+verification becomes void**) is the impact scope. This round had to turn that last bullet into a plan.
+
+- Make the re-verification **its own stage** and mark it a gate: *"do not start the next block until this
+  passes"*. A bullet inside another stage's checklist gets skipped; a stage with a row in the execution
+  table does not.
+- **State what gets confused if the gate is skipped** — here: the later stage was already "one commit flips
+  everything", so adding a format change on top means a failure has **two** candidate causes from two
+  different jobs. That sentence is the whole argument for the gate; without it the gate reads as ceremony.
+- Name the price too (**one extra real-device round**) and call it the cost of cause-separation.
+
+### 20-4. A risk the normal path **cannot** catch needs a **non-test** completion criterion
+
+Regenerating the five fallback templates is invisible to any passing test: fallback only fires when 100
+generation attempts fail, and every real-device run so far recorded `UsedFallback=False`. **So the gate
+stage passes even if the regeneration was skipped.**
+
+- Give that stage a **mechanical** criterion instead — *"all five files shrank by 4 bytes"* — and a second,
+  eyeball-able one (the generated source docs' version row reads 2).
+- And repeat the rule that keeps the checklist honest: **do not put "does the fallback run?" on the
+  real-device checklist** — it is not observable there (`.claude/mistakes.md` 2026-09-09).
+
+### 20-5. 🔴 The original's **absolute sentences** go half-true the moment a second piece arrives
+
+The Plan was full of clean absolutes: *"rule documents are not touched — not one line"*, *"scene/prefab/asset
+work: 0"*, *"nothing in this scope is mcs-verifiable"*, *"we create no new files"*. Each is still true of
+A~D and **false of the new block**.
+
+- **Find them by grepping the document for its own absolutes** — `한 줄도` · `0건` · `없다` · `전부` — rather
+  than by re-reading for meaning. They cluster in summary blockquotes and the "what we do NOT touch" list.
+- Repair by **appending a scoped correction** (B-7): *"the sentence above is about block ②; here is what
+  block ① does differently"*. Never edit the original — it stays correct for the half it described, and if
+  the user reverses the stage order it becomes fully correct again.
+- The most valuable one was the inverted case: *"nothing here is mcs-verifiable"* became **false in the
+  good direction** — 8 of the 12 deletion files import no Unity namespace at all and the validator already
+  ships a `TryRunSelfCheck` entry point. **A new block can make verification easier, not only harder**;
+  measure before repeating the old block's limits.
+
+### 20-6. Generated `.md` files are **not** hand-edit targets — grep the generator first
+
+Five documents under `Docs/_Reference/` listed the flag being deleted and looked like ordinary doc-revision
+targets. They are **written by an editor tool** (`…Builder.cs` writes what `…Factory.BuildSourceDocument`
+returns). Editing them by hand would be undone by the next regeneration.
+
+- → They belong to the **regeneration stage**, not the document stage, and the string that produces the
+  offending row belongs to the **code stage**. One deletion, three stages, decided by *who writes the file*.
+- **Before listing any `.md` in a revision stage, grep the repo for its path** — a hit inside a `.cs` file
+  means the document is an output.
+
+### 20-7. Handed-over scope mismatch, fifth class: **right as far as it went, but incomplete**
+
+Handed over as *"rules 3 · 12 · 14 define the test mode"*. Measured: **also rules 13 and 16** in the same
+document, plus the rules index, 3 spots in the GDD and 5 in the TDD.
+
+- Distinct from the four known classes — 2026-08-18 *wrong number*, 2026-08-24 *right number wrong
+  conclusion*, §17-7 *wrong unit*, §18 *right count wrong labels*. Here **every handed item was correct**;
+  the list simply stopped early.
+- Fix: widen the plan to the measured set, **and raise the widening as a user-confirm item** — enlarging
+  scope is itself a scoping decision (§15's rule), even when the evidence is unambiguous.
+- Say what the too-narrow version would produce: *"rule 3 would say the mode does not exist while rules 13
+  and 16 still describe it"* — and that **`check_docs.py` cannot see that class** (it checks number
+  references, not content contradictions).
+
+### 20-8. Recording a decision that came from **silence**
+
+The stage order was announced to the user with "say so if you want the reverse", and no answer came.
+That is not the same as the user choosing it.
+
+- Write **the procedure, not a verdict**: *"this was announced, an objection was invited, none arrived,
+  so it is written this way — reversing it is free until stage T1 starts."*
+- Pin **where the reversal stops being cheap** (here: the commit that changes the byte format). A silence-
+  derived decision needs an explicit, dated exit, or it hardens into a claim the user never made.
