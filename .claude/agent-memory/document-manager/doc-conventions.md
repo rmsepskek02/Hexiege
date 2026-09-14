@@ -1006,3 +1006,198 @@ A temp fixed seed moved `1` → `11` (one constant + comments). What the record 
 4. 🔴 **The distinction the change can blur.** Single-player was *always* random (`Guid` + `UtcNow`); only
    multiplayer is fixed. Without that sentence the docs read as 「무작위 맵인데 왜 고정이냐」. Measure both branches
    in the same function before writing it.
+
+---
+
+## 16. Closing a whole phase whose execution table was still all-⬜ (2026-09-14, random-map phase 3)
+
+Nine stages A~I landed at once and the `§14 실행 기록` table had to be filled in a single pass, not stage by
+stage as §12 assumed. Six things generalise, and three of them are about **what the handoff did not say**.
+
+### 16-1. 🔴 A stage that was never started, and was *downgraded* rather than skipped
+
+Stage A ("does a dynamically spawned `NetworkObject` survive a `LoadSceneMode.Single` reload?") was the plan's
+**first stage and a declared precondition for B**. It was never run — and the reason is not negligence: the
+design settled such that **the condition never applies in this scope** (transfer finishes in the lobby before
+the scene load, and the confirmed map crosses the scene boundary in a static holder, not in an object).
+
+- Keep the row at `⬜ 미착수` — do **not** invent a ✅. The label set is fixed; write the reason in 비고.
+- The row must carry three things or it reads as a skipped step: ① **why the condition did not apply here**
+  ② **where it *will* apply** (a named future item — here the rematch row) ③ a pointer to the detail section.
+- 🔴 **Also close the plan's own "ask the user when A lands" slot** (§15 표 1번 here). The question never
+  became askable, and saying so prevents the next round from re-opening it.
+- The detail section for a not-started stage is still worth writing: it is the only place that records that
+  the blocker was retired *deliberately*.
+
+### 16-2. 🔴 The stage shipped, ran in 실기, and its own measurement items are still unmeasured
+
+Stage B's plan named two 실측 항목 (NGO effective payload cap, Relay effective MTU). The code shipped, the
+transfer ran twice in a real match — and **neither number was ever measured.** The handoff did not mention it.
+Reading the source found `IsChunkSizeMeasured = false` and `ProvisionalChunkSizeBytes = 1024` with "근거가
+없다" written in the comment.
+
+- **Read the new files themselves before filling a row from a handoff.** A constant named `Provisional*` or a
+  `Is…Measured = false` flag is the code telling you the stage is not finished; no handoff note will.
+- The status cell carries **both halves** (§13's split): `✅ … 실기 검증 완료 · ⚠️ 부분 검증 — 한도 실측 2건이 남았다`.
+- 🔴 **Pair it with the rule clause that stays unmet.** 규칙 16 says the value is fixed by NGO measurement and
+  recorded in the TDD; until then that clause is 미충족. "아직 안 쟀다" alone reads as tidy-up.
+- ⚠️ **A fact that makes the gap harmless is not a fact that closes it.** Here the payload is always one chunk,
+  so the provisional size never bites — say that, *and* say it does not make the provisional value final.
+
+### 16-3. Structural non-firing, again — and the ratio that makes it readable
+
+Four of five new log keys never fired in the real run. They are **all failure keys and both matches succeeded**.
+Same shape as §12's 「도달 불가」 and §15-1's structural impossibility: **negation first**, then the condition
+that would make them fire (an artificial mismatch), then **who has not decided that yet** (the plan's own
+open question). Write the ratio (「5종 중 1종」) in the cell so the reader sees the scope at a glance.
+
+### 16-4. Where a *new* phase's deferred items go when the old list is a dated snapshot
+
+The previous phase's list was headed 「2026-09-08 시점 — 사용자가 이번에 처리하지 않기로 보류한 항목」.
+Appending phase-3 findings there would make **the heading lie about time** (the failure mode of the index
+file's 2026-08-24 note: 「제목이 시간에 대해 거짓말하는가」).
+
+- **New section in the current phase's Plan** (`## 16. ⏸ …에서 새로 드러난 보류·미해결 항목`), opened with a
+  blockquote saying **why it is not in the old table**.
+- **In the old table, touch only the rows whose state actually changed** — here 1 (closed by this phase) and
+  2 (still open, and now *confirmed* to leave a rule unmet). Append markers; never edit the original sentence.
+- **Add one pointer line under the old table** naming the new section and the count, plus 「1번은 닫혔고 2번은
+  닫히지 않았다」. Without it the old list stays the place people look and the new one is never found.
+- Lead the new section with a **kind column** (결함 아님 / 손봐야 함 / 사용자 확인 대기 / 규칙 미충족) so the
+  reader does not have to read six items to learn which one bites.
+
+### 16-5. 🔴 A narrowed row is the home for leftovers you found yourself — do not open new rows
+
+§15-4 says a `ROADMAP.md` row is a scoping decision, so items the user neither included nor excluded get a fact
+paragraph, not a row. But this round *also* produced leftovers of the finished phase (the two unmeasured
+limits, the un-fired paths). Opening rows for those would scope them; dropping them would lose them.
+
+- **Resolution: fold them into the phase's own row while narrowing it.** The row stays because the phase is
+  partly done (§12's rule), and the narrowed text enumerates everything that remains — including what you
+  discovered — under one heading. No new rows, nothing lost.
+- Write the narrowed row as **「현재 이 행에 남은 것은 N가지다」 + ✅ 이번에 닫힌 것** and keep the original
+  registration text below it with 「아래 원문은 등록 당시 기록이라 그대로 둔다」.
+- Items the user explicitly told you to record as 보류 (here: a lobby-logging gap, an uninvestigated UI report)
+  stay **out** of the roadmap even when they look actionable — the instruction 「보류로 기록하라」 is itself the
+  scoping answer. Say in the report that you chose not to open rows, and why.
+
+### 16-6. Handed-over figures were wrong twice, and a third class was simply unverifiable here
+
+- Two measured disagreements (a file's line count 1500 → **1607**; a method's range `:447~492` → **`:447~497`**).
+  Write the measured value, and keep a **two-column 대조표** (인계값 / 실측) in the Plan's 근거 구분 section so
+  the next round can see which figures were re-measured rather than copied.
+- 🔴 **A third class cannot be measured in this checkout at all**: Unity-side artifacts. The prefab and its
+  `DefaultNetworkPrefabs.asset` registration are not here, and the new `.cs` files have **no `.meta`** — the
+  agent-authored files never went through Unity. Write **「확인 불가」, never 「없다」**, name the indirect
+  evidence that they exist (the real run logged a successful spawn with `NetworkObjectId=1`), and put it under
+  the handed-over column of 근거 구분.
+- The cheap check that decides this: `ls` the asset path plus `find Assets -name "<Class>*"`. If the `.cs` is
+  there and the `.meta` is not, the whole Unity half of that commit is outside this working tree.
+
+## 17. Recording facts and decisions that correct *your own* previous round (2026-09-14, random-map phase 3 follow-up)
+
+The handed-over round was **not** an implementation. It was four facts and decisions about one number (5000)
+and one feature (map test mode). Nothing was built; the deliverable is **what the documents now say**.
+That shape has its own rules, and this round taught five of them.
+
+### 17-1. 🔴 The correction was not a wrong number — it was a **sentence that invited the wrong reading**
+
+The previous round wrote *"the map's `InitialGold` differs every match but the actual gold is fixed at 5000"*.
+**Every word of that is true.** It still had to be corrected, because it **omitted where 5000 comes from**, and
+a reader lands on the nearest explanation available — the map test mode sitting right next to it in the docs.
+
+- This is a **different class from §12's superseded design and from 2026-08-20's numeric correction.**
+  Nothing was false, so there is nothing to strike. **B-7 still applies: append, never rewrite** —
+  the repair is `**[🔴 YYYY-MM-DD 정정 — 원문은 그대로 두고 덧붙인다: …]**` carrying **the missing half**.
+- **How to spot this class before a user does:** for each 「X is wrong / X is missing」 sentence, ask
+  **「does this sentence say where X came from?」** If not, the reader will supply a source, and the source
+  they supply is whatever the surrounding document talks about most.
+- The repair block must say the **negation first** (*"it is NOT the test mode"*) — the same ordering §15
+  found for ✅/⚠️ boundary sentences. A reader who stops after one clause must stop on the correction.
+
+### 17-2. 🔴 Two fields whose values are **coincidentally equal** — record both halves or the note is useless
+
+`Economy.StartingGold` = 5000 and `TestStartingGold` = 5000 are different fields that happen to match.
+The code comment already warned about it (`GameConfig.cs:160~162`); the **documents** had never said so.
+Writing only *"they are different fields"* is half the job. The two consequences are what a reader needs:
+
+1. **Today**: turning the test mode on changes nothing on screen, so the next person concludes
+   **「the test mode is broken」**. Name that misreading explicitly — it is the whole reason the note exists.
+2. **Tomorrow**: the moment the planned release change lands (5000 → 500), **the coincidence breaks**
+   and the two values diverge. A note that only describes today goes stale exactly when it matters.
+
+> Generalisation: when a doc records **「A and B happen to be equal」**, it must also record
+> **「what that hides now」** and **「what scheduled change breaks it」**. Otherwise it is trivia.
+
+### 17-3. A decision recorded but **deliberately not executed** — the impact scope *is* the record
+
+The user decided to delete the map test mode and **decided not to do it this round**. So the artifact is
+「결정됨 · 다음 작업」 plus the scope. 🔴 **A file list is not a scope.** The parts that actually decide
+whether the work is a morning or a week were the **cascading** ones, and they came from reading the code:
+
+- the flag sits **inside the canonical byte stream** (`MapDefinitionCodec`) → **the wire format changes**
+- → the format **version constant must be bumped** (its own comment says so)
+- → **binary assets encoded in the old format must be regenerated** (`Resources/**/*.bytes`)
+- → ⚠️ **a previously-completed real-device verification becomes void** and must be re-run.
+
+That last bullet is the one nobody volunteers. **When a change alters a serialized format, always ask which
+already-closed verification was measured against the old format** — hashes, byte counts, round-trip restores.
+Otherwise the next round says 「we already verified this」 about bytes that no longer exist.
+
+- 🔴 **Rule documents come first.** If a rule document *defines* the thing being deleted (here 규칙 3·12),
+  say so in the scope as a **precondition**, not a follow-up: deleting the code first leaves rules and code
+  contradicting each other, and the checker cannot see it (a rule with no references is still a valid rule).
+- The **✅ freebie** belongs in the scope too — this deletion removes the second of two composition-root
+  frictions. Pin it **on the friction item**, and pin **what does not go away** next to it, or the next reader
+  closes the whole item.
+
+### 17-4. 🔴 A roadmap row that a previous round **refused to create** — overturn the refusal explicitly
+
+`ROADMAP.md` said, in words, *"we are not creating a row because the user has not settled whether this is
+「don't」 or 「not now」"*. That sentence is a **record of a decision**, not a stale line. When the user then
+settles it, the repair is **not** to quietly add the row.
+
+1. Add the row.
+2. Go back to the refusal sentence and **append** the overturn: what changed, what the user actually said,
+   and that the row now exists. Leave the original.
+3. Say in the new top paragraph **why the row is justified now** — here: this document's own stated role is
+   「앞으로 해야 할 작업」, and the only thing that had blocked it was the missing decision.
+
+> §15 established that a side finding the user neither included nor excluded gets **no row** (a row is itself
+> a scoping decision). **17-4 is the same rule read forwards**: once the user *does* scope it, the row is
+> owed — and the earlier refusal is the evidence that the scoping decision is what changed, not your opinion.
+
+### 17-5. 「확인했고 문제없음」 earns a **Plan item** but never a roadmap row
+
+The multiplayer gold-mismatch suspicion turned out to be correct behaviour (server-authority `NetworkVariable`
+converges the client onto the host's value). Recording it is worth real space — **the suspicion is cheap to
+re-raise**, because the construction site reads as if both sides build their own. So write **the shape of the
+suspicion first**, then the evidence that dissolves it. That is the same form as 「도달 불가」(§12) and
+「correct behaviour that looks like a bug」(§15).
+
+- **But it gets no roadmap row: there is nothing to do.** Say that in one clause so nobody adds one later.
+- ⚠️ **And say what it does *not* resolve.** Converging on `Economy.StartingGold` is not the same as applying
+  the map's value — two adjacent facts about the same number, and merging them would close a real gap by
+  accident. **When a ✅ item sits next to a 🔴 item about the same subject, each needs a sentence saying the
+  other is untouched.**
+
+### 17-6. Lettered subsections: append **after** the meta section rather than renumber
+
+§16 ran 가~바 with **사 = ※ 근거 구분** (a meta note covering the whole section). Two new items had to go in.
+Renaming 사 would break every pointer to it; inserting 아·자 before it breaks 가나다 monotonicity.
+**Appending 아·자 after 사 keeps every existing letter untouched** — the only property that actually matters —
+so do that, then add one line under the summary table explaining why the meta note is not last.
+Each appended item carries **its own 근거 구분** instead of relying on the earlier one.
+
+### 17-7. Handed-over count mismatch, third variant: **the unit was wrong, not the number**
+
+Handed over as *"12 files · 89 reference lines"*. Files measured **12 — exact match**. Lines measured
+**115 with comments / 95 excluding comment-only lines** — neither is 89.
+
+- 2026-08-18 was *the number is wrong*; 2026-08-24 was *the number is right but the conclusion is not*;
+  this is **the number counts something I cannot reconstruct**. Two independent re-counts failing to land on
+  the handed value means **the counting basis differed**, and the basis is not recoverable from the result.
+- → Write the measured value, keep the matching half (**the file count agreed — say so**), and state
+  **「확정할 수 없어 추정하지 않는다」** rather than inventing a basis that would explain 89 (규칙 10).
+- Publish **both** of your own figures. A single "115" invites the same mismatch next round; "115 / 95 (basis)"
+  lets the next person check which one they are reproducing.

@@ -602,15 +602,15 @@ Assets/_Project/Scripts/Infrastructure/Network/NetworkGameEndController.cs  ← 
 
 | 단계 | 상태 | 커밋 | 비고 |
 |---|---|---|---|
-| A NGO 씬 재로드 생존 조건 확인 | ⬜ 미착수 | | |
-| B `NetworkMapTransfer` 골격 + 한도 실측 | ⬜ 미착수 | | |
-| C `MapHandoff` + 낡은 주석 정정 | ⬜ 미착수 | | |
-| D 준비/투영 분리 | ⬜ 미착수 | | |
-| E 로그 키 신설 | ⬜ 미착수 | | |
-| F Host 권위 준비·전송 | ⬜ 미착수 | | |
-| G Client 수신·해시 대조 | ⬜ 미착수 | | |
-| H Client D 방식 재생성 검증 | ⬜ 미착수 | | |
-| I 씬 전환 게이트 + 뒤집기 | ⬜ 미착수 | | |
+| A NGO 씬 재로드 생존 조건 확인 | ⬜ 미착수 | — | 🔴 **착수하지 않았고, 「차단 요인」에서 「관찰 항목」으로 강등됐다.** 이번 범위에는 **생존 조건이 걸리지 않는다** — 전송이 **씬 로드가 시작되기 전 로비에서 전부 끝나고**, 확정된 맵은 객체가 아니라 `MapHandoff`(정적 홀더)로 씬을 건넌다. 생존이 실제로 물리는 곳은 **재경기(§10 표 1번 · 다음 범위)** 이며, 그것이 이번에 실기로 드러났다(아래 §16-가). 상세는 아래 「A 단계 상세」 |
+| B `NetworkMapTransfer` 골격 + 한도 실측 | ✅ 구현 완료 · **실기 검증 완료(사용자 테스트)** · ⚠️ **부분 검증 — 한도 실측 2건이 남았다** | `df392da` | 골격·재조립기는 실기 2판에서 실제로 돌았다(`ChunkCount=1` · 재조립 성공). 🔴 **그러나 이 단계가 스스로 「실측 항목」으로 내건 두 숫자는 아직 재지 않았다** — 조각 크기는 `IsChunkSizeMeasured = false` · `ProvisionalChunkSizeBytes = 1024`(문서 작업 중 코드 직접 실측). `MapChunkAssembler` 는 **`mono` 로 6가지 입력 79 단언 전원 PASS**. 상세는 아래 「B 단계 상세」 |
+| C `MapHandoff` + 낡은 주석 정정 | ✅ 구현 완료 (**mono 로 실제 컴파일·실행 검증**) · **실기 검증 완료(사용자 테스트)** | `771e5e4` | 로비→전투 씬 인계가 실기 2판에서 실제로 성립했다. 🔴 **「읽고 비운다」도 실기로 드러났다** — 재경기에서 `Reason=MapHandoffEmpty` 가 남았다(§16-가). 상세는 아래 「C 단계 상세」 |
+| D 준비/투영 분리 | ✅ 구현 완료 · **실기 검증 완료(사용자 테스트)** | `771e5e4` | **성공 기준이 「아무것도 달라지지 않는 것」**이었고 그대로였다 — 싱글 3판이 각기 다른 seed 로 정상 동작(`20:00:04`·`20:00:07`·`20:00:10`). 상세는 아래 「D 단계 상세」 |
+| E 로그 키 신설 | ✅ 구현 완료 (**mcs 로 개수 실측**) · ⚠️ **부분 검증 — 실기에서 발화한 것은 5종 중 1종뿐** | `df392da` | `LogEvent` **41 → 46개**(문서 작업 중 파이썬 파싱으로 직접 실측). 🔴 **나머지 4종이 안 찍힌 것은 검증 누락이 아니다** — 전부 실패 키인데 실기 2판이 모두 성공이었다. 상세는 아래 「E 단계 상세」 |
+| F Host 권위 준비·전송 | ✅ 구현 완료 · **실기 검증 완료(사용자 테스트)** | `1ffe0f2` | 2판 모두 `SendCount=1` · **`ResendCount=0`** · 준비 `AttemptCount=1`(27ms · 1ms). ⚠️ **재전송·timeout 경로는 실기에서 한 번도 발화하지 않았다.** 상세는 아래 「F 단계 상세」 |
+| G Client 수신·해시 대조 | ✅ 구현 완료 · **실기 검증 완료(사용자 테스트)** · ⚠️ **불일치 경로 미발화** | `1ffe0f2` | 2판 모두 `HashMatch=True`. **인위적 불일치 시험(§15-3)은 하지 않았다** — 사용자가 임시 조작 코드를 넣을지 확정하지 않았다. 상세는 아래 「G 단계 상세」 |
+| H Client D 방식 재생성 검증 | ✅ 구현 완료 (**mono 로 실제 컴파일·실행 검증**) · **실기 검증 완료(사용자 테스트)** | `1ffe0f2` | 실기에서 Client 가 `AttemptIndex=0, SearchedCombinations=2, VerifyStage=None` 으로 통과. **시드 1~5000 재측정에서 복원 100.00%**(2단계의 시드 40개 기록을 **125배 넓게** 다시 잰 값 — 옛 기록은 지우지 않는다). 상세는 아래 「H 단계 상세」 |
+| I 씬 전환 게이트 + 뒤집기 | ✅ 구현 완료 · **실기 검증 완료(사용자 테스트)** · ⚠️ **게이트가 막는 경로는 실기 미발화** | `cc3a14b` | 🔴 **여기서 처음 동작이 뒤집혔다.** 매 판 다른 seed 가 나왔고(`3905793782056422338` · `10943744334431763949`) 게이트를 통과했으며 **싱글 회귀도 없다.** ⚠️ **「실패하면 로비에 머무는가」는 성공만 나서 확인되지 않았다.** 상세는 아래 「I 단계 상세」 |
 
 **상태 라벨**: ⬜ 미착수 / 🔄 진행 중 / ✅ 구현 완료 (컴파일 미검증) / ✅ 구현 완료 (**mono 로 실제 컴파일·실행 검증**) / ✅ 구현 완료 · **실기 검증 완료(사용자 테스트)** / ⚠️ 부분 검증 — 무엇이 남았는지 함께 적는다
 
@@ -635,3 +635,434 @@ Assets/_Project/Scripts/Infrastructure/Network/NetworkGameEndController.cs  ← 
 
 > **이 계획은 사용자 승인 전까지 코드를 한 줄도 바꾸지 않는다**(CLAUDE.md 규칙 1·2·11).
 > 승인 후에도 **A 단계 결과가 나오기 전에는 B 에 착수하지 않는다**(§4-2).
+
+---
+
+### A 단계 상세 (2026-09-14) — 착수하지 않았다 · 차단 요인에서 관찰 항목으로 강등
+
+**한 줄로**: **검증 누락이 아니라 이번 범위에 조건이 걸리지 않은 것**이다. A 는 *"동적 스폰 `NetworkObject` 가 `LoadSceneMode.Single` 재로드를 넘어 생존하는가"* 를 묻는 단계였고, §4-2 는 이것을 **후보 A 의 전제**이자 B 착수의 선행 조건으로 두었다. 실제로 만들어 놓고 보니 **그 전제가 이번 범위에서는 쓰이지 않는다.**
+
+**강등 근거 (설계가 그렇게 굳었다)**
+- 전송은 **씬 로드가 시작되기 전에 로비에서 전부 끝난다.** Host 가 로비에서 준비 → 조각 전송 → `MapReady` → 해시 대조 → **그 뒤에야** `NetworkGameManager.LoadGameScene()` 이 불린다(I 단계 게이트). 즉 **전송 객체가 씬 전환을 넘어 살아 있을 필요가 없다.**
+- 확정된 맵이 씬을 건너는 통로는 **객체가 아니라 `MapHandoff`(Application 정적 홀더)** 다(C 단계). 정적 홀더는 씬 수명과 무관하다.
+- 따라서 A 가 「생존하지 않는다」로 나왔더라도 §4-3 의 두 갈래(대안 A′ 채택 여부)를 꺼낼 일이 없었다. **§15 표 1번(A 결과에 따른 사용자 확인)도 함께 불발이다 — 물을 일이 생기지 않았다.**
+
+🔴 **그러나 이 질문이 사라진 것은 아니다 — 생존이 실제로 물리는 곳은 재경기다.** 재경기는 **로비로 돌아가지 않고 Game 씬만 재로드**하며 그 과정에서 `NetworkMapTransfer` 를 despawn 한다(§16-가에 실기 로그 지문이 있다). 재경기에서 맵을 다시 구성하려면 **그 재로드를 넘어 전송 경로가 살아 있어야 하거나, 살아 있지 않아도 되도록 흐름을 바꿔야** 한다. **§10 표 1번(재경기 `SameMap`/`NewMap`)에 착수할 때 A 를 그때 실측한다.**
+
+**남은 것**: 프로브 프리팹은 만들지 않았으므로 「B 착수 시 제거」(계획의 ⚠️) 할 대상도 없다.
+
+---
+
+### B 단계 상세 (2026-09-14) — 전송 골격과 재조립기 (커밋 `df392da`, E 와 같은 커밋)
+
+**신설 2파일 + 프리팹 1개.**
+
+| 파일 | 성격 | 이번 회차 검증 수단 |
+|---|---|---|
+| `Infrastructure/Network/MapChunkAssembler.cs` (**369행** — 문서 작업 중 `wc -l` 실측) | 🔴 **일부러 순수 C#** (`using System;` 하나뿐) | **`mono` 로 실제 실행** |
+| `Infrastructure/Network/NetworkMapTransfer.cs` (**최종 1607행** — 문서 작업 중 `wc -l` 실측. B 시점에는 골격뿐이고 F~I 에서 알맹이가 붙었다) | `NetworkBehaviour` | **헤드리스 컴파일 불가 — Unity·실기에서만** |
+| `Prefabs/Misc/NetworkMapTransfer.prefab` + `Resources/Config/DefaultNetworkPrefabs.asset` 등재 | Unity 에셋 | **실기 스폰 로그로 확인** |
+
+**✅ `MapChunkAssembler` — `mono` 실행 결과**: 6가지 입력(조각 1개 / 여러 개 / 중복 / 역순 / 하나 빠짐 / 길이 불일치)에 경계값을 더해 **79 단언 전원 PASS**. 🔴 **그리고 모든 `Accept` 직전마다 `TryGetAssembled` 를 불러 「불완전 상태에서 바이트가 나오는 일」이 0건임을 확인**했다 — 규칙 16 의 *"부분 데이터는 어떤 검증이나 맵 구성에도 쓰지 않는다"* 를 **API 모양이 아니라 실행으로** 확인한 것이다.
+
+**✅ 실기**: 2판 모두 `ChunkCount=1` 로 보내고 Client 가 재조립에 성공했다. **로비 스폰도 성공**했다 — `맵 전송 객체 스폰 완료 | Role=Host/Client, NetworkObjectId=1`.
+
+> 🔴 **이 프로젝트에서 로비 씬에 네트워크 오브젝트가 존재한 것은 이번이 처음이다.** `Lobby.unity` 의 `NetworkObject` 개수는 종전 **0개**였고, 기존 `NetworkBehaviour` **14개는 전부 Game 씬**이었다(메인 세션 실측 — Research §14-5 가 이 사실로 후보를 골랐다). 그래서 **「로비에서 NGO 가 실제로 도는가」 자체가 이번에 처음 확인된 것**이며, 그 확인이 실기 스폰 로그다.
+
+🔴 **⚠️ 이 단계가 스스로 내건 「실측 항목」 2건은 아직 재지 않았다 — 완료로 적으면 거짓이 된다.**
+
+| 못 잰 숫자 | 지금 코드에 있는 값 | 왜 못 쟀나 |
+|---|---|---|
+| ① NGO RPC 한 번의 **실효** 페이로드 상한 | — (씬의 `UnityTransport.m_MaxPayloadSize` = 6144 는 **설정값이지 실효 상한이 아니다**) | 사용자 실기 2대로만 잴 수 있다 |
+| ② **Relay 경유** 실효 MTU | — (로컬 127.0.0.1 값을 Relay 값으로 삼을 수 없다) | 같음 |
+| 그래서 조각 크기가 | `IsChunkSizeMeasured = false` · `ProvisionalChunkSizeBytes = 1024` (**근거 없음을 주석에 명시**) | 위 두 값이 있어야 확정된다 |
+
+- 위 세 줄은 **문서 작업 중 `NetworkMapTransfer.cs` 를 직접 읽어 실측한 값**이다.
+- 재는 수단은 코드에 이미 있다 — `RunTransferProbe(probeBytes, chunkSize)` + 인스펙터 컨텍스트 메뉴. **실전과 같은 RPC 경로**로 더미 바이트를 보낸다.
+- 🔴 **규칙 16 이 *"값은 구현 시 NGO 실측으로 확정하고 근거와 함께 TDD 에 기록한다"* 고 지시하므로, 이 2건이 남아 있는 한 그 조항은 미충족이다.** 그래서 §16-바에 보류 항목으로 세웠다.
+- ⚠️ **실전에서 조각이 항상 1개인 것과는 별개의 문제다.** 이번 실측으로 바이트 수 공식이 확인됐지만(아래 F 단계 상세), 그것은 *"어떤 잠정값을 넣어도 한 조각에 들어간다"* 를 말할 뿐 **잠정값을 확정값으로 만들어 주지는 않는다.**
+
+`TransferTimeoutSeconds = 10` · `MaxResendCount = 1` 은 **규칙 16 이 정한 값이라 잠정이 아니다.**
+
+---
+
+### C 단계 상세 (2026-09-14 기록 · 커밋 `771e5e4`, D 와 같은 커밋) — 확정 맵 인계 통로
+
+**신설**: `Application/MapHandoff.cs` (**99행** — 문서 작업 중 실측). 순수 C# 정적 홀더, 멤버 `Set` / `TryTake` / `Clear` 세 개.
+
+- **왜 홀더인가**: 맵이 **확정되는 곳**(로비)과 **격자에 새겨지는 곳**(전투 씬) 사이에 `LoadSceneMode.Single` 재로드가 있다. 그 사이를 건너는 유일한 통로다 — **그리고 이것이 A 단계를 불필요하게 만든 설계이기도 하다**(위 A 단계 상세).
+- **`TryTake` 는 「읽고 비운다」**. 남겨 두면 다음 판에 지난 판 맵이 조용히 재사용되고, 그것이 규칙 16 의 「로비에서 확정한 맵 데이터만」을 어기는 가장 조용한 방식이기 때문이다.
+- **낡은 주석 정정(제거-4)**: `GameBootstrapper.Map.cs` 의 「다른 코드가 `GetLastMapPreparation()` 으로 다시 읽는다」를 교체했다. 실측상 `GetLastMapPreparation` 은 **선언 1건 · 호출자 0건**이고 3단계가 끝난 지금도 0건이다.
+- **`IGameServices` 는 손대지 않았다**(§5-3 대로).
+
+**✅ `mono` 실행**: 초기 false / `Set`→1회째 true / **2회째 false(읽고 비운다)** / `Clear` 후 false / `Clear` 뒤 재`Set` 정상 = **5개 단정 전원 PASS**.
+
+**✅ 실기**: 2판 모두 로비에서 확정된 맵이 전투 씬에 그대로 인계돼 경기가 정상 동작했다.
+🔴 **「읽고 비운다」가 실기에서도 실제로 그렇게 동작한다는 직접 증거가 나왔다** — 재경기에서 `Reason=MapHandoffEmpty` 가 남았다. **이것은 결함이 아니라 이 설계가 의도한 동작이다**(§16-가).
+
+**폐기(Clear) 배선**은 I 단계에서 붙었다 — `MapHandoff.Clear()` 호출자 **0건 → 2건**(`NetworkGameManager.DisconnectAsync` · `BackToLobby`). 규칙 14 의 *"로비 복귀 또는 연결 종료 시 폐기"*.
+
+---
+
+### D 단계 상세 (2026-09-14 기록 · 커밋 `771e5e4`) — 준비/투영 분리 (동작 무변경 리팩터)
+
+`GameBootstrapper.Map.cs` 한 파일. `PrepareAndProjectMap()` 을 **셋으로 갈랐고 문장 순서는 그대로**다.
+
+| 함수 | 하는 일 |
+|---|---|
+| `PrepareAndProjectMap()` (기존 이름 · 래퍼) | `_mapPreparation`/`_mapProjection` 비우기 → 가드 → `PrepareMap()` → 실패면 return → `ProjectMap()` |
+| `PrepareMap()` → `MapPreparationResult` | seed 생성 · 준비 · 보관 · 규칙 12 로그 1줄. 실패면 null 반환 |
+| `ProjectMap(MapPreparationResult)` | `MapProjectionUseCase.Project` · 보관 · 실패 로그 |
+
+🔴 **가르면서 반드시 지킨 것 3가지** (다음에 이 자리를 만질 때 되풀이해서 걸릴 지점)
+1. **리셋 두 줄은 래퍼에 남는다.** `_mapProjection` 비우기를 `ProjectMap` 안으로 옮기면 **준비 실패로 일찍 돌아간 판에서 실행되지 않아** 지난 판의 투영 결과가 남고 성·시작 채굴소가 옛 자리에 배치된다.
+2. **가드도 래퍼에 남는다.** `_config` 만 보고 `PrepareMap` 을 먼저 부르면 `_grid == null` 인 판에서 **원래는 안 나가던 준비 로그가 새로 한 줄 나간다** — 규칙 12 의 「경기당 1줄」 전제가 깨진다.
+3. `ProjectMap` 의 인자는 `MapDefinition` 이 아니라 **`MapPreparationResult`** 다. 투영 실패 로그가 `MapVersion`/`Seed`/`Hash` 를 쓰고, `MapHandoff` 가 넘겨주는 타입과도 같아 I 에서 그대로 이어진다.
+
+**이 단계가 하지 않은 것(계획대로)**: 임시 고정 seed 분기는 **그대로 살려 두었다.** 뒤집은 것은 I 다.
+
+**✅ 실기 — 싱글 회귀**: `20:00:04` · `20:00:07` · `20:00:10` 세 판이 **각각 다른 seed** 로 정상 동작했다(유형 FullyOpen / ThreeLane / Outer). **리팩터의 성공 기준은 「아무것도 달라지지 않는 것」이었고 그대로였다.**
+⚠️ **컴파일 검증은 불가**했다 — `GameBootstrapper.Map.cs` 는 `UnityEngine` 의존이라 이 환경에서 빌드할 수 없다. 확인한 것은 중괄호 균형 · 문장 순서 대조뿐이며, **컴파일 통과는 Unity 에서만 확인된다.**
+
+---
+
+### E 단계 상세 (2026-09-14) — 로그 키 5종 (커밋 `df392da`, B 와 같은 커밋)
+
+**`LogEvent` 멤버 41개 → 46개.** 문서 작업 중 `Application/Interfaces/ILogSink.cs` 의 enum 본문을 파이썬으로 파싱해 **직접 실측**했고, 마지막 5개가 아래 5종임을 확인했다. **키 개수와 이름은 §7-E 의 「안」 그대로 확정됐다 — 구현하며 갈래가 달라지지 않았다**(계획의 ⚠️ 가 요구한 「조정했다면 적는다」에 해당할 조정이 없었다).
+
+| 키 | 축 A | 축 B | 실기 2판에서 발화했는가 |
+|---|---|---|---|
+| `MapTransferSucceeded` | Info | 운영 | ✅ **2회** |
+| `MapTransferRetried` | **Warn** | 운영 | ❌ (`ResendCount=0`) |
+| `MapTransferFailed` | **Error** | 운영 | ❌ |
+| `MapHashMismatch` | **Error** | 운영 | ❌ (`HashMatch=True`) |
+| `MapClientVerificationFailed` | **Error** | 운영 | ❌ |
+
+🔴 **4종이 안 찍힌 것은 검증 누락이 아니다.** 넷 다 **실패 키**인데 실기 2판이 **모두 성공**이었다. 발화시키려면 인위적 불일치·전송 실패를 만들어야 하고 그것은 §15-3(사용자 미확정)에 걸려 있다.
+
+**배타성 확인(계획의 검증 ⓑ)**: 결말 4개(`Succeeded`/`Failed`/`HashMismatch`/`ClientVerificationFailed`)는 **서로 배타적**이고 `MapTransferRetried` 만 **중간 전이**다. 따라서 **한 판에 최대 2줄**이며, 「한 사건에 두 줄」(`LogRules.md` 1.14 금지 8)에 걸리지 않는다. 코드 쪽 강제는 `_outcomeLogged` 깃발이 맡고, 두 번째 결말은 **개발 축 Warn 으로만** 남긴다(조용히 삼키면 「결말이 두 번 났다」는 버그를 못 찾는다).
+
+**문서**: `LogRules.md` **1.5** 에 개정 블록을 추가했다 — `> **맵 전송 키 5종 신설 — 멤버 ~~41개~~ → 46개 (2026-09-14 · 3단계 E)**`. 🔴 **커밋 전 작업 트리라 해시가 없어 단계 표기로 대신했다**(규칙 5 로 git 을 실행할 수 없고, 규칙 10 상 해시를 지어낼 수 없다).
+
+---
+
+### F 단계 상세 (2026-09-14) — Host 권위 준비·전송 (커밋 `1ffe0f2`, G·H 와 같은 커밋)
+
+**Host 흐름**: 로비에서 `BeginHostMapTransfer(rootSeed, mapTestModeEnabled)` → `MapPreparationUseCase` 실행 → 준비 결과에 **이미 들어 있는** `CanonicalBytes`/`Hash` 를 그대로 package 로 → `MapPrepareBegin` → `MapChunk` × N → `MapReady` 대기.
+🔴 **여기서 바이트를 새로 만들거나 해시를 다시 계산하지 않는다.** 두 번 계산하는 순간 「어느 쪽이 진짜인가」가 생기고 해시 대조가 의미를 잃는다.
+
+**🔴 실기 실측 (2026-09-14, 에디터 1 + 실기기 1 · 최초 경기 2판 모두 PASS)**
+
+| | 1판 (19:59:16) | 2판 (19:59:34) |
+|---|---|---|
+| Seed | `3905793782056422338` | `10943744334431763949` |
+| 맵 유형 / 중립 광산 | FullyOpen / 3 | ObstacleOpen / 2 |
+| TotalBytes | **331** | **327** |
+| ChunkCount | **1** | **1** |
+| HashMatch | **True** | **True** |
+| SendCount / ResendCount | 1 / **0** | 1 / **0** |
+| 준비 시간 (AttemptCount) | 27ms (1) | 1ms (1) |
+| 씬 전환 게이트 | 통과 | 통과 |
+
+🔴 **바이트 수 공식이 실측으로 확인됐다 — `319 + 4 × (중립 광산 수)`.** 광산 3개 → 331, 2개 → 327. 장식은 0개다. 이것은 Research §5-1 이 코덱 필드 순서로 유도한 공식 `319 + 4N + 20D` 와 **일치**하며, **이번에 처음으로 실기 전송 바이트로 확인**됐다(종전에는 `.bytes` 폴백 템플릿 파일 크기로만 확인됐다).
+- 따라서 **조각은 항상 1개**다(`ProvisionalChunkSizeBytes = 1024`). ⚠️ **그렇다고 조각 크기가 확정된 것은 아니다** — 위 B 단계 상세 참조.
+
+⚠️ **실기에서 발화하지 않은 경로**: timeout 10초 감시 · 1회 재전송 · 즉시 실패 6종. **2판 모두 첫 전송에 성공했기 때문이며, 코드가 없다는 뜻이 아니다.**
+
+🔴 **함께 드러난 아키텍처 마찰**: `NetworkMapTransfer` 가 `MapPreparationUseCase` 를 **스스로 조립한다**(로비에 `GameBootstrapper` 가 없다). 이것이 §15 표 2번의 그 질문이며 **아직 사용자 확인 전**이다. 이번에 같은 부류가 하나 더 생겼다 — §16-라-3.
+
+---
+
+### G 단계 상세 (2026-09-14) — Client 수신·재조립·해시 대조 (커밋 `1ffe0f2`)
+
+**`VerifyAndAnswer` 의 순서가 계약이다** — **해시 대조 → (프로브면 여기서 끝) → 역직렬화 → 헤더/본문 형식 버전 대조 → D 방식 검증**.
+🔴 **대조는 원본 32바이트로 한다.** 로그용 16자 문자열로 비교하면 앞 8바이트만 같아도 통과한다 — 2단계 K 가 코드 주석에 못 박아 둔 결정을 그대로 이어받았다.
+🔴 **Host 는 Client 의 「성공」 신고를 그대로 믿지 않는다.** `MapReadyServerRpc` 가 받은 `clientHash` 를 `_hostHash` 와 **한 번 더** 대조한다. 안 그러면 「Host/Client 해시 비교」가 Client 의 자기 신고가 된다.
+
+**✅ 실기**: 2판 모두 `HashMatch=True`.
+⚠️ **인위적 불일치 시험은 하지 않았다.** §15 표 3번(임시 조작 코드를 넣을 것인가)이 **사용자 미확정**이라, §2-1 의 부 판정 중 「불일치 시 씬이 안 넘어가는가」는 **실기 미검증으로 남는다.** **검증 누락이 아니라 확인을 받지 못해 시험 자체를 만들지 않은 것**이다.
+
+---
+
+### H 단계 상세 (2026-09-14) — Client D 방식 재생성 검증 (커밋 `1ffe0f2`)
+
+**신설**: `Application/UseCases/MapVerificationUseCase.cs` (**583행** — 문서 작업 중 실측). 순수 C#. `Verify(payload)` 가 `Decode` 까지 **전부** 한다 — 호출부에서 따로 `Decode` 하지 않는 이유는 두 번 해석하면 「검증한 정의」와 「실제로 쓰는 정의」가 다른 객체가 되어 어긋날 길이 생기기 때문이다.
+
+**탐색 상한**: `AttemptIndex` 0~99 × `StartingMineSide` A/B = **최대 200조합**(코드 실측 — `MaxSearchCombinationCount`). 넘으면 실패이고 **재전송하지 않는다**(규칙 16 — 공정성 검증 실패는 즉시 실패).
+
+**🔴 `mono` 대량 재측정 (시드 1~5000)**
+
+| 항목 | 값 |
+|---|---|
+| 준비 성공 | **5000 / 5000** (폴백 0건) |
+| **D 방식 복원 성공** | **5000 / 5000 = 100.00%** |
+| 평균 생성 시도 | **1.51회** (최대 3) |
+| 탐색 조합 | 평균 **1.51개** (최대 3 / 상한 200) |
+| 복원값 불일치 | seed · 유형 · 광산 수 · 시작 광산 쪽 **전부 0건** |
+| 총 소요 | 1.7초 |
+
+> 🔴 **이것은 2단계 §6-3 의 「시드 1~40 · 평균 1.4회」를 125배 넓게 다시 잰 값이다.** 그 기록은 **지우지 않는다** — 40개 시점에는 그것이 실측이었다. 두 값은 모순이 아니라 표본 크기가 다른 두 측정이다.
+
+**✅ 실기**: Client 쪽(실기기 logcat)에서 **D 방식 재생성 검증 통과**를 확인했다 — `AttemptIndex=0, SearchedCombinations=2, VerifyStage=None, VerifyError=None`.
+
+**부수 효과(§6-6 대로)**: `StartingMineSide` 가 package 에 실려 오지 않아도 **복원 탐색이 값을 유도**하므로, Research §12-2 의 어긋남(규칙 16 전달 항목 vs package 정의)이 **문서를 고치는 것이 아니라 구현이 요구를 만족시키는 형태**로 해소됐다.
+
+---
+
+### I 단계 상세 (2026-09-14) — 씬 전환 게이트 + 고정 seed 해제 (커밋 `cc3a14b`) 🔴 여기서 처음 동작이 뒤집혔다
+
+**바뀐 파일**: `Domain/Map/MapRootSeed.cs`(신설 · **86행** 실측) · `GameBootstrapper.cs` · `GameBootstrapper.Map.cs` · `NetworkGameManager.cs` · `NetworkMapTransfer.cs` · `BattleViewModel.cs`.
+
+**게이트의 모양**
+```
+BattleViewModel.OnClientConnected (2명)
+  └─ NetworkGameManager.BeginMapTransferAndLoadGameScene()   ← 종전엔 여기서 LoadGameScene() 직행
+       ├─ 프리팹 동적 Spawn → NetworkMapTransfer
+       ├─ transfer.OnHostTransferSucceeded → NetworkGameManager.LoadGameScene()
+       ├─ transfer.OnHostTransferFailed    → OnMapTransferFailed 발행(로비 유지)
+       └─ transfer.BeginHostMapTransfer(MapRootSeed.Create(), GameConfig.MapTestModeEnabled)
+```
+- 🔴 **`NetworkGameManager` 를 `NetworkBehaviour` 로 승격하지 않았다**(§4-1 후보 C 탈락). **위임 진입점 하나만** 받는다.
+- 🔴 **결말 통보는 「한 번만」과 「반드시 한 번은」을 동시에 지켜야 해서 깃발이 두 겹이다** — `NetworkMapTransfer._hostOutcomeNotified`(결말 자리 4곳이 수렴) · `NetworkGameManager._mapTransferGateSettled`. **실패 통보 뒤 성공 통보가 따라오면 「실패한 판인데 전투 씬으로 넘어간다」**(규칙 16 정면 위반). 반대로 아무 통보도 안 가면 **로비가 로딩 화면에서 영영 멈춘다**(실패 팝업이 §10 으로 빠졌으므로 로딩을 내리는 유일한 통로가 이 이벤트다).
+
+**고정 seed 해제(제거-1)**: 임시 고정 seed 분기와 상수 `NetworkInterimRootSeed = 11UL` 를 **주석 비활성화**했다(삭제가 아니다 — 되돌리기가 「주석 두 군데를 푸는 것」으로 끝나게 하려는 의도). 🔴 **이 비활성화는 동작 변경이 아니라 죽은 코드 정리다** — 멀티에서는 `CreateRootSeed()` 자체가 불리지 않는다(Host 는 로비에서 뽑고 Client 는 받는다). 싱글 경로 계산식은 `Domain/Map/MapRootSeed.Create()` 로 **옮겨졌고 계산식은 무변경**이다(로비에도 같은 계산이 필요한데 복사하면 한쪽만 고쳐져 갈라진다).
+
+**🔴 ✅ 실기 — 3단계의 주 판정이 닫혔다**
+- **매 판 다른 seed 가 나왔다** — `3905793782056422338`(FullyOpen) / `10943744334431763949`(ObstacleOpen). **2단계 이래 「멀티에서 매 판 다른 맵이 나오는가」가 확인 불가였던 것이 여기서 처음 확인됐다.**
+- **양쪽이 같은 맵**임을 해시로 확인했다(`HashMatch=True`) — 🔴 **2026-09-09 회차의 「눈으로 본 것이지 칸 단위 대조가 아니다」가 이번에 해소됐다.** 해시 대조는 **바이트 단위 대조**이므로 눈 대조보다 강하다.
+- **게이트 통과** 2판 · **전송 관련 예외·경고 0건**.
+- **싱글 회귀 없음** — `20:00:04`·`20:00:07`·`20:00:10` 세 판이 각기 다른 seed(FullyOpen / ThreeLane / Outer)로 정상 동작.
+
+⚠️ **실기에서 확인되지 않은 것**: **「실패하면 전투 씬으로 안 넘어가고 로비에 머무는가」**. 2판 모두 성공이라 게이트가 **막는 쪽으로는 한 번도 발화하지 않았다.** §15 표 3번이 미확정인 것과 같은 뿌리다.
+
+🔴 **범위 밖 수정 1줄을 함께 했다 — §16-라-2 에 적었다.** 게이트에 직결돼 불가피하다고 판단했으나 **범위를 넘은 것은 사실**이다.
+
+---
+
+## 16. ⏸ 3단계에서 새로 드러난 보류·미해결 항목 (2026-09-14 추가)
+
+> **이 절을 2단계 Plan §13 에 붙이지 않고 여기에 새로 만든 이유**: 2단계 §13 은 제목 자체가 **「2026-09-08 시점 — 사용자가 이번에 처리하지 않기로 보류한 항목」**이라 **특정 시점의 스냅숏**이다. 3단계에서 드러난 것을 그 표에 섞으면 **제목이 시간에 대해 거짓말을 하게 된다.** 대신 2단계 §13 의 1·2번(이번 회차에 상태가 실제로 바뀐 두 항목)에는 그 자리에 갱신 표시를 덧붙였고, 표 끝에 이 절로 오는 포인터를 달았다.
+>
+> **아래는 「미해결 결함 목록」이 아니다.** (가)는 **설계대로 드러난 것**, (마)와 (바)는 **규칙이 미충족으로 남는다는 사실 기록**, (라)는 **사용자 확인 대기**, (나)·(다)가 실제로 손봐야 할 성격이다.
+>
+> **[🔴 2026-09-14 같은 날 추가 — 원문은 그대로 두고 덧붙인다]** 초기 골드와 맵 테스트 모드에 관해 **사용자가 답을 확정했고 메인 세션이 코드·에셋을 직접 실측**했다. 그 결과 **(마)의 성격이 바뀌었고**(「미적용」의 원인이 특정됐다) **(아)·(자) 두 항목이 늘었다.** (아)는 **사용자가 확정한 결정**이고 (자)는 **확인 결과 문제없음**이다. **번호는 재배열하지 않는다.**
+
+| # | 항목 | 성격 |
+|---|---|---|
+| 가 | 재경기 맵이 구성되지 않는다 | **결함 아님 — 설계대로** · 다음 범위(§10-1) |
+| 나 | 로비 씬에서 로그 파일이 안 써진다 | 🔴 **손봐야 함** — 맵 전송은 로비에서 일어난다 |
+| 다 | 인게임 패널 백그라운드가 에디터에서만 안 나타난다 | **사용자 보고 · 미조사** |
+| 라 | 구현 중 나온 판단 3건 | **사용자 확인 대기** (🔴 **2026-09-14: 3번 중 1건은 (아) 착수 시 자동 해소된다** — 아래) |
+| 마 | 초기 골드 여전히 미적용 | **규칙 16 일부 미충족** (§11-1 그대로) · 🔴 **2026-09-14 원인 특정 — 아래 정정 블록** |
+| 바 | B 단계 한도 실측 2건 미완 | **규칙 16 일부 미충족** (위 B 단계 상세) |
+| **아** (2026-09-14 신설) | **맵 테스트 모드를 삭제한다** | 🔴 **사용자 확정 결정 · 다음 작업** — 이번 회차에는 **삭제하지 않고 기록만** 한다 |
+| **자** (2026-09-14 신설) | 멀티 초기 골드가 Host/Client 로컬 설정으로 각각 만들어진다 | ✅ **확인 완료 · 문제없음** — 결함이 아니다 |
+
+> **(사)의 자리에 대하여**: **`16-사. ※ 근거 구분` 은 §16 전체에 대한 메타 항목**이라 계속 **마지막에 가깝게** 둔다. 다만 **2026-09-14 에 추가된 (아)·(자)는 그 뒤에 온다** — 가나다 순서를 유지하면서 기존 항목의 글자를 바꾸지 않는 유일한 방법이기 때문이다. **(아)·(자)의 근거 구분은 각 항목 안에 따로 적었다.**
+
+---
+
+### 16-가. 재경기(Rematch) 맵이 구성되지 않는다 — 🔴 **설계대로 드러난 것이지 결함이 아니다**
+
+**실기 로그 지문 (`19:59:44~45`)**
+```
+StartRematch: 동적 NetworkObject Despawn | ObjectName=NetworkMapTransfer(Clone)
+StartRematch: Game 씬 재로드
+[ERROR] 멀티플레이인데 로비에서 확정된 맵이 전투 씬으로 인계되지 않았다
+        Event=MapPreparationFailed, Reason=MapHandoffEmpty
+```
+
+**왜 이렇게 되는가** — `NetworkGameEndController.StartRematch()`(`Infrastructure/Network/NetworkGameEndController.cs` **447~497행** — 문서 작업 중 직접 실측)는 **로비로 돌아가지 않고 Game 씬만 재로드**하며, 그 과정에서 동적 스폰 `NetworkObject` 를 전부 despawn 한다 — 거기에 `NetworkMapTransfer` 가 포함된다. 그리고 `MapHandoff` 는 **첫 경기에서 이미 비워졌다**(`TryTake` 는 읽고 비운다 — C 단계). 그래서 인계할 것이 없다.
+
+🔴 **`GameBootstrapper` 가 지난 판 맵으로 조용히 때우지 않고 실패로 남긴 것이 규칙 16 이 의도한 동작이다.** 이 가드가 없었다면 **양쪽이 서로 다른 맵으로 재경기를 시작했을 것**이다 — 규칙 16 의 「로비에서 확정한 맵 데이터만 사용한다」가 막으려던 바로 그 사고다. **다음 사람이 버그로 접수하지 않도록 여기에 못 박아 둔다.**
+
+**어디서 처리되는가**: **§10 표 1번(재경기 `SameMap`/`NewMap`) — 다음 범위**다. 그 항목에 **「실기에서 실제로 이 형태로 드러난다」는 사실과 위 로그 지문**을 근거로 덧붙인다. 🔴 **그리고 A 단계(NGO 씬 재로드 생존 조건)를 그때 실측해야 한다** — 위 「A 단계 상세」가 강등 사유로 든 것이 바로 이 자리다.
+
+---
+
+### 16-나. 🔴 로비 씬에서는 로그 파일이 써지지 않는다
+
+`LogSessionOwner.EnsureInitialized()` 의 호출부는 **`LoginBootstrapper.Awake`(`Bootstrap/LoginBootstrapper.cs:121`) 와 `GameBootstrapper.Awake`(`Bootstrap/GameBootstrapper.cs:529`) 둘뿐**이다(문서 작업 중 전수 grep 으로 직접 실측). **로비 씬에는 부르는 곳이 없다.**
+
+- 그래서 **`Lobby.unity` 에서 직접 Play 하면** sink 가 0개라 `GameLog` 가 **콘솔 폴백**(`Application/GameLog.cs:493` `if (_sinks.Count == 0) FallbackToConsole(...)` — 직접 실측)을 타고 **파일에는 아무것도 안 남는다.**
+- 실제로 그 상태에서 `CloudSaveService` 초기화 예외가 **콘솔에만** 찍혔고, **맵 전송 로그도 파일에서 통째로 누락**됐다.
+- **Login 씬부터 시작하면 정상**임이 재테스트로 확인됐다.
+
+🔴 **그럼에도 이것이 문제인 이유: 맵 전송은 로비에서 일어나는 일이다.** 규칙 12(로그 필수 항목)와 규칙 16(*"불일치 내용을 기록한다"*)이 요구하는 기록이 **「로비 직접 Play」에서는 남지 않는 구조**다. 개발 중 로비만 띄워 전송을 시험하는 것이 가장 흔한 사용법이므로, **가장 필요한 회차에 로그가 없다.**
+
+⚠️ **이 항목은 원인이 특정된 상태이고 코드 수정이 필요하다 — 이번 문서 작업의 범위가 아니라 보류로 둔다**(CLAUDE.md 규칙 6·11).
+
+---
+
+### 16-다. 인게임 패널 백그라운드가 에디터에서만 나타나지 않는다 — **사용자 보고 · 미조사**
+
+**사용자 보고 그대로**: **실기기에서는 패널 백그라운드를 터치하면 UI 가 닫히는데, 에디터에서는 백그라운드가 나타나지 않는다.**
+
+🔴 **재현 조건도 원인도 조사하지 않았다.** 맵 전송과 관계있는지조차 확인되지 않았다 — **추정하지 않고 보고 내용만 남긴다**(CLAUDE.md 규칙 10). 다음에 이 항목을 집을 때는 **조사부터** 필요하다.
+
+---
+
+### 16-라. 구현 중 나온 판단 3건 — **사용자 확인 대기**
+
+**1. `MapRootSeed` 를 `Domain/Map/` 에 둔 것**
+Domain 이 시계(`UtcNow`)와 `Guid` 를 읽는 것이 **「Domain 은 결정적이어야 한다」는 통념과 부딪힌다.** 채택 근거는 *결정적이어야 하는 것은 seed **이후**이고 이 파일이 그 경계다* 라는 것이며 **파일 머리말에 적혀 있다.** ⚠️ **`Application` 으로 옮기자는 판단도 성립한다** — 확정이 필요하다.
+
+**2. 🔴 범위 밖 수정 1줄 — `NetworkMapTransfer.StartHostRound` 의 `PackageTooLarge` 분기에 `_hostIsProbe = isProbe;` 추가**
+그 분기가 `_hostIsProbe` 를 갱신하지 않아 **지난 회차 값이 남았다.** 직전이 프로브였다면 **진짜 맵의 실패가 진단용(probe)으로 오인돼 게이트 통보가 가지 않고 로비가 로딩 화면에서 멈춘다**(프로브 회차는 일부러 게이트에 통보하지 않는다). **게이트에 직결돼 불가피하다고 판단했으나 범위를 넘은 것은 사실이다**(CLAUDE.md 규칙 6).
+
+**3. 조합 루트 마찰이 1건 → 2건으로 늘었다**
+`GameBootstrapper` 가 **유일한 의존성 조합 루트**라는 아키텍처 제약과 부딪히는 자리가 둘이 됐다.
+
+| # | 자리 | 언제 생겼나 |
+|---|---|---|
+| 기존 | `NetworkMapTransfer` 가 `MapPreparationUseCase` 를 스스로 조립한다 | F 단계 (§15 표 2번으로 이미 예고돼 있었다) |
+| **신규** | `NetworkGameManager.ReadMapTestModeEnabled()` 가 `Resources.Load<GameConfig>("Config/GameConfig")` 를 **직접 읽는다**(`NetworkGameManager.cs:1026~1028` — 문서 작업 중 직접 실측) | I 단계 |
+
+**둘 다 원인은 같다 — 로비에는 `GameBootstrapper` 가 없다.** 예외를 두는 것인지, 전송 객체가 로비 한정 조합 루트를 겸하는 것인지 **사용자 확정이 필요하다**(§15 표 2번이 이미 세워 둔 질문이며, 이번에 **자리가 하나 더 늘었다**).
+
+> **[✅ 2026-09-14 같은 날 추가 — 원문은 그대로 두고 덧붙인다]** 🔴 **위 표의 「신규」 1건은 아래 (아) 맵 테스트 모드 삭제를 착수하면 자동으로 해소된다.** `NetworkGameManager.ReadMapTestModeEnabled()` **자체가 사라지므로** 그 `Resources.Load<GameConfig>` 직접 읽기도 함께 사라진다. **즉 이 항목의 마찰은 2건에서 다시 1건으로 줄어든다.**
+>
+> ⚠️ **그러나 「기존」 1건(`NetworkMapTransfer` 가 `MapPreparationUseCase` 를 스스로 조립한다)은 그대로 남는다** — 원인인 *"로비에는 `GameBootstrapper` 가 없다"* 가 해소되는 것이 아니기 때문이다. **사용자 확정이 필요하다는 질문 자체는 살아 있다.**
+
+---
+
+### 16-마. 초기 골드는 여전히 미적용 — **규칙 16 이 일부 미충족으로 남는다**
+
+로그에서 `InitialGold` 가 매 판 다르게 찍히지만(실기 실측 **500 · 600 · 200 · 300**) 실제 게임의 초기 골드는 **`BlueGold=5000, RedGold=5000` 으로 고정**이다(`19:59:25.110` 실측).
+
+🔴 **§11-1 이 「넣지 않으면 규칙 16 이 미충족으로 남는다」고 적어 둔 그대로다.** 전송·해시·검증은 그 값을 **실어 나르기만 하고**, 규칙 16 의 *"양쪽은 그 값을 그대로 적용한다"* 는 뒷부분이 **비어 있다.** 3단계가 끝난 지금 **그 상태가 확정됐다.**
+
+⚠️ **사용자가 3단계 범위 선택에서 이 항목을 고르지 않았고 「하지 말라」인지 「이번엔 아니다」인지 여전히 확정되지 않았다 — 범위에 넣지 않고 사실만 적는다**(CLAUDE.md 규칙 12).
+
+> **[🔴 2026-09-14 같은 날 정정·보강 — 위 원문은 그대로 두고 덧붙인다]**
+>
+> 위 원문은 **「매 판 다른 `InitialGold` 가 찍히는데 실제는 5000 고정」**이라고만 적어, **5000 이 맵 테스트 모드 때문에 나온 값처럼 읽힐 수 있다. 그렇지 않다.** 아래 세 가지가 이번에 실측·확정됐다.
+>
+> **① 5000 은 버그가 아니라 확정된 개발 설정이다 — 출처는 `Economy.StartingGold` 이며 맵 테스트 모드가 아니다.**
+>
+> - 🔴 **사용자 확정(그대로 옮긴다)**: *"테스트 단계이기 때문에 5000 골드로 설정되어 있고, **출시에는 초기 골드를 조정할 것**이다. **현재 예정은 500이지만 밸런스에 따라 조정될 여지가 있다.** 현재 **맵 테스트 모드는 따로 사용하고 있지 않다.**"*
+> - **실측 근거**(문서 작업 중 직접 재확인): `Assets/_Project/Resources/Config/GameConfig.asset` **29행 `_startingGold: 5000`** · **34행 `_mapTestModeEnabled: 0`** · **35행 `_testStartingGold: 5000`**. 소비 지점은 `Bootstrap/GameBootstrapper.Setup.cs` **444행 `_resource = new ResourceUseCase(_config.StartingGold);`** 하나다.
+> - 실기 로그의 `MapPreparationSucceeded` 에도 **`TestMode=False`** 로 찍혔다. **즉 맵 테스트 모드는 꺼져 있었고, 5000 은 `Economy.StartingGold` 값 그대로다.**
+> - 그러므로 이 항목은 **「5000 이 잘못 나온다」가 아니라 「맵이 정한 값을 쓰는 배선이 없다」**가 정확한 서술이다.
+>
+> **② 🔴 5000 이 서로 다른 두 필드에 우연히 같아서 생기는 함정이 있다.**
+>
+> `Economy.StartingGold`(=5000) 와 `TestStartingGold`(=5000) 는 **서로 다른 필드인데 값이 우연히 같다.** `Infrastructure/Config/GameConfig.cs` **160~162행** 주석이 이미 그렇게 경고하고 있다(문서 작업 중 직접 실측) — *"위쪽 Economy 의 StartingGold(현재 값 5000)와는 **다른 필드**다. **값이 우연히 같을 뿐**이며 … 한쪽을 고칠 때 다른 쪽이 따라 바뀐다고 가정하지 말 것."*
+> - **그 결과**: **맵 테스트 모드를 켜도 화면상 골드는 5000 그대로**라 **효과가 관측되지 않는다.** 다음 사람이 **「테스트 모드가 동작하지 않는다」로 오해하기 가장 쉬운 자리**다.
+> - 🔴 **그리고 출시 때 `Economy.StartingGold` 를 500 으로 바꾸는 순간 이 우연이 깨져 두 값이 갈라진다.** 그때부터는 테스트 모드를 켜고 끄는 것이 화면에서 보이게 된다. **지금 안 보이는 것은 값이 같아서일 뿐이다.**
+>
+> **③ 🔴 광산 수 ↔ 초기 골드 연동은 미구현이며, 추후 밸런싱과 함께 작업한다(사용자 결정).**
+>
+> - 🔴 **사용자 확정**: *"광산 수에 따른 초기 골드 연동은 추후 밸런싱과 함께 조정할 것이고 다시 작업하도록 하겠다."*
+> - **실측 근거**: `MapPreparationResult.InitialGold` 를 **실제 게임 초기 골드로 소비하는 곳은 0곳**이다. `InitialGold` 가 등장하는 곳은 **생성기·검증기·코덱·폴백 템플릿·로그 문자열뿐**이며, `Bootstrap/` 안의 유일한 등장은 `GameBootstrapper.Map.cs` **713행 로그 문자열**(`", InitialGold=" + prepared.InitialGold +`)이다(문서 작업 중 전수 grep 으로 직접 재확인).
+> - 규칙 3 의 표를 강제하는 것은 `Domain/Map/MapDefinitionValidator.cs` **270행 `GetExpectedInitialGold(int testModeFlag, int neutralMineCount)`** 다 — 정상 모드는 `NormalModeInitialGoldValues[광산 수]`(**광산 1개 700 · 2개 600 · 3개 500 · 4개 400 · 5개 300 · 6개 200**), 테스트 모드는 `TestModeInitialGold`(**5000**) 고정.
+> - 즉 맵은 이 값을 **계산·검증·인코딩·전송·해시 대조까지 전부 마친 뒤 아무도 읽지 않는다.**
+>
+> 🔴 **다음 사람이 가장 오해하기 쉬운 지점 — 반드시 함께 읽을 것**
+> > **출시 때 `Economy.StartingGold` 를 500 으로 바꾸는 것만으로는 규칙 3 이 지켜지지 않는다.** 그렇게 하면 광산이 1개든 6개든 **매 판 500 고정**이 된다. 규칙 3 의 표는 **광산 수에 따라 700~200 으로 달라지는 값**이므로, **광산 수 연동은 상수 하나를 바꾸는 일이 아니라 별개의 배선 작업**이다.
+>
+> **그래서 규칙 3 과 규칙 16 이 이 항목 때문에 미충족으로 남는다** — 규칙 16 의 *"양쪽은 그 값을 그대로 적용한다"* 와 규칙 3 의 **광산 수별 표**가 둘 다 비어 있다. **「범위에 넣지 않고 사실만 적는다」는 위 원문의 판단은 유효하나, 「하지 말라인지 이번엔 아니다인지 확정되지 않았다」는 부분은 해소됐다 — 사용자가 「추후 밸런싱과 함께 다시 작업한다」로 확정했다.**
+>
+> **※ 근거 구분(규칙 10)**: 사용자 확정 문장 2건은 **사용자 발언 그대로**이고, `GameConfig.asset` 세 필드 · `GameBootstrapper.Setup.cs:444` · `GameConfig.cs:160~162` 주석 · `GameBootstrapper.Map.cs:713` · `MapDefinitionValidator.cs:270` 과 표 값은 **문서 작업 중 직접 실측**, 실기 로그의 `TestMode=False` 는 **메인 세션이 로그 원본에서 읽어 전달한 값**이다.
+
+---
+
+### 16-바. B 단계의 한도 실측 2건이 남았다 — **규칙 16 이 일부 미충족으로 남는다**
+
+① NGO RPC 한 번의 **실효** 페이로드 상한 ② **Relay 경유** 실효 MTU. 둘 다 **사용자 실기 2대로만** 잴 수 있고, 재는 수단(`RunTransferProbe` + 인스펙터 컨텍스트 메뉴)은 **코드에 이미 있다.**
+- 그래서 조각 크기가 아직 **`IsChunkSizeMeasured = false` · `ProvisionalChunkSizeBytes = 1024`(근거 없음)** 다.
+- 규칙 16 이 *"값은 구현 시 NGO 실측으로 확정하고 근거와 함께 TDD 에 기록한다"* 고 지시하므로, **실측·기록이 끝날 때까지 그 조항은 미충족**이다.
+- ⚠️ **실전에서 조각이 항상 1개인 것은 이 미충족을 없애 주지 않는다.** 상세와 실측 절차는 위 「B 단계 상세」.
+
+---
+
+### 16-사. ※ 근거 구분 (CLAUDE.md 규칙 10)
+
+이 절과 위 단계 상세의 수치는 출처가 셋으로 갈린다. **섞어 적으면 나중에 재검증할 자리를 못 찾는다.**
+
+| 출처 | 해당 항목 |
+|---|---|
+| **사용자 실기 관찰** | 인게임 패널 백그라운드 보고(16-다) · 화면에서 본 경기 동작 |
+| **메인 세션이 로그 원본·`mono` 실행으로 측정해 전달한 값** | 실기 2판의 표 전체(seed · 유형 · TotalBytes · ChunkCount · HashMatch · Send/Resend · 준비 시간) · Client 검증 로그 지문 · 재경기 로그 지문 · 초기 골드 5000 고정 · 싱글 3판 seed · `MapChunkAssembler` 79 단언 · D 방식 시드 1~5000 재측정 · **커밋 해시 4개**(규칙 5 로 git 을 실행할 수 없다) · 로비 `NetworkObject` 0개 / 기존 `NetworkBehaviour` 14개 · **프리팹 `Prefabs/Misc/NetworkMapTransfer.prefab` 과 그 `DefaultNetworkPrefabs.asset` 등재** |
+| **문서 작업 중 직접 실측** | `LogEvent` 46개(enum 파싱) · 신설 파일 행수(`MapHandoff` 99 · `MapChunkAssembler` 369 · `MapVerificationUseCase` 583 · `MapRootSeed` 86 · `NetworkMapTransfer` **1607**) · `IsChunkSizeMeasured=false` · `ProvisionalChunkSizeBytes=1024` · `MaxSearchCombinationCount` 200 · `EnsureInitialized` 호출부 2곳(`LoginBootstrapper.cs:121` · `GameBootstrapper.cs:529`) · `GameLog.cs:493` 콘솔 폴백 · `StartRematch` 447~497행 · `ReadMapTestModeEnabled` 의 `Resources.Load`(`NetworkGameManager.cs:1026~1028`) · `LogRules.md` 1.5 개정 블록 |
+
+⚠️ **인계값과 문서 작업 실측이 어긋난 2건 — 실측값으로 적고 여기에 대조를 남긴다**(인계 수치는 항상 재실측한다).
+
+| 항목 | 인계값 | 문서 작업 중 실측 | 처리 |
+|---|---|---|---|
+| `NetworkMapTransfer.cs` 최종 행수 | 1500행 | **1607행** | **실측값을 썼다.** 인계값은 측정 시점이 달랐을 수 있다 |
+| `StartRematch()` 범위 | `:447~492` | **`:447~497`** | **실측값을 썼다.** 시작 행은 일치한다 |
+
+⚠️ **이 체크아웃에서 확인할 수 없었던 것 2건**(없다는 뜻이 아니라 **확인 불가**라는 뜻이다): ① `Assets/_Project/Prefabs/Misc/NetworkMapTransfer.prefab` ② `Resources/Config/DefaultNetworkPrefabs.asset` 의 그 프리팹 등재. 이 체크아웃에는 신설 `.cs` 들의 `.meta` 조차 없다(에이전트가 Unity 밖에서 만든 파일이라 그렇다) — **Unity 쪽 산출물이 이 작업 트리에 들어와 있지 않다.** 실기에서 스폰이 성공한 것(`NetworkObjectId=1`)이 **프리팹과 등재가 실제로 존재한다는 간접 증거**이므로 그렇게 읽는다.
+
+---
+
+### 16-아. 🔴 맵 테스트 모드를 삭제한다 — **사용자 확정 결정 · 다음 작업** (2026-09-14 신설)
+
+> **이번 회차에는 삭제하지 않는다. 결정과 영향 범위를 기록만 한다.** 메인 세션이 영향 범위를 보고한 뒤 사용자가 그렇게 정했다.
+
+🔴 **사용자 확정(그대로 옮긴다)**: *"맵 테스트 모드는 현재 특별히 사용하고 있지 않아서 불필요한 것으로 보인다. 관련 구현 내용 삭제하고 문서도 삭제하면 될 것 같다."*
+
+**왜 지금까지 눈에 띄지 않았나** — 위 **16-마 ②** 가 답이다. `TestStartingGold`(5000) 가 `Economy.StartingGold`(5000) 와 **우연히 같아서 켜도 화면이 바뀌지 않는다.** 그래서 「쓰고 있지 않다」는 상태가 오래 유지될 수 있었다.
+
+#### 영향 범위 — 착수 전에 반드시 통째로 읽을 것
+
+**12개 파일에 걸쳐 있다**(문서 작업 중 직접 실측 — `Assets/_Project/Scripts` 전수 검색):
+
+`Application/UseCases/MapPreparationUseCase.cs` · `Application/UseCases/MapVerificationUseCase.cs` · `Bootstrap/GameBootstrapper.Map.cs` · `Domain/Map/Generators/IMapArchetypeGenerator.cs` · `Domain/Map/Generators/MapArchetypeGeneratorBase.cs` · `Domain/Map/MapDefinition.cs` · `Domain/Map/MapDefinitionCodec.cs` · `Domain/Map/MapDefinitionValidator.cs` · `Domain/Map/MapFallbackTemplateFactory.cs` · `Infrastructure/Config/GameConfig.cs` · `Infrastructure/Network/NetworkGameManager.cs` · `Infrastructure/Network/NetworkMapTransfer.cs`
+
+🔴 **단순 삭제가 아니다 — 아래 8가지가 따라온다.**
+
+**① `TestModeFlag` 가 canonical 바이트 안에 있다 → 맵의 바이트 형식 자체가 바뀐다.**
+`Domain/Map/MapDefinitionCodec.cs` **67행 `WriteInt32(buffer, def.TestModeFlag);`**(직접 실측). 필드 순서는 `MapVersion → RootSeed → MapType → Width → Height → Orientation → NeutralMineCount → **TestModeFlag** → InitialGold` 이므로, 빼면 그 뒤의 모든 바이트가 4바이트씩 앞당겨진다.
+
+**② 따라서 `MapVersion` 을 `1 → 2` 로 올려야 한다.**
+`Domain/Map/MapDefinition.cs` **96행 `public const int CurrentMapVersion = 1;`**(직접 실측). 그 자리의 주석이 *"형식이 바뀌면 이 값을 올린다. 지원하지 않는 버전의 데이터는 아예 해석하지 않고 실패 처리한다"* 고 이미 지시하고 있다.
+
+**③ 폴백 템플릿 5개를 재생성해야 한다.**
+`Assets/_Project/Resources/MapTemplates/MapTemplate_{FullyOpen,Canyon,ThreeLane,ObstacleOpen,Outer}.bytes` **5개 전부 존재**(직접 실측). **옛 형식으로 인코딩된 바이너리**이므로 형식이 바뀌면 그대로는 읽히지 않는다. 제작 도구는 2단계 F 에서 만든 `Assets/Editor/Tools/MapFallbackTemplateBuilder.cs` 다(실재 확인).
+
+**④ 검증기 자체 점검에 테스트 모드 케이스가 들어 있다.**
+`Domain/Map/MapDefinitionValidator.cs` — **N9b**(테스트 모드 표식만 켜면 6번 실패, **1532~1543행**) · **P9c**(테스트 모드 + 5000 은 광산 수와 무관하게 통과, **1545~1558행**) · **규칙 3 표 자체 대조 루프 안의 테스트 모드 갈래**(**1572~1576행**). 그리고 갈래 자체는 **270행 `GetExpectedInitialGold`** 안에 있다(직접 실측).
+
+**⑤ D 방식 검증을 함께 고쳐야 한다.**
+`Application/UseCases/MapVerificationUseCase.cs` 는 **받은 바이트에서 `TestModeFlag` 를 읽어 재생성한 정의에 다시 심은 뒤 Encode** 하는 구조다(**497행 · 518행**, 그리고 그 함정을 설명하는 주석이 **31행 · 308~311행 · 478행**에 있다 — 직접 실측). **코드와 주석을 함께 정리해야 한다.**
+
+**⑥ `MapPreparationUseCase.Prepare(ulong rootSeed, bool mapTestModeEnabled)` 의 시그니처가 바뀐다.**
+**302행**(직접 실측). 호출부는 자체 점검(**809~810행**) 외에 `NetworkMapTransfer` · `GameBootstrapper.Map` 쪽에 있다.
+
+**⑦ 🔴 규칙 문서 개정이 선행돼야 한다 — 코드만 지우면 규칙과 코드가 어긋난다.**
+**`GameSystemRules/GameSystemRules_RandomMap.md` 규칙 3 과 규칙 12 가 테스트 모드를 정의하고 있다.** ⚠️ **이번 회차에는 규칙 문서를 고치지 않는다**(사용자가 범위 밖으로 확정). **삭제 작업에 착수할 때 규칙 개정을 먼저 한다.**
+
+**⑧ ⚠️ `MapVersion` 을 올리면 2026-09-14 에 끝낸 전송 실기 검증이 무효가 된다.**
+해시 · 바이트 수(`319 + 4 × 중립 광산 수`) · D 방식 복원이 **전부 새 형식 기준으로 다시 계산**되므로 **멀티 실기 재검증이 필요하다.** 「이미 검증했으니 괜찮다」로 넘기면 안 된다.
+
+**✅ 덤 — 자동으로 해소되는 것 1건**: `NetworkGameManager.ReadMapTestModeEnabled()` 가 사라지므로 **위 16-라 3번의 「조합 루트 마찰 2건」 중 신규 1건이 함께 없어진다**(기존 1건은 남는다 — 그 항목의 추가 블록 참조).
+
+**※ 근거 구분(규칙 10)**: 사용자 확정 문장은 **사용자 발언 그대로**, 12개 파일 목록 · 위 행 번호 전부 · 템플릿 5개 실재 여부는 **문서 작업 중 직접 실측**이다.
+
+⚠️ **인계값과 문서 작업 실측이 어긋난 1건 — 실측값으로 적고 대조를 남긴다**(인계 수치는 항상 재실측한다).
+
+| 항목 | 인계값 | 문서 작업 중 실측 | 처리 |
+|---|---|---|---|
+| 테스트 모드 참조 **줄 수** | 89줄 | **115줄**(주석 포함) / **95줄**(주석 줄 제외) | **실측값을 썼다.** 파일 수 **12개는 인계값과 일치**한다. 세는 기준(주석 포함 여부·검색어)이 달랐던 것으로 보이나 **확정할 수 없어 추정하지 않는다** |
+
+---
+
+### 16-자. ✅ 멀티 초기 골드 불일치 — **확인했고 문제없음** (2026-09-14 신설)
+
+**의심의 모양**: `_resource = new ResourceUseCase(_config.StartingGold);`(`Bootstrap/GameBootstrapper.Setup.cs` **444행**)가 **Host 와 Client 양쪽에서 각자의 로컬 설정으로** 만들어진다. 그러면 두 사람의 `GameConfig` 가 다를 때 **초기 골드가 서로 달라지는 것 아닌가**.
+
+**✅ 결론 — 결함이 아니다. 서버 권위 동기화가 Host 값으로 수렴시킨다.**
+
+`Infrastructure/Network/NetworkResourceSync.cs`(직접 실측):
+- `NetworkVariable<int> _blueGold` / `_redGold` 가 **`readPerm: Everyone` · `writePerm: NetworkVariableWritePermission.Server`**(**53~62행**)다. **클라이언트는 쓸 수 없다.**
+- **서버만** `GameEvents.OnResourceChanged` 를 구독해 `NetworkVariable` 을 갱신하고(**103행 `if (IsServer)`**), **클라이언트는 `OnValueChanged` 콜백에서 자기 로컬 `ResourceUseCase` 를 보정**한다(파일 머리 설명 **6~13행** · 콜백 등록 **112~113행**). 서버 자신은 콜백 안의 `IsServer` 검사로 건너뛴다.
+
+즉 **클라이언트의 로컬 초기값이 무엇이든 첫 동기화에서 Host 값으로 덮인다.**
+
+🔴 **「확인했고 문제없음」으로 남기는 이유**: 이 구조는 **코드를 읽어야만 보인다.** 생성 지점만 보면 양쪽이 각자 만드는 것으로 읽혀 **다음 사람이 같은 의심을 반복하기 쉽다.** 그래서 **의심의 모양과 해소 근거를 함께** 적어 둔다.
+
+⚠️ **다만 이것이 16-마 를 해소하지는 않는다** — 수렴하는 값이 **`Economy.StartingGold`(5000)** 이지 **맵이 정한 값**이 아니기 때문이다. **두 문제는 별개다.**
+
+**※ 근거 구분(규칙 10)**: 위 행 번호와 권한 설정은 전부 **문서 작업 중 직접 실측**이다.
