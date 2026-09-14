@@ -10,6 +10,7 @@ Library: D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Temp\BurstOutput\tempburstlibs\a
 --target-framework=NetFramework
 --generate-link-xml=Temp\burst.link.xml
 --temp-folder=D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Temp\Burst
+--debug=Full
 --key-folder=D:/Dev/Unity/Hub/Editor/6000.3.5f2/Editor/Data/PlaybackEngines/AndroidPlayer
 --decode-folder=D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Library\Burst
 --output=D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
@@ -64,6 +65,7 @@ Library: D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Temp\BurstOutput\tempburstlibs\a
 --float-mode=Fast
 --generate-link-xml=Temp\burst.link.xml
 --temp-folder=D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Temp\Burst
+--debug=Full
 --key-folder=D:/Dev/Unity/Hub/Editor/6000.3.5f2/Editor/Data/PlaybackEngines/AndroidPlayer
 --decode-folder=D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Library\Burst
 --output=D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
@@ -82,6 +84,7 @@ Library: D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Temp\BurstOutput\tempburstlibs\a
 --target-framework=NetFramework
 --generate-link-xml=Temp\burst.link.xml
 --temp-folder=D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Temp\Burst
+--debug=Full
 --key-folder=D:/Dev/Unity/Hub/Editor/6000.3.5f2/Editor/Data/PlaybackEngines/AndroidPlayer
 --decode-folder=D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Library\Burst
 --output=D:\Dmain\dev\Portfolio\Hexiege\Hexiege\Temp\BurstOutput\tempburstlibs\arm64-v8a\lib_burst_generated
