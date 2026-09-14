@@ -1,7 +1,7 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.43.2
-**최종 수정일:** 2026-08-12
+**버전:** 0.47.0
+**최종 수정일:** 2026-09-14
 **작성자:** HANYONGHEE
 
 > **2026-08-12:** **MistShrine 물안개 힐 구현 완료 — 에디터 싱글플레이 실기 검증 완료 / ⚠️ 멀티플레이 미검증.** 신규 구성 요소: Application `MistShrineUseCase`(물안개 인스턴스 목록 + 물안개별 독립 누적기 + 매 틱 대상 재수집. **HoT/DoT 시간 지속 효과 목록을 사용하지 않아** 자연회복·BloomFairy 힐과의 채널 충돌이 구조적으로 차단된다) · Application `INetworkMistShrineController` / Infrastructure `NetworkMistShrineController`(`Request → ServerRpc(팀 검증) → ClientRpc`, `ResolveServices()` 지연 재조회) · `NetworkHealthSync` **건물 힐 전용 RPC 신설**(기존 유닛 힐 RPC 시그니처 무변경) · Domain `BuildingData.Heal(int)`(프로젝트 최초의 건물 회복 경로) · Presentation `MistShrinePanelUI` / `MistShrineRangeIndicator`. **`PopupClosedFrame` 패턴의 기존 결손 보정** — `InputHandler`의 `ClosedFrame` 가드에 연구 패널·스킬 패널이 누락돼 있던 것을 신규 MistShrine 패널과 함께 등록했다(모든 팝업이 가드에 들어와야 패턴이 성립한다). **⚠️ 멀티 고유 경로(건물 HP 동기화·클라 표시·RPC 팀 검증·쿨다운 로컬 미러·이중 틱)는 실행된 적이 없다.** 상세: `_Tasks/2026-08-10/14_12_mistshrine-heal-implementation/`.
@@ -203,7 +203,7 @@ void ShowEffectClientRpc(Vector3 position) {
 > 단계 구분 (**2026-09-03 재조정 — 경계를 「싱글플레이 = 2단계 / 멀티플레이 = 3단계」로 다시 그었다**):
 > - **1단계** 타일 상태 계약 전환 — **완료**
 > - **2단계** 결정적 PRNG 4스트림 · `SymmetricMapBuilder` · 생성기 5종 · `MapDefinitionValidator` · `InitialMapStateEvaluator` · 폴백 템플릿 5개와 제작 도구 · **`MapDefinition` → `HexGrid` 투영** · **`GameConfig` 격자 11×21** · **테스트 모드 설정 필드** · **렌더러(막힌 타일 빈 공간·건설 불가 해치)** · **AI 배치 후보 판정 전환** · **건설·점령 전용 조건** · `GridInteractionUseCase` 클릭 판정 순서. 완료 판정은 **「싱글 경기에서 매번 다른 맵이 나오고 정상 플레이된다」**
-> - **3단계** `NetworkMapTransfer` 조각 전송 · Host/Client 해시 대조 · 맵 준비 실패 UI · `SameMap`/`NewMap` 재경기
+> - **3단계** `NetworkMapTransfer` 조각 전송 · Host/Client 해시 대조 · 맵 준비 실패 UI · **재경기 맵**(**[🔴 2026-09-14 개정: 종전 표기는 `SameMap`/`NewMap` 재경기였다. 재경기 맵 조건 선택이 없어져 「재경기 맵」 한 갈래가 됐다 — `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 14 의 개정 블록이 단일 소스다. **단계 경계 자체는 바뀌지 않았다**]**)
 >
 > 종전 분할은 2단계를 「생성기·검증기·폴백」까지로 두어 **완료 판정이 게임 동작과 무관**했다(에디터에서 생성만 확인). 실기로 확인할 것이 없고 「이건 2단계냐 3단계냐」 하는 경계 문제가 쌓여, 규칙 12가 이미 긋고 있는 선(**「싱글플레이는 같은 생성기를 로컬 권위로 실행한다」**)을 따라 다시 잘랐다.
 
@@ -245,6 +245,7 @@ row   = index / width
 - 타일별 필드: **`TileKind` 3상태 단일 필드** — `Normal`(일반 타일) / `NoBuild`(건설 불가 타일) / `Blocked`(막힌 타일). `InitialOwner`와 장식 상태는 포함하지 않는다.
 
 > 🔴 **2필드(`지형 종류` + `건설 규칙`) 구조는 폐기했다 (2026-08-26).** 막힌 타일의 건설 규칙 값이 미정의여서 **게임 의미가 같은 맵이 서로 다른 canonical bytes·SHA-256** 을 가질 수 있었기 때문이다. 해시는 Host/Client 비교, `NewMap` 재경기의 동일 맵 판정, 폴백 바이너리 유효성의 근거이므로 이 어긋남은 설계 전체의 전제를 흔든다. 3상태 단일 필드는 **모순 조합을 구조적으로 표현 불가능**하게 만든다.
+> **[🔴 2026-09-14 정정 — 위 문장은 그대로 두고 덧붙인다: 나열된 세 용도 중 **「`NewMap` 재경기의 동일 맵 판정」은 사라졌다.** 재경기 맵 조건 선택이 없어지면서 「새 후보의 해시가 직전 맵 해시와 같으면 폐기」 조항이 규칙 14 에서 제거됐기 때문이다(사유는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 14 의 개정 블록). 🔴 **나머지 두 용도 — Host/Client 해시 비교 · 폴백 바이너리 유효성 — 는 그대로 살아 있으므로 이 블록의 결론(2필드 구조 폐기 · 3상태 단일 필드)은 바뀌지 않는다.** 즉 **덜어낼 것은 사라진 용도 하나뿐이고 해시 자체의 지위는 그대로다.**]**
 > **구현 시 제약**: `TileKind` 는 Domain 계층 타입이므로 `Domain → Core 참조 금지` 제약을 받는다(`.claude/MEMORY.md` 「아키텍처 핵심 제약」).
 - orientation, enum, 종류, 변형, 회전은 정수 enum/index로 표현하며 해시 원본에 float를 포함하지 않는다.
 
@@ -304,7 +305,7 @@ package header의 `mapVersion`은 preflight decoder 선택용이며 canonical `M
 
 **`NetworkMapTransfer` 전송 프로토콜:**
 
-최초 경기와 `RematchMapMode.NewMap`은 persistent network connection에 존재하는 공용 `NetworkMapTransfer`를 사용한다. 전송 수명주기를 Lobby/Game 씬 객체에 귀속시키지 않으며, scene-bound 단일 RPC 호출 하나에 전체 canonical payload를 실어 보내는 방식은 금지한다.
+최초 경기와 재경기 맵 준비는 persistent network connection에 존재하는 공용 `NetworkMapTransfer`를 사용한다. 전송 수명주기를 Lobby/Game 씬 객체에 귀속시키지 않으며, scene-bound 단일 RPC 호출 하나에 전체 canonical payload를 실어 보내는 방식은 금지한다.
 
 ```text
 MapPrepareBegin(matchNonce, mapVersion, totalBytes, chunkCount, SHA256)
@@ -339,8 +340,8 @@ MapReady(matchNonce, success, clientSHA, errorCode)
 **복구 상태:**
 
 - 최초 멀티 준비 실패: loading hide, lobby와 connection 유지, generic `맵 준비에 실패했습니다` modal, `Retry`/`Leave Match` actions. 양 player의 Retry request를 Host가 idempotency key로 한 번만 수락하고 새 64-bit root seed부터 selection/generation/transfer를 재시작한다.
-- NewMap 실패: pending candidate 폐기, old current definition 유지, rematch pending state reset, result UI 복원, auto-return countdown을 full duration으로 reset, SameMap/NewMap/Lobby actions 재활성화.
-- single 최초 실패: modal, Retry/Lobby. single NewMap 실패: 기존 rematch result choices 복원.
+- 재경기 맵 준비 실패: pending candidate 폐기, old current definition 유지, rematch pending state reset, result UI 복원, auto-return countdown을 full duration으로 reset, **결과 화면의 기존 actions 재활성화**.
+- single 최초 실패: modal, Retry/Lobby. single 재경기 실패: 기존 rematch result choices 복원.
 - ⚠️ **위 복구 상태 규정에는 아직 정해지지 않은 항목이 남아 있다 — 구현 시 확정한다.** 무엇이 미정인지의 단일 소스는 `GameSystemRules/GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 M-3·M-4 에 달린 미정 표시이며, 이 문서에는 옮겨 적지 않는다.
 - UI payload에는 internal error code, seed, MapType을 포함하지 않는다. 상세 값은 진단 로그 전용이다.
 
@@ -613,43 +614,33 @@ MiningPost = TileKind != Blocked
 
 ##### 재경기 `MapDefinition` 생명주기
 
-기존 재경기 요청·수락·거절 RPC와 Game 씬 재로드 구조를 유지하되, 요청 payload에 다음 enum을 추가한다.
+기존 재경기 요청·수락·거절 RPC와 Game 씬 재로드 구조를 유지한다. **요청 payload에 맵 조건(mode)을 싣지 않는다 — 재경기 맵은 매번 새로 준비한다.**
 
-```text
-RematchMapMode.SameMap
-RematchMapMode.NewMap
-```
+> **[🔴 2026-09-14 개정 — 사용자 확정]** 종전 설계는 요청 payload에 `RematchMapMode`(`SameMap`/`NewMap`) enum 을 추가하고, 서버 재경기 컨텍스트가 **pending 요청자와 mode** 를 함께 보관하며, 상대 팝업이 그 조건을 표시하고, **서로 다른 mode 요청이 교차해도 자동 시작하지 않는다**고 정했다. **맵 조건 선택이 없어져 enum · mode 보관 · 조건 표시 · 「서로 다른 mode 교차」 규정 · `SameMap` 흐름 전체를 제거**했다. 기획·규칙 쪽 단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 14 의 개정 블록이다.
+> 🔴 **함께 사라진 것 — 「완성 후보의 canonical hash 가 현재 definition hash 와 같으면 폐기하고 다시 뽑는다」 단계**(종전 `NewMap` 흐름 3번). 그 검사는 canonical byte 선두에 `MapVersion`·`RootSeed` 가 들어가는 구조(`MapDefinitionCodec`) 때문에 **정상 생성 경로에서는 결코 걸리지 않고**, 실제로 걸리는 경로는 **유형별 고정 폴백 템플릿뿐**이다. 폴백이 연속으로 쓰인 사실은 **재시도로 감추지 않고 `MapPreparationUsedFallbackTemplate`(Warn) 로 드러낸다.**
+> ⚠️ **서버 재경기 컨텍스트가 완전히 없어지는 것은 아니다** — **현재 확정 `MapDefinition` package/hash 를 Game 씬 재로드 사이에 유지하고 로비 복귀·연결 종료 시 폐기하는 책임은 그대로 남는다.** 사라진 것은 **pending 요청자의 mode** 다.
 
-서버가 관리하는 재경기 컨텍스트는 현재 확정 `MapDefinition` package/hash와 현재 pending 요청자/mode를 보관한다.
+서버가 관리하는 재경기 컨텍스트는 현재 확정 `MapDefinition` package/hash를 보관한다.
 
 **요청 조정:**
 
-- 요청을 받은 상대 팝업은 요청자와 `RematchMapMode` 조건을 표시한다.
-- 상대는 표시된 조건을 기준으로 수락 또는 거절한다.
+- 요청을 받은 상대 팝업은 요청자를 표시한다. 표시할 맵 조건은 없다.
+- 상대는 수락 또는 거절한다.
 - pending 요청이 없는 상태에서 서버가 먼저 받은 요청을 현재 제안으로 확정한다.
-- 양측의 서로 다른 mode 요청이 교차해도 자동 시작하거나 mode를 합의된 것으로 간주하지 않는다.
-- 뒤에 도착한 다른 mode 요청은 선접수 제안을 덮어쓰지 않으며, 해당 플레이어에게 선접수 조건을 제시해 명시적 응답을 받는다.
 
-**SameMap 흐름:**
-
-1. 현재 컨텍스트의 canonical package와 hash를 그대로 유지한다.
-2. 새 seed, 생성, 정의 교체를 수행하지 않는다.
-3. 수락 완료 후 기존 `NetworkSceneManager.LoadScene(Game)` 재경기 경로로 Game 씬을 재로드한다.
-
-**NewMap 흐름:**
+**재경기 맵 흐름:**
 
 1. Game 종료 상태와 결과 화면을 유지하며 팀·종족·그 밖의 매치 설정은 직전 경기 값으로 고정한다.
 2. Host가 새 64-bit root seed를 만들고 맵 관련 값만 새로 준비한다. `MapType`, 허용 `NeutralMineCount`, `StartingMineSide`, 지형 세부 형태, 중립 광산 위치를 다시 선택·생성한다. 이 준비 시점의 Host `MapTestModeEnabled`를 적용해 실제 `InitialGold`를 확정하며 Client 로컬 설정은 사용하지 않는다. 장식 placement 활성화 이후에는 장식도 다시 생성하지만 최초 구현은 빈 목록을 유지한다.
-3. 완성 후보의 canonical hash가 현재 definition hash와 같으면 후보를 폐기하고 또 다른 새 root seed부터 2단계를 반복한다. 같은 hash의 후보는 `NewMap` 성공으로 취급하지 않는다.
-4. 기존 current definition은 그대로 보존하고 다른 hash의 새 package는 pending 후보로만 둔다.
-5. 공용 `NetworkMapTransfer`가 새 package를 chunk로 전달하고 Client가 길이/버전→SHA-256→deserialize→semantic fairness validator를 통과한 뒤 `MapReady(success=true)`로 ACK한다.
-6. Host도 최종 후보 검증과 양측 준비 상태를 확인한다.
-7. 성공 시 pending 후보를 current definition으로 원자적 교체한다.
-8. 교체 후에만 기존 Game 씬 재로드 경로를 실행한다.
+3. 기존 current definition은 그대로 보존하고 새 package는 pending 후보로만 둔다.
+4. 공용 `NetworkMapTransfer`가 새 package를 chunk로 전달하고 Client가 길이/버전→SHA-256→deserialize→semantic fairness validator를 통과한 뒤 `MapReady(success=true)`로 ACK한다.
+5. Host도 최종 후보 검증과 양측 준비 상태를 확인한다.
+6. 성공 시 pending 후보를 current definition으로 원자적 교체한다.
+7. 교체 후에만 기존 Game 씬 재로드 경로를 실행한다.
 
 생성, 전송, hash, deserialize, semantic 검증, ACK 중 하나라도 실패하면 pending 후보를 폐기한다. 기존 definition과 결과 화면은 유지하며 Game 씬을 재로드하지 않는다.
 
-싱글플레이도 결과 UI에서 `SameMap`/`NewMap`을 선택한다. `SameMap`은 현재 정의를 재사용하고, `NewMap`은 로컬 생성·semantic 검증 성공 후 원자적으로 교체한 다음 씬을 재로드한다.
+싱글플레이 재경기도 매 판 새 맵을 준비한다. 로컬 생성·semantic 검증 성공 후 원자적으로 교체한 다음 씬을 재로드한다. **이는 현재 코드가 이미 하고 있는 동작이다** — `GameEndUI.OnRestartClicked` → `GameBootstrapper.LoadMap` → `MapRootSeed.Create()`(`Guid.NewGuid()` ⊕ `DateTime.UtcNow.Ticks`)로 호출마다 새 root seed 를 만든다(문서 작업 중 직접 실측). **싱글 코드 변경은 0건이다.**
 
 재경기 컨텍스트는 Game 씬 재로드 사이에는 유지한다. 로비 복귀, 세션 종료, 연결 종료/끊김 시 current definition, pending 후보, pending 요청을 모두 폐기한다.
 
@@ -1766,6 +1757,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.47.0 | 2026-09-14 | **재경기 맵 조건 선택(`RematchMapMode`)을 설계에서 제거 — 재경기는 매 판 새 맵 준비 한 갈래다 (사용자 지시에 따른 개정, 코드 변경 0줄).** ① 「재경기 `MapDefinition` 생명주기」 절에서 **`RematchMapMode.SameMap`/`NewMap` enum · 컨텍스트의 mode 보관 · 상대 팝업의 조건 표시 · 「서로 다른 mode 교차 시 자동 시작 금지」 2개 조항 · `SameMap` 흐름 3단계**를 제거하고 「`NewMap` 흐름」을 **「재경기 맵 흐름」**으로 고쳐 남겼다. ② **흐름 3번(「후보 hash 가 현재 hash 와 같으면 폐기하고 새 root seed 부터 반복」)을 삭제**하고 이후 단계를 4~8 → 3~7 로 당겼다 — canonical byte 선두에 `MapVersion`·`RootSeed` 가 들어가는 구조상 **정상 경로에서는 결코 걸리지 않고 실제로 걸리는 경로는 폴백 템플릿뿐**이며, 폴백 연속 사용은 재시도로 감추지 않고 `MapPreparationUsedFallbackTemplate`(Warn)로 드러내기로 했다. ③ 「복구 상태」의 `NewMap 실패`·`single NewMap 실패` 항목과 `SameMap/NewMap/Lobby actions 재활성화` 를 **「재경기 맵 준비 실패」·「결과 화면의 기존 actions 재활성화」**로 바꿨다(**뜻은 그대로 — 실패 이전 화면으로 되돌린다**). ④ 「`NetworkMapTransfer` 전송 프로토콜」의 `최초 경기와 RematchMapMode.NewMap` → **「최초 경기와 재경기 맵 준비」**. ⑤ 3단계 범위 서술의 `SameMap`/`NewMap` 재경기 → **재경기 맵**(단계 경계 자체는 무변경). ⑥ 싱글 재경기 서술을 **「매 판 새 맵을 준비한다」**로 바꿨다 — **새 사양이 아니라 현재 코드가 이미 하는 동작**이다(`GameEndUI.OnRestartClicked` → `GameBootstrapper.LoadMap` → `MapRootSeed.Create()`, 직접 실측). ⑦ 🔴 **「2필드 구조 폐기」 블록(0.44.0 계열 서술)에는 삭제가 아니라 정정 블록을 덧붙였다** — 해시의 세 용도 중 「`NewMap` 재경기의 동일 맵 판정」만 사라지고 **Host/Client 비교·폴백 유효성은 그대로 남아 그 블록의 결론이 유지**되기 때문이다. **기획·규칙 쪽 단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 14 의 개정 블록**이다. **[문서 머리말 정정]** 이 표는 0.46.0 까지 와 있는데 문서 상단 `**버전:**` 이 **0.43.2** 에 멈춰 있어(0.44.0~0.46.0 세 번의 갱신이 반영되지 않았다) 이번에 0.47.0 으로 맞췄다. **표의 과거 행은 손대지 않았다** — 그 행들이 적은 `NewMap`·`SameMap` 은 당시 실제로 확정돼 있던 내용이다. |
 | 0.46.0 | 2026-09-01 | **접근 지표 절의 이름 통일 + AI 건물 배치 후보 판정의 전환 요구 등재 (코드 변경 0줄).** ① 「`MapDefinitionValidator` access metric」 절 도입부에서 **같은 절이 정의한 식별자를 다른 영문 어구로 부르던 표기 2곳**(성 쪽 1회 · 광산 덩어리 쪽 1회)을 정의된 이름 `StaticTraversable` 로 맞췄다. 같은 절의 인용 블록은 이미 그 이름을 쓰고 있어 **한 절 안에서 표기가 갈려** 있었다 — 0.45.0 의 ④·⑤·⑭ 와 같은 부류이며, 그때 우리말 표기만 정리하고 영문 어구 쪽이 남았던 자리다. ② 「기존 코드 전환 요구」 목록에 **`AIOpponentController.FindPlacementTile()` 의 배치 후보 판정을 이동 판정에서 「일반 건설」 조건으로 교체한다**는 항목을 추가했다(대상 파일 경로 · 현재 판정 위치 · **같은 파일의 XML 주석도 함께 옮긴다**는 조건을 함께 적었다). 🔴 **이것은 사양 변경이지만 오늘 `.cs` 는 한 줄도 바꾸지 않았다** — 새 조건이 읽어야 할 타일 상태 축이 아직 코드에 없어, `TileKind` 도입(= 무작위 맵 구현)과 **같은 시점에** 전환한다. **지금 등재해 두지 않으면 그때 이 파일이 누락된다**는 것이 이 항목의 존재 이유다. 기획 계약 쪽은 같은 회차에 `GameSystemRules/GameSystemRules_AI.md` 규칙 26 을 함께 고쳤다(후보 조건 교체 · 「후보가 거부돼도 탐색을 멈추지 않는다」 명시 · 전환 예정 표시). 이 어긋남은 **건설 불가 구역을 두는 맵 유형에서만 발현하며 그것은 5종 중 3종**이다(단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 3장과 규칙 9). 근거는 `_Tasks/2026-09-01/07_07_map-docs-out-of-scope-findings/`. **[같은 날 추가]** ③ **싱글플레이 맵 준비 「최초 경기」 실패 UI 의 팝업 타입을 모달 (Modal) 로 확정했다 — 이것은 표기 교정이 아니라 없던 사양을 새로 정한 결정이다.** 종전에는 `GameSystemRules/GameSystemRules_UI.md` 규칙 M-4 · 같은 문서의 반투명 배경 오버레이 모드 목록 · 이 문서 「복구 상태」 절 **어디에도 이 UI 의 타입 규정이 없었다**(2026-09-01 실측). 근거는 멀티 최초 실패를 모달로 정한 것과 같다 — **로딩 UI 가 이미 닫힌 뒤이고 `Retry`/`Lobby` 중 하나를 반드시 골라야 하는 자리**라, 배경 탭으로 닫히면 아무 선택지도 없는 화면에 남는다(타입별 동작 차이의 단일 소스는 `GameSystemRules/GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 9). 🔴 **세 문서에 함께 반영했다** — 규칙 M-4 첫 불릿 · `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 16 실패 복구 절 · 이 문서 「복구 상태」 절. 멀티 최초 실패가 이미 그 세 곳 모두에 타입을 적고 있어, **한 곳만 적으면 같은 종류의 UI 인데 어떤 것은 세 곳 어떤 것은 한 곳이 되는 반쪽 상태**가 새로 생긴다. 이 항목도 **코드 변경 0줄**이다(맵 준비 실패 UI 는 무작위 맵 미구현으로 코드에 0건). **재경기 실패 쪽(멀티 `NewMap` · 싱글 재경기)은 팝업인지 결과 화면 그 자체인지 세 문서 모두 불명확해 추정하지 않고 그대로 두었다**(CLAUDE.md 규칙 10). **[같은 날 추가 2]** ④ **이 문서에서 바뀐 것은 「복구 상태」 절에 넣은 미정 항목 포인터 한 줄뿐이며, 복구 사양 본문은 한 줄도 바뀌지 않았다.** 같은 날 ③이 「그대로 두었다」고 적은 미결 항목들을 **대화가 아니라 문서에 못 박았는데**, 미정 표시 자체는 그 UI 들의 단일 소스인 `GameSystemRules/GameSystemRules_UI.md` 규칙 M-3·M-4 **한 곳에만** 달았다 — 세 문서에 같은 표시를 두면 그것이 또 사본이 되어 한 곳만 갱신되는 반쪽 상태를 새로 만든다. 다만 이 문서의 「복구 상태」 절만 읽는 사람에게는 **미정이라는 사실 자체가 닿지 않으므로**, 내용은 옮기지 않고 **어디를 보라는 포인터 한 줄만** 넣었다(같은 이유로 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 16 실패 복구 절에도 같은 포인터 한 줄을 넣었다). **[2026-09-01 정정]** 위 ③ 이 실패 복구 절의 소속을 「규칙 13」으로 적었으나 그 절은 규칙 16(멀티플레이 맵 전송과 실패 복구) 아래에 있고 규칙 13 은 「생성 완료 검증」이므로, 서술이 아니라 **잘못된 포인터**를 바로잡는 것이라 판단해 그 한 자리를 규칙 16 으로 정정했다(새 이력 항목은 만들지 않았다). |
 | 0.45.0 | 2026-08-31 | **무작위 맵 계약의 모호성 해소 + 맵 문서 전문 통독으로 찾은 정합 교정 (구현 착수 전 계약 교정, 코드 변경 0줄).** ① **봉쇄된 광산 덩어리 판정 신설** — 광산끼리 인접한 군집을 허용하므로 접근 칸이 하나도 없는 광산이 실제로 생길 수 있는데 그때의 판정이 없었다. **서로 인접한 광산을 「광산 덩어리」로 묶어 덩어리 단위로 접근 칸·접근 거리·도달 가능성을 판정**하고, **접근 칸이 하나도 없는 덩어리가 하나라도 있으면 판 전체를 버린다.** 근거는 채굴소가 인접 6타일 전부를 자기 팀 소유로 만들어 덩어리 안에서 연쇄 건설이 된다는 코드 실측(`BuildingPlacementUseCase.PlaceMiningPost`·`PlaceBuildingInternal`). 회전이 덩어리를 덩어리로 옮기므로 대응쌍 교차 등식과 중앙 단독 광산 등식은 그대로 성립한다. 보편 공정성 문서인 `GameSystemRules/GameSystemRules_Map.md` 규칙 4 에도 **덩어리 단위로 도착 칸을 잡는다는 원칙 한 줄과 단일 소스 포인터**를 병기했다 — 그 문서만 읽는 사람에게는 덩어리 판정이 도달하지 않아, 두 문서의 서술이 문자 그대로는 어긋나 보였기 때문이다(같은 줄의 접근 거리 단위 표기도 규칙 문서 용어집이 정한 정식 표현으로 맞췄다). ② 규칙 문서의 영문 용어를 우리말로 정리(`attempt` → 「시도」, `rejection sampling` 뜻 병기). **코드 계약 문서인 이 문서의 영문 식별자는 손대지 않았다.** ③ 로그 「생성 소요 시간」의 **측정 구간을 확정** — seed 확정 직후부터 최종 맵 확정(검증 통과 또는 폴백 확정)까지의 누적 경과 시간 하나만 밀리초로 기록하며, 전송·해시 비교·씬 로드는 제외한다(규칙 16 범위). ④ **회전 연산의 이름 분리** — 좌표 변환은 `RotateCoord(p)`, 타일 상태 변환은 `RotateState(state)` 로 나눴다. 종전에는 **한 이름**이 입력도 하는 일도 다른 두 연산을 가리켜 사람이 구분할 수 없었다(2026-08-26 교정의 원인과 같은 부류). 코드에는 아직 이 이름이 없어 문서만 교체했으며, 폐기한 옛 이름은 규칙 문서 7장 용어 정의 「180도 회전」의 `_Avoid_` 행 한 곳에만 남겼다. 이 문서 「`MapDefinitionValidator` access metric」 절에서 같은 좌표 회전을 축약 표기로 적던 자리도 좌표용 이름으로 통일했다 — 한 문서 안에서 같은 연산이 두 이름을 갖는 것은 이번 교정이 없애려던 것과 같은 모양이다. ⑤ **`Hexiege.Application` 과 `UnityEngine.Application` 의 이름 충돌을 아키텍처 절에 명문화** — 종전에는 `FileSink.cs` 헤더 주석에만 있어 문서를 읽는 사람에게 도달하지 않았다. **개명하지 않고 완전 수식으로 회피하는 현행 방식을 유지**하기로 결정(현재 정상 동작 중 · 개명은 135곳 이상을 건드리는 코드 리팩터)하고 후속 판단 대기 항목으로 남겼다. 실측(2026-08-31): 선언 58파일 · `using` 77곳 · `UnityEngine.Application.` 완전 수식 24곳/9파일. ⑥ **접근 거리 개념의 용어를 「칸」 계열로 통일** — 성 접근 칸 · 광산 덩어리 · 광산 덩어리 접근 칸 · 접근 거리 넷이다. 이 문서 「`MapDefinitionValidator` access metric」 절의 우리말 서술도 같은 이름으로 맞췄다(**영문 코드 식별자는 손대지 않았다**). 종전 표기는 이 맵 문서가 이미 타일을 「칸」이라 부르는 것과 어긋났고, 덩어리 판정 도입으로 이어지지 않은 칸들의 모음이 될 수 있어 정확하지도 않았다. 폐기한 표기는 규칙 문서 7장 용어 정의 「접근 거리」의 `_Avoid_` 행 한 곳에만 남겼다. ⑦ **폴백 경로에서 경기 선택값이 그대로 유지된다고 읽히던 서술 2곳을 시도 0~99 구간 한정으로 좁혔다**(「무작위 맵 시작 동기화」 도입부 · 「결정적 PRNG 및 독립 스트림 계약」). 폴백은 광산 수·시작 광산 방향·실제 초기 골드를 템플릿 값으로 대체하므로 종전 서술은 같은 문서 「deterministic fallback 정의」와 문자 그대로 어긋나 있었다. 상세는 그 절을 가리키게 했다. ⑧ **access metric 도입부의 판정 단위를 광산 하나 → 광산 덩어리로 맞췄다** — 같은 절 아래에 덩어리 규정이 이미 있는데 도입부만 옛 단위였다. ⑨ **`MiningPost` 판정식에 `TileKind != Blocked` 를 추가** — 바로 아래 산문이 막힌 타일의 채굴소 건설을 금지하는데 판정식이 막지 않아, 이 절의 목적(판정식을 그대로 코드로 옮긴다)에 어긋났다. ⑩ **타일 표기를 코드 계약 형식으로 통일** — 「`HexGridRenderer`와 입력 표현」 절의 접두 없는 표기를 `TileKind.Normal`·`TileKind.NoBuild`·`TileKind.Blocked` 로 바꿨다. ⑪ **「deterministic fallback 정의」의 유형별 최대 광산 수·초기 골드 값에 단일 소스 경고를 달았다** — 구현자가 손에 들고 있어야 하는 값이라 남기되, 값이 바뀌면 규칙 문서를 먼저 고치고 이 절을 맞춘다(「archetype generator 알고리즘」 절과 같은 방식). ⑫ **규칙 문서 인덱스 `GameSystemRules.md` 「맵 관련 작업」 절 3건** — 이 인덱스는 그동안 맵 문서 교정 대상에서 빠져 있었다. ⓐ 접근거리 개념을 구역을 뜻하는 낱말로 적던 표기를 규칙 문서 용어집이 정한 「칸」 계열로 맞추고 재는 단위가 광산 덩어리임을 병기했다. ⓑ 맵 유형 개수를 인덱스에 옮겨 적던 사본을 없애고 `GameSystemRules_RandomMap.md` 3장을 단일 소스로 가리키게 했다. ⓒ 폴백이 경기 선택값을 그대로 쓴다고 읽히던 서술을 유형별 고정 템플릿 폴백으로 바로잡고 교체 규정의 단일 소스를 규칙 12로 가리키게 했다 — 같은 취지의 서술을 고친 다섯 번째 자리이며, 인덱스라 상세 규정은 옮겨 적지 않고 포인터만 뒀다. ⑬ **접두 없는 타일 상태 표기를 5곳 전부 `TileKind.` 접두형으로 통일** — ⑩에서 한 절만 고치는 바람에 **굵은 소제목과 그 본문이 서로 다른 표기로 갈려** 있었다. 이번에 「중립 광산 canonical orbit sampling」 1곳, 「`HexGridRenderer`와 입력 표현」 2곳(소제목 포함), 「`GridInteractionUseCase` 클릭 판정 순서」 2곳을 맞췄다. **개수를 못 박은 지시가 남긴 갈라짐이라, 이런 통일 작업은 절 단위가 아니라 문서 단위로 훑는다.** ⑭ **「`MapDefinitionValidator` access metric」 절의 성 접근 칸 표기를 우리말 정식 용어로 통일** — 한 문장 안에서 앞은 새 용어, 뒤는 옛 영문 표기로 갈려 있었다. 그 옛 표기는 규칙 문서 7장 용어 정의 「접근 거리」의 `_Avoid_` 행이 이미 금지한 것과 같은 부류다(**영문 코드 식별자 `Castle`·`StaticTraversable` 등은 손대지 않았다**). ⑮ **`GameSystemRules/GameSystemRules_AI.md` 「채굴소(MiningPost) 배치 — 병행 트랙」에 전환 예정 표시를 달았다** — 그 절의 광산 타일 조회 API 표기는 **폐기된 것이 아니라 현재 코드 그대로이며(2026-09-01 `.cs` 실측: 도메인 타일 정의·부트스트랩 대입·렌더러 사용 모두 살아 있음) 지금은 정확하다.** 그래서 **표기를 바꾸지 않고**, 무작위 맵을 구현하면 `MineKind` 기반 조회로 옮겨 간다는 사실과 그 단일 소스(이 문서 「기존 코드 전환 요구」)만 병기했다. 미리 바꿨다면 문서가 현재 코드와 어긋났을 것이다. ⑯ **`GameSystemRules/GameSystemRules_Units.md` 규칙 45 의 유닛 상태 이름을 `PathBlocked` 로 나눴다** — 아군 건물에 길이 막힌 **유닛의 상태**가 **타일의 상태**와 구분되지 않는 이름이어서 읽는 사람이 둘을 가려낼 수 없었다. ④의 회전 연산 이름 분리와 같은 부류다. 코드에 이 낱말 단위의 식별자가 0건임을 `.cs` 전수 실측으로 확인한 뒤 개명했으므로 **코드와 어긋나지 않는다**(규칙 45 자체가 미구현이다). ⑰ **`GameSystemRules/GameSystemRules_UI.md` 를 전문 통독해 맵 계약 접점(맵 준비 실패 UI 규칙 M-1~M-4 · 「무작위 맵 타일 선택과 건설 패널」 규칙 5~8)을 대조한 결과 어긋난 곳은 없어 고치지 않았다.** 통독에서 새로 드러난 것은 별도 보고 항목으로 남겼다. ⑱ **앞 항목들의 개명·표기 통일이 닿지 않은 자리 3곳을 마저 맞췄다** — ⑯의 유닛 상태 개명이 기획서 `GameDesignDocument.md` 에는 반영되지 않아 두 문서가 다른 이름을 쓰던 자리를 우리말 서술 + 정식 이름의 단일 소스 포인터로 정리했고, ⑬의 접두 통일에서 빠져 있던 「archetype generator 알고리즘」 절 `OuterGenerator` 항목의 타일 상태 표기를 형제 생성기 3개와 같은 접두형으로 맞췄으며, ⑫ⓑ에서 없앤 맵 유형 개수 사본이 `GameSystemRules.md` 「파일 목록」 표에는 다른 절이라 그대로 남아 있어 개수를 적지 않고 규칙 문서 3장을 가리키는 형태로 바꿨다. |
 | 0.44.0 | 2026-08-26 | **무작위 맵 대칭 기준 교정 + 타일 상태 통합 (구현 착수 전 계약 교정, 코드 변경 0줄).** ① 대칭 기준을 **참 180도 회전**(큐브 `p → 2C - p`, offset 은 짝수 열 `21-row`·홀수 열 `20-row`)으로 확정하고 행열 반전 `(10-col, 20-row)` 을 폐기했다 — 그것은 회전이 아니라 헥스 인접성을 보존하지 못한다. `SymmetricMapBuilder.SetPair` 의 대응 좌표도 함께 교체. ② 회전 상대가 없는 **짝수 열 0행 6칸**을 영구 차단 지형으로 고정(231칸 중 플레이 225칸). **배열·canonical hash 범위는 231칸 그대로 두고**, 대칭 대응쌍 비교에서만 제외하되 「항상 막힌 타일」 고정값 검사로 대체한다. ③ 타일 상태 2필드를 **`TileKind` 3상태 단일 필드**(`Normal`/`NoBuild`/`Blocked`)로 통합 — 뜻이 없는 조합이 표현 가능해 의미가 같은 맵이 다른 해시를 가질 수 있었다. ④ archetype generator 4종의 대역 수치를 **높이 단계** 기준으로 재작성(장애물 개방형 행 3~9 · 협곡형/외곽형 단계 18~24 · 3갈래형·외곽형 덩어리 단계 21±L). ⑤ 폴백을 **유형별 고정 템플릿 5개**로 교체하고 시작 광산 좌우 변환을 폐기(제작 도구 보존·재생성 원본 보관이 부수 조건). **폴백 경로에서는 `StartingMineSide`·`NeutralMineCount`·`InitialGold`가 템플릿 값으로 대체되고 fallback builder의 입력은 `MapType` 하나뿐임을 명시했다** — 종전 서술은 경기 선택 값이 폴백 경로에서도 입력으로 유지된다고 적고 있어 템플릿 구조와 양립하지 않았다. ⑥ 「보호 corridor」를 **필수 통로**로 개명. ⑦ 전송 조각 크기 1KB·전체 한도 64KB에 **「⚠️ 근거 미확인 — 구현 시 NGO 실측으로 확정」** 표시. **⚠️ 과대 표기 금지: 공정성 수치는 파이썬 시뮬레이션이며 Unity 실기 검증이 아니다.** 근거·결정 이력은 `_Tasks/2026-08-26/04_35_map-rules-correction/`. |

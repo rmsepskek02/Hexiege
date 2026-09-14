@@ -1201,3 +1201,184 @@ Handed over as *"12 files · 89 reference lines"*. Files measured **12 — exact
   **「확정할 수 없어 추정하지 않는다」** rather than inventing a basis that would explain 89 (규칙 10).
 - Publish **both** of your own figures. A single "115" invites the same mismatch next round; "115 / 95 (basis)"
   lets the next person check which one they are reproducing.
+
+## 18. Recording a defect that is **out of scope of the task that found it** (2026-09-14, rematch-map round 3)
+
+One round, one artifact: a known defect the user explicitly said **「record it and leave it as future work」** —
+no code, no fix. The whole job was **choosing where it lives**. Four things generalise.
+
+### 18-1. 🔴 The placement question is decided by **what the defect is about**, not by who found it
+
+Found while researching rematch **map** selection; the defect is in `GameEndUI` and fires **whether or not the
+map changes**. Two failure modes sit on opposite sides:
+
+- Filing it under the finding task (the rematch Research doc, or a map-phase Plan's deferred list) **buries it** —
+  only someone doing map work ever opens those, and this defect is not map work.
+- Scattering the same text across several documents **creates the divergence** the next editor has to reconcile.
+
+> **Resolution: one home + pointers.** The home is picked by subject (here `ROADMAP.md`, because the user scoped
+> it as future work and that is this document's stated role). The finding document gets **a pointer and nothing
+> else** — say in the pointer *"the row is the single source; copying it here would split it in two."*
+> Write the placement **rationale** into the new top paragraph, or the next round re-litigates it.
+
+### 18-2. 「보류로 기록하라」 and 「나중에 작업할 사항으로 기록하라」 are **different instructions**
+
+§16-5 says items the user told you to record as **보류** stay out of `ROADMAP.md` — the instruction is itself the
+scoping answer. This round looked identical but is not: **「나중에 작업할 사항」 maps word-for-word onto the
+document's own stated role (「앞으로 해야 할 작업」)**, so the row is owed (§17-4 read forwards).
+
+- The distinguishing test is the **verb the user used about the future**, not how the finding arrived.
+  「보류」 = set aside, no commitment. 「나중에 작업」 = committed, just not now.
+- ⚠️ It also mattered that **there was no deferred-item list to put it in** — the Plan for this task did not exist
+  yet and the user forbade creating one. When the 보류 home does not exist, saying so is part of the rationale.
+- Say in the report which reading you took **and that the other reading exists**, so the user can overturn it
+  cheaply (규칙 12). Do not silently pick one.
+
+### 18-3. 🔴 Severity you cannot determine is **part of the record**, not a gap to fill in later
+
+The handoff itself named two unchecked items. Both were kept verbatim in the row, each with **what it would
+change if it went the other way** (「정리된다면 실질 피해는 …정도로 줄어든다」 / 「앞쪽에 누른다면 남은 20초가
+충분할 수 있다」). That is what makes them actionable instead of decorative.
+
+- Put the uncertainty **in the priority cell too** — `🟡 중간 (… · 🔴 심각도 미확정)`. A cell that reads only
+  「중간」 is a claim you did not measure.
+- A **fix direction** handed over as a suggestion stays a suggestion: name the rule that makes it plausible
+  (here 규칙 M-3) **and** the existing method that makes it cheap (`RestoreRematchButton()`), then say in the
+  same sentence that the unchecked items come first. Never promote it to a decision (규칙 1·11·12).
+- 🔴 **Pair it with the neighbouring 미정 it shares machinery with.** Here §12-1 (countdown vs modal) and this
+  row both touch the same coroutine — deciding them separately produces contradictory specs, so say so in
+  **both** places.
+
+### 18-4. 🔴 Re-measure the handoff **and your own previous round** — both were wrong, differently
+
+Two mismatches, and the second is the one worth remembering:
+
+| 출처 | 인계/기존 서술 | 실측 |
+|---|---|---|
+| 인계문 | `StopCountdown()` 4곳 = `Show`(:187) · … · `OnDestroy`(:342) | **개수 4 와 행 번호 4개는 맞고, 메서드 이름 2개가 틀렸다** (`:187`=`OnDestroy`, `:342`=`ReturnToLobby`) |
+| 직전 회차의 **내 문서** | 「호출 3곳」 = `OnRestartClicked`·`Hide`·`OnDestroy`(:342) | **4곳** — `:187` 이 통째로 빠졌고 `:342` 의 이름도 오기 |
+
+- This is a **fourth class** next to §17-7: *the count is right, the labels are not.* A line number is cheap to
+  copy and hard to check; a method name looks like the verification but is not. **Verify the mapping, not the
+  number** — `awk` back from the hit to the nearest enclosing signature and print both.
+- 🔴 **The previous round being mine is not a reason to soften it.** B-7 applies unchanged: leave the original
+  sentence, append `**[🔴 날짜 정정 — 원문은 그대로 두고 덧붙인다: …]**`, and **enumerate what survived
+  re-measurement** (here: 30초 · scene value · `WaitForSecondsRealtime` · three of four line numbers).
+  Without that list the reader cannot tell how far the correction reaches.
+- Say **in the report** that one of the corrected figures was your own. The count of corrections is not the
+  point; which documents now disagree with what they said yesterday is.
+
+### 18-5. Appending an item to a closed numbered 요약 list
+
+The Research doc's §13 summary ran 1~12. The new item goes in as **13, appended after 12** — never inserted
+mid-list (the first attempt landed it between 11 and 12 and had to be undone).
+Give it a `[날짜 추가]` marker, and 🔴 **say what neighbouring item it is *not* part of** — here item 11 counts
+「문서·코드 어긋남 5건」, and this is a code-behaviour defect, so the 5 must not quietly become 6.
+
+## 19. Revising a rule the user ordered changed, and repairing everything it falsified (2026-09-14, rematch-map round 4)
+
+The user decided rematch always draws a new random map — no 「same map / new map」 choice. One round removed
+six clauses from 규칙 14 and repaired every document that had been written on top of them. Seven things
+generalise, and the first is the one that nearly went wrong.
+
+### 19-1. 🔴 Before deleting a clause, grep for who *depends* on it — one half of a doomed paragraph was load-bearing
+
+The handoff listed 「현재 맵 정의와 재경기 제안을 보관하는 재경기 컨텍스트는 … 로비 복귀 또는 연결 종료 시
+폐기한다」 for deletion, reason: there is no 「제안」 and no 「재사용할 맵」 left. **True for the first half only.**
+`grep -rn "규칙 14"` over `.claude/` found **two game-programmer memory files quoting that exact clause** as the
+rule basis for shipped `MapHandoff.Clear()` wiring — and the confirmed map still has to cross the scene reload.
+
+- **Resolution: narrow the sentence instead of deleting it** (drop 「재경기 제안」, keep the map definition's
+  lifetime and discard timing), then **mark the deviation in the document itself** — an ⚠️ line saying this is
+  where you departed from the instruction and that the user must confirm (규칙 12) — and lead the report with it.
+- 🔴 **The cheap check that would have caught it:** grep the rule number *and* a distinctive fragment of the
+  clause across `Docs/` **and `.claude/`**. Memory files cite rules by quoting them; a rule-number grep alone
+  finds the citation, but only the fragment grep tells you *which sentence* they lean on.
+- General form: **a paragraph is not the unit of deletion — a claim is.** Split the paragraph into claims and
+  decide each; a paragraph that mixes a dead claim with a live one gets narrowed, never dropped.
+
+### 19-2. 🔴 A removed clause can make existing code *compliant* — that belongs in the removal rationale
+
+규칙 14 said 「양측이 서로 다른 mode 로 동시에 요청해도 자동 시작하지 않는다」, and the shipped
+`RequestRematchServerRpc` starts immediately on the second request — recorded in three places as a rule
+violation. Deleting the clause **closed the violation without touching code.**
+
+- Write it in the removal row explicitly: *"this clause disappearing makes the current code match the rule"*,
+  with the measured code path. Otherwise the next round re-opens a 「fix the violation」 task that no longer exists.
+- Then go back to **every document that recorded the violation** and append the resolution there too — here the
+  Plan's 「다음 범위 착수 시 반드시 함께 처리할 것」 list and the Research doc's §3-3. A resolution recorded only
+  at the rule is invisible to the people reading the follow-up lists.
+
+### 19-3. The removal-record block is the artifact — one home, a table of clause → why
+
+Put a blockquote under the revised rule holding **every removed clause with its own reason**, and make every
+other document point at it (「제거 조항과 근거의 단일 소스는 규칙 14 의 개정 블록」). Copying reasons into the
+GDD/TDD/status docs splits them in two the first time one is refined.
+
+- 🔴 **The hardest reason is worth its own sub-block.** Here: why the 「new candidate's hash equals the previous
+  map's hash → discard」 clause went. Four steps, each measured: ① the check **cannot catch what the user was
+  worried about** (identical terrain with a different seed still passes, because `MapVersion`/`RootSeed` lead the
+  canonical bytes — `MapDefinitionCodec.cs:60~61`, read directly) ② in the normal path it therefore **never
+  fires** ③ so the only path that *does* fire it is the fallback template ④ and a repeated fallback should
+  **surface, not be retried away** — the Warn log key for that already exists, so *no work follows*.
+- Note the shape: **negation first** (what the check does *not* do), then where it does fire, then the
+  consequence. Same ordering §15/§17-1 found for boundary and correction sentences.
+
+### 19-4. Four document kinds, four different repairs for the same falsified sentence
+
+| Kind | Repair |
+|---|---|
+| Rule document (`GameSystemRules*`) | **Rewrite the text** + removal-record block. Rules are read as current state; a struck-through rule is a trap |
+| 기획서 / 기술서 with a 개정 이력 table (GDD, TDD) | **Rewrite the body, add a NEW version row.** 🔴 **Never edit past rows** — they recorded what was true then |
+| Status docs (`PROJECT_STATUS`, `ROADMAP`) | **Append `[🔴 날짜 갱신]` markers in place**, plus one new top paragraph; strike only the sub-clause that died (here a roadmap row's UI-asset sentence) |
+| `_Tasks/` research record | **A new top section 「이 조사의 전제가 바뀌었다」 with a per-절 유효/무효 table**, then short markers on each affected 절. Never edit the findings |
+
+- The research doc's table is the piece that pays off: **say for each section what survives**, not just what died.
+  Here §8's measurements survived and *became the deletion's evidence* — the section is invalid as a problem
+  statement and load-bearing as a fact. Both halves must be written or the next reader discards the measurement.
+
+### 19-5. 🔴 The 「해소된 것」 list is as important as the 「제거한 것」 list
+
+Four things stopped being work: UI assets (two of them), the request/accept flow change, single-player code
+(zero, it already generated a new map every time — verified by reading `OnRestartClicked` → `LoadMap` →
+`MapRootSeed.Create()`), and the rule violation of 19-2. **Every status document got that list**, because the
+default failure mode of a scope reduction is that the removed work stays on someone's list.
+
+- Pair it with **what did not get resolved** in the same breath — here 「재경기 맵은 여전히 미구현」. A revision
+  that narrows scope reads as progress; say plainly that nothing was built.
+- ⚠️ 「규칙을 현실에 맞춘 것이지 새 사양이 아니다」 is its own sentence, used wherever the doc now describes
+  behaviour the code already had. Without it the single-player line reads as newly required work.
+
+### 19-6. A rule *title* that contains the removed identifier
+
+규칙 M-3 was titled 「멀티플레이 NewMap 재경기 실패」. Renaming it is right, but the title is quoted elsewhere
+(a `ROADMAP.md` row cited 「규칙 M-3(… 멀티플레이 `NewMap` 재경기 실패)」).
+
+- **Grep the old title string, not just the rule number**, and repair each citation by **appending** the new
+  title plus 「규칙 번호와 인용한 조항은 그대로이므로 논지는 바뀌지 않는다」.
+- Do **not** touch the ⚠️ 미정 markers living inside the renamed rule — they are about a different question
+  (here: whether a failure popup appears) and survive the revision. Say so in the rule itself, or the next
+  editor reads the revision as having answered them.
+- `check_docs.py` cannot see any of this: `[5]` only compares parenthesised labels on **numeric** rule refs, so
+  `규칙 M-3(…)` is invisible to it. Letter-numbered rules are a manual-verification zone.
+
+### 19-7. Stale header version vs the 개정 이력 table — fix it in the row you are adding
+
+Both GDD (header 1.16.1 / table 1.16.0+) and TDD (header **0.43.2** / table **0.46.0**) had drifted. When adding
+a row, bump the header to the new version and put a **`[문서 머리말 정정]`** clause in that row naming the
+versions that had not been reflected — the 1.16.1 row had already established this wording. **Past rows stay
+untouched**; the correction lives only in the new row.
+
+### 19-8. Grouping several findings into one roadmap row, and pointing at a row that already exists
+
+Four post-match UI items (no failure notice / up to 20s with no indicator / the 30s auto-return countdown can
+expire during it / an already-registered countdown defect) went in as **one row**, because they all touch the
+same coroutine and deciding them apart yields contradictory specs.
+
+- The already-registered row is **pointed at, never copied** (§18-1), and the *existing* row gets an appended
+  line saying a third item now shares its coroutine. **Both directions**, or whoever opens one of them decides alone.
+- 🔴 **Say which item the new work creates and which pre-existed.** Here item ③ is new — the map step is what
+  first puts *time* between pressing rematch and the scene change; before it, the transition was immediate.
+  An item the current work introduces is a different argument from one it merely uncovered.
+- Close the row with **why it does not block** the map work (success path ~0.2s measured from the run log,
+  failure reverts cleanly) — a grouped row otherwise reads as a prerequisite.
