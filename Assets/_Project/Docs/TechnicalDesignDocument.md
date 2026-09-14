@@ -1,6 +1,6 @@
 # Hexiege - 기술 설계서 (Technical Design Document)
 
-**버전:** 0.47.0
+**버전:** 0.48.0
 **최종 수정일:** 2026-09-14
 **작성자:** HANYONGHEE
 
@@ -202,23 +202,23 @@ void ShowEffectClientRpc(Vector3 position) {
 > 1단계에서 **`TileKind` · `MineKind` · `MapType` · `DecorationDefinition` · `MapDefinition` · `MapDefinitionCodec` 6개 타입이 생겼지만, 뒤의 4개는 아직 어느 코드에서도 호출되지 않는다**(2·3단계에서 쓰인다). **타입이 있다는 것과 그 계약이 동작한다는 것은 다른 말이므로, 이 절의 맵 생성·검증·전송·해시 대조는 전부 미구현으로 읽어야 한다.**
 > 단계 구분 (**2026-09-03 재조정 — 경계를 「싱글플레이 = 2단계 / 멀티플레이 = 3단계」로 다시 그었다**):
 > - **1단계** 타일 상태 계약 전환 — **완료**
-> - **2단계** 결정적 PRNG 4스트림 · `SymmetricMapBuilder` · 생성기 5종 · `MapDefinitionValidator` · `InitialMapStateEvaluator` · 폴백 템플릿 5개와 제작 도구 · **`MapDefinition` → `HexGrid` 투영** · **`GameConfig` 격자 11×21** · **테스트 모드 설정 필드** · **렌더러(막힌 타일 빈 공간·건설 불가 해치)** · **AI 배치 후보 판정 전환** · **건설·점령 전용 조건** · `GridInteractionUseCase` 클릭 판정 순서. 완료 판정은 **「싱글 경기에서 매번 다른 맵이 나오고 정상 플레이된다」**
+> - **2단계** 결정적 PRNG 4스트림 · `SymmetricMapBuilder` · 생성기 5종 · `MapDefinitionValidator` · `InitialMapStateEvaluator` · 폴백 템플릿 5개와 제작 도구 · **`MapDefinition` → `HexGrid` 투영** · **`GameConfig` 격자 11×21** · **테스트 모드 설정 필드**(🔴 **2026-09-14 — 이 항목은 삭제 대상이 됐다. 2단계에서 실제로 추가됐던 것은 사실이므로 목록에서 지우지 않고 표시만 한다** — 근거는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 3 의 개정 블록) · **렌더러(막힌 타일 빈 공간·건설 불가 해치)** · **AI 배치 후보 판정 전환** · **건설·점령 전용 조건** · `GridInteractionUseCase` 클릭 판정 순서. 완료 판정은 **「싱글 경기에서 매번 다른 맵이 나오고 정상 플레이된다」**
 > - **3단계** `NetworkMapTransfer` 조각 전송 · Host/Client 해시 대조 · 맵 준비 실패 UI · **재경기 맵**(**[🔴 2026-09-14 개정: 종전 표기는 `SameMap`/`NewMap` 재경기였다. 재경기 맵 조건 선택이 없어져 「재경기 맵」 한 갈래가 됐다 — `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 14 의 개정 블록이 단일 소스다. **단계 경계 자체는 바뀌지 않았다**]**)
 >
 > 종전 분할은 2단계를 「생성기·검증기·폴백」까지로 두어 **완료 판정이 게임 동작과 무관**했다(에디터에서 생성만 확인). 실기로 확인할 것이 없고 「이건 2단계냐 3단계냐」 하는 경계 문제가 쌓여, 규칙 12가 이미 긋고 있는 선(**「싱글플레이는 같은 생성기를 로컬 권위로 실행한다」**)을 따라 다시 잘랐다.
 
 > 범위 경계: 이번 기능에는 canonical binary 형식 식별용 임시 `MapVersion`(`int`, 초기값 `1`)만 둔다. 이는 unknown map format deserialize 차단 전용이며 matchmaking, 앱 업데이트, 전역 connection compatibility 책임이 없다. 전역 `GameProtocolVersion`/build compatibility는 matchmaking same-version filter, custom lobby pre-Relay 검사, NGO connection approval/rejection, reconnect version validation, update-required UX를 포함한 별도 중요 작업이다.
 
-- Host 측 맵 준비 조정자가 64-bit root seed를 만들고, 전용 PRNG의 `MapSelection` 스트림으로 `MapType`, 허용 `NeutralMineCount`, `StartingMineSide`(A/B 50:50)를 최초 1회 선택한 뒤 최종 맵을 생성·검증한다. 정상 모드의 `InitialGold`는 광산 수 표에서 결정하고, `GameConfig.MapTestModeEnabled=true`이면 광산 수와 무관하게 실제 `InitialGold=TestStartingGold(5000)`을 사용한다.
+- Host 측 맵 준비 조정자가 64-bit root seed를 만들고, 전용 PRNG의 `MapSelection` 스트림으로 `MapType`, 허용 `NeutralMineCount`, `StartingMineSide`(A/B 50:50)를 최초 1회 선택한 뒤 최종 맵을 생성·검증한다. 실제 `InitialGold`는 광산 수 표에서 결정하며, 설정 파일의 값이 관여하는 갈래는 없다.
 - 최대 100회 재시도와 폴백 선택도 Host에서만 수행한다. 재시도는 지형 세부 형태·중립 광산 위치와 장식 placement 활성화 이후의 장식만 바꾸며 선택값을 다시 뽑지 않는다. 최초 구현의 장식 목록은 항상 비어 있다. **경기 선택값이 그대로 유지되는 구간은 시도 0~99까지이며, 폴백 경로에서는 일부 값이 템플릿 값으로 대체된다** — 무엇이 대체되고 무엇이 유지되는지는 아래 「deterministic fallback 정의」가 단일 소스다.
-- 로비 씬에 로딩 화면을 표시한 상태에서 최종 맵 데이터, 64-bit root seed, 맵 유형, 광산 수, 시작 광산 방향, 테스트 모드 표식(고정폭 0/1), 실제 초기 골드, 최종 맵 해시를 전달한다.
+- 로비 씬에 로딩 화면을 표시한 상태에서 최종 맵 데이터, 64-bit root seed, 맵 유형, 광산 수, 시작 광산 방향, 실제 초기 골드, 최종 맵 해시를 전달한다.
 - 로딩 UI는 준비 진행 상태만 표시하고 맵 유형·광산 수·초기 골드·seed·맵 미리보기를 노출하지 않는다.
 - Client는 전달받은 맵 정의의 해시를 확인하고 준비 완료를 알린다. 양측 해시가 같을 때만 Host가 전투 씬 전환을 시작한다.
 - 준비 실패나 해시 불일치 시 전투 씬으로 이동하지 않고 기존 로비를 유지하며 오류 로그를 남긴다.
 - 전투 씬의 `LoadMap()`은 독립 추첨하지 않고 로비에서 확정한 맵 정의를 그대로 구성한다.
 - 양측 전투 씬 로드가 완료된 뒤 서버가 시뮬레이션을 시작한다.
 - 11×21 맵은 231타일이므로 seed만 전달해 양측이 독립 생성하는 방식보다 최종 타일 상태 전체를 전달하는 안정성을 우선한다.
-- 싱글플레이는 동일한 생성기를 로컬 권위로 호출하고 로컬 `GameConfig`의 테스트 모드를 적용한다. 멀티플레이에서는 Host의 테스트 모드 표식과 실제 초기 골드가 권위값이며 Client의 로컬 설정은 무시한다.
+- 싱글플레이는 동일한 생성기를 로컬 권위로 호출한다. 멀티플레이에서는 Host가 생성·확정한 `MapDefinition`의 실제 초기 골드가 권위값이며 Client의 로컬 설정은 사용하지 않는다.
 
 ##### `MapDefinition` 정규 데이터 계약
 
@@ -228,8 +228,12 @@ void ShowEffectClientRpc(Vector3 position) {
 
 - `MapVersion`(`int`, 초기값 `1`), 64-bit root seed, 맵 유형
 - 너비 11, 높이 21, FlatTop orientation
-- 중립 광산 수, 테스트 모드 표식(고정폭 0/1), 실제 초기 골드
+- 중립 광산 수, 실제 초기 골드
 - 최종 해시
+
+> 🔴 **2026-09-14 — 이 목록에서 「테스트 모드 표식(고정폭 0/1)」이 제거됐다 (사용자 확정).** 제거 조항과 근거의 단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 3 의 개정 블록이다.
+> 🔴 **이것은 canonical 바이트 형식의 변경이다** — 고정폭 정수 하나가 상위 필드에서 빠지므로 **그 뒤의 모든 바이트가 앞당겨지고 SHA-256 결과도 전부 달라진다.** 따라서 **`MapVersion` 을 `1` → `2` 로 올리고**, 옛 형식으로 저장된 폴백 템플릿 바이너리 5개를 재생성하며, **옛 형식 기준으로 끝난 전송 실기 검증을 다시 수행해야 한다.**
+> ⚠️ **이 개정 시점에는 코드가 아직 옛 형식이다** — 규칙·설계 문서를 먼저 고치는 단계이며, 코드 제거와 버전 상향은 `_Tasks/2026-09-14/12_17_rematch-map-selection/Plan.md` 의 T2 다. 그래서 아래 「전송 package」 절의 지원 값 표기는 이번에 바꾸지 않았다.
 
 **타일 배열:**
 
@@ -301,7 +305,7 @@ canonicalBytes
 sha256Digest[32]
 ```
 
-package header의 `mapVersion`은 preflight decoder 선택용이며 canonical `MapDefinition.MapVersion`과 일치해야 한다. 현재 지원 값은 `1`이다. 값이 다르거나 미지원이면 canonical bytes를 deserialize하지 않고 map preparation을 실패 처리한다. 이 값은 앱/접속 호환성 판정에 사용하지 않는다. SHA-256의 입력은 canonical bytes만이다.
+package header의 `mapVersion`은 preflight decoder 선택용이며 canonical `MapDefinition.MapVersion`과 일치해야 한다. 현재 지원 값은 `1`이다. 🔴 **2026-09-14 — 이 줄은 「초기값」이 아니라 「현재 값」을 적고 있으므로 형식이 바뀌면 거짓이 된다. 테스트 모드 표식이 canonical 바이트열에서 빠지는 커밋(`_Tasks/2026-09-14/12_17_rematch-map-selection/Plan.md` T2)에서 `2` 로 함께 고친다 — 지금은 코드가 아직 `1` 이므로 값을 미리 바꾸지 않는다.** 값이 다르거나 미지원이면 canonical bytes를 deserialize하지 않고 map preparation을 실패 처리한다. 이 값은 앱/접속 호환성 판정에 사용하지 않는다. SHA-256의 입력은 canonical bytes만이다.
 
 **`NetworkMapTransfer` 전송 프로토콜:**
 
@@ -391,7 +395,7 @@ generator와 validator의 도메인 코드는 `UnityEngine` object, scene object
 
 재시도마다 각 도메인 seed와 attempt index를 다시 파생해 `Attempt-0`~`Attempt-99`의 독립 PRNG 상태를 만든다. 즉 하나의 긴 PRNG 상태를 모든 서브시스템과 attempt가 공유하지 않는다.
 
-`InitialGold`는 PRNG 입력이 아니다. 정상 모드에서는 `NeutralMineCount`의 순수 lookup 결과이고, 테스트 모드에서는 `TestStartingGold(5000)`이다. 선택된 `MapType`, `NeutralMineCount`, `StartingMineSide`, `MapTestModeEnabled` 표식, 실제 `InitialGold`는 **attempt 0~99 구간에서 불변인 경기 선택값**이다. **폴백 경로는 이 구간 밖이며, 그 경로에서 어떤 값이 템플릿 값으로 대체되고 어떤 값이 유지되는지는 아래 「deterministic fallback 정의」가 단일 소스다.** attempt는 `Terrain`, 중립 `MinePlacement`, `Decoration`의 세부 결과만 바꿀 수 있다. 검증 실패는 해당 attempt만 폐기하며 `MapSelection`을 다시 실행하지 않는다. 이 경계로 유형·광산 수·A/B별 후보 실패율이 최초 선택 확률을 편향시키는 것을 금지한다.
+`InitialGold`는 PRNG 입력이 아니라 `NeutralMineCount`의 순수 lookup 결과다. 선택된 `MapType`, `NeutralMineCount`, `StartingMineSide`와 실제 `InitialGold`는 **attempt 0~99 구간에서 불변인 경기 선택값**이다. **폴백 경로는 이 구간 밖이며, 그 경로에서 어떤 값이 템플릿 값으로 대체되고 어떤 값이 유지되는지는 아래 「deterministic fallback 정의」가 단일 소스다.** attempt는 `Terrain`, 중립 `MinePlacement`, `Decoration`의 세부 결과만 바꿀 수 있다. 검증 실패는 해당 attempt만 폐기하며 `MapSelection`을 다시 실행하지 않는다. 이 경계로 유형·광산 수·A/B별 후보 실패율이 최초 선택 확률을 편향시키는 것을 금지한다.
 
 ```text
 domainSeed  = Derive(mapVersion, rootSeed, fixedDomainId)
@@ -508,7 +512,7 @@ StaticTraversable = TileKind != Blocked
 - 템플릿 데이터는 **윗절반(높이 단계 1~20)과 중앙선(단계 21)만 지정**하고, 아랫절반은 `SymmetricMapBuilder`의 참 180도 회전으로 복제한다.
 - 최초 구현은 장식 없음(`DecorationDefinition` count 0). 에셋·테마 확정 뒤에는 유형별 고정 exact 180° symmetric decoration set만 허용
 
-fallback builder는 맵 유형을 키로 위 정의를 조립하며 PRNG draw를 전혀 사용하지 않는다. 같은 유형은 항상 같은 지형과 중립 광산 결과를 만든다. **fallback builder의 입력은 `MapType` 하나뿐이다** — 경기 선택 단계의 `StartingMineSide`·`NeutralMineCount`·`InitialGold`는 이 경로에서 입력으로 쓰이지 않고 **템플릿 값으로 대체된다.** 대체된 값은 canonical `MapDefinition`에 그대로 실려 Client에도 전달되고, 규칙 12의 로그 필수 항목(중립 광산 수·시작 광산 방향·실제 초기 골드·폴백 사용 여부)으로 추적된다. 테스트 모드 표식과 그때의 `InitialGold` 규정은 대체 대상이 아니며, 기획 계약의 단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 12다.
+fallback builder는 맵 유형을 키로 위 정의를 조립하며 PRNG draw를 전혀 사용하지 않는다. 같은 유형은 항상 같은 지형과 중립 광산 결과를 만든다. **fallback builder의 입력은 `MapType` 하나뿐이다** — 경기 선택 단계의 `StartingMineSide`·`NeutralMineCount`·`InitialGold`는 이 경로에서 입력으로 쓰이지 않고 **템플릿 값으로 대체된다.** 대체된 값은 canonical `MapDefinition`에 그대로 실려 Client에도 전달되고, 규칙 12의 로그 필수 항목(중립 광산 수·시작 광산 방향·실제 초기 골드·폴백 사용 여부)으로 추적된다. **대체되지 않는 것은 `MapType` 하나**이며, 기획 계약의 단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 12다. 🔴 **2026-09-14 — 이 문장이 종전에 「대체 대상이 아니다」로 함께 묶고 있던 「테스트 모드 표식과 그때의 `InitialGold` 규정」은 제거됐다**(근거의 단일 소스는 같은 문서 규칙 3 의 개정 블록).
 
 조립 결과는 일반 생성 결과와 동일한 `MapDefinition`이며, **전용 완화 규칙 없이 전체 `MapDefinitionValidator`를 통과해야 한다.** 검증 성공 후에만 canonical binary와 SHA-256 package를 만든다. 폴백이 검증에 실패하면 조용히 사용하지 않고 맵 준비 실패로 처리한다. 빌드·에디터 테스트에서 템플릿 5개를 상시 전수 검증한다.
 
@@ -631,7 +635,7 @@ MiningPost = TileKind != Blocked
 **재경기 맵 흐름:**
 
 1. Game 종료 상태와 결과 화면을 유지하며 팀·종족·그 밖의 매치 설정은 직전 경기 값으로 고정한다.
-2. Host가 새 64-bit root seed를 만들고 맵 관련 값만 새로 준비한다. `MapType`, 허용 `NeutralMineCount`, `StartingMineSide`, 지형 세부 형태, 중립 광산 위치를 다시 선택·생성한다. 이 준비 시점의 Host `MapTestModeEnabled`를 적용해 실제 `InitialGold`를 확정하며 Client 로컬 설정은 사용하지 않는다. 장식 placement 활성화 이후에는 장식도 다시 생성하지만 최초 구현은 빈 목록을 유지한다.
+2. Host가 새 64-bit root seed를 만들고 맵 관련 값만 새로 준비한다. `MapType`, 허용 `NeutralMineCount`, `StartingMineSide`, 지형 세부 형태, 중립 광산 위치를 다시 선택·생성한다. 새로 뽑힌 `NeutralMineCount`에서 실제 `InitialGold`를 확정하며 Client 로컬 설정은 사용하지 않는다. 장식 placement 활성화 이후에는 장식도 다시 생성하지만 최초 구현은 빈 목록을 유지한다.
 3. 기존 current definition은 그대로 보존하고 새 package는 pending 후보로만 둔다.
 4. 공용 `NetworkMapTransfer`가 새 package를 chunk로 전달하고 Client가 길이/버전→SHA-256→deserialize→semantic fairness validator를 통과한 뒤 `MapReady(success=true)`로 ACK한다.
 5. Host도 최종 후보 검증과 양측 준비 상태를 확인한다.
@@ -1661,12 +1665,14 @@ Ring 3: 그 바깥 18타일 (최대 제한, maxRange=3)
 #### GameConfig 경제 설정
 ```csharp
 [Header("Economy")]
-bool MapTestModeEnabled = true;   // 초기 골드 전용 테스트 모드(멀티에서는 Host 권위)
-int TestStartingGold = 5000;      // 테스트 모드의 실제 게임 시작 골드
 float MiningGoldPerSecond = 10f;  // 채굴소 초당 수입
 int BarracksCost = 100;           // 배럭 건설 비용
 int MiningPostCost = 50;          // 채굴소 건설 비용
 ```
+
+> 🔴 **2026-09-14 — 위 블록에서 맵 테스트 모드 필드 2줄을 제거했다** (제거 근거의 단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 3 의 개정 블록).
+> ⚠️ **없어지는 것은 「테스트 모드일 때의 초기 골드」이며, 이 블록이 원래 적지 않고 있던 `Economy` 의 시작 골드 필드는 별개로 그대로 남는다.** 두 값이 **우연히 같아서** 테스트 모드를 켜도 화면이 달라지지 않았고, 그것이 이 기능이 오래 방치된 이유다 — 한쪽이 사라진다고 다른 쪽이 따라 사라진다고 읽지 말 것.
+> ⚠️ **이 회차에는 `.cs` 와 `.asset` 을 한 줄도 바꾸지 않았다** — 설계 문서가 코드보다 앞서 있는 상태이며, 실제 필드 삭제는 `_Tasks/2026-09-14/12_17_rematch-map-selection/Plan.md` 의 T2 다.
 
 ---
 
@@ -1757,6 +1763,7 @@ Build Settings:
 
 | 버전 | 날짜 | 변경 내용 |
 |------|------|-----------|
+| 0.48.0 | 2026-09-14 | **맵 테스트 모드를 설계에서 제거 — `InitialGold` 는 `NeutralMineCount` 하나에서 파생하는 단일 갈래가 됐다 (사용자 확정, 코드·에셋 변경 0줄).** 🔴 **사용자 확정**: *"맵 테스트 모드는 현재 특별히 사용하고 있지 않아서 불필요한 것으로 보인다. 관련 구현 내용 삭제하고 문서도 삭제하면 될 것 같다."* 이 문서에서 고친 자리는 **여덟 곳**이다 — ① 「무작위 맵 시작 동기화」 도입부의 `MapTestModeEnabled=true` 갈래 서술 ② 같은 절 전달 항목의 「테스트 모드 표식(고정폭 0/1)」 ③ 같은 절 마지막 줄의 **「싱글은 로컬 `GameConfig` 의 테스트 모드를 적용 / 멀티는 Host 표식이 권위」**(🔴 **그 두 문장이 가리키던 설정 유래 입력이 표식 하나뿐이었으므로**, 남는 권위 규정인 「Host 가 생성·확정한 `MapDefinition` 이 권위」로 바꿔 적었다 — 실측 근거는 `MapPreparationUseCase.Prepare(ulong rootSeed, bool mapTestModeEnabled)` 의 인자 구성이다) ④ 「`MapDefinition` 정규 데이터 계약」 **상위 필드 목록의 표식**(🔴 **canonical 바이트 형식의 변경이므로 그 자리에 형식·버전·템플릿·재검증의 연쇄를 적은 주를 달았다**) ⑤ 「결정적 PRNG 및 독립 스트림 계약」의 `TestStartingGold(5000)` 갈래와 불변 선택값 목록의 표식 ⑥ 「deterministic fallback 정의」의 *"테스트 모드 표식과 그때의 `InitialGold` 규정은 대체 대상이 아니다"* → **「대체되지 않는 것은 `MapType` 하나」** ⑦ 「재경기 맵 흐름」 2번의 준비 시점 표식 적용 ⑧ 「GameConfig 경제 설정」 코드 블록의 필드 2줄. 🔴 **값을 일부러 바꾸지 않은 자리 2곳을 함께 표시했다** — 「전송 package」의 **`현재 지원 값은 1이다`** 는 「초기값」이 아니라 「현재 값」이라 형식 변경 시 거짓이 되므로 **미리 고치지 않고 T2 에서 함께 고친다는 표시**를 달았고, 3단계 범위 목록의 「테스트 모드 설정 필드」 항목은 **2단계에서 실제로 추가됐던 기록**이라 지우지 않고 삭제 대상 표시만 붙였다. ⚠️ **오해 방지** — 사라지는 것은 테스트 모드의 `TestStartingGold` 이고, `Economy` 의 시작 골드 필드는 **값이 우연히 같을 뿐인 별개 필드로 그대로 남는다.** 그 우연 때문에 테스트 모드를 켜도 화면이 달라지지 않았고 그것이 이 기능이 방치된 이유다. **제거 조항과 근거의 단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 3 의 개정 블록**이며 이 표에 옮겨 적지 않는다. **이 회차는 문서만 바꿨다** — 코드 제거·`MapVersion` 상향·폴백 템플릿 5개 재생성·전송 실기 재검증의 단계 분할은 `_Tasks/2026-09-14/12_17_rematch-map-selection/Plan.md` 의 T1~T4 다. ⚠️ **위 0.43.0 · 0.42.0 등 과거 행은 손대지 않았다** — 그 행들이 적은 테스트 모드 확정은 그 시점에 실제로 확정돼 있던 내용이고, 고치면 이력이 거짓이 된다. |
 | 0.47.0 | 2026-09-14 | **재경기 맵 조건 선택(`RematchMapMode`)을 설계에서 제거 — 재경기는 매 판 새 맵 준비 한 갈래다 (사용자 지시에 따른 개정, 코드 변경 0줄).** ① 「재경기 `MapDefinition` 생명주기」 절에서 **`RematchMapMode.SameMap`/`NewMap` enum · 컨텍스트의 mode 보관 · 상대 팝업의 조건 표시 · 「서로 다른 mode 교차 시 자동 시작 금지」 2개 조항 · `SameMap` 흐름 3단계**를 제거하고 「`NewMap` 흐름」을 **「재경기 맵 흐름」**으로 고쳐 남겼다. ② **흐름 3번(「후보 hash 가 현재 hash 와 같으면 폐기하고 새 root seed 부터 반복」)을 삭제**하고 이후 단계를 4~8 → 3~7 로 당겼다 — canonical byte 선두에 `MapVersion`·`RootSeed` 가 들어가는 구조상 **정상 경로에서는 결코 걸리지 않고 실제로 걸리는 경로는 폴백 템플릿뿐**이며, 폴백 연속 사용은 재시도로 감추지 않고 `MapPreparationUsedFallbackTemplate`(Warn)로 드러내기로 했다. ③ 「복구 상태」의 `NewMap 실패`·`single NewMap 실패` 항목과 `SameMap/NewMap/Lobby actions 재활성화` 를 **「재경기 맵 준비 실패」·「결과 화면의 기존 actions 재활성화」**로 바꿨다(**뜻은 그대로 — 실패 이전 화면으로 되돌린다**). ④ 「`NetworkMapTransfer` 전송 프로토콜」의 `최초 경기와 RematchMapMode.NewMap` → **「최초 경기와 재경기 맵 준비」**. ⑤ 3단계 범위 서술의 `SameMap`/`NewMap` 재경기 → **재경기 맵**(단계 경계 자체는 무변경). ⑥ 싱글 재경기 서술을 **「매 판 새 맵을 준비한다」**로 바꿨다 — **새 사양이 아니라 현재 코드가 이미 하는 동작**이다(`GameEndUI.OnRestartClicked` → `GameBootstrapper.LoadMap` → `MapRootSeed.Create()`, 직접 실측). ⑦ 🔴 **「2필드 구조 폐기」 블록(0.44.0 계열 서술)에는 삭제가 아니라 정정 블록을 덧붙였다** — 해시의 세 용도 중 「`NewMap` 재경기의 동일 맵 판정」만 사라지고 **Host/Client 비교·폴백 유효성은 그대로 남아 그 블록의 결론이 유지**되기 때문이다. **기획·규칙 쪽 단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 14 의 개정 블록**이다. **[문서 머리말 정정]** 이 표는 0.46.0 까지 와 있는데 문서 상단 `**버전:**` 이 **0.43.2** 에 멈춰 있어(0.44.0~0.46.0 세 번의 갱신이 반영되지 않았다) 이번에 0.47.0 으로 맞췄다. **표의 과거 행은 손대지 않았다** — 그 행들이 적은 `NewMap`·`SameMap` 은 당시 실제로 확정돼 있던 내용이다. |
 | 0.46.0 | 2026-09-01 | **접근 지표 절의 이름 통일 + AI 건물 배치 후보 판정의 전환 요구 등재 (코드 변경 0줄).** ① 「`MapDefinitionValidator` access metric」 절 도입부에서 **같은 절이 정의한 식별자를 다른 영문 어구로 부르던 표기 2곳**(성 쪽 1회 · 광산 덩어리 쪽 1회)을 정의된 이름 `StaticTraversable` 로 맞췄다. 같은 절의 인용 블록은 이미 그 이름을 쓰고 있어 **한 절 안에서 표기가 갈려** 있었다 — 0.45.0 의 ④·⑤·⑭ 와 같은 부류이며, 그때 우리말 표기만 정리하고 영문 어구 쪽이 남았던 자리다. ② 「기존 코드 전환 요구」 목록에 **`AIOpponentController.FindPlacementTile()` 의 배치 후보 판정을 이동 판정에서 「일반 건설」 조건으로 교체한다**는 항목을 추가했다(대상 파일 경로 · 현재 판정 위치 · **같은 파일의 XML 주석도 함께 옮긴다**는 조건을 함께 적었다). 🔴 **이것은 사양 변경이지만 오늘 `.cs` 는 한 줄도 바꾸지 않았다** — 새 조건이 읽어야 할 타일 상태 축이 아직 코드에 없어, `TileKind` 도입(= 무작위 맵 구현)과 **같은 시점에** 전환한다. **지금 등재해 두지 않으면 그때 이 파일이 누락된다**는 것이 이 항목의 존재 이유다. 기획 계약 쪽은 같은 회차에 `GameSystemRules/GameSystemRules_AI.md` 규칙 26 을 함께 고쳤다(후보 조건 교체 · 「후보가 거부돼도 탐색을 멈추지 않는다」 명시 · 전환 예정 표시). 이 어긋남은 **건설 불가 구역을 두는 맵 유형에서만 발현하며 그것은 5종 중 3종**이다(단일 소스는 `GameSystemRules/GameSystemRules_RandomMap.md` 3장과 규칙 9). 근거는 `_Tasks/2026-09-01/07_07_map-docs-out-of-scope-findings/`. **[같은 날 추가]** ③ **싱글플레이 맵 준비 「최초 경기」 실패 UI 의 팝업 타입을 모달 (Modal) 로 확정했다 — 이것은 표기 교정이 아니라 없던 사양을 새로 정한 결정이다.** 종전에는 `GameSystemRules/GameSystemRules_UI.md` 규칙 M-4 · 같은 문서의 반투명 배경 오버레이 모드 목록 · 이 문서 「복구 상태」 절 **어디에도 이 UI 의 타입 규정이 없었다**(2026-09-01 실측). 근거는 멀티 최초 실패를 모달로 정한 것과 같다 — **로딩 UI 가 이미 닫힌 뒤이고 `Retry`/`Lobby` 중 하나를 반드시 골라야 하는 자리**라, 배경 탭으로 닫히면 아무 선택지도 없는 화면에 남는다(타입별 동작 차이의 단일 소스는 `GameSystemRules/GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 9). 🔴 **세 문서에 함께 반영했다** — 규칙 M-4 첫 불릿 · `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 16 실패 복구 절 · 이 문서 「복구 상태」 절. 멀티 최초 실패가 이미 그 세 곳 모두에 타입을 적고 있어, **한 곳만 적으면 같은 종류의 UI 인데 어떤 것은 세 곳 어떤 것은 한 곳이 되는 반쪽 상태**가 새로 생긴다. 이 항목도 **코드 변경 0줄**이다(맵 준비 실패 UI 는 무작위 맵 미구현으로 코드에 0건). **재경기 실패 쪽(멀티 `NewMap` · 싱글 재경기)은 팝업인지 결과 화면 그 자체인지 세 문서 모두 불명확해 추정하지 않고 그대로 두었다**(CLAUDE.md 규칙 10). **[같은 날 추가 2]** ④ **이 문서에서 바뀐 것은 「복구 상태」 절에 넣은 미정 항목 포인터 한 줄뿐이며, 복구 사양 본문은 한 줄도 바뀌지 않았다.** 같은 날 ③이 「그대로 두었다」고 적은 미결 항목들을 **대화가 아니라 문서에 못 박았는데**, 미정 표시 자체는 그 UI 들의 단일 소스인 `GameSystemRules/GameSystemRules_UI.md` 규칙 M-3·M-4 **한 곳에만** 달았다 — 세 문서에 같은 표시를 두면 그것이 또 사본이 되어 한 곳만 갱신되는 반쪽 상태를 새로 만든다. 다만 이 문서의 「복구 상태」 절만 읽는 사람에게는 **미정이라는 사실 자체가 닿지 않으므로**, 내용은 옮기지 않고 **어디를 보라는 포인터 한 줄만** 넣었다(같은 이유로 `GameSystemRules/GameSystemRules_RandomMap.md` 규칙 16 실패 복구 절에도 같은 포인터 한 줄을 넣었다). **[2026-09-01 정정]** 위 ③ 이 실패 복구 절의 소속을 「규칙 13」으로 적었으나 그 절은 규칙 16(멀티플레이 맵 전송과 실패 복구) 아래에 있고 규칙 13 은 「생성 완료 검증」이므로, 서술이 아니라 **잘못된 포인터**를 바로잡는 것이라 판단해 그 한 자리를 규칙 16 으로 정정했다(새 이력 항목은 만들지 않았다). |
 | 0.45.0 | 2026-08-31 | **무작위 맵 계약의 모호성 해소 + 맵 문서 전문 통독으로 찾은 정합 교정 (구현 착수 전 계약 교정, 코드 변경 0줄).** ① **봉쇄된 광산 덩어리 판정 신설** — 광산끼리 인접한 군집을 허용하므로 접근 칸이 하나도 없는 광산이 실제로 생길 수 있는데 그때의 판정이 없었다. **서로 인접한 광산을 「광산 덩어리」로 묶어 덩어리 단위로 접근 칸·접근 거리·도달 가능성을 판정**하고, **접근 칸이 하나도 없는 덩어리가 하나라도 있으면 판 전체를 버린다.** 근거는 채굴소가 인접 6타일 전부를 자기 팀 소유로 만들어 덩어리 안에서 연쇄 건설이 된다는 코드 실측(`BuildingPlacementUseCase.PlaceMiningPost`·`PlaceBuildingInternal`). 회전이 덩어리를 덩어리로 옮기므로 대응쌍 교차 등식과 중앙 단독 광산 등식은 그대로 성립한다. 보편 공정성 문서인 `GameSystemRules/GameSystemRules_Map.md` 규칙 4 에도 **덩어리 단위로 도착 칸을 잡는다는 원칙 한 줄과 단일 소스 포인터**를 병기했다 — 그 문서만 읽는 사람에게는 덩어리 판정이 도달하지 않아, 두 문서의 서술이 문자 그대로는 어긋나 보였기 때문이다(같은 줄의 접근 거리 단위 표기도 규칙 문서 용어집이 정한 정식 표현으로 맞췄다). ② 규칙 문서의 영문 용어를 우리말로 정리(`attempt` → 「시도」, `rejection sampling` 뜻 병기). **코드 계약 문서인 이 문서의 영문 식별자는 손대지 않았다.** ③ 로그 「생성 소요 시간」의 **측정 구간을 확정** — seed 확정 직후부터 최종 맵 확정(검증 통과 또는 폴백 확정)까지의 누적 경과 시간 하나만 밀리초로 기록하며, 전송·해시 비교·씬 로드는 제외한다(규칙 16 범위). ④ **회전 연산의 이름 분리** — 좌표 변환은 `RotateCoord(p)`, 타일 상태 변환은 `RotateState(state)` 로 나눴다. 종전에는 **한 이름**이 입력도 하는 일도 다른 두 연산을 가리켜 사람이 구분할 수 없었다(2026-08-26 교정의 원인과 같은 부류). 코드에는 아직 이 이름이 없어 문서만 교체했으며, 폐기한 옛 이름은 규칙 문서 7장 용어 정의 「180도 회전」의 `_Avoid_` 행 한 곳에만 남겼다. 이 문서 「`MapDefinitionValidator` access metric」 절에서 같은 좌표 회전을 축약 표기로 적던 자리도 좌표용 이름으로 통일했다 — 한 문서 안에서 같은 연산이 두 이름을 갖는 것은 이번 교정이 없애려던 것과 같은 모양이다. ⑤ **`Hexiege.Application` 과 `UnityEngine.Application` 의 이름 충돌을 아키텍처 절에 명문화** — 종전에는 `FileSink.cs` 헤더 주석에만 있어 문서를 읽는 사람에게 도달하지 않았다. **개명하지 않고 완전 수식으로 회피하는 현행 방식을 유지**하기로 결정(현재 정상 동작 중 · 개명은 135곳 이상을 건드리는 코드 리팩터)하고 후속 판단 대기 항목으로 남겼다. 실측(2026-08-31): 선언 58파일 · `using` 77곳 · `UnityEngine.Application.` 완전 수식 24곳/9파일. ⑥ **접근 거리 개념의 용어를 「칸」 계열로 통일** — 성 접근 칸 · 광산 덩어리 · 광산 덩어리 접근 칸 · 접근 거리 넷이다. 이 문서 「`MapDefinitionValidator` access metric」 절의 우리말 서술도 같은 이름으로 맞췄다(**영문 코드 식별자는 손대지 않았다**). 종전 표기는 이 맵 문서가 이미 타일을 「칸」이라 부르는 것과 어긋났고, 덩어리 판정 도입으로 이어지지 않은 칸들의 모음이 될 수 있어 정확하지도 않았다. 폐기한 표기는 규칙 문서 7장 용어 정의 「접근 거리」의 `_Avoid_` 행 한 곳에만 남겼다. ⑦ **폴백 경로에서 경기 선택값이 그대로 유지된다고 읽히던 서술 2곳을 시도 0~99 구간 한정으로 좁혔다**(「무작위 맵 시작 동기화」 도입부 · 「결정적 PRNG 및 독립 스트림 계약」). 폴백은 광산 수·시작 광산 방향·실제 초기 골드를 템플릿 값으로 대체하므로 종전 서술은 같은 문서 「deterministic fallback 정의」와 문자 그대로 어긋나 있었다. 상세는 그 절을 가리키게 했다. ⑧ **access metric 도입부의 판정 단위를 광산 하나 → 광산 덩어리로 맞췄다** — 같은 절 아래에 덩어리 규정이 이미 있는데 도입부만 옛 단위였다. ⑨ **`MiningPost` 판정식에 `TileKind != Blocked` 를 추가** — 바로 아래 산문이 막힌 타일의 채굴소 건설을 금지하는데 판정식이 막지 않아, 이 절의 목적(판정식을 그대로 코드로 옮긴다)에 어긋났다. ⑩ **타일 표기를 코드 계약 형식으로 통일** — 「`HexGridRenderer`와 입력 표현」 절의 접두 없는 표기를 `TileKind.Normal`·`TileKind.NoBuild`·`TileKind.Blocked` 로 바꿨다. ⑪ **「deterministic fallback 정의」의 유형별 최대 광산 수·초기 골드 값에 단일 소스 경고를 달았다** — 구현자가 손에 들고 있어야 하는 값이라 남기되, 값이 바뀌면 규칙 문서를 먼저 고치고 이 절을 맞춘다(「archetype generator 알고리즘」 절과 같은 방식). ⑫ **규칙 문서 인덱스 `GameSystemRules.md` 「맵 관련 작업」 절 3건** — 이 인덱스는 그동안 맵 문서 교정 대상에서 빠져 있었다. ⓐ 접근거리 개념을 구역을 뜻하는 낱말로 적던 표기를 규칙 문서 용어집이 정한 「칸」 계열로 맞추고 재는 단위가 광산 덩어리임을 병기했다. ⓑ 맵 유형 개수를 인덱스에 옮겨 적던 사본을 없애고 `GameSystemRules_RandomMap.md` 3장을 단일 소스로 가리키게 했다. ⓒ 폴백이 경기 선택값을 그대로 쓴다고 읽히던 서술을 유형별 고정 템플릿 폴백으로 바로잡고 교체 규정의 단일 소스를 규칙 12로 가리키게 했다 — 같은 취지의 서술을 고친 다섯 번째 자리이며, 인덱스라 상세 규정은 옮겨 적지 않고 포인터만 뒀다. ⑬ **접두 없는 타일 상태 표기를 5곳 전부 `TileKind.` 접두형으로 통일** — ⑩에서 한 절만 고치는 바람에 **굵은 소제목과 그 본문이 서로 다른 표기로 갈려** 있었다. 이번에 「중립 광산 canonical orbit sampling」 1곳, 「`HexGridRenderer`와 입력 표현」 2곳(소제목 포함), 「`GridInteractionUseCase` 클릭 판정 순서」 2곳을 맞췄다. **개수를 못 박은 지시가 남긴 갈라짐이라, 이런 통일 작업은 절 단위가 아니라 문서 단위로 훑는다.** ⑭ **「`MapDefinitionValidator` access metric」 절의 성 접근 칸 표기를 우리말 정식 용어로 통일** — 한 문장 안에서 앞은 새 용어, 뒤는 옛 영문 표기로 갈려 있었다. 그 옛 표기는 규칙 문서 7장 용어 정의 「접근 거리」의 `_Avoid_` 행이 이미 금지한 것과 같은 부류다(**영문 코드 식별자 `Castle`·`StaticTraversable` 등은 손대지 않았다**). ⑮ **`GameSystemRules/GameSystemRules_AI.md` 「채굴소(MiningPost) 배치 — 병행 트랙」에 전환 예정 표시를 달았다** — 그 절의 광산 타일 조회 API 표기는 **폐기된 것이 아니라 현재 코드 그대로이며(2026-09-01 `.cs` 실측: 도메인 타일 정의·부트스트랩 대입·렌더러 사용 모두 살아 있음) 지금은 정확하다.** 그래서 **표기를 바꾸지 않고**, 무작위 맵을 구현하면 `MineKind` 기반 조회로 옮겨 간다는 사실과 그 단일 소스(이 문서 「기존 코드 전환 요구」)만 병기했다. 미리 바꿨다면 문서가 현재 코드와 어긋났을 것이다. ⑯ **`GameSystemRules/GameSystemRules_Units.md` 규칙 45 의 유닛 상태 이름을 `PathBlocked` 로 나눴다** — 아군 건물에 길이 막힌 **유닛의 상태**가 **타일의 상태**와 구분되지 않는 이름이어서 읽는 사람이 둘을 가려낼 수 없었다. ④의 회전 연산 이름 분리와 같은 부류다. 코드에 이 낱말 단위의 식별자가 0건임을 `.cs` 전수 실측으로 확인한 뒤 개명했으므로 **코드와 어긋나지 않는다**(규칙 45 자체가 미구현이다). ⑰ **`GameSystemRules/GameSystemRules_UI.md` 를 전문 통독해 맵 계약 접점(맵 준비 실패 UI 규칙 M-1~M-4 · 「무작위 맵 타일 선택과 건설 패널」 규칙 5~8)을 대조한 결과 어긋난 곳은 없어 고치지 않았다.** 통독에서 새로 드러난 것은 별도 보고 항목으로 남겼다. ⑱ **앞 항목들의 개명·표기 통일이 닿지 않은 자리 3곳을 마저 맞췄다** — ⑯의 유닛 상태 개명이 기획서 `GameDesignDocument.md` 에는 반영되지 않아 두 문서가 다른 이름을 쓰던 자리를 우리말 서술 + 정식 이름의 단일 소스 포인터로 정리했고, ⑬의 접두 통일에서 빠져 있던 「archetype generator 알고리즘」 절 `OuterGenerator` 항목의 타일 상태 표기를 형제 생성기 3개와 같은 접두형으로 맞췄으며, ⑫ⓑ에서 없앤 맵 유형 개수 사본이 `GameSystemRules.md` 「파일 목록」 표에는 다른 절이라 그대로 남아 있어 개수를 적지 않고 규칙 문서 3장을 가리키는 형태로 바꿨다. |

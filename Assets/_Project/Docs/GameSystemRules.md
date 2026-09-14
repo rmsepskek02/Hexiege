@@ -53,7 +53,7 @@
 → [GameSystemRules_RandomMap.md](GameSystemRules/GameSystemRules_RandomMap.md)
 - FlatTop 11×21, 맵 유형 동일 확률 선택 — 유형 목록과 개수의 단일 소스는 `GameSystemRules_RandomMap.md` 3장
 - 유형별 지형·통로·중립 광산 수·건설 불가 구역
-- 초기 골드는 두 갈래로 갈린다 — 정상 모드는 중립 광산 수에서 파생하고, 명시적 테스트 모드는 광산 수와 무관한 고정값이다. 두 갈래의 값과 조건의 단일 소스는 `GameSystemRules_RandomMap.md` 규칙 3
+- 초기 골드는 **중립 광산 수 하나에서** 파생한다 — 광산 수별 값의 단일 소스는 `GameSystemRules_RandomMap.md` 규칙 3. 🔴 **2026-09-14 개정으로 「맵 테스트 모드」 갈래가 제거돼 갈래는 하나뿐이다**(제거 조항과 근거의 단일 소스는 같은 문서 규칙 3 의 개정 블록)
 - 시작 공간 10타일
 - 결정적 seed, 최대 100회 재시도, 유형별 고정 템플릿 폴백과 생성 로그 — 폴백에서 어느 값이 템플릿 값으로 교체되는지의 단일 소스는 `GameSystemRules_RandomMap.md` 규칙 12
 

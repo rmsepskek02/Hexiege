@@ -1487,3 +1487,104 @@ That is not the same as the user choosing it.
   so it is written this way — reversing it is free until stage T1 starts."*
 - Pin **where the reversal stops being cheap** (here: the commit that changes the byte format). A silence-
   derived decision needs an explicit, dated exit, or it hardens into a claim the user never made.
+
+---
+
+## 21. Deleting a whole **feature** from the rule documents, not a clause (2026-09-14, rematch-map round 6 / stage T1)
+
+§19 removed six clauses of one rule. This round removed **a feature** — the map test mode — from five rules
+in one document plus the rules index, the GDD and the TDD. The instruction was explicit: *read all five
+documents end to end, list every site in one pass, and do not come back later with "I found another one."*
+Seven things generalise, and the first two are the ones a grep would never have produced.
+
+### 21-1. 🔴 The hard half is prose that **depends on the feature without naming it**
+
+Grep for the feature name (`MapTestModeEnabled` · 「테스트 모드」 · `5000`) found 11 sites in the rule
+document. The read-through found **two more classes that carry no such word**:
+
+- **An authority clause whose only referent was the deleted field.** 규칙 3 said *"싱글플레이는 로컬
+  `GameConfig`가 권위다. 멀티플레이는 Host의 `GameConfig`만 권위이며 Client의 로컬 설정은 무시한다."*
+  Nothing in it names the test mode. **The way to decide it is to read the function signature**:
+  `MapPreparationUseCase.Prepare(ulong rootSeed, bool mapTestModeEnabled)` — the *only* config-derived
+  input is the flag. Remove the flag and the sentence has no referent left.
+  → **Do not delete such a sentence; re-aim it.** What actually survives is 「Client 가 자기 로컬 설정으로
+  덮어쓰지 않는다」 and 「Host 가 생성·확정한 `MapDefinition` 이 권위」. Both were kept, re-worded.
+  Same shape in the GDD and the TDD, one site each.
+- **A "current value" statement that the deletion's cascade will falsify.** See 21-2.
+
+> **Generalisable test:** for each sentence near the feature, ask **「이 문장이 가리키는 값이 무엇인가, 그
+> 값이 사라져도 문장이 가리킬 것이 남는가」.** A sentence whose referent count drops to zero is a site even
+> though it contains none of your search terms. Decide it by reading the **code's input list**, not the prose.
+
+### 21-2. 🔴 「초기값 N」 and 「현재 지원 값은 N이다」 are different sentences — only one survives a bump
+
+The deletion removes a field from the canonical byte stream, so `MapVersion` goes `1` → `2` in a later stage.
+The handoff supplied a safe-list of four sites, all of the form 「초기값 `1`」 — true after the bump, so
+nothing to do. **The read-through found a fifth the safe-list did not cover**: the transfer-package section
+says **「현재 지원 값은 `1`이다」**. That one goes false the moment the code changes.
+
+- **Grep for the modifier, not the number.** `초기값` vs `현재`/`지원 값`/`현행` around the same constant.
+- In a **docs-before-code** stage the two get **opposite treatments in the same commit**: the clauses being
+  deleted go now, the value stays and gets a **stage marker** naming the commit that will change it
+  (*"코드가 아직 `1` 이므로 값을 미리 바꾸지 않는다"*). That is §6's "do not rename ahead of the code"
+  applied inside a single round — **say in the document which half is which and why**, or the next reader
+  reads the untouched number as an oversight.
+
+### 21-3. The removal-record block is one table, and its hardest row is the one that **loses a referent**
+
+Same shape as §19-3 (blockquote under the defining rule, 자리 → 제거한 조항 → 근거, everything else points
+at it). Two additions this round:
+
+- The 자리 column names **the rule and the sub-section** (`규칙 3 — 권위`, `규칙 3 — 직렬화`), because one
+  rule contributed six of the eleven rows and 「규칙 3」 alone would not locate them.
+- The row for the authority clause carries the **measurement** that justified re-aiming rather than
+  deleting (the `Prepare(...)` signature). A row that only says 「대상이 없어졌다」 invites the next round
+  to restore it.
+- A ✅ **바뀌지 않는 것** line closes the block (표 값 · 폴백 교체 규정 · 전송 규정 · 검증 6번). Without it
+  a reader of an eleven-row deletion table assumes the rule was gutted.
+
+### 21-4. A deletion that changes a **serialized format** needs the cascade written where the format lives
+
+§17-3 identified the cascade (canonical field → version bump → regenerate binaries → **a closed verification
+becomes void**). This round put it in **two** places and nowhere else: the rule document's removal block, and
+the TDD's 「상위 필드」 list — i.e. **at the two spots that actually define the byte layout.** Every other
+site points at the rule block. Copying the cascade into the GDD would have put a byte-format argument into a
+design document.
+
+### 21-5. 🔴 Two coincidentally equal values bite again — this time at **deletion** time
+
+§17-2 recorded that `Economy.StartingGold` = 5000 and `TestStartingGold` = 5000 are different fields whose
+values happen to match, and that the coincidence hides the test mode's effect. **Deleting one of them creates
+the mirror-image misreading**: a reader of the edited `GameConfig` code block sees the 5000 lines gone and
+concludes the starting gold itself was deleted.
+
+- So the edit is **not finished when the lines are gone** — attach one sentence saying **which value stays
+  and that the two were only coincidentally equal**. Put it under the block, not inside it (the block is a
+  code excerpt).
+- Generalisation: **when you delete one of two look-alike values, the deletion note must name the survivor.**
+
+### 21-6. Handed-over site list: right where it went, **short in a second document** (§20-7, second sighting)
+
+| 출처 | 인계값 | 실측 |
+|---|---|---|
+| 규칙 문서 | 규칙 3 · 12 · 13 · 14 · 16 | **일치** (5개 전부) |
+| `GameSystemRules.md` | `:56` | **일치** |
+| `GameDesignDocument.md` | `:108` · `:626` · `:636` | **`:109` 가 빠져 있었다** (권위 줄 — 21-1의 부류) |
+| `TechnicalDesignDocument.md` | `:221` · `:231` · `:394` · `:634` · `:1664~1665` (5자리) | **8자리** — `:205`(단계 범위 목록의 「테스트 모드 설정 필드」) · `:212` · `:511`(fallback 절의 「대체 대상이 아니다」) 이 빠져 있었다 |
+| `GameSystemRules_UI.md` | 「통독으로 확인」 | **0건** — 고칠 자리가 없다는 것이 결과다 |
+
+- **「0건이었다」도 결과로 보고한다.** 통독을 요구받은 문서에서 아무것도 안 고쳤으면, 그것이 누락인지
+  실제 0건인지 보고가 말해 주어야 한다.
+- The two TDD misses share a shape: **they are not spec sentences.** One is a *phase scope list*, the other a
+  *"what is NOT replaced" clause*. Neither reads like a definition, so a site-list built from definitions
+  misses both. **Sweep the document for the feature as an item in a list, not only as a rule.**
+
+### 21-7. A scope list of a **finished** phase is a record — mark it, never delete the item
+
+`TechnicalDesignDocument.md` 「무작위 맵 시작 동기화」 lists what 2단계 covered, and 「테스트 모드 설정 필드」
+is one item. 2단계 is complete, so **the item is true as history**: the field really was added there.
+
+- Deleting it falsifies the record; leaving it bare makes a reader hunt for a field that is going away.
+- → **Keep the item, append a marker** saying it became a deletion target and pointing at the removal block,
+  with the reason spelled out (*"2단계에서 실제로 추가됐던 것은 사실이므로 목록에서 지우지 않는다"*).
+- Same judgement as §19-4's rule for 개정 이력 rows, extended to **any list that records a past scope**.
