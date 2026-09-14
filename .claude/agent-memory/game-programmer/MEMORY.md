@@ -13,6 +13,9 @@
   전역 로그 훅(4겹 방어 + 스로틀). **로그 관련 작업은 여기부터 읽는다.**
 - [network-infra.md](network-infra.md) — NGO 컨트롤러 구조, 스폰 레이스, **종료(Shutdown) 시점 뒷정리 관례 +
   `_combatStopped`(게임 종료 후 서버 틱 정지) 패턴**, UGS/동기화/팀 할당/승패 Phase 1~8 상세.
+  **무작위 맵 3단계 B: `NetworkMapTransfer` 골격 · 순수 C# `MapChunkAssembler`(실행 검증 완료) ·
+  조각 크기 「잠정값」 표기 관례 · 프리팹 미생성(사용자 Unity 작업 대기) · `DefaultNetworkPrefabs.asset`
+  이 두 벌이고 씬이 쓰는 것은 `Resources/Config` 쪽이다.**
   **네트워크 작업은 여기부터 읽는다.**
 
 ### 시스템별 (2026-06-23 재구성)
@@ -92,6 +95,11 @@
   **[🔴 2026-09-08 correction — original line kept above]** The count is now **41**: the random-map
   phase-2 step K added four map keys (`MapPreparationSucceeded` · `MapPreparationUsedFallbackTemplate` ·
   `MapPreparationFailed` · `MapProjectionFailed`). Details → [logging.md](logging.md).
+  **[🔴 2026-09-14 correction — both lines above kept]** The count is now **46**: random-map phase-3
+  step E added five transfer keys (`MapTransferSucceeded` · `MapTransferRetried` · `MapTransferFailed` ·
+  `MapHashMismatch` · `MapClientVerificationFailed`). 🔴 Four of them are mutually exclusive outcomes,
+  but `MapTransferRetried` is **not an outcome** — it is an intermediate state transition, so one match
+  can legitimately emit two lines. Details → [logging.md](logging.md).
 
 ## NGO(Netcode) 관용구
 

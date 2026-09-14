@@ -208,3 +208,69 @@ type: project
 - 재경기 경로: `NetworkGameEndController.StartRematch`(432~481행)는 동적 NetworkObject 만 명시 Despawn 하고
   씬 오브젝트(`IsSceneObject==true`)는 건드리지 않은 채 `SceneManager.LoadScene("Game", Single)` 로 맡긴다.
   NGO 가 인스턴스를 재사용하든 새로 만들든 **어느 쪽이어도 안전한 형태**를 택한 것.
+
+---
+
+## 무작위 맵 3단계 B — `NetworkMapTransfer` 골격 (2026-09-14, 동작 무변경)
+
+**이 커밋으로 게임 동작은 한 줄도 바뀌지 않는다.** 신설 2파일은 **호출부 0건**이다.
+
+| 파일 | 성격 | 검증 수단 |
+|---|---|---|
+| `Infrastructure/Network/MapChunkAssembler.cs` (369행) | 🔴 **일부러 순수 C#** — `using System;` 하나뿐 | **`mcs`/`mono` 로 실제 실행됨** |
+| `Infrastructure/Network/NetworkMapTransfer.cs` (536행) | `NetworkBehaviour` | **컴파일 검증 불가 — Unity 에서만** |
+
+### 🔴 왜 재조립기를 `NetworkBehaviour` 밖으로 뺐는가 (이 패턴을 다시 쓸 것)
+
+실전에서 맵 canonical 바이트는 323~343바이트라 **조각이 거의 항상 1개**다. 즉 조각 여러 개·중복·역순
+경로는 **실전에서 한 번도 안 도는 코드**가 된다. 그런 코드일수록 최소 한 번은 실제로 돌아 봐야 한다.
+Unity 타입을 하나라도 쓰면 이 환경에서 컴파일조차 안 되므로, **계산만 하는 부분을 순수 C# 으로 분리**하면
+`mcs`/`mono` 로 입력을 만들어 돌려 볼 수 있다. 2026-09-14 에 6가지 입력 + 경계값으로 **79 assert 전부 통과**했다
+(조각 1개 / 여러 개 / 중복 / 역순 / 하나 빠짐 / 길이 불일치, 그리고 매 `Accept` 직후 **부분 데이터 미유출** 확인).
+→ ⚠️ **`MapChunkAssembler.cs` 에 `using UnityEngine;` · `using Unity.Netcode;` · `GameLog` 을 넣지 마라.**
+  넣는 순간 이 검증 수단이 통째로 사라진다(파일 머리말에도 못 박아 두었다).
+
+### 재조립기 계약 (규칙 16 「부분 데이터 사용 금지」를 API 모양으로 강제)
+
+- **완성 전에 바이트를 꺼낼 수 있는 API 가 아예 없다.** `TryGetAssembled` 는 미완성이면 `false` + `null`.
+  "지금까지 받은 것만이라도" 류의 접근자·내부 버퍼 노출 프로퍼티를 **추가하지 마라.**
+- `IsComplete` 는 **조각 수와 바이트 합계를 둘 다** 본다(규칙 16 "선언된 크기와 일치한 뒤에야").
+- `Accept` 의 검사 순서는 **범위 → null/빈 → 길이 → 중복**. 길이를 중복보다 **앞**에 두는 것이 의도다 —
+  뒤에 두면 "이미 받은 자리에 길이가 이상한 조각이 왔다"가 그냥 중복으로 삼켜져 이상 징후가 사라진다.
+- 중복 조각의 **내용은 비교하지 않는다.** 먼저 온 것을 남긴다(어긋나면 어차피 해시 대조에서 걸린다).
+- 넘겨받은 배열을 **반드시 복사**한다(NGO 버퍼는 재사용될 수 있다). 꺼낼 때도 복사본을 준다.
+
+### `NetworkMapTransfer` — 이번 몫과 F 이후 몫의 경계
+
+- **B 에 있는 것**: 스폰/디스폰 수명, `MapTransferState` 6상태 + `SetState` 전이 로그(같은 값이면 무시 —
+  금지 8), `_activeNonce`(회차 번호), RPC 3종, 조각 분할·재조립, **더미 바이트 프로브**.
+- **F~I 몫**: 진짜 canonical 바이트 싣기, timeout 10초 감시·1회 재전송, 해시 대조, D 방식 검증,
+  `MapHandoff` 심기, 씬 전환 게이트, **스폰 주체 배선**. 코드에 `[F 단계]`/`[G 단계]`/`[H 단계]` 주석으로 표시.
+- 🔴 **`[ServerRpc(RequireOwnership = false)]` 가 필수다.** 이 객체는 Host 가 스폰하므로 소유자도 Host 다.
+  기본값(소유자만 호출)으로 두면 **정작 답을 보내야 할 Client 가 `MapReadyServerRpc` 를 못 부르고 조용히 막힌다.**
+- 두 `ClientRpc` 의 첫 줄은 서버 되돌림 가드다(host 는 서버이자 클라라 자기 조각을 자기가 모으게 된다).
+  **가드에는 로그를 넣지 않는다**(정상 흐름 + 금지 8).
+- 씬 재로드 생존 조건(A 단계)은 **미확정**이라 `DontDestroyOnLoad` 류를 넣지 않았다.
+
+### 🔴 조각 크기는 아직 「잠정값」이다 — 숫자를 확정한 척하지 마라
+
+규칙 16 이 *"근거 없는 숫자를 근거 없는 다른 숫자로 바꾸지 않기 위해 값은 구현 시 NGO 실측으로 확정"*
+하라고 지시한다. 그래서 코드가 **이름으로** 그 사실을 드러낸다:
+`IsChunkSizeMeasured = false` · `ProvisionalChunkSizeBytes = 1024`(근거 없음을 주석에 명시).
+- 못 잰 두 숫자 = ① NGO RPC 한 번의 **실효** 페이로드 상한 ② **Relay 경유** 실효 MTU.
+  ⚠️ 씬의 `UnityTransport.m_MaxPayloadSize` = **6144 는 설정값이지 실효 상한이 아니다**(헤더·writer 오버헤드).
+  ⚠️ 로컬 127.0.0.1 측정값을 Relay 값으로 삼지 마라.
+- 재는 수단 = `RunTransferProbe(probeBytes, chunkSize)` + 인스펙터 컨텍스트 메뉴. **실전과 같은 RPC 경로**로
+  더미 바이트를 보낸다(프로브 전용 RPC 를 따로 만들면 정작 쓰는 경로를 잰 것이 아니게 된다).
+- `TransferTimeoutSeconds = 10` · `MaxResendCount = 1` 은 **규칙 16 이 정한 값이라 잠정이 아니다**(처리 코드만 F 몫).
+
+### ⚠️ 프리팹은 만들지 않았다 (사용자 Unity 작업 대기)
+
+- `Assets/_Project/Prefabs/Network/` 폴더 자체가 없고, 프로젝트에 **매니저류 `NetworkObject` 프리팹 선례가 0건**이다.
+- 손으로 YAML 을 쓰지 않은 이유 2가지(둘 다 실측): ① `NetworkObject` 의 **`GlobalObjectIdHash`** 는 Unity 가
+  에셋 GlobalObjectId 에서 계산해 직렬화하는 값이라 사람이 채울 수 없다(유닛 프리팹 실측: `2291559221` 등).
+  ② 신설 `.cs` 두 개에 **`.meta` 가 아직 없다** → 스크립트 GUID 가 존재하지 않아 프리팹이 참조할 대상이 없다.
+- 🔴 **`DefaultNetworkPrefabs.asset` 은 두 벌 있다.** `Assets/DefaultNetworkPrefabs.asset`(guid `45609a99…`)와
+  `Assets/_Project/Resources/Config/DefaultNetworkPrefabs.asset`(guid `abb45d5667d7ce049847712da2b871b1`).
+  **씬 두 개(Game·Lobby)의 NetworkManager 가 참조하는 것은 `Resources/Config` 쪽뿐이다**(각각 45430행·7508행).
+  루트 쪽에 등록하면 **아무 효과가 없다.**
