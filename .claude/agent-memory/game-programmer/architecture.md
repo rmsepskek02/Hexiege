@@ -39,6 +39,18 @@ Domain → Application → Core → Infrastructure → Presentation → Bootstra
   규칙 16(전투 씬은 로비에서 확정한 맵만 사용)을 가장 눈에 안 띄는 방식으로 어긴다.
   `_pending` 을 프로퍼티로 노출하지 않는 것도 이 규칙의 샛길을 막기 위해서다.
   ⚠️ `Clear()` 는 **의도적으로 호출자 0건**(폐기 시점 배선은 3단계 F·I 몫) — 죽은 코드로 오해해 지우지 말 것.
+  **[🔴 2026-09-14 correction — 위 문장 원문 유지]** 3단계 I 에서 배선되어 **호출자 2건**이 됐다:
+  `NetworkGameManager.DisconnectAsync` · `NetworkGameManager.BackToLobby`(규칙 14 *"로비 복귀 또는
+  연결 종료 시 폐기"*). 같은 자리에서 `_mapTransferInProgress = false` 도 함께 한다 —
+  안 비우면 다음에 방을 만들어도 "이미 진행 중"으로 판정돼 맵 준비가 시작되지 않는다.
+  또한 **읽는 쪽**도 배선됐다: `GameBootstrapper.ProjectHandedOverMap()`(멀티 전용)이
+  `TryTake` 로 꺼내 `ProjectMap` 만 한다. 비어 있으면 **대체하지 않고 실패 처리**한다.
+- `MapRootSeed` (`Domain/Map/MapRootSeed.cs`, 신설 2026-09-14 — 무작위 맵 3단계 I) —
+  정적 홀더는 아니지만 **같은 이유로 생긴 「한 곳에만 둔다」 자리**다. root seed 를 뽑는 계산이
+  싱글(전투 씬 `GameBootstrapper.CreateRootSeed`)과 멀티 Host(로비 `NetworkGameManager`) **두 곳**에
+  필요해졌는데, 복사하면 한쪽만 고쳐져 조용히 갈라진다. Domain 에 둔 이유는 **가장 안쪽 레이어라
+  Bootstrap 과 Infrastructure 가 둘 다 참조할 수 있기** 때문이다(순수 C#, Unity 미참조 →
+  `mcs`/`mono` 로 실행 검증 가능. 2026-09-14 에 20만 표본 중복 0건 확인).
   ⚠️ 이 홀더 때문에 **`IGameServices` 는 확장하지 않는다**(멤버 15개 유지). Bootstrap 이 읽는 방향이라
   `GetLastMapPreparation()` 을 뚫을 필요가 없다(Plan §5-3).
 

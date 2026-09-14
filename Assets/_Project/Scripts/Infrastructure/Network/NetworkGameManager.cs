@@ -37,6 +37,17 @@ namespace Hexiege.Infrastructure
     public class NetworkGameManager : MonoBehaviour
     {
         // ====================================================================
+        // Inspector 배선 — 무작위 맵 3단계 I
+        // ====================================================================
+
+        [Header("Random Map")]
+        [Tooltip("맵 전송 전용 NetworkObject 프리팹. NetworkObject + NetworkMapTransfer 컴포넌트가 " +
+                 "부착된 프리팹을 연결한다. Host 가 로비에서 이것을 동적 스폰해 맵을 보낸다. " +
+                 "🔴 이 프리팹은 Resources/Config/DefaultNetworkPrefabs.asset 의 네트워크 프리팹 " +
+                 "목록에도 반드시 등록되어 있어야 한다(등록되지 않으면 Spawn 이 실패한다).")]
+        [SerializeField] private GameObject _mapTransferPrefab;
+
+        // ====================================================================
         // 이벤트 — 외부 UI 가 구독하여 상태 갱신에 활용
         // ====================================================================
 
@@ -75,6 +86,18 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public event Action OnServerDisconnected;
 
+        /// <summary>
+        /// [무작위 맵 3단계 I] 맵 준비·전송이 실패해 <b>전투 씬으로 넘어가지 않았다.</b>
+        /// 인자는 진단용 사유 문자열이다.
+        ///
+        /// 🔴 구독자(BattleViewModel)가 반드시 해야 하는 일은 <b>로딩 UI 를 내리는 것</b>이다.
+        ///    안 내리면 화면이 "게임에 접속하는 중..." 에서 영영 멈춘다.
+        /// ⚠️ 실패 팝업·재시도 버튼은 이번 범위가 아니다(계획서 §2-3 · §10).
+        ///    그래서 지금은 "로비로 돌아가 있다"는 것 외의 안내가 플레이어에게 가지 않는다.
+        ///    이것은 결함이 아니라 확정된 범위 결정이다.
+        /// </summary>
+        public event Action<string> OnMapTransferFailed;
+
         // ====================================================================
         // 내부 매니저
         // ====================================================================
@@ -93,6 +116,28 @@ namespace Hexiege.Infrastructure
 
         // 랜덤 매칭 여부 (커스텀게임 재경기 분기용)
         private bool _isRandomMatchmaking;
+
+        // ── 무작위 맵 3단계 I: 씬 전환 게이트 상태 ───────────────────────────
+
+        /// <summary>
+        /// 이번에 스폰한 맵 전송 객체. 결말 구독을 풀 때 필요하다(없으면 null).
+        /// </summary>
+        private NetworkMapTransfer _activeMapTransfer;
+
+        /// <summary>
+        /// 맵 준비·전송이 진행 중인가. 중복 요청으로 전송 객체가 둘이 되는 것을 막는다.
+        /// (접속 콜백이 두 번 울리는 상황이 실제로 있을 수 있다.)
+        /// </summary>
+        private bool _mapTransferInProgress;
+
+        /// <summary>
+        /// 이번 회차의 결말(성공 또는 실패)을 바깥에 이미 알렸는가.
+        ///
+        /// 🔴 <b>"한 번만" 과 "반드시 한 번은" 을 동시에 지키기 위한 깃발이다.</b>
+        ///    실패를 알린 뒤 성공이 뒤따라 오면 <b>실패한 판인데 전투 씬으로 넘어간다</b>
+        ///    (규칙 16 정면 위반). 반대로 아무것도 알리지 않으면 로비가 로딩 화면에서 멈춘다.
+        /// </summary>
+        private bool _mapTransferGateSettled;
 
         // ====================================================================
         // Unity 생명주기
@@ -187,6 +232,9 @@ namespace Hexiege.Infrastructure
 
             StopHeartbeat();
             _matchmakingCts?.Dispose();
+
+            // 무작위 맵 3단계 I: 맵 전송 객체 구독 해제(누수 방지).
+            CleanupMapTransferSubscription();
         }
 
         // ====================================================================
@@ -440,6 +488,15 @@ namespace Hexiege.Infrastructure
 
             // 랜덤 매칭 상태 초기화
             _isRandomMatchmaking = false;
+
+            // 무작위 맵 3단계 I: 진행 중이던 맵 준비 상태도 함께 비운다.
+            //   🔴 안 비우면 _mapTransferInProgress 가 true 로 굳어, 다음에 다시 방을 만들었을 때
+            //      "이미 진행 중"으로 판정되어 맵 준비가 아예 시작되지 않는다(로딩에서 멈춘다).
+            //   확정 맵도 폐기한다 — 규칙 14 *"로비 복귀 또는 연결 종료 시 폐기"*.
+            //   남겨 두면 다음 판에서 **지난 판 맵이 조용히 재사용**될 여지가 생긴다.
+            CleanupMapTransferSubscription();
+            _mapTransferInProgress = false;
+            MapHandoff.Clear();
 
             // Lobby 나가기
             await _lobbyManager.LeaveLobbyAsync();
@@ -760,12 +817,233 @@ namespace Hexiege.Infrastructure
         public bool IsRandomMatchmaking => _isRandomMatchmaking;
 
         // ====================================================================
-        // 씬 전환
+        // 씬 전환 — 🔴 게이트(무작위 맵 3단계 I)
+        //
+        // 여기가 "맵이 준비되기 전에는 전투 씬으로 못 넘어간다"를 실제로 강제하는 자리다.
+        // 종전에는 BattleViewModel 이 두 명이 접속한 순간 LoadGameScene() 을 **직접** 불렀다.
+        // 이제는 이 메서드를 부르고, 씬 로드는 맵 전송이 성공했을 때만 일어난다.
+        //
+        // ⚠️ 게이트의 **주인**은 이 클래스가 아니라 NetworkMapTransfer(Infrastructure)다.
+        //    이 클래스는 NetworkBehaviour 가 아니라(그래서 RPC 를 직접 쓸 수 없다)
+        //    959행짜리 세션 매니저이고 로비 UI 가 직접 참조하므로, NetworkBehaviour 로
+        //    승격하면 초기화 순서 전체가 영향권에 든다(계획서 §4-1 후보 C 탈락).
+        //    그래서 여기는 **위임 진입점 하나**만 갖는다.
         // ====================================================================
 
         /// <summary>
+        /// [Host 전용] 이번 판의 맵을 준비·전송하고, <b>성공했을 때만</b> 전투 씬으로 넘어간다.
+        /// 두 명이 접속 완료한 시점에 BattleViewModel 이 부른다.
+        ///
+        /// 하는 일 순서:
+        ///   ① 맵 전송용 NetworkObject 를 로비에서 동적 스폰한다(Host 권한).
+        ///   ② 그 객체의 결말 이벤트 두 개를 구독한다(성공 → 씬 로드 / 실패 → 로비 유지).
+        ///   ③ 이번 판의 root seed 를 뽑아(<see cref="Hexiege.Domain.MapRootSeed.Create"/>) 전송을 시작한다.
+        ///
+        /// 🔴 <b>실패하면 씬을 절대 넘기지 않는다</b>
+        ///    (GameSystemRules_RandomMap.md 규칙 16 — *"어떤 실패에서도 전투 씬으로 전환하지 않는다"*).
+        ///    대신 <see cref="OnMapTransferFailed"/> 를 발행해 로딩 UI 를 내리게 한다.
+        ///
+        /// ⚠️ 왜 로비에서 스폰하는가: 규칙 16 이 *"해시가 같을 때만 전투 씬 전환을 시작한다"* 고
+        ///    정하므로 해시 대조가 씬 전환보다 **먼저** 끝나야 한다. 즉 전송은 로비에서 일어난다.
+        ///    확정된 맵은 씬 재로드를 넘어야 하므로 이 객체가 아니라
+        ///    MapHandoff(Application 정적 홀더)가 들고 넘어간다.
+        /// </summary>
+        public void BeginMapTransferAndLoadGameScene()
+        {
+            // 🔴 중복 요청 가드가 **가장 앞**이다. 접속 콜백이 두 번 울리는 등으로 두 번 불릴 수
+            //    있는데, 두 번 스폰하면 같은 판에 전송 객체가 둘이 되어 결말도 둘이 된다.
+            //    가드 자체에는 결말 로그를 남기지 않는다 — 여기서 되돌아가는 것은 정상 흐름이고,
+            //    "무엇이 또 오려 했는가"는 개발 축으로만 남긴다(LogRules 1.14 금지 8).
+            if (_mapTransferInProgress)
+            {
+                GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
+                                 "맵 준비가 이미 진행 중이라 중복 요청을 무시했다");
+                return;
+            }
+
+            // 여기서부터가 새 회차다. 지난 회차의 "결말을 이미 알렸다" 표시를 지운다.
+            // (중복 요청 가드보다 **뒤**에 두는 것이 중요하다 — 앞에 두면 진행 중인 회차의
+            //  표시를 중복 요청이 지워 버려 같은 판의 결말이 두 번 나갈 수 있다.)
+            _mapTransferGateSettled = false;
+
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
+            {
+                // 정상 흐름에서는 올 수 없다 — 이 메서드를 부르는 BattleViewModel.OnClientConnected
+                // 는 Host 에서만 발행되기 때문이다. 그래도 막아 둔다(불변식 위반).
+                GameLog.Ops.Warn(LogEvent.SceneLoadRequestedByNonServer, "Network", nameof(NetworkGameManager),
+                                 "서버가 아닌 쪽에서 맵 준비·씬 전환을 요청했다 — 무시한다",
+                                 $"HasSingleton={NetworkManager.Singleton != null}");
+                FailMapTransferGate("NotServer");
+                return;
+            }
+
+            if (_mapTransferPrefab == null)
+            {
+                // [개발] Inspector 배선 누락 = 설정 오류다. LogRules 1.3 분류 원칙 3 의 단서에 따라
+                //   Error 가 아니라 Warn + 개발로 낮춘다 — 모든 기기에서 똑같이 실패하므로
+                //   플레이어 빌드에 도달하기 전 에디터 첫 실행에 반드시 드러난다.
+                //   (선례: GameBootstrapper.Map.cs 의 "GameConfig 가 Inspector 에 연결되지 않아…")
+                GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
+                                 "맵 전송 프리팹이 Inspector 에 연결되지 않아 맵을 준비할 수 없다 — " +
+                                 "NetworkGameManager 의 Map Transfer Prefab 항목을 확인할 것");
+                FailMapTransferGate("MapTransferPrefabMissing");
+                return;
+            }
+
+            _mapTransferInProgress = true;
+
+            // ── ① 동적 스폰 ────────────────────────────────────────────────
+            GameObject instance = Instantiate(_mapTransferPrefab);
+
+            NetworkObject networkObject = instance.GetComponent<NetworkObject>();
+            NetworkMapTransfer transfer = instance.GetComponent<NetworkMapTransfer>();
+
+            if (networkObject == null || transfer == null)
+            {
+                // 프리팹은 연결됐는데 컴포넌트가 빠진 경우다. 위와 같은 이유로 개발 축.
+                GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
+                                 "맵 전송 프리팹에 필요한 컴포넌트가 없다",
+                                 $"HasNetworkObject={networkObject != null}, " +
+                                 $"HasMapTransfer={transfer != null}");
+                Destroy(instance);
+                FailMapTransferGate("MapTransferPrefabMalformed");
+                return;
+            }
+
+            // 🔴 Spawn() 을 먼저 해야 한다. BeginHostMapTransfer 가 !IsSpawned 면 바로 false 를
+            //    돌려주고, RPC 도 스폰된 뒤에만 나갈 수 있기 때문이다.
+            networkObject.Spawn();
+
+            _activeMapTransfer = transfer;
+
+            // ── ② 결말 구독 (= 게이트) ─────────────────────────────────────
+            transfer.OnHostTransferSucceeded += HandleMapTransferSucceeded;
+            transfer.OnHostTransferFailed += HandleMapTransferFailed;
+
+            // ── ③ root seed 를 뽑아 전송 시작 ──────────────────────────────
+            // 🔴 seed 를 뽑는 계산은 여기에 적지 않는다. 싱글플레이(GameBootstrapper)와
+            //    같은 함수를 쓴다 — 두 벌로 복사하면 언젠가 한쪽만 고쳐져 싱글과 멀티가
+            //    서로 다른 방식으로 seed 를 뽑는 상태가 조용히 생긴다.
+            // (완전 수식으로 쓴다 — 이 파일은 Unity.Netcode / UGS / UnityEngine 타입을 함께 쓰는 자리라
+            //  네임스페이스를 더 열지 않는 편이 이름 충돌 위험이 없다. 같은 이유로
+            //  Unity.Services.Lobbies.Models.Lobby 도 이 파일에서 완전 수식으로 쓰고 있다.)
+            ulong rootSeed = Hexiege.Domain.MapRootSeed.Create();
+
+            bool started = transfer.BeginHostMapTransfer(rootSeed, ReadMapTestModeEnabled());
+
+            if (!started)
+            {
+                // 맵 준비 자체가 실패했다(실패 로그는 BeginHostMapTransfer 안에서 이미 운영 축으로
+                // 남겼다 — MapPreparationFailed). 여기서 또 운영 로그를 내지 않는다(금지 9).
+                GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
+                                 "맵 전송을 시작하지 못했다 — 전투 씬으로 넘어가지 않는다",
+                                 $"RootSeed={rootSeed}");
+                FailMapTransferGate("BeginHostMapTransferRejected");
+            }
+        }
+
+        /// <summary>
+        /// [Host] 맵 전송이 성공했다 → <b>이제서야</b> 전투 씬을 로드한다.
+        /// 규칙 16 *"해시가 같을 때만 전투 씬 전환을 시작한다"* 가 지켜지는 지점이다.
+        /// </summary>
+        private void HandleMapTransferSucceeded()
+        {
+            // 🔴 이번 회차의 결말을 이미 처리했다면 아무것도 하지 않는다.
+            //    특히 "실패로 판정해 로비에 남기로 한 뒤" 성공 통보가 늦게 따라오는 경우를 막는다 —
+            //    그대로 두면 실패한 판인데 전투 씬으로 넘어간다(규칙 16 정면 위반).
+            if (_mapTransferGateSettled) return;
+            _mapTransferGateSettled = true;
+
+            GameLog.Dev.Info("Network", nameof(NetworkGameManager),
+                             "맵 전송 성공 — 씬 전환 게이트를 통과했다");
+
+            CleanupMapTransferSubscription();
+            _mapTransferInProgress = false;
+
+            LoadGameScene();
+        }
+
+        /// <summary>
+        /// [Host] 맵 전송이 실패했다 → <b>씬을 넘기지 않고</b> 로비를 유지한다.
+        /// </summary>
+        /// <param name="code">전송 쪽이 판정한 내부 error code</param>
+        private void HandleMapTransferFailed(MapTransferErrorCode code)
+        {
+            // 🔴 운영 축 결말 로그(MapTransferFailed / MapHashMismatch / MapClientVerificationFailed)는
+            //    NetworkMapTransfer 가 이미 정확히 한 줄 남겼다. 여기서 같은 사건을 운영으로 또
+            //    남기면 한 판이 두 번 세어진다(LogRules 1.14 금지 9). 그래서 개발 축으로만 남긴다.
+            //    다만 **게이트가 막았다는 사실 자체**는 반드시 기록한다 — 실기에서 "전송이 잘못됐나 /
+            //    게이트가 잘못됐나 / 투영이 잘못됐나"를 로그만 보고 가려내야 하기 때문이다.
+            GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
+                             "맵 전송 실패 — 씬 전환 게이트가 전투 씬 전환을 막았다(로비 유지)",
+                             $"ErrorCode={code}");
+
+            CleanupMapTransferSubscription();
+            FailMapTransferGate("MapTransferFailed:" + code);
+        }
+
+        /// <summary>
+        /// 게이트가 막았음을 바깥(로비 UI)에 알린다. 로딩 UI 를 내리게 하는 유일한 통로다.
+        ///
+        /// 🔴 <b>이 함수를 거치지 않는 실패 경로를 만들면 안 된다.</b> 아무에게도 알리지 않고
+        ///    돌아가면 로비가 "게임에 접속하는 중..." 로딩 화면인 채 영영 멈춘다.
+        /// </summary>
+        /// <param name="reason">진단용 사유 문자열(플레이어에게 보이는 문구가 아니다)</param>
+        private void FailMapTransferGate(string reason)
+        {
+            // 🔴 한 회차에 한 번만 알린다. 같은 회차의 실패 경로가 두 번 겹칠 수 있기 때문이다.
+            //    (예: BeginHostMapTransfer 안에서 이미 실패 통보가 나간 뒤 그 함수가 false 를
+            //     돌려주어 호출부가 한 번 더 알리려 하는 경우.)
+            if (_mapTransferGateSettled) return;
+            _mapTransferGateSettled = true;
+
+            _mapTransferInProgress = false;
+            OnMapTransferFailed?.Invoke(reason);
+        }
+
+        /// <summary>
+        /// 전송 객체 구독을 푼다. 씬 전환·객체 파괴와 무관하게 반드시 짝을 맞춘다.
+        /// </summary>
+        private void CleanupMapTransferSubscription()
+        {
+            if (_activeMapTransfer == null) return;
+
+            _activeMapTransfer.OnHostTransferSucceeded -= HandleMapTransferSucceeded;
+            _activeMapTransfer.OnHostTransferFailed -= HandleMapTransferFailed;
+            _activeMapTransfer = null;
+        }
+
+        /// <summary>
+        /// 맵 테스트 모드 표식을 읽는다(GameConfig.MapTestModeEnabled).
+        ///
+        /// ⚠️ 로비 씬에는 GameBootstrapper 가 없어 Inspector 로 주입받은 GameConfig 참조가 없다.
+        ///    그래서 전투 씬과 <b>같은 에셋</b>을 Resources 에서 직접 읽는다
+        ///    (GameConfig 는 Assets/_Project/Resources/Config/GameConfig.asset 에 있다).
+        ///    못 읽으면 false 로 간다 — 테스트 모드는 "켜면 특별한 맵이 나오는" 개발용 표식이라
+        ///    읽지 못했을 때 꺼진 쪽(정상 경기)으로 가는 것이 안전하다.
+        /// </summary>
+        /// <returns>맵 테스트 모드 여부</returns>
+        private bool ReadMapTestModeEnabled()
+        {
+            GameConfig config = Resources.Load<GameConfig>("Config/GameConfig");
+
+            if (config == null)
+            {
+                GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
+                                 "GameConfig 를 Resources 에서 읽지 못해 맵 테스트 모드를 꺼진 것으로 본다",
+                                 "ResourcePath=Config/GameConfig");
+                return false;
+            }
+
+            return config.MapTestModeEnabled;
+        }
+
+        /// <summary>
         /// 서버에서 Game 씬을 로드. NGO SceneManager가 모든 클라이언트에 자동 동기화.
-        /// 2명 연결 완료 시 BattleViewModel에서 호출.
+        ///
+        /// ⚠️ <b>이 메서드를 바깥에서 직접 부르지 말 것</b>(무작위 맵 3단계 I).
+        ///    맵이 준비되지 않은 채 씬이 넘어가면 규칙 16 이 깨진다.
+        ///    바깥의 진입점은 <see cref="BeginMapTransferAndLoadGameScene"/> 하나다.
         /// </summary>
         public void LoadGameScene()
         {
@@ -908,11 +1186,19 @@ namespace Hexiege.Infrastructure
         /// <param name="lobbySceneName">전환할 로비 씬 이름.</param>
         public void BackToLobby(string lobbySceneName = "Lobby")
         {
-            // 1. OnClientConnectedCallback 구독 해제 (HandleClientConnected가 LoadGameScene 재트리거 방지)
+            // 1. OnClientConnectedCallback 구독 해제
+            //    (HandleClientConnected가 BeginMapTransferAndLoadGameScene 을 재트리거하는 것을 막는다)
             if (NetworkManager.Singleton != null)
             {
                 NetworkManager.Singleton.OnClientConnectedCallback -= HandleClientConnected;
             }
+
+            // 1-A. 무작위 맵 3단계 I: 맵 준비 상태와 확정 맵을 함께 비운다.
+            //      규칙 14 *"로비 복귀 또는 연결 종료 시 폐기"* — 남겨 두면 다음 판에서
+            //      지난 판 맵이 조용히 재사용될 여지가 생긴다.
+            CleanupMapTransferSubscription();
+            _mapTransferInProgress = false;
+            MapHandoff.Clear();
 
             // 2. Heartbeat 중지
             StopHeartbeat();

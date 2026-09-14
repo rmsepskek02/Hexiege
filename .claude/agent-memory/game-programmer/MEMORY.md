@@ -16,11 +16,17 @@
   **무작위 맵 3단계 B: `NetworkMapTransfer` 골격 · 순수 C# `MapChunkAssembler`(실행 검증 완료) ·
   조각 크기 「잠정값」 표기 관례 · 프리팹 미생성(사용자 Unity 작업 대기) · `DefaultNetworkPrefabs.asset`
   이 두 벌이고 씬이 쓰는 것은 `Resources/Config` 쪽이다.**
+  **3단계 F·G·H: Host 준비·전송·timeout/재전송 · Client 해시 대조 순서 계약 · 결말 1줄(`_outcomeLogged`) ·
+  프로브가 운영 지표를 오염시키지 않게 하는 법.**
+  🔴 **3단계 I(2026-09-14, 여기서 처음 멀티 동작이 바뀐다): 씬 전환 게이트 ·
+  게이트 결말 「한 번만 + 반드시 한 번은」 2겹 깃발 · 로그를 누가 어디서 남기는가 표 ·
+  `MapHandoff.Clear()` 폐기 배선 · ⚠️ 프리팹을 어느 필드에 물리는가.**
   **네트워크 작업은 여기부터 읽는다.**
 
 ### 시스템별 (2026-06-23 재구성)
 
-- [architecture.md](architecture.md) — 레이어 구조/제약, 정적 홀더(**`MapHandoff` 「읽고 비운다」 포함**),
+- [architecture.md](architecture.md) — 레이어 구조/제약, 정적 홀더(**`MapHandoff` 「읽고 비운다」 +
+  `Clear()` 배선 정정 · `MapRootSeed`(Domain) 를 왜 Domain 에 뒀는가 포함**),
   GameBootstrapper, SO Config 패턴,
   DontDestroyOnLoad, **에디터 셋업 스크립트 패턴 + 배치 관례(`Assets/Editor/Setup/`·`Hexiege.EditorTools`)
   와 저장 반영(`SetDirty`+`MarkSceneDirty`)**
@@ -47,6 +53,10 @@
   `PrepareAndProjectMap()` → 래퍼 + `PrepareMap()` + `ProjectMap()` 3분할 ·
   🔴 가르면서 반드시 지켜야 하는 3가지(리셋 두 줄·가드는 래퍼에 남긴다 / 인자는
   `MapPreparationResult`) · 임시 고정 seed 는 아직 살아 있다.**
+  🔴 **3단계 I(2026-09-14) 정정: 임시 고정 seed 는 주석 비활성화됐고(`CS1587` 주의),
+  `CreateRootSeed` 싱글 경로는 `Domain/Map/MapRootSeed.Create()` 로 옮겨졌으며,
+  `PrepareAndProjectMap()` 에 멀티 분기(`ProjectHandedOverMap`)가 생겼다 —
+  인계가 비면 대체하지 않고 실패 처리한다.**
 - [work-history.md](work-history.md) — 완료 작업 상세 전체 (날짜 역순, 2026-03~06)
 
 ### 세부 보조 자료

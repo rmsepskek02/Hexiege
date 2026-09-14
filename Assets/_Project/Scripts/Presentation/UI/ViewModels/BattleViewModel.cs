@@ -128,6 +128,9 @@ namespace Hexiege.Presentation
             _networkManager.OnHostStarted += OnHostStarted;
             _networkManager.OnClientConnected += OnClientConnected;
             _networkManager.OnError += OnNetworkError;
+            // 무작위 맵 3단계 I: 맵 준비 실패 시 로딩 UI 를 내리기 위해 구독한다.
+            //   구독하지 않으면 실패했을 때 로딩 화면이 영영 내려가지 않는다.
+            _networkManager.OnMapTransferFailed += OnMapTransferFailed;
 
             // 커맨드 처리 설정
             // [싱글플레이] 버튼 → 난이도 선택 화면으로 전환 (씬 로드 직접 아님)
@@ -294,7 +297,17 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 클라이언트 접속 완료. 2명 이상이면 Game 씬 로드.
+        /// 클라이언트 접속 완료. 2명 이상이면 <b>맵 준비를 요청</b>한다.
+        ///
+        /// 🔴 종전에는 여기서 곧바로 Game 씬을 로드했다(<c>_networkManager.LoadGameScene()</c>).
+        ///    이제는 그러지 않는다 — 무작위 맵 멀티플레이에서는 Host 가 로비에서 맵을 확정해
+        ///    Client 에게 보내고 <b>양쪽 해시가 같을 때만</b> 전투 씬으로 넘어가야 하기 때문이다
+        ///    (GameSystemRules_RandomMap.md 규칙 16).
+        ///    그래서 씬 로드는 이 ViewModel 이 아니라 전송이 성공했을 때
+        ///    <c>NetworkGameManager</c> 가 스스로 시작한다.
+        ///
+        /// ⚠️ 실패하면 씬은 넘어가지 않고 로비에 그대로 남는다. 그때 로딩 UI 를 내리는 것은
+        ///    아래 <see cref="OnMapTransferFailed"/> 의 몫이다.
         /// </summary>
         private void OnClientConnected()
         {
@@ -302,8 +315,28 @@ namespace Hexiege.Presentation
             if (ConnectedPlayers.Value >= 2)
             {
                 UIManager.Instance?.ShowLoading(true, "게임에 접속하는 중...");
-                _networkManager.LoadGameScene();
+                _networkManager.BeginMapTransferAndLoadGameScene();
             }
+        }
+
+        /// <summary>
+        /// 맵 준비·전송이 실패해 전투 씬으로 넘어가지 못했다(무작위 맵 3단계 I).
+        ///
+        /// 🔴 여기서 반드시 해야 하는 일은 <b>로딩 UI 를 내리는 것</b>이다.
+        ///    안 내리면 화면이 "게임에 접속하는 중..." 에 걸린 채 영영 멈춘다.
+        ///
+        /// ⚠️ 실패 팝업·재시도 버튼은 이번 범위가 아니다(계획서 §2-3 · §10).
+        ///    그래서 지금 플레이어에게 가는 안내는 아래 ErrorMessage 한 줄뿐이다.
+        ///    사유 문자열(<paramref name="reason"/>)은 <b>화면에 쓰지 않는다</b> —
+        ///    규칙 16 이 *"seed·유형·내부 error code는 UI에 노출하지 않고 로그에만 남긴다"* 고
+        ///    못 박았기 때문이다. 진단은 로그로 한다.
+        /// </summary>
+        /// <param name="reason">진단용 사유 문자열(로그 쪽에서만 쓴다).</param>
+        private void OnMapTransferFailed(string reason)
+        {
+            UIManager.Instance?.ShowLoading(false);
+            IsConnecting.Value = false;
+            ErrorMessage.Value = "맵 준비에 실패했습니다";
         }
 
         /// <summary>
@@ -326,6 +359,7 @@ namespace Hexiege.Presentation
                 _networkManager.OnHostStarted -= OnHostStarted;
                 _networkManager.OnClientConnected -= OnClientConnected;
                 _networkManager.OnError -= OnNetworkError;
+                _networkManager.OnMapTransferFailed -= OnMapTransferFailed;
             }
             _disposables.Dispose();
             CmdSelectDifficulty?.Dispose();

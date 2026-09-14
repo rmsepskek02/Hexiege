@@ -274,3 +274,102 @@ Unity 타입을 하나라도 쓰면 이 환경에서 컴파일조차 안 되므�
   `Assets/_Project/Resources/Config/DefaultNetworkPrefabs.asset`(guid `abb45d5667d7ce049847712da2b871b1`).
   **씬 두 개(Game·Lobby)의 NetworkManager 가 참조하는 것은 `Resources/Config` 쪽뿐이다**(각각 45430행·7508행).
   루트 쪽에 등록하면 **아무 효과가 없다.**
+
+---
+
+## 무작위 맵 3단계 F·G·H — `NetworkMapTransfer` 알맹이 (2026-09-14, 여전히 동작 무변경)
+
+> 직전 세션이 사용량 한도로 끊겨 메모리를 못 남겼다. 아래는 **F·G·H 커밋(`1ffe0f2` 까지)** 분이며,
+> **I 는 그 아래 별도 절**에 적는다. F~H 시점까지도 `BeginHostMapTransfer` 의 호출자는 **0곳**이었다.
+
+- **F(Host)**: `BeginHostMapTransfer(rootSeed, mapTestModeEnabled)` 가 `MapPreparationUseCase` +
+  `ResourcesMapFallbackTemplateSource` 를 **스스로 조립**한다(로비에 `GameBootstrapper` 가 없다 —
+  Plan §9-마 의 「조합 루트는 하나」와의 마찰은 **아직 사용자 확인 전**이다).
+  준비 결과에 **이미 들어 있는** `CanonicalBytes`/`Hash` 를 그대로 package 로 쓴다 —
+  🔴 **여기서 바이트를 새로 만들거나 해시를 다시 계산하지 않는다.** 두 번 계산하는 순간
+  「어느 쪽이 진짜인가」가 생기고 해시 대조가 의미를 잃는다.
+- **timeout/재전송**: `Update` 가 `WaitingReady` 상태에서만 `Time.realtimeSinceStartup` 마감시각을 본다.
+  `MaxResendCount = 1`. 재전송은 **들고 있던 package 를 그대로** 다시 보낸다(`SendHostPackage` 를
+  최초 전송과 재전송이 **같은 코드**로 공유).
+- **G(Client)**: `VerifyAndAnswer` 의 순서가 계약이다 — **해시 대조 → (프로브면 여기서 끝) →
+  역직렬화 → 헤더/본문 형식 버전 대조 → D 방식 검증**. 🔴 **원본 32바이트로 대조**한다
+  (로그용 16자 문자열로 비교하면 앞 8바이트만 같아도 통과한다).
+- **H**: `MapVerificationUseCase.Verify(payload)` 가 Decode 까지 **전부** 한다.
+  호출부에서 따로 `Decode` 하지 않는 이유 = 두 번 해석하면 「검증한 정의」와 「실제로 쓰는 정의」가
+  다른 객체가 되어 어긋날 길이 생긴다.
+- **Host 는 Client 의 "성공" 신고를 그대로 믿지 않는다.** `MapReadyServerRpc` 가 받은 `clientHash` 를
+  `_hostHash` 와 **한 번 더** 대조한다. 안 그러면 「Host/Client 해시 비교」가 Client 의 자기 신고가 된다.
+- **결말 로그는 회차당 정확히 한 줄** — `_outcomeLogged` 깃발. 두 번째는 **개발 축 Warn 으로만** 남긴다
+  (조용히 삼키면 "결말이 두 번 났다"는 버그를 못 찾는다).
+  ⚠️ `MapTransferRetried` 는 이 깃발을 **거치지 않는다**(결말이 아니라 중간 전이).
+- **프로브는 운영 지표를 오염시키지 않는다** — package 헤더의 `isProbe=true` 로 Client 가
+  역직렬화·검증을 건너뛰고, Host 쪽 성공 결말도 `GameLog.Dev` 로만 남긴다.
+  (더미 바이트는 반드시 Decode 에 실패하므로, 안 그러면 실측 1회마다 `MapClientVerificationFailed` 가 쌓인다.)
+
+## 무작위 맵 3단계 I — 씬 전환 게이트 (2026-09-14) 🔴 **여기서 처음 동작이 바뀐다**
+
+**바뀐 파일 5개**: `Domain/Map/MapRootSeed.cs`(신설) · `Bootstrap/GameBootstrapper.cs` ·
+`Bootstrap/GameBootstrapper.Map.cs` · `Infrastructure/Network/NetworkGameManager.cs` ·
+`Infrastructure/Network/NetworkMapTransfer.cs` · `Presentation/UI/ViewModels/BattleViewModel.cs`.
+
+### 게이트의 모양 — 「주인은 Infrastructure, 매니저는 위임 진입점 하나」
+
+```
+BattleViewModel.OnClientConnected (2명)
+  └─ NetworkGameManager.BeginMapTransferAndLoadGameScene()      ← 종전엔 여기서 LoadGameScene() 직행
+       ├─ 프리팹 동적 Spawn → NetworkMapTransfer
+       ├─ transfer.OnHostTransferSucceeded → NetworkGameManager.LoadGameScene()
+       ├─ transfer.OnHostTransferFailed    → OnMapTransferFailed 발행(로비 유지)
+       └─ transfer.BeginHostMapTransfer(MapRootSeed.Create(), GameConfig.MapTestModeEnabled)
+BattleViewModel.OnMapTransferFailed → UIManager.ShowLoading(false) + ErrorMessage
+```
+
+- 🔴 **`NetworkGameManager` 를 `NetworkBehaviour` 로 승격하지 않았다**(Plan §4-1 후보 C 탈락).
+  959행 매니저 + 로비 UI 직접 참조라 초기화 순서 전체가 영향권이다. **위임 진입점 하나만** 받는다.
+- 🔴 **결말 통보는 「한 번만」과 「반드시 한 번은」을 동시에 지켜야 한다.** 깃발이 **두 겹**이다.
+  · `NetworkMapTransfer._hostOutcomeNotified` — 전송 쪽 결말 자리 **4곳**(`FailHostRound` ·
+    응답=실패 · 응답=해시 불일치 · 응답=성공)에서 `NotifyHostOutcomeOnce` 로 수렴.
+  · `NetworkGameManager._mapTransferGateSettled` — 게이트 쪽. 성공/실패 통보 양쪽에 건다.
+  **실패 통보 뒤 성공 통보가 따라오면 「실패한 판인데 전투 씬으로 넘어간다」**(규칙 16 정면 위반).
+  반대로 아무 통보도 안 가면 **로비가 로딩 화면에서 영영 멈춘다**(실패 팝업이 §10 으로 빠졌으므로
+  로딩을 내리는 유일한 통로가 이 이벤트다).
+- ⚠️ `_hostOutcomeNotified` 는 `_outcomeLogged` 와 **일부러 별개 깃발**이다. 로그 억제와 게이트 통보가
+  서로 다른 이유로 두 번 밟힐 수 있다.
+- ⚠️ **프로브 회차는 게이트에 통보하지 않는다**(`NotifyHostOutcomeOnce` 첫 줄 `if (_hostIsProbe) return;`).
+  실측 도중 씬이 넘어가면 실측이 끊긴다.
+- 🔴 **이때 발견해 함께 고친 것**: `StartHostRound` 의 `PackageTooLarge` 조기 실패 분기가
+  `_hostIsProbe` 를 **갱신하지 않아 지난 회차 값이 남았다.** 직전이 프로브면 진짜 맵의 실패가
+  프로브로 오인돼 게이트에 통보가 안 가고 로비가 멈춘다. 그 분기에 `_hostIsProbe = isProbe;` 추가.
+
+### 로그 — 누가 어디서 남기는가 (같은 사건을 두 줄로 남기지 않기 위해)
+
+| 사건 | 축 | 남기는 곳 |
+|---|---|---|
+| 전송 결말 4종(운영 키) | Ops | `NetworkMapTransfer` **한 줄만** |
+| 게이트가 막았다 | **Dev/Warn** | `NetworkGameManager.HandleMapTransferFailed` |
+| 프리팹 미배선·컴포넌트 누락 | **Dev/Warn** | `NetworkGameManager`(설정 오류 = 개발, LogRules 1.3 원칙 3 단서. 선례: `GameBootstrapper.Map.cs` 의 "GameConfig 가 Inspector 에 연결되지 않아…") |
+| 인계 맵 없음(전투 씬) | Ops/Error `MapPreparationFailed` | `GameBootstrapper.ProjectHandedOverMap` |
+
+🔴 **전투 씬에서 `MapTransfer*` 키를 절대 쓰지 않는다.** 그 4종은 「전송 회차 하나는 그중 정확히
+하나로 끝난다」는 배타 관계이고 `_outcomeLogged` 가 강제한다. 다른 객체가 같은 키를 한 줄 더
+내보내면 그 배타성이 깨져 전송 성공/실패 집계가 조용히 망가진다.
+
+### 폐기(Clear) 배선 — 규칙 14 *"로비 복귀 또는 연결 종료 시 폐기"*
+
+`MapHandoff.Clear()` 의 호출자가 **0건 → 2건**이 됐다: `NetworkGameManager.DisconnectAsync` ·
+`NetworkGameManager.BackToLobby`. 같은 자리에서 `_mapTransferInProgress = false` 와
+`CleanupMapTransferSubscription()` 도 함께 한다 —
+🔴 **`_mapTransferInProgress` 가 true 로 굳으면 다음에 방을 만들어도 "이미 진행 중"으로 판정돼
+맵 준비가 아예 시작되지 않고 로딩에서 멈춘다.**
+
+### ⚠️ 프리팹 배선 (사용자 Unity 작업)
+
+- 넣을 자리: **`NetworkGameManager` 의 `_mapTransferPrefab`**(Inspector 표시명 **`Map Transfer Prefab`**,
+  헤더 `Random Map`). 그 컴포넌트는 **`Lobby.unity` 의 `NetworkGameManager` 오브젝트**에 붙어 있고
+  `Awake` 에서 `DontDestroyOnLoad` 된다.
+- 프리팹에는 **`NetworkObject` + `NetworkMapTransfer`** 둘 다 있어야 한다(둘 중 하나라도 없으면
+  개발 축 Warn 후 게이트 실패 처리).
+- 🔴 **`Assets/_Project/Resources/Config/DefaultNetworkPrefabs.asset` 에 등록**해야 한다.
+  루트의 `Assets/DefaultNetworkPrefabs.asset` 은 **씬이 참조하지 않는다** — 거기 등록하면 효과가 없다.
+- 배선하지 않으면: 2명 접속 → 로딩이 잠깐 떴다 사라지고 **전투 씬으로 넘어가지 않은 채 로비에 남는다.**
+  에디터 콘솔에 「맵 전송 프리팹이 Inspector 에 연결되지 않아…」 개발 Warn 이 뜬다.

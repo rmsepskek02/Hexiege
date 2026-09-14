@@ -1039,6 +1039,26 @@ Plan: `_Tasks/2026-09-08/17_29_random-map-phase3-multiplayer/Plan.md` §7-C · �
 **임시 고정 seed 분기(`CreateRootSeed()` 안 `if (IsNetworkMode()) return NetworkInterimRootSeed;`)는
 그대로 살아 있다.** 멀티는 여전히 로컬 준비다 — 뒤집는 것은 I 단계다.
 
+**[🔴 2026-09-14 correction — 위 두 줄 원문 유지. 3단계 I 에서 뒤집혔다]**
+- 그 분기와 `GameBootstrapper.cs` 의 상수 `NetworkInterimRootSeed = 11UL` 는 **주석 비활성화**됐다
+  (삭제가 아니다 — 되돌리기가 「주석 두 군데를 푸는 것」으로 끝나게 하려는 의도. Plan §7-I 완화 ①).
+  ⚠️ 상수의 `/// <summary>` 블록까지 **통째로** 주석 처리해야 한다. 선언만 지우고 `///` 를 남기면
+  「설명이 붙을 대상이 없다」로 **CS1587 경고**가 난다.
+- 🔴 **이 비활성화는 동작 변경이 아니라 죽은 코드 정리다.** 멀티에서는 `CreateRootSeed()` 자체가
+  불리지 않는다 — Host 는 로비(`NetworkGameManager`)에서 뽑고, Client 는 뽑지 않고 받는다.
+- `CreateRootSeed()` 의 싱글 경로 본문은 `Domain/Map/MapRootSeed.Create()` 로 **옮겨졌다**(계산식 무변경).
+  이유: 로비에도 같은 계산이 필요한데 복사하면 한쪽만 고쳐져 갈라진다.
+- `PrepareAndProjectMap()` 에 멀티 분기가 생겼다 — 가드 **바로 뒤**에
+  `if (IsNetworkMode()) { ProjectHandedOverMap(); return; }`.
+  🔴 위 「가르면서 반드시 지켜야 하는 3가지」는 **그대로 유효**하다. 리셋 두 줄과 가드는
+  분기보다 **앞**에 있어야 하고, 싱글 경로는 분기 아래로 **한 칸도 안 바뀐 채** 남는다.
+  (`IsNetworkMode()` = `NetworkContext.IsNetworkActive` 는 부작용 없는 auto-property 읽기라
+   싱글에서 false 로 즉시 빠져나간다.)
+- 🔴 **`MapHandoff.TryTake` 가 비면 대체하지 않는다.** 지난 판 맵·새로 만든 맵 어느 쪽으로도 때우지
+  않고 `MapPreparationFailed`(운영/Error, `Reason=MapHandoffEmpty`) 한 줄만 남기고 아무것도 새기지
+  않는다. `_mapProjection` 이 null 로 남아 성·시작 채굴소 배치 가드에 걸린다.
+  ⚠️ **전송 결말 키 4종을 전투 씬에서 쓰면 안 된다** — 회차당 1줄 배타성이 깨진다.
+
 ### 검증 (2026-09-09) — 실제로 돌린 것과 못 한 것
 
 - ✅ **실제 컴파일·실행**: `MapHandoff.cs` 를 `mcs` 로 단독 빌드(스텁 `MapPreparationResult` 1개만

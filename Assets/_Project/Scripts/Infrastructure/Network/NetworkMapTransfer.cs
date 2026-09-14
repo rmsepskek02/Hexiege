@@ -3,19 +3,22 @@
 // Host 가 확정한 맵을 Client 에게 "조각으로 나눠 보내고, 잘 받았다는 답을 받는"
 // 왕복 전체를 소유하는 NetworkBehaviour.
 //
-// 🔴 이 파일은 3단계 B 에서 「뼈대」로 태어났고, F·G·H 에서 알맹이가 채워졌다.
+// 🔴 이 파일은 3단계 B 에서 「뼈대」로 태어났고, F·G·H 에서 알맹이가, I 에서 게이트가 채워졌다.
 //   지금 이 클래스가 실제로 하는 일은 다음과 같다.
 //     [Host]   로비에서 맵을 준비한다 → 헤더를 알리고 조각을 보낸다 →
-//              10초 안에 답이 없으면 **1회만** 다시 보낸다 → 답을 받아 결말을 판정한다
+//              10초 안에 답이 없으면 **1회만** 다시 보낸다 → 답을 받아 결말을 판정한다 →
+//              **성공일 때만** 씬 전환 게이트를 연다(OnHostTransferSucceeded)
 //     [Client] 헤더를 받아 재조립기를 만든다 → 조각을 다 모은다 → 길이·형식 버전 확인 →
 //              SHA-256 대조 → 역직렬화 → 「D 방식」 재생성 검증 → 결과를 답으로 보낸다
 //
-// ⚠️ **아직 씬 전환을 막지 않는다(게이트는 I 단계).**
-//    이번 커밋으로 게임 동작은 한 줄도 바뀌지 않는다 — 아래 BeginHostMapTransfer 를
-//    부르는 곳이 **아직 0곳**이기 때문이다. 누가 이 객체를 스폰하고 누가 전송을 시작하는가,
-//    그리고 받은 맵을 실제로 화면에 새기는 일(MapHandoff.TryTake → ProjectMap)은
-//    전부 I 단계의 몫이다. BattleViewModel · NetworkGameManager · GameBootstrapper 계열은
-//    이번에도 건드리지 않았다.
+// 🔴 **이 클래스가 씬 전환 게이트의 주인이다(3단계 I).**
+//    규칙 16 은 *"해시가 같을 때만 전투 씬 전환을 시작한다"* 와 *"어떤 실패에서도
+//    전투 씬으로 전환하지 않는다"* 를 요구한다. 그 판정을 내리는 곳이 여기이므로,
+//    바깥(NetworkGameManager)은 아래 두 이벤트를 구독해 **통보받은 대로만** 움직인다.
+//      · OnHostTransferSucceeded → NetworkGameManager.LoadGameScene()
+//      · OnHostTransferFailed    → 씬을 넘기지 않고 로비 유지 + 로딩 UI 내리기
+//    ⚠️ 바깥이 스스로 "이제 됐겠지" 하고 씬을 넘기는 길을 새로 만들지 말 것.
+//       그 순간 게이트가 우회되고 규칙 16 이 코드에서 사라진다.
 //
 // ── 단계별 소유 범위 ──────────────────────────────────────────────────────
 //   [B 에서]  스폰·디스폰 수명, 상태 기계와 전이 로그, nonce(전송 회차 번호),
@@ -26,7 +29,10 @@
 //             1회 재전송 · 연결 끊김 즉시 실패 · MapHandoff 에 확정 맵 심기 · 운영 로그 5종
 //   [G 에서]  Client 의 길이·형식 버전 확인 → SHA-256 대조 → 역직렬화 → MapReady ACK
 //   [H 에서]  Client 의 「D 방식」 재생성 검증(MapVerificationUseCase)
-//   [I 로 남음] 씬 전환 게이트 · 임시 고정 seed 비활성화 · Client 투영 · 스폰 주체 배선
+//   [I 에서]  씬 전환 게이트(아래 OnHostTransferSucceeded / OnHostTransferFailed) ·
+//             Host 결말을 한 번만 통보하는 NotifyHostOutcomeOnce.
+//             바깥쪽 배선(스폰 주체 · 로비 진입점 · Client 투영 · 임시 고정 seed 비활성화)은
+//             NetworkGameManager.cs · BattleViewModel.cs · GameBootstrapper.Map.cs 에 있다.
 //
 // ── 왜 Infrastructure 레이어인가 ──────────────────────────────────────────
 //   NetworkBehaviour 는 이 프로젝트에서 **Infrastructure 에만** 둘 수 있다.
@@ -260,6 +266,18 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private bool _outcomeLogged;
 
+        /// <summary>
+        /// [Host] 이번 회차의 결말을 씬 전환 게이트에 이미 통보했는가(3단계 I).
+        ///
+        /// 🔴 <see cref="_outcomeLogged"/> 와 <b>같은 목적의 짝</b>이다 — 그쪽은 "결말 로그를
+        ///    한 줄만 남긴다", 이쪽은 "결말 통보를 한 번만 한다". 굳이 깃발을 따로 둔 이유는,
+        ///    로그 억제와 게이트 통보가 <b>서로 다른 이유로 두 번 밟힐 수 있기</b> 때문이다.
+        ///    (예: 응답이 늦게 도착한 뒤 연결이 끊기면 결말 자리를 두 번 지나간다.)
+        ///    통보가 두 번 가면 "실패로 로비에 남는다"고 판정한 뒤에 성공 통보가 뒤따라 와
+        ///    <b>실패한 판인데 전투 씬으로 넘어가는</b> 최악의 경우가 생긴다.
+        /// </summary>
+        private bool _hostOutcomeNotified;
+
         // ── [Host 전용] 이번 회차의 package ────────────────────────────────
 
         /// <summary>[Host] 이번 회차에 보내는 확정 맵. 회차가 없으면 null.</summary>
@@ -331,7 +349,8 @@ namespace Hexiege.Infrastructure
 
         /// <summary>
         /// [Host] 이번 회차에 확정된 맵. 아직 없으면 null.
-        /// ⚠️ I 단계의 씬 전환 게이트가 "무엇을 넘길 것인가"를 여기서 읽는다.
+        /// ⚠️ 전투 씬으로의 인계는 이 프로퍼티가 아니라 <see cref="MapHandoff"/> 가 맡는다
+        ///    (씬 재로드를 넘어야 하므로). 여기 남는 것은 진단·재현용 참조 하나다.
         /// </summary>
         public MapPreparationResult HostPreparedMap { get { return _hostPrepared; } }
 
@@ -340,6 +359,36 @@ namespace Hexiege.Infrastructure
 
         /// <summary>이번 회차의 재전송 횟수. 규칙 12 로그 항목.</summary>
         public int ResendCount { get { return _hostResendCount; } }
+
+        // ====================================================================
+        // [Host] 씬 전환 게이트가 구독하는 결말 알림 — 🔴 3단계 I
+        //
+        // 🔴 이 두 이벤트가 「씬 전환 게이트」의 전부다.
+        //    규칙 16 은 *"해시가 같을 때만 전투 씬 전환을 시작한다"* 와
+        //    *"어떤 실패에서도 전투 씬으로 전환하지 않는다"* 를 요구한다.
+        //    그 판정을 내리는 주체가 이 클래스이므로(게이트의 주인 = Infrastructure),
+        //    바깥(NetworkGameManager)은 **판정 결과를 통보받아 씬을 로드할 뿐**이다.
+        //    바깥이 스스로 "이제 됐겠지" 하고 씬을 넘기는 길을 만들지 말 것 —
+        //    그 순간 게이트가 우회되고 규칙 16 이 코드에서 사라진다.
+        //
+        // ⚠️ Host 쪽에서만 발행된다. Client 는 씬 전환을 스스로 시작하지 않는다
+        //    (NGO SceneManager 가 서버 주도로 모든 클라이언트를 함께 옮긴다).
+        // ⚠️ 프로브 회차(RunTransferProbe)에서는 발행하지 않는다 — 실측 작업이
+        //    게임 흐름(씬 전환)을 건드리면 안 된다.
+        // ====================================================================
+
+        /// <summary>
+        /// [Host] 이번 회차가 <b>성공</b>으로 끝났다. Host/Client 해시가 일치했고
+        /// 확정 맵이 <see cref="MapHandoff"/> 에 심어진 뒤에 발행된다.
+        /// 구독자는 이때 비로소 전투 씬 로드를 시작해도 된다.
+        /// </summary>
+        public event System.Action OnHostTransferSucceeded;
+
+        /// <summary>
+        /// [Host] 이번 회차가 <b>실패</b>로 끝났다. 인자는 실패 사유(내부 error code)다.
+        /// 구독자는 <b>씬을 전환하지 않고</b> 로비를 유지해야 한다(규칙 16).
+        /// </summary>
+        public event System.Action<MapTransferErrorCode> OnHostTransferFailed;
 
         // ====================================================================
         // NetworkBehaviour 생명주기
@@ -497,9 +546,9 @@ namespace Hexiege.Infrastructure
         ///         "어느 쪽이 진짜인가"라는 문제가 생기고, 그 순간 해시 대조가 의미를 잃는다.
         ///   ④ 시작 통보 → 조각 → 응답 대기(10초) 로 들어간다.
         ///
-        /// ⚠️ <b>이 메서드를 부르는 곳은 아직 0곳이다.</b> 배선(로비의 어느 버튼·어느 흐름에서
-        ///    부를 것인가)은 I 단계의 몫이라 이번에는 넣지 않았다. 그래서 이 커밋으로
-        ///    게임 동작은 바뀌지 않는다.
+        /// ⚠️ <b>유일한 호출부는 <c>NetworkGameManager.BeginMapTransferAndLoadGameScene()</c> 다</b>
+        ///    (3단계 I 에서 배선됨). 그쪽이 이 객체를 로비에서 동적 스폰하고, 이 메서드를 부르고,
+        ///    아래 결말 이벤트 두 개를 구독해 씬 전환 여부를 결정한다.
         ///
         /// 🔴 <b>미해결 판단 하나를 여기 남긴다(계획서 §9-마).</b>
         ///    이 메서드는 <see cref="MapPreparationUseCase"/> 와 그 의존
@@ -591,6 +640,13 @@ namespace Hexiege.Infrastructure
                 // 규칙 16 「용량 한도 초과 = 즉시 실패」. 재전송하지 않는다.
                 _activeNonce++;
                 _outcomeLogged = false;
+                _hostOutcomeNotified = false;
+                // 🔴 3단계 I 에서 추가: 이 분기에도 _hostIsProbe 를 반드시 갱신한다.
+                //    이 분기는 회차를 "시작하자마자 실패로 끝내는" 길인데, 여기서 갱신하지 않으면
+                //    **지난 회차의 값이 그대로 남는다.** 직전이 실측 프로브였다면 진짜 맵의 실패가
+                //    프로브로 오인되어 씬 전환 게이트에 통보가 가지 않고, 로비가 로딩 화면인 채
+                //    영영 멈춘다(게이트는 성공·실패 둘 중 하나의 통보를 반드시 받아야 한다).
+                _hostIsProbe = isProbe;
                 _hostTotalBytes = payload.Length;
                 _hostHash = hash;
                 _hostMapVersion = mapVersion;
@@ -603,6 +659,7 @@ namespace Hexiege.Infrastructure
 
             _activeNonce++;
             _outcomeLogged = false;
+            _hostOutcomeNotified = false;
             _hostIsProbe = isProbe;
             _hostChunkSize = chunkSize;
             _hostTotalBytes = payload.Length;
@@ -716,6 +773,40 @@ namespace Hexiege.Infrastructure
                                                 clientId.HasValue ? "ClientId=" + clientId.Value : null));
 
             ClearHostPackage();
+
+            NotifyHostOutcomeOnce(false, code);
+        }
+
+        /// <summary>
+        /// [Host] 이번 회차의 결말을 씬 전환 게이트에 <b>정확히 한 번</b> 통보한다(3단계 I).
+        ///
+        /// 🔴 게이트는 "성공 통보를 받으면 씬을 로드하고, 실패 통보를 받으면 로비에 남는다"로
+        ///    동작한다. 그러므로 이 함수는 두 가지를 모두 지켜야 한다.
+        ///      ① <b>한 번만</b> 불려야 한다 — 실패 통보 뒤에 성공 통보가 따라오면
+        ///         실패한 판인데 전투 씬으로 넘어간다(규칙 16 정면 위반).
+        ///      ② <b>반드시 한 번은</b> 불려야 한다 — 아무 통보도 가지 않으면 로비가
+        ///         로딩 화면인 채 영영 멈춘다. 그래서 Host 쪽 결말 자리 네 곳
+        ///         (FailHostRound · 응답=실패 · 응답=해시 불일치 · 응답=성공)에서 모두 부른다.
+        ///
+        /// ⚠️ 프로브 회차는 통보하지 않는다 — 한도 실측은 게임 흐름이 아니다.
+        ///    (프로브 도중 게이트가 열려 로비에서 전투 씬으로 넘어가 버리면 실측이 끊긴다.)
+        /// </summary>
+        /// <param name="success">해시까지 일치해 이번 판의 맵이 확정됐는가</param>
+        /// <param name="code">실패 사유(성공이면 None). 로비 쪽 진단 로그에 그대로 실린다</param>
+        private void NotifyHostOutcomeOnce(bool success, MapTransferErrorCode code)
+        {
+            if (_hostIsProbe) return;
+            if (_hostOutcomeNotified) return;
+
+            _hostOutcomeNotified = true;
+
+            if (success)
+            {
+                OnHostTransferSucceeded?.Invoke();
+                return;
+            }
+
+            OnHostTransferFailed?.Invoke(code);
         }
 
         // ====================================================================
@@ -1233,6 +1324,9 @@ namespace Hexiege.Infrastructure
                                BuildTransferLogData(_hostHash, clientHash, code, clientIdField));
 
                 ClearHostPackage();
+
+                // [3단계 I] 씬 전환 게이트에 "이 판은 성립하지 않았다"고 알린다 → 로비 유지.
+                NotifyHostOutcomeOnce(false, code);
                 return;
             }
 
@@ -1249,6 +1343,9 @@ namespace Hexiege.Infrastructure
                                                     MapTransferErrorCode.HashMismatch, clientIdField));
 
                 ClearHostPackage();
+
+                // [3단계 I] 규칙 16 "해시가 다르면 전투 씬으로 이동하지 않고 기존 로비를 유지한다".
+                NotifyHostOutcomeOnce(false, MapTransferErrorCode.HashMismatch);
                 return;
             }
 
@@ -1278,10 +1375,20 @@ namespace Hexiege.Infrastructure
 
             ClearHostPackage();
 
-            // [I 단계] 여기가 씬 전환 게이트가 열리는 자리다 —
-            //          규칙 16 "해시가 같을 때만 전투 씬 전환을 시작한다".
-            //          이번 단계에서는 **아무것도 하지 않는다.** 게이트는 아직 열려 있고
-            //          씬 전환은 지금까지처럼 BattleViewModel 이 직접 시작한다.
+            // ── [3단계 I] 🔴 씬 전환 게이트가 열리는 자리 ─────────────────────
+            //    규칙 16 *"해시가 같을 때만 전투 씬 전환을 시작한다"*.
+            //    여기까지 왔다는 것은 다음이 **전부** 확인됐다는 뜻이다.
+            //      · Client 가 모든 조각을 받아 선언된 크기와 일치했다
+            //      · Client 가 계산한 해시가 Host 의 것과 같았다(Client 가 확인)
+            //      · 그 해시를 Host 가 원본 32바이트로 **한 번 더** 직접 대조했다(바로 위)
+            //      · Client 가 「D 방식」 재생성·공정성 검증까지 통과했다
+            //      · 양쪽 모두 확정 맵을 MapHandoff 에 심었다(전투 씬이 꺼내 갈 준비 완료)
+            //    이 통보를 받은 NetworkGameManager 가 비로소 LoadGameScene() 을 부른다.
+            //
+            // ⚠️ 순서가 중요하다 — MapHandoff.Set 이 **이 줄보다 위**에 있어야 한다.
+            //    통보가 먼저 가면 씬 로드가 시작된 뒤에 맵을 심게 되어,
+            //    전투 씬이 "인계된 맵이 없다"고 판정할 여지가 생긴다.
+            NotifyHostOutcomeOnce(true, MapTransferErrorCode.None);
         }
 
         // ====================================================================

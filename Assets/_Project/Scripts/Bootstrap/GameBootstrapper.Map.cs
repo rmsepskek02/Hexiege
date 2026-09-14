@@ -455,6 +455,23 @@ namespace Hexiege.Bootstrap
             // 아무것도 하지 않는다 — 가르기 전과 같은 조건·같은 자리다.
             if (_config == null || _grid == null) return;
 
+            // ── 멀티플레이: 준비하지 않고 「새기기만」 한다 (무작위 맵 3단계 I) ──────────
+            //
+            // 🔴 왜 멀티는 여기서 갈라지는가 (초급자용):
+            //    멀티에서 맵을 정하는 권한은 Host 에게만 있다(규칙 12). Host 는 **로비에서**
+            //    맵을 만들어 Client 에게 통째로 보내고, 양쪽 해시가 같을 때만 전투 씬으로
+            //    넘어온다(규칙 16). 그러니 전투 씬에 도착한 시점에는 **이번 판의 맵이 이미
+            //    확정돼 있다.** 여기서 또 만들면 그 확정된 맵과 다른 맵이 하나 더 생기고,
+            //    둘이 갈라질 자리가 생긴다. 그래서 Host 도 Client 도 똑같이,
+            //    로비에서 확정된 것을 MapHandoff 로 받아 **투영만** 한다.
+            //
+            // ⚠️ 싱글플레이는 이 분기에 들어오지 않는다 — 아래 기존 경로 그대로 준비 + 투영이다.
+            if (IsNetworkMode())
+            {
+                ProjectHandedOverMap();
+                return;
+            }
+
             MapPreparationResult prepared = PrepareMap();
 
             // 준비가 실패했으면 여기서 끝난다(실패 로그는 PrepareMap 안에서 이미 남겼다).
@@ -542,6 +559,70 @@ namespace Hexiege.Bootstrap
             }
 
             return prepared;
+        }
+
+        /// <summary>
+        /// [멀티플레이 전용] 로비에서 확정된 맵을 <see cref="MapHandoff"/> 에서 받아 그대로 새긴다.
+        /// <b>맵을 만들지 않는다</b> — Host 든 Client 든 이 자리에서는 받아 쓰기만 한다.
+        ///
+        /// 🔴 인계가 비어 있으면(= 로비에서 확정된 맵이 넘어오지 않았다) <b>그 판은 성립하지 않는다.</b>
+        ///    이때 "지난 판 맵"이나 "여기서 새로 만든 맵"으로 때우면 안 된다. 화면에는 멀쩡한 맵이
+        ///    뜨고 경기도 굴러가므로 아무도 이상을 눈치채지 못하는데, 그것이 규칙 16
+        ///    (*"전투 씬에서는 로비에서 확정한 맵 데이터만 사용해 맵을 구성한다"*)을 어기는
+        ///    <b>가장 조용한 방식</b>이다. 최악의 경우 두 사람이 서로 다른 맵으로 싸우게 된다.
+        ///    그래서 여기서는 <b>아무것도 새기지 않고 실패 로그만 남긴다</b> —
+        ///    성·시작 광산이 배치되지 않으므로 "맵이 없다"는 사실이 화면에서도 곧바로 드러난다.
+        ///    (지난 판 맵이 남는 일 자체는 MapHandoff.TryTake 의 「읽고 비운다」가 이미 막고 있다.)
+        ///
+        /// ⚠️ <b>전제</b>: 호출 전에 _grid 가 null 이 아니어야 한다.
+        ///    현재 유일한 호출부인 <see cref="PrepareAndProjectMap"/> 가 앞에서 확인하고 부른다.
+        /// </summary>
+        private void ProjectHandedOverMap()
+        {
+            MapPreparationResult handedOver;
+
+            if (!MapHandoff.TryTake(out handedOver))
+            {
+                // [운영/Error] 이 판은 진행할 수 없다(성·시작 광산을 배치하지 않는다).
+                //
+                // 🔴 왜 하필 MapPreparationFailed 키인가 — 키 선택의 근거를 남긴다.
+                //    · 결과가 같다: 이 키의 정의가 "맵을 끝내 얻지 못해 **경기를 진행할 수 없다**
+                //      (성·시작 광산을 배치하지 않는다)" 이고, 여기서 벌어지는 일이 정확히 그것이다.
+                //    · MapProjectionFailed 는 쓰지 않는다: 그 키는 "맵은 있는데 격자에 못 새겼다"
+                //      (격자 크기·헥스 방향 불일치)는 **설정 계통** 지표다. 여기서는 새길 맵 자체가
+                //      없으므로 그 지표에 섞으면 "설정이 문제인가"를 영영 가릴 수 없게 된다.
+                //    · 🔴 전송 결말 키 4종(MapTransferSucceeded / MapTransferFailed /
+                //      MapHashMismatch / MapClientVerificationFailed)은 **절대 쓰지 않는다.**
+                //      그 넷은 「한 번의 전송 회차는 그중 정확히 하나로 끝난다」는 배타 관계이고,
+                //      NetworkMapTransfer 안에서 회차마다 한 줄만 나가도록 강제돼 있다.
+                //      여기(전투 씬, 다른 객체)에서 같은 키를 한 줄 더 내보내면 그 배타성이
+                //      깨지고 전송 성공/실패 집계가 조용히 망가진다.
+                //
+                // ⚠️ 필드에 ErrorCode 를 싣지 않는다 — MapPreparationErrorCode 는 "생성기·폴백
+                //    템플릿이 왜 실패했나"의 코드라서, 생성 자체를 하지 않은 이 사건에 해당하는
+                //    값이 없다. 없는 값을 억지로 끼워 넣으면 그 코드의 통계가 오염된다.
+                //    대신 이 사건을 가리키는 고유 필드 Reason=MapHandoffEmpty 를 싣는다.
+                GameLog.Ops.Error(LogEvent.MapPreparationFailed, MapLogSystem, nameof(GameBootstrapper),
+                                  "멀티플레이인데 로비에서 확정된 맵이 전투 씬으로 인계되지 않았다 — " +
+                                  "지난 판 맵이나 새로 만든 맵으로 대체하지 않고 아무것도 배치하지 않는다",
+                                  "Reason=MapHandoffEmpty, NetworkMode=True" +
+                                  ", GridWidth=" + _grid.Width +
+                                  ", GridHeight=" + _grid.Height);
+                return;
+            }
+
+            // 🔴 받은 결과도 반드시 보관한다. 싱글의 PrepareMap 과 같은 이유다 —
+            //    문제가 생긴 판을 다시 만들어 보려면 그 판의 root seed·최종 바이트·해시가 있어야 한다.
+            //    Client 는 맵을 만들지 않았으므로 이 값이 **그 판의 맵에 대한 유일한 기록**이다.
+            _mapPreparation = handedOver;
+
+            // 🔴 규칙 12 「로그 필수 항목」을 여기서 다시 내보내지 않는다.
+            //    그 한 줄은 맵을 **확정한 자리**에서 이미 나갔다 — Host 는 로비의
+            //    NetworkMapTransfer.BeginHostMapTransfer 에서, Client 는 같은 파일의
+            //    전송 성공 결말(MapTransferSucceeded)에서. 여기서 또 내보내면 같은 판이
+            //    두 번 세어진다(LogRules 1.14 금지 9 — 같은 사건을 두 줄로 남기지 않는다).
+
+            ProjectMap(handedOver);
         }
 
         /// <summary>
@@ -676,32 +757,41 @@ namespace Hexiege.Bootstrap
         /// 이번 판의 64비트 root seed 를 정한다.
         ///
         /// 싱글플레이는 로컬이 권위이므로 매 판 새로 뽑는다(규칙 3).
-        /// 🔴 UnityEngine.Random 이나 GetHashCode 를 쓰지 않는다 — 맵 생성 계통에서
-        ///    그것들을 쓰지 않기로 한 약속(TDD)과 혼동될 여지를 남기지 않기 위해서다.
-        ///    여기서 필요한 것은 "매 판 다른 64비트 값"뿐이므로 시각과 GUID 를 섞는다.
+        ///
+        /// 🔴 <b>실제로 뽑는 계산은 이 파일에 없다.</b> <see cref="MapRootSeed.Create"/>(Domain)에 있다.
+        ///    이유는 하나다 — 멀티플레이 Host 는 <b>로비에서</b> seed 를 뽑아야 하는데
+        ///    (규칙 12 "Host 가 유일한 권위자"), 로비 씬에는 이 GameBootstrapper 가 없다.
+        ///    그래서 같은 계산이 두 군데 필요해졌고, 복사해 두 벌로 만들면 언젠가 한쪽만
+        ///    고쳐져 싱글과 멀티의 seed 생성 방식이 조용히 갈라진다. 한 곳에만 두고 양쪽이
+        ///    그것을 불러 쓴다. (무작위 맵 3단계 I)
+        ///
+        /// ⚠️ 옮기면서 계산식은 한 글자도 바꾸지 않았다 — 「GUID 앞 8바이트 ^ UtcNow.Ticks」 그대로다.
+        ///    즉 싱글플레이가 뽑는 값의 성질은 옮기기 전과 완전히 같다.
         /// </summary>
         /// <returns>이번 판의 root seed</returns>
         private ulong CreateRootSeed()
         {
-            // ── 멀티플레이 임시 처리 ────────────────────────────────────────
-            // 🔴 Host 가 정한 seed 를 클라이언트에게 보내는 일은 3단계 범위다.
-            //    지금 양쪽이 각자 seed 를 뽑으면 두 사람이 서로 다른 맵을 보게 된다.
-            //    그래서 멀티에서는 고정 seed 를 쓴다 — 같은 seed 면 같은 맵이므로
-            //    (규칙 12) 전송 없이도 양쪽이 반드시 같은 맵을 얻는다.
-            //    3단계에서 Host 권위 seed 전송이 들어오면 이 분기는 사라진다.
-            if (IsNetworkMode())
-                return NetworkInterimRootSeed;
+            // ── [주석 비활성화] 멀티플레이 임시 고정 seed 분기 (무작위 맵 3단계 I) ──────
+            //
+            // 🔴 왜 지우지 않고 주석으로 남기는가:
+            //    무작위 맵 3단계는 「멀티 경로 전체를 한 커밋으로 갈아끼우는」 작업이라
+            //    문제가 생겼을 때 임시 고정 seed 경로로 되돌릴 수 있어야 한다.
+            //    아래 두 줄의 주석을 푸는 것이 그 되돌리기의 전부가 되도록 남겨 둔다.
+            //
+            // 🔴 왜 지금 비활성화하는가 — <b>이 분기는 이미 죽은 코드다.</b>
+            //    3단계에서 멀티의 seed 는 Host 가 **로비에서** 뽑아 맵을 통째로 Client 에게
+            //    보낸다(NetworkMapTransfer). 그래서 멀티에서는 이 CreateRootSeed() 자체가
+            //    호출되지 않는다 — Host 는 로비에서 이미 뽑았고, Client 는 아예 뽑지 않고
+            //    받은 맵을 그대로 새기기만 한다(PrepareAndProjectMap 의 멀티 분기 참조).
+            //    동작이 바뀌는 것이 아니라 **죽은 코드를 치우는 것**이다.
+            //    그럼에도 굳이 치우는 이유는, 남겨 두면 다음 사람이 이 줄을 보고
+            //    "멀티는 고정 seed 를 쓰는구나" 라고 **사실과 다르게** 읽기 때문이다.
+            //
+            // if (IsNetworkMode())
+            //     return NetworkInterimRootSeed;
 
             // ── 싱글플레이: 매 판 다른 값 ───────────────────────────────────
-            // GUID 는 앞 8바이트만 써도 충분히 흩어지고, 시각을 섞어 같은 프로세스에서
-            // 연속으로 시작해도 값이 겹치지 않게 한다.
-            byte[] guidBytes = System.Guid.NewGuid().ToByteArray();
-
-            ulong entropy = 0UL;
-            for (int i = 0; i < 8; i++)
-                entropy = (entropy << 8) | guidBytes[i];
-
-            return entropy ^ (ulong)System.DateTime.UtcNow.Ticks;
+            return MapRootSeed.Create();
         }
     }
 }
