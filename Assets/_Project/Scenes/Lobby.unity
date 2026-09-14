@@ -10992,6 +10992,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fc3472553ea2f3f44a43aa930f9665a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkGameManager
+  _mapTransferPrefab: {fileID: 2839821623119223109, guid: d737039893051ea48a000bc2f4194f92, type: 3}
 --- !u!1 &946723007
 GameObject:
   m_ObjectHideFlags: 0
