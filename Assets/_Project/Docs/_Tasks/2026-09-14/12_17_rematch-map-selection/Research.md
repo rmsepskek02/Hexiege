@@ -1,0 +1,612 @@
+# Research — 재경기 맵 선택 (`SameMap` / `NewMap`, 규칙 14)
+
+작성일: 2026-09-14
+작업 폴더: `Assets/_Project/Docs/_Tasks/2026-09-14/12_17_rematch-map-selection/`
+선행 작업:
+- `Assets/_Project/Docs/_Tasks/2026-09-01/19_49_random-map-phase1-tilekind/` (1단계 — 완료)
+- `Assets/_Project/Docs/_Tasks/2026-09-03/03_14_random-map-phase2-generator/` (2단계 — A~K 완료)
+- `Assets/_Project/Docs/_Tasks/2026-09-08/17_29_random-map-phase3-multiplayer/` (3단계 — B~I 완료 · **최초 경기 실기 검증 완료** · A 미착수)
+
+---
+
+## 0. 이 작업이 무엇이고 왜 하는지 (자연어 설명 — CLAUDE.md 규칙 13)
+
+지금 이 게임은 **둘이서 하는 경기에서도 매 판 다른 전장**이 나옵니다. 방을 만든 사람이 맵을 만들어 상대에게 통째로 보내 주고, 두 사람이 받은 맵이 정말 한 글자도 다르지 않은지 지문(해시)을 맞춰 본 뒤에야 전투 화면으로 넘어갑니다. 이것이 직전 작업(3단계)에서 끝났고, 사용자가 직접 두 기기로 플레이해서 확인했습니다.
+
+**그런데 경기가 끝난 뒤 「한 판 더」를 누르면 맵이 만들어지지 않습니다.** 화면에는 텅 빈 전장이 뜹니다.
+
+이것은 **고장이 아니라 일부러 그렇게 만든 것**입니다. 규칙이 *"전투 화면에서는 대기실에서 확정한 맵만 쓴다"* 고 정해 두었고, 맵을 넘겨주는 통로는 **한 번 꺼내면 비워지는** 구조입니다. 그래서 재경기처럼 「넘겨줄 맵이 준비되지 않은 채로 전투 화면에 들어온 경우」에는 **지난 판 맵으로 조용히 때우지 않고 실패로 드러납니다.** 조용히 때웠다면 최악의 경우 두 사람이 **서로 다른 맵에서 싸우게** 됩니다. 지금 비어 있는 화면은 그 사고를 막은 결과입니다.
+
+**이번 작업은 그 빈자리를 채우는 일입니다.** 경기가 끝난 화면에서 플레이어가 두 가지 중 하나를 고르게 합니다.
+
+- **같은 맵으로 한 판 더** — 방금 싸운 그 전장을 그대로 다시 씁니다. 새로 만들지 않습니다.
+- **새 맵으로 한 판 더** — 방을 만든 사람이 결과 화면을 띄워 둔 채로 새 전장을 만들어, 상대에게 보내고, 지문을 맞춰 보고, **양쪽 다 확인이 끝난 뒤에야** 새 전장으로 갈아끼웁니다. 중간에 한 군데라도 실패하면 **아무것도 바꾸지 않고** 결과 화면 그대로 머무릅니다.
+
+상대에게는 **어느 쪽으로 요청했는지가 보이고**, 상대가 그 조건을 보고 수락해야 시작됩니다. 이 팝업은 배경을 아무리 눌러도 닫히지 않습니다 — 반드시 「수락」이나 「거절」 중 하나를 골라야 합니다.
+
+**이 문서는 그 일을 시작하기 전에, 지금 코드·씬·규칙 문서가 실제로 어떤 상태인지 직접 열어 본 기록입니다.** 계획서(`Plan.md`)가 아니며 **무엇을 어떻게 만들지는 정하지 않습니다.** "지금은 이렇고, 규칙은 이걸 요구하고, 그래서 이런 선택지와 대가가 있다"까지만 적습니다.
+
+이번 조사에서 가장 크게 드러난 것 네 가지를 먼저 적어 둡니다.
+
+1. **3단계가 「나중에 재경기에서 확인하겠다」고 미룬 질문이, 실기 로그에 이미 절반은 답이 나와 있었습니다.** 맵을 보내는 전용 객체는 **대기실 → 전투 화면 전환을 넘어 살아남았습니다**(§4-1, 로그 실측). 나머지 절반(전투 → 전투 재로드)은 **현재 코드가 그 직전에 객체를 지워 버리기 때문에** 아직 잴 수 없었습니다.
+2. **재경기 상태를 지금 그 상태를 들고 있는 클래스에 그대로 둘 수 없습니다.** `NetworkGameEndController` 는 **전투 씬에 놓인 객체**라 씬이 재로드되는 순간 자기 상태를 스스로 지웁니다(`OnNetworkDespawn` 실측). 규칙 14 가 *"재경기 컨텍스트는 Game 씬 재로드 사이에 유지"* 하라고 요구하는 바로 그 순간입니다(§7-3).
+3. **「새 맵인데 지문이 직전과 같으면 새 맵으로 인정하지 않는다」는 조항이, 실제로 걸릴 수 있는 경로가 있습니다.** 폴백 템플릿은 맵 유형마다 **고정된 파일 1개**이고 그 안의 seed 까지 그대로 실려 나가므로, **두 판 연속 같은 유형의 폴백이 쓰이면 지문이 반드시 같아집니다**(§8). 규칙에는 이때의 **재시도 상한이 없습니다.**
+4. **UI 자산은 생각보다 덜 모자랍니다.** 상대 팝업에 조건을 표시할 **텍스트 오브젝트는 씬에 이미 있고**(`MessageText`), 없는 것은 **그것을 가리키는 스크립트 필드**뿐입니다(§5-3). 반면 결과 화면의 **세 번째 버튼은 정말로 없습니다.**
+
+---
+
+## 1. 이 문서가 답하는 질문과, 답을 얻은 방법
+
+| 절 | 답하는 질문 | 근거 |
+|---|---|---|
+| §2 | 규칙 14·12·16 이 **이미 확정한 것**이 정확히 무엇인가 | `GameSystemRules_RandomMap.md` 규칙 14(`:516`~`:548`) · 규칙 12(`:137`~`:178`) · 규칙 16(`:489`~`:514`) 전문 · `GameSystemRules_UI.md` 「공통 UI 규칙」 규칙 5·8·9·M-3·M-4 |
+| §3 | 현행 재경기 코드는 실제로 어떻게 도는가 | `NetworkGameEndController.cs` 532행 통독 |
+| §4 | NGO 씬 재로드 생존 조건 — 지금 무엇까지 아는가 | `_Logs/_editor/2026-09-14/RuntimeLog.txt` 실측 + `NetworkGameManager.cs` · `NetworkMapTransfer.cs` 대조 |
+| §5 | UI 자산이 규칙 14 를 담을 수 있는가 | `GameEndUI.cs` · `RematchRequestPopup.cs` + **`Game.unity` 오브젝트 트리 실측** |
+| §6 | 싱글플레이 경로의 3단계 서술이 지금도 맞는가 | `GameEndUI.cs:254`~`:267` · `GameBootstrapper.Map.cs:442`~`:503` · `:772` |
+| §7 | 재경기 컨텍스트를 어디에 둘 수 있는가 | `MapHandoff.cs` 전문 · `NetworkGameManager.cs` `Clear()` 호출 2곳 · `NetworkGameEndController.cs:137`~`:150` |
+| §8 | 「해시 충돌 시 폐기」가 실제로 발동할 수 있는가 | `MapPreparationUseCase.cs:142`~`:145` · `:604` · `MapDefinitionCodec.cs:60`~`:61` |
+| §9 | 3단계 보류 항목 중 이번에 걸리는 것은 무엇인가 | 3단계 `Plan.md` §16 (가~자 8건) 전수 대조 |
+| §10 | 문서·코드 사이에 어긋난 곳이 있는가 | 규칙 문서 · `TechnicalDesignDocument.md` · 코드 주석 대조 |
+| §11 | 확인하지 못한 것은 무엇인가 | — |
+| §12 | 사용자 확인이 필요한 미정 항목은 무엇인가 | — |
+
+> **근거 구분(CLAUDE.md 규칙 10)**: 이 문서에서 **「실측」**은 이번에 파일을 직접 열어 센 값이다. **「로그 실측」**은 이 저장소에 들어 있는 `Assets/_Project/Docs/_Logs/_editor/2026-09-14/RuntimeLog.txt` 를 직접 읽은 값이다. **「문서 인용」**은 규칙·설계 문서에 적힌 값이다. **「미확인」**은 확인하지 못한 것이며 **추정으로 채우지 않았다.** 네 가지를 각 항목에 표시했다.
+>
+> ⚠️ **인계값과 실측이 어긋난 1건은 §3-3 에 대조표로 남겼다.**
+
+---
+
+## 2. 규칙이 이미 확정한 것 — 조사에서 다시 정하지 않는다
+
+🔴 **아래는 「미정」이 아니다.** 규칙 원문이 명시적으로 정한 값이며, 이 문서는 이것을 **선택지로 되돌리지 않는다.** (문서가 현재형으로 정해 둔 것을 다시 여는 것은 그 자체가 실수다 — 2026-09-03 에 같은 부류의 실수가 있었고 그 교훈이 에이전트 메모리에 남아 있다.)
+
+### 2-1. 규칙 14 가 확정한 것 (문서 인용 — `GameSystemRules_RandomMap.md:516`~`:548`)
+
+| 항목 | 규칙이 정한 값 | 원문 |
+|---|---|---|
+| 기존 흐름 | **유지**하고 요청 조건에 `RematchMapMode` 를 **추가**한다 | *"기존 재경기의 요청·수락·거절과 Game 씬 재로드 흐름은 유지하고, 요청 조건에 `RematchMapMode`를 추가한다."* |
+| `SameMap` | 현재 `MapDefinition` · canonical bytes · hash **재사용**. 새 seed 추첨·맵 재생성 **없음** | *"현재 `MapDefinition`, canonical bytes, hash를 재사용한다. / 새 seed 추첨이나 맵 재생성을 하지 않는다."* |
+| `NewMap` 시작 상태 | **결과 화면을 유지한 채** Host 가 생성 | *"Game 종료 결과 화면을 유지한 상태에서 Host가 새 맵을 생성한다."* |
+| `NewMap` 재추첨 범위 | 새 64-bit root seed → `MapType`·`NeutralMineCount`·`StartingMineSide` **새로 추첨** + 지형·중립 광산 위치 **재생성**. 팀·종족·기타 매치 설정은 **직전 값 유지** | *"팀, 종족과 그 밖의 매치 설정은 직전 경기 값을 그대로 유지한다."* / *"새 64-bit root seed를 만든 뒤 맵 관련 값만 다시 선택한다."* |
+| 🔴 **해시 충돌** | 새 후보의 최종 canonical hash 가 **직전 맵 hash 와 같으면 새 맵으로 인정하지 않는다** → 폐기 → **또 다른 새 root seed 부터 다시** | *"새 후보의 최종 canonical hash가 직전 맵 hash와 같으면 새 맵으로 인정하지 않는다. 해당 후보를 폐기하고 또 다른 새 root seed부터 맵 준비를 다시 수행한다."* |
+| 전송 | **공용 `NetworkMapTransfer`** 로 전송 + SHA-256 + semantic fairness 검증 + `MapReady(success=true)` ACK | *"새 package를 공용 `NetworkMapTransfer`로 Client에 전송하고 SHA-256 및 semantic fairness 검증과 `MapReady(success=true)` ACK를 완료한다."* |
+| 교체 시점 | 검증 완료 전까지 **기존 정의 유지** → 양측 성공 시 **원자적 교체** → **그 뒤** 씬 재로드 | *"검증 완료 전까지 기존 `MapDefinition`을 현재 값으로 유지한다. / 양측 검증 성공 시 새 정의를 원자적으로 현재 값으로 교체한 뒤 Game 씬을 재로드한다."* |
+| 실패 시 | **교체도 재로드도 하지 않고** 기존 결과 화면·기존 맵 정의 유지 | *"생성·전송·검증이 실패하면 교체하거나 씬을 재로드하지 않고 기존 결과 화면과 기존 맵 정의를 유지한다."* |
+| 자동 시작 금지 | 서버가 **먼저 접수한 요청을 현재 제안으로 확정**. 상대가 **명시적으로 수락**해야 시작. 뒤에 온 다른 조건 요청은 **덮어쓰지 않는다** | *"양측이 서로 다른 mode로 동시에 요청해도 자동 시작하지 않는다. 서버가 먼저 접수한 요청을 현재 제안으로 확정하고, 다른 플레이어가 그 조건을 확인해 명시적으로 수락해야 한다. 뒤에 도착한 다른 조건의 요청은 기존 제안을 덮어쓰지 않는다."* |
+| 팝업 | **Modal** — 배경 탭해도 닫히지 않음. 같은 맵/새 맵 **조건을 표시** | *"상대방의 재경기 팝업에는 같은 맵/새 맵 조건을 표시하며 … 이 팝업은 모달 (Modal) 타입이므로 배경을 탭해도 닫히지 않는다."* |
+| 초기 골드 | Host 가 **새 맵 준비 시점의 `GameConfig.MapTestModeEnabled`** 로 확정해 새 canonical 정의에 기록 | *"Host는 새 맵 준비 시점의 `GameConfig.MapTestModeEnabled`로 실제 초기 골드를 확정해 새 canonical 정의에 기록한다."* |
+| 싱글 | 결과 화면에서 **같은 맵/새 맵 둘 다 제공**. 같은 맵=현재 정의 재사용, 새 맵=생성·semantic 검증 **성공 후에만** 교체·재로드 | *"싱글플레이 결과 화면도 같은 맵/새 맵 선택을 제공한다."* |
+| 재경기 컨텍스트 | Game 씬 재로드 사이 **유지**, **로비 복귀 또는 연결 종료 시 폐기** | *"현재 맵 정의와 재경기 제안을 보관하는 재경기 컨텍스트는 Game 씬 재로드 사이에는 유지하고, 로비 복귀 또는 연결 종료 시 폐기한다."* |
+
+### 2-2. 규칙 12·16 에서 함께 걸리는 것 (문서 인용)
+
+- **규칙 12**: *"멀티플레이에서는 Host가 유일한 맵 생성 권위자다."* — `NewMap` 도 Host 단독 생성이다.
+- **규칙 12**: *"`MapType`, `NeutralMineCount`, `StartingMineSide`, 실제 테스트 모드 표식과 초기 골드를 먼저 확정한 뒤 같은 선택을 유지한 채 **최대 100회** 생성·검증한다."* — `NewMap` 의 한 번의 준비도 이 100회 안에서 돈다.
+- **규칙 12**: *"100회 모두 실패하면 **같은 맵 유형의 검증된 폴백 템플릿**을 사용한다."* — §8 의 해시 충돌 경로가 여기서 나온다.
+- **규칙 16**: *"최초 경기와 `NewMap` 재경기는 모두 **씬에 종속되지 않는 공용 전송 경로**를 사용한다. 씬에 묶인 단일 RPC 하나로 전체 맵을 보내지 않는다."*
+- **규칙 16**: *"`NewMap` 재경기 실패는 이전 `MapDefinition`을 유지하고 rematch pending 상태를 초기화한 뒤 결과 UI와 전체 길이의 자동 로비 복귀 countdown, `SameMap`/`NewMap`/`Lobby` 선택을 복원한다."*
+
+### 2-3. UI 규칙이 확정한 「모달」의 뜻 (문서 인용 — `GameSystemRules_UI.md` 「공통 UI 규칙」)
+
+- **규칙 8(팝업 타입 구분)**: 팝업 = *"정보 확인 또는 조작 패널"* · 배경 탭 닫기 **가능** / 모달 = *"사용자의 명시적 Y/N 선택이 필요한 팝업"* · 배경 탭 닫기 **불가**. **현재 예시 목록에 「재경기 요청」이 모달로 이미 올라 있다.**
+- **규칙 9(팝업 닫기 — 배경 탭)**: *"모달(Modal) 타입은 배경 탭이 비활성화되며, 반드시 확인/취소 버튼으로만 닫힌다."*
+- **규칙 5(CanvasGroup 숨김/표시 패턴)** 의 「반투명 배경 오버레이(BlockingOverlay) 단일 소유 패턴」: *"**Modal 모드** — `ShowBlockingOverlay()` (콜백 없음): 뒤쪽 입력만 차단한다. 오버레이를 터치해도 닫히지 않는다. (ConfirmPopup, AnonymousWarningPopup, **RematchRequestPopup**)"*
+
+> ✅ **실측 결과 이 조건은 이미 충족돼 있다.** `RematchRequestPopup.cs:270` 이 `UIManager.Instance?.ShowBlockingOverlay();` — **콜백 없이** 부른다(같은 줄 주석도 *"Modal 모드(콜백 없음)"*). **규칙 14 의 「배경을 탭해도 닫히지 않는다」는 새로 만들 것이 아니라 이미 되어 있는 것**이다.
+
+---
+
+## 3. 현행 재경기 코드의 실제 모습 (실측 — `NetworkGameEndController.cs`, 전체 532행)
+
+### 3-1. 신호 경로 (실측 — 행 번호 전부 재확인)
+
+```
+[요청자] GameEndUI 「다시하기」 버튼          (SetupRematchButton 이 붙인 핸들러, GameEndUI.cs:403~423)
+   → GameEvents.OnLocalRematchRequested 발행
+   → NetworkGameEndController 가 구독해 RequestRematchServerRpc()      (:124~:125 구독 / :344 정의)
+
+[서버] if (_rematchRequesterId == ulong.MaxValue)                       (:351)
+         ├ 첫 요청 → _rematchRequesterId = requesterId                  (:354)
+         │            NotifyRematchRequestedClientRpc(상대에게만)       (:366 호출 / :385 정의)
+         │              → [상대] GameEvents.OnNetworkRematchRequested 발행
+         │              → RematchRequestPopup 이 구독해 ShowRequest()   (RematchRequestPopup.cs:110 / :199)
+         └ else  → 🔴 곧바로 StartRematch()                             (:373)
+
+[상대] 수락 → GameEvents.OnLocalRematchAccepted → AcceptRematchServerRpc()  (:127~:128 / :395) → StartRematch() (:398)
+[상대] 거절 → GameEvents.OnLocalRematchDeclined → DeclineRematchServerRpc() (:130~:131 / :406)
+              → _rematchRequesterId 초기화 (:414) + NotifyRematchDeclinedClientRpc(요청자에게만) (:427 / :437)
+```
+
+### 3-2. `StartRematch()` 가 하는 일은 정확히 세 가지다 (실측 — `:447`~`:497`)
+
+| 순서 | 하는 일 | 행 |
+|---|---|---|
+| ① | `_rematchRequesterId = ulong.MaxValue;` (제안 상태 초기화) | `:449` |
+| ② | `SpawnManager.SpawnedObjects` 복사본을 순회하며 **`IsSceneObject == false` 인 동적 스폰 `NetworkObject` 전수 Despawn** | `:472` 가드 |
+| ③ | `NotifyRematchStartingClientRpc()` 로 로딩 신호를 뿌린 뒤 **`NetworkManager.Singleton.SceneManager.LoadScene("Game", LoadSceneMode.Single)`** | `:492` · `:495` |
+
+②의 이유는 코드 주석이 직접 밝힌다(`:452`~`:454` 인용):
+
+> *"LoadScene 이전에 모든 동적 스폰 NetworkObject를 명시적으로 Despawn. NGO SceneManager.LoadScene(Single)으로 같은 씬("Game")을 재로드할 때 **동적 스폰 NetworkObject(유닛, 건물 등)가 자동 정리되지 않는 문제** 수정."*
+
+그리고 씬 배치 오브젝트를 건드리지 않는 이유도 함께 적혀 있다(`:465`~`:467`):
+
+> *"`IsSceneObject == true`인 오브젝트는 씬에 미리 배치된 NetworkObject … 이들은 씬 재로드 시 NGO가 자동으로 처리하므로 건드리지 않는다."*
+
+🔴 **이 가드에는 예외가 없다.** 즉 `NetworkMapTransfer` 는 「유닛·건물」과 같은 이유로 지워지는 것이 아니라, **동적 스폰이라는 이유 하나만으로** 함께 지워진다. 실기 로그에 그 지문이 그대로 남아 있다(§4-1).
+
+### 3-3. 🔴 규칙 14 「자동 시작 금지」와 현재 코드의 어긋남 — 인계 행 번호를 정정한다
+
+3단계 `Plan.md` §10 이 *"`NetworkGameEndController.cs:375` 가 두 번째 요청을 받는 즉시 `StartRematch()` 한다"* 고 적었다. **행 번호를 직접 확인했다.**
+
+| 항목 | 인계값 | 이번 실측 | 처리 |
+|---|---|---|---|
+| 「양측 동시 요청 → 즉시 시작」 분기의 `StartRematch()` 호출 | `:375` | **`:373`** | **실측값을 쓴다.** 서술(내용)은 정확하다 — 행 번호만 2행 어긋났다 |
+
+실제 분기 본문(`:369`~`:374` 원문 인용):
+
+```csharp
+else
+{
+    // 상대도 이미 요청 → 상호 동의 — 즉시 재경기
+    GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "양측 재경기 동의 — 즉시 재경기 시작");
+    StartRematch();
+}
+```
+
+⚠️ **현재 코드가 규칙을 「어기고 있는」 것이 아니다.** `RematchMapMode` 라는 개념 자체가 코드에 없으므로(실측: `RematchMapMode` 0건 · `SameMap` 0건 · `NewMap` 은 주석 1건뿐 — `NetworkMapTransfer.cs:129`) **조건이 다를 수가 없고, 따라서 「조건이 다른데 자동 시작」 상태가 아직 존재하지 않는다.** 🔴 **그러나 조건을 도입하는 순간 이 분기가 곧바로 규칙 위반이 된다** — 그것이 3단계 Plan §10 이 「다음 범위 착수 시 반드시 함께 처리할 것」으로 못 박아 둔 이유다.
+
+### 3-4. `_rematchRequesterId` 의 수명과 초기화 지점 (실측 — 전수)
+
+| 자리 | 값 | 행 |
+|---|---|---|
+| 선언·초기값 | `private ulong _rematchRequesterId = ulong.MaxValue;` (주석: *"ulong.MaxValue이면 아직 요청 없음"*) | `:79` |
+| 첫 요청 시 기록 | `_rematchRequesterId = requesterId;` | `:354` |
+| 거절 시 초기화 | `_rematchRequesterId = ulong.MaxValue;` | `:414` |
+| 재경기 시작 시 초기화 | `_rematchRequesterId = ulong.MaxValue;` | `:449` |
+| 🔴 **디스폰 시 초기화** | `OnNetworkDespawn()` 안에서 `_rematchRequesterId = ulong.MaxValue;` | `:137` 정의 / `:150` |
+
+🔴 **마지막 항목이 §7 의 핵심 근거다.** 이 클래스는 **Game 씬에 배치된 `NetworkObject`**(`Game.unity` 소속 — 3단계 Research §4-3 분류와 일치)이므로 **씬이 재로드될 때마다 Despawn → Respawn** 된다. 실기 로그에서 그 왕복이 그대로 보인다(§4-1 표).
+
+즉 **지금 구조로는 「먼저 접수한 제안」이 씬 재로드를 넘어 살아남을 수 없다.** 현재는 씬 재로드 직전에 어차피 초기화하므로(`:449`) 문제가 드러나지 않지만, **규칙 14 가 요구하는 「재경기 컨텍스트를 Game 씬 재로드 사이에 유지」는 이 클래스만으로는 성립하지 않는다.**
+
+---
+
+## 4. NGO 씬 재로드 생존 조건 — 3단계가 미룬 항목이 여기서 처음 실제로 걸린다
+
+### 4-0. 3단계가 이 항목을 어떻게 남겼는가 (문서 인용)
+
+3단계 `Plan.md` §14 실행 기록 A 행:
+
+> *"🔴 **착수하지 않았고, 「차단 요인」에서 「관찰 항목」으로 강등됐다.** 이번 범위에는 생존 조건이 걸리지 않는다 — 전송이 **씬 로드가 시작되기 전 로비에서 전부 끝나고**, 확정된 맵은 객체가 아니라 `MapHandoff`(정적 홀더)로 씬을 건넌다. **생존이 실제로 물리는 곳은 재경기**"*
+
+**지금이 그 자리다.**
+
+### 4-1. 🔴 로그 실측 — 전송 객체는 「대기실 → 전투 씬」 재로드를 **이미 넘었다**
+
+`Assets/_Project/Docs/_Logs/_editor/2026-09-14/RuntimeLog.txt` 에서 **두 번째 경기 구간의 시간축을 그대로 옮긴다**(각 줄의 행 번호 병기 — 이 저장소 파일을 직접 읽었다).
+
+| 시각 | 로그 | 파일 행 | 이 시점의 씬 |
+|---|---|---|---|
+| `19:59:34.882` | `[Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 \| Role=Host, IsServer=True, NetworkObjectId=1, State=Idle` | 311 | **Lobby** |
+| `19:59:35.059` | `[Map/NetworkMapTransfer] Host 와 Client 의 최종 맵 해시가 일치한다 \| Event=MapTransferSucceeded … HashMatch=True` | 319 | Lobby |
+| `19:59:35.75x` | `[Network/NetworkGameEndController] 네트워크 스폰 \| IsServer=True` 외 씬 배치 객체 다수 | 325~340 | **Game (씬 로드 완료)** |
+| `19:59:43.0` | 포기 → 게임 종료 | 351~354 | Game |
+| `19:59:43.550` | `RequestRematchServerRpc 수신 \| RequesterClientId=0, PreviousRequesterClientId=18446744073709551615` | 355 | Game |
+| `19:59:44.816` | `AcceptRematchServerRpc 수신 — 재경기 시작` | 357 | Game |
+| **`19:59:44.818`** | 🔴 **`StartRematch: 동적 NetworkObject Despawn \| ObjectName=NetworkMapTransfer(Clone)`** | **358** | Game |
+| `19:59:44.819` | `[Network/NetworkMapTransfer] 맵 전송 객체 디스폰 \| Role=Host, Nonce=1, State=Completed` | 359 | Game |
+| `19:59:44.823` | `StartRematch: Game 씬 재로드` | 361 | Game |
+| `19:59:45.790` | `[ERROR] 멀티플레이인데 로비에서 확정된 맵이 전투 씬으로 인계되지 않았다 \| Event=MapPreparationFailed, Reason=MapHandoffEmpty, NetworkMode=True, GridWidth=11, GridHeight=21` | 394 | Game(재로드 후) |
+
+🔴 **이 표가 증명하는 것:** `19:59:34.882` 에 **로비에서** 스폰된 객체를 `19:59:44.818` 에 **전투 씬에서** despawn 할 수 있었다. 즉 그 객체는 **그 사이의 `LoadSceneMode.Single` 씬 로드(로비 → 전투)를 넘어 `SpawnManager.SpawnedObjects` 에 살아 있었다.**
+
+보강 근거 2가지(실측):
+- **스폰 로그는 그 사이에 한 번도 더 찍히지 않았다.** 파일 전체에서 `맵 전송 객체 스폰 완료` 는 **2건**(행 239 · 311)뿐이고, 두 번째 경기 구간에서는 `19:59:34.882` 하나다. **재스폰된 새 객체가 아니다.**
+- **코드상 성공 후 despawn 하는 경로가 없다.** `NetworkGameManager.CleanupMapTransferSubscription()`(`:1007`~`:1013`)은 **이벤트 구독 해제와 참조 null 처리만** 하고 `Despawn()` 을 부르지 않는다. 그래서 전송이 끝나도 객체는 그대로 남는다.
+
+⚠️ **다만 이것이 답하지 **못한** 것을 정확히 적는다.**
+1. **Host(서버) 쪽만 측정됐다.** 이 로그는 에디터 Host 의 것이다(`IsServer=True`). **Client 쪽 생존은 확인되지 않았다.**
+2. **「전투 → 전투」 재로드는 측정되지 않았다.** `StartRematch()` 가 **재로드 직전에 despawn 해 버리므로**(`:472` 가드) 그 방향의 생존 여부는 **현재 코드에서 구조적으로 관측할 수 없다.** 이것은 검증 누락이 아니라 **코드가 그 관측을 막고 있는 것**이다.
+3. **왜 살아남았는지(NGO 내부 메커니즘)는 확인하지 못했다** — §11-(1).
+
+### 4-2. 규칙 16 이 요구하는 「공용 `NetworkMapTransfer`」를 재경기에서 어떻게 확보할 것인가 — 후보와 걸림돌
+
+⚠️ **결정하지 않는다.** 각 후보의 근거와 걸림돌만 적는다.
+
+| 후보 | 무엇을 하는가 | 얻는 것 | 대가 / 걸림돌 | 확인 필요 |
+|---|---|---|---|---|
+| **ⓐ 씬 재로드를 넘겨 생존시킨다** | `StartRematch()` 의 despawn 루프에 **`NetworkMapTransfer` 예외**를 둔다(`:472` 가드 수정) | 규칙 16 의 *"씬에 종속되지 않는 공용 전송 경로"* 를 **문자 그대로** 만족. `TechnicalDesignDocument.md:307` 의 *"persistent network connection에 존재하는 공용 `NetworkMapTransfer`"* 서술과도 일치 | ① **「전투 → 전투」 재로드 생존이 미측정**(§4-1-2). ② despawn 루프는 *"동적 스폰은 자동 정리되지 않는다"* 는 **관측된 문제를 고치려고 넣은 것**이라(`:452`~`:454` 주석) 예외를 두면 그 문제가 이 객체에 대해 되살아날 수 있다 — **그 객체가 재로드 후에도 정상 동작하는지**가 관측 대상이 된다 | NGO 실기 |
+| **ⓑ 재경기 때 다시 스폰한다** | `StartRematch()` 는 그대로 두고, `NewMap` 경로에서 **결과 화면 위에서 새로 스폰**해 전송하고 끝나면 despawn | ① 현재 despawn 루프를 **한 줄도 안 건드린다**. ② 최초 경기와 **같은 스폰·전송 절차**를 재사용한다(`NetworkGameManager.cs:851`~`:930` 의 ①②③ 그대로) | ① **규칙 16 문언과의 긴장** — *"씬에 종속되지 않는 공용 전송 경로"* 가 「객체가 계속 살아 있어야」인지 「경로(프로토콜·클래스)가 씬에 묶이지 않으면」인지 **문언으로 확정 불가**(3단계 `Plan.md` §15 표 1번이 이미 세워 둔 질문이다). ② `SameMap` 은 전송이 없으므로 이 후보에서 **두 갈래의 절차가 갈린다** | **사용자 확인**(§12) |
+| **ⓒ 전투 씬에도 전송 객체를 둔다** | `Game.unity` 에 `NetworkMapTransfer` 를 **씬 배치**로 하나 더 둔다 | 씬 배치 객체는 NGO 가 재로드 시 자동 처리한다(`:465` 주석) | 🔴 **규칙 16 정면 위반** — *"씬에 묶인 …"* 을 금지하는 조항의 대상이 정확히 이것이다. 게다가 **같은 클래스가 로비 스폰본과 씬 배치본 둘이 되어** 어느 쪽이 권위인지 새 문제가 생긴다 | — |
+
+> 🔴 **ⓐ 와 ⓑ 는 「같은 객체를 쓸 것인가」가 아니라 「규칙 16 의 문언을 어떻게 읽을 것인가」에서 갈린다.** 그래서 이 선택은 **기술 판단이 아니라 규칙 해석**이며 **사용자 확인 사항**이다(§12-3).
+
+### 4-3. `NetworkMapTransfer` 자신은 이 질문에 답하지 않기로 되어 있다 (실측 — 코드 주석 원문)
+
+`NetworkMapTransfer.cs:129`~`:135` 클래스 주석:
+
+> *"맵 전송 전용 NetworkObject. Host 가 동적으로 스폰해서 쓰며, 최초 경기와 재경기(NewMap)가 **같은 객체·같은 프로토콜**을 공유한다 (GameSystemRules_RandomMap.md 규칙 16 — "씬에 종속되지 않는 공용 전송 경로").
+> ⚠️ **이 클래스는 "씬 재로드를 넘어 살아남는 방법"을 스스로 정하지 않는다.** 그 조건은 3단계 A 에서 사용자 실기로 확인하기로 한 항목이고 **아직 확정되지 않았다.** 확정되기 전에 DontDestroyOnLoad 같은 것을 임의로 넣으면 근거 없는 결정이 박힌다."*
+
+✅ **즉 이 자리는 비어 있는 것이 아니라 「일부러 비워 둔 자리」다.** 채우는 것이 이번 작업의 몫이다.
+
+⚠️ **다만 그 주석의 첫 문단(*"최초 경기와 재경기(NewMap)가 같은 객체·같은 프로토콜을 공유한다"*)은 아직 사실이 아니다** — `NewMap` 은 코드에 0건이다. **틀린 주석이 아니라 앞선 주석**이며, 이번 작업이 그것을 사실로 만든다.
+
+---
+
+## 5. UI 자산이 무엇을 담을 수 있고 무엇을 못 담는가
+
+### 5-1. `GameEndUI` — 버튼은 **2개**다 (실측: 코드 + 씬 양쪽)
+
+| 항목 | 코드 | `Game.unity` 실측 |
+|---|---|---|
+| 다시하기 버튼 | `[SerializeField] private Button _restartButton;` (`:54`) | `GameEndPanel/RestartButton` (텍스트 `"다시하기"`) |
+| 다시하기 버튼 텍스트 | `[SerializeField] private TextMeshProUGUI _restartButtonText;` (`:77`) | `RestartButton/Text (TMP)` |
+| 로비 복귀 버튼 | `[SerializeField] private Button _backToLobbyButton;` (`:67`) | `GameEndPanel/LobbyButton` (텍스트 `"로비로"`) |
+| 결과 텍스트 | `_resultText` (`:51`) | `GameEndPanel/ResultText` |
+| 카운트다운 텍스트 | `_countdownText` (`:70`) | `GameEndPanel/CountdownText` |
+| 자동 복귀 시간 | `_autoReturnSeconds = 30f` (`:73`) | 씬 직렬화값도 `_autoReturnSeconds: 30` — **코드 기본값과 일치**(Inspector 우선 원칙상 씬 값이 권위다) |
+
+`Game.unity` 오브젝트 트리 실측(스크립트 GUID `938888c449796d043829a0a1b8c3be0d` 로 특정):
+
+```
+GameEndPanel   [GameEndUI, AnimatedPanel, Canvas, GraphicRaycaster]
+├─ ResultText     (TMP)
+├─ CountdownText  (TMP)
+├─ RestartButton  (Image, Button)
+│   └─ Text (TMP)  "다시하기"
+└─ LobbyButton    (Image, Button)
+    └─ Text (TMP)  "로비로"
+```
+
+🔴 **규칙 14 는 세 갈래를 요구한다** — 규칙 16 이 *"`SameMap`/`NewMap`/`Lobby` 선택을 복원한다"* 고 명시적으로 **세 개를 나열**한다. **버튼 2개 → 3개**이므로 **세 번째 버튼은 씬 작업이 필요하다.**
+
+⚠️ **「버튼 3개」가 유일한 답은 아니다** — 「다시하기」를 누르면 `SameMap`/`NewMap` 을 고르는 2차 팝업을 띄우는 형태도 규칙 문언을 만족할 수 있다(규칙은 *"선택을 복원한다"* 고만 말한다). **어느 쪽인지는 정하지 않는다.**
+
+### 5-2. 🔴 `RematchRequestPopup` — 텍스트 오브젝트는 **씬에 이미 있다.** 없는 것은 **스크립트 필드**다
+
+3단계 `Plan.md` §10 은 *"`RematchRequestPopup` 텍스트 필드 없음(조건 표시 필요)"* 라고 적었다. **씬을 직접 열어 확인한 결과, 그 서술은 「스크립트 쪽」에 대해서만 맞다.**
+
+**스크립트 실측** — `[SerializeField]` 는 **5개뿐이고 TMP 필드가 하나도 없다**:
+
+| 필드 | 타입 | 행 |
+|---|---|---|
+| `_requestPanel` | `GameObject` | `:32` |
+| `_acceptButton` | `Button` | `:35` |
+| `_declineButton` | `Button` | `:38` |
+| `_declinedPanel` | `GameObject` | `:42` |
+| `_declinedConfirmButton` | `Button` | `:45` |
+
+**씬 실측**(GUID `d26ab2269c84ef641957a86f95840bd0`) — **패널마다 `TitleText` · `MessageText` 두 개가 이미 있다**:
+
+```
+RematchRequestPopup   [RematchRequestPopup, Canvas, GraphicRaycaster]
+├─ Overlay        (Image, CanvasGroup)
+├─ RequestPanel   (Image, CanvasGroup)
+│   ├─ TitleText    (TMP)  "재경기 요청"
+│   ├─ MessageText  (TMP)  "상대방이 재경기를 요청하였습니다."      ← 🔴 여기가 조건 표시 자리
+│   └─ ButtonArea  (HorizontalLayoutGroup)
+│       ├─ AcceptButton  (Button) └─ Text (TMP) "수락"
+│       └─ DeclineButton (Button) └─ Text (TMP) "거절"
+└─ DeclinedPanel  (Image, CanvasGroup)
+    ├─ TitleText    (TMP)  "재경기 거절"에 해당하는 자리
+    ├─ MessageText  (TMP)  "상대방이 재경기를 거절하였습니다."
+    └─ ButtonArea  (Image, Button) └─ Text (TMP)
+```
+
+> ✅ **그래서 이 항목의 작업량은 「새 UI 오브젝트 제작」이 아니라 「기존 오브젝트에 `[SerializeField] TextMeshProUGUI` 를 하나 달고 Inspector 에서 연결」이다.** 3단계의 서술(*"텍스트 필드 없음"*)은 **스크립트를 본 것이고, 씬은 보지 않은 것**이다. 🔴 **두 서술이 충돌하는 것이 아니라 서로 다른 것을 세고 있다** — 이 문서는 **둘 다 적는다.**
+>
+> ⚠️ **대신 `ShowRequest()` 의 시그니처가 조건을 받지 못한다** — 현재 `public void ShowRequest()`(`:199`) 는 인자가 없고, `GameEvents.OnNetworkRematchRequested` 이벤트도 **필드 0개인 빈 구조체**다 — `public readonly struct NetworkRematchRequestedEvent`(`Application/Events/GameEvents.cs:679`~`:683`)의 본문은 주석 두 줄뿐이고, 그 주석이 *"현재 추가 데이터 필요 없음 — 단순 신호 역할. **추후 요청자 표시 등이 필요하면 ClientId/PlayerName 등을 추가.**"* 라고 적고 있다(발행은 `NetworkGameEndController.cs:388`). **조건을 실어 나르는 통로가 이벤트·RPC·메서드 세 군데 모두 비어 있다.**
+
+### 5-3. 새로 만들거나 손봐야 하는 것 — 실측 기반 목록 (조사 결과이며 확정된 작업 목록이 아니다)
+
+| # | 무엇 | 현재 상태(실측) | 성격 |
+|---|---|---|---|
+| 1 | 결과 화면 **세 번째 선택지** | `GameEndPanel` 에 버튼 2개 | **씬 작업 필요** |
+| 2 | 상대 팝업의 **조건 표시 텍스트** | `RequestPanel/MessageText` **오브젝트는 있음** · 스크립트 필드 없음 | **코드 1필드 + Inspector 배선** |
+| 3 | `RequestRematchServerRpc` **인자** | `ServerRpcParams` 뿐 (`:344`) | 코드 |
+| 4 | `NotifyRematchRequestedClientRpc` **인자** | `ClientRpcParams` 뿐 (`:385`) | 코드 |
+| 5 | `NetworkRematchRequestedEvent` **페이로드** | 빈 이벤트 | 코드 |
+| 6 | `ShowRequest()` **시그니처** | 인자 없음 (`:199`) · 콜백형 오버로드는 *"새 코드에서는 쓰지 말 것"* 으로 표시됨(`:216`) | 코드 |
+| 7 | `_rematchRequesterId` → **조건까지 보관** | `ulong` 하나 (`:79`) | 코드 (§7 과 연동) |
+| 8 | 모달 성질 | ✅ **이미 충족**(`:270` 콜백 없는 `ShowBlockingOverlay()`) | **작업 없음** |
+| 9 | 자동 복귀 countdown | `StopCountdown()`(`:367`) · `CountdownCoroutine()`(`:381`~`:391`, `WaitForSecondsRealtime` 기반) | **미정 — §12-1** |
+
+---
+
+## 6. 싱글플레이 경로 — 3단계 서술이 지금도 맞는지 코드로 재확인
+
+3단계 `Research.md` §3-3 은 *"싱글 재경기는 이미 `NewMap` 고정이고 `SameMap` 경로가 코드에 없다"* 고 적었다. **호출 사슬을 처음부터 다시 따라가 확인했다 — 그 서술은 지금도 맞다.**
+
+```
+GameEndUI.OnRestartClicked()                            (GameEndUI.cs:254)
+  ├ StopCountdown()                                     (:256)
+  ├ Time.timeScale = 1f                                 (:259)
+  ├ Hide()                                              (:262)
+  └ _bootstrapper.LoadMap(HexOrientation.FlatTop)       (:266)   ← 씬을 건드리지 않는다
+        └ GameBootstrapper.LoadMap(...)                 (GameBootstrapper.Map.cs:42)
+              └ PrepareAndProjectMap()                  (:110 호출 / :442 정의)
+                    ├ if (IsNetworkMode()) → 인계본만 투영          ← 멀티는 여기서 갈라진다
+                    └ 싱글: PrepareMap() → CreateRootSeed()        (:500 / :772)
+                                              └ MapRootSeed.Create()   ← 매 판 새 값
+```
+
+확정되는 사실 3가지:
+
+1. **싱글 재경기는 씬을 재로드하지 않는다** — `LoadMap()` 재호출이다. 멀티(씬 재로드)와 **메커니즘이 다르다.**
+2. **싱글은 매번 새 seed 를 뽑는다** — `CreateRootSeed()`(`:772`)의 멀티 분기는 3단계 I 에서 주석 처리됐고 현재 본문은 `return MapRootSeed.Create();` 한 줄이다. 즉 **현재 싱글 「다시하기」 = 사실상 `NewMap`** 이다.
+3. **`SameMap` 에 해당하는 경로가 없다** — 직전 판의 확정 맵을 **다시 투영만** 하는 경로가 코드에 없다.
+
+✅ **다만 재료는 있다.** `GameBootstrapper` 는 매 판 결과를 `_mapPreparation` 에 보관하고(`:617` · 싱글은 `PrepareMap` 반환값) **접근자도 이미 있다** — `public MapPreparationResult GetLastMapPreparation() => _mapPreparation;`(`GameBootstrapper.cs:497`). 🔴 **호출자는 여전히 0건이다**(실측 — 전수 grep). **`SameMap` 이 그 첫 독자가 될 수 있다.**
+
+⚠️ **싱글은 규칙 14 의 「재경기 컨텍스트를 씬 재로드 사이에 유지」 문제가 애초에 없다** — 씬이 유지되므로 `GameBootstrapper` 인스턴스가 그대로 살아 있다. **즉 싱글과 멀티는 「같은 규칙, 다른 메커니즘」이다.**
+
+---
+
+## 7. 재경기 컨텍스트를 어디에 둘 것인가
+
+### 7-1. `MapHandoff` 의 현재 모습 — 「읽고 비운다」가 `SameMap` 과 충돌하는가
+
+`Assets/_Project/Scripts/Application/MapHandoff.cs`(99행, Application 레이어 정적 홀더) 실측:
+
+| API | 하는 일 | 행 |
+|---|---|---|
+| `Set(MapPreparationResult)` | 확정 맵을 심는다. *"같은 판에 두 번 부르면 나중 값이 앞 값을 덮는다"* | `:54` |
+| `TryTake(out ...)` | 꺼내면서 **무조건 비운다** | `:75` |
+| `Clear()` | 보관분 폐기 | `:94` |
+
+「읽고 비운다」의 이유는 파일이 직접 밝힌다(`:60`~`:72` 요지 인용):
+
+> *"꺼낸 뒤에도 값을 남겨 두면, 다음 판에서 맵 인계가 어떤 이유로든 이루어지지 않았을 때 **지난 판의 맵이 아무 경고 없이 그대로 다시 쓰인다.** … 그것이 규칙 16 의 「전투 씬에서는 로비에서 확정한 맵 데이터만 사용해 맵을 구성한다」를 어기는 **가장 조용한 방식**이다. … 즉 이 비우기는 편의가 아니라 **오염된 맵을 막는 안전장치**다."*
+
+🔴 **판정: 「읽고 비운다」는 `SameMap` 과 충돌하지 않는다 — 다만 `SameMap` 은 이 홀더만으로는 성립하지 않는다.**
+
+근거를 갈라 적는다.
+
+- **충돌하지 않는 이유**: `MapHandoff` 는 *"로비에서 확정된 맵을 전투 씬으로 **인계**하는 통로"* 다(파일 머리말). **「이번 판에 쓸 맵」을 한 번 건네주는 편도 통로**이지, 「현재 확정 맵을 계속 보관하는 자리」가 아니다. `SameMap` 이 필요로 하는 것은 후자다. **두 가지는 서로 다른 역할이므로 하나가 다른 하나를 막지 않는다.**
+- **그래도 손이 가는 이유**: `SameMap` 이라면 **재경기 때 이 통로에 같은 값을 한 번 더 `Set()` 해 주어야** 전투 씬의 `ProjectHandedOverMap()`(`GameBootstrapper.Map.cs:584` 의 `TryTake`)이 실패하지 않는다. 즉 **`MapHandoff` 의 「비우기」를 없애는 것이 아니라, 「다시 채우는 쪽」을 만드는 것**이 이번 일이다.
+- 🔴 **「비우기를 없애자」는 방향은 경계해야 한다.** 그것은 위 주석이 막으려던 사고(지난 판 맵의 조용한 재사용)를 정확히 되살린다. **§4-1 표 마지막 줄의 `Reason=MapHandoffEmpty` 는 그 안전장치가 실제로 작동한 증거**이지 고칠 대상이 아니다.
+
+### 7-2. `MapHandoff.Clear()` 호출 2곳 — 규칙 14 와 대조 (실측)
+
+| 호출 지점 | 메서드 | 행 | 규칙 14 대응 |
+|---|---|---|---|
+| 연결 종료 | `NetworkGameManager.DisconnectAsync()` (`:475`) | `:499` | ✅ *"연결 종료 시 폐기"* |
+| 로비 복귀 | `NetworkGameManager.BackToLobby()` (`:1187`) | `:1201` | ✅ *"로비 복귀 … 시 폐기"* |
+
+두 자리 모두 코드 주석이 규칙 14 를 직접 인용하고 있다(`:495`~`:497` · `:1195`~`:1197`):
+
+> *"확정 맵도 폐기한다 — 규칙 14 *"로비 복귀 또는 연결 종료 시 폐기"*. 남겨 두면 다음 판에서 **지난 판 맵이 조용히 재사용**될 여지가 생긴다."*
+
+✅ **규칙 14 의 「폐기」 절반은 이미 지켜지고 있다.** 남은 것은 **「Game 씬 재로드 사이에는 유지한다」는 나머지 절반**이다.
+
+⚠️ **문서·코드 어긋남 1건**: `MapHandoff.cs:89` 주석이 *"이 메서드는 **현재 호출자가 0건이다.** 일부러 그렇게 두었다 — 이번(3단계 C) 범위는 인계 통로를 만드는 것까지이고 … 배선하는 것은 뒤 단계(F·I)의 몫이다"* 라고 적혀 있으나, **실측 결과 호출자는 2건**이다(위 표). **3단계 I 가 실제로 배선했는데 C 단계의 주석이 갱신되지 않았다.** → §10-2.
+
+### 7-3. 🔴 `NetworkGameEndController` 에는 둘 수 없다 (실측 — 두 겹의 근거)
+
+| 근거 | 실측 내용 |
+|---|---|
+| **코드** | `OnNetworkDespawn()`(`:137`) 안에서 `_rematchRequesterId = ulong.MaxValue;`(`:150`) — **디스폰 시 스스로 상태를 지운다** |
+| **로그** | `19:59:35.755` `NetworkGameEndController 네트워크 스폰` → (재경기 재로드) → `19:59:45.442` **`네트워크 스폰` 다시** (RuntimeLog 338행 · 367행) — **씬 재로드마다 Despawn/Respawn 된다** |
+
+🔴 **즉 이 클래스의 필드는 규칙 14 가 「유지하라」고 지정한 바로 그 순간에 초기화된다.** 이는 `.claude/MEMORY.md` 의 공통 교훈 *"Scene NetworkObjects → Despawn/Respawn 시 리셋"* 이 이 자리에서 그대로 나타난 것이다.
+
+### 7-4. 후보와 대가 (조사 결과 — 결정하지 않는다)
+
+| 후보 | 어디에 둘 것인가 | 얻는 것 | 대가 / 미확인 |
+|---|---|---|---|
+| **A. `MapHandoff` 에 「현재 확정 맵」 슬롯을 추가한다** | Application 정적 홀더 | ① 정적이라 **씬 수명과 무관**하다 — 규칙 14 의 「재로드 사이 유지」를 그대로 만족 ② 폐기 시점 2곳이 **이미 배선돼 있다**(§7-2) ③ 싱글/멀티 **공용**이다(Application 이라 NGO 를 모른다) | ① **「읽고 비운다」 통로와 「계속 보관」 슬롯이 한 클래스에 섞인다** — 그 파일의 설계 의도가 흐려질 수 있다 ② `static` 이라 **테스트 간 상태 누수**에 주의가 필요하다 |
+| **B. 새 정적 홀더를 하나 더 만든다**(`RematchContext` 등) | Application | 역할이 섞이지 않는다. `MapHandoff` 는 손대지 않는다 | ① 폐기 시점을 **다시 2곳에 배선**해야 한다(빠뜨리면 규칙 14 의 「폐기」가 깨진다) ② 정적 홀더가 셋이 된다(`NetworkContext` · `MapHandoff` · 신규) |
+| **C. `NetworkGameManager` 가 들고 있는다** | Infrastructure · `DontDestroyOnLoad`(`:104`) | 로비 → 전투 → 재경기 전 구간 생존. `Clear()` 를 부르는 자리와 **같은 클래스** | ① **싱글플레이에는 이 객체가 없다** — 규칙 14 가 싱글도 요구하므로 **싱글용 경로가 따로 필요해진다** ② 이미 959행이다 |
+| **D. 살아남은 `NetworkMapTransfer` 가 들고 있는다** | Infrastructure · 동적 스폰 | `HostPreparedMap`(`:355`)에 **이미 Host 의 확정 맵을 들고 있다** | ① **§4-2 후보 ⓐ 가 성립해야만 가능**하다(지금은 재경기 때 despawn 된다) ② 그 프로퍼티 주석 자신이 *"전투 씬으로의 인계는 이 프로퍼티가 아니라 `MapHandoff` 가 맡는다 … 여기 남는 것은 **진단·재현용 참조 하나**"* 라고 역할을 제한하고 있다(`:351`~`:354`) ③ **Client 쪽에는 없다** |
+
+> 🔴 **A~D 중 어느 것도 「팀·종족 등 매치 설정 유지」(규칙 14)까지 답하지 않는다.** 그 값들이 지금 어디에 있고 재로드를 어떻게 넘는지는 **이번 조사 범위에서 확인하지 못했다** → §11-(5).
+
+---
+
+## 8. 🔴 「새 후보의 해시가 직전과 같으면 폐기」가 실제로 발동할 수 있는 경로가 있다
+
+**이번 조사에서 새로 드러난 것 중 가장 중요한 항목이다.**
+
+### 8-1. 왜 보통은 절대 안 걸리는가 (실측)
+
+canonical 바이트의 **첫 두 필드가 `MapVersion` 과 `RootSeed`** 다(`MapDefinitionCodec.cs:60`~`:61`):
+
+```csharp
+WriteInt32(buffer, def.MapVersion);
+WriteUInt64(buffer, def.RootSeed);
+```
+
+`NewMap` 은 **새 root seed 로 시작**하므로, **정상 생성 경로에서는 `def.RootSeed` 가 달라 canonical 바이트가 반드시 달라지고, 따라서 해시도 달라진다.** 즉 §2-1 의 해시 충돌 조항은 **SHA-256 충돌을 걱정하는 조항처럼 보인다**(천문학적으로 불가능).
+
+### 8-2. 🔴 그런데 폴백 경로에서는 `RootSeed` 가 「이 경기의 seed」가 아니다 (실측)
+
+`MapPreparationResult.Definition` 의 XML 주석 원문(`MapPreparationUseCase.cs:142`~`:145`):
+
+> *"⚠️ 폴백을 썼을 때 `Definition.RootSeed` 는 「이 경기의 root seed」가 아니라 **「템플릿을 만들 때 채택된 시드」**다. 템플릿 바이트를 그대로 쓰는 것이 Host/Client 가 같은 맵을 얻는 근거이기 때문이다."*
+
+코드로도 확인된다 — 폴백 재조립 요청이 **템플릿에서 읽은 값을 그대로 쓴다**(`:600`~`:608`):
+
+```csharp
+var rebuildRequest = new MapGenerationRequest
+{
+    MapVersion = loaded.MapVersion,
+    RootSeed = loaded.RootSeed,                                    // ← 템플릿의 seed
+    AttemptIndex = MapFallbackTemplateFactory.TemplateAttemptIndex,
+    StartingMineSide = MapFallbackTemplateFactory.TemplateStartingMineSide,
+    NeutralMineCount = loaded.NeutralMineCount,
+    TestModeFlag = MapFallbackTemplateFactory.TemplateTestModeFlag,
+    InitialGold = templateGold
+};
+```
+
+그리고 규칙 12 가 **폴백 템플릿을 맵 유형마다 고정 1개**로 못 박았다(문서 인용):
+
+> *"**맵 유형마다 고정 템플릿 1개씩, 모두 5개**만 보관한다."*
+
+### 8-3. 그래서 무엇이 따라 나오는가
+
+🔴 **직전 경기가 유형 X 의 폴백으로 끝났고, `NewMap` 후보도 유형 X 의 폴백으로 끝나면 — canonical 바이트가 바이트 단위로 같고, 따라서 해시가 반드시 같다.** 규칙 14 는 이때 *"새 맵으로 인정하지 않는다. 해당 후보를 폐기하고 또 다른 새 root seed부터 맵 준비를 다시 수행한다"* 고 정한다.
+
+**그리고 규칙에는 이 재시도의 상한이 없다.** 한 번의 준비가 최대 100회 생성·검증(규칙 12)이므로, 폴백이 반복되는 상황에서는 **비용이 100회 단위로 곱해진다.**
+
+⚠️ **발생 확률은 이번 조사에서 재지 않았다.** 실기 2판은 둘 다 `UsedFallback=False` 였고(RuntimeLog 240행 · 312행), 3단계 Plan 의 기록도 `AttemptCount=1` 이다. **즉 실기에서 폴백이 발화한 적은 한 번도 없다.** 하지만 **「발화한 적이 없다」는 「발화하지 않는다」가 아니다.**
+
+⚠️ **이 구조가 결함이라고 단정하지 않는다.** 새 root seed 는 `MapType` 도 다시 추첨하므로(§2-1) **다음 후보가 다른 유형이 될 가능성이 높고**, 그러면 폴백이라도 해시가 달라진다. 🔴 **다만 「상한 없는 재시도」라는 사실 자체는 Plan 이 다뤄야 할 항목이며, 재시도 상한과 상한 도달 시의 처리는 규칙에 없다** → §12-4.
+
+### 8-4. 🔴 부수 발견 — 「후보 폐기」를 남길 로그 키가 없다 (실측)
+
+`Application/Interfaces/ILogSink.cs` 의 맵 관련 `LogEvent` 는 **9종**이다(실측 — 행 번호 병기):
+
+`MapPreparationSucceeded`(`:410`) · `MapPreparationUsedFallbackTemplate`(`:429`) · `MapPreparationFailed`(`:447`) · `MapProjectionFailed`(`:478`) · `MapTransferSucceeded`(`:545`) · `MapTransferRetried`(`:571`) · `MapTransferFailed`(`:590`) · `MapHashMismatch`(`:611`) · `MapClientVerificationFailed`(`:634`).
+
+**「해시가 직전과 같아 후보를 폐기하고 다시 뽑았다」를 가리키는 키가 없다.** 가장 가까운 `MapHashMismatch` 는 **Host/Client 대조 실패**용이므로 여기에 쓰면 그 지표가 오염된다(같은 부류의 판단 근거가 `GameBootstrapper.Map.cs:586`~`:600` 주석에 이미 적혀 있다 — *"전송 결말 키 4종은 절대 쓰지 않는다 … 배타성이 깨지고 전송 성공/실패 집계가 조용히 망가진다"*).
+
+⚠️ **결정이 아니라 관찰이다** — 키를 신설할지, `MapPreparationSucceeded` 의 필드로 흡수할지는 Plan 의 몫이다. **3단계 E 단계가 로그 키 5종을 신설한 것과 같은 부류의 판단이 이번에도 필요하다**는 사실만 적는다.
+
+---
+
+## 9. 3단계가 남긴 보류 항목 중 이번에 걸리는 것 (전수 대조)
+
+3단계 `Plan.md` §16 의 8건(가·나·다·라·마·바·아·자)을 전수 대조했다. ⚠️ **가려내기만 한다 — 「하겠다」고 정하지 않는다.**
+
+| # | 항목 | 이번 범위에 걸리는가 | 판정 근거 |
+|---|---|:---:|---|
+| **가** | 재경기 맵이 구성되지 않는다 | 🔴 **이번 작업 그 자체** | §16-가 가 *"어디서 처리되는가: §10 표 1번 — 다음 범위"* 라고 지목한 자리다 |
+| **나** | 로비 씬에서 로그 파일이 안 써진다 | ⚪ **아니다(다만 인접)** | `LogSessionOwner.EnsureInitialized()` 호출부가 `LoginBootstrapper.Awake` · `GameBootstrapper.Awake` 둘뿐이라 **로비 직접 Play 시 로그가 파일에 안 남는다.** 🔴 **재경기는 전투 씬에서 일어나므로 `GameBootstrapper` 가 이미 초기화돼 있다 — 이번 범위의 로그는 정상적으로 남는다.** 즉 **이번에 걸리지 않는다** |
+| **다** | 인게임 패널 백그라운드가 에디터에서만 안 나타난다 | 🟡 **확인 가치 있음** | 재경기 팝업도 `UIManager` 의 **반투명 배경 오버레이**를 쓴다(`RematchRequestPopup.cs:270`). 같은 오버레이 계통이면 **재경기 모달의 「배경 탭 차단」을 에디터에서 확인할 수 없을 수 있다.** ⚠️ **관련 여부는 미조사다(§16-다 자신이 「미조사」다) — 단정하지 않는다** |
+| **라-1** | `MapRootSeed` 를 `Domain/Map/` 에 둔 것 | ⚪ 아니다 | 배치 판단. `NewMap` 은 같은 함수를 부를 뿐이다 |
+| **라-2** | 범위 밖 1줄 수정(`_hostIsProbe`) | ⚪ 아니다 | 이미 반영됨. 보고 대상일 뿐 |
+| **라-3** | 🔴 **조합 루트 마찰** | 🟡 **그렇다** | 현재 2건 중 1건은 *"`NetworkMapTransfer` 가 `MapPreparationUseCase` 를 스스로 조립한다"* 이고, §16-라 의 정정 블록이 *"그 1건은 그대로 남는다 — 원인인 「로비에는 `GameBootstrapper` 가 없다」가 해소되는 것이 아니다"* 라고 적었다. 🔴 **`NewMap` 은 전투 씬(결과 화면)에서 준비하므로 이번에는 `GameBootstrapper` 가 **있다**.** 즉 **원인 조건이 이번 범위에서는 성립하지 않는다** — 그래서 *"또 어디선가 조립하게 될 수 있다"* 는 우려는 **이번에는 회피할 수 있는 자리**이고, 어느 쪽을 고를지가 판단 사항이 된다 |
+| **마** | 🔴 **초기 골드 미적용** | 🔴 **더 눈에 띄게 된다** | 규칙 14 가 *"Host는 새 맵 준비 시점의 `GameConfig.MapTestModeEnabled`로 실제 초기 골드를 확정해 새 canonical 정의에 기록한다"* 고 **재경기에 대해 다시 한 번 명시**한다. **그런데 `MapPreparationResult.InitialGold` 를 실제 초기 골드로 소비하는 곳은 0곳**이고 실제 값은 `new ResourceUseCase(_config.StartingGold)`(`GameBootstrapper.Setup.cs:444`)다. 즉 **재경기에서도 「기록은 하는데 아무도 안 읽는다」가 그대로 반복된다.** ⚠️ **사용자가 2026-09-14 에 「추후 밸런싱과 함께 다시 작업한다」로 확정**했으므로(§16-마 정정 블록) **미해결 결함이 아니라 확정된 보류 항목**이다. **사실만 적는다** |
+| **바** | 🔴 **조각 크기 한도 실측 2건 미완** | 🔴 **그렇다 — 같은 전송 경로를 쓴다** | `IsChunkSizeMeasured = false`(`NetworkMapTransfer.cs:193`) · `ProvisionalChunkSizeBytes = 1024`(`:208`)가 그대로다(실측). **규칙 14 가 `NewMap` 전송을 「공용 `NetworkMapTransfer`」로 하라고 정했으므로 재경기 전송도 같은 잠정값을 쓴다.** 규칙 16 의 *"값은 구현 시 NGO 실측으로 확정하고 근거와 함께 TDD 에 기록한다"* 는 **이번 작업이 끝나도 여전히 미충족**이다 |
+| **아** | 맵 테스트 모드를 삭제한다 (사용자 확정) | 🟡 **순서 충돌 가능** | 🔴 **규칙 14 가 `NewMap` 의 초기 골드를 「새 맵 준비 시점의 `GameConfig.MapTestModeEnabled`」로 확정하라고 명시한다.** 삭제가 먼저 진행되면 **규칙 14 의 이 문장이 가리키는 대상이 사라진다.** ⚠️ **어느 쪽을 먼저 할지는 사용자 결정 사항이다** → §12-5 |
+| **자** | 멀티 초기 골드 Host/Client 각자 생성 | ⚪ 아니다 | §16-자 가 *"✅ 확인 완료 · 문제없음"* 으로 닫았다 |
+
+**요약: 이번 범위에 실제로 걸리는 것은 「가(작업 본체)」 · 「라-3(조합 루트 — 이번엔 회피 가능)」 · 「마(더 눈에 띈다)」 · 「바(같은 전송 경로)」 · 「아(순서 충돌)」 — 5건이다. 「다」는 확인 가치가 있으나 미조사다.**
+
+---
+
+## 10. 조사 중 발견한 문서·코드 간 어긋남 (고치지 않고 기록만 한다)
+
+### 10-1. 🔴 규칙 12 와 규칙 14 가 「어디서 맵을 만드는가」에 대해 다르게 말한다
+
+| 출처 | 문장 |
+|---|---|
+| **규칙 12** (`GameSystemRules_RandomMap.md:141`) | *"맵 생성과 검증은 **로비 씬 위의 로딩 상태에서 완료**한다."* |
+| **규칙 14** (`:534`) | *"**Game 종료 결과 화면을 유지한 상태에서** Host가 새 맵을 생성한다."* |
+
+**문언만 보면 두 문장은 충돌한다.** 다만 규칙 12 의 문맥은 **최초 경기의 맵 준비**(seed·재시도·폴백)이고 규칙 14 는 **재경기**를 다루므로, *"규칙 12 는 최초 경기에 대한 규정"* 으로 읽으면 충돌이 아니다. ⚠️ **그러나 규칙 12 의 문장에는 그 한정이 적혀 있지 않다.** 같은 절이 이어서 *"로딩 화면에는 일반적인 준비 진행 상태만 표시한다"* 고 하는데, **`NewMap` 재경기에는 로딩 화면이 무엇인지 정해져 있지 않다**(결과 화면을 유지하라고만 한다).
+
+> **이 문서는 규칙 문서를 고치지 않았다** — 이번 작업 범위가 `Research.md` 한 건이기 때문이다(CLAUDE.md 규칙 1·6). **한정을 명문화할지는 사용자 판단.**
+
+### 10-2. `MapHandoff.Clear()` 의 「호출자가 0건이다」 주석이 사실이 아니다
+
+`MapHandoff.cs:89` 가 *"⚠️ 이 메서드는 **현재 호출자가 0건이다.** 일부러 그렇게 두었다 — … 실제로 「언제 폐기할지」를 배선하는 것은 뒤 단계(F: Host 전송 · I: 씬 전환 게이트)의 몫이다. **호출자가 없다고 해서 쓰이지 않는 죽은 코드라고 판단해 지우지 말 것.**"* 라고 적고 있다.
+
+**실측: 호출자는 2건이다**(`NetworkGameManager.cs:499` · `:1201`). **3단계 I 가 예고대로 배선했는데 C 단계의 주석이 갱신되지 않았다.** 🔴 **틀린 주장이 되어 버린 부류**이며(앞선 주석이 아니라 **뒤처진** 주석), **다음 사람이 「아직 아무도 안 부른다」고 읽을 수 있다.** 기록만 한다.
+
+### 10-3. `TechnicalDesignDocument.md` 가 재경기에 대해 규칙 14 보다 **한 줄 더** 정하고 있다
+
+| 출처 | 문장 |
+|---|---|
+| **규칙 14** | *"뒤에 도착한 다른 조건의 요청은 기존 제안을 덮어쓰지 않는다."* (거기서 끝) |
+| **`TechnicalDesignDocument.md:632`** | *"뒤에 도착한 다른 mode 요청은 선접수 제안을 덮어쓰지 않으며, **해당 플레이어에게 선접수 조건을 제시해 명시적 응답을 받는다.**"* |
+
+**TDD 쪽이 「그 다음에 무슨 일이 일어나는가」를 정하고 있고, 규칙 문서에는 그 문장이 없다.** 즉 *"B 가 `NewMap` 으로 요청했는데 A 의 `SameMap` 제안이 이미 서 있으면, **B 에게 A 의 조건을 담은 팝업이 뜬다**"* 는 동작이 TDD 에만 있다. ⚠️ **어느 쪽이 단일 소스인지 확인이 필요하다** → §12-2.
+
+### 10-4. `TechnicalDesignDocument.md` 의 `NetworkMapTransfer` 서술이 현재 코드와 어긋난다
+
+| 출처 | 문장 | 현재 코드(실측) |
+|---|---|---|
+| `TechnicalDesignDocument.md:191` | *"Host 생성·검증 → **persistent** `NetworkMapTransfer`의 1KB chunk 전송"* | 동적 스폰이며 **재경기 때 despawn 된다**(§4-1) |
+| `TechnicalDesignDocument.md:307` | *"**persistent network connection에 존재하는** 공용 `NetworkMapTransfer`를 사용한다. 전송 수명주기를 Lobby/Game 씬 객체에 귀속시키지 않으며"* | 클래스 주석 자신이 *"이 클래스는 「씬 재로드를 넘어 살아남는 방법」을 스스로 정하지 않는다"* 라고 적었다(`:132`~`:135`) |
+
+🔴 **TDD 는 「persistent」를 전제로 쓰여 있고 코드는 아직 그 결정을 내리지 않았다.** §4-2 의 후보 ⓐ/ⓑ 선택은 **이 서술과의 정합성까지 함께 결정하는 일**이다. **이번에 고치지 않는다.**
+
+### 10-5. 3단계 Plan §10 의 행 번호 1건이 어긋났다
+
+§3-3 의 대조표 참조(`:375` → 실측 `:373`). **서술은 맞고 행 번호만 어긋났다.** 3단계 Plan 은 이력 문서이므로 **소급 수정하지 않는다**(`_Tasks/` 는 검사 범위 밖이고 이력 아카이브다).
+
+---
+
+## 11. 확인하지 못하고 남긴 것 (Plan 전에 확인할 것 — 추정으로 채우지 않았다)
+
+| # | 무엇 | 🔴 왜 확인 못 했나 | 어떻게 확인해야 하나 |
+|---|---|---|---|
+| **1** | **NGO 2.9.2 에서 동적 스폰 `NetworkObject` 가 씬 로드를 넘어 생존하는 「메커니즘」** | 🔴 **이 환경에 NGO 패키지 소스가 없다** — `Library/PackageCache` 가 존재하지 않아 `NetworkSceneManager` 구현을 읽을 수 없다. §4-1 은 **결과를 관측**했을 뿐 **왜 그런지는 코드로 확인하지 못했다** | NGO 공식 문서 확인 + 에디터 2인 구성 실측. **관측된 결과를 「보장」으로 승격하지 말 것** |
+| **2** | **「전투 → 전투」 재로드에서의 생존 여부** | `StartRematch()`(`:472`)가 **재로드 직전에 despawn 하므로 현재 코드로는 관측 자체가 불가능**하다 | despawn 루프에 예외를 둔 프로브를 만들어 실기 측정. **§4-2 후보 ⓐ 의 성립 여부가 여기에 걸려 있다** |
+| **3** | **Client 쪽 `NetworkMapTransfer` 의 생존** | 확보한 로그가 **에디터 Host 의 것 하나뿐**이다(`IsServer=True`). Client 로그는 이 저장소에 없다 | 실기 2대 중 Client 쪽 로그 확보. ⚠️ **로비 직접 Play 로는 파일에 안 남는다**(3단계 §16-나) |
+| **4** | **`RematchRequestPopup` 프리팹/씬의 `MessageText` 레이아웃이 두 줄을 담을 수 있는가** | 씬 YAML 에서 **오브젝트 존재와 현재 문자열까지는 확인**했으나, 폰트 크기·`RectTransform` 크기·오버플로 설정을 읽어 **실제 렌더링을 판단하지는 못했다**(에디터가 없다) | Unity 에디터에서 조건 문구를 넣어 눈으로 확인 |
+| **5** | **팀·종족·매치 설정이 재경기 씬 재로드를 어떻게 넘는가** | 규칙 14 가 *"직전 경기 값을 그대로 유지한다"* 고 요구하는데, **그 값들의 보관 위치를 이번 조사 범위에 넣지 않았다**(`NetworkGameFlow` 의 팀 할당·`LocalPlayerTeam` 계통은 열지 않았다) | `NetworkGameFlow` · `LocalPlayerTeam` 통독. ⚠️ **실기 로그상 재경기 후에도 `Team=Blue` · `BlueRace=1, RedRace=0` 이 그대로 유지됐다**(RuntimeLog 369~388행) — **현재 유지되고 있다는 관측은 있으나 그 이유는 확인하지 않았다** |
+| **6** | **`MapVerificationUseCase.Verify()` 를 싱글 `NewMap` 의 「semantic 검증」으로 쓸 수 있는가** | `public static MapVerificationResult Verify(byte[] canonicalBytes)`(`:326`) 의 **시그니처까지만 확인**하고 본문 583행은 읽지 않았다. 그것이 「D 방식 재생성 검증」 전용인지 범용 semantic 검증인지 구분하지 못했다 | 해당 파일 통독. **싱글 경로에서 그대로 부를 수 있는지가 판단 대상** |
+| **7** | **`NetworkMapTransfer` 프리팹과 `DefaultNetworkPrefabs.asset` 등재** | 🔴 **이 체크아웃에 Unity 산출물이 들어와 있지 않다** — 신설 `.cs` 들의 `.meta` 조차 없다. **「없다」가 아니라 「확인 불가」다** | Unity 에디터에서 확인. **간접 증거**: 실기 로그에 `맵 전송 객체 스폰 완료 \| NetworkObjectId=1` 이 남았다 |
+| **8** | **폴백 발화 빈도** | 실기 2판이 모두 `UsedFallback=False` 였다. **폴백이 실제로 얼마나 자주 걸리는지 재지 않았다** | §8 의 해시 충돌 경로 평가에 필요. 헤드리스 다회 실행으로 측정 가능 |
+
+---
+
+## 12. 🔴 규칙 문언이 확정하지 못하는 자리 — 사용자 확인이 필요하다 (추정하지 않는다)
+
+**아래는 「조사로 답할 수 없는」 것들이다. CLAUDE.md 규칙 12 에 따라 확인 없이 진행하지 않는다.**
+
+### 12-1. 🔴 모달이 떠 있는 동안 자동 로비 복귀 countdown 을 어떻게 할 것인가 — **미정**
+
+- **관련 사실(실측)**: 전체 길이 = **30초**(`GameEndUI.cs:73` `_autoReturnSeconds = 30f`, 씬 직렬화값도 `30`). 코루틴은 `WaitForSecondsRealtime` 기반이라 `Time.timeScale = 0` 에서도 **계속 돈다**(`:381`~`:391`). 현재 멈추는 자리는 `StopCountdown()` 호출 3곳뿐이다 — `OnRestartClicked`(`:256`) · `Hide()`(`:287`) · `OnDestroy()`(`:342`). **재경기 요청 팝업이 떠도 멈추지 않는다.**
+- **규칙 M-3(`GameSystemRules_UI.md` 「공통 UI 규칙」)** 은 *"자동 로비 복귀 countdown을 전체 길이로 다시 시작한다"* 고만 정하고 **모달과의 관계를 정하지 않는다.**
+- **선택지**: 멈춤 / 계속 / 안 돌림.
+- 🔴 **3단계 `Plan.md` §10 표 2번이 이미 「미정」으로 남겨 둔 항목이며, 그때 사용자가 UI 전체를 뒤로 미뤘다.** → **사용자 확인 필요.**
+
+### 12-2. 🔴 「자동 시작 금지」가 **같은 mode 동시 요청**에도 적용되는가 — **미정**
+
+- **규칙 14 원문**: *"**양측이 서로 다른 mode로** 동시에 요청해도 자동 시작하지 않는다."*
+- **문언은 「서로 다른 mode」만 말한다.** 같은 mode 로 양측이 동시에 요청한 경우를 **명시하지 않는다.**
+- **현재 코드는 조건 개념 없이 두 번째 요청에서 곧바로 `StartRematch()` 한다**(`:373`). 이 분기를 **없앨 것인지 「같은 mode 일 때만」 남길 것인지**가 갈린다.
+- ⚠️ **3단계 `Research.md` §13-5 가 같은 질문을 이미 세워 두었고 아직 답이 없다.** → **사용자 확인 필요.**
+
+### 12-3. 🔴 규칙 16 의 「씬에 종속되지 않는 공용 전송 경로」를 어떻게 읽을 것인가 — **미정**
+
+- **「객체가 계속 살아 있어야」인가**(§4-2 후보 ⓐ) **「경로(클래스·프로토콜)가 씬에 묶이지 않으면 되는가」**(후보 ⓑ)인가.
+- **문맥으로 확정할 수 없다.** `TechnicalDesignDocument.md` 는 「persistent」라고 적어 ⓐ 쪽으로 읽히지만(§10-4), 규칙 문서 자신은 *"씬에 묶인 단일 RPC 하나로 전체 맵을 보내지 않는다"* 라는 **금지 형태**로만 적혀 있다.
+- ⚠️ **3단계 `Plan.md` §15 표 1번이 세워 둔 질문 그대로다.** → **사용자 확인 필요.**
+
+### 12-4. 🔴 해시 충돌 시 재시도의 **상한**과 상한 도달 시의 처리 — **규칙에 없다**
+
+- 규칙 14 는 *"또 다른 새 root seed부터 맵 준비를 다시 수행한다"* 고만 하고 **몇 번까지인지, 계속 같으면 어떻게 하는지 정하지 않는다.**
+- §8 이 보인 대로 **폴백 경로에서 이 조항은 실제로 발동할 수 있다.**
+- **새 사양을 여기서 지어내지 않는다.** → **사용자 결정 필요.**
+
+### 12-5. 🔴 「맵 테스트 모드 삭제」(3단계 §16-아)와 이번 작업의 **순서** — **미정**
+
+- 규칙 14 가 `NewMap` 의 초기 골드를 *"새 맵 준비 시점의 `GameConfig.MapTestModeEnabled`"* 로 확정하라고 **명시적으로 요구**한다.
+- **삭제가 먼저면 규칙 14 의 그 문장이 가리키는 대상이 사라지고**, 이번 작업이 먼저면 **곧 지울 것을 한 번 더 배선**하게 된다.
+- ⚠️ **삭제는 사용자가 이미 확정한 결정**이므로(§16-아) 「할지 말지」가 아니라 **「언제」**가 질문이다. → **사용자 확인 필요.**
+
+### 12-6. 결과 화면의 **선택지 형태** — 버튼 3개인가, 2차 팝업인가 — **미정**
+
+- 규칙 16 은 *"`SameMap`/`NewMap`/`Lobby` 선택을 복원한다"* 고 **세 갈래**를 요구하지만 **표현 형태는 정하지 않는다.**
+- 현재 자산은 버튼 2개다(§5-1). **어느 쪽이든 씬 작업이 필요하고 작업량이 다르다.** → **사용자 확인 필요.**
+
+---
+
+## 13. 요약 — 이번 조사에서 확정된 사실
+
+1. **규칙 14 는 이미 촘촘하게 확정돼 있다** — `SameMap`/`NewMap` 의 범위, 교체 시점, 실패 시 처리, 자동 시작 금지, 모달, 초기 골드, 싱글, 컨텍스트 수명까지 전부 원문에 있다(§2-1). **다시 정할 것이 아니라 구현할 것이다.**
+2. 🔴 **전송 객체는 「로비 → 전투」 씬 재로드를 이미 넘었다**(로그 실측 · §4-1). 3단계가 미뤄 둔 질문의 **절반은 이미 답이 나와 있었다.** 나머지 절반(전투 → 전투)은 **코드가 그 직전에 despawn 하므로 현재 구조로는 관측 불가**다.
+3. **재경기 코드는 `NetworkGameEndController.cs` 한 파일에 모여 있고**(`:344`~`:512`), 규칙 14 가 끼어들 자리는 **요청 RPC 인자 · 알림 RPC 인자 · 제안 상태 · `StartRematch()` 직전** 네 곳이다(§3).
+4. 🔴 **제안 상태를 `NetworkGameEndController` 에 둘 수 없다** — 그 클래스는 씬 배치 객체라 `OnNetworkDespawn`(`:150`)에서 스스로 상태를 지우고, 로그상 재경기마다 Despawn/Respawn 된다(§7-3). 규칙 14 의 「재로드 사이 유지」와 정면으로 부딪힌다.
+5. **`MapHandoff` 의 「읽고 비운다」는 `SameMap` 과 충돌하지 않는다** — 역할이 다르다(편도 인계 통로 vs 현재 확정 맵 보관). 다만 **`SameMap` 은 재경기마다 그 통로를 다시 채워 주어야 한다**(§7-1). **비우기를 없애는 방향은 규칙 16 이 막으려던 사고를 되살린다.**
+6. ✅ **규칙 14 의 「폐기」 절반은 이미 구현돼 있다** — `MapHandoff.Clear()` 가 로비 복귀·연결 종료 두 자리에 배선돼 있고 주석이 규칙 14 를 인용한다(§7-2).
+7. 🔴 **「해시가 직전과 같으면 폐기」 조항은 폴백 경로에서 실제로 발동할 수 있다** — 폴백은 유형별 고정 템플릿 1개이고 canonical 바이트에 **템플릿의 seed 가 그대로** 실린다(§8). **재시도 상한이 규칙에 없다.**
+8. **UI 자산은 일부만 모자란다** — 상대 팝업의 `MessageText` **오브젝트는 씬에 이미 있고**(없는 것은 스크립트 필드), 모달 성질도 이미 충족돼 있다(`:270`). **정말로 없는 것은 결과 화면의 세 번째 선택지**다(§5).
+9. **싱글 재경기는 지금도 사실상 `NewMap` 고정이고 `SameMap` 경로가 없다**(3단계 서술 재확인 — §6). 단 **재료는 있다** — `GetLastMapPreparation()`(`GameBootstrapper.cs:497`, **호출자 여전히 0건**)이 그 자리다.
+10. **3단계 보류 8건 중 이번에 걸리는 것은 5건**(가 · 라-3 · 마 · 바 · 아). **「라-3 조합 루트 마찰」은 이번 범위에서는 회피 가능**하다 — 재경기는 전투 씬에서 일어나므로 `GameBootstrapper` 가 있다(§9).
+11. **문서·코드 어긋남 5건을 발견해 기록만 했다**(규칙 12 ↔ 규칙 14 의 생성 위치 · `MapHandoff.Clear()` 「호출자 0건」 주석 · TDD 가 규칙보다 한 줄 더 정함 · TDD 의 「persistent」 서술 · 3단계 Plan 의 행 번호 1건). **어느 것도 고치지 않았다.**
+12. 🔴 **사용자 확인이 필요한 미정 항목은 6건**이다(§12). **그중 3건(countdown · 같은 mode 동시 요청 · 규칙 16 해석)은 3단계가 이미 「미정」으로 넘긴 것**이고, **3건(재시도 상한 · 테스트 모드 삭제 순서 · 선택지 형태)은 이번 조사에서 새로 드러났다.**
+
+---
+
+> **이 문서는 조사 기록이며 구현 방법을 정하지 않았다.** 각 절의 선택지는 대가와 함께 나열했을 뿐이고, 무엇을 고를지는 `Plan.md` 와 사용자 승인의 몫이다(CLAUDE.md 규칙 1·6·11·12).
+>
+> **이번 작업에서 코드·에셋·프리팹·규칙 문서는 한 줄도 바꾸지 않았다.**
