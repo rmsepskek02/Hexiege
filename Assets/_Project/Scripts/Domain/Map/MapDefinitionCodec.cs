@@ -64,7 +64,11 @@ namespace Hexiege.Domain
             WriteInt32(buffer, def.Height);
             WriteInt32(buffer, (int)def.Orientation);
             WriteInt32(buffer, def.NeutralMineCount);
-            WriteInt32(buffer, def.TestModeFlag);
+            // 🔴 2026-09-14 제거: 여기에 WriteInt32(buffer, def.TestModeFlag); 가 있었다.
+            //    「맵 테스트 모드」 표식(고정폭 int 4바이트)이며, 그 모드가 규칙에서 삭제돼
+            //    (규칙 3 아래 2026-09-14 개정 블록) 담을 값이 없어졌다.
+            //    🔴 이 한 줄이 빠지면서 뒤의 모든 바이트가 4바이트씩 앞당겨진다 =
+            //       canonical 형식이 바뀐 것이므로 MapDefinition.CurrentMapVersion 을 2 로 올렸다.
             WriteInt32(buffer, def.InitialGold);
 
             // ---- 타일 배열 (row-major, 한 칸당 1바이트) ----
@@ -146,7 +150,10 @@ namespace Hexiege.Domain
                 int height = ReadInt32(bytes, ref offset);
                 int orientation = ReadInt32(bytes, ref offset);
                 int neutralMineCount = ReadInt32(bytes, ref offset);
-                int testModeFlag = ReadInt32(bytes, ref offset);
+                // 🔴 2026-09-14 제거: 여기에 int testModeFlag = ReadInt32(...) 가 있었다.
+                //    쓰기(Encode)와 읽기(Decode)는 반드시 같은 순서·같은 개수여야 하므로
+                //    쓰기에서 뺀 필드는 여기서도 함께 뺀다. 한쪽만 고치면 그 뒤의 모든 값이
+                //    4바이트씩 밀려 엉뚱한 값으로 읽힌다.
                 int initialGold = ReadInt32(bytes, ref offset);
 
                 if (width <= 0 || height <= 0) return null;
@@ -161,7 +168,6 @@ namespace Hexiege.Domain
                     MapType = (MapType)mapType,
                     Orientation = (HexOrientation)orientation,
                     NeutralMineCount = neutralMineCount,
-                    TestModeFlag = testModeFlag,
                     InitialGold = initialGold
                 };
 
@@ -358,7 +364,9 @@ namespace Hexiege.Domain
         /// <returns>추정 바이트 수</returns>
         private static int EstimateSize(MapDefinition def)
         {
-            return 40
+            // 상위 필드의 바이트 수 = int 7개(28) + ulong 1개(8) = 36.
+            // 🔴 2026-09-14 이전에는 TestModeFlag 가 있어 40 이었다(int 8개 + ulong 1개).
+            return 36
                  + def.Tiles.Length
                  + def.Castles.Count * 8
                  + def.StartingMines.Count * 8

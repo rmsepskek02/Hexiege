@@ -93,7 +93,11 @@ namespace Hexiege.Domain
         /// 지원하지 않는 버전의 데이터는 아예 해석하지 않고 실패 처리한다.
         /// ⚠️ 앱 버전이나 접속 호환성 판정에는 사용하지 않는다(별도 작업 영역).
         /// </summary>
-        public const int CurrentMapVersion = 1;
+        /// 🔴 2026-09-14: 1 → 2 로 올렸다. 「맵 테스트 모드」가 규칙에서 삭제되면서
+        ///    canonical 바이트열에 있던 고정폭 정수 TestModeFlag(4바이트)가 빠졌고,
+        ///    그 뒤의 모든 바이트가 4바이트씩 앞당겨졌기 때문이다. 즉 형식이 바뀌었다.
+        ///    (근거: GameSystemRules/GameSystemRules_RandomMap.md 규칙 3 아래 2026-09-14 개정 블록)
+        public const int CurrentMapVersion = 2;
 
         /// <summary> 무작위 맵의 가로 타일 수(기획 확정값). </summary>
         public const int DefaultWidth = 11;
@@ -129,11 +133,11 @@ namespace Hexiege.Domain
         /// <summary> 이 맵에 배치된 중립 광산 개수. </summary>
         public int NeutralMineCount { get; set; }
 
-        /// <summary>
-        /// 테스트 모드 표식. 소수점이나 bool이 아니라 고정폭 정수 0/1로 기록한다
-        /// (직렬화 결과가 플랫폼마다 달라지지 않게 하기 위함).
-        /// </summary>
-        public int TestModeFlag { get; set; }
+        // 🔴 2026-09-14 제거: 여기에 int TestModeFlag 프로퍼티가 있었다.
+        //    「맵 테스트 모드」를 켜면 초기 골드가 중립 광산 수와 무관하게 5000 으로 고정되던
+        //    개발용 스위치의 표식이었고, 고정폭 정수 0/1 로 canonical 바이트열에 실려 있었다.
+        //    규칙에서 그 모드 자체가 없어져(규칙 3 아래 2026-09-14 개정 블록) 담을 값이 사라졌다.
+        //    이 필드가 빠지면서 canonical 형식이 바뀌므로 위 CurrentMapVersion 을 2 로 올렸다.
 
         /// <summary> 이 경기에서 실제로 지급할 초기 골드. </summary>
         public int InitialGold { get; set; }

@@ -28,19 +28,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // 🔴🔴🔴 반드시 알아야 할 함정 — 이 한 줄이 성패를 가른다 🔴🔴🔴
 // ─────────────────────────────────────────────────────────────────────────────
-//   **다시 만든 정의에 TestModeFlag 와 InitialGold 를 「받은 값」으로 심은 뒤에 Encode 해야 한다.**
+//   **다시 만든 정의에 InitialGold 를 「받은 값」으로 심은 뒤에 Encode 해야 한다.**
 //
-//   왜냐하면 이 두 값은 생성기가 정하는 값이 아니라 **준비 조정자
+//   왜냐하면 이 값은 생성기가 정하는 값이 아니라 **준비 조정자
 //   (MapPreparationUseCase)가 생성 결과에 얹어 주는 값**이고, canonical 바이트에는
 //   그 얹힌 값이 들어가기 때문이다. 심지 않고 인코딩하면 다른 모든 타일이 완벽히
-//   같아도 그 두 필드 때문에 바이트가 달라져 **어떤 조합으로도 일치하지 않는다.**
+//   같아도 그 필드 때문에 바이트가 달라져 **어떤 조합으로도 일치하지 않는다.**
 //
-//   이것은 가정이 아니라 실제로 밟았던 함정이다. 2단계에서 두 값을 심지 않고 인코딩했더니
+//   이것은 가정이 아니라 실제로 밟았던 함정이다. 2단계에서 값을 심지 않고 인코딩했더니
 //   **시드 40개 전부, 200조합 전부 불일치**였고, 심은 뒤에는 40/40 복원 성공이었다.
 //   (폴백 경로가 "값 교체 뒤 해시를 다시 계산한다"고 🔴 로 적어 둔 것과 같은 함정이다 —
 //    MapPreparationUseCase 파일 머리말 ③ 참조.)
 //
-//   ※ 지금 코드에서는 생성 요청(MapGenerationRequest)에도 두 값을 실어 보내므로
+//   🔴 2026-09-14: 종전에는 심어야 하는 값이 **TestModeFlag 와 InitialGold 두 개**였다.
+//      맵 테스트 모드가 규칙에서 삭제되면서(GameSystemRules_RandomMap.md 규칙 3 아래
+//      2026-09-14 개정 블록) 그 필드가 canonical 바이트에서 빠져 **하나만 남았다.**
+//      ⚠️ 하나로 줄었을 뿐 **함정 자체는 그대로 살아 있다** — 남은 한 줄을 지우면
+//         2단계에서 밟았던 전량 불일치가 똑같이 재현된다.
+//
+//   ※ 지금 코드에서는 생성 요청(MapGenerationRequest)에도 그 값을 실어 보내므로
 //     생성기가 이미 같은 값을 채워 준다. 그래도 **인코딩 직전에 한 번 더 명시적으로 심는다.**
 //     "생성기가 알아서 채워 주겠지"에 기대면, 생성기 쪽 한 줄이 바뀌는 순간 이 검증이
 //     조용히 전부 실패하기 때문이다. 여기서는 명시가 곧 방어다.
@@ -189,8 +195,8 @@ namespace Hexiege.Application
         /// <summary> 받은 바이트에서 읽은 중립 광산 수. </summary>
         public int NeutralMineCount { get; }
 
-        /// <summary> 받은 바이트에서 읽은 테스트 모드 표식(0 = 정상, 1 = 테스트). </summary>
-        public int TestModeFlag { get; }
+        // 🔴 2026-09-14 제거: 여기에 int TestModeFlag 프로퍼티가 있었다.
+        //    canonical 바이트에서 그 필드가 빠져 읽을 값이 없어졌다.
 
         /// <summary> 받은 바이트에서 읽은 실제 초기 골드. </summary>
         public int InitialGold { get; }
@@ -213,14 +219,13 @@ namespace Hexiege.Application
         /// <param name="rootSeed">root seed</param>
         /// <param name="mapType">맵 유형</param>
         /// <param name="neutralMineCount">중립 광산 수</param>
-        /// <param name="testModeFlag">테스트 모드 표식</param>
         /// <param name="initialGold">실제 초기 골드</param>
         public MapVerificationResult(bool isSucceeded, MapVerificationErrorCode errorCode,
             MapVerificationStage stage, string failureReason, MapDefinition definition,
             int attemptIndex, MapStartingMineSide startingMineSide,
             IMapArchetypeConstraints constraints, int searchedCombinationCount,
             int acceptedGenerationCount, int mapVersion, ulong rootSeed, MapType mapType,
-            int neutralMineCount, int testModeFlag, int initialGold)
+            int neutralMineCount, int initialGold)
         {
             IsSucceeded = isSucceeded;
             ErrorCode = errorCode;
@@ -236,7 +241,6 @@ namespace Hexiege.Application
             RootSeed = rootSeed;
             MapType = mapType;
             NeutralMineCount = neutralMineCount;
-            TestModeFlag = testModeFlag;
             InitialGold = initialGold;
         }
 
@@ -251,7 +255,6 @@ namespace Hexiege.Application
                 " seed=" + RootSeed +
                 " type=" + MapType +
                 " mines=" + NeutralMineCount +
-                " testFlag=" + TestModeFlag +
                 " gold=" + InitialGold +
                 " attemptIndex=" + AttemptIndex +
                 " side=" + StartingMineSide +
@@ -305,10 +308,11 @@ namespace Hexiege.Application
         /// 받은 canonical 맵 바이트를 검증한다. 동기 함수이며 실패는 예외가 아니라 결과 값으로 돌아온다.
         ///
         /// 절차(TDD 「Client 검증 순서」 4번 · 계획서 §7-H):
-        ///   ① Decode 로 MapVersion · RootSeed · MapType · NeutralMineCount · TestModeFlag ·
+        ///   ① Decode 로 MapVersion · RootSeed · MapType · NeutralMineCount ·
         ///      InitialGold 를 읽는다.
+        ///      (2026-09-14 까지는 여기에 TestModeFlag 도 있었다 — 맵 테스트 모드 삭제로 빠졌다.)
         ///   ② (AttemptIndex 0~99) × (StartingMineSide A/B) 를 돌며 생성 →
-        ///      🔴 <b>재생성 정의에 TestModeFlag · InitialGold 를 받은 값으로 심고</b> Encode →
+        ///      🔴 <b>재생성 정의에 InitialGold 를 받은 값으로 심고</b> Encode →
         ///      받은 바이트와 완전 일치하는 조합을 찾는다.
         ///   ③ 찾은 시도의 Constraints 로 MapDefinitionValidator.Validate 를 돌린다.
         ///   ④ 어느 단계든 실패하면 즉시 실패다(재전송 없음 — 규칙 16).
@@ -427,14 +431,14 @@ namespace Hexiege.Application
                             "복원에는 성공했지만 공정성 검증을 통과하지 못했다: " + validation,
                             definition, attemptIndex, side, generated.Constraints, searched, accepted,
                             definition.MapVersion, definition.RootSeed, definition.MapType,
-                            definition.NeutralMineCount, definition.TestModeFlag, definition.InitialGold);
+                            definition.NeutralMineCount, definition.InitialGold);
                     }
 
                     return new MapVerificationResult(true, MapVerificationErrorCode.None,
                         MapVerificationStage.None, null,
                         definition, attemptIndex, side, generated.Constraints, searched, accepted,
                         definition.MapVersion, definition.RootSeed, definition.MapType,
-                        definition.NeutralMineCount, definition.TestModeFlag, definition.InitialGold);
+                        definition.NeutralMineCount, definition.InitialGold);
                 }
             }
 
@@ -475,10 +479,11 @@ namespace Hexiege.Application
         /// <summary>
         /// 한 조합의 생성 요청을 만든다.
         ///
-        /// 🔴 TestModeFlag 와 InitialGold 를 <b>받은 값 그대로</b> 실어 보낸다.
-        ///    이 두 값은 생성 결과(지형·광산 자리)에는 영향을 주지 않지만
+        /// 🔴 InitialGold 를 <b>받은 값 그대로</b> 실어 보낸다.
+        ///    이 값은 생성 결과(지형·광산 자리)에는 영향을 주지 않지만
         ///    canonical 바이트에는 그대로 들어가므로, 값이 다르면 바이트가 달라진다.
-        ///    (파일 머리말의 「반드시 알아야 할 함정」 참조.)
+        ///    (파일 머리말의 「반드시 알아야 할 함정」 참조.
+        ///     2026-09-14 까지는 TestModeFlag 도 같은 이유로 함께 실어 보냈다.)
         /// </summary>
         /// <param name="received">받은 바이트를 해석한 맵 정의(재료를 여기서 읽는다)</param>
         /// <param name="attemptIndex">돌려 볼 시도 번호</param>
@@ -494,7 +499,6 @@ namespace Hexiege.Application
                 AttemptIndex = attemptIndex,
                 StartingMineSide = side,
                 NeutralMineCount = received.NeutralMineCount,
-                TestModeFlag = received.TestModeFlag,
                 InitialGold = received.InitialGold
             };
         }
@@ -502,8 +506,9 @@ namespace Hexiege.Application
         /// <summary>
         /// 다시 만든 정의를 canonical 바이트로 바꿔 받은 바이트와 한 바이트도 다르지 않은지 본다.
         ///
-        /// 🔴🔴 이 메서드 안의 두 줄이 D 방식의 성패를 가른다 — 아래 「심기」 두 줄이다.
+        /// 🔴🔴 이 메서드 안의 한 줄이 D 방식의 성패를 가른다 — 아래 「심기」 한 줄이다.
         ///    빼면 시드 전부가 200조합 전부 불일치가 된다(파일 머리말 참조).
+        ///    (2026-09-14 까지는 TestModeFlag 를 함께 심어 두 줄이었다.)
         /// </summary>
         /// <param name="rebuilt">생성기가 방금 만들어 낸 정의</param>
         /// <param name="received">받은 바이트를 해석한 정의(심을 값을 여기서 읽는다)</param>
@@ -512,10 +517,11 @@ namespace Hexiege.Application
         private static bool MatchesReceivedBytes(MapDefinition rebuilt, MapDefinition received,
             byte[] receivedBytes)
         {
-            // 🔴🔴 함정 방지 — 인코딩 직전에 두 값을 「받은 값」으로 심는다. 🔴🔴
+            // 🔴🔴 함정 방지 — 인코딩 직전에 이 값을 「받은 값」으로 심는다. 🔴🔴
             //    생성기가 요청에서 이미 같은 값을 채워 주지만, 그 한 줄이 바뀌는 순간
             //    이 검증이 조용히 전부 실패하게 되므로 여기서 다시 명시한다.
-            rebuilt.TestModeFlag = received.TestModeFlag;
+            //    🔴 2026-09-14 까지는 바로 위에 rebuilt.TestModeFlag 를 심는 줄이 하나 더 있었다.
+            //       맵 테스트 모드가 삭제돼 심을 필드가 없어졌을 뿐, 이 한 줄의 필요성은 그대로다.
             rebuilt.InitialGold = received.InitialGold;
 
             // 목록(성·광산·장식)의 정렬 순서를 canonical 규약에 맞춘다.
@@ -571,13 +577,13 @@ namespace Hexiege.Application
             {
                 return new MapVerificationResult(false, errorCode, stage, failureReason, null,
                     -1, MapStartingMineSide.CaseA, null, searched, accepted,
-                    0, 0UL, default(MapType), 0, 0, 0);
+                    0, 0UL, default(MapType), 0, 0);
             }
 
             return new MapVerificationResult(false, errorCode, stage, failureReason, definition,
                 -1, MapStartingMineSide.CaseA, null, searched, accepted,
                 definition.MapVersion, definition.RootSeed, definition.MapType,
-                definition.NeutralMineCount, definition.TestModeFlag, definition.InitialGold);
+                definition.NeutralMineCount, definition.InitialGold);
         }
     }
 }

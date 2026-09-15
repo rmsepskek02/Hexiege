@@ -162,7 +162,9 @@ namespace Hexiege.Domain
             definition.RootSeed = request.RootSeed;
             definition.MapType = MapType;
             definition.NeutralMineCount = request.NeutralMineCount;
-            definition.TestModeFlag = request.TestModeFlag;
+            // 🔴 2026-09-14 제거: 여기에 definition.TestModeFlag = request.TestModeFlag; 가 있었다.
+            //    「맵 테스트 모드」 표식을 요청에서 정의로 옮겨 적던 자리이며,
+            //    그 모드가 규칙에서 삭제돼 옮길 값 자체가 없어졌다.
             definition.InitialGold = request.InitialGold;
 
             // Hash 는 여기서 채우지 않는다. 해시는 canonical 직렬화 바이트에 대해 계산해야

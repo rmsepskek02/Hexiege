@@ -33,26 +33,20 @@
 //      (MapRandom / MapRandomStreams). 그래서 위 네 값만 적어 두면 재현된다.
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// 템플릿이 담는 값 — 특히 테스트 모드에 주의
+// 템플릿이 담는 값
 // ─────────────────────────────────────────────────────────────────────────────
 //   · 광산 수      : 그 유형의 최대값. 숫자를 손으로 적지 않고
 //                    IMapArchetypeGenerator.MaxNeutralMineCount 를 읽는다.
 //   · 시작 광산    : MapStartingMineSide.CaseA 로 고정한다(좌우 대응 변환은 폐기됨 —
 //                    변환하면 보호 10타일 집합이 바뀌어 검증을 깨뜨린다).
-//   · TestModeFlag : 🔴 **항상 0(정상 모드)** 으로 담는다.
-//   · InitialGold  : 🔴 **정상 모드 값**(광산 수에서 파생. 규칙 3 표: 1→700 … 6→200).
+//   · InitialGold  : 광산 수에서 파생한다(규칙 3 표: 1→700 … 6→200).
 //
-//   🔴 왜 테스트 모드 값을 담지 않는가:
-//      규칙 12에 따르면 폴백을 쓰더라도 「테스트 모드 표식과 맵 유형」은 경기 선택
-//      단계의 값이 유지되고, 광산 수·시작 광산 방향·초기 골드는 템플릿 값으로
-//      교체된다. 즉 테스트 모드일 때 초기 골드를 5000으로 덮어쓰는 것은
-//      **G 단계(맵 준비 조정자)의 몫**이지 템플릿의 몫이 아니다. 템플릿은 정상 모드
-//      값만 담고, 조정자가 필요할 때 덮어쓴다.
-//
-//   ⚠️ 조정자가 TestModeFlag / InitialGold 를 덮어쓰면 **canonical 바이트열이 바뀌므로
-//      Hash 를 반드시 다시 계산해야 한다**(MapDefinitionCodec.Encode 가 그 두 필드를
-//      해시 입력에 포함한다). 이 파일이 채워 두는 Hash 는 「정상 모드 그대로일 때」의
-//      값이다.
+//   🔴 2026-09-14 제거: 이 자리에 「TestModeFlag 는 항상 0 으로 담는다」와,
+//      테스트 모드일 때 조정자가 초기 골드를 5000 으로 덮어쓰므로 그때는 Hash 를 반드시
+//      다시 계산해야 한다는 경고가 있었다. 「맵 테스트 모드」 자체가 규칙에서 삭제돼
+//      (규칙 3 아래 2026-09-14 개정 블록) 덮어쓰는 주체도 대상도 사라졌다.
+//      🔴 그 결과 폴백 경로에서 템플릿 바이트가 바뀔 일이 아예 없어졌다 —
+//         「정상 모드 그대로일 때의 Hash」라는 단서가 필요 없는 하나뿐인 Hash 가 된다.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // 이 파일이 하지 않는 것
@@ -100,10 +94,10 @@ namespace Hexiege.Domain
         /// <summary> 중립 광산 개수(그 유형의 최대값). </summary>
         public int NeutralMineCount { get; }
 
-        /// <summary> 테스트 모드 표식. 템플릿은 항상 0(정상 모드)이다. </summary>
-        public int TestModeFlag { get; }
+        // 🔴 2026-09-14 제거: 여기에 int TestModeFlag 프로퍼티가 있었다(항상 0).
+        //    「맵 테스트 모드」가 규칙에서 삭제돼 담을 값이 없어졌다.
 
-        /// <summary> 정상 모드 초기 골드(광산 수에서 파생). </summary>
+        /// <summary> 초기 골드(광산 수에서 파생). </summary>
         public int InitialGold { get; }
 
         /// <summary> 완성된 맵 정의. Hash 필드까지 채워져 있다. </summary>
@@ -126,14 +120,13 @@ namespace Hexiege.Domain
         /// <param name="attemptIndex">시도 번호(0)</param>
         /// <param name="startingMineSide">시작 광산 배치 경우(CaseA)</param>
         /// <param name="neutralMineCount">중립 광산 개수</param>
-        /// <param name="testModeFlag">테스트 모드 표식(0)</param>
-        /// <param name="initialGold">정상 모드 초기 골드</param>
+        /// <param name="initialGold">초기 골드(광산 수에서 파생)</param>
         /// <param name="definition">완성된 맵 정의</param>
         /// <param name="canonicalBytes">canonical 바이트열</param>
         /// <param name="hash">그 바이트열의 SHA-256</param>
         /// <param name="seedsTried">채택까지 돌려 본 시드 개수</param>
         public MapFallbackTemplate(MapType mapType, ulong adoptedSeed, int attemptIndex,
-            MapStartingMineSide startingMineSide, int neutralMineCount, int testModeFlag,
+            MapStartingMineSide startingMineSide, int neutralMineCount,
             int initialGold, MapDefinition definition, byte[] canonicalBytes, byte[] hash,
             int seedsTried)
         {
@@ -142,7 +135,6 @@ namespace Hexiege.Domain
             AttemptIndex = attemptIndex;
             StartingMineSide = startingMineSide;
             NeutralMineCount = neutralMineCount;
-            TestModeFlag = testModeFlag;
             InitialGold = initialGold;
             Definition = definition ?? throw new ArgumentNullException(nameof(definition));
             CanonicalBytes = canonicalBytes ?? throw new ArgumentNullException(nameof(canonicalBytes));
@@ -172,11 +164,9 @@ namespace Hexiege.Domain
         /// <summary> 템플릿 생성에 쓰는 시도 번호. 항상 0이다(시드만 바꿔 가며 찾는다). </summary>
         public const int TemplateAttemptIndex = 0;
 
-        /// <summary>
-        /// 템플릿이 담는 테스트 모드 표식. 🔴 항상 정상 모드(0)다.
-        /// 테스트 모드 초기 골드(5000) 덮어쓰기는 G 단계 조정자의 몫이다.
-        /// </summary>
-        public const int TemplateTestModeFlag = MapDefinitionValidator.NormalModeFlag;
+        // 🔴 2026-09-14 제거: 여기에 public const int TemplateTestModeFlag = 0; 이 있었다.
+        //    템플릿이 담는 「맵 테스트 모드」 표식이며, 그 모드가 규칙에서 삭제돼
+        //    (규칙 3 아래 2026-09-14 개정 블록) 담을 값도 그 값을 쓰던 호출부도 사라졌다.
 
         /// <summary>
         /// 템플릿의 시작 광산 배치 경우. 🔴 CaseA 로 고정한다.
@@ -318,13 +308,12 @@ namespace Hexiege.Domain
                 return false;
             }
 
-            int initialGold = MapDefinitionValidator.GetExpectedInitialGold(
-                TemplateTestModeFlag, neutralMineCount);
+            int initialGold = MapDefinitionValidator.GetExpectedInitialGold(neutralMineCount);
 
             if (initialGold < 0)
             {
                 failureReason = mapType + ": 광산 수 " + neutralMineCount +
-                    " 에 해당하는 정상 모드 초기 골드가 규칙 표에 없다.";
+                    " 에 해당하는 초기 골드가 규칙 표에 없다.";
                 return false;
             }
 
@@ -366,14 +355,13 @@ namespace Hexiege.Domain
         {
             IMapArchetypeGenerator generator = CreateGenerator(mapType);
             int neutralMineCount = generator.MaxNeutralMineCount;
-            int initialGold = MapDefinitionValidator.GetExpectedInitialGold(
-                TemplateTestModeFlag, neutralMineCount);
+            int initialGold = MapDefinitionValidator.GetExpectedInitialGold(neutralMineCount);
 
             if (initialGold < 0)
             {
                 template = null;
                 failureReason = mapType + ": 광산 수 " + neutralMineCount +
-                    " 에 해당하는 정상 모드 초기 골드가 규칙 표에 없다.";
+                    " 에 해당하는 초기 골드가 규칙 표에 없다.";
                 return false;
             }
 
@@ -389,7 +377,7 @@ namespace Hexiege.Domain
         /// <param name="rootSeed">쓸 root seed</param>
         /// <param name="generator">그 유형의 생성기</param>
         /// <param name="neutralMineCount">중립 광산 개수</param>
-        /// <param name="initialGold">정상 모드 초기 골드</param>
+        /// <param name="initialGold">초기 골드(광산 수에서 파생)</param>
         /// <param name="seedsTried">여기까지 돌려 본 시드 개수(기록용)</param>
         /// <param name="template">완성된 템플릿(실패 시 null)</param>
         /// <param name="failureReason">실패 사유(성공 시 null)</param>
@@ -407,7 +395,6 @@ namespace Hexiege.Domain
                 AttemptIndex = TemplateAttemptIndex,
                 StartingMineSide = TemplateStartingMineSide,
                 NeutralMineCount = neutralMineCount,
-                TestModeFlag = TemplateTestModeFlag,
                 InitialGold = initialGold
             };
 
@@ -443,7 +430,7 @@ namespace Hexiege.Domain
             definition.Hash = hash;
 
             template = new MapFallbackTemplate(mapType, rootSeed, TemplateAttemptIndex,
-                TemplateStartingMineSide, neutralMineCount, TemplateTestModeFlag, initialGold,
+                TemplateStartingMineSide, neutralMineCount, initialGold,
                 definition, canonicalBytes, hash, seedsTried);
 
             failureReason = null;
@@ -578,12 +565,7 @@ namespace Hexiege.Domain
                 return false;
             }
 
-            if (a.TestModeFlag != b.TestModeFlag)
-            {
-                failureReason = "TestModeFlag 가 다르다(" + a.TestModeFlag +
-                    " vs " + b.TestModeFlag + ").";
-                return false;
-            }
+            // 🔴 2026-09-14 제거: 여기에 TestModeFlag 비교가 있었다. 필드가 없어졌다.
 
             if (a.InitialGold != b.InitialGold)
             {
@@ -764,9 +746,10 @@ namespace Hexiege.Domain
             text.Append("| 중립 광산 수 | ").Append(template.NeutralMineCount)
                 .Append(" (이 유형이 허용하는 최대값) |\n");
             text.Append("| 시작 광산 배치 | ").Append(template.StartingMineSide).Append(" |\n");
-            text.Append("| 테스트 모드 표식 | ").Append(template.TestModeFlag).Append(" (정상 모드) |\n");
+            // 🔴 2026-09-14 제거: 여기서 출처 문서에 「테스트 모드 표식」 행을 한 줄 찍었다.
+            //    필드가 사라져 적을 값이 없다. (이 도구를 다시 돌리면 그 행 없이 문서가 다시 쓰인다.)
             text.Append("| 초기 골드 | ").Append(template.InitialGold)
-                .Append(" (정상 모드 · 광산 수에서 파생) |\n");
+                .Append(" (광산 수에서 파생) |\n");
             text.Append("| 맵 포맷 버전(MapVersion) | ").Append(template.Definition.MapVersion).Append(" |\n");
             text.Append("| 격자 크기 | ").Append(template.Definition.Width).Append(" x ")
                 .Append(template.Definition.Height).Append(" |\n\n");
@@ -812,14 +795,18 @@ namespace Hexiege.Domain
             text.Append("그 도구는 `MapFallbackTemplateFactory`(Domain, 순수 C#)를 부를 뿐이므로, ");
             text.Append("Unity 없이 그 클래스를 직접 돌려도 같은 결과가 나온다.\n\n");
 
-            text.Append("## 주의 — 테스트 모드와 해시\n\n");
-            text.Append("이 템플릿은 **정상 모드 값**(테스트 모드 표식 0 · 초기 골드 ")
-                .Append(template.InitialGold).Append(")만 담는다.\n");
-            text.Append("규칙 12에 따라 폴백을 써도 **테스트 모드 표식과 맵 유형은 경기 선택 값이 유지**되고, ");
+            // 🔴 2026-09-14: 종전에는 여기에 「주의 — 테스트 모드와 해시」 절을 찍었다.
+            //    맵 테스트 모드가 켜지면 조정자가 초기 골드를 5000 으로 덮어쓰므로 위 SHA-256 이
+            //    그대로 쓰이지 않는다는 경고였는데, 그 모드가 규칙에서 삭제돼
+            //    (규칙 3 아래 2026-09-14 개정 블록) 덮어쓰는 일 자체가 없어졌다.
+            //    대신 「폴백이 무엇을 유지하고 무엇을 교체하는가」만 남긴다.
+            text.Append("## 폴백에서 유지되는 값과 교체되는 값\n\n");
+            text.Append("규칙 12에 따라 폴백을 쓰면 **맵 유형은 경기 선택 값이 유지**되고, ");
             text.Append("광산 수·시작 광산 방향·초기 골드는 템플릿 값으로 교체된다.\n");
-            text.Append("테스트 모드일 때 초기 골드를 5000으로 덮어쓰는 것은 **맵 준비 조정자(G 단계)의 몫**이다.\n\n");
-            text.Append("⚠️ 조정자가 테스트 모드 표식이나 초기 골드를 덮어쓰면 canonical 바이트열이 달라지므로 ");
-            text.Append("**해시를 반드시 다시 계산**해야 한다. 위 SHA-256 은 「정상 모드 그대로일 때」의 값이다.\n");
+            text.Append("템플릿의 초기 골드(").Append(template.InitialGold)
+                .Append(")는 광산 수에서 규칙 3의 표로 파생한 값이다.\n\n");
+            text.Append("위 SHA-256 은 이 바이트열 그대로의 값이며, 폴백 경로에서 값을 덮어쓰는 자리가 없으므로 ");
+            text.Append("실제 경기에 쓰이는 해시와 같다.\n");
 
             return text.ToString();
         }
@@ -897,15 +884,11 @@ namespace Hexiege.Domain
                     return false;
                 }
 
-                if (template.TestModeFlag != MapDefinitionValidator.NormalModeFlag)
-                {
-                    failureReason = "[2] " + template.MapType +
-                        " 의 테스트 모드 표식이 정상 모드(0)가 아니다(실제 " + template.TestModeFlag + ").";
-                    return false;
-                }
+                // 🔴 2026-09-14 제거: 여기에 「템플릿의 테스트 모드 표식이 0 인가」를 보는
+                //    검사가 있었다. 표식 자체가 사라져 확인할 대상이 없다.
 
                 int expectedGold = MapDefinitionValidator.GetExpectedInitialGold(
-                    MapDefinitionValidator.NormalModeFlag, template.NeutralMineCount);
+                    template.NeutralMineCount);
 
                 if (template.InitialGold != expectedGold)
                 {
@@ -931,7 +914,6 @@ namespace Hexiege.Domain
                     AttemptIndex = TemplateAttemptIndex,
                     StartingMineSide = TemplateStartingMineSide,
                     NeutralMineCount = template.NeutralMineCount,
-                    TestModeFlag = template.TestModeFlag,
                     InitialGold = template.InitialGold
                 };
 
@@ -1035,10 +1017,11 @@ namespace Hexiege.Domain
 
             // 타일 배열이 시작되는 지점을 건드린다. canonical 바이트열의 앞머리는
             // MapVersion · RootSeed · MapType · Width · Height · Orientation ·
-            // NeutralMineCount · TestModeFlag · InitialGold 순서이므로
-            // int 8개(32바이트) + ulong 1개(8바이트) = 40바이트 뒤부터 타일이 시작된다.
+            // NeutralMineCount · InitialGold 순서이므로
+            // int 7개(28바이트) + ulong 1개(8바이트) = 36바이트 뒤부터 타일이 시작된다.
             // (순서의 단일 소스는 MapDefinitionCodec.Encode 다.)
-            const int tileArrayOffset = 40;
+            // 🔴 2026-09-14: TestModeFlag(int 4바이트)가 빠지면서 40 → 36 으로 줄었다.
+            const int tileArrayOffset = 36;
             corrupted[tileArrayOffset] = (byte)(corrupted[tileArrayOffset] == 0 ? 1 : 0);
 
             MapDefinition corruptedDefinition = MapDefinitionCodec.Decode(corrupted);

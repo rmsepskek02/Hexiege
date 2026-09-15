@@ -258,7 +258,8 @@ namespace Hexiege.EditorTools
                     AttemptIndex = MapFallbackTemplateFactory.TemplateAttemptIndex,
                     StartingMineSide = MapFallbackTemplateFactory.TemplateStartingMineSide,
                     NeutralMineCount = decoded.NeutralMineCount,
-                    TestModeFlag = decoded.TestModeFlag,
+                    // 🔴 2026-09-14 제거: 여기에 TestModeFlag = decoded.TestModeFlag 가 있었다.
+                    //    「맵 테스트 모드」가 규칙에서 삭제돼 요청에도 정의에도 그 필드가 없다.
                     InitialGold = decoded.InitialGold
                 };
 

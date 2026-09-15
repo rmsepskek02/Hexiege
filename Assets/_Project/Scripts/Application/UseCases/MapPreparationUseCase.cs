@@ -35,19 +35,19 @@
 //      🔴 순서를 바꾸면 과거의 모든 seed 가 다른 맵이 된다 → MapVersion 을 올려야
 //         하는지부터 판단할 것.
 //
-//   ③ 폴백은 값을 교체하지만 두 가지는 유지한다(규칙 12 · 규칙 3).
+//   ③ 폴백은 값을 교체하지만 한 가지는 유지한다(규칙 12 · 규칙 3).
 //          MapType          유지 (경기 선택 단계의 값)
-//          테스트 모드 표식  유지 (GameConfig 값)
 //          중립 광산 수      템플릿 값으로 교체
 //          시작 광산 방향    템플릿 값으로 교체
-//          초기 골드        교체된 광산 수 기준으로 다시 정한다
-//                           (정상 모드 = 규칙 3 표 / 테스트 모드 = 5000)
+//          초기 골드        교체된 광산 수 기준으로 규칙 3 표에서 다시 정한다
 //
-//      🔴 그래서 해시를 반드시 다시 계산한다.
-//         MapDefinitionCodec.Encode 는 TestModeFlag 와 InitialGold 를 canonical
-//         바이트에 넣는다. 폴백 템플릿은 「정상 모드 값만」 담고 있으므로, 테스트
-//         모드에서 골드를 5000 으로 덮어쓰면 바이트가 달라진다. 해시를 다시 계산해
-//         Definition.Hash 에 넣지 않으면 3단계의 Host/Client 해시 대조가 깨진다.
+//      🔴 2026-09-14 제거: 종전에는 「테스트 모드 표식 유지」 행이 하나 더 있었고,
+//         테스트 모드에서 초기 골드를 5000 으로 덮어쓰기 때문에 해시를 반드시 다시
+//         계산해야 한다는 경고가 붙어 있었다. 맵 테스트 모드가 규칙에서 삭제돼
+//         (GameSystemRules_RandomMap.md 규칙 3 아래 2026-09-14 개정 블록) 덮어쓰기 자체가
+//         사라졌다. 🔴 그래도 BuildSuccess 는 여전히 해시를 다시 계산한다 —
+//         교체된 광산 수 때문에 InitialGold 가 달라질 수 있고, 그 값은 canonical
+//         바이트에 들어가기 때문이다.
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // 실행 모델 — 동기(synchronous) 함수 하나다
@@ -172,8 +172,8 @@ namespace Hexiege.Application
         /// <summary> 최종 시작 광산 방향. 폴백을 쓰면 템플릿 값으로 교체된다. </summary>
         public MapStartingMineSide StartingMineSide { get; }
 
-        /// <summary> 맵 테스트 모드였는지(GameConfig.MapTestModeEnabled). 폴백을 써도 유지된다. </summary>
-        public bool MapTestModeEnabled { get; }
+        // 🔴 2026-09-14 제거: 여기에 bool MapTestModeEnabled 프로퍼티가 있었다.
+        //    맵 테스트 모드가 규칙에서 삭제돼 실어 나를 값이 없어졌다.
 
         /// <summary> 실제 초기 골드. 폴백을 쓰면 교체된 광산 수 기준으로 다시 정해진다. </summary>
         public int InitialGold { get; }
@@ -207,7 +207,6 @@ namespace Hexiege.Application
         /// <param name="mapType">맵 유형</param>
         /// <param name="neutralMineCount">중립 광산 수</param>
         /// <param name="startingMineSide">시작 광산 방향</param>
-        /// <param name="mapTestModeEnabled">맵 테스트 모드 여부</param>
         /// <param name="initialGold">실제 초기 골드</param>
         /// <param name="elapsedMilliseconds">생성 소요 시간(ms)</param>
         /// <param name="attemptCount">실행한 시도 횟수</param>
@@ -215,7 +214,7 @@ namespace Hexiege.Application
         public MapPreparationResult(bool isSucceeded, MapPreparationErrorCode errorCode,
             string failureReason, MapDefinition definition, byte[] canonicalBytes, byte[] hash,
             int mapVersion, ulong rootSeed, MapType mapType, int neutralMineCount,
-            MapStartingMineSide startingMineSide, bool mapTestModeEnabled, int initialGold,
+            MapStartingMineSide startingMineSide, int initialGold,
             long elapsedMilliseconds, int attemptCount, bool usedFallback)
         {
             IsSucceeded = isSucceeded;
@@ -230,7 +229,6 @@ namespace Hexiege.Application
             MapType = mapType;
             NeutralMineCount = neutralMineCount;
             StartingMineSide = startingMineSide;
-            MapTestModeEnabled = mapTestModeEnabled;
             InitialGold = initialGold;
             ElapsedMilliseconds = elapsedMilliseconds;
             AttemptCount = attemptCount;
@@ -249,7 +247,6 @@ namespace Hexiege.Application
                 " type=" + MapType +
                 " mines=" + NeutralMineCount +
                 " side=" + StartingMineSide +
-                " testMode=" + (MapTestModeEnabled ? 1 : 0) +
                 " gold=" + InitialGold +
                 " elapsedMs=" + ElapsedMilliseconds +
                 " attempts=" + AttemptCount +
@@ -297,9 +294,12 @@ namespace Hexiege.Application
         ///    인자로 받아야 결정성이 지켜지고 같은 seed 로 다시 돌려 볼 수 있다.
         /// </summary>
         /// <param name="rootSeed">이 경기의 64비트 root seed</param>
-        /// <param name="mapTestModeEnabled">맵 테스트 모드 여부(GameConfig.MapTestModeEnabled)</param>
         /// <returns>완성된 맵과 규칙 12 로그 항목을 담은 결과</returns>
-        public MapPreparationResult Prepare(ulong rootSeed, bool mapTestModeEnabled)
+        // 🔴 2026-09-14 시그니처 축소: 종전에는 Prepare(ulong rootSeed, bool mapTestModeEnabled) 였다.
+        //    두 번째 인자는 GameConfig.MapTestModeEnabled 를 그대로 받아 「초기 골드를 5000 으로
+        //    고정하는 갈래」를 켜는 스위치였는데, 그 모드가 규칙에서 삭제돼
+        //    (GameSystemRules_RandomMap.md 규칙 3 아래 2026-09-14 개정 블록) 인자를 없앴다.
+        public MapPreparationResult Prepare(ulong rootSeed)
         {
             // ── 시간 측정 시작 ──────────────────────────────────────────────
             // 규칙 12: 「seed 를 확정한 직후부터」가 측정 구간의 시작이다. root seed 는
@@ -307,18 +307,15 @@ namespace Hexiege.Application
             var stopwatch = Stopwatch.StartNew();
 
             int mapVersion = MapDefinition.CurrentMapVersion;
-            int testModeFlag = mapTestModeEnabled
-                ? MapDefinitionValidator.TestModeFlag
-                : MapDefinitionValidator.NormalModeFlag;
 
             // ── 2. 경기 선택 단계 (경기당 한 번) ────────────────────────────
             MapSelection selection;
-            if (!TrySelectForMatch(mapVersion, rootSeed, testModeFlag, out selection,
+            if (!TrySelectForMatch(mapVersion, rootSeed, out selection,
                     out MapPreparationErrorCode selectionError, out string selectionReason))
             {
                 stopwatch.Stop();
                 return BuildFailure(selectionError, selectionReason, mapVersion, rootSeed,
-                    selection, mapTestModeEnabled, stopwatch.ElapsedMilliseconds, 0, false);
+                    selection, stopwatch.ElapsedMilliseconds, 0, false);
             }
 
             // ── 3. 시도 0 ~ (MaxAttemptCount-1) ─────────────────────────────
@@ -348,7 +345,7 @@ namespace Hexiege.Application
                 stopwatch.Stop();
 
                 return BuildSuccess(generated.Definition, mapVersion, rootSeed, selection,
-                    mapTestModeEnabled, stopwatch.ElapsedMilliseconds, attemptCount, false);
+                    stopwatch.ElapsedMilliseconds, attemptCount, false);
             }
 
             // ── 4. 100회 모두 실패 → 폴백 템플릿 ────────────────────────────
@@ -359,14 +356,14 @@ namespace Hexiege.Application
             {
                 stopwatch.Stop();
                 return BuildFailure(fallbackError, fallbackReason, mapVersion, rootSeed,
-                    selection, mapTestModeEnabled, stopwatch.ElapsedMilliseconds, attemptCount, true);
+                    selection, stopwatch.ElapsedMilliseconds, attemptCount, true);
             }
 
             // 폴백이 확정된 순간이다 — 여기서 시간 측정을 멈춘다.
             stopwatch.Stop();
 
             return BuildSuccess(fallbackDefinition, mapVersion, rootSeed, fallbackSelection,
-                mapTestModeEnabled, stopwatch.ElapsedMilliseconds, attemptCount, true);
+                stopwatch.ElapsedMilliseconds, attemptCount, true);
         }
 
         // ====================================================================
@@ -388,8 +385,7 @@ namespace Hexiege.Application
             /// <summary> 시작 광산 배치 경우(A/B). </summary>
             public MapStartingMineSide StartingMineSide;
 
-            /// <summary> 테스트 모드 표식(0 = 정상, 1 = 테스트). </summary>
-            public int TestModeFlag;
+            // 🔴 2026-09-14 제거: 여기에 int TestModeFlag 가 있었다. 모드가 사라져 뽑을 값이 없다.
 
             /// <summary> 실제 초기 골드. </summary>
             public int InitialGold;
@@ -415,16 +411,14 @@ namespace Hexiege.Application
         /// </summary>
         /// <param name="mapVersion">canonical 형식 버전</param>
         /// <param name="rootSeed">경기의 root seed</param>
-        /// <param name="testModeFlag">테스트 모드 표식(0/1)</param>
         /// <param name="selection">뽑힌 값 묶음(실패해도 뽑은 데까지는 채워진다)</param>
         /// <param name="errorCode">실패 시 내부 error code</param>
         /// <param name="failureReason">실패 사유(성공 시 null)</param>
         /// <returns>선택이 확정되면 true</returns>
-        private static bool TrySelectForMatch(int mapVersion, ulong rootSeed, int testModeFlag,
+        private static bool TrySelectForMatch(int mapVersion, ulong rootSeed,
             out MapSelection selection, out MapPreparationErrorCode errorCode, out string failureReason)
         {
             selection = default(MapSelection);
-            selection.TestModeFlag = testModeFlag;
 
             MapRandom stream = MapRandomStreams.CreateMatchStream(
                 mapVersion, rootSeed, MapRandomStreams.MapSelection);
@@ -459,13 +453,13 @@ namespace Hexiege.Application
 
             // ── ④ InitialGold (파생, 뽑지 않는다) ───────────────────────────
             selection.InitialGold = MapDefinitionValidator.GetExpectedInitialGold(
-                testModeFlag, selection.NeutralMineCount);
+                selection.NeutralMineCount);
 
             if (selection.InitialGold < 0)
             {
                 errorCode = MapPreparationErrorCode.InitialGoldUndefined;
-                failureReason = "규칙 3의 표가 초기 골드를 정하지 못했다(테스트 모드 표식 " + testModeFlag +
-                    ", 중립 광산 수 " + selection.NeutralMineCount + ").";
+                failureReason = "규칙 3의 표가 초기 골드를 정하지 못했다(중립 광산 수 " +
+                    selection.NeutralMineCount + ").";
                 return false;
             }
 
@@ -509,7 +503,6 @@ namespace Hexiege.Application
                 AttemptIndex = attemptIndex,
                 StartingMineSide = selection.StartingMineSide,
                 NeutralMineCount = selection.NeutralMineCount,
-                TestModeFlag = selection.TestModeFlag,
                 InitialGold = selection.InitialGold
             };
         }
@@ -529,11 +522,13 @@ namespace Hexiege.Application
         ///         제약을 필수 인자로 받으므로 이 단계를 건너뛸 수 없다.
         ///      🔴 겸사겸사 저장된 바이트와 다시 만든 맵이 「완전히 같은지」 대조한다.
         ///         템플릿 파일이 낡거나 손상됐을 때 조용히 다른 맵이 쓰이는 것을 막는다.
-        ///   4) 규칙 12대로 값을 교체한다 — 유형·테스트 모드 표식은 유지, 광산 수·시작
-        ///      광산 방향은 템플릿 값, 초기 골드는 교체된 광산 수 기준으로 다시 결정.
+        ///   4) 규칙 12대로 값을 교체한다 — 유형은 유지, 광산 수·시작 광산 방향은 템플릿 값,
+        ///      초기 골드는 교체된 광산 수 기준으로 다시 결정.
+        ///      🔴 2026-09-14 까지는 「테스트 모드 표식도 유지」가 여기 함께 적혀 있었다.
+        ///         맵 테스트 모드가 규칙에서 삭제돼 유지할 표식이 없어졌다.
         ///   5) 완화 없이 검증기 전체를 다시 돌린다. 통과해야만 쓴다.
         /// </summary>
-        /// <param name="selection">경기 선택 단계의 값(유형과 테스트 모드 표식만 쓴다)</param>
+        /// <param name="selection">경기 선택 단계의 값(유형만 쓴다)</param>
         /// <param name="definition">완성된 폴백 맵 정의(실패 시 null)</param>
         /// <param name="finalSelection">교체까지 끝난 최종 선택값(실패 시 입력값 그대로)</param>
         /// <param name="errorCode">실패 시 내부 error code</param>
@@ -587,13 +582,12 @@ namespace Hexiege.Application
                 return false;
             }
 
-            int templateGold = MapDefinitionValidator.GetExpectedInitialGold(
-                MapFallbackTemplateFactory.TemplateTestModeFlag, loaded.NeutralMineCount);
+            int templateGold = MapDefinitionValidator.GetExpectedInitialGold(loaded.NeutralMineCount);
 
             if (templateGold < 0)
             {
                 errorCode = MapPreparationErrorCode.InitialGoldUndefined;
-                failureReason = "폴백 템플릿의 정상 모드 초기 골드를 규칙 3의 표에서 찾지 못했다(중립 광산 수 " +
+                failureReason = "폴백 템플릿의 초기 골드를 규칙 3의 표에서 찾지 못했다(중립 광산 수 " +
                     loaded.NeutralMineCount + ").";
                 return false;
             }
@@ -605,7 +599,6 @@ namespace Hexiege.Application
                 AttemptIndex = MapFallbackTemplateFactory.TemplateAttemptIndex,
                 StartingMineSide = MapFallbackTemplateFactory.TemplateStartingMineSide,
                 NeutralMineCount = loaded.NeutralMineCount,
-                TestModeFlag = MapFallbackTemplateFactory.TemplateTestModeFlag,
                 InitialGold = templateGold
             };
 
@@ -634,30 +627,30 @@ namespace Hexiege.Application
             }
 
             // ── 4) 값 교체 (규칙 12) ────────────────────────────────────────
-            //   유지 : MapType(이미 같다) · 테스트 모드 표식
+            //   유지 : MapType(이미 같다)
             //   교체 : 중립 광산 수 · 시작 광산 방향 (템플릿 값)
             //   재결정 : 초기 골드
+            //   🔴 2026-09-14 까지는 「테스트 모드 표식」도 유지 대상이었다. 모드가 삭제돼 빠졌다.
             finalSelection.MapType = selection.MapType;
-            finalSelection.TestModeFlag = selection.TestModeFlag;
             finalSelection.NeutralMineCount = loaded.NeutralMineCount;
             finalSelection.StartingMineSide = MapFallbackTemplateFactory.TemplateStartingMineSide;
 
             finalSelection.InitialGold = MapDefinitionValidator.GetExpectedInitialGold(
-                selection.TestModeFlag, loaded.NeutralMineCount);
+                loaded.NeutralMineCount);
 
             if (finalSelection.InitialGold < 0)
             {
                 errorCode = MapPreparationErrorCode.InitialGoldUndefined;
-                failureReason = "폴백에서 초기 골드를 다시 정하지 못했다(테스트 모드 표식 " +
-                    selection.TestModeFlag + ", 중립 광산 수 " + loaded.NeutralMineCount + ").";
+                failureReason = "폴백에서 초기 골드를 다시 정하지 못했다(중립 광산 수 " +
+                    loaded.NeutralMineCount + ").";
                 return false;
             }
 
             // 🔴 여기서 정의의 값도 함께 바꾼다. 바꾸지 않으면 「검증한 맵」과
-            //    「실제로 쓰는 값」이 갈린다. 그리고 이 두 필드는 canonical 바이트에
+            //    「실제로 쓰는 값」이 갈린다. 그리고 이 필드는 canonical 바이트에
             //    들어가므로, 바꾼 뒤에는 해시를 반드시 다시 계산해야 한다
             //    (BuildSuccess 가 항상 다시 계산한다).
-            loaded.TestModeFlag = finalSelection.TestModeFlag;
+            //    🔴 2026-09-14 까지는 바로 위에 loaded.TestModeFlag 를 심는 줄이 하나 더 있었다.
             loaded.InitialGold = finalSelection.InitialGold;
 
             // ── 5) 완화 없이 검증기 전체 ────────────────────────────────────
@@ -684,21 +677,22 @@ namespace Hexiege.Application
         /// <summary>
         /// 성공 결과를 만든다. canonical 바이트와 해시를 여기서 계산해 정의에 채운다.
         ///
-        /// 🔴 폴백 + 테스트 모드 조합에서 해시가 반드시 달라지는 자리가 여기다.
-        ///    템플릿은 정상 모드 값만 담고 있는데 TestModeFlag·InitialGold 가
-        ///    canonical 바이트에 포함되므로, 덮어쓴 값으로 다시 계산해야 한다.
+        /// 🔴 해시는 언제나 여기서 다시 계산한다. InitialGold 가 canonical 바이트에
+        ///    포함되는데 폴백 경로에서 그 값이 교체될 수 있기 때문이다.
+        ///    (2026-09-14 까지는 「폴백 + 테스트 모드 조합」이 그 대표 사례로 적혀 있었다.
+        ///     맵 테스트 모드가 규칙에서 삭제돼 그 사례는 사라졌지만, 다시 계산해야 하는
+        ///     이유 자체는 그대로 남는다.)
         /// </summary>
         /// <param name="definition">완성된 맵 정의</param>
         /// <param name="mapVersion">canonical 형식 버전</param>
         /// <param name="rootSeed">경기의 root seed</param>
         /// <param name="selection">최종 선택값</param>
-        /// <param name="mapTestModeEnabled">맵 테스트 모드 여부</param>
         /// <param name="elapsedMilliseconds">생성 소요 시간(ms)</param>
         /// <param name="attemptCount">실행한 시도 횟수</param>
         /// <param name="usedFallback">폴백 사용 여부</param>
         /// <returns>성공 결과</returns>
         private static MapPreparationResult BuildSuccess(MapDefinition definition, int mapVersion,
-            ulong rootSeed, MapSelection selection, bool mapTestModeEnabled,
+            ulong rootSeed, MapSelection selection,
             long elapsedMilliseconds, int attemptCount, bool usedFallback)
         {
             definition.SortCanonical();
@@ -709,7 +703,7 @@ namespace Hexiege.Application
 
             return new MapPreparationResult(true, MapPreparationErrorCode.None, null,
                 definition, canonicalBytes, hash, mapVersion, rootSeed, selection.MapType,
-                selection.NeutralMineCount, selection.StartingMineSide, mapTestModeEnabled,
+                selection.NeutralMineCount, selection.StartingMineSide,
                 selection.InitialGold, elapsedMilliseconds, attemptCount, usedFallback);
         }
 
@@ -721,18 +715,17 @@ namespace Hexiege.Application
         /// <param name="mapVersion">canonical 형식 버전</param>
         /// <param name="rootSeed">경기의 root seed</param>
         /// <param name="selection">아는 데까지 채워진 선택값</param>
-        /// <param name="mapTestModeEnabled">맵 테스트 모드 여부</param>
         /// <param name="elapsedMilliseconds">생성 소요 시간(ms)</param>
         /// <param name="attemptCount">실행한 시도 횟수</param>
         /// <param name="usedFallback">폴백까지 갔으면 true</param>
         /// <returns>실패 결과</returns>
         private static MapPreparationResult BuildFailure(MapPreparationErrorCode errorCode,
             string failureReason, int mapVersion, ulong rootSeed, MapSelection selection,
-            bool mapTestModeEnabled, long elapsedMilliseconds, int attemptCount, bool usedFallback)
+            long elapsedMilliseconds, int attemptCount, bool usedFallback)
         {
             return new MapPreparationResult(false, errorCode, failureReason, null, null, null,
                 mapVersion, rootSeed, selection.MapType, selection.NeutralMineCount,
-                selection.StartingMineSide, mapTestModeEnabled, selection.InitialGold,
+                selection.StartingMineSide, selection.InitialGold,
                 elapsedMilliseconds, attemptCount, usedFallback);
         }
 
@@ -767,7 +760,7 @@ namespace Hexiege.Application
             // ── 1. 뽑는 순서 고정 ───────────────────────────────────────────
             // 같은 스트림에서 ①유형 ②광산 수 ③A/B 순서로 뽑는다는 사양을 값으로 고정한다.
             if (!TrySelectForMatch(MapDefinition.CurrentMapVersion, SelfCheckRootSeed,
-                    MapDefinitionValidator.NormalModeFlag, out MapSelection selection,
+                    out MapSelection selection,
                     out MapPreparationErrorCode selectionError, out string selectionReason))
             {
                 failureReason = "자기 검증 seed 로 경기 선택이 실패했다(" + selectionError + "): " + selectionReason;
@@ -797,7 +790,7 @@ namespace Hexiege.Application
 
             // 초기 골드는 뽑지 않고 표에서 파생된다.
             int expectedGold = MapDefinitionValidator.GetExpectedInitialGold(
-                MapDefinitionValidator.NormalModeFlag, selection.NeutralMineCount);
+                selection.NeutralMineCount);
             if (selection.InitialGold != expectedGold)
             {
                 failureReason = "초기 골드가 규칙 3의 표에서 파생되지 않았다(기대 " + expectedGold +
@@ -806,8 +799,8 @@ namespace Hexiege.Application
             }
 
             // ── 2. 결정성 — 같은 seed 로 두 번 돌리면 모든 것이 같아야 한다 ──
-            MapPreparationResult first = useCase.Prepare(SelfCheckRootSeed, false);
-            MapPreparationResult second = useCase.Prepare(SelfCheckRootSeed, false);
+            MapPreparationResult first = useCase.Prepare(SelfCheckRootSeed);
+            MapPreparationResult second = useCase.Prepare(SelfCheckRootSeed);
 
             if (!first.IsSucceeded)
             {
@@ -830,7 +823,7 @@ namespace Hexiege.Application
             for (ulong seed = 0UL; seed < 200UL; seed++)
             {
                 if (!TrySelectForMatch(MapDefinition.CurrentMapVersion, seed,
-                        MapDefinitionValidator.NormalModeFlag, out MapSelection sample,
+                        out MapSelection sample,
                         out MapPreparationErrorCode sampleError, out string sampleReason))
                 {
                     failureReason = "seed " + seed + " 선택 실패(" + sampleError + "): " + sampleReason;
@@ -848,7 +841,7 @@ namespace Hexiege.Application
                 }
             }
 
-            // ── 4. 폴백 경로 (정상 모드) ────────────────────────────────────
+            // ── 4. 폴백 경로 ────────────────────────────────────────────────
             // 100회 실패해야만 닿는 자리라 조립 함수를 직접 부른다.
             for (int i = 0; i < MapFallbackTemplateFactory.TemplateMapTypes.Count; i++)
             {
@@ -859,7 +852,6 @@ namespace Hexiege.Application
                     MapType = mapType,
                     NeutralMineCount = 0,
                     StartingMineSide = MapStartingMineSide.CaseB,
-                    TestModeFlag = MapDefinitionValidator.NormalModeFlag,
                     InitialGold = -1
                 };
 
@@ -885,71 +877,54 @@ namespace Hexiege.Application
                     return false;
                 }
 
-                // 정상 모드에서는 템플릿을 손대지 않았으므로 바이트가 그대로여야 한다.
+                // 폴백은 템플릿의 값을 그대로 쓰므로 바이트가 템플릿과 같아야 한다.
                 byte[] rebuiltBytes = MapDefinitionCodec.Encode(normalDefinition);
                 if (!templateSource.MatchesStoredBytes(mapType, rebuiltBytes))
                 {
-                    failureReason = mapType + " 정상 모드 폴백의 canonical 바이트가 템플릿과 다르다.";
+                    failureReason = mapType + " 폴백의 canonical 바이트가 템플릿과 다르다.";
                     return false;
                 }
 
-                // ── 5. 폴백 + 테스트 모드 → 골드 5000 · 해시가 달라져야 한다 ──
-                var testSelection = normalSelection;
-                testSelection.TestModeFlag = MapDefinitionValidator.TestModeFlag;
-
-                if (!useCase.TryPrepareFromFallback(testSelection, out MapDefinition testDefinition,
-                        out MapSelection testFinal, out MapPreparationErrorCode testError,
-                        out string testReason))
-                {
-                    failureReason = mapType + " 테스트 모드 폴백 조립 실패(" + testError + "): " + testReason;
-                    return false;
-                }
-
-                if (testFinal.InitialGold != MapDefinitionValidator.TestModeInitialGold ||
-                    testDefinition.InitialGold != MapDefinitionValidator.TestModeInitialGold)
-                {
-                    failureReason = mapType + " 테스트 모드 폴백의 초기 골드가 " +
-                        MapDefinitionValidator.TestModeInitialGold + " 이 아니다(선택 " +
-                        testFinal.InitialGold + " / 정의 " + testDefinition.InitialGold + ").";
-                    return false;
-                }
-
-                if (testDefinition.TestModeFlag != MapDefinitionValidator.TestModeFlag)
-                {
-                    failureReason = mapType + " 테스트 모드 표식이 정의에 반영되지 않았다.";
-                    return false;
-                }
-
-                byte[] testBytes = MapDefinitionCodec.Encode(testDefinition);
-                byte[] testHash = MapDefinitionCodec.ComputeHash(testBytes);
-
-                if (templateSource.MatchesStoredBytes(mapType, testBytes))
-                {
-                    failureReason = mapType +
-                        " 테스트 모드 폴백의 canonical 바이트가 정상 모드 템플릿과 같다(덮어쓰기가 안 됐다).";
-                    return false;
-                }
-
-                if (MapDefinitionCodec.HashEquals(testHash, templateSource.GetStoredHash(mapType)))
-                {
-                    failureReason = mapType +
-                        " 테스트 모드 폴백의 해시가 정상 모드 템플릿과 같다(해시 재계산이 안 됐다).";
-                    return false;
-                }
+                // 🔴 2026-09-14 제거: 여기에 「5. 폴백 + 테스트 모드」 덩어리가 있었다.
+                //    테스트 모드로 폴백을 태우면 초기 골드가 5000 으로 덮어써지고
+                //    그 결과 canonical 바이트와 해시가 템플릿과 달라져야 한다는 검사였다.
+                //    맵 테스트 모드가 규칙에서 삭제돼(규칙 3 아래 2026-09-14 개정 블록)
+                //    덮어쓰는 갈래 자체가 없어졌으므로 확인할 대상이 사라졌다.
+                //    🔴 그 대신 바로 위 「템플릿과 바이트가 같은가」 검사는 그대로 남아 있어,
+                //       폴백 경로가 실제로 돌아간다는 양성 대조는 계속 유지된다.
             }
 
             failureReason = null;
             return true;
         }
 
+        // ────────────────────────────────────────────────────────────────────
+        // 🔴 아래 세 기대값은 「사양을 값으로 못 박은 것」이다 — 깨지면 코드가 아니라
+        //    사양이 바뀐 것이다(위 자기 검증 머리말 참조).
+        //
+        // 🔴 2026-09-14 갱신 — 원래 값과 갱신 사유를 남긴다.
+        //      MapType  : FullyOpen  (바뀌지 않았다)
+        //      광산 수   : 2 → **4**
+        //      시작 광산 : CaseB → **CaseA**
+        //
+        //    왜 바뀌었는가(추정이 아니라 실행해서 확인한 값이다):
+        //      경기 선택 단계의 난수 스트림은 MapRandomStreams.CreateMatchStream(mapVersion, ...)
+        //      처럼 **mapVersion 을 seed 재료로 쓴다.** 맵 테스트 모드 삭제로 canonical 형식이
+        //      바뀌어 MapDefinition.CurrentMapVersion 을 1 → 2 로 올렸으므로, 같은 root seed 라도
+        //      스트림이 달라지고 뽑히는 값도 달라진다.
+        //    🔴 즉 이것은 「뽑는 순서가 바뀐 것」이 아니라 「형식 버전이 바뀐 것」의 결과다.
+        //       순서(①유형 ②광산 수 ③A/B)는 한 글자도 바뀌지 않았고, 그 순서가 그대로임은
+        //       세 값이 모두 각 유형의 허용 범위 안이라는 점과 결정성 검사로 계속 지켜진다.
+        // ────────────────────────────────────────────────────────────────────
+
         /// <summary> 자기 검증 seed 로 뽑혀야 하는 맵 유형(순서 고정용 기대값). </summary>
         private const MapType SelfCheckExpectedMapType = MapType.FullyOpen;
 
         /// <summary> 자기 검증 seed 로 뽑혀야 하는 중립 광산 수(순서 고정용 기대값). </summary>
-        private const int SelfCheckExpectedMineCount = 2;
+        private const int SelfCheckExpectedMineCount = 4;
 
         /// <summary> 자기 검증 seed 로 뽑혀야 하는 시작 광산 방향(순서 고정용 기대값). </summary>
-        private const MapStartingMineSide SelfCheckExpectedSide = MapStartingMineSide.CaseB;
+        private const MapStartingMineSide SelfCheckExpectedSide = MapStartingMineSide.CaseA;
 
         /// <summary>
         /// 두 준비 결과가 같은 맵인지(결정성) 확인한다.
@@ -1090,16 +1065,10 @@ namespace Hexiege.Application
                 return true;
             }
 
-            /// <summary>
-            /// 그 유형의 템플릿 해시(정상 모드)를 돌려준다.
-            /// </summary>
-            /// <param name="mapType">맵 유형</param>
-            /// <returns>해시 32바이트(없으면 null)</returns>
-            public byte[] GetStoredHash(MapType mapType)
-            {
-                byte[] hash;
-                return _hashByType.TryGetValue(mapType, out hash) ? hash : null;
-            }
+            // 🔴 2026-09-14 제거: 여기에 public byte[] GetStoredHash(MapType) 가 있었다.
+            //    「테스트 모드 폴백의 해시가 템플릿 해시와 달라졌는가」를 보는 자체 점검 덩어리가
+            //    유일한 호출부였고, 그 덩어리가 이번에 함께 삭제돼 호출자가 0건이 됐다.
+            //    (해시 저장 자체는 _hashByType 에 남아 있으므로 필요해지면 되살리면 된다.)
         }
     }
 }

@@ -84,8 +84,9 @@ namespace Hexiege.Domain
         /// <summary> 놓을 중립 광산 개수. 유형이 허용하는 범위 안이어야 한다. </summary>
         public int NeutralMineCount { get; set; }
 
-        /// <summary> 테스트 모드 표시값. 맵 정의에 그대로 기록된다. </summary>
-        public int TestModeFlag { get; set; }
+        // 🔴 2026-09-14 제거: 여기에 int TestModeFlag 요청 필드가 있었다.
+        //    「맵 테스트 모드」 표식을 생성기에 전달해 맵 정의에 그대로 적게 하던 자리인데,
+        //    그 모드가 규칙에서 삭제돼(규칙 3 아래 2026-09-14 개정 블록) 전달할 값이 없어졌다.
 
         /// <summary> 시작 골드. 맵 정의에 그대로 기록된다. </summary>
         public int InitialGold { get; set; }

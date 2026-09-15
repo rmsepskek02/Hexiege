@@ -929,7 +929,9 @@ namespace Hexiege.Infrastructure
             //  Unity.Services.Lobbies.Models.Lobby 도 이 파일에서 완전 수식으로 쓰고 있다.)
             ulong rootSeed = Hexiege.Domain.MapRootSeed.Create();
 
-            bool started = transfer.BeginHostMapTransfer(rootSeed, ReadMapTestModeEnabled());
+            // 🔴 2026-09-14: 종전에는 두 번째 인자로 ReadMapTestModeEnabled() 를 함께 넘겼다.
+            //    「맵 테스트 모드」가 규칙에서 삭제돼 인자가 root seed 하나로 줄었다.
+            bool started = transfer.BeginHostMapTransfer(rootSeed);
 
             if (!started)
             {
@@ -1013,30 +1015,17 @@ namespace Hexiege.Infrastructure
             _activeMapTransfer = null;
         }
 
-        /// <summary>
-        /// 맵 테스트 모드 표식을 읽는다(GameConfig.MapTestModeEnabled).
-        ///
-        /// ⚠️ 로비 씬에는 GameBootstrapper 가 없어 Inspector 로 주입받은 GameConfig 참조가 없다.
-        ///    그래서 전투 씬과 <b>같은 에셋</b>을 Resources 에서 직접 읽는다
-        ///    (GameConfig 는 Assets/_Project/Resources/Config/GameConfig.asset 에 있다).
-        ///    못 읽으면 false 로 간다 — 테스트 모드는 "켜면 특별한 맵이 나오는" 개발용 표식이라
-        ///    읽지 못했을 때 꺼진 쪽(정상 경기)으로 가는 것이 안전하다.
-        /// </summary>
-        /// <returns>맵 테스트 모드 여부</returns>
-        private bool ReadMapTestModeEnabled()
-        {
-            GameConfig config = Resources.Load<GameConfig>("Config/GameConfig");
-
-            if (config == null)
-            {
-                GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
-                                 "GameConfig 를 Resources 에서 읽지 못해 맵 테스트 모드를 꺼진 것으로 본다",
-                                 "ResourcePath=Config/GameConfig");
-                return false;
-            }
-
-            return config.MapTestModeEnabled;
-        }
+        // 🔴 2026-09-14 제거: 여기에 private bool ReadMapTestModeEnabled() 가 있었다.
+        //    로비 씬에는 GameBootstrapper 가 없어 Inspector 주입 GameConfig 참조가 없으므로
+        //    Resources.Load<GameConfig>("Config/GameConfig") 로 같은 에셋을 직접 읽어
+        //    맵 테스트 모드 표식을 얻던 함수이고, 유일한 호출부는 BeginHostMapTransfer 였다.
+        //    「맵 테스트 모드」가 규칙에서 삭제돼(GameSystemRules_RandomMap.md 규칙 3 아래
+        //    2026-09-14 개정 블록) 읽을 설정 자체가 없어졌다.
+        //
+        //    ✅ 덤: 이 함수가 사라지면서 이 파일의 Resources.Load 직접 호출도 함께 사라졌다.
+        //       (「의존성 조합은 GameBootstrapper 한 곳」 제약과의 마찰 2건 중 1건이 해소된 것이며,
+        //        나머지 1건 — NetworkMapTransfer.BeginHostMapTransfer 가 MapPreparationUseCase 를
+        //        스스로 조립하는 것 — 은 이번 작업으로 달라지지 않았다.)
 
         /// <summary>
         /// 서버에서 Game 씬을 로드. NGO SceneManager가 모든 클라이언트에 자동 동기화.

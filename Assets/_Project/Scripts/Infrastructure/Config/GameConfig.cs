@@ -145,45 +145,25 @@ namespace Hexiege.Infrastructure
         public int MiningPostCost => _miningPostCost;
 
         // ====================================================================
-        // 무작위 맵 테스트 모드
+        // 🔴 2026-09-14 제거: 여기에 「무작위 맵 테스트 모드」 설정 한 덩어리가 있었다.
         //
-        // 무엇에 쓰는가:
-        //   무작위 맵의 "경제"만 빠르게 확인하고 싶을 때 쓰는 명시적 테스트 스위치다.
-        //   평소(정상 모드)의 초기 골드는 중립 광산 수에 따라 정해지는데
-        //   (규칙 3의 표: 광산 1개면 700 … 6개면 200), 이 스위치를 켜면
-        //   광산 수와 무관하게 아래 TestStartingGold 값을 그대로 준다.
+        //    무엇이 있었나:
+        //      [Header("Random Map Test Mode")]
+        //      bool _mapTestModeEnabled (접근자 MapTestModeEnabled)
+        //      int  _testStartingGold   (접근자 TestStartingGold, 기본값 5000)
+        //    무슨 일을 했나:
+        //      켜면 무작위 맵의 초기 골드가 중립 광산 수와 무관하게 5000 으로 고정되는
+        //      개발용 스위치였다(맵의 "경제"만 빠르게 확인하려는 용도).
+        //    왜 없앴나:
+        //      사용자가 "현재 특별히 사용하고 있지 않아 불필요하다"고 확정해 규칙에서 먼저
+        //      삭제했고(GameSystemRules/GameSystemRules_RandomMap.md 규칙 3 아래
+        //      2026-09-14 개정 블록 — 무엇을 왜 지웠는지의 단일 소스), 코드가 그 뒤를 따랐다.
+        //      이제 초기 골드는 규칙 3의 광산 수 표 하나만을 따른다.
         //
-        // 🔴 이 모드는 "초기 골드에만" 영향을 준다.
-        //    지형, 광산 수·위치, 생산 비용, 수입 같은 다른 규칙은 하나도 바꾸지 않는다.
-        //    다른 테스트 기능이 필요해지면 이 필드를 겸용하지 말고 새 필드를 만든다.
-        //
-        // ⚠️ 위쪽 Economy 의 StartingGold(현재 값 5000)와는 "다른 필드"다.
-        //    값이 우연히 같을 뿐이며, 둘이 같은 것인지는 아직 확인되지 않았다.
-        //    한쪽을 고칠 때 다른 쪽이 따라 바뀐다고 가정하지 말 것.
-        //
-        // 권위: 싱글플레이는 로컬 설정, 멀티플레이는 Host 의 설정만 권위다.
-        //       확정된 표식과 실제 초기 골드는 MapDefinition 에 담겨 전송된다.
-        //
-        // 근거: GameSystemRules/GameSystemRules_RandomMap.md 규칙 3 · 규칙 12
-        //       TechnicalDesignDocument.md 「결정적 PRNG 및 독립 스트림 계약」
+        // 🔴🔴 위쪽 Economy 의 _startingGold(값 5000)는 이 삭제와 **아무 관계가 없다.**
+        //      값이 우연히 같았을 뿐 완전히 다른 필드이며, 그대로 살아 있다.
+        //      (에셋에서도 _startingGold: 5000 은 그대로 두고 아래 두 키만 지웠다.)
         // ====================================================================
-
-        [Header("Random Map Test Mode")]
-
-        /// <summary>
-        /// 맵 테스트 모드 사용 여부. true 이면 초기 골드가 TestStartingGold 로 고정된다.
-        /// 기본값은 끔(false).
-        /// </summary>
-        [Tooltip("맵 테스트 모드. 켜면 초기 골드가 중립 광산 수와 무관하게 고정된다 (초기 골드에만 영향)")]
-        [SerializeField] private bool _mapTestModeEnabled = false;
-        public bool MapTestModeEnabled => _mapTestModeEnabled;
-
-        /// <summary>
-        /// 맵 테스트 모드일 때 지급할 초기 골드. 규칙 3이 정한 값은 5000이다.
-        /// </summary>
-        [Tooltip("맵 테스트 모드일 때의 초기 골드 (규칙 3 확정값 5000)")]
-        [SerializeField] private int _testStartingGold = 5000;
-        public int TestStartingGold => _testStartingGold;
 
         // ====================================================================
         // 유닛 설정

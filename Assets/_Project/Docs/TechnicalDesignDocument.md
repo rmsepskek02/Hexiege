@@ -305,7 +305,7 @@ canonicalBytes
 sha256Digest[32]
 ```
 
-package header의 `mapVersion`은 preflight decoder 선택용이며 canonical `MapDefinition.MapVersion`과 일치해야 한다. 현재 지원 값은 `1`이다. 🔴 **2026-09-14 — 이 줄은 「초기값」이 아니라 「현재 값」을 적고 있으므로 형식이 바뀌면 거짓이 된다. 테스트 모드 표식이 canonical 바이트열에서 빠지는 커밋(`_Tasks/2026-09-14/12_17_rematch-map-selection/Plan.md` T2)에서 `2` 로 함께 고친다 — 지금은 코드가 아직 `1` 이므로 값을 미리 바꾸지 않는다.** 값이 다르거나 미지원이면 canonical bytes를 deserialize하지 않고 map preparation을 실패 처리한다. 이 값은 앱/접속 호환성 판정에 사용하지 않는다. SHA-256의 입력은 canonical bytes만이다.
+package header의 `mapVersion`은 preflight decoder 선택용이며 canonical `MapDefinition.MapVersion`과 일치해야 한다. 현재 지원 값은 `2`이다. 🔴 **2026-09-14 — 이 줄은 「초기값」이 아니라 「현재 값」을 적고 있으므로 형식이 바뀌면 거짓이 된다. T1 이 남긴 예고대로 T2(테스트 모드 표식이 canonical 바이트열에서 빠지는 커밋 — `_Tasks/2026-09-14/12_17_rematch-map-selection/Plan.md`)에서 `1` → `2` 로 함께 고쳤다. 실측 근거: `Domain/Map/MapDefinition.cs` `CurrentMapVersion = 2`.** 값이 다르거나 미지원이면 canonical bytes를 deserialize하지 않고 map preparation을 실패 처리한다. 이 값은 앱/접속 호환성 판정에 사용하지 않는다. SHA-256의 입력은 canonical bytes만이다.
 
 **`NetworkMapTransfer` 전송 프로토콜:**
 

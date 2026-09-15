@@ -499,8 +499,10 @@ namespace Hexiege.Bootstrap
 
             ulong rootSeed = CreateRootSeed();
 
-            // 테스트 모드 표식은 로컬 GameConfig 가 권위다(규칙 3 — 싱글 권위).
-            MapPreparationResult prepared = preparation.Prepare(rootSeed, _config.MapTestModeEnabled);
+            // 🔴 2026-09-14: 종전에는 두 번째 인자로 _config.MapTestModeEnabled 를 함께 넘겼다.
+            //    「맵 테스트 모드」가 규칙에서 삭제돼(GameSystemRules_RandomMap.md 규칙 3 아래
+            //    2026-09-14 개정 블록) Prepare 의 인자가 root seed 하나로 줄었다.
+            MapPreparationResult prepared = preparation.Prepare(rootSeed);
 
             // 🔴 결과를 반드시 보관한다.
             //    문제가 생긴 맵을 다시 만들어 보려면 그 판의 root seed 가 있어야 하는데,
@@ -709,7 +711,10 @@ namespace Hexiege.Bootstrap
                 ", MapType=" + prepared.MapType +
                 ", NeutralMineCount=" + prepared.NeutralMineCount +
                 ", StartingMineSide=" + prepared.StartingMineSide +
-                ", TestMode=" + prepared.MapTestModeEnabled +
+                // 🔴 2026-09-14 제거: 여기에 ", TestMode=" + prepared.MapTestModeEnabled 필드가 있었다.
+                //    기록할 값이 없어졌다. ⚠️ LogEvent 키는 하나도 늘거나 줄지 않았다 —
+                //    한 회차가 남기는 줄 수는 그대로이고 그 줄의 필드가 하나 빠질 뿐이다
+                //    (키를 지우면 과거 로그와의 대조가 끊기므로 지우지 않는다).
                 ", InitialGold=" + prepared.InitialGold +
                 ", ElapsedMs=" + prepared.ElapsedMilliseconds +
                 ", AttemptCount=" + prepared.AttemptCount +

@@ -559,9 +559,13 @@ namespace Hexiege.Infrastructure
         ///       확인 결과에 따라 이 두 줄이 "밖에서 주입받는" 형태로 바뀔 수 있다.
         /// </summary>
         /// <param name="rootSeed">이 경기의 64비트 root seed. Host 가 뽑아서 넘긴다</param>
-        /// <param name="mapTestModeEnabled">맵 테스트 모드 여부(GameConfig.MapTestModeEnabled)</param>
         /// <returns>전송을 시작했으면 true. 맵 준비 실패 등으로 시작하지 못했으면 false</returns>
-        public bool BeginHostMapTransfer(ulong rootSeed, bool mapTestModeEnabled)
+        // 🔴 2026-09-14 시그니처 축소: 종전에는
+        //    BeginHostMapTransfer(ulong rootSeed, bool mapTestModeEnabled) 였고,
+        //    두 번째 인자는 NetworkGameManager.ReadMapTestModeEnabled() 가 읽어 넘기던 값이다.
+        //    「맵 테스트 모드」가 규칙에서 삭제돼(GameSystemRules_RandomMap.md 규칙 3 아래
+        //    2026-09-14 개정 블록) 그 인자도 읽던 함수도 함께 사라졌다.
+        public bool BeginHostMapTransfer(ulong rootSeed)
         {
             if (!IsSpawned || !IsServer)
             {
@@ -570,7 +574,7 @@ namespace Hexiege.Infrastructure
 
             // ── ① 맵 준비 (Host 가 유일한 권위자 — 규칙 12) ────────────────
             var preparation = new MapPreparationUseCase(new ResourcesMapFallbackTemplateSource());
-            MapPreparationResult prepared = preparation.Prepare(rootSeed, mapTestModeEnabled);
+            MapPreparationResult prepared = preparation.Prepare(rootSeed);
 
             _hostPrepared = prepared;
 
@@ -1236,7 +1240,9 @@ namespace Hexiege.Infrastructure
                 verification.Definition, payload, hash,
                 verification.MapVersion, verification.RootSeed, verification.MapType,
                 verification.NeutralMineCount, verification.StartingMineSide,
-                verification.TestModeFlag == MapDefinitionValidator.TestModeFlag,
+                // 🔴 2026-09-14 제거: 여기에 verification.TestModeFlag 를 bool 로 바꿔 넘기는
+                //    인자가 하나 더 있었다(MapPreparationResult.MapTestModeEnabled 자리).
+                //    양쪽 필드가 모두 사라져 넘길 값이 없다.
                 verification.InitialGold,
                 0L, 0, false);
         }
@@ -1595,7 +1601,10 @@ namespace Hexiege.Infrastructure
                 ", MapType=" + prepared.MapType +
                 ", NeutralMineCount=" + prepared.NeutralMineCount +
                 ", StartingMineSide=" + prepared.StartingMineSide +
-                ", TestMode=" + prepared.MapTestModeEnabled +
+                // 🔴 2026-09-14 제거: 여기에 ", TestMode=" + prepared.MapTestModeEnabled 필드가 있었다.
+                //    🔴 짝이 되는 GameBootstrapper.Map.cs 의 BuildMapPreparationLogData 에서도
+                //       같은 줄을 함께 지웠다. 한쪽만 고치면 같은 로그 키의 필드 집합이 갈라진다.
+                //    ⚠️ LogEvent 키는 하나도 늘거나 줄지 않았다 — 필드 하나가 빠질 뿐이다.
                 ", InitialGold=" + prepared.InitialGold +
                 ", ElapsedMs=" + prepared.ElapsedMilliseconds +
                 ", AttemptCount=" + prepared.AttemptCount +

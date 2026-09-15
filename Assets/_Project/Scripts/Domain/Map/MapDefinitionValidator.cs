@@ -212,17 +212,13 @@ namespace Hexiege.Domain
         /// <summary> 정상 모드에서 허용되는 중립 광산 개수의 상한(규칙 3의 표). </summary>
         public const int MaxNeutralMineCount = 6;
 
-        /// <summary> 테스트 모드 표식이 이 값이면 정상 모드다. </summary>
-        public const int NormalModeFlag = 0;
-
-        /// <summary> 테스트 모드 표식이 이 값이면 테스트 모드다. </summary>
-        public const int TestModeFlag = 1;
-
-        /// <summary>
-        /// 테스트 모드에서 확정되는 초기 골드(GameConfig.TestStartingGold 와 같은 값, 규칙 3).
-        /// 테스트 모드에서는 중립 광산 개수와 무관하게 언제나 이 값이다.
-        /// </summary>
-        public const int TestModeInitialGold = 5000;
+        // 🔴 2026-09-14 제거: 여기에 상수 3개가 있었다.
+        //      NormalModeFlag = 0 / TestModeFlag = 1 — 「맵 테스트 모드」 표식의 두 값
+        //      TestModeInitialGold = 5000       — 그 모드에서 고정으로 주던 초기 골드
+        //    세 상수 모두 「초기 골드를 표 대신 고정값으로 주는 갈래」를 위해서만 존재했고,
+        //    그 갈래가 규칙에서 삭제돼(규칙 3 아래 2026-09-14 개정 블록) 쓸 자리가 없어졌다.
+        //    ⚠️ Infrastructure/Config/GameConfig 의 Economy.StartingGold(값이 우연히 같은 5000)와는
+        //       완전히 다른 필드다. 그쪽은 이번 삭제와 무관하게 그대로 살아 있다.
 
         /// <summary>
         /// 광산이 0개면 통로가 유지해야 하는 이동 가능 폭(규칙 13 「필수 통로 검증」).
@@ -258,22 +254,23 @@ namespace Hexiege.Domain
         // ====================================================================
 
         /// <summary>
-        /// 그 시점의 모드에 규칙 3이 지정한 초기 골드를 돌려준다.
+        /// 규칙 3이 지정한 초기 골드를 돌려준다.
         ///
-        /// 🔴 검증 6번은 「광산 수 표와 대응하는가」가 아니라 「그 시점 모드에 규칙 3이
-        ///    지정한 값과 실제 값이 같은가」다. 그래서 모드 갈래가 이 메서드 안에 있고,
-        ///    갈래가 나중에 늘어도 검증 6번의 코드는 그대로다.
+        /// 🔴 검증 6번은 「규칙 3이 지정한 값과 실제 값이 같은가」다. 그 「규칙 3이 지정한 값」을
+        ///    정하는 자리가 이 메서드 하나뿐이므로, 규칙 3의 표가 바뀌어도 검증 6번의 코드는
+        ///    한 글자도 손대지 않는다.
+        ///
+        /// 🔴 2026-09-14 시그니처 축소: 종전에는 첫 인자로 testModeFlag(0/1)를 받아
+        ///    「테스트 모드면 광산 수와 무관하게 5000」이라는 갈래를 하나 더 가지고 있었다.
+        ///    그 모드가 규칙에서 삭제돼(규칙 3 아래 2026-09-14 개정 블록) 갈래가 하나만 남았고,
+        ///    남은 갈래에 쓰이지 않는 인자를 남겨 두면 「아직 모드가 있다」고 오해하게 되므로
+        ///    인자 자체를 없앴다.
         /// </summary>
-        /// <param name="testModeFlag">테스트 모드 표식(0 = 정상, 1 = 테스트)</param>
         /// <param name="neutralMineCount">중립 광산 개수</param>
         /// <returns>규칙 3이 지정한 초기 골드. 입력이 규칙 범위 밖이면 -1</returns>
-        public static int GetExpectedInitialGold(int testModeFlag, int neutralMineCount)
+        public static int GetExpectedInitialGold(int neutralMineCount)
         {
-            // 갈래 1 — 테스트 모드: 광산 수와 무관하게 고정값이다.
-            if (testModeFlag == TestModeFlag) return TestModeInitialGold;
-
-            // 갈래 2 — 정상 모드: 중립 광산 수에서 표로 파생한다.
-            if (testModeFlag != NormalModeFlag) return -1;
+            // 중립 광산 수에서 규칙 3의 표로 파생한다. 갈래는 이것 하나뿐이다.
             if (neutralMineCount < MinNeutralMineCount || neutralMineCount > MaxNeutralMineCount) return -1;
 
             return NormalModeInitialGoldValues[neutralMineCount];
@@ -1345,7 +1342,7 @@ namespace Hexiege.Domain
         // ====================================================================
 
         /// <summary>
-        /// 실제 초기 골드가 그 시점 모드에 규칙 3이 지정한 값과 같은지 확인한다.
+        /// 실제 초기 골드가 규칙 3이 지정한 값과 같은지 확인한다.
         /// </summary>
         /// <param name="definition">맵 정의</param>
         /// <param name="failure">실패 결과(통과 시 기본값)</param>
@@ -1354,21 +1351,22 @@ namespace Hexiege.Domain
         {
             const int checkNumber = 6;
 
-            int expected = GetExpectedInitialGold(definition.TestModeFlag, definition.NeutralMineCount);
+            // 🔴 2026-09-14: 종전에는 definition.TestModeFlag 를 함께 넘겨 모드별 기대값을 물었다.
+            //    모드가 사라져 광산 수 하나만 넘긴다(위 GetExpectedInitialGold 주석 참조).
+            int expected = GetExpectedInitialGold(definition.NeutralMineCount);
             if (expected < 0)
             {
                 failure = MapValidationResult.Reject(checkNumber,
-                    "규칙 3이 값을 정할 수 없는 입력이다(테스트 모드 표식 " + definition.TestModeFlag +
-                    ", 중립 광산 수 " + definition.NeutralMineCount + ").");
+                    "규칙 3이 값을 정할 수 없는 입력이다(중립 광산 수 " +
+                    definition.NeutralMineCount + ").");
                 return false;
             }
 
             if (definition.InitialGold != expected)
             {
                 failure = MapValidationResult.Reject(checkNumber,
-                    "초기 골드 " + definition.InitialGold + " 가 규칙 3이 지정한 " + expected + " 와 다르다(" +
-                    (definition.TestModeFlag == TestModeFlag ? "테스트 모드" : "정상 모드") + ", 중립 광산 " +
-                    definition.NeutralMineCount + "개).");
+                    "초기 골드 " + definition.InitialGold + " 가 규칙 3이 지정한 " + expected +
+                    " 와 다르다(중립 광산 " + definition.NeutralMineCount + "개).");
                 return false;
             }
 
@@ -1529,52 +1527,27 @@ namespace Hexiege.Domain
                 return false;
             }
 
-            // ── N9b. 테스트 모드인데 정상 모드 표 값을 그대로 뒀다 -> 6번 실패 ─
-            if (!TryGenerateForSelfCheck(openGenerator, 2, out MapDefinition n9bMap,
-                    out IMapArchetypeConstraints n9bConstraints, out failureReason))
-            {
-                return false;
-            }
-            n9bMap.TestModeFlag = TestModeFlag;
-            if (!ExpectFailure(Validate(n9bMap, n9bConstraints, openGenerator),
-                    MapValidationOutcome.RejectAttempt, 6, "N9b 테스트 모드 표식만 켬", out failureReason))
-            {
-                return false;
-            }
-
-            // ── P9c. 테스트 모드 + 5000 은 광산 수와 무관하게 통과해야 한다 ─
-            if (!TryGenerateForSelfCheck(openGenerator, 2, out MapDefinition p9cMap,
-                    out IMapArchetypeConstraints p9cConstraints, out failureReason))
-            {
-                return false;
-            }
-            p9cMap.TestModeFlag = TestModeFlag;
-            p9cMap.InitialGold = TestModeInitialGold;
-            result = Validate(p9cMap, p9cConstraints, openGenerator);
-            if (!result.IsPassed)
-            {
-                failureReason = "[P9c] 테스트 모드 5000 이 통과하지 못했다: " + result;
-                return false;
-            }
+            // 🔴 2026-09-14 제거: 여기에 테스트 모드 케이스 두 덩어리가 있었다.
+            //      N9b — 표식만 테스트 모드로 켜고 골드는 표 값 그대로 두면 6번이 실패해야 한다
+            //      P9c — 테스트 모드 + 골드 5000 은 광산 수와 무관하게 통과해야 한다
+            //    두 케이스 모두 「초기 골드의 두 번째 갈래」가 있을 때만 뜻이 있었고,
+            //    그 갈래가 규칙에서 삭제돼(규칙 3 아래 2026-09-14 개정 블록) 검사할 대상이 없어졌다.
+            //    바로 위 N9(골드를 100 올려 6번 실패를 확인하는 케이스)는 그대로 남아 있으므로
+            //    「검증 6번이 실제로 무언가를 잡아낸다」는 음성 대조는 계속 유지된다.
 
             // ── 규칙 3 표 자체 대조 ─────────────────────────────────────────
             int[] expectedGold = { 700, 600, 500, 400, 300, 200 };
             for (int mineCount = MinNeutralMineCount; mineCount <= MaxNeutralMineCount; mineCount++)
             {
-                int actual = GetExpectedInitialGold(NormalModeFlag, mineCount);
+                int actual = GetExpectedInitialGold(mineCount);
                 if (actual != expectedGold[mineCount - MinNeutralMineCount])
                 {
                     failureReason = "[규칙 3 표] 중립 광산 " + mineCount + "개의 초기 골드가 " +
                         actual + " 다(기대 " + expectedGold[mineCount - MinNeutralMineCount] + ").";
                     return false;
                 }
-
-                if (GetExpectedInitialGold(TestModeFlag, mineCount) != TestModeInitialGold)
-                {
-                    failureReason = "[규칙 3 표] 테스트 모드인데 중립 광산 " + mineCount +
-                        "개에서 " + TestModeInitialGold + " 이 아니다.";
-                    return false;
-                }
+                // 🔴 2026-09-14 제거: 여기에 「테스트 모드면 광산 수와 무관하게 5000 인가」를
+                //    확인하는 갈래가 하나 더 있었다. 그 모드가 없어져 확인할 대상이 사라졌다.
             }
 
             // ── 다섯 유형 전부가 실제로 통과하는가(양성 대조, 통합 검사) ────
@@ -1652,7 +1625,7 @@ namespace Hexiege.Domain
             }
             n5Map.NeutralMines.Sort();
             n5Map.NeutralMineCount = n5Map.NeutralMines.Count;
-            n5Map.InitialGold = GetExpectedInitialGold(n5Map.TestModeFlag, n5Map.NeutralMineCount);
+            n5Map.InitialGold = GetExpectedInitialGold(n5Map.NeutralMineCount);
 
             IMapArchetypeConstraints n5Free = CreateCorridorOnlyConstraints(n5Map, n5Constraints, null, -1);
             if (!ExpectFailure(Validate(n5Map, n5Free, canyonGenerator),
@@ -1786,7 +1759,7 @@ namespace Hexiege.Domain
             }
             n14Map.NeutralMines.Sort();
             n14Map.NeutralMineCount = n14Map.NeutralMines.Count;
-            n14Map.InitialGold = GetExpectedInitialGold(n14Map.TestModeFlag, n14Map.NeutralMineCount);
+            n14Map.InitialGold = GetExpectedInitialGold(n14Map.NeutralMineCount);
 
             IMapArchetypeConstraints n14Free = CreateCorridorOnlyConstraints(n14Map, n14Constraints, null, -1);
             if (!ExpectFailure(Validate(n14Map, n14Free, canyonGenerator),
@@ -1875,7 +1848,7 @@ namespace Hexiege.Domain
             AddNeutralMinePair(p10Map, tileB);
             p10Map.NeutralMines.Sort();
             p10Map.NeutralMineCount = p10Map.NeutralMines.Count;
-            p10Map.InitialGold = GetExpectedInitialGold(p10Map.TestModeFlag, p10Map.NeutralMineCount);
+            p10Map.InitialGold = GetExpectedInitialGold(p10Map.NeutralMineCount);
 
             neighborCount = InitialMapStateEvaluator.GetNeighborIndices(
                 tileA, p10Map.Width, p10Map.Height, buffer);
@@ -1913,7 +1886,7 @@ namespace Hexiege.Domain
             n8Map.NeutralMines.Add(n8Map.ToIndex(mineCol, mineRow - 1));   // 회전 상대가 없는 광산 하나
             n8Map.NeutralMines.Sort();
             n8Map.NeutralMineCount = n8Map.NeutralMines.Count;
-            n8Map.InitialGold = GetExpectedInitialGold(n8Map.TestModeFlag, n8Map.NeutralMineCount);
+            n8Map.InitialGold = GetExpectedInitialGold(n8Map.NeutralMineCount);
 
             if (!ExpectFailure(Validate(n8Map, n8Constraints, openGenerator),
                     MapValidationOutcome.RejectAttempt, 1, "N8 광산 이동(파이프라인)", out failureReason))
@@ -1978,8 +1951,7 @@ namespace Hexiege.Domain
                                 ? MapStartingMineSide.CaseA
                                 : MapStartingMineSide.CaseB,
                             NeutralMineCount = mineCount,
-                            TestModeFlag = NormalModeFlag,
-                            InitialGold = GetExpectedInitialGold(NormalModeFlag, mineCount)
+                            InitialGold = GetExpectedInitialGold(mineCount)
                         };
 
                         MapGenerationResult generated = generator.Generate(request);
@@ -2028,8 +2000,7 @@ namespace Hexiege.Domain
                 AttemptIndex = 0,
                 StartingMineSide = MapStartingMineSide.CaseA,
                 NeutralMineCount = neutralMineCount,
-                TestModeFlag = NormalModeFlag,
-                InitialGold = GetExpectedInitialGold(NormalModeFlag, neutralMineCount)
+                InitialGold = GetExpectedInitialGold(neutralMineCount)
             };
 
             MapGenerationResult result = generator.Generate(request);
@@ -2104,7 +2075,7 @@ namespace Hexiege.Domain
             AddNeutralMinePair(definition, tileIndex);
             definition.NeutralMines.Sort();
             definition.NeutralMineCount = definition.NeutralMines.Count;
-            definition.InitialGold = GetExpectedInitialGold(definition.TestModeFlag, definition.NeutralMineCount);
+            definition.InitialGold = GetExpectedInitialGold(definition.NeutralMineCount);
         }
 
         /// <summary>
