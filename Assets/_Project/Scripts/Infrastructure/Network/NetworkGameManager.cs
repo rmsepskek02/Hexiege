@@ -680,7 +680,7 @@ namespace Hexiege.Infrastructure
         /// Lobby 는 이미 CreateOrJoin 으로 참가된 상태다. 다만 호스트가 Relay 를 할당하고
         /// JoinCode 를 Lobby 에 기록하기까지 시간차가 있으므로, RelayJoinCode 가 채워질 때까지
         /// Lobby 를 폴링하며 대기한 뒤 Relay 참가 → StartClient 를 진행한다.
-        /// (기존 JoinGameByIdAsync 의 참가 로직 + JoinCode 대기 폴링을 반영)
+        /// 이것이 클라이언트가 매칭으로 게임에 들어오는 <b>유일한 경로</b>다.
         /// </summary>
         private async Task JoinMatchmadeGameAsync()
         {
@@ -739,75 +739,6 @@ namespace Hexiege.Infrastructure
                 OnError?.Invoke($"참가 오류: {e.Message}");
             }
         }
-
-        // ====================================================================
-        // [비활성화됨] 2026-07-17 — 구 매칭 클라이언트 참가 경로 (A방식으로 대체)
-        // ====================================================================
-        //
-        // 아래 JoinByMatchIdAsync / JoinGameByIdAsync 는 "호스트가 만든 Lobby 를 matchId 로
-        // 검색(FindLobbyByMatchIdAsync)해서 참가"하던 구방식이다. A방식(CreateOrJoin)에서는
-        // 클라이언트도 CreateOrJoin 한 번으로 곧바로 Lobby 에 참가되므로 별도 검색 폴링이
-        // 필요 없어졌다. 클라이언트 참가 경로는 위 JoinMatchmadeGameAsync 로 일원화되었고,
-        // 남은 대기는 "RelayJoinCode 채워짐 대기"뿐이다.
-        //
-        // ⚠️ 즉시 삭제가 아니라 "비활성화(주석)"다. 사용자 실기 테스트 통과 후 별도 단계에서
-        //    최종 삭제한다 (WORKFLOW [4] 규칙).
-        //    (LobbyManager.FindLobbyByMatchIdAsync 도 이 경로 전용이라 함께 미사용 상태가 됨)
-        // ====================================================================
-
-        /*
-        /// <summary>
-        /// 매칭된 MatchId 로 Host 가 만든 Lobby 를 검색하여 참가.
-        /// Host 의 Lobby 생성에 시간이 걸릴 수 있으므로 재시도 폴링.
-        /// </summary>
-        /// <param name="matchId">매칭된 Match ID.</param>
-        private async Task JoinByMatchIdAsync(string matchId)
-        {
-            const int maxRetries = 10;
-            for (int i = 0; i < maxRetries; i++)
-            {
-                await Task.Delay(1000);
-
-                string lobbyId = await _lobbyManager.FindLobbyByMatchIdAsync(matchId);
-                if (!string.IsNullOrEmpty(lobbyId))
-                {
-                    await JoinGameByIdAsync(lobbyId);
-                    return;
-                }
-
-                Debug.Log($"[Matchmaker] Lobby 대기 중... ({i + 1}/{maxRetries})");
-            }
-
-            OnError?.Invoke("매칭된 방을 찾을 수 없습니다. 다시 시도해주세요.");
-        }
-
-        private async Task JoinGameByIdAsync(string lobbyId)
-        {
-            try
-            {
-                Debug.Log($"[Network] JoinGameById 시작. Lobby Id: {lobbyId}");
-
-                var lobby = await _lobbyManager.JoinLobbyByIdAsync(lobbyId);
-                if (lobby == null) { OnError?.Invoke("Lobby 참가 실패."); return; }
-
-                string relayJoinCode = _lobbyManager.GetRelayJoinCode();
-                if (string.IsNullOrEmpty(relayJoinCode)) { OnError?.Invoke("Relay Join Code 없음."); return; }
-
-                bool relayJoined = await _relayManager.JoinRelayAsync(relayJoinCode);
-                if (!relayJoined) { OnError?.Invoke("Relay 참가 실패."); return; }
-
-                if (!StartNetworkClient()) { OnError?.Invoke("StartClient() 실패."); return; }
-
-                Debug.Log("[Network] Client 게임 참가 완료 (매칭).");
-                OnClientConnected?.Invoke();
-            }
-            catch (Exception e)
-            {
-                Debug.LogError($"[Network] JoinGameById 예외: {e.Message}");
-                OnError?.Invoke($"참가 오류: {e.Message}");
-            }
-        }
-        */
 
         /// <summary>
         /// 진행 중인 매칭을 취소.
