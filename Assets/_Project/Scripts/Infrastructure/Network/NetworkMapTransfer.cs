@@ -81,6 +81,34 @@ namespace Hexiege.Infrastructure
     }
 
     /// <summary>
+    /// 이번 전송 회차가 <b>어떤 경기의 맵</b>을 나르고 있는가.
+    ///
+    /// 🔴 <b>동작을 가르는 값이 아니라 「로그에 싣는 표식」이다.</b> 전송 절차는 회차 성격과
+    ///    무관하게 완전히 같다(규칙 16 — *"최초 경기와 재경기는 모두 씬에 종속되지 않는 공용
+    ///    전송 경로를 사용한다"*). 이 값이 필요한 이유는 하나뿐이다 —
+    ///    <b>문제가 났을 때 로그만 보고 「최초 경기였나 재경기였나」를 가려내기 위해서다.</b>
+    ///    두 경로는 결말 로그 키가 <b>완전히 같으므로</b>(키를 나누면 전송 성공/실패 집계가
+    ///    두 벌로 갈라진다), 가려내는 수단이 이 필드 하나뿐이다.
+    ///
+    /// 🔴 숫자 값은 RPC 인자와 로그에 그대로 실리므로 <b>바꾸지 말 것.</b> 새 성격은 뒤에 추가한다.
+    /// </summary>
+    public enum MapTransferRoundKind
+    {
+        /// <summary>최초 경기 — 로비에서 전투 씬으로 처음 들어가기 위한 맵.</summary>
+        First = 0,
+
+        /// <summary>재경기 — 전투 결과 화면 위에서 만드는 새 맵.</summary>
+        Rematch = 1,
+
+        /// <summary>
+        /// 한도 실측용 프로브 — 진짜 맵이 아니다(<see cref="NetworkMapTransfer.RunTransferProbe"/>).
+        /// ⚠️ 프로브인지 아닌지로 <b>동작</b>을 가르는 것은 여전히 <c>_hostIsProbe</c> 이고,
+        ///    이 멤버는 그 회차의 로그가 <c>Round=First</c> 로 잘못 읽히는 것을 막는 용도다.
+        /// </summary>
+        Probe = 2
+    }
+
+    /// <summary>
     /// 맵 전송·검증이 실패했을 때의 내부 error code.
     /// Client 가 Host 에게 <b>정수값 그대로</b> 실어 보내며(RPC 인자), 로그의 <c>ErrorCode=</c> 필드가 된다.
     ///
@@ -126,12 +154,28 @@ namespace Hexiege.Infrastructure
 
     /// <summary>
     /// 맵 전송 전용 NetworkObject. Host 가 동적으로 스폰해서 쓰며,
-    /// 최초 경기와 재경기(NewMap)가 **같은 객체·같은 프로토콜**을 공유한다
+    /// 최초 경기와 재경기가 **같은 클래스·같은 프로토콜·같은 조각 전송**을 공유한다
     /// (GameSystemRules_RandomMap.md 규칙 16 — "씬에 종속되지 않는 공용 전송 경로").
     ///
-    /// ⚠️ 이 클래스는 "씬 재로드를 넘어 살아남는 방법"을 스스로 정하지 않는다.
-    ///    그 조건은 3단계 A 에서 사용자 실기로 확인하기로 한 항목이고 **아직 확정되지 않았다.**
-    ///    확정되기 전에 DontDestroyOnLoad 같은 것을 임의로 넣으면 근거 없는 결정이 박힌다.
+    /// 🔴 <b>[재경기 맵, 2026-09-15 확정] 「같은 객체」가 아니라 「회차마다 새로 스폰되는 같은 프리팹」이다.</b>
+    ///    종전 주석은 최초 경기와 재경기가 *같은 객체* 를 공유한다고 적었는데, 그것은 아직
+    ///    정해지지 않은 것을 단정한 문장이었다. 사용자가 **「전송 객체는 재경기마다 다시 만든다」**
+    ///    로 확정했다(계획서 §4).
+    ///      · 최초 경기 → 로비에서 스폰 → 전송 → 전투 씬 로드
+    ///      · 재경기   → 전투 결과 화면 위에서 **다시** 스폰 → 전송 →
+    ///                   <c>NetworkGameEndController.StartRematch()</c> 가 씬을 재로드
+    ///
+    /// 🔴 <b>그래서 이 클래스는 "씬 재로드를 넘어 살아남게" 만들지 않았다 — 일부러다.</b>
+    ///    (종전 주석의 "아직 확정되지 않았다"를 대신하는 문장이다. 이유를 안 남기면
+    ///     다음 사람이 <c>DontDestroyOnLoad</c> 를 다시 검토하게 된다.)
+    ///    ① <c>StartRematch()</c> 는 씬 재로드 직전에 **동적 스폰 NetworkObject 를 전부 Despawn**
+    ///       한다. 그것은 "같은 씬을 재로드할 때 유닛·건물이 자동 정리되지 않는다"는 실제 버그를
+    ///       고치려고 넣은 루프다. 이 객체를 살려 두려면 그 루프에 예외를 파야 하고,
+    ///       예외를 파는 순간 그 버그가 되살아날 길이 생긴다.
+    ///    ② 회차 상태를 들고 오래 사는 객체는 **지난 회차 값이 남는** 사고를 만든다
+    ///       (아래 <c>StartHostRound</c> 의 용량 초과 분기 주석이 실제 사고 기록이다).
+    ///    ③ 재스폰 방식은 규칙 16 을 어기지 않는다 — 규칙이 금지한 것은 *"씬에 묶인 단일 RPC"*
+    ///       이고, 여기서는 어느 씬에서 스폰하든 **프리팹 하나·프로토콜 하나**다.
     /// </summary>
     public class NetworkMapTransfer : NetworkBehaviour
     {
@@ -316,6 +360,17 @@ namespace Hexiege.Infrastructure
         /// <summary>[Host] 이번 회차가 한도 실측용 프로브인가(진짜 맵이 아니다).</summary>
         private bool _hostIsProbe;
 
+        /// <summary>
+        /// [Host] 이번 회차가 최초 경기인가 재경기인가(로그 표식 — <see cref="MapTransferRoundKind"/>).
+        ///
+        /// 🔴 <b>동작은 이 값으로 가르지 않는다.</b> 전송 절차는 회차 성격과 무관하게 같다.
+        ///    쓰이는 곳은 로그 필드 <c>Round=</c> 하나뿐이다.
+        /// ⚠️ 갱신하는 자리는 <see cref="StartHostRound"/> <b>두 곳</b>이다(정상 분기 + 용량 초과
+        ///    즉시 실패 분기). 한 곳을 빠뜨리면 <b>지난 회차 값이 그대로 남아</b> 재경기의 실패가
+        ///    최초 경기로 기록된다 — 바로 아래 <c>_hostIsProbe</c> 가 같은 실수를 실제로 겪었다.
+        /// </summary>
+        private MapTransferRoundKind _hostRoundKind = MapTransferRoundKind.First;
+
         // ── [Client 전용] 이번 회차의 헤더 ────────────────────────────────
 
         /// <summary>[Client] Host 가 알려 준 기대 해시(원본 32바이트).</summary>
@@ -326,6 +381,17 @@ namespace Hexiege.Infrastructure
 
         /// <summary>[Client] Host 가 알려 준 조각 수.</summary>
         private int _clientExpectedChunkCount;
+
+        /// <summary>
+        /// [Client] 이번 회차가 최초 경기인가 재경기인가(Host 가 시작 통보에 실어 보낸 값).
+        ///
+        /// ⚠️ <b>Client 도 자기 결말 로그를 남긴다</b>(성공 · 검증 실패 등). Client 쪽 로그 파일만
+        ///    보고도 어느 경기의 전송이었는지 알 수 있어야 해서, 표식을 헤더로 함께 보낸다.
+        /// ⚠️ <see cref="ResetSession"/> 에서 <b>일부러 되돌리지 않는다</b> — 회차마다 시작 통보가
+        ///    반드시 이 값을 덮어쓰므로, 굳이 <c>First</c> 로 되돌리면 「모르는 값」에
+        ///    「최초 경기」라는 거짓을 채워 넣는 셈이 된다.
+        /// </summary>
+        private MapTransferRoundKind _clientRoundKind = MapTransferRoundKind.First;
 
         /// <summary>[Client] 이번 회차가 한도 실측용 프로브인가.</summary>
         private bool _clientIsProbe;
@@ -546,9 +612,10 @@ namespace Hexiege.Infrastructure
         ///         "어느 쪽이 진짜인가"라는 문제가 생기고, 그 순간 해시 대조가 의미를 잃는다.
         ///   ④ 시작 통보 → 조각 → 응답 대기(10초) 로 들어간다.
         ///
-        /// ⚠️ <b>유일한 호출부는 <c>NetworkGameManager.BeginMapTransferAndLoadGameScene()</c> 다</b>
-        ///    (3단계 I 에서 배선됨). 그쪽이 이 객체를 로비에서 동적 스폰하고, 이 메서드를 부르고,
-        ///    아래 결말 이벤트 두 개를 구독해 씬 전환 여부를 결정한다.
+        /// ⚠️ <b>호출부는 <c>NetworkGameManager.BeginMapTransferRound()</c> 하나다</b>
+        ///    (3단계 I 에서 배선 → 재경기 맵 A 단계에서 최초 경기·재경기 공용 본체로 갈렸다).
+        ///    그쪽이 이 객체를 동적 스폰하고, 이 메서드를 부르고,
+        ///    아래 결말 이벤트 두 개를 구독해 다음에 무엇을 할지 결정한다.
         ///
         /// 🔴 <b>미해결 판단 하나를 여기 남긴다(계획서 §9-마).</b>
         ///    이 메서드는 <see cref="MapPreparationUseCase"/> 와 그 의존
@@ -559,13 +626,20 @@ namespace Hexiege.Infrastructure
         ///       확인 결과에 따라 이 두 줄이 "밖에서 주입받는" 형태로 바뀔 수 있다.
         /// </summary>
         /// <param name="rootSeed">이 경기의 64비트 root seed. Host 가 뽑아서 넘긴다</param>
+        /// <param name="roundKind">
+        /// 이번 회차가 최초 경기인가 재경기인가. 🔴 <b>로그 표식일 뿐 절차를 가르지 않는다</b>
+        /// (규칙 16 — 두 경우가 같은 전송 경로를 쓴다).
+        /// </param>
         /// <returns>전송을 시작했으면 true. 맵 준비 실패 등으로 시작하지 못했으면 false</returns>
         // 🔴 2026-09-14 시그니처 축소: 종전에는
         //    BeginHostMapTransfer(ulong rootSeed, bool mapTestModeEnabled) 였고,
         //    두 번째 인자는 NetworkGameManager.ReadMapTestModeEnabled() 가 읽어 넘기던 값이다.
         //    「맵 테스트 모드」가 규칙에서 삭제돼(GameSystemRules_RandomMap.md 규칙 3 아래
         //    2026-09-14 개정 블록) 그 인자도 읽던 함수도 함께 사라졌다.
-        public bool BeginHostMapTransfer(ulong rootSeed)
+        // 🔴 2026-09-15 인자 추가: roundKind(회차 표식)가 들어왔다. 위의 제거와 성격이 정반대다 —
+        //    그것은 「동작에 쓰이던 설정」을 뺀 것이고, 이것은 「로그에만 쓰이는 표식」을 넣은 것이다.
+        //    동작은 한 갈래도 늘지 않았다(규칙 16 — 최초 경기와 재경기가 같은 전송 경로를 쓴다).
+        public bool BeginHostMapTransfer(ulong rootSeed, MapTransferRoundKind roundKind)
         {
             if (!IsSpawned || !IsServer)
             {
@@ -612,7 +686,7 @@ namespace Hexiege.Infrastructure
 
             // ── ③④ package 로 삼아 전송 시작 ───────────────────────────────
             return StartHostRound(prepared.CanonicalBytes, prepared.Hash, prepared.MapVersion,
-                                  ProvisionalChunkSizeBytes, false);
+                                  ProvisionalChunkSizeBytes, false, roundKind);
         }
 
         /// <summary>
@@ -625,9 +699,10 @@ namespace Hexiege.Infrastructure
         /// <param name="mapVersion">package 헤더에 실을 canonical 형식 버전</param>
         /// <param name="chunkSize">조각 하나의 최대 크기</param>
         /// <param name="isProbe">한도 실측용 프로브인가(진짜 맵이 아니면 true)</param>
+        /// <param name="roundKind">회차 성격(로그 표식). 프로브면 <see cref="MapTransferRoundKind.Probe"/></param>
         /// <returns>전송을 시작했으면 true</returns>
         private bool StartHostRound(byte[] payload, byte[] hash, int mapVersion, int chunkSize,
-                                    bool isProbe)
+                                    bool isProbe, MapTransferRoundKind roundKind)
         {
             if (payload == null || payload.Length < 1 || chunkSize < 1 || hash == null)
             {
@@ -651,6 +726,10 @@ namespace Hexiege.Infrastructure
                 //    프로브로 오인되어 씬 전환 게이트에 통보가 가지 않고, 로비가 로딩 화면인 채
                 //    영영 멈춘다(게이트는 성공·실패 둘 중 하나의 통보를 반드시 받아야 한다).
                 _hostIsProbe = isProbe;
+                // 🔴 [재경기 맵 B] 회차 표식도 **바로 위 _hostIsProbe 와 같은 이유로** 이 분기에서
+                //    반드시 갱신한다. 빠뜨리면 재경기의 용량 초과 실패가 지난 회차 값 그대로
+                //    Round=First 로 기록되어, 로그만으로는 어느 경기의 실패인지 알 수 없게 된다.
+                _hostRoundKind = roundKind;
                 _hostTotalBytes = payload.Length;
                 _hostHash = hash;
                 _hostMapVersion = mapVersion;
@@ -665,6 +744,7 @@ namespace Hexiege.Infrastructure
             _outcomeLogged = false;
             _hostOutcomeNotified = false;
             _hostIsProbe = isProbe;
+            _hostRoundKind = roundKind;
             _hostChunkSize = chunkSize;
             _hostTotalBytes = payload.Length;
             _hostHash = hash;
@@ -677,7 +757,7 @@ namespace Hexiege.Infrastructure
 
             GameLog.Dev.Info(TransferLogSystem, nameof(NetworkMapTransfer),
                              "맵 전송 회차 시작",
-                             $"Nonce={_activeNonce}, IsProbe={isProbe}, MapVersion={mapVersion}, " +
+                             $"Nonce={_activeNonce}, Round={roundKind}, IsProbe={isProbe}, MapVersion={mapVersion}, " +
                              $"TotalBytes={_hostTotalBytes}, ChunkSize={chunkSize}, " +
                              $"ChunkCount={_hostChunks.Length}, Hash={ToHashField(hash)}");
 
@@ -698,7 +778,8 @@ namespace Hexiege.Infrastructure
             SetState(MapTransferState.Sending, reason);
 
             MapPrepareBeginClientRpc(_activeNonce, _hostMapVersion, _hostTotalBytes,
-                                     _hostChunkSize, _hostChunks.Length, _hostHash, _hostIsProbe);
+                                     _hostChunkSize, _hostChunks.Length, _hostHash, _hostIsProbe,
+                                     (int)_hostRoundKind);
 
             for (int i = 0; i < _hostChunks.Length; i++)
             {
@@ -873,7 +954,10 @@ namespace Hexiege.Infrastructure
             // 판정이기 때문이다. 여기서 건너뛰는 것은 그 뒤의 역직렬화·공정성 검증뿐이다.
             byte[] probeHash = MapDefinitionCodec.ComputeHash(probe);
 
-            StartHostRound(probe, probeHash, MapDefinition.CurrentMapVersion, chunkSize, true);
+            // 🔴 프로브 회차의 표식은 Probe 다 — 진짜 맵이 아니므로 최초 경기도 재경기도 아니다.
+            //    (여기에 First 를 넣으면 실측 작업이 최초 경기 통계처럼 보인다.)
+            StartHostRound(probe, probeHash, MapDefinition.CurrentMapVersion, chunkSize, true,
+                           MapTransferRoundKind.Probe);
         }
 
         /// <summary>
@@ -914,10 +998,17 @@ namespace Hexiege.Infrastructure
         /// <param name="chunkCount">보낼 조각 수(헤더 값 — 받는 쪽이 자기 계산과 대조한다).</param>
         /// <param name="expectedHash">payload 전체의 SHA-256 원본 32바이트.</param>
         /// <param name="isProbe">한도 실측용 프로브인가. true 면 받는 쪽이 해시 대조까지만 한다.</param>
+        /// <param name="roundKind">
+        /// 회차 성격(<see cref="MapTransferRoundKind"/> 의 정수값). 🔴 <b>받는 쪽의 동작을 바꾸지 않는다</b> —
+        /// Client 쪽 로그에 <c>Round=</c> 를 남기기 위한 표식이다.
+        /// ⚠️ enum 이 아니라 정수로 싣는 이유는 같은 파일의 <c>MapReadyServerRpc</c> 가 error code 를
+        ///    정수로 싣는 것과 같다 — RPC 인자 직렬화를 기본 타입으로만 맞춰 두면 NGO 버전이 바뀌어도
+        ///    영향을 받지 않는다.
+        /// </param>
         [ClientRpc]
         private void MapPrepareBeginClientRpc(ulong nonce, int mapVersion, int totalBytes,
                                               int chunkSize, int chunkCount, byte[] expectedHash,
-                                              bool isProbe)
+                                              bool isProbe, int roundKind)
         {
             if (IsServer)
             {
@@ -988,6 +1079,7 @@ namespace Hexiege.Infrastructure
             _clientHeaderMapVersion = mapVersion;
             _clientExpectedChunkCount = chunkCount;
             _clientIsProbe = isProbe;
+            _clientRoundKind = (MapTransferRoundKind)roundKind;
             _assembler = new MapChunkAssembler(totalBytes, chunkSize);
 
             SetState(MapTransferState.Receiving, isResend ? "시작 통보 재수신(재전송)" : "시작 통보 수신");
@@ -996,7 +1088,7 @@ namespace Hexiege.Infrastructure
                              "시작 통보 수신 — 재조립기를 준비했다",
                              $"Nonce={nonce}, MapVersion={mapVersion}, TotalBytes={totalBytes}, " +
                              $"ChunkSize={chunkSize}, ChunkCount={_assembler.ChunkCount}, " +
-                             $"IsProbe={isProbe}, ReceiveCount={_clientReceiveCount}, " +
+                             $"Round={_clientRoundKind}, IsProbe={isProbe}, ReceiveCount={_clientReceiveCount}, " +
                              $"Hash={ToHashField(expectedHash)}");
         }
 
@@ -1513,8 +1605,15 @@ namespace Hexiege.Infrastructure
             int totalBytes = IsServer ? _hostTotalBytes : (_assembler == null ? 0 : _assembler.TotalBytes);
             int mapVersion = IsServer ? _hostMapVersion : _clientHeaderMapVersion;
 
+            // 🔴 [재경기 맵 B] Round= 는 **새 로그 키를 만들지 않기 위해** 있는 필드다.
+            //    최초 경기와 재경기는 결말 키가 같아야 하고(키를 나누면 전송 성공/실패 집계가
+            //    두 벌로 갈라진다), 그러면 둘을 가려내는 수단은 필드밖에 남지 않는다.
+            //    ⚠️ Host 와 Client 가 서로 다른 필드를 읽는다 — 바로 위 sendCount·chunkCount 와 같은 모양이다.
+            MapTransferRoundKind roundKind = IsServer ? _hostRoundKind : _clientRoundKind;
+
             string data =
                 "Role=" + (IsServer ? "Host" : "Client") +
+                ", Round=" + roundKind +
                 ", Nonce=" + _activeNonce +
                 ", MapVersion=" + mapVersion +
                 ", TotalBytes=" + totalBytes +

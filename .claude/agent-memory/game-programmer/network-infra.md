@@ -373,3 +373,130 @@ BattleViewModel.OnMapTransferFailed → UIManager.ShowLoading(false) + ErrorMess
   루트의 `Assets/DefaultNetworkPrefabs.asset` 은 **씬이 참조하지 않는다** — 거기 등록하면 효과가 없다.
 - 배선하지 않으면: 2명 접속 → 로딩이 잠깐 떴다 사라지고 **전투 씬으로 넘어가지 않은 채 로비에 남는다.**
   에디터 콘솔에 「맵 전송 프리팹이 Inspector 에 연결되지 않아…」 개발 Warn 이 뜬다.
+
+---
+
+## 재경기 맵 A~D — 「수락 즉시 씬 재로드」 사이에 맵 준비를 끼워 넣기 (2026-09-15)
+
+> 3단계 I 가 **최초 경기**의 씬 전환 게이트를 만들었고, 여기서 같은 게이트를 **재경기**에도 쓴다.
+> 🔴 **D 커밋 하나에서 처음으로 재경기 동작이 바뀐다(A·B·C 는 동작 무변경).**
+> 선행: T1~T3(맵 테스트 모드 삭제)은 이 작업 전에 끝나 있었다.
+
+**바뀐 파일 5개**: `Infrastructure/Network/NetworkGameManager.cs`(A·B) ·
+`Infrastructure/Network/NetworkMapTransfer.cs`(B) ·
+`Infrastructure/Network/NetworkGameEndController.cs`(C·D) ·
+`Application/Events/GameEvents.cs`(C) · `Presentation/UI/GameEndUI.cs`(C).
+**신설 파일 0개 · 씬/프리팹/에셋 0건 · 새 `LogEvent` 키 0개.**
+
+### 배선 전체 모양 (재경기 쪽)
+
+```
+[결과 화면] 수락 / 양측 동시 요청
+  └─ NetworkGameEndController.BeginRematchMapPreparation()      ← 종전엔 여기서 StartRematch() 직행
+       └─ NetworkGameManager.BeginRematchMapTransfer(성공콜백, 실패콜백)
+            └─ BeginMapTransferRound(Rematch, ...)   ← 최초 경기와 **같은 본체**
+                 ├─ 프리팹 동적 Spawn(결과 화면 위) → NetworkMapTransfer
+                 └─ BeginHostMapTransfer(MapRootSeed.Create(), Rematch)
+       성공 → StartRematch()            (🔴 그 메서드는 한 줄도 안 고쳤다 — despawn 루프 포함)
+       실패 → HandleRematchMapFailed()  → _rematchRequesterId 초기화 + NotifyRematchMapFailedClientRpc()
+                                          → GameEvents.OnNetworkRematchMapFailed
+                                          → GameEndUI.RestoreRematchButton()
+```
+
+### 🔴 A — 진입점을 가를 때 지킨 것 (다음에 같은 모양을 또 만들 것이다)
+
+- **`BeginMapTransferAndLoadGameScene()` 의 이름·시그니처를 그대로 뒀다.** 호출부
+  `BattleViewModel.OnClientConnected` 가 무변경 = **최초 경기 회귀 면적 0**. 본문만
+  `BeginMapTransferRound(roundKind, onSucceeded, onFailed)` 로 옮겼다(3단계의
+  `PrepareAndProjectMap` 분할 + 래퍼 유지와 같은 형태).
+- **결말에 무엇을 할지는 「필드로 들고 있는 콜백 2개」**(`_mapTransferSuccessAction` ·
+  `_mapTransferFailureAction`). 전송은 여러 프레임에 걸쳐 일어나 결말이 한참 뒤에 오므로,
+  회차를 시작한 쪽이 넘겨 준 것을 이 클래스가 들고 있어야 한다.
+- 🔴 **결말 자리에서 「먼저 꺼내 두고 필드를 비운 뒤 부른다」.** 성공 콜백 안에서 씬이 재로드되는
+  등 무슨 일이 일어날지 모르는데, 그 안에서 같은 필드를 다시 읽으면 지난 회차 값이 보인다.
+- 🔴 **성공 콜백이 없으면 `LoadGameScene()` 으로 폴백하지 않는다.** 누가 시작한 회차인지 모르는 채
+  씬을 넘기면, 재경기였을 경우 `StartRematch()` 의 정리 절차를 건너뛴 전투 씬이 열린다.
+- 🔴 **실패는 기존 `OnMapTransferFailed` 이벤트를 재경기에 쓰지 않는다.** 그 이벤트의 구독자는
+  **로비 UI(`BattleViewModel`)** 이고 재경기 실패는 **결과 화면**이 받아야 한다.
+  → `_mapTransferFailureAction != null` 이면 그쪽으로만, null 이면 종전대로 이벤트로.
+- **중복 요청 가드에서도 이번 요청의 실패 콜백은 부른다.** 안 부르면 재경기가 「수락했는데 아무 일도
+  안 일어나고 버튼도 잠긴 채」 남는다. 최초 경기는 `onFailed == null` 이라 종전과 완전히 같다.
+- **콜백 2개를 비우는 자리 4곳**: 성공 결말 · `FailMapTransferGate` · `OnDestroy` ·
+  `DisconnectAsync`/`BackToLobby`(`_mapTransferInProgress = false` · `MapHandoff.Clear()` 와 같은 줄).
+
+### B — 회차 표식 `Round=` (새 로그 키를 만들지 않기 위한 필드)
+
+- 신설 `public enum MapTransferRoundKind { First = 0, Rematch = 1, Probe = 2 }`(`NetworkMapTransfer.cs`).
+  🔴 **동작을 가르지 않는다. 로그에만 쓴다.** 결말 키를 나누면 전송 성공/실패 집계가 두 벌로 갈라지므로
+  (규칙 16 — 두 경기가 같은 전송 경로), **둘을 가려내는 수단이 이 필드 하나뿐**이다.
+- **`BuildTransferLogData` 의 `data` 안에 `Round=` 를 넣었다**(`extraFields` 가 아니라).
+  이유: 그 메서드는 이미 `sendCount`·`chunkCount`·`totalBytes`·`mapVersion` 을 `IsServer ? host : client`
+  로 갈라 싣는다. 같은 모양으로 한 줄 더 넣으면 **호출부 8곳을 하나도 건드리지 않는다** —
+  호출부를 고치는 방식은 「한 자리를 빠뜨린다」는 바로 그 사고(아래)를 다시 부른다.
+- 🔴 **`_hostRoundKind` 는 `StartHostRound` 의 두 자리 모두에서 갱신한다**(정상 분기 + 용량 초과
+  즉시 실패 분기). `_hostIsProbe` 가 3단계 I 에서 정확히 한 자리를 빠뜨려 고쳐진 전례가 있다.
+  **실측 확인 방법**: `grep -n "_hostIsProbe = \|_hostRoundKind = "` 가 **각각 2건**이어야 한다.
+- **표식을 시작 통보 RPC 로 Client 에도 보낸다**(`MapPrepareBeginClientRpc(..., int roundKind)`).
+  Client 도 자기 결말 로그를 남기므로(성공 · `MapClientVerificationFailed`), Client 로그 파일만 보고도
+  어느 경기의 전송이었는지 알 수 있어야 한다. **enum 이 아니라 int 로 싣는다** —
+  같은 파일 `MapReadyServerRpc` 가 error code 를 int 로 싣는 것과 같은 이유(기본 타입만 쓴다).
+- ⚠️ **`_clientRoundKind` 는 `ResetSession()` 에서 되돌리지 않는다** — 회차마다 시작 통보가 반드시
+  덮어쓰므로, `First` 로 되돌리면 모르는 값에 거짓을 채워 넣는 셈이다(`_clientIsProbe` 와 다른 판단).
+- ⚠️ **`BuildMapPreparationLogData` 에는 `Round=` 를 넣지 않았다.** 그 필드 집합은
+  `Bootstrap/GameBootstrapper.Map.cs` 의 같은 이름 메서드(싱글 경로)와 **반드시 같아야** 하고,
+  한쪽만 늘리면 같은 키(`MapPreparationSucceeded` 등)의 집계가 조용히 갈라진다.
+  → **결과: `MapPreparation*` 3종 키에는 회차 표식이 없다.** 그 회차가 재경기였는지는 바로 뒤에 오는
+  개발 축 「맵 전송 회차 시작」 줄의 `Round=` 로 가린다.
+
+### C — 실패 통보 채널을 새로 판 이유
+
+- 신설 `GameEvents.OnNetworkRematchMapFailed`(`Subject<Unit>`). 🔴 **기존 「거절」 이벤트를 재사용하지
+  않았다** — 거절 팝업은 *"상대방이 재경기를 거절하였습니다"* 를 띄운다. 맵 실패에 그 문구가 뜨면 거짓말이고,
+  한 채널로 합치면 나중에 갈라낼 수 없다.
+- `NotifyRematchMapFailedClientRpc()` 는 **대상 지정 없이 양쪽 모두**에게 간다(거절 알림이 요청자
+  한 쪽에만 가는 것과 다르다). 수락한 쪽도 「수락했는데 아무 일도 안 일어난」 상태이기 때문이다.
+- **`_rematchRequesterId = ulong.MaxValue` 로 되돌린다**(규칙 M-3 *"rematch pending 상태를 초기화"*).
+  🔴 안 되돌리면 다음 요청이 **「상대도 이미 요청했다」 분기**로 빠져 맵 준비 없이 곧바로 시작된다.
+- 🔴 **실패 경로에서 `MapHandoff` 를 건드리지 않는다.** 실패 회차는 `Set()` 을 부르지 않으므로
+  **아무것도 안 하는 것이 곧 「기존 맵 정의 유지」**다. 지우면 이미 확정된 값까지 날아간다.
+- **범위 밖(결함 아님)**: 실패 팝업·문구 · 대기 중 표시 · 자동 로비 복귀 카운트다운 재시작.
+  ⚠️ 그래서 **규칙 M-3 세 조항 중 「countdown 전체 길이 재시작」은 미충족으로 남는다.**
+
+### D — 뒤집는 자리와 그때 지킨 것
+
+- `AcceptRematchServerRpc` 와 `RequestRematchServerRpc` 의 **상호 동의 분기 두 곳을 반드시 함께**
+  고친다. 한쪽만 고치면 「수락으로 시작한 재경기는 새 맵인데 양측 동시 요청은 빈 맵」이 된다.
+  두 자리 모두 `// StartRematch();` 로 **주석 비활성화** + 표식 `[재경기맵 대체 대기]`(grep 2건).
+- **매니저 탐색은 `FindFirstObjectByType<NetworkGameManager>()`** — 이 프로젝트의 관습이다
+  (`LobbyUI` · `LobbyRootView` · `GameEndUI` 가 같은 방식). **새 정적 홀더를 만들지 않았다.**
+  `NetworkGameEndController` 는 이미 `OnNetworkSpawn`(서버)에서 캐시해 두므로 그것을 먼저 쓴다.
+- 🔴 **매니저를 못 찾으면 실패 처리한다. 절대 `StartRematch()` 로 넘어가지 않는다** —
+  맵을 만들 주체가 없는데 씬만 재로드하면 정확히 지금 고치려는 그 버그(빈 전장)가 재현된다.
+- ✅ **정리 루프가 저절로 맞아떨어진다**: 전송 객체를 **결과 화면 위에서 새로 스폰**하므로
+  `StartRematch()` 의 「동적 스폰 `NetworkObject` 전수 Despawn」 루프가 **동적 스폰이라는 이유 하나로**
+  그 객체를 정상 정리한다. 🔴 **그 루프에 예외를 파지 않는 것이 이 설계를 고른 이유 자체다.**
+- **전투 씬이 꺼내 쓰는 쪽은 신규 작업 0건** — `GameBootstrapper.PrepareAndProjectMap()` 의 멀티 분기
+  (`IsNetworkMode()` → `ProjectHandedOverMap()` → `MapHandoff.TryTake`)가 재경기에도 그대로 탄다.
+
+### 검증 — 무엇이 확인됐고 무엇이 안 됐나
+
+- 🔴 **이 환경에서 5개 파일 전부 컴파일 불가**(`UnityEngine` · `Unity.Netcode` 참조).
+  확인한 것은 ① 주석·문자열을 걷어낸 **중괄호 개폐 균형** ② 시그니처 변경의 **호출부 전수 grep**
+  ③ **`mcs`/`mono` 하네스**로 옮겨 적은 회차 상태 기계(13 assert ALL PASS) 뿐이다.
+- 🔴 **하네스가 확인한 불변식**(그대로 다시 쓸 수 있다):
+  최초 성공→씬 로드 1회·로비 실패 0회 / 최초 실패→씬 0회·로비 1회 /
+  재경기 성공→`StartRematch` 1회·로비 채널 0회·`LoadGameScene` 0회 / 재경기 실패→`StartRematch` 0회 ·
+  복원 1회 / **실패 뒤 늦은 성공 통보→재경기 시작 0회**(규칙 14 보존) /
+  진행 중 중복 요청→재경기만 통보 1회, 최초는 종전대로 무시 /
+  **재경기 회차가 끝난 뒤 최초 경기 회차가 지난 콜백을 쓰지 않는다** /
+  프리팹 미배선→재경기도 반드시 통보 / 프로브→게이트 통보 0회.
+  하네스 위치: 이 세션의 scratchpad(`RoundGateHarness.cs`) — 리포지토리에 넣지 않았다.
+- ⚠️ **실기에서 관측 불가능한 것**: 실패 시 상태 복원(정상 경로에서 실패가 안 난다) · 폴백 템플릿 ·
+  timeout/재전송. **체크리스트에 넣지 말 것**(`.claude/mistakes.md` 2026-09-09).
+
+### ⚠️ 이번에 발견했지만 고치지 않은 것 (범위 밖 — 보고만)
+
+- `NetworkGameManager.cs` 에 **raw `Debug.Log` 3건**(매치메이킹 대기·참가 로그). `LogRules` 의
+  「raw Debug.Log 금지」에 어긋나지만 이번 작업과 무관한 기존 코드라 손대지 않았다.
+- `MapHandoff.cs` 의 *"이 메서드는 현재 호출자가 0건이다"* 주석(계획서 대체-4)은 여전히 사실이 아니다
+  (실제 2건). **사용자 승인 대상**이라 고치지 않았다.

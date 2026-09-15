@@ -979,7 +979,8 @@ namespace Hexiege.Application
         // 멀티플레이 재경기(Rematch) 이벤트
         // ====================================================================
         // NetworkGameEndController가 UI를 직접 호출하지 않도록 이벤트 채널로 분리.
-        //   서버 → 클라이언트 방향: OnNetworkRematchAvailable / OnNetworkRematchRequested / OnNetworkRematchDeclined
+        //   서버 → 클라이언트 방향: OnNetworkRematchAvailable / OnNetworkRematchRequested /
+        //                            OnNetworkRematchDeclined / OnNetworkRematchMapFailed
         //   UI → NetworkGameEndController 방향: OnLocalRematchRequested / OnLocalRematchAccepted / OnLocalRematchDeclined
         //
         // 모두 단순 신호이므로 payload가 거의 없다. Subject<Unit>은 UniRx의 빈 신호 패턴.
@@ -1006,6 +1007,26 @@ namespace Hexiege.Application
         /// 구독: RematchRequestPopup (ShowDeclined 호출), GameEndUI (RestoreRematchButton 호출)
         /// </summary>
         public static readonly Subject<Unit> OnNetworkRematchDeclined = new Subject<Unit>();
+
+        /// <summary>
+        /// 🔴 <b>재경기용 새 맵 준비·전송·검증이 실패했음을 양쪽 모두에 알리는 이벤트.</b>
+        /// 발행: NetworkGameEndController.NotifyRematchMapFailedClientRpc (서버 → 전체 클라이언트)
+        /// 구독: GameEndUI (RestoreRematchButton 호출 — 결과 화면의 선택지를 되살린다)
+        ///
+        /// 🔴 <b>「거절」 이벤트(OnNetworkRematchDeclined)를 재사용하지 않는 이유</b>:
+        ///    거절은 <b>상대가 안 하겠다고 한 것</b>이고, 이것은 <b>둘 다 하겠다고 했는데 맵을
+        ///    못 만든 것</b>이다. 원인도 다르고 나중에 붙일 안내 문구도 달라진다
+        ///    (거절 팝업은 "상대방이 재경기를 거절하였습니다" 를 띄운다 — 실패에 그 문구가
+        ///    뜨면 거짓말이 된다). 한 채널로 합쳐 두면 나중에 갈라낼 수 없다.
+        ///
+        /// ⚠️ <b>양쪽 모두</b>에게 간다(거절 알림이 요청자 한 쪽에게만 가는 것과 다르다).
+        ///    수락한 쪽도 "수락했는데 아무 일도 일어나지 않았다" 상태에 놓이기 때문이다.
+        ///
+        /// ⚠️ 실패를 알리는 <b>팝업·문구·로딩 표시는 이번 범위가 아니다</b>
+        ///    (GameSystemRules_UI.md 「공통 UI 규칙」 규칙 M-3 의 "팝업 여부 미정" 표시).
+        ///    지금 이 신호가 하는 일은 <b>상태 복원</b>뿐이다.
+        /// </summary>
+        public static readonly Subject<Unit> OnNetworkRematchMapFailed = new Subject<Unit>();
 
         /// <summary>
         /// 서버가 재경기를 시작(Game 씬 재로드 직전)했음을 모든 클라이언트에 알리는 이벤트.

@@ -139,6 +139,36 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private bool _mapTransferGateSettled;
 
+        // ── 재경기 맵 A 단계: 회차마다 달라지는 「결말에 무엇을 할지」 ─────────
+
+        /// <summary>
+        /// 이번 회차가 <b>성공</b>했을 때 할 일.
+        ///
+        /// 왜 필드로 두는가(초급자용): 맵 준비·전송은 여러 프레임에 걸쳐 일어나고, 결말은
+        /// 한참 뒤에 콜백으로 돌아온다. 그래서 "이 회차가 끝나면 무엇을 해야 하는지"를
+        /// 회차를 시작한 쪽이 넘겨 주고, 이 클래스가 결말이 올 때까지 들고 있어야 한다.
+        ///
+        /// 들어가는 값은 두 가지뿐이다.
+        ///   · 최초 경기 → <see cref="LoadGameScene"/> (로비에서 전투 씬으로 넘어간다)
+        ///   · 재경기   → 부른 쪽(<c>NetworkGameEndController</c>)이 준 콜백
+        ///
+        /// 🔴 <b>이 클래스가 스스로 "재경기니까 이렇게 하자"를 판단하지 않는다.</b>
+        ///    판단을 여기에 넣으면 최초 경기 경로에 if 가 생기고, 그것이 곧 회귀 면적이다.
+        /// </summary>
+        private Action _mapTransferSuccessAction;
+
+        /// <summary>
+        /// 이번 회차가 <b>실패</b>했을 때 알릴 곳. null 이면 기존 <see cref="OnMapTransferFailed"/>
+        /// 이벤트로 알린다(= 최초 경기의 기존 동작 그대로).
+        ///
+        /// 🔴 <b>왜 기존 이벤트를 재경기에 그대로 쓰지 않는가</b>:
+        ///    <see cref="OnMapTransferFailed"/> 의 구독자는 로비 화면의 ViewModel
+        ///    (<c>BattleViewModel</c>)이다. 재경기 실패는 <b>전투 씬의 결과 화면</b>이 받아야
+        ///    하므로 받는 사람이 아예 다르다. 한 통로로 합치면 "로비 로딩을 내리는 코드"가
+        ///    결과 화면에서 불리게 되고, 반대로 결과 화면 복원이 로비에서 불리게 된다.
+        /// </summary>
+        private Action<string> _mapTransferFailureAction;
+
         // ====================================================================
         // Unity 생명주기
         // ====================================================================
@@ -235,6 +265,8 @@ namespace Hexiege.Infrastructure
 
             // 무작위 맵 3단계 I: 맵 전송 객체 구독 해제(누수 방지).
             CleanupMapTransferSubscription();
+            // [재경기 맵 A] 회차 결말 콜백도 함께 비운다(위와 같은 이유).
+            ClearMapTransferRoundActions();
         }
 
         // ====================================================================
@@ -496,6 +528,9 @@ namespace Hexiege.Infrastructure
             //   남겨 두면 다음 판에서 **지난 판 맵이 조용히 재사용**될 여지가 생긴다.
             CleanupMapTransferSubscription();
             _mapTransferInProgress = false;
+            // [재경기 맵 A] 회차 결말 콜백도 같은 자리에서 비운다 — 세션이 끝났는데 콜백이
+            //   남아 있으면 이미 사라진 화면을 되살리려 드는 코드가 다음 판에서 불린다.
+            ClearMapTransferRoundActions();
             MapHandoff.Clear();
 
             // Lobby 나가기
@@ -827,14 +862,21 @@ namespace Hexiege.Infrastructure
         //    이 클래스는 NetworkBehaviour 가 아니라(그래서 RPC 를 직접 쓸 수 없다)
         //    959행짜리 세션 매니저이고 로비 UI 가 직접 참조하므로, NetworkBehaviour 로
         //    승격하면 초기화 순서 전체가 영향권에 든다(계획서 §4-1 후보 C 탈락).
-        //    그래서 여기는 **위임 진입점 하나**만 갖는다.
+        //    그래서 여기는 **위임 진입점**만 갖는다.
+        //
+        // 🔴 [재경기 맵 A, 2026-09-15] 진입점이 **하나에서 둘**이 됐다.
+        //      · BeginMapTransferAndLoadGameScene() — 최초 경기(로비에서 BattleViewModel 이 부른다)
+        //      · BeginRematchMapTransfer(...)       — 재경기(전투 씬에서 NetworkGameEndController 가 부른다)
+        //    둘은 **같은 본체**(BeginMapTransferRound)를 쓰고, 다른 것은 「결말에 무엇을 하는가」뿐이다.
+        //    규칙 16 이 *"최초 경기와 재경기는 모두 씬에 종속되지 않는 공용 전송 경로를 사용한다"* 고
+        //    정하므로, 절차를 복사해 두 벌로 만들지 않고 결말만 밖에서 정하게 했다.
         // ====================================================================
 
         /// <summary>
         /// [Host 전용] 이번 판의 맵을 준비·전송하고, <b>성공했을 때만</b> 전투 씬으로 넘어간다.
         /// 두 명이 접속 완료한 시점에 BattleViewModel 이 부른다.
         ///
-        /// 하는 일 순서:
+        /// 하는 일 순서(실제 절차는 공용 본체 <see cref="BeginMapTransferRound"/> 에 있다):
         ///   ① 맵 전송용 NetworkObject 를 로비에서 동적 스폰한다(Host 권한).
         ///   ② 그 객체의 결말 이벤트 두 개를 구독한다(성공 → 씬 로드 / 실패 → 로비 유지).
         ///   ③ 이번 판의 root seed 를 뽑아(<see cref="Hexiege.Domain.MapRootSeed.Create"/>) 전송을 시작한다.
@@ -850,6 +892,64 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public void BeginMapTransferAndLoadGameScene()
         {
+            // 🔴 이름과 시그니처를 그대로 둔다 — 호출부(BattleViewModel)가 한 줄도 바뀌지 않아야
+            //    최초 경기 경로의 회귀 면적이 0이 된다(계획서 §1 분할-1).
+            //    달라진 것은 "본문이 공용 메서드로 옮겨졌다"는 사실뿐이고, 넘기는 값
+            //    (성공 → LoadGameScene / 실패 → 기존 이벤트)은 종전과 완전히 같다.
+            BeginMapTransferRound(MapTransferRoundKind.First, LoadGameScene, null);
+        }
+
+        /// <summary>
+        /// [Host 전용] <b>재경기</b>용 진입점. 결과 화면을 띄워 둔 채로 새 맵을 준비·전송하고,
+        /// 그 결말을 <b>부른 쪽이 정한 대로</b> 처리한다.
+        ///
+        /// 최초 경기용 <see cref="BeginMapTransferAndLoadGameScene"/> 와 <b>같은 절차</b>를 쓴다
+        /// (GameSystemRules_RandomMap.md 규칙 16 — *"최초 경기와 재경기는 모두 씬에 종속되지 않는
+        /// 공용 전송 경로를 사용한다"*). 다른 것은 결말에 무엇을 하는가뿐이다.
+        ///
+        /// 🔴 <b>씬 재로드는 이 클래스가 하지 않는다.</b> 재경기의 씬 재로드는
+        ///    <c>NetworkGameEndController.StartRematch()</c> 가 이미 하고 있고, 그 메서드는
+        ///    동적 스폰 NetworkObject 정리까지 함께 한다. 여기서 <see cref="LoadGameScene"/> 을
+        ///    부르면 그 정리가 건너뛰어져 지난 판의 유닛·건물이 남는다.
+        ///    그래서 성공 시 할 일을 <paramref name="onSucceeded"/> 로 <b>받기만</b> 한다.
+        /// </summary>
+        /// <param name="onSucceeded">양쪽 검증까지 끝나 새 맵이 확정됐을 때 부를 콜백(필수)</param>
+        /// <param name="onFailed">준비·전송·검증이 실패했을 때 부를 콜백(필수). 인자는 진단용 사유</param>
+        public void BeginRematchMapTransfer(Action onSucceeded, Action<string> onFailed)
+        {
+            if (onSucceeded == null || onFailed == null)
+            {
+                // [개발] 호출부 실수다. 재경기는 결말 두 갈래가 **둘 다** 배선돼야 성립한다 —
+                //   성공 콜백이 없으면 맵만 만들고 아무 일도 일어나지 않고,
+                //   실패 콜백이 없으면 결과 화면의 버튼이 잠긴 채 영영 돌아오지 않는다.
+                GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
+                                 "재경기 맵 준비 요청에 결말 콜백이 빠져 있어 시작하지 않았다",
+                                 $"HasSucceeded={onSucceeded != null}, HasFailed={onFailed != null}");
+                if (onFailed != null) onFailed("RematchCallbackMissing");
+                return;
+            }
+
+            BeginMapTransferRound(MapTransferRoundKind.Rematch, onSucceeded, onFailed);
+        }
+
+        /// <summary>
+        /// 🔴 <b>최초 경기와 재경기가 공유하는 본체.</b> 스폰 → 결말 구독 → root seed → 전송 시작까지
+        /// 한 회차를 여는 절차 전부가 여기에 있다.
+        ///
+        /// 종전에는 이 본문이 <see cref="BeginMapTransferAndLoadGameScene"/> 안에 그대로 있었다.
+        /// 재경기도 같은 절차가 필요해졌으므로 <b>한 벌만 남기고 갈랐다</b>(계획서 §1 분할-1).
+        /// 복사해서 두 벌로 두지 않은 이유는 늘 같다 — 두 벌이 되면 언젠가 한쪽만 고쳐진다.
+        /// </summary>
+        /// <param name="roundKind">
+        /// 이번 회차가 최초 경기인가 재경기인가. 🔴 <b>절차를 가르는 값이 아니라 로그 표식이다</b> —
+        /// 전송 쪽이 결말 로그에 <c>Round=</c> 로 실어, 문제가 났을 때 어느 경기의 전송이었는지
+        /// 로그만 보고 가려낼 수 있게 한다(계획서 §6-B).
+        /// </param>
+        /// <param name="onSucceeded">성공 시 할 일</param>
+        /// <param name="onFailed">실패 시 알릴 곳. null 이면 기존 <see cref="OnMapTransferFailed"/> 이벤트로 알린다</param>
+        private void BeginMapTransferRound(MapTransferRoundKind roundKind,
+                                           Action onSucceeded, Action<string> onFailed)
+        {
             // 🔴 중복 요청 가드가 **가장 앞**이다. 접속 콜백이 두 번 울리는 등으로 두 번 불릴 수
             //    있는데, 두 번 스폰하면 같은 판에 전송 객체가 둘이 되어 결말도 둘이 된다.
             //    가드 자체에는 결말 로그를 남기지 않는다 — 여기서 되돌아가는 것은 정상 흐름이고,
@@ -857,7 +957,13 @@ namespace Hexiege.Infrastructure
             if (_mapTransferInProgress)
             {
                 GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
-                                 "맵 준비가 이미 진행 중이라 중복 요청을 무시했다");
+                                 "맵 준비가 이미 진행 중이라 중복 요청을 무시했다",
+                                 $"RejectedRound={roundKind}");
+
+                // 🔴 거절당한 **이번 요청**의 실패 콜백만 부른다(진행 중인 회차의 것이 아니다).
+                //    안 부르면 재경기에서 "수락했는데 아무 일도 일어나지 않고 버튼도 잠긴 채"
+                //    남는다. 최초 경기는 onFailed 가 null 이라 종전과 완전히 같은 동작이다.
+                if (onFailed != null) onFailed("MapTransferAlreadyInProgress");
                 return;
             }
 
@@ -865,6 +971,12 @@ namespace Hexiege.Infrastructure
             // (중복 요청 가드보다 **뒤**에 두는 것이 중요하다 — 앞에 두면 진행 중인 회차의
             //  표시를 중복 요청이 지워 버려 같은 판의 결말이 두 번 나갈 수 있다.)
             _mapTransferGateSettled = false;
+
+            // 이번 회차의 결말에 무엇을 할지 보관한다. 결말 처리 자리(성공/실패)에서 꺼내 쓰고
+            // 그 자리에서 곧바로 비운다 — 지난 회차의 콜백이 다음 회차에 남아 있으면
+            // 「최초 경기가 성공했는데 결과 화면 복원 코드가 불린다」 같은 사고가 난다.
+            _mapTransferSuccessAction = onSucceeded;
+            _mapTransferFailureAction = onFailed;
 
             if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer)
             {
@@ -931,7 +1043,7 @@ namespace Hexiege.Infrastructure
 
             // 🔴 2026-09-14: 종전에는 두 번째 인자로 ReadMapTestModeEnabled() 를 함께 넘겼다.
             //    「맵 테스트 모드」가 규칙에서 삭제돼 인자가 root seed 하나로 줄었다.
-            bool started = transfer.BeginHostMapTransfer(rootSeed);
+            bool started = transfer.BeginHostMapTransfer(rootSeed, roundKind);
 
             if (!started)
             {
@@ -939,7 +1051,7 @@ namespace Hexiege.Infrastructure
                 // 남겼다 — MapPreparationFailed). 여기서 또 운영 로그를 내지 않는다(금지 9).
                 GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
                                  "맵 전송을 시작하지 못했다 — 전투 씬으로 넘어가지 않는다",
-                                 $"RootSeed={rootSeed}");
+                                 $"Round={roundKind}, RootSeed={rootSeed}");
                 FailMapTransferGate("BeginHostMapTransferRejected");
             }
         }
@@ -962,7 +1074,23 @@ namespace Hexiege.Infrastructure
             CleanupMapTransferSubscription();
             _mapTransferInProgress = false;
 
-            LoadGameScene();
+            // 🔴 콜백을 **먼저 꺼내 두고 필드를 비운 뒤** 부른다. 성공 콜백 안에서 씬이 재로드되는 등
+            //    무슨 일이 일어날지 모르는데, 그 안에서 이 필드를 다시 읽으면 지난 회차 값이 보인다.
+            Action successAction = _mapTransferSuccessAction;
+            ClearMapTransferRoundActions();
+
+            if (successAction == null)
+            {
+                // [개발] 정상 흐름에서는 올 수 없다 — 두 진입점 모두 성공 콜백을 반드시 넘긴다.
+                //   🔴 여기서 LoadGameScene() 으로 넘어가지 **않는다.** 누가 시작한 회차인지 모르는
+                //      채로 씬을 넘기면, 재경기였을 경우 StartRematch() 의 정리 절차를 건너뛴
+                //      전투 씬이 열린다(지난 판의 유닛·건물이 남는다).
+                GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
+                                 "맵 전송은 성공했는데 이번 회차의 성공 처리 콜백이 없다 — 아무것도 하지 않는다");
+                return;
+            }
+
+            successAction();
         }
 
         /// <summary>
@@ -985,10 +1113,13 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
-        /// 게이트가 막았음을 바깥(로비 UI)에 알린다. 로딩 UI 를 내리게 하는 유일한 통로다.
+        /// 게이트가 막았음을 바깥에 알린다. <b>이번 회차를 시작한 쪽</b>이 받는다.
+        ///   · 최초 경기 → <see cref="OnMapTransferFailed"/> 이벤트(로비 UI 가 구독) = 종전 그대로
+        ///   · 재경기   → <see cref="BeginRematchMapTransfer"/> 에 넘어온 실패 콜백(결과 화면)
         ///
         /// 🔴 <b>이 함수를 거치지 않는 실패 경로를 만들면 안 된다.</b> 아무에게도 알리지 않고
-        ///    돌아가면 로비가 "게임에 접속하는 중..." 로딩 화면인 채 영영 멈춘다.
+        ///    돌아가면 로비가 "게임에 접속하는 중..." 로딩 화면인 채 영영 멈추고,
+        ///    재경기라면 결과 화면의 두 버튼이 잠긴 채 영영 돌아오지 않는다.
         /// </summary>
         /// <param name="reason">진단용 사유 문자열(플레이어에게 보이는 문구가 아니다)</param>
         private void FailMapTransferGate(string reason)
@@ -1000,7 +1131,34 @@ namespace Hexiege.Infrastructure
             _mapTransferGateSettled = true;
 
             _mapTransferInProgress = false;
+
+            // 위 성공 자리와 같은 이유로 **먼저 꺼내 두고 비운 뒤** 부른다.
+            Action<string> failureAction = _mapTransferFailureAction;
+            ClearMapTransferRoundActions();
+
+            if (failureAction != null)
+            {
+                // 재경기 회차 — 결과 화면 쪽으로만 알린다. 🔴 로비 UI 이벤트는 발행하지 않는다.
+                failureAction(reason);
+                return;
+            }
+
+            // 최초 경기 회차 — 종전과 같이 로비 UI 가 구독하는 이벤트로 알린다.
             OnMapTransferFailed?.Invoke(reason);
+        }
+
+        /// <summary>
+        /// 이번 회차의 결말 콜백 두 개를 비운다. 회차가 결말을 맺었거나(성공·실패)
+        /// 세션이 끝났을 때(로비 복귀·연결 종료) 부른다.
+        ///
+        /// 🔴 <b>비우지 않으면 지난 회차의 콜백이 다음 회차에 그대로 살아 있다.</b>
+        ///    예를 들어 재경기 실패 콜백이 남아 있는 채로 다음 판이 시작되면,
+        ///    로비에서 실패했을 때 이미 사라진 결과 화면을 복원하려 든다.
+        /// </summary>
+        private void ClearMapTransferRoundActions()
+        {
+            _mapTransferSuccessAction = null;
+            _mapTransferFailureAction = null;
         }
 
         /// <summary>
@@ -1187,6 +1345,9 @@ namespace Hexiege.Infrastructure
             //      지난 판 맵이 조용히 재사용될 여지가 생긴다.
             CleanupMapTransferSubscription();
             _mapTransferInProgress = false;
+            // [재경기 맵 A] 회차 결말 콜백도 같은 자리에서 비운다 — 세션이 끝났는데 콜백이
+            //   남아 있으면 이미 사라진 화면을 되살리려 드는 코드가 다음 판에서 불린다.
+            ClearMapTransferRoundActions();
             MapHandoff.Clear();
 
             // 2. Heartbeat 중지

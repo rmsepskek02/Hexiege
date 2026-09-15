@@ -94,6 +94,9 @@ namespace Hexiege.Presentation
         /// <summary> 멀티플레이 재경기 거절 이벤트 구독 해제용. </summary>
         private System.IDisposable _rematchDeclinedSubscription;
 
+        /// <summary> 멀티플레이 재경기 맵 준비 실패 이벤트 구독 해제용(재경기 맵 C 단계). </summary>
+        private System.IDisposable _rematchMapFailedSubscription;
+
         /// <summary> 멀티플레이 재경기 시작(씬 재로드 직전) 이벤트 구독 해제용. </summary>
         private System.IDisposable _rematchStartingSubscription;
 
@@ -136,6 +139,7 @@ namespace Hexiege.Presentation
             _gameEndSubscription?.Dispose();
             _rematchAvailableSubscription?.Dispose();
             _rematchDeclinedSubscription?.Dispose();
+            _rematchMapFailedSubscription?.Dispose();
             _rematchStartingSubscription?.Dispose();
             _backToLobbySubscription?.Dispose();
 
@@ -150,6 +154,18 @@ namespace Hexiege.Presentation
 
             // 멀티 재경기 거절 신호 구독 — 버튼/카운트다운 상태 복원.
             _rematchDeclinedSubscription = GameEvents.OnNetworkRematchDeclined
+                .Subscribe(_ => RestoreRematchButton());
+
+            // [재경기 맵 준비 실패] 새 맵을 못 만들었거나 전송·검증이 실패했다.
+            //   씬은 재로드되지 않고 결과 화면이 그대로 있으므로, 여기서는 **눌리기 전 상태로
+            //   되돌리는 것**만 한다(GameSystemRules_UI.md 「공통 UI 규칙」 규칙 M-3 —
+            //   "결과 화면의 기존 선택지를 모두 복원한다").
+            //   🔴 거절과 같은 메서드(RestoreRematchButton)를 부르지만 **이벤트 채널은 다르다** —
+            //      거절과 실패는 원인도 다르고 나중에 붙을 안내 문구도 다르다.
+            //   ⚠️ 실패를 알리는 팝업·문구는 이번 범위가 아니다(규칙 M-3 의 "팝업 여부 미정").
+            //   ⚠️ 자동 로비 복귀 카운트다운 재시작도 이번 범위가 아니다 — 그동안 계속 돌던
+            //      카운트다운은 재시작되지 않는다(결함이 아니라 확정된 범위 결정).
+            _rematchMapFailedSubscription = GameEvents.OnNetworkRematchMapFailed
                 .Subscribe(_ => RestoreRematchButton());
 
             // [재경기 로딩] 서버가 재경기를 시작(씬 재로드 직전)하면 모든 클라이언트가
@@ -188,6 +204,7 @@ namespace Hexiege.Presentation
             _gameEndSubscription?.Dispose();
             _rematchAvailableSubscription?.Dispose();
             _rematchDeclinedSubscription?.Dispose();
+            _rematchMapFailedSubscription?.Dispose();
             _rematchStartingSubscription?.Dispose();
             _backToLobbySubscription?.Dispose();
         }

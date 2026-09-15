@@ -19,9 +19,15 @@
 // 재경기 흐름 (커스텀게임):
 //   [요청자] RequestRematch() → RequestRematchServerRpc
 //     → [서버] 첫 요청 기록 → NotifyRematchRequestedClientRpc (상대에게만)
-//   [상대] 수락 → AcceptRematchServerRpc → StartRematch()
+//   [상대] 수락 → AcceptRematchServerRpc → BeginRematchMapPreparation() → (성공) StartRematch()
 //   [상대] 거절 → DeclineRematchServerRpc → NotifyRematchDeclinedClientRpc (요청자에게만)
-//   [양측 동시 요청] 두 번째 ServerRpc에서 바로 StartRematch()
+//   [양측 동시 요청] 두 번째 ServerRpc에서 BeginRematchMapPreparation() → (성공) StartRematch()
+//
+//   🔴 2026-09-15 (재경기 맵 D): 수락/상호 동의와 씬 재로드 **사이에 새 맵 준비·전송·검증이 끼었다.**
+//      종전에는 수락 즉시 StartRematch() 를 불러 씬을 재로드했는데, 맵 인계 홀더(MapHandoff)를
+//      다시 채워 주는 사람이 없어 **재경기 전장이 텅 비었다.**
+//      실패하면 씬을 재로드하지 않고 결과 화면을 유지한다 → HandleRematchMapFailed()
+//      (GameSystemRules_RandomMap.md 규칙 14 「재경기 맵」 절).
 //
 // 싱글플레이와의 관계:
 //   싱글플레이 시 이 컴포넌트는 씬에 없거나 NetworkObject가 스폰되지 않으므로
@@ -368,9 +374,16 @@ namespace Hexiege.Infrastructure
             }
             else
             {
-                // 상대도 이미 요청 → 상호 동의 — 즉시 재경기
-                GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "양측 재경기 동의 — 즉시 재경기 시작");
-                StartRematch();
+                // 상대도 이미 요청 → 상호 동의 — 재경기 성립
+                GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                    "양측 재경기 동의 — 새 맵 준비를 시작한다");
+
+                // 🔴 [재경기맵 대체 대기] 종전에는 여기서 곧바로 씬을 재로드했다.
+                //    그러면 인계 홀더(MapHandoff)가 비어 있어 전장이 텅 빈 채로 열린다.
+                //    이제는 새 맵을 만들어 상대에게 보내고, 양쪽 검증이 끝난 **뒤에야**
+                //    StartRematch() 가 불린다(규칙 14 「재경기 맵」 절).
+                // StartRematch();
+                BeginRematchMapPreparation();
             }
         }
 
@@ -389,13 +402,21 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
-        /// 재경기 수락을 서버에서 처리. 즉시 재경기 시작.
+        /// 재경기 수락을 서버에서 처리.
+        /// 🔴 [재경기 맵 D] 「즉시 재경기 시작」이 아니라 <b>새 맵 준비부터 시작</b>한다.
+        /// 씬 재로드는 양쪽 검증이 끝난 뒤 <see cref="StartRematch"/> 에서 일어난다.
         /// </summary>
         [ServerRpc(RequireOwnership = false)]
         private void AcceptRematchServerRpc()
         {
-            GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "AcceptRematchServerRpc 수신 — 재경기 시작");
-            StartRematch();
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "AcceptRematchServerRpc 수신 — 새 맵 준비를 시작한다");
+
+            // 🔴 [재경기맵 대체 대기] 위 RequestRematchServerRpc 의 상호 동의 분기와 **똑같이** 고친다.
+            //    한쪽만 고치면 "수락으로 시작한 재경기는 새 맵인데 양측 동시 요청으로 시작한
+            //    재경기는 빈 맵" 이라는 경로별로 다른 동작이 생긴다.
+            // StartRematch();
+            BeginRematchMapPreparation();
         }
 
         /// <summary>
@@ -440,9 +461,131 @@ namespace Hexiege.Infrastructure
             GameEvents.OnNetworkRematchDeclined.OnNext(Unit.Default);
         }
 
+        // ====================================================================
+        // 재경기 맵 준비 실패 — 상태 복원 (재경기 맵 C 단계)
+        //
+        // 규칙 근거:
+        //   GameSystemRules_RandomMap.md 규칙 14 — "생성·전송·검증이 실패하면 교체하거나
+        //     씬을 재로드하지 않고 기존 결과 화면과 기존 맵 정의를 유지한다."
+        //   GameSystemRules_UI.md 「공통 UI 규칙」 규칙 M-3 — "이전 MapDefinition과 결과 화면을
+        //     유지하고 rematch pending 상태를 초기화한다." · "결과 화면의 기존 선택지를 모두 복원한다."
+        //
+        // 🔴 이 경로가 하는 일은 **상태 복원**뿐이다. 실패를 알리는 팝업·문구·로딩 표시는
+        //    범위 밖이다(규칙 M-3 의 "팝업 여부 미정" 표시). 카운트다운도 건드리지 않는다.
+        //
+        // ⚠️ **기존 맵 정의를 유지하기 위해 여기서 하는 일은 「아무것도 안 하는 것」이다.**
+        //    실패한 회차는 MapHandoff.Set() 을 부르지 않으므로 홀더에는 새 값이 심기지 않는다.
+        //    🔴 그러니 여기서 MapHandoff 를 건드리지 말 것 — 지우면 이미 확정된 값까지 날아간다.
+        // ====================================================================
+
+        /// <summary>
+        /// [서버 전용] 재경기용 새 맵 준비·전송·검증이 실패했다.
+        /// 씬을 재로드하지 <b>않고</b> 재경기 대기 상태를 초기화한 뒤, 양쪽 결과 화면을 되살린다.
+        ///
+        /// 🔴 <b>여기서 절대 <see cref="StartRematch"/> 로 넘어가면 안 된다.</b>
+        ///    맵 없이 씬이 재로드되면 텅 빈 전장이 열린다(규칙 14 정면 위반).
+        /// </summary>
+        /// <param name="reason">진단용 사유 문자열(플레이어에게 보이는 문구가 아니다)</param>
+        private void HandleRematchMapFailed(string reason)
+        {
+            // 이 콜백은 맵 전송 쪽에서 한참 뒤에 돌아온다. 그 사이에 로비로 돌아가거나
+            // 연결이 끊겨 이 오브젝트가 디스폰됐을 수 있다 — 그 상태에서 아래 ClientRpc 를
+            // 보내면 "Rpc methods can only be invoked after starting the NetworkManager!" 로 터진다.
+            // IsSpawned 를 앞에 두는 이유는 단락 평가다(이 파일 OnGameEndServer 의 같은 가드 참조).
+            if (!IsSpawned || !IsServer) return;
+
+            // 🔴 규칙 M-3 "rematch pending 상태를 초기화한다".
+            //    되돌리지 않으면 다음 요청이 「상대도 이미 요청했다」 분기로 빠져
+            //    맵 준비 없이 곧바로 시작돼 버린다(= 다시 빈 맵).
+            _rematchRequesterId = ulong.MaxValue;
+
+            // [개발] 운영 축 결말 로그(MapTransferFailed 등)는 NetworkMapTransfer 가 이미 정확히
+            //   한 줄 남겼다. 여기서 같은 사건을 운영으로 또 남기면 한 판이 두 번 세어진다
+            //   (LogRules 1.14 금지 9). 다만 "재경기가 막혔다"는 사실 자체는 반드시 남긴다.
+            GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                "재경기 맵 준비 실패 — 씬을 재로드하지 않고 결과 화면을 유지한다",
+                $"Reason={reason}");
+
+            NotifyRematchMapFailedClientRpc();
+        }
+
+        /// <summary>
+        /// 재경기 맵 준비 실패를 <b>양쪽 모두</b>에게 알려 결과 화면의 선택지를 되살리게 한다.
+        ///
+        /// ⚠️ <b>왜 대상을 한 쪽으로 좁히지 않는가</b>: 거절 알림(NotifyRematchDeclinedClientRpc)은
+        ///    요청자에게만 가면 됐다. 맵 준비 실패는 다르다 — 요청한 쪽은 「요청 중...」으로 버튼이
+        ///    잠겨 있고, 수락한 쪽은 「수락했는데 아무 일도 안 일어난」 상태다. 둘 다 되돌려야 한다.
+        ///
+        /// 호스트(서버)도 ClientRpc 본문이 로컬에서 실행되므로 별도 호출 없이 함께 복원된다
+        /// (NotifyRematchStartingClientRpc 와 같은 방식).
+        /// </summary>
+        [ClientRpc]
+        private void NotifyRematchMapFailedClientRpc()
+        {
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "재경기 맵 준비 실패 알림 수신 — OnNetworkRematchMapFailed 발행");
+            GameEvents.OnNetworkRematchMapFailed.OnNext(Unit.Default);
+        }
+
+        // ====================================================================
+        // 재경기 맵 준비 — 🔴 여기서 「수락 즉시 씬 재로드」가 뒤집힌다 (재경기 맵 D 단계)
+        // ====================================================================
+
+        /// <summary>
+        /// [서버 전용] 재경기가 성립했다 → <b>씬을 바로 재로드하지 않고</b> 새 맵부터 만든다.
+        ///
+        /// 순서(전부 이미 있는 코드다. 이번에 만든 것은 이 배선 하나뿐이다):
+        ///   ① <see cref="NetworkGameManager.BeginRematchMapTransfer"/> 가 결과 화면 위에서
+        ///      맵 전송 객체를 <b>새로 스폰</b>한다(재경기마다 다시 만든다 — 계획서 §4).
+        ///   ② Host 가 새 root seed 로 맵을 만들어 Client 에게 조각으로 보낸다.
+        ///   ③ 양쪽이 해시를 대조하고 Client 가 재생성·공정성 검증까지 통과한다.
+        ///   ④ 양쪽이 각각 확정 맵을 <c>MapHandoff</c> 에 심는다.
+        ///   ⑤ <b>그제서야</b> <see cref="StartRematch"/> 가 불려 씬이 재로드되고,
+        ///      새 Game 씬의 GameBootstrapper 가 인계된 맵을 꺼내 격자에 새긴다.
+        ///
+        /// ✅ ⑤ 의 despawn 루프가 ① 에서 스폰한 전송 객체까지 <b>저절로</b> 정리한다 —
+        ///    동적 스폰 NetworkObject 이기 때문이다. 그래서 그 루프에 예외를 팔 필요가 없다.
+        ///
+        /// 🔴 <b>실패하면 절대 <see cref="StartRematch"/> 로 넘어가지 않는다.</b>
+        ///    맵 없이 씬을 재로드하면 지금까지 그랬던 것처럼 전장이 텅 빈다
+        ///    (규칙 14 — *"실패하면 … 씬을 재로드하지 않는다"*).
+        /// </summary>
+        private void BeginRematchMapPreparation()
+        {
+            // OnNetworkSpawn(서버)에서 캐시해 둔 참조를 쓴다. 혹시 그때 못 찾았다면 여기서 한 번 더
+            // 찾아본다 — NetworkGameManager 는 DontDestroyOnLoad 객체라 Game 씬 인스펙터로는
+            // 연결할 수 없고, 런타임 탐색이 이 프로젝트의 관습이다(LobbyUI · GameEndUI 와 같은 방식).
+            var manager = _networkGameManager;
+            if (manager == null)
+            {
+                manager = FindFirstObjectByType<Hexiege.Infrastructure.NetworkGameManager>();
+                _networkGameManager = manager;
+            }
+
+            if (manager == null)
+            {
+                // [개발] 배치 누락 = 설정 오류다(LogRules 1.3 원칙 3 단서 — Warn + 개발).
+                //   🔴 여기서 StartRematch() 로 넘어가면 안 된다. 맵을 만들 주체가 없는데 씬만
+                //      재로드하면 정확히 지금 고치려는 그 버그(빈 전장)가 재현된다.
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "NetworkGameManager 를 찾을 수 없어 재경기 맵을 준비할 수 없다 — 결과 화면을 유지한다");
+                HandleRematchMapFailed("NetworkGameManagerMissing");
+                return;
+            }
+
+            // 결말 두 갈래를 넘긴다.
+            //   성공 → StartRematch (🔴 그 메서드는 한 줄도 고치지 않았다)
+            //   실패 → HandleRematchMapFailed (C 단계의 상태 복원 경로)
+            manager.BeginRematchMapTransfer(StartRematch, HandleRematchMapFailed);
+        }
+
         /// <summary>
         /// 서버에서 Game 씬을 재로드하여 재경기 시작.
         /// NGO SceneManager가 모든 클라이언트에 씬 전환을 동기화.
+        ///
+        /// ⚠️ <b>[재경기 맵 D] 이 메서드는 한 줄도 바뀌지 않았다.</b> 달라진 것은 <b>언제 불리는가</b>
+        ///    뿐이다 — 종전에는 수락 즉시, 이제는 새 맵의 전송·검증이 모두 성공한 뒤에 불린다.
+        ///    특히 아래 despawn 루프는 <b>절대 손대지 않는다</b>(계획서 §4-1).
         /// </summary>
         private void StartRematch()
         {
