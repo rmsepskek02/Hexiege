@@ -378,11 +378,6 @@ namespace Hexiege.Infrastructure
                 GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
                     "양측 재경기 동의 — 새 맵 준비를 시작한다");
 
-                // 🔴 [재경기맵 대체 대기] 종전에는 여기서 곧바로 씬을 재로드했다.
-                //    그러면 인계 홀더(MapHandoff)가 비어 있어 전장이 텅 빈 채로 열린다.
-                //    이제는 새 맵을 만들어 상대에게 보내고, 양쪽 검증이 끝난 **뒤에야**
-                //    StartRematch() 가 불린다(규칙 14 「재경기 맵」 절).
-                // StartRematch();
                 BeginRematchMapPreparation();
             }
         }
@@ -412,10 +407,6 @@ namespace Hexiege.Infrastructure
             GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
                 "AcceptRematchServerRpc 수신 — 새 맵 준비를 시작한다");
 
-            // 🔴 [재경기맵 대체 대기] 위 RequestRematchServerRpc 의 상호 동의 분기와 **똑같이** 고친다.
-            //    한쪽만 고치면 "수락으로 시작한 재경기는 새 맵인데 양측 동시 요청으로 시작한
-            //    재경기는 빈 맵" 이라는 경로별로 다른 동작이 생긴다.
-            // StartRematch();
             BeginRematchMapPreparation();
         }
 
