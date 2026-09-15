@@ -882,6 +882,19 @@ assertion turns "the file is 343 bytes" into "the format parses to the end", whi
 size *formula* (`319 + 4N + 20D` here) and check it against two different files. Sizes alone would not have
 caught the next item.
 
+> **[🔴 2026-09-15 — the paragraph above is kept exactly as written; the lesson still holds and only the
+> example's numbers have moved on.]** The format that example was measured against was **`MapVersion = 1`**.
+> Deleting the map test mode took a fixed-width 4-byte `TestModeFlag` out of the canonical byte stream
+> (commit `8c83317`), so **`MapVersion` is now `2` and the current formula is `315 + 4N`** — the constant
+> term dropped by exactly 4 and **the `4N` term is unchanged**. The regenerated fallback templates measure
+> Canyon **331** and FullyOpen · ObstacleOpen · Outer · ThreeLane **339** each (previously 335 / 343), and
+> the 2026-09-15 device run matched `315 + 4N` on all 9 multiplayer rounds. ⚠️ **The `20D` decoration term
+> was not re-measured** — decoration lists are still always empty, so no file in this round exercised it;
+> do not quote that part as verified for `MapVersion = 2`.
+> 🔴 **This is itself the lesson working as intended**: a formula goes stale the moment the format changes,
+> which is exactly why the method is "decode with the codec's own field order and assert to the end" rather
+> than "remember the number".
+
 - Then compare against the **configured limit read from the scene**, not from memory: `m_MaxPayloadSize` sits
   in `Lobby.unity` / `Game.unity` as plain YAML. Both scenes must be checked — they can differ.
 - 🔴 **A configured limit is not an effective limit.** Say so in the document and push the real measurement
@@ -1530,6 +1543,13 @@ says **「현재 지원 값은 `1`이다」**. That one goes false the moment th
   applied inside a single round — **say in the document which half is which and why**, or the next reader
   reads the untouched number as an oversight.
 
+> **[🔴 2026-09-15 — the lesson above is unchanged; this only records that its prediction came true.]**
+> The later stage arrived (commit `8c83317`): **`MapVersion` is now `2`**. Both halves resolved exactly as
+> the lesson said they would — the transfer-package section's 「현재 지원 값은 N이다」 **was changed to `2`**
+> and its stage marker cashed in, while the four 「초기값 `1`」 sites **were correctly left alone and are
+> still true**. 🔴 **This is the check that proves the rule was worth writing**: had the safe-list been
+> trusted, one live sentence would now be false and four correct ones would have been "fixed" into lies.
+
 ### 21-3. The removal-record block is one table, and its hardest row is the one that **loses a referent**
 
 Same shape as §19-3 (blockquote under the defining rule, 자리 → 제거한 조항 → 근거, everything else points
@@ -1588,3 +1608,10 @@ is one item. 2단계 is complete, so **the item is true as history**: the field 
 - → **Keep the item, append a marker** saying it became a deletion target and pointing at the removal block,
   with the reason spelled out (*"2단계에서 실제로 추가됐던 것은 사실이므로 목록에서 지우지 않는다"*).
 - Same judgement as §19-4's rule for 개정 이력 rows, extended to **any list that records a past scope**.
+
+> **[🔴 2026-09-15 — the lesson above is unchanged; this records the marker being cashed in.]**
+> The deletion happened (commit `8c83317`), so on 2026-09-15 the marker was **updated, not removed**:
+> the item still says 2단계 added the field, and the note now reads **「삭제 대상」 → 「삭제 완료」**.
+> 🔴 **This is §6's rule about markers meeting §21-7's rule about scope lists**: a marker that predicts a
+> future change becomes misinformation the moment the change lands, so **whoever lands the change owes the
+> marker an update in the same round.** The item itself is still never deleted — it is still true as history.

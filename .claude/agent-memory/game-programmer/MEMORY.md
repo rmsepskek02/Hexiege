@@ -21,11 +21,18 @@
   🔴 **3단계 I(2026-09-14, 여기서 처음 멀티 동작이 바뀐다): 씬 전환 게이트 ·
   게이트 결말 「한 번만 + 반드시 한 번은」 2겹 깃발 · 로그를 누가 어디서 남기는가 표 ·
   `MapHandoff.Clear()` 폐기 배선 · ⚠️ 프리팹을 어느 필드에 물리는가.**
+  🔴 **맵 테스트 모드 삭제 T1~T3(2026-09-15): 직렬화 형식 안에 든 필드를 지우는 일의 연쇄
+  (canonical 바이트 필드 → `MapVersion` 1→2 → 폴백 템플릿 5개 재생성 → 🔴 끝난 실기 검증이 무효) ·
+  「주석 비활성화 우선」을 지킬 수 없는 이유 · canonical 바이트 수 공식 `315 + 4N` ·
+  값이 우연히 같던 두 필드 중 하나만 지울 때의 함정 ·
+  🔴 「에디터가 필요하다」고 넘기기 전에 순수 C# 인지 확인할 것(mono 헤드리스로 재생성했다).**
   🔴 **재경기 맵 A~D(2026-09-15, 여기서 재경기 동작이 바뀐다): 「수락 즉시 씬 재로드」 사이에
   맵 준비·전송·검증을 끼워 넣기 · 진입점 분리 시 회귀 면적을 0으로 두는 법(이름·시그니처 유지) ·
   회차 결말 콜백 2개를 들고 있는 자리와 비우는 자리 4곳 · 실패 통보 채널을 왜 새로 파는가 ·
   회차 표식 `Round=` 를 `extraFields` 가 아니라 `BuildTransferLogData` 본문에 넣은 이유 ·
-  `mcs`/`mono` 하네스로 확인한 불변식 9가지.**
+  `mcs`/`mono` 하네스로 확인한 불변식 9가지 ·
+  🔴 **2026-09-15 실기 결과(멀티 9판 · 재경기 7연속 PASS / 싱글 2판 PASS)와
+  그래도 미검증으로 남은 3가지(실패 복구 · 폴백 · timeout/재전송).**
   **네트워크 작업은 여기부터 읽는다.**
 
 ### 시스템별 (2026-06-23 재구성)
@@ -46,7 +53,8 @@
   **`HexTile` 상태 계약(`TileKind`/`MineKind`/`HasBuilding` + 계산 프로퍼티 `IsWalkable`) 과
   무작위 맵 1단계 신설 타입** — 타일 상태·건물 배치/철거 작업은 여기부터 읽는다.
   **무작위 맵 2단계 A: 결정적 PRNG `MapRandom`(SplitMix64) · 4스트림 `MapRandomStreams` ·
-  seed 파생 순서 · 코드 내장 검증 벡터 · `GameConfig` 테스트 모드 필드 2개** — 맵 생성 작업도 여기부터 읽는다.
+  seed 파생 순서 · 코드 내장 검증 벡터 · ~~`GameConfig` 테스트 모드 필드 2개~~
+  **[🔴 2026-09-15: 그 필드 2개는 삭제됐다 — 토픽 파일에 정정 블록이 있다]** — 맵 생성 작업도 여기부터 읽는다.
   **2단계 H: 격자 11×21 전환 · `MapProjectionUseCase`(설계도 → `HexGrid` 투영) · root seed 생성/보관 ·
   하드코딩 배치 주석 비활성화(`[2단계 대체 대기]`) · I/J/K 미완이 화면에 어떻게 보이는지**
   🔴 **2단계 I: 판정 조건 전환 — `IsWalkable` 은 건설 판정이 아니다.**
@@ -115,6 +123,12 @@
   `MapHashMismatch` · `MapClientVerificationFailed`). 🔴 Four of them are mutually exclusive outcomes,
   but `MapTransferRetried` is **not an outcome** — it is an intermediate state transition, so one match
   can legitimately emit two lines. Details → [logging.md](logging.md).
+  **[🔴 2026-09-15 — all lines above kept]** The count is **still 46**. The rematch-map work added
+  **no key at all**; it added one **field**, `Round=` (`First`/`Rematch`/`Probe`), to the five
+  `MapTransfer*` keys. 🔴 **The reason is reusable**: splitting first-match vs rematch into separate
+  keys would split the transfer success/failure aggregate in two, and the remedial action is identical
+  either way — so it fails both of LogRules 1.5's new-key tests and belongs in a `key=value` field.
+  Details → [network-infra.md](network-infra.md) 「재경기 맵 A~D」 B.
 
 ## NGO(Netcode) 관용구
 

@@ -347,6 +347,16 @@ grep -nE '(^|[^.a-zA-Z_])Application\.' <path>   # 0건이어야 함
 `TestMode=`(`True|False`) `InitialGold=` `ElapsedMs=`(정수) `AttemptCount=` `UsedFallback=`(`True|False`)
 `Hash=` `ErrorCode=` / 투영 전용 `GridWidth=` `GridHeight=`
 
+> **[🔴 2026-09-15 정정 — 위 목록은 2단계 K 시점의 기록이라 그대로 두고 덧붙인다]**
+> 🔴 **`TestMode=` 는 더 이상 실리지 않는다**(커밋 `8c83317`). 맵 테스트 모드가 삭제되면서 필드가 빠졌고,
+> 코드에는 **제거 표시 주석만** 남아 있다(`Bootstrap/GameBootstrapper.Map.cs` · `Infrastructure/Network/NetworkMapTransfer.cs`
+> 각 1건 — 2026-09-15 문서 작업 중 grep 으로 직접 확인). **나머지 키는 전부 그대로다.**
+> ⚠️ **로그 키는 하나도 늘거나 줄지 않았다 — 한 항목이 빠졌을 뿐**이다(키를 지우면 과거 로그와의 대조가 끊긴다).
+> ➕ **같은 자리에 새 필드가 하나 생겼다: `Round=`(`First|Rematch|Probe`).** 단 **`MapTransfer*` 5개 키 전용**이며
+> 🔴 **위 목록이 규정하는 `MapPreparation*` 계열에는 일부러 넣지 않았다** — 그 필드 집합은 싱글 경로
+> (`GameBootstrapper.Map.cs`)와 반드시 같아야 하고, 한쪽만 늘리면 같은 키의 집계가 조용히 갈라진다.
+> 근거와 배선은 → [network-infra.md](network-infra.md) 「재경기 맵 A~D」 B.
+
 - ⚠️ **`Attempt=`(기존, 재시도 회차)와 `AttemptCount=`(신설, 총 시도 횟수)는 다른 키다.** 섞지 말 것.
 - ⚠️ **`Hash=` 는 앞 16자(8바이트)만 싣는다.** 원본은 64자라 그대로 넣으면 줄이 3배가 된다.
   `GameLog.HashId` 가 UID 해시를 16자로 자르는 것과 같은 판단이며, 3단계의 Host/Client 대조는

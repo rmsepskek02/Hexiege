@@ -73,6 +73,38 @@
 
 > 여기 있던 「싱글플레이 AI 시스템 (2026-06-10 완료)」 상세(시나리오 구조 · 3종족 시나리오 A/B/C · 생산 건물 라인 표 3개)는 2026-08-24에 [ai-scenarios.md](ai-scenarios.md) 로 옮겼다.
 
+## Rematch map — settled gameplay rules (2026-09-15, shipped and verified on device)
+
+**Single source for the rules themselves**: `Assets/_Project/Docs/GameSystemRules/GameSystemRules_RandomMap.md`
+rule 14 (and its 2026-09-14 revision block). What follows is only what a design decision needs on hand.
+
+- 🔴 **A rematch never offers a map choice. A new random map is drawn every time.** User ruling:
+  *"재경기는 「같은 맵 / 새 맵」을 따로 선택하지 않고, 무조건 무작위로 새 맵이 결정된다. 추가 UI나 작업도 필요 없다."*
+  This applies to **both singleplayer and multiplayer**. There is **no `SameMap`/`NewMap` option, no
+  third button on the result screen, and no condition line in the opponent's rematch popup.**
+  Do not re-propose any of those — they were deliberately removed, not forgotten.
+- 🔴 **The same map archetype coming up twice in a row is NOT a defect, and no avoidance check is to
+  be added.** User ruling: *"무작위로 같은 맵이 연속으로 나오는 것은 문제가 아니다."*
+  Device testing on 2026-09-15 produced exactly this (Canyon twice, then ObstacleOpen twice, out of
+  9 matches); seed, mine count and hash all differed, so they were **different maps** anyway.
+  The old "discard a candidate whose hash equals the previous map's" clause was deleted because it
+  **could not do the job it was written for**: the map's seed is part of the hashed bytes, so identical
+  terrain with a different seed passes the check, and a normal generation path can never trip it.
+  The only path it ever caught was **the fixed fallback template**, and a fallback being used twice is
+  something to **surface, not hide** (the warn-level log key for it already exists).
+- **What carries over between rematches**: team, race and the rest of the match settings. What is
+  re-drawn: map archetype, neutral mine count, starting mine side, terrain detail, mine positions.
+- ⚠️ **Balance-relevant gap that is still open** — the map computes an `InitialGold` from its mine
+  count and ships it across the wire, but **nothing consumes it**. Actual starting gold still comes
+  from `Economy.StartingGold`. 🔴 **The 5000 on screen is a test-phase development value, not a bug**;
+  the planned release value is **500**, subject to balancing (user ruling). 🔴 **Changing that one
+  number does not satisfy the rule** — the rule's table is per-mine-count (1 mine 700 … 6 mines 200),
+  so wiring mine count to starting gold is a **separate job**, scheduled "with balancing".
+- ⚠️ **Result-screen UX is still undecided and is the next job** — whether map-prep failure shows a
+  popup (rules M-3/M-4 leave it blank on purpose), what is shown during the wait, and how the 30s
+  auto-return countdown interacts with it. Those three must be decided **together**; `ROADMAP.md`
+  holds the row and is the single source.
+
 ## 미구현/미결 기획 항목
 - 카메라 각도 최적화 (현재 55도 적용, 테스트 후 조정 가능)
 - ~~AI Inspector 에셋 작업 (AIScenarioConfig_Spirit/Transcendence.asset 생성 + 수치 입력)~~ ✅ 완료 (2026-06-10): 3종족 단일 에셋 구조로 완성

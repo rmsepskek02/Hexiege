@@ -211,6 +211,18 @@ Serialized in `Assets/_Project/Resources/Config/GameConfig.asset` as `_mapTestMo
 `_testStartingGold: 5000`. ⚠️ The pre-existing `_startingGold: 5000` is a **different field**; whether the
 two are really the same thing is still unconfirmed (`Research.md` §9-3) — it was left untouched.
 
+> **[🔴 2026-09-15 correction — the paragraph above is kept as the phase-2 record; do not go looking for
+> these fields, they are gone.]** 🔴 **Both test-mode fields were deleted** (commit `8c83317`):
+> `MapTestModeEnabled` / `TestStartingGold` are no longer in `GameConfig.cs`, and the
+> `_mapTestModeEnabled: 0` / `_testStartingGold: 5000` lines are no longer in `GameConfig.asset`
+> (verified by grep during the 2026-09-15 doc round — the asset now has only `_startingGold: 5000`).
+> ✅ **The "still unconfirmed" question is settled**: they were **different fields whose values merely
+> coincided**, and the user confirmed `_startingGold: 5000` is a deliberate test-phase development value
+> (planned release value **500**, subject to balancing). **`_startingGold` was correctly left untouched.**
+> 🔴 Because the flag sat **inside the canonical byte stream**, deleting it bumped **`MapVersion` 1 → 2**
+> and forced the 5 fallback templates to be regenerated → [network-infra.md](network-infra.md) 「Map test
+> mode deletion T1~T3」.
+
 **Comment hygiene applied here** (`.claude/mistakes.md` 2026-09-02, the three-times trap): the header
 that explains *why* the banned RNG APIs must not be used spells their names in prose, never in dotted
 code form, so `grep` for banned APIs over `Assets/` returns 0 hits inside these files. A note in the file
@@ -606,6 +618,15 @@ ToDictionary|ToLookup|Reverse|Zip|SequenceEqual|ElementAt` → **진짜 히트 0
 5000 을 덮어쓰면 **해시를 반드시 다시 계산해야 한다.** 템플릿은 정상 모드 값만 담는다 —
 테스트 모드 덮어쓰기는 템플릿의 몫이 아니다.
 
+> **[🔴 2026-09-15 정정 — 위 문단은 `MapVersion = 1` 시절의 기록이라 그대로 두고 덧붙인다]**
+> **`TestModeFlag` 는 canonical 바이트열에서 빠졌다**(커밋 `8c83317`). 따라서 **해시 입력에 포함되는 것은
+> `InitialGold` 뿐**이고, **canonical 앞머리는 그 고정폭 정수 하나만큼(4바이트) 짧아졌다.**
+> 🔴 **그 4바이트가 곧 `MapVersion` 1 → 2 의 이유**이며, **바이트 수 공식은 `315 + 4N`**(N = 중립 광산 수)이다.
+> ⚠️ **위 문단의 「테스트 모드 초기 골드 5000 덮어쓰기」 절차는 통째로 사라졌다** — 초기 골드 갈래는
+> **광산 수 표 하나**뿐이다. 🔴 **그럼에도 마지막 문장의 취지는 살아 있다: 템플릿은 정상 모드 값만 담는다.**
+> 이 형식 변경 때문에 폴백 템플릿 5개를 재생성했고(Canyon 335→331 / 나머지 4개 343→339), 재생성 결과는
+> 500/500 왕복 PASS 로 확인됐다 → [network-infra.md](network-infra.md) 「Map test mode deletion T1~T3」.
+
 **`.bytes` 확장자는 선택이 아니다.** Unity 는 `.bytes` 여야 바이너리를 `TextAsset` 으로 임포트한다.
 다른 확장자면 `Resources.Load<TextAsset>` 이 런타임에 읽지 못한다. 이름 규칙의 단일 소스는
 `GetTemplateAssetName/FileName/ResourcePath` 이며 **G 단계 로더도 이것을 써야** 만드는 쪽과 읽는 쪽이
@@ -734,6 +755,10 @@ FlatTop TileWidth 1.0 · TileHeight 0.866 기준 실제 변화값:
   `NoBuild` 는 일반 타일과 구분되지 않는다.
 - `MapPreparationResult.InitialGold`(광산 수 표 / 테스트 모드 5000)를 **아직 아무도 쓰지 않는다.**
   초기 골드는 여전히 `GameConfig.StartingGold`. H 의 파일 4개 목록에 없어 범위 밖으로 두고 보고만 했다.
+  > **[🔴 2026-09-15 정정 — 원문 유지: 괄호 안 「테스트 모드 5000」 갈래만 사라졌다**(커밋 `8c83317`).
+  > 이제 `InitialGold` 는 **광산 수 표 하나**에서만 나온다. 🔴 **「아직 아무도 쓰지 않는다」와 「초기 골드는
+  > 여전히 `GameConfig.StartingGold`」는 2026-09-15 현재에도 그대로 참이다 — 함께 무효로 읽지 말 것.**
+  > 사용자가 「추후 밸런싱과 함께 다시 작업」으로 확정했고 `ROADMAP.md` 에 행이 서 있다]**
 
 ---
 
