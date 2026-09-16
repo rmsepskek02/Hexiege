@@ -1615,3 +1615,123 @@ is one item. 2단계 is complete, so **the item is true as history**: the field 
 > 🔴 **This is §6's rule about markers meeting §21-7's rule about scope lists**: a marker that predicts a
 > future change becomes misinformation the moment the change lands, so **whoever lands the change owes the
 > marker an update in the same round.** The item itself is still never deleted — it is still true as history.
+
+---
+
+## 22. Widening a **type definition** and closing pinned 「미정」 markers in one round (2026-09-15, post-match opponent-left UI)
+
+Scope of that round: **one file only** — `GameSystemRules/GameSystemRules_UI.md`, 「공통 UI 규칙」 section.
+A confirmed design (result screen when the opponent leaves) had to be written in as rules.
+
+### 22-1. A new widget that fits **neither** of a two-type taxonomy → widen the definition, never add a third type
+
+`규칙 8` classified every popup as 팝업 (배경 탭으로 닫힘) or 모달 (배경 탭 불가), and 모달 was defined as
+*"사용자의 명시적 **Y/N 선택**이 필요한 팝업"*. A new **1-button alert** fits neither: one button is not a
+Y/N choice, and filing it as 팝업 would let a background tap dismiss it.
+
+- The repair is **one word in the definition**: 「명시적 Y/N 선택」 → 「명시적 **응답**」.
+- 🔴 **Say in the 개정 block what did *not* change** — the discriminator ("must the user press something
+  inside the popup to move on?") is the same, so **no existing popup changes type**. Without that sentence a
+  reader has to re-audit every popup the taxonomy already classified.
+- What actually widened is worth naming precisely: **「응답의 선택지가 몇 개인가」**, not the criterion.
+- The old text survives inside the 개정 block quote — this document's established B-7 shape
+  (see the 2026-09-14 blocks on 규칙 M-3·M-4).
+
+### 22-2. Widening a definition leaves a **stale enumeration** in the *neighbouring* rule
+
+`규칙 9` said 모달은 *"반드시 **확인/취소 버튼**으로만 닫힌다"*. Once a 1-button 모달 exists, that enumeration
+is literally false while the rule's intent is intact.
+
+- The hand-off said "judge whether 규칙 9 needs fixing, and if not, don't touch it." It **did** need a touch,
+  but not a rewrite: **append a reading note** ("확인/취소 버튼" means *the buttons inside the popup*, as
+  opposed to the background) and leave both original lines untouched.
+- 🔴 **General shape: when you widen a definition, grep the rules that quoted the *old narrow* wording.**
+  A definition change is never confined to the cell you edited — a neighbouring rule spelled out the old
+  narrowness as a concrete list, and a list goes stale where a criterion does not.
+
+### 22-3. Closing an 「미정」 marker — close only the question that was pinned
+
+`규칙 M-3`·`M-4` carried ⚠️ **팝업 여부 미정 — 구현 시 확정한다.** The round closed it.
+
+- Append a **확정 block** under the marker; **never edit or delete the ⚠️ marker line** (title it
+  `[🔴 YYYY-MM-DD 확정 — 위 ⚠️ 미정 표시는 원문 그대로 둔다]`).
+- 🔴 **Close exactly what the marker pinned and re-pin the rest.** The marker asked *whether a popup appears*;
+  the decision answered that plus its type. **문구 and 버튼 라벨 were never decided**, so the 확정 block ends
+  with a fresh ⚠️ 미정 for those. Filling them would be inventing a spec (CLAUDE.md 규칙 10).
+- The same block must say which neighbouring 미정 markers it did **not** touch (`M-4` first bullet still has
+  two of them), or the next reader assumes the rule is fully settled.
+- Where two rules shared one marker ("둘이 같은 문제다"), the second rule's 확정 block **points at the first**
+  instead of restating the rationale.
+
+### 22-4. A rule about multiplayer must state where it **does not** apply
+
+`규칙 M-4` is singleplayer. The same round wrote opponent-left rules. Half of a sentence like
+"this also applies to M-4" would have been wrong: **there is no opponent in singleplayer.**
+
+- Add an explicit non-applicability line to the singleplayer rule naming the rules that do **not** reach it,
+  and say what the closed 미정 **was** ("맵 준비 실패 시 팝업이 뜨는지 하나뿐").
+- This is cheaper than it looks and prevents the reverse misreading — that the whole new section is
+  multiplayer-only — because the exclusion is stated from the singleplayer side.
+
+### 22-5. Picking a rule-number prefix in a document whose numbering restarts per section
+
+`GameSystemRules_UI.md` 「공통 UI 규칙」 holds **numeric 1~11** (cross-cutting basics: 반응형 / SafeArea /
+숨김·표시 / 폰트 / 골드 / 팝업) plus two later **letter-prefixed groups**: `L-1~L-4` (LoadingIndicator) and
+`M-1~M-4` (무작위 맵 준비 실패 UI). Both letters are the first letter of the topic's English word.
+
+- A new self-contained feature area therefore takes a **new prefix**, not the next number: chosen `D-`
+  (Disconnect) for 「경기 종료 후 상대 이탈 UI」. Continuing `M-` would have filed 이탈 rules under *Map*.
+- 🔴 **Write the convention into the section itself** (one line: this section uses `D-`, like `L-` and `M-`),
+  or the next author has to re-derive it from two samples.
+- Mechanical consequence: **`check_docs.py` cannot see letter-prefixed rules at all.** `RE_RULE_DEF` and
+  `RE_RULE_MENTION` both require `규칙\s*(\d+)`, so `**규칙 D-1. …**` is not registered and `규칙 D-5`
+  is not checked. `[4]`'s section map still prints 공통 UI 규칙(1~11) after adding six D- rules.
+  That is **not a reason to use numbers** — it is a reason to hand-verify letter-prefixed cross-references,
+  and a reason the checker returning 0건 says nothing about them.
+- Bonus: a letter prefix cannot create a 결번 in `[1]`, which numeric insertion into a per-section-numbered
+  document can.
+
+### 22-6. Point at the owner of a value instead of copying it — even when the owner does not exist yet
+
+Three decisions of that round (이탈 판정 = 30초 무반응 / 이탈 시 연결 종료 / 정상 퇴장 즉시 통보) belong to the
+network-session spec, not the UI document, and **another agent was writing that document in the same round**.
+
+- The UI section states what it does **not** own, says the copy would go silently false, and adds
+  ⚠️ **가리킬 문서명 미정 — 확정되면 이 자리에 문서명을 적는다.**
+- 🔴 **Do not guess the receiving document's name or rule number.** A guessed `Doc.md 규칙 N` either trips
+  `[3]` or, worse, passes because the number happens to exist and points at the wrong rule
+  (`check_docs.py` cannot catch that — see §8).
+- The 미정 marker form is the project's own, so the pointer is a normal pinned gap rather than a loose end.
+
+### 22-7. Numbers handed to you as "already covered by an existing clause" — re-read the clause
+
+The hand-off's "don't rewrite, cite the existing clause" table mapped 결정 4 (이탈 시 카운트다운 **30초** 재시작)
+onto `규칙 M-3`'s *"자동 로비 복귀 countdown 을 **전체 길이**로 다시 시작한다"*.
+
+- They are **not** the same clause: M-3 restarts at *full length* on **map-preparation failure**, while the new
+  decision restarts at **30초** on **opponent-leave**, with the default itself moving to 60초. Same mechanism,
+  different trigger **and** different length.
+- Repair: write the new rule with its own values, **cite M-3 for the other trigger**, and add an explicit
+  ⚠️ "두 규칙을 섞어 읽지 않는다" line — then report the mismatch rather than silently following the mapping.
+- 🔴 **A "this is already written down" hand-off item is a claim to verify, not an instruction.** The cheap
+  check is: does the existing clause have the *same trigger*? A shared mechanism is not a shared rule.
+
+### 22-8. Measuring the live value before calling a decision "a change"
+
+결정 5 set the default auto-return countdown to **60초**. Before reporting it as a change, the live value was
+read from the code *and* the scene: `GameEndUI._autoReturnSeconds = 30f` in code, `_autoReturnSeconds: 30` in
+`Assets/_Project/Scenes/Game.unity`.
+
+- Reading only the code default would have been unsound — **Inspector values override code defaults** in this
+  project, so the `.unity` line is what decides whether the shipped value is 30.
+- Same habit for a literal UI string: the existing countdown text is `{n}초 후 로비로 돌아갑니다.`, which is
+  **different wording** from the new opponent-left text, so the decision adds a string rather than editing one.
+- Document-only rounds still measure; the report then says "this rule is ahead of the code" with the evidence,
+  instead of asserting a code change that nobody made.
+
+### 22-9. Mechanical check for `|` inside table cells
+
+The calling session had botched table cell separators three times that day. Cheap verification: count
+**unescaped** `|` per row (`(?<!\\)\|`) and assert one distinct count per table block.
+Run it over the **whole file**, not just the new tables — it costs nothing and catches pre-existing damage.
+That round: 13 tables, 0 mismatches.
