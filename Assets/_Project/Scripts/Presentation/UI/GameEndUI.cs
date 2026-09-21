@@ -69,8 +69,11 @@ namespace Hexiege.Presentation
         [Tooltip("자동 복귀 카운트다운 텍스트 (예: '30초 후 로비로 돌아갑니다.')")]
         [SerializeField] private TextMeshProUGUI _countdownText;
 
-        [Tooltip("자동 복귀까지 대기 시간 (초). 기본 30초.")]
-        [SerializeField] private float _autoReturnSeconds = 30f;
+        // 공통 UI 규칙 D-4 「자동 로비 복귀 카운트다운 — 기본 60초」.
+        // ⚠️ 이 값은 씬(Game.unity)에 직렬화된 Inspector 값이 우선한다.
+        //    여기만 고치면 실제 동작은 바뀌지 않으므로 씬 값도 함께 맞춰야 한다.
+        [Tooltip("자동 복귀까지 대기 시간 (초). 기본 60초.")]
+        [SerializeField] private float _autoReturnSeconds = 60f;
 
         [Header("다시하기 버튼 텍스트")]
         [Tooltip("다시하기 버튼의 텍스트 컴포넌트. 요청 중 상태 표시용.")]
@@ -430,9 +433,13 @@ namespace Hexiege.Presentation
                     _restartButtonText.text = "요청 중...";
                 _restartButton.interactable = false;
 
-                // 로비 복귀 버튼도 비활성화 (재경기 응답 대기 중)
-                if (_backToLobbyButton != null)
-                    _backToLobbyButton.interactable = false;
+                // 🔴 로비 복귀 버튼은 여기서 끄지 않는다 (공통 UI 규칙 D-3 「로비 복귀 버튼은 항상 활성」).
+                //    종전에는 "재경기 응답 대기 중"이라는 이유로 이 버튼도 함께 껐는데,
+                //    그러면 다시하기 버튼(바로 위에서 꺼진다)과 로비 버튼이 동시에 잠겨
+                //    사용자가 스스로 결과 화면을 빠져나갈 방법이 사라진다.
+                //    상대가 응답하지 않으면 자동 복귀 카운트다운이 끝날 때까지 갇히게 되고,
+                //    상대가 이미 나가 버린 경우에는 응답 자체가 영영 오지 않는다.
+                //    기다리는 것은 사용자의 선택이어야 하므로 나가는 길은 항상 열어 둔다.
 
                 // 컨트롤러 직접 호출 대신 이벤트 발행 → NetworkGameEndController가 구독 후 ServerRpc 전송
                 GameEvents.OnLocalRematchRequested.OnNext(Unit.Default);

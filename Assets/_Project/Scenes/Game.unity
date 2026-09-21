@@ -32389,7 +32389,7 @@ MonoBehaviour:
   _networkGameManager: {fileID: 0}
   _backToLobbyButton: {fileID: 1555752452}
   _countdownText: {fileID: 194798721}
-  _autoReturnSeconds: 30
+  _autoReturnSeconds: 60
   _restartButtonText: {fileID: 365692188}
   _colorConfig: {fileID: 11400000, guid: ce7db35dba9189c4e9d9c510f0a3bbce, type: 2}
 --- !u!114 &1309749082

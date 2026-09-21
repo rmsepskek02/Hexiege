@@ -158,6 +158,34 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
+        /// 알림 팝업을 표시한다. 내부적으로 ConfirmPopup.ShowAlert()에 위임한다.
+        /// _confirmPopup이 연결되지 않았으면 경고만 출력하고 무시한다(ShowConfirm과 같은 방식).
+        ///
+        /// <para>
+        /// 제목 + 본문 + 버튼 1개 구조이며 타입은 <b>모달</b>이다(공통 UI 규칙 D-5 · 8 · 9).
+        /// 고를 것이 하나여도 사용자가 반드시 응답해야 하므로 배경을 탭해도 닫히지 않는다.
+        /// </para>
+        /// </summary>
+        /// <param name="title">팝업 제목(예: "알림"). 비어 있으면 제목 자리가 숨는다.</param>
+        /// <param name="message">본문 메시지(예: "상대방이 떠났습니다.").</param>
+        /// <param name="onClick">버튼 클릭 시 호출될 콜백. null이면 닫히기만 한다.</param>
+        /// <param name="buttonLabel">유일한 버튼의 라벨(기본값 "확인").</param>
+        public void ShowAlert(string title, string message, System.Action onClick = null,
+                              string buttonLabel = "확인")
+        {
+            if (_confirmPopup == null)
+            {
+                // [개발] Warn + 개발 — Inspector 배선 누락(1.3 원칙 3 단서).
+                GameLog.Dev.Warn("UI", nameof(UIManager),
+                                 "ConfirmPopup 미배선 — 알림 팝업을 표시할 수 없다. Inspector 에서 연결해야 한다",
+                                 "Field=_confirmPopup");
+                return;
+            }
+
+            _confirmPopup.ShowAlert(title, message, buttonLabel, onClick);
+        }
+
+        /// <summary>
         /// 로딩 인디케이터 표시 여부를 토글한다.
         /// Firebase 처리, 씬 전환, 매칭 대기 등 로딩 사유에 관계없이 이 메서드 하나로 제어한다.
         ///

@@ -36,6 +36,22 @@ namespace Hexiege.Presentation
                          string confirmLabel = "확인", string cancelLabel = "취소");
 
         /// <summary>
+        /// 알림 팝업을 표시한다. 제목 + 본문 + 버튼 1개 구조다(공통 UI 규칙 D-5).
+        ///
+        /// <para>
+        /// <see cref="ShowConfirm"/> 과의 차이 — 저쪽은 사용자가 두 갈래 중 하나를
+        /// 고르는 자리이고, 이것은 <b>고를 것이 없고 알리기만 하는 자리</b>다.
+        /// 타입은 둘 다 <b>모달</b>이라 배경을 탭해도 닫히지 않는다(공통 UI 규칙 8 · 9).
+        /// </para>
+        /// </summary>
+        /// <param name="title">팝업 제목(예: "알림"). 비어 있으면 제목 자리가 숨는다.</param>
+        /// <param name="message">본문 메시지(예: "상대방이 떠났습니다.").</param>
+        /// <param name="onClick">버튼 클릭 시 호출될 콜백. null이면 닫히기만 한다.</param>
+        /// <param name="buttonLabel">유일한 버튼의 라벨(기본값 "확인").</param>
+        void ShowAlert(string title, string message, System.Action onClick = null,
+                       string buttonLabel = "확인");
+
+        /// <summary>
         /// 로딩 인디케이터의 표시 여부를 토글한다.
         /// Firebase 처리, 씬 전환, 매칭 대기 등 로딩이 필요한 모든 상황에서 사용한다.
         /// 로딩의 사유와 로딩 UI는 분리되어 있으며, 호출부는 시작/종료 시점만 알린다.

@@ -68,6 +68,12 @@ namespace Hexiege.Presentation
         [SerializeField] private AnimatedPanel _panel;
 
         [Header("텍스트")]
+        // 공통 UI 규칙 D-5 「알림 팝업 — 타이틀 + 본문 + 버튼 1개」를 위해 추가한 자리.
+        // ⚠️ Inspector 배선은 사용자 작업이다. 배선되지 않아도 기존 동작이 그대로여야 하므로
+        //    아래 모든 사용처에서 null 검사를 거친다(이 파일의 다른 필드와 같은 방식).
+        [Tooltip("팝업 제목 (예: '알림'). 제목이 없는 팝업에서는 숨겨진다. 배선하지 않아도 동작한다.")]
+        [SerializeField] private TextMeshProUGUI _titleText;
+
         [Tooltip("팝업 본문 메시지 (예: '정말 포기하시겠습니까?').")]
         [SerializeField] private TextMeshProUGUI _messageText;
 
@@ -116,6 +122,11 @@ namespace Hexiege.Presentation
         public void Show(string message, string confirmLabel, string cancelLabel,
                          Action onConfirm, Action onCancel)
         {
+            // 0) 이 경로(확인/취소 2버튼)에는 제목이 없다. 제목 자리를 숨겨
+            //    제목 필드가 생기기 전과 화면이 똑같이 보이게 한다.
+            ApplyTitle(null);
+            SetCancelButtonVisible(true);
+
             // 1) 텍스트/라벨 갱신
             if (_messageText != null)
                 _messageText.text = message;
@@ -159,6 +170,114 @@ namespace Hexiege.Presentation
             //    오브젝트는 항상 active 상태이며, Show() 호출만으로 다시 표시된다.
             if (_panel != null)
                 _panel.Show();
+        }
+
+        /// <summary>
+        /// 알림 팝업을 표시한다. 제목 + 본문 + 버튼 1개 구조다(공통 UI 규칙 D-5).
+        ///
+        /// <para>
+        /// 위 <see cref="Show"/> 와 무엇이 다른가 — <see cref="Show"/> 는 사용자가
+        /// 두 갈래 중 하나를 고르는 자리(확인/취소)이고, 이것은 <b>고를 것이 없고
+        /// 알리기만 하는 자리</b>다. 그래서 취소 버튼을 숨기고 제목을 띄운다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 타입은 <b>모달</b>이다(공통 UI 규칙 8 · 9). 고를 것이 하나여도
+        /// 사용자가 반드시 응답해야 하므로 <b>배경을 탭해도 닫히지 않는다</b> —
+        /// 아래에서 <see cref="Show"/> 와 같은 Modal 모드 오버레이를 쓰기 때문에
+        /// 이를 위해 따로 해 줄 일은 없다.
+        /// </para>
+        /// </summary>
+        /// <param name="title">팝업 제목 (예: "알림"). 비어 있으면 제목 자리가 숨는다.</param>
+        /// <param name="message">본문 메시지 (예: "상대방이 떠났습니다.").</param>
+        /// <param name="buttonLabel">유일한 버튼의 라벨 (예: "로비로").</param>
+        /// <param name="onClick">버튼 클릭 시 호출될 콜백. null이면 닫히기만 한다.</param>
+        public void ShowAlert(string title, string message, string buttonLabel, Action onClick)
+        {
+            // 0) 제목을 띄우고 취소 버튼을 숨긴다 — 이 둘이 Show() 와의 유일한 차이다.
+            ApplyTitle(title);
+            SetCancelButtonVisible(false);
+
+            // 1) 텍스트/라벨 갱신
+            if (_messageText != null)
+                _messageText.text = message;
+            if (_confirmButtonText != null)
+                _confirmButtonText.text = buttonLabel;
+
+            // 2) 콜백 저장.
+            //    취소 쪽은 비워 둔다 — 버튼이 숨겨져 있어 눌릴 일이 없지만,
+            //    지난 호출의 콜백이 남아 있으면 엉뚱한 곳으로 새어 나갈 수 있다.
+            _onConfirm = onClick;
+            _onCancel = null;
+
+            // 3) 버튼 리스너 재등록 (Show() 와 같은 이유 — 반복 호출 시 누적 방지)
+            if (_confirmButton != null)
+            {
+                _confirmButton.onClick.RemoveAllListeners();
+                _confirmButton.onClick.AddListener(OnConfirmClicked);
+            }
+
+            // 4) 뒤쪽 입력 차단 — Show() 와 똑같이 Modal 모드다(콜백 없음).
+            UIManager.Instance?.ShowBlockingOverlay();
+
+            // 5) 패널 등장
+            if (_panel != null)
+                _panel.Show();
+        }
+
+        // ====================================================================
+        // 내부 보조
+        // ====================================================================
+
+        /// <summary>
+        /// 제목을 적용한다. 제목이 비어 있으면 그 자리를 <b>레이아웃에서 빼 버린다.</b>
+        ///
+        /// <para>
+        /// ⚠️ <b>공통 UI 규칙 5(CanvasGroup 숨김/표시 패턴)에서 일부러 벗어난 자리다.</b>
+        /// 규칙 5가 SetActive 를 막는 이유는 두 가지인데, 여기서는 둘 다 해당하지 않는다.
+        /// </para>
+        /// <para>
+        /// 하나는 "Layout Group 안에서 공간이 사라져 나머지가 이동한다"인데,
+        /// 제목은 <b>그렇게 되는 것이 맞다.</b> 제목 없는 기존 팝업(확인/취소)에서
+        /// 제목 자리가 빈 공간으로 남으면, 제목 필드를 추가했다는 이유만으로
+        /// 이미 쓰이고 있는 팝업들의 생김새가 달라진다. 그것을 막는 것이 이 처리의 목적이다.
+        /// </para>
+        /// <para>
+        /// 다른 하나는 "오브젝트 내부 로직(Update 등)이 멈춘다"인데,
+        /// 제목은 글자만 표시하는 텍스트라 멈출 로직이 없다.
+        /// </para>
+        /// <para>
+        /// ⚠️ <b>프리팹 전제 조건</b> — 위의 "공간이 사라진다"는 동작은
+        /// 부모(ConfirmPopup 프리팹의 Panel)에 <b>VerticalLayoutGroup 이 있어야</b> 성립한다.
+        /// 레이아웃 그룹이 없는 앵커 배치라면 숨긴 제목의 자리가 빈 공간으로 남아,
+        /// 제목 없는 기존 팝업의 본문이 아래로 밀려 내려간다.
+        /// (같은 이유로 취소 버튼은 ButtonRow 의 HorizontalLayoutGroup 에 의존한다.)
+        /// </para>
+        /// </summary>
+        private void ApplyTitle(string title)
+        {
+            if (_titleText == null) return;   // Inspector 미배선 — 조용히 넘어간다
+
+            bool hasTitle = !string.IsNullOrEmpty(title);
+            if (hasTitle)
+                _titleText.text = title;
+
+            if (_titleText.gameObject.activeSelf != hasTitle)
+                _titleText.gameObject.SetActive(hasTitle);
+        }
+
+        /// <summary>
+        /// 취소 버튼의 표시 여부를 바꾼다. 알림 팝업(버튼 1개)에서는 숨긴다.
+        /// 숨김 방식을 SetActive 로 고른 이유는 <see cref="ApplyTitle"/> 과 같다 —
+        /// 버튼이 나란히 놓인 Layout Group 에서 숨긴 버튼의 자리가 남으면
+        /// 남은 버튼 하나가 한쪽으로 치우쳐 보인다.
+        /// </summary>
+        private void SetCancelButtonVisible(bool visible)
+        {
+            if (_cancelButton == null) return;   // Inspector 미배선 — 조용히 넘어간다
+
+            if (_cancelButton.gameObject.activeSelf != visible)
+                _cancelButton.gameObject.SetActive(visible);
         }
 
         /// <summary>
