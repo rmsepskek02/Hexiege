@@ -204,3 +204,61 @@ SO 300 → LoadingIndicator 독립 Canvas
 - AnimatedPanel m_IsActive: MonoBehaviour(114) GUID 매칭 → m_GameObject fileID → 해당 GO body m_IsActive
 - 폰트: Maplestory Light/Bold SDF (LiberationSans SDF 금지 — Rule 6)
 - Canvas Scaler 1080×1920 ScaleWithScreenSize (Rule 1)
+
+---
+
+## Result screen — reflecting the opponent's leave, step 7 (2026-09-21)
+
+Rule source: `GameSystemRules_UI.md` 「공통 UI 규칙」 **D-1**(timer wording) · **D-2**(rematch button off) ·
+**D-3**(lobby button never off) · **D-4**(restart the countdown at **30s**). The verdict itself is steps 5·6 →
+[network-infra.md](network-infra.md).
+
+| File | What |
+|---|---|
+| `Presentation/UI/GameEndUI.cs` | one subscription to `GameEvents.OnNetworkOpponentLeft` → `OnOpponentLeft()`; `CountdownCoroutine` now takes `float totalSeconds`; leave-only entry `RestartCountdownForOpponentLeft()` |
+| `Presentation/UI/NetworkStatusUI.cs` | suppresses the `DisconnectPanel` popup while the result screen is up |
+
+- 🔴 **The leave wording lives in exactly one place**, `private const string OpponentLeftCountdownFormat`,
+  and splits from the normal wording by a **single ternary inside `CountdownCoroutine`**. Verification grep is
+  `grep -rn "초 뒤 로비로 이동합니다" Assets/_Project/Scripts/` → must be 1 hit (the const).
+  ⚠️ **Do not quote that wording in comments** — a comment copy makes that grep unusable
+  (this bit in the same session: two comments quoted it and had to be reworded).
+- 🔴 **D-4's 30s is a `private const`, not a `[SerializeField]`** — same reason as step 6: a serialized field
+  is written into `Game.unity` and the scene value then beats the code default (the `_autoReturnSeconds`
+  30→60 case needed both places). ✅ Consequence: **step 7 needs no scene edit.**
+- 🔴 **The 30s restart must not share an entry point with 규칙 M-3's restart** (that one restarts at the
+  **full** length and is still unimplemented). Shape used: `CountdownCoroutine(float totalSeconds)` is the
+  shared body, the two normal starts pass `_autoReturnSeconds`, and **only** `RestartCountdownForOpponentLeft()`
+  passes 30s. M-3 will need its own entry method.
+- **D-3 held by doing nothing**: `_backToLobbyButton` is never set to `false` anywhere in the repo; the only
+  assignment left is `= true` in `RestoreRematchButton()`.
+- **`RestoreRematchButton()` now refuses to re-enable the rematch button once `_opponentLeft` is set.**
+  It is called by the rematch-declined *and* rematch-map-failed channels, either of which can arrive **after**
+  the leave notification and would otherwise re-enable a button D-2 just turned off. The lobby-button line in
+  the same method is untouched (D-3).
+- `_opponentLeft` is reset in `Initialize()` (called per `LoadMap()`), so a rematch never starts on the
+  previous match's wording.
+
+### 🔴 Why the 「연결이 끊겼습니다」 popup is suppressed, and how (D-1)
+
+- **The collision**: the leave verdict closes the connection (규칙 17), that shutdown reaches
+  `NetworkGameManager.HandleClientDisconnected` (which `BackToLobby`/`DisconnectAsync` never unsubscribe, so it
+  fires on *intentional* exits too), which raises `OnServerDisconnected`, which `NetworkStatusUI` turns into the
+  `DisconnectPanel` popup — **on top of the result screen, covering the D-1 wording.**
+- **Chosen fix**: `NetworkStatusUI` subscribes to `GameEvents.OnGameEnd` and sets `_resultScreenShown`;
+  `OnServerDisconnected` returns early (with one dev-axis log line) while that flag is true.
+- **Why keyed on 「the result screen is up」 rather than 「an opponent-left signal arrived」**: the flag is set
+  when the result screen appears, i.e. **before** any disconnect can arrive, so the suppression cannot lose a
+  race. Keying it on `OnNetworkOpponentLeft` would depend on that RPC/event landing before the transport
+  callback — an ordering nobody can prove from code, and the normal-exit branch sends its RPC in the same frame
+  as `Shutdown()`. 🔴 It also covers the branch where the *notification* never arrives at all.
+- **Why in `NetworkStatusUI` and not in Infrastructure**: `OnServerDisconnected` is also the in-match path, and
+  the owner of "which screen is showing" is Presentation. Suppressing at the publisher would kill both.
+- ✅ **Untouched path**: a real in-match disconnect (before game end) still shows the popup — `_resultScreenShown`
+  can only be true after `OnGameEnd`. `ForceWin` on a client whose link dropped also still shows it (that client
+  never received `AnnounceWinnerClientRpc`, so no `OnGameEnd`).
+- ⚠️ **Consequence to keep in mind**: after game end, *any* disconnect is now silent on that screen, including
+  「my own internet died and the watchdog therefore refuses to judge」. The user is not trapped — D-3 keeps the
+  lobby button on and D-4 auto-returns — but the only sign is the log line.
+- ⚠️ **Unverified (no Unity here)**: compilation and every runtime behaviour, including whether the popup
+  actually used to overlap (it is inferred from the code path, not observed).

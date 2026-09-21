@@ -80,6 +80,43 @@ namespace Hexiege.Presentation
         [SerializeField] private TextMeshProUGUI _restartButtonText;
 
         // ====================================================================
+        // 상대 이탈 관련 고정값 (공통 UI 규칙 D-1 · D-4)
+        //
+        // [초급자용 설명] 왜 [SerializeField] 가 아니라 const 인가
+        //   [SerializeField] 로 두면 그 값이 씬 파일(Game.unity)에 저장되고,
+        //   런타임에는 **씬에 저장된 값이 코드 기본값을 덮어쓴다.**
+        //   그래서 코드만 고치면 실제 동작이 바뀌지 않는 함정이 생긴다
+        //   (바로 위 _autoReturnSeconds 가 실제로 그 함정에 걸려 코드와 씬을 모두 고쳐야 했다).
+        //   아래 두 값은 규칙이 고정한 값이라 Inspector 에서 조절할 이유가 없으므로
+        //   const 로 둬서 「코드 한 자리만 고치면 끝」이 되게 한다(씬 작업 불필요).
+        // ====================================================================
+
+        /// <summary>
+        /// 상대 이탈 시 타이머 텍스트 문구 형식 (공통 UI 규칙 D-1).
+        /// <c>{0}</c> 자리에 남은 초가 들어간다.
+        ///
+        /// 🔴 <b>이 문자열은 코드 전체에 이 한 곳에만 둔다.</b> 평시 문구와는
+        /// <c>CountdownCoroutine</c> 안의 분기 하나로만 갈린다 — 같은 문구를 두 곳에 적으면
+        /// 한쪽만 고쳐졌을 때 화면에 두 가지 표현이 섞여 나온다.
+        /// </summary>
+        private const string OpponentLeftCountdownFormat = "상대방이 떠났습니다. {0}초 뒤 로비로 이동합니다.";
+
+        /// <summary>
+        /// 상대 이탈 판정 시 자동 로비 복귀 카운트다운을 다시 시작할 길이(초) — 공통 UI 규칙 D-4.
+        ///
+        /// [초급자용 설명] 왜 남은 시간을 그대로 쓰지 않는가
+        ///   이탈은 카운트다운이 거의 끝나갈 때 판정될 수도 있다. 그때 남은 시간을 그대로 두면
+        ///   바뀐 타이머 문구를 읽기도 전에 화면이 사라져 버린다. 그래서 판정 시점의
+        ///   남은 시간이 얼마였든 **무조건 30초로 다시 시작**해 읽을 시간을 보장한다.
+        ///
+        /// ⚠️ <b>규칙 M-3(재경기 맵 준비 실패)의 카운트다운 재시작과 섞지 않는다.</b>
+        ///    그쪽은 <b>전체 길이</b>(_autoReturnSeconds)로 재시작하고 이쪽은 <b>30초</b>다.
+        ///    재시작 시점도 길이도 다르므로 진입 메서드를 공유하지 않는다
+        ///    (이탈 전용 진입점은 <c>RestartCountdownForOpponentLeft()</c> 하나뿐이다).
+        /// </summary>
+        private const float OpponentLeftCountdownSeconds = 30f;
+
+        // ====================================================================
         // 색상 설정
         // ====================================================================
 
@@ -105,6 +142,16 @@ namespace Hexiege.Presentation
 
         /// <summary> 네트워크 로비 복귀(씬 전환) 이벤트 구독 해제용. </summary>
         private System.IDisposable _backToLobbySubscription;
+
+        /// <summary> 결과 화면에서의 상대 이탈 알림 구독 해제용 (공통 UI 규칙 D-1 · D-2 · D-4). </summary>
+        private System.IDisposable _opponentLeftSubscription;
+
+        /// <summary>
+        /// 상대가 이탈한 것으로 판정됐는지 여부.
+        /// 카운트다운 문구를 평시/이탈 중 어느 쪽으로 쓸지 가르고(규칙 D-1),
+        /// 이탈 뒤에 재경기 버튼이 다시 켜지지 않게 막는 데도 쓴다(규칙 D-2).
+        /// </summary>
+        private bool _opponentLeft;
 
         /// <summary> 자동 로비 복귀 카운트다운 코루틴. </summary>
         private Coroutine _countdownCoroutine;
@@ -145,6 +192,11 @@ namespace Hexiege.Presentation
             _rematchMapFailedSubscription?.Dispose();
             _rematchStartingSubscription?.Dispose();
             _backToLobbySubscription?.Dispose();
+            _opponentLeftSubscription?.Dispose();
+
+            // 새 판이 시작되므로 지난 판의 이탈 상태를 지운다.
+            // (이 플래그가 남아 있으면 새 결과 화면이 처음부터 이탈 문구로 뜬다)
+            _opponentLeft = false;
 
             // 게임 종료 이벤트 구독
             // NetworkGameEndController가 GameEvents.OnGameEnd를 발행하므로 싱글/멀티 모두 본 구독으로 ShowResult 진입한다.
@@ -183,6 +235,14 @@ namespace Hexiege.Presentation
             _backToLobbySubscription = GameEvents.OnNetworkBackToLobby
                 .Subscribe(sceneName => SceneLoader.Load(sceneName));
 
+            // [상대 이탈] 결과 화면이 떠 있는 동안 상대가 사라졌다는 통보.
+            //   발행자는 Infrastructure 의 NetworkGameEndController 이며 두 갈래가 이 한 채널을 쓴다 —
+            //     ① 상대가 로비 복귀 버튼으로 스스로 나간 정상 퇴장(상대가 나가기 직전에 보낸 통보)
+            //     ② 30초 동안 상대의 신호가 끊긴 무반응 이탈(내 쪽에서 직접 판정)
+            //   🔴 화면이 해야 할 일은 두 갈래가 완전히 같으므로(규칙 17) 구독도 하나만 둔다.
+            _opponentLeftSubscription = GameEvents.OnNetworkOpponentLeft
+                .Subscribe(_ => OnOpponentLeft());
+
             // 다시하기 버튼 이벤트 (중복 등록 방지)
             if (_restartButton != null)
             {
@@ -210,6 +270,7 @@ namespace Hexiege.Presentation
             _rematchMapFailedSubscription?.Dispose();
             _rematchStartingSubscription?.Dispose();
             _backToLobbySubscription?.Dispose();
+            _opponentLeftSubscription?.Dispose();
         }
 
         // ====================================================================
@@ -264,8 +325,8 @@ namespace Hexiege.Presentation
             // 게임 일시정지
             Time.timeScale = 0f;
 
-            // 자동 로비 복귀 카운트다운 시작
-            _countdownCoroutine = StartCoroutine(CountdownCoroutine());
+            // 자동 로비 복귀 카운트다운 시작 (평시 = 전체 길이)
+            _countdownCoroutine = StartCoroutine(CountdownCoroutine(_autoReturnSeconds));
         }
 
         /// <summary>
@@ -336,8 +397,8 @@ namespace Hexiege.Presentation
             // 게임 일시정지
             Time.timeScale = 0f;
 
-            // 자동 로비 복귀 카운트다운 시작
-            _countdownCoroutine = StartCoroutine(CountdownCoroutine());
+            // 자동 로비 복귀 카운트다운 시작 (평시 = 전체 길이)
+            _countdownCoroutine = StartCoroutine(CountdownCoroutine(_autoReturnSeconds));
         }
 
         // ====================================================================
@@ -397,18 +458,86 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 자동 로비 복귀 카운트다운. WaitForSecondsRealtime 사용 (timeScale=0 대응).
+        ///
+        /// 문구는 <b>상대 이탈 여부에 따라 이 메서드 안의 분기 하나로만</b> 갈린다(공통 UI 규칙 D-1).
+        /// 이탈 사실과 남은 시간은 사용자에게 한 덩어리의 정보라, 별도 팝업을 새로 띄우지 않고
+        /// <b>이미 떠 있는 타이머 텍스트 자리</b>를 그대로 쓴다.
         /// </summary>
-        private IEnumerator CountdownCoroutine()
+        /// <param name="totalSeconds">
+        /// 카운트다운 전체 길이(초). 평시에는 <c>_autoReturnSeconds</c>(규칙 D-4 의 60초),
+        /// 상대 이탈 판정 시에는 <c>OpponentLeftCountdownSeconds</c>(30초)가 들어온다.
+        /// </param>
+        private IEnumerator CountdownCoroutine(float totalSeconds)
         {
-            float remaining = _autoReturnSeconds;
+            float remaining = totalSeconds;
             while (remaining > 0f)
             {
                 if (_countdownText != null)
-                    _countdownText.text = $"{Mathf.CeilToInt(remaining)}초 후 로비로 돌아갑니다.";
+                {
+                    int seconds = Mathf.CeilToInt(remaining);
+                    // 🔴 규칙 D-1 의 이탈 문구는 상수 한 곳(OpponentLeftCountdownFormat)에만 있고
+                    //    평시 문구와는 이 삼항 분기 하나로 갈린다.
+                    _countdownText.text = _opponentLeft
+                        ? string.Format(OpponentLeftCountdownFormat, seconds)
+                        : $"{seconds}초 후 로비로 돌아갑니다.";
+                }
                 yield return new WaitForSecondsRealtime(1f);
                 remaining -= 1f;
             }
             ReturnToLobby();
+        }
+
+        // ====================================================================
+        // 상대 이탈 반영 (공통 UI 규칙 D-1 · D-2 · D-3 · D-4)
+        // ====================================================================
+
+        /// <summary>
+        /// 결과 화면이 떠 있는 동안 상대가 사라졌다는 통보를 받았을 때의 화면 처리.
+        ///
+        /// 하는 일은 셋이다.
+        ///   1. <b>재경기 버튼 비활성화</b>(규칙 D-2) — 상대가 없으니 요청해도 받을 사람이 없다.
+        ///      누를 수 있게 두면 응답이 영영 오지 않는 요청으로 사용자를 또 기다리게 만든다.
+        ///   2. <b>카운트다운을 30초로 다시 시작</b>(규칙 D-4).
+        ///   3. <b>타이머 문구 교체</b>(규칙 D-1) — 문구 자체는 아래 플래그를 보고
+        ///      <c>CountdownCoroutine</c> 이 매 초 갱신하므로 여기서 직접 쓰지 않는다.
+        ///
+        /// 🔴 <b>로비 복귀 버튼은 여기서 끄지 않는다</b>(규칙 D-3). 이탈 판정 뒤에도 켜 둔다 —
+        ///    두 버튼이 동시에 꺼지면 사용자가 스스로 화면을 빠져나갈 방법이 없어진다.
+        ///    이탈로 꺼지는 것은 재경기 버튼뿐이다.
+        /// </summary>
+        private void OnOpponentLeft()
+        {
+            // 같은 사건이 두 번 도달할 수 있다 — 상대의 정상 퇴장 통보가 먼저 오고,
+            // 그 직후 내 쪽 무반응 감시가 같은 침묵을 이탈로 판정하는 경우가 그렇다.
+            // 두 번째 신호로 카운트다운이 30초부터 다시 시작되면 화면이 영영 안 닫힐 수 있으니 막는다.
+            if (_opponentLeft) return;
+            _opponentLeft = true;
+
+            // 규칙 D-2 — 재경기 버튼 비활성화.
+            //   버튼 텍스트("요청 중..." 등)는 건드리지 않는다. 이탈 사실을 알리는 자리는
+            //   규칙 D-1 이 정한 타이머 텍스트 한 곳뿐이다.
+            if (_restartButton != null)
+                _restartButton.interactable = false;
+
+            // 규칙 D-4 — 카운트다운 30초 재시작. 이때부터 문구가 이탈 문구로 바뀐다(규칙 D-1).
+            RestartCountdownForOpponentLeft();
+        }
+
+        /// <summary>
+        /// 상대 이탈 판정 시 자동 로비 복귀 카운트다운을 <b>30초로</b> 다시 시작한다(규칙 D-4).
+        ///
+        /// ⚠️ <b>이탈 전용 진입점이다.</b> 규칙 M-3(재경기 맵 준비 실패)의 카운트다운 재시작은
+        ///    <b>전체 길이</b>로 다시 시작하는 별개의 규정이므로 이 메서드를 쓰지 않는다
+        ///    (그쪽은 아직 미구현이며, 구현할 때도 이 메서드를 재사용하지 말 것 —
+        ///     길이가 달라 한쪽을 고치면 다른 쪽이 조용히 망가진다).
+        /// </summary>
+        private void RestartCountdownForOpponentLeft()
+        {
+            // 돌고 있던 카운트다운(평시 60초)을 멈추고 30초로 새로 시작한다.
+            // StopCountdown() 이 텍스트를 비우지만, 아래 코루틴이 첫 yield 전에 다시 채우므로
+            // 사용자에게는 빈 텍스트가 보이지 않는다.
+            StopCountdown();
+            _countdownCoroutine = StartCoroutine(CountdownCoroutine(OpponentLeftCountdownSeconds));
         }
 
         /// <summary>
@@ -451,7 +580,12 @@ namespace Hexiege.Presentation
         /// </summary>
         public void RestoreRematchButton()
         {
-            if (_restartButton != null)
+            // 🔴 상대가 이미 이탈한 뒤라면 재경기 버튼을 되살리지 않는다(규칙 D-2).
+            //    이 메서드는 「재경기 거절」·「재경기 맵 준비 실패」 두 채널이 부르는데,
+            //    그 신호가 이탈 통보보다 늦게 도착하면 꺼 둔 버튼이 다시 켜져
+            //    받을 사람이 없는 요청을 다시 보낼 수 있게 된다.
+            //    (로비 복귀 버튼을 켜는 아래 줄은 그대로 실행한다 — 규칙 D-3 은 항상 켜 두라고 정한다.)
+            if (_restartButton != null && !_opponentLeft)
             {
                 if (_restartButtonText != null)
                     _restartButtonText.text = "다시하기";

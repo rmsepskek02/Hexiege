@@ -8,6 +8,8 @@
 //   3. 연결 끊김 감지:
 //      - 서버: 상대방(클라이언트)이 나갔을 때 ReconnectionHandler에 위임 (이 UI는 발행 안 함)
 //      - 클라이언트: 서버 연결이 끊겼을 때 NetworkGameManager.OnServerDisconnected 수신 → 팝업 표시
+//      - 🔴 단, **경기가 끝나 결과 화면이 떠 있는 동안에는 이 팝업을 띄우지 않는다**
+//        (공통 UI 규칙 D-1 — 아래 OnServerDisconnected 주석이 이유를 설명한다)
 //
 // 씬 구조 (Inspector에서 수동 배치):
 //   [UI] Canvas
@@ -29,6 +31,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UniRx;
 using Hexiege.Application;
 using Hexiege.Infrastructure;
 
@@ -84,6 +87,15 @@ namespace Hexiege.Presentation
         /// <summary> 이미 연결 끊김 팝업을 표시했는지 여부 (중복 표시 방지). </summary>
         private bool _disconnectHandled;
 
+        /// <summary>
+        /// 경기가 끝나 결과 화면(GameEndUI)이 떠 있는지 여부.
+        /// true 이면 연결 끊김 팝업을 띄우지 않는다 — 이유는 OnServerDisconnected 주석 참조.
+        /// </summary>
+        private bool _resultScreenShown;
+
+        /// <summary> 게임 종료 이벤트 구독 해제용. </summary>
+        private System.IDisposable _gameEndSubscription;
+
         // ====================================================================
         // Unity 생명주기
         // ====================================================================
@@ -121,6 +133,16 @@ namespace Hexiege.Presentation
             if (_networkGameManager != null)
                 _networkGameManager.OnServerDisconnected += OnServerDisconnected;
 
+            // [결과 화면 여부 추적] 경기가 끝났는지만 알면 되므로 GameEvents.OnGameEnd 를 구독한다.
+            //   이 이벤트는 싱글/멀티, Host/Client 어느 쪽에서도 결과 화면이 뜨는 순간 발행되므로
+            //   (서버는 OnGameEndServer 직전, 클라이언트는 AnnounceWinnerClientRpc 안에서 발행)
+            //   역할에 따라 판정이 갈리지 않는다.
+            //   🔴 GameEndUI 를 직접 참조하지 않는 이유: UI 컴포넌트끼리 서로를 붙잡으면
+            //      배치 순서·파괴 순서에 따라 null 이 되고, 이 프로젝트의 UI 는 서로를 직접
+            //      참조하지 않고 GameEvents 로만 소통하는 관례를 쓴다.
+            _gameEndSubscription = GameEvents.OnGameEnd
+                .Subscribe(_ => _resultScreenShown = true);
+
             // [개발] Info + 개발. 멀티플레이 진입 시의 의도된 정상 흐름 통보다.
             GameLog.Dev.Info("Network", nameof(NetworkStatusUI), "네트워크 상태 모니터링 시작");
         }
@@ -137,6 +159,9 @@ namespace Hexiege.Presentation
             // 이벤트 구독 해제 (NGM이 살아있는 경우에만)
             if (_networkGameManager != null)
                 _networkGameManager.OnServerDisconnected -= OnServerDisconnected;
+
+            // 게임 종료 이벤트 구독 해제 (누수 방지)
+            _gameEndSubscription?.Dispose();
         }
 
         // ====================================================================
@@ -196,6 +221,42 @@ namespace Hexiege.Presentation
         private void OnServerDisconnected()
         {
             if (_disconnectHandled) return;
+
+            // ================================================================
+            // 🔴 경기가 끝나 결과 화면이 떠 있으면 이 팝업을 띄우지 않는다 (공통 UI 규칙 D-1).
+            //
+            // [초급자용 설명] 왜 억제하는가
+            //   결과 화면에서 상대가 나가면, 그 사실은 **결과 화면의 타이머 텍스트**가
+            //   상대가 떠났다는 문구와 남은 시간을 함께 적어 알려 준다(규칙 D-1 —
+            //   그 문구의 원본은 GameEndUI 의 OpponentLeftCountdownFormat 상수 한 곳뿐이다).
+            //   규칙 D-1 은 그 알림을 위해 **별도 팝업을 새로 띄우지 말라**고 정한다 —
+            //   「상대가 떠났다」와 「남은 시간」은 사용자에게 한 덩어리의 정보이고,
+            //   두 자리로 나누면 서로를 가리기 때문이다.
+            //   그런데 이탈 판정은 연결도 함께 종료하므로(규칙 17) 그 종료가
+            //   NetworkGameManager.HandleClientDisconnected 를 타고 이 핸들러까지 올라온다.
+            //   (의도적으로 나갈 때도 OnClientDisconnectCallback 구독이 해제되지 않아
+            //    같은 핸들러가 불린다 — NetworkGameManager 쪽 주석에 그 사실이 적혀 있다.)
+            //   그대로 두면 결과 화면 위에 "상대방이 연결을 끊었습니다" 팝업이 겹쳐 떠서
+            //   규칙 D-1 의 문구를 가린다. 그래서 **결과 화면일 때만** 팝업을 건너뛴다.
+            //
+            // 🔴 [무엇을 죽이지 않았는가] **경기 진행 중(결과 화면이 뜨기 전)의 진짜 연결 끊김은
+            //    종전과 똑같이 이 팝업을 띄운다.** 그 경로에서는 결과 화면이 없어 사용자에게
+            //    사유를 알릴 다른 자리가 아예 없으므로 팝업이 유일한 통보 수단이다.
+            //    아래 플래그는 결과 화면이 떠 있을 때만 true 가 되므로 인게임 경로는 무영향이다.
+            //
+            // 사용자가 화면에 갇히지 않는 근거: 결과 화면의 로비 복귀 버튼은 어떤 상태에서도
+            //    꺼지지 않으며(규칙 D-3), 카운트다운이 만료되면 자동으로 로비로 이동한다(규칙 D-4).
+            // ================================================================
+            if (_resultScreenShown)
+            {
+                // [개발] Info + 개발. 「팝업을 일부러 띄우지 않았다」는 판단을 남긴다 —
+                //   화면에 아무 변화가 없는 분기라, 로그가 없으면 나중에 "팝업이 안 뜬다"는
+                //   버그 제보와 이 의도된 억제를 구분할 수 없다.
+                GameLog.Dev.Info("Network", nameof(NetworkStatusUI),
+                    "서버 연결 끊김 알림 수신 — 결과 화면이 떠 있어 팝업을 띄우지 않는다(규칙 D-1)");
+                _disconnectHandled = true;
+                return;
+            }
 
             // [개발] Info + 개발.
             //   축 A: 이 자리는 "끊김을 알리는 이벤트를 받았다"는 사실만 남기는 통보다.
