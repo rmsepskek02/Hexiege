@@ -804,3 +804,41 @@ AnnounceWinnerClientRpc((int)winnerTeam, false);
   "Forfeit" sounds like leaving; the code showed a rematch button. The premise was checkable in the same
   method, three lines above the call — check the neighbouring lines before accepting a rationale, including
   one handed down with the task.
+
+## `ForceWin` never published `OnGameEnd` on the Host (fixed 2026-09-21) — a pre-existing hole, 3rd instance of one pattern
+
+`NetworkGameEndController.ForceWin(int)` (opponent's connection dropped → forced win) called
+`AnnounceWinnerClientRpc` and nothing else. That RPC publishes `GameEvents.OnGameEnd` **inside a
+`!IsServer` block**, so on the Host the publish never happened:
+
+| peer | `!IsServer` | result |
+|---|---|---|
+| Client | true | `OnGameEnd` published → result screen shows |
+| Host | false | nothing published → **no result screen, and combat keeps ticking** |
+
+- 🔴 **The missing publish has two victims, not one.** `GameEndUI` is the obvious one; the second is
+  `NetworkCombatController`, which *subscribes* to `OnGameEnd` to stop the server combat tick
+  (`_combatStopped`, see 「게임 종료 후 서버 틱 정지」 above). So a missing publish is not only a UI bug —
+  **the match physically keeps running on the authoritative side.**
+- **Log signature of the bug** (how it was proven from a real run, `_Logs/_editor/2026-09-22/RuntimeLog.txt`):
+  the line `[Network/NetworkCombatController] 게임 종료 — 전투 틱 정지` is present on the normal-end path and
+  **absent** on the `ForceWin` path. A subscriber's own log line is the cheapest proof that a publish
+  did or did not happen — cheaper than instrumenting the publisher.
+- **Fix**: publish in `ForceWin`, **before** `AnnounceWinnerClientRpc`, exactly as the forfeit path already
+  did (`TeamId winnerTeam = (TeamId)winnerTeamIndex;` — the same cast `AnnounceWinnerClientRpc` uses; no new
+  conversion helper). `_announced = true` is set earlier in the method, so `OnGameEndServer` receiving this
+  publish hits its own `_announced` guard and returns → no double announcement.
+- **What the fix deliberately does NOT do**: it does not arm the result-screen leave watch. Publishing
+  `OnGameEnd` and arming the watch are **independent** — the watch's only entry point is
+  `BeginResultScreenLeaveWatchClientRpc`, still sent from exactly two sites (`OnGameEndServer`,
+  `ForfeitServerRpc`). Verified: 0 calls inside `ForceWin`'s body.
+- 🔴 **Reusable lesson (the pattern has now bitten three times in this one file: 2026-05-27 forfeit,
+  2026-09-21 ForceWin, and the `!IsServer`-guard confusion noted in `MEMORY.md`): when a path bypasses
+  `GameEndUseCase` and calls the announce RPC directly, it inherits none of the server-side side effects.**
+  So whenever a fix is applied to one sender of a shared RPC, **enumerate the other senders right then** —
+  the 2026-05-27 comment already described this exact cause and cure, and the sibling path stayed broken
+  anyway because nobody listed the senders at that time. (Same enumeration habit as the step-6 correction
+  above, in the opposite direction: there a hook was added to *all* senders when only some wanted it.)
+- ⚠️ **Unverified**: compilation (no Unity/`Unity.Netcode` here — this file cannot be built headless) and
+  runtime. Static checks only: brace balance 65/65 after stripping comments/strings, publisher count
+  4 → 5 repo-wide, watch-RPC send sites unchanged at 2.

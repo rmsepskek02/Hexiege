@@ -429,6 +429,34 @@ namespace Hexiege.Infrastructure
                 "ForceWin 호출 — 상대 연결 끊김으로 강제 승리 처리",
                 $"WinnerTeamIndex={winnerTeamIndex}");
 
+            // ----------------------------------------------------------------
+            // [버그 수정 2026-09-21] 호스트(서버) 측 결과 화면 미표시 + 전투 계속 진행 문제 해결
+            // ----------------------------------------------------------------
+            // [초급자용 설명] 바로 아래에서 부르는 AnnounceWinnerClientRpc 는 본문에서
+            //   "서버가 아닐 때(!IsServer)"에만 OnGameEnd 를 발행하도록 되어 있다. 그래서:
+            //     - 클라이언트(비서버): 조건 성립  → OnGameEnd 발행 → 결과 화면 정상 표시
+            //     - 호스트(서버):       조건 불성립 → OnGameEnd 미발행 → 화면에 아무것도 뜨지 않고
+            //                            전투도 계속 돈다. (NetworkCombatController 가 OnGameEnd 를
+            //                            구독해 전투 틱을 정지시키므로, 발행이 없으면 정지도 없다.)
+            //   정상 종료(성 파괴) 경로는 GameEndUseCase 가 OnGameEnd 를 먼저 발행하기 때문에
+            //   이 문제가 드러나지 않는다. 그러나 ForceWin 은 GameEndUseCase 를 건너뛰고
+            //   ClientRpc 만 곧바로 부르므로, 서버 측에서 OnGameEnd 를 직접 발행해 줘야 한다.
+            //
+            // 🔴 아래 포기 경로(ForfeitServerRpc)와 **원인도 해법도 똑같은 문제**다.
+            //   그 자리의 "[버그 수정 2026-05-27] 호스트 측 GameEndUI 미표시 문제 해결" 주석 블록을
+            //   함께 보라. 그때 포기 경로만 고쳐지고 ForceWin 에는 같은 수정이 들어가지 않아
+            //   이 경로에만 남아 있던 버그다.
+            //
+            // [중복 처리가 없는 이유] 위에서 이미 _announced 를 true 로 만들었다. 따라서 이 발행을
+            //   서버 자신의 구독자인 OnGameEndServer 가 다시 받아도 그 메서드 앞머리의 _announced
+            //   가드에 걸려 즉시 반환된다 — 발표가 두 번 일어나지 않는다.
+            //
+            // int(winnerTeamIndex) → TeamId 변환은 이 파일 AnnounceWinnerClientRpc 가 쓰는 방식과
+            // 동일한 캐스팅이다(새 변환 수단을 만들지 않는다).
+            // ----------------------------------------------------------------
+            TeamId winnerTeam = (TeamId)winnerTeamIndex;
+            GameEvents.OnGameEnd.OnNext(new GameEndEvent(winnerTeam));
+
             // 연결 끊김 시 재경기 불가 — isRandomMatch=false
             AnnounceWinnerClientRpc(winnerTeamIndex, false);
 
