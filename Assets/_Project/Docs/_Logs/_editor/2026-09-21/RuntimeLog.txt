@@ -1,0 +1,85 @@
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-09-21 17:31:54 ===
+
+[17:31:54.758] [INFO] [Bootstrap/LoginBootstrapper] Android 가 아니라 GooglePlayGames 활성화를 건너뛴다 | Platform=NonAndroid
+[17:31:56.061] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[17:31:56.073] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[17:31:56.075] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[17:31:56.128] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[17:31:58.473] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[17:31:58.474] [INFO] [Bootstrap/LoginBootstrapper] 자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다 | IsFirstLogin=False
+[17:32:14.888] [INFO] [Network/NetworkGameManager] 초기화 시작
+[17:32:14.889] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[17:32:14.889] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[17:32:14.890] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[17:32:14.890] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[17:32:14.913] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[17:32:22.534] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[17:32:22.546] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[17:32:22.599] [INFO] [Map/GameBootstrapper] 맵 준비 완료 | Event=MapPreparationSucceeded, MapVersion=2, Seed=4114721808904999031, MapType=FullyOpen, NeutralMineCount=6, StartingMineSide=CaseB, InitialGold=200, ElapsedMs=39, AttemptCount=1, UsedFallback=False, Hash=73410f9f00424c64, ErrorCode=None
+[17:32:22.933] [INFO] [Bootstrap/GameBootstrapper] AI 시나리오 선택 | AiRace=Transcendence, Scenario=Trans-Flora, Index=1
+[17:32:22.937] [INFO] [Bootstrap/GameBootstrapper] AI 초기화 완료 | Difficulty=Easy, Scenario=Trans-Flora, GoldIncomeMultiplier=0.7
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-09-21 17:36:50 ===
+
+[17:36:50.916] [INFO] [Bootstrap/LoginBootstrapper] Android 가 아니라 GooglePlayGames 활성화를 건너뛴다 | Platform=NonAndroid
+[17:36:51.809] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[17:36:51.821] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[17:36:51.823] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[17:36:51.880] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[17:36:54.442] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[17:36:54.443] [INFO] [Bootstrap/LoginBootstrapper] 자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다 | IsFirstLogin=False
+[17:37:00.869] [INFO] [Network/NetworkGameManager] 초기화 시작
+[17:37:00.871] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[17:37:00.872] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[17:37:00.872] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[17:37:00.874] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[17:37:00.910] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[17:37:19.638] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[17:37:19.658] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[17:37:19.735] [INFO] [Map/GameBootstrapper] 맵 준비 완료 | Event=MapPreparationSucceeded, MapVersion=2, Seed=10647977908966638312, MapType=ObstacleOpen, NeutralMineCount=5, StartingMineSide=CaseA, InitialGold=300, ElapsedMs=59, AttemptCount=1, UsedFallback=False, Hash=c766e007669a665a, ErrorCode=None
+[17:37:20.043] [INFO] [Bootstrap/GameBootstrapper] AI 시나리오 선택 | AiRace=Human, Scenario=Human-Rush, Index=0
+[17:37:20.049] [INFO] [Bootstrap/GameBootstrapper] AI 초기화 완료 | Difficulty=Easy, Scenario=Human-Rush, GoldIncomeMultiplier=0.7
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-09-21 17:38:52 ===
+
+[17:38:52.486] [INFO] [Bootstrap/LoginBootstrapper] Android 가 아니라 GooglePlayGames 활성화를 건너뛴다 | Platform=NonAndroid
+[17:38:53.331] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[17:38:53.339] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[17:38:53.342] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[17:38:53.397] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[17:38:55.599] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[17:38:55.602] [INFO] [Bootstrap/LoginBootstrapper] 자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다 | IsFirstLogin=False
+[17:39:09.490] [INFO] [Network/NetworkGameManager] 초기화 시작
+[17:39:09.491] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[17:39:09.492] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[17:39:09.492] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[17:39:09.492] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[17:39:09.519] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-09-21 17:40:43 ===
+
+[17:40:43.626] [INFO] [Bootstrap/LoginBootstrapper] Android 가 아니라 GooglePlayGames 활성화를 건너뛴다 | Platform=NonAndroid
+[17:40:44.325] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[17:40:44.334] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[17:40:44.336] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[17:40:44.381] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[17:40:46.779] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[17:40:46.781] [INFO] [Bootstrap/LoginBootstrapper] 자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다 | IsFirstLogin=False
+[17:40:49.148] [INFO] [Network/NetworkGameManager] 초기화 시작
+[17:40:49.150] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[17:40:49.151] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[17:40:49.151] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[17:40:49.152] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[17:40:49.177] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[17:40:56.625] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[17:40:56.640] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[17:40:56.703] [INFO] [Map/GameBootstrapper] 맵 준비 완료 | Event=MapPreparationSucceeded, MapVersion=2, Seed=9061115872385720760, MapType=ThreeLane, NeutralMineCount=6, StartingMineSide=CaseB, InitialGold=200, ElapsedMs=45, AttemptCount=1, UsedFallback=False, Hash=03d4f23df059b0b1, ErrorCode=None
+[17:40:56.980] [INFO] [Bootstrap/GameBootstrapper] AI 시나리오 선택 | AiRace=Human, Scenario=Human-Tech, Index=1
+[17:40:56.983] [INFO] [Bootstrap/GameBootstrapper] AI 초기화 완료 | Difficulty=Easy, Scenario=Human-Tech, GoldIncomeMultiplier=0.7
+[17:43:11.326] [INFO] [Network/NetworkGameManager] 초기화 시작
+[17:43:11.327] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[17:43:11.327] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[17:43:11.327] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[17:43:11.328] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[17:43:11.329] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
