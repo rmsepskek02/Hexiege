@@ -608,3 +608,64 @@ canonical byte field removed
   「raw Debug.Log 금지」에 어긋나지만 이번 작업과 무관한 기존 코드라 손대지 않았다.
 - `MapHandoff.cs` 의 *"이 메서드는 현재 호출자가 0건이다"* 주석(계획서 대체-4)은 여전히 사실이 아니다
   (실제 2건). **사용자 승인 대상**이라 고치지 않았다.
+
+---
+
+## Post-game leave notification, steps 4·5 (2026-09-21) — 「상대가 나갔다」 채널 + 정상 퇴장 통보
+
+Rule source: `GameSystemRules/GameSystemRules_RandomMap.md` **규칙 17** (what counts as a leave, when to
+tell) · `TechnicalDesignDocument.md` 「결과 화면 이탈 판정·통보 구조」 (the numbers: 판정 30s, 연결
+타임아웃 60s). Screen wording/buttons are **not** here — that is `GameSystemRules_UI.md` D-1~D-6.
+
+### Step 4 — transport connect timeout 30000 → 60000, **two scenes**
+
+- `m_DisconnectTimeoutMS` is a **scene-serialized** UnityTransport field, so code defaults are irrelevant:
+  `Assets/_Project/Scenes/Game.unity:45473` and `Lobby.unity:7479`. `Login.unity` has **no** UnityTransport
+  (0 hits) — do not add one.
+- 🔴 The value must stay **longer than the 30s leave verdict**, otherwise the transport kills the
+  connection first and the notification has no wire to travel on (규칙 17 fixes the inequality direction,
+  the TDD fixes the number).
+- `m_HeartbeatTimeoutMS: 500` sits 3 lines above and is a **different knob** — do not touch it.
+- Verification that actually proves "only that line moved": copy both scenes aside first, then
+  `diff backup/X.unity Assets/_Project/Scenes/X.unity` → must print exactly one `45473c45473` /
+  `7479c7479` hunk. A `grep -c` alone cannot show that nothing else changed.
+- ⚠️ Side effect recorded in the plan (R6): `ReconnectionHandler` only runs once the transport drops the
+  connection, so **in-match** force-win now takes ~60+30s instead of ~30+30s. Not fixed here — user call.
+
+### Step 5 — one channel, one notification path
+
+| File | What was added |
+|---|---|
+| `Application/Events/GameEvents.cs` | `OnNetworkOpponentLeft` (`Subject<Unit>`, +37 lines) |
+| `Infrastructure/Network/NetworkGameEndController.cs` | `NotifyLeavingResultScreen()` (public entry) → `NotifyLeavingResultScreenServerRpc()` → `NotifyOpponentLeftClientRpc()` (+104 lines) |
+| `Infrastructure/Network/NetworkGameManager.cs` | `NotifyOpponentOfNormalLeave()` helper + its call inside `BackToLobby()` |
+
+- 🔴 **One channel only, on purpose.** 정상 퇴장 and 무반응 이탈 differ in *how the server notices*, not in
+  *what the screen must do*; Host leaving is absorbed by the same path (규칙 17 forbids a Host-only route).
+  Step 6 (30s self-watch) will reuse `NotifyOpponentLeftClientRpc` as-is.
+- **No payload** — 1v1, so "who left" carries no information. Same shape as `OnNetworkRematchDeclined`.
+- **Application stays Netcode-free**: the channel carries `Unit`, never a ClientId.
+- 🔴 **Placement inside `BackToLobby()` is load-bearing: between 3 (Lobby 퇴장) and 4
+  (`ShutdownNetworkManager()`).** After step 4 the NGO connection is down and any RPC either throws
+  *"Rpc methods can only be invoked after starting the NetworkManager!"* or is silently dropped — the
+  normal exit would then look like an unresponsive leave to the opponent.
+- ⚠️ **Unverified (R3)**: send and `Shutdown()` happen in the **same frame**. Whether the message
+  actually leaves cannot be decided from code — needs a 2-device run ("does normal exit reflect
+  immediately?"). The comment in the file says so; do not upgrade it to "works".
+
+### How `NetworkGameManager` reaches the controller
+
+`NetworkGameManager` is a plain MonoBehaviour (**no RPCs possible**) and is DontDestroyOnLoad, while
+`NetworkGameEndController` is a **scene object inside `Game.unity`** — so an Inspector-serialized
+reference is impossible (different scenes). Used `FindFirstObjectByType<NetworkGameEndController>()`,
+which is the **mirror of the existing lookup** in `NetworkGameEndController.OnNetworkSpawn`
+(`FindFirstObjectByType<NetworkGameManager>()`, cached once). It is a once-per-match path, not a tick.
+`GameBootstrapper` does hold the controller via `[SerializeField] _networkGameEnd`
+(`GameBootstrapper.cs:155`) but Infrastructure must not reach up into Bootstrap.
+⚠️ This was a judgement call flagged to the caller for confirmation.
+
+### Logging
+
+All four new lines are **development axis** (`GameLog.Dev.Info/Warn`), so **no new `LogEvent` key** was
+added (`ILogSink.cs` untouched). Dev-axis overloads take `(system, className, message, data = null)` —
+the `LogEvent` argument only exists on the `GameLog.Ops.*` overloads.

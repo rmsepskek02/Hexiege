@@ -33,6 +33,11 @@
   `mcs`/`mono` 하네스로 확인한 불변식 9가지 ·
   🔴 **2026-09-15 실기 결과(멀티 9판 · 재경기 7연속 PASS / 싱글 2판 PASS)와
   그래도 미검증으로 남은 3가지(실패 복구 · 폴백 · timeout/재전송).**
+  🔴 **경기 종료 후 이탈 통보 단계 4·5(2026-09-21): 전송 계층 타임아웃 `m_DisconnectTimeoutMS`
+  는 씬 직렬화 값이라 `Game.unity`·`Lobby.unity` 두 곳을 고쳐야 하고(`Login.unity` 에는 없다) ·
+  「상대가 나갔다」 채널을 하나만 두는 이유(Host 이탈 흡수) · `BackToLobby()` 안에서 통보가
+  `ShutdownNetworkManager()` **앞**이어야 하는 이유 · `NetworkGameManager` 가 컨트롤러를
+  `FindFirstObjectByType` 으로 찾는 근거(씬이 달라 Inspector 배선 불가).**
   **네트워크 작업은 여기부터 읽는다.**
 
 ### 시스템별 (2026-06-23 재구성)
@@ -41,11 +46,18 @@
   `Clear()` 배선 정정 · `MapRootSeed`(Domain) 를 왜 Domain 에 뒀는가 포함**),
   GameBootstrapper, SO Config 패턴,
   DontDestroyOnLoad, **에디터 셋업 스크립트 패턴 + 배치 관례(`Assets/Editor/Setup/`·`Hexiege.EditorTools`)
-  와 저장 반영(`SetDirty`+`MarkSceneDirty`)**
+  와 저장 반영(`SetDirty`+`MarkSceneDirty`)**,
+  🔴 **기존 프리팹 '에셋' 을 여는 스크립트(2026-09-21 첫 사례) — `LoadPrefabContents`→`SaveAsPrefabAsset`
+  순서 · `SetDirty` 가 필요 없는 이유 · Ctrl+Z 가 안 되므로 멱등 + 「다 찾은 뒤에 고치기」 두 겹 ·
+  형제 순서 지정의 멱등 계산 · TMP 자식은 형제에서 복사하되 머티리얼을 font 다음에 대입**
 - [network.md](network.md) — NGO API 제약, RPC 래퍼 패턴, GO 파괴 전파, 같은 씬 재로드, 동기화 타이밍, 회전/위치 동기화
 - [ui-system.md](ui-system.md) — UIManager, BlockingOverlay, SceneLoader, LoadingIndicator, Canvas SortingOrder,
   CanvasGroup/레이아웃/팝업/ToastUI 패턴, 생산·연구 패널 실측 구조,
-  **건물 패널 골격(`Row0~2`) + 회전 테두리 머티리얼 `_Radius`·`_Inset` 공유 함정**
+  **건물 패널 골격(`Row0~2`) + 회전 테두리 머티리얼 `_Radius`·`_Inset` 공유 함정**,
+  🔴 **알림 팝업(제목 + 본문 + 버튼 1개) 프리팹 전제 조건(2026-09-21) — `ShowAlert` 는 코드만으로
+  성립하지 않는다(Panel 의 VerticalLayoutGroup 이 없으면 기존 팝업까지 회귀) · Panel 864×768 실측값 ·
+  `ChildForceExpandHeight = true` 면 `preferredHeight` 가 전부 무시된다 · 높이 검산 370/262px ·
+  셋업 스크립트는 멱등이라 프리팹이 깨졌을 때 되돌리는 수단으로도 쓴다**
 - [unit-building.md](unit-building.md) — 유닛 이동/전투 V3, 회전, 혼잡도, 다중히트, 건물 배치/철거/업그레이드/환불,
   생산 PendingQueue, AutoTower, 랠리포인트
 - [hex-grid.md](hex-grid.md) — 헥스 좌표계, HexMetrics, ViewConverter, 타일 소유권, 그리드 렌더링, 패스파인딩,

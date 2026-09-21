@@ -1735,3 +1735,111 @@ The calling session had botched table cell separators three times that day. Chea
 **unescaped** `|` per row (`(?<!\\)\|`) and assert one distinct count per table block.
 Run it over the **whole file**, not just the new tables — it costs nothing and catches pre-existing damage.
 That round: 13 tables, 0 mismatches.
+
+---
+
+## 23. Recording the **first code round** of a multi-stage plan, when the visible deliverable is not visible yet (2026-09-21, post-game-leave-ui stages 1·2·3)
+
+Three of ten stages shipped. The awkward part: **the thing that was built is a popup, and nothing calls it yet.**
+That shape recurs — a *capability* lands one round, its *call sites* land later — and it is the easiest place to write
+something false without noticing.
+
+### 23-1. 🔴 "The API exists" and "anyone has seen it" are two claims — the second one is a count
+
+`UIManager.ShowAlert` was declared, implemented and delegated. **Its call-site count was 0.**
+So every sentence of the form *"the alert popup works"* would have been a fabrication: nothing on screen ever
+rendered it. The check is mechanical and takes one grep — **count the real call sites, excluding the declaration
+and the delegating implementation**, and say the number out loud in the status document.
+
+- Write it as **「구현했다」와 「실기에서 확인됐다」는 다른 말이고 이 항목은 앞쪽까지만 참이다** — the project's
+  existing over-claim wording, reused verbatim so it reads as the same class of caveat.
+- ⚠️ **A same-named method on an unrelated class will pollute the grep.** Here `ProfileView` has its own private
+  `ShowAlert(string)` that predates the work and has 2 callers. **Read each hit's owning type before counting** —
+  3 hits looked like "it is called", and none of them were `IUIManager.ShowAlert`.
+- What *can* be claimed is the **negative**: the existing two-button popups did not regress. That is a different
+  sentence and belongs in a different bullet.
+
+### 23-2. A regression check that covered 2 of 3 call sites is written as 2 of 3, with the reasoning for the third
+
+Two existing `ShowConfirm` sites were exercised in 실기; the third could not be reproduced on demand.
+The handed-over rationale ("same two-button structure, ButtonRow unchanged, so no risk") is **a judgement, not an
+observation** — record it as such and keep the word **미확인** on the row. `.claude/mistakes.md` 2026-09-09 is the
+precedent: a checklist item that is unobservable in that configuration is not a pass.
+
+### 23-3. 🔴 The deliverable may be in a commit the doc session's checkout does not have
+
+`ConfirmPopup.prefab` was edited by the **user**, inside Unity, and pushed. The document agent's working tree was
+behind, so the file on disk still had no `TitleText` and no `_titleText` row. **Measuring it would have produced the
+pre-change values and they would have looked authoritative.**
+
+- **Check before quoting a Unity artefact**: grep the file for the identifier the change was supposed to add.
+  Absent → the tree is behind; say so instead of measuring.
+- Then split the sourcing explicitly: **「이 체크아웃에서 확인 불가」 + who measured it + where the single source lives.**
+  Here the measured values already lived in `game-programmer/ui-system.md`, so the status document **pointed at it**
+  rather than copying numbers that may be tuned later.
+- This is §16-6's class (Unity output unverifiable here), but with a new cause — **not "needs the editor" but
+  "the commit has not arrived"**. Both end the same way: name the limit, do not guess.
+
+### 23-4. A plan whose §0 said "comment out first, delete after the test" — and the code has neither
+
+`WORKFLOW` [4] wants deactivation-by-comment first, deletion after [6]. The current file has **no live code and no
+commented-out code**, only a comment explaining *why* the line was removed. Whether an intermediate commented state
+existed **cannot be determined without git, which 규칙 5 forbids.**
+
+- **Do not infer the process from the end state.** Record the end state (measured) and the unknown (path taken),
+  and let the main session — which can run git — close it. Writing "WORKFLOW [4] 위반" would have been an accusation
+  built on an unverifiable premise; writing "규정대로 진행됐다" would have been the same error pointing the other way.
+- The `§0 …의 최종 삭제` row in the execution table is the right home: status cell says **「현재 코드에 잔존 0건 ·
+  경로는 확인 불가」**, and the 비고 cell says why.
+
+### 23-5. 🔴 Two "user decides" items: they are **roadmap rows**, not rule edits — and the rule doc points *at* them
+
+Both leftovers (whether to write the `SetActive`-instead-of-CanvasGroup exception into 규칙 5; whether to delete or
+relocate the one-shot editor script) were tempting to "just settle". Neither was settled.
+
+- **Where they live**: `ROADMAP.md`, as rows, using the project's existing `(사용자 판단 대기)` label — there was
+  already a row in that shape (`_Logs/_editor/` `.meta` 규정 공백), so the form was copied rather than invented.
+- **What the row must carry** so the decision is possible later: *what was done*, *the reasoning that made it look
+  right*, *where that reasoning currently lives* (a code comment — which is exactly the fragility), and 🔴 *what was
+  deliberately not touched*.
+- **The rule document gets a pointer, not a decision.** 규칙 D-5's result block ends with 「단일 소스는 ROADMAP 의
+  2026-09-21 신설 행 2개」. When the user decides, that pointer is closed together with the row — write that
+  instruction into the row itself, or the pointer outlives the question (§6's marker lesson).
+- ⚠️ **The second item is a conflict between two project rules, not an oversight** — `WORKFLOW` [5-2] classifies
+  `Setup/` as "deletable after running", but the script is idempotent and is therefore the recovery tool for the
+  prefab it built. Say that the two collide; that *is* the thing the user has to arbitrate.
+
+### 23-6. A partial-completion round edits the three status documents in three different shapes (extends §12/§13/§15)
+
+| 문서 | 이번 회차의 수선 |
+|---|---|
+| `PROJECT_STATUS.md` | `**최종 수정일:**` + **⚠️ 부분 구현** 문단을 맨 앞에 prepend(`✅ 구현 완료` 가 아니다 — 머리말의 기호가 경계의 첫 신호다) + `**현재 단계:**` 문단 맨 앞에 한 줄 |
+| `ROADMAP.md` | 갱신 문단 prepend + **행을 내리지 않고 그 행 맨 앞에 「닫힌 것 / 남은 것」 블록** + 낡아진 다른 행에 정정 블록 + 판단 대기 행 2개 신설 |
+| `WORK_HISTORY.md` | 표 맨 위 행 1개. **`[쉬운 말로]` / `[바뀐 것]` / `[실기 확인]` / `[⚠️ 과대 표기 금지]` / `[🔴 사용자 판단 대기]` / `[이 체크아웃에서 확인 불가]` / `[문서]`** 순서 |
+
+- 🔴 **완료 표기를 `✅` 로 열지 않는다.** 3/10 단계에서 `✅ 구현 완료` 로 시작하면 아래에 아무리 미완을 적어도
+  머리 한 줄만 읽고 간 사람에게는 거짓이 된다. `⚠️ 부분 구현` 으로 연다.
+- **A stale row is corrected, not rewritten** — the 2026-09-14 (3차) row's ⓐ (the line that caused the lockout) and
+  ⓔ (`RestoreRematchButton()` 호출 1곳) both became false. B-7: prepend the correction block, delete nothing.
+  ⓔ was **already stale when it was written** (a subscription had been added the previous round) — the previous
+  Research document had spotted it and deliberately left it; **this round is where that deferred fix cashes in.**
+- 🔴 **Line numbers quoted in that row are all shifted** (441 → 465 lines). Say so in the correction block and tell
+  the next reader to re-find by method name (`.claude/mistakes.md` 2026-08-24).
+
+### 23-7. When there is no `Testcase.md`, WORKFLOW [8] is skipped — and the 실기 결과 needs a declared home
+
+This task folder never had one (the user never asked for TC, so [5-1] was skipped) and asked again for none.
+**Do not create it** (규칙 1). Instead write, in the Plan's new result section and in the history row, *that* [8] was
+skipped and *why*, followed by where the 실기 results were put instead. Otherwise the next reader sees a round with
+실기 numbers and no Testcase and assumes something was lost.
+
+### 23-8. Research documents get an append-only "what is no longer current" section, split three ways
+
+A Research document is a snapshot of the pre-change code; it is never edited in place. The append that works:
+
+1. **더 이상 현재가 아닌 서술** — a table, 자리 / 조사 시점 / 현재(직접 실측).
+2. ✅ **그 문서가 「고치지 않고 적어 둔다」고 한 자리 중 이번에 해소된 것** — and where the fix was applied.
+   Note that the original judgement was *correct*; the row closes, the document is not wrong.
+3. ⚠️ **그대로 유효한 서술** — 🔴 the most important of the three. When six lines change, a reader assumes the whole
+   document rotted. List the sections that did not move (here: all of the network findings, because stages 4~6 never
+   started) with the reason they did not move.
