@@ -1843,3 +1843,129 @@ A Research document is a snapshot of the pre-change code; it is never edited in 
 3. ⚠️ **그대로 유효한 서술** — 🔴 the most important of the three. When six lines change, a reader assumes the whole
    document rotted. List the sections that did not move (here: all of the network findings, because stages 4~6 never
    started) with the reason they did not move.
+
+## 24. Recording a **reversed conclusion** and a principle that outranks the numbered rules (2026-09-21, host/client consistency)
+
+No code. Two user confirmations: ① a project-wide principle (*"the player cannot tell whether they are Host or
+Client, so UI and win/loss records must behave identically regardless of role"*) and ② a rule set for win/loss on
+leaving. The deliverable is **where those two now live and what they overturned**. Six things generalise.
+
+### 24-1. 🔴 The old diagnosis was not wrong — **its premise changed**. That is a third class of correction
+
+`ROADMAP.md` carried options ①(screen-only) ②(host migration) ③(dedicated server) plus *"②·③ are structural
+decisions to settle before release"*. All of that was written **assuming the match continues**. The user's new
+direction is to **end the match** (「the opponent vanished, so I won」), and ending it needs no session at all.
+
+- What changed is **one judgement — 「solving this needs ②·③」** — not the options and not the sentence about
+  release. So the repair keeps every word and appends: **what the premise was · what it is now · which single
+  judgement flipped · and 🔴 that ②·③ remain valid for the other purpose (actually continuing a match).**
+- ⚠️ **Never write 「폐기」 for an option the user did not discard.** A reader who sees ② struck out concludes
+  host migration is off the table for everything, which is a different and larger decision than the one taken.
+- Distinguish the three classes now on record: §17-1 = *true but invites a wrong reading* · §17-4 = *a refusal
+  the user later settled* · **24-1 = the reasoning is intact but was answering a different question.**
+- The **priority/scale cell gets an append too** (§18-3), but scale that was never measured stays **미측정** —
+  here 「②·③ drop out, so it is smaller」 is sayable, 「how big the Client-side check is」 is not (규칙 10).
+
+### 24-2. 🔴 A principle that outranks numbered rules gets a home **above** the rules — never a new 규칙 N
+
+Temptation: add 「규칙 D-7. 역할과 무관하게 일관되게 동작한다」 to `GameSystemRules_UI.md`. Wrong for two reasons:
+it would be **one rule among peers** when it actually constrains all of them, and this project **never creates new
+rule numbers** (code comments and past Task docs reference them).
+
+- Home chosen: **`TechnicalDesignDocument.md`, as the first subsection of 「🌐 네트워크 설계」** — the principle
+  governs network behaviour as a whole, and the section head is the only place that visibly outranks what follows.
+- Write the **conflict-resolution direction into the principle itself**: *"개별 규칙이 이 원칙과 충돌하면 고칠
+  대상은 개별 규칙이다."* Without that sentence a principle is decoration; with it, it is a tie-breaker.
+- The rule documents get **pointer blocks in their section preamble**, not new rules:
+  `GameSystemRules_UI.md` 「공통 UI 규칙」 preamble and `GameSystemRules_RandomMap.md` 규칙 17 as an appended
+  bullet marked `[날짜 추가]`. **One home + pointers** (§18-1), applied to a principle rather than a defect.
+
+### 24-3. 🔴 When told 「check the existing rule for conflict, do not edit its body」, **the verdict is the artifact**
+
+규칙 17 already said *"Host 가 나가는 경우도 같은 통보 하나로 처리한다"* — it does not conflict; it is the
+principle applied. **Recording 「대조 확인, 충돌 없음 (날짜)」 in the pointer bullet is the deliverable**, because
+otherwise the next round opens the same two documents and redoes the same comparison from scratch.
+
+- Say in the same bullet **what the rule does *not* cover** (here: how a leave turns into a win/loss record),
+  so the pointer does not silently widen into 「규칙 17 covers everything about leaving」.
+
+### 24-4. 🔴 Same number, possibly different clocks — say it is undecided instead of merging (§17-2 forwards)
+
+The confirmed rule says the remaining side records a win **after 60 seconds**. This document already holds a
+**60초 connection timeout** and a **30초 leave verdict**(규칙 17). Three numbers, two of them equal.
+
+- **Do not merge the two 60s and do not silently rewrite the 30.** Write: which clock is being named, that the
+  equal value is a coincidence until someone decides, and that the implementation round settles it.
+- 🔴 **Raise it in the report as well** (규칙 12) — a spec that contains two plausible readings of its own number
+  is exactly the 「모호한 경우」 the user must arbitrate; leaving it only in the document hides the question.
+
+### 24-5. 🔴 A negative code finding must carry its search boundary — and you re-measure it yourself
+
+Handed over: *"`wins`/`losses` have only a read path; no write path found."* Re-measured before writing it —
+`PlayerProfileService.cs` `GetInt` reads `KeyWins`/`KeyLosses`, both `SaveAsync` call sites save **nickname**
+(`SaveNicknameAsync` ×2), and a repo-wide grep for the literal keys hits only that file and a comment in
+`LeaderboardService.cs`.
+
+- Write **「찾지 못했다」, never 「없다」** — the phrasing *is* the boundary (규칙 10), and the handoff said so
+  explicitly. Copy that distinction verbatim rather than compressing it into 「미구현」.
+- The same boundary belongs in the roadmap row as a **first step** (「쓰기 경로부터 확인한다」), which turns an
+  admission of uncertainty into the task's opening move instead of a disclaimer.
+
+### 24-6. A rule set that is **confirmed but unimplemented** splits into spec (TDD) + work item (ROADMAP)
+
+The user confirmed the leave/win-loss table *and* said records are 별건 작업. Two artifacts, two documents:
+
+- **Spec → `TechnicalDesignDocument.md`** as a new subsection, carrying the table, the force-quit detection
+  (「진행 중」 marker cleared on normal exit, leftover marker on next launch = loss) and 🔴 **the unsolved hole**
+  (cut the line but leave the app running → **both sides record a win**; a device alone cannot tell 「I dropped」
+  from 「they dropped」; unsolvable without server authority).
+- **Work item → `ROADMAP.md`** as a new row (owed by §18-2: 「추후에 별건으로 작업」 = committed, not 보류),
+  holding **only the scope and pointers** — the table is not copied.
+- 🔴 **Write the hole as 「표가 성립하는 전제의 한계」, not as a defect in the table.** A hole filed as a defect
+  invites the next reader to fix the rules; this one is only closed by the server verification in the same row.
+
+### 24-7. 🔴 A correction that arrives **after you already wrote the round** — the fix is the same, the risk is not
+
+The coordinator's supplement landed after the documents were written: the sentence *"a device alone cannot tell
+「I dropped」 from 「they dropped」, so it cannot be prevented without server authority"* — **which I had just
+written into two documents** — was itself too strong. Checking whether a **third party unrelated to the opponent**
+(the internet) is reachable splits the two cases.
+
+- **B-7 applies to a sentence you wrote five minutes ago exactly as to one from a year ago.** Strike nothing;
+  append `**[🔴 날짜 정정 — 원문은 그대로 두고 덧붙인다: …]**` carrying *why the original was too strong*.
+  §18-4 said this about a previous round's document; here the "previous round" is the same session.
+- 🔴 **The change-history row you already added this round also needs the append**, not a rewrite — otherwise the
+  row describes a document that no longer exists. Mark it `[🔴 같은 날 보완]` so the two edits read as one round.
+- **Where the overstatement came from is the reusable part**: the claim was scoped to 「what the two peers can see
+  of each other」 and silently generalised to 「what a device can know」. **When a document says 「X cannot be
+  determined」, ask what else the device can reach** before writing 「impossible without a server」.
+
+### 24-8. A hole that shrinks: say **how many are left and which item each remaining one belongs to**
+
+After the procedure landed, the single hole became two — **Relay outage** and **selectively blocking only game
+traffic**. The user placed them in *different* work items on purpose.
+
+- 🔴 **Do not file an infrastructure failure under the anti-cheating item.** The user said Relay outage is a
+  server-side problem and gets its own row; merging it with 위조 방지 hides that the two have different causes.
+  Write the reason (「원인이 다르다 — 인프라 장애 vs 고의 조작」) into both places so nobody re-merges them.
+- **A suggestion offered alongside a confirmation stays a suggestion.** 「무효 경기로 다루는 선택지가 있다」 came
+  from the coordinator, not the user — so it is recorded with 🔴 **"메인 세션의 제안이며 확정이 아니다"** in the
+  same sentence. Never let a proposal inherit the confirmation's authority just by sitting next to it.
+- Separate 🔴 **measured in this project** from ⚠️ **general technical fact**. `internetReachability` 0 hits in
+  `Assets/_Project/Scripts` is a measurement; *"`Application.internetReachability` only reports path existence"*
+  is not, and the document says which is which.
+
+### 24-9. Closing a 「미확정」 you yourself raised — and what the answer usually is
+
+I had refused to merge 60(record) / 60(transport timeout) / 30(규칙 17) and asked the user. The answer: **60 and 60
+are the same clock** (the transport timeout *is* the verdict moment), **30 is a different clock on a different
+screen** (the result screen, where the win/loss is already decided and cannot change).
+
+- 🔴 **Close it with a table of 「which screen · which value · what it does」**, not with a sentence. The confusion
+  was never about the numbers; it was about *which screen the clock belongs to*.
+- **Keep the 「미확정」 sentence under `~~취소선~~` and append the closure** — the fact that it was once open is
+  what stops the next round from re-opening it.
+- ⚠️ **A closure often carries a second, unrelated staleness with it.** Here the same answer revealed that
+  「씬 값 미적용」 was out of date (`Game.unity:45473` · `Lobby.unity:7479` are both `60000` since `007f666`).
+  The original sentence was *true for its own round*, so it is kept and the result is appended — with an explicit
+  **「씬 값 미적용으로 읽지 않는다」**, because the stale reading is what a skimmer takes away.
