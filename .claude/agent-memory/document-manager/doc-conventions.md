@@ -2060,3 +2060,96 @@ Precedent is the *same day's* §24 round: 구현 0줄 means the implementation-s
 the milestone table has no milestone. What it does get is **a TDD 개정 이력 row** (버전 minor bump, 최종 수정일
 unchanged when it is the same day) and **a dated block prepended to `ROADMAP.md`**, labelled `(N차)` when an earlier
 block that day already exists. Say in the report which documents were reviewed and left alone, and why.
+
+---
+
+## §26. The **second** confirmation-only round on the same subject — when the first one had no code and this one does
+
+2026-09-21 (4차). The 3차 round pinned two decisions about the **result screen** (단계 6); this round pinned the
+**same-shaped** decisions about **in-game** leave handling (`ReconnectionHandler`). Everything below is what made the
+second round different from the first, even though both were 구현 0줄.
+
+### 26-1. 🔴 "Same decision, second location" is a **pointer round**, not a copy round
+
+The structural decision ("Host and Client each judge on their own side") was already pinned in a TDD section by the
+previous round. This round's decision is *"that same structure also applies in-game"* — which is **not** a second
+copy of the structure. The shape that worked:
+
+- **New section owns only the delta**: what is different in-game (the code already exists, the clock is `t=60`).
+- **One sentence naming the earlier owner**: *"구조 자체의 단일 소스는 위 「…」 절이고, 이 절이 정하는 것은
+  「같은 구조가 인게임에도 그대로 걸린다」는 것이다."* Without that sentence a reader cannot tell whether the two
+  sections disagree or agree.
+- The shared **procedure** (internet-reachability check) is referenced, never restated.
+
+### 26-2. 🔴 The difference that decides the whole round: **does code already exist?**
+
+Round 1 (result screen) could change a plan freely — **cost of reversal was 0**. Round 2 touches a component that is
+already running, so `WORKFLOW.md` **[4] 「기존 로직 제거 규칙 (예외 없음)」** applies: disable by commenting out,
+delete only after [6] passes and before [7]. **Write this contrast as a table in the document itself**
+(`확정 시점의 코드` / `되돌릴 비용` / `적용되는 규정`), because otherwise the next reader carries round 1's
+"just edit the plan" reflex into round 2.
+- Pair it with a pointer to the `.claude/mistakes.md` entry where **that exact rule was broken in this very cycle**
+  (2026-09-21). A rule plus a fresh violation of it reads very differently from a rule alone.
+
+### 26-3. A timeline that is **being changed** is written as the *current* structure plus one 🔴 line
+
+The artifact is a `시점 | 무슨 일이 일어나는가 | 근거` table for **today's** behaviour (t=0 / t=0~60 / t=60 /
+t=60~90 / t=90), each row carrying the file+line or scene value that proves it — and then a single quoted line
+stating the decision (*"t=60 에 승부를 결정한다. t>60 유예는 없앤다"*). Do **not** write the future timeline as
+if it were the current one: the code is unchanged, so the present-tense table stays true and only the decision is new.
+- The strongest row is the empty one: **t=0~60 「아무 시계도 돌지 않는다」**. The reason the grace period is
+  pointless is that the transport layer already spent that window retrying — say that as a *근거*, not as trivia.
+
+### 26-4. 🔴 A removal list is a **덩어리**, and saying so prevents a half-removal
+
+`_reconnectWaitSeconds` field · `WaitAndForceWin()` coroutine · `OnClientReconnected()` cancel path. One sentence —
+**"하나만 빼면 나머지가 더 이상해진다"** — plus a **what-remains** sentence (*"남는 동작은 「끊김 감지 → 강제 승리」
+하나"*). A removal list without the what-remains line invites someone to delete two of the three.
+
+### 26-5. Where a value came from is part of the decision to delete it
+
+For a constant being removed, record three things: **which phase introduced it** (cite the status document's row),
+🔴 **that the discussion which chose the number was 「찾지 못했다」, not 「없다」** (규칙 10), and **the serialized
+scene value** that overrides the code default. The last one is what actually breaks the change if missed — and this
+cycle had already tripped on it twice (`m_DisconnectTimeoutMS`, `_autoReturnSeconds`), so name those precedents.
+
+### 26-6. 🔴 Two numbers about the same feature that the round must keep **apart**
+
+`ROADMAP.md` 「재접속 실제 구현」 carries **「인게임 재접속 대기 시간 값 미확정(120초 제안·보류)」**. This round's
+확정 E removes *the grace period that exists today*. They are different values and 확정 E **does not close** the
+open item. The repair is symmetric and both halves are needed:
+- In the **new** section / new roadmap row: *"이 절이 닫지 않는 것"* + why.
+- In the **old** item (B-2): an appended `>` block saying the 현황 line will change but **by a different row**, and
+  that the 미확정 value survives. One-way pointers produce exactly the misreading they were meant to prevent
+  (*"이미 정해졌다"*).
+- Useful framing found here: the two work items touch the **same file** but are **opposite jobs** —
+  「끝내는 쪽」(judge and end the match) vs 「이어 가는 쪽」(restore state and continue).
+
+### 26-7. Connecting a number that was explained **only inside its own section**
+
+The 승패 기록 table said *"회선 끊김 → 남은 쪽 60초 뒤 승리"* and a later block had already settled that this 60초
+is the transport timeout's clock — but **nothing said which code runs at that instant**. The append is one bullet:
+name the method (`OnClientDisconnected`), say the new section pins it as `t=60`, and 🔴 state explicitly that the
+table and the clock-separation text **did not change** — only *"그 60초가 어느 코드에 떨어지는가"* was added.
+
+### 26-8. Marking a row of a 「혼동 주의」 table as **going away** without falsifying the table
+
+*"위 표의 「인게임 재접속 대기 30초」는 없어질 예정이다"* must be followed by 🔴 *"아직 코드는 그대로이므로 위 표는
+현재 상태로서 여전히 참이고, 바뀌는 것은 「앞으로」다."* Also name the rows the decision **does not** touch — a
+"this row is going away" note next to two unrelated rows otherwise casts doubt on all three.
+
+### 26-9. Re-measuring a line number a previous round wrote, in a document you are already editing
+
+The 최상위 원칙 절 cited `ReconnectionHandler.cs` **79행**; measurement said **81행** (same code, same conclusion).
+B-7 applies even though the sentence is otherwise true: **append a `>` correction block**, say the conclusion is
+unchanged, and add the forward rule (*"다음부터는 메서드 이름으로 가리킨다"*). Do not renumber the past record and
+do not skip it because it is "only a line number" — a wrong line number in a 실측 예 is what makes the next reader
+distrust the measurement.
+
+### 26-10. `PROJECT_STATUS.md` is the document you *decide not to touch*, and the decision is an artifact
+
+Its 미구현 row (*"재접속 실제 구현 없음 | ReconnectionHandler | 30초 대기 후 ForceWin만"*) is **still true today**
+because the round wrote 0 lines of code. 「앞으로 바뀔 예정」 is `ROADMAP.md`'s role, and a "예정" marker there would
+duplicate the roadmap row — a second place to go stale. Write the non-edit **into the roadmap block** as a
+⚠️ bullet, and lead with it in the report. (Same conclusion as §25-9, reached from a different direction: there the
+reason was 구현 0줄, here it is **role separation between 현황 and 예정**.)
