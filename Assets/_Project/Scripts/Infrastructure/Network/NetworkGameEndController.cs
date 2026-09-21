@@ -646,6 +646,110 @@ namespace Hexiege.Infrastructure
         }
 
         // ====================================================================
+        // 결과 화면에서의 상대 이탈 — 정상 퇴장 통보 (규칙 17)
+        //
+        // [초급자용 설명]
+        //   경기가 끝나 결과 화면이 떠 있는 동안 상대가 「로비로 돌아가기」를 누르면,
+        //   그 사실을 남아 있는 쪽 화면에 알려 줘야 한다. 알리지 않으면 남은 사람은
+        //   응답이 오지 않을 재경기 요청을 붙들고 카운트다운 만료까지 기다리게 된다.
+        //
+        // 메시지 흐름 (GameSystemRules_RandomMap.md 규칙 17 의 「정상 퇴장」 갈래 ·
+        //              TechnicalDesignDocument.md 「결과 화면 이탈 판정·통보 구조」):
+        //   [나가는 쪽] NetworkGameManager.BackToLobby()
+        //     → NotifyLeavingResultScreen()            … 이 파일의 공개 진입점
+        //     → NotifyLeavingResultScreenServerRpc()    … 클라이언트 → 서버
+        //   [서버] 남아 있는 쪽 한 명에게만
+        //     → NotifyOpponentLeftClientRpc()           … 서버 → 클라이언트
+        //   [받은 쪽] GameEvents.OnNetworkOpponentLeft 발행 → 결과 화면(Presentation)이 구독
+        //
+        // 🔴 Host 가 나가도 같은 길을 그대로 탄다 — Host 전용 경로를 만들지 않는다(규칙 17).
+        //    ServerRpc 는 호스트에서 곧바로 로컬 실행되므로(이 파일 OnNetworkSpawn 의 주석 참조)
+        //    호스트가 보낸 퇴장 통보도 위 흐름 그대로 상대에게 전달된다.
+        //
+        // ⚠️ 이번에 구현한 것은 「정상 퇴장」 갈래뿐이다. 무반응(앱 강제 종료·네트워크 단절)을
+        //    서버가 스스로 지켜보다 이탈로 판정하고 연결까지 끊는 부분은 규칙 17 의 다른 갈래이며
+        //    <b>아직 구현하지 않았다</b>. 그 갈래도 아래 NotifyOpponentLeftClientRpc 하나를
+        //    그대로 재사용하게 된다(같은 통보 하나로 흡수 — 규칙 17).
+        // ====================================================================
+
+        /// <summary>
+        /// [나가는 쪽에서 호출] 결과 화면에서 스스로 나가기 <b>직전</b>에 「나 지금 나간다」를 서버에 알린다.
+        /// 호출처는 <c>NetworkGameManager.BackToLobby()</c> 한 곳이다.
+        ///
+        /// 🔴 <b>왜 IsSpawned 를 먼저 보는가</b>: NGO 는 NetworkManager 가 살아 있고 이 오브젝트가
+        ///    스폰돼 있을 때만 RPC 송신을 허용한다. 아니면
+        ///    <i>"Rpc methods can only be invoked after starting the NetworkManager!"</i> 로 예외가 난다
+        ///    (같은 이유의 가드가 이 파일 HandleRematchMapFailed 에도 있다).
+        /// </summary>
+        public void NotifyLeavingResultScreen()
+        {
+            if (!IsSpawned)
+            {
+                // 이미 연결이 끊겼거나 디스폰된 뒤라면 보낼 수단 자체가 없다.
+                // 이 경우 상대는 「무반응 이탈」 갈래로 판정하게 된다(규칙 17).
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "정상 퇴장 통보를 보내지 못했다 — 이미 디스폰된 상태다");
+                return;
+            }
+
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController), "정상 퇴장 통보 전송");
+            NotifyLeavingResultScreenServerRpc();
+        }
+
+        /// <summary>
+        /// [서버에서 실행] 결과 화면에서 나가는 클라이언트의 퇴장 통보를 받아 <b>상대 한 명에게만</b> 전달한다.
+        ///
+        /// RequireOwnership=false 인 이유는 이 NetworkObject 가 서버 소유라 그대로 두면
+        /// 클라이언트가 호출할 수 없기 때문이다(이 파일의 다른 ServerRpc 들과 같은 이유).
+        ///
+        /// 🔴 NGO 명명 규약상 ServerRpc 메서드 이름은 반드시 <c>ServerRpc</c> 로 끝나야 한다.
+        /// </summary>
+        [ServerRpc(RequireOwnership = false)]
+        private void NotifyLeavingResultScreenServerRpc(ServerRpcParams rpcParams = default)
+        {
+            // 보낸 사람의 ClientId. 호스트가 보냈을 때도 NGO 가 로컬 ClientId 를 채워 준다
+            // (이 파일 ForfeitServerRpc 가 같은 방식으로 포기자를 식별한다).
+            ulong leaverId = rpcParams.Receive.SenderClientId;
+            ulong otherClientId = GetOtherClientId(leaverId);
+
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "NotifyLeavingResultScreenServerRpc 수신 — 상대에게 이탈을 알린다",
+                $"LeaverClientId={leaverId}, TargetClientId={otherClientId}");
+
+            // 상대가 이미 없다면(먼저 나갔거나 끊긴 경우) 알릴 대상이 없다 — 조용히 끝낸다.
+            if (otherClientId == ulong.MaxValue) return;
+
+            var clientRpcParams = new ClientRpcParams
+            {
+                Send = new ClientRpcSendParams
+                {
+                    TargetClientIds = new[] { otherClientId }
+                }
+            };
+            NotifyOpponentLeftClientRpc(clientRpcParams);
+        }
+
+        /// <summary>
+        /// [남아 있는 쪽에서 실행] 상대가 사라졌음을 화면에 알린다.
+        ///
+        /// UI 를 직접 건드리지 않고 <c>GameEvents.OnNetworkOpponentLeft</c> 를 발행하는 이유는
+        /// Infrastructure 가 Presentation 을 직접 참조하면 레이어 방향이 역행하기 때문이다
+        /// (이 파일의 다른 ClientRpc 들과 같은 방식).
+        ///
+        /// ⚠️ <b>이 신호를 받아 화면을 바꾸는 쪽(결과 화면)은 아직 없다</b> — 타이머 문구 교체와
+        ///    재경기 버튼 비활성화는 다음 단계의 범위다. 지금은 통보가 여기까지 도달한다.
+        ///
+        /// 🔴 NGO 명명 규약상 ClientRpc 메서드 이름은 반드시 <c>ClientRpc</c> 로 끝나야 한다.
+        /// </summary>
+        [ClientRpc]
+        private void NotifyOpponentLeftClientRpc(ClientRpcParams clientRpcParams = default)
+        {
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "상대 이탈 알림 수신 — OnNetworkOpponentLeft 발행");
+            GameEvents.OnNetworkOpponentLeft.OnNext(Unit.Default);
+        }
+
+        // ====================================================================
         // 유틸리티
         // ====================================================================
 

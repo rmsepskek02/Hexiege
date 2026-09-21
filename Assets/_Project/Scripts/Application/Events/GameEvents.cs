@@ -1041,6 +1041,43 @@ namespace Hexiege.Application
         /// </summary>
         public static readonly Subject<Unit> OnNetworkRematchStarting = new Subject<Unit>();
 
+        // ====================================================================
+        // 결과 화면에서의 상대 이탈 (GameSystemRules_RandomMap.md 규칙 17)
+        // ====================================================================
+
+        /// <summary>
+        /// 🔴 <b>결과 화면이 떠 있는 동안 상대가 사라졌음을 알리는 채널.</b>
+        ///
+        /// 발행: NetworkGameEndController.NotifyOpponentLeftClientRpc (서버 → 남아 있는 쪽 한 명)
+        /// 구독: 아직 없음 — <b>결과 화면 반영(타이머 문구 교체·재경기 버튼 비활성)은 다음 단계</b>다.
+        ///
+        /// <b>[초급자용 설명] 이 채널이 왜 필요한가</b>
+        ///   경기가 끝나면 결과 화면(GameEndUI)이 뜬다. 이때 상대가 로비로 나가 버려도
+        ///   지금은 그 사실이 내 화면에 전혀 전달되지 않는다. 그래서 재경기를 요청해 둔 사람은
+        ///   버튼이 잠긴 채 아무 응답도 못 받고, 자동 로비 복귀 카운트다운이 끝나면서
+        ///   <b>이유도 모른 채</b> 로비로 끌려 나간다. 그 「이유」를 화면까지 나르는 통로가 이 채널이다.
+        ///
+        /// <b>왜 채널을 하나만 두는가</b> (규칙 17):
+        ///   상대가 사라지는 경우는 ① 로비 복귀 버튼으로 <b>스스로 나가는 정상 퇴장</b> 과
+        ///   ② 앱 강제 종료·네트워크 단절 같은 <b>무반응 이탈</b> 두 갈래다.
+        ///   갈래마다 「언제 알아채는가」는 다르지만(②는 서버가 무반응을 일정 시간 지켜보고 판정한다),
+        ///   🔴 <b>화면이 해야 할 일은 두 경우가 완전히 같다</b> — 「상대가 없어졌다」.
+        ///   Host 가 나가는 경우도 마찬가지여서 규칙 17 은 <b>Host 전용 경로를 따로 만들지 말라</b>고 못 박는다.
+        ///   경로를 나누면 같은 사건에 화면 처리가 두 벌 생기고, 시간이 지나면 둘이 서로 어긋난다.
+        ///
+        /// <b>왜 실어 보내는 값(payload)이 없는가</b>:
+        ///   1대1 게임이라 「누가 나갔는가」를 보낼 필요가 없다 — 받는 쪽에게 사라질 상대는 한 명뿐이다.
+        ///   UniRx 의 <c>Subject&lt;Unit&gt;</c> 은 값 없이 「신호만」 보내는 관용 패턴이며,
+        ///   같은 파일의 OnNetworkRematchDeclined · OnNetworkRematchMapFailed 가 같은 모양이다.
+        ///
+        /// 🔴 <b>레이어 경계 — 여기에 Netcode 타입을 담지 않는다</b>:
+        ///   이 채널은 Application 레이어에 있고, Application 은 <c>Unity.Netcode</c> 를 직접 참조하지 않는다
+        ///   (<c>.claude/MEMORY.md</c> 「아키텍처 핵심 제약」). 그래서 ClientId 같은 Netcode 개념을
+        ///   payload 로 싣지 않는다. Netcode 를 아는 범위는 Infrastructure(NetworkGameEndController)까지이고,
+        ///   Presentation(결과 화면)에는 이 「신호」만 건너간다.
+        /// </summary>
+        public static readonly Subject<Unit> OnNetworkOpponentLeft = new Subject<Unit>();
+
         /// <summary>
         /// 네트워크 게임 종료 후 로비로 복귀할 때 발행하는 이벤트.
         /// 발행: NetworkGameManager.BackToLobby (NGO Shutdown 완료 직후)

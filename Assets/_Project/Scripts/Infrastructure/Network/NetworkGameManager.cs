@@ -1287,12 +1287,65 @@ namespace Hexiege.Infrastructure
             // 3. Lobby 퇴장 (fire-and-forget)
             _ = _lobbyManager?.LeaveLobbyAsync();
 
+            // 3-A. [규칙 17 · 정상 퇴장 통보] "나는 지금 결과 화면에서 나간다" 를 상대에게 알린다.
+            //
+            //      🔴 왜 하필 이 자리(3번과 4번 사이)인가 — 순서가 곧 동작이다.
+            //        바로 아래 4번 ShutdownNetworkManager() 는 NGO 연결 자체를 내린다.
+            //        연결이 내려간 뒤에는 RPC 를 실어 보낼 통로가 사라져서, 통보를 4번 뒤에 두면
+            //        "Rpc methods can only be invoked after starting the NetworkManager!" 로 터지거나
+            //        조용히 버려진다. 즉 통보는 절대 상대에게 닿지 못하고, 상대 화면에서는
+            //        정상 퇴장이 「무반응 이탈」처럼 보여 한참을 기다리게 된다(규칙 17 의 두 갈래).
+            //        그래서 이 호출은 연결이 아직 살아 있는 지금 자리여야 한다.
+            //
+            //      왜 1~2번보다 앞으로 당기지는 않는가: 1~2번은 로컬 정리(콜백 구독 해제 · Heartbeat 정지)라
+            //        통보와 순서를 다툴 이유가 없고, 3번 Lobby 퇴장은 UGS Lobby 서비스 쪽 작업이라
+            //        NGO 연결과 무관하다(fire-and-forget). 통보는 「나가기 직전」에 보내는 것이 의미상 맞다.
+            //
+            //      ⚠️ 미확인: RPC 송신과 4번 Shutdown 이 같은 프레임에 일어난다. 메시지가 실제로
+            //        나가기 전에 연결이 내려가면 상대는 통보를 못 받는다. 이것은 코드만으로는 판별할 수
+            //        없고 실기(2인 구성)에서 "정상 퇴장이 즉시 반영되는가" 로 확인해야 한다.
+            NotifyOpponentOfNormalLeave();
+
             // 4. NGO 연결 해제
             ShutdownNetworkManager();
 
             // 5. 씬 전환 — SceneLoader(Presentation)를 직접 참조하지 않고
             //    GameEvents(Application)를 경유해 GameEndUI(Presentation)가 처리하도록 한다(UI 규칙 L-4).
             GameEvents.OnNetworkBackToLobby.OnNext(lobbySceneName);
+        }
+
+        /// <summary>
+        /// [규칙 17 · 정상 퇴장] 결과 화면에서 스스로 나가기 직전에 상대에게 퇴장을 통보한다.
+        ///
+        /// <b>왜 이 클래스가 직접 RPC 를 보내지 않는가</b>: 통보는 NGO 의 RPC 로 나가야 하는데
+        /// RPC 는 <c>NetworkBehaviour</c> 에서만 선언·호출할 수 있다. 이 매니저는 일반
+        /// MonoBehaviour 라서, 같은 Infrastructure 레이어의 <c>NetworkGameEndController</c>
+        /// (NetworkBehaviour)에게 송신을 맡긴다.
+        ///
+        /// <b>컨트롤러를 왜 그때그때 찾는가</b>: 이 매니저는 DontDestroyOnLoad 로 씬을 건너 살아남고,
+        /// 컨트롤러는 Game 씬에 놓인 씬 오브젝트다. 서로 다른 씬에 있으므로 Inspector 로 미리
+        /// 연결해 둘 수 없다. 반대 방향(NetworkGameEndController → 이 매니저)도 같은 이유로
+        /// <c>FindFirstObjectByType</c> 탐색을 쓴다(NetworkGameEndController.OnNetworkSpawn).
+        /// 로비 복귀는 한 판에 한 번뿐인 경로라 매 프레임 도는 탐색이 아니다.
+        ///
+        /// 🔴 싱글플레이나 로비 단계에는 이 컨트롤러가 아예 없다 — 못 찾는 것이 정상이며,
+        ///    그때는 아무 일도 하지 않고 로비 복귀 절차를 그대로 계속한다.
+        /// </summary>
+        private void NotifyOpponentOfNormalLeave()
+        {
+            // NGO 가 돌고 있지 않으면(싱글플레이 등) 보낼 곳 자체가 없다.
+            if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening) return;
+
+            var endController = FindFirstObjectByType<NetworkGameEndController>();
+            if (endController == null)
+            {
+                GameLog.Dev.Info("Network", nameof(NetworkGameManager),
+                    "정상 퇴장 통보 생략 — NetworkGameEndController 를 찾지 못했다");
+                return;
+            }
+
+            // 실제 송신(및 스폰 여부 가드)은 컨트롤러 쪽이 담당한다.
+            endController.NotifyLeavingResultScreen();
         }
 
         // ====================================================================
