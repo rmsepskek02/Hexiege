@@ -1969,3 +1969,94 @@ screen** (the result screen, where the win/loss is already decided and cannot ch
   「씬 값 미적용」 was out of date (`Game.unity:45473` · `Lobby.unity:7479` are both `60000` since `007f666`).
   The original sentence was *true for its own round*, so it is kept and the result is appended — with an explicit
   **「씬 값 미적용으로 읽지 않는다」**, because the stale reading is what a skimmer takes away.
+
+
+---
+
+## 25. A confirmation that **overturns one cell** of a published structure table, and a work item that moves between owners (2026-09-21, post-game-leave-ui stage 6)
+
+No code. Three user confirmations about the result-screen leave watchdog: **who runs it**, **what is checked before
+the verdict**, and **what "a response" is measured with**. The deliverable is where those land and what each one
+does *not* overturn. Nine things generalise.
+
+### 25-1. 🔴 A confirmation that flips 「who does it」 flips **one cell**, not the table
+
+`TechnicalDesignDocument.md` carried a two-row table whose 무반응 row said *감지 주체 = 서버(Host) 의 자체 감시 →
+브로드캐스트*. The confirmation ("both sides judge for themselves") kills the **감지 주체 cell** and nothing else:
+the **30초** value, *"판정과 동시에 연결을 종료한다"*, and the whole **정상 퇴장 row** stay exactly as written.
+
+- **Write the sentence 「바뀌는 것은 표의 『감지 주체』 한 칸이다」 literally.** Without it a reader who sees a
+  correction block above a table downgrades the *whole* table, which is a much larger change than the one taken.
+- The correction goes in a `> **[🔴 날짜 정정·보강 — 위 표와 위 항목들은 한 글자도 지우지 않고 …]**` block
+  **under** the bullets that follow the table, so the table renders intact and the block reads as an appendix.
+
+### 25-2. 🔴 A new mechanism that **looks like** a replacement for an existing RPC is usually a complement — say so
+
+The watchdog and the stage-5 「정상 퇴장 통보 RPC」 answer the same question ("did the opponent leave?"), so the next
+reader's default is *"we now have two ways to do one thing — delete one."*
+
+- The test is **whether the new one fires in the cases the old one already covers.** Here it does not: the watchdog
+  only ever runs when **no notice arrived**. So it is **그물**(a net under the notice), not a substitute.
+- Write **「둘은 대체 관계가 아니라 보완 관계다 — 하나를 넣었다고 다른 하나를 빼지 않는다」** in the rule, in the
+  TDD block *and* in the plan stage, because each of the three is read by someone who will not open the other two.
+
+### 25-3. 🔴 Which work item owns a sub-item is decided by **where the mistake lands**, not by which concept it belongs to
+
+「인터넷 도달 확인」 had been filed as item ⓓ of the *win/loss records* row, because that is the discussion it came
+out of. It moved to the **result-screen stage 6**, because 규칙 17 says *"이탈로 판정하면 연결도 함께 종료한다"* —
+so a misjudgement there is not a wrong caption, it is **the device cutting its own recoverable connection**, and the
+damage surfaces in *this* task's UI (문구·버튼 잠금).
+
+- 🔴 **When an item moves between rows, do not delete it from the old row.** Append **「만드는 순서만 바뀌었다 —
+  이 작업은 재사용한다」**. A deleted ⓓ reads as 「no longer needed」, which is the opposite of what was decided.
+- Say it in **both** rows and in the rule, each time naming *the other* as where the work happens first.
+
+### 25-4. 🔴 A **priority order** is not a decision — the unverified question and its answer date are part of the record
+
+Confirmed: *1순위 기존 RTT · 2순위 결과 화면 전용 하트비트*. **Not** confirmed: that RTT can show 「갱신이 멈췄다」.
+
+- A 순위 table on its own reads as a decision. It only stays honest with **two extra lines**: 🔴 「『RTT 로 한다』를
+  확정으로 적지 않는다」 and **when the question gets answered** (「확인 시점은 단계 6 착수 시」).
+- Record what the existing API *is* (`GetCurrentRttMs()`, UnityTransport round-trip in ms) and **how many places read
+  it today** (one — the ping display). The call-site count is what makes 「이미 있는 것을 쓴다」 checkable later.
+
+### 25-5. 🔴 When told 「the stage's 완료 판정 may contradict the new design — check」, **the contradiction is the artifact**
+
+Found exactly one: *"브로드캐스트 RPC 메서드명이 `ClientRpc` 로 끝난다"* presupposes **a server judging and telling
+the other side**. The repair has three parts and the third is the one that is easy to miss:
+
+1. **Append a marker inside the cell** (`**[🔴 날짜 추가 — 이 칸은 한 글자도 지우지 않았다: … 단일 소스는 §2-1]**`)
+   so a reader of the *table* cannot miss it. A note further down the document does not reach that reader.
+2. **Keep the line.** Deleting it turns the history into 「we planned it this way all along」.
+3. 🔴 **State the limit of the overturn.** 「브로드캐스트를 없앤다」 is *also* not confirmed — stage 5's 정상 퇴장
+   통보 keeps a `ClientRpc`, so what was settled is only 「양쪽이 각자 판정한다」. Write 「구현 착수 시 정한다」.
+- 🔴 A table row is edited by **appending inside its cell** — never by rewriting the row and never by adding a
+  parallel row. The stage numbers are referenced by name in the dependency list, §3, §4 and §6.
+
+### 25-6. New material about stage N goes into a **new numbered sub-section** plus one pointer per affected table
+
+`§2-1` under the stage table, then a one-line `> **[🔴 날짜 추가 — 위 표는 한 글자도 고치지 않았다]**` quote under
+the §3 file table saying what is added and that **§2-1 is the single source**. Same reason as §20-1: never re-letter
+or renumber anything a later section refers to.
+
+- The sub-section carries the **[쉬운 말로]** opener (CLAUDE.md 규칙 13) even though it is not a new document —
+  it is the part a non-implementer reads.
+
+### 25-7. 🔴 Letter-prefixed rules are invisible to `check_docs.py` — cite them with document **and** H2 section by hand
+
+Re-sighting of §22-5. `규칙 D-1 · D-2 · D-4` inside an ASCII decision diagram cannot carry a citation, so the
+diagram gets a **following line** naming `GameSystemRules_UI.md` 「공통 UI 규칙」. A 0건 result says nothing here;
+the check is reading the `**규칙 D-n.` headings in the target document yourself.
+
+### 25-8. A handed-over **line number** is re-measured, and the repair is to stop citing line numbers
+
+The handoff gave `NetworkGameManager.cs:225` for `GetCurrentRttMs()`; the measurement is **:224**. The fix is not
+「correct the number」 — it is **cite the method name** (`.claude/mistakes.md` 2026-08-24 「행 번호로 위치를 가리켜
+전부 어긋남」). Report the discrepancy anyway, so the sender knows their figure drifted.
+
+### 25-9. A confirmation-only round touches TDD + ROADMAP, and **not** PROJECT_STATUS / WORK_HISTORY
+
+Precedent is the *same day's* §24 round: 구현 0줄 means the implementation-status document has nothing to change and
+the milestone table has no milestone. What it does get is **a TDD 개정 이력 row** (버전 minor bump, 최종 수정일
+unchanged when it is the same day) and **a dated block prepended to `ROADMAP.md`**, labelled `(N차)` when an earlier
+block that day already exists. Say in the report which documents were reviewed and left alone, and why.
