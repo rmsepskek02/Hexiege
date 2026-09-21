@@ -103,6 +103,25 @@ Domain → Application → Core → Infrastructure → Presentation → Bootstra
 - 씬 NGM 제거: Additive 임시 로드 → `Undo.DestroyObjectImmediate` → `EditorSceneManager.SaveScene` → CloseScene
 - Undo 지원: RegisterCreatedObjectUndo / SetTransformParent / RecordObject / RegisterCompleteObjectUndo
 
+#### 기존 프리팹 '에셋' 을 고치는 스크립트 (2026-09-21, 첫 사례)
+
+> 종전 `Setup/` 14개는 전부 **씬** 대상이었고, `CreateRankingTable.cs:325` 의 `SaveAsPrefabAsset` 은
+> **신규 생성**이다. 기존 프리팹을 여는 첫 사례가 `SetupConfirmPopupAlertLayout.cs`.
+
+- 순서: `AssetDatabase.LoadAssetAtPath<GameObject>` 로 **존재 확인 먼저**
+  (`LoadPrefabContents` 는 경로가 틀리면 예외를 던진다) → `LoadPrefabContents`
+  → 편집 → `SaveAsPrefabAsset(root, path, out bool success)` → `finally` 에서 `UnloadPrefabContents`.
+- **`EditorUtility.SetDirty` / `MarkSceneDirty` 는 필요 없다** — 씬 대상과 다른 점이다.
+  `SaveAsPrefabAsset` 이 객체 그래프를 통째로 직렬화한다.
+- 🔴 **프리팹 에셋 수정은 Ctrl+Z 로 되돌아가지 않는다.** 그래서 안전장치가 두 가지뿐이다:
+  ① **멱등**(있으면 값만 갱신) ② **필요한 오브젝트를 전부 찾은 뒤에야 고치기 시작**해서
+  "반쯤 고쳐진 프리팹" 이 남지 않게 한다(실패 시 저장 없이 반환).
+- 형제 순서 지정도 멱등이어야 한다. `SetSiblingIndex(messageIndex)` 를 무조건 부르면
+  두 번째 실행에서 오히려 어긋난다 → 목표 인덱스를
+  `titleIndex < messageIndex ? messageIndex - 1 : messageIndex` 로 계산한 뒤 다를 때만 호출.
+- TMP 자식을 만들 때 폰트/머티리얼/색은 **형제(본문)에서 복사**한다(경로 하드코딩 금지).
+  ⚠️ `font` 를 대입하면 머티리얼이 그 폰트 기본값으로 되돌아가므로 **머티리얼은 font 다음에** 대입.
+
 ### 배치 관례와 저장 반영 (2026-08-10 확인 / 2026-08-21 복구 — 유일본)
 
 > 2026-08-17 `675203ae` 로 `MEMORY.md` 에서 소실됐던 내용. 아래 4개 항목은
