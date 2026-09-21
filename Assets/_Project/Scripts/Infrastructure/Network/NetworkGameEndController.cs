@@ -92,6 +92,94 @@ namespace Hexiege.Infrastructure
         private Hexiege.Infrastructure.NetworkGameManager _networkGameManager;
 
         // ====================================================================
+        // 결과 화면 무반응 이탈 자체 감시 — 설정값 (규칙 17 · 단계 6)
+        // ====================================================================
+        //
+        // 🔴 왜 [SerializeField] 가 아니라 const 인가 — 이 프로젝트에서 두 번 걸린 함정이다.
+        //    [SerializeField] 로 만들면 그 값은 씬(Game.unity)에 직렬화되고, 한 번 저장된
+        //    뒤에는 **씬 값이 코드 기본값을 이긴다.** 그러면 코드의 30 을 고쳐도 동작은 그대로다
+        //    (실제로 _autoReturnSeconds 30→60 이 코드와 씬 **양쪽**을 고쳐야 반영됐다).
+        //    아래 30초는 규칙 17 이 정한 값이라 화면에서 조정할 이유가 없으므로,
+        //    애초에 씬에 저장되지 않는 const 로 둬서 함정 자체를 없앴다.
+        //    ✅ 그 결과 **이번 작업은 씬 수정이 필요하지 않다.**
+        //
+        // 🔴 이 값들은 **결과 화면 전용**이다. ReconnectionHandler._reconnectWaitSeconds(인게임
+        //    재접속 대기 30초)와 숫자가 같지만 **다른 시계**이고, 필드도 클래스도 공유하지 않는다.
+        //    로그에서 구분하기 위해 아래 ResultScreenWatchClockId 를 모든 관련 로그에 실어 보낸다.
+
+        /// <summary>
+        /// [결과 화면 전용] 상대 신호가 이만큼 없으면 「무반응」으로 본다(초).
+        /// 규칙 17 「30초 무반응으로 이탈을 판정한다」가 정한 값이다.
+        /// ⚠️ 이 값만으로 이탈이 확정되지 않는다 — 뒤에 인터넷 도달 확인이 한 번 더 붙는다.
+        /// </summary>
+        private const float ResultScreenSilenceTimeoutSeconds = 30f;
+
+        /// <summary>
+        /// [결과 화면 전용] 내 쪽에서 「나 아직 여기 있다」 신호를 보내는 간격(초).
+        /// 30초 안에 열 번쯤 기회가 생기도록 잡았다 — 한두 개가 유실돼도 오판하지 않는다.
+        /// </summary>
+        private const float ResultScreenHeartbeatIntervalSeconds = 3f;
+
+        /// <summary>[결과 화면 전용] 감시 루프가 한 바퀴 도는 간격(초).</summary>
+        private const float ResultScreenWatchTickSeconds = 1f;
+
+        /// <summary>
+        /// [결과 화면 전용] 인터넷 도달 확인이 실패했을 때 다시 시도하기까지의 간격(초).
+        /// 🔴 왜 간격을 두는가: 도달 확인은 실제 네트워크 요청이라 매 초 보내면 요청 제한에
+        ///    걸리고 배터리도 먹는다. 실패했다는 것은 「기다린다」는 뜻이므로 급할 이유도 없다.
+        /// </summary>
+        private const float ResultScreenReachabilityRetryIntervalSeconds = 10f;
+
+        /// <summary>
+        /// 로그에 싣는 시계 식별자. 이 프로젝트에는 30초짜리 시계가 여럿이라
+        /// (인게임 재접속 대기 30초 · 자동 로비 복귀 카운트다운) 로그만 보고는 구분이 안 된다.
+        /// 그래서 이 감시가 남기는 모든 줄에 <c>Clock=ResultScreenLeaveWatch</c> 를 붙인다.
+        /// </summary>
+        private const string ResultScreenWatchClockId = "ResultScreenLeaveWatch";
+
+        // ── 감시 상태 ────────────────────────────────────────────────────
+
+        /// <summary>돌고 있는 감시 코루틴. null 이면 감시하지 않는 상태다.</summary>
+        private Coroutine _resultScreenWatchCoroutine;
+
+        /// <summary>
+        /// 상대 신호를 마지막으로 받은 시각(초, <see cref="Time.realtimeSinceStartup"/> 기준).
+        ///
+        /// ⚠️ <b>realtime 을 쓰는 이유</b>: 결과 화면에서는 <c>Time.timeScale</c> 이 0 일 수 있고,
+        ///    그러면 <c>Time.time</c> 이 아예 흐르지 않아 30초가 영영 지나지 않는다
+        ///    (같은 이유로 GameEndUI 의 카운트다운과 NetworkMapTransfer 의 마감 시각도 realtime 을 쓴다).
+        /// </summary>
+        private float _lastOpponentSignalRealtime;
+
+        /// <summary>내 신호를 마지막으로 보낸 시각(초, realtime 기준).</summary>
+        private float _lastHeartbeatSentRealtime;
+
+        /// <summary>다음 인터넷 도달 확인을 보낼 수 있는 가장 이른 시각(초, realtime 기준).</summary>
+        private float _nextReachabilityProbeRealtime;
+
+        /// <summary>
+        /// 이번 결과 화면에서 이미 이탈을 확정했는가. 같은 판에서 두 번 확정하지 않기 위한 깃발.
+        /// </summary>
+        private bool _resultScreenLeaveJudged;
+
+        /// <summary>
+        /// 신호 전송 실패를 이미 로그로 남겼는가. 3초마다 같은 줄이 쌓이는 것을 막는 깃발이다
+        /// (매 틱 로깅 금지 — LogRules 1.14 금지 8).
+        /// </summary>
+        private bool _heartbeatSendFailureLogged;
+
+        /// <summary>
+        /// 상대 이탈 알림(<c>GameEvents.OnNetworkOpponentLeft</c>) 구독 해제용 Disposable.
+        /// 정상 퇴장 통보로 이미 알림이 온 뒤에는 감시를 계속할 이유가 없어 멈추는 데 쓴다.
+        /// </summary>
+        private System.IDisposable _opponentLeftSub;
+
+        /// <summary>
+        /// 인터넷 도달 확인기. 판정 직전에만 쓰므로 처음 필요할 때 만든다(지연 생성).
+        /// </summary>
+        private InternetReachabilityProbe _reachabilityProbe;
+
+        // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
 
@@ -135,6 +223,20 @@ namespace Hexiege.Infrastructure
 
             _localRematchDeclinedSub = GameEvents.OnLocalRematchDeclined
                 .Subscribe(_ => DeclineRematchServerRpc());
+
+            // [규칙 17 · 단계 6] 상대 이탈 알림이 **어떤 경로로든** 도착하면 자체 감시를 멈춘다.
+            //
+            //   왜 필요한가: 상대가 로비 복귀 버튼으로 정상 퇴장하면 그 사실이 통보 RPC 로
+            //   먼저 도착한다(단계 5). 그때 감시를 그대로 두면 30초 뒤에 같은 사건을 한 번 더
+            //   확정해 OnNetworkOpponentLeft 가 두 번 발행된다.
+            //
+            //   🔴 이 구독을 쓴 이유는 **단계 5 의 통보 RPC 를 한 글자도 건드리지 않기 위해서**다.
+            //      통보를 받는 쪽에 코드를 끼워 넣는 대신, 이미 발행되는 이벤트를 듣기만 한다.
+            //      자체 감시가 스스로 발행한 이벤트도 여기로 돌아오므로 판정 후 정리까지 겸한다.
+            //
+            //   ⚠️ IsServer 가드 밖에 둔다 — Host 와 Client 가 모두 이 알림을 받을 수 있다.
+            _opponentLeftSub = GameEvents.OnNetworkOpponentLeft
+                .Subscribe(_ => StopResultScreenLeaveWatch("상대 이탈 알림을 받았다"));
         }
 
         /// <summary>
@@ -152,6 +254,14 @@ namespace Hexiege.Infrastructure
             _localRematchAcceptedSub = null;
             _localRematchDeclinedSub?.Dispose();
             _localRematchDeclinedSub = null;
+
+            // [규칙 17 · 단계 6] 결과 화면 자체 감시 뒷정리.
+            //   디스폰은 재경기로 씬이 재로드되거나 연결이 내려갈 때 온다. 어느 쪽이든
+            //   더 이상 감시할 결과 화면이 없으므로 코루틴과 구독을 함께 정리한다.
+            //   (정리하지 않으면 다음 판에서 지난 판의 감시가 되살아난다.)
+            _opponentLeftSub?.Dispose();
+            _opponentLeftSub = null;
+            StopResultScreenLeaveWatch("네트워크 디스폰");
 
             _rematchRequesterId = ulong.MaxValue;
         }
@@ -202,6 +312,28 @@ namespace Hexiege.Infrastructure
 
             // 모든 클라이언트에 승자 발표
             AnnounceWinnerClientRpc(winnerTeamIndex, isRandomMatch);
+
+            // ----------------------------------------------------------------
+            // [규칙 17 · 단계 6] 결과 화면 무반응 이탈 자체 감시를 켠다.
+            //
+            // 🔴 켜는 기준은 「결과 화면에 상대가 아직 있을 수 있는가」다.
+            //    이 경로는 성(Castle)이 파괴돼 승패가 갈린 **정상 종료**다. 두 사람이 멀쩡히
+            //    붙어 있는 상태로 결과 화면에 들어가므로, 그 뒤에 한쪽이 조용해지는 것은
+            //    **새로운 사건**이고 감시할 값이 있다.
+            //
+            //    같은 기준으로 **포기 경로도 켠다**(ForfeitServerRpc 끝 참조) — 포기는
+            //    「경기를 지겠다」는 뜻이지 「나간다」는 뜻이 아니어서 상대가 남아 있을 수 있다.
+            //    **켜지 않는 자리는 ForceWin 하나뿐**이며, 그쪽은 상대의 연결 끊김이 곧 승리의
+            //    원인이라 상대가 확실히 없다(그 메서드 끝의 주석 참조).
+            //
+            // ⚠️ 왜 AnnounceWinnerClientRpc 안이 아니라 별도 ClientRpc 인가:
+            //    그 안에 넣으면 **세 호출처 전부**에서 감시가 켜진다. 인자로 가르는 방법도
+            //    있었지만, 이미 bool 하나(isRandomMatch)를 받는 메서드에 bool 을 하나 더
+            //    붙이면 호출부가 `(winnerTeamIndex, false, true)` 처럼 읽을 수 없는 모양이 된다.
+            //    「감시를 켜라」를 **독립된 메시지**로 두면 켜는 자리와 켜지 않는 자리가
+            //    호출부에서 그대로 보인다.
+            // ----------------------------------------------------------------
+            BeginResultScreenLeaveWatchClientRpc();
         }
 
         // ====================================================================
@@ -242,6 +374,38 @@ namespace Hexiege.Infrastructure
 
             // 재경기 버튼 설정 신호 — GameEndUI가 구독해 SetupRematchButton 호출.
             GameEvents.OnNetworkRematchAvailable.OnNext(new NetworkRematchAvailableEvent(isRandomMatch));
+
+            // ⚠️ [규칙 17 · 단계 6] 결과 화면 이탈 감시는 **여기서 켜지 않는다.**
+            //    이 ClientRpc 는 정상 종료 · ForceWin(상대 연결 끊김) · 포기 **세 경로 모두**가
+            //    부르기 때문에, 여기에 넣으면 감시가 필요 없는 ForceWin 에서도 켜진다.
+            //    감시를 켜는 신호는 별도 ClientRpc(BeginResultScreenLeaveWatchClientRpc)이며
+            //    **정상 종료(OnGameEndServer)와 포기(ForfeitServerRpc) 두 자리에서만** 보낸다.
+            //
+            // 🔴 위 isRandomMatch 를 그 판별에 쓰지 않는다 — 정상 종료(커스텀)도 false,
+            //    포기도 false 라 **애초에 구분되지 않는 값**이다. 「랜덤 매칭인가」는
+            //    재경기 버튼을 감추기 위한 값이고 종료 사유와 아무 관계가 없다.
+        }
+
+        /// <summary>
+        /// [양쪽에서 실행] 결과 화면 무반응 이탈 자체 감시를 시작하라는 신호.
+        ///
+        /// 🔴 <b>왜 별도 RPC 로 두는가</b>: 감시를 켜야 하는 경기는 <b>정상 종료</b>뿐인데
+        ///    <c>AnnounceWinnerClientRpc</c> 는 정상 종료 · 강제 승리 · 포기 <b>세 경로</b>가
+        ///    공유한다. 켜는 신호를 따로 두면 <b>호출부만 보고도</b> 어느 경로가 감시를 켜고
+        ///    어느 경로가 켜지 않는지 알 수 있다.
+        ///
+        /// 🔴 <b>왜 Host 쪽에 따로 호출을 두지 않는가</b>: ClientRpc 본문은 <b>Host(서버 자신)에서도
+        ///    로컬로 실행</b>된다. 그래서 서버가 이 RPC 를 한 번 보내면 Host 와 Client 양쪽에서
+        ///    같은 감시가 시작된다 — 역할에 따라 갈리지 않는다(규칙 17 ①).
+        ///
+        /// 🔴 NGO 명명 규약상 ClientRpc 메서드 이름은 반드시 <c>ClientRpc</c> 로 끝나야 한다.
+        /// </summary>
+        [ClientRpc]
+        private void BeginResultScreenLeaveWatchClientRpc()
+        {
+            // 여기에 if (IsServer) 같은 가드를 두지 않는다 — 두면 Host 가 스스로를 감시하지 않게 되고,
+            // Host 가 사라졌을 때 남은 Client 만 판정하는 비대칭이 생긴다(자세한 이유는 아래 감시 절 머리말).
+            StartResultScreenLeaveWatch();
         }
 
         // ====================================================================
@@ -267,6 +431,17 @@ namespace Hexiege.Infrastructure
 
             // 연결 끊김 시 재경기 불가 — isRandomMatch=false
             AnnounceWinnerClientRpc(winnerTeamIndex, false);
+
+            // 🔴 [규칙 17 · 단계 6] 여기서는 결과 화면 이탈 감시를 **일부러 켜지 않는다.**
+            //    (BeginResultScreenLeaveWatchClientRpc 를 보내지 않는다는 뜻이다.)
+            //
+            //    [초급자용 설명] 이 메서드가 불린 이유 자체가 **상대의 연결이 끊겼다**는 것이다.
+            //    즉 「상대가 없다」는 사실이 이미 확인됐고, 그것이 이 승리의 **원인**이다.
+            //    그런데 결과 화면에서 감시를 켜면 30초 뒤에 **똑같은 사실을 한 번 더 판정**해
+            //    「상대가 나갔습니다」를 다시 알리게 된다. 이미 끝난 이야기를 되풀이하는 것이고,
+            //    같은 사건이 화면과 로그에 두 번 남아 원인을 읽는 사람을 헷갈리게 만든다.
+            //    감시는 **정상 종료 뒤에 새로 생긴 침묵**을 잡기 위한 그물이지,
+            //    이미 알고 있는 단절을 다시 확인하는 장치가 아니다.
         }
 
         // ====================================================================
@@ -336,6 +511,23 @@ namespace Hexiege.Infrastructure
             //  여기서는 보수적으로 false를 넣어 클라이언트가 재경기 버튼을 띄울 수 있게 함.
             //  실제 랜덤매칭 종료 처리는 기존 OnGameEndServer 경로와 동일하게 동작.)
             AnnounceWinnerClientRpc((int)winnerTeam, false);
+
+            // ----------------------------------------------------------------
+            // [규칙 17 · 단계 6] 포기 경로에서도 결과 화면 이탈 감시를 **켠다.**
+            //
+            // [초급자용 설명] 포기는 **「이 경기를 지겠다」는 뜻이고 「화면을 떠난다」는 뜻이 아니다.**
+            //   바로 위에서 보듯 포기 뒤에도 재경기 버튼이 뜨므로(isRandomMatch=false),
+            //   두 사람이 결과 화면에 그대로 머물며 재경기를 주고받을 수 있다.
+            //   그러니 **그 뒤에 한쪽이 조용해지는 일은 여전히 일어날 수 있고 감지해야 한다.**
+            //   켜지 않으면 규칙 17 이 없애려던 상황이 이 경로에만 되살아난다 —
+            //   「재경기를 신청했는데 상대가 앱을 강제 종료 → 아무 통보도 없이 버튼이 잠긴 채
+            //     자동 로비 복귀 카운트다운 만료까지 갇힌다」.
+            //
+            // 🔴 위 ForceWin 과 다른 점(한 문장으로): **ForceWin 은 상대의 연결 끊김이 곧 승리의
+            //    원인이라 상대가 확실히 없고, 포기는 상대가 여전히 있을 수 있다.**
+            //    그래서 저쪽은 켜지 않고 이쪽은 켠다.
+            // ----------------------------------------------------------------
+            BeginResultScreenLeaveWatchClientRpc();
         }
 
         // ====================================================================
@@ -747,6 +939,334 @@ namespace Hexiege.Infrastructure
             GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
                 "상대 이탈 알림 수신 — OnNetworkOpponentLeft 발행");
             GameEvents.OnNetworkOpponentLeft.OnNext(Unit.Default);
+        }
+
+        // ====================================================================
+        // 결과 화면에서의 상대 이탈 — 무반응 이탈 자체 감시 (규칙 17 · 단계 6)
+        //
+        // [초급자용 설명 — 무엇을 하는 코드인가]
+        //   결과 화면이 떠 있는 동안, 두 기기가 각자 서로에게 「나 아직 여기 있다」 신호를
+        //   3초마다 보낸다. 그 신호가 30초 동안 한 번도 오지 않으면 뭔가 잘못된 것이다.
+        //   그때 곧바로 「상대가 나갔다」고 단정하지 않고 **내 인터넷이 되는지 먼저 확인**한 뒤,
+        //   내 인터넷이 멀쩡할 때만 상대 이탈로 확정하고 연결을 정리한다.
+        //
+        //   전체 그림 (GameSystemRules_RandomMap.md 규칙 17 의 ② 블록과 같은 그림):
+        //     상대 신호 30초간 없음
+        //       → 내 인터넷 도달 확인
+        //           ├─ 된다    → 상대 이탈 확정 → 연결 종료 → OnNetworkOpponentLeft 발행
+        //           └─ 안 된다 → 내 문제 → 연결을 끊지 않고 복구를 기다린다
+        //
+        // 🔴 [왜 if (IsServer) 가드를 두지 않는가 — 이 구조의 핵심]
+        //   「서버가 감시하고 결과를 상대에게 RPC 로 알린다」가 자연스러워 보이지만 그러면
+        //   **Host 가 사라진 경우에 아무도 알 수 없다.** 감시하던 서버도, 알려 줄 RPC 도
+        //   Host 와 함께 사라지기 때문이다. 남은 Client 는 이유도 모르고 갇힌다.
+        //   이 게임은 P2P 라 **플레이어는 자기가 Host 인지 Client 인지 알 수 없으므로**
+        //   같은 상황에서 화면이 달라지면 그것만으로 결함이다
+        //   (TechnicalDesignDocument.md 「🔴 최상위 원칙」 · 규칙 17 ①).
+        //   → 그래서 **판정은 양쪽이 각자** 한다. 아래 감시 루프에는 역할 가드가 없다.
+        //
+        //   ⚠️ 단 하나 역할에 따라 갈리는 것은 **신호를 실어 보내는 RPC 의 방향**이다.
+        //      NGO 는 「서버 → 클라이언트(ClientRpc)」와 「클라이언트 → 서버(ServerRpc)」
+        //      두 방향만 제공하므로, 내가 서버면 ClientRpc 로, 클라이언트면 ServerRpc 로 보낸다.
+        //      **판정하는 코드는 양쪽이 똑같고, 다른 것은 배달 수단뿐이다.**
+        //
+        // 🔴 [왜 도달 확인이 판정보다 먼저인가]
+        //   규칙 17 은 「이탈로 판정하면 연결도 함께 종료한다」고 정하고 있다. 그래서 오판은
+        //   문구가 잘못 뜨는 데서 끝나지 않고 **돌아올 수 있었던 연결을 내가 스스로 끊는 것**이
+        //   된다. 내 와이파이가 30초 깜빡였을 뿐인데 상대는 멀쩡히 기다리고 있고 나는 재경기도
+        //   못 하게 되는 상황이다. 판정을 한 단계 늦추는 비용보다 이쪽 손해가 훨씬 크다.
+        //
+        // ✅ [단계 5 의 정상 퇴장 통보와의 관계 — 대체가 아니라 보완]
+        //   위쪽 NotifyLeavingResultScreen / …ServerRpc / NotifyOpponentLeftClientRpc 는
+        //   그대로 살아 있다. 그쪽은 상대가 **정상적으로 나갈 때 즉시** 알리는 길이고,
+        //   이 감시는 **그 통보가 오지 못한 경우를 받는 그물**이다(규칙 17 ①).
+        //
+        // [브로드캐스트를 두지 않은 이유]
+        //   무반응 갈래에서는 판정 결과를 상대에게 알리는 RPC 를 **일부러 만들지 않았다.**
+        //   ① 양쪽이 같은 감시를 각자 돌리므로 상대도 스스로 같은 결론에 도달한다.
+        //   ② 알릴 상대는 「응답이 30초간 없는 상대」다 — 그 통보가 닿는다는 보장이 없고,
+        //      닿을 상태라면 애초에 무반응이 아니다.
+        //   ③ 판정과 동시에 연결을 끊으므로(규칙 17) 보낼 통로 자체가 곧 사라진다.
+        //   → 즉 있어도 도착하지 않고, 도착한다면 필요 없는 메시지다.
+        // ====================================================================
+
+        /// <summary>
+        /// [양쪽 공통] 결과 화면 무반응 이탈 감시를 시작한다.
+        /// 호출처는 <c>BeginResultScreenLeaveWatchClientRpc</c> 한 곳이며, 그 ClientRpc 는
+        /// Host 에서도 로컬 실행되므로 이 메서드는 Host·Client 양쪽에서 각각 한 번씩 불린다.
+        ///
+        /// ⚠️ 그 RPC 를 보내는 자리는 <b>두 곳</b>이다 — 정상 종료(<c>OnGameEndServer</c>)와
+        ///    포기(<c>ForfeitServerRpc</c>). 둘 다 <b>결과 화면에 상대가 아직 있을 수 있는</b> 경기다.
+        ///    보내지 않는 자리는 <c>ForceWin</c> <b>하나뿐</b>이며, 그쪽은 상대의 연결 끊김이
+        ///    곧 승리의 원인이라 <b>같은 사실을 다시 판정하는 것</b>이 되기 때문이다
+        ///    (각 메서드 끝의 주석 참조).
+        ///
+        /// 🔴 <b>역할 가드를 두지 않는다</b> — 이유는 이 절 머리말의 「왜 if (IsServer) 가드를
+        ///    두지 않는가」 참조.
+        /// </summary>
+        private void StartResultScreenLeaveWatch()
+        {
+            // 싱글플레이(미스폰)나 이미 연결이 내려간 상태에서는 감시할 대상이 없다.
+            // IsSpawned 를 앞에 두는 이유는 이 파일의 다른 가드와 같다(단락 평가).
+            if (!IsSpawned) return;
+
+            // 중복 시작 방지 — 같은 결과 화면에서 두 번 불릴 일은 없지만,
+            // 코루틴이 두 개 돌면 신호를 두 배로 보내고 로그도 두 줄씩 남는다.
+            if (_resultScreenWatchCoroutine != null) return;
+
+            float now = Time.realtimeSinceStartup;
+            _lastOpponentSignalRealtime = now;   // 시작 시점을 기준으로 30초를 센다
+            _lastHeartbeatSentRealtime = 0f;     // 첫 바퀴에서 곧바로 한 번 보내게 한다
+            _nextReachabilityProbeRealtime = 0f; // 도달 확인도 첫 판정 때 바로 할 수 있게 한다
+            _resultScreenLeaveJudged = false;
+            _heartbeatSendFailureLogged = false;
+
+            _resultScreenWatchCoroutine = StartCoroutine(ResultScreenLeaveWatchLoop());
+
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "결과 화면 이탈 감시 시작",
+                $"Clock={ResultScreenWatchClockId}, TimeoutSeconds={ResultScreenSilenceTimeoutSeconds}, " +
+                $"HeartbeatIntervalSeconds={ResultScreenHeartbeatIntervalSeconds}, IsServer={IsServer}");
+        }
+
+        /// <summary>
+        /// [양쪽 공통] 감시를 멈춘다. 이미 멈춰 있으면 아무 일도 하지 않는다(멱등).
+        /// </summary>
+        /// <param name="reason">로그에 남길 중단 사유(사람이 읽는 문장).</param>
+        private void StopResultScreenLeaveWatch(string reason)
+        {
+            if (_resultScreenWatchCoroutine == null) return;
+
+            StopCoroutine(_resultScreenWatchCoroutine);
+            _resultScreenWatchCoroutine = null;
+
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "결과 화면 이탈 감시 중단",
+                $"Clock={ResultScreenWatchClockId}, Reason={reason}");
+        }
+
+        /// <summary>
+        /// [양쪽 공통] 감시 본체. 1초마다 ① 내 신호 보내기 ② 상대 침묵 시간 검사를 한다.
+        ///
+        /// ⚠️ <b>WaitForSecondsRealtime 을 쓰는 이유</b>: 결과 화면에서는 <c>Time.timeScale</c> 이
+        ///    0 일 수 있고, 그러면 일반 <c>WaitForSeconds</c> 는 영원히 끝나지 않는다.
+        /// </summary>
+        private System.Collections.IEnumerator ResultScreenLeaveWatchLoop()
+        {
+            while (true)
+            {
+                yield return new WaitForSecondsRealtime(ResultScreenWatchTickSeconds);
+
+                // 연결이 이미 내려갔거나 디스폰됐다면 감시할 것이 없다.
+                // 🔴 가드 자체에는 로그를 남기지 않는다 — 매 틱 로깅 금지(LogRules 1.14 금지 8).
+                if (!IsSpawned || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+                {
+                    _resultScreenWatchCoroutine = null;
+                    yield break;
+                }
+
+                float now = Time.realtimeSinceStartup;
+
+                // ── ① 내 신호 보내기 ─────────────────────────────────────
+                if (now - _lastHeartbeatSentRealtime >= ResultScreenHeartbeatIntervalSeconds)
+                {
+                    _lastHeartbeatSentRealtime = now;
+                    SendResultScreenHeartbeat();
+                }
+
+                // ── ② 상대 침묵 시간 검사 ────────────────────────────────
+                float silenceSeconds = now - _lastOpponentSignalRealtime;
+                if (silenceSeconds < ResultScreenSilenceTimeoutSeconds) continue;
+
+                // 여기부터가 「30초 무반응」이다. 아직 이탈이 아니라 **의심**일 뿐이다.
+                // 도달 확인은 실제 네트워크 요청이므로 재시도 간격을 지킨다.
+                if (now < _nextReachabilityProbeRealtime) continue;
+                _nextReachabilityProbeRealtime = now + ResultScreenReachabilityRetryIntervalSeconds;
+
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "상대 신호가 끊겼다 — 판정 전에 내 인터넷 도달을 먼저 확인한다",
+                    $"Clock={ResultScreenWatchClockId}, SilenceSeconds={silenceSeconds:F1}, " +
+                    $"TimeoutSeconds={ResultScreenSilenceTimeoutSeconds}");
+
+                // 도달 확인 결과를 기다린다.
+                //   ⚠️ 코루틴에서 async 메서드를 기다리는 방법으로 「Task 가 끝날 때까지 프레임을
+                //      넘긴다」를 쓴다. async void 로 빼지 않는 이유는 그렇게 하면 예외가 조용히
+                //      사라지고, 판정 순서(확인 → 결론)도 코드에서 보이지 않게 되기 때문이다.
+                if (_reachabilityProbe == null) _reachabilityProbe = new InternetReachabilityProbe();
+                var probeTask = _reachabilityProbe.CheckAsync();
+                while (!probeTask.IsCompleted) yield return null;
+
+                // 확인기는 예외를 던지지 않도록 만들어 뒀지만, 만약 그래도 터졌다면
+                // 「확인하지 못했다」와 같게 다룬다 — 확실하지 않으면 연결을 끊지 않는다.
+                if (probeTask.IsFaulted || probeTask.IsCanceled)
+                {
+                    GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                        "도달 확인이 예외로 끝났다 — 연결을 끊지 않고 기다린다",
+                        $"Clock={ResultScreenWatchClockId}");
+                    continue;
+                }
+
+                if (probeTask.Result != InternetReachabilityResult.Reachable)
+                {
+                    // 🔴 여기서 절대 연결을 끊지 않는다. 상대가 아니라 내가 문제일 수 있고,
+                    //    끊어 버리면 돌아올 수 있었던 연결이 되돌릴 수 없게 된다(규칙 17 ②).
+                    //    침묵 타이머도 일부러 되돌리지 않는다 — 상대는 여전히 조용하므로,
+                    //    인터넷이 돌아오는 순간 곧바로 판정할 수 있어야 한다.
+                    GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                        "내 인터넷 도달을 확인하지 못했다 — 내 문제로 보고 연결을 유지한 채 기다린다",
+                        $"Clock={ResultScreenWatchClockId}, ProbeResult={probeTask.Result}, " +
+                        $"RetryAfterSeconds={ResultScreenReachabilityRetryIntervalSeconds}");
+                    continue;
+                }
+
+                // 내 인터넷은 되는데 상대만 조용하다 → 상대 이탈로 확정한다.
+                ConfirmOpponentLeftAfterSilence(silenceSeconds);
+                yield break;
+            }
+        }
+
+        /// <summary>
+        /// [양쪽 공통] 상대 이탈을 확정하고 화면에 알린 뒤 연결을 종료한다.
+        ///
+        /// 순서가 「알림 → 연결 종료」인 이유: 알림은 로컬 이벤트(<c>GameEvents</c>)라
+        /// 네트워크와 무관하지만, 연결 종료가 먼저 일어나면 이 컴포넌트가 디스폰되면서
+        /// 뒤 코드가 실행되지 않을 수 있다. 상대에게 보내는 메시지가 아니므로 순서를
+        /// 바꿔도 상대 쪽 동작에는 영향이 없다.
+        /// </summary>
+        /// <param name="silenceSeconds">판정 시점의 침묵 시간(초). 로그용.</param>
+        private void ConfirmOpponentLeftAfterSilence(float silenceSeconds)
+        {
+            if (_resultScreenLeaveJudged) return;
+            _resultScreenLeaveJudged = true;
+
+            GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                "무반응 이탈 확정 — 내 인터넷은 되고 상대만 조용하다",
+                $"Clock={ResultScreenWatchClockId}, SilenceSeconds={silenceSeconds:F1}, IsServer={IsServer}");
+
+            // 1. 화면에 알린다(Presentation 은 이 이벤트를 구독한다 — 단계 7 의 몫).
+            //    Infrastructure 가 UI 를 직접 부르면 레이어 방향이 역행하므로 GameEvents 를 쓴다.
+            //    ⚠️ 이 발행은 위 OnNetworkSpawn 의 구독으로 되돌아와 감시를 멈추게 한다(의도된 동작).
+            GameEvents.OnNetworkOpponentLeft.OnNext(Unit.Default);
+
+            // 2. 연결을 종료한다 — 규칙 17 「이탈로 판정하면 연결도 함께 종료한다」.
+            //    살려 두면 「나갔다고 표시했는데 응답이 뒤늦게 도착하는」 상태가 생긴다.
+            //
+            //    🔴 NetworkBehaviour 안에서 NetworkManager.Shutdown() 을 직접 부르면 디스폰
+            //       타이밍 문제가 있어, DontDestroyOnLoad 인 NetworkGameManager 에 위임한다
+            //       (그 클래스 BackToLobby 의 주석이 같은 이유를 적고 있다).
+            var ngm = ResolveNetworkGameManager();
+            if (ngm == null)
+            {
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "연결 종료를 건너뛴다 — NetworkGameManager 를 찾지 못했다",
+                    $"Clock={ResultScreenWatchClockId}");
+                return;
+            }
+
+            ngm.ShutdownNetwork();
+        }
+
+        /// <summary>
+        /// [양쪽 공통] 내 쪽 「아직 여기 있다」 신호를 보낸다.
+        ///
+        /// 🔴 여기서만 역할에 따라 갈린다 — NGO 의 RPC 는 방향이 정해져 있어서
+        ///    서버는 ClientRpc 로만, 클라이언트는 ServerRpc 로만 보낼 수 있다.
+        ///    <b>판정 로직이 갈리는 것이 아니라 배달 수단이 갈리는 것</b>이다.
+        /// </summary>
+        private void SendResultScreenHeartbeat()
+        {
+            // 🔴 왜 try/catch 로 감싸는가: 연결이 내려가는 도중에 RPC 를 보내면 NGO 가
+            //    "Rpc methods can only be invoked after starting the NetworkManager!" 로 예외를 던진다.
+            //    그 예외가 코루틴 안에서 터지면 **감시 루프가 조용히 죽어** 아무도 이탈을 판정하지
+            //    못하게 된다. 보내기 실패는 감시를 멈출 이유가 아니므로 삼키고 계속 지켜본다.
+            //    (삼킨 예외를 기록 없이 두지 않도록 첫 실패 한 번은 반드시 로그로 남긴다 —
+            //     LogRules 원칙 4. 매 3초마다 같은 줄이 쌓이면 1.14 금지 8 에 걸리므로 한 번만 남긴다.)
+            try
+            {
+                if (IsServer)
+                {
+                    // 서버 → 클라이언트. 2인 게임이라 대상 지정 없이 보내도 받는 사람은 한 명이다.
+                    ResultScreenHeartbeatClientRpc();
+                }
+                else
+                {
+                    // 클라이언트 → 서버.
+                    ResultScreenHeartbeatServerRpc();
+                }
+            }
+            catch (System.Exception e)
+            {
+                if (_heartbeatSendFailureLogged) return;
+                _heartbeatSendFailureLogged = true;
+
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "결과 화면 신호 전송에 실패했다 — 감시는 계속한다(이 줄은 판당 한 번만 남는다)",
+                    $"Clock={ResultScreenWatchClockId}, Exception={e.GetType().Name}");
+            }
+        }
+
+        /// <summary>
+        /// [서버에서 실행] 클라이언트가 보낸 「아직 여기 있다」 신호.
+        ///
+        /// 🔴 NGO 명명 규약상 ServerRpc 메서드 이름은 반드시 <c>ServerRpc</c> 로 끝나야 한다.
+        /// RequireOwnership=false 인 이유는 이 NetworkObject 가 서버 소유라 그대로 두면
+        /// 클라이언트가 호출할 수 없기 때문이다(이 파일의 다른 ServerRpc 들과 같은 이유).
+        /// </summary>
+        [ServerRpc(RequireOwnership = false)]
+        private void ResultScreenHeartbeatServerRpc(ServerRpcParams rpcParams = default)
+        {
+            // 내가 보낸 것이 나에게 돌아온 경우는 상대 신호가 아니다.
+            // (지금 구조에서는 Host 가 이 ServerRpc 를 보내지 않으므로 발생하지 않지만,
+            //  자기 신호를 상대 신호로 세면 침묵을 영원히 감지하지 못하는 치명적 버그가 되므로
+            //  값이 싼 방어를 남겨 둔다.)
+            if (NetworkManager.Singleton != null &&
+                rpcParams.Receive.SenderClientId == NetworkManager.Singleton.LocalClientId) return;
+
+            MarkOpponentSignalReceived();
+        }
+
+        /// <summary>
+        /// [클라이언트에서 실행] 서버가 보낸 「아직 여기 있다」 신호.
+        ///
+        /// 🔴 NGO 명명 규약상 ClientRpc 메서드 이름은 반드시 <c>ClientRpc</c> 로 끝나야 한다.
+        /// </summary>
+        [ClientRpc]
+        private void ResultScreenHeartbeatClientRpc()
+        {
+            // Host 는 서버이면서 클라이언트이기도 해서 자기가 보낸 ClientRpc 본문을 자기도 실행한다.
+            // 그 실행은 상대 신호가 아니므로 반드시 걸러야 한다 — 걸러 내지 않으면 Host 는
+            // **영원히 침묵을 감지하지 못한다.**
+            if (IsServer) return;
+
+            MarkOpponentSignalReceived();
+        }
+
+        /// <summary>
+        /// [양쪽 공통] 상대 신호를 받은 시각을 갱신한다(= 침묵 타이머 리셋).
+        ///
+        /// 🔴 여기에는 로그를 남기지 않는다 — 3초마다 들어오는 정상 신호라
+        ///    로그를 남기면 매 틱 로깅 금지(LogRules 1.14 금지 8)에 걸리고 파일이 신호로 찬다.
+        /// </summary>
+        private void MarkOpponentSignalReceived()
+        {
+            _lastOpponentSignalRealtime = Time.realtimeSinceStartup;
+        }
+
+        /// <summary>
+        /// NetworkGameManager 참조를 얻는다. 서버는 OnNetworkSpawn 에서 이미 캐시해 두었고,
+        /// 클라이언트는 캐시가 없으므로 이때 한 번 찾아 채운다.
+        ///
+        /// ⚠️ 매 프레임 도는 탐색이 아니다 — 판정은 한 판에 한 번뿐인 경로다.
+        /// 씬이 달라 Inspector 로 미리 연결해 둘 수 없다는 사정은 반대 방향
+        /// (NetworkGameManager → 이 컨트롤러)도 같다(그쪽도 FindFirstObjectByType 을 쓴다).
+        /// </summary>
+        private Hexiege.Infrastructure.NetworkGameManager ResolveNetworkGameManager()
+        {
+            if (_networkGameManager == null)
+            {
+                _networkGameManager = FindFirstObjectByType<Hexiege.Infrastructure.NetworkGameManager>();
+            }
+            return _networkGameManager;
         }
 
         // ====================================================================

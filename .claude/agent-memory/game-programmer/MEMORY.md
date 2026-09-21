@@ -38,6 +38,14 @@
   「상대가 나갔다」 채널을 하나만 두는 이유(Host 이탈 흡수) · `BackToLobby()` 안에서 통보가
   `ShutdownNetworkManager()` **앞**이어야 하는 이유 · `NetworkGameManager` 가 컨트롤러를
   `FindFirstObjectByType` 으로 찾는 근거(씬이 달라 Inspector 배선 불가).**
+  🔴 **경기 종료 후 이탈 단계 6(2026-09-21): 결과 화면 무반응 이탈 자체 감시 — 🔴 RTT 로는
+  「응답 없음」을 판별할 수 없다는 조사 결과와 그 근거(패키지 소스 2곳) · 그래서 결과 화면 전용
+  하트비트를 만든 것 · 감시 시작점을 `AnnounceWinnerClientRpc` 끝에 둬서 `IsServer` 가드 없이
+  양쪽이 각자 판정하게 하는 법 · 🔴 Host 가 자기 브로드캐스트를 걸러야 하는 이유 ·
+  도달 확인기 `InternetReachabilityProbe`(UGS Cloud Save 실요청, 「모르면 끊지 않는다») ·
+  대기 값을 `[SerializeField]` 가 아니라 `const` 로 둔 이유(씬 값 우선 함정 회피 → 씬 작업 0) ·
+  `Clock=ResultScreenLeaveWatch` 로 30초 시계 두 개를 로그에서 가르는 법 ·
+  단계 5 RPC 를 건드리지 않고 중복 판정을 막는 구독 패턴.**
   **네트워크 작업은 여기부터 읽는다.**
 
 ### 시스템별 (2026-06-23 재구성)

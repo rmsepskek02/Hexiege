@@ -669,3 +669,138 @@ which is the **mirror of the existing lookup** in `NetworkGameEndController.OnNe
 All four new lines are **development axis** (`GameLog.Dev.Info/Warn`), so **no new `LogEvent` key** was
 added (`ILogSink.cs` untouched). Dev-axis overloads take `(system, className, message, data = null)` —
 the `LogEvent` argument only exists on the `GameLog.Ops.*` overloads.
+
+## Post-game leave notification, step 6 (2026-09-21) — 30s self-watch on **both** sides
+
+Rule source: `GameSystemRules/GameSystemRules_RandomMap.md` **규칙 17** — especially the
+「2026-09-21 추가 (2차)」 block (①판정 주체 ②도달 확인 선행 ③측정 수단) · `TechnicalDesignDocument.md`
+「결과 화면 이탈 판정·통보 구조」 and 「이탈 판정 절차」. Screen reflection is step 7, **not here**.
+
+### 🔴 RTT cannot detect silence — the 1순위 option is dead, use a heartbeat (investigated, with sources)
+
+The rule left 수단 open: 1순위 `NetworkGameManager.GetCurrentRttMs()` → `UnityTransport.GetCurrentRtt`,
+2순위 result-screen heartbeat. **Investigated and chose the heartbeat.** Evidence (the package sources are
+**not** in this checkout — no `Library/PackageCache`, and `packages.unity.com` is blocked by the egress
+proxy — so they were read through GitHub code search of the mirrors):
+
+- `com.unity.netcode.gameobjects/Runtime/Transports/UTP/UnityTransport.cs` — `GetCurrentRtt()` → private
+  `ExtractRtt(NetworkConnection)` → returns `sharedContext->RttInfo.LastRtt` read out of the **reliable
+  pipeline's shared buffer**. It is a **stored last measurement, with no timestamp of its own.**
+- `com.unity.transport/Runtime/Pipelines/ReliableUtility.cs` — `rttInfo.LastRtt = …` is assigned **only**
+  inside `internal static unsafe void StoreReceiveTimestamp(...)`, i.e. only when an **ack for a packet we
+  sent** comes back. Nothing decays it, nothing zeroes it, nothing grows it while the peer is silent.
+  That writer is `internal` → unreachable from our assembly, so the update time cannot be observed either.
+- Therefore, when the opponent goes quiet, `GetCurrentRttMs()` **keeps returning a perfectly normal number**
+  for the whole 30s window. (`ExtractRtt` does return 0 once the driver connection leaves `Connected`, but
+  that is the transport timeout — `m_DisconnectTimeoutMS: 60000`, i.e. **after** the 30s verdict.)
+- A "value stopped changing" heuristic does not work either: `LastRtt` is an int ms and only moves when NGO
+  happens to send reliable traffic, so **"frozen because the peer is gone" and "frozen because nothing
+  needed acking" are the same observation**. Transport-level heartbeats (`heartbeatTimeoutMS`, a connection
+  layer feature) keep the link alive **without** touching the reliable pipeline, which makes it worse.
+- 🔴 Reusable lesson: **a getter that returns a cached measurement is not a liveness signal.** Ask "who
+  writes it, and can I see *when* it was written" before building a timeout on top of it.
+
+### Shape of what was built (2 files, no scene work)
+
+| File | What |
+|---|---|
+| `Infrastructure/Cloud/InternetReachabilityProbe.cs` (new) | plain C# class; `CheckAsync()` → `InternetReachabilityResult { Reachable, Unreachable, Skipped }`. One Cloud Save read (`Data.Player.LoadAsync({"nickname"})`), 10s cap via `Task.WhenAny(load, Task.Delay)`. Never throws. |
+| `Infrastructure/Network/NetworkGameEndController.cs` | watchdog: `StartResultScreenLeaveWatch()` (called at the **end of `AnnounceWinnerClientRpc`**) → `ResultScreenLeaveWatchLoop()` (1s tick) → `ConfirmOpponentLeftAfterSilence()`; heartbeat pair `ResultScreenHeartbeatServerRpc` / `ResultScreenHeartbeatClientRpc`. |
+
+- 🔴 **No `IsServer` gate on the watch path.** Start hook is `AnnounceWinnerClientRpc`, whose body runs on
+  the Host too, so one call site starts the same watch on both peers. The **only** role branch is
+  `SendResultScreenHeartbeat()`, because NGO offers just two directions (server→client `ClientRpc`,
+  client→server `ServerRpc`). Judgement code is identical on both sides.
+- 🔴 **Host must filter its own broadcast**: `ResultScreenHeartbeatClientRpc` starts with
+  `if (IsServer) return;`. Without it the Host counts its own signal as the opponent's and **never** times
+  out. (`ResultScreenHeartbeatServerRpc` carries the mirror-image `SenderClientId == LocalClientId` guard.)
+- **Reachability first, verdict second.** `Reachable` is the *only* value that leads to a verdict;
+  `Unreachable`/`Skipped`/faulted task all `continue` **without touching the connection**, and the silence
+  timer is deliberately **not** reset (so the verdict lands the moment the internet returns while the
+  opponent is still quiet). Retry gate `ResultScreenReachabilityRetryIntervalSeconds = 10f` keeps the probe
+  off the per-second tick.
+- **Verdict order is 「publish then shutdown」**: `GameEvents.OnNetworkOpponentLeft` → `NetworkGameManager
+  .ShutdownNetwork()`. Shutting down first can despawn this component mid-method. The event is local, so
+  ordering cannot affect the peer (unlike step 5, where the order guards an actual RPC send).
+- **No broadcast on the unresponsive branch, on purpose** — both peers judge independently; the one peer we
+  would notify is by definition the one not answering; and the verdict closes the connection anyway.
+- **Step 5's RPCs untouched.** To avoid duplicate verdicts the watchdog instead **subscribes** to
+  `GameEvents.OnNetworkOpponentLeft` in `OnNetworkSpawn` and stops itself when any notification arrives
+  (its own verdict included). Zero edits inside `NotifyLeavingResultScreen*` / `NotifyOpponentLeftClientRpc`.
+
+### Values, clocks, logs
+
+- 🔴 Waiting values are **`private const` in the controller, not `[SerializeField]`** — a serialized field
+  is written into `Game.unity` and **the scene value then beats the code default** (the `_autoReturnSeconds`
+  30→60 case needed both places). 규칙 17 fixes 30s, so there is nothing to tune in the Inspector.
+  ✅ Consequence: **step 6 needs no scene edit at all.**
+- They share **no field** with `ReconnectionHandler._reconnectWaitSeconds` (different class, different
+  clock, same number 30). Every watchdog log line carries `Clock=ResultScreenLeaveWatch` so the two 30s
+  clocks are distinguishable in one file.
+- All lines are development axis (`GameLog.Dev.*`) → **no new `LogEvent` key** (`ILogSink.cs` untouched).
+  Nothing is logged per tick or per heartbeat; the heartbeat-send failure line is flag-limited to once
+  per match.
+- ⚠️ **Unverified (no Unity here)**: compilation, and every runtime behaviour. Two specific risks to watch
+  on the first 2-device run — ⓐ our own `ShutdownNetwork()` reaches `HandleClientDisconnected`, which still
+  fires `OnServerDisconnected` (`BackToLobby` never unsubscribes it), so a "연결이 끊겼습니다" popup may
+  appear over the result screen; that belongs to step 7. ⓑ after `ForceWin()` the watchdog also runs and
+  will judge at +30s — semantically right (the opponent really is gone) but it will emit a second
+  `OnNetworkOpponentLeft`-shaped event path on that screen.
+
+### 🔴 [2026-09-21 correction — the lines above are kept as written] the watch must NOT start on every end path
+
+The section above says the start hook is *"the **end of `AnnounceWinnerClientRpc`**"*. **That was wrong and was
+fixed the same day** (user-confirmed). It is kept, not deleted, because the mistake is the reusable part.
+
+- **What broke**: `AnnounceWinnerClientRpc` has **three senders** — `OnGameEndServer` (normal end),
+  `ForceWin()` (opponent's connection dropped), `ForfeitServerRpc()` (forfeit). Hooking the watch onto the
+  RPC body armed it on **all three**. So a screen that was *already* won *because the opponent vanished*
+  would, 30s later, judge "opponent left" **again**. User: *"상대 연결 끊김으로 승리처리했는데 왜
+  결과화면에서 또 상대 끊김 처리를 해?"* Forfeit has the same shape (the forfeiter leaves right after).
+- 🔴 **`isRandomMatch` cannot discriminate** — normal end in a custom game passes `false`, forfeit passes
+  `false`. It means "hide the rematch button", it says nothing about *why* the match ended. Do not reuse it.
+- **Fix — a separate ClientRpc, `BeginResultScreenLeaveWatchClientRpc()`, sent only from `OnGameEndServer`.**
+  `AnnounceWinnerClientRpc`'s body no longer starts anything; `ForceWin` and the forfeit path simply do not
+  send the new RPC (each carries a comment saying why).
+- **Why a separate RPC instead of one more parameter**: the method already takes a `bool`, so a second one
+  makes every call site read `(winnerTeamIndex, false, true)` — unreadable, and exactly how `isRandomMatch`
+  became a trap. An independent message makes "arm the watch" visible **at the call site**, so the two paths
+  that deliberately skip it are obvious. Signature of the existing RPC stays untouched (no risk to the
+  other two senders).
+- ✅ **Both-sides start is preserved**: the new RPC's body runs on the Host too, so one server-side send
+  starts the identical watch on Host and Client, and the watch path still has **no `IsServer` guard**
+  (per-method audit: the only `IsServer` in that path are the send-direction branch in
+  `SendResultScreenHeartbeat` and the host self-filter in `ResultScreenHeartbeatClientRpc`; two more
+  occurrences are log *field values*, not guards).
+- ⚠️ **Known consequence, not a bug**: after a forfeit both players may sit on the result screen with the
+  watch off, so a later unresponsive leave there is not detected. That follows from the user's confirmed
+  decision (forfeit = same class as ForceWin) and is recorded here rather than worked around.
+- 🔴 Reusable lesson: **before hooking behaviour onto an RPC/event body, enumerate its senders.** A hook on
+  a shared message is a hook on every caller, and the flag that happens to be in scope is usually about
+  something else entirely.
+
+#### 🔴 [2026-09-21 second correction — same day, the block above is kept word for word] forfeit **does** arm the watch
+
+The block above bundles forfeit with `ForceWin` (*"Forfeit has the same shape (the forfeiter leaves right
+after)"*, *"after a forfeit both players may sit on the result screen with the watch off"*). **That judgement
+was reversed the same day.** The premise was false, and the code said so already:
+
+```
+// 포기에 의한 정상 종료 — 재경기 신청은 가능하도록 isRandomMatch=false 전달.
+AnnounceWinnerClientRpc((int)winnerTeam, false);
+```
+
+- **Forfeit means "I lose this match", not "I am leaving".** The rematch button is shown after a forfeit, so
+  both players can stay on the result screen and trade rematch requests. Turning the watch off there
+  recreated exactly what 규칙 17 exists to remove: *rematch requested → opponent force-quits → nobody
+  notices → locked out until the auto-return countdown expires.*
+- **Final rule — arm on «could the opponent still be there?»**: send
+  `BeginResultScreenLeaveWatchClientRpc()` from **`OnGameEndServer` and `ForfeitServerRpc`** (two sites).
+  **The only path that does not arm it is `ForceWin`**, because there the opponent's dropped connection *is*
+  the reason for the win, so the opponent is certainly gone and a verdict would restate a known fact.
+- One-sentence contrast to keep: **`ForceWin` = opponent certainly absent (absence caused the win);
+  forfeit = opponent may well still be present.**
+- 🔴 Reusable lesson: **do not infer a screen's lifetime from the name of the action that reached it.**
+  "Forfeit" sounds like leaving; the code showed a rematch button. The premise was checkable in the same
+  method, three lines above the call — check the neighbouring lines before accepting a rationale, including
+  one handed down with the task.
