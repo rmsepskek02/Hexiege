@@ -2153,3 +2153,56 @@ because the round wrote 0 lines of code. 「앞으로 바뀔 예정」 is `ROADM
 duplicate the roadmap row — a second place to go stale. Write the non-edit **into the roadmap block** as a
 ⚠️ bullet, and lead with it in the report. (Same conclusion as §25-9, reached from a different direction: there the
 reason was 구현 0줄, here it is **role separation between 현황 and 예정**.)
+
+---
+
+## §27. 🔴 The mistake class `check_docs.py` cannot see — quoting a document that holds **both** a 확정 and the **current code**
+
+2026-09-21, recorded while appending the `.claude/mistakes.md` entry for this same cycle. This section is **not** a
+round convention like §12–§26; it is about **reading**. It exists because the same cause has now produced two
+separate incidents, and the checker was silent for both.
+
+### 27-1. 🔴 0건 guarantees the **documents** are consistent — never that the writer **read** them
+
+`python3 Tools/check_docs.py` 0건 means: no rule-number gaps, no broken links, no citation of a rule that does not
+exist, no ambiguous citation, no title mismatch, no orphan topic file, no agent-folder line loss. **That is the
+whole list.** It says nothing about whether a statement made in conversation matches the document it is about.
+- In the 2026-09-21 incident the documents were **correct**; what was violated was **the reading side**.
+  A checker run would have printed 0건 before, during and after the mistake.
+- So when a report says 「검사기 0건」, scope it: **0건 is about the documents I edited, not about the claims I made.**
+  A class of mistake that leaves no trace in any `.md` cannot be closed by a tool that only reads `.md`.
+
+### 27-2. When a document holds a 확정 **and** the current code, say which one you are quoting — in the same sentence
+
+The form is one sentence with three clauses: **「지금 코드는 X, 확정은 Y, 아직 반영 전」.**
+- Quoting only the code half sounds like **the 확정 was overturned** — that is exactly what happened on 2026-09-21
+  (the 30초 유예 of `ReconnectionHandler` was described as still standing, one commit after 확정 E removed it on paper).
+- `grep` over `.cs` answers **「지금 구현이 어디까지인가」** and nothing else. **「무엇이 맞는가」 is answered by the
+  document** — open it. This is §24-1's premise-change rule seen from the other end: there the *premise* moved, here
+  the *code* had not yet moved, and both times the failure was describing one clock while the reader assumed the other.
+
+### 27-3. 🔴 Second sighting, **opposite symptom** — search `.claude/mistakes.md` by *what was not read*, not by symptom
+
+Two entries of that file share one cause — `grep` used as a tool for reading **decisions**:
+
+| 항목 | 읽지 않은 것 | 증상 |
+|---|---|---|
+| 2026-09-03 | `GameSystemRules/GameSystemRules_RandomMap.md` (통독 안 함) | a 확정 was raised back to the user **as 미결** |
+| 2026-09-21 | `Assets/_Project/Docs/TechnicalDesignDocument.md` (확정 절을 안 읽음) | a 확정 was described **as the current behaviour** |
+
+🔴 **The symptoms are mirror images, so the two 목차 lines do not look like the same family.** The file's own
+reading instructions say to match on 「실수의 모양」 — refine that for this family: before a documentation round,
+scan `.claude/mistakes.md` asking **「이 부류는 무엇을 읽지 않아서 생겼나」**, not 「제목이 내 작업과 닮았나」.
+Grouping by *unread source* puts these two side by side; grouping by symptom never will.
+
+### 27-4. The document side was **not** at fault — that two-way marking form is worth keeping
+
+The TDD already separated the two clocks in both directions, which is why the document needed no repair:
+- `Assets/_Project/Docs/TechnicalDesignDocument.md` **:788** — *"🔴 이 절은 확정을 적어 둔 것이고 구현은 아직 0줄이다."*
+  (the 확정 side names its own non-implementation)
+- the same document **:724** — *"아직 코드는 그대로이므로 위 표는 현재 상태로서 여전히 참이고, 바뀌는 것은 「앞으로」다."*
+  (the current-state table names the 확정 that will change it — the §26-8 form)
+
+**Evidence that the form has value: it is the reason the repair was 0 documents.** The incident cost conversation
+turns, not a document fix. So keep doing both halves — a 확정 block that states 「구현 N줄」, and a current-state row
+that points at the 확정 due to replace it — and when only one half exists, add the other rather than editing either.
