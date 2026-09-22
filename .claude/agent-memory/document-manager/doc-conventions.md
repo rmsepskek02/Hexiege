@@ -2206,3 +2206,209 @@ The TDD already separated the two clocks in both directions, which is why the do
 **Evidence that the form has value: it is the reason the repair was 0 documents.** The incident cost conversation
 turns, not a document fix. So keep doing both halves — a 확정 block that states 「구현 N줄」, and a current-state row
 that points at the 확정 due to replace it — and when only one half exists, add the other rather than editing either.
+
+---
+
+## §28. Recording a round whose **whole subject is that a previous diagnosis was false** — and pinning a scope boundary
+
+The round had no code: two measured facts, one user scoping decision, one mistake entry. What made it different
+from §17 (facts-and-decisions-only) is that **one of the facts retroactively invalidated a sentence a shipped
+commit was justified by**, and the guard that commit added **stays**.
+
+### 28-1. 🔴 A falsified diagnosis is **not** a removal rationale — say so in the same block
+
+The previous round wrote *"the popup would cover the D-1 wording"*, added a suppression guard, and shipped it.
+The component that raises that popup turned out to be **in no scene**, so the overlap was never happening.
+The temptation is to write it as 「그 가드는 불필요했다」. That is wrong and expensive: **place the component
+later and the overlap becomes real.**
+- **The repair is a scoped correction**: what is false is the sentence **read as present tense** (「지금 겹치고
+  있다」), not the mechanism. Write **exactly that**: *"바뀌는 것은 「지금 겹치고 있다」는 서술 하나뿐"*.
+- 🔴 **Add an explicit non-instruction**: `⚠️ 가드 자체는 지우지 않는다 — 이 정정은 코드 제거 근거가 아니다.`
+  Without that line the next agent reads a correction as a deletion order.
+- Pair it with `코드는 이 회차에 한 줄도 건드리지 않았다` so the block cannot be mistaken for a change log.
+- This is the **fourth** class of "old diagnosis vs. new reality", after §17-1 (true but invited a misreading),
+  §17-4 / §19 (the premise changed) and §24-1 (the conclusion flipped): here **the premise was never true**,
+  and yet **the action taken on it remains correct**. Those two facts must sit in one block or readers pick one.
+
+### 28-2. 🔴 「파일이 있다」 vs 「씬에 놓여 있다」 — the measurement that settles it, and where it belongs
+
+A component's `.cs` existing proves nothing about whether it runs. Two independent measurements, both cheap:
+- `grep -rl "<guid from the .cs.meta>" Assets --include=*.unity --include=*.prefab` → **0 hits = never placed**.
+- the string it logs in `Start()`/`OnEnable()` → **0 hits in that day's log = never ran**.
+Report **both**; one alone invites "maybe the log was rotated" / "maybe it is added at runtime".
+- A header comment reading *"씬 구조 (Inspector에서 수동 배치)"* is a **precondition, not a fact** — write that
+  sentence into the record, because it is what fooled the previous round.
+- 🔴 **This fact belongs in the design document, not only in the roadmap row** — it changes what the current
+  structure *does*, so the TDD section that describes the structure owns it and the roadmap row points at it.
+- ⚠️ **It is the same shape as the 2026-09-21 프리팹 전제 조건 lesson** (code complete, rule still not satisfied),
+  one level up: **there the prefab lacked a component, here the scene lacks the whole script.**
+
+### 28-3. A fact that **disables the only reader of a value** is not an answer to the pinned 미정
+
+`GetCurrentRttMs()` had exactly one reader — the unplaced component. So RTT is read by nobody at runtime.
+It is tempting to close the pinned ⚠️ 「RTT 로 판별할 수 있는지 미확인」 with it. **Do not.**
+- Write it as **사정, not 답**: `이것은 그 질문의 답이 아니라 「확인할 자리조차 실행되지 않았다」는 사정이다`,
+  and state that the 미확인 항목은 **그대로 살아 있다**.
+- Put that sentence in **both** places that carry the 순위표 (the TDD correction block and the Plan's 확정 C
+  table) — a reader who only sees one of them will otherwise conclude 1순위 is dead.
+
+### 28-4. ✅ When a **prediction gets reproduced**, the artifact is 「근거의 강도만 바뀌었다」
+
+A 확정 written as a prediction was hit in a field test. The entry is worth writing (it proves the design right),
+but it is **not** progress — implementation is still 0 lines.
+- Lead with what did **not** change: `바뀐 것은 근거의 강도뿐이고 설계·순서·범위는 아무것도 바뀌지 않는다`.
+- 🔴 **Record the role configuration, because a neighbouring fix may not be covered by the same test.**
+  Here the reproduction was device=Host / editor=Client, and a fix shipped earlier only applies to the
+  **opposite** configuration — so that fix stays **실기 미검증** and the record says so in the same block.
+  (Generalised: after a two-machine test, ask which side each pending item runs on before crediting it.)
+- Put the reproduction in the 확정's own section and a one-sentence version in the roadmap row; 🔴 **do not open
+  a new roadmap row** — the row already exists and a reproduction does not change its scope (§17-5's rule).
+
+### 28-5. 🔴 Pinning a **scope boundary** the conversation blurred — the artifact is a decidable question table
+
+The user had to ask 「인게임 판정이 단계 몇 번인가」 because two things were discussed interchangeably: a numbered
+stage and an unnumbered separate job. A paragraph saying 「범위가 아니다」 does not fix that; the reader needs the
+**negative answer to the question they actually asked**.
+- Shape that worked: a **question → answer table** whose first row is `인게임 이탈 판정은 단계 몇 번인가?` →
+  🔴 `어느 단계도 아니다. 단계 1~10 에 그 항목이 없다.` Then: where it *does* live, when it starts, and
+  🔴 **what makes the two confusable** (same verdict, different 「언제」).
+- **Enumerate the ten stages in one line as prose** to show the absence is checkable, instead of asserting it.
+- **Three places, one owner**: the Plan gets the section (`§2-2`) because scope is the Plan's job; the stage
+  table gets a **one-line pointer** (a reader scanning the table is the one who gets confused); the 범위 밖
+  table gets a **row** — that table is the existing home for "out of scope", and the new section explains *why*.
+  The TDD section and the roadmap row keep only the 착수 순서 and point at `§2-2`.
+- ⚠️ **Say that nothing was invalidated**: the stages were always result-screen-only. What changed is that it is
+  now **written down**, plus the start order narrowed. Otherwise the append reads as a scope cut.
+
+### 28-6. 🔴 A handed-over line count that matches **no file** — decide "not measurable here", not "wrong"
+
+Handed: a 5,119-line log with a 12:01~12:05 excerpt. Measured: 1,222 lines, last entry `03:41:47`, and the
+excerpt absent. The file is an **append-only 상시 로그** (two `=== 세션 시작 ===` markers inside the copy), so the
+checkout simply holds an **earlier state** of the same file.
+- 🔴 So it is **neither a mismatch to correct nor a claim to repeat**: write `이 체크아웃에서 재측정하지 못했다`,
+  name the mechanism (append-only), and keep the handed excerpt **attributed to the sender**.
+- This is the **sixth** handed-value class (after §16 / §17-7 / §18 / §20-7 / §21): **right about a file whose
+  state this checkout is behind on** — the §23-3 cause (artifact in a commit not in this tree) applied to a file
+  that **grows** rather than one that is missing.
+- ⚠️ Record what you *did* measure in the same breath (guid 0 hits, log 0 hits in **this** copy), so the block
+  is not read as "unverified".
+
+### 28-7. The mistake entry: index it by **cause layer**, not by symptom
+
+The symptom (*"asked for a test that could not be verified"*) matches an older entry; the cause does not — that
+one picked the wrong **conditions**, this one described a component that **was not in the scene**. And the two
+neighbouring entries share the phrase 「읽지 않아서」 but mean **documents**, not **placement**.
+- Put the distinction **in the 목차 line itself** (`「문서를 읽지 않음」이 아니라 「실제 배치를 확인하지 않음」`),
+  because the 목차 is scanned by symptom and would otherwise file it under the wrong family.
+- Add a body paragraph naming **which** older entries it is *not* like and why — the entry's value is that
+  separation, so it cannot live only in the index line.
+- 🔴 Two of the lessons are about **how a test is requested**, not about code: *name which side must be Host*
+  (role decides the code path) and *never put out-of-scope behaviour in a test list* (the user reads it as a
+  deliverable of this round). Both belong in the entry, not in the design docs.
+
+### 28-8. 🔴 Deciding **not** to touch `PROJECT_STATUS.md` when you found it already stale
+
+The document's 「미착수 — 단계 4~10」 bullet was false (stages 4–7 shipped and ran in the day's log), but making
+it true is **a different round's work** (it needs that phase's verification boundary).
+- **Do not half-fix it**: adding only the new fact would leave a document that corrects one sentence while
+  contradicting another, which is worse than one stale bullet.
+- The deliverable is the **judgement plus the finding**: report it, and put a one-line note in the roadmap's
+  round block (`손대지 않았다` + 🔴 `그 한 줄은 착수 전부터 이미 낡아 있었다` + why it is out of scope).
+  🔴 **Where the note goes matters** — it goes in the document whose job is 「앞으로」, not into the stale
+  document, because writing it there would itself be the edit you decided not to make.
+- This is §26-9 (「손대지 않기로 한 판단」 자체가 산출물) with an extra half: **there the document was still true;
+  here it is not, and the record must say who is expected to fix it.**
+
+---
+
+## §29. Repairing **stale records** only (no implementation) — splitting a bundled ✅ row, and grading "done" (2026-09-22, Phase 8 + post-game-leave-ui stages 4–7)
+
+The round's whole job was **two stale records**, with code explicitly out of scope. Two shapes recur.
+
+### 29-1. 🔴 A status cell that bundles **several components** is the unit that goes stale
+
+`PROJECT_STATUS.md` 의 Phase 8 행은 `LobbyUI, NetworkStatusUI, ReconnectionHandler` **셋을 한 칸에 묶어 `✅ 완료`** 로 적고
+있었다. 셋 중 둘이 결함이었는데 **행이 하나라 표기할 자리가 없었다.**
+- **The cell value is the one thing you do change** (`✅ 완료` → `⚠️ 부분 완료 (날짜)`), and the 내용 칸은 건드리지 않는다.
+  Then say so in the appended block: 「내용 칸은 한 글자도 지우지 않고 **상태 칸만** 갱신했다」 — otherwise B-7 looks broken.
+- **Do not add table rows** for the parts (the table's key column is `Phase`; a part is not a phase).
+  Append a **blockquote right after the table** holding a 부품 / 실제 상태 / 근거·단일 소스 3-column table.
+- 🔴 **The component that was not examined this round gets a row too**, reading `이번 확인 대상이 아니다 — 기존 표기를 그대로
+  유지한다`. Leaving it out reads as "unknown", which is a claim nobody measured.
+- **Each defect row points at its own single source and copies nothing** — two defects of one row can live in
+  **two different sections** of the same document (here `TechnicalDesignDocument.md` 「결과 화면 이탈 판정·통보 구조」의
+  2026-09-22 블록 and 「인게임 이탈 처리 — `ReconnectionHandler` 정리」의 확정 D). Close the block with
+  「이 자리는 **「Phase N 이 통째로 완료가 아니다」**만 알린다」.
+- 🔴 **A hand-off may list only the defective parts.** Here `ReconnectionHandler` was in the row and the
+  hand-off had to spell out *"do not drop it"* — if a bundled cell lists N names, the repair must account for **all N.**
+
+### 29-2. A sentence that is **true about the code and false about the behaviour**
+
+939행: *"`FindFirstObjectByType` 자동 탐색 적용됨 ✅ 완료"* — the auto-lookup really is in the code, so there is
+nothing to strike. What is false is the **reading** it invites.
+- Append a sub-bullet, and **write the split in one sentence**: 「자동 탐색이 있다는 서술은 맞고, 「그래서 연결이
+  살아 있다」로 읽으면 틀린다」. (§17-1 의 부류 — 문장이 참인데 오독을 부른다 — 의 두 번째 사례다.)
+- Two documents now carry the same fact, so the sub-bullet also says **which one is the 현황 표기**
+  (the Phase-8 block) and which is the **단일 소스** (the TDD block). Three-way pointers, zero copies.
+
+### 29-3. 🔴 「완료」는 등급이다 — `로그 확인` vs `실기 확인`
+
+네 단계가 한꺼번에 ✅ 가 됐는데 **검증 강도가 달랐다.** `✅ 완료` 만 적으면 다음 사람이 **네 개 다 화면에서 확인됐다**고 읽는다.
+- 상태 칸에 **등급을 붙인다**: `✅ **완료 · 로그 확인**` / `✅ **완료 · 실기 확인**`.
+- 🔴 **그리고 「왜 로그까지만인가」를 적는다** — 여기서는 **단계 4·5·6 이 화면을 바꾸지 않기 때문**이고, 그 셋의 화면 검증은
+  **단계 7 이 대신했다.** 그 한 줄이 없으면 등급이 **미완처럼** 읽힌다. 실기 확인 행에는 역방향으로
+  「이 표에서 「실기 확인」은 이 행 하나뿐이다」를 적는다.
+- 행의 **기존 비고는 지우지 않는다.** 착수 전에 쓴 `**다음 단계.**` 같은 말은 시점 기록이므로
+  `**[🔴 날짜 덧붙임 · 원문은 그대로 둔다: 「다음 단계」는 … 시점의 기록이고 그 뒤 착수·완료됐다]**` 를 뒤에 붙인다.
+
+### 29-4. A **number-less side fix** earns its own row — and the row's payload is the **test configuration**
+
+커밋 하나가 §10 표에 행이 없었다(단계 번호가 없는 부수 수정). 행을 세우되 첫 칸을 `**(단계 번호 없음) …**` 로 열고
+「§2 의 단계 분할에는 없다」를 적는다 — 그러지 않으면 단계 목록과 표의 개수가 어긋난 것으로 보인다.
+- 🔴 **「실기 미검증」으로 끝내지 말고 「왜 지난 실기가 이 경로를 타지 않았는가」를 적는다.** 여기서는
+  **역할 구성**이었다 — 그 테스트는 실기기=Host 였고 이 경로는 **에디터=Host + 실기기(Client) 강제 종료**를 요구한다.
+  (§28-4 의 「역할 구성을 함께 적어야 이웃한 수정이 검증됐는지 갈린다」를 **행 하나에 적용한 형태**다.)
+- 그리고 **판정 기준을 로그 문자열로** 못 박는다(`[Network/NetworkCombatController] 게임 종료 — 전투 틱 정지` 가
+  **`ForceWin` 경로에서** 남는지). 「다시 테스트한다」는 기준이 아니다.
+
+### 29-5. 「단계 4~10 미착수」처럼 **범위를 숫자로 적은 요약**을 고칠 때
+
+- 원문을 지우지 않고 하위 불릿으로 붙이되, **세 부분**을 갖춘다 —
+  ① 🔴 **무엇이 더 이상 참이 아닌가**(「지금 미착수인 것은 단계 8·9·10 과 §8 플래그다」) + **단일 소스는 §10 표**
+  ② ⚠️ **그래도 살아 있는 결론**(단계 9·10 의 화면은 여전히 관측되지 않는다 — 원인인 플래그가 미착수이므로)
+  ③ 🔴 **이번에 새로 생긴 미검증**. ②를 빼면 「전부 해소됐다」로 읽힌다.
+- **같은 절의 이웃 불릿까지 고치지 않는다.** 여기서는 `규칙 D-3 후반부` · `규칙 D-4 30초 재시작 미구현` 두 불릿이
+  단계 7 완료로 낡았을 **가능성**이 있었지만, 인계된 실기 확인 항목(문구·버튼·즉시 반영)에 그 둘이 없어
+  **구현·검증 여부를 확정할 수 없었다** → 규칙 10·12 대로 **고치지 않고 보고**했다.
+- 🔴 **§28-8 의 후속이 이 절이다.** 지난 회차는 `PROJECT_STATUS.md` 의 같은 부류 한 줄을 **「다른 회차의 일」로 넘겼고**,
+  이번이 그 회차다 — **넘긴 판단은 언젠가 청구서로 돌아온다.** 넘길 때 **누가 고칠 것인지**를 적어 둔 것이 여기서 값을 했다.
+
+### 29-6. 인계된 근거를 **어디까지 재측정할 수 있는가**로 갈라 적는다
+
+한 회차 안에 세 종류가 섞여 있었다. 근거 칸에 **그 구분을 문장으로** 남긴다.
+| 부류 | 이번 처리 |
+|---|---|
+| 이 체크아웃에서 **재측정 가능** — guid 로 `*.unity`·`*.prefab` 검색 0건 · `m_DisconnectTimeoutMS: 60000` 1건/`30000` 0건 | **직접 실측**으로 적었다 |
+| 로그 발췌 — 이 트리의 로그 사본에 **그 구간이 없다**(작업 트리 1,222행 / 원격 5,119행) | **「메인 세션 실측」**으로 귀속하고, 내가 확인한 것은 **「그 로그 문구가 `.cs` 에 실재한다」**까지라고 적었다 |
+| 커밋 해시 | 규칙 5 로 git 을 쓸 수 없으니 **전달값으로 귀속**하고 재검증하지 않는다(`※` 한 줄) |
+
+### 29-7. 🔴 보고로 올린 「확인 필요」가 **답을 받아 돌아왔을 때** — 두 가지 강도의 해소
+
+§29-5 에서 *"확정 못 하면 고치지 않고 보고"* 한 두 불릿이 **같은 회차 안에서 코드 근거와 함께 돌아왔다.**
+**질문을 구체적으로(「어느 값이 · 어느 경로에서」) 올려 둔 것이 그대로 답의 형태가 됐다** — 「확인이 필요합니다」로 끝냈으면
+다시 물어야 했을 것이다.
+- **해소의 강도가 두 종류였고 표기를 갈랐다.**
+  | 부류 | 표기 | 함께 적을 것 |
+  |---|---|---|
+  | 있는 것을 확인 (`const 30f` → 진입점 → 코루틴 인자) | ✅ **구현됐다 · 검증 수준은 「코드 확인」** | ⚠️ **실기에서 초 단위로 관측한 기록은 없다** |
+  | 🔴 **없는 것을 확인**(`interactable = false` **0건**) | ✅ **코드로 보장됨 — 「끄는 동작 코드 0줄」** | 「**관측이 아니라 부재의 증명**이라 실기 확인보다 오히려 강하다」 + ⚠️ **「누를 수 있는 상태인 것과 눌러서 동작하는 것은 다르다」** |
+- 🔴 **부재의 증명은 강하지만 만능이 아니다.** 「끄는 코드가 없다 = 켜져 있다」는 성립하지만
+  **「그 버튼이 제 일을 한다」는 별개**다. 그 한 문장을 빼면 부재의 증명이 실기 검증을 삼킨 것처럼 읽힌다.
+- **실기 보고의 범위는 사용자가 말한 단위로만 적는다** — 「테스트 항목 2번이 정상이라고 보고했다」까지이고,
+  그 항목 **안의 세부**를 하나씩 확인했다고 명시하지 않았다면 🔴 **「그 세부를 실기로 관측했다」로 적지 않는다.**
+- **거짓이 된 것은 문장 전체가 아니라 「시제 한 마디」인 경우가 많다** — 「이번에 끝난 것은 … 한 행뿐」은
+  **그 회차에 대해서는 여전히 참**이고 거짓이 된 것은 **「미구현」**뿐이다. 정정 블록이 그렇게 **범위를 좁혀** 적는다.
+- **등급이 한 행 안에서도 갈리면 그 행에도 한 줄 넣는다** — §10 표 단계 7 은 `실기 확인` 행이지만
+  그 안의 D-3·D-4 두 조각은 코드 수준까지다. 「이 행 안에서도 등급이 갈린다 + 단일 소스는 §11-5 의 두 불릿」.
+- 🔴 **코드 자리는 행 번호가 아니라 이름으로 가리킨다**(필드·상수·메서드). 이 사이클에서 인계 행 번호가
+  이미 두 번 어긋났다(§26 · §28-6).

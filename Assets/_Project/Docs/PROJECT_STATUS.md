@@ -584,7 +584,18 @@
 | Phase 6+++ | 이동 전 회전 선행 (Rotate-then-Move, _isPreRotating 플래그로 DOTween-LateUpdate 충돌 해소) | ✅ 완료 (2026-03-27) |
 | Phase 6++++ | 공격 타이밍 정밀화 (타격 프레임 데미지, 타겟 고정, 쿨다운 통일) | ✅ 완료 (2026-03-27) |
 | Phase 7 | 승패 판정 동기화 (NetworkGameEndController) | ✅ 완료 |
-| Phase 8 | UI/UX 네트워크 대응 (LobbyUI, NetworkStatusUI, ReconnectionHandler) | ✅ 완료 |
+| Phase 8 | UI/UX 네트워크 대응 (LobbyUI, NetworkStatusUI, ReconnectionHandler) | ⚠️ 부분 완료 (2026-09-22) |
+
+> **[🔴 2026-09-22 — 위 Phase 8 행의 「내용」 칸은 한 글자도 지우지 않고 「상태」 칸만 `✅ 완료` → `⚠️ 부분 완료` 로 갱신했다(`.claude/MEMORY.md` B-7).]**
+> 한 칸이 **세 부품을 묶어 「완료」로 적고 있었는데 그중 둘은 완료가 아니다.** 부품별로 갈라 적는다.
+>
+> | 부품 | 실제 상태 | 근거 · 상세의 단일 소스 |
+> |---|---|---|
+> | `LobbyUI` | ✅ 동작 | **이번 확인 대상이 아니다** — 기존 표기를 그대로 유지한다 |
+> | `NetworkStatusUI` | 🔴 **코드는 있으나 어느 씬·프리팹에도 배치돼 있지 않아 실행되지 않는다** | guid `adc83ceead3e36246ba137d2ceede0a6` 로 `Assets` 전체 `*.unity`·`*.prefab` 검색 **0건**(문서 작업 중 직접 실측) · 2026-09-22 에디터 로그 전체에서 `NetworkStatusUI` 문자열 **0건** = `Start()` 의 *"네트워크 상태 모니터링 시작"* 미발생(**메인 세션 실측** — 이 체크아웃의 로그 사본에는 해당 구간이 없어 내가 재측정하지 못했다). **상세는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「결과 화면 이탈 판정·통보 구조」 절의 2026-09-22 블록이 단일 소스다** |
+> | `ReconnectionHandler` | ⚠️ **동작하지만 서버 전용이라 Host 이탈을 처리하지 못한다** | `OnNetworkSpawn` 의 `if (!IsServer) { enabled = false; return; }` · **2026-09-22 실기로 재현됨** — 실기기(Host) 앱 강제 종료 시 남은 Client(에디터)에서 몇 분이 지나도 승패가 나지 않았다(**사용자·메인 세션 실측**). **상세는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「인게임 이탈 처리 — `ReconnectionHandler` 정리」 절(확정 D)이 단일 소스다** |
+>
+> ⚠️ **위 표를 다른 문서에 옮겨 적지 않는다** — 각 행의 상세는 위에 적힌 단일 소스가 갖는다. 이 자리는 **「Phase 8 이 통째로 완료가 아니다」**만 알린다.
 
 #### 팀별 관점 (ViewConverter)
 | 항목 | 상태 |
@@ -937,6 +948,7 @@
 **인스펙터 수동 연결 필요** (에디터에서 직접 연결):
 - ~~`GameEndUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (2026-06-25, `Initialize()`에서 `FindFirstObjectByType` 자동 탐색으로 대체)
 - ~~`NetworkStatusUI` → `_networkGameManager` SerializeField에 NetworkGameManager 오브젝트 연결~~ ✅ 완료 (기존 코드에 이미 `FindFirstObjectByType` 자동 탐색 적용됨)
+  - **[🔴 2026-09-22 덧붙임 — 위 문장은 코드상으로 참이므로 한 글자도 지우지 않는다(`.claude/MEMORY.md` B-7).]** ⚠️ **이 연결 코드는 존재하지만 `NetworkStatusUI` 가 씬에 없어 실행되지 않는다.** 즉 **자동 탐색이 있다는 서술은 맞고, 「그래서 연결이 살아 있다」로 읽으면 틀린다.** 근거: guid `adc83ceead3e36246ba137d2ceede0a6` 로 `Assets` 전체 `*.unity`·`*.prefab` 검색 **0건**(문서 작업 중 직접 실측) · 2026-09-22 에디터 로그에서 `NetworkStatusUI` 문자열 **0건**(**메인 세션 실측**). **단일 소스는 [TechnicalDesignDocument.md](TechnicalDesignDocument.md) 「결과 화면 이탈 판정·통보 구조」 절의 2026-09-22 블록**이며, 같은 사실의 현황 표기는 위 **「멀티플레이 (Phase 1~8)」 표의 Phase 8 행** 아래 블록이 갖는다.
 
 ---
 

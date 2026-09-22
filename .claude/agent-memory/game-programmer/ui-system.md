@@ -262,3 +262,84 @@ Rule source: `GameSystemRules_UI.md` 「공통 UI 규칙」 **D-1**(timer wordin
   lobby button on and D-4 auto-returns — but the only sign is the log line.
 - ⚠️ **Unverified (no Unity here)**: compilation and every runtime behaviour, including whether the popup
   actually used to overlap (it is inferred from the code path, not observed).
+
+> **[🔴 2026-09-22 correction — nothing above is deleted (`.claude/MEMORY.md` B-7). The answer to that last
+> bullet came back **no**.]**
+>
+> 🔴 **`NetworkStatusUI` is not placed in any scene or prefab, so that popup never appeared at all.**
+> Measured: the guid in `Presentation/UI/NetworkStatusUI.cs.meta` (`adc83ceead3e36246ba137d2ceede0a6`) has
+> **0 hits** across every `*.unity` and `*.prefab` under `Assets`, and the string `NetworkStatusUI` — including
+> `Start()`'s *"네트워크 상태 모니터링 시작"* — has **0 hits** in both 2026-09-22 logs (editor and device).
+> The file header says *"씬 구조 (Inspector에서 수동 배치)"*, which is a **precondition, not a fact**.
+> - **What this falsifies**: only the sentence *"…covering the D-1 wording"* above, read as **present tense**.
+>   The collision is **not happening now** because the popup does not exist. The **ping (RTT) readout does not
+>   run either**, and `DisconnectPanel` has no instance.
+> - ⚠️ **The guard stays. This is not a reason to remove code.** Place `NetworkStatusUI` later and the overlap
+>   becomes real, so the guard is valid prevention. **Nothing in the code was touched in the round that found
+>   this** (docs only).
+> - 🔴 **The *"✅ Untouched path"* bullet above is likewise true only about the code path** — an in-match
+>   disconnect cannot show a popup that is in no scene. 2026-09-22 field test: the device (**Host**) was killed
+>   mid-match and the remaining editor (**Client**) showed **no popup and no verdict**.
+> - 🔴 **The lesson, not the fix, is the point**: before describing what a scene-placed component does, check
+>   its placement by guid. `.claude/mistakes.md` **2026-09-22** is that entry.
+> - **Single source for the fact and for the step-7 diagnosis correction**:
+>   `Assets/_Project/Docs/TechnicalDesignDocument.md` 「결과 화면 이탈 판정·통보 구조」, the 2026-09-22 block.
+>   The work item is the 「`NetworkStatusUI` 미배치」 row in `Assets/_Project/Docs/ROADMAP.md`;
+>   🔴 **how to handle it (place it? is the popup needed at all?) is undecided** — do not read the note in that
+>   row about the result screen carrying the notice instead as a decision.
+
+
+## Result screen — step 8, rule D-6 (2026-09-22): the first real `ShowAlert` call site
+
+Rule source: `GameSystemRules_UI.md` **D-6** (with **D-5** for the popup, **D-4** for the 30s countdown,
+**8 · 9** for modal). Plan row: `_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md` §2, step **8**.
+
+| File | What |
+|---|---|
+| `Presentation/UI/GameEndUI.cs` | 3 new `const` strings (title/message/button label) · non-serialized field `_rematchRequestPopup` · `HandleUnansweredRematchRequestOnOpponentLeft()` called at the end of the existing `OnOpponentLeft()` |
+| `Presentation/UI/Common/RematchRequestPopup.cs` | state flag `_requestShowing` + `public bool TryCloseUnansweredRequest()` |
+
+- 🔴 **The rematch request popup is `RematchRequestPopup`, and it IS placed** — unlike `NetworkStatusUI`.
+  Measured: guid `d26ab2269c84ef641957a86f95840bd0` (from `RematchRequestPopup.cs.meta`) has **1 hit**, in
+  `Assets/_Project/Scenes/Game.unity`, on GameObject `[UI]/RematchRequestPopup`, `m_IsActive: 1`, parent
+  `[UI]` active, own Canvas `m_OverrideSorting: 1` / `m_SortingOrder: 250`, and **all 5 serialized fields
+  are non-zero**. That is why `FindFirstObjectByType<RematchRequestPopup>()` is a safe resolution here
+  (checking placement first is the `.claude/mistakes.md` 2026-09-22 lesson).
+- 🔴 **D-6 is conditional and the code must be too.** The rule's first sentence limits it to *"the request
+  popup is up and has not been answered yet"*. D-1 separately says an opponent-leave must **not** open a new
+  popup (the timer text carries it). So `TryCloseUnansweredRequest()` returns **false when nothing was up**
+  and `GameEndUI` then returns before `ShowAlert` — an unconditional alert would break D-1.
+  Alpha cannot be used for that test (mid-fade it is neither 0 nor 1) → explicit bool flag, set in both
+  `ShowRequest` overloads, cleared in `Hide()` (all close paths pass through it) and `ShowDeclined()`.
+- **One subscription, extended — not a second one.** `GameEvents.OnNetworkOpponentLeft` still has exactly
+  **1** subscription in `GameEndUI` (`grep -c` = 1). Two subscriptions to the same signal would leave the
+  order of "close the popup" vs "open the alert" unprovable.
+- **No new timer** (D-6 clause 3). The 30s is step 7's `RestartCountdownForOpponentLeft()`, called one line
+  earlier in the same handler. The alert never self-closes; the button or D-4's expiry ends the screen.
+- **The "로비로" button reuses `OnBackToLobbyClicked`** — the exact handler the lobby button installs — so
+  countdown stop, `timeScale = 1`, loading indicator and the multiplayer NGO shutdown delegation cannot
+  drift apart between the two buttons. `ConfirmPopup.OnConfirmClicked()` calls `Hide()` **before** the
+  callback, so the overlay ref-count is released before the scene change.
+- **Overlay ref-count across the handoff is safe**: `RematchRequestPopup.Hide()` takes it 1→0 and
+  `ShowAlert` 0→1 in the same frame (no render in between), so rule order (close, then alert) costs nothing.
+- ✅ **Prefab preconditions verified this time** (they are what D-5 depends on): `ConfirmPopup.prefab` has all
+  **7** serialized fields non-zero including `_titleText`, Panel has a VerticalLayoutGroup with
+  `m_ChildForceExpandHeight: 0` / spacing 38, ButtonRow HLG spacing 50. `UIManager._confirmPopup` is wired in
+  `Login.unity`. `UIAnimator` sets `SetUpdate(true)` on every sequence, so the alert animates under
+  `Time.timeScale = 0`.
+- ✅ **No scene work**: the three D-6 strings are `const` (not `[SerializeField]`, which the scene would
+  override) and the popup reference is resolved at runtime instead of wired.
+
+### 🔴 Open defect found while doing this — NOT fixed, user decision pending
+
+`ConfirmPopup` lives under `UIManager` (DontDestroyOnLoad; its only placement is `Login.unity`), while
+`GameEndUI` and `RematchRequestPopup` die with the Game scene. So if the user **ignores** the alert and D-4's
+30s expires, `ReturnToLobby()` changes scene **with the alert still open**: the Lobby comes up covered by the
+alert plus the blocking overlay (ref-count stuck at 1), and pressing the leftover button then invokes
+`OnBackToLobbyClicked` on a **destroyed** `GameEndUI` (`StopCoroutine` / `_panel.Hide()` on a destroyed
+object). It self-recovers — `ConfirmPopup.Hide()` runs before the callback, so the overlay does clear — but it
+leaves a stale popup and one exception.
+🔴 **There is no `HideAlert`/`HideConfirm` on `IUIManager`/`UIManager`**, so `GameEndUI` cannot close it, and
+adding one touches the shared API that Plan step 1 deliberately isolated. **Same trap will apply to step 10
+(M-3 · M-4).** Options (not chosen): add `HideAlert()` to `IUIManager` + `UIManager` and call it from
+`ReturnToLobby()`; or have `ConfirmPopup` close itself on scene unload (changes behaviour for every popup).
