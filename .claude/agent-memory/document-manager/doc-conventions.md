@@ -2412,3 +2412,81 @@ nothing to strike. What is false is the **reading** it invites.
   그 안의 D-3·D-4 두 조각은 코드 수준까지다. 「이 행 안에서도 등급이 갈린다 + 단일 소스는 §11-5 의 두 불릿」.
 - 🔴 **코드 자리는 행 번호가 아니라 이름으로 가리킨다**(필드·상수·메서드). 이 사이클에서 인계 행 번호가
   이미 두 번 어긋났다(§26 · §28-6).
+
+---
+
+## §30. Recording a stage that **shipped with zero 실기 검증** — the label, the reproduction condition, and the deferral that came back (2026-09-22 (2차), post-game-leave-ui stage 8)
+
+One stage of a ten-stage plan was implemented and pushed. Nothing was run. The round's whole artifact is
+**a status label plus the conditions under which someone could ever see it work.**
+
+### 30-1. 🔴 「구현 완료」 and 「완료」 are different cells — and the missing half is a *procedure*, not a caveat
+
+- The execution-table cell reads **`⚠️ 구현 완료 · 실기 미검증`**, never `✅ 완료`. §29-3 graded a finished thing
+  (`로그 확인` / `실기 확인`); this is the grade **below both**.
+- 🔴 **Put the reproduction condition in the same cell.** "Untested" without it is a dead end — nobody knows what to do.
+  Here: *"한쪽이 재경기 버튼을 누른 직후, 그 누른 쪽 앱을 강제 종료해야 이 경로를 탄다."*
+- **Write down what is *irrelevant* too, with its reason.** *"역할(Host/Client)은 무관하다 — 단계 6 이 양쪽 각자 판정이므로."*
+  An unstated irrelevance gets re-derived (or wrongly assumed relevant) by the next reader.
+
+### 30-2. 🔴 Two unverified items are **not** covered by one test when their required setups differ
+
+This plan now carries two `실기 미검증` rows: the `ForceWin` fix (needs **the editor to be Host**) and stage 8
+(**role-independent**, needs the requester's app killed right after pressing rematch).
+- Say it in one sentence, in **both** places: 「한 번의 테스트로 둘이 함께 검증되지 않는다」.
+- This is the mirror of §29-4 (a fix whose verification method *is* the role configuration). Same machinery,
+  opposite direction: there one config made the path unreachable, here two items demand **different** configs.
+
+### 30-3. A claim whose **conclusion survives while its reason moves**
+
+*"알림 팝업이 화면에 뜨는 모습은 아무도 본 적이 없다 — 실호출처가 0건이기 때문이다."*
+After this round the **conclusion is still true** and the **stated cause is false** (실호출처 1건).
+- Do not strike the sentence, and do not "fix" it into the new cause. Append: 🔴 **「바뀐 것은 이유뿐이다 —
+  띄우는 코드가 없어서 → 코드는 있으나 실기로 관측되지 않아서」.**
+- This is a distinct class from §17-1 (true sentence, misleading reading) and §29-2 (true of the code, false of the
+  behaviour): here **both halves of a because-sentence must be graded separately.**
+- The same sentence lived in **four** documents (Plan §11-5, `GameSystemRules_UI.md` 규칙 D-5 블록,
+  `PROJECT_STATUS.md`, `.claude/MEMORY.md` 공통 교훈). Grep the **claim** (`실호출처.*0건`), not the feature name.
+
+### 30-4. 🔴 The staleness a previous round **deferred in writing** lands on the first round with scope for it
+
+`ROADMAP.md` 의 2026-09-22 블록이 *"그 갱신은 이 회차의 범위가 아니므로 고치지 않고 보고했다"* 로 넘긴
+`PROJECT_STATUS.md` 「🔴 미착수 — 단계 4~10」 한 줄이 **이번 회차의 대상 문서에 들어 있었다.**
+- Close it **and record the closing where the deferral was written** (a new bullet in this round's ROADMAP block:
+  「직전 회차가 넘긴 그 줄은 이번에 정정했다」). Otherwise the deferral note reads forever as still-open.
+- This is §29-5 one step further: **writing down who would fix it paid off twice** — once when it was found,
+  once when a later round could act.
+- ⚠️ The correction is a **status reflection, not a new decision** — it may only say what other documents already
+  record (here Plan §10 표), so it carries a pointer and **copies no table.**
+
+### 30-5. 「씬·인스펙터 작업이 없었다」 is a **finding**, not silence
+
+- Record it, because the sibling stage in the same plan (단계 1) **did** pull in prefab work, and because this
+  project has a live 「파일은 있는데 씬에 없다」 case (`NetworkStatusUI`, §28-2).
+- 🔴 **Prove placement before claiming it** — `.meta` 의 guid 로 `*.unity`·`*.prefab` 검색(여기서는 `Game.unity` 1건).
+  Then say explicitly 「그 사례와 같은 상태가 아니다」, or the reader has to re-run the check.
+- Name the design choice that removed the work (**직렬화 필드가 아니라 런타임 1회 탐색·캐시**) — that is the
+  reusable part, not the absence itself.
+
+### 30-6. A completion criterion measured as a **diff** cannot be re-measured without git — convert it to an end state
+
+Criterion [3] was *"diff 추가분에서 `Coroutine`·`WaitForSeconds`·`Timer` grep 0건"*. 규칙 5 로 git 이 없으므로
+**그 측정은 재현 불가능**하다.
+- Do not quote it as if you re-measured it. Split: 「메인 세션 실측(diff) · **내가 잰 것은 diff 가 아니라 끝 상태**」,
+  and state the end-state measurement (the stage's methods contain no timer; every `StartCoroutine` in the file
+  belongs to the countdown paths of **other** stages).
+- The same split covers criteria that need `git status` (「고치지 않은 파일」) — those stay **전달값** with the reason.
+  (Seventh hand-off class: **the measurement method itself is unavailable to me**, distinct from a wrong value.)
+
+### 30-7. The same-name unrelated method trap, second sighting
+
+Counting `ShowAlert` 호출처 returns `ProfileView.ShowAlert(string)` — a **private helper with no relation to
+`UIManager`**. Count the **qualified call** (`UIManager.Instance?.ShowAlert(`), and write the exclusion into the
+evidence cell so the next counter does not "correct" your number upward. (§23-1 was the first sighting.)
+
+### 30-8. The plan's file table named a file that did not change, and missed one that did
+
+§3 은 단계 8 의 자리를 `GameEndUI.cs` + `NetworkGameEndController.cs` 로 적었는데, 실제로는
+`NetworkGameEndController.cs` 는 무변경이고 **표에 없던 `RematchRequestPopup.cs`** 가 바뀌었다.
+- Reason worth recording: 「요청 팝업이 응답 대기 중인가」는 **네트워크 상태가 아니라 화면 상태**라 Presentation 안에서 끝났다.
+- The table is a **registration-time record** — put the difference in 「계획과 달라진 점」 and leave the table alone (§12-2).
