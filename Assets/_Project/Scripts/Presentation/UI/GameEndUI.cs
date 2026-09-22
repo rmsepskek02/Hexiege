@@ -462,6 +462,32 @@ namespace Hexiege.Presentation
             Time.timeScale = 1f;
             Hide();
 
+            // 🔴 결과 화면 위에 떠 있었을지 모르는 공통 팝업(확인 팝업 · 알림 팝업)을 닫는다.
+            //
+            //   왜 필요한가:
+            //     공통 팝업의 실체는 UIManager 가 들고 있는 ConfirmPopup 하나이고,
+            //     UIManager 는 DontDestroyOnLoad 라 <b>씬이 바뀌어도 파괴되지 않는다.</b>
+            //     그래서 닫지 않은 채 로비로 넘어가면 결과 화면에서 띄운 팝업이
+            //     로비 화면 위에 그대로 남는다(반투명 배경까지 함께).
+            //     버튼으로 닫는 경로는 ConfirmPopup.OnConfirmClicked() 가 Hide() 를 먼저 부르므로
+            //     이미 닫히지만, <b>카운트다운 만료로 자동 복귀하는 경로에는 닫는 사람이 없었다.</b>
+            //
+            //   🔴 여기(ReturnToLobby) 한 곳에만 넣는 이유 — 이 메서드는
+            //     자동 복귀(CountdownCoroutine 만료)와 버튼 클릭(OnBackToLobbyClicked)이
+            //     <b>둘 다 반드시 지나가는 길목</b>이다. 그래서 여기 한 줄이면 두 경로가 모두 덮인다.
+            //     CountdownCoroutine 쪽에 같은 호출을 또 넣지 말 것 —
+            //     두 곳에 흩어지면 나중에 한쪽만 고쳐져 경로별로 동작이 갈린다.
+            //
+            //   🔴 아래 ShowLoading(true) 보다 <b>반드시 앞</b>이어야 한다 —
+            //     ConfirmPopup.Hide() 안에서 UIManager.HideBlockingOverlay() 가 불리는데,
+            //     이 프로젝트의 BlockingOverlay 는 <b>참조 카운터</b>로 중첩을 관리한다.
+            //     화면 점유를 정리하는 일(팝업 닫기)은 새 점유를 만드는 일(로딩 표시)보다
+            //     먼저 끝나 있어야 두 점유가 섞이지 않는다. 순서를 바꾸지 말 것.
+            //
+            //   조건 없이 무조건 호출한다. ReturnToLobby 는 「이 화면을 떠난다」는 뜻이고,
+            //   떠 있지 않았다면 아무 일도 일어나지 않으므로 검사할 이유가 없다.
+            UIManager.Instance?.HideConfirmOrAlert();
+
             // 로비 복귀는 씬 전환(멀티는 네트워크 종료 포함)이 일어나므로
             // 그 사이 사용자가 멈춘 화면을 보지 않도록 전역 로딩 인디케이터를 띄운다.
             // 로딩을 끄는 책임은 목적지 씬(Lobby)의 LobbyRootView 초기화 완료 시점이 담당한다(UI 규칙 L-3).

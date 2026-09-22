@@ -2490,3 +2490,70 @@ evidence cell so the next counter does not "correct" your number upward. (§23-1
 `NetworkGameEndController.cs` 는 무변경이고 **표에 없던 `RematchRequestPopup.cs`** 가 바뀌었다.
 - Reason worth recording: 「요청 팝업이 응답 대기 중인가」는 **네트워크 상태가 아니라 화면 상태**라 Presentation 안에서 끝났다.
 - The table is a **registration-time record** — put the difference in 「계획과 달라진 점」 and leave the table alone (§12-2).
+
+## §31. The round where 실기 **confirmed the feature and found a bug** — and the bug is **older than the stage that surfaced it** (2026-09-22 (3차), post-game-leave-ui stage 8)
+
+### 31-1. A 실행 기록 row when 실기 says "works, but"
+
+`⚠️ 구현 완료 · 실기 미검증` does **not** become `✅ 완료` when the first 실기 run comes back mostly good.
+The label that carries both halves is **`⚠️ 실기 확인 · 버그 N건 발견`** — the verification happened *and* something is open.
+- Keep the old status text: record it inside the 비고 cell (`상태 칸은 `…` 이었다`), same shape as §12's `⬜ 미착수` note.
+- The older detail sections (here §12-4 · §12-6 「실기 검증 0건」) are **dated snapshots — never edited.**
+  Instead the new row says *"those sentences are no longer the current state; the single source for the current
+  state is this row + the new section"*. That sentence belongs in the row, not in the old section.
+
+### 31-2. 🔴 A defect the new stage **surfaced** is not a defect the new stage **caused**
+
+The test for this: ask **why nobody saw it before**. If the answer is *"the code path had zero callers until this
+stage"* (here `UIManager.ShowAlert` 실호출처 **0건** before stage 8), the hole predates the stage and the record
+must say so in its own sentence. Writing it as "stage 8's bug" makes the next reader look for the mistake in the
+stage 8 diff, where it is not.
+- Pair it with the **scope statement**: the hole lives in `GameEndUI.ReturnToLobby()`, so it is **wider than the
+  rule that found it** (규칙 D-6). Say「규칙 X 보다 범위가 넓다」explicitly — a rule-scoped bug report is fixed
+  rule-scoped and the rest of the paths stay broken.
+
+### 31-3. Two defects that share a root but **not** a symptom get a symptom table
+
+13-1「the popup is visible on the wrong screen」 vs 13-2「nothing is visible but clicks do not land」.
+Same root (*leaving a screen without cleaning up the popup that was open*), opposite observability.
+A three-row table (사용자가 겪는 것 / 남는 것 / 근거 등급) is what keeps a reader from filing them as one item —
+and the 근거 등급 row is what stops the 잠복 one from being read as observed.
+
+### 31-4. 🔴 Writing 미결 논의 without concluding
+
+When the user asks **"what happens process-wise?"** rather than reporting a bug, the artifact is
+**facts + open questions**, never a recommendation (CLAUDE.md 규칙 6).
+- Lead with the **common root** of the open items (here: *the window where the opponent is already gone but this
+  side does not know yet*) — otherwise each item reads as an unrelated edge case.
+- Per item: *current code's behaviour* (graded) → *does the user get stuck?* → *what is left over*.
+  Answering「갇히지 않는다」 is itself a finding and belongs before the leftover.
+- End with a numbered「아직 정해지지 않았다」list and one sentence saying **these are agenda items, not options**.
+- A Host/Client asymmetry caused by a `ServerRpc` (executes when the accepting side *is* the server, goes nowhere
+  when the server is the one who left) is pinned to the **최상위 원칙** section of `TechnicalDesignDocument.md`
+  by pointer only.
+
+### 31-5. Two more handed-over-mismatch sightings (running list: §17-3, §20-7, §18, §21)
+
+- **The pointer named a section that does not exist.** Handoff said `TechnicalDesignDocument.md` 의
+  「역할 무관 일관성 원칙」(2026-09-22). The real section is **「🔴 최상위 원칙 — 플레이어는 자신이 Host 인지
+  Client 인지 알 수 없다」(2026-09-21 사용자 확정)**. Same content, different name *and* date.
+  🔴 Grep the *claim* (here 「역할과 무관」) rather than the handed name, point at the section that exists, and
+  record the discrepancy in a note — never invent the handed name into the document
+  (`.claude/mistakes.md` 2026-09-01「예시 목록에 적을 이름을 문서에서 찾지 않고 지어냈다」).
+- **The handed member list was short but the conclusion survived.** Handoff: *`IUIManager` has only
+  `ShowConfirm`·`ShowAlert`·`HideBlockingOverlay`*; measured: **6 members** (+`ShowLoading`,
+  `LoadSceneWithDelay`, `ShowBlockingOverlay`). The load-bearing claim —「팝업을 닫는 공개 API 가 없다」— is
+  still true because the three extras are loading/overlay members. Record **both**: the corrected enumeration
+  and the sentence saying which conclusion survives it (§14's "which conclusion survives the corrected number").
+
+### 31-6. An ordering constraint is a **fact about a second call**, not a style preference
+
+「팝업 닫기는 `ShowLoading(true, …)` 보다 앞」 is only recordable because `ConfirmPopup.Hide()` itself calls
+`UIManager.HideBlockingOverlay()`, a **refcount decrement**. Write the mechanism next to the ordering rule;
+an order with no stated mechanism gets "simplified" by the next editor.
+
+### 31-7. Writing a section while another agent edits the same code in parallel
+
+State it once, in the 근거 등급 block: *"the 실측 below was read before that agent's fix landed."*
+And keep the fix in **방향** tense (「수정 방향」 · 상태 `⚠️ 수정 진행 중 · 실기 미검증`) — a parallel agent's
+in-flight work is never written as done, whatever the handoff's confidence.

@@ -186,6 +186,28 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
+        /// 지금 떠 있는 공통 팝업을 닫는다(IUIManager 계약 구현).
+        /// <b>확인/취소 팝업과 알림 팝업 양쪽</b>이 대상이며, 내부적으로 ConfirmPopup.Hide()에 위임한다.
+        /// ConfirmPopup.Hide()는 <b>콜백을 호출하지 않는 시각적 닫기</b>이므로,
+        /// 사용자가 누르지도 않은 확인 콜백이 실행될 걱정은 없다.
+        ///
+        /// <para>
+        /// ⚠️ <b>여기서는 일부러 경고 로그를 남기지 않는다.</b>
+        /// ShowConfirm/ShowAlert 의 미배선 경고는 「띄우라고 했는데 못 띄웠다」는 설정 오류라 경고가 맞다.
+        /// 반면 이 메서드는 「혹시 떠 있으면 닫아라」라는 뜻으로 조건 없이 불리는 자리라
+        /// <b>팝업이 없어도 정상</b>이다. 여기에 경고를 넣으면 로비로 복귀할 때마다
+        /// 아무 문제도 없는 경고가 로그에 쌓인다.
+        /// </para>
+        /// </summary>
+        public void HideConfirmOrAlert()
+        {
+            // 배선되지 않았다면 닫을 팝업 자체가 없다 — 조용히 넘어간다(위 주석의 이유).
+            if (_confirmPopup == null) return;
+
+            _confirmPopup.Hide();
+        }
+
+        /// <summary>
         /// 로딩 인디케이터 표시 여부를 토글한다.
         /// Firebase 처리, 씬 전환, 매칭 대기 등 로딩 사유에 관계없이 이 메서드 하나로 제어한다.
         ///
