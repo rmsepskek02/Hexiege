@@ -116,6 +116,26 @@ namespace Hexiege.Presentation
         /// </summary>
         private const float OpponentLeftCountdownSeconds = 30f;
 
+        /// <summary>
+        /// 상대 이탈 알림 팝업의 타이틀 (공통 UI 규칙 D-6 2항).
+        /// </summary>
+        private const string OpponentLeftAlertTitle = "알림";
+
+        /// <summary>
+        /// 상대 이탈 알림 팝업의 본문 (공통 UI 규칙 D-6 2항).
+        ///
+        /// ⚠️ 위 <see cref="OpponentLeftCountdownFormat"/> 의 앞부분과 겹쳐 보이지만
+        ///    <b>같은 문자열이 아니다.</b> 타이머 쪽은 남은 초가 함께 들어가는 형식 문자열이고,
+        ///    이쪽은 남은 초가 없는 한 문장이다. 규칙 D-1 과 규칙 D-6 이 두 자리의 문구를
+        ///    각각 따로 정하고 있으므로 하나로 합치지 않는다.
+        /// </summary>
+        private const string OpponentLeftAlertMessage = "상대방이 떠났습니다.";
+
+        /// <summary>
+        /// 상대 이탈 알림 팝업의 버튼 라벨 (공통 UI 규칙 D-6 2항). 누르면 로비로 이동한다.
+        /// </summary>
+        private const string OpponentLeftAlertButtonLabel = "로비로";
+
         // ====================================================================
         // 색상 설정
         // ====================================================================
@@ -143,7 +163,7 @@ namespace Hexiege.Presentation
         /// <summary> 네트워크 로비 복귀(씬 전환) 이벤트 구독 해제용. </summary>
         private System.IDisposable _backToLobbySubscription;
 
-        /// <summary> 결과 화면에서의 상대 이탈 알림 구독 해제용 (공통 UI 규칙 D-1 · D-2 · D-4). </summary>
+        /// <summary> 결과 화면에서의 상대 이탈 알림 구독 해제용 (공통 UI 규칙 D-1 · D-2 · D-4 · D-6). </summary>
         private System.IDisposable _opponentLeftSubscription;
 
         /// <summary>
@@ -155,6 +175,22 @@ namespace Hexiege.Presentation
 
         /// <summary> 자동 로비 복귀 카운트다운 코루틴. </summary>
         private Coroutine _countdownCoroutine;
+
+        /// <summary>
+        /// 재경기 요청 수락/거절 팝업. 공통 UI 규칙 D-6 에서 「응답 전 요청자 이탈」일 때 닫을 대상이다.
+        ///
+        /// [초급자용 설명] 왜 <c>[SerializeField]</c> 로 Inspector 배선을 하지 않는가
+        ///   <c>[SerializeField]</c> 로 두면 그 참조가 씬 파일(Game.unity)에 저장되고,
+        ///   <b>씬을 손으로 배선하지 않으면 런타임에 null</b> 이 되어 규칙이 조용히 성립하지 않는다.
+        ///   이 팝업은 Game 씬의 <c>[UI]</c> 아래에 이미 활성 상태로 놓여 있으므로
+        ///   런타임 탐색(<c>FindFirstObjectByType</c>)만으로 확실히 찾을 수 있다.
+        ///   바로 위 <c>_networkGameManager</c> 가 쓰는 것과 같은 탐색 방식이며,
+        ///   덕분에 이 단계는 <b>씬 작업이 필요 없다.</b>
+        ///
+        ///   탐색은 필요한 순간(이탈 통보 수신)에 1회만 하고 이 필드에 캐시한다 —
+        ///   <c>FindFirstObjectByType</c> 은 씬 전체를 훑는 무거운 호출이라 매번 부르지 않는다.
+        /// </summary>
+        private RematchRequestPopup _rematchRequestPopup;
 
         // ====================================================================
         // 초기화
@@ -240,6 +276,8 @@ namespace Hexiege.Presentation
             //     ① 상대가 로비 복귀 버튼으로 스스로 나간 정상 퇴장(상대가 나가기 직전에 보낸 통보)
             //     ② 30초 동안 상대의 신호가 끊긴 무반응 이탈(내 쪽에서 직접 판정)
             //   🔴 화면이 해야 할 일은 두 갈래가 완전히 같으므로(규칙 17) 구독도 하나만 둔다.
+            //   🔴 규칙 D-6(응답 전 요청자 이탈)도 이 구독 하나에 이어 붙였다 — OnOpponentLeft() 안에서
+            //      처리하며, 같은 신호에 구독을 새로 만들지 않는다(처리 순서를 보장할 수 없게 된다).
             _opponentLeftSubscription = GameEvents.OnNetworkOpponentLeft
                 .Subscribe(_ => OnOpponentLeft());
 
@@ -488,18 +526,24 @@ namespace Hexiege.Presentation
         }
 
         // ====================================================================
-        // 상대 이탈 반영 (공통 UI 규칙 D-1 · D-2 · D-3 · D-4)
+        // 상대 이탈 반영 (공통 UI 규칙 D-1 · D-2 · D-3 · D-4 · D-6)
         // ====================================================================
 
         /// <summary>
         /// 결과 화면이 떠 있는 동안 상대가 사라졌다는 통보를 받았을 때의 화면 처리.
         ///
-        /// 하는 일은 셋이다.
+        /// 하는 일은 넷이다.
         ///   1. <b>재경기 버튼 비활성화</b>(규칙 D-2) — 상대가 없으니 요청해도 받을 사람이 없다.
         ///      누를 수 있게 두면 응답이 영영 오지 않는 요청으로 사용자를 또 기다리게 만든다.
         ///   2. <b>카운트다운을 30초로 다시 시작</b>(규칙 D-4).
         ///   3. <b>타이머 문구 교체</b>(규칙 D-1) — 문구 자체는 아래 플래그를 보고
         ///      <c>CountdownCoroutine</c> 이 매 초 갱신하므로 여기서 직접 쓰지 않는다.
+        ///   4. <b>응답 전이던 재경기 요청 팝업 정리 + 알림 팝업</b>(규칙 D-6) —
+        ///      <see cref="HandleUnansweredRematchRequestOnOpponentLeft"/> 가 담당한다.
+        ///      🔴 이 이벤트 구독은 <b>단계 7 에서 만든 한 건뿐</b>이며, 규칙 D-6 을 위해
+        ///      구독을 새로 늘리지 않고 <b>이 핸들러에 이어 붙였다.</b> 같은 이탈 신호에
+        ///      구독이 둘이면 처리 순서를 아무도 보장할 수 없어, 팝업을 닫는 쪽과
+        ///      알림을 띄우는 쪽이 뒤바뀔 수 있다.
         ///
         /// 🔴 <b>로비 복귀 버튼은 여기서 끄지 않는다</b>(규칙 D-3). 이탈 판정 뒤에도 켜 둔다 —
         ///    두 버튼이 동시에 꺼지면 사용자가 스스로 화면을 빠져나갈 방법이 없어진다.
@@ -521,6 +565,13 @@ namespace Hexiege.Presentation
 
             // 규칙 D-4 — 카운트다운 30초 재시작. 이때부터 문구가 이탈 문구로 바뀐다(규칙 D-1).
             RestartCountdownForOpponentLeft();
+
+            // 규칙 D-6 — 재경기 요청에 응답하기 전에 요청자가 이탈한 경우의 추가 처리.
+            //   🔴 여기서 별도의 타이머를 만들지 않는다. 규칙 D-6 3항은 이 시점의 카운트다운이
+            //      「규칙 D-4 의 이탈 재시작과 같은 시점·같은 값(30초)」이라고 정하고 있으며,
+            //      그 재시작은 바로 위 한 줄이 이미 끝냈다. 알림 팝업에 자기 전용 타이머를 붙이면
+            //      같은 30초를 세는 시계가 두 개가 되어 한쪽을 고칠 때 다른 쪽이 조용히 어긋난다.
+            HandleUnansweredRematchRequestOnOpponentLeft();
         }
 
         /// <summary>
@@ -538,6 +589,76 @@ namespace Hexiege.Presentation
             // 사용자에게는 빈 텍스트가 보이지 않는다.
             StopCountdown();
             _countdownCoroutine = StartCoroutine(CountdownCoroutine(OpponentLeftCountdownSeconds));
+        }
+
+        /// <summary>
+        /// 공통 UI 규칙 D-6 — <b>재경기 요청에 응답하기 전에 요청자가 이탈한 경우</b>의 처리.
+        ///
+        /// <para>
+        /// 규칙이 정한 순서 그대로 두 가지를 한다.
+        ///   1. 떠 있던 <b>재경기 요청 팝업을 닫는다.</b>
+        ///   2. <b>알림 팝업</b>(규칙 D-5)을 띄운다 — 타이틀 · 본문 · 버튼 1개.
+        /// </para>
+        ///
+        /// <para>
+        /// [초급자용 설명] 왜 팝업을 닫는 것이 먼저인가
+        ///   요청을 보낸 상대가 이미 떠났으니 수락을 눌러도 그 응답이 닿을 곳이 없다.
+        ///   팝업을 그대로 두면 사용자는 아직 고를 수 있다고 믿고 수락을 누르고,
+        ///   아무 반응도 없는 화면 앞에서 또 기다린다. 그래서 <b>닿을 곳이 없어진 선택지를
+        ///   먼저 치우고</b>, 그 다음에 무슨 일이 있었는지 알린다.
+        /// </para>
+        ///
+        /// <para>
+        /// [초급자용 설명] 왜 별도의 타이머를 만들지 않는가
+        ///   규칙 D-6 3항이 「이 시점의 자동 로비 복귀 카운트다운은 30초이며 여기에 별도의
+        ///   타이머를 두지 않는다」고 못 박고 있다. 그 30초는 호출부(<see cref="OnOpponentLeft"/>)의
+        ///   <see cref="RestartCountdownForOpponentLeft"/> 가 이미 다시 시작했다.
+        ///   그러므로 이 알림 팝업은 <b>스스로 닫히지 않는다</b> — 사용자가 버튼을 누르면 로비로 가고,
+        ///   누르지 않아도 그 카운트다운이 만료되면 로비로 간다(규칙 D-4). 어느 쪽이든 갇히지 않는다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>요청 팝업이 떠 있지 않았다면 알림 팝업도 띄우지 않는다.</b> 규칙 D-6 은 제목 그대로
+        ///    「요청 팝업이 떠 있는 상태에서 응답하기 전에」로 적용 범위가 한정돼 있고, 그 밖의
+        ///    이탈은 규칙 D-1 의 타이머 텍스트가 알리기로 정해져 있다(규칙 D-1 은 「별도 팝업을 새로
+        ///    띄우지 않고 이미 떠 있는 타이머 텍스트 자리를 쓴다」고 명시한다). 요청이 없던 이탈에도
+        ///    팝업을 띄우면 그 규정과 어긋난다.
+        /// </para>
+        /// </summary>
+        private void HandleUnansweredRematchRequestOnOpponentLeft()
+        {
+            // 씬에 놓인 팝업을 필요한 순간에 1회만 찾아 캐시한다(Inspector 배선 불필요).
+            if (_rematchRequestPopup == null)
+                _rematchRequestPopup = FindFirstObjectByType<RematchRequestPopup>();
+
+            if (_rematchRequestPopup == null)
+            {
+                // [개발] Warn + 개발 — 씬에서 팝업을 찾지 못한 것은 배치 누락이라는 설정 오류다
+                //   (위 NetworkGameManager 탐색 실패와 같은 사건·같은 판정).
+                //   이 로그는 이탈 통보를 받은 순간에만 찍히고, 중복 통보는 호출부의
+                //   _opponentLeft 가드가 막으므로 한 경기에 최대 1줄이다.
+                GameLog.Dev.Warn("UI", nameof(GameEndUI),
+                                 "RematchRequestPopup 을 찾을 수 없다 — 규칙 D-6 의 요청 팝업 닫기와 알림 팝업을 건너뛴다");
+                return;
+            }
+
+            // 1항 — 응답 대기 중이던 요청 팝업을 닫는다.
+            //   떠 있지 않았다면 이번 이탈은 규칙 D-6 의 상황이 아니므로 여기서 끝낸다
+            //   (이탈 사실은 규칙 D-1 의 타이머 텍스트가 이미 알리고 있다).
+            if (!_rematchRequestPopup.TryCloseUnansweredRequest())
+                return;
+
+            // 2항 — 알림 팝업(규칙 D-5). 타이틀 + 본문 + 버튼 1개, 배경 탭으로 닫히지 않는 모달이다.
+            //   🔴 호출은 규칙 D-5 가 정한 null-safe 패턴을 쓴다 — Game 씬에 직접 진입하면
+            //      Login 씬에서 만들어지는 UIManager 가 없어 Instance 가 null 일 수 있다.
+            //   🔴 버튼 콜백은 <b>로비 복귀 버튼과 똑같은 핸들러</b>(OnBackToLobbyClicked)를 그대로 넘긴다.
+            //      새 이동 경로를 만들면 카운트다운 정지 · timeScale 복원 · 로딩 인디케이터 ·
+            //      멀티에서의 NGO 종료 위임 중 하나라도 빠질 수 있고, 두 경로가 갈리면
+            //      한쪽만 고쳐졌을 때 버튼에 따라 동작이 달라진다.
+            UIManager.Instance?.ShowAlert(OpponentLeftAlertTitle,
+                                          OpponentLeftAlertMessage,
+                                          OnBackToLobbyClicked,
+                                          OpponentLeftAlertButtonLabel);
         }
 
         /// <summary>

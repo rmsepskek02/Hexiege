@@ -5,6 +5,7 @@
 // ShowRequest(): "상대방이 재경기를 요청하였습니다." 팝업 (수락/거절 버튼)
 // ShowDeclined(): "상대방이 재경기를 거절하였습니다." 팝업 (확인 버튼)
 // Hide(): 팝업 전체 숨김
+// TryCloseUnansweredRequest(): 응답 전 요청 팝업이 떠 있으면 닫는다 (공통 UI 규칙 D-6 1항)
 //
 // Presentation 레이어 — MonoBehaviour.
 // ============================================================================
@@ -76,6 +77,21 @@ namespace Hexiege.Presentation
         /// (그렇지 않으면 Hide() 1회로는 카운터가 0이 되지 않아 오버레이가 잔류한다.)
         /// </summary>
         private bool _overlayShown;
+
+        /// <summary>
+        /// 지금 화면에 <b>요청 팝업(수락/거절)</b>이 떠 있고 사용자가 아직 응답하지 않았는지 여부.
+        ///
+        /// [초급자용 설명] 이 값이 왜 필요한가
+        ///   공통 UI 규칙 D-6 은 「재경기 요청 팝업이 떠 있는 상태에서 응답하기 전에 요청자가 이탈한 경우」
+        ///   에만 적용된다. 즉 <b>이 팝업이 떠 있었는지</b>가 바깥(GameEndUI)에서 알아야 하는 정보인데,
+        ///   패널의 알파값은 페이드 애니메이션 도중에는 0 도 1 도 아니어서 그것으로 판단할 수 없다.
+        ///   그래서 「띄웠다 / 닫았다」를 명시적인 플래그 하나로 들고 있는다.
+        ///
+        ///   true 가 되는 곳: <see cref="ShowRequest()"/> · <see cref="ShowRequest(System.Action, System.Action)"/>
+        ///   false 가 되는 곳: <see cref="Hide"/>(수락·거절·D-6 닫기가 모두 여기를 지난다) ·
+        ///                     <see cref="ShowDeclined"/>(요청 패널이 거절 알림 패널로 교체된다)
+        /// </summary>
+        private bool _requestShowing;
 
         // ====================================================================
         // Unity 생명주기
@@ -202,6 +218,9 @@ namespace Hexiege.Presentation
             _onAccept = null;
             _onDecline = null;
 
+            // 「응답 대기 중」 상태로 표시한다 (공통 UI 규칙 D-6 판정용).
+            _requestShowing = true;
+
             // 거절 패널은 즉시 숨김 (페이드 불필요 — 보이지 않는 상태)
             if (_declinedPanelCg != null) { _declinedPanelCg.alpha = 0f; _declinedPanelCg.blocksRaycasts = false; _declinedPanelCg.interactable = false; }
 
@@ -222,6 +241,9 @@ namespace Hexiege.Presentation
             _onAccept = onAccept;
             _onDecline = onDecline;
 
+            // 「응답 대기 중」 상태로 표시한다 (공통 UI 규칙 D-6 판정용).
+            _requestShowing = true;
+
             if (_declinedPanelCg != null) { _declinedPanelCg.alpha = 0f; _declinedPanelCg.blocksRaycasts = false; _declinedPanelCg.interactable = false; }
             // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시.
             ShowOverlayOnce();
@@ -237,6 +259,9 @@ namespace Hexiege.Presentation
             // 요청 패널은 즉시 숨김 (페이드 불필요 — 보이지 않는 상태)
             if (_requestPanelCg != null) { _requestPanelCg.alpha = 0f; _requestPanelCg.blocksRaycasts = false; _requestPanelCg.interactable = false; }
 
+            // 요청 팝업이 거절 알림 팝업으로 교체되므로 「응답 대기 중」이 아니다.
+            _requestShowing = false;
+
             // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시.
             ShowOverlayOnce();
             // 거절 알림 패널만 페이드인.
@@ -248,10 +273,45 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
+            // 어떤 경로로 닫혀도(수락 · 거절 · 규칙 D-6 의 강제 닫기) 「응답 대기 중」은 끝난다.
+            _requestShowing = false;
+
             // 오버레이는 UIManager가 단일 소유 — 점유 중일 때만 1회 해제.
             HideOverlayOnce();
             FadeOut(_requestPanel, _requestPanelCg, ref _requestFade);
             FadeOut(_declinedPanel, _declinedPanelCg, ref _declinedFade);
+        }
+
+        /// <summary>
+        /// 아직 응답하지 않은 재경기 요청 팝업이 떠 있으면 닫는다 (공통 UI 규칙 D-6 1항).
+        ///
+        /// <para>
+        /// [초급자용 설명] 왜 이 팝업을 <b>먼저</b> 닫는가
+        ///   요청을 보낸 상대가 이미 게임을 떠났으므로, 수락 버튼을 눌러도 그 응답이 닿을 곳이 없다.
+        ///   그런데 팝업이 그대로 떠 있으면 사용자는 아직 선택할 수 있다고 믿고 수락을 누르게 되고,
+        ///   아무 일도 일어나지 않는 화면 앞에서 기다린다. 그래서 <b>닿을 곳이 없어진 선택지를
+        ///   화면에서 먼저 치우고</b>, 그 다음에 무슨 일이 일어났는지 알리는 순서(규칙 D-6 의 1항 → 2항)다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>「떠 있지 않았다」와 「떠 있어서 닫았다」를 구분해 돌려준다.</b> 규칙 D-6 은
+        ///    요청 팝업이 떠 있던 경우에만 적용되는 규정이고, 떠 있지 않았다면 이탈 사실은
+        ///    규칙 D-1 의 타이머 텍스트가 이미 알리고 있다. 그 자리에 알림 팝업까지 겹쳐 띄우면
+        ///    규칙 D-1 이 「별도 팝업을 새로 띄우지 않는다」고 정한 것과 어긋난다.
+        /// </para>
+        /// </summary>
+        /// <returns>
+        /// 요청 팝업이 응답 대기 상태로 떠 있어서 닫았으면 <c>true</c>,
+        /// 애초에 떠 있지 않았으면 <c>false</c>(이 경우 아무것도 건드리지 않는다).
+        /// </returns>
+        public bool TryCloseUnansweredRequest()
+        {
+            if (!_requestShowing) return false;
+
+            // Hide() 가 요청/거절 패널과 오버레이 점유를 함께 정리한다.
+            // (_requestShowing = false 도 Hide() 안에서 처리되므로 여기서 따로 내리지 않는다)
+            Hide();
+            return true;
         }
 
         // ====================================================================
