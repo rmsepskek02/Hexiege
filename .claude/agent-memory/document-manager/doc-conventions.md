@@ -2557,3 +2557,191 @@ an order with no stated mechanism gets "simplified" by the next editor.
 State it once, in the 근거 등급 block: *"the 실측 below was read before that agent's fix landed."*
 And keep the fix in **방향** tense (「수정 방향」 · 상태 `⚠️ 수정 진행 중 · 실기 미검증`) — a parallel agent's
 in-flight work is never written as done, whatever the handoff's confidence.
+
+---
+
+## §32. Closing 미결 논의 with a **user 확정** — new rule vs. extension, and a clock that judges nothing (2026-09-22 (4차), post-game-leave-ui)
+
+The round right after §31: the same §13-3 that §31-4 wrote **without concluding** came back **decided**.
+Two files: `Plan.md` (§13-3 확정 block) and `GameSystemRules_UI.md` (규칙 D-7 · D-8, new).
+
+### 32-1. 🔴 The judgment "new rule or extension of D-1/D-2/D-4?" is decided by **four** testable questions
+
+The hand-off explicitly left this to me, so the criteria are the artifact (they go **into the rule**, under
+「🔴 왜 새 규칙으로 세웠는가」):
+
+1. **Would the spec scatter?** If the reader must assemble three rules to get one meaning, it is one rule.
+2. **Does an existing rule already know this *verb*?** 규칙 D-4 knew only **재시작**; the new spec introduces
+   **정지**. 규칙 D-1 knew two states (평시/이탈); the new spec adds a **third**. A new verb is not a footnote.
+3. **Is the trigger the same?** D-1·D-2·D-4 all fire on **상대 이탈 판정**; this one fires on **수락 접수**.
+   Same screen ≠ same rule — filing it under D-4 would make the rule document itself cause the
+   「섞어 읽기」 that D-4's own ⚠️ line warns against.
+4. **Does appending break anything?** A new letter-number at the **end** breaks no existing citation, so the
+   "never rearrange rule numbers" constraint costs nothing here.
+
+🔴 Either way, **write the judgment into the document**, not only into the report — the next author otherwise
+re-litigates it. And when the order says 「기존 본문은 한 글자도 수정하지 말 것」, the new rule carries the
+relationship lines *about* the old rules instead (「이 규칙은 D-3 를 바꾸지 않으며 … 명시할 뿐이다」).
+
+### 32-2. A third clock on the same screen → extend D-4's own 「섞어 읽지 않는다」 form into a 3-row table
+
+D-4 already carried a two-way warning (이탈 30초 vs M-3 전체 길이). The new rule adds a third entry, so the
+cheapest non-destructive repair is a **table inside the new rule** (계기 / 타이머에 하는 일 / 규정) that
+**quotes D-4's warning as precedent** and adds one line: 🔴 **이 규칙만 「재시작」이 아니라 「정지」다.**
+The old rules stay untouched and the reader still meets all three in one place.
+
+### 32-3. 🔴 A timer that **judges nothing** — write the negation, and enumerate every stop site
+
+A confirmed 10-second limit whose only effect is reverting a status line. Two sentences do the work:
+
+- **「이 시계는 아무것도 판정하지 않는다 — 승패도, 이탈도, 연결 종료도 하지 않는다. 하는 일은 … 하나뿐이다.」**
+  Say **why that sentence exists**: to stop a later round from hanging a 판정 on it.
+- **Enumerate the stop sites exhaustively** (「멈추는 자리는 넷이 전부다」). A partial list reads as an example.
+
+### 32-4. 🔴 Referencing a constant instead of copying a number — then check the constant's **own** spec
+
+Order: *"값은 `NetworkMapTransfer.TransferTimeoutSeconds` 를 참조한다, 숫자를 복제하지 않는다."* Following it
+is easy; the finding is what turned up on verifying it. 규칙 16 defines that 10초 as **one response window,
+with 재전송 1회 → up to two**. So the UI limit can **expire before the failure it waits for**.
+
+- 🔴 That is not a reason to invent a wider limit (CLAUDE.md 규칙 10·12). Record the mismatch, show why the
+  confirmed spec survives it (**the clock judges nothing** → only the text reverts; a late 통보 is handled by
+  its own row), say explicitly 「…같은 변경은 확정된 바 없다」, and **report it to the user**.
+- General shape: **citing a constant is also citing the rule that set it** — read that rule before citing.
+
+### 32-5. Two paths into **one** state is the spec's core — the table's third column is **why**
+
+「수락한 쪽 = 즉시 자기 화면에서 / 요청한 쪽 = 서버 통보를 받고」 looks like an inconsistency until each row
+carries its reason (`ServerRpc` evaporates when the Host is gone / the requester cannot know acceptance
+happened and would time out alone). Write the reasons **in the rule**, not only in the Plan: without them the
+next reader "simplifies" the two paths into one and reintroduces the role asymmetry the whole design fixes.
+
+### 32-6. A decision **not to implement** because the behaviour already happens — log timestamps are the artifact
+
+「진행 중이던 맵 준비 취소는 구현하지 않는다 — 이미 저절로 된다」 rests on three editor-log lines 8ms apart
+(이탈 확정 → NetworkManager Shutdown → 맵 전송 객체 디스폰). Put them in a **시각 / 로그 table** in the Plan,
+not a sentence: the claim is a *sequence*, and the sequence is what makes "already happens" checkable.
+The rule document then says only 「이 규칙은 그 요구를 하지 않는다」 with a pointer.
+
+### 32-7. Closing a 미결 list: map **each numbered item** to its verdict, in a table
+
+§31-4 wrote 「아직 정해지지 않은 것 3가지」 as a numbered list. The 확정 block's first table is
+**미결 안건 (위 원문의 번호) → 확정된 결론**, one row per item. Then, separately, the items the confirmation
+**did not** close (here: §13-2's latent bug, still 사용자 판단 대기) — 🔴 stated as 「상태를 바꾸지 않았다」,
+because silence about an untouched item reads as closure.
+Also re-check the enclosing heading: 「…미결 논의 2건」 is now false, so a pointer block goes **under the
+heading** (heading text untouched, B-7) naming the new single source.
+
+### 32-8. Rejected alternatives belong with the **decision**, one line of them with the **rule**
+
+Three rejected options (로딩 화면 / 버튼 차단 / 별도 팝업) went in full into the Plan's 확정 block. The rule
+document keeps only the one whose rationale is **rule-level**: a loading screen sets `blocksRaycasts = true`
+and therefore **disables 규칙 D-3**. ⚠️ Pair it with the case where the same widget **is** correct
+(the loading screen after the rematch actually starts), or the ban reads wider than it is.
+
+### 32-9. A 「회차별 바뀐 파일」 section already exists for a *previous* round — add a new one, never edit it
+
+`§13-5` was 「이번 회차에 바뀐 파일」 of the 1차 round. This round appends **§13-6** with its own date label and
+one ⚠️ line saying 13-5 is the earlier round's record. Editing 13-5 would have destroyed a dated artifact and
+merged two rounds' file lists into an unreadable one.
+
+### 32-10. Verification for a letter-prefixed round: the checker's 0건 is **not** about your rules
+
+`check_docs.py` returned 0건 with `[4]` still printing 공통 UI 규칙(1~11) — D-7·D-8 are invisible to it
+(§22-5). So hand-verify: every `규칙 D-n`/`M-n` cited exists in the same document, every relative link
+resolves by path, and run the unescaped-`|`-per-row table check (§22-9) over **both** edited files
+(this round: 16 + 25 tables, 0 mismatches).
+
+---
+
+## §33. **Overturning** an earlier 확정 because a *newer* rule contradicts it — and the third verdict for a 미정 marker (2026-09-22 (2차) / edited 2026-09-24, post-game-leave-ui)
+
+Same subject as §32, one round later: 규칙 M-3's 2026-09-16 확정 (*"실패를 알림 팝업(모달)으로 알린다"*)
+was reversed to 「상태 줄」, and 규칙 D-7 gained three additions. Both files append-only.
+
+### 33-1. 🔴 A reversal whose cause is a **rule that did not exist yet** is not an 오판
+
+The revision block must say so explicitly: *"2026-09-16 확정이 틀렸던 것이 아니다 — 그때는 규칙 D-3 의 이
+조항이 아직 없었다."* Write **which rule appeared since** and that it is a collision, not a correction.
+Otherwise every future reader reads the reversal as "the earlier round got it wrong", and the record of *why*
+the earlier decision was reasonable is destroyed while its text is technically preserved.
+
+- The block's first table is **구분 / 이전 확정 / 이번 개정**, one row per attribute (수단 · 문구 · 버튼 ·
+  카운트다운 · 버튼 복원), including the rows that say **그대로** — a reversal's blast radius is defined by
+  what it does *not* change.
+
+### 33-2. 🔴 A 미정 marker has a **third** possible fate: 무효 (its referent disappeared)
+
+`M-3` pinned 표시 문구 미정 **and** 버튼 라벨 미정. The revision closed the first and **deleted the button**.
+
+- Writing 「버튼 라벨 미정도 닫혔다」 would mean *a label was chosen* — false.
+- Leaving it untouched reads as *still to be decided* — also false.
+- 🔴 The honest verdict is **「이 규칙에서 무효가 됐다 — 가리킬 대상이 없어졌다」**, plus the sentence that keeps
+  the sibling alive: *"단, 규칙 M-4 가 팝업 확정을 유지하는 동안 그쪽의 버튼 라벨 미정은 살아 있다."*
+- Do **not** strike the original ⚠️ line (B-7 keeps strikethrough for an entry that is wholly invalid, and here
+  the order was 원문 무삭제) — the 무효 verdict lives in the appended block.
+
+### 33-3. 🔴 A rule that *depended* on the revised one does **not** inherit the revision automatically
+
+`M-4` said *"상세와 근거는 위 규칙 M-3 의 같은 미정 표시를 따른다"* and the 2026-09-16 확정 covered both.
+Deciding **not** to propagate is itself a decision and needs its own block:
+
+- Split the revision's rationale **item by item** against the dependent rule's context (table: 사유 / 적용되는가).
+  Here ① 규칙 D-3 applies (single-player also has a lobby button), ② does not (no opponent → only one failure
+  path), ③ is undecidable (the status line **exists** in single — measured — but no path was found by which a
+  single-player rematch map failure reaches it).
+- Then **pin the remainder as 미정** rather than deciding it (CLAUDE.md 규칙 10·12), and 🔴 state the resulting
+  inconsistency out loud: *"지금은 두 규칙이 서로 다른 수단을 갖는다 … 그대로 두는 것 자체가 결정이라 적어 둔다."*
+- Measurement wording matters: 「찾지 못했다」, never 「없다」.
+
+### 33-4. 🔴 Merging N failure paths into **one screen** — the argument that carries the revision
+
+The decisive reason was not aesthetics: rematch can fail three ways (수락 RPC evaporated / map prep failed /
+prep limit expired) and **the popup was attached to only one of them**, so identical outcomes produced
+different screens. 🔴 **「같은 결과면 같은 화면」** is the reusable form of the project's top principle.
+When a round adds a state, count the *other* ways the same outcome is reached before choosing the widget.
+
+### 33-5. A rejected option you already recorded can get **stronger** — append reasons, keep the conclusion
+
+§13-3's rejected option 3 (a failure popup) had one reason. This round added two (모달 무력화 of 규칙 D-3;
+a popup covers only one of three paths). Write it as 「기각안이 더 강해졌다 — 사유가 늘었고 결론은 같다」 and
+leave the original text alone. A rejected option whose rationale grew is evidence the decision is stable.
+
+### 33-6. 🔴 Correcting a ⚠️ warning **you yourself wrote last round** after the spec moved to meet it
+
+§32-4's flagged mismatch (limit = one window vs. 규칙 16's two) came back **fixed in the spec**:
+`TransferTimeoutSeconds * (MaxResendCount + 1)`, still zero numeric literals.
+
+- Keep your own warning as **「정정 전 사양에 대한 기록」**, add the new single source, and state what did
+  **not** change (the clock still judges nothing).
+- 🔴 Say what the correction actually bought: Host (timeout + resend → failure) and Client (limit expiry) now
+  end up at the **same screen at nearly the same time** — i.e. it was a 「역할 무관 일관성」 fix, not a length fix.
+- And when a table row you wrote is now wrong in **one cell**, do not edit the table: append
+  「위 표의 그 행은 이 확정으로 갱신된다 — 그 한 칸은 이 블록이 단일 소스다」, naming the cell.
+
+### 33-7. A state machine that gained a fourth state needs its **priority**, not just the state
+
+평시 / 준비 중 / 실패 / 이탈 — the artifact is 🔴 **「이탈 > 실패 > 평시」** *with its reason* (the leave verdict
+arrives later and is the more important fact, so it overwrites the failure text; the reverse never holds).
+A new state without a stated precedence is a bug report waiting to happen.
+
+### 33-8. 🔴 Reading a file another agent is editing **right now** — timestamp the observation, never the verdict
+
+Two greps minutes apart returned different line numbers and different hits in the same file (a constant that
+did not exist in the first read existed in the second). Record it as **「내가 읽은 시점의 상태」** and add
+🔴 **「이는 결함 주장이 아니라 진행 중 작업의 한 시점 관측이다」** — otherwise a snapshot of half-landed work
+becomes a documented defect. Grade the halves separately (constant + rationale present / wiring not yet seen).
+
+🔴 **And cash the snapshot in as soon as the parallel work lands** — a timestamped observation is honest
+the day it is written and misinformation a day later, because the next reader takes 「내가 읽은 시점에는 아직
+두 갈래였다」 as 「still unimplemented」. The repair is the same append shape: keep the original observation
+(it was true then), add a `[✅ YYYY-MM-DD 갱신]` block whose first line is the **negation** (「‘두 갈래였다’는 더 이상
+참이 아니다」), re-measure every item yourself rather than quoting the hand-off, and 🔴 end with what did **not**
+change (여기서는 실기 검증 0건) plus 「이 갱신은 사실 최신화이며 새로 정한 것은 없다」 — otherwise a status
+refresh reads as a new decision. Mirror one pointer line into the sibling document so both stop being stale.
+
+### 33-9. When the session crosses midnight, date the **decision** and the **edit** separately
+
+The 확정 happened in the 2026-09-22 conversation; the file was written on 2026-09-24. Label blocks by the
+decision's date (matching its siblings) and add one line: *"문서 편집은 세션이 날을 넘겨 2026-09-24 에 했다."*
+Neither a wrong date nor a hidden one.

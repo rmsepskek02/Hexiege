@@ -85,6 +85,31 @@ namespace Hexiege.Infrastructure
         private ulong _rematchRequesterId = ulong.MaxValue;
 
         /// <summary>
+        /// 🔴 <b>「상대가 떠났다」가 이미 확정됐는가.</b> 확정된 뒤에 도착한 재경기 요청·수락을
+        /// <b>서버가 처리하지 않게</b> 막는 깃발이다.
+        ///
+        /// <para>
+        /// <b>[초급자용 설명] 이 깃발이 없으면 무슨 일이 생기는가</b><br/>
+        /// 결과 화면에서 상대가 이미 떠났는데 이쪽은 아직 모르는 구간(최대 30초)이 존재한다.
+        /// 그 구간에 재경기 수락을 누르면 <b>내가 Host 냐 Client 냐에 따라 동작이 갈렸다.</b>
+        /// <list type="bullet">
+        ///   <item>수락자가 <b>Host</b>: 수락 ServerRpc 가 <b>자기 자신(서버)</b>에게 가므로 그대로 실행된다
+        ///         → 이미 없는 상대를 위해 새 맵을 만들고 전송을 시작하고, 10초쯤 뒤에 응답 없음으로 실패한다.</item>
+        ///   <item>수락자가 <b>Client</b>: 서버(Host)가 이미 없어 ServerRpc 가 <b>증발</b>한다 → 아무 일도 일어나지 않는다.</item>
+        /// </list>
+        /// 같은 상황인데 화면과 결과가 역할에 따라 달라지는 것이므로
+        /// (TechnicalDesignDocument.md 「🔴 최상위 원칙」) 그 비대칭을 없애기 위해
+        /// <b>서버 쪽에서 아예 처리하지 않는다.</b>
+        /// </para>
+        ///
+        /// ⚠️ <b>진행 중이던 맵 준비를 취소하는 코드는 일부러 두지 않았다 — 이미 저절로 된다.</b>
+        ///    이탈 판정은 연결을 함께 종료하고(규칙 17), 그때 맵 전송 객체도 함께 디스폰된다
+        ///    (2026-09-22 로그 실측: 「무반응 이탈 확정」 → 「NetworkManager Shutdown 완료」 →
+        ///     「맵 전송 객체 디스폰」이 0.01초 안에 연달아 일어난다).
+        /// </summary>
+        private bool _opponentLeftJudged;
+
+        /// <summary>
         /// NetworkGameManager 참조.
         /// 서버 측 OnNetworkSpawn에서 1회만 탐색하여 캐시하고 이후에는 재탐색 없이 사용한다.
         /// OnGameEndServer에서 씬 전체 탐색을 반복하지 않기 위한 캐시.
@@ -218,8 +243,10 @@ namespace Hexiege.Infrastructure
             _localRematchRequestedSub = GameEvents.OnLocalRematchRequested
                 .Subscribe(_ => RequestRematchServerRpc());
 
+            // 🔴 수락만 예외 처리로 감싼다 — 이 채널에만 **구독자가 둘**이기 때문이다
+            //    (이 컨트롤러 + 결과 화면 GameEndUI). 아래 SendAcceptRematchSafely 의 주석 참조.
             _localRematchAcceptedSub = GameEvents.OnLocalRematchAccepted
-                .Subscribe(_ => AcceptRematchServerRpc());
+                .Subscribe(_ => SendAcceptRematchSafely());
 
             _localRematchDeclinedSub = GameEvents.OnLocalRematchDeclined
                 .Subscribe(_ => DeclineRematchServerRpc());
@@ -236,7 +263,7 @@ namespace Hexiege.Infrastructure
             //
             //   ⚠️ IsServer 가드 밖에 둔다 — Host 와 Client 가 모두 이 알림을 받을 수 있다.
             _opponentLeftSub = GameEvents.OnNetworkOpponentLeft
-                .Subscribe(_ => StopResultScreenLeaveWatch("상대 이탈 알림을 받았다"));
+                .Subscribe(_ => OnOpponentLeftSignal());
         }
 
         /// <summary>
@@ -264,6 +291,10 @@ namespace Hexiege.Infrastructure
             StopResultScreenLeaveWatch("네트워크 디스폰");
 
             _rematchRequesterId = ulong.MaxValue;
+
+            // 이탈 확정 깃발도 함께 내린다. 디스폰은 재경기로 씬이 재로드될 때도 오므로,
+            // 내리지 않으면 지난 판의 판정이 다음 판까지 따라와 재경기가 통째로 막힌다.
+            _opponentLeftJudged = false;
         }
 
         // ====================================================================
@@ -565,6 +596,9 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 클라이언트의 재경기 요청을 서버에서 처리.
         /// 첫 요청 시 상대에게 알림, 양측 모두 요청 시 즉시 재경기 시작.
+        ///
+        /// 🔴 <b>상대 이탈이 이미 확정된 뒤에는 아무것도 하지 않는다</b>
+        ///    (<see cref="_opponentLeftJudged"/> 의 주석에 이유가 적혀 있다).
         /// </summary>
         [ServerRpc(RequireOwnership = false)]
         private void RequestRematchServerRpc(ServerRpcParams rpcParams = default)
@@ -573,6 +607,18 @@ namespace Hexiege.Infrastructure
             GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
                 "RequestRematchServerRpc 수신",
                 $"RequesterClientId={requesterId}, PreviousRequesterClientId={_rematchRequesterId}");
+
+            // 🔴 「상대가 떠났다」가 확정된 뒤에 도착한 요청은 처리하지 않는다.
+            //    받을 사람이 없는 요청이고, 여기를 통과시키면 양측 동의 분기로 빠져
+            //    없는 상대를 위해 맵 준비가 시작될 수 있다.
+            //    이 줄은 판정을 하지 않는다 — 이미 확정된 판정을 읽기만 한다.
+            if (_opponentLeftJudged)
+            {
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "재경기 요청을 무시한다 — 상대 이탈이 이미 확정됐다",
+                    $"RequesterClientId={requesterId}");
+                return;
+            }
 
             if (_rematchRequesterId == ulong.MaxValue)
             {
@@ -598,6 +644,24 @@ namespace Hexiege.Infrastructure
                 GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
                     "양측 재경기 동의 — 새 맵 준비를 시작한다");
 
+                // 🔴 이 경로도 「수락이 접수됐다」와 **완전히 같은 사건**이므로 같은 통보를 쓴다.
+                //
+                //   [초급자용 설명] 재경기가 성립하는 길은 둘이다.
+                //     ① 한 쪽이 요청 → 다른 쪽이 팝업에서 「수락」 (AcceptRematchServerRpc)
+                //     ② 두 사람이 각자 「다시하기」를 눌러 요청이 겹침 (지금 이 분기)
+                //   어느 길이든 **서버가 양측 신호를 다 받은 시점이 곧 성사 확정**이고,
+                //   그 뒤에 일어나는 일(새 맵을 만들어 보내고 검증한다)도 완전히 같다.
+                //   그러니 화면도 같아야 한다.
+                //
+                //   🔴 통보를 여기에 넣지 않으면: **같은 「맵 준비 중」인데 경로에 따라**
+                //      상태 줄이 뜨기도 하고 안 뜨기도 한다. 게다가 이 경로에서는 자동 로비
+                //      복귀 타이머가 멈추지 않아, 맵을 만드는 도중에 한쪽이 먼저 로비로 나가 버린다.
+                //
+                //   ⚠️ 발행을 BeginRematchMapPreparation() **앞**에 두는 이유는
+                //      AcceptRematchServerRpc 와 같다 — 맵 준비가 즉시 실패하면 실패 통보가
+                //      먼저 도착해 화면이 「실패 → 준비 중」 순서로 거꾸로 바뀐다.
+                NotifyRematchAcceptedClientRpc();
+
                 BeginRematchMapPreparation();
             }
         }
@@ -620,6 +684,10 @@ namespace Hexiege.Infrastructure
         /// 재경기 수락을 서버에서 처리.
         /// 🔴 [재경기 맵 D] 「즉시 재경기 시작」이 아니라 <b>새 맵 준비부터 시작</b>한다.
         /// 씬 재로드는 양쪽 검증이 끝난 뒤 <see cref="StartRematch"/> 에서 일어난다.
+        ///
+        /// 🔴 <b>상대 이탈이 이미 확정된 뒤에는 아무것도 하지 않는다</b> — 이것이
+        ///    「Host 가 없는 상대를 위해 새 맵을 만드는」 비대칭을 없애는 자리다
+        ///    (<see cref="_opponentLeftJudged"/> 의 주석에 두 역할의 동작 차이가 적혀 있다).
         /// </summary>
         [ServerRpc(RequireOwnership = false)]
         private void AcceptRematchServerRpc()
@@ -627,7 +695,113 @@ namespace Hexiege.Infrastructure
             GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
                 "AcceptRematchServerRpc 수신 — 새 맵 준비를 시작한다");
 
+            // 🔴 이탈 확정 뒤에 도착한 수락은 처리하지 않는다.
+            //    통과시키면 서버가 이미 없는 상대를 위해 맵을 만들고 전송을 시작한 뒤
+            //    응답 없음으로 실패한다(수락자가 Host 일 때만 그렇게 되므로 역할 비대칭이 된다).
+            if (_opponentLeftJudged)
+            {
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "재경기 수락을 무시한다 — 상대 이탈이 이미 확정됐다");
+                return;
+            }
+
+            // 🔴 「수락이 접수됐다」를 **양쪽 모두**에게 알린다 — 맵 준비를 시작하기 **전**이다.
+            //
+            //   [초급자용 설명] 이 통보를 정말 받아야 하는 사람은 **요청한 쪽**이다.
+            //     요청자는 지금까지 상대가 수락했다는 사실을 알 길이 없어서, 수락이 됐는데도
+            //     자기 자동 복귀 카운트다운(60초)이 만료되면 혼자 로비로 나가 버렸다.
+            //     이 통보를 받으면 요청자도 상태 줄을 「재경기 준비 중...」으로 바꾸고
+            //     타이머를 멈춘다(맵이 만들어지는 동안 기다려야 하므로).
+            //
+            //   🔴 대상을 요청자 한 쪽으로 좁히지 않는 이유는 NotifyRematchMapFailedClientRpc 와 같다.
+            //      Host 도 ClientRpc 본문이 로컬에서 실행되므로 별도 호출 없이 함께 받는다.
+            //      수락한 쪽은 버튼을 누른 즉시 이미 같은 상태에 들어가 있으므로 이 신호는 무시된다.
+            //
+            //   ⚠️ 맵 준비 **전**에 보내는 이유: BeginRematchMapPreparation() 은 실패하면
+            //      그 자리에서 곧바로 실패 통보를 보낼 수 있다. 수락 통보를 뒤에 두면
+            //      실패 통보가 먼저 도착해 화면이 「실패 → 준비 중」 순서로 거꾸로 바뀐다.
+            NotifyRematchAcceptedClientRpc();
+
             BeginRematchMapPreparation();
+        }
+
+        /// <summary>
+        /// 재경기 수락이 접수됐음을 <b>양쪽 모두</b>에게 알린다.
+        ///
+        /// <para>
+        /// 🔴 <b>「사람을 기다리면 타이머가 돈다. 시스템을 기다리면 타이머가 멈춘다.」</b><br/>
+        /// 이 통보가 화면에서 하는 일은 자동 로비 복귀 타이머를 <b>멈추는 것</b>이다.
+        /// 요청만 해 둔 동안에는 <b>상대가 수락할지</b>를 기다리는 것이라 타이머가 돌아야 한다 —
+        /// 상대가 팝업을 띄운 채 아무것도 누르지 않으면 답이 영영 오지 않기 때문이다.
+        /// 수락이 접수된 뒤에는 <b>서버가 맵을 만드는 것</b>을 기다리는 것이라 멈춰야 한다 —
+        /// 시스템 작업이고 끝나는 시점이 정해져 있다.
+        /// </para>
+        ///
+        /// 🔴 NGO 명명 규약상 ClientRpc 메서드 이름은 반드시 <c>ClientRpc</c> 로 끝나야 한다.
+        /// </summary>
+        [ClientRpc]
+        private void NotifyRematchAcceptedClientRpc()
+        {
+            GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
+                "재경기 수락 접수 알림 수신 — OnNetworkRematchAccepted 발행");
+            GameEvents.OnNetworkRematchAccepted.OnNext(Unit.Default);
+        }
+
+        /// <summary>
+        /// 로컬 「수락」 입력을 <see cref="AcceptRematchServerRpc"/> 로 바꿔 보낸다.
+        /// <b>예외가 나도 삼킨다.</b>
+        ///
+        /// <para>
+        /// 🔴 <b>[초급자용 설명] 왜 이 하나만 감싸는가</b><br/>
+        /// <c>GameEvents.OnLocalRematchAccepted</c> 는 이 프로젝트에서 <b>구독자가 둘인 유일한
+        /// 로컬 재경기 채널</b>이다 — 이 컨트롤러(서버로 보내기)와 결과 화면 <c>GameEndUI</c>
+        /// (화면을 「재경기 준비 중」으로 바꾸기). UniRx 의 <c>Subject</c> 는 구독자를 차례로
+        /// 부르는데, <b>앞 구독자가 예외를 던지면 뒤 구독자는 아예 불리지 않는다.</b>
+        /// </para>
+        ///
+        /// <para>
+        /// 하필 예외가 나는 상황이 <b>정확히 이번에 고치려는 그 상황</b>이다 —
+        /// Host 가 이미 떠나 연결이 내려가는 중에 RPC 를 보내면 NGO 가
+        /// <i>"Rpc methods can only be invoked after starting the NetworkManager!"</i> 를 던진다.
+        /// 그 예외가 화면 갱신을 막아 버리면 <b>수락을 눌러도 아무 반응이 없는</b>
+        /// 원래 증상이 그대로 남는다. 그래서 보내기 실패는 여기서 끝내고 화면은 반드시 바뀌게 한다.
+        /// </para>
+        ///
+        /// ⚠️ 같은 이유의 try/catch 가 이 파일 <see cref="SendResultScreenHeartbeat"/> 에도 있다
+        ///    (그쪽은 감시 코루틴이 죽는 것을 막는다). 나머지 두 로컬 재경기 채널
+        ///    (요청·거절)은 구독자가 이 컨트롤러 하나뿐이라 막을 뒤 구독자가 없어 감싸지 않는다.
+        /// </summary>
+        private void SendAcceptRematchSafely()
+        {
+            try
+            {
+                AcceptRematchServerRpc();
+            }
+            catch (System.Exception e)
+            {
+                // 삼킨 예외를 기록 없이 두지 않는다(LogRules 원칙 4).
+                // 한 판에 최대 한 번 도달하는 경로라 스로틀이 필요 없다.
+                GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                    "재경기 수락을 서버로 보내지 못했다 — 재경기 실패로 화면에 알린다",
+                    $"Exception={e.GetType().Name}");
+
+                // 🔴 사용자에게 「재경기가 안 됐다」를 알린다 — 조용히 넘어가지 않는다.
+                //
+                //   [초급자용 설명] 재경기가 안 되는 길은 셋이다.
+                //     ① 서버로 수락을 아예 못 보냈다 (여기)
+                //     ② 서버가 새 맵 준비에 실패했다고 통보해 왔다
+                //     ③ 준비 한도가 지났는데 아무 통보도 오지 않았다
+                //   사용자는 이 셋을 구분할 수 없고 구분할 필요도 없다 — 전부 「재경기가 안 됐다」다.
+                //   그래서 **셋이 같은 화면으로 끝나야** 한다. 그 화면을 만드는 통로가 이미 있으므로
+                //   (아래) 새 채널을 만들지 않고 그것을 그대로 쓴다.
+                //
+                //   ⚠️ **왜 여기서는 RPC 가 아니라 로컬 발행인가** — 이 채널은 원래
+                //      NotifyRematchMapFailedClientRpc 가 서버에서 쏘는 것이다. 그런데 여기까지
+                //      온 이유 자체가 **RPC 를 보낼 수 없었다**는 것이다. 보낼 수 없는 수단으로
+                //      실패를 알릴 수는 없으므로, 이 한 경로만 로컬에서 직접 발행한다.
+                //      알릴 대상도 내 화면 하나뿐이다 — 상대는 애초에 닿지 않는다.
+                GameEvents.OnNetworkRematchMapFailed.OnNext(Unit.Default);
+            }
         }
 
         /// <summary>
@@ -936,6 +1110,15 @@ namespace Hexiege.Infrastructure
                 "NotifyLeavingResultScreenServerRpc 수신 — 상대에게 이탈을 알린다",
                 $"LeaverClientId={leaverId}, TargetClientId={otherClientId}");
 
+            // 🔴 서버는 이 순간 「한 명이 결과 화면을 떠났다」를 직접 알게 된다 — 여기서 곧바로
+            //    이탈 확정 깃발을 세운다. 아래 ClientRpc 가 돌아오기를 기다리지 않는 이유는 둘이다.
+            //      ① 바로 아래 줄에서 상대가 없으면(MaxValue) ClientRpc 를 보내지 않고 끝내므로,
+            //         그 경로에서는 깃발을 세울 다른 기회가 없다.
+            //      ② 서버가 이미 아는 사실을 RPC 왕복만큼 늦게 반영할 이유가 없다.
+            //    (같은 깃발을 OnOpponentLeftSignal 도 세운다 — 무반응 판정 갈래를 받기 위해서다.
+            //     bool 을 true 로 두 번 넣는 것은 아무 부작용이 없다.)
+            _opponentLeftJudged = true;
+
             // 상대가 이미 없다면(먼저 나갔거나 끊긴 경우) 알릴 대상이 없다 — 조용히 끝낸다.
             if (otherClientId == ulong.MaxValue) return;
 
@@ -1071,6 +1254,31 @@ namespace Hexiege.Infrastructure
             GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
                 "결과 화면 이탈 감시 중단",
                 $"Clock={ResultScreenWatchClockId}, Reason={reason}");
+        }
+
+        /// <summary>
+        /// [양쪽 공통] 「상대가 떠났다」 신호를 받았을 때의 <b>내부(Infrastructure) 처리</b>.
+        /// 화면 처리는 <c>GameEndUI</c> 가 같은 이벤트를 따로 구독해서 한다.
+        ///
+        /// <para>하는 일은 둘이다.</para>
+        /// <list type="number">
+        ///   <item><b>이탈 확정 깃발을 세운다</b>(<see cref="_opponentLeftJudged"/>) — 이 뒤에 도착하는
+        ///         재경기 요청·수락은 서버가 처리하지 않는다. 그 필드의 주석에 이유가 적혀 있다.</item>
+        ///   <item><b>결과 화면 이탈 감시를 멈춘다</b> — 이미 결론이 난 사건을 다시 판정할 이유가 없다.</item>
+        /// </list>
+        ///
+        /// <para>
+        /// [초급자용 설명] 왜 이 한 자리에 모으는가 — 상대가 사라지는 길은 두 갈래다.
+        /// ① 상대가 로비 복귀 버튼으로 <b>정상 퇴장</b>해서 통보 RPC 가 온 경우,
+        /// ② 30초 무반응을 <b>내 쪽에서 직접 판정</b>한 경우. 두 갈래 모두 마지막에는
+        /// <c>GameEvents.OnNetworkOpponentLeft</c> 를 발행하므로, 그 이벤트 하나만 들으면
+        /// 두 갈래를 모두 받을 수 있다. 갈래마다 코드를 심으면 한쪽을 빠뜨리게 된다.
+        /// </para>
+        /// </summary>
+        private void OnOpponentLeftSignal()
+        {
+            _opponentLeftJudged = true;
+            StopResultScreenLeaveWatch("상대 이탈 알림을 받았다");
         }
 
         /// <summary>

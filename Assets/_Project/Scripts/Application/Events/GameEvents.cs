@@ -980,7 +980,8 @@ namespace Hexiege.Application
         // ====================================================================
         // NetworkGameEndController가 UI를 직접 호출하지 않도록 이벤트 채널로 분리.
         //   서버 → 클라이언트 방향: OnNetworkRematchAvailable / OnNetworkRematchRequested /
-        //                            OnNetworkRematchDeclined / OnNetworkRematchMapFailed
+        //                            OnNetworkRematchDeclined / OnNetworkRematchAccepted /
+        //                            OnNetworkRematchMapFailed
         //   UI → NetworkGameEndController 방향: OnLocalRematchRequested / OnLocalRematchAccepted / OnLocalRematchDeclined
         //
         // 모두 단순 신호이므로 payload가 거의 없다. Subject<Unit>은 UniRx의 빈 신호 패턴.
@@ -1007,6 +1008,32 @@ namespace Hexiege.Application
         /// 구독: RematchRequestPopup (ShowDeclined 호출), GameEndUI (RestoreRematchButton 호출)
         /// </summary>
         public static readonly Subject<Unit> OnNetworkRematchDeclined = new Subject<Unit>();
+
+        /// <summary>
+        /// 🔴 <b>서버가 재경기 수락을 접수했음을 양쪽 모두에 알리는 이벤트.</b>
+        /// 발행: NetworkGameEndController.NotifyRematchAcceptedClientRpc (서버 → 전체 클라이언트)
+        /// 구독: GameEndUI (결과 화면 상태 줄을 「재경기 준비 중...」으로 바꾸고 자동 복귀 타이머를 멈춘다)
+        ///
+        /// <b>[초급자용 설명] 이 채널이 왜 필요한가 — 받는 사람은 「요청한 쪽」이다</b>
+        ///   재경기는 ① 한 쪽이 요청하고 ② 다른 쪽이 수락하면 성립한다. 그런데 지금까지
+        ///   <b>요청한 쪽에게는 「상대가 수락했다」가 전혀 전달되지 않았다.</b> 그래서 수락이 됐는데도
+        ///   요청자의 자동 로비 복귀 카운트다운(60초)이 그냥 흘러가, 맵을 만드는 중에 혼자
+        ///   로비로 나가 버리는 일이 생긴다. 그 「수락됐다」를 요청자 화면까지 나르는 통로가 이 채널이다.
+        ///
+        /// <b>왜 수락한 쪽은 이 채널을 기다리지 않는가</b> (🔴 이번 수정의 핵심):
+        ///   수락한 쪽은 <b>버튼을 누른 즉시</b> 자기 화면을 「재경기 준비 중」으로 바꾼다 —
+        ///   이 통보를 기다리지 않는다. 수락자가 Client 이고 Host 가 이미 떠난 상태라면
+        ///   수락 ServerRpc 가 받을 서버 자체가 없어 <b>서버 응답이 영영 오지 않기 때문</b>이다.
+        ///   기다리게 만들면 <b>수락자가 Host 냐 Client 냐에 따라 화면이 달라진다</b>
+        ///   (플레이어는 자기가 Host 인지 알 수 없으므로 그 자체로 결함이다 —
+        ///    TechnicalDesignDocument.md 「🔴 최상위 원칙」).
+        ///
+        /// ⚠️ <b>양쪽 모두</b>에게 간다(거절 알림이 요청자 한 쪽에게만 가는 것과 다르다).
+        ///    대상을 좁히지 않는 이유는 아래 OnNetworkRematchMapFailed 와 같다.
+        ///    호스트도 ClientRpc 본문이 로컬에서 실행되므로 별도 호출 없이 함께 받는다.
+        ///    수락한 쪽은 이미 같은 상태에 들어가 있으므로 두 번째 신호는 무시된다(GameEndUI 쪽 멱등 처리).
+        /// </summary>
+        public static readonly Subject<Unit> OnNetworkRematchAccepted = new Subject<Unit>();
 
         /// <summary>
         /// 🔴 <b>재경기용 새 맵 준비·전송·검증이 실패했음을 양쪽 모두에 알리는 이벤트.</b>

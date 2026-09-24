@@ -137,6 +137,78 @@ namespace Hexiege.Presentation
         private const string OpponentLeftAlertButtonLabel = "로비로";
 
         // ====================================================================
+        // 재경기 수락 접수 이후의 「재경기 준비 중」 상태 (2026-09-22)
+        //
+        // [초급자용 설명] 이 상태가 왜 필요한가
+        //   재경기는 ① 한 쪽이 요청하고 ② 다른 쪽이 수락하면 성립한다. 수락이 접수되면
+        //   서버가 새 맵을 만들어 상대에게 보내고 검증까지 마친 뒤에야 씬이 재로드된다.
+        //   그 사이에 자동 로비 복귀 카운트다운이 그대로 돌면, 맵을 만드는 도중에
+        //   혼자 로비로 나가 버린다. 그래서 이 구간에는 **타이머를 멈추고**
+        //   상태 줄을 「재경기 준비 중...」으로 바꾼다.
+        //
+        // 🔴 판단 기준 — 「사람을 기다리면 타이머가 돈다. 시스템을 기다리면 타이머가 멈춘다.」
+        //   · 재경기를 **요청만** 해 둔 동안에는 *상대가 수락할지*(사람)를 기다린다.
+        //     상대가 팝업을 띄운 채 아무것도 누르지 않으면 답이 영영 오지 않으므로
+        //     **타이머가 계속 돌아야** 사용자가 갇히지 않는다(그래서 요청 직후에는 이 상태로 가지 않는다).
+        //   · 수락이 접수된 뒤에는 *서버가 맵을 만드는 것*(시스템)을 기다린다.
+        //     끝나는 시점이 정해져 있으므로 **타이머를 멈춘다.**
+        //
+        // 🔴 이 상태로 들어가는 경로가 두 쪽이 다르다 — 이것이 2026-09-22 수정의 핵심이다.
+        //   · **수락한 쪽**: 수락 버튼을 누른 **즉시**(OnLocalRematchAccepted) 자기 화면을 바꾼다.
+        //     서버 응답을 기다리지 않는다 — 수락자가 Client 이고 Host 가 이미 떠났으면
+        //     수락 ServerRpc 가 받을 서버 자체가 없어 **응답이 영영 오지 않기 때문**이다.
+        //     기다리게 만들면 **수락자가 Host 냐 Client 냐에 따라 화면이 달라진다.**
+        //   · **요청한 쪽**: 서버가 수락을 접수했다는 **통보**(OnNetworkRematchAccepted)를 받고 바꾼다.
+        //     요청자는 달리 수락 사실을 알 길이 없어서, 지금까지는 수락이 됐는데도
+        //     자기 60초 타이머가 만료되면 혼자 로비로 나가 버렸다.
+        // ====================================================================
+
+        /// <summary>
+        /// 재경기 수락이 접수된 뒤 상태 줄(<see cref="_countdownText"/>)에 표시할 문구.
+        ///
+        /// ⚠️ 같은 문구가 <c>OnNetworkRematchStarting</c> 구독의 전역 로딩 메시지에도 쓰이지만
+        ///    <b>그 자리는 이번 범위가 아니라 손대지 않았다.</b> 둘은 서로 다른 자리다 —
+        ///    이쪽은 결과 화면 위에 그대로 떠 있는 **상태 줄**이고, 그쪽은 씬 재로드 직전에
+        ///    화면을 덮는 **로딩 화면**이다.
+        ///
+        /// 🔴 <b>로딩 화면(<c>ShowLoading</c>)을 이 상태에 띄우지 않는다.</b>
+        ///    <c>LoadingScreen.Show()</c> 가 <c>blocksRaycasts = true</c> 로 입력을 막아
+        ///    「로비로」 버튼을 누를 수 없게 되는데, 그것은 규칙 D-3(로비 복귀 버튼은 항상 활성)
+        ///    위반이다. 그래서 상태 줄 문구만 바꾼다.
+        /// </summary>
+        private const string RematchPreparingStatusText = "재경기 준비 중...";
+
+        /// <summary>
+        /// 재경기가 <b>성립하지 못했을 때</b> 상태 줄에 표시할 문구. <c>{0}</c> 자리에 남은 초가 들어간다.
+        ///
+        /// <para>
+        /// 🔴 <b>재경기가 안 되는 길은 셋인데 이 문구 하나로 끝난다.</b>
+        /// <list type="number">
+        ///   <item>수락을 서버로 <b>아예 못 보냈다</b>(연결이 이미 내려가는 중).</item>
+        ///   <item>서버가 <b>새 맵 준비에 실패</b>했다고 통보해 왔다.</item>
+        ///   <item><b>준비 한도가 지났는데 아무 통보도 오지 않았다.</b></item>
+        /// </list>
+        /// 사용자는 이 셋을 구분할 수 없고 <b>구분할 필요도 없다</b> — 전부 「재경기가 안 됐다」다.
+        /// 그래서 셋이 <b>같은 화면으로 끝난다</b>(공통 진입점은 <see cref="EnterRematchFailedState"/>).
+        /// 이것은 이번 작업의 대전제 — <b>같은 결과면 같은 화면</b> — 의 연장이다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>실패를 알리는 팝업(<c>ShowAlert</c>)을 띄우지 않는다.</b> 팝업은 화면을 덮어
+        /// 「로비로」 버튼을 가리거나 못 누르게 만들고, 그것은 규칙 D-3(로비 복귀 버튼은 항상 활성)
+        /// 위반이다. 그래서 <b>이미 떠 있는 상태 줄 자리</b>를 쓴다 — 규칙 D-1 이 상대 이탈을 알릴 때
+        /// 쓴 것과 같은 판단이다. <b>나중에 여기에 팝업을 다시 넣지 말 것.</b>
+        /// (규칙 M-3 이 2026-09-16 에 「알림 팝업으로 알린다」로 확정했던 것을 상태 줄로 바꾸는
+        ///  개정이며, 문서 반영은 별도로 진행된다.)
+        /// </para>
+        ///
+        /// ⚠️ 위 <see cref="OpponentLeftCountdownFormat"/> 과 같은 모양의 형식 문자열이지만
+        ///    <b>다른 사실을 알린다.</b> 「상대가 떠났다」와 「재경기를 시작할 수 없다」는 원인이 다르고,
+        ///    둘이 동시에 성립할 수도 있다(그때의 우선순위는 <see cref="CountdownCoroutine"/> 참조).
+        /// </summary>
+        private const string RematchFailedCountdownFormat = "재경기를 시작할 수 없습니다. {0}초 후 로비로 돌아갑니다.";
+
+        // ====================================================================
         // 색상 설정
         // ====================================================================
 
@@ -153,6 +225,17 @@ namespace Hexiege.Presentation
 
         /// <summary> 멀티플레이 재경기 거절 이벤트 구독 해제용. </summary>
         private System.IDisposable _rematchDeclinedSubscription;
+
+        /// <summary>
+        /// [수락한 쪽] 로컬 재경기 수락(팝업의 「수락」 버튼) 이벤트 구독 해제용.
+        /// 🔴 <b>서버 응답이 아니라 자기 버튼 입력</b>을 듣는다 — 이유는 위 「재경기 준비 중」 절 참조.
+        /// </summary>
+        private System.IDisposable _localRematchAcceptedSubscription;
+
+        /// <summary>
+        /// [요청한 쪽] 서버의 재경기 수락 접수 통보 구독 해제용.
+        /// </summary>
+        private System.IDisposable _rematchAcceptedSubscription;
 
         /// <summary> 멀티플레이 재경기 맵 준비 실패 이벤트 구독 해제용(재경기 맵 C 단계). </summary>
         private System.IDisposable _rematchMapFailedSubscription;
@@ -175,6 +258,46 @@ namespace Hexiege.Presentation
 
         /// <summary> 자동 로비 복귀 카운트다운 코루틴. </summary>
         private Coroutine _countdownCoroutine;
+
+        /// <summary>
+        /// 지금 「재경기 준비 중」 상태인가. 같은 상태로 두 번 들어가지 않게 막는 깃발이다.
+        ///
+        /// [초급자용 설명] 왜 필요한가 — 수락한 쪽은 <b>버튼을 누른 즉시</b> 이 상태에 들어가고,
+        ///   그 직후 서버가 보낸 「수락 접수」 통보를 <b>수락한 쪽도 함께</b> 받는다(대상을
+        ///   한 쪽으로 좁히지 않기 때문이다). 깃발이 없으면 그 두 번째 신호로 맵 준비 한도가
+        ///   처음부터 다시 시작돼, 한도가 실제보다 길어진다.
+        /// </summary>
+        private bool _rematchPreparing;
+
+        /// <summary>
+        /// 재경기가 성립하지 못했는가. 상태 줄 문구를 <see cref="RematchFailedCountdownFormat"/> 으로
+        /// 가르는 데 쓴다(실패 3경로가 모두 이 깃발 하나를 세운다).
+        ///
+        /// <para>
+        /// 🔴 <b>내리는 자리 — 다시 시도할 때 반드시 내려야 한다.</b> 사용자가 실패 문구를 보고
+        /// 「다시하기」를 다시 눌렀는데(상대가 살아 있으면 가능하다) 이 깃발이 남아 있으면
+        /// <b>이미 다시 시도하는 중인데도 화면은 계속 실패를 말한다.</b>
+        /// <list type="bullet">
+        ///   <item><see cref="SetupRematchButton"/> 이 설치한 onClick — 버튼을 다시 누른 순간.</item>
+        ///   <item><see cref="EnterRematchPreparingState"/> — 준비 상태로 다시 들어가는 순간.</item>
+        ///   <item><c>Initialize()</c> — 새 판이 시작될 때(<c>_opponentLeft</c> 와 같은 자리).</item>
+        /// </list>
+        /// </para>
+        /// </summary>
+        private bool _rematchFailed;
+
+        /// <summary>
+        /// 「재경기 준비 중」 상태의 맵 준비 한도 코루틴. null 이면 돌고 있지 않다.
+        ///
+        /// 🔴 <b>이 시계는 아무것도 판정하지 않는다.</b> 승패도, 상대 이탈도, 연결 종료도 하지 않는다.
+        ///    <b>하는 일은 상태 줄 문구를 평시로 되돌리는 것 하나뿐</b>이다
+        ///    (되돌리는 방법은 자동 복귀 카운트다운을 전체 길이로 다시 시작하는 것이며,
+        ///     그 카운트다운이 매 초 평시 문구를 다시 쓴다 — 규칙 M-3).
+        ///    🔴 <b>나중에 여기에 판정을 얹지 말 것.</b> 이 화면에서 무엇을 판정하는 시계는
+        ///    이미 두 개(자동 복귀 카운트다운 · 결과 화면 이탈 감시) 있고, 세 번째가 생기면
+        ///    같은 사건을 서로 다른 시계가 두 번 결론 내리게 된다.
+        /// </summary>
+        private Coroutine _rematchPreparingCoroutine;
 
         /// <summary>
         /// 재경기 요청 수락/거절 팝업. 공통 UI 규칙 D-6 에서 「응답 전 요청자 이탈」일 때 닫을 대상이다.
@@ -225,6 +348,8 @@ namespace Hexiege.Presentation
             _gameEndSubscription?.Dispose();
             _rematchAvailableSubscription?.Dispose();
             _rematchDeclinedSubscription?.Dispose();
+            _localRematchAcceptedSubscription?.Dispose();
+            _rematchAcceptedSubscription?.Dispose();
             _rematchMapFailedSubscription?.Dispose();
             _rematchStartingSubscription?.Dispose();
             _backToLobbySubscription?.Dispose();
@@ -233,6 +358,14 @@ namespace Hexiege.Presentation
             // 새 판이 시작되므로 지난 판의 이탈 상태를 지운다.
             // (이 플래그가 남아 있으면 새 결과 화면이 처음부터 이탈 문구로 뜬다)
             _opponentLeft = false;
+
+            // 🔴 [실패 깃발 내리는 자리] 지난 판의 실패가 새 결과 화면까지 따라오면 안 된다.
+            _rematchFailed = false;
+
+            // 지난 판의 「재경기 준비 중」 시계가 남아 있으면 여기서 확실히 끊는다.
+            // (재경기로 씬이 재로드되면 이 컴포넌트도 새로 만들어지지만,
+            //  같은 씬에서 Initialize 가 다시 불리는 경로도 있으므로 방어해 둔다)
+            StopRematchPreparingLimit();
 
             // 게임 종료 이벤트 구독
             // NetworkGameEndController가 GameEvents.OnGameEnd를 발행하므로 싱글/멀티 모두 본 구독으로 ShowResult 진입한다.
@@ -253,17 +386,58 @@ namespace Hexiege.Presentation
             //   "결과 화면의 기존 선택지를 모두 복원한다").
             //   🔴 거절과 같은 메서드(RestoreRematchButton)를 부르지만 **이벤트 채널은 다르다** —
             //      거절과 실패는 원인도 다르고 나중에 붙을 안내 문구도 다르다.
-            //   ⚠️ 실패를 알리는 팝업·문구는 이번 범위가 아니다(규칙 M-3 의 "팝업 여부 미정").
-            //   ⚠️ 자동 로비 복귀 카운트다운 재시작도 이번 범위가 아니다 — 그동안 계속 돌던
-            //      카운트다운은 재시작되지 않는다(결함이 아니라 확정된 범위 결정).
+            //   ⚠️ 실패를 알리는 팝업·문구는 여전히 이번 범위가 아니다(규칙 M-3 의 "표시 문구 미정").
+            //   ✅ **[2026-09-22 갱신]** 종전 주석은 "자동 로비 복귀 카운트다운 재시작도 이번 범위가
+            //      아니다" 였으나 **더 이상 사실이 아니다** — 규칙 M-3 의 「전체 길이로 다시 시작」을
+            //      이번에 구현했다. 처리는 OnRematchMapFailed() 가 모아서 한다.
             _rematchMapFailedSubscription = GameEvents.OnNetworkRematchMapFailed
-                .Subscribe(_ => RestoreRematchButton());
+                .Subscribe(_ => OnRematchMapFailed());
+
+            // ----------------------------------------------------------------
+            // [재경기 수락 — 수락한 쪽] 🔴 자기 버튼 입력을 듣는다. 서버 응답이 아니다.
+            //
+            //   RematchRequestPopup 의 「수락」 버튼이 OnLocalRematchAccepted 를 발행하고,
+            //   NetworkGameEndController 도 같은 이벤트를 구독해 ServerRpc 로 바꿔 보낸다.
+            //   즉 이 구독은 **ServerRpc 와 나란히** 달리는 것이지 그 결과를 기다리는 것이 아니다.
+            //
+            //   🔴 왜 서버 응답을 기다리지 않는가:
+            //     수락한 사람이 Client 이고 Host 가 이미 떠났다면 ServerRpc 는 받을 서버가 없어
+            //     **증발한다.** 그러면 응답이 영영 오지 않으므로, 응답을 기다리게 만든 화면은
+            //     수락을 눌러도 아무 반응이 없다. 반대로 수락한 사람이 Host 면 ServerRpc 가
+            //     자기 자신에게 가므로 곧바로 실행된다 — 즉 **역할에 따라 화면이 갈린다.**
+            //     플레이어는 자기가 Host 인지 Client 인지 알 수 없으므로 그 자체로 결함이다.
+            // ----------------------------------------------------------------
+            _localRematchAcceptedSubscription = GameEvents.OnLocalRematchAccepted
+                .Subscribe(_ => EnterRematchPreparingState());
+
+            // ----------------------------------------------------------------
+            // [재경기 수락 — 요청한 쪽] 서버가 수락을 접수했다는 통보를 받고 상태를 바꾼다.
+            //
+            //   요청자는 달리 「상대가 수락했다」를 알 길이 없다. 그래서 지금까지는 수락이
+            //   성사됐는데도 자기 자동 복귀 카운트다운(60초)이 만료되면 맵 준비 도중에
+            //   혼자 로비로 나가 버렸다.
+            //
+            //   ⚠️ 이 통보는 양쪽 모두에게 간다 — 수락한 쪽도 받는다. 수락한 쪽은 위 구독으로
+            //      이미 같은 상태에 들어가 있으므로 EnterRematchPreparingState 의 멱등 가드가
+            //      두 번째 신호를 그냥 무시한다.
+            // ----------------------------------------------------------------
+            _rematchAcceptedSubscription = GameEvents.OnNetworkRematchAccepted
+                .Subscribe(_ => EnterRematchPreparingState());
 
             // [재경기 로딩] 서버가 재경기를 시작(씬 재로드 직전)하면 모든 클라이언트가
             // 전역 로딩 인디케이터를 표시한다. 씬이 재로드되어 새 GameBootstrapper.LoadMap()이
             // 완료되면 자동으로 꺼진다(UI 규칙 L-3).
+            //
+            // 🔴 [맵 준비 한도 정지 자리 ②/④] 재경기가 실제로 시작되면 「재경기 준비 중」 구간은
+            //    끝났으므로 맵 준비 한도를 멈춘다. 멈추지 않으면 씬 재로드 뒤까지 살아남을 수는 없지만,
+            //    재로드 직전 몇 프레임 동안 **아무것도 지키지 않는 죽은 시계**로 남는다.
+            //    ⚠️ 아래 ShowLoading 호출(기존 동작)은 한 글자도 바꾸지 않았다.
             _rematchStartingSubscription = GameEvents.OnNetworkRematchStarting
-                .Subscribe(_ => UIManager.Instance?.ShowLoading(true, "재경기 준비 중..."));
+                .Subscribe(_ =>
+                {
+                    StopRematchPreparingLimit();
+                    UIManager.Instance?.ShowLoading(true, "재경기 준비 중...");
+                });
 
             // [로비 복귀] NetworkGameManager.BackToLobby(Infrastructure)가 NGO Shutdown 완료 후
             //   본 이벤트를 발행한다. 씬 전환(SceneLoader)은 Presentation 책임이므로
@@ -302,9 +476,17 @@ namespace Hexiege.Presentation
         private void OnDestroy()
         {
             StopCountdown();
+
+            // 🔴 [맵 준비 한도 정지 자리 ④/④] 오브젝트가 사라질 때 시계도 함께 끊는다.
+            //    파괴되면 코루틴도 함께 멈추지만, 「켜는 자리마다 끄는 자리를 짝지어 둔다」는
+            //    규칙을 지켜야 나중에 이 코루틴이 DontDestroyOnLoad 쪽으로 옮겨져도 안전하다.
+            StopRematchPreparingLimit();
+
             _gameEndSubscription?.Dispose();
             _rematchAvailableSubscription?.Dispose();
             _rematchDeclinedSubscription?.Dispose();
+            _localRematchAcceptedSubscription?.Dispose();
+            _rematchAcceptedSubscription?.Dispose();
             _rematchMapFailedSubscription?.Dispose();
             _rematchStartingSubscription?.Dispose();
             _backToLobbySubscription?.Dispose();
@@ -539,11 +721,25 @@ namespace Hexiege.Presentation
                 if (_countdownText != null)
                 {
                     int seconds = Mathf.CeilToInt(remaining);
-                    // 🔴 규칙 D-1 의 이탈 문구는 상수 한 곳(OpponentLeftCountdownFormat)에만 있고
-                    //    평시 문구와는 이 삼항 분기 하나로 갈린다.
-                    _countdownText.text = _opponentLeft
-                        ? string.Format(OpponentLeftCountdownFormat, seconds)
-                        : $"{seconds}초 후 로비로 돌아갑니다.";
+
+                    // 🔴 문구는 여기 **한 자리의 3분기**로만 갈린다. 우선순위는 「이탈 > 실패 > 평시」다.
+                    //
+                    //   [초급자용 설명] 왜 이탈이 실패를 덮는가
+                    //     두 사실은 동시에 성립할 수 있다. 재경기 맵 준비 한도가 먼저 지나
+                    //     「재경기를 시작할 수 없습니다」가 떠 있는 동안, 상대 이탈 판정(30초)이
+                    //     그 뒤에 내려오는 순서가 실제로 존재한다.
+                    //     그때 화면에 남아야 하는 것은 **더 나중에 밝혀진, 더 근본적인 사실**이다 —
+                    //     「재경기가 안 됐다」의 **이유가** 「상대가 떠났다」이기 때문이다.
+                    //     결과보다 원인을 보여 주는 쪽이 사용자에게 쓸모 있으므로 이탈이 이긴다.
+                    //     (반대로 두면 상대가 떠난 것을 알려 줄 기회가 영영 사라진다.)
+                    //
+                    //   🔴 두 이탈·실패 문구는 각각 상수 한 곳에만 있다
+                    //      (OpponentLeftCountdownFormat / RematchFailedCountdownFormat).
+                    //      같은 문구를 두 곳에 적으면 한쪽만 고쳐졌을 때 화면에 두 표현이 섞여 나온다.
+                    _countdownText.text =
+                          _opponentLeft  ? string.Format(OpponentLeftCountdownFormat, seconds)
+                        : _rematchFailed ? string.Format(RematchFailedCountdownFormat, seconds)
+                        :                  $"{seconds}초 후 로비로 돌아갑니다.";
                 }
                 yield return new WaitForSecondsRealtime(1f);
                 remaining -= 1f;
@@ -583,11 +779,26 @@ namespace Hexiege.Presentation
             if (_opponentLeft) return;
             _opponentLeft = true;
 
-            // 규칙 D-2 — 재경기 버튼 비활성화.
-            //   버튼 텍스트("요청 중..." 등)는 건드리지 않는다. 이탈 사실을 알리는 자리는
-            //   규칙 D-1 이 정한 타이머 텍스트 한 곳뿐이다.
-            if (_restartButton != null)
-                _restartButton.interactable = false;
+            // 🔴 [맵 준비 한도 정지 자리 ③/④] 「재경기 준비 중」 시계를 멈춘다.
+            //   상대가 없는 것이 확정됐으니 맵이 준비되기를 기다릴 이유가 사라졌다.
+            //   멈추지 않으면 바로 아래에서 시작하는 30초 카운트다운과 나란히 돌다가,
+            //   그 한도가 만료되면 그 시계가 카운트다운을 전체 길이로 갈아엎으려 든다
+            //   (그쪽 RestartCountdownFromFullLength 에도 _opponentLeft 가드가 있지만,
+            //    **켜 둔 시계는 반드시 끈다**는 원칙을 지키기 위해 여기서도 명시적으로 끊는다).
+            StopRematchPreparingLimit();
+
+            // 규칙 D-2 — 재경기 버튼 비활성화 + 버튼 문구를 「다시하기」로 되돌린다.
+            //
+            //   [초급자용 설명] 왜 문구를 되돌리는가
+            //     재경기를 요청한 직후라면 버튼 문구가 「요청 중...」으로 바뀌어 있다.
+            //     그대로 두면 상대가 이미 떠났는데도 화면에는 **아직 요청이 진행 중인 것처럼**
+            //     보이는 문구가 굳어 버린다. 그래서 문구는 원래대로 돌리고,
+            //     **버튼 자체는 끈 채로 둔다**(받을 사람이 없으므로 — 규칙 D-2).
+            //
+            //   🔴 RestoreRematchButton() 은 위에서 _opponentLeft 를 true 로 만든 뒤에 부른다.
+            //      그 메서드가 그 깃발을 보고 interactable 을 false 로 두기 때문이다.
+            //      순서를 바꾸면 버튼이 다시 켜져 규칙 D-2 를 어긴다.
+            RestoreRematchButton();
 
             // 규칙 D-4 — 카운트다운 30초 재시작. 이때부터 문구가 이탈 문구로 바뀐다(규칙 D-1).
             RestartCountdownForOpponentLeft();
@@ -615,6 +826,218 @@ namespace Hexiege.Presentation
             // 사용자에게는 빈 텍스트가 보이지 않는다.
             StopCountdown();
             _countdownCoroutine = StartCoroutine(CountdownCoroutine(OpponentLeftCountdownSeconds));
+        }
+
+        // ====================================================================
+        // 「재경기 준비 중」 상태 (2026-09-22)
+        // 배경·판단 기준은 이 파일 위쪽 RematchPreparingStatusText 절의 주석 참조.
+        // ====================================================================
+
+        /// <summary>
+        /// 「재경기 준비 중」 상태로 들어간다 — <b>자동 로비 복귀 타이머를 멈추고</b>
+        /// 상태 줄을 <see cref="RematchPreparingStatusText"/> 로 바꾼 뒤 맵 준비 한도를 건다.
+        ///
+        /// <para>
+        /// 부르는 곳은 둘이고 <b>두 쪽이 서로 다른 신호로 들어온다</b>(이것이 이번 수정의 핵심이다).
+        /// <list type="bullet">
+        ///   <item><b>수락한 쪽</b> — <c>OnLocalRematchAccepted</c>(자기 버튼 입력). 서버 응답을 기다리지 않는다.</item>
+        ///   <item><b>요청한 쪽</b> — <c>OnNetworkRematchAccepted</c>(서버의 수락 접수 통보).</item>
+        /// </list>
+        /// 자세한 이유는 <c>Initialize()</c> 의 두 구독 위 주석에 적어 두었다.
+        /// </para>
+        ///
+        /// 🔴 <b>「로비로」 버튼은 여기서 끄지 않는다</b>(규칙 D-3). 맵이 만들어지기를 기다리는 동안에도
+        ///    사용자는 언제든 스스로 나갈 수 있어야 한다. 같은 이유로 입력을 막는
+        ///    로딩 화면도 띄우지 않는다.
+        /// </summary>
+        private void EnterRematchPreparingState()
+        {
+            // 멱등 — 같은 상태에 두 번 들어가지 않는다.
+            //   수락한 쪽은 버튼 입력으로 한 번, 서버 통보로 또 한 번 이 메서드에 도달한다.
+            //   막지 않으면 맵 준비 한도가 두 번째 신호에서 처음부터 다시 시작된다.
+            if (_rematchPreparing) return;
+
+            // 상대가 이미 떠난 것으로 판정된 뒤라면 이 상태로 들어가지 않는다.
+            //   그 화면은 이미 이탈 문구 + 30초 카운트다운(규칙 D-1 · D-4)을 보여 주고 있고,
+            //   여기서 덮으면 사용자가 방금 읽은 「상대방이 떠났습니다」가 사라져 버린다.
+            if (_opponentLeft) return;
+
+            _rematchPreparing = true;
+
+            // 🔴 [실패 깃발 내리는 자리] 지난 시도가 실패했더라도 이제 다시 준비에 들어갔다.
+            //    내리지 않으면 아래에서 세울 「재경기 준비 중...」 뒤에도 실패 문구가 되살아난다.
+            _rematchFailed = false;
+
+            // 🔴 자동 로비 복귀 카운트다운을 멈춘다 — 「시스템을 기다리는」 구간이기 때문이다.
+            //    StopCountdown() 이 상태 줄을 빈 문자열로 만들므로, 곧바로 아래에서 다시 채운다.
+            StopCountdown();
+
+            if (_countdownText != null)
+                _countdownText.text = RematchPreparingStatusText;
+
+            _rematchPreparingCoroutine = StartCoroutine(RematchPreparingLimitCoroutine());
+        }
+
+        /// <summary>
+        /// 「재경기 준비 중」 상태의 맵 준비 한도를 멈춘다. 돌고 있지 않으면 아무 일도 하지 않는다(멱등).
+        ///
+        /// <para>
+        /// 🔴 <b>부르는 자리 네 곳</b> — 하나라도 빠지면 <b>아무것도 지키지 않는 죽은 시계</b>가 남는다.
+        /// <list type="number">
+        ///   <item>맵 준비 실패 통보 수신 — <see cref="OnRematchMapFailed"/></item>
+        ///   <item>재경기 시작 통보 수신 — <c>Initialize()</c> 의 <c>OnNetworkRematchStarting</c> 구독</item>
+        ///   <item>상대 이탈 판정 — <see cref="OnOpponentLeft"/></item>
+        ///   <item>오브젝트 파괴 — <c>OnDestroy()</c></item>
+        /// </list>
+        /// (여기에 더해 <c>Initialize()</c> 의 재초기화 자리에서도 한 번 정리한다.)
+        /// </para>
+        /// </summary>
+        private void StopRematchPreparingLimit()
+        {
+            _rematchPreparing = false;
+
+            if (_rematchPreparingCoroutine != null)
+            {
+                StopCoroutine(_rematchPreparingCoroutine);
+                _rematchPreparingCoroutine = null;
+            }
+        }
+
+        /// <summary>
+        /// 「재경기 준비 중」 상태의 <b>맵 준비 한도</b>.
+        ///
+        /// <para>
+        /// 🔴 <b>이 시계는 아무것도 판정하지 않는다</b> — 승패도, 상대 이탈도, 연결 종료도 하지 않는다.
+        /// <b>하는 일은 상태 줄 문구를 평시로 되돌리는 것 하나뿐</b>이다.
+        /// 🔴 <b>나중에 여기에 판정을 얹지 말 것.</b> 판정은 서버(맵 전송 계층)와
+        /// 결과 화면 이탈 감시가 각각 이미 하고 있으며, 세 번째 시계가 같은 사건에
+        /// 다른 결론을 내리기 시작하면 원인을 추적할 수 없게 된다.
+        /// </para>
+        ///
+        /// <para>
+        /// [초급자용 설명] 한도를 왜 <b>곱셈</b>으로 구하는가 —
+        /// 서버가 재경기용 새 맵을 보내고 <b>응답을 기다리는 창 하나</b>의 길이가
+        /// <see cref="NetworkMapTransfer.TransferTimeoutSeconds"/> 이고,
+        /// 그 창이 <b>몇 개</b>인지는 <b>최초 전송 1회 + 재전송
+        /// <see cref="NetworkMapTransfer.MaxResendCount"/> 회</b>로 정해진다.
+        /// 그래서 <c>창의 길이 × 창의 개수</c> 가 「실패가 확정될 때까지 걸릴 수 있는 최대 시간」이다.
+        /// (식의 <c>+ 1</c> 이 바로 그 <b>최초 전송분</b>이다 — 재전송 횟수에는 최초 전송이 포함되지 않는다.)
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>한 창만 재면 정상 경로에서 거짓 신호가 난다.</b> 상대가 멀쩡히 있어도 패킷이 한 번
+        /// 유실되면 재전송이 일어나 맵 준비가 한 창을 넘긴다. 그때 한도를 한 창으로 잡아 두면
+        /// 「재경기 준비 중...」이 먼저 사라져 평시 카운트다운으로 돌아갔다가, 잠시 뒤 갑자기
+        /// 씬이 재로드된다 — <b>화면이 튀고 사용자에게 거짓말을 한 셈</b>이 된다.
+        /// </para>
+        ///
+        /// <para>
+        /// ✅ <b>덤으로 두 역할의 시간이 정확히 맞는다</b> — 수락자가 <b>Host</b> 면 맵 준비가 실제로
+        /// 시작돼 timeout + 재전송을 다 쓰고 실패 통보가 오고, 수락자가 <b>Client</b>(Host 가 이미 떠남)면
+        /// 수락 ServerRpc 가 증발해 맵 준비가 시작조차 못 한 채 이 한도가 만료된다.
+        /// <b>두 경우의 대기 시간이 같아진다</b> — 그것이 이번 수정의 목적이다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>숫자를 여기에 베껴 쓰지 않고 두 상수를 직접 참조한다.</b> 규칙 16 이 나중에
+        /// 재전송 횟수를 바꾸면 이 한도가 <b>저절로</b> 따라가야 한다. 계산 결과를 숫자로 박아 두면
+        /// 그때 아무도 모르게 어긋난다.
+        /// </para>
+        /// </summary>
+        private IEnumerator RematchPreparingLimitCoroutine()
+        {
+            // 한 창의 길이 × 창의 개수(최초 전송 1회 + 재전송 MaxResendCount 회).
+            // 🔴 계산 결과를 숫자로 쓰지 않는다 — 위 XML 주석의 마지막 문단 참조.
+            float limitSeconds = NetworkMapTransfer.TransferTimeoutSeconds
+                                 * (NetworkMapTransfer.MaxResendCount + 1);
+
+            // timeScale = 0 인 결과 화면이므로 Realtime 을 쓴다(이 파일 CountdownCoroutine 과 같은 이유).
+            yield return new WaitForSecondsRealtime(limitSeconds);
+
+            // 🔴 자기 핸들을 먼저 비운다. 아래 EnterRematchFailedState 가 부르는
+            //    StopRematchPreparingLimit() 이 StopCoroutine(자기 자신)을 실행하면
+            //    이 코루틴이 그 자리에서 끊겨 뒤 코드가 실행되지 않는다.
+            _rematchPreparingCoroutine = null;
+
+            // [실패 3경로 중 ③] 한도가 지났는데 아무 통보도 오지 않았다.
+            EnterRematchFailedState();
+        }
+
+        /// <summary>
+        /// 자동 로비 복귀 카운트다운을 <b>전체 길이</b>(<c>_autoReturnSeconds</c>)로 다시 시작한다 —
+        /// 공통 UI 규칙 M-3 「자동 로비 복귀 countdown 을 전체 길이로 다시 시작한다」.
+        ///
+        /// ⚠️ <b>규칙 D-4 의 이탈 재시작(30초)과 섞지 않는다.</b> 재시작 시점도 길이도 다르므로
+        ///    진입점을 공유하지 않는다(이탈 전용 진입점은 <see cref="RestartCountdownForOpponentLeft"/>).
+        /// </summary>
+        private void RestartCountdownFromFullLength()
+        {
+            // 🔴 상대 이탈이 이미 판정된 뒤라면 손대지 않는다.
+            //    그 화면은 규칙 D-4 에 따라 이미 30초로 다시 시작해 이탈 문구를 보여 주고 있다.
+            //    여기서 전체 길이로 덮으면 사용자가 읽을 시간을 보장하려던 그 규정이 조용히 뒤집힌다.
+            if (_opponentLeft) return;
+
+            StopCountdown();
+            _countdownCoroutine = StartCoroutine(CountdownCoroutine(_autoReturnSeconds));
+        }
+
+        /// <summary>
+        /// 재경기용 새 맵 준비·전송·검증이 실패했다는 통보를 받았을 때의 화면 처리.
+        ///
+        /// <para>하는 일은 셋이다(공통 UI 규칙 M-3).</para>
+        /// <list type="number">
+        ///   <item>🔴 <b>[맵 준비 한도 정지 자리 ①/④]</b> 「재경기 준비 중」 시계를 멈춘다.</item>
+        ///   <item><b>결과 화면의 기존 선택지를 복원</b>한다 — <see cref="RestoreRematchButton"/>.</item>
+        ///   <item><b>자동 로비 복귀 카운트다운을 전체 길이로 다시 시작</b>한다.</item>
+        /// </list>
+        ///
+        /// ⚠️ <b>실패를 알리는 팝업은 이번 범위가 아니다</b> — 규칙 M-3 은 팝업을 띄우기로 확정했지만
+        ///    <b>표시 문구와 버튼 라벨이 아직 미정</b>이다. 정해지기 전에 문구를 지어내지 않는다.
+        /// </summary>
+        private void OnRematchMapFailed()
+        {
+            // [실패 3경로 중 ① · ②] 이 한 채널이 두 경로를 나른다.
+            //   ② 서버가 맵 준비 실패를 ClientRpc 로 통보한 경우(원래 용도)
+            //   ① 수락을 서버로 아예 못 보내 컨트롤러가 **로컬에서** 같은 채널을 발행한 경우
+            //      (RPC 를 보낼 수 없어서 생긴 실패라 RPC 로 알릴 수 없다 —
+            //       NetworkGameEndController.SendAcceptRematchSafely 의 catch 주석 참조)
+            //   🔴 두 경로를 가르지 않는다. 사용자에게는 같은 사실이고 화면도 같아야 한다.
+            EnterRematchFailedState();
+        }
+
+        /// <summary>
+        /// 🔴 <b>재경기 실패 3경로의 공통 진입점.</b> 실패를 화면에 드러내고 결과 화면을 되살린다.
+        ///
+        /// <para>들어오는 길 셋 — <b>세 곳에 같은 코드를 쓰지 않고 전부 이리로 모은다.</b></para>
+        /// <list type="number">
+        ///   <item>수락을 서버로 <b>못 보냈다</b> → 컨트롤러가 로컬 발행 → <see cref="OnRematchMapFailed"/></item>
+        ///   <item>서버의 <b>맵 준비 실패 통보</b> → <see cref="OnRematchMapFailed"/></item>
+        ///   <item><b>준비 한도 만료</b> → <see cref="RematchPreparingLimitCoroutine"/></item>
+        /// </list>
+        ///
+        /// <para>하는 일은 넷이다.</para>
+        /// <list type="number">
+        ///   <item><b>준비 한도 시계를 멈춘다</b> — 이미 결론이 났으므로 지킬 것이 없다.</item>
+        ///   <item><b>실패 깃발을 세운다</b> → 상태 줄이 <see cref="RematchFailedCountdownFormat"/> 로 바뀐다.</item>
+        ///   <item><b>재경기 버튼을 복원한다</b> — 상대가 살아 있으면 다시 시도할 수 있어야 한다.
+        ///         상대가 이탈한 뒤라면 <see cref="RestoreRematchButton"/> 이 문구만 되돌리고 비활성으로 남긴다(규칙 D-2).</item>
+        ///   <item><b>카운트다운을 전체 길이로 다시 시작한다</b>(규칙 M-3).</item>
+        /// </list>
+        ///
+        /// 🔴 <b>순서가 중요하다</b> — 깃발을 세우는 것이 카운트다운 재시작보다 <b>앞</b>이어야 한다.
+        ///    카운트다운 코루틴은 매 초 이 깃발을 읽어 문구를 고르므로, 뒤에 세우면 첫 1초 동안
+        ///    평시 문구가 보였다가 바뀌어 화면이 깜빡인다.
+        ///
+        /// 🔴 <b>팝업을 띄우지 않는다</b> — 이유는 <see cref="RematchFailedCountdownFormat"/> 주석 참조.
+        /// </summary>
+        private void EnterRematchFailedState()
+        {
+            StopRematchPreparingLimit();
+
+            _rematchFailed = true;
+
+            RestoreRematchButton();
+            RestartCountdownFromFullLength();
         }
 
         /// <summary>
@@ -709,6 +1132,12 @@ namespace Hexiege.Presentation
                     _restartButtonText.text = "요청 중...";
                 _restartButton.interactable = false;
 
+                // 🔴 [실패 깃발 내리는 자리] 지난 시도가 실패해 상태 줄에 「재경기를 시작할 수
+                //    없습니다」가 떠 있을 수 있다. 다시 누른 이 순간부터는 그 말이 거짓이 되므로
+                //    깃발을 내려 상태 줄을 평시 문구로 돌려놓는다.
+                //    (다음 초에 카운트다운 코루틴이 새 문구를 쓴다 — 이 깃발이 그 분기를 가른다.)
+                _rematchFailed = false;
+
                 // 🔴 로비 복귀 버튼은 여기서 끄지 않는다 (공통 UI 규칙 D-3 「로비 복귀 버튼은 항상 활성」).
                 //    종전에는 "재경기 응답 대기 중"이라는 이유로 이 버튼도 함께 껐는데,
                 //    그러면 다시하기 버튼(바로 위에서 꺼진다)과 로비 버튼이 동시에 잠겨
@@ -723,22 +1152,38 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 재경기 거절 시 버튼 원복. 다시 요청 가능하도록 상태 복원.
+        /// 재경기 버튼 상태 복원 — <b>문구는 언제나 되돌리고, 다시 누를 수 있는지는 상황에 따라 가른다.</b>
+        ///
+        /// <para>부르는 곳은 셋이다.</para>
+        /// <list type="bullet">
+        ///   <item>재경기 <b>거절</b> 통보 — 다시 요청할 수 있어야 한다.</item>
+        ///   <item>재경기 <b>맵 준비 실패</b> 통보 — 규칙 M-3 「기존 선택지를 모두 복원한다」.</item>
+        ///   <item><b>상대 이탈</b> 판정 — 문구만 되돌리고 버튼은 꺼 둔다(규칙 D-2).</item>
+        /// </list>
+        ///
+        /// <para>
+        /// 🔴 <b>[2026-09-22 수정] 문구 복원을 <c>_opponentLeft</c> 가드 밖으로 꺼냈다.</b>
+        /// 종전에는 문구와 <c>interactable</c> 이 같은 <c>if</c> 안에 묶여 있어서,
+        /// 상대 이탈이 판정되면 <b>문구까지 함께 묶여 되돌아오지 않았다</b> —
+        /// 「요청 중...」이 화면에 굳은 채 남았다.
+        /// 🔴 <b>가드 자체는 없애지 않았다.</b> 버튼을 다시 누를 수 있게 만들면 받을 사람이 없는
+        /// 요청을 또 보내게 되어 규칙 D-2 위반이다. <b>문구만 되돌리고 버튼은 끈 채로 둔다.</b>
+        /// </para>
         /// </summary>
         public void RestoreRematchButton()
         {
-            // 🔴 상대가 이미 이탈한 뒤라면 재경기 버튼을 되살리지 않는다(규칙 D-2).
-            //    이 메서드는 「재경기 거절」·「재경기 맵 준비 실패」 두 채널이 부르는데,
-            //    그 신호가 이탈 통보보다 늦게 도착하면 꺼 둔 버튼이 다시 켜져
-            //    받을 사람이 없는 요청을 다시 보낼 수 있게 된다.
-            //    (로비 복귀 버튼을 켜는 아래 줄은 그대로 실행한다 — 규칙 D-3 은 항상 켜 두라고 정한다.)
-            if (_restartButton != null && !_opponentLeft)
-            {
-                if (_restartButtonText != null)
-                    _restartButtonText.text = "다시하기";
-                _restartButton.interactable = true;
-            }
+            // ① 문구는 상황과 무관하게 언제나 「다시하기」로 되돌린다.
+            //    화면에 남은 「요청 중...」은 이미 끝난 요청을 가리키는 거짓 정보이기 때문이다.
+            if (_restartButtonText != null)
+                _restartButtonText.text = "다시하기";
 
+            // ② 다시 누를 수 있는지는 「상대가 아직 있는가」로 가른다(규칙 D-2).
+            //    상대가 떠난 뒤에는 꺼 둔 버튼이 다시 켜지면 안 된다 — 거절·맵 실패 통보가
+            //    이탈 통보보다 늦게 도착하는 경우가 실제로 있다.
+            if (_restartButton != null)
+                _restartButton.interactable = !_opponentLeft;
+
+            // ③ 로비 복귀 버튼은 언제나 켠다(규칙 D-3 「어떤 상태에서도 비활성화하지 않는다」).
             if (_backToLobbyButton != null)
                 _backToLobbyButton.interactable = true;
         }

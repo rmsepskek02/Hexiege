@@ -842,3 +842,83 @@ AnnounceWinnerClientRpc((int)winnerTeam, false);
 - ⚠️ **Unverified**: compilation (no Unity/`Unity.Netcode` here — this file cannot be built headless) and
   runtime. Static checks only: brace balance 65/65 after stripping comments/strings, publisher count
   4 → 5 repo-wide, watch-RPC send sites unchanged at 2.
+
+---
+
+## 결과 화면 재경기 — 역할(Host/Client) 비대칭 제거 (2026-09-22)
+
+**What was asymmetric.** In the window where the opponent is already gone but this side does not know yet
+(up to 30s), pressing *accept rematch* behaved differently by role:
+- accepter = **Host** → `AcceptRematchServerRpc` goes **to itself**, so it ran → `BeginRematchMapPreparation()`
+  built and started sending a new map **for someone who is no longer there**, failing on response timeout.
+- accepter = **Client** (Host already gone) → the ServerRpc **evaporates** → nothing happened at all.
+
+Players cannot tell whether they are Host or Client, so a role-dependent screen is a defect by itself
+(`TechnicalDesignDocument.md` 「🔴 최상위 원칙」).
+
+### The three mechanisms added
+
+1. **Server-side gate `_opponentLeftJudged`** (`NetworkGameEndController`). Once the server knows the
+   opponent left, `RequestRematchServerRpc` and `AcceptRematchServerRpc` return early. **This is what stops
+   a Host from preparing a map for an absent opponent.**
+   Set in **two** places, on purpose:
+   - `OnOpponentLeftSignal()` — the renamed handler of the existing `GameEvents.OnNetworkOpponentLeft`
+     subscription (it used to be an inline lambda that only stopped the watch). This one channel already
+     absorbs **both** leave branches (normal exit RPC + self-judged silence), so subscribing to it is the
+     only place that catches both.
+   - `NotifyLeavingResultScreenServerRpc` — the server learns directly, and that path can `return` before
+     sending the ClientRpc when `otherClientId == ulong.MaxValue`, so the flag would otherwise never be set
+     there. Cleared in `OnNetworkDespawn` next to `_rematchRequesterId` (a rematch reloads the scene, and a
+     stale flag would block the *next* match entirely).
+2. **New ClientRpc `NotifyRematchAcceptedClientRpc`** → new channel `GameEvents.OnNetworkRematchAccepted`.
+   Sent from `AcceptRematchServerRpc` **before** `BeginRematchMapPreparation()` — if preparation fails
+   immediately it emits its own failure notice, and a later accept notice would make the screen read
+   「실패 → 준비 중」 backwards. Not narrowed to one target, same reason as
+   `NotifyRematchMapFailedClientRpc`; Host receives it because ClientRpc bodies run locally on the server.
+3. 🔴 **`SendAcceptRematchSafely()` — the non-obvious one.** `OnLocalRematchAccepted` is now the **only
+   local rematch channel with two subscribers** (this controller + `GameEndUI`). UniRx `Subject` calls
+   observers in sequence and **an exception in an earlier observer stops the later ones**. The exception
+   that can occur here (`"Rpc methods can only be invoked after starting the NetworkManager!"`, thrown when
+   the connection is already going down) happens in **exactly the scenario being fixed**, so an unguarded
+   send would keep the original symptom "accept does nothing". Wrapped in try/catch, logged once.
+   Same precedent as `SendResultScreenHeartbeat` in this file. The request/decline channels have a single
+   subscriber each, so they are deliberately left unwrapped.
+
+### Deliberately NOT implemented
+
+- **Cancelling an in-flight map preparation.** 2026-09-22 log measurement (handed over by the main session,
+  not re-measured here): `무반응 이탈 확정` → `NetworkManager Shutdown 완료` → `맵 전송 객체 디스폰` land
+  within 0.01s of each other — the leave judgement tears down the connection and the transfer object with it.
+- ~~Notifying acceptance on the **mutual-consent** branch (`RequestRematchServerRpc`'s second request). The
+  spec scoped the notice to `AcceptRematchServerRpc` only. That branch stays symmetric between roles
+  (both sides pressed *request*), so it does not reintroduce the asymmetry — but the status line is not
+  shown there. **Flagged to the main session, not decided here.**~~
+  **[🔴 2026-09-22 user decision — original struck through, not deleted]** The user decided the opposite:
+  `RequestRematchServerRpc`'s mutual-consent branch **does** send `NotifyRematchAcceptedClientRpc()`, before
+  `BeginRematchMapPreparation()`. Reasoning to keep: **the moment the server holds both sides' signals IS the
+  "agreed" moment**, and what follows (build, send, verify a map) is identical to the accept-button path — so
+  the screen must be identical too. Leaving it out meant the same 「맵 준비 중」 showed a status line on one
+  path and not the other, **and the timer never stopped on this path**, so one side could walk to the lobby
+  mid-preparation. 🔴 **Reusable rule: two code paths that end in the same state must emit the same notice —
+  do not let "the spec only named one of them" leave the other silent; report it instead.**
+
+⚠️ **Unverified**: compilation (this file needs `Unity.Netcode`/`UnityEngine`; cannot be built headless here)
+and runtime. Static checks only — brace balance 72/72 after stripping comments/strings.
+
+
+### Failure now has one screen, not three (2026-09-22, user decision)
+
+There are **three** ways a rematch fails to happen, and the user **cannot tell them apart and does not need
+to** — all three mean 「재경기가 안 됐다」. So all three end in **one** screen (see `ui-system.md` for the
+UI side). The Infrastructure side contributes one of them:
+
+- 🔴 **`SendAcceptRematchSafely`'s catch no longer swallows silently** — after its Warn it publishes
+  `GameEvents.OnNetworkRematchMapFailed` **locally**. No new channel: that channel exists and `GameEndUI`
+  already subscribes to it.
+- ⚠️ **Why local publish and not the RPC** — the channel's normal producer is
+  `NotifyRematchMapFailedClientRpc` (server → all). But the reason control reached this catch is that
+  **an RPC could not be sent**, so failure cannot be announced by RPC. The audience is also just this one
+  screen; the opponent is unreachable by definition. The comment in the catch says all of this, because the
+  next reader will ask "why isn't this an RPC here".
+- 🔴 **Infrastructure still never calls Presentation directly** — the existing `GameEvents` channel is what
+  keeps the layer direction intact. Do not "simplify" this into a `UIManager`/`GameEndUI` call.

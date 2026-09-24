@@ -343,3 +343,103 @@ leaves a stale popup and one exception.
 adding one touches the shared API that Plan step 1 deliberately isolated. **Same trap will apply to step 10
 (M-3 · M-4).** Options (not chosen): add `HideAlert()` to `IUIManager` + `UIManager` and call it from
 `ReturnToLobby()`; or have `ConfirmPopup` close itself on scene unload (changes behaviour for every popup).
+
+---
+
+## 결과 화면 「재경기 준비 중」 상태 — 두 쪽이 서로 다른 신호로 들어간다 (2026-09-22)
+
+`GameEndUI`. The status line is **one place only**: `_countdownText`. New state text const
+`RematchPreparingStatusText = "재경기 준비 중..."`.
+
+### 🔴 The rule that decided the whole design
+
+> **「사람을 기다리면 타이머가 돈다. 시스템을 기다리면 타이머가 멈춘다.」**
+
+*Requested* (waiting for a **person** to accept) → the 60s auto-return countdown **keeps running**; if the
+opponent leaves the popup untouched the answer never comes, so the user must not be trapped.
+*Accepted* (waiting for the **server** to build a map) → countdown **stops**, because that work terminates.
+
+### 🔴 Entry paths differ by side — this is the actual fix
+
+- **Accepter**: subscribes to `GameEvents.OnLocalRematchAccepted` — **its own button press**, not a server
+  reply. Waiting for a reply would mean *nothing happens for a Client whose Host is already gone* (the
+  ServerRpc evaporates) while a Host would proceed — i.e. the screen would differ by role.
+  Note this subscription runs **alongside** the controller's on the same channel (see `network-infra.md`
+  for why the controller's side is now try/catch-wrapped).
+- **Requester**: subscribes to the new `GameEvents.OnNetworkRematchAccepted` (server notice). Without it the
+  requester never learns acceptance happened and its own 60s expiry would drag it to the lobby mid-preparation.
+- `EnterRematchPreparingState()` is **idempotent** (`_rematchPreparing`) because the accepter receives the
+  broadcast notice too, and also returns early when `_opponentLeft` is already true.
+
+### The limit clock — 🔴 it judges nothing
+
+`RematchPreparingLimitCoroutine` only **restores the status line** (by restarting the countdown at full
+length, rule M-3). It decides no win/loss, no leave, no disconnect. Do not bolt judgement onto it — this
+screen already has two judging clocks (auto-return countdown, result-screen leave watch).
+
+- Length is **computed, never literal**:
+  `NetworkMapTransfer.TransferTimeoutSeconds * (NetworkMapTransfer.MaxResendCount + 1)`.
+  One window = `TransferTimeoutSeconds`; window count = initial send 1 + `MaxResendCount` resends.
+  🔴 **A single window is wrong** — one lost packet triggers a resend, the limit would expire on the
+  *normal* path, the status line would revert and then the scene would suddenly reload. A false signal.
+  🔴 There is **no digit `10` or `20` anywhere in `GameEndUI.cs`** (verified by grep) so a future change to
+  rule 16's resend count follows automatically.
+- **Stop sites — four, all wired** (a missed one leaves a dead clock):
+  `OnRematchMapFailed()` · the `OnNetworkRematchStarting` subscription · `OnOpponentLeft()` · `OnDestroy()`.
+  Plus a fifth defensive call in `Initialize()`.
+- 🔴 **Self-stop hazard**: the coroutine nulls `_rematchPreparingCoroutine` **before** doing its work, or
+  `StopRematchPreparingLimit()` reached from the restart path would `StopCoroutine(itself)` and cut the
+  method off halfway.
+- `RestartCountdownFromFullLength()` guards on `_opponentLeft` — otherwise a late map-failure notice would
+  overwrite rule D-4's 30s leave countdown with 60s.
+
+### 🔴 Rejected on purpose — do not "improve" these later
+
+- **`ShowLoading` during preparation.** `LoadingScreen.Show()` sets `blocksRaycasts = true`, which would make
+  the 「로비로」 button unpressable — a direct rule D-3 violation. Only the status line changes.
+  (The pre-existing loading on `OnNetworkRematchStarting` stays untouched; its literal string happens to read
+  the same as the new const, and they were **not** merged because that line was out of scope.)
+- Blocking the buttons outright (adds another clock) and a separate failure popup (rule D-1 forbids it).
+
+### `RestoreRematchButton()` — label restored outside the guard (behaviour change)
+
+The label assignment used to sit **inside** `if (_restartButton != null && !_opponentLeft)`, so on a leave
+judgement the text stayed frozen at 「요청 중...」. Now: label → 「다시하기」 **unconditionally**;
+`interactable = !_opponentLeft` keeps the D-2 guard. `OnOpponentLeft()` calls this method (after setting
+`_opponentLeft = true`, order matters) instead of poking `interactable` directly.
+✅ `_backToLobbyButton.interactable = false` remains **0 occurrences repo-wide** (rule D-3).
+
+⚠️ **Unverified**: compilation and runtime. Static checks only — brace balance 36/36 after stripping
+comments/strings; no scene or prefab was touched (every new value is a `const` or a referenced constant).
+
+### 재경기 실패 — 3경로를 상태 줄 문구 하나로 묶었다 (2026-09-22, 사용자 확정)
+
+🔴 **재경기가 안 되는 길은 셋인데 사용자는 구분할 수 없고 구분할 필요도 없다.** 전부 「재경기가 안 됐다」다.
+So all three converge on **one** entry point, `EnterRematchFailedState()` — **never copy the handling into the
+three sites.** Call sites: 2 (the third path shares a handler).
+
+| path | how it arrives | handler |
+|---|---|---|
+| ① couldn't send the accept at all | controller publishes `OnNetworkRematchMapFailed` **locally** from its catch | `OnRematchMapFailed()` |
+| ② server says map prep failed | same channel, via ClientRpc (original use) | `OnRematchMapFailed()` |
+| ③ prep limit expired with no notice | — | `RematchPreparingLimitCoroutine()` |
+
+- Text: `RematchFailedCountdownFormat = "재경기를 시작할 수 없습니다. {0}초 후 로비로 돌아갑니다."` —
+  a **format string in one const**, same shape as `OpponentLeftCountdownFormat`.
+- `EnterRematchFailedState()` does four things, **in this order**: stop the prep limit → set `_rematchFailed`
+  → `RestoreRematchButton()` → `RestartCountdownFromFullLength()` (rule M-3, full length).
+  🔴 **The flag must be set *before* the countdown restarts** — the coroutine reads it every second, so
+  setting it after makes the first second show the normal text and then flip (visible flicker).
+- 🔴 **`CountdownCoroutine`'s branch is now 3-way and the priority is 이탈 > 실패 > 평시.**
+  The two can hold at once: the prep limit expires first, then the leave judgement (30s) lands. The screen
+  must keep the **later, more fundamental** fact, because 「상대가 떠났다」 is the *cause* of
+  「재경기가 안 됐다」 — showing the cause beats showing the effect, and the reverse order would destroy the
+  only chance to tell the user the opponent left.
+- **`_rematchFailed` is cleared in three places** (a stale flag makes the screen keep claiming failure while a
+  retry is already running): the `SetupRematchButton` onClick, `EnterRematchPreparingState()`, `Initialize()`.
+- 🔴 **No popup.** The user chose "status line, and amend rule M-3" over M-3's 2026-09-16 決 of
+  「알림 팝업으로 알린다」. A popup covers/blocks the 「로비로」 button → rule D-3 violation. **`ShowAlert` was
+  not added** (the only `ShowAlert` call in the file remains step 8's D-6 opponent-left alert).
+  The reason is written next to the const so nobody puts a popup back.
+- Buttons unchanged in behaviour: `RestoreRematchButton()` restores the label and leaves `interactable`
+  false when `_opponentLeft`; `_backToLobbyButton.interactable = false` stays **0 occurrences**.
