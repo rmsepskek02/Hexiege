@@ -443,3 +443,37 @@ three sites.** Call sites: 2 (the third path shares a handler).
   The reason is written next to the const so nobody puts a popup back.
 - Buttons unchanged in behaviour: `RestoreRematchButton()` restores the label and leaves `interactable`
   false when `_opponentLeft`; `_backToLobbyButton.interactable = false` stays **0 occurrences**.
+
+### 재경기 실패 문구를 사유에 따라 가른다 — 단계 9 (2026-09-24, 규칙 18)
+
+앞 절(2026-09-22)이 **실패 3경로를 문구 하나로 묶었다.** 여기서는 그 **「실패」 분기 안쪽이 둘로 갈린다.**
+🔴 **우선순위는 그대로 「이탈 > 실패 > 평시」** — 바뀐 것은 **실패 안쪽**뿐이다.
+
+| 사유 | 상수 | 문구 |
+|---|---|---|
+| `OpponentDisconnected` | `RematchFailedByOpponentLeftCountdownFormat`(신설) | 「상대방이 나가서 재경기를 시작할 수 없습니다. {0}초 후 …」 |
+| 그 밖(모르는 경우 포함) | `RematchFailedCountdownFormat`(그대로) | 「재경기를 시작할 수 없습니다. {0}초 후 …」 |
+
+- 🔴 **문구 분기는 여전히 한 자리다** — `CountdownCoroutine` 안의 **삼항 3분기 그대로**이고, 실패 쪽 항만
+  `string.Format(SelectRematchFailedFormat(), seconds)` 로 바뀌었다. 🔴 **`SelectRematchFailedFormat()` 은
+  형식 문자열을 고르기만 하고 화면에 쓰지 않는다** — 분기를 다른 메서드로 흩지 않기 위한 형태다.
+  (본문에 `if` 를 늘어놓으면 「문구를 쓰는 자리가 한 곳」이라는 성질이 깨진다.)
+- **사유는 `EnterRematchFailedState(RematchMapFailureCause cause)` 가 받아 `_rematchFailureCause` 에 보관한다.**
+  🔴 **사유를 깃발(`_rematchFailed`)보다 먼저 대입한다** — 코루틴이 매 초 둘을 함께 읽으므로 순서가 뒤집히면
+  첫 1초에 잘못된 문구가 보인다(깃발이 카운트다운 재시작보다 앞이어야 하는 것과 같은 이유의 순서).
+- **실패 3경로가 모두 사유를 넘긴다**: ① 수락 전송 실패 → `Unknown`(컨트롤러가 로컬 발행) ·
+  ② 서버 통보 → 서버가 판정한 값 · ③ 한도 만료 → `Unknown`.
+  🔴 **①③ 이 `Unknown` 인 근거는 「모른다」이지 「연결 끊김이 아니다」가 아니다** — 상대가 나갔을 수도,
+  내 회선일 수도 있다. 단정하면 거짓이 될 수 있어 중립 문구를 쓴다(`CLAUDE.md` 규칙 10). 코드 주석에 남겼다.
+- **`_rematchFailureCause` 를 되돌리는 자리는 `_rematchFailed` 와 완전히 같은 3곳**
+  (`SetupRematchButton` onClick · `EnterRematchPreparingState` · `Initialize`). 같은 줄 바로 아래에 붙여
+  한쪽만 빠뜨릴 수 없게 했다.
+- **구독은 늘지 않았다** — `GameEvents.OnNetworkRematchMapFailed` 의 타입만 payload 로 바뀌었고
+  구독은 여전히 `GameEndUI` **1곳**, 발행은 **2곳**(자세한 내용은 [network-infra.md](network-infra.md) 같은 날짜 절).
+- 🔴 **문구를 주석에 베껴 적지 않았다** — 단계 7 에서 겪은 그대로다(주석 사본 하나가 「문구가 한 곳에만 있는가」
+  grep 을 무용하게 만든다). 주석에서는 문구 대신 **상수 이름**을 가리키고, 뜻을 말해야 할 때는 규칙 18 의 표현
+  (「상대가 나갔다」)을 쓴다 — **리터럴의 부분 문자열이 되지 않는 낱말이어야 한다.**
+  검증 grep: `grep -rn '상대방이 나가서' Assets/_Project/Scripts Assets/Editor` → **1건(상수뿐)**.
+- ✅ **`ShowAlert` 실호출은 늘지 않았다**(규칙 D-6 이탈 알림 1건 그대로 — 규칙 M-3 은 상태 줄이다) ·
+  `_backToLobbyButton.interactable = false` **0건 유지**(규칙 D-3) · **씬·프리팹 0건**(새 값은 전부 `const`).
+- ⚠️ **미검증**: 컴파일(Unity 없음)과 런타임 전부. 확인한 것은 중괄호 균형과 `mcs` 파싱(구문 오류 0)뿐이다.

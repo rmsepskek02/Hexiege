@@ -800,7 +800,17 @@ namespace Hexiege.Infrastructure
                 //      온 이유 자체가 **RPC 를 보낼 수 없었다**는 것이다. 보낼 수 없는 수단으로
                 //      실패를 알릴 수는 없으므로, 이 한 경로만 로컬에서 직접 발행한다.
                 //      알릴 대상도 내 화면 하나뿐이다 — 상대는 애초에 닿지 않는다.
-                GameEvents.OnNetworkRematchMapFailed.OnNext(Unit.Default);
+                //
+                //   🔴 **왜 사유를 Disconnected 가 아니라 Unknown 으로 싣는가** (규칙 18 관련 · 중요)
+                //      규칙 18 은 「사유가 연결 끊김이면 '상대가 나갔다'는 뜻의 문구를 쓴다」고 정한다.
+                //      여기까지 온 상황은 「상대가 나갔다」처럼 보이기 쉽지만 **그렇게 단정할 근거가 없다.**
+                //        · 상대(Host)가 나가서 연결이 내려가는 중일 수도 있고,
+                //        · **내 회선이 끊긴 것**일 수도 있다. 이 자리에서는 둘을 구분할 방법이 없다.
+                //      「상대가 나갔다」고 써 버리면 **사용자에게 거짓을 말할 수 있다**
+                //      (CLAUDE.md 규칙 10 — 추정하지 말 것). 그래서 **모를 때는 중립적인 기본 문구**를
+                //      쓰도록 Unknown 을 싣는다. 화면에는 GameEndUI 의 기본 실패 문구가 뜬다.
+                GameEvents.OnNetworkRematchMapFailed.OnNext(
+                    new NetworkRematchMapFailedEvent(RematchMapFailureCause.Unknown));
             }
         }
 
@@ -871,7 +881,12 @@ namespace Hexiege.Infrastructure
         ///    맵 없이 씬이 재로드되면 텅 빈 전장이 열린다(규칙 14 정면 위반).
         /// </summary>
         /// <param name="reason">진단용 사유 문자열(플레이어에게 보이는 문구가 아니다)</param>
-        private void HandleRematchMapFailed(string reason)
+        /// <param name="code">
+        /// 전송 계층이 판정한 내부 error code. 🔴 <b>규칙 18 의 문구 분기</b>에 쓰인다 —
+        /// 연결 끊김이면 결과 화면이 「상대가 나갔다」는 뜻의 문구를 쓰고, 그 밖이면 기존 실패 문구를 쓴다.
+        /// ⚠️ <c>None</c> 은 <b>「전송 계층이 판정한 사유가 없다」</b>는 뜻이다(전송이 시작조차 못 한 경우).
+        /// </param>
+        private void HandleRematchMapFailed(string reason, MapTransferErrorCode code)
         {
             // 이 콜백은 맵 전송 쪽에서 한참 뒤에 돌아온다. 그 사이에 로비로 돌아가거나
             // 연결이 끊겨 이 오브젝트가 디스폰됐을 수 있다 — 그 상태에서 아래 ClientRpc 를
@@ -887,11 +902,20 @@ namespace Hexiege.Infrastructure
             // [개발] 운영 축 결말 로그(MapTransferFailed 등)는 NetworkMapTransfer 가 이미 정확히
             //   한 줄 남겼다. 여기서 같은 사건을 운영으로 또 남기면 한 판이 두 번 세어진다
             //   (LogRules 1.14 금지 9). 다만 "재경기가 막혔다"는 사실 자체는 반드시 남긴다.
+            // 🔴 규칙 18 의 「문구를 가르는」 판정은 **여기 한 자리**에서만 한다(경계 변환).
+            //    Infrastructure 의 error code 를 Application 의 사유 값으로 바꾸는 유일한 지점이다.
+            RematchMapFailureCause cause = ToRematchFailureCause(code);
+
             GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
                 "재경기 맵 준비 실패 — 씬을 재로드하지 않고 결과 화면을 유지한다",
-                $"Reason={reason}");
+                $"Reason={reason}, ErrorCode={code}, Cause={cause}");
 
-            NotifyRematchMapFailedClientRpc();
+            // ⚠️ enum 을 그대로 RPC 인자로 싣지 않고 **정수로** 보낸다. 이 프로젝트의 기존 관례이며
+            //    (NetworkMapTransfer 의 MapReadyServerRpc 가 error code 를, MapPrepareBeginClientRpc 가
+            //     회차 표식을 각각 int 로 싣는다), NGO 직렬화에 기본 타입만 쓰면 버전 차이에
+            //    영향을 받지 않는다. 🔴 **enum 으로 되돌리는 것은 받는 쪽 한 줄뿐**이고,
+            //    그 뒤의 화면 코드는 전부 enum 으로 다룬다.
+            NotifyRematchMapFailedClientRpc((int)cause);
         }
 
         /// <summary>
@@ -904,12 +928,80 @@ namespace Hexiege.Infrastructure
         /// 호스트(서버)도 ClientRpc 본문이 로컬에서 실행되므로 별도 호출 없이 함께 복원된다
         /// (NotifyRematchStartingClientRpc 와 같은 방식).
         /// </summary>
+        /// <param name="cause">
+        /// 실패 사유(<see cref="RematchMapFailureCause"/> 의 정수값). 🔴 규칙 18 의 문구 분기용이다.
+        /// </param>
         [ClientRpc]
-        private void NotifyRematchMapFailedClientRpc()
+        private void NotifyRematchMapFailedClientRpc(int cause)
         {
+            // 🔴 정수 → enum 으로 되돌리는 **유일한 자리**다. 알 수 없는 값이 오면
+            //    지어내지 않고 Unknown 으로 떨어뜨린다(모르면 중립 문구 — CLAUDE.md 규칙 10).
+            //    이런 값이 올 수 있는 경우는 서로 다른 버전의 빌드가 붙었을 때다.
+            RematchMapFailureCause parsed = ToKnownFailureCause(cause);
+
             GameLog.Dev.Info("Network", nameof(NetworkGameEndController),
-                "재경기 맵 준비 실패 알림 수신 — OnNetworkRematchMapFailed 발행");
-            GameEvents.OnNetworkRematchMapFailed.OnNext(Unit.Default);
+                "재경기 맵 준비 실패 알림 수신 — OnNetworkRematchMapFailed 발행",
+                $"Cause={parsed}");
+            GameEvents.OnNetworkRematchMapFailed.OnNext(new NetworkRematchMapFailedEvent(parsed));
+        }
+
+        /// <summary>
+        /// 전송 계층의 내부 error code 를 결과 화면이 쓰는 <b>사유 값</b>으로 바꾼다
+        /// (레이어 경계 변환 — Infrastructure → Application).
+        ///
+        /// <para>
+        /// 🔴 <b>가르는 기준은 하나뿐이다 — 연결이 끊겼는가.</b>
+        /// <c>GameSystemRules_RandomMap.md</c> 규칙 18: *"실패 사유가 연결 끊김(Disconnected)인 경우에만
+        /// 「상대가 나갔다」는 뜻의 문구를 쓰고, 그 밖의 실패 사유는 기존 실패 문구를 그대로 쓴다."*
+        /// 그래서 <b>열 가지 넘는 error code 를 두 갈래로 접는다.</b> 화면이 쓰지 않는 구분을
+        /// 여기서 유지해 봐야 두 벌의 enum 이 언젠가 어긋나기만 한다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <c>None</c> 을 <c>Other</c> 가 아니라 <c>Unknown</c> 으로 보내는 이유:
+        /// <c>None</c> 이 오는 경로는 <b>전송이 시작조차 못 한</b> 실패(서버가 아님 · 프리팹 누락 ·
+        /// 중복 요청 · 매니저 없음)라서 <b>전송 계층이 판정한 사유가 애초에 없다.</b>
+        /// 「알지만 연결 끊김은 아니다」(<c>Other</c>)와 「모른다」(<c>Unknown</c>)는 다른 사실이다.
+        /// (화면 문구는 둘 다 같다 — 규칙 18 의 기준이 연결 끊김 하나뿐이기 때문이다.)
+        /// </para>
+        /// </summary>
+        /// <param name="code">전송 계층이 판정한 내부 error code</param>
+        /// <returns>결과 화면이 문구를 고를 때 쓰는 사유 값</returns>
+        private static RematchMapFailureCause ToRematchFailureCause(MapTransferErrorCode code)
+        {
+            if (code == MapTransferErrorCode.Disconnected)
+            {
+                return RematchMapFailureCause.OpponentDisconnected;
+            }
+
+            if (code == MapTransferErrorCode.None)
+            {
+                return RematchMapFailureCause.Unknown;
+            }
+
+            return RematchMapFailureCause.Other;
+        }
+
+        /// <summary>
+        /// RPC 로 받은 정수를 <see cref="RematchMapFailureCause"/> 로 되돌린다.
+        /// 🔴 <b>정의된 값이 아니면 Unknown 으로 떨어뜨린다</b> — 알 수 없는 값을 그대로 캐스팅하면
+        /// 화면 분기가 예측할 수 없게 되고, 모르는 것을 「상대가 나갔다」로 단정할 위험도 생긴다.
+        /// </summary>
+        /// <param name="rawCause">RPC 로 받은 정수값</param>
+        /// <returns>정의된 사유 값(모르면 <see cref="RematchMapFailureCause.Unknown"/>)</returns>
+        private static RematchMapFailureCause ToKnownFailureCause(int rawCause)
+        {
+            if (rawCause == (int)RematchMapFailureCause.OpponentDisconnected)
+            {
+                return RematchMapFailureCause.OpponentDisconnected;
+            }
+
+            if (rawCause == (int)RematchMapFailureCause.Other)
+            {
+                return RematchMapFailureCause.Other;
+            }
+
+            return RematchMapFailureCause.Unknown;
         }
 
         // ====================================================================
@@ -954,7 +1046,9 @@ namespace Hexiege.Infrastructure
                 //      재로드하면 정확히 지금 고치려는 그 버그(빈 전장)가 재현된다.
                 GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
                     "NetworkGameManager 를 찾을 수 없어 재경기 맵을 준비할 수 없다 — 결과 화면을 유지한다");
-                HandleRematchMapFailed("NetworkGameManagerMissing");
+                //   ⚠️ error code 는 None 이다 — 전송이 시작조차 못 했으므로 전송 계층이 판정한
+                //      사유가 없다(= 사유를 모른다 → 결과 화면은 중립적인 기본 문구를 쓴다).
+                HandleRematchMapFailed("NetworkGameManagerMissing", MapTransferErrorCode.None);
                 return;
             }
 

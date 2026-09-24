@@ -22,7 +22,7 @@
 | 파일 | 내용 |
 |------|------|
 | `Assets/_Project/Docs/GameDesignDocument.md` | GDD — 게임 전체 기획 |
-| `Assets/_Project/Docs/TechnicalDesignDocument.md` | TDD — 기술 아키텍처 설계 |
+| `Assets/_Project/Docs/TechnicalDesignDocument.md` | TDD — 기술 아키텍처 설계 · **개발용 강제 실패 플래그(에디터 전용) 사용 절차**(「💻 개발 환경」 절 — 재경기 맵 준비 실패 화면을 재현하는 에디터 메뉴) |
 | `Assets/_Project/Docs/UIGuidelines.md` | UI 가이드라인 |
 | `Assets/_Project/Docs/StatsReference.md` | 유닛/건물 스탯 참조표 — 자원 시스템, 범위 공격 규칙, 유닛 강화(연구소) 시스템 스탯 포함 |
 | `Assets/_Project/Docs/AuthSystemRules.md` | 로그인/인증 시스템 규칙 |

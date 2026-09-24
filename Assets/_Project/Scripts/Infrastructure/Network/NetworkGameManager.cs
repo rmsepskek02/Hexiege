@@ -166,8 +166,19 @@ namespace Hexiege.Infrastructure
         ///    (<c>BattleViewModel</c>)이다. 재경기 실패는 <b>전투 씬의 결과 화면</b>이 받아야
         ///    하므로 받는 사람이 아예 다르다. 한 통로로 합치면 "로비 로딩을 내리는 코드"가
         ///    결과 화면에서 불리게 되고, 반대로 결과 화면 복원이 로비에서 불리게 된다.
+        ///
+        /// 🔴 <b>[2026-09-24] 인자가 둘이 됐다 — 진단용 사유 문자열 + 내부 error code.</b>
+        ///    <c>GameSystemRules_RandomMap.md</c> 규칙 18 이 *"실패 사유가 연결 끊김인 경우에만
+        ///    「상대가 나갔다」는 뜻의 문구를 쓴다"* 고 정했다. 그 판정을 결과 화면이 하려면
+        ///    <b>사유가 화면까지 도달해야</b> 한다.
+        ///    ⚠️ <b>문자열을 파싱해 가르지 않는다.</b> 종전 사유 문자열은 <c>"MapTransferFailed:Disconnected"</c>
+        ///       처럼 코드 이름이 뒤에 붙은 형태라 <c>Contains("Disconnected")</c> 로도 가를 수는 있지만,
+        ///       그것은 <b>로그용 문장에 동작을 의존시키는 것</b>이라 문장을 다듬는 순간 조용히 깨진다.
+        ///       그래서 <b>타입이 있는 값</b>을 따로 함께 넘긴다.
+        ///    ⚠️ 전송이 <b>시작조차 못 한</b> 실패(서버가 아님 · 프리팹 누락 · 중복 요청 등)에는
+        ///       <c>MapTransferErrorCode.None</c> 이 들어간다 — 「전송 계층이 판정한 사유가 없다」는 뜻이다.
         /// </summary>
-        private Action<string> _mapTransferFailureAction;
+        private Action<string, MapTransferErrorCode> _mapTransferFailureAction;
 
         // ====================================================================
         // Unity 생명주기
@@ -845,8 +856,12 @@ namespace Hexiege.Infrastructure
         ///    그래서 성공 시 할 일을 <paramref name="onSucceeded"/> 로 <b>받기만</b> 한다.
         /// </summary>
         /// <param name="onSucceeded">양쪽 검증까지 끝나 새 맵이 확정됐을 때 부를 콜백(필수)</param>
-        /// <param name="onFailed">준비·전송·검증이 실패했을 때 부를 콜백(필수). 인자는 진단용 사유</param>
-        public void BeginRematchMapTransfer(Action onSucceeded, Action<string> onFailed)
+        /// <param name="onFailed">
+        /// 준비·전송·검증이 실패했을 때 부를 콜백(필수). 인자는 <b>진단용 사유 문자열</b>과
+        /// <b>내부 error code</b> 둘이다. error code 는 규칙 18 의 문구 분기(연결 끊김인가 아닌가)에
+        /// 쓰이며, 전송이 시작조차 못 했으면 <c>MapTransferErrorCode.None</c> 이 들어간다.
+        /// </param>
+        public void BeginRematchMapTransfer(Action onSucceeded, Action<string, MapTransferErrorCode> onFailed)
         {
             if (onSucceeded == null || onFailed == null)
             {
@@ -856,7 +871,7 @@ namespace Hexiege.Infrastructure
                 GameLog.Dev.Warn("Network", nameof(NetworkGameManager),
                                  "재경기 맵 준비 요청에 결말 콜백이 빠져 있어 시작하지 않았다",
                                  $"HasSucceeded={onSucceeded != null}, HasFailed={onFailed != null}");
-                if (onFailed != null) onFailed("RematchCallbackMissing");
+                if (onFailed != null) onFailed("RematchCallbackMissing", MapTransferErrorCode.None);
                 return;
             }
 
@@ -877,9 +892,12 @@ namespace Hexiege.Infrastructure
         /// 로그만 보고 가려낼 수 있게 한다(계획서 §6-B).
         /// </param>
         /// <param name="onSucceeded">성공 시 할 일</param>
-        /// <param name="onFailed">실패 시 알릴 곳. null 이면 기존 <see cref="OnMapTransferFailed"/> 이벤트로 알린다</param>
+        /// <param name="onFailed">
+        /// 실패 시 알릴 곳. null 이면 기존 <see cref="OnMapTransferFailed"/> 이벤트로 알린다.
+        /// 인자는 진단용 사유 문자열 + 내부 error code 다(규칙 18 의 문구 분기용).
+        /// </param>
         private void BeginMapTransferRound(MapTransferRoundKind roundKind,
-                                           Action onSucceeded, Action<string> onFailed)
+                                           Action onSucceeded, Action<string, MapTransferErrorCode> onFailed)
         {
             // 🔴 중복 요청 가드가 **가장 앞**이다. 접속 콜백이 두 번 울리는 등으로 두 번 불릴 수
             //    있는데, 두 번 스폰하면 같은 판에 전송 객체가 둘이 되어 결말도 둘이 된다.
@@ -894,7 +912,8 @@ namespace Hexiege.Infrastructure
                 // 🔴 거절당한 **이번 요청**의 실패 콜백만 부른다(진행 중인 회차의 것이 아니다).
                 //    안 부르면 재경기에서 "수락했는데 아무 일도 일어나지 않고 버튼도 잠긴 채"
                 //    남는다. 최초 경기는 onFailed 가 null 이라 종전과 완전히 같은 동작이다.
-                if (onFailed != null) onFailed("MapTransferAlreadyInProgress");
+                //   ⚠️ error code 는 None 이다 — 전송 계층이 판정한 실패가 아니라 이 클래스가 거절한 것이다.
+                if (onFailed != null) onFailed("MapTransferAlreadyInProgress", MapTransferErrorCode.None);
                 return;
             }
 
@@ -1040,7 +1059,10 @@ namespace Hexiege.Infrastructure
                              $"ErrorCode={code}");
 
             CleanupMapTransferSubscription();
-            FailMapTransferGate("MapTransferFailed:" + code);
+
+            // 🔴 code 를 그대로 함께 넘긴다 — 규칙 18 의 문구 분기(연결 끊김인가 아닌가)가
+            //    결과 화면에서 이 값으로 갈린다. 사유 문자열은 종전 그대로 로그·진단용이다.
+            FailMapTransferGate("MapTransferFailed:" + code, code);
         }
 
         /// <summary>
@@ -1053,7 +1075,14 @@ namespace Hexiege.Infrastructure
         ///    재경기라면 결과 화면의 두 버튼이 잠긴 채 영영 돌아오지 않는다.
         /// </summary>
         /// <param name="reason">진단용 사유 문자열(플레이어에게 보이는 문구가 아니다)</param>
-        private void FailMapTransferGate(string reason)
+        /// <param name="code">
+        /// 전송 계층이 판정한 내부 error code. 🔴 규칙 18 의 <b>문구 분기</b>에 쓰인다
+        /// (연결 끊김이면 결과 화면이 「상대가 나갔다」는 뜻의 문구를 쓴다).
+        /// ⚠️ 기본값 <c>None</c> 은 <b>「전송 계층이 판정한 사유가 없다」</b>는 뜻이다 —
+        ///    전송이 시작조차 못 한 실패(서버가 아님 · 프리팹 누락 · 중복 요청)가 그렇다.
+        ///    성공을 뜻하는 것이 아니다.
+        /// </param>
+        private void FailMapTransferGate(string reason, MapTransferErrorCode code = MapTransferErrorCode.None)
         {
             // 🔴 한 회차에 한 번만 알린다. 같은 회차의 실패 경로가 두 번 겹칠 수 있기 때문이다.
             //    (예: BeginHostMapTransfer 안에서 이미 실패 통보가 나간 뒤 그 함수가 false 를
@@ -1064,15 +1093,19 @@ namespace Hexiege.Infrastructure
             _mapTransferInProgress = false;
 
             // 위 성공 자리와 같은 이유로 **먼저 꺼내 두고 비운 뒤** 부른다.
-            Action<string> failureAction = _mapTransferFailureAction;
+            Action<string, MapTransferErrorCode> failureAction = _mapTransferFailureAction;
             ClearMapTransferRoundActions();
 
             if (failureAction != null)
             {
                 // 재경기 회차 — 결과 화면 쪽으로만 알린다. 🔴 로비 UI 이벤트는 발행하지 않는다.
-                failureAction(reason);
+                failureAction(reason, code);
                 return;
             }
+
+            // ⚠️ 최초 경기 회차는 종전과 완전히 같다 — 로비 UI 이벤트는 사유 문자열 하나만 나른다.
+            //    규칙 18 의 문구 분기는 **결과 화면(재경기)** 규정이라 로비 쪽에 적용되지 않으므로,
+            //    이 이벤트의 시그니처는 일부러 건드리지 않았다(최초 경기 회귀 면적 0).
 
             // 최초 경기 회차 — 종전과 같이 로비 UI 가 구독하는 이벤트로 알린다.
             OnMapTransferFailed?.Invoke(reason);

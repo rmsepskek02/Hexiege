@@ -371,6 +371,29 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private MapTransferRoundKind _hostRoundKind = MapTransferRoundKind.First;
 
+#if UNITY_EDITOR
+        /// <summary>
+        /// 🔴 <b>[에디터 전용 개발 도구]</b> 「강제 실패 — 응답 없음(<c>ResponseTimeout</c>)」이
+        /// 예약된 회차의 nonce. 그 회차에서는 Client 의 <c>MapReady</c> 응답을 <b>일부러 무시</b>해
+        /// <b>진짜 timeout 경로</b>(10초 대기 → 재전송 1회 → 다시 10초 → 실패)를 그대로 타게 한다.
+        ///
+        /// <para>
+        /// [초급자용 설명] 왜 즉시 실패시키지 않고 응답을 무시하는가 —
+        /// <c>ResponseTimeout</c> 은 규칙 16 이 <b>유일하게 재전송을 허용</b>하는 사유다.
+        /// 즉시 실패시켜 버리면 <b>재전송이 한 번도 일어나지 않아</b>, 결과 화면의 「맵 준비 한도」
+        /// (<c>TransferTimeoutSeconds × (MaxResendCount + 1)</c>)가 정말 <b>두 창</b>을 재는지
+        /// 확인할 수 없다. 그래서 이 사유만 예외적으로 <b>실제 경로를 타게</b> 한다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ 회차 번호(nonce)로 기억하는 이유: nonce 는 회차마다 1씩 올라가므로
+        /// <b>지난 회차의 값이 다음 회차에 우연히 맞을 수 없다.</b> 즉 따로 비워 주지 않아도
+        /// 저절로 무효가 된다(값이 0 이면 어떤 회차에도 걸리지 않는다 — nonce 는 1부터 시작한다).
+        /// </para>
+        /// </summary>
+        private ulong _forcedTimeoutNonce;
+#endif
+
         // ── [Client 전용] 이번 회차의 헤더 ────────────────────────────────
 
         /// <summary>[Client] Host 가 알려 준 기대 해시(원본 32바이트).</summary>
@@ -760,6 +783,67 @@ namespace Hexiege.Infrastructure
                              $"Nonce={_activeNonce}, Round={roundKind}, IsProbe={isProbe}, MapVersion={mapVersion}, " +
                              $"TotalBytes={_hostTotalBytes}, ChunkSize={chunkSize}, " +
                              $"ChunkCount={_hostChunks.Length}, Hash={ToHashField(hash)}");
+
+#if UNITY_EDITOR
+            // ────────────────────────────────────────────────────────────────
+            // 🔴 [에디터 전용 개발 도구] 강제 실패 플래그
+            //
+            //   무엇인가: 「다음 재경기의 맵 준비·전송을 무조건 실패시킨다」는 1회용 토글이다.
+            //             켜는 곳은 상단 메뉴 Hexiege/Debug/... 이고, 저장은 EditorPrefs 다.
+            //             상세한 근거는 ForcedMapTransferFailure.cs 의 파일 머리말에 있다.
+            //
+            //   🔴 릴리스 빌드에는 **이 블록이 존재하지 않는다** — 바로 위 에디터 전용 가드로 감쌌고
+            //      ForcedMapTransferFailure 자체도 같은 가드 안에만 있다. 즉 컴파일 단계에서
+            //      통째로 사라지므로, 출시본에 실패를 만들어 내는 코드가 남을 수 없다.
+            //
+            //   🔴 **최초 경기(First)와 프로브(Probe)에는 적용하지 않는다.**
+            //      · 최초 경기를 실패시키면 로비에서 게임 자체가 시작되지 않아
+            //        재경기 실패 화면을 볼 기회가 아예 사라진다.
+            //      · 프로브는 게임 흐름이 아니다(한도 실측용 더미 전송).
+            //
+            //   ⚠️ 실패 처리는 **기존 실패 경로를 그대로 탄다** — 아래 FailHostRound 는
+            //      진짜 실패가 쓰는 바로 그 결말 자리다. 강제 실패용 경로를 따로 만들면
+            //      「테스트에서 본 화면」과 「실제로 나는 화면」이 다를 수 있어 의미가 없어진다.
+            // ────────────────────────────────────────────────────────────────
+            if (!isProbe && roundKind == MapTransferRoundKind.Rematch)
+            {
+                MapTransferErrorCode forcedCode;
+                if (ForcedMapTransferFailure.TryConsume(out forcedCode))
+                {
+                    if (forcedCode == MapTransferErrorCode.ResponseTimeout)
+                    {
+                        // 🔴 이 사유만 즉시 실패시키지 않는다. 회차는 정상적으로 시작해서
+                        //    보내고, **Client 의 응답만 무시**해 진짜 timeout·재전송을 거치게 한다
+                        //    (MapReadyServerRpc 의 같은 표식 참조).
+                        _forcedTimeoutNonce = _activeNonce;
+
+                        // [개발/Warn] 🔴 로그를 보는 사람이 「진짜 실패」와 「강제 실패」를
+                        //   반드시 구분할 수 있어야 한다. 그래서 Forced=... 를 남긴다.
+                        GameLog.Dev.Warn(TransferLogSystem, nameof(NetworkMapTransfer),
+                                         "[강제 실패] 개발용 플래그가 켜져 있어 이 재경기 회차의 응답을 " +
+                                         "일부러 무시한다 — 진짜 timeout·재전송 경로를 태운다",
+                                         $"Nonce={_activeNonce}, Round={roundKind}, " +
+                                         $"Forced={forcedCode}, " +
+                                         $"TimeoutSeconds={TransferTimeoutSeconds}, " +
+                                         $"MaxResendCount={MaxResendCount}");
+                    }
+                    else
+                    {
+                        // [개발/Warn] 즉시 실패 사유(Disconnected · HashMismatch).
+                        GameLog.Dev.Warn(TransferLogSystem, nameof(NetworkMapTransfer),
+                                         "[강제 실패] 개발용 플래그가 켜져 있어 이 재경기 회차를 " +
+                                         "즉시 실패로 끝낸다(전송하지 않는다)",
+                                         $"Nonce={_activeNonce}, Round={roundKind}, Forced={forcedCode}");
+
+                        // 🔴 기존 결말 자리를 그대로 쓴다. 여기서 새 실패 경로를 만들지 말 것.
+                        FailHostRound(forcedCode, ToOutcomeKey(forcedCode),
+                                      "[강제 실패] 개발용 플래그로 이 회차를 실패시켰다(실제 장애가 아니다)",
+                                      null);
+                        return false;
+                    }
+                }
+            }
+#endif
 
             SendHostPackage("최초 전송");
             return true;
@@ -1404,6 +1488,22 @@ namespace Hexiege.Infrastructure
                              "수신 완료 응답을 받았다",
                              $"Nonce={nonce}, ClientId={senderClientId}, Success={success}, " +
                              $"ReceivedBytes={receivedBytes}, ErrorCode={(MapTransferErrorCode)errorCode}");
+
+#if UNITY_EDITOR
+            // 🔴 [에디터 전용 개발 도구] 강제 실패 — 「응답 없음」 예약된 회차라면 이 응답을 버린다.
+            //    그러면 Update() 의 감시가 10초 뒤 timeout 을 잡아 재전송 1회 → 다시 10초 →
+            //    ResponseTimeout 실패로 끝난다. 즉 **진짜 경로**를 그대로 탄다.
+            //    ⚠️ 이 줄은 한 회차에 최대 두 번(최초 전송·재전송 응답) 찍힌다 — 매 틱 로그가 아니다.
+            if (_forcedTimeoutNonce != 0 && _forcedTimeoutNonce == nonce)
+            {
+                GameLog.Dev.Warn(TransferLogSystem, nameof(NetworkMapTransfer),
+                                 "[강제 실패] 개발용 플래그에 따라 Client 응답을 무시했다 — " +
+                                 "응답 대기 timeout 이 그대로 흐르게 둔다(실제 장애가 아니다)",
+                                 $"Nonce={nonce}, ClientId={senderClientId}, " +
+                                 $"SendCount={_hostSendCount}, ResendCount={_hostResendCount}");
+                return;
+            }
+#endif
 
             string clientIdField = "ClientId=" + senderClientId;
 

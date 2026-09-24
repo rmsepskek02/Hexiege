@@ -682,6 +682,80 @@ namespace Hexiege.Application
         // 추후 요청자 표시 등이 필요하면 ClientId/PlayerName 등을 추가.
     }
 
+    /// <summary>
+    /// 재경기가 성립하지 못한 <b>사유</b>. 결과 화면의 <b>문구를 가르는 데만</b> 쓴다.
+    ///
+    /// <para>
+    /// 🔴 <b>왜 사유를 세 가지로만 두는가</b> —
+    /// <c>GameSystemRules_RandomMap.md</c> 규칙 18 이 *"가르는 것은 화면 문구 하나뿐이다"* 라고 정하고,
+    /// 그 기준은 <b>「연결 끊김인가 아닌가」 단 하나</b>다. 실패 사유 자체는 전송 계층에
+    /// 열 가지 넘게 있지만(미지원 버전 · 용량 초과 · 해시 불일치 · 역직렬화 실패 · 공정성 검증 실패 ·
+    /// 응답 없음 …) <b>화면이 달라지는 경계는 하나뿐</b>이므로, 그 열 가지를 여기 그대로 복사하지 않는다.
+    /// 복사해 두면 두 곳이 언젠가 어긋나고, 화면은 그 차이를 쓰지도 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// 🔴 <b>왜 전송 계층의 enum(<c>MapTransferErrorCode</c>)을 그대로 쓰지 않는가</b> —
+    /// 그 타입은 <b>Infrastructure 레이어</b>에 있고, 이 파일(<c>GameEvents</c>)은
+    /// <b>Application 레이어</b>다. Application 이 Infrastructure 의 구체 타입을 노출하면
+    /// 의존 방향이 역행한다(<c>.claude/MEMORY.md</c> 「아키텍처 핵심 제약」).
+    /// 그래서 <b>경계(Infrastructure)에서 이 값으로 바꿔</b> 실어 보낸다 —
+    /// Netcode 타입을 이 채널에 담지 않는 것과 똑같은 이유다.
+    /// </para>
+    /// </summary>
+    public enum RematchMapFailureCause
+    {
+        /// <summary>
+        /// <b>사유를 모른다.</b> 🔴 이 값은 「아무 일도 없었다」가 아니라 <b>「무엇이 실패했는지 통보받지 못했다」</b>는 뜻이다.
+        ///
+        /// 여기에 해당하는 경로는 둘이다.
+        ///   ① 수락을 서버로 <b>아예 보내지 못했다</b>(보내려는 순간 연결이 내려가는 중이었다).
+        ///   ② 맵 준비 <b>한도가 만료</b>됐는데 서버로부터 아무 통보도 오지 않았다.
+        ///
+        /// 🔴 <b>이 값을 <see cref="OpponentDisconnected"/> 로 바꾸지 말 것.</b>
+        ///    두 경로 모두 <b>상대가 나갔을 수도 있고 내 회선 문제일 수도 있다</b> —
+        ///    둘을 구분할 근거가 없다. 「상대가 나갔다」로 단정하면 사용자에게 거짓을 말할 수 있다
+        ///    (<c>CLAUDE.md</c> 규칙 10 — 추정 금지). 모르면 중립적인 기본 문구를 쓴다.
+        /// </summary>
+        Unknown = 0,
+
+        /// <summary>
+        /// <b>전송 중 연결이 끊겼다</b>(= 상대가 사라졌다). 🔴 규칙 18 이 문구를 가르는 <b>유일한 기준</b>이다.
+        /// 이 경우에만 결과 화면이 「상대가 나갔다」는 뜻의 문구를 쓴다.
+        /// </summary>
+        OpponentDisconnected = 1,
+
+        /// <summary>
+        /// <b>연결 끊김이 아닌, 서버가 알려 준 다른 실패 사유</b>(해시 불일치 · 역직렬화 실패 ·
+        /// 공정성 검증 실패 · 미지원 버전 · 용량 초과 · 응답 없음 등).
+        ///
+        /// ⚠️ 화면에서는 <see cref="Unknown"/> 과 <b>같은 문구</b>를 쓴다(규칙 18 — 기준은 연결 끊김 하나뿐).
+        ///    그래도 값을 따로 두는 이유는 <b>「모른다」와 「알지만 연결 끊김은 아니다」가 서로 다른 사실</b>이고,
+        ///    그 차이는 나중에 로그·진단을 읽는 사람에게 필요하기 때문이다.
+        /// </summary>
+        Other = 2
+    }
+
+    /// <summary>
+    /// 재경기용 새 맵 준비·전송·검증이 실패했음을 결과 화면에 알리는 payload.
+    ///
+    /// ⚠️ 종전에는 이 채널이 <c>Subject&lt;Unit&gt;</c>(값 없는 신호)이었다.
+    ///    규칙 18 이 「사유에 따라 문구를 가른다」고 정해 <b>사유를 실어야</b> 하게 됐고,
+    ///    같은 규칙이 *"새 이벤트도 만들지 않는다"* 고 못 박았으므로
+    ///    <b>채널을 새로 만들지 않고 기존 채널의 타입만 바꿨다</b>(구독처·발행처 개수는 그대로다).
+    ///    모양은 같은 파일의 <see cref="NetworkRematchRequestedEvent"/> 선례를 따른다.
+    /// </summary>
+    public readonly struct NetworkRematchMapFailedEvent
+    {
+        /// <summary>실패 사유. 결과 화면은 이 값이 <see cref="RematchMapFailureCause.OpponentDisconnected"/> 인지만 본다.</summary>
+        public readonly RematchMapFailureCause Cause;
+
+        public NetworkRematchMapFailedEvent(RematchMapFailureCause cause)
+        {
+            Cause = cause;
+        }
+    }
+
     // OnLocalRematchRequested / OnLocalRematchAccepted / OnLocalRematchDeclined:
     //   UI(GameEndUI 버튼 / RematchRequestPopup 버튼) 측에서 발행하여
     //   NetworkGameEndController가 구독해 ServerRpc를 보내는 흐름이다.
@@ -1052,8 +1126,16 @@ namespace Hexiege.Application
         /// ⚠️ 실패를 알리는 <b>팝업·문구·로딩 표시는 이번 범위가 아니다</b>
         ///    (GameSystemRules_UI.md 「공통 UI 규칙」 규칙 M-3 의 "팝업 여부 미정" 표시).
         ///    지금 이 신호가 하는 일은 <b>상태 복원</b>뿐이다.
+        ///
+        /// 🔴 <b>[2026-09-24 갱신 — 위 ⚠️ 한 줄은 그대로 둔다]</b> 그 줄은 더 이상 전부 참이 아니다.
+        ///    규칙 M-3 이 「상태 줄로 알린다」로 개정되면서 <b>문구가 확정</b>됐고(팝업은 여전히 띄우지 않는다),
+        ///    규칙 18 이 <b>사유에 따라 그 문구를 가르라</b>고 정했다. 그래서 이 채널의 타입이
+        ///    <c>Subject&lt;Unit&gt;</c> → <c>Subject&lt;<see cref="NetworkRematchMapFailedEvent"/>&gt;</c> 로 바뀌었다.
+        ///    🔴 <b>바뀐 것은 타입 하나뿐이다</b> — 규칙 18 이 *"새 이벤트도, 새 로그 키도 만들지 않는다"* 고
+        ///    했으므로 채널을 새로 파지 않았고, 구독처도 여전히 <c>GameEndUI</c> 한 곳이다.
         /// </summary>
-        public static readonly Subject<Unit> OnNetworkRematchMapFailed = new Subject<Unit>();
+        public static readonly Subject<NetworkRematchMapFailedEvent> OnNetworkRematchMapFailed
+            = new Subject<NetworkRematchMapFailedEvent>();
 
         /// <summary>
         /// 서버가 재경기를 시작(Game 씬 재로드 직전)했음을 모든 클라이언트에 알리는 이벤트.
@@ -1095,7 +1177,11 @@ namespace Hexiege.Application
         /// <b>왜 실어 보내는 값(payload)이 없는가</b>:
         ///   1대1 게임이라 「누가 나갔는가」를 보낼 필요가 없다 — 받는 쪽에게 사라질 상대는 한 명뿐이다.
         ///   UniRx 의 <c>Subject&lt;Unit&gt;</c> 은 값 없이 「신호만」 보내는 관용 패턴이며,
-        ///   같은 파일의 OnNetworkRematchDeclined · OnNetworkRematchMapFailed 가 같은 모양이다.
+        ///   같은 파일의 OnNetworkRematchDeclined · <s>OnNetworkRematchMapFailed</s> 가 같은 모양이다.
+        ///   ⚠️ <b>[2026-09-24 정정 — 윗줄은 그대로 둔다]</b> OnNetworkRematchMapFailed 는 더 이상
+        ///   <c>Subject&lt;Unit&gt;</c> 이 아니다(규칙 18 이 실패 사유를 문구 분기에 쓰라고 정해
+        ///   payload 가 붙었다). 같은 모양의 선례로 남아 있는 것은 <b>OnNetworkRematchDeclined</b> 다.
+        ///   🔴 이 채널(OnNetworkOpponentLeft)은 <b>바뀌지 않았다</b> — 위 문단의 이유가 그대로 유효하다.
         ///
         /// 🔴 <b>레이어 경계 — 여기에 Netcode 타입을 담지 않는다</b>:
         ///   이 채널은 Application 레이어에 있고, Application 은 <c>Unity.Netcode</c> 를 직접 참조하지 않는다

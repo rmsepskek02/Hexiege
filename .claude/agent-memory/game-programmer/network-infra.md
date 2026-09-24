@@ -922,3 +922,99 @@ UI side). The Infrastructure side contributes one of them:
   next reader will ask "why isn't this an RPC here".
 - 🔴 **Infrastructure still never calls Presentation directly** — the existing `GameEvents` channel is what
   keeps the layer direction intact. Do not "simplify" this into a `UIManager`/`GameEndUI` call.
+
+---
+
+## 개발용 강제 실패 플래그 + 실패 사유를 화면까지 나르기 (2026-09-24)
+
+Rule source: `GameSystemRules_RandomMap.md` **규칙 18**(사유에 따라 문구를 가른다 · 새 이벤트/새 로그 키 금지)
+· **규칙 16**(재전송은 timeout·조각 불완전 수신뿐). Plan: `_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md` §8.
+
+**Files**: `Infrastructure/Debug/ForcedMapTransferFailure.cs`(신규, 파일 전체 `#if UNITY_EDITOR`) ·
+`Assets/Editor/Debug/ForceRematchMapFailureMenu.cs`(신규) ·
+`Infrastructure/Network/NetworkMapTransfer.cs` · `Infrastructure/Network/NetworkGameManager.cs` ·
+`Infrastructure/Network/NetworkGameEndController.cs` · `Application/Events/GameEvents.cs` ·
+`Presentation/UI/GameEndUI.cs`. **씬·프리팹·에셋 0건.**
+
+### A. 강제 실패 플래그 — 되풀이해서 쓸 수 있는 형태
+
+- 🔴 **에디터 메뉴 스크립트는 런타임 코드를 참조할 수 있지만 그 반대는 불가능하다.** `Assets/Editor/**` 는
+  `Assembly-CSharp-Editor` 로 컴파일되고 그 어셈블리는 `Assembly-CSharp` 를 참조한다 — **역방향 참조는 없다.**
+  그래서 플래그의 **저장소는 런타임 어셈블리에 두고**(`Infrastructure/Debug/`, 파일 전체 `#if UNITY_EDITOR`)
+  **메뉴만 `Assets/Editor/` 에** 둔다. 이 분리를 모르고 홀더를 `Assets/Editor/` 에 만들면
+  전송 계층이 그 타입을 볼 수 없어 컴파일이 깨진다.
+- **저장은 `EditorPrefs`**(키 `Hexiege.Debug.ForcedRematchMapFailure.ErrorCode`, 값은 `MapTransferErrorCode` 정수).
+  🔴 `[SerializeField]` 로 두지 않은 이유 둘: ① 이 프로젝트에서 **직렬화 값이 코드 기본값을 이겨서 두 번 물렸다**
+  (`_autoReturnSeconds` 30→60) ② **켠 채로 커밋되면 다른 사람도 실패를 겪는다.** EditorPrefs 는 씬 파일 밖이다.
+- 🔴 **「읽고 지우기」를 한 메서드(`TryConsume`)로 묶었다** — 읽기와 끄기를 나누면 호출부가 끄는 것을 빠뜨려
+  **모든 재경기가 계속 실패**하게 된다. 선례는 `MapHandoff` 의 「읽고 비운다」. **자동 해제가 일어나는 자리는
+  `TryConsume` 안 하나뿐이다.** 상태를 볼 수단(메뉴 「현재 설정 확인」)을 함께 둔 이유는 **예약이 화면 어디에도
+  보이지 않기 때문**이다.
+- **주입 지점은 `NetworkMapTransfer.StartHostRound` 의 정상 분기 끝**(회차 로그 다음, `SendHostPackage` 앞).
+  그 자리에서는 `_hostRoundKind`·`_hostHash`·`_hostTotalBytes` 가 이미 채워져 있어 **실패 로그 필드가 진짜
+  실패와 똑같이 나온다.** 조건은 `!isProbe && roundKind == Rematch` — **최초 경기를 실패시키면 로비에서
+  게임이 시작되지 않아 테스트 자체가 불가능해진다.**
+- **즉시 실패는 기존 결말 자리(`FailHostRound` + `ToOutcomeKey(code)`)를 그대로 탄다.** 새 실패 경로를 만들면
+  「테스트에서 본 화면」과 「실제로 나는 화면」이 달라질 수 있어 도구의 의미가 사라진다.
+  ✅ 뒤따르는 `BeginMapTransferRound` 의 `!started` → `FailMapTransferGate` **중복 통보는 이미 막혀 있다**
+  (`_mapTransferGateSettled`) — 그 가드의 주석이 정확히 이 경우를 예상해 적혀 있었다.
+- 🔴 **`ResponseTimeout` 만 즉시 실패시키지 않는다 — 실제 timeout 경로를 태웠다.** 회차를 정상적으로 보내고
+  **Client 의 `MapReady` 응답만 무시**한다(`_forcedTimeoutNonce` 를 그 회차 nonce 로 기억 →
+  `MapReadyServerRpc` 가 nonce 일치 시 `return`). 그러면 10초 → 재전송 1회(`MapTransferRetried`) → 다시 10초 →
+  `ResponseTimeout` 실패가 **진짜 경로 그대로** 난다. 즉시 실패시키면 **재전송이 한 번도 일어나지 않아**
+  결과 화면의 「맵 준비 한도」(`TransferTimeoutSeconds × (MaxResendCount + 1)`)가 두 창을 재는지 확인할 수 없다.
+  ✅ Client 쪽 재전송 수신은 이미 구현돼 있어 손댈 것이 없었다(`isResend` 분기가 재조립기를 새로 만들고
+  `_outcomeLogged` 를 유지해 결말 로그가 두 줄이 되지 않는다).
+- **nonce 로 기억하면 비우는 코드가 필요 없다** — nonce 는 회차마다 1씩 올라가므로 지난 회차 값이 다음 회차에
+  우연히 맞을 수 없다(0 은 어떤 회차에도 걸리지 않는다). `_hostIsProbe`/`_hostRoundKind` 가 「갱신 자리를
+  빠뜨려」 물렸던 함정을 **구조적으로 회피**한 형태다.
+- **로그**: 강제 실패는 `GameLog.Dev.Warn` + `Forced=<code>` 필드를 남긴다 — 나중에 로그를 보는 사람이
+  **「진짜 실패」와 「강제 실패」를 구분해야** 한다. 새 `LogEvent` 키는 만들지 않았다(운영 지표는 진짜 실패의 것).
+- ⚠️ **§8 확정 블록과 다른 선택 1건**: 확정 블록은 `#if UNITY_EDITOR || DEVELOPMENT_BUILD` 였는데
+  **`UNITY_EDITOR` 만으로 좁혔다.** 근거 — 조작 수단이 에디터 메뉴뿐이라 실기기에서는 켤 방법이 없고
+  (켤 수 없는 코드를 개발 빌드에 넣으면 죽은 코드다), 확정 블록의 의도(*"릴리스에서 통째로 사라진다"*)는
+  좁을수록 더 강하게 충족된다. **문서 개정이 필요한 차이이며 문서는 건드리지 않았다.**
+
+### B. 실패 사유를 결과 화면까지 나르기 (규칙 18)
+
+- 🔴 **`GameEvents`(Application)에 `MapTransferErrorCode`(Infrastructure)를 담을 수 없다.** 그래서
+  **Application 레이어에 사유 enum 을 따로 뒀다** — `RematchMapFailureCause { Unknown, OpponentDisconnected, Other }`
+  + payload `NetworkRematchMapFailedEvent`. 열 가지 넘는 error code 를 **세 개로 접은** 이유는 규칙 18 의
+  판정 기준이 **「연결 끊김인가 아닌가」 하나뿐**이기 때문이다. 전송 계층 enum 을 복사하면 두 벌이 언젠가 어긋나고
+  화면은 그 차이를 쓰지도 않는다. **경계 변환은 `NetworkGameEndController.ToRematchFailureCause` 한 자리뿐.**
+- 🔴 **`Unknown` 과 `Other` 를 굳이 가른 이유**: 「모른다」와 「알지만 연결 끊김은 아니다」는 **다른 사실**이고
+  그 차이는 로그를 읽는 사람에게 필요하다. **화면 문구는 둘이 같다**(규칙 18).
+  `MapTransferErrorCode.None` → `Unknown` 으로 보내는데, `None` 이 오는 경로는 **전송이 시작조차 못 한** 실패
+  (`NotServer` · 프리팹 누락 · 중복 요청 · 매니저 없음)라 **전송 계층이 판정한 사유가 애초에 없다.**
+- **Infrastructure 내부 콜백 타입을 `Action<string>` → `Action<string, MapTransferErrorCode>` 로 늘렸다**
+  (`_mapTransferFailureAction` · `BeginRematchMapTransfer` · `BeginMapTransferRound` · `FailMapTransferGate`
+  (기본값 `None`)). 🔴 **사유 문자열을 파싱해 가르지 않았다** — `"MapTransferFailed:Disconnected"` 를
+  `Contains` 로 가를 수는 있지만 **로그용 문장에 동작을 의존시키는 것**이라 문장을 다듬는 순간 조용히 깨진다.
+  ✅ **최초 경기용 `OnMapTransferFailed`(`Action<string>`, 구독자 `BattleViewModel`)는 손대지 않았다** —
+  규칙 18 은 결과 화면 규정이라 로비에 적용되지 않는다(회귀 면적 0).
+- **RPC 인자는 `int`**(`NotifyRematchMapFailedClientRpc(int cause)`). 같은 파일군의 관례
+  (`MapReadyServerRpc` 의 error code, `MapPrepareBeginClientRpc` 의 회차 표식)를 따랐다. 🔴 **정의되지 않은
+  정수가 오면 `Unknown` 으로 떨어뜨린다**(`ToKnownFailureCause`) — 서로 다른 버전의 빌드가 붙었을 때 모르는 값을
+  「상대가 나갔다」로 단정할 위험을 막는다.
+- 🔴 **로컬 발행 경로(`SendAcceptRematchSafely` 의 catch)는 `Disconnected` 가 아니라 `Unknown` 을 싣는다.**
+  근거(`CLAUDE.md` 규칙 10): **못 보낸 이유를 모른다** — 상대가 나갔을 수도 있지만 **내 회선 문제일 수도 있다.**
+  「상대방이 나가서」로 단정하면 **거짓을 말할 수 있다.** 같은 판단으로 **한도 만료 경로도 `Unknown`** 이다
+  (무엇이 실패했는지 통보가 오지 않았다는 뜻 그대로다). 이 근거는 코드 주석에도 남겼다.
+- ✅ **채널 수는 그대로다** — 발행처 **2곳**(ClientRpc · 로컬 catch) · 구독처 **1곳**(`GameEndUI`).
+  규칙 18 의 *"새 이벤트도 만들지 않는다"* 를 지키느라 **타입만** 바꿨다.
+
+### 검증 — 무엇이 확인됐고 무엇이 안 됐나
+
+- 🔴 **Unity 컴파일은 확인 불가**(`UnityEngine`/`Unity.Netcode`/`UniRx`/`TMPro` 참조). 대신 **`mcs -langversion:latest`
+  로 7개 파일을 함께 파싱**해 **구문 오류 0건**을 확인했다 — 남은 오류는 전부 `CS0246`/`CS0234`(없는 타입·네임스페이스)
+  와 그 결과인 `CS0115` 뿐이다. ⚠️ **타입이 대부분 미해결이라 멤버 단위 검사(인자 개수·변환)는 끝까지 가지 않았다.**
+  이 방법은 「구문은 맞다」까지만 증명한다. **되풀이해서 쓸 수 있는 기법이다**(기존 하네스보다 싸다).
+  ⚠️ 부산물: `GameEvents.cs` 의 **기존** `= new();` 2줄이 mcs 에서 파싱되지 않는다(C# 9 target-typed new) —
+  내 코드 문제가 아니며, 검사할 때는 사본에서 그 두 줄만 치환했다.
+- **주석·문자열을 걷어낸 중괄호/괄호 균형** 7개 파일 전부 일치.
+- ⚠️ **런타임 동작은 0건 확인.** 강제 실패가 실제로 발동하는지, 문구가 갈리는지 전부 **미검증**이다.
+- ⚠️ **관찰(고치지 않음)**: 실패한 회차의 전송 객체는 **디스폰되지 않고 씬에 남는다**(기존 동작 —
+  `CleanupMapTransferSubscription` 은 구독만 푼다). 강제 실패를 연속으로 쓰면 그 객체가 쌓인다. 객체마다
+  회차 상태가 독립이라 교차 오염은 없고, 재경기가 성공하면 `StartRematch()` 의 despawn 루프가 정리한다.
+  또 `ResponseTimeout` 경로에서는 **Client 만 `MapHandoff.Set`** 을 한 상태로 Host 가 실패한다 —
+  이것도 진짜 timeout 과 완전히 같은 모양이라 그대로 두었다(**범위 밖**).

@@ -2745,3 +2745,128 @@ refresh reads as a new decision. Mirror one pointer line into the sibling docume
 The 확정 happened in the 2026-09-22 conversation; the file was written on 2026-09-24. Label blocks by the
 decision's date (matching its siblings) and add one line: *"문서 편집은 세션이 날을 넘겨 2026-09-24 에 했다."*
 Neither a wrong date nor a hidden one.
+
+---
+
+## §34. Recording an implementation that is **narrower than the approved text** — and finding a home for a 「how to use it」 procedure (2026-09-24, post-game-leave-ui 단계 9 + §8 14-4)
+
+Two things shipped in one round: the 문구 split 규칙 18 asked for, and the **에디터 전용 강제 실패 플래그** that
+makes the failure screen observable at all. Both are `⚠️ 구현 완료 · 실기 미검증` (§30-1's cell), so the round's
+artifacts are placement decisions and graded facts, not a completion claim.
+
+### 34-1. 🔴 An implementation that is **narrower** than what the user approved is a deviation to record, not a silent win
+
+확정 블록은 `#if UNITY_EDITOR || DEVELOPMENT_BUILD` 였고 구현은 **`#if UNITY_EDITOR`** 였다. Shape of the repair:
+
+- **Keep the original string** (B-7) and add a **two-row table** (`구분 / 확정 / 구현`) — one row, because exactly
+  one attribute moved. §33-1's table shape, minimal case.
+- 🔴 **Lead the rationale with the negation of the obvious reading**: 「의도가 뒤집힌 것이 아니라 **더 좁게
+  지켜졌다**」. The 확정's stated intent was *"릴리스 빌드에서 통째로 사라지게 한다"*, and a narrower guard
+  satisfies it **more** strongly. Without that sentence the reader files it as 「승인받은 사양을 어겼다」.
+- The load-bearing reason is a **fact about the tool's only entry point**: 조작 수단이 에디터 메뉴뿐이라
+  개발 빌드에서는 **켤 방법이 없다** → 넣으면 **죽은 코드**다. Record the reason of that shape, not a preference.
+- Add the **cost of reverting** (「되돌리려면 저장 수단부터 새로 만들어야 한다」) so a later round knows the
+  deviation is not a one-character toggle.
+- ⚠️ The original string also lives in **status documents** that quoted the 확정 (`PROJECT_STATUS.md` 의
+  미착수 줄 두 곳). Grep the string, append a marker in each, and say 「위 괄호의 그 표기는 **확정 당시의
+  표기**」 — never edit the quote.
+
+### 34-2. 🔴 Where a 「how to use this tool」 procedure lives is decided by **reachability**, not by subject
+
+The order said: put it where a person can find it, reachable from `AGENTS.md`. The decisive fact is that
+**`_Tasks/` is not in the `AGENTS.md` index at all** — a procedure written only in the Plan is unfindable, no
+matter how well it fits there topically.
+
+- Chosen home: **`TechnicalDesignDocument.md` 「💻 개발 환경」 에 H3 절 신설**, because the tool *is* part of the
+  dev environment, TDD is indexed, and TDD already owns this feature area's structure sections.
+- **Precedent that settles the shape**: `LogRules.md` keeps the Logcat 메뉴 절차 (메뉴 항목 이름·순서·실행 시점)
+  in the document that owns logging. A tool's manual belongs to a 상시 참조 문서, not to the task record.
+- The new section's first line must say 🔴 **「이 절은 「도구를 어떻게 쓰는가」의 단일 소스이고, 무엇을 띄우는지
+  (사양)는 규칙이 정한다」** with pointers — otherwise the procedure slowly absorbs the spec.
+- Amend the index **row's description** (not a new row) so the index sentence names the procedure. A new row for a
+  section of an existing document would give one file two index identities.
+- 🔴 **Write the placement reason into the Plan** (「왜 여기가 아니라 거기인가」) — the next round asks the same
+  question, and the answer is a property of the doc tree, not of this tool.
+- TDD carries a 개정 이력 표 → new version row + header 버전·최종 수정일 bump (§19's rule), and the row says
+  **설계 조항 변경 0건** so the version bump is not read as an architecture change.
+
+### 34-3. Splitting the **문구** of an existing state is not adding a state — say it literally
+
+규칙 D-7's 네 번째 상태(「재경기 실패」) had one string; now it has two, keyed on 「연결 끊김인가」.
+
+- 🔴 First sentence of the block: **「상태가 다섯으로 늘어난 것이 아니다 — 상태는 그대로 넷이고, 갈라진 것은
+  「실패」 상태의 문구뿐이다.」** A state machine's reader counts states; a silent split makes them recount.
+- ⚠️ Also re-state what did **not** move: 우선순위 「이탈 > 실패 > 평시」(§33-7). The measurement that backs it is
+  that the branch site is still **one** ternary chain — say that, because "priority unchanged" is otherwise a claim
+  about intent rather than about code.
+- **Second sighting of §33-6's cell-level repair**: the earlier 문구 표 row is now only the 「연결 끊김이 아닌
+  경우」 문구, so append 「그 표의 그 칸은 이 블록이 단일 소스」 instead of editing the table.
+- The 2-row 문구 table belongs in **one** document (the UI rule, which 규칙 18 itself deferred to), and 규칙 18
+  gets a pointer only — 🔴 including the sentence that the deferral's destination **is this block**, so the two
+  documents cannot drift into two copies.
+
+### 34-4. 🔴 「모르면 중립 문구」 is a rule-level judgment — table it with the 「왜」 column
+
+사유를 모르는 경로가 둘(수락 전송 실패 · 한도 만료)이고 둘 다 기본 문구다. The reusable part is not the
+mapping but the argument:
+
+- Two-row table whose second column is **why this path cannot know** (상대가 나갔을 수도, **내 회선일 수도**),
+  then one 🔴 line: 「단정하면 **사용자에게 거짓을 말하게 된다**」(`CLAUDE.md` 규칙 10). §32-5's third-column
+  form, applied to causes instead of roles.
+- Close it with the **forward-looking** sentence — 「앞으로 이 화면에 「상대가 나갔다」는 뜻의 표시를 새로 놓을
+  때도 같은 기준으로 판단한다」 — which is what turns one decision into a criterion.
+- Record **why two enum members share one string** (`Unknown` vs `Other`): 「모른다」와 「알지만 연결 끊김은
+  아니다」는 다른 사실이고 **로그를 읽는 사람에게** 필요하다. ⚠️ 그리고 「화면 문구는 둘이 같다」를 같은 자리에
+  적는다, or the next reader adds a third string to justify the third member.
+
+### 34-5. Documenting a debug tool: the artifact is 「진짜와 어떻게 구별하는가」 + which number it is the **only** observer of
+
+- 🔴 A forced-failure tool that reuses the real ending path leaves logs that look like a real outage. So the section
+  needs a **구별법** block: immediate-failure 사유 carry `[강제 실패] … (실제 장애가 아니다)` in the 결말 로그,
+  while the **real-path 사유 (`ResponseTimeout`) has no marker in the 운영 결말 줄** — its evidence is a *different*
+  line (회차 시작 시점의 개발 로그 `Forced=…`). ⚠️ Write that asymmetry down; it is exactly what a tester misreads.
+- **Name what only this variant can observe.** `ResponseTimeout` is the only 사유 that goes through
+  timeout → 재전송 1회 → timeout, so it is the **only way to check the 「맵 준비 한도」가 두 창을 재는지**
+  (the number §33-6 recorded as corrected). A tool's per-option value is what the option *uniquely* verifies.
+- The 성질 list that must be in the procedure, because each one is a trap: 릴리스 빌드에 없다 / 씬·프리팹에
+  저장되지 않는다 / **한 번 쓰면 꺼진다** / **재경기 회차에만** 걸린다 / 새 실패 경로 0개.
+- 🔴 **Design reasons that prevent user error are part of the manual**, not trivia: 「읽기」와 「끄기」를 한
+  메서드로 묶어 호출부가 끄는 것을 빠뜨릴 수 없게 했다(선례 `MapHandoff`); 최초 경기에 걸리면 게임 자체가
+  시작되지 않아 테스트가 불가능해진다.
+
+### 34-6. 🔴 `grep -c` says 1 where declarations are 0 — the token's legitimate home is the comment that forbids it
+
+Hand-off: *"`[SerializeField]` 0건"*. `grep -c SerializeField` on that file returns **1** — the hit is the header
+comment explaining **why it was not used**.
+- Write it as **「선언 0건 · 「쓰지 않은 이유」를 적은 주석 1회」**, never as a bare 0 or a bare 1.
+- This is the mirror of `.claude/mistakes.md` 2026-08-26 (**quoting a banned token in an explanation blocks the
+  「잔존 0건」 check**): here the quote is *correct* and my count had to account for it. Same mechanism as §30-7's
+  same-name method trap — **the counted string is not the counted thing.**
+
+### 34-7. Two unverified items from the **same** round: say they share one setup (the inverse of §30-2)
+
+§30-2 recorded two 미검증 items whose setups **differ**. Here 단계 9 and the flag are verified by **one** test
+(에디터를 Host 로 두고 한 판 → 메뉴에서 사유 → 재경기), and that setup happens to match the `ForceWin` item's
+「에디터가 Host」 requirement while **not** matching 단계 8's.
+- 🔴 Write the sameness as explicitly as §30-2 wrote the difference, and in the same cells — otherwise the next
+  tester runs three sessions for what needs two.
+- Keep the 「무관한 것」 habit: for this tool **the 실기기 is only the opponent**; 실패 판정은 Host 가 하고
+  문구도 그 화면에 뜬다. That single sentence is what justified narrowing the guard (34-1).
+
+### 34-8. A row that stays `⬜ 미착수` while its **description** goes stale (extends §29-1)
+
+단계 10's status did not change this round, but its text (*"맵 준비 실패 알림 팝업 (M-3 · M-4)"*) is stale: 규칙 M-3
+was revised to a 상태 줄 and that half shipped in an earlier round, so only **싱글 규칙 M-4** remains.
+- §29-1 was a stale **status cell** with valid text. This is the opposite: **valid status, stale text.** Repair =
+  leave the status cell untouched, append a marker that (a) says the status did **not** change this round,
+  (b) names what disappeared and where its single source is, (c) 🔴 states that the sibling's 미정 표시 **is still
+  alive** and that this round did not touch it (§33-2's 살아 있는 형제 line).
+- Add the measurement that bounds the round: **`ShowAlert` 실호출처 여전히 1건, 이번 작업으로 늘지 않았다.**
+
+### 34-9. Two small recurring notes
+
+- **New `.cs` files with no `.meta`** (third sighting of §16-6's class): write 「이 체크아웃에서는 Unity 가 아직
+  import 하지 않은 상태」 + 🔴 「결함 주장이 아니다」. Do not infer anything about the commit from it.
+- 🔴 **Deciding not to write a commit hash is itself a record.** Earlier rounds carried hashes as **전달값**; this
+  round got none, so every document says **「커밋 해시는 적지 않는다 — 규칙 5 로 git 을 실행할 수 없어 확인할
+  수단이 없다」**. An empty 커밋 칸 with no sentence reads as a forgotten field.

@@ -208,6 +208,40 @@ namespace Hexiege.Presentation
         /// </summary>
         private const string RematchFailedCountdownFormat = "재경기를 시작할 수 없습니다. {0}초 후 로비로 돌아갑니다.";
 
+        /// <summary>
+        /// 재경기가 <b>상대가 나가서</b> 성립하지 못했을 때 상태 줄에 표시할 문구.
+        /// <c>{0}</c> 자리에 남은 초가 들어간다.
+        ///
+        /// <para>
+        /// 🔴 <b>왜 실패 문구를 둘로 가르는가</b> —
+        /// <c>GameSystemRules_RandomMap.md</c> 규칙 18: *"플레이어에게 「맵 준비가 실패했다」와
+        /// 「상대가 나갔다」는 **할 수 있는 일이 다르다.** 앞쪽은 다시 시도할 여지가 있고 뒤쪽은 없다."*
+        /// 그런데 <b>되돌리는 절차 자체는 두 경우가 완전히 같으므로</b>, 절차를 복제하지 않고
+        /// <b>표시만</b> 가른다(같은 규칙: *"가르는 것은 화면 문구 하나뿐이다"*).
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>이 문구를 쓰는 조건은 하나뿐이다</b> — 실패 사유가
+        /// <see cref="RematchMapFailureCause.OpponentDisconnected"/> 일 때. 사유를 <b>모를 때는
+        /// 이 문구를 쓰지 않는다</b>(위 <see cref="RematchFailedCountdownFormat"/> 을 쓴다).
+        /// 모르는데 「상대가 나갔다」고 쓰면 <b>거짓을 말할 수 있기</b> 때문이다
+        /// (<c>CLAUDE.md</c> 규칙 10 — 추정 금지. 자세한 근거는
+        /// <c>NetworkGameEndController.SendAcceptRematchSafely</c> 의 catch 주석).
+        /// </para>
+        ///
+        /// ⚠️ <b>이 문구를 주석이나 다른 파일에 베껴 적지 말 것.</b> 사본이 하나라도 생기면
+        ///    「문구가 코드에 한 곳만 있는가」를 확인하는 grep 이 무용해진다
+        ///    (<see cref="OpponentLeftCountdownFormat"/> 에서 실제로 겪은 일이다).
+        ///    가리켜야 할 때는 문구 대신 <b>이 상수 이름</b>을 쓴다.
+        ///
+        /// ⚠️ <see cref="OpponentLeftCountdownFormat"/>(규칙 D-1)과 <b>다른 자리·다른 사실</b>이다.
+        ///    그쪽은 「경기가 끝난 뒤 상대가 사라졌다」는 이탈 판정 문구이고, 이쪽은
+        ///    「재경기를 만들다가 상대가 사라져 재경기가 안 됐다」는 실패 문구다.
+        ///    둘이 동시에 성립하면 <b>이탈 문구가 이긴다</b>(우선순위는 <see cref="CountdownCoroutine"/> 참조).
+        /// </summary>
+        private const string RematchFailedByOpponentLeftCountdownFormat =
+            "상대방이 나가서 재경기를 시작할 수 없습니다. {0}초 후 로비로 돌아갑니다.";
+
         // ====================================================================
         // 색상 설정
         // ====================================================================
@@ -287,6 +321,29 @@ namespace Hexiege.Presentation
         private bool _rematchFailed;
 
         /// <summary>
+        /// 재경기가 실패했다면 <b>그 사유</b>. 상태 줄이 실패 문구 <b>둘 중 하나</b>를 고를 때만 쓴다
+        /// (규칙 18 — 가르는 것은 화면 문구 하나뿐이다).
+        ///
+        /// <para>
+        /// 🔴 <b>가르는 기준은 「연결 끊김인가 아닌가」 하나뿐이다.</b>
+        /// <see cref="RematchMapFailureCause.OpponentDisconnected"/> 면
+        /// <see cref="RematchFailedByOpponentLeftCountdownFormat"/>, 그 밖이면
+        /// <see cref="RematchFailedCountdownFormat"/> 을 쓴다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>기본값이 <see cref="RematchMapFailureCause.Unknown"/> 인 것이 중요하다.</b>
+        /// 실패 3경로 중 <b>둘은 사유를 모른다</b> — ① 수락을 서버로 못 보낸 경우와
+        /// ③ 준비 한도가 만료된 경우다. 모를 때 「상대가 나갔다」로 단정하면 거짓이 될 수 있으므로
+        /// <b>중립적인 기본 문구</b>로 떨어진다(CLAUDE.md 규칙 10 — 추정 금지).
+        /// </para>
+        ///
+        /// ⚠️ 내리는(되돌리는) 자리는 <see cref="_rematchFailed"/> 와 완전히 같다 —
+        ///    깃발이 내려가면 이 값도 의미가 없어지므로 함께 되돌린다.
+        /// </summary>
+        private RematchMapFailureCause _rematchFailureCause = RematchMapFailureCause.Unknown;
+
+        /// <summary>
         /// 「재경기 준비 중」 상태의 맵 준비 한도 코루틴. null 이면 돌고 있지 않다.
         ///
         /// 🔴 <b>이 시계는 아무것도 판정하지 않는다.</b> 승패도, 상대 이탈도, 연결 종료도 하지 않는다.
@@ -361,6 +418,8 @@ namespace Hexiege.Presentation
 
             // 🔴 [실패 깃발 내리는 자리] 지난 판의 실패가 새 결과 화면까지 따라오면 안 된다.
             _rematchFailed = false;
+            // 깃발과 **같은 자리에서** 사유도 되돌린다(지난 판의 사유가 새 화면 문구를 고르면 안 된다).
+            _rematchFailureCause = RematchMapFailureCause.Unknown;
 
             // 지난 판의 「재경기 준비 중」 시계가 남아 있으면 여기서 확실히 끊는다.
             // (재경기로 씬이 재로드되면 이 컴포넌트도 새로 만들어지지만,
@@ -390,8 +449,11 @@ namespace Hexiege.Presentation
             //   ✅ **[2026-09-22 갱신]** 종전 주석은 "자동 로비 복귀 카운트다운 재시작도 이번 범위가
             //      아니다" 였으나 **더 이상 사실이 아니다** — 규칙 M-3 의 「전체 길이로 다시 시작」을
             //      이번에 구현했다. 처리는 OnRematchMapFailed() 가 모아서 한다.
+            //   🔴 [2026-09-24] 이 채널이 **실패 사유를 함께 나른다**(규칙 18 — 사유에 따라 문구를
+            //      가른다). 채널을 새로 만들지 않고 **기존 채널의 타입만** 바뀌었으므로
+            //      🔴 구독은 여전히 **이 한 곳뿐**이다(늘거나 줄지 않았다).
             _rematchMapFailedSubscription = GameEvents.OnNetworkRematchMapFailed
-                .Subscribe(_ => OnRematchMapFailed());
+                .Subscribe(e => OnRematchMapFailed(e.Cause));
 
             // ----------------------------------------------------------------
             // [재경기 수락 — 수락한 쪽] 🔴 자기 버튼 입력을 듣는다. 서버 응답이 아니다.
@@ -733,18 +795,50 @@ namespace Hexiege.Presentation
                     //     결과보다 원인을 보여 주는 쪽이 사용자에게 쓸모 있으므로 이탈이 이긴다.
                     //     (반대로 두면 상대가 떠난 것을 알려 줄 기회가 영영 사라진다.)
                     //
-                    //   🔴 두 이탈·실패 문구는 각각 상수 한 곳에만 있다
-                    //      (OpponentLeftCountdownFormat / RematchFailedCountdownFormat).
+                    //   🔴 문구 상수는 각각 코드에 한 곳에만 있다
+                    //      (OpponentLeftCountdownFormat / RematchFailedCountdownFormat /
+                    //       RematchFailedByOpponentLeftCountdownFormat).
                     //      같은 문구를 두 곳에 적으면 한쪽만 고쳐졌을 때 화면에 두 표현이 섞여 나온다.
+                    //
+                    //   🔴 [2026-09-24] 「실패」 안에서 문구가 **둘로** 갈린다 — 규칙 18.
+                    //      기준은 **실패 사유가 연결 끊김인가 아닌가 하나뿐**이다.
+                    //      「맵 준비가 실패했다」와 「상대가 나갔다」는 사용자가 **할 수 있는 일이 다르다** —
+                    //      앞쪽은 다시 시도할 여지가 있고 뒤쪽은 없다. 그래서 문구만 가른다.
+                    //      ⚠️ 우선순위(이탈 > 실패 > 평시)는 **바뀌지 않았다.** 갈라진 것은
+                    //         「실패」 분기 **안쪽**뿐이다.
+                    //      ⚠️ 사유를 **모르면** 기본 문구를 쓴다 — _rematchFailureCause 주석 참조.
                     _countdownText.text =
                           _opponentLeft  ? string.Format(OpponentLeftCountdownFormat, seconds)
-                        : _rematchFailed ? string.Format(RematchFailedCountdownFormat, seconds)
+                        : _rematchFailed ? string.Format(SelectRematchFailedFormat(), seconds)
                         :                  $"{seconds}초 후 로비로 돌아갑니다.";
                 }
                 yield return new WaitForSecondsRealtime(1f);
                 remaining -= 1f;
             }
             ReturnToLobby();
+        }
+
+        /// <summary>
+        /// 실패 상태의 상태 줄 문구 <b>형식 문자열</b>을 고른다(규칙 18).
+        ///
+        /// <para>
+        /// 🔴 <b>이 메서드는 「문구를 고르는」 일만 한다 — 화면에 쓰지 않는다.</b>
+        /// 실제로 쓰는 자리는 <see cref="CountdownCoroutine"/> 안의 그 한 줄뿐이며,
+        /// <b>문구 분기가 한 자리에 모여 있다는 성질을 깨지 않으려고</b> 형식 문자열만 돌려준다.
+        /// (본문에 <c>if</c> 를 늘어놓는 대신 삼항 연산자 한 줄로 유지하기 위한 분리다.)
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>가르는 기준은 하나뿐</b> — 사유가 연결 끊김인가.
+        /// 그 밖이면(사유를 <b>모르는 경우도 포함해</b>) 기존 실패 문구를 그대로 쓴다.
+        /// </para>
+        /// </summary>
+        /// <returns>남은 초를 <c>{0}</c> 에 채워 쓸 형식 문자열</returns>
+        private string SelectRematchFailedFormat()
+        {
+            return _rematchFailureCause == RematchMapFailureCause.OpponentDisconnected
+                ? RematchFailedByOpponentLeftCountdownFormat
+                : RematchFailedCountdownFormat;
         }
 
         // ====================================================================
@@ -867,6 +961,7 @@ namespace Hexiege.Presentation
             // 🔴 [실패 깃발 내리는 자리] 지난 시도가 실패했더라도 이제 다시 준비에 들어갔다.
             //    내리지 않으면 아래에서 세울 「재경기 준비 중...」 뒤에도 실패 문구가 되살아난다.
             _rematchFailed = false;
+            _rematchFailureCause = RematchMapFailureCause.Unknown;
 
             // 🔴 자동 로비 복귀 카운트다운을 멈춘다 — 「시스템을 기다리는」 구간이기 때문이다.
             //    StopCountdown() 이 상태 줄을 빈 문자열로 만들므로, 곧바로 아래에서 다시 채운다.
@@ -960,7 +1055,11 @@ namespace Hexiege.Presentation
             _rematchPreparingCoroutine = null;
 
             // [실패 3경로 중 ③] 한도가 지났는데 아무 통보도 오지 않았다.
-            EnterRematchFailedState();
+            //   🔴 사유는 Unknown 이다 — **무엇이 실패했는지 통보가 오지 않았다는 뜻** 그대로다.
+            //      상대가 나갔을 수도 있지만 내 회선 문제일 수도 있어 구분할 근거가 없으므로,
+            //      「상대가 나갔다」로 단정하지 않고 중립적인 기본 문구를 쓴다
+            //      (CLAUDE.md 규칙 10 — 추정 금지).
+            EnterRematchFailedState(RematchMapFailureCause.Unknown);
         }
 
         /// <summary>
@@ -994,15 +1093,20 @@ namespace Hexiege.Presentation
         /// ⚠️ <b>실패를 알리는 팝업은 이번 범위가 아니다</b> — 규칙 M-3 은 팝업을 띄우기로 확정했지만
         ///    <b>표시 문구와 버튼 라벨이 아직 미정</b>이다. 정해지기 전에 문구를 지어내지 않는다.
         /// </summary>
-        private void OnRematchMapFailed()
+        /// <param name="cause">
+        /// 서버(또는 로컬 발행 경로)가 실어 보낸 실패 사유. 🔴 <b>화면 문구를 고르는 데만</b> 쓴다.
+        /// ⚠️ 경로 ① 은 사유를 모르므로 <see cref="RematchMapFailureCause.Unknown"/> 이 들어온다.
+        /// </param>
+        private void OnRematchMapFailed(RematchMapFailureCause cause)
         {
             // [실패 3경로 중 ① · ②] 이 한 채널이 두 경로를 나른다.
             //   ② 서버가 맵 준비 실패를 ClientRpc 로 통보한 경우(원래 용도)
             //   ① 수락을 서버로 아예 못 보내 컨트롤러가 **로컬에서** 같은 채널을 발행한 경우
             //      (RPC 를 보낼 수 없어서 생긴 실패라 RPC 로 알릴 수 없다 —
             //       NetworkGameEndController.SendAcceptRematchSafely 의 catch 주석 참조)
-            //   🔴 두 경로를 가르지 않는다. 사용자에게는 같은 사실이고 화면도 같아야 한다.
-            EnterRematchFailedState();
+            //   🔴 두 경로의 **처리**를 가르지 않는다. 되돌리는 절차는 완전히 같다(규칙 18).
+            //      갈리는 것은 상태 줄 문구 하나뿐이고, 그 판정 재료가 이 cause 다.
+            EnterRematchFailedState(cause);
         }
 
         /// <summary>
@@ -1030,9 +1134,20 @@ namespace Hexiege.Presentation
         ///
         /// 🔴 <b>팝업을 띄우지 않는다</b> — 이유는 <see cref="RematchFailedCountdownFormat"/> 주석 참조.
         /// </summary>
-        private void EnterRematchFailedState()
+        /// <param name="cause">
+        /// 왜 실패했는가. 🔴 <b>하는 일은 상태 줄 문구를 고르는 것 하나뿐</b>이다(규칙 18) —
+        /// 되돌리는 절차(버튼 복원 · 카운트다운 재시작 · 한도 정지)는 사유와 무관하게 완전히 같다.
+        /// ⚠️ 실패 3경로 중 <b>둘은 사유를 모르므로</b>
+        /// <see cref="RematchMapFailureCause.Unknown"/> 을 넘긴다 — 그때는 중립적인 기본 문구가 뜬다.
+        /// </param>
+        private void EnterRematchFailedState(RematchMapFailureCause cause)
         {
             StopRematchPreparingLimit();
+
+            // 🔴 사유를 깃발보다 **먼저** 보관한다. 아래 카운트다운 코루틴이 매 초 이 값을 읽어
+            //    문구를 고르므로, 깃발이 먼저 서면 첫 1초 동안 잘못된 문구가 보일 수 있다.
+            //    (깃발이 카운트다운 재시작보다 앞이어야 하는 것과 같은 이유의 순서다.)
+            _rematchFailureCause = cause;
 
             _rematchFailed = true;
 
@@ -1137,6 +1252,7 @@ namespace Hexiege.Presentation
                 //    깃발을 내려 상태 줄을 평시 문구로 돌려놓는다.
                 //    (다음 초에 카운트다운 코루틴이 새 문구를 쓴다 — 이 깃발이 그 분기를 가른다.)
                 _rematchFailed = false;
+                _rematchFailureCause = RematchMapFailureCause.Unknown;
 
                 // 🔴 로비 복귀 버튼은 여기서 끄지 않는다 (공통 UI 규칙 D-3 「로비 복귀 버튼은 항상 활성」).
                 //    종전에는 "재경기 응답 대기 중"이라는 이유로 이 버튼도 함께 껐는데,
