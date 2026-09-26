@@ -2642,3 +2642,867 @@ UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/com.un
 [03:43:18.346] [WARN] [Network/NetworkGameManager] 클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행 | ClientId=1
 [03:43:18.346] [WARN] [Network/NetworkGameManager] 클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행 | ClientId=1
 [03:43:18.346] [WARN] [Network/NetworkGameManager] 클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행 | ClientId=1
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-09-27 04:27:09 ===
+
+[04:27:09.999] [INFO] [Bootstrap/LoginBootstrapper] Android 가 아니라 GooglePlayGames 활성화를 건너뛴다 | Platform=NonAndroid
+[04:27:11.201] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[04:27:11.208] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[04:27:11.209] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[04:27:11.246] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[04:27:13.038] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[04:27:13.038] [INFO] [Bootstrap/LoginBootstrapper] 자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다 | IsFirstLogin=False
+[04:27:17.320] [INFO] [Network/NetworkGameManager] 초기화 시작
+[04:27:17.321] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[04:27:17.321] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[04:27:17.321] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[04:27:17.322] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[04:27:17.342] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[04:27:26.242] [INFO] [Network/NetworkGameManager] HostGame 시작 | LobbyName=Hexiege Room
+[04:27:26.242] [INFO] [Network/RelayManager] Relay 할당 생성 시작
+[04:27:27.853] [INFO] [Network/RelayManager] Relay 할당 완료 | RelayJoinCode=L6FGP7
+[04:27:27.861] [INFO] [Network/RelayManager] UnityTransport Host 설정 완료
+[04:27:28.277] [INFO] [Network/LobbyManager] Lobby 생성 완료 | Name=Hexiege Room, Code=TJ6LRL, LobbyId=9Tz9VSM62uhvJPTMi5Us6N
+[04:27:28.394] [INFO] [Network/NetworkGameManager] NetworkManager.StartHost() 성공
+[04:27:28.395] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 시작
+[04:27:28.396] [INFO] [Network/NetworkGameManager] Host 게임 시작 완료 | LobbyCode=TJ6LRL
+[04:27:41.261] [INFO] [Network/NetworkGameManager] Client 접속 감지 — OnClientConnected 발행 | ClientId=1
+[04:27:41.272] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 | Role=Host, IsServer=True, NetworkObjectId=1, State=Idle
+[04:27:41.305] [INFO] [Map/NetworkMapTransfer] Host 맵 준비 완료 | Event=MapPreparationSucceeded, MapVersion=2, Seed=6720390750339984519, MapType=Canyon, NeutralMineCount=4, StartingMineSide=CaseB, InitialGold=400, ElapsedMs=22, AttemptCount=1, UsedFallback=False, Hash=022cd61644147ff8, ErrorCode=None
+[04:27:41.306] [INFO] [Network/NetworkMapTransfer] 맵 전송 회차 시작 | Nonce=1, Round=First, IsProbe=False, MapVersion=2, TotalBytes=331, ChunkSize=1024, ChunkCount=1, Hash=022cd61644147ff8
+[04:27:41.307] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 최초 전송 | Role=Host, PreviousState=Idle, State=Sending, Nonce=1
+[04:27:41.314] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 조각을 다 보내고 응답 대기 | Role=Host, PreviousState=Sending, State=WaitingReady, Nonce=1
+[04:27:41.315] [INFO] [Network/NetworkGameManager] OnAllPlayersReady 발행 | ConnectedCount=2
+[04:27:41.476] [INFO] [Network/NetworkMapTransfer] 수신 완료 응답을 받았다 | Nonce=1, ClientId=1, Success=True, ReceivedBytes=331, ErrorCode=None
+[04:27:41.478] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 응답 수신(성공) | Role=Host, PreviousState=WaitingReady, State=Completed, Nonce=1
+[04:27:41.478] [INFO] [Map/NetworkMapTransfer] Host 와 Client 의 최종 맵 해시가 일치한다 | Event=MapTransferSucceeded, Role=Host, Round=First, Nonce=1, MapVersion=2, TotalBytes=331, ChunkCount=1, SendCount=1, ResendCount=0, HostHash=022cd61644147ff8, ClientHash=022cd61644147ff8, HashMatch=True, ErrorCode=None, ClientId=1
+[04:27:41.479] [INFO] [Network/NetworkGameManager] 맵 전송 성공 — 씬 전환 게이트를 통과했다
+[04:27:41.479] [INFO] [Network/NetworkGameManager] Game 씬 로드 시작
+[04:27:43.014] [INFO] [Network/NetworkHealthSync] 네트워크 스폰 | IsServer=True
+[04:27:43.016] [INFO] [Network/NetworkHealthSync] 서버 측 OnEntityDamaged/OnEntityHealed 구독 완료
+[04:27:43.020] [INFO] [Network/NetworkResourceSync] OnResourceChanged 구독 완료
+[04:27:43.021] [INFO] [Network/NetworkResourceSync] 서버 모드로 골드 동기화 시작
+[04:27:43.021] [INFO] [Network/NetworkResourceSync] NetworkVariable 콜백 등록 완료 | IsServer=True
+[04:27:43.022] [INFO] [Network/NetworkUpgradeController] 네트워크 스폰 | IsServer=True
+[04:27:43.024] [INFO] [Network/NetworkSkillController] 네트워크 스폰 | IsServer=True
+[04:27:43.025] [INFO] [Network/NetworkBuildingController] 스폰 완료 | IsServer=True
+[04:27:43.025] [INFO] [Network/NetworkGameEndController] 네트워크 스폰 | IsServer=True
+[04:27:43.026] [INFO] [Network/NetworkGameEndController] 서버 측 OnGameEnd 구독 완료
+[04:27:43.027] [INFO] [Network/ReconnectionHandler] 서버 모드로 재접속 감시 시작 | WaitSeconds=30
+[04:27:43.027] [INFO] [Network/NetworkUnitMovementController] 네트워크 스폰 | IsServer=True
+[04:27:43.027] [INFO] [Network/NetworkCombatController] 네트워크 역할 확정 | Role=Host
+[04:27:43.030] [INFO] [Network/NetworkCombatController] 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged/GameEnd 이벤트 구독 완료
+[04:27:43.031] [INFO] [Network/NetworkTileSync] OnTileOwnerChanged 구독 완료
+[04:27:43.031] [INFO] [Network/NetworkTileSync] 서버 모드로 타일 소유권 동기화 시작 | IsServer=True
+[04:27:43.031] [INFO] [Network/NetworkProductionController] 스폰 완료 | IsServer=True
+[04:27:43.034] [INFO] [Network/NetworkProductionController] 서버 측 생산 이벤트 구독 완료
+[04:27:43.035] [INFO] [Network/NetworkGameFlow] 네트워크 스폰 | IsServer=True, IsHost=True
+[04:27:43.036] [INFO] [Network/NetworkGameFlow] 팀 직접 할당 | IsHost=True, Team=Blue
+[04:27:43.036] [INFO] [Network/NetworkGameFlow] 준비 신호 수신 | ClientId=0, Race=0, ReadyCount=1, ExpectedPlayers=2
+[04:27:43.046] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[04:27:43.054] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[04:27:43.054] [INFO] [Bootstrap/GameBootstrapper] 네트워크 모드 감지 — 맵 로드는 NetworkGameFlow 에 위임한다
+[04:27:45.202] [INFO] [Network/NetworkGameFlow] 준비 신호 수신 | ClientId=1, Race=0, ReadyCount=2, ExpectedPlayers=2
+[04:27:45.203] [INFO] [Network/NetworkGameFlow] 모든 플레이어 준비 완료 — 게임 시작 명령 전송 | BlueRace=0, RedRace=0
+[04:27:45.204] [INFO] [Network/NetworkGameFlow] 게임 시작 ClientRpc 수신 | Team=Blue, BlueRace=0, RedRace=0
+[04:27:45.204] [INFO] [Bootstrap/GameBootstrapper] StartNetworkGame 호출 | Team=Blue
+[04:27:45.205] [INFO] [Bootstrap/GameBootstrapper] ViewConverter 사전 설정 완료 | IsRed=False, MapCenter=(3.75, 0.00, -8.66)
+[04:27:45.369] [INFO] [Network/NetworkGameFlow] 초기 골드 동기화 완료 | BlueGold=5000, RedGold=5000
+[04:27:47.991] [INFO] [Network/NetworkGameEndController] 포기 요청 전송
+[04:27:47.993] [INFO] [Network/NetworkGameEndController] 포기 처리 | ForfeiterClientId=0, ForfeitTeam=Blue, WinnerTeam=Red
+[04:27:47.997] [INFO] [Network/NetworkCombatController] 게임 종료 — 전투 틱 정지
+[04:27:48.001] [INFO] [Network/NetworkGameEndController] AnnounceWinnerClientRpc 수신 | WinnerTeam=Red, LocalTeam=Blue, IsRandomMatch=False
+[04:27:48.002] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 시작 | Clock=ResultScreenLeaveWatch, TimeoutSeconds=30, HeartbeatIntervalSeconds=3, IsServer=True
+[04:28:11.804] [INFO] [Network/NetworkGameEndController] RequestRematchServerRpc 수신 | RequesterClientId=0, PreviousRequesterClientId=18446744073709551615
+[04:28:17.906] [INFO] [Network/NetworkGameEndController] AcceptRematchServerRpc 수신 — 새 맵 준비를 시작한다
+[04:28:17.906] [INFO] [Network/NetworkGameEndController] 재경기 수락 접수 알림 수신 — OnNetworkRematchAccepted 발행
+[04:28:17.907] [INFO] [UI/GameEndUI] 재경기 준비 상태 진입 — 자동 복귀 타이머 정지 + 상태 줄 교체 | IsServer=True, NetworkActive=True, RematchPreparing=True, OpponentLeft=False, RematchFailed=False, LimitSeconds=20
+[04:28:17.908] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 | Role=Host, IsServer=True, NetworkObjectId=15, State=Idle
+[04:28:17.909] [INFO] [Map/NetworkMapTransfer] Host 맵 준비 완료 | Event=MapPreparationSucceeded, MapVersion=2, Seed=17985746036130175912, MapType=ThreeLane, NeutralMineCount=6, StartingMineSide=CaseB, InitialGold=200, ElapsedMs=1, AttemptCount=1, UsedFallback=False, Hash=8421c6adf5eb1756, ErrorCode=None
+[04:28:17.910] [INFO] [Network/NetworkMapTransfer] 맵 전송 회차 시작 | Nonce=1, Round=Rematch, IsProbe=False, MapVersion=2, TotalBytes=339, ChunkSize=1024, ChunkCount=1, Hash=8421c6adf5eb1756
+[04:28:17.911] [WARN] [Network/NetworkMapTransfer] [강제 실패] 개발용 플래그가 켜져 있어 이 재경기 회차의 응답을 일부러 무시한다 — 진짜 timeout·재전송 경로를 태운다 | Nonce=1, Round=Rematch, Forced=ResponseTimeout, TimeoutSeconds=10, MaxResendCount=1
+[04:28:17.912] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 최초 전송 | Role=Host, PreviousState=Idle, State=Sending, Nonce=1
+[04:28:17.912] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 조각을 다 보내고 응답 대기 | Role=Host, PreviousState=Sending, State=WaitingReady, Nonce=1
+[04:28:18.029] [INFO] [Network/NetworkMapTransfer] 수신 완료 응답을 받았다 | Nonce=1, ClientId=1, Success=True, ReceivedBytes=339, ErrorCode=None
+[04:28:18.030] [WARN] [Network/NetworkMapTransfer] [강제 실패] 개발용 플래그에 따라 Client 응답을 무시했다 — 응답 대기 timeout 이 그대로 흐르게 둔다(실제 장애가 아니다) | Nonce=1, ClientId=1, SendCount=1, ResendCount=0
+[04:28:27.917] [WARN] [Map/NetworkMapTransfer] 응답이 10초 안에 오지 않아 같은 package 를 1회 재전송한다 | Event=MapTransferRetried, Role=Host, Round=Rematch, Nonce=1, MapVersion=2, TotalBytes=339, ChunkCount=1, SendCount=1, ResendCount=1, HostHash=8421c6adf5eb1756, ClientHash=-, HashMatch=NotCompared, ErrorCode=ResponseTimeout
+[04:28:27.918] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — timeout — 1회 재전송 | Role=Host, PreviousState=WaitingReady, State=Sending, Nonce=1
+[04:28:27.918] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 조각을 다 보내고 응답 대기 | Role=Host, PreviousState=Sending, State=WaitingReady, Nonce=1
+[04:28:28.042] [INFO] [Network/NetworkMapTransfer] 수신 완료 응답을 받았다 | Nonce=1, ClientId=1, Success=True, ReceivedBytes=339, ErrorCode=None
+[04:28:28.043] [WARN] [Network/NetworkMapTransfer] [강제 실패] 개발용 플래그에 따라 Client 응답을 무시했다 — 응답 대기 timeout 이 그대로 흐르게 둔다(실제 장애가 아니다) | Nonce=1, ClientId=1, SendCount=2, ResendCount=1
+[04:28:37.913] [WARN] [UI/GameEndUI] 맵 준비 한도 만료 — 재경기 실패 상태로 전이한다 | IsServer=True, NetworkActive=True, RematchPreparing=True, OpponentLeft=False, RematchFailed=False, WaitSeconds=20, Origin=PreparingLimitExpired
+[04:28:37.914] [WARN] [UI/GameEndUI] 재경기 실패 상태 진입 | IsServer=True, NetworkActive=True, RematchPreparing=True, OpponentLeft=False, RematchFailed=False, Cause=Unknown
+[04:28:37.914] [INFO] [UI/GameEndUI] 자동 복귀 카운트다운을 전체 길이로 재시작 | IsServer=True, NetworkActive=True, RematchPreparing=False, OpponentLeft=False, RematchFailed=True, TotalSeconds=60
+[04:28:37.921] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 전송 실패 | Role=Host, PreviousState=WaitingReady, State=Failed, Nonce=1
+[04:28:37.922] [ERROR] [Map/NetworkMapTransfer] 재전송 뒤에도 응답이 오지 않아 전송을 실패로 끝낸다 | Event=MapTransferFailed, Role=Host, Round=Rematch, Nonce=1, MapVersion=2, TotalBytes=339, ChunkCount=1, SendCount=2, ResendCount=1, HostHash=8421c6adf5eb1756, ClientHash=-, HashMatch=NotCompared, ErrorCode=ResponseTimeout
+[04:28:37.923] [WARN] [Network/NetworkGameManager] 맵 전송 실패 — 씬 전환 게이트가 전투 씬 전환을 막았다(로비 유지) | ErrorCode=ResponseTimeout
+[04:28:37.923] [WARN] [Network/NetworkGameEndController] 재경기 맵 준비 실패 — 씬을 재로드하지 않고 결과 화면을 유지한다 | Reason=MapTransferFailed:ResponseTimeout, ErrorCode=ResponseTimeout, Cause=Other
+[04:28:37.924] [INFO] [Network/NetworkGameEndController] 재경기 맵 준비 실패 알림 수신 — OnNetworkRematchMapFailed 발행 | Cause=Other
+[04:28:37.924] [WARN] [UI/GameEndUI] 재경기 맵 준비 실패 통보 수신 — 실패 상태로 전이한다 | IsServer=True, NetworkActive=True, RematchPreparing=False, OpponentLeft=False, RematchFailed=True, Cause=Other, Origin=MapFailedNotice
+[04:28:37.924] [WARN] [UI/GameEndUI] 재경기 실패 상태 진입 | IsServer=True, NetworkActive=True, RematchPreparing=False, OpponentLeft=False, RematchFailed=True, Cause=Other
+[04:28:37.925] [INFO] [UI/GameEndUI] 자동 복귀 카운트다운을 전체 길이로 재시작 | IsServer=True, NetworkActive=True, RematchPreparing=False, OpponentLeft=False, RematchFailed=True, TotalSeconds=60
+[04:29:13.376] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 정지
+[04:29:13.380] [INFO] [Network/NetworkGameEndController] 정상 퇴장 통보 전송
+[04:29:13.382] [INFO] [Network/NetworkGameEndController] NotifyLeavingResultScreenServerRpc 수신 — 상대에게 이탈을 알린다 | LeaverClientId=0, TargetClientId=1
+[04:29:13.383] [INFO] [Network/NetworkGameManager] NetworkManager Shutdown 완료
+[04:29:13.404] [WARN] [Network/ReconnectionHandler] 클라이언트 연결 끊김 — 재접속 대기 시작 | ClientId=1, WaitSeconds=30
+[04:29:13.404] [INFO] [Network/ReconnectionHandler] 강제 승리 대기 코루틴 시작 | WaitSeconds=30
+[04:29:13.411] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 디스폰 | Role=Host, Nonce=1, State=Failed
+[04:29:13.411] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 디스폰 | Role=Host, Nonce=1, State=Completed
+[04:29:13.412] [INFO] [Network/NetworkResourceSync] 디스폰 — 구독 해제 완료
+[04:29:13.413] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 중단 | Clock=ResultScreenLeaveWatch, Reason=네트워크 디스폰
+[04:29:13.414] [INFO] [Network/NetworkTileSync] 디스폰 — 이벤트 구독 해제
+[04:29:13.414] [INFO] [Network/ReconnectionHandler] 디스폰 — 콜백 해제 완료
+[04:29:13.663] [INFO] [Network/LobbyManager] Lobby 삭제 완료 (Host 퇴장) | LobbyId=9Tz9VSM62uhvJPTMi5Us6N
+[04:29:14.900] [INFO] [Network/NetworkGameManager] 초기화 시작
+[04:29:14.900] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[04:29:14.901] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[04:29:14.901] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[04:29:14.902] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[04:29:14.903] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[04:29:26.242] [INFO] [Network/NetworkGameManager] JoinGame 시작 | LobbyCode=88g77r
+[04:29:26.623] [INFO] [Network/LobbyManager] Lobby 참가 완료 (코드) | Name=Hexiege Room
+[04:29:26.625] [INFO] [Network/RelayManager] Relay 참가 시도 | RelayJoinCode=DD9WC7
+[04:29:27.033] [INFO] [Network/RelayManager] Relay 참가 할당 획득 완료
+[04:29:27.035] [INFO] [Network/RelayManager] UnityTransport Client 설정 완료
+[04:29:27.040] [INFO] [Network/NetworkGameManager] NetworkManager.StartClient() 성공
+[04:29:27.041] [INFO] [Network/NetworkGameManager] Client 게임 참가 완료
+[04:29:28.704] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 | Role=Client, IsServer=False, NetworkObjectId=1, State=Idle
+[04:29:28.706] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 시작 통보 수신 | Role=Client, PreviousState=Idle, State=Receiving, Nonce=1
+[04:29:28.706] [INFO] [Network/NetworkMapTransfer] 시작 통보 수신 — 재조립기를 준비했다 | Nonce=1, MapVersion=2, TotalBytes=339, ChunkSize=1024, ChunkCount=1, Round=First, IsProbe=False, ReceiveCount=1, Hash=ff15041786fe14b7
+[04:29:28.706] [INFO] [Network/NetworkMapTransfer] 조각 재조립 완료 — 검증을 시작한다 | Nonce=1, TotalBytes=339, ChunkCount=1
+[04:29:28.709] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 수신·검증 완료 | Role=Client, PreviousState=Receiving, State=Completed, Nonce=1
+[04:29:28.710] [INFO] [Map/NetworkMapTransfer] 받은 맵의 해시·복원·공정성 검증을 모두 통과했다 | Event=MapTransferSucceeded, Role=Client, Round=First, Nonce=1, MapVersion=2, TotalBytes=339, ChunkCount=1, SendCount=1, ResendCount=0, HostHash=ff15041786fe14b7, ClientHash=ff15041786fe14b7, HashMatch=True, ErrorCode=None, VerifyStage=None, VerifyError=None, Seed=16404956084590979874, MapType=ThreeLane, NeutralMineCount=6, StartingMineSide=CaseA, AttemptIndex=0, SearchedCombinations=1
+[04:29:29.535] [INFO] [Network/NetworkBuildingController] 스폰 완료 | IsServer=False
+[04:29:29.535] [INFO] [Network/NetworkGameFlow] 네트워크 스폰 | IsServer=False, IsHost=False
+[04:29:29.536] [INFO] [Network/NetworkGameFlow] 팀 직접 할당 | IsHost=False, Team=Red
+[04:29:29.536] [INFO] [Network/NetworkUnitMovementController] 네트워크 스폰 | IsServer=False
+[04:29:29.537] [INFO] [Network/NetworkResourceSync] NetworkVariable 콜백 등록 완료 | IsServer=False
+[04:29:29.537] [INFO] [Network/NetworkHealthSync] 네트워크 스폰 | IsServer=False
+[04:29:29.537] [INFO] [Network/NetworkSkillController] 네트워크 스폰 | IsServer=False
+[04:29:29.537] [INFO] [Network/NetworkUpgradeController] 네트워크 스폰 | IsServer=False
+[04:29:29.537] [INFO] [Network/NetworkCombatController] 네트워크 역할 확정 | Role=Client
+[04:29:29.539] [INFO] [Network/NetworkTileSync] 클라이언트 모드 — ClientRpc 대기 중 | IsServer=False
+[04:29:29.539] [INFO] [Network/NetworkProductionController] 스폰 완료 | IsServer=False
+[04:29:29.539] [INFO] [Network/NetworkGameEndController] 네트워크 스폰 | IsServer=False
+[04:29:29.540] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[04:29:29.540] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[04:29:29.540] [INFO] [Bootstrap/GameBootstrapper] 네트워크 모드 감지 — 맵 로드는 NetworkGameFlow 에 위임한다
+[04:29:29.821] [INFO] [Network/NetworkGameFlow] 게임 시작 ClientRpc 수신 | Team=Red, BlueRace=0, RedRace=0
+[04:29:29.822] [INFO] [Bootstrap/GameBootstrapper] StartNetworkGame 호출 | Team=Red
+[04:29:29.822] [INFO] [Bootstrap/GameBootstrapper] ViewConverter 사전 설정 완료 | IsRed=True, MapCenter=(3.75, 0.00, -8.66)
+[04:29:29.913] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=-2, Team=Red
+[04:29:29.913] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=-1, Team=Red
+[04:29:29.913] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=0, Team=Red
+[04:29:29.914] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=0, Team=Red
+[04:29:29.914] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=-1, Team=Red
+[04:29:29.915] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=-2, Team=Red
+[04:29:29.915] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=-1, Team=Red
+[04:29:29.915] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=16, Team=Blue
+[04:29:29.915] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=17, Team=Blue
+[04:29:29.916] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=18, Team=Blue
+[04:29:29.916] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=18, Team=Blue
+[04:29:29.916] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=17, Team=Blue
+[04:29:29.917] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=16, Team=Blue
+[04:29:29.917] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=17, Team=Blue
+[04:29:29.917] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=8, R=-3, Team=Red
+[04:29:29.917] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=8, R=-2, Team=Red
+[04:29:29.917] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=7, R=-1, Team=Red
+[04:29:29.917] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=7, R=-3, Team=Red
+[04:29:29.918] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=7, R=-2, Team=Red
+[04:29:29.918] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=3, R=19, Team=Blue
+[04:29:29.918] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=2, R=19, Team=Blue
+[04:29:29.918] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=2, R=18, Team=Blue
+[04:29:29.918] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=3, R=17, Team=Blue
+[04:29:29.918] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=3, R=18, Team=Blue
+[04:29:29.933] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5000, ServerGold=5001, Diff=1
+[04:29:29.934] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5000, ServerGold=5001, Diff=1
+[04:29:29.946] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5001, ServerGold=5002, Diff=1
+[04:29:29.946] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5001, ServerGold=5002, Diff=1
+[04:29:30.039] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5002, ServerGold=5003, Diff=1
+[04:29:30.040] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5002, ServerGold=5003, Diff=1
+[04:29:30.142] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5003, ServerGold=5004, Diff=1
+[04:29:30.143] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5003, ServerGold=5004, Diff=1
+[04:29:30.239] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5004, ServerGold=5005, Diff=1
+[04:29:30.239] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5004, ServerGold=5005, Diff=1
+[04:29:30.341] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5005, ServerGold=5006, Diff=1
+[04:29:30.341] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5005, ServerGold=5006, Diff=1
+[04:29:30.441] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5006, ServerGold=5007, Diff=1
+[04:29:30.442] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5006, ServerGold=5007, Diff=1
+[04:29:30.530] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5007, ServerGold=5008, Diff=1
+[04:29:30.531] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5007, ServerGold=5008, Diff=1
+[04:29:30.690] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5008, ServerGold=5009, Diff=1
+[04:29:30.691] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5008, ServerGold=5009, Diff=1
+[04:29:30.732] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5009, ServerGold=5010, Diff=1
+[04:29:30.733] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5009, ServerGold=5010, Diff=1
+[04:29:30.857] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5010, ServerGold=5011, Diff=1
+[04:29:30.858] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5010, ServerGold=5011, Diff=1
+[04:29:30.953] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5011, ServerGold=5012, Diff=1
+[04:29:30.954] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5011, ServerGold=5012, Diff=1
+[04:29:31.049] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5012, ServerGold=5013, Diff=1
+[04:29:31.049] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5012, ServerGold=5013, Diff=1
+[04:29:31.163] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5013, ServerGold=5014, Diff=1
+[04:29:31.163] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5013, ServerGold=5014, Diff=1
+[04:29:31.247] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5014, ServerGold=5015, Diff=1
+[04:29:31.247] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5014, ServerGold=5015, Diff=1
+[04:29:31.348] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5015, ServerGold=5016, Diff=1
+[04:29:31.348] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5015, ServerGold=5016, Diff=1
+[04:29:31.455] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5016, ServerGold=5017, Diff=1
+[04:29:31.456] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5016, ServerGold=5017, Diff=1
+[04:29:31.557] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5017, ServerGold=5018, Diff=1
+[04:29:31.557] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5017, ServerGold=5018, Diff=1
+[04:29:31.650] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5018, ServerGold=5019, Diff=1
+[04:29:31.652] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5018, ServerGold=5019, Diff=1
+[04:29:31.744] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5019, ServerGold=5020, Diff=1
+[04:29:31.744] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5019, ServerGold=5020, Diff=1
+[04:29:31.851] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5020, ServerGold=5021, Diff=1
+[04:29:31.851] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5020, ServerGold=5021, Diff=1
+[04:29:31.955] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5021, ServerGold=5022, Diff=1
+[04:29:31.956] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5021, ServerGold=5022, Diff=1
+[04:29:32.050] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5022, ServerGold=5023, Diff=1
+[04:29:32.050] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5022, ServerGold=5023, Diff=1
+[04:29:32.152] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5023, ServerGold=5024, Diff=1
+[04:29:32.152] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5023, ServerGold=5024, Diff=1
+[04:29:32.271] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5024, ServerGold=5025, Diff=1
+[04:29:32.271] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5024, ServerGold=5025, Diff=1
+[04:29:32.359] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5025, ServerGold=5026, Diff=1
+[04:29:32.359] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5025, ServerGold=5026, Diff=1
+[04:29:32.451] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5026, ServerGold=5027, Diff=1
+[04:29:32.451] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5026, ServerGold=5027, Diff=1
+[04:29:32.549] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5027, ServerGold=5028, Diff=1
+[04:29:32.550] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5027, ServerGold=5028, Diff=1
+[04:29:32.663] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5028, ServerGold=5029, Diff=1
+[04:29:32.664] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5028, ServerGold=5029, Diff=1
+[04:29:32.746] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5029, ServerGold=5030, Diff=1
+[04:29:32.746] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5029, ServerGold=5030, Diff=1
+[04:29:32.862] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5030, ServerGold=5031, Diff=1
+[04:29:32.862] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5030, ServerGold=5031, Diff=1
+[04:29:32.951] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5031, ServerGold=5032, Diff=1
+[04:29:32.951] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5031, ServerGold=5032, Diff=1
+[04:29:33.089] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5032, ServerGold=5033, Diff=1
+[04:29:33.090] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5032, ServerGold=5033, Diff=1
+[04:29:33.145] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5033, ServerGold=5034, Diff=1
+[04:29:33.145] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5033, ServerGold=5034, Diff=1
+[04:29:33.263] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5034, ServerGold=5035, Diff=1
+[04:29:33.263] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5034, ServerGold=5035, Diff=1
+[04:29:33.353] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5035, ServerGold=5036, Diff=1
+[04:29:33.353] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5035, ServerGold=5036, Diff=1
+[04:29:33.450] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5036, ServerGold=5037, Diff=1
+[04:29:33.450] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5036, ServerGold=5037, Diff=1
+[04:29:33.555] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5037, ServerGold=5038, Diff=1
+[04:29:33.555] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5037, ServerGold=5038, Diff=1
+[04:29:33.628] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5038, ServerGold=5039, Diff=1
+[04:29:33.628] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5038, ServerGold=5039, Diff=1
+[04:29:33.718] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5039, ServerGold=5040, Diff=1
+[04:29:33.720] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5039, ServerGold=5040, Diff=1
+[04:29:33.821] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5040, ServerGold=5041, Diff=1
+[04:29:33.822] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5040, ServerGold=5041, Diff=1
+[04:29:33.936] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5041, ServerGold=5042, Diff=1
+[04:29:33.937] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5041, ServerGold=5042, Diff=1
+[04:29:34.024] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5042, ServerGold=5043, Diff=1
+[04:29:34.025] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5042, ServerGold=5043, Diff=1
+[04:29:34.131] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5043, ServerGold=5044, Diff=1
+[04:29:34.131] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5043, ServerGold=5044, Diff=1
+[04:29:34.227] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5044, ServerGold=5045, Diff=1
+[04:29:34.228] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5044, ServerGold=5045, Diff=1
+[04:29:34.328] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5045, ServerGold=5046, Diff=1
+[04:29:34.329] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5045, ServerGold=5046, Diff=1
+[04:29:34.420] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5046, ServerGold=5047, Diff=1
+[04:29:34.421] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5046, ServerGold=5047, Diff=1
+[04:29:34.525] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5047, ServerGold=5048, Diff=1
+[04:29:34.525] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5047, ServerGold=5048, Diff=1
+[04:29:34.641] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5048, ServerGold=5049, Diff=1
+[04:29:34.641] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5048, ServerGold=5049, Diff=1
+[04:29:34.721] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5049, ServerGold=5050, Diff=1
+[04:29:34.723] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5049, ServerGold=5050, Diff=1
+[04:29:34.830] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5050, ServerGold=5051, Diff=1
+[04:29:34.830] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5050, ServerGold=5051, Diff=1
+[04:29:34.927] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5051, ServerGold=5052, Diff=1
+[04:29:34.927] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5051, ServerGold=5052, Diff=1
+[04:29:35.030] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5052, ServerGold=5053, Diff=1
+[04:29:35.030] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5052, ServerGold=5053, Diff=1
+[04:29:35.118] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5053, ServerGold=5054, Diff=1
+[04:29:35.119] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5053, ServerGold=5054, Diff=1
+[04:29:35.225] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5054, ServerGold=5055, Diff=1
+[04:29:35.225] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5054, ServerGold=5055, Diff=1
+[04:29:35.345] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5055, ServerGold=5056, Diff=1
+[04:29:35.346] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5055, ServerGold=5056, Diff=1
+[04:29:35.423] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5056, ServerGold=5057, Diff=1
+[04:29:35.423] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5056, ServerGold=5057, Diff=1
+[04:29:35.525] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5057, ServerGold=5058, Diff=1
+[04:29:35.525] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5057, ServerGold=5058, Diff=1
+[04:29:35.664] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5058, ServerGold=5059, Diff=1
+[04:29:35.664] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5058, ServerGold=5059, Diff=1
+[04:29:35.720] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5059, ServerGold=5060, Diff=1
+[04:29:35.720] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5059, ServerGold=5060, Diff=1
+[04:29:35.842] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5060, ServerGold=5061, Diff=1
+[04:29:35.844] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5060, ServerGold=5061, Diff=1
+[04:29:35.923] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5061, ServerGold=5062, Diff=1
+[04:29:35.923] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5061, ServerGold=5062, Diff=1
+[04:29:36.023] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5062, ServerGold=5063, Diff=1
+[04:29:36.023] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5062, ServerGold=5063, Diff=1
+[04:29:36.132] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5063, ServerGold=5064, Diff=1
+[04:29:36.132] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5063, ServerGold=5064, Diff=1
+[04:29:36.222] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5064, ServerGold=5065, Diff=1
+[04:29:36.222] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5064, ServerGold=5065, Diff=1
+[04:29:36.325] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5065, ServerGold=5066, Diff=1
+[04:29:36.326] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5065, ServerGold=5066, Diff=1
+[04:29:36.429] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5066, ServerGold=5067, Diff=1
+[04:29:36.430] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5066, ServerGold=5067, Diff=1
+[04:29:36.521] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5067, ServerGold=5068, Diff=1
+[04:29:36.522] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5067, ServerGold=5068, Diff=1
+[04:29:36.628] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5068, ServerGold=5069, Diff=1
+[04:29:36.630] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5068, ServerGold=5069, Diff=1
+[04:29:36.732] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5069, ServerGold=5070, Diff=1
+[04:29:36.732] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5069, ServerGold=5070, Diff=1
+[04:29:36.826] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5070, ServerGold=5071, Diff=1
+[04:29:36.828] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5070, ServerGold=5071, Diff=1
+[04:29:36.932] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5071, ServerGold=5072, Diff=1
+[04:29:36.932] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5071, ServerGold=5072, Diff=1
+[04:29:37.025] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5072, ServerGold=5073, Diff=1
+[04:29:37.026] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5072, ServerGold=5073, Diff=1
+[04:29:37.130] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5073, ServerGold=5074, Diff=1
+[04:29:37.130] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5073, ServerGold=5074, Diff=1
+[04:29:37.237] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5074, ServerGold=5075, Diff=1
+[04:29:37.237] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5074, ServerGold=5075, Diff=1
+[04:29:37.342] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5075, ServerGold=5076, Diff=1
+[04:29:37.343] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5075, ServerGold=5076, Diff=1
+[04:29:37.434] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5076, ServerGold=5077, Diff=1
+[04:29:37.436] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5076, ServerGold=5077, Diff=1
+[04:29:37.547] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5077, ServerGold=5078, Diff=1
+[04:29:37.547] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5077, ServerGold=5078, Diff=1
+[04:29:37.652] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5078, ServerGold=5079, Diff=1
+[04:29:37.652] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5078, ServerGold=5079, Diff=1
+[04:29:37.741] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5079, ServerGold=5080, Diff=1
+[04:29:37.741] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5079, ServerGold=5080, Diff=1
+[04:29:37.831] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5080, ServerGold=5081, Diff=1
+[04:29:37.832] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5080, ServerGold=5081, Diff=1
+[04:29:37.946] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5081, ServerGold=5082, Diff=1
+[04:29:37.946] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5081, ServerGold=5082, Diff=1
+[04:29:38.034] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5082, ServerGold=5083, Diff=1
+[04:29:38.034] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5082, ServerGold=5083, Diff=1
+[04:29:38.134] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5083, ServerGold=5084, Diff=1
+[04:29:38.134] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5083, ServerGold=5084, Diff=1
+[04:29:38.233] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5084, ServerGold=5085, Diff=1
+[04:29:38.234] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5084, ServerGold=5085, Diff=1
+[04:29:38.344] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5085, ServerGold=5086, Diff=1
+[04:29:38.345] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5085, ServerGold=5086, Diff=1
+[04:29:38.444] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5086, ServerGold=5087, Diff=1
+[04:29:38.445] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5086, ServerGold=5087, Diff=1
+[04:29:38.544] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5087, ServerGold=5088, Diff=1
+[04:29:38.544] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5087, ServerGold=5088, Diff=1
+[04:29:38.638] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5088, ServerGold=5089, Diff=1
+[04:29:38.638] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5088, ServerGold=5089, Diff=1
+[04:29:38.736] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5089, ServerGold=5090, Diff=1
+[04:29:38.736] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5089, ServerGold=5090, Diff=1
+[04:29:38.836] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5090, ServerGold=5091, Diff=1
+[04:29:38.838] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5090, ServerGold=5091, Diff=1
+[04:29:38.931] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5091, ServerGold=5092, Diff=1
+[04:29:38.931] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5091, ServerGold=5092, Diff=1
+[04:29:39.038] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5092, ServerGold=5093, Diff=1
+[04:29:39.039] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5092, ServerGold=5093, Diff=1
+[04:29:39.143] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5093, ServerGold=5094, Diff=1
+[04:29:39.143] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5093, ServerGold=5094, Diff=1
+[04:29:39.253] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5094, ServerGold=5095, Diff=1
+[04:29:39.253] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5094, ServerGold=5095, Diff=1
+[04:29:39.339] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5095, ServerGold=5096, Diff=1
+[04:29:39.339] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5095, ServerGold=5096, Diff=1
+[04:29:39.434] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5096, ServerGold=5097, Diff=1
+[04:29:39.434] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5096, ServerGold=5097, Diff=1
+[04:29:39.544] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5097, ServerGold=5098, Diff=1
+[04:29:39.545] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5097, ServerGold=5098, Diff=1
+[04:29:39.642] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5098, ServerGold=5099, Diff=1
+[04:29:39.643] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5098, ServerGold=5099, Diff=1
+[04:29:39.742] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5099, ServerGold=5100, Diff=1
+[04:29:39.742] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5099, ServerGold=5100, Diff=1
+[04:29:39.846] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5100, ServerGold=5101, Diff=1
+[04:29:39.846] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5100, ServerGold=5101, Diff=1
+[04:29:39.945] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5101, ServerGold=5102, Diff=1
+[04:29:39.945] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5101, ServerGold=5102, Diff=1
+[04:29:40.040] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5102, ServerGold=5103, Diff=1
+[04:29:40.040] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5102, ServerGold=5103, Diff=1
+[04:29:40.139] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5103, ServerGold=5104, Diff=1
+[04:29:40.139] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5103, ServerGold=5104, Diff=1
+[04:29:40.244] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5104, ServerGold=5105, Diff=1
+[04:29:40.244] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5104, ServerGold=5105, Diff=1
+[04:29:40.342] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5105, ServerGold=5106, Diff=1
+[04:29:40.342] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5105, ServerGold=5106, Diff=1
+[04:29:40.452] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5106, ServerGold=5107, Diff=1
+[04:29:40.452] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5106, ServerGold=5107, Diff=1
+[04:29:40.544] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5107, ServerGold=5108, Diff=1
+[04:29:40.544] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5107, ServerGold=5108, Diff=1
+[04:29:40.645] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5108, ServerGold=5109, Diff=1
+[04:29:40.646] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5108, ServerGold=5109, Diff=1
+[04:29:40.747] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5109, ServerGold=5110, Diff=1
+[04:29:40.747] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5109, ServerGold=5110, Diff=1
+[04:29:40.845] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5110, ServerGold=5111, Diff=1
+[04:29:40.845] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5110, ServerGold=5111, Diff=1
+[04:29:40.961] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5111, ServerGold=5112, Diff=1
+[04:29:40.963] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5111, ServerGold=5112, Diff=1
+[04:29:41.047] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5112, ServerGold=5113, Diff=1
+[04:29:41.048] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5112, ServerGold=5113, Diff=1
+[04:29:41.111] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5113, ServerGold=5114, Diff=1
+[04:29:41.111] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5113, ServerGold=5114, Diff=1
+[04:29:41.225] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5114, ServerGold=5115, Diff=1
+[04:29:41.225] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5114, ServerGold=5115, Diff=1
+[04:29:41.315] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5115, ServerGold=5116, Diff=1
+[04:29:41.316] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5115, ServerGold=5116, Diff=1
+[04:29:41.411] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5116, ServerGold=5117, Diff=1
+[04:29:41.411] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5116, ServerGold=5117, Diff=1
+[04:29:41.520] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5117, ServerGold=5118, Diff=1
+[04:29:41.522] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5117, ServerGold=5118, Diff=1
+[04:29:41.613] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5118, ServerGold=5119, Diff=1
+[04:29:41.613] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5118, ServerGold=5119, Diff=1
+[04:29:41.715] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5119, ServerGold=5120, Diff=1
+[04:29:41.717] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5119, ServerGold=5120, Diff=1
+[04:29:41.820] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5120, ServerGold=5121, Diff=1
+[04:29:41.820] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5120, ServerGold=5121, Diff=1
+[04:29:41.919] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5121, ServerGold=5122, Diff=1
+[04:29:41.919] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5121, ServerGold=5122, Diff=1
+[04:29:42.018] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5122, ServerGold=5123, Diff=1
+[04:29:42.019] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5122, ServerGold=5123, Diff=1
+[04:29:42.118] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5123, ServerGold=5124, Diff=1
+[04:29:42.120] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5123, ServerGold=5124, Diff=1
+[04:29:42.218] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5124, ServerGold=5125, Diff=1
+[04:29:42.219] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5124, ServerGold=5125, Diff=1
+[04:29:42.327] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5125, ServerGold=5126, Diff=1
+[04:29:42.327] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5125, ServerGold=5126, Diff=1
+[04:29:42.462] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5126, ServerGold=5127, Diff=1
+[04:29:42.462] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5126, ServerGold=5127, Diff=1
+[04:29:42.521] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5127, ServerGold=5128, Diff=1
+[04:29:42.521] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5127, ServerGold=5128, Diff=1
+[04:29:42.676] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5128, ServerGold=5129, Diff=1
+[04:29:42.676] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5128, ServerGold=5129, Diff=1
+[04:29:42.717] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5129, ServerGold=5130, Diff=1
+[04:29:42.718] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5129, ServerGold=5130, Diff=1
+[04:29:42.821] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5130, ServerGold=5131, Diff=1
+[04:29:42.821] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5130, ServerGold=5131, Diff=1
+[04:29:42.920] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5131, ServerGold=5132, Diff=1
+[04:29:42.920] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5131, ServerGold=5132, Diff=1
+[04:29:43.022] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5132, ServerGold=5133, Diff=1
+[04:29:43.022] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5132, ServerGold=5133, Diff=1
+[04:29:43.139] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5133, ServerGold=5134, Diff=1
+[04:29:43.140] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5133, ServerGold=5134, Diff=1
+[04:29:43.224] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5134, ServerGold=5135, Diff=1
+[04:29:43.224] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5134, ServerGold=5135, Diff=1
+[04:29:43.322] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5135, ServerGold=5136, Diff=1
+[04:29:43.322] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5135, ServerGold=5136, Diff=1
+[04:29:43.448] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5136, ServerGold=5137, Diff=1
+[04:29:43.450] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5136, ServerGold=5137, Diff=1
+[04:29:43.525] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5137, ServerGold=5138, Diff=1
+[04:29:43.525] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5137, ServerGold=5138, Diff=1
+[04:29:43.623] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5138, ServerGold=5139, Diff=1
+[04:29:43.623] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5138, ServerGold=5139, Diff=1
+[04:29:43.727] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5139, ServerGold=5140, Diff=1
+[04:29:43.727] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5139, ServerGold=5140, Diff=1
+[04:29:43.829] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5140, ServerGold=5141, Diff=1
+[04:29:43.829] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5140, ServerGold=5141, Diff=1
+[04:29:43.978] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5141, ServerGold=5142, Diff=1
+[04:29:43.978] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5141, ServerGold=5142, Diff=1
+[04:29:44.035] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5142, ServerGold=5143, Diff=1
+[04:29:44.035] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5142, ServerGold=5143, Diff=1
+[04:29:44.132] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5143, ServerGold=5144, Diff=1
+[04:29:44.132] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5143, ServerGold=5144, Diff=1
+[04:29:44.239] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5144, ServerGold=5145, Diff=1
+[04:29:44.239] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5144, ServerGold=5145, Diff=1
+[04:29:44.336] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5145, ServerGold=5146, Diff=1
+[04:29:44.336] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5145, ServerGold=5146, Diff=1
+[04:29:44.431] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5146, ServerGold=5147, Diff=1
+[04:29:44.431] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5146, ServerGold=5147, Diff=1
+[04:29:44.548] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5147, ServerGold=5148, Diff=1
+[04:29:44.549] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5147, ServerGold=5148, Diff=1
+[04:29:44.644] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5148, ServerGold=5149, Diff=1
+[04:29:44.646] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5148, ServerGold=5149, Diff=1
+[04:29:44.731] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5149, ServerGold=5150, Diff=1
+[04:29:44.731] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5149, ServerGold=5150, Diff=1
+[04:29:44.830] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5150, ServerGold=5151, Diff=1
+[04:29:44.831] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5150, ServerGold=5151, Diff=1
+[04:29:44.930] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5151, ServerGold=5152, Diff=1
+[04:29:44.930] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5151, ServerGold=5152, Diff=1
+[04:29:45.062] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5152, ServerGold=5153, Diff=1
+[04:29:45.062] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5152, ServerGold=5153, Diff=1
+[04:29:45.129] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5153, ServerGold=5154, Diff=1
+[04:29:45.130] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5153, ServerGold=5154, Diff=1
+[04:29:45.233] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5154, ServerGold=5155, Diff=1
+[04:29:45.233] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5154, ServerGold=5155, Diff=1
+[04:29:45.373] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5155, ServerGold=5156, Diff=1
+[04:29:45.374] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5155, ServerGold=5156, Diff=1
+[04:29:45.448] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5156, ServerGold=5157, Diff=1
+[04:29:45.448] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5156, ServerGold=5157, Diff=1
+[04:29:45.541] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5157, ServerGold=5158, Diff=1
+[04:29:45.541] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5157, ServerGold=5158, Diff=1
+[04:29:45.632] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5158, ServerGold=5159, Diff=1
+[04:29:45.632] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5158, ServerGold=5159, Diff=1
+[04:29:45.733] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5159, ServerGold=5160, Diff=1
+[04:29:45.733] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5159, ServerGold=5160, Diff=1
+[04:29:45.844] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5160, ServerGold=5161, Diff=1
+[04:29:45.844] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5160, ServerGold=5161, Diff=1
+[04:29:45.936] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5161, ServerGold=5162, Diff=1
+[04:29:45.937] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5161, ServerGold=5162, Diff=1
+[04:29:46.033] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5162, ServerGold=5163, Diff=1
+[04:29:46.033] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5162, ServerGold=5163, Diff=1
+[04:29:46.141] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5163, ServerGold=5164, Diff=1
+[04:29:46.141] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5163, ServerGold=5164, Diff=1
+[04:29:46.229] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5164, ServerGold=5165, Diff=1
+[04:29:46.230] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5164, ServerGold=5165, Diff=1
+[04:29:46.353] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5165, ServerGold=5166, Diff=1
+[04:29:46.357] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5165, ServerGold=5166, Diff=1
+[04:29:46.451] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5166, ServerGold=5167, Diff=1
+[04:29:46.451] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5166, ServerGold=5167, Diff=1
+[04:29:46.544] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5167, ServerGold=5168, Diff=1
+[04:29:46.544] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5167, ServerGold=5168, Diff=1
+[04:29:46.640] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5168, ServerGold=5169, Diff=1
+[04:29:46.640] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5168, ServerGold=5169, Diff=1
+[04:29:46.737] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5169, ServerGold=5170, Diff=1
+[04:29:46.738] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5169, ServerGold=5170, Diff=1
+[04:29:46.837] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5170, ServerGold=5171, Diff=1
+[04:29:46.837] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5170, ServerGold=5171, Diff=1
+[04:29:46.946] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5171, ServerGold=5172, Diff=1
+[04:29:46.946] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5171, ServerGold=5172, Diff=1
+[04:29:47.036] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5172, ServerGold=5173, Diff=1
+[04:29:47.036] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5172, ServerGold=5173, Diff=1
+[04:29:47.143] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5173, ServerGold=5174, Diff=1
+[04:29:47.143] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5173, ServerGold=5174, Diff=1
+[04:29:47.239] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5174, ServerGold=5175, Diff=1
+[04:29:47.239] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5174, ServerGold=5175, Diff=1
+[04:29:47.348] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5175, ServerGold=5176, Diff=1
+[04:29:47.349] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5175, ServerGold=5176, Diff=1
+[04:29:47.440] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5176, ServerGold=5177, Diff=1
+[04:29:47.443] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5176, ServerGold=5177, Diff=1
+[04:29:47.574] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5177, ServerGold=5178, Diff=1
+[04:29:47.574] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5177, ServerGold=5178, Diff=1
+[04:29:47.642] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5178, ServerGold=5179, Diff=1
+[04:29:47.643] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5178, ServerGold=5179, Diff=1
+[04:29:47.740] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5179, ServerGold=5180, Diff=1
+[04:29:47.740] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5179, ServerGold=5180, Diff=1
+[04:29:47.856] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5180, ServerGold=5181, Diff=1
+[04:29:47.857] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5180, ServerGold=5181, Diff=1
+[04:29:47.942] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5181, ServerGold=5182, Diff=1
+[04:29:47.942] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5181, ServerGold=5182, Diff=1
+[04:29:48.041] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5182, ServerGold=5183, Diff=1
+[04:29:48.041] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5182, ServerGold=5183, Diff=1
+[04:29:48.152] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5183, ServerGold=5184, Diff=1
+[04:29:48.152] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5183, ServerGold=5184, Diff=1
+[04:29:48.251] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5184, ServerGold=5185, Diff=1
+[04:29:48.251] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5184, ServerGold=5185, Diff=1
+[04:29:48.359] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5185, ServerGold=5186, Diff=1
+[04:29:48.361] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5185, ServerGold=5186, Diff=1
+[04:29:48.441] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5186, ServerGold=5187, Diff=1
+[04:29:48.441] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5186, ServerGold=5187, Diff=1
+[04:29:48.524] [INFO] [Network/NetworkGameEndController] 포기 요청 전송
+[04:29:48.554] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5187, ServerGold=5188, Diff=1
+[04:29:48.554] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5187, ServerGold=5188, Diff=1
+[04:29:48.649] [INFO] [Network/NetworkGameEndController] AnnounceWinnerClientRpc 수신 | WinnerTeam=Blue, LocalTeam=Red, IsRandomMatch=False
+[04:29:48.649] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 시작 | Clock=ResultScreenLeaveWatch, TimeoutSeconds=30, HeartbeatIntervalSeconds=3, IsServer=False
+[04:29:48.650] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5188, ServerGold=5189, Diff=1
+[04:29:48.650] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5188, ServerGold=5189, Diff=1
+[04:30:18.037] [INFO] [Network/NetworkGameEndController] 재경기 거절 알림 수신 — OnNetworkRematchDeclined 발행
+[04:30:21.185] [INFO] [Network/NetworkGameEndController] 재경기 거절 알림 수신 — OnNetworkRematchDeclined 발행
+[04:30:22.091] [INFO] [Network/NetworkGameEndController] 재경기 요청 수신 — OnNetworkRematchRequested 발행
+[04:30:24.813] [INFO] [Network/NetworkGameEndController] 재경기 요청 수신 — OnNetworkRematchRequested 발행
+[04:30:24.845] [INFO] [Network/NetworkGameEndController] 재경기 수락 접수 알림 수신 — OnNetworkRematchAccepted 발행
+[04:30:24.846] [INFO] [UI/GameEndUI] 재경기 준비 상태 진입 — 자동 복귀 타이머 정지 + 상태 줄 교체 | IsServer=False, NetworkActive=True, RematchPreparing=True, OpponentLeft=False, RematchFailed=False, LimitSeconds=20
+[04:30:24.846] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 | Role=Client, IsServer=False, NetworkObjectId=15, State=Idle
+[04:30:24.846] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 시작 통보 수신 | Role=Client, PreviousState=Idle, State=Receiving, Nonce=1
+[04:30:24.846] [INFO] [Network/NetworkMapTransfer] 시작 통보 수신 — 재조립기를 준비했다 | Nonce=1, MapVersion=2, TotalBytes=319, ChunkSize=1024, ChunkCount=1, Round=Rematch, IsProbe=False, ReceiveCount=1, Hash=4bdae2263a77ce6c
+[04:30:24.847] [INFO] [Network/NetworkMapTransfer] 조각 재조립 완료 — 검증을 시작한다 | Nonce=1, TotalBytes=319, ChunkCount=1
+[04:30:24.848] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 수신·검증 완료 | Role=Client, PreviousState=Receiving, State=Completed, Nonce=1
+[04:30:24.848] [INFO] [Map/NetworkMapTransfer] 받은 맵의 해시·복원·공정성 검증을 모두 통과했다 | Event=MapTransferSucceeded, Role=Client, Round=Rematch, Nonce=1, MapVersion=2, TotalBytes=319, ChunkCount=1, SendCount=1, ResendCount=0, HostHash=4bdae2263a77ce6c, ClientHash=4bdae2263a77ce6c, HashMatch=True, ErrorCode=None, VerifyStage=None, VerifyError=None, Seed=10300317577375245629, MapType=FullyOpen, NeutralMineCount=1, StartingMineSide=CaseA, AttemptIndex=0, SearchedCombinations=1
+[04:30:24.989] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 디스폰 | Role=Client, Nonce=1, State=Completed
+[04:30:24.989] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 디스폰 | Role=Client, Nonce=1, State=Completed
+[04:30:24.990] [INFO] [Network/NetworkGameEndController] NotifyRematchStartingClientRpc 수신 — 재경기 로딩 표시 신호 발행
+[04:30:24.990] [INFO] [UI/GameEndUI] 재경기 준비 한도 시계 정지 — 돌고 있던 시계를 끊었다 | IsServer=False, NetworkActive=True, RematchPreparing=True, OpponentLeft=False, RematchFailed=False
+[04:30:24.990] [INFO] [Network/NetworkResourceSync] 디스폰 — 구독 해제 완료
+[04:30:24.990] [INFO] [Network/NetworkTileSync] 디스폰 — 이벤트 구독 해제
+[04:30:24.992] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 중단 | Clock=ResultScreenLeaveWatch, Reason=네트워크 디스폰
+[04:30:25.613] [INFO] [Network/NetworkProductionController] 스폰 완료 | IsServer=False
+[04:30:25.615] [INFO] [Network/NetworkBuildingController] 스폰 완료 | IsServer=False
+[04:30:25.615] [INFO] [Network/NetworkUnitMovementController] 네트워크 스폰 | IsServer=False
+[04:30:25.615] [INFO] [Network/NetworkSkillController] 네트워크 스폰 | IsServer=False
+[04:30:25.615] [INFO] [Network/NetworkCombatController] 네트워크 역할 확정 | Role=Client
+[04:30:25.616] [INFO] [Network/NetworkHealthSync] 네트워크 스폰 | IsServer=False
+[04:30:25.616] [INFO] [Network/NetworkGameFlow] 네트워크 스폰 | IsServer=False, IsHost=False
+[04:30:25.616] [INFO] [Network/NetworkGameFlow] 팀 직접 할당 | IsHost=False, Team=Red
+[04:30:25.616] [INFO] [Network/NetworkTileSync] 클라이언트 모드 — ClientRpc 대기 중 | IsServer=False
+[04:30:25.616] [INFO] [Network/NetworkGameEndController] 네트워크 스폰 | IsServer=False
+[04:30:25.616] [INFO] [Network/NetworkUpgradeController] 네트워크 스폰 | IsServer=False
+[04:30:25.618] [INFO] [Network/NetworkResourceSync] NetworkVariable 콜백 등록 완료 | IsServer=False
+[04:30:25.618] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[04:30:25.618] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[04:30:25.618] [INFO] [Bootstrap/GameBootstrapper] 네트워크 모드 감지 — 맵 로드는 NetworkGameFlow 에 위임한다
+[04:30:25.851] [INFO] [Network/NetworkGameFlow] 게임 시작 ClientRpc 수신 | Team=Red, BlueRace=0, RedRace=0
+[04:30:25.851] [INFO] [Bootstrap/GameBootstrapper] StartNetworkGame 호출 | Team=Red
+[04:30:25.851] [INFO] [Bootstrap/GameBootstrapper] ViewConverter 사전 설정 완료 | IsRed=True, MapCenter=(3.75, 0.00, -8.66)
+[04:30:25.947] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=-2, Team=Red
+[04:30:25.947] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=-1, Team=Red
+[04:30:25.947] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=0, Team=Red
+[04:30:25.948] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=0, Team=Red
+[04:30:25.948] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=-1, Team=Red
+[04:30:25.948] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=-2, Team=Red
+[04:30:25.948] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=-1, Team=Red
+[04:30:25.949] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=16, Team=Blue
+[04:30:25.949] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=17, Team=Blue
+[04:30:25.949] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=18, Team=Blue
+[04:30:25.949] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=18, Team=Blue
+[04:30:25.949] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=17, Team=Blue
+[04:30:25.951] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=16, Team=Blue
+[04:30:25.951] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=17, Team=Blue
+[04:30:25.951] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=8, R=-3, Team=Red
+[04:30:25.951] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=8, R=-2, Team=Red
+[04:30:25.951] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=7, R=-1, Team=Red
+[04:30:25.951] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=7, R=-3, Team=Red
+[04:30:25.952] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=7, R=-2, Team=Red
+[04:30:25.952] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=3, R=19, Team=Blue
+[04:30:25.953] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=2, R=19, Team=Blue
+[04:30:25.953] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=2, R=18, Team=Blue
+[04:30:25.953] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=3, R=17, Team=Blue
+[04:30:25.953] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=3, R=18, Team=Blue
+[04:30:25.963] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5000, ServerGold=5001, Diff=1
+[04:30:25.963] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5000, ServerGold=5001, Diff=1
+[04:30:26.004] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5001, ServerGold=5002, Diff=1
+[04:30:26.004] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5001, ServerGold=5002, Diff=1
+[04:30:26.087] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5002, ServerGold=5003, Diff=1
+[04:30:26.087] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5002, ServerGold=5003, Diff=1
+[04:30:26.195] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5003, ServerGold=5004, Diff=1
+[04:30:26.195] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5003, ServerGold=5004, Diff=1
+[04:30:26.295] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5004, ServerGold=5005, Diff=1
+[04:30:26.296] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5004, ServerGold=5005, Diff=1
+[04:30:26.395] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5005, ServerGold=5006, Diff=1
+[04:30:26.396] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5005, ServerGold=5006, Diff=1
+[04:30:26.513] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5006, ServerGold=5007, Diff=1
+[04:30:26.514] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5006, ServerGold=5007, Diff=1
+[04:30:26.596] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5007, ServerGold=5008, Diff=1
+[04:30:26.596] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5007, ServerGold=5008, Diff=1
+[04:30:26.709] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5008, ServerGold=5009, Diff=1
+[04:30:26.709] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5008, ServerGold=5009, Diff=1
+[04:30:26.797] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5009, ServerGold=5010, Diff=1
+[04:30:26.797] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5009, ServerGold=5010, Diff=1
+[04:30:26.892] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5010, ServerGold=5011, Diff=1
+[04:30:26.892] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5010, ServerGold=5011, Diff=1
+[04:30:26.997] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5011, ServerGold=5012, Diff=1
+[04:30:26.997] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5011, ServerGold=5012, Diff=1
+[04:30:27.098] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5012, ServerGold=5013, Diff=1
+[04:30:27.098] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5012, ServerGold=5013, Diff=1
+[04:30:27.203] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5013, ServerGold=5014, Diff=1
+[04:30:27.203] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5013, ServerGold=5014, Diff=1
+[04:30:27.295] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5014, ServerGold=5015, Diff=1
+[04:30:27.296] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5014, ServerGold=5015, Diff=1
+[04:30:27.425] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5015, ServerGold=5016, Diff=1
+[04:30:27.425] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5015, ServerGold=5016, Diff=1
+[04:30:27.493] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5016, ServerGold=5017, Diff=1
+[04:30:27.494] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5016, ServerGold=5017, Diff=1
+[04:30:27.597] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5017, ServerGold=5018, Diff=1
+[04:30:27.597] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5017, ServerGold=5018, Diff=1
+[04:30:27.701] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5018, ServerGold=5019, Diff=1
+[04:30:27.701] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5018, ServerGold=5019, Diff=1
+[04:30:27.794] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5019, ServerGold=5020, Diff=1
+[04:30:27.795] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5019, ServerGold=5020, Diff=1
+[04:30:27.920] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5020, ServerGold=5021, Diff=1
+[04:30:27.921] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5020, ServerGold=5021, Diff=1
+[04:30:27.997] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5021, ServerGold=5022, Diff=1
+[04:30:27.997] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5021, ServerGold=5022, Diff=1
+[04:30:28.102] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5022, ServerGold=5023, Diff=1
+[04:30:28.102] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5022, ServerGold=5023, Diff=1
+[04:30:28.204] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5023, ServerGold=5024, Diff=1
+[04:30:28.204] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5023, ServerGold=5024, Diff=1
+[04:30:28.297] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5024, ServerGold=5025, Diff=1
+[04:30:28.297] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5024, ServerGold=5025, Diff=1
+[04:30:28.402] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5025, ServerGold=5026, Diff=1
+[04:30:28.402] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5025, ServerGold=5026, Diff=1
+[04:30:28.502] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5026, ServerGold=5027, Diff=1
+[04:30:28.502] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5026, ServerGold=5027, Diff=1
+[04:30:28.611] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5027, ServerGold=5028, Diff=1
+[04:30:28.611] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5027, ServerGold=5028, Diff=1
+[04:30:28.717] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5028, ServerGold=5029, Diff=1
+[04:30:28.717] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5028, ServerGold=5029, Diff=1
+[04:30:28.801] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5029, ServerGold=5030, Diff=1
+[04:30:28.801] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5029, ServerGold=5030, Diff=1
+[04:30:28.905] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5030, ServerGold=5031, Diff=1
+[04:30:28.905] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5030, ServerGold=5031, Diff=1
+[04:30:29.004] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5031, ServerGold=5032, Diff=1
+[04:30:29.005] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5031, ServerGold=5032, Diff=1
+[04:30:29.114] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5032, ServerGold=5033, Diff=1
+[04:30:29.114] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5032, ServerGold=5033, Diff=1
+[04:30:29.206] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5033, ServerGold=5034, Diff=1
+[04:30:29.209] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5033, ServerGold=5034, Diff=1
+[04:30:29.308] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5034, ServerGold=5035, Diff=1
+[04:30:29.308] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5034, ServerGold=5035, Diff=1
+[04:30:29.403] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5035, ServerGold=5036, Diff=1
+[04:30:29.403] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5035, ServerGold=5036, Diff=1
+[04:30:29.509] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5036, ServerGold=5037, Diff=1
+[04:30:29.509] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5036, ServerGold=5037, Diff=1
+[04:30:29.602] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5037, ServerGold=5038, Diff=1
+[04:30:29.602] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5037, ServerGold=5038, Diff=1
+[04:30:29.707] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5038, ServerGold=5039, Diff=1
+[04:30:29.709] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5038, ServerGold=5039, Diff=1
+[04:30:29.805] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5039, ServerGold=5040, Diff=1
+[04:30:29.805] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5039, ServerGold=5040, Diff=1
+[04:30:29.907] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5040, ServerGold=5041, Diff=1
+[04:30:29.907] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5040, ServerGold=5041, Diff=1
+[04:30:30.022] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5041, ServerGold=5042, Diff=1
+[04:30:30.022] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5041, ServerGold=5042, Diff=1
+[04:30:30.120] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5042, ServerGold=5043, Diff=1
+[04:30:30.121] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5042, ServerGold=5043, Diff=1
+[04:30:30.212] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5043, ServerGold=5044, Diff=1
+[04:30:30.212] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5043, ServerGold=5044, Diff=1
+[04:30:30.311] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5044, ServerGold=5045, Diff=1
+[04:30:30.311] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5044, ServerGold=5045, Diff=1
+[04:30:30.413] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5045, ServerGold=5046, Diff=1
+[04:30:30.413] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5045, ServerGold=5046, Diff=1
+[04:30:30.507] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5046, ServerGold=5047, Diff=1
+[04:30:30.507] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5046, ServerGold=5047, Diff=1
+[04:30:30.608] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5047, ServerGold=5048, Diff=1
+[04:30:30.608] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5047, ServerGold=5048, Diff=1
+[04:30:30.710] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5048, ServerGold=5049, Diff=1
+[04:30:30.710] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5048, ServerGold=5049, Diff=1
+[04:30:30.813] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5049, ServerGold=5050, Diff=1
+[04:30:30.813] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5049, ServerGold=5050, Diff=1
+[04:30:30.945] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5050, ServerGold=5051, Diff=1
+[04:30:30.945] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5050, ServerGold=5051, Diff=1
+[04:30:31.015] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5051, ServerGold=5052, Diff=1
+[04:30:31.015] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5051, ServerGold=5052, Diff=1
+[04:30:31.116] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5052, ServerGold=5053, Diff=1
+[04:30:31.116] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5052, ServerGold=5053, Diff=1
+[04:30:31.229] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5053, ServerGold=5054, Diff=1
+[04:30:31.230] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5053, ServerGold=5054, Diff=1
+[04:30:31.322] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5054, ServerGold=5055, Diff=1
+[04:30:31.323] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5054, ServerGold=5055, Diff=1
+[04:30:31.399] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5055, ServerGold=5056, Diff=1
+[04:30:31.399] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5055, ServerGold=5056, Diff=1
+[04:30:31.481] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5056, ServerGold=5057, Diff=1
+[04:30:31.481] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5056, ServerGold=5057, Diff=1
+[04:30:31.581] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5057, ServerGold=5058, Diff=1
+[04:30:31.581] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5057, ServerGold=5058, Diff=1
+[04:30:31.696] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5058, ServerGold=5059, Diff=1
+[04:30:31.697] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5058, ServerGold=5059, Diff=1
+[04:30:31.785] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5059, ServerGold=5060, Diff=1
+[04:30:31.785] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5059, ServerGold=5060, Diff=1
+[04:30:31.885] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5060, ServerGold=5061, Diff=1
+[04:30:31.886] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5060, ServerGold=5061, Diff=1
+[04:30:31.983] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5061, ServerGold=5062, Diff=1
+[04:30:31.984] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5061, ServerGold=5062, Diff=1
+[04:30:32.083] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5062, ServerGold=5063, Diff=1
+[04:30:32.084] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5062, ServerGold=5063, Diff=1
+[04:30:32.187] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5063, ServerGold=5064, Diff=1
+[04:30:32.189] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5063, ServerGold=5064, Diff=1
+[04:30:32.297] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5064, ServerGold=5065, Diff=1
+[04:30:32.298] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5064, ServerGold=5065, Diff=1
+[04:30:32.382] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5065, ServerGold=5066, Diff=1
+[04:30:32.383] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5065, ServerGold=5066, Diff=1
+[04:30:32.486] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5066, ServerGold=5067, Diff=1
+[04:30:32.486] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5066, ServerGold=5067, Diff=1
+[04:30:32.591] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5067, ServerGold=5068, Diff=1
+[04:30:32.591] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5067, ServerGold=5068, Diff=1
+[04:30:32.688] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5068, ServerGold=5069, Diff=1
+[04:30:32.688] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5068, ServerGold=5069, Diff=1
+[04:30:32.797] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5069, ServerGold=5070, Diff=1
+[04:30:32.797] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5069, ServerGold=5070, Diff=1
+[04:30:32.887] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5070, ServerGold=5071, Diff=1
+[04:30:32.887] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5070, ServerGold=5071, Diff=1
+[04:30:32.988] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5071, ServerGold=5072, Diff=1
+[04:30:32.988] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5071, ServerGold=5072, Diff=1
+[04:30:33.090] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5072, ServerGold=5073, Diff=1
+[04:30:33.092] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5072, ServerGold=5073, Diff=1
+[04:30:33.188] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5073, ServerGold=5074, Diff=1
+[04:30:33.188] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5073, ServerGold=5074, Diff=1
+[04:30:33.293] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5074, ServerGold=5075, Diff=1
+[04:30:33.293] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5074, ServerGold=5075, Diff=1
+[04:30:33.392] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5075, ServerGold=5076, Diff=1
+[04:30:33.393] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5075, ServerGold=5076, Diff=1
+[04:30:33.491] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5076, ServerGold=5077, Diff=1
+[04:30:33.491] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5076, ServerGold=5077, Diff=1
+[04:30:33.586] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5077, ServerGold=5078, Diff=1
+[04:30:33.587] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5077, ServerGold=5078, Diff=1
+[04:30:33.716] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5078, ServerGold=5079, Diff=1
+[04:30:33.716] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5078, ServerGold=5079, Diff=1
+[04:30:33.802] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5079, ServerGold=5080, Diff=1
+[04:30:33.803] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5079, ServerGold=5080, Diff=1
+[04:30:33.897] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5080, ServerGold=5081, Diff=1
+[04:30:33.897] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5080, ServerGold=5081, Diff=1
+[04:30:34.000] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5081, ServerGold=5082, Diff=1
+[04:30:34.001] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5081, ServerGold=5082, Diff=1
+[04:30:34.093] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5082, ServerGold=5083, Diff=1
+[04:30:34.093] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5082, ServerGold=5083, Diff=1
+[04:30:34.191] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5083, ServerGold=5084, Diff=1
+[04:30:34.191] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5083, ServerGold=5084, Diff=1
+[04:30:34.292] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5084, ServerGold=5085, Diff=1
+[04:30:34.293] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5084, ServerGold=5085, Diff=1
+[04:30:34.395] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5085, ServerGold=5086, Diff=1
+[04:30:34.396] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5085, ServerGold=5086, Diff=1
+[04:30:34.521] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5086, ServerGold=5087, Diff=1
+[04:30:34.521] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5086, ServerGold=5087, Diff=1
+[04:30:34.595] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5087, ServerGold=5088, Diff=1
+[04:30:34.595] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5087, ServerGold=5088, Diff=1
+[04:30:34.698] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5088, ServerGold=5089, Diff=1
+[04:30:34.698] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5088, ServerGold=5089, Diff=1
+[04:30:34.809] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5089, ServerGold=5090, Diff=1
+[04:30:34.809] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5089, ServerGold=5090, Diff=1
+[04:30:34.896] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5090, ServerGold=5091, Diff=1
+[04:30:34.898] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5090, ServerGold=5091, Diff=1
+[04:30:34.995] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5091, ServerGold=5092, Diff=1
+[04:30:34.995] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5091, ServerGold=5092, Diff=1
+[04:30:35.097] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5092, ServerGold=5093, Diff=1
+[04:30:35.097] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5092, ServerGold=5093, Diff=1
+[04:30:35.204] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5093, ServerGold=5094, Diff=1
+[04:30:35.205] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5093, ServerGold=5094, Diff=1
+[04:30:35.297] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5094, ServerGold=5095, Diff=1
+[04:30:35.297] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5094, ServerGold=5095, Diff=1
+[04:30:35.400] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5095, ServerGold=5096, Diff=1
+[04:30:35.401] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5095, ServerGold=5096, Diff=1
+[04:30:35.501] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5096, ServerGold=5097, Diff=1
+[04:30:35.501] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5096, ServerGold=5097, Diff=1
+[04:30:35.601] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5097, ServerGold=5098, Diff=1
+[04:30:35.602] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5097, ServerGold=5098, Diff=1
+[04:30:35.707] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5098, ServerGold=5099, Diff=1
+[04:30:35.708] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5098, ServerGold=5099, Diff=1
+[04:30:35.821] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5099, ServerGold=5100, Diff=1
+[04:30:35.821] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5099, ServerGold=5100, Diff=1
+[04:30:35.917] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5100, ServerGold=5101, Diff=1
+[04:30:35.918] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5100, ServerGold=5101, Diff=1
+[04:30:36.009] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5101, ServerGold=5102, Diff=1
+[04:30:36.010] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5101, ServerGold=5102, Diff=1
+[04:30:36.111] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5102, ServerGold=5103, Diff=1
+[04:30:36.112] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5102, ServerGold=5103, Diff=1
+[04:30:36.205] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5103, ServerGold=5104, Diff=1
+[04:30:36.205] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5103, ServerGold=5104, Diff=1
+[04:30:36.300] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5104, ServerGold=5105, Diff=1
+[04:30:36.300] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5104, ServerGold=5105, Diff=1
+[04:30:36.461] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5105, ServerGold=5106, Diff=1
+[04:30:36.461] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5105, ServerGold=5106, Diff=1
+[04:30:36.504] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5106, ServerGold=5107, Diff=1
+[04:30:36.504] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5106, ServerGold=5107, Diff=1
+[04:30:36.608] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5107, ServerGold=5108, Diff=1
+[04:30:36.608] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5107, ServerGold=5108, Diff=1
+[04:30:36.773] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5108, ServerGold=5109, Diff=1
+[04:30:36.773] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5108, ServerGold=5109, Diff=1
+[04:30:36.808] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5109, ServerGold=5110, Diff=1
+[04:30:36.809] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5109, ServerGold=5110, Diff=1
+[04:30:36.908] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5110, ServerGold=5111, Diff=1
+[04:30:36.908] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5110, ServerGold=5111, Diff=1
+[04:30:37.016] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5111, ServerGold=5112, Diff=1
+[04:30:37.016] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5111, ServerGold=5112, Diff=1
+[04:30:37.110] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5112, ServerGold=5113, Diff=1
+[04:30:37.111] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5112, ServerGold=5113, Diff=1
+[04:30:37.205] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5113, ServerGold=5114, Diff=1
+[04:30:37.205] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5113, ServerGold=5114, Diff=1
+[04:30:37.301] [INFO] [Network/NetworkGameEndController] 포기 요청 전송
+[04:30:37.309] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5114, ServerGold=5115, Diff=1
+[04:30:37.309] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5114, ServerGold=5115, Diff=1
+[04:30:37.419] [INFO] [Network/NetworkGameEndController] AnnounceWinnerClientRpc 수신 | WinnerTeam=Blue, LocalTeam=Red, IsRandomMatch=False
+[04:30:37.419] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 시작 | Clock=ResultScreenLeaveWatch, TimeoutSeconds=30, HeartbeatIntervalSeconds=3, IsServer=False
+[04:30:37.420] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5115, ServerGold=5116, Diff=1
+[04:30:37.420] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5115, ServerGold=5116, Diff=1
+[04:30:38.843] [INFO] [Network/NetworkGameEndController] 정상 퇴장 통보 전송
+[04:30:38.845] [INFO] [Network/NetworkGameManager] NetworkManager Shutdown 완료
+[04:30:38.847] [INFO] [Network/NetworkResourceSync] 디스폰 — 구독 해제 완료
+[04:30:38.847] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 중단 | Clock=ResultScreenLeaveWatch, Reason=네트워크 디스폰
+[04:30:38.847] [INFO] [Network/NetworkTileSync] 디스폰 — 이벤트 구독 해제
+[04:30:38.849] [WARN] [Network/NetworkGameManager] 클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행 | ClientId=1
+[04:30:38.849] [WARN] [Network/NetworkGameManager] 클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행 | ClientId=1
+[04:30:40.311] [INFO] [Network/LobbyManager] Lobby 나가기 완료 (Guest 퇴장) | LobbyId=j3r3Qbtkk9sUAytFcfxgd
+[04:30:40.361] [INFO] [Network/NetworkGameManager] 초기화 시작
+[04:30:40.362] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[04:30:40.362] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[04:30:40.362] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[04:30:40.362] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[04:30:40.363] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
