@@ -2221,3 +2221,424 @@ Hexiege.Presentation.ConfirmPopup:OnConfirmClicked () (at Assets/_Project/Script
 UnityEngine.EventSystems.EventSystem:Update () (at ./Library/PackageCache/com.unity.ugui@1890c14c96ff/Runtime/UGUI/EventSystem/EventSystem.cs:514)
  | Event=UnhandledEngineError, Source=UnityLogHook, Suppressed=0
 [02:51:53.756] [INFO] [Network/NetworkGameEndController] 포기 요청 전송
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-09-27 03:33:33 ===
+
+[03:33:33.312] [INFO] [Bootstrap/LoginBootstrapper] Android 가 아니라 GooglePlayGames 활성화를 건너뛴다 | Platform=NonAndroid
+[03:33:34.002] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[03:33:34.011] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[03:33:34.012] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[03:33:34.055] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[03:33:36.025] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[03:33:36.025] [INFO] [Bootstrap/LoginBootstrapper] 자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다 | IsFirstLogin=False
+[03:33:48.940] [INFO] [Network/NetworkGameManager] 초기화 시작
+[03:33:48.941] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[03:33:48.941] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[03:33:48.942] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[03:33:48.942] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[03:33:48.967] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[03:34:25.300] [INFO] [Network/NetworkGameManager] HostGame 시작 | LobbyName=Hexiege Room
+[03:34:25.300] [INFO] [Network/RelayManager] Relay 할당 생성 시작
+[03:34:26.993] [INFO] [Network/RelayManager] Relay 할당 완료 | RelayJoinCode=WBNJKK
+[03:34:27.000] [INFO] [Network/RelayManager] UnityTransport Host 설정 완료
+[03:34:27.441] [INFO] [Network/LobbyManager] Lobby 생성 완료 | Name=Hexiege Room, Code=WRDMRC, LobbyId=2tWNHd25DSdxbzWntVGpVN
+[03:34:27.559] [INFO] [Network/NetworkGameManager] NetworkManager.StartHost() 성공
+[03:34:27.561] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 시작
+[03:34:27.562] [INFO] [Network/NetworkGameManager] Host 게임 시작 완료 | LobbyCode=WRDMRC
+[03:34:40.199] [INFO] [Network/NetworkGameManager] Client 접속 감지 — OnClientConnected 발행 | ClientId=1
+[03:34:40.211] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 | Role=Host, IsServer=True, NetworkObjectId=1, State=Idle
+[03:34:40.242] [INFO] [Map/NetworkMapTransfer] Host 맵 준비 완료 | Event=MapPreparationSucceeded, MapVersion=2, Seed=17752739634938790192, MapType=FullyOpen, NeutralMineCount=3, StartingMineSide=CaseA, InitialGold=500, ElapsedMs=19, AttemptCount=1, UsedFallback=False, Hash=7905e22a6790ac7e, ErrorCode=None
+[03:34:40.243] [INFO] [Network/NetworkMapTransfer] 맵 전송 회차 시작 | Nonce=1, Round=First, IsProbe=False, MapVersion=2, TotalBytes=327, ChunkSize=1024, ChunkCount=1, Hash=7905e22a6790ac7e
+[03:34:40.243] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 최초 전송 | Role=Host, PreviousState=Idle, State=Sending, Nonce=1
+[03:34:40.251] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 조각을 다 보내고 응답 대기 | Role=Host, PreviousState=Sending, State=WaitingReady, Nonce=1
+[03:34:40.252] [INFO] [Network/NetworkGameManager] OnAllPlayersReady 발행 | ConnectedCount=2
+[03:34:40.462] [INFO] [Network/NetworkMapTransfer] 수신 완료 응답을 받았다 | Nonce=1, ClientId=1, Success=True, ReceivedBytes=327, ErrorCode=None
+[03:34:40.462] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 응답 수신(성공) | Role=Host, PreviousState=WaitingReady, State=Completed, Nonce=1
+[03:34:40.463] [INFO] [Map/NetworkMapTransfer] Host 와 Client 의 최종 맵 해시가 일치한다 | Event=MapTransferSucceeded, Role=Host, Round=First, Nonce=1, MapVersion=2, TotalBytes=327, ChunkCount=1, SendCount=1, ResendCount=0, HostHash=7905e22a6790ac7e, ClientHash=7905e22a6790ac7e, HashMatch=True, ErrorCode=None, ClientId=1
+[03:34:40.464] [INFO] [Network/NetworkGameManager] 맵 전송 성공 — 씬 전환 게이트를 통과했다
+[03:34:40.464] [INFO] [Network/NetworkGameManager] Game 씬 로드 시작
+[03:34:41.928] [INFO] [Network/NetworkResourceSync] OnResourceChanged 구독 완료
+[03:34:41.928] [INFO] [Network/NetworkResourceSync] 서버 모드로 골드 동기화 시작
+[03:34:41.928] [INFO] [Network/NetworkResourceSync] NetworkVariable 콜백 등록 완료 | IsServer=True
+[03:34:41.929] [INFO] [Network/NetworkBuildingController] 스폰 완료 | IsServer=True
+[03:34:41.931] [INFO] [Network/NetworkUpgradeController] 네트워크 스폰 | IsServer=True
+[03:34:41.931] [INFO] [Network/NetworkCombatController] 네트워크 역할 확정 | Role=Host
+[03:34:41.934] [INFO] [Network/NetworkCombatController] 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged/GameEnd 이벤트 구독 완료
+[03:34:41.935] [INFO] [Network/NetworkTileSync] OnTileOwnerChanged 구독 완료
+[03:34:41.936] [INFO] [Network/NetworkTileSync] 서버 모드로 타일 소유권 동기화 시작 | IsServer=True
+[03:34:41.936] [INFO] [Network/NetworkGameFlow] 네트워크 스폰 | IsServer=True, IsHost=True
+[03:34:41.936] [INFO] [Network/NetworkGameFlow] 팀 직접 할당 | IsHost=True, Team=Blue
+[03:34:41.938] [INFO] [Network/NetworkGameFlow] 준비 신호 수신 | ClientId=0, Race=0, ReadyCount=1, ExpectedPlayers=2
+[03:34:41.938] [INFO] [Network/NetworkGameEndController] 네트워크 스폰 | IsServer=True
+[03:34:41.939] [INFO] [Network/NetworkGameEndController] 서버 측 OnGameEnd 구독 완료
+[03:34:41.939] [INFO] [Network/NetworkSkillController] 네트워크 스폰 | IsServer=True
+[03:34:41.940] [INFO] [Network/NetworkHealthSync] 네트워크 스폰 | IsServer=True
+[03:34:41.942] [INFO] [Network/NetworkHealthSync] 서버 측 OnEntityDamaged/OnEntityHealed 구독 완료
+[03:34:41.943] [INFO] [Network/NetworkUnitMovementController] 네트워크 스폰 | IsServer=True
+[03:34:41.943] [INFO] [Network/NetworkProductionController] 스폰 완료 | IsServer=True
+[03:34:41.946] [INFO] [Network/NetworkProductionController] 서버 측 생산 이벤트 구독 완료
+[03:34:41.946] [INFO] [Network/ReconnectionHandler] 서버 모드로 재접속 감시 시작 | WaitSeconds=30
+[03:34:41.955] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[03:34:41.963] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[03:34:41.964] [INFO] [Bootstrap/GameBootstrapper] 네트워크 모드 감지 — 맵 로드는 NetworkGameFlow 에 위임한다
+[03:34:44.049] [INFO] [Network/NetworkGameFlow] 준비 신호 수신 | ClientId=1, Race=0, ReadyCount=2, ExpectedPlayers=2
+[03:34:44.050] [INFO] [Network/NetworkGameFlow] 모든 플레이어 준비 완료 — 게임 시작 명령 전송 | BlueRace=0, RedRace=0
+[03:34:44.051] [INFO] [Network/NetworkGameFlow] 게임 시작 ClientRpc 수신 | Team=Blue, BlueRace=0, RedRace=0
+[03:34:44.051] [INFO] [Bootstrap/GameBootstrapper] StartNetworkGame 호출 | Team=Blue
+[03:34:44.052] [INFO] [Bootstrap/GameBootstrapper] ViewConverter 사전 설정 완료 | IsRed=False, MapCenter=(3.75, 0.00, -8.66)
+[03:34:44.238] [INFO] [Network/NetworkGameFlow] 초기 골드 동기화 완료 | BlueGold=5000, RedGold=5000
+[03:36:13.934] [INFO] [Network/NetworkGameEndController] 포기 요청 전송
+[03:36:13.935] [INFO] [Network/NetworkGameEndController] 포기 처리 | ForfeiterClientId=0, ForfeitTeam=Blue, WinnerTeam=Red
+[03:36:13.940] [INFO] [Network/NetworkCombatController] 게임 종료 — 전투 틱 정지
+[03:36:13.943] [INFO] [Network/NetworkGameEndController] AnnounceWinnerClientRpc 수신 | WinnerTeam=Red, LocalTeam=Blue, IsRandomMatch=False
+[03:36:13.945] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 시작 | Clock=ResultScreenLeaveWatch, TimeoutSeconds=30, HeartbeatIntervalSeconds=3, IsServer=True
+[03:36:19.607] [INFO] [Network/NetworkGameEndController] NotifyLeavingResultScreenServerRpc 수신 — 상대에게 이탈을 알린다 | LeaverClientId=1, TargetClientId=0
+[03:36:19.608] [INFO] [Network/NetworkGameEndController] 상대 이탈 알림 수신 — OnNetworkOpponentLeft 발행
+[03:36:19.609] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 중단 | Clock=ResultScreenLeaveWatch, Reason=상대 이탈 알림을 받았다
+[03:36:19.626] [WARN] [Network/ReconnectionHandler] 클라이언트 연결 끊김 — 재접속 대기 시작 | ClientId=1, WaitSeconds=30
+[03:36:19.627] [INFO] [Network/ReconnectionHandler] 강제 승리 대기 코루틴 시작 | WaitSeconds=30
+[03:36:19.777] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 정지
+[03:36:19.782] [INFO] [Network/NetworkGameEndController] 정상 퇴장 통보 전송
+[03:36:19.782] [INFO] [Network/NetworkGameEndController] NotifyLeavingResultScreenServerRpc 수신 — 상대에게 이탈을 알린다 | LeaverClientId=0, TargetClientId=18446744073709551615
+[03:36:19.782] [INFO] [Network/NetworkGameManager] NetworkManager Shutdown 완료
+[03:36:19.788] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 디스폰 | Role=Host, Nonce=1, State=Completed
+[03:36:19.790] [INFO] [Network/NetworkResourceSync] 디스폰 — 구독 해제 완료
+[03:36:19.791] [INFO] [Network/NetworkTileSync] 디스폰 — 이벤트 구독 해제
+[03:36:19.791] [INFO] [Network/ReconnectionHandler] 디스폰 — 콜백 해제 완료
+[03:36:20.203] [INFO] [Network/LobbyManager] Lobby 삭제 완료 (Host 퇴장) | LobbyId=2tWNHd25DSdxbzWntVGpVN
+[03:36:21.306] [INFO] [Network/NetworkGameManager] 초기화 시작
+[03:36:21.307] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[03:36:21.307] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[03:36:21.308] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[03:36:21.308] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[03:36:21.309] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[03:36:40.965] [INFO] [Network/NetworkGameManager] HostGame 시작 | LobbyName=Hexiege Room
+[03:36:40.965] [INFO] [Network/RelayManager] Relay 할당 생성 시작
+[03:36:42.503] [INFO] [Network/RelayManager] Relay 할당 완료 | RelayJoinCode=TBDN7H
+[03:36:42.503] [INFO] [Network/RelayManager] UnityTransport Host 설정 완료
+[03:36:42.858] [INFO] [Network/LobbyManager] Lobby 생성 완료 | Name=Hexiege Room, Code=GPFN6R, LobbyId=x59iQK683jXmYwvNdMfEH
+[03:36:42.862] [INFO] [Network/NetworkGameManager] NetworkManager.StartHost() 성공
+[03:36:42.863] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 시작
+[03:36:42.863] [INFO] [Network/NetworkGameManager] Host 게임 시작 완료 | LobbyCode=GPFN6R
+[03:36:56.312] [INFO] [Network/NetworkGameManager] Client 접속 감지 — OnClientConnected 발행 | ClientId=2
+[03:36:56.312] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 | Role=Host, IsServer=True, NetworkObjectId=1, State=Idle
+[03:36:56.314] [INFO] [Map/NetworkMapTransfer] Host 맵 준비 완료 | Event=MapPreparationSucceeded, MapVersion=2, Seed=5440873617343453893, MapType=ObstacleOpen, NeutralMineCount=5, StartingMineSide=CaseB, InitialGold=300, ElapsedMs=0, AttemptCount=1, UsedFallback=False, Hash=7e77fc41c2588482, ErrorCode=None
+[03:36:56.314] [INFO] [Network/NetworkMapTransfer] 맵 전송 회차 시작 | Nonce=1, Round=First, IsProbe=False, MapVersion=2, TotalBytes=335, ChunkSize=1024, ChunkCount=1, Hash=7e77fc41c2588482
+[03:36:56.315] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 최초 전송 | Role=Host, PreviousState=Idle, State=Sending, Nonce=1
+[03:36:56.315] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 조각을 다 보내고 응답 대기 | Role=Host, PreviousState=Sending, State=WaitingReady, Nonce=1
+[03:36:56.315] [INFO] [Network/NetworkGameManager] OnAllPlayersReady 발행 | ConnectedCount=2
+[03:36:56.427] [INFO] [Network/NetworkMapTransfer] 수신 완료 응답을 받았다 | Nonce=1, ClientId=2, Success=True, ReceivedBytes=335, ErrorCode=None
+[03:36:56.429] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 응답 수신(성공) | Role=Host, PreviousState=WaitingReady, State=Completed, Nonce=1
+[03:36:56.429] [INFO] [Map/NetworkMapTransfer] Host 와 Client 의 최종 맵 해시가 일치한다 | Event=MapTransferSucceeded, Role=Host, Round=First, Nonce=1, MapVersion=2, TotalBytes=335, ChunkCount=1, SendCount=1, ResendCount=0, HostHash=7e77fc41c2588482, ClientHash=7e77fc41c2588482, HashMatch=True, ErrorCode=None, ClientId=2
+[03:36:56.429] [INFO] [Network/NetworkGameManager] 맵 전송 성공 — 씬 전환 게이트를 통과했다
+[03:36:56.429] [INFO] [Network/NetworkGameManager] Game 씬 로드 시작
+[03:36:56.935] [INFO] [Network/NetworkGameEndController] 네트워크 스폰 | IsServer=True
+[03:36:56.936] [INFO] [Network/NetworkGameEndController] 서버 측 OnGameEnd 구독 완료
+[03:36:56.937] [INFO] [Network/ReconnectionHandler] 서버 모드로 재접속 감시 시작 | WaitSeconds=30
+[03:36:56.937] [INFO] [Network/NetworkTileSync] OnTileOwnerChanged 구독 완료
+[03:36:56.937] [INFO] [Network/NetworkTileSync] 서버 모드로 타일 소유권 동기화 시작 | IsServer=True
+[03:36:56.937] [INFO] [Network/NetworkResourceSync] OnResourceChanged 구독 완료
+[03:36:56.938] [INFO] [Network/NetworkResourceSync] 서버 모드로 골드 동기화 시작
+[03:36:56.938] [INFO] [Network/NetworkResourceSync] NetworkVariable 콜백 등록 완료 | IsServer=True
+[03:36:56.938] [INFO] [Network/NetworkUpgradeController] 네트워크 스폰 | IsServer=True
+[03:36:56.938] [INFO] [Network/NetworkCombatController] 네트워크 역할 확정 | Role=Host
+[03:36:56.938] [INFO] [Network/NetworkCombatController] 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged/GameEnd 이벤트 구독 완료
+[03:36:56.939] [INFO] [Network/NetworkBuildingController] 스폰 완료 | IsServer=True
+[03:36:56.939] [INFO] [Network/NetworkGameFlow] 네트워크 스폰 | IsServer=True, IsHost=True
+[03:36:56.939] [INFO] [Network/NetworkGameFlow] 팀 직접 할당 | IsHost=True, Team=Blue
+[03:36:56.940] [INFO] [Network/NetworkGameFlow] 준비 신호 수신 | ClientId=0, Race=0, ReadyCount=1, ExpectedPlayers=2
+[03:36:56.940] [INFO] [Network/NetworkProductionController] 스폰 완료 | IsServer=True
+[03:36:56.940] [INFO] [Network/NetworkProductionController] 서버 측 생산 이벤트 구독 완료
+[03:36:56.940] [INFO] [Network/NetworkSkillController] 네트워크 스폰 | IsServer=True
+[03:36:56.941] [INFO] [Network/NetworkHealthSync] 네트워크 스폰 | IsServer=True
+[03:36:56.941] [INFO] [Network/NetworkHealthSync] 서버 측 OnEntityDamaged/OnEntityHealed 구독 완료
+[03:36:56.941] [INFO] [Network/NetworkUnitMovementController] 네트워크 스폰 | IsServer=True
+[03:36:56.942] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[03:36:56.942] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[03:36:56.942] [INFO] [Bootstrap/GameBootstrapper] 네트워크 모드 감지 — 맵 로드는 NetworkGameFlow 에 위임한다
+[03:36:57.262] [INFO] [Network/NetworkGameFlow] 준비 신호 수신 | ClientId=2, Race=0, ReadyCount=2, ExpectedPlayers=2
+[03:36:57.262] [INFO] [Network/NetworkGameFlow] 모든 플레이어 준비 완료 — 게임 시작 명령 전송 | BlueRace=0, RedRace=0
+[03:36:57.264] [INFO] [Network/NetworkGameFlow] 게임 시작 ClientRpc 수신 | Team=Blue, BlueRace=0, RedRace=0
+[03:36:57.264] [INFO] [Bootstrap/GameBootstrapper] StartNetworkGame 호출 | Team=Blue
+[03:36:57.264] [INFO] [Bootstrap/GameBootstrapper] ViewConverter 사전 설정 완료 | IsRed=False, MapCenter=(3.75, 0.00, -8.66)
+[03:36:57.343] [INFO] [Network/NetworkGameFlow] 초기 골드 동기화 완료 | BlueGold=5000, RedGold=5000
+[03:37:57.474] [INFO] [Network/NetworkGameEndController] 포기 요청 전송
+[03:37:57.475] [INFO] [Network/NetworkGameEndController] 포기 처리 | ForfeiterClientId=0, ForfeitTeam=Blue, WinnerTeam=Red
+[03:37:57.475] [INFO] [Network/NetworkCombatController] 게임 종료 — 전투 틱 정지
+[03:37:57.477] [INFO] [Network/NetworkGameEndController] AnnounceWinnerClientRpc 수신 | WinnerTeam=Red, LocalTeam=Blue, IsRandomMatch=False
+[03:37:57.477] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 시작 | Clock=ResultScreenLeaveWatch, TimeoutSeconds=30, HeartbeatIntervalSeconds=3, IsServer=True
+[03:38:10.139] [INFO] [Network/NetworkGameEndController] RequestRematchServerRpc 수신 | RequesterClientId=0, PreviousRequesterClientId=18446744073709551615
+[03:38:11.364] [INFO] [Network/NetworkGameEndController] AcceptRematchServerRpc 수신 — 새 맵 준비를 시작한다
+[03:38:11.364] [INFO] [Network/NetworkGameEndController] 재경기 수락 접수 알림 수신 — OnNetworkRematchAccepted 발행
+[03:38:11.364] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 | Role=Host, IsServer=True, NetworkObjectId=15, State=Idle
+[03:38:11.371] [INFO] [Map/NetworkMapTransfer] Host 맵 준비 완료 | Event=MapPreparationSucceeded, MapVersion=2, Seed=13658406478549154601, MapType=ThreeLane, NeutralMineCount=5, StartingMineSide=CaseB, InitialGold=300, ElapsedMs=4, AttemptCount=1, UsedFallback=False, Hash=a63d8dc4fc0c3ea3, ErrorCode=None
+[03:38:11.372] [INFO] [Network/NetworkMapTransfer] 맵 전송 회차 시작 | Nonce=1, Round=Rematch, IsProbe=False, MapVersion=2, TotalBytes=335, ChunkSize=1024, ChunkCount=1, Hash=a63d8dc4fc0c3ea3
+[03:38:11.373] [WARN] [Network/NetworkMapTransfer] [강제 실패] 개발용 플래그가 켜져 있어 이 재경기 회차의 응답을 일부러 무시한다 — 진짜 timeout·재전송 경로를 태운다 | Nonce=1, Round=Rematch, Forced=ResponseTimeout, TimeoutSeconds=10, MaxResendCount=1
+[03:38:11.373] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 최초 전송 | Role=Host, PreviousState=Idle, State=Sending, Nonce=1
+[03:38:11.373] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 조각을 다 보내고 응답 대기 | Role=Host, PreviousState=Sending, State=WaitingReady, Nonce=1
+[03:38:11.494] [INFO] [Network/NetworkMapTransfer] 수신 완료 응답을 받았다 | Nonce=1, ClientId=2, Success=True, ReceivedBytes=335, ErrorCode=None
+[03:38:11.494] [WARN] [Network/NetworkMapTransfer] [강제 실패] 개발용 플래그에 따라 Client 응답을 무시했다 — 응답 대기 timeout 이 그대로 흐르게 둔다(실제 장애가 아니다) | Nonce=1, ClientId=2, SendCount=1, ResendCount=0
+[03:38:21.377] [WARN] [Map/NetworkMapTransfer] 응답이 10초 안에 오지 않아 같은 package 를 1회 재전송한다 | Event=MapTransferRetried, Role=Host, Round=Rematch, Nonce=1, MapVersion=2, TotalBytes=335, ChunkCount=1, SendCount=1, ResendCount=1, HostHash=a63d8dc4fc0c3ea3, ClientHash=-, HashMatch=NotCompared, ErrorCode=ResponseTimeout
+[03:38:21.377] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — timeout — 1회 재전송 | Role=Host, PreviousState=WaitingReady, State=Sending, Nonce=1
+[03:38:21.377] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 조각을 다 보내고 응답 대기 | Role=Host, PreviousState=Sending, State=WaitingReady, Nonce=1
+[03:38:21.565] [INFO] [Network/NetworkMapTransfer] 수신 완료 응답을 받았다 | Nonce=1, ClientId=2, Success=True, ReceivedBytes=335, ErrorCode=None
+[03:38:21.565] [WARN] [Network/NetworkMapTransfer] [강제 실패] 개발용 플래그에 따라 Client 응답을 무시했다 — 응답 대기 timeout 이 그대로 흐르게 둔다(실제 장애가 아니다) | Nonce=1, ClientId=2, SendCount=2, ResendCount=1
+[03:38:31.381] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 전송 실패 | Role=Host, PreviousState=WaitingReady, State=Failed, Nonce=1
+[03:38:31.383] [ERROR] [Map/NetworkMapTransfer] 재전송 뒤에도 응답이 오지 않아 전송을 실패로 끝낸다 | Event=MapTransferFailed, Role=Host, Round=Rematch, Nonce=1, MapVersion=2, TotalBytes=335, ChunkCount=1, SendCount=2, ResendCount=1, HostHash=a63d8dc4fc0c3ea3, ClientHash=-, HashMatch=NotCompared, ErrorCode=ResponseTimeout
+[03:38:31.384] [WARN] [Network/NetworkGameManager] 맵 전송 실패 — 씬 전환 게이트가 전투 씬 전환을 막았다(로비 유지) | ErrorCode=ResponseTimeout
+[03:38:31.385] [WARN] [Network/NetworkGameEndController] 재경기 맵 준비 실패 — 씬을 재로드하지 않고 결과 화면을 유지한다 | Reason=MapTransferFailed:ResponseTimeout, ErrorCode=ResponseTimeout, Cause=Other
+[03:38:31.385] [INFO] [Network/NetworkGameEndController] 재경기 맵 준비 실패 알림 수신 — OnNetworkRematchMapFailed 발행 | Cause=Other
+[03:39:01.292] [WARN] [Network/ReconnectionHandler] 클라이언트 연결 끊김 — 재접속 대기 시작 | ClientId=2, WaitSeconds=30
+[03:39:01.293] [INFO] [Network/ReconnectionHandler] 강제 승리 대기 코루틴 시작 | WaitSeconds=30
+[03:39:33.311] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 정지
+[03:39:33.313] [INFO] [Network/NetworkGameEndController] 정상 퇴장 통보 전송
+[03:39:33.314] [INFO] [Network/NetworkGameEndController] NotifyLeavingResultScreenServerRpc 수신 — 상대에게 이탈을 알린다 | LeaverClientId=0, TargetClientId=18446744073709551615
+[03:39:33.314] [INFO] [Network/NetworkGameManager] NetworkManager Shutdown 완료
+[03:39:33.315] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 디스폰 | Role=Host, Nonce=1, State=Failed
+[03:39:33.316] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 디스폰 | Role=Host, Nonce=1, State=Completed
+[03:39:33.316] [INFO] [Network/NetworkResourceSync] 디스폰 — 구독 해제 완료
+[03:39:33.316] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 중단 | Clock=ResultScreenLeaveWatch, Reason=네트워크 디스폰
+[03:39:33.317] [INFO] [Network/NetworkTileSync] 디스폰 — 이벤트 구독 해제
+[03:39:33.317] [INFO] [Network/ReconnectionHandler] 디스폰 — 콜백 해제 완료
+[03:39:34.792] [INFO] [Network/LobbyManager] Lobby 삭제 완료 (Host 퇴장) | LobbyId=x59iQK683jXmYwvNdMfEH
+[03:39:34.851] [INFO] [Network/NetworkGameManager] 초기화 시작
+[03:39:34.851] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[03:39:34.851] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[03:39:34.851] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[03:39:34.851] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[03:39:34.853] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[03:39:41.574] [INFO] [Network/NetworkGameManager] HostGame 시작 | LobbyName=Hexiege Room
+[03:39:41.574] [INFO] [Network/RelayManager] Relay 할당 생성 시작
+[03:39:43.359] [INFO] [Network/RelayManager] Relay 할당 완료 | RelayJoinCode=KDKKLB
+[03:39:43.359] [INFO] [Network/RelayManager] UnityTransport Host 설정 완료
+[03:39:43.702] [INFO] [Network/LobbyManager] Lobby 생성 완료 | Name=Hexiege Room, Code=DJ6FKK, LobbyId=9PU5pbY4z4yUhDw3DXrbWB
+[03:39:43.705] [INFO] [Network/NetworkGameManager] NetworkManager.StartHost() 성공
+[03:39:43.706] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 시작
+[03:39:43.706] [INFO] [Network/NetworkGameManager] Host 게임 시작 완료 | LobbyCode=DJ6FKK
+[03:39:55.239] [INFO] [Network/NetworkGameManager] Client 접속 감지 — OnClientConnected 발행 | ClientId=3
+[03:39:55.240] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 | Role=Host, IsServer=True, NetworkObjectId=1, State=Idle
+[03:39:55.241] [INFO] [Map/NetworkMapTransfer] Host 맵 준비 완료 | Event=MapPreparationSucceeded, MapVersion=2, Seed=2531587251720029730, MapType=FullyOpen, NeutralMineCount=1, StartingMineSide=CaseB, InitialGold=700, ElapsedMs=0, AttemptCount=1, UsedFallback=False, Hash=bdb1185e581e8124, ErrorCode=None
+[03:39:55.241] [INFO] [Network/NetworkMapTransfer] 맵 전송 회차 시작 | Nonce=1, Round=First, IsProbe=False, MapVersion=2, TotalBytes=319, ChunkSize=1024, ChunkCount=1, Hash=bdb1185e581e8124
+[03:39:55.241] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 최초 전송 | Role=Host, PreviousState=Idle, State=Sending, Nonce=1
+[03:39:55.242] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 조각을 다 보내고 응답 대기 | Role=Host, PreviousState=Sending, State=WaitingReady, Nonce=1
+[03:39:55.242] [INFO] [Network/NetworkGameManager] OnAllPlayersReady 발행 | ConnectedCount=2
+[03:39:55.350] [INFO] [Network/NetworkMapTransfer] 수신 완료 응답을 받았다 | Nonce=1, ClientId=3, Success=True, ReceivedBytes=319, ErrorCode=None
+[03:39:55.350] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 응답 수신(성공) | Role=Host, PreviousState=WaitingReady, State=Completed, Nonce=1
+[03:39:55.351] [INFO] [Map/NetworkMapTransfer] Host 와 Client 의 최종 맵 해시가 일치한다 | Event=MapTransferSucceeded, Role=Host, Round=First, Nonce=1, MapVersion=2, TotalBytes=319, ChunkCount=1, SendCount=1, ResendCount=0, HostHash=bdb1185e581e8124, ClientHash=bdb1185e581e8124, HashMatch=True, ErrorCode=None, ClientId=3
+[03:39:55.351] [INFO] [Network/NetworkGameManager] 맵 전송 성공 — 씬 전환 게이트를 통과했다
+[03:39:55.351] [INFO] [Network/NetworkGameManager] Game 씬 로드 시작
+[03:39:55.855] [INFO] [Network/NetworkGameFlow] 네트워크 스폰 | IsServer=True, IsHost=True
+[03:39:55.855] [INFO] [Network/NetworkGameFlow] 팀 직접 할당 | IsHost=True, Team=Blue
+[03:39:55.855] [INFO] [Network/NetworkGameFlow] 준비 신호 수신 | ClientId=0, Race=0, ReadyCount=1, ExpectedPlayers=2
+[03:39:55.855] [INFO] [Network/NetworkProductionController] 스폰 완료 | IsServer=True
+[03:39:55.857] [INFO] [Network/NetworkProductionController] 서버 측 생산 이벤트 구독 완료
+[03:39:55.857] [INFO] [Network/NetworkBuildingController] 스폰 완료 | IsServer=True
+[03:39:55.857] [INFO] [Network/NetworkCombatController] 네트워크 역할 확정 | Role=Host
+[03:39:55.857] [INFO] [Network/NetworkCombatController] 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged/GameEnd 이벤트 구독 완료
+[03:39:55.857] [INFO] [Network/NetworkGameEndController] 네트워크 스폰 | IsServer=True
+[03:39:55.858] [INFO] [Network/NetworkGameEndController] 서버 측 OnGameEnd 구독 완료
+[03:39:55.858] [INFO] [Network/NetworkHealthSync] 네트워크 스폰 | IsServer=True
+[03:39:55.858] [INFO] [Network/NetworkHealthSync] 서버 측 OnEntityDamaged/OnEntityHealed 구독 완료
+[03:39:55.859] [INFO] [Network/NetworkUnitMovementController] 네트워크 스폰 | IsServer=True
+[03:39:55.859] [INFO] [Network/NetworkUpgradeController] 네트워크 스폰 | IsServer=True
+[03:39:55.859] [INFO] [Network/NetworkResourceSync] OnResourceChanged 구독 완료
+[03:39:55.859] [INFO] [Network/NetworkResourceSync] 서버 모드로 골드 동기화 시작
+[03:39:55.859] [INFO] [Network/NetworkResourceSync] NetworkVariable 콜백 등록 완료 | IsServer=True
+[03:39:55.859] [INFO] [Network/NetworkTileSync] OnTileOwnerChanged 구독 완료
+[03:39:55.859] [INFO] [Network/NetworkTileSync] 서버 모드로 타일 소유권 동기화 시작 | IsServer=True
+[03:39:55.861] [INFO] [Network/ReconnectionHandler] 서버 모드로 재접속 감시 시작 | WaitSeconds=30
+[03:39:55.861] [INFO] [Network/NetworkSkillController] 네트워크 스폰 | IsServer=True
+[03:39:55.862] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[03:39:55.862] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[03:39:55.862] [INFO] [Bootstrap/GameBootstrapper] 네트워크 모드 감지 — 맵 로드는 NetworkGameFlow 에 위임한다
+[03:39:56.218] [INFO] [Network/NetworkGameFlow] 준비 신호 수신 | ClientId=3, Race=0, ReadyCount=2, ExpectedPlayers=2
+[03:39:56.219] [INFO] [Network/NetworkGameFlow] 모든 플레이어 준비 완료 — 게임 시작 명령 전송 | BlueRace=0, RedRace=0
+[03:39:56.219] [INFO] [Network/NetworkGameFlow] 게임 시작 ClientRpc 수신 | Team=Blue, BlueRace=0, RedRace=0
+[03:39:56.220] [INFO] [Bootstrap/GameBootstrapper] StartNetworkGame 호출 | Team=Blue
+[03:39:56.220] [INFO] [Bootstrap/GameBootstrapper] ViewConverter 사전 설정 완료 | IsRed=False, MapCenter=(3.75, 0.00, -8.66)
+[03:39:56.316] [INFO] [Network/NetworkGameFlow] 초기 골드 동기화 완료 | BlueGold=5000, RedGold=5000
+[03:41:11.161] [WARN] [Network/ReconnectionHandler] 클라이언트 연결 끊김 — 재접속 대기 시작 | ClientId=3, WaitSeconds=30
+[03:41:11.162] [INFO] [Network/ReconnectionHandler] 강제 승리 대기 코루틴 시작 | WaitSeconds=30
+[03:41:41.163] [INFO] [Network/ReconnectionHandler] 재접속 타임아웃 — 강제 승리 처리 | WinnerTeam=Blue
+[03:41:41.164] [INFO] [Network/NetworkGameEndController] ForceWin 호출 — 상대 연결 끊김으로 강제 승리 처리 | WinnerTeamIndex=1
+[03:41:41.164] [INFO] [Network/NetworkCombatController] 게임 종료 — 전투 틱 정지
+[03:41:41.164] [INFO] [Network/NetworkGameEndController] AnnounceWinnerClientRpc 수신 | WinnerTeam=Blue, LocalTeam=Blue, IsRandomMatch=False
+[03:42:41.345] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 정지
+[03:42:41.345] [INFO] [Network/NetworkGameEndController] 정상 퇴장 통보 전송
+[03:42:41.346] [INFO] [Network/NetworkGameEndController] NotifyLeavingResultScreenServerRpc 수신 — 상대에게 이탈을 알린다 | LeaverClientId=0, TargetClientId=18446744073709551615
+[03:42:41.346] [INFO] [Network/NetworkGameManager] NetworkManager Shutdown 완료
+[03:42:41.347] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 디스폰 | Role=Host, Nonce=1, State=Completed
+[03:42:41.347] [INFO] [Network/NetworkResourceSync] 디스폰 — 구독 해제 완료
+[03:42:41.349] [INFO] [Network/NetworkTileSync] 디스폰 — 이벤트 구독 해제
+[03:42:41.349] [INFO] [Network/ReconnectionHandler] 디스폰 — 콜백 해제 완료
+[03:42:41.654] [INFO] [Network/LobbyManager] Lobby 삭제 완료 (Host 퇴장) | LobbyId=9PU5pbY4z4yUhDw3DXrbWB
+[03:42:42.921] [INFO] [Network/NetworkGameManager] 초기화 시작
+[03:42:42.921] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[03:42:42.922] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[03:42:42.922] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[03:42:42.922] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[03:42:42.923] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[03:43:08.438] [INFO] [Network/NetworkGameManager] JoinGame 시작 | LobbyCode=69cw6b
+[03:43:08.769] [INFO] [Network/LobbyManager] Lobby 참가 완료 (코드) | Name=Hexiege Room
+[03:43:08.772] [INFO] [Network/RelayManager] Relay 참가 시도 | RelayJoinCode=QRCJ78
+[03:43:09.249] [INFO] [Network/RelayManager] Relay 참가 할당 획득 완료
+[03:43:09.250] [INFO] [Network/RelayManager] UnityTransport Client 설정 완료
+[03:43:09.256] [INFO] [Network/NetworkGameManager] NetworkManager.StartClient() 성공
+[03:43:09.257] [INFO] [Network/NetworkGameManager] Client 게임 참가 완료
+[03:43:10.782] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 | Role=Client, IsServer=False, NetworkObjectId=1, State=Idle
+[03:43:10.783] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 시작 통보 수신 | Role=Client, PreviousState=Idle, State=Receiving, Nonce=1
+[03:43:10.783] [INFO] [Network/NetworkMapTransfer] 시작 통보 수신 — 재조립기를 준비했다 | Nonce=1, MapVersion=2, TotalBytes=323, ChunkSize=1024, ChunkCount=1, Round=First, IsProbe=False, ReceiveCount=1, Hash=eff0262c3024dedb
+[03:43:10.783] [INFO] [Network/NetworkMapTransfer] 조각 재조립 완료 — 검증을 시작한다 | Nonce=1, TotalBytes=323, ChunkCount=1
+[03:43:10.786] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 수신·검증 완료 | Role=Client, PreviousState=Receiving, State=Completed, Nonce=1
+[03:43:10.787] [INFO] [Map/NetworkMapTransfer] 받은 맵의 해시·복원·공정성 검증을 모두 통과했다 | Event=MapTransferSucceeded, Role=Client, Round=First, Nonce=1, MapVersion=2, TotalBytes=323, ChunkCount=1, SendCount=1, ResendCount=0, HostHash=eff0262c3024dedb, ClientHash=eff0262c3024dedb, HashMatch=True, ErrorCode=None, VerifyStage=None, VerifyError=None, Seed=16712740613407755628, MapType=FullyOpen, NeutralMineCount=2, StartingMineSide=CaseB, AttemptIndex=0, SearchedCombinations=2
+[03:43:12.861] [INFO] [Network/NetworkCombatController] 네트워크 역할 확정 | Role=Client
+[03:43:12.861] [INFO] [Network/NetworkGameFlow] 네트워크 스폰 | IsServer=False, IsHost=False
+[03:43:12.862] [INFO] [Network/NetworkGameFlow] 팀 직접 할당 | IsHost=False, Team=Red
+[03:43:12.862] [INFO] [Network/NetworkUnitMovementController] 네트워크 스폰 | IsServer=False
+[03:43:12.862] [INFO] [Network/NetworkHealthSync] 네트워크 스폰 | IsServer=False
+[03:43:12.863] [INFO] [Network/NetworkGameEndController] 네트워크 스폰 | IsServer=False
+[03:43:12.863] [INFO] [Network/NetworkResourceSync] NetworkVariable 콜백 등록 완료 | IsServer=False
+[03:43:12.864] [INFO] [Network/NetworkUpgradeController] 네트워크 스폰 | IsServer=False
+[03:43:12.864] [INFO] [Network/NetworkProductionController] 스폰 완료 | IsServer=False
+[03:43:12.864] [INFO] [Network/NetworkSkillController] 네트워크 스폰 | IsServer=False
+[03:43:12.865] [INFO] [Network/NetworkBuildingController] 스폰 완료 | IsServer=False
+[03:43:12.865] [INFO] [Network/NetworkTileSync] 클라이언트 모드 — ClientRpc 대기 중 | IsServer=False
+[03:43:12.866] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[03:43:12.867] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[03:43:12.867] [INFO] [Bootstrap/GameBootstrapper] 네트워크 모드 감지 — 맵 로드는 NetworkGameFlow 에 위임한다
+[03:43:13.273] [INFO] [Network/NetworkGameFlow] 게임 시작 ClientRpc 수신 | Team=Red, BlueRace=0, RedRace=0
+[03:43:13.273] [INFO] [Bootstrap/GameBootstrapper] StartNetworkGame 호출 | Team=Red
+[03:43:13.273] [INFO] [Bootstrap/GameBootstrapper] ViewConverter 사전 설정 완료 | IsRed=True, MapCenter=(3.75, 0.00, -8.66)
+[03:43:13.366] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=-2, Team=Red
+[03:43:13.367] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=-1, Team=Red
+[03:43:13.367] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=0, Team=Red
+[03:43:13.367] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=0, Team=Red
+[03:43:13.367] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=-1, Team=Red
+[03:43:13.367] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=-2, Team=Red
+[03:43:13.369] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=-1, Team=Red
+[03:43:13.369] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=16, Team=Blue
+[03:43:13.369] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=6, R=17, Team=Blue
+[03:43:13.369] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=18, Team=Blue
+[03:43:13.369] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=18, Team=Blue
+[03:43:13.369] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=4, R=17, Team=Blue
+[03:43:13.370] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=16, Team=Blue
+[03:43:13.370] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=5, R=17, Team=Blue
+[03:43:13.370] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=3, R=1, Team=Red
+[03:43:13.370] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=2, R=1, Team=Red
+[03:43:13.370] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=2, R=0, Team=Red
+[03:43:13.370] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=3, R=-1, Team=Red
+[03:43:13.372] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=3, R=0, Team=Red
+[03:43:13.372] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=8, R=15, Team=Blue
+[03:43:13.372] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=8, R=16, Team=Blue
+[03:43:13.372] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=7, R=17, Team=Blue
+[03:43:13.372] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=7, R=15, Team=Blue
+[03:43:13.372] [INFO] [Network/NetworkTileSync] 타일 동기화 수신 | Q=7, R=16, Team=Blue
+[03:43:13.386] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5000, ServerGold=5002, Diff=2
+[03:43:13.387] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5000, ServerGold=5002, Diff=2
+[03:43:13.406] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5002, ServerGold=5003, Diff=1
+[03:43:13.406] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5002, ServerGold=5003, Diff=1
+[03:43:13.499] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5003, ServerGold=5004, Diff=1
+[03:43:13.500] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5003, ServerGold=5004, Diff=1
+[03:43:13.606] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5004, ServerGold=5005, Diff=1
+[03:43:13.606] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5004, ServerGold=5005, Diff=1
+[03:43:13.707] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5005, ServerGold=5006, Diff=1
+[03:43:13.708] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5005, ServerGold=5006, Diff=1
+[03:43:13.802] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5006, ServerGold=5007, Diff=1
+[03:43:13.802] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5006, ServerGold=5007, Diff=1
+[03:43:13.907] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5007, ServerGold=5008, Diff=1
+[03:43:13.908] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5007, ServerGold=5008, Diff=1
+[03:43:14.006] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5008, ServerGold=5009, Diff=1
+[03:43:14.006] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5008, ServerGold=5009, Diff=1
+[03:43:14.108] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5009, ServerGold=5010, Diff=1
+[03:43:14.108] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5009, ServerGold=5010, Diff=1
+[03:43:14.211] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5010, ServerGold=5011, Diff=1
+[03:43:14.211] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5010, ServerGold=5011, Diff=1
+[03:43:14.308] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5011, ServerGold=5012, Diff=1
+[03:43:14.309] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5011, ServerGold=5012, Diff=1
+[03:43:14.399] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5012, ServerGold=5013, Diff=1
+[03:43:14.399] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5012, ServerGold=5013, Diff=1
+[03:43:14.499] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5013, ServerGold=5014, Diff=1
+[03:43:14.499] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5013, ServerGold=5014, Diff=1
+[03:43:14.598] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5014, ServerGold=5015, Diff=1
+[03:43:14.598] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5014, ServerGold=5015, Diff=1
+[03:43:14.709] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5015, ServerGold=5016, Diff=1
+[03:43:14.709] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5015, ServerGold=5016, Diff=1
+[03:43:14.808] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5016, ServerGold=5017, Diff=1
+[03:43:14.808] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5016, ServerGold=5017, Diff=1
+[03:43:14.898] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5017, ServerGold=5018, Diff=1
+[03:43:14.898] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5017, ServerGold=5018, Diff=1
+[03:43:14.999] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5018, ServerGold=5019, Diff=1
+[03:43:14.999] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5018, ServerGold=5019, Diff=1
+[03:43:15.108] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5019, ServerGold=5020, Diff=1
+[03:43:15.109] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5019, ServerGold=5020, Diff=1
+[03:43:15.196] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5020, ServerGold=5021, Diff=1
+[03:43:15.197] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5020, ServerGold=5021, Diff=1
+[03:43:15.302] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5021, ServerGold=5022, Diff=1
+[03:43:15.302] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5021, ServerGold=5022, Diff=1
+[03:43:15.400] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5022, ServerGold=5023, Diff=1
+[03:43:15.400] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5022, ServerGold=5023, Diff=1
+[03:43:15.504] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5023, ServerGold=5024, Diff=1
+[03:43:15.505] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5023, ServerGold=5024, Diff=1
+[03:43:15.597] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5024, ServerGold=5025, Diff=1
+[03:43:15.597] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5024, ServerGold=5025, Diff=1
+[03:43:15.702] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5025, ServerGold=5026, Diff=1
+[03:43:15.703] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5025, ServerGold=5026, Diff=1
+[03:43:15.816] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5026, ServerGold=5027, Diff=1
+[03:43:15.816] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5026, ServerGold=5027, Diff=1
+[03:43:15.901] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5027, ServerGold=5028, Diff=1
+[03:43:15.903] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5027, ServerGold=5028, Diff=1
+[03:43:16.003] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5028, ServerGold=5029, Diff=1
+[03:43:16.004] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5028, ServerGold=5029, Diff=1
+[03:43:16.122] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5029, ServerGold=5030, Diff=1
+[03:43:16.122] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5029, ServerGold=5030, Diff=1
+[03:43:16.208] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5030, ServerGold=5031, Diff=1
+[03:43:16.208] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5030, ServerGold=5031, Diff=1
+[03:43:16.314] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5031, ServerGold=5032, Diff=1
+[03:43:16.315] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5031, ServerGold=5032, Diff=1
+[03:43:16.406] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5032, ServerGold=5033, Diff=1
+[03:43:16.407] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5032, ServerGold=5033, Diff=1
+[03:43:16.515] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5033, ServerGold=5034, Diff=1
+[03:43:16.516] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5033, ServerGold=5034, Diff=1
+[03:43:16.606] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5034, ServerGold=5035, Diff=1
+[03:43:16.607] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5034, ServerGold=5035, Diff=1
+[03:43:16.705] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5035, ServerGold=5036, Diff=1
+[03:43:16.705] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5035, ServerGold=5036, Diff=1
+[03:43:16.803] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5036, ServerGold=5037, Diff=1
+[03:43:16.803] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5036, ServerGold=5037, Diff=1
+[03:43:16.916] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5037, ServerGold=5038, Diff=1
+[03:43:16.917] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5037, ServerGold=5038, Diff=1
+[03:43:17.013] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5038, ServerGold=5039, Diff=1
+[03:43:17.013] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5038, ServerGold=5039, Diff=1
+[03:43:17.109] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5039, ServerGold=5040, Diff=1
+[03:43:17.109] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5039, ServerGold=5040, Diff=1
+[03:43:17.204] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5040, ServerGold=5041, Diff=1
+[03:43:17.205] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5040, ServerGold=5041, Diff=1
+[03:43:17.308] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5041, ServerGold=5042, Diff=1
+[03:43:17.309] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5041, ServerGold=5042, Diff=1
+[03:43:17.412] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5042, ServerGold=5043, Diff=1
+[03:43:17.413] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5042, ServerGold=5043, Diff=1
+[03:43:17.508] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5043, ServerGold=5044, Diff=1
+[03:43:17.508] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5043, ServerGold=5044, Diff=1
+[03:43:17.608] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5044, ServerGold=5045, Diff=1
+[03:43:17.608] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5044, ServerGold=5045, Diff=1
+[03:43:17.723] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5045, ServerGold=5046, Diff=1
+[03:43:17.724] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5045, ServerGold=5046, Diff=1
+[03:43:17.805] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5046, ServerGold=5047, Diff=1
+[03:43:17.805] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5046, ServerGold=5047, Diff=1
+[03:43:17.912] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5047, ServerGold=5048, Diff=1
+[03:43:17.913] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5047, ServerGold=5048, Diff=1
+[03:43:18.013] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5048, ServerGold=5049, Diff=1
+[03:43:18.013] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5048, ServerGold=5049, Diff=1
+[03:43:18.116] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5049, ServerGold=5050, Diff=1
+[03:43:18.116] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5049, ServerGold=5050, Diff=1
+[03:43:18.212] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5050, ServerGold=5051, Diff=1
+[03:43:18.212] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5050, ServerGold=5051, Diff=1
+[03:43:18.310] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Blue, PreviousGold=5051, ServerGold=5052, Diff=1
+[03:43:18.310] [INFO] [Network/NetworkResourceSync] 클라이언트 골드를 서버 값으로 보정 | Team=Red, PreviousGold=5051, ServerGold=5052, Diff=1
+[03:43:18.343] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 디스폰 | Role=Client, Nonce=1, State=Completed
+[03:43:18.343] [INFO] [Network/NetworkResourceSync] 디스폰 — 구독 해제 완료
+[03:43:18.344] [INFO] [Network/NetworkTileSync] 디스폰 — 이벤트 구독 해제
+[03:43:18.346] [WARN] [Network/NetworkGameManager] 클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행 | ClientId=1
+[03:43:18.346] [WARN] [Network/NetworkGameManager] 클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행 | ClientId=1
+[03:43:18.346] [WARN] [Network/NetworkGameManager] 클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행 | ClientId=1
+[03:43:18.346] [WARN] [Network/NetworkGameManager] 클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행 | ClientId=1
