@@ -870,8 +870,19 @@ namespace Hexiege.Presentation
             // 같은 사건이 두 번 도달할 수 있다 — 상대의 정상 퇴장 통보가 먼저 오고,
             // 그 직후 내 쪽 무반응 감시가 같은 침묵을 이탈로 판정하는 경우가 그렇다.
             // 두 번째 신호로 카운트다운이 30초부터 다시 시작되면 화면이 영영 안 닫힐 수 있으니 막는다.
-            if (_opponentLeft) return;
+            if (_opponentLeft)
+            {
+                // [진단] 중복 통보가 막혔다는 사실을 남긴다. 이 줄이 여러 번 찍히면
+                //   이탈 통보가 몇 번 도착했는지(중복 발행 여부)를 로그만으로 셀 수 있다.
+                LogRematchDiagWarn("상대 이탈 반영이 막혔다 — 이미 이탈로 판정된 상태다",
+                                   "Guard=AlreadyLeft");
+                return;
+            }
             _opponentLeft = true;
+
+            // [진단] 이탈 반영이 **실제로 시작된** 순간. 이 줄 뒤에 오는 줄들(한도 정지 ·
+            //   버튼 복원 · 30초 재시작)이 모두 이 사건의 결과임을 시각으로 묶어 읽을 수 있다.
+            LogRematchDiagInfo("상대 이탈 반영 시작 — 재경기 버튼 비활성 + 카운트다운 30초 재시작");
 
             // 🔴 [맵 준비 한도 정지 자리 ③/④] 「재경기 준비 중」 시계를 멈춘다.
             //   상대가 없는 것이 확정됐으니 맵이 준비되기를 기다릴 이유가 사라졌다.
@@ -949,12 +960,28 @@ namespace Hexiege.Presentation
             // 멱등 — 같은 상태에 두 번 들어가지 않는다.
             //   수락한 쪽은 버튼 입력으로 한 번, 서버 통보로 또 한 번 이 메서드에 도달한다.
             //   막지 않으면 맵 준비 한도가 두 번째 신호에서 처음부터 다시 시작된다.
-            if (_rematchPreparing) return;
+            if (_rematchPreparing)
+            {
+                // [진단] 🔴 종전에는 **조용히** 반환해서 「막혔다」는 사실 자체가 보이지 않았다.
+                //   그래서 통보가 도착했는데도 화면이 안 바뀌면 ① 핸들러가 불렸는지
+                //   ② 가드에 막혔는지 ③ 어느 가드인지를 아무것도 확인할 수 없었다.
+                //   이 줄이 그 셋을 한 번에 답한다.
+                LogRematchDiagWarn("재경기 준비 상태 진입이 막혔다 — 이미 준비 중이다",
+                                   "Guard=AlreadyPreparing");
+                return;
+            }
 
             // 상대가 이미 떠난 것으로 판정된 뒤라면 이 상태로 들어가지 않는다.
             //   그 화면은 이미 이탈 문구 + 30초 카운트다운(규칙 D-1 · D-4)을 보여 주고 있고,
             //   여기서 덮으면 사용자가 방금 읽은 「상대방이 떠났습니다」가 사라져 버린다.
-            if (_opponentLeft) return;
+            if (_opponentLeft)
+            {
+                // [진단] 위와 같은 이유. 🔴 두 가드는 결과(화면이 안 바뀐다)가 똑같으므로
+                //   Guard= 값으로 **어느 쪽에 막혔는지**를 반드시 가를 수 있어야 한다.
+                LogRematchDiagWarn("재경기 준비 상태 진입이 막혔다 — 상대 이탈이 이미 판정됐다",
+                                   "Guard=OpponentLeft");
+                return;
+            }
 
             _rematchPreparing = true;
 
@@ -969,6 +996,16 @@ namespace Hexiege.Presentation
 
             if (_countdownText != null)
                 _countdownText.text = RematchPreparingStatusText;
+
+            // [진단] 「준비 상태에 실제로 들어왔다」를 남긴다 — 위 두 가드를 통과했다는 증거다.
+            //   한도 초를 함께 싣는 이유: 이 뒤에 화면이 평시/실패 문구로 돌아갔을 때
+            //   그것이 「한도 만료」인지 다른 경로인지 **시각 차이로 가릴 수 있어야** 한다.
+            //   🔴 아래 곱셈은 RematchPreparingLimitCoroutine 이 쓰는 식과 **같은 두 상수**를 본다.
+            //      숫자를 베껴 쓰지 않는다는 그 규약은 지켜지지만 **식이 두 자리에 생겼으므로**,
+            //      식을 고칠 때는 두 자리를 함께 고친다(실제로 기다린 초는 한도 만료 줄이 따로 남긴다).
+            LogRematchDiagInfo(
+                "재경기 준비 상태 진입 — 자동 복귀 타이머 정지 + 상태 줄 교체",
+                $"LimitSeconds={NetworkMapTransfer.TransferTimeoutSeconds * (NetworkMapTransfer.MaxResendCount + 1)}");
 
             _rematchPreparingCoroutine = StartCoroutine(RematchPreparingLimitCoroutine());
         }
@@ -989,6 +1026,12 @@ namespace Hexiege.Presentation
         /// </summary>
         private void StopRematchPreparingLimit()
         {
+            // [진단] 🔴 **시계가 실제로 돌고 있었을 때만** 남긴다.
+            //   이 메서드는 방어 목적으로 여러 자리에서(초기화 · 파괴 · 실패 · 시작 통보) 불리므로,
+            //   무조건 남기면 아무 일도 하지 않은 호출까지 찍혀 로그가 잡음이 된다.
+            //   판별은 헬퍼 안에서 하므로 릴리스 빌드에는 조건식조차 남지 않는다.
+            LogRematchLimitStopIfRunning();
+
             _rematchPreparing = false;
 
             if (_rematchPreparingCoroutine != null)
@@ -1054,6 +1097,13 @@ namespace Hexiege.Presentation
             //    이 코루틴이 그 자리에서 끊겨 뒤 코드가 실행되지 않는다.
             _rematchPreparingCoroutine = null;
 
+            // [진단] 한도가 만료돼 실패로 넘어간다. **실제로 기다린 초**를 함께 남긴다 —
+            //   위 진입 줄의 LimitSeconds 와 이 값을 맞춰 보면 두 자리의 식이 어긋났는지,
+            //   그리고 기다린 시간이 규칙 16 의 「창 길이 × 창 개수」와 맞는지 검산할 수 있다.
+            //   Origin= 은 바로 뒤에 찍히는 「실패 상태 진입」 줄이 **어느 길로 들어왔는지**를 말해 준다.
+            LogRematchDiagWarn("맵 준비 한도 만료 — 재경기 실패 상태로 전이한다",
+                               $"WaitSeconds={limitSeconds:F0}, Origin=PreparingLimitExpired");
+
             // [실패 3경로 중 ③] 한도가 지났는데 아무 통보도 오지 않았다.
             //   🔴 사유는 Unknown 이다 — **무엇이 실패했는지 통보가 오지 않았다는 뜻** 그대로다.
             //      상대가 나갔을 수도 있지만 내 회선 문제일 수도 있어 구분할 근거가 없으므로,
@@ -1074,10 +1124,22 @@ namespace Hexiege.Presentation
             // 🔴 상대 이탈이 이미 판정된 뒤라면 손대지 않는다.
             //    그 화면은 규칙 D-4 에 따라 이미 30초로 다시 시작해 이탈 문구를 보여 주고 있다.
             //    여기서 전체 길이로 덮으면 사용자가 읽을 시간을 보장하려던 그 규정이 조용히 뒤집힌다.
-            if (_opponentLeft) return;
+            if (_opponentLeft)
+            {
+                // [진단] 🔴 이 자리도 조용히 반환하던 가드다. 실패 통보나 한도 만료가 왔는데도
+                //   카운트다운이 전체 길이로 돌아가지 않았다면 그 이유가 이 줄에 남는다.
+                LogRematchDiagWarn("카운트다운 전체 길이 재시작이 막혔다 — 상대 이탈이 이미 판정됐다",
+                                   "Guard=OpponentLeft");
+                return;
+            }
 
             StopCountdown();
             _countdownCoroutine = StartCoroutine(CountdownCoroutine(_autoReturnSeconds));
+
+            // [진단] 화면의 타이머가 **다시 도는 순간**이 이 줄이다.
+            //   멈춰 있던 타이머가 다시 움직였다는 관측을 이 줄과 대조해 확인할 수 있어야 한다.
+            LogRematchDiagInfo("자동 복귀 카운트다운을 전체 길이로 재시작",
+                               $"TotalSeconds={Mathf.RoundToInt(_autoReturnSeconds)}");
         }
 
         /// <summary>
@@ -1106,6 +1168,13 @@ namespace Hexiege.Presentation
             //       NetworkGameEndController.SendAcceptRematchSafely 의 catch 주석 참조)
             //   🔴 두 경로의 **처리**를 가르지 않는다. 되돌리는 절차는 완전히 같다(규칙 18).
             //      갈리는 것은 상태 줄 문구 하나뿐이고, 그 판정 재료가 이 cause 다.
+
+            // [진단] 실패 통보(또는 수락 전송 실패의 로컬 발행)를 **받은 순간**을 남긴다.
+            //   🔴 Origin= 이 바로 뒤 「실패 상태 진입」 줄이 어느 길로 들어왔는지를 말해 준다
+            //      (다른 길은 한도 만료뿐이고 그쪽도 자기 Origin= 을 먼저 남긴다).
+            LogRematchDiagWarn("재경기 맵 준비 실패 통보 수신 — 실패 상태로 전이한다",
+                               $"Cause={cause}, Origin=MapFailedNotice");
+
             EnterRematchFailedState(cause);
         }
 
@@ -1142,6 +1211,15 @@ namespace Hexiege.Presentation
         /// </param>
         private void EnterRematchFailedState(RematchMapFailureCause cause)
         {
+            // [진단] 실패 상태에 들어왔다는 것과 그 사유를 남긴다.
+            //   🔴 「어디서 불렸는가」는 **바로 앞 줄**이 답한다 — 들어오는 길이 둘뿐이고
+            //      둘 다 자기 이름을 Origin= 으로 먼저 남기기 때문이다
+            //      (맵 준비 실패 통보 → Origin=MapFailedNotice /
+            //       준비 한도 만료 → Origin=PreparingLimitExpired).
+            //   🔴 그래서 이 메서드의 **시그니처에 진단용 인자를 더하지 않았다** — 이번 작업은
+            //      관측 수단만 더하고 기존 코드의 모양·동작은 한 줄도 바꾸지 않는다.
+            LogRematchDiagWarn("재경기 실패 상태 진입", $"Cause={cause}");
+
             StopRematchPreparingLimit();
 
             // 🔴 사유를 깃발보다 **먼저** 보관한다. 아래 카운트다운 코루틴이 매 초 이 값을 읽어
@@ -1302,6 +1380,117 @@ namespace Hexiege.Presentation
             // ③ 로비 복귀 버튼은 언제나 켠다(규칙 D-3 「어떤 상태에서도 비활성화하지 않는다」).
             if (_backToLobbyButton != null)
                 _backToLobbyButton.interactable = true;
+        }
+
+        // ====================================================================
+        // 재경기 상태 진단 로그 (2026-09-27 추가)
+        //
+        // [초급자용 설명] 이 절은 무엇이고 왜 생겼는가
+        //   재경기 수락이 접수되면 **양쪽 모두** 상태 줄이 「재경기 준비 중...」으로 바뀌고
+        //   자동 복귀 타이머가 멈춰야 한다(공통 UI 규칙 D-7). 그런데 실기 테스트에서
+        //   **수락 접수 통보는 양쪽에 도착했는데 한쪽 화면만 반응하는** 현상이 관측됐다.
+        //   그때 로그로 확인할 수 있던 것은 「컨트롤러가 이벤트를 발행했다」까지였고,
+        //   그 이벤트를 받은 **이 화면이 무엇을 했는지는 한 줄도 남지 않아** 진단이 막혔다.
+        //   특히 EnterRematchPreparingState() 의 조기 반환 두 개가 **조용히** 반환하기 때문에
+        //   「막혔다」는 사실 자체가 보이지 않았다. 이 절은 그 침묵을 없애기 위한 관측 수단이다.
+        //
+        // 🔴 남기는 자리는 **상태가 전이되는 순간과 조기 반환뿐**이다.
+        //    매 초·매 틱 찍는 로그는 만들지 않는다(LogRules.md 1.14 금지 8).
+        //
+        // ⚠️ 이 프로젝트에는 「가드 자체에는 로그를 넣지 않는다」는 관례가 있는데, 그것은
+        //    **매 틱 도달하는 가드**(서버 전투 틱 · RPC 발신 가드)를 두고 한 말이다.
+        //    여기 가드들은 한 경기에 많아도 두세 번 도달하고, **바로 그 침묵이 진단을 막았으므로**
+        //    이 세 자리(준비 상태 2 · 카운트다운 재시작 1 · 이탈 중복 1)만 예외로 남긴다.
+        //
+        // 🔴 모든 줄에 **역할(IsServer)과 깃발 3개**를 싣는다. 이번 버그가 역할에 따라 갈리는
+        //    문제라, 그 값이 없으면 로그를 봐도 어느 쪽 이야기인지 알 수 없다.
+        //
+        // ⚠️ 축 B 는 **개발**이다(LogRules.md 1.2). 에디터·개발 빌드에서만 의미가 있는 화면 상태
+        //    기록이라 운영 축의 이벤트 키(LogEvent)를 **새로 만들지 않았다.** 아래 두 [Conditional]
+        //    덕분에 릴리스 빌드에서는 호출도 **문자열 조립도** 통째로 사라진다(LogRules.md 1.7).
+        // ====================================================================
+
+        /// <summary>
+        /// 진단 로그 한 줄에 공통으로 싣는 상태 필드를 만든다 — <b>역할 + 깃발 3개</b>.
+        ///
+        /// <para>
+        /// 🔴 <b>역할 표시는 <see cref="NetworkContext"/>(Application 레이어 정적 홀더)에서 읽는다.</b>
+        /// 이 클래스는 Presentation 이라 <c>NetworkManager</c> 를 직접 봐선 안 되고, 마침
+        /// 그 홀더가 <c>IsNetworkServer</c> 를 들고 있어 새로 만들 필요가 없었다
+        /// (이 파일은 이미 같은 홀더의 <c>IsNetworkActive</c> 를 다른 자리에서 읽고 있다).
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <c>NetworkActive=</c> 를 함께 싣는 이유 — 그 홀더는 디스폰 시점에
+        /// <c>Reset()</c> 으로 기본값(둘 다 <c>False</c>)으로 돌아간다. 그래서
+        /// <c>IsServer=False</c> 한 값만으로는 「Client 였다」와 「이미 네트워크가 내려갔다」를
+        /// 구분할 수 없다. 두 값을 함께 봐야 <b>그 줄이 어느 쪽 이야기인지</b> 확정된다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ 이 메서드는 문자열을 <b>돌려주므로</b> <c>[Conditional]</c> 을 붙일 수 없다
+        /// (그 속성은 반환형이 <c>void</c> 여야 한다). 대신 <b>부르는 곳이 아래
+        /// <c>[Conditional]</c> 메서드들뿐</b>이라, 릴리스에서는 이 조립이 실행되는 경로가 없다.
+        /// </para>
+        /// </summary>
+        /// <param name="extraFields">그 줄에만 붙는 추가 <c>key=value</c>. 없으면 null.</param>
+        private string BuildRematchDiagFields(string extraFields)
+        {
+            string state = $"IsServer={NetworkContext.IsNetworkServer}, "
+                         + $"NetworkActive={NetworkContext.IsNetworkActive}, "
+                         + $"RematchPreparing={_rematchPreparing}, "
+                         + $"OpponentLeft={_opponentLeft}, "
+                         + $"RematchFailed={_rematchFailed}";
+
+            return string.IsNullOrEmpty(extraFields) ? state : state + ", " + extraFields;
+        }
+
+        /// <summary>
+        /// 재경기 상태 <b>정상 전이</b>를 남긴다(축 A <c>Info</c>).
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogRematchDiagInfo(string message, string extraFields = null)
+        {
+            GameLog.Dev.Info("UI", nameof(GameEndUI), message, BuildRematchDiagFields(extraFields));
+        }
+
+        /// <summary>
+        /// <b>조기 반환(가드에 막힘)·실패 전이</b>를 남긴다(축 A <c>Warn</c>).
+        ///
+        /// 🔴 <b>정상 전이와 레벨을 가르는 이유</b> — 로그를 읽을 때 「왜 화면이 안 바뀌었는가」를
+        /// 찾는 사람은 <c>[WARN]</c> 만 훑는다. 막힌 자리가 <c>Info</c> 로 섞여 있으면
+        /// 이번 버그처럼 **정상 줄 사이에 묻혀** 그대로 지나치게 된다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogRematchDiagWarn(string message, string extraFields = null)
+        {
+            GameLog.Dev.Warn("UI", nameof(GameEndUI), message, BuildRematchDiagFields(extraFields));
+        }
+
+        /// <summary>
+        /// 맵 준비 한도 시계가 <b>실제로 돌고 있었을 때만</b> 정지 사실을 남긴다.
+        ///
+        /// <para>
+        /// ⚠️ <see cref="StopRematchPreparingLimit"/> 는 방어 목적으로 여러 자리에서 불린다
+        /// (초기화 · 파괴 · 실패 전이 · 재경기 시작 통보 · 이탈 판정). 무조건 남기면
+        /// <b>아무 일도 하지 않은 호출까지 찍혀</b> 로그가 잡음이 된다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 판별을 <b>호출부가 아니라 이 메서드 안에서</b> 하는 이유 — <c>[Conditional]</c> 은
+        /// <b>호출문 전체(인자 계산 포함)</b>를 지운다. 그래서 판별을 안으로 넣으면 릴리스
+        /// 빌드에는 <b>조건식조차 남지 않는다.</b> 호출부에 <c>if</c> 를 쓰면 그 조건식은 남는다.
+        /// </para>
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogRematchLimitStopIfRunning()
+        {
+            if (_rematchPreparingCoroutine == null) return;
+
+            LogRematchDiagInfo("재경기 준비 한도 시계 정지 — 돌고 있던 시계를 끊었다");
         }
     }
 }

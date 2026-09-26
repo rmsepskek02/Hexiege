@@ -477,3 +477,53 @@ three sites.** Call sites: 2 (the third path shares a handler).
 - ✅ **`ShowAlert` 실호출은 늘지 않았다**(규칙 D-6 이탈 알림 1건 그대로 — 규칙 M-3 은 상태 줄이다) ·
   `_backToLobbyButton.interactable = false` **0건 유지**(규칙 D-3) · **씬·프리팹 0건**(새 값은 전부 `const`).
 - ⚠️ **미검증**: 컴파일(Unity 없음)과 런타임 전부. 확인한 것은 중괄호 균형과 `mcs` 파싱(구문 오류 0)뿐이다.
+
+### 🔴 `GameEndUI` 재경기 상태 진단 로그 — 조기 반환의 침묵을 없앤 자리 (2026-09-27, 동작 무변경)
+
+**왜 넣었는가 (이 절의 존재 이유가 곧 교훈이다).** 실기에서 **수락 접수 통보(`OnNetworkRematchAccepted`)는
+양쪽에 도착했는데 한쪽(Client)만 상태 줄·타이머가 반응하지 않는** 현상이 나왔다. 그런데
+**컨트롤러의 「발행했다」 로그까지만 있고 `GameEndUI` 가 그것을 받아 무엇을 했는지는 0줄**이라,
+① 핸들러가 불렸는가 ② 가드에 막혔는가 ③ 어느 가드인가를 **하나도 확인할 수 없었다.**
+`EnterRematchPreparingState()` 의 조기 반환 두 개(`_rematchPreparing` · `_opponentLeft`)가
+**둘 다 조용히 반환**하기 때문이다.
+
+🔴 **재사용할 교훈: 「조용한 조기 반환」은 그 자체로 진단 불가 상태를 만든다.** 상태 기계의 가드가
+화면 전이를 막는 자리라면, 막았다는 사실과 **어느 가드였는지**가 로그에 남아야 한다.
+
+- **로그 자리 11곳 / 전부 `GameLog.Dev`(개발 축) · 새 `LogEvent` 키 0개** —
+  `EnterRematchPreparingState`(정상 진입 Info 1 + 가드 Warn 2) ·
+  `StopRematchPreparingLimit`(Info 1, **돌고 있었을 때만**) ·
+  `RematchPreparingLimitCoroutine`(한도 만료 Warn 1) ·
+  `OnRematchMapFailed`(Warn 1) · `EnterRematchFailedState`(Warn 1) ·
+  `RestartCountdownFromFullLength`(재시작 Info 1 + 가드 Warn 1) ·
+  `OnOpponentLeft`(진입 Info 1 + 중복 가드 Warn 1).
+- 🔴 **레벨 규약: 정상 전이 = `Info` / 가드에 막힘·실패 전이 = `Warn`.** 근거는 「로그를 읽는 사람은
+  `[WARN]` 만 훑는다」 — 막힌 자리를 Info 로 섞으면 이번처럼 **정상 줄 사이에 묻힌다.**
+- 🔴 **역할 표시는 `NetworkContext.IsNetworkServer`** (Application 정적 홀더). Presentation 이 `NetworkManager`
+  를 직접 보지 않고도 역할을 얻는 유일한 수단이고, **새로 만들 필요가 없었다**(이 파일이 이미 같은 홀더의
+  `IsNetworkActive` 를 읽는다). ⚠️ **그 홀더는 디스폰 시 `Reset()` 으로 둘 다 `False` 가 되므로
+  `IsServer=False` 만으로는 「Client 였다」와 「네트워크가 이미 내려갔다」를 구분할 수 없다** →
+  `NetworkActive=` 를 **함께** 싣는다. 함께 싣는 깃발 3개는 `RematchPreparing=` `OpponentLeft=` `RematchFailed=`.
+- **필드 조립은 `[Conditional]` 두 개가 붙은 `void` 헬퍼 3개**(`LogRematchDiagInfo` / `...Warn` /
+  `LogRematchLimitStopIfRunning`) 안에서만 일어난다 → 릴리스에서 **문자열 조립까지** 사라진다(LogRules 1.7).
+  🔴 **`LogRematchLimitStopIfRunning` 이 조건 판별을 헬퍼 *안*에서 하는 이유**: `[Conditional]` 은
+  **호출문 전체(인자 계산 포함)** 를 지우므로, 판별을 안에 두면 릴리스에 **조건식조차 남지 않는다.**
+  호출부에 `if` 를 쓰면 그 조건식은 남는다. (방어 호출이 5자리라 무조건 찍으면 잡음이 된다.)
+- ⚠️ **이 프로젝트 관례 「가드에는 로그를 넣지 않는다」의 진짜 적용 범위** — 그것은 **매 틱 도달하는 가드**
+  (서버 전투 틱 · RPC 발신 가드)를 두고 한 말이고 근거는 LogRules 1.14 금지 8(매 틱 로깅 금지)이다.
+  여기 가드들은 **한 경기에 많아도 두세 번** 도달하므로 그 금지에 걸리지 않는다. **관례를 기계적으로
+  적용해 이번 침묵을 그대로 두는 것이 오히려 규칙의 목적(전이 시점 관측)을 배반한다.**
+- 🔴 **메서드 시그니처를 하나도 바꾸지 않았다.** `EnterRematchFailedState(cause)` 에 진단용 `origin` 인자를
+  더하지 않고, **호출부 두 곳이 각자 `Origin=` 을 먼저 남기는** 방식으로 「어디서 불렸는지」를 가른다
+  (`Origin=MapFailedNotice` / `Origin=PreparingLimitExpired`). 호출부가 둘뿐이라 성립한다.
+- ⚠️ **한도 초를 진입 줄에 실으면서 `TransferTimeoutSeconds * (MaxResendCount + 1)` 식이 두 자리가 됐다**
+  (코루틴 + 진입 로그). 숫자를 베껴 쓰지 않는다는 규약은 지켰지만 **식이 복제된 것은 사실**이므로,
+  한도 만료 줄에 **실제로 기다린 초(`WaitSeconds=`)** 를 따로 남겨 두 값을 대조해 검산할 수 있게 했다.
+- **한 경기당 줄 수(실측 아님 — 코드 경로 계수)**: 재경기 성공 1회 = **2~3줄**(수락한 쪽 3 · 요청한 쪽 2,
+  수락자는 버튼 입력과 서버 통보로 두 번 들어와 `Guard=AlreadyPreparing` 1줄이 더 찍힌다) ·
+  재경기 실패 = **4~5줄** · 상대 이탈 = **1~2줄**. 이탈 통보 발행은 정상 퇴장 1 + 자체 감시 1(후자는
+  `_resultScreenLeaveJudged` 로 가드)이라 **중복 가드 줄은 최대 1줄**이다.
+- ⚠️ **미검증**: Unity 컴파일·런타임 전부. 확인한 것은 ① 중괄호 균형(주석·문자열 제거 후 46/46) ②
+  `mcs -langversion:latest` 파싱에서 **구문 오류 0**(남은 28건 전부 `CS0246`/`CS0234` 외부 참조 누락) ·
+  `[Conditional]` 의 void 반환 요건 위반(`CS0578`) **0건**이다. 🔴 **타입 해석이 실패했으므로
+  멤버 단위 검사(메서드 이름 오타 등)는 이 방법으로 확인되지 않는다.**
