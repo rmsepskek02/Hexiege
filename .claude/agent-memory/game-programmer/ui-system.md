@@ -527,3 +527,62 @@ three sites.** Call sites: 2 (the third path shares a handler).
   `mcs -langversion:latest` 파싱에서 **구문 오류 0**(남은 28건 전부 `CS0246`/`CS0234` 외부 참조 누락) ·
   `[Conditional]` 의 void 반환 요건 위반(`CS0578`) **0건**이다. 🔴 **타입 해석이 실패했으므로
   멤버 단위 검사(메서드 이름 오타 등)는 이 방법으로 확인되지 않는다.**
+
+### 🔴 자동 복귀 카운트다운이 만료되지 않는다 — 진단 로그 4자리 (2026-09-27 2차, 동작 무변경)
+
+**무엇을 좁히려고 넣었는가.** 실기 로그에서 `RestartCountdownFromFullLength` 의 재시작 줄
+(`TotalSeconds=60`)은 정상인데 **60초 뒤 `ReturnToLobby()` 의 흔적이 하나도 없었다**
+(`Heartbeat 정지` · `정상 퇴장 통보` · `Shutdown 완료` 전부 0줄). 즉 **「StartCoroutine 을 불렀다」와
+「코루틴이 끝까지 돌아 복귀까지 갔다」 사이가 통째로 관측 불가**였다.
+
+| 자리(메서드) | 가르는 것 |
+|---|---|
+| `CountdownCoroutine` 첫 줄(첫 `yield` 전) | 「불렀다」 vs **「본문이 실제로 돌기 시작했다」** + `TotalSeconds=` |
+| `CountdownCoroutine` 루프 탈출 직후(`ReturnToLobby()` 앞) | **「끝까지 돌았다」 vs 「중간에 끊겼다」** + `TotalSeconds=` |
+| `StopCountdown()` 첫 줄 | **「누가 끊었는가」** — `StoppedBy=`(호출부 7곳 중 어디) |
+| `ReturnToLobby()` 첫 줄 | 「만료는 했는데 **복귀 메서드에 들어왔는가**」 |
+
+- 레벨은 **넷 다 `Info`** — 전부 정상 흐름에도 도달하는 자리라 `Warn` 은 과하다
+  (직전 회차의 「정상 전이 Info / 가드에 막힘 Warn」 규약과 어긋나지 않는다: 여기엔 가드가 없다).
+- 🔴 **호출자 식별은 `[System.Runtime.CompilerServices.CallerMemberName]` 선택적 인자**로 했다 —
+  `private void StopCountdown([CallerMemberName] string caller = null)`. **호출부 7곳을 한 글자도
+  건드리지 않았다**(컴파일러가 각 호출부에 문자열 리터럴을 심는다). 🔴 **재사용 가치가 큰 수법이다**:
+  진단용 인자를 넘기려고 호출부를 고치는 순간 그 자체가 동작 변경 위험이 되는데, 이 방법은 그 위험이 0 이다.
+  ⚠️ 단서 — **메서드 그룹 변환이 있으면 쓸 수 없다**(`Action a = StopCountdown;` 은 선택적 인자가 붙으면
+  깨진다). 이번엔 `grep -rn StopCountdown` **10건 전부 같은 파일**이고 직접 호출 7 + 선언 1 + 주석 2 라 성립했다.
+- 판별(`_countdownCoroutine == null` 이면 0줄)은 **`[Conditional]` 헬퍼 `LogCountdownStopIfRunning` 안**에서
+  한다 — 직전 회차 `LogRematchLimitStopIfRunning` 과 **같은 이유·같은 모양**(호출부에 `if` 를 쓰면
+  릴리스에 조건식이 남는다).
+- **한 경기당 늘어나는 줄 수(코드 경로 계수, 실측 아님)**: 정상 자동 복귀 **4줄**(본문 시작 1 + 만료 1 +
+  복귀 1 + 정지 1) · 「로비로」 버튼 **3줄** · 카운트다운 재시작 1회마다 **+2**(정지 1 + 새 본문 1) ·
+  재시작 없는 정지(`EnterRematchPreparingState`)는 **+1**. 🔴 **매 초 찍는 줄은 0개.**
+
+#### 🔴 코드를 읽고 짚인 1순위 용의자 — `ReturnToLobby()` 안의 「자기 자신 StopCoroutine」
+
+`CountdownCoroutine` 만료 → `ReturnToLobby()` **첫 줄**이 `StopCountdown()` →
+`StopCoroutine(_countdownCoroutine)` 인데 **그 핸들이 지금 실행 중인 바로 그 코루틴**이다.
+🔴 **`ReturnToLobby()` 의 실제 일(팝업 닫기 · `timeScale=1` · `Hide()` · `ShowLoading` ·
+`BackToLobby()`)이 전부 그 줄 *뒤*에 있다** — 그래서 만약 그 자리에서 실행이 끊기면
+**로그로 찾던 증거(Heartbeat·퇴장 통보·Shutdown)가 정확히 전부 사라진다.** 관측된 로그 서명과 일치한다.
+
+⚠️ **같은 파일이 이 함정을 이미 한 번 밟았다** — `RematchPreparingLimitCoroutine` 은
+「자기 핸들을 먼저 `null` 로 비운다」는 **방어를 갖고 있고 그 주석이 *「이 코루틴이 그 자리에서 끊겨
+뒤 코드가 실행되지 않는다」* 고 단언**한다. `CountdownCoroutine` 에는 **그 방어가 없다.**
+🔴 **그 비대칭 자체가 단서다.**
+
+🔴 **단, 「`StopCoroutine(자기)` 가 현재 프레임의 실행을 즉시 끊는가」는 확인되지 않았다**
+(Unity 없음, 실측 0). 이 파일의 주석은 「끊긴다」로 적혀 있으나 그것이 실측인지 추정인지 알 수 없다.
+**고치지 않고 관측 수단만 넣은 이유가 이것이다** — 다음 실기에서 **「만료 1줄 + 복귀 1줄 +
+`StoppedBy=ReturnToLobby` 1줄이 찍히고 그 뒤가 없다」** 면 이 가설이 확정된다.
+
+#### 배제한 가설 — `StartCoroutine` 이 조용히 실패했다
+
+**성립하지 않는다(씬·코드 실측).** ① `Game.unity` 의 `GameEndPanel`(fileID `1309749079`)에
+**`GameEndUI` 와 `AnimatedPanel` 이 같은 GameObject 에 붙어 있고** `_panel` 이 그 자신을 가리키며
+**`m_IsActive: 1`**, 부모 `SafeAreaContainer` · `[UI]` 도 활성이다. ② `AnimatedPanel` 은 **`SetActive` 를
+쓰지 않는다**(공통 UI 규칙 5 — CanvasGroup `alpha`/`blocksRaycasts`/`interactable` 로만 제어).
+③ 런타임에 그 오브젝트나 조상을 끄는 코드가 없다(`GameEndPanel`/`SafeAreaContainer` 대상 `SetActive`
+0건, `Canvas.enabled=false` 0건). ④ **컴포넌트를 `enabled=false` 로 끄는 것은 코루틴을 멈추지 않는다** —
+멈추는 것은 GameObject 비활성화뿐이다.
+✅ **덤으로 확인**: `ShowResult(...)` 는 **호출부가 0건**이라 카운트다운을 시작하는 자리는
+`OnGameEnd` · 이탈 재시작 · 전체 길이 재시작 **셋뿐**이다(중복 코루틴 가설도 배제된다).

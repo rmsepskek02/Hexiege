@@ -702,6 +702,12 @@ namespace Hexiege.Presentation
         /// </summary>
         private void ReturnToLobby()
         {
+            // [진단] 🔴 이 줄이 없으면 「카운트다운이 끝까지 돌았는데도 화면이 그대로다」와
+            //   「복귀 처리 중간에서 막혔다」를 구분할 수 없다. 바로 위 CountdownCoroutine 의
+            //   만료 줄이 찍혔는데 이 줄이 없으면 그 사이(코루틴 만료 → 이 메서드 진입)가 범인이고,
+            //   이 줄이 찍혔는데 네트워크 종료 로그가 없으면 이 메서드 안쪽이 범인이다.
+            LogRematchDiagInfo("로비 복귀 시작 — 카운트다운 정지 + timeScale 복원 + 씬 전환");
+
             StopCountdown();
             Time.timeScale = 1f;
             Hide();
@@ -752,9 +758,28 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 진행 중인 카운트다운 코루틴 정지 및 텍스트 초기화.
+        ///
+        /// <para>
+        /// [초급자용 설명] <paramref name="caller"/> 는 <b>진단 로그 전용</b>이며 동작에 쓰이지 않는다.
+        /// <c>[CallerMemberName]</c> 이 붙은 선택적 인자는 <b>컴파일러가 호출한 메서드의 이름을
+        /// 자동으로 채워 준다.</b> 그래서 이 메서드를 부르는 <b>일곱 자리를 한 곳도 고치지 않고</b>
+        /// 「누가 카운트다운을 멈췄는가」를 알 수 있다
+        /// (호출부를 손대면 그 자체가 동작 변경 위험이 되므로 이 방식을 골랐다).
+        /// </para>
         /// </summary>
-        private void StopCountdown()
+        /// <param name="caller">
+        /// 부른 메서드의 이름. <b>직접 넘기지 말 것</b> — 비워 두면 컴파일러가 채운다.
+        /// </param>
+        private void StopCountdown([System.Runtime.CompilerServices.CallerMemberName] string caller = null)
         {
+            // [진단] 🔴 이 줄이 없으면 「카운트다운이 멈춰 있다」를 관측했을 때
+            //   **누가 멈췄는지**를 알 수 없다. 이 메서드를 부르는 자리가 일곱 곳이라,
+            //   범인을 특정하지 못하면 진단이 그 자리에서 끝난다.
+            //   🔴 **돌고 있던 코루틴을 실제로 끊었을 때만** 남긴다 — 이 메서드는 방어 목적으로도
+            //   불리므로(핸들이 null 인 호출) 무조건 남기면 아무 일도 하지 않은 호출까지 찍혀
+            //   로그가 잡음이 된다. 판별은 헬퍼 안에서 하므로 릴리스에는 조건식조차 남지 않는다.
+            LogCountdownStopIfRunning(caller);
+
             if (_countdownCoroutine != null)
             {
                 StopCoroutine(_countdownCoroutine);
@@ -777,6 +802,17 @@ namespace Hexiege.Presentation
         /// </param>
         private IEnumerator CountdownCoroutine(float totalSeconds)
         {
+            // [진단] 🔴 이 줄이 없으면 「StartCoroutine 을 불렀다」와 「코루틴 본문이 실제로 돌기
+            //   시작했다」를 구분할 수 없다. StartCoroutine 은 오브젝트가 비활성이면 코루틴을
+            //   시작하지 않으므로, 부른 쪽의 로그만으로는 본문이 돌았는지 알 수 없다.
+            //
+            //   ⚠️ [초급자용 설명] 이 줄은 **부른 쪽의 로그보다 먼저** 찍힌다.
+            //     StartCoroutine 은 코루틴 본문을 **첫 yield 까지 그 자리에서 실행한 뒤** 핸들을
+            //     돌려주기 때문이다. 즉 「재시작」 로그 바로 **위**에 이 줄이 있는 것이 정상이다.
+            //     (순서가 뒤바뀐 것처럼 보여도 어긋난 것이 아니다.)
+            LogRematchDiagInfo("자동 복귀 카운트다운 코루틴 본문 시작",
+                               $"TotalSeconds={Mathf.RoundToInt(totalSeconds)}");
+
             float remaining = totalSeconds;
             while (remaining > 0f)
             {
@@ -815,6 +851,15 @@ namespace Hexiege.Presentation
                 yield return new WaitForSecondsRealtime(1f);
                 remaining -= 1f;
             }
+
+            // [진단] 🔴 이 줄이 없으면 「코루틴이 중간에 끊겼다」와 「끝까지 돌고 만료됐다」를
+            //   구분할 수 없다. 위 「본문 시작」 줄은 있는데 이 줄이 없다면 **기다리는 도중에
+            //   누군가 코루틴을 끊은 것**이고, 그 범인은 StopCountdown 의 진단 줄이 말해 준다.
+            //   TotalSeconds= 를 다시 싣는 이유: 카운트다운은 길이가 다르게 여러 번 다시 시작될 수
+            //   있어(평시 60초 · 이탈 30초), 같은 값끼리 짝지어야 어느 회차가 만료된 것인지 가려진다.
+            LogRematchDiagInfo("자동 복귀 카운트다운 만료 — 로비로 복귀한다",
+                               $"TotalSeconds={Mathf.RoundToInt(totalSeconds)}");
+
             ReturnToLobby();
         }
 
@@ -1491,6 +1536,36 @@ namespace Hexiege.Presentation
             if (_rematchPreparingCoroutine == null) return;
 
             LogRematchDiagInfo("재경기 준비 한도 시계 정지 — 돌고 있던 시계를 끊었다");
+        }
+
+        /// <summary>
+        /// 자동 복귀 카운트다운 코루틴이 <b>실제로 돌고 있었을 때만</b> 정지 사실과
+        /// <b>멈춘 사람의 이름</b>을 남긴다.
+        ///
+        /// <para>
+        /// 🔴 <b>「누가 멈췄는가」가 이번 진단의 핵심이다.</b> <see cref="StopCountdown"/> 는
+        /// 일곱 자리에서 불리는데(파괴 · 재시작 버튼 · 패널 숨김 · 로비 복귀 · 이탈 재시작 ·
+        /// 재경기 준비 진입 · 전체 길이 재시작), 어디서 불렸는지를 모르면
+        /// 「타이머가 멈춰 있다」는 관측에서 더 나아갈 수 없다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ 위 <see cref="LogRematchLimitStopIfRunning"/> 와 <b>똑같은 이유로</b> 판별을
+        /// 호출부가 아니라 이 메서드 <b>안</b>에서 한다 — <c>[Conditional]</c> 은 호출문 전체
+        /// (인자 계산 포함)를 지우므로, 판별을 안에 두면 릴리스 빌드에는 <b>조건식조차 남지 않는다.</b>
+        /// </para>
+        /// </summary>
+        /// <param name="caller">
+        /// <see cref="StopCountdown"/> 를 부른 메서드의 이름. 그쪽 선택적 인자를 그대로 넘겨받는다.
+        /// </param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogCountdownStopIfRunning(string caller)
+        {
+            if (_countdownCoroutine == null) return;
+
+            LogRematchDiagInfo("자동 복귀 카운트다운 정지 — 돌고 있던 코루틴을 끊었다",
+                               $"StoppedBy={caller}");
         }
     }
 }
