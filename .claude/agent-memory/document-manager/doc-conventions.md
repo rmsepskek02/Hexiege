@@ -3000,3 +3000,84 @@ failure handling lands in between and clears the duplicate guard.
 - ⚠️ **Separate the benign look-alike** in the same log — one round logged 실패 상태 진입 twice (한도 만료 then a
   9ms-late 실패 통보) which is the rule working as written; write 「이것은 버그가 아니다」 beside it, or the two get
   filed as one.
+
+---
+
+## §36. Closing a pinned 「⚠️ 미정」 with the user's decision — and grading **scene-file measurement** apart from **on-screen confirmation** (2026-09-27 (2차), post-game-leave-ui 평시 문구)
+
+The whole round was **one cell**: §35-8 had pinned the 평시(no-preceding-sentence) wording as ⚠️ 미정 with two readings,
+the implementation round had shipped reading ① (a leading `\n`), and the user then confirmed reading ② (한 줄).
+Nothing else was in scope.
+
+### 36-1. The shape of closing a pin — fill the cell **without** deleting the pin
+
+Three parts, all additive (`.claude/MEMORY.md` B-7):
+1. **The table cell** gets **확정값 + `~~struck pin text~~` + a pointer to the 확정 block**
+   (`| 평시 | <value> — ⏎ 0개 ~~⚠️ 미정 — …참조~~ → 아래 「✅ … 확정」 블록이 이 칸을 채웠다 |`).
+   Striking the pin inside the cell is what keeps the cell readable *and* keeps the history — deleting the pin text
+   would make the 미정 소절 below look unanswered.
+2. **The 「why is it 미정」 소절 is not touched at all.** The answer goes **below** it as a new
+   `**[✅ <date> 확정 — 읽기 ②(…)]**` block. A reader who arrives at the question walks straight into the answer.
+3. 🔴 **The 확정 block must say which reading won *and why the other one's rationale does not hold*** — otherwise the
+   next reader re-opens the same debate. Reading ①'s stated reason (「빈 줄로 줄 수를 맞춰 화면이 튀지 않게 한다」)
+   was **measured to be inapplicable**, and saying so is the substance of the block.
+
+### 36-2. 🔴 「씬 파일 실측」 and 「실기 화면 확인」 are **different grades** — split them in a table
+
+The measurement resolved the *layout* risk but not the *appearance* question, so a single ✅ would have been a lie.
+Two-row table inside the risk item:
+
+| 대상 | 근거 | 등급 |
+|---|---|---|
+| the three wordings that got a `⏎` | ~~user said *"두 문구는 정상적으로 나왔어"*~~ → 🔴 **that report predates the newlines — see §36-8** | ~~✅ 사용자 화면 확인~~ → 🔴 **화면 미확인** (all four are) |
+| **the newly-decided one-line form** | scene-file measurement only | 🔴 **이 변경 뒤 화면 미확인** |
+
+- **Never delete the original 「위험 — … 🔴 실기 미확인」 item.** Append 「그 위험이 말한 *X* 는 해소됐다」 and then the
+  grade table. A risk that is *half* resolved is written as half.
+- The same split survives the follow-up round where the **code** reached the confirmed value: ✅ 코드 반영 확인 and
+  🔴 화면 미확인 sit in the same block, with one sentence saying **「코드가 확정값이 된 것과 화면으로 본 것은 다른 사실」**.
+
+### 36-3. What makes a layout claim measurable in a `.unity` file
+
+The claim 「줄 수가 늘어도 형제 UI 가 밀리지 않는다」 is decided by **four** readings, and all four belong in the
+document as a table (they are the reason the decision is not a preference):
+1. the text object's **component list** — `ContentSizeFitter` 0건 · `LayoutGroup` 0건 (read the `m_Component` ids and
+   resolve each `--- !u!<class> &<id>`: 224 RectTransform / 222 CanvasRenderer / 114 MonoBehaviour → check its
+   `m_EditorClassIdentifier`),
+2. the **parent's** component list (a `LayoutGroup` one level up would move the child anyway),
+3. the anchors + `m_SizeDelta` (a fixed rectangle means size is independent of content),
+4. `m_fontSize` + `m_enableAutoSizing: 0` + alignment (Center/Middle → extra lines spread around the middle).
+- 🔴 **Only with 1+2 may you write 「성립하지 않는다」** about a height-cascade risk. Without the parent check it is a
+  guess about the very mechanism the risk named.
+
+### 36-4. A reusable grep trap — a constant whose **declaration wraps onto the next line**
+
+`RematchFailedByOpponentLeftCountdownFormat` has `private const string … =` on one line and the string literal on the
+next. **A single-line `grep "Format = \"…\""` misses it**, so a count of 「문구가 코드에 몇 곳 있나」 comes back short.
+- Use `grep -n "<name> = " -A1` (or grep the *wording* rather than the assignment) whenever counting wordings.
+- Record the wrap in the document cell itself, not only in the report — the next person recounts from the document.
+
+### 36-5. Counting 「사본이 늘지 않았다」 when the new text legitimately repeats the wording
+
+The 확정 block itself must quote the wording (that is what makes it the single source), so a raw count goes **up**.
+The verifiable claim is therefore **not** 「히트 수가 같다」 but 「모든 새 히트가 단일 소스 블록 안에 있다」:
+grep the wording with line numbers, then classify each hit as *inside the single-source block* / *pre-existing other
+cell* / *new copy elsewhere* — and report that the third class is **0건**. The three cells the earlier round had
+marked as 「이 블록이 단일 소스」 (규칙 D-1 문구 표 · 2026-09-22 (2차) ② 표 · 2026-09-24 표) are exactly the cells that
+must **not** grow a copy.
+
+### 36-6. A code-side copy is part of this job's verification, not of the code job
+
+The same programmer round replaced a wording example inside a `[Tooltip]` with 「문구의 단일 소스는 네 상수다」.
+- 🔴 It belongs in **§15-7** (the section that decided 「사본을 늘리지 않는다」), because the tooltip was the last place
+  where that principle was broken on the code side. Say *why* it belongs there, or it reads as scope creep.
+- ⚠️ **Qualify the 「상수 4개뿐」 claim**: wordings held **as string literals** are 4, and the remaining grep hit is an
+  explanatory comment quoting the first half of one wording. 「4개뿐」 without that clause is false.
+
+### 36-7. The 실행 기록 표 is not touched by a 확정 마무리 — and saying so is the artifact
+
+This round added no stage. Before leaving §10 alone I read every row and confirmed **no row asserts anything about
+개행 or the 평시 wording**, then wrote that sentence into the new 「바뀐 파일」 subsection. A silent non-edit is
+indistinguishable from an oversight; one line makes it a decision.
+- The previous round's own 「바뀐 파일」 절 (§15-9) is a dated record → **new numbered subsection (§15-10)**, never an edit
+  (§24's rule, third sighting).
