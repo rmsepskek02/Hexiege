@@ -3081,3 +3081,24 @@ This round added no stage. Before leaving §10 alone I read every row and confir
 indistinguishable from an oversight; one line makes it a decision.
 - The previous round's own 「바뀐 파일」 절 (§15-9) is a dated record → **new numbered subsection (§15-10)**, never an edit
   (§24's rule, third sighting).
+
+### 36-8. 🔴 A handed-over fact whose **quote was real and whose attachment was wrong** (9th class)
+
+The calling session's prompt said the three newline-split wordings were *already confirmed on screen* — quoting the
+user verbatim (*"두 문구는 정상적으로 나왔어"*). The quote existed; **what it was a report *about* did not match.**
+That report was of the build **before** the newlines went in, and the user's newline *request* came **after** it —
+nobody can have seen on screen a thing that did not exist yet.
+- 🔴 **This is the form no existing check catches.** Grepping the quote proves only that the sentence is real.
+  The previous handed-over-value classes were *wrong number* / *right number wrong conclusion* / *different counting
+  basis* / *right count wrong labels* / *unmeasurable here*; this one is **wrong attachment** — who said it, when,
+  and **which build they were looking at**.
+- **Verification means**: ask the **calling session** to run `git show`/`git log` on the constant and compare the
+  commit that introduced the change against the timestamp of the user's report (I must not run git — CLAUDE.md 규칙 5).
+  In this case the newlines first appeared in the then-HEAD commit, i.e. *after* the report.
+- **The repair is three-part and additive**: strike the grade cell and put the corrected grade beside it, append a
+  정정 block carrying the evidence **and the fact that the calling session handed it over and I quoted it unverified**
+  (`.claude/MEMORY.md`'s *「에이전트 프롬프트에 적힌 사실 주장은 검증 없이 인용하지 않는다」* — a repeat of the 2026-08-21
+  incident), and 🔴 **say what the report *does* validly confirm** (here: 실패 사유별 문구 분기 / 규칙 18, **not** 개행),
+  so the other documents citing it stay untouched and still true.
+- ⚠️ **Before writing 「사용자가 화면으로 확인했다」 about a *form* (개행, 정렬, 색), ask which build the user saw.**
+  A screen report confirms the thing that was on screen at that moment — a later form change inherits nothing from it.
