@@ -2870,3 +2870,133 @@ was revised to a 상태 줄 and that half shipped in an earlier round, so only *
 - 🔴 **Deciding not to write a commit hash is itself a record.** Earlier rounds carried hashes as **전달값**; this
   round got none, so every document says **「커밋 해시는 적지 않는다 — 규칙 5 로 git 을 실행할 수 없어 확인할
   수단이 없다」**. An empty 커밋 칸 with no sentence reads as a forgotten field.
+
+---
+
+## §35. The round whose subject is **"the previous round's top hypothesis was refuted in 실기"** — and why that is not only a mistake (2026-09-27, post-game-leave-ui 실기 검증)
+
+The first end-to-end 실기 run of a ten-stage feature. Most 「🔴 실기 검증 0건」 markers in six documents became false
+in one go, one new bug appeared, one 문구 form was confirmed by the user — and the previous round's
+**「1순위 용의자」** diagnosis turned out to be wrong for a reason that was never in the code.
+
+### 35-1. 🔴 The refuted hypothesis was **not** where the hand-off said it was — and the correction goes where its reader lands
+
+Hand-off: *"그 가설은 `Plan.md` 와 커밋 메시지에 1순위 용의자로 기록돼 있다."* `Plan.md` had **zero** hits for
+`용의자`; the record lived in **another agent's memory** (`.claude/agent-memory/game-programmer/ui-system.md`).
+- Grep the **claim** (`용의자`), not the handed location — the §31-5 procedure, third sighting.
+- 🔴 **Append the 정정 to the file that actually holds the hypothesis**, even when that file belongs to another
+  agent (`.claude/agent-memory/**` is in document-manager's ownership). A falsified hypothesis left uncorrected
+  is §33-8's "honest the day it is written, misinformation a day later" — and the reader who needs the correction
+  is the one reading *that* block, not my Plan section.
+- The append must carry **three** things so it cannot be misread as a spec decision: a signature
+  (*"document-manager 가 실기 검증 결과를 반영하며 덧붙였다"*), 🔴 *"사실 최신화이며 코드에 관해 새로 정한 것은 없다"*,
+  and the **original left untouched** (B-7). Keep the parallel agent's own conclusions (「비대칭 자체가 단서다」)
+  alive as an *observation* while saying the measurement no longer supports acting on it.
+- The commit message half of the hand-off stays **unjudged**: 규칙 5 means there is no way to read it. Say that
+  instead of quietly dropping it.
+
+### 35-2. 🔴 A refuted hypothesis is a **procedure that worked**, and the record must say so in its own sentences
+
+The user's order was explicit — *"이것을 「실수」로만 적지 말 것"*. The reusable shape is **three sentences**:
+1. **Setting the hypothesis was correct** — it narrowed an unobservable gap to one named candidate.
+2. 🔴 **Not fixing it was correct** — only observation (진단 로그 4자리) was added, so **no healthy code was
+   operated on.** Had the hypothesis been right, the same logs would have confirmed it: **either way the log answers.**
+3. ✅ **The earlier round's own 유보 line did the work** — *"`StopCoroutine(자기)` 가 즉시 끊는가는 확인되지 않았다
+   (Unity 없음, 실측 0)"*. Because an assumption was not promoted to a fact, this round is a **확인, not a 정정.**
+- In `.claude/mistakes.md` this means the entry opens with a blockquote saying it holds **both** halves, and
+  🔴 **the 목차 line itself names the good half** — a 목차 scanned for 증상 alone hands the next reader the wrong lesson.
+- The 교훈 list then carries `✅` bullets beside the 🔴 ones, and one forward-looking rule:
+  **「관측이 비어 있으면 먼저 관측을 만든다.」**
+
+### 35-3. 🔴 When the cause is the **test environment**, the fix is a procedure — and procedures get no roadmap row
+
+The real cause: the forced-failure tool logs its ending at **`[ERROR]`** (by design — it reuses the real failure
+path), Unity's **Error Pause** was on, and a paused play mode runs no coroutines.
+- **State the causal chain in the document that owns the tool**, as a numbered 성질/절차 item, not as a bug note:
+  🔴 *"고칠 자리가 코드가 아니라 절차다."* Home chosen by §34-2's reachability rule (TDD 「개발 환경」 절), not by subject.
+- ⚠️ **Say that the `[ERROR]` level is not a defect** — otherwise the next round "fixes" the log level and destroys
+  the tool's own guarantee (「테스트에서 본 화면 = 실제로 나는 화면」).
+- 🔴 **Do not add a ROADMAP row**, and write *why* in the ROADMAP block: 「앞으로 할 일이 아니라 쓰는 법이라 행을
+  세우지 않았다」 + a pointer. A procedure with a roadmap row reads as unfinished work forever.
+- ⚠️ The environment fact itself is **사용자 보고 only** — 🔴 *"Error Pause 가 켜져 있었다는 사실은 로그에 남지 않는다."*
+  What I could measure was the **level** (`[ERROR]` 5건 / 전체 8건). Split those two grades explicitly.
+
+### 35-4. 🔴 Erasing 「실기 검증 0건」 across a feature: the **per-item grade table is the artifact**
+
+The order was 🔴 *"일괄로 「완료」로 바꾸지 말고 항목별로 갈라 적을 것."* One round produced **five** different grades:
+
+| 등급 | 무엇이 그렇게 되는가 |
+|---|---|
+| ✅ **실기 확인** | 로그에 그 규정의 발화가 남았다(초 단위 수치 포함) |
+| ✅ **실기 사용 확인** | 도구가 실제로 쓰였다 — 「사양이 검증됐다」와 **다른 말** |
+| ⚠️ **사용자 화면 확인** | 로그에 남지 않는 것(문구·버튼)을 사람이 보았다 — 항목별 관측으로 읽지 않는다 |
+| ⚠️ **재현 수단 없음** | 코드 보장까지. **왜 만들 수 없는지**를 함께 적는다(사유 3종은 전송 계층의 것이다) |
+| 🔴 **미해결** | 원인 확정 · 수정 진행 중 · 미검증 |
+
+- Every row carries an **이번 근거** column; a row without one silently inherits the round's best grade.
+- 🔴 **The stale marker is never deleted** — the old header/bullet keeps its text plus a marker naming the new
+  single source (「검증 상태」 머리말도 그 대상이다: a reader scanning headers only sees that line).
+- **Rows whose status did not change get no marker** — 단계 8(규칙 D-6)은 이번 테스트가 검증하지 않았고, that
+  non-verification is itself reported (35-7).
+
+### 35-5. ✅ The log was **in this checkout** this time — so I closed two 「재측정 못 했다」 notes I had written myself
+
+Earlier rounds recorded 「이 체크아웃의 로그 사본에 해당 구간이 없어 내가 재측정하지 못했다」 for 단계 5·6 (the log is
+an append-only file that lagged behind). This round's log contained those lines.
+- The repair is one appended marker per row whose **first line is the negation** and whose last line is
+  🔴 **「바뀐 것은 근거의 강도뿐이고 상태·범위는 그대로다」** — an upgrade from 「메인 세션 실측」 to 「내가 직접
+  재측정」 is not a status change (§28's ✅ shape, second sighting).
+- This is §29-6's mechanism paying off again: **a note that says who will close it, and when, gets closed.**
+
+### 35-6. Handed-over figure, **8th class — the number cannot be reproduced because the anchor line differed**
+
+Hand-off: 맵 준비 한도 **20.006 / 20.013초**. Measured from the 진입 로그 (`재경기 준비 상태 진입`), **both** rounds
+give **20.006초**; no anchor line produces 20.013.
+- Record **my anchor** ("진입 로그 기준"), my two values, and 「그 값을 만드는 기준 줄을 찾지 못했다」.
+  🔴 **Never overwrite the handed number and never guess the anchor** (규칙 10). Running list: §17-3 · §18 · §20-7 · §21 · §30.
+
+### 35-7. 🔴 A hand-off list item whose **name** does not match what the log can show
+
+The ✅ list said 「규칙 D-6 이탈 반영」. The log's `상대 이탈 반영 시작` (3건) is 규칙 D-1·D-2·D-4 — **단계 7**.
+규칙 D-6 (요청 팝업 닫기 + 알림 팝업) has **zero** traces, for two separate reasons worth writing down:
+**그 자리에 로그가 없다**(a 설계 선택 recorded back in §12) and **이번 이탈들은 요청 팝업이 떠 있지 않은 상태**였다.
+- 🔴 **So its 미검증 is not closed, and the row is left untouched** — plus one line in the round's 인계 대조 표 and
+  in the report. **「로그에 자리가 없는 규칙은 로그로 검증되지 않는다」** is the general form.
+- Same-shaped sibling: 규칙 D-8 (버튼 문구는 로그에 남지 않는다). Grouping the two as 「이 검증이 닫지 않은 것」
+  under the rule block keeps a reader from reading the ✅ table as total.
+
+### 35-8. Confirming the **form** of existing strings (a line break) is not a new state — one table, cell-level pointers
+
+The user split every status-line string into two lines at the 남은 초 sentence.
+- 🔴 **One 4-row table is the single source of the 개행 형태**, placed in the rule that owns the status line
+  (규칙 D-7). The three places that already carry strings — 규칙 D-1's 표 and D-7's own two earlier tables —
+  get **cell-level pointers** (「그 칸은 이 블록이 단일 소스」), the third sighting of §33-6 / §34-3.
+  A `⏎` legend plus 「두 문장 사이의 공백 한 칸이 줄바꿈으로 바뀐다」 is what makes the table implementable.
+- 🔴 **Say why it must be all four states**: the status line is **one place** whose text swaps per state, so a
+  per-state form difference breaks that property on screen.
+- ⚠️ **What is excluded needs its measurement too** — 알림 팝업 본문 is out of scope **because it has no 남은 초**
+  (verified in code: the constant has no `{0}`), plus 🔴 「팝업 본문에 남은 초를 새로 넣지 않는다」 so the exclusion
+  cannot be closed later by adding one.
+- 🔴 **The one item where the order cannot be applied literally stays 미정** — 평시 문구 is a single sentence, so
+  "break before the seconds" would produce an **empty first line**. Write the two readings, say which argument
+  supports each, and refuse to choose (규칙 10 · 12). **Filling it would invent a spec.**
+- ⚠️ Add the risk the user cannot see from the text: **개행으로 텍스트 높이가 늘어 레이아웃이 밀릴 수 있다 · 실기 미확인**,
+  and 🔴 the code state at **my** reading time (개행 0건) marked as a §33-8 timestamped observation.
+
+### 35-9. A bug where the mechanism is correct and the **interleaving** is the defect
+
+「실패 직후에 「재경기 준비 중」으로 되돌아간다」: the accept notice arrives by two paths (local immediate + server
+`ClientRpc`) and the accepting side gets **both** — which the rule **deliberately** specifies. The defect is that
+failure handling lands in between and clears the duplicate guard.
+- 🔴 **Do not write 「경로가 둘이라 결함이다」** — name the rule that made it two and say 「결함은 그 사이에 실패 처리가
+  끼어들 수 있다는 것」. Otherwise the fix removes a role-asymmetry guarantee.
+- ✅ **My log measurement can only say it is *consistent with* the code diagnosis** — a 회차 비교 표 (에디터가 요청한
+  쪽 4회 → 진입 1회 / 수락한 쪽 1회 → 진입 **2회**) is strong corroboration, and the mechanism stays credited to
+  the main session's code reading (근거 등급).
+- ⚠️ **Kill the "only with the debug tool" reading with a number**: the observed gap between 수락 접수 and 실패 처리
+  완료 was **12ms**, so a fast real failure does the same. A severity claim without that number gets deprioritised.
+- 🔴 **Say what the user loses**: the fourth state (실패) is void for 20 seconds *and* the auto-return timer is
+  stopped during it. And keep the fix in **방향/진행 중** tense (§31-7).
+- ⚠️ **Separate the benign look-alike** in the same log — one round logged 실패 상태 진입 twice (한도 만료 then a
+  9ms-late 실패 통보) which is the rule working as written; write 「이것은 버그가 아니다」 beside it, or the two get
+  filed as one.

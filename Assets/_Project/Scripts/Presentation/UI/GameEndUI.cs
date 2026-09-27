@@ -80,16 +80,54 @@ namespace Hexiege.Presentation
         [SerializeField] private TextMeshProUGUI _restartButtonText;
 
         // ====================================================================
-        // 상대 이탈 관련 고정값 (공통 UI 규칙 D-1 · D-4)
+        // 🔴 상태 줄(_countdownText) 문구 네 개 + 상대 이탈 관련 고정값
+        //    (공통 UI 규칙 D-1 · D-4 · D-7 · M-3 · GameSystemRules_RandomMap.md 규칙 18)
         //
         // [초급자용 설명] 왜 [SerializeField] 가 아니라 const 인가
         //   [SerializeField] 로 두면 그 값이 씬 파일(Game.unity)에 저장되고,
         //   런타임에는 **씬에 저장된 값이 코드 기본값을 덮어쓴다.**
         //   그래서 코드만 고치면 실제 동작이 바뀌지 않는 함정이 생긴다
         //   (바로 위 _autoReturnSeconds 가 실제로 그 함정에 걸려 코드와 씬을 모두 고쳐야 했다).
-        //   아래 두 값은 규칙이 고정한 값이라 Inspector 에서 조절할 이유가 없으므로
+        //   아래 값들은 규칙이 고정한 값이라 Inspector 에서 조절할 이유가 없으므로
         //   const 로 둬서 「코드 한 자리만 고치면 끝」이 되게 한다(씬 작업 불필요).
+        //
+        // 🔴 [2026-09-27] 상태 줄 문구 **네 개를 전부 이 한 자리에 모았다.**
+        //   상태 줄에 뜨는 문구는 넷이다 — ① 평시 ② 상대 이탈 ③ 재경기 실패
+        //   ④ 재경기 실패(상대가 나감). 그런데 종전에는 ①만 CountdownCoroutine 안에
+        //   **보간 문자열($"...")로 박혀 있고** ②③④만 const 였다.
+        //   🔴 **문구가 한 개라도 코드 안쪽에 숨어 있으면 다음에 고칠 때 그 하나만 옛 모양으로
+        //      남는다.** 상태 줄은 상황에 따라 문구가 바뀌는 자리이므로, 하나만 모양이 다르면
+        //      **상황마다 화면 모양(줄 수·높이)이 달라진다.** 그래서 ①도 const 로 빼서
+        //      ②③④ 와 나란히 뒀다. **다음에 문구를 고칠 때는 이 네 개를 함께 본다.**
+        //   ⚠️ ②③④ 는 종전에 이 파일의 다른 두 자리에 흩어져 있던 것을 여기로 옮긴 것이며,
+        //      문자열 자체는 아래 개행 규약 말고는 바뀌지 않았다.
+        //
+        // 🔴 개행 규약 — 네 문구 모두 **남은 초 바로 앞에서 \n 으로 한 번** 줄을 나눈다(사용자 확정).
+        //   · 「무슨 일이 있었는가」와 「몇 초 뒤에 로비로 가는가」는 서로 다른 정보라
+        //     한 줄에 이어 붙이면 줄이 길어져 읽기 어렵다.
+        //   · 🔴 **\n 뒤에 공백을 넣지 않는다.** 상태 줄은 가운데 정렬(TMP Center)이라
+        //     공백 하나가 그 줄 전체를 한쪽으로 밀어 버린다.
+        //   · ⚠️ ① 평시 문구는 남은 초가 **문구의 맨 앞**이라 \n 도 맨 앞에 온다 —
+        //     **첫 줄이 비어 네 문구의 줄 수가 모두 같아진다.** 상태가 바뀔 때마다 텍스트
+        //     높이가 달라져 화면이 위아래로 튀는 것을 막기 위한 것이므로 **지우지 말 것.**
         // ====================================================================
+
+        /// <summary>
+        /// <b>① 평시</b> 상태 줄 문구 형식 — 남은 초만 알린다. <c>{0}</c> 자리에 남은 초가 들어간다.
+        ///
+        /// <para>
+        /// 🔴 <b>[2026-09-27] 종전에는 이 문구만 <see cref="CountdownCoroutine"/> 안에 보간
+        /// 문자열(<c>$"..."</c>)로 박혀 있었다. 이번에 const 로 빼 나머지 셋과 같은 자리에 뒀다.</b>
+        /// 이유는 <b>하나를 빠뜨리는 것을 막기 위해서</b>다 — 상태 줄 문구는 넷이고, 넷이 같은
+        /// 모양이어야 상황이 바뀔 때 화면이 튀지 않는다. 문구 하나가 메서드 안쪽에 숨어 있으면
+        /// 다음에 문구를 손볼 때 <b>그 하나만 옛 모양으로 남는다</b>(자세한 근거는 이 절 머리말).
+        /// </para>
+        ///
+        /// ⚠️ <b>맨 앞의 줄바꿈은 오타가 아니다.</b> 이 문구에는 남은 초 앞에 올 말이 없어서
+        ///    줄바꿈이 맨 앞에 온다. 그래서 첫 줄이 비고 <b>네 문구가 모두 두 줄</b>이 되어,
+        ///    상태가 바뀌어도 텍스트 높이가 그대로다(이 절 머리말의 개행 규약 참조).
+        /// </summary>
+        private const string NormalCountdownFormat = "\n{0}초 후 로비로 돌아갑니다.";
 
         /// <summary>
         /// 상대 이탈 시 타이머 텍스트 문구 형식 (공통 UI 규칙 D-1).
@@ -99,7 +137,71 @@ namespace Hexiege.Presentation
         /// <c>CountdownCoroutine</c> 안의 분기 하나로만 갈린다 — 같은 문구를 두 곳에 적으면
         /// 한쪽만 고쳐졌을 때 화면에 두 가지 표현이 섞여 나온다.
         /// </summary>
-        private const string OpponentLeftCountdownFormat = "상대방이 떠났습니다. {0}초 뒤 로비로 이동합니다.";
+        private const string OpponentLeftCountdownFormat = "상대방이 떠났습니다.\n{0}초 뒤 로비로 이동합니다.";
+
+        /// <summary>
+        /// 재경기가 <b>성립하지 못했을 때</b> 상태 줄에 표시할 문구. <c>{0}</c> 자리에 남은 초가 들어간다.
+        ///
+        /// <para>
+        /// 🔴 <b>재경기가 안 되는 길은 셋인데 이 문구 하나로 끝난다.</b>
+        /// <list type="number">
+        ///   <item>수락을 서버로 <b>아예 못 보냈다</b>(연결이 이미 내려가는 중).</item>
+        ///   <item>서버가 <b>새 맵 준비에 실패</b>했다고 통보해 왔다.</item>
+        ///   <item><b>준비 한도가 지났는데 아무 통보도 오지 않았다.</b></item>
+        /// </list>
+        /// 사용자는 이 셋을 구분할 수 없고 <b>구분할 필요도 없다</b> — 전부 「재경기가 안 됐다」다.
+        /// 그래서 셋이 <b>같은 화면으로 끝난다</b>(공통 진입점은 <see cref="EnterRematchFailedState"/>).
+        /// 이것은 이번 작업의 대전제 — <b>같은 결과면 같은 화면</b> — 의 연장이다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>실패를 알리는 팝업(<c>ShowAlert</c>)을 띄우지 않는다.</b> 팝업은 화면을 덮어
+        /// 「로비로」 버튼을 가리거나 못 누르게 만들고, 그것은 규칙 D-3(로비 복귀 버튼은 항상 활성)
+        /// 위반이다. 그래서 <b>이미 떠 있는 상태 줄 자리</b>를 쓴다 — 규칙 D-1 이 상대 이탈을 알릴 때
+        /// 쓴 것과 같은 판단이다. <b>나중에 여기에 팝업을 다시 넣지 말 것.</b>
+        /// (규칙 M-3 이 2026-09-16 에 「알림 팝업으로 알린다」로 확정했던 것을 상태 줄로 바꾸는
+        ///  개정이며, 문서 반영은 별도로 진행된다.)
+        /// </para>
+        ///
+        /// ⚠️ 위 <see cref="OpponentLeftCountdownFormat"/> 과 같은 모양의 형식 문자열이지만
+        ///    <b>다른 사실을 알린다.</b> 「상대가 떠났다」와 「재경기를 시작할 수 없다」는 원인이 다르고,
+        ///    둘이 동시에 성립할 수도 있다(그때의 우선순위는 <see cref="CountdownCoroutine"/> 참조).
+        /// </summary>
+        private const string RematchFailedCountdownFormat = "재경기를 시작할 수 없습니다.\n{0}초 후 로비로 돌아갑니다.";
+
+        /// <summary>
+        /// 재경기가 <b>상대가 나가서</b> 성립하지 못했을 때 상태 줄에 표시할 문구.
+        /// <c>{0}</c> 자리에 남은 초가 들어간다.
+        ///
+        /// <para>
+        /// 🔴 <b>왜 실패 문구를 둘로 가르는가</b> —
+        /// <c>GameSystemRules_RandomMap.md</c> 규칙 18: *"플레이어에게 「맵 준비가 실패했다」와
+        /// 「상대가 나갔다」는 **할 수 있는 일이 다르다.** 앞쪽은 다시 시도할 여지가 있고 뒤쪽은 없다."*
+        /// 그런데 <b>되돌리는 절차 자체는 두 경우가 완전히 같으므로</b>, 절차를 복제하지 않고
+        /// <b>표시만</b> 가른다(같은 규칙: *"가르는 것은 화면 문구 하나뿐이다"*).
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>이 문구를 쓰는 조건은 하나뿐이다</b> — 실패 사유가
+        /// <see cref="RematchMapFailureCause.OpponentDisconnected"/> 일 때. 사유를 <b>모를 때는
+        /// 이 문구를 쓰지 않는다</b>(위 <see cref="RematchFailedCountdownFormat"/> 을 쓴다).
+        /// 모르는데 「상대가 나갔다」고 쓰면 <b>거짓을 말할 수 있기</b> 때문이다
+        /// (<c>CLAUDE.md</c> 규칙 10 — 추정 금지. 자세한 근거는
+        /// <c>NetworkGameEndController.SendAcceptRematchSafely</c> 의 catch 주석).
+        /// </para>
+        ///
+        /// ⚠️ <b>이 문구를 주석이나 다른 파일에 베껴 적지 말 것.</b> 사본이 하나라도 생기면
+        ///    「문구가 코드에 한 곳만 있는가」를 확인하는 grep 이 무용해진다
+        ///    (<see cref="OpponentLeftCountdownFormat"/> 에서 실제로 겪은 일이다).
+        ///    가리켜야 할 때는 문구 대신 <b>이 상수 이름</b>을 쓴다.
+        ///
+        /// ⚠️ <see cref="OpponentLeftCountdownFormat"/>(규칙 D-1)과 <b>다른 자리·다른 사실</b>이다.
+        ///    그쪽은 「경기가 끝난 뒤 상대가 사라졌다」는 이탈 판정 문구이고, 이쪽은
+        ///    「재경기를 만들다가 상대가 사라져 재경기가 안 됐다」는 실패 문구다.
+        ///    둘이 동시에 성립하면 <b>이탈 문구가 이긴다</b>(우선순위는 <see cref="CountdownCoroutine"/> 참조).
+        /// </summary>
+        private const string RematchFailedByOpponentLeftCountdownFormat =
+            "상대방이 나가서 재경기를 시작할 수 없습니다.\n{0}초 후 로비로 돌아갑니다.";
 
         /// <summary>
         /// 상대 이탈 판정 시 자동 로비 복귀 카운트다운을 다시 시작할 길이(초) — 공통 UI 규칙 D-4.
@@ -178,69 +280,12 @@ namespace Hexiege.Presentation
         /// </summary>
         private const string RematchPreparingStatusText = "재경기 준비 중...";
 
-        /// <summary>
-        /// 재경기가 <b>성립하지 못했을 때</b> 상태 줄에 표시할 문구. <c>{0}</c> 자리에 남은 초가 들어간다.
-        ///
-        /// <para>
-        /// 🔴 <b>재경기가 안 되는 길은 셋인데 이 문구 하나로 끝난다.</b>
-        /// <list type="number">
-        ///   <item>수락을 서버로 <b>아예 못 보냈다</b>(연결이 이미 내려가는 중).</item>
-        ///   <item>서버가 <b>새 맵 준비에 실패</b>했다고 통보해 왔다.</item>
-        ///   <item><b>준비 한도가 지났는데 아무 통보도 오지 않았다.</b></item>
-        /// </list>
-        /// 사용자는 이 셋을 구분할 수 없고 <b>구분할 필요도 없다</b> — 전부 「재경기가 안 됐다」다.
-        /// 그래서 셋이 <b>같은 화면으로 끝난다</b>(공통 진입점은 <see cref="EnterRematchFailedState"/>).
-        /// 이것은 이번 작업의 대전제 — <b>같은 결과면 같은 화면</b> — 의 연장이다.
-        /// </para>
-        ///
-        /// <para>
-        /// 🔴 <b>실패를 알리는 팝업(<c>ShowAlert</c>)을 띄우지 않는다.</b> 팝업은 화면을 덮어
-        /// 「로비로」 버튼을 가리거나 못 누르게 만들고, 그것은 규칙 D-3(로비 복귀 버튼은 항상 활성)
-        /// 위반이다. 그래서 <b>이미 떠 있는 상태 줄 자리</b>를 쓴다 — 규칙 D-1 이 상대 이탈을 알릴 때
-        /// 쓴 것과 같은 판단이다. <b>나중에 여기에 팝업을 다시 넣지 말 것.</b>
-        /// (규칙 M-3 이 2026-09-16 에 「알림 팝업으로 알린다」로 확정했던 것을 상태 줄로 바꾸는
-        ///  개정이며, 문서 반영은 별도로 진행된다.)
-        /// </para>
-        ///
-        /// ⚠️ 위 <see cref="OpponentLeftCountdownFormat"/> 과 같은 모양의 형식 문자열이지만
-        ///    <b>다른 사실을 알린다.</b> 「상대가 떠났다」와 「재경기를 시작할 수 없다」는 원인이 다르고,
-        ///    둘이 동시에 성립할 수도 있다(그때의 우선순위는 <see cref="CountdownCoroutine"/> 참조).
-        /// </summary>
-        private const string RematchFailedCountdownFormat = "재경기를 시작할 수 없습니다. {0}초 후 로비로 돌아갑니다.";
-
-        /// <summary>
-        /// 재경기가 <b>상대가 나가서</b> 성립하지 못했을 때 상태 줄에 표시할 문구.
-        /// <c>{0}</c> 자리에 남은 초가 들어간다.
-        ///
-        /// <para>
-        /// 🔴 <b>왜 실패 문구를 둘로 가르는가</b> —
-        /// <c>GameSystemRules_RandomMap.md</c> 규칙 18: *"플레이어에게 「맵 준비가 실패했다」와
-        /// 「상대가 나갔다」는 **할 수 있는 일이 다르다.** 앞쪽은 다시 시도할 여지가 있고 뒤쪽은 없다."*
-        /// 그런데 <b>되돌리는 절차 자체는 두 경우가 완전히 같으므로</b>, 절차를 복제하지 않고
-        /// <b>표시만</b> 가른다(같은 규칙: *"가르는 것은 화면 문구 하나뿐이다"*).
-        /// </para>
-        ///
-        /// <para>
-        /// 🔴 <b>이 문구를 쓰는 조건은 하나뿐이다</b> — 실패 사유가
-        /// <see cref="RematchMapFailureCause.OpponentDisconnected"/> 일 때. 사유를 <b>모를 때는
-        /// 이 문구를 쓰지 않는다</b>(위 <see cref="RematchFailedCountdownFormat"/> 을 쓴다).
-        /// 모르는데 「상대가 나갔다」고 쓰면 <b>거짓을 말할 수 있기</b> 때문이다
-        /// (<c>CLAUDE.md</c> 규칙 10 — 추정 금지. 자세한 근거는
-        /// <c>NetworkGameEndController.SendAcceptRematchSafely</c> 의 catch 주석).
-        /// </para>
-        ///
-        /// ⚠️ <b>이 문구를 주석이나 다른 파일에 베껴 적지 말 것.</b> 사본이 하나라도 생기면
-        ///    「문구가 코드에 한 곳만 있는가」를 확인하는 grep 이 무용해진다
-        ///    (<see cref="OpponentLeftCountdownFormat"/> 에서 실제로 겪은 일이다).
-        ///    가리켜야 할 때는 문구 대신 <b>이 상수 이름</b>을 쓴다.
-        ///
-        /// ⚠️ <see cref="OpponentLeftCountdownFormat"/>(규칙 D-1)과 <b>다른 자리·다른 사실</b>이다.
-        ///    그쪽은 「경기가 끝난 뒤 상대가 사라졌다」는 이탈 판정 문구이고, 이쪽은
-        ///    「재경기를 만들다가 상대가 사라져 재경기가 안 됐다」는 실패 문구다.
-        ///    둘이 동시에 성립하면 <b>이탈 문구가 이긴다</b>(우선순위는 <see cref="CountdownCoroutine"/> 참조).
-        /// </summary>
-        private const string RematchFailedByOpponentLeftCountdownFormat =
-            "상대방이 나가서 재경기를 시작할 수 없습니다. {0}초 후 로비로 돌아갑니다.";
+        // 🔴 [2026-09-27] 재경기 실패 문구 두 개(RematchFailedCountdownFormat /
+        //    RematchFailedByOpponentLeftCountdownFormat)는 **종전에 이 자리에 있었지만**
+        //    이 파일 위쪽 「상태 줄 문구 네 개」 절로 옮겼다. 상태 줄에 뜨는 문구 넷이
+        //    한자리에 모여 있지 않으면 문구를 고칠 때 하나를 빠뜨리기 때문이다.
+        //    ⚠️ 바로 위 RematchPreparingStatusText 는 **남은 초가 들어가지 않는** 문구라
+        //       개행 규약(남은 초 앞에서 줄을 나눈다)의 대상이 아니어서 이 자리에 남아 있다.
 
         // ====================================================================
         // 색상 설정
@@ -270,6 +315,13 @@ namespace Hexiege.Presentation
         /// [요청한 쪽] 서버의 재경기 수락 접수 통보 구독 해제용.
         /// </summary>
         private System.IDisposable _rematchAcceptedSubscription;
+
+        /// <summary>
+        /// [회차 경계] 상대의 <b>재경기 요청 도착</b> 구독 해제용.
+        /// 🔴 이 구독이 하는 일은 <see cref="_rematchAcceptSignalHandled"/> 를 내리는 것 하나뿐이다
+        /// (요청 팝업을 띄우는 것은 <c>RematchRequestPopup</c> 의 몫이다).
+        /// </summary>
+        private System.IDisposable _rematchRequestedSubscription;
 
         /// <summary> 멀티플레이 재경기 맵 준비 실패 이벤트 구독 해제용(재경기 맵 C 단계). </summary>
         private System.IDisposable _rematchMapFailedSubscription;
@@ -302,6 +354,50 @@ namespace Hexiege.Presentation
         ///   처음부터 다시 시작돼, 한도가 실제보다 길어진다.
         /// </summary>
         private bool _rematchPreparing;
+
+        /// <summary>
+        /// 🔴 <b>이 회차의 「재경기 수락 접수」를 이미 처리했는가.</b> 수락 접수를 알리는 신호가
+        /// <b>둘</b>이라, 그 둘 중 <b>먼저 온 하나만</b> 화면에 반영하기 위한 표시다.
+        ///
+        /// <para>
+        /// [초급자용 설명] 신호가 왜 둘인가 — 수락한 쪽은 ① 자기 「수락」 버튼 입력
+        /// (<c>OnLocalRematchAccepted</c>)과 ② 서버의 수락 접수 통보
+        /// (<c>OnNetworkRematchAccepted</c>)를 <b>둘 다</b> 받는다(통보 대상을 한 쪽으로 좁히지
+        /// 않기 때문이다). 같은 사건이므로 <b>화면 전이는 한 번만</b> 일어나야 한다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>왜 <see cref="_rematchPreparing"/> 만으로는 부족한가 — 2026-09-27 실기로 확인된 버그.</b>
+        /// 그 깃발은 <see cref="StopRematchPreparingLimit"/> 가 내린다. 그래서 두 신호 <b>사이에</b>
+        /// 실패 처리가 끼어들면(아주 빠른 실패) 그 자리에서 깃발이 내려가고, 뒤따라온 두 번째 신호가
+        /// 가드를 <b>통과해</b> 화면이 「재경기 실패」에서 「재경기 준비 중」으로 되돌아간다.
+        /// 🔴 이 표시는 <b>실패 처리가 건드리지 않는 값</b>이라 그 경쟁을 이긴다 —
+        /// <b>그것이 이 깃발을 따로 두는 유일한 이유다. 실패 처리에서 이 값을 내리지 말 것.</b>
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>왜 <see cref="_rematchFailed"/> 로 막으면 안 되는가</b> —
+        /// 「이미 실패했으면 준비 상태로 들어가지 않는다」로 막으면 <b>실패한 뒤 상대가 다시 요청해서
+        /// 이쪽이 다시 수락하는, 정상적인 재시도까지 막힌다.</b> 그 깃발을 내리는 자리는
+        /// <b>요청 버튼</b>(<see cref="SetupRematchButton"/> 의 onClick)과
+        /// <see cref="EnterRematchPreparingState"/> 인데, <b>수락하는 쪽은 요청 버튼을 누르지 않고</b>
+        /// 진입이 막히면 <see cref="EnterRematchPreparingState"/> 에도 도달하지 못한다 —
+        /// 즉 깃발을 내릴 기회가 사라져 <b>영구 고착</b>된다. 그래서 별개의 표시가 필요하다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>내리는 자리는 「회차 경계」 셋뿐이다 — 신호는 이 표시를 내리지 않는다.</b>
+        /// (두 번째 신호가 표시를 내리게 만들면 세 번째 신호가 다시 통과할 수 있고,
+        ///  「한 회차에 한 번」이라는 뜻이 「신호 두 개마다 한 번」으로 약해진다.)
+        /// <list type="number">
+        ///   <item><c>Initialize()</c> — 새 판이 시작될 때(<see cref="_rematchFailed"/> 와 같은 자리).</item>
+        ///   <item><see cref="SetupRematchButton"/> 의 onClick — <b>내가 요청했다</b> = 새 회차 시작.</item>
+        ///   <item><see cref="OnOpponentRematchRequested"/> — <b>상대가 요청했다</b> = 새 회차 시작.
+        ///         🔴 이 자리가 없으면 실패한 뒤 <b>상대의 재요청을 수락할 때 표시가 남아 삼켜진다.</b></item>
+        /// </list>
+        /// </para>
+        /// </summary>
+        private bool _rematchAcceptSignalHandled;
 
         /// <summary>
         /// 재경기가 성립하지 못했는가. 상태 줄 문구를 <see cref="RematchFailedCountdownFormat"/> 으로
@@ -407,6 +503,7 @@ namespace Hexiege.Presentation
             _rematchDeclinedSubscription?.Dispose();
             _localRematchAcceptedSubscription?.Dispose();
             _rematchAcceptedSubscription?.Dispose();
+            _rematchRequestedSubscription?.Dispose();
             _rematchMapFailedSubscription?.Dispose();
             _rematchStartingSubscription?.Dispose();
             _backToLobbySubscription?.Dispose();
@@ -420,6 +517,10 @@ namespace Hexiege.Presentation
             _rematchFailed = false;
             // 깃발과 **같은 자리에서** 사유도 되돌린다(지난 판의 사유가 새 화면 문구를 고르면 안 된다).
             _rematchFailureCause = RematchMapFailureCause.Unknown;
+
+            // 🔴 [수락 접수 표시 내리는 자리 ①/③] 지난 판에서 처리한 수락이 새 판까지 따라오면
+            //    새 판의 첫 수락 접수 신호가 삼켜져 상태 줄이 「재경기 준비 중...」으로 바뀌지 않는다.
+            _rematchAcceptSignalHandled = false;
 
             // 지난 판의 「재경기 준비 중」 시계가 남아 있으면 여기서 확실히 끊는다.
             // (재경기로 씬이 재로드되면 이 컴포넌트도 새로 만들어지지만,
@@ -470,7 +571,7 @@ namespace Hexiege.Presentation
             //     플레이어는 자기가 Host 인지 Client 인지 알 수 없으므로 그 자체로 결함이다.
             // ----------------------------------------------------------------
             _localRematchAcceptedSubscription = GameEvents.OnLocalRematchAccepted
-                .Subscribe(_ => EnterRematchPreparingState());
+                .Subscribe(_ => HandleRematchAcceptSignal(RematchAcceptSignal.LocalAccept));
 
             // ----------------------------------------------------------------
             // [재경기 수락 — 요청한 쪽] 서버가 수락을 접수했다는 통보를 받고 상태를 바꾼다.
@@ -479,12 +580,32 @@ namespace Hexiege.Presentation
             //   성사됐는데도 자기 자동 복귀 카운트다운(60초)이 만료되면 맵 준비 도중에
             //   혼자 로비로 나가 버렸다.
             //
-            //   ⚠️ 이 통보는 양쪽 모두에게 간다 — 수락한 쪽도 받는다. 수락한 쪽은 위 구독으로
-            //      이미 같은 상태에 들어가 있으므로 EnterRematchPreparingState 의 멱등 가드가
-            //      두 번째 신호를 그냥 무시한다.
+            //   ⚠️ 이 통보는 양쪽 모두에게 간다 — 수락한 쪽도 받는다.
+            //
+            //   🔴 **[2026-09-27 갱신]** 종전 주석은 *「수락한 쪽은 위 구독으로 이미 같은 상태에
+            //      들어가 있으므로 EnterRematchPreparingState 의 멱등 가드가 두 번째 신호를 그냥
+            //      무시한다」* 였다. **그 가드만으로는 부족하다는 것이 실기로 확인됐다** —
+            //      두 신호 사이에 실패 처리가 끼어들면 그 가드(_rematchPreparing)가 내려가
+            //      두 번째 신호가 통과하고, 화면이 「재경기 실패」에서 「재경기 준비 중」으로
+            //      되돌아간다. 그래서 두 구독을 **공통 입구 HandleRematchAcceptSignal** 로 모아
+            //      **먼저 온 신호 하나만** 통과시킨다(자세한 이유는 _rematchAcceptSignalHandled 주석).
             // ----------------------------------------------------------------
             _rematchAcceptedSubscription = GameEvents.OnNetworkRematchAccepted
-                .Subscribe(_ => EnterRematchPreparingState());
+                .Subscribe(_ => HandleRematchAcceptSignal(RematchAcceptSignal.ServerNotice));
+
+            // ----------------------------------------------------------------
+            // [회차 경계] 상대가 **새 재경기 요청**을 보내 왔다.
+            //
+            //   🔴 이 구독은 **화면을 아무것도 바꾸지 않는다.** 하는 일은 「이 회차의 수락 접수를
+            //      이미 처리했다」는 표시를 내리는 것 하나뿐이다.
+            //   🔴 왜 필요한가: 재경기가 한 번 실패하면 결과 화면은 그대로 남고 **상대가 다시
+            //      요청할 수 있다.** 그때 이쪽은 요청 버튼을 누르지 않고 **수락**만 하므로,
+            //      요청 버튼에서 표시를 내리는 자리를 지나지 않는다. 이 구독이 없으면
+            //      지난 회차의 표시가 남아 **새 회차의 수락이 삼켜진다.**
+            //   ⚠️ 이 채널은 RematchRequestPopup 도 구독한다(구독자 둘).
+            // ----------------------------------------------------------------
+            _rematchRequestedSubscription = GameEvents.OnNetworkRematchRequested
+                .Subscribe(_ => OnOpponentRematchRequested());
 
             // [재경기 로딩] 서버가 재경기를 시작(씬 재로드 직전)하면 모든 클라이언트가
             // 전역 로딩 인디케이터를 표시한다. 씬이 재로드되어 새 GameBootstrapper.LoadMap()이
@@ -549,6 +670,7 @@ namespace Hexiege.Presentation
             _rematchDeclinedSubscription?.Dispose();
             _localRematchAcceptedSubscription?.Dispose();
             _rematchAcceptedSubscription?.Dispose();
+            _rematchRequestedSubscription?.Dispose();
             _rematchMapFailedSubscription?.Dispose();
             _rematchStartingSubscription?.Dispose();
             _backToLobbySubscription?.Dispose();
@@ -832,9 +954,13 @@ namespace Hexiege.Presentation
                     //     (반대로 두면 상대가 떠난 것을 알려 줄 기회가 영영 사라진다.)
                     //
                     //   🔴 문구 상수는 각각 코드에 한 곳에만 있다
-                    //      (OpponentLeftCountdownFormat / RematchFailedCountdownFormat /
-                    //       RematchFailedByOpponentLeftCountdownFormat).
+                    //      (NormalCountdownFormat / OpponentLeftCountdownFormat /
+                    //       RematchFailedCountdownFormat / RematchFailedByOpponentLeftCountdownFormat).
                     //      같은 문구를 두 곳에 적으면 한쪽만 고쳐졌을 때 화면에 두 표현이 섞여 나온다.
+                    //      🔴 [2026-09-27] 종전에는 **평시 문구만 이 자리에 보간 문자열로 박혀
+                    //         있었다.** 이번에 NormalCountdownFormat 으로 빼서 넷을 한자리에 모았다 —
+                    //         이유는 그 상수의 주석과 그 절 머리말에 적어 두었다.
+                    //         ⚠️ 네 문구 모두 **남은 초 앞에서 줄을 나눈다**(개행 규약, 사용자 확정).
                     //
                     //   🔴 [2026-09-24] 「실패」 안에서 문구가 **둘로** 갈린다 — 규칙 18.
                     //      기준은 **실패 사유가 연결 끊김인가 아닌가 하나뿐**이다.
@@ -846,7 +972,7 @@ namespace Hexiege.Presentation
                     _countdownText.text =
                           _opponentLeft  ? string.Format(OpponentLeftCountdownFormat, seconds)
                         : _rematchFailed ? string.Format(SelectRematchFailedFormat(), seconds)
-                        :                  $"{seconds}초 후 로비로 돌아갑니다.";
+                        :                  string.Format(NormalCountdownFormat, seconds);
                 }
                 yield return new WaitForSecondsRealtime(1f);
                 remaining -= 1f;
@@ -984,6 +1110,101 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
+        /// 「재경기 수락 접수」를 알리는 <b>두 신호 중 어느 것으로 들어왔는가.</b>
+        /// 🔴 <b>진단 로그에만 쓴다</b> — 동작을 가르는 데 쓰지 않는다(가르면 역할에 따라
+        /// 화면이 달라진다. 이 파일 위쪽 「재경기 준비 중」 절의 두 경로 설명 참조).
+        /// </summary>
+        private enum RematchAcceptSignal
+        {
+            /// <summary>내가 요청 팝업의 「수락」을 누른 로컬 입력(<c>OnLocalRematchAccepted</c>).</summary>
+            LocalAccept,
+
+            /// <summary>서버의 수락 접수 통보(<c>OnNetworkRematchAccepted</c>).</summary>
+            ServerNotice
+        }
+
+        /// <summary>
+        /// 🔴 <b>「재경기 수락 접수」 두 신호의 공통 입구.</b> 한 회차에 <b>딱 한 번만</b>
+        /// <see cref="EnterRematchPreparingState"/> 로 넘기고, 뒤따라온 신호는 <b>삼킨다.</b>
+        ///
+        /// <para>
+        /// [초급자용 설명] 왜 「먼저 온 것 하나」인가 — <b>어느 쪽이 먼저 오는지는 역할에 따라
+        /// 다르다.</b> 그래서 「로컬이 먼저 온다」를 전제한 처리를 하면 한쪽 역할에서만 맞는
+        /// 코드가 된다(플레이어는 자기가 Host 인지 Client 인지 알 수 없다는 최상위 원칙 위반).
+        /// <list type="bullet">
+        ///   <item><b>수락자가 Host</b> — 수락 <c>ServerRpc</c> 가 자기 자신에게 곧바로 실행되고
+        ///         그 안의 접수 통보 <c>ClientRpc</c> 도 같은 호출 흐름에서 로컬 실행되므로,
+        ///         <b>통보가 자기 버튼 입력보다 먼저</b> 이 메서드에 도달한다.</item>
+        ///   <item><b>수락자가 Client</b> — <c>ServerRpc</c> 가 네트워크로 나가므로
+        ///         <b>자기 버튼 입력이 먼저</b>고 통보는 한참 뒤다.</item>
+        /// </list>
+        /// 🔴 그러므로 이 메서드는 <b>순서를 보지 않는다.</b> 먼저 온 것이 무엇이든 그것 하나로
+        /// 상태에 들어가고, 나머지 하나는 삼킨다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>요청한 쪽과 상호 동의는 통보 하나만 받으므로 절대 삼켜져서는 안 된다.</b>
+        /// 그 두 경우에는 <b>내가 「다시하기」를 누른 그 순간 표시가 내려가 있으므로</b>
+        /// (<see cref="SetupRematchButton"/> 의 onClick) 이 회차의 첫 신호인 통보가 그대로 통과한다.
+        /// </para>
+        ///
+        /// ⚠️ <b>기존 가드 두 개는 그대로다</b> — <see cref="EnterRematchPreparingState"/> 안의
+        ///    <see cref="_rematchPreparing"/> · <see cref="_opponentLeft"/> 가드는 하나도 건드리지
+        ///    않았다. 이 메서드는 <b>그 앞에 판별 하나를 더한 것</b>이다.
+        /// </summary>
+        /// <param name="signal">어느 신호로 들어왔는가. 🔴 <b>진단 로그에만</b> 쓴다.</param>
+        private void HandleRematchAcceptSignal(RematchAcceptSignal signal)
+        {
+            if (_rematchAcceptSignalHandled)
+            {
+                // [진단] 🔴 **삼켰다는 사실이 로그에 남아야** 다음에 또 이 자리를 의심할 수 있다.
+                //   Signal= 이 「삼켜진 쪽이 로컬 입력인지 서버 통보인지」를 말해 주므로,
+                //   두 신호의 도착 순서(= 이 화면이 Host 쪽인지 Client 쪽인지)까지 함께 읽힌다.
+                LogRematchDiagWarn("재경기 수락 접수 신호를 삼켰다 — 이 회차의 수락은 이미 처리됐다",
+                                   $"Guard=AcceptAlreadyHandled, Signal={signal}");
+                return;
+            }
+
+            _rematchAcceptSignalHandled = true;
+
+            // [진단] 이 회차를 대표하는 신호가 무엇이었는지 남긴다(위 삼킨 줄과 짝을 이룬다).
+            LogRematchDiagInfo("재경기 수락 접수 신호를 처리한다 — 이 회차의 첫 신호다",
+                               $"Signal={signal}");
+
+            EnterRematchPreparingState();
+        }
+
+        /// <summary>
+        /// 상대가 <b>새 재경기 요청</b>을 보내 왔다 — 이 화면에서는 <b>회차 경계</b>로만 쓴다.
+        ///
+        /// <para>
+        /// 🔴 <b>화면을 아무것도 바꾸지 않는다.</b> 하는 일은
+        /// <see cref="_rematchAcceptSignalHandled"/> 를 내리는 것 하나뿐이다.
+        /// 요청 팝업을 띄우는 것은 <c>RematchRequestPopup</c> 의 몫이며 여기서 손대지 않는다.
+        /// </para>
+        ///
+        /// <para>
+        /// [초급자용 설명] 이 자리가 왜 필요한가 — 재경기가 한 번 실패하면 결과 화면은 그대로 남고
+        /// <b>상대가 다시 요청할 수 있다.</b> 그때 이쪽은 요청 버튼을 누르지 않고 <b>수락</b>만
+        /// 하므로, 요청 버튼에서 표시를 내리는 자리를 지나지 않는다. 이 자리가 없으면 지난 회차의
+        /// 표시가 남아 <b>새 회차의 수락이 삼켜지고</b> 상태 줄이 영영 바뀌지 않는다.
+        /// </para>
+        ///
+        /// ⚠️ 이 채널의 구독자는 둘이다(이 화면 + <c>RematchRequestPopup</c>). UniRx 는 앞 구독자가
+        ///    예외를 던지면 뒤 구독자를 부르지 않지만, <b>앞 구독자가 죽어 요청 팝업이 뜨지 못한
+        ///    경우에는 수락 자체가 불가능</b>하므로 표시가 남아도 삼킬 신호가 생기지 않는다.
+        /// </summary>
+        private void OnOpponentRematchRequested()
+        {
+            // 🔴 [수락 접수 표시 내리는 자리 ③/③] **상대가 요청했다 = 새 회차가 시작된다.**
+            _rematchAcceptSignalHandled = false;
+
+            // [진단] 회차 경계를 로그에 남긴다 — 이 줄 뒤의 「수락 접수 신호 처리」가
+            //   **새 회차의 것**임을 이 줄로 확인할 수 있다. 한 회차에 한 줄이다.
+            LogRematchDiagInfo("상대의 재경기 요청 도착 — 새 회차이므로 수락 접수 처리 표시를 내린다");
+        }
+
+        /// <summary>
         /// 「재경기 준비 중」 상태로 들어간다 — <b>자동 로비 복귀 타이머를 멈추고</b>
         /// 상태 줄을 <see cref="RematchPreparingStatusText"/> 로 바꾼 뒤 맵 준비 한도를 건다.
         ///
@@ -1003,8 +1224,16 @@ namespace Hexiege.Presentation
         private void EnterRematchPreparingState()
         {
             // 멱등 — 같은 상태에 두 번 들어가지 않는다.
-            //   수락한 쪽은 버튼 입력으로 한 번, 서버 통보로 또 한 번 이 메서드에 도달한다.
             //   막지 않으면 맵 준비 한도가 두 번째 신호에서 처음부터 다시 시작된다.
+            //
+            //   ✅ **[2026-09-27 갱신]** 종전 주석은 *「수락한 쪽은 버튼 입력으로 한 번, 서버
+            //      통보로 또 한 번 이 메서드에 도달한다」* 였다. **이제는 도달하지 않는다** —
+            //      두 신호는 공통 입구 HandleRematchAcceptSignal 이 받아 **먼저 온 하나만**
+            //      여기로 넘긴다. 🔴 **그래도 이 가드를 지운 것이 아니다.** 이 가드는
+            //      「같은 상태에 두 번 들어가지 않는다」는 **이 메서드 자신의 불변식**이고,
+            //      앞의 판별은 「한 회차의 수락 접수를 한 번만 처리한다」는 **다른 불변식**이다.
+            //      둘을 하나로 합치면 앞의 판별이 하는 일(실패 처리가 내리지 못하는 값으로
+            //      경쟁을 이기는 것)을 이 가드가 대신할 수 없다.
             if (_rematchPreparing)
             {
                 // [진단] 🔴 종전에는 **조용히** 반환해서 「막혔다」는 사실 자체가 보이지 않았다.
@@ -1377,6 +1606,12 @@ namespace Hexiege.Presentation
                 _rematchFailed = false;
                 _rematchFailureCause = RematchMapFailureCause.Unknown;
 
+                // 🔴 [수락 접수 표시 내리는 자리 ②/③] **내가 요청했다 = 새 회차가 시작된다.**
+                //    이 순간부터 올 수락 접수 통보는 **이번 회차의 것**이므로, 지난 회차에
+                //    처리해 둔 표시가 남아 있으면 그 통보가 삼켜져 상태 줄이 바뀌지 않는다.
+                //    (지난 회차의 통보가 아직 오는 중일 수는 없다 — 그 회차는 이미 결말이 났다.)
+                _rematchAcceptSignalHandled = false;
+
                 // 🔴 로비 복귀 버튼은 여기서 끄지 않는다 (공통 UI 규칙 D-3 「로비 복귀 버튼은 항상 활성」).
                 //    종전에는 "재경기 응답 대기 중"이라는 이유로 이 버튼도 함께 껐는데,
                 //    그러면 다시하기 버튼(바로 위에서 꺼진다)과 로비 버튼이 동시에 잠겨
@@ -1447,8 +1682,11 @@ namespace Hexiege.Presentation
         //    여기 가드들은 한 경기에 많아도 두세 번 도달하고, **바로 그 침묵이 진단을 막았으므로**
         //    이 세 자리(준비 상태 2 · 카운트다운 재시작 1 · 이탈 중복 1)만 예외로 남긴다.
         //
-        // 🔴 모든 줄에 **역할(IsServer)과 깃발 3개**를 싣는다. 이번 버그가 역할에 따라 갈리는
+        // 🔴 모든 줄에 **역할(IsServer)과 깃발 4개**를 싣는다. 이번 버그가 역할에 따라 갈리는
         //    문제라, 그 값이 없으면 로그를 봐도 어느 쪽 이야기인지 알 수 없다.
+        //    ✅ **[2026-09-27 갱신]** 종전에는 깃발이 3개(RematchPreparing · OpponentLeft ·
+        //       RematchFailed)였다. **AcceptHandled 를 더했다** — 「수락 접수 신호를 삼켰다/처리했다」
+        //       판별이 이 값 하나에 달려 있어, 이 값이 없으면 삼킨 이유를 로그로 확인할 수 없다.
         //
         // ⚠️ 축 B 는 **개발**이다(LogRules.md 1.2). 에디터·개발 빌드에서만 의미가 있는 화면 상태
         //    기록이라 운영 축의 이벤트 키(LogEvent)를 **새로 만들지 않았다.** 아래 두 [Conditional]
@@ -1484,6 +1722,7 @@ namespace Hexiege.Presentation
             string state = $"IsServer={NetworkContext.IsNetworkServer}, "
                          + $"NetworkActive={NetworkContext.IsNetworkActive}, "
                          + $"RematchPreparing={_rematchPreparing}, "
+                         + $"AcceptHandled={_rematchAcceptSignalHandled}, "
                          + $"OpponentLeft={_opponentLeft}, "
                          + $"RematchFailed={_rematchFailed}";
 

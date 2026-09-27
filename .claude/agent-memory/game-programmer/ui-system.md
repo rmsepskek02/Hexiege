@@ -575,6 +575,36 @@ three sites.** Call sites: 2 (the third path shares a handler).
 **고치지 않고 관측 수단만 넣은 이유가 이것이다** — 다음 실기에서 **「만료 1줄 + 복귀 1줄 +
 `StoppedBy=ReturnToLobby` 1줄이 찍히고 그 뒤가 없다」** 면 이 가설이 확정된다.
 
+> **[🔴 2026-09-27 정정 — 이 가설은 실기로 **반증**됐다. 🔴 위 원문은 한 글자도 지우지 않는다(`.claude/MEMORY.md` B-7).
+> 이 블록은 document-manager 가 2026-09-27 실기 검증 결과를 문서에 반영하면서 덧붙였다 — **사실 최신화이며 코드에 관해 새로 정한 것은 없다.**]**
+>
+> 🔴 **「그 뒤 코드가 실행되지 않는다」는 성립하지 않는다.** 위 진단 로그가 들어간 채로 돌린 2026-09-27 실기에서
+> **만료 3회 전부, `StopCountdown()` 뒤의 코드가 끝까지 실행됐다**(`_Logs/_editor/2026-09-27/RuntimeLog.txt`, 내가 직접 읽었다).
+>
+> | 시각 | 로그 |
+> |---|---|
+> | 17:08:54.981 | 자동 복귀 카운트다운 만료 — 로비로 복귀한다 (`TotalSeconds=60`) |
+> | 17:08:54.981 | 로비 복귀 시작 — 카운트다운 정지 + timeScale 복원 + 씬 전환 |
+> | 17:08:54.982 | 자동 복귀 카운트다운 정지 (`StoppedBy=ReturnToLobby`) |
+> | 17:08:54.983 | Heartbeat 코루틴 정지 |
+> | 17:08:54.990 | 정상 퇴장 통보 전송 |
+> | 17:08:54.992 | NetworkManager Shutdown 완료 |
+>
+> - ✅ **`StoppedBy=` 분포** — `ReturnToLobby` **3** · `EnterRematchPreparingState` **3** · `RestartCountdownForOpponentLeft` **2**. **`Guard=` 0건.**
+>   **즉 이 회차에 넣은 진단 로그 4자리가 의도한 일을 그대로 했다** — 「불렀다 / 돌기 시작했다 / 끝까지 돌았다 / 누가 끊었는가」가 전부 구별됐다.
+> - 🔴 **진짜 원인은 코드가 아니라 테스트 환경이었다** — **강제 실패의 결말 줄이 `[ERROR]` 레벨이라 Unity 의 Error Pause 로 플레이 모드가
+>   멈춰 있었다**(사용자 보고). 멈추면 코루틴도 돌지 않는다. ⚠️ **이 사실은 로그에 남지 않는다.**
+>   **절차의 단일 소스는 `Assets/_Project/Docs/TechnicalDesignDocument.md` 「개발용 강제 실패 플래그 (에디터 전용)」 절의 2026-09-27 블록**이다.
+> - ✅ **그러므로 위 가설을 세운 것과 「고치지 않고 관측 수단만 넣은 것」은 둘 다 옳았다** — 가설을 확정으로 취급해 `StopCountdown()` 호출
+>   순서를 바꿨다면 **멀쩡한 코드를 고친 뒤 그것을 「수정」으로 기록했을 것**이다. 위 원문이 스스로 적어 둔 유보
+>   (*「`StopCoroutine(자기)` 가 즉시 끊는가는 확인되지 않았다」*)가 이번 결과를 **정정이 아니라 확인**으로 만들었다.
+> - ⚠️ **그래서 `CountdownCoroutine` 에 방어를 넣을 근거는 이 관측에서 나오지 않는다** — 위 「비대칭 자체가 단서다」는 **여전히 관찰로서 유효**하지만,
+>   🔴 **이 실기는 그 방어가 없어도 뒤 코드가 실행된다는 것을 보여 주었다.** 넣을지 말지는 이 문서가 정하지 않는다.
+> - 🔴 **같은 실기에서 별개의 버그 1건이 드러났다 — 재경기 실패 직후에 「재경기 준비 중」 상태로 2차 진입한다**(수락 접수 두 경로 사이에
+>   실패 처리가 끼어들어 `_rematchPreparing` 가드가 풀린다. 메인 세션 코드 확정 · **수정 진행 중 · 미검증**).
+>   **증상·타임라인·회차 비교의 단일 소스는 `Assets/_Project/Docs/_Tasks/2026-09-16/06_27_post-game-leave-ui/Plan.md` §15-6**,
+>   교훈은 `.claude/mistakes.md` 2026-09-27 항목이다.
+
 #### 배제한 가설 — `StartCoroutine` 이 조용히 실패했다
 
 **성립하지 않는다(씬·코드 실측).** ① `Game.unity` 의 `GameEndPanel`(fileID `1309749079`)에
@@ -586,3 +616,75 @@ three sites.** Call sites: 2 (the third path shares a handler).
 멈추는 것은 GameObject 비활성화뿐이다.
 ✅ **덤으로 확인**: `ShowResult(...)` 는 **호출부가 0건**이라 카운트다운을 시작하는 자리는
 `OnGameEnd` · 이탈 재시작 · 전체 길이 재시작 **셋뿐**이다(중복 코루틴 가설도 배제된다).
+
+### 🔴 실패 직후 「재경기 준비 중」으로 되돌아가는 버그 수정 + 상태 줄 개행 (2026-09-27 3차)
+
+**증상(실기 로그, 메인 세션 실측)**: 재경기 수락 → 준비 진입 → 강제 실패 → 실패 문구 → **13ms 뒤 다시
+「재경기 준비 중...」** → 20초 뒤 다시 실패 문구.
+
+**원인**: 수락 접수 신호가 **둘**(ⓐ `OnLocalRematchAccepted` 자기 버튼 · ⓑ `OnNetworkRematchAccepted`
+서버 통보)인데 수락자는 둘 다 받는다. 정상 경로에서는 2차가 `_rematchPreparing` 가드에 막히지만,
+**두 신호 사이에 실패 처리가 끼어들면 `StopRematchPreparingLimit()` 이 그 깃발을 내려** 2차가 통과한다.
+
+🔴 **메인 세션의 진단 중 한 가지를 실기 로그 + 코드로 정정했다 — 2차는 ⓑ 가 아니라 ⓐ 다.**
+로그 순서가 「ⓑ 발행(.205) → 준비 진입 1차(.206) → 강제 실패(.208) → … → 준비 진입 2차(.218)」인데,
+`OnLocalRematchAccepted` 의 **첫 구독자는 컨트롤러**(`SendAcceptRematchSafely`)이고 수락자가 Host 면
+`AcceptRematchServerRpc` → `NotifyRematchAcceptedClientRpc` 가 **같은 호출 흐름에서 로컬 실행**되므로
+ⓑ 가 ⓐ 의 `OnNext` **안에서 먼저** 도달한다. `GameEndUI` 의 ⓐ 구독은 그 뒤에 불린다.
+🔴 **그래서 도착 순서는 역할마다 다르다** — 수락자가 Host 면 ⓑ→ⓐ, Client 면 ⓐ→ⓑ(RPC 가 망을 타므로).
+⚠️ **「ⓑ 만 삼킨다」는 consume-once 안은 Host 수락자에서 아무 효과가 없다**(막아야 할 2차가 ⓐ 이므로).
+**재사용할 교훈: 두 신호의 「먼저/나중」을 설계 전제로 삼지 말 것 — 로컬 RPC 의 동기 실행 때문에 역할이
+순서를 바꾼다.**
+
+**수정 — 두 신호의 공통 입구 하나 + 회차 단위 표시 하나** (`Presentation/UI/GameEndUI.cs`)
+
+| 무엇 | 자리 |
+|---|---|
+| 새 판별 깃발 `_rematchAcceptSignalHandled` | `_rematchPreparing` 바로 아래 |
+| 공통 입구 `HandleRematchAcceptSignal(RematchAcceptSignal)` | 「재경기 준비 중」 절 머리 |
+| 진단용 private enum `RematchAcceptSignal { LocalAccept, ServerNotice }` | 같은 자리 |
+| 회차 경계 핸들러 `OnOpponentRematchRequested()` + 구독 `_rematchRequestedSubscription` | 같은 자리 / `Initialize` |
+
+- 🔴 **ⓐ·ⓑ 둘 다 이 입구를 지난다. 순서를 보지 않고 「먼저 온 하나」만 통과시킨다.**
+  그 결과 `EnterRematchPreparingState()` 의 **호출부가 1곳으로 줄었다**(종전 2곳).
+- 🔴 **기존 가드 두 개(`_rematchPreparing` · `_opponentLeft`)는 한 글자도 안 고쳤다.** 새 판별은 그 **앞**이다.
+  둘은 **다른 불변식**이다 — 가드는 「같은 상태에 두 번 들어가지 않는다」, 새 판별은 「한 회차의 수락 접수를
+  한 번만 처리한다」. 합치면 실패 처리가 내리지 못하는 값으로 경쟁을 이기는 성질이 사라진다.
+- 🔴 **`_rematchFailed` 로 막으면 안 되는 이유(코드 주석에 남겼다)**: 그 깃발을 내리는 자리가
+  요청 버튼 onClick 과 `EnterRematchPreparingState` 인데 **수락자는 요청 버튼을 안 누르고**, 진입이 막히면
+  후자에도 못 닿아 **영구 고착**된다.
+- 🔴 **표시를 내리는 자리는 「회차 경계」 셋뿐 — 신호는 내리지 않는다**(두 번째 신호가 내리게 하면
+  세 번째가 다시 통과하고 「한 회차에 한 번」이 「신호 두 개마다 한 번」으로 약해진다):
+  ① `Initialize()` ② `SetupRematchButton` onClick(**내가 요청** = 새 회차) ③ `OnOpponentRematchRequested()`
+  (**상대가 요청** = 새 회차). 🔴 **③ 이 없으면 실패 뒤 상대의 재요청을 수락할 때 삼켜진다** —
+  수락자는 ② 를 지나지 않기 때문이다. 이것이 구독을 하나 더 늘린 유일한 이유이며,
+  `GameEvents.OnNetworkRematchRequested` 구독자는 이로써 2개(+ `RematchRequestPopup`)다.
+- 진단: 삼킨 줄 `Guard=AcceptAlreadyHandled, Signal=…` / 통과한 줄 `Signal=…`. 공통 필드에
+  `AcceptHandled=` 를 더해 **깃발 4개**가 됐다. 새 `LogEvent` 0개 · 기존 `[Conditional]` 헬퍼 재사용.
+
+**세 경로 검증(코드 추적 — 실기 아님)**: 수락자 = 먼저 온 1개만 진입(순서 무관) · 요청자 = ⓑ 만 오고
+② 가 표시를 내려 둔 상태라 통과 · 상호 동의 = 양쪽 다 ② 를 지났으므로 ⓑ 통과.
+
+**B. 상태 줄 문구 4개 개행(사용자 확정)** — `"…습니다. {0}초"` → `"…습니다.\n{0}초"`(공백 없음).
+- 🔴 **평시 문구를 `NormalCountdownFormat` const 로 빼서 넷을 한 절에 모았다**(종전엔 `CountdownCoroutine`
+  안 보간 문자열). 실패 문구 2개는 다른 절에서 이 절로 **이동**(문자열 무변경). 이유를 절 머리말·상수 주석에
+  적었다: **하나가 메서드 안쪽에 숨어 있으면 다음에 고칠 때 그 하나만 옛 모양으로 남고, 상태마다 줄 수가
+  달라져 화면이 튄다.**
+- ⚠️ **평시 문구는 `\n` 이 맨 앞**이라 첫 줄이 빈다 — 넷의 줄 수를 2줄로 맞춰 높이가 변하지 않게 한 것.
+  🔴 **사용자 확인이 필요한 유일한 판단**(사용자 지시문 「'n초' → '\n n초'」를 그대로 적용한 결과).
+- 알림 팝업 문구(`OpponentLeftAlert*`, 규칙 D-5·D-6)와 `RematchPreparingStatusText`(남은 초 없음)는 **무수정**.
+- ⚠️ 잔존 사본 1건(범위 밖, 미수정): `_countdownText` 의 `[Tooltip]` 안 예시 `'30초 후 로비로 돌아갑니다.'`
+  — 화면에 안 뜨는 에디터 설명문이지만 「문구가 한 곳뿐인가」 grep 을 2건으로 만든다.
+
+**씬 실측(수정 없음) — 개행으로 밀릴 위험 없음**: `CountdownText`(fileID `194798719`)는 컴포넌트가
+RectTransform + CanvasRenderer + TMP **뿐**(ContentSizeFitter·LayoutElement 없음), 부모 `GameEndPanel`
+(`1309749079`)에도 **LayoutGroup 없음**. 앵커 `min(0,0)`~`max(1,0.35)` · `sizeDelta 0` → **높이가 앵커로
+고정**돼 글자 수가 rect 를 바꾸지 않는다. TMP: Center/Middle(`m_HorizontalAlignment:2`,
+`m_VerticalAlignment:512`), fontSize **72 고정**(autoSize off), overflow `Overflow`, wrap on.
+형제 4개는 겹치지 않는 앵커 띠(ResultText 0.70~0.85 · RestartButton 0.55~0.70 · LobbyButton 0.35~0.50 ·
+CountdownText 0.00~0.35)라 **한 줄이 늘어도 형제가 밀리지 않는다.** 기준 해상도 1080×1920 →
+띠 높이 672px, 줄 높이 ≈84px 이므로 여유가 크다.
+
+⚠️ **미검증**: Unity 컴파일·런타임 전부. 확인한 것은 ① 중괄호 균형(주석·문자열 제거 후 51/51)
+② `mcs -langversion:latest` 오류 **28건이 전부 `CS0246`/`CS0234` 외부 참조 누락**(구문 오류 0, 수정 전과
+같은 개수) ③ 위 grep 들. 🔴 **타입 해석이 실패하므로 멤버 단위 오타는 이 방법으로 확인되지 않는다.**
