@@ -727,3 +727,69 @@ grep 을 오염시키고, 문구를 고칠 때 한쪽만 남는다. 상태에 �
 (`SelectRematchFailedFormat` · `HandleRematchAcceptSignal` · `_rematchAcceptSignalHandled` ·
 `EnterRematchFailedState` · `RematchPreparingLimitCoroutine` · `StopCountdown` 호출 7곳) ④ 삼항 연쇄
 3줄 원문 그대로. **동작 코드 diff 0줄**(바뀐 것은 문자열 리터럴 1개와 주석·Tooltip 뿐).
+
+### 🔴 「다시하기」 버튼 활성 조건을 실패 사유까지 보게 좁혔다 (2026-09-27 4차, 여기서 동작이 바뀐다)
+
+대상은 `Presentation/UI/GameEndUI.cs` **한 파일**, 바뀐 동작 코드는 **2줄**(조건식 1 · 판별식 1).
+규칙: **D-2 유지(제거가 아니라 AND)** · **D-3 무변경** · **D-8 무변경**(① 항은 가드 밖 그대로).
+
+**결함의 모양 — 「모순된 화면」은 강제 실패 테스트 전용이 아니었다**
+
+- 종전 조건은 `interactable = !_opponentLeft` **하나**였고 **실패 사유를 보지 않았다.**
+- 그래서 재경기 맵 준비가 `RematchMapFailureCause.OpponentDisconnected` 로 실패하면
+  상태 줄은 「상대가 없다」(`RematchFailedByOpponentLeftCountdownFormat`)라고 말하는데
+  **버튼은 활성으로 복구돼 「다시 해 보라」고 권했다.**
+- 🔴 **왜 30초나 벌어지는가 — 두 시계의 길이가 다르다.** 이탈 확정은
+  `NetworkGameEndController.ResultScreenSilenceTimeoutSeconds = 30f` 가 침묵을 30초 확인한 **뒤에야**
+  `_opponentLeft` 를 켠다. 맵 준비 실패 통보는 그보다 훨씬 먼저 온다.
+  실측(메인 세션이 로그 직독): 실패 진입 `20:57:20.703 | Cause=OpponentDisconnected, OpponentLeft=False`
+  → 이탈 확정 `20:57:51.053 | SilenceSeconds=30.6` → **간격 30.35초.**
+  🔴 **교훈: 「깃발 하나로 상황을 판별한다」가 맞는지 보려면 그 깃발을 켜는 시계의 길이를 봐야 한다.**
+  같은 사실을 아는 경로가 둘이면 **빠른 쪽이 먼저 화면을 만든다.**
+
+**최종 조건식 (A안 — 사용자 확정)**
+
+```csharp
+_restartButton.interactable = !_opponentLeft && !IsRematchFailedByOpponentDisconnected;
+```
+
+- 🔴 **되살리는 장치를 만들지 않았다**(A안의 핵심). 순단이었다면 다음 맵 전송이 또 실패할 뿐이고,
+  되살리려면 **이 화면에 시계가 하나 더 늘어난다.** 이 화면은 이미 시계가 셋이다
+  (자동 복귀 카운트다운 · 맵 준비 한도 · 이탈 감시).
+- 🔴 **`OnOpponentRematchRequested()` 에 실패 깃발을 내리는 처리를 넣지 않았다** — 「상대가 요청을
+  보내왔다 = 사유가 거짓으로 판명됐다」는 판단은 **승인 범위 밖**(사용자 확인 대기).
+
+**판별 기준을 한 자리로 모았다 (CLAUDE.md 규칙 7)**
+
+- 신설 `private bool IsRematchFailedByOpponentDisconnected =>
+  _rematchFailureCause == RematchMapFailureCause.OpponentDisconnected;` (필드 바로 아래).
+- 읽는 곳 **둘** — `SelectRematchFailedFormat()`(문구) · `RestoreRematchButton()`(버튼).
+  `SelectRematchFailedFormat` 의 **반환값·역할은 무변경**(형식 문자열 하나만 돌려준다) —
+  본문의 **조건식만** 프로퍼티 읽기로 바뀌었다.
+- 검증 grep: `_rematchFailureCause == RematchMapFailureCause.OpponentDisconnected` 가 **1건**(정의부)이어야 한다.
+- 🔴 **둘이 같은 기준을 보는 것은 우연이 아니다** — 문구를 둘로 가른 판단 자체가
+  `GameSystemRules_RandomMap.md` 규칙 18 의 *「앞쪽은 다시 시도할 여지가 있고 뒤쪽은 없다」* 였다.
+  즉 **「다시 시도할 여지가 있는가」 = 「버튼을 켜도 되는가」.**
+  **문구만 그 판단을 따르고 버튼은 따르지 않는 상태**가 이 버그였다 —
+  🔴 **교훈: 문구를 가르는 판단을 세울 때 그 판단을 공유해야 하는 컨트롤이 또 있는지 함께 본다.**
+
+**호출부 3곳 확인 결과 (하나도 어긋나지 않는다)**
+
+| 호출부 | 확인 |
+|---|---|
+| 거절 통보 구독 `OnNetworkRematchDeclined` | 새 조건이 **잘못 끄지 않는다.** 거절 ClientRpc 는 `TargetClientIds = requesterId` 로 **요청자에게만** 가고, 요청은 `_restartButton.onClick` 을 반드시 거치며 그 안에서 `_rematchFailureCause = Unknown` 으로 내려간다(`OnLocalRematchRequested.OnNext` 발행처 **전 리포지토리 1곳** = 그 onClick). 그 시점 사유는 Unknown → 조건 true → **종전과 동일하게 복원** |
+| `OnOpponentLeft` | 무변경. `_opponentLeft = true` **뒤**에 부르는 순서 그대로 |
+| `EnterRematchFailedState` | 🔴 **`_rematchFailureCause = cause;` 가 `RestoreRematchButton()` 보다 먼저**다(직접 확인). 그 순서에는 이미 이유가 주석에 있다(코루틴이 매 초 값을 읽어 첫 1초 깜빡임 방지) — **그 주석 덕분에 새 조건이 첫 프레임부터 옳게 판단한다.** 지우지 말 것 |
+
+**주석에서 실제로 걸린 함정**
+
+- ⚠️ ② 항 주석을 쓰면서 상태 줄 문구를 **그대로 베껴 적었다** → 「문구가 코드에 한 곳만 있는가」 grep 이
+  무용해진다(`OpponentLeftCountdownFormat` 에서 이미 겪은 그 함정, 이번이 **2회째**).
+  즉시 **상수 이름 참조**로 고쳤다. 🔴 **문구를 가리킬 때는 문구가 아니라 상수 이름을 쓴다.**
+
+⚠️ **미검증(이번 변경)**: Unity 컴파일·런타임. 확인한 것은 ① 중괄호·괄호 균형(주석·문자열 제거 후
+**51/51 · 228/228** — 3차·이전 작업과 동일) ② 문구 grep — `상대방이 나가서…` **1건** ·
+`초 뒤 로비로 이동합니다` **1건** ③ `_restartButton.interactable` 대입 **2곳뿐**
+(`false` = onClick 요청 시 · 위 조건식) ④ `_backToLobbyButton.interactable = false` **0건 유지**(D-3) ⑤ 삼항
+연쇄 3줄 · `HandleRematchAcceptSignal` · `_rematchAcceptSignalHandled`(15건) · 타이머 상수 원문 그대로.
+**씬·프리팹 0건 · 문서 0건 · git 명령 0건.**

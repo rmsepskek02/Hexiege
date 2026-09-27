@@ -3102,3 +3102,70 @@ nobody can have seen on screen a thing that did not exist yet.
   so the other documents citing it stay untouched and still true.
 - ⚠️ **Before writing 「사용자가 화면으로 확인했다」 about a *form* (개행, 정렬, 색), ask which build the user saw.**
   A screen report confirms the thing that was on screen at that moment — a later form change inherits nothing from it.
+
+---
+
+## §37. A defect the **screen states and contradicts at once** — pinning a button's enable condition as a single source, and why "not test-only" is a **structural** claim, not an observation (2026-09-27 (3차), post-game-leave-ui 규칙 D-2)
+
+**The round.** 실기 showed the status line saying *「the opponent left, so a rematch cannot start」* while the **「다시하기」 button came back enabled**. The user picked 안 A — enable only when **the opponent has not left AND the failure cause is not 「연결 끊김」** — and ruled out ever re-enabling a button once it is off. My job: append the revision to 규칙 D-2 without touching its body, put **pointers only** on D-3 and D-8, add a Plan subsection, and check the execution table for cells the new fact falsifies.
+
+### §37-1. 🔴 A condition that two rules already half-own gets **one home and pointers**, and the home block says so in its first line
+
+The enable condition is read by 규칙 D-2 (the body that turns it off), 규칙 D-3 (what stays on), 규칙 D-8 (텍스트 vs. interactable), and 규칙 M-3 (restore everything on failure). Four rules could each have carried a copy.
+- The revision block's **first line** is *「이 블록이 … 단일 소스다. 다른 규칙과 다른 문서에는 포인터만 두고 조건을 옮겨 적지 않는다」*, naming the four rules. Without that sentence a later editor adds the condition to whichever rule they are reading.
+- The pointer blocks on D-3 and D-8 **never restate the condition.** Each says three things: the condition narrowed, **this rule did not change**, and 🔴 **why this rule is what made the decision possible** (D-3: the exit is always open, so leaving the button off does not trap anyone; D-8: text restore was *already* separated from interactable, so narrowing the button half cannot re-freeze 「요청 중...」).
+- That third sentence is what makes a pointer worth writing. *「바뀌지 않았다」* alone invites the reader to check for themselves; *「이 규칙이 그 개정의 전제다」* tells them what breaks if they revisit it.
+
+### §37-2. 🔴 A rule that is **narrowed, not replaced**, needs the word "AND" in the document
+
+*「`!상대 이탈` 은 제거되지 않았다 — AND 로 좁혀졌을 뿐이다」* is its own sentence, and the 활성/비활성 table spells out **활성 = both, 비활성 = either one**. A revision that reads like a replacement invites deleting the old body; a revision that reads like a narrowing does not.
+- The neighbouring rule that **does** change behaviour (규칙 M-3, 「restore all options」) gets a row saying 🔴 **it is not overturned — one cause is carved out of it.** A verdict column with three values (`✅ 그대로` / `✅ 그대로` / `⚠️ 사유에 따라 갈린다`) makes the blast radius decidable without reading prose.
+
+### §37-3. 🔴 「이것은 테스트 전용 문제가 아니다」 is a **structural** claim when every observation came from the debug flag
+
+Every `Cause=OpponentDisconnected` in the logs was produced by the 개발용 강제 실패 플래그 (`Forced=Disconnected` 4건, server side). So the *screen contradiction* is observed, but **a real disconnect producing this cause is not.** Writing "this also happens in real disconnects" as if measured would be the 과대 표기 the project bans.
+- The repair is a **separate evidence grade**: 🔴 **구조 추론(관측 아님)** in the grade table, and in the body *「근거는 관측이 아니라 구조다」* followed by the two facts that carry it — a real disconnect sends **no 정상 퇴장 통보**, so the only thing that closes the window is the silence watch, whose `TimeoutSeconds=30` appears on **every** 감시 시작 line.
+- 🔴 **Measure the window inside one machine.** The handed-over interval (30.35초) subtracted an **editor** timestamp from a **device** timestamp. The screen that lied belonged to the device, so the device-only figure (30.234초) is the one that answers the question. Record both: *「인계값은 맞고 기준이 두 기기에 걸쳐 있었다」* — do not rewrite the handed value.
+- ✅ **Look for the longer case before calling a duration typical.** A second round measured **60.270초** because the opponent left via its own 60-second auto-return instead of going silent. So *「약 30초」* is a **하한**, and 🔴 the upper bound *cannot* be stated by the rule — it depends on when the opponent disappears. The handed-over claim was right and short (§20-7's class), and the correction made the conclusion **stronger**.
+
+### §37-4. 🔴 The adopted option is worth less than **why it is not a new rule** — and the rejected one is worth its own subsection
+
+The decisive sentence is: the 문구 were already split on *「앞쪽은 다시 시도할 여지가 있고 뒤쪽은 없다」* (`GameSystemRules_RandomMap.md` 규칙 18), so **only the button was not following a judgement the document already made.** Write that as *「새 규칙이 아니라 문구와 버튼을 같은 판단 위에 올려놓는 것」* — it is what stops the next reader from hunting for a new rule number (§32's four questions, answered in the negative).
+- **The rejected option gets its reasons, in the rule document, at rule level.** 「30초 뒤에 되살린다」 was rejected for (1) the button flickering and (2) **adding a fourth clock to a screen whose 규칙 D-7 already warns 「섞어 읽지 않는다」**. Reason (2) is the reusable one: it cites the existing warning instead of inventing a new principle.
+- 🔴 **The cost of the adopted option is part of the record.** *「대가 — 일시적 순단이었다면 재시도할 수 없다 / 얻는 것 — 화면이 거짓을 말하지 않는다」*. A 확정 written without its cost reads as if there were no trade-off, and the next person reopens it.
+
+### §37-5. 🔴 An execution table can be **not-false and still over-read** — mark the cell's scope, never add a row
+
+The instruction was: no new rows, update only a cell the new fact contradicts, and if none contradicts, **say so in one line**. Neither answer was quite right.
+- The 단계 7 cell records 사용자 실기 확인 of 「재경기 버튼 잠김」. That observation was of the **이탈 판정** trigger; the new half of the condition has a **different trigger** (실패 사유). So the cell is **not false** — but *「재경기 버튼 잠김 = 규칙 D-2 검증 완료」* becomes false the moment someone reads it that way.
+- The repair is a **범위 마커 inside that one cell**: state what the observation was of, state that the condition gained a term whose new half is 화면 미확인, point at the single source, and 🔴 end with **`✅ 이 행의 기존 서술이 거짓이 된 것은 아니다 — 범위가 규칙보다 좁아진 것이다`**. The status cell and every other row stay untouched.
+- ⚠️ **Then still write the survey result as a line of its own** (§36's closing lesson): which rows were checked and why they do not conflict (단계 9 claims only 문구; 단계 8's bug is the alert popup). 「어긋나는 칸이 없다」 and 「한 칸의 범위가 좁아졌다」 are different findings and both are the artifact.
+
+### §37-6. 🔴 A handed-over ✅ that draws a **conclusion** from a count — verify the conclusion, not the count
+
+The handoff read *「Guard=AcceptAlreadyHandled 가 매 회차 1줄 · 2차 준비 진입 0건 → 직전 커밋의 버그 수정이 실기에서 작동함」*. The counts matched (10 rounds each side, 0 double entries). **The conclusion did not.**
+- In all six failing rounds the second accept signal arrived **2~4ms before** the failure notice, so the guard caught it **first** — the very ordering the bug needs (failure clearing the flag *between* the two signals) never occurred. And in all six the accepting side was the **Client**, whereas the bug was observed with the accepting side being the **server**.
+- So the row is written as **「증상이 이 로그에 0건이다」**, not 「수정이 작동한다」, with a bullet naming the reproduction condition that is still unmet. This is the same shape as the 2026-08-24 lesson *「인계문이 X 가 정상 동작했다고 하면 X 를 실행하는 코드 경로의 조건문을 읽는다」* — here the "condition" is **timestamp order**, which only the log can show.
+- **Handed-value mismatch class 10 — the criterion's *name* was wrong while the split was real.** *「Signal= 이 역할(에디터 ServerNotice / 실기기 LocalAccept)에 따라 갈렸다」* held only for the round the sender looked at; the log shows **both machines recording both values**. The real criterion is **「that round's accepting side」**. ✅ The conclusion (설계대로) survives — what changed is the name, and that is worth its own 결함이 아니다 entry so the next reader does not "fix" a non-bug.
+
+### §37-7. 🔴 Retracting an **inference about the test environment** — the retraction's content is the list of what the log *can* show
+
+The calling session had asserted *「round A had Unity's Error Pause on and round B had it off」*. 🔴 **Error Pause is an editor setting and leaves no trace in a runtime log**, so no log can decide it; the user caught it and it was retracted.
+- The record replaces the assertion with a table of **only what the log shows**: round A's countdown started, **no 「만료」 line**, and an actual elapse of 67.319초 against a 60-second timer ⇒ **frames did not run for some interval**; round B's timer expired normally at 60.250초; and 🔴 **a play-session boundary between them** (`LoginBootstrapper`) ⇒ *「설정을 바꿀 기회는 있었지만 바꿨다는 기록은 없다」*.
+- 🔴 **The user's own report is confirmation of the pause, not of its cause.** Quote it and label it that way; then write the **closing procedure** (turn Error Pause off, repeat the forced failure 2~3 times, see whether 60 seconds complete) and *「확인 전에는 이 항목을 ✅ 로 적지 않는다」*.
+- ✅ **A second machine can corroborate the same interval from the other side** — the device measured `SilenceSeconds=30.6` over that window. Say what that does and does not add: it confirms the opponent was quiet, not why.
+
+### §37-8. Recording 「this is not a defect」 for a symptom the user suspected
+
+Round B's device switched to 「상대방이 떠났습니다」 while the editor showed a failure — the user suspected **양측 비대칭**. It was correct behaviour: the editor really did leave at 60 seconds, so the notice was **true**, and 🔴 *「떠난 쪽과 남은 쪽은 본래 다른 화면을 본다」*. Written as a numbered 「결함이 아닌 것」 list beside the Signal= naming correction, each ending with **why the design intends it** (우선순위 「이탈 > 실패」 per 규칙 D-7). Same shape as §24's 「알려진 현상」 and §31's 「correct behaviour that looks like a bug」 — the point is that the *next* person suspecting it finds the answer instead of re-opening it.
+
+### §37-9. 🔴 The 미결 goes in **both** documents with the same sentence and no answer
+
+*「상대가 새 요청을 보내왔다 = 상대가 살아 있다 = 실패 사유가 거짓으로 판명됐다. 꺼 둔 버튼과 실패 문구를 되돌려야 하는가?」* — outside this approval. It is pinned in the 규칙 D-2 revision block's last ⚠️ item **and** in the Plan subsection, each adding *「이것은 안건이지 선택지 목록이 아니다」* and 🔴 *「두 자리의 결론은 「정해지지 않았다」 하나뿐이다」*. Two homes are safe here precisely because neither carries content that can drift — an open question has no value to go stale.
+
+### §37-10. Verification when the whole round is letter-numbered rules
+
+`check_docs.py` = **0건**, and 🔴 **that says nothing about 규칙 D-2 · D-3 · D-8** — the checker cannot see letter-prefixed rules at all, and `_Tasks/` is outside its scan set, so the Plan file was not examined either. Hand checks that did the work:
+- **Link targets resolved by path** from each file's own directory (`../_Tasks/…/Plan.md` from `GameSystemRules/`, `../../../GameSystemRules/…` from the task folder) plus the two log files cited.
+- **Table pipe count per row — counting only *unescaped* pipes.** A naive `count('|')` reported three uneven tables in the Plan; all three were pre-existing rows quoting log lines with `\|`. Use `(?<!\\)\|` or the check produces false alarms every time a log string is quoted.
+- **`grep -cF` on the exact sentences that must stay untouched** (규칙 D-2's two body lines, 규칙 D-3's opening line, 규칙 D-7's 등급 표 row) — each **1건**, i.e. present once and unmodified. 🔴 A block that is supposed to leave a body alone is verified by finding that body intact, not by remembering not to touch it.

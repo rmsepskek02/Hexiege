@@ -471,6 +471,37 @@ namespace Hexiege.Presentation
         private RematchMapFailureCause _rematchFailureCause = RematchMapFailureCause.Unknown;
 
         /// <summary>
+        /// 재경기 실패가 <b>「상대가 연결이 끊겼다」는 사유로</b> 성립해 있는가.
+        ///
+        /// <para>
+        /// [초급자용 설명] 왜 이런 프로퍼티를 따로 두는가<br/>
+        /// 이 판별식(<c>_rematchFailureCause == OpponentDisconnected</c>)을 필요한 곳마다
+        /// 직접 적으면, 나중에 기준이 바뀔 때 <b>한 곳만 고쳐지고 다른 곳은 옛 기준으로 남는다.</b>
+        /// 지금 이 기준을 보는 곳은 <b>둘</b>이다 —
+        /// <list type="bullet">
+        ///   <item><see cref="SelectRematchFailedFormat"/> — 상태 줄에 어떤 <b>문구</b>를 쓸지.</item>
+        ///   <item><see cref="RestoreRematchButton"/> — 「다시하기」 버튼을 <b>켤지</b>.</item>
+        /// </list>
+        /// 그래서 기준을 <b>이 한 자리에만</b> 둔다. 두 곳은 이 프로퍼티를 읽기만 한다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>둘이 같은 기준을 보는 것은 우연이 아니다.</b> 문구를 둘로 가른 판단 자체가
+        /// <c>GameSystemRules_RandomMap.md</c> 규칙 18 의
+        /// *「앞쪽은 다시 시도할 여지가 있고 뒤쪽은 없다」* 였다(근거 전문은
+        /// <see cref="RematchFailedByOpponentLeftCountdownFormat"/> 주석). 즉 <b>「다시 시도할 여지가
+        /// 있는가」가 곧 「버튼을 켜도 되는가」</b>이므로, 문구와 버튼이 같은 기준을 보는 것이 옳다.
+        /// </para>
+        ///
+        /// ⚠️ <b>이 값만으로 「실패했는가」를 판단하지 말 것.</b> 이것은 <b>사유</b>이며
+        ///    실패 자체의 깃발은 <see cref="_rematchFailed"/> 다. 다만 사유는 실패 상태에
+        ///    들어갈 때만 대입되고 내려가는 자리도 <see cref="_rematchFailed"/> 와 완전히 같으므로,
+        ///    이 값이 <c>OpponentDisconnected</c> 이면 <b>그 사유의 실패가 성립해 있다</b>는 뜻이다.
+        /// </summary>
+        private bool IsRematchFailedByOpponentDisconnected =>
+            _rematchFailureCause == RematchMapFailureCause.OpponentDisconnected;
+
+        /// <summary>
         /// 「재경기 준비 중」 상태의 맵 준비 한도 코루틴. null 이면 돌고 있지 않다.
         ///
         /// 🔴 <b>이 시계는 아무것도 판정하지 않는다.</b> 승패도, 상대 이탈도, 연결 종료도 하지 않는다.
@@ -1040,7 +1071,12 @@ namespace Hexiege.Presentation
         /// <returns>남은 초를 <c>{0}</c> 에 채워 쓸 형식 문자열</returns>
         private string SelectRematchFailedFormat()
         {
-            return _rematchFailureCause == RematchMapFailureCause.OpponentDisconnected
+            // 🔴 [2026-09-27] 판별식을 여기서 직접 쓰지 않고
+            //    IsRematchFailedByOpponentDisconnected 를 읽는다 — 같은 기준을 보는 자리가
+            //    RestoreRematchButton() 까지 둘이 되었기 때문이다. 기준을 두 곳에 적으면
+            //    한쪽만 고쳐졌을 때 문구와 버튼이 서로 다른 판단을 하게 된다.
+            //    ⚠️ 이 메서드가 하는 일(형식 문자열 하나를 돌려준다)은 바뀌지 않았다.
+            return IsRematchFailedByOpponentDisconnected
                 ? RematchFailedByOpponentLeftCountdownFormat
                 : RematchFailedCountdownFormat;
         }
@@ -1676,6 +1712,13 @@ namespace Hexiege.Presentation
         /// 🔴 <b>가드 자체는 없애지 않았다.</b> 버튼을 다시 누를 수 있게 만들면 받을 사람이 없는
         /// 요청을 또 보내게 되어 규칙 D-2 위반이다. <b>문구만 되돌리고 버튼은 끈 채로 둔다.</b>
         /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>[2026-09-27 수정] 버튼 활성 조건에 두 번째 항을 AND 로 더했다.</b>
+        /// 위 목록의 <b>「맵 준비 실패 통보」 항은 이제 사유에 따라 갈린다</b> —
+        /// 사유가 <b>연결 끊김</b>이면 문구만 되돌리고 버튼은 켜지 않는다(이탈 판정과 같은 결과).
+        /// 그 밖의 실패 사유면 종전대로 복원한다(규칙 M-3). 근거는 아래 ② 항 주석에 있다.
+        /// </para>
         /// </summary>
         public void RestoreRematchButton()
         {
@@ -1684,11 +1727,40 @@ namespace Hexiege.Presentation
             if (_restartButtonText != null)
                 _restartButtonText.text = "다시하기";
 
-            // ② 다시 누를 수 있는지는 「상대가 아직 있는가」로 가른다(규칙 D-2).
-            //    상대가 떠난 뒤에는 꺼 둔 버튼이 다시 켜지면 안 된다 — 거절·맵 실패 통보가
-            //    이탈 통보보다 늦게 도착하는 경우가 실제로 있다.
+            // ② 다시 누를 수 있는지는 조건 **둘**로 가른다 —
+            //    「상대가 아직 있는가」 AND 「실패 사유가 연결 끊김이 아닌가」.
+            //
+            //    [초급자용 설명] 왜 「상대가 아직 있는가」 하나로는 부족한가
+            //      _opponentLeft 는 **이탈 감시 시계가 침묵을 30초 동안 확인한 뒤에야** 켜진다
+            //      (NetworkGameEndController 의 ResultScreenSilenceTimeoutSeconds = 30f,
+            //       로그에서는 TimeoutSeconds=30 으로 찍힌다).
+            //      그런데 재경기 맵 준비는 그보다 **훨씬 먼저** 「상대가
+            //      연결이 끊겼다」는 사유로 실패를 통보해 온다. 그 사이에는 _opponentLeft 가
+            //      아직 false 라서, 종전 조건(!_opponentLeft 하나)은 버튼을 **켜 버렸다.**
+            //      그러면 상태 줄은 RematchFailedByOpponentLeftCountdownFormat 으로 「상대가 없다」고
+            //      말하는데 버튼은 「다시 해 보라」고 권하는 **모순된 화면**이 된다.
+            //      (⚠️ 그 문구 자체를 여기에 베껴 적지 않는다 — 문구가 코드에 한 곳만 있는지
+            //       확인하는 grep 이 무용해진다. 그 상수의 주석에 적힌 금지 그대로다.)
+            //      🔴 실측(2026-09-27 로그): 실패 통보 20:57:20.703 → 이탈 확정 20:57:51.053,
+            //         **그 사이 30.35초** 동안 그 모순된 화면이 떠 있었다. 즉 강제 실패 테스트
+            //         전용 문제가 아니라 **진짜 연결 끊김에서도 약 30초 동안** 나오는 화면이다.
+            //
+            //    🔴 한번 끈 버튼을 나중에 되살리지 않는다(사용자 확정 A안). 순단이었다 해도
+            //       다음 재경기 맵 전송이 또 실패할 뿐이고, 되살리는 장치를 만들면 **이 화면에
+            //       시계가 하나 더 늘어난다.** 그래서 사유가 남아 있는 동안은 계속 꺼 둔다.
+            //       (사유를 내리는 자리는 _rematchFailed 와 완전히 같은 3곳뿐이다.)
+            //
+            //    🔴 이것은 상태 줄 문구 ③④ 분기와 **같은 판단**이다 — 규칙 18 의
+            //       *「앞쪽(맵 준비 실패)은 다시 시도할 여지가 있고 뒤쪽(상대가 나갔다)은 없다」*.
+            //       문구는 이미 그 판단대로 갈려 있었는데 **버튼만 그 판단을 따르지 않고 있었다.**
+            //       새 규칙이 아니라 **문구와 버튼을 같은 판단 위에 올려놓는 수정**이다.
+            //       그래서 기준식도 문구 쪽과 같은 자리를 읽는다
+            //       (IsRematchFailedByOpponentDisconnected — 그 프로퍼티 주석 참조).
+            //
+            //    ⚠️ !_opponentLeft 는 **제거하지 않고 AND 로 좁혔을 뿐**이다(규칙 D-2 유지) —
+            //       거절·맵 실패 통보가 이탈 통보보다 늦게 도착하는 경우가 실제로 있다.
             if (_restartButton != null)
-                _restartButton.interactable = !_opponentLeft;
+                _restartButton.interactable = !_opponentLeft && !IsRematchFailedByOpponentDisconnected;
 
             // ③ 로비 복귀 버튼은 언제나 켠다(규칙 D-3 「어떤 상태에서도 비활성화하지 않는다」).
             if (_backToLobbyButton != null)
