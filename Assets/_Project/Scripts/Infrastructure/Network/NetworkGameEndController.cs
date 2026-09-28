@@ -773,17 +773,65 @@ namespace Hexiege.Infrastructure
         /// </summary>
         private void SendAcceptRematchSafely()
         {
+            // 🔴 아래 catch 의 로그에 실을 「강제로 만든 실패인가」 표식.
+            //
+            //   [초급자용 설명] 왜 try 밖에 선언하나 — C# 에서 try 블록 안에 선언한 변수는
+            //   catch 블록에서 볼 수 없다. 표식을 catch 에서 읽어야 하므로 밖에 둔다.
+            //   ⚠️ 이 변수는 **값만 들고 있을 뿐 아무 동작도 하지 않는다.** 릴리스 빌드에서는
+            //   아래 에디터 전용 블록이 사라져 값이 끝까지 "None" 으로 남는다.
+            string forcedMarker = "None";
+
             try
             {
+#if UNITY_EDITOR
+                // ────────────────────────────────────────────────────────────
+                // 🔴 [에디터 전용 개발 도구] 강제 실패 플래그 — 수락 전송 예외
+                //
+                //   무엇인가: 「다음 재경기의 수락 전송을 무조건 예외로 끝낸다」는 1회용 토글이다.
+                //             켜는 곳은 상단 메뉴 Hexiege/Debug/... 이고, 저장은 EditorPrefs 다.
+                //             상세한 근거는 ForcedAcceptSendFailure.cs 의 파일 머리말에 있다.
+                //
+                //   🔴 릴리스 빌드에는 **이 블록이 존재하지 않는다** — 바로 위 에디터 전용 가드로
+                //      감쌌고 ForcedAcceptSendFailure 자체도 같은 가드 안에만 있다.
+                //
+                //   🔴 **왜 try 블록 안에서 던지는가 (이 위치가 이 도구의 전부다)**
+                //      이 테스트의 목적은 **아래 catch 경로를 그대로 태우는 것**이다.
+                //      catch 밖에서 던지면 예외가 그냥 위로 올라가 「테스트에서 본 화면」과
+                //      「실제로 나는 화면」이 달라져 아무 의미가 없어진다.
+                //      (같은 근거가 NetworkMapTransfer.StartHostRound 의 강제 실패 주석에도 있다 —
+                //       「진짜 실패가 쓰는 바로 그 결말 자리다」.)
+                //
+                //   🔴 **AcceptRematchServerRpc() 보다 앞에서 던진다.** 뒤에서 던지면 수락이 이미
+                //      서버에 닿은 뒤가 되어, 재현하려는 상황(「서버로 아예 못 보냈다」)이 아니다.
+                // ────────────────────────────────────────────────────────────
+                if (ForcedAcceptSendFailure.TryConsume())
+                {
+                    forcedMarker = nameof(ForcedAcceptSendException);
+
+                    // [개발/Warn] 🔴 로그를 보는 사람이 「진짜 실패」와 「강제 실패」를
+                    //   반드시 구분할 수 있어야 한다. 그래서 던지기 **전에** 한 줄 남긴다.
+                    //   등급을 Warn 으로 맞춘 것은 기존 강제 실패 3종과 같은 취급을 하기 위해서다.
+                    GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
+                        "[강제 실패] 개발용 플래그가 켜져 있어 재경기 수락 전송을 일부러 예외로 끝낸다 — " +
+                        "기존 catch 경로를 그대로 태운다",
+                        $"Forced={forcedMarker}");
+
+                    throw new ForcedAcceptSendException();
+                }
+#endif
+
                 AcceptRematchServerRpc();
             }
             catch (System.Exception e)
             {
                 // 삼킨 예외를 기록 없이 두지 않는다(LogRules 원칙 4).
                 // 한 판에 최대 한 번 도달하는 경로라 스로틀이 필요 없다.
+                //
+                // 🔴 Forced= 를 함께 싣는 이유: 이 줄만 보고 **진짜 발신 실패인지 개발용 강제인지**
+                //    가를 수 있어야 한다. 값이 "None" 이면 진짜 실패다.
                 GameLog.Dev.Warn("Network", nameof(NetworkGameEndController),
                     "재경기 수락을 서버로 보내지 못했다 — 재경기 실패로 화면에 알린다",
-                    $"Exception={e.GetType().Name}");
+                    $"Exception={e.GetType().Name}, Forced={forcedMarker}");
 
                 // 🔴 사용자에게 「재경기가 안 됐다」를 알린다 — 조용히 넘어가지 않는다.
                 //

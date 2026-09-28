@@ -1018,3 +1018,59 @@ Rule source: `GameSystemRules_RandomMap.md` **규칙 18**(사유에 따라 문�
   회차 상태가 독립이라 교차 오염은 없고, 재경기가 성공하면 `StartRematch()` 의 despawn 루프가 정리한다.
   또 `ResponseTimeout` 경로에서는 **Client 만 `MapHandoff.Set`** 을 한 상태로 Host 가 실패한다 —
   이것도 진짜 timeout 과 완전히 같은 모양이라 그대로 두었다(**범위 밖**).
+
+---
+
+## 강제 실패 플래그 ④ — 「수락 전송 예외」 (2026-09-28, 구현만 · 실기 0회)
+
+**무엇을 만들었나** — 재경기 실패 3경로 중 **①「서버로 수락을 아예 못 보냈다」만 재현 수단이 0건**이었다.
+①이 나는 자리는 `NetworkGameEndController.SendAcceptRematchSafely()` 의 `try/catch` 이고,
+🔴 **기존 강제 실패 3종은 「맵을 주고받는 단계」의 것이라 그보다 앞인 이 자리에 닿지 않는다.**
+
+- 새 저장소: `Assets/_Project/Scripts/Infrastructure/Debug/ForcedAcceptSendFailure.cs`
+  (`Arm` / `Disarm` / `IsArmed` / `TryConsume` — bool 하나, `EditorPrefs` 키
+  `Hexiege.Debug.ForcedAcceptSendFailure.Armed`, 파일 전체 `#if UNITY_EDITOR`).
+  같은 파일에 `ForcedAcceptSendException : System.Exception` 도 둔다.
+- 메뉴는 **기존 파일에 ④를 추가**: `Assets/Editor/Debug/ForceRematchMapFailureMenu.cs`.
+- 주입: `NetworkGameEndController.cs` `SendAcceptRematchSafely()` — `try` **안**,
+  `AcceptRematchServerRpc()` **앞**.
+
+### 되풀이해서 쓸 수 있는 판단 5가지
+
+- 🔴 **「강제 실패 플래그를 하나 더」가 곧 「기존 플래그에 항목 추가」는 아니다.**
+  `ForcedMapTransferFailure` 가 담는 값은 `MapTransferErrorCode`(**전송 계층 오류 코드**)다.
+  이번 것은 전송 오류가 아니라 「RPC 발신 중 예외」이고 **전송이 시작되기도 전의 사건**이다.
+  종류가 다른 값을 한 저장소에 섞으면 **「지금 켜진 것이 전송 실패인가 발신 실패인가」를 값만 보고 가를 수 없다.**
+  → **저장소는 쪼개고, 패턴(EditorPrefs · 1회용 `TryConsume` · 파일 전체 에디터 가드)만 본뜬다.**
+- 🔴 **저장소를 쪼개면 「현재 설정 확인」·「해제」는 반드시 합쳐야 한다.** 따로 켜지고 따로 꺼지면
+  사용자는 **껐다고 믿은 채 계속 실패를 겪는다** — 확인 수단이 없는 것보다 나쁘다.
+  `ShowCurrent` 는 켜진 것을 **전부** 한 줄씩 나열하고(둘이 동시에 켜질 수 있다),
+  `DisarmMenu` 는 조건 없이 **둘 다** 지운다. 사용자가 보는 메뉴 묶음은 하나로 유지한다.
+- 🔴 **던질 예외 타입은 「NGO 흉내내기」보다 「로그에서 가려지는 이름」이 낫다.**
+  받는 `catch` 가 `e.GetType().Name` 을 로그에 싣기 때문에 **타입 이름이 그대로 로그에 뜬다.**
+  전용 `ForcedAcceptSendException` 을 만든 근거 3가지: ① 이름 자체가 강제임을 말한다
+  ② 🔴 **NGO 가 그 상황에서 던지는 예외의 정확한 타입을 확인하지 않았다 — 흉내내기는 그 자체가 추정(규칙 10)이고
+  틀리면 오히려 덜 진짜 같아진다** ③ 「진짜 같음」은 `Forced=` 표식과 사전 Warn 으로 이미 확보된다.
+  🔴 **중요한 것은 예외 타입이 아니라 「기존 catch 경로를 그대로 타는 것」이고, 그건 `try` 안에서 던지는 것으로 달성된다.**
+- 🔴 **`catch` 에서 읽을 표식은 `try` 밖에 선언한다.** C# 은 `try` 안에서 선언한 변수를 `catch` 에서 못 본다.
+  `string forcedMarker = "None";` 를 메서드 첫 줄에 두고 강제 분기에서만 덮어쓴다 →
+  `Forced=None` 이면 진짜 실패, `Forced=ForcedAcceptSendException` 이면 강제.
+  ⚠️ **이 한 줄 때문에 「플래그가 꺼져 있어도 로그 문자열이 달라진다」**(진짜 실패 줄에 `, Forced=None` 이 붙는다).
+  의도된 변경이며 `NetworkMapTransfer` 의 *「진짜 실패와 강제 실패를 반드시 구분할 수 있어야 한다」* 와 같은 근거다.
+- ✅ **`#if` 가 빠진 코드를 컴파일 없이 「엄격하게」 증명하는 법(재사용 가능).**
+  스텁 하네스에 메서드 본문을 **그대로** 떼어 오고, 🔴 **에디터 전용 타입 스텁까지 `#if UNITY_EDITOR` 안에 넣는다.**
+  그러면 릴리스 모드에서 본문이 그 타입을 **조금이라도 참조하면 `CS0246` 으로 깨진다** →
+  깨지지 않으면 「릴리스 본문은 그 타입을 전혀 참조하지 않는다」가 증명된다.
+  (이번에 `mcs` 로 두 모드 모두 OK. 스텁을 가드 밖에 두면 이 증명이 성립하지 않는다 — 그때는 그냥 통과한다.)
+
+### 미검증으로 남은 것
+
+- 🔴 **Unity 컴파일 미확인** — `NetworkGameEndController` 는 `Unity.Netcode`/`UniRx`/`UnityEngine` 의존이라
+  헤드리스 전체 빌드가 불가하다. 확인한 것은 ① 새 파일 2개의 스텁 컴파일 OK ② 메서드 본문 하네스 두 모드 OK 뿐이다.
+- 🔴 **실기 0회** — ④ 로 실패를 실제로 만들어 본 적이 없다. 🔴 **확인해야 하는 것은 「양쪽 화면의 갈림」**이다:
+  수락을 누른 쪽엔 기본 실패 문구(사유 `Unknown`)가 뜨고, **요청한 쪽은 아무것도 모른 채 「요청 중...」이 남아
+  자기 60초 타이머로 로비에 간다.** ⚠️ **그 요청자 동작이 의도된 것인지는 확인된 바 없다.**
+- ⚠️ **`Origin=` 값을 새로 만들지 않았다**(범위 초과 금지). GameEndUI 의 실패 진입 로그는 서버 통보와 로컬 발행
+  양쪽에 `Origin=MapFailedNotice` 를 쓴다. 수락자 쪽은 바로 앞의 `catch` Warn 줄로 구별되므로 지금은 충분하다 —
+  **테스트해 보고 실제로 구분이 안 되면 그때 넓힌다.**
+- ⚠️ **`.meta` 파일 미생성** — 새 스크립트는 Unity 가 다음 임포트에서 GUID 를 만든다(에이전트가 만들지 않았다).
