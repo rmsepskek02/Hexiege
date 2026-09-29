@@ -3393,3 +3393,68 @@ The `StartCoroutine(CountdownCoroutine` baseline is 4 sites; after the removal i
 - 🔴 **When the thing the grep counts *is* an identifier, "point at it by name" is not a safe escape** — the fix was to make the comment point at the *wrapping property* instead.
 
 **13. Four main-session mistakes in one round, and 🔴 the fourth is a 「하마터면」 — classify it as such and say why the file still keeps it.** (a) 「값이 씬에 있다」 was reported to the user as 「화면에 뜬다」 — the **erasing path was never counted** (`StopCountdown()`'s text clear sits *outside* the `if (_countdownCoroutine != null)` block, and `LoadMap()` calls that `Hide()` twice). (b) A **word grep hit was read as 「반영됨」** for a file that was never edited — 「그 말이 있다」 ≠ 「내가 넣었다」; 반영 여부는 **변경 목록**으로 판정한다. (c) An item count was passed on as 4 when it was 5 — 🔴 **the user's question is what recovered the missing item**, so a count error is a *loss* class; the procedure is to **number the items and read off the last number** instead of stating a total. (d) The two-session log (see 4) was **caught, not misdiagnosed** — so the entry is titled 「하마터면」 and says 「오진하지 않았다」 in the same line. 🔴 **The grounds for keeping it anyway**: this file already keeps events caught before commit (the comment-copy entries), and its own rule is 「사건을 지우지 않는다」 — but those are 「a mistake happened, only the consequence was stopped」, which is a different thing, and the title must not blur them.
+
+---
+
+## §44. Folding a **batch of four follow-ups** into a Plan whose stages are already finished and field-verified — and closing a 「판단 필요」 roadmap row that the *previous* round deliberately left open (2026-09-29 (2nd), 싱글 맵 준비 실패 UI / 규칙 M-4 범위)
+
+**Round shape.** Stages A~G of an existing Plan had shipped, been field-verified, and had their disabled code finally deleted (§43). The user then approved **four follow-up items in one turn** and also approved **not creating a new task folder** — the items were to be appended to the same Plan. So the document already read like a *record*, and the new items had to sit next to it as a *plan* without contaminating that record.
+
+**1. 🔴 A finished Plan gets follow-ups as a NEW numbered section, not as new rows inside §4 「단계 분할」.**
+§4 had grown an appended stage `G` in an earlier round, so appending `H`~`K` there was the apparent precedent. It is the wrong one: §4's stages are now a **closed, field-verified set** with per-stage adoption blocks, and §12's table says so. New items with `⬜ 미착수` status inside that section make the section半 record半 plan.
+- The section number is **appended** (`## 15.`) and the letters are **appended** (`H`…), with the standard sentence naming *which* sections reference the old letters/numbers by name (here: §5 · §7 · §8 · §11 · §12 · §14).
+- **Do not add a pointer inside §4.** Discoverability comes from the three places the instruction already had you edit — §5 (rule basis), §11 (scope), §12 (execution table) — each pointing at `§15-x`. Editing §4 to "help" is scope creep into a record.
+
+**2. 🔴 When a follow-up letter covers two jobs of different *risk grade*, split the row (`K-1` / `K-2`) — and write why.**
+The user handed one bundle ("the remaining two"): one job decides **who owns a string**, the other **edits multi-player code that is field-verified**. Their completion criteria and risk differ, so one table row would go false the moment half finished. Say that in the update block: *「한 행에 묶으면 한쪽만 끝났을 때 상태 칸이 거짓이 된다」*.
+
+**3. 🔴 The §0 「기존 로직 제거」 verdict for a batch is a table with a **deferred** row — and the deferred row is the valuable one.**
+Four items produced **0 removals**, but the reasons were four *different* shapes, and one could not be decided at all:
+- *addition* (a notification added at a failure point — quote the code comment that already says 「돌아가는 동작 자체는 그대로다 — 알리는 일만 더했다」),
+- *serialized **value** change* (not a field deletion → format unchanged; but 🔴 **WORKFLOW [4]'s disable-first has no middle state for a scene value**, so the substitute revert mechanism is **writing the original value into the document** — here `124124` plus its fileIDs),
+- *sentence edit* (a comment; the existing §0 row already carried this verdict — cite it rather than re-deriving),
+- *replacement* (2 direct widget writes → setter calls; same shape as the row that said 「삭제가 아니라 확장」).
+- 🔴 **The undecidable one (`K-1`) is recorded as 「미정 — 판정 자체가 이 항목의 내용이다」 with the trigger written in:** *if* the verdict becomes "merge", a literal disappears, so **that is the moment it gets promoted into §0** under WORKFLOW [4]. Never pre-promote it.
+- Close the block by re-checking the section's own **absolute** head sentences: here *「1건뿐이다」* / *「이제 2건이다」* stayed **true**, and saying so explicitly is itself the output.
+
+**4. 🔴 A 「판단 필요」 row from a previous round is closed by answering **its question**, not by describing the fix.**
+The row had written the question verbatim (*「고칠 것인가가 아니라 규칙 M-4 가 이 단계를 포함하는가」*). The user's answer was a **scope reading**, so:
+- The rule document gets a dated block whose **first line says what did NOT change** (values, wording, loading-UI policy, button labels, retry policy, rule number) and then **one three-row table of 「언제 실패하는가 → 적용되는가」** marking which row is the newly decided one.
+- 🔴 **A scope widening is not a new rule number.** No new `M-`/`D-` letter, no renumbering.
+- The row's own still-true caveats (**severity undetermined · 0 field occurrences · 「구조 추론이고 관측이 아니다」**) are **re-asserted as still true** in the update block. Closing a question does not close the caveats attached to it.
+- **The row is not taken down** — 「정해진 것은 범위이고 구현은 0줄이다」.
+
+**5. 🔴 Scope-limiting a widened rule is the hardest half, and the code says why it is not automatic.**
+"Any reason, any point in time" reads as universal. Measurement showed the projection function is **shared by the single and multi call paths** (2 call sites). So 「싱글 한정」 is not something the structure grants — it is **something the implementation must do**, and that sentence belongs in the plan item *and* in the rule block. Also name the sibling rules that already own the multi case (`M-2` · `M-3`) so widening there is visibly a separate, unapproved job.
+
+**6. 🔴 "Leave it as 「확인 후 정한다」" does not mean "do not measure".**
+The instruction said not to assert how the projection stage signals failure. Measuring it anyway (`private void`, one `IsSucceeded` branch, log-only, no `return`, no throw **in that method**) and then writing a two-column table — **✅ 실측된 것 / ⚠️ 미확인** — serves both rules: the document gains facts, and the *design decision* stays open. 🔴 **Say which sub-question the measurement did NOT reach** (here: whether the use-case called inside can throw — that file was not read), otherwise the measurement reads as a complete answer.
+
+**7. 🔴 Handover mismatch, 11th class — the claim named the wrong *measuring instrument*.**
+Handover: *「그 주석 사본이 실제로 이번 회차의 §7-1 측정에서 걸렸다」*. §7-1's command is **scoped to one file**, so it measured **1** correctly; what the comment pollutes is a **repo-wide** grep (4 hits, 3 of them values). The quoted phrase existed, the pollution was real, the **named instrument was wrong**. Fix: keep the handover sentence, add your own measurement with the instrument named, and state the distinction (「오염되는 것은 리포지토리 전체 grep 이다」).
+- Same round, 12th class (a repeat of "the count was short"): the handover listed the failure phrase in **2** places; measurement found **3**, the third in a **different mode's path** (multi). 🔴 **A third copy in another mode is not automatically in scope** — record it and make "is it in scope?" part of the item.
+
+**8. 🔴 A count of copies must exclude strings that merely *start* the same.**
+「로비로」 has 2 value sites, but a word grep also hits `"로비로 이동 중..."` and `"로비로 돌아가기"` — **different strings, not copies**. Write that exclusion into the table cell, or the next reader inflates the number.
+
+**9. 🔴 Two copies differing only by a trailing period may be **spec**, not duplication.**
+The status line is a **sentence** (its rule's wording table ends every row with a period); the modal body is the **rule-confirmed token** (no period). So 「같은 문구 두 벌」 is an unsafe reading, and a plan that says "merge them" would be **changing the spec**. The plan must therefore instruct **judging whether they are mergeable at all**, and say that a "merge" verdict is itself a **user-approval item**. 🔴 Write the two owning rules by name; that is what makes the caution checkable.
+
+**10. Where to put the single source when two *layers* hold the same string.**
+Naming the layers (`Bootstrap` + `Presentation`, plus a second `Presentation` file) is enough to show that "just move it into one file's constant" does not follow — the reference direction could invert. Leave the seat undecided, but 🔴 **state the constraint (layer boundaries) so the decision cannot be made carelessly later.**
+
+**11. 🔴 A follow-up that reverses a closed risk gets 「범위가 늘었다」, not 「예상이 틀렸다」.**
+A risk row had closed as *「씬 작업 0건 — 해소됐다」*. The new item edits the scene. The repair is a sentence in the **new** item (the risk cell is untouched): 「예상이 틀렸다가 아니라 범위가 늘었다 — 단계 A~G 가 씬을 건드리지 않았다는 사실은 그대로 참이다」.
+
+**12. 🔴 A completion criterion for touching field-verified code is stated as a *count transition*, not as "check carefully".**
+For the setter unification: setter call sites **3 → 5** and direct assignments to the widget **→ 0**, plus the explicit exclusion (*「null 검사 · 필드 선언 · 주석은 남는다 — 대입만 센다」*). And the verdict wording is inherited from the previous round: **「회귀가 없다」가 아니라 「증상 0건」**.
+
+**13. Line numbers that have already drifted: do not fix them, and say what to point at instead.**
+Three cited line numbers (a literal's site, and three `StopCountdown()` dependents) had all moved. Keep the old cells, add *「그 시점의 값이며 지금은 어긋났다」*, and re-point by **assignment target identifier** / **method name**. 🔴 Then check you did not immediately break your own rule in the new text.
+
+**14. Deviations from the instruction, and how they were marked.**
+- The instruction named **3 roadmap rows**; a **4th** row was the home of one of the four approved items, so it was updated too. 🔴 **Leaving it 「미착수」 while the Plan says the item is in scope is a knowingly false row** — consistency wins, and the deviation is led with in the report.
+- The instruction asked for **H's** rule basis in §5 only; basis rows for `I`·`J`·`K-1`·`K-2` were added as well, because **WORKFLOW [4]** requires a rule basis per modification item and §4's own preamble names §5 as the single source. 🔴 All four begin with 「규칙이 아니라 …」 — **no rule was invented to fill the cell.**
+
+**15. Verification for a round like this (the checker says almost nothing).**
+`check_docs.py` = 0 covers only the rule document and the roadmap; the Plan lives under `_Tasks/` and is **outside the scan set**. So: ① pipe count per table row with `(?<!\\)\|` across **both** edited files, ② every `§15-x` anchor referenced from elsewhere exists as a heading, ③ every sentence that had to stay untouched verified with `grep -cF … = 1` (here 7 in the Plan, 3 in the rule doc, 5 in the roadmap). 🔴 **Adding lines to the agent-memory folder needs an increase-direction `--update-baseline`, which this round was forbidden to run — report it so it is not delayed** (a delayed increase makes the *next* decrease look smaller than it is).
