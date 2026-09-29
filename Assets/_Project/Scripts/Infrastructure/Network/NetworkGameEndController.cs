@@ -14,7 +14,7 @@
 //     → [서버] GameEndUseCase.OnBuildingDied → GameEvents.OnGameEnd
 //     → [서버] NetworkGameEndController.OnGameEnd 수신
 //     → AnnounceWinnerClientRpc(winnerTeamIndex, isRandomMatch)
-//     → [모든 클라이언트] SetupRematchButton + ShowResult
+//     → [모든 클라이언트] SetupRematchButton + 결과 화면 표시(GameEndUI.OnGameEnd)
 //
 // 재경기 흐름 (커스텀게임):
 //   [요청자] RequestRematch() → RequestRematchServerRpc
@@ -376,7 +376,7 @@ namespace Hexiege.Infrastructure
         /// 게임 모드에 따라 재경기 버튼 동작을 분기 설정.
         ///
         /// UI 컴포넌트는 GameEvents 이벤트를 각자 구독해 반응한다.
-        ///     - OnGameEnd: GameEndUI(자체 구독)가 ShowResult/일시정지 처리,
+        ///     - OnGameEnd: GameEndUI(자체 구독)가 결과 표시/일시정지 처리,
         ///                  GameUIManager(자체 구독)가 열린 팝업을 닫음.
         ///     - OnNetworkRematchAvailable: GameEndUI(자체 구독)가 재경기 버튼 활성화.
         ///
@@ -396,7 +396,10 @@ namespace Hexiege.Infrastructure
 
             // 클라이언트(비서버)에서는 OnGameEnd가 발행되지 않았으므로 여기서 발행한다.
             // (서버에서는 OnGameEndServer 호출 직전 이미 OnGameEnd가 발행된 상태)
-            // GameEndUI가 OnGameEnd를 구독해 ShowResult 등 표시/일시정지 처리.
+            // GameEndUI가 OnGameEnd를 구독해 결과 표시/일시정지를 처리한다.
+            // 🔴 [2026-09-28 정정] 이 세 자리의 종전 주석은 진입점을 GameEndUI 의 다른 공개 메서드
+            //    이름으로 적고 있었으나 사실이 아니다 — 그 메서드의 호출부는 0건이고(그래서 그쪽에서
+            //    주석 처리로 비활성화했다), 실제 진입점은 GameEndUI.OnGameEnd() 하나다.
             // GameUIManager는 OnGameEnd를 구독해 NotifyGameEnded()로 열린 팝업을 닫음.
             if (!IsServer)
             {

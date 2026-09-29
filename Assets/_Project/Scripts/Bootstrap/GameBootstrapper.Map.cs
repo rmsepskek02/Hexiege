@@ -31,6 +31,54 @@ namespace Hexiege.Bootstrap
     public partial class GameBootstrapper
     {
         // ====================================================================
+        // 최초 경기 맵 준비 실패 모달의 문구 (공통 UI 규칙 M-4)
+        //
+        // [초급자용 설명] 왜 [SerializeField] 가 아니라 const 인가
+        //   [SerializeField] 로 두면 그 값이 씬 파일(Game.unity)에 저장되고, 런타임에는
+        //   **씬에 저장된 값이 코드 기본값을 덮어쓴다.** 그러면 코드만 고쳐도 화면이 바뀌지 않는
+        //   함정이 생긴다. 아래 값들은 규칙이 고정한 문구라 Inspector 에서 조절할 이유가 없으므로
+        //   const 로 둬서 「코드 한 자리만 고치면 끝」이 되게 한다(씬 작업 불필요).
+        //
+        // ⚠️ 이 문구들을 주석·[Tooltip]·로그에 베껴 적지 말 것. 사본이 하나라도 생기면
+        //    「문구가 코드에 한 곳만 있는가」를 확인하는 grep 이 무용해진다.
+        //    가리켜야 할 때는 문구 대신 **아래 상수 이름**을 쓴다.
+        // ====================================================================
+
+        /// <summary>
+        /// 최초 경기에서 맵을 만들지 못했을 때 모달 팝업 본문에 표시할 문구 (공통 UI 규칙 M-4).
+        ///
+        /// <para>
+        /// 🔴 <b>실패 사유(다섯 가지)를 문구로 구분하지 않는다</b>(같은 규칙의 확정). 사유는 전부
+        /// 에셋 문제여서 <b>사용자가 취할 행동이 같고</b>, 가르면 문구만 늘고 도움이 되지 않는다.
+        /// 사유는 운영 로그(맵 준비 실패 키)에 이미 남는다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>결과 화면의 상태 줄 문구와 글자가 같지만 상수는 따로다.</b> 그쪽은 Presentation
+        /// 레이어(<c>GameEndUI</c>)에 있고 이 파일은 Bootstrap 이라 서로 참조하지 않는다.
+        /// 🔴 <b>두 문구를 한 상수로 합치는 일은 이번 범위가 아니다</b> — 레이어를 넘는 공유처를
+        /// 새로 정해야 하므로 별도 제안으로 분리했다.
+        /// </para>
+        /// </summary>
+        private const string SingleMapPreparationFailedMessage = "맵 준비에 실패했습니다";
+
+        /// <summary>
+        /// 위 모달의 <b>확정</b> 버튼 라벨 — 누르면 맵 로드를 다시 시도한다 (공통 UI 규칙 M-4).
+        ///
+        /// ⚠️ 결과 화면의 같은 뜻 버튼과 글자를 통일한 값이다(사용자 확정). 그 화면의 라벨은
+        ///    <c>GameEndUI</c> 안에 따로 있으며, 🔴 <b>둘을 한 자리로 모으는 일은 이번 범위가 아니다.</b>
+        /// </summary>
+        private const string SingleMapPreparationFailedRetryLabel = "다시하기";
+
+        /// <summary>
+        /// 위 모달의 <b>취소</b> 버튼 라벨 — 누르면 로비로 나간다 (공통 UI 규칙 M-4).
+        ///
+        /// 🔴 <b>이 버튼이 있어야 하는 이유는 규칙 D-3</b> 이다 — 「사용자가 스스로 화면을 빠져나갈
+        /// 방법」이 항상 하나는 열려 있어야 한다. 재시도가 계속 실패해도 이쪽으로 나갈 수 있다.
+        /// </summary>
+        private const string SingleMapPreparationFailedLobbyLabel = "로비로";
+
+        // ====================================================================
         // 런타임 맵 로드/전환
         // ====================================================================
 
@@ -476,9 +524,129 @@ namespace Hexiege.Bootstrap
 
             // 준비가 실패했으면 여기서 끝난다(실패 로그는 PrepareMap 안에서 이미 남겼다).
             // 가르기 전의 "if (!prepared.IsSucceeded) { 로그; return; }" 와 완전히 같은 지점이다.
-            if (prepared == null) return;
+            if (prepared == null)
+            {
+                // 🔴 [2026-09-28 신설] 종전에는 **조용히 돌아갔다.** 그러면 땅이 그려지지 않은
+                //    텅 빈 전투 화면만 남고 안내도, 나갈 방법도 없다(공통 UI 규칙 M-4 가 고치려는 것).
+                //    ⚠️ 돌아가는 동작 자체는 그대로다 — 알리는 일만 더했다.
+                NotifySingleMapPreparationFailed();
+                return;
+            }
 
             ProjectMap(prepared);
+        }
+
+        /// <summary>
+        /// 🔴 <b>싱글플레이에서 이번 판의 맵을 만들지 못했을 때 화면에 알린다</b>
+        /// (<c>GameSystemRules_UI.md</c> 「공통 UI 규칙」 규칙 M-4).
+        ///
+        /// <para>
+        /// 🔴 <b>이 자리는 구조적으로 싱글 전용이다.</b> 부르는 <see cref="PrepareAndProjectMap"/> 가
+        /// 맨 앞에서 멀티를 걸러내므로(멀티는 맵을 만들지 않고 로비에서 확정된 것을 새기기만 한다 —
+        /// 규칙 12 · 16) 멀티플레이는 여기에 도달하지 않는다.
+        /// </para>
+        ///
+        /// <para>
+        /// <b>하는 일은 둘이다.</b>
+        /// <list type="number">
+        ///   <item><b>싱글 전용 채널로 실패를 방송한다</b> — 결과 화면(<c>GameEndUI</c>)이 구독해
+        ///         <b>깃발만</b> 세운다. 그 화면이 스스로 되살아나는 것은
+        ///         「다시하기」가 맵 재로드에서 돌아온 뒤다(규칙 M-4 둘째 불릿).</item>
+        ///   <item><b>최초 경기라면 모달 팝업을 띄운다</b>(규칙 M-4 첫 불릿 · 규칙 8 · 9).</item>
+        /// </list>
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>왜 같은 실패에 안내가 둘로 갈리는가</b> — 실패가 나는 코드 지점은 <b>한 곳</b>인데
+        /// 상황은 <b>둘</b>이고(최초 경기 / 결과 화면의 「다시하기」), 규칙 M-4 가 그 둘에
+        /// <b>서로 다른 화면</b>을 정해 두었다. 🔴 <b>둘을 함께 띄우면 규칙 D-3 을 어긴다</b> —
+        /// 모달이 결과 화면의 「로비로」 버튼을 덮어 사용자가 스스로 나갈 길을 가린다.
+        /// 그래서 <b>「다시하기」 구간에는 모달을 띄우지 않는다.</b>
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>전역 로딩 표시를 여기서 끄지 않는다.</b> 이 함수가 돌아간 뒤에도
+        /// <see cref="LoadMap"/> 은 끝까지 진행하고, 그 <b>마지막 줄이 무조건 로딩을 끈다</b>
+        /// (UI 규칙 L-3 — 목적지 씬이 준비되면 끄는 책임이 한 곳에 모여 있다).
+        /// 여기서 또 끄면 그 책임이 두 곳으로 흩어진다.
+        /// </para>
+        /// </summary>
+        private void NotifySingleMapPreparationFailed()
+        {
+            // ① 결과 화면에 알린다(구독자는 깃발만 세운다).
+            //    🔴 발행이 동기라서 이 줄 안에서 구독자가 곧바로 실행된다 —
+            //       그래서 구독자 쪽이 화면을 건드리지 않는다는 계약이 중요하다.
+            GameEvents.OnSingleMapPreparationFailed.OnNext(Unit.Default);
+
+            // ② 결과 화면의 「다시하기」가 부른 재로드라면 여기서 끝낸다 —
+            //    그 상황의 안내는 결과 화면이 스스로 한다.
+            if (IsMapReloadFromResultScreen())
+            {
+                return;
+            }
+
+            // ③ 최초 경기 실패 — 모달 팝업으로 알린다.
+            //
+            //    🔴 새 UI 컴포넌트를 만들지 않는다. 이미 프로젝트 전역에서 쓰는 확인/취소 팝업을
+            //       그대로 쓴다(같은 Game 씬의 InGameSettingsUI 도 이것을 쓴다 — 검증된 경로).
+            //       확정 사양에 제목이 없고 이 팝업도 제목을 받지 않아 모양이 정확히 맞는다.
+            //    🔴 배경을 눌러도 닫히지 않는다(규칙 9) — 이 팝업은 모달이라 버튼으로만 닫힌다.
+            //       그래서 「아무것도 고르지 않고 갇히는」 상태가 생기지 않는다.
+            //    ⚠️ UIManager 는 Login 씬에서 만들어져 살아 있는 전역 객체라, 씬을 직접 열어
+            //       실행하면 없을 수 있다. 그래서 프로젝트 관례대로 null 안전 호출을 쓴다.
+            UIManager.Instance?.ShowConfirm(
+                SingleMapPreparationFailedMessage,
+                onConfirm: () => LoadMap(HexOrientation.FlatTop),
+                onCancel: ReturnToLobbyFromMapFailure,
+                confirmLabel: SingleMapPreparationFailedRetryLabel,
+                cancelLabel: SingleMapPreparationFailedLobbyLabel);
+        }
+
+        /// <summary>
+        /// 지금 맵 로드가 <b>결과 화면의 「다시하기」</b>가 부른 것인가.
+        ///
+        /// <para>
+        /// 🔴 <b>이것이 「최초 경기」와 「다시하기」를 가르는 유일한 기준</b>이며, 판단의 원천은
+        /// 결과 화면 자신이다(<c>GameEndUI.IsRestartMapLoadInProgress</c>) — 그 버튼을 누른 것을
+        /// 아는 것은 그 화면뿐이기 때문이다. 여기서는 <b>읽기만</b> 한다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ 결과 화면이 Inspector 에 연결돼 있지 않으면 <b>「최초 경기」로 본다</b>(false).
+        /// 그쪽이 안전한 기본값이다 — 모달이라도 떠야 사용자가 나갈 길을 얻는다(규칙 D-3).
+        /// </para>
+        /// </summary>
+        /// <returns>결과 화면이 부른 재로드면 true</returns>
+        private bool IsMapReloadFromResultScreen()
+        {
+            return _gameEndUI != null && _gameEndUI.IsRestartMapLoadInProgress;
+        }
+
+        /// <summary>
+        /// 최초 경기 맵 준비 실패 모달에서 <b>「로비로」</b>를 골랐을 때의 처리.
+        ///
+        /// <para>
+        /// 🔴 <b>팝업을 닫는 호출을 여기에 넣지 않는다.</b> 확인/취소 팝업은 <b>버튼을 누른 그 자리에서
+        /// 스스로 먼저 닫고</b> 그 다음에 이 콜백을 부른다. 즉 화면 점유(입력 차단 오버레이)가
+        /// <b>이미 해제된 뒤</b>에 여기로 온다. 결과 화면의 로비 복귀 경로가 「팝업 닫기 →
+        /// 로딩 표시 → 씬 전환」 순서를 지키라고 못 박은 것과 <b>같은 순서가 구조적으로 보장</b>된다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>시간(<c>Time.timeScale</c>)을 되돌리지 않는다</b> — <see cref="LoadMap"/> 이 이미
+        /// 시작부에서 1 로 돌려 놓았고, 이 경로는 그 뒤에만 도달한다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>네트워크 종료 처리가 없다.</b> 이 자리는 싱글 전용이라 끌 네트워크가 없다
+        /// (멀티의 로비 복귀는 <c>NetworkGameManager.BackToLobby</c> 가 맡는 별개 경로다).
+        /// </para>
+        /// </summary>
+        private void ReturnToLobbyFromMapFailure()
+        {
+            // 로딩 표시는 이 호출이 안에서 함께 켠다(UI 규칙 L-3 · L-4 —
+            // 씬 전환은 반드시 이 통로를 거쳐야 로딩 표시 누락이 생기지 않는다).
+            SceneLoader.Load(SceneLoader.Lobby);
         }
 
         /// <summary>
@@ -503,6 +671,38 @@ namespace Hexiege.Bootstrap
             //    「맵 테스트 모드」가 규칙에서 삭제돼(GameSystemRules_RandomMap.md 규칙 3 아래
             //    2026-09-14 개정 블록) Prepare 의 인자가 root seed 하나로 줄었다.
             MapPreparationResult prepared = preparation.Prepare(rootSeed);
+
+#if UNITY_EDITOR
+            // ────────────────────────────────────────────────────────────────
+            // 🔴 [에디터 전용 개발 도구] 싱글 맵 준비 강제 실패 플래그
+            //
+            //   무엇인가: 「다음 싱글 맵 준비를 무조건 실패시킨다」는 1회용 토글이다.
+            //             켜는 곳은 상단 메뉴 Hexiege/Debug/... 이고 저장은 EditorPrefs 다.
+            //             왜 필요한지의 단일 소스는 ForcedMapPreparationFailure.cs 머리말이다.
+            //
+            //   🔴 릴리스 빌드에는 **이 블록이 존재하지 않는다** — 바로 위 에디터 전용 가드로 감쌌고
+            //      ForcedMapPreparationFailure 자체도 같은 가드 안에만 있다. 즉 컴파일 단계에서
+            //      통째로 사라지므로, 출시본에 실패를 만들어 내는 코드가 남을 수 없다.
+            //
+            //   ⚠️ 실패 처리는 **기존 실패 경로를 그대로 탄다** — 아래 「준비 실패」 분기가
+            //      진짜 실패가 쓰는 바로 그 결말 자리다. 강제 실패용 경로를 따로 만들면
+            //      「테스트에서 본 화면」과 「실제로 나는 화면」이 다를 수 있어 의미가 없어진다.
+            //
+            //   ⚠️ 이 자리는 멀티에 닿지 않는다 — PrepareMap() 자체가 싱글 전용 경로다.
+            // ────────────────────────────────────────────────────────────────
+            if (ForcedMapPreparationFailure.TryConsume())
+            {
+                // [개발/Warn] 🔴 로그를 보는 사람이 「진짜 실패」와 「강제 실패」를 반드시 구분할
+                //   수 있어야 한다. 표식은 두 겹이다 — 이 안내 한 줄과, 아래 운영 실패 로그의
+                //   사유 문장(ForcedFailureReason)이다.
+                GameLog.Dev.Warn(MapLogSystem, nameof(GameBootstrapper),
+                                 "[강제 실패] 개발용 플래그가 켜져 있어 이번 싱글 맵 준비를 " +
+                                 "실패로 바꾼다(실제 장애가 아니다)",
+                                 "Forced=" + nameof(ForcedMapPreparationFailure));
+
+                prepared = BuildForcedFailureResult(prepared);
+            }
+#endif
 
             // 🔴 결과를 반드시 보관한다.
             //    문제가 생긴 맵을 다시 만들어 보려면 그 판의 root seed 가 있어야 하는데,
@@ -562,6 +762,54 @@ namespace Hexiege.Bootstrap
 
             return prepared;
         }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// 🔴 <b>[에디터 전용]</b> 강제 실패 플래그가 켜져 있을 때, 방금 만들어진 결과를
+        /// <b>같은 판의 정보를 유지한 「실패 결과」로 바꿔</b> 돌려준다.
+        ///
+        /// <para>
+        /// [초급자용 설명] 왜 그 자리에서 곧바로 돌아가지 않는가<br/>
+        /// 곧바로 돌아가면 <b>진짜 실패가 남기는 운영 로그 한 줄이 빠진다.</b> 그러면
+        /// 「테스트에서 본 것」과 「실제로 나는 것」이 로그에서부터 달라진다. 그래서 결과 객체만
+        /// 실패로 바꿔 두고, <b>그 뒤의 실패 처리는 진짜 실패와 완전히 같은 줄들이 하게</b> 한다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>error code 를 <see cref="MapPreparationErrorCode.None"/> 으로 둔 것이 표식이다.</b>
+        /// 진짜 실패는 언제나 구체적인 사유 코드를 싣고 돌아오므로
+        /// <b>「실패인데 사유 코드가 None」인 조합은 정상 경로에서 만들어질 수 없다.</b>
+        /// 그래서 로그만 보고도 강제 실패임을 알 수 있고, <b>새 enum 값을 추가하지 않아도 된다</b>
+        /// (그 enum 의 숫자 값은 로그에 그대로 남는 값이라 함부로 늘리지 않는다).
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ 맵 버전 · seed · 유형 같은 <b>「어느 판인가」 정보는 그대로 옮긴다.</b> 실패 로그가
+        /// 그 값들을 싣기 때문이며, 비워 두면 강제 실패 로그만 모양이 달라진다.
+        /// </para>
+        /// </summary>
+        /// <param name="real">조정자가 실제로 돌려준 결과(성공일 수도, 실패일 수도 있다)</param>
+        /// <returns>같은 판의 정보를 유지한 실패 결과</returns>
+        private static MapPreparationResult BuildForcedFailureResult(MapPreparationResult real)
+        {
+            // 조정자는 성공이든 실패든 반드시 결과 객체를 돌려주므로 여기서 null 이 될 수 없다.
+            // 그래도 방어적으로 그대로 돌려준다 — 강제 실패가 없던 것과 동작이 같아진다.
+            if (real == null) return null;
+
+            return new MapPreparationResult(false, MapPreparationErrorCode.None,
+                ForcedFailureReason, null, null, null,
+                real.MapVersion, real.RootSeed, real.MapType, real.NeutralMineCount,
+                real.StartingMineSide, real.InitialGold,
+                real.ElapsedMilliseconds, real.AttemptCount, real.UsedFallback);
+        }
+
+        /// <summary>
+        /// 🔴 <b>[에디터 전용]</b> 강제 실패가 운영 실패 로그의 <b>사유 문장</b>으로 싣는 값.
+        /// 이 문장이 로그에 그대로 뜨므로, 한 줄만 보고도 실제 장애가 아님을 알 수 있다.
+        /// </summary>
+        private const string ForcedFailureReason =
+            "[강제 실패] 개발용 플래그로 이번 싱글 맵 준비를 실패시켰다(실제 장애가 아니다)";
+#endif
 
         /// <summary>
         /// [멀티플레이 전용] 로비에서 확정된 맵을 <see cref="MapHandoff"/> 에서 받아 그대로 새긴다.

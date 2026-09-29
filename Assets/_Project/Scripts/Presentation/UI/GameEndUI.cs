@@ -311,6 +311,39 @@ namespace Hexiege.Presentation
         /// </summary>
         private const string RematchPreparingStatusText = "재경기 준비 중...";
 
+        /// <summary>
+        /// 🔴 <b>싱글플레이에서 이번 판의 맵을 만들지 못했을 때</b> 상태 줄(<see cref="_countdownText"/>)에
+        /// 표시할 문구 (공통 UI 규칙 M-4).
+        ///
+        /// <para>
+        /// <b>[초급자용 설명] 왜 형식 문자열(<c>{0}</c>)이 아닌가</b><br/>
+        /// 위쪽 「상태 줄 문구 네 개」는 모두 <b>남은 초</b>를 함께 알리기 때문에 <c>{0}</c> 자리가 있다.
+        /// 🔴 그러나 <b>싱글에는 자동 로비 복귀 카운트다운이 없다</b>(규칙 D-4 의 싱글 적용 범위) —
+        /// 그래서 알릴 초가 없고, 채울 자리도 없는 <b>완성된 한 문장</b>이다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>그래서 개행 규약의 예외가 아니다.</b> 그 규약은 줄바꿈을 <b>남은 초 바로 앞</b>에
+        /// 넣으라는 것인데, 이 문구에는 <b>나눌 자리 자체가 없다</b>. 같은 사유로 규약의 대상에서
+        /// 빠진 선례가 바로 위 <see cref="RematchPreparingStatusText"/> 와
+        /// <see cref="OpponentLeftAlertMessage"/> 다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>이 문구를 주석·<c>[Tooltip]</c>·로그에 베껴 적지 말 것.</b> 사본이 하나라도 생기면
+        /// 「문구가 코드에 한 곳만 있는가」를 확인하는 grep 이 무용해진다. 가리켜야 할 때는
+        /// 문구 대신 <b>이 상수 이름</b>을 쓴다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>같은 문구가 최초 경기 실패 모달에도 쓰이지만 그 상수는 여기가 아니다.</b>
+        /// 모달을 띄우는 자리는 Bootstrap 레이어(<c>GameBootstrapper.Map.cs</c>)이고
+        /// 이 클래스를 참조하지 않는다. 🔴 <b>두 문구를 한 상수로 합치는 일은 이번 범위가 아니며</b>
+        /// (레이어를 넘는 상수 공유처를 새로 정해야 한다) 별도 제안으로 분리했다.
+        /// </para>
+        /// </summary>
+        private const string SingleMapPreparationFailedStatusText = "맵 준비에 실패했습니다.";
+
         // 🔴 [2026-09-27] 재경기 실패 문구 두 개(RematchFailedCountdownFormat /
         //    RematchFailedByOpponentLeftCountdownFormat)는 **종전에 이 자리에 있었지만**
         //    이 파일 위쪽 「상태 줄 문구 네 개」 절로 옮겼다. 상태 줄에 뜨는 문구 넷이
@@ -367,6 +400,12 @@ namespace Hexiege.Presentation
 
         /// <summary> 결과 화면에서의 상대 이탈 알림 구독 해제용 (공통 UI 규칙 D-1 · D-2 · D-4 · D-6). </summary>
         private System.IDisposable _opponentLeftSubscription;
+
+        /// <summary>
+        /// 싱글플레이 맵 준비 실패 통보 구독 해제용 (공통 UI 규칙 M-4).
+        /// 🔴 <b>멀티에서는 이 신호가 오지 않는다</b> — 발행 지점이 구조적으로 싱글 전용이다.
+        /// </summary>
+        private System.IDisposable _singleMapPreparationFailedSubscription;
 
         /// <summary>
         /// 상대가 이탈한 것으로 판정됐는지 여부.
@@ -542,6 +581,103 @@ namespace Hexiege.Presentation
             _rematchFailureCause == RematchMapFailureCause.OpponentDisconnected;
 
         /// <summary>
+        /// 🔴 <b>지금 <see cref="OnRestartClicked"/> 가 맵 재로드를 부르고 있는 중인가</b>
+        /// (싱글플레이 「다시하기」 구간).
+        ///
+        /// <para>
+        /// <b>[초급자용 설명] 왜 이런 표시가 필요한가</b><br/>
+        /// 맵 만들기가 실패하는 지점은 <b>한 곳</b>인데, 그 실패가 일어나는 상황은 <b>둘</b>이다 —
+        /// ① 경기를 <b>처음</b> 시작할 때와 ② 결과 화면에서 <b>다시하기</b>를 눌렀을 때.
+        /// 규칙 M-4 는 이 둘에 <b>서로 다른 화면</b>을 정해 두었다(①은 모달 팝업, ②는 결과 화면
+        /// 되살리기 + 상태 줄). 그래서 실패를 알아챈 쪽이 「지금 어느 상황인가」를 알아야 한다.
+        /// 이 표시가 <b>그 둘을 가르는 유일한 기준</b>이다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>켜고 끄는 자리는 <see cref="OnRestartClicked"/> 한 곳뿐이다</b> — 맵 재로드를
+        /// 부르기 직전에 켜고, 돌아온 직후에 끈다. 🔴 <b>다른 곳에서 켜지 말 것</b>: 이 값이
+        /// 참인 동안에는 최초 경기용 모달이 <b>억제</b>되므로, 구간을 넓히면 최초 경기 실패에
+        /// 아무 안내도 뜨지 않게 된다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>멀티플레이에서는 이 구간에 들어가지 않는다.</b> 멀티에서는
+        /// <see cref="SetupRematchButton"/> 이 버튼의 리스너를 전부 갈아 끼우므로
+        /// <see cref="OnRestartClicked"/> 자체가 불리지 않는다.
+        /// </para>
+        /// </summary>
+        private bool _restartMapLoadInProgress;
+
+        /// <summary>
+        /// 🔴 <b>[Bootstrap 이 읽는 유일한 창구]</b> 지금 결과 화면의 「다시하기」가 부른 맵 재로드
+        /// 구간인가. <see cref="_restartMapLoadInProgress"/> 를 읽기만 한다.
+        ///
+        /// <para>
+        /// 이 값이 참이면 <c>GameBootstrapper</c> 는 <b>최초 경기용 모달을 띄우지 않는다</b> —
+        /// 그 상황의 안내는 결과 화면이 스스로 하기 때문이다(규칙 M-4 둘째 불릿).
+        /// 🔴 <b>모달을 함께 띄우면 규칙 D-3 을 어긴다</b>: 모달이 결과 화면의 「로비로」 버튼을
+        /// 덮어 사용자가 스스로 나갈 길을 가린다(규칙 M-3 의 2026-09-22 개정 사유와 같은 판단).
+        /// </para>
+        /// </summary>
+        public bool IsRestartMapLoadInProgress => _restartMapLoadInProgress;
+
+        /// <summary>
+        /// 🔴 <b>「다시하기」가 부른 맵 재로드가 실패했는가</b> — 싱글 전용 실패 통보가 세우는 깃발.
+        ///
+        /// <para>
+        /// 🔴 <b>깃발을 세우는 자리와 쓰는 자리가 일부러 떨어져 있다.</b> 통보를 받은 자리에서
+        /// 곧바로 결과 화면을 다시 띄우면 <b>같은 호출 안에서 두 번 도로 닫힌다</b> —
+        /// 맵 재로드는 실패한 뒤에도 끝까지 진행하면서 결과 화면을 두 번 더 닫기 때문이다
+        /// (<c>GameEndUI.Initialize()</c> 끝의 <see cref="Hide"/> 와
+        ///  <see cref="OnGameStarted"/> 의 <see cref="Hide"/>).
+        /// 그래서 <b>통보를 받은 자리는 이 깃발만 세우고</b>, 재로드에서 돌아온
+        /// <see cref="OnRestartClicked"/> 가 그것을 보고 화면을 되살린다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>되돌리는 자리는 <see cref="OnRestartClicked"/> 한 곳뿐이다</b> — 맵 재로드를 부르기
+        /// <b>직전</b>에 비우고, 돌아온 <b>직후</b>에 읽고 다시 비운다. 그 두 지점이 같은 메서드 안에
+        /// 붙어 있어 <b>지난 회차의 값이 남을 창이 애초에 없다.</b>
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b><c>Initialize()</c> 에서 되돌리지 않는다 — 넣으면 기능이 조용히 죽는다.</b>
+        /// 그 메서드는 맵 로드의 <b>중간 단계</b>에서 불리고, 실패 통보는 그보다 <b>앞</b>에서 온다.
+        /// 즉 실패한 회차에서는 <b>깃발이 세워진 뒤에</b> 그 메서드가 지나가므로, 거기서 지우면
+        /// <see cref="OnRestartClicked"/> 가 읽기 전에 사라진다(근거는 그 메서드 안의 경고 주석).
+        /// </para>
+        /// </summary>
+        private bool _restartMapLoadFailed;
+
+        /// <summary>
+        /// 🔴 <b>자동 로비 복귀 카운트다운을 돌려야 하는가</b> — 공통 UI 규칙 D-4 의 적용 범위.
+        ///
+        /// <para>
+        /// <b>[초급자용 설명] 왜 <c>if</c> 를 직접 쓰지 않고 이름을 붙였는가</b><br/>
+        /// 조건식을 쓰는 자리에 그대로 적으면 <b>「왜 그 조건인가」가 코드에 남지 않는다.</b>
+        /// 이름을 붙여 두면 사양(「싱글에는 자동 복귀 타이머가 없다」)이 <b>식별자 하나로</b>
+        /// 드러나고, 나중에 적용 범위가 바뀔 때 고칠 자리가 한 곳으로 모인다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>판별의 원천은 <c>NetworkContext</c> 의 「네트워크 활성」 정적 값 하나뿐이다</b> —
+        /// 이 파일이 이미 네 곳에서 쓰고 있는 그 값이며 <b>새 판별 수단을 만든 것이 아니다.</b>
+        /// 이 프로퍼티는 그 값에 <b>이름만</b> 붙인다(정확한 식별자는 바로 아래 본문 한 줄이 보여 준다).
+        ///
+        /// ⚠️ 위 문장에 그 식별자를 <b>그대로 베껴 적지 않았다.</b> 「판별 수단이 새로 생겼는가」를
+        /// 세는 검증 grep 이 그 식별자를 찾기 때문에, 설명문에 사본을 남기면 그 검사가 오염된다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>싱글에서 타이머를 돌리지 않아도 사용자가 갇히지 않는 근거는 규칙 D-3</b> 이다 —
+        /// 「로비 복귀 버튼은 어떤 상태에서도 비활성화하지 않는다」. 나가는 길이 늘 열려 있으므로
+        /// 시간 제한이 사용자를 구조할 필요가 없다. 반대로 <b>멀티는 그대로 돈다</b> —
+        /// 기다릴 상대가 있어 60초/30초 규정(규칙 D-4 · M-3)이 그대로 유효하다.
+        /// </para>
+        /// </summary>
+        private bool ShouldStartAutoReturnCountdown => NetworkContext.IsNetworkActive;
+
+        /// <summary>
         /// 「재경기 준비 중」 상태의 맵 준비 한도 코루틴. null 이면 돌고 있지 않다.
         ///
         /// 🔴 <b>이 시계는 아무것도 판정하지 않는다.</b> 승패도, 상대 이탈도, 연결 종료도 하지 않는다.
@@ -610,6 +746,7 @@ namespace Hexiege.Presentation
             _rematchStartingSubscription?.Dispose();
             _backToLobbySubscription?.Dispose();
             _opponentLeftSubscription?.Dispose();
+            _singleMapPreparationFailedSubscription?.Dispose();
 
             // 새 판이 시작되므로 지난 판의 이탈 상태를 지운다.
             // (이 플래그가 남아 있으면 새 결과 화면이 처음부터 이탈 문구로 뜬다)
@@ -624,13 +761,30 @@ namespace Hexiege.Presentation
             //    새 판의 첫 수락 접수 신호가 삼켜져 상태 줄이 「재경기 준비 중...」으로 바뀌지 않는다.
             _rematchAcceptSignalHandled = false;
 
+            // 🔴 **[여기에 _restartMapLoadFailed 를 되돌리는 코드를 넣지 말 것.]**
+            //    다른 깃발들과 나란히 「새 판이니까 지운다」로 두면 맞아 보이는데, **정반대로 동작한다.**
+            //
+            //    [초급자용 설명] 왜 그런가 —
+            //      이 Initialize() 는 맵 로드의 **중간 단계**에서 불린다. 그리고 싱글 맵 준비 실패는
+            //      그보다 **앞** 단계에서 통보된다. 즉 「다시하기」가 실패한 회차에서는
+            //      **깃발이 세워진 뒤에 이 메서드가 지나간다.** 여기서 지우면 그 깃발은
+            //      「다시하기」가 맵 로드에서 돌아와 읽기 **전에** 사라지고, 결과 화면은
+            //      영영 되살아나지 않는다(그리고 아무 오류도 나지 않아 조용히 틀린다).
+            //
+            //    🔴 그래서 이 깃발을 되돌리는 자리는 **OnRestartClicked 한 곳뿐**이다 —
+            //       맵 로드를 부르기 직전에 비우고, 돌아온 직후에 읽고 다시 비운다.
+            //       지난 회차의 값이 남을 창이 애초에 없다.
+
             // 지난 판의 「재경기 준비 중」 시계가 남아 있으면 여기서 확실히 끊는다.
             // (재경기로 씬이 재로드되면 이 컴포넌트도 새로 만들어지지만,
             //  같은 씬에서 Initialize 가 다시 불리는 경로도 있으므로 방어해 둔다)
             StopRematchPreparingLimit();
 
             // 게임 종료 이벤트 구독
-            // NetworkGameEndController가 GameEvents.OnGameEnd를 발행하므로 싱글/멀티 모두 본 구독으로 ShowResult 진입한다.
+            // NetworkGameEndController가 GameEvents.OnGameEnd를 발행하므로 싱글/멀티 모두 본 구독으로 처리된다.
+            // 🔴 [2026-09-28 정정] 종전 주석은 진입점을 다른 메서드 이름으로 적고 있었으나 사실이 아니다 —
+            //    이 구독이 부르는 것은 OnGameEnd() 이고, 그 다른 메서드의 호출부는 0건이다
+            //    (그래서 이번에 주석 처리로 비활성화했다).
             _gameEndSubscription = GameEvents.OnGameEnd
                 .Subscribe(OnGameEnd);
 
@@ -745,6 +899,19 @@ namespace Hexiege.Presentation
             _opponentLeftSubscription = GameEvents.OnNetworkOpponentLeft
                 .Subscribe(_ => OnOpponentLeft());
 
+            // ----------------------------------------------------------------
+            // [싱글 맵 준비 실패] 싱글플레이에서 이번 판의 맵을 만들지 못했다는 통보.
+            //   발행자는 Bootstrap 의 GameBootstrapper 이며, 그 지점은 구조적으로 싱글 전용이다
+            //   (멀티는 맵을 만들지 않고 로비에서 확정된 것을 새기기만 하므로 그 앞에서 갈라진다).
+            //
+            //   🔴 여기서 화면을 바꾸지 않는다 — 깃발만 세운다. 이유는 그 깃발
+            //      (_restartMapLoadFailed)의 주석에 적어 두었다. 요지는 **이 통보가 오는 시점이
+            //      맵 재로드의 한가운데**라서, 지금 결과 화면을 띄워도 같은 호출이 끝나기 전에
+            //      두 번 더 닫힌다는 것이다.
+            // ----------------------------------------------------------------
+            _singleMapPreparationFailedSubscription = GameEvents.OnSingleMapPreparationFailed
+                .Subscribe(_ => OnSingleMapPreparationFailed());
+
             // 다시하기 버튼 이벤트 (중복 등록 방지)
             if (_restartButton != null)
             {
@@ -782,6 +949,7 @@ namespace Hexiege.Presentation
             _rematchStartingSubscription?.Dispose();
             _backToLobbySubscription?.Dispose();
             _opponentLeftSubscription?.Dispose();
+            _singleMapPreparationFailedSubscription?.Dispose();
         }
 
         // ====================================================================
@@ -837,11 +1005,48 @@ namespace Hexiege.Presentation
             Time.timeScale = 0f;
 
             // 자동 로비 복귀 카운트다운 시작 (평시 = 전체 길이)
-            _countdownCoroutine = StartCoroutine(CountdownCoroutine(_autoReturnSeconds));
+            //
+            // 🔴 [단계 F] **멀티에서만 돈다.** 판별은 ShouldStartAutoReturnCountdown 하나가 맡고,
+            //    그 이름이 「왜 그런가」를 대신 말한다(근거는 그 프로퍼티의 주석 — 규칙 D-3 · D-4).
+            //    ⚠️ 코루틴 본문 · StopCountdown() · 두 재시작 진입점은 **그대로 남는다**(멀티가 쓴다).
+            //    즉 이것은 코드를 지우는 것이 아니라 **조건부 실행**이다.
+            if (ShouldStartAutoReturnCountdown)
+            {
+                _countdownCoroutine = StartCoroutine(CountdownCoroutine(_autoReturnSeconds));
+            }
+            else
+            {
+                // 🔴 [단계 E] 싱글은 카운트다운이 없으므로 **상태 줄에 글씨를 쓰는 사람이 없다.**
+                //    그래서 여기서 **명시적으로** 비운다.
+                //
+                //    [초급자용 설명] 왜 「알아서 비어 있을 것」에 기대지 않는가 —
+                //      씬(Game.unity)의 상태 줄 오브젝트에는 **자리표시용 문자열이 직렬화돼 있다.**
+                //      이 프로젝트에서는 **직렬화된 값이 코드 기본값보다 우선**하므로, 아무도 쓰지
+                //      않으면 그 자리표시 문자열이 그대로 보일 수 있다. 지금은 Hide()→StopCountdown()
+                //      의 부수효과가 우연히 그것을 지우고 있지만, 🔴 **부수효과에 기대는 상태를 남기지
+                //      않는다** — 그 부수효과가 사라지는 순간 조용히 되살아나는 종류의 함정이다.
+                //
+                //    🔴 씬의 그 값을 고치는 것으로 대신하지 않는다. 씬만 고치면 같은 함정이
+                //       다른 씬·다른 경로에서 되살아난다(코드가 단일 소스가 아니게 된다).
+                SetStatusLineText(string.Empty);
+            }
         }
 
         /// <summary>
         /// 다시하기 버튼 클릭 시 게임 재시작.
+        ///
+        /// <para>
+        /// 🔴 <b>이 핸들러는 싱글플레이 전용이다.</b> 멀티플레이에서는
+        /// <see cref="SetupRematchButton"/> 이 이 버튼의 리스너를 전부 갈아 끼우므로
+        /// (<c>RemoveAllListeners</c>) 여기로 들어오지 않는다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>맵 재로드가 실패하면 결과 화면을 되살린다</b>(공통 UI 규칙 M-4 둘째 불릿).
+        /// 되살리는 자리가 <b>여기 하나뿐</b>인 이유는 <see cref="_restartMapLoadFailed"/> 주석에 있다 —
+        /// 요지는 맵 재로드가 실패한 뒤에도 끝까지 진행하면서 결과 화면을 <b>두 번 더 닫기</b> 때문에,
+        /// 그것이 전부 끝난 <b>이 자리에서만</b> 다시 띄우는 것이 안전하다는 것이다.
+        /// </para>
         /// </summary>
         private void OnRestartClicked()
         {
@@ -854,8 +1059,85 @@ namespace Hexiege.Presentation
             Hide();
 
             // 맵 재로드 (전체 재초기화)
-            if (_bootstrapper != null)
+            if (_bootstrapper == null) return;
+
+            // 🔴 [싱글 맵 재로드 실패 깃발 — 비우는 자리 ①/②] 지난 회차의 결과가 이번 판정에
+            //    섞이지 않게, 부르기 **직전에** 비운다. (②는 아래 「읽고 나서 비우는」 자리다.)
+            _restartMapLoadFailed = false;
+
+            // 🔴 이 구간이 「지금은 최초 경기가 아니라 다시하기다」를 뜻한다.
+            //    Bootstrap 은 IsRestartMapLoadInProgress 로 이 값을 읽어 **최초 경기용 모달을
+            //    띄우지 않는다**(같은 실패에 안내가 두 겹으로 뜨는 것을 막는다).
+            //    ⚠️ try/finally 로 감싸는 이유: 재로드 도중 예외가 나도 이 구간 표시가 켜진 채로
+            //       남으면, 그 뒤의 **최초 경기 실패에 안내가 영영 뜨지 않는다.**
+            _restartMapLoadInProgress = true;
+            try
+            {
                 _bootstrapper.LoadMap(HexOrientation.FlatTop);
+            }
+            finally
+            {
+                _restartMapLoadInProgress = false;
+            }
+
+            // 🔴 재로드가 실패했다면 지금 되살린다(위 문단의 「이 자리 하나」가 여기다).
+            if (_restartMapLoadFailed)
+            {
+                // 🔴 [싱글 맵 재로드 실패 깃발 — 비우는 자리 ②/②] 읽는 즉시 비운다.
+                _restartMapLoadFailed = false;
+                RestoreResultScreenAfterMapLoadFailure();
+            }
+        }
+
+        /// <summary>
+        /// 🔴 <b>[싱글 전용 구독 핸들러]</b> 싱글플레이 맵 준비 실패 통보를 받았을 때
+        /// <b>깃발만</b> 세운다 — 화면은 건드리지 않는다.
+        ///
+        /// <para>
+        /// 🔴 <b>여기서 결과 화면을 띄우면 안 된다.</b> 이 통보는 맵 재로드의 <b>한가운데</b>에서
+        /// 오고, 그 재로드는 실패한 뒤에도 끝까지 진행하면서 결과 화면을 <b>두 번 더 닫는다.</b>
+        /// UniRx 발행이 동기(같은 호출 스택)라서 <b>바로 그 이유로</b> 이 자리에서 반응할 수 없다.
+        /// 자세한 근거와 「그럼 어디서 띄우는가」는 <see cref="_restartMapLoadFailed"/> 주석 참조.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>최초 경기의 실패는 이 깃발로 처리하지 않는다.</b> 그때는 결과 화면이 아직 떠 있지도
+        /// 않았고 되살릴 것이 없다 — 안내는 Bootstrap 이 띄우는 모달이 맡는다(규칙 M-4 첫 불릿).
+        /// 그래서 <b>「다시하기」 구간이 아니면 깃발을 세우지 않는다.</b>
+        /// </para>
+        /// </summary>
+        private void OnSingleMapPreparationFailed()
+        {
+            if (!_restartMapLoadInProgress) return;
+
+            _restartMapLoadFailed = true;
+        }
+
+        /// <summary>
+        /// 🔴 <b>맵 재로드가 실패했을 때 결과 화면을 되살린다</b>(공통 UI 규칙 M-4 둘째 불릿 —
+        /// *"재경기 맵 준비 실패는 결과 화면의 기존 선택지를 복원한다"*).
+        ///
+        /// <para>
+        /// 하는 일은 둘뿐이다 — ① 결과 패널을 다시 띄운다 ② 상태 줄에 실패를 한 줄로 알린다.
+        /// 🔴 <b>카운트다운은 시작하지 않는다</b> — 싱글에는 그 타이머가 없다(규칙 D-4 의 싱글 적용 범위).
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>팝업(모달)을 띄우지 않는 이유</b>는 규칙 M-3 의 2026-09-22 개정 사유와 같다 —
+        /// 모달이 결과 화면의 「로비로」 버튼을 덮어 <b>사용자가 스스로 나갈 길을 가린다</b>(규칙 D-3).
+        /// 그래서 <b>이미 떠 있는 상태 줄</b>을 쓴다. <b>나중에 여기에 팝업을 넣지 말 것.</b>
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>결과 텍스트(승리/패배)와 버튼은 건드리지 않는다.</b> 이 화면은 조금 전까지 떠 있던
+        /// 바로 그 결과 화면이고, 그 값들은 <see cref="OnGameEnd"/> 가 써 둔 그대로 남아 있다.
+        /// </para>
+        /// </summary>
+        private void RestoreResultScreenAfterMapLoadFailure()
+        {
+            _panel?.Show();
+
+            SetStatusLineText(SingleMapPreparationFailedStatusText);
         }
 
         /// <summary>
@@ -880,37 +1162,57 @@ namespace Hexiege.Presentation
             _panel?.Hide();
         }
 
-        /// <summary>
-        /// 네트워크 모드에서 서버 권위의 승자 팀과 로컬 팀을 비교하여 결과 표시.
-        /// 싱글플레이 OnGameEnd는 Blue 팀 고정이지만,
-        /// 멀티플레이에서는 Red 팀 플레이어도 자신의 승/패를 올바르게 확인해야 함.
-        /// </summary>
-        /// <param name="winnerTeam">서버에서 확정된 승리 팀.</param>
-        /// <param name="localTeam">이 클라이언트의 로컬 팀.</param>
-        public void ShowResult(TeamId winnerTeam, TeamId localTeam)
-        {
-            if (_panel == null) return;
-
-            bool isWin = (winnerTeam == localTeam);
-
-            if (_resultText != null)
-            {
-                _resultText.text = isWin ? "승리!" : "패배!";
-                // 색상 설정 에셋이 연결되어 있으면 그 값을, 아니면 합리적인 폴백 색을 사용한다.
-                // (Inspector 미연결 시에도 시각적으로 승/패 구분이 가능하도록 안전 가드.)
-                if (_colorConfig != null)
-                    _resultText.color = isWin ? _colorConfig.winColor : _colorConfig.loseColor;
-                else
-                    _resultText.color = isWin ? new Color(0.3f, 0.5f, 0.9f) : new Color(0.9f, 0.3f, 0.3f);
-            }
-
-            _panel?.Show();
-            // 게임 일시정지
-            Time.timeScale = 0f;
-
-            // 자동 로비 복귀 카운트다운 시작 (평시 = 전체 길이)
-            _countdownCoroutine = StartCoroutine(CountdownCoroutine(_autoReturnSeconds));
-        }
+        // ====================================================================
+        // 🔴 [비활성화 — 주석 처리, 2026-09-28] 아래 메서드는 **호출부가 0건**인 죽은 코드다.
+        //
+        //   무엇이었나: 네트워크 모드에서 승자 팀과 로컬 팀을 직접 받아 결과를 표시하는 공개
+        //               메서드였다. 지금 실제 진입점은 OnGameEnd() 하나이며(GameEvents.OnGameEnd
+        //               구독), 이 메서드를 부르는 곳은 스크립트·에디터·씬 어디에도 없다.
+        //
+        //   🔴 왜 비활성화하는가 — 이 안에 **자동 로비 복귀 카운트다운을 시작하는 두 번째 자리**가
+        //      들어 있다. 규칙 D-4 의 2026-09-28 확정으로 싱글에는 그 카운트다운이 없어졌는데,
+        //      나중에 누군가 이 메서드를 부르기 시작하면 **그 확정이 코드에서 조용히 깨진다**
+        //      (컴파일도 통과하고 멀티도 정상이라 아무 경보가 울리지 않는다).
+        //
+        //   🔴 왜 지금 지우지 않는가 — Assets/_Project/Docs/WORKFLOW.md [4] 「기존 로직 제거 규칙」:
+        //      검증 전까지는 「삭제」가 아니라 「주석 처리로 비활성화」가 기본이고, 최종 삭제는
+        //      **[6] 사용자 테스트 통과 후 · [7] 문서 업데이트 전**에 한다.
+        //      그래서 아래는 **주석 기호만 떼면 그대로 되살아나는 상태**로 남겨 두었다.
+        //
+        //   되살려야 하는 조건: 서버가 확정한 승자를 **이벤트 없이 직접** 화면에 넘겨야 하는
+        //      경로가 새로 생겼을 때. 그때도 카운트다운 시작 줄은 위 확정에 맞춰 다시 봐야 한다.
+        // ====================================================================
+        // /// <summary>
+        // /// 네트워크 모드에서 서버 권위의 승자 팀과 로컬 팀을 비교하여 결과 표시.
+        // /// 싱글플레이 OnGameEnd는 Blue 팀 고정이지만,
+        // /// 멀티플레이에서는 Red 팀 플레이어도 자신의 승/패를 올바르게 확인해야 함.
+        // /// </summary>
+        // /// <param name="winnerTeam">서버에서 확정된 승리 팀.</param>
+        // /// <param name="localTeam">이 클라이언트의 로컬 팀.</param>
+        // public void ShowResult(TeamId winnerTeam, TeamId localTeam)
+        // {
+        //     if (_panel == null) return;
+        //
+        //     bool isWin = (winnerTeam == localTeam);
+        //
+        //     if (_resultText != null)
+        //     {
+        //         _resultText.text = isWin ? "승리!" : "패배!";
+        //         // 색상 설정 에셋이 연결되어 있으면 그 값을, 아니면 합리적인 폴백 색을 사용한다.
+        //         // (Inspector 미연결 시에도 시각적으로 승/패 구분이 가능하도록 안전 가드.)
+        //         if (_colorConfig != null)
+        //             _resultText.color = isWin ? _colorConfig.winColor : _colorConfig.loseColor;
+        //         else
+        //             _resultText.color = isWin ? new Color(0.3f, 0.5f, 0.9f) : new Color(0.9f, 0.3f, 0.3f);
+        //     }
+        //
+        //     _panel?.Show();
+        //     // 게임 일시정지
+        //     Time.timeScale = 0f;
+        //
+        //     // 자동 로비 복귀 카운트다운 시작 (평시 = 전체 길이)
+        //     _countdownCoroutine = StartCoroutine(CountdownCoroutine(_autoReturnSeconds));
+        // }
 
         // ====================================================================
         // 로비 복귀 + 카운트다운
@@ -1019,6 +1321,36 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
+        /// 🔴 <b>상태 줄(<see cref="_countdownText"/>)에 글씨를 쓰는 자리 — 여기 하나로 모았다.</b>
+        ///
+        /// <para>
+        /// <b>[초급자용 설명] 왜 필드에 직접 대입하지 않고 메서드를 거치는가</b><br/>
+        /// 이 자리에 글씨를 쓰는 주체가 <b>둘</b>이 됐다 — ① 멀티의 자동 복귀 카운트다운(매 초 갱신)과
+        /// ② 싱글의 실패/평시 표시(한 번만 쓴다). 두 주체가 각자 필드에 직접 대입하면
+        /// <b>null 검사 같은 공통 처리가 두 벌</b>이 되고, 나중에 한쪽만 고쳐져 동작이 갈린다.
+        /// 그래서 <b>쓰는 통로를 하나로</b> 두고 둘이 그것을 함께 쓴다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>이 메서드는 「무엇을 쓸지」 정하지 않는다.</b> 문구를 고르는 일은 부르는 쪽의 몫이며
+        /// (멀티는 <see cref="CountdownCoroutine"/> 안의 3분기, 싱글은 상수 하나),
+        /// 여기에 분기를 넣으면 <b>문구 판정이 두 곳으로 흩어진다.</b>
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ 씬 배선이 빠져 있을 수 있으므로 null 검사는 <b>이 안에서</b> 한다. 부르는 쪽은
+        /// 그것을 신경 쓰지 않아도 된다.
+        /// </para>
+        /// </summary>
+        /// <param name="text">상태 줄에 표시할 문장. 빈 문자열이면 상태 줄이 비워진다.</param>
+        private void SetStatusLineText(string text)
+        {
+            if (_countdownText == null) return;
+
+            _countdownText.text = text;
+        }
+
+        /// <summary>
         /// 자동 로비 복귀 카운트다운. WaitForSecondsRealtime 사용 (timeScale=0 대응).
         ///
         /// 문구는 <b>상대 이탈 여부에 따라 이 메서드 안의 분기 하나로만</b> 갈린다(공통 UI 규칙 D-1).
@@ -1078,10 +1410,14 @@ namespace Hexiege.Presentation
                     //      ⚠️ 우선순위(이탈 > 실패 > 평시)는 **바뀌지 않았다.** 갈라진 것은
                     //         「실패」 분기 **안쪽**뿐이다.
                     //      ⚠️ 사유를 **모르면** 기본 문구를 쓴다 — _rematchFailureCause 주석 참조.
-                    _countdownText.text =
+                    // 🔴 [2026-09-28] **바뀐 것은 이 대입이 setter 호출이 된 것 하나뿐이다.**
+                    //    아래 세 분기의 조건식 · 우선순위 · 문구 상수는 한 글자도 바뀌지 않았다.
+                    //    상태 줄에 글씨를 쓰는 자리를 하나로 모으는 변경이며(싱글도 같은 통로를
+                    //    쓴다), 그 근거는 SetStatusLineText 의 주석에 있다.
+                    SetStatusLineText(
                           _opponentLeft  ? string.Format(OpponentLeftCountdownFormat, seconds)
                         : _rematchFailed ? string.Format(SelectRematchFailedFormat(), seconds)
-                        :                  string.Format(NormalCountdownFormat, seconds);
+                        :                  string.Format(NormalCountdownFormat, seconds));
                 }
                 yield return new WaitForSecondsRealtime(1f);
                 remaining -= 1f;
