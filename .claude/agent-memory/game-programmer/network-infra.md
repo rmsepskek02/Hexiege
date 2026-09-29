@@ -78,10 +78,30 @@ type: project
 - AI 이동 서버 권한: ProductionTicker에 _networkMovement 주입, 클라이언트는 BroadcastMoveClientRpc 수신
 
 ## Phase 7 — 승패 판정
+
+> ### 🔴 먼저 읽을 것 — 아래 「설계 원칙」의 **멀티 한 줄은 사실과 다르다** (2026-09-29 정정)
+>
+> 🔴 **아래 멀티 흐름도의 마지막 화살표는 죽은 진입점을 가리킨다.** 그 자리에 적힌 `GameEndUI` 메서드는
+> **호출부가 0건이던 죽은 코드**였고 **2026-09-29 회차에 최종 삭제됐다**(52줄). 흐름도만 믿고 따라가면
+> **없는 메서드를 찾게 되고, 결과 화면이 뜨는 진짜 경로를 못 본다.**
+>
+> ✅ **실제 흐름(2026-09-29 코드 실측)** — 마지막 두 칸만 다르다:
+> `서버 OnGameEnd` → `NetworkGameEndController.OnGameEndServer()`(`:308`) → `AnnounceWinnerClientRpc`(`:389`)
+> → 🔴 **그 RPC 안에서 `if (!IsServer)` 일 때만 `GameEvents.OnGameEnd` 를 다시 발행**(`:406`)
+> → **`GameEndUI.OnGameEnd()`**(`GameEndUI.cs:984`, 구독은 `:788`).
+> 즉 **싱글과 멀티가 같은 진입점 하나(`GameEndUI.OnGameEnd`)로 모인다** — 갈라지는 것은
+> 「누가 그 이벤트를 발행하는가」뿐이다(서버는 이미 발행된 상태, 클라는 RPC 가 발행).
+> `localTeam 기준` 보정도 그 메서드가 따로 받는 인자가 아니라 **`LocalPlayerTeam.Current` 를 읽어** 처리된다.
+>
+> ⚠️ **이 오해가 실제로 값을 물렸다** — 2026-09-29 작업에서 정정 대상을 **세 곳으로 착각**하게 만든 원인이
+> 바로 이 줄이다(다른 두 곳은 「언급」인데 이 줄은 **전제**였다).
+> 🔴 **그래서 원문을 지우지 않고**(`.claude/MEMORY.md` B-7) **정정을 절 머리로 끌어올렸다.**
+
 - `NetworkGameEndController.cs` — AnnounceWinnerClientRpc + ForceWin()
 - 설계 원칙:
   - 싱글: GameEndUseCase → OnGameEnd → GameEndUI.OnGameEnd
   - 멀티: 서버 OnGameEnd → NetworkGameEndController → AnnounceWinnerClientRpc → ShowResult(localTeam 기준)
+    **[🔴 2026-09-29 — 이 한 줄은 틀렸다. 절 머리의 정정 블록을 보라. 원문은 B-7 에 따라 남긴다.]**
   - 클라이언트 GameEndUseCase는 OnGameEnd 발행 안 함
 - **로비 복귀 설계 (2026-03-17 변경)**:
   - RPC 기반 로비 복귀 제거됨 — 각 클라이언트가 독립 로컬 처리
@@ -1074,3 +1094,36 @@ Rule source: `GameSystemRules_RandomMap.md` **규칙 18**(사유에 따라 문�
   양쪽에 `Origin=MapFailedNotice` 를 쓴다. 수락자 쪽은 바로 앞의 `catch` Warn 줄로 구별되므로 지금은 충분하다 —
   **테스트해 보고 실제로 구분이 안 되면 그때 넓힌다.**
 - ⚠️ **`.meta` 파일 미생성** — 새 스크립트는 Unity 가 다음 임포트에서 GUID 를 만든다(에이전트가 만들지 않았다).
+
+---
+
+## 강제 실패 플래그 ⑤ — 「싱글 맵 준비 실패」 (2026-09-29, 구현 + 실기 2회 발화)
+
+🔴 **이것만 네트워크가 아니다.** 앞의 ①~④ 는 전송/수락 계통이라 `Infrastructure/Debug/` 에 있는데,
+이번 것은 **싱글 경로**라 **`Assets/_Project/Scripts/Bootstrap/Debug/ForcedMapPreparationFailure.cs`** 에 있다.
+여기 적는 이유는 하나 — **「강제 실패를 하나 더 만든다」는 사람이 찾아오는 자리가 이 절이기 때문**이다
+(패턴은 ④ 와 같다: `EditorPrefs` · 1회용 `TryConsume` · 파일 전체 `#if UNITY_EDITOR` · 메뉴 묶음 합침).
+주입 자리는 `Bootstrap/GameBootstrapper.Map.cs` 의 `PrepareMap()` 뒤(`:693` 부근),
+결과 조립은 같은 파일 `BuildForcedFailureResult()`(`:793`).
+
+### 🔴 되풀어 쓸 판단 — 표식은 「정상 경로에서 만들어질 수 없는 조합」으로 만든다
+
+- **쓴 표식**: `MapPreparationErrorCode.None` **+ 실패**. 즉 `Success=false` 인데 사유 코드가 `None`.
+- **왜 그 조합이 안전한가(추정 아님)**: 진짜 실패는 `Application/UseCases/MapPreparationUseCase.cs` 의
+  `BuildFailure(...)` 를 통해서만 나오고, 그 **호출부는 `:317` · `:358` 두 곳뿐이며 둘 다 구체 사유 코드를 싣는다.**
+  → **「실패 + None」은 정상 경로에서 조립될 수 없다.**
+- 🔴 **그래서 enum 값을 새로 추가하지 않았다.** enum 의 숫자 값은 **로그에 그대로 남는 값**이라 함부로 늘리면
+  과거 로그의 숫자 의미가 흔들린다. **기존 값의 「빈 칸」을 표식으로 쓰는 쪽이 로그 계약을 건드리지 않는다.**
+- ⚠️ **조기 반환하지 않고 결과 객체만 실패로 바꾼다.** 곧바로 돌아가면 **진짜 실패가 남기는 운영 로그 한 줄이 빠져**
+  「테스트에서 본 모양」과 「실제로 나는 모양」이 달라진다. 맵 버전·seed·유형 같은 **「어느 판인가」 값은 그대로 옮긴다**
+  (비우면 강제 실패 로그만 모양이 달라진다).
+- 사유 문장은 별도 `const ForcedFailureReason` 으로 두어 **로그 한 줄만 보고 실제 장애가 아님을 알 수 있게** 한다.
+
+### 검증
+
+- ✅ **실기에서 2회 발화**(로그 원본 확인). 🔴 **그러나 「진짜 실패」 경로는 이번에도 발화 0회** —
+  확인된 것은 **강제 표식이 붙은 실패의 화면·로그**뿐이다.
+- 🔴 **Unity 에디터 컴파일 미확인**(`GameBootstrapper.Map.cs` 는 `UnityEngine` 의존, 헤드리스 불가).
+
+> 이 플래그가 띄우는 **화면**(최초 경기 모달 / 재경기 상태 줄)과 그 회차의 함정은
+> [ui-system.md](ui-system.md) 「🔴 규칙 M-4 — 싱글 맵 준비 실패 안내 (2026-09-29)」 절에 있다.
