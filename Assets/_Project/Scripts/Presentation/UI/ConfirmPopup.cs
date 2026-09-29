@@ -189,8 +189,11 @@ namespace Hexiege.Presentation
         /// </para>
         /// </summary>
         /// <param name="title">팝업 제목 (예: "알림"). 비어 있으면 제목 자리가 숨는다.</param>
-        /// <param name="message">본문 메시지 (예: "상대방이 떠났습니다.").</param>
-        /// <param name="buttonLabel">유일한 버튼의 라벨 (예: "로비로").</param>
+        /// <param name="message">본문 메시지. 사용자에게 지금 무슨 일이 생겼는지 알리는 한 문장을 넣는다.
+        /// ⚠️ 이 설명문에 실제 화면 문구를 예시로 베껴 적지 않는다 — 그 문구가 코드에 한 곳만
+        /// 있는가를 세는 검사가 설명문까지 함께 세어 거짓을 말하게 되기 때문이다.</param>
+        /// <param name="buttonLabel">유일한 버튼의 라벨. 눌렀을 때 어디로 가는지를 알려 주는
+        /// 짧은 말을 넣는다. ⚠️ 이곳에도 실제 화면 문구를 예시로 적지 않는다(위와 같은 이유).</param>
         /// <param name="onClick">버튼 클릭 시 호출될 콜백. null이면 닫히기만 한다.</param>
         public void ShowAlert(string title, string message, string buttonLabel, Action onClick)
         {

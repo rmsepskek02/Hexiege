@@ -3516,3 +3516,42 @@ The calling session numbered its test procedure `F`~`J` but transmitted the *con
 **12. Verification for this round.**
 `check_docs.py` = 0 covers the rule document, the TDD, the status docs and the roadmap; **the Plan lives under `_Tasks/` and is outside the scan set**. So by hand: ① pipe count per edited table row with `(?<!\)\|` — 🔴 **an insert that keeps the *original* cell tail after your own new cell silently adds a pipe; I hit exactly that and had to repair five rows** ② every `§`-anchor referenced from another document exists ③ sentences that had to stay untouched verified with `grep -cF … = 1`. 🔴 **The baseline is stale in the increase direction (+237 lines in another agent's folder) and I was forbidden to run `--update-baseline` — report it, because a delayed increase makes the next decrease look smaller than it is.**
 
+
+## §46. Closing 「미구현」 head-block markers in **three different rules of one document**, pinning a 「do **not** merge these copies」 judgement as a rule block, and taking **one fragment** out of a roadmap status cell without deleting the row (2026-09-29 (4th), 경기 종료 후 UI 마무리 / 규칙 D-3 · D-7 · D-8 · M-4)
+
+**Round shape.** Documentation-only half of a round whose code half ran **in parallel in another agent**. Four items: a 「합치지 않는다」 judgement as one rule block, three stale sentences given update pointers, two pinned `⚠️ 미정` items closed, and one roadmap status fragment taken down. Zero lines of code or scene touched.
+
+**1. 🔴 A `> **[… 미구현 …]**` block sitting at the *top* of a rule is the most-read line in that rule — and the pointer that closes it needs a blank line, or it is absorbed.**
+Appending `> …` directly after the last `> …` line of a dated block produces **one continuous blockquote**: the reader sees your 2026-09-29 pointer as a continuation of the 2026-09-22 block. I hit this on **all three** sites and had to insert a blank line before each. 🔴 **Separating blank line is not cosmetic — it is what makes the new block a *new dated block*.** Check it by printing the two lines before each new header.
+
+**2. 🔴 A stale line that asserts **two** things needs a pointer that names which half closed and *refuses* the other.**
+`규칙 D-3`'s line said ① the rule's second half was never confirmed **and** ② the leave-detection itself was unimplemented. Only ② was falsified. The pointer therefore closes ② and adds: 「이 포인터가 닫는 것은 「미구현」 한 조각뿐이다 … **「판정할 수 있게 됐다」와 「판정했다」는 다른 사실이다**」. Without that sentence the pointer reads as closing the whole line — which would be an overstatement of exactly the kind `CLAUDE.md` 규칙 10 forbids.
+
+**3. 🔴 The evidence for closing a marker is usually already inside the same document — grep the *claim*, not the subject.**
+Grepping 「미구현」 across the rule document found a **sibling rule (D-4)** whose own 2026-09-22 block had already closed the same claim (「단계 7 에서 구현됐다」). So the pointer cites *that block by name* and copies nothing. Same for D-8: two lines inside D-7 already said 「규칙 D-8 은 이후 닫혔다」 and named the single source. ✅ **Three markers, three pointers, zero new facts written.**
+
+**4. 🔴 A 「do not merge these N copies」 judgement must be written **about** the copies, never **with** them.**
+The block names the three sites by **rule name + 자리** (status line / modal body / lobby-screen transfer notice) and its ⓐ ground is 「**끝의 마침표 유무**가 서로 다르고 그 차이가 사양이다」. Quoting the string would have made the block **the N+1-th copy** and poisoned the grep that counts copies. 🔴 **The verifiable claim is not 「hit count unchanged」 but 「every hit is at a line number *before* my new block starts」** — measure it that way (here: 5 hits, all before line 437; new blocks start at 438).
+- ⓑ is the ground worth writing, because ⓐ was already in the code comments: **the two rules can be revised separately, so merging creates a 「거짓 단일 소스」** — one reviser silently changes the other screen.
+- 🔴 **Say out loud that the N copies are the *intended* state**: 「셋이 각자의 값 자리에 따로 있는 것이 이 판정이 뜻하는 상태이며, 한 상수로 끌어모으는 것이 이 판정에 반한다」. Otherwise the next reader files the same 「중복」 report.
+
+**5. 🔴 Closing two pinned `⚠️ 미정` items: pair them by the *original block's own numbering*, and the hard half is what did **not** spread.**
+- Table columns = 미정 (the old block's number) / 닫힌 내용 / 근거. Numbering by the source block makes the closure decidable instead of narrative.
+- 🔴 **「상태 줄 + 타이머 없음」, not 「상태 줄 + 전체 길이 재시작」.** The sibling rule bundles a status line *with* a countdown restart; the singleplayer side has **no clock to restart**, so half the bundle does not travel. Write the negation explicitly and point at the block that owns it.
+- 🔴 **Narrow the scope in the same breath**: the sibling-matching only happens on the **rematch** path; the **first game** is still a modal. That makes the old sentence 「두 규칙이 서로 다른 수단을 갖는다 — M-3 은 상태 줄, M-4 는 팝업이다」 **half-true**, which is a scoped correction, not a deletion.
+- 🔴 **The old 「찾지 못했다」 measurement gets 「없어서 만든 것」, not a retraction** — 「그 경로는 그 뒤에 신설됐다」. 「찾지 못했다」 was true when written.
+
+**6. 🔴 Taking **one fragment** out of a roadmap status cell is a different operation from taking the row down.**
+The cell already read `~~A~~ → ~~B~~ → C`; the edit adds **one more stage**: strike `C`, append `D`. Nothing is deleted, the row's total line count of the file is unchanged (383 → 383), and the pipe count must be re-counted (5 = 4 cells).
+- 🔴 **The row survives because a *different* fragment is its only home** — 「멀티 확대 판단 대기」. Write that sentence in the new block, with the code measurement that shows the size (the multiplayer call site **discards** the projection function's result; the two existing multiplayer notify channels belong to other stages), so nobody reads the surviving row as leftovers of the finished work.
+- 🔴 **Never convert 「발화 0건」 into 「없다」.** The replacement is **「빈도 미확정」 + name the watchdog**, because 「not observed」 and 「does not happen」 are different claims and the row was taken down on the ground that *nothing needs remembering*, not that nothing can happen.
+
+**7. 🔴 Naming a watchdog without naming the key.**
+Writing the log key into a document pollutes the very grep that asks 「does this fire on a *real* failure too?」 (`.claude/mistakes.md` 주석 사본 함정, 6 occurrences). Point at **file + section** instead, and replace the missing identifier with the **structural fact the reader actually needs**: the logging site sits **outside the compile branch that creates the forced-failure tool**, therefore it fires without the forced marker. Record the pre-work line number *and* 「행 번호는 코드가 움직이면 어긋나므로 자리는 파일과 절로 가리킨다」 in the same parenthesis.
+
+**8. 🔴 My own deviation worth remembering: re-wording a handed-over rationale on a **different axis** is a silent spec change.**
+The plan's ground ⓑ was 「**전투 씬에 들어가기 전** vs 전투 씬 안」 (a *when* axis). I first wrote 「맵을 보내고 받는 단계 vs 맵을 만들고 새기는 단계」 (a *which stage* axis) — same three sites, different discriminator, and it no longer matched the code comments a reader would compare it against. The code settled it (`OnMapTransferFailed 의 구독자는 **로비 화면의 ViewModel**`), so I reverted to the handed axis and added 「로비 화면」. 🔴 **Keep the axis of a handed-over rationale; if you think the axis is wrong, report it instead of swapping it.**
+
+**9. Another agent editing the same files at the same time.** Observations of *their* half get a timestamp and an explicit 「이 블록은 그 작업의 결과를 판정하지 않는다」; the execution-record row says 「참고 관측(판정 아님)」. 🔴 **Completeness of what you see is not a verdict** (§39-4).
+
+**10. Verification for a letter-prefixed-rule round.** `check_docs.py` = 0 / EXIT=0 says **nothing** about `M-`/`D-`/`L-` rules — it registers only `**규칙 N. 제목**`. So by hand: ① each cited block **name** exists in the document (5 cross-references here) ② pipe count per new table row with `(?<!\)\|` ③ `grep -cF … = 1` for every sentence that had to stay untouched (4 stale lines + the 미정 1·2 items + the 「서로 다른 수단」 line) ④ new quote hits are **all inside my own block** (303·304 kept 1 each; the new hits are 444·445) ⑤ the block line ranges written into the Plan re-measured *after* the blank-line repairs (three of five were off by one). 🔴 **The baseline was stale in the increase direction (another agent's folder, +162) and running `--update-baseline` was forbidden — reported instead.**

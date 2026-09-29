@@ -5,6 +5,41 @@
 
 ---
 
+## 🔴 이 파일이 담는 것 — 색인에서 내려온 상세 목차 (2026-09-29 이동)
+
+> 이 목록은 `MEMORY.md` 「토픽 파일 인덱스」의 **이 파일 항목**에 들어 있던 상세다.
+> 색인은 **매 작업마다 읽는 파일**이라 거기에는 한 줄 포인터만 남기고(C-8 · C-11)
+> 실측값 · 작업 순서 · 함정 조건을 여기로 내렸다.
+> 🔴 **삭제가 아니라 이동이다** — 문장은 그대로 옮겼고, 맨 앞의 자기 파일 링크 한 조각만 덜어냈다
+>   (B-6 · E-16 — 폴더 총합 행수가 줄지 않는 것이 이동과 삭제를 가르는 검증법이다).
+> ⚠️ 색인의 포인터는 **지우지 않았다** — 링크가 빠진 토픽 파일은 존재하지 않는 파일이 된다(C-10).
+
+- 헥스 좌표계, HexMetrics, ViewConverter, 타일 소유권, 그리드 렌더링, 패스파인딩,
+  카메라, URP RT 잔상, **거리 비교는 `HexCoord.Distance`(도메인 정수) 우선**,
+  **`HexTile` 상태 계약(`TileKind`/`MineKind`/`HasBuilding` + 계산 프로퍼티 `IsWalkable`) 과
+  무작위 맵 1단계 신설 타입** — 타일 상태·건물 배치/철거 작업은 여기부터 읽는다.
+  **무작위 맵 2단계 A: 결정적 PRNG `MapRandom`(SplitMix64) · 4스트림 `MapRandomStreams` ·
+  seed 파생 순서 · 코드 내장 검증 벡터 · ~~`GameConfig` 테스트 모드 필드 2개~~
+  **[🔴 2026-09-15: 그 필드 2개는 삭제됐다 — 토픽 파일에 정정 블록이 있다]** — 맵 생성 작업도 여기부터 읽는다.
+  **2단계 H: 격자 11×21 전환 · `MapProjectionUseCase`(설계도 → `HexGrid` 투영) · root seed 생성/보관 ·
+  하드코딩 배치 주석 비활성화(`[2단계 대체 대기]`) · I/J/K 미완이 화면에 어떻게 보이는지**
+  🔴 **2단계 I: 판정 조건 전환 — `IsWalkable` 은 건설 판정이 아니다.**
+  신설 계산 프로퍼티 `AcceptsGeneralBuilding` / `AcceptsMiningPost` / `AcceptsCapture`(setter 없음,
+  소유권은 호출부에 남음) · `NoBuild` 만 결과가 달라지는 근거 · 손대면 안 되는 이동 판정 목록 ·
+  AI BFS 확장 조건을 좁히면 안 되는 이유 · `GetBuildingAt` vs `HasBuilding` 중복 전수 조사.
+  **건설/점령 판정을 만지기 전에 반드시 읽는다.**
+  **3단계 C·D(2026-09-09, 동작 무변경): `MapHandoff` 가 맵 계통 어디에 끼는지 ·
+  `PrepareAndProjectMap()` → 래퍼 + `PrepareMap()` + `ProjectMap()` 3분할 ·
+  🔴 가르면서 반드시 지켜야 하는 3가지(리셋 두 줄·가드는 래퍼에 남긴다 / 인자는
+  `MapPreparationResult`) · 임시 고정 seed 는 아직 살아 있다.**
+  🔴 **`ProjectMap` 반환형 `void`→`bool`(2026-09-29 2차): 멀티와 공용인 함수를 「한쪽에서만 다르게」
+  만드는 가장 값싼 수단은 **반환값**이다(C# 이 반환값 무시를 허용해 멀티 호출부 diff 0줄 ·
+  `out` 이나 상태 필드 읽기를 쓰면 안 되는 이유).**
+  🔴 **3단계 I(2026-09-14) 정정: 임시 고정 seed 는 주석 비활성화됐고(`CS1587` 주의),
+  `CreateRootSeed` 싱글 경로는 `Domain/Map/MapRootSeed.Create()` 로 옮겨졌으며,
+  `PrepareAndProjectMap()` 에 멀티 분기(`ProjectHandedOverMap`)가 생겼다 —
+  인계가 비면 대체하지 않고 실패 처리한다.**
+
 ## 헥스 좌표계 (FlatTop)
 
 - FlatTop 헥스, XZ 평면 (Y는 높이)

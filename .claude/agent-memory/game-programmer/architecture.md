@@ -4,6 +4,24 @@
 
 ---
 
+## 🔴 이 파일이 담는 것 — 색인에서 내려온 상세 목차 (2026-09-29 이동)
+
+> 이 목록은 `MEMORY.md` 「토픽 파일 인덱스」의 **이 파일 항목**에 들어 있던 상세다.
+> 색인은 **매 작업마다 읽는 파일**이라 거기에는 한 줄 포인터만 남기고(C-8 · C-11)
+> 실측값 · 작업 순서 · 함정 조건을 여기로 내렸다.
+> 🔴 **삭제가 아니라 이동이다** — 문장은 그대로 옮겼고, 맨 앞의 자기 파일 링크 한 조각만 덜어냈다
+>   (B-6 · E-16 — 폴더 총합 행수가 줄지 않는 것이 이동과 삭제를 가르는 검증법이다).
+> ⚠️ 색인의 포인터는 **지우지 않았다** — 링크가 빠진 토픽 파일은 존재하지 않는 파일이 된다(C-10).
+
+- 레이어 구조/제약, 정적 홀더(**`MapHandoff` 「읽고 비운다」 +
+  `Clear()` 배선 정정 · `MapRootSeed`(Domain) 를 왜 Domain 에 뒀는가 포함**),
+  GameBootstrapper, SO Config 패턴,
+  DontDestroyOnLoad, **에디터 셋업 스크립트 패턴 + 배치 관례(`Assets/Editor/Setup/`·`Hexiege.EditorTools`)
+  와 저장 반영(`SetDirty`+`MarkSceneDirty`)**,
+  🔴 **기존 프리팹 '에셋' 을 여는 스크립트(2026-09-21 첫 사례) — `LoadPrefabContents`→`SaveAsPrefabAsset`
+  순서 · `SetDirty` 가 필요 없는 이유 · Ctrl+Z 가 안 되므로 멱등 + 「다 찾은 뒤에 고치기」 두 겹 ·
+  형제 순서 지정의 멱등 계산 · TMP 자식은 형제에서 복사하되 머티리얼을 font 다음에 대입**
+
 ## 레이어 구조 (의존 방향)
 
 Domain → Application → Core → Infrastructure → Presentation → Bootstrap
