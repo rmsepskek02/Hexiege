@@ -3458,3 +3458,61 @@ Three cited line numbers (a literal's site, and three `StopCountdown()` dependen
 
 **15. Verification for a round like this (the checker says almost nothing).**
 `check_docs.py` = 0 covers only the rule document and the roadmap; the Plan lives under `_Tasks/` and is **outside the scan set**. So: ① pipe count per table row with `(?<!\\)\|` across **both** edited files, ② every `§15-x` anchor referenced from elsewhere exists as a heading, ③ every sentence that had to stay untouched verified with `grep -cF … = 1` (here 7 in the Plan, 3 in the rule doc, 5 in the roadmap). 🔴 **Adding lines to the agent-memory folder needs an increase-direction `--update-baseline`, which this round was forbidden to run — report it so it is not delayed** (a delayed increase makes the *next* decrease look smaller than it is).
+
+---
+
+## §45. The round where a **batch of follow-ups shipped and was field-verified**, two roadmap rows finally came **down**, and a doc tool's missing entries were backfilled (2026-09-29 (2nd), 싱글 맵 준비 실패 UI / 규칙 M-4 범위 · 강제 실패 플래그 ⑤⑥)
+
+**Round shape.** §44 appended follow-ups `H`~`K-2` to a finished Plan as `⬜ 미착수`. This round they shipped, plus **two items that were not in the plan at all** (`L` a second scene placeholder, `M` a new dev toggle). Four roadmap rows had to be judged, and the TDD's dev-tool section turned out to be **two entries behind the code**.
+
+**1. 🔴 Taking a roadmap row down is decided per row, and the answer can differ inside one batch — 2 down, 2 kept.**
+Method (§43-9, applied four times): follow the row's own leftovers, then ask **what the row is the only pin for**.
+- **Down** — the scene-placeholder row and the status-line-unification row: every leftover they named measured out at zero, *including the one that row itself had flagged as unverified* (「does `StopCountdown()`'s clear-then-refill premise break?」 — the field log showed the stop→refill pair in both touched sites).
+- **Kept** — 🔴 **both for 「judgement pending」, not 「unfinished implementation」.** One row is the **only work-item home** for 「should this scope widening extend to multiplayer?」 (a rule document says *「정하지 않았다」* but never opens a work item — that is ROADMAP's job). The other still holds **one live copy in the other mode's path**.
+- 🔴 **A fact that lived only in a row you are deleting must move to the round's update block first.** Here: 「the scene placeholder was **two** sites, not one — the plan had counted one」. Written into ROADMAP's top block *because* the row was going away, and said so in the same sentence.
+- **The stale enumerations in earlier blocks** (「새로 세운 행 4개」 / 「별건 3개」) get **one pointer bullet** naming which of them are now gone. Originals untouched.
+
+**2. 🔴 A capability that was *structurally unreachable* is the strongest thing a round like this can report — say why it was unreachable.**
+The new failure point sits **after** an existing forced-failure toggle's stage, and that stage's failure makes the caller **return before the later stage is ever called**. So the old toggle could never produce the new screen. The log proves reachability by the **pair in one match**: `MapPreparationSucceeded` → forced marker → `MapProjectionFailed`. 🔴 **That ordering is the artifact**, not the failure line alone.
+- Consequently the new toggle needed **its own store**, and the rationale is **「도달 불가」, not 「different kind of value」** — sharing a key means the earlier stage consumes it and the later stage **never fires, ever**. Record that contrast against the earlier sibling's rationale, or a reader assumes one rule covers both.
+
+**3. 🔴 A doc section describing a tool can fall *two* entries behind, and both must be added with the *difference* spelled out.**
+The TDD section listed ①~④; the code had ⑤ (added a day earlier) and ⑥ (this round). Backfilling is not 「add two rows」 — the new ones **break two invariants the section stated for ①~④**: they fire on the **first match too** (①~④ are rematch-only), and they are **single-player only**. Both had to be written as explicit contrasts.
+- 🔴 **The `Error Pause` caveat is per-entry, not per-section.** ①②③ need it off (`[ERROR]` outcome), ④ does not (`[WARN]` only), and ⑤⑥ need it off again. Saying 「⑤·⑥ 은 ①②③ 과 같고 ④ 와 다르다」 is the whole point — a reader who generalised from ④ gets it wrong.
+- 🔴 **Write the "both armed" trap into the doc, not just the code.** The confirm menu warns about it at runtime, but the person reads the doc first: *「준비와 투영을 동시에 예약하면 준비만 발동하고 투영 예약은 남는다」* plus the reason.
+
+**4. 🔴 Grading is per item and the grades split four ways in one execution table.**
+- **Log direct observation** — the new failure path (2 firings) and the touched multi sites (the stop→refill pairs).
+- **End-state measurement only** — the comment-copy removal and the label single-source: 🔴 **there is nothing for a field test to measure** when the動作 diff is zero or only a value's *home* moved. Say that, or the empty 실기 column reads as a gap.
+- **Scene-file measurement + user's on-screen confirmation** — and 🔴 **these stay two facts** (§36). The second scene site is the *more* important one because it is where the win/lose text appears.
+- **「실기 사용 확인」** for the dev tool — it fired; that is not a spec verification.
+
+**5. 🔴 「Unity compile unverified」 can be closed without running Unity — by two artifacts, and only that far.**
+① the new file's **`.cs.meta` exists** ⇒ the editor **imported** it ② that code **ran twice in the field** ⇒ it **compiled**. 🔴 **But 「compile warnings = 0」 stays open**, because the log has no place for a warning tally. **「오류 없이 돌았다」 and 「경고가 없다」 are different claims** — write both halves or the reader collapses them.
+
+**6. 🔴 A count the previous round measured can be *right about what it found and short about the world*.**
+The plan measured **one** scene placeholder; there were **two**. 🔴 **The repair is not 「the number was wrong」 but 「the search reached one site」** — the old table stays, and the new item (`L`) carries the difference. And since **both sites hold the same revert value**, the revert note must say **how to tell them apart** (fileIDs), or restoring hits the wrong object.
+
+**7. 🔴 A 「judge whether they are mergeable」 item can close as **「do not merge」**, and that is a *conclusion*, not 「미착수」.**
+Three copies of one phrase differ only by a trailing period; the period is **spec** (status line = sentence / modal = rule-confirmed token). So the verdict is 「합치지 않는다」, the reason goes into **code comments at both sites**, and the row's state cell must say **종결**, not 미착수. 🔴 **The third copy, in the other mode's path, is what keeps the row alive** — same string, but a different rule owns it and that widening was never approved.
+
+**8. Labels that *did* merge — say the dependency direction is allowed and already existed.**
+Two button labels went 2 sites → 1. The claim worth writing is not 「moved to a constant」 but 🔴 **「the reference direction is a permitted one and that reference already existed ⇒ new dependency edges 0」**. Without that sentence the merge looks like it may have inverted a layer boundary.
+
+**9. 🔴 The comment-copy trap reached its **6th** occurrence and the counted set widened *twice more in one round*.**
+文구(3rd) → assignments·log `key=value`(4th) → identifiers(5th) → **ⓐ a markup token (an XML tag name written as prose) and ⓑ the type name a *prohibition* check counts**.
+- 🔴 **ⓐ is new in kind**: the first five polluted a **grep count**; this one broke a **structural balance check** (open tags vs close tags, 9 vs 8). So the rule is no longer 「what a verification grep counts」 but **「any token an automated check reads」**.
+- 🔴 **ⓑ inverts the false-positive direction**: the 5th made 「something appeared that did not exist」; ⓑ makes 「something that is not a violation is reported as one」 (the name inside a comment reads as a reference outside the guard).
+- 🔴 **「point at it by name」 is now wrong for a third case**: a prohibited type is pointed at **by its *character*** (here: 「the editor's preference store」), never its name. And the only legitimate home for the banned token is **a comment saying why it is not used** (mirror image of the 2026-08-26 entry).
+- **The agent caught both before commit again.** Six for six, always while knowing the trap ⇒ the countermeasure remains **procedure**, and the procedure's object list now includes structure checks, not only greps.
+- ⚠️ **Do not grow the round's mistake count**: the handover said one mistake this round, so the entry is **appended as the 6th occurrence** and no new item is created (same discipline as the 2026-09-29 self-correction that was folded in rather than listed).
+
+**10. A cumulative editor log needs its *span* named every time.**
+`RuntimeLog.txt` reached 1,225 lines and now holds **two rounds** (13:xx = previous, 23:xx = this one). Every count (`[ERROR]` 4 in the file, **2 in this round's span**) is false without the span. 🔴 **State the span in the same sentence as the number**, and remember the device log is the opposite shape (a new folder per round).
+
+**11. Where a label I was not given must not be invented.**
+The calling session numbered its test procedure `F`~`J` but transmitted the *content* of only `I` and `J`. 🔴 **The results table is therefore written by content, with one line saying it is not a per-item mapping of that procedure** — naming `F`·`G`·`H` would have been a guess (규칙 10).
+
+**12. Verification for this round.**
+`check_docs.py` = 0 covers the rule document, the TDD, the status docs and the roadmap; **the Plan lives under `_Tasks/` and is outside the scan set**. So by hand: ① pipe count per edited table row with `(?<!\)\|` — 🔴 **an insert that keeps the *original* cell tail after your own new cell silently adds a pipe; I hit exactly that and had to repair five rows** ② every `§`-anchor referenced from another document exists ③ sentences that had to stay untouched verified with `grep -cF … = 1`. 🔴 **The baseline is stale in the increase direction (+237 lines in another agent's folder) and I was forbidden to run `--update-baseline` — report it, because a delayed increase makes the next decrease look smaller than it is.**
+
