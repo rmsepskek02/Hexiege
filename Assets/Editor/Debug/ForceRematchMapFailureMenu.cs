@@ -35,6 +35,22 @@
 //   왜 이 도구가 필요한지의 단일 소스는
 //   Assets/_Project/Scripts/Bootstrap/Debug/ForcedMapPreparationFailure.cs 머리말이다.
 //
+// 🔴 **[2026-09-29 추가] 저장소가 넷이 됐다 — 위 두 문단의 「둘」·「셋」은 더 이상 사실이 아니다.**
+//   네 번째는 싱글플레이의 **맵 투영**(만든 맵을 격자에 새기는 단계)을 강제 실패시키는 토글이다.
+//   ⚠️ 싱글 맵에는 이제 항목이 **둘**이며, 서로 **다른 단계**를 실패시킨다.
+//   ┌─ 싱글 두 항목의 차이 (초급자용) ───────────────────────────────────────┐
+//   │  · 「싱글 맵 준비」 — 1단계. 이번 판의 설계도를 **만드는** 데 실패한다.  │
+//   │  · 「싱글 맵 투영」 — 2단계. 만든 설계도를 격자에 **새기는** 데 실패한다.│
+//   │  🔴 1단계를 실패시키면 2단계는 **아예 불리지 않는다.** 그래서 2단계를    │
+//   │     보려면 반드시 「투영」 항목을 따로 예약해야 한다 — 준비 항목으로는   │
+//   │     이 단계를 한 번도 태울 수 없다.                                     │
+//   │  ⚠️ 화면에 뜨는 것은 두 단계가 **완전히 같다**(규칙 M-4 가 사유를 문구로 │
+//   │     가르지 않는다). 로그의 사유 문장으로만 어느 단계인지 구별된다.      │
+//   └────────────────────────────────────────────────────────────────────────┘
+//   🔴 **「현재 설정 확인」·「해제」는 넷을 함께 다룬다** — 이유는 위와 같다.
+//   왜 이 도구가 필요한지의 단일 소스는
+//   Assets/_Project/Scripts/Bootstrap/Debug/ForcedMapProjectionFailure.cs 머리말이다.
+//
 // 무엇을 위한 것인가:
 //   재경기 맵 준비가 **실패했을 때의 결과 화면**(공통 UI 규칙 M-3 · D-7 · 규칙 18)을
 //   실제로 눈으로 확인하기 위한 도구다. 정상 경로에서는 실패가 나지 않으므로
@@ -87,13 +103,14 @@ namespace Hexiege.EditorTools
     /// 🔴 <b>[에디터 전용]</b> 「다음 재경기를 강제로 실패시킨다」는 1회용 토글 메뉴.
     ///
     /// <para>
-    /// 상태를 들고 있는 것은 <b>세 클래스</b>이고, 이 클래스는 그것들을 켜고·끄고·보여 주기만 한다 —
+    /// 상태를 들고 있는 것은 <b>네 클래스</b>이고, 이 클래스는 그것들을 켜고·끄고·보여 주기만 한다 —
     /// ①②③ 맵 준비·전송은 <see cref="ForcedMapTransferFailure"/>,
     /// ④ 수락 전송은 <see cref="ForcedAcceptSendFailure"/>,
-    /// 싱글 맵 준비는 <see cref="ForcedMapPreparationFailure"/>.
-    /// ⚠️ <b>[2026-09-28] 앞의 넷은 멀티플레이 재경기용이고, 마지막 하나만 싱글플레이용이다.</b>
+    /// 싱글 맵 준비는 <see cref="ForcedMapPreparationFailure"/>,
+    /// 싱글 맵 투영은 <see cref="ForcedMapProjectionFailure"/>.
+    /// ⚠️ <b>[2026-09-29] 앞의 넷은 멀티플레이 재경기용이고, 뒤의 둘만 싱글플레이용이다.</b>
     /// 🔴 사용자가 보는 메뉴는 <b>같은 묶음 하나</b>이며, 「현재 설정 확인」·「해제」도
-    /// 둘을 함께 다룬다(따로 켜지고 따로 꺼지면 무엇이 걸려 있는지 알 수 없으므로).
+    /// 넷을 함께 다룬다(따로 켜지고 따로 꺼지면 무엇이 걸려 있는지 알 수 없으므로).
     /// </para>
     /// </summary>
     public static class ForceRematchMapFailureMenu
@@ -215,8 +232,48 @@ namespace Hexiege.EditorTools
                       "  · 🔴 한 번 쓰이면 자동으로 해제된다 — 두 화면을 다 보려면 각각 한 번씩 예약할 것.");
         }
 
+        /// <summary>
+        /// 다음 <b>싱글플레이 맵 투영</b>(만든 맵을 격자에 새기는 단계)을 강제로 실패시킨다
+        /// (공통 UI 규칙 M-4 의 적용 범위가 「어떤 시점이건」으로 확정된 뒤 필요해진 항목).
+        ///
+        /// <para>
+        /// 🔴 <b>바로 위 「싱글 맵 준비」 항목으로는 이 단계를 한 번도 태울 수 없다.</b>
+        /// 맵을 쓰는 일은 ① 설계도를 <b>만든다</b> ② 그것을 격자에 <b>새긴다</b> 두 단계인데,
+        /// 위 항목은 ①을 실패시키고 <b>①이 실패하면 ②는 아예 불리지 않는다.</b>
+        /// 그래서 ②의 실패를 보려면 이 항목이 따로 있어야 한다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>확인할 것은 「싱글 맵 준비」와 완전히 같은 두 화면이다</b>(최초 경기 = 모달 팝업 /
+        /// 다시하기 = 결과 화면 되살리기). ⚠️ <b>화면이 같은 것이 정상이다</b> — 규칙 M-4 가
+        /// <b>실패 사유를 문구로 가르지 않는다</b>고 확정했고, 두 단계 모두 「이번 판의 맵을 쓸 수 없다」는
+        /// 한 사건이기 때문이다. 🔴 <b>어느 단계를 실패시킨 것인지는 로그의 사유 문장으로 구별한다.</b>
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>멀티플레이에는 영향이 없다.</b> 소비 지점이 싱글·멀티 공용 메서드라서 그 자리에
+        /// 「싱글인가」 조건을 함께 걸어 두었다 — 멀티에서는 예약을 <b>읽지도 않는다.</b>
+        /// </para>
+        /// </summary>
+        [MenuItem("Hexiege/Debug/강제 실패 — 싱글 맵 투영 (다음 1회)")]
+        private static void ArmSingleMapProjectionFailure()
+        {
+            ForcedMapProjectionFailure.Arm();
+
+            Debug.Log(LogPrefix + "예약 완료 → 다음 **싱글플레이** 맵 투영(격자에 새기는 단계)이 실패한다.\n" +
+                      "  · 확인할 것(최초 경기 = 로비에서 싱글 시작): 확인/취소 **모달 팝업**이 떠야 한다 " +
+                      "(확정=다시 시도 · 취소=로비로).\n" +
+                      "  · 확인할 것(다시하기 = 결과 화면의 버튼): 팝업이 아니라 **결과 화면이 되살아나고** " +
+                      "상태 줄에 실패가 한 줄로 떠야 한다. 🔴 이때 팝업이 함께 뜨면 결함이다.\n" +
+                      "  · ⚠️ 화면은 바로 위 「싱글 맵 준비」 항목과 **완전히 같아야** 한다 — 사유를 문구로 " +
+                      "가르지 않는 것이 규칙이다. 어느 단계였는지는 **로그의 사유 문장**으로 구별한다.\n" +
+                      "  · 🔴 두 경우 모두 **자동 로비 복귀 카운트다운이 돌지 않아야** 한다(싱글에는 타이머가 없다).\n" +
+                      "  · 🔴 멀티플레이에는 영향이 없다(멀티에서는 예약을 읽지도 않는다).\n" +
+                      "  · 🔴 한 번 쓰이면 자동으로 해제된다 — 두 화면을 다 보려면 각각 한 번씩 예약할 것.");
+        }
+
         // ────────────────────────────────────────────────────────────────────
-        // 확인 · 해제  (🔴 세 저장소를 **함께** 다룬다)
+        // 확인 · 해제  (🔴 네 저장소를 **함께** 다룬다)
         // ────────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -225,8 +282,8 @@ namespace Hexiege.EditorTools
         /// <b>화면 어디에도 보이지 않는다.</b> 확인 수단이 없으면 「왜 계속 실패하지」로 헤맨다.
         ///
         /// <para>
-        /// 🔴 <b>저장소 셋을 함께 본다</b>(①②③ = 맵 전송 사유 · ④ = 수락 발신 예외 ·
-        /// 싱글 맵 준비). 하나라도 빠뜨리면 「확인했는데 왜 실패하지」라는,
+        /// 🔴 <b>저장소 넷을 함께 본다</b>(①②③ = 맵 전송 사유 · ④ = 수락 발신 예외 ·
+        /// 싱글 맵 준비 · 싱글 맵 투영). 하나라도 빠뜨리면 「확인했는데 왜 실패하지」라는,
         /// 확인 수단이 없는 것보다 나쁜 상태가 된다.
         /// </para>
         /// </summary>
@@ -236,11 +293,13 @@ namespace Hexiege.EditorTools
             MapTransferErrorCode code = ForcedMapTransferFailure.PeekCode();
             bool acceptSendArmed = ForcedAcceptSendFailure.IsArmed;
             bool singleMapArmed = ForcedMapPreparationFailure.IsArmed;
+            bool singleProjectionArmed = ForcedMapProjectionFailure.IsArmed;
 
-            if (code == MapTransferErrorCode.None && !acceptSendArmed && !singleMapArmed)
+            if (code == MapTransferErrorCode.None && !acceptSendArmed
+                && !singleMapArmed && !singleProjectionArmed)
             {
                 Debug.Log(LogPrefix + "예약 없음 — 싱글·멀티 모두 정상 경로로 진행된다. " +
-                          "(①②③ 맵 전송 · ④ 수락 전송 · 싱글 맵 준비 모두 꺼짐)");
+                          "(①②③ 맵 전송 · ④ 수락 전송 · 싱글 맵 준비 · 싱글 맵 투영 모두 꺼짐)");
                 return;
             }
 
@@ -265,9 +324,24 @@ namespace Hexiege.EditorTools
                           "(최초 경기든 다시하기든 먼저 오는 쪽).";
             }
 
+            if (singleProjectionArmed)
+            {
+                report += "\n  · 싱글 맵 투영: 다음 **싱글플레이** 맵 투영(격자에 새기는 단계)이 실패한다" +
+                          "(최초 경기든 다시하기든 먼저 오는 쪽).";
+            }
+
+            // 🔴 싱글 두 항목이 동시에 켜져 있으면 **준비 쪽만** 발동한다 — 준비가 실패하면
+            //    투영은 아예 불리지 않으므로, 투영 예약은 소비되지 않고 그대로 남는다.
+            //    사용자가 「투영을 예약했는데 왜 준비 실패가 뜨지」로 헤매지 않게 단서를 적는다.
+            if (singleMapArmed && singleProjectionArmed)
+            {
+                report += "\n  🔴 싱글 두 항목이 함께 켜져 있다 — **준비 쪽이 먼저 발동하고 투영은 불리지 않는다.** " +
+                          "투영 예약은 소비되지 않고 남으므로 다음 싱글 경기에서 발동한다.";
+            }
+
             // ⚠️ 「최초 경기에는 적용되지 않는다」는 위 ①~④(멀티 재경기)에만 해당한다.
             //    싱글 항목은 최초 경기에도 적용되므로 그 단서를 함께 적는다.
-            report += "\n  (①~④ 는 최초 경기에 적용되지 않는다 · 싱글 항목은 최초 경기에도 적용된다 " +
+            report += "\n  (①~④ 는 최초 경기에 적용되지 않는다 · 싱글 항목 둘은 최초 경기에도 적용된다 " +
                       "· 모두 한 번 쓰이면 자동 해제된다)";
 
             Debug.Log(report);
@@ -279,7 +353,7 @@ namespace Hexiege.EditorTools
         ///    「켜 두었는데 테스트를 안 하기로 했다」는 경우를 위한 항목이다.
         ///
         /// <para>
-        /// 🔴 <b>저장소 셋을 함께 끈다.</b> 「해제」를 눌렀는데 하나라도 남으면 사용자는
+        /// 🔴 <b>저장소 넷을 함께 끈다.</b> 「해제」를 눌렀는데 하나라도 남으면 사용자는
         /// 껐다고 믿은 채 계속 실패를 겪게 된다 — 그래서 조건 없이 전부 지운다.
         /// </para>
         /// </summary>
@@ -289,16 +363,20 @@ namespace Hexiege.EditorTools
             bool mapWasArmed = ForcedMapTransferFailure.IsArmed;
             bool acceptSendWasArmed = ForcedAcceptSendFailure.IsArmed;
             bool singleMapWasArmed = ForcedMapPreparationFailure.IsArmed;
+            bool singleProjectionWasArmed = ForcedMapProjectionFailure.IsArmed;
 
             ForcedMapTransferFailure.Disarm();
             ForcedAcceptSendFailure.Disarm();
             ForcedMapPreparationFailure.Disarm();
+            ForcedMapProjectionFailure.Disarm();
 
-            Debug.Log(LogPrefix + (mapWasArmed || acceptSendWasArmed || singleMapWasArmed
+            Debug.Log(LogPrefix + (mapWasArmed || acceptSendWasArmed
+                                   || singleMapWasArmed || singleProjectionWasArmed
                 ? "해제했다 — 싱글·멀티 모두 이제 정상 경로로 진행된다. " +
                   "(맵 전송 예약=" + (mapWasArmed ? "있었음" : "없었음") +
                   " · 수락 전송 예약=" + (acceptSendWasArmed ? "있었음" : "없었음") +
-                  " · 싱글 맵 준비 예약=" + (singleMapWasArmed ? "있었음" : "없었음") + ")"
+                  " · 싱글 맵 준비 예약=" + (singleMapWasArmed ? "있었음" : "없었음") +
+                  " · 싱글 맵 투영 예약=" + (singleProjectionWasArmed ? "있었음" : "없었음") + ")"
                 : "예약이 없어 해제할 것이 없었다."));
         }
 
