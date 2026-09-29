@@ -3266,3 +3266,91 @@ Before this round confirmed the bug, the codebase already carried an XML comment
 ### §40-4. A dev-tool reason count copied into four documents goes stale in all four at once — grep for the count, fix only what this round's scope named, report the rest
 
 The forced-failure tool's "3 reasons" count (`Disconnected` / `HashMismatch` / `ResponseTimeout`) was quoted, in the same words, in four places: two cells of the Plan's §10 execution table, the `TechnicalDesignDocument.md` section that is the tool's own single source of usage instructions, and the confirmation block inside `GameSystemRules_UI.md` rule D-7. Adding a 4th reason (the accept-send exception used this round) makes all four stale simultaneously, not just the two cited in the handoff. 🔴 **Grep for the count before assuming a two-cell fix is complete, but only touch what this round's explicit "where to fix" list named** — this round's instructions named only the Plan's §10 table cells; the other two (a design document and a rule document, neither explicitly listed) were left untouched and their staleness reported instead of fixed, per CLAUDE.md rule 6 (no scope creep) rather than silently expanding the edit because the same grep happened to find them.
+
+---
+
+## §41. Narrowing a rule's **scope** (not its value) after a user confirmation — auditing every place a "both modes" premise is baked in (2026-09-28, 싱글 맵 준비 실패 UI / 규칙 D-4)
+
+The user confirmed "single-player needs no auto-return timer." The rule that defines the timer (규칙 D-4) never said *which mode* it applied to, so it silently meant "both." The round's job was a full read-through to find every place that premise sits, plus the two approved edits.
+
+### §41-1. 🔴 A rule with **no scope clause** already has a scope — the widest one. Narrowing it is an amendment, not a clarification
+
+규칙 D-4's table read `결과 화면 표시 → 60초` with no single/multi column. Nothing in it was *wrong*; it simply answered a question it was never asked, and the answer readers took was "both modes." 🔴 **Treat the absence of a scope clause as an assertion of the widest scope**, so adding one is a real amendment that needs the user's approval and a dated block — not a wording tidy-up you can do on your own initiative. The amendment block's first line must say **what did *not* change** (here: `표의 값(60초 · 30초)은 바꾸지 않았다 — 바뀐 것은 「어디에 적용되는가」 하나뿐이다`), because a reader who sees a fresh block on a rule about numbers assumes the numbers moved.
+
+### §41-2. 🔴 The hard find is an **exclusion list that is one item short** — and it reads as an inclusion
+
+The second approved site was not a statement about the timer at all. 규칙 M-4 (single-player) carried *「이탈 관련 규정(규칙 D-1 · D-2 · **D-4 의 이탈 재시작** · D-6)은 이 규칙에 적용되지 않는다」*. Every item listed was correct. The defect was the **item that was missing**: by naming only D-4's *leave-restart*, the sentence implied D-4's *base 60s* **was** in scope for single-player. 🔴 **An exclusion list makes a positive claim about everything it omits** — so when a rule's scope changes, grep for lists that *exclude* it, not only for prose that *asserts* it. The repair is a 4-row table whose rows say, per item, **"unchanged from the 2026-09-16 bullet"** vs **"this is the one that changed"**, so nobody re-audits the whole bullet.
+
+### §41-3. Word-grep finds the mentions; only reading the sentence separates "multi, stated loosely" from "both modes"
+
+`grep -rn "자동 복귀\|카운트다운\|60초"` over the living docs produced ~20 hits, most of them noise (AI scenario tables' "60초" build times). The hits that mattered split three ways, and **only reading the surrounding bullets decided which**:
+- **Multi, phrased without the word 멀티** — `GameSystemRules_RandomMap.md` 규칙 16 and `TechnicalDesignDocument.md` 「복구 상태」 both read `재경기 맵 준비 실패는 … 자동 로비 복귀 countdown … 복원한다`, immediately **followed by a separate single-player bullet that mentions no countdown**. The pairing with the neighbouring bullet is what makes them multi-only; the sentence alone does not. **No repair needed.**
+- **Genuinely ambiguous** — `GameDesignDocument.md` has the same sentence pair, but under a heading that opens `싱글·멀티플레이 모두 …`. Same words, different verdict, because the section header widened them. **Reported, not fixed** (it needs a 개정 이력 row, and the round's approval covered two sites).
+- **A true code observation that is not a spec premise** — 규칙 M-3's 2026-09-22 실측 says the auto-return countdown is a `GameEndUI` 싱글·멀티 공용 경로. 🔴 **That stays true and must not be "corrected"** — it describes the code, and the code still does run the timer in single-player. The new blocks say so explicitly rather than contradicting it.
+
+### §41-4. 🔴 Write the **implementation gap** into the rule document, in the same block
+
+The confirmation was documentation-only; the code still starts the coroutine unconditionally. So each new block ends with `⚠️ 상태 — 사용자 확정 · 🔴 코드 미반영(미구현)` **plus the measurement that proves it**: `OnGameEnd()` starts the coroutine with no `IsNetworkActive` branch, and the network-only entry point (`ShowResult(...)`) is **defined with 0 call sites**, so the one live normal-path start is shared by both modes. 🔴 **Counting the *live* start sites is what makes "the code runs it in single-player too" a measurement rather than an inference** — a definition with no callers would otherwise let you believe the modes were already separated. The `_Tasks/` documents that recorded 「문서와 코드가 일치한다」 then get a pointer saying that row is now false **in the opposite direction**: the docs moved, the code did not.
+
+### §41-5. Do **not** invent a session ordinal when the document's `(N차)` numbering is day-wide and shared
+
+`GameSystemRules_UI.md` labels same-day blocks `2026-09-28 (2차)`, `(3차)`, `(4차)` — and those ordinals are **the day's session number, shared across 규칙 M-3 · M-4 · D-7 · D-8**, not per-rule counters. The day's 5th session existed but touched only a `_Tasks/` Plan, so the rule file has no `(5차)`. 🔴 **Guessing the next ordinal would have merged this round's blocks with a different session's record**, so both new blocks were named by **subject** (`2026-09-28 확정 — 적용 범위를 멀티플레이 한정으로` / `2026-09-28 확정 — 싱글에는 자동 복귀 타이머가 없다`) and cross-reference each other by that name. Record the choice in the Plan so the next round does not "fix" it back to an ordinal.
+
+### §41-6. Line numbers you cite in a Plan go stale **because of your own edit** — say so instead of rewriting them
+
+The Plan's §3-4 and §9-3 pointed at `510~519행` (규칙 D-4) and `285행` (규칙 M-4). Appending the two blocks pushed every later line down. 🔴 **Do not renumber**: the cited numbers are the record of what was measured before the edit. Append a note saying they are pre-amendment values and that rules are addressed **by name**, which does not shift. Same treatment for a stale `정의 1617행 · 호출 1728행` in the same Plan — the new block cites the method name and states `정의 1곳 · 호출 1곳` re-measured this round (excluding one comment mention, which `grep` counts but is not a call site).
+
+### §41-7. A judgment item promoted to a **stage** takes a new letter at the end — and the old cell keeps the rejected branch
+
+The user also approved building a single-player forced-failure dev tool, which the Plan had parked as 「판단 항목 §8-2 · 사용자 승인 대기」. Promoting it: add **stage G** at the end of §4 (never re-letter A~F — §5·§7·§8·§11·§12 reference those letters by name), leave §8-2 as the record of *how* it was decided, and strike only the `판정` cell. 🔴 **Keep the 「만들지 않을 경우」 row even though that branch will never happen — it *was* the argument for the approval.** The two 실기 test rows that read 「재현 수단이 없으면 시행 불가」 get their caveat struck with a pointer to stage G, and the new stage's table says in its own cells **what is deliberately not decided** (class name, menu path, injection point, reason count) because those belong to `game-programmer` (CLAUDE.md 규칙 3·6). One cell is a *fact*, not a preference: the forced failure must flow through the **same `null`-returning path** as a real failure, or the screen it reproduces verifies something else.
+
+### §41-8. When the caller narrows a multi-part stale sentence to **one fragment**, say inside the document which fragment was judged
+
+`TechnicalDesignDocument.md`'s 「여전히 남은 것 넷」 item ③ bundled two stale fragments (`팝업 여부 미정` and `countdown 전체 길이 재시작 미구현`). The round's scope covered only the second. 🔴 **The appended block therefore names the fragment it corrects and states outright that the other fragment and items ①②④ were *not judged this round*** (CLAUDE.md 규칙 10) — otherwise a reader takes a dated update block as having vetted the whole bullet. And item ③ itself is **not** resolved: the single-player failure UI is still unimplemented, which is the very task in progress, so the block also has to say what part of ③ survives.
+
+## §42. Rewriting **one stage of an existing Plan from scratch** on a user's final approval — reconciling 「전면 재기술」 with B-7, and writing a **timing contract** the implementer cannot misread (2026-09-28 (5th), 싱글 맵 준비 실패 UI / 결정 1~7)
+
+The round's input was seven already-decided items; the plan had to stop calling any of them 「검토 대기」. Nothing was implemented — documents only.
+
+**1. 🔴 「전면 재기술하라」 and B-7 do not actually conflict — split the stage into three named sub-sections.**
+The instruction said the old design (`void → bool`) was *폐기* and the stage must be rewritten. Deleting the old table would violate B-7. The shape that satisfies both:
+`#### C-신` (current design) → `#### C-계약` (the contract) → `#### C-구(폐기 — 원문 보존)` (the original table, untouched, under a one-line marker).
+- 🔴 **Keep the stage's letter.** `C` is referenced by name in §5 · §7 · §8 · §11 · §12 · §14; a new letter would break every pointer silently (§20-1 again).
+- The heading of the stage itself is **not** renamed — only sub-headings are added under it, so a reader arriving from a pointer still lands in the right place.
+- **Write the 폐기 사유 in the marker block, not in the new table** — the reason belongs to the transition, not to the design.
+
+**2. 🔴 The hardest artifact of the round was a **timing** contract, and timing is exactly what a design table omits.**
+Both §4-B and §4-C said *what* to do ("re-`Show()` the result screen") and neither said **when**. The failure mode: the event is published synchronously, so a subscriber that reacts in place is immediately undone — `LoadMap()` keeps running past the failure and closes the screen **twice more**.
+- **Lead with the measured fact, as an ordered table** (call site → what it does), because "it closes it twice more" is not believable without the two addresses.
+- 🔴 **Then state the trap in the form that kills the natural reading**: *「UniRx 발행이 동기라는 것은 맞다 — 그러나 동기이기 때문에 그 자리에서 반응하면 안 된다」*. A reader who knows the publish is synchronous will otherwise conclude the opposite.
+- **Numbered imperative steps, one per actor** (subscriber sets a flag only / the caller re-`Show()`s after the call returns / the status line uses the setter and starts no countdown).
+- 🔴 **Say that the contract is design-independent** — *「이벤트 방식이든 반환값 방식이든 공통으로 필요하다」*. Otherwise the next person reads it as a cost of the chosen design and deletes it when the design changes.
+
+**3. 🔴 A 「채택」 changes three places per reviewed item, and the third is the heading.**
+For each of V2·V3·V4: ① the 판정 cell gets `~~struck~~ → ✅ 채택` + a pointer, ② a 확정 블록 is appended after the table, ③ 🔴 **the section heading's own `(🔴 검토 대기)` is struck inside the heading** — otherwise the document's table of contents still says the opposite of its body.
+- The summary table at the top of the section takes the same struck-plus-arrow treatment.
+- 🔴 **The 확정 블록 must carry the cost, not only the decision** — here: *「멀티 무변경」이 문자 그대로는 지켜지지 않는다* (the adopted setter touches one line of a field-verified coroutine). A 확정 written without its cost gets reopened (§37-5).
+- **Where the approval's rationale is a `CLAUDE.md` rule (here 규칙 7, 완성도 우선), quote the rule's own words and put them in *both* the 확정 블록 and the §5 rule-mapping table** — the mapping table is what the implementer reads per item.
+
+**4. 🔴 An adopted alternative can be adopted **without** the mechanism it was argued from.**
+V4 was argued as *"an event for this already exists — reuse `OnNetworkRematchMapFailed`"*. The user adopted **the event approach and rejected the reuse**. So the 확정 블록 has to say *「방향은 채택, 수단은 채택되지 않았다」* explicitly, with the two reasons (that channel's handler restarts the countdown — a measured call chain — and the type name carries `Network`).
+- 🔴 **Prove the disqualifying side effect by reading the chain, not by naming the rule** — subscription line → handler → state method → `RestartCountdownFromFullLength()`. The rule (M-3) is what the chain *means*, not evidence that it runs.
+- **When a hand-off says a new channel would violate a "don't create new events" rule, decide it by asking what that rule was protecting** — 규칙 18 forbids splitting *one* event by cause; a different event in a different mode is not that. Then name the **existing precedent** (the three `OnLocal*` channels) so the new channel is a convention, not an exception.
+
+**5. 🔴 A removal item added late makes the section's own headline false — and its **first** item may already be obsolete.**
+§0 said *「제거로 분류되는 것은 다음 1건뿐이다」* and that single row had itself been rendered moot by another of the same round's decisions. The repair: append row 2, then a note that says (a) the headline now reads 2건, (b) 🔴 the new row is the **first real** removal because row 1 was 「삭제가 아니라 확장」 and is now 폐기, (c) the WORKFLOW [4] schedule verbatim (disable by comment → final delete after [6], before [7]), (d) the 판정 기준 — **주석 기호만 떼면 원래 동작이 돌아오는 코드가 남아 있는가**.
+- 🔴 **A removal that drags comments with it is one bundle, and the bundle must be stated in the row** — deleting the method would leave four comments pointing at a name that no longer exists. **Say in the row that the comment fixes are *not* removal and therefore not subject to disable-first**, or the implementer will comment them out too.
+- **Absolutes elsewhere in §0 go half-true**: *「한 줄도 지우지 않는다」* survived (still 0 lines deleted) but *「`CountdownCoroutine()` 본문 … 그대로 남는다」* did not. Repair with a **two-row table of 「원문의 문장 → 지금은 어떻게 되었나」**, and 🔴 end it with the sentence that says which conclusion still stands (§20-6 shape).
+- ✅ **A 「구현 중에 제거가 새로 필요해지면」 clause that actually fires is worth marking as fired** — it proves the clause was doing work.
+
+**6. Risk-table rows get a **four-row pointer block**, never edits — and one of them may go *both* ways in one round.**
+위험 2 died (no signature change), 위험 3 turned from 「건드리지 않는다」 into 「감수한다」, 위험 8 lost one of its two branches and kept the other, 위험 12 is resolved by the new removal **except during the comment-disabled window**. 🔴 **Write the surviving window explicitly plus why it is harmless (a commented-out method cannot be called)** — "resolved" alone invites deleting the row.
+
+**7. Verification baselines: distinguish 「착수 전」 from 「구현 뒤 기대값」, and say when the count is judged.**
+The `StartCoroutine(CountdownCoroutine` baseline is 4 sites; after the removal it becomes 3, and **during the disabled window a grep still counts 4 because grep counts commented code**. 🔴 So the addendum says *「이 수치는 최종 삭제 후에 판정한다」*. Without that sentence the same baseline produces a false alarm in one phase and a false pass in another (§14-1's lesson, one step further).
+
+**8. A 「없는 것을 확인하는 테스트」 needs a number, and the number needs a derivation.**
+*「시간이 지나도 자동으로 로비로 가지 않는다」* is unjudgeable without a wait. **90초** was set because it must exceed the multiplayer worst case (60 + 30), so a surviving screen cannot be confused with a leftover multiplayer timer. 🔴 **Write the derivation in the cell** — a bare number gets "rounded" by the next reader.
+- For a widget the round never showed on screen, add the check **and its grade in the same cell**: 「모달은 `UIManager` 소유라 무관해 보이지만 z-order·오버레이 상호작용은 미확인 — 구조 추론이고 실기 화면으로 확인된 것이 아니다」.
+
+**9. Round bookkeeping.** A 「이 절이 바꾸지 않은 것」 paragraph written by an earlier round is not an error to strike — 🔴 **it named a condition (*「채택 여부가 정해질 때까지」*) that this round satisfied**, so the appended block says so and then **lists every section it did touch**. In §12, add rows for the round's own decisions but 🔴 **leave stages A~G at `⬜ 미착수` and write the sentence that explains why**: 채택 is 「how it will be built」, not 「it was built」.
