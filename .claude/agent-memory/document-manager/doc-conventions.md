@@ -3626,3 +3626,57 @@ When adding to `.claude/mistakes.md`, the body is 「why nothing caught it」. F
 - 🔴 **Do not collapse the two statements.** 「이번 회차에 고칠 것이 없다」 and 「그 문서가 최신이다」 are different claims, and reporting only the first as 「불필요」 without the finding would be a false all-clear.
 
 **10. Verification.** `check_docs.py` 0 findings says nothing about letter-prefixed rules (`D-` · `M-`) or about `_Tasks/`·`_Logs/`. Checked by hand: the new rule block is a **separate dated block** (blank line before it — §46-1), the relative link from inside `GameSystemRules/` resolves one level up, unescaped pipes per edited table row, and 🔴 **every inserted line re-printed and read with the eyes** (the Korean-escape procedure — the checker cannot see spelling).
+
+## §48. Adding a **follow-up section** to a finished Plan when the deferred finding is confirmed — a defect that is symptomless **because another defect covers for it**, and 🔴 「관측 불가(구조적)」 as a grade of its own (2026-09-30 (2nd), 팝업 로그 커버리지 / §12-3 후속)
+
+**Round shape.** One document, one appended section (`§14`, 182 lines) + three one-line pointers; 545 → 730 lines. Zero code, zero scene, zero git, `--update-baseline` left to the caller. A sibling agent was editing one of the subject source files **during** the round.
+
+**1. 🔴 A handed-over sentence in quotation marks is a claim about the source document — verify it with `grep -cF` before you quote it.**
+- The caller had **summarized** a Plan sentence and passed it as a quote (「고치는 판단은 그 값을 실기에서 본 다음이다」). It did not exist. What existed was 「근거 등급 — 코드 판독뿐」 and 「그것이 바로 이 계획이 넣으려는 줄들이 답해 줄 질문」.
+- 🔴 **Repair: quote the wording that exists, in the new section's own head block, and record the mismatch without editing the handoff.** Quoting the non-existent sentence would have made the new section *the source* of a fabricated quote — the same shape as the comment-copy trap, one layer up.
+- **This is the 13th handed-over-mismatch class: a summary presented as a quotation.** Distinct from 「가리킨 절 이름이 실재하지 않음」 (§33) — here the *section* was right and the *sentence* was invented.
+
+**2. 🔴 Re-count handed-over counts exhaustively, in the same shape, even when the conclusion direction is right.**
+- Handed: 2 occurrences of the defect, 3 control cases. Measured: **3 and 5** — the handoff had swept two of the three log files, not all three.
+- 🔴 **The extra cases *strengthened* the conclusion, which is exactly why nobody would catch it.** A mismatch that argues for the same verdict never announces itself. Count first, agree second.
+
+**3. Pin the **denominator** in the document, next to the numbers, before anyone reads them.**
+- 「에디터 201행 중 19줄」 was **not** the file (792 lines) but the **first play session's segment** (lines 2–202). Editor logs accumulate across sessions (§10-0 of that Plan says so); one file held two sessions, and the file-wide figure was 26 lines.
+- Two device-log counting traps, both worth one line in the document: logcat carries **a call stack under every app log line** (so word-counting inflates), and a `WARN` line carries a **different priority letter**, so pinning the letter drops exactly one line (1,154 vs 1,155).
+- 🔴 **State the basis as a short block *above* the tables** — 「세는 기준을 먼저 못 박는다」. A number whose denominator is implicit is a figure that will be "corrected" by the next reader.
+
+**4. When the document has no slot for the new material, append a new top-level `§N` and touch no existing number.**
+- The caller suggested 「§10 의 실기 결과로 넣을 자리가 있으면 거기에」. There was none — `§10` was procedure end to end. So: new `§14` at the end, existing `§0`~`§13` untouched (§25's no-renumber rule).
+- ✅ **Three one-line pointers instead of edits**: on the deferred finding (§12-3), and on the two places whose completion criteria the new facts invalidate (§9-4, §10-1). Each says 「원문은 고치지 않았다 · 단일 소스는 §14」 (B-7 + §33's cell-level pointer form).
+
+**5. 🔴 A defect that is symptomless **because a second defect is covering for it** — the artifact is an ordering table, not a severity claim.**
+- Three columns: **now** / **fix ② only** / **② plus the net already shipped**, with rows for 「the stray release」, 「what cleans up at destroy time」 and 「visible symptom」. The middle column is where the argument lives: fixing ② alone makes the overlay follow the player into the lobby.
+- 🔴 **The thesis sentence is not 「고칠 만하다」 but 「지금이 아니면 순서가 뒤집힌다」** — the net landed first, so the order is right; the reverse order would have produced a real bug **with candidate causes split across two defects** (§20's gate-stage reasoning, applied to a fix order instead of a test order).
+- ⚠️ **Say why it is harmless *today* and in the same breath why it is latent**: one unconditional call site, on the way out to the lobby, so there is nobody to steal from. 🔴 **「호출처가 1곳」은 오늘의 사실이고 사양이 아니다** — that clause is what makes it a latent defect rather than a non-defect.
+
+**6. 🔴 「관측 불가 (구조적)」 is a grade of its own, and it is not 「미검증」.**
+- Four grades this round: **① 로그 직접 관측 / ② 코드 판독 / ③ 🔴 관측 불가(구조적) / ④ 예상(판정 미정)**. Grade ③ carries its own sentence: 「지금 있는 수단으로는 볼 수 없다는 것까지가 결론이다. 「테스트를 안 했다」가 **아니다**.」
+- Two independent reasons made it unobservable, and **both** belong in the record: the covering defect zeroes the counter first (reason 1, grade ①+②), and the log owner's own shutdown path can close the file sink before the object is destroyed, because Unity's destruction order is not guaranteed (reason 2, grade ② + the log that ends mid-session as evidence).
+- 🔴 **When the caller's own test procedure cannot reach it, write that down** (`CLAUDE.md` 규칙 10): both proposed methods — 「60초 방치」 and 「에디터 Play 정지」 — were structurally impossible, one per reason.
+- 🔴 **Leave the now-unreachable completion gate standing and mark it.** §10-1 said 「4·5번 줄 중 하나라도 없으면 완료가 아니다」; the pointer says the gate cannot be met by that procedure and that **lowering it is not this section's call** — it waits on the grade-④ prediction being judged.
+- ⚠️ **One claim inside a graded block turned out to belong to a different grade** (「강제 종료 시 파괴 콜백 미보장」 is platform general knowledge, not code reading). 🔴 **Mark the exception inside the bullet rather than moving it** — and replace the part you cannot measure (what the tester did with the other device) with what you can (all three logs are the surviving side, disconnect-detection lines 3 · 1 · 1).
+
+**7. 🔴 A prediction stays a prediction, and its judge is named.**
+- 「고치면 관측이 가능해질 것이다」 is written with its mechanism (the log owner closes on **play-mode exit only**, and a scene change is not that) *and* with 「이것은 예상이다. 아무것도 확인하지 않았다」 plus the judging agent. ⚠️ **Also say what a correct prediction still would not prove** — that a means of observation exists is not that the net is verified.
+
+**8. Self-corrections of sentences you wrote **this round** are changes, and they go in the report (three here).**
+- A figure copied from the wrong denominator (file lines where app-log lines were meant); an evidence-grade mislabel inside a graded block; an unverified claim about the tester's actions. §46's lesson applied without being prompted — **count the diff, not the intent**.
+
+**9. Verification for a `_Tasks/` edit — the checker is silent, so the real checks are four.**
+- 🔴 **Forbidden-token grep restricted to the added line range**, not the file: log field keys, boolean field names, helper and close-method names, and the log message texts. Pre-existing hits must be **located by line number** to prove they are not yours (three hits here, all in the §7 baseline table).
+- Per-row unescaped pipe count (`(?<!\\)\|`) over every new table — 7 tables, including one whose header first cell is empty.
+- 🔴 **Every inserted line re-printed and read with the eyes** (the Korean-escape procedure), and `grep -cF == 1` on each anchor sentence that must stay unmodified.
+- ⚠️ **State in the report that `_Tasks/` is outside the checker's scan set**, so 0 findings says nothing about the file you just wrote (§11).
+
+**10. 🔴 「`--update-baseline` 금지」 in a caller's instruction means 「the main session runs it at the end」 — it is not a reason to defer a memory update.**
+- This round I read it as a conflict with the standing rule 「증가 방향 갱신은 미루지 않는다」 and escalated (규칙 12), which cost a round trip. The caller's clarification: they run it themselves at the end of every round.
+- ⚠️ A stale-baseline **notice** for another agent's folder is information, not a finding — it does not affect the exit code, and it belongs in the report as-is.
+
+**11. A sibling agent editing one of the subject files **during** the round (third sighting — §33, §39).**
+- The new section says explicitly that it **asserts nothing about that file's current content**, and that the code reading it relies on is 「2026-09-30 그 시점의 관측」. 🔴 Completeness of what you see is not the test; 「did this round verify it?」 is.
+- ✅ A read-only `find -newermt` over the repository is a cheap way to state your own change scope exactly — it showed one file changed by me and three by the sibling.
