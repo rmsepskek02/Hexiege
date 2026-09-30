@@ -1,5 +1,77 @@
 # QA Tester Memory — Hexiege
 
+## 2026-09-30 LionKnight Client C3 Expired boundary
+
+- Shared Android Host/Editor Client match `a2d9c80e…c622225` covered LionKnight and LittleKnight only (2/25). Host C2 224 results/0 failures and C3 ready 224/0, required visuals 199/199. Client C2 224 accepted/0 rejected, but C3 had 7 Expired, ready/released 217/224, required visuals 192/192 within the ready subset. Both local ROOT summaries PASS; no formal CrossAudit Analyze result follows from that.
+- The first Expired attacker instance maps to LionKnight unitId 2. Do not label all remaining six failures LionKnight without per-instance identity proof. User reported no major visual problem alongside severe lag; neither FPS nor frame time was logged, so lag cause and causal link to expiration are unknown. Verdict for the focused LionKnight task is FAIL/OPEN until expiry resolution and retest; marker-to-damage exactness and full 25-type migration remain unverified. Source: `Assets/_Project/Docs/_Tasks/2026-09-30/01_21_lionknight-attack-timing-correction/{Research,Plan}.md`.
+
+## 2026-09-30 BearGuard 0:13 focused PASS; first-match ROOT boundary
+
+- Do not merge the first `cc278c50…b461819` match with retest `b986fbbc…61d7d94b`. The first Host/Client ROOT runs ended INCOMPLETE at 00:18:45/48 before the first LittleKnight/BearGuard appeared. It is not a BearGuard failure or a local ROOT PASS.
+- Retest Editor Host/Android Client produced BearGuard 11 and LittleKnight 49 (2/25). Match-wide Host results 641/0 failures match Client 641 accepted/0 rejected; both peers emitted 608/608 required visuals with zero failures and spatial mismatches. Host MOVE adapter/gate/stationary-Walk failures 0, recoverable repaths 5 with repeated/fatal 0; Client attack-entry gaps/order 0. Both local ROOT summaries PASS, coveragePassed=True, errors/logDrop 0, tracked units 60, stable endpoints and rotation evidence 58 each.
+- User visual acceptance makes only BearGuard's corrected 0:13 timing focused PASS/CLOSED. No BearGuard-only marker-to-damage delta or formal CrossAudit Analyze was obtained; the previous LittleKnight four Host MOVE adapter failures remain OPEN despite nonrecurrence. Design `1:20` cycle vs `1.2s` runtime cooldown, 25-type/role-swap/rollback/v2 completion also remain OPEN. Evidence: `Assets/_Project/Docs/_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/{Research,Plan}.md`.
+
+## 2026-09-29 BoulderSpirit 1:10 focused log boundary (new session)
+
+- Android Host PID 8899 / Editor Client shared session `0f0bbb32…923eb60` followed the 30fps 1:10 (40/30s) marker/config change. Host produced 7 BoulderSpirit; coverage was BoulderSpirit + LittleKnight only (2/25). Match-wide Host 283 results/0 failures and 168 commits match Client 283 accepted/0 rejected; both peers emitted 265/265 required presentations with 0 spatial mismatches. Host MOVE adapter/core failures 0 and both local ROOT summaries PASS. Device PID 8899 Unity E/F and Editor 18:xx ERROR/FATAL/Exception were 0.
+- These totals do not measure BoulderSpirit-only marker-to-impact delta or visual timing; user visual acceptance of 1:10 is still absent. LittleKnight's earlier four Host MOVE adapter failures did not recur in this match, but cause/fix are unproven and remain OPEN. Stream/Fox timeline INCONCLUSIVE arose from zero production and is irrelevant here. Do not claim build completion, formal cross-audit, full-roster, role-swap, or rollback PASS.
+- **[2026-09-29 status update — original observation kept above:]** The user subsequently said the BoulderSpirit 1:10 strike looked fine on screen (“육안상 문제없었어”). Mark only the focused attack-timing task PASS/CLOSED. The match-wide 283 results and 265/265 presentations still do not establish Boulder-only marker-to-damage offset; the earlier LittleKnight MOVE failure, formal cross-audit, 25-type role-swap, and rollback remain OPEN. Source: user's post-log visual acceptance and BoulderSpirit Task Research/Plan.
+- **[2026-09-29 correction — original kept below:]** The prior section's “Current production marker/config is 1.50s” describes the earlier `06d034ab…e1a6c4` test, not the current 1:10 saved value; its visual acceptance remains historical only. Sources: `Assets/_Project/Docs/_Logs/2026-09-29/18_13_logcat/RuntimeLog_device.txt`, `Assets/_Project/Docs/_Logs/_editor/2026-09-29/RuntimeLog.txt`, BoulderSpirit Task Research/Plan.
+
+## 2026-09-29 BoulderSpirit focused visual acceptance; separate LittleKnight MOVE failure
+
+- Editor Host/Android Client shared session `06d034ab…e1a6c4`: BoulderSpirit production and Host Ready/accepted shadow commit are observed; user finds the hit slightly late but acceptable. Current production marker/config is 1.50s at 30fps with a 4s cycle.
+- Match-wide BoulderSpirit+LittleKnight attack totals are Host 453 results/0 failures, Client 453 accepted/0 rejected, and 414/414 required presentation on both peers; both local ROOT summaries PASS/errors 0. These totals do not measure BoulderSpirit-only cycles or exact 1.50s/subframe contact.
+- The same Host MOVE-AUTH terminal is FAIL with four adapter failures on LittleKnight UnitIds 16/19/21/26: `post-combat-no-safe-forward-center`, `RejectedInvalidPath/Unreachable`, `(5,15)→(6,15)`. Keep it separate from Boulder attack evidence and require diagnosis plus a new movement gate. No FPS/frame-time measurement links this failure to perceived lateness. Do not claim full-match PASS, formal cross-audit, 25-unit role-swap/rollback, or v2 completion.
+- Sources: `Assets/_Project/Docs/_Logs/_editor/2026-09-29/RuntimeLog.txt`, `Assets/_Project/Docs/_Logs/2026-09-29/12_47_logcat/RuntimeLog_device.txt`, BoulderSpirit 2026-09-29 Task Research/Plan.
+
+## 2026-09-22 InfernoSpirit focused verdict: PASS / CLOSED
+
+- Compare the corrected same-session pair `dc055118…46c8f`: Editor Host terminal raw 65/started 64/source-only 0/gate-suppressed 1/playback failure 0; Android Client raw 64/started 64/source-only 11/gate-suppressed 0/playback failure 0.
+- The Host-only extra event belongs to newly produced unit 29: AttackStart was provisional, the production gate reported Misaligned at 98.363°, and the marker was correctly suppressed before commit. It is not a lost committed VFX.
+- Actual started VFX counts and per-unit distribution match 64/64. Client's 11 Stop-before-marker cases reached active ParticleSystem playback as SourceOnly; no repeat, overflow, or asset/pool failure occurred.
+- User visual confirmation closes the focused movement/VFX task. This verdict does not pass InfernoSpirit LegacyFallback migration or the full 25-unit role-swap/rollback gate.
+
+## 2026-09-20 BattleAxe focused verdict: CONDITIONAL PASS / OPEN
+
+- Same-session Editor Host/Android Client `010f6e1b…c9bb` contains 14 BattleAxe units on each peer. Host 420 results/0 failures equals Client 420 accepted/0 rejected; both peers have ready 491 and expected/emitted visuals 440/440, AoE bundles 420/420, and spatial mismatch 0.
+- Unit 2 progressed AwaitingStationary→Ready at yaw 0→Accepted; unit 36 progressed AwaitingStationary→Misaligned at yaw 12.078→Ready at yaw 0→Accepted. Host movement 47,070 frames has zero gate/writer-selection/ownership/handoff/stationary-Walk/failure-detail/drop counts; ROOT passed on both peers.
+- Client WARN 181 is 100 UnitView initialization delays, 80 spawn retries, and one normal disconnect. Final viewUnavailable is 0; ERROR/FATAL/exceptions are 0, so this is recovered initialization timing rather than a BattleAxe attack failure.
+- Automatic production marker/config gates pass and the user saw no major visual issue. Severe lag prevented independent confirmation of exact 1.02s contact and Sweep ally/rear/out-of-range exclusion, so do not mark full PASS. Performance is deferred to a separate later defect. Do not extend the 4/25 scope to full roster, role-swap, or Legacy rollback.
+
+## 2026-09-14 QuakeSpirit focused Android log verdict
+
+- Same-session Editor Host/Android Client evidence (`9d43b8e…b3d75`) covers 10 QuakeSpirit units within 4/25 types. Host 770 results/0 failures equals Client 770 accepted/0 rejected; both peers emitted all 909 required visuals, released all 770 AoE bundles, and recorded no spatial mismatch.
+- Direct 200 plus splash 100 were observed together on unit/building victims. Movement, replication, and ROOT terminal evidence is clean; 123 client UnitView delays matched 123 completions with final viewUnavailable 0. Latest PID had no GameLog ERROR/FATAL, NullReference, or U+27F3 warning.
+- Verdict remains CONDITIONAL PASS/OPEN because logs cannot prove exact on-screen strike timing, ally/out-of-range exclusion, perceived long stalls, or control-unit visual regression. Never extend this 4/25 focused result to full roster, role-swap, or Legacy rollback completion.
+
+## 2026-09-14 QuakeSpirit automatic gate: CONDITIONAL PASS / OPEN
+
+- One-shot setup PASS verified the production Attack state/controller/both prefabs and one 1.667s marker, then saved runtime config 1.0→1.667 and removed the temporary script/meta.
+- Quake profile is Supported/MeleeContact/Impact1/secondary; manifest is 16 Supported, 8 Unresolved, 1 N/A. Permanent validation fails closed on marker/config/production-link divergence.
+- Unit Action A1/B2/C2/C3 and `Hexiege/Combat/Diagnostics/Self Validate Unit Root Pose Cross Audit` passed with errors 0.
+- Android Build And Run reached its starting screen around 01:20, but completion/install/device combat are unverified. Keep OPEN until the user confirms impact timing, direct+splash targets, repeat attacks, target transitions, and control-unit regression.
+
+## 2026-09-14 RhinoBreaker focused verdict: CONDITIONAL PASS
+
+- Evidence combines prior corrected-build Blue/Red Rhino unit attacks with Editor Host + Android Client `f9b842d9…35a8d0` building combat. Latest Host results 724/0 failures equal Client 724 accepted/0 rejected; both peers have ready 724 and expected/emitted visuals 692/692.
+- Duplicate, transport, presentation, spatial, movement gate/writer/handoff/stationary-Walk, target mismatch, error, and drop failures are 0. Rhino unit 0 accepted an attack against TrainingCamp building 11, which later died; LittleKnight 77-unit control showed no logged regression.
+- MULTI-1, MULTI-4, and MULTI-5 are PASS. MULTI-2 remains conditional for user-observed contact timing; MULTI-3 remains conditional for an explicitly observed individual post-death target transition. Overall task stays OPEN.
+- UnitView initialization delay 107/107 completed with retry failure/exhaustion 0. Root pose observer capped at 64 on both peers, so later units are outside root-pose coverage.
+- Two U+27F3 warnings came from the unchanged APK and are not evidence against the current source text. Check plain `새로고침` after the next integrated build.
+
+## 2026-09-13 Attack-entry seam focused regression PASS
+
+- Compare like-for-like scope: both the failing and corrected sessions intentionally covered the same 9/25 unit types. `9/25` is not a failure for this Task; the remaining roster belongs to the separate integrated regression.
+- Prior `993718…` had 87 handoff failures across LittleKnight, EmberSpirit, TideSpirit, DustSpirit, FlameSpirit, and SpearMan. Corrected `abe1fb66…f5c1` has accepted shadow commits for all six, handoff/stationary-Walk/failure-details/overflow/ignored counts 0, and only 2 expected deferred target changes.
+- Host C2 2,703/0 failures matches Client 2,703 accepted/0 rejected. Host/Client required visuals are 2,410/2,410; spatial samples 2,144/2,036 have 0 mismatches. Client attack starts 656 with 0 transport gaps/order violations; ROOT and error/drop pass; ERROR/FATAL/Exception 0.
+- Focused verdict is PASS/CLOSED. Keep full 25-unit, both role directions, and Legacy rollback as the next P0 integrated gate.
+
+## 2026-08-28 C2 Editor Host / Android Client 실기 FAIL
+- 동일 세션에서 Android 앱 ERROR/예외/FATAL 0과 Client result reject 0이어도 서버 Host C2 terminal이 FAIL이면 전체 공격 게이트는 FAIL이다.
+- 실제 gameplay 결함: Assault Unit 16→62, Unit 58→77에서 Shadow `AuthorizedMiss`, Legacy `Applied(10)`, yaw `0.192°/0.248°`. 동일 TargetId이므로 타겟 이전이 아니라 사거리 밖 피해다.
+- 결과 97 failure 분류: 실제 사거리 피해 2, `Applied+NotDue` 5, unavailable+NotDue 78, 정상 Accepted Miss 진단 오탐 12. 다음 QA는 이 네 부류를 별도 카운터/TC로 판정하고 aggregate FAIL 하나로 뭉개지 않는다.
+
 ## 2026-08-24 blocked-start egress QA 교훈
 - `RequestMoveFrom(start,target)`처럼 임의 staged start를 받는 API에 blocked-start 예외를 넣으면 non-authoritative blocked waypoint가 중간 경로에 합성될 수 있다. 예외는 `UnitData.Position`을 직접 읽는 authoritative API에만 허용한다.
 - 회귀는 성공 경로뿐 아니라 staged blocked null, 최단 우선, Q/R tie-break, first edge 인접, 중간 blocked 제외, 무인접 fail-closed, blocked start==destination과 정상 경로 불변을 함께 고정한다.
@@ -515,12 +587,12 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 
 - 규칙 v2 완료 기준은 서버 ActionSequence/ImpactResult, Simulation Root/Visual Root, ActionMarkerOffset, Host/Client·Blue/Red·지연/지터/순서 역전/중복/늦은 스폰 검증을 모두 포함한다. Animation Event 존재만으로 PASS 처리하지 않는다.
 - 현재 25종 모두 v2 최종 멀티 검증 전이다. UnitStatsConfig는 QuakeSpirit 추가로 25/25가 됐지만 QuakeSpirit/RhinoBreaker/MushroomBomber/BloomFairy는 기본 Attack marker가 없다.
-- BattleAxe 1.1667/1.02, Pistoleer 2.0/0.8, Sniper 3.0/1.7333, Tank·Cannon 4.0/0.1667, Inferno 1.15/0.5, Stream 0.17/0.5, Fox 2.25/1.0 등 설정·marker 불일치를 구현 전 기준선으로 사용한다.
+- BattleAxe 1.1667/1.02, Pistoleer 2.0/0.8, Sniper 3.0/1.7333, Tank·Cannon 4.0/0.1667, Inferno 1.15/0.5, Stream 0.17/0.5, Fox 2.25/1.0 등 설정·marker 불일치를 구현 전 기준선으로 사용한다. **[🔴 2026-09-20 correction — original kept: BattleAxe mismatch is resolved at marker/config 1.02/1.02 and must no longer be used as an active mismatch baseline.]** **[🔴 2026-09-22 correction — original kept: InfernoSpirit mismatch is resolved at marker/config 0.50/0.50 and must no longer be used as an active mismatch baseline.]**
 - `hitPreset`과 `tracerPreset`은 0/25, `attackPreset`은 9/25다. 상세 단일 감사표는 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`다.
 
 ### 2026-07-22 - InfernoSpirit/QuakeSpirit main 반영 재감사
 
-- InfernoSpirit 직접 25 + 유닛 전용 DoT 5/초×3초는 사용자 실기 확인 범위에서 Legacy PASS다. 공격 방향 수정은 해당 작업에서 보류됐으며, 0.50초 marker/1.15초 설정 불일치와 권위 착탄·sequence 부재 때문에 v2 PASS가 아니다.
+- InfernoSpirit 직접 25 + 유닛 전용 DoT 5/초×3초는 사용자 실기 확인 범위에서 Legacy PASS다. 공격 방향 수정은 해당 작업에서 보류됐으며, 0.50초 marker/1.15초 설정 불일치와 권위 착탄·sequence 부재 때문에 v2 PASS가 아니다. **[🔴 2026-09-22 correction — original kept: marker/config mismatch and focused movement/direction/VFX defects are resolved; LegacyFallback migration and authoritative projectile/sequence remain open.]**
 - QuakeSpirit 직접 20 + 주변 적 유닛·적 건물 10은 Host/Client HP 로그 범위에서 PASS다. 기본 `OnAttackHit`이 없어 직접 피해 표현이 쿨다운×1.5 안전망(최대 7.5초)을 기다릴 수 있으므로 시각 동기화는 FAIL/Incomplete다.
 - Quake의 `ApplyFixedDamageToVictim`은 기존 공용 피해 경로와 별도 진입점이다. v2 QA 전 피해·이벤트·사망·네트워크 결과가 단일 writer/emitter에서 한 번만 발생하는지 반드시 검증한다.
 - `SpecialAttackConfig.asset` YAML에는 Quake 필드만 명시되고 Inferno/Blast 필드는 C# 폴백에 의존한다. Inspector 직렬화·씬 주입을 에디터에서 확인하기 전 데이터 배선을 PASS로 판정하지 않는다.
@@ -599,3 +671,29 @@ TC 문서: `Assets/_Project/Docs/_Tasks/2026-06-10/09_28_sound-system/Testcase.m
 - 기존 공식 INCONCLUSIVE는 Host ROOT 긴 terminal 절단 때문이며 개별 게임 증거 실패가 아니다. 과거 절단 파일은 추정 PASS로 승격하지 않는다.
 - compact terminal은 최악값 803 UTF-8 byte, 필수 CrossAudit 필드 보존, 초과 시 fail-closed다. Runtime/Editor Roslyn과 사용자 Unity `[UAS-DIAG]`·RootCrossAudit SelfValidate가 모두 PASS했다.
 - 채점기만을 위한 재빌드/재시험은 하지 않는다. 다음 Tracer C 새 빌드의 통합 회귀에서 공식 Analyze를 재사용하며, 25종·반대 역할·Legacy rollback 게이트는 유지한다.
+
+### 2026-08-26 - C1 공격 시작·타겟·방향 자동 검증 상태
+
+- 기존 로그의 정렬 전 Legacy 시작과 회차 타겟 불일치를 구현 문제로 확정하고, 서버 정지+5도 gate·회차 타겟 고정·멀티 Root 단일 writer로 교정했다.
+- Shadow observer v2는 정렬 전 시작을 local FAIL로 올리고 정상 상세 로그를 제한하며 production gate 카운터를 terminal에 보존한다.
+- Unity 실제 컴파일 오류 0건과 `[UAS-DIAG]` PASS만 확인됐다. Android/Editor 역할교대 멀티 실기는 아직이며 C1 전체 PASS로 기록하면 안 된다.
+
+### 2026-08-26 - C1 v3 회귀 기준
+
+- 회귀 fixture는 회차 1 Impact가 늦게 도착하기 전에 회차 2가 다른 TargetId로 시작하는 순서를 포함한다. 두 회차의 SequenceId/TargetId가 독립이고 이전 Impact가 수락되더라도 `ShouldPublish=false`, 최신 회차 Impact만 publish여야 한다.
+- `ScheduleLegacyAttack`은 sequence 0·Target mismatch를 거부하고, production Ready 뒤 결속 실패는 `correlationFailures>0`로 local FAIL이어야 한다.
+- 정상 Misaligned/Moving/첫 표본 대기는 `expectedDeferred`이며 `dropped`나 FAIL을 만들면 안 된다. 지원 불가 10종·힐러 1종도 manifest 분류만 유지한다.
+- GameEnd 전 adapter failure는 FAIL, GameEnd 뒤 callback은 `postGameAdapterFailuresSuppressed`만 증가해야 한다. Unity 자동 검증 PASS지만 Android/Editor v3 실기 전 전체 PASS 금지다.
+
+### 2026-08-27 - C1 실기 판정과 observer v5
+
+- 최신 Client는 Shadow 4,863건 수락·거부 0이었다. Host의 유일한 mismatch는 실제 예약 타겟·sequence·결과가 일치하고 display target만 `-1`인 진단기 오탐이었다.
+- v5 회귀는 display target 해제 정상 사례와 target/sequence/phase/result 실제 불일치 사례를 함께 고정한다.
+- C1 집중 실기는 PASS로 기록하되 25종·반대 역할은 다음 Snapshot/ImpactResult Shadow 빌드의 통합 회귀로 유지한다.
+
+### 2026-08-27 - C2 자동 회귀 기준
+
+- C2 결과 키에는 attacker instance, sequence, hit, victim kind/id, effect kind, result ordinal이 모두 있어야 한다. 같은 키의 같은 payload는 Duplicate, HP·outcome·Aim 등이 다르면 Conflict다.
+- 결과 완료 순서는 sequence 순서와 다를 수 있다. 역순이라는 이유만으로 거부하면 안 되며 despawn/다른 instance만 retire 경계로 거부한다.
+- 실기 terminal은 Host `serverResults>0`, `resultFailures=0`, Client `clientResultAccepted>0`, `clientResultRejected=0`, 양쪽 gameplayWrites=0을 요구한다. C1 END의 기존 오류 카운터도 동시에 0이어야 한다.
+- Unity 전체 self-validation은 PASS지만 Android/Editor 역할교대는 미실행이므로 C2 전체 PASS로 올리지 않는다.

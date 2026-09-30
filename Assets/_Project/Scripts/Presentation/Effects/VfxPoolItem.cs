@@ -76,6 +76,19 @@ namespace Hexiege.Presentation
         public GameObject SourcePrefab => _sourcePrefab;
 
         /// <summary>
+        /// 이 인스턴스가 실제로 제어하는 ParticleSystem 개수.
+        /// 공격 VFX 진단이 프리팸과 풀 획득은 성공했지만 재생할 파티클이 없는 경우를
+        /// 정상 재생과 구분할 수 있게 한다. 상태를 변경하지 않는 읽기 전용 값이다.
+        /// </summary>
+        public int ParticleSystemCount => _ps != null ? 1 : _childSystems?.Length ?? 0;
+
+        /// <summary>
+        /// Play 호출 직후 하나 이상의 파티클이 살아 있는지 확인하는 읽기 전용 진단 값.
+        /// 풀 반환이나 재생 시점을 바꾸지 않는다.
+        /// </summary>
+        public bool IsPlaybackActive => _active && AnyAlive();
+
+        /// <summary>
         /// 파티클 시스템 캐시.
         /// 루트에 없으면 자식에서 탐색 (프리팹 구조 유연성 확보).
         /// </summary>

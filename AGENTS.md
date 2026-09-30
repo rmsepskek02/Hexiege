@@ -72,6 +72,7 @@
 |----------|------|----------|
 | `Assets/_Project/Docs/WORKFLOW.md` | 작업 사이클 운영 규칙 — **단일 권위 소스** | ❌ 수동 |
 | `.claude/mistakes.md` | **AI 실수 기록** — AI가 이 프로젝트에서 저지른 실수의 누적 기록. **전문을 읽지 않는다** — 상단 목차를 훑고 이번 작업과 성격이 비슷한 항목만 펼쳐 읽는다. **읽는 법 · 적는 법 · 항목 형식은 그 문서 상단이 단일 소스**이며 이 자리에 옮겨 적지 않는다. 확인 시점은 [WORKFLOW.md](Assets/_Project/Docs/WORKFLOW.md) 「작업 시작 전 확인」 | ❌ 수동 |
+| `.claude/mistakes/unit-action-correction.md` | **유닛 공격·이동 정밀 교정 전용 실패 기록** — 게임 규칙의 권위 원본이 아니라, 반복 실패의 원인·증거·교정 계약·회귀 gate·검증 상태를 누적한다. 관련 작업 전 `.claude/mistakes.md`의 참조 인덱스를 거쳐 필요한 사건만 읽는다. | ❌ 수동 |
 | `Tools/check_docs.py` | 문서 정합성 검사기(읽기 전용) — 규칙 번호·문서 링크·규칙 참조의 정합성과 **에이전트 메모리 보호**(고아 토픽 파일, 총합 행수 감소)를 찾아 목록만 출력한다. **검사 항목의 정확한 목록은 검사기 자신과 WORKFLOW.md [11]이 단일 소스**이며 이 자리에 옮겨 적지 않는다. 행수 감소 기준값은 `.claude/agent-memory/_baseline.json` — 직접 편집 금지, 갱신은 `--update-baseline`, 감소가 포함되면 `--reason` 필수. 문서 수정 후 `python3 Tools/check_docs.py`를 리포지토리 루트에서 실행해 **0건**을 확인한다. 🔴 **주의: 규칙을 `**규칙 N. 제목**` 굵은 글씨로 쓰지 않으면 그 문서의 규칙이 통째로 검사에서 빠지고, 검사기는 아무 경고 없이 0건을 낸다.** 실제로 몇 개 문서가 규칙 원본으로 읽히는지는 **검사기가 매 실행 시 출력하는 `[검사 범위]` 블록이 권위 소스**이며 이 자리에 숫자를 옮겨 적지 않는다. **검사 범위와 형식 규정은 [WORKFLOW.md](Assets/_Project/Docs/WORKFLOW.md) [11]이 단일 소스** — 실행 결과를 해석하기 전에 그쪽을 볼 것 | ❌ 수동 |
 | `Assets/_Project/Docs/_Tasks/YYYY-MM-DD/HH_MM_[작업명]/` | 작업별 Research / Plan / Testcase (사용자용) | — |
 | `Assets/_Project/Docs/_Logs/YYYY-MM-DD/HH_MM_[작업명]/Log.md` | QA-Fix 반복 이터레이션 로그 (에이전트용) | — |

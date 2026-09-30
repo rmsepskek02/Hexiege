@@ -1,14 +1,65 @@
 # Hexiege - 작업 로드맵
 
-**최종 수정일:** 2026-09-03
+**SpearMan 0:25 현행 후속(2026-09-30): focused 실기 PASS/CLOSED, `MigrationRequired` 별도 OPEN.** 사용자 육안 수용. 두 역할 교대 경기(`39af4c6d…52373a` Editor Host/Android Client, `9b0404e3…3a4f` Android Host/Editor Client)에서 SpearMan 47+28기를 실제 생산했다. LittleKnight도 각각 48/31기 생산한 **2/25종 혼합 경기**이며, 경기 전체 Host 결과 597/298·실패 0과 Client 수락 597/298·거부 0, 양쪽 C3 ready·필수 표현 597/597·474/474 및 298/298·271/271·실패 0, local ROOT PASS, Host MOVE adapterFailures 0이었다. 자동 검사 두 메뉴도 앞서 PASS했다. 이로써 SpearMan focused 시각 교정은 닫지만, 정확한 marker→권위 피해 offset·공식 CrossAudit Analyze·나머지 23종·Legacy rollback/v2 migration은 열어 둔다. 과거 LionKnight C3 만료 7건·LittleKnight MOVE 4건도 별도 OPEN이다. 아래 SpearMan 자동 검사·저장 문단은 당시 이력이다. 상세: `_Tasks/2026-09-30/18_02_spearman-attack-timing-correction/{Research,Plan}.md` 최신 절.
 
-**최우선 게이트 (2026-08-25):** B3 v10 중심 경로·건물 안전 Chase·전방 중심 복귀는 Android Host·Editor Client 집중 실기에서 MOVE EVIDENCE와 양쪽 local ROOT PASS를 확보했다. Host 중심 checkpoint 766회·최대 오차 0, direct-safe/path Chase 806/2,977 frame, authority/adapter/stationary Walk/drop 오류 0이다. 공식 CrossAudit INCONCLUSIVE의 원인이던 긴 ROOT terminal은 채점 필수 필드만 남긴 803-byte 최악값 compact END와 출력 전 preflight로 교정했으며 Runtime/Editor Roslyn과 Unity self-validation 2종까지 PASS했다. 다음은 Tracer C Phase 4 공격 회차 Shadow와 서버 권위 타겟·공격 방향 교정이다.
+**SpearMan 0:25 이전 단계(2026-09-30, 자동 검사 전): 저장·정적 확인 / Unity·실기 대기, focused OPEN.** 생산 Attack의 단일 `OnAttackHit`와 type 4 `hitFrameTimes`가 30fps `0:25 = 25/30 ≈ 0.8333333초`로 저장됐고 cooldown 2초는 유지됐다. Game 씬 type 4 명시 clip 연결·영구 production gate 코드와 StatsReference `0:25(2:00)`도 확인했다. **당시 다음 단계는 Unity 재컴파일·Unit Action/Root Pose Cross Audit 두 self-validation의 실제 실행 결과 확인**이었다. 그 뒤 자동 검사 결과는 위 현행 문단을 따른다. 당시 빌드·설치·경기·육안 결과는 없었으며 PASS/CLOSED가 아니었다. 투사체·hit VFX 없음과 `MigrationRequired`, 공식 CrossAudit·25종/역할교대/Legacy rollback 미검증을 유지한다. 아래 LionKnight 문단의 “SpearMan 후보·Task 미확정”은 SpearMan 선택 전 당시 이력이다. 상세: `_Tasks/2026-09-30/18_02_spearman-attack-timing-correction/{Research,Plan}.md`.
+
+**LionKnight focused 현행 판정(2026-09-30): PASS/CLOSED.** 사용자 수용 `a8134504…c3aacb5b` Editor Host/Android Client LionKnight 8기·LittleKnight 22기(2/25종) 혼합 경기 전체에서 C2 216/216, C3 결과·ready 216/216·실패 0·묶음 방출 216/216·필수 표현 양측 188/188, Client `Expired` 0, 양쪽 local ROOT PASS였다. **별도 OPEN:** 이전 `a2d9…c622225` Client C3 `Expired` 7건의 원인은 계측 후 한 경기에서 재현되지 않아 미확정이며 `12_37_attack-presentation-expiry-diagnosis`에서 다음 재현 때 발행→수신→판정·frame gap·clock anchor를 비교한다. 정확한 접촉/피해 offset·공식 CrossAudit·25종/역할교대/Legacy rollback/v2 완료와 LittleKnight 과거 MOVE 4건도 남는다. 다음 교정 후보 SpearMan은 검토 중일 뿐 이 작업의 구현·확정 Task가 아니다. 아래 LionKnight FAIL/OPEN 문단은 첫 경기 당시 이력이다.
+
+**LionKnight focused 후속(2026-09-30, FAIL/OPEN):** 30fps `0:18`·`1:13` Attack marker와 type 22 설정·Game 명시 연결·영구 gate는 저장됐으나 `a2d9c80e…c622225` Android Host/Editor Client의 LionKnight+LittleKnight 2/25 경기에서 Client C3 `Expired` 7건이 발생했다. Host C2/C3는 224/실패 0, Client C2는 224 수락/거부 0이지만 C3 ready·방출은 217/224이며 필수 표현 192/192는 **ready 범위만**이다. 첫 만료는 LionKnight UnitId 2, 나머지 유형 미확정. 육안상 큰 문제 없음과 심한 렉은 사용자 보고이고 FPS/frame-time 미계측으로 원인 불명이다. **다음 gate는 만료의 원인 분리·교정 후 같은 범위 재검증**이며, 정확한 접촉 시점·공식 CrossAudit·25종/역할교대/Legacy rollback/v2 Complete와 기존 LittleKnight MOVE 4건은 계속 OPEN이다. `_Tasks/2026-09-30/01_21_lionknight-attack-timing-correction/` 최신 절 참조.
+
+**BearGuard focused 판정(2026-09-30):** 0:13 타격은 사용자 육안 수용과 `b986fbbc…61d7d94b` Host/Client 2/25 혼합 재테스트의 경기 전체 결과 641/641·양쪽 필수 표현 608/608·실패 0, local ROOT PASS로 **focused PASS/CLOSED**다. 첫 경기 ROOT INCOMPLETE는 생산 전 관찰 종료로 별도 이력이다. 후속 OPEN은 BearGuard 단독 정밀 marker→피해 offset, 공식 CrossAudit Analyze, LittleKnight 기존 Host MOVE adapterFailures 4, 설계 주기 `1:20` 대 실제 cooldown `1.2초`, 25종/역할교대/Legacy rollback/v2 Complete다. 아래 “실기 전” 문단은 당시 단계 기록이다. `_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/` 최신 절 참조.
+
+**BearGuard 이전 단계(2026-09-29, Unity 두 메뉴 PASS / 실기 전):** 30fps `0:13`의 단일 Attack marker·type 20 설정 `0.43333334초`, Game 씬 명시 Attack 연결, 영구 production gate를 반영했다. 재컴파일 후 Unit Action self-validation(23:43:36)과 Root Pose Cross Audit self-validation(23:45:06)이 각각 PASS했다. 승인된 `File > Build And Run` 클릭 뒤 `Checking prerequisites / Starting Android build` 화면까지만 확인했다. **빌드 완료·설치·기기 실기·화면 판정은 아직 미확인**이며 다음 gate는 사용자 소유 실기와 그 근거의 구분된 평가다. 설계 주기 `1:20 = 1.666666…초`와 보존한 실제 cooldown `1.2초` 차이, LittleKnight 이전 MOVE 4건과 공식 CrossAudit·25종/역할교대/rollback은 계속 OPEN. `_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/` 최신 절 참조.
+
+**BearGuard 이전 후속(2026-09-29, 구현 저장 직후):** 당시 Unity 메뉴·Build And Run은 아직 미실행이었다. 위 2026-09-29 문단은 그다음 당시 단계이며, 현재 focused 판정은 2026-09-30 최상단을 따른다.
+
+**TideSpirit 최신 판정(2026-09-29, focused 시각 PASS/CLOSED):** 새 `ae04f2a9…e6bd03` Editor Host/Android Client 혼합 경기에서 TideSpirit 32기·LittleKnight 12기 생산, 경기 전체 결과 Host/Client 160/160·필수 표현 양쪽 129/129·실패 0, Host MOVE adapterFailures 0·양쪽 ROOT local PASS를 확인했다. 사용자는 Tide 타격을 육안상 문제없다고 수용했다. Tide 단독 정밀 marker→피해 offset은 미계측; 공식 CrossAudit·25종 전체·역할교대·Legacy rollback은 남는다. LittleKnight 과거 이동 4건은 이번 미재발만으로 해결되지 않아 별도 OPEN이다. 아래 Tide “실기 OPEN”은 실기 이전 상태 이력이며 이제 현행 후속은 미검증 전체 gate와 LittleKnight 별도 이동 문제다. `_Tasks/2026-09-29/19_09_tidespirit-attack-correction/` 최신 절 참조.
+
+**TideSpirit 이전 후속(2026-09-29, 구현·Unity PASS / 실기 전):** 사용자가 저장한 30fps `1:15 = 1.50초` 단일 marker에 맞춰 type 16 설정과 Game 씬 명시 Attack 연결·영구 생산 gate를 적용했다. Unity 두 self-validation은 재컴파일 후 PASS했다. Build And Run은 `Detect Java Development Kit(JDK)` 진행까지만 관찰했고 **당시 완료·설치·새 혼합 경기·사용자 육안 판정은 미확인**이었다. 당시 다음 판단은 사용자 TideSpirit 시각 결과와, 같은 경기 비교 유닛 LittleKnight의 Host MOVE-AUTH `adapterFailures`/`Unreachable` 관찰을 구분해 반영하는 것이었다. 이전 LittleKnight 4건 FAIL은 원인·수정 미확정 OPEN; 이 과정은 공식 cross-audit·25종 전체·역할교대·rollback을 대체하지 않는다. 아래 Boulder 문단의 “다음 작업 미확정/TideSpirit 후보”는 TideSpirit 선택 **이전 이력**이다. 근거: `_Tasks/2026-09-29/19_09_tidespirit-attack-correction/` 최신 절.
+
+**BoulderSpirit focused 완료(2026-09-29, 1:10):** 생산 Attack marker·type 14 fallback·영구 gate를 30fps `1:10 = 40/30초 ≈ 1.3333333초`로 맞추고 Unity 두 self-validation을 통과했다. 새 `0f0bbb32…923eb60` Android Host/Editor Client 경기에서 Boulder 7기 생산, **Boulder+LittleKnight 혼합 2/25종 경기 전체** 결과 Host/Client 283/283·양쪽 필수 표현 265/265·실패 0, Host MOVE adapterFailures 0·양쪽 local ROOT PASS였고 사용자가 새 타격을 **“육안상 문제없었어”**라고 수용했다. 따라서 Boulder 공격 시각은 **focused PASS/CLOSED**로 완료 이력에 둔다. 단독 marker→피해 정밀 offset과 공식 cross-audit·전체 25종·역할교대·Legacy rollback은 미완이다. 아래 1:15(1.50초) 사용자 수용·453/414는 이전 버전 이력, 그 경기의 LittleKnight MOVE-AUTH 4건은 이번 미재발만으로 해결되지 않아 **별도 OPEN**이다. **다음 작업은 미확정:** 기록된 LittleKnight 이동 실패 진단을 우선 검토할 근거가 있고, 미교정 TideSpirit 같은 유닛별 공격 교정도 후보이나 사용자 선택 전 새 계획·Task로 확정하지 않는다. Build And Run 완료 관찰은 주장하지 않는다.
+
+**BoulderSpirit 후속(2026-09-29):** 30fps `1:15`=1.50초 교정·생산 Attack 연결·영구 gate 후 사용자 화면에서는 약간 늦지만 수용 가능하다. 동일 경기 `06d034ab…e1a6c4`의 **BoulderSpirit+LittleKnight 합계** 공격 결과 Host 453/실패 0 ↔ Client 453 수락/거부 0, 양쪽 필수 표현 414/414·실패 0이다. Boulder 단독 정확한 1.50초·subframe은 미계측. **별도 우선 후속:** Host LittleKnight UnitId 16/19/21/26 `post-combat-no-safe-forward-center`의 MOVE-AUTH adapterFailures 4/FAIL을 진단·재경기한다. FPS/frame-time 계측이 없어 화면 지연 원인으로 연결하지 않는다. 전체 25종·역할교대·Legacy rollback 및 공식 cross-audit는 계속 OPEN. 기존 09-28 후보·상태 문단은 당시 이력이다.
+
+**EmberSpirit 후속(2026-09-28):** 실제 Attack 명시 연결·production gate 및 두 Unity 메뉴 PASS 뒤 새 빌드 실기에서 EmberSpirit 총 52기가 생산됐다. 동일 Editor Host/Android Client 두 경기의 **경기 전체** 결과 Host 299/231·실패 0 ↔ Client 299/231 수락·거부 0, 양 peer 필수 표현 264/264·196/196·실패 0이며 사용자가 육안으로 수용했다. **Ember focused PASS/CLOSED**로 완료 이력에 옮긴다. Client WARN 188건은 0으로 처리하지 않는다. 정확한 animation→피해 subframe, 공식 CrossAudit, 25종 전체·역할교대·Legacy rollback은 남는다. 다음 교정 유닛은 아래 매트릭스의 미교정 후보 중 사용자가 선택하기 전까지 확정하지 않고 새 Task도 만들지 않는다.
+
+**RabbitTrickster 현재 상태(2026-09-28 marker 후속 교정):** 생산 Attack의 단일 `OnAttackHit` 0:20(0.6666667초), type 25 설정·영구 검증 기대값, 명시 Attack 연결을 맞췄다. 새 Editor Host/Android Client 동일 경기 `3fc75ef4…b7beded`에서 Rabbit 각 15기·LittleKnight 각 13기가 생산됐고, 경기 전체 Host 138 schedules/129 results/실패 0 ↔ Client 129 수락/거부 0, 양쪽 필수 표현 122/122·실패/중복/전송 실패 0이었다. 사용자 육안 수용으로 **Rabbit 명시 연결·타이밍 focused PASS/CLOSED**다. 경기 전체 수치는 Rabbit 단독 결과가 아니며 정확한 animation→권위 피해 offset 미계측, 공식 Root Pose CrossAudit 미실행이다. 이전 `7d4f85a6…e2654a5` 집계는 0.18초 이력으로만 보존한다. 이 focused 작업은 완료로 옮기되 다음 교정 유닛은 사용자가 선택하기 전까지 지정하거나 새 Task를 만들지 않는다. Fox 재튜닝 보류·Dust 육안 최종 수용 OPEN·전체 25종/역할교대/Legacy rollback/C3 migration 미완 및 별도 성능 렉은 그대로다.
+
+> **아래 RabbitTrickster 현재 단계 문단은 0.18초 버전 당시 기록이다. 현행값·다음 단계는 위 후속 교정 문단을 따른다.**
+
+**RabbitTrickster 현재 단계(2026-09-28): 구현 완료 / Unity 자동 검증 PASS / 사용자 확인 빌드·실기 수행 / 타격 시각 focused OPEN.** 실제 Game UnitFactory Rabbit 행의 Attack 명시 연결과 production·Attack3-first gate 추가는 메인 patch 검토 및 두 Unity 메뉴 PASS 확인을 마쳤다. 메인의 Build And Run 시작 화면 확인 후 사용자가 빌드 완료와 Editor Host/Android Client 실기를 확인했다. 동일 세션 `7d4f85a6b980b02035e532b36068e5ca349ae35610294a423d3a4ebe2e2654a5`의 경기 전체 집계는 Host 223 schedules/212 results/0 failure, Client 212 accepted/0 rejected·필수 표현 199/199이다. 사용자는 공격 애니메이션에 비해 Rabbit 피해 적용이 약간 빠르게 보인다고 관찰했지만 실제 접촉 프레임과 선행 시간차는 미계측이다. **다음 단계:** 생산 Attack 클립의 실제 접촉 프레임을 측정하고 같은 조건의 피해 적용 시점과 대조한 뒤 교정 필요 여부를 판단한다. 현행 2초/0.18초·Supported 상태는 유지하며 타이밍 변경은 아직 정하지 않는다. 이전 검증·빌드 시작 이력과 최신 실기 분석은 Task에 보존한다: `_Tasks/2026-09-28/10_03_rabbittrickster-explicit-attack-clip-binding/`. Fox 재튜닝 보류·Dust 육안 최종 수용 OPEN·전체 migration 미완은 그대로다.
+
+**이전 후보 추천(2026-09-28, 구현 전 이력): RabbitTrickster.** melee이므로 준비되지 않은 projectile 에셋 없이 조사할 수 있다. 메인 세션 에셋 확인 인계에 따르면 실제 Attack motion은 `8d21000f295b9774a9cb2540a71b8ce7`(RabbitTrickster_Attack.anim, 2초·OnAttackHit 1개), 함께 등록된 Attack3는 `1b667bee5c36e85459f1dd2b5fbd9ef9`(1.1초·이벤트 없음)이며 Game 씬 type25에 attackTimelineClip 명시가 없다. Matrix의 복수 Attack 순서 위험과 맞고 Dust의 명시 연결 접근을 검토할 근거다. **구조적 순서 의존 위험이지 실기 오선택이 관측된 버그가 아니다.** 다음 승인 뒤 실제 연결·추출 경로부터 조사하며 이번에는 구현/새 Task를 시작하지 않는다. Fox 재튜닝은 발사체 구현 시점으로 미루고 Dust 육안 최종 수용은 별도 OPEN으로 유지한다.
+
+**최종 수정일:** 2026-09-28
+
+**현재 상태(2026-09-28):** Fox 표시 지연 focused 교정은 사용자 수용, 현행 타이밍 유지·재튜닝은 발사체 구현 시점으로 이관. Dust 49기 focused 로그는 CONDITIONAL PASS/OPEN(육안 최종 수용 대기). 상세 증거는 기존 Fox Task §21 및 Dust Task 재테스트 결과 참조; 전체 migration 완료 아님.
+
+**이전 증거:** 09-27 시점 분리·17_21 지연 분석과 09-28 자동 검증 직후 상태는 Fox Task §18~20에 보존한다. 현재 판정은 위 요약을 따른다.
+
+
+**이전 순서(2026-09-27):** Dust 새 빌드 실기를 기다리던 단계는 09-28 focused 로그 확보로 진전됐다. 육안 최종 수용과 전체 25종·역할교대·rollback은 남는다.
+
+**Fox 후속:** 사용자 수용으로 표시 지연 focused 교정은 마무리하고 projectile/tracer 에셋 준비 전 재튜닝은 보류한다. 이전 분석과 판정 변경은 기존 Task에 보존한다.
+
+**현재 최우선 게이트 (2026-09-22):** InfernoSpirit focused 이동·VFX 교정은 사용자 실기와 Host/Client 실제 VFX 64/64 일치로 PASS/CLOSED됐다. 다음은 아직 교정하지 않은 유닛을 사용자와 선택해 같은 production 에셋→타임라인→자동 gate→focused 실기 순서로 진행한다. 별도 P0인 전체 25종·Host/Client 역할교대·Legacy rollback 통합 회귀 전에는 InfernoSpirit `LegacyFallback` 제거 또는 ActionSequence 전체 완료를 선언하지 않는다.
+
+**현재 최우선 게이트 (2026-09-20 BattleAxe):** production marker/config를 1.02초로 정렬하고 영구 Unity gate를 통과했다. Editor Host + Android Client focused 로그는 결과 420/420·필수 표현 440/440·AoE bundle 420/420·공간/이동/ROOT 오류 0으로 수렴했고 사용자 육안에서도 큰 문제는 없어 보였다. 다만 게임 렉 때문에 정확한 1.02초 접촉과 Sweep 아군·후방·범위 밖 제외를 확정하지 못해 **CONDITIONAL PASS / OPEN**이다. 렉은 이번 교정과 분리한 후속 성능 결함으로 두고, 다음 unit-by-unit 교정을 계속한다. 이번 4/25종 범위를 전체 roster·역할교대·Legacy rollback 완료로 확대하지 않는다.
+
+**현재 최우선 게이트 (2026-09-14 QuakeSpirit):** production marker/config 1.667초 정렬과 Supported 승격 뒤 Editor Host + Android Client focused 로그에서 QuakeSpirit 10기, 결과 770/770·실패/거부 0, 양쪽 필수 표현 909/909, 직접 200·스플래시 100, 이동·복제·ROOT 오류 0을 확인했다. 최신 Android 실행의 U+27F3 경고도 0이다. 다만 사용자의 화면 판정이 없으므로 정확한 내려치기 프레임, 아군·범위 밖 제외, 체감 장시간 정지 없음과 기존 비교 유닛 육안 회귀는 남아 있다. 현재 판정은 **CONDITIONAL PASS / OPEN**이며 이번 4/25종 범위를 전체 roster·역할교대·Legacy rollback 완료로 확대하지 않는다.
+
+**현재 최우선 게이트 (2026-09-14):** RhinoBreaker marker 교정은 Blue/Red 유닛 공격과 Blue 건물 공격 로그에서 결과·표현·이동 오류 0으로 **CONDITIONAL PASS**다. 다음 통합 빌드에서 실제 접촉 시점·개별 대상 전환과 특수문자 제거가 반영된 `새로고침` 문구를 최종 확인한다. 그와 병행해 아직 교정하지 않은 유닛을 한 종류씩 계속 진행하되 다음 유닛은 사용자 승인 전 확정하지 않는다. 전체 25종·Host/Client 역할교대·Legacy rollback은 유닛별 교정 뒤의 최종 통합 회귀로 유지한다.
+
+**최우선 게이트 (2026-09-13):** production typed target payload seam 교정은 이전 실패와 동일한 9/25종 범위의 Editor Host + Android Client 실기에서 PASS했다. 이전 근거리 6종 handoff 실패 87건은 0건이 됐고 C2 결과·C3 필수 표현·대미지 위치·ROOT도 오류 0을 유지했다. 9/25는 의도적 동일 조건 비교 범위이며 현재 Task의 미완료가 아니다. 다음 P0는 전체 25종·Host/Client 역할교대·Legacy rollback 통합 회귀다.
+
+**이전 실패 기준선 (2026-09-01):** 동일 v5 Editor Host·Android Client 경기에서 C2 결과 2,828건과 B3 이동·복제는 오류 0으로 PASS를 유지했지만 C3는 Host unmatched 385·timing 112, Client unmatched 562·timing 38로 FAIL했다. Client 방향 49건은 same-revision 0, revision-lag 42, scope-mismatch 7이므로 방향 writer를 재설계하지 않는다. 이 실패는 후속 C3 및 공격 진입 교정의 출발점으로 보존하며, 현행 단계는 위 2026-09-13 게이트를 따른다.
 
 > **이 문서의 역할: 앞으로 해야 할 작업.** 완료된 항목은 이 문서에 남기지 않는다.
 > 완료 이력은 [WORK_HISTORY.md](WORK_HISTORY.md), 현재 상태는 [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
-**최우선 작업:** RootCrossAudit compact terminal 교정 후 Tracer C Phase 4 공격 회차 Shadow와 서버 권위 타겟·공격 방향 교정. B3 v10 집중 교정은 실기 PASS이며, 25종·반대 역할·Legacy rollback은 Tracer C 이후 권위 전환 전 통합 회귀로 유지한다. Impact/피해 표현 시점은 다음 Phase 5다.
-**현재 단계:** 채점기 절단 회귀를 먼저 닫고 공격 Shadow로 이동한다. Legacy 피해·HP·RPC·VFX writer는 그대로 두며 신규 회차는 타겟·방향·Impact 계획을 기록·복제만 한다.
+**최우선 작업:** 아직 교정하지 않은 다음 유닛의 production 타임라인을 같은 fail-closed 절차로 교정한다. QuakeSpirit·RhinoBreaker·BattleAxe의 남은 정밀 육안 항목은 성능 결함이 분리된 뒤 통합 재확인한다.
+**현재 단계:** QuakeSpirit·RhinoBreaker·BattleAxe는 자동 또는 focused 멀티 로그 축의 CONDITIONAL PASS이며 정밀 육안 항목 때문에 OPEN이다. B3 이동, C2 결과, C3 결과 기반 표현과 production 공격 진입 seam의 집중 PASS를 유지한다. 전체 25종 역할교대·Legacy rollback 통합 회귀 전에는 전체 roster PASS나 ActionSequence 완료로 일반화하지 않는다.
 **작업 이력:** [WORK_HISTORY.md](WORK_HISTORY.md) 참조
 
 > B2 PASS는 당시 10°/15° 일반 정렬 계약의 이력이다. v2.1은 이를 안전 fallback으로 재분류했으므로 B2 및 현재 B3 정확성 로그만으로 연속 이동 완료를 선언하지 않는다. 공격 방향·Impact·피해 시점과 ActionSequence 전체 권위 전환도 계속 미완료다.
@@ -33,7 +84,8 @@
 | 🟢 낮음 (사용자 판단 대기) | **`_Logs/_editor/` 의 `.meta` 취급 규정 명문화** — `.gitignore` 는 이미 `LogRules.md` 1.10 규정에 부합한다. 남은 것은 `.meta` 를 커밋할지에 대한 **규정 공백**이다. 사용자가 커밋 `23a8da06` 에서 `.meta` 를 실제로 커밋했으나, **그 관찰만으로 규정이 확정된 것으로 적지 않는다**(CLAUDE.md 규칙 10) | 문서/규정 | 소 |
 | 🟢 낮음 (범위 밖으로 미룸) | **`FileSink.EditorLogsRootRelativeToAssets` 접근 수준 조정** — 현재 `private` 이라 `LogcatCapture.cs` 가 같은 경로 문자열을 **복제**하고 「FileSink 와 동기화 필요」 경고 주석을 달아 두었다. `internal const` 로 올리면 복제를 없앨 수 있다 | 코드 정리 | 소 |
 | 🔵 초기 정상·지속 관찰 중 | 매치메이킹 404(호스트 결정 단계) 수정 — 호스트 결정을 매치 결과 조회(P2P 클라 404) → Lobby CreateOrJoin 원자 선점(A방식)으로 전환 (2026-07-17, 커밋 `a3dbc73`). 초기 실기 정상, 간헐 버그라 지속 멀티 실기 검증 필요 | QA/버그 | 중 |
-| 🔴 P0 | 서버 권위 Unit ActionSequence 구현 — A0/A1/A2/B0/B1/B2 완료 → B3 연속 이동 구현·Editor PASS, Android 역할교대·25종·rollback 대기 → Snapshot/ImpactResult 복제 → FIFO 대체 → 멀티 QA → Legacy 제거 | 전투/네트워크 | 특대 |
+| 🔴 P0 | 서버 권위 Unit ActionSequence 통합 회귀 — B3 이동·C2 결과·C3 표현·공격 진입 seam의 집중 PASS를 보존하면서 전체 25종, Host/Client 역할교대, Legacy rollback을 검증한다. 이 gate 전 ActionSequence 전체 완료·Legacy 제거 선언 금지 | 전투/네트워크 | 특대 |
+| 🟠 CONDITIONAL PASS / OPEN | QuakeSpirit production marker/config 1.667초 정렬·Supported 승격 뒤 Android focused 로그 PASS — 결과 770/770, 필수 표현 909/909, 직접 200·스플래시 100, 이동·복제·ROOT 오류 0. 정확한 화면 타격 프레임·아군/범위 밖 제외·체감 정지·비교 유닛 육안 회귀 대기 | 애니메이션/전투 | 중 |
 | ✅ Tracer A0 | SpearMan schedule/dispatch Shadow — Host 204/204·고유 204·누락/중복/타겟/facing 불일치 0. Client는 header only이며 실제 피해 결과 검증이 아님 (2026-07-22) | 전투/계측 | 중 |
 | ✅ Tracer A1 | Pure Application UnitAction 계약+stateful reducer — C# 9/Application·Editor compile PASS, Unity Editor 메뉴 PASS, reflection Validate* 10 PASS, Standards/Spec P0~P3 0 (2026-07-22) | 아키텍처/전투 | 중 |
 | ✅ Tracer A2 | Server-authoritative pose seam shadow — Host 완료 회차 상관관계 누락·중복 0, attacker-dead 2건 DeadTerminal, capacity eviction·예외 0, Client observer 0. 기존 피해·RPC·VFX 권위 유지 (2026-07-27) | 전투/네트워크 | 대 |
@@ -41,10 +93,12 @@
 | ✅ Tracer B1 | 50개 프리팹 Simulation Root / Visual Root migration·rollback과 Android/Editor 역할교대 양방향 NetworkTransform 이동 pose 검증 PASS. Match A/B pose mismatch 0. 공격 방향·Impact·피해 시점은 범위 밖 | 전투/네트워크 | 대 |
 | ✅ Tracer B2 | 서버 이동·SimulationFacing pure reducer + read-only Shadow — Android/Editor 역할교대, 25/25종·Blue/Red 증거, 최종 오류 카운터 0, 손실 없는 manifest/SHA 검증 PASS. 실제 writer 전환은 아님 (2026-08-03) | 전투/네트워크 | 대 |
 | ✅ 집중 PASS / 통합 회귀 유지 | Tracer B3 v10 중심 이동·건물 안전 Chase·전방 중심 복귀 — Android Host MOVE EVIDENCE, 중심 766/최대 오차 0, Chase 806/2,977, 오류 0, 양쪽 local ROOT 53/53 PASS. 긴 Host terminal 절단 채점기 교정과 25종·반대 역할·Legacy rollback은 다음 통합 회귀에 포함 | 전투/네트워크 | 특대 |
-| 🔴 P0 다음 | Tracer C Phase 4 공격 회차 Shadow — 서버 권위 TargetId·AimDirection commit, AlignToAttack 5°/8°, Windup 전 정렬, Legacy와 신규 타겟·방향 차이 계측. 기존 피해·HP·RPC·VFX writer는 유지 | 전투/네트워크 | 특대 |
+| ✅ 집중 PASS / 통합 회귀 유지 | Tracer C1 연속 Attack·독립 회차 결속 — 최신 Editor Host/Android Client에서 예약 TargetId·sequence·결과 불일치 0, Client 4,863건 수락·거부 0. 표시 타겟 수명주기 오탐을 observer v5로 교정하고 Unity self-validation PASS. 25종·반대 역할은 후속 새 빌드 통합 회귀에 유지 | 전투/네트워크 | 특대 |
+| ✅ 8/25종 집중 PASS / 통합 회귀 유지 | Tracer C2 Impact·결과·연속 표현·사망 future-hit 취소 — Android Host/Editor Client에서 서버 결과 2,182건·사망 115건, 과거 핵심 오류와 결과/타겟/gate 실패 0. MOVE 62,434 frame 및 양쪽 ROOT PASS. 나머지 17종·반대 역할·Legacy rollback은 단일 emitter 전환 전 통합 회귀에 유지 | 전투/네트워크 | 특대 |
+| ✅ 동일 범위 PASS / 통합 회귀 유지 | Tracer C3 결과 기반 표현 + 공격 진입 typed target payload seam — 최신 Editor Host/Android Client 동일 9/25종 범위에서 handoff 87→0, C2 2,703/실패 0, C3 2,410/2,410, 위치 mismatch 0. 전체 25종·역할교대·Legacy rollback은 다음 P0 통합 회귀 | 전투/네트워크 | 특대 |
 | ✅ 설계 완료 | 유닛 이동·공격 규칙 v2 일괄 개정 + 25종 공격 에셋 감사. 런타임 완료를 의미하지 않음 (2026-07-20) | 설계/문서 | 대 |
-| ✅ Legacy 반영 | QuakeSpirit UnitStatsConfig 등록 — HP250/ATK20/range0.5/detect1.0/move0.5/cooldown5.0. 단 hitFrameTimes 1.00초는 placeholder | 데이터/전투 | 중 |
-| 🔴 P0 | AttackTimeline 교정 — 기본 Attack marker 누락 4종(Quake 포함), BattleAxe·Inferno·Stream 등 설정/클립 불일치, 복수 Attack 클립 선택 순서 제거 | 애니메이션/전투 | 대 |
+| 🔴 P0 | AttackTimeline 잔여 교정 — QuakeSpirit 1.667초와 BattleAxe 1.02초 교정은 자동·focused gate CONDITIONAL PASS. 기본 Attack marker 미연결 잔여(MushroomBomber, BloomFairy), Inferno·Stream 등 설정/클립 불일치, 복수 Attack 클립 선택 순서 제거 | 애니메이션/전투 | 대 |
+| 🟡 후속 분리 | **인게임 심각한 렉 성능 결함 조사** — BattleAxe 통합 육안 테스트에서 사양만으로 단정하기 어려운 심한 렉이 관찰됐다. 사용자 지시로 유닛 타임라인 교정과 분리해 나중에 별도 Task로 재현·계측·원인 분석한다. 현재 원인은 미확정이며 이번 BattleAxe Task에서는 성능 수정에 착수하지 않는다 | 성능/진단 | 대 |
 | 🔴 P0 | 전투 결과 단일 writer/emitter 복구 — `ApplyDamageToVictim`과 Quake의 `ApplyFixedDamageToVictim`을 ActionSequence 결과 적용기로 수렴 | 아키텍처/전투 | 중 |
 | ✅ 완료 | 코드 리팩토링 7개 그룹 전체 | 아키텍처 | 대 |
 | ✅ 완료 | 코드 정리(클린업) Phase 1 — 히스토리성 주석/폐기 코드 제거 (약 30개 파일) | 코드 정리 | 소 |
@@ -72,7 +126,6 @@
 | 🟡 중간 | 로비 UI 비주얼 폴리싱 (에셋 제작 완료 2026-05-30) | UI | 중 |
 | 🟢 낮음 | 재접속 실제 구현 | 기능 | 중 |
 | 🟡 중간 | 피격 VFX 프리셋 연결 — `UnitEffectConfig.hitPreset` Inspector 배선(Human 6종 등 미연결) | 에셋 | 소 |
-| 🟢 낮음 | QuakeSpirit Attack 클립 `OnAttackHit` 이벤트 주입 — 특수 공격 로직(규칙 43)은 구현·검증 완료됐으나 클립 `OnAttackHit` 미주입 + placeholder `hitFrameTimes`(1.0s)로 타격 애니↔데미지 텍스트 타이밍이 어긋남(스플래시 텍스트 타임아웃 7.5s 지연, 피해·동기화 자체는 정상). 인젝터로 실제 타격 프레임 주입 시 해소. 사용자 결정으로 별도 후속 task. (특수 공격 핸들러 확장 완료: BattleAxe·TorrentSpirit 2026-07-17, BloomFairy 2026-07-18, MushroomBomber 2026-07-19, InfernoSpirit·QuakeSpirit 2026-07-20) | 기능/에셋 | 소 |
 | 🟡 중간 | 멀티플레이 원거리 공격 방향(facing) 버그 — 원거리 유닛이 공격 시 타겟을 정확히 안 바라봄. 진단상 에셋 아닌 멀티 원거리 facing 공유 회전 로직(서버 계산+NetworkTransform) 문제로 추정(근접 유닛 미노출). 수정 시 근접 유닛 회귀 주의. 상세: `_Tasks/2026-07-20/03_22_infernospirit-dot-and-attack-facing/Plan.md` (InfernoSpirit 작업에서 진단·보류) | QA/버그 | 소 |
 | ⬜ 백로그 | 튜토리얼 | 기능 | 대 |
 | ⬜ 백로그 | Firebase 백엔드 (랭킹/IAP) | 기능 | 대 |
@@ -209,9 +262,9 @@
 - **비고**: 코드 아님, 에셋 연결 작업.
 
 ### F-4. 미구현 특수 타격 클립 이벤트 주입 🟢 낮음
-- **🔨 QuakeSpirit 특수 공격 로직 완료·클립 이벤트 잔여 (2026-07-20)**: 착탄형 즉발 2단계 AoE 구현·멀티 로그 검증 완료(규칙 43, 핸들러 `QuakeAttackBehavior` + 레지스트리 1줄, MushroomBomber 원형 반경 헬퍼 `internal static` 공용화 재사용). 단 Attack 클립 `OnAttackHit`은 **아직 미주입** + `hitFrameTimes` placeholder(1.0s)로 타격 애니↔데미지 텍스트 타이밍이 어긋남(스플래시 텍스트가 `HitPresentationQueue` 타임아웃 7.5s까지 지연 — 피해·판정·동기화 자체는 정상). 사용자 결정으로 **별도 후속 task 분리**.
-- **남은 대상**: QuakeSpirit `OnAttackHit` 클립 이벤트 주입만 잔여(특수 공격 핸들러 확장은 5종 전량 완료). BloomFairy는 힐러 전용 경로로 의도적 미등록.
-- **작업**: QuakeSpirit 후속 task에서 실제 타격 프레임으로 `hitFrameTimes` 확정 후 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 `OnAttackHit`을 주입(규칙 17·27) → 타이밍 어긋남 해소.
+- **🔨 과거 잔여 기록 (2026-07-20)**: 당시 QuakeSpirit Attack clip에는 `OnAttackHit`이 없고 `hitFrameTimes`가 placeholder 1.0초여서 별도 후속 task로 분리했다. 이 문장은 당시 상태를 보존한 이력이며 현행 미완료 목록이 아니다.
+- **✅ 후속 교정 완료 / 실기 대기 (2026-09-14)**: production `Base Layer/Attack` clip의 `OnAttackHit` 1.667초와 `UnitStatsConfig.hitFrameTimes` 1.667초를 정렬하고 QuakeSpirit을 Supported로 승격했다. 영구 fail-closed self-validation과 Root Pose Cross Audit은 errors 0 PASS다. Android Build And Run은 시작까지만 확인했으므로 완료·설치·사용자 실기 결과는 OPEN이다.
+- **남은 대상**: QuakeSpirit marker/config 구현 작업은 없다. 남은 것은 Android 빌드 완료·설치 확인과 실제 타격 시점·AoE·반복 공격·타겟 전환·기존 유닛 회귀의 사용자 판정이다. BloomFairy는 힐러 전용 경로로 의도적 미등록이다.
 
 ### F-5. Firebase/EDM 저장소 방침 정리 🟡 중간 (2026-07-13 등록)
 - **현황**: 이번 세션에서 발견 — 신규 환경에 저장소를 클론하면 Firebase/EDM(External Dependency Manager) 관련 임포트가 누락되어 재임포트가 필요한 문제.

@@ -122,6 +122,85 @@ namespace Hexiege.Application
                 target,
                 allowBlockedAuthoritativeStartEgress: false);
 
+        /// <summary>
+        /// 재탐색 시 권위 논리 타일, 현재 Simulation Root 타일, 호출자가 관측한 최신
+        /// walkability revision을 한 경계에서 검증한다. 성공 경로의 첫 타일은 항상
+        /// UnitData.Position이며 Root가 현재/인접 진행 구간을 벗어나면 스냅 없이 거부한다.
+        /// </summary>
+        public UnitPathRequestResult RequestAuthoritativeRepath(
+            UnitData unit,
+            Vector3 simulationRootDomain,
+            HexCoord target,
+            ulong environmentRevision)
+        {
+            HexCoord authoritativeStart = unit != null ? unit.Position : default;
+            HexCoord rootTile = _mapper != null
+                ? _mapper.WorldToHex(simulationRootDomain)
+                : default;
+            if (unit == null || !unit.IsAlive || _grid == null || _mapper == null)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.ProviderFailure, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+            if (!_grid.HasTile(authoritativeStart)
+                || !_grid.HasTile(rootTile)
+                || HexCoord.Distance(authoritativeStart, rootTile) > 1)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.InvalidStart, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+            if (!_grid.HasTile(target))
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.InvalidGoal, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+            if (authoritativeStart == target)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.EmptySameTile, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+            if (_flowFieldService == null)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.ProviderFailure, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+
+            HexFlowField field = _flowFieldService.GetOrComputeAtRevision(
+                target, environmentRevision);
+            if (field == null)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.ProviderFailure, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+
+            List<HexCoord> path = field.GetPath(authoritativeStart);
+            if (path == null)
+                path = TryBuildBlockedStartEgressPath(field, authoritativeStart);
+            if (path == null || path.Count < 2)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.Unreachable, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+            if (path[0] != authoritativeStart)
+            {
+                return new UnitPathRequestResult(
+                    UnitPathRequestStatus.ProviderFailure, null,
+                    authoritativeStart, rootTile, target, environmentRevision);
+            }
+
+            return new UnitPathRequestResult(
+                UnitPathRequestStatus.Success, path,
+                authoritativeStart, rootTile, target,
+                _flowFieldService.WalkabilityRevision);
+        }
+
         private List<HexCoord> RequestMoveCore(
             HexCoord start,
             HexCoord target,
@@ -494,6 +573,23 @@ namespace Hexiege.Application
             HexCoord nearestTile = _mapper.WorldToHex(unitWorldPosDomain);
             if (!_grid.HasTile(nearestTile))
                 return false;
+
+            // 전투 종료 시 논리 위치(UnitData.Position)는 이미 finalTarget이지만 Simulation
+            // Root만 타일 중심 밖에 남을 수 있다. 이때 A*의 null/빈 경로는 도달 불가가
+            // 아니라 "추가 logical tile 전이가 필요 없음"을 뜻한다. walkable 권위 타일을
+            // 그대로 반환하면 호출자는 기존 corridor/sweep preflight를 거쳐 중심까지 걷고,
+            // 실제 중심 도달 뒤 정상 완료한다. 차단 타일은 아래 분기로 우회시키지 않고
+            // fail-closed하여 기존 WaitingRepath/Blocked 생명주기를 보존한다.
+            if (finalTarget == unit.Position)
+            {
+                HexTile authoritativeTile = _grid.GetTile(unit.Position);
+                if (authoritativeTile != null && authoritativeTile.IsWalkable)
+                {
+                    rejoinTile = unit.Position;
+                    return true;
+                }
+                return false;
+            }
 
             int currentDistanceToGoal = HexCoord.Distance(nearestTile, finalTarget);
             var candidates = new List<(HexCoord coord, float distanceSquared)>();

@@ -14,6 +14,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Hexiege.Domain;
+using Hexiege.Application.Combat.Sequencing;
 
 namespace Hexiege.Application
 {
@@ -102,6 +103,82 @@ namespace Hexiege.Application
         //   유효 스탯 접근자(EffectiveAttack/GetUnitMoveSpeedMultiplier)와 CanAttack 게이트가 이 시스템을 참조한다.
         // ====================================================================
         private StatusEffectSystem _statusSystem;
+
+        // C3 완료 묶음은 이 동기 피해 호출 안에서 실제로 적용된 결과만 수집한다.
+        // 공격 타임라인이나 Animation Event 개수로 AoE 피해자 수를 추측하지 않는다.
+        private const int MaximumPresentationFactsPerImpact = 256;
+        private const int SecondaryDamageEffectKind = 2;
+        private AppliedPresentationFactCollector _activePresentationFactCollector;
+
+        private sealed class AppliedPresentationFactCollector
+        {
+            private readonly int _attackerId;
+            private readonly AttackResultKey _primaryKey;
+            private readonly List<AppliedAttackPresentationFact> _facts =
+                new List<AppliedAttackPresentationFact>(8);
+            private int _nextSecondaryOrdinal;
+
+            public AttackDamagePresentationBundleStatus Status { get; private set; }
+                = AttackDamagePresentationBundleStatus.Complete;
+
+            public AppliedPresentationFactCollector(int attackerId, AttackResultKey primaryKey)
+            {
+                _attackerId = attackerId;
+                _primaryKey = primaryKey;
+            }
+
+            public void Record(UnitData attacker, IDamageable target, int hpBefore,
+                int resultingHp, bool hasImpactPosition, WorldPointXZ impactPosition)
+            {
+                if (Status != AttackDamagePresentationBundleStatus.Complete) return;
+                if (attacker == null || attacker.Id != _attackerId || target == null) return;
+
+                int appliedAmount = Mathf.Max(0, hpBefore - resultingHp);
+                // AttackImpactResult의 HitApplied 계약은 양수 실제 적용만 허용한다.
+                // 0 피해 이벤트를 성공 결과로 위조하지 않고 C2 주 결과가 원인을 보존하게 둔다.
+                if (appliedAmount <= 0) return;
+
+                int victimKind = target is UnitData ? (int)EntityKind.Unit : (int)EntityKind.Building;
+                bool isPrimary = victimKind == _primaryKey.VictimKind
+                    && target.Id == _primaryKey.VictimId;
+                int effectKind = isPrimary ? _primaryKey.EffectKind : SecondaryDamageEffectKind;
+                int ordinal = isPrimary ? _primaryKey.ResultOrdinal : _nextSecondaryOrdinal++;
+                int victimPresentationType = target is UnitData targetUnit
+                    ? (int)targetUnit.Type
+                    : target is BuildingData targetBuilding
+                        ? (int)targetBuilding.Type
+                        : -1;
+                var fact = new AppliedAttackPresentationFact(
+                    victimKind, target.Id, effectKind, ordinal, appliedAmount, resultingHp,
+                    victimPresentationType, (int)target.Team,
+                    hasImpactPosition, impactPosition);
+                if (!fact.IsValid)
+                {
+                    Status = AttackDamagePresentationBundleStatus.InvalidFact;
+                    return;
+                }
+                if (_facts.Count >= MaximumPresentationFactsPerImpact)
+                {
+                    Status = AttackDamagePresentationBundleStatus.CapacityExceeded;
+                    return;
+                }
+                for (int i = 0; i < _facts.Count; i++)
+                {
+                    AppliedAttackPresentationFact previous = _facts[i];
+                    if (previous.VictimKind == fact.VictimKind
+                        && previous.VictimId == fact.VictimId
+                        && previous.EffectKind == fact.EffectKind
+                        && previous.ResultOrdinal == fact.ResultOrdinal)
+                    {
+                        Status = AttackDamagePresentationBundleStatus.DuplicateKey;
+                        return;
+                    }
+                }
+                _facts.Add(fact);
+            }
+
+            public AppliedAttackPresentationFact[] ToArray() => _facts.ToArray();
+        }
 
         // 타입 C 상태를 서버 권위로 부여했을 때 발화되는 이벤트(멀티 클라 재현용).
         //   NetworkSkillController(서버)가 구독해 상태 부여를 양 클라에 브로드캐스트한다
@@ -584,11 +661,9 @@ namespace Hexiege.Application
         ///   - 멀티플레이: NetworkCombatController.DelayedAttackDamage 코루틴(히트 개수만큼)에서 호출.
         ///
         /// 타겟 고정(Target Lock) 설계:
-        ///   공격 모션을 시작한 순간 타겟이 확정됨.
-        ///   딜레이 중 타겟이 사거리를 벗어나도 데미지 적용.
-        ///   단, 아래 두 경우에만 취소:
-        ///   1. 공격자가 딜레이 중 사망
-        ///   2. 타겟이 딜레이 중 사망 (다른 유닛에게 먼저 처치됨)
+        ///   공격 모션을 시작한 순간 타겟이 확정되지만 명중까지 보장하지는 않는다.
+        ///   멀티플레이 경로는 타격 순간 서버 권위 사거리·방향 승인을 받은 경우에만
+        ///   아래의 단일 Legacy writer가 피해를 적용한다.
         ///
         /// 쿨다운 리셋 규칙:
         ///   쿨다운은 공격 모션이 시작되는 순간(=TryAttack 또는 NetworkCombatController.ExecuteAttack) 한 번만 리셋.
@@ -601,20 +676,197 @@ namespace Hexiege.Application
         /// <param name="targetIsUnit">true=유닛, false=건물</param>
         public void ApplyAttackDamage(UnitData attacker, int targetId, bool targetIsUnit)
         {
+            ApplyAttackDamageCore(
+                attacker,
+                targetId,
+                targetIsUnit,
+                updateLegacyDomainFacing: true,
+                presentationResultKey: default);
+        }
+
+        /// <summary>
+        /// 기존 피해 writer가 실제로 어느 종료 경로를 탔는지 호출자에게 명시적으로 돌려주는
+        /// 관측 오버로드다. HP 전후 값을 바깥에서 추정하지 않으며, 기존 void API와 피해·이벤트
+        /// 실행 순서는 완전히 동일하다. Tracer C는 이 결과를 진단에만 사용한다.
+        /// </summary>
+        public AttackDamageObservation ApplyAttackDamageObserved(
+            UnitData attacker,
+            int targetId,
+            bool targetIsUnit)
+            => ApplyAttackDamageObserved(
+                attacker, targetId, targetIsUnit, AttackDamageApplyStatus.Applied);
+
+        /// <summary>
+        /// 멀티플레이 Impact 경계가 확정한 서버 권위 승인 결과를 받아 실제 피해 적용 여부를
+        /// 결정하는 단일 writer 진입점이다. Applied는 "피해 적용을 시도해도 됨"을 뜻하며,
+        /// 나머지 상태는 HP와 이벤트를 변경하지 않고 그대로 관측 결과로 반환한다.
+        /// </summary>
+        public AttackDamageObservation ApplyAttackDamageObserved(
+            UnitData attacker,
+            int targetId,
+            bool targetIsUnit,
+            AttackDamageApplyStatus authorizationStatus)
+        {
+            if (authorizationStatus != AttackDamageApplyStatus.Applied)
+            {
+                bool recognizedRejection = authorizationStatus
+                        == AttackDamageApplyStatus.AttackerUnavailable
+                    || authorizationStatus == AttackDamageApplyStatus.TargetUnavailable
+                    || authorizationStatus == AttackDamageApplyStatus.CombatConditionFailed
+                    || authorizationStatus == AttackDamageApplyStatus.AuthorizationUnavailable
+                    || authorizationStatus == AttackDamageApplyStatus.PoseUnavailable;
+                return AttackDamageObservation.Unavailable(
+                    recognizedRejection
+                        ? authorizationStatus
+                        : AttackDamageApplyStatus.AuthorizationUnavailable);
+            }
+
+            // 멀티플레이 NetworkCombatController는 서버 Simulation Root 정렬을 이미 완료했으므로
+            // 피해 경계에서 타일 기반 Facing을 다시 쓰지 않는다.
+            return ApplyAttackDamageCore(
+                attacker,
+                targetId,
+                targetIsUnit,
+                updateLegacyDomainFacing: false,
+                presentationResultKey: default);
+        }
+
+        /// <summary>
+        /// C3가 서버 권위 결과와 기존 피격 표현을 정확히 연결할 수 있도록 정규 결과 키를
+        /// 이벤트에 싣는 관측 오버로드다. 키는 피해 승인이나 계산에 사용하지 않는다.
+        /// </summary>
+        public AttackDamageObservation ApplyAttackDamageObserved(
+            UnitData attacker,
+            int targetId,
+            bool targetIsUnit,
+            AttackDamageApplyStatus authorizationStatus,
+            AttackResultKey presentationResultKey)
+        {
+            if (!presentationResultKey.IsValid)
+                return ApplyAttackDamageObserved(
+                    attacker, targetId, targetIsUnit, authorizationStatus);
+            if (authorizationStatus != AttackDamageApplyStatus.Applied)
+                return ApplyAttackDamageObserved(
+                    attacker, targetId, targetIsUnit, authorizationStatus);
+            return ApplyAttackDamageCore(
+                attacker,
+                targetId,
+                targetIsUnit,
+                updateLegacyDomainFacing: false,
+                presentationResultKey: presentationResultKey);
+        }
+
+        /// <summary>
+        /// 기존 단일 피해 writer를 그대로 한 번 실행하면서, 그 호출 안에서 실제 적용된 주 대상과
+        /// 동기 AoE 피해를 완결된 read-only 목록으로 돌려준다. 수집 실패는 피해를 되돌리지 않으며
+        /// 완료 묶음 전송만 fail-closed한다.
+        /// </summary>
+        public AttackDamagePresentationBundleObservation ApplyAttackDamageObservedWithPresentationBundle(
+            UnitData attacker,
+            int targetId,
+            bool targetIsUnit,
+            AttackDamageApplyStatus authorizationStatus,
+            AttackResultKey presentationResultKey)
+        {
+            if (!presentationResultKey.IsValid)
+            {
+                AttackDamageObservation invalidScopeObservation = ApplyAttackDamageObserved(
+                    attacker, targetId, targetIsUnit, authorizationStatus);
+                return new AttackDamagePresentationBundleObservation(
+                    invalidScopeObservation, System.Array.Empty<AppliedAttackPresentationFact>(),
+                    AttackDamagePresentationBundleStatus.InvalidScope);
+            }
+
+            // 권위 Miss/취소는 적용 피해가 없으므로 빈 manifest가 완결 상태다.
+            if (authorizationStatus != AttackDamageApplyStatus.Applied)
+            {
+                AttackDamageObservation rejected = ApplyAttackDamageObserved(
+                    attacker, targetId, targetIsUnit, authorizationStatus);
+                return new AttackDamagePresentationBundleObservation(
+                    rejected, System.Array.Empty<AppliedAttackPresentationFact>(),
+                    AttackDamagePresentationBundleStatus.Complete);
+            }
+
+            if (_activePresentationFactCollector != null)
+            {
+                AttackDamageObservation nested = ApplyAttackDamageCore(
+                    attacker, targetId, targetIsUnit,
+                    updateLegacyDomainFacing: false,
+                    presentationResultKey: presentationResultKey);
+                return new AttackDamagePresentationBundleObservation(
+                    nested, System.Array.Empty<AppliedAttackPresentationFact>(),
+                    AttackDamagePresentationBundleStatus.NestedCollection);
+            }
+
+            var collector = new AppliedPresentationFactCollector(
+                attacker != null ? attacker.Id : -1, presentationResultKey);
+            _activePresentationFactCollector = collector;
+            AttackDamageObservation primary;
+            try
+            {
+                primary = ApplyAttackDamageCore(
+                    attacker, targetId, targetIsUnit,
+                    updateLegacyDomainFacing: false,
+                    presentationResultKey: presentationResultKey);
+            }
+            finally
+            {
+                _activePresentationFactCollector = null;
+            }
+
+            return new AttackDamagePresentationBundleObservation(
+                primary, collector.ToArray(), collector.Status);
+        }
+
+        private AttackDamageObservation ApplyAttackDamageCore(
+            UnitData attacker,
+            int targetId,
+            bool targetIsUnit,
+            bool updateLegacyDomainFacing,
+            AttackResultKey presentationResultKey)
+        {
             // 딜레이 동안 공격자가 사망했을 수 있으므로 재확인
-            if (attacker == null || !attacker.IsAlive) return;
+            if (attacker == null || !attacker.IsAlive)
+                return AttackDamageObservation.Unavailable(
+                    AttackDamageApplyStatus.AttackerUnavailable);
 
             // 타겟을 Id로 재탐색 — 딜레이 동안 다른 유닛에게 먼저 처치되었을 수 있음
             IDamageable target = FindTargetById(targetId, targetIsUnit);
-            if (target == null || !target.IsAlive) return;
+            if (target == null || !target.IsAlive)
+                return AttackDamageObservation.Unavailable(
+                    AttackDamageApplyStatus.TargetUnavailable);
 
-            // 사거리 체크 없음 — 타겟 고정 설계.
-            // 공격 모션 시작 시 타겟이 확정되므로, 이후 이탈해도 데미지 적용.
+            // 멀티플레이 사거리·방향 검증은 이 writer를 호출하기 직전의 서버 권위 Impact
+            // 승인 경계에서 끝난다. 이 메서드는 승인 후 생존 상태를 한 번 더 확인하고,
+            // 실제 HP/이벤트 변경을 단 한 곳에서 수행한다.
 
             // 데미지 적용 + 이벤트 발행
-            ExecuteAttack(attacker, target);
+            int hpBefore = target.Hp;
+            // 사망 이벤트 구독자가 Domain/View를 제거하기 전에 이 writer가 사용할 동일한
+            // Impact 스냅샷을 고정한다. 피해 적용 자체는 위치를 바꾸지 않으므로 아래 fact와
+            // C2 주 결과가 같은 사건의 좌표를 공유한다.
+            Vector3 impactWorld = ResolveWorldPosition(target);
+            bool hasImpactPosition = WorldPointXZ.TryCreate(
+                impactWorld.x, impactWorld.z, out WorldPointXZ impactPosition);
+            int victimPresentationType = target is UnitData targetUnit
+                ? (int)targetUnit.Type
+                : target is BuildingData targetBuilding
+                    ? (int)targetBuilding.Type
+                    : -1;
+            ExecuteAttack(
+                attacker, target, updateLegacyDomainFacing, presentationResultKey);
+            int resultingHp = Mathf.Max(0, target.Hp);
+            int appliedAmount = Mathf.Max(0, hpBefore - resultingHp);
 
             // 쿨다운 리셋은 여기서 하지 않음 — 위 주석 참조(다중 히트 호환).
+            return new AttackDamageObservation(
+                AttackDamageApplyStatus.Applied,
+                appliedAmount,
+                resultingHp,
+                victimPresentationType,
+                (int)target.Team,
+                hasImpactPosition,
+                impactPosition);
         }
 
         /// <summary>
@@ -1263,20 +1515,29 @@ namespace Hexiege.Application
         }
 
         /// <summary>
-        /// 공격 실행. 주 타깃 방향으로 Facing을 갱신하고 단일 피해를 적용한 뒤,
+        /// 공격 실행. 단일 피해를 적용한 뒤,
         /// 도끼병 등 특수 공격 유닛이면 등록된 핸들러(범위 공격 등)를 이어서 실행한다.
         ///
         /// 이 메서드는 싱글/멀티 공통 수렴점이므로, 여기에 특수 공격 훅을 걸면
         /// 두 모드 모두에 동일하게 반영된다.
         /// </summary>
-        private void ExecuteAttack(UnitData attacker, IDamageable target)
+        private void ExecuteAttack(
+            UnitData attacker,
+            IDamageable target,
+            bool updateLegacyDomainFacing = true,
+            AttackResultKey presentationResultKey = default)
         {
-            // 공격 방향 계산 — 주 타깃을 향하도록 Facing 갱신.
-            // 특수 공격(휩쓸기)의 전방 부채꼴 판정은 "공격자 → 주 타깃" 월드 방향을 forward로
-            // 쓰지만, 이 Facing 갱신도 회전 연출 등과 정합을 유지하도록 함께 갱신한다.
-            // 반드시 주 타깃 피해 전에 여기서 한 번만 갱신한다(AoE 피해마다 갱신 금지).
-            HexDirection attackDir = FacingDirection.FromCoords(attacker.Position, target.Position);
-            attacker.Facing = attackDir;
+            // 공격 방향의 권위 원본은 서버 Simulation Root다. 피해 시점에 타일 좌표 기반
+            // 6방향 Facing을 다시 쓰면 연속 Root 방향과 별도 writer가 생긴다. 특수 공격의
+            // 전방 판정은 아래 handler가 공격자→주 타겟 월드 벡터를 직접 사용하므로 유지된다.
+            // 싱글플레이는 아직 NetworkCombatController의 pose gate를 사용하지 않으므로 기존
+            // 도메인 Facing 갱신을 유지해 이번 멀티플레이 교정이 별도 모드에 회귀를 만들지 않는다.
+            if (updateLegacyDomainFacing)
+            {
+                HexDirection attackDirection =
+                    FacingDirection.FromCoords(attacker.Position, target.Position);
+                attacker.Facing = attackDirection;
+            }
 
             // 특수 공격 핸들러 조회 — 등록된 유닛(도끼병/물정령 등)만 존재, 일반 유닛은 null.
             ISpecialAttackBehavior special = _specialAttacks.TryGet(attacker.Type);
@@ -1287,8 +1548,15 @@ namespace Hexiege.Application
             bool replacesPrimary = special != null && special.ReplacesPrimaryAttack;
             if (!replacesPrimary)
             {
-                // 주 타깃 단일 피해 — 기존 경로. 재사용 헬퍼로 처리.
-                ApplyDamageToVictim(attacker, target);
+                // 여우마법사의 Legacy 표식(1초)은 VFX 시작이며 피해 확정(2.25초)보다 먼저다.
+                // 스코프 없는 피해를 표식 FIFO에 넣으면 이미 지나간 표식 대신 다음 공격까지
+                // 기다리므로, 확정 피해 이벤트 수신 시 표시한다. 유효 키가 있는 공격은
+                // 정규 결과 결합을 유지하며 다른 유닛/특수 피해 경로에는 적용하지 않는다.
+                bool immediatePrimaryPresentation = attacker.Type == UnitType.FoxMagician
+                    && !presentationResultKey.IsValid;
+                ApplyDamageToVictim(
+                    attacker, target, immediatePresentation: immediatePrimaryPresentation,
+                    presentationResultKey: presentationResultKey);
             }
 
             // 특수 공격 훅.
@@ -1403,14 +1671,29 @@ namespace Hexiege.Application
         ///   true면 피격 표현 큐가 공격자 타격 프레임을 기다리지 않고 즉시 방출(파도 전용 경로 — 규칙 26).
         /// </param>
         private void ApplyDamageToVictim(UnitData attacker, IDamageable target, bool immediatePresentation)
+            => ApplyDamageToVictim(
+                attacker, target, immediatePresentation, default);
+
+        private void ApplyDamageToVictim(
+            UnitData attacker,
+            IDamageable target,
+            bool immediatePresentation,
+            AttackResultKey presentationResultKey)
         {
             if (attacker == null || target == null) return;
 
+            int hpBefore = target.Hp;
             // 데미지 적용 (인터페이스의 메서드 호출).
             // [Phase 2] raw = 공격자 팀 공격 연구가 반영된 "유효 공격력"(직격 대상).
             //   이후 ComputeFinalDamage가 ① Tank/CannonCart 건물 2배, ② 피격 대상 팀 방어 감쇄를 적용한다.
             //   연구 미적용(Lv0)이면 EffectiveAttack=기본 공격력 → 기존과 정확히 동일(하위호환).
             target.TakeDamage(ComputeFinalDamage(attacker, target, EffectiveAttack(attacker)));
+
+            Vector3 impactWorld = ResolveWorldPosition(target);
+            bool hasImpactPosition = WorldPointXZ.TryCreate(
+                impactWorld.x, impactWorld.z, out WorldPointXZ impactPosition);
+            _activePresentationFactCollector?.Record(
+                attacker, target, hpBefore, target.Hp, hasImpactPosition, impactPosition);
 
             // 일반화된 공격 이벤트 발행
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));
@@ -1423,7 +1706,8 @@ namespace Hexiege.Application
             GameEvents.OnEntityDamaged.OnNext(
                 new EntityDamagedEvent(target, target.Hp, targetIsUnit,
                     attackerId: attacker.Id, attackerIsUnit: true,
-                    immediatePresentation: immediatePresentation));
+                    immediatePresentation: immediatePresentation,
+                    presentationResultKey: presentationResultKey));
 
             // 타겟 사망 처리
             if (!target.IsAlive)
@@ -1695,9 +1979,16 @@ namespace Hexiege.Application
         {
             if (attacker == null || target == null || amount <= 0) return;
 
+            int hpBefore = target.Hp;
             // 피해 적용(임의 량). 스플래시도 직격과 동일하게 방어력 감쇄(+건물 2배 판정)를 거친다.
             // 방어력 0(Phase 1)이면 ComputeFinalDamage(amount)=amount → 기존과 동일(하위호환).
             target.TakeDamage(ComputeFinalDamage(attacker, target, amount));
+
+            Vector3 impactWorld = ResolveWorldPosition(target);
+            bool hasImpactPosition = WorldPointXZ.TryCreate(
+                impactWorld.x, impactWorld.z, out WorldPointXZ impactPosition);
+            _activePresentationFactCollector?.Record(
+                attacker, target, hpBefore, target.Hp, hasImpactPosition, impactPosition);
 
             // 일반화된 공격 이벤트 발행(주 타깃 단일 피해 경로와 동일).
             GameEvents.OnEntityAttacked.OnNext(new EntityAttackedEvent(attacker, target));

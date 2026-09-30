@@ -180,6 +180,13 @@ namespace Hexiege.Bootstrap
                 _buildingPlacement,
                 _presentationPoseProvider);
 
+            // C3 read-only Presenter는 효과 writer를 주입받지 않는다. 기존 큐 초기화 뒤 조합해
+            // 관측만 시작하며, Legacy HP/VFX/Animator/OnAttackHit 경로는 그대로 단일 emitter다.
+            if (_unitAttackResultPresentationShadow == null)
+                _unitAttackResultPresentationShadow =
+                    gameObject.AddComponent<UnitAttackResultPresentationShadow>();
+            _unitAttackResultPresentationShadow.Initialize();
+
             // 11. Castle 자동 배치
             PlaceCastles(orientation, oc);
 

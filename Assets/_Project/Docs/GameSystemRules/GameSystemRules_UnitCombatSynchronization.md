@@ -4,7 +4,7 @@
 
 이 문서는 **무엇을 동기화해야 하는지**를 정의한다. 구체적인 NGO 타입, RPC 이름, 클래스 배치는 `TechnicalDesignDocument.md`가 담당한다. 게임플레이 의미는 `GameSystemRules_Units.md`, 런타임 수치는 검증된 `UnitStatsConfig`와 향후 `AttackProfile`, 사람이 읽는 수치 미러는 `StatsReference.md`, 에셋 감사 스냅샷은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`가 담당한다.
 
-> **이동 동기화 구현 상태 (2026-08-25):** `ReducerAuthoritative` 공통 서버 writer의 중심 도달 checkpoint, 건물 안전 Chase와 안전한 전방 중심 복귀는 v10 집중 멀티 실기를 통과했다. Android Host는 중심 checkpoint 766회·최대 오차 0, direct-safe/path Chase 806/2,977 frame과 terminal 오류 0을 기록했고 같은 경기 Editor Client와 양쪽 local ROOT 53/53 PASS를 확보했다. 공식 CrossAudit의 INCONCLUSIVE 원인이던 Host 긴 ROOT terminal은 채점 필수 필드만 담는 최악값 803 UTF-8 byte compact END와 출력 전 preflight로 교정했고 Runtime/Editor Roslyn과 Unity self-validation 2종까지 PASS다. 이 결함만을 위한 동일 빌드 재시험은 하지 않으며 25종·반대 역할·Legacy rollback은 다음 새 빌드의 통합 회귀에 포함한다. 다음 구현은 공격 회차 Shadow와 권위 타겟·공격 방향이며, ImpactResult와 피해·표현 시점 전환은 계속 미완료다.
+> **동기화 구현 상태 (2026-08-27):** C2 Snapshot/ImpactResult Shadow와 observer v6의 Unity self-validation은 PASS했지만, 최신 Android Host / Editor Client 실기에서 Legacy overshoot를 Shadow Impact offset이 반영하지 않아 `NotDue`와 다중 hit `OutOfOrder`가 발생했다. B3도 같은 walkable 권위 타일의 중심 복귀를 경로 없음으로 오판한 Unit 64 영구 정지가 확인됐다. 따라서 C2와 B3 전투 전환은 **멀티 실기 FAIL / 교정 중**이며 Phase 5로 진행하지 않는다. 서버 권위, Legacy 피해·HP·RPC·VFX gameplay writer와 Client observer-only 경계는 유지한다.
 
 ---
 
@@ -126,6 +126,8 @@ VisualFacing은 SimulationFacing을 재생한 결과이며 판정 원본이 아�
 
 구현 enum을 반드시 위 목록과 일치시킬 필요는 없지만, 네트워크 스냅샷은 클라이언트가 현재 단계를 구분할 충분한 정보를 제공해야 한다. `WaitingRepath`는 다음 서버 frame의 경로 평가를 기다리는 일시 상태이고 `Blocked`는 같은 이동 목표가 경로 환경 변경을 기다리는 상태다. 둘 다 `Completed`가 아니며 외부 시스템이 같은 목표를 새 command로 반복 발행하는 근거가 될 수 없다. 단순 `Walk / Attack` 애니메이션 값만으로 행동 권위를 표현하지 않는다.
 
+같은 이유로 Animator가 Attack 표현을 유지한다는 사실만으로 서버가 Windup·Impact 단계라고 추측하지 않는다. 공격 사거리 안의 새 후보로 타겟을 교체하는 동안 서버 행동은 `AlignToAttack`일 수 있으며, Attack 표현 연속성과 새 `AttackSequenceId`의 승인 여부는 별도 값으로 처리한다.
+
 ---
 
 ## 4. AttackSequence 계약
@@ -135,6 +137,8 @@ VisualFacing은 SimulationFacing을 재생한 결과이며 판정 원본이 아�
 서버가 공격을 커밋하고 Windup에 진입할 때 공격자별로 단조 증가하는 `AttackSequenceId`를 발급한다. 커밋 전 Align 단계는 행동 스냅샷만 있고 `AttackSequenceId=0`이다. 한 공격의 준비, 타격, 범위 결과, 회복 및 표현은 같은 ID를 사용한다.
 
 동일 공격에 여러 타격이 있으면 0부터 시작하는 `HitIndex`로 구분한다. 표현과 결과를 공격자별 FIFO 순서로 연결하지 않는다.
+
+Legacy scheduler가 관측 틱보다 앞선 실제 주기 경계를 overshoot로 보존하는 경우에도 Shadow `CommitServerTime`은 현재 관측 서버 시각을 유지한다. commit을 과거로 backdate하지 않으며, 같은 회차의 `effectiveCooldown = max(0, cooldown - overshoot)`와 각 hit의 `effectiveImpactOffset = max(0, hitTime - overshoot)`를 Legacy와 Shadow Begin/Commit/Impact가 공동 사용한다. 이 유효 시간 값을 적용한 뒤 원래 hit offset이나 별도 관측 시각을 다시 더해 Impact due를 늦추지 않는다.
 
 ### 최소 데이터
 
@@ -160,6 +164,8 @@ VisualFacing은 SimulationFacing을 재생한 결과이며 판정 원본이 아�
 - 대상별 피해·회복·상태 효과 결과
 
 회차 종료 정보는 `RecoveryEndServerTime`과 종료 사유를 가진다.
+
+pre-impact authorization 전에 공격자 또는 커밋 타겟이 사라진 경우 `AttackerUnavailable`과 `TargetUnavailable`을 구분한다. 같은 reservation·`HitIndex`의 authorization miss 원인과 정식 결과 outcome은 의미가 일치해야 하며, 전체 결과 키와 정규 결과 확인 계약을 통과해야 한다. 서로 다른 원인을 주장하는 결과는 fail-closed 하고 `HitApplied`, 일반 `Miss` 또는 0피해 성공으로 위조하지 않는다.
 
 ### NET-ACTION-IDEMPOTENT. 멱등 처리
 
@@ -210,7 +216,7 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 
 ### NET-TIME-004. 순서 역전
 
-타격 결과가 시작 스냅샷보다 먼저 도착해도 정규 결과 키로 제한된 버퍼에 보관해 같은 회차에 결합한다. 버퍼는 공격자 회차당 최대 64개 결과, 최대 2초 age를 허용한다. 회차 완료·취소·Despawn 또는 만료 시 폐기하고 진단 로그를 남긴다. 만료돼도 권위 HP는 유지하며 결과별 최소 catch-up을 최대 한 번만 수행한다. 로컬 Animation Event 빈 신호를 다음 공격에 재사용하지 않는다.
+타격 결과가 시작 스냅샷보다 먼저 도착해도 정규 결과 키로 제한된 버퍼에 보관해 같은 회차에 결합한다. 버퍼는 공격자 회차당 최대 64개 결과, 최대 2초 age를 허용한다. 회차 완료·취소·Despawn은 미래 표현 허가를 닫지만 이미 확정된 결과를 소급 무효화하지 않는다. 결과 수신과 종료 알림의 순서가 바뀌어도 같은 권위 상태로 수렴한다. 만료 시 진단 로그를 남기고 권위 HP는 유지하며 transient 표현은 `NET-TIME-003`의 age와 `NET-TIME-005` baseline 안에서만 최대 한 번 catch-up한다. 사라진 View나 재사용 ID에 과거 반응을 적용하지 않는다. 로컬 Animation Event 빈 신호를 다음 공격에 재사용하지 않는다.
 
 ### NET-TIME-005. 늦은 참가와 재접속
 
@@ -232,6 +238,7 @@ PresentationServerTime = SynchronizedServerTime - CombatPresentationDelay
 - 서버 복제 대상은 logical path 자체가 아니라 Authoritative Locomotion이 commit한 Simulation Root pose와 phase/scope다. 기본 A*의 경유 중심 checkpoint, logical path corridor, trajectory sweep, 실제 trajectory 거리/초 `MoveSpeed`, 공통 최대 회전 속도 270°/s와 candidate position 기준 target acquire는 서버에서만 계산한다. 경유 checkpoint는 Simulation Root가 해당 중심 허용 오차에 실제로 도달한 뒤에만 소비한다. candidate position으로 획득이 확정된 틱에는 그 위치까지만 commit하고 `NoIntent`를 게시하며 다음 틱의 추가 이동을 금지한다.
 - 전투 추격은 같은 Authoritative Locomotion과 공간 preflight를 사용한다. 타겟까지의 직선 구간이 안전할 때만 direct chase를 사용하고, 중간 건물·완전 차단 지형·이동 불가 타일이 있으면 서버가 공격 접근 위치까지 경로를 계산한다. 동일한 unsafe direct candidate와 일반 A*를 번갈아 재시도하는 것은 유효한 복구가 아니다.
 - 전투 종료 후에는 서버가 도달 가능한 전방 중심을 복귀 checkpoint로 선택하고, 그 중심까지의 안전한 direct 구간 또는 A* 복귀 경로를 사용한다. 클라이언트 보정이나 위치 스냅으로 중심 복귀를 대신하지 않는다.
+- 전투 종료 복귀 목표가 현재 `UnitData.Position`과 같은 walkable 권위 타일이면 빈 A* 경로를 `Blocked`로 해석하지 않는다. Simulation Root가 아직 중심 밖이면 같은 Authoritative Locomotion으로 그 중심까지 걸어서 수렴한 뒤 완료한다. 차단 타일과 실제 unsafe/unreachable은 기존 fail-closed 재탐색 계약을 유지한다.
 - 150° 이상의 반전은 연속 선회가 아니라 정지 정렬로 처리한다. 이 임계값은 네트워크 지연이나 클라이언트 상태로 변경하지 않는다.
 - fail-closed는 unsafe candidate의 commit을 거부하는 서버 권위 원칙이다. 동일 path 1회, stale PendingPath 또는 일시적인 planner/pathfinder 불일치를 근거로 살아 있는 유닛의 이동 목표를 즉시 폐기하지 않는다.
 - 같은 이동 목표의 재탐색 이력은 코루틴·segment·외부 ticker 재호출을 넘어 유지한다. 서버는 목표 변경, 실제 위치/checkpoint 진전 또는 walkability revision 변경만을 명시적인 재개·reset 근거로 사용한다.
@@ -276,17 +283,59 @@ Periodic 효과는 최초 부여 타격의 회차 ID와 별도의 효과 인스�
 
 `OnAttackHit` 같은 Animation Event는 로컬 VFX·SFX·카메라·무기 발사점 표식과 에셋 검증에만 사용한다. 실제 공격 결과나 회차 진행을 발생시키지 않는다.
 
+FoxMagician의 현행 `Unresolved / LegacyFallback` 공격에서는 `OnAttackHit @ 1.00초`가 charge VFX 시작을 뜻하고, 서버 TimerImpact는 별도 설정인 `2.25초`에 피해를 예약한다. 두 시점은 같은 공격 회차에 속하지만 동일한 사건이 아니다. 이 값은 사용자 실기에서 VFX 후반부 피해를 확인하기 전의 복원 기준이다.
+
+최초 공격 사거리 진입의 `AlignToAttack`은 위치를 완전히 정지한 채 기존 Attack 클립을 선행 표현으로 재생할 수 있다. 이때 이동 reducer의 `TargetAcquirePriority + NoIntent`는 일반 이동 보류가 아니라 Action handoff다. 서버와 Client 표현은 Walk 첫 자세·Idle·Held를 중간에 삽입하지 않고 현재 Walk에서 provisional Attack으로 직접 전환한다. 공격 사거리 안의 유효 후보가 계속 존재하면 타겟 교체 중에도 기존 Attack 표현 상태를 유지할 수 있다. 두 경우 모두 커밋 전 표현은 provisional이며, 지나간 Animation Event는 새 회차의 VFX·SFX·트레이서·피격 표현을 방출하거나 정규 결과를 소비하지 않는다. 서버 Root가 목표 방향 5도 이내에 들어와 새 회차를 커밋해도 화면의 같은 Attack 클립을 restart하지 않고 현재 정규화 진행 위치를 보존한다. 서버는 커밋 뒤 아직 지나가지 않은 첫 marker부터 타격 표현과 결과를 승인하며, 현재 cycle의 marker가 모두 지났다면 다음 cycle의 첫 marker까지 기다린다. 커밋 전 marker의 소급 승인과 클립 되감기는 모두 금지한다.
+
+`AcquireTarget`의 서버 후보는 아직 네트워크 표현 타겟이 아니다. Action 소유권 전에는 후보만 보류하고 `ChangeTarget` 표현 명령을 발행하지 않는다. 최초/재진입에서는 provisional Start의 단일 payload가 target·revision·impact suppression을 Host에 먼저 적용하고 원격 Client에 전달한다. 이미 Attack 표현 중인 활성 전투의 교체만 Action 소유권과 Host 적용 성공 뒤 별도 target-change로 발행하며, 적용 실패 뒤 RPC만 전송하거나 Start와 같은 target-change를 중복 전송하지 않는다.
+
 ### NET-PRESENT-002. 검증된 AttackTimeline
 
 서버가 읽는 검증된 AttackTimeline 또는 AttackProfile이 Windup, 타격 오프셋, Recovery의 정규 원본이다. 완성 유닛의 Animation Event는 이 데이터와 허용 오차 안에서 일치해야 한다.
+
+같은 Attack 표현 상태 안에서 새 회차가 시작되더라도 `(AttackerInstanceId, AttackSequenceId, Revision)` 시작 경계를 한 번만 수락한다. 중복·오래된 시작 신호는 Animator를 다시 시작하지 않으며, 양수 회차 뒤 커밋 전 neutral Align 상태로 돌아가도 마지막 발급 회차 상한을 보존하여 이후 오래된 회차가 최신 표현을 되돌리지 못하게 한다.
+
+provisional 표현에서 커밋된 회차로 전환할 때도 같은 연속 재생 anchor를 유지한다. 회차 커밋은 서버 승인 경계와 marker 소비 가능 범위를 변경할 뿐 Animator 재생 위치를 0으로 되돌리는 명령이 아니다. 커밋 시점보다 앞선 marker는 이미 소비된 것으로 간주하지도, 새 회차 결과로 소급 결합하지도 않는다.
+
+Attack 클립의 재생 상태와 공격 회차 스코프의 발행은 서로 다른 책임이다. 서버가 전투 이탈 없이 두 번째 이후 공격 회차를 커밋하더라도 **모든 커밋마다** 새 `(AttackerInstanceId, AttackSequenceId, first HitIndex, Revision)`를 Host와 Client에 원자적으로 발행해야 한다. 이미 Attack 클립이 재생 중이면 이 발행은 Animator를 restart하거나 CrossFade하지 않고 marker가 소비할 회차 커서만 새 스코프의 `HitIndex=0`부터 갱신한다. “Attack 애니메이션을 이미 시작했다”는 상태 가드로 후속 회차 스코프 발행을 생략하는 것은 금지한다. 중복·오래된 스코프는 무시하되, 정상적인 단조 증가 회차는 전투 상태가 유지되는 동안에도 빠짐없이 수락한다.
+
+각 스코프는 해당 AttackProfile의 유효 `HitIndex` 범위만 정확히 한 번 소비할 수 있는 1회성 표현 허가다. 마지막 유효 marker가 소비되면 같은 스코프는 즉시 `Consumed`가 되고, 다음 단조 증가 스코프가 `Armed`될 때까지 모든 반복 marker를 fail-closed로 억제한다. Marker는 유효 스코프 소비에 성공한 뒤에만 VFX·SFX·Tracer·로컬 피격 신호를 방출한다. 스코프가 없거나 0이거나 소모됐는데도 로컬 emitter가 실행되는 것은 C3 실패이며, provisional·소모 후 반복 marker가 아무 연출도 만들지 않고 억제되는 것은 정상이다. 원거리 Tracer는 발사 marker에서 소비한 불변 스코프를 착탄 콜백까지 보존하되 다음 회차 스코프로 바꾸지 않는다.
+
+단, 위 fail-closed 표현 허가는 해당 유닛 타입의 C3 공격 프로필이 `Supported`이고 정규 스코프를 실제로 발행하는 경기 경로에만 적용한다. 마이그레이션 중 `Unresolved`로 명시된 타입은 비교 분모와 정규 스코프 발행 대상에서 제외하되, 그 사실을 이유로 기존 Legacy 공격 VFX·SFX·Tracer를 차단하지 않는다. `Unresolved` 타입에 0/default 스코프를 유효한 것처럼 전달하거나 `impactEnabled=true`와 결합해 공통 marker gate를 통과시키는 것도 금지한다. 해당 타입은 Legacy 표현을 그대로 유지하고 미지원 사실을 진단 manifest에 남기며, 정규 AttackProfile·타임라인·스코프가 완성된 뒤에만 위 1회성 허가로 전환한다.
+
+연속 재생 중인 Attack 클립에서는 고정된 프로필 offset을 커밋 시각에 다시 더하는 것만으로 Impact 시각을 정하지 않는다. 서버는 현재 연속 재생 anchor에서 **커밋 뒤 실제로 다음에 도착할 marker occurrence**를 선택하고, 그 절대 `ImpactServerTime`과 `(AttackerInstanceId, AttackSequenceId, HitIndex, Revision)` 스코프를 같은 커밋 결과로 원자적으로 발행한다. 서버 판정 예약과 Client marker 커서는 같은 occurrence를 가리켜야 하며, 한쪽만 다음 marker로 보정하고 다른 쪽은 원래 offset을 사용하는 분리는 금지한다.
 
 ### NET-PRESENT-003. 피격 표현 상관관계
 
 HP 텍스트, 피격 VFX, SFX와 타격 반응은 공격자 FIFO가 아니라 `NET-ACTION-IDEMPOTENT`의 정규 결과 키에 연결한다. 한 번의 AoE 타격으로 여러 대상이 맞으면 같은 회차와 HitIndex 아래 VictimKind·VictimId·EffectKind·ResultOrdinal로 각 결과를 구분해 함께 재생한다.
 
+C3 Coordinator는 일정(Schedule), 확정 결과(Result), 선택적 로컬 표식(Marker)을 별도 입력으로 받는다. Schedule은 커밋 당시 의도·예약 시각·commit revision의 불변 기록이며 적중·피해자 수·최종 Impact 방향을 예측하지 않는다. 실제 Impact에서 서버가 확정한 result revision·AuthoritativeAimDirection·outcome이 결과 표현의 기준이다. commit revision과 impact revision이 다를 수 있으며, 이를 같은 값으로 강제하거나 commit 방향으로 Windup 추적을 막지 않는다.
+
+공격 인스턴스를 한 번도 연 적 없는 유닛의 종료에는 retire할 표현 수명이 없다. 이 `None` 수명은 정상 no-op이며 invalid 공격 결과나 손상된 유효 ID로 집계하지 않는다. 유효 인스턴스의 중복·충돌·누락·용량 초과는 계속 fail-closed하고 원인별 증거를 남긴다.
+
+Marker와 Tracer는 공격 HitIndex의 로컬 표현 단계다. 여러 피해자 결과를 가진 AoE에서 Marker 1개를 피해자별 결과 키와 1:1이라고 가정하지 않는다. marker가 없거나 늦어도 유효한 Result의 표현을 다음 marker까지 보류하지 않는다. 표시 시각은 `NET-TIME-002`의 공통 표현 시간축을 사용하고 지연된 결과는 `NET-TIME-003`으로 처리한다. 물리적인 네트워크 지연 0을 보장하거나 임의 delay를 추가해 진단을 통과시키지 않는다.
+
+AoE 원자 표현에는 서버가 타격 처리를 마친 뒤 발행한 완결 묶음 또는 명시적 완료 manifest가 필요하다. manifest는 해당 HitIndex의 정규 결과 키 집합/개수를 판별할 수 있어야 한다. 커밋 시점 대상 수, 첫 결과, ordinal 최댓값 또는 Animation Event 개수로 완료를 추정하지 않는다. 이 계약이 아직 배선되지 않은 단계에서는 결과별 비교만 가능하며 AoE 원자 방출 완료로 보고하지 않는다.
+
+타겟 사망·교체·StopCombat은 미래 marker 허가와 미확정 예상 표현을 닫는다. 이미 확정된 결과는 이후 종료 알림으로 폐기하지 않고 Result와 같은 키로 보존한다. 표시는 기존 age/baseline 및 대상 View 수명 정책으로 결정하고, 피해·HP 사실을 취소하거나 사망 시 일괄 flush하지 않는다.
+
+확정된 시각 결과는 피해자 종류·팀·Impact 위치·적용량·결과 HP처럼 필수 표현에 필요한 불변 스냅샷을 포함해야 한다. C3 정상 표현기는 별도 `OnEntityDamaged` 도착, HP 동기화 재발행 또는 현재 Domain/Factory/View 조회를 필수 조건으로 삼지 않는다. 피해자 View가 이미 사라져도 age/baseline 안의 확정 결과는 저장된 위치에서 HP 텍스트와 설정된 피격 VFX를 최대 한 번 표시한다. 살아 있는 View의 펀치 같은 객체 반응은 동일 객체 수명이 확인될 때만 추가하며, 확인할 수 없거나 ID가 재사용됐으면 그 선택 반응만 생략한다.
+
+타입별 피격 VFX 프리셋은 선택 에셋 채널이다. 프리셋이 아직 없는 현재 상태는 `SkippedNoAsset` 정상 생략이며 C3 실패가 아니다. 그러나 향후 프리셋을 연결했을 때 같은 확정 결과만으로 즉시 재생할 수 있도록 피해자 종류·팀·Impact 위치는 에셋 유무와 무관하게 항상 전송한다. 설정된 프리셋의 실제 재생 실패는 `ChannelFailure`로 분리해 fail-closed하고, 에셋 미설정·전역 presenter 미준비·스냅샷 손상과 하나의 `viewUnavailable` 합계로 섞지 않는다. 피격 VFX와 유닛 제거 시 사망 VFX는 별도 표현 채널이며 서로를 대신하거나 중복 호출하지 않는다.
+
+AoE 완결 묶음의 원자성은 서버가 확정한 결과 집합의 완결성과 같은 표현 시각 방출을 뜻한다. 한 피해자의 현재 View 부재가 다른 피해자의 self-contained 필수 표현을 보류하거나 만료시키지 않는다. 필수 스냅샷 손상과 전역 presenter 미초기화는 fail-closed하되, 선택 View 반응 부재와 구분된 원인별 증거를 남긴다.
+
+전환은 비교 모드에서 새 Coordinator의 예정 방출과 레거시 실방출을 먼저 기록한 뒤 경기 고정 단일 writer 모드로 진행한다. 비교 모드는 화면을 바꾸지 않으며 그 빌드를 시각 교정 완료로 안내하지 않는다. 실제 adapter·서버 일정 복제·완결 묶음·표현 시간축 연결과 검증이 끝나야 새 Coordinator가 유일한 방출자가 된다.
+
+Marker·Tracer·Enqueue·Emit은 서로 다른 표현 단계이며 동일 exact 결과 키와 스코프에서 각 단계별 최대 한 번만 결합한다. 타겟 사망·사거리 이탈·StopCombat·새 타겟 전환으로 닫힌 구회차의 Marker와 Tracer를 이후 결과나 새 회차에 재사용하지 않는다. 공격 결과가 없는 표현 관측도 시간 근접만으로 다른 결과에 결합하지 않고 명시적으로 폐기 또는 `Unmatched`로 남긴다.
+
+공격 방향을 Host/Client 사이에서 검증할 때는 동일 `(AttackerInstanceId, AttackSequenceId, Revision, HitIndex)`의 `AuthoritativeAimDirection`과 표현 방향만 실제 방향 일치 판정에 사용한다. 동일 revision의 허용 오차 초과만 표현 방향 실패이며, revision-lag와 scope-mismatch는 방향 writer 실패로 합치지 않고 별도의 복제 수렴 실패로 분류한다. 이 분류를 이유로 Client가 Simulation Root, NetworkTransform 또는 서버 Aim을 다시 쓰는 것은 금지한다.
+
 ### NET-PRESENT-004. 타임아웃
 
 타임아웃은 정상 동기화 수단이 아니다. 데이터 손상이나 유실을 복구하고 로그를 남기는 최후 안전망이다. 타임아웃된 표현을 다음 공격의 Animation Event에 연결하지 않는다.
+
+타임아웃 fallback은 정상 marker와 동일한 타격 시점 일치 증거가 아니라 **marker 누락 복구 표현**으로 별도 분류한다. fallback이 실행됐다는 이유로 정상 marker timing을 PASS 처리하거나, 이후 늦게 도착한 marker를 같은 결과 또는 다음 회차 결과에 다시 결합하지 않는다. timeout 자체의 복구 지연과 실제 marker의 Impact 시점 오차는 서로 다른 기준과 카운터로 검증하며, 하나의 허용 오차 상향으로 함께 숨기지 않는다.
 
 ---
 
@@ -302,7 +351,7 @@ HP 텍스트, 피격 VFX, SFX와 타격 반응은 공격자 FIFO가 아니라 `N
 
 ### NET-CANCEL-003. 공격자 사망
 
-공격자가 사망하면 Windup 중인 회차는 취소한다. 이미 서버가 발사한 독립 ProjectileImpact 또는 이미 생성된 TravelingArea는 해당 공격 프로필의 `PersistsAfterSourceDeath` 값에 따라 계속 진행할 수 있다.
+공격자가 사망하면 Windup 중인 회차와 아직 실행되지 않은 비독립 future `HitIndex`를 취소한다. `MeleeContact`·`Hitscan`과 아직 독립 전달체를 만들지 않은 예약 타격은 지연 작업이 이미 만들어졌더라도 판정 dispatch 전에 폐기하며, `AttackImpactResult`나 완료 결과를 생성하지 않는다. 이미 서버가 발사한 독립 ProjectileImpact 또는 이미 생성된 TravelingArea만 해당 공격 프로필의 `PersistsAfterSourceDeath` 값에 따라 계속 진행할 수 있다.
 
 ### NET-CANCEL-004. 타겟 사망
 
@@ -311,7 +360,7 @@ HP 텍스트, 피격 VFX, SFX와 타격 반응은 공격자 FIFO가 아니라 `N
 ### NET-CANCEL-005. 취소와 결과 순서 역전
 
 - 서버에서 이미 적용된 AttackImpactResult는 이후 취소가 소급 무효화하지 않는다.
-- 취소가 future HitIndex를 폐기하면 서버는 해당 타격 결과를 생성하지 않는다.
+- 취소가 future HitIndex를 폐기하면 서버는 해당 타격의 판정 dispatch·AttackImpactResult·완료 결과를 모두 생성하지 않는다. 취소된 타격을 `AuthorizationUnavailable`, 일반 `Miss` 또는 오류 결과로 변환하지 않는다.
 - 클라이언트는 `(AttackerInstanceId, AttackSequenceId, Revision)`보다 오래된 상태를 무시하되, 서버가 실제 생성한 결과는 정규 결과 키로 한 번 표시한다.
 - 공격자 사망, 타겟 사망, StopCombat과 Despawn도 같은 우선순위를 따른다.
 

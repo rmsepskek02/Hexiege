@@ -95,6 +95,12 @@ namespace Hexiege.Presentation
         /// <summary>OnEntityHealed 구독 해제용 Disposable. 재초기화/파괴 시 정리.</summary>
         private System.IDisposable _healedSubscription;
 
+        /// <summary>
+        /// 확정 결과 표현기가 실제 HP 텍스트를 만들 수 있는지 사전에 확인하는 읽기 전용 상태다.
+        /// 초기화되지 않은 스포너를 호출하고도 "표시 성공"으로 집계하는 일을 막는다.
+        /// </summary>
+        public bool IsReadyForDamagePresentation => _container != null && _prefab != null;
+
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -164,7 +170,16 @@ namespace Hexiege.Presentation
         /// <param name="evt">피격 이벤트 데이터. Entity(피격 대상), CurrentHp, IsUnit 포함.</param>
         public void ShowDamage(EntityDamagedEvent evt)
         {
-            if (_presentationPoseProvider == null || _container == null) return;
+            TryShowDamage(evt);
+        }
+
+        /// <summary>
+        /// 기존 피해 텍스트 표시 경로를 실행하고 풀 오브젝트의 Play 호출 성공 여부를 반환한다.
+        /// false는 의존성/대상 위치 부재 등의 기존 조기 종료이며 화면 픽셀 가시성은 측정하지 않는다.
+        /// </summary>
+        public bool TryShowDamage(EntityDamagedEvent evt)
+        {
+            if (evt.Entity == null || _presentationPoseProvider == null) return false;
 
             // 피격 엔티티의 월드 좌표 조회 — IsUnit이면 유닛, 아니면 건물
             Vector3 worldPos = evt.IsUnit
@@ -172,7 +187,33 @@ namespace Hexiege.Presentation
                 : _presentationPoseProvider.GetBuildingPosition(evt.Entity.Id);
 
             // Vector3.zero = GameObject가 이미 파괴된 경우 (소멸 후 이벤트 도달)
-            if (worldPos == Vector3.zero) return;
+            if (worldPos == Vector3.zero) return false;
+
+            return TryShowDamageAt(evt, worldPos);
+        }
+
+        /// <summary>
+        /// 서버가 확정한 Impact 위치에 HP 텍스트를 표시한다. 피격 View가 이미 Despawn된
+        /// 경우에도 확정 결과의 위치 증거를 사용할 수 있으며, 실제 풀/프리팹이 준비되지
+        /// 않았다면 false를 반환해 호출자가 key를 소비하지 않게 한다.
+        /// </summary>
+        public bool TryShowDamageAt(EntityDamagedEvent evt, Vector3 worldPos)
+        {
+            if (evt.Entity == null) return false;
+            return TryShowDamageAt(evt.CurrentHp, evt.Entity.Team, worldPos);
+        }
+
+        /// <summary>
+        /// C3 확정 결과의 self-contained 스냅샷만으로 피해 HP를 표시한다.
+        /// 피해자 Domain/View가 이미 제거된 뒤에도 서버가 확정한 팀·결과 HP·Impact 위치는
+        /// 변하지 않으므로, 별도 OnEntityDamaged 이벤트를 기다리지 않는다.
+        /// </summary>
+        public bool TryShowDamageAt(int resultingHp, TeamId team, Vector3 worldPos)
+        {
+            if (resultingHp < 0 || !IsReadyForDamagePresentation
+                || float.IsNaN(worldPos.x) || float.IsNaN(worldPos.y) || float.IsNaN(worldPos.z)
+                || float.IsInfinity(worldPos.x) || float.IsInfinity(worldPos.y) || float.IsInfinity(worldPos.z))
+                return false;
 
             // 피격 지점 머리 위 월드 좌표 계산
             Vector3 spawnPos = worldPos + Vector3.up * _yOffset;
@@ -184,7 +225,6 @@ namespace Hexiege.Presentation
             hpText.transform.SetParent(_container, false);
 
             // 피격 대상 팀에 따라 텍스트 색상 결정 — Blue=연두, Red=노랑, 그 외=흰색
-            TeamId team = evt.Entity.Team;
             Color textColor = team switch
             {
                 TeamId.Blue => _blueTeamColor,
@@ -194,9 +234,10 @@ namespace Hexiege.Presentation
 
             // 남은 HP를 텍스트로 표시 — 월드 좌표 전달
             hpText.Play(
-                $"{evt.CurrentHp}",
+                $"{resultingHp}",
                 spawnPos,
                 color: textColor);
+            return true;
         }
 
         /// <summary>

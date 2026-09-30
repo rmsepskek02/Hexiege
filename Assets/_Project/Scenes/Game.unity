@@ -2888,6 +2888,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Infrastructure.NetworkGameFlow
   ShowTopMostFoldoutHeaderGroup: 1
   _serverMovementPipelineMode: 1
+  _serverCombatPipelineMode: 2
 --- !u!4 &102157244
 Transform:
   m_ObjectHideFlags: 0
@@ -41690,6 +41691,7 @@ MonoBehaviour:
   - type: 4
     blue: {fileID: 7399617787143926463, guid: 0ccbe86e05acded448d0dab522d79418, type: 3}
     red: {fileID: 8321662859141158923, guid: 73b703117e11b2a4da17ddb7ee460bd9, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 4772066a52e78bc4cb4890c02068d0ea, type: 2}
   - type: 5
     blue: {fileID: 5596701579882278624, guid: 2cdfd4876bc5886499d7325922884c8c, type: 3}
     red: {fileID: 8604469531852510740, guid: c899264d189155a4394e9fdb39280d55, type: 3}
@@ -41703,24 +41705,29 @@ MonoBehaviour:
   - type: 10
     blue: {fileID: 3481489615874815791, guid: 30850a40f0ca8b940a1afaf12c1d82c1, type: 3}
     red: {fileID: 5306763152045130590, guid: 4c3b5c6f718fbf142afc55d5b3e004fb, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 63b9b44d031f68f468d186399d915ee7, type: 2}
   - type: 11
     blue: {fileID: 2384134901492259840, guid: 65437a9ab49692a44b94f8c5d97a93b4, type: 3}
     red: {fileID: 3541651207582195475, guid: aaff65119146e2248a29f23c479cd35f, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 335daaffd649791409558085159725aa, type: 2}
   - type: 12
     blue: {fileID: 1756040586736068049, guid: ef3b992ebcce11244a0f9ef8ba13aad3, type: 3}
     red: {fileID: 7952036579767868673, guid: 625de2ef217f3a843b8bb865e631ab88, type: 3}
   - type: 13
     blue: {fileID: 7341887392386187503, guid: 35eb981efb7999940a712f27b57a5e22, type: 3}
     red: {fileID: 7341887392386187503, guid: 9e698a76390df6c4f912f5d9e120e866, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 961cafd21c1fa13429c74aa65a3a6345, type: 2}
   - type: 14
     blue: {fileID: 21791065289132006, guid: ed8f7c54de615284ead6cca046630693, type: 3}
     red: {fileID: 21791065289132006, guid: 37aeff26a5cd70148bb93cb5b56c30fe, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: a08b07c6564fb5741ace267fd675b087, type: 2}
   - type: 15
     blue: {fileID: 1327493637489527210, guid: d941b882323af0a49b46616c54567ba8, type: 3}
     red: {fileID: 1327493637489527210, guid: 9582c9d3f199f674bb1d899722463f6e, type: 3}
   - type: 16
     blue: {fileID: 8567724254245295487, guid: 1ee5280e90b88604e90425408b79b5a7, type: 3}
     red: {fileID: 8567724254245295487, guid: 86b911b71c9cfd74dad1b99ead59680a, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 436a2847db5341848804090de50cc4ea, type: 2}
   - type: 17
     blue: {fileID: 4514012868270751666, guid: f041791106841fc4380cfdfdf135ee7e, type: 3}
     red: {fileID: 4514012868270751666, guid: ce594dcacf5606a439c034eac6a8448c, type: 3}
@@ -41731,12 +41738,14 @@ MonoBehaviour:
   - type: 20
     blue: {fileID: 5478310507604524601, guid: 31b30650a4fe9034c8e0706bfe301d54, type: 3}
     red: {fileID: 3154551730380421955, guid: 6c1185ed8d58ee34380e485d0bf76027, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 6cd4a1668d01f24448599b56306f2b13, type: 2}
   - type: 21
     blue: {fileID: 8990919588697864418, guid: 76d2d7f0a80264540994e5ed1956353e, type: 3}
     red: {fileID: 7820393859577947839, guid: 85f06a8dcec41ca428c66897801f1cb2, type: 3}
   - type: 22
     blue: {fileID: 4324638335821351153, guid: fb844688f9e49504584a5c95f185365b, type: 3}
     red: {fileID: 3537499202116828560, guid: 60882e4b6ee1f20409867db71e9f6248, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 45c00f46f91a76047a76e774cfa0f6ac, type: 2}
   - type: 23
     blue: {fileID: 917049485526155964, guid: 3b0d52635c72d3d4f80ab64ea23259c6, type: 3}
     red: {fileID: 917049485526155964, guid: 580b02a820d17904ea0c6e0812c21fc6, type: 3}
@@ -41746,6 +41755,7 @@ MonoBehaviour:
   - type: 25
     blue: {fileID: 7760243811753235212, guid: f8057fd8cc6c0ec4fbab3017b937d894, type: 3}
     red: {fileID: 7760243811753235212, guid: 651c84fc382894a48b555c1c17bfc9d6, type: 3}
+    attackTimelineClip: {fileID: 7400000, guid: 8d21000f295b9774a9cb2540a71b8ce7, type: 2}
   - type: 26
     blue: {fileID: 7710827832351617236, guid: 2f6c4a53c8439fd42a05816bbbfa5473, type: 3}
     red: {fileID: 7710827832351617236, guid: ad61e84b5260ead48ac28d4de63bbba7, type: 3}

@@ -4,7 +4,7 @@
 
 이 문서는 **게임에서 무엇이 참이어야 하는지**를 정의한다. 멀티플레이 복제와 순서 역전 처리는 `GameSystemRules_UnitCombatSynchronization.md`, 클래스·RPC·레이어 배치는 `TechnicalDesignDocument.md`, 런타임 수치는 검증된 `UnitStatsConfig`와 향후 `AttackProfile`, 사람이 읽는 수치 미러는 `StatsReference.md`, 유닛별 에셋·구현 감사 스냅샷은 `Assets/_Project/Docs/Assets/UnitCombatAssetMatrix.md`가 담당한다.
 
-> **상태:** 규칙 v2.2의 B3 중심 경로·건물 안전 Chase·전방 중심 복귀 집중 교정은 **IMPLEMENTED / FOCUSED MULTIPLAYER PASS**다. A1·A2·B1 계약과 B2 관측 구조, 서버 단일 writer를 유지했다. `b3-movement-authority-v10` Android Host 실기에서 중심 checkpoint 766회·최대 오차 0, direct-safe/path Chase 806/2,977 frame, authority/adapter/stationary Walk/drop 오류 0을 확인했고 같은 경기 Editor Client와 양쪽 local ROOT 53/53 PASS를 확보했다. Host 긴 ROOT terminal의 Logcat 절단은 채점 필수 필드만 담는 최악값 803 UTF-8 byte compact END와 출력 전 preflight로 교정했으며 Runtime/Editor Roslyn과 Unity self-validation 2종까지 PASS다. 25종·반대 역할·Legacy rollback은 다음 통합 회귀 게이트로 남긴다. 공격 방향과 Impact·피해 적용 시점은 별도 미완료 범위다.
+> **상태 (2026-08-27):** 규칙 v2.2의 B3 중심 경로·건물 안전 Chase·전방 중심 복귀 집중 게이트는 앞선 v10 경기에서 통과했지만, 최신 Android Host / Editor Client 실기에서 Unit 64 `LittleKnight`가 같은 walkable 권위 타일의 중심으로 돌아가야 하는 도착-목표 복귀를 경로 없음으로 오판해 영구 정지했다. 따라서 B3 전투 종료 전환은 **실기 FAIL / 교정 중**이다. C2도 Editor self-validation은 PASS했으나 Legacy overshoot와 Shadow Impact 시간 불일치로 멀티 실기 FAIL이며, 공격 방향과 Impact·피해 적용 시점은 완료가 아니다. 서버 단일 writer와 Legacy gameplay writer는 유지한다.
 
 ---
 
@@ -13,6 +13,7 @@
 이 문서는 아래 7개 시스템으로 구성된다(서두 요약과 동일한 순서). 괄호는 각 시스템이 담고 있는 규칙 번호 범위이며, **규칙 번호는 다른 문서들이 참조하므로 변경하지 않는다.**
 
 - [유닛 이동 시스템](#유닛-이동-시스템) — 규칙 1~8 · 45(건물 경로 차단, 2026-08-26 맵 문서에서 이관)
+- [공격 회차 안정 ID](#공격-회차-안정-id) — 공격 단계·타겟 커밋·정렬·타임라인·전달 방식별 Impact 계약
 - [전투 진입 규칙](#전투-진입-규칙) — 규칙 9~12
 - [전투 연계 규칙](#전투-연계-규칙) — 규칙 13~16
 - [전투 연출 동기화 규칙](#전투-연출-동기화-규칙) — 규칙 17~21
@@ -77,6 +78,7 @@ Move / AlignToMove ├─ 적 감지 → AcquireTarget
 8. A* 이동, 추격, PendingRepath와 전투 종료 후 이동 재개는 동일한 Authoritative Locomotion과 단일 Simulation Root writer를 사용한다. 각 경로는 이동 의도만 제공하고 위치·회전·phase를 직접 쓰지 않는다.
 9. `Move` 또는 `AlignToMove` 중 유효한 적이 AcquireRange에 들어오면 같은 서버 틱에 이동 의도를 중단하고 `AcquireTarget`을 우선한다. 후보 이동으로 처음 범위에 들어왔다면 그 candidate position까지만 commit하고 `NoIntent`를 기록하며, 다음 틱의 추가 이동을 허용하지 않는다.
 10. 150° 이상의 반전, 바로 앞 차단과 공격 정렬은 연속 코너링 대상이 아니다. 반전은 정지 정렬, 차단은 재탐색, 공격은 `U-ATK-ALIGN`의 완전 정지 및 5° 진입 / 8° 유지 규칙을 사용한다.
+11. 전투 종료 복귀의 `finalTarget`이 현재 `UnitData.Position`과 같고 그 권위 타일이 walkable이면, A* 경로가 비어 있거나 `null`이어도 복귀 실패가 아니다. Simulation Root가 중심 허용 오차 밖이면 기존 Authoritative Locomotion으로 그 타일 중심까지 걸어서 이동하고 실제 중심 도달 뒤 완료한다. 권위 타일이 차단됐거나 중심까지의 구간이 실제로 안전하지 않고 유효한 우회도 없을 때만 기존 `WaitingRepath`/`Blocked` 계약을 유지한다.
 
 270°/s, 150°와 1°는 초기 공통값이다. 변경하려면 순수 trajectory 회귀와 역할교대 멀티플레이 검증을 모두 다시 통과하고 `StatsReference.md`에 반영한다.
 
@@ -91,7 +93,7 @@ Move / AlignToMove ├─ 적 감지 → AcquireTarget
 5. 실제 위치 commit 또는 logical checkpoint 소비가 확인되면 무진전 이력을 초기화한다. 건물 생성·파괴처럼 walkability revision이 변경되면 `Blocked` 목표는 같은 목표 ID를 유지한 채 재평가할 수 있다. 동적 건물로 기존 경로가 무효화되어 현재 revision의 경로 질의가 `Unreachable`을 반환한 경우도 이 lifecycle을 따르며, 같은 revision의 중복 command는 재탐색 예산이나 상태를 초기화하지 않는다. 단, 서버 경로 그래프에 목적지까지의 유효한 우회 경로가 존재하면 `Blocked`는 정상 결과가 아니며 경로 질의·출발점·캐시 무효화 계약의 실패로 판정한다.
 6. `WaitingRepath`와 `Blocked`는 정상 완료가 아니다. 이동 완료 callback, 다음 공성 단계, 힐러 종착 감시를 발행하지 않는다. 외부 ticker는 `IsMoving == false`만으로 같은 목표의 새 command를 만들지 않으며, 목표 변경·경로 환경 revision 변경·명시적 취소 중 하나가 있을 때만 재개한다.
 7. 이동 종료와 보류는 일반 이동 frame 평가를 흉내 내서 만들지 않는다. 서버는 명시적인 lifecycle 전이로 `NoIntent`, `WaitingRepath`, `Blocked`, `Completed`를 commit하고 command/segment revision과 애니메이션 표현을 같은 권위 전환에서 갱신한다.
-8. 서버의 틱별 위치 변화가 0이고 공격·사망 표현도 아닌 `Idle`, `AlignToMove`, `WaitingRepath`, `Blocked` 상태에서는 Walk 애니메이션 시간이 진행되어서는 안 된다. 전용 Idle/Held 표현 또는 검증된 정지 pose를 사용하며, 빙결 스킬의 `Frozen` 상태를 재경로 대기에 재사용하지 않는다.
+8. 서버의 틱별 위치 변화가 0이고 공격·사망 표현도 아닌 `Idle`, `AlignToMove`, `WaitingRepath`, `Blocked` 상태에서는 Walk 애니메이션 시간이 진행되어서는 안 된다. 전용 Idle/Held 표현 또는 검증된 정지 pose를 사용하며, 빙결 스킬의 `Frozen` 상태를 재경로 대기에 재사용하지 않는다. 단, 유효 타겟을 획득해 같은 틱에 공격 행동으로 소유권을 넘기는 `TargetAcquirePriority`의 `NoIntent`는 일반 Held가 아니다. 이 전환에서는 Walk 첫 자세·Idle·Held를 중간에 삽입하지 않고 현재 이동 표현에서 provisional Attack으로 직접 이어진다.
 9. `Move` 상태에서만 Walk 표현을 진행한다. 클라이언트는 로컬 위치 변화로 상태를 추측하지 않고 서버가 복제한 행동/표현 상태를 적용한다.
 
 ---
@@ -166,6 +168,89 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 
 ---
 
+## 공격 회차 안정 ID
+
+아래 안정 ID는 규칙 9~21의 전투 진입·연계·연출 규칙을 서버 권위 공격 회차 관점에서 구체화한다. 기존 번호 규칙을 대체하거나 재배열하지 않으며, 멀티플레이의 식별·복제·순서 역전 계약은 `GameSystemRules_UnitCombatSynchronization.md`의 `NET-ACTION-*`, `NET-FACING-002`, `NET-DELIVERY-*`, `NET-CANCEL-*`을 함께 따른다.
+
+### U-COMBAT-PHASE. 서버 권위 전투 단계
+
+서버 전투 행동은 `AcquireTarget → Chase → AlignToAttack → Windup → Impact → Recovery` 순서의 값 상태로 표현한다.
+
+- `AcquireTarget`은 공격 후보를 선택하지만 아직 공격 회차를 커밋하지 않은 단계다.
+- `Chase`는 서버 권위 이동으로 공격 접근 위치까지 진행하는 단계다.
+- `AlignToAttack`은 위치 이동을 완전히 멈추고 공격 방향만 정렬하는 단계다. 이 단계의 `AttackSequenceId`는 0이다.
+- `Windup`은 정렬 완료와 동시에 공격 회차를 커밋하고 검증된 공격 타임라인을 시작한 단계다.
+- `Impact`는 같은 회차의 `HitIndex`별로 서버가 판정과 결과를 확정하는 단계다.
+- `Recovery`는 더 이상 새 Impact를 만들지 않고 같은 회차를 종료하는 단계다.
+
+`AlignToAttack`에 들어간 공격자는 회차 종료, 규칙에 따른 취소 또는 다음 이동 상태로의 권위 전환 전까지 위치를 이동하지 않는다. 이동 재개와 다음 공격은 현재 회차 상태를 덮어쓰지 않고 각각 새 행동 전환과 새 공격 회차로 처리한다.
+
+서버 행동 단계와 Animator의 거친 표현 상태는 같은 값이 아니다. 최초 공격 사거리 진입의 `AlignToAttack`과 이미 공격 표현 중인 유닛의 새 타겟 `AlignToAttack`에서는 화면이 기존 Attack 클립을 선행 표현으로 재생하며 새 타겟 방향으로 회전할 수 있다. 최초 진입은 `Walk → provisional Attack`으로 직접 전환하며 두 상태 사이에 Walk 첫 자세·Idle·Held를 한 프레임이라도 삽입하지 않는다. 이때 위치는 완전히 정지하고, 선행 표현은 새 공격 회차의 시작이나 타격 승인을 뜻하지 않는다. 5도 정렬을 통과해 커밋할 때 화면의 같은 Attack 클립을 처음부터 restart하지 않는다. 선행 표현의 연속 재생 위치를 보존하되, 서버는 커밋 이후 아직 지나가지 않은 첫 Impact marker만 새 회차의 첫 승인 후보로 사용한다. 현재 표현 cycle의 모든 marker가 이미 지났다면 그 cycle에서는 Impact를 승인하지 않고 다음 cycle의 첫 marker부터 승인한다.
+
+### U-TARGET-COMMIT. 회차 타겟 커밋
+
+`AlignToAttack`까지의 타겟은 공격 후보이므로 서버가 변경하거나 취소할 수 있다. 방향 정렬이 완료되어 `Windup`에 들어가는 순간 서버는 단조 증가하는 `AttackSequenceId`와 그 회차의 `TargetId` 또는 권위 목표점을 함께 커밋한다.
+
+서버가 `AcquireTarget`에서 후보를 발견한 사실과 Host/Client 표현에 활성 공격 타겟을 공개하는 것은 서로 다른 상태 전이다. Action 회전 소유권이 열리기 전 후보는 서버 내부에만 보류하며 표시 타겟 변경 RPC를 먼저 발행하지 않는다. 최초 진입은 Action 소유권이 열린 같은 원자 경계의 provisional Attack 시작 payload가 후보 타겟과 타격 억제를 함께 전달한다. 이미 Attack 표현을 유지하는 전투 연계의 타겟 교체도 이전 타격 허가를 먼저 닫고, Action 소유권과 Host 타겟 적용 성공을 확인한 뒤에만 원격 Client에 공개한다.
+
+커밋된 회차의 타겟은 표시용 타겟 변경, 다음 타겟 탐색 또는 패킷 순서 역전으로 다른 대상에 이전하지 않는다. 타겟이 사망·소멸·무효화되어도 기존 회차는 규칙에 따라 빗나감·취소·종료될 뿐 다른 타겟을 대신 공격하지 않는다. 새 타겟은 반드시 새 `AttackSequenceId`를 가진 새 회차에서만 사용한다.
+
+### U-ATK-ALIGN. 공격 정렬과 방향 유지
+
+공격 정렬은 서버 Simulation Root의 단일 writer가 수행한다.
+
+- `AlignToAttack` 동안 위치 이동량은 0이어야 하며, 서버는 목표 방향을 향해 최대 270°/s로 점진 회전한다.
+- 서버 SimulationFacing과 권위 목표 방향의 각도 오차가 **5° 이하**일 때만 `Windup` 진입과 회차 커밋을 허용한다. 5°를 초과한 상태에서는 쿨다운·Windup·Impact를 시작하지 않는다.
+- TargetLocked 공격은 커밋 후에도 서버가 같은 `TargetId`를 향해 Windup 동안 추적 회전한다. 각 Impact에서는 그 순간의 목표 방향과 SimulationFacing 오차가 **8° 이하**여야 방향 조건을 충족한다.
+- Impact의 8° 기준을 벗어나면 서버는 방향 조건을 실패로 판정하며, 클라이언트 보간·표시 타겟·애니메이션 방향으로 이를 성공 처리하지 않는다.
+
+타겟 잠금과 방향 잠금은 별개다. 회차의 `TargetId`를 유지한다는 사실이 과거 방향을 고정한다는 뜻은 아니며, 각 Impact의 실제 SimulationFacing을 `AuthoritativeAimDirection`으로 기록한다. 클라이언트는 현재 타겟 위치를 다시 읽어 과거 Impact 방향을 재계산하지 않는다.
+
+### U-ATK-TIMELINE. 공격 커밋과 타격 시간축
+
+공격 쿨다운 시작, `Windup` 시작 및 `AttackSequenceId` 발급은 정렬 완료 후의 같은 서버 커밋 경계에서 발생한다. 최초 전투 진입의 `AlignToAttack`은 기존 Attack 클립을 선행 표현으로 재생할 수 있지만, 새 Attack 회차의 Windup·Impact, 피해 예약과 타격 VFX·SFX는 정렬 중 미리 시작하지 않는다. 커밋 전 Animation Event와 클립 marker는 Impact·VFX·SFX·피해 결과를 만들거나 소비하지 않는다. 5도 정렬 커밋은 화면의 같은 Attack 클립과 정규화 진행 위치를 보존하고, 커밋 뒤 아직 지나가지 않은 marker만 서버 시간축의 Impact 후보로 연결한다. 커밋 전에 지나간 marker를 소급 승인하거나 현재 cycle을 되감지 않으며, 남은 marker가 없으면 다음 cycle부터 정규 타임라인을 승인한다.
+
+다만 공격 사거리 안에 유효한 후보가 계속 존재하는 전투 연계에서는 타겟 교체만으로 기존 Attack 표현을 Walk·Idle·Held로 바꾸지 않는다. 기존 Attack 표현을 유지하면서 서버 Simulation Root가 새 후보 방향으로 점진 회전하고, 정지·5도 정렬을 통과한 뒤 새 회차의 타격 표현을 승인한다. 정렬 전에 로컬 Attack 클립의 타격 표식이 지나가더라도 새 회차의 VFX·SFX·피격 표현이나 피해 결과를 만들거나 소비하지 않는다.
+
+각 `HitIndex`의 Impact 시각은 서버가 읽는 검증된 `AttackTimeline` 또는 `AttackProfile`의 Windup·타격 오프셋·Recovery를 정규 원본으로 사용한다. 서버 시간축이 실제 판정과 결과의 권위이며, 로컬 Animator 상태나 `OnAttackHit` Animation Event는 피해·회차 진행을 발생시키지 않는다.
+
+Attack 표현을 restart하지 않고 연속 재생하는 경우 프로필 offset은 현재 연속 재생 anchor에서 커밋 뒤 도착할 다음 유효 marker occurrence를 선택하는 입력으로 사용한다. 서버는 선택된 occurrence의 절대 Impact 시각, 회차 ID, HitIndex와 revision을 하나의 커밋 결과로 고정해 판정 예약과 표현 스코프가 같은 marker를 가리키게 한다. 서버 예약만 `CommitServerTime + 원래 offset`을 사용하고 화면만 다음 marker로 넘기는 식의 서로 다른 시간축은 허용하지 않는다.
+
+한 커밋 회차가 로컬 표현에 부여하는 타격 허가는 해당 프로필의 `HitIndex` 개수만큼만 유효하다. 단일 타격은 첫 marker, 다중 타격은 마지막 marker가 승인된 `HitIndex`를 소비하는 즉시 그 회차의 로컬 타격 허가를 닫는다. Attack 클립이 계속 루프하더라도 다음 단조 증가 회차가 도착하기 전 marker는 VFX·SFX·트레이서·피격 표현을 만들지 않는다. 단순한 `impactEnabled` 상태만으로 회차 ID가 없거나 이미 소모된 marker를 승인해서는 안 된다.
+
+C3 프로필이 아직 `Unresolved`인 미완료 유닛은 정규 회차 허가가 없는 상태를 공격 취소로 해석하지 않는다. 지원 완료 전에는 기존 Legacy 공격 VFX·SFX·트레이서를 보존하고 C3 비교에서만 미지원으로 격리한다. 기본값/0 스코프를 발행한 뒤 공통 fail-closed gate에서 Legacy 표현까지 지우는 구현은 금지한다. 정규 프로필과 공격 타임라인이 완성되어 유효 스코프를 발행할 수 있을 때 해당 타입 전체를 원자적으로 스코프 기반 표현으로 전환한다.
+
+### U-IMPACT-TARGETLOCKED. TargetLocked 근접·Hitscan 판정
+
+TargetLocked `MeleeContact`와 `Hitscan`은 회차에 커밋된 동일 `TargetId`를 각 Impact마다 서버의 최신 권위 pose로 다시 검증한다. 서버는 다음 조건을 모두 확인한다.
+
+1. 타겟이 생존하고 현재도 유효한 공격 대상이다.
+2. 타겟이 해당 공격 프로필의 권위 사거리 안에 있다.
+3. 해당 Impact의 목표 방향과 SimulationFacing 오차가 `U-ATK-ALIGN`의 8° 유지 기준 이하다.
+4. Impact가 같은 `AttackSequenceId + HitIndex`의 검증된 서버 시각에 속한다.
+
+하나라도 실패하면 그 Impact를 적중으로 승인하지 않는다. 실패한 Impact나 사망한 타겟을 다른 타겟으로 교체하지 않으며, 다음 대상 공격은 새 회차에서 시작한다. 다중 타격은 모든 `HitIndex`를 각각 같은 방식으로 재검증한다.
+
+### U-IMPACT-LOCKEDPOINT. LockedPoint 발사 고정
+
+LockedPoint 공격은 서버 `Launch` 시점의 권위 목표 위치와 발사 방향을 고정한다. Launch 뒤에는 현재 타겟의 이동 위치나 표시용 타겟 방향으로 목표점·방향을 바꾸지 않는다.
+
+고정된 목표점과 방향은 같은 공격 회차의 착탄 레코드까지 유지한다. Single은 권위 착탄점과 `ImpactHitRadius`로 단일 결과를, Area는 권위 착탄점 중심의 범위 결과를 서버가 확정한다. 로컬 투사체 충돌이나 클라이언트 재조준은 결과를 만들거나 변경하지 않는다.
+
+### U-IMPACT-INDEPENDENT. Homing·Traveling 독립 생명주기
+
+`Homing`과 `TravelingArea`는 회차가 생성한 뒤 서버가 별도의 권위 생명주기로 진행한다.
+
+- Homing은 서버가 추적 대상, 목표 갱신과 착탄을 관리하며 클라이언트 추적으로 판정을 대신하지 않는다.
+- TravelingArea는 서버가 판정 영역을 이동시키고 대상별 첫 접촉을 독립 HitIndex 또는 명시적 접촉 인덱스로 기록한다.
+- 공격자 사망 후 이미 발사·생성된 전달체를 계속 진행할지는 공격 프로필의 `PersistsAfterSourceDeath` 값으로 결정한다. Windup 중 아직 생성되지 않은 전달체는 공격자 사망 시 취소한다.
+- `MeleeContact`·`Hitscan`과 아직 독립 전달체를 만들지 않은 future `HitIndex`는 공격자 사망 후 지속하지 않는다. 이미 예약된 지연 작업이 있더라도 판정 dispatch 전에 취소하고, 해당 future `HitIndex`의 결과를 생성하지 않는다.
+- source 회차가 끝나거나 타겟이 바뀌어도 이미 생성된 전달체의 회차 ID·목표 처리 방식·결과 키를 다른 회차나 새 타겟으로 이전하지 않는다.
+
+Periodic 효과는 최초 부여 Impact의 회차와 별도의 효과 인스턴스 ID·TickIndex로 진행하며, 갱신·덮어쓰기·종료는 해당 효과 규칙을 따른다.
+
+---
+
 ## 전투 진입 규칙
 
 **규칙 9. 감지 사거리와 공격 사거리**
@@ -192,6 +277,8 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 | 공격 (타겟 처치 후) | 감지 사거리 내 다른 적 + 공격 사거리 내 | 공격 (새 타겟) |
 | 공격 (타겟 처치 후) | 감지 사거리 내 다른 적 + 공격 사거리 밖 | 전투 이동 |
 | 공격 (타겟 처치 후) | 감지 사거리 내 적 없음 | A* 이동 재개 |
+
+`공격 → 공격 (새 타겟)` 전이는 Animator 상태를 나갔다가 다시 들어가는 전이가 아니다. Attack 표현을 유지한 채 추적 타겟만 교체하고, 새 타겟의 실제 공격은 새 회차의 정렬·커밋 경계에서 시작한다. 다른 적이 공격 사거리 밖이라 추격이 필요하거나 공격 가능한 적이 없을 때만 Attack 표현을 종료한다.
 
 **규칙 11. A* 이동 재개 방식**
 전투 종료 또는 타겟 이탈로 A* 이동을 재개할 때:
@@ -227,12 +314,16 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 
 ## 전투 연출 동기화 규칙
 
-데미지 판정(데이터)은 서버 권위로 유지하되, 화면 연출(애니메이션·이펙트)은 각 플레이어의 로컬 타격 프레임에 맞추기 위한 규칙 모음. (2026-07-12 신설, 전투 타격 타이밍 동기화 작업)
+데미지 판정(데이터)은 서버 권위로 유지하고, 화면 연출은 서버 공격 일정과 확정 결과를 표현 시간축에서 소비한다. 상세 계약은 `GameSystemRules_UnitCombatSynchronization.md`의 `NET-TIME-002`·`NET-PRESENT-003`을 따른다. (2026-07-12 신설, 2026-09-06 C3 단일 표현 소유권 교정)
 
 **규칙 17. 타격 프레임 타이밍의 단일 출처**
-공격의 타격 시점(HitFrameTimes)은 유닛 Attack 애니메이션 클립의 `OnAttackHit` Animation Event 시간을 유일한 출처로 한다.
-유닛 생성 시 클립 이벤트에서 자동 추출하며, 수동 입력값은 클립에 이벤트가 없을 때만 폴백으로 사용한다.
+일반 공격의 타격 시점(HitFrameTimes)은 유닛 Attack 애니메이션 클립의 `OnAttackHit` Animation Event 시간에서 추출한다.
+유닛 생성 시 클립 이벤트에서 자동 추출하며, 수동 입력값은 클립에 이벤트가 없을 때 폴백으로 사용한다.
 다중 히트 유닛은 클립의 여러 `OnAttackHit` 이벤트 시간을 오름차순으로 모두 수집한다.
+
+DustSpirit과 RabbitTrickster는 `UnitFactory` 등록의 `attackTimelineClip`에 실제 `Base Layer/Attack` motion을 명시한다. 서버/싱글·Client 생성 모두 선택한 같은 클립에서 공격 주기와 타격 이벤트를 읽는다. 양 팀 production controller의 실제 motion과 명시 참조가 일치하는지 자동 검증한다. `Attack2`·`Attack3` 등 유사 이름 클립의 열거 순서가 이 유닛들의 타임라인을 바꾸지 않는다. RabbitTrickster의 생산 Attack은 2초/30fps이고, 사용자가 피해가 애니메이션보다 약간 빠르다고 본 이전 0.18초 실기 뒤 `OnAttackHit`을 0:20(저장값 0.6666667초)으로 옮겼다. type 25 `hitFrameTimes`와 영구 production 검증 기대값도 0.6666667초로 일치시켰으며 서버는 이 offset으로 권위 피해 타이머를 예약한다(규칙 18, `U-ATK-TIMELINE`). 이전 Unity 자동 검증 PASS·사용자 확인 빌드/실기는 0.18초 버전 이력이다. 새 0:20 빌드의 Editor Host/Android Client 동일 경기 `3fc75ef4…b7beded`에서 Rabbit 각 15기와 LittleKnight 각 13기가 생산됐고, 경기 전체 결과 Host 129/실패 0 ↔ Client 129 수락/거부 0, 양쪽 필수 표현 122/122·실패/중복/전송 실패 0이었다. 사용자가 Rabbit 타격을 “알맞게 나오는 것 같다”고 육안 수용하여 **Rabbit 명시 연결·타이밍 focused PASS/CLOSED**로 판정한다. 이 집계는 Rabbit만의 타격 수가 아니며 정확한 animation→권위 피해 offset은 로그에서 직접 계측되지 않았다. 공식 Root Pose CrossAudit과 25종 전체·역할교대·Legacy rollback/C3 전체 migration은 완료되지 않았고 Supported 상태는 유지한다.
+
+**FoxMagician 예외(2026-09-27):** 해당 Attack clip의 유일한 `OnAttackHit @ 1.00초`는 charge VFX를 시작하는 표현 marker다. 실제 피해는 서버가 `UnitStatsConfig.hitFrameTimes=[2.25초]`로 예약한다. 유닛 생성 시 FoxMagician만 클립 이벤트로 이 설정을 덮어쓰지 않는다. 이 예외는 사용자 실기에서 요청된 VFX 후반부 피해 설계에 따른 것이며, 서버 피해가 로컬 Animation Event에 종속되지 않는 규칙 18을 유지한다. 2.25초는 실기 튜닝 전의 복원 기준값이다.
 
 **규칙 18. 서버 데미지 타이밍 정밀화**
 멀티플레이 서버의 전투 Tick(50ms 격자)에서 쿨다운 만료를 감지할 때, 만료 후 초과 경과한 시간(오버슈트)을 데미지 딜레이에서 차감하여 격자 오차 누적을 제거한다.
@@ -240,19 +331,25 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 데미지는 항상 서버 타이머로만 적용하며, Animator 상태(`OnAttackHit`)에 종속시키지 않는다.
 
 **규칙 19. 피격 표현 큐**
+**2026-09-28 focused 실기 반영:** Fox 기존 즉시 표시 교정은 양 peer 61쌍 같은 프레임 수신/텍스트 생성과 사용자 현행 타이밍 수용으로 focused 범위를 마무리했다. 약간 이른 피해 시각의 재튜닝은 향후 projectile 구현 때 다룬다. 아래 자동 검증 설명은 당시 경계이며 VFX 종료/exact 결합 및 전체 migration은 여전히 미완이다.
+**Fox Legacy 후속 교정 계약(2026-09-28, 구현·자동 검증 PASS / 실기 OPEN):** 주 타깃 피해 writer인 `UnitCombatUseCase.ExecuteAttack`이 FoxMagician이면서 결과 key가 유효하지 않을 때만 기존 `immediatePresentation` 의도를 확정한다. 이벤트·bool RPC·큐의 기존 immediate 경로로 전달해 다음 공격 marker를 기다리지 않고 결과 수신 시 한 번 표시한다. 큐에서 공격자 조회로 gameplay 타입을 재분류하지 않는다. Supported bridge 소유권과 유효 exact key 경로, 다른 Legacy 유닛·특수 피해 처리는 유지한다. 서버 피해 2.25초와 source VFX marker 1.00초는 유지한다. 두 Unity 메뉴 새 PASS는 실제 marker→queue→text 전체 경로의 실전 검증이 아니다. VFX 종료·공격별 exact correlation 미계측, 사용자 Fox+DustSpirit 실기 OPEN이다.
+
 도메인 HP는 서버 값 도착 즉시 갱신한다(서버 권위 유지).
-단 피격 연출(HP 텍스트·피격 VFX·타격 반응)은 공격자의 로컬 `OnAttackHit` 시점까지 보류했다가 방출한다.
-다음 경우에는 잔여 연출을 즉시 방출한다: ① 공격 사이클 1회분 경과(타임아웃) ② 타겟 사망 ③ 공격자 사망 ④ 공격자의 전투 중단(StopCombat).
+피격 연출(HP 텍스트·피격 VFX·타격 반응)은 서버의 확정 결과를 정규 결과 키로 결합한 C3 Coordinator가 표현 Impact 시점에 최대 한 번 방출한다. 공격 일정만으로 적중을 예측하지 않으며 로컬 `OnAttackHit`이나 트레이서 도착을 기다리지 않는다. 표시용 HP는 `NET-TIME-002`를 따르고 권위 HP 적용을 지연하지 않는다.
+확정 결과는 피해자 타입·팀·Impact 위치·적용 피해·결과 HP를 포함한 self-contained 표현 스냅샷이어야 한다. HP 텍스트와 설정된 피격 VFX는 이 스냅샷만으로 재생하며, 별도 피해 이벤트나 현재 살아 있는 View를 기다리지 않는다. View 펀치는 동일 피해자 객체 수명이 확인될 때만 더하는 선택 표현이고, 사망·Despawn 또는 ID 재사용 때문에 확인할 수 없더라도 필수 표현을 실패시키지 않는다.
+피격 VFX 에셋은 향후 타입별로 추가될 수 있는 선택 채널이다. 현재 `hitPreset`이 비어 있는 타입은 `SkippedNoAsset` 정상 생략으로 기록하며 실패나 대체 VFX 생성 대상으로 삼지 않는다. 다만 미래 에셋 추가 때 네트워크 계약을 다시 바꾸지 않도록 타입·팀·Impact 위치 스냅샷은 에셋 유무와 관계없이 모든 확정 적중 결과에 포함한다. 프리셋이 실제로 설정된 뒤 재생 호출이 실패한 경우만 채널 실패로 판정한다. 유닛 제거 시 재생되는 사망 VFX는 이 선택 피격 VFX와 별도 수명이며 C3 결과 표현 실패로 취소하거나 중복 실행하지 않는다.
+타겟 전환·사망·공격자 사망·StopCombat은 미승인 미래 marker 허가를 닫는 입력이다. 이미 서버가 확정한 결과를 취소하거나 뒤늦게 큐 전체를 flush하는 명령이 아니다. 사망 전 확정 결과가 사망 알림 뒤 도착해도 정규 키·기존 catch-up age·늦은 참가 baseline으로 처리한다. 사라진 View나 재사용 ID로 타격 반응을 전달하지 않고 권위 상태는 보존한다.
+타임아웃은 손상·유실을 진단하고 제한 버퍼를 종료하는 안전망이며 새로운 적중이나 정상 피격 표현을 생성하지 않는다. 공격자 FIFO·marker 대기·사망 flush는 전환 검증용 레거시 경로만 허용하며 신규 정상 경로에서 사용하지 않는다. 비교 검증 뒤 경기 고정 모드로 단일 방출자를 선택하고 사용자 실기 PASS 전 레거시 코드를 최종 삭제하지 않는다.
 피격 VFX에는 사운드 규칙 15에 따라 대응 SFX를 짝으로 두거나, 없을 경우 주석으로 명시한다.
 
 **규칙 20. 원거리 유닛 트레이서**
 원거리 유닛은 `OnAttackHit` 시점에 연출 전용 발사체(트레이서: 발사→비행→착탄)를 재생한다.
 트레이서는 순수 시각 표현이며 데미지 판정 타이밍(서버)에 영향을 주지 않는다.
-착탄 시점에 피격 표현 큐를 방출한다.
+Hitscan 트레이서는 같은 공격 일정의 표현 Impact 시각에 맞춰 진행률·잔여 비행 시간을 조절한다. 이미 지난 시각이면 축약하거나 생략하고 결과 표현을 추가 지연하지 않는다. 착탄 콜백은 시각 오브젝트 종료만 담당하며 피격 표현 큐를 방출하지 않는다. 서버 투사체 판정이 있는 ProjectileImpact는 별도 권위 착탄 계약을 유지한다.
 
 **규칙 21. Attack 루프 이탈 시 전투 애니메이션 재전송 가드 해제**
 클라이언트가 Attack 애니메이션 루프를 이탈(서버가 Walk RPC를 전송)한 시점에, 서버는 해당 유닛의 StartCombat 재전송 가드(`_combatAnimationSent`)를 해제한다.
-이는 서버는 전투를 계속하는데 클라이언트만 Walk 상태에 갇혀 공격 모션이 재생되지 않는 경쟁 조건을 방지하기 위함이다. 규칙 19의 피격 표현 큐가 공격자의 로컬 타격 프레임을 통해 정상 방출되도록 보장하는 전제 조건이다.
+이는 서버는 전투를 계속하는데 클라이언트만 Walk 상태에 갇혀 공격 모션이 재생되지 않는 경쟁 조건을 방지하기 위한 레거시 설명이다. 현재 규칙 19의 결과 표현은 로컬 타격 프레임 수신에 종속되지 않는다.
 
 > **참고 (2026-07-13):** 규칙 21은 애니메이션 상태를 1회성 엣지 RPC로 전달하던 구조에서 발생한 경쟁 조건의 봉합책이었다. 규칙 22의 값 기반(NetworkVariable) 레벨 동기화가 그 전제(클라이언트가 항상 서버의 현재 상태를 자동 수신)를 구조적으로 보장하므로, 규칙 22가 규칙 21을 **상위 대체**한다. 재전송 가드(`_combatAnimationSent`) 자체는 애니메이션이 아니라 데미지(`ExecuteAttack`)·타겟 RPC 게이팅 기능으로 유지된다.
 
@@ -267,7 +364,7 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 
 **적용 시점 봉합:** 애니메이션 상태 적용이 `UnitView.Initialize`(애니메이터 준비 완료)보다 이르면 무음 실패할 수 있으므로, `UnitView.Initialize` 말미에서 현재 상태 값을 **멱등하게 재적용**한다(`NetworkUnit.ReapplyAnimStateToView`). 재적용은 값 기반이라 몇 번 호출되어도 안전하다.
 
-데미지 판정은 규칙 18에 따라 서버 타이머로만 적용하며 애니메이션 상태 값과 분리한다. 조준 회전(타겟 방향 추적)은 애니메이션 상태와 별개의 타겟 참조로 처리한다(규칙 12·15). 규칙 19의 피격 표현 큐는 이 규칙으로 클라이언트 Attack 루프가 안정화되어 공격자 로컬 타격 프레임 방출이 정상 작동한다. (규칙 21의 재전송 가드 해제는 본 규칙의 값 기반 동기화로 대체된다.)
+데미지 판정은 규칙 18에 따라 서버 타이머로만 적용하며 애니메이션 상태 값과 분리한다. 조준 회전(타겟 방향 추적)은 애니메이션 상태와 별개의 타겟 참조로 처리한다(규칙 12·15). Attack 루프 안정화와 규칙 19의 결과 표현 방출은 독립 책임이다. marker가 없거나 늦어도 유효한 확정 결과를 다음 루프까지 보류하지 않는다. (규칙 21의 재전송 가드 해제는 본 규칙의 값 기반 동기화로 대체된다.)
 
 ---
 
@@ -301,14 +398,17 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 - ⚠️ **에셋 생성 ≠ 씬 배선**: `SpecialAttackConfig.asset`을 만들어 값을 넣어도 GameBootstrapper `_specialAttackConfig`에 연결하지 않으면 런타임은 폴백값을 쓴다. 신규 SO 튜닝값은 배선까지 확인할 것. 셋업 스크립트 `CreateSpecialAttackConfigAsset.cs`(메뉴 `Hexiege/Setup/Create SpecialAttackConfig Asset (Game)`)가 에셋 생성 + GameBootstrapper 배선을 멱등 자동화한다.
 
 **규칙 26. AoE 피격 연출 동시 방출**
-`HitPresentationQueue`는 규칙 19에 따라 공격자의 로컬 타격 신호(`OnLocalAttackHit`) 1회당 큐에서 보류 항목을 방출한다. AoE(한 타격 프레임에 다수 피해)는 공격자의 **타격 프레임 수(`HitFrameTimes.Length`)** 로 방출량을 분기한다.
-- **단일 타격 프레임(Length ≤ 1)**: 그 스윙의 모든 피해가 한 타격 프레임에 속하므로 해당 공격자 큐의 **보류 항목을 전부 방출** → 휩쓸기 N마리 연출이 타격 모션에 맞춰 **동시에** 표시된다. (일반 단일 타깃 유닛은 스윙당 큐 1건뿐이라 "전부 방출 = 1건 방출"로 동작 동일 — 회귀 없음.)
-- **다중 타격 프레임(Length > 1, 예: LionKnight 2타·FlameSpirit 6타)**: 기존대로 **신호당 1건** 방출(각 타격 프레임이 각자의 피해에 대응) → 다중 히트 유닛 연출 타이밍 회귀 없음.
-- 데미지·HP는 서버에서 모든 대상에 정확히 적용되며(규칙 18), 이 규칙은 **연출 표시 타이밍**만 다룬다. 향후 단일 타격 프레임 AoE(Quake/Torrent/Mushroom 착탄 등)에도 동일 적용된다.
-- 타격 프레임 수는 `_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`로 조회. 영향 파일: `Presentation/Effects/HitPresentationQueue.cs`.
+동일 서버 타격의 AoE 결과는 같은 attacker instance·sequence·HitIndex 아래 피해자·효과·ResultOrdinal별 정규 키로 구분한다. 서버가 타격 처리 완료 후 발행한 명시적 결과 묶음 또는 완료 manifest의 개수·키를 모두 확인한 경우 같은 표현 Impact에 함께 방출한다.
+- 커밋 일정에는 미래 피격 대상 수가 확정되지 않는다. `HitFrameTimes.Length`, 처음 받은 결과, ordinal 최댓값이나 공격자 큐 길이로 묶음 완료를 추정하지 않는다.
+- 다중 타격의 HitIndex마다 별도의 묶음을 사용한다. 다른 HitIndex·회차·공격자의 결과를 섞지 않는다.
+- 묶음 일부가 유실되면 제한 시간·용량 계약으로 실패를 기록한다. 피해·HP를 되돌리거나 누락 결과를 만들지 않는다. 미완성 묶음을 완전한 AoE 동시 방출 PASS로 보고하지 않는다.
+- 이동 파도·Periodic은 접촉/틱별 권위 결과 시각을 유지하며 한 발사 회차 전체를 같은 시점에 모아 방출하지 않는다.
+- 레거시 비교 모드의 FIFO는 전환 증거 수집에만 남긴다. 신규 단일 writer 경로의 방출량은 서버 결과 묶음으로 정한다.
 
 **규칙 27. 특수 유닛 Attack 클립 OnAttackHit 이벤트 주입**
 특수 유닛 5종(BattleAxe / QuakeSpirit / TorrentSpirit / MushroomBomber / BloomFairy)의 Attack 클립에는 `OnAttackHit` Animation Event가 없어(전투 타격 타이밍 동기화 작업에서 의도적 제외) 데미지·피격 연출 시점이 폴백값으로 어긋난다. 각 유닛 구현 시 `hitFrameTimes`를 실제 타격 프레임으로 확정하고 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 클립에 이벤트를 주입한다(규칙 17). BattleAxe는 `1.1667s`, TorrentSpirit은 `0.5s`(임시 — 실제 파도 발동 프레임에 맞춰 튜닝)로 주입 완료(2026-07-17). BloomFairy는 힐 발동을 `HitFrameTimes` 타이머로 구동하고 `OnAttackHit`은 힐 연출 전용으로 처리 완료(2026-07-18, 규칙 32). MushroomBomber는 클립에 `OnAttackHit` **1개** 주입 완료(2026-07-19, 규칙 38~40). QuakeSpirit는 특수 공격 로직(규칙 43)은 구현·검증 완료됐으나 Attack 클립 `OnAttackHit`은 **아직 미주입**(placeholder `hitFrameTimes` 1.0s) — 이로 인해 타격 애니↔데미지 텍스트 타이밍이 어긋나며, 사용자 결정으로 **별도 후속 task로 분리**(규칙 43 참고 노트). 이 잔여 주입은 그 후속 task에서 처리한다. ⚠️ 파도류(TorrentSpirit)는 OnAttackHit **1개만** 둘 것 — 2개 이상이면 한 공격에 파도가 중복 생성된다.
+
+> **[2026-09-14 후속 교정 — 위 QuakeSpirit 미주입/1.0초 문장은 당시 기록으로 보존]:** production Attack clip의 `OnAttackHit` 1개가 실제 타격 시점 1.667초에 있음을 확인하고 `UnitStatsConfig.hitFrameTimes`를 1.0초에서 1.667초로 정렬했다. 실제 Attack state clip·Controller·Blue/Red 프리팹 연결도 함께 검증했으며, 영구 Unit Action self-validation은 이 production marker/config 연결이 어긋나면 Supported 승격을 fail-closed한다. Unity 자동 게이트는 PASS했으나 Android 사용자 실기 전이므로 최종 완료가 아니다.
 
 ---
 
@@ -327,7 +427,7 @@ A* 이동 중 유닛은 항상 이동 방향(다음 타일 방향)을 정면으�
 - **각 대상 1회만**(유닛·건물 각각 별도 hit-set — 유닛 Id와 건물 Id는 카운터가 달라 값 충돌 가능하므로 분리).
 - 대상: **적 유닛·적 건물 = 피해(공격력)**, **아군 유닛 = 힐**(건물은 힐 대상 아님). 시전자 자신·죽은 대상 제외.
 - ⚠️ special-only 유닛은 반드시 파도 판정이 **건물도 순회**해야 한다 — 안 그러면 성 파괴(승리조건) 기여 불가. (도끼병류는 주 타깃 단일 피해가 건물을 처리하므로 무관.)
-- 파도 피해/힐 연출은 대상별 닿는 시점이 달라 `HitPresentationQueue` 보류 큐를 우회해 **즉시 방출**한다(`EntityDamagedEvent.ImmediatePresentation` = true, 규칙 26 연장).
+- 파도 피해/힐 연출은 대상별 권위 접촉 시각에 연결한다(규칙 26). 레거시 `ImmediatePresentation` 경로의 의미를 보존하되 C3 전환 후에는 접촉별 확정 결과를 단일 Coordinator가 소비하며 발사 marker를 기다리지 않는다.
 - 틱 호출: 싱글=`GameBootstrapper.Update`(`!IsNetworkMode` 가드), 멀티=`NetworkCombatController`(IsServer 가드). 이중 틱 금지.
 
 **규칙 30. 힐(회복) 서브시스템**
@@ -468,10 +568,12 @@ QuakeSpirit의 폭발은 MushroomBomber(규칙 38~39)와 같은 **직접 피해 
 - ⚠️ **스플래시가 적 건물도 포함** — MushroomBomber·BattleAxe의 AoE는 유닛만 순회하지만, QuakeSpirit은 반경 내 **적 건물에도 50%**를 준다(폭발이 주변 건물까지 무너뜨리는 광역 공성 성격). 이를 위해 규칙 38의 유닛 수집 헬퍼 `CollectEnemyUnitsInRadius`를 `internal static`으로 **공용화**해 재사용(MushroomBomber의 "유닛만" 로직은 무변경 — 회귀 없음)하고, 건물용 `CollectEnemyBuildingsInRadius`를 **신설**한다.
 - **유닛/건물 hit-set 분리**(규칙 29 계승) — 유닛 Id와 건물 Id는 카운터가 달라 값이 충돌할 수 있으므로 유닛·건물을 각각 별도 집합으로 수집·적용한다.
 - **제외 대상**: 아군, 사망 유닛, 공격자 자신(아군 팀 필터로 자동 제외), 주 타깃(위 중복 방지). 아군 유닛·아군 건물 무피해(규칙 16).
-- **서버 권위·즉시 방출**: 착탄 판정·피해 모두 서버 타이머로만 적용(규칙 18). 멀티에서 클라는 HP·데미지 텍스트를 동기화로 수신(이중 적용 없음). AoE 피격 연출은 규칙 26(단일 타격 프레임이면 보류 큐 전부 방출)에 따라 폭발과 함께 동시 표시된다.
+- **서버 권위·착탄 결과 표현**: 착탄 판정·피해 모두 서버 타이머로만 적용(규칙 18). 멀티에서 클라는 HP·데미지 텍스트를 동기화로 수신(이중 적용 없음). AoE 피격 연출은 규칙 26의 명시적 결과 묶음 완료를 확인하고 권위 착탄의 표현 시각에 폭발과 함께 표시한다.
 - 튜닝값(규칙 25): `SpecialAttackConfig`의 `_quakeRadius`(월드 반경, 기본 1.0=인접 1칸) / `_quakeSplashRatio`(스플래시 배율, 기본 0.5)를 GameBootstrapper가 float로 주입한다(미연결 시 코드 폴백 1.0/0.5 — "에셋 생성 ≠ 씬 배선" 교훈). 진입점: 핸들러가 유닛·건물 수집 결과 각각에 스플래시 피해(`ApplyDamageToVictim` 계열)를 적용.
 
 > **참고 — 알려진 이슈(보류, 2026-07-20):** QuakeSpirit의 **타격 애니메이션과 데미지 텍스트 타이밍이 어긋난다**. 원인은 QuakeSpirit Attack 클립에 `OnAttackHit` 이벤트가 아직 **미주입**(규칙 27의 잔여 대상)이고 `hitFrameTimes`가 placeholder(1.0s)라, 스플래시 데미지 텍스트가 공격자 로컬 타격 프레임 대신 `HitPresentationQueue` 타임아웃(쿨다운×1.5 = 7.5s)까지 지연되어 방출되기 때문이다. **피해·판정·동기화 자체는 정상**(로그 검증 완료)이며 연출 표시 시점만 어긋난다. 사용자 결정으로 **별도 task로 분리**(이번 작업 미수정). 멀티플레이 원거리 유닛 facing 버그(InfernoSpirit 작업에서 진단)와 함께 "알려진 이슈"로 남긴다. 규칙 27의 "잔여 1종(QuakeSpirit) OnAttackHit 미주입"은 이 후속 task에서 처리한다.
+
+> **[2026-09-14 후속 상태 — 2026-07-20 보류 원문은 이력으로 유지]:** 위 QuakeSpirit marker/config 보류는 구현과 자동 검증 단계에서 해소됐다. 현재 production marker와 config는 모두 1.667초이고 profile은 `Supported / MeleeContact / Impact 1 / secondary true`, manifest는 16/8/1이다. Unit Action A1/B2/C2/C3와 Root Pose Cross Audit은 errors 0 PASS했다. Android Build And Run은 시작됐지만 완료·실기 타격 시점/AoE 확인 전이므로 판정은 CONDITIONAL PASS / OPEN이다.
 
 ---
 

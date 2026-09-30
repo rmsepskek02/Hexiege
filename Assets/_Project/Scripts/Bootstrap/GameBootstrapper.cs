@@ -217,6 +217,7 @@ namespace Hexiege.Bootstrap
         // 씬 수동 배치 없이 LoadMap()에서 이 GameObject에 AddComponent 후 Initialize한다.
         // 맵 재로드 시 중복 부착을 막기 위해 참조를 캐시하여 재사용한다. (Phase 2 — 축 3)
         private HitPresentationQueue _hitPresentationQueue;
+        private UnitAttackResultPresentationShadow _unitAttackResultPresentationShadow;
 
         // [AI 시스템] 싱글플레이 AI 컨트롤러. InitializeAI()에서 생성, 매 프레임 Update()에서 Tick.
         // 싱글플레이 + AIConfig.enableAI=true일 때만 생성된다. 멀티플레이에서는 항상 null.

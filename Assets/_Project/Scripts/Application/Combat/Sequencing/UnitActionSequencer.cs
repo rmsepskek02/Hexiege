@@ -276,6 +276,35 @@ namespace Hexiege.Application.Combat.Sequencing
         }
 
         /// <summary>
+        /// Legacy gameplay가 실제로 새 공격 쿨다운 경계를 통과했지만 Shadow의 관측 시작이 한 틱
+        /// 늦어 Recovery 종료 시각만 뒤에 남은 경우, 이미 모든 Impact가 결정된 회차를 다음
+        /// Acquire로 넘기는 read-only adapter seam이다. 미결정 타격이 있거나 Recovery가 아니면
+        /// 절대 전환하지 않아 진행 중 회차를 새 타겟으로 덮어쓰지 않는다.
+        /// </summary>
+        public UnitActionReducerStatus AdvanceAtLegacyAttackBoundary(
+            ulong expectedRevision,
+            double observedServerTime)
+        {
+            UnitActionReducerStatus guard = Guard(expectedRevision, observedServerTime);
+            if (guard != UnitActionReducerStatus.Accepted) return guard;
+            if (_phase != UnitActionPhase.Recovery)
+                return UnitActionReducerStatus.InvalidPhase;
+            if (_timeline == null
+                || (_decidedHitMask & _timeline.AllImpactMask) != _timeline.AllImpactMask)
+                return UnitActionReducerStatus.InvalidPhase;
+
+            UnitActionEndReason completedReason = _endReason == UnitActionEndReason.None
+                ? UnitActionEndReason.Completed
+                : _endReason;
+            ResetCycleToNeutral(true, true);
+            _phase = UnitActionPhase.AcquireTarget;
+            _phaseStartServerTime = observedServerTime;
+            _endReason = completedReason;
+            AcceptTime(observedServerTime);
+            return UnitActionReducerStatus.Accepted;
+        }
+
+        /// <summary>
         /// due가 된 가장 이른 미결정 타격을 8도 유지·타겟 생존·v2 사거리로 독립 판정한다.
         /// 적중이어도 피해 결과를 만들지 않고 외부 writer가 처리할 Authorization만 반환한다.
         /// </summary>
@@ -285,6 +314,26 @@ namespace Hexiege.Application.Combat.Sequencing
             int expectedEffectKind,
             int expectedResultOrdinal,
             AttackTargetBinding target,
+            bool targetAlive,
+            bool targetValid,
+            double targetSquaredDistance,
+            double yawErrorDegrees,
+            ActionDirectionXZ authoritativeAimDirection,
+            double observedServerTime,
+            out ImpactAuthorization authorization)
+            => EvaluateImpact(
+                expectedRevision, hitIndex, expectedEffectKind, expectedResultOrdinal,
+                target, true, targetAlive, targetValid, targetSquaredDistance,
+                yawErrorDegrees, authoritativeAimDirection, observedServerTime,
+                out authorization);
+
+        public UnitActionReducerStatus EvaluateImpact(
+            ulong expectedRevision,
+            int hitIndex,
+            int expectedEffectKind,
+            int expectedResultOrdinal,
+            AttackTargetBinding target,
+            bool attackerAlive,
             bool targetAlive,
             bool targetValid,
             double targetSquaredDistance,
@@ -311,12 +360,23 @@ namespace Hexiege.Application.Combat.Sequencing
             int firstPending = FindFirstSetIndex(_dueHitMask & ~_decidedHitMask);
             if (firstPending != hitIndex) return UnitActionReducerStatus.OutOfOrder;
 
-            bool hit = targetAlive && targetValid
+            bool targetUnavailable = !targetAlive || !targetValid;
+            if (!attackerAlive && targetUnavailable)
+                return UnitActionReducerStatus.InvalidInput;
+
+            bool hit = attackerAlive && !targetUnavailable
                 && _rangeProfile.ContainsSquaredDistance(targetSquaredDistance, target.Target.Kind)
                 && UnitActionAngleHysteresis.AllowsAttackAlignment(yawErrorDegrees, true);
             ImpactAuthorizationOutcome outcome = hit
                 ? ImpactAuthorizationOutcome.AuthorizedHit
                 : ImpactAuthorizationOutcome.AuthorizedMiss;
+            ImpactAuthorizationMissReason missReason = hit
+                ? ImpactAuthorizationMissReason.None
+                : !attackerAlive
+                    ? ImpactAuthorizationMissReason.AttackerUnavailable
+                    : targetUnavailable
+                        ? ImpactAuthorizationMissReason.TargetUnavailable
+                        : ImpactAuthorizationMissReason.CombatConditionFailed;
 
             // Authorization은 이 전이가 수락된 직후의 revision과 결합한다. 결과 writer는 이 값을
             // 그대로 돌려줘야 하므로 같은 회차·타격 번호의 오래된 결과도 재사용될 수 없다.
@@ -327,7 +387,7 @@ namespace Hexiege.Application.Combat.Sequencing
                 expectedEffectKind, expectedResultOrdinal);
             authorization = new ImpactAuthorization(
                 authorizationRevision, authorizationKey, _target.Target,
-                observedServerTime, authoritativeAimDirection, outcome);
+                observedServerTime, authoritativeAimDirection, outcome, missReason);
             _decidedHitMask |= bit;
             _authorizedRevisions[hitIndex] = authorizationRevision;
             _authorizedKeys[hitIndex] = authorizationKey;

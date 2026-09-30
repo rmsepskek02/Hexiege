@@ -113,7 +113,7 @@ namespace Hexiege.Presentation
         /// <param name="start">발사 지점(월드). 보통 유닛의 총구/발사점.</param>
         /// <param name="target">도착 지점(월드). Launch 시점의 타겟 위치(값 복사).</param>
         /// <param name="onArrive">착탄 시 호출할 콜백. 피격 연출 방출을 트리거한다. null 허용.</param>
-        public void Launch(Vector3 start, Vector3 target, Action onArrive)
+        public void Launch(Vector3 start, Vector3 target, Action onArrive, float authoritativeDuration = -1f)
         {
             _start = start;
             _target = target;
@@ -123,6 +123,10 @@ namespace Hexiege.Presentation
             // 비행 시간 = 거리 / 속도. 속도가 0 이하(오설정)면 즉시 착탄으로 처리.
             float distance = Vector3.Distance(start, target);
             _duration = _speed > 0f ? distance / _speed : 0f;
+            // 새 표현 경로는 서버 타격 표시 시점까지 남은 시간을 넘긴다.
+            // 음수 기본값은 아직 전환하지 않은 Legacy 타입의 기존 속도 설정을 보존한다.
+            if (authoritativeDuration >= 0f && !float.IsInfinity(authoritativeDuration))
+                _duration = authoritativeDuration;
 
             // 발사 지점으로 위치 스냅 + 진행 방향으로 회전(트레이서 메시가 forward를 향하도록).
             transform.position = start;

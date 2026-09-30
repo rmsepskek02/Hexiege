@@ -157,11 +157,29 @@ namespace Hexiege.Infrastructure
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
 
+        /// <summary>
+        /// Tracer C 공격 Shadow의 원자 복제 값이다. 실제 공격/회전/애니메이션에는 적용하지 않고
+        /// Host와 Client가 같은 공격 회차·타겟·방향을 관측했는지 확인하는 데만 사용한다.
+        /// 여러 NetworkVariable로 쪼개지 않아 revision과 target이 다른 tick 값으로 섞이지 않는다.
+        /// </summary>
+        private NetworkVariable<NetworkUnitActionShadowState> _attackShadowState
+            = new NetworkVariable<NetworkUnitActionShadowState>(
+                default,
+                NetworkVariableReadPermission.Everyone,
+                NetworkVariableWritePermission.Server);
+
+        // 서버 게시와 Client 수신이 동일한 (AttackSequenceId, Revision) 계약을 사용한다.
+        // NetworkObject 수명마다 OnNetworkSpawn에서 새로 만들어 이전 spawn의 상한을 섞지 않는다.
+        private UnitAttackShadowReplicationClassifier _attackShadowPublicationClassifier;
+        private UnitAttackShadowImpactReplicationClassifier _attackShadowImpactClassifier;
+        private AttackerInstanceId _attackPresentationInstanceId;
+
         public UnitMovementPhase MovementPhase =>
             (UnitMovementPhase)_movementPhase.Value;
         public ulong MovementCommandRevision => _movementCommandRevision.Value;
         public ulong MovementSegmentRevision => _movementSegmentRevision.Value;
         public ulong MovementSemanticRevision => _movementSemanticRevision.Value;
+        public NetworkUnitActionShadowState AttackShadowState => _attackShadowState.Value;
 
         /// <summary>
         /// [Phase 2] 같은 GameObject의 UnitView 캐시 — 애니메이션 상태 적용 시 메서드 호출용.
@@ -240,6 +258,111 @@ namespace Hexiege.Infrastructure
             return true;
         }
 
+        /// <summary>
+        /// 서버 coordinator가 수락한 Shadow snapshot만 원자 값으로 게시한다.
+        /// 변환이나 게시 실패는 Legacy gameplay에 전달되지 않으며 기존 상태를 그대로 유지한다.
+        /// </summary>
+        public bool PublishAttackShadowSnapshot(UnitAttackShadowPublication publication)
+        {
+            if (!IsServer
+                || !NetworkUnitActionShadowState.TryCreate(publication, out NetworkUnitActionShadowState state))
+                return false;
+
+            if (_attackShadowPublicationClassifier == null)
+                _attackShadowPublicationClassifier = new UnitAttackShadowReplicationClassifier();
+            UnitAttackShadowReplicationStatus status =
+                _attackShadowPublicationClassifier.Classify(NetworkObjectId, state);
+            if (status == UnitAttackShadowReplicationStatus.Duplicate) return true;
+            if (status != UnitAttackShadowReplicationStatus.Accepted) return false;
+
+            _attackShadowState.Value = state;
+            return true;
+        }
+
+        /// <summary>
+        /// Every committed HitIndex is sent reliably, independently of the coalescing state variable.
+        /// It carries provisional direction only. Final aim and outcome still come exclusively from C2.
+        /// </summary>
+        public void PublishAttackPresentationSchedule(AttackPresentationSchedule schedule)
+        {
+            if (!IsServer || !IsSpawned || !schedule.IsValid) return;
+            _attackPresentationInstanceId = schedule.Scope.AttackerInstanceId;
+            UnitAttackResultPresentationShadowBridge.ObserveSchedule(schedule);
+            AttackPresentationScheduleClientRpc(schedule.AttackerUnitId,
+                schedule.Scope.AttackerInstanceId.Value, schedule.Scope.SequenceId.Value,
+                schedule.Scope.HitIndex, schedule.CommitRevision, (byte)schedule.Delivery,
+                schedule.ImpactServerTime, schedule.CommitDirection.X, schedule.CommitDirection.Z);
+        }
+
+        [ClientRpc]
+        private void AttackPresentationScheduleClientRpc(int unitId, ulong instanceId,
+            ulong sequenceId, int hitIndex, ulong commitRevision, byte delivery,
+            double impactServerTime, double directionX, double directionZ)
+        {
+            if (IsServer) return;
+            ActionDirectionXZ.TryCreate(directionX, directionZ, out var direction);
+            var schedule = new AttackPresentationSchedule(unitId,
+                new AttackPresentationScope(new AttackerInstanceId(instanceId),
+                    new AttackSequenceId(sequenceId), hitIndex), commitRevision,
+                (AttackDeliveryKind)delivery, impactServerTime, direction);
+            if (schedule.IsValid) _attackPresentationInstanceId = schedule.Scope.AttackerInstanceId;
+            UnitAttackResultPresentationShadowBridge.ObserveSchedule(schedule);
+        }
+
+        /// <summary>
+        /// Legacy writer가 확정한 개별 ImpactResult를 Reliable Shadow 메시지로 보낸다.
+        /// 이 RPC는 관측 전용이며 Client의 HP·Animator·VFX를 갱신하지 않는다.
+        /// </summary>
+        public bool PublishAttackShadowImpactResult(
+            AttackImpactResult result,
+            AttackDeliveryKind delivery)
+        {
+            if (!IsServer
+                || !NetworkAttackImpactShadowResult.TryCreate(
+                    result, delivery, out NetworkAttackImpactShadowResult state))
+                return false;
+
+            if (_attackShadowImpactClassifier == null)
+                _attackShadowImpactClassifier = new UnitAttackShadowImpactReplicationClassifier();
+            UnitAttackShadowImpactReplicationStatus status =
+                _attackShadowImpactClassifier.Classify(NetworkObjectId, state);
+            if (status == UnitAttackShadowImpactReplicationStatus.Duplicate) return true;
+            if (status != UnitAttackShadowImpactReplicationStatus.Accepted) return false;
+
+            if (state.TryToPresentationInput(_unitId.Value, out AttackResultPresentationInput input))
+            {
+                _attackPresentationInstanceId = input.Key.AttackerInstanceId;
+                UnitAttackResultPresentationShadowBridge.ObserveResult(
+                    input, NetworkManager.ServerTime.Time,
+                    UnityEngine.Time.realtimeSinceStartupAsDouble);
+            }
+
+            AttackImpactShadowResultClientRpc(state);
+            return true;
+        }
+
+        [ClientRpc]
+        private void AttackImpactShadowResultClientRpc(NetworkAttackImpactShadowResult state)
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (IsServer || _unitId.Value < 0) return;
+            UnitAttackShadowObserver.ObserveClientImpactResult(
+                _unitId.Value,
+                NetworkObjectId,
+                state);
+            UnitAttackShadowImpactReplicationStatus status =
+                _attackShadowImpactClassifier.Classify(NetworkObjectId, state);
+            if (status == UnitAttackShadowImpactReplicationStatus.Accepted
+                && state.TryToPresentationInput(_unitId.Value, out AttackResultPresentationInput input))
+            {
+                _attackPresentationInstanceId = input.Key.AttackerInstanceId;
+                UnitAttackResultPresentationShadowBridge.ObserveResult(
+                    input, NetworkManager.ServerTime.Time,
+                    UnityEngine.Time.realtimeSinceStartupAsDouble);
+            }
+#endif
+        }
+
         // ====================================================================
         // NetworkBehaviour 생명주기
         // ====================================================================
@@ -259,6 +382,11 @@ namespace Hexiege.Infrastructure
         {
             base.OnNetworkSpawn();
 
+            _attackShadowPublicationClassifier =
+                new UnitAttackShadowReplicationClassifier();
+            _attackShadowImpactClassifier =
+                new UnitAttackShadowImpactReplicationClassifier();
+
             // 서버는 UnitFactory.CreateUnitObject()에서 이미 모든 초기화 완료
             if (IsServer) return;
 
@@ -277,6 +405,7 @@ namespace Hexiege.Infrastructure
             _animState.OnValueChanged += OnAnimStateChanged;
             _movementSemanticRevision.OnValueChanged +=
                 OnMovementSemanticRevisionChanged;
+            _attackShadowState.OnValueChanged += OnAttackShadowStateChanged;
             ApplySpawnAnimState();
 
             // 클라이언트: unitId가 이미 설정되었으면 즉시 딕셔너리에 등록
@@ -284,6 +413,7 @@ namespace Hexiege.Infrastructure
             {
                 RegisterToFactory(_unitId.Value);
                 ObserveCurrentMovementSnapshot();
+                ObserveCurrentAttackShadowState();
                 return;
             }
 
@@ -311,6 +441,7 @@ namespace Hexiege.Infrastructure
             _unitId.OnValueChanged -= OnUnitIdReceived;
             // semantic snapshot이 unitId보다 먼저 coalesce되어 도착했더라도 등록 후 한 번 수집한다.
             ObserveCurrentMovementSnapshot();
+            ObserveCurrentAttackShadowState();
         }
 
         // ====================================================================
@@ -384,6 +515,24 @@ namespace Hexiege.Infrastructure
             ObserveCurrentMovementSnapshot();
         }
 
+        private void OnAttackShadowStateChanged(
+            NetworkUnitActionShadowState previousValue,
+            NetworkUnitActionShadowState newValue)
+        {
+            ObserveCurrentAttackShadowState();
+        }
+
+        private void ObserveCurrentAttackShadowState()
+        {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (IsServer || _unitId.Value < 0 || !_attackShadowState.Value.IsValid) return;
+            UnitAttackShadowObserver.ObserveClientReplicatedState(
+                _unitId.Value,
+                NetworkObjectId,
+                _attackShadowState.Value);
+#endif
+        }
+
         private void ObserveCurrentMovementSnapshot()
         {
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
@@ -426,7 +575,12 @@ namespace Hexiege.Infrastructure
                     _unitView.StartWalkAnimation();
                     break;
                 case UnitAnimState.Attack:
-                    _unitView.PlayAttackAnimation();
+                    // Attack 표현은 revision+target+impactEnabled를 한 payload로 가진
+                    // StartCombatClientRpc만 시작한다. 이 별도 NetworkVariable이 먼저
+                    // 도착해 stale impact=true 상태로 클립을 단독 재생하면 provisional
+                    // suppression보다 Animation Event가 앞설 수 있으므로 여기서는 no-op한다.
+                    if (UnitAttackPresentationPolicy.ShouldStartAttackFromReplicatedLevelState())
+                        _unitView.PlayAttackAnimation();
                     break;
                 case UnitAnimState.Frozen:
                     // [스킬 - 빙결] 걷기 클립을 유지한 채 speed=0으로 정지 → 순수 클라의 "제자리걸음" 제거.
@@ -435,7 +589,10 @@ namespace Hexiege.Infrastructure
                 case UnitAnimState.Held:
                     _unitView.HoldMovementAnimation();
                     break;
-                // None: 애니메이션 변경 없음(초기 상태).
+                default:
+                    // 늦은 참가/기본 None도 이전 수명의 Impact 승인을 상속하지 않는다.
+                    _unitView.SuppressPendingAttackImpactPresentation();
+                    break;
             }
         }
 
@@ -447,6 +604,16 @@ namespace Hexiege.Infrastructure
         /// </summary>
         public override void OnNetworkDespawn()
         {
+            // 공격한 적 없는 유닛은 표현 수명을 만들지 않았으므로 retire할 대상도 없다.
+            // Coordinator도 None을 no-op으로 방어하지만 호출 경계에서 의미를 명시한다.
+            if (_attackPresentationInstanceId.IsValid)
+                UnitAttackResultPresentationShadowBridge.Retire(_attackPresentationInstanceId);
+            _attackPresentationInstanceId = AttackerInstanceId.None;
+            _attackShadowPublicationClassifier?.Retire();
+            _attackShadowPublicationClassifier = null;
+            _attackShadowImpactClassifier?.Retire();
+            _attackShadowImpactClassifier = null;
+
             // 안전망: Despawn 시 혹시 남아있는 콜백 해제.
             // 이미 해제된 상태여도 -= 연산은 에러 없이 무시됨.
             _unitId.OnValueChanged -= OnUnitIdReceived;
@@ -456,11 +623,13 @@ namespace Hexiege.Infrastructure
             _animState.OnValueChanged -= OnAnimStateChanged;
             _movementSemanticRevision.OnValueChanged -=
                 OnMovementSemanticRevisionChanged;
+            _attackShadowState.OnValueChanged -= OnAttackShadowStateChanged;
 
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             UnitMovementAuthorityObserver.RetireUnitLifecycle(
                 _unitId.Value,
                 NetworkObjectId);
+            UnitAttackShadowObserver.RetireClient(_unitId.Value);
 #endif
 
             // 클라이언트 전용: 사망 이펙트를 여기서 재생한다.

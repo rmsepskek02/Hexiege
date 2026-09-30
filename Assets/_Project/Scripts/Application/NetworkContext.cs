@@ -26,6 +26,57 @@ namespace Hexiege.Application
     }
 
     /// <summary>
+    /// 한 경기에서 고정되는 공격 표현 파이프라인이다. PresentationShadow는 기존 표현을
+    /// 그대로 실행하면서 서버 결과와 비교만 한다. ResultPresentation은 지원이 확인된
+    /// 공격에 한해 서버의 완결 결과 묶음이 실제 피격 표현을 한 번만 방출하고, 아직
+    /// 미완료로 선언된 공격은 기존 Legacy 표현을 유지한다.
+    /// </summary>
+    public enum CombatPipelineMode
+    {
+        Legacy = 0,
+        PresentationShadow = 1,
+        ResultPresentation = 2
+    }
+
+    /// <summary>mode/schema/profile hash를 한 덩어리로 고정하는 순수 경기 latch다.</summary>
+    public sealed class CombatPipelineContractLatch
+    {
+        public bool IsMatchActive { get; private set; }
+        public CombatPipelineMode ActiveMode { get; private set; }
+        public int SchemaRevision { get; private set; }
+        public string ProfileHash { get; private set; }
+
+        public bool TryBeginMatch(CombatPipelineMode mode, int schemaRevision, string profileHash)
+        {
+            if (!IsSupported(mode) || schemaRevision <= 0 || string.IsNullOrEmpty(profileHash))
+                return false;
+
+            if (IsMatchActive)
+                return ActiveMode == mode && SchemaRevision == schemaRevision
+                    && string.Equals(ProfileHash, profileHash, System.StringComparison.Ordinal);
+
+            ActiveMode = mode;
+            SchemaRevision = schemaRevision;
+            ProfileHash = profileHash;
+            IsMatchActive = true;
+            return true;
+        }
+
+        public void EndMatch()
+        {
+            IsMatchActive = false;
+            ActiveMode = CombatPipelineMode.Legacy;
+            SchemaRevision = 0;
+            ProfileHash = null;
+        }
+
+        public static bool IsSupported(CombatPipelineMode mode)
+            => mode == CombatPipelineMode.Legacy
+                || mode == CombatPipelineMode.PresentationShadow
+                || mode == CombatPipelineMode.ResultPresentation;
+    }
+
+    /// <summary>
     /// 서버가 전송한 현재 경기 값을 한 번만 고정하는 순수 C# latch다.
     /// 다음 경기 선택의 단일 seam은 NetworkGameFlow의 서버 설정이다.
     /// </summary>
@@ -67,6 +118,8 @@ namespace Hexiege.Application
     {
         private static readonly UnitMovementPipelineModeLatch MovementPipeline =
             new UnitMovementPipelineModeLatch();
+        private static readonly CombatPipelineContractLatch CombatPipeline =
+            new CombatPipelineContractLatch();
         // ====================================================================
         // 상태
         // ====================================================================
@@ -92,6 +145,11 @@ namespace Hexiege.Application
                 ? MovementPipeline.ActiveMode
                 : UnitMovementPipelineMode.Legacy;
 
+        public static CombatPipelineMode ActiveCombatPipelineMode =>
+            CombatPipeline.IsMatchActive ? CombatPipeline.ActiveMode : CombatPipelineMode.Legacy;
+        public static int ActiveCombatSchemaRevision => CombatPipeline.SchemaRevision;
+        public static string ActiveCombatProfileHash => CombatPipeline.ProfileHash;
+
         // ====================================================================
         // API
         // ====================================================================
@@ -115,6 +173,12 @@ namespace Hexiege.Application
         public static bool TryBeginUnitMovementPipelineMatch(UnitMovementPipelineMode mode)
             => MovementPipeline.TryBeginMatch(mode);
 
+        public static bool TryBeginCombatPipelineMatch(
+            CombatPipelineMode mode,
+            int schemaRevision,
+            string profileHash)
+            => CombatPipeline.TryBeginMatch(mode, schemaRevision, profileHash);
+
         /// <summary>
         /// 싱글플레이 기본값으로 초기화.
         /// 씬 전환 또는 연결 해제 시 호출.
@@ -124,6 +188,7 @@ namespace Hexiege.Application
             IsNetworkServer = false;
             IsNetworkActive = false;
             MovementPipeline.EndMatch();
+            CombatPipeline.EndMatch();
         }
     }
 }

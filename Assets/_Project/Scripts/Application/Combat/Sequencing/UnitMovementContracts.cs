@@ -184,10 +184,237 @@ namespace Hexiege.Application.Combat.Sequencing
         public static bool ShouldHoldWalk(
             bool decisionValid,
             bool allowsMovement,
-            bool commitsAcquireCandidate)
+            bool commitsAcquireCandidate,
+            bool targetAcquirePriority)
             => decisionValid
                 && !allowsMovement
-                && !commitsAcquireCandidate;
+                && !commitsAcquireCandidate
+                // 공격 사거리 진입의 NoIntent는 일반 이동 보류가 아니라 Action으로의
+                // 원자 handoff다. 여기서 Walk 첫 자세를 고정하면 바로 뒤 provisional
+                // Attack 앞에 눈에 보이는 정지 pose가 한 프레임 이상 끼게 된다.
+                && !targetAcquirePriority;
+    }
+
+    /// <summary>
+    /// 공격 사거리 진입 후보가 마지막 이동 위치를 커밋하기 전에 provisional Attack
+    /// 전달이 완료됐는지 검사하는 순수 정책이다. 일반 이동 frame에는 영향을 주지 않고,
+    /// 공격 진입으로 확정된 frame만 "표현 전달 먼저, Root 정지 나중" 순서를 강제한다.
+    /// </summary>
+    public static class UnitAttackEntryCommitOrderPolicy
+    {
+        /// <summary>
+        /// Chase가 AcquireTarget으로 끝나는 frame은 direct-in-range와 trajectory 후보 진입
+        /// 모두 실제 공격 진입 Root 정지다. 호출부가 callback을 빼먹더라도 이 분류를 통해
+        /// commit을 닫아, 표현 handoff 없는 NoIntent가 먼저 공개되지 않게 한다.
+        /// PostCombatResume의 후보 획득은 detect-range 재진입일 뿐 공격 시작이 아니므로 제외한다.
+        /// </summary>
+        public static bool RequiresPresentationHandoff(
+            UnitMovementIntentReason intentReason,
+            bool commitsAcquireCandidate)
+            => intentReason == UnitMovementIntentReason.Chase
+                && commitsAcquireCandidate;
+
+        public static bool CanCommitRootStop(
+            bool requiresAttackPresentationHandoff,
+            bool attackPresentationHandoffCompleted)
+            => !requiresAttackPresentationHandoff
+                || attackPresentationHandoffCompleted;
+    }
+
+    /// <summary>
+    /// 공격 진입 handoff 실패를 frame 수가 아니라 해결되지 않은 원인 수명으로 센다.
+    /// 같은 유닛의 재시도는 성공 또는 lifecycle 종료가 오기 전까지 한 사건이며,
+    /// 성공 뒤 발생한 새 실패만 독립 사건으로 다시 보고한다.
+    /// </summary>
+    public sealed class UnitAttackEntryHandoffFailureEpisodes
+    {
+        private readonly HashSet<int> _activeUnits = new HashSet<int>();
+
+        public int ActiveCount => _activeUnits.Count;
+
+        public bool ObserveFailure(int unitId)
+            => unitId >= 0 && _activeUnits.Add(unitId);
+
+        public bool ObserveSuccess(int unitId)
+            => unitId >= 0 && _activeUnits.Remove(unitId);
+
+        public void Retire(int unitId)
+        {
+            if (unitId >= 0)
+                _activeUnits.Remove(unitId);
+        }
+
+        public void Clear()
+            => _activeUnits.Clear();
+    }
+
+    /// <summary>순수 Client에서 관측한 Root 정지와 Attack 도착 사이의 분류다.</summary>
+    public enum ClientAttackEntryGapKind : byte
+    {
+        None = 0,
+        TransportOrInterpolation = 1,
+        CausalPause = 2
+    }
+
+    /// <summary>서버 공격 진입 표현이 새 적용을 요구하는지 판정한 결과다.</summary>
+    public enum AttackEntryHandoffDisposition : byte
+    {
+        Begin = 0,
+        AcknowledgeSatisfied = 1,
+        DeferConflict = 2
+    }
+
+    /// <summary>완료 receipt와 현재 Host 표현을 함께 확인하는 순수 멱등 정책이다.</summary>
+    public static class AttackEntryHandoffPolicy
+    {
+        public static AttackEntryHandoffDisposition Classify(
+            bool presentationMarkedActive,
+            bool completedReceiptMatchesTarget,
+            bool hostPresentationMatchesReceipt)
+        {
+            if (!presentationMarkedActive)
+                return AttackEntryHandoffDisposition.Begin;
+            return completedReceiptMatchesTarget && hostPresentationMatchesReceipt
+                ? AttackEntryHandoffDisposition.AcknowledgeSatisfied
+                : AttackEntryHandoffDisposition.DeferConflict;
+        }
+    }
+
+    /// <summary>
+    /// 순수 Client 화면에서 Root 이동 종료와 provisional Attack 표시의 실제 frame 순서를
+    /// 추적한다. 서버 이동 판정만 보는 기존 observer와 달리, 이동 중이던 Walk가 먼저
+    /// 제자리에 멈춘 뒤 Attack이 도착한 경우 그 사이의 렌더 frame 수를 그대로 반환한다.
+    /// </summary>
+    public sealed class ClientAttackEntryPresentationOrderTracker
+    {
+        // NGO 상태와 RPC는 서로 다른 복제 통로를 사용하고 NetworkTransform도 보간하므로,
+        // 실기에서 1~3 frame 순서 차이는 gameplay 정지와 분리해 증거로만 보존한다.
+        public const int MaximumTransportOrInterpolationFrames = 3;
+
+        private bool _hasPreviousPosition;
+        private WorldPointXZ _previousPosition;
+        private bool _observedMovingWalk;
+        private bool _attackEntryScopeOpen;
+        private int _stationaryWalkFramesBeforeAttack;
+        private UnitMovementPhase _previousPhase;
+        private ulong _previousCommandRevision;
+        private ulong _previousSegmentRevision;
+        private ulong _previousSemanticRevision;
+
+        public void ObserveFrame(
+            WorldPointXZ rootPosition,
+            bool walkPresentationVisible,
+            bool attackPresentationVisible,
+            UnitMovementPhase movementPhase,
+            ulong commandRevision,
+            ulong segmentRevision,
+            ulong semanticRevision)
+        {
+            if (!rootPosition.IsValid
+                || commandRevision == 0UL
+                || segmentRevision == 0UL
+                || semanticRevision == 0UL)
+            {
+                Reset();
+                return;
+            }
+
+            if (!_hasPreviousPosition)
+            {
+                _hasPreviousPosition = true;
+                _previousPosition = rootPosition;
+                RememberScope(movementPhase, commandRevision, segmentRevision, semanticRevision);
+                return;
+            }
+
+            double deltaX = rootPosition.X - _previousPosition.X;
+            double deltaZ = rootPosition.Z - _previousPosition.Z;
+            double tolerance = UnitMovementEvaluationAdapter.PositionTolerance;
+            bool rootMoved = deltaX * deltaX + deltaZ * deltaZ
+                > tolerance * tolerance;
+            _previousPosition = rootPosition;
+
+            bool semanticChanged = semanticRevision != _previousSemanticRevision;
+            if (semanticChanged)
+            {
+                bool exactAttackEntryTransition = commandRevision == _previousCommandRevision
+                    && segmentRevision > _previousSegmentRevision
+                    && (_previousPhase == UnitMovementPhase.Move
+                        || _previousPhase == UnitMovementPhase.AlignToMove)
+                    && movementPhase == UnitMovementPhase.NoIntent
+                    && _observedMovingWalk;
+                _attackEntryScopeOpen = exactAttackEntryTransition;
+                _stationaryWalkFramesBeforeAttack = 0;
+                if (!exactAttackEntryTransition)
+                    _observedMovingWalk = rootMoved && walkPresentationVisible;
+            }
+            RememberScope(movementPhase, commandRevision, segmentRevision, semanticRevision);
+
+            if (attackPresentationVisible)
+            {
+                _observedMovingWalk = false;
+                _attackEntryScopeOpen = false;
+                _stationaryWalkFramesBeforeAttack = 0;
+                return;
+            }
+
+            if (rootMoved)
+            {
+                _observedMovingWalk = walkPresentationVisible;
+                if (movementPhase != UnitMovementPhase.NoIntent)
+                    _attackEntryScopeOpen = false;
+                _stationaryWalkFramesBeforeAttack = 0;
+                return;
+            }
+
+            // 앞선 이동이 확인된 Walk만 센다. 스폰 직후 정지를 공격 진입으로 추측하지 않는다.
+            if (_attackEntryScopeOpen && _observedMovingWalk && walkPresentationVisible
+                && _stationaryWalkFramesBeforeAttack < int.MaxValue)
+            {
+                _stationaryWalkFramesBeforeAttack++;
+            }
+        }
+
+        public ClientAttackEntryGapKind ClassifyAttackPresentationStarted(
+            out int stationaryGapFrames)
+        {
+            stationaryGapFrames = _attackEntryScopeOpen
+                ? _stationaryWalkFramesBeforeAttack
+                : 0;
+            _observedMovingWalk = false;
+            _attackEntryScopeOpen = false;
+            _stationaryWalkFramesBeforeAttack = 0;
+            if (stationaryGapFrames <= 0)
+                return ClientAttackEntryGapKind.None;
+            return stationaryGapFrames <= MaximumTransportOrInterpolationFrames
+                ? ClientAttackEntryGapKind.TransportOrInterpolation
+                : ClientAttackEntryGapKind.CausalPause;
+        }
+
+        public void Reset()
+        {
+            _hasPreviousPosition = false;
+            _previousPosition = default;
+            _observedMovingWalk = false;
+            _attackEntryScopeOpen = false;
+            _stationaryWalkFramesBeforeAttack = 0;
+            _previousPhase = UnitMovementPhase.Invalid;
+            _previousCommandRevision = 0UL;
+            _previousSegmentRevision = 0UL;
+            _previousSemanticRevision = 0UL;
+        }
+
+        private void RememberScope(
+            UnitMovementPhase phase,
+            ulong commandRevision,
+            ulong segmentRevision,
+            ulong semanticRevision)
+        {
+            _previousPhase = phase;
+            _previousCommandRevision = commandRevision;
+            _previousSegmentRevision = segmentRevision;
+            _previousSemanticRevision = semanticRevision;
+        }
     }
 
     /// <summary>
@@ -1456,6 +1683,53 @@ namespace Hexiege.Application.Combat.Sequencing
     }
 
     /// <summary>
+    /// 서버 경로 제공자가 이동 요청을 종료한 원인이다. null 하나로 같은 타일·잘못된 입력·
+    /// 실제 도달 불가·provider 실패를 섞지 않도록 production과 진단이 함께 사용한다.
+    /// </summary>
+    public enum UnitPathRequestStatus : byte
+    {
+        Success = 0,
+        EmptySameTile = 1,
+        InvalidStart = 2,
+        InvalidGoal = 3,
+        Unreachable = 4,
+        ProviderFailure = 5
+    }
+
+    /// <summary>
+    /// 최신 walkability 환경에서 권위 타일과 Simulation Root를 함께 확인한 경로 결과다.
+    /// Path는 Success일 때만 2개 이상의 타일을 가지며 첫 항목은 AuthoritativeStart다.
+    /// </summary>
+    public readonly struct UnitPathRequestResult
+    {
+        public UnitPathRequestStatus Status { get; }
+        public IReadOnlyList<HexCoord> Path { get; }
+        public HexCoord AuthoritativeStart { get; }
+        public HexCoord RootTile { get; }
+        public HexCoord Goal { get; }
+        public ulong EnvironmentRevision { get; }
+
+        public bool IsSuccess => Status == UnitPathRequestStatus.Success
+            && Path != null && Path.Count >= 2;
+
+        public UnitPathRequestResult(
+            UnitPathRequestStatus status,
+            IReadOnlyList<HexCoord> path,
+            HexCoord authoritativeStart,
+            HexCoord rootTile,
+            HexCoord goal,
+            ulong environmentRevision)
+        {
+            Status = status;
+            Path = path;
+            AuthoritativeStart = authoritativeStart;
+            RootTile = rootTile;
+            Goal = goal;
+            EnvironmentRevision = environmentRevision;
+        }
+    }
+
+    /// <summary>
     /// 일반 path 재평가와, 방금 unsafe로 판정된 spatial candidate의 회복을 구분한다.
     /// 후자는 같은 환경의 동일 active path를 다시 실행해도 같은 후보만 재현하므로
     /// 환경 변경 전까지 Blocked로 보류해야 한다.
@@ -1747,6 +2021,382 @@ namespace Hexiege.Application.Combat.Sequencing
         {
             if (IsActive)
                 _state = UnitNavigationObjectiveState.Cancelled;
+        }
+    }
+
+    /// <summary>
+    /// 전투 후 복귀 중 대상을 다시 발견했을 때 호출자가 수행할 다음 행동이다.
+    /// Unity 코루틴이나 Transform을 직접 알지 않는 순수 값이므로, 실제 화면 구현이
+    /// 바뀌더라도 "추격 재진입 뒤 새 복귀 계산"이라는 상태 전이 계약을 검증할 수 있다.
+    /// </summary>
+    public enum UnitPostCombatReentryAction : byte
+    {
+        Invalid = 0,
+        RecalculateRecovery = 1,
+        EnterPursuit = 2,
+        DeferRecoveryUntilNextFrame = 3,
+        RepathBeforeRecovery = 4,
+        Stop = 5
+    }
+
+    /// <summary>전투 후 복귀와 재추격 사이의 공개 상태 전이 결과다.</summary>
+    public readonly struct UnitPostCombatReentryResult
+    {
+        public UnitPostCombatReentryAction Action { get; }
+        public ulong RecoveryGeneration { get; }
+        public bool AllowsObjectiveCompletion { get; }
+
+        public UnitPostCombatReentryResult(
+            UnitPostCombatReentryAction action,
+            ulong recoveryGeneration,
+            bool allowsObjectiveCompletion)
+        {
+            Action = action;
+            RecoveryGeneration = recoveryGeneration;
+            AllowsObjectiveCompletion = allowsObjectiveCompletion;
+        }
+    }
+
+    /// <summary>
+    /// PostCombatResume의 복귀→재추격→새 복귀 수명을 관리하는 순수 상태기계다.
+    /// 재추격이 끝난 같은 frame에는 새 복귀 계산을 허용하지 않으므로, 대상이 바로
+    /// 사라지는 상황에서도 재귀 호출이나 한 frame 무한 반복이 생기지 않는다.
+    /// </summary>
+    public sealed class UnitPostCombatReentryFlow
+    {
+        private enum FlowPhase : byte
+        {
+            Idle = 0,
+            Recovering = 1,
+            Pursuing = 2,
+            AwaitingNextFrame = 3,
+            Completed = 4,
+            RepathRequired = 5,
+            Stopped = 6
+        }
+
+        private FlowPhase _phase;
+        private ulong _recoveryGeneration;
+        private long _pursuitCompletedFrame = long.MinValue;
+
+        public UnitPostCombatReentryResult BeginRecovery(long frameToken)
+        {
+            if (frameToken < 0)
+                return Invalid();
+
+            if (_phase == FlowPhase.AwaitingNextFrame)
+            {
+                if (frameToken <= _pursuitCompletedFrame)
+                {
+                    return new UnitPostCombatReentryResult(
+                        UnitPostCombatReentryAction.DeferRecoveryUntilNextFrame,
+                        _recoveryGeneration,
+                        false);
+                }
+            }
+            else if (_phase != FlowPhase.Idle)
+            {
+                return Invalid();
+            }
+
+            if (_recoveryGeneration == ulong.MaxValue)
+                return Invalid();
+
+            _recoveryGeneration++;
+            _phase = FlowPhase.Recovering;
+            return new UnitPostCombatReentryResult(
+                UnitPostCombatReentryAction.RecalculateRecovery,
+                _recoveryGeneration,
+                false);
+        }
+
+        public UnitPostCombatReentryResult ObserveTargetAcquired(long frameToken)
+        {
+            if (frameToken < 0 || _phase != FlowPhase.Recovering)
+                return Invalid();
+
+            _phase = FlowPhase.Pursuing;
+            return new UnitPostCombatReentryResult(
+                UnitPostCombatReentryAction.EnterPursuit,
+                _recoveryGeneration,
+                false);
+        }
+
+        public UnitPostCombatReentryResult ObservePursuitCompleted(
+            long frameToken,
+            bool unitAlive,
+            bool isHealer,
+            bool combatPursuitRequiresRepath)
+        {
+            if (frameToken < 0 || _phase != FlowPhase.Pursuing)
+                return Invalid();
+
+            if (!unitAlive)
+            {
+                _phase = FlowPhase.Stopped;
+                return new UnitPostCombatReentryResult(
+                    UnitPostCombatReentryAction.Stop,
+                    _recoveryGeneration,
+                    false);
+            }
+
+            // 이 플래그는 적을 직선 추격하는 일반 공격 경로에서만 발생한다.
+            // 힐러의 역할별 루프에는 적용하지 않아 서로 다른 이동 계약을 섞지 않는다.
+            if (!isHealer && combatPursuitRequiresRepath)
+            {
+                _phase = FlowPhase.RepathRequired;
+                return new UnitPostCombatReentryResult(
+                    UnitPostCombatReentryAction.RepathBeforeRecovery,
+                    _recoveryGeneration,
+                    false);
+            }
+
+            _pursuitCompletedFrame = frameToken;
+            _phase = FlowPhase.AwaitingNextFrame;
+            return new UnitPostCombatReentryResult(
+                UnitPostCombatReentryAction.DeferRecoveryUntilNextFrame,
+                _recoveryGeneration,
+                false);
+        }
+
+        /// <summary>
+        /// 현재 복귀 계산이 실제로 끝났을 때만 objective 완료를 허용한다.
+        /// 재추격 중이거나 다음 frame을 기다리는 상태에서는 false다.
+        /// </summary>
+        public bool TryCompleteRecovery()
+        {
+            if (_phase != FlowPhase.Recovering)
+                return false;
+
+            _phase = FlowPhase.Completed;
+            return true;
+        }
+
+        private UnitPostCombatReentryResult Invalid()
+            => new UnitPostCombatReentryResult(
+                UnitPostCombatReentryAction.Invalid,
+                _recoveryGeneration,
+                false);
+    }
+
+    /// <summary>
+    /// 전투 위치에서 기존 이동 경로로 돌아갈 때의 한 단계 결과다. 첫 경로 실패와
+    /// 모든 결정적 후보의 반복 소진을 구분하여 Presentation 코루틴이 단 한 번의
+    /// <c>Unreachable</c>을 영구 정지로 바꾸지 않게 한다.
+    /// </summary>
+    public enum UnitPostCombatRecoveryStatus : byte
+    {
+        Waiting = 0,
+        DeferredSameFrame = 1,
+        Recovered = 2,
+        ConfirmedBlocked = 3,
+        Invalid = 4
+    }
+
+    /// <summary>경로 복귀 probe의 typed 결과다. 성공 경로는 아직 commit되지 않은 staged 값이다.</summary>
+    public readonly struct UnitPostCombatRecoveryResult
+    {
+        public UnitPostCombatRecoveryStatus Status { get; }
+        public IReadOnlyList<HexCoord> Path { get; }
+        public HexCoord Candidate { get; }
+        public int CompletedSweeps { get; }
+
+        public UnitPostCombatRecoveryResult(
+            UnitPostCombatRecoveryStatus status,
+            IReadOnlyList<HexCoord> path,
+            HexCoord candidate,
+            int completedSweeps)
+        {
+            Status = status;
+            Path = path;
+            Candidate = candidate;
+            CompletedSweeps = completedSweeps;
+        }
+    }
+
+    /// <summary>
+    /// 전투 후 복귀 후보를 기존 route의 앞쪽 중심부터 최종 목표까지 결정적인 순서로
+    /// 한 frame에 하나씩 평가하는 순수 상태기계다. 이 객체는 pathfinder를 소유하거나
+    /// Root를 쓰지 않는다. 호출자가 넘긴 질의 결과를 staged 경로로 돌려줄 뿐이므로
+    /// 기존 서버 단일 이동 writer와 corridor preflight를 우회할 수 없다.
+    /// </summary>
+    public sealed class UnitPostCombatRecoveryPlanner
+    {
+        private const int RequiredCompleteSweeps = 2;
+
+        private HexCoord _goal;
+        private HexCoord _root;
+        private ulong _environmentRevision;
+        private UnitPathSignature _routeSignature;
+        private int _nextCandidateOrdinal;
+        private int _completedSweeps;
+        private long _lastProbeFrame = long.MinValue;
+        private bool _hasContext;
+        private bool _hasStagedCandidate;
+        private int _stagedCandidateCount;
+
+        public UnitPostCombatRecoveryResult Evaluate(
+            long frameToken,
+            ulong environmentRevision,
+            HexCoord authoritativeRoot,
+            IReadOnlyList<HexCoord> activeRoute,
+            int nextWaypointIndex,
+            HexCoord finalGoal,
+            Func<HexCoord, IReadOnlyList<HexCoord>> requestPath)
+        {
+            if (frameToken < 0
+                || activeRoute == null
+                || activeRoute.Count < 2
+                || nextWaypointIndex < 1
+                || nextWaypointIndex >= activeRoute.Count
+                || requestPath == null
+                || !UnitPathSignature.TryCreate(activeRoute, out UnitPathSignature routeSignature))
+            {
+                return new UnitPostCombatRecoveryResult(
+                    UnitPostCombatRecoveryStatus.Invalid,
+                    null,
+                    default,
+                    _completedSweeps);
+            }
+
+            bool contextChanged = !_hasContext
+                || finalGoal != _goal
+                || environmentRevision != _environmentRevision
+                || authoritativeRoot != _root
+                || routeSignature != _routeSignature;
+            if (contextChanged)
+            {
+                _goal = finalGoal;
+                _root = authoritativeRoot;
+                _environmentRevision = environmentRevision;
+                _routeSignature = routeSignature;
+                _nextCandidateOrdinal = 0;
+                _completedSweeps = 0;
+                _lastProbeFrame = long.MinValue;
+                _hasContext = true;
+                _hasStagedCandidate = false;
+                _stagedCandidateCount = 0;
+            }
+
+            if (frameToken == _lastProbeFrame)
+            {
+                return new UnitPostCombatRecoveryResult(
+                    UnitPostCombatRecoveryStatus.DeferredSameFrame,
+                    null,
+                    default,
+                    _completedSweeps);
+            }
+            _lastProbeFrame = frameToken;
+
+            // 성공한 A* prefix도 실제 corridor/route 조합 검증 전에는 확정이 아니다.
+            // 호출자는 AcceptStagedPath 또는 RejectStagedPath로 결과를 반드시 닫아야 한다.
+            if (_hasStagedCandidate)
+            {
+                return new UnitPostCombatRecoveryResult(
+                    UnitPostCombatRecoveryStatus.Invalid,
+                    null,
+                    default,
+                    _completedSweeps);
+            }
+
+            int candidateCount = activeRoute.Count - nextWaypointIndex;
+            if (candidateCount <= 0)
+            {
+                return new UnitPostCombatRecoveryResult(
+                    UnitPostCombatRecoveryStatus.Invalid,
+                    null,
+                    default,
+                    _completedSweeps);
+            }
+
+            // activeRoute의 nextWaypoint부터 마지막까지가 이미 finalGoal을 포함한다.
+            // 동일 목표를 별도 후보로 다시 추가하지 않아 한 sweep 안에서 중복 A* 질의를
+            // 만들지 않는다. route가 다른 목표로 끝나는 비정상 입력은 fail-closed한다.
+            if (activeRoute[activeRoute.Count - 1] != finalGoal)
+            {
+                return new UnitPostCombatRecoveryResult(
+                    UnitPostCombatRecoveryStatus.Invalid,
+                    null,
+                    default,
+                    _completedSweeps);
+            }
+
+            int routeIndex = nextWaypointIndex + _nextCandidateOrdinal;
+            HexCoord candidate = activeRoute[routeIndex];
+            IReadOnlyList<HexCoord> recoveredPath = requestPath(candidate);
+            if (recoveredPath != null
+                && recoveredPath.Count >= 2
+                && recoveredPath[recoveredPath.Count - 1] == candidate)
+            {
+                _hasStagedCandidate = true;
+                _stagedCandidateCount = candidateCount;
+                return new UnitPostCombatRecoveryResult(
+                    UnitPostCombatRecoveryStatus.Recovered,
+                    recoveredPath,
+                    candidate,
+                    0);
+            }
+
+            _nextCandidateOrdinal++;
+            if (_nextCandidateOrdinal >= candidateCount)
+            {
+                _nextCandidateOrdinal = 0;
+                _completedSweeps++;
+            }
+
+            UnitPostCombatRecoveryStatus status = _completedSweeps
+                    >= RequiredCompleteSweeps
+                ? UnitPostCombatRecoveryStatus.ConfirmedBlocked
+                : UnitPostCombatRecoveryStatus.Waiting;
+            return new UnitPostCombatRecoveryResult(
+                status,
+                null,
+                candidate,
+                _completedSweeps);
+        }
+
+        /// <summary>기존 corridor 검증과 writer가 staged 경로를 수락한 뒤 호출한다.</summary>
+        public void AcceptStagedPath()
+        {
+            if (!_hasStagedCandidate)
+                return;
+            _hasStagedCandidate = false;
+            _stagedCandidateCount = 0;
+            _nextCandidateOrdinal = 0;
+            _completedSweeps = 0;
+        }
+
+        /// <summary>
+        /// A* prefix는 있었지만 조합 route가 동일/unsafe였을 때 다음 후보로 진행한다.
+        /// staged 성공을 공간 진전으로 오인해 소진 이력을 초기화하지 않는다.
+        /// </summary>
+        public void RejectStagedPath()
+        {
+            if (!_hasStagedCandidate)
+                return;
+            _hasStagedCandidate = false;
+            int candidateCount = _stagedCandidateCount;
+            _stagedCandidateCount = 0;
+            _nextCandidateOrdinal++;
+            if (candidateCount > 0 && _nextCandidateOrdinal >= candidateCount)
+            {
+                _nextCandidateOrdinal = 0;
+                _completedSweeps++;
+            }
+        }
+
+        public void Reset()
+        {
+            _goal = default;
+            _root = default;
+            _environmentRevision = 0UL;
+            _routeSignature = default;
+            _nextCandidateOrdinal = 0;
+            _completedSweeps = 0;
+            _lastProbeFrame = long.MinValue;
+            _hasContext = false;
+            _hasStagedCandidate = false;
+            _stagedCandidateCount = 0;
         }
     }
 

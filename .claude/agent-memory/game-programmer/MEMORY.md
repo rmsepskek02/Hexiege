@@ -1,5 +1,63 @@
 # game-programmer 메모리 — 인덱스
 
+## BearGuard production timing and focused runtime boundary (2026-09-30)
+
+- Production BearGuard `OnAttackHit` and type 20 fallback are aligned at 30fps frame `0:13` (`0.43333334s`); Game UnitFactory explicitly binds the Attack clip and the permanent production gate passes Unit Action self-validation. Root Pose Cross Audit self-validation also passed. Runtime cooldown remains `1.2s`, while StatsReference design cycle `1:20` is unresolved.
+- Initial `cc278c50…b461819` ROOT runs were INCOMPLETE before unit production. Separate retest `b986fbbc…61d7d94b` covered BearGuard 11 and LittleKnight 49 (2/25 mixed match): Host/Client results 641/641 with zero failure/reject, required visuals 608/608 each, Host MOVE adapterFailures 0, local ROOT PASS on both peers. User visual acceptance closes BearGuard's focused 0:13 gate only.
+- Match aggregates do not measure a BearGuard-only marker-to-damage offset. Formal CrossAudit Analyze, full roster/role-swap/rollback/v2 migration remain open; the earlier LittleKnight four Host adapter failures remain a separate defect despite nonrecurrence. Evidence: `Assets/_Project/Docs/_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/{Research,Plan}.md`.
+
+## TideSpirit production timing and focused visual boundary (2026-09-29)
+
+- User-saved 30fps `1:15` Attack marker is a single `OnAttackHit` at 1.50s; type 16 config `[1.5]`, explicit Game scene clip binding, and permanent production gate are in place. Both Unity self-validations passed. Do not infer Android build completion from the earlier JDK-progress observation.
+- Editor Host/Android Client `ae04f2a9…e6bd03` produced Red TideSpirit 32 and Blue LittleKnight 12. Match-wide Host/Client results 160/160 with zero failure/reject, required visuals 129/129 on each peer, spatial mismatch 0, Host MOVE adapterFailures 0, and local ROOT PASS on both peers. The user found Tide timing visually acceptable: focused visual PASS/CLOSED, not a measured Tide-only marker-to-damage offset or full v2 migration.
+- Earlier LittleKnight Host adapterFailures 4 remain a separate OPEN defect despite zero recurrence here. Formal CrossAudit Analyze, 25-type coverage, role swap, and Legacy rollback are unverified. Evidence: `Assets/_Project/Docs/_Tasks/2026-09-29/19_09_tidespirit-attack-correction/{Research,Plan}.md`.
+
+## 2026-09-22 InfernoSpirit committed source-marker lifetime fix
+
+- Root cause of intermittent Inferno attack VFX loss was not the prefab, pool, or ParticleSystem. Client Stop/target-death ordering closed presentation state before an already committed animation marker; the prior failing run had raw 70, started 61, gate-suppressed 9.
+- `UnitAttackPresentationPolicy` now owns a bounded revision/count source-marker lease. `UnitView` resolves each marker as Suppressed, Full, or SourceOnly. Normal Stop preserves remaining committed source markers, while explicit suppression, attacker death/despawn, and revision replacement close them. SourceOnly emits attacker VFX/SFX only and never target/tracer/local-hit/damage.
+- Corrected Editor Host/Android Client session `dc055118…46c8f` produced 64 actual VFX starts on each peer. Client used SourceOnly 11 times with gate suppression/playback failure/overflow 0. The Host's extra raw marker was uncommitted and correctly suppressed after a 98.363° Misaligned gate.
+- The user accepted movement, direction, placement, and VFX behavior; focused task is CLOSED. Keep InfernoSpirit LegacyFallback migration and full roster/role-swap/rollback as separate work.
+
+## 2026-09-20 BattleAxe production timeline and focused runtime evidence
+
+- BattleAxe production `Base Layer/Attack` has one `OnAttackHit` at 1.02s; runtime config was corrected from `[1.1667]` to `[1.02]` through an idempotent Unity setup, then the temporary script/meta were removed. Permanent validation reads both prefabs/controller/exact state clip/marker/config together and fails closed. Both Unity menus passed.
+- Editor Host/Android Client `010f6e1b…c9bb` converged at Host 420 results/0 failures, Client 420 accepted/0 rejected, required visuals 440/440, AoE bundles 420/420, spatial mismatch 0, and no movement gate/writer/handoff/stationary-Walk or ROOT failures. BattleAxe count was 14 on each peer.
+- Keep existing Supported/MeleeContact/Impact1/secondary, Sweep behavior/reach/angle, and common C2/C3 writers unchanged. User saw no major issue, but lag prevented exact contact and exclusion confirmation; task remains CONDITIONAL PASS/OPEN. Performance is a separate later defect, and the 4/25 run is not full roster/role-swap/rollback completion.
+
+## 2026-09-14 QuakeSpirit focused runtime log gate
+
+- Shared Editor Host/Android Client session `9d43b8e…b3d75` covered 10 QuakeSpirit units and 4/25 types. Attack results converged at Host 770/0 failures and Client 770 accepted/0 rejected; required visuals 909/909, bundles 770/770, and spatial mismatches 0.
+- Direct 200 and secondary 100 results were emitted together for unit/building victims. Host movement 165,383 frames had zero gate/writer/handoff/stationary-Walk failures; spatial planned/committed was 1,118/1,118, recoverable repaths 5 with repeated/fatal 0. Client replication 932 had no revision/conflict/gap/order errors; both ROOT runs passed.
+- Keep the implementation unchanged and the task OPEN for user visual checks: exact strike frame, ally/out-of-range exclusion, perceived stalls, and control-unit visual regression. This does not complete 25-unit, role-swap, or Legacy rollback regression.
+
+## 2026-09-14 QuakeSpirit production timeline support gate
+
+- QuakeSpirit's exact production chain is both team prefabs → one controller → `Base Layer/Attack` → one `OnAttackHit` at 1.667s; runtime `UnitStatsConfig` is now `[1.667]` after an idempotent one-shot setup and the temporary script/meta were removed.
+- Resolver contract is `Supported / MeleeContact / Impact 1 / secondary true`; support partition is 16/8/1. Do not modify the existing Quake direct/splash writer or common C2/C3 paths without new evidence.
+- Supported promotion must be guarded by permanent self-validation that reads the production prefab/controller/state clip/marker and config together and fails closed on any mismatch. Resolver/fixture-only validation is not sufficient.
+- Both Unity self-validation menus passed with errors 0. Android build was only observed starting; device timing/AoE/repeat/target-transition evidence is still open.
+
+## 2026-09-14 RhinoBreaker marker focused runtime evidence
+
+- Corrected-build Blue/Red unit-attack sessions plus Editor Host + Android Client `f9b842d9…35a8d0` show RhinoBreaker unit/building attack entry without gate, writer, handoff, stationary-Walk, spatial, error, or drop failures.
+- Latest convergence is Host results 724/0 failures, Client 724 accepted/0 rejected, and required presentation 692/692 on both peers with duplicate/transport/presentation failures 0. Rhino unit 0 committed against TrainingCamp building 11 and the building later died.
+- Keep the task CONDITIONAL PASS/OPEN until the user explicitly confirms visual contact timing and one Rhino's target transition after victim death. This is not 25-unit, full role-swap, or Legacy rollback completion.
+- Client UnitView initialization delayed 107 times and completed 107 times with no retry failure/exhaustion. Treat it as a separate creation-order observation, not a Rhino marker failure. Root pose evidence after maxUnits=64 is unavailable.
+- The run used the pre-text-change APK; U+27F3 warnings must be checked only after the next integrated build containing plain `새로고침`.
+
+## 2026-09-13 Attack-entry typed target payload seam PASS
+
+- Production `OnUnitEnteredCombat` now carries immutable `UnitId + TargetId + TargetIsUnit`; the receiver uses that target directly and does not re-search from the pre-commit current position. Initial/re-entry publishers both use the same contract; normal TickCombat search and post-ready ChangeTarget remain separate.
+- Focused Editor Host + Android Client `abe1fb66…f5c1` reused the prior 9/25-unit scope. All six previously failing melee types produced accepted shadow commits; handoff failures changed 87→0, stationary-Walk/ignored/apply failures were 0. Deferred target changes 2 were expected pre-Action holds.
+- C2 2,703 results and C3 2,410 required visuals converged with zero failures or spatial mismatches. This closes `_Tasks/2026-09-13/11_41_attack-entry-target-payload-seam/`, not the full 25-unit/role-swap/Legacy-rollback gate.
+- Next P0 is integrated roster + role-swap + rollback regression before declaring ActionSequence complete or removing Legacy paths.
+
+## 2026-08-28 C2 사거리 밖 Legacy 피해와 결과 채점 분리
+- `UnitCombatUseCase.ApplyAttackDamageCore`는 타겟 생존만 재확인하고 사거리를 검사하지 않아 현재 `U-IMPACT-TARGETLOCKED`와 충돌한다. Editor Host 실기에서 Assault 2건이 Shadow `AuthorizedMiss`인데 Legacy `Applied(10)`이었다. 방향은 8° 이내라 사거리 miss다.
+- Legacy/Shadow 예약 TargetId와 sequence는 일치했다. 다음 수정은 Shadow를 writer로 승격하거나 사후 롤백하지 말고, Legacy 단일 writer가 같은 서버 Impact preflight 결과를 사용하게 해야 한다.
+- C2에는 별도로 `Applied+NotDue` 5건과 unavailable completion NotDue 78건이 남았다. observer `RecordImpactResult`는 canonical `Miss`를 `Cancelled`로 기대해 12건을 오탐하므로 MissReason과 함께 분류를 고친다.
+
 ## 2026-08-24 B3 동적 건물 blocked authoritative start egress
 - 확정 원인: 건물이 유닛의 현재 권위 타일을 non-walkable로 만든 뒤 새 FlowField가 start를 포함하지 않아 `GetPath(start)==null`이 반복됐다. cache invalidation→eager repath 순서는 정상이다.
 - `UnitMovementUseCase.RequestMove(UnitData, target)`만 blocked authoritative start에서 reachable walkable 인접점의 기존 FlowField path를 `길이→Q→R`로 선택하고 start를 prepend한다. staged `RequestMoveFrom`은 fail-closed를 유지한다.
@@ -173,7 +231,7 @@
 - **구독 해제 — Plan 대비 변경(`.AddTo(this)`)**: Plan은 `IDisposable`+신설 `OnDestroy` Dispose였으나, ⚠️ **`ResearchPanelUI`가 이미 자체 `OnDestroy`를 선언**해 베이스에 `OnDestroy`를 신설하면 자식이 이를 **은닉(hide)**(자식이 `base.OnDestroy()`를 부르지 않으면 베이스 해제 로직 누락 → 구독 누수 회귀). 프로젝트 관용 패턴(`BuildingFactory`/`UnitFactory`/`HitPresentationQueue`)대로 **`.AddTo(this)`(UniRx)** 로 컴포넌트 수명에 묶어 회피.
 - **멀티**: `NetworkCombatController.HandleBuildingDied`(L1027)가 클라에서 `OnBuildingDied` 재발행 → 싱글/호스트/순수 클라 전부 커버(별도 배선 불필요).
 - **실기(PASS)**: 스킬 조준 중 시전 건물 파괴 시 조준 원 소멸·입력 잠금 잔존 없음, 생산 건물 파괴 시 랠리 마커 소멸, 연구소 파괴 시 연구 패널 닫힘(기존 연구 취소·환불과 충돌 없음).
-- ⚠️ **교훈(재사용)**: MonoBehaviour 베이스에서 이벤트 구독을 해제할 때, 자식이 자체 `OnDestroy`를 가질 수 있으면 신설 `OnDestroy`+Dispose는 은닉으로 누락 위험 → **`.AddTo(this)`가 안전**. 규칙: `GameSystemRules_UI.md` 공통 UI 팝업 규칙 11(건물 팝업 대상 건물 파괴 시 자동 닫힘) 명문화.
+- ⚠️ **교훈(재사용)**: MonoBehaviour 베이스에서 이벤트 구독을 해제할 때, 자식이 자체 `OnDestroy`를 가질 수 있으면 신설 `OnDestroy`+Dispose는 은닉으로 누락 위험 → **`.AddTo(this)`가 안전**. 규칙: `GameSystemRules_UI.md` **공통 UI 규칙 11**(건물 팝업 대상 건물 파괴 시 자동 닫힘) 명문화.
 
 ### 스킬 시스템 Phase 2 — 타입 C(전역 상태변경: 버프/디버프/CC/힐) (2026-08-04 구현 → 2026-08-05 ✅ 실기+멀티(클라) 테스트 PASS)
 - **범위**: 타입 C 실행기 + 상태효과 시스템 + 유효 스탯 접근자에 상태 배율 합성 + CanAttack 게이트 + 빙결 애니 정지 + 둔화 라이브 + 멀티 동기화 + 종족별 플레이스홀더 5슬롯. task Plan §6 Phase 2(하단 "완료 결과"), 규칙 `GameSystemRules_Skills.md` 13·Plan 9-1~9-5.
@@ -270,7 +328,7 @@
 - **⚠️ 교훈 — SO 튜닝값은 "에셋 생성 ≠ 씬 배선"**: `SpecialAttackConfig.asset`에 0.75를 넣어도 GameBootstrapper `_specialAttackConfig`에 연결 안 되면 런타임은 폴백(1.0)을 씀 → 값 미반영 함정. 신규 SO 튜닝값은 배선까지 확인(또는 셋업 스크립트로 자동 배선).
 - **⚠️ 교훈 — "리치" 2종 구분**: 유닛 `attackRange`(주 타깃 공격/추격, UnitStatsConfig) vs 특수 AoE `sweepReach`(SpecialAttackConfig)는 별개 값. 혼동 주의. 헥스 인접 타일 중심 간 거리 ≈ 0.9~1.0 월드(FlatTop, TileWidth/Height=1.0)라 상대 유닛 사거리(피스톨러 1.0 등)와의 관계 고려 필요.
 - **AoE 피격 연출 동시 방출**: `HitPresentationQueue.OnLocalAttackHit`이 공격자 `HitFrameTimes.Length≤1`이면 보류 큐 전부 방출(휩쓸기 N마리 동시 표시), `>1`(LionKnight 2타·FlameSpirit 6타)이면 기존대로 1건(회귀 없음). 타격 프레임 수=`_unitSpawn.GetUnit(attackerId).HitFrameTimes.Length`. **교훈 — HitPresentationQueue는 "타격 프레임 1개=피해 1건" 전제** → AoE(1프레임 N피해)는 `HitFrameTimes.Length` 분기로 해결. 파일 `Presentation/Effects/HitPresentationQueue.cs`.
-- **타격 타이밍/스탯**: BattleAxe `hitFrameTimes=1.1667s`(클립 타격모션 종료 프레임 35f/30fps), `OnAttackHit` 애니 이벤트를 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 주입(특수 유닛 5종은 클립에 이벤트 없어 F-4 잔여였음 — 나머지 4종은 구현 시 주입 필수). UnitStatsConfig(unitType 5): HP80/공격력15/attackRange 0.75(0.5→조정)/detectRange1/moveSpeed1/attackCooldown3.05/생산20s/골드200/인구1.
+- **타격 타이밍/스탯**: BattleAxe `hitFrameTimes=1.1667s`(클립 타격모션 종료 프레임 35f/30fps), `OnAttackHit` 애니 이벤트를 `Hexiege/Combat/Inject OnAttackHit Events` 인젝터로 주입(특수 유닛 5종은 클립에 이벤트 없어 F-4 잔여였음 — 나머지 4종은 구현 시 주입 필수). UnitStatsConfig(unitType 5): HP80/공격력15/attackRange 0.75(0.5→조정)/detectRange1/moveSpeed1/attackCooldown3.05/생산20s/골드200/인구1. **[🔴 2026-09-20 correction — original kept: production `Base Layer/Attack` has one marker at 1.02s and config is now `[1.02]`; 1.1667s is historical, not the current production value.]**
 - **병합**: main 최신화 병합 완료(폰트 에셋 충돌은 main 버전으로 정리). 규칙 `GameSystemRules_Units.md` 23~27, TDD 0.22.0. task `_Tasks/2026-07-16/18_06_battleaxe-aoe/`.
 
 ### 매치메이킹 404 수정 — 호스트 결정을 Lobby CreateOrJoin으로 전환 (A방식) (2026-07-17) 🔵 초기 정상·지속 관찰 중
@@ -661,3 +719,31 @@ public void Hide()    { _showRequested = false; if (gameObject.activeSelf) gameO
 - terminal 출력 직전 full-line preflight를 반드시 유지한다. 초과 시 잘린 END를 기록하지 말고 짧은 `terminal-preflight-failure`로 fail-closed한다.
 - CrossAudit가 요구하는 endpoint/rotation count·drop·preflight·complete 필드를 제거하면 안 된다. 상세 정보는 개별 endpoint/rotation evidence와 periodic summary가 담당한다.
 - Runtime/Editor Roslyn과 Unity self-validation 2종 PASS. 다음 Tracer C Shadow에서는 Legacy 피해·HP·RPC·VFX writer를 변경하지 않는다.
+
+### 2026-08-26 - C1 Legacy 공격 정렬 gate
+
+- 멀티플레이 `NetworkCombatController`는 사거리 진입 즉시 `ExecuteAttack`하지 않는다. `UnitAttackStartGate`가 연속 정지 표본과 5도 정렬을 통과한 서버 Tick에서 Attack/RPC/쿨다운/피해 예약을 함께 시작한다.
+- 쿨다운 중 표시 타겟 재선정은 금지하고 다음 공격 시작 경계로 미룬다. 타겟 비교는 kind+ID를 함께 사용한다.
+- 멀티플레이 `UnitView`의 공격 시작 Root snap은 제거하고 서버의 270도/초 writer만 남긴다. observed 멀티 피해 경로는 `UnitData.Facing`을 다시 쓰지 않으며 싱글플레이 경로는 보존한다.
+- `UnitAttackShadowObserver` v2는 production gate 카운터와 정렬 전 Legacy 시작 FAIL을 terminal에 보존한다. Unity `[UAS-DIAG]` PASS, Android 실기는 pending이다.
+
+### 2026-08-26 - C1 v3 독립 Legacy 회차 상관
+
+- 단일 `UnitActionSequencer`를 공격자별로 계속 재사용하면 이전 회차의 늦은 Impact와 다음 타겟 회차가 충돌한다. 실제 Legacy 시작마다 독립 Shadow cycle을 만들고 `LegacyReservation`이 해당 Sequencer를 소유해야 한다.
+- production gate가 승인한 같은 pose/Target 상태로 후보 cycle을 Align→Commit한 뒤에만 최신 publication scope를 교체한다. 이전 cycle의 늦은 Impact는 평가하되 최신 scope가 아니면 NGO publication을 내보내지 않는다.
+- 일반 Tick 관측은 `allowCommit:false`로 정렬만 추적한다. 지원 불가 manifest 행은 correlation failure가 아니며 Legacy gameplay writer는 계속 독립적으로 실행된다.
+- observer schema v3는 정상 대기 `expectedDeferred`와 실제 결속 실패 `correlationFailures`를 분리한다. Runtime/Editor 컴파일 및 Unity `[UAS-DIAG]` PASS, Android/Editor 실기는 pending이다.
+
+### 2026-08-27 - C1 dispatch 진단 계약 v5
+
+- 예약 Impact 정합성은 표시 후보가 아니라 예약 Legacy/Shadow TargetId, 양수 SequenceId, reducer 수락과 실제 적용 결과로 판정한다. 표시 타겟은 Impact 전에 해제·교체될 수 있으므로 로그 문맥으로만 사용한다.
+- `AuthorizedHit ↔ Applied`, `AuthorizedMiss ↔ non-Applied`는 정상이다. 타겟·회차·phase·적용 결과 불일치는 계속 fail-closed한다.
+- Unity self-validation RED 재현 후 GREEN PASS. 서버 권위 Legacy 피해·HP·RPC·VFX writer는 변경하지 않았다.
+
+### 2026-08-27 - C2 ImpactResult Shadow
+
+- `ApplyAttackDamageObserved`는 writer 내부에서 `AttackDamageObservation(status, appliedAmount, resultingHp)`을 반환한다. 외부 observer가 HP 차이를 추정하지 않는다.
+- `LegacyReservation`은 dispatch mask와 completion mask를 분리한다. 마지막 dispatch에서 폐기하지 말고 같은 token·hit 결과가 completion된 뒤 폐기한다.
+- Snapshot은 원자 NetworkVariable, 개별 ImpactResult는 Reliable ClientRpc다. 결과 완료 순서는 sequence 순서와 다를 수 있으므로 전체 `AttackResultKey`로 중복·충돌을 판정한다.
+- Client result 경로는 observer만 호출하며 HP·Root·Animator·VFX writer가 아니다. Legacy writer 실패를 Shadow가 롤백하거나 재적용하지 않는다.
+- observer v6는 C1 `END`와 C2 `result-END`를 분리한다. 단일 terminal에 결과 카운터를 더하면 Android 1,000-byte preflight가 실패한다.

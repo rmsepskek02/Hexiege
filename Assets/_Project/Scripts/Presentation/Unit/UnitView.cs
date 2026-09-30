@@ -3,8 +3,8 @@
 // 유닛의 비주얼(이동, 방향, 애니메이션 상태)을 담당하는 컴포넌트.
 //
 // 회전 동기화 방식:
-//   - 회전은 즉시 스냅(Quaternion.Euler)으로 적용한다.
-//   - 멀티플레이에서는 서버가 즉시 스냅한 rotation을 NetworkTransform이 클라이언트에 보간 전달한다.
+//   - 서버 Simulation Root는 공통 최대 270°/s로 타겟 방향을 점진 추적한다.
+//   - 멀티플레이에서는 서버 rotation을 NetworkTransform이 클라이언트에 보간 전달한다.
 //   - Red 클라이언트 관점 반전은 VisualRootProjector가 Visual Root에만 적용한다.
 //
 // 프리팹 구조:
@@ -200,6 +200,7 @@ namespace Hexiege.Presentation
         // 보존하여 무진전 예산을 우회하지 못하게 한다.
         private UnitNavigationObjective _navigationObjective;
         private ulong _navigationEnvironmentRevision;
+        private UnitPathRequestResult _lastPathRequestResult;
         private UnitMovementIntentReason _movementIntentReason;
         private bool _movementPendingCommand;
         private bool _movementPendingSegment;
@@ -288,7 +289,8 @@ namespace Hexiege.Presentation
             Rejected = 0,
             Held = 1,
             Advanced = 2,
-            RepathRequired = 3
+            RepathRequired = 3,
+            DeferredAttackHandoff = 4
         }
 
         // 회전 속도 (초당 각도) — 인스펙터에서 조정 가능.
@@ -302,6 +304,54 @@ namespace Hexiege.Presentation
         // _combatTargetTransform이 null로 덮어써지는 경우에도 추적을 복구할 수 있도록 한다.
         private int _combatTargetId = -1;
         private bool _combatTargetIsUnit = true;
+        // Attack 클립 재생 여부와 서버 공격 회차 커밋 여부는 별개다. 커밋 한 번이 허용한
+        // HitIndex만 정확히 한 번씩 소비하고, 루프 클립의 이후 Marker는 닫힌 lease에서 차단한다.
+        private AttackPresentationImpactLease _attackPresentationImpactLease;
+        // 서버 commit 하나가 허용한 공격자 발사 VFX/SFX marker 수명이다. 정규 scope와
+        // 분리되어 있어 Unresolved Legacy 타입에도 가짜 scope를 만들지 않는다.
+        private AttackPresentationSourceMarkerLease _attackPresentationSourceMarkerLease;
+        private AttackPresentationImpactMode _attackPresentationImpactMode;
+        private ulong _lastAttackPresentationRevision;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        // InfernoSpirit 방향 진단은 Attack 전환/marker/종료 상태 변화에서만 읽는다.
+        // gameplay 또는 Animator 상태를 쓰지 않으며 시작 pose는 Animator 평가 뒤 LateUpdate에서 소비한다.
+        private bool _infernoAttackStartFacingPending;
+        private int _infernoFacingTargetId = -1;
+        private bool _infernoFacingTargetIsUnit;
+        private ulong _infernoFacingPresentationRevision;
+        private AttackPresentationScope _infernoFacingScope;
+
+        // 순간이동 진단은 매 프레임 값을 "기억"하지만 정상 프레임 로그는 절대 출력하지 않는다.
+        // 실제 화면 메시의 기준점으로 금지된 Humanoid 몸 중심 API를 사용하지 않는다. 그 API를 일반
+        // LateUpdate에서 읽으면 Unity가 매 프레임 경고를 만들고, 계산된 몸 중심일 뿐 실제 renderer
+        // 계약도 아니다. 그래서 초기화 때 InfernoSpirit의 유일한 SkinnedMeshRenderer와 rootBone을 한 번만
+        // 찾아 캐시하고, 이후 프레임에는 캐시된 Transform.position만 읽는다.
+        // 직전 표본은 이 UnitView 인스턴스 안에만 보관하고, disable/despawn 수명 경계에서 폐기한다.
+        // static serial은 재사용된 unitId가 이전 생명주기의 exact key와 섞이지 않게 하는 진단 ID다.
+        private static ulong _nextInfernoMotionLifecycle;
+        private readonly List<SkinnedMeshRenderer> _infernoRenderedAnchorSearch =
+            new List<SkinnedMeshRenderer>(2);
+        private ulong _infernoMotionLifecycle;
+        private SkinnedMeshRenderer _infernoRenderedAnchorRenderer;
+        private Transform _infernoRenderedAnchorRootBone;
+        private string _infernoRenderedAnchorCacheReason = "not-initialized";
+        private bool _hasInfernoMotionPrevious;
+        private int _infernoMotionPreviousFrame;
+        private double _infernoMotionPreviousTime;
+        private Vector3 _infernoMotionPreviousSimulation;
+        private Quaternion _infernoMotionPreviousSimulationRotation;
+        private bool _infernoMotionPreviousVisualAvailable;
+        private Vector3 _infernoMotionPreviousVisual;
+        private Quaternion _infernoMotionPreviousVisualRotation;
+        private bool _infernoMotionPreviousRenderedAnchorAvailable;
+        private Vector3 _infernoMotionPreviousRenderedAnchor;
+        private bool _infernoMotionPreviousRendererBoundsAvailable;
+        private Vector3 _infernoMotionPreviousRendererBounds;
+#endif
+        // 이동 후보 commit callback이 동기 전투 이벤트의 실제 완료 여부를 확인하는 ACK다.
+        // revision과 별도인 이유는 전용 서버에서도 Host Animator 적용 없이 RPC enqueue 완료를
+        // 확인해야 하기 때문이다. 값은 서버 로컬에서만 증가하며 네트워크 gameplay 상태가 아니다.
+        private ulong _serverAttackEntryHandoffSerial;
         // Simulation Root 회전은 이동 또는 행동(공격/힐) 중 정확히 한 writer만 소유한다.
         // bool 두 개 대신 순수 Application 소유권 객체 하나를 사용해 이중 소유 상태를 막는다.
         private readonly UnitRootRotationOwnership _rootRotationOwnership =
@@ -312,7 +362,7 @@ namespace Hexiege.Presentation
         //
         // 왜 필요한가:
         //   IsInCombat()는 _combatTargetTransform != null만 판정합니다.
-        //   _combatTargetTransform은 "실제 공격 시작"(StartCombatAnimation 호출) 시점에만 set되므로,
+        //   _combatTargetTransform은 서버가 전투 정렬 타겟을 확정한 시점부터 set되므로,
         //   적을 감지하고 추격 중인 단계(아직 공격 사거리에 미도달)에서는 false가 됩니다.
         //   이 상태에서 건물 생성/파괴 → RepathAllAliveUnits → OnPathInvalidated가 호출되면
         //   추격 중인 유닛도 repath 대상이 되어 추격 코루틴이 끊기고 다시 이동 코루틴이 시작되어
@@ -423,6 +473,9 @@ namespace Hexiege.Presentation
         /// </summary>
         private void Update()
         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            ObserveClientAttackEntryPresentationFrame();
+#endif
             // Transform 참조가 null인 경우, 백업 ID로 재조회를 시도한다.
             // 멀티플레이 타이밍 문제 등으로 _combatTargetTransform이 null로 덮어써진 경우
             // 다음 프레임에 자동으로 복구하기 위한 방어적 처리.
@@ -471,6 +524,20 @@ namespace Hexiege.Presentation
             );
         }
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private void LateUpdate()
+        {
+            ConsumePendingInfernoAttackStartFacing();
+            ObserveInfernoMotionJumpFrame();
+        }
+
+        private void OnDisable()
+        {
+            RetireInfernoMotionJumpEvidence();
+            ClearInfernoAttackFacingEvidenceState();
+        }
+#endif
+
         // ====================================================================
         // 초기화
         // ====================================================================
@@ -487,7 +554,34 @@ namespace Hexiege.Presentation
         /// <param name="unitData">이 유닛의 Domain 데이터</param>
         public void Initialize(UnitData unitData)
         {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // 풀 재사용 등으로 같은 View가 새 Domain 유닛을 받으면 이전 생명주기 표본을 먼저 폐기한다.
+            RetireInfernoMotionJumpEvidence();
+#endif
             _unitData = unitData;
+            AttackPresentationAuditEligibility auditEligibility =
+                AttackPresentationAuditEligibility.RequiredButMissing;
+            if (_unitData != null
+                && UnitAttackShadowProfileResolver.TryResolve(
+                    _unitData.Type,
+                    out UnitAttackShadowProfile auditProfile))
+            {
+                bool runtimeContractValid =
+                    UnitAttackShadowProfileResolver.TryResolveRuntime(
+                        _unitData,
+                        out _,
+                        out _);
+                auditEligibility =
+                    UnitAttackShadowProfileResolver.ClassifyAuditEligibility(
+                        auditProfile,
+                        runtimeContractValid);
+            }
+            if (_unitData != null)
+            {
+                UnitAttackResultPresentationShadowBridge.RegisterAuditEligibility(
+                    _unitData.Id,
+                    auditEligibility);
+            }
             _rootRotationOwnership.ReleaseAll();
             _visualRootProjector = GetComponent<VisualRootProjector>();
             _movementNetworkUnit = GetComponent<NetworkUnit>();
@@ -502,12 +596,20 @@ namespace Hexiege.Presentation
             _movementPendingSegment = false;
             _movementAuthorityReducer = new UnitMovementReducer();
             ClearCombatTargetTracking();
+            _attackPresentationImpactLease.Close();
+            _attackPresentationSourceMarkerLease.Close();
+            _attackPresentationImpactMode = AttackPresentationImpactMode.Suppressed;
+            _lastAttackPresentationRevision = 0UL;
+            _serverAttackEntryHandoffSerial = 0UL;
             _lockedMovementPipelineMode = NetworkContext.IsNetworkActive
                 ? NetworkContext.ActiveUnitMovementPipelineMode
                 : UnitMovementPipelineMode.Legacy;
 
             // Animator 캐시 — 자식 오브젝트에 있을 수 있으므로 GetComponentInChildren 사용
             _animator = GetComponentInChildren<Animator>();
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            CacheInfernoRenderedAnchor();
+#endif
 
             // 스폰 시 Facing 방향으로 즉시 rotation 설정.
             // 서버에서 즉시 스냅하면 NetworkTransform이 이 값을 클라이언트에 자동 보간 전달.
@@ -608,7 +710,13 @@ namespace Hexiege.Presentation
                     {
                         if (_unitData != null && e.UnitId == _unitData.Id)
                         {
-                            StartCombatAnimation(e.TargetId, e.TargetIsUnit);
+                            StartCombatAnimation(
+                                e.TargetId,
+                                e.TargetIsUnit,
+                                e.RestartAttackCycle,
+                                e.PresentationRevision,
+                                e.ImpactMode,
+                                e.PresentationScope);
                         }
                     })
                     .AddTo(this);
@@ -621,6 +729,14 @@ namespace Hexiege.Presentation
                         {
                             ChangeTarget(e.TargetId, e.TargetIsUnit);
                         }
+                    })
+                    .AddTo(this);
+
+                GameEvents.OnNetworkCombatImpactSuppressed
+                    .Subscribe(unitId =>
+                    {
+                        if (_unitData != null && unitId == _unitData.Id)
+                            SuppressPendingAttackImpactPresentation();
                     })
                     .AddTo(this);
 
@@ -656,6 +772,7 @@ namespace Hexiege.Presentation
 #endif
                         // 사망한 root의 마지막 이동/공격 목표가 adapter에 남아 다음 관측으로 재사용되지 않게 한다.
                         ClearUnitActionShadowDesiredTarget();
+                        RetireAndCloseAttackPresentationScope();
 
                         // 사망 시 speed 복원 후 IsDead bool 설정 (Animator 트랜지션)
                         if (_animator != null)
@@ -939,7 +1056,8 @@ namespace Hexiege.Presentation
             float maximumTravelDistanceWorld = -1f,
             IReadOnlyList<HexCoord> logicalCorridorPath = null,
             int logicalCorridorWaypointIndex = -1,
-            Func<Vector3, bool> candidateAcquirePredicate = null)
+            Func<Vector3, bool> candidateAcquirePredicate = null,
+            Func<bool> targetAcquirePresentationHandoff = null)
         {
             _lastMovementTrajectoryReachedWaypoint = false;
             _lastMovementCandidateAcquiredTarget = false;
@@ -1308,6 +1426,29 @@ namespace Hexiege.Presentation
             if (!_movementAuthorityReducer.CanCommitPrepared(preparedTransition))
                 return MovementWriteOutcome.Rejected;
 
+            // 공격 범위에 처음 들어온 Chase 후보는 Root의 마지막 위치/NoIntent보다 먼저
+            // provisional Start를 Host와 원격 Client 전달 큐에 확정해야 한다. callback이
+            // 실패하면 아직 movement snapshot, reducer, Root 어느 것도 커밋하지 않았으므로
+            // 현재 이동 pose를 보존한 채 다음 정상 frame에서 같은 후보를 다시 평가한다.
+            bool requiresAttackEntryHandoff =
+                UnitAttackEntryCommitOrderPolicy.RequiresPresentationHandoff(
+                    fallbackIntentReason,
+                    evaluation.CommitsAcquireCandidate);
+            bool attackEntryHandoffCompleted = !requiresAttackEntryHandoff
+                || (targetAcquirePresentationHandoff != null
+                    && targetAcquirePresentationHandoff());
+            if (!UnitAttackEntryCommitOrderPolicy.CanCommitRootStop(
+                    requiresAttackEntryHandoff,
+                    attackEntryHandoffCompleted))
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitMovementAuthorityObserver.ObserveCombatPresentationHandoffFailure(
+                    _unitData != null ? _unitData.Id : -1,
+                    "client-visible-entry-order");
+#endif
+                return MovementWriteOutcome.DeferredAttackHandoff;
+            }
+
             // planner/spatial/reducer 준비가 모두 성공해도 아직 reducer/scope/Root/Domain은
             // 변경되지 않았다. 준비 snapshot 게시가 성공해야만 로컬 권위 상태를 커밋한다.
             if (_movementNetworkUnit == null
@@ -1441,7 +1582,8 @@ namespace Hexiege.Presentation
                 UnitMovementPresentationPolicy.ShouldHoldWalk(
                     evaluation.Decision.IsValid,
                     evaluation.Decision.AllowsMovement,
-                    evaluation.CommitsAcquireCandidate));
+                    evaluation.CommitsAcquireCandidate,
+                    evaluation.Decision.IsTargetAcquirePriority));
 
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             UnitMovementAuthorityObserver.ObserveFrame(
@@ -2218,7 +2360,7 @@ namespace Hexiege.Presentation
             }
 
             HexCoord dest = _currentDestination;
-            List<HexCoord> newPath = _movementUseCase.RequestMove(_unitData, dest);
+            List<HexCoord> newPath = RequestLatestAuthoritativeRepath(dest);
             if (newPath == null || newPath.Count < 2)
             {
                 // newPath가 null/짧으면 현재 위치에서 그대로 대기. 다음 트리거에서 다시 시도.
@@ -2278,6 +2420,84 @@ namespace Hexiege.Presentation
             // 공격 애니메이션 중(_combatTargetTransform != null) 또는
             // 추격 코루틴 실행 중(_isInCombatPursuit) — 둘 중 하나만 참이어도 전투 상태.
             return _combatTargetTransform != null || _isInCombatPursuit;
+        }
+
+        /// <summary>
+        /// 재탐색은 오래된 논리 시작점이나 FlowField cache만 보지 않고, 현재 서버
+        /// Simulation Root와 이 유닛이 관측한 최신 walkability revision을 함께 검증한다.
+        /// typed 결과는 실패 terminal에 보존하며 성공 path만 기존 이동 writer에 전달한다.
+        /// </summary>
+        private List<HexCoord> RequestLatestAuthoritativeRepath(HexCoord destination)
+        {
+            if (_movementUseCase == null || _unitData == null)
+            {
+                _lastPathRequestResult = new UnitPathRequestResult(
+                    UnitPathRequestStatus.ProviderFailure,
+                    null,
+                    _unitData != null ? _unitData.Position : default,
+                    default,
+                    destination,
+                    _navigationEnvironmentRevision);
+                return null;
+            }
+
+            Vector3 rootDomain = ViewConverter.FromView(transform.position);
+            _lastPathRequestResult = _movementUseCase.RequestAuthoritativeRepath(
+                _unitData,
+                rootDomain,
+                destination,
+                _navigationEnvironmentRevision);
+            if (!_lastPathRequestResult.IsSuccess)
+                return null;
+            return _lastPathRequestResult.Path as List<HexCoord>
+                ?? new List<HexCoord>(_lastPathRequestResult.Path);
+        }
+
+        /// <summary>
+        /// 최신 권위 Root에서 앞쪽 route 중심까지 새로 찾은 prefix와, 그 중심 뒤에
+        /// 남아 있는 원래 route suffix를 하나의 staged 경로로 결합한다. 이 메서드는
+        /// UnitData/Transform을 쓰지 않으며, 결합 결과도 기존 이동 writer와 corridor
+        /// preflight를 통과하기 전에는 적용되지 않는다.
+        /// </summary>
+        private static List<HexCoord> ComposePostCombatRecoveryRoute(
+            IReadOnlyList<HexCoord> recoveredPrefix,
+            IReadOnlyList<HexCoord> activeRoute,
+            int nextWaypointIndex,
+            HexCoord rejoinCandidate)
+        {
+            if (recoveredPrefix == null
+                || recoveredPrefix.Count < 2
+                || recoveredPrefix[recoveredPrefix.Count - 1] != rejoinCandidate
+                || activeRoute == null
+                || activeRoute.Count < 2
+                || nextWaypointIndex < 1
+                || nextWaypointIndex >= activeRoute.Count)
+            {
+                return null;
+            }
+
+            int rejoinIndex = -1;
+            for (int index = nextWaypointIndex; index < activeRoute.Count; index++)
+            {
+                if (activeRoute[index] == rejoinCandidate)
+                {
+                    rejoinIndex = index;
+                    break;
+                }
+            }
+            if (rejoinIndex < 0)
+                return null;
+
+            var composed = new List<HexCoord>(
+                recoveredPrefix.Count + activeRoute.Count - rejoinIndex - 1);
+            for (int index = 0; index < recoveredPrefix.Count; index++)
+                composed.Add(recoveredPrefix[index]);
+            for (int index = rejoinIndex + 1; index < activeRoute.Count; index++)
+                composed.Add(activeRoute[index]);
+
+            return UnitPathSignature.TryCreate(composed, out _)
+                ? composed
+                : null;
         }
 
         /// <summary>
@@ -2398,7 +2618,10 @@ namespace Hexiege.Presentation
                 : UnitRepathDecision.RejectedInvalidPath;
             if (decision == UnitRepathDecision.RejectedRepeatedPath)
             {
-                _navigationObjective?.MarkBlocked();
+                // 동일 route는 이 단계에서 곧바로 영구 Blocked가 아니다. post-combat
+                // recovery planner가 다음 전방 checkpoint를 평가하고, 전체 후보의 반복
+                // 소진을 확인한 뒤에만 Blocked를 승인한다.
+                _navigationObjective?.MarkWaitingRepath();
                 return false;
             }
 
@@ -2479,6 +2702,11 @@ namespace Hexiege.Presentation
                 $"candidatePath={FormatPathSignature(candidateSignature)}, " +
                 $"acceptedInFrame={guard?.AcceptedInFrame ?? 0}, " +
                 $"acceptedWithoutProgress={guard?.AcceptedWithoutProgress ?? 0}, " +
+                $"pathStatus={_lastPathRequestResult.Status}, " +
+                $"authoritativeStart={_lastPathRequestResult.AuthoritativeStart}, " +
+                $"simulationRootTile={_lastPathRequestResult.RootTile}, " +
+                $"goal={_lastPathRequestResult.Goal}, " +
+                $"environmentRevision={_lastPathRequestResult.EnvironmentRevision}, " +
                 $"corridorEvidence={corridorEvidence}");
         }
 
@@ -2570,6 +2798,11 @@ namespace Hexiege.Presentation
                 && _navigationObjective.IsActive
                 ? _navigationObjective.RepathGuard
                 : new UnitRepathProgressGuard(path);
+            // 전투 위치에서 기존 route로 돌아갈 때 단일 A* 실패를 영구 Blocked로
+            // 바꾸지 않도록, 현재 이동 코루틴 수명 동안 복귀 후보 소진 이력을 보존한다.
+            // 순수 planner는 후보만 고르고 실제 Root/path commit은 아래의 기존 writer와
+            // corridor preflight가 계속 담당한다.
+            var postCombatRecoveryPlanner = new UnitPostCombatRecoveryPlanner();
             bool movementFailedClosed = false;
             bool navigationBlocked = false;
             SetMovementHeldAnimation(false);
@@ -2615,10 +2848,7 @@ namespace Hexiege.Presentation
                     _pendingPath = null;
                     if (recoveryPath == null || recoveryPath.Count < 2)
                     {
-                        recoveryPath = _movementUseCase != null
-                            ? _movementUseCase.RequestMove(
-                                _unitData, finalTarget)
-                            : null;
+                        recoveryPath = RequestLatestAuthoritativeRepath(finalTarget);
                     }
 
                     if (!TryAcceptRepath(
@@ -2790,9 +3020,8 @@ namespace Hexiege.Presentation
                             candidateEngagePredicate);
                         if (movementOutcome == MovementWriteOutcome.RepathRequired)
                         {
-                            List<HexCoord> blockedRepath = _movementUseCase != null
-                                ? _movementUseCase.RequestMove(_unitData, finalTarget)
-                                : null;
+                            List<HexCoord> blockedRepath =
+                                RequestLatestAuthoritativeRepath(finalTarget);
                             if (!TryAcceptSpatialRecoverableRepath(
                                     repathGuard,
                                     blockedRepath,
@@ -2900,9 +3129,8 @@ namespace Hexiege.Presentation
                             if (_combatPursuitRequiresRepath)
                             {
                                 _combatPursuitRequiresRepath = false;
-                                List<HexCoord> pursuitRepath = _movementUseCase != null
-                                    ? _movementUseCase.RequestMove(_unitData, finalTarget)
-                                    : null;
+                                List<HexCoord> pursuitRepath =
+                                    RequestLatestAuthoritativeRepath(finalTarget);
                                 if (!TryAcceptSpatialRecoverableRepath(
                                         repathGuard,
                                         pursuitRepath,
@@ -2926,6 +3154,25 @@ namespace Hexiege.Presentation
                                 break;
                             }
 
+                            // 전투 후 복귀 중 대상을 다시 발견해도 이 MoveAlongPathV3 수명은
+                            // 끝내지 않는다. 아래 순수 flow가 재추격과 새 복귀 계산 사이에
+                            // 최소 한 frame 경계를 강제하여, 즉시 반환되는 추격에서도 같은
+                            // frame 무한 반복이나 objective 조기 Complete가 생기지 않게 한다.
+                            var postCombatReentryFlow = new UnitPostCombatReentryFlow();
+                            UnitPostCombatReentryResult recoveryStart =
+                                postCombatReentryFlow.BeginRecovery(Time.frameCount);
+                            if (recoveryStart.Action
+                                != UnitPostCombatReentryAction.RecalculateRecovery)
+                            {
+                                ObserveMovementAuthorityAdapterFailure(
+                                    "post-combat-reentry-start-invalid",
+                                    $"[UAS-MOVE] 전투 후 복귀 수명 시작이 유효하지 않습니다. " +
+                                    $"unitId={_unitData.Id}, frame={Time.frameCount}");
+                                movementFailedClosed = true;
+                                goto cleanup;
+                            }
+
+                        recalculatePostCombatRecovery:
                             BeginMovementShadowSegment(UnitMovementIntentReason.PostCombatResume);
                             // ──────────────────────────────────────────────────────────
                             // [BUG-002 수정 — 2026-05-13] 전투 종료 → 앞쪽 타일까지 "걸어서" 정렬.
@@ -2958,7 +3205,7 @@ namespace Hexiege.Presentation
                                     out HexCoord forwardTile))
                             {
                                 List<HexCoord> safeResumePath =
-                                    _movementUseCase.RequestMove(_unitData, finalTarget);
+                                    RequestLatestAuthoritativeRepath(finalTarget);
                                 if (!TryAcceptSpatialRecoverableRepath(
                                         repathGuard,
                                         safeResumePath,
@@ -3090,16 +3337,130 @@ namespace Hexiege.Presentation
                                                 : null);
                                     if (alignOutcome == MovementWriteOutcome.RepathRequired)
                                     {
-                                        List<HexCoord> blockedResumePath =
-                                            _movementUseCase.RequestMove(
-                                                _unitData, finalTarget);
-                                        if (!TryAcceptSpatialRecoverableRepath(
-                                                repathGuard,
-                                                blockedResumePath,
-                                                "post-combat-corridor",
-                                                out UnitRepathDecision repathDecision))
+                                        // 건물 등으로 통로가 바뀌면 기존 route의 앞쪽 중심을
+                                        // 결정적인 순서로 frame당 하나씩 질의한다. 한 번의
+                                        // Unreachable은 Waiting일 뿐이며, 같은 환경/Root에서
+                                        // 전체 후보를 두 차례 소진한 경우에만 Blocked를 확정한다.
+                                        List<HexCoord> blockedResumePath = null;
+                                        UnitPostCombatRecoveryResult recovery = default;
+                                        while (_unitData != null && _unitData.IsAlive)
                                         {
-                                            navigationBlocked = true;
+                                            HexCoord recoveryRoot = HexMetrics.WorldToHex(
+                                                ViewConverter.FromView(transform.position));
+                                            recovery = postCombatRecoveryPlanner.Evaluate(
+                                                Time.frameCount,
+                                                _navigationEnvironmentRevision,
+                                                recoveryRoot,
+                                                path,
+                                                i,
+                                                finalTarget,
+                                                candidate =>
+                                                {
+                                                    List<HexCoord> candidatePrefix =
+                                                        RequestLatestAuthoritativeRepath(candidate);
+                                                    if (!UnitPathSignature.TryCreate(
+                                                            candidatePrefix,
+                                                            out UnitPathSignature candidateSignature)
+                                                        || candidateSignature
+                                                            == repathGuard.CurrentPath)
+                                                    {
+                                                        return null;
+                                                    }
+                                                    return candidatePrefix;
+                                                });
+
+                                            if (recovery.Status
+                                                == UnitPostCombatRecoveryStatus.Recovered)
+                                            {
+                                                blockedResumePath =
+                                                    ComposePostCombatRecoveryRoute(
+                                                        recovery.Path,
+                                                        path,
+                                                        i,
+                                                        recovery.Candidate);
+                                                bool composedPathIsNew =
+                                                    UnitPathSignature.TryCreate(
+                                                        blockedResumePath,
+                                                        out UnitPathSignature composedSignature)
+                                                    && composedSignature
+                                                        != repathGuard.CurrentPath;
+                                                if (!composedPathIsNew)
+                                                {
+                                                    postCombatRecoveryPlanner
+                                                        .RejectStagedPath();
+                                                    _navigationObjective?.MarkWaitingRepath();
+                                                    SetMovementHeldAnimation(true);
+                                                    yield return null;
+                                                    continue;
+                                                }
+
+                                                if (TryAcceptSpatialRecoverableRepath(
+                                                        repathGuard,
+                                                        blockedResumePath,
+                                                        "post-combat-corridor",
+                                                        out UnitRepathDecision recoveryDecision))
+                                                {
+                                                    postCombatRecoveryPlanner
+                                                        .AcceptStagedPath();
+                                                    break;
+                                                }
+
+                                                // A* prefix가 존재해도 전체 route가 이전 unsafe
+                                                // path와 같거나 guard가 같은 frame 적용을 거부하면
+                                                // 성공으로 초기화하지 않고 다음 후보를 본다.
+                                                postCombatRecoveryPlanner
+                                                    .RejectStagedPath();
+                                                if (recoveryDecision
+                                                        == UnitRepathDecision.RejectedRepeatedPath
+                                                    || recoveryDecision
+                                                        == UnitRepathDecision.RejectedFrameBudget)
+                                                {
+                                                    _navigationObjective?.MarkWaitingRepath();
+                                                    SetMovementHeldAnimation(true);
+                                                    yield return null;
+                                                    continue;
+                                                }
+
+                                                navigationBlocked = true;
+                                                break;
+                                            }
+
+                                            if (recovery.Status
+                                                == UnitPostCombatRecoveryStatus.ConfirmedBlocked)
+                                            {
+                                                _navigationObjective?.MarkBlocked();
+                                                LogRepathFailClosed(
+                                                    repathGuard,
+                                                    null,
+                                                    "post-combat-corridor-confirmed",
+                                                    UnitRepathDecision.RejectedNoProgressBudget,
+                                                    recovery.Candidate.ToString());
+                                                navigationBlocked = true;
+                                                break;
+                                            }
+
+                                            if (recovery.Status
+                                                == UnitPostCombatRecoveryStatus.Invalid)
+                                            {
+                                                ObserveMovementAuthorityAdapterFailure(
+                                                    "post-combat-recovery-invalid",
+                                                    $"[UAS-MOVE] 전투 후 복귀 planner 입력/수명이 " +
+                                                    $"유효하지 않습니다. unitId={_unitData.Id}, " +
+                                                    $"frame={Time.frameCount}");
+                                                movementFailedClosed = true;
+                                                goto cleanup;
+                                            }
+
+                                            _navigationObjective?.MarkWaitingRepath();
+                                            SetMovementHeldAnimation(true);
+                                            yield return null;
+                                        }
+
+                                        if (_unitData == null || !_unitData.IsAlive)
+                                            break;
+
+                                        if (navigationBlocked)
+                                        {
                                             needRepath = true;
                                             _currentNextTileCoord = null;
                                             break;
@@ -3181,14 +3542,131 @@ namespace Hexiege.Presentation
 
                             if (_unitData == null || !_unitData.IsAlive) break;
 
-                            // 정렬 Lerp 도중 새 적이 감지된 경우: 정렬을 마무리하지 않고 곧장 외부 while로
-                            // 빠져 새 path를 받지 않은 채 다시 진입 → 다음 사이클에서 추격이 재개된다.
-                            // 같은 path를 그대로 재사용하면 다시 path[i]를 향해 Lerp가 시작되고, 그 즉시
-                            // detect 체크가 추격으로 전환한다.
+                            // 정렬 Lerp 도중 새 대상이 감지된 경우에는 외부 while와 cleanup으로
+                            // 빠지지 않고 현재 MoveAlongPathV3 안에서 즉시 역할별 행동에 재진입한다.
+                            // 행동이 끝난 뒤에는 현재 Root/Domain으로 이 블록의 모든 지역값을
+                            // 다시 계산하므로, 이전 forwardTile/alignView를 재사용하지 않는다.
                             if (alignInterruptedByCombat)
                             {
-                                interruptedByCombat = true;
-                                break;  // Lerp while 탈출 → for 루프도 interruptedByCombat 처리로 break
+                                UnitPostCombatReentryResult reentry =
+                                    postCombatReentryFlow.ObserveTargetAcquired(
+                                        Time.frameCount);
+                                if (reentry.Action
+                                    != UnitPostCombatReentryAction.EnterPursuit)
+                                {
+                                    ObserveMovementAuthorityAdapterFailure(
+                                        "post-combat-reentry-transition-invalid",
+                                        $"[UAS-MOVE] 복귀 중 행동 재진입 전이가 유효하지 않습니다. " +
+                                        $"unitId={_unitData.Id}, frame={Time.frameCount}");
+                                    movementFailedClosed = true;
+                                    goto cleanup;
+                                }
+
+                                _isAStarMoving = false;
+                                _currentNextTileCoord = null;
+                                bool reentryWasHealer = _unitData.IsHealer;
+                                if (reentryWasHealer)
+                                {
+                                    // 힐러는 적 추격으로 보내지 않고 기존 부상 아군 힐 루프를
+                                    // 그대로 사용한다. Action 회전 소유권 인계/반환 순서도
+                                    // 최초 A* 감지 경계와 동일하게 보존한다.
+                                    _rootRotationOwnership.TransferToAction();
+                                    yield return EnterHealLoopV3();
+                                    _rootRotationOwnership.ReleaseAction(
+                                        resumeMovement: _unitData != null
+                                            && _unitData.IsAlive);
+                                }
+                                else
+                                {
+                                    yield return EnterCombatPursuitV3();
+                                }
+
+                                bool unitAliveAfterReentry = _unitData != null
+                                    && _unitData.IsAlive;
+                                UnitPostCombatReentryResult pursuitCompleted =
+                                    postCombatReentryFlow.ObservePursuitCompleted(
+                                        Time.frameCount,
+                                        unitAliveAfterReentry,
+                                        reentryWasHealer,
+                                        _combatPursuitRequiresRepath);
+                                if (!unitAliveAfterReentry)
+                                    break;
+                                if (pursuitCompleted.Action
+                                    == UnitPostCombatReentryAction
+                                        .RepathBeforeRecovery)
+                                {
+                                    // 최초 전투 진입 경계와 동일하게 Chase가 남긴 공간 재경로
+                                    // 요구를 recovery 계산보다 먼저 소비한다. 그렇지 않으면 stale
+                                    // flag와 전투 전 forwardTile/alignView가 복귀 판단에 섞인다.
+                                    _combatPursuitRequiresRepath = false;
+                                    List<HexCoord> reentryPursuitRepath =
+                                        RequestLatestAuthoritativeRepath(finalTarget);
+                                    if (!TryAcceptSpatialRecoverableRepath(
+                                            repathGuard,
+                                            reentryPursuitRepath,
+                                            "post-combat-reentry-chase-spatial-route-invalidated",
+                                            out UnitRepathDecision reentryPursuitRepathDecision))
+                                    {
+                                        navigationBlocked = true;
+                                        needRepath = true;
+                                        _currentNextTileCoord = null;
+                                        break;
+                                    }
+
+                                    BeginMovementShadowSegment(
+                                        UnitMovementIntentReason.BlockedRepath);
+                                    path = reentryPursuitRepath;
+                                    pathCheckpoint.Reset();
+                                    needRepath = true;
+                                    _isAStarMoving = true;
+                                    SetMovementHeldAnimation(true);
+                                    _currentNextTileCoord = null;
+                                    break;
+                                }
+                                if (pursuitCompleted.Action
+                                    != UnitPostCombatReentryAction
+                                        .DeferRecoveryUntilNextFrame)
+                                {
+                                    ObserveMovementAuthorityAdapterFailure(
+                                        "post-combat-reentry-completion-invalid",
+                                        $"[UAS-MOVE] 재진입 행동 종료 전이가 유효하지 않습니다. " +
+                                        $"unitId={_unitData.Id}, frame={Time.frameCount}");
+                                    movementFailedClosed = true;
+                                    goto cleanup;
+                                }
+
+                                UnitPostCombatReentryResult nextRecovery;
+                                do
+                                {
+                                    nextRecovery = postCombatReentryFlow.BeginRecovery(
+                                        Time.frameCount);
+                                    if (nextRecovery.Action
+                                        == UnitPostCombatReentryAction
+                                            .DeferRecoveryUntilNextFrame)
+                                    {
+                                        yield return null;
+                                    }
+                                }
+                                while (nextRecovery.Action
+                                    == UnitPostCombatReentryAction
+                                        .DeferRecoveryUntilNextFrame);
+
+                                if (nextRecovery.Action
+                                    != UnitPostCombatReentryAction.RecalculateRecovery)
+                                {
+                                    ObserveMovementAuthorityAdapterFailure(
+                                        "post-combat-recovery-restart-invalid",
+                                        $"[UAS-MOVE] 재진입 뒤 새 복귀 계산 전이가 유효하지 않습니다. " +
+                                        $"unitId={_unitData.Id}, frame={Time.frameCount}");
+                                    movementFailedClosed = true;
+                                    goto cleanup;
+                                }
+
+                                // 이전 복귀 후보의 소진/성공 staged 상태 역시 현재 전투 위치와
+                                // 무관해졌으므로 함께 폐기한다. 아래 label부터 Root/Domain,
+                                // forwardTile, alignView, corridor를 전부 새로 계산한다.
+                                postCombatRecoveryPlanner.Reset();
+                                goto recalculatePostCombatRecovery;
                             }
 
                             // 4) 최종 부동소수점 보정도 같은 writer seam을 통과한다.
@@ -3394,9 +3872,8 @@ namespace Hexiege.Presentation
                             // 현재 위치를 포함하지 않는 pending path는 이어 달릴 수 없는 입력이다.
                             // 같은 프레임에 새 코루틴을 재시작하면 무제한 재시작 고리가 생길 수
                             // 있으므로 이 유닛만 현재 위치에서 fail-closed 한다.
-                            List<HexCoord> refreshed = _movementUseCase != null
-                                ? _movementUseCase.RequestMove(_unitData, finalTarget)
-                                : null;
+                            List<HexCoord> refreshed =
+                                RequestLatestAuthoritativeRepath(finalTarget);
                             if (TryAcceptRepath(
                                     repathGuard,
                                     refreshed,
@@ -3603,7 +4080,18 @@ namespace Hexiege.Presentation
                         transform.position,
                         transform.rotation,
                         UnitMovementIntentReason.Chase,
-                        targetAcquirePriority: true);
+                        targetAcquirePriority: true,
+                        targetAcquirePresentationHandoff: () =>
+                            TryBeginServerAttackEntryBeforeRootStop(
+                                targetId,
+                                targetIsUnit));
+                    if (acquireOutcome == MovementWriteOutcome.DeferredAttackHandoff)
+                    {
+                        // Reducer/Root/NoIntent는 아직 전혀 커밋되지 않았다. 현재 Walk pose를
+                        // 보존하고 다음 정상 frame에 동일한 direct-in-range 진입을 재시도한다.
+                        yield return null;
+                        continue;
+                    }
                     if (acquireOutcome == MovementWriteOutcome.Rejected)
                     {
                         ObserveMovementAuthorityAdapterFailure("target-acquire-no-intent-rejected",
@@ -3612,7 +4100,11 @@ namespace Hexiege.Presentation
                         yield break;
                     }
 
-                    BeginServerActionRotation(targetId, targetIsUnit);
+                    // ReducerAuthoritative 네트워크 경로는 위 callback이 이미 Action 소유권과
+                    // provisional Start를 열었다. Legacy/싱글 경로는 callback을 실행하지 않으므로
+                    // 기존 순서대로 여기서 Action 회전을 시작한다.
+                    if (!_rootRotationOwnership.ActionOwnsRoot)
+                        BeginServerActionRotation(targetId, targetIsUnit);
                     yield return EnterCombatLoopV3();
                     EndServerActionRotation();
                     _rootRotationOwnership.TryAcquireMovement();
@@ -3774,7 +4266,11 @@ namespace Hexiege.Presentation
                         logicalCorridorPath: pursuitCorridor,
                         logicalCorridorWaypointIndex: corridorWaypointIndex,
                         candidateAcquirePredicate: candidate =>
-                            _combatUseCase.HasEnemyInRangeAt(_unitData, candidate));
+                            _combatUseCase.HasEnemyInRangeAt(_unitData, candidate),
+                        targetAcquirePresentationHandoff: () =>
+                            TryBeginServerAttackEntryBeforeRootStop(
+                                targetId,
+                                targetIsUnit));
                     if (pursuitOutcome == MovementWriteOutcome.RepathRequired)
                     {
                         // 현재 Chase 경로가 동적 건물로 무효화된 경우 같은 frame에는 다시
@@ -3791,6 +4287,13 @@ namespace Hexiege.Presentation
                         pursuitEnvironmentRevision =
                             _navigationEnvironmentRevision;
                         _combatPursuitPathInvalidated = false;
+                        yield return null;
+                        continue;
+                    }
+                    if (pursuitOutcome == MovementWriteOutcome.DeferredAttackHandoff)
+                    {
+                        // Root/NoIntent/reducer가 아직 커밋되지 않았다. 현재 Walk와 이동 pose를
+                        // 그대로 보존하고 다음 frame에 같은 후보를 다시 평가한다.
                         yield return null;
                         continue;
                     }
@@ -3821,6 +4324,14 @@ namespace Hexiege.Presentation
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                     CompleteMovementShadowLegacyFrame(pursuitShadowToken);
 #endif
+
+                    // 후보 위치가 공격 범위에 들어온 frame에는 위 callback이 provisional
+                    // Start를 먼저 확정했다. frame을 넘기지 않고 while 선두로 돌아가면
+                    // 같은 Unity frame에서 EnterCombatLoopV3까지 진입한다. 선두의 중복 start는
+                    // 기존 _attackPresentationRestartPending 가드가 흡수하므로 revision과
+                    // Attack clip을 다시 시작하지 않는다.
+                    if (_lastMovementCandidateAcquiredTarget)
+                        continue;
                 }
 
                 yield return null;
@@ -3855,8 +4366,13 @@ namespace Hexiege.Presentation
 
             if (NetworkContext.IsNetworkActive)
             {
-                // 멀티플레이 서버: 전투 진입 이벤트 발행 (RPC 전파는 NetworkCombatController 책임).
-                GameEvents.OnUnitEnteredCombat.OnNext(_unitData.Id);
+                // 멀티플레이 서버: 현재 Action이 소유하고 있는 공개 타겟을 그대로 전달한다.
+                // 여기서 새 타겟을 다시 찾으면 이동 후보 위치에서 확정한 대상과 다른 대상을
+                // 공격 시작에 사용할 수 있으므로, 최초 진입과 같은 typed payload를 사용한다.
+                GameEvents.OnUnitEnteredCombat.OnNext(new UnitEnteredCombatEvent(
+                    _unitData.Id,
+                    _combatTargetId,
+                    _combatTargetIsUnit));
 
                 // 사거리 내인 동안 대기 (이동 없음 — 규칙 13).
                 while (_unitData.IsAlive && _combatUseCase.HasEnemyInRange(_unitData))
@@ -4071,6 +4587,10 @@ namespace Hexiege.Presentation
         /// <param name="targetId">회복 대상 아군 유닛의 Id(회전 방향 계산에 사용).</param>
         private void PlayHealCastAnimation(int targetId)
         {
+            // BloomFairy의 힐은 C3 공격 lease와 별도 경로다. 이전 공격 scope가 섞이지 않게 닫고,
+            // OnAttackHit의 명시적인 BloomFairy 예외에서 기존 힐 연출만 보존한다.
+            RetireAndCloseAttackPresentationScope();
+
             // 대상 방향으로 즉시 스냅 회전(서버/싱글). NetworkTransform이 클라이언트에 보간 전달.
             Vector3 targetPos = _positionProvider != null
                 ? _positionProvider.GetUnitWorldPosition(targetId)
@@ -4165,7 +4685,7 @@ namespace Hexiege.Presentation
                 GameEvents.OnUnitWalkStarted.OnNext(_unitData.Id);
 
             // 새 path 계산 — finalTarget으로 RequestMove. 실패 시 null 반환(호출 측이 종료 처리).
-            List<HexCoord> newPath = _movementUseCase.RequestMove(_unitData, finalTarget);
+            List<HexCoord> newPath = RequestLatestAuthoritativeRepath(finalTarget);
             return newPath;
         }
 
@@ -4212,6 +4732,449 @@ namespace Hexiege.Presentation
         // 타격 반응 (Animation Event → HitReaction)
         // ====================================================================
 
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        /// <summary>
+        /// InfernoSpirit 한 개체의 직전/현재 위치를 세 계층에서 읽는 진단 전용 경계다.
+        ///
+        /// 초급자 주의:
+        /// - transform.position은 서버 이동과 NetworkTransform이 담당하는 Simulation Root다.
+        /// - VisualRootProjector의 PresentationTransform은 팀 관점이 적용된 화면 Root다.
+        /// - cached SkinnedMeshRenderer.rootBone은 실제 스킨 메시가 기준으로 삼는 Hips 위치다.
+        /// - renderer.bounds.center는 메시 외곽을 대조하기 위한 보조값일 뿐 rootBone 대체값이 아니다.
+        /// 세 값은 의미가 다르므로 하나가 없을 때 다른 값으로 대신 채우지 않는다.
+        /// 이 메서드는 어느 값에도 쓰지 않고 observer에 복사본만 전달한다.
+        /// </summary>
+        private void ObserveInfernoMotionJumpFrame()
+        {
+            if (_unitData == null || _unitData.Type != UnitType.InfernoSpirit)
+                return;
+
+            EnsureInfernoMotionLifecycle();
+
+            Vector3 simulationCurrent = transform.position;
+            Quaternion simulationRotationCurrent = transform.rotation;
+            if (_visualRootProjector == null)
+                _visualRootProjector = GetComponent<VisualRootProjector>();
+            Transform visualRoot = _visualRootProjector != null
+                ? _visualRootProjector.PresentationTransform
+                : null;
+            bool visualCurrentAvailable = visualRoot != null;
+            Vector3 visualCurrent = visualCurrentAvailable
+                ? visualRoot.position
+                : default;
+            Quaternion visualRotationCurrent = visualCurrentAvailable
+                ? visualRoot.rotation
+                : default;
+
+            bool animatorAvailable = _animator != null;
+            bool rendererStillMatchesCache = _infernoRenderedAnchorRenderer != null
+                && _infernoRenderedAnchorRenderer.rootBone == _infernoRenderedAnchorRootBone;
+            bool rendererActive = rendererStillMatchesCache
+                && _infernoRenderedAnchorRenderer.enabled
+                && _infernoRenderedAnchorRenderer.gameObject.activeInHierarchy;
+            bool rootBoneActive = _infernoRenderedAnchorRootBone != null
+                && _infernoRenderedAnchorRootBone.gameObject.activeInHierarchy;
+            bool renderedAnchorCurrentAvailable = rendererActive && rootBoneActive;
+            Vector3 renderedAnchorCurrent = renderedAnchorCurrentAvailable
+                ? _infernoRenderedAnchorRootBone.position
+                : default;
+            string renderedAnchorReason = _infernoRenderedAnchorCacheReason;
+            if (!rendererStillMatchesCache && _infernoRenderedAnchorRenderer != null)
+                renderedAnchorReason = "renderer-root-bone-changed";
+            else if (rendererStillMatchesCache && !rendererActive)
+                renderedAnchorReason = "renderer-disabled";
+            else if (rendererActive && !rootBoneActive)
+                renderedAnchorReason = "root-bone-inactive";
+            else if (renderedAnchorCurrentAvailable
+                && !IsFiniteFacingVector(renderedAnchorCurrent))
+            {
+                renderedAnchorCurrentAvailable = false;
+                renderedAnchorReason = "root-bone-position-invalid";
+            }
+            else if (renderedAnchorCurrentAvailable)
+                renderedAnchorReason = "available";
+
+            // bounds는 rootBone의 이상이 메시 전체 이동으로도 보이는지 대조하는 보조 증거다.
+            // rootBone이 없다고 bounds를 주 기준으로 승격하면 구조 결함을 정상처럼 숨기므로 두 가용성과
+            // 사유를 반드시 분리한다.
+            bool rendererBoundsCurrentAvailable = rendererActive;
+            Vector3 rendererBoundsCurrent = rendererBoundsCurrentAvailable
+                ? _infernoRenderedAnchorRenderer.bounds.center
+                : default;
+            string rendererBoundsReason = rendererBoundsCurrentAvailable
+                ? "available"
+                : rendererStillMatchesCache ? "renderer-disabled" : _infernoRenderedAnchorCacheReason;
+            if (rendererBoundsCurrentAvailable && !IsFiniteFacingVector(rendererBoundsCurrent))
+            {
+                rendererBoundsCurrentAvailable = false;
+                rendererBoundsReason = "renderer-bounds-center-invalid";
+            }
+
+            int frame = Time.frameCount;
+            double now = Time.realtimeSinceStartupAsDouble;
+            if (_hasInfernoMotionPrevious && frame > _infernoMotionPreviousFrame)
+            {
+                bool renderedAnchorPairAvailable =
+                    _infernoMotionPreviousRenderedAnchorAvailable
+                    && renderedAnchorCurrentAvailable;
+                bool rendererBoundsPairAvailable =
+                    _infernoMotionPreviousRendererBoundsAvailable
+                    && rendererBoundsCurrentAvailable;
+                bool visualPairAvailable = _infernoMotionPreviousVisualAvailable
+                    && visualCurrentAvailable;
+
+                if (_movementNetworkUnit == null)
+                    _movementNetworkUnit = GetComponent<NetworkUnit>();
+                bool networkIdentityAvailable = NetworkContext.IsNetworkActive
+                    && _movementNetworkUnit != null
+                    && _movementNetworkUnit.IsSpawned;
+                bool movementEvidenceAvailable = networkIdentityAvailable;
+                UnitMovementPhase movementPhase = movementEvidenceAvailable
+                    ? _movementNetworkUnit.MovementPhase
+                    : UnitMovementPhase.Invalid;
+                ulong commandRevision = movementEvidenceAvailable
+                    ? _movementNetworkUnit.MovementCommandRevision
+                    : 0UL;
+                ulong segmentRevision = movementEvidenceAvailable
+                    ? _movementNetworkUnit.MovementSegmentRevision
+                    : 0UL;
+                ulong semanticRevision = movementEvidenceAvailable
+                    ? _movementNetworkUnit.MovementSemanticRevision
+                    : 0UL;
+
+                // 실제 이동 writer와 같은 기본 환산(TileHeight × MoveSpeed) 및 현재 상태 배율을
+                // 읽는다. 값을 얻지 못하면 0 속도로 꾸미지 않고 allowance unavailable로 보낸다.
+                bool hasProductionMoveSpeedSeam = _combatUseCase != null;
+                float moveMultiplier = hasProductionMoveSpeedSeam
+                    ? _combatUseCase.GetUnitMoveSpeedMultiplier(_unitData)
+                    : float.NaN;
+                bool speedAvailable = hasProductionMoveSpeedSeam
+                    && IsFiniteFacingValue(_unitData.MoveSpeed)
+                    && _unitData.MoveSpeed >= 0f
+                    && IsFiniteFacingValue(moveMultiplier)
+                    && moveMultiplier >= 0f;
+                float productionWorldSpeed = speedAvailable
+                    ? HexMetrics.TileHeight * _unitData.MoveSpeed * moveMultiplier
+                    : float.NaN;
+
+                bool animatorInTransition = animatorAvailable
+                    && _animator.IsInTransition(0);
+                AnimatorStateInfo currentState = animatorAvailable
+                    ? _animator.GetCurrentAnimatorStateInfo(0)
+                    : default;
+                AnimatorStateInfo nextState = animatorAvailable && animatorInTransition
+                    ? _animator.GetNextAnimatorStateInfo(0)
+                    : default;
+
+                bool walkAttackTransition = animatorAvailable
+                    && animatorInTransition
+                    && (currentState.shortNameHash == StateWalk
+                            && nextState.shortNameHash == StateAttack
+                        || currentState.shortNameHash == StateAttack
+                            && nextState.shortNameHash == StateWalk);
+
+                // rootBone이 처음 유효해진 프레임은 직전의 "값 없음"과 비교하지 않는다. 이 프레임은
+                // baseline만 만들기 때문에 gameplay 사건도 아니고 유닛별 8건 예산도 소비하지 않는다.
+                if (UnitAttackShadowObserver.ShouldRecordInfernoMotionPairForValidation(
+                    _hasInfernoMotionPrevious,
+                    _infernoMotionPreviousRenderedAnchorAvailable,
+                    renderedAnchorCurrentAvailable))
+                {
+                    UnitAttackShadowObserver.RecordInfernoMotionJump(
+                        new InfernoMotionJumpSample
+                        {
+                        UnitId = _unitData.Id,
+                        NetworkObjectId = networkIdentityAvailable
+                            ? _movementNetworkUnit.NetworkObjectId
+                            : 0UL,
+                        NetworkIdentityAvailable = networkIdentityAvailable,
+                        Lifecycle = _infernoMotionLifecycle,
+                        ViewFlipped = ViewConverter.IsFlipped,
+                        PreviousFrame = _infernoMotionPreviousFrame,
+                        Frame = frame,
+                        PreviousTime = _infernoMotionPreviousTime,
+                        Time = now,
+                        DeltaTime = Time.deltaTime,
+                        RawFrameSeconds = (float)(now - _infernoMotionPreviousTime),
+                        SimulationPrevious = _infernoMotionPreviousSimulation,
+                        SimulationCurrent = simulationCurrent,
+                        SimulationRotationPrevious = _infernoMotionPreviousSimulationRotation,
+                        SimulationRotationCurrent = simulationRotationCurrent,
+                        VisualAvailable = visualPairAvailable,
+                        VisualPrevious = _infernoMotionPreviousVisual,
+                        VisualCurrent = visualCurrent,
+                        VisualRotationPrevious = _infernoMotionPreviousVisualRotation,
+                        VisualRotationCurrent = visualRotationCurrent,
+                        RenderedAnchorAvailable = renderedAnchorPairAvailable,
+                        RenderedAnchorPrevious = _infernoMotionPreviousRenderedAnchor,
+                        RenderedAnchorCurrent = renderedAnchorCurrent,
+                        RenderedAnchorUnavailableReason = renderedAnchorCurrentAvailable
+                            ? "previous-rendered-anchor-unavailable"
+                            : renderedAnchorReason,
+                        RendererBoundsAvailable = rendererBoundsPairAvailable,
+                        RendererBoundsPrevious = _infernoMotionPreviousRendererBounds,
+                        RendererBoundsCurrent = rendererBoundsCurrent,
+                        RendererBoundsUnavailableReason = rendererBoundsCurrentAvailable
+                            ? "previous-renderer-bounds-unavailable"
+                            : rendererBoundsReason,
+                        SpeedAvailable = speedAvailable,
+                        ProductionWorldSpeed = productionWorldSpeed,
+                        MovementEvidenceAvailable = movementEvidenceAvailable,
+                        MovementPhase = movementPhase,
+                        CommandRevision = commandRevision,
+                        SegmentRevision = segmentRevision,
+                        SemanticRevision = semanticRevision,
+                        ReplicationEvidenceAvailable = networkIdentityAvailable,
+                        AnimatorCurrentStateHash = animatorAvailable
+                            ? currentState.fullPathHash
+                            : 0,
+                        AnimatorNextStateHash = animatorAvailable && animatorInTransition
+                            ? nextState.fullPathHash
+                            : 0,
+                        AnimatorInTransition = animatorInTransition,
+                        WalkAttackTransition = walkAttackTransition
+                    });
+                }
+            }
+
+            // 정상/이상 여부와 무관하게 다음 프레임 비교 기준만 갱신한다. 로그 출력 여부는
+            // bounded observer가 결정하며 여기서는 위치나 Animator를 절대 보정하지 않는다.
+            _hasInfernoMotionPrevious = true;
+            _infernoMotionPreviousFrame = frame;
+            _infernoMotionPreviousTime = now;
+            _infernoMotionPreviousSimulation = simulationCurrent;
+            _infernoMotionPreviousSimulationRotation = simulationRotationCurrent;
+            _infernoMotionPreviousVisualAvailable = visualCurrentAvailable;
+            _infernoMotionPreviousVisual = visualCurrent;
+            _infernoMotionPreviousVisualRotation = visualRotationCurrent;
+            _infernoMotionPreviousRenderedAnchorAvailable = renderedAnchorCurrentAvailable;
+            _infernoMotionPreviousRenderedAnchor = renderedAnchorCurrent;
+            _infernoMotionPreviousRendererBoundsAvailable = rendererBoundsCurrentAvailable;
+            _infernoMotionPreviousRendererBounds = rendererBoundsCurrent;
+        }
+
+        /// <summary>
+        /// InfernoSpirit가 실제로 화면에 그리는 단 하나의 스킨 메시와 그 Hips 기준점을 캐시한다.
+        /// 이 탐색은 Initialize에서 한 번만 실행된다. LateUpdate에서 계층을 다시 찾지 않으므로 유닛 수와
+        /// 프레임 수에 비례하는 배열 할당이 생기지 않는다. 구조가 production 계약과 다르면 임의의 첫
+        /// renderer나 bounds를 정상값으로 꾸미지 않고 unavailable 사유를 남긴다.
+        /// </summary>
+        private void CacheInfernoRenderedAnchor()
+        {
+            ClearInfernoRenderedAnchorCache();
+            if (_unitData == null || _unitData.Type != UnitType.InfernoSpirit)
+                return;
+
+            _infernoRenderedAnchorSearch.Clear();
+            GetComponentsInChildren(true, _infernoRenderedAnchorSearch);
+            if (_infernoRenderedAnchorSearch.Count != 1)
+            {
+                _infernoRenderedAnchorCacheReason =
+                    $"skinned-renderer-count-{_infernoRenderedAnchorSearch.Count}";
+                _infernoRenderedAnchorSearch.Clear();
+                return;
+            }
+
+            SkinnedMeshRenderer renderer = _infernoRenderedAnchorSearch[0];
+            Transform rootBone = renderer != null ? renderer.rootBone : null;
+            Transform animatorHips = _animator != null && _animator.isHuman
+                ? _animator.GetBoneTransform(HumanBodyBones.Hips)
+                : null;
+            if (renderer == null)
+                _infernoRenderedAnchorCacheReason = "skinned-renderer-unavailable";
+            else if (rootBone == null)
+                _infernoRenderedAnchorCacheReason = "renderer-root-bone-unavailable";
+            else if (_animator == null)
+                _infernoRenderedAnchorCacheReason = "animator-unavailable";
+            else if (!_animator.isHuman)
+                _infernoRenderedAnchorCacheReason = "animator-not-humanoid";
+            else if (animatorHips == null)
+                _infernoRenderedAnchorCacheReason = "animator-hips-unavailable";
+            else if (rootBone != animatorHips)
+                _infernoRenderedAnchorCacheReason = "root-bone-hips-mismatch";
+            else
+            {
+                _infernoRenderedAnchorRenderer = renderer;
+                _infernoRenderedAnchorRootBone = rootBone;
+                _infernoRenderedAnchorCacheReason = "available";
+            }
+            _infernoRenderedAnchorSearch.Clear();
+        }
+
+        private void ClearInfernoRenderedAnchorCache()
+        {
+            _infernoRenderedAnchorRenderer = null;
+            _infernoRenderedAnchorRootBone = null;
+            _infernoRenderedAnchorCacheReason = "not-initialized";
+            _infernoRenderedAnchorSearch.Clear();
+        }
+
+        private void EnsureInfernoMotionLifecycle()
+        {
+            if (_infernoMotionLifecycle != 0UL) return;
+            _nextInfernoMotionLifecycle = _nextInfernoMotionLifecycle == ulong.MaxValue
+                ? 1UL
+                : _nextInfernoMotionLifecycle + 1UL;
+            _infernoMotionLifecycle = _nextInfernoMotionLifecycle;
+            _hasInfernoMotionPrevious = false;
+        }
+
+        private void RetireInfernoMotionJumpEvidence()
+        {
+            if (_infernoMotionLifecycle != 0UL && _unitData != null)
+            {
+                UnitAttackShadowObserver.RetireInfernoMotionJump(
+                    _unitData.Id,
+                    _infernoMotionLifecycle);
+            }
+            _infernoMotionLifecycle = 0UL;
+            _hasInfernoMotionPrevious = false;
+            _infernoMotionPreviousVisualAvailable = false;
+            _infernoMotionPreviousRenderedAnchorAvailable = false;
+            _infernoMotionPreviousRendererBoundsAvailable = false;
+            ClearInfernoRenderedAnchorCache();
+        }
+
+        private static bool IsFiniteFacingValue(float value)
+            => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        private void SetInfernoAttackFacingIdentity(
+            int targetId,
+            bool targetIsUnit,
+            ulong presentationRevision,
+            AttackPresentationScope scope)
+        {
+            if (_unitData == null || _unitData.Type != UnitType.InfernoSpirit) return;
+            _infernoFacingTargetId = targetId;
+            _infernoFacingTargetIsUnit = targetIsUnit;
+            _infernoFacingPresentationRevision = presentationRevision;
+            _infernoFacingScope = scope;
+        }
+
+        private void QueueInfernoAttackStartFacing()
+        {
+            if (_unitData == null || _unitData.Type != UnitType.InfernoSpirit) return;
+            _infernoAttackStartFacingPending = true;
+        }
+
+        private void ConsumePendingInfernoAttackStartFacing()
+        {
+            if (!_infernoAttackStartFacingPending) return;
+            _infernoAttackStartFacingPending = false;
+            ObserveInfernoAttackFacing(
+                AnimatedAttackFacingStage.AttackStartPose,
+                _infernoFacingTargetId,
+                _infernoFacingTargetIsUnit,
+                _infernoFacingPresentationRevision,
+                _infernoFacingScope);
+        }
+
+        private void ClearInfernoAttackFacingEvidenceState()
+        {
+            _infernoAttackStartFacingPending = false;
+            _infernoFacingTargetId = -1;
+            _infernoFacingTargetIsUnit = false;
+            _infernoFacingPresentationRevision = 0UL;
+            _infernoFacingScope = default;
+        }
+
+        private void ObserveInfernoAttackFacing(
+            AnimatedAttackFacingStage stage,
+            int targetId,
+            bool targetIsUnit,
+            ulong presentationRevision,
+            AttackPresentationScope scope)
+        {
+            if (_unitData == null || _unitData.Type != UnitType.InfernoSpirit) return;
+
+            Transform visual = PresentationTransform;
+            Transform target = _combatTargetId == targetId
+                    && _combatTargetIsUnit == targetIsUnit
+                ? _combatTargetTransform
+                : GetTargetTransform(targetId, targetIsUnit);
+            Transform presentationTarget = GetPresentationTransform(target);
+            Vector3 simulationTargetDirection = target != null
+                ? target.position - transform.position
+                : default;
+            Vector3 presentationTargetDirection = visual != null && presentationTarget != null
+                ? presentationTarget.position - visual.position
+                : default;
+
+            bool animatorAvailable = _animator != null;
+            bool animatorIsHuman = animatorAvailable && _animator.isHuman;
+            bool inTransition = animatorAvailable && _animator.IsInTransition(0);
+            AnimatorStateInfo currentState = animatorAvailable
+                ? _animator.GetCurrentAnimatorStateInfo(0)
+                : default;
+            AnimatorStateInfo nextState = animatorAvailable && inTransition
+                ? _animator.GetNextAnimatorStateInfo(0)
+                : default;
+            // Humanoid의 계산된 body 방향 API는 일반 LateUpdate/Animation Event 경로에서 읽으면
+            // Unity 경고를 발생시킨다. 이미 production 계약으로 검증하고 캐시한 renderer rootBone
+            // (정확히 Animator Hips와 같은 Transform)의 실제 방향만 읽는다. 이 값은 과거 Humanoid
+            // body 방향과 의미가 같다고 가장하지 않고 rendered Hips 방향으로 명시해 전달한다.
+            Vector3 renderedHipsForward = default;
+            bool renderedHipsEvidenceAvailable = _infernoRenderedAnchorRenderer != null
+                && _infernoRenderedAnchorRootBone != null
+                && _infernoRenderedAnchorRenderer.rootBone == _infernoRenderedAnchorRootBone
+                && _infernoRenderedAnchorRenderer.enabled
+                && _infernoRenderedAnchorRenderer.gameObject.activeInHierarchy
+                && _infernoRenderedAnchorRootBone.gameObject.activeInHierarchy;
+            string unavailableReason = "available";
+            if (!animatorAvailable)
+                unavailableReason = "animator-unavailable";
+            else if (!animatorIsHuman)
+                unavailableReason = "animator-not-humanoid";
+            else if (!renderedHipsEvidenceAvailable)
+                unavailableReason = NormalizeInfernoFacingReason(_infernoRenderedAnchorCacheReason);
+            else
+            {
+                renderedHipsForward = _infernoRenderedAnchorRootBone.forward;
+                if (!IsFiniteFacingVector(renderedHipsForward))
+                {
+                    renderedHipsEvidenceAvailable = false;
+                    unavailableReason = "rendered-hips-forward-invalid";
+                }
+            }
+            if (visual == null)
+                unavailableReason = "visual-root-unavailable";
+            else if (presentationTarget == null)
+                unavailableReason = "target-presentation-unavailable";
+
+            UnitAttackShadowObserver.RecordAnimatedAttackFacing(
+                stage,
+                _unitData.Id,
+                _unitData.Type,
+                targetId,
+                targetIsUnit,
+                presentationRevision,
+                scope,
+                ViewConverter.IsFlipped,
+                animatorAvailable ? currentState.fullPathHash : 0,
+                animatorAvailable && inTransition ? nextState.fullPathHash : 0,
+                animatorAvailable ? currentState.normalizedTime : float.NaN,
+                inTransition,
+                animatorIsHuman,
+                transform.forward,
+                visual != null ? visual.forward : default,
+                renderedHipsForward,
+                renderedHipsEvidenceAvailable,
+                simulationTargetDirection,
+                presentationTargetDirection,
+                unavailableReason);
+        }
+
+        private static string NormalizeInfernoFacingReason(string reason)
+            => string.IsNullOrEmpty(reason) || reason == "available"
+                ? "rendered-hips-unavailable"
+                : reason;
+
+        private static bool IsFiniteFacingVector(Vector3 value)
+            => !float.IsNaN(value.x) && !float.IsInfinity(value.x)
+                && !float.IsNaN(value.y) && !float.IsInfinity(value.y)
+                && !float.IsNaN(value.z) && !float.IsInfinity(value.z);
+#endif
+
         /// <summary>
         /// Animation Event에서 AnimationEventRelay를 통해 호출.
         /// 공격 애니메이션의 타격 프레임에 맞춰 피격 대상에게 시각적 반응(스케일 펀치)을 적용.
@@ -4219,7 +5182,127 @@ namespace Hexiege.Presentation
         /// </summary>
         public void OnAttackHit()
         {
-            if (_unitData == null || !_unitData.IsAlive) return;
+            if (_unitData == null || !_unitData.IsAlive)
+            {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (_unitData != null && _unitData.Type == UnitType.InfernoSpirit)
+                {
+                    UnitAttackShadowObserver.RecordInfernoAttackVfxAttempt(
+                        _unitData.Id,
+                        _attackPresentationImpactMode,
+                        false,
+                        false,
+                        default,
+                        "unit-unavailable",
+                        EffectManager.Instance != null,
+                        false,
+                        false,
+                        false,
+                        0,
+                        false,
+                        Vector3.zero);
+                }
+#endif
+                return;
+            }
+            // 멀티플레이 일반 공격은 유효한 커밋 scope를 이 지점에서 먼저 소비해야만
+            // VFX/SFX/tracer/로컬 피격 신호를 방출한다. BloomFairy 힐과 싱글플레이는
+            // C3 공격 상관관계의 대상이 아니므로 기존 별도 경로를 유지한다.
+            bool networkActive = NetworkContext.IsNetworkActive;
+            bool separateHeal = _unitData.Type == UnitType.BloomFairy;
+            AttackPresentationScope markerScope = default;
+            bool consumedValidScope = false;
+            bool consumedSourceMarker = false;
+            bool sourceOnlyMarker = false;
+            AttackPresentationMarkerEmission markerEmission =
+                AttackPresentationMarkerEmission.Full;
+            if (networkActive && !separateHeal)
+            {
+                consumedSourceMarker =
+                    _attackPresentationSourceMarkerLease.TryConsume(out sourceOnlyMarker);
+                if (!sourceOnlyMarker)
+                    consumedValidScope = TryAcquirePresentationShadowMarkerScope(out markerScope);
+                markerEmission =
+                    UnitAttackPresentationPolicy.ResolveNetworkAttackMarkerEmission(
+                        _attackPresentationImpactMode,
+                        consumedValidScope,
+                        consumedSourceMarker,
+                        sourceOnlyMarker);
+                if (markerEmission == AttackPresentationMarkerEmission.Suppressed)
+                {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                    if (_unitData.Type == UnitType.InfernoSpirit)
+                    {
+                        UnitAttackShadowObserver.RecordInfernoAttackVfxAttempt(
+                            _unitData.Id,
+                            _attackPresentationImpactMode,
+                            consumedValidScope,
+                            false,
+                            markerScope,
+                            "gate-suppressed",
+                            EffectManager.Instance != null,
+                            false,
+                            false,
+                            false,
+                            0,
+                            false,
+                            Vector3.zero);
+                    }
+#endif
+                    return;
+                }
+            }
+            else if (!UnitAttackPresentationPolicy.ShouldEmitLocalImpact(
+                         networkActive,
+                         separateHeal))
+            {
+                return;
+            }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (networkActive && _unitData.Type == UnitType.StreamSpirit)
+            {
+                // Raw Animation Event가 아니라 source-marker lease가 실제 표현을 허용한 경계만
+                // 기록한다. provisional marker와 이미 소비된 loop marker는 정상 차단이므로
+                // VFX 누락이나 unmatched 회차로 오판하지 않는다.
+                UnitAttackShadowObserver.RecordStreamSpiritTimelineMarker(
+                    _unitData.Id,
+                    _unitData.Type,
+                    _lastAttackPresentationRevision,
+                    _attackPresentationImpactMode);
+            }
+            if (networkActive && _unitData.Type == UnitType.FoxMagician)
+            {
+                UnitAttackShadowObserver.RecordFoxMagicianTimelineMarker(
+                    _unitData.Id,
+                    _unitData.Type,
+                    _lastAttackPresentationRevision,
+                    _attackPresentationImpactMode);
+            }
+#endif
+
+            // 타겟 참조는 Animation Event 뒤 곧바로 Stop/ChangeTarget/사망 처리로 지워질 수 있다.
+            // 특히 원거리 Tracer 콜백은 수 프레임 뒤 실행되므로 필드를 다시 읽으면 새 타겟이나
+            // -1을 이번 발사의 피해자로 기록한다. 발사 경계의 값과 exact scope를 함께 캡처한다.
+            int presentationVictimId = _combatTargetId;
+            bool presentationVictimIsUnit = _combatTargetIsUnit;
+            bool sourceOnlyPresentation =
+                markerEmission == AttackPresentationMarkerEmission.SourceOnly;
+            // 방향 진단은 marker가 발생한 순간의 복제 회차를 사용해야 한다. 트레이서가
+            // 날아가는 동안 최신 NetworkVariable을 다시 읽으면 다음 공격 revision과 섞인다.
+            AttackPresentationReplicatedSnapshot markerReplicatedSnapshot =
+                sourceOnlyPresentation
+                    || UnitAttackResultPresentationShadowBridge.OwnsAttacker(_unitData.Id)
+                    ? default : CaptureAttackPresentationReplicatedSnapshot();
+            bool authoritativePresentation = !sourceOnlyPresentation
+                && UnitAttackResultPresentationShadowBridge.OwnsAttacker(_unitData.Id);
+            var presentationCoordinator = UnitAttackResultPresentationShadowBridge.Coordinator;
+            bool hasConfirmedImpact = authoritativePresentation
+                && presentationCoordinator.TryGetConfirmedResult(markerScope, out _);
+            AttackResultPresentationInput confirmedImpact = default;
+            if (hasConfirmedImpact) presentationCoordinator.TryGetConfirmedResult(markerScope, out confirmedImpact);
+            AttackPresentationSchedule committedSchedule = default;
+            if (authoritativePresentation) presentationCoordinator.TryGetSchedule(markerScope, out committedSchedule);
 
             // 공격 이펙트 재생 (VFX + SFX 동시).
             // OnAttackHit은 모든 클라이언트에서 로컬로 실행되는 Animation Event이므로
@@ -4232,12 +5315,128 @@ namespace Hexiege.Presentation
             //   월드 회전에 본 고유 회전(약 0, -90, -90도)이 섞여 VFX가 엉뚱한 방향으로 발사되기 때문이다.
             //   위치는 본 덕분에 정확하므로 유지하고, 회전만 유닛 루트의 정면 방향으로 교체한다.
             Transform presentationTransform = PresentationTransform;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // Animation Event까지 도달했다면 Animator가 Attack pose를 평가한 상태다.
+            // 비정상적인 실행 순서로 LateUpdate보다 marker가 먼저 왔을 때도 시작 표본을 먼저 닫는다.
+            ConsumePendingInfernoAttackStartFacing();
+            ObserveInfernoAttackFacing(
+                AnimatedAttackFacingStage.ImpactMarker,
+                presentationVictimId,
+                presentationVictimIsUnit,
+                _infernoFacingPresentationRevision,
+                markerScope.IsValid ? markerScope : _infernoFacingScope);
+#endif
+            if (!sourceOnlyPresentation)
+            {
+                ObservePresentationShadowMarker(
+                    LegacyPresentationObservationKind.Marker,
+                    presentationTransform,
+                    markerScope,
+                    presentationVictimId,
+                    presentationVictimIsUnit,
+                    markerReplicatedSnapshot);
+            }
             Vector3 spawnPos = _vfxSpawnPoint != null
                 ? _vfxSpawnPoint.position
                 : presentationTransform.position;
             Quaternion spawnRot = Quaternion.LookRotation(presentationTransform.forward);
-            EffectManager.Instance?.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot);  // VFX
+            if (authoritativePresentation)
+            {
+                // 결과가 있으면 해당 Impact의 방향을 사용한다. 아직 결과가 없는 표식은
+                // commit 의도만 사용하며 최신 NetworkVariable을 과거 타격 증거로 재조회하지 않는다.
+                ActionDirectionXZ aim = hasConfirmedImpact ? confirmedImpact.AimDirection : committedSchedule.CommitDirection;
+                if (aim.IsValid)
+                {
+                    if (ViewConverter.IsFlipped) aim = UnitAttackResultPresentationShadowScheduler.FlipDirection180(aim);
+                    spawnRot = Quaternion.LookRotation(new Vector3((float)aim.X, 0f, (float)aim.Z));
+                }
+            }
+            EffectManager effectManager = EffectManager.Instance;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (_unitData.Type == UnitType.FoxMagician)
+            {
+                UnitAttackShadowObserver.RecordFoxMagicianTimelineVfxAttempt(
+                    _unitData.Id,
+                    _unitData.Type,
+                    _lastAttackPresentationRevision,
+                    _attackPresentationImpactMode);
+            }
+#endif
+            UnitAttackVfxPlaybackResult vfxResult = effectManager != null
+                ? effectManager.PlayUnitAttack(_unitData.Type, spawnPos, spawnRot)
+                : new UnitAttackVfxPlaybackResult(
+                    UnitAttackVfxPlaybackStatus.PoolItemUnavailable,
+                    0,
+                    false);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (_unitData.Type == UnitType.StreamSpirit)
+            {
+                string streamOutcome = effectManager == null
+                    ? "manager-unavailable"
+                    : vfxResult.Status == UnitAttackVfxPlaybackStatus.Started
+                        ? "started"
+                        : vfxResult.Status.ToString();
+                UnitAttackShadowObserver.RecordStreamSpiritTimelineVfx(
+                    _unitData.Id,
+                    _unitData.Type,
+                    _lastAttackPresentationRevision,
+                    _attackPresentationImpactMode,
+                    streamOutcome,
+                    vfxResult.ParticleSystemCount,
+                    vfxResult.PlaybackActive);
+            }
+            if (_unitData.Type == UnitType.FoxMagician)
+            {
+                string foxOutcome = effectManager == null
+                    ? "manager-unavailable"
+                    : vfxResult.Status == UnitAttackVfxPlaybackStatus.Started
+                        ? "started"
+                        : vfxResult.Status.ToString();
+                UnitAttackShadowObserver.RecordFoxMagicianTimelineVfxResult(
+                    _unitData.Id,
+                    _unitData.Type,
+                    _lastAttackPresentationRevision,
+                    _attackPresentationImpactMode,
+                    foxOutcome,
+                    vfxResult.ParticleSystemCount,
+                    vfxResult.PlaybackActive);
+            }
+            if (_unitData.Type == UnitType.InfernoSpirit)
+            {
+                bool managerAvailable = effectManager != null;
+                bool presetAvailable = managerAvailable
+                    && vfxResult.Status != UnitAttackVfxPlaybackStatus.PresetUnavailable;
+                bool prefabAvailable = presetAvailable
+                    && vfxResult.Status != UnitAttackVfxPlaybackStatus.PrefabUnavailable;
+                bool poolItemAvailable = prefabAvailable
+                    && vfxResult.Status != UnitAttackVfxPlaybackStatus.PoolItemUnavailable;
+                string outcome = !managerAvailable
+                    ? "manager-unavailable"
+                    : vfxResult.Status == UnitAttackVfxPlaybackStatus.Started
+                        ? "started"
+                        : vfxResult.Status.ToString();
+                UnitAttackShadowObserver.RecordInfernoAttackVfxAttempt(
+                    _unitData.Id,
+                    _attackPresentationImpactMode,
+                    consumedValidScope,
+                    sourceOnlyPresentation,
+                    markerScope,
+                    outcome,
+                    managerAvailable,
+                    presetAvailable,
+                    prefabAvailable,
+                    poolItemAvailable,
+                    vfxResult.ParticleSystemCount,
+                    vfxResult.PlaybackActive,
+                    spawnPos);
+            }
+#endif
             AudioManager.Instance?.PlayUnitAttackSfx(_unitData.Type);                    // SFX (규칙 15 — VFX와 짝)
+
+            // 일반 Stop이 marker보다 먼저 도착한 경우 서버가 이미 커밋한 공격자의 발사
+            // VFX/SFX까지만 마친다. 타겟은 이미 사망·교체될 수 있으므로 Tracer와 로컬 피격
+            // 신호를 만들지 않고 여기서 종료한다.
+            if (sourceOnlyPresentation) return;
 
             // ────────────────────────────────────────────────────────────────
             // 피격 연출 방출 타이밍 결정 (전투 타격 타이밍 동기화 Phase 3 — 축 4 / 3-2)
@@ -4262,22 +5461,131 @@ namespace Hexiege.Presentation
                 Vector3 targetPos = presentationTarget != null
                     ? presentationTarget.position
                     : GetTargetPresentationWorldPos(
-                        _combatTargetId,
-                        _combatTargetIsUnit);
+                        presentationVictimId,
+                        presentationVictimIsUnit);
+
+                if (authoritativePresentation)
+                {
+                    // 착탄 콜백에는 결과 권한이 없다. 표시 시각이 이미 지났다면 구 탄환을
+                    // 다시 재생해 피격 표현을 늦추지 않는다. 결과는 Coordinator가 독립 방출한다.
+                    double impactTime = hasConfirmedImpact ? confirmedImpact.ImpactServerTime
+                        : committedSchedule.ImpactServerTime;
+                    double remaining = impactTime + AuthoritativeAttackPresentationCoordinator.PresentationDelaySeconds
+                        - UnitAttackResultPresentationShadowBridge.CurrentServerTime;
+                    if (committedSchedule.IsValid && remaining > 0d)
+                        em.PlayTracer(_unitData.Type, spawnPos, targetPos, null, (float)remaining);
+                    return;
+                }
 
                 // 트레이서 발사. 착탄 콜백에서 OnLocalAttackHit을 발행하여 피격 연출을 착탄 시점에 방출한다.
                 //   트레이서 프리셋이 없으면 PlayTracer가 콜백을 "즉시" 실행하므로 기존 즉시 방출로 폴백된다.
                 em.PlayTracer(_unitData.Type, spawnPos, targetPos,
-                    () => GameEvents.OnLocalAttackHit.OnNext(attackerId));
+                    () =>
+                    {
+                        ObservePresentationShadowMarker(
+                            LegacyPresentationObservationKind.TracerImpact,
+                            PresentationTransform,
+                            markerScope,
+                            presentationVictimId,
+                            presentationVictimIsUnit,
+                            markerReplicatedSnapshot);
+                        GameEvents.OnLocalAttackHit.OnNext(
+                            new LocalAttackHitPresentationEvent(
+                                attackerId,
+                                markerScope,
+                                markerReplicatedSnapshot));
+                    });
             }
             else
             {
+                if (authoritativePresentation) return;
                 // 근접 유닛(또는 EffectManager 부재 시): 발사 순간 = 타격 순간이므로 즉시 신호를 발행한다.
                 // HitPresentationQueue가 이 신호를 받아 해당 공격자의 보류 큐에서 피격 연출 1건을 방출한다.
                 // 모든 클라이언트에서 로컬로 실행되므로 각 화면이 자기 애니메이션 타이밍에 맞춰 연출된다.
                 // (전투 타격 타이밍 동기화 Phase 2 — 축 3)
-                GameEvents.OnLocalAttackHit.OnNext(attackerId);
+                GameEvents.OnLocalAttackHit.OnNext(
+                    new LocalAttackHitPresentationEvent(
+                        attackerId,
+                        markerScope,
+                        markerReplicatedSnapshot));
             }
+        }
+
+        /// <summary>
+        /// C3는 실제 Animation Event가 사용한 화면 방향과 타겟만 읽는다. 이 메서드는 기존
+        /// VFX/SFX/Animator/피해 API를 호출하지 않으며 Shadow가 꺼진 경기에서는 no-op이다.
+        /// </summary>
+        private void ObservePresentationShadowMarker(
+            LegacyPresentationObservationKind kind,
+            Transform presentationTransform,
+            AttackPresentationScope attackScope,
+            int victimId,
+            bool victimIsUnit,
+            AttackPresentationReplicatedSnapshot replicatedSnapshot)
+        {
+            if (!UnitAttackResultPresentationShadowBridge.IsActive
+                || _unitData == null || presentationTransform == null)
+                return;
+            // 새 mode의 marker는 선택적인 무기 표식이다. 실제 결과 emit 방향과 구분한다.
+            if (UnitAttackResultPresentationShadowBridge.OwnsAttacker(_unitData.Id)) return;
+            Vector3 forward = presentationTransform.forward;
+            if (!ActionDirectionXZ.TryCreate(forward.x, forward.z, out ActionDirectionXZ direction))
+                return;
+            // Red 화면은 Visual Root가 180도 반전되어 있다. 서버 결과의 AimDirection은
+            // Blue 기준 도메인 좌표이므로 화면 forward를 같은 도메인으로 되돌린 뒤 비교한다.
+            if (ViewConverter.IsFlipped)
+            {
+                direction = UnitAttackResultPresentationShadowScheduler.FlipDirection180(direction);
+                if (!direction.IsValid) return;
+            }
+            UnitAttackResultPresentationShadowBridge.ObserveLegacy(
+                new LegacyPresentationObservation(
+                    kind,
+                    _unitData.Id,
+                    victimIsUnit ? 1 : 2,
+                    victimId,
+                    -1,
+                    Time.realtimeSinceStartupAsDouble,
+                    true,
+                    direction,
+                    default,
+                    attackScope,
+                    replicatedSnapshot));
+        }
+
+        /// <summary>
+        /// NetworkUnit의 현재 원자 Shadow 값을 marker 시점에 값으로 복사한다. 이 snapshot은
+        /// 진단 전용이며 Animator·Simulation Root·서버 Aim을 변경하지 않는다.
+        /// </summary>
+        private AttackPresentationReplicatedSnapshot
+            CaptureAttackPresentationReplicatedSnapshot()
+        {
+            if (!NetworkContext.IsNetworkActive)
+                return default;
+            NetworkUnit networkUnit = GetComponent<NetworkUnit>();
+            if (networkUnit == null)
+                return default;
+            NetworkUnitActionShadowState state = networkUnit.AttackShadowState;
+            return state.AttackerInstanceId != 0UL
+                    && state.SequenceId != 0UL
+                    && state.Revision != 0UL
+                ? new AttackPresentationReplicatedSnapshot(
+                    state.AttackerInstanceId,
+                    state.SequenceId,
+                    state.Revision)
+                : default;
+        }
+
+        /// <summary>
+        /// 실제 Animation Event 순서를 커밋 RPC에 함께 실린 원자 공격 회차에 결속한다.
+        /// 별도 NetworkVariable 도착 시점이나 현재 타겟에서 회차를 추측하지 않는다.
+        /// </summary>
+        private bool TryAcquirePresentationShadowMarkerScope(
+            out AttackPresentationScope scope)
+        {
+            scope = default;
+            return _unitData != null
+                && _attackPresentationImpactLease.TryConsume(out scope);
         }
 
             // ====================================================================
@@ -4294,6 +5602,9 @@ namespace Hexiege.Presentation
         /// </summary>
         public void StartWalkAnimation()
         {
+            // Walk/Held는 공격 회차가 아니므로 별도 NGO 상태 도착 순서와 무관하게
+            // 이전 committed presentation의 로컬 Impact 승인을 먼저 닫는다.
+            RetireAndCloseAttackPresentationScope();
             // _animator가 null이면 lazy-init 시도 (Initialize() 전에 상태 값이 적용되는 경우 대응 — 스폰 레이스)
             if (_animator == null)
                 _animator = GetComponentInChildren<Animator>();
@@ -4313,8 +5624,9 @@ namespace Hexiege.Presentation
         /// <summary>
         /// [Phase 2 신규] 공격(Attack) 애니메이션 루프를 재생한다 — CrossFade만 수행.
         ///
-        /// 클라이언트에서 NetworkUnit의 애니메이션 상태 NetworkVariable(=Attack)이 적용될 때 호출된다
-        /// (값 변경 및 스폰 시 현재 값 적용). Attack 클립은 Loop Time=ON이므로 1회 CrossFade로 무한 루프.
+        /// Attack 클립은 Loop Time=ON이므로 1회 CrossFade로 무한 루프한다. 현재 멀티플레이
+        /// production은 별도 NetworkVariable에서 이 메서드를 호출하지 않고, target/revision/
+        /// impact mode를 함께 가진 StartCombatAnimation 경계에서만 클립을 시작한다.
         ///
         /// 회전/타겟 추적은 StartCombatAnimation(StartCombatClientRpc 경로)이 담당하므로, 이 메서드는
         /// 타겟 정보를 받지 않고 순수하게 "Attack 상태 전환"만 담당한다(애니메이션과 조준의 책임 분리).
@@ -4371,6 +5683,7 @@ namespace Hexiege.Presentation
         /// </summary>
         public void HoldMovementAnimation()
         {
+            RetireAndCloseAttackPresentationScope();
             if (_animator == null)
                 _animator = GetComponentInChildren<Animator>();
             if (_animator == null) return;
@@ -4449,11 +5762,65 @@ namespace Hexiege.Presentation
             _combatTargetIsUnit = targetIsUnit;
         }
 
-        private void ClearCombatTargetTracking()
+        /// <summary>
+        /// 로컬 marker lease만 닫으면 HitPresentationQueue에 먼저 도착한 signal-only 상태가
+        /// 남아 늦은 구회차 결과를 방출할 수 있다. 그래서 Close 직전에 정확한 instance/sequence를
+        /// 표현 큐에 알린다. 이 이벤트는 HP·피해·서버 Root를 쓰지 않는 로컬 표현 수명 신호다.
+        /// </summary>
+        private void RetireAndCloseAttackPresentationScope()
         {
+            if (NetworkContext.IsNetworkActive
+                && _unitData != null
+                && _attackPresentationImpactLease.TryGetSequenceScope(
+                    out AttackPresentationScope retiredScope))
+            {
+                GameEvents.OnLocalAttackPresentationScopeRetired.OnNext(
+                    new LocalAttackPresentationScopeRetiredEvent(
+                        _unitData.Id,
+                        retiredScope));
+            }
+            _attackPresentationImpactLease.Close();
+            _attackPresentationSourceMarkerLease.Close();
+            _attackPresentationImpactMode = AttackPresentationImpactMode.Suppressed;
+        }
+
+        /// <summary>
+        /// 일반 Stop이 먼저 도착해도 이미 커밋된 공격자 발사 marker는 남은 횟수만큼만
+        /// SourceOnly로 보존한다. exact target scope는 즉시 retire하므로 사망한 타겟이나
+        /// 새 타겟으로 Tracer·피격 표현이 이전되지 않는다.
+        /// </summary>
+        private void PreserveCommittedSourceMarkerAndCloseTargetImpact()
+        {
+            if (NetworkContext.IsNetworkActive
+                && _unitData != null
+                && _attackPresentationImpactLease.TryGetSequenceScope(
+                    out AttackPresentationScope retiredScope))
+            {
+                GameEvents.OnLocalAttackPresentationScopeRetired.OnNext(
+                    new LocalAttackPresentationScopeRetiredEvent(
+                        _unitData.Id,
+                        retiredScope));
+            }
+            _attackPresentationImpactLease.Close();
+            _attackPresentationSourceMarkerLease.PreserveSourceOnly();
+            _attackPresentationImpactMode = AttackPresentationImpactMode.Suppressed;
+        }
+
+        private void ClearCombatTargetTracking(bool preserveCommittedSourceMarker = false)
+        {
+            // 현재 타겟을 잃은 뒤 예전 회차 marker가 새 타겟 또는 victim=-1로 방출되지 않게
+            // 아직 소비되지 않은 로컬 표현 lease도 같은 경계에서 닫는다. 이미 발사된 원거리
+            // Tracer는 OnAttackHit에서 값으로 캡처한 scope/피해자를 계속 사용한다.
+            if (preserveCommittedSourceMarker)
+                PreserveCommittedSourceMarkerAndCloseTargetImpact();
+            else
+                RetireAndCloseAttackPresentationScope();
             _combatTargetTransform = null;
             _combatTargetId = -1;
             _combatTargetIsUnit = false;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            ClearInfernoAttackFacingEvidenceState();
+#endif
         }
 
         /// <summary>
@@ -4464,14 +5831,122 @@ namespace Hexiege.Presentation
         {
             _rootRotationOwnership.TransferToAction();
             SetCombatTargetTracking(targetId, targetIsUnit);
-
-            Vector3 targetPosition = GetTargetWorldPos(targetId, targetIsUnit);
-            if (targetPosition != Vector3.zero)
-            {
-                float angle = CalculateAttackAngle(targetPosition);
-                transform.rotation = Quaternion.Euler(0f, angle, 0f);
-            }
+            // 여기서 Root를 즉시 타겟 방향으로 스냅하지 않는다. Update의 서버 전용
+            // RotateTowards(270°/s)가 Action 소유권 아래에서 유일하게 점진 회전한다.
+            // 공격 시작은 NetworkCombatController가 실제 pose 5° 진입을 확인한 뒤 수행한다.
         }
+
+        /// <summary>
+        /// Chase의 마지막 이동 위치가 Root에 쓰이기 전에 서버 Action 소유권을 넘기고,
+        /// target·revision·impact suppression을 포함한 provisional Start를 발행한다.
+        /// 이벤트 구독자가 RPC enqueue까지 완료했다는 ACK가 돌아오지 않으면 Action 소유권을
+        /// 즉시 이동에 반환하므로 이번 frame은 Root/NoIntent를 커밋하지 않고 다음 frame에 재시도한다.
+        /// </summary>
+        private bool TryBeginServerAttackEntryBeforeRootStop(
+            int targetId,
+            bool targetIsUnit)
+        {
+            if (!NetworkContext.IsNetworkActive
+                || !NetworkContext.IsNetworkServer
+                || _unitData == null
+                || !_unitData.IsAlive)
+                return false;
+
+            ulong serialBefore = _serverAttackEntryHandoffSerial;
+            BeginServerActionRotation(targetId, targetIsUnit);
+            if (!_rootRotationOwnership.ActionOwnsRoot)
+                return false;
+
+            // Subject는 동기 호출이다. NetworkCombatController가 Host 로컬 적용과 원격 RPC
+            // enqueue를 마친 뒤 ConfirmServerAttackEntryHandoff를 호출해야 serial이 바뀐다.
+            GameEvents.OnUnitEnteredCombat.OnNext(new UnitEnteredCombatEvent(
+                _unitData.Id,
+                targetId,
+                targetIsUnit));
+            bool completed = _serverAttackEntryHandoffSerial != serialBefore;
+            if (!completed)
+            {
+                EndServerActionRotation();
+                _rootRotationOwnership.TryAcquireMovement();
+            }
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            else
+            {
+                UnitMovementAuthorityObserver
+                    .ObserveCombatPresentationHandoffSuccess(_unitData.Id);
+            }
+#endif
+            return completed;
+        }
+
+        /// <summary>
+        /// 서버 전투 컨트롤러가 provisional Start의 Host 적용과 원격 RPC enqueue를 모두
+        /// 마친 뒤 호출하는 동기 ACK다. Client gameplay/Root writer를 만들지 않는다.
+        /// </summary>
+        public bool ConfirmServerAttackEntryHandoff(ulong presentationRevision)
+        {
+            if (!NetworkContext.IsNetworkActive
+                || !NetworkContext.IsNetworkServer
+                || _unitData == null
+                || !_unitData.IsAlive
+                || !_rootRotationOwnership.ActionOwnsRoot
+                || presentationRevision == 0UL
+                || _serverAttackEntryHandoffSerial == ulong.MaxValue)
+                return false;
+
+            _serverAttackEntryHandoffSerial++;
+            return true;
+        }
+
+        /// <summary>
+        /// 완료 receipt가 가리키는 Host 공격 표현이 같은 타겟과 revision으로 계속 유효한지
+        /// 읽기만 한다. Animator, Root, target 또는 lease를 변경하지 않는다.
+        /// </summary>
+        public bool IsServerCombatPresentationSatisfied(
+            int targetId,
+            bool targetIsUnit,
+            ulong presentationRevision)
+        {
+            return NetworkContext.IsNetworkActive
+                && NetworkContext.IsNetworkServer
+                && _unitData != null
+                && _unitData.IsAlive
+                && _rootRotationOwnership.ActionOwnsRoot
+                && _currentAnimStateHash == StateAttack
+                && _combatTargetId == targetId
+                && _combatTargetIsUnit == targetIsUnit
+                && _lastAttackPresentationRevision >= presentationRevision;
+        }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        /// <summary>
+        /// 실제 순수 Client 화면에서 Simulation Root의 frame별 이동과 현재 Animator 표시를
+        /// 함께 관측한다. 진단 전용이며 Transform이나 Animator 값을 변경하지 않는다.
+        /// </summary>
+        private void ObserveClientAttackEntryPresentationFrame()
+        {
+            if (!NetworkContext.IsNetworkActive
+                || NetworkContext.IsNetworkServer
+                || _unitData == null)
+                return;
+
+            if (_movementNetworkUnit == null)
+                _movementNetworkUnit = GetComponent<NetworkUnit>();
+            if (_movementNetworkUnit == null)
+                return;
+
+            UnitMovementAuthorityObserver.ObserveClientAttackPresentationFrame(
+                _unitData.Id,
+                _movementNetworkUnit.NetworkObjectId,
+                transform.position,
+                walkPresentationVisible: _currentAnimStateHash == StateWalk,
+                attackPresentationVisible: _currentAnimStateHash == StateAttack,
+                movementPhase: _movementNetworkUnit.MovementPhase,
+                commandRevision: _movementNetworkUnit.MovementCommandRevision,
+                segmentRevision: _movementNetworkUnit.MovementSegmentRevision,
+                semanticRevision: _movementNetworkUnit.MovementSemanticRevision);
+        }
+#endif
 
         /// <summary>
         /// 서버 gameplay 전투 루프가 종료를 확정하는 유일한 소유권 반환 경계다.
@@ -4479,7 +5954,8 @@ namespace Hexiege.Presentation
         /// </summary>
         private void EndServerActionRotation()
         {
-            ClearCombatTargetTracking();
+            ClearCombatTargetTracking(
+                preserveCommittedSourceMarker: NetworkContext.IsNetworkActive);
             ClearUnitActionShadowDesiredTarget();
             bool resumeMovement = _moveCoroutine != null
                 && _unitData != null
@@ -4492,7 +5968,7 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 전투 시작. 타겟 방향으로 즉시 스냅 회전 후 Attack CrossFade.
+        /// 전투 시작. 서버가 이미 5도 정렬을 확인한 타겟을 보존하고 Attack CrossFade한다.
         /// Attack 클립은 Loop Time=ON이므로 별도 루프 로직 불필요 — CrossFade 1회 호출로 무한 루프.
         ///
         /// 호출 경로:
@@ -4501,9 +5977,78 @@ namespace Hexiege.Presentation
         /// </summary>
         /// <param name="targetId">타겟 엔티티의 Id.</param>
         /// <param name="targetIsUnit">true=유닛, false=건물.</param>
-        public void StartCombatAnimation(int targetId, bool targetIsUnit)
+        public void StartCombatAnimation(
+            int targetId,
+            bool targetIsUnit,
+            bool restartAttackCycle = false,
+            ulong presentationRevision = 0UL,
+            AttackPresentationImpactMode impactMode = AttackPresentationImpactMode.Suppressed,
+            AttackPresentationScope presentationScope = default)
         {
             if (_unitData == null || !_unitData.IsAlive) return;
+
+            if (NetworkContext.IsNetworkActive)
+            {
+                if (!UnitAttackPresentationPolicy.TryAcceptRevision(
+                        presentationRevision,
+                        _lastAttackPresentationRevision,
+                        out ulong acceptedRevision))
+                    return;
+                _lastAttackPresentationRevision = acceptedRevision;
+
+                // Animation state/CrossFade보다 먼저 같은 RPC payload의 표현 모드를 적용한다.
+                // 최초 Align provisional과 늦은 참가 기본 상태는 Suppressed이므로, 네트워크 상태
+                // 콜백이 RPC보다 먼저 Attack 클립을 재생해도 marker가 gameplay/VFX를 내지 않는다.
+                // Scoped만 원자 scope와 프로필 HitIndex 수로 일회성 lease를 연다.
+                // LegacyFallback은 미지원 타입의 기존 표현만 보존하며 가짜 scope를 만들지 않는다.
+                int impactCount = _unitData.HitFrameTimes != null
+                    ? _unitData.HitFrameTimes.Length
+                    : 0;
+                RetireAndCloseAttackPresentationScope();
+                if (impactMode == AttackPresentationImpactMode.Scoped)
+                {
+                    bool scopeArmed =
+                        _attackPresentationImpactLease.TryArm(presentationScope, impactCount);
+                    bool sourceArmed =
+                        _attackPresentationSourceMarkerLease.TryArm(
+                            presentationRevision,
+                            impactCount);
+                    _attackPresentationImpactMode = scopeArmed && sourceArmed
+                        ? AttackPresentationImpactMode.Scoped
+                        : AttackPresentationImpactMode.Suppressed;
+                    if (_attackPresentationImpactMode == AttackPresentationImpactMode.Suppressed)
+                        RetireAndCloseAttackPresentationScope();
+                }
+                else if (impactMode == AttackPresentationImpactMode.LegacyFallback)
+                {
+                    // Unresolved 타입은 runtime marker/config가 아직 완전히 일치하지 않을 수
+                    // 있으므로 최소 한 번의 기존 marker를 보존하되 commit당 bounded lease로 제한한다.
+                    int legacyMarkerCount = impactCount > 0 ? impactCount : 1;
+                    _attackPresentationImpactMode =
+                        _attackPresentationSourceMarkerLease.TryArm(
+                            presentationRevision,
+                            legacyMarkerCount)
+                            ? AttackPresentationImpactMode.LegacyFallback
+                            : AttackPresentationImpactMode.Suppressed;
+                }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                UnitAttackShadowObserver.RecordStreamSpiritTimelineStart(
+                    _unitData.Id,
+                    _unitData.Type,
+                    targetId,
+                    targetIsUnit,
+                    presentationRevision,
+                    _attackPresentationImpactMode);
+                UnitAttackShadowObserver.RecordFoxMagicianTimelineStart(
+                    _unitData.Id,
+                    _unitData.Type,
+                    targetId,
+                    targetIsUnit,
+                    presentationRevision,
+                    _attackPresentationImpactMode);
+#endif
+            }
 
             // 싱글플레이는 이 이벤트가 gameplay 경계이므로 여기서 Action을 연다. 멀티 서버는
             // gameplay 루프가 이미 연 소유권만 인정하고, 지연된 RPC가 이동 상태를 공격 상태로
@@ -4517,7 +6062,16 @@ namespace Hexiege.Presentation
                     NetworkContext.IsNetworkServer,
                     _rootRotationOwnership.ActionOwnsRoot);
             if (acceptTargetEvent)
+            {
                 SetCombatTargetTracking(targetId, targetIsUnit);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                SetInfernoAttackFacingIdentity(
+                    targetId,
+                    targetIsUnit,
+                    presentationRevision,
+                    presentationScope);
+#endif
+            }
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
             else if (NetworkContext.IsNetworkServer)
                 UnitMovementAuthorityObserver.ObserveIgnoredServerTargetEvent(
@@ -4525,9 +6079,11 @@ namespace Hexiege.Presentation
                     "start");
 #endif
 
-            bool canWriteSimulationRoot =
-                !NetworkContext.IsNetworkActive || NetworkContext.IsNetworkServer;
-            if (canWriteSimulationRoot && acceptTargetEvent)
+            // Start 이벤트는 이미 정렬이 완료된 공격 시작 경계다. 이 자리에서 Root를 다시
+            // 스냅하면 270°/s 서버 회전 writer와 충돌하므로 타겟 참조만 갱신한다.
+            // 싱글플레이는 아직 멀티 서버의 pose gate를 사용하지 않으므로 기존 즉시 정렬을
+            // 보존한다. 이번 교정 범위 밖의 모드에서 공격 전에 빗겨 보이는 회귀를 만들지 않는다.
+            if (!NetworkContext.IsNetworkActive && acceptTargetEvent)
             {
                 Vector3 targetPosition = GetTargetWorldPos(targetId, targetIsUnit);
                 if (targetPosition != Vector3.zero)
@@ -4538,28 +6094,136 @@ namespace Hexiege.Presentation
             }
 
             // ────────────────────────────────────────────────────────────────
-            // [Phase 2 대체] Attack CrossFade 책임 분리.
-            //   멀티플레이 "클라이언트"의 Attack 전환은 이제 애니메이션 상태 레벨 동기화가 담당한다
-            //   (NetworkUnit._animState = Attack → PlayAttackAnimation). 스폰 레이스로 유실될 수 없다.
-            //   여기서는 "싱글플레이" 또는 "호스트(서버)"만 직접 CrossFade한다:
+            // Attack CrossFade 책임 분리.
+            //   멀티플레이 Attack은 상태 레벨과 별도로 target/revision/impact mode가 모두
+            //   필요한 표현 명령이다. 따라서 순수 클라이언트도 이 원자 명령에서 CrossFade한다.
+            //   별도 _animState=Attack은 clip을 시작하지 않아 먼저/나중 어느 쪽으로 도착해도 안전하다.
+            //   싱글플레이와 호스트도 같은 메서드에서 직접 CrossFade한다:
             //     - 싱글플레이: NGO가 없어 레벨 동기화 경로가 없으므로 직접 재생해야 한다.
             //     - 호스트(서버): 서버가 Animator를 직접 제어하는 기존 관례를 유지한다
             //       (서버가 애니메이션을 직접 제어하는 다른 경로들과 동일한 취지).
-            //   클라이언트가 여기서도 CrossFade하면 레벨 동기화와 이중 적용되므로 스킵한다.
             // ────────────────────────────────────────────────────────────────
             bool applyCrossFadeHere = !NetworkContext.IsNetworkActive
-                || (NetworkContext.IsNetworkServer && acceptTargetEvent);
-            if (applyCrossFadeHere && _animator != null)
+                || (NetworkContext.IsNetworkServer && acceptTargetEvent)
+                // 순수 클라이언트 Attack은 별도 NetworkVariable callback이 아니라
+                // impact mode와 같은 RPC payload가 직접 시작한다. provisional/commit
+                // 모두 이 경계를 통과하므로 채널 간 도착 순서에 의존하지 않는다.
+                || (NetworkContext.IsNetworkActive && !NetworkContext.IsNetworkServer);
+            bool attackPresentationAlreadyActive = _currentAnimStateHash == StateAttack;
+            bool attackCrossFadeApplied = false;
+            if (applyCrossFadeHere
+                && _animator != null
+                && UnitAttackPresentationPolicy.ShouldCrossFadeAttack(
+                    NetworkContext.IsNetworkActive,
+                    attackPresentationAlreadyActive,
+                    restartAttackCycle))
             {
                 _animator.speed = 1f;
                 _animator.CrossFadeInFixedTime(StateAttack, _toAttackBlend, 0);
                 _currentAnimStateHash = StateAttack;
+                attackCrossFadeApplied = true;
             }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (attackCrossFadeApplied)
+            {
+                // 새 실제 CrossFade는 이전 미소비 시작 예약을 대체한다. 연속 commit은
+                // CrossFade하지 않으므로 기존 pending을 지우거나 가짜 시작 표본을 만들지 않는다.
+                _infernoAttackStartFacingPending = false;
+                QueueInfernoAttackStartFacing();
+            }
+#endif
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            // committed scope 갱신은 같은 Attack clip을 유지하므로 최초 provisional 전환만
+            // client-visible 진입 순서의 끝점으로 기록한다.
+            if (NetworkContext.IsNetworkActive
+                && !NetworkContext.IsNetworkServer
+                && !attackPresentationAlreadyActive
+                && _currentAnimStateHash == StateAttack)
+            {
+                if (_movementNetworkUnit == null)
+                    _movementNetworkUnit = GetComponent<NetworkUnit>();
+                if (_movementNetworkUnit != null)
+                {
+                    UnitMovementAuthorityObserver.ObserveClientAttackPresentationStarted(
+                        _unitData.Id,
+                        _movementNetworkUnit.NetworkObjectId);
+                }
+            }
+#endif
 
             // 공격 중 타겟 Transform 참조 저장 → Update()에서 매 프레임 추적.
             // [Phase 2] 이 타겟 참조/회전 추적은 애니메이션과 분리해 "유지"한다(클라이언트도 필요):
             //   원거리 유닛의 트레이서 조준(OnAttackHit)이 _combatTargetTransform/_combatTargetId를 사용한다.
             ClearUnitActionShadowDesiredTarget();
+        }
+
+        /// <summary>
+        /// Host 서버가 gameplay의 Action 회전 소유권을 연 바로 그 호출 스택에서
+        /// provisional/commit 공격 표현을 로컬에 적용한다. Host가 자신에게 되돌아오는
+        /// ClientRpc 순서에 의존하지 않게 하는 원자 handoff 경계다.
+        ///
+        /// 이 메서드는 표현만 적용한다. 타겟 선택, 공격 scope 발급, 피해 판정은 계속
+        /// NetworkCombatController의 서버 권위 흐름만 소유한다.
+        /// </summary>
+        public bool TryApplyHostCombatPresentation(
+            int targetId,
+            bool targetIsUnit,
+            bool restartAttackCycle,
+            ulong presentationRevision,
+            AttackPresentationImpactMode impactMode,
+            AttackPresentationScope presentationScope)
+        {
+            if (!NetworkContext.IsNetworkActive
+                || !NetworkContext.IsNetworkServer
+                || _unitData == null
+                || !_unitData.IsAlive
+                || _animator == null
+                || !_rootRotationOwnership.ActionOwnsRoot)
+                return false;
+
+            StartCombatAnimation(
+                targetId,
+                targetIsUnit,
+                restartAttackCycle,
+                presentationRevision,
+                impactMode,
+                presentationScope);
+
+            return _lastAttackPresentationRevision == presentationRevision
+                && _currentAnimStateHash == StateAttack
+                && _rootRotationOwnership.ActionOwnsRoot;
+        }
+
+        /// <summary>
+        /// 서버 공격 gate가 피해 회차를 열기 직전에 확인하는 gameplay 소유권 상태다.
+        /// Animator 상태가 아니라 Simulation Root의 Action 소유권만 노출한다.
+        /// </summary>
+        public bool IsServerCombatActionReady()
+            => NetworkContext.IsNetworkActive
+                && NetworkContext.IsNetworkServer
+                && _unitData != null
+                && _unitData.IsAlive
+                && _rootRotationOwnership.ActionOwnsRoot;
+
+        /// <summary>
+        /// Host의 현재 gameplay Action 소유권 안에서 표시 타겟만 교체한다.
+        /// 원격 ClientRpc가 Host로 되돌아오는 것에 의존하지 않는다.
+        /// </summary>
+        public bool TryApplyServerCombatTarget(int targetId, bool targetIsUnit)
+        {
+            if (!NetworkContext.IsNetworkActive
+                || !NetworkContext.IsNetworkServer
+                || _unitData == null
+                || !_unitData.IsAlive
+                || !_rootRotationOwnership.ActionOwnsRoot)
+                return false;
+
+            ChangeTarget(targetId, targetIsUnit);
+            return _combatTargetId == targetId
+                && _combatTargetIsUnit == targetIsUnit
+                && _rootRotationOwnership.ActionOwnsRoot;
         }
 
         /// <summary>
@@ -4594,7 +6258,18 @@ namespace Hexiege.Presentation
 
             // 행동 소유권이 열린 상태에서만 추적 대상을 교체한다.
             SetCombatTargetTracking(targetId, targetIsUnit);
+            if (NetworkContext.IsNetworkActive)
+                RetireAndCloseAttackPresentationScope();
             ClearUnitActionShadowDesiredTarget();
+        }
+
+        /// <summary>
+        /// Attack Animator 상태는 유지하면서 아직 커밋되지 않은 회차의 타격 연출만 차단한다.
+        /// </summary>
+        public void SuppressPendingAttackImpactPresentation()
+        {
+            if (!NetworkContext.IsNetworkActive) return;
+            RetireAndCloseAttackPresentationScope();
         }
 
         /// <summary>
@@ -4616,10 +6291,25 @@ namespace Hexiege.Presentation
         /// </summary>
         public void StopCombatAnimation()
         {
-            if (!UnitActionRotationEventPolicy.ShouldAcceptStopEvent(
-                    NetworkContext.IsNetworkActive,
-                    NetworkContext.IsNetworkServer))
+            bool acceptStopEvent = UnitActionRotationEventPolicy.ShouldAcceptStopEvent(
+                NetworkContext.IsNetworkActive,
+                NetworkContext.IsNetworkServer);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            if (acceptStopEvent)
             {
+                ObserveInfernoAttackFacing(
+                    AnimatedAttackFacingStage.AttackEndPose,
+                    _infernoFacingTargetId,
+                    _infernoFacingTargetIsUnit,
+                    _infernoFacingPresentationRevision,
+                    _infernoFacingScope);
+            }
+            // 종료/무시된 Stop 모두 다음 공격에서 이전 pending이 소비되지 않게 닫는다.
+            _infernoAttackStartFacingPending = false;
+#endif
+            if (!acceptStopEvent)
+            {
+                RetireAndCloseAttackPresentationScope();
 #if DEVELOPMENT_BUILD || UNITY_EDITOR
                 if (_unitData != null)
                     UnitMovementAuthorityObserver.ObserveIgnoredServerTargetEvent(
@@ -4629,8 +6319,12 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            ClearCombatTargetTracking();
+            ClearCombatTargetTracking(
+                preserveCommittedSourceMarker: NetworkContext.IsNetworkActive);
             ClearUnitActionShadowDesiredTarget();
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            ClearInfernoAttackFacingEvidenceState();
+#endif
 
             // 행동 writer를 반환한다. 이동 코루틴이 살아 있으면 Movement로 돌려주되,
             // 실제 Walk 재생은 다음 Advanced commit이 Held를 해제할 때 시작한다.

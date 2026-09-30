@@ -186,11 +186,11 @@ namespace Hexiege.EditorTools
             nextGo.transform.SetSiblingIndex(2);
             Button nextButton = EnsureButton(nextGo, boldFont, "다음", new Color(0.30f, 0.34f, 0.42f, 1f), 24);
 
-            // 새로고침 버튼(확정 결정 4). 아이콘 에셋 부재(Research 4-2) → 텍스트/기호로 대체.
+            // 새로고침 버튼(확정 결정 4). 아이콘 에셋 부재(Research 4-2) → 명확한 텍스트만 사용.
             GameObject refreshGo = FindOrCreateChild(pageRow.transform, "RefreshButton");
             refreshGo.transform.SetSiblingIndex(3);
             Button refreshButton =
-                EnsureButton(refreshGo, boldFont, "새로고침 ⟳", new Color(0.30f, 0.60f, 0.80f, 1f), 23, skySprite);
+                EnsureButton(refreshGo, boldFont, "새로고침", new Color(0.30f, 0.60f, 0.80f, 1f), 23, skySprite);
 
             // ── 6-1) 빈 상태 안내 텍스트(오버레이) ───────────────────────
             // 등재 인원 0명일 때만 표시(RankingView 가 CanvasGroup 으로 토글).

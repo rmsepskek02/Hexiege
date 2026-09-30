@@ -37,9 +37,12 @@
 // ============================================================================
 
 using System.Collections.Generic;
+using System;
 using UniRx;
 using UnityEngine;
 using Hexiege.Application;
+using Hexiege.Application.Combat.Sequencing;
+using Hexiege.Core;
 using Hexiege.Domain;
 using Hexiege.Infrastructure;
 
@@ -49,7 +52,7 @@ namespace Hexiege.Presentation
     /// 피격 표현(HP 텍스트·VFX·타격 반응)을 공격자의 로컬 타격 프레임에 맞춰 방출하는 큐.
     /// 도메인 HP는 이미 갱신된 상태이며, 이 큐는 오직 "표현"만 담당한다(서버 권위 불변).
     /// </summary>
-    public class HitPresentationQueue : MonoBehaviour
+    public class HitPresentationQueue : MonoBehaviour, IDisposable
     {
         // ====================================================================
         // 상수
@@ -92,6 +95,16 @@ namespace Hexiege.Presentation
         /// </summary>
         private const float FallbackTimeout = 3f;
 
+        // 여우마법사 표시 지연 재검증용: 큐 인스턴스당 최대 128개 경계만 기록한다.
+        // 공격 회차 키가 없는 Legacy이므로 회차 상관이나 화면 픽셀 표시를 주장하지 않는다.
+        private const int FoxLegacyDiagnosticLimit = 128;
+        private int _foxLegacyDiagnosticCount;
+
+        // 결과가 정상 도착했지만 View 생성/복제 순서만 늦은 경우의 재시도 창이다.
+        // Coordinator의 기존 catch-up 계약(0.50초)과 같은 경계를 사용하며 임의로 늘리지 않는다.
+        private const double AuthoritativeViewRetrySeconds =
+            AuthoritativeAttackPresentationCoordinator.CatchUpSeconds;
+
         // ====================================================================
         // 의존성 (Initialize()에서 주입)
         // ====================================================================
@@ -125,11 +138,48 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 공격자 Id → 그 공격자가 발생시킨 피격 표현들의 FIFO 큐.
-        /// 공격자의 로컬 OnAttackHit 신호마다 앞에서 1건씩 방출한다.
+        /// 싱글플레이 또는 정규 결과 키가 없는 기존 특수 경로만 사용하는 공격자 FIFO다.
+        /// 멀티플레이 정규 결과는 아래 exact-scope rendezvous만 사용한다.
         /// </summary>
         private readonly Dictionary<int, Queue<PendingHit>> _pendingByAttacker
             = new Dictionary<int, Queue<PendingHit>>();
+
+        /// <summary>
+        /// 멀티플레이 결과와 로컬 marker/tracer를 `(instance, sequence, hitIndex)`로만
+        /// 결합한다. 공격자 Id FIFO를 사용하지 않으므로 다음 공격 marker가 이전 결과를
+        /// 꺼내는 0.5~2초 시각 지연을 구조적으로 막는다.
+        /// </summary>
+        private readonly AttackPresentationImpactRendezvous<EntityDamagedEvent>
+            _exactRendezvous = new AttackPresentationImpactRendezvous<EntityDamagedEvent>();
+        private readonly List<EntityDamagedEvent> _releasedExact =
+            new List<EntityDamagedEvent>();
+        // 확정 결과가 사망 이벤트보다 늦게 도착해도 데이터 객체를 잃지 않는다.
+        // 객체의 HP를 쓰지 않고 표시 위치/종류 해석에만 사용한다. 경기 종료 시 해제한다.
+        private readonly Dictionary<int, IDamageable> _confirmedUnitViews = new();
+        private readonly Dictionary<int, IDamageable> _confirmedBuildingViews = new();
+        private readonly Dictionary<AttackPresentationScope, PendingAuthoritativeBundle>
+            _pendingAuthoritative = new();
+        private readonly List<AttackPresentationScope> _completedAuthoritative = new();
+        private readonly List<PreparedAuthoritativePresentation> _preparedAuthoritative = new();
+        private readonly List<AttackResultPresentationInput> _visualAuthoritativeResults = new();
+        // AddTo(this)는 Play Mode 수명에는 충분하지만 Edit Mode에서 DestroyImmediate로
+        // 픽스처를 반복 생성/파괴하는 검증에서는 해제 시점이 Unity 생명주기에 의존한다.
+        // 이 컴포넌트가 구독을 직접 소유해 재초기화와 파괴 모두에서 동기적으로 끊는다.
+        private readonly CompositeDisposable _subscriptions = new();
+        public int AuthoritativeEmits { get; private set; }
+        public int AuthoritativeViewUnavailable { get; private set; }
+#if UNITY_EDITOR
+        private Func<UnitType, Vector3, bool> _authoritativeUnitVfxValidationEmitter;
+
+        /// <summary>Editor 회귀가 실제 방출 성공/실패 경계를 결정적으로 재현하는 전용 seam.</summary>
+        public void SetAuthoritativeUnitVfxEmitterForValidation(
+            Func<UnitType, Vector3, bool> emitter)
+            => _authoritativeUnitVfxValidationEmitter = emitter;
+
+        /// <summary>프레임 대기 없이 transient View 재시도를 검증하는 Editor 전용 seam.</summary>
+        public void RetryAuthoritativePresentationForValidation(double now)
+            => RetryAuthoritativePresentations(now);
+#endif
 
         // ====================================================================
         // 초기화 — GameBootstrapper에서 호출
@@ -151,6 +201,7 @@ namespace Hexiege.Presentation
             BuildingPlacementUseCase buildingPlacement,
             IPresentationPoseProvider presentationPoseProvider)
         {
+            _subscriptions.Clear();
             _hpTextSpawner = hpTextSpawner;
             _unitFactory = unitFactory;
             _buildingFactory = buildingFactory;
@@ -160,26 +211,44 @@ namespace Hexiege.Presentation
 
             // 재초기화(맵 재로드) 대비 — 이전 보류 항목 정리.
             _pendingByAttacker.Clear();
+            _exactRendezvous.Clear();
+            _releasedExact.Clear();
+            _confirmedUnitViews.Clear();
+            _confirmedBuildingViews.Clear();
+            _pendingAuthoritative.Clear();
+            _completedAuthoritative.Clear();
+            _preparedAuthoritative.Clear();
+            _visualAuthoritativeResults.Clear();
+            AuthoritativeEmits = AuthoritativeViewUnavailable = 0;
+            UnitAttackResultPresentationShadowBridge.Coordinator.BundleReady -= OnAuthoritativeBundle;
+            UnitAttackResultPresentationShadowBridge.Coordinator.BundleReady += OnAuthoritativeBundle;
 
             // 피격 이벤트 → 보류 큐 적재.
-            // AddTo(this): 이 MonoBehaviour 파괴 시 자동 구독 해제.
+            // 명시적 CompositeDisposable: Edit Mode 반복 검증에서도 즉시 구독 해제.
             GameEvents.OnEntityDamaged
                 .Subscribe(OnEntityDamaged)
-                .AddTo(this);
+                .AddTo(_subscriptions);
 
             // 공격자의 로컬 타격 프레임 신호 → 해당 공격자 큐에서 1건 방출.
             GameEvents.OnLocalAttackHit
                 .Subscribe(OnLocalAttackHit)
-                .AddTo(this);
+                .AddTo(_subscriptions);
+
+            // UnitView가 타겟 변경·사망·Stop으로 닫은 exact 회차를 함께 폐기한다.
+            // 결과가 아직 없는 marker 신호도 제거해 늦은 구회차 결과가 timeout으로
+            // 다시 나타나지 않게 한다. 서버 피해나 HP에는 관여하지 않는다.
+            GameEvents.OnLocalAttackPresentationScopeRetired
+                .Subscribe(OnPresentationScopeRetired)
+                .AddTo(_subscriptions);
 
             // 타겟 사망 → 그 타겟을 겨눈 잔여 항목 즉시 방출(안전망 ⓑ).
             // ※ OnUnitDied는 "공격자 사망"(안전망 ⓓ) 처리도 겸한다 — OnUnitDied 핸들러 참조.
             GameEvents.OnUnitDied
                 .Subscribe(OnUnitDied)
-                .AddTo(this);
+                .AddTo(_subscriptions);
             GameEvents.OnBuildingDied
                 .Subscribe(OnBuildingDied)
-                .AddTo(this);
+                .AddTo(_subscriptions);
 
             // 공격자 전투 중단 → 그 공격자의 잔여 보류 항목 즉시 방출(안전망 ⓓ).
             //   멀티: OnNetworkCombatStopped(서버 StopCombatClientRpc 경유), 싱글: OnCombatStopped.
@@ -190,10 +259,10 @@ namespace Hexiege.Presentation
             //   이 구독이 바로 그 케이스를 커버한다(타임아웃까지 기다리지 않고 즉시 방출).
             GameEvents.OnNetworkCombatStopped
                 .Subscribe(e => FlushAttacker(e.UnitId))
-                .AddTo(this);
+                .AddTo(_subscriptions);
             GameEvents.OnCombatStopped
                 .Subscribe(unitId => FlushAttacker(unitId))
-                .AddTo(this);
+                .AddTo(_subscriptions);
         }
 
         // ====================================================================
@@ -206,6 +275,16 @@ namespace Hexiege.Presentation
         private void OnEntityDamaged(EntityDamagedEvent evt)
         {
             if (evt.Entity == null) return;
+            ObserveFoxLegacyPresentation(evt, "received", "not-dispatched");
+            if (evt.AttackerIsUnit && UnitAttackResultPresentationShadowBridge.OwnsAttacker(evt.AttackerId))
+            {
+                var victims = evt.IsUnit ? _confirmedUnitViews : _confirmedBuildingViews;
+                if (victims.Count < 32768 || victims.ContainsKey(evt.Entity.Id)) victims[evt.Entity.Id] = evt.Entity;
+                else RecordStructuralFailure(evt, LegacyPresentationObservationKind.StructuralCapacityExceeded);
+                // Supported 경기는 확정 bundle만 아래 단일 소비자를 호출한다.
+                // 이 경로에서 FIFO/marker/tracer/사망 flush로 넘어가면 중복 방출된다.
+                return;
+            }
 
             // 파도 등 이동형 AoE(규칙 26): 공격자 타격 프레임에 종속하지 않고 "닿는 시점"에 즉시 방출.
             //   파도 피해는 공격자 스윙(OnLocalAttackHit)보다 한참 뒤(파도 이동 중)에 발생하므로,
@@ -213,7 +292,8 @@ namespace Hexiege.Presentation
             //   (VFX/HP텍스트/펀치는 Emit이 그대로 처리하며, 타워 VFX 경로는 타지 않는다 — 공격자가 유닛이므로.)
             if (evt.ImmediatePresentation)
             {
-                Emit(evt);
+                ObserveLegacy(evt, LegacyPresentationObservationKind.Enqueued);
+                Emit(evt, LegacyPresentationObservationKind.EmittedImmediate);
                 return;
             }
 
@@ -226,7 +306,8 @@ namespace Hexiege.Presentation
                 //    각 머신에서 정확히 1번씩만 도달하므로 이중 재생이 없다.)
                 PlayTowerAttackVfx(evt);
 
-                Emit(evt);
+                ObserveLegacy(evt, LegacyPresentationObservationKind.Enqueued);
+                Emit(evt, LegacyPresentationObservationKind.EmittedImmediate);
                 return;
             }
 
@@ -234,12 +315,47 @@ namespace Hexiege.Presentation
             GameObject attackerGo = _unitFactory != null ? _unitFactory.GetUnitObject(evt.AttackerId) : null;
             if (attackerGo == null)
             {
-                Emit(evt);
+                ObserveLegacy(evt, LegacyPresentationObservationKind.Enqueued);
+                Emit(evt, LegacyPresentationObservationKind.EmittedImmediate);
                 return;
             }
 
-            // 정상 경로: 공격자 큐에 보류. 공격자의 로컬 OnAttackHit에서 방출된다.
+            // 관측은 실제 표현 저장 방식과 무관하게 결과별 정규 키로 한 번 남긴다.
             float timeout = ResolveTimeout(evt.AttackerId);
+            ObserveLegacy(evt, LegacyPresentationObservationKind.Enqueued);
+
+            if (evt.PresentationResultKey.IsValid)
+            {
+                // 멀티플레이 정규 경로. 결과가 marker보다 먼저면 exact scope에 보류하고,
+                // marker가 먼저였다면 같은 scope 신호를 찾아 지금 즉시 방출한다. 다른
+                // sequence/hitIndex는 시간상 가깝더라도 절대 후보가 아니다.
+                _releasedExact.Clear();
+                AttackPresentationRendezvousStatus status = _exactRendezvous.ObserveResult(
+                    evt.AttackerId,
+                    evt.PresentationResultKey,
+                    evt,
+                    Time.realtimeSinceStartupAsDouble,
+                    timeout,
+                    _releasedExact);
+                if (status == AttackPresentationRendezvousStatus.Released)
+                    EmitReleasedExact(LegacyPresentationObservationKind.EmittedMarker);
+                else if (status == AttackPresentationRendezvousStatus.Invalid
+                    || status == AttackPresentationRendezvousStatus.CapacityExceeded)
+                {
+                    // 손상된 정규 입력을 공격자 FIFO로 우회하면 다음 회차 결과를 잘못
+                    // 소비한다. 표현 유실만 막는 timeout 복구로 즉시 격리하고 C3 FAIL을 남긴다.
+                    RecordStructuralFailure(
+                        evt,
+                        status == AttackPresentationRendezvousStatus.CapacityExceeded
+                            ? LegacyPresentationObservationKind.StructuralCapacityExceeded
+                            : LegacyPresentationObservationKind.StructuralInvalid);
+                    _releasedExact.Clear();
+                    Emit(evt, LegacyPresentationObservationKind.EmittedTimeout);
+                }
+                return;
+            }
+
+            // 싱글플레이/구형 특수 경로만 공격자 FIFO를 보존한다.
             Queue<PendingHit> queue = GetOrCreateQueue(evt.AttackerId);
             queue.Enqueue(new PendingHit(evt, Time.time, timeout));
         }
@@ -248,8 +364,35 @@ namespace Hexiege.Presentation
         /// 공격자의 로컬 타격 프레임 신호 수신. 공격자의 "타격 프레임 수"에 따라
         /// 큐에서 1건만(다중 히트) 또는 전부(단일 히트) 방출한다.
         /// </summary>
-        private void OnLocalAttackHit(int attackerId)
+        private void OnLocalAttackHit(LocalAttackHitPresentationEvent hit)
         {
+            int attackerId = hit.AttackerId;
+            if (UnitAttackResultPresentationShadowBridge.OwnsAttacker(attackerId)) return;
+            if (hit.HasPresentationScope)
+            {
+                _releasedExact.Clear();
+                AttackPresentationRendezvousStatus status = _exactRendezvous.ObserveSignal(
+                    attackerId,
+                    hit.PresentationScope,
+                    Time.realtimeSinceStartupAsDouble,
+                    _releasedExact);
+                if (status == AttackPresentationRendezvousStatus.Released)
+                    EmitReleasedExact(LegacyPresentationObservationKind.EmittedMarker);
+                else if (status == AttackPresentationRendezvousStatus.Invalid
+                    || status == AttackPresentationRendezvousStatus.CapacityExceeded)
+                {
+                    RecordStructuralFailure(
+                        hit,
+                        status == AttackPresentationRendezvousStatus.CapacityExceeded
+                            ? LegacyPresentationObservationKind.StructuralCapacityExceeded
+                            : LegacyPresentationObservationKind.StructuralInvalid);
+                }
+
+                // exact scope가 있는 멀티플레이 신호는 결과가 아직 없어도 여기서 끝낸다.
+                // 공격자 FIFO로 떨어뜨리면 다음 회차의 오래된 결과를 다시 소비하게 된다.
+                return;
+            }
+
             if (_pendingByAttacker.TryGetValue(attackerId, out Queue<PendingHit> queue) && queue.Count > 0)
             {
                 // ── 왜 공격자의 HitFrameTimes.Length로 분기하는가? (유니티 초급자 설명) ──
@@ -334,6 +477,13 @@ namespace Hexiege.Presentation
         /// </summary>
         private void Update()
         {
+            RetryAuthoritativePresentations(Time.realtimeSinceStartupAsDouble);
+            _releasedExact.Clear();
+            _exactRendezvous.CollectExpired(
+                Time.realtimeSinceStartupAsDouble,
+                _releasedExact);
+            EmitReleasedExact(LegacyPresentationObservationKind.EmittedTimeout);
+
             if (_pendingByAttacker.Count == 0) return;
 
             float now = Time.time;
@@ -350,7 +500,7 @@ namespace Hexiege.Presentation
                         break; // 앞이 아직 안 지났으면 뒤도 안 지났음 → 이 큐는 종료.
 
                     queue.Dequeue();
-                    Emit(head.Event);
+                    Emit(head.Event, LegacyPresentationObservationKind.EmittedTimeout);
                 }
             }
         }
@@ -362,12 +512,318 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 피격 표현을 실제로 재생한다: ① HP 텍스트 ② 피격 VFX ③ 타격 반응(스케일 펀치).
         /// </summary>
-        private void Emit(EntityDamagedEvent evt)
+        private void OnAuthoritativeBundle(AttackResultPresentationInput[] bundle)
+        {
+            if (!UnitAttackResultPresentationShadowBridge.UsesAuthoritativeEmitter) return;
+            if (TryEmitAuthoritativeBundle(bundle, out bool terminal) || terminal) return;
+            AttackPresentationScope scope = AttackPresentationScope.FromResultKey(bundle[0].Key);
+            if (!_pendingAuthoritative.ContainsKey(scope))
+                _pendingAuthoritative.Add(scope,
+                    new PendingAuthoritativeBundle(
+                        (AttackResultPresentationInput[])bundle.Clone(),
+                        Time.realtimeSinceStartupAsDouble));
+        }
+
+        private void RetryAuthoritativePresentations(double now)
+        {
+            if (_pendingAuthoritative.Count == 0) return;
+            _completedAuthoritative.Clear();
+            foreach (KeyValuePair<AttackPresentationScope, PendingAuthoritativeBundle> pair
+                in _pendingAuthoritative)
+            {
+                PendingAuthoritativeBundle pending = pair.Value;
+                if (now - pending.FirstAttemptLocalTime
+                    > AuthoritativeViewRetrySeconds)
+                {
+                    // 기존 catch-up 경계를 넘긴 뒤 View가 생겨도 오래된 공격을 화면에
+                    // 되살리지 않는다. 묶음 전체를 미표시 실패로 닫는다.
+                    for (int i = 0; i < pending.Results.Length; i++)
+                    {
+                        AttackResultPresentationInput result = pending.Results[i];
+                        if (!IsVisualResult(result)) continue;
+                        AuthoritativeViewUnavailable++;
+                        UnitAttackResultPresentationShadowBridge.RecordPresentationFailure(
+                            ClassifyAuthoritativeFailure(result));
+                    }
+                    _completedAuthoritative.Add(pair.Key);
+                    continue;
+                }
+                if (TryEmitAuthoritativeBundle(pending.Results, out bool terminal) || terminal)
+                {
+                    _completedAuthoritative.Add(pair.Key);
+                    continue;
+                }
+            }
+            for (int i = 0; i < _completedAuthoritative.Count; i++)
+                _pendingAuthoritative.Remove(_completedAuthoritative[i]);
+            _completedAuthoritative.Clear();
+        }
+
+        /// <summary>
+        /// C3 확정 결과가 보존한 위치·타입·팀·결과 HP만으로 필수 연출을 준비한 뒤 exact key를
+        /// 소비한다. 살아 있는 View는 같은 Domain 인스턴스임이 확인될 때 선택적인 punch에만
+        /// 사용한다. 따라서 사망·Despawn·ID 재사용은 HP 텍스트/VFX를 막지 않는다.
+        /// </summary>
+        private bool TryEmitAuthoritativeBundle(
+            AttackResultPresentationInput[] bundle,
+            out bool terminal)
+        {
+            terminal = false;
+            if (bundle == null || bundle.Length == 0)
+            {
+                terminal = true;
+                return false;
+            }
+            _preparedAuthoritative.Clear();
+            _visualAuthoritativeResults.Clear();
+            for (int i = 0; i < bundle.Length; i++)
+            {
+                AttackResultPresentationInput result = bundle[i];
+                if (!IsVisualResult(result)) continue;
+                if (!TryPrepareAuthoritative(result,
+                        out PreparedAuthoritativePresentation prepared))
+                {
+                    _preparedAuthoritative.Clear();
+                    _visualAuthoritativeResults.Clear();
+                    return false;
+                }
+                _preparedAuthoritative.Add(prepared);
+                _visualAuthoritativeResults.Add(result);
+            }
+
+            // Miss/취소만 든 완결 묶음은 화면 작업도 key 소비도 필요 없다.
+            if (_visualAuthoritativeResults.Count == 0) return true;
+            if (!UnitAttackResultPresentationShadowBridge.TryConsumePresentationBundle(
+                    _visualAuthoritativeResults.ToArray()))
+            {
+                terminal = true;
+                return false;
+            }
+
+            bool allDisplayed = true;
+            for (int i = 0; i < _preparedAuthoritative.Count; i++)
+                allDisplayed &= EmitPreparedAuthoritative(_preparedAuthoritative[i]);
+            _preparedAuthoritative.Clear();
+            _visualAuthoritativeResults.Clear();
+            if (!allDisplayed)
+            {
+                // readiness 선검사 뒤 같은 호출 안에서 Unity 객체가 파괴된 극단적 경주다.
+                // 이미 나온 다른 피해자 연출을 되돌릴 수 없으므로 재시도해 중복을 만들지 않고
+                // 실패를 명시한다. 정상 경로에서는 각 준비 항목마다 실제 채널 하나가 보장된다.
+                terminal = true;
+                return false;
+            }
+            return true;
+        }
+
+        private bool TryPrepareAuthoritative(
+            AttackResultPresentationInput result,
+            out PreparedAuthoritativePresentation prepared)
+        {
+            prepared = default;
+            bool isUnit = result.Key.VictimKind == 1;
+            if (!result.HasImpactPosition || !result.HasPresentationSnapshot)
+                return false;
+
+            if (!Enum.IsDefined(typeof(TeamId), result.VictimTeam))
+                return false;
+            if (isUnit && !Enum.IsDefined(typeof(UnitType), result.VictimPresentationType))
+                return false;
+
+            // 필수 연출 위치의 원본은 현재 View가 아니라 서버가 타격 결과에 고정한 위치다.
+            // View는 결과 도착 전에 사라지거나 같은 ID로 교체될 수 있으므로 위치 권위가 될 수 없다.
+            Vector3 displayPosition = new Vector3(
+                (float)result.ImpactPosition.X,
+                0f,
+                (float)result.ImpactPosition.Z);
+
+            // 서버의 ImpactPosition은 모든 참가자가 공유하는 Blue 기준 canonical 좌표다.
+            // Red pure Client에서는 유닛의 VisualRoot만 ViewConverter를 통해 맵 중심 기준으로
+            // 반전되어 보이므로, 화면에 그리는 HP 텍스트와 피격 VFX도 이 C3 표현 경계에서
+            // 정확히 한 번 같은 변환을 적용해야 유닛 위에 겹친다.
+            //
+            // Host/Server는 canonical Simulation Root와 같은 위치를 사용하고, Blue Client는
+            // ViewConverter가 비반전 상태이므로 기존 좌표를 그대로 유지한다. 또한 싱글플레이는
+            // 네트워크 경기 자체가 아니므로 이 분기에 들어오지 않는다. 이렇게 역할까지 함께
+            // 확인하면 이미 view 좌표인 값을 실수로 두 번 반전하는 문제를 막을 수 있다.
+            if (NetworkContext.IsNetworkActive
+                && !NetworkContext.IsNetworkServer
+                && ViewConverter.IsFlipped)
+            {
+                displayPosition = ViewConverter.ToView(displayPosition);
+            }
+            TeamId victimTeam = (TeamId)result.VictimTeam;
+            UnitType victimUnitType = isUnit
+                ? (UnitType)result.VictimPresentationType
+                : default;
+
+            bool canShowText = _hpTextSpawner != null
+                && _hpTextSpawner.IsReadyForDamagePresentation;
+            EffectManager effects = EffectManager.Instance;
+            bool canShowUnitVfx = false;
+            if (isUnit)
+            {
+#if UNITY_EDITOR
+                canShowUnitVfx = _authoritativeUnitVfxValidationEmitter != null
+                    || (effects != null && effects.CanPlayUnitHit(victimUnitType));
+#else
+                canShowUnitVfx = effects != null && effects.CanPlayUnitHit(victimUnitType);
+#endif
+            }
+
+            // HP 텍스트 또는 유닛 피격 VFX 중 적어도 하나가 준비돼야 결과를 소비한다.
+            // punch는 살아 있는 View가 없으면 생략 가능한 보조 연출이므로 단독 성공 조건이 아니다.
+            if (!canShowText && !canShowUnitVfx) return false;
+
+            // OnEntityDamaged에서 기억한 객체와 현재 등록 객체가 정확히 같은 경우에만 View를 사용한다.
+            // ID만 같고 객체가 바뀐 경우(사망 직후 ID 재사용)에 새 유닛을 때리는 잘못된 punch를 막는다.
+            Dictionary<int, IDamageable> victims = isUnit
+                ? _confirmedUnitViews : _confirmedBuildingViews;
+            victims.TryGetValue(result.Key.VictimId, out IDamageable entity);
+            IDamageable currentEntity = isUnit
+                ? (IDamageable)_unitSpawn?.GetUnit(result.Key.VictimId)
+                : _buildingPlacement?.GetBuilding(result.Key.VictimId);
+            Transform targetPresentation = null;
+            if (entity != null && ReferenceEquals(entity, currentEntity))
+            {
+                targetPresentation = isUnit
+                    ? _presentationPoseProvider?.GetUnitTransform(result.Key.VictimId)
+                    : _presentationPoseProvider?.GetBuildingTransform(result.Key.VictimId);
+                GameObject targetGo = isUnit
+                    ? (_unitFactory != null ? _unitFactory.GetUnitObject(result.Key.VictimId) : null)
+                    : (_buildingFactory != null ? _buildingFactory.GetBuildingObject(result.Key.VictimId) : null);
+                if (targetPresentation == null && targetGo != null)
+                    targetPresentation = targetGo.transform;
+            }
+
+            bool canPunch = targetPresentation != null;
+            if (targetPresentation != null)
+            {
+                bool spatialMatch = UnitAttackResultPresentationShadowBridge
+                    .RecordPresentationSpatialSample(
+                    displayPosition.x,
+                    displayPosition.z,
+                    targetPresentation.position.x,
+                    targetPresentation.position.z);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                if (!spatialMatch)
+                {
+                    UnitAttackShadowObserver.ObservePresentationSpatialMismatch(
+                        result.Key,
+                        displayPosition,
+                        targetPresentation.position,
+                        ViewConverter.IsFlipped);
+                }
+#endif
+            }
+            prepared = new PreparedAuthoritativePresentation(
+                result, targetPresentation, displayPosition, victimTeam, victimUnitType,
+                isUnit, canShowText, canShowUnitVfx, canPunch);
+            return true;
+        }
+
+        private bool EmitPreparedAuthoritative(PreparedAuthoritativePresentation prepared)
+        {
+            AttackResultPresentationInput result = prepared.Result;
+            EffectManager effects = EffectManager.Instance;
+            bool displayed = false;
+            bool unitVfxEmitted = false;
+            if (prepared.CanShowText)
+                displayed |= _hpTextSpawner.TryShowDamageAt(
+                    result.ResultingHp,
+                    prepared.VictimTeam,
+                    prepared.DisplayPosition);
+            if (prepared.CanShowUnitVfx)
+            {
+#if UNITY_EDITOR
+                unitVfxEmitted = _authoritativeUnitVfxValidationEmitter != null
+                    ? _authoritativeUnitVfxValidationEmitter(prepared.VictimUnitType, prepared.DisplayPosition)
+                    : effects != null
+                        && effects.TryPlayUnitHit(prepared.VictimUnitType, prepared.DisplayPosition);
+#else
+                unitVfxEmitted = effects != null
+                    && effects.TryPlayUnitHit(prepared.VictimUnitType, prepared.DisplayPosition);
+#endif
+                displayed |= unitVfxEmitted;
+            }
+            if (prepared.IsUnitVictim)
+                UnitAttackResultPresentationShadowBridge.RecordHitVfxOutcome(
+                    prepared.CanShowUnitVfx, unitVfxEmitted);
+            if (prepared.CanPunch)
+            {
+                HitReactionPunch.Play(prepared.TargetPresentation.gameObject);
+            }
+            else
+            {
+                UnitAttackResultPresentationShadowBridge.RecordOptionalViewSkipped();
+            }
+
+            if (prepared.CanShowUnitVfx && !unitVfxEmitted)
+            {
+                AuthoritativeViewUnavailable++;
+                UnitAttackResultPresentationShadowBridge.RecordPresentationFailure(
+                    AttackPresentationDispatchFailure.ChannelEmissionFailed);
+                return false;
+            }
+
+            if (displayed)
+            {
+                AuthoritativeEmits++;
+                UnitAttackResultPresentationShadowBridge.RecordPresentationDispatch(result, true);
+                return true;
+            }
+
+            // 사전 검사 뒤 같은 호출 안에서 실제 채널이 실패한 극단적 경주다.
+            AuthoritativeViewUnavailable++;
+            UnitAttackResultPresentationShadowBridge.RecordPresentationFailure(
+                AttackPresentationDispatchFailure.ChannelEmissionFailed);
+            return false;
+        }
+
+        private static AttackPresentationDispatchFailure ClassifyAuthoritativeFailure(
+            AttackResultPresentationInput result)
+        {
+            bool isUnit = result.Key.VictimKind == 1;
+            if (!result.HasImpactPosition || !result.HasPresentationSnapshot
+                || !Enum.IsDefined(typeof(TeamId), result.VictimTeam)
+                || (isUnit && !Enum.IsDefined(typeof(UnitType), result.VictimPresentationType)))
+                return AttackPresentationDispatchFailure.SnapshotInvalid;
+            return AttackPresentationDispatchFailure.PresenterUnavailable;
+        }
+
+        private static bool IsVisualResult(AttackResultPresentationInput result)
+            => result.IsVisualResult;
+
+        private void OnDestroy()
+        {
+            Dispose();
+        }
+
+        /// <summary>
+        /// 이벤트 구독 수명을 명시적으로 종료한다. 일반 런타임에서는 OnDestroy가 호출하고,
+        /// Edit Mode 회귀 픽스처는 DestroyImmediate 전에 직접 호출한다.
+        /// </summary>
+        public void Dispose()
+        {
+            UnitAttackResultPresentationShadowBridge.Coordinator.BundleReady -= OnAuthoritativeBundle;
+            _subscriptions.Dispose();
+        }
+
+        private void Emit(
+            EntityDamagedEvent evt,
+            LegacyPresentationObservationKind observationKind =
+                LegacyPresentationObservationKind.EmittedMarker,
+            bool observeLegacy = true)
         {
             if (evt.Entity == null) return;
 
+            // C3 read-only seam. 이 호출은 기존 효과 방출보다 먼저 관측만 남기며 효과 의존성이 없다.
+            if (observeLegacy) ObserveLegacy(evt, observationKind);
+
             // ① HP 텍스트 — 스포너에 위임(풀/팀 색상 로직 재사용). 표시의 유일한 진입점.
-            _hpTextSpawner?.ShowDamage(evt);
+            bool textDisplayed = _hpTextSpawner != null && _hpTextSpawner.TryShowDamage(evt);
+            ObserveFoxLegacyPresentation(evt, "emitted",
+                textDisplayed ? "text-played" : "text-missing");
 
             // 타겟 GameObject 조회 (VFX 위치 + 스케일 펀치 대상). 파괴되었으면 null.
             GameObject targetGo = evt.IsUnit
@@ -400,10 +856,38 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
+        /// 여우마법사의 스코프 없는 피해 수신/방출을 제한적으로 관측한다.
+        /// 텍스트 풀 오브젝트의 재생 성공을 기록하며 화면 픽셀 가시성이나 VFX 종료는 측정하지 않는다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void ObserveFoxLegacyPresentation(EntityDamagedEvent evt, string stage, string dispatch)
+        {
+            if (_foxLegacyDiagnosticCount >= FoxLegacyDiagnosticLimit
+                || evt.Entity == null || !evt.AttackerIsUnit || evt.PresentationResultKey.IsValid
+                || _unitSpawn?.GetUnit(evt.AttackerId)?.Type != UnitType.FoxMagician) return;
+            _foxLegacyDiagnosticCount++;
+            GameLog.Dev.Info("Combat", nameof(HitPresentationQueue), "[FOX-LEGACY-PRESENTATION]",
+                $"stage={stage}, scope=unscoped, attackerId={evt.AttackerId}, "
+                + $"victimId={evt.Entity.Id}, victimIsUnit={evt.IsUnit}, hp={evt.CurrentHp}, "
+                + $"immediate={evt.ImmediatePresentation}, dispatch={dispatch}, "
+                + $"frame={Time.frameCount}, localTime={Time.realtimeSinceStartupAsDouble:F6}, "
+                + $"detail={_foxLegacyDiagnosticCount}, limit={FoxLegacyDiagnosticLimit}");
+        }
+
+        /// <summary>
         /// 특정 타겟을 겨눈 모든 보류 항목을 즉시 방출한다. FIFO 순서를 보존하며 비매칭 항목은 재삽입.
         /// </summary>
         private void FlushTarget(int targetId, bool targetIsUnit)
         {
+            _releasedExact.Clear();
+            _exactRendezvous.FlushWhere(
+                evt => evt.IsUnit == targetIsUnit
+                    && evt.Entity != null
+                    && evt.Entity.Id == targetId,
+                _releasedExact);
+            EmitReleasedExact(LegacyPresentationObservationKind.EmittedTargetDeath);
+
             foreach (KeyValuePair<int, Queue<PendingHit>> kv in _pendingByAttacker)
             {
                 Queue<PendingHit> queue = kv.Value;
@@ -418,7 +902,7 @@ namespace Hexiege.Presentation
                                  && item.Event.Entity != null
                                  && item.Event.Entity.Id == targetId;
                     if (match)
-                        Emit(item.Event);   // 사망 연출 전 마지막 피격 표시 보장.
+                        Emit(item.Event, LegacyPresentationObservationKind.EmittedTargetDeath);
                     else
                         queue.Enqueue(item);
                 }
@@ -437,16 +921,117 @@ namespace Hexiege.Presentation
         /// <param name="attackerId">방출 대상 공격자 Id(=_pendingByAttacker의 키).</param>
         private void FlushAttacker(int attackerId)
         {
+            _releasedExact.Clear();
+            _exactRendezvous.FlushAttacker(attackerId, _releasedExact);
+            EmitReleasedExact(LegacyPresentationObservationKind.EmittedAttackerStop);
+
             if (!_pendingByAttacker.TryGetValue(attackerId, out Queue<PendingHit> queue))
                 return;
 
             // FIFO 순서 그대로 앞에서부터 전부 방출.
             while (queue.Count > 0)
-                Emit(queue.Dequeue().Event);
+                Emit(queue.Dequeue().Event, LegacyPresentationObservationKind.EmittedAttackerStop);
 
             // 공격자 큐 자체를 제거 — 이 공격자는 이번 전투에서 더 이상 항목을 쌓지 않는다.
             // (재교전 시 GetOrCreateQueue가 새 큐를 다시 만든다.)
             _pendingByAttacker.Remove(attackerId);
+        }
+
+        private void OnPresentationScopeRetired(
+            LocalAttackPresentationScopeRetiredEvent retired)
+        {
+            AttackPresentationRendezvousStatus status =
+                _exactRendezvous.RetireSequence(
+                    retired.AttackerId,
+                    retired.PresentationScope);
+            if (status == AttackPresentationRendezvousStatus.Invalid
+                || status == AttackPresentationRendezvousStatus.CapacityExceeded)
+            {
+                RecordStructuralFailure(
+                    new LocalAttackHitPresentationEvent(
+                        retired.AttackerId,
+                        retired.PresentationScope),
+                    status == AttackPresentationRendezvousStatus.CapacityExceeded
+                        ? LegacyPresentationObservationKind.StructuralCapacityExceeded
+                        : LegacyPresentationObservationKind.StructuralInvalid);
+            }
+        }
+
+        /// <summary>
+        /// 순수 rendezvous가 반환한 exact-scope 결과만 실제 표현으로 방출한다. 호출자가
+        /// 지정한 사유는 정상 marker, timeout, target death, attacker stop을 C3에서 서로
+        /// 구분하기 위한 것이며 HP나 서버 결과를 변경하지 않는다.
+        /// </summary>
+        private void EmitReleasedExact(LegacyPresentationObservationKind observationKind)
+        {
+            for (int index = 0; index < _releasedExact.Count; index++)
+                Emit(_releasedExact[index], observationKind);
+            _releasedExact.Clear();
+        }
+
+        private static void ObserveLegacy(
+            EntityDamagedEvent evt,
+            LegacyPresentationObservationKind kind)
+        {
+            if (!UnitAttackResultPresentationShadowBridge.IsActive
+                || evt.Entity == null || !evt.AttackerIsUnit)
+                return;
+            UnitAttackResultPresentationShadowBridge.ObserveLegacy(
+                new LegacyPresentationObservation(
+                    kind,
+                    evt.AttackerId,
+                    evt.IsUnit ? 1 : 2,
+                    evt.Entity.Id,
+                    evt.CurrentHp,
+                    Time.realtimeSinceStartupAsDouble,
+                    false,
+                    default,
+                    evt.PresentationResultKey,
+                    AttackPresentationScope.FromResultKey(
+                        evt.PresentationResultKey)));
+        }
+
+        private static void RecordStructuralFailure(
+            EntityDamagedEvent evt,
+            LegacyPresentationObservationKind kind)
+        {
+            if (!UnitAttackResultPresentationShadowBridge.IsActive
+                || evt.Entity == null)
+                return;
+            UnitAttackResultPresentationShadowBridge.ObserveStructuralFailure(
+                new LegacyPresentationObservation(
+                    kind,
+                    evt.AttackerId,
+                    evt.IsUnit ? 1 : 2,
+                    evt.Entity.Id,
+                    evt.CurrentHp,
+                    Time.realtimeSinceStartupAsDouble,
+                    false,
+                    default,
+                    evt.PresentationResultKey,
+                    AttackPresentationScope.FromResultKey(
+                        evt.PresentationResultKey)));
+        }
+
+        private static void RecordStructuralFailure(
+            LocalAttackHitPresentationEvent hit,
+            LegacyPresentationObservationKind kind)
+        {
+            if (!UnitAttackResultPresentationShadowBridge.IsActive)
+                return;
+            UnitAttackResultPresentationShadowBridge.ObserveStructuralFailure(
+                new LegacyPresentationObservation(
+                    kind,
+                    hit.AttackerId,
+                    0,
+                    -1,
+                    -1,
+                    Time.realtimeSinceStartupAsDouble,
+                    false,
+                    default,
+                    default,
+                    hit.PresentationScope,
+                    hit.ReplicatedSnapshot));
         }
 
         /// <summary>
@@ -545,6 +1130,55 @@ namespace Hexiege.Presentation
                 Event = evt;
                 EnqueueTime = enqueueTime;
                 Timeout = timeout;
+            }
+        }
+
+        private readonly struct PendingAuthoritativeBundle
+        {
+            public readonly AttackResultPresentationInput[] Results;
+            public readonly double FirstAttemptLocalTime;
+
+            public PendingAuthoritativeBundle(
+                AttackResultPresentationInput[] results,
+                double firstAttemptLocalTime)
+            {
+                Results = results;
+                FirstAttemptLocalTime = firstAttemptLocalTime;
+            }
+        }
+
+        private readonly struct PreparedAuthoritativePresentation
+        {
+            public readonly AttackResultPresentationInput Result;
+            public readonly Transform TargetPresentation;
+            public readonly Vector3 DisplayPosition;
+            public readonly TeamId VictimTeam;
+            public readonly UnitType VictimUnitType;
+            public readonly bool IsUnitVictim;
+            public readonly bool CanShowText;
+            public readonly bool CanShowUnitVfx;
+            public readonly bool CanPunch;
+
+            public PreparedAuthoritativePresentation(
+                AttackResultPresentationInput result,
+                Transform targetPresentation,
+                Vector3 displayPosition,
+                TeamId victimTeam,
+                UnitType victimUnitType,
+                bool isUnitVictim,
+                bool canShowText,
+                bool canShowUnitVfx,
+                bool canPunch)
+            {
+                Result = result;
+                TargetPresentation = targetPresentation;
+                DisplayPosition = displayPosition;
+                VictimTeam = victimTeam;
+                VictimUnitType = victimUnitType;
+                IsUnitVictim = isUnitVictim;
+                CanShowText = canShowText;
+                CanShowUnitVfx = canShowUnitVfx;
+                CanPunch = canPunch;
             }
         }
     }

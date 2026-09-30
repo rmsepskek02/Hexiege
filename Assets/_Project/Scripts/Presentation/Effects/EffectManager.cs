@@ -37,6 +37,38 @@ using Hexiege.Domain;
 namespace Hexiege.Presentation
 {
     /// <summary>
+    /// 유닛 공격 VFX가 어느 경계까지 진행됐는지 나타내는 읽기 전용 결과.
+    /// 기존 재생 흐름을 바꾸지 않고 InfernoSpirit 간헐 누락 진단에만 사용한다.
+    /// </summary>
+    public enum UnitAttackVfxPlaybackStatus
+    {
+        Started = 0,
+        PresetUnavailable = 1,
+        PrefabUnavailable = 2,
+        PoolItemUnavailable = 3,
+        ParticleSystemUnavailable = 4,
+        PlaybackInactive = 5,
+    }
+
+    /// <summary>유닛 공격 VFX 1회 재생 시도의 불변 진단 결과.</summary>
+    public readonly struct UnitAttackVfxPlaybackResult
+    {
+        public UnitAttackVfxPlaybackStatus Status { get; }
+        public int ParticleSystemCount { get; }
+        public bool PlaybackActive { get; }
+
+        public UnitAttackVfxPlaybackResult(
+            UnitAttackVfxPlaybackStatus status,
+            int particleSystemCount,
+            bool playbackActive)
+        {
+            Status = status;
+            ParticleSystemCount = particleSystemCount;
+            PlaybackActive = playbackActive;
+        }
+    }
+
+    /// <summary>
     /// 게임 전체 VFX/SFX를 통합 관리하는 매니저.
     /// Game씬 전용 static Instance (DontDestroyOnLoad 없음).
     /// </summary>
@@ -171,9 +203,51 @@ namespace Hexiege.Presentation
         /// <param name="type">공격한 유닛의 타입.</param>
         /// <param name="pos">재생할 월드 좌표 (보통 총구 또는 유닛 위치).</param>
         /// <param name="rot">재생할 월드 회전 (VFX 발사 방향). 방향성이 없는 VFX는 영향 없음.</param>
-        public void PlayUnitAttack(UnitType type, Vector3 pos, Quaternion rot)
+        public UnitAttackVfxPlaybackResult PlayUnitAttack(UnitType type, Vector3 pos, Quaternion rot)
         {
-            Play(_unitConfig?.GetAttack(type), pos, rot);
+            EffectPreset preset = _unitConfig?.GetAttack(type);
+            if (preset == null)
+            {
+                return new UnitAttackVfxPlaybackResult(
+                    UnitAttackVfxPlaybackStatus.PresetUnavailable,
+                    0,
+                    false);
+            }
+
+            if (preset.VfxPrefab == null)
+            {
+                return new UnitAttackVfxPlaybackResult(
+                    UnitAttackVfxPlaybackStatus.PrefabUnavailable,
+                    0,
+                    false);
+            }
+
+            VfxPoolItem item = GetOrCreateVfx(preset.VfxPrefab);
+            if (item == null)
+            {
+                return new UnitAttackVfxPlaybackResult(
+                    UnitAttackVfxPlaybackStatus.PoolItemUnavailable,
+                    0,
+                    false);
+            }
+
+            item.Play(
+                pos,
+                rot,
+                preset.LocalPositionOffset,
+                preset.EulerRotationOffset,
+                preset.ScaleMultiplier,
+                preset.ForwardTravelDistance,
+                preset.ForwardTravelDuration);
+
+            int particleSystemCount = item.ParticleSystemCount;
+            bool playbackActive = item.IsPlaybackActive;
+            UnitAttackVfxPlaybackStatus status = particleSystemCount <= 0
+                ? UnitAttackVfxPlaybackStatus.ParticleSystemUnavailable
+                : playbackActive
+                    ? UnitAttackVfxPlaybackStatus.Started
+                    : UnitAttackVfxPlaybackStatus.PlaybackInactive;
+            return new UnitAttackVfxPlaybackResult(status, particleSystemCount, playbackActive);
         }
 
         /// <summary>
@@ -196,13 +270,31 @@ namespace Hexiege.Presentation
         /// <param name="pos">재생할 월드 좌표 (보통 피격 유닛 위치).</param>
         public void PlayUnitHit(UnitType type, Vector3 pos)
         {
-            // 피격 VFX는 방향성이 없으므로 회전 없이(identity) 재생.
-            //   프리셋이 미설정(GetHit == null)이면 Play(null)이 내부에서 조용히 스킵한다.
-            Play(_unitConfig?.GetHit(type), pos, Quaternion.identity);
+            TryPlayUnitHit(type, pos);
 
             // 피격 SFX 없음 — SoundConfig에 피격 SFX 엔트리가 아직 없어 이번 작업에서 추가하지 않는다.
             //   추후 피격 효과음 에셋 확보 시, 이 줄 바로 아래에 AudioManager.Instance?.PlayUnitHitSfx(type)
             //   짝을 추가한다 (GameSystemRules_Sound 규칙 15 — VFX+SFX 쌍).
+        }
+
+        /// <summary>
+        /// 유닛 피격 VFX가 실제로 설정되어 재생을 시작했는지 반환한다. 확정 결과 표현기는
+        /// 이 반환값으로 "API를 호출했지만 프리셋이 없어 화면에는 아무것도 없었던 경우"를
+        /// 성공으로 잘못 집계하지 않는다.
+        /// </summary>
+        public bool TryPlayUnitHit(UnitType type, Vector3 pos)
+        {
+            EffectPreset preset = _unitConfig?.GetHit(type);
+            if (preset == null || preset.VfxPrefab == null) return false;
+            Play(preset, pos, Quaternion.identity);
+            return true;
+        }
+
+        /// <summary>피격 VFX 프리팹이 실제로 배선되어 있는지 재생 전에 확인한다.</summary>
+        public bool CanPlayUnitHit(UnitType type)
+        {
+            EffectPreset preset = _unitConfig?.GetHit(type);
+            return preset != null && preset.VfxPrefab != null;
         }
 
         /// <summary>
@@ -272,7 +364,8 @@ namespace Hexiege.Presentation
         /// <param name="start">발사 지점(월드). 보통 유닛의 총구/발사점.</param>
         /// <param name="target">도착 지점(월드). 발사 시점의 타겟 위치(값 복사).</param>
         /// <param name="onArrive">착탄 시 1회 호출할 콜백. 피격 연출 방출을 트리거한다. null 허용.</param>
-        public void PlayTracer(UnitType type, Vector3 start, Vector3 target, Action onArrive)
+        public void PlayTracer(UnitType type, Vector3 start, Vector3 target, Action onArrive,
+            float authoritativeDuration = -1f)
         {
             EffectPreset preset = _unitConfig?.GetTracer(type);
             GameObject prefab = preset != null ? preset.VfxPrefab : null;
@@ -287,7 +380,7 @@ namespace Hexiege.Presentation
 
             // Pool에서 트레이서를 꺼내(또는 새로 만들어) 발사.
             TracerProjectile tracer = GetOrCreateTracer(prefab);
-            tracer.Launch(start, target, onArrive);
+            tracer.Launch(start, target, onArrive, authoritativeDuration);
         }
 
         // ====================================================================

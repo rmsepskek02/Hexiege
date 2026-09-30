@@ -1,5 +1,40 @@
 # document-manager 누적 지식
 
+## 2026-09-30 LionKnight evidence boundary
+
+- Current user verdict supersedes the historical FAIL/OPEN instruction below: the later `a8134504…c3aacb5b` focused LionKnight 0:18/1:13 test is **PASS/CLOSED** after visual acceptance and zero C3 failure in that match. Keep the first match's seven Client `Expired` as a **separate unresolved C3 defect**, tracked by `12_37_attack-presentation-expiry-diagnosis`; only diagnostics were added, so root cause and fix remain unproved. Preserve prior evidence as dated history; do not erase it or mark full migration/formal CrossAudit complete.
+- Historical first-match instruction: the asset-matrix row was corrected from stale 0.22/1.08s to saved 0.6/1.4333333s, with `MigrationRequired` retained; at that point the task was FAIL/OPEN. Host C2/C3 224/0 and Client C2 224 accepted/0 rejected did not override Client C3 7 Expired, ready/released 217/224. Client required visuals 192/192 described the ready subset, not all accepted results. The current focused task verdict is the later PASS/CLOSED noted above.
+- The first Expired attacker instance maps to LionKnight unitId 2; the remaining six failures are not all proven LionKnight. User visual acceptance under severe lag cannot certify exact contact, and logs have no FPS/frame-time to establish cause. Local ROOT PASS is not formal CrossAudit. Preserve the pre-implementation Research/Plan and dated prior-status prose as history; append the outcome and keep full migration open. Source: `Assets/_Project/Docs/_Tasks/2026-09-30/01_21_lionknight-attack-timing-correction/{Research,Plan}.md`.
+- Follow-up `a8134504…c3aacb5b` is a separate Editor Host/Android Client 2/25 match (LionKnight 8, LittleKnight 22). Both C3 runs had 226 schedules, 216 results/ready, zero pending/failures, 216/216 bundles released and 188/188 required visuals; Client accepted 216/0 rejected and its expiry diagnostic recorded 216 arrivals, overflow/pending 0, no Expired. Both local ROOT runs passed. Only diagnostic instrumentation changed, and no expiry recurred, so there is no failure detail to determine the prior cause. The user's earlier severe lag was not assessed in this run. Keep the earlier 7 Expired as separate C3 defect OPEN; do not turn this clean match or visual acceptance into proof of a fix, exact contact timing, formal CrossAudit, or full migration. Source: `Assets/_Project/Docs/_Tasks/2026-09-30/12_37_attack-presentation-expiry-diagnosis/{Research,Plan}.md`.
+
+## 2026-09-22 InfernoSpirit current documentation state
+
+- The historical 0.50s marker / 1.15s config mismatch is resolved; current production marker/config is 0.50/0.50. Past history entries remain unchanged, while active status and the asset matrix must use the current values.
+- Focused movement, attack orientation, VFX placement, and Stop-before-marker source VFX preservation are PASS/CLOSED after user visual confirmation and Host/Client actual starts 64/64.
+- Keep `LegacyFallback` migration and full 25-unit role-swap/rollback as open P0 scope; never turn this focused closure into ActionSequence completion.
+
+## 2026-09-14 QuakeSpirit automatic-gate documentation boundary
+
+- Current facts supersede stale live-status prose: production marker and runtime config are both 1.667s, Quake is Supported/MeleeContact/Impact1/secondary, and the partition is 16/8/1. Preserve dated old placeholder/missing-marker records as history rather than rewriting them as if they were never true.
+- The exact second menu path is `Hexiege → Combat → Diagnostics → Self Validate Unit Root Pose Cross Audit`; omitting `Combat` is a documentation defect.
+- Both Unity menus are automatic code gates with errors 0. Android only reached the build-start screen around 01:20, so status is CONDITIONAL PASS/OPEN until user device evidence.
+- The durable regression contract is production prefab/controller/exact Attack state clip/marker/config read together and fail-closed before Supported promotion; resolver/fixture-only evidence is insufficient.
+
+## 2026-09-14 RhinoBreaker conditional-pass documentation boundary
+
+- Record Blue/Red Rhino unit attacks, the Blue Rhino building attack, Host/Client 724-result convergence, and 692/692 required presentation as focused PASS evidence.
+- Keep the task CONDITIONAL PASS/OPEN because user-observed contact timing and one individual post-death target transition were not explicitly reported. Do not close it or expand it to all 25 units, complete role-swap, Legacy rollback, or ActionSequence completion.
+- UnitView delay 107/107 completion and root-pose maxUnits=64 are separate limitations/observations, not Rhino marker failures.
+- The latest run used the old APK. Document U+27F3 as pre-build evidence and defer validation of the plain `새로고침` source change to the next integrated build.
+- Roadmap wording keeps Rhino final confirmation plus unit-by-unit continuation; the next unit remains unselected until user approval, while full roster/role-swap/rollback stays the final integrated gate.
+
+## 2026-09-13 Attack-entry seam focused PASS documentation verdict
+
+- The prior failure and corrected match intentionally used the same 9/25-unit scope. Do not describe 9/25 as incomplete for this Task; retain full roster, role-swap, and Legacy rollback as a separate P0 integrated regression.
+- Preserve historical FAIL text and append a correction. Current-state documents may mark the typed target payload seam PASS/CLOSED, but must not expand that verdict to full ActionSequence completion or Legacy removal.
+- Core before/after evidence is handoff 87→0, accepted shadow commits for the six previously failing melee types, C2 2,703/0, C3 2,410/2,410, spatial mismatch 0, and stationary-Walk/ignored/error/drop 0. Two deferred target changes are expected holds.
+- Use “full 25-unit + Host/Client role-swap + Legacy rollback integrated regression” consistently for the next P0.
+
 ## 2026-08-24 B3 역할교대 FAIL 문서 판정
 - self-validation/계측 완전성 PASS와 실기 전체 판정을 분리한다. MOVE terminal FAIL 세션의 read-only 회전 대조는 원인 분리 근거이지 공식 RootCrossAudit 판정이 아니다.
 - 현행 수치: Android Host endpoint/evidence 54/54, Editor Client 53/53, overlap 48, 같은 revision 회전 잔차 7(`0.11~0.15°`), Unit 30 adapter failure 6·repeated recoverable 1.

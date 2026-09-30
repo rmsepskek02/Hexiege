@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4781479247221928095}
-  - component: {fileID: 8521332335583730848}
   m_Layer: 0
   m_Name: Building_SpiritNexus_Red
   m_TagString: Untagged
@@ -33,18 +32,6 @@ Transform:
   - {fileID: 2318646302864516181}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &8521332335583730848
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 822863544194094991}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c178b6f3e086351409b946635cbfae71, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Hexiege.Presentation.BuildingView
 --- !u!1 &8006232747020225152
 GameObject:
   m_ObjectHideFlags: 0

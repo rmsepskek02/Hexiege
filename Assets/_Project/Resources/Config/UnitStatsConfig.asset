@@ -78,7 +78,7 @@ MonoBehaviour:
     moveSpeed: 1
     attackCooldown: 2
     hitFrameTimes:
-    - 0.24
+    - 0.8333333
     defense: 0
     productionTime: 10
     goldCost: 100
@@ -92,7 +92,7 @@ MonoBehaviour:
     moveSpeed: 1
     attackCooldown: 3.05
     hitFrameTimes:
-    - 1.1667
+    - 1.02
     defense: 0
     productionTime: 20
     goldCost: 200
@@ -134,12 +134,12 @@ MonoBehaviour:
     moveSpeed: 2
     attackCooldown: 3
     hitFrameTimes:
-    - 0.2
-    - 1.05
-    - 1.13
-    - 1.2
-    - 1.28
-    - 2.03
+    - 0.6666667
+    - 1.1666667
+    - 1.4333334
+    - 1.6666667
+    - 1.9
+    - 2.1
     defense: 0
     productionTime: 10
     goldCost: 100
@@ -167,7 +167,7 @@ MonoBehaviour:
     moveSpeed: 1
     attackCooldown: 3
     hitFrameTimes:
-    - 1.15
+    - 0.5
     defense: 0
     productionTime: 30
     goldCost: 400
@@ -195,7 +195,7 @@ MonoBehaviour:
     moveSpeed: 0.5
     attackCooldown: 4
     hitFrameTimes:
-    - 1.15
+    - 1.3333333
     defense: 0
     productionTime: 15
     goldCost: 100
@@ -209,7 +209,7 @@ MonoBehaviour:
     moveSpeed: 1
     attackCooldown: 3
     hitFrameTimes:
-    - 1.15
+    - 1.5
     defense: 0
     productionTime: 5
     goldCost: 50
@@ -223,7 +223,7 @@ MonoBehaviour:
     moveSpeed: 0.5
     attackCooldown: 1.15
     hitFrameTimes:
-    - 0.17
+    - 0.5
     defense: 0
     productionTime: 10
     goldCost: 100
@@ -251,7 +251,7 @@ MonoBehaviour:
     moveSpeed: 1
     attackCooldown: 1.2
     hitFrameTimes:
-    - 0.2
+    - 0.43333334
     defense: 0
     productionTime: 25
     goldCost: 300
@@ -279,8 +279,8 @@ MonoBehaviour:
     moveSpeed: 2
     attackCooldown: 3
     hitFrameTimes:
-    - 0.22
-    - 1.08
+    - 0.6
+    - 1.4333333
     defense: 0
     productionTime: 15
     goldCost: 200
@@ -322,7 +322,7 @@ MonoBehaviour:
     moveSpeed: 2
     attackCooldown: 2
     hitFrameTimes:
-    - 0.18
+    - 0.6666667
     defense: 0
     productionTime: 5
     goldCost: 50
@@ -364,7 +364,7 @@ MonoBehaviour:
     moveSpeed: 0.5
     attackCooldown: 5
     hitFrameTimes:
-    - 1
+    - 1.667
     defense: 0
     productionTime: 30
     goldCost: 400

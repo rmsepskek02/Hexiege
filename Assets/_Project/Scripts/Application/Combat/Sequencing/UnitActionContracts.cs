@@ -187,6 +187,40 @@ namespace Hexiege.Application.Combat.Sequencing
             plan = new AttackTimelinePlan(cooldownSeconds, recoveryEndOffset, copy);
             return true;
         }
+
+        /// <summary>
+        /// Legacy scheduler가 이미 소비한 overshoot를 같은 회차 Shadow에 투영할 때만 쓰는
+        /// 제한된 생성 경계다. 여러 원래 타격 offset이 0으로 수렴할 수 있으므로 비감소
+        /// 순서를 허용하지만, 일반 공격 계획의 엄격 증가 계약은 <see cref="TryCreate"/>에
+        /// 그대로 남긴다. 동일 시각 타격의 실행 순서는 HitIndex와 reservation mask가 보장한다.
+        /// </summary>
+        public static bool TryCreateLegacyAdjusted(
+            double cooldownSeconds,
+            double recoveryEndOffset,
+            double[] impactOffsets,
+            out AttackTimelinePlan plan)
+        {
+            plan = null;
+            if (!ContractNumber.IsFinite(cooldownSeconds) || cooldownSeconds <= 0d) return false;
+            if (!ContractNumber.IsFinite(recoveryEndOffset) || recoveryEndOffset < 0d) return false;
+            if (impactOffsets == null || impactOffsets.Length < 1 || impactOffsets.Length > 64) return false;
+
+            var copy = new double[impactOffsets.Length];
+            double previous = -1d;
+            for (int index = 0; index < impactOffsets.Length; index++)
+            {
+                double offset = impactOffsets[index];
+                if (!ContractNumber.IsFinite(offset) || offset < 0d || offset >= cooldownSeconds)
+                    return false;
+                if (index > 0 && offset < previous) return false;
+                copy[index] = offset;
+                previous = offset;
+            }
+
+            if (recoveryEndOffset < copy[copy.Length - 1]) return false;
+            plan = new AttackTimelinePlan(cooldownSeconds, recoveryEndOffset, copy);
+            return true;
+        }
     }
 
     /// <summary>규칙 v2의 월드 거리 판정을 캡슐화한다.</summary>
@@ -260,6 +294,19 @@ namespace Hexiege.Application.Combat.Sequencing
         AuthorizedMiss = 2
     }
 
+    /// <summary>
+    /// AuthorizedMiss가 어떤 pre-impact 권위 사실에서 발생했는지 보존한다.
+    /// unavailable 결과는 같은 원인과만 결속하며, 범위/방향 실패를 대상 소멸로
+    /// 바꾸거나 공격자·타겟 동시 부재를 임의의 한쪽 원인으로 축약하지 않는다.
+    /// </summary>
+    public enum ImpactAuthorizationMissReason : byte
+    {
+        None = 0,
+        AttackerUnavailable = 1,
+        TargetUnavailable = 2,
+        CombatConditionFailed = 3
+    }
+
     /// <summary>Reducer가 특정 HitIndex의 판정을 외부 권위 writer에 요청하는 값이다.</summary>
     public readonly struct ImpactAuthorization
     {
@@ -272,11 +319,15 @@ namespace Hexiege.Application.Combat.Sequencing
         public double ImpactServerTime { get; }
         public ActionDirectionXZ AimDirection { get; }
         public ImpactAuthorizationOutcome Outcome { get; }
+        public ImpactAuthorizationMissReason MissReason { get; }
         public bool IsValid => ActionRevision != 0UL && Key.IsValid
             && AttackerInstanceId.IsValid && SequenceId.IsValid && HitIndex >= 0
             && Target.IsValid && Key.VictimKind == (int)Target.Kind && Key.VictimId == Target.Id
             && ContractNumber.IsFinite(ImpactServerTime) && AimDirection.IsValid
-            && Outcome != ImpactAuthorizationOutcome.None;
+            && (Outcome == ImpactAuthorizationOutcome.AuthorizedHit
+                ? MissReason == ImpactAuthorizationMissReason.None
+                : Outcome == ImpactAuthorizationOutcome.AuthorizedMiss
+                    && MissReason != ImpactAuthorizationMissReason.None);
 
         internal ImpactAuthorization(
             ulong actionRevision,
@@ -284,7 +335,8 @@ namespace Hexiege.Application.Combat.Sequencing
             EntityRef target,
             double impactServerTime,
             ActionDirectionXZ aimDirection,
-            ImpactAuthorizationOutcome outcome)
+            ImpactAuthorizationOutcome outcome,
+            ImpactAuthorizationMissReason missReason)
         {
             ActionRevision = actionRevision;
             Key = key;
@@ -295,6 +347,7 @@ namespace Hexiege.Application.Combat.Sequencing
             ImpactServerTime = impactServerTime;
             AimDirection = aimDirection;
             Outcome = outcome;
+            MissReason = missReason;
         }
     }
 

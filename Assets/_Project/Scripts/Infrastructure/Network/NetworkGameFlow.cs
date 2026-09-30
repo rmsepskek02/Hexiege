@@ -73,6 +73,19 @@ namespace Hexiege.Infrastructure
             (1 << (int)UnitMovementPipelineMode.Legacy)
             | (1 << (int)UnitMovementPipelineMode.ReducerAuthoritative);
 
+        [Header("C3 공격 표현 파이프라인")]
+        [Tooltip("서버가 다음 경기 전체에 고정할 공격 표현 mode. Legacy/PresentationShadow는 기존 emitter를 유지하고, ResultPresentation은 지원 공격만 서버 완결 결과 기반 단일 emitter를 사용합니다.")]
+        [SerializeField]
+        private CombatPipelineMode _serverCombatPipelineMode = CombatPipelineMode.PresentationShadow;
+        private CombatPipelineMode _selectedCombatPipelineMode = CombatPipelineMode.Legacy;
+        private string _combatProfileHash;
+        private const int CombatSchemaRevision =
+            UnitAttackShadowProfileResolver.PresentationContractSchemaRevision;
+        private const int SupportedCombatModeMask =
+            (1 << (int)CombatPipelineMode.Legacy)
+            | (1 << (int)CombatPipelineMode.PresentationShadow)
+            | (1 << (int)CombatPipelineMode.ResultPresentation);
+
         private readonly System.Collections.Generic.HashSet<ulong> _readyClients =
             new System.Collections.Generic.HashSet<ulong>();
 
@@ -122,6 +135,24 @@ namespace Hexiege.Infrastructure
                 }
 
                 _selectedMovementPipelineMode = _serverMovementPipelineMode;
+
+                if (!CombatPipelineContractLatch.IsSupported(_serverCombatPipelineMode))
+                {
+                    GameLog.Dev.Error("Network", nameof(NetworkGameFlow),
+                        "지원하지 않는 서버 공격 표현 mode입니다 — 게임 시작을 거부합니다",
+                        $"Mode={_serverCombatPipelineMode}");
+                    return;
+                }
+                _selectedCombatPipelineMode = _serverCombatPipelineMode;
+            }
+
+            if (!UnitAttackShadowProfileResolver.TryComputePresentationProfileHash(
+                    out _combatProfileHash, out string combatHashReason))
+            {
+                GameLog.Dev.Error("Network", nameof(NetworkGameFlow),
+                    "공격 프로필 manifest hash 생성 실패 — 게임 시작을 거부합니다",
+                    $"Reason={combatHashReason}");
+                return;
             }
 
             // 게임이 이미 진행 중이면 재스폰으로 인한 중복 시작 차단
@@ -167,7 +198,10 @@ namespace Hexiege.Infrastructure
             RequestReadyServerRpc(
                 myRace,
                 UnitMovementSchemaRevision,
-                SupportedMovementModeMask);
+                SupportedMovementModeMask,
+                CombatSchemaRevision,
+                SupportedCombatModeMask,
+                _combatProfileHash);
             yield break;
         }
 
@@ -187,6 +221,9 @@ namespace Hexiege.Infrastructure
             int race,
             int movementSchemaRevision,
             int supportedMovementModeMask,
+            int combatSchemaRevision,
+            int supportedCombatModeMask,
+            string combatProfileHash,
             ServerRpcParams rpcParams = default)
         {
             ulong senderId = rpcParams.Receive.SenderClientId;
@@ -207,6 +244,25 @@ namespace Hexiege.Infrastructure
                     $"ServerSchema={UnitMovementSchemaRevision}, " +
                     $"ClientSchema={movementSchemaRevision}, " +
                     $"ClientModeMask={supportedMovementModeMask}");
+                if (senderId != NetworkManager.ServerClientId)
+                    NetworkManager.DisconnectClient(senderId);
+                return;
+            }
+
+            int selectedCombatBit = 1 << (int)_selectedCombatPipelineMode;
+            bool combatCompatible =
+                CombatPipelineContractLatch.IsSupported(_selectedCombatPipelineMode)
+                && combatSchemaRevision == CombatSchemaRevision
+                && (supportedCombatModeMask & selectedCombatBit) != 0
+                && string.Equals(combatProfileHash, _combatProfileHash,
+                    System.StringComparison.Ordinal);
+            if (!combatCompatible)
+            {
+                GameLog.Dev.Error("Network", nameof(NetworkGameFlow),
+                    "공격 표현 파이프라인 호환 실패 — 게임 시작을 거부합니다",
+                    $"ClientId={senderId}, ServerMode={_selectedCombatPipelineMode}, " +
+                    $"ServerSchema={CombatSchemaRevision}, ClientSchema={combatSchemaRevision}, " +
+                    $"ClientModeMask={supportedCombatModeMask}");
                 if (senderId != NetworkManager.ServerClientId)
                     NetworkManager.DisconnectClient(senderId);
                 return;
@@ -247,7 +303,10 @@ namespace Hexiege.Infrastructure
                     _blueRace,
                     _redRace,
                     (int)_selectedMovementPipelineMode,
-                    UnitMovementSchemaRevision);
+                    UnitMovementSchemaRevision,
+                    (int)_selectedCombatPipelineMode,
+                    CombatSchemaRevision,
+                    _combatProfileHash);
             }
         }
 
@@ -268,7 +327,10 @@ namespace Hexiege.Infrastructure
             int blueRace,
             int redRace,
             int movementPipelineMode,
-            int movementSchemaRevision)
+            int movementSchemaRevision,
+            int combatPipelineMode,
+            int combatSchemaRevision,
+            string combatProfileHash)
         {
             UnitMovementPipelineMode selectedMovementMode =
                 (UnitMovementPipelineMode)movementPipelineMode;
@@ -284,6 +346,31 @@ namespace Hexiege.Infrastructure
                     $"Mode={movementPipelineMode}, Schema={movementSchemaRevision}");
                 return;
             }
+
+            CombatPipelineMode selectedCombatMode = (CombatPipelineMode)combatPipelineMode;
+            bool localHashValid = UnitAttackShadowProfileResolver.TryComputePresentationProfileHash(
+                out string localProfileHash, out string hashReason);
+            if (combatSchemaRevision != CombatSchemaRevision
+                || !CombatPipelineContractLatch.IsSupported(selectedCombatMode)
+                || !localHashValid
+                || !string.Equals(combatProfileHash, localProfileHash, System.StringComparison.Ordinal)
+                || !NetworkContext.TryBeginCombatPipelineMatch(
+                    selectedCombatMode, combatSchemaRevision, combatProfileHash))
+            {
+                GameLog.Dev.Error("Network", nameof(NetworkGameFlow),
+                    "게임 시작 공격 표현 계약 불일치 — 로컬 게임 시작을 거부합니다",
+                    $"Mode={combatPipelineMode}, Schema={combatSchemaRevision}, HashReason={hashReason}");
+                return;
+            }
+
+            UnitAttackResultPresentationShadowBridge.BeginMatch(
+                selectedCombatMode == CombatPipelineMode.PresentationShadow
+                    || selectedCombatMode == CombatPipelineMode.ResultPresentation,
+                NetworkManager.ServerTime.Time,
+                UnityEngine.Time.realtimeSinceStartupAsDouble);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+            UnitAttackShadowObserver.RecordCombatContractLatched();
+#endif
 
             // [개발] RPC 수신 덤프. 결과(맵 로드)가 화면에 즉시 나타난다.
             GameLog.Dev.Info(

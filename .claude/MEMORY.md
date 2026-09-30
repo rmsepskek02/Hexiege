@@ -1,5 +1,94 @@
 # 에이전트 공용 컨텍스트
 
+## LionKnight C3 presentation-expiry gate (2026-09-30)
+
+- **2026-09-30 current verdict:** User accepted the later Editor Host/Android Client `a8134504…c3aacb5b` LionKnight 8 + LittleKnight 22 mixed match as LionKnight 0:18/1:13 focused **PASS/CLOSED**. Both peers had 216 results/ready, zero C3 failures, 216/216 bundles released and 188/188 required visuals; Client Expired 0 and both local ROOT runs PASS. The earlier Client Expired 7 are a **separate unresolved C3 defect** in the `12_37_attack-presentation-expiry-diagnosis` task, not evidence that the clean match failed. Diagnosis remains OPEN: instrumentation only, no failure recurrence or cause/fix proof. Exact contact/damage offset, formal CrossAudit, full migration, earlier lag and LittleKnight MOVE failures remain outside focused closure. The bullets below preserve the first-match historical verdict.
+- The corrected LionKnight 30fps markers/config are 0:18 and 1:13 (0.6s and 1.4333333s), but visual acceptance is not a presentation PASS when the Client coordinator reports Expired bundles. In the Android Host/Editor Client `a2d9c80e…c622225` 2/25 mixed match, Host C2/C3 had 224/0 failures; Client accepted all 224 C2 results yet C3 had 7 Expired and released only 217/224 bundles. Client 192/192 required visuals covers the ready subset only. Both local ROOT runs passed; formal CrossAudit did not.
+- At the first-match review, the LionKnight task was FAIL/OPEN pending expiry diagnosis and retest; the later focused user verdict above supersedes only that task status. The first expired attacker instance maps to LionKnight unitId 2; do not assign the other six failures to a type without evidence. The user saw no major visual issue but reported severe lag; absent FPS/frame-time data, neither lag cause nor its link to expiry is established. Exact contact timing and full migration remain unverified. Source: `Assets/_Project/Docs/_Tasks/2026-09-30/01_21_lionknight-attack-timing-correction/{Research,Plan}.md`.
+
+## BearGuard 0:13 focused visual gate and separate open work (2026-09-30)
+
+- BearGuard's single 30fps `0:13` Attack marker and type 20 config are `0.43333334s`, with explicit production clip binding and a permanent gate. Both Unity self-validations passed; the prior Android build-start screen was not a build-completion observation.
+- The first `cc278c50…b461819` match's Host/Client ROOT runs were INCOMPLETE because they ended before BearGuard/LittleKnight production. Keep it separate from retest `b986fbbc…61d7d94b`: 11 BearGuard and 49 LittleKnight in a 2/25 mixed match, Host/Client results 641/641 with zero failure/reject, required visuals 608/608 on each peer, Host MOVE adapterFailures 0, and both local ROOT runs PASS. User visual acceptance closes only the BearGuard 0:13 focused timing gate.
+- Do not infer a BearGuard-only marker-to-authoritative-damage offset or formal CrossAudit Analyze PASS from match aggregates, local ROOT, or self-validation. The earlier LittleKnight four Host adapter failures, BearGuard design cycle `1:20` versus runtime cooldown `1.2s`, 25-type coverage, role swap, rollback, and v2 migration remain OPEN. Details: `Assets/_Project/Docs/_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/{Research,Plan}.md`.
+
+## TideSpirit focused visual gate and LittleKnight separation (2026-09-29)
+
+- TideSpirit's user-saved 30fps `1:15` marker and type 16 config are aligned at 1.50s with explicit production clip binding and a permanent gate; both Unity self-validations passed. Do not claim observation of Android build completion from the earlier JDK-progress screen.
+- Same-session Editor Host/Android Client `ae04f2a9…e6bd03` produced TideSpirit 32 and LittleKnight 12. Match-wide results converged 160/160 with zero failure/reject, required visuals 129/129 per peer, Host MOVE adapterFailures 0, and both local ROOT runs PASS. User visual acceptance closes only TideSpirit's focused timing gate; exact Tide-only marker-to-damage offset and formal CrossAudit/25-type/role-swap/rollback remain open.
+- Earlier LittleKnight Host adapterFailures 4 are separately OPEN; nonrecurrence here is not a fix. Full evidence and warning classification: `Assets/_Project/Docs/_Tasks/2026-09-29/19_09_tidespirit-attack-correction/{Research,Plan}.md`.
+
+## Fox presentation timing and DustSpirit evidence boundaries (2026-09-28)
+
+- Fox's source marker (1.00s) and authoritative damage offset (2.25s) are deliberately separate. The primary damage writer sets existing immediatePresentation only for Fox with an invalid/unscoped result key; never infer gameplay type in the queue or bypass Supported ownership/valid-key handling.
+- Focused two-match Editor Host/Android Client evidence `be8b171a…bd94d4f5` uses 03_50 device plus editor daily; 03_41 is overlapping capture, not additional matches. Each peer has 61 same-frame received/emitted text-played pairs (max 7.097/2.445ms). The user accepts current Fox timing despite slight earliness; defer retuning until projectile implementation. Do not claim full migration or visual perfection: VFX end/exact attack correlation remain unmeasured; VFX starts 79/78, failures 0, incomplete 1 each with unknown cause.
+- DustSpirit was actually produced 49 times (Fox 10), unlike the earlier Boulder+Fox match. Dust is the only Supported produced type: results 250 per peer, required visuals 236/236, failure/duplicate/spatial/recovery 0. Keep CONDITIONAL PASS/OPEN until explicit visual acceptance. Per-run local ROOT PASS is not a formal cross-audit.
+- Evidence and limitations live in the existing Fox 2026-09-22/19_48 and Dust 2026-09-27/10_54 Task documents. Treat same-frame queue-to-spawner success as that boundary only, not VFX-end-to-impact synchronization.
+
+## 2026-09-22 StreamSpirit production timeline/VFX focused PASS
+
+- StreamSpirit's production contract aligns the configured `OnAttackHit` marker and server TimerImpact setting at `0.50s`; this is configuration/asset alignment, not a claim of runtime simultaneity. The measured Host marker-to-timer maximum delta was `0.095232s`. The permanent gate verifies the exact clip/controller/Blue·Red prefabs/VFX preset while preserving `Unresolved / LegacyFallback`. Unit Action and Root Pose Cross Audit self-validations passed, with zero latest C# compile errors.
+- Same-session Editor Host/Android Client `c50c68f…c0c9ad7` covered two matches. Actual VFX starts were Host 603/603 and Client 603/603, with zero playback failures, unmatched events, duplicates, or overflow; every result reported one particle system and active playback.
+- Terminal incomplete counts are unfinished cycles remaining at network despawn and were not classified as `vfxFailures`. Because detail records were dropped at the logging limit, this evidence cannot determine whether each unfinished cycle was merely in progress, normally cancelled, or affected by target disappearance. The general UAS END failures came from 3/25 and 4/25 focused coverage plus dropped-detail limits, and do not negate the StreamSpirit terminal result. Client max marker `0.732351s` is timing variance, not evidence of VFX loss.
+- Keep `MigrationRequired / Unresolved`: authoritative projectile flight/impact, launch-to-impact exact-key correlation, and full 25-type role-swap/rollback remain incomplete. Do not generalize this focused PASS to those scopes.
+
+## 2026-09-22 InfernoSpirit focused movement and VFX correction PASS
+
+- InfernoSpirit's prefab Visual Root X omission was restored to zero, eliminating the unit-specific movement teleport seen by the user. VFX spawn placement and the production attack orientation were also corrected and visually accepted.
+- The remaining intermittent VFX loss was a shared presentation-lifetime race: a normal Stop or target death could close presentation state before an already committed animation marker arrived on the Client. A bounded source-marker lease now preserves only attacker-side VFX/SFX as `SourceOnly`; target lookup, tracer, local hit, and damage remain closed.
+- Same-session Editor Host/Android Client `dc055118…46c8f` ended with actual VFX starts 64/64. Client preserved 11 Stop-before-marker events, had gate suppression 0 and playback failures 0. The Host's one extra raw event was a correctly suppressed uncommitted marker after a 98.363° Misaligned production gate.
+- User visual confirmation closes `_Tasks/2026-09-21/02_42_infernospirit-movement-jump-correction/`. Do not generalize this focused closure to InfernoSpirit LegacyFallback migration, the full 25-unit role-swap/rollback gate, or ActionSequence completion.
+
+## 2026-09-20 BattleAxe production timeline focused gate: CONDITIONAL PASS
+
+- BattleAxe runtime `hitFrameTimes` is now `[1.02]`, matching the single production `Base Layer/Attack` marker at 1.02s. A one-shot Unity setup verified both prefabs/controller/clip/config, saved the asset, passed, and was removed; permanent Unit Action validation now fails closed on any divergence. Both Unity validation menus passed.
+- Same-session Editor Host/Android Client `010f6e1b…c9bb` covered 14 BattleAxe units on each peer. Host 420 results/0 failures equals Client 420 accepted/0 rejected; required visuals are 440/440, AoE bundles 420/420, spatial mismatch 0, Host movement 47,070 frames has zero gate/writer/handoff/stationary-Walk/error/drop failures, and both ROOT runs passed.
+- Client WARN 181 consists of recovered UnitView initialization delays/retries plus one normal disconnect; final viewUnavailable is 0 and ERROR/FATAL/exceptions are 0. Do not classify these warnings as BattleAxe attack failures.
+- Keep the task CONDITIONAL PASS/OPEN. The user saw no major visual problem, but severe lag prevented independent confirmation of exact 1.02s contact and Sweep ally/rear/out-of-range exclusion. Performance diagnosis is a separate later defect. This 4/25 run does not complete the full roster, role-swap, or Legacy rollback gate.
+
+## 2026-09-14 QuakeSpirit focused Android log gate: CONDITIONAL PASS
+
+- Editor Host + Android Client shared session `9d43b8e…b3d75` covered 4/25 types and 10 QuakeSpirit units. Host results 770/0 failures match Client 770 accepted/0 rejected; required visuals are 909/909 on both peers, AoE bundles 770/770, and spatial mismatch is 0.
+- Direct 200 plus 50% splash 100 were observed together for unit and building victims. Host movement 165,383 frames, replication 932 samples, and both ROOT runs ended without gate/writer/handoff/stationary-Walk/revision/drop errors.
+- Latest Android PID 24233 had 123 UnitView delays matched by 123 completions, final viewUnavailable 0, and no GameLog ERROR/FATAL, NullReference, or U+27F3 warning.
+- Keep the task CONDITIONAL PASS/OPEN: exact on-screen strike frame, ally/out-of-range exclusion, perceived long stalls, and control-unit visual regression were not user-reported. Do not generalize this 4/25 scope to full roster, role-swap, or Legacy rollback completion.
+
+## 2026-09-14 QuakeSpirit marker/config automatic gate CONDITIONAL PASS
+
+- QuakeSpirit production Attack clip has exactly one `OnAttackHit` at 1.667s; `UnitStatsConfig` was corrected from 1.0 to 1.667 after a one-shot Unity setup verified the exact Attack state, controller, and both team prefabs. The setup script and meta were removed after saving.
+- Resolver is now `Supported / MeleeContact / Impact 1 / secondary true`; manifest partition is 16 Supported / 8 Unresolved / 1 N/A.
+- Permanent Unit Action self-validation must fail closed when production marker/controller/prefab/config evidence diverges before any Supported promotion. Resolver/fixture-only green evidence is insufficient.
+- Unit Action A1/B2/C2/C3 and Root Pose Cross Audit passed with errors 0. Android Build And Run reached `Starting Android build` around 01:20; completion and device gameplay remain user-owned. Verdict is CONDITIONAL PASS/OPEN, not full roster, role-swap, rollback, or ActionSequence completion.
+
+## 2026-09-14 RhinoBreaker impact marker focused CONDITIONAL PASS
+
+- Prior corrected-build sessions covered Blue/Red RhinoBreaker unit attacks; additional Editor Host + Android Client `f9b842d9…35a8d0` covered Blue Rhino building attack with LittleKnight as the control.
+- Host 724/0 failures equals Client 724 accepted/0 rejected. Both peers have ready 724 and required presentation 692/692; duplicate, transport, presentation, spatial, movement gate/writer/handoff/stationary-Walk, error, and drop failures are 0.
+- Rhino unit 0 committed against Red TrainingCamp building 11, which later died. The focused task remains CONDITIONAL PASS/OPEN because the user did not explicitly confirm visual contact timing or one specific Rhino's post-death target transition.
+- Client UnitView init delay 107/107 completed with no retry failure/exhaustion; keep as a separate structural observation. Root pose maxUnits=64 warnings mean units after the cap are outside that observer's coverage.
+- This run reused the old APK. Its two U+27F3 warnings do not contradict the source-side replacement with plain `새로고침`; verify that replacement in the next integrated build.
+- Continue unit-by-unit correction after user selects the next unit. Do not generalize this result to all 25 units, full role-swap, Legacy rollback, or ActionSequence completion.
+
+## 2026-09-13 Attack-entry typed target payload seam focused PASS
+
+- Editor Host + Android Client `abe1fb66…f5c1`; the user intentionally retested the same 9/25 unit types as the prior failure. The untested 16 types are not a failure of this Task.
+- `combatPresentationHandoffFailures` changed from 87 to 0 for the same six melee types, and all six produced accepted shadow commits. `stationaryWalkViolations`, failure details/overflow, and ignored events are 0.
+- `deferredCombatTargetChanges=2` is the expected pre-Action hold. C2 Host 2,703/0 failures matches Client 2,703 accepted/0 rejected; C3 required visuals are 2,410/2,410 on both peers; spatial mismatches, ROOT/error/drop, and ERROR/FATAL/Exception are 0.
+- Current task `_Tasks/2026-09-13/11_41_attack-entry-target-payload-seam/` is PASS/CLOSED. Do not generalize this focused scope to full roster, role-swap, or rollback completion.
+- Next P0 is the integrated 25-unit, Host/Client role-swap, and Legacy rollback regression. Build completion monitoring remains user-owned; Codex only starts builds when requested.
+
+## 2026-08-28 C2 통합 실기 FAIL
+
+- Editor Host / Android Client `fda268f4…5687d`: Android ERROR/예외/FATAL 0, Client result reject 0이나 Host `serverResults=942`, `resultFailures=97`, C2 FAIL.
+- Assault Unit 16·58은 예약 TargetId 일치·yaw `0.192°/0.248°`인데 Shadow `AuthorizedMiss`, Legacy `Applied(10)`. Legacy `ApplyAttackDamageCore`의 사거리 미검증이 현재 Impact 사거리 규칙과 충돌한다.
+- 추가 분리: `Applied+NotDue` 5, unavailable+NotDue 78은 C2 시간/생명주기 결함. `TargetUnavailable+Accepted+Miss` 12는 observer가 non-Applied를 Cancelled로만 기대한 오탐.
+- 다음 gate는 공통 서버 Impact preflight·due 생명주기·Miss 채점 교정 → Unity PASS → 새 Android 역할교대. 서버 권위와 Legacy 단일 gameplay writer 유지, Phase 5 보류.
+
+## 2026-08-26 C1 v3 현재 상태
+
+- Legacy 공격 시작마다 독립 Shadow 회차를 원자 Commit하고 예약별 Sequencer가 늦은 Impact까지 소유하도록 교정했다. 정상 Deferred/실제 correlation failure와 GameEnd 뒤 B3 callback을 분리했다.
+- Runtime/Editor 컴파일과 Unity Unit Action self-validation PASS. 서버 권위 Legacy writer 유지. 새 Android/Editor 동일 경기 v3 실기 전 C1 전체 OPEN.
+
 > **모든 에이전트는 작업 시작 전 이 파일을 반드시 읽을 것.**
 >
 > 이 파일은 **시스템 프롬프트에 자동 주입되지 않는다.** 각 에이전트 정의 `.claude/agents/<이름>.md` 의 「작업 시작 전 반드시 `Read` 할 것」 지시를 따라 **`Read` 로 직접 열어야** 도달한다(그 지시를 2026-08-21에 6개 정의 파일 전부에 넣어 위 문장이 비로소 사실이 되었다).
@@ -228,3 +317,9 @@ qa-tester · game-design-lead · asset-prompt-crafter · project-orchestrator 4�
 - The formal CrossAudit INCONCLUSIVE was caused by Android Logcat truncating the oversized Host ROOT `summary-END`, not by missing individual gameplay evidence. Do not retroactively infer PASS from the old truncated file.
 - ROOT periodic summaries remain detailed; terminal END now contains only mandatory CrossAudit fields. Worst-case full line is 803 UTF-8 bytes and has a production preflight that emits a short terminal failure instead of truncated evidence.
 - Runtime/Editor Roslyn, Unity `[UAS-DIAG]`, and RootCrossAudit SelfValidate all PASS. No standalone rebuild/retest is required for this diagnostic fix. The next active implementation is Tracer C Phase 4 attack-sequence Shadow and authoritative target/facing alignment; Legacy damage/HP/RPC/VFX stays authoritative during Shadow.
+
+## 2026-08-27 - C1 observer v5 false-positive correction
+
+- Latest Editor Host/Android Client evidence had matching reserved Legacy/Shadow TargetId 15, sequence 5, `Accepted`, and `AuthorizedHit ↔ Applied`; only the display candidate was already `-1`. This is a diagnostic false positive, not a gameplay mismatch.
+- Dispatch correctness must compare the committed reservation target, positive sequence, reducer status, and Shadow/Legacy application result. Display target is diagnostic context only because its lifecycle may advance before a reserved Impact.
+- Schema v5 and the RED→GREEN Unity regression validation pass. Next is Phase 4 Snapshot/ImpactResult Shadow; Legacy damage authority remains unchanged.

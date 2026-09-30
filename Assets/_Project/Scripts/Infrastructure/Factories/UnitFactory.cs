@@ -85,6 +85,9 @@ namespace Hexiege.Infrastructure
             public UnitType type;
             public GameObject blue;
             public GameObject red;
+            // 지정한 경우 실제 Attack state와 같은 클립에서 주기와 marker를 함께 읽는다.
+            // 미지정 항목은 기존 controller 클립 목록의 첫 Attack 선택을 유지한다.
+            public AnimationClip attackTimelineClip;
         }
 
         // 종족별 유닛 프리팹 리스트.
@@ -269,16 +272,18 @@ namespace Hexiege.Infrastructure
 
                 // Attack 클립 길이를 읽어 쿨다운 설정
                 var animator = unitObj.GetComponentInChildren<Animator>();
-                float attackClipLength = GetAttackClipLength(animator);
+                AnimationClip attackClip = GetAttackTimelineClip(unitData, animator);
+                float attackClipLength = GetAttackClipLength(attackClip);
                 if (attackClipLength > 0f)
                     unitData.AttackCooldown = attackClipLength;
 
                 // [축 1] 타격 시점(HitFrameTimes)을 Attack 클립의 OnAttackHit Animation Event에서 자동 추출.
-                // 이벤트가 1개 이상 있으면 수동 입력값(UnitStatsConfig)을 실제 클립 값으로 덮어쓴다.
+                // 이벤트가 1개 이상이면 클립 값을 사용한다. FoxMagician은 1.00초가
+                // charge VFX 시작이므로 설정의 2.25초 피해 시각을 보존한다.
                 // 이벤트가 하나도 없으면(빈 배열) 기존 수동/안전망 값(UnitStats.GetHitFrameTimes)을
                 // 그대로 유지한다 — 아직 클립에 OnAttackHit이 찍히지 않은 유닛을 위한 폴백(안전망).
-                float[] hitFrameTimes = GetHitFrameTimes(animator);
-                if (hitFrameTimes.Length > 0)
+                float[] hitFrameTimes = GetHitFrameTimes(attackClip);
+                if (ShouldUseAttackClipHitFrameTimes(unitData.Type, hitFrameTimes.Length))
                     unitData.HitFrameTimes = hitFrameTimes;
 
                 // 런타임 의존성 자동 주입 (생산된 유닛도 즉시 동작 가능)
@@ -372,16 +377,18 @@ namespace Hexiege.Infrastructure
 
                 // Attack 클립 길이를 읽어 쿨다운 설정
                 var animator = unitObj.GetComponentInChildren<Animator>();
-                float attackClipLength = GetAttackClipLength(animator);
+                AnimationClip attackClip = GetAttackTimelineClip(unitData, animator);
+                float attackClipLength = GetAttackClipLength(attackClip);
                 if (attackClipLength > 0f)
                     unitData.AttackCooldown = attackClipLength;
 
                 // [축 1] 타격 시점(HitFrameTimes)을 Attack 클립의 OnAttackHit Animation Event에서 자동 추출.
                 // (멀티플레이 클라이언트 경로 — 서버와 동일한 프리팹/클립을 쓰므로 결과값도 서버와 일치.)
-                // 이벤트가 1개 이상 있으면 수동 입력값을 실제 클립 값으로 덮어쓰고,
+                // 이벤트가 1개 이상이면 클립 값을 사용하되, FoxMagician은
+                // charge VFX 시작과 피해 시각이 달라 설정 값을 보존한다.
                 // 하나도 없으면(빈 배열) 기존 수동/안전망 값을 그대로 유지한다(폴백).
-                float[] hitFrameTimes = GetHitFrameTimes(animator);
-                if (hitFrameTimes.Length > 0)
+                float[] hitFrameTimes = GetHitFrameTimes(attackClip);
+                if (ShouldUseAttackClipHitFrameTimes(unitData.Type, hitFrameTimes.Length))
                     unitData.HitFrameTimes = hitFrameTimes;
 
                 // 런타임 의존성 자동 주입
@@ -431,6 +438,14 @@ namespace Hexiege.Infrastructure
         /// <returns>해당 프리팹 GameObject. 미설정 시 null.</returns>
         private GameObject GetPrefab(RaceId race, UnitType type, TeamId team)
         {
+            return TryGetPrefabEntry(race, type, out UnitPrefabEntry entry)
+                ? (team == TeamId.Blue ? entry.blue : entry.red)
+                : null;
+        }
+
+        // 프리팹과 공격 클립은 같은 종족/타입 항목을 조회해야 양 팀과 생성 경로가 일치한다.
+        private bool TryGetPrefabEntry(RaceId race, UnitType type, out UnitPrefabEntry result)
+        {
             // 종족에 해당하는 프리팹 리스트 선택
             List<UnitPrefabEntry> list = race switch
             {
@@ -440,33 +455,63 @@ namespace Hexiege.Infrastructure
                 _                    => null
             };
 
-            if (list == null) return null;
+            result = default;
+            if (list == null) return false;
 
             // 리스트에서 UnitType이 일치하는 엔트리를 선형 탐색 (종족당 3개 = O(1) 수준)
             foreach (var entry in list)
             {
                 if (entry.type == type)
-                    return team == TeamId.Blue ? entry.blue : entry.red;
+                {
+                    result = entry;
+                    return true;
+                }
             }
 
+            return false;
+        }
+
+        /// <summary>
+        /// 서버/싱글과 Client가 공통으로 호출하는 선택 경계다.
+        /// 명시 참조를 우선하며, 미지정 항목만 종전 controller 목록 선택을 사용한다.
+        /// </summary>
+        private AnimationClip GetAttackTimelineClip(UnitData unitData, Animator animator)
+        {
+            RaceId race = unitData.Team == TeamId.Blue
+                ? GameRaceContext.BlueRace
+                : GameRaceContext.RedRace;
+            TryGetPrefabEntry(race, unitData.Type, out UnitPrefabEntry entry);
+            return SelectAttackTimelineClip(entry.attackTimelineClip,
+                entry.attackTimelineClip == null && animator != null
+                    && animator.runtimeAnimatorController != null
+                    ? animator.runtimeAnimatorController.animationClips : null);
+        }
+
+        /// <summary>
+        /// 실제 유닛 생성과 클립 순서 역전 검증이 공유하는 선택 처리다.
+        /// 명시 클립의 적합성은 production gate가 검사하며 이름으로 몰래 대체하지 않는다.
+        /// </summary>
+        public static AnimationClip SelectAttackTimelineClip(
+            AnimationClip explicitClip, IReadOnlyList<AnimationClip> controllerClips)
+        {
+            if (explicitClip != null) return explicitClip;
+            if (controllerClips == null) return null;
+            foreach (AnimationClip clip in controllerClips)
+                if (clip != null && clip.name.Contains("Attack")) return clip;
             return null;
         }
 
-        /// <summary>
-        /// Animator에서 "Attack"이 포함된 첫 번째 클립의 길이를 반환.
-        /// 클립이 없거나 Animator가 null이면 0 반환.
-        /// </summary>
-        private float GetAttackClipLength(Animator animator)
-        {
-            if (animator == null || animator.runtimeAnimatorController == null) return 0f;
-            foreach (var clip in animator.runtimeAnimatorController.animationClips)
-                if (clip.name.Contains("Attack"))
-                    return clip.length;
-            return 0f;
-        }
+        /// <summary>선택을 다시 하지 않고 같은 클립의 길이를 읽는다. 없으면 설정값을 보존한다.</summary>
+        public static float GetAttackClipLength(AnimationClip attackClip)
+            => attackClip != null ? attackClip.length : 0f;
+
+        // FoxMagician의 OnAttackHit은 charge VFX 시작(1.00초)이고 설정의 피해 시각은
+        // 그 연출 후반(2.25초)이다. 다른 유닛은 기존 clip marker 추출 계약을 유지한다.
+        public static bool ShouldUseAttackClipHitFrameTimes(UnitType unitType, int markerCount)
+            => markerCount > 0 && unitType != UnitType.FoxMagician;
 
         /// <summary>
-        /// Animator에서 "Attack"이 포함된 첫 번째 클립의 타격 프레임 시간(초)들을 오름차순으로 반환.
+        /// 이미 선택된 공격 클립의 타격 프레임 시간(초)들을 오름차순으로 반환.
         ///
         /// [축 1 — 타격 타이밍 소스 단일화]
         ///   기존에는 데미지 타이밍(HitFrameTimes)을 UnitStatsConfig에 "수동 입력"했기 때문에
@@ -475,7 +520,7 @@ namespace Hexiege.Infrastructure
         ///   똑같은 방식으로, 타격 시점 역시 클립에 실제로 찍힌 값에서 자동으로 뽑아낸다.
         ///
         /// 동작:
-        ///   1. 이름에 "Attack"이 포함된 첫 클립을 찾는다(GetAttackClipLength와 동일한 클립).
+        ///   1. GetAttackClipLength에 전달했던 동일한 클립 참조를 사용한다.
         ///   2. 그 클립의 Animation Event(AnimationClip.events) 중 함수 이름이 "OnAttackHit"인
         ///      이벤트들의 time(초)을 모두 수집한다.
         ///   3. 오름차순으로 정렬하여 반환한다.
@@ -484,36 +529,25 @@ namespace Hexiege.Infrastructure
         ///
         /// 반환:
         ///   OnAttackHit 이벤트가 하나라도 있으면 그 시간 배열(오름차순).
-        ///   Animator가 null이거나, Attack 클립이 없거나, OnAttackHit 이벤트가 하나도 없으면
+        ///   Attack 클립이 없거나, OnAttackHit 이벤트가 하나도 없으면
         ///   빈 배열을 반환한다. (호출 측은 빈 배열이면 기존 수동값을 폴백으로 그대로 유지)
         /// </summary>
-        private float[] GetHitFrameTimes(Animator animator)
+        public static float[] GetHitFrameTimes(AnimationClip attackClip)
         {
-            if (animator == null || animator.runtimeAnimatorController == null)
+            if (attackClip == null)
                 return System.Array.Empty<float>();
 
-            foreach (var clip in animator.runtimeAnimatorController.animationClips)
+            // Animation Event의 함수 이름과 시간을 읽을 뿐, 여기서 피해를 발생시키지 않는다.
+            var hitTimes = new List<float>();
+            foreach (var evt in attackClip.events)
             {
-                // GetAttackClipLength와 동일하게 "Attack"이 포함된 첫 클립만 대상으로 한다.
-                if (clip == null || !clip.name.Contains("Attack")) continue;
-
-                // 이 클립의 Animation Event 중 함수 이름이 "OnAttackHit"인 것들의 time을 수집.
-                // AnimationEvent.functionName: 이벤트가 호출하는 함수 이름(UnitView.OnAttackHit).
-                // AnimationEvent.time: 클립 시작(0초) 기준 이벤트 발생 시각(초).
-                var hitTimes = new List<float>();
-                foreach (var evt in clip.events)
-                {
-                    if (evt.functionName == "OnAttackHit")
-                        hitTimes.Add(evt.time);
-                }
-
-                // 에디터에서 이벤트가 반드시 시간순으로 저장돼 있다는 보장은 없으므로 오름차순 정렬.
-                hitTimes.Sort();
-                return hitTimes.ToArray();
+                if (evt.functionName == "OnAttackHit")
+                    hitTimes.Add(evt.time);
             }
 
-            // "Attack" 클립 자체가 없는 경우.
-            return System.Array.Empty<float>();
+            // 에셋 저장 순서에 의존하지 않도록 다중 marker도 시간순으로 반환한다.
+            hitTimes.Sort();
+            return hitTimes.ToArray();
         }
 
         /// <summary>

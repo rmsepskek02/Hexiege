@@ -29,6 +29,11 @@
 > instructions for a live agent. The delegation patterns and required-context checklist
 > below still describe how this project delegates — the main session is now the caller.
 
+## 2026-08-28 C2 통합 실기 FAIL / 다음 P0
+- Editor Host·Android Client에서 Host C2 `942/97 FAIL`; Android 오류·Client reject 0. 사거리 밖 Legacy 피해 2건, `Applied+NotDue` 5건, unavailable NotDue 78건, Miss 진단 오탐 12건으로 분리했다.
+- 예약 TargetId 결속과 B3 MOVE/ROOT는 이번 범위에서 유지됐다. 다음 P0는 Legacy 단일 writer의 공통 Impact preflight, due 생명주기, observer Miss/Cancelled 교정이다.
+- 서버 권위·Legacy gameplay writer·기존 RPC/VFX를 유지하고 Unity 전체 PASS와 새 Android 역할교대 전 Phase 5 Presentation을 시작하지 않는다.
+
 ## 2026-08-24 B3 blocked-start 최소 교정 상태
 - 동적 건물로 대체 경로가 있어도 Unit48/59/69/96이 멈춘 직접 원인은 non-walkable authoritative start가 FlowField에서 빠져 `RequestMove`가 null이 된 계약 공백이다.
 - 최소 slice는 `UnitMovementUseCase`의 authoritative-only 인접 egress와 Editor self-validation이며 UnitView/HexFlowField/NetworkTransform/prefab/package는 보존했다.
@@ -294,4 +299,30 @@ Assets/_Project/
 - ROOT CrossAudit의 긴 Android terminal 절단은 compact END(최악값 803 UTF-8 byte)와 production preflight로 교정했다. Runtime/Editor Roslyn 및 Unity self-validation 2종 PASS다.
 - 기존 절단 로그는 INCONCLUSIVE 이력으로 보존하고 재판정하지 않는다. 진단기만을 위한 별도 빌드/실기는 생략하며 다음 새 빌드부터 교정된 채점기를 사용한다.
 - 다음 활성 단계는 Tracer C Phase 4 공격 회차 Shadow와 서버 권위 TargetId/AimDirection·AlignToAttack 5°/8°다. Shadow 동안 Legacy 피해·HP·RPC·VFX writer는 유지하고 이중 writer를 금지한다.
+
+### 2026-08-26 - Tracer C1 Legacy 공격 시작 경계 교정
+
+- `origin/main` 병합 커밋 `ada617db` 뒤 양측 로그 체계와 B3/C1 변경을 보존했다.
+- 멀티플레이 Legacy 공격은 연속 정지 표본과 5도 정렬을 통과한 서버 Tick에서만 시작한다. Attack 상태·RPC·쿨다운·피해 예약은 같은 경계다.
+- 예약 회차 TargetId는 다음 시작 경계까지 고정하며 멀티 Root 즉시 스냅과 피해 시점의 별도 `UnitData.Facing` writer는 제거했다. 싱글플레이 Legacy는 보존한다.
+- Shadow observer v2와 Unity `[UAS-DIAG]`는 PASS다. Android/Editor 역할교대 실기 전까지 C1 전체 상태는 OPEN이다.
+
+### 2026-08-26 - Tracer C1 v3 2차 교정 게이트
+
+- 1차 멀티 FAIL의 stale Shadow target 31건은 공격자당 단일 Shadow 회차가 겹친 Legacy 회차를 표현하지 못한 구조 결함이었다. 정상 Deferred 반복 출력은 observer drop 733의 별도 원인이었다.
+- v3는 실제 Legacy 시작마다 독립 회차를 원자 Commit하고 예약별 Sequencer를 보존한다. 게임플레이 서버 권위·피해·HP·RPC·VFX writer는 유지한다.
+- GameEnd 뒤 38ms B3 adapter failure는 종료 후 observer callback으로 분리해 suppress하고, 종료 전 실패는 계속 fail-closed다.
+- 자동 게이트는 Runtime/Editor 컴파일과 Unity self-validation PASS다. 새 Android/Editor 동일 경기에서 v3 terminal 오류 0을 확인하기 전 C1 전체는 OPEN이다.
 > 여기 있던 「2026-03-14 완료 작업 (비-네트워크)」 · 「3D 전환 시 수정된 파일 (참고)」 · 2026-07-16/07-18 인증 플로우 진행 기록은 2026-08-24에 [project-history.md](project-history.md) 로 옮겼다. 모두 지나간 시점의 기록이라 현재 상태와 섞이면 오해를 만든다.
+
+### 2026-08-27 - C1 집중 게이트 종료
+
+- Editor Host/Android Client 최신 경기의 실제 예약 TargetId·SequenceId·결과 불일치는 0이며 Client 거부도 0이다. 표시 후보 `-1`을 비교한 Host mismatch 1건은 observer false positive로 확정했다.
+- observer v5와 Unity 회귀 검증이 PASS했으며 게임 동작과 Legacy 권위 writer는 변경하지 않았다.
+- 다음 활성 작업은 Tracer C Phase 4 Snapshot/ImpactResult Shadow다. 서버 TargetId·AimDirection과 전달 방식별 Impact 결과를 복제·비교한 뒤 Phase 5 결과 키 Presentation으로 진행한다.
+
+### 2026-08-27 - C2 구현 게이트
+
+- C2 Snapshot/ImpactResult Shadow는 구현과 Unity 자동 검증을 통과했다. Legacy writer는 유지하고 결과만 별도 Reliable 메시지로 감사한다.
+- 현재 상태는 Editor PASS / Android·Editor 역할교대 실기 OPEN이다. C2를 실제 공격·피해 시점 교정 완료로 기록하지 않는다.
+- 새 schema는 `c2-attack-impact-result-shadow-v6`이며 C1 `END`와 C2 `result-END`를 한 세션에서 함께 채점한다. 다음 단계는 실기 증거 뒤 Phase 5 결과 키 Presentation이다.

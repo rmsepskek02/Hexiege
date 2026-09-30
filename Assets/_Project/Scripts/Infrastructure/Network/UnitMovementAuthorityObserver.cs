@@ -29,11 +29,15 @@ namespace Hexiege.Infrastructure
         // v8: route checkpoint 소비와 실제 spatial Root 타일 커밋을 분리해 관측한다.
         // v9: 후보 probe는 기록하지 않고 최종 stage/recoverable repath/fatal만 분리한다.
         // v10: 중심 checkpoint 실제 도달 오차와 Chase direct-safe/path 선택을 bounded 집계한다.
+        // v11: 서버 공격 진입의 Host 로컬 표현 handoff 실패를 독립 FAIL로 보존한다.
+        // v12: Action 전 정상 후보 보류와 Action 후 실제 target 적용 실패를 분리한다.
+        // v13: 순수 Client의 Root 정지 frame과 provisional Attack 표시 순서를 직접 관측한다.
+        // v14: 1~3 frame 전송/보간 차이를 gameplay 정지 실패와 별도 집계한다.
         /// <summary>
         /// 런타임 증거와 Editor 교차 감사가 함께 사용하는 현재 production schema.
         /// 문자열을 복제하지 않아 오래된 양쪽 빌드가 서로 일치한다는 이유만으로 통과하지 않게 한다.
         /// </summary>
-        public const string ProductionSchema = "b3-movement-authority-v10";
+        public const string ProductionSchema = "b3-movement-authority-v15";
         private const int MaximumLines = 768;
         private const int ReservedTerminalLines = 32;
         private const int MaximumNormalLines = MaximumLines - ReservedTerminalLines;
@@ -52,6 +56,12 @@ namespace Hexiege.Infrastructure
         private static readonly Dictionary<ulong, ClientReplicatedSnapshot>
             ClientReplicatedSnapshots =
                 new Dictionary<ulong, ClientReplicatedSnapshot>();
+        private static readonly Dictionary<ulong, ClientAttackEntryPresentationOrderTracker>
+            ClientAttackEntryTrackers =
+                new Dictionary<ulong, ClientAttackEntryPresentationOrderTracker>();
+        private static readonly UnitAttackEntryHandoffFailureEpisodes
+            ActiveHandoffFailureEpisodes =
+                new UnitAttackEntryHandoffFailureEpisodes();
 
         private static NetworkManager _networkManager;
         private static bool _active;
@@ -77,6 +87,8 @@ namespace Hexiege.Infrastructure
         private static int _clientWriteAttempts;
         private static int _attackWriterOwnershipConflicts;
         private static int _ignoredServerTargetEvents;
+        private static int _deferredCombatTargetChanges;
+        private static int _combatPresentationHandoffFailures;
         private static int _heldFrames;
         private static int _stationaryWalkViolations;
         private static int _corridorFullSmooth;
@@ -119,12 +131,21 @@ namespace Hexiege.Infrastructure
         private static int _clientRevisionRegressions;
         private static int _clientSameRevisionConflicts;
         private static int _clientInvalidPhase;
+        private static int _clientPresentationFrames;
+        private static int _clientAttackPresentationStarts;
+        private static int _clientAttackEntryTransportGaps;
+        private static int _clientAttackEntryOrderViolations;
+        // 같은 이동 실패가 여러 frame/lifecycle callback에서 반복되어도 원인 Error는
+        // 세션당 한 번만 남긴다. 뒤의 증거는 Warn, 최종 END는 별도 Error 한 번이다.
+        private static bool _causalErrorEmitted;
         private static int _clientUnitUninitialized;
         private static int _clientInvalidScope;
         private static int _clientIdentityConflicts;
         private static int _clientScopeRegressions;
         private static int _lifecycleIdentityConflicts;
         private static int _adapterFailures;
+        private static bool _gameplayEnded;
+        private static int _postGameAdapterFailuresSuppressed;
 
         internal static void BeginSession(NetworkManager networkManager, bool isServer)
         {
@@ -221,7 +242,8 @@ namespace Hexiege.Infrastructure
             bool shouldHoldWalk = UnitMovementPresentationPolicy.ShouldHoldWalk(
                 evaluation.Decision.IsValid,
                 evaluation.Decision.AllowsMovement,
-                evaluation.CommitsAcquireCandidate);
+                evaluation.CommitsAcquireCandidate,
+                evaluation.Decision.IsTargetAcquirePriority);
             if (shouldHoldWalk) _heldFrames++;
             if (shouldHoldWalk && walkAnimationAdvancing)
             {
@@ -263,7 +285,7 @@ namespace Hexiege.Infrastructure
                 _lifecycleIdentityConflicts++;
                 if (_details++ < MaximumDetails)
                 {
-                    Log(LogLevel.Error, "server-lifecycle-identity-crossing",
+                    LogCausalFailure("server-lifecycle-identity-crossing",
                         $"unitId={unitId}, networkObjectId={networkObjectId}, " +
                         $"baselineUnitId={previousSnapshot.UnitId}");
                 }
@@ -303,7 +325,7 @@ namespace Hexiege.Infrastructure
             if (!_active) return;
             _attackWriterOwnershipConflicts++;
             if (_details++ < MaximumDetails)
-                Log(LogLevel.Error, "double-writer-attempt", $"unitId={unitId}");
+                LogCausalFailure("double-writer-attempt", $"unitId={unitId}");
         }
 
         internal static void ObservePublicationFailure(int unitId)
@@ -320,7 +342,22 @@ namespace Hexiege.Infrastructure
         internal static void ObserveAdapterFailure(string kind, string context)
         {
             if (!_active || !_isServer) return;
+            if (_gameplayEnded)
+            {
+                IncrementBounded(ref _postGameAdapterFailuresSuppressed);
+                return;
+            }
             RecordAdapterFailure(kind, context, emitLog: true);
+        }
+
+        /// <summary>
+        /// GameEnd 이후 남은 프레임/이벤트는 더 이상 gameplay 이동 계약의 표본이 아니다.
+        /// 세션 terminal은 유지하되 뒤늦은 adapter callback만 별도 suppressed 카운터로 분리한다.
+        /// </summary>
+        internal static void MarkGameplayEnded()
+        {
+            if (_active && _isServer)
+                _gameplayEnded = true;
         }
 
         private static void RecordAdapterFailure(
@@ -363,6 +400,22 @@ namespace Hexiege.Infrastructure
                 && !_active;
             return $"details={details},overflow={overflow},adapter={failures}," +
                    $"failure={failure},reset={reset}";
+        }
+
+        internal static string ValidatePostGameAdapterFailureForValidation()
+        {
+            Reset();
+            _active = true;
+            _isServer = true;
+            MarkGameplayEnded();
+            ObserveAdapterFailure("fixture-after-game-end", "fixture");
+            bool valid = _adapterFailures == 0
+                && _failureDetails == 0
+                && _failureEvidenceOverflow == 0
+                && _postGameAdapterFailuresSuppressed == 1;
+            Reset();
+            bool reset = !_gameplayEnded && _postGameAdapterFailuresSuppressed == 0;
+            return valid && reset ? "PASS" : "FAIL";
         }
 
         private static bool HasAdapterFailure() =>
@@ -605,6 +658,42 @@ namespace Hexiege.Infrastructure
             }
         }
 
+        internal static void ObserveCombatPresentationHandoffFailure(
+            int unitId,
+            string boundary)
+        {
+            if (!_active || !_isServer) return;
+            // callback 재시도는 같은 미해결 원인을 매 frame 다시 통과할 수 있다.
+            // 성공 없이 이어진 같은 유닛의 반복은 최초 한 건만 causal failure다.
+            if (!ActiveHandoffFailureEpisodes.ObserveFailure(unitId)) return;
+            IncrementBounded(ref _combatPresentationHandoffFailures);
+            LogFailure(
+                "combat-presentation-handoff-failed",
+                $"unitId={unitId}, boundary={boundary}");
+        }
+
+        internal static void ObserveCombatPresentationHandoffSuccess(int unitId)
+        {
+            if (!_active || !_isServer) return;
+            ActiveHandoffFailureEpisodes.ObserveSuccess(unitId);
+        }
+
+        internal static void ObserveDeferredCombatTargetChange(
+            int unitId,
+            string reason)
+        {
+            if (!_active || !_isServer) return;
+            IncrementBounded(ref _deferredCombatTargetChanges);
+            // 정상적인 틱 순서에서 반복될 수 있으므로 전체 detail 예산을 소모하지 않고
+            // 대표 1건과 terminal 총계만 남긴다.
+            if (_deferredCombatTargetChanges == 1 && _details < MaximumDetails)
+            {
+                _details++;
+                Log(LogLevel.Info, "combat-target-change-deferred",
+                    $"unitId={unitId}, reason={reason}");
+            }
+        }
+
         private static void LogFailure(string message, string data)
         {
             if (_failureDetails >= MaximumFailureDetails)
@@ -614,7 +703,7 @@ namespace Hexiege.Infrastructure
             }
 
             _failureDetails++;
-            Log(LogLevel.Error, message, data);
+            LogCausalFailure(message, data);
         }
 
         internal static void ObserveClientReplicatedState(
@@ -674,13 +763,14 @@ namespace Hexiege.Infrastructure
 
             if (_details++ < MaximumDetails)
             {
-                Log(failures == ClientReplicationIssue.None
-                        ? LogLevel.Info
-                        : LogLevel.Error,
-                    "client-replicated-state",
+                string data =
                     $"unitId={unitId}, networkObjectId={networkObjectId}, phase={phase}, " +
                     $"commandRevision={commandRevision}, segmentRevision={segmentRevision}, " +
-                    $"semanticRevision={semanticRevision}, classification={issue}");
+                    $"semanticRevision={semanticRevision}, classification={issue}";
+                if (failures == ClientReplicationIssue.None)
+                    Log(LogLevel.Info, "client-replicated-state", data);
+                else
+                    LogCausalFailure("client-replicated-state", data);
             }
         }
 
@@ -689,11 +779,89 @@ namespace Hexiege.Infrastructure
             ulong semanticRevision)
             => unitId >= 0 && semanticRevision != 0UL;
 
+        /// <summary>
+        /// 순수 Client에서 실제로 렌더될 Simulation Root 위치와 Animator 표시를 frame마다
+        /// 함께 수집한다. 서버 reducer 결과를 추측하거나 어떤 gameplay 값도 쓰지 않는다.
+        /// </summary>
+        internal static void ObserveClientAttackPresentationFrame(
+            int unitId,
+            ulong networkObjectId,
+            Vector3 rootPosition,
+            bool walkPresentationVisible,
+            bool attackPresentationVisible,
+            UnitMovementPhase movementPhase,
+            ulong commandRevision,
+            ulong segmentRevision,
+            ulong semanticRevision)
+        {
+            if (!_active || _isServer || unitId < 0 || networkObjectId == 0UL)
+                return;
+            if (!WorldPointXZ.TryCreate(
+                    rootPosition.x,
+                    rootPosition.z,
+                    out WorldPointXZ position))
+                return;
+
+            _clientPresentationFrames++;
+            if (!ClientAttackEntryTrackers.TryGetValue(
+                    networkObjectId,
+                    out ClientAttackEntryPresentationOrderTracker tracker))
+            {
+                tracker = new ClientAttackEntryPresentationOrderTracker();
+                ClientAttackEntryTrackers.Add(networkObjectId, tracker);
+            }
+            tracker.ObserveFrame(
+                position,
+                walkPresentationVisible,
+                attackPresentationVisible,
+                movementPhase,
+                commandRevision,
+                segmentRevision,
+                semanticRevision);
+        }
+
+        /// <summary>
+        /// 원자 Start payload가 순수 Client Animator에 최초 적용된 순간을 기록한다.
+        /// 직전 렌더 frame에 Root stationary + Walk가 있었다면 1건부터 terminal FAIL이다.
+        /// </summary>
+        internal static void ObserveClientAttackPresentationStarted(
+            int unitId,
+            ulong networkObjectId)
+        {
+            if (!_active || _isServer || unitId < 0 || networkObjectId == 0UL)
+                return;
+
+            _clientAttackPresentationStarts++;
+            if (!ClientAttackEntryTrackers.TryGetValue(
+                    networkObjectId,
+                    out ClientAttackEntryPresentationOrderTracker tracker))
+                return;
+            ClientAttackEntryGapKind gapKind =
+                tracker.ClassifyAttackPresentationStarted(
+                    out int stationaryGapFrames);
+            if (gapKind == ClientAttackEntryGapKind.None)
+                return;
+
+            if (gapKind == ClientAttackEntryGapKind.TransportOrInterpolation)
+            {
+                _clientAttackEntryTransportGaps++;
+                return;
+            }
+
+            _clientAttackEntryOrderViolations++;
+            LogFailure(
+                "client-attack-entry-order",
+                $"unitId={unitId}, networkObjectId={networkObjectId}, " +
+                $"stationaryGapFrames={stationaryGapFrames}");
+        }
+
         internal static void RetireUnitLifecycle(
             int unitId,
             ulong networkObjectId)
         {
             if (!_active) return;
+
+            ActiveHandoffFailureEpisodes.Retire(unitId);
 
             if (_isServer)
             {
@@ -712,7 +880,7 @@ namespace Hexiege.Infrastructure
                     _lifecycleIdentityConflicts++;
                     if (_details++ < MaximumDetails)
                     {
-                        Log(LogLevel.Error, "server-lifecycle-retire-conflict",
+                        LogCausalFailure("server-lifecycle-retire-conflict",
                             $"unitId={unitId}, networkObjectId={networkObjectId}, " +
                             $"baselineUnitId={baselineUnitId}");
                     }
@@ -726,6 +894,7 @@ namespace Hexiege.Infrastructure
                 unitId,
                 snapshot => snapshot.UnitId,
                 out int clientBaselineUnitId);
+            ClientAttackEntryTrackers.Remove(networkObjectId);
             if (clientResult == LifecycleRetireResult.IdentityConflictRetired)
             {
                 _clientReplicatedInvalid++;
@@ -733,7 +902,7 @@ namespace Hexiege.Infrastructure
                 _lifecycleIdentityConflicts++;
                 if (_details++ < MaximumDetails)
                 {
-                    Log(LogLevel.Error, "client-lifecycle-retire-conflict",
+                    LogCausalFailure("client-lifecycle-retire-conflict",
                         $"unitId={unitId}, networkObjectId={networkObjectId}, " +
                         $"baselineUnitId={clientBaselineUnitId}");
                 }
@@ -946,7 +1115,9 @@ namespace Hexiege.Infrastructure
             bool failure = _rejected != 0 || _invalid != 0 || _gateFailures != 0
                 || _writerSelectionFailures != 0 || _clientWriteAttempts != 0
                 || _attackWriterOwnershipConflicts != 0 || _dropped != 0
+                || _combatPresentationHandoffFailures != 0
                 || _stationaryWalkViolations != 0
+                || _clientAttackEntryOrderViolations != 0
                 || _spatialPreflightFailures != 0
                 || _spatialCommitFailures != 0
                 || _spatialRecoveries != 0
@@ -995,9 +1166,17 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            LogLevel terminalLevel = failure ? LogLevel.Error : LogLevel.Info;
             foreach (TerminalRecord record in records)
-                LogTerminal(terminalLevel, record.Message, record.Data);
+            {
+                // manifest/axis summaries are parser evidence, not independent causes.
+                // FAIL 경기에서도 이들을 ERROR로 반복하면 한 adapter failure가 수십 개의
+                // Unity stack line으로 증폭된다. 내용/schema는 유지하고 최종 END 한 줄만
+                // 이 축의 ERROR verdict로 남긴다.
+                LogLevel recordLevel = record.Message == "END" && failure
+                    ? LogLevel.Error
+                    : LogLevel.Info;
+                LogTerminal(recordLevel, record.Message, record.Data);
+            }
             Reset();
         }
 
@@ -1032,10 +1211,14 @@ namespace Hexiege.Infrastructure
                 $"clientRootOrReducerWriteAttempts={_clientWriteAttempts}, " +
                 $"attackWriterOwnershipConflicts={_attackWriterOwnershipConflicts}, " +
                 $"ignoredServerTargetEvents={_ignoredServerTargetEvents}, " +
+                $"deferredCombatTargetChanges={_deferredCombatTargetChanges}, " +
+                $"combatPresentationHandoffFailures={_combatPresentationHandoffFailures}, " +
                 $"heldFrames={_heldFrames}, stationaryWalkViolations={_stationaryWalkViolations}, " +
                 $"failureDetails={_failureDetails}, " +
                 $"failureEvidenceOverflow={_failureEvidenceOverflow}, " +
-                $"adapterFailures={_adapterFailures}, droppedLogs={_dropped}"));
+                $"adapterFailures={_adapterFailures}, " +
+                $"postGameAdapterFailuresSuppressed={_postGameAdapterFailuresSuppressed}, " +
+                $"droppedLogs={_dropped}"));
             records.Add(new TerminalRecord(
                 "terminal-summary-corridor",
                 $"corridorFullSmooth={_corridorFullSmooth}, " +
@@ -1080,6 +1263,10 @@ namespace Hexiege.Infrastructure
                 $"clientInvalidScope={_clientInvalidScope}, " +
                 $"clientIdentityConflicts={_clientIdentityConflicts}, " +
                 $"clientScopeRegressions={_clientScopeRegressions}, " +
+                $"clientPresentationFrames={_clientPresentationFrames}, " +
+                $"clientAttackPresentationStarts={_clientAttackPresentationStarts}, " +
+                $"clientAttackEntryTransportGaps={_clientAttackEntryTransportGaps}, " +
+                $"clientAttackEntryOrderViolations={_clientAttackEntryOrderViolations}, " +
                 $"lifecycleIdentityConflicts={_lifecycleIdentityConflicts}, " +
                 $"coverageEntries={coverageEntries}, coverageSha256={coverageSha}, " +
                 $"terminalOverflow={_terminalOverflow}"));
@@ -1208,6 +1395,15 @@ namespace Hexiege.Infrastructure
                 $"runId={_runId}, sharedSessionKey={_sessionKey}, startedAt={_startedAt:F6}, {data}");
         }
 
+        private static void LogCausalFailure(string message, string data)
+        {
+            Log(
+                _causalErrorEmitted ? LogLevel.Warn : LogLevel.Error,
+                message,
+                data);
+            _causalErrorEmitted = true;
+        }
+
         private static void LogTerminal(LogLevel level, string message, string data)
         {
             if (_terminalLines >= ReservedTerminalLines)
@@ -1252,6 +1448,8 @@ namespace Hexiege.Infrastructure
             PhaseTransitions.Clear();
             LastPhases.Clear();
             ClientReplicatedSnapshots.Clear();
+            ClientAttackEntryTrackers.Clear();
+            ActiveHandoffFailureEpisodes.Clear();
             LastRecoverableSignatures.Clear();
             LastRecoverableFrames.Clear();
             _networkManager = null;
@@ -1266,6 +1464,8 @@ namespace Hexiege.Infrastructure
             _writerSelectionFailures = _clientWriteAttempts = 0;
             _attackWriterOwnershipConflicts = 0;
             _ignoredServerTargetEvents = 0;
+            _deferredCombatTargetChanges = 0;
+            _combatPresentationHandoffFailures = 0;
             _heldFrames = _stationaryWalkViolations = 0;
             _corridorFullSmooth = _corridorReducedSmooth = 0;
             _corridorFullDirect = _corridorReducedDirect = 0;
@@ -1291,9 +1491,15 @@ namespace Hexiege.Infrastructure
             _clientReplicatedDuplicates = _clientRevisionZero = 0;
             _clientRevisionRegressions = _clientSameRevisionConflicts = 0;
             _clientInvalidPhase = _clientUnitUninitialized = _clientInvalidScope = 0;
+            _clientPresentationFrames = _clientAttackPresentationStarts = 0;
+            _clientAttackEntryTransportGaps = 0;
+            _clientAttackEntryOrderViolations = 0;
             _clientIdentityConflicts = _clientScopeRegressions = 0;
             _lifecycleIdentityConflicts = 0;
             _adapterFailures = 0;
+            _gameplayEnded = false;
+            _postGameAdapterFailuresSuppressed = 0;
+            _causalErrorEmitted = false;
         }
 
         [Flags]

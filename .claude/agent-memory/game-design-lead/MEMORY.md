@@ -1,5 +1,9 @@
 # Game Design Lead Memory — Hexiege
 
+## 2026-09-30 BearGuard strike timing versus cycle decision
+
+- The user accepted BearGuard's corrected 30fps `0:13` strike visually in a focused mixed match, so the strike-timing task is PASS/CLOSED. This does not settle attack-cycle balance: StatsReference still shows design `1:20` (`1.666666…s`) while `UnitStatsConfig.attackCooldown` remains `1.2s`; keep that discrepancy OPEN and do not infer authorization to change cooldown. BearGuard-only marker-to-damage offset and full v2 migration were not established. Source: `Assets/_Project/Docs/_Tasks/2026-09-29/23_28_bearguard-attack-timing-correction/{Research,Plan}.md`.
+
 ## 2026-08-24 동적 건물 재탐색 판정 기준
 - 건물로 현재 경로가 무효화돼도 서버 경로 그래프에 우회로가 있으면 같은 목표로 이동을 계속해야 한다. `Blocked`는 현재 environment revision에서 실제 유효 경로가 없을 때만 정상이다.
 - 건물로 현재 `path[0]`이 non-walkable이 된 경우 유닛이 이미 서 있는 그 타일에서 인접 walkable 타일로 빠져나가는 첫 구간만 허용한다. 재진입·건물 관통·비인접 점프는 금지한다.
