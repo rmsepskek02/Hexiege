@@ -335,6 +335,9 @@ namespace Hexiege.Presentation
             // 중첩 표시 횟수를 누적한다.
             _blockingOverlayRefCount++;
 
+            // 막이 「꺼져 있다가 켜지는」 경계에서만 기록을 남긴다(아래 메서드가 그것을 판별한다).
+            LogOverlayTurnedOn();
+
             // 버튼이 연결되어 있으면 이전 리스너를 제거하고 현재 모드에 맞게 다시 등록한다.
             if (_blockingOverlayButton != null)
             {
@@ -361,7 +364,17 @@ namespace Hexiege.Presentation
         {
             // 카운터 언더플로 방지 — 중복 Hide 호출에도 안전하게 동작.
             if (_blockingOverlayRefCount > 0)
+            {
                 _blockingOverlayRefCount--;
+
+                // 막이 「켜져 있다가 꺼지는」 경계에서만 기록을 남긴다(아래 메서드가 판별한다).
+                //
+                // 🔴 이 중괄호 안에 둔 이유 — 감소가 실제로 일어난 경우에만 도달해야 한다.
+                //   중괄호 밖(아래 조기 반환 뒤)에 두면, 점유한 적 없는 몫을 놓으려 한 호출에서도
+                //   「막이 꺼졌다」가 남아 거짓이 된다(그때 막은 애초에 켜져 있지 않았다).
+                //   🔴 동작은 바뀌지 않는다 — 감소 한 줄을 중괄호로 감싼 것뿐이다.
+                LogOverlayTurnedOff();
+            }
 
             // 아직 오버레이를 사용 중인 팝업이 남아 있으면 숨기지 않는다.
             if (_blockingOverlayRefCount > 0) return;
@@ -371,6 +384,70 @@ namespace Hexiege.Presentation
                 _blockingOverlayButton.onClick.RemoveAllListeners();
 
             ApplyBlockingOverlayVisibility(false);
+        }
+
+        // ====================================================================
+        // 반투명 배경 오버레이 기록 (2026-09-30 추가 · 화면 동작은 바뀌지 않는다)
+        //
+        // [초급자용 설명] 이 절은 무엇이고 왜 생겼는가
+        //   이 막을 잡고 놓는 자리에는 기록이 한 곳도 없었다. 그래서 「막이 제대로 치워졌는가」를
+        //   화면을 보는 것 말고는 확인할 방법이 없었고, 막이 남아 다음 화면이 통째로 막히는
+        //   문제가 다시 생겨도 기록만 보고는 알아낼 수 없었다.
+        //
+        //   🔴 특히 **몇 곳이 이 막을 점유하고 있는가**라는 숫자는 이 클래스만 알고 있고,
+        //   밖에서 읽을 수단이 없다. 팝업 쪽 기록은 「나는 놓았다」까지만 말해 주고,
+        //   「그런데도 막이 안 꺼졌다」는 말해 주지 못한다. 두 기록을 함께 읽어야
+        //   「놓았다는데 안 꺼졌다 = 다른 점유자가 남아 있다」까지 판정할 수 있다.
+        //
+        // 🔴 **켜지고 꺼지는 경계에서만** 남기고 중첩 중의 증감은 남기지 않는다.
+        //    이 막은 재경기 팝업만 쓰는 것이 아니라 건물 패널 · 생산 패널 · 스킬 패널 · 배치 UI ·
+        //    설정 메뉴 · 로그인 팝업들이 함께 쓴다. 게임 중 건물 창을 열고 닫는 것은 아주 흔한
+        //    조작이라, 호출마다 남기면 **정작 필요한 줄이 묻힌다**(로그 규칙 1.14 금지 8 이
+        //    막는 바로 그것).
+        //
+        // ⚠️ 존속 축은 **개발**이다(로그 규칙 1.2) — 에디터에서 그대로 재현되는 화면 상태다.
+        //    그래서 운영 축의 이벤트 키를 **새로 만들지 않았다.** 아래 두 컴파일 조건 덕분에
+        //    릴리스 빌드에서는 호출도 문자열 조립도 통째로 사라진다(로그 규칙 1.7).
+        //
+        // 🔴 경계 판별을 부르는 쪽이 아니라 이 메서드들 안에서 하는 이유 — 그 컴파일 조건은
+        //    **호출문 전체(인자 계산 포함)** 를 지운다. 판별을 안에 넣으면 릴리스 빌드에는
+        //    **조건식조차 남지 않는다.**
+        // ====================================================================
+
+        /// <summary>
+        /// 막이 <b>꺼져 있다가 실제로 켜지는 경계</b>에서만 그 사실을 남긴다(심각도 <b>정보</b>).
+        /// 중첩으로 점유가 늘어난 것뿐이면 아무것도 남기지 않는다.
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogOverlayTurnedOn()
+        {
+            if (_blockingOverlayRefCount != 1) return;   // 중첩 증가 — 경계가 아니다.
+
+            GameLog.Dev.Info("UI", nameof(UIManager),
+                             "반투명 배경 오버레이가 켜졌다 — 첫 점유자가 들어왔다",
+                             $"RefCount={_blockingOverlayRefCount}");
+        }
+
+        /// <summary>
+        /// 막이 <b>켜져 있다가 실제로 꺼지는 경계</b>에서만 그 사실을 남긴다(심각도 <b>정보</b>).
+        /// 아직 다른 점유자가 남아 있으면 아무것도 남기지 않는다.
+        ///
+        /// <para>
+        /// ⚠️ <b>이 줄이 없는 것도 판정이다.</b> 팝업 쪽이 「놓았다」를 남겼는데 이 줄이 따라오지
+        /// 않으면, 그 시점에 <b>다른 점유자가 남아 있었다</b>는 뜻이다. 🔴 부재로 하는 판정은
+        /// 약하므로, 양성 신호는 팝업 쪽 기록이 담당하고 <b>두 줄을 함께 읽는다.</b>
+        /// </para>
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogOverlayTurnedOff()
+        {
+            if (_blockingOverlayRefCount != 0) return;   // 아직 점유자가 남았다 — 경계가 아니다.
+
+            GameLog.Dev.Info("UI", nameof(UIManager),
+                             "반투명 배경 오버레이가 꺼진다 — 마지막 점유자가 놓았다",
+                             $"RefCount={_blockingOverlayRefCount}");
         }
 
         // ====================================================================

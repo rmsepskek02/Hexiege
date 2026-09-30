@@ -87,11 +87,54 @@ namespace Hexiege.Presentation
         ///   패널의 알파값은 페이드 애니메이션 도중에는 0 도 1 도 아니어서 그것으로 판단할 수 없다.
         ///   그래서 「띄웠다 / 닫았다」를 명시적인 플래그 하나로 들고 있는다.
         ///
-        ///   true 가 되는 곳: <see cref="ShowRequest()"/> · <see cref="ShowRequest(System.Action, System.Action)"/>
-        ///   false 가 되는 곳: <see cref="Hide"/>(수락·거절·D-6 닫기가 모두 여기를 지난다) ·
-        ///                     <see cref="ShowDeclined"/>(요청 패널이 거절 알림 패널로 교체된다)
+        ///   🔴 이 값을 직접 대입하는 자리는 <b>아래 「상태 전이 한 자리」뿐</b>이다.
+        ///   값을 바꾸는 다섯 경로(요청 표시 2개 · 닫기 · 거절 알림 패널로 교체 · 파괴)가
+        ///   모두 그 한 자리를 지나므로, 그 자리에서만 기록을 남기면 어느 경로도 빠뜨리지 않는다.
         /// </summary>
         private bool _requestShowing;
+
+        // ====================================================================
+        // 상태 전이의 계기 (기록용)
+        // ====================================================================
+
+        /// <summary>
+        /// 이 팝업의 상태가 바뀐 <b>계기</b> 7종.
+        ///
+        /// <para>
+        /// [초급자용 설명] 왜 문자열이 아니라 열거형인가
+        ///   계기를 문자열로 넘기면 부르는 자리마다 표기가 조금씩 달라지고(대소문자 하나만 달라도
+        ///   다른 값이다), 나중에 기록을 모아 셀 때 <b>같은 사건이 두 갈래로 조용히 쪼개진다.</b>
+        ///   열거형이면 오타가 곧바로 컴파일 오류이고, 이름을 바꾸면 편집기가 전부 따라 바꿔 준다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>멤버 이름이 그대로 기록에 나간다.</b> 그러므로 한 번 정한 이름은 바꾸지 않는다 —
+        /// 이름을 바꾸면 이미 쌓인 기록과 연결이 끊긴다.
+        /// </para>
+        /// </summary>
+        private enum PopupTransitionCause
+        {
+            /// <summary>요청 팝업(수락/거절)을 띄웠다.</summary>
+            RequestShown,
+
+            /// <summary>요청 팝업이 거절 알림 패널로 교체됐다.</summary>
+            DeclinedSwitch,
+
+            /// <summary>사용자가 수락을 눌렀다.</summary>
+            Accept,
+
+            /// <summary>사용자가 거절을 눌렀다.</summary>
+            Decline,
+
+            /// <summary>응답하기 전에 요청자가 이탈해 강제로 닫혔다(공통 UI 규칙 D-6 1항).</summary>
+            OpponentLeft,
+
+            /// <summary>거절 알림 패널의 확인 버튼으로 닫혔다.</summary>
+            DeclinedConfirmed,
+
+            /// <summary>응답이 없는 채로 객체가 파괴됐다(씬 언로드 · 앱 종료).</summary>
+            Destroy
+        }
 
         // ====================================================================
         // Unity 생명주기
@@ -155,7 +198,12 @@ namespace Hexiege.Presentation
             // ⚠️ 두 번 불려도 안전하다 — 아래 헬퍼가 자기 점유 여부를 먼저 보고 한 번만 동작하고,
             //   공용 관리자 쪽에도 세어 둔 숫자가 음수로 내려가지 않게 막는 검사가 있다.
             //   그래서 닫기 메서드로 이미 놓은 뒤에 파괴되어도 숫자가 두 번 줄지 않는다.
-            HideOverlayOnce();
+            //
+            // ⚠️ 아래 두 줄의 순서 — 「닫혔다」를 먼저, 「점유를 놓았다」를 그다음에 남긴다.
+            //   기록을 읽는 사람은 위에서 아래로 읽으므로, 팝업이 끝난 사실 → 그 결과로 막을 놓은 사실
+            //   순서여야 인과가 그대로 읽힌다. 이 파일의 닫기 메서드도 같은 순서다.
+            SetRequestShowing(false, PopupTransitionCause.Destroy);
+            HideOverlayOnce(PopupTransitionCause.Destroy);
 
             // 패널별 페이드 Tween을 모두 정리 — 씬 전환 시 남은 Tween 에러 방지
             _requestFade?.Kill();
@@ -242,14 +290,17 @@ namespace Hexiege.Presentation
             _onAccept = null;
             _onDecline = null;
 
-            // 「응답 대기 중」 상태로 표시한다 (공통 UI 규칙 D-6 판정용).
-            _requestShowing = true;
-
             // 거절 패널은 즉시 숨김 (페이드 불필요 — 보이지 않는 상태)
             if (_declinedPanelCg != null) { _declinedPanelCg.alpha = 0f; _declinedPanelCg.blocksRaycasts = false; _declinedPanelCg.interactable = false; }
 
             // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시(터치해도 닫히지 않음).
-            ShowOverlayOnce();
+            ShowOverlayOnce(PopupTransitionCause.RequestShown);
+            // 「응답 대기 중」 상태로 표시한다 (공통 UI 규칙 D-6 판정용).
+            //
+            // ⚠️ 이 한 줄이 막을 잡는 위의 한 줄보다 뒤에 오는 이유 — 두 줄 사이에 이 상태값을
+            //   읽는 코드가 없으므로 동작은 순서와 무관하고, 이 순서여야 기록에 「막을 잡았다 →
+            //   팝업이 떴다」로 남아 그 줄에 실린 점유 여부가 실제와 맞는다.
+            SetRequestShowing(true, PopupTransitionCause.RequestShown);
             // 요청 패널만 페이드인.
             FadeIn(_requestPanel, _requestPanelCg, ref _requestFade);
         }
@@ -265,12 +316,12 @@ namespace Hexiege.Presentation
             _onAccept = onAccept;
             _onDecline = onDecline;
 
-            // 「응답 대기 중」 상태로 표시한다 (공통 UI 규칙 D-6 판정용).
-            _requestShowing = true;
-
             if (_declinedPanelCg != null) { _declinedPanelCg.alpha = 0f; _declinedPanelCg.blocksRaycasts = false; _declinedPanelCg.interactable = false; }
             // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시.
-            ShowOverlayOnce();
+            ShowOverlayOnce(PopupTransitionCause.RequestShown);
+            // 「응답 대기 중」 상태로 표시한다 (공통 UI 규칙 D-6 판정용).
+            // 순서를 막 점유 뒤에 둔 이유는 위 오버로드의 같은 자리 주석과 같다.
+            SetRequestShowing(true, PopupTransitionCause.RequestShown);
             FadeIn(_requestPanel, _requestPanelCg, ref _requestFade);
         }
 
@@ -283,25 +334,60 @@ namespace Hexiege.Presentation
             // 요청 패널은 즉시 숨김 (페이드 불필요 — 보이지 않는 상태)
             if (_requestPanelCg != null) { _requestPanelCg.alpha = 0f; _requestPanelCg.blocksRaycasts = false; _requestPanelCg.interactable = false; }
 
-            // 요청 팝업이 거절 알림 팝업으로 교체되므로 「응답 대기 중」이 아니다.
-            _requestShowing = false;
-
             // 오버레이는 UIManager가 단일 소유 — Modal 모드로 표시.
-            ShowOverlayOnce();
+            // (요청 팝업에서 넘어온 경우에는 이미 점유 중이라 이 호출이 조용히 돌아간다)
+            ShowOverlayOnce(PopupTransitionCause.DeclinedSwitch);
+            // 요청 팝업이 거절 알림 팝업으로 교체되므로 「응답 대기 중」이 아니다.
+            SetRequestShowing(false, PopupTransitionCause.DeclinedSwitch);
             // 거절 알림 패널만 페이드인.
             FadeIn(_declinedPanel, _declinedPanelCg, ref _declinedFade);
         }
 
         /// <summary>
         /// 팝업 전체 숨김. 오버레이 + 요청/거절 알림 패널 모두 페이드아웃 후 비활성화.
+        ///
+        /// <para>
+        /// ⚠️ <b>인자가 없는 이 형태는 버튼 배선용이다.</b> 거절 알림 패널의 확인 버튼이
+        /// <c>onClick</c> 에 이 메서드를 그대로 등록하는데, 그 자리에 등록할 수 있는 것은
+        /// <b>인자를 받지 않는 메서드</b>뿐이라 이 형태가 남아 있어야 한다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>새로 닫는 자리를 만들 때는 이것이 아니라 계기를 함께 넘기는 아래 비공개 형태를 쓴다.</b>
+        /// 계기를 넘기지 않으면 기록에 「확인 버튼으로 닫혔다」로 남아 사실과 달라진다.
+        /// </para>
         /// </summary>
         public void Hide()
         {
-            // 어떤 경로로 닫혀도(수락 · 거절 · 규칙 D-6 의 강제 닫기) 「응답 대기 중」은 끝난다.
-            _requestShowing = false;
+            HideInternal(PopupTransitionCause.DeclinedConfirmed);
+        }
+
+        /// <summary>
+        /// 팝업 전체 숨김의 본체. <b>무엇 때문에 닫혔는지</b>를 함께 받아 기록에 남긴다.
+        ///
+        /// <para>
+        /// 🔴 <b>계기를 인자로 받는 이유</b> — 닫기는 네 경로(수락 · 거절 · 공통 UI 규칙 D-6 의
+        /// 강제 닫기 · 거절 알림의 확인 버튼)가 <b>모두 이 한 자리로 모이는데</b>, 이 메서드 자신은
+        /// 누가 자기를 불렀는지 알 수 없다. 그래서 부르는 쪽이 계기를 알려 준다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ 부르는 쪽마다 기록을 흩어 넣지 않는 이유는 <b>빠뜨리기 때문</b>이다. 이 프로젝트는
+        /// 같은 판단을 이미 한 번 했다 — 회차 표식을 넣을 때 부르는 쪽이 아니라 <b>데이터를
+        /// 조립하는 본문</b>에 넣어야 한 자리도 빠지지 않는다는 것이 확인돼 있다.
+        /// </para>
+        /// </summary>
+        /// <param name="cause">이 닫기를 일으킨 계기.</param>
+        private void HideInternal(PopupTransitionCause cause)
+        {
+            // 어떤 경로로 닫혀도 「응답 대기 중」은 끝난다.
+            // ⚠️ 실제로 떠 있었을 때만 기록이 남는다 — 아래 전이 한 자리가 그것을 판별한다.
+            //   인자 없는 형태는 거절 알림의 확인 버튼에도 배선돼 있어, 요청 팝업이 떠 있지 않은
+            //   상태에서도 불린다. 그 자리에서 「요청 팝업이 닫혔다」를 남기면 거짓이 된다.
+            SetRequestShowing(false, cause);
 
             // 오버레이는 UIManager가 단일 소유 — 점유 중일 때만 1회 해제.
-            HideOverlayOnce();
+            HideOverlayOnce(cause);
             FadeOut(_requestPanel, _requestPanelCg, ref _requestFade);
             FadeOut(_declinedPanel, _declinedPanelCg, ref _declinedFade);
         }
@@ -330,11 +416,25 @@ namespace Hexiege.Presentation
         /// </returns>
         public bool TryCloseUnansweredRequest()
         {
-            if (!_requestShowing) return false;
+            if (!_requestShowing)
+            {
+                // 🔴 여기가 「규칙 D-6 의 절차가 건너뛰어진 자리」다. 화면에는 아무 변화도 없어서
+                //   기록이 없으면 이 일이 있었다는 사실 자체를 확인할 방법이 없다.
+                //
+                // ⚠️ 이 프로젝트에는 「가드에는 기록을 남기지 않는다」는 관례가 있는데, 그것은
+                //   매 프레임·매 틱 도달하는 가드를 두고 한 말이다. 이 가드는 한 경기에 많아도
+                //   한 번 도달하고(부르는 쪽이 중복 통보를 막는다), 바로 이 침묵이 확인을 막았다.
+                //
+                // ⚠️ 부르는 쪽에 넣지 않은 이유 — 「떠 있지 않았다」를 아는 것은 이 팝업의
+                //   상태값뿐이고, 부르는 쪽은 참/거짓만 받는다. 사실이 발생한 계층에서 한 번만
+                //   남기는 것이 로그 규칙(1.3 원칙 1 · 1.14 금지 9)이 요구하는 형태다.
+                LogForcedCloseSkipped();
+                return false;
+            }
 
-            // Hide() 가 요청/거절 패널과 오버레이 점유를 함께 정리한다.
-            // (_requestShowing = false 도 Hide() 안에서 처리되므로 여기서 따로 내리지 않는다)
-            Hide();
+            // 닫기 본체가 요청/거절 패널과 오버레이 점유, 그리고 응답 대기 표시를 함께 정리한다.
+            // (응답 대기 표시를 내리는 일도 그 안에서 처리되므로 여기서 따로 손대지 않는다)
+            HideInternal(PopupTransitionCause.OpponentLeft);
             return true;
         }
 
@@ -346,22 +446,179 @@ namespace Hexiege.Presentation
         /// UIManager BlockingOverlay를 Modal 모드로 표시하되, 이 팝업이 이미 점유 중이면 중복 +1 하지 않는다.
         /// 요청 팝업 → 거절 팝업 전환 시(ShowRequest 후 ShowDeclined) 오버레이 참조가 2가 되어
         /// Hide() 1회로 0이 되지 않는 잔류 문제를 막는다.
+        ///
+        /// <para>
+        /// 🔴 <b>계기를 받는 이유</b> — 표시 세 경로가 모두 이 한 함수를 지나므로 여기서 기록을
+        /// 남기면 한 자리도 빠지지 않는다. 그런데 이 함수는 누가 불렀는지 알 수 없어
+        /// 부르는 쪽이 알려 준다. 🔴 <b>비공개 메서드라 외부 계약은 바뀌지 않는다.</b>
+        /// </para>
         /// </summary>
-        private void ShowOverlayOnce()
+        /// <param name="cause">이 표시를 일으킨 계기.</param>
+        private void ShowOverlayOnce(PopupTransitionCause cause)
         {
             if (_overlayShown) return;     // 이미 점유 중이면 그대로 둔다.
             _overlayShown = true;
+            // ⚠️ 위 조기 반환 뒤에 두었으므로 「실제로 새로 잡은 경우」에만 남는다.
+            //   아무 일도 하지 않고 돌아간 호출까지 남기면 요청 → 거절 전환마다 뜻 없는 줄이 늘어난다.
+            LogOverlayAcquired(cause);
             UIManager.Instance?.ShowBlockingOverlay(); // Modal 모드(콜백 없음)
         }
 
         /// <summary>
         /// 이 팝업이 점유 중인 오버레이 참조를 1회 해제한다. 점유 중이 아니면 아무 동작도 하지 않는다.
         /// </summary>
-        private void HideOverlayOnce()
+        /// <param name="cause">이 해제를 일으킨 계기.</param>
+        private void HideOverlayOnce(PopupTransitionCause cause)
         {
             if (!_overlayShown) return;
             _overlayShown = false;
+            // ⚠️ 위 조기 반환 뒤 — 「실제로 놓은 경우」에만 남는다(표시 쪽과 같은 이유).
+            // ⚠️ 공용 관리자에게 알리기 **전에** 남긴다. 그래야 기록이 「이 팝업이 놓았다 →
+            //   그래서 막이 꺼졌다(또는 다른 점유자가 남아 꺼지지 않았다)」 순서로 읽힌다.
+            LogOverlayReleased(cause);
             UIManager.Instance?.HideBlockingOverlay();
+        }
+
+        // ====================================================================
+        // 상태 전이 한 자리 + 기록 (2026-09-30 추가 · 화면 동작은 바뀌지 않는다)
+        //
+        // [초급자용 설명] 이 절은 무엇이고 왜 생겼는가
+        //   공통 UI 규칙 D-5 · D-6 이 정한 동작(요청 팝업을 닫고 알림 팝업을 띄운다)이
+        //   제대로 됐는지는 지금까지 **사람이 화면을 보는 것** 말고는 확인할 방법이 없었다.
+        //   이 파일에는 기록을 남기는 자리가 한 곳도 없었기 때문이다.
+        //   특히 「화면 전체를 덮는 반투명 막을 잡았는지 · 놓았는지」와 「강제 닫기가
+        //   건너뛰어졌는지」는 **화면을 봐도 알 수 없다** — 막은 거의 투명하고, 건너뛰는 것은
+        //   아무 화면 변화도 만들지 않는다. 그래서 이 둘은 기록만이 답을 준다.
+        //
+        // 🔴 남기는 자리는 **상태가 실제로 바뀌는 순간과 조기 반환뿐**이다.
+        //    매 프레임 도는 자리에는 넣지 않는다(로그 규칙 1.14 금지 8).
+        //
+        // ⚠️ 존속 축은 **개발**이다(로그 규칙 1.2). 에디터·개발 빌드에서만 의미가 있는 화면 상태
+        //    기록이라 운영 축의 이벤트 키를 **새로 만들지 않았다.** 아래 두 컴파일 조건 덕분에
+        //    릴리스 빌드에서는 호출도 **문자열 조립도** 통째로 사라진다(로그 규칙 1.7).
+        //
+        // 🔴 판별(전이인가 · 어느 심각도인가)을 **부르는 쪽이 아니라 이 메서드들 안에서** 하는 이유 —
+        //    그 컴파일 조건은 **호출문 전체(인자 계산 포함)** 를 지운다. 판별을 안에 넣으면
+        //    릴리스 빌드에는 **조건식조차 남지 않는다.** 부르는 쪽에 조건문을 쓰면 그 조건식은 남는다.
+        // ====================================================================
+
+        /// <summary>
+        /// 「요청 팝업이 떠 있다」는 상태값을 바꾸는 <b>유일한 자리</b>. 값이 실제로 달라질 때만
+        /// 기록을 남긴다.
+        ///
+        /// <para>
+        /// 🔴 <b>값이 같으면 아무것도 하지 않고 돌아간다.</b> 전이가 아닌 자리에 기록을 남기면
+        /// 거짓이 된다 — 인자 없는 닫기 형태는 거절 알림의 확인 버튼에도 배선돼 있어,
+        /// 요청 팝업이 떠 있지 않은 상태에서도 불린다.
+        /// </para>
+        /// </summary>
+        /// <param name="showing">바꿀 값. true면 응답 대기 시작, false면 종료.</param>
+        /// <param name="cause">이 변화를 일으킨 계기.</param>
+        private void SetRequestShowing(bool showing, PopupTransitionCause cause)
+        {
+            if (_requestShowing == showing) return;   // 전이가 아니다 — 남길 것이 없다.
+
+            _requestShowing = showing;
+            LogRequestShowingChanged(showing, cause);
+        }
+
+        /// <summary>
+        /// 요청 팝업이 뜨거나 닫힌 사실을 남긴다(심각도는 둘 다 <b>정보</b> — 의도된 흐름이다).
+        ///
+        /// <para>
+        /// 함께 싣는 참/거짓 하나는 <b>그 순간 이 팝업이 막 점유를 들고 있었는가</b>다.
+        /// 닫힘 줄에서 그것이 참이면 바로 다음에 「놓았다」 줄이 따라와야 하고,
+        /// 거짓이면 그 줄은 애초에 없는 것이 정상이다. 🔴 <b>그래서 줄 수를 늘리지 않고도
+        /// 두 사실을 함께 확인할 수 있다.</b>
+        /// </para>
+        /// </summary>
+        /// <param name="showing">true면 떴다, false면 닫혔다.</param>
+        /// <param name="cause">계기. 닫힘 경로를 가르는 값이 된다.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogRequestShowingChanged(bool showing, PopupTransitionCause cause)
+        {
+            if (showing)
+            {
+                GameLog.Dev.Info("UI", nameof(RematchRequestPopup),
+                                 "재경기 요청 팝업이 떴다 — 응답 대기 시작",
+                                 $"Path={cause}, IsOverlayHeld={_overlayShown}");
+                return;
+            }
+
+            GameLog.Dev.Info("UI", nameof(RematchRequestPopup),
+                             "재경기 요청 팝업이 닫혔다 — 응답 대기 종료",
+                             $"Path={cause}, IsOverlayHeld={_overlayShown}");
+        }
+
+        /// <summary>
+        /// 이 팝업이 공용 반투명 막의 점유를 <b>새로 잡은</b> 사실을 남긴다(심각도 <b>정보</b> —
+        /// 규칙 D-5 가 정한 정상 동작이다).
+        /// </summary>
+        /// <param name="cause">계기.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogOverlayAcquired(PopupTransitionCause cause)
+        {
+            GameLog.Dev.Info("UI", nameof(RematchRequestPopup),
+                             "공용 반투명 막의 점유를 잡았다",
+                             $"Cause={cause}");
+        }
+
+        /// <summary>
+        /// 이 팝업이 공용 반투명 막의 점유를 <b>놓은</b> 사실을 남긴다.
+        ///
+        /// <para>
+        /// 🔴 <b>계기가 파괴일 때만 심각도를 한 칸 올린다.</b> 그 줄이 남았다는 것은
+        /// <b>정상 닫기 경로를 지나지 않은 채 객체가 사라졌고, 그물이 대신 놓아 주었다</b>는 뜻이다.
+        /// 「대체 경로로 계속 진행됐다」는 로그 규칙 1.2 의 예가 그대로 이 모양이다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>왜 정보로 두지 않는가</b> — 규칙 D-6 은 「팝업을 방치해도 갇히지 않는다」고
+        /// 방치 경로를 허용하지만, 허용된 것은 <b>사용자가 방치해도 된다</b>는 것이고
+        /// <b>닫기 경로가 점유를 놓지 않아도 된다</b>는 것이 아니다. 같은 부류의 구멍이 다시
+        /// 생기면 이 한 줄로 잡힌다 — 정보로 두면 정상 줄 사이에 묻힌다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ 이 파일에서 <b>심각도를 가르는 자리는 여기 하나뿐</b>이다. 같은 화면(결과 화면)의
+        /// 기존 진단 기록이 <b>정상 전이는 정보, 막힌 자리·그물 발동은 경고</b>로 갈라 두었고,
+        /// 한 화면에서 기준을 다르게 쓰면 「왜 화면이 안 바뀌었나」를 찾는 사람의 훑기가 무용해진다.
+        /// </para>
+        /// </summary>
+        /// <param name="cause">계기.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogOverlayReleased(PopupTransitionCause cause)
+        {
+            if (cause == PopupTransitionCause.Destroy)
+            {
+                GameLog.Dev.Warn("UI", nameof(RematchRequestPopup),
+                                 "공용 반투명 막의 점유를 놓았다 — 정상 닫기 경로를 지나지 않은 채 파괴됐다",
+                                 $"Cause={cause}");
+                return;
+            }
+
+            GameLog.Dev.Info("UI", nameof(RematchRequestPopup),
+                             "공용 반투명 막의 점유를 놓았다",
+                             $"Cause={cause}");
+        }
+
+        /// <summary>
+        /// 공통 UI 규칙 D-6 의 강제 닫기가 <b>요청 팝업이 떠 있지 않아 건너뛰어진</b> 사실을 남긴다.
+        ///
+        /// <para>
+        /// 🔴 심각도를 한 칸 올린다 — <b>가드에 막혀 규칙이 정한 절차가 수행되지 않고 조기
+        /// 반환한 자리</b>이기 때문이다. 화면에 아무 변화도 없어 이 줄이 유일한 단서다.
+        /// </para>
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogForcedCloseSkipped()
+        {
+            GameLog.Dev.Warn("UI", nameof(RematchRequestPopup),
+                             "요청 팝업이 떠 있지 않아 공통 UI 규칙 D-6 의 강제 닫기를 건너뛴다");
         }
 
         // ====================================================================
@@ -371,7 +628,7 @@ namespace Hexiege.Presentation
         /// <summary>수락 버튼 클릭. 팝업 닫고 콜백 또는 GameEvents.OnLocalRematchAccepted 발행.</summary>
         private void OnAcceptClicked()
         {
-            Hide();
+            HideInternal(PopupTransitionCause.Accept);
             // 콜백이 설정되어 있으면(레거시 경로) 콜백 호출, 그렇지 않으면 GameEvents 발행.
             if (_onAccept != null) _onAccept.Invoke();
             else GameEvents.OnLocalRematchAccepted.OnNext(Unit.Default);
@@ -380,7 +637,7 @@ namespace Hexiege.Presentation
         /// <summary>거절 버튼 클릭. 팝업 닫고 콜백 또는 GameEvents.OnLocalRematchDeclined 발행.</summary>
         private void OnDeclineClicked()
         {
-            Hide();
+            HideInternal(PopupTransitionCause.Decline);
             if (_onDecline != null) _onDecline.Invoke();
             else GameEvents.OnLocalRematchDeclined.OnNext(Unit.Default);
         }

@@ -42,6 +42,7 @@ using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using Hexiege.Application;      // GameLog — 런타임 로그 파사드 (LogRules.md 1.4)
 
 namespace Hexiege.Presentation
 {
@@ -175,6 +176,9 @@ namespace Hexiege.Presentation
             //    오브젝트는 항상 active 상태이며, Show() 호출만으로 다시 표시된다.
             if (_panel != null)
                 _panel.Show();
+
+            // 6) 떴다는 사실을 남긴다 — 위 처리가 모두 끝난 뒤라 실제로 적용된 구조가 실린다.
+            LogPopupShown(isAlert: false);
         }
 
         /// <summary>
@@ -233,6 +237,9 @@ namespace Hexiege.Presentation
             // 5) 패널 등장
             if (_panel != null)
                 _panel.Show();
+
+            // 6) 떴다는 사실을 남긴다 (위 Show() 의 같은 자리와 같은 이유).
+            LogPopupShown(isAlert: true);
         }
 
         // ====================================================================
@@ -296,6 +303,10 @@ namespace Hexiege.Presentation
         /// </summary>
         public void Hide()
         {
+            // 닫기가 불렸다는 사실을 먼저 남긴다 — 아래 두 줄보다 앞이어야 「닫히기 직전에
+            // 팝업이 실제로 떠 있었는가」가 그 줄에 그대로 실린다.
+            LogPopupHideRequested();
+
             // 입력 차단 오버레이는 즉시 해제 (페이드 아웃 중에도 뒤쪽 조작이 즉시 가능하도록).
             // UIManager 단일 소유 BlockingOverlay를 숨김(중첩 시 참조 카운터로 처리).
             UIManager.Instance?.HideBlockingOverlay();
@@ -310,6 +321,120 @@ namespace Hexiege.Presentation
             // 팝업 본체는 애니메이션 후 CanvasGroup으로 숨김 처리 — AnimatedPanel이 담당
             if (_panel != null)
                 _panel.Hide();
+        }
+
+        // ====================================================================
+        // 기록 (2026-09-30 추가 · 화면 동작은 바뀌지 않는다)
+        //
+        // [초급자용 설명] 이 절은 무엇이고 왜 생겼는가
+        //   이 팝업이 떴는지 · 닫혔는지는 지금까지 **사람이 화면을 보는 것** 말고는 확인할
+        //   방법이 없었다. 이 파일에는 기록을 남기는 자리가 한 곳도 없었기 때문이다.
+        //   그래서 공통 UI 규칙 D-5 가 정한 구조(제목 + 본문 + 버튼 1개)로 실제로 떴는지도
+        //   기록으로는 확인되지 않았다.
+        //
+        // 🔴 부르는 쪽이 아니라 이 팝업 본문에 넣은 이유 — 이 팝업을 쓰는 자리는 앞으로
+        //    하나 더 늘어날 예정이고(규칙 M-3 · M-4), 부르는 쪽마다 넣으면 **새 호출부가
+        //    생길 때마다 빠뜨린다.** 본문에 넣으면 호출부가 몇 개가 되어도 자동으로 덮인다.
+        //
+        // 🔴 **화면에 뜨는 글자를 기록에 싣지 않는다.** 이 팝업의 표시 메서드가 받는 인자는
+        //    전부 화면에 그대로 뜨는 글자이고, 그 값을 기록이나 설명문에 옮겨 적으면
+        //    「그 글자가 코드에 한 곳(상수)에만 있는가」를 세는 검사가 오염된다.
+        //    대신 **구조만** 싣는다 — 제목 자리가 보이는가 · 두 번째 버튼이 숨겨졌는가.
+        //    🔴 그 둘이 곧 규칙 D-5 가 정한 구조이므로, 글자를 한 자도 적지 않고
+        //    「그 구조로 떴다」를 확인할 수 있다.
+        //
+        // ⚠️ 존속 축은 **개발**이다(로그 규칙 1.2). 에디터·개발 빌드에서만 의미가 있는 화면 상태
+        //    기록이라 운영 축의 이벤트 키를 **새로 만들지 않았다.** 아래 두 컴파일 조건 덕분에
+        //    릴리스 빌드에서는 호출도 **문자열 조립도** 통째로 사라진다(로그 규칙 1.7).
+        //
+        // 🔴 판별을 부르는 쪽이 아니라 이 메서드들 안에서 하는 이유 — 그 컴파일 조건은
+        //    **호출문 전체(인자 계산 포함)** 를 지운다. 그래서 판별을 안에 넣으면 릴리스
+        //    빌드에는 **조건식조차 남지 않는다.**
+        // ====================================================================
+
+        /// <summary>
+        /// 팝업이 떴다는 사실을 남긴다(심각도 <b>정보</b> — 의도된 흐름이다).
+        ///
+        /// <para>
+        /// 싣는 두 참/거짓은 <b>실제로 적용된 뒤의 상태를 되읽은 값</b>이다. 「그렇게 하라고
+        /// 시켰다」가 아니라 「그렇게 됐다」를 남기는 것이므로, Inspector 배선이 빠져 아무 일도
+        /// 일어나지 않은 경우가 그대로 드러난다.
+        /// </para>
+        ///
+        /// <para>
+        /// ⚠️ <b>이 줄만으로는 두 알림 자리를 가를 수 없다</b>(규칙 D-6 의 이탈 알림 ↔
+        /// 규칙 M-3 · M-4 의 맵 실패 알림). 가르려면 화면 글자를 싣거나 부르는 쪽이 표식을
+        /// 넘겨야 하는데, 앞쪽은 위 절의 금지 사항이고 뒤쪽은 공개 시그니처 변경이다.
+        /// 🔴 <b>어느 자리에서 온 알림인지는 바로 앞뒤 줄로 읽는다</b> — 두 자리 모두 자기
+        /// 기록을 이미 남기고 있다.
+        /// </para>
+        /// </summary>
+        /// <param name="isAlert">true면 알릴 목적의 한 버튼 구조, false면 두 갈래 중 고르는 구조.</param>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogPopupShown(bool isAlert)
+        {
+            string fields = $"IsAlert={isAlert}, "
+                          + $"IsTitleShown={IsTitleShown()}, "
+                          + $"IsCancelHidden={IsCancelHidden()}";
+
+            if (isAlert)
+            {
+                GameLog.Dev.Info("UI", nameof(ConfirmPopup),
+                                 "고를 것이 없는 한 버튼 팝업을 띄웠다 — 공통 UI 규칙 D-5 구조",
+                                 fields);
+                return;
+            }
+
+            GameLog.Dev.Info("UI", nameof(ConfirmPopup),
+                             "두 갈래 중 고르는 팝업을 띄웠다",
+                             fields);
+        }
+
+        /// <summary>
+        /// 닫기가 불렸다는 사실을 남긴다(심각도 <b>정보</b> — 의도된 흐름이다).
+        ///
+        /// <para>
+        /// ⚠️ <b>이 팝업이 떠 있지 않은 상태에서도 이 메서드는 불린다.</b> 결과 화면이 로비로
+        /// 나가는 자리가 「혹시 떠 있으면 닫아라」라는 뜻으로 조건 없이 부르기 때문이다.
+        /// 🔴 그래서 <b>닫히기 직전에 팝업이 실제로 떠 있었는지</b>를 함께 싣는다 — 그 값이
+        /// 거짓인 줄은 「아무것도 닫지 않은 호출」이라는 뜻이다.
+        /// </para>
+        ///
+        /// <para>
+        /// 🔴 <b>이 줄은 무엇을 확인하려고 두는가</b> — 이 닫기는 공용 반투명 막의 점유 해제를
+        /// <b>조건 없이</b> 부른다. 즉 떠 있지 않았는데도 불리면 <b>다른 팝업이 정당하게 들고
+        /// 있던 몫을 놓아 버릴 수 있다.</b> ⚠️ 이 줄은 <b>그 일이 실제로 일어나는지 보기 위한
+        /// 것이고, 이번 회차는 고치지 않는다</b> — 근거 없이 손대지 않으려고 먼저 보기로 한
+        /// 자리다(계획 승인 사항).
+        /// </para>
+        /// </summary>
+        [System.Diagnostics.Conditional("UNITY_EDITOR")]
+        [System.Diagnostics.Conditional("DEVELOPMENT_BUILD")]
+        private void LogPopupHideRequested()
+        {
+            GameLog.Dev.Info("UI", nameof(ConfirmPopup),
+                             "공통 팝업 닫기가 불렸다",
+                             $"IsPanelVisible={(_panel != null && _panel.IsVisible)}");
+        }
+
+        /// <summary>
+        /// 제목 자리가 지금 화면에 보이는지. Inspector 미배선이면 항상 거짓이다.
+        /// </summary>
+        /// <returns>제목 자리가 켜져 있으면 <c>true</c>.</returns>
+        private bool IsTitleShown()
+        {
+            return _titleText != null && _titleText.gameObject.activeSelf;
+        }
+
+        /// <summary>
+        /// 두 번째 버튼이 지금 숨겨져 있는지. Inspector 미배선이면 「없으니 숨겨진 것과 같다」로
+        /// 보아 참을 돌려준다 — 화면에 그 버튼이 없다는 사실이 같기 때문이다.
+        /// </summary>
+        /// <returns>두 번째 버튼이 화면에 없으면 <c>true</c>.</returns>
+        private bool IsCancelHidden()
+        {
+            return _cancelButton == null || !_cancelButton.gameObject.activeSelf;
         }
 
         // ====================================================================
