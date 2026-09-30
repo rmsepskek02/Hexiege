@@ -900,6 +900,33 @@ AnnounceWinnerClientRpc((int)winnerTeam, false);
   method, three lines above the call — check the neighbouring lines before accepting a rationale, including
   one handed down with the task.
 
+#### ✅ [2026-09-30 실기 — 위 블록들은 한 글자도 지우지 않는다(B-7)] 무반응 감시가 **처음으로 실제 판정**을 냈다
+
+Step 6 은 *"Unverified (no Unity here): compilation, and every runtime behaviour."* 로 적혀 있었다.
+🔴 **그 미검증 한 줄 중 「판정 경로」가 2026-09-30 실기로 닫혔다.** 나머지(하트비트 전송 실패 로그 ·
+위 ⓑ ForceWin 이중 경로)는 **여전히 열려 있다.**
+
+실측 (에디터 = Client 쪽 · 기기 = Host 쪽. 내가 로그 원본에서 재실측했다):
+
+| 시각 | 어디 | 무엇 |
+|---|---|---|
+| `23:19:16.786` | 에디터(Client) | 재경기 요청 수신 |
+| `23:19:47.236` | 에디터 `[WARN]` | 상대 신호 끊김 — **판정 전에 내 인터넷 도달을 먼저 확인** |
+| `23:19:47.529` | 에디터 `[WARN]` | **무반응 이탈 확정** · `SilenceSeconds=30.1` · `Clock=ResultScreenLeaveWatch` · `IsServer=False` |
+| `23:20:17.638` | 에디터 | 30초 재시작분 만료 → 로비 복귀 (30.109초) |
+| `23:19:19.709` | 기기(Host) | 감시 중단 · `Reason=` 은 「네트워크 디스폰」 |
+
+- 🔴 **이전 회차들의 실기는 전부 「정상 퇴장 통보」 경로였다.** 이번 조건은 **앱 강제 종료**라 통보를 보낼 수
+  없고, 그래서 **자체 감시가 대신 판정했다.** ✅ 즉 step 5 의 설계 근거(*자체 감시는 통보가 오지 못한 경우를
+  받는 그물이며 대체 관계가 아니다*)가 **실측으로 확인됐다** — 두 경로가 서로를 대신한다는 뜻이 아니다.
+  🔴 **이 경로는 이번이 첫 발화다**(규칙 D-6 단계 8 도 함께 첫 발화).
+- ✅ **「양쪽이 각자 돌린다(서버 전용 금지)」가 여기서 값을 했다**: 판정을 낸 쪽이 **Client(`IsServer=False`)** 다.
+  서버 전용 설계였다면 **Host 가 사라진 이 상황에서 아무도 판정하지 못했다.**
+- ⚠️ **도달 확인이 판정을 약 0.3초 늦춘다**(`.236` → `.529`). 30초 시계에 비해 무시할 만하고,
+  그 0.3초가 **오판을 막는 값**이다(규칙 17 이 「이탈 판정 = 연결 종료」라 오판 비용이 크다).
+- 🔴 **이 경로의 화면 쪽(요청 창 자동 닫힘 · 알림 창 · 막이 남지 않음)은 로그가 아니라 육안 등급**이다 —
+  상세는 [ui-system.md](ui-system.md) 「경기 종료 후 UI」 마무리 회차 (7).
+
 ## `ForceWin` never published `OnGameEnd` on the Host (fixed 2026-09-21) — a pre-existing hole, 3rd instance of one pattern
 
 `NetworkGameEndController.ForceWin(int)` (opponent's connection dropped → forced win) called

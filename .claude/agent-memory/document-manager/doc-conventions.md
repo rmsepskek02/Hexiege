@@ -3577,3 +3577,52 @@ The round's last turn rewrote one sentence of my own block (a double negative, �
 
 **16. A mistake record whose value is the *failure mode*, not the mistake.**
 When adding to `.claude/mistakes.md`, the body is 「why nothing caught it」. For the escape corruption: the checker returns 0 because corrupted syllables touch no rule number, link or table structure; the `grep -cF` 무삭제 checks count the *original* sentence, not the new one. 🔴 **So the record's 교훈 must name a procedure no existing tool covers** (read the inserted line back), and ⚠️ **the same root cause that once failed loudly must be written as a contrast** — the loud failure is why the quiet one was not anticipated. ⚠️ **Corrupted glyphs go in a 「쓰려던 글자 → 들어간 글자」 table** so the record does not become the next contamination.
+
+## §47. Recording the **field-test results** of a round whose bug was found by *reading* code — grading 「the log has a place for this claim」 apart from 「the user saw it」, and 🔴 what you may write when the **build itself cannot be identified** (2026-09-30, 경기 종료 후 UI 마무리 / 규칙 D-6)
+
+**Round shape.** Documentation-only half of a cross-day round: research + implementation on 09-29, user test + documentation on 09-30. Code half ran **in parallel in another agent**. Five documents touched (one rule document, three standing documents, the Plan), zero lines of code or scene.
+
+**1. 🔴 A rule that says it *guarantees* something, while the code was breaking exactly that guarantee, is its own class of record — and the rule text is not what gets edited.**
+- The repair is **not** 「the rule was wrong」. The rule was right; the code had a hole in the very path the guarantee named. 🔴 **Do not touch the guarantee sentence — it is still the spec.**
+- The appended block does three things, in this order: ⓐ names the guarantee **by position** (「본문 마지막 한 줄」) and **paraphrases** it, so no new copy of that sentence enters the document; ⓑ describes the hole **in plain language and by character** (「팝업이 파괴될 때 점유를 놓는 호출이 빠져 있었다」) and **points at the Plan's implementation section as the single source** — no identifier, no file, no line; ⓒ 🔴 **states that the breaking path was the very path the guarantee described.** ⓒ is the whole point: without it the reader cannot tell whether the rule or the code was at fault.
+
+**2. 🔴 A bug found by reading code and never observed in the field closes as 「증상 0건」, never as 「고쳤다」.**
+- Three parts, in this order: **the symptom's field-observation record was 0 before the work too** / **the leak path was deliberately reproduced this round** / **the symptom was not observed**. 🔴 **The first part is what makes the third meaningful** — without it a reader takes 「증상 0건」 as a regression check on a known, previously seen bug.
+- ✅ **Cite the Plan sentence that ordered the wording, not the result.** Here §3-1 had written 「완료 보고는 「버그를 고쳤다」가 아니라 「빠진 호출을 더했고 증상이 관측되지 않았다」로 적는다」. Quoting that clause into the rule block and the status document freezes the wording so a later round cannot widen it.
+
+**3. 🔴 When the build cannot be identified, say so — and then say what that does *not* invalidate.**
+- The compiler-generated coroutine class number in the device log was **identical to the previous round's log**, and this round's fix lived in a different file that does not change that number. So 「this ran the fixed build」 is **unverifiable**, and the only ground is *the user built and ran it*.
+- 🔴 **The formulation that overstates neither way: 「이 한계가 판정을 무효로 만들지 않지만 「증상 0건」의 강도를 그만큼 낮춘다」.** Stating only the limit reads as "the test was worthless"; stating only the verdict hides the limit.
+- ⚠️ **Mirror image of §43's build-splitting lesson.** There the class number **split** two sessions inside one log file; here the same number **fails to split** two builds. 🔴 **The same measurement answers one question and not the other** — that number moves with the *declaring file's own* method ordering, so it says nothing about a fix in another file. Decide which question you are asking before you reach for it.
+
+**4. 🔴 Grade by asking 「does the log have a place for this claim at all?」 — then never merge two grades that point the same way.**
+- Four grades this round: **로그 직접 관측** / **사용자 화면 확인** (the log has no place) / **미실시** / **확인 불가** (no measuring instrument exists at all). The grade table is the artifact; the pass/fail list is not.
+- 🔴 **「미실시」 is not 「실패」.** Say **why it was not required** — quote the plan's own sentence (here §8-4: 「이번 회차의 완료 조건이 아니다」) — and what the measurement showed (the forced-failure tool's usage records were 0 and every map-preparation log was on the success side). A stage the plan explicitly excluded from its completion condition does not become a failure by not running.
+- ⚠️ **Split 「로그로 볼 것」 and 「육안으로 볼 것」 *before* the test, not after.** This round the two popups under test turned out to have **zero logging calls**, so three checklist items could only ever be eyeball-grade — and that surfaced while writing up results. 🔴 **Counting the log calls in each UI source under test is a one-command pre-flight step** and it changes what you may ask the user to look for.
+
+**5. 🔴 A handed-over 「this fired for the first time」 is a claim to measure, and the measurement is a directory-wide grep of the past logs.**
+- The verdict line existed in **five earlier log files** (and the 「request received → verdict」 pair existed too, with measurable gaps). So 「처음」 could not be written.
+- 🔴 **But the refutation does not run the other way either.** Whether those earlier pairs had the request popup actually **showing** cannot be known — the popup has no logs — so the earlier rounds' 「실기 미검증」 verdicts are not provably wrong. ✅ **Record both halves and escalate the decision** (`CLAUDE.md` 규칙 12) instead of picking one.
+- What the rule block then says is the narrow true thing: **「이번 회차에 이 규칙의 절차를 의도적으로 수행해 로그와 화면이 함께 확인됐다」** — and it says out loud that it is **not** writing 「처음」, with the reason.
+- **Handed-over mismatch, 11th class — the claim of *novelty* was wrong, not the number.** Times, counts and mechanism were all right; only 「first」 was false. (12th class, same round: **a figure that does not reproduce because the baseline *line* differs** — 30.109 vs my 30.108, verdict line vs coroutine-body-start line. State your own basis and **do not correct the handed value**; §35's 8th class again.)
+
+**6. Judging whether a roadmap row can come down when the row's own residual list and the handoff's list disagree.**
+- 🔴 **Follow the row, not the handoff.** Read every dated block **inside** the row and collect what each said was outstanding — later blocks explicitly retire earlier ones (「아래 2026-09-24 블록의 「새로 생긴 미검증 2건」은 해소됐다」). 🔴 **So a handoff residual may already be closed inside the row** — one of four here was.
+- Here 2 of the row's residuals closed and 3 stayed. 🔴 **Write 「하나만으로도 행이 남는다」 and then name which one** — otherwise the next reader has to re-derive the whole judgement to change anything.
+- 🔴 **Put the handoff mismatch in the row itself**, because that is where the next person judging this row will look — not only in the report.
+- ✅ Mechanics: **marker appended to the 우선순위 cell + dated block prepended to the 작업 cell**, both on one physical line, and the unescaped pipe count per row is re-counted (`(?<!\\)\|` = 5) because a cell edit is exactly where a pipe silently appears.
+
+**7. Cross-day round: the round keeps the date it was opened; only the edit date moves.**
+- The `_Tasks/` folder name and the round number are **not** renumbered (§25) — blocks elsewhere already cite them.
+- 🔴 **But `WORK_HISTORY.md` gets a row dated the day it *completed*,** because that table records when a milestone landed. Put the split in the row in one clause (「조사·구현은 09-29, 테스트와 문서 반영은 09-30」) or the two dates read as a contradiction against the folder name.
+
+**8. Execution-table rows that belong to a sibling agent stay empty — and you say so *under* the table.**
+- Fill only the rows whose content is **the test result**, and mark the implementation half as 「그 에이전트 몫이라 내가 판정하지 않는다」. Anything you measured in code goes in with a **「참고 관측(판정 아님)」** qualifier.
+- ⚠️ **A test the plan says is not part of the completion condition gets a note under the table, not a row in it** — adding a row silently grows the item count (§18's closed-list problem in the other direction).
+
+**9. 🔴 Leaving a design document untouched is also a judgement, and 「불필요」 is a claim about *this round*, not about the document being current.**
+- Verdict here: **unnecessary** — this round changed the dev tool 0 times and no design clause.
+- 🔴 **While judging it I found the document stale for a different reason**: its section heading still reads 「미구현」 and its 「what measures 'no response'」 is still pinned as 미정 with an ordered preference, while this round's log shows the **second** option running at a 3-second interval. ⚠️ **That staleness was not created by this round** (the implementation landed two rounds earlier), so it is reported as an out-of-scope finding and left alone.
+- 🔴 **Do not collapse the two statements.** 「이번 회차에 고칠 것이 없다」 and 「그 문서가 최신이다」 are different claims, and reporting only the first as 「불필요」 without the finding would be a false all-clear.
+
+**10. Verification.** `check_docs.py` 0 findings says nothing about letter-prefixed rules (`D-` · `M-`) or about `_Tasks/`·`_Logs/`. Checked by hand: the new rule block is a **separate dated block** (blank line before it — §46-1), the relative link from inside `GameSystemRules/` resolves one level up, unescaped pipes per edited table row, and 🔴 **every inserted line re-printed and read with the eyes** (the Korean-escape procedure — the checker cannot see spelling).
