@@ -790,3 +790,113 @@
 [05:26:04.914] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 중단 | Clock=ResultScreenLeaveWatch, Reason=네트워크 디스폰
 [05:26:04.915] [INFO] [Network/NetworkTileSync] 디스폰 — 이벤트 구독 해제
 [05:26:04.925] [WARN] [Network/NetworkGameManager] 클라이언트 측 서버 연결 끊김 감지 — OnServerDisconnected 발행 | ClientId=1
+=== 에디터 상시 런타임 로그 ===
+=== 세션 시작: 2026-10-01 13:07:27 ===
+
+[13:07:27.537] [INFO] [Bootstrap/LoginBootstrapper] Android 가 아니라 GooglePlayGames 활성화를 건너뛴다 | Platform=NonAndroid
+[13:07:28.501] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[13:07:28.508] [INFO] [Auth/LoginUseCase] 자동 로그인: 세션 발견 — UGS 브릿지 진행 | Uid=c442fb1a5aaa5851
+[13:07:28.510] [INFO] [Auth/LoginUseCase] UGS 초기화 시작
+[13:07:28.544] [INFO] [Auth/LoginUseCase] 익명 계정 — UGS 익명 로그인 수행
+[13:07:30.307] [INFO] [Auth/LoginUseCase] UGS 브릿지 완료 | PlayerId=f59803b95e641dc6
+[13:07:30.307] [INFO] [Bootstrap/LoginBootstrapper] 자동 로그인 성공 — 'Tap to Start' 후 Lobby 씬으로 이동한다 | IsFirstLogin=False
+[13:07:35.058] [INFO] [Network/NetworkGameManager] 초기화 시작
+[13:07:35.059] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[13:07:35.059] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[13:07:35.059] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[13:07:35.059] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[13:07:35.087] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
+[13:07:38.995] [INFO] [Network/NetworkGameManager] 매칭 티켓 생성 | TicketId=1b027bfd-3f48-4101-aad2-cec1ab452cd4
+[13:07:40.238] [INFO] [Network/NetworkGameManager] 매칭 완료 | MatchId=98c33a39-299d-41ee-9d12-fcc6fc6f1d2c
+[13:07:40.648] [INFO] [Network/LobbyManager] CreateOrJoin 완료 | MatchId=98c33a39-299d-41ee-9d12-fcc6fc6f1d2c, LobbyId=98c33a39-299d-41ee-9d12-fcc6fc6f1d2c, HostId=f59803b95e641dc6, IsHost=True
+[13:07:40.650] [INFO] [Network/NetworkGameManager] CreateOrJoin 으로 역할 확정 | Role=Host, MatchId=98c33a39-299d-41ee-9d12-fcc6fc6f1d2c
+[13:07:40.651] [INFO] [Network/RelayManager] Relay 할당 생성 시작
+[13:07:42.182] [INFO] [Network/RelayManager] Relay 할당 완료 | RelayJoinCode=T9N889
+[13:07:42.190] [INFO] [Network/RelayManager] UnityTransport Host 설정 완료
+[13:07:42.463] [INFO] [Network/LobbyManager] Lobby 에 Relay Join Code 저장 완료 | RelayJoinCode=T9N889
+[13:07:42.593] [INFO] [Network/NetworkGameManager] NetworkManager.StartHost() 성공
+[13:07:42.594] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 시작
+[13:07:42.595] [INFO] [Network/NetworkGameManager] 매칭 Host 게임 시작 완료 | LobbyCode=8NFC7J
+[13:07:45.379] [INFO] [Network/NetworkGameManager] Client 접속 감지 — OnClientConnected 발행 | ClientId=1
+[13:07:45.391] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 스폰 완료 | Role=Host, IsServer=True, NetworkObjectId=1, State=Idle
+[13:07:45.420] [INFO] [Map/NetworkMapTransfer] Host 맵 준비 완료 | Event=MapPreparationSucceeded, MapVersion=2, Seed=2764896440515877583, MapType=FullyOpen, NeutralMineCount=1, StartingMineSide=CaseB, InitialGold=700, ElapsedMs=18, AttemptCount=1, UsedFallback=False, Hash=d97bd617d2de121e, ErrorCode=None
+[13:07:45.421] [INFO] [Network/NetworkMapTransfer] 맵 전송 회차 시작 | Nonce=1, Round=First, IsProbe=False, MapVersion=2, TotalBytes=319, ChunkSize=1024, ChunkCount=1, Hash=d97bd617d2de121e
+[13:07:45.421] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 최초 전송 | Role=Host, PreviousState=Idle, State=Sending, Nonce=1
+[13:07:45.430] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 조각을 다 보내고 응답 대기 | Role=Host, PreviousState=Sending, State=WaitingReady, Nonce=1
+[13:07:45.431] [INFO] [Network/NetworkGameManager] OnAllPlayersReady 발행 | ConnectedCount=2
+[13:07:45.673] [INFO] [Network/NetworkMapTransfer] 수신 완료 응답을 받았다 | Nonce=1, ClientId=1, Success=True, ReceivedBytes=319, ErrorCode=None
+[13:07:45.674] [INFO] [Network/NetworkMapTransfer] 맵 전송 상태 전이 — 응답 수신(성공) | Role=Host, PreviousState=WaitingReady, State=Completed, Nonce=1
+[13:07:45.675] [INFO] [Map/NetworkMapTransfer] Host 와 Client 의 최종 맵 해시가 일치한다 | Event=MapTransferSucceeded, Role=Host, Round=First, Nonce=1, MapVersion=2, TotalBytes=319, ChunkCount=1, SendCount=1, ResendCount=0, HostHash=d97bd617d2de121e, ClientHash=d97bd617d2de121e, HashMatch=True, ErrorCode=None, ClientId=1
+[13:07:45.675] [INFO] [Network/NetworkGameManager] 맵 전송 성공 — 씬 전환 게이트를 통과했다
+[13:07:45.675] [INFO] [Network/NetworkGameManager] Game 씬 로드 시작
+[13:07:47.119] [INFO] [Network/NetworkGameFlow] 네트워크 스폰 | IsServer=True, IsHost=True
+[13:07:47.119] [INFO] [Network/NetworkGameFlow] 팀 직접 할당 | IsHost=True, Team=Blue
+[13:07:47.121] [INFO] [Network/NetworkGameFlow] 준비 신호 수신 | ClientId=0, Race=0, ReadyCount=1, ExpectedPlayers=2
+[13:07:47.122] [INFO] [Network/NetworkGameEndController] 네트워크 스폰 | IsServer=True
+[13:07:47.123] [INFO] [Network/NetworkGameEndController] 서버 측 OnGameEnd 구독 완료
+[13:07:47.124] [INFO] [Network/NetworkTileSync] OnTileOwnerChanged 구독 완료
+[13:07:47.124] [INFO] [Network/NetworkTileSync] 서버 모드로 타일 소유권 동기화 시작 | IsServer=True
+[13:07:47.125] [INFO] [Network/NetworkUpgradeController] 네트워크 스폰 | IsServer=True
+[13:07:47.125] [INFO] [Network/NetworkBuildingController] 스폰 완료 | IsServer=True
+[13:07:47.127] [INFO] [Network/NetworkSkillController] 네트워크 스폰 | IsServer=True
+[13:07:47.127] [INFO] [Network/NetworkUnitMovementController] 네트워크 스폰 | IsServer=True
+[13:07:47.128] [INFO] [Network/ReconnectionHandler] 서버 모드로 재접속 감시 시작 | WaitSeconds=30
+[13:07:47.128] [INFO] [Network/NetworkProductionController] 스폰 완료 | IsServer=True
+[13:07:47.130] [INFO] [Network/NetworkProductionController] 서버 측 생산 이벤트 구독 완료
+[13:07:47.131] [INFO] [Network/NetworkHealthSync] 네트워크 스폰 | IsServer=True
+[13:07:47.132] [INFO] [Network/NetworkHealthSync] 서버 측 OnEntityDamaged/OnEntityHealed 구독 완료
+[13:07:47.136] [INFO] [Network/NetworkResourceSync] OnResourceChanged 구독 완료
+[13:07:47.137] [INFO] [Network/NetworkResourceSync] 서버 모드로 골드 동기화 시작
+[13:07:47.137] [INFO] [Network/NetworkResourceSync] NetworkVariable 콜백 등록 완료 | IsServer=True
+[13:07:47.138] [INFO] [Network/NetworkCombatController] 네트워크 역할 확정 | Role=Host
+[13:07:47.139] [INFO] [Network/NetworkCombatController] 서버 측 OnUnitDied/OnBuildingDied/Walk/EnteredCombat/HealCast/FreezeChanged/GameEnd 이벤트 구독 완료
+[13:07:47.149] [INFO] [Bootstrap/GameBootstrapper] UnitStats / UnitProductionStats 초기화 완료 | UnitCount=25
+[13:07:47.155] [INFO] [Bootstrap/GameBootstrapper] BuildingStats 초기화 완료 | EntryCount=96
+[13:07:47.157] [INFO] [Bootstrap/GameBootstrapper] 네트워크 모드 감지 — 맵 로드는 NetworkGameFlow 에 위임한다
+[13:07:48.252] [INFO] [Network/NetworkGameFlow] 준비 신호 수신 | ClientId=1, Race=0, ReadyCount=2, ExpectedPlayers=2
+[13:07:48.253] [INFO] [Network/NetworkGameFlow] 모든 플레이어 준비 완료 — 게임 시작 명령 전송 | BlueRace=0, RedRace=0
+[13:07:48.253] [INFO] [Network/NetworkGameFlow] 게임 시작 ClientRpc 수신 | Team=Blue, BlueRace=0, RedRace=0
+[13:07:48.254] [INFO] [Bootstrap/GameBootstrapper] StartNetworkGame 호출 | Team=Blue
+[13:07:48.254] [INFO] [Bootstrap/GameBootstrapper] ViewConverter 사전 설정 완료 | IsRed=False, MapCenter=(3.75, 0.00, -8.66)
+[13:07:48.447] [INFO] [Network/NetworkGameFlow] 초기 골드 동기화 완료 | BlueGold=5000, RedGold=5000
+[13:07:55.463] [INFO] [UI/UIManager] 반투명 배경 오버레이가 켜졌다 — 첫 점유자가 들어왔다 | RefCount=1
+[13:07:56.106] [INFO] [UI/ConfirmPopup] 두 갈래 중 고르는 팝업을 띄웠다 | IsAlert=False, IsTitleShown=False, IsCancelHidden=False
+[13:07:57.229] [INFO] [UI/ConfirmPopup] 공통 팝업 닫기가 불렸다 | IsPanelVisible=True, IsOverlayHeld=True
+[13:07:57.230] [INFO] [Network/NetworkGameEndController] 포기 요청 전송
+[13:07:57.231] [INFO] [Network/NetworkGameEndController] 포기 처리 | ForfeiterClientId=0, ForfeitTeam=Blue, WinnerTeam=Red
+[13:07:57.235] [INFO] [Network/NetworkCombatController] 게임 종료 — 전투 틱 정지
+[13:07:57.236] [INFO] [UI/UIManager] 반투명 배경 오버레이가 꺼진다 — 마지막 점유자가 놓았다 | RefCount=0
+[13:07:57.239] [INFO] [UI/GameEndUI] 자동 복귀 카운트다운 코루틴 본문 시작 | IsServer=True, NetworkActive=True, RematchPreparing=False, AcceptHandled=False, OpponentLeft=False, RematchFailed=False, TotalSeconds=60
+[13:07:57.239] [INFO] [Network/NetworkGameEndController] AnnounceWinnerClientRpc 수신 | WinnerTeam=Red, LocalTeam=Blue, IsRandomMatch=False
+[13:07:57.241] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 시작 | Clock=ResultScreenLeaveWatch, TimeoutSeconds=30, HeartbeatIntervalSeconds=3, IsServer=True
+[13:08:04.632] [INFO] [Network/NetworkGameEndController] RequestRematchServerRpc 수신 | RequesterClientId=1, PreviousRequesterClientId=18446744073709551615
+[13:08:04.634] [INFO] [Network/NetworkGameEndController] 재경기 요청 수신 — OnNetworkRematchRequested 발행
+[13:08:04.635] [INFO] [UI/RematchRequestPopup] 공용 반투명 막의 점유를 잡았다 | Cause=RequestShown
+[13:08:04.635] [INFO] [UI/UIManager] 반투명 배경 오버레이가 켜졌다 — 첫 점유자가 들어왔다 | RefCount=1
+[13:08:04.636] [INFO] [UI/RematchRequestPopup] 재경기 요청 팝업이 떴다 — 응답 대기 시작 | Path=RequestShown, IsOverlayHeld=True
+[13:08:04.637] [INFO] [UI/GameEndUI] 상대의 재경기 요청 도착 — 새 회차이므로 수락 접수 처리 표시를 내린다 | IsServer=True, NetworkActive=True, RematchPreparing=False, AcceptHandled=False, OpponentLeft=False, RematchFailed=False
+[13:08:57.429] [INFO] [UI/GameEndUI] 자동 복귀 카운트다운 만료 — 로비로 복귀한다 | IsServer=True, NetworkActive=True, RematchPreparing=False, AcceptHandled=False, OpponentLeft=False, RematchFailed=False, TotalSeconds=60
+[13:08:57.430] [INFO] [UI/GameEndUI] 로비 복귀 시작 — 카운트다운 정지 + timeScale 복원 + 씬 전환 | IsServer=True, NetworkActive=True, RematchPreparing=False, AcceptHandled=False, OpponentLeft=False, RematchFailed=False
+[13:08:57.430] [INFO] [UI/GameEndUI] 자동 복귀 카운트다운 정지 — 돌고 있던 코루틴을 끊었다 | IsServer=True, NetworkActive=True, RematchPreparing=False, AcceptHandled=False, OpponentLeft=False, RematchFailed=False, StoppedBy=ReturnToLobby
+[13:08:57.431] [INFO] [UI/ConfirmPopup] 공통 팝업 닫기가 불렸다 | IsPanelVisible=False, IsOverlayHeld=False
+[13:08:57.431] [INFO] [Network/NetworkGameManager] Heartbeat 코루틴 정지
+[13:08:57.435] [INFO] [Network/NetworkGameEndController] 정상 퇴장 통보 전송
+[13:08:57.437] [INFO] [Network/NetworkGameEndController] NotifyLeavingResultScreenServerRpc 수신 — 상대에게 이탈을 알린다 | LeaverClientId=0, TargetClientId=1
+[13:08:57.438] [INFO] [Network/NetworkGameManager] NetworkManager Shutdown 완료
+[13:08:57.456] [WARN] [Network/ReconnectionHandler] 클라이언트 연결 끊김 — 재접속 대기 시작 | ClientId=1, WaitSeconds=30
+[13:08:57.457] [INFO] [Network/ReconnectionHandler] 강제 승리 대기 코루틴 시작 | WaitSeconds=30
+[13:08:57.463] [INFO] [Network/NetworkMapTransfer] 맵 전송 객체 디스폰 | Role=Host, Nonce=1, State=Completed
+[13:08:57.464] [INFO] [Network/NetworkResourceSync] 디스폰 — 구독 해제 완료
+[13:08:57.465] [INFO] [Network/NetworkGameEndController] 결과 화면 이탈 감시 중단 | Clock=ResultScreenLeaveWatch, Reason=네트워크 디스폰
+[13:08:57.465] [INFO] [Network/NetworkTileSync] 디스폰 — 이벤트 구독 해제
+[13:08:57.466] [INFO] [Network/ReconnectionHandler] 디스폰 — 콜백 해제 완료
+[13:08:57.694] [INFO] [Network/LobbyManager] Lobby 삭제 완료 (Host 퇴장) | LobbyId=98c33a39-299d-41ee-9d12-fcc6fc6f1d2c
+[13:08:58.482] [INFO] [UI/RematchRequestPopup] 재경기 요청 팝업이 닫혔다 — 응답 대기 종료 | Path=Destroy, IsOverlayHeld=True
+[13:08:58.483] [WARN] [UI/RematchRequestPopup] 공용 반투명 막의 점유를 놓았다 — 정상 닫기 경로를 지나지 않은 채 파괴됐다 | Cause=Destroy
+[13:08:58.483] [INFO] [UI/UIManager] 반투명 배경 오버레이가 꺼진다 — 마지막 점유자가 놓았다 | RefCount=0
+[13:08:58.918] [INFO] [Network/NetworkGameManager] 초기화 시작
+[13:08:58.918] [INFO] [Network/UnityServicesInitializer] UGS 이미 초기화됨 — 스킵
+[13:08:58.918] [INFO] [Network/UnityServicesInitializer] 기존 UGS 세션 보존 — 재로그인 생략 | PlayerId=f59803b95e641dc6
+[13:08:58.918] [INFO] [Network/NetworkGameManager] 초기화 성공 | PlayerId=f59803b95e641dc6
+[13:08:58.918] [INFO] [Network/UnityServicesInitializer] UGS 초기화 완료 | SignedIn=True, PlayerId=f59803b95e641dc6
+[13:08:58.920] [INFO] [Auth/FirebaseAuthService] 초기화 완료 | HasSession=true, Uid=c442fb1a5aaa5851, Anonymous=True
