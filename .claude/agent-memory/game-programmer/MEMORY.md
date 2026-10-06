@@ -140,6 +140,10 @@
   - (`ReconnectionHandler.WaitAndForceWin` 은 30초 코루틴이지만 `OnNetworkDespawn` 이
     `StopCoroutine` 으로 정리하므로 구멍이 아니다.)
 - **한 파일에서 한 핸들러만 고치면 같은 버그가 다른 경로로 재발한다.** 구독 목록을 전수로 훑는다.
+- 🔴 **「증상 0건」은 「정상」이 아니다 — 결함 두 개가 서로를 가릴 수 있다(2026-10-01 실측 확인).**
+  상쇄 관계인 둘을 찾았으면 **어느 쪽을 먼저 넣어야 중간 상태가 안전한가**부터 정한다(한쪽만 고치면 터진다).
+  🔴 그리고 **「관측 불가」는 「지금」과 「영원히」를 갈라 적는다** — 가리던 결함을 고치면 열리는 종류가 있다.
+  상세 → [ui-system.md](ui-system.md) 「네 줄이 설계대로 남았다」 (3)·(4).
 - **실측값은 표본 하나로 단정하지 않는다.** Shutdown~디스폰 창을 "27ms" 로 적었으나
   4회 표본은 6·25·27·41ms 였다. 41ms 는 60fps 에서 2~3 프레임이다.
 
@@ -200,3 +204,41 @@
 - 🔴 **스택 트레이스의 코루틴 클래스 번호(`d__NN`)로 「이 로그가 새 빌드의 것인가」를 가르는 기법은
   **이번에 고친 클래스가 그 번호의 주인일 때만** 쓸 수 있다(2026-09-30 한계 실측 — 다른 파일만 고친
   회차는 번호가 직전 회차와 같다). 상세 → [ui-system.md](ui-system.md) 「경기 종료 후 UI」 마무리 회차 (8).
+  **[🔴 2026-10-01 보완 — 위 줄은 지우지 않는다(B-7)]** 그 기법을 못 쓰는 회차에는
+  **값 자체가 빌드를 가리키는지**를 묻는다(수정 전 코드에서 구조적으로 나올 수 없는 값 3개가
+  동시에 들어맞았다). ⚠️ **빌드 지문이 아니라 간접 근거**이므로 지문이 있으면 그쪽이 우선.
+  상세 → [logging.md](logging.md) 「로그로 빌드를 가르는 법」의 2026-10-01 보완 블록.
+- 🔴 **수정 전/후를 가르는 「표식」까지 설계해야 로그가 판정이 된다(2026-10-01 실기 통과).**
+  경로를 끝까지 따라가 **로그가 남을 순서를 미리 적고**, 그중 **수정 전후로 값이 달라지는 자리**를
+  표식으로 고른다 — ⚠️ **「경고 줄의 유무」는 표식이 못 됐다**(수정 전에도 남는 줄이었다).
+  ✅ 코드 판독만으로 세운 예측이 실기와 한 글자도 어긋나지 않았다.
+  상세 → [ui-system.md](ui-system.md) 「네 줄이 설계대로 남았다」 (2).
+- 🔴 **낡은 주석은 「갱신 블록 바로 옆」에 가장 많이 남는다(2026-10-05 전수 판정 실측).**
+  고친 사람이 **자기가 쓴 줄만** 보기 때문에, 같은 메서드 안에서 ✅ 갱신 블록과 ⚠️ 낡은 블록이
+  나란히 있는 자리가 생긴다. **갱신 블록을 쓸 때는 그 메서드의 주석을 처음부터 다시 읽는다.**
+  🔴 **그리고 셈이 적힌 주석(「N곳」·「깃발 N개」·「하는 일은 N가지」)은 세는 대상이 늘 때 반드시
+  낡는다 — 숫자를 다시 적지 않고 종류만 적는다.** 상세 → [ui-system.md](ui-system.md)
+  「생산·연구·결과 화면 7파일 주석 전수 판정」 (1)·(2).
+- 🔴 **검증 수단이 「조용히 실패」했는지를 먼저 확인한다(2026-10-05 전수 판정 실측).**
+  ① 해시 역검증에서 **치환 패턴이 들여쓰기와 어긋나 파일이 전혀 바뀌지 않았는데 「같다」가 나왔다** —
+  아무 변경도 없는 것을 증거로 쓸 뻔했다. **사본마다 원본과 실제로 다른지 먼저 비교한다.**
+  ② **호출처를 셀 때 머리말 예시 주석이 히트해 「0건」이 「1건」으로 보였다** — 호출처를 셀 때는
+  주석 줄을 제외한다. 🔴 **그리고 「모든/항상/완전히」로 시작하는 단정은 기능이 늘 때마다 거짓이
+  되므로 전칭 낱말이 보이면 그 집합을 전수로 센다**(이 회차 거짓 12자리 중 4자리가 이 부류).
+  상세 → [ui-system.md](ui-system.md) 「공통 UI 4파일 · UI 계약 3파일 · 맵 재조립기」 (1)·(2)·(9).
+- 🔴 **주석 판정의 가장 값싼 수단은 「읽기」가 아니라 「돌려 보기」다(2026-10-05 맵 준비 조정자 회차).**
+  `Domain/Map/**` 에 `Application/UseCases/MapPreparationUseCase.cs` 까지 얹어 `mcs`/`mono` 로
+  자기 검증을 한 번 돌리면 고정 기대값 · 결정성 · 유형별 허용 범위 · 5개 유형 폴백 경로가
+  **한꺼번에 참으로 확정**된다 — 코드를 읽어 추론하는 것보다 빠르고 추정이 섞이지 않는다.
+  🔴 **반대로, 조건부 컴파일이 붙은 자기 검증 진입점은 맵 계통 13개가 전부 호출처 0건이라
+  「에디터에서 저절로 돌아 사양을 지킨다」는 전제는 성립하지 않는다.**
+  상세 → [hex-grid.md](hex-grid.md) 「맵 준비 조정자 주석 전수 판정 회차」 (5)·(6).
+- 🔴 **"I opened the rule section" is not "that clause governs this sentence" (2026-10-06, volume binder).**
+  A cite passed because the section existed and held the topic word; the sentence's actual clause was in
+  another rule (reset is rule 25, the mute release is rule 27). For each cite, find the sentence in the rule
+  text that states the claim; if you cannot, the cite is wrong or too broad. Detail → [ui-system.md](ui-system.md)
+  "Volume control binder — rule-citation re-judgement".
+- 🔴 **A header fix does not fix the class summary next to it, and "the only difference / unlike X / will be added" are universals (2026-10-06, popup/shared-overlay 8 files).** After correcting a file header re-read every `<summary>` that restates the same flow; list both bodies before writing "only"; count real callers before writing "another user is coming". Details → [ui-system.md](ui-system.md) 「2026-10-06 Popup / shared-overlay 8 files」.
+- 🔴 **"The only guard" / "never held by anyone else" are universal claims — grep the callee for its own check first (2026-10-06, building/production/research panel family, 7 files).** A UI guard comment said deleting it disables the cooldown; the use case re-checks it. Also: before deleting a false sentence that sits next to a true one (clockwise sweep vs. checkbox state), read the serialized value in the scene. Details → [ui-system.md](ui-system.md) 「2026-10-06 Building / production / research panel family」.
+- 🔴 **"There is no event for X" and "X still happens with zero Y" both need a measurement, not a reading (2026-10-06, HUD / lobby / floating-text 6 files).** A prior pass had just corrected a HUD header and the correction was itself false twice: the event hub *does* publish a resource-change event (other panels subscribe; only the HUD polls), and the income branch it cited is zero in the config asset. Grep the hub before writing "no event"; read the serialized asset before writing "still rises". Detail → [ui-system.md](ui-system.md) "HUD / lobby / floating-text group".
+- 🔴 **A rule's first bullet is not the rule — a "correction" built on it was itself false (2026-10-06, result screen).** A mark like "wording undecided" is kept verbatim after a later dated block closes it; read every appended block before judging, and when a doc corrects a measured figure, grep the code comments for the old figure too. Detail → [ui-system.md](ui-system.md) "Result screen + five small UI files — comment audit" (1)·(2).

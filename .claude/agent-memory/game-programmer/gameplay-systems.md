@@ -54,6 +54,10 @@ UI/마커(전부 Presentation 로컬):
   `Hexiege/MistShrine/1. Apply Config Values` → `2. Setup Scene (Panel, Range, Network)`
 - 알려진 기술부채: `ProductionPanelUI` 의 `_unitAutoIndicators`(GameObject) ↔ `_unitBorderOverlays`(Image) 가
   **같은 BorderOverlay 를 이중 배선**한다. 정리는 별도 작업이며, **다른 패널로 복제 금지**(UI 규칙 14).
+  **[🔴 2026-10-01 정정 — 원문은 지우지 않는다(B-7).]** 🔴 **그 이중 배선은 이미 제거됐다**
+  (`_Tasks/2026-08-13/05_05_production-auto-indicator-dedup/`). 지금은 `CanvasGroup` 알파 단일
+  경로만 남아 있고, GameObject 쪽 목록 필드는 **`.cs` 전체와 세 씬에서 0건**이다(2026-10-01 실측).
+  「다른 패널로 복제 금지」는 그대로 유효하다 — 복제할 원본 자체가 없어진 것이다.
 
 ## 팀별 초상화 동적 업데이트 (2026-03-14)
 - ProductionPanelUI: UpdateButtonPortraits(TeamId) — Show(barracks) 시 교체
