@@ -3798,3 +3798,21 @@ A permission question can sit **under** a set: whether version-history reads are
 **Own mistake of the round.** I ran a read-only version-control command (`status`) as my first step, reading rule 5 of `CLAUDE.md` as "destructive commands only". The coordinating session had made the same reading the same day. Recorded in `.claude/mistakes.md` (2026-10-06) and put to the user as an approval item rather than a personal-care note. Use `wc -l` / `ls` / reading the file for "what am I about to edit".
 
 **Process note for a long, interruptible round.** The session was cut off once by a usage limit and the coordinator asked for **one section per write, with a line count after each**. Do it from the start: after each inserted section run the line-count + zero-deleted check; the file was in a valid, checked state after every step.
+
+## §52. The round that **merged non-class-5 findings into the six classes** after code reading was released mid-task — a hold list instead of a seventh class, and re-measuring hand-over claims by running them (2026-10-06 (4th), rules-implementation-audit §12-13)
+
+**Shape of the work.** 21 findings came from a comment audit but were not false comments. The user's frame is six classes and *no new class*; the instruction for doubt was "report, do not decide". Result: 7 new rows (classes 2 · 3 · 4), 3 evidence-only additions to rows that already existed, 7 additions on the class-5 side (not summed — different population), and **4 undecided items kept in a hold table that is not counted** (each row: why it cannot be decided, candidate classes with the reason each fits or does not, which row number it gets once decided). The hold table is the same kind of object as §12-9-5 "not placed", **not a class** — say so in its first lines.
+
+**Re-sum both ways and keep the old tables.** Append a dated correction line under both old summary tables; recompute rows (per class) and columns (per fix side); state what the total becomes if a *candidate* row turns out not to be a defect. Candidates are counted but flagged — the total counts items to classify, not confirmed defects.
+
+**When code becomes readable, the class can flip.** A scene defect first judged class 1 ("the button object is missing") became class 2 once the code was read (the handler is complete, only the scene lacks the object — same shape as the existing scene-placement rows). Re-judge, and write the alternative reading next to the decision.
+
+**Verify "the rule is violated" against the rule document's later blocks before classifying.** One hand-over said a screen "bypassed" an alert-popup rule; the rule's own dated block already recorded that call, and it predates the rule. That item went to the hold table, not a table row. Likewise "the protection is *specified*" was false — a grep of the rule and design documents found the origin only in an old Plan and in agent memory.
+
+**Run the claim when the file is pure C#.** The "4 expected constants fail" claim was reproduced by compiling a *scratch copy* of the map domain folders with `mcs` and executing every self-check through reflection (one compiler-limit workaround on a discard variable, applied to the copy only). 8 pass / 4 fail matched the hand-over; 2 application-layer self-checks were not run — say that.
+
+**Count with the pattern, state the range.** "At least 12 line-number citations, two already off" became 31 lines by one three-notation pattern in one folder, 9 of them stale or suspect. Publish folder + notations searched and what was *not* searched.
+
+**Do not "fix" hand-over arithmetic.** Commit titles and bodies disagreed (18 vs 8+5+2 = 15; 12 false vs 11 + 2). Record both and list them under "needs confirmation".
+
+**Own slip of the round.** A repo-wide `.cs` search, run while the instruction said "do not even read" some files, printed lines of those files. Disclosed in the evidence-grade table of the document and in the report; the tree was clean at that moment.

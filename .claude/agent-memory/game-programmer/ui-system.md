@@ -2838,3 +2838,27 @@ files: the login bootstrapper (log message) and the skill definition asset file 
 XML tag pairs balance. Four-way reverse check on a copy of the audio manager (each branch confirmed different with `cmp`): comment line
 added -> both same; existing spaces widened -> both same; `1f` to `1.0f` -> both differ; one character of a code string literal -> first
 same, second differs. The pure Domain enum file compiles with `mcs`.
+
+## 2026-10-06 Past-history claims in comments — judged with read-only git (UI + random-map 89 files)
+
+Rule 5 was revised the same day, so "it used to be X" claims, left undecidable in the earlier rounds, became decidable. Appended; nothing above deleted.
+
+### (1) Operating method — "a past-history claim is judged with git log -L"
+- `git log -L <start>,<end>:<file> -s --format=...` lists the commits that touched exactly those lines; the oldest hit tells whether the claim is inside the repository history at all.
+- `git log -S<text> -- <path>` finds the commit where a phrase appeared or vanished (a count-neutral edit does not show up — the phrase quoted inside the correction itself keeps the count constant).
+- `git show <commit>^:<file>` gives the text before a comment-only audit commit, so "the earlier comment said X" claims can be compared against what was really committed.
+- A commit message is secondary evidence (it states intent and measurements) — label it as such when the old code itself is not in any commit.
+
+### (2) Hard limit — the history is shallow
+The history starts at 2026-08-17 (one grafted root commit holding the whole tree of that day). Every claim about a change made before that day, and every file that shows only the root commit, is "outside the history" — it stays undecided, do not guess. Fetching more history is outside the allowed read-only list; it is the user's decision.
+
+### (3) Lessons
+- The dates written in comments are the WORK day; the commit often lands later. A label earlier than the commit is normal; do not "correct" it.
+- A "never was placed / never ran" sentence is a universal about the past — bound it to the visible history range (checked by searching the script identifier in the scene and prefab paths over the whole history) instead of writing "never".
+- Statements an audit wrote about the EARLIER comment must be compared with the committed pre-audit text. Two of them were wrong: one referred to a draft that was never committed (deleted); one mischaracterised the old mechanism (the old header named a shared canvas-level background button, not a per-panel one) — fixed from the root-commit text.
+- A "past" sentence next to a "cannot be checked here" caveat: run the check, then replace the caveat with the checked fact (one such case: an error-level log lowered to warning in the 2026-08-18 log migration).
+- Whole families of past-tense claims share one commit: the map test-mode removal (45 sites over 10 files) was verified by reading one diff, not 45 greps.
+- Never touched: files another owner was editing (network end controller). Claims that depend on them stay "undecided: depends on a file outside this round".
+
+### (4) Proof of "behavior code unchanged"
+Five files edited (comments only). First and second hash equal the start-of-round copies for all five; brace / paren / bracket totals and XML tag pairs equal; four-way reverse check on each edited copy (each branch confirmed different with `cmp`): comment line added -> both same; existing spaces widened -> both same; constant notation -> both differ (one file without a float literal used an integer suffix); one character of a code string literal -> first same, second differs.
