@@ -357,7 +357,7 @@ namespace Hexiege.EditorTools
         /// <summary>
         /// 슬롯 9개의 초기 가시성을 UI 규칙 10·11 대로 맞춘다.
         /// 슬롯 1(index 0)·슬롯 6(index 5)만 보이고, 나머지는 CanvasGroup.alpha=0 으로 숨긴다.
-        /// ⚠️ SetActive(false) 는 GridLayout 셀 정렬을 무너뜨리므로 절대 쓰지 않는다.
+        /// ⚠️ SetActive(false) 는 슬롯의 자리를 레이아웃 그룹의 배치 계산에서 빼 정렬을 무너뜨리므로 절대 쓰지 않는다.
         /// </summary>
         /// <param name="slots">패널의 슬롯 버튼 9개.</param>
         private static void ApplyInitialSlotVisibility(List<Button> slots)

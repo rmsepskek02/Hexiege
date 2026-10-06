@@ -1307,9 +1307,10 @@ namespace Hexiege.Application
         public static readonly Subject<ToastKey> OnToastRequested = new Subject<ToastKey>();
 
         /// <summary>
-        /// 게임 시작(또는 재시작) 시 발행. LoadMap() 완료 후 발행.
-        /// 모든 시스템 초기화가 끝난 상태이므로, UI가 안전하게 초기 상태를 설정할 수 있음.
-        /// 발행: GameBootstrapper.LoadMap() 맨 마지막
+        /// 게임 시작(또는 재시작) 시 발행. LoadMap() 안에서, 그리드·UseCase·와이어링·Castle/시작 채굴소 배치가 끝난 뒤에 발행한다.
+        /// 다만 LoadMap() 의 마지막 줄은 아니다 — 발행한 뒤에 건물 변경 시 경로 즉시 재계산 구독 걸기와
+        /// 전역 로딩 표시 끄기가 이어서 실행된다. 그래서 구독자는 "로딩 표시는 이미 꺼졌다"를 전제로 하면 안 된다.
+        /// 발행: GameBootstrapper.LoadMap() (마무리 단계 직전)
         /// 구독: GameUIManager (등록된 모든 UI에 OnGameStarted() 호출)
         /// </summary>
         public static readonly Subject<Unit> OnGameStarted = new Subject<Unit>();

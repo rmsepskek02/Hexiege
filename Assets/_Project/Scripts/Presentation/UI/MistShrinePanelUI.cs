@@ -18,7 +18,7 @@
 // 슬롯 배치(규칙 10 — 3×3 그리드 9슬롯 규격은 공통을 따른다):
 //   슬롯 1 = 사용(시전) 버튼 / 슬롯 2~5 = 예약(숨김) / 슬롯 6 = 철거(베이스 제공, 위치 고정) / 7~9 = 예약(숨김).
 //   ⚠️ 안 쓰는 슬롯은 SetActive(false)가 아니라 CanvasGroup.alpha=0으로 숨긴다(규칙 11).
-//      SetActive(false)는 GridLayout의 셀 정렬을 무너뜨려 남은 버튼이 앞으로 당겨진다.
+//      SetActive(false)는 슬롯의 자리를 레이아웃 그룹(세로 그룹 안의 가로 행 구조)의 배치 계산에서 빼 버려, 남은 버튼이 앞으로 당겨진다.
 //
 // ⚠️ 이 클래스에 OnDestroy를 새로 선언하지 말고, 구독이 필요하면 UniRx의 .AddTo(this)를 쓴다:
 //   BuildingPanelBase 는 정리를 OnDestroy 에 두지 않고 .AddTo(this) 로 구독을 컴포넌트 수명에 묶는다.
@@ -101,7 +101,7 @@ namespace Hexiege.Presentation
         // 내부 상태
         // ====================================================================
 
-        /// <summary>_allSlotButtons와 1:1로 매칭되는 CanvasGroup 캐시(GridLayout 보존형 숨김용).</summary>
+        /// <summary>_allSlotButtons와 1:1로 매칭되는 CanvasGroup 캐시(레이아웃 자리를 보존하는 숨김용).</summary>
         private List<CanvasGroup> _slotCanvasGroups;
 
         /// <summary>자동 모드 테두리 오버레이의 CanvasGroup 캐시. 이 하나로만 표시를 켜고 끈다(단일 경로 — 규칙 14).</summary>
@@ -148,7 +148,7 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 슬롯 버튼별 CanvasGroup을 캐시한다(없으면 자동 부착, 초기 alpha=0).
-        /// SetActive(false)를 쓰지 않는 이유는 GridLayout 정렬이 무너지기 때문이다(UI 규칙 11).
+        /// SetActive(false)를 쓰지 않는 이유는 레이아웃 그룹이 꺼진 슬롯을 배치 계산에서 빼 버려 정렬이 무너지기 때문이다(UI 규칙 11).
         /// </summary>
         private void BuildSlotCanvasGroups()
         {

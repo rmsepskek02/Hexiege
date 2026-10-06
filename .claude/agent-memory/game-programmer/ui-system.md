@@ -2745,3 +2745,49 @@ Brace/paren/bracket balance 0 and XML tag pairs balanced for all six. No compile
 ### (8) Copy-trap
 New lines were re-read for quoted old values / screen strings / log key=value copies. The only numbers written are measured
 timestamps and intervals from logs (not retired values). The previous cross-machine interval is described in prose, not repeated.
+
+---
+
+## 2026-10-06 Comment audit follow-up — three claims that survived inside already-audited files
+
+Context: the 89-file UI / random-map audit had fixed one site per claim and left siblings. This round searched the whole repo
+for each claim, not the sites handed over. Comment-only change in 11 `.cs` files; behavior code untouched.
+
+### (1) Counts: handed-over vs found
+- Slot-layout claim (said to be a grid layout group): handed over 6 sites (3 + 2 + 1). **Found 9** — the production panel had 2 more,
+  written with a space ("Grid Layout"), and a one-off editor setup script had 1. Fixed 8; the 9th (class-general, hedged with "e.g.") judged
+  not false and left.
+- LogRules 1.4 cited as the basis for "GameLog is the facade": handed over 4 + 1; **found 5 false** (the same tail comment on a using line).
+  The already-fixed sibling shows the accepted wording: 1.4 governs line format and category, not the facade.
+- Start event "published last in the map load / all systems ready": handed over 1; **found 2** — the event hub's own doc comment
+  (`GameEvents.OnGameStarted`) repeated both statements and added "after LoadMap completes".
+
+### (2) Scene facts measured (Game.unity, by script guid)
+- The scene has zero grid layout group components; no scene or prefab has one either (guid search).
+- Production / building-action / skill / mist-shrine panels: every slot button sits in a horizontal-group row inside a vertical-group container.
+  The production panel's upgrade and rally buttons are in the same container, row 1.
+- Layout groups drop inactive children from the layout pass. That is Unity behavior; the engine source is not in the repo, so it was not
+  re-measured here (the already-fixed overlay comment states it too).
+
+### (3) Judgements worth keeping
+- Hedged example kept: the building-action panel's sentence names a grid layout group only as an example of a layout group. It is a true
+  statement about layout groups in general and claims nothing about the scene. Left untouched on purpose.
+- "3x3 grid" in headers and tooltips describes how nine slots are arranged, not a component. Left untouched (a first reading wanted to
+  delete it — that would have been over-fixing).
+- Other facade attributions are not 1.4 ones: the two-axis scheme is 1.2, event keys 1.5, sink delivery 1.8. Not touched this round.
+- Bare "UI rule 11" is ambiguous: the UI rules doc defines a rule 11 in three sections (common popup auto-close, production validation order,
+  mist-shrine slot hiding). The mist-shrine file's cite is meant for the slot-hiding one. Kept as is; reported.
+- Start-event wording now lists what runs after the publish by kind (a subscription for building-change repath; hiding the global loading
+  indicator) and does not say how many, so adding a step later does not make it stale.
+
+### (4) Portable lessons
+- After a predecessor fixes one site of a claim, the sibling usually lives in the **declaring** file (the event hub, the interface, the
+  panel base). Grep the claim's key nouns repo-wide, case-insensitive, with and without a space, before trusting a site list.
+- Search variants of the same noun in both languages (component name, spaced name, Korean transliteration); one pattern missed two sites.
+- During this round another process edited two doc files (git showed them modified mid-task). Compare only your own file list against HEAD.
+
+### (5) Proof of "behavior code unchanged"
+Both hashes (comments stripped; comments plus string contents stripped) equal HEAD for all 11 files. Brace / paren / bracket totals and
+XML tag pair totals equal HEAD. Four-way reverse check on a copy of the map-load partial (each branch confirmed different with `cmp`):
+comment line added -> both same; existing spaces widened -> both same; `1f` to `1.0f` -> both differ; one character of a code string
+literal -> first same, second differs.

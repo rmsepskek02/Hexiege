@@ -615,7 +615,7 @@ namespace Hexiege.Presentation
             bool canUpgrade = BuildingTypeHelper.CanUpgrade(_currentBuilding.Type);
 
             // CanvasGroup으로 숨김 — SetActive 대신 alpha=0을 사용해 레이아웃 공간을 유지한다.
-            // SetActive(false)를 쓰면 Grid Layout에서 해당 슬롯이 사라져 다른 버튼 위치가 이동한다.
+            // SetActive(false)를 쓰면 레이아웃 그룹(세로 그룹 안의 가로 행)의 배치 계산에서 해당 슬롯이 빠져 다른 버튼 위치가 이동한다.
             if (_upgradeButtonGroup != null)
             {
                 _upgradeButtonGroup.alpha = canUpgrade ? 1f : 0f;
@@ -1043,7 +1043,7 @@ namespace Hexiege.Presentation
 
                     // ── 빈 슬롯 숨김은 CanvasGroup으로만 처리한다 ──────────────────────
                     // 근거: GameSystemRules_UI.md — 공통 UI 규칙 5 "CanvasGroup 숨김/표시 패턴".
-                    // SetActive(false)를 쓰면 Grid Layout 안에서 그 슬롯이 차지하던 공간까지 사라져
+                    // SetActive(false)를 쓰면 레이아웃 그룹(세로 그룹 안의 가로 행) 안에서 그 슬롯이 차지하던 공간까지 사라져
                     // 뒤쪽 버튼들이 앞으로 당겨진다. 그래서 "CanvasGroup이 없으면 SetActive로라도 끈다"는
                     // 폴백을 두지 않는다 — 규칙이 금지한 방식을 예외 경로로 되살리는 셈이기 때문이다.
                     // 대신 배선이 빠진 사실을 아래에서 경고로 알려, 씬에서 고치도록 유도한다.

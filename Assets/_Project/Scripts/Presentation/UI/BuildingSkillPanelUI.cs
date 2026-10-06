@@ -77,7 +77,7 @@ namespace Hexiege.Presentation
         // 현재 표시 중인 건물의 종족 로드아웃(OnShow에서 캐시).
         private IReadOnlyList<SkillData> _currentLoadout;
 
-        // 슬롯 버튼 CanvasGroup 캐시(GridLayout 보존형 숨김 — 액션 패널과 동일 패턴).
+        // 슬롯 버튼 CanvasGroup 캐시(레이아웃 자리를 보존하는 숨김 — 액션 패널과 동일 패턴).
         private List<CanvasGroup> _slotCanvasGroups;
 
         private bool _eventsWired;
@@ -119,7 +119,7 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 스킬 슬롯 버튼별 CanvasGroup을 캐시한다(없으면 자동 부착, 초기 alpha=0).
-        /// SetActive(false)는 GridLayout 정렬을 깨므로 CanvasGroup alpha로 숨긴다(액션 패널과 동일 이유).
+        /// SetActive(false)는 슬롯을 레이아웃 그룹의 배치 계산에서 빼 정렬을 깨므로 CanvasGroup alpha로 숨긴다(액션 패널과 동일 이유).
         /// </summary>
         private void BuildSlotCanvasGroups()
         {

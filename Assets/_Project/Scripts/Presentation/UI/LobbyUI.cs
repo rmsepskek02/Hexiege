@@ -43,7 +43,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using Hexiege.Application;      // GameLog — 런타임 로그 파사드 (LogRules.md 1.4)
+using Hexiege.Application;      // GameLog — 런타임 로그 파사드(로그 줄 형식·카테고리 규정은 LogRules.md 1.4)
 using Hexiege.Infrastructure;
 
 namespace Hexiege.Presentation

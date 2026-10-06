@@ -55,7 +55,7 @@ using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using Hexiege.Application;      // GameLog — 런타임 로그 파사드 (LogRules.md 1.4)
+using Hexiege.Application;      // GameLog — 런타임 로그 파사드(로그 줄 형식·카테고리 규정은 LogRules.md 1.4)
 
 namespace Hexiege.Presentation
 {
