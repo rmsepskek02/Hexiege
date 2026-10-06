@@ -214,7 +214,7 @@ namespace Hexiege.Presentation
                 // 슬롯에 따라 Walk↔Idle 애니메이션 전환
                 // offset 0 = 중앙(선택됨) → Walk 재생 (캐릭터가 걸어가는 모습)
                 // offset 1,2 = 좌우(비선택) → Idle 재생 (대기 자세)
-                // CrossFadeInFixedTime: AnimBlendTime(0.3초) 동안 현재 상태에서 목표 상태로 부드럽게 블렌딩
+                // CrossFadeInFixedTime: 위 AnimBlendTime 에 정해 둔 시간(초) 동안 현재 상태에서 목표 상태로 부드럽게 블렌딩
                 // layer 0 = Base Layer (Animator Controller의 기본 레이어)
                 if (_animators != null && i < _animators.Length && _animators[i] != null)
                 {

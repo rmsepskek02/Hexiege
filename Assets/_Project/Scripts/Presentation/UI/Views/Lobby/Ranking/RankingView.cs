@@ -8,7 +8,7 @@
 //   - 헤더 열을 탭하면 해당 열 기준으로 오름/내림차순 정렬을 전환한다.
 //   - 이전/다음 페이지 버튼으로 페이지를 이동한다(추가 네트워크 로드 없이 캐시로 처리).
 //
-// 구현 방식(GameSystemRules_UI.md Ranking 탭 규칙 4):
+// 구현 방식:
 //   외부 라이브러리 없이 ScrollRect + VerticalLayoutGroup + 헤더 Button 조합.
 //   행 프리팹(RankRowView)을 Content 아래에 10개 인스턴스로 두고 재사용한다.
 //
@@ -19,9 +19,12 @@
 //
 // 주의(데이터 로드 시점):
 //   로비 탭은 CanvasGroup(alpha) 로 전환되어 GameObject 가 계속 활성 상태이므로,
-//   OnEnable 은 씬 진입 시 1회만 발화한다. 즉 랭킹 로드는 "탭 클릭" 이 아니라 "로비 진입" 시
-//   이뤄진다. 탭 클릭 시점 로드가 필요하면 LobbyRootView 의 탭 전환 구독에서 RefreshAsync()
-//   를 호출하도록 별도 배선이 필요하다(본 작업 범위 밖 — Inspector/씬 작업 단계에서 검토).
+//   OnEnable 은 씬 진입 시 1회만 발화한다. 그래서 OnEnable/Start 는 데이터를 불러오지 않고
+//   서비스·행 풀·버튼 리스너를 구성하는 초기화만 한다.
+//   랭킹 데이터를 실제로 불러오는 시점은 두 곳이며 둘 다 이미 배선돼 있다.
+//     - 랭킹 탭을 고른 순간 — LobbyRootView 의 탭 전환 구독이 이 View 의 RefreshAsync 를 부른다.
+//     - 새로고침 버튼을 누른 순간 — 아래 OnRefreshClicked.
+//   즉 숨겨진 랭킹 패널이 로비 진입만으로 네트워크를 때리는 일은 없다.
 //
 // Presentation 레이어 — MonoBehaviour.
 // ============================================================================
@@ -138,8 +141,9 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 탭(또는 오브젝트)이 활성화될 때 랭킹을 갱신한다.
-        /// 최초 활성화 시에는 Start 에서 로드하므로 중복 로드를 피하기 위해 초기화 이후에만 갱신한다.
+        /// 오브젝트가 활성화될 때 초기화만 수행한다(데이터는 불러오지 않는다).
+        /// Start 가 이미 초기화했으면 아무 일도 하지 않는다.
+        /// 랭킹 데이터 로드 시점은 이 파일 머리말 「주의(데이터 로드 시점)」 참조.
         /// </summary>
         private void OnEnable()
         {
@@ -355,7 +359,7 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 랭킹 데이터를 로드하고 첫 페이지를 표시한다.
-        /// 로딩 중에는 전역 로딩 인디케이터를 표시한다(GameSystemRules_UI.md Ranking 규칙 6).
+        /// 로딩 중에는 전역 로딩 인디케이터를 표시한다.
         /// </summary>
         public async System.Threading.Tasks.Task RefreshAsync()
         {

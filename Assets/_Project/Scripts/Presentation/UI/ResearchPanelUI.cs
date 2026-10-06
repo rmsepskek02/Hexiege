@@ -5,7 +5,11 @@
 // ── 2026-07-28 재구성(확정 설계) ────────────────────────────────────────────
 //   [구조] 기존 독립 MonoBehaviour → BuildingPanelBase 상속으로 전환.
 //     · 공통 프레임(헤더 제목 + 닫기[X] + 하단 철거 버튼 + 환불액)을 BuildingPanelBase에서 상속.
-//       → 비생산 건물 액션 패널/생산 패널과 동일한 위치·스타일·동작을 공유한다.
+//       → 비생산 건물 액션 패널/생산 패널과 동작(닫기 · 철거 · 환불액 계산)을 공유하고,
+//         닫기[X] 버튼은 씬에서 건물 패널 전부가 같은 앵커를 쓴다(씬 실측).
+//       ⚠️ 다만 「배치가 전부 같다」고 읽지 말 것 — 다른 패널들은 철거 버튼을 3×3 그리드의
+//         여섯째 칸에 넣는데, 이 패널에는 그 그리드 자체가 없고 철거 버튼을 본문 아래쪽에
+//         따로 앵커해 둔다(씬 실측). 즉 공유되는 것은 동작이고 철거 버튼의 자리는 다르다.
 //     · 철거(하단) = 건물 파괴(건설비 환불 + 진행 중 연구도 취소·환불).
 //       (연구 취소·환불은 GameBootstrapper의 OnBuildingDied→OnLabDestroyed 구독이 담당 — 회귀 없음.)
 //
@@ -43,7 +47,7 @@ namespace Hexiege.Presentation
     public class ResearchPanelUI : BuildingPanelBase
     {
         // ====================================================================
-        // 직렬화 필드 (본문 레이어 — Inspector/Wire 배선)
+        // 직렬화 필드 (본문 레이어 — Inspector 에서 직접 배선)
         // ====================================================================
 
         [Header("Research Body Layers")]
@@ -67,7 +71,9 @@ namespace Hexiege.Presentation
         // 멀티플레이 순수 클라이언트의 진행 표시용 로컬 타이머.
         //   서버 권위 틱이 클라 UseCase에는 없으므로(진행 상태 미보유), 착수 확정 이벤트로 받은 total을
         //   로컬에서 카운트다운한다. buildingId를 함께 보관해 "이 연구소가 연구 중"인지 판정에 쓴다.
-        //   완료(OnUpgradeChanged)나 취소(ResearchCanceledClientRpc→OnUpgradeChanged) 시 소거된다.
+        //   완료(OnUpgradeChanged)나 취소(ResearchCanceledClientRpc→OnUpgradeChanged) 통지가 패널이 열려 있는 동안
+        //   도착하면 소거된다. 🔴 닫혀 있는 동안 도착한 통지는 구독 쪽 첫 줄 검사에서 버려져 소거되지 않는다
+        //   (코드로 확인. 그 뒤 같은 연구소를 다시 열면 진행 레이어가 남는지는 실행해 보지 못했다 — 미수정·사용자 미승인).
         // ────────────────────────────────────────────────────────────────────
         private bool _hasLocalProgress;
         private UpgradeGroup _localProgressGroup;
@@ -119,7 +125,8 @@ namespace Hexiege.Presentation
                 Refresh();
             }).AddTo(_subs);
 
-            // 골드 변경 → 비용 색상 재평가(공통 UI 규칙 14).
+            // 골드 변경 → 비용 색상 재평가(공통 UI 규칙 7 「비용 텍스트 색상」의 둘째 줄 —
+            //   골드가 변할 때마다 색을 다시 판정한다).
             GameEvents.OnResourceChanged.Subscribe(e =>
             {
                 if (_currentBuilding == null || e.Team != _team) return;
@@ -192,11 +199,15 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 베이스 Close()가 팝업을 숨기기 전에 호출되는 정리 훅.
         /// 로컬 진행(_hasLocalProgress)은 의도적으로 유지한다 — 클라이언트가 패널을 닫았다 다시 열어도
-        /// 진행 중 연구를 계속 표시해야 하기 때문. (완료/취소 시에만 소거된다.)
+        /// 진행 중 연구를 계속 표시해야 하기 때문. (소거는 완료/취소 통지가 패널이 열려 있는 동안 도착했을 때뿐이다.)
         /// </summary>
         protected override void OnBeforeClose()
         {
-            // 특별한 정리 없음. (RefreshRequested 구독자는 IsOpen=false를 보고 스스로 갱신을 건너뛴다.)
+            // 특별한 정리 없음.
+            //   ⚠️ 갱신 알림 구독자 둘 중 패널이 닫혀 있는지 보고 건너뛰는 쪽은 매트릭스 뷰뿐이다.
+            //   진행 레이어 뷰의 갱신 메서드는 그 검사가 없어 닫힌 뒤에도 텍스트를 다시 써 넣는다
+            //   (화면에 보이지 않으므로 증상은 없지만, 「구독자가 전부 알아서 건너뛴다」고 믿지 말 것).
+            //   진행 레이어 뷰가 매 프레임 돌리는 게이지 폴링 쪽은 열림 여부를 본다.
         }
 
         // ====================================================================
@@ -394,7 +405,7 @@ namespace Hexiege.Presentation
             return _resource.GetGold(_team) >= cost;
         }
 
-        /// <summary> 골드 부족 색상(공통 UI 규칙 7·14). 베이스 _colorConfig 사용. </summary>
+        /// <summary> 골드 부족 색상(공통 UI 규칙 7 「비용 텍스트 색상」). 베이스 _colorConfig 사용. </summary>
         public Color GetInsufficientColor()
             => _colorConfig != null ? _colorConfig.goldInsufficientColor : Color.red;
 
@@ -407,7 +418,8 @@ namespace Hexiege.Presentation
             => stat == UnitUpgradeStat.Regen ? UpgradeGroupHelper.RegenCanonicalGroup : group;
 
         // ====================================================================
-        // 표시 이름(한국어) — 매트릭스 헤더/셀/진행 뷰 공용 정적 헬퍼
+        // 표시 이름(한국어) — 매트릭스 뷰와 진행 뷰가 쓰는 정적 헬퍼
+        //   ⚠️ 셀 뷰는 이 헬퍼들을 쓰지 않는다 — 레벨·상태 문구를 자체적으로 조립한다.
         // ====================================================================
 
         /// <summary> 강화 그룹의 한국어 표시명(매트릭스 행 헤더용). </summary>
@@ -427,7 +439,12 @@ namespace Hexiege.Presentation
             }
         }
 
-        /// <summary> 강화 스탯의 한국어 표시명(매트릭스 열 헤더용). </summary>
+        /// <summary>
+        /// 강화 스탯의 한국어 표시명.
+        /// ⚠️ 이 메서드를 밖에서 직접 부르는 자리는 초월 자연회복 행의 라벨 하나뿐이다.
+        /// 그 밖에는 아래 트랙 전체 표시명 조립이 안에서 부르며, 그 결과가 진행 레이어의 이름 줄에 쓰인다.
+        /// 공격력/방어력/이동속도 열 헤더는 씬에 고정 오브젝트로 미리 만들어 두고 런타임에 만들지 않는다.
+        /// </summary>
         public static string StatDisplayName(UnitUpgradeStat stat)
         {
             switch (stat)

@@ -8,11 +8,6 @@
 //   Client는 똑같은 데이터를 받아 소비한다. 양쪽이 같은 맵을 받았는지는
 //   이 데이터의 SHA-256 해시를 비교해 확인한다(MapDefinitionCodec 참조).
 //
-// ⚠️ 이 파일은 1단계에서 "만들어만 두는" 자료구조다.
-//    지금 게임(GameBootstrapper)은 여전히 코드에 하드코딩된 좌표로 고정 맵을
-//    만들며, 이 클래스를 호출하는 코드는 프로젝트 어디에도 없다.
-//    실제 맵 생성기는 2단계, 네트워크 전송은 3단계 작업이다.
-//
 // 근거: TechnicalDesignDocument.md 「MapDefinition 정규 데이터 계약」
 //
 // Domain 레이어 — 순수 C#, Unity/Core 의존 없음.
@@ -112,7 +107,10 @@ namespace Hexiege.Domain
         // 상위 필드
         // ====================================================================
 
-        /// <summary> canonical binary 형식 버전. 초기값 1. </summary>
+        /// <summary>
+        /// canonical binary 형식 버전. 새로 만든 맵에는 위 상수가 정한 <b>현재</b> 형식 버전이 들어간다.
+        /// (「처음에는 1이었다」는 이력은 위 상수의 설명에 적혀 있다.)
+        /// </summary>
         public int MapVersion { get; set; } = CurrentMapVersion;
 
         /// <summary> 이 맵을 만들 때 사용한 64비트 최상위 시드. </summary>

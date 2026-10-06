@@ -18,7 +18,10 @@
 //   LoginRootView.ShowNicknameSetup(isGooglePath) 로 지정하고,
 //   LoginRootView 가 본 View 의 PrepareForShow(isGooglePath) 를 호출해 전달한다.
 //
-// AuthSystemRules.md 닉네임 규칙 1~6 / GameSystemRules_UI.md 닉네임 설정 화면 규칙 1~4.
+// ⚠️ 닉네임 화면 전용 규칙 절은 아직 어느 규칙 문서에도 없다.
+//   AuthSystemRules.md 는 「인증된 계정인데 저장된 닉네임이 없으면 로비 진입 전에 이 화면으로
+//   보낸다」는 한 문장만 담고 있고(이메일 인증 취소 규칙 절), 길이·허용 문자·자동 생성 규칙의
+//   실제 단일 소스는 Application 의 프로필 UseCase 다. 수치를 고칠 때는 그쪽을 본다.
 //
 // Presentation 레이어 — MonoBehaviour.
 // ============================================================================
@@ -89,8 +92,9 @@ namespace Hexiege.Presentation
             if (_confirmButton != null) _confirmButton.onClick.AddListener(OnConfirmClicked);
             if (_skipButton != null) _skipButton.onClick.AddListener(OnSkipClicked);
 
-            // 입력 값이 바뀔 때마다 확인 버튼 활성/비활성을 실시간 갱신한다
-            // (닉네임 설정 화면 규칙 2 "빈 값이면 확인 버튼 클릭 불가" 방식 채택).
+            // 입력 값이 바뀔 때마다 확인 버튼 활성/비활성을 실시간 갱신한다.
+            // 빈 값이나 무효한 값에서는 아예 누를 수 없게 하는 방식을 택했다(규칙 문서 근거는 없고
+            // 이 구현에서 정한 방식이다).
             if (_nicknameInput != null) _nicknameInput.onValueChanged.AddListener(OnInputChanged);
 
             // 초기 상태: 입력이 비어 있으므로 확인 버튼을 비활성으로 시작한다.
@@ -204,7 +208,9 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 스킵 버튼 클릭 → 자동 생성 닉네임으로 저장 → 다음 화면.
-        /// 자동 생성 접두사: Google 경로="구글", 이메일 경로="사용자" (AuthSystemRules.md 규칙 4).
+        /// 자동 생성 접두사는 Google 경로와 이메일 경로를 구분한다(아래 prefix 지역 변수).
+        /// 접두사 뒤에 밑줄과 임의 영숫자 6자를 붙이는 조립은 프로필 UseCase 쪽이 담당한다.
+        /// ⚠️ 이 접두사 규약을 정해 둔 규칙 문서 조항은 없다 — 근거는 코드가 유일하다.
         /// </summary>
         private async void OnSkipClicked()
         {

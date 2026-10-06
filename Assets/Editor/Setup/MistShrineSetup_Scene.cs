@@ -442,12 +442,12 @@ namespace Hexiege.EditorTools
         /// <summary>
         /// 자동 모드 테두리 회전 오버레이를 멱등 생성한다(E4 / UI 규칙 6·14).
         ///
-        /// ⚠️ 오브젝트는 **하나만** 만든다.
-        ///   생산 패널(ProductionPanelUI)은 같은 BorderOverlay 오브젝트를
-        ///   _unitAutoIndicators(List&lt;GameObject&gt;)와 _unitBorderOverlays(List&lt;Image&gt;) 양쪽에
-        ///   중복 배선해 SetActive 와 CanvasGroup.alpha 두 경로로 제어한다(과거 설계 잔재).
-        ///   MistShrine 패널은 이 구조를 복제하지 않고, Image 하나만 _autoBorderOverlay 에 배선한다.
-        ///   표시 제어는 런타임에 MistShrinePanelUI.ApplyAutoBorder(CanvasGroup.alpha) 단일 경로로만 한다.
+        /// ⚠️ 오브젝트는 **하나만** 만든다. 테두리를 켜고 끄는 경로가 하나여야 하기 때문이다.
+        ///   이 메서드가 돌려준 Image 를 MistShrine 패널의 테두리 오버레이 필드에 배선하고
+        ///   (배선은 이 파일의 패널 배선 구간에서 한다), 런타임 표시 제어는
+        ///   MistShrinePanelUI.ApplyAutoBorder 가 CanvasGroup 의 알파값을 조절하는 한 가지 경로로만 한다.
+        ///   초급자용 설명: 켜고 끄는 경로가 둘이면 한쪽만 바뀌는 순간 테두리가 어중간하게 남는
+        ///   버그가 생긴다. 그래서 오브젝트도 하나, 제어 경로도 하나로 묶어 둔다(UI 규칙 14).
         /// </summary>
         /// <param name="slot">테두리를 붙일 사용 버튼(슬롯 1)의 Transform.</param>
         /// <param name="borderMaterial">생산 패널과 공유하는 테두리 회전 머티리얼(null 가능 — 그 경우 미지정).</param>

@@ -12,10 +12,11 @@
 //     ├─ TabBar (TabBarView)
 //     └─ ContentArea
 //          ├─ BattlePanel (BattleRootView)
-//          ├─ ShopPanel (ShopView)
+//          ├─ ShopPanel (스크립트 없음 — 안내 텍스트만 올려 둔 빈 탭이다)
 //          ├─ ProfilePanel (ProfileView)
 //          ├─ SettingPanel (LobbySettingsView)
-//          └─ RankingPanel (RankingView)
+//          ├─ RankingPanel (RankingView)
+//          └─ NicknameChangePopup (닉네임 변경 모달 — 탭 패널이 아니라 ProfileView 가 여는 오버레이)
 //
 // Presentation 레이어 — MonoBehaviour.
 // ============================================================================
@@ -90,7 +91,9 @@ namespace Hexiege.Presentation
         private void Awake()
         {
             // 각 패널에 에디터에서 미리 부착된 CanvasGroup을 가져온다.
-            // CanvasGroup이 없으면 null — SetupLobbyPanelCanvasGroups 에디터 스크립트 실행 필수.
+            // 로비 씬의 탭 패널 5개에는 CanvasGroup 이 이미 전부 부착돼 있다.
+            // 없으면 여기서 null 이 되고 그 패널은 표시/숨김이 아예 동작하지 않으므로,
+            // 패널을 새로 만들면 CanvasGroup 부착을 잊지 말 것(부착을 대신해 주는 전용 스크립트는 없다).
             _battlePanelGroup  = _battlePanel?.GetComponent<CanvasGroup>();
             _shopPanelGroup    = _shopPanel?.GetComponent<CanvasGroup>();
             _profilePanelGroup = _profilePanel?.GetComponent<CanvasGroup>();

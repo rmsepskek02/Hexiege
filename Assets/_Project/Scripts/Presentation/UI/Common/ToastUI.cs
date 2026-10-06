@@ -1,11 +1,14 @@
 // ============================================================================
 // ToastUI.cs
-// 화면 하단 중앙에 짧은 알림(토스트) 메시지를 표시하는 UI.
+// 화면 가로 중앙에 짧은 알림(토스트) 메시지를 띄우는 UI.
+// ⚠️ 세로 위치는 「하단」이 아니다 — 프리팹 실측 결과 배경 띠가 화면 위쪽에 앵커돼 있다.
+//    (세로/가로 위치의 단일 소스는 프리팹 안 배경 오브젝트의 앵커값이다. 코드는 위치를
+//     전혀 건드리지 않으므로 여기 설명을 믿지 말고 그 앵커를 보라.)
 //
 // ─────────────────────────────────────────────────────────────────────────────
 // 역할:
 //   - 어느 씬에서든 사용자에게 즉시 알려야 하는 상황(골드 부족, 인구 가득 등)을
-//     화면 하단에 잠깐 보여주고 자동으로 사라지도록 한다.
+//     화면 한구석에 잠깐 보여주고 자동으로 사라지도록 한다(실제 자리는 위 머리말 참조).
 //   - 동시에 여러 요청이 와도 큐에 쌓아 차례대로 한 번에 하나씩 표시한다.
 //   - 단, "같은 종류"의 요청이 연달아 들어오면 쌓지 않고 하나로 합친다(아래 규칙 2 참조).
 //
@@ -28,8 +31,12 @@
 //   인스턴스가 없으면 호출이 안전하게 무시된다.
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// 씬 배치 (Lobby.unity 한 번만):
-//   첫 씬(Lobby.unity)의 [UI] Canvas 하위에 배치.
+// 씬 배치 (Login.unity 한 번만):
+//   첫 씬인 Login.unity(Build Index 0)의 "씬 루트"(부모가 없는 최상위)에 배치한다.
+//   ⚠️ 다른 UI 오브젝트의 자식으로 넣으면 안 된다. 이 프리팹은 자체 캔버스(화면 레이어)를
+//      스스로 들고 있어 다른 캔버스 아래로 들어갈 필요가 없고, 무엇보다 씬을 넘어가도
+//      살아남게 하는 처리가 루트에서만 동작한다 — 그 이유는 아래 Awake()의
+//      "부모 분리" 주석에 적어 두었다(부모가 붙어 있으면 거기서 루트로 떼어낸다).
 //   Awake()에서 DontDestroyOnLoad 처리 → 이후 모든 씬에서 살아있음.
 //   ToastMessageConfig는 Resources에서 자동 로드 — Inspector 연결 불필요.
 //   씬 전환 시 잔여 토스트는 GameEvents.OnGameStarted / OnGameEnd 구독으로 자동 정리.
@@ -50,8 +57,9 @@ using Hexiege.Infrastructure;
 namespace Hexiege.Presentation
 {
     /// <summary>
-    /// 화면 하단 중앙에 짧은 알림 메시지를 표시하는 토스트 UI.
-    /// Lobby.unity에 한 번만 배치하면 DontDestroyOnLoad로 모든 씬에서 동작.
+    /// 짧은 알림 메시지를 가로 중앙에 띄우는 토스트 UI.
+    /// (세로 자리는 프리팹의 배경 오브젝트 앵커가 정하며, 실측상 화면 위쪽이다 — 머리말 참조.)
+    /// Login.unity에 한 번만 배치하면 DontDestroyOnLoad로 모든 씬에서 동작.
     /// 정적 Show(ToastKey)로 어느 씬에서든 호출 가능.
     /// </summary>
     public class ToastUI : MonoBehaviour, IPointerClickHandler
@@ -62,7 +70,7 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 현재 씬의 ToastUI 인스턴스.
-        /// Initialize() 시 자기 자신을 등록하고, OnDestroy() 시 해제.
+        /// Awake() 시 자기 자신을 등록하고, OnDestroy() 시 해제.
         /// 인스턴스가 없을 때 Show()가 호출되어도 안전하게 무시됨.
         /// </summary>
         private static ToastUI _instance;
@@ -89,7 +97,7 @@ namespace Hexiege.Presentation
         /// <summary> 대기 중인 토스트 큐. 앞에서부터 차례대로 표시. </summary>
         private readonly Queue<ToastKey> _queue = new Queue<ToastKey>();
 
-        /// <summary> 메시지/표시시간 정보 소스. Initialize에서 주입. </summary>
+        /// <summary> 메시지/표시시간 정보 소스. Awake()에서 설정 에셋을 자동 로드해 채운다. </summary>
         private ToastMessageConfig _config;
 
         /// <summary>
@@ -120,7 +128,13 @@ namespace Hexiege.Presentation
         /// <summary> 현재 토스트가 화면에 보이고 있는지 여부(논리적 상태). </summary>
         private bool _isShowing;
 
-        /// <summary> 초기화 완료 여부. false면 모든 진입점이 동작하지 않음. </summary>
+        /// <summary>
+        /// 초기화 완료 여부.
+        /// ⚠️ 이 깃발을 보는 곳은 **큐에 넣는 입구 하나뿐**이다 — 「모든 진입점이 막힌다」가 아니다.
+        ///   터치 처리 · 매 프레임 갱신 · 잔여 정리는 이 깃발을 보지 않고 「지금 표시 중인가」만 본다.
+        ///   그래도 문제가 되지 않는 이유는 Awake()가 이 깃발을 세운 **뒤에** 이벤트 구독을 걸고,
+        ///   표시 중 상태로 들어가는 유일한 길이 그 입구이기 때문이다.
+        /// </summary>
         private bool _initialized;
 
         // ====================================================================
@@ -144,7 +158,7 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// Lobby.unity 로드 시 1회 실행.
+        /// Login.unity 로드 시 1회 실행.
         /// - 중복 인스턴스가 있으면 자기 자신을 파괴(씬 재진입 방지).
         /// - DontDestroyOnLoad로 이후 모든 씬에서 유지.
         /// - Resources에서 ToastMessageConfig를 자동으로 로드.
@@ -162,7 +176,7 @@ namespace Hexiege.Presentation
             _instance = this;
 
             // DontDestroyOnLoad는 씬 루트 오브젝트(부모 없음)에서만 동작한다.
-            // SetupToastUI 스크립트가 Toast를 씬 루트로 생성하지만, 혹시 Canvas 하위에
+            // 이 프리팹은 첫 씬에 루트 오브젝트로 배치돼 있지만, 혹시 다른 UI의 자식으로
             // 잘못 배치된 경우에도 안전하게 루트로 분리한 뒤 DontDestroyOnLoad를 적용.
             if (transform.parent != null) transform.SetParent(null);
             DontDestroyOnLoad(gameObject); // 씬 전환 후에도 이 오브젝트를 파괴하지 않음

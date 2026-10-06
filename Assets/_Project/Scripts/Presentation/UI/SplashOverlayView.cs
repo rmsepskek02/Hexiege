@@ -15,7 +15,9 @@
 //     └───────────────────────────┘
 //         ↓ 화면 탭
 //     로그인 X: SplashOverlay 전체 페이드아웃 (FadeOut) → 로그인 화면 노출
-//     로그인 O: FadeOut 없이 즉시 → 로딩 인디케이터 → Lobby 이동
+//     로그인 O + Lobby 로 바로 감   : FadeOut 없이 즉시 → 로딩 인디케이터 → Lobby 이동
+//     로그인 O + Login 씬에 더 머묾 : 페이드아웃한다(닉네임 설정 · 이메일 인증 화면을
+//                                     오버레이가 가리면 안 되므로 — 아래 skipFade 설명 참조)
 //
 // 역할 정리:
 //   - SetStatus(text)     : StatusText 문구 변경(예: "로딩 중...")
@@ -23,12 +25,16 @@
 //   - FadeOut(onComplete) : 오버레이 전체 CanvasGroup 페이드아웃 후 콜백 호출
 //   - 화면 탭             : _tapToStartActive 상태일 때만 동작. _skipFadeOnTap에 따라 즉시 콜백 또는 FadeOut 후 콜백
 //
-// 씬 배치(Login.unity):
-//   Canvas
-//   └─ SplashOverlay (CanvasGroup + 이 컴포넌트, 최상위 표시)
-//       ├─ Background     (Image — 전체 화면 배경, Raycast Target=true 권장: 탭 입력 수신)
-//       ├─ StatusText     (TextMeshProUGUI — "로딩 중...")
-//       └─ TapToStartText (TextMeshProUGUI — "Tap to Start", 초기 alpha=0)
+// 씬 배치(Login.unity 실측):
+//   SplashOverlay Canvas   (이 오버레이 전용 Canvas — SortingOrder 200)
+//   └─ SplashOverlay       (CanvasGroup + 이 컴포넌트)
+//       ├─ Background          (Image — 전체 화면 배경, Raycast Target 켜져 있음: 탭 입력 수신)
+//       └─ SafeAreaContainer
+//           ├─ StatusText      (TextMeshProUGUI — 초기화 진행 문구가 들어가는 자리)
+//           └─ TapToStartText  (TextMeshProUGUI — 탭 유도 문구, 초기 alpha=0)
+//   ⚠️ 두 텍스트는 SplashOverlay 의 직계 자식이 아니라 SafeAreaContainer 아래에 있다.
+//   ⚠️ 이 오버레이는 화면 최상위가 아니다 — 전역 로딩 인디케이터 Canvas(SortingOrder 300)가 위에 온다.
+//      아래 "로그인 O" 분기가 페이드아웃 없이 넘어가도 배경이 드러나지 않는 근거가 바로 이것이다.
 //
 // UI 규칙 5(SetActive 금지):
 //   텍스트 표시/숨김은 GameObject.SetActive가 아니라 TextMeshProUGUI.alpha(또는 CanvasGroup)로
@@ -52,7 +58,9 @@ namespace Hexiege.Presentation
     /// <summary>
     /// Login 씬 진입 시 표시되는 스플래시 오버레이.
     /// 초기화 중에는 상태 문구를, 완료 후에는 "Tap to Start" 깜빡임을 보여주고,
-    /// 사용자가 화면을 탭하면 페이드아웃하며 로그인 화면으로 넘어간다.
+    /// 사용자가 화면을 탭하면 다음 화면으로 넘어간다. 대부분의 분기는 페이드아웃한 뒤 콜백을
+    /// 실행하지만(로그인 선택 · 닉네임 설정 · 이메일 인증), Lobby 씬으로 바로 가는 분기만
+    /// 페이드아웃 없이 콜백을 즉시 실행한다(파일 머리말의 화면 흐름 참조).
     /// </summary>
     public class SplashOverlayView : MonoBehaviour, IPointerClickHandler
     {
@@ -75,7 +83,11 @@ namespace Hexiege.Presentation
         // 상수 — 애니메이션 시간
         // ====================================================================
 
-        /// <summary> "Tap to Start" 텍스트 깜빡임 1회(밝아졌다 어두워지는) 시간(초). </summary>
+        /// <summary>
+        /// "Tap to Start" 텍스트 깜빡임의 **한 방향** 시간(초).
+        /// 아래 ShowTapToStart() 가 Yoyo 반복으로 거는 값이라, 알파가 올라가는 데 이만큼,
+        /// 다시 내려가는 데 또 이만큼 걸린다 — 즉 밝아졌다 어두워지는 왕복은 이 값의 두 배다.
+        /// </summary>
         private const float BlinkDuration = 0.8f;
 
         /// <summary> 화면 탭 시 오버레이 전체가 사라지는 페이드아웃 시간(초). </summary>
@@ -87,7 +99,8 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 현재 탭 입력을 받을 수 있는 상태인지 여부.
-        /// ShowTapToStart() 호출 시 true가 되며, 이 상태에서만 화면 탭이 FadeOut을 트리거한다.
+        /// ShowTapToStart() 호출 시 true가 되며, 이 상태에서만 화면 탭이 처리된다.
+        /// (탭이 무엇을 하는지는 아래 _skipFadeOnTap 이 가른다 — 페이드아웃하거나 바로 콜백을 부른다.)
         /// (로딩 중 실수 탭으로 화면이 넘어가는 것을 방지)
         /// </summary>
         private bool _tapToStartActive;
@@ -159,8 +172,11 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 초기화 완료(자동 로그인 실패) 후 호출. 상태 문구를 숨기고 "Tap to Start" 텍스트를
+        /// 초기화 완료 후 호출. 상태 문구를 숨기고 "Tap to Start" 텍스트를
         /// alpha 0↔1로 무한 반복 깜빡이게 하며, 화면 탭 입력을 허용한다.
+        /// ⚠️ 자동 로그인이 실패한 경우만이 아니다 — 부트스트래퍼는 자동 로그인이 성공했을 때도,
+        ///   이메일 인증이 남았을 때도 이 메서드를 거친다(세 분기 전부가 탭 대기를 지난다).
+        ///   달라지는 것은 탭 뒤에 실행될 콜백과 페이드아웃 여부뿐이다.
         /// </summary>
         public void ShowTapToStart()
         {
@@ -188,8 +204,8 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 오버레이 전체를 페이드아웃한 뒤 콜백을 호출한다.
-        /// 외부(LoginBootstrapper)에서 자동 로그인 성공 등으로 직접 호출하거나,
-        /// 사용자 탭(OnPointerClick)을 통해 호출된다.
+        /// 🔴 호출처는 이 파일의 탭 핸들러(OnPointerClick) 한 곳뿐이다 — 바깥에서 부르는 곳은 없다.
+        ///   public 으로 열려 있기는 하지만, 부트스트래퍼는 탭 콜백을 주입하는 쪽만 사용한다.
         /// </summary>
         /// <param name="onComplete">페이드아웃 완료 후 실행할 콜백(null 허용).</param>
         public void FadeOut(Action onComplete)
@@ -225,8 +241,10 @@ namespace Hexiege.Presentation
         /// </summary>
         /// <param name="callback">탭 후 실행될 콜백.</param>
         /// <param name="skipFade">
-        /// true이면 FadeOut 없이 콜백을 즉시 호출한다(로그인 O 분기용).
-        /// false(기본값)이면 기존대로 FadeOut 후 콜백 호출(로그인 X 분기용).
+        /// true이면 FadeOut 없이 콜백을 즉시 호출한다 — 탭 직후 Lobby 씬으로 넘어가는 분기 한 곳뿐이다.
+        /// false(기본값)이면 FadeOut 후 콜백 호출. 자동 로그인 실패 분기뿐 아니라
+        /// "로그인은 됐지만 Login 씬 안에서 다음 화면(닉네임 설정 · 이메일 인증)을 보여주는" 분기도 이쪽이다
+        /// (오버레이가 남아 있으면 그 화면을 가리고 raycast 도 계속 막기 때문).
         /// </param>
         public void SetTapCallback(Action callback, bool skipFade = false)
         {
@@ -239,7 +257,9 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 화면 탭 핸들러. _tapToStartActive 상태일 때만 FadeOut을 트리거한다.
+        /// 화면 탭 핸들러. _tapToStartActive 상태일 때만 동작한다.
+        /// 그 안에서 _skipFadeOnTap 이 켜져 있으면 FadeOut 없이 콜백을 즉시 실행하고,
+        /// 꺼져 있으면 FadeOut 뒤에 콜백을 실행한다 — 즉 탭이 항상 FadeOut 으로 가지는 않는다.
         /// (Background Image의 Raycast Target이 켜져 있고 EventSystem이 있어야 호출된다.)
         /// </summary>
         /// <param name="eventData">포인터 이벤트 데이터(미사용).</param>

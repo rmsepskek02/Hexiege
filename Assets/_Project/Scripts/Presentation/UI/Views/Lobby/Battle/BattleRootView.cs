@@ -30,7 +30,7 @@ namespace Hexiege.Presentation
         [SerializeField] private RandomMatchView _randomMatchView;
 
         [Tooltip("싱글플레이 난이도 선택 화면 View. " +
-                 "Lobby.unity에서 DifficultySelectView GO를 생성하고 이 슬롯에 연결한다.")]
+                 "Lobby.unity 의 전투 패널 아래에 있는 난이도 선택 오브젝트가 이 슬롯에 연결돼 있다.")]
         [SerializeField] private DifficultySelectView _difficultySelectView;
 
         // ====================================================================

@@ -23,11 +23,12 @@
 //   - IsVisible 프로퍼티로 현재 표시 상태를 확인 가능.
 //     (activeSelf 대신 사용 — 애니메이션 중에도 정확한 논리적 상태 반환)
 //
-// 씬 계층 예시:
-//   [UI] Canvas
-//     └─ ProductionPopup ← AnimatedPanel 부착
-//         ├─ Background
-//         └─ ContentPanel
+// 씬 계층 예시 (Game.unity 의 생산 팝업 — 실제 배치):
+//   [UI]                      ← Canvas 가 붙어 있는 최상위 오브젝트
+//     └─ SafeAreaContainer    ← 노치/홈바를 피하도록 영역을 보정하는 컨테이너.
+//                                실제 UI 요소는 전부 이 안에 둔다(공통 UI 규칙 4).
+//         └─ ProductionPopup  ← 이 컴포넌트를 부착하는 자리
+//             └─ (팝업 내용 패널)
 //
 // Presentation 레이어 — MonoBehaviour + DOTween 의존.
 // ============================================================================
@@ -98,7 +99,8 @@ namespace Hexiege.Presentation
         private CanvasGroup _cg;
 
         /// <summary>
-        /// SlideFromBottom 타입에서 anchoredPosition 조작에 사용하는 RectTransform.
+        /// 슬라이드 타입에서 anchoredPosition 조작에 사용하는 RectTransform.
+        /// 하단 슬라이드와 상단 슬라이드 **두 타입 모두** 이 참조를 쓴다(아래 Show()/Hide() 의 분기 참조).
         /// EnsureInitialized()에서 자동 캐시.
         /// </summary>
         private RectTransform _rt;
@@ -202,7 +204,10 @@ namespace Hexiege.Presentation
             }
 
             // 애니메이션 타입에 따라 분기.
-            // 각 UIAnimator 메서드는 SetActive를 호출하지 않고 CanvasGroup(alpha/raycast/interactable)만 제어한다.
+            // 각 UIAnimator 메서드는 SetActive를 전혀 호출하지 않는다 — 가시성은 CanvasGroup
+            // (alpha/blocksRaycasts/interactable)으로만 다룬다. 다만 "CanvasGroup만 건드린다"는 뜻은 아니다:
+            // 팝업 타입은 Transform 의 스케일을, 슬라이드 타입은 RectTransform 의 anchoredPosition 을
+            // 함께 움직인다(그래서 아래 분기가 서로 다른 인자를 넘긴다).
             switch (_animationType)
             {
                 case AnimationType.PopupFade:
@@ -222,7 +227,10 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 패널 퇴장. 애니메이션 완료 후 CanvasGroup으로 숨김 처리 + onComplete 콜백 실행.
         /// (SetActive(false)를 호출하지 않고 alpha/raycast/interactable로만 숨김 — 공통 UI 규칙 5)
-        /// 이미 숨김 상태면 아무 동작도 하지 않음 (중복 호출 방어).
+        /// 이미 숨김 상태면 퇴장 애니메이션·배경 숨김·콜백을 모두 건너뛴다 (중복 호출 방어).
+        /// ⚠️ "아무 일도 일어나지 않는다"는 아니다 — 그 판정보다 지연 초기화가 먼저 실행되므로,
+        ///   한 번도 표시된 적 없는 오브젝트에 Hide()를 부르면 CanvasGroup 취득/추가와
+        ///   초기 숨김 값 설정까지는 일어난다. 콜백은 이 경로에서 실행되지 않는다.
         /// </summary>
         /// <param name="onComplete">퇴장 애니메이션 완료 후 실행할 콜백. null 허용.</param>
         public void Hide(System.Action onComplete = null)
@@ -230,7 +238,8 @@ namespace Hexiege.Presentation
             // 비활성 상태에서 호출될 수 있으므로 지연 초기화 보장
             EnsureInitialized();
 
-            // 이미 숨김 상태 → 아무것도 하지 않음 (중복 Hide 방어)
+            // 이미 숨김 상태 → 아래 애니메이션·배경 숨김·콜백을 모두 건너뜀 (중복 Hide 방어).
+            // (지연 초기화는 이미 위에서 끝난 뒤다 — 위 XML 설명의 ⚠️ 참조)
             if (!IsVisible) return;
 
             IsVisible = false;

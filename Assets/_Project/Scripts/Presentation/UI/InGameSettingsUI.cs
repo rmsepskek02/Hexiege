@@ -3,9 +3,12 @@
 // 인게임 중 우상단 설정 버튼을 통해 열리는 일시정지 + 옵션 + 포기 메뉴.
 //
 // 핵심 동작:
-//   - Show() 호출 시 SharedBackgroundButton에 닫기 콜백 등록 → 바깥 클릭으로 닫힘
+//   - Show() 호출 시 UIManager가 들고 있는 공유 반투명 막(BlockingOverlay)을 Popup 모드로
+//     띄우면서 닫기 콜백을 함께 넘긴다 → 팝업 바깥(= 그 막)을 탭하면 팝업이 닫힌다.
 //   - 싱글플레이에서는 Time.timeScale=0으로 게임 일시정지.
-//     (AnimatedPanel.SetUpdate(true)가 적용되어 timeScale=0에서도 페이드 애니메이션이 동작)
+//     (페이드 애니메이션은 timeScale=0에서도 돈다 — 다만 그 설정을 거는 쪽은 패널 컴포넌트가 아니라
+//      공용 UI 애니메이션 유틸이다. 유틸이 만드는 각 시퀀스에 「시간 배율을 무시하고 갱신」 옵션이
+//      붙어 있고, 패널 컴포넌트는 그 유틸을 호출하는 것 외에는 이 설정에 관여하지 않는다.)
 //   - 멀티플레이에서는 일시정지 불가 — 다른 플레이어의 진행이 멈출 수 없으므로
 //     timeScale을 건드리지 않는다.
 //   - 포기 버튼 클릭 시 UIManager.ShowConfirm()으로 사용자 의사 재확인.
@@ -32,8 +35,11 @@ using Hexiege.Infrastructure;
 namespace Hexiege.Presentation
 {
     /// <summary>
-    /// 인게임 설정 팝업. 사운드/포기 버튼 + 외부 클릭으로 닫기를 지원하며,
+    /// 인게임 설정 팝업. 메인 버튼 그룹에는 사운드 · 프로필 · 포기 버튼이 들어 있고,
+    /// 그 밖에 닫기(X) 버튼과 「막 바깥 탭으로 닫기」를 지원하며,
     /// 싱글플레이에서는 표시 중 timeScale=0으로 게임을 멈춘다.
+    /// (버튼 구성의 단일 소스는 아래 Inspector 참조 선언부와 씬의 메인 버튼 컨테이너다 —
+    ///  여기 열거를 「전부다」로 믿지 말 것.)
     /// </summary>
     public class InGameSettingsUI : MonoBehaviour, IGameUI
     {
@@ -98,7 +104,10 @@ namespace Hexiege.Presentation
         [Tooltip("전체 음소거 버튼. 소리 켜짐 상태일 때만 표시된다(규칙 24).")]
         [SerializeField] private Button _muteButton;
 
-        [Tooltip("초기화 버튼. 세 볼륨을 100%로 되돌리고 음소거를 해제한다(규칙 25).")]
+        // ⚠️ 규칙 번호 주의: 「세 볼륨을 100% 로 되돌린다」만 사운드 규칙 25 가 정한 것이고,
+        //   「그때 음소거도 함께 풀린다」는 자동 언뮤트 조항(저장값 보존형 음소거 규칙)이 정한 것이다.
+        //   두 동작이 한 버튼에서 같이 일어나지만 근거 조항은 서로 다르다.
+        [Tooltip("초기화 버튼. 세 볼륨을 100%로 되돌린다(규칙 25). 이때 음소거도 함께 풀린다(자동 언뮤트 조항).")]
         [SerializeField] private Button _resetButton;
 
         [Header("색상 설정")]
@@ -113,6 +122,11 @@ namespace Hexiege.Presentation
                  "내부 콘텐츠는 이번 범위 밖(빈 상태 토글만).")]
         [SerializeField] private CanvasGroup _profileSubViewGroup;
 
+        // 🔴 씬 실측(2026-10-05): 이 참조는 전투 씬에서 **비어 있다**(연결된 오브젝트가 없다).
+        //   프로필 서브 패널 오브젝트에는 자식이 하나도 없어서 연결할 뒤로가기 버튼 자체가 없다.
+        //   그 결과 아래 Initialize()의 null 가드에 걸려 **리스너가 등록되지 않고**,
+        //   복귀 핸들러는 런타임에 한 번도 실행되지 않는다.
+        //   ⚠️ 코드 쪽은 정상이고 모자란 것은 씬 배선이다. 씬 수정은 별도 승인 사항이라 손대지 않았다.
         [Tooltip("프로필 서브 패널 → 메인 버튼 그룹으로 복귀하는 뒤로가기 버튼.")]
         [SerializeField] private Button _profileBackButton;
 
@@ -246,7 +260,8 @@ namespace Hexiege.Presentation
         ///   이전에 볼륨/프로필 서브 패널을 보던 상태로 닫혔더라도, 다시 열면 메인부터 보이도록 초기화한다.
         /// - 싱글플레이: Time.timeScale=0으로 일시정지.
         /// - 멀티플레이: 다른 플레이어가 멈춰서는 안 되므로 timeScale 건드리지 않음.
-        /// - SharedBackground에 Hide 콜백을 등록하여 바깥 클릭으로 닫을 수 있게 함.
+        /// - UIManager의 공유 반투명 막을 Popup 모드로 띄우면서 Hide 콜백을 함께 넘겨,
+        ///   팝업 바깥(= 그 막)을 탭하면 닫히게 한다(UI 규칙 8 — Popup 타입은 배경 탭으로 닫힘).
         /// </summary>
         public void Show()
         {
@@ -278,7 +293,19 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 설정 팝업을 닫는다. 오버레이 해제 + 일시정지 복원 + 팝업 본체 페이드 아웃만 담당한다.
-        /// 중복 호출에 안전 — 이미 닫힌 상태라면 AnimatedPanel.Hide()가 조용히 무시.
+        ///
+        /// 🔴 중복 호출에 완전히 안전하지는 않다. 세 동작의 성질이 서로 다르다:
+        ///   - 팝업 본체 페이드 아웃: 이미 숨김 상태면 AnimatedPanel 쪽에서 조용히 무시된다(안전).
+        ///   - 일시정지 복원: 이 스크립트가 걸어둔 경우만 되돌리는 깃발이 있다(안전).
+        ///   - 🔴 공용 막 반납: **깃발 없이 무조건 한 번 반납한다.** 그래서 이 메서드가 열지도 않은
+        ///     상태에서 불리거나 한 번 열고 두 번 불리면, **다른 팝업이 점유한 몫까지 반납**해
+        ///     그쪽 막이 먼저 걷히는 일이 생길 수 있다. 관리자 쪽 가드는 점유 수가 음수로
+        ///     내려가는 것만 막아 주고, 「내가 잡은 몫인지」는 보지 않는다.
+        ///   이 메서드를 부르는 자리는 닫기 버튼 · 막 바깥 탭 · 포기 확정 · 게임 시작/종료 통보 ·
+        ///   초기화 끝의 숨김으로 여럿이고, 그중 게임 종료·게임 시작·초기화 경로는 설정 메뉴를
+        ///   **열지 않은 상태에서도** 불린다.
+        ///   ⚠️ 이 결함은 아직 고치지 않았다(코드 변경은 별도 승인 사항) — 여기서는 확인된 사실만 적는다.
+        ///   같은 부류를 이미 고쳐 둔 선례가 공용 확인 팝업 쪽에 있다(점유 여부 깃발을 하나 두는 형태).
         ///
         /// 중요: 여기서는 볼륨/프로필 서브 패널을 강제로 닫지 않는다.
         ///   현재 어떤 화면(메인/볼륨/프로필)이 보이고 있든, 그 상태 그대로 페이드 아웃되어야
@@ -314,7 +341,8 @@ namespace Hexiege.Presentation
         /// 팝업을 "여는" 시점(Show)과 최초 초기화(Initialize)에서만 호출한다.
         /// 팝업을 "닫는"(Hide) 흐름에서는 호출하지 않는다 — 닫을 때는 현재 보이던 화면을
         /// 그대로 유지한 채 페이드 아웃해야 하기 때문이다.
-        /// (HideVolumePanel/HideProfilePanel과 달리 페이드 애니메이션 없이 즉시 상태만 세팅한다)
+        /// (HideVolumePanel/HideProfilePanel 과 마찬가지로 이 화면 전환 메서드들은 모두 애니메이션 없이
+        ///  CanvasGroup 값만 즉시 세팅한다 — 페이드가 걸리는 것은 팝업 본체(AnimatedPanel)뿐이다)
         /// </summary>
         private void ResetToMainView()
         {
@@ -377,7 +405,7 @@ namespace Hexiege.Presentation
             _volumePanelGroup.interactable = true;
             _volumePanelGroup.blocksRaycasts = true;
 
-            // 메인 버튼 그룹(사운드/포기)을 숨긴다 — 볼륨 패널과 동시에 표시되지 않도록 (UI 규칙 5).
+            // 메인 버튼 그룹(사운드/프로필/포기)을 숨긴다 — 볼륨 패널과 동시에 표시되지 않도록 (UI 규칙 5).
             if (_mainButtonContainer != null)
             {
                 _mainButtonContainer.alpha = 0f;
@@ -397,7 +425,7 @@ namespace Hexiege.Presentation
             _volumePanelGroup.interactable = false;
             _volumePanelGroup.blocksRaycasts = false;
 
-            // 볼륨 패널이 닫히면 메인 버튼 그룹(사운드/포기)을 다시 표시한다.
+            // 볼륨 패널이 닫히면 메인 버튼 그룹(사운드/프로필/포기)을 다시 표시한다.
             if (_mainButtonContainer != null)
             {
                 _mainButtonContainer.alpha = 1f;
@@ -420,7 +448,11 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 프로필 서브 패널을 표시한다 (CanvasGroup alpha=1 + 입력 활성화).
         /// 메인 버튼 그룹(사운드/프로필/포기)은 숨겨 서로 겹치지 않게 한다(규칙 5, 6).
-        /// 내부 콘텐츠는 이번 범위 밖이며, 빈 패널을 열고 닫는 동작만 제공한다.
+        /// 내부 콘텐츠는 이번 범위 밖이라 패널이 비어 있다.
+        /// 🔴 「열고 닫는 동작」 중 **여는 쪽만 실제로 동작한다** — 되돌아가는 뒤로가기 버튼 참조가
+        ///   씬에서 비어 있어(위 선언부의 실측 주석 참조) 복귀 핸들러에 리스너가 붙지 않는다.
+        ///   그래서 이 패널을 한 번 열면 메인 버튼 그룹으로는 돌아갈 수 없고,
+        ///   팝업 자체를 닫는 길(닫기 버튼 · 막 바깥 탭)만 남는다. 다시 열면 메인부터 시작한다.
         /// </summary>
         private void ShowProfilePanel()
         {

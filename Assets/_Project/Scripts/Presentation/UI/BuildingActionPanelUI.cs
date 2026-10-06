@@ -1,16 +1,22 @@
 // ============================================================================
 // BuildingActionPanelUI.cs
-// 비생산 건물(MiningPost / AutoTower / FlightFacility / Research / MagicBuilding /
-// HealShrine 등)을 클릭했을 때 표시되는 공용 액션 팝업 UI.
+// 비생산 건물 중 전용 패널이 없는 것(MiningPost / AutoTower)을 클릭했을 때 표시되는
+// 공용 액션 팝업 UI.
+//   - Castle 은 철거도 생산도 불가해 애초에 어떤 팝업도 열리지 않는다.
+//   - Research / FlightFacility / MagicBuilding / HealShrine 은 각자의 전용 패널
+//     (연구 강화 · 스킬 · 물안개 신전)이 입력 분기에서 먼저 가로채므로 이 팝업으로 오지 않는다.
+//     단 그 전용 패널이 씬에 미배선이면 이 팝업으로 폴백되므로,
+//     표시 자격 판정 자체는 위 네 타입에도 true 를 돌려준다.
 //
 // 왜 별도 클래스인가?
 //   - 생산 건물은 유닛 버튼/큐/업그레이드 등 풀스펙 UI(ProductionPanelUI)를 사용한다.
 //   - 비생산 건물은 "건물 이름 표시 + 철거" 정도의 간이 UI만 필요하다.
 //   - 공통 요소(헤더/닫기/철거/환불)는 BuildingPanelBase에서 제공한다.
 //
-// 이 클래스에서 추가하는 동작은 없으며, 베이스의 기능만 사용한다.
-// 향후 건물 타입별 특수 기능(예: AutoTower 사거리 표시 토글)이 필요해지면
-// 이 클래스에서 직렬화 필드와 OnShow 오버라이드를 추가하면 된다.
+// 이 클래스가 베이스에 더하는 것은 3x3 그리드 슬롯의 표시 제어 하나뿐이다 —
+// 슬롯 버튼 목록 두 개를 직렬화 필드로 받고, OnShow 를 오버라이드해 활성 목록에 든 슬롯만 켠다.
+// 건물 타입별 특수 기능(예: AutoTower 사거리 표시 토글)은 아직 없으며,
+// 필요해지면 같은 자리에 직렬화 필드와 훅을 더 붙이면 된다.
 //
 // 표시 대상 판정은 InputHandler에서 BuildingTypeHelper.CanShowActionPanel()로 수행.
 //
@@ -43,7 +49,7 @@ namespace Hexiege.Presentation
         [SerializeField] private List<Button> _allSlotButtons;
 
         [Tooltip("실제 활성화할 버튼 목록. Inspector에서 연결하면 Show() 시 해당 버튼만 표시된다. " +
-                 "현재: DestroyButton 1개. 나중에 건물 타입별로 다른 버튼을 추가할 수 있다.")]
+                 "현재는 철거 버튼이 놓인 슬롯 하나만 연결돼 있다. 나중에 건물 타입별로 다른 버튼을 추가할 수 있다.")]
         [SerializeField] private List<Button> _activeSlotButtons;
 
         /// <summary>

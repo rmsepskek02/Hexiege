@@ -3,11 +3,12 @@
 // Login.unity 씬의 루트 View. 패널 전환 + Back 스택 관리.
 //
 // 역할:
-//   - 모든 하위 View(LoginSelect, EmailLogin, SignUp, EmailVerify, PasswordReset)
-//     CanvasGroup 을 참조로 보유하고 한 번에 한 패널만 활성화.
+//   - 하위 패널 6개(LoginSelect, EmailLogin, SignUp, EmailVerify, PasswordReset, NicknameSetup)
+//     의 CanvasGroup 을 참조로 보유하고 한 번에 한 패널만 활성화.
 //   - 패널 전환 시 이전 패널을 Back 스택에 push.
 //   - Android 뒤로가기 입력 처리:
 //       하위 화면 → 이전 화면으로 복귀.
+//       단, 닉네임 설정 화면은 반드시 통과해야 하는 게이트라 뒤로가기를 아예 무시한다(HandleBack 참조).
 //       LoginSelectView 화면(스택 비어있음) → 2회 연속 입력 시 앱 종료 확인 팝업.
 //   - 익명 경고 팝업은 별도 오버레이 — 스택에 포함하지 않음.
 //

@@ -1,26 +1,30 @@
 // ============================================================================
 // ResearchMatrixView.cs
 // 연구 패널 "매트릭스 레이어"의 드라이버. 행=현재 종족의 그룹, 열=공격력/방어력/이동속도로
-// 셀(ResearchCellView) 격자를 동적 생성하고, RefreshRequested 마다 모든 셀을 갱신한다.
+// 셀(ResearchCellView) 격자를 동적 생성하고, 패널이 열려 있는 동안 RefreshRequested 마다
+// 모든 셀을 갱신한다(패널이 닫혀 있으면 갱신 진입점에서 그대로 돌아간다 — 아래 참조).
 //
 // 하는 일:
 //   1) 패널이 열리면 소유 팀 종족에 맞는 격자를 구성한다.
 //        · 인간/정령: 3그룹 × (공/방/속) = 3행 × 3열.
 //        · 초월: 2그룹 × (공/방/속) = 2행 × 3열 + 자연회복 전체폭 셀 1개(격자 아래, 그룹 무관).
-//   2) RefreshRequested(팀 상태·골드·연구 착수 변화)마다 모든 셀의 Refresh()를 호출한다.
+//   2) RefreshRequested(팀 상태·골드·연구 착수 변화)가 올 때, 패널이 열려 있으면
+//      모든 셀의 Refresh()를 호출한다. 닫혀 있으면 아무것도 하지 않는다.
 //   3) 트랙 식별은 이름 매칭이 아니라 (group, stat) 데이터로 한다(.claude 교훈: 이름 기반 오연결 위험).
 //
-// 열 헤더(공/방/속)는 씬에 정적으로 배치(Wire가 생성)하고, 행(그룹)은 팀 종족에 따라 여기서 동적 생성한다.
+// 열 헤더(공/방/속)는 씬에 미리 만들어 둔 고정 오브젝트이고(런타임에 만들지 않는다),
+// 행(그룹)은 팀 종족에 따라 여기서 동적 생성한다.
 // 행이 바뀌는 경우는 팀(=종족)이 바뀔 때뿐이라, 게임 중 사실상 1회만 생성된다(모바일 친화 — 매 프레임 할당 없음).
 //
-// Presentation 레이어 — MonoBehaviour. Domain(UpgradeGroup/UnitUpgradeStat) 만 참조.
+// Presentation 레이어 — MonoBehaviour. 강화 그룹/스탯 열거형은 Domain 것을 쓰고,
+// 배선 누락 경고 로그를 위해 Application 의 로그 파사드도 함께 참조한다(아래 using 참고).
 // ============================================================================
 
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using Hexiege.Application;      // GameLog — 런타임 로그 파사드 (LogRules.md 1.4)
+using Hexiege.Application;      // GameLog — 런타임 로그 파사드(로그 줄 형식·카테고리 규정은 LogRules.md 1.4)
 using Hexiege.Domain;
 
 namespace Hexiege.Presentation

@@ -14,11 +14,15 @@
 // 씬마다 하이러키가 다르므로(프리팹 공유 안 함), Binder는 UI 오브젝트를 직접 찾지 않고
 // 각 View가 참조를 주입(Bind)하는 형태로 설계했다.
 //
-// 담당 동작 (GameSystemRules_Sound 규칙 23~26):
-//   - 슬라이더 3종(Master/BGM/SFX)을 저장값으로 초기화하고, 조작 시 AudioManager에 반영.
-//   - 슬라이더를 조작하면 음소거가 자동 해제된다(결정사항 3 — AudioManager 내부에서 처리).
+// 담당 동작 (GameSystemRules_Sound 규칙 21·23~27). 이 파일에서 번호만 적은 규칙은 모두
+// GameSystemRules_Sound 문서의 규칙이고, 공통 UI 규칙이라고 적은 것은 GameSystemRules_UI 문서의
+// 공통 UI 규칙 절에 있는 규칙이다.
+//   - 슬라이더 3종(Master/BGM/SFX)을 저장값으로 초기화하고, 조작 시 AudioManager에 반영(규칙 21).
+//   - 슬라이더를 조작하면 음소거가 자동 해제된다(규칙 27의 자동 언뮤트 조항 — AudioManager 내부에서 처리).
 //   - "전체 소리켜기"/"전체 음소거" 버튼은 상호 배타적으로 하나만 표시(규칙 24, CanvasGroup).
-//   - "초기화" 버튼은 세 볼륨을 1.0으로 되돌리고 음소거를 해제(규칙 25).
+//   - "초기화" 버튼은 세 볼륨을 1.0으로 되돌린다(규칙 25). 음소거가 함께 풀리는 것은
+//     초기화 버튼 자체의 규칙이 아니라 규칙 27의 자동 언뮤트 조항이 정한 동작이며,
+//     실제 해제는 AudioManager.ResetAllVolumes 안에서 일어난다.
 //   - 슬라이더 Fill 색상으로 음소거 여부를 표시(규칙 26 — 켜짐=초록/음소거=빨강).
 //
 // null-safe: AudioManager.Instance가 null일 수 있으므로(개발 중 씬 직접 진입) 항상 ?. 사용.
@@ -56,10 +60,11 @@ namespace Hexiege.Presentation
         private Button _soundOnButton;
         // "전체 음소거" 버튼 — 소리 켜짐 상태일 때만 표시된다(규칙 24). 누르면 음소거.
         private Button _muteButton;
-        // "초기화" 버튼 — 세 볼륨을 100%로 되돌리고 음소거 해제(규칙 25).
+        // "초기화" 버튼 — 세 볼륨을 100%로 되돌린다(규칙 25). 음소거도 함께 풀리지만
+        // 그것은 규칙 27의 자동 언뮤트 조항이 정한 동작이다(AudioManager.ResetAllVolumes가 수행).
         private Button _resetButton;
 
-        // 위 두 버튼의 표시/숨김을 CanvasGroup으로 처리하기 위한 캐시(규칙 24, 공통 UI 규칙 5).
+        // 전체 소리켜기/전체 음소거 두 버튼의 표시/숨김을 CanvasGroup으로 처리하기 위한 캐시(규칙 24, 공통 UI 규칙 5).
         // Bind()에서 각 버튼 오브젝트로부터 확보(없으면 추가)한다.
         private CanvasGroup _soundOnGroup;
         private CanvasGroup _muteGroup;
@@ -67,7 +72,16 @@ namespace Hexiege.Presentation
         // 슬라이더 색상 토큰(규칙 26). Inspector 미연결 시 폴백 색상을 쓴다.
         private UIColorConfig _colorConfig;
 
-        /// <summary> Bind가 완료되었는지 여부. 중복 Bind 방지 및 안전 가드용. </summary>
+        /// <summary>
+        /// Bind가 한 번이라도 끝났는지 여부.
+        ///
+        /// ⚠️ <b>중복 Bind를 막는 깃발이 아니다</b>(2026-10-05 실측 — 이 값을 읽는 곳은
+        ///    재동기화 메서드 한 곳뿐이고, Bind 자체는 이 값을 확인하지 않는다).
+        ///    중복 Bind는 오히려 <b>허용되는 동작</b>이다 — Bind 가 리스너를 전부 지운 뒤
+        ///    다시 등록하므로 탭을 다시 켤 때마다 불러도 리스너가 겹치지 않는다.
+        ///    이 깃발의 유일한 역할은 <b>참조가 아직 주입되지 않은 상태에서 재동기화가
+        ///    불리는 것을 막는 것</b>이다(그때는 모든 슬라이더 참조가 비어 있다).
+        /// </summary>
         private bool _bound;
 
         // ====================================================================
@@ -100,7 +114,7 @@ namespace Hexiege.Presentation
             public Button SoundOnButton;
             /// <summary> "전체 음소거" 버튼(음소거 설정). 규칙 23·24. </summary>
             public Button MuteButton;
-            /// <summary> "초기화" 버튼(볼륨 100% + 음소거 해제). 규칙 25. </summary>
+            /// <summary> "초기화" 버튼(볼륨 100%로 리셋 — 규칙 25. 음소거가 함께 풀리는 것은 규칙 27의 자동 언뮤트 조항). </summary>
             public Button ResetButton;
 
             /// <summary> 슬라이더 색상 토큰(규칙 26). null이면 폴백 색상 사용. </summary>
@@ -177,7 +191,7 @@ namespace Hexiege.Presentation
         /// 다른 씬/위치에서 볼륨이나 음소거가 바뀌었을 수 있으므로,
         /// 슬라이더 값·퍼센트 텍스트·버튼 표시·슬라이더 색상을 저장된 최신 상태로 다시 맞춘다.
         ///
-        /// 슬라이더 값을 SetValueWithoutNotify로 설정하여, 프로그램이 값을 바꾸는 것만으로는
+        /// 슬라이더 값을 SetValueWithoutNotify로 설정하여(규칙 27의 마지막 조항), 프로그램이 값을 바꾸는 것만으로는
         /// 조작 리스너(SetXxxVolume)가 발화하지 않도록 한다. 이렇게 하지 않으면 음소거 상태에서
         /// 패널을 여는 것만으로 슬라이더 값 설정 → 리스너 발화 → 자동 언뮤트가 일어나 버린다.
         /// </summary>
@@ -211,7 +225,8 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// "초기화" 클릭 → 세 볼륨을 100%(1.0)로, 음소거 해제(규칙 25).
+        /// "초기화" 클릭 → 세 볼륨을 100%(1.0)로 되돌린다(규칙 25).
+        /// 음소거 해제는 규칙 27의 자동 언뮤트 조항이 정한 동작이며 AudioManager.ResetAllVolumes가 수행한다.
         /// AudioManager 저장값을 갱신한 뒤 슬라이더/텍스트/버튼/색상을 모두 다시 맞춘다.
         /// </summary>
         private void OnResetClicked()
@@ -279,7 +294,7 @@ namespace Hexiege.Presentation
 
             slider.onValueChanged.AddListener(v =>
             {
-                // 사용자가 슬라이더를 조작 → AudioManager에 반영(내부에서 음소거 자동 해제 — 결정사항 3).
+                // 사용자가 슬라이더를 조작 → AudioManager에 반영(내부에서 음소거 자동 해제 — 규칙 27의 자동 언뮤트 조항).
                 onChanged?.Invoke(v);
                 UpdateValueText(valueText, v);
                 // 음소거가 해제됐을 수 있으므로 버튼 표시/색상을 다시 맞춘다.

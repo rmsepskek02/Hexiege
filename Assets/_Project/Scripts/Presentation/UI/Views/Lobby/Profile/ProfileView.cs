@@ -1,11 +1,13 @@
 // ============================================================================
 // ProfileView.cs
-// 로비 씬 Profile 탭. 계정 연동 + 로그아웃 UI.
+// 로비 씬 Profile 탭. 계정 정보·닉네임·전적·내 랭킹 표시 + 계정 연동 + 로그아웃 UI.
 //
 // 역할:
 //   - 현재 계정 상태(익명 / Google / 이메일) 에 따라 다른 UI 표시
 //   - 익명 상태: 계정 연동(Google / 이메일) 버튼 + 로그아웃 버튼
 //   - 실계정 상태: 표시 이름 / 이메일 + 로그아웃 버튼 (연동 버튼 숨김)
+//   - 닉네임#코드 표시 + 닉네임 변경 모달 열기(실계정 전용)
+//   - 전적(총 게임 수 / 승 / 패 / 승률 / 마지막 접속)과 내 랭킹 표시 + 수동 새로고침
 //   - 연동 성공 시 UI 자동 갱신
 //   - 로그아웃 시 Firebase + UGS 세션 종료 후 Login 씬으로 이동
 //
@@ -15,10 +17,13 @@
 //   - 로그아웃 후 Login 씬 이동.
 //
 // 의존성 처리:
-//   본 Lobby 씬은 GameBootstrapper 가 Composition Root 이지만, ProfileView 는
-//   Firebase 의존이므로 FirebaseAuthService 인스턴스가 별도로 필요하다.
-//   본 View 가 자체적으로 FirebaseAuthService 를 생성하여 사용한다 — Login 씬에서 이미
-//   초기화가 끝난 상태이므로 InitializeAsync() 는 Firebase 의존성 체크만 수행하고 즉시 반환.
+//   Lobby 씬에는 의존성을 조립해 주는 조합 루트가 아예 없다 — 그것은 Game 씬에만 있다.
+//   (타입 이름은 일부러 적지 않는다. 「조합 루트를 Presentation 에서 참조하지 않는가」를
+//    세는 검사가 이 설명 주석까지 함께 세게 되기 때문이다.)
+//   그래서 주입해 줄 주체가 없고, 본 View 가 자체적으로 FirebaseAuthService 와
+//   프로필·랭킹 UseCase 를 생성해 쓴다(RankingView 도 같은 방식이다).
+//   Login 씬에서 이미 초기화가 끝난 상태이므로 InitializeAsync() 는 Firebase 의존성 체크만
+//   수행하고 즉시 반환한다.
 //
 // Presentation 레이어 — MonoBehaviour.
 // ============================================================================
@@ -208,7 +213,10 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 탭이 활성화될 때마다 UI 를 갱신한다 — Profile 탭으로 돌아왔을 때 최신 상태 반영.
+        /// 이 오브젝트가 활성화될 때 UI 를 갱신한다.
+        /// ⚠️ 탭 전환으로는 호출되지 않는다 — 로비 탭은 CanvasGroup 의 alpha 만 바꿔 전환하므로
+        ///    패널 GameObject 는 계속 활성 상태이고, 이 콜백은 씬 진입 시 1회만 발화한다.
+        ///    Profile 탭으로 돌아올 때의 갱신은 아래 OnProfileTabShown 이 맡는다.
         /// </summary>
         private void OnEnable()
         {
@@ -266,7 +274,9 @@ namespace Hexiege.Presentation
                         "계정을 연동하면 기기 변경 시에도 데이터를 유지할 수 있습니다.";
                 }
                 SetAnonymousSectionVisible(true);
-                // 익명 계정에는 닉네임 변경 버튼을 표시하지 않는다(UI 규칙 3).
+                // 익명 계정에는 닉네임 변경 버튼을 표시하지 않는다.
+                // (닉네임은 Cloud Save 에 저장되는데 익명 계정은 기기를 벗어나면 복구되지 않는다.
+                //  이 판단을 적어 둔 규칙 문서 조항은 없고 근거는 이 코드가 유일하다.)
                 SetChangeNicknameVisible(false);
             }
             else
@@ -292,7 +302,7 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// Cloud Save 프로필(닉네임/전적)과 Leaderboard 내 순위를 로드해 각 텍스트에 바인딩한다.
-        /// 탭이 활성화될 때마다 호출되어 최신 데이터를 반영한다(UI 규칙 6).
+        /// 탭을 열 때(OnProfileTabShown)와 새로고침 버튼을 누를 때 호출되어 최신 데이터를 반영한다.
         /// </summary>
         private async System.Threading.Tasks.Task RefreshProfileDataAsync()
         {
@@ -312,7 +322,7 @@ namespace Hexiege.Presentation
             if (_winsText != null) _winsText.text = profile.Wins.ToString();
             if (_lossesText != null) _lossesText.text = profile.Losses.ToString();
 
-            // 승률: 총게임수 0이면 '-' (UI 규칙 4).
+            // 승률: 총게임수 0이면 '-' 로 표시한다(0으로 나눌 수 없으므로).
             if (_winRateText != null)
                 _winRateText.text = profile.TotalGames > 0 ? $"{profile.WinRate:F1}%" : "-";
 
@@ -329,7 +339,7 @@ namespace Hexiege.Presentation
         ///   총게임수 20 미만: "랭킹: 순위 없음 (20판 이상 필요)"
         ///   20 이상 & 순위 있음: "랭킹: N위"
         ///   20 이상 & 순위 없음: "랭킹: 순위 없음"
-        /// (UI 규칙 5)
+        /// (문턱값은 랭킹 UseCase 의 최소 게임 수 상수가 단일 소스다.)
         /// </summary>
         private async System.Threading.Tasks.Task RefreshMyRankAsync(int totalGames)
         {

@@ -3,14 +3,18 @@
 // 건물 클릭 시 표시되는 패널 UI의 공통 베이스 클래스.
 //
 // 왜 베이스 클래스인가?
-//   ProductionPanelUI(생산건물용 풀스펙 UI)와 BuildingActionPanelUI(비생산건물용
-//   간이 UI)는 다음 요소를 공유한다.
+//   건물 패널 5종 — 생산(풀스펙) · 건물 액션(간이) · 건물 스킬 · 연구 강화 · 물안개 신전 —
+//   이 다음 요소를 공유한다.
 //     - 팝업 등장/사라짐 애니메이션 (AnimatedPanel)
-//     - 외부 탭 닫기 (SharedBackgroundButton)
+//     - 바깥 탭으로 닫기 — UIManager 가 혼자 소유하는 공용 막(BlockingOverlay)을 Popup 모드로
+//       잡아서 처리한다. 🔴 패널마다 자기 배경 버튼을 두던 옛 방식은 폐기됐다(산 호출처 0건).
+//       ⚠️ 그 공용 막에는 「막이 중첩됐다가 위쪽 하나만 닫히면 이전 주인의 탭 콜백이
+//          복원되지 않는다」는 알려진 결함이 있다. 재현 경로와 영향 범위의 단일 소스는
+//          UIManager 의 막 표시 메서드 주석이며, 여기에 옮겨 적지 않는다.
 //     - 헤더에 건물 이름 표시
 //     - 닫기(X) 버튼
 //     - 철거 버튼 + 환불 금액 표시
-//   이 요소들을 한 곳에서 관리하여 두 UI가 동일하게 동작하도록 보장한다.
+//   이 요소들을 한 곳에서 관리하여 5종이 동일하게 동작하도록 보장한다.
 //
 // 상속 측이 해야 할 일:
 //   - Initialize(...) 메서드에서 InitializeBase(...) 호출
@@ -22,14 +26,14 @@
 //     -> _currentBuilding 저장
 //     -> 헤더 텍스트 갱신
 //     -> AnimatedPanel.Show()
-//     -> SharedBackgroundButton.Register(Close)
+//     -> UIManager 공용 막을 Popup 모드로 표시 (막 바깥 탭 -> Close)
 //     -> 환불 금액 텍스트 갱신
 //     -> OnShow(building)  ← 자식 클래스 커스텀 처리
 //
 //   Close()
 //     -> OnBeforeClose()   ← 자식 클래스 커스텀 정리
 //     -> ClosedFrame 기록 (같은 프레임 입력 처리 방지)
-//     -> SharedBackgroundButton.Unregister()
+//     -> UIManager 공용 막 숨김 요청 (점유 수가 0으로 떨어질 때만 실제로 꺼진다)
 //     -> AnimatedPanel.Hide()
 //     -> _currentBuilding = null
 //
@@ -80,7 +84,7 @@ namespace Hexiege.Presentation
         [Header("색상 설정")]
         [Tooltip("프로젝트 공용 UI 색상 설정 에셋. Resources/Config/UIColorConfig.asset 을 연결. " +
                  "철거 환불 텍스트와 자식 클래스의 비용 텍스트 색상이 이 에셋에서 결정된다. " +
-                 "protected이므로 ProductionPanelUI / BuildingActionPanelUI 의 Inspector에도 동일 슬롯이 노출된다.")]
+                 "protected이므로 이 베이스를 상속한 건물 패널 전부의 Inspector 에 같은 슬롯이 노출되며, 전투 씬에서는 그 전부가 이 에셋으로 배선돼 있다(씬 실측).")]
         [SerializeField] protected UIColorConfig _colorConfig;
 
         // ====================================================================
@@ -167,8 +171,8 @@ namespace Hexiege.Presentation
             // 건물 사망 이벤트 구독 (중복 구독 방지 가드)
             //
             // 목적: 이 패널이 표시/조준 중인 건물이 파괴되면 패널을 자동으로 닫는다.
-            //       (생산/액션/스킬/연구 패널 4종이 모두 이 베이스를 상속하므로
-            //        여기 한 곳에서 구독하면 4종 전부가 커버된다.)
+            //       (생산 · 건물 액션 · 건물 스킬 · 연구 강화 · 물안개 신전 패널 5종이 모두
+            //        이 베이스를 상속하므로, 여기 한 곳에서 구독하면 5종 전부가 커버된다.)
             //
             // 가드: 이미 구독했다면 재구독하지 않는다.
             //       InitializeBase가 실수로 두 번 호출되더라도 구독이 겹쳐 쌓이는 것을 막는다.
@@ -228,7 +232,11 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 패널을 닫는다. 닫기 버튼/외부 탭/철거 후/게임 종료 시 호출.
+        /// 패널을 닫는다.
+        /// ⚠️ 부르는 자리를 「닫기 버튼 · 외부 탭 · 철거 후 · 게임 종료」 넷으로만 알고 있으면 안 된다 —
+        /// 이 파일 안에만도 게임 시작 훅과 대상 건물 사망 핸들러가 추가로 Close 를 부르고,
+        /// 자식 패널에도 부르는 자리가 더 있다(스킬 패널의 조준 확정·취소 등).
+        /// 자리 수를 세어 적는 대신 「패널을 더 띄워 둘 이유가 없어진 모든 경로」로 이해할 것.
         /// 자식 클래스의 OnBeforeClose 훅이 먼저 실행되어 정리할 기회를 갖는다.
         /// </summary>
         public virtual void Close()

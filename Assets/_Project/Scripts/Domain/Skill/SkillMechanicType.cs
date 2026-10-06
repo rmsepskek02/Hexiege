@@ -32,7 +32,6 @@ namespace Hexiege.Domain
 
         /// <summary>
         /// 타입 C — 전역 상태변경(버프/디버프/제어/회복). 규칙 13.
-        /// Phase 1에서는 멤버 선언만 존재하며 실행기는 미구현(Phase 2 구현 예정).
         /// </summary>
         GlobalStatusChange = 2
     }

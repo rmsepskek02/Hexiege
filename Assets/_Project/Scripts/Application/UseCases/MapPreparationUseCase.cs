@@ -30,8 +30,9 @@
 //
 //   ② 뽑는 순서가 곧 계약이다.
 //      「같은 seed 면 같은 맵」이 규칙 12 의 약속이므로, MapSelection 스트림에서
-//      무엇을 어떤 순서로 뽑는지가 사양 그 자체다. 순서는 아래 SelectForMatch 의
-//      주석에 명시돼 있고, TryRunSelfCheck 의 고정 기대값으로 못 박아 두었다.
+//      무엇을 어떤 순서로 뽑는지가 사양 그 자체다. 순서는 아래 TrySelectForMatch
+//      바로 위에 있는 「뽑는 순서」 주석 블록에 명시돼 있고, TryRunSelfCheck 의
+//      고정 기대값으로 못 박아 두었다.
 //      🔴 순서를 바꾸면 과거의 모든 seed 가 다른 맵이 된다 → MapVersion 을 올려야
 //         하는지부터 판단할 것.
 //
@@ -90,7 +91,9 @@ namespace Hexiege.Application
 {
     /// <summary>
     /// 맵 준비가 실패했을 때의 내부 error code(규칙 12 로그 항목).
-    /// 🔴 숫자 값은 로그에 그대로 남으므로 바꾸지 말 것. 새 사유는 뒤에 추가한다.
+    /// 🔴 로그에 남는 것은 숫자가 아니라 「멤버 이름」이다 — 로그 필드를 조립하는 쪽이
+    ///    이 enum 값을 문자열에 그대로 이어 붙이기 때문에 이름이 기록된다. 그래서
+    ///    이름을 바꾸면 과거 로그와의 대조가 끊긴다. 새 사유는 맨 뒤에 추가한다.
     /// </summary>
     public enum MapPreparationErrorCode
     {
@@ -187,14 +190,24 @@ namespace Hexiege.Application
         /// </summary>
         public long ElapsedMilliseconds { get; }
 
-        /// <summary> 실제로 실행한 생성 시도 횟수(1 이상. 폴백까지 갔으면 최대 시도 횟수와 같다). </summary>
+        /// <summary>
+        /// 실제로 실행한 생성 시도 횟수. 폴백까지 갔으면 최대 시도 횟수와 같다.
+        /// ⚠️ 0 이 들어 있을 수 있으니 「1 이상」으로 가정하고 나누거나 비교하지 말 것.
+        ///    0 이 되는 경우는 두 가지다 — 경기 선택 단계에서 실패하면 생성 시도를 한 번도
+        ///    하지 않은 채 실패 결과가 만들어지고, 멀티에서 Client 쪽 결과는 맵을 직접
+        ///    생성하지 않고 받아서 검증하므로 이 값을 0 으로 채워 만든다.
+        /// </summary>
         public int AttemptCount { get; }
 
         /// <summary> 폴백 템플릿을 사용했으면 true. </summary>
         public bool UsedFallback { get; }
 
         /// <summary>
-        /// 결과 객체를 직접 만든다. 보통은 Success / Failure 정적 메서드를 쓴다.
+        /// 결과 객체를 직접 만든다.
+        /// 맵 준비 흐름 안에서는 조정자(이 파일 아래쪽)의 성공·실패 결과 조립 메서드가
+        /// 이 생성자를 불러 주므로 직접 부를 일이 없다. 흐름 바깥에서 결과를 손으로
+        /// 꾸며야 할 때만 쓴다 — 개발용 강제 실패 결과와, 멀티에서 Client 가 받은 맵으로
+        /// 만드는 결과가 그런 경우다.
         /// </summary>
         /// <param name="isSucceeded">성공 여부</param>
         /// <param name="errorCode">내부 error code</param>
@@ -258,8 +271,12 @@ namespace Hexiege.Application
     }
 
     /// <summary>
-    /// 맵 한 판을 준비하는 조정자. 싱글플레이에서는 로컬 GameConfig 가 권위이며,
-    /// 멀티 Host 권위는 3단계 범위라 이 클래스가 다루지 않는다(규칙 3).
+    /// 맵 한 판을 준비하는 조정자.
+    /// 설정 파일의 값은 하나도 쓰지 않는다 — 넘겨받은 root seed 하나에서 모든 것이
+    /// 파생되고 초기 골드까지 중립 광산 수에서 정해지기 때문이다(규칙 3). 그래서 같은
+    /// 조정자를 싱글플레이의 로컬 준비와 멀티플레이 Host 의 준비에 그대로 쓴다.
+    /// 다만 만든 맵을 Client 에 보내고 양쪽이 같은 맵인지 맞춰 보는 일은 이 클래스가
+    /// 하지 않는다 — 그 절차는 규칙 16 이 정하고 네트워크 계층이 수행한다.
     /// </summary>
     public sealed class MapPreparationUseCase
     {
@@ -332,7 +349,8 @@ namespace Hexiege.Application
                 MapGenerationResult generated = generator.Generate(BuildRequest(mapVersion, rootSeed,
                     attemptIndex, selection));
 
-                // 「거부」는 오류가 아니다. 시도 번호를 올려 다시 만든다(규칙 6).
+                // 「거부」는 오류가 아니다. 시도 번호를 올려 다시 만든다
+                // (재시도 규정의 단일 소스는 규칙 12 — 선택값은 유지하고 최대 100회 돈다).
                 if (!generated.IsAccepted) continue;
 
                 MapValidationResult validation = MapDefinitionValidator.Validate(
@@ -470,8 +488,11 @@ namespace Hexiege.Application
 
         /// <summary>
         /// 그 생성기가 허용하는 중립 광산 개수를 오름차순 목록으로 모은다.
-        /// 최소~최대 사이가 아닌 개수만 허용하는 유형이 나와도 이 코드는 그대로 맞는다
-        /// (IsNeutralMineCountAllowed 로 하나씩 물어보기 때문).
+        /// 최소~최대 사이에 허용하지 않는 개수가 섞여 있는 유형이 나와도 이 코드는 그대로
+        /// 맞는다 — 범위를 통째로 믿지 않고 IsNeutralMineCountAllowed 로 하나씩 물어보기
+        /// 때문이다.
+        /// ⚠️ 다만 훑는 범위 자체는 최소~최대까지다. 그 범위 밖의 개수를 허용하는 유형이
+        ///    생기면 이 함수는 그 개수를 놓치므로, 그런 유형을 만들 때는 여기도 함께 고칠 것.
         /// </summary>
         /// <param name="generator">맵 유형별 생성기</param>
         /// <returns>허용되는 개수 목록(오름차순)</returns>
@@ -913,8 +934,11 @@ namespace Hexiege.Application
         //      바뀌어 MapDefinition.CurrentMapVersion 을 1 → 2 로 올렸으므로, 같은 root seed 라도
         //      스트림이 달라지고 뽑히는 값도 달라진다.
         //    🔴 즉 이것은 「뽑는 순서가 바뀐 것」이 아니라 「형식 버전이 바뀐 것」의 결과다.
-        //       순서(①유형 ②광산 수 ③A/B)는 한 글자도 바뀌지 않았고, 그 순서가 그대로임은
-        //       세 값이 모두 각 유형의 허용 범위 안이라는 점과 결정성 검사로 계속 지켜진다.
+        //       순서(①유형 ②광산 수 ③A/B)는 한 글자도 바뀌지 않았다.
+        //    🔴 그 순서를 실제로 지켜 주는 것은 바로 아래 세 기대값(자기 검증 1번)이다.
+        //       여러 seed 를 돌리는 검사(3번)가 보는 것은 「뽑힌 광산 수가 그 유형의 허용
+        //       범위 안인가」 하나뿐이고, 유형과 A/B 에는 그런 허용 범위 검사가 없다.
+        //       결정성 검사(2번)는 「같은 seed 면 같은 결과」만 보므로 순서 자체는 보지 못한다.
         // ────────────────────────────────────────────────────────────────────
 
         /// <summary> 자기 검증 seed 로 뽑혀야 하는 맵 유형(순서 고정용 기대값). </summary>
@@ -978,8 +1002,12 @@ namespace Hexiege.Application
         }
 
         /// <summary>
-        /// 에디터에서만 실행되는 자기 검증. 어긋나면 즉시 예외로 알린다.
-        /// 빌드에는 이 호출 자체가 컴파일되지 않는다(Conditional 특성).
+        /// 에디터 전용 자기 검증 진입점. 어긋나면 즉시 예외로 알린다.
+        /// Conditional 특성이 붙어 있어, 에디터 심볼이 없는 빌드에서는 이 메서드를 부르는
+        /// 자리가 컴파일 단계에서 사라진다(메서드가 지워지는 것이 아니라 호출이 지워진다).
+        /// ⚠️ 지금 이 메서드를 부르는 자리는 프로젝트 안에 하나도 없다 — 즉 자기 검증이
+        ///    저절로 돌지는 않는다. 돌려 보려면 부르는 자리를 만들거나, 바로 위의
+        ///    TryRunSelfCheck 를 직접 부르면 된다(이 파일은 Unity 없이도 돌아간다).
         /// </summary>
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         public static void AssertSelfCheck()

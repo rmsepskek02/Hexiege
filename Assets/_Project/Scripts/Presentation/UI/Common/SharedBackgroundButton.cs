@@ -5,8 +5,14 @@
 // 사용 방법:
 //   1. Canvas 직속 "Background" 오브젝트에 이 컴포넌트를 추가한다.
 //   2. 같은 오브젝트의 Button 컴포넌트 onClick에 OnClick() 메서드를 연결한다.
-//   3. 각 팝업 패널은 Show() 시 Register(Close)를 호출하고,
-//      Close() 시 Unregister()를 호출한다.
+//   3. 각 팝업 패널이 열릴 때 자신의 닫기 메서드를 등록하고, 닫힐 때 등록을 해제한다.
+//
+// ⚠️ 지금 이 방식을 쓰는 팝업은 하나도 없다(2026-10-02 실측 — 등록/해제를 부르는 코드가
+//    프로젝트 전체에 0건이고, 남아 있는 것은 주석과 비활성화된 옛 코드뿐이다).
+//    이 컴포넌트가 붙어 있는 씬 오브젝트도 꺼져 있다.
+//    바깥을 탭해 닫는 동작은 공용 UI 관리자가 단일 소유하는 반투명 막이 대신 맡고 있다.
+//    🔴 그러므로 위 「사용 방법」은 <이 컴포넌트를 쓰려면 이렇게 해야 한다>는 설명이며,
+//       지금 그렇게 돌고 있다는 뜻이 아니다.
 //
 // 동작 원리:
 //   - Register()가 호출되면 닫기 콜백(_onClose)이 저장된다.
@@ -49,7 +55,7 @@ namespace Hexiege.Presentation
         /// 이후 Background를 터치하면 전달받은 onClose가 실행되어 패널이 닫힌다.
         /// </summary>
         /// <param name="onClose">
-        /// 패널의 Close 메서드 (예: BuildingPlacementUI.Close, ProductionPanelUI.Close).
+        /// 패널 쪽의 닫기 메서드(팝업을 닫는 메서드를 그대로 넘긴다).
         /// null을 전달하면 터치해도 아무 동작 없음.
         /// </param>
         public void Register(System.Action onClose)

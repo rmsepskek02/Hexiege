@@ -6,23 +6,29 @@
 //   1. InputHandler가 자기 팀 빈 타일 탭 감지
 //   2. BuildingPlacementUI.Show(coord, team) 호출 → 팝업 표시
 //   3. 플레이어가 건물 버튼 탭 → PlaceAndClose() → 건물 배치 + 팝업 닫기
-//   4. Background 터치, CancelButton → Close()
+//   4. 팝업 바깥(UIManager 공용 막) 터치, CancelButton → Close()
 //
 // Castle은 게임 시작 시 자동 배치되므로 이 UI에 포함하지 않음.
 //
-// UI 계층 구조 (에디터에서 생성):
-//   [UI] (Canvas - Screen Space Overlay)
-//     ├─ BuildingPopup (_popup → 이 하나만 토글)
-//     │   ├─ Background (전체화면 검은 오버레이 + Button → Close)
-//     │   ├─ CancelButton
-//     │   └─ BuildingPanel
-//     │       └─ BuildingButtonGrid (Layout Group)
-//     │           └─ Button × N (종족별 건물 수에 맞게 구성)
-//     │               Human/Spirit: 생산건물 3종 + 비생산건물 3종 + 채굴소 = 7개
-//     │               Transcendence: 생산건물 3종 + 비생산건물 4종 + 채굴소 = 8개
-//     └─ EventSystem
+// UI 계층 구조 (전투 씬 실측):
+//   [UI] (Canvas — Screen Space Overlay, SortingOrder 0)
+//     └─ SafeAreaContainer
+//         └─ BuildingPopup (_popup = AnimatedPanel(하단 슬라이드) + 자체 Canvas SortingOrder 200)
+//             └─ BuildingPanel
+//                 ├─ CancelButton
+//                 └─ GridContainer (VerticalLayoutGroup)
+//                     └─ Row0 / Row1 / Row2 (각각 HorizontalLayoutGroup, 한 줄에 슬롯 3개)
+//                         └─ 슬롯 버튼 9개 고정
 //
-// BuildingPopup 래퍼 하나를 SetActive 토글하면 하위 전체(Background + Panel)가 함께 제어됨.
+// 🔴 버튼 수는 종족에 따라 달라지지 않는다 — 항상 9개가 씬에 있고, 종족별 건물 수보다
+//    남는 슬롯은 지우지 않고 CanvasGroup.alpha=0 으로 숨긴다. 종족별 건물 수는
+//    Human/Spirit = 생산건물 3종 + 비생산건물 3종 + 채굴소 = 7개,
+//    Transcendence = 생산건물 3종 + 비생산건물 4종 + 채굴소 = 8개다(직렬화 목록 실측).
+//
+// ⚠️ 뒤쪽 입력을 막는 전체화면 배경은 이 계층에 없다 — 팝업이 자기 배경을 소유하지 않고,
+//    UIManager 가 단일 소유하는 공용 막을 Popup 모드로 잡아 쓴다(막 바깥 탭 → Close).
+// ⚠️ 표시/숨김은 래퍼의 SetActive 토글이 아니다 — AnimatedPanel 이 CanvasGroup 으로 제어하므로
+//    오브젝트는 항상 active 상태를 유지한다(공통 UI 규칙 5).
 //
 // Presentation 레이어 — Unity 의존 (MonoBehaviour, UI).
 // ============================================================================
@@ -128,7 +134,8 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 각 건물 버튼에 대응되는 CanvasGroup 캐시 리스트.
-        /// _buildingButtons와 1:1로 매칭되며, Awake()에서 자동으로 채워진다.
+        /// _buildingButtons와 1:1로 매칭되며, Initialize()에서 자동으로 채워진다
+        /// (Awake()가 아닌 이유는 Initialize()의 주석에 적혀 있다 — 의존성 주입 시점 때문이다).
         ///
         /// 빈 슬롯을 숨길 때 SetActive(false) 대신 CanvasGroup.alpha=0 을 사용하는 이유:
         ///   - HorizontalLayoutGroup은 SetActive(false) 자식을 레이아웃 계산에서 완전히 제외함.
@@ -137,7 +144,7 @@ namespace Hexiege.Presentation
         ///   - CanvasGroup은 GameObject가 활성 상태를 유지하므로 RectTransform 크기는 보존되고,
         ///     alpha/interactable/blocksRaycasts만 0으로 만들어 시각적·상호작용적으로 숨김 처리만 함.
         ///
-        /// Inspector에는 노출하지 않으며, 버튼에 CanvasGroup이 없으면 Awake에서 자동 부착한다.
+        /// Inspector에는 노출하지 않으며, 버튼에 CanvasGroup이 없으면 Initialize()에서 자동 부착한다.
         /// </summary>
         private List<CanvasGroup> _buttonCanvasGroups;
 
@@ -238,7 +245,7 @@ namespace Hexiege.Presentation
             {
                 for (int i = 0; i < _buildingButtons.Count; i++)
                 {
-                    // 해당 인덱스의 CanvasGroup 캐시 (Awake에서 1:1 매칭으로 구성됨).
+                    // 해당 인덱스의 CanvasGroup 캐시 (Initialize()에서 1:1 매칭으로 구성됨).
                     // 안전을 위해 범위/null 체크 후 사용.
                     CanvasGroup cg = (_buttonCanvasGroups != null && i < _buttonCanvasGroups.Count)
                         ? _buttonCanvasGroups[i]
@@ -310,7 +317,10 @@ namespace Hexiege.Presentation
         /// 규칙:
         ///   - 보유 골드 < 비용 → 빨간색 (살 수 없음을 시각적으로 알림)
         ///   - 보유 골드 >= 비용 → 흰색 (정상)
-        ///   - 버튼이 비활성(SetActive=false)이거나 텍스트가 null 이면 건너뜀.
+        ///   - 텍스트가 null · 짝이 되는 버튼이 없음 · 🔴 그 버튼의 CanvasGroup 이 숨김 상태
+        ///     (alpha 가 0.5 미만 = 종족 건물 수보다 남는 빈 슬롯)이면 건너뜀.
+        ///     ⚠️ GameObject 의 활성 여부로는 판정하지 않는다 — 빈 슬롯도 활성 상태로 남아 있어
+        ///     그 값은 언제나 참이기 때문이다(아래 본문의 같은 취지 주석 참조).
         ///
         /// 호출 시점:
         ///   1. Show() — 팝업이 열리는 순간 1회
@@ -419,7 +429,10 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 팝업 닫기. Background 터치, 취소 버튼, 또는 건물 배치 후 호출.
+        /// 팝업 닫기. 공용 막 바깥 탭 · 취소 버튼 · 건물 배치 후 · 게임 시작/종료 훅 ·
+        /// 입력 처리기가 이전 타일의 팝업을 정리할 때 호출된다(코드 검색 기준으로 부르는 자리는 이 경로가 전부다).
+        /// 🔴 열려 있었는지 확인하지 않고 항상 공용 막의 점유를 한 번 놓는다 —
+        /// 닫힌 상태에서 부르면 다른 화면이 잡은 점유를 깎을 수 있다(입력 처리기는 그래서 열림 여부를 먼저 본다).
         /// </summary>
         public void Close()
         {
@@ -455,7 +468,9 @@ namespace Hexiege.Presentation
         /// <summary>
         /// 게임 종료 시 호출.
         /// 건물 배치 팝업이 열려있다면 닫아서 게임 종료 화면이 깨끗하게 표시되도록 함.
-        /// Close() 내부에서 SharedBackgroundButton.Unregister()도 호출하므로 안전.
+        /// 팝업이 열려 있었다면 Close() 가 이 팝업이 잡은 UIManager 공용 막의 점유를 놓으므로 막이 남지 않는다.
+        /// 🔴 다만 이 훅은 열림 여부를 보지 않고 Close() 를 부르므로, 닫혀 있을 때는 다른 화면의 점유를
+        /// 대신 놓게 된다(코드로 확인한 사실이며 아직 고치지 않았다 — 사용자 미승인).
         /// </summary>
         public void OnGameEnded()
         {
@@ -495,11 +510,22 @@ namespace Hexiege.Presentation
                     if (!_resource.CanAfford(_currentTeam, cost))
                     {
                         // 골드 부족 → 요청 자체를 보내지 않음 (서버에서도 검증하지만 불필요한 RPC 방지)
+                        //
+                        // 🔴 [실측된 비대칭 — 동작 코드는 고치지 않았다]
+                        //    이 멀티 분기는 사용자에게 아무 안내도 띄우지 않고 팝업을 닫는다.
+                        //    아래 싱글 분기는 반대로 안내 토스트를 띄우고 팝업을 그대로 열어 둔다.
+                        //    즉 멀티에서 골드가 모자란 버튼을 누르면 사용자가 받는 단서는
+                        //    「누르기 전에 비용 글자가 빨갰다」 하나뿐이고, 누른 뒤에는 팝업이 닫혀
+                        //    그 빨간 글자마저 화면에서 사라진다.
+                        //
                         // [개발] Warn + 개발.
                         //   축 A: 요청만 보내지 않고 팝업을 닫으며 게임은 그대로 계속된다 → Warn.
                         //         (원본은 Log(Info) 였지만 "예상 밖이지만 대체 경로로 진행"이 Warn 의 정의다 — 1.2)
-                        //   축 B: LogRules 1.2 조합표가 이미 판정해 둔 자리다 — "골드 부족으로 거부"는
-                        //         화면에 이미 안내가 뜨는 클라이언트 사전 검증이므로 개발(원칙 2).
+                        //   축 B: 개발로 두었다.
+                        //         🔴 다만 종전 주석이 적어 둔 근거 — 「화면에 이미 안내가 뜨는 클라이언트
+                        //         사전 검증이므로 개발」(로그 규칙 1.3 원칙 2) — 은 위 비대칭 때문에
+                        //         이 분기에서 성립하지 않는다. 여기서는 UI 로 알리는 것이 없다.
+                        //         🔴 그래서 축 B 값을 다시 정하는 일은 이 자리에서 하지 않고 미결로 남긴다.
                         //         서버가 거부한 경우만 운영이고(클라·서버 상태 불일치 신호),
                         //         그 자리는 NetworkBuildingController 가 이미 운영으로 남긴다.
                         GameLog.Dev.Warn("UI", nameof(BuildingPlacementUI),

@@ -4,7 +4,8 @@
 //
 // 역할:
 //   - 인증 메일이 발송된 이메일 주소 표시
-//   - "인증 완료 확인" 버튼: Firebase 서버에 재쿼리하여 인증 완료 시 Lobby 이동
+//   - "인증 완료 확인" 버튼: Firebase 서버에 재쿼리 → 인증이 끝났으면
+//     저장된 닉네임이 없는 첫 로그인은 닉네임 설정 화면으로, 그 밖에는 Lobby 로 보낸다.
 //   - "재발송" 버튼: 인증 메일 재발송
 //
 // AuthSystemRules.md 규칙:
@@ -96,8 +97,10 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         /// <summary>
-        /// 화면이 활성화될 때마다 현재 사용자의 이메일을 표시.
-        /// LoginRootView 가 패널 전환 시 GameObject.SetActive(true) 를 호출하면 자동 실행됨.
+        /// 이 오브젝트가 활성화될 때 현재 사용자의 이메일을 표시한다.
+        /// ⚠️ 패널 전환으로는 호출되지 않는다 — 로그인 화면들은 CanvasGroup 의 alpha 만 바꿔
+        ///    전환하므로 GameObject 는 계속 활성 상태이고, 이 콜백은 씬 진입 시 1회만 발화한다.
+        ///    그래서 표시할 이메일은 화면을 여는 쪽이 PrepareForShow 로 명시 전달한다.
         /// </summary>
         private void OnEnable()
         {
@@ -133,7 +136,9 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 인증 완료 확인 버튼 → LoginUseCase.CheckEmailVerifiedAsync().
-        /// true 면 UGS 브릿지 후 Lobby 이동, false 면 안내 메시지.
+        /// true 면 UGS 브릿지가 끝난 상태이므로 첫 로그인 여부로 갈라진다 —
+        ///   첫 로그인(저장된 닉네임 없음) → 닉네임 설정 화면 / 그 밖 → Lobby 이동.
+        /// false 면 안내 메시지만 표시한다.
         /// </summary>
         private async void OnCheckVerifyClicked()
         {

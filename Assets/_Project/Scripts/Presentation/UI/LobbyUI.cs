@@ -9,7 +9,13 @@
 //   4. 오류 발생 시 상태 텍스트에 메시지 표시
 //   5. UGS 초기화를 Start()에서 자동 실행
 //
-// 씬 구조 (Inspector에서 수동 배치):
+// 🔴 이 컴포넌트는 현재 어느 씬에도, 어느 프리팹에도 붙어 있지 않다(스크립트 guid 로 직접 센 결과
+//    네 씬 전부 0건, 프리팹도 0건). 그래서 아래 계층은 "지금 씬에 있는 모습"이 아니라
+//    이 컴포넌트를 쓰려면 이렇게 배치해야 한다는 구성도로만 읽어야 한다.
+//    실제 로비 화면은 Views/Lobby/ 폴더의 로비 루트 View 계열이 담당하고 있으며,
+//    이 파일이 죽은 코드인지 여부는 ROADMAP 의 우선순위 표에 이 파일의 사용 여부를 확인하는 항목이 있어 추적 중이다.
+//
+// 배치했을 때의 씬 구조 (Inspector에서 수동 배치):
 //   [UI] Canvas
 //     └─ LobbyPanel (_lobbyPanel, 게임 시작 전 표시)
 //         ├─ StatusText (_statusText, 상태 메시지 / Join Code 표시)
@@ -53,7 +59,7 @@ namespace Hexiege.Presentation
         // ====================================================================
 
         [Header("패널")]
-        // [Rule 5] UI 숨김/표시는 GameObject.SetActive 대신 CanvasGroup으로 제어한다.
+        // [공통 UI 규칙 5] UI 숨김/표시는 GameObject.SetActive 대신 CanvasGroup으로 제어한다.
         //   - SetActive(false)는 오브젝트 자체를 끄기 때문에, 그 위의 코루틴/이벤트 구독 등이
         //     함께 멈출 수 있고, 다시 켤 때 레이아웃 재계산 비용이 든다.
         //   - CanvasGroup은 오브젝트를 켜둔 채로 alpha(투명도) / blocksRaycasts(클릭 차단) /
@@ -136,7 +142,7 @@ namespace Hexiege.Presentation
                 _joinButton.onClick.AddListener(OnJoinButtonClicked);
 
             // 로비 패널 표시
-            // [Rule 5] SetActive 대신 CanvasGroup으로 표시한다.
+            // [공통 UI 규칙 5] SetActive 대신 CanvasGroup으로 표시한다.
             //   alpha=1(완전 불투명) / blocksRaycasts=true(뒤 클릭 차단 및 자기 클릭 허용) /
             //   interactable=true(버튼 등 상호작용 허용).
             if (_lobbyPanel != null)
@@ -387,7 +393,7 @@ namespace Hexiege.Presentation
         /// </summary>
         private void HideLobby()
         {
-            // [Rule 5] SetActive 대신 CanvasGroup으로 숨긴다.
+            // [공통 UI 규칙 5] SetActive 대신 CanvasGroup으로 숨긴다.
             //   alpha=0(완전 투명) / blocksRaycasts=false(클릭 통과) /
             //   interactable=false(상호작용 차단). 오브젝트 자체는 켜진 상태를 유지한다.
             if (_lobbyPanel != null)

@@ -14,7 +14,8 @@
 // 발동 흐름:
 //   - 지점 지정 스킬(타입 A·B): 스킬 버튼 PointerDown → SkillAimController.BeginAim(조준) →
 //     손을 떼면 콜백으로 좌표 확정 → (싱글) SkillActivationUseCase.Activate / (멀티) INetworkSkillController.
-//   - 즉시 발동 스킬(타입 C, Phase 2): 버튼 탭 즉시 발동(좌표 없음). Phase 1엔 실행기 미등록이라 무효.
+//   - 즉시 발동 스킬(타입 C): 버튼 탭 즉시 발동(좌표 없음 = 조준 단계를 건너뛴다).
+//     전역 상태변경을 처리하는 실행기도 실행기 조회 테이블에 등록돼 있으므로 그대로 발동된다.
 //
 // 쿨다운 표시(규칙 3·10):
 //   패널이 열려 있는 동안 매 프레임 SkillActivationUseCase에서 남은 쿨다운을 읽어 모든 스킬 슬롯 위
@@ -304,7 +305,15 @@ namespace Hexiege.Presentation
 
             int buildingId = _currentBuilding.Id;
 
-            // 글로벌 쿨다운 중이면 발동 불가(규칙 3). (오버레이 raycast 차단과 이중 가드.)
+            // 글로벌 쿨다운 중이면 발동 불가(규칙 3).
+            //   🔴 버튼을 누르는 순간 쿨다운 중의 입력을 막는 것은 이 가드 하나뿐이다(화면 쪽 기준).
+            //      버튼 위에 얹히는 쿨다운 오버레이는 포인터를 가로채지 못한다 — 전투 씬에 들어가 있는
+            //      오버레이 전부에서 채움 이미지와 남은 초 텍스트가 포인터 판정에서 빠져 있어,
+            //      그 안에는 탭이 맞을 그래픽이 하나도 없고 탭은 그대로 아래 버튼까지 내려온다
+            //      (실측 근거와 주의사항은 쿨다운 오버레이 컴포넌트 쪽 주석에 적혀 있다).
+            //      다만 발동 유스케이스(싱글은 직접 호출, 멀티는 서버가 호출)도 쿨다운을 한 번 더 재검증해
+            //      거부하므로, 이 가드를 지워도 쿨다운 자체가 무력화되지는 않는다. 대신 안내 토스트 없이
+            //      조준 모드에 들어갔다가 확정 시점에 조용히 무시되는 화면이 된다.
             //   조용히 return하지 않고, 사용자가 왜 안 되는지 알 수 있도록 토스트로 안내한다.
             //   이 가드는 즉시발동/지점지정 진입보다 앞에 있으므로 두 스킬 타입 모두를 커버한다.
             if (_skillActivation != null && _skillActivation.IsOnCooldown(buildingId))
@@ -323,8 +332,9 @@ namespace Hexiege.Presentation
 
                 // 공유 BlockingOverlay(패널 열릴 때 표시됨)는 "탭하면 Close" 콜백을 갖는다.
                 //   조준 중 맵을 드래그/탭하면 이 오버레이가 먼저 먹어 패널을 닫아버리므로,
-                //   조준 진입 시 오버레이를 숨겨 조준 입력이 맵으로 전달되게 한다(랠리와 달리 조준은
-                //   HandleClick이 아니라 SkillAimController가 직접 포인터를 읽으므로 오버레이 제거 필요).
+                //   조준 진입 시 오버레이를 숨겨 조준 입력이 맵으로 전달되게 한다(조준은 HandleClick이 아니라
+                //   SkillAimController가 직접 포인터를 읽는다. 생산 패널의 랠리 조준 진입부도 같은 이유로
+                //   오버레이를 내린다 — 오버레이가 탭을 먼저 받으면 Close 가 실행되기 때문이다).
                 UIManager.Instance?.HideBlockingOverlay();
 
                 if (_skillAimController != null)
@@ -343,7 +353,7 @@ namespace Hexiege.Presentation
             }
             else
             {
-                // 즉시 발동(타입 C, Phase 2). 좌표 없음. Phase 1엔 실행기 미등록이라 무효 처리된다.
+                // 즉시 발동(타입 C). 좌표가 없으므로 조준을 거치지 않고 곧바로 발동 요청을 보낸다.
                 ActivateSkill(buildingId, slotIndex, default, false);
                 Close();
             }

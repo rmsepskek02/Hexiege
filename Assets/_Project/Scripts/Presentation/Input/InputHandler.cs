@@ -317,7 +317,8 @@ namespace Hexiege.Presentation
                             // (2c) MistShrine(초월 회복 건물) → 전용 물안개 힐 패널.
                             //   사용(탭=시전 / 롱프레스=자동 토글) + 철거 + 회복 범위 표시를 담당한다.
                             //   범위 표시는 이 분기까지 온 경우(= 내 팀 · 생존)만 켜지므로,
-                            //   위 262행의 isMine 검사 덕분에 "적 MistShrine은 범위를 보여주지 않는다"
+                            //   이 분기를 감싸고 있는 사전 검사(건물을 찾은 직후의 "내 팀 건물인가 +
+                            //   살아있는가" 조건문) 덕분에 "적 MistShrine은 범위를 보여주지 않는다"
                             //   (UI 규칙 8)가 추가 코드 없이 성립한다.
                             //   (_mistShrinePanelUI 미배선 시엔 아래 액션 패널 분기로 폴백된다.)
                             _mistShrinePanelUI.Show(buildingAtPos);

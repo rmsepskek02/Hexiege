@@ -7,7 +7,7 @@
 //   - 쉬움 / 보통 / 어려움 버튼 클릭 → vm.CmdSelectDifficulty 발행
 //   - 뒤로가기 버튼 클릭 → vm.CmdBack 발행 → NavigateBack() → BattleScreen.Main 복귀
 //
-// Inspector 연결 필요 (씬 조립 시 Lobby.unity에서):
+// Inspector 슬롯 (Lobby.unity 에서 아래 네 버튼이 모두 연결돼 있다):
 //   _easyButton     → 쉬움 버튼
 //   _normalButton   → 보통 버튼
 //   _hardButton     → 어려움 버튼

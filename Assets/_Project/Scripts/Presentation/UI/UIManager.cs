@@ -1,6 +1,8 @@
 // ============================================================================
 // UIManager.cs
-// 전역 공통 UI(확인 팝업 / 로딩 인디케이터)를 단 하나의 인스턴스로 관리하는 매니저.
+// 전역 공통 UI(확인·알림 팝업 / 로딩 인디케이터 / 모든 팝업이 공유하는 반투명 입력 차단 막)를
+// 단 하나의 인스턴스로 관리하는 매니저.
+// (무엇을 들고 있는지의 단일 소스는 아래 Inspector 참조 선언부다 — 이 열거를 「전부다」로 믿지 말 것.)
 //
 // 왜 필요한가:
 //   기존에는 ConfirmPopup과 LoadingIndicator를 Login/Lobby/Game 씬마다 따로 배치했다.
@@ -13,13 +15,19 @@
 //     → Awake()에서 자동으로 Instance 등록 + DontDestroyOnLoad 처리(중복 시 자기 파괴).
 //   - 외부(View, Bootstrapper)는 UIManager.Instance를 통해 IUIManager 계약 메서드만 호출.
 //
-// 씬 배치(Login.unity):
-//   [UI Systems]
-//   └─ UIManager (이 컴포넌트)
-//       └─ UIManager Canvas (SortingOrder 100)
-//           └─ SafeAreaContainer (SafeAreaFitter)
-//               ├─ ConfirmPopup       ← _confirmPopup 에 연결
-//               └─ LoadingIndicator   ← _loadingIndicator(CanvasGroup) 에 연결
+// 씬 배치(Login.unity 실측):
+//   UIManager (이 컴포넌트)            ← 씬 계층의 "루트"다. 부모가 없다.
+//   │                                    (DontDestroyOnLoad 대상은 루트에 두어야 한다 —
+//   │                                     다른 오브젝트의 자식이면 부모와 함께 파괴된다.
+//   │                                     Canvas SortingOrder 규칙 문서의 배치 규칙 참조.)
+//   └─ UIManager Canvas (SortingOrder 100)
+//       ├─ BlockingOverlay             ← _blockingOverlay / _blockingOverlayButton 에 연결.
+//       │                                 Canvas 직속이다(Safe Area 보정 바깥 — 전체화면을 덮어야 하므로).
+//       ├─ SafeAreaContainer (SafeAreaFitter)
+//       │   └─ ConfirmPopup            ← _confirmPopup 에 연결(프리팹 인스턴스)
+//       └─ LoadingIndicator            ← _loadingIndicator(CanvasGroup) 에 연결(프리팹 인스턴스).
+//                                         ⚠️ Safe Area 컨테이너 안이 아니라 Canvas 직속이며,
+//                                            자기 프리팹 안에 별도 Safe Area 컨테이너를 따로 들고 있다.
 //
 // 안전 가드:
 //   - 개발 중 Game/Lobby 씬을 직접 열어 테스트하면 UIManager.Instance가 null일 수 있다.
@@ -70,7 +78,7 @@ namespace Hexiege.Presentation
         [Tooltip("모든 팝업이 공유하는 반투명 배경 오버레이의 CanvasGroup. " +
                  "UIManager Canvas 직속(SafeAreaContainer 바깥)에 배치하여 노치/홈바 영향 없이 전체화면을 덮는다. " +
                  "규칙 5에 따라 SetActive 대신 alpha/blocksRaycasts로 표시·숨김을 제어한다. " +
-                 "차단이 동작하려면 하위 Image의 Raycast Target=true 이어야 한다.")]
+                 "차단이 동작하려면 같은 오브젝트에 붙은 Image의 Raycast Target=true 이어야 한다(자식이 아니다).")]
         [SerializeField] private CanvasGroup _blockingOverlay;
 
         [Tooltip("BlockingOverlay에 부착된 Button. Popup 모드(터치 시 닫기)에서 onClick에 콜백을 등록한다. " +
@@ -327,7 +335,21 @@ namespace Hexiege.Presentation
         ///   4. CanvasGroup을 표시 상태(alpha=1, 입력 차단)로 만든다.
         ///
         /// 주의: 중첩 시 가장 마지막에 등록된 onTap이 현재 오버레이 콜백이 된다.
-        /// 일반적으로 Popup끼리 중첩되지 않으므로(Popup 위에는 Modal만 뜨는 구조) 문제되지 않는다.
+        /// 🔴 그리고 이것은 실제로 문제가 된다 — 이전 주인의 콜백을 되돌려 놓는 코드가 어디에도 없다.
+        ///   이 메서드는 막을 다시 잡을 때 기존 리스너를 전부 지우고, 콜백이 넘어온 경우에만 다시 단다.
+        ///   숨김과 리스너 정리는 점유 수가 0으로 떨어진 순간에만 일어난다(HideBlockingOverlay 참조).
+        ///   그래서 콜백을 가진 화면 위에 콜백 없는 확인 팝업이 겹쳤다가 그 팝업만 닫히면,
+        ///   막은 그대로 떠 있는데 아무 리스너도 달려 있지 않은 상태로 남는다.
+        ///
+        ///   [재현 경로] 인게임 설정 메뉴를 연다 → 포기 버튼으로 확인 팝업을 띄운다 → 취소를 누른다.
+        ///   그러면 설정 메뉴는 떠 있는데 막 바깥을 눌러도 닫히지 않는다.
+        ///
+        ///   🔴 같은 구조가 다른 화면에도 있다. 막을 탭 콜백과 함께 잡는 자리는 세 곳이고
+        ///   (InGameSettingsUI · BuildingPlacementUI · BuildingPanelBase), 그중 마지막 하나가
+        ///   건물 패널 5종(생산 · MistShrine · 건물 액션 · 건물 스킬 · 연구)의 공통 베이스다.
+        ///   즉 같은 증상을 낼 수 있는 화면은 모두 7개다.
+        ///
+        ///   ⚠️ 이 결함은 아직 고치지 않았다(별도 작업) — 이 주석은 확인된 사실만 기록한다.
         /// </summary>
         /// <param name="onTap">터치 콜백. null이면 Modal 모드(입력 차단만).</param>
         public void ShowBlockingOverlay(Action onTap = null)

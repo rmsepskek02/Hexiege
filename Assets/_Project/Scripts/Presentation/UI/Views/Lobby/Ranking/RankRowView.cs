@@ -10,7 +10,7 @@
 //   RankingView 가 이 프리팹을 ScrollRect Content 아래에 10개 인스턴스로 두고,
 //   페이지 데이터에 맞춰 Bind()/Clear() 를 반복 호출한다.
 //
-// 열 구성(GameSystemRules_UI.md Ranking 탭 규칙 1):
+// 열 구성(좌→우. 에디터 셋업 스크립트가 만드는 헤더 열 순서와 같게 유지한다):
 //   순위 | 닉네임#코드 | 승률 | 게임수 | 승 | 패
 //
 // Presentation 레이어 — MonoBehaviour.

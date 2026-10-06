@@ -124,7 +124,9 @@ namespace Hexiege.Application
                 hasAim = true;
             }
 
-            // ⑥ 실행기 조회(미등록 타입 = 발동 무효 — Phase 1엔 타입 C 미구현).
+            // ⑥ 실행기 조회 — 스킬의 메커니즘 타입에 맞는 실행기를 레지스트리에서 꺼낸다.
+            //    레지스트리에 등록되지 않은 타입이면 바로 아래 null 검사가 false 를 돌려주므로
+            //    그 스킬은 발동 자체가 무효가 된다(쿨다운도 돌지 않는다).
             ISkillExecutor executor = _registry.TryGet(skill.Mechanic);
             if (executor == null) return false;
 

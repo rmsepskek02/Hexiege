@@ -90,16 +90,16 @@ namespace Hexiege.Presentation
         // 초기화
         // ====================================================================
 
-        /// <summary>
-        /// ProfileView 에서 호출. UseCase 주입 + 성공 콜백 등록 + 버튼/입력 리스너 연결.
-        /// </summary>
-        /// <param name="profileUseCase">닉네임 검증/변경 저장에 사용할 UseCase.</param>
-        /// <param name="onChanged">변경 성공 시 호출할 콜백(프로필 갱신 등).</param>
         private void Awake()
         {
             EnsureRuntimeLayoutPolished();
         }
 
+        /// <summary>
+        /// ProfileView 에서 호출. UseCase 주입 + 성공 콜백 등록 + 버튼/입력 리스너 연결.
+        /// </summary>
+        /// <param name="profileUseCase">닉네임 검증/변경 저장에 사용할 UseCase.</param>
+        /// <param name="onChanged">변경 성공 시 호출할 콜백(프로필 갱신 등).</param>
         public void Initialize(PlayerProfileUseCase profileUseCase, System.Action onChanged)
         {
             EnsureRuntimeLayoutPolished();

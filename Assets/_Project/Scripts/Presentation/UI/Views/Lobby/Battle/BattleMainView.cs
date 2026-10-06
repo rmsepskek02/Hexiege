@@ -5,7 +5,7 @@
 // 역할:
 //   - [싱글플레이] → vm.CmdStartSingleplay
 //   - [커스텀 게임] → vm.CurrentScreen = CustomGame
-//   - [랜덤 매칭] → vm.CurrentScreen = RandomMatch
+//   - [랜덤 매칭] → vm.CmdStartMatchmaking (화면 전환은 ViewModel 이 매칭을 시작하면서 함께 한다)
 //   - vm.CurrentScreen 구독 → Main일 때만 활성화
 //
 // Presentation 레이어 — MonoBehaviour.

@@ -6,15 +6,29 @@
 //   1. ResourceUseCase에서 로컬 팀 골드 조회 → 텍스트 업데이트
 //   2. PopulationUseCase에서 로컬 팀 인구 조회 → 텍스트 업데이트
 //   3. PopulationUseCase에서 Blue/Red 팀 보유 타일 수 조회 → 텍스트 업데이트
-//   4. Update() 매 프레임 폴링 (채굴소 수입이 매 프레임 변동하므로)
+//   4. Update() 매 프레임 폴링 — 이 HUD 는 값이 바뀌었다는 알림을 구독하지 않고 매 프레임
+//      값을 읽어 이전 값과 비교한다.
+//      🔴 골드에 변경 알림이 없는 것은 아니다 — 자원 UseCase 가 골드를 더하거나 쓸 때마다
+//         자원 변경 이벤트(GameEvents.OnResourceChanged)를 발행하고, 생산 패널·건물 배치 패널
+//         같은 다른 UI 는 그것을 구독한다. 이 HUD 만 구독하지 않고 폴링한다.
+//      골드는 수입이 조금씩 누적되다가 1골드를 넘는 순간 올라가고 소비·환불로도 바뀌므로,
+//      아무 프레임에나 값이 달라질 수 있다.
+//      ⚠️ 수입원은 채굴소 하나가 아니다. 자원 UseCase 의 수입 틱이 팀 기본 수입과 채굴소 수입을
+//         각각 따로 누적한다. 다만 기본 수입의 초당 값은 게임 설정 에셋이 정하며 0 이면 그 갈래는
+//         수입을 내지 않는다 — 채굴소가 0개여도 골드가 오르는지는 그 에셋 값에 달려 있으므로
+//         읽기 전에 에셋 값을 직접 확인한다.
 //
-// 씬 구조 (Inspector에서 수동 배치):
-//   [UI] Canvas
-//     └─ GameHUD (상단 고정, 항상 활성)
-//         ├─ GoldText (TMP)
-//         ├─ PopulationText (TMP)
-//         ├─ BlueTileCountText (TMP)
-//         └─ RedTileCountText (TMP)
+// 씬 구조 (Game.unity 를 직접 열어 확인한 실제 계층 — Inspector에서 수동 배치):
+//   [UI] (Canvas)
+//     └─ SafeAreaContainer                 ← UI 공통 규칙 4(SafeArea 컨테이너 구조)
+//         └─ GameHUD (상단 고정, 활성 상태로 저장돼 있다)
+//             ├─ StatsPanel                ← 아래 네 행을 담는 컨테이너
+//             │   ├─ 골드 행      (아이콘 + 텍스트 → _goldText)
+//             │   ├─ 인구 행      (아이콘 + 텍스트 → _populationText)
+//             │   ├─ 블루 타일 행 (아이콘 + 텍스트 → _blueTileCountText)
+//             │   └─ 레드 타일 행 (아이콘 + 텍스트 → _redTileCountText)
+//             └─ SettingsButton            (→ _settingsButton)
+//   ⚠️ GameHUD 가 Canvas 의 직속 자식이 아니라는 점에 주의 — 사이에 SafeAreaContainer 가 있다.
 //
 // 멀티플레이 vs 싱글플레이:
 //   - 싱글플레이: 로컬 팀 = Blue 고정
@@ -84,7 +98,14 @@ namespace Hexiege.Presentation
         // 상태 전이가 있을 때만 색을 바꾼다. 초기값 null로 두어 최초 1회는 반드시 갱신되도록 함.
         private bool? _lastPopFull;
 
-        // 멀티플레이 모드 캐시 (매 프레임 NetworkManager 접근 방지)
+        // 멀티플레이 모드 캐시 — Initialize() 에서 한 번 읽어 둔 값.
+        // ⚠️ 2026-10-05 실측 — 이 값의 출처는 Application 레이어 정적 홀더의 단순 bool 프로퍼티라
+        //    캐시하지 않고 매 프레임 직접 읽어도 비용이 사실상 없다. 즉 종전 주석이 캐시 이유로
+        //    적어 둔 "네트워크 매니저를 매 프레임 건드리지 않으려고"는 지금 코드에서 성립하지 않는다
+        //    (이 파일은 그 매니저 타입을 아예 참조하지 않는다 — 아래 Initialize() 의 주석 참조).
+        // ✅ 그래도 캐시를 없애도 되는지는 이 자리에서 판단하지 않는다 — 연결이 끊기면 그 정적
+        //    홀더가 싱글플레이 기본값으로 되돌아가므로, "경기 도중에 표시 기준이 바뀌어도 되는가"를
+        //    먼저 정해야 하는 문제다.
         private bool _isNetworkMode;
 
         // ====================================================================
@@ -93,7 +114,8 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// GameBootstrapper에서 호출. UseCase 참조 주입.
-        /// 네트워크 모드 여부를 확인하여 적팀 패널 활성화/비활성화.
+        /// 네트워크 모드인지 여부를 여기서 한 번 읽어 캐시한다 — 로컬 팀을 무엇으로 볼지
+        /// 결정하는 데만 쓰이며, 이 메서드가 켜거나 끄는 패널은 없다.
         /// </summary>
         public void Initialize(ResourceUseCase resource, PopulationUseCase population)
         {

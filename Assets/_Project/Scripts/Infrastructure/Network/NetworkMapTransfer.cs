@@ -245,7 +245,7 @@ namespace Hexiege.Infrastructure
         /// 실측 전까지는 값을 못 박지 않고 「잠정」이라는 사실 자체를 코드에 남긴다.
         ///
         /// ⚠️ 참고로 실전에서 조각은 거의 항상 **1개**다. 맵 canonical 바이트가
-        ///    323~343바이트(공식 319 + 4N + 20D, 장식 D=0)라서 어떤 잠정값을 넣어도
+        ///    319~339바이트(공식 315 + 4N + 20D, 장식 D=0)라서 어떤 잠정값을 넣어도
         ///    한 조각에 들어간다. 그래도 조각 구조를 만들어 두는 이유는 규칙 16 이
         ///    조각 전송을 요구하고, 장식이 도입되면 조각 수가 자연히 늘기 때문이다.
         /// </summary>
@@ -259,7 +259,7 @@ namespace Hexiege.Infrastructure
         /// 근거가 문서 어디에도 없다"* 고 적어 둔 그 64KB 를 **잠정값으로 그대로 이어받은 것**이다.
         /// 즉 위 조각 크기와 마찬가지로 **근거가 없어서 잠정**이며, 확정은 실측 뒤에 한다.
         ///
-        /// ⚠️ 실전 canonical 바이트는 323~343바이트라 이 한도의 **0.6% 도 쓰지 않는다.**
+        /// ⚠️ 실전 canonical 바이트는 319~339바이트라 이 한도의 **0.6% 도 쓰지 않는다.**
         ///    그래서 이 판정은 정상 경로에서는 절대 걸리지 않고, **손상되거나 위변조된 헤더**가
         ///    말도 안 되는 크기를 선언했을 때 메모리를 통째로 잡아먹는 것을 막는 역할을 한다.
         /// </summary>
@@ -1322,8 +1322,9 @@ namespace Hexiege.Infrastructure
 
             // ── ⑤ 전부 통과 ───────────────────────────────────────────────
             // 확정된 맵을 인계 홀더에 심는다. 전투 씬의 GameBootstrapper 가 꺼내 격자에 새긴다.
-            // ⚠️ **꺼내 쓰는 쪽(TryTake → ProjectMap)은 아직 배선하지 않았다(I 단계).**
-            //    지금은 심어 두기만 하므로 게임 동작이 바뀌지 않는다.
+            // ✅ 꺼내 쓰는 쪽도 배선이 끝났다(I 단계) — 전투 씬에 도착한 GameBootstrapper 가
+            //    홀더에서 「읽고 비우는」 메서드로 꺼내 곧바로 격자에 새긴다.
+            //    즉 여기서 심지 않으면 그 판은 땅이 없는 맵이 된다.
             MapHandoff.Set(BuildClientPreparedMap(verification, payload, clientHash));
 
             SetState(MapTransferState.Completed, "수신·검증 완료");
@@ -1562,7 +1563,9 @@ namespace Hexiege.Infrastructure
                 return;
             }
 
-            // 확정된 맵을 인계 홀더에 심는다(Host 쪽). 꺼내 쓰는 쪽은 I 단계다.
+            // 확정된 맵을 인계 홀더에 심는다(Host 쪽).
+            // ✅ 꺼내 쓰는 쪽도 배선이 끝났다(I 단계) — 전투 씬의 GameBootstrapper 가
+            //    홀더에서 「읽고 비우는」 메서드로 꺼내 격자에 새긴다.
             MapHandoff.Set(_hostPrepared);
 
             // [운영/Info] 이 판의 맵 전송이 정상으로 끝났다. 실패 3종의 **분모**가 된다.
@@ -1680,7 +1683,7 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// 규칙 12 가 요구하는 전송 관련 로그 항목을 "key=value, key=value" 로 조립한다.
         ///
-        /// 2단계 K 가 맵 준비 쪽 11항목을 채웠고, 여기서 나머지 두 항목
+        /// 2단계 K 가 맵 준비 쪽 항목을 채웠고, 여기서 나머지 두 항목
         /// <b>「전송/재전송 횟수」</b>(SendCount·ResendCount)와
         /// <b>「Host/Client 해시 비교 결과」</b>(HostHash·ClientHash·HashMatch)를 채운다.
         /// </summary>
@@ -1783,7 +1786,8 @@ namespace Hexiege.Infrastructure
         }
 
         /// <summary>
-        /// 규칙 12 「로그 필수 항목」 중 맵 준비 쪽 12개 필드를 조립한다.
+        /// 규칙 12 「로그 필수 항목」 중 맵 준비 쪽 11개 필드를 조립한다.
+        /// (종전에는 「맵 테스트 모드」 필드가 하나 더 있어 12개였다 — 아래 본문의 2026-09-14 제거 주석 참조.)
         ///
         /// 🔴 <b>필드 집합·순서는 <c>Bootstrap/GameBootstrapper.Map.cs</c> 의
         ///    <c>BuildMapPreparationLogData</c> 와 반드시 같아야 한다.</b>

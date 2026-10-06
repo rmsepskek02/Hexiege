@@ -10,7 +10,11 @@
 // 사용 흐름:
 //   1. FloatingHpTextSpawner가 오브젝트 풀에서 꺼냄.
 //   2. Play("150", worldPosition) 호출 → 텍스트 설정 + 애니메이션 시작.
-//   3. 1.2초 후 애니메이션 완료 → SetActive(false) + 풀 반환 콜백.
+//   3. 「애니메이션 설정」의 총 시간이 지나 애니메이션이 완료되면
+//      → SetActive(false) + 풀 반환 콜백.
+//      ⚠️ 실제 시간은 프리팹에 저장된 값이 결정한다 — 유니티는 Inspector 에 저장된 값을
+//         코드의 기본값보다 우선하므로, 아래 필드 선언의 숫자를 그대로 믿지 말고
+//         프리팹을 열어 확인한다(이동 거리도 같다).
 //
 // 필수 컴포넌트:
 //   - TextMeshPro (3D World Space): 텍스트 표시용 (Inspector에서 연결).
@@ -98,7 +102,9 @@ namespace Hexiege.Presentation
         /// </param>
         /// <param name="color">
         ///   텍스트 색상. null이면 흰색(Color.white) 적용.
-        ///   Spawner가 피격 대상 팀에 따라 색상을 지정할 때 사용.
+        ///   Spawner가 색을 지정해 넘긴다 — 2026-10-05 실측 기준으로 쓰임이 두 가지다.
+        ///   피격 텍스트는 피격 대상의 팀에 따라 팀 색을, 회복 텍스트는 피격과 구분되는
+        ///   치유 색을 넘긴다. 즉 "팀 색 전용 인자"가 아니다.
         /// </param>
         public void Play(string text, Vector3 worldPosition, float scale = 1f, Color? color = null)
         {
@@ -124,10 +130,14 @@ namespace Hexiege.Presentation
             // 월드 위치로 직접 배치
             transform.position = worldPosition;
 
-            // 카메라를 정면으로 바라보도록 회전 정렬 (빌보드 효과).
-            // LookRotation(-forward): 텍스트의 +Z 방향이 카메라를 향하도록 설정.
-            // Camera.transform.rotation을 그대로 복사하면 텍스트가 카메라와 같은 방향을 바라봐
-            // 카메라에 등을 보여 화면에 렌더되지 않는 문제가 발생함.
+            // 카메라를 정면으로 바라보는 회전으로 정렬 (빌보드 효과).
+            // LookRotation(-forward): 텍스트 오브젝트의 +Z 방향이 카메라를 향하도록(카메라가 바라보는
+            // 방향의 반대로) 돌린다. 이 방향 때문에 텍스트가 좌우 반전되어 보이며, 그 반전은 아래
+            // "스케일 적용"에서 X 스케일을 음수로 해 되돌린다.
+            //
+            // 🔴 글자의 어느 면이 카메라를 향하는지와 무관하게 양면이 그려진다 — 이 프리팹이 쓰는
+            //    글꼴 머티리얼은 백페이스 컬링이 꺼져 있다(머티리얼 에셋의 컬링 모드 값이 Off).
+            //    그래서 뒷면을 향해 있어서 렌더되지 않는다는 추정은 이 프리팹에서는 성립하지 않는다.
             if (Camera.main != null)
             {
                 transform.rotation = Quaternion.LookRotation(
@@ -140,7 +150,10 @@ namespace Hexiege.Presentation
             //   LookRotation(-forward, up)은 수학적으로 텍스트 로컬 X축을 -cameraRight 방향으로 만든다.
             //   이 때문에 텍스트가 좌우 반전되어 표시됨.
             //   X scale을 음수로 한 번 더 뒤집으면 원래 방향으로 복원됨.
-            //   TMP 3D 기본 머티리얼은 Cull Off(양면 렌더링)이므로 음수 스케일이어도 정상 표시됨.
+            //   음수 스케일이어도 정상 표시되는 이유: 이 프리팹이 쓰는 글꼴 머티리얼의 컬링 모드가
+            //   Off(양면 렌더링)로 저장돼 있다(2026-10-05, 머티리얼 에셋 값 직접 확인).
+            //   ⚠️ 글꼴 머티리얼을 바꾸거나 컬링을 켜면 이 전제가 깨진다 — 그때는 좌우 반전과
+            //      앞뒷면 문제를 다시 재야 한다.
             float s = Mathf.Max(scale, 0.1f);
             transform.localScale = new Vector3(-s, s, s);
 

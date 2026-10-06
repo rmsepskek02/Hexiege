@@ -6,7 +6,9 @@ namespace Hexiege.Presentation
     ///
     /// 직접 UnityEngine.SceneManagement.SceneManager.LoadScene 을 호출하면
     /// 로딩 인디케이터를 매번 수동으로 켜야 하고, 빠뜨리면 사용자가 멈춘 화면을 보게 된다.
-    /// 이 클래스를 사용하면 ShowLoading(true) 호출이 항상 함께 일어나므로 누락을 방지한다.
+    /// 이 클래스를 사용하면 ShowLoading(true) 호출이 함께 일어나므로 누락을 방지한다.
+    /// 단, UIManager 가 아직 없는 경우에는 아래 Load() 의 fallback 경로로 빠져
+    /// 인디케이터 없이 씬만 전환된다 — 「반드시 같이 켜진다」가 성립하는 것은 UIManager 가 있을 때다.
     ///
     /// 주의: 멀티플레이 씬 전환(NetworkManager.Singleton.SceneManager.LoadScene)은
     /// NGO(Netcode for GameObjects)가 별도로 관리하므로 이 클래스를 거치지 않는다.
@@ -23,7 +25,8 @@ namespace Hexiege.Presentation
         /// message 를 지정하지 않으면 씬 이름에 따라 기본 메시지가 사용된다.
         ///
         /// 로딩 인디케이터를 끄는 책임은 목적지 씬의 초기화 완료 시점이 담당한다(UI 규칙 L-3).
-        /// 예) LoginBootstrapper.ShowLoginSelect(), LobbyRootView.Start(), GameBootstrapper 맵 로드 완료.
+        /// 예) LoginBootstrapper.InitializeAndDispatchAsync()(스플래시가 탭 대기 상태로 화면에 준비되는 시점),
+        ///     LobbyRootView.Start(), GameBootstrapper 맵 로드 완료.
         /// </summary>
         /// <param name="sceneName">로드할 씬 이름. 상수(Login/Lobby/Game) 사용 권장.</param>
         /// <param name="message">로딩 인디케이터에 표시할 메시지. null 이면 씬별 기본 메시지 사용.</param>
@@ -42,8 +45,8 @@ namespace Hexiege.Presentation
                 return;
             }
 
-            // UIManager 가 아직 생성되지 않은 상황(씬 직접 진입 등)을 대비한 fallback —
-            // 로딩 인디케이터 없이 곧바로 씬을 전환한다(UI 규칙 L-4).
+            // UIManager 가 아직 생성되지 않은 상황(씬 직접 진입 등 — UI 규칙 L-4 가 다루는 바로 그 상황)을
+            // 대비한 fallback — 로딩 인디케이터 없이 곧바로 씬을 전환한다.
             UnityEngine.SceneManagement.SceneManager.LoadScene(sceneName);
         }
 

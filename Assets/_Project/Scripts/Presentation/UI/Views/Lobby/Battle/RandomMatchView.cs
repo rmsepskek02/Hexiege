@@ -1,12 +1,14 @@
 // ============================================================================
 // RandomMatchView.cs
-// 랜덤 매칭 대기 화면. 매칭 스피너 표시 + 취소.
+// 랜덤 매칭 대기 화면. 경과 대기 시간 표시 + 취소.
 //
 // 역할:
-//   - vm.IsMatchmaking 구독 → 스피너/대기 텍스트 표시
+//   - vm.MatchWaitSeconds 구독 → 경과 대기 시간 텍스트 갱신
+//   - vm.IsMatchmaking 구독 → 취소 버튼 표시/숨김 + 매칭 전 기본 텍스트 복귀
 //   - [취소] → vm.CmdCancelMatchmaking
 //   - vm.CurrentScreen 구독 → RandomMatch일 때만 활성화
-//   - (현재 플레이스홀더, 실제 Matchmaker 연동은 추후)
+//   - 매칭 자체(티켓 생성·폴링·방 선점)는 ViewModel 이 네트워크 계층에 맡긴다.
+//     이 View 가 하는 일은 대기 상태를 보여 주고 취소를 전달하는 것뿐이다.
 //
 // Presentation 레이어 — MonoBehaviour.
 // ============================================================================
@@ -19,7 +21,7 @@ using UniRx;
 namespace Hexiege.Presentation
 {
     /// <summary>
-    /// 랜덤 매칭 대기 화면 View. (현재 플레이스홀더)
+    /// 랜덤 매칭 대기 화면 View. 대기 시간 표시와 취소 전달만 담당한다.
     /// </summary>
     public class RandomMatchView : MonoBehaviour, IView<BattleViewModel>
     {

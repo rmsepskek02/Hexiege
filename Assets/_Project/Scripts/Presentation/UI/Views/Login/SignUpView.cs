@@ -146,7 +146,10 @@ namespace Hexiege.Presentation
                         //   따라서 여기서 닉네임을 저장하면 "Access token is missing" 토큰 에러가 난다.
                         //   → 닉네임 수집을 "인증 후 첫 로그인 성공 직후"(EmailLoginView)로 이관했다.
                         //     이제 가입 성공 시엔 닉네임 화면을 거치지 않고 인증 화면으로 직행한다.
-                        //   (AuthSystemRules.md 이메일 회원가입 규칙: 가입 → 인증 → 로그인 → (최초) 닉네임 → 로비)
+                        //   ⚠️ 이 다섯 단계 흐름을 한 자리에 적어 둔 규칙 조항은 없다 —
+                        //      AuthSystemRules.md 의 이메일 회원가입 절은 「가입 → 인증 메일 발송 →
+                        //      인증 화면」까지만 정하고, 닉네임 단계는 이메일 인증 취소 규칙 절의
+                        //      재진입 문장에 따로 적혀 있다.
                         _rootView.ShowEmailVerify(email, EmailVerificationOrigin.SignUpPending);
                         // === [구 로직 — 비활성화] 가입 직후 닉네임 설정 경유 (토큰 세션 부재로 저장 실패) ===
                         //   실기 통과 후 아래 한 줄은 최종 삭제 예정(WORKFLOW 기존 로직 제거 규칙).
