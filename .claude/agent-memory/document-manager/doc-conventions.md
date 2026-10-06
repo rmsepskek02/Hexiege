@@ -3680,3 +3680,118 @@ When adding to `.claude/mistakes.md`, the body is 「why nothing caught it」. F
 **11. A sibling agent editing one of the subject files **during** the round (third sighting — §33, §39).**
 - The new section says explicitly that it **asserts nothing about that file's current content**, and that the code reading it relies on is 「2026-09-30 그 시점의 관측」. 🔴 Completeness of what you see is not the test; 「did this round verify it?」 is.
 - ✅ A read-only `find -newermt` over the repository is a cheap way to state your own change scope exactly — it showed one file changed by me and three by the sibling.
+
+## §49. The round where a 「관측 불가 (구조적)」 verdict was **overturned by a fix** — recording a defect that is symptomless **because two defects cover for each other**, and the third sighting of build identification (2026-10-01, 팝업 로그 커버리지 §14-10 · 규칙 D-6)
+
+**Round shape.** Five documents: one rule document (new dated block), three standing documents, the Plan (new `§14-10` · `§14-11` + four one-line pointers + two execution-table cells + one note under the table). Zero code, zero scene, zero git, `--update-baseline` left to the caller. The subject fix was implemented by a **sibling agent**; my half is the field-test write-up.
+
+**1. 🔴 A 「관측 불가 (구조적)」 grade can be overturned without the earlier verdict having been wrong — and the difference is the artifact.**
+- §48 graded the destroy-time net as **③ 관측 불가(구조적)** for two independent reasons: (1) a second defect zeroed the counter first, (2) the editor's log sink can close before the object is destroyed.
+- This round reason (1) **ceased to exist** because the second defect was fixed. The net fired and was logged.
+- 🔴 **Write 「정정이 아니라 전제 변경에 따른 갱신」 explicitly.** What made that sentence available is that §14-4 had pinned its own scope: 「지금 있는 수단으로는 볼 수 없다는 것까지가 결론이다」. 🔴 **So a grade written with its scope sentence lets the *next* round upgrade it instead of retracting it** — that is the practical reason the scope clause is worth the words.
+- ⚠️ **Say which reason survived.** Reason (2) is untouched: this round's observation came from a **scene change**, not from stopping play mode. A grade with two reasons is closed one reason at a time.
+
+**2. 🔴 A defect that is symptomless because **two defects cover for each other** needs one sentence that all three standing documents share.**
+- The sentence: 「결함 두 개가 서로를 가려 증상이 0건이던 상태」가 「각자 자기 몫을 책임지는 구조」로 바뀌었다. It goes in the status paragraph's **header**, in the history row's **title**, and in the roadmap row's dated block — because each of those is read by someone who will otherwise read 「증상 0건」 as 「정상」.
+- 🔴 **「증상 0건」 ≠ 「정상」 must be written as a literal clause**, not implied by the ordering table. §48's three-column table argues the *fix order*; this sentence states the *state*. Both are needed, and they are different artifacts.
+- ✅ The plain-language opening (`CLAUDE.md` 규칙 13) carries it best: a counter several windows share, one window not releasing, another releasing what it never took, and the second accidentally cleaning up after the first.
+
+**3. 🔴 A handed-over 「before the fix it looked like this」 is a claim about the **old** logs — re-measure it there.**
+- Handed: 「수정 전에는 바로 그 자리에서 막이 꺼졌습니다(05시대 3건이 그 모양)」. Measured: those three have **no overlay-off line after them either** — the count was already 0 and the no-negative guard swallowed the call. My own §14-3 had already recorded exactly that.
+- 🔴 **The conclusion was unaffected, but *what distinguishes before from after* changed completely.** The discriminators are (a) the number of boolean values carried on the close line and (b) the counter value at that moment — **not** the presence of the overlay-off line.
+- **14th handed-over-mismatch class: the verdict is right and the control case is wrong.** Distinct from §48's 2nd (counts short) and §47's 11th (novelty claim false): here the *mechanism offered as contrast* did not exist. 🔴 **A contrast you did not measure is the easiest thing to copy into a document, because it is never the sentence under dispute.**
+- A 5th-class cousin in the same handoff: 「§14-8 의 정정이 맞았다」 pointed at a correction that **is not in §14-8** (grep for both of its keywords over the whole Plan: 0 hits). §48-1's shape again, one layer further out — there the *sentence* was invented, here the *correction itself* was.
+
+**4. ✅ Build identification, third sighting — this time the discriminator is the **field composition of a log line**.**
+- §43: the compiler-generated coroutine class number **split** two sessions inside one file. §47: the same number **failed to split** two builds, because it follows the *declaring file's own* method ordering. §49: the close line gained one boolean, so the **format itself** differs (8 pre-fix lines ↔ 3 post-fix lines, directory-wide grep).
+- 🔴 **Decide what you are asking before choosing the instrument.** A line's field composition reveals changes **to the file that prints that line** and nothing else; say so in the same breath: 「증명하는 것은 「그 표시가 들어간 빌드였다」까지다」.
+- ⚠️ This mismatch argued **for** the handoff's conclusion (it said only indirect evidence existed), so it would never have surfaced on its own — §48-2 again. Count first, agree second.
+
+**5. 🔴 「증상 0건」 gets stronger when you measure the **precondition**, not just the absence.**
+- The stray-release site was reached this round **while another popup legitimately held the overlay** (counter = 1, held since 53 seconds earlier, no release line in between). §14-3's three earlier cases were all at counter 0, and this round's device case too.
+- 🔴 **So the claim becomes 「위험 전제가 처음 성립한 자리에서 수정이 작동했다」**, which is checkable, instead of 「증상이 없었다」, which is also true of a build that never reached the site.
+- ⚠️ **「수정 전 빌드였다면 남의 몫을 가져갔을 것」 is 구조 추론, not observation** — no log of that build in this configuration exists. Keep it in its own grade row (§37's lesson).
+
+**6. ✅ A completion gate has two different endings: 「내린다」 and 「충족됐다」.**
+- §48 left §10-1's gate (「4·5번 줄 중 하나라도 없으면 완료가 아니다」) standing, marked it unreachable, and said lowering it was not its call. This round the **same procedure produced both lines**, so the gate is **met** — and the deferred decision ends as 「내릴 필요가 없다」.
+- 🔴 **Write that ending in the gate's own section as one appended line** (B-7, original untouched), and point at the new section as the single source for both the measurement and the premise change.
+
+**7. Denominator re-pinning, third round running — and the editor log now holds **three** sessions.**
+- Handed `[WARN]` 에디터 7 is **file-wide across three play sessions**; this round's segment has **2**. The device figure (2) matched exactly.
+- 🔴 **State the basis above the tables and leave the handed number alone** (§48-3). The session count grows silently: §48 wrote 「세션 2개」 and that is already stale for the same file.
+
+**8. The sibling agent's rows stay empty — including rows whose state is an **approval**.**
+- §47-8 again, with a new variant: two rows read 「⬜ 승인 대기」 while the logs show lines that only the approved work could print. 🔴 **「승인됐다」 is not mine to judge** — the note under the table records the observation as 「참고 관측 — 판정이 아니다」 and says adding rows would silently grow the item count (§18).
+- I filled only the two rows that are mine: the user's field test and my own rule-document update.
+
+**9. 🔴 My own edit makes *other* blocks' line-number references stale.**
+- The caller pointed at ROADMAP 「194행」 (it is further down) and 「213·214행」 (correct at the time). Prepending my header block then pushed 213/214 down.
+- 🔴 **Repair: in my own sentences point by **name**, and append to the stale reference 「그 두 숫자는 이 블록이 더해지면서 밀렸다」 without editing the earlier block.** §41-6 said line numbers you cite go stale because of your own edit; this is the outward-facing half — *someone else's* citation goes stale because of your edit.
+
+**10. 🔴 A factual error in the handoff is a `mistakes.md` candidate, and the judgement goes to the user when they pre-judged 「불필요」.**
+- The caller's preliminary verdict was 「mistakes.md 불필요 (새 실수 0)」, but that premise was formed without knowing their own control-case claim was wrong (point 3). There is precedent for 메인 세션 entries in that file (2026-09-29, a miscounted out-of-scope list).
+- 🔴 **So: record the mismatch in its established home (the Plan's 인계 어긋남 table), report the candidacy, and do not write the entry on my own** (`CLAUDE.md` 규칙 12 — a conflict between my finding and the user's stated judgement is escalated, not resolved silently).
+- Same shape for `TechnicalDesignDocument.md`: verdict 「이번 회차에 고칠 것이 없다」, and 🔴 **that is not 「그 문서가 최신이다」** — its 「미구현」 heading and 「무엇으로 응답을 재는가 미정」 pin are still stale from two rounds back (this round's log shows the watch running on a 3-second heartbeat again), and that stays an out-of-scope finding (§47-9).
+
+**11. Verification.** `check_docs.py` says nothing about `_Tasks/`·`_Logs/` or letter-prefixed rules (`D-` · `M-`). Done by hand: forbidden-token grep (log field names, message texts, class names) **restricted to the lines I added** to the rule document — 23 tokens, all 0; per-row unescaped pipe count (`(?<!\)\|`) on both edited table rows (ROADMAP 5, WORK_HISTORY 3); every inserted line re-printed and read with the eyes (the Korean-escape procedure); and `grep -cF` = 1 on each anchor sentence that must stay unmodified.
+
+
+## §50. A round where **two of five handed-down findings did not survive re-measurement** — and why the answer was to add the *verified* row instead of the requested one (2026-10-01 (2nd), rules-implementation-audit §12)
+
+**What the round was.** The caller handed over six already-"measured" findings to append to a 6-bucket audit section, plus a completion table and a history write-up. Re-measuring every one of them, as the prompt itself demanded, changed the outcome of **two**.
+
+**Rule confirmed: a handed-down finding is an input to measurement, never a result.** (Same rule as the 2026-08-18 handover-figures entry, now with a second kind of failure.) The two kinds seen here:
+
+1. **The direction was reversed.** The claim was *"a formula in the design doc and in `.claude/MEMORY.md` is 4 bytes wrong."* Measuring the artifacts the formula describes settled it the other way — the **documents were right** and a **code comment** carried the pre-version-bump value. So the row went into the **code-comment bucket (5)**, not the **false-document bucket (4)**, and the two documents were **left untouched**.
+   🔴 **How it was settled:** measure the thing itself, not the documents about it. `wc -c` on the generated template assets + the per-template parameter table → plug both candidate formulas in → one matches every file, the other misses every file. **A formula claim is always decidable this way; never arbitrate it by counting how many documents say which.**
+2. **It already had a number.** The claim *"a rule document still describes a deleted field in the present tense"* was **already** an item in the same table, whose own 「where to fix」 cell said **two places**; the other place had just been closed by this round's code work. So the answer was **"this is the remaining half of an existing item"**, not a new row. 🔴 **This was the second time in the same audit that the caller asked for a number that already existed** — before adding any row to a table you authored, grep the table for the *claim*, not for the proposed number.
+
+**Rule: when counts grow because the same falsehood was found in more places, say so in the heading area.** Three of the new rows were **additional copies** of falsehoods already counted; only one was a new falsehood. Writing just "6 → 10" invites the reading "ten distinct lies". The wording that works: *the kinds did not grow, the places to fix did* — then cite the table's own existing precedent for counting copies separately (an earlier pair in the same section was already split across two buckets precisely because the point was that there were **two** places).
+
+**Rule: 「partially done」 must name the leftover and its item number on the same line.** Three items in the completion table were partial because the fix order had been scoped to the two known spots, which left **three files self-contradicting** (one sentence fixed, the file's head comment still carrying the old claim). Writing ✅ for those would have hidden a state that is *worse than before the fix*, because a file that disagrees with itself gives the next reader no way to tell which half is current.
+
+**Rule: when the documented cause of a miss was 「a cell too hard to read」, the fix is N short rows, not one more cell.** The audit's own §1 found that the buried item had been **written down correctly all along** inside one roadmap cell, mixed with four other leftovers, strikethroughs and update blocks. So the tracking for the audit's leftovers was laid out as **one row per bucket**, each row short, with the details pushed to the audit document. 🔴 Putting all six buckets in one cell would have reproduced the exact mechanism being recorded.
+
+**Rule: do not let 「the checker's scope is narrow」 become 「the checker was the problem」.** `check_docs.py` performs its seven checks correctly and two of them exist because of real, measured memory losses. The sentence that is accurate: *the checks are document-to-document and read no `.cs`; what was wrong is that a 0-finding result was passed on as a guarantee wider than its scope.* Write the scope as a **fact**, never as a verdict on the tool.
+
+**Reusable measurement moves from this round**
+- A comment block spanning several lines: cite it as a **range** and say so, rather than picking two line numbers out of it — the caller's "lines 13 and 15" were one continuous block whose middle line was a neutral continuation.
+- A line-number claim inside a header comment is worth re-counting even when the caller already corrected it once: of the five locations handed over, **one was off by one** (the sentence sat one line above the number given) while another the caller had "corrected" was in fact right as corrected.
+- To show a placement comment is false, prefer evidence from **the same file plus the asset**: the counter-sentence in the file, the line of *code* that actually does the opposite, and the prefab's own root component. Three independent layers beat one.
+- Where a deprecated identifier must be pointed at, point with **「the two list fields of the production panel」 + a line number**. Then grep your own additions for every banned name and show the count is 0. One of the handed-down claims ("0 hits in code") held for only **one** of the two names on that line — the other is live in a script and a scene, so a careless fix would have deleted a field the rule still needs to describe.
+
+---
+
+## §51. The round that **recorded the first comment audit** (162 false comments, 89 files) — insertion-only documentation, hand-over figures that disagree with each other, and a four-way split of "could not be judged" (2026-10-06, rules-implementation-audit §12-6-2 ~ §12-6-9 + a new Plan)
+
+**What the round was.** A coordinating session had finished a full read of the comments in 89 `.cs` files (UI + random map), fixed 162 false ones, and recorded none of it. The job: extend the section-12 "class 5" (false code comments) of the audit Research with the results, make five newly discovered facts into sections of their own, record the could-not-judge set, create the missing `Plan.md`, and correct four other records. **Everything was insertion-only** — the Research went 1,815 → 2,096 lines with **0 changed or deleted original lines**.
+
+**Rule: the existing 10 rows of a class are not the result of an inspection — say so before extending it.** The earlier rows had been caught *sideways* while comparing rules with code. Extending the class without that sentence reads as "ten false comments exist". Put the sentence first, keep the old rows untouched, and **do not add the new population into the old totals** (different population; say that you did not, and put "how to sum" on the user's decision list).
+
+**Technique: how to verify "insertion-only" mechanically.** Copy the file to the scratchpad first, then diff by lines with `difflib` and count orig lines that are `delete`/`replace`. A pointer appended *to the end of an existing table row* is a **changed line** (counts as a deletion), so put pointers on **new lines** next to the row, not inside it. To insert in the middle of a file, use a unique heading (or a `---` + heading pair) as the `Edit` anchor and re-emit the anchor unchanged. Also run an unescaped-pipe count per table block on every new table (zero mismatches here).
+
+**Handed-over figures that did not survive (13th–19th kinds; every one was kept as handed over and the disagreement was written next to it)**
+1. **A column that does not sum to its stated total** — the per-owner file column summed to 90, the stated total was 89. Resolved by *locating* the double-counted row (a file re-judged in its own row but living inside the UI folder that was already counted) — "appears to be" was written, not "is".
+2. **A scope description that lists a component twice** — a map-evaluator file was listed separately although it sits inside the 20-file folder listed before it (so 26 is right, 27 would be wrong). Check by listing the folder, not by trusting the enumeration.
+3. **The same fact stated both ways inside one hand-over** — two files were on the "0 false, never modified" list **and** on the "literal changed" list. Find the **only reading that satisfies both** (earlier round fixed them, last re-read found 0), label it *a reading, not what was handed over*, and do not put them under "unmodified".
+4. **"The old number was wrong" that was really a scope split** — a title said 23 rows / 8 files; the hand-over said it should be 19 / 7. Re-measuring reproduced **both**: 19 / 7 is one family of markers, the other 4 rows / 1 file is a different family with a different delete condition. The correction block therefore *splits* the number and says which each half counts; it does not replace it. The same hand-over claimed the 4 rows were caught by no search — the loosest search (the one for "scheduled for deletion") does catch them.
+5. **"The history document also says X" that is a dated history row** — a status table row in present tense is a wrong claim; a row dated months ago in a chronological history is a record that may have been true then (and a later row of the same document already records the replacement). Report them as **different problems**.
+6. **A "remaining" list that omits leftovers of an earlier open item** — re-measure the **current state of every earlier open row** of the same class before accepting "these are the remaining ones". Here three earlier rows had since been closed by someone else, one still had two un-fixed files outside the audited scope, and one citation pattern still stood in three places in two files that nobody had listed.
+7. **A column that mixes two kinds of number** — the "classification" column of the approval-wait list held class numbers on some rows and item numbers of the Research on others. Copy it verbatim into a column of its own and add a separate "what it corresponds to in the Research" column that you verified yourself.
+Also: a count of the form "about N" was written as "about N" and the arithmetic disagreement (rows summed to ~1,500) written beside it.
+
+**Rule: a "judged and true" list is a different state from "not judged".** Write the unmodified-file list explicitly, add "files not on this list are either fixed or out of scope, never *true*", and say what the list saves (the next round does not re-read them). Without it the next round re-reads everything.
+
+**Rule: the could-not-judge set is four sets, and the splitting key is "what makes it resolvable".** (past → never, because the only source is version history and the project forbids it; engine internals → the package sources are absent from the checkout, cheapest path is to plant one log line and let a field run move it to the fourth set; screen → a screenshot or a profiler run, which belongs in the test-case file; field observation → one reproduction or a planted log.) 🔴 **If the per-set counts are not known, say "not known" and make assigning them step 0 of the plan** — do not apportion the total.
+Add the paragraph that field tests confirm **behaviour**, not the **why** a comment claims (engine internals, performance, layout arithmetic); "the feature passed field testing" is not evidence for such a comment.
+A permission question can sit **under** a set: whether version-history reads are allowed decides whether the "past" set can ever be resolved, so link them in both directions and do **not** touch `CLAUDE.md` (a rule change is the user's).
+
+**Rule: do not copy the false sentences you are recording.** The five new facts are *about* false comments, and quoting them verbatim creates the very residual-grep copy the audit was removing. Paraphrase in prose; cite the **place** (file + line as of this date, marked "line numbers are as of working time"). Where a search term is needed to reproduce a measurement, use a term that is a real, valid identifier (a component name), not the discarded claim. The one place an old verdict is quoted is a reviewer's past "all true" verdict, because the quoted *act* is the finding.
+
+**Rule: "I opened the section" ≠ "the clause governs this sentence".** One behaviour (reset un-mutes) lived in rule 27 while the rule whose *title* names the reset button (rule 25) says nothing about mute — so a word-driven reader lands on the wrong rule. For the record: ask of every rule citation *which clause defines this behaviour*, not *does the section contain the word*. The structural fix is a pointer in the rule document, which is an approval item, not a comment fix.
+
+**Operating rule recorded (and its lineage).** If the file under judgement is pure C# (no engine / reactive / TMP / tween / netcode references), compile it with `mcs` and run it with `mono` **before** leaving a claim as "cannot judge". It is the same root as the earlier "check whether the type really touches the engine before handing a task to the user" lesson in the shared memory — not a new rule; promoting it into the shared memory is on the approval list.
+
+**Own mistake of the round.** I ran a read-only version-control command (`status`) as my first step, reading rule 5 of `CLAUDE.md` as "destructive commands only". The coordinating session had made the same reading the same day. Recorded in `.claude/mistakes.md` (2026-10-06) and put to the user as an approval item rather than a personal-care note. Use `wc -l` / `ls` / reading the file for "what am I about to edit".
+
+**Process note for a long, interruptible round.** The session was cut off once by a usage limit and the coordinator asked for **one section per write, with a line count after each**. Do it from the start: after each inserted section run the line-count + zero-deleted check; the file was in a valid, checked state after every step.

@@ -560,3 +560,42 @@ pin 은 **지우지 않는다.** 표 칸 = **확정값 + `~~취소선 pin~~` + �
 - **검증** — `_Tasks/` 는 검사 범위 밖이라 검사기 0건이 내 파일에 대해 아무 말도 하지 않는다. 실제 검증 4가지: 🔴 **금지 토큰 grep 을 「내가 더한 행 범위」로 한정**(기존 히트는 행 번호로 내 것이 아님을 증명) · 행별 미이스케이프 파이프 수 · 🔴 **넣은 줄 전부 다시 출력해 눈으로 확인** · 무수정 앵커 `grep -cF` = 1.
 - 🔴 **같은 회차에 내가 쓴 문장을 내가 고친 것도 보고에 넣는다**(이번 3건 — 분모 착오 · 등급 오표기 · 확인하지 않은 조작 주장). §46 의 후속이며 **의도가 아니라 diff 를 센다.**
 → 상세 [doc-conventions.md](doc-conventions.md) §48.
+
+### 🔴 「관측 불가(구조적)」 판정이 **수정으로 뒤집히는** 회차 — 「두 결함이 서로를 가려 증상이 0건」을 기록하는 법과 빌드 판별 3번째 수단 (2026-10-01, 팝업 로그 커버리지 §14-10)
+
+🔴 **「관측 불가」가 뒤집혀도 그때 판정이 틀린 것이 아니다 — 「정정이 아니라 전제 변경에 따른 갱신」이라고 글자로 적는다.** 그 문장을 쓸 수 있었던 이유는 지난 회차가 그 등급에 **범위 문장**(「지금 있는 수단으로는 볼 수 없다는 것까지가 결론이다」)을 함께 적어 두었기 때문이다. 🔴 **등급에 범위를 달아 두면 다음 회차가 그것을 철회가 아니라 승급으로 처리할 수 있다 — 그것이 그 한 줄의 실익이다.** ⚠️ **이유가 둘인 등급은 한 번에 하나씩 닫힌다**(이번에 닫힌 것은 「다른 결함이 가린다」뿐이고 「에디터 Play 정지로는 못 본다」는 그대로다).
+- 🔴 **「결함 둘이 서로를 가려 증상이 0건이던 상태」는 세 문서가 같은 한 문장을 공유해야 한다** — 「각자 자기 몫을 책임지는 구조로 바뀌었다」를 현황 문단 **머리** · 이력 행 **제목** · 로드맵 행 **날짜 블록**에 모두 넣는다. 🔴 **「증상 0건 ≠ 정상」을 암시하지 말고 낱말로 쓴다**(§48 의 순서 표는 *고치는 순서*를 논증하는 다른 산출물이다).
+- 🔴 **인계가 「수정 전에는 이렇게 보였다」고 적은 대조 구도는 수정 전 로그에서 다시 잰다.** 이번에 결론은 맞았으나 **대조 구도 자체가 실재하지 않았고**(막 꺼짐 줄은 양쪽 다 없다 — 점유 수가 이미 0 이라 가드가 삼켰다), 그래서 **「무엇이 수정 전후를 가르는가」가 통째로 달라졌다**(닫기 줄에 실린 값의 수 · 그 시점의 점유 수). 인계 불일치 **14번째 부류 = 결론은 맞고 대조군이 틀렸다** · 같은 인계의 또 한 건 = **가리킨 「정정」이 그 절에 아예 없었다**(§48-1 의 한 겹 바깥).
+- ✅ **빌드 판별 3번째 수단 = 로그 줄의 필드 구성 변화**(§43 는 코루틴 번호가 두 세션을 **갈랐고** · §47 은 같은 번호가 두 빌드를 **못 갈랐다**). 🔴 **묻는 질문을 먼저 정하고 수단을 고른다** — 필드 구성은 **그 줄을 찍는 파일의 변경만** 드러내므로 「그 표시가 들어간 빌드였다」까지만 증명한다.
+- 🔴 **「증상 0건」은 전제를 재면 강해진다** — 「없었다」가 아니라 **「위험 전제가 처음 성립한 자리에서 작동했다」**(그 시점 카운터 = 1, 과거 사례는 전부 0). ⚠️ **「수정 전 빌드였다면 가져갔을 것」은 구조 추론이라 등급을 가른다.**
+- ✅ **완료 관문의 두 결말 — 「내린다」와 「충족됐다」는 다르다.** 지난 회차가 「이 절차로는 채울 수 없다」로 마커만 달고 남겨 둔 관문이 이번에 **충족**돼, 보류했던 「내릴지」 판단이 **「내릴 필요가 없다」**로 끝났다(각 절에 한 줄씩 · 원문 무수정).
+- **분모 재확인 3회째** — 인계 `[WARN]` 7 은 **파일 전체(세 세션 합)** 기준이고 이번 구간은 **2**다. 🔴 **에디터 로그 세션 수는 조용히 는다**(§48 이 적은 「세션 2개」가 같은 파일에서 이미 낡았다).
+- 🔴 **다른 에이전트 몫의 실행 기록 행은 「승인 대기」여도 내가 채우지 않는다** — 로그에 그 일이 들어간 흔적이 보여도 **승인 상태는 내 판정 대상이 아니다.** 표 **아래**에 「참고 관측(판정 아님)」으로만 적는다(행을 더하면 항목 수가 조용히 는다).
+- 🔴 **내 편집이 다른 블록의 행 번호 참조를 낡게 만든다** — 내 문장은 **이름으로** 가리키고, 낡은 번호 표기에는 「이 블록이 더해지면서 밀렸다」를 덧붙이되 **그 블록을 고치지 않는다**(§41-6 의 바깥 방향).
+- 🔴 **인계의 사실 오류를 `mistakes.md` 에 적을지는 사용자 승인 사항으로 올린다** — 사용자가 미리 「불필요」로 판단했으나 **그 전제가 그 오류를 모른 상태**였다(규칙 12). 기록의 집은 계획서의 **인계 어긋남 표**다. 설계 문서도 같은 모양 — **「이번에 고칠 것이 없다」 ≠ 「그 문서가 최신이다」**(§47-9).
+→ 상세 [doc-conventions.md](doc-conventions.md) §49.
+
+## 🔴 인계받은 발견 5건 중 2건이 재실측에서 서지 않았다 (2026-10-01 (2차), rules-implementation-audit §12)
+
+- 🔴 **인계된 「실측 완료」 발견은 측정의 입력이고 결과가 아니다** — 이번에 **방향이 반대**인 것 1건(문서가 맞고 코드 주석이 낡았다 → 분류 4 가 아니라 **5** 로 넣었고 지목된 문서 2개는 **무접촉**)과 **이미 그 표에 번호가 있던** 것 1건이 나왔다. 🔴 **같은 조사에서 「이미 있는 번호를 추가하라」는 지시가 두 번째다** — 내가 쓴 표에 행을 더하기 전에 **제안된 번호가 아니라 그 주장 문장으로** 표를 훑는다.
+- 🔴 **공식·수치 주장은 문서를 세지 말고 「그 공식이 설명하는 물건」을 잰다** — 생성물 파일 크기 + 그 생성물의 매개변수 표를 가져와 **후보 공식 둘을 각각 대입**하면 한쪽은 전부 맞고 한쪽은 전부 틀린다. 이 부류는 항상 이렇게 끝난다.
+- 🔴 **같은 거짓의 「사본」이 늘어 개수가 커졌으면 제목 자리에 그 말을 적는다** — 「6 → 10」만 쓰면 「거짓이 10가지」로 읽힌다. 쓸 말은 **「종류는 늘지 않았고 고칠 자리가 늘었다」**이며, 사본을 따로 세는 근거는 **그 표가 이미 쓰던 선례**로 댄다.
+- 🔴 **「부분 완료」는 남은 것과 그 항목 번호를 같은 줄에 적는다.** 범위를 알려진 2자리로 좁힌 수정이 **한 파일 안에서 앞뒤가 반대인 상태**를 세 파일에 남겼다 — ✅ 로 적으면 **고치기 전보다 나쁜 상태**가 숨는다.
+- 🔴 **「읽기 어려운 한 칸」이 원인으로 기록된 사안의 추적은 분류별 짧은 행 N개로 세운다.** 한 칸에 몰아넣으면 기록하려는 그 기전을 그대로 재현한다.
+- 🔴 **검사기의 범위는 「사실」로 적고 「문제였다」로 적지 않는다** — `check_docs.py` 7종은 제 몫을 정확히 했고 둘은 실제 손실에서 나왔다. 틀린 것은 **0건을 범위보다 넓은 보증으로 전달한 보고 방식**이다.
+- **행 번호 인계는 한 번 정정된 것도 다시 센다** — 5자리 중 **한 자리가 한 줄 어긋났고**(문장이 받은 번호보다 한 줄 위) 인계가 「정정」한 다른 한 자리는 **정정값이 맞았다**. 여러 줄에 걸친 주석 블록은 **번호 두 개를 집지 말고 범위로** 적는다.
+- 🔴 **「그 이름은 코드에서 0건」이 한 줄의 두 이름 중 한쪽에만 해당할 수 있다** — 다른 쪽은 스크립트 7건·씬 1건으로 살아 있었다. 그대로 고치면 **규칙이 실제 구조를 잃는다.** 가리키는 법은 **설명 + 행 번호**이고, 쓴 뒤 **내가 쓴 범위만** grep 해 0건을 보인다.
+→ 상세 [doc-conventions.md](doc-conventions.md) §50.
+
+### 🔴 The round that recorded the **first comment audit** (162 false comments / 89 files) — insertion-only, and a four-way "could not judge" (2026-10-06, rules-implementation-audit §12-6-2 ~ §12-6-9 + new Plan)
+
+- 🔴 **Earlier "class 5" rows were caught sideways, not by an inspection — write that sentence before extending the class**, and do **not** add the new population into the old class total (put the summing question on the user's list).
+- 🔴 **Insertion-only is checkable**: back the file up first, diff by lines, count original lines that are deleted/changed (must be 0). A pointer glued onto the end of an existing table row is a **changed line** — put it on a new line beside the row. Anchor mid-file inserts on a unique heading and re-emit the anchor unchanged.
+- 🔴 **Hand-over figures can disagree *with each other***: a column summing to 90 under a stated 89 (find the double-counted row by location) · a component listed twice inside a folder already listed · two files on both the "0 false, unmodified" list and the "literal changed" list (**write the only reading that satisfies both, labelled as a reading**) · a "correction" that is really a **scope split** (re-measure reproduces both numbers — split, don't replace) · a status-table row (wrong claim) vs a **dated history row** (a record) · a "remaining" list that omits leftovers of earlier open rows (re-measure every earlier row's current state) · a classification column that mixes class numbers and item numbers.
+- 🔴 **Do not copy the false sentences you are recording** — paraphrase and cite the place; use a real identifier (not the discarded claim) when a search term is needed.
+- 🔴 **"Judged and true" ≠ "not judged"** — keep the unmodified-file list so the next round does not re-read it.
+- 🔴 **The could-not-judge set is split by "what makes it resolvable"** (past: never, version history is forbidden · engine internals: package sources absent, plant a log line · screen: screenshot/profiler → test-case file · field observation: one reproduction). If per-set counts are not known, **say so and make assigning them step 0** — never apportion the total. Field tests confirm behaviour, not the *why* a comment claims.
+- 🔴 **A permission question can decide a whole set** (read-only version-control access ↔ the "past" set): link both ways, never edit `CLAUDE.md`.
+- **Own mistake**: I ran a read-only `status` command as step one (reading rule 5 of `CLAUDE.md` narrowly) — recorded in `.claude/mistakes.md` and put on the user's list. Use `wc -l` / `ls` instead.
+- **Long round**: one section per write, line count + zero-deleted check after each (research 1,815 → 2,096; new Plan 180; `mistakes.md` 1,294 → 1,314).
+→ Details [doc-conventions.md](doc-conventions.md) §51.
