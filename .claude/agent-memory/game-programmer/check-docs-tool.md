@@ -79,6 +79,7 @@ matters is the **delta**, i.e. roughly the whole `.claude/` tree minus `skills/`
 reproduces the pre-change output exactly, apart from the newly added `[검사 범위]` block.
 Leaving an opt-out flag behind gives a free before/after oracle for any scope widening —
 no git needed (CLAUDE.md rule 5 forbids git anyway).
+**[🔴 2026-10-06 correction — original kept: "forbids git anyway" is no longer accurate (`CLAUDE.md` rule 5 now allows a short list of read-only git commands). The point of this paragraph — the opt-out flag gives a free before/after oracle, so a scope widening needs no git — still holds.]**
 
 ---
 

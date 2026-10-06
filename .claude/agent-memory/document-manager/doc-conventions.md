@@ -2392,6 +2392,8 @@ nothing to strike. What is false is the **reading** it invites.
 | 로그 발췌 — 이 트리의 로그 사본에 **그 구간이 없다**(작업 트리 1,222행 / 원격 5,119행) | **「메인 세션 실측」**으로 귀속하고, 내가 확인한 것은 **「그 로그 문구가 `.cs` 에 실재한다」**까지라고 적었다 |
 | 커밋 해시 | 규칙 5 로 git 을 쓸 수 없으니 **전달값으로 귀속**하고 재검증하지 않는다(`※` 한 줄) |
 
+> **[🔴 2026-10-06 correction — the row above is kept as written; its reason is no longer accurate.** `CLAUDE.md` rule 5 now allows a short list of read-only git commands, so a commit hash *can* be re-measured. Until it is, the row's treatment (attribute as handed over, one `※` line) is unchanged; **after** re-measuring it is a value I measured and is written as such.**]**
+
 ### 29-7. 🔴 보고로 올린 「확인 필요」가 **답을 받아 돌아왔을 때** — 두 가지 강도의 해소
 
 §29-5 에서 *"확정 못 하면 고치지 않고 보고"* 한 두 불릿이 **같은 회차 안에서 코드 근거와 함께 돌아왔다.**
@@ -3094,6 +3096,7 @@ nobody can have seen on screen a thing that did not exist yet.
   and **which build they were looking at**.
 - **Verification means**: ask the **calling session** to run `git show`/`git log` on the constant and compare the
   commit that introduced the change against the timestamp of the user's report (I must not run git — CLAUDE.md 규칙 5).
+  **[🔴 2026-10-06 correction — original kept: the parenthesis is no longer accurate.** `CLAUDE.md` rule 5 now allows read-only `show`/`log`; I may run them myself. The *method* (compare the introducing commit with the report time) is unchanged.**]**
   In this case the newlines first appeared in the then-HEAD commit, i.e. *after* the report.
 - **The repair is three-part and additive**: strike the grade cell and put the corrected grade beside it, append a
   정정 block carrying the evidence **and the fact that the calling session handed it over and I quoted it unverified**

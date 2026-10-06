@@ -3,6 +3,7 @@
 ## ⚠️ GIT 명령 절대 금지 (CRITICAL — 예외 없음)
 - **`git restore`, `git reset`, `git checkout`, `git commit`, `git push` 등 모든 git 명령은 사용자가 명시적으로 직접 언급하지 않는 한 절대 실행 금지**
 - 2026-03-03 사고: git restore 무단 실행 → 커밋 안 된 작업 전체 삭제 (복구 불가)
+- **[🔴 2026-10-06 correction — original kept above: the statement above is no longer fully accurate. `CLAUDE.md` rule 5 was revised: a short list of read-only git commands is now allowed without being told, and every other git command still needs the user to name it explicitly. Read `CLAUDE.md` rule 5 for the current list — it is deliberately not copied here (a copy goes stale).]**
 
 ## 게임 컨셉
 - 장르: 헥스 그리드 기반 1v1 실시간 전략 (RTS)

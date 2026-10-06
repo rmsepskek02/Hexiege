@@ -67,7 +67,7 @@
 
 ## 지켜야 할 규칙 (CLAUDE.md 요약 — 원문이 항상 우선)
 
-- **git 명령 절대 금지**(규칙 5) — 검증도 git 없이 한다. 변경 전후 비교는 호출자에게 맡긴다.
+- **git 명령 절대 금지**(규칙 5) — 검증도 git 없이 한다. 변경 전후 비교는 호출자에게 맡긴다. **[🔴 2026-10-06 correction — original kept: this line is no longer accurate. `CLAUDE.md` rule 5 was revised and now allows a short list of read-only git commands (including diff and log) without being told, so comparing before/after yourself is permitted; every other git command still needs the user to name it. Read `CLAUDE.md` rule 5 for the current list — not copied here.]**
 - 계획서/요청 **범위만** 구현(규칙 6). 추가 리팩터링·개선은 제안만 한다.
 - **추정 금지**(규칙 10) — 근거(파일:행)를 직접 확인하고 답한다. 확정 못 한 것은 "미확정" 으로 남긴다.
 - 판단이 모호하면 스스로 결정하지 말고 보고한다(규칙 12).

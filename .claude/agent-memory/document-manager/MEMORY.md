@@ -221,6 +221,7 @@ Research 문서의 append 는 **「낡은 것 / 해소된 것 / 🔴 그대로 �
   ⚠️ **`_Tasks/`·`_Logs/` 는 검사 범위 밖**이므로 방금 쓴 Task 문서는 이 0건이 검증한 대상이 아니다 — 보고에 그렇게 적을 것 → [doc-conventions.md](doc-conventions.md) §11.
   ⚠️ **0건은 「내가 편집한 문서」에 대한 것이고 「내가 말한 주장」에 대한 것이 아니다** — 문서가 정확한데 그것을 읽지 않아 생긴 실수는 이 도구가 영원히 0건을 낸다 → [doc-conventions.md](doc-conventions.md) §27-1.
 - **git 명령 금지**(규칙 5). 변경 파일 목록은 `grep`/코드 실측으로 재구성한다.
+  **[🔴 2026-10-06 correction — original kept: the line above is no longer accurate.** `CLAUDE.md` rule 5 was revised: a short list of read-only git commands is now allowed without being told (read the rule for the list — not copied here); every other git command still needs the user to name it. **Scope of this correction:** notes elsewhere in this folder that say "cannot be determined without git" / "I must not run git" / "cannot be re-measured without git" describe the situation *before* this date and are **not re-marked one by one** — what changed is that a read-only command can now measure those things. 🔴 **What did not change:** the lesson of the 2026-10-06 entry in `.claude/mistakes.md` — when it is ambiguous whether something is allowed, **ask first**; and a value handed over by another session is still quoted as handed over until I have re-measured it myself.**]**
 
 ## 자주 쓰는 실측 명령 (숫자를 문서에 적기 전 반드시 재확인)
 ```
@@ -277,6 +278,7 @@ tr -cd '{' < <파일> | wc -c ; tr -cd '}' < <파일> | wc -c                   
 
 ### git 결과를 문서에 옮길 때 (규칙 5 + 규칙 10 동시 충족)
 나는 git 을 실행할 수 없으므로 **커밋 해시·증감 행수는 호출 세션이 전달한 값**이다.
+**[🔴 2026-10-06 correction — original kept: 「git 을 실행할 수 없으므로」 is no longer accurate** (`CLAUDE.md` rule 5 now allows a short list of read-only git commands). **A commit hash or a line-count delta may now be re-measured with a read-only command; once re-measured it is a value I measured, not one handed over.** Until I do, it stays 「전달받은 값」 and the 「`※ 근거 구분`」 line is still required.**]**
 → 문서에 **`※ 근거 구분(규칙 10):` 한 줄**을 붙여 **내가 직접 실측한 값**(행수·파일 수·링크 상태)과 **전달받은 값**을 갈라 적는다. 섞어 적으면 나중에 재검증할 자리를 못 찾는다.
 
 ## 🔴 소실분 복구는 "되돌리기"가 아니라 "유일본 고르기"다 (2026-08-21 실행)
@@ -412,6 +414,7 @@ pin 은 **지우지 않는다.** 표 칸 = **확정값 + `~~취소선 pin~~` + �
 - **단일 소스 블록은 문구를 인용하므로 히트 수는 늘 수밖에 없다** → 보고할 주장은 **「새 히트 전부가 단일 소스 블록 안 · 다른 자리 새 사본 0건」**.
 - 🔴 **인계 불일치 9번째 부류 = 인용 문구는 실재했고 「무엇에 대한 보고인가」가 틀렸다** — 호출 세션이 *"사용자가 화면으로 확인했다"* 고 준 인용이 **개행 전(한 줄이던 빌드) 화면**의 보고였다. **문구를 grep 해 실재를 확인하는 것만으로는 절대 잡히지 않는다.**
   판별: **그 변경이 코드에 들어온 커밋과 사용자 보고의 선후**를 본다 — `git show`/`git log` 는 **내가 돌리지 않고 메인 세션에 요청**한다(규칙 5).
+  **[🔴 2026-10-06 correction — original kept: 「내가 돌리지 않고 메인 세션에 요청한다」 is no longer required.** `CLAUDE.md` rule 5 now allows read-only `show`/`log`, so I can read the commit order myself. **The distinction itself is unchanged:** the order of commit vs report is evidence only for what the commit actually contains, not for which build the user looked at.**]**
   수선 3부분: 등급 칸 취소선 + 정정값 / 정정 블록에 **「호출 세션이 전달했고 내가 검증 없이 인용했다」**(2026-08-21 사건의 재현) / 🔴 **그 보고가 유효하게 확인한 것은 무엇인지**(여기서는 「문구 분기」이고 「개행」이 아니다)를 적어 다른 문서의 같은 근거를 건드리지 않는다.
   ⚠️ **형태(개행·정렬·색)에 「사용자가 화면으로 확인했다」를 쓰기 전에 「어느 빌드를 봤는가」를 먼저 묻는다.**
 → 상세 [doc-conventions.md](doc-conventions.md) §36.
