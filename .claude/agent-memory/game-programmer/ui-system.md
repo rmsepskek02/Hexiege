@@ -2791,3 +2791,50 @@ Both hashes (comments stripped; comments plus string contents stripped) equal HE
 XML tag pair totals equal HEAD. Four-way reverse check on a copy of the map-load partial (each branch confirmed different with `cmp`):
 comment line added -> both same; existing spaces widened -> both same; `1f` to `1.0f` -> both differ; one character of a code string
 literal -> first same, second differs.
+
+## 2026-10-06 Comment audit, outside the UI / random-map scope — 16 handed sites (heading said 15), 28 fixed in 9 files
+
+Comment-only change (plus one log message and two tooltips) in 9 `.cs` files. Behavior code untouched.
+
+### (1) Counts: handed-over vs found
+- Sound-rule mis-citation in the audio manager: handed over 8 lines; **found 11**. Three lines were not on the list: the file header cited the SFX pool with a range whose
+  first two members are BGM rules, and the volume block with a range that is really the VFX/SFX-pair, clip-volume, mixer-group and channel
+  rules; and the mute-setter summary cited the button-layout rule for persistence. The handed-over ones were the mute-flag persistence
+  cites, the design-note references that exist only in task documents, and the reset cite. All 52 cite occurrences in the file (47 rule
+  numbers + 5 design-note references, in 50 lines) were re-judged against the rule text: 40 true, 12 false (in 11 lines).
+- Result-screen subscription claim: handed over 1 site (the notify method's XML); **found 3** — the event hub's declaration said no
+  subscriber existed and its explanation block said the news never reaches the screen. Both fixed. The hub also has a second subscriber
+  (the network controller itself, which stops its own watch) that the old text never mentioned.
+- Gold-event-to-HUD claim: handed over 1 site; **found 4** in the same file (header x2, XML, inline).
+- Type C "not implemented": handed over 2 sites; **found 6 sites in 3 files** — one more in the use case that owns the registry, and the
+  skill data asset file, which the handed-over note said had none (it had 3, in Infrastructure/Config, not Domain).
+- Line-number guard pointer: 1 site. No other pointer to that same line number exists.
+
+### (2) Judgements worth keeping
+- A cite is true only if the cited clause states the sentence's claim. Mute persistence is the mute-internals rule, the reset action is the
+  reset rule, the mute release on reset is the auto-unmute clause of the mute-internals rule. The slider-colour rule has nothing to do with
+  the audio manager's API.
+- The UI loading rule L-4 has a layering note under its bullet; the cites of "L-4" for the layer-routing sentence in the network manager
+  and the event hub are about that note, not the bullet. Left as is and reported — the doc structure makes both readings possible.
+- Kept as true (historical wording about when something was introduced): the Phase 1 / Phase 2 labels in the skill registry header, the
+  skill data class comments, and 3 tooltips/headers in the skill definition asset file.
+- The scene fact for the login-scene object: the UIManager object is a scene root (parent id 0), and no scene file has any object whose
+  name starts with the bracketed systems label the code comment claimed. The log message told the reader to look for it — a log string
+  can be false too, and fixing it changes the second hash by design.
+
+### (3) Portable lessons
+- A residual grep can be broken by your own new sentence: the first rewrite of the type-C note used a phrase that the residual pattern
+  matched. Rephrase before running the zero check.
+- "The handed-over note says zero hits" can be a wrong search root. Search the whole Assets tree, not the folder you assume.
+- Out-of-scope neighbours found while sweeping (not fixed): a notice block in the network end controller says the silence watch is not
+  implemented while the section below it implements it; the resource sync header says the local use case is corrected with both add and
+  spend while the code only adds; the explanation block of the opponent-left channel still says the server judges the silence.
+  Line-number pointers to other files/lines exist in at least 12 comments of Infrastructure/Network (one points at a blank line, one
+  says 959 lines for a 1,413-line file).
+
+### (4) Proof of "behavior code unchanged"
+First hash (comments + string contents stripped) equals HEAD for all 9 files. Second hash (comments stripped only) differs for exactly 2
+files: the login bootstrapper (log message) and the skill definition asset file (two tooltips). Brace / paren / bracket totals equal HEAD;
+XML tag pairs balance. Four-way reverse check on a copy of the audio manager (each branch confirmed different with `cmp`): comment line
+added -> both same; existing spaces widened -> both same; `1f` to `1.0f` -> both differ; one character of a code string literal -> first
+same, second differs. The pure Domain enum file compiles with `mcs`.
