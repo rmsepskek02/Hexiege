@@ -230,7 +230,8 @@ namespace Hexiege.Infrastructure
         /// <summary>
         /// UnityTransport의 RTT(왕복 시간, ms)를 조회. Presentation 레이어 표시용.
         /// NetworkManager가 없거나 Transport 가 UnityTransport가 아니면 0 반환.
-        /// 호출자(NetworkStatusUI)는 0 또는 음수일 때 "--ms"로 표시한다.
+        /// 호출자(NetworkStatusUI)는 네트워크가 실행 중이 아닐 때만 수치 대신 미연결 표기를 쓴다.
+        /// 실행 중이면 이 메서드가 돌려준 0 도 그대로 수치로 표시한다.
         /// </summary>
         public ulong GetCurrentRttMs()
         {

@@ -154,7 +154,7 @@ namespace Hexiege.Bootstrap
             //    Instance가 null일 수 있는 개발 중 직접 진입 상황을 대비해 ?. 연산자로 안전 처리한다 (규칙 5).
             AudioManager.Instance?.Initialize(_soundConfig);
 
-            // 3) 전역 UIManager 존재 확인(로그용). UIManager는 이 씬의 [UI Systems] 하위에 배치되어
+            // 3) 전역 UIManager 존재 확인(로그용). UIManager는 이 씬의 루트 오브젝트(다른 오브젝트의 자식이 아님)로 배치되어
             //    Awake에서 Instance 등록 + DontDestroyOnLoad 처리된다.
             //    개발 중 직접 진입 등으로 null일 수 있으므로 경고만 출력하고 진행한다(규칙 5).
             if (UIManager.Instance == null)
@@ -163,7 +163,7 @@ namespace Hexiege.Bootstrap
                 //   ⚠️ 중괄호는 로그가 두 줄이 되어도 if 에 계속 묶이도록 명시적으로 추가한 것이고,
                 //      조건과 동작은 전혀 바뀌지 않았다.
                 GameLog.Dev.Warn("Bootstrap", nameof(LoginBootstrapper),
-                                 "UIManager.Instance 가 null — [UI Systems] 에 UIManager 가 배치되어 있는지 " +
+                                 "UIManager.Instance 가 null — 이 씬에 UIManager 오브젝트가 배치되어 있는지 " +
                                  "확인할 것. 공통 UI 호출은 무시된다");
             }
 

@@ -22,11 +22,11 @@
 //   AudioSource A/B 두 채널을 번갈아 사용한다. 새 BGM을 틀 때 현재 채널은 페이드아웃,
 //   다른 채널은 페이드인하여 두 곡이 자연스럽게 겹치며 전환된다.
 //
-// SFX 풀 (규칙 10~13):
+// SFX 풀 (규칙 12~13):
 //   AudioSource를 미리 만들어 재사용하며, 동시 재생 8개로 제한한다.
 //   모든 SFX는 2D(spatialBlend=0)로 고정한다.
 //
-// 볼륨 (규칙 15~18):
+// 볼륨 (규칙 18~21):
 //   Master/BGM/SFX 3채널을 AudioMixer Exposed Parameter로 제어한다.
 //   값은 0~1 float을 PlayerPrefs에 저장하고, 재생 시 dB로 변환하여 믹서에 적용한다.
 //
@@ -103,14 +103,14 @@ namespace Hexiege.Presentation
         private const string PrefBgmVolume = "BGMVolume";
         private const string PrefSfxVolume = "SFXVolume";
 
-        // 음소거 여부 저장 키. 0=소리 켜짐, 1=음소거 (규칙 26 확정 구현).
+        // 음소거 여부 저장 키. 0=소리 켜짐, 1=음소거 (규칙 27 — 음소거 플래그의 영속화 조항).
         //   슬라이더 볼륨값(0~1)과 달리 정수(0/1)로 저장한다.
         private const string PrefMuted = "Muted";
 
         // ====================================================================
         // 음소거 무음 dB 값
         //   음소거는 "저장된 볼륨값(PlayerPrefs)은 그대로 두고, 실제 출력만 무음으로
-        //   강제"하는 방식이다(결정사항 1 — 저장값 보존형). 이를 위해 Master 채널의
+        //   강제"하는 방식이다(규칙 27 본문 — 저장값 보존형). 이를 위해 Master 채널의
         //   AudioMixer 출력을 -80dB(사실상 완전 무음)로 눌러버린다.
         //   Master 채널 하나가 전체 출력을 결정하므로, Master만 -80dB로 만들면
         //   BGM/SFX의 논리 볼륨을 건드리지 않고도 전체가 무음이 된다.
@@ -305,7 +305,7 @@ namespace Hexiege.Presentation
             ApplyVolume(ParamBgmVolume, LoadVolume(PrefBgmVolume));
             ApplyVolume(ParamSfxVolume, LoadVolume(PrefSfxVolume));
 
-            // 저장된 음소거 상태 로드 (규칙 26). 기본값 0 = 소리 켜짐.
+            // 저장된 음소거 상태 로드 (규칙 27 — 음소거 플래그의 영속화 조항). 기본값 0 = 소리 켜짐.
             //   음소거였다면 위에서 적용한 Master 볼륨을 -80dB로 다시 눌러 무음으로 만든다.
             //   (BGM/SFX의 논리 볼륨값은 그대로 유지 — 음소거 해제 시 그대로 복원됨)
             _muted = PlayerPrefs.GetInt(PrefMuted, 0) == 1;
@@ -654,7 +654,7 @@ namespace Hexiege.Presentation
         public float GetSfxVolume() => LoadVolume(PrefSfxVolume);
 
         // ====================================================================
-        // 음소거 외부 API (규칙 23~26, 결정사항 1)
+        // 음소거 외부 API (규칙 23·25·27 — 공개 API 목록과 저장값 보존형 구현은 규칙 27)
         // ====================================================================
 
         /// <summary>
@@ -664,9 +664,10 @@ namespace Hexiege.Presentation
         public bool IsMuted() => _muted;
 
         /// <summary>
-        /// 음소거 상태를 설정하고 즉시 반영 + PlayerPrefs에 저장한다 (규칙 23, 24).
+        /// 음소거 상태를 설정하고 즉시 반영 + PlayerPrefs에 저장한다 (규칙 27 — 공개 API와 영속화).
+        /// 이 메서드를 호출하는 쪽은 전체 소리켜기·전체 음소거 버튼이다(규칙 23).
         ///
-        /// 동작 방식(결정사항 1 — 저장값 보존형):
+        /// 동작 방식(규칙 27 본문 — 저장값 보존형):
         ///   - 음소거 ON: 저장된 볼륨값(PlayerPrefs)은 건드리지 않고 Master 채널 출력만
         ///     -80dB로 눌러 전체를 무음으로 만든다.
         ///   - 음소거 OFF: 저장된 Master 볼륨값을 다시 적용하여 원래 소리를 복원한다.
@@ -685,7 +686,9 @@ namespace Hexiege.Presentation
         }
 
         /// <summary>
-        /// 세 볼륨(Master/BGM/SFX)을 모두 기본값 1.0으로 되돌리고 음소거를 해제한다 (규칙 25).
+        /// 세 볼륨(Master/BGM/SFX)을 모두 기본값 1.0으로 되돌리고 음소거를 해제한다.
+        /// 볼륨을 1.0으로 되돌리는 것은 규칙 25가, 음소거가 함께 풀리는 것은
+        /// 규칙 27의 자동 언뮤트 조항이 정한 동작이다.
         /// 볼륨 컨트롤의 "초기화" 버튼이 호출한다.
         /// 각 값은 PlayerPrefs에도 저장되어 재시작 후에도 유지된다.
         /// </summary>
@@ -707,7 +710,7 @@ namespace Hexiege.Presentation
 
         /// <summary>
         /// 볼륨을 믹서에 적용하고 PlayerPrefs에 저장한다.
-        /// 음소거 상태에서 볼륨을 조작하면(슬라이더 등) 자동으로 음소거를 해제한다(결정사항 3).
+        /// 음소거 상태에서 볼륨을 조작하면(슬라이더 등) 자동으로 음소거를 해제한다(규칙 27의 자동 언뮤트 조항).
         /// </summary>
         /// <param name="param">AudioMixer Exposed Parameter 이름.</param>
         /// <param name="prefKey">PlayerPrefs 저장 키.</param>
@@ -715,7 +718,7 @@ namespace Hexiege.Presentation
         private void SetVolume(string param, string prefKey, float value)
         {
             // 음소거 중 볼륨을 조작하면 사용자가 소리를 다시 듣고 싶다는 의도이므로
-            // 먼저 음소거를 해제한다(결정사항 3). SetMuted(false)가 Master 출력을
+            // 먼저 음소거를 해제한다(규칙 27의 자동 언뮤트 조항). SetMuted(false)가 Master 출력을
             // 저장 볼륨값으로 복원하며, 아래에서 새 값으로 다시 덮어쓴다.
             if (_muted)
                 SetMuted(false);

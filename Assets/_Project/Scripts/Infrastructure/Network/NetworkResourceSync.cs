@@ -5,7 +5,8 @@
 // 역할:
 //   - 서버: GameEvents.OnResourceChanged 구독 → NetworkVariable 갱신
 //   - 클라이언트: NetworkVariable.OnValueChanged 콜백 → 로컬 ResourceUseCase 보정
-//              → GameEvents.OnResourceChanged 재발행 (HUD 즉시 갱신)
+//              → GameEvents.OnResourceChanged 재발행 (이 이벤트를 구독하는 패널이 갱신된다 —
+//                HUD 는 구독하지 않고 매 프레임 로컬 골드를 읽는다)
 //
 // 동기화 방식:
 //   NetworkVariable<int> _blueGold / _redGold
@@ -15,7 +16,8 @@
 // 로컬 UseCase 보정 방법:
 //   ResourceUseCase.GetGold(team)으로 현재값 읽기
 //   → 서버 값과의 차이를 AddGold()로 더하거나, SpendGold()로 빼기.
-//   → 이 과정에서 OnResourceChanged 이벤트가 발행되어 HUD가 갱신됨.
+//   → 이 과정에서 OnResourceChanged 이벤트가 발행되어, 그것을 구독하는 생산 패널·건물 배치 패널·연구 패널이 갱신됨.
+//     HUD 는 구독하지 않고 매 프레임 로컬 값을 읽으므로 보정된 값이 다음 프레임에 표시됨.
 //
 // 주의:
 //   - 싱글플레이 시 IsSpawned=false → 이벤트 구독 안 됨 → 영향 없음
@@ -235,7 +237,8 @@ namespace Hexiege.Infrastructure
         ///
         /// ResourceUseCase에는 SetGold() 메서드가 없으므로
         /// 현재값과의 차이를 AddGold() / SpendGold()로 보정.
-        /// AddGold/SpendGold 내부에서 OnResourceChanged 이벤트 발행 → HUD 갱신.
+        /// AddGold/SpendGold 내부에서 OnResourceChanged 이벤트 발행 → 그 이벤트를 구독하는 패널 갱신
+        /// (HUD 는 구독하지 않고 매 프레임 로컬 값을 읽는다).
         ///
         /// 맵 로드 전(ResourceUseCase가 null)이면 무시.
         /// </summary>
@@ -260,7 +263,7 @@ namespace Hexiege.Infrastructure
 
             // AddGold(team, diff)는 내부적으로 _gold[team] += diff를 수행.
             // diff가 양수이면 골드 증가, 음수이면 골드 감소.
-            // 어느 방향이든 OnResourceChanged 이벤트가 발행되어 HUD가 갱신됨.
+            // 어느 방향이든 OnResourceChanged 이벤트가 발행된다(HUD 는 구독하지 않고 매 프레임 로컬 값을 읽는다).
             resource.AddGold(team, diff);
 
             // [개발] 축 A=Info / 축 B=개발.

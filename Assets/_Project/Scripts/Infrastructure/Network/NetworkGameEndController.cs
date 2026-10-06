@@ -564,7 +564,7 @@ namespace Hexiege.Infrastructure
             //
             // 따라서 포기 흐름에서는 서버 측에서도 OnGameEnd를 명시적으로 발행해야 한다.
             // OnGameEndServer는 위에서 _announced=true로 설정되었기 때문에
-            // 이 발행을 다시 받아도 153행 가드에 의해 즉시 return → 중복 처리 없음.
+            // 이 발행을 다시 받아도 그 메서드 앞머리의 _announced 가드에 걸려 즉시 return → 중복 처리 없음.
             // ----------------------------------------------------------------
             GameEvents.OnGameEnd.OnNext(new GameEndEvent(winnerTeam));
 
@@ -1284,8 +1284,9 @@ namespace Hexiege.Infrastructure
         /// Infrastructure 가 Presentation 을 직접 참조하면 레이어 방향이 역행하기 때문이다
         /// (이 파일의 다른 ClientRpc 들과 같은 방식).
         ///
-        /// ⚠️ <b>이 신호를 받아 화면을 바꾸는 쪽(결과 화면)은 아직 없다</b> — 타이머 문구 교체와
-        ///    재경기 버튼 비활성화는 다음 단계의 범위다. 지금은 통보가 여기까지 도달한다.
+        /// 이 신호를 받아 화면을 바꾸는 쪽은 결과 화면(<c>GameEndUI</c>)이다 — 그쪽이 이 이벤트를 구독해
+        /// 재경기 버튼 비활성화와 자동 로비 복귀 카운트다운 재시작을 처리한다.
+        /// 이 메서드는 신호를 발행하는 데까지만 맡는다.
         ///
         /// 🔴 NGO 명명 규약상 ClientRpc 메서드 이름은 반드시 <c>ClientRpc</c> 로 끝나야 한다.
         /// </summary>

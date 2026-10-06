@@ -10,9 +10,8 @@
 //   - InstantAreaDamage (A): 지정한 지점의 원형 범위에 1회(즉발) 피해. (규칙 11)
 //   - AreaDotDamage     (B): 지정한 지점의 원형 범위에 지속시간 동안 도트(DoT) 피해. (규칙 12)
 //   - GlobalStatusChange(C): 전역 상태변경(버프/디버프/제어/회복). (규칙 13)
-//        ⚠️ Phase 1에서는 "선언만" 두고 실행기는 구현하지 않는다(Phase 2에서 구현).
-//           enum 멤버는 미리 선언해 두어 데이터 스키마(SkillDefinition)가 안정적으로
-//           직렬화되도록 하고, 실행기 레지스트리에는 Phase 1엔 A·B만 등록한다.
+//        타입 C 전용 실행기(GlobalStatusChangeExecutor)가 있고, 실행기 레지스트리(SkillExecutorRegistry)에
+//        타입 A·B·C 세 실행기가 등록된다.
 //
 // Domain 레이어 — 순수 C#. UnityEngine / Hexiege.Core 참조 금지.
 // ============================================================================

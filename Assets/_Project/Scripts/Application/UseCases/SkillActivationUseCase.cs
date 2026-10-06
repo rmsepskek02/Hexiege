@@ -49,7 +49,7 @@ namespace Hexiege.Application
         // 팀 → 종족 변환(로드아웃 조회용). 조합 루트가 GameRaceContext 매핑을 주입(TowerCombatUseCase 선례).
         private readonly Func<TeamId, RaceId> _teamToRace;
 
-        // 스킬 실행기 조회 테이블(A·B 등록, C는 Phase 2). 외부 의존이 없어 내부 생성.
+        // 스킬 실행기 조회 테이블(타입 A·B·C 실행기가 등록돼 있다). 외부 의존이 없어 내부 생성.
         private readonly SkillExecutorRegistry _registry = new SkillExecutorRegistry();
 
         // ── 건물 글로벌 쿨다운 상태(규칙 3) ────────────────────────────────

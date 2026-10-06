@@ -11,8 +11,8 @@
 //      맞춰졌다. TotalDamage / DamagePerSecond / Magnitude(힐량 등)는 반드시 ×10 스케일로 저작한다
 //      (구 감각 "10 피해" ≈ 신 100). 유닛 공격력(UnitStatsConfig, ×10 반영값)과 같은 축으로 맞출 것.
 //
-//   타입 C(전역 상태변경) 필드(StatusKind/Magnitude/TargetsAllies)는 스키마에 함께 두되,
-//   실제 사용은 Phase 2다(Phase 1엔 타입 A·B만 실행됨).
+//   타입 C(전역 상태변경) 필드(StatusKind/Magnitude/TargetsAllies)는 스키마에 함께 두며,
+//   타입 C 실행기(GlobalStatusChangeExecutor)가 읽어 상태효과를 부여한다. 타입 A·B 실행기는 이 필드를 쓰지 않는다.
 //
 // 개별 스킬 목록·수치는 이번 범위 밖(데이터로 별도 확정). 이 SO는 스키마만 정의한다.
 //
@@ -64,10 +64,10 @@ namespace Hexiege.Infrastructure
         [Tooltip("(C) 상태 종류(정수 코드). Phase 2에서 StatusEffectKind와 매핑. Phase 1 미사용.")]
         [SerializeField] private int _statusKind = 0;
 
-        [Tooltip("(C) 강도(이속 배율·힐량 등, ×10 스케일). Phase 2 미사용.")]
+        [Tooltip("(C) 강도(이속 배율·힐량 등, ×10 스케일).")]
         [SerializeField] private float _magnitude = 0f;
 
-        [Tooltip("(C) 대상. true=아군(긍정), false=적(부정). Phase 2 미사용.")]
+        [Tooltip("(C) 대상. true=아군(긍정), false=적(부정).")]
         [SerializeField] private bool _targetsAllies = false;
 
         /// <summary>
