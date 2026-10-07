@@ -2107,7 +2107,7 @@ namespace Hexiege.Application
 
         /// <summary>
         /// HoT(지속 회복)가 정상 종료될 때, 부유 힐 텍스트를 딱 1회 표시한다.
-        /// 표시 형식은 즉발/파도 힐과 동일하게 "회복 후 현재 HP"(절대값)로 통일한다(사용자 결정 B).
+        /// 표시 형식은 즉발/파도 힐과 동일하게 "회복 후 현재 HP"(절대값)로 통일한다(GameSystemRules_Units.md 「특수 공격 시스템 규칙」 규칙 37).
         ///
         /// 텍스트 전용 경로(중요):
         ///   여기서는 target.Heal()을 호출하지 않는다 — HP는 이미 매 틱 ApplyHealToUnit으로 올려 두었으므로,

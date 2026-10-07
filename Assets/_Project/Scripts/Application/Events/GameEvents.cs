@@ -247,7 +247,7 @@ namespace Hexiege.Application
     ///   "HP 동기화는 매 틱 유지 / 부유 텍스트는 완료 시 1회"로 분리한다.
     ///     - ShowText : false면 FloatingHpTextSpawner가 텍스트를 그리지 않는다(HP 동기화는 그대로).
     ///                  HoT 틱은 false, 즉발/파도/HoT 완료 이벤트는 true.
-    ///   ※ 표시 형식은 즉발/파도/HoT 완료 모두 동일하게 "회복 후 현재 HP"(CurrentHp)로 통일한다(사용자 결정 B).
+    ///   ※ 표시 형식은 즉발/파도/HoT 완료 모두 동일하게 "회복 후 현재 HP"(CurrentHp)로 통일한다(GameSystemRules_Units.md 「특수 공격 시스템 규칙」 규칙 37).
     /// </summary>
     public readonly struct EntityHealedEvent
     {
@@ -290,7 +290,7 @@ namespace Hexiege.Application
         /// - HoT 틱:    showText=false → 텍스트 없음, HP만 동기화.
         /// - HoT 완료:  showText=true  → "회복 후 현재 HP" 텍스트 1회.
         /// - 즉발/파도: showText=true  → "회복 후 현재 HP" 텍스트(기존과 동일).
-        /// 표시 문자열은 모두 CurrentHp로 통일한다(사용자 결정 B — 형식 통일).
+        /// 표시 문자열은 모두 CurrentHp로 통일한다(GameSystemRules_Units.md 「특수 공격 시스템 규칙」 규칙 37 — 형식 통일).
         /// </summary>
         public EntityHealedEvent(IDamageable entity, int currentHp, bool isUnit,
             int healerId, bool healerIsUnit, bool showText)
