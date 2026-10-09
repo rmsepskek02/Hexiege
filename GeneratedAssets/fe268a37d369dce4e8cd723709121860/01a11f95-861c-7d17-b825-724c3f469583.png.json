@@ -1,0 +1,31 @@
+{
+    "asset": "fe268a37d369dce4e8cd723709121860",
+    "fileName": "01a11f95-861c-7d17-b825-724c3f469583.png",
+    "prompt": "A stylized cartoon game VFX sprite of a tight condensed electric spark point, sharp starburst energy core, crisp defined outer edge, no blurry soft halo, high contrast pure white center with thin sharp cyan electric tips, mobile RTS game VFX asset style, isolated on pure black background",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 576
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}
