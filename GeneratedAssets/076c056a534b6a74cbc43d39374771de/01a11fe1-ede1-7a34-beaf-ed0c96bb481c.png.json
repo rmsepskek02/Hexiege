@@ -1,0 +1,31 @@
+{
+    "asset": "076c056a534b6a74cbc43d39374771de",
+    "fileName": "01a11fe1-ede1-7a34-beaf-ed0c96bb481c.png",
+    "prompt": "A stylized cartoon game VFX sprite of an organic poison spore circle ring, top-down circular symmetrical view, organic mushroom spore ring border with soft glowing purple and violet toxic mist rune details, hollow center, clean silhouette, mobile RTS game VFX asset style, isolated on pure black background",
+    "negativePrompt": "",
+    "model": "gemini-3.1-flash",
+    "modelName": "Gemini 3.1 Nano Banana 2",
+    "customSeed": -1,
+    "w3CTraceId": "",
+    "feedback": 0,
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelatePixelGridSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0,
+    "dimensions": {
+        "width": 1024,
+        "height": 1024
+    },
+    "spriteSheet": false,
+    "duration": 0.0,
+    "dynamicParams": {
+        "serializedData": []
+    }
+}
