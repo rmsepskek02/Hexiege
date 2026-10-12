@@ -8,8 +8,12 @@
 
 ## 이 프로젝트의 문서 관습 (실측으로 확인된 것만)
 
-### 원문 보존 방침
-- 기존 서술을 **지우지 않는다.** `~~취소선~~` + `> **[이전 기록 — YYYY-MM-DD 갱신 전]**` 인용 블록으로 남기고 현행을 덧붙인다.
+### 원문 보존 방침 (2026-10-12 개정 — 상태 도장은 고치고, 이력 기록 안의 정정은 덧붙인다)
+Rule text is `.claude/MEMORY.md` B-5 / B-6 / B-7 — **do not copy it here; this section only says which side of the boundary each case falls on.** The earlier blanket policy ("never delete an existing sentence; keep it as strikethrough + an `[이전 기록]` quote block and append the present") contradicted B-5 for status lines and is withdrawn; it survives only in the second bullet.
+- **A line that declares the *current* status** ("미정", "미구현", "코드 미반영", "실기 검증 0건", "미착수 …뿐이다" — any status stamp) is a claim about the present, not a record of the past: **fix that line in place.** Never leave the stale line standing and stack a "now done" block under it (readers stop at the top line). Leave one short dated fragment at the line (date + why; quoting the old stamp inside the fragment is fine). Before fixing, find the resolving block or confirm in code — no evidence, no change (list it instead). (B-5)
+- **Inside a history record** (a past round's entry, a dated block) a correction to a figure or statement *in that record* is **appended**, original sentence kept: `**[🔴 YYYY-MM-DD 정정 — 원문 유지: …]**`; strikethrough only when the whole entry is invalid. (B-7) **Not for status stamps.**
+- **Never write "this line is never deleted" under a status stamp.** That promise made stale stamps pile up. When you fix a stamp that an older pointer block promised to keep ("한 글자도 지우지 않는다"), **amend that promise in the same edit** ("단 상태 표시 줄은 현재 사실로 고쳤다") — otherwise the pointer becomes false.
+- Deleting still needs a confirmed reason, recorded (B-6). "Tidying" is not a reason.
 - `LogRules.md` 는 문서 상단에 **개정 이력 표**를 두고 **시간 오름차순**으로 행을 추가한다(맨 아래가 최신). 순서 주의.
 
 ### 상시 참조 3문서의 갱신 형태
